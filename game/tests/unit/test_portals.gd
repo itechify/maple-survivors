@@ -9,7 +9,7 @@ const MAP_ID := 101010100
 
 func _world(portal_nodes: Dictionary = {}) -> RunWorld:
 	var data := RF.quiet_data()
-	data.stages.stages.quiet.map_id = MAP_ID
+	data.stages.stages.quiet.maps[0].map_id = MAP_ID
 	var s := RF.setup("quiet", 17, data)
 	s.map_img = RF.map_from_segments([
 		{"x1": 0.0, "y1": 200.0, "x2": 1200.0, "y2": 200.0},
@@ -108,7 +108,7 @@ func test_tree_real_portals_reach_top_and_return_to_ground() -> void:
 		lib.free()
 		return
 	var data := RF.quiet_data()
-	data.stages.stages.quiet.map_id = MAP_ID
+	data.stages.stages.quiet.maps[0].map_id = MAP_ID
 	var s := RF.setup("quiet", 17, data)
 	s.map_img = img.root
 	var w := RunWorld.new(s)

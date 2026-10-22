@@ -68,6 +68,21 @@ const DEFAULT_SPAWN := {
 const WALLED_HOPS := 8
 
 var stage: Dictionary
+var map_index := 0
+## Index-aligned mob-id weights from StagePools; {} selects the curve. Assign once at setup.
+var map_pools: Array = []:
+	set(value):
+		map_pools = value
+		_map_pool_data.clear()
+		for pool: Dictionary in value:
+			var kinds := PackedInt32Array()
+			var weights := PackedFloat32Array()
+			for id: Variant in pool:
+				var weight := float(pool[id])
+				if _kind_index.has(int(id)) and weight > 0.0:
+					kinds.append(int(_kind_index[int(id)]))
+					weights.append(weight)
+			_map_pool_data.append({"kinds": kinds, "weights": weights})
 var duration := 900.0
 var hard_cap := 400
 ## Parsed keyframes: {t, rate, max_alive, hp, speed, kinds: PackedInt32Array, weights: PackedFloat32Array}.
@@ -83,6 +98,8 @@ var next_burst := INF
 var next_elite := INF
 
 var _acc := 0.0
+var _kind_index: Dictionary = {}
+var _map_pool_data: Array = []
 ## Per mob slot: seconds far/unreachable in a row, seconds without coming closer, the shortest route_len seen and
 ## where the mob stood then.
 var _far_t := PackedFloat32Array()
@@ -105,6 +122,7 @@ var _ring_key: Array = [Vector4(-1, 0, 0, 0), Vector4(-1, 0, 0, 0), Vector4(-1, 
 static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Dictionary = {}) -> SpawnDirector:
 	var d := SpawnDirector.new()
 	d.stage = p_stage
+	d._kind_index = kind_index
 	d.duration = float(p_stage.get("duration", 900.0))
 	d.hard_cap = int(p_stage.get("hard_cap", 400))
 	d.params = DEFAULT_SPAWN.duplicate()
@@ -142,6 +160,20 @@ static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Di
 	return d
 
 
+## Fresh map-local caches and accumulator at the next curve offset, keeping round counters and resolved pools.
+func reset_for_map(index: int, t: float, spawn_params: Dictionary = {}) -> SpawnDirector:
+	var fresh := create(stage, _kind_index, spawn_params)
+	fresh.spawned = spawned
+	fresh.bursts = bursts
+	fresh.elites = elites
+	fresh.recycled = recycled
+	fresh.relocated = relocated
+	fresh.map_pools = map_pools
+	fresh.map_index = index
+	fresh.seek_curve(t)
+	return fresh
+
+
 ## Linearly interpolated keyframe value `field` ("rate", "max_alive", "hp", "speed") at time t.
 func value_at(field: String, t: float) -> float:
 	if keyframes.is_empty():
@@ -173,7 +205,19 @@ func rate_at(t: float) -> float:
 
 ## Actual ordinary spawn rate, reduced while a scheduled boss remains alive.
 func effective_rate(world: RunWorld) -> float:
-	return rate_at(world.time) * world.bosses.normal_spawn_multiplier()
+	return rate_at(world.curve_time()) * world.bosses.normal_spawn_multiplier()
+
+
+## Re-arms periodic curve events after a map's scheduled opening; boss overtime never skips the new segment.
+## tier C: events exactly at the offset have already run on the departing map (spec #241 scheduled pacing).
+func seek_curve(t: float) -> void:
+	if not is_inf(next_burst):
+		var every := float(stage.bursts.every)
+		while next_burst <= t + 1e-6:
+			next_burst += every
+	if not is_inf(next_elite):
+		while next_elite <= t + 1e-6:
+			next_elite += elite_interval_at(next_elite)
 
 
 ## Alive target at t (rounded).
@@ -181,13 +225,19 @@ func max_alive_at(t: float) -> int:
 	return roundi(value_at("max_alive", t))
 
 
-## The keyframe whose pool is active at t ({} when none).
+## The active pool at curve time t; a curve map holds its last pool before the next map boundary.
 func pool_at(t: float) -> Dictionary:
+	if stage.has("maps") and map_index < map_pools.size() and not map_pools[map_index].is_empty():
+		return _map_pool_data[map_index]
 	var cur: Dictionary = {}
+	# tier C: owner #241, each map's curve pools stop before its next scheduled 300 s segment.
+	var end := (map_index + 1) * float(stage.get("map_seconds", 300.0)) if stage.has("maps") else INF
 	for kf: Dictionary in keyframes:
+		if float(kf.t) >= end:
+			continue
 		if float(kf.t) <= t:
 			cur = kf
-	if cur.is_empty() and not keyframes.is_empty():
+	if cur.is_empty() and not keyframes.is_empty() and float(keyframes[0].t) < end:
 		cur = keyframes[0]
 	return cur
 
@@ -243,7 +293,7 @@ func elite_interval_at(t: float) -> float:
 
 ## One director tick: recycling, steady spawns, bursts, elites (RunWorld.spawn_mob does the spawning and events).
 func step(dt: float, world: RunWorld) -> void:
-	var t := world.time
+	var t := world.curve_time()
 	var swarm := world.swarm
 	if not world.is_hidden():
 		_recycle(dt, world)  # Hidden (#194): no mob has a route to the character, so none is "gone" or stalled.

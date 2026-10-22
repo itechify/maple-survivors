@@ -8,7 +8,7 @@ const DT := 1.0 / 60.0
 func test_boss_action_holds_movement_and_facing_for_its_declared_duration() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
-	data.stages.stages.quiet.bosses = [{"mob_id": 6130101, "time": 0.5}]
+	RF.set_bosses(data.stages.stages.quiet, [{"mob_id": 6130101, "time": 0.5}])
 	var w := RunWorld.new(RF.setup("quiet", 2301, data))
 	w.god = true
 	for tick in 60:
@@ -34,7 +34,7 @@ func test_boss_action_holds_movement_and_facing_for_its_declared_duration() -> v
 func test_an_authored_action_hold_does_not_count_as_failed_pursuit_for_teleport() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
-	data.stages.stages.quiet.bosses = [{"mob_id": 6130101, "time": 0.5}]
+	RF.set_bosses(data.stages.stages.quiet, [{"mob_id": 6130101, "time": 0.5}])
 	var w := RunWorld.new(RF.setup("quiet", 2305, data))
 	w.god = true
 	for tick in 60:
@@ -49,7 +49,7 @@ func test_an_authored_action_hold_does_not_count_as_failed_pursuit_for_teleport(
 func test_action_view_is_borrowed_and_refreshes_without_replacing_the_pool() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
-	data.stages.stages.quiet.bosses = [{"mob_id": 6130101, "time": 0.5}]
+	RF.set_bosses(data.stages.stages.quiet, [{"mob_id": 6130101, "time": 0.5}])
 	var w := RunWorld.new(RF.setup("quiet", 2306, data))
 	w.god = true
 	var view := w.bosses.action_snapshot(w.swarm)
@@ -80,7 +80,7 @@ func test_action_view_is_borrowed_and_refreshes_without_replacing_the_pool() -> 
 func test_action_view_tracks_relocation_growth_death_and_fresh_slot_reuse() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
-	data.stages.stages.quiet.bosses = [{"mob_id": 6130101, "time": 0.5}]
+	RF.set_bosses(data.stages.stages.quiet, [{"mob_id": 6130101, "time": 0.5}])
 	var w := RunWorld.new(RF.setup("quiet", 2307, data))
 	w.god = true
 	for tick in 60:

@@ -41,7 +41,7 @@ static func setup(d: Dictionary, pet: int, owned: Array, alert: Dictionary = {},
 
 ## A busy Henesys round on the big synthetic map with the real data, the pet out, the whole account and ALERT 60 %.
 static func busy_setup(seed_value: int) -> Dictionary:
-	var s := RF.setup("henesys_hg1", seed_value)
+	var s := RF.setup("henesys", seed_value)
 	var character := RunWorld.new(s).character_snapshot()
 	character.pet = KITTY
 	s.character = character
@@ -61,6 +61,8 @@ static func run(w: RunWorld, ticks: int, input: MoveInput = null) -> Array:
 	var move := input if input != null else MoveInput.new()
 	for i in ticks:
 		w.step(DT, move)
+		if w.transfer_pending:
+			w.advance_map()
 		out.append_array(w.drain_events())
 	return out
 

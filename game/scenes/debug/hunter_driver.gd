@@ -60,6 +60,8 @@ func _drive() -> void:
 		for attempt in 30:
 			w.hit_mob(target, w.loadout.stats("arrow_blow"), -1)
 			w.step(1.0 / 60.0, MoveInput.new())
+			if w.transfer_pending:
+				w.advance_map()
 			var events := w.drain_events()
 			proc = events.any(func(e: Dictionary) -> bool: return e.type == "ammo_shot")
 			run.handle_events(events)
@@ -104,7 +106,7 @@ func _new_run(level := 30) -> void:
 		run.queue_free()
 		await get_tree().process_frame
 	run = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
-	run.configure("henesys_hg1", 202, {"use_flow": false, "autopick": true})
+	run.configure("henesys", 202, {"use_flow": false, "autopick": true})
 	add_child(run)
 	run.set_process(false)
 	var w := run.world

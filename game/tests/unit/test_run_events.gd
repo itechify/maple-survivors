@@ -9,7 +9,7 @@ const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
-	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount"]
+	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
 const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family"]
@@ -108,7 +108,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 
 
 func test_every_event_matches_the_schema() -> void:
-	var w := RunWorld.new(RF.setup("henesys_hg1", 4242))
+	var w := RunWorld.new(RF.setup("henesys", 4242))
 	w.god = true # Schema coverage uses a living run; separate seeded full runs test actual survival.
 	var seen := {}
 	var memo := {}
@@ -154,7 +154,7 @@ func test_every_event_matches_the_schema() -> void:
 	# A short scheduled boss encounter covers warning/spawn/death and a boss hit's source fields.
 	var boss_setup := RF.setup("quiet", 19, RF.quiet_data())
 	boss_setup.data.balance.player.skills = []
-	boss_setup.data.stages.stages.quiet.bosses = [{"time": 0.5, "mob_id": 100100}]
+	RF.set_bosses(boss_setup.data.stages.stages.quiet, [{"time": 0.5, "mob_id": 100100}])
 	var b := RunWorld.new(boss_setup)
 	b.god = true
 	for tick in 35:
@@ -383,6 +383,16 @@ func test_every_event_matches_the_schema() -> void:
 	disorder.runner.step(DT, disorder)
 	for event: Dictionary in disorder.drain_events():
 		_check(event, seen)
+	var transfer := RunWorld.new(preload("res://tests/fixtures/map_transfer_fixtures.gd").setup(0.1))
+	transfer.god = true
+	for tick in 60:
+		transfer.step(DT, MoveInput.new())
+	transfer.hit_mob(int(transfer.bosses.records[0].slot), {"damage_min": 1e9, "damage_max": 1e9,
+		"magic": false, "crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	transfer.step(DT, MoveInput.new())
+	transfer.advance_map()
+	for event: Dictionary in transfer.drain_events():
+		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "ammo_shot":
 			var archer := CF.ranged_final(1452000, 310)
@@ -413,7 +423,7 @@ func test_every_event_matches_the_schema() -> void:
 
 
 func _digest(p_seed: int, seconds: float) -> String:
-	var w := RunWorld.new(RF.setup("henesys_hg1", p_seed))
+	var w := RunWorld.new(RF.setup("henesys", p_seed))
 	var memo := {}
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)

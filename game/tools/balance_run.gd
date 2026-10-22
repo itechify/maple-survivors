@@ -1,6 +1,6 @@
 extends SceneTree
-## Headless pacing report for balance tuning (docs/GAME_DESIGN.md 4.1, 4.2, 5): plays whole runs of a stage on the real
-## map with the kiting autoplay bot (BotInput.decide: kiting, walking and climbing to drops) and a card policy, and
+## Headless pacing report for balance tuning (docs/GAME_DESIGN.md 4.1, 4.2, 5): plays whole rounds across a stage's real
+## maps with the kiting autoplay bot (BotInput.decide: kiting, walking and climbing to drops) and a card policy, and
 ## prints when the run reached each level milestone, the alive mobs, levels and hits taken per minute (alive = the mean
 ## over the minute, so burst spikes do not dominate), the mean number of mobs near the player (within NEAR_X px
 ## horizontally and NEAR_Y px vertically), the swarm engagement (below), the mean EXP drops lying on the map, mobs
@@ -8,6 +8,12 @@ extends SceneTree
 ## Also records per-boss fight duration, MP waiting and whole boss-hit fractions. Potion metrics are player-only
 ## potions_used {hp, mp} and potion_uses [{time, level, kind, item_id, restored, capacity_waste}]; a pet adds its own
 ## pet.potions_used {hp, mp}. SYSTEMS sums player drinks only. Unlimited potions have no collection/stock metrics.
+## Three-map schema: map_times = reached-map entry seconds from round start, starting [0.0]; ended_map =
+## {index: zero-based map index, id: original v83 map id}. boss_fights[] retains map_index/map_id even for unspawned
+## bosses. SUMMARY deaths_by_map uses one-based string keys; map_entry_seconds["2"/"3"] has count/min/median/max/mean
+## over reached maps only (null stats when unobserved). Legacy records contribute no invented map observations.
+## Stage keys: henesys/ellinia/sleepywood; henesys_hg1/tree_that_grew_1/dark_cave remain aliases, including --tier
+## chains and --character one-offs. Camper activation/arrival/portals refer only to its own map 1; later maps use bot.
 ## Needs the asset cache (the real map and mob/skill imgs).
 ##
 ## Engagement (docs/GAME_DESIGN.md 4.2): `eng_by_min[m-1]` is the share of the live mobs within ENG_X px horizontally
@@ -17,9 +23,9 @@ extends SceneTree
 ## spawn or their last time inside it; a relocated mob keeps its time, mob_spawned.relocated_from): the idle queues,
 ## including mobs that idle off-screen until SpawnDirector relocates them.
 ##
-##   bash scripts/balance.sh                       # henesys_hg1, training seeds 1..6, in parallel
-##   bash scripts/balance.sh 7 11 --stage=tree_that_grew_1
-##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys_hg1]
+##   bash scripts/balance.sh                       # henesys, training seeds 1..6, in parallel
+##   bash scripts/balance.sh 7 11 --stage=ellinia
+##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys]
 ##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>] [--job=<id>[:<path>]]
 ##
 ## Card policies (jobs: seeded random choice, overridden by --job=<first or second job id>: a second job takes its first
@@ -118,7 +124,7 @@ class KillHits:
 
 
 func _init() -> void:
-	var stage := "henesys_hg1"
+	var stage := "henesys"
 	var seeds: Array[int] = []
 	var patch_file := ""
 	var policy := "bot"
@@ -135,7 +141,7 @@ func _init() -> void:
 	var target_tier := 1
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
-			stage = a.substr(8)
+			stage = DataRepo.canonical_stage_key(a.substr(8))
 			stage_explicit = true
 		elif a.begins_with("--job="):
 			var forced := JobTree.parse_forced(a.substr(6))
@@ -395,10 +401,14 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var low_hp := 1.0
 	for t in ticks + 1: # drain the final choice-only settlement too, without adding a combat/measurement tick
 		choose(w, policy, rng, cards_taken, forced_job)
+		if w.transfer_pending:
+			w.advance_map()
 		var ticked := w.state == RunWorld.PLAYING and t < ticks
 		if ticked:
 			var idle := idle_after >= 0.0 and w.time >= idle_after
 			w.step(DT, MoveInput.new() if idle else movement(w, policy, memo, camp_after))
+			if w.transfer_pending:
+				w.advance_map()
 			var late_dt := clampf(w.time - LATE_MP_START, 0.0, DT)
 			late_observed_seconds += late_dt
 			if bool(w.player_state.get("mp_short",false)):
@@ -468,7 +478,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 					potion_uses.append({"time": w.time, "level": int(w.player_state.level), "kind": String(e.kind),
 						"item_id": id, "restored": int(e.restored), "capacity_waste": maxi(0, amount - int(e.restored))})
 				"portal_used":
-					portal_names.append(String(e.portal))
+					if w.map_index == 0:
+						portal_names.append(String(e.portal))
 				"level_up":
 					var lv := int(e.level)
 					if lv in MILESTONES and not reach.has(str(lv)):
@@ -513,6 +524,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	for key: String in w.loadout.order:
 		skills[key] = w.loadout.rank(key)
 	var record := {
+		"map_times": w.map_times.duplicate(), "ended_map": {"index": w.map_index, "id": w.current_map_id()},
 		"lv70_reached": int(w.player_state.level) >= LEVEL_TARGET,
 		"character": w.character_snapshot() if w.state == RunWorld.CLEARED else {},
 		"state": "TIMEOUT" if w.state == RunWorld.PLAYING else w.state_name(),
@@ -700,6 +712,7 @@ static func fight_records(world: RunWorld) -> Array:
 		var spawn := float(record.spawn_time)
 		var death := float(record.death_time)
 		fights.append({"boss_index": int(record.boss_index), "mob_id": int(record.mob_id), "spawn_time": spawn, "death_time": death,
+			"map_index": int(record.get("map_index", 0)), "map_id": int(record.get("map_id", world.current_map_id())),
 			"duration": death-spawn if bool(record.dead) and spawn>=0.0 else -1.0,
 			"elapsed": maxf(0.0, (death if bool(record.dead) else world.time)-spawn) if spawn>=0.0 else 0.0,
 			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "skipped" if bool(record.get("skipped", false)) else "not_spawned"})
@@ -740,6 +753,8 @@ static func aggregate(records: Array) -> Dictionary:
 	result["card_tiers_picked"] = result.card_tiers_offered.duplicate()
 	var waits: Array = []
 	var deaths: Array = []
+	result["deaths_by_map"] = {"1": 0, "2": 0, "3": 0}
+	var map_entries := {"2": [], "3": []}
 	result["outcomes"] = {"CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
 	var late_waits: Array = []
 	result["late_mp_observed_runs"] = 0
@@ -787,6 +802,14 @@ static func aggregate(records: Array) -> Dictionary:
 			result.outcomes[state] += 1
 		if state == "DEAD":
 			deaths.append(float(record.time))
+			if record.has("ended_map"):
+				var map_number := str(int(record.ended_map.index) + 1)
+				result.deaths_by_map[map_number] = int(result.deaths_by_map.get(map_number, 0)) + 1
+		var map_times: Array = record.get("map_times", [])
+		for number: String in map_entries:
+			var index := int(number) - 1
+			if map_times.size() > index:
+				map_entries[number].append(float(map_times[index]))
 		if float(record.get("late_observed_seconds", 0.0)) > 0.0:
 			result.late_mp_observed_runs += 1
 			var late_wait := float(record.get("late_mp_short_seconds", 0.0))
@@ -859,6 +882,9 @@ static func aggregate(records: Array) -> Dictionary:
 		result.boss_hits[id] = {"whole_fraction": statistics(hit_samples[id].all), "by_source": sources}
 	result["mp_short_seconds"] = statistics(waits)
 	result["death_seconds"] = statistics(deaths)
+	result["map_entry_seconds"] = {}
+	for number: String in map_entries:
+		result.map_entry_seconds[number] = statistics(map_entries[number])
 	result["late_mp_short_seconds"] = statistics(late_waits)
 	result["job_seconds"] = {}
 	for id: String in job_samples:
@@ -932,6 +958,10 @@ static func describe_metrics(summary: Dictionary) -> String:
 			chain_lines.append(describe_metrics(summary.tiers[tier]))
 		return "\n".join(chain_lines)
 	var lines := PackedStringArray()
+	lines.append("SUMMARY deaths by map: 1:%d 2:%d 3:%d" % [summary.deaths_by_map["1"],
+		summary.deaths_by_map["2"], summary.deaths_by_map["3"]])
+	for number: String in summary.map_entry_seconds:
+		lines.append("  map-%s entry seconds %s" % [number, _range(summary.map_entry_seconds[number])])
 	if int(summary.get("tier", 0)) > 0:
 		lines.append("SUMMARY tier %d: %d started, %d cleared; start level %s; end level %s; Lv70 reached %d/%d" % [
 			int(summary.tier), int(summary.runs), int(summary.outcomes.CLEARED), _range(summary.start_level),

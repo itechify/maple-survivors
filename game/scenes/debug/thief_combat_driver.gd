@@ -45,7 +45,7 @@ func _scenario(key: String) -> Dictionary:
 		run.queue_free()
 		await get_tree().process_frame
 	run = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
-	run.configure("henesys_hg1", 215, {"use_flow": false})
+	run.configure("henesys", 215, {"use_flow": false})
 	add_child(run)
 	run.set_process(false)
 	var w := run.world
@@ -99,6 +99,8 @@ func _scenario(key: String) -> Dictionary:
 	var bullets := []
 	for tick in 30:
 		w.step(DT, MoveInput.new())
+		if w.transfer_pending:
+			w.advance_map()
 		var events := w.drain_events()
 		for slot in w.projectiles.capacity():
 			if w.projectiles.active[slot] != 0:

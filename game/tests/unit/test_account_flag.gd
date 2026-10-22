@@ -103,29 +103,29 @@ func test_cli_single_round_chain_and_errors() -> void:
 	if not require_cache():
 		return
 	var path := _write("tool account.json", ACCOUNT)
-	var single := _cli(["--stage=henesys_hg1", "--seed=2", "--account=" + path])
+	var single := _cli(["--stage=henesys", "--seed=2", "--account=" + path])
 	assert_eq(single.status, 0)
 	assert_eq(single.record.get("account", ""), "tool account.json", "the record names the account file")
 	assert_eq(CharacterSnapshot.integers(single.record.start_character.cash), {"hat": 1000001, "shoes": 1070001})
 	assert_eq(single.record.start_character.pet, 5000001)
 	assert_eq(single.record.warnings, [])
-	var plain := _cli(["--stage=henesys_hg1", "--seed=2"])
+	var plain := _cli(["--stage=henesys", "--seed=2"])
 	assert_false(plain.record.has("account"), "no flag, no account key")
 	assert_false(plain.record.start_character.has("cash"))
 	var unowned := _write("unowned account.json", {"owned": [], "cash": {"hat": 1000001}})
-	var warned := _cli(["--stage=henesys_hg1", "--seed=2", "--account=" + unowned])
+	var warned := _cli(["--stage=henesys", "--seed=2", "--account=" + unowned])
 	assert_eq(warned.record.warnings.size(), 1)
 	assert_true(String(warned.record.warnings[0]).contains("not owned"))
-	var missing := _cli(["--stage=henesys_hg1", "--seed=2", "--account=" + path + ".nope"])
+	var missing := _cli(["--stage=henesys", "--seed=2", "--account=" + path + ".nope"])
 	assert_eq(missing.status, 1)
 	assert_eq(missing.record, {})
 	var data := DataRepo.load_all()
 	var stages := {}
 	for tier: Array in data.stages.tiers:
 		for stage: String in tier:
-			stages[stage] = {"duration": 0.05, "bosses": []}
+			stages[stage] = {"duration": 0.05, "maps": [{"map_id": data.stages.stages[stage].maps[0].map_id, "boss": {}}]}
 	var patch := _write("chain patch.json", {"stages": {"stages": stages}})
-	var chain := _cli(["--tier=2", "--stage=tree_that_grew_1", "--seed=2026", "--cap=1", "--patch=" + patch,
+	var chain := _cli(["--tier=2", "--stage=ellinia", "--seed=2026", "--cap=1", "--patch=" + patch,
 		"--account=" + path])
 	assert_eq(chain.status, 0)
 	assert_eq(chain.record.get("account", ""), "tool account.json")
@@ -136,7 +136,7 @@ func test_cli_single_round_chain_and_errors() -> void:
 
 
 func test_run_options_carry_the_account_flag_into_the_run_scene() -> void:
-	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--seed=3",
+	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--seed=3",
 		"--account=C:/some dir/acct.json"]))
 	assert_eq(parsed.options.account, "C:/some dir/acct.json", "--run passes the path through as an option")
 	var options := RunScene.account_from_options({"account": _write("run account.json", ACCOUNT)})

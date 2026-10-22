@@ -125,7 +125,7 @@ func test_real_starter_outfit_defense() -> void:
 		var img := lib.img(path)
 		return img.root if img != null else {}
 	var missing := PackedStringArray()
-	var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys_hg1", 504, Vector2(800, 600), loader,
+	var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys", 504, Vector2(800, 600), loader,
 		lib.mob_root, missing)
 	assert_true(missing.is_empty(), "canonical run setup is present: %s" % [missing])
 	var w := RunWorld.new(setup)

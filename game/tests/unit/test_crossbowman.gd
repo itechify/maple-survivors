@@ -315,7 +315,7 @@ func test_advancement_draw_offers_both_attacks_and_tool_accepts_job_320() -> voi
 	assert_has(cards, "iron_arrow_new")
 	for card: Dictionary in w.pending_cards:
 		assert_eq(int(w.book.def(card.skill).job), 320)
-	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--job=320"]))
+	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=320"]))
 	assert_eq(parsed.options.job, 320)
 	assert_eq(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()), "")
 	assert_eq(RunLauncher.options_from_args({"job": "320"}).job, 320)

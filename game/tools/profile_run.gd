@@ -6,7 +6,7 @@ extends SceneTree
 ## the asset cache (the real map and mob/skill imgs).
 ##
 ##   bash scripts/godot.sh --headless --path game --script res://tools/profile_run.gd -- --seed=5 --from=780 --to=900
-##       [--stage=henesys_hg1] [--account=<abs AccountFile JSON>] [--job=<id>] [--mortal]
+##       [--stage=henesys] [--account=<abs AccountFile JSON>] [--job=<id>] [--mortal]
 ##
 ## The player is in god mode (RunWorld.god: no damage) so the bot reaches the late, crowded minutes; --mortal turns it
 ## off (the round then ends where the bot dies).
@@ -21,7 +21,7 @@ const PARTS := RunWorld.STEP_PARTS
 
 
 func _init() -> void:
-	var stage := "henesys_hg1"
+	var stage := "henesys"
 	var seed_value := 2026
 	var from := 780.0
 	var to := 1020.0
@@ -30,7 +30,7 @@ func _init() -> void:
 	var god := true
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
-			stage = a.substr(8)
+			stage = DataRepo.canonical_stage_key(a.substr(8))
 		elif a.begins_with("--seed="):
 			seed_value = int(a.substr(7))
 		elif a.begins_with("--from="):
@@ -78,6 +78,8 @@ func _init() -> void:
 	var t_start := Time.get_ticks_msec()
 	while w.time < to:
 		BR.choose(w, "bot", rng, cards, forced_job)
+		if w.transfer_pending:
+			w.advance_map()
 		if w.state != RunWorld.PLAYING:
 			break
 		var b0 := Time.get_ticks_usec()
@@ -85,6 +87,8 @@ func _init() -> void:
 		var b1 := Time.get_ticks_usec()
 		if w.time < from:
 			w.step(DT, input)
+			if w.transfer_pending:
+				w.advance_map()
 			BotShop.equip_after(w, w.drain_events())
 			continue
 		bot_us += b1 - b0
@@ -153,6 +157,8 @@ func _init() -> void:
 static func _timed_step(w: RunWorld, dt: float, input: MoveInput, acc: PackedInt64Array) -> void:
 	var timer := StageTimer.new(acc)
 	w.step(dt, input, timer.lap)
+	if w.transfer_pending:
+		w.advance_map()
 
 
 class StageTimer extends RefCounted:

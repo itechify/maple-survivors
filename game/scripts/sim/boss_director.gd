@@ -30,6 +30,17 @@ func _init(p_entries: Array = [], p_rules: Dictionary = {}) -> void:
 			"stall": 0.0, "best_distance": INF, "anchor": Vector2.ZERO, "fading": false, "fade_left": 0.0,
 			"teleports": 0})
 		_actions.append({"action": "", "start": 0.0, "until": 0.0, "facing": -1})
+		if entries[index].has("map_index"):
+			records[index].map_index = int(entries[index].map_index)
+			records[index].map_id = int(entries[index].get("map_id", 0))
+
+
+## Arms only the entered map on the total round clock, keeping previous records for results.
+func arm_map(world: RunWorld) -> void:
+	for i in entries.size():
+		if int(entries[i].get("map_index", -1)) == world.map_index:
+			records[i].arrival = world.map_entered_at + float(entries[i].map_time)
+			records[i].map_id = world.current_map_id()
 
 
 ## Whether this living, spawned boss can begin an attack or skill at the supplied sim time.
@@ -94,6 +105,18 @@ func has_bosses() -> bool:
 	return not entries.is_empty()
 
 
+## Whether the entered map's encounters finished, retaining the missing-image skip rule of all_dead().
+func map_done(map_index: int) -> bool:
+	var found := false
+	for record: Dictionary in records:
+		if int(record.get("map_index", -1)) != map_index:
+			continue
+		found = true
+		if not bool(record.dead) and not bool(record.skipped):
+			return false
+	return found
+
+
 ## Fires each warning and places each due boss on the player's reachable platform, with regen fade-in. A boss whose
 ## mob img is missing is skipped at its arrival time with a run warning (it never blocks the clear); when no arrival
 ## point exists on the arrival tick, the arrival is postponed by the warning lead and a fresh warning fires at once,
@@ -102,6 +125,8 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 	for index in entries.size():
 		var entry: Dictionary = entries[index]
 		var record: Dictionary = records[index]
+		if world.map_sequence_enabled() and int(entry.get("map_index", -1)) != world.map_index:
+			continue
 		if bool(record.dead) or bool(record.skipped):
 			continue
 		if float(record.spawn_time) >= 0.0:

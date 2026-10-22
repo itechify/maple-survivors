@@ -58,6 +58,8 @@ func _drive() -> void:
 		w.hit_mob(target, {"skill": "basic_attack", "damage_type": "physical", "damage_min": 1,
 			"damage_max": 1, "crit": 0, "crit_mult": 1.5}, -1)
 		w.step(1.0 / 60.0, MoveInput.new())
+		if w.transfer_pending:
+			w.advance_map()
 		var events := w.drain_events()
 		followup = events.any(func(e: Dictionary) -> bool: return e.type == "ammo_shot")
 		run.handle_events(events)
@@ -101,7 +103,7 @@ func _new_run(level := 40) -> void:
 		run.queue_free()
 		await get_tree().process_frame
 	run = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
-	run.configure("henesys_hg1", 203, {"use_flow": false, "autopick": true, "job": 320})
+	run.configure("henesys", 203, {"use_flow": false, "autopick": true, "job": 320})
 	add_child(run)
 	run.set_process(false)
 	var w := run.world

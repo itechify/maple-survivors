@@ -7,7 +7,7 @@ extends SceneTree
 ##   bash scripts/bench.sh run 300 2000      # custom counts
 ##   bash scripts/bench.sh run 300 --statuses   # every live mob kept slowed and poisoned, every third frozen
 ##
-## Setup per run: a "bench" stage that refills to exactly N alive (rate 600/s, the full henesys_hg1 mob pool at 2x
+## Setup per run: a "bench" stage that refills to exactly N alive (rate 600/s, the full henesys mob pool at 2x
 ## HP), a god-mode player driven by the kiting test bot, and a late-game build (Three Snails rank 3 with 5 shells and
 ## pierce 3; Magician with Energy Bolt rank 4 with 4 bolts, Magic Claw), so shots, kills, drops and pickups all churn.
 ## Choice windows are answered between ticks (not timed); with --statuses, statuses are (re)applied there too, so the
@@ -51,10 +51,10 @@ func _init() -> void:
 func _run(label: String, imgs: Dictionary, n: int) -> void:
 	var data := DataRepo.load_all()
 	var pool := {}
-	for id in DataRepo.stage_mob_ids(data, "henesys_hg1"):
+	for id in DataRepo.stage_mob_ids(data, "henesys"):
 		pool[str(id)] = 1.0
 	data.stages.stages["bench"] = {
-		"map_id": 0, "duration": 1.0e9, "hard_cap": n,
+		"maps": [{"map_id": 0, "boss": {}}], "duration": 1.0e9, "hard_cap": n,
 		"keyframes": [{"t": 0.0, "rate": 600.0, "max_alive": float(n), "hp": 2.0, "speed": 1.0, "damage": 1.0,
 			"pool": pool}],
 	}
@@ -80,6 +80,8 @@ func _run(label: String, imgs: Dictionary, n: int) -> void:
 		var input := RF.bot_input(w, memo)
 		var a := Time.get_ticks_usec()
 		w.step(DT, input)
+		if w.transfer_pending:
+			w.advance_map()
 		var b := Time.get_ticks_usec()
 		w.drain_events()
 		if t >= WARMUP:
@@ -130,7 +132,7 @@ func _real() -> Dictionary:
 	if map.is_empty():
 		return {}
 	var mobs := {}
-	for id in DataRepo.stage_mob_ids(DataRepo.load_all(), "henesys_hg1"):
+	for id in DataRepo.stage_mob_ids(DataRepo.load_all(), "henesys"):
 		var m := _json(root, "Mob.wz/%07d.img" % id)
 		if not m.is_empty():
 			mobs[id] = m

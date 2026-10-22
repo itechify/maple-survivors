@@ -13,7 +13,7 @@ func test_hidden_avatar_is_translucent_and_recovery_restores_opacity() -> void:
 	if not require_cache():
 		return
 	scene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
-	scene.configure("henesys_hg1", 211, {"use_flow": false, "autopick": true})
+	scene.configure("henesys", 211, {"use_flow": false, "autopick": true})
 	var tree := Engine.get_main_loop() as SceneTree
 	tree.current_scene.add_child(scene)
 	scene.set_process(false)

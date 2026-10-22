@@ -3,19 +3,23 @@
 # climbs and picks cards; no windows open), saves screenshots + summary.json into an evidence folder, quits, and prints
 # the summary (outcome, levels per minute, frame-time percentiles, max alive mobs, missing assets).
 #
-#   bash scripts/playtest.sh                                  # henesys_hg1, seed 2026, speed 4, through the boss finale
+#   bash scripts/playtest.sh                                  # henesys, seed 2026, speed 4, through the boss finale
 #   bash scripts/playtest.sh --seed=7 --speed=1 --minutes=3   # 3 minutes in real time
 #   bash scripts/playtest.sh --warp=600 --minutes=13 --speed=1 --vsync=off   # fast-forward to 10:00 (nothing drawn),
 #                                                             # then 3 real-time minutes with 200+ mobs, uncapped FPS
-#   bash scripts/playtest.sh --stage=tree_that_grew_1 --out=evidence/mytest
+#   bash scripts/playtest.sh --stage=ellinia --out=evidence/mytest
 #   bash scripts/playtest.sh --warp=600 --minutes=13 --require-window --min-frames-100=120 --min-frames-200=60
 #
-# Options (all optional): --stage=<key> (stages.json, default henesys_hg1), --seed=<n> (2026), --speed=<k> sim ticks
+# Options (all optional): --stage=<key> (stages.json, default henesys), --seed=<n> (2026), --speed=<k> sim ticks
 # per 60 Hz frame (4), --minutes=<m> absolute run time to stop at (30; a death or clear ends earlier), --shot-every=<s> run
 # seconds between screenshots (60), --out=<dir> (default evidence/playtest/<stage>_s<seed>_x<speed>_<time>), --warp=<s>,
 # --job=<id>[:<family>] (force a job/family, e.g. 100:spear or 120:blunt; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
 # --account=<abs JSON> (an account for the round, spec #34: owned cash items, worn cash equipment, pet, ALERT levels; see
 # scripts/balance.sh and game/scripts/core/account_file.gd; summary.json names the file).
+# Map fields: summary.json root and nested summary carry map_times (reached-map entry seconds, starting [0]) and
+# ended_map {index, id} (zero-based index, original v83 id). Intermediate transfers take map_N_cleared/fade/black
+# and map_N_enter PNGs; N is one-based, and the final map also gets map_3_cleared. See AGENTS.md for all shot names.
+# Keys henesys/ellinia/sleepywood accept henesys_hg1/tree_that_grew_1/dark_cave aliases; --character works with either.
 # --require-window opts into workload qualification: the requested --warp (default 0) must be reached, ticks must be
 # positive, and --min-frames-100=<N> / --min-frames-200=<N> frames must have 100+/200+ mobs (defaults 1 each).
 # A zero minimum disables that density check; at least one must be positive. Failure exits non-zero with UNQUALIFIED.
@@ -29,7 +33,7 @@
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
-STAGE="henesys_hg1"
+STAGE="henesys"
 SEED="2026"
 SPEED="4"
 MINUTES="30"

@@ -496,7 +496,7 @@ func test_job_510_and_520_run_in_the_tools_with_either_path() -> void:
 	for job in [510, 520]:
 		assert_eq(SceneFlow.forced_job_error({"job": job}, data), "", "--job=%d is accepted" % job)
 		for path in ["knuckle", "gun"]:
-			var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--job=%d:%s" % [job, path]]))
+			var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=%d:%s" % [job, path]]))
 			assert_eq(parsed.options.job, job)
 			assert_eq(parsed.options.job_path, path)
 			assert_eq(SceneFlow.forced_job_error(parsed.options, data), "")

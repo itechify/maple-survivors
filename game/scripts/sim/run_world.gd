@@ -119,6 +119,8 @@ const EVENT_FIELDS := {
 	"skill_learned": ["skill", "skill_id"],
 	"burst": ["count"],
 	"stage_cleared": ["time"],
+	"map_cleared": ["map_index"],
+	"map_entered": ["map_index", "map_id"],
 	"boss_warning": ["boss_index", "mob_id", "time"],
 	"boss_spawned": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_died": ["boss_index", "mob", "mob_id", "pos", "time"],
@@ -260,6 +262,15 @@ var mob_projectiles := MobProjectileSystem.new()
 
 var events: Array = []
 var time := 0.0
+## Current map and its entry on the total round clock (tier C: spec #241 scheduled map pacing).
+var map_index := 0
+var map_entered_at := 0.0
+## Entry seconds from round start, indexed by the reached map (map 1 starts at zero).
+var map_times: Array = [0.0]
+## Presentation may hold this boundary without advancing simulation time; advance_map completes it explicitly.
+var transfer_pending := false
+var _map_clearing := false
+var _map_swept := false
 var kills := 0
 ## Character level when the round began (a carried character keeps its level); see levels_gained().
 var start_level := 1
@@ -371,7 +382,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	setup = p_setup
 	data = setup.get("data", {})
 	balance = data.get("balance", {})
-	stage_key = String(setup.get("stage", ""))
+	stage_key = DataRepo.canonical_stage_key(String(setup.get("stage", "")))
 	stage = data.get("stages", {}).get("stages", {}).get(stage_key, {})
 	duration = float(stage.get("duration", 900.0))
 	seed_value = int(setup.get("seed", 0))
@@ -413,12 +424,12 @@ func _init_rng_streams() -> void:
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
 func _init_map() -> void:
-	var map_img: Dictionary = setup.get("map_img", {})
+	var map_img := _current_map_img()
 	physics = PhysicsConstants.from_wz(setup.get("physics_img", {}))
 	fhm = FootholdMap.from_wz(map_img)
 	bounds = MapBounds.from_map(map_img, fhm)
 	ladders = LadderSet.from_wz(map_img)
-	portals = PortalSet.from_wz(map_img, int(stage.get("map_id", 0)), balance.get("portals", {}))
+	portals = PortalSet.from_wz(map_img, current_map_id(), balance.get("portals", {}))
 	var nav_opts := {"gravity": physics.gravity_acc, "fall_speed": physics.fall_speed, "jump_speed": physics.jump_speed}
 	nav = NavGraph.build(fhm, nav_opts.merged({"can_jump": false}))
 	nav_jump = NavGraph.build(fhm, nav_opts.merged({"can_jump": true}))
@@ -473,8 +484,19 @@ func _init_skills_and_progression() -> void:
 
 ## Ordinary spawning, the boss schedule and the bosses' canonical skills.
 func _init_directors() -> void:
-	director = SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
-	bosses = BossDirector.new(stage.get("bosses", []), balance.get("bosses", {}))
+	var spawn_stage := stage
+	if not _map_images_available() and stage.has("maps"):
+		spawn_stage = stage.duplicate()
+		spawn_stage.erase("maps") # no map_imgs: preserve legacy curve pools and the absolute boss schedule
+	director = SpawnDirector.create(spawn_stage, kind_of_id, balance.get("spawn", {}))
+	var map_imgs: Array = setup.get("map_imgs", [])
+	var pools: Array = []
+	for i in stage.get("maps", []).size():
+		pools.append(StagePools.resolve(stage.maps[i], map_imgs[i] if i < map_imgs.size() else {}))
+	director.map_pools = pools
+	bosses = BossDirector.new(_stage_bosses(), balance.get("bosses", {}))
+	if map_sequence_enabled():
+		bosses.arm_map(self)
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
 	_sync_slots()
@@ -493,6 +515,94 @@ func _init_player_motion() -> void:
 ## Name of the current state ("PLAYING", ...).
 func state_name() -> String:
 	return STATE_NAMES[state]
+
+
+## Scheduled pacing clock; a slow boss kill never pushes the next map's opening ahead (tier C: spec #241).
+func curve_time() -> float:
+	return map_index * float(stage.get("map_seconds", 300.0)) + (time - map_entered_at)
+
+
+## Original MapleStory id of the current map; legacy stages retain their single map.
+func current_map_id() -> int:
+	var maps: Array = stage.get("maps", [])
+	return int(maps[map_index].get("map_id", stage.get("map_id", 0))) if not maps.is_empty() \
+		else int(stage.get("map_id", 0))
+
+
+## Transfers require complete map entries and aligned images; pool-only fixtures retain their legacy boss schedule.
+func map_sequence_enabled() -> bool:
+	if not _map_images_available():
+		return false
+	for entry: Dictionary in stage.maps:
+		if not entry.has("map_id") or entry.get("boss", {}).is_empty():
+			return false
+	return true
+
+
+func _map_images_available() -> bool:
+	return not stage.get("maps", []).is_empty() and setup.has("map_imgs") \
+		and setup.map_imgs.size() == stage.maps.size()
+
+
+func _current_map_img() -> Dictionary:
+	return setup.map_imgs[map_index] if _map_images_available() else setup.get("map_img", {})
+
+
+func _stage_bosses() -> Array:
+	# Legacy/pool-only fixtures retain their absolute schedule; region data uses the binding #243 projection.
+	if stage.get("maps", []).is_empty():
+		return stage.get("bosses", [])
+	for entry: Dictionary in stage.maps:
+		if entry.get("boss", {}).is_empty():
+			return stage.get("bosses", [])
+	var entries := DataRepo.stage_bosses(stage)
+	for entry: Dictionary in entries:
+		entry.map_id = int(stage.maps[int(entry.map_index)].map_id)
+	return entries
+
+
+## Completes the frozen map boundary. Character state and RNG streams survive; map entities and boss statuses do not.
+func advance_map() -> void:
+	if not transfer_pending:
+		return
+	map_index += 1
+	map_entered_at = time
+	map_times.append(time)
+	_init_map()
+	# Keep pooled systems and their round counters; empty their map-local contents without kill/drop events.
+	for slot in swarm.capacity():
+		swarm.despawn(slot)
+	swarm.fhm = fhm
+	mob_elite.fill(0)
+	mob_boss.fill(-1)
+	mob_summon_owner.fill(-1)
+	mob_grid = SpatialHash.new(64.0, bounds.grow(64.0))
+	_ctx.merge({"fhm": fhm, "nav": nav, "nav_jump": nav_jump, "bounds": bounds}, true)
+	for slot in projectiles.capacity():
+		projectiles.despawn(slot)
+	projectiles.bounds = bounds
+	for slot in pickups.capacity():
+		pickups.despawn(slot)
+	_final_queue.clear()
+	basic.clear_pending()
+	runner.clear_pending()
+	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
+	mob_attacks = MobAttacks.new(self)
+	mob_actions = MobActions.new()
+	mob_projectiles = MobProjectileSystem.new()
+	boss_attacks = BossAttacks.new()
+	_sync_slots()
+	director = director.reset_for_map(map_index, curve_time(), balance.get("spawn", {}))
+	player.place(PortalSet.start_point(_current_map_img(), fhm, bounds, spawn_rng), fhm)
+	if pet_system != null:
+		pet_system.place_beside(player, fhm)
+	bosses.arm_map(self)
+	refresh_player_speed()
+	update_view()
+	transfer_pending = false
+	_map_clearing = false
+	_write_player_state(0.0)
+	emit("map_entered", {"map_index": map_index, "map_id": current_map_id()})
 
 
 ## Returns independent round-boundary data; unresolved rewards/jobs/advancement draws are an error, never dropped.
@@ -684,7 +794,9 @@ func emit(type: String, fields: Dictionary) -> void:
 ## Advances the run by dt seconds (no-op unless PLAYING). Optional after_stage(name) observes production boundaries;
 ## timing stays with the caller. Observers must not mutate the world or draw RNG.
 func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> void:
-	if state != PLAYING:
+	if state != PLAYING or transfer_pending:
+		return
+	if _settle_map():
 		return
 	if _settle_clear():
 		return
@@ -697,7 +809,11 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 	_step_monsters(dt)
 	if after_stage.is_valid():
 		after_stage.call("monsters")
+	if _settle_map():
+		return
 	_step_player_attacks(dt)
+	if _settle_map():
+		return
 	if after_stage.is_valid():
 		after_stage.call("player_attacks")
 	if pet_system != null:
@@ -892,13 +1008,15 @@ func _take_portal(dt: float, input: MoveInput) -> bool:
 func _step_monsters(dt: float) -> void:
 	_ctx.target = player.pos
 	_ctx.target_fh = player.fh
-	_ctx.speed_mult = director.value_at("speed", time)
+	_ctx.speed_mult = director.value_at("speed", curve_time())
 	# Hidden (#194): the swarm gets no target to chase, so ground mobs patrol and flyers hover.
 	_ctx["hidden"] = is_hidden()
 	_ctx["boss_actions"] = mob_actions.view(bosses.prepare_actions(self), bosses, swarm, time)
 	_ctx["events"] = events
 	swarm.step(dt, _ctx)
 	bosses.step(self, dt)
+	if map_sequence_enabled() and map_index < stage.maps.size() - 1 and bosses.map_done(map_index):
+		return # a missing-image skip completes this map without admitting attacks/spawns
 	mob_skills.step(self)
 	boss_attacks.step(self)
 	mob_attacks.step(self, dt)
@@ -911,12 +1029,27 @@ func _step_monsters(dt: float) -> void:
 ## Auto-casts, the basic swing, then the player's shots against live defense/immunity; kills drop their rewards.
 func _step_player_attacks(dt: float) -> void:
 	runner.step(dt, self)
+	if _map_clearing:
+		return
 	basic.step(dt, self)
+	if _map_clearing:
+		return
 	_fill_live_defense()
-	projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed, _on_player_hit, _live_pdd)
-	for m in projectiles.kills:
-		_on_kill(m)
+	if map_sequence_enabled():
+		projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed,
+			_on_player_hit, _live_pdd, _projectile_kill)
+	else:
+		projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed, _on_player_hit, _live_pdd)
+		for m in projectiles.kills:
+			_on_kill(m)
+	if _map_clearing:
+		return
 	_play_final_attacks()
+
+
+func _projectile_kill(slot: int) -> bool:
+	_on_kill(slot)
+	return _map_clearing
 
 
 ## Live MDD, PDD and physical_hit_allowed(slot) of every live slot, for the shots, in one pass (#146).
@@ -984,6 +1117,8 @@ func pet_has(ability: String) -> bool:
 func _end_tick() -> void:
 	if _dead:
 		return
+	if _settle_map():
+		return
 	if pending_bonus_choices > 0:
 		_advance_queue()
 		if state != PLAYING:
@@ -999,6 +1134,17 @@ func _end_tick() -> void:
 func _settle_clear() -> bool:
 	if _dead or state == CLEARED or not can_clear():
 		return false
+	_sweep_map_drops()
+	if progression.has_pending():
+		_advance_queue() # normal job/advancement/card flow; step stays frozen until every answer is in
+	else:
+		state = CLEARED
+		emit("stage_cleared", {"time": time})
+	return true
+
+
+## Collects and credits clear loot, retrying space freed by auto-wear before applying its EXP.
+func _sweep_map_drops() -> void:
 	var got := 0
 	while true:
 		var before := pickups.active_count()
@@ -1011,11 +1157,26 @@ func _settle_clear() -> bool:
 	if got > 0:
 		_gain_exp(got)
 	_write_player_state(0.0)
-	if progression.has_pending():
-		_advance_queue() # normal job/advancement/card flow; step stays frozen until every answer is in
-	else:
-		state = CLEARED
-		emit("stage_cleared", {"time": time})
+
+
+## Frozen intermediate-map settlement: sweep once before choices, then discard mobs and await presentation.
+func _settle_map() -> bool:
+	if not _map_clearing and map_sequence_enabled() and map_index < stage.maps.size() - 1 \
+			and bosses.map_done(map_index):
+		_map_clearing = true
+		_map_swept = false
+	if not _map_clearing or _dead:
+		return false
+	if not _map_swept:
+		_map_swept = true
+		_sweep_map_drops()
+	if pending_bonus_choices > 0 or progression.has_pending():
+		_advance_queue()
+	elif not transfer_pending:
+		for slot in swarm.capacity():
+			swarm.despawn(slot)
+		transfer_pending = true
+		emit("map_cleared", {"map_index": map_index})
 	return true
 
 
@@ -1802,7 +1963,7 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 
 ## One instant damage line with live defence; hv = hit visual index. Optional hit_rng selects basic stream 5.
 func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = null) -> void:
-	if swarm.active[m] == 0:
+	if _map_clearing or swarm.active[m] == 0:
 		return
 	var dtype := CombatMath.damage_type_of(String(st.get("damage_type", "")), bool(st.get("magic", false)))
 	var magic := dtype == "magic"
@@ -2025,7 +2186,16 @@ func _build_mob_kinds() -> void:
 	var imgs: Dictionary = setup.get("mob_imgs", {})
 	var overrides: Dictionary = data.get("mobs", {}).get("mobs", {})
 	var speed_mult := float(balance.get("mob_speed_factor", MobKind.SPEED_SCALE)) / MobKind.SPEED_SCALE
-	for id in StageRoster.mob_ids(stage, imgs, setup.get("mob_skill_img", {})):
+	# Normalize legacy/pool-only schedules for StageRoster's map-based API; live region data already has maps.
+	var roster := stage
+	if stage.has("bosses"):
+		roster = stage.duplicate(true)
+		roster["maps"] = roster.get("maps", [])
+		for boss: Dictionary in _stage_bosses():
+			roster.maps.append({"boss": boss})
+	var ids := StageRoster.mob_ids(roster, imgs, setup.get("mob_skill_img", {}),
+		setup.map_imgs if _map_images_available() else [])
+	for id in ids:
 		var img: Variant = imgs.get(id, imgs.get(str(id)))
 		if not (img is Dictionary) or img.is_empty():
 			warnings.append("no mob img for %d: dropped from the pools" % id)
@@ -2049,7 +2219,7 @@ func _init_player() -> void:
 		body = Rect2(float(b[0]), float(b[1]), float(b[2]), float(b[3]))
 	cast_height = float(pb.get("cast_height", DEFAULT_CAST_HEIGHT))
 	cast_forward = float(pb.get("cast_forward", DEFAULT_CAST_FORWARD))
-	player.place(PortalSet.start_point(setup.get("map_img", {}), fhm, bounds, spawn_rng), fhm)
+	player.place(PortalSet.start_point(_current_map_img(), fhm, bounds, spawn_rng), fhm)
 	if setup.has("character"):
 		_restore_character(setup.character)
 	else:
@@ -2360,6 +2530,9 @@ func _on_boss_kill(m: int, mk: MobKind, pos: Vector2, elite: bool) -> void:
 	var spread := float(rewards.get("spread", 0.0))
 	for i in int(data.get("equipment_drops", {}).get("boss_drops", 0)):
 		_drop_equipment(pos + Vector2(equip_rng.randf_range(-spread, spread) if spread > 0.0 else 0.0, 0), true)
+	if map_sequence_enabled() and map_index < stage.maps.size() - 1:
+		_map_clearing = true
+		_map_swept = false
 
 
 ## balance.mesos.boss_drops bundles, each rolled from the boss's range and scattered over `spread` px (no chance roll).
@@ -2462,7 +2635,7 @@ func _window_blocks(bypass: bool) -> bool:
 func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:
 	var bypass := PlayerUpkeep.bypasses_window(source)
 	# Hidden (#194): nothing from a monster lands, whatever its source (the callers also skip the attack itself).
-	if _dead or god or _window_blocks(bypass) or is_hidden():
+	if _dead or _map_clearing or god or _window_blocks(bypass) or is_hidden():
 		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
 	if CombatMath.roll_miss(player_avoid + buffs.effect_total("avoid"), float(source.get("accuracy", 0.0)), rng):
@@ -2534,7 +2707,7 @@ func _emit_player_hit(damage: int, mp_absorbed: int, miss: bool, dir: int, sourc
 
 ## Whether auto-actions may cast now: hanging on a rope/ladder blocks new casts, not their cooldowns or effects.
 func can_cast() -> bool:
-	return state == PLAYING and not _dead and player.state != PlayerMotion.ST_LADDER
+	return state == PLAYING and not _dead and not _map_clearing and player.state != PlayerMotion.ST_LADDER
 
 
 func _gain_exp(n: int) -> void:
@@ -2624,7 +2797,8 @@ func _advance_queue() -> void:
 		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false, "advancement": false})
 		return
 	state = PLAYING
-	_settle_clear()
+	if not _settle_map():
+		_settle_clear()
 
 
 func _write_player_state(dt: float) -> void:

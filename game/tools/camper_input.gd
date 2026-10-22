@@ -1,6 +1,8 @@
 extends RefCounted
 ## Harness-only camper movement. Henesys positions are placed once; the Tree uses ordinary portal/navigation inputs.
-const STAGES := {"camper_henesys_top": "henesys_hg1", "camper_henesys_rope": "henesys_hg1", "camper_tree_top": "tree_that_grew_1"}
+const STAGES := {"camper_henesys_top": "henesys", "camper_henesys_rope": "henesys", "camper_tree_top": "ellinia"}
+## Tier A: original first-map ids; tier C: these are the only maps on which each measurement policy parks.
+const MAP_IDS := {"camper_henesys_top": 104040000, "camper_henesys_rope": 104040000, "camper_tree_top": 101010100}
 
 
 ## tier C: the default 60 s warmup is a controlled camper measurement policy.
@@ -12,7 +14,7 @@ static func decide(world: RunWorld, policy: String, memo: Dictionary, after: flo
 	if not memo.has("bot"):
 		memo.bot = {}
 	var bot := BotInput.decide(world, memo.bot)
-	if world.time < after or not STAGES.has(policy):
+	if world.map_index > 0 or world.time < after or world.current_map_id() != int(MAP_IDS.get(policy, -1)):
 		return bot
 	var input := MoveInput.new()
 	input.drink_hp = bot.drink_hp

@@ -69,6 +69,11 @@ func _init() -> void:
 	_buf.resize(128)
 
 
+## Drops queued map-space attacks, preserving cooldowns, auto-cast timers and round counters.
+func clear_pending() -> void:
+	_flights.clear()
+
+
 ## SHOTS for a projectile skill kind, TARGETS otherwise.
 static func count_meaning(kind: String) -> String:
 	return SHOTS if kind == "projectile" else TARGETS

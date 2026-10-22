@@ -24,7 +24,7 @@ func after_each() -> void:
 func _make() -> RunScene:
 	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	s.library = lib
-	s.configure("henesys_hg1", 5, {"use_flow": false})
+	s.configure("henesys", 5, {"use_flow": false})
 	var tree := Engine.get_main_loop() as SceneTree
 	(tree.current_scene if tree.current_scene != null else tree.root).add_child(s)
 	return s

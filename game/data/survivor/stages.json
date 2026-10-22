@@ -1,38 +1,82 @@
 {
-	"_doc": "Stages (docs/GAME_DESIGN.md 4.1): stage key -> original map id, duration (s), pacing keyframes, bursts, elites. Keyframe numbers (rate = mobs/s, max_alive, hp and speed multipliers) interpolate linearly in time between keyframes; the pool (mob id -> weight) is the one of the last keyframe at or before t. Bursts: every `every` s from `first`, a ring of count_min..count_max mobs (growing with time) around the view, allowed past max_alive up to `hard_cap`. Elites: every `every` s from `first`, one mob of the current pool with hp_mult x HP, exp_mult x EXP and damage_mult x mitigated damage. spawn: overrides of balance.json spawn for this map. exp_mult: EXP multiplier of this stage. note: a line shown on the stage card. region and continent (both required, tier C owner choice #221): the town the player sees as the stage name and the small line above or beside it; they replace the WZ map and street names everywhere. original_life is the map's own spawn list (shown on the stage card). Potions are unlimited on per-kind cooldowns; no potion drops exist (spec #237). Boss summon and revive mob ids are not listed here: they come from the bosses' canonical MobSkill 200 and info/revive data (StageRoster). All numbers tier C (ours).",
-	"_tiers": "Tier C: owner choice, spec #32. Zero-based run tier index; choose one stage from each list.",
-	"tiers": [["henesys_hg1", "tree_that_grew_1"], ["dark_cave"]],
+	"_doc": "Stages (docs/GAME_DESIGN.md 4.1): region stage key -> ordered maps with one boss and pool rule each, map_seconds (boss delay from map entry), round duration (s), pacing keyframes, bursts, elites. Keyframe numbers (rate = mobs/s, max_alive, hp and speed multipliers) interpolate linearly in time between keyframes; the pool (mob id -> weight) is the one of the last keyframe at or before t. Bursts: every `every` s from `first`, a ring of count_min..count_max mobs (growing with time) around the view, allowed past max_alive up to `hard_cap`. Elites: every `every` s from `first`, one mob of the current pool with hp_mult x HP, exp_mult x EXP and damage_mult x mitigated damage. spawn: overrides of balance.json spawn for this region. exp_mult: EXP multiplier of this stage. note: a line shown on the stage card. region and continent (both required, tier C owner choice #221): the town the player sees as the stage name and the small line above or beside it; they replace the WZ map and street names everywhere. original_life is the map's own spawn list (shown on the stage card). Potions are unlimited on per-kind cooldowns; no potion drops exist (spec #237). Boss summon and revive mob ids are not listed here: they come from the bosses' canonical MobSkill 200 and info/revive data (StageRoster). All numbers tier C (ours).",
+	"_tiers": "Tier C: owner region keys and map lists, spec #241; run tiers from spec #32. Zero-based run tier index; choose one stage from each list.",
+	"tiers": [["henesys", "ellinia"], ["sleepywood"]],
 	"stages": {
-		"henesys_hg1": {
-			"map_id": 104040000,
+		"henesys": {
 			"name": "Henesys Hunting Ground I",
 			"region": "Henesys",
 			"continent": "Victoria Island",
 			"duration": 900,
 			"hard_cap": 400,
-			"_bosses": "Tier C: survivor arrival times and separate HP/contact/attack multipliers, calibrated on training runs 1..60 and 2026. Canonical stats, attack boxes and timing remain in Mob.wz; typical_hp/pdd are illustrative build inputs, not runtime scaling.",
-			"bosses": [
-				{"time": 300, "mob_id": 2220000, "hp_mult": 1.8, "dmg_mult": 1.15, "typical_hp": 196, "typical_pdd": 7},
-				{"time": 600, "mob_id": 6130101, "hp_mult": 0.24, "dmg_mult": 0.85, "typical_hp": 340, "typical_pdd": 7,
-					"attacks": ["attack1"], "attack_interval": 8.0, "attack_dmg_mult": 0.55,
-					"_attacks": "tier C: 8 s start-to-start cadence and separate slam scaling; canonical type0 attack300/attackAfter1050ms/range remain unchanged"},
-				{"time": 900, "mob_id": 9400205, "hp_mult": 0.035, "dmg_mult": 0.48, "typical_hp": 448, "typical_pdd": 7,
-					"attacks": ["attack1"], "attack_interval": 8.0, "attack_dmg_mult": 0.72,
-					"_attacks": "tier C: contact450 and slam300 receive separate survivor scales calibrated against actual training buildHP; canonical attack values unchanged"}
-
-
+			"_bosses": "Tier C: 300 s per map from entry (spec #241); separate HP/contact/attack multipliers, calibrated on training runs 1..60 and 2026. Canonical stats, attack boxes and timing remain in Mob.wz; typical_hp/pdd are illustrative build inputs, not runtime scaling.",
+			"map_seconds": 300,
+			"_maps": "Tier C: owner map order and pool rules, spec #241. Each boss time is relative to map entry; Pig Beach excludes timed Iron Hook; Sanctuary uses Sanctuary Entrance IV ordinary weights.",
+			"maps": [
+				{
+					"map_id": 104040000,
+					"pool": "curve",
+					"boss": {
+						"time": 300,
+						"mob_id": 2220000,
+						"hp_mult": 1.8,
+						"dmg_mult": 1.15,
+						"typical_hp": 196,
+						"typical_pdd": 7
+					}
+				},
+				{
+					"map_id": 104010001,
+					"pool_from_life": true,
+					"exclude": [
+						4090000
+					],
+					"boss": {
+						"time": 300,
+						"mob_id": 6130101,
+						"hp_mult": 0.24,
+						"dmg_mult": 0.85,
+						"typical_hp": 340,
+						"typical_pdd": 7,
+						"attacks": [
+							"attack1"
+						],
+						"attack_interval": 8,
+						"attack_dmg_mult": 0.55,
+						"_attacks": "tier C: 8 s start-to-start cadence and separate slam scaling; canonical type0 attack300/attackAfter1050ms/range remain unchanged"
+					}
+				},
+				{
+					"map_id": 100030001,
+					"pool_from_life": true,
+					"boss": {
+						"time": 300,
+						"mob_id": 9400205,
+						"hp_mult": 0.035,
+						"dmg_mult": 0.48,
+						"typical_hp": 448,
+						"typical_pdd": 7,
+						"attacks": [
+							"attack1"
+						],
+						"attack_interval": 8,
+						"attack_dmg_mult": 0.72,
+						"_attacks": "tier C: contact450 and slam300 receive separate survivor scales calibrated against actual training buildHP; canonical attack values unchanged"
+					}
+				}
 			],
 			"_balance29": "Tier C: historical coarse #29 pass for the vanilla v83 Beginner (5 MP, one Three Snails shell at canonical MP): a sword-paced opening of a few mobs and generous HP drops until 4:00, no elites before 4:00 or bursts before 5:00, and 2.5x stage EXP so the bot reaches Magician near 4:40. Superseded by the #30 C46 calibration below; Tree stage data unchanged.",
 			"_balance30": "Tier C: coarse C46 stage data from #30 (training seeds 1..60 and 2026, measured with card weights 86/8/3.5/1.7/0.8; GAME_DESIGN 4.2). Retains v83 opening, later HP pressure/support and late ordinary MP taper. Not re-tuned for the restored spec card odds; tuning waits for the dedicated balance pass.",
 			"exp_mult": 2.5,
 			"_post_duration_slope": "Tier C: after the last keyframe, continue its rate/max_alive/HP/speed slopes, the burst-size slope and (via the rate ratio) the elite frequency at one quarter pace until every boss dies.",
 			"post_duration_slope": 0.25,
+			"_opening": "Tier C: owner choice #241: t0 rate 0.25/cap 6, t120 0.55/11, t180 0.75/15; t240 onward and pools unchanged.",
 			"keyframes": [
-				{"t": 0, "rate": 0.15, "max_alive": 3, "hp": 1, "speed": 1.0,
+				{"t": 0, "rate": 0.25, "max_alive": 6, "hp": 1, "speed": 1.0,
 					"pool": {"100100": 4, "100101": 3}},
-				{"t": 120, "rate": 0.4, "max_alive": 8, "hp": 1, "speed": 1.0,
+				{"t": 120, "rate": 0.55, "max_alive": 11, "hp": 1, "speed": 1.0,
 					"pool": {"100100": 4, "100101": 3, "130101": 3, "120100": 3}},
-				{"t": 180, "rate": 0.6, "max_alive": 12, "hp": 1, "speed": 1.025,
+				{"t": 180, "rate": 0.75, "max_alive": 15, "hp": 1, "speed": 1.025,
 					"pool": {"100100": 4, "100101": 3, "130101": 3, "120100": 3, "9300063": 1}},
 				{"t": 240, "rate": 1.0, "max_alive": 20, "hp": 1, "speed": 1.05,
 					"pool": {"100100": 3, "100101": 3, "130101": 3, "120100": 3, "210100": 3, "9300063": 1}},
@@ -57,24 +101,66 @@
 			"elites": {"first": 240, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
 			"original_life": {"120100": 10, "100101": 8, "130101": 12, "1210100": 9}
 		},
-		"tree_that_grew_1": {
-			"map_id": 101010100,
+		"ellinia": {
 			"name": "The Tree That Grew I",
 			"region": "Ellinia",
 			"continent": "Victoria Island",
 			"duration": 900,
 			"hard_cap": 400,
-			"bosses": [{"time": 300, "mob_id": 3220000, "hp_mult": 0.45, "dmg_mult": 0.83,
-				"typical_hp": 208, "typical_pdd": 7, "attacks": ["attack1", "attack2"],
-				"attack_interval": 8.0, "attack_dmg_mult": 0.77,
-				"_tier": "tier C: 3150 HP and separate contact/attack scales; 8 s cadence; canonical stats and attack/skill metadata unchanged"},
-				{"time": 600, "mob_id": 9300003, "hp_mult": 1.1, "dmg_mult": 1.36,
-					"typical_hp": 340, "typical_pdd": 7, "attacks": ["attack1"], "attack_interval": 8.0,
-					"attack_dmg_mult": 1.06,
-					"_tier": "tier C: 8800 HP, separate touch130/slam165 scaling and 8 s cadence; canonical slam900ms/summon/revive metadata unchanged"},
-				{"time": 900, "mob_id": 6220000, "hp_mult": 0.26, "dmg_mult": 1.14,
-					"typical_hp": 424, "typical_pdd": 7,
-					"_tier": "tier C: 8060 HP and contact scaling; canonical heal114 and immunity140 gates/intervals/durations unchanged"}],
+			"map_seconds": 300,
+			"_maps": "Tier C: owner map order and pool rules, spec #241. Each boss time is relative to map entry; Pig Beach excludes timed Iron Hook; Sanctuary uses Sanctuary Entrance IV ordinary weights.",
+			"maps": [
+				{
+					"map_id": 101010100,
+					"pool": "curve",
+					"boss": {
+						"time": 300,
+						"mob_id": 3220000,
+						"hp_mult": 0.45,
+						"dmg_mult": 0.83,
+						"typical_hp": 208,
+						"typical_pdd": 7,
+						"attacks": [
+							"attack1",
+							"attack2"
+						],
+						"attack_interval": 8,
+						"attack_dmg_mult": 0.77,
+						"_tier": "tier C: 3150 HP and separate contact/attack scales; 8 s cadence; canonical stats and attack/skill metadata unchanged"
+					}
+				},
+				{
+					"map_id": 100040100,
+					"pool_from_life": true,
+					"boss": {
+						"time": 300,
+						"mob_id": 9300003,
+						"hp_mult": 1.1,
+						"dmg_mult": 1.36,
+						"typical_hp": 340,
+						"typical_pdd": 7,
+						"attacks": [
+							"attack1"
+						],
+						"attack_interval": 8,
+						"attack_dmg_mult": 1.06,
+						"_tier": "tier C: 8800 HP, separate touch130/slam165 scaling and 8 s cadence; canonical slam900ms/summon/revive metadata unchanged"
+					}
+				},
+				{
+					"map_id": 100040105,
+					"pool_from_life": true,
+					"boss": {
+						"time": 300,
+						"mob_id": 6220000,
+						"hp_mult": 0.26,
+						"dmg_mult": 1.14,
+						"typical_hp": 424,
+						"typical_pdd": 7,
+						"_tier": "tier C: 8060 HP and contact scaling; canonical heal114 and immunity140 gates/intervals/durations unchanged"
+					}
+				}
+			],
 			"post_duration_slope": 0.25,
 			"keyframes": [
 				{"t": 0, "rate": 0.6, "max_alive": 15, "hp": 0.8, "speed": 1.0,
@@ -99,22 +185,70 @@
 			"note": "Classic Slimes, tree portals and three bosses.",
 			"original_life": {"210100": 25, "130101": 5}
 		},
-		"dark_cave": {
+		"sleepywood": {
 			"_tier": "Tier A: map ID and original_life from v83 Map.wz. Tier C: owner roster/order, 900 s duration, all pacing values, pool weights, EXP, burst and elite settings; first-pass data chosen before measurement for arriving Lv35-43 second-job characters, not calibrated (#77). Tauromacis/Taurospear use their canonical attacks (#76; cadence in balance.json mob_attacks). Jr. Boogie deals contact damage only and casts nothing: ordinary mobs cast no mob skills because character statuses come only from bosses (owner, #76).",
-			"map_id": 105050400,
 			"name": "Dark Cave",
 			"region": "Sleepywood",
 			"continent": "Victoria Island",
 			"duration": 900,
 			"hard_cap": 400,
 			"_bosses": "Tier C: owner schedule; first-pass encounter scales, 8 s per-attack cadence and equipment rewards chosen before measurement (#73), not tuned. Jr. Balrog has the greatest HP/contact/attack multipliers and effective HP (150000 versus 110000/28000). Canonical attacks, timing, stats and elements remain in Mob.wz. All bosses and reward choices must finish to clear.",
-			"bosses": [
-				{"time": 300, "mob_id": 6300005, "hp_mult": 0.8, "dmg_mult": 0.8,
-					"attacks": ["attack1"], "attack_interval": 8.0, "attack_dmg_mult": 0.8},
-				{"time": 600, "mob_id": 8220009, "hp_mult": 1.0, "dmg_mult": 1.0,
-					"attacks": ["attack1", "attack2", "attack3"], "attack_interval": 8.0, "attack_dmg_mult": 1.0},
-				{"time": 900, "mob_id": 8130100, "hp_mult": 3.0, "dmg_mult": 1.25,
-					"attacks": ["attack1", "attack2", "attack3"], "attack_interval": 8.0, "attack_dmg_mult": 1.25}
+			"map_seconds": 300,
+			"_maps": "Tier C: owner map order and pool rules, spec #241. Each boss time is relative to map entry; Pig Beach excludes timed Iron Hook; Sanctuary uses Sanctuary Entrance IV ordinary weights.",
+			"maps": [
+				{
+					"map_id": 105050400,
+					"pool": "curve",
+					"boss": {
+						"time": 300,
+						"mob_id": 6300005,
+						"hp_mult": 0.8,
+						"dmg_mult": 0.8,
+						"attacks": [
+							"attack1"
+						],
+						"attack_interval": 8,
+						"attack_dmg_mult": 0.8
+					}
+				},
+				{
+					"map_id": 105090310,
+					"pool_from_life": true,
+					"boss": {
+						"time": 300,
+						"mob_id": 8220009,
+						"hp_mult": 1,
+						"dmg_mult": 1,
+						"attacks": [
+							"attack1",
+							"attack2",
+							"attack3"
+						],
+						"attack_interval": 8,
+						"attack_dmg_mult": 1
+					}
+				},
+				{
+					"map_id": 105090900,
+					"pool": {
+						"4230100": 5,
+						"7130100": 2,
+						"7130101": 5
+					},
+					"boss": {
+						"time": 300,
+						"mob_id": 8130100,
+						"hp_mult": 3,
+						"dmg_mult": 1.25,
+						"attacks": [
+							"attack1",
+							"attack2",
+							"attack3"
+						],
+						"attack_interval": 8,
+						"attack_dmg_mult": 1.25
+					}
+				}
 			],
 			"exp_mult": 1.0,
 			"keyframes": [

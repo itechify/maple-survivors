@@ -94,7 +94,7 @@ func test_real_hub_draws_all_npcs_refills_pools_and_keeps_rooms_inert() -> void:
 	assert_eq((hub.get_node("/root/Sfx") as AudioService).current_bgm, "Sound.wz/Bgm00.img/FloralLife")
 	assert_true(hub.avatar.current_parts().any(func(p: Dictionary) -> bool: return p.name == "weapon"),
 		"the current job weapon is composed by AvatarRenderer")
-	var setup := RF.setup("henesys_hg1", 7, data)
+	var setup := RF.setup("henesys", 7, data)
 	setup.character = character
 	var round_world := RunWorld.new(setup)
 	assert_eq(hub.status.player_state.hp, round_world.player_state.max_hp)

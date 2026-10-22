@@ -35,7 +35,7 @@ func test_balance_character_flag_uses_fixture_in_one_off_round() -> void:
 	var output: Array = []
 	var status := OS.execute(OS.get_executable_path(), ["--headless", "--path",
 		ProjectSettings.globalize_path("res://"), "--script", "res://tools/balance_run.gd", "--",
-		"--stage=henesys_hg1", "--seed=2", "--cap=0.016666667", "--character=" + path], output, true)
+		"--stage=henesys", "--seed=2", "--cap=0.016666667", "--character=" + path], output, true)
 	assert_eq(status, 0)
 	var record := {}
 	for line: String in "\n".join(output).split("\n"):

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Headless pacing report: whole runs on the real map with the kiting autoplay bot and a card policy (default: the
+# Headless pacing report: whole rounds across the real maps with the kiting autoplay bot and a card policy (default: the
 # sensible picks of BotInput.pick_card_for; --policy=random: a careless player who takes a random card of the three),
 # the first available job, one Godot process per seed in parallel (game/tools/balance_run.gd). Needs the asset cache.
 #
-#   bash scripts/balance.sh                                # henesys_hg1, training seeds 1..6
+#   bash scripts/balance.sh                                # henesys, training seeds 1..6
 #   bash scripts/balance.sh 1 2 --job=210     # force a first or second job (a second job takes its first job at the first
 #   # window); one the build cannot offer fails at startup (see the seed log). --branch=<id> is the deprecated alias. --job=100:spear / --job=120:blunt select an advancement family.
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
@@ -13,7 +13,7 @@
 #   # --tier chains. No flag = an empty account and byte-identical records. The record gets "account": <file name> and the
 #   # output files <stage>_<policy>_acct-<name>_<seed>.json, so runs with different accounts never overwrite each other.
 #   bash scripts/balance.sh 1 2 2026 --tier=2               # tier-1 clears feed tier 2, one chain per seed
-#   bash scripts/balance.sh 1 --tier=2 --stage=tree_that_grew_1  # select tier 1 (default Henesys)
+#   bash scripts/balance.sh 1 --tier=2 --stage=ellinia  # select tier 1 (default Henesys)
 #   # --tier=N reads stages.json tiers, selecting the first stage of each later tier through N.
 #   # No --character/camper with --tier. First-round seed = run seed; later seed = Godot's
 #   # hash("balance-round-<run seed>-<zero-based tier>"). No saves or UI; only CLEARED feeds the next tier.
@@ -21,7 +21,7 @@
 #   bash scripts/balance.sh 1..12                          # a seed range (inclusive)
 #   bash scripts/balance.sh --policy=random 1..12          # the careless player (random cards)
 #   bash scripts/balance.sh --idle-after=300 1..6          # hands off the keys from 5:00 (cards still chosen)
-#   bash scripts/balance.sh --stage=tree_that_grew_1 1 2  # another stage
+#   bash scripts/balance.sh --stage=ellinia 1 2  # another stage
 #   bash scripts/balance.sh 1 2 --policy=camper_tree_top --camp-after=60 --cap=420
 #   # Other campers: camper_henesys_top / camper_henesys_rope (auto stage, sensible cards/potions).
 #   ISOLATE=<name> bash scripts/balance.sh                 # private mirror (_scratch/godot_runs/<name>/game), like test.sh
@@ -29,6 +29,13 @@
 #                                                          # variant without editing game/data; see balance_run.gd)
 #   BALANCE_OUT=<dir>                                      # where the per-seed logs/records go (default _scratch/balance)
 #   JOBS=<n>                                               # at most n Godot processes at once (default 12)
+#
+# Map schema in every round: map_times = entry seconds of reached maps, starting [0]; ended_map = {index, id}
+# (zero-based index, v83 id); boss_fights[] includes map_index/map_id, including not_spawned/skipped encounters.
+# SUMMARY deaths_by_map uses one-based string keys; map_entry_seconds["2"/"3"] gives count/min/median/max/mean
+# for reached maps only. Unreached/legacy entries have no samples (null stats), never invented zero entry times.
+# Keys: henesys/ellinia/sleepywood. Old henesys_hg1/tree_that_grew_1/dark_cave flags remain aliases, including
+# --tier chains and --character one-offs. Campers park only on their own map 1, then use the sensible bot.
 #
 # Every record carries nx_awarded (plus bosses_killed, levels_gained): the NX the round would pay (balance.json nx_award,
 # tier C). Tools never credit it and never write a save; the table's NX column and the summary report it per run.
@@ -63,7 +70,7 @@ set -uo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT="$REPO/game"
 
-STAGE="henesys_hg1"
+STAGE="henesys"
 STAGE_EXPLICIT=0
 POLICY="bot"
 EXTRA_IDLE=""
@@ -93,7 +100,7 @@ for a in "$@"; do
     *) SEEDS+=("$a") ;;
   esac
 done
-if [[ "$STAGE_EXPLICIT" -eq 0 && "$POLICY" == "camper_tree_top" ]]; then STAGE="tree_that_grew_1"; fi
+if [[ "$STAGE_EXPLICIT" -eq 0 && "$POLICY" == "camper_tree_top" ]]; then STAGE="ellinia"; fi
 [[ ${#SEEDS[@]} -gt 0 ]] || SEEDS=(1 2 3 4 5 6)
 RUN_KEY="${STAGE}_${POLICY}"
 if [[ -n "$EXTRA_TIER" ]]; then

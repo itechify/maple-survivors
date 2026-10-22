@@ -36,6 +36,11 @@ func _init(body: Dictionary = {}, images: Dictionary = {}) -> void:
 	_buffer.resize(128)
 
 
+## Drops the old map's swing without changing its cooldown or round counters.
+func clear_pending() -> void:
+	_pending = {}
+
+
 ## Advances the existing swing, then starts one when its interval and the shared action gate allow it.
 func step(dt: float, world: RunWorld) -> void:
 	cooldown -= dt

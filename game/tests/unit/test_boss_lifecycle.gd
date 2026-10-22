@@ -11,9 +11,10 @@ func _setup(times: Array = [3.5]) -> Dictionary:
 	data.balance.player.skills = []
 	var stage: Dictionary = data.stages.stages.quiet
 	stage.duration = 5.0
-	stage.bosses = []
+	var entries: Array = []
 	for at: float in times:
-		stage.bosses.append({"time": at, "mob_id": 2220000, "hp_mult": 2.0, "dmg_mult": 1.75})
+		entries.append({"time": at, "mob_id": 2220000, "hp_mult": 2.0, "dmg_mult": 1.75})
+	RF.set_bosses(stage, entries)
 	var setup := RF.setup("quiet", 1901, data)
 	var img: Dictionary = setup.mob_imgs[100100].duplicate(true)
 	img.info = {"maxHP": 2000.0, "PADamage": 90.0, "acc": 60.0, "boss": 1.0,
@@ -160,7 +161,7 @@ func test_arrival_without_a_point_rewarns_and_keeps_the_three_second_lead() -> v
 func test_boss_without_a_mob_img_is_skipped_with_a_warning_and_never_blocks_the_clear() -> void:
 	var setup := _setup([0.5, 1.5])
 	setup.data.stages.stages.quiet.duration = 1.0
-	setup.data.stages.stages.quiet.bosses[1].mob_id = 2229999
+	setup.data.stages.stages.quiet.maps[1].boss.mob_id = 2229999
 	var w := RunWorld.new(setup)
 	w.god = true
 	var warned_ids: Array[int] = []
@@ -315,15 +316,15 @@ func test_elite_schedule_uses_the_ramped_interval_after_the_last_keyframe() -> v
 
 func test_boss_touch_uses_explicit_multiplier_and_hit_source_identity() -> void:
 	var stages: Dictionary = DataRepo.load_all().stages.stages
-	var examples: Array = stages.henesys_hg1.bosses + stages.tree_that_grew_1.bosses
+	var examples: Array = DataRepo.stage_bosses(stages.henesys) + DataRepo.stage_bosses(stages.ellinia)
 	# Canonical v83 contact PADamage (checked against the real cache in test_boss_hit_bands).
 	var attacks := {2220000: 90.0, 6130101: 200.0, 9400205: 450.0, 3220000: 125.0, 9300003: 130.0, 6220000: 190.0}
 	for entry: Dictionary in examples:
 		var setup := _setup([0.5])
-		setup.data.stages.stages.quiet.bosses = [entry.duplicate(true)]
+		RF.set_bosses(setup.data.stages.stages.quiet, [entry.duplicate(true)])
 		# Contact only: the synthetic img has no attack nodes.
-		setup.data.stages.stages.quiet.bosses[0].erase("attacks")
-		setup.data.stages.stages.quiet.bosses[0].time = 0.5
+		setup.data.stages.stages.quiet.maps[0].boss.erase("attacks")
+		setup.data.stages.stages.quiet.maps[0].boss.time = 0.5
 		setup.data.balance.player.hp = float(entry.typical_hp)
 		setup.data.balance.player.stats.dex = 0
 		setup.data.balance.player.stats.luk = 0

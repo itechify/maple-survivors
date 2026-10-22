@@ -299,7 +299,7 @@ func test_attacks_wait_without_cost_when_mp_is_short() -> void:
 func test_forced_thief_paths_are_accepted_by_run_and_launcher() -> void:
 	var data := DataRepo.load_all()
 	for path: String in WEAPONS:
-		var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--job=400:" + path]))
+		var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=400:" + path]))
 		assert_eq(parsed.options.job, 400)
 		assert_eq(parsed.options.job_path, path)
 		assert_eq(SceneFlow.forced_job_error(parsed.options, data), "")

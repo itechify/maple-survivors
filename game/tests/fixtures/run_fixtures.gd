@@ -9,6 +9,18 @@ extends RefCounted
 const WF := preload("res://tests/fixtures/world_fixtures.gd")
 
 
+## Gives a synthetic stage an absolute boss schedule using the per-map schema; keeps its first map id.
+static func set_bosses(stage: Dictionary, bosses: Array) -> void:
+	var map_id := int(stage.get("maps", [{}])[0].get("map_id", 0))
+	# Tier C: single-map probes retain a normal curve window; arbitrary multi-boss fixtures use absolute times.
+	stage["map_seconds"] = 0 if bosses.size() > 1 else 300
+	stage["maps"] = []
+	for boss: Dictionary in bosses:
+		stage.maps.append({"map_id": map_id, "boss": boss})
+	if stage.maps.is_empty():
+		stage.maps.append({"map_id": map_id, "boss": {}})
+
+
 ## Skill.wz-shaped imgs keyed by book ("000", "200", "210", "220") like setup.skill_imgs.
 static func skill_imgs() -> Dictionary:
 	var snails := {}
@@ -432,6 +444,8 @@ static func mob_imgs() -> Dictionary:
 	var out := {}
 	for id: int in MOB_INFO:
 		out[id] = mob_img(id)
+	# Tier C: synthetic stand-in for #241's explicit Sanctuary pool; never a canonical Cold Eye stat fixture.
+	out[4230100] = mob_img(100100)
 	return out
 
 
@@ -485,7 +499,7 @@ static func big_map_img() -> Dictionary:
 
 
 ## A RunWorld setup on the synthetic map with the real game data files.
-static func setup(stage := "henesys_hg1", p_seed := 12345, data: Dictionary = {}) -> Dictionary:
+static func setup(stage := "henesys", p_seed := 12345, data: Dictionary = {}) -> Dictionary:
 	return {
 		"map_img": big_map_img(),
 		"physics_img": WF.physics_img_v83(),
@@ -570,6 +584,8 @@ static func physical_bounds(str_stat: int, dex_stat: int, watk: float, weapon_id
 ## Resolves an open window like BotInput: the first available job (else "Not now") and BotInput.pick_card_for's card.
 static func auto_choose(w: RunWorld) -> void:
 	BotInput.auto_choose(w)
+	if w.transfer_pending:
+		w.advance_map()
 
 
 ## Adds canonical-shaped weapon afterimage and body timing data to `setup` so the automatic basic attack can swing on
@@ -606,7 +622,7 @@ static func quiet_data() -> Dictionary:
 	for id: int in MOB_INFO:
 		pool[str(id)] = 1.0
 	stages["quiet"] = {
-		"map_id": 0, "name": "quiet", "duration": 900.0, "hard_cap": 400,
+		"maps": [{"map_id": 0, "boss": {}}], "name": "quiet", "duration": 900.0, "hard_cap": 400,
 		"keyframes": [{"t": 0.0, "rate": 0.0, "max_alive": 0.0, "hp": 1.0, "speed": 1.0, "pool": pool}],
 		"bursts": {}, "elites": {},
 	}

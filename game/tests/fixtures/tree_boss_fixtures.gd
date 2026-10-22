@@ -11,9 +11,9 @@ static func setup(id: int = 6220000, skills: Array = [140], attacks: Array = [],
 	data.balance.player.stats.dex = 0
 	data.balance.player.stats.luk = 0
 	data.balance.mob_skills.enabled_ids = [id]
-	data.stages.stages.quiet.bosses = [{"time": 0.5, "mob_id": id, "hp_mult": 1.5,
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.5, "mob_id": id, "hp_mult": 1.5,
 		"dmg_mult": 0.0, "attacks": attacks, "attack_interval": 8.0, "attack_dmg_mult": 2.09,
-		"rewards": {"bonus_choices": 0, "exp_mult": 0}}]
+		"rewards": {"bonus_choices": 0, "exp_mult": 0}}])
 	var out := RF.setup("quiet", seed_value, data)
 	out.map_img = RF.map_from_segments([{"x1": -2000, "y1": 0, "x2": 2000, "y2": 0}], [Vector2.ZERO])
 	out.equipment_info[1040002] = {"incPDD": 47.0}

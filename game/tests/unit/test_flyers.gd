@@ -37,14 +37,14 @@ func test_flyer_spawns_in_air_without_an_offscreen_floor() -> void:
 
 func test_henesys_flyers_join_at_their_stage_times_only() -> void:
 	var data := DataRepo.load_all()
-	var stage: Dictionary = data.stages.stages.henesys_hg1
+	var stage: Dictionary = data.stages.stages.henesys
 	var first := {}
 	for keyframe: Dictionary in stage.keyframes:
 		for id: int in FLYERS:
 			if keyframe.pool.has(str(id)) and not first.has(id):
 				first[id] = int(keyframe.t)
 	assert_eq(first, {9300063: 180, 9300062: 300, 9300064: 480, 2300100: 660}, "3/5/8/11 minute flyer arrivals")
-	var tree_ids := DataRepo.stage_mob_ids(data, "tree_that_grew_1")
+	var tree_ids := DataRepo.stage_mob_ids(data, "ellinia")
 	for id: int in FLYERS:
 		assert_false(id in tree_ids, "the Tree stage keeps ground mobs only")
 

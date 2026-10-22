@@ -100,7 +100,7 @@ func test_quit_round_leaves_the_account_and_the_boundary_alone() -> void:
 	flow.create_character("Quit115")
 	flow.finish_run(_summary(true, 140), flow.save.slot(0).character)
 	flow.goto_stage_select()
-	flow.start_round("dark_cave", 11)
+	flow.start_round("sleepywood", 11)
 	var bytes := FileAccess.get_file_as_string(save_path)
 	flow.quit_round()
 	assert_eq(FileAccess.get_file_as_string(save_path), bytes)

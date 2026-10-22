@@ -3,6 +3,8 @@ extends TestCase
 ## summary and the new-best flag, error screen) and the results screen's data helpers. Saves go to
 ## TestCase.test_dir(), never the real user://save.json.
 
+const STAGE_FIXTURES := preload("res://tests/fixtures/run_fixtures.gd")
+
 var save_path := TestCase.test_dir("ui_flow/save.json")
 const RESULTS := preload("res://scenes/ui/results_screen.gd")
 const STAGE_SELECT := preload("res://scenes/ui/stage_select.gd")
@@ -21,18 +23,6 @@ func test_results_skills_fit_above_new_best_at_every_loadout_size() -> void:
 			return
 
 
-func test_map_select_roster_keeps_long_names_readable_inside_each_cell() -> void:
-	for name: String in ["Curse Eye", "Jr. Boogie", "Tauromacis", "Taurospear"]:
-		var lines: PackedStringArray = STAGE_SELECT.roster_name_lines(name, 54)
-		assert_true(lines.size() <= 2)
-		if not "".join(lines).contains("..."):
-			assert_eq("".join(lines).replace(" ", ""), name.replace(" ", ""), "wrapped names stay complete")
-		for line: String in lines:
-			assert_true(MapleText.width(line, MapleText.SMALL) <= 54, "%s fits its roster cell" % line)
-			assert_true(line.ends_with("...") or line in name.split(" ") or line == name,
-				"roster names wrap only at word boundaries, or ellipsize a long word: " + line)
-
-
 func before_each() -> void:
 	TestCase.remove_tree(save_path.get_base_dir())
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(save_path.get_base_dir()))
@@ -46,7 +36,7 @@ func after_each() -> void:
 	TestCase.remove_tree(save_path.get_base_dir())
 
 
-static func summary(cleared: bool, time: float, level: int, kills: int, stage: String = "henesys_hg1") -> Dictionary:
+static func summary(cleared: bool, time: float, level: int, kills: int, stage: String = "henesys") -> Dictionary:
 	return {"stage": stage, "map_id": 104040000, "map_name": "Henesys Hunting Ground I", "street_name": "Victoria Road",
 		"time": time, "duration": 900.0, "cleared": cleared, "level": level, "job_id": 200, "job_name": "Magician",
 		"kills": kills, "damage_dealt": kills * 40, "seed": 7,
@@ -60,31 +50,30 @@ func test_stage_select_ignores_retired_save_records() -> void:
 	var f := FileAccess.open(save_path, FileAccess.WRITE)
 	f.store_string(JSON.stringify({"format": 1,
 		"best": {"retired_stage": summary(true, 900, 40, 9000),
-			"henesys_hg1": summary(false, 300, 12, 400)},
-		"runs": {"retired_stage": 8, "henesys_hg1": 1}}))
+			"henesys": summary(false, 300, 12, 400)},
+		"runs": {"retired_stage": 8, "henesys": 1}}))
 	f.close()
 	var s := SaveData.new(save_path)
 	assert_true(s.best_for("retired_stage").is_empty(), "retired best record is ignored")
 	assert_eq(s.runs_for("retired_stage"), 0, "retired run count is ignored")
-	assert_eq(int(s.best_for("henesys_hg1").kills), 400, "playable best remains")
-	assert_eq(s.runs_for("henesys_hg1"), 1)
+	assert_eq(int(s.best_for("henesys").kills), 400, "playable best remains")
+	assert_eq(s.runs_for("henesys"), 1)
 	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
 	assert_eq(offered.size(), 3)
-	assert_eq(String(offered[0].key), "henesys_hg1")
-	assert_eq(String(offered[1].key), "tree_that_grew_1")
-	assert_eq(String(offered[2].key), "dark_cave")
+	assert_eq(String(offered[0].key), "henesys")
+	assert_eq(String(offered[1].key), "ellinia")
+	assert_eq(String(offered[2].key), "sleepywood")
 	assert_eq(STAGE_SELECT.best_text(s.best_for(String(offered[0].key))),
 		"Best: Survived 05:00, Lv. 12, 400 kills")
 
 
 func test_stage_select_objective_matches_the_clear_rule() -> void:
 	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
-	assert_eq(offered[0].objective, "Defeat all 3 bosses to clear.")
-	assert_eq(offered[1].objective, "Defeat all 3 bosses to clear.")
+	assert_eq(offered[0].objective, "Defeat 3 bosses across 3 maps")
+	assert_eq(offered[1].objective, "Defeat 3 bosses across 3 maps")
 	var fallback := DataRepo.load_all()
-	fallback.stages.stages.tree_that_grew_1.erase("bosses")
+	STAGE_FIXTURES.set_bosses(fallback.stages.stages.ellinia, [])
 	assert_eq(STAGE_SELECT.load_stages(fallback)[1].objective, "Survive 15:00 to clear the stage.")
-	assert_false(2220000 in offered[0].mobs, "bosses do not enlarge the ordinary monster roster grid")
 
 
 func test_save_data_round_trip() -> void:
@@ -94,15 +83,15 @@ func test_save_data_round_trip() -> void:
 	assert_true(s.record(summary(false, 300.0, 12, 400)), "first run is a best")
 	assert_true(FileAccess.file_exists(save_path))
 	var t := SaveData.new(save_path)
-	var b := t.best_for("henesys_hg1")
+	var b := t.best_for("henesys")
 	assert_eq(float(b.time), 300.0)
 	assert_eq(int(b.level), 12)
 	assert_eq(int(b.kills), 400)
 	assert_eq(String(b.job_name), "Magician")
 	assert_false(b.has("skills"), "only the record keys are kept")
-	assert_eq(t.runs_for("henesys_hg1"), 1)
-	assert_eq(t.runs_for("tree_that_grew_1"), 0)
-	assert_true(t.best_for("tree_that_grew_1").is_empty())
+	assert_eq(t.runs_for("henesys"), 1)
+	assert_eq(t.runs_for("ellinia"), 0)
+	assert_true(t.best_for("ellinia").is_empty())
 
 
 func test_save_data_best_rule() -> void:
@@ -113,9 +102,9 @@ func test_save_data_best_rule() -> void:
 	assert_true(s.record(summary(true, 900.0, 25, 50)), "a clear beats any death")
 	assert_false(s.record(summary(false, 899.0, 40, 9000)), "a death never beats a clear")
 	assert_true(s.record(summary(true, 900.0, 25, 60)), "clear vs clear: kills break the level tie")
-	assert_eq(int(s.best_for("henesys_hg1").kills), 60)
-	assert_eq(s.runs_for("henesys_hg1"), 6)
-	assert_eq(int(SaveData.new(save_path).best_for("henesys_hg1").kills), 60, "saved")
+	assert_eq(int(s.best_for("henesys").kills), 60)
+	assert_eq(s.runs_for("henesys"), 6)
+	assert_eq(int(SaveData.new(save_path).best_for("henesys").kills), 60, "saved")
 	assert_true(SaveData.is_better({"time": 1.0}, {}), "anything beats no record")
 	assert_false(SaveData.is_better(summary(true, 900, 25, 60), summary(true, 900, 25, 60)), "a tie is not better")
 	assert_false(s.record({"time": 5.0}), "a summary without a stage is ignored")
@@ -136,9 +125,9 @@ func test_save_data_broken_file_and_describe() -> void:
 
 func test_parse_run_args() -> void:
 	assert_true(SceneFlow.parse_run_args(PackedStringArray(["--window=title"])).is_empty(), "no --run")
-	var r := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--seed=42", "--autoplay", "--autopick",
+	var r := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--seed=42", "--autoplay", "--autopick",
 		"--job=220", "--speed=4", "--shots=C:/tmp/shots", "--shot-every=5", "--quit-after=60.5", "--perf", "--fill"]))
-	assert_eq(String(r.run), "henesys_hg1")
+	assert_eq(String(r.run), "henesys")
 	assert_eq(int(r.seed), 42)
 	var o: Dictionary = r.options
 	assert_eq(o.autoplay, true)
@@ -146,7 +135,7 @@ func test_parse_run_args() -> void:
 	assert_eq(typeof(o.speed), TYPE_INT)
 	assert_eq(o.speed, 4)
 	assert_eq(int(o.job), 220, "job flag reaches RunScene options")
-	assert_eq(int(SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--branch=230"])).options.job), 230,
+	assert_eq(int(SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--branch=230"])).options.job), 230,
 		"the deprecated --branch is the same option")
 	assert_eq(o.shots_dir, "C:/tmp/shots")
 	assert_eq(typeof(o.shot_every), TYPE_FLOAT)
@@ -154,7 +143,7 @@ func test_parse_run_args() -> void:
 	assert_near(float(o.quit_after), 60.5)
 	assert_eq(o.perf, true)
 	assert_eq(o.fill, "1", "other flags pass through")
-	var r2 := SceneFlow.parse_run_args(PackedStringArray(["--run=tree_that_grew_1", "--perf=600", "--autoplay=0"]))
+	var r2 := SceneFlow.parse_run_args(PackedStringArray(["--run=ellinia", "--perf=600", "--autoplay=0"]))
 	assert_eq(int(r2.seed), -1, "no seed -> random")
 	assert_eq(r2.options.perf, 600)
 	assert_eq(r2.options.autoplay, false)
@@ -340,8 +329,8 @@ func test_stage_select_lists_the_region_and_continent() -> void:
 		assert_eq(String(offered[i].continent), want[i][1], "stage %d continent" % i)
 		assert_false(offered[i].has("name") or offered[i].has("street"), "the WZ map name is not the view data")
 	var legacy := DataRepo.load_all()
-	legacy.stages.stages.henesys_hg1.erase("region")
-	legacy.stages.stages.henesys_hg1.erase("continent")
+	legacy.stages.stages.henesys.erase("region")
+	legacy.stages.stages.henesys.erase("continent")
 	var fallback: Dictionary = STAGE_SELECT.load_stages(legacy)[0]
 	assert_eq(String(fallback.region), "Henesys Hunting Ground I", "a stage without a region falls back to its name")
 	assert_eq(String(fallback.continent), "")
@@ -355,7 +344,7 @@ func test_results_name_the_region_and_continent() -> void:
 	# A summary saved before the fields existed (map and street name only) reads the stage's region from stages.json.
 	assert_false(summary(false, 1.0, 1, 1).has("region"))
 	assert_eq(DataRepo.summary_stage_lines(summary(false, 1.0, 1, 1)), ["Henesys", "Victoria Island"])
-	assert_eq(DataRepo.summary_stage_lines(summary(false, 1.0, 1, 1, "dark_cave")), ["Sleepywood", "Victoria Island"])
+	assert_eq(DataRepo.summary_stage_lines(summary(false, 1.0, 1, 1, "sleepywood")), ["Sleepywood", "Victoria Island"])
 	# A retired stage key has no stages.json entry: the old names stay readable.
 	assert_eq(DataRepo.summary_stage_lines(summary(false, 1.0, 1, 1, "retired_stage")), ["Henesys Hunting Ground I", "Victoria Road"])
 	assert_eq(DataRepo.summary_stage_lines({"stage": "retired_stage"}), ["retired_stage", ""])
@@ -386,8 +375,8 @@ func test_create_character_enters_saved_tier_one_map_select() -> void:
 	assert_eq(int(saved.character.level), 1)
 	assert_eq(int(saved.character.job_id), 0)
 	assert_eq(flow.current.stages.size(), 2)
-	assert_eq(flow.current.stages[0].key, "henesys_hg1")
-	assert_eq(flow.current.stages[1].key, "tree_that_grew_1")
+	assert_eq(flow.current.stages[0].key, "henesys")
+	assert_eq(flow.current.stages[1].key, "ellinia")
 	assert_eq(flow.create_character("maple69"), -1, "living names are unique ignoring case")
 	assert_eq(flow.create_character("no!"), -1)
 
@@ -433,15 +422,15 @@ func test_clear_carries_character_to_next_tier_and_refills_pools() -> void:
 	assert_eq(flow.current_name, "free_market", "Continue returns to the saved hub")
 	flow.goto_stage_select()
 	assert_eq(flow.current.stages.size(), 1, "single-stage tiers still show map select")
-	assert_eq(flow.current.stages[0].key, "dark_cave")
-	var setup := preload("res://tests/fixtures/run_fixtures.gd").setup("henesys_hg1", 7)
+	assert_eq(flow.current.stages[0].key, "sleepywood")
+	var setup := preload("res://tests/fixtures/run_fixtures.gd").setup("henesys", 7)
 	setup.character = boundary.character
 	var next := RunWorld.new(setup)
 	assert_eq(next.player_state.hp, next.player_state.max_hp)
 	assert_eq(next.player_state.mp, next.player_state.max_mp)
 	assert_eq(next.progression.exp, 17)
 	assert_true(next.potions.is_ready("hp"))
-	assert_eq(flow.save.runs_for("henesys_hg1"), 1)
+	assert_eq(flow.save.runs_for("henesys"), 1)
 
 
 func test_free_market_walk_to_scripted_exit_saves_next_map_select() -> void:
@@ -461,7 +450,7 @@ func test_free_market_walk_to_scripted_exit_saves_next_map_select() -> void:
 	hub.step_input(1.0 / 60.0, MoveInput.make(false, false, true))
 	assert_eq(flow.current_name, "stage_select")
 	assert_eq(SaveData.new(save_path).slot(0).phase, "map_select")
-	assert_eq(flow.current.stages[0].key, "dark_cave")
+	assert_eq(flow.current.stages[0].key, "sleepywood")
 
 
 
@@ -566,7 +555,7 @@ func test_finale_sweep_quit_replays_start_then_carries_settled_rewards_once() ->
 	var rf := preload("res://tests/fixtures/run_fixtures.gd")
 	var flow := _flow()
 	flow.create_character("Sweep71")
-	flow.start_round("henesys_hg1", 71)
+	flow.start_round("henesys", 71)
 	var bytes := FileAccess.get_file_as_string(save_path)
 	var start: Dictionary = flow.save.slot(0).character
 	for attempt in 2:
@@ -606,8 +595,8 @@ func test_same_tick_boss_projectile_kill_and_contact_death_ends_run_with_last_va
 	var rf := preload("res://tests/fixtures/run_fixtures.gd")
 	var data := rf.quiet_data()
 	data.balance.player.skills = []
-	data.stages.stages.quiet.bosses = [{"time": 0.1, "mob_id": 2220000,
-		"rewards": {"bonus_choices": 1, "exp_mult": 0}}]
+	STAGE_FIXTURES.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000,
+		"rewards": {"bonus_choices": 1, "exp_mult": 0}}])
 	var world := RunWorld.new(rf.setup("quiet", 32, data))
 	world.progression.level = 17
 	world.refresh_player_stats()
@@ -653,7 +642,7 @@ func test_quit_round_then_continue_replays_saved_first_minute() -> void:
 		return
 	var flow := _flow()
 	flow.create_character("Replay69")
-	flow.start_round("henesys_hg1", 2026)
+	flow.start_round("henesys", 2026)
 	var first := flow.current as RunScene
 	assert_true(first != null and first.world != null)
 	var bytes := FileAccess.get_file_as_string(save_path)
@@ -664,7 +653,7 @@ func test_quit_round_then_continue_replays_saved_first_minute() -> void:
 	flow.save = SaveData.new(save_path)
 	flow.continue_character(0)
 	var replay := flow.current as RunScene
-	assert_eq(replay.stage_key, "henesys_hg1")
+	assert_eq(replay.stage_key, "henesys")
 	assert_eq(replay.run_seed, 2026)
 	assert_eq(_first_minute(replay.world), events)
 	assert_eq(FileAccess.get_file_as_string(save_path), bytes)
@@ -708,7 +697,7 @@ func test_continue_migrates_a_format_one_slot_once_and_keeps_its_look() -> void:
 func test_save_and_quit_continue_map_select_and_delete_history() -> void:
 	var flow := _flow()
 	flow.create_character("Slots69")
-	flow.start_round("dark_cave", 7)
+	flow.start_round("sleepywood", 7)
 	assert_eq(flow.current_name, "stage_select", "a later tier cannot be selected early")
 	flow.save_and_quit()
 	assert_eq(flow.current_name, "character_select")
@@ -730,12 +719,12 @@ func test_one_off_character_round_leaves_existing_save_bytes_unchanged() -> void
 	flow.create_character("Tool69")
 	var bytes := FileAccess.get_file_as_string(save_path)
 	var path := ProjectSettings.globalize_path("res://tests/fixtures/characters/lv35_magician_2nd.json")
-	flow.start_run("henesys_hg1", 7, {"character": path})
+	flow.start_run("henesys", 7, {"character": path})
 	var run := flow.current as RunScene
 	assert_eq(int(run.world.player_state.level), 38)
 	assert_eq(flow.active_slot, -1)
 	flow.finish_run(summary(true, 900, 35, 3000))
 	assert_eq(flow.current_name, "results")
 	assert_eq(FileAccess.get_file_as_string(save_path), bytes)
-	assert_eq(flow.save.runs_for("henesys_hg1"), 0)
+	assert_eq(flow.save.runs_for("henesys"), 0)
 	assert_eq(flow.save.history.size(), 0)

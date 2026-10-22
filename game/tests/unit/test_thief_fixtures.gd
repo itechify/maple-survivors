@@ -16,7 +16,7 @@ func test_fixtures_document_reproduction_and_diagnostic_aids() -> void:
 		assert_eq(int(doc.forced_branch), spec[1])
 		assert_eq(doc.forced_path, spec[2])
 		assert_eq(doc.policy, "bot")
-		assert_eq(doc.stage, "henesys_hg1")
+		assert_eq(DataRepo.canonical_stage_key(String(doc.stage)), "henesys")
 		assert_eq(int(doc.seed), 1)
 		assert_eq(doc.branch, "spec167/ticket-215")
 		assert_eq(String(doc.revision).length(), 40)
@@ -46,7 +46,7 @@ func test_fixtures_restore_all_skills_and_play_without_warnings() -> void:
 			lib.free()
 			return
 		var missing := PackedStringArray()
-		var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys_hg1", 215, Vector2(800, 600),
+		var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys", 215, Vector2(800, 600),
 			func(img: String) -> Dictionary: return lib.img(img).root if lib.img(img) != null else {},
 			func(id: int) -> Dictionary: return lib.mob_root(id), missing, character)
 		assert_eq(missing, PackedStringArray())

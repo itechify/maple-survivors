@@ -185,8 +185,8 @@ func test_sweep_reuses_room_freed_by_ordinary_equipment_auto_wear() -> void:
 func test_distant_final_boss_shower_and_ordinary_drops_are_paid_together() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
-	data.stages.stages.quiet.bosses = [{"time": 0.1, "mob_id": 2220000,
-		"rewards": {"bonus_choices": 1, "exp_mult": 0.05, "exp_drops": 2, "potions": {"hp": 2, "mp": 3}}}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000,
+		"rewards": {"bonus_choices": 1, "exp_mult": 0.05, "exp_drops": 2, "potions": {"hp": 2, "mp": 3}}}])
 	var w := RunWorld.new(RF.setup("quiet", 73, data))
 	RF.place_player(w, 400)
 	w.god = true

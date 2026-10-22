@@ -42,7 +42,7 @@ func _fixture() -> Dictionary:
 
 
 func test_without_the_hub_flag_nothing_is_requested() -> void:
-	assert_eq(HubTestKit.parse_args(PackedStringArray(["--run=henesys_hg1", "--seed=3"])), {})
+	assert_eq(HubTestKit.parse_args(PackedStringArray(["--run=henesys", "--seed=3"])), {})
 	assert_eq(HubTestKit.parse_args(PackedStringArray()), {})
 
 

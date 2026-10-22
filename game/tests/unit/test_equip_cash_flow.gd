@@ -91,7 +91,7 @@ func test_putting_the_pet_away_in_a_round_is_carried_to_the_next_boundary() -> v
 	var snapshot := flow.save.slot(0)
 	snapshot.character.pet = PET
 	flow.save.update_slot(0, snapshot)
-	flow.start_round("henesys_hg1", 7)
+	flow.start_round("henesys", 7)
 	var run := flow.current as RunScene
 	assert_true(run != null and run.pet_renderer != null, "the round starts with the pet out")
 	if run == null:

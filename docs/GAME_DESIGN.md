@@ -1,6 +1,6 @@
 # Game design
 
-Maple Survivors: survive a classic MapleStory map while an ever-growing swarm of familiar monsters closes in. You move,
+Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You move,
 jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick upgrades as you level, and
 you advance jobs at the classic milestones.
 
@@ -10,14 +10,16 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
 ## 1. The run
 
 1. **Create or continue.** Select one of three living characters, or create a named Beginner with the v83 Explorer
-   look and weapon choices. Map select offers one stage from the next tier: Henesys Hunting Ground I or The Tree
-   That Grew I in tier 1, then Dark Cave in tier 2.
+   look and weapon choices. Map select offers one region stage from the next tier: Henesys or Ellinia in tier 1,
+   then Sleepywood in tier 2. Each stage contains three ordered maps (section 4.1).
 2. **Start.** A new character is a level 1 Beginner with the chosen MakeCharInfo look and weapon, standing at a
    random spawn portal (`pn=sp`). Empty carried looks use AvatarRenderer.DEFAULT_LOOK (face 20000, hair 30030,
    White Undershirt 1040002, Blue Jean Shorts 1060002, Red Rubber Boots 1072001). Later rounds restore the carried
    character with full HP/MP. The map's own BGM plays.
-3. **Survive** the growing swarms and defeat the three bosses arriving at 5:00, 10:00 and 15:00. The final fight can
-   continue past 15:00; reaching the timer alone does not clear a stage.
+3. **Survive** the growing swarms. Each map's boss arrives 300 seconds after entering it. Defeat it, collect all
+   drops and finish every pending choice with combat frozen, then transfer automatically to the next map. HP, MP,
+   buffs, Hidden, cooldowns, kills and damage carry; map entities and boss-inflicted statuses clear. Only map 3 clears the
+   round. Slow boss fights extend total round time; reaching a timer alone never clears a map or stage.
 4. **Level up** by collecting EXP drops. An eligible upgrade choice pauses the game and offers up to three cards;
    an empty pool opens no window.
 5. **Advance** to Warrior, Magician, Thief or Pirate at level 10 (survivor override). Further Explorer jobs are planned (section 9).
@@ -31,7 +33,8 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
 Runs carry one named character through one stage per tier ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
 Level, partial EXP, job/branch, AP, skill ranks/mods, Fortune, look and weapon carry. Potion tiers derive from level;
 HP/MP refill and buffs, cooldowns, auto-cast timers, statuses and map entities reset. Saves are at round boundaries only.
-Quit round leaves the stored stage, seed and starting character unchanged; Continue replays that round.
+Save & quit / Quit round leaves the stored stage, seed and starting character unchanged; Continue replays that round
+from map 1, even when quitting on map 2 or 3. Map transfers never save or refill HP/MP.
 Death, victory and confirmed deletion end the run, free its slot and enter history; results have no Retry.
 A non-final clear autosaves the carried
 character and next tier in the Free Market (`phase=free_market`). The final tier goes directly to victory results.
@@ -254,9 +257,9 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   air points without needing a floor or a route. They use their own canonical contact attack, never ranged attacks,
   and their canonical HP receives the same stage HP multiplier as ground mobs. `fly`, `hit1`, and `die1` use the
   original WZ frames; dying flyers stay in the air until their animation ends.
-  Henesys Hunting Ground I adds PQ Stirge 9300063 (Lv 6) at 3:00, Flyeye 9300062 (Lv 8) at 5:00, Goblin Fire 9300064
-  (Lv 11) at 8:00, and regular Stirge 2300100 (Lv 20) at 11:00, each at weight 1; earlier flyers remain in the pool.
-  The added arrival keyframes interpolate the existing pacing values. The Tree That Grew I has no flyers.
+  Henesys map 1 adds PQ Stirge 9300063 (Lv 6) at 3:00, weight 1. Later curve pools retain historical flyer
+  additions as data, but no longer select mobs (#241); later maps use their life pools. The Tree That Grew I
+  has no flyers; The Forest of Evil I brings Malady from its own life list.
 - **Death:** `die1` plays with its WZ delays and alpha fades (`a0/a1`), the death sound plays, and the mob drops EXP.
 - **Elites:** periodically one mob of the current pool spawns with ×8 HP, ×5 EXP and an explicit ×1.5 mitigated
   hit multiplier (`elites.damage_mult`), drawn with a name tag. All three multipliers are survivor data (tier C).
@@ -319,26 +322,39 @@ implementations remain sibling work.
 
 ### 4.1 Pacing (`stages.json`)
 
-Stage display names (#221, 2026-10-18, tier C, owner choice from the playtest-3 grilling): the player sees a stage as
-the town or region it belongs to, not its v83 map name, because a region may later pick among several maps. Each stage
-in `stages.json` carries a required `region` and `continent` (checked by `DataRepo.stage_label_errors` on load and by
-`test_data_files`); `name` stays only as a fallback. The WZ `mapName`/`streetName` are no longer displayed (WZ's street
-for Henesys Hunting Ground I is "Victoria Road", so the region cannot come from WZ). Keys, map ids, saves and run
-history are unchanged.
+Stages use region keys `henesys`, `ellinia` and `sleepywood`, with `region` and `continent` labels (tier C owner
+choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as aliases; living slots,
+bests, history and run snapshots migrate on load. The tier list is `[[henesys, ellinia], [sleepywood]]`.
 
-| Stage key | Map id | Region | Continent |
-|---|---|---|---|
-| `henesys_hg1` | 104040000 | Henesys | Victoria Island |
-| `tree_that_grew_1` | 101010100 | Ellinia | Victoria Island |
-| `dark_cave` | 105050400 | Sleepywood | Victoria Island |
+| Stage key | Map 1 | Map 2 | Map 3 | Boss order |
+|---|---|---|---|---|
+| `henesys` | Henesys Hunting Ground I (104040000) | The Pig Beach (104010001) | The Blue Mushroom Forest (100030001) | Mano / Mushmom / Blue Mushmom |
+| `ellinia` | The Tree That Grew I (101010100) | The Forest of Wisdom (100040100) | The Forest of Evil I (100040105) | Stumpy / King Slime / Dyle |
+| `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
 
-The stage-select list shows the region; its details panel and the results screen show the region with the continent
-under it; the in-run banner shows the continent small above the region. Run summaries carry `region` and `continent`
-(they still carry the WZ `map_name`/`street_name` for tools); a summary saved before the fields existed reads the
-stage's region from `stages.json`, and a stage no longer in the file keeps its saved map and street name.
+All are on Victoria Island. Map select lists each region's three maps and bosses; its objective is "Defeat 3 bosses
+across 3 maps". Results show the region and ending map. The opening title shows continent above region; transfer
+arrivals show the destination's v83 street and map name. Summaries retain region/continent and the ending WZ names.
 
-Dark Cave (`dark_cave`, v83 105050400, Dungeon) is tier 2 in the zero-based run tier list:
-`[[henesys_hg1, tree_that_grew_1], [dark_cave]]` (tier C, owner choice, #32/#72).
+Round time includes all combat on every map. The pacing clock is `curve_time = (N - 1) * 300 + time_on_map` for
+one-based map N, resetting to 300 / 600 on transfers regardless of the previous fight's duration. Rate, alive cap,
+HP/speed multipliers, bursts, elites and post-duration slopes use that clock. Boss waits use time since entry instead.
+
+Map 1's ordinary pool follows the last keyframe at or before curve time among keyframes with `t < 300`; later
+keyframes change numeric pacing only. Maps 2 and 3 use their own v83 `life` mob counts as weights, excluding hidden
+event entries and each map's `exclude` list. Pig Beach excludes timed Iron Hook 4090000. The Cursed Sanctuary uses
+Sanctuary Entrance IV's ordinary pool: Cold Eye 4230100 x5, Tauromacis 7130100 x2, Taurospear 7130101 x5. Bursts and
+elites use the same current pool. `stages.json` declares `pool: "curve"`, `pool_from_life: true` (optional `exclude`),
+or an explicit weighted `pool` per map; these are tier C owner choices, not changes to canonical WZ stats.
+
+Balance records and playtest `summary.json` carry `map_times` (reached-map entry seconds from round start, starting
+with 0) and `ended_map: {index, id}` (zero-based index, original v83 id). `boss_fights` retains `map_index`/`map_id`.
+SUMMARY reports deaths by map and map-2/map-3 entry medians with observation counts; an unreached map contributes
+no observation. Camper policies park only on their own first map; later maps use the sensible bot. Prior seeded
+records change with this map progression. The regression smoke belongs to #249; #248 only checks seed 1 Henesys
+for the new record fields and uses diagnostic flow evidence, without tuning.
+
+Sleepywood's first map is Dark Cave (105050400, Dungeon), in tier 2.
 Its first-pass data targets an arriving Lv35–43 second-job character and is frozen before the report-only smoke;
 the 30–40% clear / Lv60–69 targets are deferred to #77. Canonical mob HP, defence, EXP, levels and elements remain
 unchanged in the cache. Stage EXP is 1x; no new per-mob stat multipliers are applied. Tauromacis and Taurospear use
@@ -347,7 +363,7 @@ casts a mob skill. Cross-map exits west00/east00 and NPC
 9201133 use the existing drawn, inert handling. The original spawn list is 9 Horny Mushrooms, 7 Zombie Mushrooms
 and 35 Stirges (tier A, original Map.wz).
 
-| Time | Rate/s | Max alive | Pool (mob ID:weight) | HP × | Speed × |
+| Curve time | Rate/s | Max alive | Pool (mob ID:weight) | HP × | Speed × |
 |---|---|---|---|---|---|
 | 0:00 | 3 | 50 | 2110200:4, 2230101:4, 2300100:1 | 1 | 1 |
 | 2:00 | 4.5 | 80 | 2110200:3, 2230101:3, 2300100:1, 2230100:3 | 1 | 1.05 |
@@ -357,22 +373,22 @@ and 35 Stirges (tier A, original Map.wz).
 | 13:00 | 15 | 280 | 2300100:1, 3230100:3, 3230300:2, 7130100:3, 7130101:2 | 1.5 | 1.25 |
 | 15:00 | 18 | 330 | 2300100:1, 3230100:3, 3230300:2, 7130100:3, 7130101:3 | 1.6 | 1.3 |
 
+The table retains curve pool columns for reference; only rows before 5:00 select the first map's pool.
 All curve values/weights are tier C. The hard cap is 400; bursts start at 90 s, repeat every 90 s and grow from
 10 to 40 mobs; elites start at 75 s, repeat every 60 s and use HP/EXP/contact multipliers 8/5/1.5 (tier C,
 existing stage conventions). All three bosses and every reward choice must finish
 before the round clears (#73). These values are not a balance calibration.
 
-The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at
-time t by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) uses
-the coarse #30 C46 stage data (2026-10-15). It preserves the spec #29
-tuning waits for the dedicated balance pass (section 4.2).
-for now; balance will be revisited after more features (section 4.2).
+The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the current
+map's pool by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) uses
+the coarse #30 C46 numeric curve (2026-10-15), with the owner's #241 opening-density changes. Later pool
+selection follows the per-map rules above; further tuning waits for the dedicated balance pass (section 4.2).
 
-| Time | Rate (mobs/s) | Max alive | Pool additions | HP × | Speed × |
+| Curve time | Rate (mobs/s) | Max alive | Pool additions | HP × | Speed × |
 |---|---|---|---|---|---|
-| 0:00 | 0.15 | 3 | Snail 4, Blue Snail 3 | 1 | 1 |
-| 2:00 | 0.4 | 8 | Red Snail, Shroom | 1 | 1 |
-| 3:00 | 0.6 | 12 | PQ Stirge | 1 | 1.025 |
+| 0:00 | 0.25 | 6 | Snail 4, Blue Snail 3 | 1 | 1 |
+| 2:00 | 0.55 | 11 | Red Snail, Shroom | 1 | 1 |
+| 3:00 | 0.75 | 15 | PQ Stirge | 1 | 1.025 |
 | 4:00 | 1 | 20 | Slime | 1 | 1.05 |
 | 5:00 | 2.5 | 50 | Flyeye | 1.25 | 1.075 |
 | 6:00 | 4.5 | 85 | Pig, Orange Mushroom | 1.75 | 1.1 |
@@ -381,13 +397,14 @@ for now; balance will be revisited after more features (section 4.2).
 | 11:00 | 12.1333 | 215 | Stirge | 4.7 | 1.2467 |
 | 12:00 | 13.5 | 240 | full pool | 6.375 | 1.28 |
 | 13:00 | 15.6667 | 270 | full pool | 7.6875 | 1.32 |
-| 15:00 | 20 | 330 | final boss | 8.25 | 1.4 |
+| 15:00 | 20 | 330 | full pool | 8.25 | 1.4 |
 
+Pool additions at 5:00 and later in the table are retained data, not active pool changes (#241).
 The Beginner phase is sword-paced: a v83 Beginner (5 MP, one Three Snails shell at canonical 3 MP) kills mostly with
 the basic attack, so until 4:00 only a few mobs are alive, no
 elite appears before 4:00 and no burst before 5:00, and ordinary kills pay 2.5x EXP so Magician arrives near 4:40.
 Density and HP then ramp from 5:00 into the calibrated mid/late curve. Canonical mob HP and skill damage/costs remain
-unchanged. Tree stage data are unchanged.
+unchanged. Ellinia keeps its numeric curve while using the same three-map clock and pool rules.
 
 The changed 8:00 mob HP endpoint interpolates from the unchanged 6:00 point. Ordinary/elite HP continues after 15:00 at
 0.25 × (8.25−7.6875)/120 = 0.001171875 per second; other pacing fields retain their existing quarter-slope
@@ -503,6 +520,314 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Spec #241 (#249): integrated three-map QA smoke (2026-10-22)
+
+Integration base `9dd41de`, Git Bash, private `t249` isolates and cache `caches/s241`. Ran seeds **1 / 2 / 2026**
+on Henesys and Ellinia with bot/random, both Henesys tier-2 chains and both Sleepywood Lv38 F/P fixture policies:
+24 started rounds, all commands exit 0, all records `warnings: []` / `missing: []`. No PATCH, tuning or held-out
+seeds. D = DEAD; `@N` is the one-based ending map. Times are seconds; unobserved entries are absent, never zero.
+
+| Region / policy | Death seconds @ map (seeds 1 / 2 / 2026) | Map-2 entry seconds | Lv10 / first job seconds (id) | Map-1 completed boss seconds | Compared with #246 integrated smoke |
+|---|---|---|---|---|---|
+| Henesys / bot | 308.3@1 / 451.8@2 / 310.0@1 | absent / 324.6 / absent | 255.4 (200) / 260.6 (200) / 258.5 (100) | none / 24.6 / none | Same outcomes, levels, kills and timings |
+| Henesys / random | 435.4@2 / 383.9@2 / 413.3@2 | 344.9 / 320.8 / 323.8 | 260.7 (200) / 260.2 (200) / 256.8 (100) | 44.9 / 20.7 / 23.8 | Same |
+| Ellinia / bot | 632.7@2 / 39.1@1 / 34.7@1 | 321.6 / absent / absent | 209.2 (200) / absent / absent | 21.6 / none / none | Same |
+| Ellinia / random | 697.5@2 / 39.1@1 / 34.7@1 | 364.1 / absent / absent | 208.0 (200) / absent / absent | 64.1 / none / none | Same |
+| Sleepywood fixture / bot | 314.7@1 / 365.9@1 / 222.3@1 | absent / absent / absent | starts Lv38, job210; no advancement | none / none / none | Same |
+| Sleepywood fixture / random | 215.7@1 / 327.0@1 / 224.9@1 | absent / absent / absent | starts Lv38, job210; no advancement | none / none / none | Same |
+
+No run enters map 3. Of the **12 distinct fresh tier-1 runs, 6 reach map 2 and 0 reach map 3** (Henesys 4/6;
+Ellinia 2/6). Counting the six chain replays gives 10/18 fresh attempts reaching map 2, still 0/18 reaching map 3;
+those replays are not independent observations. All chains stop in tier 1, with zero tier-2 feeds. Their first-round
+metrics match the corresponding Henesys rows. No fresh clear or natural Forest of Evil/Sanctuary survival is proved.
+Every observed map-2 entrant dies there; this small smoke is an owner playtesting concern, not authority to tune.
+Sleepywood's six map-1 deaths also match the preceding smoke; no claim about its later-map balance follows.
+
+Completed fights: Henesys Mano 4/6 spawned (24.6 / 44.9 / 20.7 / 23.8 s); Ellinia Stumpy 2/2 spawned
+(21.6 / 64.1 s). Unfinished Mano fights are at least 8.2 / 10.0 s (bot seeds 1/2026). Ellinia map-2 King Slime
+fights are unfinished at 11.1 / 33.3 s (bot/random seed 1); every other map-2 boss and every map-3 boss is
+`not_spawned`. Sleepywood Zombie Mushmom has 0/3 spawned fights completed: bot seeds 1/2 are unfinished at
+14.7 / 65.9 s, random seed 2 at 27.0 s; the other three are not spawned. There are no skipped bosses. No
+completed-only median is used for these censored observations. Lv10 equals the listed first-job time; no fresh
+run reaches a second job. Raw records, exact SYSTEMS summaries and the prior-smoke comparison stay in ignored
+`evidence/spec241/t249/smoke/` in the integration worktree (`t3-f6b9fd92`).
+
+The initial complete suite passes **2,153 tests, 0 failed, 0 skipped** (209 files, 842.748 s, exit 0): all
+real-cache checks ran. Its intentional corrupt-settings recovery test prints two ConfigFile parse errors; the
+two RendererDummy texture RID allocations at shutdown match the preceding full-suite baseline.
+
+QA found a capture-only hitch exposed by Drake Area's Ice Drakes: each `mob_projectile_spawned` queued another
+`mob_projectile.png`. In the uncapped seed-1 Lv38 F/P diagnostic reproduction (`--warp=370`, stop at 410 s),
+506 copies were encoded; one frame wrote the same PNG 56 times in **5.564 s**, of which readback was only 7.6 ms.
+Phase probes place the delay in `_capture` after drawing, outside RunScene simulation work, with no transfer or
+cold asset load. Capture the first projectile once per round, like the existing first ordinary windup/hit evidence.
+The seeded event-burst regression first fails (64 requests instead of one); after the fix the native reproduction
+encodes one projectile PNG and has no gap over 1 s. Its largest capture is 834 ms for seven distinct startup images
+after the warp. Gameplay, projectile visuals and tuning are unchanged. Probe code and raw timings remain ignored
+in `evidence/spec241/t249/{perf_capture_repro,perf_capture_fixed,diagnostic-sources}/`.
+
+Windowed playtests used x8, `--vsync=off`, 1600x1200 and the same cache. Fresh seed-2026 Henesys/Ellinia die
+at 310.033 / 34.700 s on map 1; the unassisted Sleepywood Lv38 fixture seed 1 dies at 314.733 s on map 1.
+Supplemental Lv38 fixture Henesys seed 1 clears naturally at 930.667 s, Lv66; the Ellinia fixture reaches map 3
+but dies at 624.433 s, Lv43. Separate **invulnerable diagnostic** Ellinia/Sleepywood captures clear at
+928.717 / 1583.000 s, Lv45/Lv61, using real attacks and no diagnostic lethal hits. Those clears prove presentation,
+not fresh-character survival. All these summaries have `missing: []`; native logs have no unexpected engine/script
+diagnostics. Screenshots were opened and checked by eye, including every intermediate CLEAR, fade, black frame,
+destination name/arrival and final-map CLEAR:
+
+- Henesys: Hunting Ground I and Mano; Pig Beach with Pigs/Ribbon Pigs and Mushmom; Blue Mushroom Forest with Blue
+  Mushrooms/Horny Mushrooms and Blue Mushmom. Both arrivals are framed without old-map mobs; all three clear notices
+  render. Evidence: `henesys_carried_s1_x8/`.
+- Ellinia: Tree That Grew I and Stumpy; Forest of Wisdom's Slimes and King Slime; Forest of Evil I's Zombie Lupins/
+  Maladies and Dyle. The unassisted fixture's map-3 death remains visible evidence of pressure; the diagnostic
+  capture checks Dyle and the finale. Evidence: `ellinia_carried_s1_x8/`, `ellinia_diagnostic_s1_x8/`.
+- Sleepywood: Dark Cave and Zombie Mushmom; Drake Area's Drakes/Ice Drakes/Cold Eyes and Snack Bar; Cursed
+  Sanctuary's Cold Eyes/Tauromacis/Taurospears and Jr. Balrog. Destination art, foothold layers, both transitions
+  and Sanctuary's final CLEAR render correctly. Evidence: `sleepywood_carried_s1_x8/`,
+  `sleepywood_diagnostic_fixed_s1_x8/`; the initial partial diagnostic capture is retained separately.
+
+`arrival-bgm-checks.json` matches all nine native entry positions to a WZ `sp` portal's x, alongside the real-cache
+floor/arrival tests. Every entry reports successful BGM playback matching `info/bgm`: Henesys changes CavaBien ->
+AboveTheTreetops -> RestNPeace; Ellinia correctly keeps MoonlightShadow on all three maps; Dark Cave/Drake Area
+share AncientMove, then Sanctuary changes to EvilEyes. BGM checks are log evidence, not a listening assessment.
+All paths in these paragraphs are below `C:/Users/itech/.t3/worktrees/maple-survivors/t3-f6b9fd92/evidence/spec241/t249/`.
+
+The post-fix complete suite passes **2,154 tests, 0 failed, 0 skipped** (210 files, 830.101 s, exit 0), with the
+same expected settings-recovery diagnostics and two dummy texture RID shutdown allocations. The focused
+RunScene/transfer/capture recheck passes **66 tests, 0 failed, 0 skipped**. The three requested windowed flow drivers
+pass on the new keys: `maps` verifies map-2 Quit round leaves the boundary bytes unchanged, Continue replays map 1
+with seed 1/Lv1, then entries 300.000/600.017 s and the 900.050 s finale save into Free Market; `rounds` verifies
+Warrior/Sword, the carried Free Market boundary, tier-2 map select, Save & quit, same-seed replay, death/results,
+deletion and history; `economy` verifies drops/equip, buy/sell, both scroll outcomes and restored equipment,
+inventory, scrolls and 986,331 mesos. Maps/rounds summaries have `failures: []`, `missing: []`; economy ends with
+its passed/missing-empty log. Key screenshots of all three flows were checked by eye under `flow_{maps,rounds,economy}/`.
+
+The synthetic old-key `migration/driver_save.json` check passes 13 assertions: living round, bests, run counts and
+history load under canonical keys; migration is idempotent; real Continue retains seed 1 and the Lv38/job210
+character and starts Henesys map 1 at 00:00. The screenshot was checked by eye. Historical fixture `_doc` provenance
+is intentionally retained, so the disk-key assertion checks operational data rather than rewriting that history.
+
+The original #246 **4,079.620 ms** minute-14 outlier remains non-reproduced. Three uncapped seed-1 Lv38 F/P
+Henesys traversals match its ending exactly (930.667 s, Lv66, 4,281 kills, three bosses dead, `missing: []`).
+The normal capture's max is 112.371 ms. Two further runs suppress all event/periodic PNG encoding and retain
+process/draw phase markers: p95/p99/max are 10.112/16.320/69.336 ms and 10.280/17.139/75.588 ms, with
+4,230/4,161 drawn 200+ mob frames. Both pass the 120-frame 100+ / 60-frame 200+ workload qualification.
+Neither has a phase gap over 1 s; their largest gaps (128/130 ms) follow final.png encoding after the clear.
+The historical trace covers transfers only and cannot attribute the old frame's work. Its cause is tracked in
+[#252](https://github.com/itechify/maple-survivors/issues/252); the confirmed Ice Drake PNG fix is **not** proof of
+that no-capture outlier's cause. No speculative runtime fix or steady-60-FPS claim is made for x8. Evidence:
+`outlier-repeats.json`, `perf_no_shots_s1_x8_{1,2}/`, `diagnostic-sources/` under the same ignored QA directory.
+
+Before handoff, merged integration review tip `e532412` as `8395b96`. Repeated all eight smoke commands on the
+combined branch (`t249-smoke-merged`, cache `s241`): **all 24 complete JSON records are deeply identical** to the
+pre-merge matrix above, including map entries, per-map boss timings, advancement, warnings and missing lists.
+Raw records and console/SYSTEMS summaries are in `smoke-merged/`; `pre-merge-comparison.json` records the comparison.
+The final merged full suite passes **2,155 tests, 0 failed, 0 skipped** (210 files, 792.948 s, exit 0), with the
+same intentional corrupt-settings diagnostics and two baseline dummy texture RID shutdown allocations.
+All three native flow drivers pass again under `flow_merged_{maps,rounds,economy}/`; the fresh synthetic old-key
+Continue check again passes all 13 assertions under `migration-merged/`. Their key frames were checked by eye,
+including the review's compact map-select rows. No tuning or speculative fix for #252 was made.
+
+#### Spec #241 (#248): tooling and diagnostic map flow (2026-10-22)
+
+Cache `s241`, Git Bash, separate `t248` isolates. This ticket ran only the permitted seed-1 Henesys bot record
+check, not the regression smoke assigned to #249, and changed no balance data. The record has `map_times: [0]`,
+`ended_map: {index: 0, id: 104040000}`, and each of the three boss fights retains its map index/id (future bosses
+are `not_spawned`). No world warnings or missing setup assets. SUMMARY reports deaths by map `1:1 2:0 3:0`,
+with map-2/map-3 entry times `none (n=0)` rather than invented zero observations.
+
+| Evidence | Outcome | Map-2 entry (round s) | Map-3 entry (round s) | Ending map |
+|---|---|---|---|---|
+| Henesys bot, seed 1, no diagnostic aids | DEAD 308.3 s, Lv12; Mano alive | unobserved | unobserved | 1 / 104040000 |
+| `flow_driver --scenario=maps`, seed 1, diagnostic replay | CLEARED 900.05 s, Lv62; three bosses dead; Free Market | 300.000 | 600.017 | 3 / 100030001 |
+
+The flow uses invulnerability, real EXP pickups for the Warrior/Sword windows and diagnostic lethal hits only
+after each map's 300 s timer. On its first Pig Beach arrival it uses the existing Quit round / Save & quit warning,
+checks the boundary file is byte-identical, reloads disk and Continues on map 1 with the same seed and Lv1 boundary
+character. It then plays the complete three-map sequence into one saved Free Market round. This is flow evidence,
+not natural survival or a pacing calibration; natural later-map progression remains for #249.
+
+Opened the PNGs in `evidence/spec241/t248/maps/` in the integration worktree (`t3-f6b9fd92`): the CLEAR art is
+visible on every map, intermediate fades dim the old map, Pig Beach and Blue Mushroom Forest arrivals show the
+correct destination title and framed avatar with no stale mobs, Continue shows Henesys at Lv1 / 00:00 / zero kills,
+and the Free Market shows the carried Spearman and +525 NX. The driver drains its long warp frame before starting
+clear effects so the screenshot captures their real hold. Summary has no missing assets or failed checks.
+
+Confirmed test seams: balance records/SUMMARY through `run_one`/`aggregate`/`describe_metrics`, public camper
+movement on a synthetic transferred world, RunScene summary/performance JSON producers, canonical/legacy CLI
+chains and character one-offs, and the executed maps scenario. The post-#247-merge affected suite passed
+118 tests, 0 failed, 0 skipped. The full suite before the #247 merge passed 2151 tests, 0 failed, 0 skipped
+(207 files, 906 s); the affected suite above rechecked the merged code. The full process exited 0 but Godot
+reported two RendererDummy texture RID allocations leaked at exit; their source was not investigated here.
+
+#### Spec #241 review fixes: transfer state and regression smoke (2026-10-22)
+
+Cache `s241`, explicit Git Bash, `trev*` isolates; seeds 1 / 2 / 2026, unforced jobs, no PATCH or balance edits.
+All 12 tier-1 bot/random runs have `warnings: []` and `missing: []`. Death times and ending maps match the #246
+integrated smoke below to the recorded 0.1 s precision. Henesys still reaches the Lv10 jobs and Mano; Ellinia's
+early seed-2/2026 deaths remain recorded for the owner, with no tuning.
+
+| Region / policy | Death seconds (seeds 1 / 2 / 2026) | Ending map number |
+|---|---|---|
+| Henesys / bot | 308.3 / 451.8 / 310.0 | 1 / 2 / 1 |
+| Henesys / random | 435.4 / 383.9 / 413.3 | 2 / 2 / 2 |
+| Ellinia / bot | 632.7 / 39.1 / 34.7 | 2 / 1 / 1 |
+| Ellinia / random | 697.5 / 39.1 / 34.7 | 2 / 1 / 1 |
+
+The transfer/metrics baseline passed 40 tests; the refactor checks passed 72 (both 0 failed / 0 skipped).
+A new fixed-tick transfer test first reproduced a grenade landing and damaging a new map's mob, then passed with
+the queued flight cleared and cooldowns retained (40 transfer/Gunslinger tests, 0 failed / 0 skipped).
+Audited Final Attack queues, basic windups, summons, mob attacks/projectiles, delayed boss heals/statuses, pet fetch
+targets and bot routes: their existing transfer resets already discard map-space state; player poison mists and
+persistent damage zones are not implemented. A seeded three-map event/state replay has identical byte hashes
+before/after the refactors (`9dd41de` versus the review branch, two runs each).
+
+Removed all interim missing-asset exemptions. Against incomplete `s237`, balance/profile/character tools now exit 1
+and name missing later-map imgs; an existing real-cache assertion fails on those paths. Against `s241`, each region's
+setup, profiler and character fixture run cleanly. The diagnostic maps scenario again PASSED with no missing assets
+or failed checks, replaying map 1 after quitting map 2 and then clearing into the Free Market.
+Opened all three compact map-select cards under `evidence/spec241/review/cards/` in the integration worktree:
+every map/boss name fits, row groups are close together, and no text overlaps. These are diagnostic UI/flow checks.
+The full `ISOLATE=trev` suite passed 2,154 tests, 0 failed / 0 skipped (209 files, 803.465 s, timeout 3000 s).
+It still reports two RendererDummy texture RID allocations leaked at exit, as #248 did; their source remains
+uninvestigated. The corrupt-settings parse diagnostics are intentional safety-test fixtures.
+
+#### Spec #241 (#246): integrated presentation smoke (2026-10-21)
+
+After merging `e49f66a` (#243) as `0aca215`, repeated the same 24 seed/configuration invocations with `caches/s241`.
+All 24 started rounds have `warnings: []`, `missing: []`; all eight commands exit zero with no crash or engine/script warning.
+No balance data, PATCH or held-out seeds. D = dead; columns are seeds 1 / 2 / 2026; ending maps follow the completed
+boss records (headless transfer is immediate):
+
+| Region / policy | Death seconds | Ending map number |
+|---|---|---|
+| Henesys / bot | 308.3 / 451.8 / 310.0 | 1 / 2 / 1 |
+| Henesys / random | 435.4 / 383.9 / 413.3 | 2 / 2 / 2 |
+| Ellinia / bot | 632.7 / 39.1 / 34.7 | 2 / 1 / 1 |
+| Ellinia / random | 697.5 / 39.1 / 34.7 | 2 / 1 / 1 |
+
+All six chains stop in tier 1 (zero tier-2 feeds). The Lv38 F/P fixture in Sleepywood dies on map 1 at
+314.7 / 365.9 / 222.3 s (bot) and 215.7 / 327.0 / 224.9 s (random), with no boss killed. These schema/opening/pool
+changes differ from the legacy baseline below; Henesys bot seed 1 exactly matches #243's integrated alias smoke.
+Fresh starts have no clears in this small sample; record for the owner's #249 playtests, without tuning.
+Raw records and console/SYSTEMS summaries remain ignored in `_scratch/t246-smoke-integrated/`.
+
+Integrated validation: full suite **2,147 tests, 0 failed, 0 skipped** (207 files, 864 s), Git Bash,
+`ISOLATE=t246`, `TEST_TIMEOUT_S=3000`, cache `s241`; scene/schema/transfer/clock checks pass **74 tests, 0 failed,
+0 skipped**. The two dummy-renderer texture RID shutdown warnings match #243's baseline; focused transfer tests
+and native captures remain clean. The requested fresh-character
+windowed Henesys seed-2026 x8 run dies on map 1 at 310.033 s. A supplemental seed-1 x8 run with the existing Lv38
+F/P fixture clears all three real maps at 930.667 s, Lv66, all three bosses dead, `missing: []`, without invulnerability
+or diagnostic hits. Both clear/fade/black/arrival sequences and the final CLEAR were checked by eye under
+`evidence/spec241/t246/carried_s1_x8/` in the integration checkout: original CLEAR art, destination art/names, correctly
+framed avatar and native destination mobs, no old-map mobs on arrival. The ending summary names map 100030001,
+The Blue Mushroom Forest, Hidden Street, region Henesys.
+
+Uncapped transfer evidence uses the same fixture/seed at x1 with `--warp=290 --minutes=5.2` and
+`--warp=590 --minutes=10.3`, plus an x8 full traversal. An ignored performance mirror buffers per-frame phase/time/
+work samples to `transfer_frames.json` at the end and suppresses event screenshot encoding (final.png remains).
+The two x1 fade-ins have 274 / 200 samples: p95 1.596 / 2.173 ms, p99 1.900 / 2.591 ms, max 49.920 / 67.251 ms,
+exactly one interval above 16.7 ms in each fade-in. There are additional isolated notice/arrival outliers:
+26.383 ms during map 1's notice, 43.682 ms during map 2's notice, and 33.840 ms 1.53 sim seconds after map 3 entry.
+Thus one main reload hitch per boundary is observed, but a strict no-other-spike claim for the entire sequence is
+not verified. Raw frames, configuration and final captures remain under `evidence/spec241/t246/perf_buffered_transfer{1,2}_x1/`.
+The uncapped x8 traversal matches the captured run's ending time/level/kills/bosses; its whole-run p95/p99 is
+13.602 / 27.390 ms, with an unexplained 4,079.620 ms outlier in minute 14, outside the transfer windows.
+No overall steady-60-FPS claim is made at x8; a full headless suite was active on this shared machine.
+
+#### Spec #241 (#246): presentation regression before the stage schema (2026-10-21)
+
+Presentation `2b54d5c` on integration `9ba2025`, cache `caches/s241`, private `ISOLATE=t246_*` mirrors.
+`balance.sh 1 2 2026` ran both legacy tier-1 stages and bot/random (12 runs), both Henesys tier-2 chains (6 chains),
+and both Dark Cave fixture policies (6 runs, `lv35_magician_2nd.json`). No tuning, PATCH or held-out seeds.
+All 26 started rounds have `warnings: []`, `missing: []`; all eight commands exited zero, with no crash or engine/script warning.
+Tier-1 outcomes and end times match the preceding #237 smoke exactly. C/D = cleared/dead; columns are seeds 1 / 2 / 2026:
+
+| Legacy stage / policy | Outcome and end seconds | Ending levels |
+|---|---|---|
+| Henesys / bot | C 936.8 / D 309.4 / D 306.5 | 49 / 11 / 11 |
+| Henesys / random | D 917.4 / D 423.4 / C 951.3 | 44 / 19 / 51 |
+| Tree / bot | D 491.1 / D 39.1 / D 34.7 | 22 / 1 / 1 |
+| Tree / random | D 443.5 / D 39.1 / D 34.7 | 19 / 1 / 1 |
+
+One chain per policy feeds tier 2: bot seed 1 (derived seed 2260174940) dies at 620.4 s, random seed 2026
+(1823073557) at 616.8 s; both Lv67 with one boss killed. The other four chains stop in tier 1.
+The Dark Cave fixture dies at 316.0 / 337.1 / 222.3 s (bot) and 215.7 / 326.7 / 224.9 s (random), all before a boss kill;
+these are recorded without tuning. Raw records and console/SYSTEMS summaries remain ignored in `_scratch/t246-smoke-legacy/`.
+This smoke predates #243: the real stage data still has no `maps`, so it proves no three-map pacing or balance.
+The cache-backed RunScene tests use an explicit adapted three-map setup instead; synthetic windowed captures of
+both transfers were checked by eye in `evidence/spec241/t246/synthetic/` in the integration checkout.
+Validation before #243: full suite **2,140 passed, 0 failed, 0 skipped**; focused RunScene/transfer/clock suite
+**68 passed, 0 failed, 0 skipped**. The full runner logs two dummy-texture RID allocations at shutdown; focused
+transfer and asset/UI/render/font checks and native transfer captures do not reproduce that diagnostic.
+
+#### Spec #241 (#243): schema and legacy-key smoke (2026-10-21)
+
+The isolated #243 runtime played the first map with all three bosses at absolute 300/600/900 seconds;
+map transfer and pool selection are supplied separately by #244/#245. The owner's three Henesys opening keyframes are the only
+balance edits. Requested alias check: `bash scripts/balance.sh 1 --stage=henesys_hg1`, Git Bash,
+`ISOLATE=t243-alias`, cache `C:/Users/itech/Coding/maple-survivors-refs/caches/s237`, base `1808305`.
+The record uses canonical `stage: henesys`, with `warnings: []` and `missing: []`; no crash or script error.
+
+| Stage / policy / seed | End | First job | Boss reached |
+|---|---|---|---|
+| Henesys / bot / 1 | DEAD 307.9 s, Lv12, 253 kills | Magician 255.4 s | Mano 300 s, alive at death |
+
+Compared with #237's seed-1 bot clear at 936.8 s and Magician at 279.8 s, the opening changes the seeded choices
+and this outcome. This single alias smoke is not a population balance assessment; the full spec regression matrix
+belongs to #249. No tuning candidates or held-out seeds were used. The six new map imgs and Cold Eye are absent
+from `s237`: setup keeps aligned `{}` map entries plus missing paths, and affected cache checks tolerate later-map
+assets or explicitly SKIP. Those skips do not verify the new maps. Raw alias output stays in ignored `_scratch/`.
+
+Regression tests retain the existing historical event digest by freezing its pre-#241 opening; this requires the
+schema/key migration to preserve every other event byte. Live pacing guards account for the approved density:
+Lv8 and Lv30 sample lower bounds use the existing individual floors (180 s / 480 s), with their upper bounds
+unchanged; tier-1 ending level stays below third-job level 70 instead of the pre-#241 guard below 50. These are
+test expectations, not balance-data edits or a tuning pass. Historical fixture `_doc.stage` provenance remains
+unchanged and resolves through the alias API when tests compare its region.
+
+Isolated #243 validation: **2,114 tests, 0 failed, 2 skipped** (2,112 passed), Git Bash with `ISOLATE=t243`,
+the `s237` cache and `TEST_TIMEOUT_S=3000`. The pre-#241 event golden matches unchanged. Missing later-map
+preloads produce expected warnings; Godot's dummy renderer also reports two texture RID allocations at shutdown.
+The repeated alias smoke reproduces its complete record byte for byte.
+
+Integration snapshot `fa5beac` adds #242/#245. Its focused run covered 196 tests (eight new-asset SKIPs); its one
+failure was the inherited whole-round pressure guard applied to #245's retained map-1 pool. The historical
+whole-round pacing oracle now supplies its original full-curve director and remains single-map, preserving those
+pressure assertions; its recheck passes **4/4**. Map-local pool behavior is tested separately by #245. The merged
+old-key smoke exits successfully: canonical `henesys`, DEAD 308.3 s, Lv12, 255 kills, `warnings: []`, `missing: []`.
+
+The subsequently fetched `9ba2025` integration tip includes #244. Merge validation passes **102 tests, 0 failed,
+9 skipped** (93 passed): schema, DataRepo/StagePools, saves, synthetic map transfers, boss lifecycle and spawning.
+The nine SKIPs cover missing new-map art/mobs, real-cache transfers and six map pools in `s237`; they verify none
+of those assets. The full 2,114-test run above predates these integration merges; after merging, the affected
+checks were rerun. SpawnDirector and StagePools implementation matches the incoming integration tip unchanged.
+
+Fix-up validation on the integrated `fa99ded` runtime uses Git Bash, `ISOLATE=t243b` and cache `s241`.
+The five reported RunScene failures reproduce in 48 tests (5 failed, 0 skipped). All were obsolete fixture
+assumptions: the roster expectation omitted map-life pools (Ribbon Pig 1210101, Dark Axe Stump 2110200 and Blue
+Mushroom 2220100 account for 15 versus 18); the four injected boss schedules lacked map indices and were therefore
+not armed by the region director. The roster check now supplies every loaded map and the canonical summon/revive
+inputs, and checks each id's cache image, preload and sim kind. The HP-bar, simultaneous-icon/colour, King Slime
+split and bonus-before-finale tests explicitly retain a legacy single-map schedule, preserving all original
+assertions. Intermediate-map settlement and final-map-only clears remain covered by `test_map_transfer.gd`.
+The RunScene recheck passes **48 tests, 0 failed, 0 skipped**; no runtime or balance data changed.
+The full recheck passes **2,146 tests, 0 failed, 0 skipped** (207 files, 1,057 s, exit 0;
+`TEST_TIMEOUT_S=3000`), including real-cache traversal through all three maps of each region. The pre-existing
+two dummy-renderer texture RID shutdown warnings remain. The final fetch still finds integration at `9ba2025`,
+already included; no further merge is needed.
+
+The requested alias smoke (`balance.sh 1 --stage=henesys_hg1`, `ISOLATE=t243b-balance`, cache `s241`) exits 0,
+records canonical `henesys`, and has `warnings: []` / `missing: []` with no crash or script error.
+
+| Stage / policy / seed | End | Map progression |
+|---|---|---|
+| Henesys / bot / 1 | DEAD 308.3 s, Lv12, 255 kills | Mano arrived at 300 s and remained alive; maps 2/3 not entered |
+
+This reproduces the previous integrated alias smoke. Living beyond 5:00 alone does not transfer: the map boss
+must die and its rewards must finish. This natural seed therefore does not verify later-map traversal; the
+real-cache transfer test covers that path. The full regression matrix remains #249's scope; no tuning was done.
 
 #### Spec #237 (#240): potion cooldowns: regression smoke (2026-10-21)
 
@@ -2994,9 +3319,10 @@ Raw: ignored `evidence/t76/perf3/`, `_scratch/t76/perf_probe_runs*.txt`, probe `
 
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
-Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
-15:00. The encounters use canonical movement, contact attack, art and enabled skill kits; the mushroom family
-also uses its jump slam. The Tree schedules Stumpy, King Slime and Dyle at the same arrival times.
+Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
+Mushmom (6130101), Blue Mushmom (9400205) in Henesys; Stumpy, King Slime, Dyle in Ellinia; Zombie Mushmom, Snack Bar,
+Jr. Balrog in Sleepywood. Only the current map's boss is armed. If map 2 starts at round time 420 s, its boss is due
+at 720 s. Encounters retain canonical movement, contact attack, art and enabled skill kits; mushrooms retain the slam.
 Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
 250 px away. A narrow floor may require a closer point. If no arrival point exists at all on the arrival tick, the
 arrival slips by 3 s behind a fresh warning (tier C). A boss whose mob img is missing from the asset cache is skipped
@@ -3016,7 +3342,7 @@ Survivor settings (tier C; canonical stats and attack timings/boxes remain uncha
 | Dyle | 31,000 | 8,060 | 0.26 | 1.14 | — |
 
 Calibration uses measured training builds rather than the former assumed HP300/550/800 and full Armor defense.
-`stage.bosses` stores the multipliers; `typical_hp/pdd` are illustrative inputs only, never adaptive runtime scaling.
+`stage.maps[].boss` stores the multipliers; `typical_hp/pdd` are illustrative inputs only, never adaptive runtime scaling.
 The target is typical whole-hit source medians of 40–50%, with individual-hit/build variation reported separately.
 At the documented `typical_hp`/`typical_pdd` the whole roll range of every contact hit and selected attack (85% and
 100% of PAD after defense, rounded) lies in 40–50% (`test_boss_hit_bands`). The 2026-10-14 review pass moved six
@@ -3031,7 +3357,7 @@ and loaded with the stage; `stages.json` never repeats these v83 lists.
 While any boss lives, normal spawns run at half rate (spec). Bursts count as normal spawns, so both the steady spawn
 rate and each burst's count halve (`balance.bosses.normal_spawn_mult` 0.5, burst count rounded; tier C reading of
 the spec); elite scheduling stays independent.
-Both stages continue the last rate/max-alive/HP/speed keyframe slopes at quarter pace after 15:00
+Stages continue the last rate/max-alive/HP/speed keyframe slopes at quarter pace after curve time 15:00
 (`post_duration_slope`), with ordinary mobs still capped by `hard_cap`. Burst size keeps its 10→40 slope over the
 stage at the same quarter pace past 15:00, and the elite interval shrinks in proportion to the extrapolated spawn rate
 (`every × rate(15:00) / rate(t)`), so elites stay the same share of the growing stream until the clear (tier C). Clearing requires every scheduled boss dead;
@@ -3047,7 +3373,10 @@ Boss deaths replace ordinary drops with a shower totaling rounded canonical boss
 equipment items (`equipment_drops.boss_drops`, tier C, owner 2026-10-21, spec #237), selected with the unchanged
 `boss_top` rule on stream 10. Boss rewards contain no potions. Each death
 also grants one bonus upgrade pick, before any queued normal level pick, with no level gain or queued-level
-consumption. Final clear waits for the choices to finish. The bonus window reads "Boss Reward" and has no gained-level
+consumption. Each map clear waits for the choices to finish. On maps 1 and 2, combat freezes on the boss death, all pickups
+are swept once using the finale rules below, and leftover mobs vanish without drops or kill credit. After every
+choice is answered the clear notice and fade lead to the next map; no damaging tick runs in between.
+The third map settles the final clear. The bonus window reads "Boss Reward" and has no gained-level
 header. All reward and relocation values are tier C in `balance.bosses`; a schedule entry's `rewards` may override
 reward defaults for tuning.
 
@@ -3096,7 +3425,8 @@ calibrated against actual training HP pools. No attack-local canonical value is 
 The `player_hit.source_kind` field distinguishes contact (`touch`) from these attack (`attack`) hits for metrics.
 The handler is reusable for later Stumpy and King Slime type-0 attacks selected in their stage data.
 
-The Tree That Grew I adds Stumpy (3220000) at 5:00, King Slime (9300003) at 10:00 and Dyle (6220000) at 15:00.
+Ellinia schedules Stumpy (3220000) in The Tree That Grew I, King Slime (9300003) in The Forest of Wisdom and
+Dyle (6220000) in The Forest of Evil I, each 300 s after entering its map. Earlier fights extend total round time.
 Stumpy uses HP ×0.45 (3,150), touch ×0.83 and attack ×0.77. Its selected attacks share an 8 s start-to-start cadence. The type-0 slam
 keeps the 543×172 box and 1,500 ms attackAfter, including the same airborne dodge.
 The type-2 ball keeps attack135, bulletSpeed140, range/r200, muzzle(6,-60) and 1,320 ms attackAfter. We adopt
@@ -3161,8 +3491,8 @@ The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and rec
 - **Extra events** (`boss_attack`, `mob_projectile_spawned`/`_hit`, `mob_healed`, `mob_revives_spawned`,
   `boss_teleported`, `potion_tier_up`, `mp_short`, `buff_cast`/`_expired`/`_pulse`): presentation and metrics seams of
   the specced systems with no gameplay effect of their own (schema in ARCHITECTURE.md 4.4.3).
-- **Playtest default length 30:00** (tier C tooling): `scripts/playtest.sh` runs through the post-15:00 finale until a
-  death or clear; documented in AGENTS.md and the script header.
+- **Playtest default length 30:00** (tier C tooling): `scripts/playtest.sh` allows time for the three entry-relative
+  boss waits and their fights, ending at death, clear or the cap; documented in AGENTS.md and the script header.
 
 ## 5. Experience and levels
 
@@ -5271,6 +5601,14 @@ random policy shares the movement and the camper policies still override it afte
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
+| Region cards and ending-map results (#241, #247) | Map 1's mapMark beside the region; three ordered `map name → boss name` rows in the existing v83 parchment, each wrapping as needed with a 6 px gap between rows. Objective: "Defeat 3 bosses across 3 maps". Results keep region/continent and add the ending map's WZ name and mapMark, with a 6 px gap before stats | C layout/text; A map/boss names and marks | Owner #241 / #247; String.wz and each map's `info/mapMark`. Summary identity comes from `RunWorld.current_map_id()` |
+| Region map order and pool declarations (#241, #243) | Henesys: 104040000 / 104010001 / 100030001; Ellinia: 101010100 / 100040100 / 100040105; Sleepywood: 105050400 / 105090310 / 105090900. Map 1 declares `pool: "curve"`; later maps declare life-list pools, except Sanctuary's explicit Cold Eye 4230100 ×5, Tauromacis 7130100 ×2, Taurospear 7130101 ×5; Pig Beach excludes Iron Hook 4090000 | C | Owner #241 Implementation Decisions; owner pool policy; StagePools resolves canonical life lists |
+| Map boss delay and curve offset (#241) | `map_seconds = 300`; boss relative `time = 300`; curve time = zero-based map index x 300 + time since entry. Entry uses spawn stream 2; existing streams, including reserved 7, retain their numbers | C | Owner #241; deterministic map transfer |
+| Map-1 pool cutoff (#241) | Last curve pool at or before curve time, considering only keyframes with `t < 300`; life pools count ordinary entries, skip hidden/event variants; exclusions and Sanctuary override are in the map-order row | C | Owner #241; no other pool tuning |
+| Map transfer carry and settlement (#241) | Freeze on map boss death; sweep all pickups once, resolve choices, discard ordinary mobs without drops/kills; preserve HP/MP, buffs, Hidden, cooldowns, kills and damage; clear boss statuses; random destination `sp` on stream 2; no mid-round save | C | Owner #241 |
+| Camper map ownership (#241, #248) | Henesys top/rope park only on map 1 id 104040000; Tree top only on Ellinia map 1 id 101010100. Later maps use the sensible bot; camper activation/arrival/portal metrics refer to map 1 | C policy, A map ids | Owner #241; no placement rescue after knockback |
+| Maps flow diagnostic (#248) | Training seed 1, invulnerability, EXP drops for the Lv10 Warrior/Sword pages, diagnostic lethal boss hits only after each map's 300 s timer; fixed-tick warp with 600-tick yields and 1800 s cap | C | Tool-only flow evidence; no survival/balance claim |
+| Henesys opening (#241, #243) | t0 rate 0.25 / alive cap 6; t120 0.55 / 11; t180 0.75 / 15; t240 onward and all keyframe pools unchanged | C | Owner #241; the spec's only balance change |
 | Potion model (#237, #238) | Unlimited HP/MP; no stock, starter quantities or drops; old snapshot counts ignored without a format bump; tiers derive from starter items plus level; every round including Continue starts ready, cooldowns never saved | C | Owner 2026-10-21, spec #237 |
 | Potion cooldowns (#237, #238) | HP 20 s / MP 10 s (`balance.potions.cooldown`), independent kinds in fixed sim time; paused windows freeze the timers, tier-ups preserve them, presses during cooldown silently do nothing | C | Owner 2026-10-21, spec #237 starting values; no tuning |
 | Pet pouches (#238) | Below ALERT and ready: share the player's per-kind cooldown, without a separate delay | C | Owner 2026-10-21, spec #237 convenience rule |
@@ -5636,7 +5974,7 @@ the round from its beginning." Victory results show the tiers cleared and return
 
 | Dark Cave bosses (#73) | Values | Tier | Evidence / rationale |
 |---|---|---|---|
-| Schedule / first-pass HP | Zombie Mushmom 6300005 at 300 s, HP x0.8 (28000); Snack Bar 8220009 at 600 s, HP x1 (110000); Jr. Balrog 8130100 at 900 s, HP x3 (150000) | C | Owner schedule; scales chosen before measuring, no tuning; final boss has greatest multiplier and effective HP |
+| Schedule / first-pass HP | Each boss arrives 300 s after entering its map: Zombie Mushmom 6300005 in Dark Cave, HP x0.8 (28000); Snack Bar 8220009 in Drake Area, HP x1 (110000); Jr. Balrog 8130100 in The Cursed Sanctuary, HP x3 (150000) | C | Owner schedule; scales chosen before measuring, no tuning; final boss has greatest multiplier and effective HP |
 | Contact / attack scales, cadence, rewards | Contact and attack x0.8 / x1 / x1.25; each attack 8 s start-to-start; each death 3 HP / 3 MP plus existing global EXP and choice rewards | C | First-pass survivor encounter data in stages.json; final boss has greatest damage multipliers |
 | Boss canonical facts | HP 35000 / 110000 / 50000; all seven attacks and delays/ranges/damage/element flags; no mob skills; Balrog S1H3 | A | Original v83 Mob.wz; [field inventory](research/dark-cave-boss-attacks.md), real-cache tests |
 | Type-1 targeted direct rule | Admit body centre within r250 of mirrored sp(-28,-69); locked character takes magic hit at 1300 ms even after moving/jumping; effect at caster 700 ms, hit art at character; death/fade cancels | C | Later-client HaCreator targeted-direct description; **not verified v83 RE**, lead must flag this caveat on #73; research note above |
@@ -5669,6 +6007,8 @@ items) reaches a round as the setup key `account`, never inside the character.
 | First-pass pacing | 900 s; keyframes at 0/120/300/480/600/780/900 s, rates 3/4.5/7/10/12/15/18, caps 50/80/130/180/220/280/330, HP 1/1/1.15/1.3/1.4/1.5/1.6, speed 1/1.05/1.1/1.15/1.2/1.25/1.3; pool weights in 4.1 | C | Chosen before measurement for second-job arrivals; no tuning candidates |
 | Supplies / elites / bursts / ending | Stage EXP 1x, shared per-kind potion cooldowns; hard cap 400; bursts first/every 90/90 s, size 10–40; elites first/every 75/60 s, HP/EXP/contact 8/5/1.5x; bosses and rewards gate clear | C | Existing stage conventions; #73 supplies the final-fight lifecycle; owner #237 cooldown model |
 | Signature EXP pickups | Horny 4000015, Zombie 4000008, Stirge 4000042, Evil Eye 4000007, Curse Eye 4000013, Jr. Boogie 4000067, Tauromacis 4000028, Taurospear 4000046 | A IDs/names; C association | Original v83 String.wz/Etc.img names and Item.wz art; signature icon association is survivor data, not a WZ drop-table claim |
+| Three-map signature EXP pickups (#242) | Ribbon Pig 4000002, Blue Mushroom 4000009, Zombie Lupin 4000031, Malady 4000041, Cold Eye 4000023, Drake 4000014, Ice Drake 4000030 | A IDs/names; C association | Original v83 String.wz/Etc.img names and Item.wz art; signature items are EXP icons in survivor mode |
+| Three-map meso ranges (#242) | Ribbon Pig [20,30), Blue Mushroom [36,54), Zombie Lupin [104,156), Malady [251,359), Cold Eye [96,144), Drake [200,300), Ice Drake [324,486) | B | Cosmic v83 server `152-drop-data.sql`, `drop_data` rows with itemid 0; existing half-open range convention |
 
 | Ordinary mob attacks (#76) | Value / behavior | Tier | Source |
 |---|---|---|---|
@@ -5781,7 +6121,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Monster ball flight / collision | bulletSpeed×1000/600 px/s, range/r lifetime, straight aimed launch;8 px contact radius | C | later-client reference comment inspires interpretation; original v83 values A |
 | Mob heal arithmetic / timing / art anchor | each mob in the canonical area regains exactly canonical x, clamped to max HP; y unused; no RNG; effectAfter application; mob0 starts at cast, pos0 at feet | C (interpretation/anchor), A (fields/art) | spec "canonical amount"; original v83 WZ |
 | Slam evidence screenshots | windup at 0.85 s; ground wave 0.12 s after impact | C | presentation capture timings only |
-| Post-finale ramp / harness cap | final keyframe slopes ×0.25 after 15:00; burst size slope ×0.25 past the duration; elite interval × rate(last keyframe) / rate(t); 30:00 cap reported as timeout | C | survivor stage/balance data |
+| Post-duration ramp / harness cap | final keyframe slopes ×0.25 after curve time 15:00; burst size slope ×0.25 past the curve duration; elite interval × rate(last keyframe) / rate(t); 30:00 total-round cap reported as timeout | C | survivor stage/balance data |
 | First MISS screenshot | 0.05 presentation seconds after the first miss, only when screenshots are enabled | C | evidence capture timing |
 | Projectile speeds/ranges | §7 | C | ours |
 | Projectile hit exclusion identity | packed 64-bit run-local spawn identity; fresh spawns differ, relocation preserves it | C | our pool bookkeeping; no canonical or balance values changed |
@@ -5930,6 +6270,8 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Level-up window delay | the `LevelUp` effect plays 1.2 s (about its pillar's peak) on the character before the upgrade window opens; after a job advancement the next window waits for the whole `JobChanged` effect (~1.3 s; 1.3 s without the animation). Presentation only; the sim is already paused | C | ours |
 | Frame cap | vsync on, `Engine.max_fps` = the display's refresh rate rounded up (144 when unknown, at least 30) | C | ours |
 | Run end holds | results 2 s after the tombstone has landed; on a clear the party-quest `CLEAR` field effect (`Map.wz/Effect.img/quest/party/clear`, `Sound.wz/Field.img/Party1/Clear`) at the screen centre for 3.5 s | C | ours (art/sound A) |
+| Map transfer presentation (#246) | Reuse the cached party-quest CLEAR effect/sound for intermediate clears: 3 s hold, 0.4 s fade out, one black frame, advance/reload, 0.4 s fade in; arrival street/map name uses the existing 3.5 s title style. Plain "Map cleared!" fallback when the effect is absent | C (reuse, timing, text), A (art/sound) | `Map.wz/Effect.img/quest/party/clear`: five original frames, delays 100/100/100/100/2000 ms, confirmed in caches/s241; no manifest addition |
+| Windows during map transfer (#246) | Pause and in-run windows hold the notice/fade clock; Resume continues the same phase, including at full black. Combat stays frozen until fade-in finishes; sweep/choice windows retain their existing behavior | C | Presentation policy, no change to RunWorld's deterministic transfer boundary or round-boundary saves |
 | Invincibility blink, hit face | the whole character (one CanvasGroup) alternates alpha 1.0 / 0.4 every 0.08 s while invincible; face `hit` for 1 s after a hit | C | ours |
 | Drop draw order | EXP drops are drawn after the mobs and the character of the character's foothold layer (never hidden in a crowd) | C | ours |
 | Run start title | continent (small) above the region (`stages.json`, #221) under the timer for 3.5 s, the last 1 s fading | C | ours |
@@ -5947,7 +6289,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum at 11-12 px, antialiasing per `MapleFonts.ANTIALIASED` (#224) | C | ours, matched to v83 screenshots |
 | Sharp text (#224, 2026-10-18) | the window draws canvas items at its own pixels (`window/stretch/mode="canvas_items"`, integer scale, nearest, 2D snapping kept); glyphs rasterised at window pixels, metrics in logical px unchanged; `MapleFonts.ANTIALIASED = false` (crisp hinted, no AA, closest to v83; the owner chose crisp from the A/B screenshots, PR #235, 2026-10-19); 1 px outlines drawn as the 800x600 render lit them (`PixelDraw.outline`: top row above, left column outside, right/bottom inside) and downscaled HUD skill icons copy the texels it picked (`PixelDraw.blit_scaled`, texel floor((i + 0.5) * src / dst)) | C (AA choice: owner) / A (outline and texel footprints measured on GL compatibility) | ours; docs/ARCHITECTURE.md 4.5 "Fonts and sharp text" |
 | Tab strip geometry (#219) | `TabStrip` cuts a row at n + 1 x bounds over 19-row shapes: Item `TAB_BOUNDS` 4 / 37 / 71 / 104 / 137 / 171 at y 23 (five equal 33-34 px tabs over the baked pill); Shop sell `TAB_BOUNDS` 235 / 279 / 324 / 368 / 412 / 457 and `BUY_TAB_BOUNDS` 5 / 41 at `TAB_TOP` 97, `TAB_H` 19; Skill tabs 28 px wide from (8, 23); Equip `TAB_BOUNDS` 42 / 74 / 103 at `TAB_TOP` −24 from the art's bottom, `TAB_H` 19 (Tab3 grey base; Item, Skill and Shop use Tab5's red base); glyphs centred in each tab (no-cache text too); `TabStrip.FALLBACK_SHOWN` (236, 112, 144) fills the shown tab without the cache | C (bounds measured on the v83 backgrounds; the Item tab width matches the 34 px `Item/New/Tab0` sprites), A (shapes: `Basic.img/Tab3`, `Tab5`) | ours |
-| Stage region and continent (#221) | `stages.json` `region` / `continent` per stage: henesys_hg1 Henesys / Victoria Island, tree_that_grew_1 Ellinia / Victoria Island, dark_cave Sleepywood / Victoria Island; a summary without them falls back to the stage's old `name` and the map and street name it was saved with (`DataRepo.stage_labels`, `summary_stage_lines`) | C | owner choice (playtest 3); not WZ strings |
+| Stage region and continent (#221) | `stages.json` `region` / `continent` per stage: henesys Henesys / Victoria Island, ellinia Ellinia / Victoria Island, sleepywood Sleepywood / Victoria Island; a summary without them falls back to the stage's old `name` and the map and street name it was saved with (`DataRepo.stage_labels`, `summary_stage_lines`) | C | owner choice (playtest 3); not WZ strings |
 | Quick slot captions (#220) | key captions at size 9 (`CAPTION_SIZE`), white (`CAPTION_COLOR` 255, 255, 255) with a dark blue-grey outline (`CAPTION_OUTLINE` 40, 59, 76), shortened with ".." beyond `CAPTION_MAX_W` 29 px (a cell's interior) | C | ours, matched to v83 screenshots |
 | "Equipped <name>" notice (#222) | `HudMessages` pushes "Equipped <item name>" ("Equipped an item" when the name is empty) as a system line in the usual yellow | C | ours |
 | Web profile UI (#134) | title: Fullscreen / Export save / Import save lead the second button row (before Re-import WZ data) where desktop has Quit; Options: a FULLSCREEN check box in the FRAME CAP row; F11 and F12 not bindable on web (browser fullscreen / developer tools), Ctrl+W/T/N noted in the Key Config strip; text in the bundled Arimo (Arial metrics) because browsers have no system fonts | C | ours; docs/ARCHITECTURE.md 10 "Web profile" |

@@ -77,7 +77,7 @@ func test_new_forced_paths_reach_the_requested_job_and_weapon_through_run_and_ba
 	for job in [100, 300, 110, 120, 130]:
 		for path: Dictionary in jobs.paths_of(job):
 			var flag := "%d:%s" % [job, path.id]
-			var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--job=" + flag]))
+			var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=" + flag]))
 			assert_eq(SceneFlow.forced_job_error(parsed.options, data), "", flag)
 			assert_eq(RunLauncher.options_from_args({"job": flag}).job_path, path.id)
 			var w := RunWorld.new(RF.setup("quiet", 1, data))

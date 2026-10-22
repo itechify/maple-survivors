@@ -58,7 +58,7 @@ func test_rope_and_ladder_block_casts_without_pausing_cooldowns() -> void:
 
 
 func test_seeded_run_parked_mid_rope_from_one_minute_has_no_new_skill_kills() -> void:
-	var world := RunWorld.new(RF.setup("henesys_hg1", 8))
+	var world := RunWorld.new(RF.setup("henesys", 8))
 	# This tests the climbing cast gate, independently of balance changes killing the warmup/camper.
 	world.god = true
 	var memo := {}

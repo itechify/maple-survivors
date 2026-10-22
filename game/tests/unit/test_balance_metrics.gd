@@ -5,6 +5,79 @@ const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const BR := preload("res://tools/balance_run.gd")
 const REPORT := preload("res://tools/balance_report.gd")
 const DT := 1.0/60.0
+const MAPS := preload("res://tests/fixtures/map_transfer_fixtures.gd")
+
+
+func test_camper_activates_only_on_its_own_first_map_then_uses_sensible_bot() -> void:
+	var setup := MAPS.setup()
+	var w := RunWorld.new(setup)
+	w.god = true
+	var memo := {}
+	BR.movement(w, "camper_henesys_top", memo, 0.0)
+	assert_false(memo.has("started_time"), "a different map never activates the Henesys camper")
+	w.stage.maps[0].map_id = 104040000
+	BR.movement(w, "camper_henesys_top", memo, 0.0)
+	assert_true(bool(memo.get("reached", false)), "the Henesys first map activates parking")
+	var arrived := float(memo.get("reached_time", -1.0))
+	w.transfer_pending = true
+	w.advance_map()
+	var before := w.player.pos
+	RF.put_mob(w, 100100, before.x + 80.0, before.y)
+	var sensible := BotInput.decide(w, {})
+	var actual := BR.movement(w, "camper_henesys_top", memo, 0.0)
+	assert_eq(actual.left, sensible.left)
+	assert_eq(actual.right, sensible.right)
+	assert_eq(actual.up, sensible.up)
+	assert_eq(actual.down, sensible.down)
+	assert_eq(actual.jump_pressed, sensible.jump_pressed)
+	assert_eq(actual.drink_hp, sensible.drink_hp)
+	assert_eq(actual.drink_mp, sensible.drink_mp)
+	assert_eq(w.player.pos, before, "no second-map camper placement")
+	assert_eq(float(memo.get("reached_time", -1.0)), arrived, "arrival remains a first-map measurement")
+
+
+func test_summary_counts_deaths_by_map_and_only_observed_entry_times() -> void:
+	var summary := BR.aggregate([
+		{"state": "DEAD", "time": 301.0, "ended_map": {"index": 0, "id": 1}, "map_times": [0.0]},
+		{"state": "DEAD", "time": 750.0, "ended_map": {"index": 1, "id": 2}, "map_times": [0.0, 420.0]},
+		{"state": "DEAD", "time": 1200.0, "ended_map": {"index": 2, "id": 3}, "map_times": [0.0, 400.0, 850.0]},
+		{"state": "CLEARED", "time": 1300.0, "ended_map": {"index": 2, "id": 3}, "map_times": [0.0, 500.0, 950.0]},
+		{"state": "TIMEOUT", "time": 900.0, "ended_map": {"index": 1, "id": 2}, "map_times": [0.0, 460.0]},
+		{"state": "DEAD", "time": 600.0}, # Legacy records do not invent map observations.
+	])
+	assert_eq(summary.get("deaths_by_map", {}), {"1": 1, "2": 1, "3": 1})
+	assert_eq(summary.get("map_entry_seconds", {}).get("2", {}).get("median"), 440.0)
+	assert_eq(summary.get("map_entry_seconds", {}).get("3", {}).get("median"), 900.0)
+	assert_eq(summary.get("map_entry_seconds", {}).get("3", {}).get("count"), 2)
+	var report := BR.describe_metrics(summary)
+	assert_true(report.contains("SUMMARY deaths by map: 1:1 2:1 3:1"), report)
+	assert_true(report.contains("map-2 entry seconds 400.00/440.00/500.00 (n=4)"), report)
+	assert_true(report.contains("map-3 entry seconds 850.00/900.00/950.00 (n=2)"), report)
+
+
+func test_record_preserves_map_entries_and_identifies_each_boss_and_ending_map() -> void:
+	var setup := MAPS.setup(0.1)
+	setup.data.balance.run_time_cap = 2.0
+	var w := RunWorld.new(setup)
+	w.god = true
+	for index in 2:
+		for tick in 12:
+			w.step(DT, MoveInput.new())
+		w.hit_mob(int(w.bosses.records[index].slot), {"damage_min": 1e9, "damage_max": 1e9,
+			"magic": false, "crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+		w.step(DT, MoveInput.new())
+		w.advance_map()
+	var record := BR.run_one(w, "bot", 244)
+	assert_eq(record.get("ended_map", {}), {"index": 2, "id": 100000002})
+	var times: Array = record.get("map_times", [])
+	assert_eq(times.size(), 3, "entries survive a harness starting after a transfer")
+	if times.size() == 3:
+		assert_near(times[0], 0.0, 1e-6)
+		assert_near(times[1], 0.2, 1e-6)
+		assert_near(times[2], 0.4, 1e-6)
+	for index in 3:
+		assert_eq(record.boss_fights[index].get("map_index", -1), index)
+		assert_eq(record.boss_fights[index].get("map_id", 0), 100000000 + index)
 
 
 func test_rarity_report_counts_offers_and_picks_including_queued_boss_rewards() -> void:
@@ -30,7 +103,7 @@ func test_rarity_report_counts_offers_and_picks_including_queued_boss_rewards() 
 func test_unspawned_boss_diagnostics_round_trip_as_finite_json_without_mutating_the_world() -> void:
 	var data := RF.quiet_data()
 	data.balance.run_time_cap = DT
-	data.stages.stages.quiet.bosses = [{"time": 300.0, "mob_id": 2220000}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 300.0, "mob_id": 2220000}])
 	var world := RunWorld.new(RF.setup("quiet", 26, data))
 	var record := BR.run_one(world, "bot", 26)
 	var encoded := JSON.stringify(record)
@@ -189,7 +262,7 @@ func test_magic_claw_counts_each_landed_line_but_a_scheduled_boss_is_excluded() 
 	RF.put_mob(w, 100101, 500)
 	var r := BR.run_one(w, "bot", 26, 0.0)
 	assert_eq(r.ordinary_kill_hits_by_min[0], {"hits": 2, "kills": 1, "mean": 2.0})
-	data.stages.stages.quiet.bosses = [{"time": DT, "mob_id": 100101}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": DT, "mob_id": 100101}])
 	w = RunWorld.new(RF.setup("quiet", 26, data))
 	w.setup.skill_imgs["200"].skill["2001005"].level["1"]["fixdamage"] = 10.0
 	w.god = true
@@ -237,7 +310,7 @@ func test_summary_counts_clears_deaths_and_timeouts_separately() -> void:
 func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 	var data := RF.quiet_data()
 	data.balance.run_time_cap = 4.0
-	data.stages.stages.quiet.bosses = [{"time": 0.5, "mob_id": 100100}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.5, "mob_id": 100100}])
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	w.god = true
 	RF.place_player(w, 400)
@@ -252,7 +325,7 @@ func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 	data.balance.player.skills = []
 	data.balance.run_time_cap = 901.0
 	data.stages.stages.quiet.duration = 900.0
-	data.stages.stages.quiet.bosses = [{"time": 900.0, "mob_id": 100100, "hp_mult": 1000.0}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 900.0, "mob_id": 100100, "hp_mult": 1000.0}])
 	w = RunWorld.new(RF.setup("quiet", 27, data))
 	w.god = true
 	r = BR.run_one(w, "bot", 27)
@@ -265,7 +338,7 @@ func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 func _real_map_world(map_id: int) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
-	data.stages.stages.quiet.map_id = map_id
+	data.stages.stages.quiet.maps[0].map_id = map_id
 	var setup := RF.setup("quiet", 26, data)
 	setup.map_img = AssetLibrary.get_default().img(DataRepo.map_img_path(map_id)).root
 	var world := RunWorld.new(setup)

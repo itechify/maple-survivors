@@ -44,7 +44,7 @@ func test_each_fixture_is_a_living_lv34_second_job_warrior_with_provenance() -> 
 		assert_eq(int(doc.forced_branch), job)
 		assert_eq(int(doc.seed), 1)
 		assert_eq(doc.policy, "bot")
-		assert_eq(doc.stage, "henesys_hg1")
+		assert_eq(DataRepo.canonical_stage_key(String(doc.stage)), "henesys")
 		assert_eq(doc.outcome, "TIMEOUT", "a capped, living round")
 		assert_eq(doc.invulnerable, true, "the Warrior bot cannot reach Lv 30 otherwise")
 		assert_eq(String(doc.revision).length(), 40, "the full generation revision")
@@ -77,7 +77,7 @@ func test_a_one_off_round_restores_each_fixture_without_warnings() -> void:
 		var output: Array = []
 		var status := OS.execute(OS.get_executable_path(), ["--headless", "--path",
 			ProjectSettings.globalize_path("res://"), "--script", "res://tools/balance_run.gd", "--",
-			"--stage=dark_cave", "--seed=2", "--cap=0.016666667", "--character=" + path], output, true)
+			"--stage=sleepywood", "--seed=2", "--cap=0.016666667", "--character=" + path], output, true)
 		assert_eq(status, 0, "job %d round runs" % job)
 		var record := {}
 		for line: String in "\n".join(output).split("\n"):
@@ -90,6 +90,6 @@ func test_a_one_off_round_restores_each_fixture_without_warnings() -> void:
 		assert_eq(int(record.job), job)
 		assert_eq(int(record.level), int(character.level))
 		assert_eq(record.missing, [])
-		assert_eq(record.warnings, [])
+		assert_eq(PackedStringArray(record.warnings), PackedStringArray())
 		for key: String in character.skills:
 			assert_eq(int(record.skills.get(key, 0)), int(character.skills[key].rank), "%s rank restored" % key)

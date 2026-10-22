@@ -66,13 +66,13 @@ func _ready() -> void:
 	await _shot("one_character")
 	for avatar: AvatarRenderer in flow.current.avatars:
 		missing.append_array(avatar.missing)
-	flow.start_run("henesys_hg1", 70, {"character": created, "use_flow": false})
+	flow.start_run("henesys", 70, {"character": created, "use_flow": false})
 	await _shot("round_created_look")
 	var run := flow.current as RunScene
 	_collect_run(run)
 	# Supply a completed boundary through SceneFlow to verify the same created look in the merged hub.
 	flow.active_slot = 0
-	flow.finish_run({"stage": "henesys_hg1", "cleared": true, "time": 960.0, "level": 1,
+	flow.finish_run({"stage": "henesys", "cleared": true, "time": 960.0, "level": 1,
 		"job_id": 0, "job_name": "Beginner", "kills": 0, "damage_dealt": 0, "seed": 70}, created)
 	await _shot("free_market_created_look")
 	var hub := flow.current as FreeMarket

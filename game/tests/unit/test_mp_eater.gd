@@ -333,7 +333,7 @@ func test_real_hit_presents_each_branch_effect_and_mp_gain_without_missing_sound
 		var library := AssetLibrary.new()
 		var scene: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 		scene.library = library
-		scene.configure("henesys_hg1", 59, {"use_flow": false})
+		scene.configure("henesys", 59, {"use_flow": false})
 		var tree := Engine.get_main_loop() as SceneTree
 		tree.current_scene.add_child(scene)
 		var w := scene.world

@@ -5,8 +5,8 @@ extends Node2D
 ##
 ## Left column: one entry per stage with its map mark (Map.wz/MapHelper.img/mark/<info/mapMark>) and its region
 ## (stages.json `region`: Henesys, Ellinia, Sleepywood; #221). Right column, for the selected stage: region and continent,
-## survival time, the best result from SaveData,
-## and the survivor roster (each mob's Mob.wz stand/0 frame and String.wz name). Buttons: Start (Login.img/CharSelect/
+## the objective, the best result from SaveData and the ordered maps with their bosses (String.wz names).
+## Buttons: Start (Login.img/CharSelect/
 ## BtSelect) on the parchment, Back (Login.img/Common/BtStart, the "Back" banner) at the bottom-left of the book and the
 ## v83 status-bar CASH SHOP button (StatusBar.img/BtShop, #118) beside it.
 ## Keys: Up/Down select, Enter starts, Esc saves and returns to character select.
@@ -24,10 +24,7 @@ const LIST_W := 176.0
 const ENTRY_H := 46.0
 const DETAIL_X := 234.0
 const DETAIL_W := 232.0
-const ROSTER_CELL := Vector2(58, 76)
-const ROSTER_GUTTER := 2.0 # tier C: #90, keep each name inside its cell with visible separation.
-## Mob feet above the cell bottom (two name lines below them).
-const ROSTER_FEET := 26.0
+const MAP_ROW_GAP := 6.0 # tier C: compact map/boss groups on the v83 parchment; wrapped lines stay together.
 const INK := Color8(102, 51, 0)
 const INK_SOFT := Color8(136, 85, 34)
 const INK_RED := Color8(170, 34, 0)
@@ -39,7 +36,7 @@ var back_button: WzButton
 ## Opens the Cash Shop as this character (#118); returns here on Leave.
 var shop_button: WzButton
 var character_label: Label
-## Stage keys in file order and their info: key, map_id, region, continent, mark, duration, objective and normal mobs.
+## Region cards in file order: key, first map_id/mark, region, continent, duration, objective and ordered map_rows.
 var stages: Array[Dictionary] = []
 ## Selected stage index.
 var selected := 0
@@ -57,7 +54,6 @@ func configure(p_snapshot: Dictionary, p_flow: SceneFlow) -> void:
 
 
 var _ui: Control
-var _mob_frames: Dictionary = {}
 
 
 func _ready() -> void:
@@ -122,21 +118,25 @@ static func load_stages(data: Dictionary, tier: int = -1) -> Array[Dictionary]:
 		keys = ordered[tier] if tier < ordered.size() else []
 	for key: String in keys:
 		var st: Dictionary = all[key]
-		var map_id := int(st.get("map_id", 0))
+		var map_id := int(st.get("maps", [{}])[0].get("map_id", 0))
 		var labels := DataRepo.stage_labels(data.get("stages", {}), key)
 		var mark := ""
 		var info: Variant = UiArt.node(AssetLibrary.map_img_path(map_id) + "/info/mapMark")
 		if info is String:
 			mark = info
-		var count := (st.get("bosses", []) as Array).size()
+		var count := DataRepo.stage_bosses(st).size()
 		var objective := "Survive %s to clear the stage." % Hud.format_time(float(st.get("duration", 0)))
 		if count > 0:
-			objective = "Defeat the boss to clear." if count == 1 else "Defeat all %d bosses to clear." % count
-		var roster := DataRepo.stage_mob_ids(data, key)
-		for boss: Dictionary in st.get("bosses", []):
-			var index := roster.find(int(boss.mob_id))
-			if index >= 0:
-				roster.remove_at(index)
+			objective = "Defeat %d bosses across %d maps" % [count, DataRepo.stage_maps(data, key).size()]
+		var map_rows: Array[String] = []
+		var library := UiArt.lib()
+		for entry: Dictionary in DataRepo.stage_maps(data, key):
+			var id := int(entry.map_id)
+			var boss_id := int(entry.get("boss", {}).get("mob_id", 0))
+			var map_name := library.string_name("Map", id).strip_edges() if library != null else ""
+			var boss_name := library.string_name("Mob", boss_id).strip_edges() if library != null else ""
+			map_rows.append("%s → %s" % [map_name if map_name != "" else str(id),
+				boss_name if boss_name != "" else str(boss_id)])
 		out.append({"key": key, "map_id": map_id,
 			"region": String(labels.region),
 			"continent": String(labels.continent),
@@ -144,7 +144,7 @@ static func load_stages(data: Dictionary, tier: int = -1) -> Array[Dictionary]:
 			"duration": float(st.get("duration", 0)),
 			"objective": objective,
 			"note": String(st.get("note", "")),
-			"mobs": roster})
+			"map_rows": map_rows})
 	return out
 
 
@@ -282,59 +282,11 @@ func _draw_details(ci: Control, st: Dictionary) -> void:
 	MapleText.draw(ci, Vector2(x, y), best_text(save.best_for(String(st.key)) if save != null else {}), INK_RED,
 		MapleText.SMALL, true)
 	y += 18.0
-	var mobs: PackedInt32Array = st.mobs
-	var cols := int(DETAIL_W / ROSTER_CELL.x)
-	var rows := maxi(1, ceili(float(mobs.size()) / cols))
-	var cell_size := Vector2(ROSTER_CELL.x, minf(ROSTER_CELL.y, (r.end.y - 6.0 - y) / rows))
-	for i in mobs.size():
-		var cell := Vector2(x + (i % cols) * cell_size.x, y + int(i / cols) * cell_size.y)
-		_draw_mob(ci, mobs[i], cell, cell_size)
-
-
-func _draw_mob(ci: Control, mob_id: int, cell: Vector2, cell_size: Vector2) -> void:
-	var f := _mob_frame(mob_id)
-	if f != null:
-		# Fit the entire preview canvas above its two name lines; the in-run sprites keep native scale.
-		var icon_box := Vector2(cell_size.x - 4.0, cell_size.y - ROSTER_FEET)
-		var scale := minf(1.0, minf(icon_box.x / f.size().x, icon_box.y / f.size().y))
-		var size := (f.size() * scale).floor()
-		var top := cell + Vector2((cell_size.x - size.x) * 0.5, icon_box.y - size.y)
-		# Nearest-downscaled as the 800x600 render did at any window scale (PixelDraw, #224).
-		PixelDraw.blit_scaled(ci, f.page, Rect2(top.floor(), size), f.region)
-	var lib := UiArt.lib()
-	var nm := lib.string_name("Mob", mob_id) if lib != null else str(mob_id)
-	var y := cell.y + cell_size.y - ROSTER_FEET + 1.0
-	var name_width := cell_size.x - 2.0 * ROSTER_GUTTER
-	for line in roster_name_lines(nm, name_width):
-		MapleText.draw_centered(ci, cell.x + ROSTER_GUTTER, y, name_width, line, INK, MapleText.SMALL)
-		y += MapleText.LINE_SMALL - 1.0
-
-
-## Fits roster names in two lines, wrapping at spaces and ellipsizing words wider than a cell.
-static func roster_name_lines(text: String, width: float) -> PackedStringArray:
-	var lines := PackedStringArray()
-	for word_line: String in MapleText.wrap(text, width, MapleText.SMALL):
-		lines.append(MapleText.ellipsize(word_line, width, MapleText.SMALL))
-	# tier C: two name lines fit the existing roster footer; exceptionally long future names get an ellipsis.
-	if lines.size() > 2:
-		lines[1] = MapleText.ellipsize(" ".join(lines.slice(1)), width, MapleText.SMALL)
-		lines.resize(2)
-	return lines
-
-
-func _mob_frame(mob_id: int) -> SpriteFrame:
-	if _mob_frames.has(mob_id):
-		return _mob_frames[mob_id]
-	var lib := UiArt.lib()
-	var f: SpriteFrame = null
-	if lib != null:
-		var root := lib.mob_root(mob_id)
-		for stance: String in ["stand", "fly", "move"]:
-			if root.get(stance) is Dictionary:
-				f = UiArt.frame(lib.mob_anim_img_path(mob_id) + "/" + stance + "/0")
-				break
-	_mob_frames[mob_id] = f
-	return f
+	for row: String in st.map_rows:
+		for line: String in MapleText.wrap(row, DETAIL_W, MapleText.SMALL):
+			MapleText.draw(ci, Vector2(x, y), line, INK, MapleText.SMALL)
+			y += MapleText.LINE_SMALL
+		y += MAP_ROW_GAP
 
 
 ## The best-result line of the details column.
