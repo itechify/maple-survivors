@@ -2,6 +2,25 @@ extends RefCounted
 ## Synthetic three-map stage using the binding #241 schema and RunFixtures map builders.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+## tier C: owner's region map lists (#241), used only until #243 supplies them as stage data.
+const MAP_CHAINS := {
+	104040000: [104040000, 104010001, 100030001],
+	101010100: [101010100, 100040100, 100040105],
+	105050400: [105050400, 105090310, 105090900],
+}
+
+
+## Real-cache transfer fixture while #243 is pending; integrated stages use their actual maps without overrides.
+static func stage_maps(stage: Dictionary) -> Array:
+	if not stage.get("maps", []).is_empty():
+		return stage.maps
+	var maps: Array = []
+	var chain: Array = MAP_CHAINS.get(int(stage.get("map_id", 0)), [])
+	for i in chain.size():
+		var boss: Dictionary = stage.bosses[i].duplicate(true)
+		boss.time = 300.0 # tier C: spec #241 per-map boss wait
+		maps.append({"map_id": int(chain[i]), "pool": "curve", "boss": boss})
+	return maps
 
 
 ## Aligned stage/maps and setup/map_imgs; seconds overrides boss waits for focused boundary tests.

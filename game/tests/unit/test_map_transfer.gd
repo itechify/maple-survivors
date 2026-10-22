@@ -5,11 +5,12 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const MF := preload("res://tests/fixtures/mano_fixtures.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const CAMPER := preload("res://tools/camper_input.gd")
+const MAPS := preload("res://tests/fixtures/map_transfer_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
 func _setup(seconds := 300.0) -> Dictionary:
-	return preload("res://tests/fixtures/map_transfer_fixtures.gd").setup(seconds)
+	return MAPS.setup(seconds)
 
 
 func test_map_clock_starts_at_the_scheduled_curve_offset() -> void:
@@ -382,13 +383,12 @@ func test_real_cache_transfers_through_each_regions_maps_with_valid_arrivals() -
 	var data := DataRepo.load_all()
 	var library := AssetLibrary.new()
 	library.open()
+	var map_lists := {}
 	for key: String in data.stages.stages:
 		var stage: Dictionary = data.stages.stages[key]
-		if stage.get("maps", []).is_empty():
-			library.free()
-			skip("multi-map stage schema is not integrated yet")
-			return
-		for entry: Dictionary in stage.maps:
+		map_lists[key] = MAPS.stage_maps(stage)
+		assert_eq(map_lists[key].size(), 3)
+		for entry: Dictionary in map_lists[key]:
 			if library.img(DataRepo.map_img_path(int(entry.map_id))) == null:
 				library.free()
 				skip("cache lacks map %d; new-map transfer is unverified" % int(entry.map_id))
@@ -401,6 +401,17 @@ func test_real_cache_transfers_through_each_regions_maps_with_valid_arrivals() -
 				return img.root if img != null else {},
 			func(id: int) -> Dictionary: return library.mob_root(id), missing)
 		assert_eq(missing.size(), 0, "complete real-cache setup for " + key)
+		var stage: Dictionary = data.stages.stages[key]
+		if stage.get("maps", []).is_empty():
+			# #243 is not integrated yet: retain DataRepo's real mobs/skills and supply the binding map schema.
+			stage.maps = map_lists[key]
+			stage.map_seconds = 300.0 # tier C: spec #241
+			stage.erase("bosses")
+			stage.erase("map_id")
+			setup.map_imgs = []
+			for entry: Dictionary in stage.maps:
+				setup.map_imgs.append(library.img(DataRepo.map_img_path(int(entry.map_id))).root)
+			setup.map_img = setup.map_imgs[0]
 		var w := RunWorld.new(setup)
 		w.god = true
 		for index in 3:
