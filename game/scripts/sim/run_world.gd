@@ -1140,6 +1140,17 @@ func _end_tick() -> void:
 func _settle_clear() -> bool:
 	if _dead or state == CLEARED or not can_clear():
 		return false
+	_sweep_map_drops()
+	if progression.has_pending():
+		_advance_queue() # normal job/advancement/card flow; step stays frozen until every answer is in
+	else:
+		state = CLEARED
+		emit("stage_cleared", {"time": time})
+	return true
+
+
+## Collects and credits clear loot, retrying space freed by auto-wear before applying its EXP.
+func _sweep_map_drops() -> void:
 	var got := 0
 	while true:
 		var before := pickups.active_count()
@@ -1152,12 +1163,6 @@ func _settle_clear() -> bool:
 	if got > 0:
 		_gain_exp(got)
 	_write_player_state(0.0)
-	if progression.has_pending():
-		_advance_queue() # normal job/advancement/card flow; step stays frozen until every answer is in
-	else:
-		state = CLEARED
-		emit("stage_cleared", {"time": time})
-	return true
 
 
 ## Frozen intermediate-map settlement: sweep once before choices, then discard mobs and await presentation.
@@ -1170,17 +1175,7 @@ func _settle_map() -> bool:
 		return false
 	if not _map_swept:
 		_map_swept = true
-		var got := 0
-		while true:
-			var before := pickups.active_count()
-			got += pickups.collect_all(events, maxi(0, inventory_slots() - equipment.inventory.size()))
-			_credit_pickups()
-			if pickups.active_count() == 0 or pickups.active_count() == before \
-					or equipment.inventory.size() >= inventory_slots():
-				break
-		if got > 0:
-			_gain_exp(got)
-		_write_player_state(0.0)
+		_sweep_map_drops()
 	if pending_bonus_choices > 0 or progression.has_pending():
 		_advance_queue()
 	elif not transfer_pending:
