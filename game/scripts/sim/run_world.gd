@@ -474,6 +474,11 @@ func _init_skills_and_progression() -> void:
 ## Ordinary spawning, the boss schedule and the bosses' canonical skills.
 func _init_directors() -> void:
 	director = SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
+	var map_imgs: Array = setup.get("map_imgs", [])
+	var pools: Array = []
+	for i in stage.get("maps", []).size():
+		pools.append(StagePools.resolve(stage.maps[i], map_imgs[i] if i < map_imgs.size() else {}))
+	director.map_pools = pools
 	bosses = BossDirector.new(DataRepo.stage_bosses(stage), balance.get("bosses", {}))
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
@@ -2025,7 +2030,12 @@ func _build_mob_kinds() -> void:
 	var imgs: Dictionary = setup.get("mob_imgs", {})
 	var overrides: Dictionary = data.get("mobs", {}).get("mobs", {})
 	var speed_mult := float(balance.get("mob_speed_factor", MobKind.SPEED_SCALE)) / MobKind.SPEED_SCALE
-	for id in StageRoster.mob_ids(stage, imgs, setup.get("mob_skill_img", {})):
+	var ids := StageRoster.mob_ids(stage, imgs, setup.get("mob_skill_img", {}))
+	for id: int in StagePools.stage_pool_ids(stage, setup.get("map_imgs", [])):
+		if id not in ids:
+			ids.append(id)
+	ids.sort()
+	for id in ids:
 		var img: Variant = imgs.get(id, imgs.get(str(id)))
 		if not (img is Dictionary) or img.is_empty():
 			warnings.append("no mob img for %d: dropped from the pools" % id)

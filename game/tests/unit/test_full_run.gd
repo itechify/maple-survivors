@@ -20,6 +20,17 @@ const ENGAGED_Y := 200.0
 const ENGAGED_MIN := 0.3 # tier C: inherited swarm-pressure regression floor
 
 
+## The inherited whole-round pacing oracle uses the old full curve; #245's map-local pools have their own tests.
+func _historical_world(setup: Dictionary) -> RunWorld:
+	setup = setup.duplicate()
+	setup.erase("map_imgs") # This oracle is one map, including when #244's transfer runtime is integrated.
+	var world := RunWorld.new(setup)
+	var curve := world.stage.duplicate(true)
+	curve.erase("maps")
+	world.director = SpawnDirector.create(curve, world.kind_of_id, world.balance.get("spawn", {}))
+	return world
+
+
 ## Runs `w` to the end (or balance.run_time_cap) and returns statistics.
 func _run(w: RunWorld) -> Dictionary:
 	var st := {
@@ -137,7 +148,7 @@ func _assert_run(w: RunWorld, st: Dictionary, label: String, enforce_pacing := t
 
 
 func test_full_run_synthetic_map() -> void:
-	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys", 2026)))
+	var w := _historical_world(RF.with_basic_attack(RF.setup("henesys", 2026)))
 	assert_true(w.warnings.is_empty(), "every pool mob has an img: %s" % [w.warnings])
 	_assert_run(w, _run(w), "synthetic")
 
@@ -168,7 +179,7 @@ func test_full_run_real_map() -> void:
 			assert_true(missing.is_empty(), "%s seed%d: cache has every required img (%s)" % [stage, pacing_seed, missing])
 			if not missing.is_empty():
 				return
-			var w := RunWorld.new(setup)
+			var w := _historical_world(setup)
 			if stage == "henesys":
 				assert_eq(w.fhm.count(), 181, "the real104040000")
 			else:

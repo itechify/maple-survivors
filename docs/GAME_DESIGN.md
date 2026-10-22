@@ -534,6 +534,12 @@ the `s237` cache and `TEST_TIMEOUT_S=3000`. The pre-#241 event golden matches un
 preloads produce expected warnings; Godot's dummy renderer also reports two texture RID allocations at shutdown.
 The repeated alias smoke reproduces its complete record byte for byte.
 
+Integration snapshot `fa5beac` adds #242/#245. Its focused run covered 196 tests (eight new-asset SKIPs); its one
+failure was the inherited whole-round pressure guard applied to #245's retained map-1 pool. The historical
+whole-round pacing oracle now supplies its original full-curve director and remains single-map, preserving those
+pressure assertions; its recheck passes **4/4**. Map-local pool behavior is tested separately by #245. The merged
+old-key smoke exits successfully: canonical `henesys`, DEAD 308.3 s, Lv12, 255 kills, `warnings: []`, `missing: []`.
+
 #### Spec #237 (#240): potion cooldowns: regression smoke (2026-10-21)
 
 Feature smoke only: `bash scripts/balance.sh 1 2 2026 --stage=<key> --policy=<policy>` for `henesys_hg1` and
@@ -5702,6 +5708,8 @@ items) reaches a round as the setup key `account`, never inside the character.
 | First-pass pacing | 900 s; keyframes at 0/120/300/480/600/780/900 s, rates 3/4.5/7/10/12/15/18, caps 50/80/130/180/220/280/330, HP 1/1/1.15/1.3/1.4/1.5/1.6, speed 1/1.05/1.1/1.15/1.2/1.25/1.3; pool weights in 4.1 | C | Chosen before measurement for second-job arrivals; no tuning candidates |
 | Supplies / elites / bursts / ending | Stage EXP 1x, shared per-kind potion cooldowns; hard cap 400; bursts first/every 90/90 s, size 10–40; elites first/every 75/60 s, HP/EXP/contact 8/5/1.5x; bosses and rewards gate clear | C | Existing stage conventions; #73 supplies the final-fight lifecycle; owner #237 cooldown model |
 | Signature EXP pickups | Horny 4000015, Zombie 4000008, Stirge 4000042, Evil Eye 4000007, Curse Eye 4000013, Jr. Boogie 4000067, Tauromacis 4000028, Taurospear 4000046 | A IDs/names; C association | Original v83 String.wz/Etc.img names and Item.wz art; signature icon association is survivor data, not a WZ drop-table claim |
+| Three-map signature EXP pickups (#242) | Ribbon Pig 4000002, Blue Mushroom 4000009, Zombie Lupin 4000031, Malady 4000041, Cold Eye 4000023, Drake 4000014, Ice Drake 4000030 | A IDs/names; C association | Original v83 String.wz/Etc.img names and Item.wz art; signature items are EXP icons in survivor mode |
+| Three-map meso ranges (#242) | Ribbon Pig [20,30), Blue Mushroom [36,54), Zombie Lupin [104,156), Malady [251,359), Cold Eye [96,144), Drake [200,300), Ice Drake [324,486) | B | Cosmic v83 server `152-drop-data.sql`, `drop_data` rows with itemid 0; existing half-open range convention |
 
 | Ordinary mob attacks (#76) | Value / behavior | Tier | Source |
 |---|---|---|---|

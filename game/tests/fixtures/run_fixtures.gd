@@ -12,7 +12,8 @@ const WF := preload("res://tests/fixtures/world_fixtures.gd")
 ## Gives a synthetic stage an absolute boss schedule using the per-map schema; keeps its first map id.
 static func set_bosses(stage: Dictionary, bosses: Array) -> void:
 	var map_id := int(stage.get("maps", [{}])[0].get("map_id", 0))
-	stage["map_seconds"] = 0 # tier C: synthetic schedules already use absolute fixture times.
+	# Tier C: single-map probes retain a normal curve window; arbitrary multi-boss fixtures use absolute times.
+	stage["map_seconds"] = 0 if bosses.size() > 1 else 300
 	stage["maps"] = []
 	for boss: Dictionary in bosses:
 		stage.maps.append({"map_id": map_id, "boss": boss})

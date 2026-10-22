@@ -28,6 +28,10 @@ func _event_digest(ticks: int) -> String:
 	data.jobs_survivor.jobs["500"].playable = false
 	data.jobs_survivor.jobs["500"].reason = "Not in this build"
 	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys", 1, data)))
+	# Keep this pre-#241 oracle on the historical whole-round pool curve as well as the historical opening.
+	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)
+	legacy_curve.erase("maps")
+	w.director = SpawnDirector.create(legacy_curve, w.kind_of_id, data.balance.get("spawn", {}))
 	w.god = true
 	var memo := {}
 	var digest := HashingContext.new()

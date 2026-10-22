@@ -127,7 +127,7 @@ func test_type_one_needs_range_admission_but_does_not_require_ground_at_impact()
 
 func test_dead_boss_cancels_a_locked_type_one_hit() -> void:
 	var setup := _attack_setup()
-	setup.data.stages.stages.quiet.maps.append({"map_id": 0, "boss": {"time": 0.5, "mob_id": 2220000}})
+	RF.set_bosses(setup.data.stages.stages.quiet, DataRepo.stage_bosses(setup.data.stages.stages.quiet) + [{"time": 0.5, "mob_id": 2220000}])
 	var w := RunWorld.new(setup)
 	var start := _start(w)
 	if start.is_empty():

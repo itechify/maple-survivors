@@ -44,7 +44,7 @@ func test_pacing_keyframes() -> void:
 	assert_true(snail in early and blue in early)
 	var two: PackedInt32Array = d.pool_at(130.0).kinds
 	assert_true(int(w.kind_of_id[130101]) in two and int(w.kind_of_id[120100]) in two, "+ Red Snail, Shroom")
-	assert_false(snail in d.pool_at(400.0).kinds, "Snails phase out at 6:00")
+	assert_true(snail in d.pool_at(400.0).kinds, "#245 map 1 retains its last pre-300-second pool")
 	assert_eq(d.burst_count_at(0.0), 10)
 	assert_eq(d.burst_count_at(450.0), 25, "halfway from 10 to 40")
 	assert_eq(d.burst_count_at(900.0), 40)

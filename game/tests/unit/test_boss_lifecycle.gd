@@ -11,10 +11,10 @@ func _setup(times: Array = [3.5]) -> Dictionary:
 	data.balance.player.skills = []
 	var stage: Dictionary = data.stages.stages.quiet
 	stage.duration = 5.0
-	RF.set_bosses(stage, [])
-	stage.maps.clear()
+	var entries: Array = []
 	for at: float in times:
-		stage.maps.append({"map_id": 0, "boss": {"time": at, "mob_id": 2220000, "hp_mult": 2.0, "dmg_mult": 1.75}})
+		entries.append({"time": at, "mob_id": 2220000, "hp_mult": 2.0, "dmg_mult": 1.75})
+	RF.set_bosses(stage, entries)
 	var setup := RF.setup("quiet", 1901, data)
 	var img: Dictionary = setup.mob_imgs[100100].duplicate(true)
 	img.info = {"maxHP": 2000.0, "PADamage": 90.0, "acc": 60.0, "boss": 1.0,

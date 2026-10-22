@@ -2,6 +2,7 @@ extends TestCase
 ## Delayed grounded boss attacks through fixed-tick seeded RunWorld, using synthetic art and canonical-shaped metadata.
 
 const BF := preload("res://tests/fixtures/boss_attack_fixtures.gd")
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
@@ -115,7 +116,7 @@ func test_dead_boss_cannot_finish_a_pending_slam_while_other_bosses_live() -> vo
 	var setup := BF.setup()
 	setup.data.balance.bosses.rewards.bonus_choices = 0
 	setup.data.balance.bosses.rewards.exp_mult = 0
-	setup.data.stages.stages.quiet.maps.append({"map_id": 0, "boss": {"mob_id": 2220000, "time": 0.5}})
+	RF.set_bosses(setup.data.stages.stages.quiet, DataRepo.stage_bosses(setup.data.stages.stages.quiet) + [{"mob_id": 2220000, "time": 0.5}])
 	var w := RunWorld.new(setup)
 	var start := _start(w)
 	if start.is_empty():
