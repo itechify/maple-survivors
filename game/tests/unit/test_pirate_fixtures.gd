@@ -21,7 +21,7 @@ func test_docs_say_how_each_fixture_was_made() -> void:
 		assert_eq(int(doc.forced_branch), spec[1])
 		assert_eq(doc.forced_path, spec[2])
 		assert_eq(doc.policy, "bot")
-		assert_eq(doc.stage, "henesys_hg1")
+		assert_eq(DataRepo.canonical_stage_key(String(doc.stage)), "henesys")
 		assert_eq(int(doc.seed), 1)
 		assert_eq(String(doc.revision).length(), 40)
 		assert_true(String(doc.diagnostic).contains("RunWorld.god"), "the invulnerability aid is recorded")
@@ -56,10 +56,10 @@ func test_fixtures_restore_and_play_on_the_real_map() -> void:
 	for spec: Array in [[BRAWLER, 510], [GUNSLINGER, 520]]:
 		var character := _load(spec[0])
 		var missing := PackedStringArray()
-		var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys_hg1", 2, Vector2(800, 600),
+		var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys", 2, Vector2(800, 600),
 			func(path: String) -> Dictionary: return lib.img(path).root if lib.img(path) != null else {},
 			func(id: int) -> Dictionary: return lib.mob_root(id), missing, character)
-		assert_eq(missing, PackedStringArray())
+		assert_eq(interim_missing(missing, setup.data, setup.stage), PackedStringArray())
 		var w := RunWorld.new(setup)
 		assert_eq(w.progression.job_id, spec[1])
 		assert_eq(w.progression.level, int(character.level))

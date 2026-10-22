@@ -156,7 +156,7 @@ func test_auto_ap_meets_every_shipped_bowman_weapon_requirement_by_its_level() -
 
 func test_forced_bowman_is_valid_for_a_tool_run() -> void:
 	var data := DataRepo.load_all()
-	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--job=300"]))
+	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=300"]))
 	assert_eq(parsed.options.job, 300)
 	assert_eq(SceneFlow.forced_job_error(parsed.options, data), "")
 	assert_eq(RunLauncher.options_from_args({"job": "300"}).job, 300)

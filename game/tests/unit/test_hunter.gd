@@ -46,7 +46,7 @@ func test_hunter_advancement_wears_ryden_from_either_family_and_grants_pools() -
 		assert_has(cards, "power_knockback_bow_new")
 		assert_has(cards, "arrow_bomb_new")
 		assert_true(w.pending_cards.all(func(c: Dictionary) -> bool: return int(w.book.def(c.skill).job) == 310))
-	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--job=310"]))
+	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=310"]))
 	assert_eq(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()), "")
 
 

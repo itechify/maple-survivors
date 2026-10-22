@@ -133,7 +133,7 @@ func _show_screen(which: String) -> void:
 	match which:
 		"results", "results_dead":
 			var dead := which == "results_dead"
-			var summary := {"stage": "henesys_hg1", "map_id": 104040000, "region": "Henesys", "continent": "Victoria Island", "map_name": "Henesys Hunting Ground I",
+			var summary := {"stage": "henesys", "map_id": 104040000, "region": "Henesys", "continent": "Victoria Island", "map_name": "Henesys Hunting Ground I",
 				"street_name": "Victoria Road", "time": 512.4 if dead else 900.0, "duration": 900.0,
 				"cleared": not dead, "level": 17 if dead else 31, "job_id": 200, "job_name": "Magician",
 				"kills": 1342 if dead else 3120, "damage_dealt": 48210 if dead else 151377, "seed": 12345,
@@ -443,7 +443,7 @@ func _run_flow() -> void:
 		[9.0, _shot_to.bind(dir.path_join("flow_1_title.png"))],
 		[9.5, func() -> void: flow.goto_character_select()],
 		[11.5, _shot_to.bind(dir.path_join("flow_2_characters.png"))],
-		[12.0, func() -> void: flow.start_run("tree_that_grew_1", 11, {"autoplay": true, "window_autopick": 1.0,
+		[12.0, func() -> void: flow.start_run("ellinia", 11, {"autoplay": true, "window_autopick": 1.0,
 			"speed": 4})],
 		[30.0, _shot_to.bind(dir.path_join("flow_3_run.png"))],
 		[30.5, func() -> void:
@@ -451,7 +451,7 @@ func _run_flow() -> void:
 			if run != null and run.has_method("build_summary"):
 				flow.finish_run(run.build_summary())],
 		[33.0, _shot_to.bind(dir.path_join("flow_4_results.png"))],
-		[33.5, func() -> void: print("ui_gallery: flow best = ", flow.save.best_for("tree_that_grew_1"))],
+		[33.5, func() -> void: print("ui_gallery: flow best = ", flow.save.best_for("ellinia"))],
 		[34.0, func() -> void:
 			var res := flow.current
 			if res != null and res.has_method("to_character_select"):

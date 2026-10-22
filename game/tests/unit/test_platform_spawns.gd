@@ -116,7 +116,7 @@ func test_real_top_platform_camper_reports_hits_for_information() -> void:
 		return
 	var lib := AssetLibrary.new()
 	lib.open()
-	var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys_hg1", 15, Vector2(800, 600),
+	var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys", 15, Vector2(800, 600),
 		func(path: String) -> Dictionary:
 			var img := lib.img(path)
 			return img.root if img != null else {},

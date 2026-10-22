@@ -1,6 +1,6 @@
 extends RefCounted
 ## Harness-only camper movement. Henesys positions are placed once; the Tree uses ordinary portal/navigation inputs.
-const STAGES := {"camper_henesys_top": "henesys_hg1", "camper_henesys_rope": "henesys_hg1", "camper_tree_top": "tree_that_grew_1"}
+const STAGES := {"camper_henesys_top": "henesys", "camper_henesys_rope": "henesys", "camper_tree_top": "ellinia"}
 
 
 ## tier C: the default 60 s warmup is a controlled camper measurement policy.

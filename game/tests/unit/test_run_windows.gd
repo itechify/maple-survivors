@@ -30,7 +30,7 @@ func _make(p_seed: int, options: Dictionary) -> RunScene:
 	s.library = lib
 	var o := options.duplicate()
 	o["use_flow"] = false
-	s.configure("henesys_hg1", p_seed, o)
+	s.configure("henesys", p_seed, o)
 	var tree := Engine.get_main_loop() as SceneTree
 	(tree.current_scene if tree.current_scene != null else tree.root).add_child(s)
 	return s
@@ -103,7 +103,7 @@ func test_reserved_f3_dispatch_toggles_performance_and_the_valid_window_key_stil
 	scene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	scene.library = lib
 	scene.settings = temp
-	scene.configure("henesys_hg1", 13, {"use_flow": false})
+	scene.configure("henesys", 13, {"use_flow": false})
 	(Engine.get_main_loop() as SceneTree).current_scene.add_child(scene)
 	assert_eq(temp.binding_keys("stat_window"), PackedInt32Array([KEY_F]), "F3 is removed before input dispatch")
 	assert_false(bool(scene.get("_perf_on")))
@@ -386,7 +386,7 @@ func test_pause_menu_opens_key_config_and_options_over_the_paused_run() -> void:
 	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	s.library = lib
 	s.settings = temp # never the live autoload: OK would write the developer's settings.cfg
-	s.configure("henesys_hg1", 13, {"use_flow": false, "autoplay": true, "autopick": true})
+	s.configure("henesys", 13, {"use_flow": false, "autoplay": true, "autopick": true})
 	var tree := Engine.get_main_loop() as SceneTree
 	(tree.current_scene if tree.current_scene != null else tree.root).add_child(s)
 	scene = s

@@ -150,7 +150,7 @@ func test_a_persistent_round_gets_the_settings_alert_levels_and_follows_them_liv
 	var flow := _flow()
 	flow.settings = s
 	flow.create_character("Alert121")
-	flow.start_round("henesys_hg1", 7)
+	flow.start_round("henesys", 7)
 	var run := flow.current as RunScene
 	assert_true(run != null, "the round is running")
 	if run == null:
@@ -194,7 +194,7 @@ func _tool_run(s: GameSettings, options: Dictionary) -> RunScene:
 	run.settings = s
 	var o := options.duplicate()
 	o["use_flow"] = false
-	run.configure("henesys_hg1", 7, o)
+	run.configure("henesys", 7, o)
 	var tree := Engine.get_main_loop() as SceneTree
 	(tree.current_scene if tree.current_scene != null else tree.root).add_child(run)
 	_scenes.append(run)

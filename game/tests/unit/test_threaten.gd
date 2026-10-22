@@ -432,7 +432,7 @@ func test_real_cache_cast_threatens_a_crowd_with_the_v83_level() -> void:
 	var data := DataRepo.load_all()
 	data.balance.player.mp = 300
 	data.balance.player.skills = []
-	var setup := DataRepo.build_setup(data, "henesys_hg1", 183, Vector2(800, 600), _img,
+	var setup := DataRepo.build_setup(data, "henesys", 183, Vector2(800, 600), _img,
 		func(id: int) -> Dictionary: return _img("Mob.wz/%07d.img" % id))
 	if not setup.skill_imgs.has("120"):
 		skip("the cache has no Skill.wz/120.img (import with the Warrior second-job manifest)")
@@ -442,7 +442,7 @@ func test_real_cache_cast_threatens_a_crowd_with_the_v83_level() -> void:
 	w.learn_skill("threaten")
 	w.loadout.set_rank("threaten", 5)
 	w.god = true
-	var id: int = DataRepo.stage_mob_ids(data, "henesys_hg1")[0]
+	var id: int = DataRepo.stage_mob_ids(data, "henesys")[0]
 	var mobs: Array = []
 	for dx in [-40.0, -80.0, -120.0, 50.0, 90.0, 130.0, 170.0]:
 		mobs.append(RF.put_mob(w, id, w.player.pos.x + dx, w.player.pos.y))

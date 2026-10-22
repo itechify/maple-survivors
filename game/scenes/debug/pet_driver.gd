@@ -46,7 +46,7 @@ func _drive() -> void:
 func _round(species: int) -> void:
 	print("pet_driver: round ", species)
 	var run: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
-	run.configure("henesys_hg1", 60, {"use_flow": false, "autopick": true,
+	run.configure("henesys", 60, {"use_flow": false, "autopick": true,
 		"account": {"owned": [species], "pet": species, "alert": {"hp": 0.0, "mp": 0.0}}})
 	add_child(run)
 	run.set_process(false)
@@ -90,7 +90,7 @@ func _hub(species: int) -> void:
 	flow.create_character("Pet%d" % (species % 10))
 	var character: Dictionary = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
 	character["pet"] = species
-	flow.finish_run({"stage": "henesys_hg1", "cleared": true, "time": 960.0, "level": 35,
+	flow.finish_run({"stage": "henesys", "cleared": true, "time": 960.0, "level": 35,
 		"job_id": 210, "job_name": "Wizard (Fire, Poison)", "kills": 3000, "damage_dealt": 100000, "seed": 1,
 		"bosses_killed": 3, "levels_gained": 12, "nx_awarded": 0}, character)
 	var hub := flow.current as FreeMarket

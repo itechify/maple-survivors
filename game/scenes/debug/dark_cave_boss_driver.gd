@@ -21,7 +21,7 @@ func _drive() -> void:
 		get_tree().quit(2)
 		return
 	DirAccess.make_dir_recursive_absolute(shots)
-	var entries: Array = DataRepo.load_all().stages.stages.dark_cave.bosses
+	var entries: Array = DataRepo.stage_bosses(DataRepo.load_all().stages.stages.sleepywood)
 	for entry: Dictionary in entries:
 		if args.has("mob") and int(args.mob) != int(entry.mob_id):
 			continue
@@ -36,7 +36,7 @@ func _drive() -> void:
 
 func _encounter(shipped: Dictionary, attack: String) -> void:
 	var run: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
-	run.configure("dark_cave", 73, {"use_flow": false, "character": ProjectSettings.globalize_path(FIXTURE)})
+	run.configure("sleepywood", 73, {"use_flow": false, "character": ProjectSettings.globalize_path(FIXTURE)})
 	add_child(run)
 	run.set_process(false)
 	if run.world == null:

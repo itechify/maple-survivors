@@ -103,7 +103,7 @@ func _new_run(level := 40) -> void:
 		run.queue_free()
 		await get_tree().process_frame
 	run = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
-	run.configure("henesys_hg1", 203, {"use_flow": false, "autopick": true, "job": 320})
+	run.configure("henesys", 203, {"use_flow": false, "autopick": true, "job": 320})
 	add_child(run)
 	run.set_process(false)
 	var w := run.world

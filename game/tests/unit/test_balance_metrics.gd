@@ -30,7 +30,7 @@ func test_rarity_report_counts_offers_and_picks_including_queued_boss_rewards() 
 func test_unspawned_boss_diagnostics_round_trip_as_finite_json_without_mutating_the_world() -> void:
 	var data := RF.quiet_data()
 	data.balance.run_time_cap = DT
-	data.stages.stages.quiet.bosses = [{"time": 300.0, "mob_id": 2220000}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 300.0, "mob_id": 2220000}])
 	var world := RunWorld.new(RF.setup("quiet", 26, data))
 	var record := BR.run_one(world, "bot", 26)
 	var encoded := JSON.stringify(record)
@@ -189,7 +189,7 @@ func test_magic_claw_counts_each_landed_line_but_a_scheduled_boss_is_excluded() 
 	RF.put_mob(w, 100101, 500)
 	var r := BR.run_one(w, "bot", 26, 0.0)
 	assert_eq(r.ordinary_kill_hits_by_min[0], {"hits": 2, "kills": 1, "mean": 2.0})
-	data.stages.stages.quiet.bosses = [{"time": DT, "mob_id": 100101}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": DT, "mob_id": 100101}])
 	w = RunWorld.new(RF.setup("quiet", 26, data))
 	w.setup.skill_imgs["200"].skill["2001005"].level["1"]["fixdamage"] = 10.0
 	w.god = true
@@ -237,7 +237,7 @@ func test_summary_counts_clears_deaths_and_timeouts_separately() -> void:
 func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 	var data := RF.quiet_data()
 	data.balance.run_time_cap = 4.0
-	data.stages.stages.quiet.bosses = [{"time": 0.5, "mob_id": 100100}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.5, "mob_id": 100100}])
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	w.god = true
 	RF.place_player(w, 400)
@@ -252,7 +252,7 @@ func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 	data.balance.player.skills = []
 	data.balance.run_time_cap = 901.0
 	data.stages.stages.quiet.duration = 900.0
-	data.stages.stages.quiet.bosses = [{"time": 900.0, "mob_id": 100100, "hp_mult": 1000.0}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 900.0, "mob_id": 100100, "hp_mult": 1000.0}])
 	w = RunWorld.new(RF.setup("quiet", 27, data))
 	w.god = true
 	r = BR.run_one(w, "bot", 27)
@@ -265,7 +265,7 @@ func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 func _real_map_world(map_id: int) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
-	data.stages.stages.quiet.map_id = map_id
+	data.stages.stages.quiet.maps[0].map_id = map_id
 	var setup := RF.setup("quiet", 26, data)
 	setup.map_img = AssetLibrary.get_default().img(DataRepo.map_img_path(map_id)).root
 	var world := RunWorld.new(setup)

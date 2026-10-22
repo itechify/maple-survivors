@@ -11,8 +11,8 @@ static func setup(attacks: Array = ["attack2"], seed_value: int = 2401) -> Dicti
 	data.balance.player.stats.dex = 0
 	data.balance.player.stats.luk = 0
 	data.balance.mob_skills.enabled_ids = []
-	data.stages.stages.quiet.bosses = [{"time": 0.5, "mob_id": 3220000, "hp_mult": 0.5,
-		"dmg_mult": 1.2, "attacks": attacks, "attack_interval": 8.0, "attack_dmg_mult": 1.12}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.5, "mob_id": 3220000, "hp_mult": 0.5,
+		"dmg_mult": 1.2, "attacks": attacks, "attack_interval": 8.0, "attack_dmg_mult": 1.12}])
 	var out := RF.setup("quiet", seed_value, data)
 	out.map_img = RF.map_from_segments([{"x1": -2000, "y1": 0, "x2": 2000, "y2": 0}], [Vector2.ZERO])
 	out.equipment_info[1040002] = {"incPDD": 7.0}

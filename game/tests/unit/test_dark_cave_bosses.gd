@@ -8,8 +8,8 @@ const DT := 1.0 / 60.0
 
 func test_shipped_schedule_arrives_at_five_ten_and_fifteen_minutes_and_waits_for_rewards() -> void:
 	var data := RF.quiet_data()
-	var stage: Dictionary = data.stages.stages.dark_cave.duplicate(true)
-	var entries: Array = stage.bosses
+	var stage: Dictionary = data.stages.stages.sleepywood.duplicate(true)
+	var entries: Array = DataRepo.stage_bosses(stage)
 	assert_eq(entries.map(func(e: Dictionary) -> int: return int(e.mob_id)), [6300005, 8220009, 8130100])
 	assert_eq(entries.map(func(e: Dictionary) -> int: return int(e.time)), [300, 600, 900])
 	if entries.size() != 3:
@@ -25,7 +25,7 @@ func test_shipped_schedule_arrives_at_five_ten_and_fifteen_minutes_and_waits_for
 	data.balance.player.skills = []
 	var setup := RF.setup("quiet", 73, data)
 	setup.map_img = RF.map_from_segments([{"x1": -2000, "y1": 0, "x2": 2000, "y2": 0}], [Vector2.ZERO])
-	for id in [6300005, 8220009, 8130100]:
+	for id in [6300005, 8220009, 8130100, 7130100, 7130101]:
 		setup.mob_imgs[id] = RF.mob_img(100100)
 	var w := RunWorld.new(setup)
 	w.god = true
@@ -47,13 +47,13 @@ func test_shipped_schedule_arrives_at_five_ten_and_fifteen_minutes_and_waits_for
 				break
 	assert_eq(w.state, RunWorld.CLEARED)
 	assert_true(w.bosses.all_dead())
-	assert_true(w.warnings.is_empty())
+	assert_true(w.warnings.is_empty(), str(w.warnings))
 
 
 func _attack_setup(type: int = 1) -> Dictionary:
 	var setup := TF.setup(8130100, [], ["attack1"], 73)
 	setup.data.balance.player.hp = 2000
-	setup.data.stages.stages.quiet.bosses[0].attack_dmg_mult = 1.0
+	setup.data.stages.stages.quiet.maps[0].boss.attack_dmg_mult = 1.0
 	# Invented damage, timings and geometry; canonical facts are checked only by the cache-gated test below.
 	setup.mob_imgs[8130100].info.MADamage = 907.0
 	setup.mob_imgs[8130100].info.PADamage = 211.0
@@ -127,7 +127,7 @@ func test_type_one_needs_range_admission_but_does_not_require_ground_at_impact()
 
 func test_dead_boss_cancels_a_locked_type_one_hit() -> void:
 	var setup := _attack_setup()
-	setup.data.stages.stages.quiet.bosses.append({"time": 0.5, "mob_id": 2220000})
+	RF.set_bosses(setup.data.stages.stages.quiet, DataRepo.stage_bosses(setup.data.stages.stages.quiet) + [{"time": 0.5, "mob_id": 2220000}])
 	var w := RunWorld.new(setup)
 	var start := _start(w)
 	if start.is_empty():
@@ -198,7 +198,7 @@ func test_real_bosses_keep_canonical_attacks_elements_and_scaled_encounter_hp() 
 		var img := lib.mob_root(id)
 		assert_eq(int(img.info.maxHP), row[1])
 		assert_true((img.info.get("skill", {}) as Dictionary).is_empty(), "these bosses have no v83 mob skills")
-		var entry: Dictionary = data.stages.stages.dark_cave.bosses[index]
+		var entry: Dictionary = data.stages.stages.sleepywood.maps[index].boss
 		assert_eq(entry.attacks.size(), row[2].size(), "every canonical attack is scheduled")
 		effective_hp.append(roundi(float(row[1]) * float(entry.hp_mult)))
 		for attack_index in entry.attacks.size():

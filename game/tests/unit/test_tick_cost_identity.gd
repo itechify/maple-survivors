@@ -157,7 +157,7 @@ func test_bulk_live_defense_equals_the_per_slot_defense_and_immunity() -> void:
 static func _data() -> Dictionary:
 	var data := DataRepo.load_all()
 	var pool := {}
-	for id in DataRepo.stage_mob_ids(data, "henesys_hg1"):
+	for id in DataRepo.stage_mob_ids(data, "henesys"):
 		pool[str(id)] = 1.0
 	data.stages.stages["pool_146"] = {
 		"map_id": 0, "name": "pool_146", "duration": 1.0e9, "hard_cap": 160,

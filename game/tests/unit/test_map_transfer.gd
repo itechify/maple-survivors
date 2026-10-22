@@ -394,7 +394,7 @@ func test_real_cache_transfers_through_each_regions_maps_with_valid_arrivals() -
 	var map_lists := {}
 	for key: String in data.stages.stages:
 		var stage: Dictionary = data.stages.stages[key]
-		map_lists[key] = MAPS.stage_maps(stage)
+		map_lists[key] = DataRepo.stage_maps(data, key)
 		assert_eq(map_lists[key].size(), 3)
 		for entry: Dictionary in map_lists[key]:
 			if library.img(DataRepo.map_img_path(int(entry.map_id))) == null:
@@ -410,16 +410,6 @@ func test_real_cache_transfers_through_each_regions_maps_with_valid_arrivals() -
 			func(id: int) -> Dictionary: return library.mob_root(id), missing)
 		assert_eq(missing.size(), 0, "complete real-cache setup for " + key)
 		var stage: Dictionary = data.stages.stages[key]
-		if stage.get("maps", []).is_empty():
-			# #243 is not integrated yet: retain DataRepo's real mobs/skills and supply the binding map schema.
-			stage.maps = map_lists[key]
-			stage.map_seconds = 300.0 # tier C: spec #241
-			stage.erase("bosses")
-			stage.erase("map_id")
-			setup.map_imgs = []
-			for entry: Dictionary in stage.maps:
-				setup.map_imgs.append(library.img(DataRepo.map_img_path(int(entry.map_id))).root)
-			setup.map_img = setup.map_imgs[0]
 		var w := RunWorld.new(setup)
 		w.god = true
 		for index in 3:

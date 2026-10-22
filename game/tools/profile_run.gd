@@ -6,7 +6,7 @@ extends SceneTree
 ## the asset cache (the real map and mob/skill imgs).
 ##
 ##   bash scripts/godot.sh --headless --path game --script res://tools/profile_run.gd -- --seed=5 --from=780 --to=900
-##       [--stage=henesys_hg1] [--account=<abs AccountFile JSON>] [--job=<id>] [--mortal]
+##       [--stage=henesys] [--account=<abs AccountFile JSON>] [--job=<id>] [--mortal]
 ##
 ## The player is in god mode (RunWorld.god: no damage) so the bot reaches the late, crowded minutes; --mortal turns it
 ## off (the round then ends where the bot dies).
@@ -21,7 +21,7 @@ const PARTS := RunWorld.STEP_PARTS
 
 
 func _init() -> void:
-	var stage := "henesys_hg1"
+	var stage := "henesys"
 	var seed_value := 2026
 	var from := 780.0
 	var to := 1020.0
@@ -30,7 +30,7 @@ func _init() -> void:
 	var god := true
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
-			stage = a.substr(8)
+			stage = DataRepo.canonical_stage_key(a.substr(8))
 		elif a.begins_with("--seed="):
 			seed_value = int(a.substr(7))
 		elif a.begins_with("--from="):
@@ -49,6 +49,7 @@ func _init() -> void:
 	var setup := DataRepo.build_setup(data, stage, seed_value, Vector2(800, 600),
 		func(p: String) -> Dictionary: return BR._json(root, p),
 		func(id: int) -> Dictionary: return BR._json(root, "Mob.wz/%07d.img" % id), missing, {})
+	missing = BR.map_zero_missing(setup, missing)
 	if not missing.is_empty() or setup.get("map_img", {}).is_empty():
 		print("profile_run: the asset cache lacks %s for %s (root %s)" % [missing, stage, root])
 		quit(1)

@@ -4,7 +4,7 @@ extends Node2D
 ## and res://data, advances it in fixed 1/60 s ticks, and draws it with the presentation layer.
 ##
 ##   var run: RunScene = preload("res://scenes/run/run_scene.tscn").instantiate()
-##   run.configure("henesys_hg1", 7, {"autoplay": true, "autopick": true})
+##   run.configure("henesys", 7, {"autoplay": true, "autopick": true})
 ##   add_child(run)
 ##
 ## Options (configure()): autoplay (BotInput drives the player), autopick (BotInput's choices are taken at once and
@@ -127,7 +127,7 @@ const PERF_REFRESH := 0.25
 const FINAL_SHOT_TIMEOUT := 5.0
 
 ## Configuration (configure()).
-var stage_key := "henesys_hg1"
+var stage_key := "henesys"
 var run_seed := -1
 var options: Dictionary = {}
 ## Asset source for everything this scene draws; defaults to the "Assets" autoload.
@@ -293,7 +293,7 @@ static func account_from_options(p_options: Dictionary) -> Dictionary:
 
 ## Sets the stage, seed (-1 = random) and options; call before adding the scene to the tree.
 func configure(p_stage_key: String, p_seed: int = -1, p_options: Dictionary = {}) -> void:
-	stage_key = p_stage_key
+	stage_key = DataRepo.canonical_stage_key(p_stage_key)
 	run_seed = p_seed
 	options = p_options.duplicate()
 	_frames.full_history = option_flag(options, "perf") or float(options.get("quit_after", 0.0)) > 0.0 \
@@ -329,7 +329,7 @@ func _ready() -> void:
 	if not job_error.is_empty():
 		_fail("--job: " + job_error)
 		return
-	map_id = int(stage.get("map_id", 0))
+	map_id = int(stage.get("maps", [{}])[0].get("map_id", 0))
 	var character := {}
 	if options.has("character"):
 		var character_errors := PackedStringArray()
@@ -933,7 +933,7 @@ func _warm_stage() -> void:
 	for frame: String in ["backgrnd", "backgrnd2", "backgrnd3", "backgrnd4"]:
 		_warm_frame(HudBossBar.ART + frame)
 	var enabled: Array = world.balance.get("mob_skills", {}).get("enabled_ids", [])
-	for entry: Dictionary in world.stage.get("bosses", []):
+	for entry: Dictionary in DataRepo.stage_bosses(world.stage):
 		var id := int(entry.mob_id)
 		var img: Dictionary = world.setup.get("mob_imgs", {}).get(id, {})
 		if img.is_empty():

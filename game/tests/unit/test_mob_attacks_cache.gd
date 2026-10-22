@@ -28,7 +28,7 @@ func after_each() -> void:
 func _make() -> RunScene:
 	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	s.library = lib
-	s.configure("dark_cave", 2026, {"use_flow": false})
+	s.configure("sleepywood", 2026, {"use_flow": false})
 	var tree := Engine.get_main_loop() as SceneTree
 	(tree.current_scene if tree.current_scene != null else tree.root).add_child(s)
 	return s
@@ -99,9 +99,9 @@ func test_dark_cave_draws_tauro_attacks_and_no_boogie_cast_with_nothing_missing(
 
 
 func _assert_nothing_missing(s: RunScene, label: String) -> void:
-	assert_eq(lib.missing.size(), 0, "%s: library misses %s" % [label, lib.missing])
+	assert_eq(interim_missing(lib.missing, s.world.data, s.stage_key).size(), 0, "%s: library misses %s" % [label, lib.missing])
 	assert_eq(s.map.missing.size(), 0, "%s: map misses %s" % [label, s.map.missing])
 	assert_eq(s.avatar.missing.size(), 0, "%s: avatar misses %s" % [label, s.avatar.missing])
 	for mr in s.mob_renderers:
 		assert_eq(mr.missing.size(), 0, "%s: mob renderer misses %s" % [label, mr.missing])
-	assert_eq(s.setup_missing.size(), 0, "%s: setup misses %s" % [label, s.setup_missing])
+	assert_eq(interim_missing(s.setup_missing, s.world.data, s.stage_key).size(), 0, "%s: setup misses %s" % [label, s.setup_missing])

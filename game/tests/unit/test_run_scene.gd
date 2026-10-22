@@ -7,6 +7,8 @@ extends TestCase
 ## answers (keys through handle_input, signals) drive the sim, that autopick resolves choices without windows, and that
 ## nothing is missing from the cache. The launcher's argument parsing needs no cache.
 
+const STAGE_FIXTURES := preload("res://tests/fixtures/run_fixtures.gd")
+
 const DT := 1.0 / 60.0
 
 
@@ -110,7 +112,7 @@ func test_round_keeps_selected_appearance_when_job_weapon_changes() -> void:
 	var original := RunWorld.new({"data": DataRepo.load_all()}).character_snapshot()
 	original.look = {"skin": 3, "face": 21002, "hair": 31057}
 	original.equipment.worn = Equipment.worn_from_ids([1041011, 1061008, 1072038, 1322005], {})
-	scene = _make("henesys_hg1", 70, {"character": original})
+	scene = _make("henesys", 70, {"character": original})
 	assert_eq(scene.avatar.look, {"skin": 3, "face": 21002, "hair": 31057,
 		"equips": [1041011, 1061008, 1072038, 1322005]})
 	scene.world.change_job(200)
@@ -145,7 +147,7 @@ func test_initial_presentation_uses_the_map_reached_before_building() -> void:
 func test_summary_reports_round_levels_bosses_and_nx() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 5, {})
+	scene = _make("henesys", 5, {})
 	var w := scene.world
 	var start := w.progression.level
 	w.progression.add_exp(w.progression.exp_to_next())
@@ -161,8 +163,8 @@ func test_summary_reports_round_levels_bosses_and_nx() -> void:
 func test_banner_and_summary_name_the_region_not_the_map() -> void:
 	if not require_cache():
 		return
-	var want := {"henesys_hg1": ["Victoria Island", "Henesys"], "tree_that_grew_1": ["Victoria Island", "Ellinia"],
-		"dark_cave": ["Victoria Island", "Sleepywood"]}
+	var want := {"henesys": ["Victoria Island", "Henesys"], "ellinia": ["Victoria Island", "Ellinia"],
+		"sleepywood": ["Victoria Island", "Sleepywood"]}
 	for key: String in want:
 		scene = _make(key, 5, {})
 		assert_eq(scene._title, PackedStringArray(want[key]), "%s: continent small above the region" % key)
@@ -188,7 +190,7 @@ func test_one_off_character_file_option_restores_character() -> void:
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	file.store_string(JSON.stringify(character))
 	file.close()
-	scene = _make("henesys_hg1", 1, {"character": path, "autoplay": true, "autopick": true})
+	scene = _make("henesys", 1, {"character": path, "autoplay": true, "autopick": true})
 	assert_eq(scene.world.character_snapshot(), character)
 	assert_eq(int(scene.world.player_state.level), 35)
 	_assert_nothing_missing(scene, "one-off character file")
@@ -202,14 +204,14 @@ func test_account_option_reaches_the_round_setup() -> void:
 	file.store_string(JSON.stringify({"owned": [1002279, 5000001], "cash": {"hat": 1002279}, "pet": 5000001,
 		"alert": {"hp": 0.4, "mp": 0.2}}))
 	file.close()
-	scene = _make("henesys_hg1", 1, {"account": path, "autoplay": true, "autopick": true})
+	scene = _make("henesys", 1, {"account": path, "autoplay": true, "autopick": true})
 	assert_eq(scene.world.player_state.fortune, 10.0, "the worn hat adds its slot's Fortune")
 	assert_eq(scene.world.pet, 5000001)
 	assert_eq(scene.world.alert, {"hp": 0.4, "mp": 0.2})
 	assert_eq(scene.world.warnings.size(), 0)
 	assert_eq(scene.perf_summary().account, "run account.json", "summary.json names the account file")
 	_assert_nothing_missing(scene, "tool account file")
-	var plain := _make("henesys_hg1", 1, {"autoplay": true, "autopick": true})
+	var plain := _make("henesys", 1, {"autoplay": true, "autopick": true})
 	assert_eq(plain.world.player_state.fortune, 0.0)
 	assert_false(plain.perf_summary().has("account"))
 	plain.free()
@@ -252,6 +254,18 @@ func _frames(n: int) -> void:
 		scene.advance_frame(DT)
 
 
+## HUD/finale probes use an explicit legacy single-map schedule, including simultaneous bosses. Real region
+## schedules require map_index/map_time and settle maps 0/1 as transfers, not as the round finale.
+func _single_map_bosses(entries: Array, rules: Dictionary = {}) -> void:
+	var w := scene.world
+	w.stage = w.stage.duplicate(true)
+	w.stage["map_id"] = w.current_map_id()
+	w.stage.erase("maps")
+	w.stage["bosses"] = entries.duplicate(true)
+	w.bosses = BossDirector.new(entries, rules)
+	assert_false(w.map_sequence_enabled(), "this probe deliberately uses the legacy single-map lifecycle")
+
+
 ## Live slots plus dying ones (MobRenderer draws STAND..DIE).
 func _drawn_mob_slots(w: RunWorld) -> int:
 	var n := 0
@@ -269,12 +283,12 @@ func _mob_visible(s: RunScene) -> int:
 
 
 func _assert_nothing_missing(s: RunScene, label: String) -> void:
-	assert_eq(lib.missing.size(), 0, "%s: library misses %s" % [label, lib.missing])
+	assert_eq(interim_missing(lib.missing, s.data, s.stage_key).size(), 0, "%s: library misses %s" % [label, lib.missing])
 	assert_eq(s.map.missing.size(), 0, "%s: map misses %s" % [label, s.map.missing])
 	assert_eq(s.avatar.missing.size(), 0, "%s: avatar misses %s" % [label, s.avatar.missing])
 	for mr in s.mob_renderers:
 		assert_eq(mr.missing.size(), 0, "%s: mob renderer misses %s" % [label, mr.missing])
-	assert_eq(s.setup_missing.size(), 0, "%s: setup misses %s" % [label, s.setup_missing])
+	assert_eq(interim_missing(s.setup_missing, s.data, s.stage_key).size(), 0, "%s: setup misses %s" % [label, s.setup_missing])
 
 
 ## The skill icons show the run's skills (icon, rank, key) with the cooldown of the latest frame.
@@ -307,12 +321,19 @@ func _assert_hud_matches(s: RunScene) -> void:
 func test_autoplay_two_minutes_draws_the_sim() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 7, {"autoplay": true, "autopick": true})
+	scene = _make("henesys", 7, {"autoplay": true, "autopick": true})
 	assert_eq(scene.error, "", "scene started")
 	assert_true(1302000 in scene.avatar.look.equips, "the first Beginner frame includes the Sword")
 	var w := scene.world
 	assert_true(w != null, "world built")
-	assert_eq(w.mob_kinds.size(), DataRepo.stage_mob_ids(scene.data, "henesys_hg1").size(), "every pool mob has an img")
+	# Include every map's life pool and canonical boss summons/revives, as build_setup does when preloading.
+	var expected_ids := DataRepo.stage_mob_ids(scene.data, scene.stage_key, w.setup.mob_imgs,
+		w.setup.mob_skill_img, w.setup.map_imgs)
+	assert_eq(w.mob_kinds.size(), expected_ids.size(), "every region pool mob has an img")
+	for id: int in expected_ids:
+		assert_false(lib.mob_root(id).is_empty(), "mob %d exists in the real cache" % id)
+		assert_true(w.setup.mob_imgs.has(id), "mob %d was preloaded" % id)
+		assert_true(w.kind_of_id.has(id), "mob %d has a sim kind" % id)
 	assert_true(scene.mob_renderers.size() >= 1, "a mob renderer per floor layer")
 	var max_numbers := 0
 	var max_fx := 0
@@ -354,7 +375,7 @@ func test_autoplay_two_minutes_draws_the_sim() -> void:
 func test_events_become_visuals() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 3, {})
+	scene = _make("henesys", 3, {})
 	var w := scene.world
 	_frames(2)
 	var p := w.player.pos
@@ -391,7 +412,7 @@ func test_events_become_visuals() -> void:
 func test_boss_warning_and_arrival_messages_survive_exp_message_pressure() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 2101, {})
+	scene = _make("henesys", 2101, {})
 	scene.handle_events([{"type": "boss_warning", "boss_index": 0, "mob_id": 2220000, "time": 297.0}])
 	for i in 12:
 		scene.hud.show_exp(i + 1)
@@ -415,8 +436,8 @@ func test_boss_warning_and_arrival_messages_survive_exp_message_pressure() -> vo
 func test_live_boss_bar_tracks_hp_and_hides_on_death() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 2102, {})
-	scene.world.bosses = BossDirector.new([{"mob_id": 2220000, "time": 0.5, "hp_mult": 2.0}])
+	scene = _make("henesys", 2102, {})
+	_single_map_bosses([{"mob_id": 2220000, "time": 0.5, "hp_mult": 2.0}])
 	scene.world.god = true
 	scene.world.loadout.order.clear()
 	scene.world.loadout.ranks.clear()
@@ -449,8 +470,9 @@ func test_live_boss_bar_tracks_hp_and_hides_on_death() -> void:
 func test_multiple_live_boss_bars_keep_their_own_icons_and_colour_overrides() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 2103, {})
-	scene.world.bosses = BossDirector.new([
+	scene = _make("henesys", 2103, {})
+	# Simultaneous bars remain a HUD contract; live region maps intentionally arm only one boss each.
+	_single_map_bosses([
 		{"mob_id": 2220000, "time": 0.5, "hp_mult": 2.0},
 		{"mob_id": 9400205, "time": 0.7, "hp_mult": 0.25},
 	])
@@ -475,7 +497,7 @@ func test_multiple_live_boss_bars_keep_their_own_icons_and_colour_overrides() ->
 func test_boss_slam_events_play_canonical_effect_and_sound() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 2303, {})
+	scene = _make("henesys", 2303, {})
 	var pos := scene.world.player.pos + Vector2(180, 0)
 	var effect := "Mob.wz/6130101.img/attack1/info/effect"
 	var sounds := int(scene.counters.sounds)
@@ -492,7 +514,7 @@ func test_boss_slam_events_play_canonical_effect_and_sound() -> void:
 func test_cast_plays_the_action_stance_while_standing() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 5, {})
+	scene = _make("henesys", 5, {})
 	var w := scene.world
 	_frames(30)
 	assert_eq(w.player.state, PlayerMotion.ST_STAND, "standing at the start")
@@ -513,7 +535,7 @@ func test_cast_plays_the_action_stance_while_standing() -> void:
 func test_player_miss_uses_violet_art_without_hit_expression() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 616, {})
+	scene = _make("henesys", 616, {})
 	_frames(2)
 	var w := scene.world
 	w.loadout.add_player_mod("avoid", "add", 1000.0)
@@ -532,7 +554,7 @@ func test_player_miss_uses_violet_art_without_hit_expression() -> void:
 func test_level_up_opens_the_window() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 11, {})
+	scene = _make("henesys", 11, {})
 	var w := scene.world
 	_frames(2)
 	# Exercise opening a choice, independently of the tuned first-level EXP cost.
@@ -586,7 +608,7 @@ func test_job_window_reaches_magician() -> void:
 	if not require_cache():
 		return
 	# #199 expands the job pool: this presentation test specifically needs the Magician and its wand.
-	scene = _make("henesys_hg1", 12, {"window_autopick": 0.05, "job": 200})
+	scene = _make("henesys", 12, {"window_autopick": 0.05, "job": 200})
 	var w := scene.world
 	_frames(2)
 	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(10), 4000019)
@@ -604,7 +626,7 @@ func test_job_window_reaches_magician() -> void:
 func test_job_window_select_and_decline() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 14, {})
+	scene = _make("henesys", 14, {})
 	var w := scene.world
 	_frames(2)
 	# Exactly enough EXP for level 10 (the Magician advancement level).
@@ -643,7 +665,7 @@ func test_job_window_select_and_decline() -> void:
 func test_job_change_effect_plays_before_the_next_window() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 15, {})
+	scene = _make("henesys", 15, {})
 	var w := scene.world
 	_frames(2)
 	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(10), 4000019)
@@ -680,7 +702,7 @@ func test_job_change_effect_plays_before_the_next_window() -> void:
 func test_low_mp_cue_tracks_the_waiting_skill_and_clears_after_restoration() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 9, {})
+	scene = _make("henesys", 9, {})
 	var world := scene.world
 	world.god = true
 	world.change_job(200)
@@ -698,7 +720,7 @@ func test_low_mp_cue_tracks_the_waiting_skill_and_clears_after_restoration() -> 
 func test_pause_holds_the_run() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 13, {"autoplay": true, "autopick": true})
+	scene = _make("henesys", 13, {"autoplay": true, "autopick": true})
 	var w := scene.world
 	_frames(30)
 	var t := w.time
@@ -733,7 +755,7 @@ func test_pause_holds_the_run() -> void:
 func test_stage_clear_finishes_with_summary() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 4, {"autoplay": true, "autopick": true})
+	scene = _make("henesys", 4, {"autoplay": true, "autopick": true})
 	var w := scene.world
 	w.duration = 2.0
 	w.bosses = BossDirector.new() # This fixture exercises the duration fallback and clear presentation.
@@ -760,7 +782,7 @@ func test_stage_clear_finishes_with_summary() -> void:
 func test_death_shows_tombstone_then_finishes() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 9, {})
+	scene = _make("henesys", 9, {})
 	var w := scene.world
 	_frames(2)
 	var p := w.player.pos
@@ -787,7 +809,7 @@ func test_death_shows_tombstone_then_finishes() -> void:
 func test_climbing_animates_only_while_moving() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 21, {})
+	scene = _make("henesys", 21, {})
 	var w := scene.world
 	_frames(2)
 	# The ladder/rope whose bottom is closest above a floor: stand under it and hold Up.
@@ -822,7 +844,7 @@ func test_warp_fast_forwards_before_the_first_frame() -> void:
 	if not require_cache():
 		return
 	# Fixed training seed1 reaches the requested warp; full-run regressions retain2026's valid early death.
-	scene = _make("henesys_hg1", 1, {"autoplay": true, "autopick": true, "warp": 300.0, "shots_dir": "",
+	scene = _make("henesys", 1, {"autoplay": true, "autopick": true, "warp": 300.0, "shots_dir": "",
 		"shot_every": 30.0, "job": 200}) # Keep the wand presentation test independent of the expanded job pool.
 	var w := scene.world
 	assert_true(w.time >= 300.0 - 1e-6, "the sim is at 5:00 before any frame (%.1f)" % w.time)
@@ -853,7 +875,7 @@ func _prepare_death(w: RunWorld) -> void:
 func _make_warped(prepare: Callable, options: Dictionary = {}) -> RunScene:
 	var o := {"autoplay": true, "autopick": true, "warp": 60.0, "world_prepared": prepare}
 	o.merge(options, true)
-	return _make("henesys_hg1", 4, o)
+	return _make("henesys", 4, o)
 
 
 func test_death_inside_the_warp_finishes_the_round() -> void:
@@ -925,10 +947,10 @@ func test_automated_death_and_clear_in_the_warp_reach_the_exit() -> void:
 
 
 func test_launcher_args() -> void:
-	var args := RunLauncher.parse_args(PackedStringArray(["--run=henesys_hg1", "--seed=7", "--autoplay", "--autopick",
+	var args := RunLauncher.parse_args(PackedStringArray(["--run=henesys", "--seed=7", "--autoplay", "--autopick",
 		"--speed=4", "--shots=C:\\tmp\\shots", "--shot-every=30", "--quit-after=900", "--perf", "ignored"]))
 	assert_true(RunLauncher.has_run_args(args))
-	assert_eq(RunLauncher.stage_from_args(args), "henesys_hg1")
+	assert_eq(RunLauncher.stage_from_args(args), "henesys")
 	var o := RunLauncher.options_from_args(args)
 	assert_eq(o.autoplay, true)
 	assert_eq(o.autopick, true)
@@ -939,22 +961,22 @@ func test_launcher_args() -> void:
 	assert_eq(o.perf, true)
 	assert_eq(int(args.seed), 7)
 	var bare := RunLauncher.parse_args(PackedStringArray(["--run"]))
-	assert_eq(RunLauncher.stage_from_args(bare), "henesys_hg1")
+	assert_eq(RunLauncher.stage_from_args(bare), "henesys")
 	assert_false(RunLauncher.has_run_args(RunLauncher.parse_args(PackedStringArray(["--map=1"]))))
 
 
 func test_canonical_basic_swing_drives_afterimage_sparks_and_weapon_sound() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 83, {})
+	scene = _make("henesys", 83, {})
 	var data := scene.data.duplicate(true)
 	data.balance.player.skills = []
 	data.balance.mob_motion.push_px = 0
-	for keyframe: Dictionary in data.stages.stages.henesys_hg1.keyframes:
+	for keyframe: Dictionary in data.stages.stages.henesys.keyframes:
 		keyframe.rate = 0
 		keyframe.max_alive = 0
-	var setup := DataRepo.build_setup(data, "henesys_hg1", 83, Vector2(800, 600),
-		func(path: String) -> Dictionary: return lib.img(path).root, lib.mob_root)
+	var setup := DataRepo.build_setup(data, "henesys", 83, Vector2(800, 600),
+		func(path: String) -> Dictionary: return lib.img(path).root if lib.img(path) != null else {}, lib.mob_root)
 	scene.world = RunWorld.new(setup)
 	var w := scene.world
 	w.god = true
@@ -974,7 +996,7 @@ func test_canonical_basic_swing_drives_afterimage_sparks_and_weapon_sound() -> v
 func test_same_map_portal_snaps_the_camera_without_sound_or_effects() -> void:
 	if not require_cache():
 		return
-	scene = _make("tree_that_grew_1", 17, {})
+	scene = _make("ellinia", 17, {})
 	var w := scene.world
 	w.player.place(Vector2(-1355, 2021), w.fhm)
 	scene.advance_frame(0.0)
@@ -998,7 +1020,7 @@ func test_same_map_portal_snaps_the_camera_without_sound_or_effects() -> void:
 func test_potion_quickslot_shows_current_icons_without_stock_even_when_resources_are_full() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 10, {})
+	scene = _make("henesys", 10, {})
 	var hp: Dictionary = scene.hud.quick_slot.displayed("hp")
 	assert_eq(hp.item_id, 2000000)
 	assert_false(hp.has("count"), "no stock number for the unlimited potion")
@@ -1023,7 +1045,7 @@ func test_potion_quickslot_shows_current_icons_without_stock_even_when_resources
 func test_potion_sweeps_follow_live_timers_between_snapshot_changes_and_freeze_when_paused() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 10, {})
+	scene = _make("henesys", 10, {})
 	var w := scene.world
 	assert_true(w.drink_potion("hp"))
 	assert_true(w.drink_potion("mp"))
@@ -1055,7 +1077,7 @@ func test_potion_keyboard_press_consumes_once_even_with_multiple_ticks_per_frame
 	assert_true(InputMap.has_action("drink_mp"))
 	if not InputMap.has_action("drink_hp") or not InputMap.has_action("drink_mp") or not require_cache():
 		return
-	scene = _make("henesys_hg1", 10, {})
+	scene = _make("henesys", 10, {})
 	for pair: Array in [["drink_hp", KEY_DELETE], ["drink_hp", KEY_Q], ["drink_mp", KEY_END]]:
 		var event := InputEventKey.new()
 		event.physical_keycode = pair[1]
@@ -1075,7 +1097,7 @@ func test_drinking_hp_mp_and_upgraded_potions_plays_the_item_use_sound() -> void
 	var sfx := (Engine.get_main_loop() as SceneTree).root.get_node("Sfx") as AudioService
 	var previous_library := sfx.library
 	sfx.library = lib
-	scene = _make("henesys_hg1", 35, {})
+	scene = _make("henesys", 35, {})
 	var w := scene.world
 	w.drain_events()
 	for kind: String in ["hp", "mp"]:
@@ -1100,7 +1122,7 @@ func test_missing_potion_sound_is_silent_and_reports_the_consumed_tier_path() ->
 		return
 	var sfx := (Engine.get_main_loop() as SceneTree).root.get_node("Sfx") as AudioService
 	var previous_library := sfx.library
-	scene = _make("henesys_hg1", 35, {})
+	scene = _make("henesys", 35, {})
 	# An empty cache tests misses without changing the player's installed assets.
 	lib.open(TestCase.test_dir("missing_potion_sounds"))
 	sfx.library = lib
@@ -1124,7 +1146,7 @@ func test_missing_potion_sound_is_silent_and_reports_the_consumed_tier_path() ->
 func test_scheduled_potion_upgrades_change_the_quickslot_icon_and_show_the_v83_notice() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 11, {})
+	scene = _make("henesys", 11, {})
 	var notices := {2000001: "Your Red Potions are now Orange Potions.", 2000002: "Your Orange Potions are now White Potions.",
 		2000006: "Your Blue Potions are now Mana Elixirs."}
 	for example: Array in [[10, "hp", 2000001], [20, "mp", 2000006], [25, "hp", 2000002]]:
@@ -1148,7 +1170,7 @@ func test_levelup_window_adds_one_elixir_beside_its_available_job_cards() -> voi
 		return
 	var height_one := 0.0
 	for n in [1, 2]:
-		scene = _make("henesys_hg1", 11, {})
+		scene = _make("henesys", 11, {})
 		var w := scene.world
 		w.change_job(200)
 		w.progression.level = 20
@@ -1183,15 +1205,15 @@ func test_mano_slow_uses_repeating_canonical_effect_and_shared_skill_stance() ->
 	var sfx := (Engine.get_main_loop() as SceneTree).root.get_node("Sfx") as AudioService
 	var previous_library := sfx.library
 	sfx.library = lib
-	scene = _make("henesys_hg1",22,{})
+	scene = _make("henesys",22,{})
 	var data := scene.data.duplicate(true)
 	data.balance.player.skills = []
 	data.balance.bosses.teleport_stall = 10000.0
-	data.stages.stages.henesys_hg1.bosses = [{"mob_id":2220000,"time":0.0}]
-	for keyframe: Dictionary in data.stages.stages.henesys_hg1.keyframes:
+	STAGE_FIXTURES.set_bosses(data.stages.stages.henesys, [{"mob_id":2220000,"time":0.0}])
+	for keyframe: Dictionary in data.stages.stages.henesys.keyframes:
 		keyframe.rate = 0
 		keyframe.max_alive = 0
-	var setup := DataRepo.build_setup(data,"henesys_hg1",22,Vector2(800,600),func(p:String)->Dictionary:return lib.img(p).root,lib.mob_root)
+	var setup := DataRepo.build_setup(data,"henesys",22,Vector2(800,600),func(p:String)->Dictionary:return lib.img(p).root if lib.img(p) != null else {},lib.mob_root)
 	setup.mob_imgs[2220000] = setup.mob_imgs[2220000].duplicate(true)
 	setup.mob_imgs[2220000].info.skill = {"0":{"skill":126.0,"level":7.0,"action":1.0,"effectAfter":0.0}}
 	setup.mob_imgs[2220000].info.speed = -100.0
@@ -1216,10 +1238,11 @@ func test_mano_slow_uses_repeating_canonical_effect_and_shared_skill_stance() ->
 func test_boss_reward_window_is_a_bonus_choice_before_the_clear_sequence() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 20, {})
+	scene = _make("henesys", 20, {})
 	var w := scene.world
 	w.god = true
-	w.bosses = BossDirector.new([{"time": 0.1, "mob_id": 2220000}], w.balance.bosses)
+	# This is a round-finale window test; an intermediate region boss must transfer instead of clearing.
+	_single_map_bosses([{"time": 0.1, "mob_id": 2220000}], w.balance.bosses)
 	_frames(6)
 	var slot := int(w.bosses.records[0].slot)
 	w.hit_mob(slot, {"damage_min": 1000000.0, "damage_max": 1000000.0, "magic": false,
@@ -1251,7 +1274,7 @@ func test_boss_reward_window_is_a_bonus_choice_before_the_clear_sequence() -> vo
 func test_timed_buff_row_and_rank_previews_use_canonical_guard_and_armor_data() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 12, {})
+	scene = _make("henesys", 12, {})
 	var w := scene.world
 	w.change_job(200)
 	w.loadout.ranks.erase("energy_bolt")
@@ -1279,7 +1302,7 @@ func test_timed_buff_row_and_rank_previews_use_canonical_guard_and_armor_data() 
 func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
 	if not require_cache():
 		return
-	scene = _make("tree_that_grew_1", 2406, {})
+	scene = _make("ellinia", 2406, {})
 	var entry: Dictionary = scene.world.bosses.entries[0].duplicate(true)
 	entry.time = 0.5
 	entry.attacks = ["attack2"]
@@ -1310,17 +1333,17 @@ func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
 
 
 func _canonical_dyle_area_buff(skill_entry: String) -> Dictionary:
-	scene = _make("tree_that_grew_1", 2026, {})
+	scene = _make("ellinia", 2026, {})
 	var data := scene.data.duplicate(true)
 	data.balance.player.skills = []
-	for keyframe: Dictionary in data.stages.stages.tree_that_grew_1.keyframes:
+	for keyframe: Dictionary in data.stages.stages.ellinia.keyframes:
 		keyframe.rate = 0
 		keyframe.max_alive = 0
-	data.stages.stages.tree_that_grew_1.bursts = {}
-	data.stages.stages.tree_that_grew_1.elites = {}
-	data.stages.stages.tree_that_grew_1.bosses = [{"mob_id": 6220000, "time": 0.0}]
-	var setup := DataRepo.build_setup(data, "tree_that_grew_1", 2026, Vector2(800, 600),
-		func(p: String) -> Dictionary: return lib.img(p).root, lib.mob_root)
+	data.stages.stages.ellinia.bursts = {}
+	data.stages.stages.ellinia.elites = {}
+	STAGE_FIXTURES.set_bosses(data.stages.stages.ellinia, [{"mob_id": 6220000, "time": 0.0}])
+	var setup := DataRepo.build_setup(data, "ellinia", 2026, Vector2(800, 600),
+		func(p: String) -> Dictionary: return lib.img(p).root if lib.img(p) != null else {}, lib.mob_root)
 	setup.mob_imgs[6220000] = setup.mob_imgs[6220000].duplicate(true)
 	setup.mob_imgs[6220000].info.skill = {skill_entry: setup.mob_imgs[6220000].info.skill[skill_entry]}
 	scene.world = RunWorld.new(setup)
@@ -1389,23 +1412,23 @@ func test_boss_skill_nonempty_missing_recipient_art_is_still_reported() -> void:
 	var missing := "Skill.wz/MobSkill.img/113/level/2/required_art_removed"
 	event.recipient_effect = missing
 	scene.handle_events([event])
-	assert_eq(Array(lib.missing), [missing], "a broken required export remains visible to acceptance")
+	assert_eq(Array(interim_missing(lib.missing, scene.data, scene.stage_key)), [missing], "a broken required export remains visible to acceptance")
 
 
 func test_dyle_immunity_icon_follows_live_boss_and_ends_with_status_and_death() -> void:
 	if not require_cache():
 		return
-	scene = _make("tree_that_grew_1", 25, {})
+	scene = _make("ellinia", 25, {})
 	var data := scene.data.duplicate(true)
 	data.balance.player.skills = []
 	data.balance.bosses.teleport_stall = 10000.0
-	for keyframe: Dictionary in data.stages.stages.tree_that_grew_1.keyframes:
+	for keyframe: Dictionary in data.stages.stages.ellinia.keyframes:
 		keyframe.rate = 0
 		keyframe.max_alive = 0
-	data.stages.stages.tree_that_grew_1.bursts = {}
-	data.stages.stages.tree_that_grew_1.elites = {}
-	data.stages.stages.tree_that_grew_1.bosses = [{"mob_id": 6220000, "time": 0.0}]
-	var setup := DataRepo.build_setup(data, "tree_that_grew_1", 25, Vector2(800,600), func(p:String)->Dictionary:return lib.img(p).root, lib.mob_root)
+	data.stages.stages.ellinia.bursts = {}
+	data.stages.stages.ellinia.elites = {}
+	STAGE_FIXTURES.set_bosses(data.stages.stages.ellinia, [{"mob_id": 6220000, "time": 0.0}])
+	var setup := DataRepo.build_setup(data, "ellinia", 25, Vector2(800,600), func(p:String)->Dictionary:return lib.img(p).root if lib.img(p) != null else {}, lib.mob_root)
 	setup.mob_imgs[6220000] = setup.mob_imgs[6220000].duplicate(true)
 	setup.mob_imgs[6220000].info.skill = {"0": {"skill":140,"level":8,"action":1,"effectAfter":0}}
 	scene.world = RunWorld.new(setup)
@@ -1443,12 +1466,13 @@ func test_dyle_immunity_icon_follows_live_boss_and_ends_with_status_and_death() 
 func test_tree_boss_bars_use_original_icons_and_split_removes_only_the_dead_bar() -> void:
 	if not require_cache():
 		return
-	scene = _make("tree_that_grew_1", 2521, {})
+	scene = _make("ellinia", 2521, {})
 	var w := scene.world
 	w.god = true
 	w.loadout.order.clear()
 	w.loadout.ranks.clear()
-	w.bosses = BossDirector.new([{"mob_id":9300003,"time":0.0,"hp_mult":1.5}, {"mob_id":6220000,"time":0.0,"hp_mult":1.5}])
+	# Keep both bosses alive on one map so King Slime's split must leave Dyle's independent bar intact.
+	_single_map_bosses([{"mob_id":9300003,"time":0.0,"hp_mult":1.5}, {"mob_id":6220000,"time":0.0,"hp_mult":1.5}])
 	_frames(1)
 	var rows := scene.hud.boss_bar.displayed()
 	assert_eq(rows.size(), 2)
@@ -1470,7 +1494,7 @@ func test_tree_boss_bars_use_original_icons_and_split_removes_only_the_dead_bar(
 func test_recovery_cast_effect_buff_row_and_rank_preview_use_original_data() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 13, {})
+	scene = _make("henesys", 13, {})
 	var w := scene.world
 	w.learn_skill("recovery")
 	w.take_hit(40, false, "", w.player.pos + Vector2(10, 0))
@@ -1498,7 +1522,7 @@ func test_setup_preloads_clear_art_and_sound_before_the_victory_event() -> void:
 		return
 	assert_false((lib.get("_anims") as Dictionary).has(RunScene.FX_CLEAR), "fresh in-memory library")
 	assert_false((lib.get("_sounds") as Dictionary).has(RunScene.SND_CLEAR))
-	scene = _make("henesys_hg1", 7, {})
+	scene = _make("henesys", 7, {})
 	assert_eq(scene.error, "")
 	assert_true((lib.get("_anims") as Dictionary).has(RunScene.FX_CLEAR), "setup cached the victory animation")
 	assert_true((lib.get("_sounds") as Dictionary).has(RunScene.SND_CLEAR), "setup cached the victory sound")
@@ -1515,13 +1539,13 @@ func test_setup_preloads_clear_art_and_sound_before_the_victory_event() -> void:
 func test_setup_preloads_boss_and_job_change_art_and_sounds() -> void:
 	if not require_cache():
 		return
-	for stage: String in ["henesys_hg1", "tree_that_grew_1"]:
+	for stage: String in ["henesys", "ellinia"]:
 		scene = _make(stage, 7, {"autoplay": true, "autopick": true})
 		assert_eq(scene.error, "", "scene started")
 		var pages := lib.pages_loaded()
 		var sounds := (lib.get("_sounds") as Dictionary).size()
 		var paths: Array[String] = ["Effect.wz/BasicEff.img/Summoned", RunScene.FX_JOB_CHANGED]
-		if stage == "henesys_hg1":
+		if stage == "henesys":
 			paths.append_array(["Skill.wz/MobSkill.img/112/level/1/effect", "Skill.wz/MobSkill.img/126/level/7/affected",
 				"Effect.wz/Summon.img/1", "Mob.wz/6130101.img/attack1/info/effect"])
 		else:
@@ -1535,6 +1559,6 @@ func test_setup_preloads_boss_and_job_change_art_and_sounds() -> void:
 		lib.sound(RunScene.SND_JOB_CHANGED)
 		assert_eq(lib.pages_loaded(), pages, "%s: no atlas page is first decoded at job change or boss time" % stage)
 		assert_eq((lib.get("_sounds") as Dictionary).size(), sounds, "%s: their sounds are already loaded" % stage)
-		assert_eq(lib.missing.size(), 0, "%s: warming records nothing missing %s" % [stage, lib.missing])
+		assert_eq(interim_missing(lib.missing, scene.data).size(), 0, "%s: warming records nothing missing %s" % [stage, lib.missing])
 		scene.free()
 		scene = null

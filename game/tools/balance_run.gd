@@ -17,9 +17,9 @@ extends SceneTree
 ## spawn or their last time inside it; a relocated mob keeps its time, mob_spawned.relocated_from): the idle queues,
 ## including mobs that idle off-screen until SpawnDirector relocates them.
 ##
-##   bash scripts/balance.sh                       # henesys_hg1, training seeds 1..6, in parallel
-##   bash scripts/balance.sh 7 11 --stage=tree_that_grew_1
-##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys_hg1]
+##   bash scripts/balance.sh                       # henesys, training seeds 1..6, in parallel
+##   bash scripts/balance.sh 7 11 --stage=ellinia
+##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys]
 ##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>] [--job=<id>[:<path>]]
 ##
 ## Card policies (jobs: seeded random choice, overridden by --job=<first or second job id>: a second job takes its first
@@ -118,7 +118,7 @@ class KillHits:
 
 
 func _init() -> void:
-	var stage := "henesys_hg1"
+	var stage := "henesys"
 	var seeds: Array[int] = []
 	var patch_file := ""
 	var policy := "bot"
@@ -135,7 +135,7 @@ func _init() -> void:
 	var target_tier := 1
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
-			stage = a.substr(8)
+			stage = DataRepo.canonical_stage_key(a.substr(8))
 			stage_explicit = true
 		elif a.begins_with("--job="):
 			var forced := JobTree.parse_forced(a.substr(6))
@@ -235,6 +235,7 @@ func _init() -> void:
 		var setup := DataRepo.build_setup(data, stage_key, 0, Vector2(800, 600),
 			func(p: String) -> Dictionary: return _json(root, p),
 			func(id: int) -> Dictionary: return _json(root, "Mob.wz/%07d.img" % id), missing, character)
+		missing = map_zero_missing(setup, missing)
 		if not missing.is_empty() or setup.get("map_img", {}).is_empty():
 			print("balance_run: the asset cache lacks %s for %s (root %s)" % [missing, stage_key, root])
 			quit(1)
@@ -263,6 +264,27 @@ func _init() -> void:
 		print("BALANCE " + JSON.stringify(r))
 		print(describe(r))
 	quit()
+
+
+## Interim #243 runs map 0 only; unavailable later-map assets still appear in build_setup's original missing list.
+static func map_zero_missing(setup: Dictionary, missing: PackedStringArray) -> PackedStringArray:
+	var later := PackedStringArray()
+	var maps := DataRepo.stage_maps(setup.data, String(setup.stage))
+	var stage: Dictionary = setup.data.get("stages", {}).get("stages", {}).get(setup.stage, {}).duplicate(true)
+	# Keep every curve mob, boss, summon and revive required; only unused explicit-pool ids are optional here.
+	stage.maps = maps.map(func(entry: Dictionary) -> Dictionary: return {"boss": entry.get("boss", {})})
+	var active := StageRoster.mob_ids(stage, setup.get("mob_imgs", {}), setup.get("mob_skill_img", {}))
+	for i in range(1, maps.size()):
+		later.append(DataRepo.map_img_path(int(maps[i].map_id)))
+		if maps[i].get("pool") is Dictionary:
+			for id: Variant in maps[i].pool:
+				if not int(id) in active:
+					later.append("Mob.wz/%07d.img" % int(id))
+	var required := PackedStringArray()
+	for path in missing:
+		if not path in later:
+			required.append(path)
+	return required
 
 
 ## Puts a normalised tool account (AccountFile) on every prepared round setup. The worn cash equipment and pet go on

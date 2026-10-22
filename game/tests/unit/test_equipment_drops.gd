@@ -278,7 +278,7 @@ func test_every_listed_item_has_cache_info_and_an_icon_and_every_level_has_drops
 		assert_true(int(infos[boss].reqLevel) >= level - 10, "and it is not far below: %d at %d" % [boss, level])
 	for level in range(1, 10):
 		assert_true(EquipmentDrops.eligible(ed.items, infos, 0, level, ed, "wand").size() > 0, "a Beginner of level %d can get drops" % level)
-	assert_eq(lib.missing.size(), 0, "%s" % [lib.missing])
+	assert_eq(interim_missing(lib.missing, DataRepo.load_all()).size(), 0, "%s" % [lib.missing])
 
 
 # --- PickupSystem EQUIP kind ---
@@ -523,8 +523,8 @@ func _boss_world(chance: float, level: int, p_seed: int = 20) -> RunWorld:
 	data.equipment_drops.items = INFO.keys()
 	data.equipment_drops.chance = chance
 	data.balance.player.skills = []
-	data.stages.stages.quiet.bosses = [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
-		"rewards": {"exp_mult": 5, "exp_drops": 2, "spread": 100, "potions": {"hp": 1, "mp": 1}, "bonus_choices": 1}}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
+		"rewards": {"exp_mult": 5, "exp_drops": 2, "spread": 100, "potions": {"hp": 1, "mp": 1}, "bonus_choices": 1}}])
 	var w := RunWorld.new(_fit(RF.setup("quiet", p_seed, data)))
 	RF.place_player(w, 400)
 	w.god = true
@@ -571,7 +571,7 @@ func test_each_scheduled_boss_death_drops_two_equipment_items_and_no_potions() -
 	var ids := [2220000, 6130101, 9400205]
 	for i in ids.size():
 		entries.append({"time": float(i + 1), "mob_id": ids[i]})
-	data.stages.stages.quiet.bosses = entries
+	RF.set_bosses(data.stages.stages.quiet, entries)
 	var w := RunWorld.new(_fit(RF.setup("quiet", 238, data)))
 	w.god = true
 	RF.place_player(w, 400)

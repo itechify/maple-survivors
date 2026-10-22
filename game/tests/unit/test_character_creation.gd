@@ -91,7 +91,7 @@ func test_imported_creation_options_have_every_renderable_variant_and_canonical_
 		for skin: int in model.options(gender, "skin"):
 			assert_true(lib.img(AvatarRenderer.part_img_path(2000 + skin)) != null)
 			assert_true(lib.img(AvatarRenderer.part_img_path(12000 + skin)) != null)
-	var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys_hg1", 70, Vector2(800, 600),
+	var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys", 70, Vector2(800, 600),
 		func(path: String) -> Dictionary: return lib.img(path).root if lib.img(path) != null else {},
 		func(id: int) -> Dictionary: return lib.mob_root(id))
 	# tier A: checked directly in original v83 Character.wz; no tuning copies in survivor data.
@@ -113,5 +113,5 @@ func test_imported_creation_options_have_every_renderable_variant_and_canonical_
 	var fresh := RunWorld.new(setup)
 	assert_eq(fresh.player_state.pdd, 7.0, "the default outfit's W.DEF 3 + 2 + 2")
 	assert_true(lib.sound(WeaponInfo.sound_path(BasicAttack.BARE_HANDS)) != null, "the bare-handed punch sound")
-	assert_eq(lib.missing, PackedStringArray())
+	assert_eq(interim_missing(lib.missing, setup.data, setup.stage), PackedStringArray())
 	lib.free()

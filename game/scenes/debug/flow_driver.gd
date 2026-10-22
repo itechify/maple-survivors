@@ -314,7 +314,7 @@ func _scenario_rounds() -> void:
 	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "tier-2 map select via out00"):
 		return
 	await _sleep(2.0)
-	if not _expect(flow.current.stages.size() == 1 and flow.current.stages[0].key == "dark_cave",
+	if not _expect(flow.current.stages.size() == 1 and flow.current.stages[0].key == "sleepywood",
 			"tier 2 offered a stage outside Dark Cave"):
 		return
 	await _shot("map_select_tier2")
@@ -457,7 +457,7 @@ func _warp_round() -> bool:
 		if run.world.state != RunWorld.PLAYING:
 			continue
 		if run.world.god and run.world.time >= run.world.duration \
-				and (run.stage_key == "dark_cave" or String(args.get("scenario", "")) in ["rounds", "account", "economy"]):
+				and (run.stage_key == "sleepywood" or String(args.get("scenario", "")) in ["rounds", "account", "economy"]):
 			# tier C (#232): flow/victory staging, not a naturally won round or a balance candidate.
 			# Use the real damage/death/reward path; never fabricate a summary or bypass pending choices.
 			for record: Dictionary in run.world.bosses.records:

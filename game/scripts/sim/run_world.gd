@@ -380,7 +380,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	setup = p_setup
 	data = setup.get("data", {})
 	balance = data.get("balance", {})
-	stage_key = String(setup.get("stage", ""))
+	stage_key = DataRepo.canonical_stage_key(String(setup.get("stage", "")))
 	stage = data.get("stages", {}).get("stages", {}).get(stage_key, {})
 	duration = float(stage.get("duration", 900.0))
 	seed_value = int(setup.get("seed", 0))
@@ -547,20 +547,15 @@ func _current_map_img() -> Dictionary:
 
 
 func _stage_bosses() -> Array:
-	# Interim contract adapter until #243 supplies DataRepo.stage_bosses.
+	# Legacy/pool-only fixtures retain their absolute schedule; region data uses the binding #243 projection.
 	if stage.get("maps", []).is_empty():
 		return stage.get("bosses", [])
 	for entry: Dictionary in stage.maps:
 		if entry.get("boss", {}).is_empty():
 			return stage.get("bosses", [])
-	var entries: Array = []
-	for i in stage.maps.size():
-		var entry: Dictionary = stage.maps[i].boss.duplicate(true)
-		entry.map_index = i
-		entry.map_id = int(stage.maps[i].map_id)
-		entry.map_time = float(entry.time)
-		entry.time = i * float(stage.get("map_seconds", 300.0)) + float(entry.time) # tier C: spec #241
-		entries.append(entry)
+	var entries := DataRepo.stage_bosses(stage)
+	for entry: Dictionary in entries:
+		entry.map_id = int(stage.maps[int(entry.map_index)].map_id)
 	return entries
 
 
@@ -2199,8 +2194,13 @@ func _build_mob_kinds() -> void:
 	var imgs: Dictionary = setup.get("mob_imgs", {})
 	var overrides: Dictionary = data.get("mobs", {}).get("mobs", {})
 	var speed_mult := float(balance.get("mob_speed_factor", MobKind.SPEED_SCALE)) / MobKind.SPEED_SCALE
-	# The flattened schedule also supports #243's maps schema before its StageRoster helper is integrated.
-	var roster := stage.merged({"bosses": _stage_bosses()}, true)
+	# Normalize legacy/pool-only schedules for StageRoster's map-based API; live region data already has maps.
+	var roster := stage
+	if stage.has("bosses"):
+		roster = stage.duplicate(true)
+		roster["maps"] = roster.get("maps", [])
+		for boss: Dictionary in _stage_bosses():
+			roster.maps.append({"boss": boss})
 	var ids := StageRoster.mob_ids(roster, imgs, setup.get("mob_skill_img", {}))
 	for id: int in StagePools.stage_pool_ids(stage, setup.map_imgs) if _map_images_available() else []:
 		if id not in ids:

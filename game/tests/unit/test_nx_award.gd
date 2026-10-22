@@ -15,9 +15,9 @@ func _world(stage_in_tier: int = 0, with_boss := true) -> RunWorld:
 	data.stages["tiers"] = [["other"], ["other2"]]
 	data.stages.tiers[stage_in_tier].append("quiet")
 	if with_boss:
-		data.stages.stages.quiet.bosses = [
+		RF.set_bosses(data.stages.stages.quiet, [
 			{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0, "rewards": {"exp_mult": 1, "bonus_choices": 0}},
-			{"time": 0.2, "mob_id": 2220000, "hp_mult": 1.0, "rewards": {"exp_mult": 1, "bonus_choices": 0}}]
+			{"time": 0.2, "mob_id": 2220000, "hp_mult": 1.0, "rewards": {"exp_mult": 1, "bonus_choices": 0}}])
 	var w := RunWorld.new(RF.setup("quiet", 20, data))
 	RF.place_player(w, 400)
 	w.god = true
@@ -63,10 +63,10 @@ func test_tiers_beyond_the_table_use_its_last_entry_and_a_missing_config_pays_no
 
 
 func test_tier_of_a_stage_is_its_index_in_the_stage_tiers() -> void:
-	var stages := {"tiers": [["henesys_hg1", "tree_that_grew_1"], ["dark_cave"]]}
-	assert_eq(NxAward.tier_of(stages, "henesys_hg1"), 0)
-	assert_eq(NxAward.tier_of(stages, "tree_that_grew_1"), 0)
-	assert_eq(NxAward.tier_of(stages, "dark_cave"), 1)
+	var stages := {"tiers": [["henesys", "ellinia"], ["sleepywood"]]}
+	assert_eq(NxAward.tier_of(stages, "henesys"), 0)
+	assert_eq(NxAward.tier_of(stages, "ellinia"), 0)
+	assert_eq(NxAward.tier_of(stages, "sleepywood"), 1)
 	assert_eq(NxAward.tier_of(stages, "elsewhere"), 0, "tool stages outside the tiers count as tier 1")
 
 

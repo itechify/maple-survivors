@@ -2,10 +2,10 @@ class_name RunLauncher
 extends Node
 ## Starts a run straight from the command line (user args after --), for playtests, automated runs and benchmarks:
 ##
-##   bash scripts/godot.sh --path game res://scenes/run/run_launcher.tscn -- --run=henesys_hg1 --seed=7 \
+##   bash scripts/godot.sh --path game res://scenes/run/run_launcher.tscn -- --run=henesys --seed=7 \
 ##       --autoplay --autopick --speed=4 --shots=C:/abs/dir --shot-every=30 --quit-after=900 --perf
 ##
-## Flags: --run=<stage key> (default henesys_hg1), --seed=<n> (default random), --autoplay (BotInput plays),
+## Flags: --run=<stage key> (default henesys), --seed=<n> (default random), --autoplay (BotInput plays),
 ## --autopick (BotInput's choices, no windows: the first available job and BotInput.pick_card_for's card),
 ## --speed=<ticks per frame>, --shots=<abs dir> with --shot-every=<run s> (t<s>.png + final.png),
 ## --quit-after=<run s> (writes <shots>/summary.json and quits), --perf (perf overlay on at start with --autoplay; F3
@@ -18,7 +18,7 @@ extends Node
 ## prints the summary and quits.
 
 const RUN_SCENE := "res://scenes/run/run_scene.tscn"
-const DEFAULT_STAGE := "henesys_hg1"
+const DEFAULT_STAGE := "henesys"
 
 ## The run started by _ready() (null when the args did not ask for one and no default applies).
 var run: RunScene

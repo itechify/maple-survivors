@@ -327,7 +327,7 @@ func test_path_weapon_loads_info_even_when_no_other_roster_names_it() -> void:
 func test_forced_pirate_path_flags_are_accepted_by_run_and_launcher() -> void:
 	var data := DataRepo.load_all()
 	for path: String in WEAPONS:
-		var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--job=500:" + path]))
+		var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=500:" + path]))
 		assert_eq(parsed.options.job, 500)
 		assert_eq(parsed.options.job_path, path)
 		assert_eq(SceneFlow.forced_job_error(parsed.options, data), "")
