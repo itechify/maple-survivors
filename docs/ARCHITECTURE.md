@@ -335,7 +335,7 @@ The bonus window uses a "Boss Reward" title and omits the gained-level notice.
 Tier C owner finale policy (2026-10-21, MS-07/MS-08): after the last mandatory answer, an already completed objective
 settles synchronously, before any further `step()` can advance combat or time. `PickupSystem.collect_all(events,
 equip_room)` collects remaining drops in ascending pool-slot order without motion/expiry, using the same accounting,
-`pickup_collected` events and despawn path as `step()`. RunWorld credits them through its ordinary potion, meso,
+`pickup_collected` events and despawn path as `step()`. RunWorld credits them through its ordinary meso,
 equipment and auto-wear paths, then feeds their EXP through `_gain_exp` and the existing choice queue.
 Auto-wear that frees inventory room triggers another sweep pass without advancing time. These choices
 keep the sim frozen; their final answer retries settlement (including equipment spilled by job grants), then enters
@@ -372,8 +372,8 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `player_jump` | `pos` |
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
-| `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion/meso/equip), `potion_kind` (hp/mp or empty), `count` (potion bundle or meso amount; 1 for equipment, whose `item_id` is the equipment id; 0 for EXP) |
-| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind` (exp/potion/meso/equip), `potion_kind`, `count` (potion bundle or meso amount; 1 for equipment), `collector` (`player`, including the finale sweep, or `pet` when the pet's pickup radius or VAC took it; credited the same, mesos and equipment included) |
+| `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/meso/equip), `potion_kind` (empty compatibility field), `count` (meso amount; 1 for equipment, whose `item_id` is the equipment id; 0 for EXP) |
+| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind` (exp/meso/equip), `potion_kind` (empty compatibility field), `count` (meso amount; 1 for equipment), `collector` (`player`, including the finale sweep, or `pet` when the pet's pickup radius or VAC took it; credited the same, mesos and equipment included) |
 | `pickup_blocked` | `pickup`, `item_id`, `pos`, `reason` (`inventory_full`): an equipment drop meets a full Equip tab during magnet pickup or finale settlement; once per approach (or settlement attempt until room changes), the drop stays on the ground |
 | `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping); no `count` |
 | `pet_potion_used` | same fields as `potion_used`, for the pet's Auto HP/MP Potion Pouch drinks (counted apart from the player's) |
@@ -879,10 +879,11 @@ RunScene's `options.character` path and `tools/balance_run.gd --character=<abs p
 
 The headless `tools/balance_run.gd` advances the same fixed ticks with real-map setup and seeded card/movement
 policies. Its record/aggregate contract and CLI are in AGENTS.md's Balance section: milestone reach counts,
-completed versus censored boss fights, per-hit whole damage/max-HP fractions by boss/source, potion collection/use,
+completed versus censored boss fights, per-hit whole damage/max-HP fractions by boss/source, player `potions_used`,
+per-drink restoration/waste in `potion_uses`, separate `pet.potions_used`,
 per-run MP-short ticks, and camper activation/arrival. A later affordable skill may cast during an MP-short tick.
-TIMEOUT is a measurement cap, never a sim clear. Remaining potion stock, ordinary-versus-boss potion source counts,
-offensive cast counts and aggregated Guard coverage are not separate recorded metrics. Monster balls retain captured source/damage after
+TIMEOUT is a measurement cap, never a sim clear. Potion metrics describe unlimited drinks on cooldown (spec #237).
+Offensive cast counts and aggregated Guard coverage are not separate recorded metrics. Monster balls retain captured source/damage after
 caster death; their original mob slot may be reused, while captured mob ID/source position remain meaningful.
 `PortalApproach` supplies the shared pure entrance-floor lookup, jump-graph approach, wall gate and movement input
 for `BotInput` and the camper harness. Each caller retains its goal scoring and eligibility policy, including the
