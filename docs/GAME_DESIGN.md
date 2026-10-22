@@ -379,10 +379,10 @@ All curve values/weights are tier C. The hard cap is 400; bursts start at 90 s, 
 existing stage conventions). All three bosses and every reward choice must finish
 before the round clears (#73). These values are not a balance calibration.
 
-The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the current map's pool by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) uses
-the coarse #30 C46 stage data (2026-10-15). It preserves the spec #29
-tuning waits for the dedicated balance pass (section 4.2).
-for now; balance will be revisited after more features (section 4.2).
+The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the current
+map's pool by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) uses
+the coarse #30 C46 numeric curve (2026-10-15), with the owner's #241 opening-density changes. Later pool
+selection follows the per-map rules above; further tuning waits for the dedicated balance pass (section 4.2).
 
 | Time | Rate (mobs/s) | Max alive | Pool additions | HP × | Speed × |
 |---|---|---|---|---|---|
@@ -404,7 +404,7 @@ The Beginner phase is sword-paced: a v83 Beginner (5 MP, one Three Snails shell 
 the basic attack, so until 4:00 only a few mobs are alive, no
 elite appears before 4:00 and no burst before 5:00, and ordinary kills pay 2.5x EXP so Magician arrives near 4:40.
 Density and HP then ramp from 5:00 into the calibrated mid/late curve. Canonical mob HP and skill damage/costs remain
-unchanged. Tree stage data are unchanged.
+unchanged. Ellinia keeps its numeric curve while using the same three-map clock and pool rules.
 
 The changed 8:00 mob HP endpoint interpolates from the unchanged 6:00 point. Ordinary/elite HP continues after 15:00 at
 0.25 × (8.25−7.6875)/120 = 0.001171875 per second; other pacing fields retain their existing quarter-slope
@@ -520,6 +520,36 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Spec #241 (#248): tooling and diagnostic map flow (2026-10-22)
+
+Cache `s241`, Git Bash, separate `t248` isolates. This ticket ran only the permitted seed-1 Henesys bot record
+check, not the regression smoke assigned to #249, and changed no balance data. The record has `map_times: [0]`,
+`ended_map: {index: 0, id: 104040000}`, and each of the three boss fights retains its map index/id (future bosses
+are `not_spawned`). No world warnings or missing setup assets. SUMMARY reports deaths by map `1:1 2:0 3:0`,
+with map-2/map-3 entry times `none (n=0)` rather than invented zero observations.
+
+| Evidence | Outcome | Map-2 entry (round s) | Map-3 entry (round s) | Ending map |
+|---|---|---|---|---|
+| Henesys bot, seed 1, no diagnostic aids | DEAD 308.3 s, Lv12; Mano alive | unobserved | unobserved | 1 / 104040000 |
+| `flow_driver --scenario=maps`, seed 1, diagnostic replay | CLEARED 900.05 s, Lv62; three bosses dead; Free Market | 300.000 | 600.017 | 3 / 100030001 |
+
+The flow uses invulnerability, real EXP pickups for the Warrior/Sword windows and diagnostic lethal hits only
+after each map's 300 s timer. On its first Pig Beach arrival it uses the existing Quit round / Save & quit warning,
+checks the boundary file is byte-identical, reloads disk and Continues on map 1 with the same seed and Lv1 boundary
+character. It then plays the complete three-map sequence into one saved Free Market round. This is flow evidence,
+not natural survival or a pacing calibration; natural later-map progression remains for #249.
+
+Opened the PNGs in `evidence/spec241/t248/maps/` in the integration worktree (`t3-f6b9fd92`): the CLEAR art is
+visible on every map, intermediate fades dim the old map, Pig Beach and Blue Mushroom Forest arrivals show the
+correct destination title and framed avatar with no stale mobs, Continue shows Henesys at Lv1 / 00:00 / zero kills,
+and the Free Market shows the carried Spearman and +525 NX. The driver drains its long warp frame before starting
+clear effects so the screenshot captures their real hold. Summary has no missing assets or failed checks.
+
+Confirmed test seams: balance records/SUMMARY through `run_one`/`aggregate`/`describe_metrics`, public camper
+movement on a synthetic transferred world, RunScene summary/performance JSON producers, canonical/legacy CLI
+chains and character one-offs, and the executed maps scenario. The post-#247-merge affected suite passed
+118 tests, 0 failed, 0 skipped; the full-suite result is recorded with the final implementation report.
 
 #### Spec #241 (#246): integrated presentation smoke (2026-10-21)
 

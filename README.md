@@ -3,8 +3,8 @@
 # Maple Survivors
 
 A single-player, fully offline survival game that looks, sounds and moves like **MapleStory v83**, with a
-Vampire-Survivors-style loop: survive a classic map against ever-growing swarms of familiar monsters while your skills
-fire automatically, pick upgrades as you level, and advance jobs at the classic milestones.
+Vampire-Survivors-style loop: survive a region's three classic maps against ever-growing swarms of familiar monsters
+while your skills fire automatically, pick upgrades as you level, and advance jobs at the classic milestones.
 
 The game renders **your own** original v83 data. No MapleStory files are included in this repository, and the game
 needs no server, account or internet connection. (The web build is the same offline game; see "Play in the browser".)
@@ -22,9 +22,10 @@ needs no server, account or internet connection. (The web build is the same offl
    ```bash
    bash scripts/run.sh
    ```
-   Title -> Start -> pick a stage -> defeat its three bosses at 5:00, 10:00 and 15:00. The final fight continues past
-   15:00; death or a clear shows the results. Retry or go back to the stage
-   select. Your best result per stage is kept in `%APPDATA%/MapleSurvivors/save.json`.
+   Title -> Start -> create or continue a character -> pick a region stage. Each round plays three ordered maps,
+   with one boss 5:00 after entering each map; a map clear transfers automatically. A non-final round clear enters
+   the Free Market, while death or final-tier victory shows results. Continue replays an unfinished round from map 1
+   with the same seed and boundary character. Slots, history and best results live in `%APPDATA%/MapleSurvivors/save.json`.
 4. Optional: `bash scripts/export.sh` builds a stand-alone Windows game in `game/export/` (`MapleSurvivors.exe` with
    `wzimport.exe` beside it; needs the Godot 4.7.2 export templates).
 

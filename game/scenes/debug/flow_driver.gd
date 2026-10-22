@@ -321,6 +321,7 @@ func _warp_map(run: RunScene) -> bool:
 	var index := w.map_index
 	var memo := {}
 	var ticks := 0
+	var boundary_events: Array = []
 	# tier C: same 1800 s safety cap / 600-tick yields as the existing diagnostic round warp.
 	while w.time < 1800.0:
 		BotInput.auto_choose(w)
@@ -336,14 +337,14 @@ func _warp_map(run: RunScene) -> bool:
 		w.step(RunScene.DT, BotInput.decide(w, memo))
 		# Choice requests were answered by the bot; only the boundary events go to the real presentation.
 		var events := w.drain_events()
-		run.handle_events(events.filter(func(e: Dictionary) -> bool:
+		boundary_events.append_array(events.filter(func(e: Dictionary) -> bool:
 			return String(e.type) in ["map_cleared", "stage_cleared", "player_died"]))
 		ticks += 1
 		if ticks % 600 == 0:
 			await get_tree().process_frame
 		if ticks % 6000 == 0:
 			print("flow_driver: maps map %d warp %.0f s / Lv %d" % [index + 1, w.time, w.progression.level])
-	run.handle_events(w.drain_events().filter(func(e: Dictionary) -> bool:
+	boundary_events.append_array(w.drain_events().filter(func(e: Dictionary) -> bool:
 		return String(e.type) in ["map_cleared", "stage_cleared", "player_died"]))
 	if not _expect(w.transfer_pending or w.state == RunWorld.CLEARED, "diagnostic map did not clear"):
 		return false
@@ -354,6 +355,10 @@ func _warp_map(run: RunScene) -> bool:
 		return false
 	if w.state == RunWorld.CLEARED:
 		_rounds.append(run.build_summary())
+	# Drain the warp's long frame before starting real-time effects or their first delta can skip the CLEAR art.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	run.handle_events(boundary_events)
 	run.set_process(true)
 	await _shot("map_%d_cleared" % (index + 1), 1.0)
 	if index < 2:
