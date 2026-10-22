@@ -80,6 +80,8 @@ func _run(label: String, imgs: Dictionary, n: int) -> void:
 		var input := RF.bot_input(w, memo)
 		var a := Time.get_ticks_usec()
 		w.step(DT, input)
+		if w.transfer_pending:
+			w.advance_map()
 		var b := Time.get_ticks_usec()
 		w.drain_events()
 		if t >= WARMUP:

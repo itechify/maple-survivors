@@ -191,7 +191,19 @@ func rate_at(t: float) -> float:
 
 ## Actual ordinary spawn rate, reduced while a scheduled boss remains alive.
 func effective_rate(world: RunWorld) -> float:
-	return rate_at(world.time) * world.bosses.normal_spawn_multiplier()
+	return rate_at(world.curve_time()) * world.bosses.normal_spawn_multiplier()
+
+
+## Re-arms periodic curve events after a map's scheduled opening; boss overtime never skips the new segment.
+## tier C: events exactly at the offset have already run on the departing map (spec #241 scheduled pacing).
+func seek_curve(t: float) -> void:
+	if not is_inf(next_burst):
+		var every := float(stage.bursts.every)
+		while next_burst <= t + 1e-6:
+			next_burst += every
+	if not is_inf(next_elite):
+		while next_elite <= t + 1e-6:
+			next_elite += elite_interval_at(next_elite)
 
 
 ## Alive target at t (rounded).
@@ -267,7 +279,7 @@ func elite_interval_at(t: float) -> float:
 
 ## One director tick: recycling, steady spawns, bursts, elites (RunWorld.spawn_mob does the spawning and events).
 func step(dt: float, world: RunWorld) -> void:
-	var t := world.time
+	var t := world.curve_time()
 	var swarm := world.swarm
 	if not world.is_hidden():
 		_recycle(dt, world)  # Hidden (#194): no mob has a route to the character, so none is "gone" or stalled.

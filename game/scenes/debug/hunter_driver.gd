@@ -60,6 +60,8 @@ func _drive() -> void:
 		for attempt in 30:
 			w.hit_mob(target, w.loadout.stats("arrow_blow"), -1)
 			w.step(1.0 / 60.0, MoveInput.new())
+			if w.transfer_pending:
+				w.advance_map()
 			var events := w.drain_events()
 			proc = events.any(func(e: Dictionary) -> bool: return e.type == "ammo_shot")
 			run.handle_events(events)

@@ -140,6 +140,8 @@ func _pose(run: RunScene, w: RunWorld, name: String, ticks: int, input: MoveInpu
 		held.right = input.right
 		held.up = input.up
 		w.step(DT, held)
+		if w.transfer_pending:
+			w.advance_map()
 		run.handle_events(w.drain_events())
 		run._present(DT)
 	run.cam.snap_to(w.player.pos)

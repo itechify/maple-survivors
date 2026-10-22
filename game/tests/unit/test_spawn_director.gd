@@ -26,7 +26,9 @@ func _walled_world(left_x1 := 300.0, left_x2 := 1300.0) -> RunWorld:
 
 
 func test_pacing_keyframes() -> void:
-	var w := RunWorld.new(RF.setup("henesys"))
+	var setup := RF.setup("henesys")
+	setup.map_imgs = [setup.map_img, setup.map_img, setup.map_img]
+	var w := RunWorld.new(setup)
 	var d := w.director
 	assert_near(d.rate_at(0.0), 0.25, 1e-6, "owner's #241 opening")
 	assert_near(d.rate_at(60.0), 0.4, 1e-6, "halfway from 0.25 to 0.55 at the 2:00 keyframe")

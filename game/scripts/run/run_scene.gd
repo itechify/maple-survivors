@@ -1040,6 +1040,8 @@ func _after_tick() -> void:
 func handle_events(events: Array) -> void:
 	for e: Dictionary in events:
 		match String(e.type):
+			"map_cleared":
+				world.advance_map() # #246 replaces this immediate handoff with the clear/fade presentation.
 			"boss_warning":
 				var name := library.string_name("Mob", int(e.mob_id)).strip_edges()
 				var lead := float(world.bosses.rules.warning_time)
@@ -1379,10 +1381,14 @@ func _apply_look() -> void:
 func _warp(to: float) -> void:
 	while world.time < to - 1e-6:
 		BotInput.auto_choose(world, false, _forced_job(), _forced_job_path())
+		if world.transfer_pending:
+			world.advance_map()
 		if world.state in [RunWorld.CHOOSING_JOB, RunWorld.CHOOSING_UPGRADE]:
 			break # auto_choose's bounded batch left choices for the presentation; preserve their pending events
 		if world.state == RunWorld.PLAYING:
 			world.step(DT, BotInput.decide(world, _bot_memo))
+			if world.transfer_pending:
+				world.advance_map()
 		_after_tick()
 		var drained := world.drain_events()
 		for e: Dictionary in drained:

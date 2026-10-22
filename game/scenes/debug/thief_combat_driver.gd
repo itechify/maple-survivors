@@ -99,6 +99,8 @@ func _scenario(key: String) -> Dictionary:
 	var bullets := []
 	for tick in 30:
 		w.step(DT, MoveInput.new())
+		if w.transfer_pending:
+			w.advance_map()
 		var events := w.drain_events()
 		for slot in w.projectiles.capacity():
 			if w.projectiles.active[slot] != 0:

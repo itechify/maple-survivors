@@ -78,6 +78,8 @@ func _encounter(shipped: Dictionary, attack: String) -> void:
 				w.relocate_mob(slot, Vector2(x, w.fhm.y_at(fh, x)), fh)
 			positioned = true
 		w.step(DT, MoveInput.new())
+		if w.transfer_pending:
+			w.advance_map()
 		var events := w.drain_events()
 		for event: Dictionary in events:
 			if event.type == "mob_projectile_hit":

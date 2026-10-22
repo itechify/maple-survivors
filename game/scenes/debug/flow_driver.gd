@@ -449,6 +449,8 @@ func _warp_round() -> bool:
 					return String(e.type) in ["player_died", "stage_cleared"]))
 			elif run.world.state == RunWorld.CHOOSING_JOB:
 				run.handle_events(choice_events)
+		if run.world.transfer_pending:
+			run.world.advance_map()
 		if run.world.state in [RunWorld.DEAD, RunWorld.CLEARED]:
 			run.handle_events(run.world.drain_events())
 			break
@@ -464,6 +466,8 @@ func _warp_round() -> bool:
 					run.world.hit_mob(slot, {"skill": "three_snails", "magic": true, "damage_min": 1e9,
 						"damage_max": 1e9, "crit": 0.0, "crit_mult": 1.0}, -1)
 		run.world.step(RunScene.DT, BotInput.decide(run.world, memo))
+		if run.world.transfer_pending:
+			run.world.advance_map()
 		var events := run.world.drain_events()
 		if run.world.state in [RunWorld.DEAD, RunWorld.CLEARED, RunWorld.CHOOSING_JOB]:
 			run.handle_events(events)

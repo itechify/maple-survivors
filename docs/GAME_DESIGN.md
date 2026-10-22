@@ -506,8 +506,8 @@ guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the han
 
 #### Spec #241 (#243): schema and legacy-key smoke (2026-10-21)
 
-The interim runtime still plays the first map with all three bosses at absolute 300/600/900 seconds;
-map transfer and pool selection belong to #244/#245. The owner's three Henesys opening keyframes are the only
+The isolated #243 runtime played the first map with all three bosses at absolute 300/600/900 seconds;
+map transfer and pool selection are supplied separately by #244/#245. The owner's three Henesys opening keyframes are the only
 balance edits. Requested alias check: `bash scripts/balance.sh 1 --stage=henesys_hg1`, Git Bash,
 `ISOLATE=t243-alias`, cache `C:/Users/itech/Coding/maple-survivors-refs/caches/s237`, base `1808305`.
 The record uses canonical `stage: henesys`, with `warnings: []` and `missing: []`; no crash or script error.
@@ -539,6 +539,12 @@ failure was the inherited whole-round pressure guard applied to #245's retained 
 whole-round pacing oracle now supplies its original full-curve director and remains single-map, preserving those
 pressure assertions; its recheck passes **4/4**. Map-local pool behavior is tested separately by #245. The merged
 old-key smoke exits successfully: canonical `henesys`, DEAD 308.3 s, Lv12, 255 kills, `warnings: []`, `missing: []`.
+
+The subsequently fetched `9ba2025` integration tip includes #244. Merge validation passes **102 tests, 0 failed,
+9 skipped** (93 passed): schema, DataRepo/StagePools, saves, synthetic map transfers, boss lifecycle and spawning.
+The nine SKIPs cover missing new-map art/mobs, real-cache transfers and six map pools in `s237`; they verify none
+of those assets. The full 2,114-test run above predates these integration merges; after merging, the affected
+checks were rerun. SpawnDirector and StagePools implementation matches the incoming integration tip unchanged.
 
 #### Spec #237 (#240): potion cooldowns: regression smoke (2026-10-21)
 
