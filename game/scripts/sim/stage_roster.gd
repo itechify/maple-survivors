@@ -48,9 +48,10 @@ static func boss_extra_ids(boss_img: Dictionary, mob_skill_img: Dictionary) -> P
 	return ids
 
 
-## Every mob id the stage needs: named_ids plus each scheduled boss's boss_extra_ids, read from `mob_imgs`
-## ({id: img root}; int or String keys); a boss without an img adds nothing. Ascending.
-static func mob_ids(stage: Dictionary, mob_imgs: Dictionary, mob_skill_img: Dictionary) -> PackedInt32Array:
+## Every stage mob: named ids, each boss's canonical extras, and resolved life pools from index-aligned map_imgs.
+## `mob_imgs` accepts int or String ids; a boss without an img adds no extras. Ascending without duplicates.
+static func mob_ids(stage: Dictionary, mob_imgs: Dictionary, mob_skill_img: Dictionary,
+		map_imgs: Array = []) -> PackedInt32Array:
 	var ids := named_ids(stage)
 	for boss: Dictionary in DataRepo.stage_bosses(stage):
 		var id := int(boss.get("mob_id", 0))
@@ -58,6 +59,8 @@ static func mob_ids(stage: Dictionary, mob_imgs: Dictionary, mob_skill_img: Dict
 		if img is Dictionary:
 			for extra in boss_extra_ids(img, mob_skill_img):
 				_add(ids, extra)
+	for id: int in StagePools.stage_pool_ids(stage, map_imgs):
+		_add(ids, id)
 	ids.sort()
 	return ids
 

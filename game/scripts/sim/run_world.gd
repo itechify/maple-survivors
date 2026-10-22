@@ -2199,11 +2199,8 @@ func _build_mob_kinds() -> void:
 		roster["maps"] = roster.get("maps", [])
 		for boss: Dictionary in _stage_bosses():
 			roster.maps.append({"boss": boss})
-	var ids := StageRoster.mob_ids(roster, imgs, setup.get("mob_skill_img", {}))
-	for id: int in StagePools.stage_pool_ids(stage, setup.map_imgs) if _map_images_available() else []:
-		if id not in ids:
-			ids.append(id)
-	ids.sort()
+	var ids := StageRoster.mob_ids(roster, imgs, setup.get("mob_skill_img", {}),
+		setup.map_imgs if _map_images_available() else [])
 	for id in ids:
 		var img: Variant = imgs.get(id, imgs.get(str(id)))
 		if not (img is Dictionary) or img.is_empty():
