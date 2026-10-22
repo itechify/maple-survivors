@@ -152,16 +152,6 @@
 	"look": {},
 	"mesos": 123970,
 	"player_mods": {},
-	"potions": {
-		"hp": {
-			"count": 24,
-			"item_id": 2000002
-		},
-		"mp": {
-			"count": 5,
-			"item_id": 2000006
-		}
-	},
 	"scrolls": {},
 	"skill_order": [
 		"three_snails",

@@ -173,30 +173,6 @@ func rate_at(t: float) -> float:
 	return value_at("rate", t)
 
 
-## Ordinary HP potion chance: optional stage endpoints interpolate, missing endpoints use the global fallback.
-## tier C: survivor supply tuning; probabilities clamp to [0, 1] and hold after the last frame, without spawn ramping.
-func normal_hp_drop_chance_at(t: float, fallback: float) -> float:
-	return _probability_curve_at("normal_hp_drop_chance", t, fallback)
-
-
-func _probability_curve_at(field: String, t: float, fallback: float) -> float:
-	if keyframes.is_empty():
-		return clampf(fallback, 0.0, 1.0)
-	var a: Dictionary = keyframes[0]
-	var value := clampf(float(a.get(field, fallback)), 0.0, 1.0)
-	if t <= float(a.t):
-		return value
-	for k in range(1, keyframes.size()):
-		var b: Dictionary = keyframes[k]
-		var next := clampf(float(b.get(field, fallback)), 0.0, 1.0)
-		if t <= float(b.t):
-			var span := float(b.t) - float(a.t)
-			return lerpf(value, next, (t - float(a.t)) / span if span > 0.0 else 1.0)
-		a = b
-		value = next
-	return value
-
-
 ## Actual ordinary spawn rate, reduced while a scheduled boss remains alive.
 func effective_rate(world: RunWorld) -> float:
 	return rate_at(world.time) * world.bosses.normal_spawn_multiplier()

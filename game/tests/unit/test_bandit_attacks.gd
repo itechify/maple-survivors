@@ -36,8 +36,9 @@ func test_bandit_without_steal_preserves_event_and_player_bytes() -> void:
 		digest.update(var_to_bytes(w.drain_events()))
 		digest.update(var_to_bytes(w.player_state))
 	assert_eq(w.thief_rng.state, thief_state)
-	# Captured before #214 implementation on #212 c30848d; this fixture learns neither new attack.
-	assert_eq(digest.finish().hex_encode(), "3af425e005a5b9f37a07f3ec20a7e2293451430591dec7886d3be99f70e76208")
+	# Captured before #214 on #212 c30848d; re-captured for #238 (cooldown snapshot replaces stock).
+	# This fixture learns neither new attack; stream 15 remains untouched.
+	assert_eq(digest.finish().hex_encode(), "db129c40c3c15bba8b62f4e20ce1c3223146c06a558a7f0274f7eec589600518")
 
 
 func test_savage_blow_casts_four_five_or_six_lines_and_requires_a_dagger() -> void:

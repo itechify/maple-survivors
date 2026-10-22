@@ -220,8 +220,8 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity, kinds, tuning)`, `spawn(kind, x, y, fh, hp) -> int`, `despawn(i)`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, accessors `pos(i)`, `is_live(i)`, `is_settled(i)` (live and fully faded in), `mob_kind(i)`, `live_in_rect(area)` (ascending slots), `static low_platform(fhm, target, tp, reach_y)`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t route_len steady` |
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events, live_mdd := PackedFloat32Array(), physical_allowed := PackedByteArray(), on_hit := Callable(), live_pdd := PackedFloat32Array())`, per-shot pierce and already-hit list; live defense/immunity arrays are indexed by target slot at impact |
-| `PickupSystem` | EXP, potion, meso and equipment drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_potion(pos, count, item_id, potion_kind)`, `spawn_meso(pos, amount)`, `spawn_equipment(pos, instance)`, `step(dt, player_pos, magnet_r, fhm, events, equip_room := -1)`, `active_count()`, `exp_count()` |
-| `PotionInventory` | Unlimited HP/MP stock and canonical restore specs | `_init(tuning, item_info)`, `snapshot()`, `add(kind, count := 1)`, `upgrade(kind, item_id)` (the current item changes, the count is kept), `consume(kind) -> Dictionary`; `collected`, `used` counters per kind |
+| `PickupSystem` | EXP, meso and equipment drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_meso(pos, amount)`, `spawn_equipment(pos, instance)`, `step(dt, player_pos, magnet_r, fhm, events, equip_room := -1)`, `active_count()`, `exp_count()` |
+| `PotionInventory` | Unlimited HP/MP with independent cooldowns and canonical restore specs | `item_id(kind)`, `cooldown_left`, `cooldown_total(kind)`, `is_ready(kind)`, `tick(dt)`, `snapshot()`, `upgrade(kind, item_id)` (keeps cooldown), `consume(kind, by_pet := false)`; `used`, `pet_used` drink counters |
 | `PotionSchedule` | Level schedule of automatic potion upgrades (static, pure; `balance.potions.schedule`, spec #225) | `steps(balance)` (valid steps sorted by level), `due(schedule, level, current) -> Array` (re-scanned each time: no applied-step state, never a downgrade), `items(balance)`, `notice_text(from_name, to_name)`; `RunWorld.apply_potion_schedule(level, announce)` applies the due steps through `PotionInventory.upgrade` at each level-up (with a `potion_tier_up` event) and silently when a snapshot is restored |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, `mp_cost` from canonical `mpCon` or survivor override, cooldown, count, pierce, speed, range, size...), `regen_bonus(pool, char_level)` (HP/MP per regeneration pulse from skills with a `regen` field: `{pool, divisor}` or `{pool, field}`, the canonical level field), `SkillBook.weapon_families(key)` / `usable_with(key, family)` (the weapon a skill needs, #156), `clone()` (an independent copy for previews) |
@@ -375,10 +375,10 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion/meso/equip), `potion_kind` (hp/mp or empty), `count` (potion bundle or meso amount; 1 for equipment, whose `item_id` is the equipment id; 0 for EXP) |
 | `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind` (exp/potion/meso/equip), `potion_kind`, `count` (potion bundle or meso amount; 1 for equipment), `collector` (`player`, including the finale sweep, or `pet` when the pet's pickup radius or VAC took it; credited the same, mesos and equipment included) |
 | `pickup_blocked` | `pickup`, `item_id`, `pos`, `reason` (`inventory_full`): an equipment drop meets a full Equip tab during magnet pickup or finale settlement; once per approach (or settlement attempt until room changes), the drop stays on the ground |
-| `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping), `count` (remaining stock) |
+| `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping); no `count` |
 | `pet_potion_used` | same fields as `potion_used`, for the pet's Auto HP/MP Potion Pouch drinks (counted apart from the player's) |
 | `pet_teleported` | `from`, `pos` (the pet's feet): it jumped to the player; a renderer snaps instead of interpolating |
-| `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item), `count` (stock preserved): one per `potions.schedule` step applied at a level-up (never on a snapshot load). `RunScene` shows "Your Red Potions are now Orange Potions." from the String.wz item names |
+| `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item; cooldown preserved): one per `potions.schedule` step applied at a level-up (never on a snapshot load). `RunScene` shows "Your Red Potions are now Orange Potions." from the String.wz item names |
 | `ammo_upgraded` | `family` (bow/crossbow/claw/gun), `from_item_id`, `item_id` (the new ammo, Item.wz id), `level` (character level): the held ranged weapon's endless ammo moved to a higher tier (#155) on a level-up or on advancing into the branch; a weapon swap and the first computation are silent. On a level-up it comes before `level_up` (the caster refresh runs inside the level-up). `RunScene` shows "Your throwing stars are now Ilbi Throwing-Stars" |
 | `skill_thrown` | `skill`, `skill_id`, `from` (the hand), `to` (the aim point, the target mob's body centre), `seconds` (the flight), `ball` (the flight art path), `burst` (the blast art path): a Gunslinger Grenade (cast rule `cluster`, #192) left the hand on the cast tick. `RunScene` records that tick's world time, loops the ball indefinitely until landing, and interpolates its arc inside consumed sim ticks; hitches and choice holds cannot complete it |
 | `skill_landed` | `skill`, `cast_time` (float, authoritative throw tick; together they identify the flight), `pos` (captured aim point, Vector2), `effect` (captured burst art path): emitted immediately before Grenade damage resolution, including when no targets remain. Stops the matching ball and starts the blast; damage/RNG ordering is unchanged |
@@ -504,9 +504,9 @@ then `relocate_mob` places the living boss about 250 px away on the player's pla
 identity. `MobSwarm.fading_out` suspends movement/regen while the director drives alpha; arrival restarts normal
 regen fade-in, harmless until opaque. Placement retries while no player platform point exists.
 `balance.bosses` supplies stall/progress/fade/placement tuning. `rewards` defaults may be overridden by each entry:
-`exp_mult`, `exp_drops`, `spread`, `potion_spread`, `potions` hp/mp counts, `bonus_choices`. The total is rounded
+`exp_mult`, `exp_drops`, `spread`, `bonus_choices`. The total is rounded
 canonical boss EXP × reward multiplier, split with integer remainders conserved. Scheduled bosses bypass ordinary
-EXP and random potion drops; bundles use the current stock item. Reward scattering has its own seeded RNG stream.
+EXP rolls. Bosses drop two guaranteed equipment items; no potion drops exist (spec #237). Reward scattering has its own seeded RNG stream.
 
 
 
@@ -801,12 +801,11 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   from the supplied player position and reuses its slot at the new death position, restarting the pop and age with
   the combined EXP. `merged` reports absorption, and `RunWorld` still emits `pickup_spawned`. With `lifetime` > 0 a drop expires silently
   (no event; `expired`, `expired_exp`) after fading out; renderers read `alpha(i)`.
-  Potion slots have a separate kind and bundle count: they never expire, absorb EXP, or count toward `max_active`.
-  Both kinds use the same pop, gravity and magnet motion. `collected_potions` reports hp/mp quantities collected this tick;
+  Potion pickup kinds 1 and 2 are reserved but unused (spec #237); no potion bundles or collection accounting remain.
   `active_count()` includes all drops, while `exp_count()` preserves the balance harness's EXP-drop metric.
   **Mesos (#107):** kind `MESO` = 3 (`EQUIP` = 4 is #109, below) with `meso[i]` = the amount; `spawn_meso(pos, amount)`
   picks the coin sprite item from the amount (`MesoDrops.sprite_item`: <50 bronze 09000000, 50-99 gold 09000001, 100-999
-  bundle 09000002, 1000+ bag 09000003). Like potions they never expire, merge or count toward `max_active`. A collected
+  bundle 09000002, 1000+ bag 09000003). They never expire, merge or count toward `max_active`. A collected
   one adds its amount to `step_mesos` (this step; RunWorld adds it to `mesos`) and `collected_mesos` (the round's total),
   and its `pickup_collected` / `pickup_spawned` events carry `kind` `"meso"` with the amount in `count`.
 - **Mesos:** `MesoDrops` (pure statics) holds the brackets, `amount_range(level, listed, fallback)` and `roll(rng, span,
@@ -832,19 +831,13 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   `equipment_drops.boss_drops` item(s) from the top of the window with no chance roll. `RunWorld.spawn_equipment` is the public
   seam; RunScene shows "You have gained an item (name)" and "You can't get anymore items." through the HUD message queue.
   The balance record carries `equips_dropped` and `equips_collected` per round.
-- **Potions:** `setup.item_info` maps original item IDs to canonical `Item.wz/Consume/0200.img` nodes loaded by
-  `DataRepo.build_setup`. `player_state.potions` is `{hp: {item_id, count}, mp: {item_id, count}}`.
-  `RunWorld.spawn_potion(kind, pos, count := 1)` emits a ground bundle (also the boss-reward seam);
-  `drink_potion(kind) -> bool` consumes one and restores `spec.hp` or `spec.mp`, clamped to max. Empty stock is inert.
-  Drink presses run before movement and casting, including on ropes; no cooldown applies.
-  `balance.potions` selects starter IDs/counts, independent normal/elite per-kind drop chances and bot thresholds.
-  Stage keyframes may override ordinary HP rolls with `normal_hp_drop_chance`. Each endpoint uses the global normal
-  HP chance when missing, clamps to [0, 1], and interpolates linearly in run time; outside the frame range the nearest
-  endpoint holds (no post-duration spawn ramp). Ordinary MP rolls always use the global chance (owner, 2026-10-16: no
-  per-map values). Elite chances remain global; fixed boss bundles bypass the curve. An absent curve preserves the
-  seeded ordinary drop sequence.
-  `potions.collected` and `potions.used` feed per-kind balance/perf records. The HUD quickslot draws the stock snapshot's
-  current canonical item icons, counts and keys.
+- **Potions (spec #237):** setup.item_info maps original item ids to canonical Consume nodes. Each kind in
+  player_state.potions exposes {item_id, cooldown_left, cooldown_total}, with seconds remaining and total, no stock.
+  drink_potion(kind) restores canonical spec.hp/spec.mp and starts the kind's shared player/pet cooldown;
+  rejected presses emit nothing. RunWorld ticks it once per playing sim tick before manual drinks and casting, including
+  on ropes. Windows freeze sim time; upgrading preserves the timer. used and pet_used count drinks separately.
+  No potion pickup kinds, spawns, rolls or collections remain; stream 7 is reserved. The schedule derives tiers from
+  starter ids plus level on load, ignoring legacy stock; neither potion stock nor cooldowns are saved.
 - **Player-platform placement:** `SpawnDirector.pick_player_platform(world, min_distance := -1,
   preferred_distance := -1, allow_visible := false, side := 0) -> Vector3` returns (x, y, foothold), or z=-2 when no
   point is possible. It samples the current platform while avoiding walls and nearby points; normal placement is
@@ -858,7 +851,7 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   empty `cards` list) and the Power Elixir `fallback` is the only filler, offered alone when no card is eligible.
   Potion tiers come from `PotionSchedule` instead: `RunWorld.apply_potion_schedule` calls `upgrade_potion(kind, item_id)`
   per due step and preserves stock; the event and refreshed player state update the quickslot immediately. Future
-  `spawn_potion` calls use the current ID, including boss bundles. `CharacterSnapshot.migrate` drops `magnet` and the
+  `CharacterSnapshot.migrate` drops `magnet` and the
   removed potion cards from `card_ranks` (and the `magnet` modifier from `player_mods`) on load.
 - **Job window:** opens at a queued level whenever an option is available, and once at exactly the tier's first
   advancement level even when none is (Magician at 30 sees 210/220/230 as unavailable once).
@@ -873,7 +866,7 @@ deltas are zero. F3 reads this bounded window immediately when toggled mid-round
 `RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 2; format 1 migrates on load) and
 exposes `character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
 it carries progression, original attributes/earned AP, accumulated HP/MP growth and advancement grants, ordered
-skills with ranks/modifiers, player modifiers/card limits, potion stock/tier IDs, Fortune, look, worn equipment and
+skills with ranks/modifiers, player modifiers/card limits, Fortune, look, worn equipment and
 inventory (`scripts/sim/equipment.gd` instances), scroll stacks and mesos.
 Resolved attributes/Fortune are also included for consumers. RunWorld owns the live equipment: UI and bots change it
 only through `equip_item`, `unequip_item` and `discard_item` (see the RunWorld header); a character without a

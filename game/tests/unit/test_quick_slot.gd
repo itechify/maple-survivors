@@ -85,7 +85,7 @@ func test_potion_cells_show_the_current_item_icon_and_stock() -> void:
 	assert_eq(_cell(cells, "jump").count, -1, "only potions have a count")
 	var none := HudQuickSlot.cells({}, {"hp": {"item_id": 0, "count": 0}, "mp": {}}, {})
 	assert_eq(none[0].icon_path, KeyActionArt.icon_path("drink_hp"), "no item yet: the Key Config potion icon")
-	assert_eq(none[1].count, 0)
+	assert_eq(none[1].count, -1, "a snapshot without stock has no number")
 
 
 func test_rebound_potions_show_only_their_first_key() -> void:

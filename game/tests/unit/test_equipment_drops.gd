@@ -246,7 +246,7 @@ func test_the_shipped_list_is_ids_only_and_every_item_is_a_wearable_slot() -> vo
 		assert_true(seen.has(must), "the ticket's example %d is eligible" % must)
 	assert_eq(int(ed.below), 10)
 	assert_eq(int(ed.above), 5)
-	assert_eq(int(ed.boss_drops), 1)
+	assert_eq(int(ed.boss_drops), 2, "tier C: spec #237 replaces the boss potion bundle with a second item")
 	assert_true(float(ed.chance) > 0.0 and float(ed.chance) < 0.02, "a small chance")
 
 
@@ -541,15 +541,15 @@ func _kill_boss(w: RunWorld) -> void:
 		"magic": false, "crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
 
 
-func test_every_boss_kill_drops_exactly_one_item_from_the_top_of_the_window() -> void:
+func test_every_boss_kill_drops_exactly_two_items_from_the_top_of_the_window() -> void:
 	for p_seed in [20, 21, 22, 23, 24, 25]:
 		var w := _boss_world(0.0, 20, p_seed)  # chance 0: ordinary kills drop nothing, the boss still does
 		_kill_boss(w)
 		var spawned := _equip_spawns(w.drain_events())
-		assert_eq(spawned.size(), 1, "exactly one item (seed %d)" % p_seed)
-		if spawned.size() == 1:
+		assert_eq(spawned.size(), 2, "exactly two items (seed %d)" % p_seed)
+		for drop: Dictionary in spawned:
 			# level 20: window 10..25, top 20..25 -> the reqLevel 23 overall or Ice Wand
-			assert_true(int(spawned[0].item_id) in [1050001, 1372004], "from the top of the window, got %d" % spawned[0].item_id)
+			assert_true(int(drop.item_id) in [1050001, 1372004], "from the top of the window, got %d" % drop.item_id)
 
 
 func test_a_boss_drop_is_deterministic_per_seed() -> void:
@@ -557,8 +557,38 @@ func test_a_boss_drop_is_deterministic_per_seed() -> void:
 	var b := _boss_world(0.0, 20, 41)
 	_kill_boss(a)
 	_kill_boss(b)
-	assert_eq(_equip_drops(a).size(), 1)
+	assert_eq(_equip_drops(a).size(), 2)
 	assert_eq(_equip_drops(a), _equip_drops(b), "same seed, same boss drop with the same stats")
+
+
+func test_each_scheduled_boss_death_drops_two_equipment_items_and_no_potions() -> void:
+	var data := RF.quiet_data()
+	data.balance.player.skills = []
+	data.balance.bosses.rewards.bonus_choices = 0
+	data.equipment_drops.items = INFO.keys()
+	data.equipment_drops.chance = 0.0
+	var entries := []
+	var ids := [2220000, 6130101, 9400205]
+	for i in ids.size():
+		entries.append({"time": float(i + 1), "mob_id": ids[i]})
+	data.stages.stages.quiet.bosses = entries
+	var w := RunWorld.new(_fit(RF.setup("quiet", 238, data)))
+	w.god = true
+	RF.place_player(w, 400)
+	var killed := 0
+	for tick in 240:
+		RF.auto_choose(w)
+		w.step(DT, MoveInput.new())
+		var arrivals := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "boss_spawned")
+		for arrival: Dictionary in arrivals:
+			w.hit_mob(int(arrival.mob), {"damage_min": 1000000.0, "damage_max": 1000000.0,
+				"magic": false, "crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+			var events := w.drain_events()
+			assert_eq(_equip_spawns(events).size(), 2, "boss %d" % int(arrival.mob_id))
+			assert_true(events.filter(func(e: Dictionary) -> bool:
+				return e.type == "pickup_spawned" and e.kind == "potion").is_empty())
+			killed += 1
+	assert_eq(killed, 3, "all three scheduled bosses were killed")
 
 
 func test_same_seed_same_drops_and_another_seed_differs() -> void:

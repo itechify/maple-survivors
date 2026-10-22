@@ -50,14 +50,15 @@ func test_schedule_data_ships_the_researched_steps() -> void:
 	assert_true(String(potions._schedule).contains("Tier C"))
 
 
-func test_schedule_fires_at_exactly_its_levels_keeping_the_stock() -> void:
+func test_schedule_fires_at_exactly_its_levels_keeping_the_cooldown() -> void:
 	var w := RF.quiet_world(400.0, 111)
-	w.potions.add("mp", 4)
+	w.drink_potion("hp")
+	w.drink_potion("mp")
 	w.drain_events()
 	var expected := {
-		10: [["hp", 2000000, 2000001, 5]], 20: [["mp", 2000003, 2000006, 4]], 25: [["hp", 2000001, 2000002, 5]],
-		40: [["hp", 2000002, 2022003, 5], ["mp", 2000006, 2022000, 4]],
-		60: [["hp", 2022003, 2001001, 5], ["mp", 2022000, 2001002, 4]]}
+		10: [["hp", 2000000, 2000001]], 20: [["mp", 2000003, 2000006]], 25: [["hp", 2000001, 2000002]],
+		40: [["hp", 2000002, 2022003], ["mp", 2000006, 2022000]],
+		60: [["hp", 2022003, 2001001], ["mp", 2022000, 2001002]]}
 	var hp_items := {0: 2000000, 10: 2000001, 25: 2000002, 40: 2022003, 60: 2001001}
 	var mp_items := {0: 2000003, 20: 2000006, 40: 2022000, 60: 2001002}
 	while w.progression.level < 62:
@@ -70,7 +71,7 @@ func test_schedule_fires_at_exactly_its_levels_keeping_the_stock() -> void:
 			for i in wanted.size():
 				var want: Array = wanted[i]
 				assert_eq(events[i], {"type": "potion_tier_up", "kind": want[0], "from_item_id": want[1],
-					"item_id": want[2], "count": want[3]}, "step %d at Lv %d" % [i, level])
+					"item_id": want[2]}, "step %d at Lv %d" % [i, level])
 		var hp_item := 0
 		for from_level: int in hp_items:
 			if level >= from_level:
@@ -81,8 +82,8 @@ func test_schedule_fires_at_exactly_its_levels_keeping_the_stock() -> void:
 				mp_item = mp_items[from_level]
 		assert_eq(w.player_state.potions.hp.item_id, hp_item, "HP item at Lv %d" % level)
 		assert_eq(w.player_state.potions.mp.item_id, mp_item, "MP item at Lv %d" % level)
-		assert_eq(w.player_state.potions.hp.count, 5)
-		assert_eq(w.player_state.potions.mp.count, 4)
+		assert_near(float(w.potions.cooldown_left.hp), 20.0 - w.time, 0.0001)
+		assert_near(float(w.potions.cooldown_left.mp), 10.0 - w.time, 0.0001)
 
 
 func test_the_schedule_is_monotonic_per_kind_in_the_real_item_data() -> void:
@@ -142,7 +143,6 @@ func test_an_old_cache_without_the_new_items_stops_at_the_last_resolvable_tier()
 		_level_up_once(w)
 	assert_eq(w.player_state.potions.hp.item_id, 2000002, "HP stays White: Unagi and Ice Cream Pop do not resolve")
 	assert_eq(w.player_state.potions.mp.item_id, 2000006, "MP stays Mana Elixir: Pure Water and Red Bean Sundae do not resolve")
-	assert_eq(w.player_state.potions.hp.count, 5)
 	var snapshot := _snapshot_at(60)
 	var setup2 := RF.setup("quiet", 15, RF.quiet_data())
 	setup2.item_info = old_items
@@ -169,30 +169,14 @@ func test_several_levels_in_one_tick_apply_every_due_step_in_level_order() -> vo
 	assert_eq(w.player_state.potions.mp.item_id, 2000006)
 
 
-func test_new_potion_item_is_what_drops_afterwards() -> void:
-	var w := RF.quiet_world(400.0, 13)
-	while w.progression.level < 25:
-		_level_up_once(w)
-	w.drain_events()
-	w.balance.potions.drops.normal = {"hp": 1.0, "mp": 1.0}
-	var slot := RF.put_mob(w, 100100, 800)
-	w.hit_mob(slot, {"damage_min": 1000.0, "damage_max": 1000.0, "magic": false, "crit": 0.0,
-		"crit_mult": 1.5, "skill": "three_snails"}, -1)
-	var ids := w.drain_events().filter(func(e: Dictionary) -> bool:
-		return e.type == "pickup_spawned" and e.get("kind") == "potion").map(func(e: Dictionary) -> int: return int(e.item_id))
-	ids.sort()
-	assert_eq(ids, [2000002, 2000006])
-
-
 func test_lv38_fixture_loads_with_white_and_mana_elixir_without_notices() -> void:
 	var text := FileAccess.get_file_as_string("res://tests/fixtures/characters/lv35_magician_2nd.json")
 	var character: Dictionary = JSON.parse_string(text)
 	assert_eq(int(character.level), 38)
-	character.potions.hp.item_id = 2000000
-	character.potions.mp.item_id = 2000003
+	character.potions = {"hp": {"item_id": 2000000, "count": 9}, "mp": {"item_id": 2000003, "count": 17}}
 	var w := _loaded(character)
-	assert_eq(w.player_state.potions.hp, {"item_id": 2000002, "count": int(character.potions.hp.count)})
-	assert_eq(w.player_state.potions.mp, {"item_id": 2000006, "count": int(character.potions.mp.count)})
+	assert_eq(w.player_state.potions.hp, {"item_id": 2000002, "cooldown_left": 0.0, "cooldown_total": 20.0})
+	assert_eq(w.player_state.potions.mp, {"item_id": 2000006, "cooldown_left": 0.0, "cooldown_total": 10.0})
 	assert_eq(_tier_events(w).size(), 0, "a load catches up silently")
 	var untouched: Dictionary = JSON.parse_string(text)
 	var v := _loaded(untouched)
@@ -200,19 +184,13 @@ func test_lv38_fixture_loads_with_white_and_mana_elixir_without_notices() -> voi
 	assert_eq(v.player_state.potions.mp.item_id, 2000006)
 
 
-func test_snapshot_catch_up_applies_only_steps_up_to_its_level_and_never_downgrades() -> void:
+func test_snapshot_catch_up_derives_tiers_only_from_level() -> void:
 	for example: Array in [[9, 2000000, 2000003], [10, 2000001, 2000003], [19, 2000001, 2000003],
 			[20, 2000001, 2000006], [24, 2000001, 2000006], [25, 2000002, 2000006], [39, 2000002, 2000006], [40, 2022003, 2022000],
 			[59, 2022003, 2022000], [60, 2001001, 2001002], [70, 2001001, 2001002]]:
 		var w := _loaded(_snapshot_at(example[0]))
 		assert_eq(w.player_state.potions.hp.item_id, example[1], "HP at Lv %d" % example[0])
 		assert_eq(w.player_state.potions.mp.item_id, example[2], "MP at Lv %d" % example[0])
-	var white := _snapshot_at(12)
-	white.potions.hp.item_id = 2000002
-	assert_eq(_loaded(white).player_state.potions.hp.item_id, 2000002, "White at Lv 12 is never downgraded to Orange")
-	var counted := _snapshot_at(30)
-	counted.potions.hp.count = 17
-	assert_eq(_loaded(counted).player_state.potions.hp.count, 17, "catch-up keeps the stock")
 
 
 func test_no_draw_contains_a_removed_card() -> void:

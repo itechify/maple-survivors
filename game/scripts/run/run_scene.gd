@@ -1794,8 +1794,8 @@ func _hud_snapshot_changed(ps: Dictionary) -> bool:
 	sig[8] = int(run_time())
 	sig[9] = world.kills
 	sig[10] = world.loadout.version
-	sig[11] = int(ps.potions.hp.count)
-	sig[12] = int(ps.potions.mp.count)
+	sig[11] = int(ps.potions.hp.get("count", -1))
+	sig[12] = int(ps.potions.mp.get("count", -1))
 	sig[13] = int(ps.potions.hp.item_id)
 	sig[14] = int(ps.potions.mp.item_id)
 	sig[15] = int(bool(ps.get("mp_short", false)))
@@ -1967,7 +1967,7 @@ func perf_summary(summary: Dictionary = {}) -> Dictionary:
 		"sim_us_per_tick": float(_sim_us) / maxf(1.0, _sim_ticks), "ticks": _sim_ticks, "max_alive": _max_alive,
 		"level_by_minute": Array(_level_by_minute), "job_id": int(world.player_state.job_id), "kills": world.kills,
 		"state": world.state_name(), "time": world.time, "speed": _speed, "counters": counters.duplicate(),
-		"potions_collected": world.potions.collected.duplicate(), "potions_used": world.potions.used.duplicate(),
+		"potions_used": world.potions.used.duplicate(),
 		"missing": Array(library.missing) if library != null else [], "warped_to": _warped,
 	}
 	out.merge(_frames.summary())

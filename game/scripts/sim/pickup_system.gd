@@ -1,6 +1,6 @@
 class_name PickupSystem
 extends RefCounted
-## EXP, potion and meso drops as pooled struct-of-arrays (docs/ARCHITECTURE.md 4.4, docs/GAME_DESIGN.md section 5).
+## EXP, equipment and meso drops as pooled struct-of-arrays (docs/ARCHITECTURE.md 4.4, docs/GAME_DESIGN.md section 5).
 ##
 ## A drop pops up (vy = -pop_speed, a small sideways drift from `rng`), falls with gravity up to fall_speed and lands
 ## on the first floor below it (FootholdMap.find_landing; a drop with nothing below stops where it is once it is below
@@ -10,7 +10,7 @@ extends RefCounted
 ## drop absorbs the EXP drop farthest from the player and replaces it at the new death position (`merged` reports
 ## absorption, while the new drop's pop and age restart). With `lifetime` > 0 an uncollected drop expires after fading
 ## out over its last `fade` seconds (alpha()) and is removed silently, its EXP lost (`expired`, `expired_exp`); a drop flying to
-## the player never expires. Potions and mesos (spawn_meso, kind MESO) never expire, merge or count toward the EXP
+## the player never expires. Mesos (spawn_meso, kind MESO) never expire, merge or count toward the EXP
 ## cap; a collected meso drop adds its amount to `step_mesos` (this step) and `collected_mesos` (total).
 ## Equipment (spawn_equipment, kind EQUIP) carries its instance in `equip_instance`, never expires, merges or counts
 ## toward the EXP cap, and is collected only while the caller says the Equip tab has room (step's `equip_room`, -1 =
@@ -21,20 +21,18 @@ extends RefCounted
 ##
 ## A pet out (spec #34, PetSystem) is a second collector given to step(): a drop inside the pet's pickup radius is
 ## collected by it at once, and with VAC every drop outside the player's magnet radius flies to the pet (`to_pet`) at
-## the same speed. The `pickup_collected` event says who (`collector`); the EXP, potions, mesos and equipment are
+## the same speed. The `pickup_collected` event says who (`collector`); the EXP, mesos and equipment are
 ## credited alike. Equipment the Equip tab has no room for is never taken by the pet either.
 
 const AIR := 0
 const REST := 1
 const MAGNET := 2
-## Pickup kinds: potion slots share motion and pooling but never enter the EXP cap or expiry policy.
+## Pickup kinds. Values 1 and 2 are reserved for removed potion kinds (spec #237).
 const EXP := 0
-const HP_POTION := 1
-const MP_POTION := 2
 const MESO := 3
 const EQUIP := 4
-## The `kind` string of a `pickup_collected` event by pickup kind (both potion kinds are "potion").
-const KIND_NAMES := {EXP: "exp", HP_POTION: "potion", MP_POTION: "potion", MESO: "meso", EQUIP: "equip"}
+## The `kind` string of a `pickup_collected` event by pickup kind.
+const KIND_NAMES := {EXP: "exp", MESO: "meso", EQUIP: "equip"}
 ## The player's body centre is this far above the feet. tier C: ours.
 const CENTER_UP := 25.0
 
@@ -59,7 +57,6 @@ var vy := PackedFloat32Array()
 var exp := PackedInt32Array()
 var item_id := PackedInt32Array()
 var kind := PackedByteArray()
-var potion_count := PackedInt32Array()
 ## Meso amount of a MESO drop (0 for every other kind).
 var meso := PackedInt32Array()
 ## Equipment instance of an EQUIP drop (null for every other kind); equipment is rare, so plain Variants.
@@ -68,8 +65,6 @@ var equip_instance: Array = []
 var full_noted := PackedByteArray()
 ## Equipment instances collected in the most recent step(), read by RunWorld to fill the inventory.
 var collected_equipment: Array = []
-## Potion quantities collected in the most recent step(), read by RunWorld to update inventory.
-var collected_potions := {"hp": 0, "mp": 0}
 ## Drops the pet collected in the most recent step().
 var pet_collected := 0
 ## AIR / REST / MAGNET.
@@ -117,7 +112,7 @@ func active_count() -> int:
 	return _count
 
 
-## Live EXP drops, excluding the persistent potions that share this pool.
+## Live EXP drops, excluding persistent mesos and equipment that share this pool.
 func exp_count() -> int:
 	return _exp_count
 
@@ -138,15 +133,7 @@ func spawn(pos: Vector2, p_exp: int, p_item_id: int, player_pos: Vector2 = Vecto
 			p_exp += exp[best]
 			despawn(best)
 			merged = true
-	return _spawn(pos, p_exp, p_item_id, EXP, 0)
-
-
-## Drops a persistent potion bundle (hp or mp) independently of the EXP cap; -1 for invalid kinds/counts.
-func spawn_potion(pos: Vector2, count: int, p_item_id: int, potion_kind: String) -> int:
-	if count <= 0 or not (potion_kind in ["hp", "mp"]):
-		return -1
-	merged = false
-	return _spawn(pos, 0, p_item_id, HP_POTION if potion_kind == "hp" else MP_POTION, count)
+	return _spawn(pos, p_exp, p_item_id, EXP)
 
 
 ## Drops `amount` mesos (the coin sprite follows the amount) independently of the EXP cap; -1 for amount <= 0.
@@ -154,7 +141,7 @@ func spawn_meso(pos: Vector2, amount: int) -> int:
 	if amount <= 0:
 		return -1
 	merged = false
-	var i := _spawn(pos, 0, MesoDrops.sprite_item(amount), MESO, 0)
+	var i := _spawn(pos, 0, MesoDrops.sprite_item(amount), MESO)
 	meso[i] = amount
 	return i
 
@@ -165,12 +152,12 @@ func spawn_equipment(pos: Vector2, instance: Dictionary) -> int:
 	if int(instance.get("id", 0)) <= 0:
 		return -1
 	merged = false
-	var i := _spawn(pos, 0, int(instance.id), EQUIP, 0)
+	var i := _spawn(pos, 0, int(instance.id), EQUIP)
 	equip_instance[i] = instance
 	return i
 
 
-func _spawn(pos: Vector2, p_exp: int, p_item_id: int, p_kind: int, count: int) -> int:
+func _spawn(pos: Vector2, p_exp: int, p_item_id: int, p_kind: int) -> int:
 	if _free.is_empty():
 		_grow(capacity() * 2)
 	var i := _free[_free.size() - 1]
@@ -184,7 +171,6 @@ func _spawn(pos: Vector2, p_exp: int, p_item_id: int, p_kind: int, count: int) -
 	exp[i] = p_exp
 	item_id[i] = p_item_id
 	kind[i] = p_kind
-	potion_count[i] = count
 	meso[i] = 0
 	equip_instance[i] = null
 	full_noted[i] = 0
@@ -246,7 +232,6 @@ func collect_all(events: Array, equip_room: int = -1) -> int:
 
 
 func _reset_collected() -> void:
-	collected_potions = {"hp": 0, "mp": 0}
 	collected_equipment = []
 	pet_collected = 0
 	step_mesos = 0
@@ -256,9 +241,6 @@ func _collect(i: int, by_pet: bool, events: Array) -> int:
 	var got := exp[i]
 	if by_pet:
 		pet_collected += 1
-	var potion_kind := "hp" if kind[i] == HP_POTION else ("mp" if kind[i] == MP_POTION else "")
-	if potion_kind != "":
-		collected_potions[potion_kind] = int(collected_potions[potion_kind]) + potion_count[i]
 	var is_meso := kind[i] == MESO
 	if is_meso:
 		step_mesos += meso[i]
@@ -268,8 +250,8 @@ func _collect(i: int, by_pet: bool, events: Array) -> int:
 	if is_equip:
 		collected_equipment.append(equip_instance[i])
 	events.append({"type": "pickup_collected", "pickup": i, "item_id": item_id[i], "exp": got,
-		"pos": Vector2(x[i], y[i]), "kind": kind_name, "potion_kind": potion_kind,
-		"count": meso[i] if is_meso else (1 if is_equip else potion_count[i]),
+		"pos": Vector2(x[i], y[i]), "kind": kind_name, "potion_kind": "",
+		"count": meso[i] if is_meso else (1 if is_equip else 0),
 		"collector": "pet" if by_pet else "player"})
 	despawn(i)
 	return got
@@ -278,7 +260,7 @@ func _collect(i: int, by_pet: bool, events: Array) -> int:
 ## Moves every drop by dt (pop/fall/land, magnet, collect, expiry). Returns the EXP collected this tick.
 ## `equip_room` is how many more equipment items the Equip tab holds (-1: no limit); it counts down as items are collected.
 ## A pet out (spec #34) is a second collector: a drop within `pet_r` of `pet_center` is collected by it (the EXP and
-## potions count as the player's, the event says `collector: "pet"`), and with `pet_vac` every drop that is not about
+## rewards count as the player's, the event says `collector: "pet"`), and with `pet_vac` every drop that is not about
 ## to be magnetised by the player flies to the pet at the same speed; a drop flying to the pet when `pet_vac` ends
 ## (the pet is dismissed) or that the Equip tab has no room for falls and lands as an ordinary drop. Without a pet
 ## (pet_r 0) nothing else changes.
@@ -426,7 +408,7 @@ func _grow(n: int) -> void:
 	equip_instance.resize(n)
 	for arr: Variant in [x, y, vx, vy, age]:
 		arr.resize(n)
-	for arr: Variant in [exp, item_id, potion_count, meso]:
+	for arr: Variant in [exp, item_id, meso]:
 		arr.resize(n)
 	for i in range(n - 1, old - 1, -1):
 		active[i] = 0

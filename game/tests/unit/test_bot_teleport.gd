@@ -26,6 +26,7 @@ func test_cornered_bot_keeps_quarter_pool_after_teleport_payment() -> void:
 	for job: int in [210, 220, 230]:
 		var w := _cornered_world(job)
 		assert_eq(int(w.player_state.max_mp), 200)
+		w.drink_potion("mp") # Isolate Teleport payment while the unlimited potion is cooling down.
 		w.spend_mp(91) # 109 MP: paying 60 would leave 49, below the 50-MP reserve.
 		assert_false(BotInput.decide(w, {}).skill_pressed("teleport"), "protect the reserve on every branch")
 		w.heal_fraction("mp", 1.0)

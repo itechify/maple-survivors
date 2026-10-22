@@ -418,7 +418,6 @@ func test_clear_carries_character_to_next_tier_and_refills_pools() -> void:
 	character.level = 35
 	character.exp = 17
 	character.job_id = 210
-	character.potions.hp.count = 9
 	flow.finish_run(summary(true, 900, 35, 3000), character)
 	assert_eq(flow.current_name, "free_market")
 	var boundary := SaveData.new(save_path).slot(0)
@@ -441,7 +440,7 @@ func test_clear_carries_character_to_next_tier_and_refills_pools() -> void:
 	assert_eq(next.player_state.hp, next.player_state.max_hp)
 	assert_eq(next.player_state.mp, next.player_state.max_mp)
 	assert_eq(next.progression.exp, 17)
-	assert_eq(next.potions.snapshot().hp.count, 9)
+	assert_true(next.potions.is_ready("hp"))
 	assert_eq(flow.save.runs_for("henesys_hg1"), 1)
 
 

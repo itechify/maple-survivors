@@ -232,9 +232,8 @@ func test_every_event_matches_the_schema() -> void:
 		basic_world.step(DT, MoveInput.new())
 	for event: Dictionary in basic_world.drain_events():
 		_check(event, seen)
-	# Guaranteed potion use and collection exercise the consumable schema regardless of random drop rolls.
+	# Guaranteed unlimited potion use exercises the consumable schema.
 	var potion := RF.quiet_world()
-	potion.spawn_potion("mp", potion.player.pos - Vector2(0, 25), 2)
 	potion.step(DT, MoveInput.new())
 	potion.drink_potion("hp")
 	potion.drink_potion("mp")
@@ -361,7 +360,6 @@ func test_every_event_matches_the_schema() -> void:
 		_check(event, seen)
 	# Spec #34 pet events: the pet's own drink and its teleport to a player who left it behind.
 	var pet_world := PF.world([PF.KITTY, PF.AUTO_HP], {"hp": 0.5, "mp": 0.0})
-	pet_world.potions.stock.hp.count = 3
 	pet_world._hp = 1.0
 	PF.put_pet(pet_world, Vector2(30.0, 0.0))
 	PF.put_player(pet_world, 1100.0, 0.0)

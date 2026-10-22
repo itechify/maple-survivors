@@ -339,10 +339,10 @@ func test_the_item_window_shows_the_mesos_and_the_use_tab_stacks_read_only() -> 
 	var cells := iw.cells()
 	assert_eq(cells.size(), 3, "HP potion, MP potion, one scroll stack")
 	assert_eq(cells[0].get("potion"), "hp")
-	assert_eq(int(cells[0].count), int(world.player_state.potions.hp.count))
+	assert_eq(int(cells[0].count), 0)
 	assert_eq(cells[2], {"kind": "scroll", "id": 2040002, "count": 2})
 	double_click(iw, iw.slot_rect(0).get_center())
-	assert_eq(int(iw.cells()[0].count), int(world.player_state.potions.hp.count), "potions are read-only here")
+	assert_eq(int(iw.cells()[0].count), 0, "potions are read-only here")
 	for i in [2, 3, 4]:
 		iw.select_tab(i)
 		assert_eq(iw.cells(), [], "tab %d is empty" % i)
