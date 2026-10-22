@@ -7,11 +7,20 @@ extends RefCounted
 ## (`survivor/<name>/<line>.json`) merged by `load_split` (SPLIT, LINES; docs/ARCHITECTURE.md 4.4.4).
 ##
 ##   var data := DataRepo.load_all()
-##   var setup := DataRepo.build_setup(data, "henesys_hg1", 12345, Vector2(800, 600),
+##   var setup := DataRepo.build_setup(data, "henesys", 12345, Vector2(800, 600),
 ##       func(p: String) -> Dictionary: return Assets.img(p).root if Assets.img(p) != null else {},
 ##       func(id: int) -> Dictionary: return Assets.mob_root(id))
 
 const DATA_ROOT := "res://data"
+## Legacy saved/tool stage keys; unknown keys pass through for synthetic stages and future regions.
+const STAGE_ALIASES := {"henesys_hg1": "henesys", "tree_that_grew_1": "ellinia", "dark_cave": "sleepywood"}
+
+
+## Canonical region key for saved stages and tool flags.
+static func canonical_stage_key(key: String) -> String:
+	return STAGE_ALIASES.get(key, key)
+
+
 ## setup.data key -> file under DATA_ROOT.
 const FILES := {
 	"skills": "survivor/skills.json",
@@ -69,6 +78,7 @@ static func load_all(root: String = DATA_ROOT, errors: PackedStringArray = Packe
 			out[key] = {}
 			errors.append("cannot read %s" % path)
 	errors.append_array(stage_label_errors(out.get("stages", {})))
+	errors.append_array(stage_map_errors(out.get("stages", {})))
 	return out
 
 
@@ -238,6 +248,7 @@ static func skill_img_path(book: String) -> String:
 ## display data (tier C: owner choice, playtest 3), not WZ strings. A stage file without them falls back to its `name`
 ## as the region; an unknown stage gives empty strings.
 static func stage_labels(stages_file: Dictionary, stage_key: String) -> Dictionary:
+	stage_key = canonical_stage_key(stage_key)
 	var st: Dictionary = stages_file.get("stages", {}).get(stage_key, {})
 	return {"region": String(st.get("region", st.get("name", ""))), "continent": String(st.get("continent", ""))}
 
@@ -250,7 +261,7 @@ static func summary_stage_lines(summary: Dictionary) -> Array[String]:
 	var continent := String(summary.get("continent", ""))
 	if region.is_empty():
 		var stages_file: Variant = load_json(DATA_ROOT.path_join(FILES.stages))
-		var key := String(summary.get("stage", ""))
+		var key := canonical_stage_key(String(summary.get("stage", "")))
 		var known: Dictionary = {}
 		if stages_file is Dictionary and (stages_file as Dictionary).get("stages", {}).has(key):
 			known = stage_labels(stages_file, key)
@@ -270,11 +281,48 @@ static func stage_label_errors(stages_file: Dictionary) -> PackedStringArray:
 	return errors
 
 
-## Every mob id a stage needs, ascending (StageRoster.mob_ids): pool and boss ids from stages.json, plus the summon and
+## Ordered map entries for a region in setup.data.
+static func stage_maps(data: Dictionary, stage_key: String) -> Array:
+	stage_key = canonical_stage_key(stage_key)
+	return data.get("stages", {}).get("stages", {}).get(stage_key, {}).get("maps", [])
+
+
+## Reports missing/empty map lists and malformed entries through load_all's error list.
+static func stage_map_errors(stages_file: Dictionary) -> PackedStringArray:
+	var errors := PackedStringArray()
+	for key: String in stages_file.get("stages", {}):
+		var maps: Variant = stages_file.stages[key].get("maps")
+		if not maps is Array or maps.is_empty():
+			errors.append("stage '%s' needs a non-empty maps list" % key)
+			continue
+		for i in maps.size():
+			var entry: Variant = maps[i]
+			if not entry is Dictionary or int(entry.get("map_id", 0)) <= 0 or not entry.get("boss") is Dictionary:
+				errors.append("stage '%s' maps[%d] needs a map_id and boss" % [key, i])
+	return errors
+
+
+## Detached boss schedule with map provenance and absolute times for the interim single-map round.
+static func stage_bosses(stage: Dictionary) -> Array:
+	var bosses: Array = []
+	for i in stage.get("maps", []).size():
+		var entry: Dictionary = stage.maps[i]
+		if not entry.get("boss") is Dictionary or entry.boss.is_empty():
+			continue
+		var boss: Dictionary = entry.boss.duplicate(true)
+		boss["map_index"] = i
+		boss["map_time"] = boss.get("time", 0)
+		boss["time"] = i * float(stage.get("map_seconds", 0)) + float(boss.map_time)
+		bosses.append(boss)
+	return bosses
+
+
+## Every mob id a stage needs, ascending (StageRoster.mob_ids): keyframe/explicit pool and every map's boss ids, plus summon and
 ## revive ids the bosses' canonical data lists when their imgs (`mob_imgs`, {id: img root}) and MobSkill.img root are
 ## given. Without imgs only the ids stages.json names.
 static func stage_mob_ids(data: Dictionary, stage_key: String, mob_imgs: Dictionary = {},
 		mob_skill_img: Dictionary = {}) -> PackedInt32Array:
+	stage_key = canonical_stage_key(stage_key)
 	var stage: Dictionary = data.get("stages", {}).get("stages", {}).get(stage_key, {})
 	return StageRoster.mob_ids(stage, mob_imgs, mob_skill_img)
 
@@ -463,17 +511,21 @@ static func skill_books(data: Dictionary) -> PackedStringArray:
 
 ## A complete RunWorld setup for `stage_key`: `img_loader.call(path) -> Dictionary` returns an img root from the
 ## asset cache ({} when absent), `mob_loader.call(id) -> Dictionary` a mob img root with info/link followed.
-## Absent imgs are left out (RunWorld drops mobs without an img from the pools); `missing` lists them. A non-empty
+## All map imgs are index-aligned in map_imgs (absent maps give {}); map_img remains map 0. Missing mob imgs are
+## left out (RunWorld drops them from the pools); `missing` lists absent imgs. A non-empty
 ## `character` (CharacterSnapshot) becomes setup.character, and the info of every item it holds is loaded.
 static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_size: Vector2, img_loader: Callable,
 		mob_loader: Callable, missing: PackedStringArray = PackedStringArray(),
 		character: Dictionary = {}) -> Dictionary:
-	var stage: Dictionary = data.get("stages", {}).get("stages", {}).get(stage_key, {})
-	var map_path := map_img_path(int(stage.get("map_id", 0)))
-	var map_img: Variant = img_loader.call(map_path)
-	if not (map_img is Dictionary) or map_img.is_empty():
-		missing.append(map_path)
-		map_img = {}
+	stage_key = canonical_stage_key(stage_key)
+	var map_imgs: Array = []
+	for entry: Dictionary in stage_maps(data, stage_key):
+		var map_path := map_img_path(int(entry.get("map_id", 0)))
+		var map_img: Variant = img_loader.call(map_path)
+		if not map_img is Dictionary or map_img.is_empty():
+			missing.append(map_path)
+			map_img = {}
+		map_imgs.append(map_img)
 	var physics: Variant = img_loader.call(PHYSICS_IMG)
 	if not (physics is Dictionary) or physics.is_empty():
 		missing.append(PHYSICS_IMG)
@@ -520,7 +572,8 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		afterimages[name] = image
 	var item_info := potion_item_info(data, img_loader, missing)
 	var setup := {
-		"map_img": map_img,
+		"map_imgs": map_imgs,
+		"map_img": map_imgs[0] if not map_imgs.is_empty() else {},
 		"physics_img": physics,
 		"mob_imgs": mob_imgs,
 		"skill_imgs": skill_imgs,

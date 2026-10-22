@@ -77,7 +77,7 @@ func test_bot_reaches_top_of_real_tree_through_the_portal_chain() -> void:
 		lib.free()
 		return
 	var data := RF.quiet_data()
-	data.stages.stages.quiet.map_id = 101010100
+	data.stages.stages.quiet.maps[0].map_id = 101010100
 	var s := RF.setup("quiet", 18, data)
 	s.map_img = img.root
 	var w := RunWorld.new(s)

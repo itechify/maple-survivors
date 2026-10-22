@@ -9,6 +9,7 @@ extends RefCounted
 ## A best record is
 ## {time, duration, cleared, level, job_id, job_name, kills, damage_dealt, seed}. Missing files start empty;
 ## format 1 converts on load, keeping playable-stage bests/counts. Writes replace the file via a sibling temporary.
+## Legacy stage keys migrate through DataRepo.STAGE_ALIASES on load and write, without changing the save format.
 ## Run snapshot: {name, created, character: CharacterSnapshot, tier, phase, rounds_played, tiers_cleared,
 ## stage?, round_seed?}; tier indexes the next tier (0-based). phase is free_market/map_select/round;
 ## round requires stage and round_seed. Keep the last stage outside a round for deletion history.
@@ -90,9 +91,9 @@ func load_file() -> void:
 		if parsed.is_empty():
 			continue
 		_primary_valid = source == path
-		_apply_file(parsed)
+		var migrated := _apply_file(parsed)
 		last_error = OK
-		if source != path or int(parsed.format) == 1:
+		if source != path or int(parsed.format) == 1 or migrated:
 			last_error = save_file()
 		break
 	_load_import()
@@ -118,7 +119,10 @@ func _read_valid_file(source: String) -> Dictionary:
 	return json.data
 
 
-func _apply_file(parsed: Dictionary) -> void:
+func _apply_file(parsed: Dictionary) -> bool:
+	var normalized := _canonical_stages(parsed)
+	var migrated := normalized != parsed
+	parsed = normalized
 	best = {}
 	runs = {}
 	var stage_data: Variant = DataRepo.load_json(DataRepo.DATA_ROOT.path_join(DataRepo.FILES.stages))
@@ -134,6 +138,37 @@ func _apply_file(parsed: Dictionary) -> void:
 	_slots = parsed.get("slots", [null, null, null]) if current else [null, null, null]
 	_history = parsed.get("history", []) if current else []
 	_account = Account.normalized(parsed.get("account", Account.empty())) if current else Account.empty()
+	return migrated
+
+
+static func _canonical_stages(source: Dictionary) -> Dictionary:
+	var out := source.duplicate(true)
+	out.best = {}
+	out.runs = {}
+	for old: String in source.best:
+		var key := DataRepo.canonical_stage_key(old)
+		var record: Variant = source.best[old]
+		if record is Dictionary:
+			record = record.duplicate(true)
+			_canonical_stage_field(record)
+			if is_better(record, out.best.get(key, {})):
+				out.best[key] = record
+	for old: String in source.runs:
+		var key := DataRepo.canonical_stage_key(old)
+		out.runs[key] = int(out.runs.get(key, 0)) + int(source.runs[old])
+	# Format 1's extra fields have never been validated and must remain ignored.
+	if int(source.format) == FORMAT:
+		for snapshot: Variant in out.slots:
+			if snapshot is Dictionary:
+				_canonical_stage_field(snapshot)
+		for entry: Dictionary in out.history:
+			_canonical_stage_field(entry)
+	return out
+
+
+static func _canonical_stage_field(value: Dictionary) -> void:
+	if value.has("stage"):
+		value.stage = DataRepo.canonical_stage_key(String(value.stage))
 
 
 func _load_import() -> void:
@@ -399,6 +434,7 @@ static func _credit(data: Dictionary, round_summary: Dictionary) -> void:
 
 
 func _commit(data: Dictionary) -> Error:
+	data = _canonical_stages(data)
 	last_error = _write(data)
 	if last_error == OK:
 		_account = data.account
@@ -581,12 +617,12 @@ class WriterLock extends RefCounted:
 
 ## The best record of a stage ({} when none).
 func best_for(stage_key: String) -> Dictionary:
-	return best.get(stage_key, {})
+	return best.get(DataRepo.canonical_stage_key(stage_key), {})
 
 
 ## Runs finished on a stage.
 func runs_for(stage_key: String) -> int:
-	return int(runs.get(stage_key, 0))
+	return int(runs.get(DataRepo.canonical_stage_key(stage_key), 0))
 
 
 ## Records a finished round (legacy Flow summary); returns true when a new best was saved.
@@ -600,7 +636,7 @@ func record(summary: Dictionary) -> bool:
 
 
 static func _record_into(data: Dictionary, summary: Dictionary) -> bool:
-	var stage := String(summary.get("stage", ""))
+	var stage := DataRepo.canonical_stage_key(String(summary.get("stage", "")))
 	if stage == "":
 		return false
 	data.runs[stage] = int(data.runs.get(stage, 0)) + 1

@@ -1,7 +1,7 @@
 extends Node
 ## Bootstrap scene (main.tscn): registers itself as the scene flow's host and shows the first screen
 ## (docs/ARCHITECTURE.md 4.1): the importer when the asset cache is missing, else the title, or straight into a run
-## with `--run=<stage>` (playtests: `bash scripts/playtest.sh`, or `bash scripts/run.sh -- --run=henesys_hg1 --autoplay
+## with `--run=<stage>` (playtests: `bash scripts/playtest.sh`, or `bash scripts/run.sh -- --run=henesys --autoplay
 ## --quit-after=60`; flags in SceneFlow.parse_run_args). The frame rate is capped at the display's refresh rate by the
 ## Settings autoload (GameSettings.apply_frame_cap); `--vsync=off` (any screen) uncaps it for perf runs.
 ## `--shot=<abs png> [--shot-at=<s>]` saves one screenshot of whatever is shown after s seconds (default 10) and quits:

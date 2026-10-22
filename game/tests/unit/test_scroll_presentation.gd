@@ -24,7 +24,7 @@ func after_each() -> void:
 func _make() -> RunScene:
 	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	s.library = lib
-	s.configure("henesys_hg1", 5, {"use_flow": false})
+	s.configure("henesys", 5, {"use_flow": false})
 	var tree := Engine.get_main_loop() as SceneTree
 	(tree.current_scene if tree.current_scene != null else tree.root).add_child(s)
 	return s
@@ -74,8 +74,8 @@ func test_a_scroll_used_event_shows_the_effect_over_the_held_run() -> void:
 	scene.handle_events([{"type": "scroll_used", "result": "destroyed", "scroll_id": 2040400, "slot": "top",
 		"item_id": 1040002}])
 	assert_eq(scene.enchant.renderer.active_count(), 1, "a destroyed item shows the failure effect too")
-	assert_eq(lib.missing.size(), 0, "library misses %s" % [lib.missing])
-	assert_eq(scene.setup_missing.size(), 0, "setup misses %s" % [scene.setup_missing])
+	assert_eq(interim_missing(lib.missing, scene.world.data, scene.stage_key).size(), 0, "library misses %s" % [lib.missing])
+	assert_eq(interim_missing(scene.setup_missing, scene.world.data, scene.stage_key).size(), 0, "setup misses %s" % [scene.setup_missing])
 
 
 func test_scrolls_have_icons_and_names_in_the_cache() -> void:

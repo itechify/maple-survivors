@@ -22,8 +22,8 @@ const CANONICAL_PAD := {
 func _cases() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var stages: Dictionary = DataRepo.load_all().stages.stages
-	for key: String in ["henesys_hg1", "tree_that_grew_1"]:
-		for entry: Dictionary in stages[key].bosses:
+	for key: String in ["henesys", "ellinia"]:
+		for entry: Dictionary in DataRepo.stage_bosses(stages[key]):
 			var id := int(entry.mob_id)
 			var sources: Array = ["touch"] + Array(entry.get("attacks", []))
 			for source: String in sources:

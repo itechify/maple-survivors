@@ -9,7 +9,7 @@ func _world() -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
 	data.balance.player.hp = 1000
-	data.stages.stages.quiet.bosses = [{"time": 0.1, "mob_id": 2220000}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000}])
 	var setup := RF.setup("quiet", 20, data)
 	setup.map_img = RF.map_from_segments([
 		{"x1": -1000, "y1": 200, "x2": 1000, "y2": 200},

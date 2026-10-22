@@ -248,6 +248,7 @@ func goto_import() -> void:
 
 ## Starts a tool-only one-off round; does not read or write any save state.
 func start_run(stage_key: String, p_seed: int = -1, options: Dictionary = {}) -> void:
+	stage_key = DataRepo.canonical_stage_key(stage_key)
 	active_slot = -1
 	autoplay = RunScene.option_flag(options, "autoplay")
 	_launch_round(stage_key, p_seed, options)
@@ -268,7 +269,7 @@ func start_hub(request: Dictionary, save_path: String = HubTestKit.SAVE_PATH) ->
 		equipment_info_loader())
 	# A cleared first tier: out00 opens the second tier's map select, like the hub after a real clear.
 	var snapshot := {"name": HubTestKit.CHARACTER_NAME, "created": _date(), "character": character, "tier": 1,
-		"phase": "free_market", "rounds_played": 1, "tiers_cleared": 1, "stage": "henesys_hg1",
+		"phase": "free_market", "rounds_played": 1, "tiers_cleared": 1, "stage": "henesys",
 		"round_seed": make_seed()}
 	var index := save.create_slot(snapshot)
 	if index < 0:
@@ -279,6 +280,7 @@ func start_hub(request: Dictionary, save_path: String = HubTestKit.SAVE_PATH) ->
 
 ## Saves the selected stage and seed before launching a persistent round. Rejects stages outside this tier.
 func start_round(stage_key: String, p_seed: int = -1) -> void:
+	stage_key = DataRepo.canonical_stage_key(stage_key)
 	var snapshot := save_data().slot(active_slot)
 	if snapshot.is_empty() or snapshot.phase != "map_select":
 		return
@@ -352,6 +354,7 @@ func _live_settings() -> GameSettings:
 
 
 func _launch_round(stage_key: String, p_seed: int, options: Dictionary, live: GameSettings = null) -> void:
+	stage_key = DataRepo.canonical_stage_key(stage_key)
 	last_stage = stage_key
 	if p_seed < 0:
 		p_seed = make_seed()
@@ -374,7 +377,9 @@ func _launch_round(stage_key: String, p_seed: int, options: Dictionary, live: Ga
 ## Non-final clears have exactly one exit (_after_round_cleared); one-off rounds never access SaveData.
 func finish_run(summary: Dictionary, character: Dictionary = {}) -> void:
 	last_summary = summary.duplicate(true)
-	last_stage = String(summary.get("stage", last_stage))
+	last_stage = DataRepo.canonical_stage_key(String(summary.get("stage", last_stage)))
+	if last_summary.has("stage"):
+		last_summary.stage = last_stage
 	var before := {}
 	last_new_best = false
 	if active_slot >= 0:
@@ -457,6 +462,9 @@ static func parse_flags(list: PackedStringArray) -> Dictionary:
 			out[s] = "1"
 		else:
 			out[s.substr(0, i)] = s.substr(i + 1)
+	for key: String in ["stage", "run"]:
+		if out.has(key):
+			out[key] = DataRepo.canonical_stage_key(String(out[key]))
 	return out
 
 

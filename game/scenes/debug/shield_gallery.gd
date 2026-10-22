@@ -51,7 +51,7 @@ func _instance(id: int) -> Dictionary:
 
 func _equip_shot(file_name: String, weapon: int, shield: int) -> void:
 	var scene: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
-	scene.configure("henesys_hg1", 2026, {"use_flow": false, "character": _character(weapon, shield)})
+	scene.configure("henesys", 2026, {"use_flow": false, "character": _character(weapon, shield)})
 	add_child(scene)
 	for _i in FRAMES:
 		await get_tree().process_frame

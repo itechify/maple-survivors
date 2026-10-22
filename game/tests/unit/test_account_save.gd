@@ -35,7 +35,7 @@ func test_file_without_account_loads_an_empty_account_and_saves_it_back() -> voi
 
 
 func test_format_one_converts_to_an_empty_account() -> void:
-	_write_file({"format": 1, "best": {}, "runs": {"henesys_hg1": 3}})
+	_write_file({"format": 1, "best": {}, "runs": {"henesys": 3}})
 	var converted := SaveData.new(save_path)
 	assert_eq(converted.account, {"nx": 0, "owned": []})
 	assert_eq(Account.normalized(JSON.parse_string(FileAccess.get_file_as_string(save_path)).account), Account.empty())
@@ -76,14 +76,14 @@ func test_round_nx_is_credited_in_the_same_write_as_the_boundary_and_the_archive
 	assert_eq(save.create_slot(SAVE_TESTS.snapshot()), 0)
 	var boundary := SAVE_TESTS.snapshot()
 	boundary.phase = "free_market"
-	assert_eq(save.update_slot(0, boundary, {"stage": "henesys_hg1", "cleared": true, "level": 20, "nx_awarded": 140}), OK)
+	assert_eq(save.update_slot(0, boundary, {"stage": "henesys", "cleared": true, "level": 20, "nx_awarded": 140}), OK)
 	var loaded := SaveData.new(save_path)
 	assert_eq(loaded.account, {"nx": 150, "owned": [5000000]})
 	assert_eq(loaded.slot(0).phase, "free_market")
 	assert_eq(loaded.update_slot(0, boundary), OK, "a boundary save without a summary credits nothing")
 	assert_eq(loaded.account.nx, 150)
 	assert_eq(loaded.end_run(0, "died", "2026-10-16", boundary,
-		{"stage": "henesys_hg1", "level": 21, "nx_awarded": 60}), OK)
+		{"stage": "henesys", "level": 21, "nx_awarded": 60}), OK)
 	var ended := SaveData.new(save_path)
 	assert_eq(ended.account.nx, 210)
 	assert_eq(ended.history.size(), 1)
@@ -94,7 +94,7 @@ func test_deleting_a_character_credits_nothing_even_with_a_summary() -> void:
 	var save := SaveData.new(save_path)
 	save.set_account({"nx": 10, "owned": []})
 	assert_eq(save.create_slot(SAVE_TESTS.snapshot()), 0)
-	assert_eq(save.end_run(0, "deleted", "2026-10-16", {}, {"stage": "henesys_hg1", "nx_awarded": 99}), OK)
+	assert_eq(save.end_run(0, "deleted", "2026-10-16", {}, {"stage": "henesys", "nx_awarded": 99}), OK)
 	assert_eq(SaveData.new(save_path).account.nx, 10)
 
 
@@ -103,9 +103,9 @@ func test_failed_writes_do_not_credit_nx() -> void:
 	assert_eq(save.create_slot(SAVE_TESTS.snapshot()), 0)
 	var temporary := ProjectSettings.globalize_path(save_path + ".tmp")
 	assert_eq(DirAccess.make_dir_absolute(temporary), OK)
-	assert_ne(save.update_slot(0, SAVE_TESTS.snapshot(), {"stage": "henesys_hg1", "nx_awarded": 40}), OK)
+	assert_ne(save.update_slot(0, SAVE_TESTS.snapshot(), {"stage": "henesys", "nx_awarded": 40}), OK)
 	assert_ne(save.end_run(0, "died", "2026-10-16", SAVE_TESTS.snapshot(),
-		{"stage": "henesys_hg1", "nx_awarded": 40}), OK)
+		{"stage": "henesys", "nx_awarded": 40}), OK)
 	assert_ne(save.set_account({"nx": 7, "owned": []}), OK)
 	assert_eq(save.account.nx, 0)
 	assert_eq(DirAccess.remove_absolute(temporary), OK)

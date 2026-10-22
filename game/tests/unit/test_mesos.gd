@@ -217,8 +217,8 @@ func test_a_boss_drops_its_configured_number_of_range_rolled_bundles() -> void:
 	data.balance.mesos.mult = 1.0
 	data.balance.mesos.boss_drops = 3
 	data.balance.player.skills = []
-	data.stages.stages.quiet.bosses = [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
-		"rewards": {"exp_mult": 5, "exp_drops": 2, "spread": 100, "potions": {"hp": 1, "mp": 1}, "bonus_choices": 1}}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
+		"rewards": {"exp_mult": 5, "exp_drops": 2, "spread": 100, "potions": {"hp": 1, "mp": 1}, "bonus_choices": 1}}])
 	var w := RunWorld.new(RF.setup("quiet", 20, data))
 	RF.place_player(w, 400)
 	w.god = true
@@ -268,7 +268,7 @@ func test_data_lists_the_v83_ranges_for_every_roster_mob_and_boss() -> void:
 		for kf: Dictionary in st.keyframes:
 			for id: Variant in kf.get("pool", {}):
 				ids[int(id)] = true
-		for b: Dictionary in st.bosses:
+		for b: Dictionary in DataRepo.stage_bosses(st):
 			ids[int(b.mob_id)] = true
 	for id: int in ids:
 		var listed: Array = mobs.get(str(id), {}).get("mesos", [])

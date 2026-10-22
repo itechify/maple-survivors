@@ -52,7 +52,7 @@ func test_json_character_and_same_seed_replay_identically_for_three_minutes() ->
 	character.level = 35
 	character.exp = 17
 	var parsed: Dictionary = JSON.parse_string(JSON.stringify(character))
-	var setup := RF.with_basic_attack(RF.setup("henesys_hg1", 2026))
+	var setup := RF.with_basic_attack(RF.setup("henesys", 2026))
 	setup.character = character
 	var a := RunWorld.new(setup)
 	setup.character = parsed

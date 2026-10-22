@@ -8,8 +8,8 @@ const DT := 1.0 / 60.0
 func _world() -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
-	data.stages.stages.quiet.bosses = [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
-		"rewards": {"exp_mult": 5, "exp_drops": 13, "spread": 100, "potions": {"hp": 2, "mp": 3}, "bonus_choices": 1}}]
+	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
+		"rewards": {"exp_mult": 5, "exp_drops": 13, "spread": 100, "potions": {"hp": 2, "mp": 3}, "bonus_choices": 1}}])
 	var w := RunWorld.new(RF.setup("quiet", 20, data))
 	RF.place_player(w, 400)
 	w.god = true

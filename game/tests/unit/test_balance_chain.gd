@@ -143,13 +143,13 @@ func test_chain_cli_reads_tiers_and_replays_both_round_records() -> void:
 	var stages := {}
 	for tier: Array in data.stages.tiers:
 		for stage: String in tier:
-			stages[stage] = {"duration": 0.05, "bosses": []}
+			stages[stage] = {"duration": 0.05, "maps": [{"map_id": data.stages.stages[stage].maps[0].map_id, "boss": {}}]}
 	var path := ProjectSettings.globalize_path(test_dir("chain patch.json"))
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	file.store_string(JSON.stringify({"stages": {"stages": stages}}))
 	file.close()
-	var args := ["--tier=2", "--stage=tree_that_grew_1", "--seed=2026", "--cap=1", "--patch=" + path]
+	var args := ["--tier=2", "--stage=ellinia", "--seed=2026", "--cap=1", "--patch=" + path]
 	var a := _cli(args)
 	var b := _cli(args)
 	assert_eq(a.status, 0)
@@ -158,8 +158,8 @@ func test_chain_cli_reads_tiers_and_replays_both_round_records() -> void:
 	if a.record.get("mode", "") != "chain":
 		return
 	assert_eq(a.record.rounds.size(), 2)
-	assert_eq(a.record.rounds[0].stage, "tree_that_grew_1")
-	assert_eq(a.record.rounds[1].stage, "dark_cave")
+	assert_eq(a.record.rounds[0].stage, "ellinia")
+	assert_eq(a.record.rounds[1].stage, "sleepywood")
 	assert_eq(int(a.record.rounds[1].seed), BR.round_seed(2026, 1))
 	assert_eq(a.record.rounds[1].start_character, a.record.rounds[0].character)
 	for record: Dictionary in a.record.rounds:
@@ -170,7 +170,7 @@ func test_chain_cli_reads_tiers_and_replays_both_round_records() -> void:
 
 
 func test_chain_cli_rejects_incompatible_or_invalid_options() -> void:
-	for args: Array in [["--tier=0"], ["--tier=no"], ["--tier=3"], ["--tier=2", "--stage=dark_cave"],
+	for args: Array in [["--tier=0"], ["--tier=no"], ["--tier=3"], ["--tier=2", "--stage=sleepywood"],
 			["--tier=2", "--character=anything.json"], ["--tier=2", "--policy=camper_henesys_top"]]:
 		var result := _cli(args)
 		assert_eq(result.status, 2, str(args))

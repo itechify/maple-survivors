@@ -20,7 +20,7 @@ func _drive() -> void:
 		return
 	DirAccess.make_dir_recursive_absolute(shots)
 	run = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
-	run.configure("henesys_hg1", 60, {"use_flow": false, "autopick": true})
+	run.configure("henesys", 60, {"use_flow": false, "autopick": true})
 	add_child(run)
 	run.set_process(false)
 	var w := run.world

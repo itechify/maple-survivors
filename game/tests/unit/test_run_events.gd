@@ -108,7 +108,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 
 
 func test_every_event_matches_the_schema() -> void:
-	var w := RunWorld.new(RF.setup("henesys_hg1", 4242))
+	var w := RunWorld.new(RF.setup("henesys", 4242))
 	w.god = true # Schema coverage uses a living run; separate seeded full runs test actual survival.
 	var seen := {}
 	var memo := {}
@@ -154,7 +154,7 @@ func test_every_event_matches_the_schema() -> void:
 	# A short scheduled boss encounter covers warning/spawn/death and a boss hit's source fields.
 	var boss_setup := RF.setup("quiet", 19, RF.quiet_data())
 	boss_setup.data.balance.player.skills = []
-	boss_setup.data.stages.stages.quiet.bosses = [{"time": 0.5, "mob_id": 100100}]
+	RF.set_bosses(boss_setup.data.stages.stages.quiet, [{"time": 0.5, "mob_id": 100100}])
 	var b := RunWorld.new(boss_setup)
 	b.god = true
 	for tick in 35:
@@ -413,7 +413,7 @@ func test_every_event_matches_the_schema() -> void:
 
 
 func _digest(p_seed: int, seconds: float) -> String:
-	var w := RunWorld.new(RF.setup("henesys_hg1", p_seed))
+	var w := RunWorld.new(RF.setup("henesys", p_seed))
 	var memo := {}
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)

@@ -13,9 +13,9 @@ static func setup(id: int = 6130101, p_seed: int = 2302, area: Rect2 = Rect2(-25
 	data.balance.player.hp = float(shipped.typical_hp)
 	data.balance.player.stats.dex = 0
 	data.balance.player.stats.luk = 0
-	data.stages.stages.quiet.bosses = [{"mob_id": id, "time": 0.5, "hp_mult": 0.6,
+	RF.set_bosses(data.stages.stages.quiet, [{"mob_id": id, "time": 0.5, "hp_mult": 0.6,
 		"dmg_mult": float(shipped.dmg_mult), "attacks": ["attack1"],
-		"attack_interval": float(shipped.attack_interval), "attack_dmg_mult": float(shipped.attack_dmg_mult)}]
+		"attack_interval": float(shipped.attack_interval), "attack_dmg_mult": float(shipped.attack_dmg_mult)}])
 	var out := RF.setup("quiet", p_seed, data)
 	out.map_img = RF.map_from_segments([{"x1": -2000, "y1": 0, "x2": 2000, "y2": 0}], [Vector2.ZERO])
 	out.equipment_info[1040002] = {"incPDD": float(shipped.typical_pdd)}
@@ -33,7 +33,7 @@ static func setup(id: int = 6130101, p_seed: int = 2302, area: Rect2 = Rect2(-25
 
 ## The shipped henesys_hg1 schedule entry of boss `id` ({} when it is not scheduled there).
 static func shipped_entry(data: Dictionary, id: int) -> Dictionary:
-	for entry: Dictionary in data.stages.stages.henesys_hg1.bosses:
+	for entry: Dictionary in DataRepo.stage_bosses(data.stages.stages.henesys):
 		if int(entry.mob_id) == id:
 			return entry
 	return {}

@@ -5,8 +5,8 @@ extends TestCase
 ## The fresh held-out matrix is a separate frozen-candidate assessment in GAME_DESIGN 4.2.
 ## Checks include spawning/engagement, kills/EXP, progression/event consistency, ordinary late landed hits,
 ## no lost mobs and all scheduled bosses dead before clear. Individual progression windows allow build spread;
-## Henesys stage sample medians use Lv8 210–270s, Mage at Lv10 180–330s and Lv30 540–720s when reached (coarse #29
-## pass for the sword-paced v83 Beginner; final pacing waits for later specs).
+## Henesys stage sample medians use Lv8 180–270s, Mage at Lv10 180–330s and Lv30 480–720s when reached (#241's
+## denser opening uses the existing individual lower bounds; final pacing waits for the balance pass).
 ## Tree records outcomes without judging its pacing; both stages retain event, cache and finale invariants.
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -137,7 +137,7 @@ func _assert_run(w: RunWorld, st: Dictionary, label: String, enforce_pacing := t
 
 
 func test_full_run_synthetic_map() -> void:
-	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys_hg1", 2026)))
+	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys", 2026)))
 	assert_true(w.warnings.is_empty(), "every pool mob has an img: %s" % [w.warnings])
 	_assert_run(w, _run(w), "synthetic")
 
@@ -155,7 +155,7 @@ func test_full_run_real_map() -> void:
 	data.jobs_survivor.jobs["500"].reason = "Not in this build"
 	data.jobs_survivor.jobs["300"].playable = false
 	data.jobs_survivor.jobs["300"].reason = "Not in this build"
-	for stage: String in ["henesys_hg1", "tree_that_grew_1"]:
+	for stage: String in ["henesys", "ellinia"]:
 		var outcomes := {"CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
 		var magician: Array[float] = []
 		var lv8: Array[float] = []
@@ -164,11 +164,12 @@ func test_full_run_real_map() -> void:
 		for pacing_seed: int in PACING_SEEDS:
 			var missing := PackedStringArray()
 			var setup := DataRepo.build_setup(data, stage, pacing_seed, Vector2(800, 600), _img, _mob, missing)
+			missing = interim_missing(missing, data, stage)
 			assert_true(missing.is_empty(), "%s seed%d: cache has every required img (%s)" % [stage, pacing_seed, missing])
 			if not missing.is_empty():
 				return
 			var w := RunWorld.new(setup)
-			if stage == "henesys_hg1":
+			if stage == "henesys":
 				assert_eq(w.fhm.count(), 181, "the real104040000")
 			else:
 				assert_true(w.fhm.count() > 0, "the real Tree has footholds")
@@ -178,8 +179,8 @@ func test_full_run_real_map() -> void:
 			var outcome := "TIMEOUT" if w.state == RunWorld.PLAYING else w.state_name()
 			outcomes[outcome] += 1
 			var label := "%s seed%d" % [stage, pacing_seed]
-			_assert_run(w, st, label, stage == "henesys_hg1")
-			if CHECK_PACING and stage == "henesys_hg1":
+			_assert_run(w, st, label, stage == "henesys")
+			if CHECK_PACING and stage == "henesys":
 				_assert_pacing(w, st, label)
 			if float(st.lv8_time) > 0.0:
 				lv8.append(float(st.lv8_time))
@@ -191,7 +192,7 @@ func test_full_run_real_map() -> void:
 				lv30.append(float(st.lv30_time))
 		print("%s outcomes %s; milestone reaches Lv8 %d/3, Lv10 %d/3, Magician %d/3, Lv30 %d/3" % [
 			stage, outcomes, lv8.size(), lv10.size(), magician.size(), lv30.size()])
-		if CHECK_PACING and stage == "henesys_hg1":
+		if CHECK_PACING and stage == "henesys":
 			# Population acceptance allows early deaths. The fixed sample still needs majority Lv8 progression. Lv10 /
 			# Magician need only 1/3 until the balance pass (#77, owner 2026-10-19): merging #223's knockback guard with
 			# spec #225's card changes moved seeds 2 and 2026 to Beginner deaths a few seconds before Lv10, while over
@@ -199,7 +200,8 @@ func test_full_run_real_map() -> void:
 			assert_true(lv8.size() >= 2 and lv10.size() >= 1 and magician.size() >= 1,
 				"%s: Lv8 on 2/3 and Lv10 / Magician on 1/3 predetermined runs" % stage)
 			if not lv8.is_empty():
-				assert_between(_median(lv8), 210.0, 270.0, "%s: Lv8 median210–270s (n%d/3)" % [stage, lv8.size()])
+				# Tier C: #241's owner-approved denser opening uses the existing individual early-progress floor.
+				assert_between(_median(lv8), 180.0, 270.0, "%s: Lv8 median180–270s (n%d/3)" % [stage, lv8.size()])
 			if not magician.is_empty():
 				assert_between(_median(magician), 180.0, 330.0, "%s: Mage median180–330s (n%d/3)" % [stage, magician.size()])
 			if not lv10.is_empty():
@@ -210,7 +212,7 @@ func test_full_run_real_map() -> void:
 			# #88 the bot on seed 2026 dies at 4:48 at Lv 9, before advancing. Until the balance pass, the guard is the 2/3
 			# early-milestone majority above (Magician included).
 			if not lv30.is_empty():
-				assert_between(_median(lv30), 540.0, 720.0, "%s: Lv30 median540–720s (n%d/3)" % [stage, lv30.size()])
+				assert_between(_median(lv30), 480.0, 720.0, "%s: Lv30 median480–720s (n%d/3)" % [stage, lv30.size()])
 
 
 ## Median of a nonempty regression sample; the caller checks milestone reach separately.
@@ -232,8 +234,9 @@ func _assert_pacing(w: RunWorld, st: Dictionary, label: String) -> void:
 	if float(st.lv10_time) > 0.0:
 		assert_between(float(st.lv10_time), 150.0, 360.0, "%s: reached Lv10 between2:30 and6:00" % label)
 	if float(st.lv30_time) > 0.0:
-		assert_between(float(st.lv30_time), 480.0, 1080.0, "%s: individual Lv30 in8:00–18:00; sample median9:00–12:00" % label)
-	assert_true(int(w.player_state.level) < 50, "%s: far below the old Lv 50+ at the end (%d)" % [label,
+		assert_between(float(st.lv30_time), 480.0, 1080.0, "%s: individual Lv30 in8:00–18:00; sample median8:00–12:00" % label)
+	# Tier C: #241 deliberately raises early density; tier 1 must still finish below third-job level 70.
+	assert_true(int(w.player_state.level) < 70, "%s: below third-job level at the end (%d)" % [label,
 		int(w.player_state.level)])
 	var alive: PackedInt32Array = st.alive
 	if alive.size() > 840:
@@ -332,7 +335,7 @@ func _short_run(w: RunWorld, label: String) -> void:
 
 
 func test_other_stages_synthetic() -> void:
-	for stage: String in ["tree_that_grew_1"]:
+	for stage: String in ["ellinia"]:
 		_short_run(RunWorld.new(RF.with_basic_attack(RF.setup(stage, 77))), stage)
 
 
@@ -340,9 +343,10 @@ func test_other_stages_real_maps() -> void:
 	if not require_cache():
 		return
 	var data := DataRepo.load_all()
-	for stage: String in ["tree_that_grew_1"]:
+	for stage: String in ["ellinia"]:
 		var missing := PackedStringArray()
 		var setup := DataRepo.build_setup(data, stage, 77, Vector2(800, 600), _img, _mob, missing)
+		missing = interim_missing(missing, data, stage)
 		assert_true(missing.is_empty(), "%s: the cache has every img (%s)" % [stage, missing])
 		if missing.is_empty():
 			_short_run(RunWorld.new(setup), stage + " (real)")

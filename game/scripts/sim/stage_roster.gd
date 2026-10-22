@@ -9,13 +9,17 @@ extends RefCounted
 const SUMMON_SKILL := 200
 
 
-## Pool ids of every keyframe plus every scheduled boss id, ascending.
+## Pool ids of every keyframe and explicit map pool plus every map's boss id, ascending.
 static func named_ids(stage: Dictionary) -> PackedInt32Array:
 	var ids := PackedInt32Array()
 	for kf: Dictionary in stage.get("keyframes", []):
 		for key: Variant in kf.get("pool", {}):
 			_add(ids, int(key))
-	for boss: Dictionary in stage.get("bosses", []):
+	for entry: Dictionary in stage.get("maps", []):
+		if entry.get("pool") is Dictionary:
+			for key: Variant in entry.pool:
+				_add(ids, int(key))
+	for boss: Dictionary in DataRepo.stage_bosses(stage):
 		_add(ids, int(boss.get("mob_id", 0)))
 	ids.sort()
 	return ids
@@ -48,7 +52,7 @@ static func boss_extra_ids(boss_img: Dictionary, mob_skill_img: Dictionary) -> P
 ## ({id: img root}; int or String keys); a boss without an img adds nothing. Ascending.
 static func mob_ids(stage: Dictionary, mob_imgs: Dictionary, mob_skill_img: Dictionary) -> PackedInt32Array:
 	var ids := named_ids(stage)
-	for boss: Dictionary in stage.get("bosses", []):
+	for boss: Dictionary in DataRepo.stage_bosses(stage):
 		var id := int(boss.get("mob_id", 0))
 		var img: Variant = mob_imgs.get(id, mob_imgs.get(str(id), {}))
 		if img is Dictionary:

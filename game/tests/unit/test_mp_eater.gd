@@ -333,7 +333,7 @@ func test_real_hit_presents_each_branch_effect_and_mp_gain_without_missing_sound
 		var library := AssetLibrary.new()
 		var scene: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 		scene.library = library
-		scene.configure("henesys_hg1", 59, {"use_flow": false})
+		scene.configure("henesys", 59, {"use_flow": false})
 		var tree := Engine.get_main_loop() as SceneTree
 		tree.current_scene.add_child(scene)
 		var w := scene.world
@@ -357,6 +357,6 @@ func test_real_hit_presents_each_branch_effect_and_mp_gain_without_missing_sound
 		assert_true(absorbed, "seeded real-cache magic hit procs branch MP Eater")
 		assert_eq(scene.fx.active_count(), effects + 1, "canonical absorb effect is pooled")
 		assert_eq(scene.numbers.active_count(), numbers + 2, "hit damage plus actual MP gain")
-		assert_eq(library.missing, PackedStringArray(), "no lookup for the absent optional Sound.wz entry")
+		assert_eq(interim_missing(library.missing, w.data, w.stage_key), PackedStringArray(), "no lookup for the absent optional Sound.wz entry")
 		scene.free()
 		library.free()

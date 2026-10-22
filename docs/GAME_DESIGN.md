@@ -504,6 +504,36 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #241 (#243): schema and legacy-key smoke (2026-10-21)
+
+The interim runtime still plays the first map with all three bosses at absolute 300/600/900 seconds;
+map transfer and pool selection belong to #244/#245. The owner's three Henesys opening keyframes are the only
+balance edits. Requested alias check: `bash scripts/balance.sh 1 --stage=henesys_hg1`, Git Bash,
+`ISOLATE=t243-alias`, cache `C:/Users/itech/Coding/maple-survivors-refs/caches/s237`, base `1808305`.
+The record uses canonical `stage: henesys`, with `warnings: []` and `missing: []`; no crash or script error.
+
+| Stage / policy / seed | End | First job | Boss reached |
+|---|---|---|---|
+| Henesys / bot / 1 | DEAD 307.9 s, Lv12, 253 kills | Magician 255.4 s | Mano 300 s, alive at death |
+
+Compared with #237's seed-1 bot clear at 936.8 s and Magician at 279.8 s, the opening changes the seeded choices
+and this outcome. This single alias smoke is not a population balance assessment; the full spec regression matrix
+belongs to #249. No tuning candidates or held-out seeds were used. The six new map imgs and Cold Eye are absent
+from `s237`: setup keeps aligned `{}` map entries plus missing paths, and affected cache checks tolerate later-map
+assets or explicitly SKIP. Those skips do not verify the new maps. Raw alias output stays in ignored `_scratch/`.
+
+Regression tests retain the existing historical event digest by freezing its pre-#241 opening; this requires the
+schema/key migration to preserve every other event byte. Live pacing guards account for the approved density:
+Lv8 and Lv30 sample lower bounds use the existing individual floors (180 s / 480 s), with their upper bounds
+unchanged; tier-1 ending level stays below third-job level 70 instead of the pre-#241 guard below 50. These are
+test expectations, not balance-data edits or a tuning pass. Historical fixture `_doc.stage` provenance remains
+unchanged and resolves through the alias API when tests compare its region.
+
+Isolated #243 validation: **2,114 tests, 0 failed, 2 skipped** (2,112 passed), Git Bash with `ISOLATE=t243`,
+the `s237` cache and `TEST_TIMEOUT_S=3000`. The pre-#241 event golden matches unchanged. Missing later-map
+preloads produce expected warnings; Godot's dummy renderer also reports two texture RID allocations at shutdown.
+The repeated alias smoke reproduces its complete record byte for byte.
+
 #### Spec #237 (#240): potion cooldowns: regression smoke (2026-10-21)
 
 Feature smoke only: `bash scripts/balance.sh 1 2 2026 --stage=<key> --policy=<policy>` for `henesys_hg1` and
@@ -5271,6 +5301,9 @@ random policy shares the movement and the camper policies still override it afte
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
+| Region map order and pool declarations (#241, #243) | Henesys: 104040000 / 104010001 / 100030001; Ellinia: 101010100 / 100040100 / 100040105; Sleepywood: 105050400 / 105090310 / 105090900. Map 1 declares `pool: "curve"`; later maps declare life-list pools, except Sanctuary's explicit Cold Eye 4230100 ×5, Tauromacis 7130100 ×2, Taurospear 7130101 ×5; Pig Beach excludes Iron Hook 4090000 | C | Owner #241 Implementation Decisions; pool selection is implemented separately in #245 |
+| Map boss delay and interim schedule (#241, #243) | `map_seconds = 300`; each map's boss has relative `time = 300`. `DataRepo.stage_bosses` projects absolute 300 / 600 / 900 s for the interim single-map game, preserving every existing boss multiplier and attack setting | C | Owner #241; binding integration contract; transfer is implemented separately in #244 |
+| Henesys opening (#241, #243) | t0 rate 0.25 / alive cap 6; t120 0.55 / 11; t180 0.75 / 15; t240 onward and all keyframe pools unchanged | C | Owner #241; the spec's only balance change |
 | Potion model (#237, #238) | Unlimited HP/MP; no stock, starter quantities or drops; old snapshot counts ignored without a format bump; tiers derive from starter items plus level; every round including Continue starts ready, cooldowns never saved | C | Owner 2026-10-21, spec #237 |
 | Potion cooldowns (#237, #238) | HP 20 s / MP 10 s (`balance.potions.cooldown`), independent kinds in fixed sim time; paused windows freeze the timers, tier-ups preserve them, presses during cooldown silently do nothing | C | Owner 2026-10-21, spec #237 starting values; no tuning |
 | Pet pouches (#238) | Below ALERT and ready: share the player's per-kind cooldown, without a separate delay | C | Owner 2026-10-21, spec #237 convenience rule |

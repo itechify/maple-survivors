@@ -327,7 +327,7 @@ static func emit(pending: Dictionary, phase: String, world: RunWorld) -> void:
 ## The `{mob_id: true}` set of the stage's scheduled boss kinds (they attack through BossAttacks).
 static func boss_kind_ids(world: RunWorld) -> Dictionary:
 	var ids := {}
-	for entry: Dictionary in world.stage.get("bosses", []):
+	for entry: Dictionary in DataRepo.stage_bosses(world.stage):
 		ids[int(entry.get("mob_id", 0))] = true
 	return ids
 

@@ -115,7 +115,7 @@ func test_dead_boss_cannot_finish_a_pending_slam_while_other_bosses_live() -> vo
 	var setup := BF.setup()
 	setup.data.balance.bosses.rewards.bonus_choices = 0
 	setup.data.balance.bosses.rewards.exp_mult = 0
-	setup.data.stages.stages.quiet.bosses.append({"mob_id": 2220000, "time": 0.5})
+	setup.data.stages.stages.quiet.maps.append({"map_id": 0, "boss": {"mob_id": 2220000, "time": 0.5}})
 	var w := RunWorld.new(setup)
 	var start := _start(w)
 	if start.is_empty():

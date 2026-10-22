@@ -26,13 +26,13 @@ func _walled_world(left_x1 := 300.0, left_x2 := 1300.0) -> RunWorld:
 
 
 func test_pacing_keyframes() -> void:
-	var w := RunWorld.new(RF.setup("henesys_hg1"))
+	var w := RunWorld.new(RF.setup("henesys"))
 	var d := w.director
-	assert_near(d.rate_at(0.0), 0.15, 1e-6, "sword-paced opening")
-	assert_near(d.rate_at(60.0), 0.275, 1e-6, "halfway from 0.15 to 0.4 at the 2:00 keyframe")
-	assert_near(d.rate_at(120.0), 0.4, 1e-6)
-	assert_eq(d.max_alive_at(0.0), 3)
-	assert_eq(d.max_alive_at(60.0), 6, "round((3+8)/2)")
+	assert_near(d.rate_at(0.0), 0.25, 1e-6, "owner's #241 opening")
+	assert_near(d.rate_at(60.0), 0.4, 1e-6, "halfway from 0.25 to 0.55 at the 2:00 keyframe")
+	assert_near(d.rate_at(120.0), 0.55, 1e-6)
+	assert_eq(d.max_alive_at(0.0), 6)
+	assert_eq(d.max_alive_at(60.0), 9, "round((6+11)/2)")
 	assert_near(d.value_at("hp", 120.0), 1.0, 1e-6, "opening HP stays flat before the ramp after 2:00")
 	assert_near(d.value_at("hp", 270.0), 1.125, 1e-6, "halfway between 4:00 HP 1.0 and 5:00 HP 1.25")
 	assert_near(d.value_at("speed", 900.0), 1.4, 1e-6)
@@ -58,7 +58,7 @@ func test_pacing_keyframes() -> void:
 
 
 func test_spawns_outside_view_inside_bounds_and_ramping() -> void:
-	var w := RunWorld.new(RF.setup("henesys_hg1", 99))
+	var w := RunWorld.new(RF.setup("henesys", 99))
 	w.director.params.platform_share = 0.0  # This test exercises the off-screen ring rule; platform placement is separate.
 	w.god = true
 	var memo := {}

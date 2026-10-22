@@ -287,7 +287,7 @@ func test_forced_branch_tools_draw_the_first_job_path_and_take_the_single_family
 	var data := DataRepo.load_all()
 	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
 	for job in [410, 420]:
-		var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--job=%d" % job]))
+		var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=%d" % job]))
 		assert_eq(SceneFlow.forced_job_error(parsed.options, data), "")
 		var w := _thief()
 		var pick := BotInput.pick_choice(jobs.advancements(0, 10), w.job_rng, job, jobs, "")

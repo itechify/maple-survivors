@@ -371,7 +371,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	setup = p_setup
 	data = setup.get("data", {})
 	balance = data.get("balance", {})
-	stage_key = String(setup.get("stage", ""))
+	stage_key = DataRepo.canonical_stage_key(String(setup.get("stage", "")))
 	stage = data.get("stages", {}).get("stages", {}).get(stage_key, {})
 	duration = float(stage.get("duration", 900.0))
 	seed_value = int(setup.get("seed", 0))
@@ -418,7 +418,7 @@ func _init_map() -> void:
 	fhm = FootholdMap.from_wz(map_img)
 	bounds = MapBounds.from_map(map_img, fhm)
 	ladders = LadderSet.from_wz(map_img)
-	portals = PortalSet.from_wz(map_img, int(stage.get("map_id", 0)), balance.get("portals", {}))
+	portals = PortalSet.from_wz(map_img, int(stage.get("maps", [{}])[0].get("map_id", 0)), balance.get("portals", {}))
 	var nav_opts := {"gravity": physics.gravity_acc, "fall_speed": physics.fall_speed, "jump_speed": physics.jump_speed}
 	nav = NavGraph.build(fhm, nav_opts.merged({"can_jump": false}))
 	nav_jump = NavGraph.build(fhm, nav_opts.merged({"can_jump": true}))
@@ -474,7 +474,7 @@ func _init_skills_and_progression() -> void:
 ## Ordinary spawning, the boss schedule and the bosses' canonical skills.
 func _init_directors() -> void:
 	director = SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
-	bosses = BossDirector.new(stage.get("bosses", []), balance.get("bosses", {}))
+	bosses = BossDirector.new(DataRepo.stage_bosses(stage), balance.get("bosses", {}))
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
 	_sync_slots()

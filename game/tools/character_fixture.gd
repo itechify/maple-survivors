@@ -65,11 +65,12 @@ func _init() -> void:
 	var library := AssetLibrary.new()
 	library.open()
 	var missing := PackedStringArray()
-	var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys_hg1", seed_value, Vector2(800, 600),
+	var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys", seed_value, Vector2(800, 600),
 		func(path: String) -> Dictionary:
 			var img := library.img(path)
 			return img.root if img != null else {},
 		func(id: int) -> Dictionary: return library.mob_root(id), missing)
+	missing = preload("res://tools/balance_run.gd").map_zero_missing(setup, missing)
 	if not missing.is_empty():
 		print("character_fixture: cache missing " + str(missing))
 		library.free()
@@ -92,7 +93,7 @@ func _init() -> void:
 	var character := world.character_snapshot()
 	character["_doc"] = {"source": "real headless Henesys bot round, all bosses/reward choices completed" if seconds <= 0.0
 			else "real headless Henesys bot round, stopped at the %d s cap (a low-level fixture)" % int(seconds),
-		"stage": "henesys_hg1", "seed": seed_value, "policy": "bot", "forced_branch": job,
+		"stage": "henesys", "seed": seed_value, "policy": "bot", "forced_branch": job,
 		"branch": label, "revision": revision,
 		"outcome": record.state, "round_seconds": record.time,
 		"rounding": "floating character fields rounded to six decimal places"}
@@ -129,12 +130,13 @@ func _migrate(input: String, output: String) -> void:
 	library.open()
 	var missing := PackedStringArray()
 	# Restoring into a real-cache world migrates it (RunWorld._restore_character) and writes the sim's own types back.
-	var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys_hg1", 1, Vector2(800, 600),
+	var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys", 1, Vector2(800, 600),
 		func(path: String) -> Dictionary:
 			var img := library.img(path)
 			return img.root if img != null else {},
 		func(id: int) -> Dictionary: return library.mob_root(id), missing, old)
 	library.free()
+	missing = preload("res://tools/balance_run.gd").map_zero_missing(setup, missing)
 	if not missing.is_empty():
 		print("character_fixture: cache missing " + str(missing))
 		quit(1)

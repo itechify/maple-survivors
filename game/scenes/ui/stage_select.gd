@@ -122,18 +122,18 @@ static func load_stages(data: Dictionary, tier: int = -1) -> Array[Dictionary]:
 		keys = ordered[tier] if tier < ordered.size() else []
 	for key: String in keys:
 		var st: Dictionary = all[key]
-		var map_id := int(st.get("map_id", 0))
+		var map_id := int(st.get("maps", [{}])[0].get("map_id", 0))
 		var labels := DataRepo.stage_labels(data.get("stages", {}), key)
 		var mark := ""
 		var info: Variant = UiArt.node(AssetLibrary.map_img_path(map_id) + "/info/mapMark")
 		if info is String:
 			mark = info
-		var count := (st.get("bosses", []) as Array).size()
+		var count := DataRepo.stage_bosses(st).size()
 		var objective := "Survive %s to clear the stage." % Hud.format_time(float(st.get("duration", 0)))
 		if count > 0:
 			objective = "Defeat the boss to clear." if count == 1 else "Defeat all %d bosses to clear." % count
 		var roster := DataRepo.stage_mob_ids(data, key)
-		for boss: Dictionary in st.get("bosses", []):
+		for boss: Dictionary in DataRepo.stage_bosses(st):
 			var index := roster.find(int(boss.mob_id))
 			if index >= 0:
 				roster.remove_at(index)

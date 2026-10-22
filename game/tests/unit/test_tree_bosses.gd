@@ -206,10 +206,10 @@ func test_scheduled_king_slime_does_not_flinch_despite_missing_canonical_boss_fl
 
 func test_tree_stage_lists_three_bosses_and_loads_their_summon_and_revive_families() -> void:
 	var data := DataRepo.load_all()
-	var bosses: Array = data.stages.stages.tree_that_grew_1.bosses
+	var bosses: Array = DataRepo.stage_bosses(data.stages.stages.ellinia)
 	assert_eq(bosses.map(func(e: Dictionary) -> int: return int(e.mob_id)), [3220000, 9300003, 6220000])
 	assert_eq(bosses.map(func(e: Dictionary) -> int: return int(e.time)), [300, 600, 900])
-	var ids := DataRepo.stage_mob_ids(data, "tree_that_grew_1")
+	var ids := DataRepo.stage_mob_ids(data, "ellinia")
 	assert_true(ids.has(9300003) and ids.has(6220000) and ids.has(210100))
 
 

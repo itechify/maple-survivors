@@ -45,7 +45,7 @@ func _scenario(key: String) -> Dictionary:
 		run.queue_free()
 		await get_tree().process_frame
 	run = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
-	run.configure("henesys_hg1", 215, {"use_flow": false})
+	run.configure("henesys", 215, {"use_flow": false})
 	add_child(run)
 	run.set_process(false)
 	var w := run.world

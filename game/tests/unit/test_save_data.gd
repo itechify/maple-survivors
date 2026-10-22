@@ -13,17 +13,45 @@ func after_each() -> void:
 	TestCase.remove_tree(save_path.get_base_dir())
 
 
+func test_legacy_region_keys_migrate_slots_bests_counts_and_history_on_disk() -> void:
+	var boundary := snapshot()
+	boundary.merge({"phase": "round", "stage": "tree_that_grew_1", "round_seed": 243}, true)
+	var legacy := {"format": 2,
+		"best": {"henesys_hg1": {"stage": "henesys_hg1", "level": 35}, "henesys": {"level": 20}},
+		"runs": {"henesys_hg1": 8, "henesys": 2, "dark_cave": 3},
+		"slots": [boundary, null, null],
+		"history": [{"name": "Ended1", "job_id": 200, "job_name": "Magician", "level": 38,
+			"tiers_cleared": 1, "rounds_played": 2, "ending": "died", "stage": "dark_cave", "date": "2026-10-21"}]}
+	var file := FileAccess.open(save_path, FileAccess.WRITE)
+	file.store_string(JSON.stringify(legacy))
+	file.close()
+	var loaded := SaveData.new(save_path)
+	assert_eq(loaded.last_error, OK)
+	assert_eq(loaded.slot(0).stage, "ellinia")
+	assert_eq(loaded.slot(0).round_seed, 243)
+	assert_eq(loaded.best_for("henesys").level, 35)
+	assert_eq(loaded.best_for("henesys_hg1").stage, "henesys")
+	assert_eq(loaded.runs_for("henesys"), 10)
+	assert_eq(loaded.runs_for("dark_cave"), 3)
+	assert_eq(loaded.history[0].stage, "sleepywood")
+	var migrated := FileAccess.get_file_as_string(save_path)
+	for old: String in ["henesys_hg1", "tree_that_grew_1", "dark_cave"]:
+		assert_false(migrated.contains(old), "legacy key removed: " + old)
+	assert_eq(SaveData.new(save_path).slot(0), loaded.slot(0))
+	assert_eq(FileAccess.get_file_as_string(save_path), migrated, "migration is idempotent")
+
+
 func test_format_one_converts_bests_and_counts_on_disk() -> void:
-	var legacy := {"format": 1, "best": {"henesys_hg1": {"cleared": true, "level": 35, "kills": 4200}},
-		"runs": {"henesys_hg1": 8, "tree_that_grew_1": 2}}
+	var legacy := {"format": 1, "best": {"henesys": {"cleared": true, "level": 35, "kills": 4200}},
+		"runs": {"henesys": 8, "ellinia": 2}}
 	var file := FileAccess.open(save_path, FileAccess.WRITE)
 	file.store_string(JSON.stringify(legacy))
 	file.close()
 	var expected: Dictionary = JSON.parse_string(JSON.stringify(legacy))
 	var save := SaveData.new(save_path)
-	assert_eq(save.best_for("henesys_hg1"), expected.best.henesys_hg1)
-	assert_eq(save.runs_for("henesys_hg1"), 8)
-	assert_eq(save.runs_for("tree_that_grew_1"), 2)
+	assert_eq(save.best_for("henesys"), expected.best.henesys)
+	assert_eq(save.runs_for("henesys"), 8)
+	assert_eq(save.runs_for("ellinia"), 2)
 	var converted: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(save_path))
 	assert_eq(int(converted.format), 2)
 	assert_eq(converted.get("slots"), [null, null, null])
@@ -33,7 +61,7 @@ func test_format_one_converts_bests_and_counts_on_disk() -> void:
 
 
 func test_format_one_ignores_unvalidated_fields_from_later_formats() -> void:
-	var legacy := {"format": 1, "best": {}, "runs": {"henesys_hg1": 3},
+	var legacy := {"format": 1, "best": {}, "runs": {"henesys": 3},
 		"slots": [{}], "history": 7, "account": 42}
 	var file := FileAccess.open(save_path + ".import", FileAccess.WRITE)
 	file.store_string(JSON.stringify(legacy))
@@ -43,7 +71,7 @@ func test_format_one_ignores_unvalidated_fields_from_later_formats() -> void:
 	assert_eq(loaded.slots, [null, null, null])
 	assert_eq(loaded.history, [])
 	assert_eq(loaded.account, Account.empty())
-	assert_eq(loaded.runs_for("henesys_hg1"), 3)
+	assert_eq(loaded.runs_for("henesys"), 3)
 	assert_eq(SaveData.new(save_path).slots, [null, null, null])
 
 
@@ -54,7 +82,7 @@ func test_corrupt_files_survive_replacement_and_repeated_corruption() -> void:
 		file.close()
 		var save := SaveData.new(save_path)
 		assert_true(save.best.is_empty())
-		assert_eq(save.runs_for("henesys_hg1"), 0)
+		assert_eq(save.runs_for("henesys"), 0)
 		assert_eq(FileAccess.get_file_as_string(save_path), text, "load preserves the original")
 		assert_eq(save.save_file(), OK)
 		var fresh: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(save_path))
@@ -73,7 +101,7 @@ func test_failed_writes_keep_the_previous_file_slots_history_and_bests() -> void
 	assert_eq(DirAccess.make_dir_absolute(temporary), OK)
 	boundary.phase = "free_market"
 	boundary.rounds_played = 1
-	var summary := {"stage": "henesys_hg1", "cleared": true, "level": 35}
+	var summary := {"stage": "henesys", "cleared": true, "level": 35}
 	assert_ne(save.update_slot(0, boundary, summary), OK)
 	assert_ne(save.end_run(0, "victory", "2026-10-16", boundary, summary), OK)
 	assert_eq(save.create_slot(snapshot("Other2")), -1)
@@ -82,15 +110,15 @@ func test_failed_writes_keep_the_previous_file_slots_history_and_bests() -> void
 	assert_eq(int(save.slot(0).rounds_played), 0)
 	assert_eq(save.slot(1), {})
 	assert_eq(save.history, [])
-	assert_eq(save.best_for("henesys_hg1"), {})
-	assert_eq(save.runs_for("henesys_hg1"), 0)
+	assert_eq(save.best_for("henesys"), {})
+	assert_eq(save.runs_for("henesys"), 0)
 	assert_eq(FileAccess.get_file_as_string(save_path), bytes)
 	assert_eq(DirAccess.remove_absolute(temporary), OK)
 	assert_eq(save.end_run(0, "victory", "2026-10-16", boundary, summary), OK)
 	var loaded := SaveData.new(save_path)
 	assert_eq(loaded.slot(0), {})
 	assert_eq(loaded.history.size(), 1)
-	assert_eq(loaded.runs_for("henesys_hg1"), 1)
+	assert_eq(loaded.runs_for("henesys"), 1)
 	# Debris from an interrupted next write never replaces the committed save on load.
 	var file := FileAccess.open(save_path + ".tmp", FileAccess.WRITE)
 	file.store_string("{half-written")
@@ -213,7 +241,7 @@ func test_slot_create_update_reload_preserves_character_and_round_seed() -> void
 	var boundary := snapshot()
 	assert_eq(save.create_slot(boundary), 0)
 	boundary.phase = "round"
-	boundary.stage = "henesys_hg1"
+	boundary.stage = "henesys"
 	boundary.round_seed = 2026
 	boundary.character.exp = 17
 	boundary.character.player_mods = {"max_hp": [0.0, 1.123456789012345]}
@@ -252,7 +280,7 @@ func test_ending_each_run_frees_its_slot_and_persists_exactly_one_history_entry(
 	for ending: String in ["died", "victory", "deleted"]:
 		var run := snapshot()
 		run.phase = "round"
-		run.stage = "dark_cave"
+		run.stage = "sleepywood"
 		run.round_seed = 7
 		run.character.job_id = 210
 		run.character.level = 38
@@ -268,7 +296,7 @@ func test_ending_each_run_frees_its_slot_and_persists_exactly_one_history_entry(
 	for index in 3:
 		assert_eq(loaded.history[index], {"name": "Maple1", "job_id": 210.0,
 			"job_name": "Wizard (Fire, Poison)", "level": 38.0, "tiers_cleared": 1.0,
-			"rounds_played": 2.0, "ending": ["died", "victory", "deleted"][index], "stage": "dark_cave",
+			"rounds_played": 2.0, "ending": ["died", "victory", "deleted"][index], "stage": "sleepywood",
 			"date": "2026-10-16T13:00:00Z"})
 	var detached := loaded.history
 	detached.clear()
@@ -279,21 +307,21 @@ func test_finished_rounds_update_bests_counts_and_final_history_together() -> vo
 	var save := SaveData.new(save_path)
 	var boundary := snapshot()
 	assert_eq(save.create_slot(boundary), 0)
-	var first := {"stage": "henesys_hg1", "cleared": true, "time": 967.8, "level": 38,
+	var first := {"stage": "henesys", "cleared": true, "time": 967.8, "level": 38,
 		"job_id": 210, "job_name": "Wizard (Fire, Poison)", "kills": 4200, "seed": 1}
 	boundary.phase = "free_market"
 	boundary.tier = 1
 	boundary.rounds_played = 1
 	boundary.tiers_cleared = 1
-	boundary.stage = "henesys_hg1"
+	boundary.stage = "henesys"
 	boundary.character.level = 38
 	boundary.character.job_id = 210
 	assert_eq(save.update_slot(0, boundary, first), OK, SaveData.validation_error(boundary))
 	var loaded := SaveData.new(save_path)
-	assert_eq(loaded.runs_for("henesys_hg1"), 1)
-	assert_eq(int(loaded.best_for("henesys_hg1").kills), 4200)
-	var last := {"stage": "dark_cave", "cleared": false, "time": 350.0, "level": 45, "kills": 1200}
-	boundary.stage = "dark_cave"
+	assert_eq(loaded.runs_for("henesys"), 1)
+	assert_eq(int(loaded.best_for("henesys").kills), 4200)
+	var last := {"stage": "sleepywood", "cleared": false, "time": 350.0, "level": 45, "kills": 1200}
+	boundary.stage = "sleepywood"
 	boundary.rounds_played = 2
 	boundary.character.level = 45
 	assert_eq(loaded.end_run(0, "died", "2026-10-16", boundary, last), OK)
@@ -301,9 +329,9 @@ func test_finished_rounds_update_bests_counts_and_final_history_together() -> vo
 	assert_eq(loaded.slot(0), {})
 	assert_eq(int(loaded.history[0].level), 45, "history uses the final character, not its old boundary")
 	assert_eq(int(loaded.history[0].rounds_played), 2)
-	assert_eq(loaded.runs_for("dark_cave"), 1)
-	assert_eq(loaded.runs_for("henesys_hg1"), 1)
-	assert_eq(int(loaded.best_for("dark_cave").level), 45)
+	assert_eq(loaded.runs_for("sleepywood"), 1)
+	assert_eq(loaded.runs_for("henesys"), 1)
+	assert_eq(int(loaded.best_for("sleepywood").level), 45)
 
 
 func test_invalid_snapshots_and_duplicate_living_names_cannot_replace_characters() -> void:
@@ -315,9 +343,9 @@ func test_invalid_snapshots_and_duplicate_living_names_cannot_replace_characters
 		{"character": {}}, {"character": {"format": {}}}, {"name": "A!"}, {"created": ""},
 		{"tier": -1}, {"tier": 0.5}, {"phase": "mid_round"}, {"look": []},
 		{"rounds_played": -1}, {"tiers_cleared": "one"},
-		{"phase": "round", "stage": "henesys_hg1"},
+		{"phase": "round", "stage": "henesys"},
 		{"phase": "round", "stage": "", "round_seed": 3},
-		{"phase": "round", "stage": "henesys_hg1", "round_seed": 2.5},
+		{"phase": "round", "stage": "henesys", "round_seed": 2.5},
 		{"look": {"position": Vector2.ZERO}}, {"look": {"scale": INF}}]
 	for patch: Dictionary in invalid:
 		var bad := snapshot("Other2")
@@ -338,7 +366,7 @@ func test_malformed_save_shapes_are_preserved_without_loading_partial_characters
 		{"format": 2, "slots": "bad"}]
 	for patch: Dictionary in [{"slots": [snapshot()]}, {"slots": [{}, null, null]},
 		{"slots": [snapshot(), snapshot("maple1"), null]}, {"history": {}}, {"history": [{}]},
-		{"best": []}, {"runs": {"henesys_hg1": []}}]:
+		{"best": []}, {"runs": {"henesys": []}}]:
 		var bad := valid.duplicate(true)
 		bad.merge(patch, true)
 		cases.append(bad)

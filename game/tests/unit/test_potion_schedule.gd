@@ -108,7 +108,7 @@ func test_every_scheduled_item_resolves_in_the_cache_with_icon_name_and_sound() 
 		return
 	var lib := AssetLibrary.get_default()
 	var data := DataRepo.load_all()
-	var setup := DataRepo.build_setup(data, "henesys_hg1", 1, Vector2(800, 600),
+	var setup := DataRepo.build_setup(data, "henesys", 1, Vector2(800, 600),
 		func(p: String) -> Dictionary:
 			var img := lib.img(p)
 			return img.root if img != null else {},
