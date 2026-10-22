@@ -10,7 +10,7 @@ One character's whole journey, from creation until it dies, clears the last tier
 _Avoid_: Game, save, playthrough
 
 **Character**:
-The named, persistent hero a run belongs to: level, EXP, job, AP stats, skills, potions and look.
+The named, persistent hero a run belongs to: level, EXP, job, AP stats, skills and look.
 _Avoid_: Player (the person), avatar (the drawing), hero
 
 **Character slot**:

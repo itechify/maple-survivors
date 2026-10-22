@@ -63,7 +63,7 @@ static func load_character(path: String, img_loader: Callable) -> Dictionary:
 static func apply(character: Dictionary, mesos: int, img_loader: Callable) -> Dictionary:
 	var out := character.duplicate(true)
 	out.mesos = mesos
-	var limit := Shop.use_stack_limit({})
+	var limit := Shop.use_stack_limit()
 	for id: int in KIT_SCROLLS:
 		Scrolls.add(out.scrolls, id, SCROLL_COUNT, 0, limit)
 	var infos := DataRepo.equipment_info(PackedInt32Array(KIT_EQUIPMENT), img_loader)

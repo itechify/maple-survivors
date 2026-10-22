@@ -10,10 +10,8 @@ extends HudWidget
 ## tier C: eight 24 px icons per row keep fifteen skills left of the timer and boss bars at 800 px.
 const ICON_SIZE := 24
 const COLUMNS := 8
-## Shared sweep constants retained for callers of HudSkills.sweep_step / sweep_polygon.
-const SWEEP_MIN := CooldownSweep.SWEEP_MIN
+## Shared number of quantized cooldown sweep steps.
 const SWEEP_STEPS := CooldownSweep.SWEEP_STEPS
-const SWEEP_COLOR := CooldownSweep.SWEEP_COLOR
 ## tier C: blue modulation of a ready skill waiting for MP.
 const MP_WAIT_TINT := Color(0.35, 0.5, 1.0)
 ## tier C: an icon whose skill the held weapon cannot use is greyed (the Skill window greys the same skill).
@@ -22,7 +20,7 @@ const BLOCKED_TINT := Color(0.4, 0.4, 0.4)
 const STATE_MP_WAIT := RunWorld.SKILL_STATE_MP_WAIT
 const STATE_BLOCKED := RunWorld.SKILL_STATE_BLOCKED
 
-## Reused overlay polygon (sweep_polygon resizes it in place).
+## Reused overlay polygon (CooldownSweep resizes it in place).
 var _sweep := PackedVector2Array()
 ## Per icon (info.skills order): the drawn sweep step (sweep_step) and state byte (0 / STATE_MP_WAIT / STATE_BLOCKED).
 var _steps := PackedInt32Array()
@@ -73,11 +71,6 @@ func displayed() -> Array[Dictionary]:
 			"key_label": String(row.get("key_label", "")), "sweep_step": _steps[i], "mp_short": _short[i] == STATE_MP_WAIT,
 			"blocked": _short[i] == STATE_BLOCKED})
 	return out
-
-
-## Fills `out` with the shared clockwise overlay (see CooldownSweep.sweep_polygon).
-static func sweep_polygon(remaining: float, total: float, rect: Rect2, out: PackedVector2Array) -> void:
-	CooldownSweep.sweep_polygon(remaining, total, rect, out)
 
 
 func _draw() -> void:

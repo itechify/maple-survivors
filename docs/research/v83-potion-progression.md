@@ -188,15 +188,15 @@ higher: Lv 34 Fighter 1350, Lv 50 Bandit 1506, Lv 30 Hunter 1066. Max MP of the 
   in sustain.
 - A 2000-point step (Ice Cream Pop, Red Bean Sundae) is larger than every line's base HP pool through Lv 70.
 - An 800-MP Pure Water at Lv 40 fits a Magician (1019+) but is more than a Fighter's or Brawler's whole MP pool.
-- **Bot waste guard (finding for #229).** `balance.potions.bot.min_restore_fraction` is 0.5, and
-  `BotInput.worth_drinking` (`bot_input.gd:366`) drinks only when `max - current >= 0.5 x restore`, with no cap of the
-  restore at max HP. With Unagi a Lv 40 Magician bot (536 HP) drinks only at 36 HP or less, a Warrior base pool (956) at
-  456 or less; with a 2000-point step the bot effectively stops drinking for every line. The #229 regression smoke
-  should expect bots dying with potions in stock unless the guard is capped at the pool (a code change outside this
-  ticket).
+- **Historical bot waste guard (finding for #229, since fixed).** At the researched revision,
+  `balance.potions.bot.min_restore_fraction` was 0.5 and `BotInput.worth_drinking` (`bot_input.gd:366`) drank only when
+  `max - current >= 0.5 x restore`, with no cap of the restore at max HP. With Unagi a Lv 40 Magician bot (536 HP)
+  drank only at 36 HP or less, a Warrior base pool (956) at 456 or less; with a 2000-point step the bot effectively
+  stopped drinking for every line. The #229 regression smoke was expected to leave bots dying with unused potion
+  stock unless the guard was capped at the pool (outside this research ticket). #229 subsequently capped the guard;
+  #237 replaced stock with unlimited potions on cooldown.
 
-The schedule is job-agnostic by spec #225, so #229 and the owner should decide whether to accept the overheal, cap the
-guard, or hold the big steps back; the numbers above are the input.
+The schedule is job-agnostic by spec #225. These numbers informed #229's decision to cap the guard and accept overheal.
 
 ## 7. Asset needs for the new steps
 

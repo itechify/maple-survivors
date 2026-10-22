@@ -505,3 +505,10 @@ func test_every_derived_stage_mob_is_in_the_asset_manifest() -> void:
 		for id in StageRoster.mob_ids(stage, imgs, mob_skill):
 			assert_true(float(id) in manifest.mobs, "%s: derived mob %d in the asset manifest" % [key, id])
 	lib.free()
+
+
+func test_stage_keyframe_parser_ignores_retired_potion_curve() -> void:
+	var stage := {"keyframes": [{"t": 0, "rate": 1, "max_alive": 3, "normal_hp_drop_chance": 0.5}]}
+	var director := SpawnDirector.create(stage, {})
+	assert_false(director.keyframes[0].has("normal_hp_drop_chance"), "retired potion curves are not parsed")
+	assert_near(director.rate_at(0.0), 1.0, 1e-6, "supported pacing fields are still parsed")

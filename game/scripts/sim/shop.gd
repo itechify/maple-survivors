@@ -5,8 +5,9 @@ extends RefCounted
 ## buy_scroll, sell_item, sell_scrolls) and the bot planner (#112) calls the same functions on a plain snapshot.
 ##
 ## Character state: the part of a CharacterSnapshot the shop reads and writes, `{"mesos": int, "scrolls": {"<id>":
-## count}, "equipment": {"worn": {...}, "inventory": [...]}}`. Every mutator changes the state in place
-## and returns "" on success, otherwise one of these reasons and the state is unchanged:
+## count}, "equipment": {"worn": {...}, "inventory": [...]}}`. Potions use separate cooldowns and occupy no Use slots.
+## Every mutator changes the state in place and returns "" on success, otherwise one of these reasons with the state
+## unchanged:
 ##   count      - a quantity below 1
 ##   mesos      - not enough mesos
 ##   use_full   - the Use tab has no room for the whole quantity (a stack stops at the scroll's slotMax and the tab
@@ -65,8 +66,8 @@ static func price_of(slot: String, rules: Dictionary) -> int:
 	return int(prices.get("weapon", 0)) if slot in rules.get("weapon_slots", []) else int(prices.get("armour", 0))
 
 
-## How many scroll stacks the Use tab holds. The optional legacy potion state never occupies a slot.
-static func use_stack_limit(_potions: Dictionary = {}) -> int:
+## How many scroll stacks the Use tab holds; all slots are available to scrolls.
+static func use_stack_limit() -> int:
 	return Scrolls.USE_SLOTS
 
 
@@ -74,7 +75,7 @@ static func use_stack_limit(_potions: Dictionary = {}) -> int:
 static func scrolls_fit(state: Dictionary, id: int, count: int, slot_max: int) -> bool:
 	var stacks: Dictionary = state.get("scrolls", {})
 	var held := int(stacks.get(str(id), 0))
-	if held == 0 and stacks.size() >= use_stack_limit(state.get("potions", {})):
+	if held == 0 and stacks.size() >= use_stack_limit():
 		return false
 	var cap := slot_max if slot_max > 0 else Scrolls.DEFAULT_SLOT_MAX
 	return held + count <= cap
@@ -91,7 +92,7 @@ static func buy(state: Dictionary, id: int, count: int, price: int, slot_max: in
 		return "use_full"
 	if not state.has("scrolls"):
 		state["scrolls"] = {}
-	Scrolls.add(state.scrolls, id, count, slot_max, use_stack_limit(state.get("potions", {})))
+	Scrolls.add(state.scrolls, id, count, slot_max, use_stack_limit())
 	state["mesos"] = int(state.mesos) - price * count
 	return ""
 

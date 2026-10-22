@@ -3185,8 +3185,8 @@ five-MP Beginner never drinks a 100-MP Blue; above that floor a sip may overflow
 level (level-up, including several levels in one tick), every step of that kind at or below it that the character
 does not hold yet is applied in order through `PotionInventory.upgrade`: the remaining cooldown is kept, the current item drives canonical restoration and the HUD icon, a step never downgrades, and
 an item without a restore spec is skipped. Nothing is stored: each level-up and each snapshot load re-scans the steps up
-to the level, so a character saved at Lv 38 holding Red and Blue is caught up to White and Mana Elixir **silently** on
-load, and an older save needs no migration. Each applied level-up step emits the existing `potion_tier_up` event and the
+to the level, so a Lv 38 character derives White and Mana Elixir **silently** on
+load, and legacy potion counts are ignored. Each applied level-up step emits the existing `potion_tier_up` event and the
 HUD shows the v83 item names from String.wz, e.g. "Your Red Potions are now Orange Potions." (name + "s";
 `balance.potions.plural_names`, `{"<item id>": plural}`, tier C, overrides it for names that are their own plural:
 Unagi 2022003, Pure Water 2022000). The Power Elixir is not a
@@ -4960,7 +4960,7 @@ window and the Skill window tooltips (#86) use it.
 - **Rank card:** the next level's line, above the before → after values it already showed.
 - **Mod card:** its own effect text from `upgrades.json`, plus the effective value it changes, e.g. "Targets: 1 → 2",
   "Cooldown: 1.1 s → 0.97 s" (`choice_pending` card `skill_mod_changes`, measured on a scratch loadout).
-- Cards keep their `upgrades.json` text where the cache has no String.wz (and for stat, potion and Elixir cards).
+- Cards keep their `upgrades.json` text where the cache has no String.wz (and for stat and Elixir cards).
 - `#c…#` is drawn in the skill-window orange and `\n` breaks the line; other `#` codes are dropped, never drawn.
 - WZ descs lose their "[Master Level : N]" line (the level text already shows the cap) and their "Required Skill"
   lines (WZ prerequisites are ignored, #31). No player-visible text says "canonical".
@@ -5271,7 +5271,7 @@ random policy shares the movement and the camper policies still override it afte
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
-| Potion model (#237, #238) | Unlimited HP/MP; no stock, starters or drops; old snapshot counts ignored without a format bump; tiers derive from starter items plus level; every round including Continue starts ready, cooldowns never saved | C | Owner 2026-10-21, spec #237 |
+| Potion model (#237, #238) | Unlimited HP/MP; no stock, starter quantities or drops; old snapshot counts ignored without a format bump; tiers derive from starter items plus level; every round including Continue starts ready, cooldowns never saved | C | Owner 2026-10-21, spec #237 |
 | Potion cooldowns (#237, #238) | HP 20 s / MP 10 s (`balance.potions.cooldown`), independent kinds in fixed sim time; paused windows freeze the timers, tier-ups preserve them, presses during cooldown silently do nothing | C | Owner 2026-10-21, spec #237 starting values; no tuning |
 | Pet pouches (#238) | Below ALERT and ready: share the player's per-kind cooldown, without a separate delay | C | Owner 2026-10-21, spec #237 convenience rule |
 | Desktop save lease (MS-02) | Renew every 5 real seconds and on successful writes; takeover after 30 seconds without renewal; lost owners refuse writes until a fresh committed-state reload | C | Persistence safety policy, not gameplay tuning; `SaveData.WriterLock`, `SceneFlow`, ARCHITECTURE 4.2 |

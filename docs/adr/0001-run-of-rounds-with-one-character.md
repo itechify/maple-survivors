@@ -1,7 +1,7 @@
 # A run is a series of rounds with one persistent character
 
 A single 15:00 stage capped a character in the mid-30s, so later jobs could never be reached. A run is now one
-character playing one stage per tier, round after round, with level, EXP, job, AP stats, skills and potions carried
+character playing one stage per tier, round after round, with level, EXP, job, AP stats and skills carried
 over, and HP and MP refilled at every round boundary. Death ends the run, and clearing the last tier is a victory
 (decided by the owner on 2026-10-15, refined in #32 triage on 2026-10-16).
 
@@ -14,6 +14,9 @@ and it would let a player quit until a bad seed went away.
 Amended in the #33 triage (2026-10-16): the carried character also holds its mesos, worn equipment and inventory
 (spare equipment and scrolls). Equipment changed or scrolled mid-round is lost with the rest of that round's progress
 if the player quits and continues. Mesos, equipment and scrolls end with the run (ADR 0002).
+
+Amended by spec #237 (2026-10-21): potions are unlimited on independent per-kind cooldowns. Their item tiers derive
+from the character's level; neither stock nor cooldowns carry between rounds. Every round starts with both kinds ready.
 
 ## Consequences
 

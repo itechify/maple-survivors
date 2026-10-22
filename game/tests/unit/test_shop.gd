@@ -40,8 +40,7 @@ func _ids(stock: Array) -> Array:
 
 
 func _state(mesos: int, scrolls: Dictionary = {}, inventory: Array = [], worn: Dictionary = {}) -> Dictionary:
-	return {"mesos": mesos, "scrolls": scrolls, "equipment": {"worn": worn, "inventory": inventory},
-		"potions": {"hp": {"item_id": 2000000, "count": 5}, "mp": {"item_id": 2000003, "count": 5}}}
+	return {"mesos": mesos, "scrolls": scrolls, "equipment": {"worn": worn, "inventory": inventory}}
 
 
 # --- data ---
@@ -143,8 +142,7 @@ func test_a_full_use_tab_refuses_a_new_scroll_but_not_more_of_a_held_one() -> vo
 	for i in 22:
 		stacks[str(2040000 + i)] = 1
 	var state := _state(1000000, stacks)
-	assert_eq(Shop.use_stack_limit(state.potions), 24, "legacy potion state takes no Use slots")
-	assert_eq(Shop.use_stack_limit({}), 24, "all Use slots are for scrolls")
+	assert_eq(Shop.use_stack_limit(), 24, "all Use slots are for scrolls")
 	assert_eq(Shop.buy(state, 2043700, 1, 35000, 100), "", "a 23rd stack fits")
 	assert_eq(Shop.buy(state, 2043800, 1, 35000, 100), "", "a 24th stack fits")
 	assert_eq(state.scrolls.size(), 24)

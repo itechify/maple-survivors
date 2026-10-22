@@ -10,7 +10,7 @@ const ICON := Rect2(10, 20, 24, 24)
 
 func _sweep(remaining: float, total: float) -> PackedVector2Array:
 	var out := PackedVector2Array()
-	HudSkills.sweep_polygon(remaining, total, ICON, out)
+	CooldownSweep.sweep_polygon(remaining, total, ICON, out)
 	return out
 
 

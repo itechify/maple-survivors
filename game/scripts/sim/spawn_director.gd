@@ -132,8 +132,6 @@ static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Di
 			"speed": float(kf.get("speed", 1.0)),
 			"kinds": kinds, "weights": weights,
 		})
-		if kf.has("normal_hp_drop_chance"):
-			d.keyframes.back()["normal_hp_drop_chance"] = float(kf.normal_hp_drop_chance)
 	d.keyframes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.t < b.t)
 	var bu: Dictionary = p_stage.get("bursts", {})
 	if not bu.is_empty() and float(bu.get("every", 0.0)) > 0.0:

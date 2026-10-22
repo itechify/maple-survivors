@@ -1627,11 +1627,11 @@ func scroll_info(scroll_id: int) -> Dictionary:
 	return infos.get(scroll_id, infos.get(str(scroll_id), {}))
 
 
-## Adds up to `count` scrolls to the Use tab (a stack stops at its info/slotMax, 100 without one; the two potion
-## stacks take two of the Use tab's slots); returns how many were added. Test and tool hook until shops exist.
+## Adds up to `count` scrolls to the Use tab's 24 slots (a stack stops at its info/slotMax, 100 without one);
+## returns how many were added. Test and tool hook.
 func grant_scrolls(scroll_id: int, count: int) -> int:
 	return Scrolls.add(scrolls, scroll_id, count, int(scroll_info(scroll_id).get("slotMax", 0)),
-		Shop.use_stack_limit(potions.snapshot()))
+		Shop.use_stack_limit())
 
 
 ## What Free Market NPC `npc_id` (shops.json) sells this character's job: Shop.stock entries, [] for an unknown NPC.
@@ -1696,7 +1696,7 @@ func inventory_slots() -> int:
 
 ## The character state Shop works on: mesos by value, the Use stacks and Equip tab by reference.
 func _shop_state() -> Dictionary:
-	return {"mesos": mesos, "scrolls": scrolls, "equipment": equipment, "potions": potions.snapshot()}
+	return {"mesos": mesos, "scrolls": scrolls, "equipment": equipment}
 
 
 func _shop_done(action: String, item_id: int, state: Dictionary) -> void:
