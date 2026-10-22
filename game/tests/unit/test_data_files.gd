@@ -153,8 +153,9 @@ func test_stages_mobs_and_manifest() -> void:
 	assert_true(manifest is Dictionary)
 	var want_maps := {"henesys_hg1": 104040000, "tree_that_grew_1": 101010100, "dark_cave": 105050400}
 	assert_eq(stages.keys(), want_maps.keys(), "the three distinct stages are offered")
-	assert_eq(manifest.maps, [104040000.0, 101010100.0, 105050400.0, 910000000.0],
-		"the three stages and the Free Market hub are imported")
+	assert_eq(manifest.maps, [104040000.0, 104010001.0, 100030001.0, 101010100.0, 100040100.0,
+		100040105.0, 105050400.0, 105090310.0, 105090900.0, 910000000.0],
+		"the three maps of each region and the Free Market hub are imported")
 	for key: String in want_maps:
 		assert_true(stages.has(key), key)
 		assert_eq(int(stages[key].map_id), want_maps[key])
@@ -179,6 +180,96 @@ func test_stages_mobs_and_manifest() -> void:
 		1210100: 4000017, 1210102: 4000001, 1110100: 4000012}
 	for id: int in items:
 		assert_eq(int(mobs[str(id)].exp_item), items[id], "EXP item of %d" % id)
+
+
+func test_three_map_mobs_have_imported_exp_pickups_and_meso_ranges() -> void:
+	var manifest := AssetManifest.load_merged("res://data/asset_manifest.json")
+	# tier B: v83 server drop facts; tier C: signature drops represent EXP in survivor mode.
+	var drops := {1210101: [4000002, 20, 30], 2220100: [4000009, 36, 54],
+		4230101: [4000031, 104, 156], 5300100: [4000041, 251, 359],
+		4230100: [4000023, 96, 144], 5130100: [4000014, 200, 300], 6230600: [4000030, 324, 486]}
+	for id: int in drops:
+		assert_has(manifest.mobs, float(id), "mob %d is imported" % id)
+		var mob: Dictionary = data.mobs.mobs.get(str(id), {})
+		assert_eq(int(mob.get("exp_item", 0)), drops[id][0], "mob %d signature EXP pickup" % id)
+		assert_has(manifest.items, float(drops[id][0]), "mob %d EXP art is imported" % id)
+		assert_eq(PackedInt32Array(mob.get("mesos", [])), PackedInt32Array(drops[id].slice(1)),
+			"mob %d tier B meso range" % id)
+	assert_false(4090000.0 in manifest.mobs, "Iron Hook is not explicitly imported")
+
+
+func test_three_map_assets_load_from_the_real_cache() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	var ids := [104010001, 100030001, 100040100, 100040105, 105090310, 105090900]
+	for id: int in ids:
+		if not lib.has_img(AssetLibrary.map_img_path(id)):
+			lib.free()
+			skip("three-map assets not imported (run scripts/import.sh with the current manifest)")
+			return
+	var renderer := MapRenderer.new()
+	renderer.library = lib
+	for id: int in ids:
+		assert_true(renderer.load_map(id), "map %d loads" % id)
+		assert_true(renderer.missing.is_empty(), "map %d art: %s" % [id, renderer.missing])
+		var root: Dictionary = renderer.map_root
+		assert_false(root.get("foothold", {}).is_empty(), "map %d has footholds" % id)
+		var spawns := 0
+		for portal: Dictionary in root.get("portal", {}).values():
+			if portal.get("pn", "") == "sp":
+				spawns += 1
+		assert_true(spawns > 0, "map %d has a spawn portal" % id)
+		var info: Dictionary = root.get("info", {})
+		var bgm := String(info.get("bgm", "")).split("/", true, 1)
+		assert_eq(bgm.size(), 2, "map %d names a BGM" % id)
+		if bgm.size() == 2:
+			assert_true(lib.sound("Sound.wz/%s.img/%s" % [bgm[0], bgm[1]]) != null, "map %d BGM" % id)
+		var mark := String(info.get("mapMark", "None"))
+		if mark != "None":
+			assert_true(lib.frame("Map.wz/MapHelper.img/mark/" + mark) != null, "map %d mapMark" % id)
+		if id == 104010001:
+			var has_iron_hook := false
+			for life: Dictionary in root.get("life", {}).values():
+				if life.get("type", "") == "m" and int(life.get("id", 0)) == 4090000:
+					has_iron_hook = true
+			assert_true(has_iron_hook, "Pig Beach retains canonical Iron Hook life; stage data excludes it")
+	assert_true(lib.missing.is_empty(), "map asset lookups: %s" % lib.missing)
+	renderer.free()
+	lib.free()
+
+
+func test_three_map_mob_animations_and_exp_art_load_from_the_real_cache() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	var ids := [1210101, 2220100, 4230101, 5300100, 4230100, 5130100, 6230600]
+	for id: int in ids:
+		if not lib.has_img(AssetLibrary.mob_img_path(id)):
+			lib.free()
+			skip("three-map mobs not imported (run scripts/import.sh with the current manifest)")
+			return
+	var renderer := MobRenderer.new()
+	renderer.library = lib
+	for id: int in ids:
+		for state: int in [MobRenderer.STAND, MobRenderer.MOVE, MobRenderer.HIT, MobRenderer.DIE]:
+			var anim := renderer.anim_for(id, state)
+			assert_true(anim != null and not anim.is_empty(), "mob %d state %d" % [id, state])
+			if anim != null:
+				for frame: SpriteFrame in anim.frames:
+					assert_true(frame.page != null, "mob %d state %d drawable atlas" % [id, state])
+		var item := int(data.mobs.mobs[str(id)].exp_item)
+		assert_true(lib.frame(AssetLibrary.item_icon_path(item)) != null, "mob %d EXP art" % id)
+		if id == 5300100:
+			assert_true(MobKind.from_wz(lib.mob_root(id), id, data.mobs.mobs[str(id)]).flies,
+				"Malady uses the same canonical fly-stance detection as Stirge")
+			assert_true(renderer.anim_for(id, MobRenderer.MOVE).path.ends_with("/fly"))
+	assert_true(renderer.missing.is_empty(), "mob animations: %s" % renderer.missing)
+	assert_true(lib.missing.is_empty(), "mob asset lookups: %s" % lib.missing)
+	renderer.free()
+	lib.free()
 
 
 func test_henesys_boss_order_and_slam_data() -> void:
