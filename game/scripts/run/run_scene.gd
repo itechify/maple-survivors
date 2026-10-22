@@ -1002,9 +1002,12 @@ func _play_bgm() -> void:
 
 
 func _start_title() -> void:
-	var labels := DataRepo.stage_labels(data.get("stages", {}), stage_key)
-	_title = PackedStringArray([labels.continent, labels.region])
-	_title_t = TITLE_TIME if String(labels.region) != "" else 0.0
+	if world.map_index > 0:
+		_title = PackedStringArray([library.string_name("Street", map_id), library.string_name("Map", map_id)])
+	else:
+		var labels := DataRepo.stage_labels(data.get("stages", {}), stage_key)
+		_title = PackedStringArray([labels.continent, labels.region])
+	_title_t = TITLE_TIME if _title[1] != "" else 0.0
 
 
 func _fail(msg: String) -> void:
@@ -1470,9 +1473,9 @@ func _on_map_cleared(index: int) -> void:
 
 ## Advances only presentation at a frozen map boundary. A black frame is drawn before the synchronous reload.
 func _advance_transfer(delta: float) -> void:
-	_transfer_fade.size = _view_size()
 	if _transfer_phase == "":
 		return
+	_transfer_fade.size = _view_size()
 	_transfer_left = maxf(0.0, _transfer_left - delta)
 	match _transfer_phase:
 		"notice":
@@ -1498,8 +1501,7 @@ func _advance_transfer(delta: float) -> void:
 			_transfer_fade.color.a = _transfer_left / MAP_FADE_TIME
 			if _transfer_left <= 0.0:
 				_transfer_phase = ""
-				_title = PackedStringArray([library.string_name("Street", map_id), library.string_name("Map", map_id)])
-				_title_t = TITLE_TIME
+				_start_title()
 				_event_shot("map_%d_enter.png" % (world.map_index + 1), 1.0)
 
 

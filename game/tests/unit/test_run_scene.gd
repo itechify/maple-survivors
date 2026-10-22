@@ -120,6 +120,28 @@ func test_round_keeps_selected_appearance_when_job_weapon_changes() -> void:
 	_assert_nothing_missing(scene, "selected look and job weapon")
 
 
+func test_initial_presentation_uses_the_map_reached_before_building() -> void:
+	if not require_cache():
+		return
+	var destination := lib.img(AssetLibrary.map_img_path(104010001))
+	if destination == null:
+		skip("three-map cache is missing The Pig Beach")
+		return
+	var arrive := func(w: RunWorld) -> void:
+		w.stage.maps = [{"map_id": 104040000, "boss": {"mob_id": 2220000, "time": 300.0}},
+			{"map_id": 104010001, "boss": {"mob_id": 6130101, "time": 300.0}}]
+		w.setup.map_imgs = [w.setup.map_img, destination.root]
+		w.transfer_pending = true
+		w.advance_map() # same boundary used by a headless warp, before any renderer exists
+	scene = _make("henesys_hg1", 246, {"world_prepared": arrive})
+	assert_eq(scene.map.map_id, 104010001)
+	assert_eq(scene.cam.bounds, scene.world.bounds)
+	assert_eq(scene.player_group.position, scene.world.player.pos.round())
+	assert_eq(scene.build_summary().map_name, "The Pig Beach")
+	assert_eq(scene._title, PackedStringArray(["Hidden Street", "The Pig Beach"]), "a warp into a later map shows its arrival name")
+	_assert_nothing_missing(scene, "arrived before presentation")
+
+
 func test_summary_reports_round_levels_bosses_and_nx() -> void:
 	if not require_cache():
 		return
