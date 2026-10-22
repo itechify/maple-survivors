@@ -265,6 +265,8 @@ var time := 0.0
 ## Current map and its entry on the total round clock (tier C: spec #241 scheduled map pacing).
 var map_index := 0
 var map_entered_at := 0.0
+## Entry seconds from round start, indexed by the reached map (map 1 starts at zero).
+var map_times: Array = [0.0]
 ## Presentation may hold this boundary without advancing simulation time; advance_map completes it explicitly.
 var transfer_pending := false
 var _map_clearing := false
@@ -565,6 +567,7 @@ func advance_map() -> void:
 		return
 	map_index += 1
 	map_entered_at = time
+	map_times.append(time)
 	_init_map()
 	# Keep pooled systems and their round counters; empty their map-local contents without kill/drop events.
 	for slot in swarm.capacity():

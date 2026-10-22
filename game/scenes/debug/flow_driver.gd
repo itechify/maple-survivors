@@ -6,6 +6,9 @@ extends Node
 ##   bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=C:/abs/dir
 ##
 ## Scenarios (--scenario=):
+##   maps    diagnostic Henesys map 1 -> 2, Quit round/Continue from map 1, then all three maps -> Free Market.
+##           Invulnerable EXP-drop Warrior/Sword climb and lethal hits after each map timer; real CLEAR/fade/arrival
+##           presentation. Shots: map_N_cleared, map_N_fade, map_N_enter, maps_replayed, maps_free_market.
 ##   rounds  creates two characters, chooses Warrior/Sword on the real job/weapon pages, clears tier 1 (diagnostic warp), walks to
 ##           Free Market out00, saves/reloads map select, starts tier 2, quits/reloads the same boundary/seed,
 ##           plays to death, deletes the spare character and checks both history entries. --diagnostic-victory=1
@@ -186,6 +189,8 @@ func _ready() -> void:
 	flow.save = SaveData.new(shots_dir.path_join("driver_save.json"))
 	add_child((load(MAIN) as PackedScene).instantiate())
 	match String(args.get("scenario", "full")):
+		"maps":
+			_scenario_maps()
 		"rounds":
 			_scenario_rounds()
 		"clear":
@@ -242,6 +247,124 @@ func _process(_delta: float) -> void:
 
 
 # --- scenarios ---------------------------------------------------------------------------------------------------
+
+## Three-map flow evidence through real transitions and boundary replay, never a natural-survival claim.
+func _scenario_maps() -> void:
+	if not args.has("seed"):
+		args["seed"] = "1" # tier C: retained training seed for diagnostic flow evidence.
+	if not await _enter_round("Maps248"):
+		return
+	var run := flow.current as RunScene
+	if not _expect(run.stage_key == "henesys", "maps scenario must start Henesys"):
+		return
+	run.world.god = true
+	var saved := flow.save.slot(flow.active_slot)
+	var bytes := FileAccess.get_file_as_bytes(shots_dir.path_join("driver_save.json"))
+	if (await _climb_job_windows(run, 10, 100, "sword", "maps_lv10")).is_empty():
+		return
+	await _shot("map_1_enter")
+	if not await _warp_map(run):
+		return
+	if not _expect(run.world.map_index == 1, "first clear must enter map 2"):
+		return
+	var before_replay := run.build_summary()
+	# The existing in-round Quit round / Save & quit warning preserves the boundary snapshot.
+	await _quit_round_ui()
+	if _failed:
+		return
+	if not _expect(FileAccess.get_file_as_bytes(shots_dir.path_join("driver_save.json")) == bytes,
+			"quitting on map 2 changed the round boundary file"):
+		return
+	_reload_save()
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "maps Continue"):
+		return
+	run = flow.current as RunScene
+	run.world.god = true
+	if not _expect(run.world.map_index == 0 and run.world.current_map_id() == 104040000
+			and run.run_seed == int(saved.round_seed) and run.stage_key == "henesys"
+			and JSON.parse_string(JSON.stringify(flow.save.slot(flow.active_slot))) == JSON.parse_string(JSON.stringify(saved))
+			and int(run.world.player_state.level) == int(saved.character.level),
+			"Continue must replay map 1 with the same seed and boundary character"):
+		return
+	await _shot("maps_replayed")
+	if (await _climb_job_windows(run, 10, 100, "sword", "maps_replay_lv10")).is_empty():
+		return
+	for index in 3:
+		if not _expect(run.world.map_index == index, "unexpected map in replay traversal"):
+			return
+		if not await _warp_map(run):
+			return
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "maps Free Market"):
+		return
+	await _shot("maps_free_market")
+	var boundary := flow.save.slot(flow.active_slot)
+	if not _expect(boundary.phase == "free_market" and int(boundary.rounds_played) == 1,
+			"three map clears must save one round at the Free Market"):
+		return
+	_collect_missing(flow.current)
+	if not _expect(_missing.is_empty() and not _failed, "maps missing assets or failed checks: %s" % _missing):
+		return
+	var report := {"scenario": "maps", "diagnostic": true, "before_replay": before_replay,
+		"replayed_from_map": 0, "replayed_seed": saved.round_seed, "rounds": _rounds,
+		"boundary": boundary, "missing": Array(_missing), "failures": []}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	print("flow_driver: maps PASSED ", JSON.stringify(report))
+	get_tree().quit()
+
+
+## Warps one map with fixed-tick bot inputs, then lets RunScene present its actual clear/fade/arrival.
+func _warp_map(run: RunScene) -> bool:
+	run.set_process(false)
+	var w := run.world
+	var index := w.map_index
+	var memo := {}
+	var ticks := 0
+	# tier C: same 1800 s safety cap / 600-tick yields as the existing diagnostic round warp.
+	while w.time < 1800.0:
+		BotInput.auto_choose(w)
+		if w.transfer_pending or w.state in [RunWorld.CLEARED, RunWorld.DEAD]:
+			break
+		if w.time - w.map_entered_at >= float(w.stage.map_seconds):
+			# tier C: diagnostic post-timer hit, through real damage/death/reward settlement.
+			for record: Dictionary in w.bosses.records:
+				var slot := int(record.slot)
+				if int(record.map_index) == index and not bool(record.dead) and slot >= 0 and w.swarm.is_live(slot):
+					w.hit_mob(slot, {"skill": "three_snails", "magic": true, "damage_min": 1e9,
+						"damage_max": 1e9, "crit": 0.0, "crit_mult": 1.0}, -1)
+		w.step(RunScene.DT, BotInput.decide(w, memo))
+		# Choice requests were answered by the bot; only the boundary events go to the real presentation.
+		var events := w.drain_events()
+		run.handle_events(events.filter(func(e: Dictionary) -> bool:
+			return String(e.type) in ["map_cleared", "stage_cleared", "player_died"]))
+		ticks += 1
+		if ticks % 600 == 0:
+			await get_tree().process_frame
+		if ticks % 6000 == 0:
+			print("flow_driver: maps map %d warp %.0f s / Lv %d" % [index + 1, w.time, w.progression.level])
+	run.handle_events(w.drain_events().filter(func(e: Dictionary) -> bool:
+		return String(e.type) in ["map_cleared", "stage_cleared", "player_died"]))
+	if not _expect(w.transfer_pending or w.state == RunWorld.CLEARED, "diagnostic map did not clear"):
+		return false
+	run._apply_look()
+	run._present(0.0)
+	_collect_missing(run)
+	if not _expect(w.warnings.is_empty(), "map warp warnings: %s" % w.warnings):
+		return false
+	if w.state == RunWorld.CLEARED:
+		_rounds.append(run.build_summary())
+	run.set_process(true)
+	await _shot("map_%d_cleared" % (index + 1), 1.0)
+	if index < 2:
+		if not await _until(func() -> bool: return run._transfer_phase == "out", 10.0, "map fade"):
+			return false
+		await _shot("map_%d_fade" % (index + 1), RunScene.MAP_FADE_TIME * 0.5)
+		if not await _until(func() -> bool: return w.map_index == index + 1 and run._transfer_phase == "",
+				10.0, "map arrival"):
+			return false
+		await _shot("map_%d_enter" % (index + 2))
+	return true
 
 func _scenario_rounds() -> void:
 	# tier C: retained training seed 4; #232 stages the tier-1 boundary diagnostically rather than claiming survival.

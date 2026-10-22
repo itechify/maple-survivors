@@ -2018,6 +2018,7 @@ func build_summary() -> Dictionary:
 	var labels := DataRepo.stage_labels(data.get("stages", {}), stage_key)
 	return {
 		"stage": stage_key, "map_id": map_id, "region": labels.region, "continent": labels.continent,
+		"map_times": world.map_times.duplicate(), "ended_map": {"index": world.map_index, "id": world.current_map_id()},
 		"map_name": library.string_name("Map", map_id),
 		"street_name": library.string_name("Street", map_id), "time": run_time(), "duration": world.duration,
 		"cleared": world.state == RunWorld.CLEARED, "level": int(world.player_state.level), "job_id": job_id,
@@ -2097,6 +2098,7 @@ func _quit_without_final_shot() -> void:
 func perf_summary(summary: Dictionary = {}) -> Dictionary:
 	var out := {
 		"summary": summary,
+		"map_times": world.map_times.duplicate(), "ended_map": {"index": world.map_index, "id": world.current_map_id()},
 		"sim_us_per_tick": float(_sim_us) / maxf(1.0, _sim_ticks), "ticks": _sim_ticks, "max_alive": _max_alive,
 		"level_by_minute": Array(_level_by_minute), "job_id": int(world.player_state.job_id), "kills": world.kills,
 		"state": world.state_name(), "time": world.time, "speed": _speed, "counters": counters.duplicate(),

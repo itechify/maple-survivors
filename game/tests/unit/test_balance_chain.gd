@@ -151,7 +151,9 @@ func test_chain_cli_reads_tiers_and_replays_both_round_records() -> void:
 	file.close()
 	var args := ["--tier=2", "--stage=ellinia", "--seed=2026", "--cap=1", "--patch=" + path]
 	var a := _cli(args)
-	var b := _cli(args)
+	var legacy_args := args.duplicate()
+	legacy_args[1] = "--stage=tree_that_grew_1"
+	var b := _cli(legacy_args)
 	assert_eq(a.status, 0)
 	assert_eq(a.record, b.record)
 	assert_eq(a.record.get("mode", ""), "chain")
@@ -166,7 +168,25 @@ func test_chain_cli_reads_tiers_and_replays_both_round_records() -> void:
 		assert_eq(record.state, "CLEARED")
 		assert_eq(record.warnings, [])
 		assert_eq(record.missing, [])
+		assert_eq(record.get("map_times", []), [0.0])
+		assert_eq(int(record.get("ended_map", {}).get("index", -1)), 0)
+		assert_eq(int(record.get("ended_map", {}).get("id", 0)),
+			int(data.stages.stages[record.stage].maps[0].map_id))
 	assert_eq(a.status, b.status)
+
+
+func test_character_cli_accepts_new_and_legacy_stage_keys_with_map_records() -> void:
+	if not require_cache():
+		return
+	var character := ProjectSettings.globalize_path("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var a := _cli(["--stage=sleepywood", "--seed=1", "--cap=0.05", "--character=" + character])
+	var b := _cli(["--stage=dark_cave", "--seed=1", "--cap=0.05", "--character=" + character])
+	assert_eq(a.status, 0)
+	assert_eq(b.status, 0)
+	assert_eq(a.record, b.record, "legacy one-off flags produce the same canonical record")
+	assert_eq(a.record.get("stage", ""), "sleepywood")
+	assert_eq(a.record.get("map_times", []), [0.0])
+	assert_eq(a.record.get("ended_map", {}), {"index": 0.0, "id": 105050400.0})
 
 
 func test_chain_cli_rejects_incompatible_or_invalid_options() -> void:

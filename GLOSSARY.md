@@ -18,12 +18,20 @@ One of the places a living character is kept between sessions; a character occup
 _Avoid_: Save file, profile
 
 **Round**:
-One full stage played by a character: survive the stage's time and defeat its bosses to clear it.
+One full stage played by a character, from its first map until death or all its maps are cleared.
 _Avoid_: Level, wave, run (a run is many rounds)
 
 **Stage**:
-A playable map with its own monster roster, pacing and bosses; a round is one play of a stage.
-_Avoid_: Level, map (a map is the v83 art and layout a stage is played on)
+A region's ordered maps with their monster rosters, pacing and bosses; a round is one play of a stage.
+_Avoid_: Level, map (a map is one v83 location within a stage)
+
+**Map clear**:
+Defeating a map's scheduled boss and finishing the choices its collected drops and reward require.
+_Avoid_: Round clear (only the last map clear clears the round)
+
+**Map transfer**:
+The automatic move after a map clear to the next map of the same round, carrying the character's current condition.
+_Avoid_: Round boundary (a transfer stays inside the round), checkpoint
 
 **Tier**:
 A difficulty step of the run, holding one or more stages; a character plays one stage from each tier in order.

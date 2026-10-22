@@ -100,13 +100,18 @@ and `ARIMO_OFL.txt`, then runs `scripts/check_web_artifact.sh`, which fails if t
 cache: point it at your own v83 folder or zip (nothing is uploaded). Serve the export with `web/dev/serve.mjs`
 (Pages-like static hosting; browsers need `http://127.0.0.1`, not `file://`). Web shell tests:
 `node --test web/dev/test/*.test.mjs`. The game's debug scenes (`flow_driver.tscn`) cannot run on web; `?arg=<value>`
-query parameters become game user args (`?arg=--run=henesys_hg1&arg=--autoplay`).
+query parameters become game user args (`?arg=--run=henesys&arg=--autoplay`).
+
+Stage keys are `henesys`, `ellinia` (tier 1), and `sleepywood` (tier 2). Each round plays the region's three maps in
+order, with one boss 300 s after each entry; intermediate clears transfer automatically. `--stage=` and `--run=`
+also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. Continue always replays from map 1 with
+the boundary character and seed, including after quitting on a later map; map transfers never save.
 
 ### Playtests (`scripts/playtest.sh`)
 
 Launches the real game windowed (`run.sh` -> `main.tscn` -> Flow) straight into a run played by the autoplay bot
 (`--run=<stage> --seed=<n> --autoplay --autopick --speed=<k> --shots=<abs dir> --shot-every=<s> --quit-after=<s>
---perf`), waits for it to quit and prints `summary.json`. Defaults: henesys_hg1, seed 2026, speed 4 (sim ticks per
+--perf`), waits for it to quit and prints `summary.json`. Defaults: henesys, seed 2026, speed 4 (sim ticks per
 60 Hz frame, via `Engine.time_scale`), up to 30:00 so the final boss can finish, a screenshot every 60 s of run time, output in
 `evidence/playtest/<stage>_s<seed>_x<speed>_<time>/` (or `--out=<dir>`).
 
@@ -115,7 +120,7 @@ bash scripts/playtest.sh                                       # through the fin
 bash scripts/playtest.sh --speed=1 --minutes=3                 # 3 minutes in real time
 bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-forward to 10:00 without drawing,
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
-bash scripts/playtest.sh --stage=tree_that_grew_1 --seed=7 --window-autopick=1   # windows open and answer themselves
+bash scripts/playtest.sh --stage=ellinia --seed=7 --window-autopick=1   # windows open and answer themselves
 bash scripts/playtest.sh --job=210 --minutes=20 --speed=8                      # force Fire/Poison: Magician at Lv10, 210 at Lv30
 bash scripts/playtest.sh --job=100:spear                                       # Warrior, then Spear on the weapon page
 bash scripts/playtest.sh --job=120:blunt                                       # Warrior, then Page with Blunt Weapon at Lv30
@@ -127,8 +132,10 @@ so without `--vsync=off` the `frame_ms` numbers show the cap (16.7 ms on a 60 Hz
 `summary.json` holds the run summary (what Flow.finish_run gets), `frame_ms` p50/p95/p99/max over the whole run,
 `frame_ms_by_minute` (percentiles plus mean/max alive mobs per run minute), `frame_ms_100plus` / `frame_ms_200plus`
 (frames drawn with at least that many mobs), `frame_work_us` (RunScene's own work per frame), `sim_us_per_tick`,
-`max_alive`, `level_by_minute`, `counters` and `missing` (asset lookups that failed; should be empty). Screenshots:
-`t<s>.png`, `levelup_N`, `job_N`, `cast_<skill>` (each skill's first cast), `<fa key>_followup` (each Final Attack's first follow-up), `reflect_first` (the first Power Guard reflect), `hit_first`, `death_*`, `clear`, `final.png`. An occluded or minimized window draws
+`max_alive`, `level_by_minute`, `map_times` (entry seconds, first = 0), `ended_map` (`{index, id}`, zero-based),
+`counters` and `missing` (asset lookups that failed; should be empty). Screenshots:
+`t<s>.png`, `levelup_N`, `job_N`, `cast_<skill>` (each skill's first cast), `<fa key>_followup` (each Final Attack's first follow-up), `reflect_first` (the first Power Guard reflect), `hit_first`, `death_*`, `clear`, `final.png`, `map_<N>_cleared` (including map 3), `map_<N>_enter`
+(arrivals on maps 2/3), and transfer diagnostics `map_<N>_fade` / `map_<N>_black` (all PNGs, one-based N). An occluded or minimized window draws
 no frames, so screenshots are not saved; the run still quits at `--quit-after` (or its end), logging
 `final.png skipped` after 5 real seconds without a drawn frame. F3 toggles the perf overlay in any run. Look at the
 screenshots; numbers alone do not show a broken sprite.
@@ -153,6 +160,12 @@ input; fixed-tick bot warps skip combat time. Tier 1 uses invulnerability, EXP d
 after its stage timer for flow QA (#232). `--diagnostic-victory=1` makes tier 2 invulnerable and ends remaining
 boss fights with diagnostic hits after 15:00 to check victory presentation only. Use a fresh output directory
 under `evidence/`; saves go to its `driver_save.json`.
+Use `--scenario=maps` (#248) for an invulnerable Henesys EXP-drop climb through the Warrior/Sword pages, diagnostic
+boss hits after each map's 300 s timer, the real map 1 -> 2 -> 3 transitions and Free Market. On the first map-2
+arrival it uses Save & quit (the existing Quit round control/warning), reloads disk and Continues from map 1 with
+the same seed and boundary character. Shots cover every CLEAR, fade, arrival, replay and hub; summary.json records
+map entries and ending map. This verifies flow, not natural survival. Run through `ISOLATE=<name> bash scripts/run.sh
+res://scenes/debug/flow_driver.tscn -- --scenario=maps --shots=<fresh abs dir under evidence/>`.
 Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
 `keys` (#87); see the script header. Spec #151 (physical combat, the Warrior) adds `skill_weapon` (#156: a weapon-gated skill
 greyed in the Skill window), `skill_warrior` (#163: the Warrior's Skill window and Iron Body) and `warrior` (QA #164: Lv10
@@ -258,12 +271,14 @@ The movement policies also include `camper_henesys_top`, `camper_henesys_rope`, 
 all use the sensible bot's cards, jobs and potion decisions. They warm up normally until 1:00 (override with
 `--camp-after=<seconds>`). Henesys campers are placed once on the highest platform or at the ground rope and
 then grab/park; the Tree camper walks and jumps through the real `up00 -> up01 -> up02` portal chain to the top
-playable branch. After arrival they leave movement keys alone, including after knockback. Their stage is selected
+playable branch. After arrival they leave movement keys alone, including after knockback, only on their own first map. On maps 2/3
+they use the sensible bot; camper activation/arrival fields and portal names refer only to map 1. Their stage is selected
 automatically; an explicitly incompatible `--stage` is rejected. For example:
 
 `ISOLATE=campers bash scripts/balance.sh 1 2 --policy=camper_tree_top --cap=420`
 
-Each run records `boss_fights` (per encounter, spawn/death timestamps, completed duration or -1, elapsed and
+Each run records `map_times` (reached-map entry seconds, starting `[0]`), `ended_map` (`{index, id}`, zero-based),
+and `boss_fights` (per encounter, `map_index`/`map_id`, spawn/death timestamps, completed duration or -1, elapsed and
 `dead|alive|not_spawned|skipped` status; skipped = no mob img in the cache), player `potions_used` totals for `hp` and `mp`,
 `potion_uses` (each player drink's time, level, kind, item ID, restored amount and capacity waste), separate `pet.potions_used` when a pet is out,
 `mp_short_seconds` (fixed ticks with an eligible ready skill failing affordability during the cast scan), and `boss_hits` (whole hit damage,
@@ -275,6 +290,8 @@ and the final reward choice finished.
 `camper` records activation/arrival times, arrival success and portal names. At the cap a living run is
 `TIMEOUT`, never a clear; only defeating the scheduled bosses clears a stage.
 
+The `SUMMARY` reports deaths by map (`1:n 2:n 3:n`) and map-2/map-3 entry seconds as min/median/max with observed
+counts (unreached maps are absent observations, never zero; legacy deaths have no invented map).
 The supplemental `SYSTEMS` summary reports player potions used per kind, MP-wait seconds per run, whole boss-hit HP percentages
 per hit and per boss/source, and completed fight seconds per boss as min/median/max plus observation count, followed
 by `completed n/spawned` and a censored median over every spawned fight (an unfinished fight counts as at least its
@@ -294,7 +311,7 @@ Lv70 reach and the tier-1 feed count; unstarted rounds contribute no death/boss 
 `scripts/balance.sh` header for the seed formula and record/report contract.
 
 `--character=<absolute JSON path>` starts one one-off round from a CharacterSnapshot; use it with
-`--stage=dark_cave` for fixture checks. `game/tests/fixtures/characters/lv35_magician_2nd.json` is actually Lv38
+`--stage=sleepywood` for fixture checks. `game/tests/fixtures/characters/lv35_magician_2nd.json` is actually Lv38
 F/P (job210), from a real seed-1 forced-F/P Henesys bot clear; `_doc` records provenance and
 `tools/character_fixture.gd` reproduces it. `--tier` requires a fresh character and bot/random/first policies;
 use `--character` and campers only for one-off rounds. Spec #32 smokes also cover chain and Dark Cave fixture

@@ -18,6 +18,13 @@ if the player quits and continues. Mesos, equipment and scrolls end with the run
 Amended by spec #237 (2026-10-21): potions are unlimited on independent per-kind cooldowns. Their item tiers derive
 from the character's level; neither stock nor cooldowns carry between rounds. Every round starts with both kinds ready.
 
+Amended by spec #241 (2026-10-21): each stage is a region's ordered three maps, and a round plays all three.
+Each map's boss arrives 300 seconds after entering it; killing it and finishing its choices transfers to the next
+map automatically. HP, MP, buffs, cooldowns and accumulated results carry within the round; boss-inflicted statuses
+and map entities clear. Only the third map clear ends the round. Saves remain at round boundaries: Save & quit
+on map 2 or 3 and Continue replays from map 1 with the same seed and boundary character. A map transfer is not a
+save boundary. This preserves the original decision against serializing live simulation state.
+
 ## Consequences
 
 - Quitting mid-round loses that round's progress, and the pause menu has to say so.

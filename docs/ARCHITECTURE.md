@@ -85,8 +85,8 @@ Character select and creation keep the v83 MapLogin backdrop (`LoginBackdrop`).
 `SceneFlow` owns the active slot and boundary persistence ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
 It saves phase `free_market` on a non-final clear,
 `map_select` on exit/first creation and phase `round`
-with stage/seed before launch. Quit round leaves that snapshot unchanged; Continue restarts its character, map and
-seed. `RunScene.configure` accepts `options.character` as a snapshot Dictionary or the tool JSON-file path. The
+with stage/seed before launch. Quit round leaves that snapshot unchanged; Continue restarts its boundary character on map 1 with the same
+seed, including after quitting on map 2 or 3. `RunScene.configure` accepts `options.character` as a snapshot Dictionary or the tool JSON-file path. The
 coordinator's header documents #70's small character-screen calls and the sole `_after_round_cleared` boundary.
 The outgoing CharacterSnapshot is required only on clears. Terminal death archives the last saved boundary
 character when no outgoing snapshot is supplied, even with unanswerable rewards/jobs/cards; results and stage
@@ -238,11 +238,11 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `SpawnDirector` | Stage pacing, spawn positions, relocation | `step(dt, world)`, `pick_spawn(world, k, side := 0) -> Vector3` (x, y, foothold: -1 for flyer air points, -2 when no point is found), `screen_rect(world) -> Rect2` (what spawns stay out of: the view + `margin`, + `trail_margin` behind a moving player); ground spawns prefer short reachable routes; flyers sample off-screen air within map bounds; moves off-screen mobs that stall, are far or cannot reach the player to a point ahead of the player (`relocated`) |
 | `StageRoster` | Which mob ids a stage needs | `static named_ids(stage)` (keyframe pools + boss ids), `static boss_extra_ids(boss_img, mob_skill_img)` (MobSkill 200 summons at each level the boss lists in `info/skill`, plus `info/revive`), `static mob_ids(stage, mob_imgs, mob_skill_img)` (both, ascending), `static list_ids(node)` (a WZ list node's ids in key order: summon levels, revive lists); used by `RunWorld` (mob kinds) and `DataRepo.build_setup` (two passes: named imgs, then derived ids) |
 | `BossDirector` | Scheduled warnings, arrivals, pursuit teleports, shared action timing, deaths and completion | `step(world, dt := 0)`, `live_count()`, `all_dead()`, `normal_spawn_multiplier()`, `damage_multiplier(index)`, `can_act`, `begin_action`, `prepare_actions`, `action_snapshot`; public `entries` and lifecycle `records`, owned as `RunWorld.bosses` |
-| `BossAttacks` | Scheduled bosses' selected canonical attacks (`stage.bosses[].attacks`), cadence and scaling | `step(world)`, `area_at(range_data, pos, facing)`; owned as `RunWorld.boss_attacks`, shares `BossDirector` action gate; the windup/impact code is `MobAttacks`' static half |
+| `BossAttacks` | Scheduled bosses' selected canonical attacks (`stage.maps[].boss.attacks`), cadence and scaling | `step(world)`, `area_at(range_data, pos, facing)`; owned as `RunWorld.boss_attacks`, shares `BossDirector` action gate; the windup/impact code is `MobAttacks`' static half |
 | `MobAttacks` | The shared canonical type 0/1/2 attack code (`plan`, `service`, `emit`, `area_at`) and ordinary mobs' attacks (#76) | `step(world, dt)`, `reset_slot`, `move_slot`, `resize`, `wait_left(slot)`, static `attack_names(img)`, `first_wait(interval, identity)`; owned as `RunWorld.mob_attacks`; per-slot waits in a packed array, pending windups keyed by slot and checked against the swarm identity |
 | `MobActions` | Ordinary mobs' authored attack stances per slot in packed arrays, and the composed per-slot action view | `begin`, `busy`, `reset_slot`, `resize`, `view(boss_view, bosses, swarm, now)`; owned as `RunWorld.mob_actions`; `RunWorld.mob_action_view()` is what MobSwarm and MobRenderer read |
 | `MobProjectileSystem` | Monster type-2 balls as pooled packed arrays, separate from player shots | `spawn(spec)`, `step(dt, world)`, `active_count()`; captured source/damage metadata, swept player collision through take_hit; an ordinary ball that `RunWorld.hit_window_blocks(source)` turns away is not consumed and flies on (spec #88), while boss balls ignore the window; same ProjectileRenderer drawing interface |
-| `RunWorld` | Owns a run | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING_JOB / CHOOSING_UPGRADE / DEAD / CLEARED); TIMEOUT is a harness outcome while the sim remains PLAYING; `skill_readiness(key) -> {left, total, mp_short}` is the HUD's per-skill cooldown sweep and blue waiting-for-MP data (Teleport: its repeat timer); `read_skill_cooldowns(left, total, mp_short)` writes the same for every owned skill into the caller's reused Packed arrays (the HUD's allocation-free per-frame feed) |
+| `RunWorld` | Owns one deterministic round across its maps | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING_JOB / CHOOSING_UPGRADE / DEAD / CLEARED); TIMEOUT is a harness outcome while the sim remains PLAYING; `skill_readiness(key) -> {left, total, mp_short}` is the HUD's per-skill cooldown sweep and blue waiting-for-MP data (Teleport: its repeat timer); `read_skill_cooldowns(left, total, mp_short)` writes the same for every owned skill into the caller's reused Packed arrays (the HUD's allocation-free per-frame feed) |
 | `BotInput` | The autoplay bot (RunScene `autoplay`/`autopick`, the full-run tests, `scripts/balance.sh`, the benchmarks): kites (melee builds close to their attack reach instead, #162: `SkillRunner.reach_of`, `BasicAttack.reach`), collects drops, climbs or uses same-map portals, picks jobs and cards | `decide(world, memo) -> MoveInput`, `auto_choose(world, first_card := false)`, `pick_card_for(world, cards)`, `pick_choice(options, rng, forced, jobs, forced_path) -> {job_id, path}` (an unforced bot draws the first job and its weapon path on the job stream 8) |
 | `BotShop` | What the bots do with equipment and mesos (spec #33, #112), beside `BotInput`: wears the best item it owns, and plans and applies one Free Market visit through RunWorld's equip/shop API. Used by `balance_run.gd` (mid-round and between `--tier` rounds), RunScene's autoplay and `FreeMarket.bot_shop` | `auto_equip(world) -> int`, `equip_trigger(events)`, `plan(character, stock, facts, policy, rng) -> {sell, steps}`, `visit(world, policy, rng) -> record`, `character_of / stock_of / facts_of(world)` |
 
@@ -254,13 +254,48 @@ mob cannot be hit twice by the same shot, while an unrelated fresh mob reusing i
 Events, spatial hashes, kill lists and other per-slot state still use slot indices; event schemas do not change.
 This is engine bookkeeping (tier C), with no per-entity allocations and no balance/stat changes.
 
+### Map transfer within a round (#241)
+
+`RunWorld` remains one world and one set of seeded streams per round. `map_index` is zero-based,
+`current_map_id()` retains the v83 id, `map_entered_at` is total round time at entry and `map_times` retains each
+reached map's entry seconds (starting `[0.0]`). `time` never resets. `curve_time()` is
+`map_index * map_seconds + (time - map_entered_at)`; every SpawnDirector clock uses it. BossDirector arms only
+the current map's boss at entry + 300 s, retaining `map_index`/`map_id` on every lifecycle record. StagePools
+resolves current-map life weights/exclusions or an explicit pool; curve pools stop selecting keyframes at 300 s.
+
+On an intermediate boss death, RunWorld freezes combat, sweeps all drops once using the finale rules, removes
+ordinary mobs without drops or kill credit and resolves the existing choice queue. Once answered it sets
+`transfer_pending` and emits `map_cleared`. While pending, `step()` does nothing and time stays frozen.
+`advance_map()` loads the next prepared map root, draws a random `sp` arrival on existing spawn stream 2, rebuilds
+map state, records entry time, clears boss-inflicted statuses and emits `map_entered`. The last map uses normal
+finale settlement. No stream is renumbered; stream 7 stays reserved.
+
+| Per-round state retained at transfer | Per-map state rebuilt or cleared |
+|---|---|
+| HP/MP, level/EXP/job/AP, loadout, buffs, skill/basic-attack/manual and potion cooldowns, equipment/inventory, mesos, pet, RNG streams, time, kills/damage, boss history and aggregate counters | Footholds, bounds, ladders, navigation, portals, spatial hash, mobs, projectiles (player and monster), pickups, attacks/actions, per-slot statuses and motion; boss-inflicted player statuses clear |
+
+SpawnDirector retains round counters and scheduling clocks while selecting the new map's pool. Cooldowns and buffs
+remain on their deterministic clocks through the frozen transfer; HP/MP do not refill. Headless drivers advance
+immediately. RunScene holds the CLEAR notice, fades out, draws one black frame, advances, reloads map/camera/mob
+layers/actors/BGM, fades in and shows the destination name. Pause/in-run windows hold the presentation clock.
+The bot's navigation memo clears on arrival. There is no live-world save at a map transfer: Continue always
+reconstructs map 1 from the existing round-boundary character and seed (ADR 0001).
+
+Balance records carry `map_times`, `ended_map: {index, id}` and `boss_fights[].map_index/map_id`. The playtest
+`summary.json` includes `map_times` and `ended_map` both at its root and within `summary`; RunScene's existing
+map_id/map_name/street_name fields identify the ending map. SUMMARY counts deaths by one-based map number and
+reports entry seconds for maps 2 and 3 with observation counts. Legacy records contribute no invented map data.
+`flow_driver --scenario=maps` exercises the real transitions, Save & quit on map 2, replay from map 1 and the hub;
+diagnostic invulnerability, EXP drops and post-timer boss hits make this flow evidence rather than balance evidence.
+
 ### 4.4.1 Run setup (what `RunWorld` is built from)
 
 The sim never reads files. `RunScene` (presentation) builds a setup Dictionary from the asset cache and `res://data`:
 
 ```gdscript
 var setup := {
-	"map_img": Dictionary,            # Map.wz/Map/Map1/104040000.img root (cache JSON)
+	"map_img": Dictionary,            # first map root (cache JSON), compatibility alias of map_imgs[0]
+	"map_imgs": [Dictionary, Dictionary, Dictionary], # index-aligned stage.maps roots, loaded once
 	"physics_img": Dictionary,        # Map.wz/Physics.img root
 	"mob_imgs": {100100: Dictionary}, # Mob.wz/<id>.img roots, info/link already followed by the loader: every id of
 	                                  # StageRoster.mob_ids (pools, bosses, and the bosses' canonical summon/revive ids)
@@ -278,7 +313,7 @@ var setup := {
 	                                  # DataRepo.potion_item_ids: starting item ids + the potions.schedule items
 	"data": {"skills": {}, "upgrades": {}, "stages": {}, "balance": {}, "mobs": {}, "jobs_survivor": {},
 		"jobs": {}, "exp_table": {}},   # parsed game/data/survivor/*.json and game/data/canonical/*.json
-	"stage": "henesys_hg1",           # key in stages.json
+	"stage": "henesys",           # key in stages.json
 	"seed": 12345,
 	"view_size": Vector2(800, 600),   # the live logical view, get_viewport().get_visible_rect().size (800x600 on 4:3,
 	                                  # 1066x600 on 16:9, more with fill_window; see 4.5); RunWorld keeps a
@@ -406,7 +441,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
 
 
-`RunWorld.bosses.records` has one row per stage boss: `{boss_index, mob_id, slot, warned, arrival, spawn_time,
+`RunWorld.bosses.records` has one row per stage boss: `{boss_index, mob_id, map_index, map_id, slot, warned, arrival, spawn_time,
 death_time, dead, skipped, teleports}`. Times are -1 before arrival/death. `arrival` starts at the schedule
 time; when no arrival point exists on the arrival tick it moves to now + `warning_time` and a fresh `boss_warning`
 fires at once, so an arrival always follows its last warning by the warning lead. A boss whose mob img is
@@ -442,7 +477,7 @@ recipient burst leaves the caster effect and buff recipients unchanged: Dyle 112
 does. The separate `mob` status icon is not a burst substitute. Nonempty paths still use normal asset lookup and
 report missing required art; presentation never suppresses those warnings.
 
-`stage.bosses[].attacks` selects canonical attack stances. `BossAttacks` handles `info/type = 0`, capturing area and
+`stage.maps[].boss.attacks` selects canonical attack stances. `BossAttacks` handles `info/type = 0`, capturing area and
 facing at windup, starting art at `effectAfter`, and resolving damage at `attackAfter` (milliseconds converted to
 seconds). It reads attack-local PADamage/MADamage rather than contact attack and calls `take_hit` with
 `source_kind = attack`. `attack_dmg_mult` is separate from contact `dmg_mult`; `attack_interval` is a survivor
@@ -585,7 +620,7 @@ equipment chance and job/held-family pool, with a normal meso bundle fallback. C
 | `equipment_drops.json` + `equipment_drops/<line>.json` | the drop rules (window, falloff, chance, boss drops; base) and the eligible equipment ids (fragments) |
 | `scrolls.json` + `scrolls/<line>.json` | the scroll roster: item slot -> family -> rate -> item id (fragments) |
 | `shops.json` + `shops/<line>.json` | the Free Market scroll NPCs, prices and talk range (base) and the weapon-priced slots (fragments) |
-| `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note`, scheduled `bosses` with time/mob_id/hp_mult/dmg_mult and `post_duration_slope`; summon/revive mob ids are never listed (StageRoster derives them from the boss imgs and MobSkill.img) |
+| `stages.json` | region stage key -> ordered `maps` (map_id, pool rule, boss with relative time/mob_id/hp_mult/dmg_mult), `map_seconds`, duration, pacing keyframes, bursts, elites, `spawn`, `exp_mult`, note and `post_duration_slope`; no top-level map_id/bosses. StagePools derives life pools; StageRoster derives boss summon/revive ids |
 | `balance.json` | EXP curve, player base attributes, automatic AP and job primary-stat rules, worn equipment ids and job weapons, cast origin / `cast_forward`, HP/MP growth and INT MP divisor per job, the shrinking `hit_window`, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), mob speed factor, `mob_motion` flyer bob amplitude/period passed to MobSwarm |
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
 | `jobs.json` | which canonical jobs are playable and what advancing grants (Max HP/MP, extra advancement draw, no skills); `paths` pairs each family with one candidate item, one chosen weapon worn without requirements (#226); Magician stays in `balance.player.weapon_grants` |

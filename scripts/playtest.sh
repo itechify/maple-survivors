@@ -16,6 +16,10 @@
 # --job=<id>[:<family>] (force a job/family, e.g. 100:spear or 120:blunt; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
 # --account=<abs JSON> (an account for the round, spec #34: owned cash items, worn cash equipment, pet, ALERT levels; see
 # scripts/balance.sh and game/scripts/core/account_file.gd; summary.json names the file).
+# Map fields: summary.json root and nested summary carry map_times (reached-map entry seconds, starting [0]) and
+# ended_map {index, id} (zero-based index, original v83 id). Intermediate transfers take map_N_cleared/fade/black
+# and map_N_enter PNGs; N is one-based, and the final map also gets map_3_cleared. See AGENTS.md for all shot names.
+# Keys henesys/ellinia/sleepywood accept henesys_hg1/tree_that_grew_1/dark_cave aliases; --character works with either.
 # --require-window opts into workload qualification: the requested --warp (default 0) must be reached, ticks must be
 # positive, and --min-frames-100=<N> / --min-frames-200=<N> frames must have 100+/200+ mobs (defaults 1 each).
 # A zero minimum disables that density check; at least one must be positive. Failure exits non-zero with UNQUALIFIED.

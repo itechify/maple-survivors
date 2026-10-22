@@ -101,6 +101,18 @@ func test_map_clear_holds_then_reloads_art_music_camera_and_pooled_actors() -> v
 	assert_true(scene.cam.view_rect().has_point(w.player.pos))
 	assert_eq(scene.build_summary().map_id, 100030001)
 	assert_eq(scene.build_summary().map_name, "The Blue Mushroom Forest")
+	var summary := scene.build_summary()
+	assert_eq(summary.get("ended_map", {}), {"index": 2, "id": 100030001})
+	var times: Array = summary.get("map_times", [])
+	assert_eq(times.size(), 3, "playtest summaries preserve each reached map entry")
+	if times.size() == 3:
+		assert_eq(times[0], 0.0)
+		assert_near(times[1], time, 1e-6, "presentation hold adds no simulation time")
+		assert_true(float(times[2]) > float(times[1]))
+	var report := scene.perf_summary(summary)
+	assert_eq(report.get("map_times", []), times, "summary.json root exposes map entries")
+	assert_eq(report.get("ended_map", {}), {"index": 2, "id": 100030001})
+	assert_eq(report.summary, summary, "nested Flow summary keeps the same map fields")
 	for mr in second_mobs:
 		assert_true(mr.get_ref() == null, "the second transfer also frees the old mob pools")
 	_assert_nothing_missing(scene, "map transfer")

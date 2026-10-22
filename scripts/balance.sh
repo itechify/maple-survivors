@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Headless pacing report: whole runs on the real map with the kiting autoplay bot and a card policy (default: the
+# Headless pacing report: whole rounds across the real maps with the kiting autoplay bot and a card policy (default: the
 # sensible picks of BotInput.pick_card_for; --policy=random: a careless player who takes a random card of the three),
 # the first available job, one Godot process per seed in parallel (game/tools/balance_run.gd). Needs the asset cache.
 #
@@ -29,6 +29,13 @@
 #                                                          # variant without editing game/data; see balance_run.gd)
 #   BALANCE_OUT=<dir>                                      # where the per-seed logs/records go (default _scratch/balance)
 #   JOBS=<n>                                               # at most n Godot processes at once (default 12)
+#
+# Map schema in every round: map_times = entry seconds of reached maps, starting [0]; ended_map = {index, id}
+# (zero-based index, v83 id); boss_fights[] includes map_index/map_id, including not_spawned/skipped encounters.
+# SUMMARY deaths_by_map uses one-based string keys; map_entry_seconds["2"/"3"] gives count/min/median/max/mean
+# for reached maps only. Unreached/legacy entries have no samples (null stats), never invented zero entry times.
+# Keys: henesys/ellinia/sleepywood. Old henesys_hg1/tree_that_grew_1/dark_cave flags remain aliases, including
+# --tier chains and --character one-offs. Campers park only on their own map 1, then use the sensible bot.
 #
 # Every record carries nx_awarded (plus bosses_killed, levels_gained): the NX the round would pay (balance.json nx_award,
 # tier C). Tools never credit it and never write a save; the table's NX column and the summary report it per run.
