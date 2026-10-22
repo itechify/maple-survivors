@@ -482,7 +482,16 @@ func _init_skills_and_progression() -> void:
 
 ## Ordinary spawning, the boss schedule and the bosses' canonical skills.
 func _init_directors() -> void:
-	director = SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
+	var spawn_stage := stage
+	if not map_sequence_enabled() and stage.has("maps"):
+		spawn_stage = stage.duplicate()
+		spawn_stage.erase("maps") # no map_imgs: preserve legacy curve pools and the absolute boss schedule
+	director = SpawnDirector.create(spawn_stage, kind_of_id, balance.get("spawn", {}))
+	var map_imgs: Array = setup.get("map_imgs", [])
+	var pools: Array = []
+	for i in stage.get("maps", []).size():
+		pools.append(StagePools.resolve(stage.maps[i], map_imgs[i] if i < map_imgs.size() else {}))
+	director.map_pools = pools
 	bosses = BossDirector.new(_stage_bosses(), balance.get("bosses", {}))
 	if map_sequence_enabled():
 		bosses.arm_map(self)
@@ -575,13 +584,8 @@ func advance_map() -> void:
 	var fresh := SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
 	for field: String in ["spawned", "bursts", "elites", "recycled", "relocated"]:
 		fresh.set(field, director.get(field))
-	# #245 owns these fields and lands independently. Preserve its pools and select the entered map when available.
-	for property: Dictionary in director.get_property_list():
-		var field := String(property.name)
-		if field == "map_index":
-			fresh.set(field, map_index)
-		elif field == "map_pools":
-			fresh.set(field, director.get(field))
+	fresh.map_pools = director.map_pools
+	fresh.map_index = map_index
 	fresh.seek_curve(curve_time())
 	director = fresh
 	player.place(PortalSet.start_point(_current_map_img(), fhm, bounds, spawn_rng), fhm)
@@ -2184,7 +2188,12 @@ func _build_mob_kinds() -> void:
 	var speed_mult := float(balance.get("mob_speed_factor", MobKind.SPEED_SCALE)) / MobKind.SPEED_SCALE
 	# The flattened schedule also supports #243's maps schema before its StageRoster helper is integrated.
 	var roster := stage.merged({"bosses": _stage_bosses()}, true)
-	for id in StageRoster.mob_ids(roster, imgs, setup.get("mob_skill_img", {})):
+	var ids := StageRoster.mob_ids(roster, imgs, setup.get("mob_skill_img", {}))
+	for id: int in StagePools.stage_pool_ids(stage, setup.get("map_imgs", [])):
+		if id not in ids:
+			ids.append(id)
+	ids.sort()
+	for id in ids:
 		var img: Variant = imgs.get(id, imgs.get(str(id)))
 		if not (img is Dictionary) or img.is_empty():
 			warnings.append("no mob img for %d: dropped from the pools" % id)
