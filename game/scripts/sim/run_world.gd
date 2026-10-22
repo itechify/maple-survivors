@@ -584,21 +584,15 @@ func advance_map() -> void:
 	for slot in pickups.capacity():
 		pickups.despawn(slot)
 	_final_queue.clear()
-	basic._pending = {} # target slots belong to the old map; preserve the swing's cooldown
+	basic.clear_pending()
+	runner.clear_pending()
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
 	mob_actions = MobActions.new()
 	mob_projectiles = MobProjectileSystem.new()
 	boss_attacks = BossAttacks.new()
 	_sync_slots()
-	# Recreate spatial caches and the fractional spawn accumulator, preserving round counters and pool data.
-	var fresh := SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
-	for field: String in ["spawned", "bursts", "elites", "recycled", "relocated"]:
-		fresh.set(field, director.get(field))
-	fresh.map_pools = director.map_pools
-	fresh.map_index = map_index
-	fresh.seek_curve(curve_time())
-	director = fresh
+	director = director.reset_for_map(map_index, curve_time(), balance.get("spawn", {}))
 	player.place(PortalSet.start_point(_current_map_img(), fhm, bounds, spawn_rng), fhm)
 	if pet_system != null:
 		pet_system.place_beside(player, fhm)
@@ -1140,6 +1134,17 @@ func _end_tick() -> void:
 func _settle_clear() -> bool:
 	if _dead or state == CLEARED or not can_clear():
 		return false
+	_sweep_map_drops()
+	if progression.has_pending():
+		_advance_queue() # normal job/advancement/card flow; step stays frozen until every answer is in
+	else:
+		state = CLEARED
+		emit("stage_cleared", {"time": time})
+	return true
+
+
+## Collects and credits clear loot, retrying space freed by auto-wear before applying its EXP.
+func _sweep_map_drops() -> void:
 	var got := 0
 	while true:
 		var before := pickups.active_count()
@@ -1152,12 +1157,6 @@ func _settle_clear() -> bool:
 	if got > 0:
 		_gain_exp(got)
 	_write_player_state(0.0)
-	if progression.has_pending():
-		_advance_queue() # normal job/advancement/card flow; step stays frozen until every answer is in
-	else:
-		state = CLEARED
-		emit("stage_cleared", {"time": time})
-	return true
 
 
 ## Frozen intermediate-map settlement: sweep once before choices, then discard mobs and await presentation.
@@ -1170,17 +1169,7 @@ func _settle_map() -> bool:
 		return false
 	if not _map_swept:
 		_map_swept = true
-		var got := 0
-		while true:
-			var before := pickups.active_count()
-			got += pickups.collect_all(events, maxi(0, inventory_slots() - equipment.inventory.size()))
-			_credit_pickups()
-			if pickups.active_count() == 0 or pickups.active_count() == before \
-					or equipment.inventory.size() >= inventory_slots():
-				break
-		if got > 0:
-			_gain_exp(got)
-		_write_player_state(0.0)
+		_sweep_map_drops()
 	if pending_bonus_choices > 0 or progression.has_pending():
 		_advance_queue()
 	elif not transfer_pending:
@@ -2204,11 +2193,8 @@ func _build_mob_kinds() -> void:
 		roster["maps"] = roster.get("maps", [])
 		for boss: Dictionary in _stage_bosses():
 			roster.maps.append({"boss": boss})
-	var ids := StageRoster.mob_ids(roster, imgs, setup.get("mob_skill_img", {}))
-	for id: int in StagePools.stage_pool_ids(stage, setup.map_imgs) if _map_images_available() else []:
-		if id not in ids:
-			ids.append(id)
-	ids.sort()
+	var ids := StageRoster.mob_ids(roster, imgs, setup.get("mob_skill_img", {}),
+		setup.map_imgs if _map_images_available() else [])
 	for id in ids:
 		var img: Variant = imgs.get(id, imgs.get(str(id)))
 		if not (img is Dictionary) or img.is_empty():

@@ -302,7 +302,7 @@ static func stage_map_errors(stages_file: Dictionary) -> PackedStringArray:
 	return errors
 
 
-## Detached boss schedule with map provenance and absolute times for the interim single-map round.
+## Detached boss schedule with map provenance and curve offsets; live map arrivals are entry-relative.
 static func stage_bosses(stage: Dictionary) -> Array:
 	var bosses: Array = []
 	for i in stage.get("maps", []).size():
@@ -324,12 +324,7 @@ static func stage_mob_ids(data: Dictionary, stage_key: String, mob_imgs: Diction
 		mob_skill_img: Dictionary = {}, map_imgs: Array = []) -> PackedInt32Array:
 	stage_key = canonical_stage_key(stage_key)
 	var stage: Dictionary = data.get("stages", {}).get("stages", {}).get(stage_key, {})
-	var ids := StageRoster.mob_ids(stage, mob_imgs, mob_skill_img)
-	if stage.has("maps"):
-		for id: int in StagePools.stage_pool_ids(stage, map_imgs):
-			_add_id(ids, id)
-		ids.sort()
-	return ids
+	return StageRoster.mob_ids(stage, mob_imgs, mob_skill_img, map_imgs)
 
 
 ## Every item whose canonical info a setup loads, without duplicates: the default creation outfit

@@ -278,7 +278,7 @@ func test_every_listed_item_has_cache_info_and_an_icon_and_every_level_has_drops
 		assert_true(int(infos[boss].reqLevel) >= level - 10, "and it is not far below: %d at %d" % [boss, level])
 	for level in range(1, 10):
 		assert_true(EquipmentDrops.eligible(ed.items, infos, 0, level, ed, "wand").size() > 0, "a Beginner of level %d can get drops" % level)
-	assert_eq(interim_missing(lib.missing, DataRepo.load_all()).size(), 0, "%s" % [lib.missing])
+	assert_eq(lib.missing.size(), 0, "%s" % [lib.missing])
 
 
 # --- PickupSystem EQUIP kind ---

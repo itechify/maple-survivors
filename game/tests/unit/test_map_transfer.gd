@@ -238,6 +238,49 @@ func test_transfer_keeps_character_timers_and_pools_clears_statuses_and_rehomes_
 		assert_eq(w.pet_state().species, PF.KITTY)
 
 
+func test_a_grenade_thrown_before_transfer_never_lands_or_damages_the_next_map() -> void:
+	var setup := _setup(0.1)
+	setup.data.balance.player.mp = 200
+	# Overlapping map geometry makes the old landing point dangerous to a new map's mob too.
+	setup.map_imgs[1] = setup.map_imgs[0].duplicate(true)
+	var w := RunWorld.new(setup)
+	w.god = true
+	_ticks(w, 60)
+	w.player.place(Vector2.ZERO, w.fhm)
+	var boss := int(w.bosses.records[0].slot)
+	w.swarm.x[boss] = 300.0
+	w.swarm.y[boss] = 0.0
+	for kind: MobKind in w.mob_kinds:
+		kind.move_speed = 0.0
+	w.change_job(520)
+	assert_true(w.learn_skill("grenade"))
+	w.basic.cooldown = 100.0
+	w.drain_events()
+	w.step(DT, MoveInput.new())
+	var thrown := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "skill_thrown")
+	assert_eq(thrown.size(), 1, "a real cast queues a flight before map 0 clears")
+	if thrown.size() != 1:
+		return
+	var cooldowns := w.skill_readiness("grenade")
+	var basic_left := w.basic.cooldown
+	_kill(w)
+	w.step(DT, MoveInput.new())
+	assert_true(w.transfer_pending)
+	w.advance_map()
+	assert_eq(w.skill_readiness("grenade"), cooldowns, "transfer keeps the auto-cast timer and HUD total")
+	assert_eq(w.basic.cooldown, basic_left)
+	var victim := RF.put_mob(w, 1110100, 300.0, -5.0, 100000.0)
+	var hp := w.swarm.hp[victim]
+	w.drain_events()
+	# Advance beyond this flight's arrival, staying inside the preserved cooldown (no replacement throw).
+	_ticks(w, ceili(float(thrown[0].seconds) / DT) + 2)
+	var events := w.drain_events()
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "skill_thrown").size(), 0)
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "skill_landed").size(), 0,
+		"the old map's flight never emits its landing on map 1")
+	assert_eq(w.swarm.hp[victim], hp, "the old blast cannot strike a new map's mob at its former coordinates")
+
+
 func test_later_maps_replay_their_scheduled_bursts_and_elites_after_a_slow_boss() -> void:
 	var setup := _setup(0.1)
 	var stage: Dictionary = setup.data.stages.stages.quiet

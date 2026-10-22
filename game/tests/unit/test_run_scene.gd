@@ -315,12 +315,12 @@ func _mob_visible(s: RunScene) -> int:
 
 
 func _assert_nothing_missing(s: RunScene, label: String) -> void:
-	assert_eq(interim_missing(lib.missing, s.data, s.stage_key).size(), 0, "%s: library misses %s" % [label, lib.missing])
+	assert_eq(lib.missing.size(), 0, "%s: library misses %s" % [label, lib.missing])
 	assert_eq(s.map.missing.size(), 0, "%s: map misses %s" % [label, s.map.missing])
 	assert_eq(s.avatar.missing.size(), 0, "%s: avatar misses %s" % [label, s.avatar.missing])
 	for mr in s.mob_renderers:
 		assert_eq(mr.missing.size(), 0, "%s: mob renderer misses %s" % [label, mr.missing])
-	assert_eq(interim_missing(s.setup_missing, s.data, s.stage_key).size(), 0, "%s: setup misses %s" % [label, s.setup_missing])
+	assert_eq(s.setup_missing.size(), 0, "%s: setup misses %s" % [label, s.setup_missing])
 
 
 ## The skill icons show the run's skills (icon, rank, key) with the cooldown of the latest frame.
@@ -1444,7 +1444,7 @@ func test_boss_skill_nonempty_missing_recipient_art_is_still_reported() -> void:
 	var missing := "Skill.wz/MobSkill.img/113/level/2/required_art_removed"
 	event.recipient_effect = missing
 	scene.handle_events([event])
-	assert_eq(Array(interim_missing(lib.missing, scene.data, scene.stage_key)), [missing], "a broken required export remains visible to acceptance")
+	assert_eq(Array(lib.missing), [missing], "a broken required export remains visible to acceptance")
 
 
 func test_dyle_immunity_icon_follows_live_boss_and_ends_with_status_and_death() -> void:
@@ -1591,6 +1591,6 @@ func test_setup_preloads_boss_and_job_change_art_and_sounds() -> void:
 		lib.sound(RunScene.SND_JOB_CHANGED)
 		assert_eq(lib.pages_loaded(), pages, "%s: no atlas page is first decoded at job change or boss time" % stage)
 		assert_eq((lib.get("_sounds") as Dictionary).size(), sounds, "%s: their sounds are already loaded" % stage)
-		assert_eq(interim_missing(lib.missing, scene.data).size(), 0, "%s: warming records nothing missing %s" % [stage, lib.missing])
+		assert_eq(lib.missing.size(), 0, "%s: warming records nothing missing %s" % [stage, lib.missing])
 		scene.free()
 		scene = null

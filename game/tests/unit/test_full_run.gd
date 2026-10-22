@@ -177,7 +177,6 @@ func test_full_run_real_map() -> void:
 		for pacing_seed: int in PACING_SEEDS:
 			var missing := PackedStringArray()
 			var setup := DataRepo.build_setup(data, stage, pacing_seed, Vector2(800, 600), _img, _mob, missing)
-			missing = interim_missing(missing, data, stage)
 			assert_true(missing.is_empty(), "%s seed%d: cache has every required img (%s)" % [stage, pacing_seed, missing])
 			if not missing.is_empty():
 				return
@@ -359,7 +358,6 @@ func test_other_stages_real_maps() -> void:
 	for stage: String in ["ellinia"]:
 		var missing := PackedStringArray()
 		var setup := DataRepo.build_setup(data, stage, 77, Vector2(800, 600), _img, _mob, missing)
-		missing = interim_missing(missing, data, stage)
 		assert_true(missing.is_empty(), "%s: the cache has every img (%s)" % [stage, missing])
 		if missing.is_empty():
 			_short_run(RunWorld.new(setup), stage + " (real)")

@@ -58,7 +58,7 @@ func test_cash_and_pet_chosen_in_the_free_market_are_saved_continue_and_reach_th
 	IW.double_click(ew, ew.panel_cell(0).get_center())
 	assert_eq(int(flow.save.slot(0).character.pet), PET)
 	assert_true(hub.pet_renderer != null and hub.motion.pet.species == PET, "the pet appears beside the character at once")
-	assert_eq(interim_missing(hub.missing_paths(), DataRepo.load_all()), PackedStringArray(), "no asset lookup failed")
+	assert_eq(hub.missing_paths(), PackedStringArray(), "no asset lookup failed")
 	# Save & quit, then Continue from a freshly loaded file.
 	flow.save_and_quit()
 	flow.save = SaveData.new(save_path)
@@ -80,7 +80,7 @@ func test_cash_and_pet_chosen_in_the_free_market_are_saved_continue_and_reach_th
 	assert_eq(run.world.pet, PET)
 	assert_true(run.world.pet_has("wing_boots"), "with its owned upgrades")
 	assert_true(run.world.player_state.fortune > 0.0, "and the hat's Fortune")
-	assert_eq(interim_warnings(run.world.warnings, run.world.data, run.world.stage_key).size(), 0)
+	assert_eq(run.world.warnings.size(), 0)
 
 
 func test_putting_the_pet_away_in_a_round_is_carried_to_the_next_boundary() -> void:

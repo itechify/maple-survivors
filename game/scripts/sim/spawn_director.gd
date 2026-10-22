@@ -160,6 +160,20 @@ static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Di
 	return d
 
 
+## Fresh map-local caches and accumulator at the next curve offset, keeping round counters and resolved pools.
+func reset_for_map(index: int, t: float, spawn_params: Dictionary = {}) -> SpawnDirector:
+	var fresh := create(stage, _kind_index, spawn_params)
+	fresh.spawned = spawned
+	fresh.bursts = bursts
+	fresh.elites = elites
+	fresh.recycled = recycled
+	fresh.relocated = relocated
+	fresh.map_pools = map_pools
+	fresh.map_index = index
+	fresh.seek_curve(t)
+	return fresh
+
+
 ## Linearly interpolated keyframe value `field` ("rate", "max_alive", "hp", "speed") at time t.
 func value_at(field: String, t: float) -> float:
 	if keyframes.is_empty():

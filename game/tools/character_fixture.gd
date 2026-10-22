@@ -70,7 +70,6 @@ func _init() -> void:
 			var img := library.img(path)
 			return img.root if img != null else {},
 		func(id: int) -> Dictionary: return library.mob_root(id), missing)
-	missing = preload("res://tools/balance_run.gd").map_zero_missing(setup, missing)
 	if not missing.is_empty():
 		print("character_fixture: cache missing " + str(missing))
 		library.free()
@@ -136,7 +135,6 @@ func _migrate(input: String, output: String) -> void:
 			return img.root if img != null else {},
 		func(id: int) -> Dictionary: return library.mob_root(id), missing, old)
 	library.free()
-	missing = preload("res://tools/balance_run.gd").map_zero_missing(setup, missing)
 	if not missing.is_empty():
 		print("character_fixture: cache missing " + str(missing))
 		quit(1)

@@ -112,7 +112,7 @@ func test_real_hub_draws_all_npcs_refills_pools_and_keeps_rooms_inert() -> void:
 	hub.open_pause()
 	hub.step_input(DT, MoveInput.make(false, true))
 	assert_eq(hub.motion.player.pos, feet, "the pause window holds movement")
-	assert_eq(interim_missing(hub.missing_paths(), DataRepo.load_all()), PackedStringArray())
+	assert_eq(hub.missing_paths(), PackedStringArray())
 	hub.free()
 
 
