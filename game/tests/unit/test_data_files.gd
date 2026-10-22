@@ -213,12 +213,17 @@ func test_jobs_and_balance() -> void:
 	assert_eq(b.regen, {"interval": 10.0, "hp": 10.0, "mp": 3.0})
 	assert_eq(float(b.level_up_refill.hp), 0.0, "level-ups add no HP (owner choice)")
 	assert_eq(float(b.level_up_refill.mp), 1.0, "level-ups refill MP to the new maximum")
-	assert_eq(float(b.potions.drops.normal.mp), 0.03, "normal mobs drop a Blue 3% of the time")
+	assert_eq(b.potions.cooldown, {"hp": 20.0, "mp": 10.0}, "tier C: spec #237 per-kind cooldowns")
+	assert_false(b.potions.has("drops"))
+	assert_false(b.bosses.rewards.has("potions"))
+	assert_false(b.bosses.rewards.has("potion_spread"))
+	for kind: String in ["hp", "mp"]:
+		assert_false(b.potions[kind].has("start"))
 	for key: String in data.stages.stages:
 		for kf: Dictionary in data.stages.stages[key].get("keyframes", []):
-			assert_false(kf.has("normal_mp_drop_chance"), "%s has no map-specific normal MP chance" % key)
-	assert_eq(float(b.potions.drops.normal.hp), 0.012, "normal HP drops unchanged")
-	assert_eq(b.potions.drops.elite, {"hp": 0.15, "mp": 0.6}, "elite drops unchanged")
+			assert_false(kf.has("normal_mp_drop_chance") or kf.has("normal_hp_drop_chance"), "%s has no potion curves" % key)
+		for boss: Dictionary in data.stages.stages[key].get("bosses", []):
+			assert_false(boss.get("rewards", {}).has("potions"))
 	assert_eq(float(b.growth["0"].hp), 14.0)
 	assert_eq(float(b.growth["200"].mp), 22.0)
 	assert_eq(int(b.player.ap_per_level), 5)
@@ -500,3 +505,10 @@ func test_every_derived_stage_mob_is_in_the_asset_manifest() -> void:
 		for id in StageRoster.mob_ids(stage, imgs, mob_skill):
 			assert_true(float(id) in manifest.mobs, "%s: derived mob %d in the asset manifest" % [key, id])
 	lib.free()
+
+
+func test_stage_keyframe_parser_ignores_retired_potion_curve() -> void:
+	var stage := {"keyframes": [{"t": 0, "rate": 1, "max_alive": 3, "normal_hp_drop_chance": 0.5}]}
+	var director := SpawnDirector.create(stage, {})
+	assert_false(director.keyframes[0].has("normal_hp_drop_chance"), "retired potion curves are not parsed")
+	assert_near(director.rate_at(0.0), 1.0, 1e-6, "supported pacing fields are still parsed")

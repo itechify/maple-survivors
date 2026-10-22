@@ -132,8 +132,6 @@ static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Di
 			"speed": float(kf.get("speed", 1.0)),
 			"kinds": kinds, "weights": weights,
 		})
-		if kf.has("normal_hp_drop_chance"):
-			d.keyframes.back()["normal_hp_drop_chance"] = float(kf.normal_hp_drop_chance)
 	d.keyframes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.t < b.t)
 	var bu: Dictionary = p_stage.get("bursts", {})
 	if not bu.is_empty() and float(bu.get("every", 0.0)) > 0.0:
@@ -171,30 +169,6 @@ func value_at(field: String, t: float) -> float:
 ## Spawns per second at t.
 func rate_at(t: float) -> float:
 	return value_at("rate", t)
-
-
-## Ordinary HP potion chance: optional stage endpoints interpolate, missing endpoints use the global fallback.
-## tier C: survivor supply tuning; probabilities clamp to [0, 1] and hold after the last frame, without spawn ramping.
-func normal_hp_drop_chance_at(t: float, fallback: float) -> float:
-	return _probability_curve_at("normal_hp_drop_chance", t, fallback)
-
-
-func _probability_curve_at(field: String, t: float, fallback: float) -> float:
-	if keyframes.is_empty():
-		return clampf(fallback, 0.0, 1.0)
-	var a: Dictionary = keyframes[0]
-	var value := clampf(float(a.get(field, fallback)), 0.0, 1.0)
-	if t <= float(a.t):
-		return value
-	for k in range(1, keyframes.size()):
-		var b: Dictionary = keyframes[k]
-		var next := clampf(float(b.get(field, fallback)), 0.0, 1.0)
-		if t <= float(b.t):
-			var span := float(b.t) - float(a.t)
-			return lerpf(value, next, (t - float(a.t)) / span if span > 0.0 else 1.0)
-		a = b
-		value = next
-	return value
 
 
 ## Actual ordinary spawn rate, reduced while a scheduled boss remains alive.

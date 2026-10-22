@@ -54,7 +54,7 @@ extends RefCounted
 ## weapon (0 bare-handed), weapon_attack() the W.ATT summed over all worn items.
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
-## draws, 4 drop pops, 5 basic-attack stances/damage/crits, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
+## draws, 4 drop pops, 5 basic-attack stances/damage/crits, 6 boss reward scatter, 7 reserved (removed potion rolls, spec #237), 8 bot branch choices,
 ## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls,
 ## 12 Final Attack proc and follow-up damage/crit rolls; 13 Threaten (spec #165; no prop in v83, so unused),
 ## 14 reserved for Bowman,
@@ -106,11 +106,11 @@ const EVENT_FIELDS := {
 	"player_died": ["pos"],
 	"pickup_spawned": ["pickup", "item_id", "pos", "kind", "potion_kind", "count"],
 	"pickup_collected": ["pickup", "item_id", "exp", "pos", "kind", "potion_kind", "count", "collector"],
-	"potion_used": ["kind", "item_id", "restored", "count"],
+	"potion_used": ["kind", "item_id", "restored"],
 	# Spec #34 pet events (only with a pet out): its own drinks (never counted as the player's) and its teleports.
-	"pet_potion_used": ["kind", "item_id", "restored", "count"],
+	"pet_potion_used": ["kind", "item_id", "restored"],
 	"pet_teleported": ["from", "pos"],
-	"potion_tier_up": ["kind", "from_item_id", "item_id", "count"],
+	"potion_tier_up": ["kind", "from_item_id", "item_id"],
 	"level_up": ["level"],
 	"job_advance_pending": ["options"],
 	"job_changed": ["job_id", "name"],
@@ -189,7 +189,7 @@ var rng: RandomNumberGenerator
 var spawn_rng: RandomNumberGenerator
 var card_rng: RandomNumberGenerator
 var drop_rng: RandomNumberGenerator
-var potion_rng: RandomNumberGenerator
+var potion_rng: RandomNumberGenerator # Stream 7 reserved; never drawn (spec #237).
 var meso_rng: RandomNumberGenerator
 var equip_rng: RandomNumberGenerator
 var scroll_rng: RandomNumberGenerator
@@ -400,7 +400,7 @@ func _init_rng_streams() -> void:
 	spawn_rng = _stream(2)
 	card_rng = _stream(3)
 	drop_rng = _stream(4)
-	potion_rng = _stream(7)
+	potion_rng = _stream(7) # Reserved: do not renumber any other RNG stream.
 	reward_rng = _stream(6)
 	job_rng = _stream(8) # tier C: independent bot branch stream, #53.
 	meso_rng = _stream(9) # tier C: meso rolls never shift another stream, #107.
@@ -438,7 +438,7 @@ func _init_mobs() -> void:
 		"target": Vector2.ZERO, "target_fh": -1, "speed_mult": 1.0}
 
 
-## Player shots, EXP/potion drops and the potion stock.
+## Player shots, pickups and unlimited potion cooldowns.
 func _init_drops_and_shots() -> void:
 	projectiles = ProjectileSystem.new(64, rng)
 	projectiles.paths = visual_paths
@@ -513,7 +513,7 @@ func character_snapshot() -> Dictionary:
 		"base_hp": _base_hp, "base_mp": _base_mp, "job_mp": _job_mp,
 		"skills": skills, "skill_order": loadout.order.duplicate(),
 		"player_mods": CharacterSnapshot.encode_mods(loadout.player_mods),
-		"card_ranks": loadout.card_ranks.duplicate(), "potions": potions.snapshot(),
+		"card_ranks": loadout.card_ranks.duplicate(),
 		"fortune": _own_fortune(), "base_fortune": _base_fortune,
 		"look": character_look.duplicate(true), "equipment": equipment.duplicate(true),
 		"scrolls": scrolls.duplicate(), "mesos": mesos}
@@ -556,7 +556,7 @@ func can_clear() -> bool:
 		and not progression.has_pending() and pending_cards.is_empty() and pending_jobs.is_empty()
 
 
-## Drinks one HP or MP potion instantly while playing, including on ropes; false when stock or spec is unavailable.
+## Drinks one HP or MP potion instantly while playing, including on ropes; false during cooldown or without a restore spec.
 func drink_potion(kind: String) -> bool:
 	return _drink(kind, false)
 
@@ -575,19 +575,18 @@ func _drink(kind: String, by_pet: bool) -> bool:
 		_mp = minf(_max_mp, _mp + int(sip.amount))
 	_write_player_state(0.0)
 	emit("pet_potion_used" if by_pet else "potion_used", {"kind": kind, "item_id": int(sip.item_id),
-		"restored": int(player_state[kind]) - before, "count": int(sip.count)})
+		"restored": int(player_state[kind]) - before})
 	return true
 
 
-## Upgrades a potion kind's current item, preserving stock and exposing the new icon/restoration immediately; emits
+## Upgrades a potion kind's current item, preserving its cooldown and exposing the new icon/restoration immediately; emits
 ## potion_tier_up.
 func upgrade_potion(kind: String, item_id: int) -> bool:
-	var from_id := int(potions.stock.get(kind, {}).get("item_id", 0))
+	var from_id := potions.item_id(kind)
 	if not potions.upgrade(kind, item_id):
 		return false
 	_write_player_state(0.0)
-	emit("potion_tier_up", {"kind": kind, "from_item_id": from_id, "item_id": item_id,
-		"count": int(potions.stock[kind].count)})
+	emit("potion_tier_up", {"kind": kind, "from_item_id": from_id, "item_id": item_id})
 	return true
 
 
@@ -595,26 +594,13 @@ func upgrade_potion(kind: String, item_id: int) -> bool:
 ## applied-step state). Level-ups announce each step; a snapshot load applies them silently. Tier C.
 func apply_potion_schedule(level: int, announce: bool) -> void:
 	var current := {}
-	for kind: String in potions.stock:
-		current[kind] = int(potions.stock[kind].item_id)
+	for kind: String in PotionInventory.DEFAULT_ITEMS:
+		current[kind] = potions.item_id(kind)
 	for step: Dictionary in PotionSchedule.due(PotionSchedule.steps(balance), level, current):
 		if announce:
 			upgrade_potion(String(step.kind), int(step.item))
 		else:
 			potions.upgrade(String(step.kind), int(step.item)) # a load: player_state is written by the caller's setup
-
-
-## Drops a bundle of the current HP/MP tier, including boss rewards; potion slots never consume the EXP drop cap.
-func spawn_potion(kind: String, pos: Vector2, count: int = 1) -> int:
-	if not potions.stock.has(kind):
-		return -1
-	var id := int(potions.stock[kind].item_id)
-	var slot := pickups.spawn_potion(pos, count, id, kind)
-	if slot >= 0:
-		emit("pickup_spawned", {"pickup": slot, "item_id": id, "pos": pos,
-			"kind": "potion", "potion_kind": kind, "count": count})
-	return slot
-
 
 
 ## Whether an inactive buff meets its optional survivor HP threshold; casting/cooldown gates remain in SkillRunner.
@@ -703,6 +689,7 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 	if _settle_clear():
 		return
 	time += dt
+	potions.tick(dt)
 	refresh_player_speed()
 	_step_player(dt, input)
 	if after_stage.is_valid():
@@ -947,7 +934,7 @@ func _fill_live_defense() -> void:
 	swarm.lower_threatened_pdd(_live_pdd) # Threaten (#183): the same cut mob_defense applies
 
 
-## Moves and collects drops; collected potions join the stock. Returns the EXP collected this tick.
+## Moves and collects drops. Returns the EXP collected this tick.
 func _step_pickups(dt: float) -> int:
 	var equip_room := maxi(0, inventory_slots() - equipment.inventory.size())
 	var got := 0
@@ -962,8 +949,6 @@ func _step_pickups(dt: float) -> int:
 
 
 func _credit_pickups() -> void:
-	for kind: String in pickups.collected_potions:
-		potions.add(kind, int(pickups.collected_potions[kind]))
 	mesos += pickups.step_mesos
 	for instance: Dictionary in pickups.collected_equipment:
 		equipment.inventory.append(instance)
@@ -974,13 +959,13 @@ func _credit_pickups() -> void:
 			_wear(equipment.inventory.size() - 1, "auto_equip")
 
 
-## The pet's tick: movement, then its auto-potion drinks (below the ALERT level, from the shared stock).
+## The pet's tick: movement, then its auto-potion drinks (below the ALERT level, using the shared cooldown).
 func _step_pet(dt: float) -> void:
 	pet_system.step(dt, player, fhm, bounds, pickups, events, maxi(0, inventory_slots() - equipment.inventory.size()))
 	for kind: String in ["hp", "mp"]:
 		var current := _hp if kind == "hp" else _mp
 		var maximum := _max_hp if kind == "hp" else _max_mp
-		if pet_system.should_drink(kind, current, maximum, float(alert[kind])) and _drink(kind, true):
+		if pet_system.should_drink(kind, current, maximum, float(alert[kind]), potions.is_ready(kind)) and _drink(kind, true):
 			pet_system.drank(kind)
 
 
@@ -1642,11 +1627,11 @@ func scroll_info(scroll_id: int) -> Dictionary:
 	return infos.get(scroll_id, infos.get(str(scroll_id), {}))
 
 
-## Adds up to `count` scrolls to the Use tab (a stack stops at its info/slotMax, 100 without one; the two potion
-## stacks take two of the Use tab's slots); returns how many were added. Test and tool hook until shops exist.
+## Adds up to `count` scrolls to the Use tab's 24 slots (a stack stops at its info/slotMax, 100 without one);
+## returns how many were added. Test and tool hook.
 func grant_scrolls(scroll_id: int, count: int) -> int:
 	return Scrolls.add(scrolls, scroll_id, count, int(scroll_info(scroll_id).get("slotMax", 0)),
-		Shop.use_stack_limit(potions.stock))
+		Shop.use_stack_limit())
 
 
 ## What Free Market NPC `npc_id` (shops.json) sells this character's job: Shop.stock entries, [] for an unknown NPC.
@@ -1711,7 +1696,7 @@ func inventory_slots() -> int:
 
 ## The character state Shop works on: mesos by value, the Use stacks and Equip tab by reference.
 func _shop_state() -> Dictionary:
-	return {"mesos": mesos, "scrolls": scrolls, "equipment": equipment, "potions": potions.stock}
+	return {"mesos": mesos, "scrolls": scrolls, "equipment": equipment}
 
 
 func _shop_done(action: String, item_id: int, state: Dictionary) -> void:
@@ -2092,8 +2077,6 @@ func _restore_character(source: Dictionary) -> void:
 	_job_mp = float(character.job_mp)
 	_base_fortune = float(character.base_fortune)
 	CharacterSnapshot.restore_loadout(character, loadout)
-	for kind: String in potions.stock:
-		potions.stock[kind] = CharacterSnapshot.integers(character.potions[kind])
 	apply_potion_schedule(progression.level, false) # tier C: silent catch-up to the schedule of the loaded level
 	character_look = character.get("look", {}).duplicate(true)
 	for field: String in ["skin", "face", "hair"]:
@@ -2300,14 +2283,6 @@ func _on_kill(m: int) -> void:
 		var p := pickups.spawn(pos, e, mk.exp_item, player.pos)
 		emit("pickup_spawned", {"pickup": p, "item_id": mk.exp_item, "pos": pos,
 			"kind": "exp", "potion_kind": "", "count": 0})
-	var chances: Dictionary = balance.get("potions", {}).get("drops", {}).get("elite" if elite else "normal", {})
-	for kind: String in ["hp", "mp"]:
-		var chance := float(chances.get(kind, 0.0))
-		# Only HP has a stage curve; normal MP is one flat chance everywhere (owner, 2026-10-16, #80).
-		if kind == "hp" and not elite:
-			chance = director.normal_hp_drop_chance_at(time, chance)
-		if chance > 0.0 and potion_rng.randf() < chance:
-			spawn_potion(kind, pos)
 	drop_mob_loot(m)
 
 
@@ -2373,7 +2348,7 @@ func spawn_meso(pos: Vector2, amount: int) -> int:
 
 
 ## A scheduled boss died: boss_died, mob_died with the boss reward EXP (canonical EXP x rewards.exp_mult; no ordinary
-## EXP or random potion rolls), its canonical revive list, then the reward shower and bonus choices.
+## ordinary EXP rolls), its canonical revive list, then the reward shower and bonus choices.
 func _on_boss_kill(m: int, mk: MobKind, pos: Vector2, elite: bool) -> void:
 	var rewards := bosses.reward_config(mob_boss[m])
 	var e := maxi(0, roundi(mk.exp * float(rewards.get("exp_mult", 1.0))))
@@ -2417,10 +2392,6 @@ func _drop_boss_rewards(pos: Vector2, total: int, item_id: int, config: Dictiona
 		var slot := pickups.spawn(point, amount, item_id, player.pos)
 		emit("pickup_spawned", {"pickup": slot, "item_id": item_id, "pos": point,
 			"kind": "exp", "potion_kind": "", "count": 0})
-	var bundles: Dictionary = config.get("potions", {})
-	var potion_spread := float(config.get("potion_spread", 0.0))
-	spawn_potion("hp", pos - Vector2(potion_spread, 0), int(bundles.get("hp", 0)))
-	spawn_potion("mp", pos + Vector2(potion_spread, 0), int(bundles.get("mp", 0)))
 	pending_bonus_choices += maxi(0, int(config.get("bonus_choices", 1)))
 
 

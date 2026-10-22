@@ -7,7 +7,7 @@ extends RefCounted
 ## skills: {key: {rank: int, mods: {stat: [add, mul]}}}; skill_order: keys in casting/learning order;
 ## player_mods: {stat: [add, mul]}; card_ranks: {card_id: consumed steps}, preserving card limits;
 ## fortune: resolved survivor stat; base_fortune: its unmodified starting value;
-## potions: {hp: {item_id, count}, mp: {item_id, count}} (item_id IS the potion tier);
+## Potions are derived from level, never saved; legacy stock is ignored (tier C: spec #237, no format bump).
 ## look: {skin, face, hair}, possibly empty (worn equipment is what is drawn over it);
 ## equipment: {worn: {equip slot: instance}, inventory: [instance, ...]} (Equipment: instance and slot shapes; the
 ## `shield` worn key, #158, is optional and absent for snapshots saved before it: no format bump);
@@ -46,8 +46,9 @@ const REMOVED_CARDS := ["magnet", "orange_potion", "white_potion", "mana_elixir"
 ## info}) gives the migrated items their fresh stats and upgrade slots.
 static func migrate(value: Dictionary, jobs: JobTree, equipment_info: Dictionary) -> Dictionary:
 	var out := value.duplicate(true)
+	out.erase("potions") # tier C: spec #237; stock and cooldowns never carry between rounds
 	# Spec #225: the Magnet and potion-tier cards are gone; their ranks and the radius modifier are dropped (no format
-	# bump). The potion items themselves stay and PotionSchedule catches them up.
+	# bump). PotionSchedule derives items from the loaded level.
 	if out.get("card_ranks") is Dictionary:
 		for removed: String in REMOVED_CARDS:
 			out.card_ranks.erase(removed)
@@ -113,7 +114,7 @@ static func validation_error(value: Variant) -> String:
 			return "invalid " + field
 	if int(value.level) < 1:
 		return "invalid level"
-	for field: String in ["attributes", "base_attributes", "skills", "player_mods", "card_ranks", "potions", "look"]:
+	for field: String in ["attributes", "base_attributes", "skills", "player_mods", "card_ranks", "look"]:
 		if not value.get(field) is Dictionary:
 			return "invalid " + field
 	for field: String in ["attributes", "base_attributes"]:
@@ -135,12 +136,6 @@ static func validation_error(value: Variant) -> String:
 	for rank: Variant in value.card_ranks.values():
 		if not _number(rank) or int(rank) < 0:
 			return "invalid card_ranks"
-	for kind: String in ["hp", "mp"]:
-		var potion: Variant = value.potions.get(kind)
-		if not potion is Dictionary or not _number(potion.get("item_id")) or not _number(potion.get("count")):
-			return "invalid potion " + kind
-		if int(potion.item_id) <= 0 or int(potion.count) < 0:
-			return "invalid potion " + kind
 	var cash_message := cash_error(value)
 	if cash_message != "":
 		return cash_message

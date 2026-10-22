@@ -10,8 +10,8 @@ equipment a run has found.
 ## Considered options
 
 - **Shops sell equipment (the original spec):** dropped in favour of drops plus scrolls, above.
-- **Shops sell potions (topping up or raising the potion stock):** rejected; potions keep coming only from drops,
-  and their tiers only from cards.
+- **Shops sell potions:** rejected. The current model uses unlimited potions on independent per-kind cooldowns
+  (owner, spec #237, 2026-10-21), with tiers derived from level (spec #225).
 
 ## Consequences
 

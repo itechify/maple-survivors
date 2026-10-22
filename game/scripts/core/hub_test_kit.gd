@@ -22,7 +22,7 @@ const DEFAULT_MESOS := 500000 # tier C: ours (owner brief)
 const SCROLL_COUNT := 10 # tier C: ours
 ## The kit's scroll stacks, every rate of each family (scrolls.json ids: 100%, 60%, 10%, dark 70%, dark 30%): wand
 ## Magic Att. (the worn wand), hat INT, top DEF (the worn top; v83 has no INT scroll for tops) and gloves Magic Att.
-## 20 stacks, inside the Use tab's 24 slots beside the two potion stacks.
+## 20 stacks, inside the Use tab's 24 slots for scrolls.
 const KIT_SCROLLS := [ # tier C: ours
 	2043700, 2043701, 2043702, 2043704, 2043705,
 	2040024, 2040025, 2040026, 2040012, 2040013,
@@ -63,7 +63,7 @@ static func load_character(path: String, img_loader: Callable) -> Dictionary:
 static func apply(character: Dictionary, mesos: int, img_loader: Callable) -> Dictionary:
 	var out := character.duplicate(true)
 	out.mesos = mesos
-	var limit := Shop.use_stack_limit(out.get("potions", {}))
+	var limit := Shop.use_stack_limit()
 	for id: int in KIT_SCROLLS:
 		Scrolls.add(out.scrolls, id, SCROLL_COUNT, 0, limit)
 	var infos := DataRepo.equipment_info(PackedInt32Array(KIT_EQUIPMENT), img_loader)

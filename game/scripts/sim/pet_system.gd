@@ -12,7 +12,7 @@ extends RefCounted
 ##
 ## Abilities (`abilities`, from the account's owned pet upgrades; the base pet always collects every drop kind in
 ## `pickup_radius` of itself, as Item Pouch and Meso Magnet do):
-##   auto_hp / auto_mp (1812002/1812003)  drink the character's potion below the ALERT level, once per `potion_delay`
+##   auto_hp / auto_mp (1812002/1812003)  drink the character's potion below the ALERT level, when its shared cooldown is ready
 ##   wing_boots (1812004)  run to the nearest resting drop within `leash` px of the player, then come back
 ##   binocular (1812005)   `pickup_radius` x `binocular_mult`
 ##   vac (9990000, survivor-only)  every drop on the map flies to the pet (PickupSystem does the flying)
@@ -51,7 +51,6 @@ var _fetch_t := 0.0
 var _fetch_slot := -1
 var _fetch_pause_t := 0.0
 var _moved := 0.0
-var _drink_cd := {"hp": 0.0, "mp": 0.0}
 var _hanging := false
 
 
@@ -124,8 +123,6 @@ func view() -> Dictionary:
 ## equipment drops, which it could not pick up.
 func step(dt: float, player: PlayerMotion, fhm: FootholdMap, bounds: Rect2, drops: PickupSystem, events: Array,
 		equip_room: int = -1) -> void:
-	_drink_cd.hp = maxf(0.0, float(_drink_cd.hp) - dt)
-	_drink_cd.mp = maxf(0.0, float(_drink_cd.mp) - dt)
 	_fetch_pause_t = maxf(0.0, _fetch_pause_t - dt)
 	if player.ladder >= 0:
 		_hang(player)
@@ -152,16 +149,15 @@ func step(dt: float, player: PlayerMotion, fhm: FootholdMap, bounds: Rect2, drop
 
 ## Whether the pet should drink `kind` ("hp" / "mp") now, given the character's current and maximum value of it and the
 ## ALERT level (fraction of max, 0 = off): it has the pouch, there is a maximum, the value is below the level and the
-## delay since its last drink is over.
-func should_drink(kind: String, current: float, maximum: int, alert_level: float) -> bool:
+## shared cooldown is ready (tier C: spec #237).
+func should_drink(kind: String, current: float, maximum: int, alert_level: float, ready: bool) -> bool:
 	return bool(abilities["auto_" + kind]) and alert_level > 0.0 and maximum > 0 \
-		and current / float(maximum) < alert_level and float(_drink_cd[kind]) <= 0.0
+		and current / float(maximum) < alert_level and ready
 
 
-## Records a drink: counts it and starts the delay.
+## Counts a pet drink; PotionInventory starts the shared cooldown.
 func drank(kind: String) -> void:
 	drinks[kind] = int(drinks[kind]) + 1
-	_drink_cd[kind] = float(tuning.potion_delay)
 
 
 func _hang(player: PlayerMotion) -> void:

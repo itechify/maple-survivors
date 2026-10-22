@@ -24,11 +24,11 @@ func _kill(w: RunWorld) -> void:
 		"magic": false, "crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
 
 
-func test_boss_shower_conserves_configured_exp_and_only_drops_current_tier_bundles() -> void:
+func test_boss_shower_conserves_configured_exp_and_never_drops_potions() -> void:
 	var w := _world()
 	w.progression.level = 25
 	w.apply_potion_schedule(25, false) # White Potions and Mana Elixirs by the level schedule
-	w.balance.potions.drops.normal = {"hp": 1.0, "mp": 1.0}
+	w.balance.potions.drops = {"normal": {"hp": 1.0, "mp": 1.0}, "elite": {"hp": 1.0, "mp": 1.0}}
 	w.drain_events()
 	_kill(w)
 	var total := 0
@@ -41,12 +41,10 @@ func test_boss_shower_conserves_configured_exp_and_only_drops_current_tier_bundl
 			total += w.pickups.exp[i]
 			drops += 1
 		elif w.pickups.kind[i] != PickupSystem.MESO and w.pickups.kind[i] != PickupSystem.EQUIP:
-			bundles[int(w.pickups.item_id[i])] = int(w.pickups.potion_count[i])
+			bundles[int(w.pickups.item_id[i])] = true
 	assert_eq(total, 600, "canonical Mano EXP 120 × survivor reward multiplier 5, with no extra ordinary drop")
 	assert_eq(drops, 13, "the split preserves the total despite a remainder")
-	assert_eq(bundles, {2000002: 2, 2000006: 3}, "no incidental ordinary potion roll alters a boss bundle")
-	assert_eq(w.player_state.potions.hp.count, 5, "ground rewards have not been collected")
-	assert_eq(w.player_state.potions.mp.count, 0)
+	assert_eq(bundles, {}, "even legacy drop tuning cannot create potion pickups")
 
 
 func test_final_boss_bonus_choice_precedes_clear_and_does_not_consume_a_queued_level() -> void:

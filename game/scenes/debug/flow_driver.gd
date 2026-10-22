@@ -2515,6 +2515,7 @@ func _scenario_inventory() -> void:
 		var img := lib.img(AvatarRenderer.part_img_path(id))
 		character.equipment.inventory.append(Equipment.create(id, img.root.get("info", {}) if img != null else {}))
 	character.mesos = 123456
+	character.scrolls = {"2040000": 2, "2043700": 1}
 	slot.character = character
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the fixture character was saved into the slot")
 	await _sleep(1.0)
@@ -2523,6 +2524,15 @@ func _scenario_inventory() -> void:
 		return
 	var run := flow.current as RunScene
 	await _sleep(3.0)
+	# #239: a real potion-key press, followed by five sim seconds, leaves a visible mid-sweep wedge while the
+	# inventory windows hold the simulation. Read the live binding so the developer's Key Config still works.
+	var drink_keys := InputMap.action_get_events("drink_hp")
+	if not drink_keys.is_empty() and drink_keys[0] is InputEventKey:
+		var drink_key := drink_keys[0] as InputEventKey
+		await _key(drink_key.physical_keycode if drink_key.physical_keycode != 0 else drink_key.keycode)
+		await _sleep(5.0)
+		var step := int(run.hud.quick_slot.displayed("hp").sweep_step)
+		_check(step > 0 and step < HudSkills.SWEEP_STEPS, "the HP potion shows a mid-sweep wedge")
 	await _hold(KEY_RIGHT, 0.4)
 	await _key(KEY_E)
 	if not await _until(func() -> bool: return run.ui_windows.find_window("equip") != null, 3.0, "Equip window (E)"):
@@ -2589,7 +2599,8 @@ func _scenario_inventory() -> void:
 	_check(iw.cells().size() == 3, "No kept the Calas")
 	await _click_at(io + iw.tab_rect(1).get_center())
 	await _sleep(0.3)
-	_check(iw.tab == 1 and iw.cells().size() >= 2, "the Use tab shows the potion stacks")
+	_check(iw.tab == 1 and iw.cells() == [{"kind": "scroll", "id": 2040000, "count": 2},
+		{"kind": "scroll", "id": 2043700, "count": 1}], "the Use tab shows scroll stacks only, with no potions")
 	_hover(io + iw.slot_rect(0).get_center())
 	await _sleep(0.4)
 	await _shot("item_use_tab")

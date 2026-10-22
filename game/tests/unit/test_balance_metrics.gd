@@ -1,6 +1,7 @@
 extends TestCase
 ## Deterministic balance records and aggregation through seeded worlds and the public harness seam.
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const BR := preload("res://tools/balance_run.gd")
 const REPORT := preload("res://tools/balance_report.gd")
 const DT := 1.0/60.0
@@ -72,6 +73,7 @@ func test_record_counts_waiting_seconds_and_whole_boss_hit_fraction() -> void:
 	w.loadout.set_rank("magic_guard", 5)
 	w.step(DT, MoveInput.new())
 	w.drain_events()
+	w.drink_potion("mp") # Hold the shared cooldown so this test observes a full second of MP wait.
 	w.spend_mp(int(w.player_state.mp)-5)
 	var whole := w.take_hit(40, false, "", w.player.pos+Vector2(10, 0), {"boss": true, "mob_id": 2220000, "source_kind": "attack"})
 	w.learn_skill("energy_bolt")
@@ -197,10 +199,9 @@ func test_magic_claw_counts_each_landed_line_but_a_scheduled_boss_is_excluded() 
 	assert_eq(r.ordinary_kill_hits_by_min[0].kills, 0, "scheduled bosses do not require canonical info/boss")
 
 
-func test_late_waits_have_observation_time_and_final_stock_includes_starters() -> void:
+func test_late_waits_have_observation_time_without_stock_metrics() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.mp = 0
-	data.balance.potions.mp.start = 3
 	data.balance.run_time_cap = 480.5
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	w.god = true
@@ -213,9 +214,9 @@ func test_late_waits_have_observation_time_and_final_stock_includes_starters() -
 		return
 	assert_near(r.late_mp_short_seconds, 0.5, DT)
 	assert_near(r.late_observed_seconds, 0.5, DT)
-	assert_eq(r.potions_left.mp, 3, "starting stock is not counted as collection")
-	assert_eq(r.potions_collected.mp, 0)
-	assert_eq(r.potions_start.mp, 3)
+	assert_false(r.has("potions_left"))
+	assert_false(r.has("potions_collected"))
+	assert_false(r.has("potions_start"))
 	var early := r.duplicate(true)
 	early.late_mp_short_seconds = 0.0
 	early.late_observed_seconds = 0.0
@@ -223,7 +224,6 @@ func test_late_waits_have_observation_time_and_final_stock_includes_starters() -
 	assert_eq(summary.late_mp_observed_runs, 1)
 	assert_eq(summary.late_mp_short_runs, 1)
 	assert_eq(summary.late_mp_short_seconds.count, 1, "unobserved late time is excluded from shortage samples")
-	assert_eq(summary.potions_left.mp.median, 3.0)
 
 
 func test_summary_counts_clears_deaths_and_timeouts_separately() -> void:
@@ -313,7 +313,9 @@ func test_tree_camper_reaches_top_via_the_original_portal_chain() -> void:
 
 
 func test_summary_aggregates_potions_waits_and_only_completed_fights() -> void:
-	var common := {"bosses": [], "camper": {"reached": false, "started_time": -1.0}}
+	var common := {"bosses": [], "camper": {"reached": false, "started_time": -1.0},
+		"potions_start": {"hp": 5, "mp": 0}, "potions_left": {"hp": 20, "mp": 30},
+		"pet": {"potions_used": {"hp": 7, "mp": 8}}}
 	var first := common.merged({"potions_collected": {"hp": 2, "mp": 3}, "potions_used": {"hp": 1, "mp": 1}, "mp_short_seconds": 10.0,
 		"boss_hits": [{"mob_id": 2220000, "fraction": 0.4, "source_kind": "touch"}],
 		"boss_fights": [{"mob_id": 2220000, "duration": 30.0, "elapsed": 30.0, "status": "dead"}]})
@@ -321,12 +323,14 @@ func test_summary_aggregates_potions_waits_and_only_completed_fights() -> void:
 		"boss_hits": [{"mob_id": 2220000, "fraction": 0.5, "source_kind": "attack"}],
 		"boss_fights": [{"mob_id": 2220000, "duration": -1.0, "elapsed": 80.0, "status": "alive"}]})
 	var summary: Dictionary = BR.aggregate([first, second])
-	assert_eq(summary.potions_collected, {"hp": 6, "mp": 8})
 	assert_eq(summary.potions_used, {"hp": 1, "mp": 3})
-	assert_true(summary.has("mp_collected_used_ratio"), "policy summary exposes collected/used MP ratio")
-	if summary.has("mp_collected_used_ratio"):
-		assert_near(summary.mp_collected_used_ratio, 2.666666667, 0.000001, "ratio of totals, not mean of per-run ratios")
-	assert_true(BR.describe_metrics(summary).contains("MP collected/used 2.667"))
+	for removed: String in ["potions_collected", "potions_start", "potions_left", "mp_collected_used_ratio"]:
+		assert_false(summary.has(removed), "legacy input does not revive removed potion metrics: " + removed)
+	var report := BR.describe_metrics(summary)
+	assert_true(report.contains("potions used HP 1 MP 3; MP-short seconds"))
+	assert_false(report.contains("potions collected"))
+	assert_false(report.contains("MP collected/used"))
+	assert_false(report.contains("final stock"))
 	assert_eq(summary.mp_short_seconds.median, 15.0)
 	assert_eq(summary.boss_fights["2220000"].completed.count, 1)
 	assert_eq(summary.boss_fights["2220000"].completed.median, 30.0, "unfinished eighty seconds is not a completed fight sample")
@@ -343,14 +347,12 @@ func test_summary_aggregates_potions_waits_and_only_completed_fights() -> void:
 	assert_eq(summary.boss_hits["2220000"].by_source.attack.median, 0.5)
 
 
-func test_summary_reports_undefined_ratio_when_no_mp_is_used() -> void:
+func test_summary_reports_zero_drinks_without_collection_or_stock_metrics() -> void:
 	for records: Array in [[], [{"potions_collected": {"mp": 7}, "potions_used": {"mp": 0}}]]:
 		var summary: Dictionary = BR.aggregate(records)
-		assert_eq(summary.mp_collected_used_ratio, null, "zero use cannot produce a finite collected/used ratio")
-		assert_true(BR.describe_metrics(summary).contains("MP collected/used undefined (no MP used)"))
-	var none_collected: Dictionary = BR.aggregate([{"potions_collected": {"mp": 0}, "potions_used": {"mp": 2}}])
-	assert_eq(none_collected.mp_collected_used_ratio, 0.0, "zero collection with positive use is a defined zero")
-	assert_true(BR.describe_metrics(none_collected).contains("MP collected/used 0.000"))
+		assert_eq(summary.potions_used, {"hp": 0, "mp": 0})
+		assert_false(summary.has("mp_collected_used_ratio"))
+		assert_true(BR.describe_metrics(summary).contains("potions used HP 0 MP 0"))
 
 
 func test_summary_reports_observed_times_per_job() -> void:
@@ -374,7 +376,7 @@ func test_summary_reports_observed_times_per_job() -> void:
 	assert_true("Job 220 seconds 900.00/900.00/900.00 (n=1)" in text, text)
 
 
-func test_run_records_each_potion_kind_collected_and_drunk() -> void:
+func test_run_records_unlimited_potion_drinks_and_restore_amounts() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
 	data.balance.run_time_cap = 1.0
@@ -382,21 +384,33 @@ func test_run_records_each_potion_kind_collected_and_drunk() -> void:
 	data.balance.potions.bot.min_restore_fraction = 0.01
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	RF.place_player(w, 400)
-	w.spawn_potion("hp", w.player.pos-Vector2(0, 25), 2)
-	w.spawn_potion("mp", w.player.pos-Vector2(0, 25), 4)
 	w.spend_mp(int(w.player_state.mp))
 	w.drink_potion("hp")
 	var r: Dictionary = BR.run_one(w, "bot", 26)
-	assert_eq(r.potions_collected, {"hp": 2, "mp": 4})
 	assert_eq(r.potions_used, {"hp": 1, "mp": 1})
-	assert_eq(r.potions_start.hp, 5, "starting stock includes the potion consumed before harness observation")
-	assert_eq(r.potions_left.hp, 6, "five starters plus two collected minus one used")
+	for removed: String in ["potions_collected", "potions_start", "potions_left", "mp_collected_used_ratio"]:
+		assert_false(r.has(removed), "unlimited drinks have no collection/stock metric: " + removed)
+	assert_false(BR.describe(r.merged({"seed": 26})).contains("potions collected"))
 	assert_true(r.has("potion_uses"), "actual restored amounts expose early potion clipping")
 	if r.has("potion_uses"):
 		var mp_uses: Array = r.potion_uses.filter(func(use: Dictionary) -> bool: return use.kind == "mp")
 		assert_eq(mp_uses.size(), 1)
 		assert_eq(mp_uses[0].restored, 5, "a Blue Potion restores only the five-MP opening pool")
 		assert_eq(mp_uses[0].capacity_waste, 95, "canonical restoration beyond the pool capacity is explicit")
+
+
+func test_pet_drinks_stay_separate_from_player_use_totals_and_timeline() -> void:
+	var data := PF.data()
+	data.balance.player.skills = []
+	data.balance.run_time_cap = 1.0
+	var world := PF.world([PF.KITTY, PF.AUTO_HP, PF.AUTO_MP], {"hp": 0.5, "mp": 0.5}, data)
+	world.take_hit(40, false, "", world.player.pos + Vector2(10, 0))
+	world.spend_mp(int(world.player_state.mp))
+	var record := BR.run_one(world, "bot", 5, 0.0) # Hands off; only the pet can drink.
+	assert_eq(record.pet.potions_used, {"hp": 1, "mp": 1})
+	assert_eq(record.potions_used, {"hp": 0, "mp": 0})
+	assert_eq(record.potion_uses, [], "the player's restore/waste timeline excludes pet events")
+	assert_eq(BR.aggregate([record]).potions_used, {"hp": 0, "mp": 0})
 
 
 func test_censored_fight_median_is_exact_only_when_no_unfinished_fight_lies_below_it() -> void:

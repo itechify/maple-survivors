@@ -1,6 +1,6 @@
 extends TestCase
 ## The HUD quick slot (#220): the eight cells' model (fixed order, the icon each action has in Key Config, the first
-## bound key as caption, potion stock), the movement skill cell (empty, Teleport, Dash), captions following the live
+## bound key as caption, potion cooldown), the movement skill cell (empty, Teleport, Dash), captions following the live
 ## bindings (rebound, unbound, web-reserved keys), and the collapse state in settings.cfg. The model needs no asset cache;
 ## the widget and button tests that draw art SKIP without it.
 
@@ -8,7 +8,8 @@ var cfg_path := TestCase.test_dir("quick_slot_test.cfg")
 var _saved_map: Dictionary = {}
 var _nodes: Array[Node] = []
 
-const POTIONS := {"hp": {"item_id": 2000000, "count": 5}, "mp": {"item_id": 2000003, "count": 0}}
+const POTIONS := {"hp": {"item_id": 2000000, "cooldown_left": 10.0, "cooldown_total": 20.0},
+	"mp": {"item_id": 2000003, "cooldown_left": 0.0, "cooldown_total": 10.0}}
 const TELEPORT := {"action": "teleport", "name": "Teleport", "icon": "Skill.wz/200.img/skill/2001002/icon",
 	"skill": "teleport_fp"}
 const DASH := {"action": "dash", "name": "Dash", "icon": "Skill.wz/500.img/skill/5001005/icon", "skill": "dash"}
@@ -73,19 +74,20 @@ func test_the_cells_are_in_the_fixed_order_with_key_config_icons_and_default_key
 	assert_eq(_cell(cells, "drink_mp").caption, "End")
 
 
-func test_potion_cells_show_the_current_item_icon_and_stock() -> void:
+func test_potion_cells_show_the_current_item_icon_without_stock() -> void:
 	var cells := _cells()
 	var hp := _cell(cells, "drink_hp")
 	assert_eq(hp.icon_path, AssetLibrary.item_icon_path(2000000, false), "the current Red Potion's icon")
-	assert_eq(hp.count, 5)
+	assert_false(hp.has("count"), "unlimited potions carry no stock number")
 	assert_eq(hp.item_id, 2000000)
 	var mp := _cell(cells, "drink_mp")
-	assert_eq(mp.count, 0, "an empty stock still shows its count")
+	assert_false(mp.has("count"))
 	assert_eq(mp.icon_path, AssetLibrary.item_icon_path(2000003, false))
-	assert_eq(_cell(cells, "jump").count, -1, "only potions have a count")
+	for c: Dictionary in cells:
+		assert_false(c.has("count"), "no quick-slot cell carries a count")
 	var none := HudQuickSlot.cells({}, {"hp": {"item_id": 0, "count": 0}, "mp": {}}, {})
 	assert_eq(none[0].icon_path, KeyActionArt.icon_path("drink_hp"), "no item yet: the Key Config potion icon")
-	assert_eq(none[1].count, 0)
+	assert_false(none[1].has("count"))
 
 
 func test_rebound_potions_show_only_their_first_key() -> void:
@@ -96,6 +98,38 @@ func test_rebound_potions_show_only_their_first_key() -> void:
 	assert_eq(_cell(_cells(), "drink_hp").caption, "Del", "the project default: Del first")
 	s.set_bindings({"drink_hp": PackedInt32Array([KEY_Q, KEY_F])})
 	assert_eq(_cell(_cells(), "drink_hp").caption, "Q", "the first bound key wins whatever its name")
+
+
+func test_potion_sweeps_match_skills_and_redraw_only_when_the_step_changes() -> void:
+	var w := HudQuickSlot.new()
+	_nodes.append(w)
+	w.update({"potions": POTIONS}, {})
+	assert_eq(w.displayed("hp").sweep_step, 48, "half of the HP cooldown")
+	assert_eq(w.displayed("mp").sweep_step, 0, "MP is independently ready")
+	assert_false(w.displayed("hp").has("count"))
+	var left := PackedFloat32Array([10.0, 0.0])
+	var total := PackedFloat32Array([20.0, 10.0])
+	assert_false(w.set_cooldowns(left, total), "the snapshot already drew these steps")
+	left[0] = 9.99
+	assert_false(w.set_cooldowns(left, total), "same sweep step: no redraw")
+	left[0] = 9.0
+	left[1] = 10.0
+	assert_true(w.set_cooldowns(left, total), "HP advances and MP starts")
+	assert_eq(w.displayed("hp").sweep_step, HudSkills.sweep_step(9.0, 20.0))
+	assert_eq(w.displayed("mp").sweep_step, 96, "full MP overlay")
+	for seconds: float in [20.0, 15.0, 10.0, 5.0, 0.01, 0.0, -1.0, 30.0]:
+		left[0] = seconds
+		w.set_cooldowns(left, total)
+		assert_eq(w.displayed("hp").sweep_step, HudSkills.sweep_step(seconds, 20.0), "same sweep as skills")
+		assert_false(w.set_cooldowns(left, total), "unchanged input never redraws")
+	left.fill(0.0)
+	w.set_cooldowns(left, total)
+	w.refresh_key_labels()
+	assert_eq(w.displayed("hp").sweep_step, 0, "a caption refresh keeps the per-frame sweep")
+	assert_eq(w.displayed("mp").sweep_step, 0, "both are ready again")
+	total.fill(0.0)
+	left.fill(1.0)
+	assert_false(w.set_cooldowns(left, total), "no cooldown total means ready")
 
 
 func test_an_unbound_action_has_an_empty_caption_but_keeps_its_icon() -> void:
@@ -151,7 +185,7 @@ func test_the_widget_follows_updates_and_key_config_ok() -> void:
 	_nodes.append(w)
 	w.update({"potions": POTIONS}, {"movement_skill": TELEPORT})
 	assert_eq(w.cell("teleport").caption, "X")
-	assert_eq(w.cell("drink_hp").count, 5)
+	assert_false(w.cell("drink_hp").has("count"))
 	s.set_bindings({"drink_hp": PackedInt32Array([KEY_F]), "teleport": PackedInt32Array([KEY_SPACE])})
 	w.refresh_key_labels()
 	assert_eq(w.cell("drink_hp").caption, "F", "captions update at once")

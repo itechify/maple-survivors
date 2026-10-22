@@ -352,7 +352,7 @@ static func _jobs(data: Dictionary) -> JobTree:
 	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
 
 
-## Every potion item a run can hold, ascending: the balance.potions starters and every item of the potions.schedule
+## Every potion item a run can use, ascending: the balance.potions starting item ids and every potions.schedule item
 ## (PotionSchedule). These are the Item.wz/Consume entries (`potion_img_path`) a setup loads.
 static func potion_item_ids(data: Dictionary) -> PackedInt32Array:
 	var ids := PackedInt32Array()

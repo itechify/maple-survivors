@@ -599,11 +599,8 @@ static func with_basic_attack(setup: Dictionary) -> Dictionary:
 static func quiet_data() -> Dictionary:
 	var data := DataRepo.load_all()
 	data.balance.player.mp = 5
-	data.balance.potions.mp.start = 0
 	data.skills.skills.three_snails.count = 1
 	data.skills.skills.energy_bolt.count = 1
-	# Isolated combat/physics tests opt into potion rolls explicitly when they need them.
-	data.balance.potions.drops = {"normal": {"hp": 0.0, "mp": 0.0}, "elite": {"hp": 0.0, "mp": 0.0}}
 	var stages: Dictionary = data.stages.stages
 	var pool := {}
 	for id: int in MOB_INFO:

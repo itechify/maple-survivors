@@ -37,7 +37,6 @@ func test_three_snails_pays_each_canonical_levels_mp_cost() -> void:
 func test_v83_opening_pool_casts_three_snails_at_regen_pace() -> void:
 	var data := DataRepo.load_all()
 	data.stages.stages["quiet"] = RF.quiet_data().stages.stages.quiet
-	data.balance.potions.drops = {"normal": {"hp": 0.0, "mp": 0.0}, "elite": {"hp": 0.0, "mp": 0.0}}
 	var world := RunWorld.new(RF.setup("quiet", 29, data))
 	world.god = true
 	RF.place_player(world, 400)
@@ -45,7 +44,7 @@ func test_v83_opening_pool_casts_three_snails_at_regen_pace() -> void:
 	world.mob_kinds[int(world.kind_of_id[1110100])].move_speed = 0.0
 	world.mob_kinds[int(world.kind_of_id[1110100])].pushed = 100000
 	assert_eq(world.player_state.max_mp, 5, "the v83 Beginner opening pool")
-	assert_eq(world.player_state.potions.mp.count, 0, "no starter Blues: a five-MP pool cannot hold one")
+	assert_false(BotInput.worth_drinking(world, "mp", 5.0, 0.5), "the waste guard holds a Blue even when the tiny pool is empty")
 	var casts := 0
 	var shortages := 0
 	for tick in 60 * 25:
