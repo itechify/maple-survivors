@@ -76,6 +76,10 @@ const SCORE_GAIN_STEP := 6.0
 
 ## The input for the next tick of `w`.
 static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
+	if int(memo.get("map_index", 0)) != w.map_index:
+		for key: String in ["portal_x", "climb_x", "climb_t", "flip", "flip_t", "stuck", "last_x", "down_cd"]:
+			memo.erase(key)
+	memo["map_index"] = w.map_index
 	var mi := MoveInput.new()
 	var guard := float(w.balance.get("potions", {}).get("bot", {}).get("min_restore_fraction", 0.5))
 	var ps := w.player_state

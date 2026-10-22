@@ -119,6 +119,8 @@ const EVENT_FIELDS := {
 	"skill_learned": ["skill", "skill_id"],
 	"burst": ["count"],
 	"stage_cleared": ["time"],
+	"map_cleared": ["map_index"],
+	"map_entered": ["map_index", "map_id"],
 	"boss_warning": ["boss_index", "mob_id", "time"],
 	"boss_spawned": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_died": ["boss_index", "mob", "mob_id", "pos", "time"],
@@ -571,8 +573,9 @@ func advance_map() -> void:
 	_sync_slots()
 	# Recreate spatial caches and the fractional spawn accumulator, preserving round counters and pool data.
 	var fresh := SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
-	for field: String in ["spawned", "bursts", "elites", "recycled", "relocated", "next_burst", "next_elite"]:
+	for field: String in ["spawned", "bursts", "elites", "recycled", "relocated"]:
 		fresh.set(field, director.get(field))
+	fresh.seek_curve(curve_time())
 	director = fresh
 	# #245 adds map_index/map_pools; use the contract fields once its pool implementation lands.
 	player.place(PortalSet.start_point(_current_map_img(), fhm, bounds, spawn_rng), fhm)

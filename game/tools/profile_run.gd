@@ -78,6 +78,8 @@ func _init() -> void:
 	var t_start := Time.get_ticks_msec()
 	while w.time < to:
 		BR.choose(w, "bot", rng, cards, forced_job)
+		if w.transfer_pending:
+			w.advance_map()
 		if w.state != RunWorld.PLAYING:
 			break
 		var b0 := Time.get_ticks_usec()
@@ -85,6 +87,8 @@ func _init() -> void:
 		var b1 := Time.get_ticks_usec()
 		if w.time < from:
 			w.step(DT, input)
+			if w.transfer_pending:
+				w.advance_map()
 			BotShop.equip_after(w, w.drain_events())
 			continue
 		bot_us += b1 - b0
@@ -153,6 +157,8 @@ func _init() -> void:
 static func _timed_step(w: RunWorld, dt: float, input: MoveInput, acc: PackedInt64Array) -> void:
 	var timer := StageTimer.new(acc)
 	w.step(dt, input, timer.lap)
+	if w.transfer_pending:
+		w.advance_map()
 
 
 class StageTimer extends RefCounted:

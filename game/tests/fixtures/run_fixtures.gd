@@ -570,6 +570,8 @@ static func physical_bounds(str_stat: int, dex_stat: int, watk: float, weapon_id
 ## Resolves an open window like BotInput: the first available job (else "Not now") and BotInput.pick_card_for's card.
 static func auto_choose(w: RunWorld) -> void:
 	BotInput.auto_choose(w)
+	if w.transfer_pending:
+		w.advance_map()
 
 
 ## Adds canonical-shaped weapon afterimage and body timing data to `setup` so the automatic basic attack can swing on

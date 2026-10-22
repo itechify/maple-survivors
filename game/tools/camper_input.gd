@@ -12,7 +12,7 @@ static func decide(world: RunWorld, policy: String, memo: Dictionary, after: flo
 	if not memo.has("bot"):
 		memo.bot = {}
 	var bot := BotInput.decide(world, memo.bot)
-	if world.time < after or not STAGES.has(policy):
+	if world.map_index > 0 or world.time < after or not STAGES.has(policy):
 		return bot
 	var input := MoveInput.new()
 	input.drink_hp = bot.drink_hp

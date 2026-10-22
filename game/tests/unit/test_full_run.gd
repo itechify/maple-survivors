@@ -39,6 +39,8 @@ func _run(w: RunWorld) -> Dictionary:
 		var ticked := w.state == RunWorld.PLAYING and t < ticks
 		if ticked:
 			w.step(DT, RF.bot_input(w, memo))
+			if w.transfer_pending:
+				w.advance_map()
 			if t % 60 == 0:
 				alive.append(w.swarm.alive_count())
 				if w.time >= 480.0:

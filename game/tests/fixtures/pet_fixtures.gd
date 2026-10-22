@@ -61,6 +61,8 @@ static func run(w: RunWorld, ticks: int, input: MoveInput = null) -> Array:
 	var move := input if input != null else MoveInput.new()
 	for i in ticks:
 		w.step(DT, move)
+		if w.transfer_pending:
+			w.advance_map()
 		out.append_array(w.drain_events())
 	return out
 

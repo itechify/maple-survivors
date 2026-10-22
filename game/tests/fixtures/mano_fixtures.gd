@@ -33,6 +33,8 @@ static func world(ids: Array = [126], seed_value: int = 22) -> RunWorld:
 	w.god = true
 	RF.place_player(w, 400)
 	w.step(1.0 / 60.0, MoveInput.new())
+	if w.transfer_pending:
+		w.advance_map()
 	var slot := int(w.bosses.records[0].slot)
 	w.relocate_mob(slot, Vector2(600, 200), w.fhm.find_below(600, 190))
 	w.drain_events()

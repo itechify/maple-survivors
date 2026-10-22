@@ -67,6 +67,8 @@ func _drive() -> void:
 		world.hit_mob(target, {"skill": "trigger", "damage_type": "physical", "damage_min": 1,
 			"damage_max": 1, "crit": 0, "crit_mult": 1.5}, -1)
 		world.step(DT, MoveInput.new())
+		if world.transfer_pending:
+			world.advance_map()
 		for event: Dictionary in world.drain_events():
 			if event.type != "ammo_shot":
 				continue
@@ -92,6 +94,8 @@ func _drive() -> void:
 		mobs.append(RF.put_mob(blaster, 1110100, x, 190, 100))
 	for tick in 25:
 		blaster.step(DT, MoveInput.new())
+		if blaster.transfer_pending:
+			blaster.advance_map()
 	for event: Dictionary in blaster.drain_events():
 		if event.type == "skill_impact":
 			event.pos += Vector2(0, 100)

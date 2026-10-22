@@ -176,6 +176,18 @@ func effective_rate(world: RunWorld) -> float:
 	return rate_at(world.curve_time()) * world.bosses.normal_spawn_multiplier()
 
 
+## Re-arms periodic curve events after a map's scheduled opening; boss overtime never skips the new segment.
+## tier C: events exactly at the offset have already run on the departing map (spec #241 scheduled pacing).
+func seek_curve(t: float) -> void:
+	if not is_inf(next_burst):
+		var every := float(stage.bursts.every)
+		while next_burst <= t + 1e-6:
+			next_burst += every
+	if not is_inf(next_elite):
+		while next_elite <= t + 1e-6:
+			next_elite += elite_interval_at(next_elite)
+
+
 ## Alive target at t (rounded).
 func max_alive_at(t: float) -> int:
 	return roundi(value_at("max_alive", t))

@@ -395,10 +395,14 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var low_hp := 1.0
 	for t in ticks + 1: # drain the final choice-only settlement too, without adding a combat/measurement tick
 		choose(w, policy, rng, cards_taken, forced_job)
+		if w.transfer_pending:
+			w.advance_map()
 		var ticked := w.state == RunWorld.PLAYING and t < ticks
 		if ticked:
 			var idle := idle_after >= 0.0 and w.time >= idle_after
 			w.step(DT, MoveInput.new() if idle else movement(w, policy, memo, camp_after))
+			if w.transfer_pending:
+				w.advance_map()
 			var late_dt := clampf(w.time - LATE_MP_START, 0.0, DT)
 			late_observed_seconds += late_dt
 			if bool(w.player_state.get("mp_short",false)):

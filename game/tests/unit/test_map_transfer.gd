@@ -2,28 +2,14 @@ extends TestCase
 ## Fixed-tick seeded map boundaries through RunWorld's transfer, choice and event APIs.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const MF := preload("res://tests/fixtures/mano_fixtures.gd")
+const PF := preload("res://tests/fixtures/pet_fixtures.gd")
+const CAMPER := preload("res://tools/camper_input.gd")
 const DT := 1.0 / 60.0
 
 
 func _setup(seconds := 300.0) -> Dictionary:
-	var data := RF.quiet_data()
-	data.balance.player.skills = []
-	data.balance.mesos.boss_drops = 0
-	var stage: Dictionary = data.stages.stages.quiet
-	stage.erase("map_id")
-	stage.erase("bosses")
-	stage.map_seconds = 300.0
-	stage.maps = []
-	var setup := RF.setup("quiet", 244, data)
-	setup.map_imgs = []
-	for i in 3:
-		stage.maps.append({"map_id": 100000000 + i, "pool": "curve",
-			"boss": {"mob_id": 100100, "time": seconds, "rewards": {"bonus_choices": 0, "exp_mult": 0.0}}})
-		setup.map_imgs.append(RF.map_from_segments([
-			{"x1": -2000, "y1": i * 200, "x2": 2000, "y2": i * 200}],
-			[Vector2(-500, i * 200 - 10), Vector2(500, i * 200 - 10)]))
-	setup.map_img = setup.map_imgs[0]
-	return setup
+	return preload("res://tests/fixtures/map_transfer_fixtures.gd").setup(seconds)
 
 
 func test_map_clock_starts_at_the_scheduled_curve_offset() -> void:
@@ -49,7 +35,7 @@ func _kill(w: RunWorld) -> void:
 	var slot := int(w.bosses.records[w.map_index].slot)
 	assert_true(slot >= 0, "the current map's boss arrived")
 	if slot >= 0:
-		w.hit_mob(slot, {"damage_min": 1000000.0, "damage_max": 1000000.0, "magic": false,
+		w.hit_mob(slot, {"damage_min": 1e9, "damage_max": 1e9, "magic": false,
 			"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
 
 
@@ -118,7 +104,7 @@ func test_boss_kill_freezes_both_directions_and_sweeps_before_choices_once() -> 
 	assert_eq(w.state, RunWorld.CHOOSING_JOB)
 	assert_true(w.apply_job(200))
 	assert_true(w.choice_advancement)
-	RF.auto_choose(w)
+	BotInput.auto_choose(w)
 	assert_true(w.transfer_pending)
 	assert_eq(w.time, t)
 	assert_eq(w.kills, 1, "ordinary mobs vanish without kill credit")
@@ -158,3 +144,235 @@ func test_projectile_boss_kill_stops_piercing_blasts_and_later_shots_in_the_same
 		assert_eq(w.kills, 1)
 		assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit").size(), 1,
 			"the killing line is the last damaging event, including a shell's secondary blast targets")
+
+
+func test_full_equip_tab_blocks_once_without_stalling_then_discards_the_uncollected_item() -> void:
+	var w := RunWorld.new(_setup(0.1))
+	w.god = true
+	_ticks(w, 60)
+	while w.equipment.inventory.size() < w.inventory_slots():
+		w.equipment.inventory.append(Equipment.create(1002001, {}))
+	var drop := w.spawn_equipment(Vector2(1300, -500), Equipment.create(1002002, {}))
+	w.spawn_meso(Vector2(1300, -500), 17)
+	w.drain_events()
+	_kill(w)
+	w.step(DT, MoveInput.new())
+	assert_true(w.transfer_pending)
+	assert_eq(w.pickups.active[drop], 1, "same blocked-on-ground rule as the finale")
+	assert_eq(w.mesos, 17)
+	assert_eq(w.equips_collected, 0)
+	_ticks(w, 10)
+	var events := w.drain_events()
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "pickup_blocked").size(), 1)
+	w.advance_map()
+	assert_eq(w.pickups.active_count(), 0, "uncollected full-tab equipment belongs to the previous map")
+	assert_eq(w.equipment.inventory.size(), w.inventory_slots())
+	assert_eq(w.equips_collected, 0)
+
+
+func test_transfer_keeps_character_timers_and_pools_clears_statuses_and_rehomes_the_pet() -> void:
+	var setup := _setup(0.1)
+	var mano := MF.setup([126])
+	setup.mob_imgs[100100] = mano.mob_imgs[2220000]
+	setup.mob_skill_img = mano.mob_skill_img
+	setup.data.balance.mob_skills.enabled_ids = [100100]
+	setup.character = RunWorld.new(setup).character_snapshot()
+	setup.character.pet = PF.KITTY
+	setup.account = {"owned": [PF.KITTY]}
+	var w := RunWorld.new(setup)
+	w.god = true
+	_ticks(w, 16 * 60)
+	assert_false(w.mob_skills.slow_state(w.time).is_empty(), "the canonical synthetic boss cast Slow")
+	w.spend_mp(2)
+	w.spend_hp(7)
+	w.learn_skill("dark_sight")
+	assert_true(w.start_buff("dark_sight", w.runner.stats_of(w, "dark_sight")))
+	w.runner.cooldowns.dark_sight = 12.0
+	w.basic.cooldown = 0.75
+	w._teleport_left = 0.6
+	w.potions.consume("hp")
+	w.projectiles.spawn({"x": 1700, "y": -100, "vx": 1.0, "range": 500.0})
+	w.mob_projectiles.spawn({"pos": Vector2(1700, -100), "velocity": Vector2(1, 0), "range": 500.0,
+		"visual": 0, "mob": -1, "mob_id": 100100, "damage": 10.0, "multiplier": 1.0,
+		"accuracy": 100.0, "magic": false, "element": "", "hit": "", "source_pos": Vector2.ZERO})
+	w.spawn_offspring(int(w.bosses.records[0].slot), 0.0, [100100], 0)
+	_kill(w)
+	w.step(DT, MoveInput.new())
+	assert_true(w.transfer_pending)
+	var hp: int = w.player_state.hp
+	var mp: int = w.player_state.mp
+	var buffs := w.buffs.snapshot()
+	var potion := w.potions.cooldown_left.duplicate()
+	var character := w.character_snapshot()
+	var nav := w.nav
+	var fhm := w.fhm
+	var t := w.time
+	_ticks(w, 60)
+	w.advance_map()
+	assert_eq(w.time, t)
+	assert_eq(w.map_entered_at, t)
+	assert_eq(w.player_state.hp, hp)
+	assert_eq(w.player_state.mp, mp)
+	assert_eq(w.buffs.snapshot(), buffs)
+	assert_true(w.is_hidden())
+	assert_eq(w.skill_readiness("dark_sight").left, 12.0)
+	assert_eq(w.basic.cooldown, 0.75)
+	assert_eq(w._teleport_left, 0.6)
+	assert_eq(w.potions.cooldown_left, potion)
+	assert_eq(w.character_snapshot(), character)
+	assert_eq(w.kills, 1)
+	assert_eq(w.projectiles.active_count(), 0)
+	assert_eq(w.mob_projectiles.active_count(), 0)
+	assert_eq(w.pickups.active_count(), 0)
+	assert_eq(w.swarm.alive_count(), 0)
+	assert_eq(w.mob_skills.slow_state(w.time), {})
+	assert_true(w.nav != nav and w.fhm != fhm)
+	assert_eq(w.swarm.fhm, w.fhm)
+	assert_eq(w.player.pos.y, 200.0)
+	assert_true(w.player.pos.x in [-500.0, 500.0])
+	assert_true(w.pet_system != null)
+	if w.pet_system != null:
+		assert_true(w.pet_system.motion.pos.distance_to(w.player.pos) < 100.0)
+		w.step(DT, MoveInput.new())
+		assert_eq(w.pet_state().species, PF.KITTY)
+
+
+func test_later_maps_replay_their_scheduled_bursts_and_elites_after_a_slow_boss() -> void:
+	var setup := _setup(0.1)
+	var stage: Dictionary = setup.data.stages.stages.quiet
+	stage.bursts = {"first": 30.0, "every": 30.0, "count_min": 0, "count_max": 0}
+	stage.elites = {"first": 30.0, "every": 30.0}
+	var w := RunWorld.new(setup)
+	w.god = true
+	_ticks(w, 420 * 60)
+	_kill(w)
+	w.step(DT, MoveInput.new())
+	w.advance_map()
+	w.drain_events()
+	_ticks(w, 30 * 60 + 1)
+	var events := w.drain_events()
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "burst").size(), 1,
+		"map 2's curve 330 burst is not skipped because map 1's fight reached 420")
+	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "mob_spawned" and bool(e.elite)))
+
+
+func test_bot_and_campers_forget_old_map_routes_after_navigation_rebuild() -> void:
+	var w := RunWorld.new(_setup(0.1))
+	w.god = true
+	_ticks(w, 60)
+	var memo := {"map_index": 0, "portal_x": -500.0, "climb_x": -500.0, "climb_t": 30}
+	_kill(w)
+	w.step(DT, MoveInput.new())
+	w.advance_map()
+	BotInput.decide(w, memo)
+	assert_false(memo.has("portal_x"))
+	assert_false(memo.has("climb_x"))
+	for policy: String in CAMPER.STAGES:
+		var camper := {"started_time": 0.0, "reached": true, "bot": {}}
+		var expected := BotInput.decide(w, {})
+		var actual := CAMPER.decide(w, policy, camper, 0.0)
+		assert_eq([actual.left, actual.right, actual.up, actual.jump_pressed],
+			[expected.left, expected.right, expected.up, expected.jump_pressed],
+			"a camper uses the sensible bot after map 0")
+
+
+func _replay() -> Dictionary:
+	var w := RunWorld.new(_setup(0.1))
+	w.god = true
+	var events: Array = w.drain_events()
+	for index in 3:
+		assert_eq(w.map_index, index)
+		_ticks(w, 90)
+		_kill(w)
+		w.step(DT, MoveInput.new())
+		BotInput.auto_choose(w)
+		events.append_array(w.drain_events())
+		if index < 2:
+			assert_eq(w.state, RunWorld.PLAYING)
+			assert_true(w.transfer_pending)
+			assert_false(w.can_clear())
+			w.advance_map()
+			w.advance_map() # idempotent: a caller cannot skip a map
+			events.append_array(w.drain_events())
+		else:
+			assert_eq(w.state, RunWorld.CLEARED)
+			assert_false(w.transfer_pending)
+	return {"events": events, "bosses": w.bosses.records, "player": w.player_state,
+		"spawn_rng": w.spawn_rng.state, "kills": w.kills, "time": w.time}
+
+
+func test_only_the_final_map_clears_and_the_same_seed_replays_identical_event_bytes() -> void:
+	var first := _replay()
+	var second := _replay()
+	assert_eq(var_to_bytes(first), var_to_bytes(second))
+	assert_eq(first.kills, 3)
+	assert_eq(first.events.filter(func(e: Dictionary) -> bool: return e.type == "map_cleared").size(), 2)
+	assert_eq(first.events.filter(func(e: Dictionary) -> bool: return e.type == "map_entered").size(), 2)
+	assert_eq(first.events.filter(func(e: Dictionary) -> bool: return e.type == "stage_cleared").size(), 1)
+
+
+func test_legacy_setups_without_maps_or_map_imgs_keep_the_single_map_schedule() -> void:
+	for remove: String in ["maps", "map_imgs"]:
+		var setup := _setup(0.1)
+		if remove == "maps":
+			setup.data.stages.stages.quiet.erase("maps")
+			setup.data.stages.stages.quiet.bosses = [{"time": 0.1, "mob_id": 100100,
+				"rewards": {"exp_mult": 0.0, "bonus_choices": 0}}]
+		else:
+			setup.erase("map_imgs")
+		var w := RunWorld.new(setup)
+		w.god = true
+		assert_false(w.map_sequence_enabled())
+		_ticks(w, 60)
+		_kill(w)
+		w.step(DT, MoveInput.new())
+		BotInput.auto_choose(w)
+		assert_false(w.transfer_pending)
+		assert_eq(w.map_index, 0)
+		assert_eq(w.state, RunWorld.CLEARED if remove == "maps" else RunWorld.PLAYING)
+
+
+func test_real_cache_transfers_through_each_regions_maps_with_valid_arrivals() -> void:
+	if not require_cache():
+		return
+	var data := DataRepo.load_all()
+	var library := AssetLibrary.new()
+	library.open()
+	for key: String in data.stages.stages:
+		var stage: Dictionary = data.stages.stages[key]
+		if stage.get("maps", []).is_empty():
+			library.free()
+			skip("multi-map stage schema is not integrated yet")
+			return
+		for entry: Dictionary in stage.maps:
+			if library.img(DataRepo.map_img_path(int(entry.map_id))) == null:
+				library.free()
+				skip("cache lacks map %d; new-map transfer is unverified" % int(entry.map_id))
+				return
+	for key: String in data.stages.stages:
+		var missing := PackedStringArray()
+		var setup := DataRepo.build_setup(data, key, 244, Vector2(800, 600),
+			func(path: String) -> Dictionary:
+				var img := library.img(path)
+				return img.root if img != null else {},
+			func(id: int) -> Dictionary: return library.mob_root(id), missing)
+		assert_eq(missing.size(), 0, "complete real-cache setup for " + key)
+		var w := RunWorld.new(setup)
+		w.god = true
+		for index in 3:
+			assert_eq(w.map_index, index)
+			assert_eq(w.current_map_id(), int(w.stage.maps[index].map_id))
+			assert_true(w.fhm.count() > 0 and w.player.fh >= 0, "arrival has a floor on " + key)
+			var arrival := w.director.pick_player_platform(w, 0.0, 250.0, true)
+			assert_true(arrival.z >= 0.0, "a boss arrival exists on " + key)
+			w.time = w.map_entered_at + 300.0 - DT
+			w.step(DT, MoveInput.new())
+			_kill(w)
+			w.step(DT, MoveInput.new())
+			BotInput.auto_choose(w)
+			if index < 2:
+				assert_true(w.transfer_pending)
+				w.advance_map()
+		assert_eq(w.state, RunWorld.CLEARED)
+		assert_eq(w.warnings.size(), 0)
+	library.free()
