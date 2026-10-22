@@ -577,7 +577,7 @@ diagnostics. Screenshots were opened and checked by eye, including every interme
 destination name/arrival and final-map CLEAR:
 
 - Henesys: Hunting Ground I and Mano; Pig Beach with Pigs/Ribbon Pigs and Mushmom; Blue Mushroom Forest with Blue
-  Mushrooms/Dark Axe Stumps and Blue Mushmom. Both arrivals are framed without old-map mobs; all three clear notices
+  Mushrooms/Horny Mushrooms and Blue Mushmom. Both arrivals are framed without old-map mobs; all three clear notices
   render. Evidence: `henesys_carried_s1_x8/`.
 - Ellinia: Tree That Grew I and Stumpy; Forest of Wisdom's Slimes and King Slime; Forest of Evil I's Zombie Lupins/
   Maladies and Dyle. The unassisted fixture's map-3 death remains visible evidence of pressure; the diagnostic
