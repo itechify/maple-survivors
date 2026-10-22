@@ -24,7 +24,7 @@ const LIST_W := 176.0
 const ENTRY_H := 46.0
 const DETAIL_X := 234.0
 const DETAIL_W := 232.0
-const MAP_ROW_H := 44.0 # tier C: #247, three wrapped map/boss rows fit the v83 parchment.
+const MAP_ROW_GAP := 6.0 # tier C: compact map/boss groups on the v83 parchment; wrapped lines stay together.
 const INK := Color8(102, 51, 0)
 const INK_SOFT := Color8(136, 85, 34)
 const INK_RED := Color8(170, 34, 0)
@@ -283,11 +283,10 @@ func _draw_details(ci: Control, st: Dictionary) -> void:
 		MapleText.SMALL, true)
 	y += 18.0
 	for row: String in st.map_rows:
-		var row_y := y
 		for line: String in MapleText.wrap(row, DETAIL_W, MapleText.SMALL):
 			MapleText.draw(ci, Vector2(x, y), line, INK, MapleText.SMALL)
 			y += MapleText.LINE_SMALL
-		y = row_y + MAP_ROW_H
+		y += MAP_ROW_GAP
 
 
 ## The best-result line of the details column.
