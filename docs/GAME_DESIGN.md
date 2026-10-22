@@ -504,6 +504,29 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #241 (#246): presentation regression before the stage schema (2026-10-21)
+
+Presentation `2b54d5c` on integration `9ba2025`, cache `caches/s241`, private `ISOLATE=t246_*` mirrors.
+`balance.sh 1 2 2026` ran both legacy tier-1 stages and bot/random (12 runs), both Henesys tier-2 chains (6 chains),
+and both Dark Cave fixture policies (6 runs, `lv35_magician_2nd.json`). No tuning, PATCH or held-out seeds.
+All 26 started rounds have `warnings: []`, `missing: []`; all eight commands exited zero, with no crash or engine/script warning.
+Tier-1 outcomes and end times match the preceding #237 smoke exactly. C/D = cleared/dead; columns are seeds 1 / 2 / 2026:
+
+| Legacy stage / policy | Outcome and end seconds | Ending levels |
+|---|---|---|
+| Henesys / bot | C 936.8 / D 309.4 / D 306.5 | 49 / 11 / 11 |
+| Henesys / random | D 917.4 / D 423.4 / C 951.3 | 44 / 19 / 51 |
+| Tree / bot | D 491.1 / D 39.1 / D 34.7 | 22 / 1 / 1 |
+| Tree / random | D 443.5 / D 39.1 / D 34.7 | 19 / 1 / 1 |
+
+One chain per policy feeds tier 2: bot seed 1 (derived seed 2260174940) dies at 620.4 s, random seed 2026
+(1823073557) at 616.8 s; both Lv67 with one boss killed. The other four chains stop in tier 1.
+The Dark Cave fixture dies at 316.0 / 337.1 / 222.3 s (bot) and 215.7 / 326.7 / 224.9 s (random), all before a boss kill;
+these are recorded without tuning. Raw records and console/SYSTEMS summaries remain ignored in `_scratch/t246-smoke-legacy/`.
+This smoke predates #243: the real stage data still has no `maps`, so it proves no three-map pacing or balance.
+The cache-backed RunScene tests use an explicit adapted three-map setup instead; synthetic windowed captures of
+both transfers were checked by eye in `evidence/spec241/t246/synthetic/` in the integration checkout.
+
 #### Spec #237 (#240): potion cooldowns: regression smoke (2026-10-21)
 
 Feature smoke only: `bash scripts/balance.sh 1 2 2026 --stage=<key> --policy=<policy>` for `henesys_hg1` and
