@@ -546,6 +546,31 @@ The nine SKIPs cover missing new-map art/mobs, real-cache transfers and six map 
 of those assets. The full 2,114-test run above predates these integration merges; after merging, the affected
 checks were rerun. SpawnDirector and StagePools implementation matches the incoming integration tip unchanged.
 
+Fix-up validation on the integrated `fa99ded` runtime uses Git Bash, `ISOLATE=t243b` and cache `s241`.
+The five reported RunScene failures reproduce in 48 tests (5 failed, 0 skipped). All were obsolete fixture
+assumptions: the roster expectation omitted map-life pools (Ribbon Pig 1210101, Dark Axe Stump 2110200 and Blue
+Mushroom 2220100 account for 15 versus 18); the four injected boss schedules lacked map indices and were therefore
+not armed by the region director. The roster check now supplies every loaded map and the canonical summon/revive
+inputs, and checks each id's cache image, preload and sim kind. The HP-bar, simultaneous-icon/colour, King Slime
+split and bonus-before-finale tests explicitly retain a legacy single-map schedule, preserving all original
+assertions. Intermediate-map settlement and final-map-only clears remain covered by `test_map_transfer.gd`.
+The RunScene recheck passes **48 tests, 0 failed, 0 skipped**; no runtime or balance data changed.
+The full recheck passes **2,146 tests, 0 failed, 0 skipped** (207 files, 1,057 s, exit 0;
+`TEST_TIMEOUT_S=3000`), including real-cache traversal through all three maps of each region. The pre-existing
+two dummy-renderer texture RID shutdown warnings remain. The final fetch still finds integration at `9ba2025`,
+already included; no further merge is needed.
+
+The requested alias smoke (`balance.sh 1 --stage=henesys_hg1`, `ISOLATE=t243b-balance`, cache `s241`) exits 0,
+records canonical `henesys`, and has `warnings: []` / `missing: []` with no crash or script error.
+
+| Stage / policy / seed | End | Map progression |
+|---|---|---|
+| Henesys / bot / 1 | DEAD 308.3 s, Lv12, 255 kills | Mano arrived at 300 s and remained alive; maps 2/3 not entered |
+
+This reproduces the previous integrated alias smoke. Living beyond 5:00 alone does not transfer: the map boss
+must die and its rewards must finish. This natural seed therefore does not verify later-map traversal; the
+real-cache transfer test covers that path. The full regression matrix remains #249's scope; no tuning was done.
+
 #### Spec #237 (#240): potion cooldowns: regression smoke (2026-10-21)
 
 Feature smoke only: `bash scripts/balance.sh 1 2 2026 --stage=<key> --policy=<policy>` for `henesys_hg1` and

@@ -138,6 +138,18 @@ func _frames(n: int) -> void:
 		scene.advance_frame(DT)
 
 
+## HUD/finale probes use an explicit legacy single-map schedule, including simultaneous bosses. Real region
+## schedules require map_index/map_time and settle maps 0/1 as transfers, not as the round finale.
+func _single_map_bosses(entries: Array, rules: Dictionary = {}) -> void:
+	var w := scene.world
+	w.stage = w.stage.duplicate(true)
+	w.stage["map_id"] = w.current_map_id()
+	w.stage.erase("maps")
+	w.stage["bosses"] = entries.duplicate(true)
+	w.bosses = BossDirector.new(entries, rules)
+	assert_false(w.map_sequence_enabled(), "this probe deliberately uses the legacy single-map lifecycle")
+
+
 ## Live slots plus dying ones (MobRenderer draws STAND..DIE).
 func _drawn_mob_slots(w: RunWorld) -> int:
 	var n := 0
@@ -198,7 +210,14 @@ func test_autoplay_two_minutes_draws_the_sim() -> void:
 	assert_true(1302000 in scene.avatar.look.equips, "the first Beginner frame includes the Sword")
 	var w := scene.world
 	assert_true(w != null, "world built")
-	assert_eq(w.mob_kinds.size(), DataRepo.stage_mob_ids(scene.data, "henesys").size(), "every pool mob has an img")
+	# Include every map's life pool and canonical boss summons/revives, as build_setup does when preloading.
+	var expected_ids := DataRepo.stage_mob_ids(scene.data, scene.stage_key, w.setup.mob_imgs,
+		w.setup.mob_skill_img, w.setup.map_imgs)
+	assert_eq(w.mob_kinds.size(), expected_ids.size(), "every region pool mob has an img")
+	for id: int in expected_ids:
+		assert_false(lib.mob_root(id).is_empty(), "mob %d exists in the real cache" % id)
+		assert_true(w.setup.mob_imgs.has(id), "mob %d was preloaded" % id)
+		assert_true(w.kind_of_id.has(id), "mob %d has a sim kind" % id)
 	assert_true(scene.mob_renderers.size() >= 1, "a mob renderer per floor layer")
 	var max_numbers := 0
 	var max_fx := 0
@@ -302,7 +321,7 @@ func test_live_boss_bar_tracks_hp_and_hides_on_death() -> void:
 	if not require_cache():
 		return
 	scene = _make("henesys", 2102, {})
-	scene.world.bosses = BossDirector.new([{"mob_id": 2220000, "time": 0.5, "hp_mult": 2.0}])
+	_single_map_bosses([{"mob_id": 2220000, "time": 0.5, "hp_mult": 2.0}])
 	scene.world.god = true
 	scene.world.loadout.order.clear()
 	scene.world.loadout.ranks.clear()
@@ -336,7 +355,8 @@ func test_multiple_live_boss_bars_keep_their_own_icons_and_colour_overrides() ->
 	if not require_cache():
 		return
 	scene = _make("henesys", 2103, {})
-	scene.world.bosses = BossDirector.new([
+	# Simultaneous bars remain a HUD contract; live region maps intentionally arm only one boss each.
+	_single_map_bosses([
 		{"mob_id": 2220000, "time": 0.5, "hp_mult": 2.0},
 		{"mob_id": 9400205, "time": 0.7, "hp_mult": 0.25},
 	])
@@ -1105,7 +1125,8 @@ func test_boss_reward_window_is_a_bonus_choice_before_the_clear_sequence() -> vo
 	scene = _make("henesys", 20, {})
 	var w := scene.world
 	w.god = true
-	w.bosses = BossDirector.new([{"time": 0.1, "mob_id": 2220000}], w.balance.bosses)
+	# This is a round-finale window test; an intermediate region boss must transfer instead of clearing.
+	_single_map_bosses([{"time": 0.1, "mob_id": 2220000}], w.balance.bosses)
 	_frames(6)
 	var slot := int(w.bosses.records[0].slot)
 	w.hit_mob(slot, {"damage_min": 1000000.0, "damage_max": 1000000.0, "magic": false,
@@ -1334,7 +1355,8 @@ func test_tree_boss_bars_use_original_icons_and_split_removes_only_the_dead_bar(
 	w.god = true
 	w.loadout.order.clear()
 	w.loadout.ranks.clear()
-	w.bosses = BossDirector.new([{"mob_id":9300003,"time":0.0,"hp_mult":1.5}, {"mob_id":6220000,"time":0.0,"hp_mult":1.5}])
+	# Keep both bosses alive on one map so King Slime's split must leave Dyle's independent bar intact.
+	_single_map_bosses([{"mob_id":9300003,"time":0.0,"hp_mult":1.5}, {"mob_id":6220000,"time":0.0,"hp_mult":1.5}])
 	_frames(1)
 	var rows := scene.hud.boss_bar.displayed()
 	assert_eq(rows.size(), 2)
