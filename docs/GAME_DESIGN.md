@@ -504,6 +504,34 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #241 (#246): integrated presentation smoke (2026-10-21)
+
+After merging `e49f66a` (#243) as `0aca215`, repeated the same 24 seed/configuration invocations with `caches/s241`.
+All 24 started rounds have `warnings: []`, `missing: []`; all eight commands exit zero with no crash or engine/script warning.
+No balance data, PATCH or held-out seeds. D = dead; columns are seeds 1 / 2 / 2026; ending maps follow the completed
+boss records (headless transfer is immediate):
+
+| Region / policy | Death seconds | Ending map number |
+|---|---|---|
+| Henesys / bot | 308.3 / 451.8 / 310.0 | 1 / 2 / 1 |
+| Henesys / random | 435.4 / 383.9 / 413.3 | 2 / 2 / 2 |
+| Ellinia / bot | 632.7 / 39.1 / 34.7 | 2 / 1 / 1 |
+| Ellinia / random | 697.5 / 39.1 / 34.7 | 2 / 1 / 1 |
+
+All six chains stop in tier 1 (zero tier-2 feeds). The Lv38 F/P fixture in Sleepywood dies on map 1 at
+314.7 / 365.9 / 222.3 s (bot) and 215.7 / 327.0 / 224.9 s (random), with no boss killed. These schema/opening/pool
+changes differ from the legacy baseline below; Henesys bot seed 1 exactly matches #243's integrated alias smoke.
+Fresh starts have no clears in this small sample; record for the owner's #249 playtests, without tuning.
+Raw records and console/SYSTEMS summaries remain ignored in `_scratch/t246-smoke-integrated/`.
+
+Integrated scene/schema/transfer/clock checks pass **74 tests, 0 failed, 0 skipped**. The requested fresh-character
+windowed Henesys seed-2026 x8 run dies on map 1 at 310.033 s. A supplemental seed-1 x8 run with the existing Lv38
+F/P fixture clears all three real maps at 930.667 s, Lv66, all three bosses dead, `missing: []`, without invulnerability
+or diagnostic hits. Both clear/fade/black/arrival sequences and the final CLEAR were checked by eye under
+`evidence/spec241/t246/carried_s1_x8/` in the integration checkout: original CLEAR art, destination art/names, correctly
+framed avatar and native destination mobs, no old-map mobs on arrival. The ending summary names map 100030001,
+The Blue Mushroom Forest, Hidden Street, region Henesys.
+
 #### Spec #241 (#246): presentation regression before the stage schema (2026-10-21)
 
 Presentation `2b54d5c` on integration `9ba2025`, cache `caches/s241`, private `ISOLATE=t246_*` mirrors.
