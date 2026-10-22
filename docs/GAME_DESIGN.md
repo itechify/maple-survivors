@@ -504,6 +504,75 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #241 (#246): integrated presentation smoke (2026-10-21)
+
+After merging `e49f66a` (#243) as `0aca215`, repeated the same 24 seed/configuration invocations with `caches/s241`.
+All 24 started rounds have `warnings: []`, `missing: []`; all eight commands exit zero with no crash or engine/script warning.
+No balance data, PATCH or held-out seeds. D = dead; columns are seeds 1 / 2 / 2026; ending maps follow the completed
+boss records (headless transfer is immediate):
+
+| Region / policy | Death seconds | Ending map number |
+|---|---|---|
+| Henesys / bot | 308.3 / 451.8 / 310.0 | 1 / 2 / 1 |
+| Henesys / random | 435.4 / 383.9 / 413.3 | 2 / 2 / 2 |
+| Ellinia / bot | 632.7 / 39.1 / 34.7 | 2 / 1 / 1 |
+| Ellinia / random | 697.5 / 39.1 / 34.7 | 2 / 1 / 1 |
+
+All six chains stop in tier 1 (zero tier-2 feeds). The Lv38 F/P fixture in Sleepywood dies on map 1 at
+314.7 / 365.9 / 222.3 s (bot) and 215.7 / 327.0 / 224.9 s (random), with no boss killed. These schema/opening/pool
+changes differ from the legacy baseline below; Henesys bot seed 1 exactly matches #243's integrated alias smoke.
+Fresh starts have no clears in this small sample; record for the owner's #249 playtests, without tuning.
+Raw records and console/SYSTEMS summaries remain ignored in `_scratch/t246-smoke-integrated/`.
+
+Integrated validation: full suite **2,147 tests, 0 failed, 0 skipped** (207 files, 864 s), Git Bash,
+`ISOLATE=t246`, `TEST_TIMEOUT_S=3000`, cache `s241`; scene/schema/transfer/clock checks pass **74 tests, 0 failed,
+0 skipped**. The two dummy-renderer texture RID shutdown warnings match #243's baseline; focused transfer tests
+and native captures remain clean. The requested fresh-character
+windowed Henesys seed-2026 x8 run dies on map 1 at 310.033 s. A supplemental seed-1 x8 run with the existing Lv38
+F/P fixture clears all three real maps at 930.667 s, Lv66, all three bosses dead, `missing: []`, without invulnerability
+or diagnostic hits. Both clear/fade/black/arrival sequences and the final CLEAR were checked by eye under
+`evidence/spec241/t246/carried_s1_x8/` in the integration checkout: original CLEAR art, destination art/names, correctly
+framed avatar and native destination mobs, no old-map mobs on arrival. The ending summary names map 100030001,
+The Blue Mushroom Forest, Hidden Street, region Henesys.
+
+Uncapped transfer evidence uses the same fixture/seed at x1 with `--warp=290 --minutes=5.2` and
+`--warp=590 --minutes=10.3`, plus an x8 full traversal. An ignored performance mirror buffers per-frame phase/time/
+work samples to `transfer_frames.json` at the end and suppresses event screenshot encoding (final.png remains).
+The two x1 fade-ins have 274 / 200 samples: p95 1.596 / 2.173 ms, p99 1.900 / 2.591 ms, max 49.920 / 67.251 ms,
+exactly one interval above 16.7 ms in each fade-in. There are additional isolated notice/arrival outliers:
+26.383 ms during map 1's notice, 43.682 ms during map 2's notice, and 33.840 ms 1.53 sim seconds after map 3 entry.
+Thus one main reload hitch per boundary is observed, but a strict no-other-spike claim for the entire sequence is
+not verified. Raw frames, configuration and final captures remain under `evidence/spec241/t246/perf_buffered_transfer{1,2}_x1/`.
+The uncapped x8 traversal matches the captured run's ending time/level/kills/bosses; its whole-run p95/p99 is
+13.602 / 27.390 ms, with an unexplained 4,079.620 ms outlier in minute 14, outside the transfer windows.
+No overall steady-60-FPS claim is made at x8; a full headless suite was active on this shared machine.
+
+#### Spec #241 (#246): presentation regression before the stage schema (2026-10-21)
+
+Presentation `2b54d5c` on integration `9ba2025`, cache `caches/s241`, private `ISOLATE=t246_*` mirrors.
+`balance.sh 1 2 2026` ran both legacy tier-1 stages and bot/random (12 runs), both Henesys tier-2 chains (6 chains),
+and both Dark Cave fixture policies (6 runs, `lv35_magician_2nd.json`). No tuning, PATCH or held-out seeds.
+All 26 started rounds have `warnings: []`, `missing: []`; all eight commands exited zero, with no crash or engine/script warning.
+Tier-1 outcomes and end times match the preceding #237 smoke exactly. C/D = cleared/dead; columns are seeds 1 / 2 / 2026:
+
+| Legacy stage / policy | Outcome and end seconds | Ending levels |
+|---|---|---|
+| Henesys / bot | C 936.8 / D 309.4 / D 306.5 | 49 / 11 / 11 |
+| Henesys / random | D 917.4 / D 423.4 / C 951.3 | 44 / 19 / 51 |
+| Tree / bot | D 491.1 / D 39.1 / D 34.7 | 22 / 1 / 1 |
+| Tree / random | D 443.5 / D 39.1 / D 34.7 | 19 / 1 / 1 |
+
+One chain per policy feeds tier 2: bot seed 1 (derived seed 2260174940) dies at 620.4 s, random seed 2026
+(1823073557) at 616.8 s; both Lv67 with one boss killed. The other four chains stop in tier 1.
+The Dark Cave fixture dies at 316.0 / 337.1 / 222.3 s (bot) and 215.7 / 326.7 / 224.9 s (random), all before a boss kill;
+these are recorded without tuning. Raw records and console/SYSTEMS summaries remain ignored in `_scratch/t246-smoke-legacy/`.
+This smoke predates #243: the real stage data still has no `maps`, so it proves no three-map pacing or balance.
+The cache-backed RunScene tests use an explicit adapted three-map setup instead; synthetic windowed captures of
+both transfers were checked by eye in `evidence/spec241/t246/synthetic/` in the integration checkout.
+Validation before #243: full suite **2,140 passed, 0 failed, 0 skipped**; focused RunScene/transfer/clock suite
+**68 passed, 0 failed, 0 skipped**. The full runner logs two dummy-texture RID allocations at shutdown; focused
+transfer and asset/UI/render/font checks and native transfer captures do not reproduce that diagnostic.
+
 #### Spec #241 (#243): schema and legacy-key smoke (2026-10-21)
 
 The isolated #243 runtime played the first map with all three bosses at absolute 300/600/900 seconds;
@@ -6003,6 +6072,8 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Level-up window delay | the `LevelUp` effect plays 1.2 s (about its pillar's peak) on the character before the upgrade window opens; after a job advancement the next window waits for the whole `JobChanged` effect (~1.3 s; 1.3 s without the animation). Presentation only; the sim is already paused | C | ours |
 | Frame cap | vsync on, `Engine.max_fps` = the display's refresh rate rounded up (144 when unknown, at least 30) | C | ours |
 | Run end holds | results 2 s after the tombstone has landed; on a clear the party-quest `CLEAR` field effect (`Map.wz/Effect.img/quest/party/clear`, `Sound.wz/Field.img/Party1/Clear`) at the screen centre for 3.5 s | C | ours (art/sound A) |
+| Map transfer presentation (#246) | Reuse the cached party-quest CLEAR effect/sound for intermediate clears: 3 s hold, 0.4 s fade out, one black frame, advance/reload, 0.4 s fade in; arrival street/map name uses the existing 3.5 s title style. Plain "Map cleared!" fallback when the effect is absent | C (reuse, timing, text), A (art/sound) | `Map.wz/Effect.img/quest/party/clear`: five original frames, delays 100/100/100/100/2000 ms, confirmed in caches/s241; no manifest addition |
+| Windows during map transfer (#246) | Pause and in-run windows hold the notice/fade clock; Resume continues the same phase, including at full black. Combat stays frozen until fade-in finishes; sweep/choice windows retain their existing behavior | C | Presentation policy, no change to RunWorld's deterministic transfer boundary or round-boundary saves |
 | Invincibility blink, hit face | the whole character (one CanvasGroup) alternates alpha 1.0 / 0.4 every 0.08 s while invincible; face `hit` for 1 s after a hit | C | ours |
 | Drop draw order | EXP drops are drawn after the mobs and the character of the character's foothold layer (never hidden in a crowd) | C | ours |
 | Run start title | continent (small) above the region (`stages.json`, #221) under the timer for 3.5 s, the last 1 s fading | C | ours |

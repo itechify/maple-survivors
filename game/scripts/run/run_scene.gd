@@ -24,6 +24,8 @@ extends Node2D
 ## every tick (slot indices are only valid right after the step that emitted them), then updates the renderers from
 ## the sim state. The tick loop stops while the world is not PLAYING (level-up / job windows, death, clear) and while
 ## the pause menu is open.
+## Intermediate map clears hold the sim through CLEAR, fade-out, a black-frame reload and fade-in. Pause/in-run
+## windows hold that presentation clock too; Resume continues the same phase. Only map-owned renderers are replaced.
 ##
 ## Windows (LevelUpWindow, JobAdvanceWindow, PauseMenu: game/scripts/ui/windows/) are hosted in a CanvasLayer (layer
 ## 10); while one is open the fixed-tick loop holds (the sim is also held by its CHOOSING_* state). The level-up window
@@ -102,6 +104,9 @@ const WINDOW_FREE_DELAY := 0.5
 const DEATH_HOLD := 2.0
 ## tier C (ours): seconds the stage-clear notice shows before the run ends.
 const CLEAR_HOLD := 3.5
+## tier C (ours, #246): map CLEAR hold and each half of the transfer fade, in presentation seconds.
+const MAP_CLEAR_HOLD := 3.0
+const MAP_FADE_TIME := 0.4
 ## tier C (ours): the face shows "hit" this long after a hit.
 const HIT_FACE_TIME := 1.0
 ## tier C (ours): invincibility blink, alpha of the dim phase and the period (s) of one bright + dim cycle.
@@ -237,6 +242,11 @@ var _finished := false
 var _title_t := 0.0
 var _title := PackedStringArray()
 var _clear_text := false
+## Map boundary presentation; windows hold this clock and Resume continues the same phase.
+var _transfer_phase := ""
+var _transfer_left := 0.0
+var _map_clear_text := false
+var _transfer_fade: ColorRect
 var _saved_time_scale := 1.0
 
 # Automation and perf.
@@ -365,12 +375,14 @@ func _ready() -> void:
 		_warp(warp)
 		if _shot_every > 0.0:
 			_next_shot = (floorf(world.time / _shot_every + 1e-6) + 1.0) * _shot_every
+	map_id = world.current_map_id()
 	_build_presentation()
 	_warm_ui()
 	_warm_stage()
 	_apply_look()
 	handle_events(world.drain_events())
 	_start_title()
+	_event_shot("map_%d_enter.png" % (world.map_index + 1), 1.0)
 	if not _warp_end_events.is_empty():
 		# The round ended inside the warp: play the death / clear presentation now that the layers exist.
 		_title_t = 0.0 # no map-entry title over a tombstone
@@ -526,7 +538,7 @@ func advance_frame(delta: float) -> void:
 	_last_delta = delta
 	world.view_size = _view_size()
 	var held := paused or ui_windows_open()
-	if not held and window == null and world.state == RunWorld.PLAYING:
+	if not held and window == null and world.state == RunWorld.PLAYING and _transfer_phase == "":
 		_acc += delta
 		var budget := MAX_TICKS_PER_FRAME * _speed
 		var first := true
@@ -546,7 +558,7 @@ func advance_frame(delta: float) -> void:
 				BotShop.equip_after(world, drained) # the bot wears the best it owns (spec #33, #112); the look follows equipment_changed
 			if world.state != RunWorld.PLAYING and _autopick:
 				_service_windows()
-			if world.state != RunWorld.PLAYING:
+			if world.state != RunWorld.PLAYING or _transfer_phase != "":
 				break
 		if budget == 0 or world.state != RunWorld.PLAYING:
 			_acc = minf(_acc, DT) if world.state == RunWorld.PLAYING else 0.0
@@ -581,6 +593,7 @@ func advance_frame(delta: float) -> void:
 	_frame_inventory_full = false
 	_advance_end(delta)
 	if not held:
+		_advance_transfer(delta)
 		_present(delta)
 	_automation()
 
@@ -608,9 +621,12 @@ func _build_map_and_camera() -> void:
 	world_root.add_child(map)
 	if not map.load_map(map_id):
 		push_warning("RunScene: map %d not in the cache" % map_id)
-	cam = CameraRig.new()
+	# Keep the viewport's active camera alive across map reloads. Destroying/recreating it inside _process can
+	# leave the viewport without a current camera after the old camera's frame callbacks finish.
+	if cam == null:
+		cam = CameraRig.new()
+		add_child(cam)
 	cam.bounds = world.bounds
-	world_root.add_child(cam)
 	cam.make_current()
 	map.camera = cam
 
@@ -691,6 +707,16 @@ func _build_overlays() -> void:
 	hud = Hud.new()
 	hud.library = library
 	add_child(hud)
+	# Below notices/windows so pause and inventory remain usable over a partly faded world.
+	var fade_layer := CanvasLayer.new()
+	fade_layer.name = "MapTransfer"
+	fade_layer.layer = hud.layer # tier C: created after HUD, before notices/windows on the same canvas layer
+	add_child(fade_layer)
+	_transfer_fade = ColorRect.new()
+	_transfer_fade.name = "Fade"
+	_transfer_fade.color = Color(0, 0, 0, 0)
+	_transfer_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fade_layer.add_child(_transfer_fade)
 	notice_layer = CanvasLayer.new()
 	notice_layer.name = "Notices"
 	notice_layer.layer = 10
@@ -976,9 +1002,12 @@ func _play_bgm() -> void:
 
 
 func _start_title() -> void:
-	var labels := DataRepo.stage_labels(data.get("stages", {}), stage_key)
-	_title = PackedStringArray([labels.continent, labels.region])
-	_title_t = TITLE_TIME if String(labels.region) != "" else 0.0
+	if world.map_index > 0:
+		_title = PackedStringArray([library.string_name("Street", map_id), library.string_name("Map", map_id)])
+	else:
+		var labels := DataRepo.stage_labels(data.get("stages", {}), stage_key)
+		_title = PackedStringArray([labels.continent, labels.region])
+	_title_t = TITLE_TIME if _title[1] != "" else 0.0
 
 
 func _fail(msg: String) -> void:
@@ -1041,7 +1070,7 @@ func handle_events(events: Array) -> void:
 	for e: Dictionary in events:
 		match String(e.type):
 			"map_cleared":
-				world.advance_map() # #246 replaces this immediate handoff with the clear/fade presentation.
+				_on_map_cleared(int(e.map_index))
 			"boss_warning":
 				var name := library.string_name("Mob", int(e.mob_id)).strip_edges()
 				var lead := float(world.bosses.rules.warning_time)
@@ -1421,6 +1450,87 @@ func _on_stage_cleared() -> void:
 		_clear_text = true
 	_sound(SND_CLEAR)
 	_event_shot("clear.png", 1.0)
+	_event_shot("map_%d_cleared.png" % (world.map_index + 1), 1.0)
+
+
+func _on_map_cleared(index: int) -> void:
+	if _transfer_phase != "":
+		return
+	_transfer_phase = "notice"
+	_transfer_left = MAP_CLEAR_HOLD
+	_acc = 0.0
+	_title_t = 0.0
+	notice_layer.get_node("NoticeText").queue_redraw()
+	# tier A: cached v83 party-quest CLEAR art (five frames, 2.4 s); tier C: reuse at intermediate map clears.
+	var anim := library.find_anim(FX_CLEAR)
+	if anim != null:
+		notice_fx.play_anim(anim, (_view_size() * 0.5).floor(), false, null, Vector2.ZERO, true)
+	else:
+		_map_clear_text = true # tier C: fallback wording in the existing notice style
+	_sound(SND_CLEAR)
+	_event_shot("map_%d_cleared.png" % (index + 1), 1.0)
+
+
+## Advances only presentation at a frozen map boundary. A black frame is drawn before the synchronous reload.
+func _advance_transfer(delta: float) -> void:
+	if _transfer_phase == "":
+		return
+	_transfer_fade.size = _view_size()
+	_transfer_left = maxf(0.0, _transfer_left - delta)
+	match _transfer_phase:
+		"notice":
+			if _transfer_left <= 0.0:
+				_map_clear_text = false
+				notice_layer.get_node("NoticeText").queue_redraw()
+				notice_fx.clear()
+				_transfer_phase = "out"
+				_transfer_left = MAP_FADE_TIME
+				_event_shot("map_%d_fade.png" % (world.map_index + 1), MAP_FADE_TIME * 0.5)
+		"out":
+			_transfer_fade.color.a = 1.0 - _transfer_left / MAP_FADE_TIME
+			if _transfer_left <= 0.0:
+				_transfer_phase = "black"
+				_request_shot("map_%d_black.png" % (world.map_index + 1))
+		"black":
+			world.advance_map()
+			_reload_map()
+			handle_events(world.drain_events())
+			_transfer_phase = "in"
+			_transfer_left = MAP_FADE_TIME
+		"in":
+			_transfer_fade.color.a = _transfer_left / MAP_FADE_TIME
+			if _transfer_left <= 0.0:
+				_transfer_phase = ""
+				_start_title()
+				_event_shot("map_%d_enter.png" % (world.map_index + 1), 1.0)
+
+
+## Replaces map-owned pooled renderers together, releasing every old canvas RID before building the destination.
+func _reload_map() -> void:
+	world_root.free()
+	mob_renderers.clear()
+	mob_layers.clear()
+	_slot_layers.clear()
+	_throws.clear()
+	_immunity_fx.clear()
+	_slow_fx = -1
+	_shown_action = ""
+	_player_layer = -1
+	_pet_layer = -1
+	pet_renderer = null
+	_bot_memo.clear()
+	map_id = world.current_map_id()
+	_build_map_and_camera()
+	_build_mob_layers()
+	_build_actors()
+	_build_top_layer()
+	_place_player_layer(_base_layer)
+	_apply_look()
+	player_group.position = world.player.pos.round()
+	cam.target = avatar
+	cam.snap_to(world.player.pos)
+	cam.update_camera(0.0)
+	_play_bgm()
 
 
 func _advance_end(delta: float) -> void:
@@ -1601,8 +1711,12 @@ func _freeze(on: bool) -> void:
 	var mode := Node.PROCESS_MODE_DISABLED if on else Node.PROCESS_MODE_INHERIT
 	if world_root != null:
 		world_root.process_mode = mode
+	if cam != null:
+		cam.process_mode = mode
 	if hud != null:
 		hud.process_mode = mode
+	if notice_fx != null:
+		notice_fx.process_mode = mode
 
 
 ## A boolean option given as a bool, a number (0 = off) or a command-line string ("1", "true"; "0"/"false" = off).
@@ -1641,7 +1755,7 @@ func _present(delta: float) -> void:
 	if _title_t > 0.0:
 		_title_t = maxf(0.0, _title_t - delta)
 		notice_layer.get_node("NoticeText").queue_redraw()
-	elif _clear_text:
+	elif _clear_text or _map_clear_text:
 		notice_layer.get_node("NoticeText").queue_redraw()
 
 
@@ -1878,6 +1992,8 @@ func _draw_notices(canvas: Node2D) -> void:
 		_centered_text(canvas, bold, _title[1], Vector2(view.x * 0.5, 96), 20, Color(1, 1, 1, a), a)
 	if _clear_text:
 		_centered_text(canvas, bold, "STAGE CLEAR", view * 0.5, 32, Color(1, 0.86, 0.3), 1.0)
+	if _map_clear_text:
+		_centered_text(canvas, bold, "Map cleared!", view * 0.5, 32, Color(1, 0.86, 0.3), 1.0)
 
 
 func _centered_text(canvas: Node2D, f: Font, s: String, at: Vector2, size: int, col: Color, alpha: float) -> void:
