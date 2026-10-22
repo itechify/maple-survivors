@@ -44,6 +44,26 @@ func test_summary_reports_round_levels_bosses_and_nx() -> void:
 	assert_eq(int(summary.nx_awarded), w.nx_awarded())
 
 
+func test_summary_identifies_the_death_map_after_a_transfer() -> void:
+	if not require_cache():
+		return
+	if lib.img(AssetLibrary.map_img_path(104010001)) == null:
+		skip("The Pig Beach is absent from this cache")
+		return
+	scene = _make("henesys", 247, {})
+	# Stage a settled map boundary; the simulation owns arrival and the ending map identity.
+	scene.world.transfer_pending = true
+	scene.world.advance_map()
+	scene.world.take_hit(1e9, true, "", scene.world.player.pos, {"source_kind": "boss_attack"})
+	assert_eq(scene.world.state, RunWorld.DEAD)
+	var summary := scene.build_summary()
+	assert_false(summary.cleared)
+	assert_eq(summary.region, "Henesys")
+	assert_eq(summary.map_id, 104010001)
+	assert_eq(summary.map_name, "The Pig Beach")
+	assert_eq(summary.street_name, "Hidden Street")
+
+
 func test_banner_and_summary_name_the_region_not_the_map() -> void:
 	if not require_cache():
 		return
