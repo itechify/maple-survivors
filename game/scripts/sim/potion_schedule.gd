@@ -2,7 +2,7 @@ class_name PotionSchedule
 extends RefCounted
 ## The level schedule of automatic potion upgrades (spec #225): balance.potions.schedule is an array of
 ## {level, kind ("hp"|"mp"), item} sorted by level. Pure functions over plain data; RunWorld applies the result through
-## PotionInventory.upgrade (stock kept). It keeps no applied-step state: every level-up and every load re-scans the
+## PotionInventory.upgrade (cooldown kept). It keeps no applied-step state: every level-up and every load re-scans the
 ## steps up to the character's level, so the result depends only on the level and the items held. Tier C (ours); the
 ## steps are listed in docs/GAME_DESIGN.md "Constants and provenance".
 

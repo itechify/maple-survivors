@@ -33,7 +33,6 @@ func test_upgrades_without_a_pet_out_do_nothing() -> void:
 	assert_true(w.pet_system == null)
 	assert_false(w.pet_has("auto_hp"))
 	w._hp = 1.0
-	w.potions.stock.hp.count = 3
 	assert_eq(PF.of_type(PF.run(w, 120), "pet_potion_used").size(), 0)
 
 

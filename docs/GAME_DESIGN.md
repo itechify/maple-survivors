@@ -3131,16 +3131,13 @@ The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and rec
 
 ## 5. Experience and levels
 
-Potions are separate persistent pickups, pulled in by the same magnet as EXP. Stock is unlimited and a run starts
-with five Red Potions (2000000) and no Blue Potions (2000003). Delete/Q drinks HP,
-End/E drinks MP, once per press, instantly and without a cooldown even on a rope. Empty stock does nothing.
-Restoration comes unchanged from canonical item `spec.hp`/`spec.mp` (Red 50 HP, Blue 100 MP), clamped to max.
-Normal kills use a global fallback of HP 1.2% and a flat MP 3% independently (MP: owner, 2026-10-16, 3% flat, no
-per-map values; #80, was 10%). Elites roll HP 15% and MP 60%. With every
-skill in its single-shot vanilla form at canonical MP, Blue Potions are the main MP income once regeneration (3 MP per
-10 s) runs out; boss bundles stay 3 rather than 6. These choices and starter stock
-are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
-EXP cap/absorption path. Both card policies drink a potion only when the missing HP or MP is at least half of one
+Potions are unlimited (spec #237): Delete/Q drinks HP and End/E drinks MP, instantly even on a rope.
+Each kind has its own shared player/pet cooldown in sim seconds: HP 20, MP 10 (balance.potions.cooldown, tier C).
+Presses while cooling down do nothing and emit nothing. Windows pause the sim and freeze cooldowns; tier upgrades
+keep the remaining time. No potion pickups or starter stock exist; RNG stream 7 stays reserved. Canonical
+spec.hp/spec.mp restoration and the level schedule are unchanged. Cooldowns are never saved: each round,
+including Continue, starts ready. Legacy snapshot potion stock is ignored, without a format bump.
+Both card policies drink a potion only when the missing HP or MP is at least half of one
 current potion's canonical restore, capped at the max HP/MP pool (`balance.potions.bot.min_restore_fraction`, tier C;
 the cap is #229). The restore counts as at least `balance.potions.bot.pool_floor` (0.25, tier C) of the potion, so a
 five-MP Beginner never drinks a 100-MP Blue; above that floor a sip may overflow a small pool by up to the guard's slack
@@ -3150,8 +3147,7 @@ five-MP Beginner never drinks a 100-MP Blue; above that floor a sip may overflow
 `{level, kind, item}` steps (tier C, ours; sorted by level): HP Red (2000000) → Orange (2000001) at Lv 10, MP Blue
 (2000003) → Mana Elixir (2000006) at Lv 20, HP Orange → White (2000002) at Lv 25. When the character reaches a
 level (level-up, including several levels in one tick), every step of that kind at or below it that the character
-does not hold yet is applied in order through `PotionInventory.upgrade`: the whole stock count is kept, all later
-drops are the new item, the current item drives canonical restoration and the HUD icon, a step never downgrades, and
+does not hold yet is applied in order through `PotionInventory.upgrade`: the remaining cooldown is kept, the current item drives canonical restoration and the HUD icon, a step never downgrades, and
 an item without a restore spec is skipped. Nothing is stored: each level-up and each snapshot load re-scans the steps up
 to the level, so a character saved at Lv 38 holding Red and Blue is caught up to White and Mana Elixir **silently** on
 load, and an older save needs no migration. Each applied level-up step emits the existing `potion_tier_up` event and the
@@ -3168,13 +3164,13 @@ the spec lead accepted. Melting Cheese, Reindeer Milk, Sunrise Dew, Sunset Dew, 
 recovery of each item is read from its canonical `spec` (`Consume/0200.img`, `0202.img`; `DataRepo.potion_img_path`
 picks the img from the id) and is never typed into survivor data; the items, icons, String.wz names and `Use` sounds
 come through `asset_manifest.d/common.json` (Pure Water's sound is a canonical link to `02012002/Use`, resolved by the
-importer). Mob and boss potion drops follow the current item, so they drop the new items with no other change.
+importer). The current item drives the next drink, including when upgraded during a cooldown.
 A cache imported before #229 has none of the four items: the sim skips an unresolvable step, so such a character
 stops at White / Mana Elixir (no error, no notice; `build_setup` lists the absent entries in `missing`, so
 re-run `scripts/import.sh` or the web re-import). The 1000 and 2000 point steps exceed most pools at their levels
 (research section 6, "How the restores compare"), so the overheal is wasted by design; the bot's waste guard compares the
 missing share with the restore **capped at the max HP/MP pool** (`BotInput.worth_drinking`, tier C), otherwise a 2000-point
-potion would never be worth drinking and the bot would die with stock. The capped amount never counts as less than
+potion would never be worth drinking and the bot would never request a drink. The capped amount never counts as less than
 `potions.bot.pool_floor` (0.25) of the potion, so the owner rule that a 5-MP Beginner never drinks a 100-MP Blue still
 holds (`test_bot_input`); setting `pool_floor` to 1.0 gives the pre-#229 guard back exactly.
 
@@ -4787,7 +4783,7 @@ Draw rules:
    fallback in the data) consumes the level instead of opening an unanswerable window.
    `upgrades.fallback` holds the Elixir definition, the only job-neutral card, outside the weighted pool,
    so it never displaces a normal card in a full draw. It uses the canonical Power Elixir name and icon and fully
-   restores HP and MP immediately when chosen, without changing carried potion stock. This reward rule is tier C;
+   restores HP and MP immediately when chosen. This reward rule is tier C;
    the item identity, art and 100% restoration are tier A.
 4. Applying a card takes effect immediately.
    Rank cards declare `max_rank` as the canonical skill cap; eligibility also checks the owned skill level.
@@ -4911,7 +4907,7 @@ Research for the potion ladder and its Lv 1-70 schedule: `docs/research/v83-poti
 
 Potion tiers are no longer cards (spec #225, #228): they follow the level schedule of section 5 (HP Red → Orange at
 Lv 10 → White at Lv 25 → Unagi at Lv 40 → Ice Cream Pop at Lv 60; MP Blue → Mana Elixir at Lv 20 → Pure Water at Lv 40
-→ Red Bean Sundae at Lv 60; #229), keep the whole stock count and change all future drops of that kind. No canonical item value is changed, and the bot has no potion-card scoring (`potions.bot.tier_score` is
+→ Red Bean Sundae at Lv 60; #229), keep the remaining per-kind cooldown; stock and potion drops are gone (#237). No canonical item value is changed, and the bot has no potion-card scoring (`potions.bot.tier_score` is
 gone; the Elixir filler keeps its base score).
 
 Skill prerequisites (`Skill.wz` `req`) are ignored (tier C owner decision #31). Cards retain their exact
@@ -5043,7 +5039,7 @@ character (no compounding), and changes card rarity only (section 8.1). Cash ite
 **Pet.** The Pet page of the Equip window (PET EQUIP.) brings one owned pet out (Brown Kitty, Brown Puppy or Pink Bunny).
 It follows the character on the same platforms, teleports when left behind, and picks up every drop kind near it (Item
 Pouch and Meso Magnet are built in); it has no hunger, lifetime or commands. Upgrades belong to the account and apply to
-whichever pet is out: Auto HP / MP Potion Pouch drink from the character's stock below the HP / MP ALERT levels set in
+whichever pet is out: Auto HP / MP Potion Pouch drink on the character's shared per-kind cooldown below the HP / MP ALERT levels set in
 Options (defaults 30 % / 20 %), Wing Boots fetch resting drops, Binocular doubles the pickup radius, and VAC pulls every
 drop on the map to the pet. Since spec #225 these are the only pickup-range upgrades (no card raises the radius).
 
@@ -5249,6 +5245,9 @@ random policy shares the movement and the camper policies still override it afte
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
+| Potion model (#238) | Unlimited HP/MP; no stock, starters or drops; old snapshot stock ignored and cooldowns never saved | C | Owner spec #237 |
+| Potion cooldowns (#238) | HP 20 s / MP 10 s (`balance.potions.cooldown`), fixed sim time; tier-ups preserve the timer | C | Owner spec #237 starting values; no tuning |
+| Pet pouches (#238) | Below ALERT and ready: share the player's per-kind cooldown, without a separate delay | C | Owner spec #237 convenience rule |
 | Desktop save lease (MS-02) | Renew every 5 real seconds and on successful writes; takeover after 30 seconds without renewal; lost owners refuse writes until a fresh committed-state reload | C | Persistence safety policy, not gameplay tuning; `SaveData.WriterLock`, `SceneFlow`, ARCHITECTURE 4.2 |
 | Reserved performance key (MS-10) | F3 is fixed on desktop and web, captioned Perf in Key Config; old saved action bindings drop F3 and retain their other keys | C | Existing RunScene diagnostic shortcut; `KeyBindings.RESERVED` |
 | Finale precedence (MS-07) | Last mandatory answer after all scheduled bosses die settles without another damaging tick; active-tick death still wins | C | Owner decision, 2026-10-21 |
@@ -5521,7 +5520,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Level window | reqLevel in [level - 10, level + 5] (`equipment_drops.below`, `above`) | C | Owner #33 |
 | Weighting | Weight 1 / (1 + 0.25 x abs(reqLevel - level)), so items nearer the character's level drop more often (`equipment_drops.falloff`) | C | Ours |
 | Drop chance | 0.002 per ordinary kill (`equipment_drops.chance`), sized once from an estimate: about 3,300 kills in a full Henesys round and about 8-12 items a round including the 3 boss drops. v83 mobs gave equipment on about 0.7-2% of kills | C | Ours (ticket #109) |
-| Boss drop | Each scheduled boss death drops exactly 1 item (`equipment_drops.boss_drops`), no chance roll, uniform among the window's items with reqLevel in [level + 5 - 5, level + 5] (`boss_top`); the highest reqLevel in the window when none is that high, the nearest-level job-eligible item when the window is empty | C | Ours (ticket #109) |
+| Boss drop | Each scheduled boss death drops exactly 2 items (`equipment_drops.boss_drops`, owner #237), no chance roll, uniform among the window's items with reqLevel in [level + 5 - 5, level + 5] (`boss_top`); the highest reqLevel in the window when none is that high, the nearest-level job-eligible item when the window is empty | C | Ours (ticket #109) |
 | Random stats | Every non-zero `inc*` stat of a drop varies by a whole number up to 10% of its base (rounded up) either side, capped at 5 for STR DEX INT LUK PAD MAD ACC EVA Speed Jump and at 10 for PDD MDD MHP MMP, uniform, never below 0; upgrade slots (`tuc`) never vary; other `inc*` keys keep their base (`Equipment.create_drop`) | B | The v83 server rule as the ticket #109 states it (implemented from that prose) |
 | RNG | Chance, item pick, stat rolls and boss scatter use RNG stream 10 (`equip_rng`), so no other stream moves; the pop of the drop uses stream 4 like every drop | C | Ours |
 | Lifetime and pickup | Equipment never expires, merges or counts toward the EXP-drop cap; magnet and collect radius like EXP drops; with a full Equip tab (`balance.player.inventory_slots`) it is not magnetised, stays on the ground, and is picked up once there is room | C | Owner #33 |
@@ -5674,9 +5673,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Bot Dash flee rule (#188) | press when HP < 50% with a mob within 160 px, or when 3+ same-level mobs are within 120 px; requires ready, usable, affordable and the Teleport MP reserve | C | ours; `skills/pirate.json` `dash.manual` (`bot_flee_hp`, `bot_surround_count`, `bot_surround_distance`); `BotInput._flee_buff` |
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
-| Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .03 flat, no per-map values (owner, 2026-10-16, #80; was .10), elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
-| Ordinary MP supply | 3% flat on every stage, no per-map values; the #30 stage MP curve and its reader are removed; elite rolls and boss bundles unchanged | C | owner, 2026-10-16, 3% flat, no per-map values; balance.potions.drops.normal.mp; #80 |
 | Quick slot cell geometry (#220) | white cell interiors 27 × 25 at (10, 9) of the 151 × 80 `base/quickSlot` canvas, pitch (35, 34); 32 px icon box at (7, 6); 9 px key caption at the cell's top-left, potion stock at its bottom-left | C (measured on the art) | ours; HudQuickSlot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
@@ -5783,7 +5780,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Thunder Bolt target card (#84) | Forking Storm: `count` +2 per step, max 3 steps (canonical `mobCount` 6 → 12), weight 2, power, exact job 220; bot scores it as a `count` mod (75 + job bonus 12) | C (placeholder until the balance pass) | #84 hit-more-mobs rule; upgrades.json `thunder_bolt_targets` |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
-| Potion schedule (#225, #228) | `balance.potions.schedule`: HP Orange @ Lv 10, MP Mana Elixir @ Lv 20, HP White @ Lv 25; applied at level-up with a notice and silently on snapshot load, stock kept, never downgrades; replaces the potion-tier cards | C | owner choice (the old card gates); balance.json |
+| Potion schedule (#225, #228) | `balance.potions.schedule`: HP Orange @ Lv 10, MP Mana Elixir @ Lv 20, HP White @ Lv 25; applied at level-up with a notice and silently on snapshot load, cooldown kept, never downgrades; replaces the potion-tier cards | C | owner choice (the old card gates); balance.json |
 | Researched potion steps (#229) | `balance.potions.schedule`: HP Unagi 2022003 and MP Pure Water 2022000 @ Lv 40, HP Ice Cream Pop 2001001 and MP Red Bean Sundae 2001002 @ Lv 60 (items, recovery, names: tier A from v83 `Item.wz`/`String.wz`; shop stock tier B/C; levels tier C, the Lv 60 pair an extrapolation) | C | `docs/research/v83-potion-progression.md` section 6; balance.json |
 | Potion notice plurals (#225 review) | `balance.potions.plural_names`: `{"2022003": "Unagi", "2022000": "Pure Water"}`; any other scheduled item reads String.wz name + "s" | C | our own wording; balance.json |
 | Bot waste guard cap (#229) | `BotInput.worth_drinking`: the potion's restore counts up to the max HP/MP pool, and at least `potions.bot.pool_floor` = 0.25 of the potion (drink when missing >= `min_restore_fraction` x max(min(restore, pool), 0.25 x restore)) | C | our own policy so the 1000-2000 point steps stay drinkable |

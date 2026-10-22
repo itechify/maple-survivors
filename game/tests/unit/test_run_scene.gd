@@ -67,8 +67,6 @@ func test_one_off_character_file_option_restores_character() -> void:
 	character.level = 35
 	character.exp = 17
 	# A Lv 35 character holds the scheduled potions (a load would catch Red and Blue up to these).
-	character.potions.hp.item_id = 2000002
-	character.potions.mp.item_id = 2000006
 	var path := ProjectSettings.globalize_path(test_dir("one off character.json"))
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var file := FileAccess.open(path, FileAccess.WRITE)
@@ -881,29 +879,59 @@ func test_same_map_portal_snaps_the_camera_without_sound_or_effects() -> void:
 	_assert_nothing_missing(scene, "portal")
 
 
-func test_potion_quickslot_shows_current_icons_and_counts_even_when_resources_are_full() -> void:
+func test_potion_quickslot_shows_current_icons_without_stock_even_when_resources_are_full() -> void:
 	if not require_cache():
 		return
 	scene = _make("henesys_hg1", 10, {})
 	var hp: Dictionary = scene.hud.quick_slot.displayed("hp")
 	assert_eq(hp.item_id, 2000000)
-	assert_eq(hp.count, 5)
+	assert_false(hp.has("count"), "no stock number for the unlimited potion")
 	assert_eq(hp.key_label, "Del", "the first bound key")
 	assert_true(hp.icon != null, "canonical Red Potion icon is drawable")
-	scene.world.spawn_potion("mp", scene.world.player.pos - Vector2(0, 25), 2)
 	_frames(1)
 	var mp: Dictionary = scene.hud.quick_slot.displayed("mp")
-	assert_eq(mp.count, 2, "no starter Blues plus two collected potions")
+	assert_false(mp.has("count"), "MP also has no stock number")
 	assert_eq(mp.item_id, 2000003)
 	assert_eq(mp.key_label, "End", "E opens the Equip window (#108)")
 	assert_true(mp.icon != null, "canonical Blue Potion icon is drawable")
 	scene.world.drink_potion("hp")
 	scene.advance_frame(0.0)
-	assert_eq(scene.hud.quick_slot.displayed("hp").count, 4, "stock-only changes redraw the quickslot")
+	assert_false(scene.hud.quick_slot.displayed("hp").has("count"), "a drink never creates stock")
+	assert_eq(scene.hud.quick_slot.displayed("hp").sweep_step, 96, "the drink covers the HP icon immediately")
 	_assert_nothing_missing(scene, "potions")
 	var report := scene.perf_summary()
-	assert_eq(report.get("potions_collected", {}), {"hp": 0, "mp": 2})
+	assert_false(report.has("potions_collected"))
 	assert_eq(report.get("potions_used", {}), {"hp": 1, "mp": 0})
+
+
+func test_potion_sweeps_follow_live_timers_between_snapshot_changes_and_freeze_when_paused() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 10, {})
+	var w := scene.world
+	assert_true(w.drink_potion("hp"))
+	assert_true(w.drink_potion("mp"))
+	scene.advance_frame(0.0)
+	assert_eq(scene.hud.quick_slot.displayed("hp").sweep_step, 96)
+	assert_eq(scene.hud.quick_slot.displayed("mp").sweep_step, 96)
+	_frames(18) # 0.3 s: no timer-second, resource, item or loadout change to refresh the snapshot.
+	assert_eq(scene.hud.quick_slot.displayed("hp").sweep_step, 95)
+	assert_eq(scene.hud.quick_slot.displayed("mp").sweep_step, 94, "MP clears twice as fast")
+	scene.open_pause()
+	var hp_left := float(w.potions.cooldown_left.hp)
+	_frames(30)
+	assert_eq(float(w.potions.cooldown_left.hp), hp_left)
+	assert_eq(scene.hud.quick_slot.displayed("hp").sweep_step, 95, "pause holds the displayed wedge")
+	scene.resume()
+	w.apply_potion_schedule(10, true)
+	scene.advance_frame(0.0)
+	assert_eq(scene.hud.quick_slot.displayed("hp").item_id, 2000001, "tier upgrade replaces the icon")
+	assert_eq(scene.hud.quick_slot.displayed("hp").sweep_step, 95, "tier upgrade preserves the wedge")
+	w.potions.tick(20.0)
+	scene.advance_frame(0.0)
+	assert_eq(scene.hud.quick_slot.displayed("hp").sweep_step, 0, "reads the live timer even without another sim tick")
+	assert_eq(scene.hud.quick_slot.displayed("mp").sweep_step, 0)
+	_assert_nothing_missing(scene, "potion sweeps")
 
 
 func test_potion_keyboard_press_consumes_once_even_with_multiple_ticks_per_frame() -> void:
@@ -917,13 +945,12 @@ func test_potion_keyboard_press_consumes_once_even_with_multiple_ticks_per_frame
 		event.physical_keycode = pair[1]
 		event.pressed = true
 		assert_true(event.is_action_pressed(pair[0]), "%s binds %s" % [pair[0], OS.get_keycode_string(pair[1])])
-		if pair[0] == "drink_mp":
-			scene.world.spawn_potion("mp", scene.world.player.pos - Vector2(0, 25), 2)
-			_frames(1)
-		var before: int = scene.world.player_state.potions["hp" if pair[0] == "drink_hp" else "mp"].count
+		var kind := "hp" if pair[0] == "drink_hp" else "mp"
+		scene.world.potions.tick(scene.world.potions.cooldown_total(kind))
+		var before := int(scene.world.potions.used[kind])
 		scene._unhandled_input(event)
 		scene.advance_frame(DT * 4)
-		assert_eq(scene.world.player_state.potions["hp" if pair[0] == "drink_hp" else "mp"].count, before - 1)
+		assert_eq(scene.world.potions.used[kind], before + 1)
 
 
 func test_drinking_hp_mp_and_upgraded_potions_plays_the_item_use_sound() -> void:
@@ -934,7 +961,6 @@ func test_drinking_hp_mp_and_upgraded_potions_plays_the_item_use_sound() -> void
 	sfx.library = lib
 	scene = _make("henesys_hg1", 35, {})
 	var w := scene.world
-	w.potions.add("mp", 2)
 	w.drain_events()
 	for kind: String in ["hp", "mp"]:
 		var sounds := int(scene.counters.sounds)
@@ -945,6 +971,7 @@ func test_drinking_hp_mp_and_upgraded_potions_plays_the_item_use_sound() -> void
 	w.apply_potion_schedule(10, true)
 	assert_eq(w.player_state.potions.hp.item_id, 2000001)
 	var sounds := int(scene.counters.sounds)
+	w.potions.tick(w.potions.cooldown_total("hp"))
 	assert_true(w.drink_potion("hp"))
 	scene.handle_events(w.drain_events())
 	assert_eq(scene.counters.sounds, sounds + 1, "Orange uses its own path even in the same presentation frame")
@@ -962,7 +989,6 @@ func test_missing_potion_sound_is_silent_and_reports_the_consumed_tier_path() ->
 	lib.open(TestCase.test_dir("missing_potion_sounds"))
 	sfx.library = lib
 	var w := scene.world
-	w.potions.add("mp", 1)
 	w.drain_events()
 	var sounds := int(scene.counters.sounds)
 	assert_true(w.drink_potion("hp"))
@@ -970,6 +996,7 @@ func test_missing_potion_sound_is_silent_and_reports_the_consumed_tier_path() ->
 	w.progression.level = 10
 	w.apply_potion_schedule(10, true)
 	assert_eq(w.player_state.potions.hp.item_id, 2000001)
+	w.potions.tick(w.potions.cooldown_total("hp"))
 	assert_true(w.drink_potion("hp"))
 	scene.handle_events(w.drain_events())
 	assert_eq(scene.counters.sounds, sounds, "missing sounds start no voice")
@@ -994,7 +1021,7 @@ func test_scheduled_potion_upgrades_change_the_quickslot_icon_and_show_the_v83_n
 		scene.advance_frame(0.0)
 		var after: Dictionary = scene.hud.quick_slot.displayed(example[1])
 		assert_eq(after.item_id, example[2])
-		assert_eq(after.count, before.count)
+		assert_false(after.has("count"))
 		assert_true(after.icon != null)
 		assert_ne(after.icon.region, before.icon.region, "a new canonical icon is displayed")
 	_assert_nothing_missing(scene, "potion tiers")

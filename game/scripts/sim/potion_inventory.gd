@@ -1,73 +1,89 @@
 class_name PotionInventory
 extends RefCounted
-## Unlimited per-kind potion stock and canonical item restore amounts. Survivor data chooses the current item and
-## starting count; the item spec comes unchanged from setup.item_info. This module never reads files.
+## Unlimited per-kind potions with independent sim-time cooldowns (tier C: spec #237). Survivor data chooses the
+## current item and cooldown; restore amounts come unchanged from canonical item specs. No files or clocks.
 
-## Potion kinds and their fallback starter items (Red 2000000, Blue 2000003, as balance.potions). Starting counts live
-## only in balance.potions (0 without data); restoration never falls back to a guessed amount.
+## Canonical starter item ids: Red Potion and Blue Potion (tier A).
 const DEFAULT_ITEMS := {"hp": 2000000, "mp": 2000003}
 
-var stock := {}
+var cooldown_left := {"hp": 0.0, "mp": 0.0}
 var item_info: Dictionary
-var collected := {"hp": 0, "mp": 0}
 var used := {"hp": 0, "mp": 0}
 ## Potions the pet drank (spec #34); not part of `used`.
 var pet_used := {"hp": 0, "mp": 0}
 
+var _items := {}
+var _cooldowns: Dictionary
+
 
 func _init(tuning: Dictionary = {}, canonical_items: Dictionary = {}) -> void:
 	item_info = canonical_items
+	_cooldowns = tuning.get("cooldown", {})
 	for kind: String in DEFAULT_ITEMS:
 		var entry: Dictionary = tuning.get(kind, {})
-		stock[kind] = {"item_id": int(entry.get("item_id", DEFAULT_ITEMS[kind])), "count": int(entry.get("start", 0))}
+		_items[kind] = int(entry.get("item_id", DEFAULT_ITEMS[kind]))
+
+
+## The current canonical item for a kind (0 for an unknown kind).
+func item_id(kind: String) -> int:
+	return int(_items.get(kind, 0))
+
+
+## The configured cooldown in seconds; tier C values live in balance.potions.cooldown.
+func cooldown_total(kind: String) -> float:
+	return maxf(0.0, float(_cooldowns.get(kind, 0.0)))
+
+
+## Whether a known kind can be drunk now.
+func is_ready(kind: String) -> bool:
+	return _items.has(kind) and float(cooldown_left[kind]) <= 0.0
+
+
+## Advances both cooldowns by one simulation tick. Paused runs do not call this.
+func tick(dt: float) -> void:
+	for kind: String in cooldown_left:
+		cooldown_left[kind] = maxf(0.0, float(cooldown_left[kind]) - dt)
 
 
 ## Snapshot exposed to presentation as player_state.potions.
 func snapshot() -> Dictionary:
-	return stock.duplicate(true)
+	var out := {}
+	for kind: String in _items:
+		out[kind] = {"item_id": item_id(kind), "cooldown_left": float(cooldown_left[kind]),
+			"cooldown_total": cooldown_total(kind)}
+	return out
 
 
-## Adds collected potions to unlimited stock; false for an unknown kind or non-positive bundle.
-func add(kind: String, count: int = 1) -> bool:
-	if not stock.has(kind) or count <= 0:
+## Changes the current canonical item, preserving its cooldown; false for unavailable restore specs.
+func upgrade(kind: String, next_item: int) -> bool:
+	if not _items.has(kind) or item_id(kind) == next_item:
 		return false
-	stock[kind].count = int(stock[kind].count) + count
-	collected[kind] = int(collected[kind]) + count
-	return true
-
-
-## Changes a kind's current canonical item while preserving stock; false for unavailable restore specs.
-func upgrade(kind: String, item_id: int) -> bool:
-	if not stock.has(kind) or int(stock[kind].item_id) == item_id:
-		return false
-	var item: Dictionary = item_info.get(item_id, item_info.get(str(item_id), {}))
+	var item: Dictionary = item_info.get(next_item, item_info.get(str(next_item), {}))
 	if int(item.get("spec", {}).get(kind, 0)) <= 0:
 		return false
-	stock[kind].item_id = item_id
+	_items[kind] = next_item
 	return true
 
 
 ## Canonical amount one current `kind` potion restores (0 for an unknown kind or a missing restore spec).
 func restore_amount(kind: String) -> int:
-	if not stock.has(kind):
-		return 0
-	var id := int(stock[kind].item_id)
+	var id := item_id(kind)
 	var item: Dictionary = item_info.get(id, item_info.get(str(id), {}))
 	return int(item.get("spec", {}).get(kind, 0))
 
 
-## Consumes one potion and returns its canonical restore spec and remaining count, or {} when unavailable. A drink by
+## Starts the cooldown and returns its canonical restore spec, or {} when unavailable (no count). A drink by
 ## the pet (`by_pet`, spec #34) is counted in `pet_used`, never in the player's `used`.
 func consume(kind: String, by_pet: bool = false) -> Dictionary:
-	if not stock.has(kind) or int(stock[kind].count) <= 0:
+	if not is_ready(kind):
 		return {}
-	var id := int(stock[kind].item_id)
+	var id := item_id(kind)
 	var amount := restore_amount(kind)
 	if amount <= 0:
 		return {}
-	stock[kind].count = int(stock[kind].count) - 1
+	cooldown_left[kind] = cooldown_total(kind)
 	if by_pet:
 		pet_used[kind] = int(pet_used[kind]) + 1
 	else:
 		used[kind] = int(used[kind]) + 1
-	return {"item_id": id, "amount": amount, "count": int(stock[kind].count)}
+	return {"item_id": id, "amount": amount}

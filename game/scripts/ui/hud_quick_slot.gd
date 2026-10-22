@@ -9,6 +9,8 @@ extends HudWidget
 ## Display only: the widget takes no mouse (the collapse button is a Hud sibling) and nothing is clickable or draggable;
 ## rebinding stays in Key Config. The model (`cells`) is pure; captions are re-read from the live bindings on
 ## refresh_key_labels() (RunScene calls it on Settings.changed). Text goes through MapleText.
+## set_cooldowns() takes per-frame HP / MP remaining and total seconds from reused buffers, redrawing only when a
+## sweep step changes. The polygon and overlay drawing are shared with HudSkills through CooldownSweep.
 
 ## The panel art and its size.
 const FRAME := HudWidget.SB + "base/quickSlot"

@@ -2,7 +2,7 @@ extends TestCase
 ## Issue #146: the per-tick cost work leaves the simulation bit-identical. A fixed-seed, fixed-tick round on the
 ## synthetic map (no WZ data) that is busy in the places the work touches: 160 mobs refilled around a god-mode player
 ## whose MP runs dry (every cast rule waiting for MP between refills), a Magician loadout with every auto-cast rule
-## (nearest, box, crowd, hp_or_undead, buffs), a drop pool of several hundred meso, equipment, EXP and potion drops
+## (nearest, box, crowd, hp_or_undead, buffs), a drop pool of several hundred meso, equipment and EXP drops
 ## lying on every floor, an Equip tab that fills up (pickup_blocked), and a pet with VAC brought out, dismissed with
 ## drops in flight and brought back. The digest covers every drained event, the player state after every tick and the
 ## drop pool every second, all as var_to_bytes (exact float bits; JSON/str() round floats, #142), plus the totals.
@@ -31,9 +31,10 @@ const MP_DRAIN := 60
 ## Re-captured for MS-24: player_state.mp_short now checks current affordability after refills. Substituting only
 ## runner.waiting_mp back into that snapshot field reproduces the previous 373bb381... digest exactly; all events,
 ## other player-state fields, drop-pool bytes and TOTALS are unchanged.
-const GOLDEN := "f64baaaea14189efa70d9b1443c964e6655b35798de113fd659f2ff75cd8966d"
-const TOTALS := {"exp": 4196, "mesos": 88492, "pickup_mesos": 88492, "equips_collected": 24,
-	"equips_dropped": 30, "inventory": 24, "hp_potions": 12, "mp_potions": 0, "kills": 208, "casts": 183, "level": 13,
+## Re-captured for #238: no potion pickups/stock; per-kind cooldowns enter player_state.
+const GOLDEN := "26ddb7e6e2d0e86d6729511954361de2a22b76c1d7300992691c4608f7544e7b"
+const TOTALS := {"exp": 3658, "mesos": 88744, "pickup_mesos": 88744, "equips_collected": 24,
+	"equips_dropped": 30, "inventory": 24, "kills": 206, "casts": 183, "level": 12,
 	"pool": 6, "time": 59.999999999997875}
 const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_guard", "cold_beam", "thunder_bolt", "slow_il",
 	"heal", "fire_arrow", "poison_breath", "holy_arrow"]
@@ -152,7 +153,7 @@ func test_bulk_live_defense_equals_the_per_slot_defense_and_immunity() -> void:
 	assert_true(immune > 0, "some slots compared under weapon immunity (%d)" % immune)
 
 
-## Data: the real files plus a stage that keeps 160 mobs alive, more equipment drops, no MP potions and little MP.
+## Data: the real files plus a stage that keeps 160 mobs alive, more equipment drops and little MP.
 static func _data() -> Dictionary:
 	var data := DataRepo.load_all()
 	var pool := {}
@@ -165,8 +166,6 @@ static func _data() -> Dictionary:
 		"bursts": {}, "elites": {},
 	}
 	data.equipment_drops.chance = 0.05
-	data.balance.potions.mp.start = 0
-	data.balance.potions.drops = {"normal": {"hp": 0.05, "mp": 0.0}, "elite": {"hp": 0.0, "mp": 0.0}}
 	data.balance.regen.mp = 0
 	return data
 
@@ -253,8 +252,7 @@ static func _replay(ticks: int) -> Dictionary:
 	coverage.kills = w.kills
 	var totals := {"exp": w.pickups.collected_exp, "mesos": w.mesos, "pickup_mesos": w.pickups.collected_mesos,
 		"equips_collected": w.equips_collected, "equips_dropped": w.equips_dropped,
-		"inventory": w.equipment.inventory.size(), "hp_potions": int(w.potions.collected.hp),
-		"mp_potions": int(w.potions.collected.mp), "kills": w.kills, "casts": w.runner.casts,
+		"inventory": w.equipment.inventory.size(), "kills": w.kills, "casts": w.runner.casts,
 		"level": w.progression.level, "pool": w.pickups.active_count(), "time": w.time}
 	digest.update(var_to_bytes(totals))
 	return {"digest": digest.finish().hex_encode(), "totals": totals, "coverage": coverage}
@@ -262,4 +260,4 @@ static func _replay(ticks: int) -> Dictionary:
 
 static func _pool_bytes(p: PickupSystem) -> PackedByteArray:
 	return var_to_bytes([p.active, p.x, p.y, p.vx, p.vy, p.state, p.to_pet, p.kind, p.full_noted, p.exp, p.meso,
-		p.item_id, p.potion_count, p.age])
+		p.item_id, p.age])
