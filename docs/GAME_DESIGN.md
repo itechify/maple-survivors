@@ -581,6 +581,9 @@ setup, profiler and character fixture run cleanly. The diagnostic maps scenario 
 or failed checks, replaying map 1 after quitting map 2 and then clearing into the Free Market.
 Opened all three compact map-select cards under `evidence/spec241/review/cards/` in the integration worktree:
 every map/boss name fits, row groups are close together, and no text overlaps. These are diagnostic UI/flow checks.
+The full `ISOLATE=trev` suite passed 2,154 tests, 0 failed / 0 skipped (209 files, 803.465 s, timeout 3000 s).
+It still reports two RendererDummy texture RID allocations leaked at exit, as #248 did; their source remains
+uninvestigated. The corrupt-settings parse diagnostics are intentional safety-test fixtures.
 
 #### Spec #241 (#246): integrated presentation smoke (2026-10-21)
 
