@@ -72,6 +72,7 @@ func test_record_counts_waiting_seconds_and_whole_boss_hit_fraction() -> void:
 	w.loadout.set_rank("magic_guard", 5)
 	w.step(DT, MoveInput.new())
 	w.drain_events()
+	w.drink_potion("mp") # Hold the shared cooldown so this test observes a full second of MP wait.
 	w.spend_mp(int(w.player_state.mp)-5)
 	var whole := w.take_hit(40, false, "", w.player.pos+Vector2(10, 0), {"boss": true, "mob_id": 2220000, "source_kind": "attack"})
 	w.learn_skill("energy_bolt")

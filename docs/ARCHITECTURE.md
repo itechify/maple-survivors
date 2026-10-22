@@ -801,12 +801,11 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   from the supplied player position and reuses its slot at the new death position, restarting the pop and age with
   the combined EXP. `merged` reports absorption, and `RunWorld` still emits `pickup_spawned`. With `lifetime` > 0 a drop expires silently
   (no event; `expired`, `expired_exp`) after fading out; renderers read `alpha(i)`.
-  Potion slots have a separate kind and bundle count: they never expire, absorb EXP, or count toward `max_active`.
-  Both kinds use the same pop, gravity and magnet motion. `collected_potions` reports hp/mp quantities collected this tick;
+  Potion pickup kinds 1 and 2 are reserved but unused (spec #237); no potion bundles or collection accounting remain.
   `active_count()` includes all drops, while `exp_count()` preserves the balance harness's EXP-drop metric.
   **Mesos (#107):** kind `MESO` = 3 (`EQUIP` = 4 is #109, below) with `meso[i]` = the amount; `spawn_meso(pos, amount)`
   picks the coin sprite item from the amount (`MesoDrops.sprite_item`: <50 bronze 09000000, 50-99 gold 09000001, 100-999
-  bundle 09000002, 1000+ bag 09000003). Like potions they never expire, merge or count toward `max_active`. A collected
+  bundle 09000002, 1000+ bag 09000003). They never expire, merge or count toward `max_active`. A collected
   one adds its amount to `step_mesos` (this step; RunWorld adds it to `mesos`) and `collected_mesos` (the round's total),
   and its `pickup_collected` / `pickup_spawned` events carry `kind` `"meso"` with the amount in `count`.
 - **Mesos:** `MesoDrops` (pure statics) holds the brackets, `amount_range(level, listed, fallback)` and `roll(rng, span,

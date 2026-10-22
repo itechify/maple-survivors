@@ -107,7 +107,8 @@ func test_sweep_collects_every_pickup_kind_once_and_conserves_capped_exp() -> vo
 	assert_eq(w.equips_collected, 1)
 	var settled := w.character_snapshot()
 	var events := w.drain_events()
-	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "pickup_collected").size(), 5)
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "pickup_collected").size(), 3,
+		"one merged EXP drop, one meso bundle and one equipment item; no potion pickups remain")
 	for tick in 3:
 		w.step(DT, MoveInput.new())
 	assert_false(w.apply_choice("elixir"), "the answered reward cannot be replayed")

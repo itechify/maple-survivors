@@ -8,7 +8,8 @@ const BF := preload("res://tests/fixtures/basic_attack_fixtures.gd")
 const DT := 1.0 / 60.0
 
 ## Digest of 900 bot inputs plus player positions in the fixed swarm below, captured on main (b2ef00d lineage).
-const MAGICIAN_DIGEST := 597847271
+## Re-captured for #238: the Magician can request unlimited MP on its shared cooldown.
+const MAGICIAN_DIGEST := 720344116
 const BEGINNER_DIGEST := 130203406
 
 

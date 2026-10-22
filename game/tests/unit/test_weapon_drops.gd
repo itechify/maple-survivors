@@ -289,9 +289,9 @@ func test_a_boss_drops_a_weapon_of_the_held_family_only() -> void:
 		w.hit_mob(int(w.bosses.records[0].slot), {"damage_min": 1000000.0, "damage_max": 1000000.0,
 			"magic": false, "crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
 		var spawned := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned" and e.kind == "equip")
-		assert_eq(spawned.size(), 1, "exactly one boss item (seed %d)" % p_seed)
-		if spawned.size() == 1:
-			var id := int(spawned[0].item_id)
+		assert_eq(spawned.size(), 2, "exactly two boss items (seed %d)" % p_seed)
+		for drop: Dictionary in spawned:
+			var id := int(drop.item_id)
 			# level 28: window 18..33, top 28..33 -> level-30 items; a spear holder never gets another weapon
 			assert_true(Equipment.slot_of(id) != "weapon" or WeaponInfo.family(id) == "spear", "seed %d: got %d" % [p_seed, id])
 
