@@ -140,14 +140,17 @@ func test_a_full_stack_refuses_the_whole_purchase() -> void:
 
 func test_a_full_use_tab_refuses_a_new_scroll_but_not_more_of_a_held_one() -> void:
 	var stacks := {}
-	# Two potion stacks take two of the 24 Use slots: 22 scroll stacks fit.
 	for i in 22:
 		stacks[str(2040000 + i)] = 1
 	var state := _state(1000000, stacks)
-	assert_eq(Shop.use_stack_limit(state.potions), 22)
-	assert_eq(Shop.buy(state, 2043700, 1, 35000, 100), "use_full", "a 23rd stack has no slot")
-	assert_eq(state.mesos, 1000000)
-	assert_false(state.scrolls.has("2043700"))
+	assert_eq(Shop.use_stack_limit(state.potions), 24, "legacy potion state takes no Use slots")
+	assert_eq(Shop.use_stack_limit({}), 24, "all Use slots are for scrolls")
+	assert_eq(Shop.buy(state, 2043700, 1, 35000, 100), "", "a 23rd stack fits")
+	assert_eq(Shop.buy(state, 2043800, 1, 35000, 100), "", "a 24th stack fits")
+	assert_eq(state.scrolls.size(), 24)
+	assert_eq(Shop.buy(state, 2044000, 1, 35000, 100), "use_full", "a 25th stack has no slot")
+	assert_eq(state.mesos, 930000, "the refused purchase takes no mesos")
+	assert_false(state.scrolls.has("2044000"))
 	assert_eq(Shop.buy(state, 2040000, 3, 35000, 100), "", "a held stack still takes more")
 	assert_eq(state.scrolls["2040000"], 4)
 
@@ -279,9 +282,9 @@ func test_scroll_info_keeps_the_sell_price() -> void:
 
 func test_grant_scrolls_and_the_shop_agree_on_the_use_tab_size() -> void:
 	var world := _world()
-	for i in 22:
+	for i in 24:
 		assert_eq(world.grant_scrolls(2040000 + i, 1), 1)
-	assert_eq(world.grant_scrolls(2043700, 1), 0, "22 scroll stacks beside the two potion stacks")
+	assert_eq(world.grant_scrolls(2043700, 1), 0, "24 scroll stacks fill the Use tab")
 	world.mesos = 1000000
 	assert_eq(world.buy_scroll(1032103, 2040400, 1), "use_full", "the shop sees the same full tab")
 	assert_eq(world.mesos, 1000000)

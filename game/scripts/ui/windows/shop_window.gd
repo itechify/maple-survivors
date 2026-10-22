@@ -169,7 +169,7 @@ func sell_cells() -> Array:
 				out.append({"kind": "inventory", "index": i, "id": int(world.equipment.inventory[i].id)})
 			return out
 		1:
-			return InventoryModel.use_cells({}, world.scrolls)
+			return InventoryModel.use_cells(world.scrolls)
 	return []
 
 

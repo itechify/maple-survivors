@@ -207,7 +207,7 @@ func test_not_enough_mesos_shows_the_message_and_changes_nothing() -> void:
 
 func test_a_full_use_tab_shows_the_message_and_changes_nothing() -> void:
 	var stacks := {}
-	for i in 22:
+	for i in 24:
 		stacks[str(2040010 + i)] = 1
 	var world := _world(200, 1000000, [], stacks)
 	var shop: ShopWindow = _shop(world)[1]

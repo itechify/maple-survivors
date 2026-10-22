@@ -225,6 +225,9 @@ var _skill_labels := {}
 var _cd_left := PackedFloat32Array()
 var _cd_total := PackedFloat32Array()
 var _cd_short := PackedByteArray()
+## Reused HP / MP buffers in HudQuickSlot.COOLDOWN_KINDS order; potion timers bypass the HUD snapshot signature.
+var _potion_cd_left := PackedFloat32Array([0.0, 0.0])
+var _potion_cd_total := PackedFloat32Array([0.0, 0.0])
 ## "" while playing, "dead" or "cleared" once the end sequence started.
 var _end_kind := ""
 var _end_left := 0.0
@@ -1766,6 +1769,7 @@ func _update_hud() -> void:
 		# dictionaries or strings) and redraw only when a sweep step or tint changed.
 		world.read_skill_cooldowns(_cd_left, _cd_total, _cd_short)
 		hud.skills.set_cooldowns(_cd_left, _cd_total, _cd_short)
+		_update_potion_cooldowns()
 		return
 	var info := run_info()
 	hud.store_state(ps, info)
@@ -1774,7 +1778,16 @@ func _update_hud() -> void:
 	hud.skills.update(ps, info)
 	hud.system_messages.update(ps, info)
 	hud.quick_slot.update(ps, info)
+	_update_potion_cooldowns()
 	hud.buff_row.update(ps, info)
+
+
+func _update_potion_cooldowns() -> void:
+	for i in HudQuickSlot.COOLDOWN_KINDS.size():
+		var kind: String = HudQuickSlot.COOLDOWN_KINDS[i]
+		_potion_cd_left[i] = float(world.potions.cooldown_left[kind])
+		_potion_cd_total[i] = world.potions.cooldown_total(kind)
+	hud.quick_slot.set_cooldowns(_potion_cd_left, _potion_cd_total)
 
 
 ## Whether the status/timer snapshot differs from the one last shown (then it becomes the shown one). The signature
@@ -1782,7 +1795,7 @@ func _update_hud() -> void:
 func _hud_snapshot_changed(ps: Dictionary) -> bool:
 	var buffs: Array = ps.buffs
 	var sig := _hud_sig_scratch
-	sig.resize(18 + buffs.size() * 2)
+	sig.resize(16 + buffs.size() * 2)
 	sig[0] = int(ps.hp)
 	sig[1] = int(ps.mp)
 	sig[2] = int(ps.max_hp)
@@ -1794,16 +1807,14 @@ func _hud_snapshot_changed(ps: Dictionary) -> bool:
 	sig[8] = int(run_time())
 	sig[9] = world.kills
 	sig[10] = world.loadout.version
-	sig[11] = int(ps.potions.hp.get("count", -1))
-	sig[12] = int(ps.potions.mp.get("count", -1))
-	sig[13] = int(ps.potions.hp.item_id)
-	sig[14] = int(ps.potions.mp.item_id)
-	sig[15] = int(bool(ps.get("mp_short", false)))
-	sig[16] = world.state
-	sig[17] = int(_end_kind != "")
+	sig[11] = int(ps.potions.hp.item_id)
+	sig[12] = int(ps.potions.mp.item_id)
+	sig[13] = int(bool(ps.get("mp_short", false)))
+	sig[14] = world.state
+	sig[15] = int(_end_kind != "")
 	for i in buffs.size():
-		sig[18 + i * 2] = int(buffs[i].skill_id)
-		sig[19 + i * 2] = ceili(float(buffs[i].remaining))
+		sig[16 + i * 2] = int(buffs[i].skill_id)
+		sig[17 + i * 2] = ceili(float(buffs[i].remaining))
 	if sig == _hud_sig:
 		return false
 	_hud_sig = sig.duplicate()

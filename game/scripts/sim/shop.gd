@@ -5,8 +5,7 @@ extends RefCounted
 ## buy_scroll, sell_item, sell_scrolls) and the bot planner (#112) calls the same functions on a plain snapshot.
 ##
 ## Character state: the part of a CharacterSnapshot the shop reads and writes, `{"mesos": int, "scrolls": {"<id>":
-## count}, "equipment": {"worn": {...}, "inventory": [...]}, "potions": {"hp": {"item_id", "count"}, ...}}` (the
-## potions only size the Use tab: each potion stack takes one of its slots). Every mutator changes the state in place
+## count}, "equipment": {"worn": {...}, "inventory": [...]}}`. Every mutator changes the state in place
 ## and returns "" on success, otherwise one of these reasons and the state is unchanged:
 ##   count      - a quantity below 1
 ##   mesos      - not enough mesos
@@ -66,13 +65,9 @@ static func price_of(slot: String, rules: Dictionary) -> int:
 	return int(prices.get("weapon", 0)) if slot in rules.get("weapon_slots", []) else int(prices.get("armour", 0))
 
 
-## How many scroll stacks the Use tab can hold beside the potion stacks `potions` ({kind: {item_id, count}}).
-static func use_stack_limit(potions: Dictionary) -> int:
-	var taken := 0
-	for stock_of: Variant in potions.values():
-		if stock_of is Dictionary and int(stock_of.get("item_id", 0)) > 0:
-			taken += 1
-	return maxi(0, Scrolls.USE_SLOTS - taken)
+## How many scroll stacks the Use tab holds. The optional legacy potion state never occupies a slot.
+static func use_stack_limit(_potions: Dictionary = {}) -> int:
+	return Scrolls.USE_SLOTS
 
 
 ## Whether `count` more scrolls of `id` fit the Use tab (`slot_max` as in Scrolls.add).

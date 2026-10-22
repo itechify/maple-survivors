@@ -3,8 +3,8 @@ extends TestCase
 ## info (no asset cache: the windows keep their layout and draw plain slots): InventoryModel's tooltip data, wearing
 ## from the Equip tab (double-click and drag onto the Equip window), taking off into the inventory (double-click and
 ## drag onto the Item window), a full inventory blocking a take-off, a requirement failure showing the message and
-## changing nothing, and discarding by dragging out of the Item window with the YesNo confirmation (worn items and
-## potions never discard). Mouse events are synthetic and local to the window.
+## changing nothing, and discarding by dragging out of the Item window with the YesNo confirmation (worn items
+## never discard). Mouse events are synthetic and local to the window.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 ## Synthetic info nodes shaped like Character.wz `info` (stats invented for the test).
@@ -152,12 +152,9 @@ func test_item_names_icons_and_the_use_tab_cells() -> void:
 	assert_eq(InventoryModel.desc_path(1372005), "String.wz/Eqp.img/Eqp/Weapon/1372005/desc")
 	assert_eq(InventoryModel.meso_text(0), "0")
 	assert_eq(InventoryModel.meso_text(1234567), "1,234,567")
-	var cells := InventoryModel.use_cells({"hp": {"item_id": 2000000, "count": 5}, "mp": {"item_id": 2000003, "count": 0}},
-		{"2040002": 3, "2040000": 1})
-	assert_eq(cells, [{"kind": "potion", "potion": "hp", "id": 2000000, "count": 5},
-		{"kind": "potion", "potion": "mp", "id": 2000003, "count": 0},
-		{"kind": "scroll", "id": 2040000, "count": 1}, {"kind": "scroll", "id": 2040002, "count": 3}],
-		"the two potion stacks, then the scroll stacks by id")
+	var cells := InventoryModel.use_cells({"2040002": 3, "2040000": 1})
+	assert_eq(cells, [{"kind": "scroll", "id": 2040000, "count": 1}, {"kind": "scroll", "id": 2040002, "count": 3}],
+		"only scroll stacks by id; potion state never takes a Use slot")
 
 
 # --- wearing and taking off -----------------------------------------------------------------------------------------
@@ -275,13 +272,11 @@ func test_dragging_out_of_the_item_window_asks_before_discarding() -> void:
 	drag_to(ew, ew.slot_rect("weapon").get_center(), outside)
 	assert_eq(ew.worn_id("weapon"), 1302000, "still worn")
 	assert_false(s.top() is DropConfirm, "no confirmation for worn items")
-	# Potions can't be discarded either.
+	# An empty Use tab has nothing to drag or discard.
 	iw.select_tab(1)
-	assert_eq(iw.cell(0).get("kind"), "potion", "the Use tab's first stack is the HP potion")
-	var count := int(iw.cell(0).count)
+	assert_eq(iw.cells(), [], "potions do not appear in the Use tab")
 	drag_to(iw, iw.slot_rect(0).get_center(), outside)
-	assert_false(s.top() is DropConfirm, "no confirmation for potions")
-	assert_eq(int(iw.cell(0).count), count, "the stack is untouched")
+	assert_false(s.top() is DropConfirm, "no confirmation for an empty slot")
 
 
 func test_a_discard_confirmation_acts_only_on_the_instance_it_asked_about() -> void:
@@ -310,9 +305,9 @@ func test_dragging_a_scroll_stack_out_asks_and_then_destroys_the_whole_stack() -
 	var s: WindowStack = made[0]
 	var iw: ItemWindow = made[2]
 	iw.select_tab(1)
-	assert_eq(iw.cell(3), {"kind": "scroll", "id": 2040002, "count": 2}, "the second scroll stack after the potions")
+	assert_eq(iw.cell(1), {"kind": "scroll", "id": 2040002, "count": 2}, "the second scroll stack")
 	world.drain_events()
-	drag_to(iw, iw.slot_rect(3).get_center(), Vector2(760, 40))
+	drag_to(iw, iw.slot_rect(1).get_center(), Vector2(760, 40))
 	var confirm := s.top() as DropConfirm
 	assert_true(confirm != null, "scrolls ask the same question")
 	if confirm == null:
@@ -320,13 +315,13 @@ func test_dragging_a_scroll_stack_out_asks_and_then_destroys_the_whole_stack() -
 	confirm.accept()
 	assert_eq(world.scrolls, {"2040000": 1}, "Yes destroyed the whole stack")
 	assert_eq(world.drain_events(), [{"type": "equipment_changed", "action": "discard", "slot": "", "item_id": 2040002}])
-	assert_eq(iw.cells().size(), 3, "the Use tab shows the two potions and the remaining stack")
+	assert_eq(iw.cells().size(), 1, "the Use tab shows only the remaining stack")
 	assert_eq(world.discard_scrolls(2040002), "no_item", "a stack that is gone")
 
 
 # --- what the Item window shows ---------------------------------------------------------------------------------------
 
-func test_the_item_window_shows_the_mesos_and_the_use_tab_stacks_read_only() -> void:
+func test_the_item_window_shows_the_mesos_and_only_scrolls_in_the_use_tab() -> void:
 	var world := _world([], func(c: Dictionary) -> void:
 		c.mesos = 1234567
 		c.scrolls = {"2040002": 2})
@@ -337,12 +332,10 @@ func test_the_item_window_shows_the_mesos_and_the_use_tab_stacks_read_only() -> 
 	iw._gui_input(press(iw.tab_rect(1).get_center(), false))
 	assert_eq(iw.tab, 1, "a click picks the Use tab")
 	var cells := iw.cells()
-	assert_eq(cells.size(), 3, "HP potion, MP potion, one scroll stack")
-	assert_eq(cells[0].get("potion"), "hp")
-	assert_eq(int(cells[0].count), 0)
-	assert_eq(cells[2], {"kind": "scroll", "id": 2040002, "count": 2})
+	assert_eq(cells, [{"kind": "scroll", "id": 2040002, "count": 2}])
+	assert_eq(iw.cell(1), {}, "potions take no slots")
 	double_click(iw, iw.slot_rect(0).get_center())
-	assert_eq(int(iw.cells()[0].count), 0, "potions are read-only here")
+	assert_eq(iw.cells(), cells, "scrolls are read by dragging onto worn equipment")
 	for i in [2, 3, 4]:
 		iw.select_tab(i)
 		assert_eq(iw.cells(), [], "tab %d is empty" % i)
