@@ -585,6 +585,7 @@ func advance_map() -> void:
 		pickups.despawn(slot)
 	_final_queue.clear()
 	basic.clear_pending()
+	runner.clear_pending()
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
 	mob_actions = MobActions.new()
