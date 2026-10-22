@@ -584,21 +584,14 @@ func advance_map() -> void:
 	for slot in pickups.capacity():
 		pickups.despawn(slot)
 	_final_queue.clear()
-	basic._pending = {} # target slots belong to the old map; preserve the swing's cooldown
+	basic.clear_pending()
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
 	mob_actions = MobActions.new()
 	mob_projectiles = MobProjectileSystem.new()
 	boss_attacks = BossAttacks.new()
 	_sync_slots()
-	# Recreate spatial caches and the fractional spawn accumulator, preserving round counters and pool data.
-	var fresh := SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
-	for field: String in ["spawned", "bursts", "elites", "recycled", "relocated"]:
-		fresh.set(field, director.get(field))
-	fresh.map_pools = director.map_pools
-	fresh.map_index = map_index
-	fresh.seek_curve(curve_time())
-	director = fresh
+	director = director.reset_for_map(map_index, curve_time(), balance.get("spawn", {}))
 	player.place(PortalSet.start_point(_current_map_img(), fhm, bounds, spawn_rng), fhm)
 	if pet_system != null:
 		pet_system.place_beside(player, fhm)
