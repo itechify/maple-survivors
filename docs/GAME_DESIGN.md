@@ -521,6 +521,93 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #241 (#249): integrated three-map QA smoke (2026-10-22)
+
+Integration base `9dd41de`, Git Bash, private `t249` isolates and cache `caches/s241`. Ran seeds **1 / 2 / 2026**
+on Henesys and Ellinia with bot/random, both Henesys tier-2 chains and both Sleepywood Lv38 F/P fixture policies:
+24 started rounds, all commands exit 0, all records `warnings: []` / `missing: []`. No PATCH, tuning or held-out
+seeds. D = DEAD; `@N` is the one-based ending map. Times are seconds; unobserved entries are absent, never zero.
+
+| Region / policy | Death seconds @ map (seeds 1 / 2 / 2026) | Map-2 entry seconds | Lv10 / first job seconds (id) | Map-1 completed boss seconds | Compared with #246 integrated smoke |
+|---|---|---|---|---|---|
+| Henesys / bot | 308.3@1 / 451.8@2 / 310.0@1 | absent / 324.6 / absent | 255.4 (200) / 260.6 (200) / 258.5 (100) | none / 24.6 / none | Same outcomes, levels, kills and timings |
+| Henesys / random | 435.4@2 / 383.9@2 / 413.3@2 | 344.9 / 320.8 / 323.8 | 260.7 (200) / 260.2 (200) / 256.8 (100) | 44.9 / 20.7 / 23.8 | Same |
+| Ellinia / bot | 632.7@2 / 39.1@1 / 34.7@1 | 321.6 / absent / absent | 209.2 (200) / absent / absent | 21.6 / none / none | Same |
+| Ellinia / random | 697.5@2 / 39.1@1 / 34.7@1 | 364.1 / absent / absent | 208.0 (200) / absent / absent | 64.1 / none / none | Same |
+| Sleepywood fixture / bot | 314.7@1 / 365.9@1 / 222.3@1 | absent / absent / absent | starts Lv38, job210; no advancement | none / none / none | Same |
+| Sleepywood fixture / random | 215.7@1 / 327.0@1 / 224.9@1 | absent / absent / absent | starts Lv38, job210; no advancement | none / none / none | Same |
+
+No run enters map 3. Of the **12 distinct fresh tier-1 runs, 6 reach map 2 and 0 reach map 3** (Henesys 4/6;
+Ellinia 2/6). Counting the six chain replays gives 10/18 fresh attempts reaching map 2, still 0/18 reaching map 3;
+those replays are not independent observations. All chains stop in tier 1, with zero tier-2 feeds. Their first-round
+metrics match the corresponding Henesys rows. No fresh clear or natural Forest of Evil/Sanctuary survival is proved.
+Every observed map-2 entrant dies there; this small smoke is an owner playtesting concern, not authority to tune.
+Sleepywood's six map-1 deaths also match the preceding smoke; no claim about its later-map balance follows.
+
+Completed fights: Henesys Mano 4/6 spawned (24.6 / 44.9 / 20.7 / 23.8 s); Ellinia Stumpy 2/2 spawned
+(21.6 / 64.1 s). Unfinished Mano fights are at least 8.2 / 10.0 s (bot seeds 1/2026). Ellinia map-2 King Slime
+fights are unfinished at 11.1 / 33.3 s (bot/random seed 1); every other map-2 boss and every map-3 boss is
+`not_spawned`. Sleepywood Zombie Mushmom has 0/3 spawned fights completed: bot seeds 1/2 are unfinished at
+14.7 / 65.9 s, random seed 2 at 27.0 s; the other three are not spawned. There are no skipped bosses. No
+completed-only median is used for these censored observations. Lv10 equals the listed first-job time; no fresh
+run reaches a second job. Raw records, exact SYSTEMS summaries and the prior-smoke comparison stay in ignored
+`evidence/spec241/t249/smoke/` in the integration worktree (`t3-f6b9fd92`).
+
+The initial complete suite passes **2,153 tests, 0 failed, 0 skipped** (209 files, 842.748 s, exit 0): all
+real-cache checks ran. Its intentional corrupt-settings recovery test prints two ConfigFile parse errors; the
+two RendererDummy texture RID allocations at shutdown match the preceding full-suite baseline.
+
+QA found a capture-only hitch exposed by Drake Area's Ice Drakes: each `mob_projectile_spawned` queued another
+`mob_projectile.png`. In the uncapped seed-1 Lv38 F/P diagnostic reproduction (`--warp=370`, stop at 410 s),
+506 copies were encoded; one frame wrote the same PNG 56 times in **5.564 s**, of which readback was only 7.6 ms.
+Phase probes place the delay in `_capture` after drawing, outside RunScene simulation work, with no transfer or
+cold asset load. Capture the first projectile once per round, like the existing first ordinary windup/hit evidence.
+The seeded event-burst regression first fails (64 requests instead of one); after the fix the native reproduction
+encodes one projectile PNG and has no gap over 1 s. Its largest capture is 834 ms for seven distinct startup images
+after the warp. Gameplay, projectile visuals and tuning are unchanged. Probe code and raw timings remain ignored
+in `evidence/spec241/t249/{perf_capture_repro,perf_capture_fixed,diagnostic-sources}/`.
+
+Windowed playtests used x8, `--vsync=off`, 1600x1200 and the same cache. Fresh seed-2026 Henesys/Ellinia die
+at 310.033 / 34.700 s on map 1; the unassisted Sleepywood Lv38 fixture seed 1 dies at 314.733 s on map 1.
+Supplemental Lv38 fixture Henesys seed 1 clears naturally at 930.667 s, Lv66; the Ellinia fixture reaches map 3
+but dies at 624.433 s, Lv43. Separate **invulnerable diagnostic** Ellinia/Sleepywood captures clear at
+928.717 / 1583.000 s, Lv45/Lv61, using real attacks and no diagnostic lethal hits. Those clears prove presentation,
+not fresh-character survival. All these summaries have `missing: []`; native logs have no unexpected engine/script
+diagnostics. Screenshots were opened and checked by eye, including every intermediate CLEAR, fade, black frame,
+destination name/arrival and final-map CLEAR:
+
+- Henesys: Hunting Ground I and Mano; Pig Beach with Pigs/Ribbon Pigs and Mushmom; Blue Mushroom Forest with Blue
+  Mushrooms/Dark Axe Stumps and Blue Mushmom. Both arrivals are framed without old-map mobs; all three clear notices
+  render. Evidence: `henesys_carried_s1_x8/`.
+- Ellinia: Tree That Grew I and Stumpy; Forest of Wisdom's Slimes and King Slime; Forest of Evil I's Zombie Lupins/
+  Maladies and Dyle. The unassisted fixture's map-3 death remains visible evidence of pressure; the diagnostic
+  capture checks Dyle and the finale. Evidence: `ellinia_carried_s1_x8/`, `ellinia_diagnostic_s1_x8/`.
+- Sleepywood: Dark Cave and Zombie Mushmom; Drake Area's Drakes/Ice Drakes/Cold Eyes and Snack Bar; Cursed
+  Sanctuary's Cold Eyes/Tauromacis/Taurospears and Jr. Balrog. Destination art, foothold layers, both transitions
+  and Sanctuary's final CLEAR render correctly. Evidence: `sleepywood_carried_s1_x8/`,
+  `sleepywood_diagnostic_fixed_s1_x8/`; the initial partial diagnostic capture is retained separately.
+
+`arrival-bgm-checks.json` matches all nine native entry positions to a WZ `sp` portal's x, alongside the real-cache
+floor/arrival tests. Every entry reports successful BGM playback matching `info/bgm`: Henesys changes CavaBien ->
+AboveTheTreetops -> RestNPeace; Ellinia correctly keeps MoonlightShadow on all three maps; Dark Cave/Drake Area
+share AncientMove, then Sanctuary changes to EvilEyes. BGM checks are log evidence, not a listening assessment.
+All paths in these paragraphs are below `C:/Users/itech/.t3/worktrees/maple-survivors/t3-f6b9fd92/evidence/spec241/t249/`.
+
+The post-fix complete suite passes **2,154 tests, 0 failed, 0 skipped** (210 files, 830.101 s, exit 0), with the
+same expected settings-recovery diagnostics and two dummy texture RID shutdown allocations. The focused
+RunScene/transfer/capture recheck passes **66 tests, 0 failed, 0 skipped**. The three requested windowed flow drivers
+pass on the new keys: `maps` verifies map-2 Quit round leaves the boundary bytes unchanged, Continue replays map 1
+with seed 1/Lv1, then entries 300.000/600.017 s and the 900.050 s finale save into Free Market; `rounds` verifies
+Warrior/Sword, the carried Free Market boundary, tier-2 map select, Save & quit, same-seed replay, death/results,
+deletion and history; `economy` verifies drops/equip, buy/sell, both scroll outcomes and restored equipment,
+inventory, scrolls and 986,331 mesos. Maps/rounds summaries have `failures: []`, `missing: []`; economy ends with
+its passed/missing-empty log. Key screenshots of all three flows were checked by eye under `flow_{maps,rounds,economy}/`.
+
+The synthetic old-key `migration/driver_save.json` check passes 13 assertions: living round, bests, run counts and
+history load under canonical keys; migration is idempotent; real Continue retains seed 1 and the Lv38/job210
+character and starts Henesys map 1 at 00:00. The screenshot was checked by eye. Historical fixture `_doc` provenance
+is intentionally retained, so the disk-key assertion checks operational data rather than rewriting that history.
+
 #### Spec #241 (#248): tooling and diagnostic map flow (2026-10-22)
 
 Cache `s241`, Git Bash, separate `t248` isolates. This ticket ran only the permitted seed-1 Henesys bot record
