@@ -610,7 +610,8 @@ reports BGM playback matching `info/bgm` (Perion Nightmare, Nightmare continuing
 Subway, JungleBook). The map select shows four cards in `tiers` order; with Perion or Kerning City selected the detail
 lists `West Street Corner of Perion -> Mano`, `East Rocky Mountain V -> Stumpy`, `The Burnt Land I -> Iron Hook` and
 `Kerning City Construction Site -> King Slime`, `Line 1 <Area 1> -> Shade`, `The Swamp of Despair I -> Dyle`; the
-angle brackets render literally, in the arrival banner too. Evidence: `evidence/spec253/t257/` of the #257 worktree.
+angle brackets render literally, in the arrival banner too. Evidence: `C:/Users/itech/.t3/projects/maple-survivors/.claude/worktrees/agent-ab003e6a203a7ede5/evidence/spec253/t257/`
+(harness, probes and scripts in `diagnostic-sources/`).
 
 The `maps` flow driver gains `--stage=<tier-1 key>` (default henesys): `perion`, `kerning` and `henesys` all PASS
 (`failures: []`, `missing: []`), with real CLEAR/fade/arrival shots on each map, the map-2 Save & quit leaving the
