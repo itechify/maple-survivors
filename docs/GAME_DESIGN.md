@@ -546,6 +546,77 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #253 (#257): Perion and Kerning City QA smoke (2026-10-23)
+
+Integration base `ded803a` (T1-T3 merged) plus this ticket's bot fix, Git Bash, isolates `t257*`, cache
+`caches/s253`. Seeds **1 / 2 / 2026**, `bot` and `random`, on Perion and Kerning, both regions' `--tier=2` chains, and
+the unchanged-check reruns of Henesys, Ellinia, the Henesys chains and the Sleepywood Lv38 F/P fixture: 48 started
+rounds, every command exit 0, every record `warnings: []` / `missing: []`. No PATCH, tuning or held-out seeds.
+D = DEAD; `@N` is the one-based ending map; times in seconds; unobserved entries are absent, never zero.
+
+| Region / policy | Death s @ map (1 / 2 / 2026) | Map-2 entry s | Lv10 / first job s (id) | Map-1 boss fight s | Compared with T1 (#254) bot smoke / #249 |
+|---|---|---|---|---|---|
+| Perion / bot | 423.7@2 / 382.4@2 / 306.8@1 | 342.0 / 318.3 / absent | 248.6 (200) / 260.3 (200) / 255.5 (100) | Mano 42.0 / 18.2 / unfinished >= 6.8 | T1 62@1 / 383@2 / 432@2: seed 1 is the fixed bot bug below; 2026 shifts with it |
+| Perion / random | 383.5@2 / 460.2@2 / 389.5@2 | 318.4 / 438.0 / 342.8 | 240.5 (200) / 295.5 (200) / 241.4 (100) | Mano 18.3 / 138.0 / 42.8 | new |
+| Kerning / bot | 237.5@1 / 308.7@1 / 311.7@1 | absent x3 | absent / 234.3 (200) / absent | King Slime not spawned / >= 8.7 / >= 2.7 | T1 238 / 309 / 312, all @1: same |
+| Kerning / random | 237.5@1 / 307.6@1 / 302.8@1 | absent x3 | absent / 253.6 (200) / absent | not spawned / >= 7.5 / >= 2.8 | new |
+| Henesys, Ellinia (bot, random), Henesys chains, Sleepywood fixture | as #249 | as #249 | as #249 | as #249 | identical on state, time, kills, level, job, map_times, ended_map, hits/taken/level by minute, potions, reach, job_times, boss_fights, warnings, missing |
+
+Of the **12 fresh Perion/Kerning runs, 5 reach map 2 (all Perion) and 0 reach map 3**; every Perion map-2 entrant dies
+there before Stumpy's arrival (`not_spawned`), and every Kerning run dies on map 1, four of six within 12 s of King
+Slime's 300 s arrival. All four chains stop in tier 1 with zero tier-2 feeds; their tier-1 rounds equal the plain
+rows. Ellinia's Dyle (110 casts since #255) is unobserved: no Ellinia run reaches map 3. Iron Hook, Shade and Dyle never
+spawn in a fresh smoke run. This is a record for #77, not authority to tune.
+
+**Perion seed 1 (bot), 62 s at Lv1: a bot bug, fixed.** West Street Corner of Perion (102010000) has four two-way
+hidden portal pairs (hide00..03 <-> tohide00..03). From 55.8 s the bot escaped a Blue Snail crowd through hide00, then
+its drop route took tohide00 straight back down into that crowd on the next 0.384 s portal cooldown, and so on: 14
+portal uses (`camper.portals`), relocations 192% of spawns, 7 hits in 6 s under the shrinking hit window. Spawn
+placement, slopes, ropes and falling were ruled out by the frame trace and screenshots. `BotInput` now keeps the
+reverse link closed for 5 s after a warp (`REVERSE_PORTAL_HOLD`, tier C; test_bot_portals). Seed 1 then lives to
+423.7 s @2; seed 2026 also changes (432@2 to 306.8@1), as any Perion seed may. Henesys, Kerning and Sleepywood maps have
+no same-map links, and Ellinia's records are unchanged, so the hold is gated by the identical old-region rows above.
+
+**Kerning seeds 1/2026: a bot stall on map 1, not balance signal (to file).** On Kerning City Construction Site
+(103010000) the bot drops off the start ledge within 5 s into a pocket of the layer-2 floor (y 1506) between a wall at
+x 350 (y 1326-1650) and the 30 px step at x 505 (wall y 1476-1620), then walks into the x 350 wall toward the map
+centre (or the walled-off ladder at x 215), flips for 0.75 s, and repeats. Signature: `exp_by_min` flat (50, 50, 75)
+while `drops_by_min` climbs (4, 25, 58), no hits until death, `reach {}`; seed 1 dies at Lv3 to two Octopus touches
+(68, 76), seed 2026 stalls partially (EXP 50/50/255/255). Its jump apex (~77 px) clears the step, so a player walks
+out. No bot target checks `walk_blocked` and the stuck handler jumps backwards; that is bot work for its own ticket.
+
+**Kerning map 2: a corner leak that blocks Shade (to file).** In the windowed Lv38 fixture seed 1 run the character,
+grounded at the end of Line 1 <Area 1>'s y 323 floor (x 2880-3185) where the x 3185 wall (y -360 to 323) rises, is
+knocked airborne at x 3184.99 and next frame is at (3185.87, 386): the landing on y 323 is missed while x crosses the
+wall line below its end. Below lies a floorless void (x 3185-3475, VRBottom 570); fall-out recovery snaps back to that
+same floor end and the loop repeats. With no foothold, every Shade arrival is postponed ("Shade will appear in 3
+seconds!" from 607 s to the 1800 s cap, `boss_warning_1` without `boss_arrival_1`, PLAYING at 1800). Reproduced three
+times windowed (`kerning_fixture_s1_x4`, `_probe_`, `_void_`; frame log under `VOID entered`); headless `balance_run`
+with the same seed does not hit it (Shade dies at 613 s). Candidate fixes: a swept corner check in the air substep, a
+recovery that never lands on a floor end flush with a wall, and an `sp` fallback after repeated boss postponements.
+A headless run caught there reports TIMEOUT, a measurement artefact.
+
+Windowed evidence, checked by eye, all `missing: []`: fresh x4 playtests (seed 2026) die at 306.8 / 311.7 s on map 1
+(Kerning's shows the pocket stall). The Lv38 fixture seed 1 dies on Perion map 3 (664.1 s, Lv53) and on Kerning stalls
+as above. **Invulnerable diagnostic** captures (real attacks, no lethal injection) clear Perion and Kerning from the
+fixture (913.9 / 934.1 s, Lv57/61) and from a fresh Beginner (1067.8 / 1029.7 s, Lv29/35). They show every map with
+its own mobs (Perion: Blue/Red Snails and Stumps, Dark Axe Stumps, Fire Boars and Wild Boars; Kerning: snails, Slimes,
+Orange Mushrooms, Octopus, Bubblings, Ligators) and each boss arrival, Shade's Banish (notice "As the Pentacle swayed
+in the shadows, you were thrown elsewhere in the Subway." and the `affected` art on the character, Line 1 <Area 1>),
+Dyle's Attack Up (the 110 area art across the Ligators, then the buff glow on Dyle) and Iron Hook's Attack Up cast
+burst. Iron Hook dies before his first 40 s interval in every natural or diagnostic fight, so that capture adds a
+**x20 HP diagnostic tank** and holds the camera on him (harness-only presentation aid, never data). Every map entry
+reports BGM playback matching `info/bgm` (Perion Nightmare, Nightmare continuing, HighlandStar; Kerning BadGuys,
+Subway, JungleBook). The map select shows four cards in `tiers` order; with Perion or Kerning City selected the detail
+lists `West Street Corner of Perion -> Mano`, `East Rocky Mountain V -> Stumpy`, `The Burnt Land I -> Iron Hook` and
+`Kerning City Construction Site -> King Slime`, `Line 1 <Area 1> -> Shade`, `The Swamp of Despair I -> Dyle`; the
+angle brackets render literally, in the arrival banner too. Evidence: `evidence/spec253/t257/` of the #257 worktree.
+
+The `maps` flow driver gains `--stage=<tier-1 key>` (default henesys): `perion`, `kerning` and `henesys` all PASS
+(`failures: []`, `missing: []`), with real CLEAR/fade/arrival shots on each map, the map-2 Save & quit leaving the
+boundary bytes unchanged, Continue replaying map 1 with seed 1, entries 300.000 / 600.017 s (Kerning 312.000 /
+612.017 s: King Slime arrives at 303 s, one postponed arrival) and the Free Market boundary. The new `maps_stage_select` shot renumbers later Henesys shots by one.
+
 #### Spec #241 (#249): integrated three-map QA smoke (2026-10-22)
 
 Integration base `9dd41de`, Git Bash, private `t249` isolates and cache `caches/s241`. Ran seeds **1 / 2 / 2026**
