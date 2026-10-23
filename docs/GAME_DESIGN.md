@@ -3460,7 +3460,8 @@ weapon immunity (tier C): basic swings and Three Snails shells are blocked at li
 effective. A blocked shell consumes a contact/pierce hit without damage or crit RNG consumption (tier C).
 The original repeat 1/pos 2 34×34 icon with origin (17,44) stays above Dyle's body and follows relocations;
 body-top anchor mapping is tier C, art/origins are tier A. Status stops at expiration or death, never leaks
-into a reused pool slot. Dyle's canonical 112/113 defense skills reuse the existing handlers; 110 is not enabled.
+into a reused pool slot. Dyle's canonical 112/113 defense skills reuse the existing handlers; since #255 his 110/2 Attack Up (interval 35 s,
+30 s, ×1.15 weapon attack in its area) casts too, listed before 112/113 in his skill list.
 Death offspring use survivor summon_spacing 24 px on the death platform, with no new per-entity Nodes.
 Source facts are the owner's original Mob.wz/9300003.img, Mob.wz/6220000.img and Skill.wz/MobSkill.img;
 Local reference summaries: research/stage-bosses/out/bosses_3220000_5220002_9300003.json (King Slime),
@@ -6334,6 +6335,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Threaten cast (#183) | `crowd` rule with `cast.status: threatened`: at least 3 eligible (live, non-boss, not already threatened) monsters in the box, nearest `mobCount` first, 1 s cooldown, 0.8 s alert2 stance; Slow's two-consecutive-cast history stays Slow-only | C | ours |
 | Threatened status (#183) | flat PAD and PDD cut floored at 0 on contact damage, physical ordinary attacks (and their balls) and the player's physical hits; refreshes without stacking; bosses and status-resistant kinds never take it; coexists with slow, poison and freeze; magic attack and defence untouched | C | ours; the v83 text only says weapon attack and weapon def. fall |
 | Threaten cards (#183) | learn weight 3, rank weight 2, `requires.jobs` [120], not power; no bot score entry (default scoring, like Iron Body) | C | ours |
+| Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks unchanged; the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
 
 ## 12. Later phases
 
