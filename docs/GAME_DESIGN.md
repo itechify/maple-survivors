@@ -748,8 +748,11 @@ and **only pre-pass stages restored** passed the old event digest (1 test, 0 fai
 new digest comes from the authorized world numbers rather than a code change. The first full log is preserved as
 `full_suite_frozen_C24_attempt1.log`; no game data was changed to satisfy a test.
 
-**Frozen-data full suite: pending.** Earlier unchanged-data suites were 2,204/0/0 in round 1 and 2,210/0/0 in
-round 2 (214 files, exit 0). Exact frozen-data results will replace this pending line before handoff.
+**Frozen-data full suite: 2,210 tests, 0 failed, 0 skipped, 214 files, exit 0** (784,336 ms).
+Command: `ISOLATE=t77 MAPLE_SURVIVORS_CACHE=.../caches/s253 bash scripts/test.sh`; exact output is
+`.../t77/full_suite_frozen_C24.log`. Godot still emits the same two dummy-renderer texture RID shutdown
+allocation messages as the baseline. Earlier unchanged-data suites were 2,204/0/0 in round 1 and 2,210/0/0 in
+round 2. Focused frozen checks and the old-stage event-digest control also pass as recorded above.
 
 No training target is missed. The held-out assessment is **pending the owner's playtest and approval**;
 **701..730 has never been run**. Candidate 25 and two full-matrix slots remain unused. C22..C24 were focused
