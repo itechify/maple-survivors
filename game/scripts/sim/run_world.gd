@@ -761,12 +761,13 @@ func is_hidden() -> bool:
 
 
 ## MobSkill 129 Banish (#256): moves the character to a random `sp` portal of the current map other than the one nearest
-## it (when there are two or more), dropped onto the floor (PortalSet.start_point on stream 17, the map-arrival placement), brings an out pet beside it like a map arrival
+## it (when there are two or more), dropped onto the floor (PortalSet.start_point_away_from on stream 17, the
+## map-arrival placement), brings an out pet beside it like a map arrival
 ## (`pet_pos` jump announced by `pet_teleported`) and emits `player_banished` with `cast`'s mob, mob_id, skill_id,
 ## level, effect and message. tier C: v83 sends the character to `info/ban`'s town map, outside the round.
 func banish_player(cast: Dictionary) -> void:
 	var from := player.pos
-	player.place(PortalSet.start_point(_current_map_img(), fhm, bounds, banish_rng, true, from), fhm)
+	player.place(PortalSet.start_point_away_from(_current_map_img(), fhm, bounds, banish_rng, from), fhm)
 	if pet_system != null:
 		var pet_from := pet_system.motion.pos
 		pet_system.place_beside(player, fhm)
@@ -2618,10 +2619,14 @@ func _player_hit(m: int, mk: MobKind) -> void:
 		"elite": mob_elite[m] != 0, "boss": boss_index >= 0, "source_kind": "touch"}
 	if boss_index >= 0:
 		source["dmg_mult"] = bosses.damage_multiplier(boss_index)
-	# Threaten (#183): a threatened mob's contact weapon attack is lowered by the level's flat amount, floor 0.
-	# Attack Up (MobSkill 100/110, #255) then multiplies it, before the boss/elite source multipliers.
-	var attack := swarm.threatened_pad(m, float(mk.pad)) * mob_skills.attack_multiplier(m, time)
-	take_hit(attack, false, "", Vector2(swarm.x[m], swarm.y[m]), source)
+	take_hit(mob_weapon_attack(m, float(mk.pad)), false, "", Vector2(swarm.x[m], swarm.y[m]), source)
+
+
+## Weapon attack `pad` of the mob in slot m at a physical hit (touch or attackN impact): Threaten's flat cut (#183,
+## floor 0) first, then Attack Up's multiplier (MobSkill 100/110, #255); the source's boss/elite/dmg_mult multipliers
+## apply later, in take_hit.
+func mob_weapon_attack(m: int, pad: float) -> float:
+	return swarm.threatened_pad(m, pad) * mob_skills.attack_multiplier(m, time)
 
 
 ## Defense inputs for a monster hit; overridable by subsequent equipment and buff rules.

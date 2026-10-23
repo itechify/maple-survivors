@@ -19,9 +19,6 @@ const SUPPORTED := [SKILL_SLOW, SKILL_SUMMON, SKILL_PDD_UP_AREA, SKILL_MDD_UP_AR
 ## tier C: Attack Up (100/110) multiplies the weapon attack of the buffed mobs by this while it lasts (spec #253). The
 ## v83 x115 is not read: whether it is flat or a percentage is unverified. balance.mob_skills.attack_up_mult sets it.
 const DEFAULT_ATTACK_UP_MULT := 1.15
-## Banish (129) messages by boss mob id. tier C (#256): Shade's v83 banMsg (Mob.wz/5090000.img/info/ban/banMsg, which
-## sends the character to the Subway Ticketing Booth 103000100) reworded for a round that stays on its own map.
-const BANISH_MESSAGES := {5090000: "As the Pentacle swayed in the shadows, you were thrown elsewhere in the Subway."}
 
 var _images: Dictionary
 var _tables: Dictionary
@@ -82,7 +79,7 @@ func step(world: RunWorld) -> void:
 			if id in [SKILL_SLOW, SKILL_BANISH] and world.is_hidden():
 				continue
 			var key := "%d/%d/%d" % [index, id, level]
-			var interval := _interval(world, index, id, spec)
+			var interval := world.bosses.skill_interval(index, id, float(spec.get("interval", 0.0)))
 			# tier C: a skill first becomes ready one interval after the boss arrives (never on the arrival tick), then
 			# one interval after each cast; WZ has the interval, not when the first use may happen.
 			var ready := float(_ready.get(key, float(record.spawn_time) + interval))
@@ -127,7 +124,7 @@ func step(world: RunWorld) -> void:
 			elif id == SKILL_BANISH:
 				world.banish_player({"mob": slot, "mob_id": int(record.mob_id), "skill_id": id, "level": level,
 					"effect": path + "/affected" if spec.has("affected") else "",
-					"message": String(BANISH_MESSAGES.get(int(record.mob_id), ""))})
+					"message": _banish_message(world, int(record.mob_id))})
 			_ready[key] = now + interval
 			var action := "skill%d" % int(entry.get("action", 1))
 			world.bosses.begin_action(index, action, MobKind.stance_time(image.get(action), 0.0), facing, now)
@@ -142,13 +139,10 @@ func step(world: RunWorld) -> void:
 	_resolve_heals(world)
 
 
-## A skill's interval for boss `index`: its stage entry's `skill_intervals` {"<skill id>": seconds} override (tier C,
-## e.g. Shade's Banish 15 s, #256), else the canonical WZ interval.
-func _interval(world: RunWorld, index: int, id: int, spec: Dictionary) -> float:
-	var overrides: Variant = world.bosses.entries[index].get("skill_intervals", {})
-	if overrides is Dictionary and (overrides as Dictionary).has(str(id)):
-		return float(overrides[str(id)])
-	return float(spec.get("interval", 0.0))
+## Banish (129) notice of boss `mob_id`: its survivor mobs.json `banish_message` (Shade's reworded v83 banMsg, #256),
+## "" when it has none.
+static func _banish_message(world: RunWorld, mob_id: int) -> String:
+	return String(world.data.get("mobs", {}).get("mobs", {}).get(str(mob_id), {}).get("banish_message", ""))
 
 
 func _resolve_heals(world: RunWorld) -> void:
@@ -285,7 +279,7 @@ func _buff(swarm: MobSwarm, area: Rect2, id: int, spec: Dictionary, until: float
 
 ## Live Attack Up multiplier of the mob in `slot`: balance.mob_skills.attack_up_mult while MobSkill 100/110 lasts, else 1.
 ## Touch damage and physical attackN impacts multiply their weapon attack by it, after a Threaten cut and before the
-## boss/elite source multipliers (RunWorld._player_hit, MobAttacks); magic attacks are unchanged.
+## boss/elite source multipliers (RunWorld.mob_weapon_attack); magic attacks are unchanged.
 func attack_multiplier(slot: int, now: float) -> float:
 	if slot < 0 or slot >= _attack_until.size() or now >= _attack_until[slot] - 1e-9:
 		return 1.0

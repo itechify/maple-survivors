@@ -59,6 +59,14 @@ func test_the_boss_entry_override_spaces_banishes_fifteen_seconds_apart() -> voi
 	assert_eq(_banishes(_run(w, 1, true)).size(), 1, "the next one exactly 15 s later")
 
 
+func test_skill_interval_reads_the_entry_override_else_the_given_wz_interval() -> void:
+	var bosses := BossDirector.new([{"time": 0.0, "mob_id": SHADE, "skill_intervals": {"129": 15}},
+		{"time": 0.0, "mob_id": SHADE}])
+	assert_eq(bosses.skill_interval(0, 129, 3.0), 15.0, "the entry's override")
+	assert_eq(bosses.skill_interval(0, 126, 3.0), 3.0, "a skill the override does not name keeps the WZ interval")
+	assert_eq(bosses.skill_interval(1, 129, 3.0), 3.0, "an entry without overrides keeps the WZ interval")
+
+
 func test_without_an_override_banish_keeps_the_canonical_interval() -> void:
 	var w := _world({})
 	assert_eq(_banishes(_run(w, 15 * 60, true)).size(), 5, "v83 129/5 interval 3 s: five in the first 15 s")

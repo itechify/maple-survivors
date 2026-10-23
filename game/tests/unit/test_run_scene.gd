@@ -1274,7 +1274,7 @@ func test_banish_shows_its_message_and_plays_the_affected_art_once_on_the_charac
 		return
 	scene = _make("henesys", 22, {})
 	var w := scene.world
-	var message := String(MobSkillRunner.BANISH_MESSAGES[5090000])
+	var message := String(scene.data.mobs.mobs["5090000"].banish_message)
 	var before := scene.fx.active_count() + scene.fx_back.active_count()
 	scene.handle_events([{"type": "player_banished", "mob": 0, "mob_id": 5090000, "skill_id": 129, "level": 5,
 		"from": w.player.pos, "pos": w.player.pos + Vector2(300, 0),

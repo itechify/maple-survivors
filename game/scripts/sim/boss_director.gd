@@ -19,8 +19,6 @@ var _actions: Array[Dictionary] = []
 var _now := 0.0
 var _action_view := {"actions": PackedStringArray(), "times": PackedFloat32Array(), "facings": PackedInt32Array()}
 var _view_slots := PackedInt32Array()
-## Whether the last _point() used the arrival_fallback rule.
-var _fell_back := false
 
 
 func _init(p_entries: Array = [], p_rules: Dictionary = {}) -> void:
@@ -148,7 +146,8 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 			world.warnings.append("boss %d (%d) has no mob img: skipped so the stage can clear" % [
 				index, int(entry.mob_id)])
 			continue
-		var point := _point(world, float(record.get("postponed_since", -1.0)))
+		var found := _point(world, float(record.get("postponed_since", -1.0)))
+		var point: Vector3 = found.point
 		if point.z < -1.0:
 			_postpone(index, world)
 			continue
@@ -166,7 +165,7 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 		record.anchor = Vector2(world.swarm.x[slot], world.swarm.y[slot])
 		var spawned := {"boss_index": index, "mob": slot, "mob_id": int(entry.mob_id),
 			"pos": Vector2(world.swarm.x[slot], world.swarm.y[slot]), "time": world.time}
-		if _fell_back:
+		if bool(found.fallback):
 			record.fallback = true
 			spawned.fallback = true
 		world.emit("boss_spawned", spawned)
@@ -176,24 +175,23 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 ## else anywhere on it within spawn_distance (a narrow platform). z < -1 when it has no point (the player is over no
 ## floor, or every point is walled off). Once that has kept failing for arrival_fallback s since `since` (>= 0), the
 ## floor point nearest the player stands in for the player with the same two tries, then that point itself (tier C,
-## #260: a player stranded in a floorless void no longer postpones a boss forever). Sets _fell_back.
-func _point(world: RunWorld, since: float) -> Vector3:
-	_fell_back = false
+## #260: a player stranded in a floorless void no longer postpones a boss forever). Returns {point: Vector3,
+## fallback: bool (true when the arrival_fallback rule chose it)}.
+func _point(world: RunWorld, since: float) -> Dictionary:
 	var d := world.director
 	var point := d.pick_player_platform(world, float(rules.min_spawn_distance), float(rules.spawn_distance), true)
 	if point.z < -1.0:
 		# A narrow platform can require a closer arrival; the warning and regen fade still apply.
 		point = d.pick_player_platform(world, 0.0, float(rules.spawn_distance), true)
 	if point.z >= -1.0 or since < 0.0 or world.time - since < float(rules.arrival_fallback) - 1e-6:
-		return point
+		return {"point": point, "fallback": false}
 	var near := world.fhm.nearest_floor_point(world.player.pos)
 	if near.z < 0.0:
-		return point
-	_fell_back = true
+		return {"point": point, "fallback": false}
 	point = d.pick_player_platform(world, float(rules.min_spawn_distance), float(rules.spawn_distance), true, 0, near)
 	if point.z < -1.0:
 		point = d.pick_player_platform(world, 0.0, float(rules.spawn_distance), true, 0, near)
-	return point if point.z >= -1.0 else near
+	return {"point": point if point.z >= -1.0 else near, "fallback": true}
 
 
 func _warn(index: int, world: RunWorld) -> void:
@@ -220,14 +218,15 @@ func _track_pursuit(index: int, world: RunWorld, dt: float) -> void:
 		s.alpha[slot] = float(record.fade_left) / maxf(dt, float(rules.teleport_fade))
 		if float(record.fade_left) > 1e-6:
 			return
-		var point := _point(world, float(record.get("relocate_since", -1.0)))
+		var found := _point(world, float(record.get("relocate_since", -1.0)))
+		var point: Vector3 = found.point
 		if point.z < -1:
 			if float(record.get("relocate_since", -1.0)) < 0.0:
 				record.relocate_since = world.time
 			return
 		if record.has("relocate_since"):
 			record.relocate_since = -1.0
-		if _fell_back:
+		if bool(found.fallback):
 			record.fallback = true
 		slot = world.relocate_mob(slot, Vector2(point.x, point.y), int(point.z))
 		record.fading = false
@@ -318,6 +317,15 @@ func normal_spawn_multiplier() -> float:
 ## Explicit damage multiplier for a scheduled boss's hits.
 func damage_multiplier(index: int) -> float:
 	return float(entries[index].get("dmg_mult", 1.0)) if index >= 0 and index < entries.size() else 1.0
+
+
+## Seconds between casts of MobSkill `skill_id` for boss `index`: its stage entry's `skill_intervals`
+## {"<skill id>": seconds} override (tier C, e.g. Shade's Banish 15 s, #256), else `fallback` (the canonical WZ interval).
+func skill_interval(index: int, skill_id: int, fallback: float) -> float:
+	var overrides: Variant = entries[index].get("skill_intervals", {})
+	if overrides is Dictionary and (overrides as Dictionary).has(str(skill_id)):
+		return float(overrides[str(skill_id)])
+	return fallback
 
 
 ## Survivor reward configuration: each scheduled entry may override the shared boss reward defaults.

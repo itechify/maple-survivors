@@ -251,11 +251,8 @@ static func service(pending: Dictionary, world: RunWorld) -> bool:
 
 static func _impact(pending: Dictionary, world: RunWorld) -> void:
 	if not bool(pending.magic):
-		# Threaten (#183): a threatened attacker's weapon attack is lowered at impact, for strikes and balls alike;
-		# Attack Up (MobSkill 100/110, #255) then multiplies it, before the source's dmg_mult.
-		var mob := int(pending.mob)
-		pending.damage = world.swarm.threatened_pad(mob, float(pending.damage)) \
-			* world.mob_skills.attack_multiplier(mob, world.time)
+		# Threaten (#183) and Attack Up (#255) apply at impact, for strikes and balls alike, before the source's dmg_mult.
+		pending.damage = world.mob_weapon_attack(int(pending.mob), float(pending.damage))
 	emit(pending, "impact", world)
 	# Hidden (#194): an attack winding up when the character vanished lands nothing and launches no ball.
 	if world.is_hidden():

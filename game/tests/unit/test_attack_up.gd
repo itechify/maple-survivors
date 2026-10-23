@@ -246,6 +246,20 @@ func test_touch_damage_is_115_percent_only_while_buffed() -> void:
 	assert_eq(buffed[4], plain[4])
 
 
+func test_weapon_attack_takes_the_threaten_cut_before_the_attack_up_multiplier() -> void:
+	var w := _world([[110, 2]])
+	_ticks(w, 2099)
+	# A Snail (not boss-flagged, so Threaten takes) placed inside the box on the tick before the 110/2 cast at 35 s.
+	var mob := RF.put_mob(w, 100100, 850)
+	w.swarm.alpha[mob] = 1.0
+	assert_eq(w.mob_weapon_attack(mob, 100.0), 100.0, "no status: the weapon attack itself")
+	_ticks(w, 1)
+	assert_near(_mult(w, mob), 1.15, 1e-6, "the 110/2 cast at 35 s buffed the mob inside its box")
+	assert_near(w.mob_weapon_attack(mob, 100.0), 115.0, 1e-4)
+	assert_true(w.swarm.apply_status(mob, "threatened", {"x": -30, "y": -10, "time": 20}, w.events))
+	assert_near(w.mob_weapon_attack(mob, 100.0), 80.5, 1e-4, "(100 - 30) x 1.15, not 100 x 1.15 - 30")
+
+
 ## Every boss attack1 hit on the player until `until` s: [[time, damage], ...], plus the Attack Up cast time.
 func _attack_hits(mult: float, magic: bool, until := 80.0) -> Dictionary:
 	var w := _world([[100, 1]], mult, true, magic)

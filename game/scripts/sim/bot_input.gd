@@ -98,8 +98,8 @@ const SCORE_GAIN_STEP := 6.0
 ## The input for the next tick of `w`.
 static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	if int(memo.get("map_index", 0)) != w.map_index:
-		for key: String in ["portal_x", "climb_x", "climb_t", "flip", "flip_t", "stuck", "last_x", "down_cd", "closed_link",
-				"closed_until", "wall_x", "wall_y", "wall_side", "wall_until"]:
+		for key: String in ["portal_x", "climb_x", "climb_t", "flip", "flip_t", "stuck", "last_x", "down_cd", "closed",
+				"wall"]:
 			memo.erase(key)
 	memo["map_index"] = w.map_index
 	var mi := MoveInput.new()
@@ -170,7 +170,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var held := _held_wall(w, memo)
 	if held != 0:
 		var k := 0 if held < 0 else 1
-		room[k] = minf(room[k], absf(p.x - float(memo.wall_x)))
+		room[k] = minf(room[k], absf(p.x - float(memo.wall.x)))
 	danger[0] += EDGE_DANGER / (room[0] + 10.0)
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
 	var teleport := w.teleport_skill()
@@ -268,8 +268,8 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		elif best == INF:
 			var cx := w.bounds.get_center().x
 			if _beyond_wall(w, memo, cx):
-				if absf(p.x - float(memo.wall_x)) < WALL_CLEAR:
-					dir = -int(memo.wall_side)
+				if absf(p.x - float(memo.wall.x)) < WALL_CLEAR:
+					dir = -int(memo.wall.side)
 			elif absf(cx - p.x) > 200.0:
 				dir = 1 if cx > p.x else -1
 	var flip: int = memo.get("flip", 1)
@@ -289,10 +289,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 				memo["flip"] = -dir
 				memo["flip_t"] = 45
 			if wall >= 0 and not step:
-				memo["wall_x"] = w.fhm.x1[wall]
-				memo["wall_y"] = p.y
-				memo["wall_side"] = dir
-				memo["wall_until"] = w.time + WALL_HOLD
+				memo["wall"] = {"x": w.fhm.x1[wall], "y": p.y, "side": dir, "until": w.time + WALL_HOLD}
 	else:
 		memo["stuck"] = 0
 	memo["last_x"] = p.x
@@ -438,15 +435,15 @@ static func _note_arrival(w: RunWorld, memo: Dictionary) -> void:
 	for link: Dictionary in w.portals.links:
 		var arrival: Vector2 = link.target_pos - Vector2(0, lift)
 		if w.player.pos.distance_to(arrival) <= lift + 1.0:
-			memo["closed_link"] = [String(link.target), String(link.name)]
-			memo["closed_until"] = w.time + REVERSE_PORTAL_HOLD
+			memo["closed"] = {"link": [String(link.target), String(link.name)], "until": w.time + REVERSE_PORTAL_HOLD}
 			return
 
 
 static func _useful_portal(w: RunWorld, escaping: bool, memo: Dictionary) -> Dictionary:
 	if w.player.fh < 0 or w.portals.links.is_empty():
 		return {}
-	var closed: Array = memo.get("closed_link", []) if w.time < float(memo.get("closed_until", -INF)) else []
+	var closed_memo: Dictionary = memo.get("closed", {})
+	var closed: Array = closed_memo.link if w.time < float(closed_memo.get("until", -INF)) else []
 	var p := w.player.pos
 	var pk := w.pickups
 	var best := INF
@@ -514,21 +511,22 @@ static func _step_jumpable(w: RunWorld, dir: int) -> bool:
 	return w.fhm.wall_hit(p.x, y, p.x + dir * WALL_PROBE_AHEAD, y) < 0
 
 
-## True while a wall the bot got stuck at (#259) still stands between it and x: the hold is running, the bot is on the
-## wall's near side and within WALL_BAND px of the height it stood at, and x lies past the wall.
+## True while the wall the bot got stuck at (#259) still bars the way (_held_wall) and x lies past it.
 static func _beyond_wall(w: RunWorld, memo: Dictionary, x: float) -> bool:
 	var side := _held_wall(w, memo)
-	return side != 0 and (x - float(memo.wall_x)) * side > 0.0
+	return side != 0 and (x - float(memo.wall.x)) * side > 0.0
 
 
-## The side (-1 left, 1 right) of a wall the bot got stuck at (#259) while it still bars the way: the hold is running,
-## the bot is on the wall's near side and within WALL_BAND px of the height it stood at; 0 otherwise.
+## The side (-1 left, 1 right) of a wall the bot got stuck at (#259, `memo.wall` {x, y, side, until}) while it still
+## bars the way: the hold is running, the bot is on the wall's near side and within WALL_BAND px of the height it stood
+## at; 0 otherwise.
 static func _held_wall(w: RunWorld, memo: Dictionary) -> int:
-	if w.time >= float(memo.get("wall_until", -INF)):
+	var wall: Dictionary = memo.get("wall", {})
+	if w.time >= float(wall.get("until", -INF)):
 		return 0
-	var side := int(memo.wall_side)
+	var side := int(wall.side)
 	var p := w.player.pos
-	if (p.x - float(memo.wall_x)) * side < 0.0 and absf(p.y - float(memo.wall_y)) <= WALL_BAND:
+	if (p.x - float(wall.x)) * side < 0.0 and absf(p.y - float(wall.y)) <= WALL_BAND:
 		return side
 	return 0
 
