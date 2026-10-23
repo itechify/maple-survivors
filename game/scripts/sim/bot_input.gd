@@ -565,7 +565,7 @@ static func auto_choose(w: RunWorld, first_card := false, forced_job := 0, force
 		guard += 1
 		made += 1
 		if w.state == RunWorld.CHOOSING_JOB:
-			var pick := pick_choice(w.pending_jobs, w.job_rng, forced_job, w.jobs, forced_path)
+			var pick := pick_choice(w.pending_jobs, w.job_rng, forced_job, w.jobs, forced_path, w.held_weapon_family())
 			if pick.job_id < 0 or not w.apply_job(pick.job_id, pick.path):
 				w.decline_job()
 		else:
@@ -579,8 +579,11 @@ static func auto_choose(w: RunWorld, first_card := false, forced_job := 0, force
 ## draw to select the job. A named forced path is used when the selected advancement offers it; a forced single-family
 ## branch without a path takes the offered path of its family (no draw); otherwise every multi-family
 ## advancement draws uniformly on the same job stream (8). Zero/one-path jobs and RNG-less callers use the default.
+## An unselected second job (tier 2, `jobs` given) keeps `held_family`, the worn weapon's family (#261): the draw is
+## only among the branches that offer it (none when one does) and its page keeps that family; when no branch offers
+## it, every available branch is drawn as before.
 static func pick_choice(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
-		forced_path := "") -> Dictionary:
+		forced_path := "", held_family := "") -> Dictionary:
 	var available: Array[Dictionary] = []
 	for o: Variant in options:
 		if o is Dictionary and bool((o as Dictionary).get("available", false)):
@@ -597,12 +600,30 @@ static func pick_choice(options: Array, rng: RandomNumberGenerator = null, force
 				target = id
 				break
 	if target < 0:
+		var keep := _family_keepers(available, jobs, held_family)
+		if not keep.is_empty():
+			return _entry(keep[rng.randi_range(0, keep.size() - 1)] if keep.size() > 1 and rng != null else keep[0],
+				forced_path, rng, held_family)
 		return _entry(available[rng.randi_range(0, available.size() - 1)] if available.size() > 1 and rng != null
 			else available[0], forced_path, rng)
 	for o: Dictionary in available:
 		if int(o.job_id) == target:
 			return _entry(o, forced_path, rng, _branch_family(jobs, forced))
 	return {"job_id": -1, "path": ""}
+
+
+## The second-job options (tier 2 in `jobs`) whose paths offer `family`, in option order; [] at a first advancement,
+## without `jobs` or a family, or when none offers it. Tier C (#261): a sensible player keeps the family it ranked.
+static func _family_keepers(available: Array[Dictionary], jobs: JobTree, family: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if jobs == null or family == "":
+		return out
+	for o: Dictionary in available:
+		if int(jobs.job(int(o.job_id)).get("tier", 0)) != 2:
+			continue
+		if (o.get("paths", []) as Array).any(func(p: Dictionary) -> bool: return String(p.get("family", "")) == family):
+			out.append(o)
+	return out
 
 
 ## The one weapon family a forced single-family branch (310, 320, 410, 420, 510, 520) can use; "" for any other job.

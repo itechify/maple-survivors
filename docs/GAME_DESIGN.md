@@ -551,6 +551,17 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #253 (#261): the bot keeps its weapon family at the second advancement (2026-10-23)
+
+Integration tip `bac7a1e` plus this fix, cache `caches/s253`, isolate `t261`, no tuning ("Bot second-job family" in
+11). **Bot records, seeds 1 / 2 / 2026, all four tier-1 regions: identical before and after** (state, time, kills,
+level, job, map_times, ended_map, hits/level/EXP by minute, job_times, boss_fights, potions, cards; `warnings: []`,
+`missing: []`): no run reaches Lv30 on the untuned data, so no second advancement happens. `--job=500:knuckle` on Perion
+seeds 1..6 is also identical (all die by 7:11, Lv11-22). On the #77 C05 patch (`t77/C05.json`, diagnostic only, not a
+candidate), Perion `500:knuckle` seeds 1..6 go from 3/6 clears (seeds 1, 4, 5 drew Gunslinger; 5 died at 1088.5 s
+Lv30) to 4/6, and every record now equals the `510:knuckle` cohort's field for field (seeds 1/2/4/5 clear, seed 3 dies
+at 1059.6 s Lv30, seed 6 at 316.8 s Lv12).
+
 #### Spec #253 (#260): Kerning floor/wall corner leak and boss-arrival bound (2026-10-23)
 
 Integration base `d50443a`, isolates `t260*`, cache `caches/s253`, no PATCH or tuning. **Root cause:** the air
@@ -5639,7 +5650,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   change seeded records without changing any stream's initialization. `--job=100:spear`, `--job=120:blunt`,
   `--job=400:claw` and `--job=500:gun` force the family when that advancement offers it. A forced single-family
   branch without a path (`--job=410`, `320`, `510`...) takes the first-job path of its own family (no draw), as before #232;
-  a forced multi-family branch without a path (`--job=110`) still draws its Warrior family at Lv10.
+  a forced multi-family branch without a path (`--job=110`) still draws its Warrior family at Lv10. Since #261 an
+  unforced second job keeps the held weapon's family: the stream-8 draw is only among the branches that offer it (none
+  when one does) and that family stays on the page; with no such branch every branch is drawn as before.
 - Advancing to Magician changes job to 200 and keeps the existing +120 Max MP bonus; it teaches no skill.
   The extra advancement draw includes Energy Bolt, Magic Claw and one other new Magician skill before the normal draw.
 - The JobChanged pillar and sound play on the character first; the advancement draw opens once the effect has
@@ -5781,7 +5794,7 @@ random policy shares the movement and the camper policies still override it afte
 | Reserved performance key (MS-10) | F3 is fixed on desktop and web, captioned Perf in Key Config; old saved action bindings drop F3 and retain their other keys | C | Existing RunScene diagnostic shortcut; `KeyBindings.RESERVED` |
 | Finale precedence (MS-07) | Last mandatory answer after all scheduled bosses die settles without another damaging tick; active-tick death still wins | C | Owner decision, 2026-10-21 |
 | Finale collection (MS-08) | Sweep all remaining pickup kinds once using normal pickup accounting; resolve resulting level/job/card choices with combat frozen before carry. Full-tab equipment retains the existing blocked-on-ground rule and is left behind at clear | C | Owner decision, 2026-10-21; existing Equip pickup capacity rule |
-| Bot weapon choices (#232) | Uniform job-stream-8 family draw at each multi-family advancement unless that advancement offers the forced family; no implicit branch preference. BotShop upgrades the recorded family | C | Owner #226; binding decision 7 |
+| Bot weapon choices (#232) | Uniform job-stream-8 family draw at each multi-family advancement unless that advancement offers the forced family; no implicit branch preference (an unforced second job keeps the held family since #261). BotShop upgrades the recorded family | C | Owner #226; binding decision 7 |
 | Weapon path migration and AP (#230) | Pathless saves use the held family at the deepest multi-path ancestor, else its first path; keep inventory. AP lookup falls back from job:path to plain job at each ancestor and re-splits earned AP on advancement | C | Owner #226 and binding implementation decisions |
 | Banish destination (MobSkill 129, #256) | A random `sp` portal of the current map dropped onto the floor below it (`PortalSet.start_point_away_from`, the map-arrival rule; the widest platform's middle on a map without `sp`), drawn uniformly on the dedicated stream 17 `banish_rng` so no other stream shifts. With two or more `sp` portals the one nearest the character is left out ("thrown elsewhere"); a single `sp` is used even if the character stands by it. The placement clears velocity, ladder and foothold, and an out pet is put beside the character like a map arrival (`pet_teleported`). 103000101 has two, (-258, 138) and (1115, 66), both landing on the y 198 platform, so a Banish there always lands at the other one | C (adaptation, nearest-portal exclusion: lead #256 review), B (destination: a random portal, Cosmic's server) | Owner #253; v83 `info/ban/banMap` sends the character to 103000100 Subway Ticketing Booth, outside the round |
 | Shade's arrival on 103000101 relative to the `sp` portals (measured, #253 review) | Seed 1, Lv38 F/P fixture `lv35_magician_2nd.json`, `bot` policy, Kerning City (headless `boss_spawned` pos, cache with the #253 manifest): Shade arrives at 604.47 s at (653.9, 198), 250 px (`spawn_distance`) left of the character at (903.9, 198) on the y 198 platform. Its Banish box there spans x 453.9..853.9, y 48..248, so neither `sp` portal, (-258, 138) nor (1115, 66) (nor their y 198 landing points), lies inside it at arrival; the nearer, (1115, 66), is 261 px past the box's right edge. The arrival point follows the character (the boss arrival rule), so other seeds and builds land elsewhere | Measurement, not a constant | Seed-1 headless record, #253 review |
@@ -6516,6 +6529,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Floor/wall corner landing (#260) | An air sub-step whose path crosses a floor line inside the floor's span while its end x lies past the floor's end lands on that floor at the end x pulled EPS = 0.01 px inside (`FootholdMap.find_corner_landing`); player only, mobs/pickups/NavGraph keep `find_landing` | C | ours: the 1 px wall probe at the crossing x was already below a wall rising from the floor end, so neither landing nor wall caught it (Kerning 103000101, x 3185) |
 | Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
+| Bot second-job family (#261) | At an unselected second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unselected at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
 
 ## 12. Later phases
 

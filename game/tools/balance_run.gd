@@ -326,7 +326,8 @@ static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, card
 	while guard < 64 and (w.state == RunWorld.CHOOSING_JOB or w.state == RunWorld.CHOOSING_UPGRADE):
 		guard += 1
 		if w.state == RunWorld.CHOOSING_JOB:
-			var pick := BotInput.pick_choice(w.pending_jobs, w.job_rng, forced_job, w.jobs, forced_path)
+			var pick := BotInput.pick_choice(w.pending_jobs, w.job_rng, forced_job, w.jobs, forced_path,
+				w.held_weapon_family())
 			if pick.job_id < 0 or not w.apply_job(pick.job_id, pick.path):
 				w.decline_job()
 			continue

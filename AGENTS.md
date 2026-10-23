@@ -266,7 +266,11 @@ startup. A multi-family forced job validates against its own families; a single-
 first job (e.g. `410:claw`). At each advancement the bot uses the forced family only if that job offers it; otherwise
 it draws uniformly among multiple families on job stream 8, including at Lv30. Thus `110:axe` draws a Warrior family
 at Lv10 and forces Axe at Lv30, while a single-family branch such as `--job=410` takes its own family (claw) without a
-draw. Unforced jobs also draw on stream 8. BotShop upgrades the recorded family while the job can use it.
+draw. Unforced jobs also draw on stream 8. An unforced second job (no `--job`, or a forced first job such as
+`500:knuckle` at Lv30) keeps the held weapon's family (#261): the bot draws only among the branches that offer it (no
+draw when one does, so a Knuckle Pirate always becomes a Brawler and a Sword Warrior a Fighter or Page) and keeps that
+family on the weapon page; when no branch offers it, every branch is drawn as before. BotShop upgrades the recorded
+family while the job can use it.
 Records keep `branch` / `forced_branch` / `job_t` and add `job_times` (`{"<job id>": first advancement time}`);
 the summary reports seconds per job id.
 
