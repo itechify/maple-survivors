@@ -10,7 +10,8 @@ const DT := 1.0 / 60.0
 ## Re-captured for #238: unlimited potions on cooldowns, no potion drops and two boss equipment drops.
 ## Re-captured for #259 (the bot jumps a wall it can clear and remembers one it cannot): with that rule disabled
 ## (`BotInput._wall_ahead` returning -1, `_held_wall` 0) the #238 hash 44fd3997... is reproduced exactly.
-const GOLDEN := "8114bff348a7e310f18e3612097e22bfa923e96f32476f5a57fe6e688f385a1d"
+## Tier C: #77 C24 survivor-stage tuning changes this data-dependent stream; old-stage paired control retains the prior digest.
+const GOLDEN := "0137584d92c608ecded41c5f73bba12a22df4b67c2524b48d850368aedd5b2a8"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded
@@ -49,7 +50,7 @@ func _event_digest(ticks: int) -> String:
 	return digest.finish().hex_encode()
 
 
-func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
+func test_fresh_character_event_stream_matches_frozen_c24() -> void:
 	# Captured without the character implementation: on bf26c5d, then re-captured on main 3f7e4b7 (#79 changed MP refill,
 	# MP drops and boss targeting) by running this test there. Do not regenerate to bless a change.
 	# re-captured on the #33 integration branch for #106 (Magician LUK split)

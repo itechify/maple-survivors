@@ -36,9 +36,10 @@ func test_pacing_keyframes() -> void:
 	assert_eq(d.max_alive_at(0.0), 6)
 	assert_eq(d.max_alive_at(60.0), 9, "round((6+11)/2)")
 	assert_near(d.value_at("hp", 120.0), 1.0, 1e-6, "opening HP stays flat before the ramp after 2:00")
-	assert_near(d.value_at("hp", 270.0), 1.125, 1e-6, "halfway between 4:00 HP 1.0 and 5:00 HP 1.25")
+	# tier C: #77 C24 ramps from opening HP 1.0 to 0.6 at 5:00.
+	assert_near(d.value_at("hp", 270.0), 0.8, 1e-6, "halfway between opening and C24 HP")
 	assert_near(d.value_at("speed", 900.0), 1.4, 1e-6)
-	assert_true(d.rate_at(2000.0) > 20.0, "boss stages keep ramping after the final arrival")
+	assert_true(d.rate_at(2000.0) > 0.744, "boss stages keep ramping after the final arrival")
 	var early: PackedInt32Array = d.pool_at(60.0).kinds
 	var snail := int(w.kind_of_id[100100])
 	var blue := int(w.kind_of_id[100101])
@@ -47,9 +48,9 @@ func test_pacing_keyframes() -> void:
 	var two: PackedInt32Array = d.pool_at(130.0).kinds
 	assert_true(int(w.kind_of_id[130101]) in two and int(w.kind_of_id[120100]) in two, "+ Red Snail, Shroom")
 	assert_true(snail in d.pool_at(400.0).kinds, "#245 map 1 retains its last pre-300-second pool")
-	assert_eq(d.burst_count_at(0.0), 10)
-	assert_eq(d.burst_count_at(450.0), 25, "halfway from 10 to 40")
-	assert_eq(d.burst_count_at(900.0), 40)
+	assert_eq(d.burst_count_at(0.0), 3)
+	assert_eq(d.burst_count_at(450.0), 6, "C24: round(halfway from 3 to 8)")
+	assert_eq(d.burst_count_at(900.0), 8)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1
 	var n := {snail: 0, blue: 0}
@@ -104,19 +105,19 @@ func test_spawns_outside_view_inside_bounds_and_ramping() -> void:
 					var mk: MobKind = w.mob_kinds[w.swarm.kind[e.mob]]
 					assert_eq(w.swarm.max_hp[e.mob], roundi(mk.max_hp * w.director.value_at("hp", w.time) * 8.0),
 						"elite x8 HP")
-	assert_true(checked > 300, "plenty of spawns checked (%d)" % checked)
+	assert_true(checked > 200, "plenty of spawns checked (%d)" % checked)
 	assert_true(per_minute[5] > per_minute[0] * 2, "spawning ramps up: %s" % [per_minute])
-	# The alive count is what the (god-mode) bot leaves alive, so it depends on its kill rate; the director's own ramp
-	# is what must grow.
-	assert_true(alive_max[5] > alive_max[0], "a bigger crowd in minute 6 than in minute 1: %s" % [alive_max])
-	for m in 6:
-		assert_true(w.director.max_alive_at(60.0 * (m + 1)) > w.director.max_alive_at(60.0 * m),
-			"max_alive grows every minute (%d)" % m)
-		assert_true(w.director.rate_at(60.0 * (m + 1)) > w.director.rate_at(60.0 * m), "spawn rate grows (%d)" % m)
+	# tier C: #77 C24 has a deliberate 5:00 relief, so the frozen anchors replace a monotonic ramp oracle.
+	assert_true(alive_max[5] >= 5, "a low-density crowd remains in minute 6: %s" % [alive_max])
+	var caps := [6, 9, 11, 15, 20, 18, 22]
+	var rates := [0.25, 0.4, 0.55, 0.75, 1.0, 0.52, 0.592]
+	for m in 7:
+		assert_eq(w.director.max_alive_at(60.0 * m), caps[m], "C24 alive cap at minute %d" % m)
+		assert_near(w.director.rate_at(60.0 * m), rates[m], 1e-6, "C24 rate at minute %d" % m)
 	assert_eq(bursts.size(), 1, "Henesys bursts wait for 5:00, after the Beginner phase: %s" % [bursts])
 	if bursts.size() == 1:
 		assert_near(bursts[0][0], 300.0, DT * 1.5)
-		assert_between(bursts[0][1], 10, 40)
+		assert_between(bursts[0][1], 3, 8)
 	assert_eq(elites, 3, "Henesys elites at 4:00, 5:00, 6:00")
 
 

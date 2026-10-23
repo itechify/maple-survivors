@@ -493,7 +493,8 @@ func test_monster_damage_has_no_hidden_balance_scales() -> void:
 	for stage: String in data.stages.stages:
 		for keyframe: Dictionary in data.stages.stages[stage].keyframes:
 			assert_false(keyframe.has("damage"), "%s damage belongs to the monster, not run time" % stage)
-		assert_true(float(data.stages.stages[stage].elites.damage_mult) > 1.0, "explicit elite danger")
+		# tier C: #77 C24 gives every region an explicit 1.0 elite damage scale.
+		assert_eq(float(data.stages.stages[stage].elites.damage_mult), 1.0, "explicit frozen elite damage")
 
 
 func test_setup_carries_canonical_potion_specs() -> void:

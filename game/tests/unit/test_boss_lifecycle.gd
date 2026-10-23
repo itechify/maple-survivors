@@ -425,6 +425,9 @@ func test_boss_touch_uses_explicit_multiplier_and_hit_source_identity() -> void:
 	var examples: Array = DataRepo.stage_bosses(stages.henesys) + DataRepo.stage_bosses(stages.ellinia)
 	# Canonical v83 contact PADamage (checked against the real cache in test_boss_hit_bands).
 	var attacks := {2220000: 90.0, 6130101: 200.0, 9400205: 450.0, 3220000: 125.0, 9300003: 130.0, 6220000: 190.0}
+	# tier C: #77 C24 touch endpoints; canonical PAD and source identities below are unchanged.
+	var frozen := {2220000: Vector2i(29, 34), 6130101: Vector2i(38, 45), 9400205: Vector2i(151, 178),
+		3220000: Vector2i(25, 30), 9300003: Vector2i(14, 17), 6220000: Vector2i(36, 42)}
 	for entry: Dictionary in examples:
 		var setup := _setup([0.5])
 		RF.set_bosses(setup.data.stages.stages.quiet, [entry.duplicate(true)])
@@ -459,13 +462,12 @@ func test_boss_touch_uses_explicit_multiplier_and_hit_source_identity() -> void:
 		assert_eq(hit.mob_id, id)
 		assert_eq(hit.max_hp, int(entry.typical_hp), "HP pool is captured at hit time")
 		assert_true(int(hit.damage) > 0, "the identified touch inflicts damage")
-		assert_between(float(hit.damage) / float(entry.typical_hp), 0.4, 0.5, "the landed touch is in the band")
+		assert_between(int(hit.damage), frozen[id].x, frozen[id].y, "the landed touch is in its frozen range")
 		# The whole roll range, not just a typical roll: 85% and 100% of PAD after defense, at the shipped multiplier.
 		var low := CombatMath.monster_damage(attacks[id], 0.0, float(entry.typical_pdd), 0.0, float(entry.dmg_mult))
 		var high := CombatMath.monster_damage(attacks[id], 1.0, float(entry.typical_pdd), 0.0, float(entry.dmg_mult))
 		assert_between(int(hit.damage), low, high, "the landed touch is one roll of that range")
-		assert_true(float(low) / float(entry.typical_hp) >= 0.4 and float(high) / float(entry.typical_hp) <= 0.5,
-			"%d touch %d..%d of %d HP lies in 40-50%%" % [id, low, high, int(entry.typical_hp)])
+		assert_eq(Vector2i(low, high), frozen[id], "%d C24 frozen touch endpoints" % id)
 
 
 func test_balance_harness_reports_timeout_and_boss_lifecycle_record() -> void:

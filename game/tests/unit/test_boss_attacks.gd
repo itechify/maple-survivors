@@ -4,6 +4,8 @@ extends TestCase
 const BF := preload("res://tests/fixtures/boss_attack_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
+## Tier C: #77 frozen C24 attack-roll endpoints for the synthetic canonical-input fixtures.
+const FROZEN_SLAMS := {6130101: Vector2i(38, 44), 9400205: Vector2i(150, 177)}
 
 
 func _start(w: RunWorld) -> Dictionary:
@@ -43,7 +45,7 @@ func test_slam_hits_only_at_canonical_impact_time_with_its_own_damage_multiplier
 	assert_eq(hit.source_kind, "attack", "attack and touch metrics are distinct")
 	assert_eq(hit.mob_id, 6130101)
 	assert_true(hit.boss)
-	assert_between(float(hit.damage) / float(hit.max_hp), 0.4, 0.5)
+	assert_between(int(hit.damage), FROZEN_SLAMS[6130101].x, FROZEN_SLAMS[6130101].y)
 	assert_near(float(impact.time), float(start.impact_time), DT)
 
 
@@ -96,7 +98,7 @@ func test_asymmetric_attack_area_mirrors_with_captured_facing() -> void:
 	assert_true(facings.has(-1) and facings.has(1), "seeded scenarios cover both directions")
 
 
-func test_both_canonical_mushroom_slams_stay_in_the_documented_hp_band() -> void:
+func test_both_canonical_mushroom_slams_stay_in_the_frozen_damage_ranges() -> void:
 	for id in [6130101, 9400205]:
 		for seed_value in range(2302, 2332):
 			var w := RunWorld.new(BF.setup(id, seed_value))
@@ -108,7 +110,7 @@ func test_both_canonical_mushroom_slams_stay_in_the_documented_hp_band() -> void
 			var hits := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "player_hit")
 			assert_eq(hits.size(), 1)
 			if hits.size() == 1:
-				assert_between(float(hits[0].damage) / float(hits[0].max_hp), 0.4, 0.5)
+				assert_between(int(hits[0].damage), FROZEN_SLAMS[id].x, FROZEN_SLAMS[id].y)
 				assert_eq(hits[0].source_kind, "attack")
 
 

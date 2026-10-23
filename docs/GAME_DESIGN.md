@@ -708,19 +708,45 @@ every clear finishes all scheduled bosses and choices. The policy has no accepta
 | kerning | 1/3 (33.3%) | 2 / 2 | 1 / 0 / 1; 0 | 36 | 33.4 (2/3; all >=30.5) / 98.3 (2/2; all 98.3) / 37.9 (1/2; all >=116.7) |
 | sleepywood | 0/4 (0.0%) | 4 / 1 | 0 / 3 / 1; 0 | none | 58.1 (4/4; all 58.1) / 42.8 (1/1; all 42.8) / none (0/0) |
 
+Frozen-data regression smoke subset, seeds **1 / 2 / 2026** in that order. `C`/`D`/`T` = clear/death/timeout,
+`@` is the one-based ending map, `L` is final level. Bot rows are the exact same-data subset of the validated
+regional training records; random rows are the applied-data smoke above. This is the comparison point for feature tickets.
+
+| Region | Bot seed 1 / 2 / 2026 | Random seed 1 / 2 / 2026 |
+|---|---|---|
+| henesys | C@3/L40 / C@3/L40 / D@3/L30 | D@2/L20 / C@3/L40 / D@2/L21 |
+| ellinia | D@2/L18 / D@3/L25 / D@3/L25 | C@3/L36 / D@2/L18 / D@1/L12 |
+| perion | C@3/L37 / C@3/L37 / D@2/L29 | D@3/L30 / D@1/L5 / C@3/L37 |
+| kerning | C@3/L36 / C@3/L36 / D@2/L24 | D@1/L12 / D@3/L36 / C@3/L36 |
+
 **Applied levers:** 195 numeric values in `stages.json`, each covered by one of 69 adjacent `_balance77` tier C
 comments naming frozen C24 and its introducing candidate. The complete old -> new values are in section 11 below
 and external `C24_LEVERS.md` / `C24_LEVER_VALUES.json`. A structural audit proves every non-comment value equals
 baseline plus the exact frozen PATCH, with no other semantic change. Tier 1 remains byte-identical to frozen C21.
 
-**Numerical test oracles updated:** `test_boss_hit_bands.gd` replaces the superseded 40-50%/shared-slot starting
-bands with frozen HP and endpoint expectations; canonical WZ checks remain. `test_stage_schema.gd` pins regional
-numeric curves and Perion Stumpy's 7 s cadence, retaining pool/order/timing invariants. `test_full_run.gd` retains
-its legacy one-map oracle and updates only the intended low-density bounds: engagement 0.3 -> 0.1; late/early
-mean-alive ratio >1 -> >0.25; late peak >=200 -> >=5; late ordinary nonmiss hits >=5 -> 0..5. These are legacy
-regression bounds, not the three-map population acceptance above. Progression, events, canonical/cache validation,
-no-lost-mob and clear/death consistency checks stay active. The first focused run was 17 tests, 2 failing test
-functions on those obsolete pressure bounds; no game data was changed to satisfy a test.
+**Numerical test oracles updated (complete list):** all changes reflect the intended frozen world data;
+canonical inputs and mechanic/event/source assertions stay active.
+
+| Test file | Intended numerical change |
+|---|---|
+| `test_boss_hit_bands.gd` | Pre-pass 40-50% and equal-slot targets -> C24 HP and integer roll endpoints; canonical WZ checks retained |
+| `test_stage_schema.gd` | Shared starting curve -> frozen regional anchors; Perion Stumpy cadence 8 -> 7 s; pools/order preserved |
+| `test_full_run.gd` | Legacy one-map pressure: engagement 0.3 -> 0.1, late/opening mean ratio >1 -> >0.25, late peak >=200 -> >=5, late ordinary nonmiss hits >=5 -> 0..5 |
+| `test_boss_attacks.gd` | Slam fractions 40-50% -> frozen damage endpoints Mushmom 38..44, Blue Mushmom 150..177; canonical impact/dodge checks retained |
+| `test_boss_lifecycle.gd` | Six touch-hit 40-50% bands -> frozen per-boss integer endpoints; identity, scaling and arrival checks retained |
+| `test_character_baseline.gd` | World-dependent binary event digest `8114bff3...` -> `0137584d...`; historical opening/job-pool controls retained |
+| `test_dark_cave_bosses.gd` | Encounter HP [28000,110000,150000] -> [45500,88000,300000]; canonical HP/attacks/elements retained |
+| `test_data_files.gd` | Elite damage scale >1 -> explicit frozen 1.0 in every region; no hidden-damage checks retained |
+| `test_spawn_director.gd` | Frozen HP/rate/cap/burst anchors replace monotonic starting ramp; spawn-position sample floor >300 -> >200, minute-6 live peak >=5; placement/timing checks retained |
+
+The legacy one-map pressure bounds are numerical regressions, not the three-map population acceptance above.
+The first focused run had 17 tests, 2 failing functions on obsolete pressure bounds; after their intended update,
+17/0/0 tests/failed/skipped passed. The first full suite completed **2,210 tests, 8 failing functions, 0 skipped**
+(214 files, 1,022,704 ms), all additional old numeric oracles listed above. Their affected-file check then passed
+**72 tests, 0 failed, 0 skipped** (6 files, 59,212 ms). A separate paired control with the unchanged current runtime
+and **only pre-pass stages restored** passed the old event digest (1 test, 0 failed/skipped, 79,612 ms), proving the
+new digest comes from the authorized world numbers rather than a code change. The first full log is preserved as
+`full_suite_frozen_C24_attempt1.log`; no game data was changed to satisfy a test.
 
 **Frozen-data full suite: pending.** Earlier unchanged-data suites were 2,204/0/0 in round 1 and 2,210/0/0 in
 round 2 (214 files, exit 0). Exact frozen-data results will replace this pending line before handoff.
@@ -6745,6 +6771,7 @@ also identify the candidate that first introduced each value. All unspecified va
 | `sleepywood.maps.2.boss` | dmg_mult: 1.25 -> 0.32; attack_dmg_mult: 1.25 -> 0.5; hp_mult: 3 -> 6.0 | C | #77 C24; introduced C22, C23, C24 |
 | `sleepywood` | exp_mult: 1.0 -> 0.9 | C | #77 C24; introduced C23 |
 | Legacy one-map test pressure bounds | engagement 0.3 -> 0.1; late/opening mean ratio >1 -> >0.25; late peak >=200 -> >=5; ordinary late nonmiss hits >=5 -> 0..5 | C | #77 C24 numerical test oracle; three-map acceptance is section 4.2 |
+| Additional frozen numeric test coverage | spawn-position sample floor >300 -> >200; minute-6 peak >opening peak -> >=5; event digest 8114bff3... -> 0137584d... | C | #77 C24 test data; old-stage paired control retains the old digest |
 
 ## 12. Later phases
 
