@@ -551,6 +551,32 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #253 / #77 balance pass (2026-10-23)
+
+**In progress; no candidate accepted or applied.** The authoritative targets and lever permissions are
+[issue #77](https://github.com/itechify/maple-survivors/issues/77). This dedicated pass supersedes the historical
+two-stage acceptance targets above. Training uses only seeds 1..60 and 2026; **701..730 remains unrun, reserved for
+one assessment pending the owner's playtest and approval**. Canonical data, player power, cards, potions, economy,
+bot behaviour and map/boss structure are fixed. Henesys's owner-approved 0:00–4:00 keyframe rows remain unchanged.
+
+Baseline B00 remeasured `bac7a1e`, empty account, fresh Beginner, sensible bot, seeds **1..12 and 2026** in each
+region, fixed 1/60 s ticks, Godot 4.7.2, private `caches/s253`, isolates `t77`/`t77b`. Every command exited 0 and
+all 52 records have empty `warnings` and `missing`. Reach columns count arrivals; deaths use one-based maps.
+Boss medians are **completed-only seconds (completed/spawned)**; `none (0/0)` means no observation.
+
+| Baseline region (n=13 each) | Clear | Map 2 / 3 reach | Deaths maps 1 / 2 / 3 | Median clear level | Bosses maps 1 / 2 / 3: seconds (completed/spawned) |
+|---|---|---|---|---|---|
+| Henesys | 1/13 (7.7%) | 9/13 / 1/13 | 4 / 8 / 0 | 68 (n=1) | 29.1 (9/13) / 8.8 (1/1) / 29.1 (1/1) |
+| Ellinia | 0/13 | 2/13 / 1/13 | 11 / 1 / 1 | none (n=0) | 20.5 (2/2) / 20.3 (1/2) / none (0/0) |
+| Perion | 0/13 | 11/13 / 0/13 | 2 / 11 / 0 | none (n=0) | 20.8 (11/13) / none (0/0) / none (0/0) |
+| Kerning | 0/13 | 3/13 / 0/13 | 10 / 3 / 0 | none (n=0) | 16.8 (3/10) / none (0/0) / none (0/0) |
+
+Patches, ledger, raw records and exact console reports are outside git at
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec253/t77/`. `B00/` holds the baseline. Candidate patches use
+`PATCH=` without changing repository data. The budget is **25 candidates and 3 full training matrices**; a variant
+evaluated beyond one quick seed counts even when rejected. Tier 2 waits for frozen tier 1 and at least 20 natural
+chain feeds; no fixture substitutes for a feed.
+
 #### Spec #253 (#260): Kerning floor/wall corner leak and boss-arrival bound (2026-10-23)
 
 Integration base `d50443a`, isolates `t260*`, cache `caches/s253`, no PATCH or tuning. **Root cause:** the air
