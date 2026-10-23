@@ -59,3 +59,14 @@ func test_diagnostic_warp_delivers_clear_from_final_answer_with_and_without_swep
 		driver.free()
 		flow.free()
 		run.free()
+
+
+## #257: `--scenario=maps --stage=<key>` picks that card on the real map select; no flag keeps Henesys.
+func test_maps_stage_card_defaults_to_henesys_and_finds_the_named_tier1_card() -> void:
+	var driver := HeadlessDriver.new()
+	var cards: Array[Dictionary] = [{"key": "henesys"}, {"key": "ellinia"}, {"key": "perion"}, {"key": "kerning"}]
+	assert_eq(driver.maps_stage_card({}, cards), 0, "existing maps runs are unchanged")
+	assert_eq(driver.maps_stage_card({"stage": "perion"}, cards), 2)
+	assert_eq(driver.maps_stage_card({"stage": "kerning"}, cards), 3)
+	assert_eq(driver.maps_stage_card({"stage": "sleepywood"}, cards), -1, "not offered on the tier-1 map select")
+	driver.free()

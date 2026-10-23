@@ -166,7 +166,9 @@ boss hits after each map's 300 s timer, the real map 1 -> 2 -> 3 transitions and
 arrival it uses Save & quit (the existing Quit round control/warning), reloads disk and Continues from map 1 with
 the same seed and boundary character. Shots cover every CLEAR, fade, arrival, replay and hub; summary.json records
 map entries and ending map. This verifies flow, not natural survival. Run through `ISOLATE=<name> bash scripts/run.sh
-res://scenes/debug/flow_driver.tscn -- --scenario=maps --shots=<fresh abs dir under evidence/>`.
+res://scenes/debug/flow_driver.tscn -- --scenario=maps --shots=<fresh abs dir under evidence/>`. `--stage=<tier-1 key>`
+(#257, default `henesys`) picks that region's card with Down on the real map select (`maps_stage_select` shot) and
+checks the run and its replay start on that region's own map 1.
 Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
 `keys` (#87); see the script header. Spec #151 (physical combat, the Warrior) adds `skill_weapon` (#156: a weapon-gated skill
 greyed in the Skill window), `skill_warrior` (#163: the Warrior's Skill window and Iron Body) and `warrior` (QA #164: Lv10
