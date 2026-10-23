@@ -233,7 +233,14 @@ and `full_cash_pet.json` (the same plus a cash item in all 11 slots; for dressed
 The committed `game/tests/fixtures/characters/lv35_magician_2nd.json` is a real headless Henesys bot character;
 its `_doc` records seed, branch, policy and generation revision. `game/tools/character_fixture.gd` reproduces it.
 
-**Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
+**#77 attempt (2026-10-23):** the dedicated pass stopped before freezing at the class/bot checkpoint: Pirate
+cleared 5/24 forced training runs and the best/worst job ratio was 3.2×. No tuning data was applied. Feature
+regression smokes still compare against the `bac7a1e` / #260 data and smoke record. Before resuming #77, read
+GAME_DESIGN 4.2 "Spec #253 / #77 balance pass"; the owner must resolve the Pirate power / advancement-policy
+question first. Held-out **701..730 remains unrun**, reserved for this pass's one assessment after the owner
+playtests and approves a future frozen candidate.
+
+**Feature tickets do not tune balance.** Until the dedicated balance pass produces accepted frozen data, a feature, spec
 or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on every tier-1 stage, both `bot` and
 `random` policies, plus the full test suite. Check for no crashes and no world warnings, that Henesys runs still reach
 Magician and bosses (The Tree That Grew dies early until the owner reworks it: record only), and compare with the
