@@ -619,7 +619,7 @@ walls" in 11; test_bot_walls). Bot records, seeds 1 / 2 / 2026 on `caches/s253`,
 | Region | Before | After |
 |---|---|---|
 | Kerning | 237.5@1 Lv3 / 308.7@1 Lv14 / 311.7@1 Lv7 | 308.2@1 Lv15 / 310.8@1 Lv15 / 306.9@1 Lv14 |
-| Henesys | 308.3@1 Lv12 / 451.8@2 Lv25 / 310.0@1 Lv12 | 308.3@1 / 435.4@2 Lv24 / 310.0@1 (seed 2 diverges on map 2, where the wall rule fires; same EXP through minute 5) |
+| Henesys | 308.3@1 Lv12 / 451.8@2 Lv25 / 310.0@1 Lv12 | 308.3@1 / 435.4@2 Lv24 / 310.0@1 (seed 2: same EXP through minute 5, same 24.6 s map-1 boss fight and 324.6 s map-2 entry; EXP differs from minute 6) |
 | Ellinia | 632.7@2 / 39.1@1 / 34.7@1 | unchanged |
 | Perion | 423.7@2 / 382.4@2 / 306.8@1 | unchanged |
 
