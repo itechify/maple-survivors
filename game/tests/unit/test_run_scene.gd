@@ -1267,6 +1267,29 @@ func test_mano_slow_uses_repeating_canonical_effect_and_shared_skill_stance() ->
 	sfx.library = previous_library
 
 
+## #256: a Banish snaps the camera to the arrival, shows the boss's message and plays the cached v83 129 affected art
+## once on the character (the cache needs no Shade for this: MobSkill.img is imported whole).
+func test_banish_shows_its_message_and_plays_the_affected_art_once_on_the_character() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys", 22, {})
+	var w := scene.world
+	var message := String(MobSkillRunner.BANISH_MESSAGES[5090000])
+	var before := scene.fx.active_count() + scene.fx_back.active_count()
+	scene.handle_events([{"type": "player_banished", "mob": 0, "mob_id": 5090000, "skill_id": 129, "level": 5,
+		"from": w.player.pos, "pos": w.player.pos + Vector2(300, 0),
+		"effect": "Skill.wz/MobSkill.img/129/level/5/affected", "message": message}])
+	assert_true(scene.cam.snap_next, "the camera jumps with the character")
+	assert_eq(scene.cam.target_pos, w.player.pos + Vector2(300, 0))
+	var texts := scene.hud.messages().map(func(m: Dictionary) -> String: return m.text)
+	assert_true(message in texts, "the reworded banMsg is a notice (%s)" % [texts])
+	assert_eq(scene.fx.active_count() + scene.fx_back.active_count(), before + 1, "the affected art plays")
+	scene.fx.advance(1.3)
+	scene.fx_back.advance(1.3)
+	assert_eq(scene.fx.active_count() + scene.fx_back.active_count(), before, "ten 120 ms frames, played once")
+	_assert_nothing_missing(scene, "Banish")
+
+
 func test_boss_reward_window_is_a_bonus_choice_before_the_clear_sequence() -> void:
 	if not require_cache():
 		return
