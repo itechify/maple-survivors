@@ -3497,7 +3497,8 @@ weapon immunity (tier C): basic swings and Three Snails shells are blocked at li
 effective. A blocked shell consumes a contact/pierce hit without damage or crit RNG consumption (tier C).
 The original repeat 1/pos 2 34×34 icon with origin (17,44) stays above Dyle's body and follows relocations;
 body-top anchor mapping is tier C, art/origins are tier A. Status stops at expiration or death, never leaks
-into a reused pool slot. Dyle's canonical 112/113 defense skills reuse the existing handlers; 110 is not enabled.
+into a reused pool slot. Dyle's canonical 112/113 defense skills reuse the existing handlers; since #255 his 110/2 Attack Up (interval 35 s,
+30 s, ×1.15 weapon attack in its area) casts too, listed before 112/113 in his skill list.
 Death offspring use survivor summon_spacing 24 px on the death platform, with no new per-entity Nodes.
 Source facts are the owner's original Mob.wz/9300003.img, Mob.wz/6220000.img and Skill.wz/MobSkill.img;
 Local reference summaries: research/stage-bosses/out/bosses_3220000_5220002_9300003.json (King Slime),
@@ -6378,6 +6379,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Map-select card limit (#253) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list | C | Layout measurement, spec #253 |
 | Perion and Kerning City mob metadata (#253, #254) | Mesos: v83 server `drop_data` itemid 0 ranges; EXP pickup: the most likely Etc drop (Dark Axe Stump uses Axe 4000215 of the two equal ones; Shade Someone's Hat 4000413). Iron Hook has no server drops: level-fallback mesos and the Wild Boar Tooth icon. Boss bars borrow MobGage icons for Iron Hook (Zeno 6220001) and Shade (Riche 6090000) with hpTag 1/5; both are enabled boss kits (`mob_skills.enabled_ids`) | B mesos/items, C icons/associations | Cosmic drop data (facts only); owner #253 |
 | Mobs without v83 sounds (#253) | A mob with no `Sound.wz/Mob.img/<id>` entry (Iron Hook 4090000) plays no hit, death or skill sound and records nothing missing, as in the client | A (absence) | v83 Sound.wz |
+| Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks unchanged; the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
 
 ## 12. Later phases
 
