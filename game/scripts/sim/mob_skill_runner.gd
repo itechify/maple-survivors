@@ -1,18 +1,24 @@
 class_name MobSkillRunner
 extends RefCounted
-## Canonical scheduled-boss skills (MobSkill 112/113/114/126/140/200) and their timed status state
+## Canonical scheduled-boss skills (MobSkill 100/110/112/113/114/126/129/140/200) and their timed status state
 ## (docs/ARCHITECTURE.md 4.4.3, docs/GAME_DESIGN.md 4.3): no files, nodes or canonical-stat mutation.
 
 ## Original Skill.wz/MobSkill.img ids of the skills this runner casts.
+const SKILL_ATTACK_UP := 100
+const SKILL_ATTACK_UP_AREA := 110
 const SKILL_PDD_UP_AREA := 112
 const SKILL_MDD_UP_AREA := 113
 const SKILL_HEAL_AREA := 114
 const SKILL_SLOW := 126
+const SKILL_BANISH := 129
 const SKILL_WEAPON_IMMUNITY := 140
 const SKILL_SUMMON := StageRoster.SUMMON_SKILL
 ## Every MobSkill id `step` can cast; a boss's other listed skills are skipped.
 const SUPPORTED := [SKILL_SLOW, SKILL_SUMMON, SKILL_PDD_UP_AREA, SKILL_MDD_UP_AREA, SKILL_HEAL_AREA,
-	SKILL_WEAPON_IMMUNITY]
+	SKILL_WEAPON_IMMUNITY, SKILL_ATTACK_UP, SKILL_ATTACK_UP_AREA, SKILL_BANISH]
+## tier C: Attack Up (100/110) multiplies the weapon attack of the buffed mobs by this while it lasts (spec #253). The
+## v83 x115 is not read: whether it is flat or a percentage is unverified. balance.mob_skills.attack_up_mult sets it.
+const DEFAULT_ATTACK_UP_MULT := 1.15
 
 var _images: Dictionary
 var _tables: Dictionary
@@ -28,6 +34,8 @@ var _mdd_until := PackedFloat64Array()
 var _weapon_until := PackedFloat64Array()
 var _weapon_visual := PackedStringArray()
 var _pending_heals: Array[Dictionary] = []
+var _attack_up_mult := DEFAULT_ATTACK_UP_MULT
+var _attack_until := PackedFloat64Array()
 
 
 func _init(setup: Dictionary, rules: Dictionary = {}) -> void:
@@ -35,6 +43,7 @@ func _init(setup: Dictionary, rules: Dictionary = {}) -> void:
 	_tables = setup.get("mob_skill_img", {})
 	for id: Variant in rules.get("enabled_ids", []):
 		_enabled.append(int(id))
+	_attack_up_mult = float(rules.get("attack_up_mult", DEFAULT_ATTACK_UP_MULT))
 
 
 ## Current movement multiplier from the area's timed slow.
@@ -66,13 +75,14 @@ func step(world: RunWorld) -> void:
 			var spec: Dictionary = _tables.get(str(id), {}).get("level", {}).get(str(level), {})
 			if spec.is_empty() or id not in SUPPORTED:
 				continue
-			# Hidden (#194): a skill aimed at the character (Slow) is not cast while it is Hidden.
-			if id == SKILL_SLOW and world.is_hidden():
+			# Hidden (#194): a skill aimed at the character (Slow, Banish) is not cast while it is Hidden.
+			if id in [SKILL_SLOW, SKILL_BANISH] and world.is_hidden():
 				continue
 			var key := "%d/%d/%d" % [index, id, level]
-			# tier C: a skill first becomes ready one canonical interval after the boss arrives (never on the arrival
-			# tick), then one interval after each cast; WZ has the interval, not when the first use may happen.
-			var ready := float(_ready.get(key, float(record.spawn_time) + float(spec.get("interval", 0.0))))
+			var interval := world.bosses.skill_interval(index, id, float(spec.get("interval", 0.0)))
+			# tier C: a skill first becomes ready one interval after the boss arrives (never on the arrival tick), then
+			# one interval after each cast; WZ has the interval, not when the first use may happen.
+			var ready := float(_ready.get(key, float(record.spawn_time) + interval))
 			if now < ready - 1e-9 or float(swarm.hp[slot]) * 100.0 > float(swarm.max_hp[slot]) * float(spec.get("hp", 100.0)):
 				# tier C: an omitted hp field permits casting at full health.
 				continue
@@ -80,6 +90,10 @@ func step(world: RunWorld) -> void:
 				continue
 			var pos := swarm.pos(slot)
 			var facing := int(swarm.facing[slot])
+			# tier C (#256): Banish is only cast with the character inside its canonical area (prop 100, so no roll; the
+			# one character is its only target whatever `count` says); a miss never spends its cooldown.
+			if id == SKILL_BANISH and not _area(spec, pos, facing).has_point(world.player.pos):
+				continue
 			var duration := float(spec.get("time", 0.0))
 			var path := "Skill.wz/MobSkill.img/%d/level/%d" % [id, level]
 			var affected := ""
@@ -95,6 +109,10 @@ func step(world: RunWorld) -> void:
 				targets = Array(world.spawn_offspring(slot, swarm.x[slot], StageRoster.list_ids(spec), index, available))
 			elif id in [SKILL_PDD_UP_AREA, SKILL_MDD_UP_AREA]:
 				targets = _buff(swarm, _area(spec, pos, facing), id, spec, now + duration)
+			elif id == SKILL_ATTACK_UP:
+				targets = _attack_up([slot], now + duration)
+			elif id == SKILL_ATTACK_UP_AREA:
+				targets = _attack_up(Array(swarm.live_in_rect(_area(spec, pos, facing))), now + duration)
 			elif id == SKILL_HEAL_AREA:
 				_pending_heals.append({"index": index, "level": level, "spec": spec,
 					"due": now + float(entry.get("effectAfter", 0.0)) / 1000.0})
@@ -103,7 +121,11 @@ func step(world: RunWorld) -> void:
 				_weapon_until[slot] = now + duration
 				_weapon_visual[slot] = path + "/mob"
 				targets = [slot]
-			_ready[key] = now + float(spec.get("interval", 0.0))
+			elif id == SKILL_BANISH:
+				world.banish_player({"mob": slot, "mob_id": int(record.mob_id), "skill_id": id, "level": level,
+					"effect": path + "/affected" if spec.has("affected") else "",
+					"message": _banish_message(world, int(record.mob_id))})
+			_ready[key] = now + interval
 			var action := "skill%d" % int(entry.get("action", 1))
 			world.bosses.begin_action(index, action, MobKind.stance_time(image.get(action), 0.0), facing, now)
 			world.refresh_player_speed()
@@ -115,6 +137,12 @@ func step(world: RunWorld) -> void:
 			break
 	# Resolve newly queued effectAfter0 heals in the same tick, after the cast event; delayed entries remain queued.
 	_resolve_heals(world)
+
+
+## Banish (129) notice of boss `mob_id`: its survivor mobs.json `banish_message` (Shade's reworded v83 banMsg, #256),
+## "" when it has none.
+static func _banish_message(world: RunWorld, mob_id: int) -> String:
+	return String(world.data.get("mobs", {}).get("mobs", {}).get(str(mob_id), {}).get("banish_message", ""))
 
 
 func _resolve_heals(world: RunWorld) -> void:
@@ -166,9 +194,10 @@ func resize(capacity: int) -> void:
 	_mdd_until.resize(capacity)
 	_weapon_until.resize(capacity)
 	_weapon_visual.resize(capacity)
+	_attack_until.resize(capacity)
 
 
-## A new mob in a reused slot starts without the previous occupant's defense statuses.
+## A new mob in a reused slot starts without the previous occupant's defense and attack statuses.
 func reset_slot(slot: int) -> void:
 	_pdd[slot] = 0
 	_mdd[slot] = 0
@@ -176,6 +205,7 @@ func reset_slot(slot: int) -> void:
 	_mdd_until[slot] = 0
 	_weapon_until[slot] = 0
 	_weapon_visual[slot] = ""
+	_attack_until[slot] = 0
 
 
 ## Transfers timed statuses with a relocation; a later reuse of the former slot gets no stale state.
@@ -188,6 +218,7 @@ func move_slot(from: int, to: int) -> void:
 	_mdd_until[to] = _mdd_until[from]
 	_weapon_until[to] = _weapon_until[from]
 	_weapon_visual[to] = _weapon_visual[from]
+	_attack_until[to] = _attack_until[from]
 	reset_slot(from)
 
 
@@ -244,3 +275,20 @@ func _buff(swarm: MobSwarm, area: Rect2, id: int, spec: Dictionary, until: float
 			_pdd[slot] = float(spec.get("x", 0.0))
 			_pdd_until[slot] = until
 	return targets
+
+
+## Live Attack Up multiplier of the mob in `slot`: balance.mob_skills.attack_up_mult while MobSkill 100/110 lasts, else 1.
+## Touch damage and physical attackN impacts multiply their weapon attack by it, after a Threaten cut and before the
+## boss/elite source multipliers (RunWorld.mob_weapon_attack); magic attacks are unchanged.
+func attack_multiplier(slot: int, now: float) -> float:
+	if slot < 0 or slot >= _attack_until.size() or now >= _attack_until[slot] - 1e-9:
+		return 1.0
+	return _attack_up_mult
+
+
+## MobSkill 100 buffs the caster and 110 every living mob inside its canonical area (ordinary mobs included, like
+## 112/113) until `until`; a recast refreshes the end time and never stacks. Returns the recipient slots.
+func _attack_up(slots: Array, until: float) -> Array:
+	for slot: int in slots:
+		_attack_until[slot] = until
+	return slots

@@ -9,7 +9,9 @@ extends RefCounted
 ## nearest EXP drop that no mob stands in front of (a mob nearer than BLOCK_DIST; down-jumping to one just below).
 ## When the only drops left are on platforms above (at least CLIMB_MIN_DROPS), it walks to the nearest ladder or rope
 ## that starts on its platform and climbs it (jumping for a rope that hangs above the floor). With no drop at all it
-## heads back toward the middle of the map. When it has not moved for a while it turns around and jumps.
+## heads back toward the middle of the map. When it has not moved for a while it jumps: on over a wall low enough to
+## clear, otherwise turning around; a wall it could not clear is remembered for a while (goals beyond it are skipped and
+## it bounds the kiting room like the map edge, #259).
 ## Same-map portals are approached when they shorten the trip to drops or leave nearby danger for a safer floor.
 ## The bot reads the jump graph to reach an entrance ledge and holds Up through the portal chain; mob nav is unchanged.
 ##
@@ -32,6 +34,25 @@ const MANUAL_SKILL_MP_RESERVE_FRACTION := 0.25
 const MANUAL_SKILL_ATTACK_RESERVE_CASTS := 2.0
 ## tier C: five seconds leaves several auto-cast cycles and ordinary kiting between emergency blink requests.
 const TELEPORT_MIN_INTERVAL := 5.0
+## tier C (#257): after a same-map warp the reverse link (back to where it came from) stays closed this long (s), so
+## an escape through a two-way pair (Perion's hide00/tohide00) is not undone by the drop route on the next portal
+## cooldown, straight back into the crowd it fled.
+const REVERSE_PORTAL_HOLD := 5.0
+## Walls (#259). tier C: ticks without moving toward its goal before the bot treats itself as stuck (the old flip rule).
+const STUCK_TICKS := 15
+## tier C: a wall the bot is stuck at counts as a step it can jump when no wall stands this share of the jump's apex
+## (Physics.img jumpSpeed^2 / 2 gravityAcc, ~77 px) above its feet. 0.85 (~65 px): the jump rises flush against the
+## wall before it moves on, so only a small margin is needed, and the synthetic map's 60 px pit walls count as steps.
+const STEP_CLEAR_FRACTION := 0.85
+## tier C: how far ahead (px) the stuck bot looks for the wall that stops it (it stands 0.01 px from it).
+const WALL_PROBE_AHEAD := 4.0
+## tier C: after the bot is stuck at a wall too tall to jump, goals beyond it (drops, ladders, the map centre) are ignored
+## for this long (s, renewed at every new stall there) while the bot is on the near side and within WALL_BAND px of the
+## height it stood at, so it stops walking back into the wall (Kerning City Construction Site's x 350 pocket).
+const WALL_HOLD := 30.0
+const WALL_BAND := 140.0
+## tier C: with nothing else to do and the map centre beyond such a wall, the bot walks away from it until this far (px).
+const WALL_CLEAR := 300.0
 ## Engage mode (balance.json bot.engage overrides these). tier C: a build whose longest attack reaches less than this (px)
 ## walks up to mobs instead of kiting; 220 sits below every Magician attack (Magic Claw 260 is the shortest) and above
 ## the one-handed swings (~90-130).
@@ -77,7 +98,8 @@ const SCORE_GAIN_STEP := 6.0
 ## The input for the next tick of `w`.
 static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	if int(memo.get("map_index", 0)) != w.map_index:
-		for key: String in ["portal_x", "climb_x", "climb_t", "flip", "flip_t", "stuck", "last_x", "down_cd"]:
+		for key: String in ["portal_x", "climb_x", "climb_t", "flip", "flip_t", "stuck", "last_x", "down_cd", "closed",
+				"wall"]:
 			memo.erase(key)
 	memo["map_index"] = w.map_index
 	var mi := MoveInput.new()
@@ -144,6 +166,11 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			close += 1
 			duel = i if absf(dy) <= DUEL_DY else -2
 	var room := [p.x - w.bounds.position.x, w.bounds.end.x - p.x]
+	# tier C (#259): a wall the bot got stuck at bounds its room like the map edge, so it does not flee into that dead end.
+	var held := _held_wall(w, memo)
+	if held != 0:
+		var k := 0 if held < 0 else 1
+		room[k] = minf(room[k], absf(p.x - float(memo.wall.x)))
 	danger[0] += EDGE_DANGER / (room[0] + 10.0)
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
 	var teleport := w.teleport_skill()
@@ -171,7 +198,8 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			mi.press_skill(String(flee_buff.id))
 	var dir := 0
 	var down := false
-	var portal := _useful_portal(w, minf(nearest[0], nearest[1]) < 160.0)
+	_note_arrival(w, memo)
+	var portal := _useful_portal(w, minf(nearest[0], nearest[1]) < 160.0, memo)
 	if not portal.is_empty():
 		PortalApproach.steer(w, portal, mi)
 		memo["portal_x"] = portal.source.x
@@ -205,7 +233,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		var above := 0
 		var pk := w.pickups
 		for i in pk.capacity():
-			if pk.active[i] == 0 or not _can_take(w, i):
+			if pk.active[i] == 0 or not _can_take(w, i) or _beyond_wall(w, memo, pk.x[i]):
 				continue
 			var ddx := pk.x[i] - p.x
 			var ddy := pk.y[i] - p.y
@@ -224,7 +252,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			best = d
 			dir = 0 if absf(ddx) < 4.0 else (1 if ddx > 0.0 else -1)
 			down = ddy > 40.0 and absf(ddx) < 60.0
-		var lad := climb_ladder(w) if best == INF and above >= CLIMB_MIN_DROPS else -1
+		var lad := climb_ladder(w, memo) if best == INF and above >= CLIMB_MIN_DROPS else -1
 		if lad >= 0:
 			var lx := w.ladders.x[lad]
 			if absf(lx - p.x) > 3.0:
@@ -239,7 +267,10 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 					memo["climb_t"] = 0
 		elif best == INF:
 			var cx := w.bounds.get_center().x
-			if absf(cx - p.x) > 200.0:
+			if _beyond_wall(w, memo, cx):
+				if absf(p.x - float(memo.wall.x)) < WALL_CLEAR:
+					dir = -int(memo.wall.side)
+			elif absf(cx - p.x) > 200.0:
 				dir = 1 if cx > p.x else -1
 	var flip: int = memo.get("flip", 1)
 	if int(memo.get("flip_t", 0)) > 0:
@@ -248,11 +279,17 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		down = false
 	if dir != 0 and absf(p.x - float(memo.get("last_x", p.x))) < 0.2 and w.player.fh >= 0:
 		memo["stuck"] = int(memo.get("stuck", 0)) + 1
-		if int(memo.stuck) > 15:
-			memo["flip"] = -dir
-			memo["flip_t"] = 45
+		if int(memo.stuck) > STUCK_TICKS:
 			memo["stuck"] = 0
 			mi.jump_pressed = true
+			# tier C (#259): a low wall (a step) is jumped going on; a taller one turns the bot back and is remembered.
+			var wall := _wall_ahead(w, dir)
+			var step := wall >= 0 and _step_jumpable(w, dir)
+			if not step:
+				memo["flip"] = -dir
+				memo["flip_t"] = 45
+			if wall >= 0 and not step:
+				memo["wall"] = {"x": w.fhm.x1[wall], "y": p.y, "side": dir, "until": w.time + WALL_HOLD}
 	else:
 		memo["stuck"] = 0
 	memo["last_x"] = p.x
@@ -389,9 +426,24 @@ static func _can_duel(w: RunWorld, i: int) -> bool:
 	return true
 
 
-static func _useful_portal(w: RunWorld, escaping: bool) -> Dictionary:
+## Just warped (the portal cooldown is running and the feet are at a link's arrival): closes that link's reverse
+## (the link from its target back to its source) for REVERSE_PORTAL_HOLD seconds (#257).
+static func _note_arrival(w: RunWorld, memo: Dictionary) -> void:
+	if w.portals.cooldown_left <= 0.0:
+		return
+	var lift := float(w.portals.tuning.arrival_lift)
+	for link: Dictionary in w.portals.links:
+		var arrival: Vector2 = link.target_pos - Vector2(0, lift)
+		if w.player.pos.distance_to(arrival) <= lift + 1.0:
+			memo["closed"] = {"link": [String(link.target), String(link.name)], "until": w.time + REVERSE_PORTAL_HOLD}
+			return
+
+
+static func _useful_portal(w: RunWorld, escaping: bool, memo: Dictionary) -> Dictionary:
 	if w.player.fh < 0 or w.portals.links.is_empty():
 		return {}
+	var closed_memo: Dictionary = memo.get("closed", {})
+	var closed: Array = closed_memo.link if w.time < float(closed_memo.get("until", -INF)) else []
 	var p := w.player.pos
 	var pk := w.pickups
 	var best := INF
@@ -404,6 +456,8 @@ static func _useful_portal(w: RunWorld, escaping: bool) -> Dictionary:
 	var safer := {}
 	var safety := _mob_danger(w, p) if escaping else 0.0
 	for link: Dictionary in w.portals.links:
+		if closed == [String(link.name), String(link.target)]:
+			continue
 		var source: Vector2 = link.pos
 		var plan := PortalApproach.plan(w, source)
 		if plan.is_empty() or float(plan.floor_y) > source.y + float(w.portals.tuning.reach_below):
@@ -442,9 +496,44 @@ static func _drop_distance(from: Vector2, to: Vector2) -> float:
 	return absf(to.x - from.x) + absf(to.y - from.y) * 2.0
 
 
+## The wall within WALL_PROBE_AHEAD px of the feet in direction `dir` (FootholdMap.wall_hit), or -1.
+static func _wall_ahead(w: RunWorld, dir: int) -> int:
+	var p := w.player.pos
+	return w.fhm.wall_hit(p.x, p.y, p.x + dir * WALL_PROBE_AHEAD, p.y)
+
+
+## True when no wall stands in direction `dir` at STEP_CLEAR_FRACTION of the jump's apex above the feet, so a jump
+## going on clears the wall that stops the bot.
+static func _step_jumpable(w: RunWorld, dir: int) -> bool:
+	var apex := w.physics.jump_speed * w.physics.jump_speed / (2.0 * w.physics.gravity_acc)
+	var p := w.player.pos
+	var y := p.y - apex * STEP_CLEAR_FRACTION
+	return w.fhm.wall_hit(p.x, y, p.x + dir * WALL_PROBE_AHEAD, y) < 0
+
+
+## True while the wall the bot got stuck at (#259) still bars the way (_held_wall) and x lies past it.
+static func _beyond_wall(w: RunWorld, memo: Dictionary, x: float) -> bool:
+	var side := _held_wall(w, memo)
+	return side != 0 and (x - float(memo.wall.x)) * side > 0.0
+
+
+## The side (-1 left, 1 right) of a wall the bot got stuck at (#259, `memo.wall` {x, y, side, until}) while it still
+## bars the way: the hold is running, the bot is on the wall's near side and within WALL_BAND px of the height it stood
+## at; 0 otherwise.
+static func _held_wall(w: RunWorld, memo: Dictionary) -> int:
+	var wall: Dictionary = memo.get("wall", {})
+	if w.time >= float(wall.get("until", -INF)):
+		return 0
+	var side := int(wall.side)
+	var p := w.player.pos
+	if (p.x - float(wall.x)) * side < 0.0 and absf(p.y - float(wall.y)) <= WALL_BAND:
+		return side
+	return 0
+
+
 ## The nearest ladder or rope that starts on the bot's platform (its bottom at most LADDER_JUMP_REACH above the floor
-## under it) and leads up; -1 when none.
-static func climb_ladder(w: RunWorld) -> int:
+## under it) and leads up, and not beyond a wall the bot got stuck at (`memo`, #259); -1 when none.
+static func climb_ladder(w: RunWorld, memo: Dictionary = {}) -> int:
 	var l := w.ladders
 	if l == null:
 		return -1
@@ -453,7 +542,7 @@ static func climb_ladder(w: RunWorld) -> int:
 	var best := -1
 	var best_d := INF
 	for i in l.x.size():
-		if l.y1[i] > p.y - 40.0:
+		if l.y1[i] > p.y - 40.0 or _beyond_wall(w, memo, l.x[i]):
 			continue
 		var f := w.fhm.find_below(l.x[i], l.y2[i] - 2.0)
 		if f < 0 or w.fhm.platform_of(f) != plat:
@@ -476,7 +565,7 @@ static func auto_choose(w: RunWorld, first_card := false, forced_job := 0, force
 		guard += 1
 		made += 1
 		if w.state == RunWorld.CHOOSING_JOB:
-			var pick := pick_choice(w.pending_jobs, w.job_rng, forced_job, w.jobs, forced_path)
+			var pick := pick_choice(w.pending_jobs, w.job_rng, forced_job, w.jobs, forced_path, w.held_weapon_family())
 			if pick.job_id < 0 or not w.apply_job(pick.job_id, pick.path):
 				w.decline_job()
 		else:
@@ -490,8 +579,11 @@ static func auto_choose(w: RunWorld, first_card := false, forced_job := 0, force
 ## draw to select the job. A named forced path is used when the selected advancement offers it; a forced single-family
 ## branch without a path takes the offered path of its family (no draw); otherwise every multi-family
 ## advancement draws uniformly on the same job stream (8). Zero/one-path jobs and RNG-less callers use the default.
+## An unforced second job (tier 2, `jobs` given) keeps `held_family`, the worn weapon's family (#261): the draw is
+## only among the branches that offer it (none when one does) and its page keeps that family; when no branch offers
+## it, every available branch is drawn as before.
 static func pick_choice(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
-		forced_path := "") -> Dictionary:
+		forced_path := "", held_family := "") -> Dictionary:
 	var available: Array[Dictionary] = []
 	for o: Variant in options:
 		if o is Dictionary and bool((o as Dictionary).get("available", false)):
@@ -508,12 +600,30 @@ static func pick_choice(options: Array, rng: RandomNumberGenerator = null, force
 				target = id
 				break
 	if target < 0:
+		var keep := _family_keepers(available, jobs, held_family)
+		if not keep.is_empty():
+			return _entry(keep[rng.randi_range(0, keep.size() - 1)] if keep.size() > 1 and rng != null else keep[0],
+				forced_path, rng, held_family)
 		return _entry(available[rng.randi_range(0, available.size() - 1)] if available.size() > 1 and rng != null
 			else available[0], forced_path, rng)
 	for o: Dictionary in available:
 		if int(o.job_id) == target:
 			return _entry(o, forced_path, rng, _branch_family(jobs, forced))
 	return {"job_id": -1, "path": ""}
+
+
+## The second-job options (tier 2 in `jobs`) whose paths offer `family`, in option order; [] at a first advancement,
+## without `jobs` or a family, or when none offers it. Tier C (#261): a sensible player keeps the family it ranked.
+static func _family_keepers(available: Array[Dictionary], jobs: JobTree, family: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if jobs == null or family == "":
+		return out
+	for o: Dictionary in available:
+		if int(jobs.job(int(o.job_id)).get("tier", 0)) != 2:
+			continue
+		if (o.get("paths", []) as Array).any(func(p: Dictionary) -> bool: return String(p.get("family", "")) == family):
+			out.append(o)
+	return out
 
 
 ## The one weapon family a forced single-family branch (310, 320, 410, 420, 510, 520) can use; "" for any other job.

@@ -25,6 +25,7 @@ func test_load_all_has_every_file() -> void:
 
 func test_every_stage_names_its_region_and_continent() -> void:
 	var want := {"henesys": ["Henesys", "Victoria Island"], "ellinia": ["Ellinia", "Victoria Island"],
+		"perion": ["Perion", "Victoria Island"], "kerning": ["Kerning City", "Victoria Island"],
 		"sleepywood": ["Sleepywood", "Victoria Island"]}
 	assert_eq(data.stages.stages.keys(), want.keys())
 	for key: String in want:
@@ -151,10 +152,12 @@ func test_stages_mobs_and_manifest() -> void:
 	var mobs: Dictionary = data.mobs.mobs
 	var manifest: Variant = AssetManifest.load_merged("res://data/asset_manifest.json")
 	assert_true(manifest is Dictionary)
-	var want_maps := {"henesys": 104040000, "ellinia": 101010100, "sleepywood": 105050400}
-	assert_eq(stages.keys(), want_maps.keys(), "the three distinct stages are offered")
+	var want_maps := {"henesys": 104040000, "ellinia": 101010100, "perion": 102010000, "kerning": 103010000,
+		"sleepywood": 105050400}
+	assert_eq(stages.keys(), want_maps.keys(), "the five distinct stages are offered")
 	assert_eq(manifest.maps, [104040000.0, 104010001.0, 100030001.0, 101010100.0, 100040100.0,
-		100040105.0, 105050400.0, 105090310.0, 105090900.0, 910000000.0],
+		100040105.0, 102010000.0, 101030404.0, 106000101.0, 103010000.0, 103000101.0, 107000000.0,
+		105050400.0, 105090310.0, 105090900.0, 910000000.0],
 		"the three maps of each region and the Free Market hub are imported")
 	for key: String in want_maps:
 		assert_true(stages.has(key), key)
@@ -198,7 +201,38 @@ func test_three_map_mobs_have_imported_exp_pickups_and_meso_ranges() -> void:
 		assert_has(manifest.items, float(drops[id][0]), "mob %d EXP art is imported" % id)
 		assert_eq(PackedInt32Array(mob.get("mesos", [])), PackedInt32Array(drops[id].slice(1)),
 			"mob %d tier B meso range" % id)
-	assert_false(4090000.0 in manifest.mobs, "Iron Hook is not explicitly imported")
+	assert_true(4090000.0 in manifest.mobs, "Iron Hook is imported for Perion's third map (spec #253)")
+
+
+## Spec #253: every ordinary mob of the Perion and Kerning City maps (map-1 pools and the map-2/3 v83 life lists) and
+## both new bosses have a mobs.json entry with a signature EXP item and meso range, and are explicitly imported.
+## Expected values are v83 server drop facts (tier B: the most likely Etc drop and the itemid-0 meso range), or tier C
+## where the server lists no drops (Iron Hook: level-fallback mesos and a borrowed EXP icon).
+func test_perion_and_kerning_mobs_have_exp_pickups_meso_ranges_and_imports() -> void:
+	var manifest := AssetManifest.load_merged("res://data/asset_manifest.json")
+	var drops := {130100: [4000003, 12, 18], 1110101: [4000005, 20, 30], 1130100: [4000018, 32, 48],
+		2130100: [4000215, 40, 60], 2230102: [4000020, 44, 66], 3210100: [4000024, 76, 114],
+		1120100: [4000006, 24, 36], 1210103: [4000037, 24, 36], 3110100: [4000032, 74, 144],
+		2130103: [4000034, 33, 49], 5090000: [4000413, 800, 920], 4090000: [4000020]}
+	for id: int in drops:
+		assert_has(manifest.mobs, float(id), "mob %d is imported" % id)
+		var mob: Dictionary = data.mobs.mobs.get(str(id), {})
+		assert_false(String(mob.get("name", "")).is_empty(), "mob %d has an English fallback name" % id)
+		assert_eq(int(mob.get("exp_item", 0)), drops[id][0], "mob %d signature EXP pickup" % id)
+		assert_has(manifest.items, float(drops[id][0]), "mob %d EXP art is imported" % id)
+		assert_eq(PackedInt32Array(mob.get("mesos", [])), PackedInt32Array(drops[id].slice(1)),
+			"mob %d meso range (none = the level fallback)" % id)
+	for key: String in ["perion", "kerning"]:
+		for id in DataRepo.stage_mob_ids(data, key):
+			assert_true(data.mobs.mobs.has(str(id)), "%s: pool/boss mob %d in mobs.json" % [key, id])
+			assert_has(manifest.mobs, float(id), "%s: pool/boss mob %d in the asset manifest" % [key, id])
+
+
+## Spec #253: Iron Hook and Shade cast their kits like the other scheduled bosses (unsupported skills are skipped).
+func test_iron_hook_and_shade_are_enabled_boss_kits() -> void:
+	var enabled: Array = data.balance.mob_skills.enabled_ids
+	for id: float in [2220000.0, 3220000.0, 9300003.0, 6220000.0, 4090000.0, 5090000.0]:
+		assert_has(enabled, id, "boss %d casts its kit" % int(id))
 
 
 func test_three_map_assets_load_from_the_real_cache() -> void:
@@ -206,7 +240,8 @@ func test_three_map_assets_load_from_the_real_cache() -> void:
 		return
 	var lib := AssetLibrary.new()
 	lib.open()
-	var ids := [104010001, 100030001, 100040100, 100040105, 105090310, 105090900]
+	var ids := [104010001, 100030001, 100040100, 100040105, 105090310, 105090900, 102010000, 101030404, 106000101,
+		103010000, 103000101, 107000000]
 	for id: int in ids:
 		if not lib.has_img(AssetLibrary.map_img_path(id)):
 			lib.free()
@@ -248,7 +283,8 @@ func test_three_map_mob_animations_and_exp_art_load_from_the_real_cache() -> voi
 		return
 	var lib := AssetLibrary.new()
 	lib.open()
-	var ids := [1210101, 2220100, 4230101, 5300100, 4230100, 5130100, 6230600]
+	var ids := [1210101, 2220100, 4230101, 5300100, 4230100, 5130100, 6230600, 130100, 1110101, 1130100, 2130100,
+		2230102, 3210100, 4090000, 1120100, 1210103, 3110100, 2130103, 5090000]
 	for id: int in ids:
 		if not lib.has_img(AssetLibrary.mob_img_path(id)):
 			lib.free()
@@ -272,6 +308,26 @@ func test_three_map_mob_animations_and_exp_art_load_from_the_real_cache() -> voi
 	assert_true(renderer.missing.is_empty(), "mob animations: %s" % renderer.missing)
 	assert_true(lib.missing.is_empty(), "mob asset lookups: %s" % lib.missing)
 	renderer.free()
+	lib.free()
+
+
+## Every scheduled boss's HP bar has a MobGage icon and hpTag frames: its own, or the borrowed boss_ui ones (Blue
+## Mushmom, Snack Bar, Iron Hook and Shade have no icon in v83).
+func test_every_scheduled_boss_has_boss_bar_art_in_the_real_cache() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	for key: String in data.stages.stages:
+		for entry: Dictionary in DataRepo.stage_bosses(data.stages.stages[key]):
+			var id := int(entry.mob_id)
+			var ui: Dictionary = data.mobs.mobs.get(str(id), {}).get("boss_ui", {})
+			var info: Dictionary = lib.mob_root(id).get("info", {})
+			assert_true(lib.frame(HudBossBar.ART + "Mob/%d" % int(ui.get("icon_id", id))) != null, "%d icon" % id)
+			for tag: String in ["%d/0" % int(ui.get("hp_tag_color", info.get("hpTagColor", 1))),
+					"%d/1" % int(ui.get("hp_tag_bgcolor", info.get("hpTagBgcolor", 5)))]:
+				assert_true(lib.frame(HudBossBar.ART + "Gage/" + tag) != null, "%d hpTag %s" % [id, tag])
+	assert_true(lib.missing.is_empty(), "boss bar lookups: %s" % lib.missing)
 	lib.free()
 
 
@@ -592,7 +648,7 @@ func test_every_derived_stage_mob_is_in_the_asset_manifest() -> void:
 	lib.open()
 	var manifest: Variant = AssetManifest.load_merged("res://data/asset_manifest.json")
 	var mob_skill := lib.img(DataRepo.MOB_SKILL_IMG).root
-	for key: String in ["henesys", "ellinia"]:
+	for key: String in data.stages.tiers[0]:
 		var stage: Dictionary = data.stages.stages[key]
 		var imgs := {}
 		for id in StageRoster.named_ids(stage):

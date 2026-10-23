@@ -8,7 +8,9 @@ const DT := 1.0 / 60.0
 ## Earlier: #230 alone b4b22cfe...; #229 alone 6ffbb887... (#228 769106d4..., #199 re-captured on Windows).
 ## Binary event encoding is platform independent (see below).
 ## Re-captured for #238: unlimited potions on cooldowns, no potion drops and two boss equipment drops.
-const GOLDEN := "44fd399773c26c29c5b5bfe2dc01360834e4c2ac764ddc43f2a44a8d60dc3ad8"
+## Re-captured for #259 (the bot jumps a wall it can clear and remembers one it cannot): with that rule disabled
+## (`BotInput._wall_ahead` returning -1, `_held_wall` 0) the #238 hash 44fd3997... is reproduced exactly.
+const GOLDEN := "8114bff348a7e310f18e3612097e22bfa923e96f32476f5a57fe6e688f385a1d"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

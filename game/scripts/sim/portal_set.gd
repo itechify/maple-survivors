@@ -47,6 +47,25 @@ static func from_wz(map_img: Dictionary, map_id: int, options: Dictionary = {}) 
 ## Where a run starts: a random spawn portal (pn "sp", drawn with `rng`) dropped onto the floor below it; else the
 ## middle of the widest platform; else the centre of `bounds`.
 static func start_point(map_img: Dictionary, fhm: FootholdMap, bounds: Rect2, rng: RandomNumberGenerator) -> Vector2:
+	return _start_among(_spawn_portals(map_img), fhm, bounds, rng)
+
+
+## start_point for a Banish (#256): with two or more `sp` portals, the one nearest `from` is left out of the draw
+## (tier C: "thrown elsewhere"); a single one is used even beside `from`.
+static func start_point_away_from(map_img: Dictionary, fhm: FootholdMap, bounds: Rect2, rng: RandomNumberGenerator,
+		from: Vector2) -> Vector2:
+	var pts := _spawn_portals(map_img)
+	if pts.size() >= 2:
+		var nearest := 0
+		for i in pts.size():
+			if (pts[i] as Vector2).distance_squared_to(from) < (pts[nearest] as Vector2).distance_squared_to(from):
+				nearest = i
+		pts.remove_at(nearest)
+	return _start_among(pts, fhm, bounds, rng)
+
+
+## Positions of the map's spawn portals (pn "sp") in the img's key order.
+static func _spawn_portals(map_img: Dictionary) -> Array:
 	var pts: Array = []
 	var portals: Variant = map_img.get("portal", {})
 	if portals is Dictionary:
@@ -54,6 +73,11 @@ static func start_point(map_img: Dictionary, fhm: FootholdMap, bounds: Rect2, rn
 			var p: Variant = portals[k]
 			if p is Dictionary and String(p.get("pn", "")) == "sp":
 				pts.append(Vector2(float(p.get("x", 0)), float(p.get("y", 0))))
+	return pts
+
+
+## A random point of `pts` (drawn with `rng`) that has a floor below it, dropped onto it; else start_point's fallbacks.
+static func _start_among(pts: Array, fhm: FootholdMap, bounds: Rect2, rng: RandomNumberGenerator) -> Vector2:
 	while not pts.is_empty():
 		var i := rng.randi_range(0, pts.size() - 1)
 		var p: Vector2 = pts[i]

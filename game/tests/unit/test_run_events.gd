@@ -6,13 +6,14 @@ extends TestCase
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
+const SF := preload("res://tests/fixtures/shade_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
-const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family"]
+const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message"]
 
 
 
@@ -417,6 +418,12 @@ func test_every_event_matches_the_schema() -> void:
 			for tick in 3:
 				short_world.step(DT, MoveInput.new())
 			for event: Dictionary in short_world.drain_events():
+				_check(event, seen)
+		if type == "player_banished":
+			var shaded := SF.world()
+			for tick in 15 * 60:
+				shaded.step(DT, MoveInput.new())
+			for event: Dictionary in shaded.drain_events():
 				_check(event, seen)
 		assert_true(seen.has(type), "%s was emitted (seen %s)" % [type, seen])
 	assert_true(declined, "the run went through a declined job window")

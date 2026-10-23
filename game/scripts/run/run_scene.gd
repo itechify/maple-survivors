@@ -222,6 +222,8 @@ var _frame_items: Array[String] = []
 var _frame_equipped: Array[String] = [] # auto-worn pickups (#222), announced after the "gained an item" lines
 var _frame_inventory_full := false
 var _frame_sounds := {}
+## Mob id -> whether v83 Sound.wz/Mob.img has an entry for it (cached per run; hit events are hot).
+var _mob_has_sounds := {}
 var _hud_sig := PackedInt32Array()
 var _hud_sig_scratch := PackedInt32Array()
 ## Cached captions of the manual skills' icons (skill key id -> first bound key; emptied by _on_settings_changed, read
@@ -1112,6 +1114,8 @@ func handle_events(events: Array) -> void:
 					_event_shot("teleport.png", 0.08) # tier C: capture the canonical 80 ms effect frame.
 			"boss_skill":
 				_on_boss_skill(e)
+			"player_banished":
+				_on_player_banished(e)
 			"mob_projectile_spawned":
 				# tier C: capture the first ball clearly separated from its caster; swarms must not encode a PNG per ball.
 				_first_event_shot("mob_projectile", "mob_projectile.png", 0.55)
@@ -1135,7 +1139,7 @@ func handle_events(events: Array) -> void:
 			"skill_mob_effect":
 				fx.play(String(e.effect), (e.pos as Vector2).round())
 			"mob_died":
-				_sound(SND_MOB % [int(e.mob_id), "Die"])
+				_mob_sound(int(e.mob_id), "Die")
 			"player_hit":
 				_on_player_hit(e)
 			"player_restored":
@@ -1236,7 +1240,19 @@ func _on_boss_skill(e: Dictionary) -> void:
 			fx.stop(_slow_fx)
 		# tier C: affected pos1 is anchored above the player's canonical body box; lifetime follows sim status.
 		_slow_fx = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
-	_sound(SND_MOB % [int(e.mob_id),String(e.action).replace("skill", "Skill")])
+	_mob_sound(int(e.mob_id), String(e.action).replace("skill", "Skill"))
+
+
+## A boss's Banish (#256) moved the character on this map: the camera jumps with it, the boss's message shows as a
+## notice, the v83 `affected` art plays once on the character, and playtests capture the arrival.
+func _on_player_banished(e: Dictionary) -> void:
+	cam.snap_to(e.pos)
+	if hud != null and String(e.message) != "":
+		hud.push_notice("banish", String(e.message))
+	if String(e.effect) != "":
+		# tier C: affected pos0 is anchored at the character's feet (the avatar origin), like heal mob0 pos0.
+		fx.play(String(e.effect), Vector2.ZERO, false, avatar)
+	_first_event_shot("banish", "banish.png", 0.36) # tier C: the first Banish, at its fourth 120 ms affected frame.
 
 
 ## An ordinary mob's attack phase (#76): its Sound.wz attack sound at the windup, the canonical effect/hit art, and
@@ -1368,7 +1384,7 @@ func _on_mob_hit(e: Dictionary) -> void:
 		var at: Vector2 = world.mob_center(m) if m >= 0 and m < world.swarm.capacity() else e.pos
 		fx.play(hv, at.round(), at.x > world.player.pos.x)
 		counters.hit_fx += 1
-	_sound(SND_MOB % [int(e.mob_id), "Damage"])
+	_mob_sound(int(e.mob_id), "Damage")
 
 
 func _on_player_hit(e: Dictionary) -> void:
@@ -1542,6 +1558,15 @@ func _advance_end(delta: float) -> void:
 		_finish()
 
 
+## Plays mob `id`'s Sound.wz/Mob.img `name` sound ("Damage", "Die", "Skill1"...). A mob v83 gives no Mob.img entry at
+## all (Iron Hook 4090000) is silent, as in the client, and records nothing missing (tier A: absent in v83 Sound.wz).
+func _mob_sound(id: int, name: String) -> void:
+	if not _mob_has_sounds.has(id):
+		_mob_has_sounds[id] = library.find("Sound.wz/Mob.img/%07d" % id) != null
+	if _mob_has_sounds[id]:
+		_sound(SND_MOB % [id, name])
+
+
 ## Plays once per frame per path/phase (Teleport preserves both endpoints; swarm hits still coalesce).
 func _sound(path: String, phase: String = "") -> void:
 	var key := path + ":" + phase
@@ -1568,7 +1593,8 @@ func _service_windows() -> void:
 		if String(req.kind) == "job":
 			if _autopick:
 				counters.autopicks += 1
-				var j := BotInput.pick_choice(req.options, world.job_rng, _forced_job(), world.jobs, _forced_job_path())
+				var j := BotInput.pick_choice(req.options, world.job_rng, _forced_job(), world.jobs, _forced_job_path(),
+					world.held_weapon_family())
 				if j.job_id < 0 or not world.apply_job(j.job_id, j.path):
 					world.decline_job()
 				handle_events(world.drain_events())
@@ -1607,7 +1633,7 @@ func _auto_resolve_window(delta: float) -> void:
 		_on_card_chosen(BotInput.pick_card_for(world, _window_req.get("cards", [])))
 	else:
 		var j := BotInput.pick_choice(_window_req.get("options", []), world.job_rng, _forced_job(), world.jobs,
-			_forced_job_path())
+			_forced_job_path(), world.held_weapon_family())
 		if j.job_id < 0:
 			_on_job_declined()
 		else:

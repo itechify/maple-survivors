@@ -179,7 +179,11 @@ client's `CVecCtrl` (NoLifeStory `physics.cpp` description, tier B), re-implemen
 - **Air control:** almost none (≤ ~9 px/s change at 200 px/s²), as in v83: you commit to a jump.
 - **Down-jump:** Down + Jump on a foothold without `cantThrough`/`forbidFallDown` with a floor below: vy = -196 px/s,
   the current foothold is ignored until landing.
-- **Landing:** vy clamped to 162.5 px/s on contact; walking off an edge falls; vertical footholds are walls.
+- **Landing:** vy clamped to 162.5 px/s on contact; walking off an edge falls; vertical footholds are walls. A fall
+  whose sub-step crosses a floor inside its span but ends past the floor's end (into the corner where a wall rises
+  from that end) lands on the floor, EPS (0.01 px) inside it (#260, tier C).
+- **Fell out:** below the MapBounds bottom the player stands on the floor point nearest to (x, bottom), EPS inside
+  the floor's span so a wall rising from that end still blocks (tier C).
 - **Ladders/ropes:** Up/Down within 10 px of a ladder's x grabs it; climb speed 100 px/s (tier C); Jump + direction
   leaves it; `uf=1` lets you climb off the top.
 - **Same-map portals:** hold Up with the feet inside x ±25, y −100…+25 around the canonical portal point. The player
@@ -322,18 +326,22 @@ implementations remain sibling work.
 
 ### 4.1 Pacing (`stages.json`)
 
-Stages use region keys `henesys`, `ellinia` and `sleepywood`, with `region` and `continent` labels (tier C owner
-choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as aliases; living slots,
-bests, history and run snapshots migrate on load. The tier list is `[[henesys, ellinia], [sleepywood]]`.
+Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
+labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
+aliases; living slots, bests, history and run snapshots migrate on load. The tier list is
+`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253).
 
 | Stage key | Map 1 | Map 2 | Map 3 | Boss order |
 |---|---|---|---|---|
 | `henesys` | Henesys Hunting Ground I (104040000) | The Pig Beach (104010001) | The Blue Mushroom Forest (100030001) | Mano / Mushmom / Blue Mushmom |
 | `ellinia` | The Tree That Grew I (101010100) | The Forest of Wisdom (100040100) | The Forest of Evil I (100040105) | Stumpy / King Slime / Dyle |
+| `perion` | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) | Mano / Stumpy / Iron Hook |
+| `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
 
-All are on Victoria Island. Map select lists each region's three maps and bosses; its objective is "Defeat 3 bosses
-across 3 maps". Results show the region and ending map. The opening title shows continent above region; transfer
+All are on Victoria Island. Map select lists each region's three maps and bosses in `tiers` order; its objective is
+"Defeat 3 bosses across 3 maps". Four cards per tier is the most the parchment fits above the Start button
+(`stage_select.gd` `MAX_CARDS`); a fifth region would need a scrolling list. Results show the region and ending map. The opening title shows continent above region; transfer
 arrivals show the destination's v83 street and map name. Summaries retain region/continent and the ending WZ names.
 
 Round time includes all combat on every map. The pacing clock is `curve_time = (N - 1) * 300 + time_on_map` for
@@ -346,6 +354,28 @@ event entries and each map's `exclude` list. Pig Beach excludes timed Iron Hook 
 Sanctuary Entrance IV's ordinary pool: Cold Eye 4230100 x5, Tauromacis 7130100 x2, Taurospear 7130101 x5. Bursts and
 elites use the same current pool. `stages.json` declares `pool: "curve"`, `pool_from_life: true` (optional `exclude`),
 or an explicit weighted `pool` per map; these are tier C owner choices, not changes to canonical WZ stats.
+
+Perion and Kerning City (spec #253) copy Henesys's numeric curve exactly: keyframe rate, alive cap, HP and speed
+(including #241's opening), bursts, elites, 2.5x stage EXP, the hard cap and the post-duration slope. Their extra
+210 s keyframe is Henesys's curve interpolated at 3:30 (rate 0.875, cap 17.5, speed 1.0375), so it changes no number;
+it only carries the 3:30 pool. Keyframes from 300 s carry no pool, so the 3:30 pool (repeated at 4:00, Blue Snail
+included) stays for the rest of map 1. Map 1 uses the map's own v83 life mobs plus one
+weaker neighbour, Blue Snail 100101, which opens alone like Henesys's snails (the owner's Q4 weaker-neighbour clause,
+invoked after the first-pass pools' T1 seed-1 bot deaths at 0:15 and 2:15, Lv1; native to Perion Street Corner
+101040000 next door, tier C for Kerning City). Weights tier C:
+
+| Curve time | Perion (West Street Corner of Perion) | Kerning City (Construction Site) |
+|---|---|---|
+| 0:00 | Blue Snail 100101:1 | Blue Snail 100101:1 |
+| 2:00 | Blue Snail 2, Stump 130100:3, Red Snail 130101:2 | Blue Snail 2, Red Snail 130101:3, Slime 210100:3 |
+| 3:00 | + Dark Stump 1110101:1 | + Orange Mushroom 1210102:3 |
+| 3:30 | Dark Stump 3, Stump 2, Red Snail 1, Blue Snail 1 | + Octopus 1120100:1, Blue Snail 1 |
+
+Maps 2 and 3 use their life lists with no exclusions; v83 lists no timed or hidden entries there: East Rocky
+Mountain V Axe Stump x12 / Dark Axe Stump x21, The Burnt Land I Wild Boar x11 / Fire Boar x20, Line 1 <Area 1>
+Bubbling x64, The Swamp of Despair I Ligator x32 / Jr. Necki x4. The opening mobs hit much harder than Henesys's
+snails (Red Snail PAD 27, Slime 32, Stump 30 against Snail 12); these starting pools are untuned and the balance
+pass #77 owns them.
 
 Balance records and playtest `summary.json` carry `map_times` (reached-map entry seconds from round start, starting
 with 0) and `ended_map: {index, id}` (zero-based index, original v83 id). `boss_fights` retains `map_index`/`map_id`.
@@ -520,6 +550,133 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Spec #253 (#261): the bot keeps its weapon family at the second advancement (2026-10-23)
+
+Integration tip `bac7a1e` plus this fix, cache `caches/s253`, isolate `t261`, no tuning ("Bot second-job family" in
+11). **Bot records, seeds 1 / 2 / 2026, all four tier-1 regions: identical before and after** (state, time, kills,
+level, job, map_times, ended_map, hits/level/EXP by minute, job_times, boss_fights, potions, cards; `warnings: []`,
+`missing: []`): no run reaches Lv30 on the untuned data, so no second advancement happens. `--job=500:knuckle` on Perion
+seeds 1..6 is also identical (all die by 7:11, Lv11-22). On the #77 C05 patch (`t77/C05.json`, diagnostic only, not a
+candidate), Perion `500:knuckle` seeds 1..6 go from 3/6 clears (seeds 1, 4, 5 drew Gunslinger; 5 died at 1088.5 s
+Lv30) to 4/6, and every record now equals the `510:knuckle` cohort's field for field (seeds 1/2/4/5 clear, seed 3 dies
+at 1059.6 s Lv30, seed 6 at 316.8 s Lv12).
+
+#### Spec #253 (#260): Kerning floor/wall corner leak and boss-arrival bound (2026-10-23)
+
+Integration base `d50443a`, isolates `t260*`, cache `caches/s253`, no PATCH or tuning. **Root cause:** the air
+sub-step only tested landing on the floor under its end x. Held against the x 3185 wall of Line 1 <Area 1>
+(103000101) and steering into it, a fall crosses the y 323 floor line inside the floor while the sub-step ends 0.004 px
+past the end x; the 1 px wall probe at the crossing x is already below the wall's foot, so neither caught it (10 of 40
+sub-pixel start heights in `test_player_motion`). Recovery then stood the player exactly on the end point, which a
+wall line does not block, so it walked off again. Fixes in section 3 and section 11 (corner landing, recovery inset,
+`arrival_fallback` 15 s). **Not windowed-only:** both paths run the same fixed 1/60 s ticks with an 800 x 600 view
+(measured in the window), and at `d50443a` the headless `balance_run` Lv38 fixture Kerning seed 1 shows the same stall:
+TIMEOUT at 1800 s on map 2, Shade `not_spawned`, Lv85. After the fix it is **CLEARED at 922.1 s, Lv59** (map entries
+0 / 307.0 / 613.2 s, bosses dead at 303.0 / 607.0 / 913.2 s; Shade arrives on schedule, no fallback needed). Seed-1 bot
+records of Henesys, Ellinia, Perion, Kerning and the Sleepywood Lv38 F/P fixture are **identical field for field** to
+`d50443a`. A boss record gains `postponed_since` / `relocate_since` / `fallback` only once a postponement or failed
+relocation happens. The windowed playtest (`playtest.sh --stage=kerning --seed=1 --character=<lv35_magician_2nd.json>`,
+x4) clears all three maps in 923.5 s at Lv59, `missing: []`. Screenshots, checked by eye: the character standing
+against the x 3185 wall at 8:00, Shade's arrival at 10:07, map 2 CLEAR at 10:13 and the final CLEAR at 15:23
+(`evidence/spec253/t260/kerning_fixture_s1_x4/`). The complete suite on `caches/s253` passes **2,198 tests, 0 failed, 0 skipped** (212 files).
+
+#### Spec #253 (#257): Perion and Kerning City QA smoke (2026-10-23)
+
+Integration base `ded803a` (T1-T3 merged) plus this ticket's bot fix, Git Bash, isolates `t257*`, cache
+`caches/s253`. Seeds **1 / 2 / 2026**, `bot` and `random`, on Perion and Kerning, both regions' `--tier=2` chains, and
+the unchanged-check reruns of Henesys, Ellinia, the Henesys chains and the Sleepywood Lv38 F/P fixture: 48 started
+rounds, every command exit 0, every record `warnings: []` / `missing: []`. No PATCH, tuning or held-out seeds.
+D = DEAD; `@N` is the one-based ending map; times in seconds; unobserved entries are absent, never zero.
+
+| Region / policy | Death s @ map (1 / 2 / 2026) | Map-2 entry s | Lv10 / first job s (id) | Map-1 boss fight s | Compared with T1 (#254) bot smoke / #249 |
+|---|---|---|---|---|---|
+| Perion / bot | 423.7@2 / 382.4@2 / 306.8@1 | 342.0 / 318.3 / absent | 248.6 (200) / 260.3 (200) / 255.5 (100) | Mano 42.0 / 18.2 / unfinished >= 6.8 | T1 62@1 / 383@2 / 432@2: seed 1 is the fixed bot bug below; 2026 shifts with it |
+| Perion / random | 383.5@2 / 460.2@2 / 389.5@2 | 318.4 / 438.0 / 342.8 | 240.5 (200) / 295.5 (200) / 241.4 (100) | Mano 18.3 / 138.0 / 42.8 | new |
+| Kerning / bot | 237.5@1 / 308.7@1 / 311.7@1 | absent x3 | absent / 234.3 (200) / absent | King Slime not spawned / >= 8.7 / >= 2.7 | T1 238 / 309 / 312, all @1: same |
+| Kerning / random | 237.5@1 / 307.6@1 / 302.8@1 | absent x3 | absent / 253.6 (200) / absent | not spawned / >= 7.5 / >= 2.8 | new |
+| Henesys, Ellinia (bot, random), Henesys chains, Sleepywood fixture | as #249 | as #249 | as #249 | as #249 | identical on state, time, kills, level, job, map_times, ended_map, hits/taken/level by minute, potions, reach, job_times, boss_fights, warnings, missing |
+
+Of the **12 fresh Perion/Kerning runs, 5 reach map 2 (all Perion) and 0 reach map 3**; every Perion map-2 entrant dies
+there before Stumpy's arrival (`not_spawned`), and every Kerning run dies on map 1, four of six within 12 s of King
+Slime's 300 s arrival. All four chains stop in tier 1 with zero tier-2 feeds; their tier-1 rounds equal the plain
+rows. Ellinia's Dyle (110 casts since #255) is unobserved: no Ellinia run reaches map 3. Iron Hook, Shade and Dyle never
+spawn in a fresh smoke run. This is a record for #77, not authority to tune.
+
+**Perion seed 1 (bot), 62 s at Lv1: a bot bug, fixed.** West Street Corner of Perion (102010000) has four two-way
+hidden portal pairs (hide00..03 <-> tohide00..03). From 55.8 s the bot escaped a Blue Snail crowd through hide00, then
+its drop route took tohide00 straight back down into that crowd on the next 0.384 s portal cooldown, and so on: 14
+portal uses (`camper.portals`), relocations 192% of spawns, 7 hits in 6 s under the shrinking hit window. Spawn
+placement, slopes, ropes and falling were ruled out by the frame trace and screenshots. `BotInput` now keeps the
+reverse link closed for 5 s after a warp (`REVERSE_PORTAL_HOLD`, tier C; test_bot_portals). Seed 1 then lives to
+423.7 s @2; seed 2026 also changes (432@2 to 306.8@1), as any Perion seed may. Henesys, Kerning and Sleepywood maps have
+no same-map links, and Ellinia's records are unchanged, so the hold is gated by the identical old-region rows above.
+
+**Kerning seeds 1/2026: a bot stall on map 1, not balance signal (to file).** On Kerning City Construction Site
+(103010000) the bot drops off the start ledge within 5 s into a pocket of the layer-2 floor (y 1506) between a wall at
+x 350 (y 1326-1650) and the 30 px step at x 505 (wall y 1476-1620), then walks into the x 350 wall toward the map
+centre (or the walled-off ladder at x 215), flips for 0.75 s, and repeats. Signature: `exp_by_min` flat (50, 50, 75)
+while `drops_by_min` climbs (4, 25, 58), no hits until death, `reach {}`; seed 1 dies at Lv3 to two Octopus touches
+(68, 76), seed 2026 stalls partially (EXP 50/50/255/255). Its jump apex (~77 px) clears the step, so a player walks
+out. No bot target checks `walk_blocked` and the stuck handler jumps backwards; that is bot work for its own ticket.
+
+**#259: the pocket stall, fixed.** Root cause, from a frame trace of seed 1: the drops past the step (y 1416, 90 px up)
+exceed the walkable reach (0.7 × magnet 90 = 63 px) and count as "above", so the bot heads for the x 215 ladder, which
+starts on the same layer-2 floor chain behind the x 350 wall (or for the map centre, also beyond it). The stuck rule
+flipped it for 45 ticks with a backward jump from both walls, so at the step it turned back into the pocket. Now a
+stall at a wall low enough to clear jumps on, and a stall at a taller wall is remembered for 30 s: goals beyond it are
+skipped, the centre beyond it sends the bot away, and the wall bounds the kiting room like the map edge ("Autoplay
+walls" in 11; test_bot_walls). Bot records, seeds 1 / 2 / 2026 on `caches/s253`, death seconds @ map and level:
+
+| Region | Before | After |
+|---|---|---|
+| Kerning | 237.5@1 Lv3 / 308.7@1 Lv14 / 311.7@1 Lv7 | 308.2@1 Lv15 / 310.8@1 Lv15 / 306.9@1 Lv14 |
+| Henesys | 308.3@1 Lv12 / 451.8@2 Lv25 / 310.0@1 Lv12 | 308.3@1 / 435.4@2 Lv24 / 310.0@1 (seed 2: same EXP through minute 5, same 24.6 s map-1 boss fight and 324.6 s map-2 entry; EXP differs from minute 6) |
+| Ellinia | 632.7@2 / 39.1@1 / 34.7@1 | unchanged |
+| Perion | 423.7@2 / 382.4@2 / 306.8@1 | unchanged |
+
+Kerning `exp_by_min` now climbs on every seed (seed 1: 80, 400, 1085, 2337, 5433; was 50, 50, 75), Lv10 at 219-231 s,
+and all three die on map 1 a few seconds into King Slime's fight (300 s arrival), like Henesys seeds 1/2026: balance
+signal for #77, not a stall. All records `warnings: []`, `missing: []`. A first cut that treated 58 px as the clearable
+height (0.75 of the apex) left the synthetic test map's 60 px pit walls "tall": the bot bounced inside the pit and the
+`test_full_run` synthetic run died at 43 s; at 0.85 it jumps out and that run lasts 439 s to Lv21 (was 305 s, Lv8).
+The synthetic bot digests (`test_bot_melee`, `test_character_baseline`) are re-captured; with the wall rule disabled
+they reproduce the old values exactly.
+
+**Kerning map 2: a corner leak that blocks Shade (to file).** In the windowed Lv38 fixture seed 1 run the character,
+grounded at the end of Line 1 <Area 1>'s y 323 floor (x 2880-3185) where the x 3185 wall (y -360 to 323) rises, is
+knocked airborne at x 3184.99 and next frame is at (3185.87, 386): the landing on y 323 is missed while x crosses the
+wall line below its end. Below lies a floorless void (x 3185-3475, VRBottom 570); fall-out recovery snaps back to that
+same floor end and the loop repeats. With no foothold, every Shade arrival is postponed ("Shade will appear in 3
+seconds!" from 607 s to the 1800 s cap, `boss_warning_1` without `boss_arrival_1`, PLAYING at 1800). Reproduced three
+times windowed (`kerning_fixture_s1_x4`, `_probe_`, `_void_`; frame log under `VOID entered`); headless `balance_run`
+with the same seed does not hit it (Shade dies at 613 s). Candidate fixes: a swept corner check in the air substep, a
+recovery that never lands on a floor end flush with a wall, and an `sp` fallback after repeated boss postponements.
+A headless run caught there reports TIMEOUT, a measurement artefact.
+
+Windowed evidence, checked by eye, all `missing: []`: fresh x4 playtests (seed 2026) die at 306.8 / 311.7 s on map 1
+(Kerning's shows the pocket stall). The Lv38 fixture seed 1 dies on Perion map 3 (664.1 s, Lv53) and on Kerning stalls
+as above. **Invulnerable diagnostic** captures (real attacks, no lethal injection) clear Perion and Kerning from the
+fixture (913.9 / 934.1 s, Lv57/61) and from a fresh Beginner (1067.8 / 1029.7 s, Lv29/35). They show every map with
+its own mobs (Perion: Blue/Red Snails and Stumps, Dark Axe Stumps, Fire Boars and Wild Boars; Kerning: snails, Slimes,
+Orange Mushrooms, Octopus, Bubblings, Ligators) and each boss arrival, Shade's Banish (notice "As the Pentacle swayed
+in the shadows, you were thrown elsewhere in the Subway." and the `affected` art on the character, Line 1 <Area 1>),
+Dyle's Attack Up (the 110 area art across the Ligators, then the buff glow on Dyle) and Iron Hook's Attack Up cast
+burst. Iron Hook dies before his first 40 s interval in every natural or diagnostic fight, so that capture adds a
+**x20 HP diagnostic tank** and holds the camera on him (harness-only presentation aid, never data). Every map entry
+reports BGM playback matching `info/bgm` (Perion Nightmare, Nightmare continuing, HighlandStar; Kerning BadGuys,
+Subway, JungleBook). The map select shows four cards in `tiers` order; with Perion or Kerning City selected the detail
+lists `West Street Corner of Perion -> Mano`, `East Rocky Mountain V -> Stumpy`, `The Burnt Land I -> Iron Hook` and
+`Kerning City Construction Site -> King Slime`, `Line 1 <Area 1> -> Shade`, `The Swamp of Despair I -> Dyle`; the
+angle brackets render literally, in the arrival banner too. Evidence: `C:/Users/itech/.t3/projects/maple-survivors/.claude/worktrees/agent-ab003e6a203a7ede5/evidence/spec253/t257/`
+(harness, probes and scripts in `diagnostic-sources/`).
+
+The `maps` flow driver gains `--stage=<tier-1 key>` (default henesys): `perion`, `kerning` and `henesys` all PASS
+(`failures: []`, `missing: []`), with real CLEAR/fade/arrival shots on each map, the map-2 Save & quit leaving the
+boundary bytes unchanged, Continue replaying map 1 with seed 1, entries 300.000 / 600.017 s (Kerning 312.000 /
+612.017 s: King Slime arrives at 303 s, one postponed arrival) and the Free Market boundary. The new `maps_stage_select` shot renumbers later Henesys shots by one. The complete suite on `caches/s253`
+passes **2,192 tests, 0 failed, 0 skipped** (212 files, 769.859 s), with the usual two dummy texture RID allocations
+at shutdown.
 
 #### Spec #241 (#249): integrated three-map QA smoke (2026-10-22)
 
@@ -3320,12 +3477,16 @@ Raw: ignored `evidence/t76/perf3/`, `_scratch/t76/perf_probe_runs*.txt`, probe `
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
-Mushmom (6130101), Blue Mushmom (9400205) in Henesys; Stumpy, King Slime, Dyle in Ellinia; Zombie Mushmom, Snack Bar,
-Jr. Balrog in Sleepywood. Only the current map's boss is armed. If map 2 starts at round time 420 s, its boss is due
+Mushmom (6130101), Blue Mushmom (9400205) in Henesys; Stumpy, King Slime, Dyle in Ellinia; Mano, Stumpy, Iron Hook
+(4090000) in Perion; King Slime, Shade (5090000), Dyle in Kerning City; Zombie Mushmom, Snack Bar, Jr. Balrog in
+Sleepywood. Only the current map's boss is armed. If map 2 starts at round time 420 s, its boss is due
 at 720 s. Encounters retain canonical movement, contact attack, art and enabled skill kits; mushrooms retain the slam.
 Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
 250 px away. A narrow floor may require a closer point. If no arrival point exists at all on the arrival tick, the
-arrival slips by 3 s behind a fresh warning (tier C). A boss whose mob img is missing from the asset cache is skipped
+arrival slips by 3 s behind a fresh warning (tier C). Slipping is bounded (#260): once arrivals have failed for
+`balance.bosses.arrival_fallback` = 15 s (five slips), the floor point nearest the player stands in for the player
+(its platform, the same 250/150 px rule, else that point itself), still 3 s after the last warning; a stalled-pursuit
+fade relocation that finds no point uses the same bound (tier C). A boss whose mob img is missing from the asset cache is skipped
 with a run warning at its arrival time and never blocks the clear. Scheduled bosses never flinch or receive push,
 whatever their WZ `info/boss` flag (tier C survivor rule; the tier A flag and the `no_flinch` override still apply to
 their kinds), and ordinary relocation never removes them. Bosses the player runs away from remain until killed.
@@ -3340,6 +3501,20 @@ Survivor settings (tier C; canonical stats and attack timings/boxes remain uncha
 | Stumpy | 7,000 | 3,150 | 0.45 | 0.83 | 0.77 |
 | King Slime | 8,000 | 8,800 | 1.1 | 1.36 | 1.06 |
 | Dyle | 31,000 | 8,060 | 0.26 | 1.14 | — |
+| Perion: Mano | 2,000 | 3,600 | 1.8 | 1.15 | — |
+| Perion: Stumpy | 7,000 | 4,800 | 0.6857 | 1.38 | 1.25 |
+| Perion: Iron Hook | 2,200 | 7,000 | 3.1818 | 2.38 | — |
+| Kerning City: King Slime | 8,000 | 3,600 | 0.45 | 0.78 | 0.61 |
+| Kerning City: Shade | 4,800 | 4,800 | 1.0 | 1.04 | — |
+| Kerning City: Dyle | 31,000 | 7,000 | 0.2258 | 1.15 | — |
+
+The Perion and Kerning City entries (spec #253, starting values, untuned) are separate entries, so the Henesys and
+Ellinia fights are unchanged. Each matches the Henesys boss of its map slot (Mano, Mushmom, Blue Mushmom) at that
+slot's `typical_hp`/`typical_pdd`: the same survivor HP and, at 0.01 multiplier steps, touch and attack roll ranges
+within 1 HP of the slot's (King Slime's slam matches Mano's touch, since Mano has no attack). Iron Hook and Shade
+fight by touch only. Canonical boss defence, level and undead flags are not normalized (Iron Hook PDD 400 and Shade
+undead against Blue Mushmom's 810 and Mushmom's 320). Shade's entry carries `skill_intervals: {"129": 15}`: one
+Banish per 15 s instead of the canonical 3 s.
 
 Calibration uses measured training builds rather than the former assumed HP300/550/800 and full Armor defense.
 `stage.maps[].boss` stores the multipliers; `typical_hp/pdd` are illustrative inputs only, never adaptive runtime scaling.
@@ -3460,7 +3635,8 @@ weapon immunity (tier C): basic swings and Three Snails shells are blocked at li
 effective. A blocked shell consumes a contact/pierce hit without damage or crit RNG consumption (tier C).
 The original repeat 1/pos 2 34×34 icon with origin (17,44) stays above Dyle's body and follows relocations;
 body-top anchor mapping is tier C, art/origins are tier A. Status stops at expiration or death, never leaks
-into a reused pool slot. Dyle's canonical 112/113 defense skills reuse the existing handlers; 110 is not enabled.
+into a reused pool slot. Dyle's canonical 112/113 defense skills reuse the existing handlers; since #255 his 110/2 Attack Up (interval 35 s,
+30 s, ×1.15 weapon attack in its area) casts too, listed before 112/113 in his skill list.
 Death offspring use survivor summon_spacing 24 px on the death platform, with no new per-entity Nodes.
 Source facts are the owner's original Mob.wz/9300003.img, Mob.wz/6220000.img and Skill.wz/MobSkill.img;
 Local reference summaries: research/stage-bosses/out/bosses_3220000_5220002_9300003.json (King Slime),
@@ -4343,8 +4519,8 @@ refresh-without-stacking and boss rules) and it coexists with all three.
   is still a Threaten target (and the reverse).
 - **Effect.** While threatened a monster's weapon attack falls by `-x` and its weapon defence by `-y`, each floored at 0
   (`MobSwarm.threatened_pad` / `threatened_pdd`; a reapplication replaces the cut and restarts the clock, it never adds up).
-  Weapon attack is lowered where a monster's PAD becomes damage: contact damage (`RunWorld._player_hit`) and physical
-  ordinary attacks and their balls (`MobAttacks._impact`), before the stage's damage multipliers and the player's defence;
+  Weapon attack is lowered where a monster's PAD becomes damage, in `RunWorld.mob_weapon_attack` (before Attack Up's
+  multiplier): contact damage and physical ordinary attacks and their balls (`MobAttacks._impact`), before the stage's damage multipliers and the player's defence;
   magic attack is untouched. Weapon defence is lowered in `RunWorld.mob_defense` and in the bulk projectile fill
   (`MobSwarm.lower_threatened_pdd`), so the player's physical hits, shots and Final Attacks all see it; magic defence is
   untouched. Death, release and relocation end the status silently, as for the other statuses.
@@ -5474,7 +5650,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   change seeded records without changing any stream's initialization. `--job=100:spear`, `--job=120:blunt`,
   `--job=400:claw` and `--job=500:gun` force the family when that advancement offers it. A forced single-family
   branch without a path (`--job=410`, `320`, `510`...) takes the first-job path of its own family (no draw), as before #232;
-  a forced multi-family branch without a path (`--job=110`) still draws its Warrior family at Lv10.
+  a forced multi-family branch without a path (`--job=110`) still draws its Warrior family at Lv10. Since #261 an
+  unforced second job keeps the held weapon's family: the stream-8 draw is only among the branches that offer it (none
+  when one does) and that family stays on the page; with no such branch every branch is drawn as before.
 - Advancing to Magician changes job to 200 and keeps the existing +120 Max MP bonus; it teaches no skill.
   The extra advancement draw includes Energy Bolt, Magic Claw and one other new Magician skill before the normal draw.
 - The JobChanged pillar and sound play on the character first; the advancement draw opens once the effect has
@@ -5616,8 +5794,12 @@ random policy shares the movement and the camper policies still override it afte
 | Reserved performance key (MS-10) | F3 is fixed on desktop and web, captioned Perf in Key Config; old saved action bindings drop F3 and retain their other keys | C | Existing RunScene diagnostic shortcut; `KeyBindings.RESERVED` |
 | Finale precedence (MS-07) | Last mandatory answer after all scheduled bosses die settles without another damaging tick; active-tick death still wins | C | Owner decision, 2026-10-21 |
 | Finale collection (MS-08) | Sweep all remaining pickup kinds once using normal pickup accounting; resolve resulting level/job/card choices with combat frozen before carry. Full-tab equipment retains the existing blocked-on-ground rule and is left behind at clear | C | Owner decision, 2026-10-21; existing Equip pickup capacity rule |
-| Bot weapon choices (#232) | Uniform job-stream-8 family draw at each multi-family advancement unless that advancement offers the forced family; no implicit branch preference. BotShop upgrades the recorded family | C | Owner #226; binding decision 7 |
+| Bot weapon choices (#232) | Uniform job-stream-8 family draw at each multi-family advancement unless that advancement offers the forced family; no implicit branch preference (an unforced second job keeps the held family since #261). BotShop upgrades the recorded family | C | Owner #226; binding decision 7 |
 | Weapon path migration and AP (#230) | Pathless saves use the held family at the deepest multi-path ancestor, else its first path; keep inventory. AP lookup falls back from job:path to plain job at each ancestor and re-splits earned AP on advancement | C | Owner #226 and binding implementation decisions |
+| Banish destination (MobSkill 129, #256) | A random `sp` portal of the current map dropped onto the floor below it (`PortalSet.start_point_away_from`, the map-arrival rule; the widest platform's middle on a map without `sp`), drawn uniformly on the dedicated stream 17 `banish_rng` so no other stream shifts. With two or more `sp` portals the one nearest the character is left out ("thrown elsewhere"); a single `sp` is used even if the character stands by it. The placement clears velocity, ladder and foothold, and an out pet is put beside the character like a map arrival (`pet_teleported`). 103000101 has two, (-258, 138) and (1115, 66), both landing on the y 198 platform, so a Banish there always lands at the other one | C (adaptation, nearest-portal exclusion: lead #256 review), B (destination: a random portal, Cosmic's server) | Owner #253; v83 `info/ban/banMap` sends the character to 103000100 Subway Ticketing Booth, outside the round |
+| Shade's arrival on 103000101 relative to the `sp` portals (measured, #253 review) | Seed 1, Lv38 F/P fixture `lv35_magician_2nd.json`, `bot` policy, Kerning City (headless `boss_spawned` pos, cache with the #253 manifest): Shade arrives at 604.47 s at (653.9, 198), 250 px (`spawn_distance`) left of the character at (903.9, 198) on the y 198 platform. Its Banish box there spans x 453.9..853.9, y 48..248, so neither `sp` portal, (-258, 138) nor (1115, 66) (nor their y 198 landing points), lies inside it at arrival; the nearer, (1115, 66), is 261 px past the box's right edge. The arrival point follows the character (the boss arrival rule), so other seeds and builds land elsewhere | Measurement, not a constant | Seed-1 headless record, #253 review |
+| Banish cooldown and cast rule (#256) | A boss entry's `skill_intervals` (`{"<skill id>": seconds}`) replaces that skill's WZ interval for both the first use after arrival and each recast; Shade's entry carries `{"129": 15}` (WZ 3 s). Banish is cast only with the character inside its canonical area lt(-200,-150) rb(200,50) around Shade's feet (prop 100: no roll; the one character whatever `count` 5 says), so a miss spends no cooldown; not cast while Hidden; Shade plays `skill1` | C (15 s; in-area gating, v83-like, accepted in the lead #256 review), A (area, prop, WZ interval) | Owner #253; v83 MobSkill.img/129/level/5 |
+| Banish message and art (#256) | System notice "As the Pentacle swayed in the shadows, you were thrown elsewhere in the Subway." (Shade's survivor `mobs.json` `banish_message`, reworded from v83 banMsg "... you were brought to the Subway Ticketing Booth."); `MobSkill.img/129/level/5/affected` plays once at the character's feet (pos 0); the camera snaps to the arrival. Not reproduced: Shade's eva 999 (the sim reads no mob avoid), the lamp NPC 1052107, `removeAfter` | C (text, anchor), A (art, original text) | Owner #253; Mob.wz/5090000.img/info/ban |
 
 Drain (#213) additions:
 
@@ -6047,6 +6229,8 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Ladder grab/exit | Up: hands 50 px above the feet within 10 px of x; Down: 10 px below the feet; 0.25 s re-grab delay; exit jump vx = max walk speed, vy = jumpSpeed/1.5; `uf=1` top exit onto a floor within 24 px above / 4 px below the top | C | ours / HeavenClient exit jump |
 | Same-map portal activation and arrival | feet x ±25, y −100…+25; arrive 30 px above target with zero velocity; global cooldown 384 ms; camera snaps, no sound or transition | C | owner choice; `balance.json.portals` |
 | Autoplay portal choice | approach a same-map entrance when its walk plus arrival-to-drop distance is less than going directly (horizontal distance + 2 × vertical); with a mob within 160 px, an entrance within 250 px can instead lead to less nearby mob danger. Reach entrance ledges through existing jump-graph edges; hold Up in the activation box and during the entrance hop | C | ours; uses the bot's existing drop, danger and alignment rules |
+| Autoplay reverse-portal hold (#257) | After a same-map warp, the link from its target straight back to its source is not chosen for 5 s (`BotInput.REVERSE_PORTAL_HOLD`, bot memo, cleared on map change); other links stay open | C | ours: Perion 102010000 seed 1 (bot) died at 62 s bouncing hide00/tohide00 every 0.384 s cooldown, escape up then drop route straight back into the crowd. Maps without two-way pairs (Henesys, Kerning, Sleepywood) never reach it; Ellinia smoke records are unchanged |
+| Autoplay walls (#259) | Stuck (no x progress for 15 ticks, `BotInput.STUCK_TICKS`) at a wall: if no wall stands 0.85 × the jump apex (~65 px, `STEP_CLEAR_FRACTION`; apex jumpSpeed²/2·gravityAcc) above the feet within 4 px ahead (`WALL_PROBE_AHEAD`), the bot jumps on in its direction; otherwise it turns back for 45 ticks as before and remembers the wall for 30 s (`WALL_HOLD`, renewed at each stall, bot memo, cleared on map change). While remembered and the bot is on its near side within 140 px of that height (`WALL_BAND`): drops, ladders and the map centre beyond it are not goals, with the centre beyond it the bot walks away until 300 px off (`WALL_CLEAR`), and the wall bounds the kiting room like the map edge | C | ours: Kerning 103010000 seeds 1/2026 (bot) walked into the x 350 wall for minutes from a pocket whose other side is a 30 px step at x 505; the old stuck rule jumped backwards from both walls (test_bot_walls) |
 | Down-jump reach | a floor within 600 px below | C | HeavenClient |
 | Player knockback hop, alert stance | 200 px/s up, 2 s | C | ours |
 | Player placement | `PlayerMotion.place()` snaps onto a floor at most 1 px below, else the player falls | C | ours |
@@ -6334,6 +6518,18 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Threaten cast (#183) | `crowd` rule with `cast.status: threatened`: at least 3 eligible (live, non-boss, not already threatened) monsters in the box, nearest `mobCount` first, 1 s cooldown, 0.8 s alert2 stance; Slow's two-consecutive-cast history stays Slow-only | C | ours |
 | Threatened status (#183) | flat PAD and PDD cut floored at 0 on contact damage, physical ordinary attacks (and their balls) and the player's physical hits; refreshes without stacking; bosses and status-resistant kinds never take it; coexists with slow, poison and freeze; magic attack and defence untouched | C | ours; the v83 text only says weapon attack and weapon def. fall |
 | Threaten cards (#183) | learn weight 3, rank weight 2, `requires.jobs` [120], not power; no bot score entry (default scoring, like Iron Body) | C | ours |
+| Perion and Kerning City regions (#253, #254) | `perion`: 102010000 / 101030404 / 106000101 (Mano / Stumpy / Iron Hook); `kerning`: 103010000 / 103000101 / 107000000 (King Slime / Shade / Dyle); `region` Perion / Kerning City, continent Victoria Island, notes "Home of the Warriors/Thieves" (no class link); tiers `[[henesys, ellinia, perion, kerning], [sleepywood]]` | C choice, A map/mob ids | Owner, spec #253 |
+| Perion and Kerning City pools (#253, #254) | Henesys's numeric curve copied exactly (keyframes, bursts, elites, `exp_mult` 2.5, `hard_cap` 400, `post_duration_slope` 0.25) plus a 210 s keyframe interpolated from it (rate 0.875, cap 17.5, speed 1.0375) that only carries the 3:30 pool. Map 1 opens with Blue Snail 100101 only (owner Q4 weaker-neighbour clause, invoked after T1 seed-1 deaths at 0:15/2:15 (Lv1)); from 2:00 Perion Blue Snail 2 / Stump 3 / Red Snail 2, +Dark Stump 1 at 3:00, Dark Stump 3 / Stump 2 / Red Snail 1 / Blue Snail 1 at 3:30; Kerning Blue Snail 2 / Red Snail 3 / Slime 3, +Orange Mushroom 3 at 3:00, +Octopus 1 and Blue Snail 1 at 3:30. Keyframes from 300 s carry no pool. Maps 2 and 3: their v83 life lists, no exclusions (no timed or hidden entries) | C weights, A life lists | Owner, spec #253 |
+| Perion and Kerning City boss multipliers (#253, #254) | Each boss matches the Henesys boss of its map slot at that slot's `typical_hp`/`typical_pdd`: same survivor HP (round(maxHP × hp_mult)) and the 0.01 multiplier steps whose 85–100% roll range is closest to the slot's (within 1 HP). Perion: Mano as in Henesys; Stumpy 0.6857 / touch 1.38 / attacks 1.25; Iron Hook 3.1818 / 2.38 (touch only). Kerning: King Slime 0.45 / 0.78 / slam 0.61 (matches Mano's touch: Mano has no attack); Shade 1.0 / 1.04 (touch only); Dyle 0.2258 / 1.15. Attacks every 8 s. Canonical PDD/MDD, levels and undead flags are not normalized | C | Starting values, untuned (#77 tunes) |
+| Boss skill interval override (#253) | A `stages.json` boss entry may carry `skill_intervals` {"<mob skill id>": seconds > 0} replacing that skill's WZ interval for that boss on that map; `DataRepo.stage_map_errors` rejects other shapes. Shade's Kerning entry: `{"129": 15}` (one Banish per 15 s instead of the canonical 3 s) | C | Owner, spec #253; read by #256 |
+| Map-select card limit (#253) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list | C | Layout measurement, spec #253 |
+| Perion and Kerning City mob metadata (#253, #254) | Mesos: v83 server `drop_data` itemid 0 ranges; EXP pickup: the most likely Etc drop (Dark Axe Stump uses Axe 4000215 of the two equal ones; Shade Someone's Hat 4000413). Iron Hook has no server drops: level-fallback mesos and the Wild Boar Tooth icon. Boss bars borrow MobGage icons for Iron Hook (Zeno 6220001) and Shade (Riche 6090000) with hpTag 1/5; both are enabled boss kits (`mob_skills.enabled_ids`) | B mesos/items, C icons/associations | Cosmic drop data (facts only); owner #253 |
+| Mobs without v83 sounds (#253) | A mob with no `Sound.wz/Mob.img/<id>` entry (Iron Hook 4090000) plays no hit, death or skill sound and records nothing missing, as in the client | A (absence) | v83 Sound.wz |
+| Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks unchanged; the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
+| Floor/wall corner landing (#260) | An air sub-step whose path crosses a floor line inside the floor's span while its end x lies past the floor's end lands on that floor at the end x pulled EPS = 0.01 px inside (`FootholdMap.find_corner_landing`); player only, mobs/pickups/NavGraph keep `find_landing` | C | ours: the 1 px wall probe at the crossing x was already below a wall rising from the floor end, so neither landing nor wall caught it (Kerning 103000101, x 3185) |
+| Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
+| Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
+| Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
 
 ## 12. Later phases
 

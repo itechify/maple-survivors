@@ -22,6 +22,9 @@ const MARK := "Map.wz/MapHelper.img/mark/"
 const LIST_X := 46.0
 const LIST_W := 176.0
 const ENTRY_H := 46.0
+## The most region cards one tier can list: four 46 px rows from the parchment top end exactly where the Start button
+## begins (tier C, spec #253). A fifth region needs a scrolling list.
+const MAX_CARDS := 4
 const DETAIL_X := 234.0
 const DETAIL_W := 232.0
 const MAP_ROW_GAP := 6.0 # tier C: compact map/boss groups on the v83 parchment; wrapped lines stay together.

@@ -102,10 +102,11 @@ cache: point it at your own v83 folder or zip (nothing is uploaded). Serve the e
 `node --test web/dev/test/*.test.mjs`. The game's debug scenes (`flow_driver.tscn`) cannot run on web; `?arg=<value>`
 query parameters become game user args (`?arg=--run=henesys&arg=--autoplay`).
 
-Stage keys are `henesys`, `ellinia` (tier 1), and `sleepywood` (tier 2). Each round plays the region's three maps in
-order, with one boss 300 s after each entry; intermediate clears transfer automatically. `--stage=` and `--run=`
-also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. Continue always replays from map 1 with
-the boundary character and seed, including after quitting on a later map; map transfers never save.
+Stage keys are `henesys`, `ellinia`, `perion`, `kerning` (tier 1), and `sleepywood` (tier 2). Each round plays the
+region's three maps in order, with one boss 300 s after each entry; intermediate clears transfer automatically.
+`--stage=` and `--run=` also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. Continue always
+replays from map 1 with the boundary character and seed, including after quitting on a later map; map transfers never
+save.
 
 ### Playtests (`scripts/playtest.sh`)
 
@@ -165,7 +166,9 @@ boss hits after each map's 300 s timer, the real map 1 -> 2 -> 3 transitions and
 arrival it uses Save & quit (the existing Quit round control/warning), reloads disk and Continues from map 1 with
 the same seed and boundary character. Shots cover every CLEAR, fade, arrival, replay and hub; summary.json records
 map entries and ending map. This verifies flow, not natural survival. Run through `ISOLATE=<name> bash scripts/run.sh
-res://scenes/debug/flow_driver.tscn -- --scenario=maps --shots=<fresh abs dir under evidence/>`.
+res://scenes/debug/flow_driver.tscn -- --scenario=maps --shots=<fresh abs dir under evidence/>`. `--stage=<tier-1 key>`
+(#257, default `henesys`) picks that region's card with Down on the real map select (`maps_stage_select` shot) and
+checks the run and its replay start on that region's own map 1.
 Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
 `keys` (#87); see the script header. Spec #151 (physical combat, the Warrior) adds `skill_weapon` (#156: a weapon-gated skill
 greyed in the Skill window), `skill_warrior` (#163: the Warrior's Skill window and Iron Body) and `warrior` (QA #164: Lv10
@@ -231,7 +234,7 @@ The committed `game/tests/fixtures/characters/lv35_magician_2nd.json` is a real 
 its `_doc` records seed, branch, policy and generation revision. `game/tools/character_fixture.gd` reproduces it.
 
 **Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
-or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on both stages, both `bot` and
+or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on every tier-1 stage, both `bot` and
 `random` policies, plus the full test suite. Check for no crashes and no world warnings, that Henesys runs still reach
 Magician and bosses (The Tree That Grew dies early until the owner reworks it: record only), and compare with the
 previous smoke recorded in 4.2. Record the outcomes and any new metrics (a few lines and one small table) in
@@ -263,7 +266,11 @@ startup. A multi-family forced job validates against its own families; a single-
 first job (e.g. `410:claw`). At each advancement the bot uses the forced family only if that job offers it; otherwise
 it draws uniformly among multiple families on job stream 8, including at Lv30. Thus `110:axe` draws a Warrior family
 at Lv10 and forces Axe at Lv30, while a single-family branch such as `--job=410` takes its own family (claw) without a
-draw. Unforced jobs also draw on stream 8. BotShop upgrades the recorded family while the job can use it.
+draw. Unforced jobs also draw on stream 8. An unforced second job (no `--job`, or a forced first job such as
+`500:knuckle` at Lv30) keeps the held weapon's family (#261): the bot draws only among the branches that offer it (no
+draw when one does, so a Knuckle Pirate always becomes a Brawler and a Sword Warrior a Fighter or Page) and keeps that
+family on the weapon page; when no branch offers it, every branch is drawn as before. BotShop upgrades the recorded
+family while the job can use it.
 Records keep `branch` / `forced_branch` / `job_t` and add `job_times` (`{"<job id>": first advancement time}`);
 the summary reports seconds per job id.
 

@@ -1267,6 +1267,29 @@ func test_mano_slow_uses_repeating_canonical_effect_and_shared_skill_stance() ->
 	sfx.library = previous_library
 
 
+## #256: a Banish snaps the camera to the arrival, shows the boss's message and plays the cached v83 129 affected art
+## once on the character (the cache needs no Shade for this: MobSkill.img is imported whole).
+func test_banish_shows_its_message_and_plays_the_affected_art_once_on_the_character() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys", 22, {})
+	var w := scene.world
+	var message := String(scene.data.mobs.mobs["5090000"].banish_message)
+	var before := scene.fx.active_count() + scene.fx_back.active_count()
+	scene.handle_events([{"type": "player_banished", "mob": 0, "mob_id": 5090000, "skill_id": 129, "level": 5,
+		"from": w.player.pos, "pos": w.player.pos + Vector2(300, 0),
+		"effect": "Skill.wz/MobSkill.img/129/level/5/affected", "message": message}])
+	assert_true(scene.cam.snap_next, "the camera jumps with the character")
+	assert_eq(scene.cam.target_pos, w.player.pos + Vector2(300, 0))
+	var texts := scene.hud.messages().map(func(m: Dictionary) -> String: return m.text)
+	assert_true(message in texts, "the reworded banMsg is a notice (%s)" % [texts])
+	assert_eq(scene.fx.active_count() + scene.fx_back.active_count(), before + 1, "the affected art plays")
+	scene.fx.advance(1.3)
+	scene.fx_back.advance(1.3)
+	assert_eq(scene.fx.active_count() + scene.fx_back.active_count(), before, "ten 120 ms frames, played once")
+	_assert_nothing_missing(scene, "Banish")
+
+
 func test_boss_reward_window_is_a_bonus_choice_before_the_clear_sequence() -> void:
 	if not require_cache():
 		return
@@ -1566,6 +1589,33 @@ func test_setup_preloads_clear_art_and_sound_before_the_victory_event() -> void:
 	assert_eq(lib.pages_loaded(), pages, "the clear event decodes no new atlas page")
 	assert_eq((lib.get("_sounds") as Dictionary).size(), sounds, "the clear event decodes no new sound")
 	_assert_nothing_missing(scene, "clear warmup")
+
+
+## Spec #253: v83 Sound.wz/Mob.img has no entry for Iron Hook (4090000), so the client plays nothing for it; its hit,
+## death and skill events stay silent without reporting a missing asset, while a mob with sounds still plays them.
+func test_a_mob_without_v83_sounds_is_silent_and_reports_nothing_missing() -> void:
+	if not require_cache():
+		return
+	if lib.mob_root(4090000).is_empty():
+		skip("Iron Hook not imported (run scripts/import.sh with the current manifest)")
+		return
+	assert_true(lib.find("Sound.wz/Mob.img/4090000") == null, "v83 has no Iron Hook sounds")
+	scene = _make("perion", 1, {})
+	assert_eq(scene.error, "", "scene started")
+	var sfx := scene._sfx_service()
+	if sfx == null:
+		skip("no Sfx autoload")
+		return
+	var sfx_lib := sfx._lib()
+	var before := sfx_lib.missing.size()
+	scene.handle_events([{"type": "mob_died", "mob_id": 4090000}])
+	assert_eq(sfx_lib.missing.size(), before, "Iron Hook's death looks up no sound: %s" % [sfx_lib.missing])
+	_assert_nothing_missing(scene, "Iron Hook death")
+	var sounds := int(scene.counters.sounds)
+	scene.handle_events([{"type": "mob_died", "mob_id": 2220000}])
+	assert_eq(sfx_lib.missing.size(), before, "Mano's death sound exists")
+	assert_true(sfx_lib.find(RunScene.SND_MOB % [2220000, "Die"]) != null and int(scene.counters.sounds) >= sounds,
+		"Mano's death sound is still requested")
 
 
 func test_setup_preloads_boss_and_job_change_art_and_sounds() -> void:
