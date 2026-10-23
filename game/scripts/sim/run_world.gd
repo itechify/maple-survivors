@@ -2619,7 +2619,8 @@ func _player_hit(m: int, mk: MobKind) -> void:
 	if boss_index >= 0:
 		source["dmg_mult"] = bosses.damage_multiplier(boss_index)
 	# Threaten (#183): a threatened mob's contact weapon attack is lowered by the level's flat amount, floor 0.
-	var attack := swarm.threatened_pad(m, float(mk.pad))
+	# Attack Up (MobSkill 100/110, #255) then multiplies it, before the boss/elite source multipliers.
+	var attack := swarm.threatened_pad(m, float(mk.pad)) * mob_skills.attack_multiplier(m, time)
 	take_hit(attack, false, "", Vector2(swarm.x[m], swarm.y[m]), source)
 
 
