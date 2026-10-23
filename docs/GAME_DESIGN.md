@@ -567,7 +567,7 @@ records of Henesys, Ellinia, Perion, Kerning and the Sleepywood Lv38 F/P fixture
 relocation happens. The windowed playtest (`playtest.sh --stage=kerning --seed=1 --character=<lv35_magician_2nd.json>`,
 x4) clears all three maps in 923.5 s at Lv59, `missing: []`. Screenshots, checked by eye: the character standing
 against the x 3185 wall at 8:00, Shade's arrival at 10:07, map 2 CLEAR at 10:13 and the final CLEAR at 15:23
-(`evidence/spec253/t260/kerning_fixture_s1_x4/`).
+(`evidence/spec253/t260/kerning_fixture_s1_x4/`). The complete suite on `caches/s253` passes **2,198 tests, 0 failed, 0 skipped** (212 files).
 
 #### Spec #253 (#257): Perion and Kerning City QA smoke (2026-10-23)
 
