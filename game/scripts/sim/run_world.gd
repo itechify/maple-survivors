@@ -760,13 +760,13 @@ func is_hidden() -> bool:
 	return buffs.hidden()
 
 
-## MobSkill 129 Banish (#256): moves the character to a random `sp` portal of the current map, dropped onto the floor
-## (PortalSet.start_point on stream 17, the map-arrival placement), brings an out pet beside it like a map arrival
+## MobSkill 129 Banish (#256): moves the character to a random `sp` portal of the current map other than the one nearest
+## it (when there are two or more), dropped onto the floor (PortalSet.start_point on stream 17, the map-arrival placement), brings an out pet beside it like a map arrival
 ## (`pet_pos` jump announced by `pet_teleported`) and emits `player_banished` with `cast`'s mob, mob_id, skill_id,
 ## level, effect and message. tier C: v83 sends the character to `info/ban`'s town map, outside the round.
 func banish_player(cast: Dictionary) -> void:
 	var from := player.pos
-	player.place(PortalSet.start_point(_current_map_img(), fhm, bounds, banish_rng), fhm)
+	player.place(PortalSet.start_point(_current_map_img(), fhm, bounds, banish_rng, true, from), fhm)
 	if pet_system != null:
 		var pet_from := pet_system.motion.pos
 		pet_system.place_beside(player, fhm)

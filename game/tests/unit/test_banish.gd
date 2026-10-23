@@ -101,19 +101,50 @@ func test_banish_fires_only_inside_its_canonical_area() -> void:
 			assert_true(w.player.pos.distance_to(at) < 5.0, "the character stays where it was")
 
 
-func test_the_same_seed_gives_the_same_arrivals() -> void:
+## Arrivals of every Banish in `seconds` with the character kept beside the boss at `at` (player 50 px left of it).
+func _arrivals(w: RunWorld, seconds: int, at := BOSS_AT) -> Array:
+	var out: Array = []
+	for tick in seconds * 60:
+		RF.place_player(w, at.x - 50.0, at.y - 10.0)
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in _banishes(w.drain_events()):
+			out.append(e.pos)
+	return out
+
+
+func test_with_two_sp_portals_the_character_is_always_thrown_to_the_other_one() -> void:
+	# Beside x 650 the nearest portal is x 400, so every Banish lands under x 1500 ...
+	var near_left := _arrivals(_world(), 125)
+	assert_eq(near_left.size(), 8, "eight Banishes by 2:05 at one per 15 s")
+	for pos: Vector2 in near_left:
+		assert_eq(pos, SP_FLOORS[1], "thrown away from the portal it stood by")
+	# ... and beside x 1350 (boss parked at 1400) the nearest is x 1500, so every Banish lands under x 400.
+	var at := Vector2(1400, 200)
+	var near_right := _arrivals(_world_from(_setup(), at, 1350.0), 125, at)
+	assert_eq(near_right.size(), 8)
+	for pos: Vector2 in near_right:
+		assert_eq(pos, SP_FLOORS[0], "thrown away from the portal it stood by")
+
+
+func test_the_same_seed_gives_the_same_arrivals_among_the_other_portals() -> void:
 	var runs: Array = []
 	for i in 2:
-		var w := _world({"skill_intervals": {"129": 15}}, 31)
-		var arrivals: Array = []
-		for e: Dictionary in _banishes(_run(w, 125 * 60, true)):
-			arrivals.append(e.pos)
-		runs.append(arrivals)
-	assert_eq(runs[0].size(), 8, "eight Banishes by 2:05 at one per 15 s")
-	assert_eq(runs[0], runs[1], "same seed, same portal draws")
+		var setup := _setup({"skill_intervals": {"129": 15}}, 31)
+		setup.map_img.portal["2"] = {"pn": "sp", "pt": 0.0, "x": -500.0, "y": 180.0}
+		runs.append(_arrivals(_world_from(setup), 125))
+	assert_eq(runs[0].size(), 8)
+	assert_eq(runs[0], runs[1], "same seed, same portal draws on stream 17")
+	var others: Array = [Vector2(-500, 200), SP_FLOORS[1]]
 	for pos: Vector2 in runs[0]:
-		assert_true(pos in SP_FLOORS, "every arrival is an sp floor: %s" % pos)
-	assert_true(SP_FLOORS[0] in runs[0] and SP_FLOORS[1] in runs[0], "both portals are drawn over eight Banishes")
+		assert_true(pos in others, "never the portal nearest the character (x 400): %s" % pos)
+	assert_true(others[0] in runs[0] and others[1] in runs[0], "both other portals are drawn over eight Banishes")
+
+
+func test_a_map_with_one_sp_portal_uses_it() -> void:
+	var setup := _setup()
+	setup.map_img.portal.erase("1")
+	var arrivals := _arrivals(_world_from(setup), 16)
+	assert_eq(arrivals, [SP_FLOORS[0]], "the only portal, even though it is the nearest")
 
 
 func test_the_pet_lands_beside_the_banished_character() -> void:
