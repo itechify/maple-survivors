@@ -515,7 +515,7 @@ func test_the_bot_takes_the_forced_branch_at_both_windows() -> void:
 		var pick := BotInput.pick_choice(w.pending_jobs, rng, 0, w.jobs, "")
 		assert_true(pick.job_id in [510, 520])
 		seen[pick.job_id] = true
-	assert_eq(seen.size(), 2, "an unforced bot draws its branch on the job stream")
+	assert_eq(seen.size(), 2, "without a held family an unforced bot draws its branch on the job stream (#261 keeps a held one)")
 
 
 func test_the_snapshot_round_trips_both_branches_on_both_paths() -> void:

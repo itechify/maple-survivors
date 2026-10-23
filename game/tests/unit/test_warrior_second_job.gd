@@ -327,4 +327,4 @@ func test_the_bot_takes_the_forced_warrior_branch_and_an_unforced_one_draws_on_t
 		var pick := BotInput.pick_choice(w.pending_jobs, rng, 0, w.jobs, "")
 		assert_true(pick.job_id in [110, 120, 130])
 		seen[pick.job_id] = true
-	assert_eq(seen.size(), 3, "all three branches come up over seeds")
+	assert_eq(seen.size(), 3, "without a held family all three branches come up over seeds (#261 keeps a held one)")

@@ -587,7 +587,8 @@ func _warp_round() -> bool:
 			if not await _until(func() -> bool: return run.window is JobAdvanceWindow,
 					10.0, "warp job window"):
 				return false
-			var pick := BotInput.pick_choice(run.world.pending_jobs, run.world.job_rng, 0, run.world.jobs)
+			var pick := BotInput.pick_choice(run.world.pending_jobs, run.world.job_rng, 0, run.world.jobs, "",
+				run.world.held_weapon_family())
 			if (await _choose_job_ui(run, pick.job_id, pick.path,
 					"warp_job_%d" % pick.job_id)).is_empty():
 				return false
@@ -725,7 +726,8 @@ func _scenario_full() -> void:
 			_release_all()
 			job_seen = true
 			await _sleep(0.6)
-			var pick := BotInput.pick_choice(run.world.pending_jobs, run.world.job_rng, 100, run.world.jobs, "sword")
+			var pick := BotInput.pick_choice(run.world.pending_jobs, run.world.job_rng, 100, run.world.jobs, "sword",
+				run.world.held_weapon_family())
 			if (await _choose_job_ui(run, pick.job_id, pick.path, "full_job")).is_empty():
 				return
 			await _sleep(0.9)

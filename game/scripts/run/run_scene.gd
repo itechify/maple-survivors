@@ -1593,7 +1593,8 @@ func _service_windows() -> void:
 		if String(req.kind) == "job":
 			if _autopick:
 				counters.autopicks += 1
-				var j := BotInput.pick_choice(req.options, world.job_rng, _forced_job(), world.jobs, _forced_job_path())
+				var j := BotInput.pick_choice(req.options, world.job_rng, _forced_job(), world.jobs, _forced_job_path(),
+					world.held_weapon_family())
 				if j.job_id < 0 or not world.apply_job(j.job_id, j.path):
 					world.decline_job()
 				handle_events(world.drain_events())
@@ -1632,7 +1633,7 @@ func _auto_resolve_window(delta: float) -> void:
 		_on_card_chosen(BotInput.pick_card_for(world, _window_req.get("cards", [])))
 	else:
 		var j := BotInput.pick_choice(_window_req.get("options", []), world.job_rng, _forced_job(), world.jobs,
-			_forced_job_path())
+			_forced_job_path(), world.held_weapon_family())
 		if j.job_id < 0:
 			_on_job_declined()
 		else:
