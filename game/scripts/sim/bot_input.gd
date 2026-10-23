@@ -32,6 +32,10 @@ const MANUAL_SKILL_MP_RESERVE_FRACTION := 0.25
 const MANUAL_SKILL_ATTACK_RESERVE_CASTS := 2.0
 ## tier C: five seconds leaves several auto-cast cycles and ordinary kiting between emergency blink requests.
 const TELEPORT_MIN_INTERVAL := 5.0
+## tier C (#257): after a same-map warp the reverse link (back to where it came from) stays closed this long (s), so
+## an escape through a two-way pair (Perion's hide00/tohide00) is not undone by the drop route on the next portal
+## cooldown, straight back into the crowd it fled.
+const REVERSE_PORTAL_HOLD := 5.0
 ## Engage mode (balance.json bot.engage overrides these). tier C: a build whose longest attack reaches less than this (px)
 ## walks up to mobs instead of kiting; 220 sits below every Magician attack (Magic Claw 260 is the shortest) and above
 ## the one-handed swings (~90-130).
@@ -77,7 +81,8 @@ const SCORE_GAIN_STEP := 6.0
 ## The input for the next tick of `w`.
 static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	if int(memo.get("map_index", 0)) != w.map_index:
-		for key: String in ["portal_x", "climb_x", "climb_t", "flip", "flip_t", "stuck", "last_x", "down_cd"]:
+		for key: String in ["portal_x", "climb_x", "climb_t", "flip", "flip_t", "stuck", "last_x", "down_cd", "closed_link",
+				"closed_until"]:
 			memo.erase(key)
 	memo["map_index"] = w.map_index
 	var mi := MoveInput.new()
@@ -171,7 +176,8 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			mi.press_skill(String(flee_buff.id))
 	var dir := 0
 	var down := false
-	var portal := _useful_portal(w, minf(nearest[0], nearest[1]) < 160.0)
+	_note_arrival(w, memo)
+	var portal := _useful_portal(w, minf(nearest[0], nearest[1]) < 160.0, memo)
 	if not portal.is_empty():
 		PortalApproach.steer(w, portal, mi)
 		memo["portal_x"] = portal.source.x
@@ -389,9 +395,24 @@ static func _can_duel(w: RunWorld, i: int) -> bool:
 	return true
 
 
-static func _useful_portal(w: RunWorld, escaping: bool) -> Dictionary:
+## Just warped (the portal cooldown is running and the feet are at a link's arrival): closes that link's reverse
+## (the link from its target back to its source) for REVERSE_PORTAL_HOLD seconds (#257).
+static func _note_arrival(w: RunWorld, memo: Dictionary) -> void:
+	if w.portals.cooldown_left <= 0.0:
+		return
+	var lift := float(w.portals.tuning.arrival_lift)
+	for link: Dictionary in w.portals.links:
+		var arrival: Vector2 = link.target_pos - Vector2(0, lift)
+		if w.player.pos.distance_to(arrival) <= lift + 1.0:
+			memo["closed_link"] = [String(link.target), String(link.name)]
+			memo["closed_until"] = w.time + REVERSE_PORTAL_HOLD
+			return
+
+
+static func _useful_portal(w: RunWorld, escaping: bool, memo: Dictionary) -> Dictionary:
 	if w.player.fh < 0 or w.portals.links.is_empty():
 		return {}
+	var closed: Array = memo.get("closed_link", []) if w.time < float(memo.get("closed_until", -INF)) else []
 	var p := w.player.pos
 	var pk := w.pickups
 	var best := INF
@@ -404,6 +425,8 @@ static func _useful_portal(w: RunWorld, escaping: bool) -> Dictionary:
 	var safer := {}
 	var safety := _mob_danger(w, p) if escaping else 0.0
 	for link: Dictionary in w.portals.links:
+		if closed == [String(link.name), String(link.target)]:
+			continue
 		var source: Vector2 = link.pos
 		var plan := PortalApproach.plan(w, source)
 		if plan.is_empty() or float(plan.floor_y) > source.y + float(w.portals.tuning.reach_below):

@@ -66,6 +66,66 @@ func test_bot_does_not_take_a_portal_that_moves_away_from_nearby_drops() -> void
 	assert_eq(w.player_platform(), 0)
 
 
+## A two-way hidden pair like West Street Corner of Perion's hide00/tohide00 (102010000): lower entrance at x 300,
+## upper entrance at x 800 on a ledge walled at both ends. The floors are joined only by the portals.
+func _two_way_world() -> RunWorld:
+	var data := RF.quiet_data()
+	var s := RF.setup("quiet", 18, data)
+	s.map_img = RF.map_from_segments([
+		{"x1": 0, "y1": 200, "x2": 1200, "y2": 200},
+		{"x1": 600, "y1": -500, "x2": 600, "y2": -200},
+		{"x1": 600, "y1": -200, "x2": 1000, "y2": -200},
+		{"x1": 1000, "y1": -200, "x2": 1000, "y2": -500},
+	])
+	s.map_img.portal = {
+		"0": {"pn": "hide00", "pt": 1, "x": 300, "y": 200, "tm": 999999999, "tn": "tohide00"},
+		"1": {"pn": "tohide00", "pt": 1, "x": 800, "y": -200, "tm": 999999999, "tn": "hide00"},
+	}
+	var w := RunWorld.new(s)
+	w.player.place(Vector2(300, 200), w.fhm)
+	w.drain_events()
+	return w
+
+
+## #257: Perion seed 1 died at 1:02, Lv1, bouncing hide00 <-> tohide00 every portal cooldown (0.384 s): the escape
+## took it up, then the drop route took the reverse link straight back into the crowd it fled.
+func test_bot_does_not_take_the_reverse_link_straight_back_into_the_crowd_it_escaped() -> void:
+	var w := _two_way_world()
+	RF.put_mob(w, 1110100, 270, 200)
+	RF.put_mob(w, 1110100, 330, 200)
+	w.pickups.spawn(Vector2(420, 200), 1, 4000019)
+	var memo := {}
+	var used := []
+	for i in 60 * 3:
+		w.step(DT, BotInput.decide(w, memo))
+		for e: Dictionary in w.drain_events():
+			if e.type == "portal_used":
+				used.append(e.portal)
+	assert_eq(used, ["hide00"], "one escape up; the reverse link stays closed while the crowd it fled is below")
+	assert_eq(w.player_platform(), 1, "still on the upper floor")
+
+
+func test_bot_takes_the_reverse_link_for_a_drop_once_the_hold_is_over() -> void:
+	var w := _two_way_world()
+	RF.put_mob(w, 1110100, 270, 200)
+	RF.put_mob(w, 1110100, 330, 200)
+	var memo := {}
+	var used := []
+	for i in 60 * 12:
+		if used == ["hide00"] and w.swarm.alive_count() > 0:
+			# The crowd below is gone and a drop waits there: the trip down is worth taking again.
+			for m in w.swarm.capacity():
+				if w.swarm.active[m] != 0:
+					w.swarm.despawn(m)
+			w.pickups.spawn(Vector2(420, 200), 1, 4000019)
+		w.step(DT, BotInput.decide(w, memo))
+		for e: Dictionary in w.drain_events():
+			if e.type == "portal_used":
+				used.append(e.portal)
+	assert_eq(used, ["hide00", "tohide00"], "the hold only delays the reverse link")
+	assert_eq(w.pickups.collected_exp, 1)
+
+
 func test_bot_reaches_top_of_real_tree_through_the_portal_chain() -> void:
 	if not require_cache():
 		return
