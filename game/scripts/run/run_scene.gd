@@ -1137,7 +1137,7 @@ func handle_events(events: Array) -> void:
 			"skill_mob_effect":
 				fx.play(String(e.effect), (e.pos as Vector2).round())
 			"mob_died":
-				_sound(SND_MOB % [int(e.mob_id), "Die"])
+				_mob_sound(int(e.mob_id), "Die")
 			"player_hit":
 				_on_player_hit(e)
 			"player_restored":
@@ -1238,7 +1238,7 @@ func _on_boss_skill(e: Dictionary) -> void:
 			fx.stop(_slow_fx)
 		# tier C: affected pos1 is anchored above the player's canonical body box; lifetime follows sim status.
 		_slow_fx = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
-	_sound(SND_MOB % [int(e.mob_id),String(e.action).replace("skill", "Skill")])
+	_mob_sound(int(e.mob_id), String(e.action).replace("skill", "Skill"))
 
 
 ## A boss's Banish (#256) moved the character on this map: the camera jumps with it, the boss's message shows as a
@@ -1382,7 +1382,7 @@ func _on_mob_hit(e: Dictionary) -> void:
 		var at: Vector2 = world.mob_center(m) if m >= 0 and m < world.swarm.capacity() else e.pos
 		fx.play(hv, at.round(), at.x > world.player.pos.x)
 		counters.hit_fx += 1
-	_sound(SND_MOB % [int(e.mob_id), "Damage"])
+	_mob_sound(int(e.mob_id), "Damage")
 
 
 func _on_player_hit(e: Dictionary) -> void:
@@ -1557,6 +1557,19 @@ func _advance_end(delta: float) -> void:
 
 
 ## Plays once per frame per path/phase (Teleport preserves both endpoints; swarm hits still coalesce).
+## Plays mob `id`'s Sound.wz/Mob.img `name` sound ("Damage", "Die", "Skill1"...). A mob v83 gives no Mob.img entry at
+## all (Iron Hook 4090000) is silent, as in the client, and records nothing missing (tier A: absent in v83 Sound.wz).
+func _mob_sound(id: int, name: String) -> void:
+	if not _mob_has_sounds.has(id):
+		_mob_has_sounds[id] = library.find("Sound.wz/Mob.img/%07d" % id) != null
+	if _mob_has_sounds[id]:
+		_sound(SND_MOB % [id, name])
+
+
+## Mob id -> whether v83 Sound.wz/Mob.img has an entry for it (cached per run; hit events are hot).
+var _mob_has_sounds := {}
+
+
 func _sound(path: String, phase: String = "") -> void:
 	var key := path + ":" + phase
 	if path == "" or _frame_sounds.has(key):

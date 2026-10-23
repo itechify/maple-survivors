@@ -322,18 +322,22 @@ implementations remain sibling work.
 
 ### 4.1 Pacing (`stages.json`)
 
-Stages use region keys `henesys`, `ellinia` and `sleepywood`, with `region` and `continent` labels (tier C owner
-choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as aliases; living slots,
-bests, history and run snapshots migrate on load. The tier list is `[[henesys, ellinia], [sleepywood]]`.
+Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
+labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
+aliases; living slots, bests, history and run snapshots migrate on load. The tier list is
+`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253).
 
 | Stage key | Map 1 | Map 2 | Map 3 | Boss order |
 |---|---|---|---|---|
 | `henesys` | Henesys Hunting Ground I (104040000) | The Pig Beach (104010001) | The Blue Mushroom Forest (100030001) | Mano / Mushmom / Blue Mushmom |
 | `ellinia` | The Tree That Grew I (101010100) | The Forest of Wisdom (100040100) | The Forest of Evil I (100040105) | Stumpy / King Slime / Dyle |
+| `perion` | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) | Mano / Stumpy / Iron Hook |
+| `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
 
-All are on Victoria Island. Map select lists each region's three maps and bosses; its objective is "Defeat 3 bosses
-across 3 maps". Results show the region and ending map. The opening title shows continent above region; transfer
+All are on Victoria Island. Map select lists each region's three maps and bosses in `tiers` order; its objective is
+"Defeat 3 bosses across 3 maps". Four cards per tier is the most the parchment fits above the Start button
+(`stage_select.gd` `MAX_CARDS`); a fifth region would need a scrolling list. Results show the region and ending map. The opening title shows continent above region; transfer
 arrivals show the destination's v83 street and map name. Summaries retain region/continent and the ending WZ names.
 
 Round time includes all combat on every map. The pacing clock is `curve_time = (N - 1) * 300 + time_on_map` for
@@ -346,6 +350,27 @@ event entries and each map's `exclude` list. Pig Beach excludes timed Iron Hook 
 Sanctuary Entrance IV's ordinary pool: Cold Eye 4230100 x5, Tauromacis 7130100 x2, Taurospear 7130101 x5. Bursts and
 elites use the same current pool. `stages.json` declares `pool: "curve"`, `pool_from_life: true` (optional `exclude`),
 or an explicit weighted `pool` per map; these are tier C owner choices, not changes to canonical WZ stats.
+
+Perion and Kerning City (spec #253) copy Henesys's numeric curve exactly: keyframe rate, alive cap, HP and speed
+(including #241's opening), bursts, elites, 2.5x stage EXP, the hard cap and the post-duration slope. Their extra
+210 s keyframe is Henesys's curve interpolated at 3:30 (rate 0.875, cap 17.5, speed 1.0375), so it changes no number;
+it only carries the 3:30 pool. Keyframes from 300 s carry no pool. Map 1 uses the map's own v83 life mobs plus one
+weaker neighbour, Blue Snail 100101, which opens alone like Henesys's snails (the owner's Q4 weaker-neighbour clause,
+invoked after the first-pass pools' T1 seed-1 bot deaths at 0:15 and 2:15, Lv1; native to Perion Street Corner
+101040000 next door, tier C for Kerning City). Weights tier C:
+
+| Curve time | Perion (West Street Corner of Perion) | Kerning City (Construction Site) |
+|---|---|---|
+| 0:00 | Blue Snail 100101:1 | Blue Snail 100101:1 |
+| 2:00 | Blue Snail 2, Stump 130100:3, Red Snail 130101:2 | Blue Snail 2, Red Snail 130101:3, Slime 210100:3 |
+| 3:00 | + Dark Stump 1110101:1 | + Orange Mushroom 1210102:3 |
+| 3:30 | Dark Stump 3, Stump 2, Red Snail 1, Blue Snail 1 | + Octopus 1120100:1, Blue Snail 1 |
+
+Maps 2 and 3 use their life lists with no exclusions; v83 lists no timed or hidden entries there: East Rocky
+Mountain V Axe Stump x12 / Dark Axe Stump x21, The Burnt Land I Wild Boar x11 / Fire Boar x20, Line 1 <Area 1>
+Bubbling x64, The Swamp of Despair I Ligator x32 / Jr. Necki x4. The opening mobs hit much harder than Henesys's
+snails (Red Snail PAD 27, Slime 32, Stump 30 against Snail 12); these starting pools are untuned and the balance
+pass #77 owns them.
 
 Balance records and playtest `summary.json` carry `map_times` (reached-map entry seconds from round start, starting
 with 0) and `ended_map: {index, id}` (zero-based index, original v83 id). `boss_fights` retains `map_index`/`map_id`.
@@ -3320,8 +3345,9 @@ Raw: ignored `evidence/t76/perf3/`, `_scratch/t76/perf_probe_runs*.txt`, probe `
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
-Mushmom (6130101), Blue Mushmom (9400205) in Henesys; Stumpy, King Slime, Dyle in Ellinia; Zombie Mushmom, Snack Bar,
-Jr. Balrog in Sleepywood. Only the current map's boss is armed. If map 2 starts at round time 420 s, its boss is due
+Mushmom (6130101), Blue Mushmom (9400205) in Henesys; Stumpy, King Slime, Dyle in Ellinia; Mano, Stumpy, Iron Hook
+(4090000) in Perion; King Slime, Shade (5090000), Dyle in Kerning City; Zombie Mushmom, Snack Bar, Jr. Balrog in
+Sleepywood. Only the current map's boss is armed. If map 2 starts at round time 420 s, its boss is due
 at 720 s. Encounters retain canonical movement, contact attack, art and enabled skill kits; mushrooms retain the slam.
 Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
 250 px away. A narrow floor may require a closer point. If no arrival point exists at all on the arrival tick, the
@@ -3340,6 +3366,20 @@ Survivor settings (tier C; canonical stats and attack timings/boxes remain uncha
 | Stumpy | 7,000 | 3,150 | 0.45 | 0.83 | 0.77 |
 | King Slime | 8,000 | 8,800 | 1.1 | 1.36 | 1.06 |
 | Dyle | 31,000 | 8,060 | 0.26 | 1.14 | — |
+| Perion: Mano | 2,000 | 3,600 | 1.8 | 1.15 | — |
+| Perion: Stumpy | 7,000 | 4,800 | 0.6857 | 1.38 | 1.25 |
+| Perion: Iron Hook | 2,200 | 7,000 | 3.1818 | 2.38 | — |
+| Kerning City: King Slime | 8,000 | 3,600 | 0.45 | 0.78 | 0.61 |
+| Kerning City: Shade | 4,800 | 4,800 | 1.0 | 1.04 | — |
+| Kerning City: Dyle | 31,000 | 7,000 | 0.2258 | 1.15 | — |
+
+The Perion and Kerning City entries (spec #253, starting values, untuned) are separate entries, so the Henesys and
+Ellinia fights are unchanged. Each matches the Henesys boss of its map slot (Mano, Mushmom, Blue Mushmom) at that
+slot's `typical_hp`/`typical_pdd`: the same survivor HP and, at 0.01 multiplier steps, touch and attack roll ranges
+within 1 HP of the slot's (King Slime's slam matches Mano's touch, since Mano has no attack). Iron Hook and Shade
+fight by touch only. Canonical boss defence, level and undead flags are not normalized (Iron Hook PDD 400 and Shade
+undead against Blue Mushmom's 810 and Mushmom's 320). Shade's entry carries `skill_intervals: {"129": 15}`: one
+Banish per 15 s instead of the canonical 3 s.
 
 Calibration uses measured training builds rather than the former assumed HP300/550/800 and full Armor defense.
 `stage.maps[].boss` stores the multipliers; `typical_hp/pdd` are illustrative inputs only, never adaptive runtime scaling.
@@ -6338,6 +6378,13 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Threaten cast (#183) | `crowd` rule with `cast.status: threatened`: at least 3 eligible (live, non-boss, not already threatened) monsters in the box, nearest `mobCount` first, 1 s cooldown, 0.8 s alert2 stance; Slow's two-consecutive-cast history stays Slow-only | C | ours |
 | Threatened status (#183) | flat PAD and PDD cut floored at 0 on contact damage, physical ordinary attacks (and their balls) and the player's physical hits; refreshes without stacking; bosses and status-resistant kinds never take it; coexists with slow, poison and freeze; magic attack and defence untouched | C | ours; the v83 text only says weapon attack and weapon def. fall |
 | Threaten cards (#183) | learn weight 3, rank weight 2, `requires.jobs` [120], not power; no bot score entry (default scoring, like Iron Body) | C | ours |
+| Perion and Kerning City regions (#253, #254) | `perion`: 102010000 / 101030404 / 106000101 (Mano / Stumpy / Iron Hook); `kerning`: 103010000 / 103000101 / 107000000 (King Slime / Shade / Dyle); `region` Perion / Kerning City, continent Victoria Island, notes "Home of the Warriors/Thieves" (no class link); tiers `[[henesys, ellinia, perion, kerning], [sleepywood]]` | C choice, A map/mob ids | Owner, spec #253 |
+| Perion and Kerning City pools (#253, #254) | Henesys's numeric curve copied exactly (keyframes, bursts, elites, `exp_mult` 2.5, `hard_cap` 400, `post_duration_slope` 0.25) plus a 210 s keyframe interpolated from it (rate 0.875, cap 17.5, speed 1.0375) that only carries the 3:30 pool. Map 1 opens with Blue Snail 100101 only (owner Q4 weaker-neighbour clause, invoked after T1 seed-1 deaths at 0:15/2:15 (Lv1)); from 2:00 Perion Blue Snail 2 / Stump 3 / Red Snail 2, +Dark Stump 1 at 3:00, Dark Stump 3 / Stump 2 / Red Snail 1 / Blue Snail 1 at 3:30; Kerning Blue Snail 2 / Red Snail 3 / Slime 3, +Orange Mushroom 3 at 3:00, +Octopus 1 and Blue Snail 1 at 3:30. Keyframes from 300 s carry no pool. Maps 2 and 3: their v83 life lists, no exclusions (no timed or hidden entries) | C weights, A life lists | Owner, spec #253 |
+| Perion and Kerning City boss multipliers (#253, #254) | Each boss matches the Henesys boss of its map slot at that slot's `typical_hp`/`typical_pdd`: same survivor HP (round(maxHP × hp_mult)) and the 0.01 multiplier steps whose 85–100% roll range is closest to the slot's (within 1 HP). Perion: Mano as in Henesys; Stumpy 0.6857 / touch 1.38 / attacks 1.25; Iron Hook 3.1818 / 2.38 (touch only). Kerning: King Slime 0.45 / 0.78 / slam 0.61 (matches Mano's touch: Mano has no attack); Shade 1.0 / 1.04 (touch only); Dyle 0.2258 / 1.15. Attacks every 8 s. Canonical PDD/MDD, levels and undead flags are not normalized | C | Starting values, untuned (#77 tunes) |
+| Boss skill interval override (#253) | A `stages.json` boss entry may carry `skill_intervals` {"<mob skill id>": seconds > 0} replacing that skill's WZ interval for that boss on that map; `DataRepo.stage_map_errors` rejects other shapes. Shade's Kerning entry: `{"129": 15}` (one Banish per 15 s instead of the canonical 3 s) | C | Owner, spec #253; read by #256 |
+| Map-select card limit (#253) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list | C | Layout measurement, spec #253 |
+| Perion and Kerning City mob metadata (#253, #254) | Mesos: v83 server `drop_data` itemid 0 ranges; EXP pickup: the most likely Etc drop (Dark Axe Stump uses Axe 4000215 of the two equal ones; Shade Someone's Hat 4000413). Iron Hook has no server drops: level-fallback mesos and the Wild Boar Tooth icon. Boss bars borrow MobGage icons for Iron Hook (Zeno 6220001) and Shade (Riche 6090000) with hpTag 1/5; both are enabled boss kits (`mob_skills.enabled_ids`) | B mesos/items, C icons/associations | Cosmic drop data (facts only); owner #253 |
+| Mobs without v83 sounds (#253) | A mob with no `Sound.wz/Mob.img/<id>` entry (Iron Hook 4090000) plays no hit, death or skill sound and records nothing missing, as in the client | A (absence) | v83 Sound.wz |
 | Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks unchanged; the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
 
 ## 12. Later phases

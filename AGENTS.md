@@ -102,10 +102,11 @@ cache: point it at your own v83 folder or zip (nothing is uploaded). Serve the e
 `node --test web/dev/test/*.test.mjs`. The game's debug scenes (`flow_driver.tscn`) cannot run on web; `?arg=<value>`
 query parameters become game user args (`?arg=--run=henesys&arg=--autoplay`).
 
-Stage keys are `henesys`, `ellinia` (tier 1), and `sleepywood` (tier 2). Each round plays the region's three maps in
-order, with one boss 300 s after each entry; intermediate clears transfer automatically. `--stage=` and `--run=`
-also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. Continue always replays from map 1 with
-the boundary character and seed, including after quitting on a later map; map transfers never save.
+Stage keys are `henesys`, `ellinia`, `perion`, `kerning` (tier 1), and `sleepywood` (tier 2). Each round plays the
+region's three maps in order, with one boss 300 s after each entry; intermediate clears transfer automatically.
+`--stage=` and `--run=` also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. Continue always
+replays from map 1 with the boundary character and seed, including after quitting on a later map; map transfers never
+save.
 
 ### Playtests (`scripts/playtest.sh`)
 
@@ -231,7 +232,7 @@ The committed `game/tests/fixtures/characters/lv35_magician_2nd.json` is a real 
 its `_doc` records seed, branch, policy and generation revision. `game/tools/character_fixture.gd` reproduces it.
 
 **Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
-or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on both stages, both `bot` and
+or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on every tier-1 stage, both `bot` and
 `random` policies, plus the full test suite. Check for no crashes and no world warnings, that Henesys runs still reach
 Magician and bosses (The Tree That Grew dies early until the owner reworks it: record only), and compare with the
 previous smoke recorded in 4.2. Record the outcomes and any new metrics (a few lines and one small table) in

@@ -1591,6 +1591,33 @@ func test_setup_preloads_clear_art_and_sound_before_the_victory_event() -> void:
 	_assert_nothing_missing(scene, "clear warmup")
 
 
+## Spec #253: v83 Sound.wz/Mob.img has no entry for Iron Hook (4090000), so the client plays nothing for it; its hit,
+## death and skill events stay silent without reporting a missing asset, while a mob with sounds still plays them.
+func test_a_mob_without_v83_sounds_is_silent_and_reports_nothing_missing() -> void:
+	if not require_cache():
+		return
+	if lib.mob_root(4090000).is_empty():
+		skip("Iron Hook not imported (run scripts/import.sh with the current manifest)")
+		return
+	assert_true(lib.find("Sound.wz/Mob.img/4090000") == null, "v83 has no Iron Hook sounds")
+	scene = _make("perion", 1, {})
+	assert_eq(scene.error, "", "scene started")
+	var sfx := scene._sfx_service()
+	if sfx == null:
+		skip("no Sfx autoload")
+		return
+	var sfx_lib := sfx._lib()
+	var before := sfx_lib.missing.size()
+	scene.handle_events([{"type": "mob_died", "mob_id": 4090000}])
+	assert_eq(sfx_lib.missing.size(), before, "Iron Hook's death looks up no sound: %s" % [sfx_lib.missing])
+	_assert_nothing_missing(scene, "Iron Hook death")
+	var sounds := int(scene.counters.sounds)
+	scene.handle_events([{"type": "mob_died", "mob_id": 2220000}])
+	assert_eq(sfx_lib.missing.size(), before, "Mano's death sound exists")
+	assert_true(sfx_lib.find(RunScene.SND_MOB % [2220000, "Die"]) != null and int(scene.counters.sounds) >= sounds,
+		"Mano's death sound is still requested")
+
+
 func test_setup_preloads_boss_and_job_change_art_and_sounds() -> void:
 	if not require_cache():
 		return
