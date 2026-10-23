@@ -615,7 +615,9 @@ angle brackets render literally, in the arrival banner too. Evidence: `evidence/
 The `maps` flow driver gains `--stage=<tier-1 key>` (default henesys): `perion`, `kerning` and `henesys` all PASS
 (`failures: []`, `missing: []`), with real CLEAR/fade/arrival shots on each map, the map-2 Save & quit leaving the
 boundary bytes unchanged, Continue replaying map 1 with seed 1, entries 300.000 / 600.017 s (Kerning 312.000 /
-612.017 s: King Slime arrives at 303 s, one postponed arrival) and the Free Market boundary. The new `maps_stage_select` shot renumbers later Henesys shots by one.
+612.017 s: King Slime arrives at 303 s, one postponed arrival) and the Free Market boundary. The new `maps_stage_select` shot renumbers later Henesys shots by one. The complete suite on `caches/s253`
+passes **2,192 tests, 0 failed, 0 skipped** (212 files, 769.859 s), with the usual two dummy texture RID allocations
+at shutdown.
 
 #### Spec #241 (#249): integrated three-map QA smoke (2026-10-22)
 
