@@ -608,6 +608,29 @@ while `drops_by_min` climbs (4, 25, 58), no hits until death, `reach {}`; seed 1
 (68, 76), seed 2026 stalls partially (EXP 50/50/255/255). Its jump apex (~77 px) clears the step, so a player walks
 out. No bot target checks `walk_blocked` and the stuck handler jumps backwards; that is bot work for its own ticket.
 
+**#259: the pocket stall, fixed.** Root cause, from a frame trace of seed 1: the drops past the step (y 1416, 90 px up)
+exceed the walkable reach (0.7 × magnet 90 = 63 px) and count as "above", so the bot heads for the x 215 ladder, which
+starts on the same layer-2 floor chain behind the x 350 wall (or for the map centre, also beyond it). The stuck rule
+flipped it for 45 ticks with a backward jump from both walls, so at the step it turned back into the pocket. Now a
+stall at a wall low enough to clear jumps on, and a stall at a taller wall is remembered for 30 s: goals beyond it are
+skipped, the centre beyond it sends the bot away, and the wall bounds the kiting room like the map edge ("Autoplay
+walls" in 11; test_bot_walls). Bot records, seeds 1 / 2 / 2026 on `caches/s253`, death seconds @ map and level:
+
+| Region | Before | After |
+|---|---|---|
+| Kerning | 237.5@1 Lv3 / 308.7@1 Lv14 / 311.7@1 Lv7 | 308.2@1 Lv15 / 310.8@1 Lv15 / 306.9@1 Lv14 |
+| Henesys | 308.3@1 Lv12 / 451.8@2 Lv25 / 310.0@1 Lv12 | 308.3@1 / 435.4@2 Lv24 / 310.0@1 (seed 2: same EXP through minute 5, same 24.6 s map-1 boss fight and 324.6 s map-2 entry; EXP differs from minute 6) |
+| Ellinia | 632.7@2 / 39.1@1 / 34.7@1 | unchanged |
+| Perion | 423.7@2 / 382.4@2 / 306.8@1 | unchanged |
+
+Kerning `exp_by_min` now climbs on every seed (seed 1: 80, 400, 1085, 2337, 5433; was 50, 50, 75), Lv10 at 219-231 s,
+and all three die on map 1 a few seconds into King Slime's fight (300 s arrival), like Henesys seeds 1/2026: balance
+signal for #77, not a stall. All records `warnings: []`, `missing: []`. A first cut that treated 58 px as the clearable
+height (0.75 of the apex) left the synthetic test map's 60 px pit walls "tall": the bot bounced inside the pit and the
+`test_full_run` synthetic run died at 43 s; at 0.85 it jumps out and that run lasts 439 s to Lv21 (was 305 s, Lv8).
+The synthetic bot digests (`test_bot_melee`, `test_character_baseline`) are re-captured; with the wall rule disabled
+they reproduce the old values exactly.
+
 **Kerning map 2: a corner leak that blocks Shade (to file).** In the windowed Lv38 fixture seed 1 run the character,
 grounded at the end of Line 1 <Area 1>'s y 323 floor (x 2880-3185) where the x 3185 wall (y -360 to 323) rises, is
 knocked airborne at x 3184.99 and next frame is at (3185.87, 386): the landing on y 323 is missed while x crosses the
@@ -6192,6 +6215,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Same-map portal activation and arrival | feet x ±25, y −100…+25; arrive 30 px above target with zero velocity; global cooldown 384 ms; camera snaps, no sound or transition | C | owner choice; `balance.json.portals` |
 | Autoplay portal choice | approach a same-map entrance when its walk plus arrival-to-drop distance is less than going directly (horizontal distance + 2 × vertical); with a mob within 160 px, an entrance within 250 px can instead lead to less nearby mob danger. Reach entrance ledges through existing jump-graph edges; hold Up in the activation box and during the entrance hop | C | ours; uses the bot's existing drop, danger and alignment rules |
 | Autoplay reverse-portal hold (#257) | After a same-map warp, the link from its target straight back to its source is not chosen for 5 s (`BotInput.REVERSE_PORTAL_HOLD`, bot memo, cleared on map change); other links stay open | C | ours: Perion 102010000 seed 1 (bot) died at 62 s bouncing hide00/tohide00 every 0.384 s cooldown, escape up then drop route straight back into the crowd. Maps without two-way pairs (Henesys, Kerning, Sleepywood) never reach it; Ellinia smoke records are unchanged |
+| Autoplay walls (#259) | Stuck (no x progress for 15 ticks, `BotInput.STUCK_TICKS`) at a wall: if no wall stands 0.85 × the jump apex (~65 px, `STEP_CLEAR_FRACTION`; apex jumpSpeed²/2·gravityAcc) above the feet within 4 px ahead (`WALL_PROBE_AHEAD`), the bot jumps on in its direction; otherwise it turns back for 45 ticks as before and remembers the wall for 30 s (`WALL_HOLD`, renewed at each stall, bot memo, cleared on map change). While remembered and the bot is on its near side within 140 px of that height (`WALL_BAND`): drops, ladders and the map centre beyond it are not goals, with the centre beyond it the bot walks away until 300 px off (`WALL_CLEAR`), and the wall bounds the kiting room like the map edge | C | ours: Kerning 103010000 seeds 1/2026 (bot) walked into the x 350 wall for minutes from a pocket whose other side is a 30 px step at x 505; the old stuck rule jumped backwards from both walls (test_bot_walls) |
 | Down-jump reach | a floor within 600 px below | C | HeavenClient |
 | Player knockback hop, alert stance | 200 px/s up, 2 s | C | ours |
 | Player placement | `PlayerMotion.place()` snaps onto a floor at most 1 px below, else the player falls | C | ours |
