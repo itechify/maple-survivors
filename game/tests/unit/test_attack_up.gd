@@ -318,3 +318,39 @@ func test_moving_a_slot_carries_the_buff_and_leaves_the_old_slot_clean() -> void
 	assert_near(_mult(w, spare), 1.15, 1e-6, "the moved buff keeps its end time")
 	_ticks(w, 1)
 	assert_eq(_mult(w, spare), 1.0)
+
+
+# --- real cache (SKIPs without it) ----------------------------------------------------------------------------------
+
+func _listed(library: AssetLibrary, mob_id: int, skill_id: int, level: int) -> bool:
+	var mob := library.img("Mob.wz/%07d.img" % mob_id)
+	if mob == null:
+		return false
+	for entry: Variant in mob.root.get("info", {}).get("skill", {}).values():
+		if int(entry.skill) == skill_id and int(entry.level) == level:
+			return true
+	return false
+
+
+func test_real_cache_has_the_v83_attack_up_levels_their_casters_and_art() -> void:
+	if not require_cache():
+		return
+	var library := AssetLibrary.new()
+	library.open()
+	var table := library.img("Skill.wz/MobSkill.img")
+	if table == null or library.img("Mob.wz/6220000.img") == null:
+		skip("the cache has no Skill.wz/MobSkill.img or Dyle")
+		library.free()
+		return
+	var self_up: Dictionary = table.root["100"].level["1"]
+	assert_eq([float(self_up.x), float(self_up.interval), float(self_up.time)], [115.0, 40.0, 30.0], "100/1")
+	var area_up: Dictionary = table.root["110"].level["2"]
+	assert_eq([float(area_up.x), float(area_up.interval), float(area_up.time)], [115.0, 35.0, 30.0], "110/2")
+	assert_eq(area_up.lt["$v"].map(func(v: Variant) -> float: return float(v)), [-300.0, -200.0])
+	assert_eq(area_up.rb["$v"].map(func(v: Variant) -> float: return float(v)), [300.0, 200.0])
+	assert_true(_listed(library, 6220000, 110, 2), "Dyle lists 110/2")
+	if library.img("Mob.wz/4090000.img") != null:
+		assert_true(_listed(library, 4090000, 100, 1), "Iron Hook lists 100/1")
+	assert_true(library.find_anim(SKILL_PATH % [100, 1] + "/effect") != null, "the 100/1 cast effect")
+	assert_true(library.find_anim(SKILL_PATH % [110, 2] + "/mob0") != null, "the 110/2 recipient art")
+	library.free()
