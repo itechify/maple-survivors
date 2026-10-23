@@ -564,11 +564,11 @@ at 1059.6 s Lv30, seed 6 at 316.8 s Lv12).
 
 #### Spec #253 / #77 balance pass (2026-10-23)
 
-**Round 2 stopped at the remaining class-power checkpoint after #261; no candidate frozen, accepted or applied.** The authoritative targets and lever permissions are
-[issue #77](https://github.com/itechify/maple-survivors/issues/77). This dedicated pass supersedes the historical
-two-stage acceptance targets above. Training uses only seeds 1..60 and 2026; **701..730 remains unrun, reserved for
-one assessment pending the owner's playtest and approval**. Canonical data, player power, cards, potions, economy,
-bot behaviour and map/boss structure are fixed. Henesys's owner-approved 0:00–4:00 keyframe rows remain unchanged.
+**Round 3: tier 1 frozen at C21; tier 2 in progress. No candidate applied yet.**
+The [owner decision in #77](https://github.com/itechify/maple-survivors/issues/77) exempts Pirate from the 25% job
+floor and 2x spread; its class power is tracked in #262. The spread uses Warrior, Magician, Bowman and Thief.
+Every other target, lever permission and stop rule remains in force. Held-out **701..730 remains unrun,
+pending the owner's playtest of the whole frozen candidate**. This pass supersedes the older two-stage targets.
 
 Baseline B00 remeasured `bac7a1e`, empty account, fresh Beginner, sensible bot, seeds **1..12 and 2026** in each
 region, fixed 1/60 s ticks, Godot 4.7.2, private `caches/s253`, isolates `t77`/`t77b`. Every command exited 0 and
@@ -582,21 +582,19 @@ Boss medians are **completed-only seconds (completed/spawned)**; `none (0/0)` me
 | Perion | 0/13 | 11/13 / 0/13 | 2 / 11 / 0 | none (n=0) | 20.8 (11/13) / none (0/0) / none (0/0) |
 | Kerning | 0/13 | 3/13 / 0/13 | 10 / 3 / 0 | none (n=0) | 16.8 (3/10) / none (0/0) / none (0/0) |
 
-Patches, ledger, raw records and exact console reports are outside git at
-`C:/Users/itech/Coding/maple-survivors-refs/research/spec253/t77/`. `B00/` holds the baseline. Candidate patches use
-`PATCH=` without changing repository data. The budget is **25 candidates and 3 full training matrices**; a variant
-evaluated beyond one quick seed counts even when rejected. Tier 2 waits for frozen tier 1 and at least 20 natural
-chain feeds; no fixture substitutes for a feed.
+Patches, raw logs/records, commands and the budget ledger are outside git at
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec253/t77/`. Round 3 started at `d87f58e`, created
+`t77-balance-r3` and merged `t77-balance-r2` (`19f8740`). Godot 4.7.2, private `caches/s253`, fixed 1/60 s ticks,
+empty account and unchanged post-#261 bot; at most two batches of twelve processes. All patches pass the allowed
+field audit: only permitted `stages.json` fields; Henesys 0..240 s rows, every pool, map/boss schedule, canonical
+fact, class, card, potion, economy and bot remain fixed.
 
-**Budget used: 8/25 candidate evaluations; 0/3 full training matrices.** The lead explicitly counts C08's required
-post-#261 remeasurement of identical C07 data as another evaluation. C07 and C08 each completed a tier-1 regional
-sample and all five forced first-job cohorts, but no tier-2 chains: both are partial matrices. Regional
-samples use seeds 1..12 and 2026; forced cohorts use 1..6 on each of the four regions (24 per first job).
-Only `stages.json` fields permitted by #77 occur in any patch. No global field, pool, map list, boss pick, canonical
-value, player/class value, bot policy, card, potion or economy setting changed. Repository game data, code and
-tests remain at integration `d87f58e`, including #261; there are no new gameplay constants or provenance values to ship.
+**Budget: 22/25 candidate evaluations; 1/3 completed full training matrices.** C08 counts as the lead-directed
+post-#261 remeasurement. C01..C17 regional samples use 1..12+2026 (n=13); C18 prospectively expands every region
+to **1..24+2026 (n=25)** before freezing and retains all earlier observations. Forced first-job samples remain
+1..6 per region, n=24 per job. Exact region-block reuse is marked `*`; there are no global changes.
 
-| Candidate | Change from preceding candidate (C01 relative to B00) | Regional sensible clears H / E / P / K, each out of 13 | Decision |
+| Candidate | Change from preceding candidate (C01 relative to B00) | Regional sensible clears H / E / P / K (n=13 through C17; n=25 from C18) | Decision |
 |---|---|---|---|
 | C01 | Boss damage ×0.3/0.4/0.5 by map; later rate/cap/HP ×0.6/0.5/0.35; bursts 5–20; elite damage 1.0. Ellinia gentler opening and EXP 2.5 | 8 / 0 / 4 / 3 | Clear levels near 60; Ellinia 12 map-3 deaths and one timeout |
 | C02 | Later rate 0.65–1.55, cap 18–54, region HP H/E/P/K 0.6/0.12/0.2/0.3; bursts 3–8; later boss HP ×3 baseline. Kerning opening HP 0.5, density ×0.75; King Slime damage ×0.1 baseline | 7 / 2 / 3 / 7 | Henesys clear Lv43; Perion deaths concentrate on map 3 |
@@ -606,89 +604,60 @@ tests remain at integration `d87f58e`, including #261; there are no new gameplay
 | C06 | Perion map-2/3 damage ×0.8/0.14 baseline; Kerning first HP ×1.45 and final damage ×0.5 baseline | 8* / 6* / 4 / 8 | P overshoots; K completed final fights too short |
 | C07 | H first damage ×0.35 baseline; P later damage ×1.1/0.1; K map-2 damage ×0.85, final HP ×2 and damage ×0.35 baseline | 8 / 6* / 9 / 7 | Best regional compromise; class/bot stop below |
 | C08 | Required remeasurement on `d87f58e` (#261); `C08.json` is byte-identical to C07, no new lever | 10 / 7 / 9 / 9 | Pirate still 5/24; spread still 3.2×; class-power stop |
+| C09 | H later boss damage increased; P final damage 0.275; K final HP +25%, damage +10% | 9 / 7* / 6 / 9 | H map-2 deaths, P final completion and K clear rate miss |
+| C10 | H final HP 0.1225, damage 0.5/0.75; map-2 damage restored; K later damage 1.0166 / 0.57 | 4 / 7* / 6* / 8 | H too hard; K over-clears |
+| C11 | P map-2 damage 1.6/1.45; final HP 10.5, damage 0.252 | 4* / 7* / 8 / 8* | P sole miss clear 61.5% |
+| C12 | H later damage 0.23/0.15 and 0.4/0.6, final HP 0.105; P map-2 damage 1.8/1.65 | 7 / 7* / 7 / 8* | H passes; P final duration/completion miss |
+| C13 | K map-2 damage 1.2 | 7* / 7* / 7* / 8 | K clear rate misses |
+| C14 | K final damage 0.6 | 7* / 7* / 7* / 7 | K passes |
+| C15 | P map-2 damage 2.0/1.8; final HP 12, damage 0.24 | 7* / 7* / 7 / 7* | P deaths 0/1/5 |
+| C16 | P Stumpy attack damage 2.2, cadence 7 s; final damage 0.22 | 7* / 7* / 7 / 7* | P map-2 completion 9/13 |
+| C17 | P Stumpy attack damage 2.0; final damage 0.23 | 7* / 7* / 7 / 7* | P sole miss Stumpy median 39.6 s |
+| C18 | P Stumpy HP 3.5; expand all regional samples to 1..24+2026 | 12 / 13 / 9 / 9 | H/E pass; P/K clear and completion miss |
+| C19 | P Stumpy touch/attack 1.9/1.9, final damage 0.19; K final damage 0.5 | 12* / 13* / 12 / 12 | K passes; P final completion 12/19 |
+| C20 | P final HP 10.5 | 12* / 13* / 13 / 12* | P sole miss final completion 13/19 |
+| C21 | P final damage 0.18 | 12* / 13* / 15 / 12* | All tier-1 targets pass; tier 1 frozen |
+| C22 | Sleepywood lower later pressure, bursts/elite durability, boss damage; first boss HP 1.3 | T1 locked C21 | Tier-2-only evaluation in progress |
 
-`*` reuses a measured, byte-identical region block: H from C04 in C05/C06; E from C05 in C06/C07. No global
-change affects that reuse. C07 Kerning seed 7's first launch produced an empty log and no record
-(batch exit 1); its identical seed/configuration retry succeeded. The empty attempt is preserved; it is not
-counted as a death or a timeout. All 52 C07 regional records and 120 C07 forced records have empty
-`warnings` and `missing`. Round 2 starts at `d87f58e`, merges round 1's `bcea4a0` as `df44d3c`, and remeasures
-**every** region and first job with the same cache, seeds, fixed ticks and empty account. No pre-#261 region is
-reused in C08. Both batches exit 0; all **172** C08 records validate, with empty `warnings` and `missing`, and all
-clears have three dead scheduled bosses. Commands/configuration are preserved in `C08/measurement.json`, regional
-`console.log` files, forced-job `console.log` files and per-seed logs; `report_r2.json` / `REPORT_R2.md` hold aggregates.
+C07's empty seed-7 launch and identical retry remain in the ledger. Round 3's C12/C13 external wrapper was edited
+while running, causing aggregation errors. Raw BALANCE logs were preserved, exact coverage validated and reports
+regenerated (retry exit 0); subsequent wrapper files stay immutable. No failed launch is imputed as an outcome.
+The round-2 class stop is resolved by the owner's Pirate exemption, not a remaining bot request.
 
-**Best proposal C07, remeasured as C08 after #261 (training only, not frozen):** boss medians below are completed-only seconds with
-completed/spawned counts, not uncensored estimates of all fights. A timeout is not a clear.
+**C21 frozen tier-1 training:** each regional row n=25; reach counts arrivals; deaths use one-based maps.
+Boss cells show completed-only seconds (completed/spawned; all-spawned censored median). `>=` marks a lower bound;
+`none` means no observation. A timeout is never a clear. Every regional target passes.
 
-| Region (n=13) | Clear | Map 2 / 3 reach | Deaths maps 1 / 2 / 3 | Median clear level | Bosses maps 1 / 2 / 3: seconds (completed/spawned) |
+| Region | Clear | Map 2 / 3 reach | Deaths maps 1 / 2 / 3; timeouts | Median clear level | Boss medians seconds (completed/spawned; all-spawned) |
 |---|---|---|---|---|---|
-| Henesys | 10/13 (76.9%) | 13/13 / 11/13 | 0 / 2 / 1 | 40 (n=10) | 25.9 (13/13) / 51.7 (11/13) / 66.2 (10/11) |
-| Ellinia | 7/13 (53.8%) | 13/13 / 10/13 | 0 / 3 / 3 | 36 (n=7) | 21.6 (13/13) / 82.0 (10/13) / 56.0 (7/7) |
-| Perion | 9/13 (69.2%) | 13/13 / 11/13 | 0 / 2 / 2 | 37 (n=9) | 28.3 (13/13) / 41.9 (11/13) / 40.6 (9/11) |
-| Kerning | 9/13 (69.2%) | 12/13 / 11/13 | 1 / 1 / 2 | 36 (n=9) | 20.5 (12/13) / 59.5 (11/12) / 39.7 (9/11) |
-| Sleepywood | not run | not observed | not observed | none | none (0/0) on each map |
+| henesys | 12/25 (48.0%) | 23 / 17 | 2 / 6 / 5; 0 | 40.0 | 26.4 (23/25; all >=25.9) / 53.4 (17/23; all >=51.7) / 74.9 (12/17; all >=79.3) |
+| ellinia | 13/25 (52.0%) | 24 / 20 | 1 / 4 / 7; 0 | 36 | 25.2 (24/24; all 25.2) / 83.1 (20/24; all >=79.7) / 98.8 (13/14; all >=94.4) |
+| perion | 15/25 (60.0%) | 25 / 19 | 0 / 6 / 4; 0 | 37 | 29.8 (25/25; all 29.8) / 43.7 (19/25; all >=41.6) / 43.9 (15/19; all >=58.3) |
+| kerning | 12/25 (48.0%) | 22 / 17 | 3 / 5 / 4; 1 | 36.0 | 24.9 (22/25; all 25.4) / 59.5 (17/22; all >=53.9) / 65.2 (12/17; all >=73.1) |
 
-Regional misses remain: H, P and K exceed 60% clears; Henesys loses 2/3 deaths on map 2 (66.7% >60%), and
-Kerning's completed final-boss median is 39.7 s (<40 s). All regional reach, clear-level and boss-completion
-floors pass in C08; Ellinia meets its measured regional targets. These small training samples are not population acceptance. **Tier 1
-was not frozen, tier 2 was not started, and no natural tier-2 feed count or tier-2 acceptance result is claimed.**
-The careless policy was not remeasured before the stop. Held-out assessment remains **pending the owner's
-playtest and approval of a future frozen candidate**; 701..730 was never run.
-
-| Forced first job (24 runs each, seeds 1..6 × four regions) | Clear | Map 2 / 3 reach | Deaths maps 1 / 2 / 3; timeouts | Median clear level | Bosses by map: seconds (completed/spawned) |
+| Forced first job (n=24) | Clear | Map 2 / 3 reach | Deaths maps 1 / 2 / 3; timeouts | Median clear level | Boss medians seconds (completed/spawned; all-spawned) |
 |---|---|---|---|---|---|
-| Warrior 100 | 8/24 (33.3%) | 23 / 10 | 1 / 13 / 2; 0 | 36.5 | 24.6 (23/24) / 85.3 (10/23) / 97.8 (8/10) |
-| Magician 200 | 16/24 (66.7%) | 24 / 22 | 0 / 2 / 6; 0 | 37 | 21.2 (24/24) / 54.7 (22/24) / 54.8 (16/20) |
-| Bowman 300 | 15/24 (62.5%) | 21 / 21 | 3 / 0 / 6; 0 | 37 | 37.7 (21/24) / 66.7 (21/21) / 85.1 (15/20) |
-| Thief 400 | 9/24 (37.5%) | 22 / 16 | 2 / 6 / 7; 0 | 37 | 23.2 (22/24) / 76.9 (16/22) / 31.0 (9/14) |
-| Pirate 500 | 5/24 (20.8%) | 24 / 18 | 0 / 6 / 12; 1 | 40 | 22.9 (24/24) / 84.0 (18/24) / 70.9 (5/12) |
+| Warrior 100 | 9/24 (37.5%) | 23 / 13 | 1 / 10 / 4; 0 | 36 | 24.6 (23/24; all >=24.5) / 82.7 (13/23; all >=65.4) / 89.7 (9/13; all >=57.4) |
+| Magician 200 | 13/24 (54.2%) | 24 / 22 | 0 / 2 / 9; 0 | 37 | 21.2 (24/24; all 21.2) / 55.3 (22/24; all >=55.3) / 62.7 (13/20; all >=61.0) |
+| Bowman 300 | 15/24 (62.5%) | 21 / 21 | 3 / 0 / 6; 0 | 37 | 37.7 (21/24; all >=37.9) / 66.7 (21/21; all 66.7) / 90.1 (15/20; all >=88.4) |
+| Thief 400 | 11/24 (45.8%) | 22 / 16 | 2 / 6 / 5; 0 | 38 | 23.2 (22/24; all >=22.9) / 77.4 (16/22; all >=71.2) / 41.6 (11/14; all >=44.1) |
+| Pirate 500 — exempt, #262 | 6/24 (25.0%) | 24 / 16 | 0 / 8 / 8; 2 | 40.0 | 22.9 (24/24; all 22.9) / 84.7 (16/24; all >=74.7) / 91.8 (6/10; all >=94.9) |
 
-**Round-2 stop-and-ask evidence (#77 process step 4 and the lead's explicit resume condition):** Pirate still
-misses its 25% floor (needs at least 6/24), and the best job still clears 3.2× the worst (16/5, allowed ≤2×).
-The before/after first-job clears are Warrior 6→8, Magician 16→16, Bowman 14→15, Thief 9→9, Pirate 5→5, each
-out of 24. Post-fix Pirate region clears are **H/E/P/K = 4/0/1/0 out of 6 each**. Twelve of its 18 deaths occur
-before Lv30 and those twelve records are field-for-field identical to C07. All six Ellinia Pirates die at
-Lv22–25 on map 3 before Dyle spawns; their first-job power/progression cannot be repaired by preserving the
-second-job family. Every Pirate second advancement observed in C08 is Gunslinger (520).
+The non-exempt floor is 9/24 (37.5%); spread 15/9 = 1.67x. All 100 regional and 120 forced observations validate:
+empty warnings/missing; every clear has three dead bosses. Sources and exact metrics: `C21/tier1_freeze.json`.
 
-**Historical round-1 diagnosis (resolved by #261, not a remaining bot request):** the old bot drew the second job independently of its existing weapon family (`BotInput.pick_choice`): changing
-family can disable a heavily ranked Flash Fist or Double Shot (`SkillBook.usable_with`). A paired **diagnostic**
-on the same C05 Perion data, seeds 1..6, compares `--job=500:knuckle` (random second job) with
-`--job=510:knuckle` (Brawler). Both start with the same Knuckle choice; the five pairs reaching Lv30 do so at
-the same time (seed 6 dies before Lv30 in both controls). Random advancement clears **3/6**; fixed Brawler clears **4/6**. Seed 5 is a direct example: both reach
-Lv30 at the same time, then random Gunslinger dies on map 3 at 1088.5 s / Lv30, while Brawler clears at 1120.9 s /
-Lv38. The other five outcome pairs agree. This establishes a contribution from advancement behaviour, **not**
-that it explains every Pirate death or that a policy change will meet all targets. No movement or casting bug
-was established.
+**Tier-2 baseline on frozen tier 1:** fixed before any tier-2 outcome, the first five natural clears by ascending
+training seed in each region (20 total, `tier2_feeds.tsv`). Every selected character clears naturally through the
+real `--tier=2` chain, normal BotShop and empty account; no fixture, replacement or dropped feed. Every chain's
+first-round metrics match frozen C21 exactly. The unchanged Sleepywood baseline feeds **20/20**, clears **0/20**,
+reaches maps 2/3 **14/0**, deaths **6/14/0**, no timeouts. Zombie Mushmom completes **14/20**, median **32.5 s**,
+censored median **>=29.9 s**; Snack Bar and Jr. Balrog never spawn (0/0, no completed median).
+C22 measures only tier 2 with locked tier 1; a focused tier-2 iteration does not rerun the regional/job matrix.
+Whole-candidate freeze, application/provenance, careless-policy observations and frozen-data full suite remain
+pending. Held-out assessment is **pending the owner's playtest**, with 701..730 never run.
 
-The lead resolved that bot question through #261, merged in `d87f58e`: C05 Perion `500:knuckle` now clears 4/6
-and equals `510:knuckle` field for field (the #261 record above). C08 uses that fixed ruler throughout. On the
-actual C07/C08 Pirate cohort, Henesys seed 1 changes DEAD→CLEARED (job510→520); Perion seed 1 changes
-CLEARED→DEAD (job510→520, Lv38→31); Kerning seed 1 changes DEAD→TIMEOUT (job510→520, Lv35→43). That timeout
-still has Dyle alive after 756.8 fight seconds at the 1800 s run cap; it is not a clear. Fifteen of the 24 Pirate
-records are otherwise identical (`C08/pirate_pairs.json` preserves all pairs).
-
-**Owner decision needed before resuming:** the remaining question is Pirate class power, as directed by the
-lead after the bot fix. A separate class-power ticket would need authority to change first-job damage/progression
-and Gun/Gunslinger skill/card power; these are off-limits to this data-only pass. The measurements establish a
-remaining floor/spread failure, not which skill or stat should change. No new bot bug is established. With
-H/P/K already over-clearing, further world softening is not a justified substitute. This attempt ends with
-evidence instead of waiting for an answer or tuning around the class discrepancy.
-
-The complete C07 proposal is `.../t77/C07.json`; `.../t77/C07_LEVERS.md` lists **every proposed field's old → new
-value**, names C07 / tier C, and uses zero-based keyframe/map indices. The patch audit verifies the allowed
-field list and unchanged Henesys 0..240 rows. **Applied levers: none.** No failing candidate is shipped as frozen
-data, no tuned-number tests were updated, and existing feature smokes keep the #260 baseline.
-Suggested owner diagnostic comparison using the unshipped C07/C08 proposal: Ellinia and Perion as Pirate,
-especially Gun → Gunslinger, then Knuckle → Brawler and a Magician comparison. Judge first-job progression,
-map-3 ordinary pressure and boss damage uptime. This is a class review, not approval of a frozen candidate.
-
-Round-1 full suite: **2,204 tests, 0 failed, 0 skipped, 213 files**, exit 0 (695,520 ms; `.../t77/full_suite.log`).
-Round-2 full suite on the unchanged post-#261 repository data: **2,210 tests, 0 failed, 0 skipped, 214 files**,
-exit 0 (`ISOLATE=t77 MAPLE_SURVIVORS_CACHE=.../caches/s253 bash scripts/test.sh`; 716,586 ms;
-`.../t77/full_suite_r2.log`). Godot again reports two dummy-renderer texture RID allocations at shutdown.
-These verify the respective integration baselines, **not the unshipped C07/C08 patch**. No tests or numeric
-assertions were changed by this pass.
+Earlier full suites verified unchanged integration data: round 1 2,204/0/0 tests/failed/skipped; round 2
+2,210/0/0, 214 files, exit 0. No tuned-number test has changed yet. Applied levers: none so far.
 
 #### Spec #253 (#260): Kerning floor/wall corner leak and boss-arrival bound (2026-10-23)
 
