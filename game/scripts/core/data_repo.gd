@@ -299,7 +299,25 @@ static func stage_map_errors(stages_file: Dictionary) -> PackedStringArray:
 			var entry: Variant = maps[i]
 			if not entry is Dictionary or int(entry.get("map_id", 0)) <= 0 or not entry.get("boss") is Dictionary:
 				errors.append("stage '%s' maps[%d] needs a map_id and boss" % [key, i])
+				continue
+			if entry.boss.has("skill_intervals") and not _valid_skill_intervals(entry.boss.skill_intervals):
+				errors.append("stage '%s' maps[%d] boss skill_intervals needs {\"<mob skill id>\": seconds > 0}"
+					% [key, i])
 	return errors
+
+
+## A boss entry's optional `skill_intervals` (spec #253, tier C): mob skill id strings -> positive seconds that replace
+## that skill's WZ interval for this boss.
+static func _valid_skill_intervals(value: Variant) -> bool:
+	if not value is Dictionary:
+		return false
+	for skill: Variant in value:
+		var seconds: Variant = value[skill]
+		if not String(skill).is_valid_int() or int(String(skill)) <= 0:
+			return false
+		if not (seconds is float or seconds is int) or float(seconds) <= 0.0:
+			return false
+	return true
 
 
 ## Detached boss schedule with map provenance and curve offsets; live map arrivals are entry-relative.

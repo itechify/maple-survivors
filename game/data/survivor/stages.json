@@ -1,7 +1,7 @@
 {
 	"_doc": "Stages (docs/GAME_DESIGN.md 4.1): region stage key -> ordered maps with one boss and pool rule each, map_seconds (boss delay from map entry), round duration (s), pacing keyframes, bursts, elites. Keyframe numbers (rate = mobs/s, max_alive, hp and speed multipliers) interpolate linearly in time between keyframes; the pool (mob id -> weight) is the one of the last keyframe at or before t. Bursts: every `every` s from `first`, a ring of count_min..count_max mobs (growing with time) around the view, allowed past max_alive up to `hard_cap`. Elites: every `every` s from `first`, one mob of the current pool with hp_mult x HP, exp_mult x EXP and damage_mult x mitigated damage. spawn: overrides of balance.json spawn for this region. exp_mult: EXP multiplier of this stage. note: a line shown on the stage card. region and continent (both required, tier C owner choice #221): the town the player sees as the stage name and the small line above or beside it; they replace the WZ map and street names everywhere. original_life is the map's own spawn list (shown on the stage card). Potions are unlimited on per-kind cooldowns; no potion drops exist (spec #237). Boss summon and revive mob ids are not listed here: they come from the bosses' canonical MobSkill 200 and info/revive data (StageRoster). All numbers tier C (ours).",
-	"_tiers": "Tier C: owner region keys and map lists, spec #241; run tiers from spec #32. Zero-based run tier index; choose one stage from each list.",
-	"tiers": [["henesys", "ellinia"], ["sleepywood"]],
+	"_tiers": "Tier C: owner region keys and map lists, spec #241 (Perion and Kerning City added by spec #253); run tiers from spec #32. Map select fits at most four cards per tier (stage_select.gd MAX_CARDS). Zero-based run tier index; choose one stage from each list.",
+	"tiers": [["henesys", "ellinia", "perion", "kerning"], ["sleepywood"]],
 	"stages": {
 		"henesys": {
 			"name": "Henesys Hunting Ground I",
@@ -184,6 +184,176 @@
 			"exp_mult": 0.9,
 			"note": "Classic Slimes, tree portals and three bosses.",
 			"original_life": {"210100": 25, "130101": 5}
+		},
+		"perion": {
+			"_tier": "Tier A: map IDs and original_life from v83 Map.wz. Tier C (owner, spec #253): region, map order, boss picks and pool rules; the numeric curve (keyframe rate/max_alive/hp/speed, bursts, elites, exp_mult, hard_cap, post_duration_slope) copies Henesys exactly. The 210 s keyframe is Henesys's curve interpolated at 3:30 (rate 0.875, max_alive 17.5, speed 1.0375), added only to carry the 3:30 pool change; keyframes from 300 s carry no pool because map 1 picks only keyframes with t < 300 (maps 2 and 3 use their own life lists).",
+			"name": "West Street Corner of Perion",
+			"region": "Perion",
+			"continent": "Victoria Island",
+			"duration": 900,
+			"hard_cap": 400,
+			"_bosses": "Tier C (spec #253, starting values, untuned): each boss matches the Henesys boss of the same map slot (Mano, Mushmom, Blue Mushmom) at that slot's typical_hp/typical_pdd: survivor HP = round(canonical maxHP x hp_mult) equals the slot's, and hp_mult/dmg_mult/attack_dmg_mult are the 0.01 steps whose 85-100% roll range (CombatMath.monster_damage) lies closest to the slot's touch/attack roll range. Canonical PDD/MDD, level and undead flags are not normalized.",
+			"map_seconds": 300,
+			"_maps": "Tier C: owner map order and pool rules, spec #253. Map 1 is a hand-written curve pool of its own life mobs; maps 2 and 3 use their v83 life lists (no timed or hidden entries in v83).",
+			"maps": [
+				{
+					"map_id": 102010000,
+					"pool": "curve",
+					"boss": {
+						"time": 300,
+						"mob_id": 2220000,
+						"hp_mult": 1.8,
+						"dmg_mult": 1.15,
+						"typical_hp": 196,
+						"typical_pdd": 7,
+						"_tier": "tier C: the Henesys Mano entry repeated: 2000 x 1.8 = 3600 HP, touch 90 x 1.15 = 82..98 of 196 HP"
+					}
+				},
+				{
+					"map_id": 101030404,
+					"pool_from_life": true,
+					"boss": {
+						"time": 300,
+						"mob_id": 3220000,
+						"hp_mult": 0.6857,
+						"dmg_mult": 1.38,
+						"typical_hp": 340,
+						"typical_pdd": 7,
+						"attacks": [
+							"attack1",
+							"attack2"
+						],
+						"attack_interval": 8,
+						"attack_dmg_mult": 1.25,
+						"_tier": "tier C: matches Mushmom: 7000 x 0.6857 = 4800 HP; touch 125 x 1.38 = 140..166 (Mushmom 140..166) and attacks 135 x 1.25 = 137..163 (Mushmom slam 138..162) of 340 HP; 8 s cadence"
+					}
+				},
+				{
+					"map_id": 106000101,
+					"pool_from_life": true,
+					"boss": {
+						"time": 300,
+						"mob_id": 4090000,
+						"hp_mult": 3.1818,
+						"dmg_mult": 2.38,
+						"typical_hp": 448,
+						"typical_pdd": 7,
+						"_tier": "tier C: matches Blue Mushmom, touch only: 2200 x 3.1818 = 7000 HP; touch 95 x 2.38 = 180..214 (Blue Mushmom 181..214) of 448 HP"
+					}
+				}
+			],
+			"exp_mult": 2.5,
+			"post_duration_slope": 0.25,
+			"_pools": "Tier C weights (spec #253): 0:00 Stump 3 / Red Snail 2 (Stumps are the map's most common life); 2:00 adds Dark Stump 1; 3:30 shifts to Dark Stump 3 / Stump 2 / Red Snail 1.",
+			"keyframes": [
+				{"t": 0, "rate": 0.25, "max_alive": 6, "hp": 1, "speed": 1.0,
+					"pool": {"130100": 3, "130101": 2}},
+				{"t": 120, "rate": 0.55, "max_alive": 11, "hp": 1, "speed": 1.0,
+					"pool": {"130100": 3, "130101": 2, "1110101": 1}},
+				{"t": 180, "rate": 0.75, "max_alive": 15, "hp": 1, "speed": 1.025,
+					"pool": {"130100": 3, "130101": 2, "1110101": 1}},
+				{"t": 210, "rate": 0.875, "max_alive": 17.5, "hp": 1, "speed": 1.0375,
+					"pool": {"130100": 2, "130101": 1, "1110101": 3}},
+				{"t": 240, "rate": 1.0, "max_alive": 20, "hp": 1, "speed": 1.05,
+					"pool": {"130100": 2, "130101": 1, "1110101": 3}},
+				{"t": 300, "rate": 2.5, "max_alive": 50, "hp": 1.25, "speed": 1.075},
+				{"t": 360, "rate": 4.5, "max_alive": 85, "hp": 1.75, "speed": 1.1},
+				{"t": 480, "rate": 8.2666666667, "max_alive": 143.3333333333, "hp": 3.84, "speed": 1.1533333333},
+				{"t": 540, "rate": 9.4, "max_alive": 165, "hp": 3.9, "speed": 1.18},
+				{"t": 660, "rate": 12.1333333333, "max_alive": 215, "hp": 4.7, "speed": 1.2466666667},
+				{"t": 720, "rate": 13.5, "max_alive": 240, "hp": 6.375, "speed": 1.28},
+				{"t": 780, "rate": 15.6666666667, "max_alive": 270, "hp": 7.6875, "speed": 1.32},
+				{"t": 900, "rate": 20.0, "max_alive": 330, "hp": 8.25, "speed": 1.4}
+			],
+			"bursts": {"first": 300, "every": 90, "count_min": 10, "count_max": 40},
+			"elites": {"first": 240, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
+			"note": "Home of the Warriors.",
+			"original_life": {"130100": 22, "130101": 9, "1110101": 7}
+		},
+		"kerning": {
+			"_tier": "Tier A: map IDs and original_life from v83 Map.wz. Tier C (owner, spec #253): region, map order, boss picks and pool rules; the numeric curve (keyframe rate/max_alive/hp/speed, bursts, elites, exp_mult, hard_cap, post_duration_slope) copies Henesys exactly. The 210 s keyframe is Henesys's curve interpolated at 3:30 (rate 0.875, max_alive 17.5, speed 1.0375), added only to carry the 3:30 pool change; keyframes from 300 s carry no pool because map 1 picks only keyframes with t < 300 (maps 2 and 3 use their own life lists).",
+			"name": "Kerning City Construction Site",
+			"region": "Kerning City",
+			"continent": "Victoria Island",
+			"duration": 900,
+			"hard_cap": 400,
+			"_bosses": "Tier C (spec #253, starting values, untuned): each boss matches the Henesys boss of the same map slot (Mano, Mushmom, Blue Mushmom) at that slot's typical_hp/typical_pdd: survivor HP = round(canonical maxHP x hp_mult) equals the slot's, and hp_mult/dmg_mult/attack_dmg_mult are the 0.01 steps whose 85-100% roll range (CombatMath.monster_damage) lies closest to the slot's touch/attack roll range. Canonical PDD/MDD, level and undead flags are not normalized.",
+			"map_seconds": 300,
+			"_maps": "Tier C: owner map order and pool rules, spec #253. Map 1 is a hand-written curve pool of its own life mobs; maps 2 and 3 use their v83 life lists (no timed or hidden entries in v83).",
+			"maps": [
+				{
+					"map_id": 103010000,
+					"pool": "curve",
+					"boss": {
+						"time": 300,
+						"mob_id": 9300003,
+						"hp_mult": 0.45,
+						"dmg_mult": 0.78,
+						"typical_hp": 196,
+						"typical_pdd": 7,
+						"attacks": [
+							"attack1"
+						],
+						"attack_interval": 8,
+						"attack_dmg_mult": 0.61,
+						"_tier": "tier C: matches Mano: 8000 x 0.45 = 3600 HP; touch 130 x 0.78 = 82..98 (Mano 82..98) of 196 HP; Mano has no attack, so the slam 165 x 0.61 = 83..98 matches Mano's touch; 8 s cadence"
+					}
+				},
+				{
+					"map_id": 103000101,
+					"pool_from_life": true,
+					"boss": {
+						"time": 300,
+						"mob_id": 5090000,
+						"hp_mult": 1.0,
+						"dmg_mult": 1.04,
+						"typical_hp": 340,
+						"typical_pdd": 7,
+						"skill_intervals": {"129": 15},
+						"_tier": "tier C: matches Mushmom, touch only: 4800 x 1.0 = 4800 HP; touch 165 x 1.04 = 141..166 (Mushmom 140..166) of 340 HP. skill_intervals: one Banish (MobSkill 129) per 15 s instead of the canonical 3 s (spec #253)"
+					}
+				},
+				{
+					"map_id": 107000000,
+					"pool_from_life": true,
+					"boss": {
+						"time": 300,
+						"mob_id": 6220000,
+						"hp_mult": 0.2258,
+						"dmg_mult": 1.15,
+						"typical_hp": 448,
+						"typical_pdd": 7,
+						"_tier": "tier C: matches Blue Mushmom, touch only (Dyle has no attack): 31000 x 0.2258 = 7000 HP; touch 190 x 1.15 = 180..213 (Blue Mushmom 181..214) of 448 HP"
+					}
+				}
+			],
+			"exp_mult": 2.5,
+			"post_duration_slope": 0.25,
+			"_pools": "Tier C weights (spec #253): 0:00 Red Snail 3 / Slime 3; 2:00 adds Orange Mushroom 3; 3:30 adds Octopus 1 (the map's rarest life).",
+			"keyframes": [
+				{"t": 0, "rate": 0.25, "max_alive": 6, "hp": 1, "speed": 1.0,
+					"pool": {"130101": 3, "210100": 3}},
+				{"t": 120, "rate": 0.55, "max_alive": 11, "hp": 1, "speed": 1.0,
+					"pool": {"130101": 3, "210100": 3, "1210102": 3}},
+				{"t": 180, "rate": 0.75, "max_alive": 15, "hp": 1, "speed": 1.025,
+					"pool": {"130101": 3, "210100": 3, "1210102": 3}},
+				{"t": 210, "rate": 0.875, "max_alive": 17.5, "hp": 1, "speed": 1.0375,
+					"pool": {"130101": 3, "210100": 3, "1210102": 3, "1120100": 1}},
+				{"t": 240, "rate": 1.0, "max_alive": 20, "hp": 1, "speed": 1.05,
+					"pool": {"130101": 3, "210100": 3, "1210102": 3, "1120100": 1}},
+				{"t": 300, "rate": 2.5, "max_alive": 50, "hp": 1.25, "speed": 1.075},
+				{"t": 360, "rate": 4.5, "max_alive": 85, "hp": 1.75, "speed": 1.1},
+				{"t": 480, "rate": 8.2666666667, "max_alive": 143.3333333333, "hp": 3.84, "speed": 1.1533333333},
+				{"t": 540, "rate": 9.4, "max_alive": 165, "hp": 3.9, "speed": 1.18},
+				{"t": 660, "rate": 12.1333333333, "max_alive": 215, "hp": 4.7, "speed": 1.2466666667},
+				{"t": 720, "rate": 13.5, "max_alive": 240, "hp": 6.375, "speed": 1.28},
+				{"t": 780, "rate": 15.6666666667, "max_alive": 270, "hp": 7.6875, "speed": 1.32},
+				{"t": 900, "rate": 20.0, "max_alive": 330, "hp": 8.25, "speed": 1.4}
+			],
+			"bursts": {"first": 300, "every": 90, "count_min": 10, "count_max": 40},
+			"elites": {"first": 240, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
+			"note": "Home of the Thieves.",
+			"original_life": {"130101": 14, "210100": 17, "1210102": 14, "1120100": 6}
 		},
 		"sleepywood": {
 			"_tier": "Tier A: map ID and original_life from v83 Map.wz. Tier C: owner roster/order, 900 s duration, all pacing values, pool weights, EXP, burst and elite settings; first-pass data chosen before measurement for arriving Lv35-43 second-job characters, not calibrated (#77). Tauromacis/Taurospear use their canonical attacks (#76; cadence in balance.json mob_attacks). Jr. Boogie deals contact damage only and casts nothing: ordinary mobs cast no mob skills because character statuses come only from bosses (owner, #76).",
