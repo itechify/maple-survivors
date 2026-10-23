@@ -135,21 +135,24 @@ func test_perion_and_kerning_copy_the_henesys_curve() -> void:
 				"%s elite interval at %.0f s" % [key, t])
 
 
-## Spec #253: map 1 opens with two of its own life mobs, adds a third at 2:00 and changes again at 3:30
-## (Perion: Dark Stump becomes the most common; Kerning City: Octopus joins).
+## Spec #253: map 1 opens like Henesys with Blue Snails only (the owner's weaker-neighbour clause, invoked after the
+## T1 seed-1 Lv1 deaths), the map's own two mobs join at 2:00, a third at 3:00, and the pool changes again at 3:30
+## (Perion: Dark Stump becomes the most common; Kerning City: Octopus joins), Blue Snails tapering through 4:00.
 func test_perion_and_kerning_map_1_pools_follow_the_owner_schedule() -> void:
 	var stages: Dictionary = DataRepo.load_all().stages.stages
 	var identity := {}
-	for id: int in [130100, 130101, 1110101, 210100, 1210102, 1120100]:
+	for id: int in [100101, 130100, 130101, 1110101, 210100, 1210102, 1120100]:
 		identity[id] = id
 	var want := {
-		"perion": [[0.0, [130100, 130101]], [119.0, [130100, 130101]], [120.0, [130100, 130101, 1110101]],
-			[209.0, [130100, 130101, 1110101]], [210.0, [130100, 130101, 1110101]],
-			[299.0, [130100, 130101, 1110101]]],
-		"kerning": [[0.0, [130101, 210100]], [119.0, [130101, 210100]], [120.0, [130101, 210100, 1210102]],
-			[209.0, [130101, 210100, 1210102]], [210.0, [130101, 210100, 1210102, 1120100]],
-			[299.0, [130101, 210100, 1210102, 1120100]]],
+		"perion": [[0.0, [100101]], [119.0, [100101]], [120.0, [100101, 130100, 130101]],
+			[179.0, [100101, 130100, 130101]], [180.0, [100101, 130100, 130101, 1110101]],
+			[210.0, [100101, 130100, 130101, 1110101]], [299.0, [100101, 130100, 130101, 1110101]]],
+		"kerning": [[0.0, [100101]], [119.0, [100101]], [120.0, [100101, 130101, 210100]],
+			[179.0, [100101, 130101, 210100]], [180.0, [100101, 130101, 210100, 1210102]],
+			[209.0, [100101, 130101, 210100, 1210102]], [210.0, [100101, 130101, 210100, 1210102, 1120100]],
+			[299.0, [100101, 130101, 210100, 1210102, 1120100]]],
 	}
+	var neighbour := 100101  # Blue Snail: the one weaker neighbour; every other pool mob lives on map 1 in v83
 	for key: String in want:
 		var d := SpawnDirector.create(stages[key], identity)
 		for row: Array in want[key]:
@@ -159,7 +162,10 @@ func test_perion_and_kerning_map_1_pools_follow_the_owner_schedule() -> void:
 			expected.sort()
 			assert_eq(kinds, expected, "%s pool at %.0f s" % [key, row[0]])
 			for id: int in kinds:
-				assert_true(stages[key].original_life.has(str(id)), "%s: pool mob %d lives on map 1 in v83" % [key, id])
+				assert_true(id == neighbour or stages[key].original_life.has(str(id)),
+					"%s: pool mob %d lives on map 1 in v83" % [key, id])
+		assert_true(_share(d.pool_at(240.0), neighbour) < _share(d.pool_at(120.0), neighbour)
+			and _share(d.pool_at(240.0), neighbour) > 0.0, "%s: Blue Snails taper through 4:00" % key)
 	var perion := SpawnDirector.create(stages.perion, identity)
 	assert_true(_share(perion.pool_at(210.0), 1110101) > _share(perion.pool_at(209.0), 1110101) + 0.2,
 		"Perion 3:30: weights shift toward Dark Stump")

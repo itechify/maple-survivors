@@ -354,14 +354,17 @@ or an explicit weighted `pool` per map; these are tier C owner choices, not chan
 Perion and Kerning City (spec #253) copy Henesys's numeric curve exactly: keyframe rate, alive cap, HP and speed
 (including #241's opening), bursts, elites, 2.5x stage EXP, the hard cap and the post-duration slope. Their extra
 210 s keyframe is Henesys's curve interpolated at 3:30 (rate 0.875, cap 17.5, speed 1.0375), so it changes no number;
-it only carries the 3:30 pool. Keyframes from 300 s carry no pool. Map 1 uses only the map's own v83 life mobs
-(weights tier C):
+it only carries the 3:30 pool. Keyframes from 300 s carry no pool. Map 1 uses the map's own v83 life mobs plus one
+weaker neighbour, Blue Snail 100101, which opens alone like Henesys's snails (the owner's Q4 weaker-neighbour clause,
+invoked after the first-pass pools' T1 seed-1 bot deaths at 0:15 and 2:15, Lv1; native to Perion Street Corner
+101040000 next door, tier C for Kerning City). Weights tier C:
 
 | Curve time | Perion (West Street Corner of Perion) | Kerning City (Construction Site) |
 |---|---|---|
-| 0:00 | Stump 130100:3, Red Snail 130101:2 | Red Snail 130101:3, Slime 210100:3 |
-| 2:00 | + Dark Stump 1110101:1 | + Orange Mushroom 1210102:3 |
-| 3:30 | Dark Stump 3, Stump 2, Red Snail 1 | + Octopus 1120100:1 |
+| 0:00 | Blue Snail 100101:1 | Blue Snail 100101:1 |
+| 2:00 | Blue Snail 2, Stump 130100:3, Red Snail 130101:2 | Blue Snail 2, Red Snail 130101:3, Slime 210100:3 |
+| 3:00 | + Dark Stump 1110101:1 | + Orange Mushroom 1210102:3 |
+| 3:30 | Dark Stump 3, Stump 2, Red Snail 1, Blue Snail 1 | + Octopus 1120100:1, Blue Snail 1 |
 
 Maps 2 and 3 use their life lists with no exclusions; v83 lists no timed or hidden entries there: East Rocky
 Mountain V Axe Stump x12 / Dark Axe Stump x21, The Burnt Land I Wild Boar x11 / Fire Boar x20, Line 1 <Area 1>
@@ -6376,7 +6379,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Threatened status (#183) | flat PAD and PDD cut floored at 0 on contact damage, physical ordinary attacks (and their balls) and the player's physical hits; refreshes without stacking; bosses and status-resistant kinds never take it; coexists with slow, poison and freeze; magic attack and defence untouched | C | ours; the v83 text only says weapon attack and weapon def. fall |
 | Threaten cards (#183) | learn weight 3, rank weight 2, `requires.jobs` [120], not power; no bot score entry (default scoring, like Iron Body) | C | ours |
 | Perion and Kerning City regions (#253, #254) | `perion`: 102010000 / 101030404 / 106000101 (Mano / Stumpy / Iron Hook); `kerning`: 103010000 / 103000101 / 107000000 (King Slime / Shade / Dyle); `region` Perion / Kerning City, continent Victoria Island, notes "Home of the Warriors/Thieves" (no class link); tiers `[[henesys, ellinia, perion, kerning], [sleepywood]]` | C choice, A map/mob ids | Owner, spec #253 |
-| Perion and Kerning City pools (#253, #254) | Henesys's numeric curve copied exactly (keyframes, bursts, elites, `exp_mult` 2.5, `hard_cap` 400, `post_duration_slope` 0.25) plus a 210 s keyframe interpolated from it (rate 0.875, cap 17.5, speed 1.0375) that only carries the 3:30 pool. Map 1: Perion Stump 3 / Red Snail 2, +Dark Stump 1 at 2:00, Dark Stump 3 / Stump 2 / Red Snail 1 at 3:30; Kerning Red Snail 3 / Slime 3, +Orange Mushroom 3 at 2:00, +Octopus 1 at 3:30. Keyframes from 300 s carry no pool. Maps 2 and 3: their v83 life lists, no exclusions (no timed or hidden entries) | C weights, A life lists | Owner, spec #253 |
+| Perion and Kerning City pools (#253, #254) | Henesys's numeric curve copied exactly (keyframes, bursts, elites, `exp_mult` 2.5, `hard_cap` 400, `post_duration_slope` 0.25) plus a 210 s keyframe interpolated from it (rate 0.875, cap 17.5, speed 1.0375) that only carries the 3:30 pool. Map 1 opens with Blue Snail 100101 only (owner Q4 weaker-neighbour clause, invoked after T1 seed-1 deaths at 0:15/2:15 (Lv1)); from 2:00 Perion Blue Snail 2 / Stump 3 / Red Snail 2, +Dark Stump 1 at 3:00, Dark Stump 3 / Stump 2 / Red Snail 1 / Blue Snail 1 at 3:30; Kerning Blue Snail 2 / Red Snail 3 / Slime 3, +Orange Mushroom 3 at 3:00, +Octopus 1 and Blue Snail 1 at 3:30. Keyframes from 300 s carry no pool. Maps 2 and 3: their v83 life lists, no exclusions (no timed or hidden entries) | C weights, A life lists | Owner, spec #253 |
 | Perion and Kerning City boss multipliers (#253, #254) | Each boss matches the Henesys boss of its map slot at that slot's `typical_hp`/`typical_pdd`: same survivor HP (round(maxHP × hp_mult)) and the 0.01 multiplier steps whose 85–100% roll range is closest to the slot's (within 1 HP). Perion: Mano as in Henesys; Stumpy 0.6857 / touch 1.38 / attacks 1.25; Iron Hook 3.1818 / 2.38 (touch only). Kerning: King Slime 0.45 / 0.78 / slam 0.61 (matches Mano's touch: Mano has no attack); Shade 1.0 / 1.04 (touch only); Dyle 0.2258 / 1.15. Attacks every 8 s. Canonical PDD/MDD, levels and undead flags are not normalized | C | Starting values, untuned (#77 tunes) |
 | Boss skill interval override (#253) | A `stages.json` boss entry may carry `skill_intervals` {"<mob skill id>": seconds > 0} replacing that skill's WZ interval for that boss on that map; `DataRepo.stage_map_errors` rejects other shapes. Shade's Kerning entry: `{"129": 15}` (one Banish per 15 s instead of the canonical 3 s) | C | Owner, spec #253; read by #256 |
 | Map-select card limit (#253) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list | C | Layout measurement, spec #253 |
