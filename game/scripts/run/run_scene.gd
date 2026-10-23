@@ -222,6 +222,8 @@ var _frame_items: Array[String] = []
 var _frame_equipped: Array[String] = [] # auto-worn pickups (#222), announced after the "gained an item" lines
 var _frame_inventory_full := false
 var _frame_sounds := {}
+## Mob id -> whether v83 Sound.wz/Mob.img has an entry for it (cached per run; hit events are hot).
+var _mob_has_sounds := {}
 var _hud_sig := PackedInt32Array()
 var _hud_sig_scratch := PackedInt32Array()
 ## Cached captions of the manual skills' icons (skill key id -> first bound key; emptied by _on_settings_changed, read
@@ -1556,7 +1558,6 @@ func _advance_end(delta: float) -> void:
 		_finish()
 
 
-## Plays once per frame per path/phase (Teleport preserves both endpoints; swarm hits still coalesce).
 ## Plays mob `id`'s Sound.wz/Mob.img `name` sound ("Damage", "Die", "Skill1"...). A mob v83 gives no Mob.img entry at
 ## all (Iron Hook 4090000) is silent, as in the client, and records nothing missing (tier A: absent in v83 Sound.wz).
 func _mob_sound(id: int, name: String) -> void:
@@ -1566,10 +1567,7 @@ func _mob_sound(id: int, name: String) -> void:
 		_sound(SND_MOB % [id, name])
 
 
-## Mob id -> whether v83 Sound.wz/Mob.img has an entry for it (cached per run; hit events are hot).
-var _mob_has_sounds := {}
-
-
+## Plays once per frame per path/phase (Teleport preserves both endpoints; swarm hits still coalesce).
 func _sound(path: String, phase: String = "") -> void:
 	var key := path + ":" + phase
 	if path == "" or _frame_sounds.has(key):

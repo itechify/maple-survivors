@@ -157,6 +157,7 @@ extends Node
 ## 30s/8px exit-walk guard and UI waits/timeouts are automation choices, never survivor tuning.
 
 const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
+const StageSelectScene := preload("res://scenes/ui/stage_select.gd")
 const MAIN := "res://scenes/main.tscn"
 ## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q / End potions; E is
 ## the Equip window).
@@ -270,7 +271,7 @@ func _scenario_maps() -> void:
 	if not await _create_character("Maps248"):
 		return
 	await _sleep(1.5)
-	var select: Node = flow.current
+	var select: StageSelectScene = flow.current
 	var card := maps_stage_card(args, select.stages)
 	if not _expect(card >= 0, "map select offers no %s card" % args.get("stage", "henesys")):
 		return
