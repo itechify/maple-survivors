@@ -4,51 +4,25 @@ extends TestCase
 ## MobSkill nodes (v83 129/5 area and interval), seeded worlds, fixed dt, through the public RunWorld seam.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const SF := preload("res://tests/fixtures/shade_fixtures.gd")
 const DT := 1.0 / 60.0
-const SHADE := 5090000
+const SHADE := SF.SHADE
 const PET := 5000000
 ## The synthetic big map's two `sp` portals (x 400 / 1500, y 180) dropped onto the ground (y 200).
 const SP_FLOORS: Array = [Vector2(400, 200), Vector2(1500, 200)]
-## Where the boss stands: x 700 keeps both portal floors outside its 400 px wide area.
-const BOSS_AT := Vector2(700, 200)
+const BOSS_AT := SF.BOSS_AT
 
 
-## A quiet stage whose only boss is a synthetic Shade casting 129/5; `boss` fields merge into its stage entry.
 func _setup(boss: Dictionary = {"skill_intervals": {"129": 15}}, seed_value := 22) -> Dictionary:
-	var data := RF.quiet_data()
-	data.balance.player.skills = []
-	data.balance.bosses.teleport_stall = 10000.0
-	data.balance.mob_motion.push_px = 0
-	data.balance.magnet_radius = 0
-	data.balance.mob_skills.enabled_ids = [SHADE]
-	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.0, "mob_id": SHADE}.merged(boss, true)])
-	var setup := RF.setup("quiet", seed_value, data)
-	var img: Dictionary = setup.mob_imgs[100100].duplicate(true)
-	img.info = {"boss": 1.0, "level": 56.0, "maxHP": 4800.0, "PDDamage": 20.0, "MDDamage": 30.0, "speed": -100.0,
-		"skill": {"0": {"skill": 129.0, "level": 5.0, "action": 1.0}}}
-	img.skill1 = {"0": {"delay": 600.0}, "1": {"delay": 600.0}}
-	setup.mob_imgs[SHADE] = img
-	# tier A: v83 MobSkill.img/129/level/5 (interval 3, prop 100, count 5, the area below, time 1).
-	setup.mob_skill_img = {"129": {"level": {"5": {"interval": 3.0, "prop": 100.0, "count": 5.0, "time": 1.0,
-		"lt": {"$v": [-200.0, -150.0]}, "rb": {"$v": [200.0, 50.0]},
-		"affected": {"0": {"delay": 120.0}, "pos": 0.0, "repeat": 1.0}}}}}
-	return setup
+	return SF.setup(boss, seed_value)
 
 
-## A world from `setup` with the boss arrived and parked at `at`, the player beside it (inside its area).
 func _world_from(setup: Dictionary, at := BOSS_AT, player_x := 650.0) -> RunWorld:
-	var w := RunWorld.new(setup)
-	w.god = true
-	RF.place_player(w, player_x, at.y - 10.0)
-	w.step(DT, MoveInput.new())
-	var slot := int(w.bosses.records[0].slot)
-	w.relocate_mob(slot, at, w.fhm.find_below(at.x, at.y - 10.0))
-	w.drain_events()
-	return w
+	return SF.world_from(setup, at, player_x)
 
 
 func _world(boss: Dictionary = {"skill_intervals": {"129": 15}}, seed_value := 22) -> RunWorld:
-	return _world_from(_setup(boss, seed_value))
+	return SF.world(boss, seed_value)
 
 
 ## Steps `ticks` ticks; with `chase` the player is put back beside the boss before every tick. Returns the events.
