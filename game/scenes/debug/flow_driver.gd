@@ -7,8 +7,10 @@ extends Node
 ##
 ## Scenarios (--scenario=):
 ##   maps    diagnostic Henesys map 1 -> 2, Quit round/Continue from map 1, then all three maps -> Free Market.
+##           --stage=<tier-1 key> (#257, default henesys) selects that card with Down on the real map select.
 ##           Invulnerable EXP-drop Warrior/Sword climb and lethal hits after each map timer; real CLEAR/fade/arrival
-##           presentation. Shots: map_N_cleared, map_N_fade, map_N_enter, maps_replayed, maps_free_market.
+##           presentation. Shots: maps_stage_select, map_N_cleared, map_N_fade, map_N_enter, maps_replayed,
+##           maps_free_market.
 ##   rounds  creates two characters, chooses Warrior/Sword on the real job/weapon pages, clears tier 1 (diagnostic warp), walks to
 ##           Free Market out00, saves/reloads map select, starts tier 2, quits/reloads the same boundary/seed,
 ##           plays to death, deletes the spare character and checks both history entries. --diagnostic-victory=1
@@ -248,14 +250,43 @@ func _process(_delta: float) -> void:
 
 # --- scenarios ---------------------------------------------------------------------------------------------------
 
+## The map-select card index of the maps scenario's --stage (default henesys, #257); -1 when that card is not offered.
+func maps_stage_card(flags: Dictionary, cards: Array[Dictionary]) -> int:
+	var key := String(flags.get("stage", "henesys"))
+	for i in cards.size():
+		if String(cards[i].key) == key:
+			return i
+	return -1
+
+
 ## Three-map flow evidence through real transitions and boundary replay, never a natural-survival claim.
 func _scenario_maps() -> void:
 	if not args.has("seed"):
 		args["seed"] = "1" # tier C: retained training seed for diagnostic flow evidence.
-	if not await _enter_round("Maps248"):
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Maps248"):
+		return
+	await _sleep(1.5)
+	var select: Node = flow.current
+	var card := maps_stage_card(args, select.stages)
+	if not _expect(card >= 0, "map select offers no %s card" % args.get("stage", "henesys")):
+		return
+	for i in card:
+		await _key(KEY_DOWN)
+	if not _expect(select.selected == card, "Down did not select the %s card" % select.stages[card].key):
+		return
+	await _shot("maps_stage_select")
+	var stage_key := String(select.stages[card].key)
+	await _start_selected(select)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
 		return
 	var run := flow.current as RunScene
-	if not _expect(run.stage_key == "henesys", "maps scenario must start Henesys"):
+	var first_map := int(run.world.stage.maps[0].map_id)
+	if not _expect(run.stage_key == stage_key and run.world.current_map_id() == first_map,
+			"maps scenario must start %s map 1" % stage_key):
 		return
 	run.world.god = true
 	var saved := flow.save.slot(flow.active_slot)
@@ -281,8 +312,8 @@ func _scenario_maps() -> void:
 		return
 	run = flow.current as RunScene
 	run.world.god = true
-	if not _expect(run.world.map_index == 0 and run.world.current_map_id() == 104040000
-			and run.run_seed == int(saved.round_seed) and run.stage_key == "henesys"
+	if not _expect(run.world.map_index == 0 and run.world.current_map_id() == first_map
+			and run.run_seed == int(saved.round_seed) and run.stage_key == stage_key
 			and JSON.parse_string(JSON.stringify(flow.save.slot(flow.active_slot))) == JSON.parse_string(JSON.stringify(saved))
 			and int(run.world.player_state.level) == int(saved.character.level),
 			"Continue must replay map 1 with the same seed and boundary character"):
@@ -305,7 +336,7 @@ func _scenario_maps() -> void:
 	_collect_missing(flow.current)
 	if not _expect(_missing.is_empty() and not _failed, "maps missing assets or failed checks: %s" % _missing):
 		return
-	var report := {"scenario": "maps", "diagnostic": true, "before_replay": before_replay,
+	var report := {"scenario": "maps", "stage": stage_key, "diagnostic": true, "before_replay": before_replay,
 		"replayed_from_map": 0, "replayed_seed": saved.round_seed, "rounds": _rounds,
 		"boundary": boundary, "missing": Array(_missing), "failures": []}
 	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
