@@ -324,10 +324,66 @@ func test_falling_out_of_the_world_recovers_on_the_nearest_floor() -> void:
 		flags |= p.step(DT, _none, m, null, bounds)
 	assert_true(flags & PlayerMotion.EV_FELL_OUT != 0, "EV_FELL_OUT")
 	assert_eq(p.fh, 0, "back on the floor nearest to where it fell out")
-	assert_near(p.pos.x, 100.0, 1e-4)
+	assert_near(p.pos.x, 100.0, 0.02, "the floor end, EPS inside it")
 	assert_near(p.pos.y, 0.0, 1e-4)
 	assert_eq(p.state, PlayerMotion.ST_STAND)
 	assert_eq(p.vel, Vector2.ZERO)
+
+
+func test_falling_into_a_floor_wall_corner_lands_on_the_floor() -> void:
+	# #260: a body falling against the wall at a floor's end while steering into it must land on the floor, whatever
+	# sub-pixel height the fall crosses the floor at (the leak let ~half of them slip past the corner into the void).
+	var m := FootholdMap.from_segments(WF.corner_void_segments())
+	var bounds := Rect2(-100, -700, 700, 900)
+	var right := MoveInput.make(false, true)
+	for k in 40:
+		var p := _player(m, Vector2(199.99, -4.0 + k * 0.1))
+		p.vel = Vector2(0.0, 433.3333)
+		var flags := 0
+		for t in 30:
+			flags |= p.step(DT, right, m, null, bounds)
+		assert_true(flags & PlayerMotion.EV_FELL_OUT == 0, "start y %.2f: never fell out of the world" % (-4.0 + k * 0.1))
+		assert_eq(p.fh, 0, "start y %.2f: standing on the floor" % (-4.0 + k * 0.1))
+		assert_true(p.pos.x < 200.0, "start y %.2f: still left of the wall (x %.4f)" % [-4.0 + k * 0.1, p.pos.x])
+
+
+func test_knocked_back_into_a_floor_wall_corner_stays_on_the_floor() -> void:
+	# #260's windowed trace: knocked back toward the wall from the floor, held against it while falling, then
+	# steering into it as the input lock ends.
+	var m := FootholdMap.from_segments(WF.corner_void_segments())
+	var bounds := Rect2(-100, -700, 700, 900)
+	for k in 30:
+		var p := _player(m, Vector2(140.0 + k * 0.37, 0.0))
+		p.knockback(1)
+		var fell := false
+		for t in 120:
+			if p.step(DT, MoveInput.make(false, true), m, null, bounds) & PlayerMotion.EV_FELL_OUT:
+				fell = true
+		assert_false(fell, "start x %.2f: never fell out of the world" % (140.0 + k * 0.37))
+		assert_eq(p.fh, 0, "start x %.2f: on the floor" % (140.0 + k * 0.37))
+		assert_true(p.pos.x < 200.0, "start x %.2f: left of the wall" % (140.0 + k * 0.37))
+
+
+func test_recovery_does_not_put_the_player_back_on_a_leaking_corner() -> void:
+	# Below every floor right of the wall: recovery puts the player on the floor, and walking into the wall from there
+	# is blocked instead of walking off the corner into the void again.
+	var m := FootholdMap.from_segments(WF.corner_void_segments())
+	var bounds := Rect2(-100, -700, 700, 900)
+	var p := _player(m, Vector2(300.0, 150.0))
+	var flags := 0
+	for t in 120:
+		flags |= p.step(DT, _none, m, null, bounds)
+		if flags & PlayerMotion.EV_FELL_OUT:
+			break
+	assert_true(flags & PlayerMotion.EV_FELL_OUT != 0, "fell out")
+	assert_eq(p.fh, 0, "recovered onto the floor")
+	assert_true(p.pos.x < 200.0, "recovered inside the floor, not on the wall line (x %.4f)" % p.pos.x)
+	flags = 0
+	for t in 120:
+		flags |= p.step(DT, MoveInput.make(false, true), m, null, bounds)
+	assert_true(flags & PlayerMotion.EV_FELL_OUT == 0, "walking into the wall does not fall out again")
+	assert_eq(p.fh, 0, "still on the floor")
+	assert_true(p.pos.x < 200.0, "stopped by the wall")
 
 
 func test_ceiling_stops_a_jump_from_below() -> void:

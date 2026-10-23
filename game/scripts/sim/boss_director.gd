@@ -5,17 +5,22 @@ extends RefCounted
 ## tier C: survivor encounter defaults; balance.bosses supplies the design values.
 const DEFAULT_RULES := {"warning_time": 3.0, "spawn_distance": 250.0,
 	"min_spawn_distance": 150.0, "normal_spawn_mult": 0.5,
-	"teleport_stall": 5.0, "teleport_fade": 0.3, "teleport_progress": 1.0}
+	"teleport_stall": 5.0, "teleport_fade": 0.3, "teleport_progress": 1.0, "arrival_fallback": 15.0}
 
 var entries: Array = []
 ## Schedule-order records: boss_index, mob_id, slot, warned, arrival (planned arrival time: the schedule time, pushed
-## back when no arrival point exists), spawn_time, death_time, dead, skipped (no mob img: never arrives, counts as done).
+## back when no arrival point exists), spawn_time, death_time, dead, skipped (no mob img: never arrives, counts as done),
+## and, only once they apply (so records of runs that never need them keep their shape), postponed_since /
+## relocate_since (when arrivals / the faded pursuit relocation started failing for want of a point; -1 = no longer)
+## and fallback (true: arrived through the arrival_fallback rule).
 var records: Array = []
 var rules: Dictionary = {}
 var _actions: Array[Dictionary] = []
 var _now := 0.0
 var _action_view := {"actions": PackedStringArray(), "times": PackedFloat32Array(), "facings": PackedInt32Array()}
 var _view_slots := PackedInt32Array()
+## Whether the last _point() used the arrival_fallback rule.
+var _fell_back := false
 
 
 func _init(p_entries: Array = [], p_rules: Dictionary = {}) -> void:
@@ -120,7 +125,7 @@ func map_done(map_index: int) -> bool:
 ## Fires each warning and places each due boss on the player's reachable platform, with regen fade-in. A boss whose
 ## mob img is missing is skipped at its arrival time with a run warning (it never blocks the clear); when no arrival
 ## point exists on the arrival tick, the arrival is postponed by the warning lead and a fresh warning fires at once,
-## so a boss always arrives exactly warning_time after its last warning (tier C).
+## so a boss always arrives exactly warning_time after its last warning (tier C). Postponing is bounded: see _point.
 func step(world: RunWorld, dt: float = 0.0) -> void:
 	for index in entries.size():
 		var entry: Dictionary = entries[index]
@@ -143,11 +148,7 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 			world.warnings.append("boss %d (%d) has no mob img: skipped so the stage can clear" % [
 				index, int(entry.mob_id)])
 			continue
-		var point := world.director.pick_player_platform(world, float(rules.min_spawn_distance),
-			float(rules.spawn_distance), true)
-		if point.z < -1.0:
-			# A narrow platform can require a closer arrival; the warning and regen fade still apply.
-			point = world.director.pick_player_platform(world, 0.0, float(rules.spawn_distance), true)
+		var point := _point(world, float(record.get("postponed_since", -1.0)))
 		if point.z < -1.0:
 			_postpone(index, world)
 			continue
@@ -163,8 +164,36 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 		record.identity = world.swarm.identity[slot]
 		record.spawn_time = world.time
 		record.anchor = Vector2(world.swarm.x[slot], world.swarm.y[slot])
-		world.emit("boss_spawned", {"boss_index": index, "mob": slot, "mob_id": int(entry.mob_id),
-			"pos": Vector2(world.swarm.x[slot], world.swarm.y[slot]), "time": world.time})
+		var spawned := {"boss_index": index, "mob": slot, "mob_id": int(entry.mob_id),
+			"pos": Vector2(world.swarm.x[slot], world.swarm.y[slot]), "time": world.time}
+		if _fell_back:
+			record.fallback = true
+			spawned.fallback = true
+		world.emit("boss_spawned", spawned)
+
+
+## Where a boss arrives or reappears: on the player's platform at spawn_distance (at least min_spawn_distance away),
+## else anywhere on it within spawn_distance (a narrow platform). z < -1 when it has no point (the player is over no
+## floor, or every point is walled off). Once that has kept failing for arrival_fallback s since `since` (>= 0), the
+## floor point nearest the player stands in for the player with the same two tries, then that point itself (tier C,
+## #260: a player stranded in a floorless void no longer postpones a boss forever). Sets _fell_back.
+func _point(world: RunWorld, since: float) -> Vector3:
+	_fell_back = false
+	var d := world.director
+	var point := d.pick_player_platform(world, float(rules.min_spawn_distance), float(rules.spawn_distance), true)
+	if point.z < -1.0:
+		# A narrow platform can require a closer arrival; the warning and regen fade still apply.
+		point = d.pick_player_platform(world, 0.0, float(rules.spawn_distance), true)
+	if point.z >= -1.0 or since < 0.0 or world.time - since < float(rules.arrival_fallback) - 1e-6:
+		return point
+	var near := world.fhm.nearest_floor_point(world.player.pos)
+	if near.z < 0.0:
+		return point
+	_fell_back = true
+	point = d.pick_player_platform(world, float(rules.min_spawn_distance), float(rules.spawn_distance), true, 0, near)
+	if point.z < -1.0:
+		point = d.pick_player_platform(world, 0.0, float(rules.spawn_distance), true, 0, near)
+	return point if point.z >= -1.0 else near
 
 
 func _warn(index: int, world: RunWorld) -> void:
@@ -174,6 +203,8 @@ func _warn(index: int, world: RunWorld) -> void:
 
 ## No arrival point this tick: arrive warning_time from now, after a fresh warning.
 func _postpone(index: int, world: RunWorld) -> void:
+	if float(records[index].get("postponed_since", -1.0)) < 0.0:
+		records[index].postponed_since = world.time
 	records[index].arrival = world.time + float(rules.warning_time)
 	_warn(index, world)
 
@@ -189,12 +220,15 @@ func _track_pursuit(index: int, world: RunWorld, dt: float) -> void:
 		s.alpha[slot] = float(record.fade_left) / maxf(dt, float(rules.teleport_fade))
 		if float(record.fade_left) > 1e-6:
 			return
-		var point := world.director.pick_player_platform(world, float(rules.min_spawn_distance),
-			float(rules.spawn_distance), true)
+		var point := _point(world, float(record.get("relocate_since", -1.0)))
 		if point.z < -1:
-			point = world.director.pick_player_platform(world, 0.0, float(rules.spawn_distance), true)
-		if point.z < -1:
+			if float(record.get("relocate_since", -1.0)) < 0.0:
+				record.relocate_since = world.time
 			return
+		if record.has("relocate_since"):
+			record.relocate_since = -1.0
+		if _fell_back:
+			record.fallback = true
 		slot = world.relocate_mob(slot, Vector2(point.x, point.y), int(point.z))
 		record.fading = false
 		record.stall = 0.0
