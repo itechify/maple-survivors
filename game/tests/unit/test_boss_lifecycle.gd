@@ -261,7 +261,7 @@ func test_pursuit_teleport_without_a_point_falls_back_after_the_bound() -> void:
 		"within the stall, the fade and the bound (%.2f)" % float(teleported.time))
 	var slot := int(teleported.mob)
 	assert_true(w.swarm.fh[slot] >= 0, "on a floor")
-	assert_true(w.swarm.alpha[slot] > 0.0 or w.swarm.active[slot] != 0, "visible again")
+	assert_false(bool(w.bosses.records[0].fading), "no longer fading: visible again")
 
 
 func test_boss_without_a_mob_img_is_skipped_with_a_warning_and_never_blocks_the_clear() -> void:
