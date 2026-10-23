@@ -204,26 +204,15 @@ func max_walk_speed() -> float:
 ## Fell out of the world: stand on the floor point nearest to (pos.x, bottom). On a map without floors the player
 ## just stays at the bottom edge.
 func _recover(fhm: FootholdMap, bottom: float) -> void:
-	var best := -1
-	var best_d := INF
-	var best_x := pos.x
-	for f in fhm.count():
-		if not fhm.is_floor(f):
-			continue
-		var cx := clampf(pos.x, fhm.x1[f], fhm.x2[f])
-		var d := Vector2(cx - pos.x, fhm.y_at(f, cx) - bottom).length_squared()
-		if d < best_d:
-			best_d = d
-			best = f
-			best_x = cx
+	var best := fhm.nearest_floor_point(Vector2(pos.x, bottom))
 	ladder = -1
 	down_jump_platform = -1
 	vel = Vector2.ZERO
-	if best < 0:
+	if best.z < 0.0:
 		pos.y = bottom
 		return
-	fh = best
-	pos = Vector2(best_x, fhm.y_at(best, best_x))
+	fh = int(best.z)
+	pos = Vector2(best.x, best.y)
 
 
 func _x_limits(fhm: FootholdMap, bounds: Rect2) -> Vector2:
@@ -435,6 +424,11 @@ func _air_substep(h: float, dir: int, fhm: FootholdMap, lim: Vector2) -> int:
 			vel.y = 0.0
 	if ny > pos.y:
 		var g := fhm.find_landing(pos.x, pos.y, nx, ny, down_jump_platform)
+		if g < 0:
+			# The path crossed a floor before passing its end (a floor/wall corner, #260): land inside the floor.
+			g = fhm.find_corner_landing(pos.x, pos.y, nx, ny, down_jump_platform)
+			if g >= 0:
+				nx = fhm.corner_landing_x(g, nx)
 		if g >= 0:
 			pos = Vector2(nx, fhm.y_at(g, nx))
 			fh = g

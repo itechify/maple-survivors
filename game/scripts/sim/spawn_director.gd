@@ -402,12 +402,14 @@ func player_platform_visible(world: RunWorld) -> bool:
 
 ## Places on the player's platform (z=-2 when impossible). A preferred distance supports boss relocations;
 ## allow_visible permits them in view even on a long platform. Normal spawns are visible only on a fully visible floor.
+## `anchor` (x, y, foothold; z < 0 = none) stands in for the player: its foothold's platform and its x replace the
+## player's (a boss arrival fallback, BossDirector, #260).
 func pick_player_platform(world: RunWorld, min_distance := -1.0, preferred_distance := -1.0,
-		allow_visible := false, side := 0) -> Vector3:
-	var p := world.player_platform()
+		allow_visible := false, side := 0, anchor := Vector3(0, 0, -2)) -> Vector3:
+	var m := world.fhm
+	var p := world.player_platform() if anchor.z < 0.0 else m.platform_of(int(anchor.z))
 	if p < 0:
 		return Vector3(0, 0, -2)
-	var m := world.fhm
 	var visible := allow_visible or player_platform_visible(world)
 	var distance := float(params.platform_min_dist) if min_distance < 0.0 else min_distance
 	var fhs := PackedInt32Array()
@@ -415,7 +417,7 @@ func pick_player_platform(world: RunWorld, min_distance := -1.0, preferred_dista
 	var bb := PackedFloat32Array()
 	var cum := PackedFloat32Array()
 	var total := 0.0
-	var px := world.player.pos.x
+	var px := world.player.pos.x if anchor.z < 0.0 else anchor.x
 	for f in m.count():
 		if m.platform_of(f) != p:
 			continue

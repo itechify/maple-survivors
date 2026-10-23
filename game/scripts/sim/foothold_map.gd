@@ -470,6 +470,70 @@ func ceiling_hit(xa: float, ya: float, xb: float, yb: float) -> int:
 	return best
 
 
+## The floor a point moving from (xa, ya) to (xb, yb) crosses from above inside the floor's span although xb lies past
+## the floor's end, so find_landing (which tests the floor under xb only) misses it: a fall into the corner where a
+## floor ends at a wall rising from it, whose wall probe at the crossing x is already below the wall's foot (#260).
+## The highest such floor wins; skips platform `ignore_platform`. -1 when none. Land at corner_landing_x().
+func find_corner_landing(xa: float, ya: float, xb: float, yb: float, ignore_platform: int = -1) -> int:
+	if xa == xb or _gn == 0:
+		return NONE
+	var lo := minf(xa, xb)
+	var hi := maxf(xa, xb)
+	var best := NONE
+	var best_y := INF
+	for b in range(clampi(int(floor((lo - _gx0) / BUCKET_W)), 0, _gn - 1),
+			clampi(int(floor((hi - _gx0) / BUCKET_W)), 0, _gn - 1) + 1):
+		for k in range(_floor_start[b], _floor_start[b + 1]):
+			var i := _floor_items[k]
+			var ax := x1[i]
+			var bx := x2[i]
+			if xb >= ax and xb <= bx:
+				continue # find_landing's case
+			if ignore_platform >= 0 and platform[i] == ignore_platform:
+				continue
+			var s0 := maxf(ax, lo)
+			var s1 := minf(bx, hi)
+			if s0 > s1:
+				continue
+			# The part of the path over the floor, from the start side (near) to the end side (far).
+			var near := s0 if xa < xb else s1
+			var far := s1 if xa < xb else s0
+			var slope := (y2[i] - y1[i]) / (bx - ax)
+			var path := (yb - ya) / (xb - xa)
+			var g_near := y1[i] + slope * (near - ax)
+			var g_far := y1[i] + slope * (far - ax)
+			if ya + path * (near - xa) > g_near + EPS or ya + path * (far - xa) < g_far - EPS:
+				continue
+			if g_far >= best_y:
+				continue
+			best_y = g_far
+			best = i
+	return best
+
+
+## Where a body caught by find_corner_landing(…, xb, …) on floor `i` stands: xb pulled back inside the floor's span by
+## EPS, off the end point (a point exactly on a wall line is not blocked by it, wall_hit).
+func corner_landing_x(i: int, xb: float) -> float:
+	return clampf(xb, x1[i] + EPS, x2[i] - EPS)
+
+
+## The floor point nearest to `p` as (x, y, foothold), z = -1 on a map without floors. The x stays EPS inside the
+## floor's span: an end point exactly on a wall line rising from it would not block walking off that end (#260).
+func nearest_floor_point(p: Vector2) -> Vector3:
+	var best := Vector3(p.x, p.y, NONE)
+	var best_d := INF
+	for f in count():
+		if not is_floor(f):
+			continue
+		var cx := clampf(p.x, x1[f] + EPS, x2[f] - EPS)
+		var cy := y_at(f, cx)
+		var d := Vector2(cx - p.x, cy - p.y).length_squared()
+		if d < best_d:
+			best_d = d
+			best = Vector3(cx, cy, f)
+	return best
+
+
 ## True when any floor spans x (at any height).
 func has_floor_at(x: float) -> bool:
 	var b := _bucket(x)

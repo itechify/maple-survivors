@@ -179,7 +179,11 @@ client's `CVecCtrl` (NoLifeStory `physics.cpp` description, tier B), re-implemen
 - **Air control:** almost none (≤ ~9 px/s change at 200 px/s²), as in v83: you commit to a jump.
 - **Down-jump:** Down + Jump on a foothold without `cantThrough`/`forbidFallDown` with a floor below: vy = -196 px/s,
   the current foothold is ignored until landing.
-- **Landing:** vy clamped to 162.5 px/s on contact; walking off an edge falls; vertical footholds are walls.
+- **Landing:** vy clamped to 162.5 px/s on contact; walking off an edge falls; vertical footholds are walls. A fall
+  whose sub-step crosses a floor inside its span but ends past the floor's end (into the corner where a wall rises
+  from that end) lands on the floor, EPS (0.01 px) inside it (#260, tier C).
+- **Fell out:** below the MapBounds bottom the player stands on the floor point nearest to (x, bottom), EPS inside
+  the floor's span so a wall rising from that end still blocks (tier C).
 - **Ladders/ropes:** Up/Down within 10 px of a ladder's x grabs it; climb speed 100 px/s (tier C); Jump + direction
   leaves it; `uf=1` lets you climb off the top.
 - **Same-map portals:** hold Up with the feet inside x ±25, y −100…+25 around the canonical portal point. The player
@@ -545,6 +549,25 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Spec #253 (#260): Kerning floor/wall corner leak and boss-arrival bound (2026-10-23)
+
+Integration base `d50443a`, isolates `t260*`, cache `caches/s253`, no PATCH or tuning. **Root cause:** the air
+sub-step only tested landing on the floor under its end x. Held against the x 3185 wall of Line 1 <Area 1>
+(103000101) and steering into it, a fall crosses the y 323 floor line inside the floor while the sub-step ends 0.004 px
+past the end x; the 1 px wall probe at the crossing x is already below the wall's foot, so neither caught it (10 of 40
+sub-pixel start heights in `test_player_motion`). Recovery then stood the player exactly on the end point, which a
+wall line does not block, so it walked off again. Fixes in section 3 and section 11 (corner landing, recovery inset,
+`arrival_fallback` 15 s). **Not windowed-only:** both paths run the same fixed 1/60 s ticks with an 800 x 600 view
+(measured in the window), and at `d50443a` the headless `balance_run` Lv38 fixture Kerning seed 1 shows the same stall:
+TIMEOUT at 1800 s on map 2, Shade `not_spawned`, Lv85. After the fix it is **CLEARED at 922.1 s, Lv59** (map entries
+0 / 307.0 / 613.2 s, bosses dead at 303.0 / 607.0 / 913.2 s; Shade arrives on schedule, no fallback needed). Seed-1 bot
+records of Henesys, Ellinia, Perion, Kerning and the Sleepywood Lv38 F/P fixture are **identical field for field** to
+`d50443a`. A boss record gains `postponed_since` / `relocate_since` / `fallback` only once a postponement or failed
+relocation happens. The windowed playtest (`playtest.sh --stage=kerning --seed=1 --character=<lv35_magician_2nd.json>`,
+x4) clears all three maps in 923.5 s at Lv59, `missing: []`. Screenshots, checked by eye: the character standing
+against the x 3185 wall at 8:00, Shade's arrival at 10:07, map 2 CLEAR at 10:13 and the final CLEAR at 15:23
+(`evidence/spec253/t260/kerning_fixture_s1_x4/`). The complete suite on `caches/s253` passes **2,198 tests, 0 failed, 0 skipped** (212 files).
 
 #### Spec #253 (#257): Perion and Kerning City QA smoke (2026-10-23)
 
@@ -3448,7 +3471,10 @@ Sleepywood. Only the current map's boss is armed. If map 2 starts at round time 
 at 720 s. Encounters retain canonical movement, contact attack, art and enabled skill kits; mushrooms retain the slam.
 Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
 250 px away. A narrow floor may require a closer point. If no arrival point exists at all on the arrival tick, the
-arrival slips by 3 s behind a fresh warning (tier C). A boss whose mob img is missing from the asset cache is skipped
+arrival slips by 3 s behind a fresh warning (tier C). Slipping is bounded (#260): once arrivals have failed for
+`balance.bosses.arrival_fallback` = 15 s (five slips), the floor point nearest the player stands in for the player
+(its platform, the same 250/150 px rule, else that point itself), still 3 s after the last warning; a stalled-pursuit
+fade relocation that finds no point uses the same bound (tier C). A boss whose mob img is missing from the asset cache is skipped
 with a run warning at its arrival time and never blocks the clear. Scheduled bosses never flinch or receive push,
 whatever their WZ `info/boss` flag (tier C survivor rule; the tier A flag and the `no_flinch` override still apply to
 their kinds), and ordinary relocation never removes them. Bosses the player runs away from remain until killed.
@@ -6485,6 +6511,9 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Perion and Kerning City mob metadata (#253, #254) | Mesos: v83 server `drop_data` itemid 0 ranges; EXP pickup: the most likely Etc drop (Dark Axe Stump uses Axe 4000215 of the two equal ones; Shade Someone's Hat 4000413). Iron Hook has no server drops: level-fallback mesos and the Wild Boar Tooth icon. Boss bars borrow MobGage icons for Iron Hook (Zeno 6220001) and Shade (Riche 6090000) with hpTag 1/5; both are enabled boss kits (`mob_skills.enabled_ids`) | B mesos/items, C icons/associations | Cosmic drop data (facts only); owner #253 |
 | Mobs without v83 sounds (#253) | A mob with no `Sound.wz/Mob.img/<id>` entry (Iron Hook 4090000) plays no hit, death or skill sound and records nothing missing, as in the client | A (absence) | v83 Sound.wz |
 | Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks unchanged; the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
+| Floor/wall corner landing (#260) | An air sub-step whose path crosses a floor line inside the floor's span while its end x lies past the floor's end lands on that floor at the end x pulled EPS = 0.01 px inside (`FootholdMap.find_corner_landing`); player only, mobs/pickups/NavGraph keep `find_landing` | C | ours: the 1 px wall probe at the crossing x was already below a wall rising from the floor end, so neither landing nor wall caught it (Kerning 103000101, x 3185) |
+| Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
+| Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 
 ## 12. Later phases
 
