@@ -9,7 +9,9 @@ extends RefCounted
 ## nearest EXP drop that no mob stands in front of (a mob nearer than BLOCK_DIST; down-jumping to one just below).
 ## When the only drops left are on platforms above (at least CLIMB_MIN_DROPS), it walks to the nearest ladder or rope
 ## that starts on its platform and climbs it (jumping for a rope that hangs above the floor). With no drop at all it
-## heads back toward the middle of the map. When it has not moved for a while it turns around and jumps.
+## heads back toward the middle of the map. When it has not moved for a while it jumps: on over a wall low enough to
+## clear, otherwise turning around; a wall it could not clear is remembered for a while (goals beyond it are skipped and
+## it bounds the kiting room like the map edge, #259).
 ## Same-map portals are approached when they shorten the trip to drops or leave nearby danger for a safer floor.
 ## The bot reads the jump graph to reach an entrance ledge and holds Up through the portal chain; mob nav is unchanged.
 ##
@@ -36,6 +38,21 @@ const TELEPORT_MIN_INTERVAL := 5.0
 ## an escape through a two-way pair (Perion's hide00/tohide00) is not undone by the drop route on the next portal
 ## cooldown, straight back into the crowd it fled.
 const REVERSE_PORTAL_HOLD := 5.0
+## Walls (#259). tier C: ticks without moving toward its goal before the bot treats itself as stuck (the old flip rule).
+const STUCK_TICKS := 15
+## tier C: a wall the bot is stuck at counts as a step it can jump when no wall stands this share of the jump's apex
+## (Physics.img jumpSpeed^2 / 2 gravityAcc, ~77 px) above its feet. 0.85 (~65 px): the jump rises flush against the
+## wall before it moves on, so only a small margin is needed, and the synthetic map's 60 px pit walls count as steps.
+const STEP_CLEAR_FRACTION := 0.85
+## tier C: how far ahead (px) the stuck bot looks for the wall that stops it (it stands 0.01 px from it).
+const WALL_PROBE_AHEAD := 4.0
+## tier C: after the bot is stuck at a wall too tall to jump, goals beyond it (drops, ladders, the map centre) are ignored
+## for this long (s, renewed at every new stall there) while the bot is on the near side and within WALL_BAND px of the
+## height it stood at, so it stops walking back into the wall (Kerning City Construction Site's x 350 pocket).
+const WALL_HOLD := 30.0
+const WALL_BAND := 140.0
+## tier C: with nothing else to do and the map centre beyond such a wall, the bot walks away from it until this far (px).
+const WALL_CLEAR := 300.0
 ## Engage mode (balance.json bot.engage overrides these). tier C: a build whose longest attack reaches less than this (px)
 ## walks up to mobs instead of kiting; 220 sits below every Magician attack (Magic Claw 260 is the shortest) and above
 ## the one-handed swings (~90-130).
@@ -82,7 +99,7 @@ const SCORE_GAIN_STEP := 6.0
 static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	if int(memo.get("map_index", 0)) != w.map_index:
 		for key: String in ["portal_x", "climb_x", "climb_t", "flip", "flip_t", "stuck", "last_x", "down_cd", "closed_link",
-				"closed_until"]:
+				"closed_until", "wall_x", "wall_y", "wall_side", "wall_until"]:
 			memo.erase(key)
 	memo["map_index"] = w.map_index
 	var mi := MoveInput.new()
@@ -149,6 +166,11 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			close += 1
 			duel = i if absf(dy) <= DUEL_DY else -2
 	var room := [p.x - w.bounds.position.x, w.bounds.end.x - p.x]
+	# tier C (#259): a wall the bot got stuck at bounds its room like the map edge, so it does not flee into that dead end.
+	var held := _held_wall(w, memo)
+	if held != 0:
+		var k := 0 if held < 0 else 1
+		room[k] = minf(room[k], absf(p.x - float(memo.wall_x)))
 	danger[0] += EDGE_DANGER / (room[0] + 10.0)
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
 	var teleport := w.teleport_skill()
@@ -211,7 +233,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		var above := 0
 		var pk := w.pickups
 		for i in pk.capacity():
-			if pk.active[i] == 0 or not _can_take(w, i):
+			if pk.active[i] == 0 or not _can_take(w, i) or _beyond_wall(w, memo, pk.x[i]):
 				continue
 			var ddx := pk.x[i] - p.x
 			var ddy := pk.y[i] - p.y
@@ -230,7 +252,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			best = d
 			dir = 0 if absf(ddx) < 4.0 else (1 if ddx > 0.0 else -1)
 			down = ddy > 40.0 and absf(ddx) < 60.0
-		var lad := climb_ladder(w) if best == INF and above >= CLIMB_MIN_DROPS else -1
+		var lad := climb_ladder(w, memo) if best == INF and above >= CLIMB_MIN_DROPS else -1
 		if lad >= 0:
 			var lx := w.ladders.x[lad]
 			if absf(lx - p.x) > 3.0:
@@ -245,7 +267,10 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 					memo["climb_t"] = 0
 		elif best == INF:
 			var cx := w.bounds.get_center().x
-			if absf(cx - p.x) > 200.0:
+			if _beyond_wall(w, memo, cx):
+				if absf(p.x - float(memo.wall_x)) < WALL_CLEAR:
+					dir = -int(memo.wall_side)
+			elif absf(cx - p.x) > 200.0:
 				dir = 1 if cx > p.x else -1
 	var flip: int = memo.get("flip", 1)
 	if int(memo.get("flip_t", 0)) > 0:
@@ -254,11 +279,20 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		down = false
 	if dir != 0 and absf(p.x - float(memo.get("last_x", p.x))) < 0.2 and w.player.fh >= 0:
 		memo["stuck"] = int(memo.get("stuck", 0)) + 1
-		if int(memo.stuck) > 15:
-			memo["flip"] = -dir
-			memo["flip_t"] = 45
+		if int(memo.stuck) > STUCK_TICKS:
 			memo["stuck"] = 0
 			mi.jump_pressed = true
+			# tier C (#259): a low wall (a step) is jumped going on; a taller one turns the bot back and is remembered.
+			var wall := _wall_ahead(w, dir)
+			var step := wall >= 0 and _step_jumpable(w, dir)
+			if not step:
+				memo["flip"] = -dir
+				memo["flip_t"] = 45
+			if wall >= 0 and not step:
+				memo["wall_x"] = w.fhm.x1[wall]
+				memo["wall_y"] = p.y
+				memo["wall_side"] = dir
+				memo["wall_until"] = w.time + WALL_HOLD
 	else:
 		memo["stuck"] = 0
 	memo["last_x"] = p.x
@@ -465,9 +499,43 @@ static func _drop_distance(from: Vector2, to: Vector2) -> float:
 	return absf(to.x - from.x) + absf(to.y - from.y) * 2.0
 
 
+## The wall within WALL_PROBE_AHEAD px of the feet in direction `dir` (FootholdMap.wall_hit), or -1.
+static func _wall_ahead(w: RunWorld, dir: int) -> int:
+	var p := w.player.pos
+	return w.fhm.wall_hit(p.x, p.y, p.x + dir * WALL_PROBE_AHEAD, p.y)
+
+
+## True when no wall stands in direction `dir` at STEP_CLEAR_FRACTION of the jump's apex above the feet, so a jump
+## going on clears the wall that stops the bot.
+static func _step_jumpable(w: RunWorld, dir: int) -> bool:
+	var apex := w.physics.jump_speed * w.physics.jump_speed / (2.0 * w.physics.gravity_acc)
+	var p := w.player.pos
+	var y := p.y - apex * STEP_CLEAR_FRACTION
+	return w.fhm.wall_hit(p.x, y, p.x + dir * WALL_PROBE_AHEAD, y) < 0
+
+
+## True while a wall the bot got stuck at (#259) still stands between it and x: the hold is running, the bot is on the
+## wall's near side and within WALL_BAND px of the height it stood at, and x lies past the wall.
+static func _beyond_wall(w: RunWorld, memo: Dictionary, x: float) -> bool:
+	var side := _held_wall(w, memo)
+	return side != 0 and (x - float(memo.wall_x)) * side > 0.0
+
+
+## The side (-1 left, 1 right) of a wall the bot got stuck at (#259) while it still bars the way: the hold is running,
+## the bot is on the wall's near side and within WALL_BAND px of the height it stood at; 0 otherwise.
+static func _held_wall(w: RunWorld, memo: Dictionary) -> int:
+	if w.time >= float(memo.get("wall_until", -INF)):
+		return 0
+	var side := int(memo.wall_side)
+	var p := w.player.pos
+	if (p.x - float(memo.wall_x)) * side < 0.0 and absf(p.y - float(memo.wall_y)) <= WALL_BAND:
+		return side
+	return 0
+
+
 ## The nearest ladder or rope that starts on the bot's platform (its bottom at most LADDER_JUMP_REACH above the floor
-## under it) and leads up; -1 when none.
-static func climb_ladder(w: RunWorld) -> int:
+## under it) and leads up, and not beyond a wall the bot got stuck at (`memo`, #259); -1 when none.
+static func climb_ladder(w: RunWorld, memo: Dictionary = {}) -> int:
 	var l := w.ladders
 	if l == null:
 		return -1
@@ -476,7 +544,7 @@ static func climb_ladder(w: RunWorld) -> int:
 	var best := -1
 	var best_d := INF
 	for i in l.x.size():
-		if l.y1[i] > p.y - 40.0:
+		if l.y1[i] > p.y - 40.0 or _beyond_wall(w, memo, l.x[i]):
 			continue
 		var f := w.fhm.find_below(l.x[i], l.y2[i] - 2.0)
 		if f < 0 or w.fhm.platform_of(f) != plat:
