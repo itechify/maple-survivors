@@ -550,6 +550,25 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #253 (#260): Kerning floor/wall corner leak and boss-arrival bound (2026-10-23)
+
+Integration base `d50443a`, isolates `t260*`, cache `caches/s253`, no PATCH or tuning. **Root cause:** the air
+sub-step only tested landing on the floor under its end x. Held against the x 3185 wall of Line 1 <Area 1>
+(103000101) and steering into it, a fall crosses the y 323 floor line inside the floor while the sub-step ends 0.004 px
+past the end x; the 1 px wall probe at the crossing x is already below the wall's foot, so neither caught it (10 of 40
+sub-pixel start heights in `test_player_motion`). Recovery then stood the player exactly on the end point, which a
+wall line does not block, so it walked off again. Fixes in section 3 and section 11 (corner landing, recovery inset,
+`arrival_fallback` 15 s). **Not windowed-only:** both paths run the same fixed 1/60 s ticks with an 800 x 600 view
+(measured in the window), and at `d50443a` the headless `balance_run` Lv38 fixture Kerning seed 1 shows the same stall:
+TIMEOUT at 1800 s on map 2, Shade `not_spawned`, Lv85. After the fix it is **CLEARED at 922.1 s, Lv59** (map entries
+0 / 307.0 / 613.2 s, bosses dead at 303.0 / 607.0 / 913.2 s; Shade arrives on schedule, no fallback needed). Seed-1 bot
+records of Henesys, Ellinia, Perion, Kerning and the Sleepywood Lv38 F/P fixture are **identical field for field** to
+`d50443a`. A boss record gains `postponed_since` / `relocate_since` / `fallback` only once a postponement or failed
+relocation happens. The windowed playtest (`playtest.sh --stage=kerning --seed=1 --character=<lv35_magician_2nd.json>`,
+x4) clears all three maps in 923.5 s at Lv59, `missing: []`. Screenshots, checked by eye: the character standing
+against the x 3185 wall at 8:00, Shade's arrival at 10:07, map 2 CLEAR at 10:13 and the final CLEAR at 15:23
+(`evidence/spec253/t260/kerning_fixture_s1_x4/`).
+
 #### Spec #253 (#257): Perion and Kerning City QA smoke (2026-10-23)
 
 Integration base `ded803a` (T1-T3 merged) plus this ticket's bot fix, Git Bash, isolates `t257*`, cache

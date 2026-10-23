@@ -10,8 +10,9 @@ const DEFAULT_RULES := {"warning_time": 3.0, "spawn_distance": 250.0,
 var entries: Array = []
 ## Schedule-order records: boss_index, mob_id, slot, warned, arrival (planned arrival time: the schedule time, pushed
 ## back when no arrival point exists), spawn_time, death_time, dead, skipped (no mob img: never arrives, counts as done),
-## postponed_since / relocate_since (when arrivals / the faded pursuit relocation started failing for want of a point,
-## -1 = not failing) and fallback (arrived through the arrival_fallback rule).
+## and, only once they apply (so records of runs that never need them keep their shape), postponed_since /
+## relocate_since (when arrivals / the faded pursuit relocation started failing for want of a point; -1 = no longer)
+## and fallback (true: arrived through the arrival_fallback rule).
 var records: Array = []
 var rules: Dictionary = {}
 var _actions: Array[Dictionary] = []
@@ -30,7 +31,7 @@ func _init(p_entries: Array = [], p_rules: Dictionary = {}) -> void:
 	for index in entries.size():
 		records.append({"boss_index": index, "mob_id": int(entries[index].mob_id), "slot": -1,
 			"warned": false, "arrival": float(entries[index].time), "spawn_time": -1.0, "death_time": -1.0,
-			"dead": false, "skipped": false, "postponed_since": -1.0, "relocate_since": -1.0, "fallback": false,
+			"dead": false, "skipped": false,
 			"stall": 0.0, "best_distance": INF, "anchor": Vector2.ZERO, "fading": false, "fade_left": 0.0,
 			"teleports": 0})
 		_actions.append({"action": "", "start": 0.0, "until": 0.0, "facing": -1})
@@ -147,11 +148,10 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 			world.warnings.append("boss %d (%d) has no mob img: skipped so the stage can clear" % [
 				index, int(entry.mob_id)])
 			continue
-		var point := _point(world, float(record.postponed_since))
+		var point := _point(world, float(record.get("postponed_since", -1.0)))
 		if point.z < -1.0:
 			_postpone(index, world)
 			continue
-		record.fallback = _fell_back
 		var slot := world.spawn_mob(int(world.kind_of_id[int(entry.mob_id)]), Vector2(point.x, point.y),
 			int(point.z), float(entry.get("hp_mult", 1.0)), false)
 		if slot < 0:
@@ -167,6 +167,7 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 		var spawned := {"boss_index": index, "mob": slot, "mob_id": int(entry.mob_id),
 			"pos": Vector2(world.swarm.x[slot], world.swarm.y[slot]), "time": world.time}
 		if _fell_back:
+			record.fallback = true
 			spawned.fallback = true
 		world.emit("boss_spawned", spawned)
 
@@ -202,7 +203,7 @@ func _warn(index: int, world: RunWorld) -> void:
 
 ## No arrival point this tick: arrive warning_time from now, after a fresh warning.
 func _postpone(index: int, world: RunWorld) -> void:
-	if float(records[index].postponed_since) < 0.0:
+	if float(records[index].get("postponed_since", -1.0)) < 0.0:
 		records[index].postponed_since = world.time
 	records[index].arrival = world.time + float(rules.warning_time)
 	_warn(index, world)
@@ -219,12 +220,15 @@ func _track_pursuit(index: int, world: RunWorld, dt: float) -> void:
 		s.alpha[slot] = float(record.fade_left) / maxf(dt, float(rules.teleport_fade))
 		if float(record.fade_left) > 1e-6:
 			return
-		var point := _point(world, float(record.relocate_since))
+		var point := _point(world, float(record.get("relocate_since", -1.0)))
 		if point.z < -1:
-			if float(record.relocate_since) < 0.0:
+			if float(record.get("relocate_since", -1.0)) < 0.0:
 				record.relocate_since = world.time
 			return
-		record.relocate_since = -1.0
+		if record.has("relocate_since"):
+			record.relocate_since = -1.0
+		if _fell_back:
+			record.fallback = true
 		slot = world.relocate_mob(slot, Vector2(point.x, point.y), int(point.z))
 		record.fading = false
 		record.stall = 0.0
