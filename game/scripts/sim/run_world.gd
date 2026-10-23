@@ -59,7 +59,8 @@ extends RefCounted
 ## 12 Final Attack proc and follow-up damage/crit rolls; 13 Threaten (spec #165; no prop in v83, so unused),
 ## 14 reserved for Bowman,
 ## 15 Thief-only rolls (thief_rng, Steal success in #214),
-## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194).
+## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194),
+## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256).
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -87,6 +88,8 @@ const EVENT_FIELDS := {
 	# tier C: a presentation-only ammo flight; Final Attack damage still lands immediately on stream 12.
 	"ammo_shot": ["skill", "from", "to", "seconds", "ball", "rotate"],
 	"boss_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "duration", "effect", "player_effect", "targets", "summon_effect", "recipient_effect"],
+	# #256: a boss's Banish (MobSkill 129) moved the character from `from` to `pos` on the same map.
+	"player_banished": ["mob", "mob_id", "skill_id", "level", "from", "pos", "effect", "message"],
 	"buff_cast": ["skill", "skill_id", "level", "duration"],
 	"buff_expired": ["skill", "skill_id"],
 	# #194: a buff cast with a failure chance (Oak Barrel) that failed; nothing started.
@@ -205,6 +208,8 @@ var thief_rng: RandomNumberGenerator
 ## Pirate-only rolls (stream 16, #186): today Oak Barrel's failure chance (#194). A future non-Pirate failure chance
 ## needs its own stream.
 var pirate_rng: RandomNumberGenerator
+## Banish's destination `sp` portal draws only (stream 17, #256), so a Banish never shifts spawning or map arrivals.
+var banish_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
 var choice_bonus := false
@@ -420,6 +425,7 @@ func _init_rng_streams() -> void:
 	final_rng = _stream(12) # tier C: Final Attack procs and follow-up rolls never shift another stream, #161.
 	thief_rng = _stream(15) # tier C: independent Thief-only rolls; reserved for Steal success, #207/#214.
 	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14 reserved, #186.
+	banish_rng = _stream(17) # tier C: Banish portal draws never shift another stream, #256.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
@@ -752,6 +758,23 @@ func convert_hp_to_mp(key: String, st: Dictionary) -> int:
 ## the character and stops its attacks. Oak Barrel (#194) and Thief Dark Sight (#167) use it.
 func is_hidden() -> bool:
 	return buffs.hidden()
+
+
+## MobSkill 129 Banish (#256): moves the character to a random `sp` portal of the current map other than the one nearest
+## it (when there are two or more), dropped onto the floor (PortalSet.start_point on stream 17, the map-arrival placement), brings an out pet beside it like a map arrival
+## (`pet_pos` jump announced by `pet_teleported`) and emits `player_banished` with `cast`'s mob, mob_id, skill_id,
+## level, effect and message. tier C: v83 sends the character to `info/ban`'s town map, outside the round.
+func banish_player(cast: Dictionary) -> void:
+	var from := player.pos
+	player.place(PortalSet.start_point(_current_map_img(), fhm, bounds, banish_rng, true, from), fhm)
+	if pet_system != null:
+		var pet_from := pet_system.motion.pos
+		pet_system.place_beside(player, fhm)
+		emit("pet_teleported", {"from": pet_from, "pos": pet_system.motion.pos})
+	update_view()
+	var fields := cast.duplicate()
+	fields.merge({"from": from, "pos": player.pos}, true)
+	emit("player_banished", fields)
 
 
 ## The Morph.wz id the character is drawn as while a morphing buff is active, 0 for the plain avatar.

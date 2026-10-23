@@ -1,6 +1,6 @@
 class_name MobSkillRunner
 extends RefCounted
-## Canonical scheduled-boss skills (MobSkill 100/110/112/113/114/126/140/200) and their timed status state
+## Canonical scheduled-boss skills (MobSkill 100/110/112/113/114/126/129/140/200) and their timed status state
 ## (docs/ARCHITECTURE.md 4.4.3, docs/GAME_DESIGN.md 4.3): no files, nodes or canonical-stat mutation.
 
 ## Original Skill.wz/MobSkill.img ids of the skills this runner casts.
@@ -10,14 +10,18 @@ const SKILL_PDD_UP_AREA := 112
 const SKILL_MDD_UP_AREA := 113
 const SKILL_HEAL_AREA := 114
 const SKILL_SLOW := 126
+const SKILL_BANISH := 129
 const SKILL_WEAPON_IMMUNITY := 140
 const SKILL_SUMMON := StageRoster.SUMMON_SKILL
 ## Every MobSkill id `step` can cast; a boss's other listed skills are skipped.
 const SUPPORTED := [SKILL_SLOW, SKILL_SUMMON, SKILL_PDD_UP_AREA, SKILL_MDD_UP_AREA, SKILL_HEAL_AREA,
-	SKILL_WEAPON_IMMUNITY, SKILL_ATTACK_UP, SKILL_ATTACK_UP_AREA]
+	SKILL_WEAPON_IMMUNITY, SKILL_ATTACK_UP, SKILL_ATTACK_UP_AREA, SKILL_BANISH]
 ## tier C: Attack Up (100/110) multiplies the weapon attack of the buffed mobs by this while it lasts (spec #253). The
 ## v83 x115 is not read: whether it is flat or a percentage is unverified. balance.mob_skills.attack_up_mult sets it.
 const DEFAULT_ATTACK_UP_MULT := 1.15
+## Banish (129) messages by boss mob id. tier C (#256): Shade's v83 banMsg (Mob.wz/5090000.img/info/ban/banMsg, which
+## sends the character to the Subway Ticketing Booth 103000100) reworded for a round that stays on its own map.
+const BANISH_MESSAGES := {5090000: "As the Pentacle swayed in the shadows, you were thrown elsewhere in the Subway."}
 
 var _images: Dictionary
 var _tables: Dictionary
@@ -74,13 +78,14 @@ func step(world: RunWorld) -> void:
 			var spec: Dictionary = _tables.get(str(id), {}).get("level", {}).get(str(level), {})
 			if spec.is_empty() or id not in SUPPORTED:
 				continue
-			# Hidden (#194): a skill aimed at the character (Slow) is not cast while it is Hidden.
-			if id == SKILL_SLOW and world.is_hidden():
+			# Hidden (#194): a skill aimed at the character (Slow, Banish) is not cast while it is Hidden.
+			if id in [SKILL_SLOW, SKILL_BANISH] and world.is_hidden():
 				continue
 			var key := "%d/%d/%d" % [index, id, level]
-			# tier C: a skill first becomes ready one canonical interval after the boss arrives (never on the arrival
-			# tick), then one interval after each cast; WZ has the interval, not when the first use may happen.
-			var ready := float(_ready.get(key, float(record.spawn_time) + float(spec.get("interval", 0.0))))
+			var interval := _interval(world, index, id, spec)
+			# tier C: a skill first becomes ready one interval after the boss arrives (never on the arrival tick), then
+			# one interval after each cast; WZ has the interval, not when the first use may happen.
+			var ready := float(_ready.get(key, float(record.spawn_time) + interval))
 			if now < ready - 1e-9 or float(swarm.hp[slot]) * 100.0 > float(swarm.max_hp[slot]) * float(spec.get("hp", 100.0)):
 				# tier C: an omitted hp field permits casting at full health.
 				continue
@@ -88,6 +93,10 @@ func step(world: RunWorld) -> void:
 				continue
 			var pos := swarm.pos(slot)
 			var facing := int(swarm.facing[slot])
+			# tier C (#256): Banish is only cast with the character inside its canonical area (prop 100, so no roll; the
+			# one character is its only target whatever `count` says); a miss never spends its cooldown.
+			if id == SKILL_BANISH and not _area(spec, pos, facing).has_point(world.player.pos):
+				continue
 			var duration := float(spec.get("time", 0.0))
 			var path := "Skill.wz/MobSkill.img/%d/level/%d" % [id, level]
 			var affected := ""
@@ -115,7 +124,11 @@ func step(world: RunWorld) -> void:
 				_weapon_until[slot] = now + duration
 				_weapon_visual[slot] = path + "/mob"
 				targets = [slot]
-			_ready[key] = now + float(spec.get("interval", 0.0))
+			elif id == SKILL_BANISH:
+				world.banish_player({"mob": slot, "mob_id": int(record.mob_id), "skill_id": id, "level": level,
+					"effect": path + "/affected" if spec.has("affected") else "",
+					"message": String(BANISH_MESSAGES.get(int(record.mob_id), ""))})
+			_ready[key] = now + interval
 			var action := "skill%d" % int(entry.get("action", 1))
 			world.bosses.begin_action(index, action, MobKind.stance_time(image.get(action), 0.0), facing, now)
 			world.refresh_player_speed()
@@ -127,6 +140,15 @@ func step(world: RunWorld) -> void:
 			break
 	# Resolve newly queued effectAfter0 heals in the same tick, after the cast event; delayed entries remain queued.
 	_resolve_heals(world)
+
+
+## A skill's interval for boss `index`: its stage entry's `skill_intervals` {"<skill id>": seconds} override (tier C,
+## e.g. Shade's Banish 15 s, #256), else the canonical WZ interval.
+func _interval(world: RunWorld, index: int, id: int, spec: Dictionary) -> float:
+	var overrides: Variant = world.bosses.entries[index].get("skill_intervals", {})
+	if overrides is Dictionary and (overrides as Dictionary).has(str(id)):
+		return float(overrides[str(id)])
+	return float(spec.get("interval", 0.0))
 
 
 func _resolve_heals(world: RunWorld) -> void:

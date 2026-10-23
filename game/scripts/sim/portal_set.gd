@@ -45,8 +45,10 @@ static func from_wz(map_img: Dictionary, map_id: int, options: Dictionary = {}) 
 
 
 ## Where a run starts: a random spawn portal (pn "sp", drawn with `rng`) dropped onto the floor below it; else the
-## middle of the widest platform; else the centre of `bounds`.
-static func start_point(map_img: Dictionary, fhm: FootholdMap, bounds: Rect2, rng: RandomNumberGenerator) -> Vector2:
+## middle of the widest platform; else the centre of `bounds`. With `away_from` set (Banish, #256) and two or more `sp`
+## portals, the portal nearest `from` is left out of the draw (tier C: "thrown elsewhere").
+static func start_point(map_img: Dictionary, fhm: FootholdMap, bounds: Rect2, rng: RandomNumberGenerator,
+		away_from := false, from := Vector2.ZERO) -> Vector2:
 	var pts: Array = []
 	var portals: Variant = map_img.get("portal", {})
 	if portals is Dictionary:
@@ -54,6 +56,12 @@ static func start_point(map_img: Dictionary, fhm: FootholdMap, bounds: Rect2, rn
 			var p: Variant = portals[k]
 			if p is Dictionary and String(p.get("pn", "")) == "sp":
 				pts.append(Vector2(float(p.get("x", 0)), float(p.get("y", 0))))
+	if away_from and pts.size() >= 2:
+		var nearest := 0
+		for i in pts.size():
+			if (pts[i] as Vector2).distance_squared_to(from) < (pts[nearest] as Vector2).distance_squared_to(from):
+				nearest = i
+		pts.remove_at(nearest)
 	while not pts.is_empty():
 		var i := rng.randi_range(0, pts.size() - 1)
 		var p: Vector2 = pts[i]

@@ -1112,6 +1112,8 @@ func handle_events(events: Array) -> void:
 					_event_shot("teleport.png", 0.08) # tier C: capture the canonical 80 ms effect frame.
 			"boss_skill":
 				_on_boss_skill(e)
+			"player_banished":
+				_on_player_banished(e)
 			"mob_projectile_spawned":
 				# tier C: capture the first ball clearly separated from its caster; swarms must not encode a PNG per ball.
 				_first_event_shot("mob_projectile", "mob_projectile.png", 0.55)
@@ -1237,6 +1239,18 @@ func _on_boss_skill(e: Dictionary) -> void:
 		# tier C: affected pos1 is anchored above the player's canonical body box; lifetime follows sim status.
 		_slow_fx = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
 	_mob_sound(int(e.mob_id), String(e.action).replace("skill", "Skill"))
+
+
+## A boss's Banish (#256) moved the character on this map: the camera jumps with it, the boss's message shows as a
+## notice, the v83 `affected` art plays once on the character, and playtests capture the arrival.
+func _on_player_banished(e: Dictionary) -> void:
+	cam.snap_to(e.pos)
+	if hud != null and String(e.message) != "":
+		hud.push_notice("banish", String(e.message))
+	if String(e.effect) != "":
+		# tier C: affected pos0 is anchored at the character's feet (the avatar origin), like heal mob0 pos0.
+		fx.play(String(e.effect), Vector2.ZERO, false, avatar)
+	_first_event_shot("banish", "banish.png", 0.36) # tier C: the first Banish, at its fourth 120 ms affected frame.
 
 
 ## An ordinary mob's attack phase (#76): its Sound.wz attack sound at the windup, the canonical effect/hit art, and
