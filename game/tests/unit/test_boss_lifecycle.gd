@@ -158,6 +158,112 @@ func test_arrival_without_a_point_rewarns_and_keeps_the_three_second_lead() -> v
 	assert_eq(w.state, RunWorld.PLAYING, "no clear while the delayed boss is alive")
 
 
+## Holds the player in the air over the gap between the two floors of _gap_map (no floor below: no player platform).
+func _strand(w: RunWorld) -> void:
+	w.player.pos = Vector2(0, -300)
+	w.player.vel = Vector2.ZERO
+	w.player.fh = -1
+
+
+func _gap_map() -> Dictionary:
+	return RF.map_from_segments([{"x1": -2000, "y1": 0, "x2": -100, "y2": 0},
+		{"x1": 100, "y1": 0, "x2": 2000, "y2": 0}], [Vector2(-600, -10)])
+
+
+func test_arrival_postponed_past_the_fallback_bound_lands_near_the_player() -> void:
+	# #260: a player that never stands over a floor again (a void under the map) postponed the boss forever. After
+	# bosses.arrival_fallback s of postponing, it arrives on the floor nearest to the player, still 3 s after a warning.
+	var setup := _setup([3.5])
+	setup.data.stages.stages.quiet.duration = 1.0
+	setup.map_img = _gap_map()
+	var w := RunWorld.new(setup)
+	w.god = true
+	var bound := float(w.bosses.rules.arrival_fallback)
+	assert_between(bound, 3.0, 60.0, "a bounded fallback is configured (balance.json bosses)")
+	var warnings: Array[float] = []
+	var spawned := {}
+	for tick in int((3.5 + bound + 8.0) * 60.0):
+		if w.time >= 3.3:
+			_strand(w)
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			if e.type == "boss_warning":
+				warnings.append(float(e.time))
+			elif e.type == "boss_spawned":
+				spawned = e
+		if not spawned.is_empty():
+			break
+	assert_false(spawned.is_empty(), "the boss arrives although the player never has a platform")
+	if spawned.is_empty():
+		return
+	assert_true(float(spawned.time) <= 3.5 + bound + 3.0 + DT, "within the bound plus one warning lead (%.2f)" % float(spawned.time))
+	assert_true(float(spawned.time) >= 3.5 + bound - DT, "not before the bound (%.2f)" % float(spawned.time))
+	assert_near(float(spawned.time) - warnings[warnings.size() - 1], 3.0, DT, "the 3 s warning lead still holds")
+	assert_true(bool(spawned.get("fallback", false)), "boss_spawned marks the fallback arrival")
+	var slot := int(spawned.mob)
+	assert_true(w.swarm.fh[slot] >= 0, "standing on a floor")
+	assert_true(absf(w.swarm.x[slot]) >= 100.0, "on one of the floors, not over the gap")
+
+
+func test_arrival_postponed_once_keeps_the_normal_rule() -> void:
+	var setup := _setup([3.5])
+	setup.data.stages.stages.quiet.duration = 1.0
+	setup.map_img = _gap_map()
+	var w := RunWorld.new(setup)
+	w.god = true
+	var spawned := {}
+	for tick in 12 * 60:
+		if w.time >= 3.3 and w.time < 4.0:
+			_strand(w)
+		elif w.time >= 4.0 and w.time < 4.0 + DT:
+			RF.place_player(w, -600.0, -10.0)
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			if e.type == "boss_spawned":
+				spawned = e
+		if not spawned.is_empty():
+			break
+	assert_false(spawned.is_empty(), "arrived")
+	if spawned.is_empty():
+		return
+	assert_near(float(spawned.time), 6.5, DT, "one postponement: 3 s after the fresh warning")
+	assert_false(bool(spawned.get("fallback", false)), "an ordinary postponed arrival is not a fallback")
+	assert_near(Vector2(spawned.pos).distance_to(w.player.pos), 250.0, 1.0,
+		"the usual spawn distance on the player's platform")
+
+
+func test_pursuit_teleport_without_a_point_falls_back_after_the_bound() -> void:
+	# A spawned boss that fades out to follow a player who then has no platform must not stay faded forever.
+	var setup := _setup([0.5])
+	setup.data.stages.stages.quiet.duration = 1.0
+	setup.map_img = _gap_map()
+	var w := RunWorld.new(setup)
+	w.god = true
+	var bound := float(w.bosses.rules.arrival_fallback)
+	var spawned_at := -1.0
+	var teleported := {}
+	for tick in int((4.0 + float(w.bosses.rules.teleport_stall) + bound + 6.0) * 60.0):
+		if spawned_at >= 0.0:
+			_strand(w)
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			if e.type == "boss_spawned":
+				spawned_at = float(e.time)
+			elif e.type == "boss_teleported":
+				teleported = e
+		if not teleported.is_empty():
+			break
+	assert_true(spawned_at >= 0.0, "spawned while the player stood on a floor")
+	assert_false(teleported.is_empty(), "the faded boss reappears although the player has no platform")
+	if teleported.is_empty():
+		return
+	assert_true(float(teleported.time) <= spawned_at + float(w.bosses.rules.teleport_stall) + 1.0 + bound,
+		"within the stall, the fade and the bound (%.2f)" % float(teleported.time))
+	var slot := int(teleported.mob)
+	assert_true(w.swarm.fh[slot] >= 0, "on a floor")
+	assert_true(w.swarm.alpha[slot] > 0.0 or w.swarm.active[slot] != 0, "visible again")
+
+
 func test_boss_without_a_mob_img_is_skipped_with_a_warning_and_never_blocks_the_clear() -> void:
 	var setup := _setup([0.5, 1.5])
 	setup.data.stages.stages.quiet.duration = 1.0

@@ -34,6 +34,17 @@ static func low_step_segments() -> Array:
 	]
 
 
+## A floor ending at a rising wall with a floorless void behind it (the shape of Kerning's 103000101 east end, #260):
+## floor F (0..200, y=0) whose right end meets a wall W rising at x=200 to y=-300, and a high ledge H (400..500,
+## y=-500) that only widens the foothold extent past the wall, so nothing below y=0 catches a body right of x=200.
+static func corner_void_segments() -> Array:
+	return [
+		{"x1": 0.0, "y1": 0.0, "x2": 200.0, "y2": 0.0},
+		{"x1": 200.0, "y1": 0.0, "x2": 200.0, "y2": -300.0},
+		{"x1": 400.0, "y1": -500.0, "x2": 500.0, "y2": -500.0},
+	]
+
+
 ## A cliff: lower floor L (0..200, y=0), a wall rising at x=200 to y=-50, upper floor U (200..500, y=-50).
 ## L's right end is blocked by the wall; U's left end is open (the wall hangs below it).
 static func cliff_segments() -> Array:
