@@ -366,8 +366,8 @@ it only carries the 3:30 pool. Keyframes from 300 s carry no pool. Map 1 uses on
 Maps 2 and 3 use their life lists with no exclusions; v83 lists no timed or hidden entries there: East Rocky
 Mountain V Axe Stump x12 / Dark Axe Stump x21, The Burnt Land I Wild Boar x11 / Fire Boar x20, Line 1 <Area 1>
 Bubbling x64, The Swamp of Despair I Ligator x32 / Jr. Necki x4. The opening mobs hit much harder than Henesys's
-snails (Red Snail PAD 27, Slime 32, Stump 30 against Snail 12): seed 1 with the bot dies at 2:15 in Perion and 0:15 in
-Kerning City at Lv1 (T1 record, untuned; the balance pass #77 owns the fix).
+snails (Red Snail PAD 27, Slime 32, Stump 30 against Snail 12); these starting pools are untuned and the balance
+pass #77 owns them.
 
 Balance records and playtest `summary.json` carry `map_times` (reached-map entry seconds from round start, starting
 with 0) and `ended_map: {index, id}` (zero-based index, original v83 id). `boss_fights` retains `map_index`/`map_id`.

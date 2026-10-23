@@ -1560,8 +1560,14 @@ func _advance_end(delta: float) -> void:
 ## Plays mob `id`'s Sound.wz/Mob.img `name` sound ("Damage", "Die", "Skill1"...). A mob v83 gives no Mob.img entry at
 ## all (Iron Hook 4090000) is silent, as in the client, and records nothing missing (tier A: absent in v83 Sound.wz).
 func _mob_sound(id: int, name: String) -> void:
-	if library.find("Sound.wz/Mob.img/%07d" % id) != null:
+	if not _mob_has_sounds.has(id):
+		_mob_has_sounds[id] = library.find("Sound.wz/Mob.img/%07d" % id) != null
+	if _mob_has_sounds[id]:
 		_sound(SND_MOB % [id, name])
+
+
+## Mob id -> whether v83 Sound.wz/Mob.img has an entry for it (cached per run; hit events are hot).
+var _mob_has_sounds := {}
 
 
 func _sound(path: String, phase: String = "") -> void:
