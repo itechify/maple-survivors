@@ -579,7 +579,7 @@ static func auto_choose(w: RunWorld, first_card := false, forced_job := 0, force
 ## draw to select the job. A named forced path is used when the selected advancement offers it; a forced single-family
 ## branch without a path takes the offered path of its family (no draw); otherwise every multi-family
 ## advancement draws uniformly on the same job stream (8). Zero/one-path jobs and RNG-less callers use the default.
-## An unselected second job (tier 2, `jobs` given) keeps `held_family`, the worn weapon's family (#261): the draw is
+## An unforced second job (tier 2, `jobs` given) keeps `held_family`, the worn weapon's family (#261): the draw is
 ## only among the branches that offer it (none when one does) and its page keeps that family; when no branch offers
 ## it, every available branch is drawn as before.
 static func pick_choice(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
