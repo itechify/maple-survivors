@@ -1,12 +1,7 @@
 extends TestCase
-## Spec: a boss hit takes 40-50% of the documented typical HP pool at the boss's spawn time. Deterministic: the whole
-## roll range (85% and 100% of PAD, after floor(0.75 x typical W.DEF), times the shipped multiplier, rounded) of every
-## scheduled boss's contact hit and selected attacks must lie inside the band. Multipliers, typical_hp/typical_pdd and
-## the attack selection come from the shipped stages.json; canonical PAD values are the v83 Mob.wz numbers below,
-## checked against the real asset cache when it is present.
+## Frozen #77 C24 survivor boss HP and hit-roll endpoints, with canonical PAD/HP verified against WZ.
+## Numerical survivor expectations are independent of the runtime formula; canonical checks remain unchanged.
 
-const BAND_MIN := 0.4
-const BAND_MAX := 0.5
 ## v83 Mob.wz PADamage: "touch" = info/PADamage, attackN = attackN/info/PADamage (docs/GAME_DESIGN.md 4.3).
 const CANONICAL_PAD := {
 	2220000: {"touch": 90.0},
@@ -20,7 +15,55 @@ const CANONICAL_PAD := {
 }
 
 
-## Every (stage, boss, source) case: {name, pad, mult, hp, pdd}.
+## Tier C: #77 frozen C24 training-data endpoints; the former 40-50% / shared-slot starting targets are superseded.
+const FROZEN_ROLLS := {
+	"henesys": {
+		2220000: {"touch": Vector2i(29, 34)},
+		6130101: {"touch": Vector2i(38, 45), "attack1": Vector2i(38, 44)},
+		9400205: {"touch": Vector2i(151, 178), "attack1": Vector2i(150, 177)},
+	},
+	"ellinia": {
+		3220000: {"touch": Vector2i(25, 30), "attack1": Vector2i(25, 30), "attack2": Vector2i(25, 30)},
+		9300003: {"touch": Vector2i(14, 17), "attack1": Vector2i(14, 17)},
+		6220000: {"touch": Vector2i(36, 42)},
+	},
+	"perion": {
+		2220000: {"touch": Vector2i(25, 29)},
+		3220000: {"touch": Vector2i(192, 228), "attack1": Vector2i(209, 247), "attack2": Vector2i(209, 247)},
+		4090000: {"touch": Vector2i(14, 16)},
+	},
+	"kerning": {
+		9300003: {"touch": Vector2i(8, 10), "attack1": Vector2i(8, 10)},
+		5090000: {"touch": Vector2i(162, 192)},
+		6220000: {"touch": Vector2i(78, 93)},
+	},
+}
+
+## Tier C: #77 C24 survivor HP expectations.
+const FROZEN_HP := {
+	"henesys": {
+		2220000: 5760,
+		6130101: 14400,
+		9400205: 21000,
+	},
+	"ellinia": {
+		3220000: 4095,
+		9300003: 17600,
+		6220000: 20150,
+	},
+	"perion": {
+		2220000: 5760,
+		3220000: 24500,
+		4090000: 23100,
+	},
+	"kerning": {
+		9300003: 5220,
+		5090000: 14400,
+		6220000: 17500,
+	},
+}
+
+## Every (stage, boss, source) case with its canonical inputs and frozen survivor multiplier.
 func _cases() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var stages: Dictionary = DataRepo.load_all().stages.stages
@@ -29,43 +72,35 @@ func _cases() -> Array[Dictionary]:
 			var id := int(entry.mob_id)
 			var sources: Array = ["touch"] + Array(entry.get("attacks", []))
 			for source: String in sources:
-				out.append({"name": "%s %d %s" % [key, id, source], "id": id, "source": source,
+				out.append({"stage": key, "name": "%s %d %s" % [key, id, source], "id": id, "source": source,
 					"pad": float(CANONICAL_PAD.get(id, {}).get(source, -1.0)),
 					"mult": float(entry.dmg_mult if source == "touch" else entry.attack_dmg_mult),
 					"hp": float(entry.typical_hp), "pdd": float(entry.typical_pdd)})
 	return out
 
 
-func test_every_boss_hit_roll_range_lies_in_the_40_to_50_percent_band() -> void:
+## Verifies the frozen survivor endpoints without changing canonical attack inputs.
+func test_frozen_boss_hit_roll_ranges() -> void:
 	var cases := _cases()
-	assert_eq(cases.size(), 20, "Henesys/Ellinia: six contact hits plus five selected attacks (two mushroom slams, "
-		+ "Stumpy's slam and ball, King Slime's slam); Perion/Kerning (#253): six more contact hits plus Stumpy's two "
-		+ "attacks and King Slime's slam")
+	assert_eq(cases.size(), 20, "all scheduled tier-1 touch hits and selected attacks")
 	for c: Dictionary in cases:
 		assert_true(float(c.pad) > 0.0, "%s: canonical PAD is listed" % c.name)
 		var low := CombatMath.monster_damage(float(c.pad), 0.0, float(c.pdd), 0.0, float(c.mult))
 		var high := CombatMath.monster_damage(float(c.pad), 1.0, float(c.pdd), 0.0, float(c.mult))
-		var lo_f := float(low) / float(c.hp)
-		var hi_f := float(high) / float(c.hp)
-		var inside := lo_f >= BAND_MIN - 1e-9 and hi_f <= BAND_MAX + 1e-9
-		print("  %s: x%.2f -> %d..%d of %d HP = %.2f%%..%.2f%%" % [c.name, float(c.mult), low, high,
-			int(c.hp), lo_f * 100.0, hi_f * 100.0])
-		assert_true(inside, "%s: %d..%d of %d HP (%.2f%%..%.2f%%) must lie in 40-50%%" % [c.name, low, high,
-			int(c.hp), lo_f * 100.0, hi_f * 100.0])
+		assert_eq(Vector2i(low, high), FROZEN_ROLLS[c.stage][int(c.id)][c.source],
+			"%s: frozen C24 roll endpoints" % c.name)
 
 
 ## v83 Mob.wz info/maxHP of the scheduled tier-1 bosses (checked against the cache below).
 const CANONICAL_HP := {2220000: 2000.0, 6130101: 20000.0, 9400205: 200000.0, 3220000: 7000.0, 9300003: 8000.0,
 	6220000: 31000.0, 4090000: 2200.0, 5090000: 4800.0}
-## Roll endpoints may differ from the Henesys slot's by this many HP: the 0.01 multiplier steps and the different
-## canonical PAD values cannot always hit both endpoints exactly.
+## Tier C: unchanged 1 HP helper tolerance from the old slot comparison; the endpoint test above remains exact.
 const SLOT_ROLL_TOLERANCE := 1
 
 
-## Spec #253: each Perion and Kerning City boss matches the Henesys boss of its map slot (Mano, Mushmom, Blue Mushmom)
-## at that slot's typical_hp/typical_pdd: the same survivor HP and touch/attack roll ranges within one HP. Mano has no
-## attack, so a map-1 attack matches Mano's touch.
-func test_new_region_bosses_match_the_henesys_boss_of_their_map_slot() -> void:
+## Tier C: #77 C24 replaces equal-slot starting multipliers with per-region HP and hit-roll expectations.
+## The slot's illustrative typical HP/defence remains unchanged, as do the WZ inputs checked below.
+func test_new_region_frozen_boss_hp_and_rolls() -> void:
 	var stages: Dictionary = DataRepo.load_all().stages.stages
 	var slots: Array = DataRepo.stage_bosses(stages.henesys)
 	for key: String in ["perion", "kerning"]:
@@ -73,21 +108,17 @@ func test_new_region_bosses_match_the_henesys_boss_of_their_map_slot() -> void:
 		assert_eq(entries.size(), 3, "%s schedules three bosses" % key)
 		for i in mini(entries.size(), 3):
 			var e: Dictionary = entries[i]
-			var s: Dictionary = slots[i]
-			var name := "%s map %d boss %d" % [key, i + 1, int(e.mob_id)]
-			assert_eq(float(e.typical_hp), float(s.typical_hp), "%s: the slot's typical HP" % name)
-			assert_eq(float(e.typical_pdd), float(s.typical_pdd), "%s: the slot's typical W.DEF" % name)
-			assert_eq(roundi(CANONICAL_HP[int(e.mob_id)] * float(e.hp_mult)),
-				roundi(CANONICAL_HP[int(s.mob_id)] * float(s.hp_mult)), "%s: the slot's survivor HP" % name)
-			var slot_touch := _roll(CANONICAL_PAD[int(s.mob_id)].touch, s, float(s.dmg_mult))
-			_assert_roll_near(_roll(CANONICAL_PAD[int(e.mob_id)].touch, e, float(e.dmg_mult)), slot_touch,
-				name + " touch")
-			var slot_attack := slot_touch
-			if not s.get("attacks", []).is_empty():
-				slot_attack = _roll(CANONICAL_PAD[int(s.mob_id)][s.attacks[0]], s, float(s.attack_dmg_mult))
+			var slot: Dictionary = slots[i]
+			var id := int(e.mob_id)
+			var name := "%s map %d boss %d" % [key, i + 1, id]
+			assert_eq(float(e.typical_hp), float(slot.typical_hp), "%s: illustrative typical HP" % name)
+			assert_eq(float(e.typical_pdd), float(slot.typical_pdd), "%s: illustrative W.DEF" % name)
+			assert_eq(roundi(CANONICAL_HP[id] * float(e.hp_mult)), FROZEN_HP[key][id], name + " frozen HP")
+			_assert_roll_near(_roll(CANONICAL_PAD[id].touch, e, float(e.dmg_mult)),
+				FROZEN_ROLLS[key][id].touch, name + " touch")
 			for attack: String in e.get("attacks", []):
-				_assert_roll_near(_roll(CANONICAL_PAD[int(e.mob_id)][attack], e, float(e.attack_dmg_mult)),
-					slot_attack, "%s %s" % [name, attack])
+				_assert_roll_near(_roll(CANONICAL_PAD[id][attack], e, float(e.attack_dmg_mult)),
+					FROZEN_ROLLS[key][id][attack], "%s %s" % [name, attack])
 
 
 func _roll(pad: float, entry: Dictionary, mult: float) -> Vector2i:

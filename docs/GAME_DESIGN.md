@@ -326,6 +326,8 @@ implementations remain sibling work.
 
 ### 4.1 Pacing (`stages.json`)
 
+**Current tuning is #77 C24, frozen for the owner playtest (section 4.2 and section 11). The numerical starting-curve descriptions and tables in this section are historical pre-#77 data; the map, pool and clock rules remain current.**
+
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
 labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
 aliases; living slots, bests, history and run snapshots migrate on load. The tier list is
@@ -564,7 +566,7 @@ at 1059.6 s Lv30, seed 6 at 316.8 s Lv12).
 
 #### Spec #253 / #77 balance pass (2026-10-23)
 
-**Round 3: tier 1 frozen at C21; tier 2 in progress. No candidate applied yet.**
+**Round 3: whole candidate C24 frozen and applied. Every training target passes.**
 The [owner decision in #77](https://github.com/itechify/maple-survivors/issues/77) exempts Pirate from the 25% job
 floor and 2x spread; its class power is tracked in #262. The spread uses Warrior, Magician, Bowman and Thief.
 Every other target, lever permission and stop rule remains in force. Held-out **701..730 remains unrun,
@@ -589,7 +591,7 @@ empty account and unchanged post-#261 bot; at most two batches of twelve process
 field audit: only permitted `stages.json` fields; Henesys 0..240 s rows, every pool, map/boss schedule, canonical
 fact, class, card, potion, economy and bot remain fixed.
 
-**Budget: 22/25 candidate evaluations; 1/3 completed full training matrices.** C08 counts as the lead-directed
+**Budget: 24/25 candidate evaluations; 1/3 completed full training matrices.** C08 counts as the lead-directed
 post-#261 remeasurement. C01..C17 regional samples use 1..12+2026 (n=13); C18 prospectively expands every region
 to **1..24+2026 (n=25)** before freezing and retains all earlier observations. Forced first-job samples remain
 1..6 per region, n=24 per job. Exact region-block reuse is marked `*`; there are no global changes.
@@ -602,7 +604,7 @@ to **1..24+2026 (n=25)** before freezing and retains all earlier observations. F
 | C04 | Lower H/K late rate; H map-2/3 damage ×0.25/0.55, map-3 HP ×2.5 baseline. Ellinia EXP 1.8 and reduced late rates, revised first/two bosses; Kerning revised boss HP/damage | 8 / 6 / 2 / 10 | Levels approach target; P too hard, K too easy |
 | C05 | Perion faster map-2/slower late progression, ordinary HP 0.1, final damage ×0.08 baseline; Ellinia final HP ×2.5 baseline; Kerning later damage increased | 8* / 6 / 12 / 10 | Pirate 5/24 clears; P over-clears |
 | C06 | Perion map-2/3 damage ×0.8/0.14 baseline; Kerning first HP ×1.45 and final damage ×0.5 baseline | 8* / 6* / 4 / 8 | P overshoots; K completed final fights too short |
-| C07 | H first damage ×0.35 baseline; P later damage ×1.1/0.1; K map-2 damage ×0.85, final HP ×2 and damage ×0.35 baseline | 8 / 6* / 9 / 7 | Best regional compromise; class/bot stop below |
+| C07 | H first damage ×0.35 baseline; P later damage ×1.1/0.1; K map-2 damage ×0.85, final HP ×2 and damage ×0.35 baseline | 8 / 6* / 9 / 7 | Best regional compromise; historical class/bot stop |
 | C08 | Required remeasurement on `d87f58e` (#261); `C08.json` is byte-identical to C07, no new lever | 10 / 7 / 9 / 9 | Pirate still 5/24; spread still 3.2×; class-power stop |
 | C09 | H later boss damage increased; P final damage 0.275; K final HP +25%, damage +10% | 9 / 7* / 6 / 9 | H map-2 deaths, P final completion and K clear rate miss |
 | C10 | H final HP 0.1225, damage 0.5/0.75; map-2 damage restored; K later damage 1.0166 / 0.57 | 4 / 7* / 6* / 8 | H too hard; K over-clears |
@@ -617,7 +619,9 @@ to **1..24+2026 (n=25)** before freezing and retains all earlier observations. F
 | C19 | P Stumpy touch/attack 1.9/1.9, final damage 0.19; K final damage 0.5 | 12* / 13* / 12 / 12 | K passes; P final completion 12/19 |
 | C20 | P final HP 10.5 | 12* / 13* / 13 / 12* | P sole miss final completion 13/19 |
 | C21 | P final damage 0.18 | 12* / 13* / 15 / 12* | All tier-1 targets pass; tier 1 frozen |
-| C22 | Sleepywood lower later pressure, bursts/elite durability, boss damage; first boss HP 1.3 | T1 locked C21 | Tier-2-only evaluation in progress |
+| C22 | Sleepywood lower later pressure, bursts/elite durability, boss damage; first boss HP 1.3 | T1 locked C21; T2 6/20 | Clear 30%, Lv68; map-2 deaths/completion, map-3 reach and Balrog duration miss |
+| C23 | Sleepywood map-2 ordinary HP 0.18, Snack Bar damage 0.18/0.18, Balrog HP 6 / damage 0.25/0.4; EXP 0.9 | T1 locked; T2 12/20 | Clear 60%, map-2 death concentration, Snack Bar median 124.3 s miss |
+| C24 | Snack Bar HP 0.8; map-3 ordinary HP 0.2; Balrog damage 0.32/0.5 | T1 locked; T2 5/20 | Every training target passes; whole candidate frozen and applied |
 
 C07's empty seed-7 launch and identical retry remain in the ledger. Round 3's C12/C13 external wrapper was edited
 while running, causing aggregation errors. Raw BALANCE logs were preserved, exact coverage validated and reports
@@ -646,18 +650,87 @@ Boss cells show completed-only seconds (completed/spawned; all-spawned censored 
 The non-exempt floor is 9/24 (37.5%); spread 15/9 = 1.67x. All 100 regional and 120 forced observations validate:
 empty warnings/missing; every clear has three dead bosses. Sources and exact metrics: `C21/tier1_freeze.json`.
 
+By forced first job and tier-1 origin (n=6 per cell; the job floor/spread apply to the pooled column above):
+
+| First job | Henesys | Ellinia | Perion | Kerning |
+|---|---|---|---|---|
+| Warrior 100 | 0/6 | 5/6 | 2/6 | 2/6 |
+| Magician 200 | 5/6 | 1/6 | 3/6 | 4/6 |
+| Bowman 300 | 4/6 | 4/6 | 3/6 | 4/6 |
+| Thief 400 | 2/6 | 4/6 | 3/6 | 2/6 |
+| Pirate 500 ? exempt, #262 | 4/6 | 0/6 | 2/6 | 0/6 |
+
 **Tier-2 baseline on frozen tier 1:** fixed before any tier-2 outcome, the first five natural clears by ascending
 training seed in each region (20 total, `tier2_feeds.tsv`). Every selected character clears naturally through the
 real `--tier=2` chain, normal BotShop and empty account; no fixture, replacement or dropped feed. Every chain's
 first-round metrics match frozen C21 exactly. The unchanged Sleepywood baseline feeds **20/20**, clears **0/20**,
 reaches maps 2/3 **14/0**, deaths **6/14/0**, no timeouts. Zombie Mushmom completes **14/20**, median **32.5 s**,
 censored median **>=29.9 s**; Snack Bar and Jr. Balrog never spawn (0/0, no completed median).
-C22 measures only tier 2 with locked tier 1; a focused tier-2 iteration does not rerun the regional/job matrix.
-Whole-candidate freeze, application/provenance, careless-policy observations and frozen-data full suite remain
-pending. Held-out assessment is **pending the owner's playtest**, with 701..730 never run.
 
-Earlier full suites verified unchanged integration data: round 1 2,204/0/0 tests/failed/skipped; round 2
-2,210/0/0, 214 files, exit 0. No tuned-number test has changed yet. Applied levers: none so far.
+**C24 frozen tier-2 training:** identical 20 natural feeds, fixed before baseline measurement, no replacements.
+All targets pass: clear 25%, map-2/3 reach 100%/60%, deaths 0/8/7 (largest share 53.3%), median clear Lv66.
+Completed-fight rates are 100%, 92.3% and 71.4%. Deaths while each scheduled boss lives are 0/1/2, so Jr. Balrog
+is the deadliest fight. Boss intervals, pools, map structure and player/class rules remain unchanged.
+
+| Cohort | Clear | Map 2 / 3 reach | Deaths maps 1 / 2 / 3; timeouts | Median clear level | Boss medians seconds (completed/spawned; all-spawned) |
+|---|---|---|---|---|---|
+| Sleepywood baseline C21 | 0/20 (0.0%) | 14 / 0 | 6 / 14 / 0; 0 | none | 32.5 (14/20; all >=29.9) / none (0/0) / none (0/0) |
+| Sleepywood frozen C24 | 5/20 (25.0%) | 20 / 12 | 0 / 8 / 7; 0 | 66 | 58.3 (20/20; all 58.3) / 90.1 (12/13; all 92.9) / 90.5 (5/7; all >=90.5) |
+
+By natural tier-1 origin (n=5 each; recorded, targets apply to the pooled cohort):
+
+| Cohort | Clear | Map 2 / 3 reach | Deaths maps 1 / 2 / 3; timeouts | Median clear level | Boss medians seconds (completed/spawned; all-spawned) |
+|---|---|---|---|---|---|
+| ellinia | 2/5 (40.0%) | 5 / 3 | 0 / 2 / 1; 0 | 66.0 | 42.2 (5/5; all 42.2) / 70.9 (3/3; all 70.9) / 78.5 (2/3; all 86.8) |
+| henesys | 1/5 (20.0%) | 5 / 2 | 0 / 3 / 1; 0 | 69 | 67.6 (5/5; all 67.6) / 95.2 (2/3; all 95.2) / 126.5 (1/1; all 126.5) |
+| kerning | 1/5 (20.0%) | 5 / 3 | 0 / 2 / 2; 0 | 68 | 61.6 (5/5; all 61.6) / 103.3 (3/3; all 103.3) / 163.8 (1/1; all 163.8) |
+| perion | 1/5 (20.0%) | 5 / 4 | 0 / 1 / 3; 0 | 66 | 52.6 (5/5; all 52.6) / 74.5 (4/4; all 74.5) / 90.5 (1/2; all >=54.8) |
+
+Tier-2 first-job breakdown is recorded only; this fixed cohort has no Warrior or Pirate arrivals.
+
+| Cohort | Clear | Map 2 / 3 reach | Deaths maps 1 / 2 / 3; timeouts | Median clear level | Boss medians seconds (completed/spawned; all-spawned) |
+|---|---|---|---|---|---|
+| Warrior 100 | none (n=0) | none | none | none | none (0/0) on each map |
+| Magician 200 | 2/11 (18.2%) | 11 / 8 | 0 / 3 / 6; 0 | 68.5 | 70.5 (11/11; all 70.5) / 95.2 (8/8; all 95.2) / 145.1 (2/3; all >=126.5) |
+| Bowman 300 | 0/4 (0.0%) | 4 / 1 | 0 / 3 / 1; 0 | none | 47.4 (4/4; all 47.4) / 66.0 (1/2; all >=125.1) / none (0/1) |
+| Thief 400 | 3/5 (60.0%) | 5 / 3 | 0 / 2 / 0; 0 | 66 | 28.1 (5/5; all 28.1) / 52.3 (3/3; all 52.3) / 86.8 (3/3; all 86.8) |
+| Pirate 500 | none (n=0) | none | none | none | none (0/0) on each map |
+
+**Careless policy, recorded only:** applied C24 with no PATCH, empty account, seeds 1/2/2026 on each origin,
+real `--tier=2` chains. All twelve first rounds and four naturally fed second rounds have empty warnings/missing;
+every clear finishes all scheduled bosses and choices. The policy has no acceptance target.
+
+| Cohort | Clear | Map 2 / 3 reach | Deaths maps 1 / 2 / 3; timeouts | Median clear level | Boss medians seconds (completed/spawned; all-spawned) |
+|---|---|---|---|---|---|
+| henesys | 1/3 (33.3%) | 3 / 1 | 0 / 2 / 0; 0 | 40 | 28.4 (3/3; all 28.4) / 64.0 (1/3; all >=62.7) / 92.4 (1/1; all 92.4) |
+| ellinia | 1/3 (33.3%) | 2 / 1 | 1 / 1 / 0; 0 | 36 | 52.7 (2/3; all >=19.9) / 84.0 (1/2; all >=62.0) / 92.4 (1/1; all 92.4) |
+| perion | 1/3 (33.3%) | 2 / 2 | 1 / 0 / 1; 0 | 37 | 30.3 (2/2; all 30.3) / 58.1 (2/2; all 58.1) / 37.2 (1/2; all >=31.1) |
+| kerning | 1/3 (33.3%) | 2 / 2 | 1 / 0 / 1; 0 | 36 | 33.4 (2/3; all >=30.5) / 98.3 (2/2; all 98.3) / 37.9 (1/2; all >=116.7) |
+| sleepywood | 0/4 (0.0%) | 4 / 1 | 0 / 3 / 1; 0 | none | 58.1 (4/4; all 58.1) / 42.8 (1/1; all 42.8) / none (0/0) |
+
+**Applied levers:** 195 numeric values in `stages.json`, each covered by one of 69 adjacent `_balance77` tier C
+comments naming frozen C24 and its introducing candidate. The complete old -> new values are in section 11 below
+and external `C24_LEVERS.md` / `C24_LEVER_VALUES.json`. A structural audit proves every non-comment value equals
+baseline plus the exact frozen PATCH, with no other semantic change. Tier 1 remains byte-identical to frozen C21.
+
+**Numerical test oracles updated:** `test_boss_hit_bands.gd` replaces the superseded 40-50%/shared-slot starting
+bands with frozen HP and endpoint expectations; canonical WZ checks remain. `test_stage_schema.gd` pins regional
+numeric curves and Perion Stumpy's 7 s cadence, retaining pool/order/timing invariants. `test_full_run.gd` retains
+its legacy one-map oracle and updates only the intended low-density bounds: engagement 0.3 -> 0.1; late/early
+mean-alive ratio >1 -> >0.25; late peak >=200 -> >=5; late ordinary nonmiss hits >=5 -> 0..5. These are legacy
+regression bounds, not the three-map population acceptance above. Progression, events, canonical/cache validation,
+no-lost-mob and clear/death consistency checks stay active. The first focused run was 17 tests, 2 failing test
+functions on those obsolete pressure bounds; no game data was changed to satisfy a test.
+
+**Frozen-data full suite: pending.** Earlier unchanged-data suites were 2,204/0/0 in round 1 and 2,210/0/0 in
+round 2 (214 files, exit 0). Exact frozen-data results will replace this pending line before handoff.
+
+No training target is missed. The held-out assessment is **pending the owner's playtest and approval**;
+**701..730 has never been run**. Candidate 25 and two full-matrix slots remain unused. C22..C24 were focused
+tier-2-only iterations using locked tier-1 evidence, not whole regional/job matrix reruns. Raw records and official
+console summaries (including censored fights) stay outside git. Suggested owner playtest: Henesys as Warrior,
+Perion as Magician or Thief, Kerning as Bowman, then a natural Sleepywood chain; include Warrior in tier 2 because
+this fixed 20-feed sample has no Warrior observation. Pirate class power remains a separate #262 review.
 
 #### Spec #253 (#260): Kerning floor/wall corner leak and boss-arrival bound (2026-10-23)
 
@@ -3588,40 +3661,33 @@ with a run warning at its arrival time and never blocks the clear. Scheduled bos
 whatever their WZ `info/boss` flag (tier C survivor rule; the tier A flag and the `no_flinch` override still apply to
 their kinds), and ordinary relocation never removes them. Bosses the player runs away from remain until killed.
 
-Survivor settings (tier C; canonical stats and attack timings/boxes remain unchanged):
+Survivor settings (tier C, frozen #77 C24; canonical stats, clip timing and boxes stay in WZ):
 
-| Boss | Canonical HP | Survivor HP | HP multiplier | Touch multiplier | Attack multiplier |
+| Region: boss | Canonical HP | Survivor HP | HP multiplier | Touch multiplier | Attack multiplier |
 |---|---|---|---|---|---|
-| Mano | 2,000 | 3,600 | 1.8 | 1.15 | — |
-| Mushmom | 20,000 | 4,800 | 0.24 | 0.85 | 0.55 |
-| Blue Mushmom | 200,000 | 7,000 | 0.035 | 0.48 | 0.72 |
-| Stumpy | 7,000 | 3,150 | 0.45 | 0.83 | 0.77 |
-| King Slime | 8,000 | 8,800 | 1.1 | 1.36 | 1.06 |
-| Dyle | 31,000 | 8,060 | 0.26 | 1.14 | — |
-| Perion: Mano | 2,000 | 3,600 | 1.8 | 1.15 | — |
-| Perion: Stumpy | 7,000 | 4,800 | 0.6857 | 1.38 | 1.25 |
-| Perion: Iron Hook | 2,200 | 7,000 | 3.1818 | 2.38 | — |
-| Kerning City: King Slime | 8,000 | 3,600 | 0.45 | 0.78 | 0.61 |
-| Kerning City: Shade | 4,800 | 4,800 | 1.0 | 1.04 | — |
-| Kerning City: Dyle | 31,000 | 7,000 | 0.2258 | 1.15 | — |
+| henesys: Mano | 2,000 | 5,760 | 2.88 | 0.4025 | — |
+| henesys: Mushmom | 20,000 | 14,400 | 0.72 | 0.23 | 0.15 |
+| henesys: Blue Mushmom | 200,000 | 21,000 | 0.105 | 0.4 | 0.6 |
+| ellinia: Stumpy | 7,000 | 4,095 | 0.585 | 0.249 | 0.231 |
+| ellinia: King Slime | 8,000 | 17,600 | 2.2 | 0.136 | 0.106 |
+| ellinia: Dyle | 31,000 | 20,150 | 0.65 | 0.228 | — |
+| perion: Mano | 2,000 | 5,760 | 2.88 | 0.345 | — |
+| perion: Stumpy | 7,000 | 24,500 | 3.5 | 1.9 | 1.9 |
+| perion: Iron Hook | 2,200 | 23,100 | 10.5 | 0.18 | — |
+| kerning: King Slime | 8,000 | 5,220 | 0.6525 | 0.078 | 0.061 |
+| kerning: Shade | 4,800 | 14,400 | 3.0 | 1.2 | — |
+| kerning: Dyle | 31,000 | 17,500 | 0.5645 | 0.5 | — |
+| sleepywood: Zombie Mushmom | 35,000 | 45,500 | 1.3 | 0.25 | 0.25 |
+| sleepywood: Snack Bar | 110,000 | 88,000 | 0.8 | 0.18 | 0.18 |
+| sleepywood: Jr. Balrog | 50,000 | 300,000 | 6.0 | 0.32 | 0.5 |
 
-The Perion and Kerning City entries (spec #253, starting values, untuned) are separate entries, so the Henesys and
-Ellinia fights are unchanged. Each matches the Henesys boss of its map slot (Mano, Mushmom, Blue Mushmom) at that
-slot's `typical_hp`/`typical_pdd`: the same survivor HP and, at 0.01 multiplier steps, touch and attack roll ranges
-within 1 HP of the slot's (King Slime's slam matches Mano's touch, since Mano has no attack). Iron Hook and Shade
-fight by touch only. Canonical boss defence, level and undead flags are not normalized (Iron Hook PDD 400 and Shade
-undead against Blue Mushmom's 810 and Mushmom's 320). Shade's entry carries `skill_intervals: {"129": 15}`: one
-Banish per 15 s instead of the canonical 3 s.
-
-Calibration uses measured training builds rather than the former assumed HP300/550/800 and full Armor defense.
-`stage.maps[].boss` stores the multipliers; `typical_hp/pdd` are illustrative inputs only, never adaptive runtime scaling.
-The target is typical whole-hit source medians of 40–50%, with individual-hit/build variation reported separately.
-At the documented `typical_hp`/`typical_pdd` the whole roll range of every contact hit and selected attack (85% and
-100% of PAD after defense, rounded) lies in 40–50% (`test_boss_hit_bands`). The 2026-10-14 review pass moved six
-multipliers by the smallest 0.01 step that does this (Blue Mushmom slam 0.70→0.72, Stumpy touch 0.8→0.83 and
-attacks 0.74→0.77, King Slime touch 1.4→1.36 and slam 1.1→1.06, Dyle touch 1.15→1.14; medians moved at most 1.8
-points); the measured results in 4.2 predate this change.
-Completed fights target 30/60/90 seconds, each ±50%; unfinished encounters are not zero-duration observations.
+Spec #253's equal-slot starting multipliers are superseded by C24's per-region values. Canonical boss defence,
+level and undead flags are unchanged. Iron Hook and Shade fight by touch only. Shade retains
+`skill_intervals: {"129": 15}`; Perion Stumpy uses the allowed 7 s attack cadence, other selected attacks retain 8 s.
+`typical_hp/pdd` remain illustrative inputs, never adaptive scaling. `test_boss_hit_bands` verifies frozen survivor
+endpoints and the unchanged canonical inputs. Current targets are in #77 / section 4.2: tier-1 completed fights
+20–60 / 40–120 / 40–120 s; tier 2 40–120 / 40–120 / 60–180 s, at least 70% of spawned fights completed.
+Unfinished fights are censored observations.
 `balance.bosses` stores warning time, placement and spawn reduction. The mobs a boss summons (MobSkill 200 at the
 levels its `info/skill` lists) and its `info/revive` list are read from the canonical data at load time (`StageRoster`)
 and loaded with the stage; `stages.json` never repeats these v83 lists.
@@ -6627,6 +6693,58 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
+
+The following rows supersede pre-pass starting multipliers/curves above. Every value is tier C, frozen #77 C24.
+Keyframe rows list only changed anchors; times, old vectors and new vectors align left to right. Local JSON comments
+also identify the candidate that first introduced each value. All unspecified values retain the baseline.
+
+| #77 C24 lever | Old -> new values | Tier | Provenance |
+|---|---|---|---|
+| `henesys keyframe rate at t=300,360,480,540,660,720,780,900` | [2.5, 4.5, 8.2666666667, 9.4, 12.1333333333, 13.5, 15.6666666667, 20.0] -> [0.52, 0.592, 0.736, 0.808, 0.5712, 0.6144, 0.6576, 0.744] | C | #77 C24; introduced C03, C04 |
+| `henesys keyframe max_alive at t=300,360,480,540,660,720,780,900` | [50, 85, 143.3333333333, 165, 215, 240, 270, 330] -> [18.0, 21.6, 28.8, 32.4, 39.6, 43.2, 46.8, 54.0] | C | #77 C24; introduced C02 |
+| `henesys keyframe hp at t=300,360,480,540,660,720,780,900` | [1.25, 1.75, 3.84, 3.9, 4.7, 6.375, 7.6875, 8.25] -> [0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6] | C | #77 C24; introduced C02 |
+| `henesys.maps.0.boss` | dmg_mult: 1.15 -> 0.4025; hp_mult: 1.8 -> 2.88 | C | #77 C24; introduced C03, C07 |
+| `henesys.maps.1.boss` | dmg_mult: 0.85 -> 0.23; attack_dmg_mult: 0.55 -> 0.15; hp_mult: 0.24 -> 0.72 | C | #77 C24; introduced C02, C12 |
+| `henesys.maps.2.boss` | dmg_mult: 0.48 -> 0.4; attack_dmg_mult: 0.72 -> 0.6; hp_mult: 0.035 -> 0.105 | C | #77 C24; introduced C02, C12 |
+| `henesys.bursts` | count_min: 10 -> 3; count_max: 40 -> 8 | C | #77 C24; introduced C02 |
+| `henesys.elites` | damage_mult: 1.5 -> 1.0 | C | #77 C24; introduced C01 |
+| `ellinia keyframe rate at t=0,120,240,360,540,720,780,900` | [0.6, 1.7, 3.1, 6.0, 9.4, 13.5, 15.666666666666666, 20.0] -> [0.35, 0.77, 1.4, 0.592, 0.808, 0.3, 0.35, 0.4] | C | #77 C24; introduced C03, C04 |
+| `ellinia keyframe max_alive at t=0,120,240,360,540,720,780,900` | [15, 40, 65, 100, 165, 240, 270, 330] -> [6, 11, 20, 21.6, 32.4, 43.2, 46.8, 54.0] | C | #77 C24; introduced C01, C02 |
+| `ellinia keyframe hp at t=0,120,360,540,720,780,900` | [0.8, 0.8, 1.5, 3.25, 4.25, 5.125, 6.875] -> [1, 1, 0.12, 0.12, 0.12, 0.12, 0.12] | C | #77 C24; introduced C01, C02 |
+| `ellinia keyframe speed at t=360,540,720,780,900` | [1.1, 1.18, 1.28, 1.32, 1.4] -> [0.6, 0.6, 0.6, 0.6, 0.6] | C | #77 C24; introduced C03 |
+| `ellinia.maps.0.boss` | dmg_mult: 0.83 -> 0.249; attack_dmg_mult: 0.77 -> 0.231; hp_mult: 0.45 -> 0.585 | C | #77 C24; introduced C01, C04 |
+| `ellinia.maps.1.boss` | dmg_mult: 1.36 -> 0.136; attack_dmg_mult: 1.06 -> 0.106; hp_mult: 1.1 -> 2.2 | C | #77 C24; introduced C03, C04 |
+| `ellinia.maps.2.boss` | dmg_mult: 1.14 -> 0.228; hp_mult: 0.26 -> 0.65 | C | #77 C24; introduced C03, C05 |
+| `ellinia.bursts` | count_min: 10 -> 3; count_max: 40 -> 8; first: 90 -> 300 | C | #77 C24; introduced C01, C02 |
+| `ellinia.elites` | damage_mult: 1.5 -> 1.0; first: 75 -> 240 | C | #77 C24; introduced C01 |
+| `ellinia` | exp_mult: 0.9 -> 1.8 | C | #77 C24; introduced C04 |
+| `perion keyframe rate at t=300,360,480,540,660,720,780,900` | [2.5, 4.5, 8.2666666667, 9.4, 12.1333333333, 13.5, 15.6666666667, 20.0] -> [0.78, 0.888, 1.104, 1.212, 0.5712, 0.6144, 0.6576, 0.744] | C | #77 C24; introduced C05 |
+| `perion keyframe max_alive at t=300,360,480,540,660,720,780,900` | [50, 85, 143.3333333333, 165, 215, 240, 270, 330] -> [18.0, 21.6, 28.8, 32.4, 39.6, 43.2, 46.8, 54.0] | C | #77 C24; introduced C02 |
+| `perion keyframe hp at t=300,360,480,540,660,720,780,900` | [1.25, 1.75, 3.84, 3.9, 4.7, 6.375, 7.6875, 8.25] -> [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] | C | #77 C24; introduced C05 |
+| `perion.maps.0.boss` | dmg_mult: 1.15 -> 0.345; hp_mult: 1.8 -> 2.88 | C | #77 C24; introduced C01, C03 |
+| `perion.maps.1.boss` | dmg_mult: 1.38 -> 1.9; attack_dmg_mult: 1.25 -> 1.9; hp_mult: 0.6857 -> 3.5; attack_interval: 8 -> 7 | C | #77 C24; introduced C16, C18, C19 |
+| `perion.maps.2.boss` | dmg_mult: 2.38 -> 0.18; hp_mult: 3.1818 -> 10.5 | C | #77 C24; introduced C11, C21 |
+| `perion.bursts` | count_min: 10 -> 3; count_max: 40 -> 8 | C | #77 C24; introduced C02 |
+| `perion.elites` | damage_mult: 1.5 -> 1.0 | C | #77 C24; introduced C01 |
+| `kerning keyframe hp at t=0,120,180,210,240,300,360,480,540,660,720,780,900` | [1, 1, 1, 1, 1, 1.25, 1.75, 3.84, 3.9, 4.7, 6.375, 7.6875, 8.25] -> [0.5, 0.5, 0.5, 0.5, 0.5, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3] | C | #77 C24; introduced C02 |
+| `kerning keyframe rate at t=0,120,180,210,240,300,360,480,540,660,720,780,900` | [0.25, 0.55, 0.75, 0.875, 1.0, 2.5, 4.5, 8.2666666667, 9.4, 12.1333333333, 13.5, 15.6666666667, 20.0] -> [0.1875, 0.4125, 0.5625, 0.6562, 0.75, 0.52, 0.592, 0.736, 0.808, 0.5712, 0.6144, 0.6576, 0.744] | C | #77 C24; introduced C02, C03, C04 |
+| `kerning keyframe max_alive at t=0,120,180,210,240,300,360,480,540,660,720,780,900` | [6, 11, 15, 17.5, 20, 50, 85, 143.3333333333, 165, 215, 240, 270, 330] -> [4.5, 8.25, 11.25, 13.12, 15.0, 18.0, 21.6, 28.8, 32.4, 39.6, 43.2, 46.8, 54.0] | C | #77 C24; introduced C02 |
+| `kerning.maps.0.boss` | dmg_mult: 0.78 -> 0.078; attack_dmg_mult: 0.61 -> 0.061; hp_mult: 0.45 -> 0.6525 | C | #77 C24; introduced C02, C06 |
+| `kerning.maps.1.boss` | dmg_mult: 1.04 -> 1.2; hp_mult: 1.0 -> 3.0 | C | #77 C24; introduced C02, C13 |
+| `kerning.maps.2.boss` | dmg_mult: 1.15 -> 0.5; hp_mult: 0.2258 -> 0.5645 | C | #77 C24; introduced C09, C19 |
+| `kerning.bursts` | count_min: 10 -> 3; count_max: 40 -> 8 | C | #77 C24; introduced C02 |
+| `kerning.elites` | damage_mult: 1.5 -> 1.0 | C | #77 C24; introduced C01 |
+| `sleepywood keyframe rate at t=300,480,600,780,900` | [7.0, 10.0, 12.0, 15.0, 18.0] -> [2.2, 2.6, 1.5, 1.65, 1.8] | C | #77 C24; introduced C22 |
+| `sleepywood keyframe max_alive at t=300,480,600,780,900` | [130, 180, 220, 280, 330] -> [45, 50, 45, 50, 55] | C | #77 C24; introduced C22 |
+| `sleepywood keyframe hp at t=300,480,600,780,900` | [1.15, 1.3, 1.4, 1.5, 1.6] -> [0.18, 0.18, 0.2, 0.2, 0.2] | C | #77 C24; introduced C23, C24 |
+| `sleepywood keyframe speed at t=300,480,600,780,900` | [1.1, 1.15, 1.2, 1.25, 1.3] -> [0.85, 0.85, 0.8, 0.8, 0.8] | C | #77 C24; introduced C22 |
+| `sleepywood.bursts` | count_min: 10 -> 5; count_max: 40 -> 15 | C | #77 C24; introduced C22 |
+| `sleepywood.elites` | hp_mult: 8 -> 4; damage_mult: 1.5 -> 1.0 | C | #77 C24; introduced C22 |
+| `sleepywood.maps.0.boss` | hp_mult: 0.8 -> 1.3; dmg_mult: 0.8 -> 0.25; attack_dmg_mult: 0.8 -> 0.25 | C | #77 C24; introduced C22 |
+| `sleepywood.maps.1.boss` | dmg_mult: 1 -> 0.18; attack_dmg_mult: 1 -> 0.18; hp_mult: 1 -> 0.8 | C | #77 C24; introduced C23, C24 |
+| `sleepywood.maps.2.boss` | dmg_mult: 1.25 -> 0.32; attack_dmg_mult: 1.25 -> 0.5; hp_mult: 3 -> 6.0 | C | #77 C24; introduced C22, C23, C24 |
+| `sleepywood` | exp_mult: 1.0 -> 0.9 | C | #77 C24; introduced C23 |
+| Legacy one-map test pressure bounds | engagement 0.3 -> 0.1; late/opening mean ratio >1 -> >0.25; late peak >=200 -> >=5; ordinary late nonmiss hits >=5 -> 0..5 | C | #77 C24 numerical test oracle; three-map acceptance is section 4.2 |
 
 ## 12. Later phases
 

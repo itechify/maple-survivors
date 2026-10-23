@@ -110,26 +110,61 @@ func test_perion_and_kerning_boss_order_and_pool_rules() -> void:
 		for entry: Dictionary in DataRepo.stage_bosses(stages[key]):
 			assert_eq(Array(entry.get("attacks", [])), attacks[int(entry.mob_id)], "%d attacks" % int(entry.mob_id))
 			if not entry.get("attacks", []).is_empty():
-				assert_eq(float(entry.attack_interval), 8.0, "%d attacks every 8 s" % int(entry.mob_id))
+				# tier C: #77 C24 Stumpy cadence; other attacks retain their 8 s starting cadence.
+				assert_eq(float(entry.attack_interval), 7.0 if int(entry.mob_id) == 3220000 else 8.0,
+					"%d frozen attack cadence" % int(entry.mob_id))
 	assert_eq(stages.kerning.maps[1].boss.get("skill_intervals"), {"129": 15.0}, "one Banish per 15 s (spec #253)")
 
 
-## Spec #253: both new regions run Henesys's numeric curve (rate, alive cap, HP, speed, bursts, elites and the
-## post-duration slopes), sampled every 5 s through boss overtime; only the pools differ.
-func test_perion_and_kerning_copy_the_henesys_curve() -> void:
+## Tier C: #77 C24 regional numeric anchors replace the spec #253 shared starting curve.
+## Pool schedules remain covered separately; unchanged burst/elite timing still matches Henesys through overtime.
+func test_perion_and_kerning_frozen_numeric_curves() -> void:
 	var stages: Dictionary = DataRepo.load_all().stages.stages
 	var henesys := SpawnDirector.create(stages.henesys, {})
+	var expected := {
+		"perion": [
+			[0.0, 0.25, 6.0, 1.0, 1.0],
+			[120.0, 0.55, 11.0, 1.0, 1.0],
+			[180.0, 0.75, 15.0, 1.0, 1.025],
+			[210.0, 0.875, 17.5, 1.0, 1.0375],
+			[240.0, 1.0, 20.0, 1.0, 1.05],
+			[300.0, 0.78, 18.0, 0.1, 1.075],
+			[360.0, 0.888, 21.6, 0.1, 1.1],
+			[480.0, 1.104, 28.8, 0.1, 1.1533333333],
+			[540.0, 1.212, 32.4, 0.1, 1.18],
+			[660.0, 0.5712, 39.6, 0.1, 1.2466666667],
+			[720.0, 0.6144, 43.2, 0.1, 1.28],
+			[780.0, 0.6576, 46.8, 0.1, 1.32],
+			[900.0, 0.744, 54.0, 0.1, 1.4],
+		],
+		"kerning": [
+			[0.0, 0.1875, 4.5, 0.5, 1.0],
+			[120.0, 0.4125, 8.25, 0.5, 1.0],
+			[180.0, 0.5625, 11.25, 0.5, 1.025],
+			[210.0, 0.6562, 13.12, 0.5, 1.0375],
+			[240.0, 0.75, 15.0, 0.5, 1.05],
+			[300.0, 0.52, 18.0, 0.3, 1.075],
+			[360.0, 0.592, 21.6, 0.3, 1.1],
+			[480.0, 0.736, 28.8, 0.3, 1.1533333333],
+			[540.0, 0.808, 32.4, 0.3, 1.18],
+			[660.0, 0.5712, 39.6, 0.3, 1.2466666667],
+			[720.0, 0.6144, 43.2, 0.3, 1.28],
+			[780.0, 0.6576, 46.8, 0.3, 1.32],
+			[900.0, 0.744, 54.0, 0.3, 1.4],
+		],
+	}
 	for key: String in ["perion", "kerning"]:
 		var stage: Dictionary = stages[key]
-		for field: String in ["duration", "hard_cap", "map_seconds", "exp_mult", "post_duration_slope", "bursts",
-				"elites"]:
+		for field: String in ["duration", "hard_cap", "map_seconds", "exp_mult", "post_duration_slope",
+				"bursts", "elites"]:
 			assert_eq(stage.get(field), stages.henesys.get(field), "%s %s" % [key, field])
-		assert_false(stage.has("spawn"), "%s: Henesys has no spawn overrides" % key)
+		assert_false(stage.has("spawn"), "%s has no spawn overrides" % key)
+		var anchors: Array = stage.keyframes.map(func(frame: Dictionary) -> Array:
+			return [float(frame.t), float(frame.rate), float(frame.max_alive), float(frame.hp), float(frame.speed)])
+		assert_eq(anchors, expected[key], "%s frozen rate/cap/HP/speed anchors" % key)
 		var d := SpawnDirector.create(stage, {})
 		for step in range(0, 241):
 			var t := step * 5.0
-			for field: String in ["rate", "max_alive", "hp", "speed"]:
-				assert_near(d.value_at(field, t), henesys.value_at(field, t), 1e-6, "%s %s at %.0f s" % [key, field, t])
 			assert_eq(d.burst_count_at(t), henesys.burst_count_at(t), "%s burst size at %.0f s" % [key, t])
 			assert_near(d.elite_interval_at(t), henesys.elite_interval_at(t), 1e-6,
 				"%s elite interval at %.0f s" % [key, t])

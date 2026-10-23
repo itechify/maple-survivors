@@ -233,19 +233,16 @@ and `full_cash_pet.json` (the same plus a cash item in all 11 slots; for dressed
 The committed `game/tests/fixtures/characters/lv35_magician_2nd.json` is a real headless Henesys bot character;
 its `_doc` records seed, branch, policy and generation revision. `game/tools/character_fixture.gd` reproduces it.
 
-**#77 round 2 (2026-10-23):** after the #261 bot fix, the dedicated pass still stopped before freezing at the
-class-power checkpoint: Pirate cleared 5/24 forced training runs and the best/worst job ratio was 3.2×. C08
-remeasures identical C07 data; the budget is 8/25 candidate evaluations and 0/3 full matrices. No tuning data was
-applied. Feature regression smokes still compare against the `bac7a1e` / #260 data and smoke record. Before resuming #77, read
-GAME_DESIGN 4.2 "Spec #253 / #77 balance pass"; the owner must resolve the remaining Pirate class-power
-question first (#261 resolved the advancement-policy question). Held-out **701..730 remains unrun**, reserved
-for this pass's one assessment after the owner playtests and approves a future frozen candidate.
+**#77 dedicated pass (2026-10-23):** C24 is frozen and applied; all training targets pass. Feature regression
+smokes compare against C24 and the frozen-data smoke in GAME_DESIGN 4.2 "Spec #253 / #77 balance pass".
+Pirate is recorded but exempt from the first-job floor/spread (owner, #262); the spread uses the other four jobs.
+Held-out **701..730 remains unrun**, reserved for this pass's one assessment **after the owner playtests and approves**.
+Read that 4.2 section before any follow-up balance work; the budget is 24/25 candidates and 1/3 full matrices.
 
-**Feature tickets do not tune balance.** Until the dedicated balance pass produces accepted frozen data, a feature, spec
+**Feature tickets do not tune balance.** After the dedicated pass, a feature, spec
 or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on every tier-1 stage, both `bot` and
 `random` policies, plus the full test suite. Check for no crashes and no world warnings, that Henesys runs still reach
-Magician and bosses (The Tree That Grew dies early until the owner reworks it: record only), and compare with the
-previous smoke recorded in 4.2. Record the outcomes and any new metrics (a few lines and one small table) in
+Magician and bosses; compare with C24 and the latest frozen-data smoke recorded in 4.2. Record the outcomes and any new metrics (a few lines and one small table) in
 `docs/GAME_DESIGN.md` 4.2. Don't change balance data, run tuning candidates, or spend held-out seeds. Don't commit
 long tuning logs. If the smoke shows a feature clearly breaking the game (e.g. every run dies before the first boss,
 or every run clears with no deaths), stop and ask the owner. Even if a ticket's text asks for the full tuning
