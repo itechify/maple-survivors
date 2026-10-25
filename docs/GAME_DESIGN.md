@@ -559,7 +559,8 @@ stretch of the lower ground, had invisible walls. Cause: `FootholdMap.wall_hit` 
 the layer-0 building's faces (group 3: x -710, y 1206-1590; x 350, y 1326-1650) and two layer-1 faces (x -595, 505)
 stand across the layer-1 stairs (foothold 181) and the layer-2 ground (y 1386, 1506). New rule ("Wall scope" in 11,
 tier B): a wall stops a body only when it belongs to the body's platform (same group, linked, group 0 or cantThrough).
-On the 16 in-use maps it removes exactly 9 floor/wall crossings, all on 103010000, and opens no platform end. The
+On the 16 in-use maps it removes exactly 9 floor/wall crossings, all on 103010000, opens no platform end and leaves
+no platform closed on both ends by its own walls taller than the 77 px jump apex (no new side-entry pocket). The
 #259 "pocket" between x 350 and x 505 was these walls; the bot's wall memory stays (it still serves real walls).
 Smoke, `caches/s253`, seeds 1 / 2 / 2026, bot and random: Henesys and Perion records byte-identical; Ellinia 5 of 6
 identical, bot seed 1 diverges from 620 s on map 2 (100040100, where every wall is a 22 px skirt under a floating
