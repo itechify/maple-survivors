@@ -499,7 +499,7 @@ static func _drop_distance(from: Vector2, to: Vector2) -> float:
 ## The wall within WALL_PROBE_AHEAD px of the feet in direction `dir` (FootholdMap.wall_hit), or -1.
 static func _wall_ahead(w: RunWorld, dir: int) -> int:
 	var p := w.player.pos
-	return w.fhm.wall_hit(p.x, p.y, p.x + dir * WALL_PROBE_AHEAD, p.y)
+	return w.fhm.wall_hit(p.x, p.y, p.x + dir * WALL_PROBE_AHEAD, p.y, w.player.walls_of(w.fhm))
 
 
 ## True when no wall stands in direction `dir` at STEP_CLEAR_FRACTION of the jump's apex above the feet, so a jump
@@ -508,7 +508,7 @@ static func _step_jumpable(w: RunWorld, dir: int) -> bool:
 	var apex := w.physics.jump_speed * w.physics.jump_speed / (2.0 * w.physics.gravity_acc)
 	var p := w.player.pos
 	var y := p.y - apex * STEP_CLEAR_FRACTION
-	return w.fhm.wall_hit(p.x, y, p.x + dir * WALL_PROBE_AHEAD, y) < 0
+	return w.fhm.wall_hit(p.x, y, p.x + dir * WALL_PROBE_AHEAD, y, w.player.walls_of(w.fhm)) < 0
 
 
 ## True while the wall the bot got stuck at (#259) still bars the way (_held_wall) and x lies past it.

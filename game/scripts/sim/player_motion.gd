@@ -8,9 +8,10 @@ extends RefCounted
 ## direction's vx into [0.8, 1] x max walk speed; in the air gravity pulls at gravityAcc up to fallSpeed and horizontal
 ## control is ~9 px/s; landing clamps vy to 162.5 and projects the velocity onto the foothold. Down + Jump on a
 ## foothold without cantThrough/forbidFallDown with a floor below jumps at -196 px/s and ignores the current platform
-## until landing. Walls (vertical footholds rising above the feet) block; ceilings (x1 > x2) stop upward motion
-## (tier B, prior-art.md 1b "nudge down"); the map's horizontal limits clamp; falling below the MapBounds bottom puts
-## the player back on the nearest floor (EV_FELL_OUT).
+## until landing. Walls (vertical footholds rising above the feet) of the platform stood on, or last stood on while
+## airborne or climbing, block (FootholdMap.wall_applies: another structure's walls do not); ceilings (x1 > x2) stop
+## upward motion (tier B, prior-art.md 1b "nudge down"); the map's horizontal limits clamp; falling below the MapBounds
+## bottom puts the player back on the nearest floor (EV_FELL_OUT).
 ## Unlike NoLifeStory there is no vertical float drag in the air, so the jump apex is 555^2/(2*2000) = 77 px as in
 ## GAME_DESIGN. Positions integrate with the exact constant-acceleration (trapezoid) step, 2 sub-steps per 1/60 tick.
 ##
@@ -83,6 +84,9 @@ var alert_t := 0.0
 var ladder_cd := 0.0
 ## Platform ignored for landing during a down-jump (-1 = none).
 var down_jump_platform := -1
+## Platform whose walls stop the player (FootholdMap.wall_applies): the one stood on, kept while airborne or climbing;
+## -1 (never stood on a floor since place()) = every wall.
+var wall_platform := -1
 
 var _on_rope := false
 var _input_dir := 0
@@ -103,6 +107,7 @@ func place(p: Vector2, fhm: FootholdMap) -> void:
 	vel = Vector2.ZERO
 	ladder = -1
 	down_jump_platform = -1
+	wall_platform = -1
 	fh = -1
 	state = ST_AIR
 	if fhm == null:
@@ -110,6 +115,7 @@ func place(p: Vector2, fhm: FootholdMap) -> void:
 	var f := fhm.find_below(p.x, p.y)
 	if f >= 0 and fhm.y_at(f, p.x) - p.y <= float(tuning.place_snap):
 		fh = f
+		wall_platform = fhm.platform_of(f)
 		pos.y = fhm.y_at(f, p.x)
 		state = ST_STAND
 
@@ -118,7 +124,13 @@ func place(p: Vector2, fhm: FootholdMap) -> void:
 func teleport_destination(direction: Vector2, distance: float, fhm: FootholdMap, bounds: Rect2) -> Dictionary:
 	if ladder >= 0 or state == ST_LADDER:
 		return {}
-	return fhm.teleport_destination(pos, direction, distance, bounds)
+	return fhm.teleport_destination(pos, direction, distance, bounds, walls_of(fhm))
+
+
+## The platform whose walls stop the player now (FootholdMap.wall_hit's `p`): the one under the feet, else the one
+## last stood on (wall_platform).
+func walls_of(fhm: FootholdMap) -> int:
+	return fhm.platform_of(fh) if fh >= 0 else wall_platform
 
 
 ## Moves a grounded player up to `distance` horizontal px toward `side` (-1 / 1) along its platform, for a moving attack
@@ -232,6 +244,8 @@ func _substep(h: float, input: MoveInput, first: bool, fhm: FootholdMap, ladders
 	var down := input.down and not locked
 	var jump_pressed := input.jump_pressed and first and not locked
 	var jump_held := input.jump_held and not locked
+	if fh >= 0:
+		wall_platform = fhm.platform_of(fh)
 	if ladder >= 0:
 		return _ladder_substep(h, dir, up, down, jump_pressed, fhm, ladders)
 	if ladders != null and ladder_cd <= 0.0 and (up or (down and fh >= 0)):
@@ -331,7 +345,7 @@ func _ground_substep(h: float, dir: int, down: bool, jump_pressed: bool, jump_he
 		mvr = move_toward(mvr, 0.0, constants.walk_dec() * h)
 	var flags := 0
 	var nx := pos.x + (mvr * tx + fhm.force[f]) * h
-	var w := fhm.wall_hit(pos.x, pos.y, nx, pos.y)
+	var w := fhm.wall_hit(pos.x, pos.y, nx, pos.y, wall_platform)
 	if w >= 0:
 		nx = fhm.x1[w] - signf(nx - pos.x) * 0.01
 		mvr = 0.0
@@ -409,7 +423,7 @@ func _air_substep(h: float, dir: int, fhm: FootholdMap, lim: Vector2) -> int:
 	vel.y = vy1
 	var nx := pos.x + vel.x * h
 	var ny := pos.y + (vy0 + vy1) * 0.5 * h
-	var w := fhm.wall_hit(pos.x, pos.y, nx, ny)
+	var w := fhm.wall_hit(pos.x, pos.y, nx, ny, wall_platform)
 	if w >= 0:
 		nx = fhm.x1[w] - signf(nx - pos.x) * 0.01
 		vel.x = 0.0

@@ -209,7 +209,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | Class | Responsibility | Key API |
 |---|---|---|
 | `PhysicsConstants` | Map.wz/Physics.img values | `static from_wz(physics_img: Dictionary)`, `static v83_defaults()`, fields `walk_force`, `walk_speed`, `walk_drag`, `slip_force`, `slip_speed`, `float_drag1`, `float_drag2`, `float_coefficient`, `swim_*`, `fly_*`, `gravity_acc`, `fall_speed`, `jump_speed`, `max_friction`, `min_friction`, `fly_jump_dec` |
-| `FootholdMap` | Foothold geometry and queries | `static from_wz(map_img)`, `static from_segments(list)`, `count()`, `is_wall(i)`, `is_floor(i)`, `y_at(i, x)`, `find_below(x, y, ignore := -1) -> int`, `teleport_destination(origin, direction, distance, bounds) -> Dictionary` (`{pos, fh}` or `{}`), `next_of(i)`, `prev_of(i)`, `bounds() -> Rect2`, `platform_of(i)`, `platform_count()`, `platform_span(p) -> Vector2` (min x, max x), `walk_blocked(p, xa, xb) -> bool` (a wall stands across p between the two), packed arrays `x1 y1 x2 y2 layer group prev next`, flags `cant_through forbid_fall_down` |
+| `FootholdMap` | Foothold geometry and queries | `static from_wz(map_img)`, `static from_segments(list)`, `count()`, `is_wall(i)`, `is_floor(i)`, `y_at(i, x)`, `find_below(x, y, ignore := -1) -> int`, `teleport_destination(origin, direction, distance, bounds, from_p := -1) -> Dictionary` (`{pos, fh}` or `{}`), `wall_hit(xa, ya, xb, yb, p := -1) -> int`, `wall_applies(w, p) -> bool`, `next_of(i)`, `prev_of(i)`, `bounds() -> Rect2`, `platform_of(i)`, `platform_count()`, `platform_span(p) -> Vector2` (min x, max x), `walk_blocked(p, xa, xb) -> bool` (a wall stands across p between the two), packed arrays `x1 y1 x2 y2 layer group prev next`, flags `cant_through forbid_fall_down` |
 | `MapBounds` | Camera/world limits | `static from_map(map_img, fhm) -> Rect2`: `info/VR*` if present, else `miniMap` rect, else foothold bbox (top -300, bottom +100) |
 | `LadderSet` | Ladders and ropes | `static from_wz(map_img)`, `static from_list(list)`, `find_grab(x, y, reach) -> int`, arrays `x y1 y2 is_ladder uf page` |
 | `PortalSet` | Same-map portal links and activation | `static from_wz(map_img, map_id, tuning)`, `step(dt, feet, up) -> Dictionary` (warp or `{}`), `static start_point(map_img, fhm, bounds, rng)` (a random `sp` portal dropped to the floor, else the widest platform's middle), `static start_point_away_from(map_img, fhm, bounds, rng, from)` (Banish, #256: the same with the `sp` nearest `from` left out when there are two or more); `links` rows `{name, target, pos, target_pos}` use canonical portal points |
@@ -647,6 +647,11 @@ hidden sparkles with `portal/game/ph/default/portalContinue`; the Tree's type-1 
 What the table above leaves open; the class doc comments have the rest.
 
 - **Footholds:** `x1 < x2` floor (landed on from above), `x1 == x2` wall, `x1 > x2` ceiling (stops upward motion).
+  A wall stops only bodies of the platforms it belongs to (`FootholdMap.wall_applies(w, p)`: same foothold group as
+  one of p's floors, linked to one of them, group 0 or cantThrough); `wall_hit(..., p)` takes the mover's platform
+  (the one it stands on, or last stood on while airborne: `PlayerMotion.wall_platform`, `MobSwarm.platform`;
+  `NavGraph.drop_landing` / jump arcs pass the takeoff platform), `-1` counts every wall. `floor_wall`,
+  `walk_blocked`, `slide_along` and the platform-end flags use the floor's own platform.
 - **`MobSwarm.step(dt, ctx)`**, `ctx` keys: `fhm` (required); `nav` = `NavGraph.build(fhm, {"can_jump": false})` for
   mobs whose `MobKind.can_jump` is false; `nav_jump` = `NavGraph.build(fhm, {"can_jump": true})` (default `nav`);
   `target` (player position); `target_fh` (player foothold, -1 = the floor below `target`); `bounds` (MapBounds rect);
@@ -668,8 +673,9 @@ What the table above leaves open; the class doc comments have the rest.
   A wall standing inside a platform (not at its ends) is not modelled: mobs stop at it, the graph routes past it;
   SpawnDirector never spawns (or relocates a mob) where such a wall stands anywhere on the point's way to the player
   (`FootholdMap.walk_blocked` on each platform of the way, following `best_edge` onto the player's platform, where the
-  last stretch ends at the player's x; on 100010000 the hill's faces cross the ground chain, so a mob dropping onto the
-  ground outside the faces would walk into one while the player is between them). A mob stopped at such a wall (it
+  last stretch ends at the player's x; where two faces of the ground's own structure cross the ground chain, a mob
+  dropping onto the ground outside the faces would walk into one while the player is between them). A mob stopped at
+  such a wall (it
   has not moved `stall_progress` px) keeps counting toward `stall_time` even on screen and is relocated as soon as it
   is off screen; the player walking up to it shortens its way but is not its progress. Mobs steer by the travel-cost field, not by `route()`: `prepare_target(to_p, tx, also_p)` prices
   every edge from its `take` x to the point (to_p, tx) (walks in px + `edge_cost` per drop/hop, the final walk to tx

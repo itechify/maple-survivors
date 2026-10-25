@@ -167,6 +167,7 @@ func _hang(player: PlayerMotion) -> void:
 	motion.pos = player.pos
 	motion.vel = Vector2.ZERO
 	motion.fh = -1
+	motion.wall_platform = player.wall_platform
 	motion.state = PlayerMotion.ST_AIR
 	motion.facing = player.facing
 	_moved = 1.0

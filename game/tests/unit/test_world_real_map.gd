@@ -168,8 +168,9 @@ func test_real_swarm_invariants() -> void:
 		var px := s.x.duplicate()
 		var py := s.y.duplicate()
 		var was := s.active.duplicate()
+		var wp := WF.swarm_wall_platforms(s, m)
 		s.step(DT, ctx)
-		for v in WF.swarm_violations(s, m, bounds, px, py, was, "tick %d" % t):
+		for v in WF.swarm_violations(s, m, bounds, px, py, was, wp, "tick %d" % t):
 			fail(v)
 	assert_eq(s.lost_count, 0, "nobody fell out of the world")
 	assert_eq(s.alive_count(), 200)

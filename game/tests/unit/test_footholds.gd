@@ -164,6 +164,79 @@ func test_wall_hit() -> void:
 	assert_eq(m.wall_hit(199.99, 0.0, 100.0, 0.0), -1, "moving away")
 
 
+func test_walls_only_stop_their_own_structure() -> void:
+	# A group-5 floor crossed by walls of several kinds (all standing across its surface, none at its left end).
+	var m := FootholdMap.from_segments([
+		{"x1": 0.0, "y1": 0.0, "x2": 500.0, "y2": 0.0, "group": 5, "prev": -1, "next": 6},  # 0 floor
+		{"x1": 100.0, "y1": -30.0, "x2": 100.0, "y2": 60.0, "group": 3, "prev": -1, "next": -1},  # 1 another structure
+		{"x1": 200.0, "y1": -30.0, "x2": 200.0, "y2": 60.0, "group": 0, "prev": -1, "next": -1},  # 2 group 0
+		{"x1": 300.0, "y1": -30.0, "x2": 300.0, "y2": 60.0, "group": 5, "prev": -1, "next": -1},  # 3 the floor's group
+		{"x1": 400.0, "y1": -30.0, "x2": 400.0, "y2": 60.0, "group": 4, "prev": -1, "next": -1,
+			"cant_through": true},  # 4 cantThrough
+		{"x1": 600.0, "y1": -100.0, "x2": 700.0, "y2": -100.0, "group": 3, "prev": -1, "next": -1},  # 5 group-3 floor
+		{"x1": 500.0, "y1": 0.0, "x2": 500.0, "y2": -8.0, "group": 7, "prev": 0, "next": -1},  # 6 linked step
+	])
+	var p := m.platform_of(0)
+	var q := m.platform_of(5)
+	assert_false(m.wall_applies(1, p), "another group's wall")
+	assert_true(m.wall_applies(1, q), "the wall's own group")
+	for w: int in [2, 3, 4, 6]:
+		assert_true(m.wall_applies(w, p), "wall %d: group 0, same group, cantThrough, linked" % w)
+	assert_true(m.wall_applies(1, -1), "no platform: every wall")
+	assert_eq(m.wall_hit(50.0, 0.0, 150.0, 0.0, p), -1, "walks through the foreign wall")
+	assert_eq(m.wall_hit(50.0, -20.0, 150.0, 10.0, p), -1, "and flies through it")
+	assert_eq(m.wall_hit(50.0, 0.0, 150.0, 0.0), 1, "p = -1 keeps every wall")
+	assert_eq(m.wall_hit(150.0, 0.0, 250.0, 0.0, p), 2)
+	assert_eq(m.wall_hit(250.0, 0.0, 350.0, 0.0, p), 3)
+	assert_eq(m.wall_hit(350.0, 0.0, 450.0, 0.0, p), 4)
+	assert_eq(m.wall_hit(450.0, 0.0, 550.0, 0.0, p), 6)
+	assert_false(m.walk_blocked(p, 20.0, 180.0), "only the foreign wall between")
+	assert_true(m.walk_blocked(p, 20.0, 250.0))
+	assert_false(m.platform_end_open(p, 1), "the linked step closes the right end")
+	var only_foreign := FootholdMap.from_segments([
+		{"x1": 0.0, "y1": 0.0, "x2": 500.0, "y2": 0.0, "group": 5, "prev": -1, "next": -1},
+		{"x1": 100.0, "y1": -30.0, "x2": 100.0, "y2": 60.0, "group": 3, "prev": -1, "next": -1},
+		{"x1": 500.0, "y1": -30.0, "x2": 500.0, "y2": 60.0, "group": 3, "prev": -1, "next": -1},
+	])
+	assert_eq(only_foreign.floor_wall[0], 0, "no wall of its own: never checked")
+	assert_true(only_foreign.platform_end_open(0, 1), "a foreign wall at the end does not close it")
+
+
+func test_kerning_stairs_have_no_invisible_wall() -> void:
+	# 103010000: the layer-0 building's left face (walls 6/7, x -710, y 1230-1350) crosses the layer-1 stairs (181).
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	var w := lib.img("Map.wz/Map/Map1/103010000.img")
+	lib.free()
+	if w == null:
+		skip("103010000 not in this asset cache")
+		return
+	var m := FootholdMap.from_wz(w.root)
+	var stairs := _by_id(m, 181)
+	var face := _by_id(m, 7)
+	assert_eq([m.x1[stairs], m.y1[stairs], m.x2[stairs], m.y2[stairs]], [-720.0, 1296.0, -630.0, 1356.0])
+	assert_eq(m.x1[face], -710.0)
+	var p := m.platform_of(stairs)
+	assert_false(m.wall_applies(face, p))
+	assert_eq(m.wall_hit(-715.0, m.y_at(stairs, -715.0), -705.0, m.y_at(stairs, -705.0), p), -1)
+	assert_ne(m.wall_hit(-715.0, m.y_at(stairs, -715.0), -705.0, m.y_at(stairs, -705.0)), -1, "every wall: blocked")
+	# Walk down the stairs from the layer-1 ground and back up.
+	var pm := PlayerMotion.new(PhysicsConstants.v83_defaults())
+	pm.place(Vector2(-790.0, 1296.0), m)
+	assert_ne(pm.fh, -1, "standing on the ground left of the stairs")
+	var flags := 0
+	for t in 90:
+		flags |= pm.step(1.0 / 60.0, MoveInput.make(false, true), m, null, Rect2())
+	assert_eq(flags & PlayerMotion.EV_WALL, 0, "no wall on the way down")
+	assert_true(pm.pos.x > -650.0 and pm.fh >= 0, "walked down past x -710: %s" % pm.pos)
+	for t in 120:
+		flags |= pm.step(1.0 / 60.0, MoveInput.make(true), m, null, Rect2())
+	assert_eq(flags & PlayerMotion.EV_WALL, 0, "nor on the way up")
+	assert_true(pm.pos.x < -760.0 and is_equal_approx(pm.pos.y, 1296.0), "back up on the ground: %s" % pm.pos)
+
+
 func test_map_bounds_rules() -> void:
 	var with_vr := WF.tiers_map_img(true, true)
 	var m := FootholdMap.from_wz(with_vr)

@@ -199,8 +199,9 @@ func test_invariants_with_many_mobs() -> void:
 			px = s.x.duplicate()
 			py = s.y.duplicate()
 			alive_before = s.active.duplicate()
+			var wp := WF.swarm_wall_platforms(s, m)
 			s.step(DT, ctx)
-			for v in WF.swarm_violations(s, m, bounds, px, py, alive_before, "%s tick %d" % [map_name, t]):
+			for v in WF.swarm_violations(s, m, bounds, px, py, alive_before, wp, "%s tick %d" % [map_name, t]):
 				fail(v)
 		assert_eq(s.lost_count, 0, "%s: nobody fell out of the world" % map_name)
 		assert_true(s.alive_count() > 70, "%s: hits only killed a few" % map_name)
@@ -461,8 +462,9 @@ func test_jumper_hops_onto_a_solid_block_from_beside_it() -> void:
 		var px := s.x.duplicate()
 		var py := s.y.duplicate()
 		var was := s.active.duplicate()
+		var wp := WF.swarm_wall_platforms(s, m)
 		s.step(DT, ctx)
-		for v in WF.swarm_violations(s, m, bounds, px, py, was, "block tick %d" % t):
+		for v in WF.swarm_violations(s, m, bounds, px, py, was, wp, "block tick %d" % t):
 			fail(v)
 		if s.x[j] > 200.0 and s.x[j] < 400.0 and s.y[j] > -60.0 + 0.05 and s.y[j] < -40.0 - 0.05:
 			fail("inside the block at (%s, %s)" % [s.x[j], s.y[j]])

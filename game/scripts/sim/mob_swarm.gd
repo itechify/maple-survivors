@@ -697,7 +697,7 @@ func step(dt: float, ctx: Dictionary) -> void:
 		var nx := cx + want * spd * dt
 		# Walls: only footholds with a wall inside their span, or a step onto the next foothold, can meet one.
 		if fwall[f] != 0 or nx > fx2[f] or nx < fx1[f]:
-			var w := m.wall_hit(cx, y[i], nx, y[i])
+			var w := m.wall_hit(cx, y[i], nx, y[i], m.platform[f])
 			if w >= 0:
 				nx = fx1[w] - want * 0.01
 				if wander:
@@ -823,7 +823,7 @@ func _air(i: int, dt: float, m: FootholdMap, grav: float, fall: float, lim: Vect
 		nx = stop
 		vx[i] = 0.0
 	if nx != ox:
-		var w := m.wall_hit(ox, oy, nx, ny)
+		var w := m.wall_hit(ox, oy, nx, ny, platform[i])
 		if w >= 0:
 			nx = m.x1[w] - signf(nx - ox) * 0.01
 			vx[i] = 0.0
@@ -894,7 +894,7 @@ func _fly(i: int, dt: float, spd: float, target: Vector2, bounds: Rect2) -> void
 ## Moves a grounded mob along its platform to nx, stopping at walls and the platform ends (used for hit pushes).
 func _slide(i: int, f: int, nx: float, m: FootholdMap) -> void:
 	if m.floor_wall[f] != 0 or nx > m.x2[f] or nx < m.x1[f]:
-		var w := m.wall_hit(x[i], y[i], nx, y[i])
+		var w := m.wall_hit(x[i], y[i], nx, y[i], m.platform[f])
 		if w >= 0:
 			nx = m.x1[w] - signf(nx - x[i]) * 0.01
 	var guard := 0

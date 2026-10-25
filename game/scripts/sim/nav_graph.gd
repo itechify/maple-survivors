@@ -268,9 +268,11 @@ func edges_from(p: int) -> PackedInt32Array:
 
 ## Where a mob stepping off the platform end (xe, ye) towards `side` (-1/1) lands: Vector3(x, y, foothold), with
 ## foothold -1 when it falls below every foothold. Replays MobSwarm's air step for a drop tick by tick (drift at
-## drop_speed until drop_probe px past the end, then straight down; walls, the foothold box's horizontal limits,
-## landing via FootholdMap.find_landing; positions and speeds rounded to float32 like MobSwarm's packed arrays).
-static func drop_landing(fhm: FootholdMap, xe: float, ye: float, side: int, p_opts: Dictionary = DEFAULTS) -> Vector3:
+## drop_speed until drop_probe px past the end, then straight down; the walls of `from_p`, the platform it steps off
+## (FootholdMap.wall_applies, -1 = every wall), the foothold box's horizontal limits, landing via
+## FootholdMap.find_landing; positions and speeds rounded to float32 like MobSwarm's packed arrays).
+static func drop_landing(fhm: FootholdMap, xe: float, ye: float, side: int, p_opts: Dictionary = DEFAULTS,
+		from_p: int = FootholdMap.NONE) -> Vector3:
 	var grav := float(p_opts.get("gravity", DEFAULTS.gravity))
 	var fall := float(p_opts.get("fall_speed", DEFAULTS.fall_speed))
 	var dt := float(p_opts.get("dt", DEFAULTS.dt))
@@ -290,7 +292,7 @@ static func drop_landing(fhm: FootholdMap, xe: float, ye: float, side: int, p_op
 			nx = stop
 			vx = 0.0
 		if nx != x:
-			var w := fhm.wall_hit(x, y, nx, ny)
+			var w := fhm.wall_hit(x, y, nx, ny, from_p)
 			if w >= 0:
 				nx = fhm.x1[w] - signf(nx - x) * 0.01
 				vx = 0.0
@@ -342,7 +344,7 @@ func _build(fhm: FootholdMap) -> void:
 			var span := fhm.platform_span(p)
 			var xe := span.x if side < 0 else span.y
 			var ye := fhm.y_at(fhm.platform_end_fh(p, side), xe)
-			var land := drop_landing(fhm, xe, ye, side, opts)
+			var land := drop_landing(fhm, xe, ye, side, opts, p)
 			var q := fhm.platform_of(int(land.z))
 			if q >= 0 and q != p:
 				_add(DROP, p, q, xe, land.x, xe, xe, side * float(opts.drop_speed))
@@ -445,13 +447,14 @@ func _try_gap_jump(fhm: FootholdMap, a: int, b: int) -> void:
 			if disc >= 0.0:
 				var t_land := (v + sqrt(disc)) / grav
 				var vx := (x_to - x_from) / t_land
-				if _arc_clear(fhm, x_from, y_from, vx, -v, grav, t_land):
+				if _arc_clear(fhm, a, x_from, y_from, vx, -v, grav, t_land):
 					_add(JUMP, a, b, x_from, x_to, x_from, x_from, vx)
 					return
 		x_from -= side * float(opts.gap_step)
 
 
-func _arc_clear(fhm: FootholdMap, x0: float, y0: float, vx: float, vy: float, grav: float, t_end: float) -> bool:
+func _arc_clear(fhm: FootholdMap, from_p: int, x0: float, y0: float, vx: float, vy: float, grav: float,
+		t_end: float) -> bool:
 	var dt := 1.0 / 120.0
 	var t := 0.0
 	var px := x0
@@ -460,7 +463,7 @@ func _arc_clear(fhm: FootholdMap, x0: float, y0: float, vx: float, vy: float, gr
 		t = minf(t + dt, t_end)
 		var nx := x0 + vx * t
 		var ny := y0 + vy * t + 0.5 * grav * t * t
-		if fhm.wall_hit(px, py, nx, ny) >= 0 or fhm.ceiling_hit(px, py, nx, ny) >= 0:
+		if fhm.wall_hit(px, py, nx, ny, from_p) >= 0 or fhm.ceiling_hit(px, py, nx, ny) >= 0:
 			return false
 		px = nx
 		py = ny
