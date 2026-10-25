@@ -173,6 +173,32 @@ func test_walls_block_ground_and_air() -> void:
 	assert_eq(q.fh, 0, "dropped to the lower floor")
 
 
+func test_another_structures_wall_does_not_block() -> void:
+	# A building face (group 3) standing across the group-2 ground: walked and jumped through; a group-0 face blocks.
+	for g: int in [3, 0]:
+		var m := FootholdMap.from_segments([
+			{"x1": -400.0, "y1": 0.0, "x2": 400.0, "y2": 0.0, "group": 2, "prev": -1, "next": -1},
+			{"x1": 0.0, "y1": -200.0, "x2": 0.0, "y2": 100.0, "group": g, "prev": -1, "next": -1},
+		])
+		var p := _player(m, Vector2(-100, 0))
+		var flags := _run(p, m, MoveInput.make(false, true), 90)
+		if g == 3:
+			assert_eq(flags & PlayerMotion.EV_WALL, 0, "no wall hit")
+			assert_true(p.pos.x > 50.0, "walked past the foreign face: %s" % p.pos)
+		else:
+			assert_true(flags & PlayerMotion.EV_WALL != 0, "group 0 blocks")
+			assert_true(p.pos.x < 0.0)
+		var q := _player(m, Vector2(-40, 0))
+		_run(q, m, MoveInput.make(false, true, false, false, true, true), 1)
+		assert_eq(q.fh, -1, "airborne")
+		assert_eq(q.wall_platform, m.platform_of(0), "keeps the ground's platform in the air")
+		var crossed := false
+		for t in 60:
+			q.step(DT, MoveInput.make(false, true), m, null, Rect2())
+			crossed = crossed or (q.fh < 0 and q.pos.x > 0.0)
+		assert_eq(crossed, g == 3, "group %d: jumped through the face" % g)
+
+
 func test_map_horizontal_limits() -> void:
 	var m := FootholdMap.from_segments([{"x1": 0.0, "y1": 0.0, "x2": 300.0, "y2": 0.0}])
 	var p := _player(m, Vector2(250, 0))

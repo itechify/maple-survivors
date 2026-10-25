@@ -148,11 +148,21 @@ static func mob_img(jumper := false) -> Dictionary:
 	return img
 
 
-## Checks the MobSwarm invariants after one step; px/py/was_alive are copies of x/y/active taken before the step.
-## Returns one line per violation: outside the bounds, not on its foothold (grounded), stale platform, crossed a wall,
-## rose through a ceiling, or fell through a floor without landing.
+## Per mob, the platform whose walls stop it this step (FootholdMap.wall_applies): its foothold's when grounded, else
+## the one it last stood on. Take it before the step, with the px/py copies for swarm_violations.
+static func swarm_wall_platforms(s: MobSwarm, m: FootholdMap) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	out.resize(s.capacity())
+	for i in s.capacity():
+		out[i] = m.platform_of(s.fh[i]) if s.fh[i] >= 0 else s.platform[i]
+	return out
+
+
+## Checks the MobSwarm invariants after one step; px/py/was_alive/wall_p are copies of x/y/active and
+## swarm_wall_platforms taken before the step. Returns one line per violation: outside the bounds, not on its foothold
+## (grounded), stale platform, crossed one of its walls, rose through a ceiling, or fell through a floor without landing.
 static func swarm_violations(s: MobSwarm, m: FootholdMap, bounds: Rect2, px: PackedFloat32Array,
-		py: PackedFloat32Array, was_alive: PackedByteArray, label: String) -> PackedStringArray:
+		py: PackedFloat32Array, was_alive: PackedByteArray, wall_p: PackedInt32Array, label: String) -> PackedStringArray:
 	var out := PackedStringArray()
 	var box := bounds.grow(0.05)
 	for i in s.capacity():
@@ -168,7 +178,7 @@ static func swarm_violations(s: MobSwarm, m: FootholdMap, bounds: Rect2, px: Pac
 			if s.platform[i] != m.platform_of(f):
 				out.append("platform out of date: " + where)
 		if i < px.size() and was_alive[i] != 0:
-			if m.wall_hit(px[i], py[i], s.x[i], s.y[i]) >= 0:
+			if m.wall_hit(px[i], py[i], s.x[i], s.y[i], wall_p[i]) >= 0:
 				out.append("crossed a wall: " + where)
 			if s.y[i] < py[i] and m.ceiling_hit(px[i], py[i], s.x[i], s.y[i] + 0.06) >= 0:
 				out.append("rose through a ceiling: " + where)

@@ -227,7 +227,8 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   points whose way to the player is no longer than the walk in from 160 px beyond the view's side
   (`spawn.prefer_route`; a platform above qualifies near the end that drops next to the player), then any point that
   can reach the player; never within 200 px of the player, never where a wall crossing a platform stands anywhere on
-  the way to the player (100010000's hill faces cross its ground). New mobs fade in (regen) over 0.3 s (tier C).
+  the way to the player (a wall of the platform's own structure, `FootholdMap.wall_applies`). New mobs fade in (regen)
+  over 0.3 s (tier C).
 - **Relocation:** an off-screen mob that has not come closer by its own walking for 3 s (left behind by a player who
   runs off, on a way that keeps getting longer, or stopped at a wall; the player walking up to it does not count),
   that is 1300 px away, or that cannot reach the player is moved silently to a fresh spawn point ahead of the player
@@ -550,6 +551,30 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Walls stop only their own structure: Kerning's invisible walls (2026-10-24)
+
+Owner report: on Kerning City Construction Site (103010000) the brick stairs left of the x -630 landing, and a flat
+stretch of the lower ground, had invisible walls. Cause: `FootholdMap.wall_hit` tested every wall of the map, and
+the layer-0 building's faces (group 3: x -710, y 1206-1590; x 350, y 1326-1650) and two layer-1 faces (x -595, 505)
+stand across the layer-1 stairs (foothold 181) and the layer-2 ground (y 1386, 1506). New rule ("Wall scope" in 11,
+tier B): a wall stops a body only when it belongs to the body's platform (same group, linked, group 0 or cantThrough).
+On the 16 in-use maps it removes exactly 9 floor/wall crossings, all on 103010000, and opens no platform end. The
+#259 "pocket" between x 350 and x 505 was these walls; the bot's wall memory stays (it still serves real walls).
+Smoke, `caches/s253`, seeds 1 / 2 / 2026, bot and random: Henesys and Perion records byte-identical; Ellinia 5 of 6
+identical, bot seed 1 diverges from 620 s on map 2 (100040100, where every wall is a 22 px skirt under a floating
+platform end: airborne bodies and mob jump arcs no longer bump other platforms' skirts) and dies at 630.8 s instead
+of 632.7 s, same EXP by minute. Kerning, death @ map and level:
+
+| Policy | Before | After |
+|---|---|---|
+| bot | 308.2@1 Lv15 / 310.8@1 Lv15 / 306.9@1 Lv14 | 307.7@1 Lv14 / 307.8@1 Lv14 / 318.6@1 Lv15 |
+| random | 304.5@1 Lv14 / 309.1@1 Lv14 / 305.2@1 Lv14 | 306.6@1 Lv14 / 314.5@1 Lv15 / 308.7@1 Lv14 |
+
+Every Kerning run still dies a few seconds into King Slime's fight (balance signal for #77). All records
+`warnings: []`, `missing: []`. The complete suite on `caches/s253` passes **2,213 tests, 0 failed, 0 skipped**
+(214 files, 780.238 s), with the usual two dummy texture RID allocations at shutdown; the swarm invariant
+(`WF.swarm_violations`) now checks each mob's own walls (`WF.swarm_wall_platforms`).
 
 #### Spec #253 (#261): the bot keeps its weapon family at the second advancement (2026-10-23)
 
@@ -3115,7 +3140,8 @@ the other 30 seeds of the verification), so its "55-60% engaged at 9:00 / 12:00"
   on the other side).
 - Spawning and relocation reject a point when a wall across a platform stands anywhere on its way to the player
   (followed edge by edge onto the player's platform), not only on its first platform: on 100010000 mobs that dropped
-  onto the ground outside the hill's faces walked into them while the player stood between the faces.
+  onto the ground outside the hill's faces walked into them while the player stood between the faces (found before
+  walls were scoped to their own structure; those faces are another group's and no longer stop the ground's walkers).
 - Spawns stay 32 px further out on the side a moving player runs away from (`spawn.trail_margin`; the camera lags
   ~29 px behind a running player, so mobs faded in there with up to 23 px of their body on screen).
 - The EXP curve is steeper (section 5: 22% more EXP to Lv 30, 4% more to Lv 8), and touch damage is 0.7 of the first
@@ -6236,6 +6262,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Player placement | `PlayerMotion.place()` snaps onto a floor at most 1 px below, else the player falls | C | ours |
 | Falling out of the world | below the MapBounds bottom the player is put back on the nearest floor (`EV_FELL_OUT`) | C | ours |
 | Wall probe | a wall blocks where it covers the point 1 px above the feet (a wall hanging below a platform end can be walked off) | C | ours |
+| Wall scope | a wall stops a body (player, pet, mob, the bot's probes, NavGraph drops and jump arcs) only when it belongs to the body's platform, the one stood on or last stood on while airborne: same foothold group number as one of the platform's floors (layer ignored), linked to one of its floors through prev/next, group 0, or cantThrough (`FootholdMap.wall_applies`); a body with no platform yet meets every wall | B | NoLifeStory physics.cpp (prior-art.md 1b): air collisions only with footholds of the group last landed on, group 0 or cantThrough; on the ground only the linked wall stops. Ours: one rule for ground and air, by platform. 103010000's layer-0 building faces (x -710, 350) stood across the layer-1 stairs and the layer-2 ground as invisible walls (also the #259 pocket) |
 | Ceilings (x1 > x2) | stop upward motion at the feet (head bump), never landed on; mobs never hop straight up through one | B | NoLifeStory description (prior-art.md §1b) |
 | Map bounds without VR | miniMap rect (-centerX, -centerY, width, height), else foothold box with top -300 / bottom +100 | C | ours / HeavenClient border rule |
 | Mob nav (`NavGraph`) | hop 555 px/s, jump height ≤ 70 px, takeoff ≤ 90 px from landing, land 8 px inside; a drop steps off the end at 120 px/s for 4 px, then falls straight down (the same for every mob, so the graph predicts its landing exactly) | C | ours |

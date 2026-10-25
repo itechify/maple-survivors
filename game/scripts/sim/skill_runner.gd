@@ -465,7 +465,7 @@ func _resolve_charge(world: RunWorld, st: Dictionary, start: Vector2, side: int)
 	var at_end := Rect2(local.position + world.player.pos, local.size)
 	var path := at_start.merge(at_end)
 	var stop := world.fhm.wall_hit(world.player.pos.x, world.player.pos.y, path.end.x if side > 0 else path.position.x,
-		world.player.pos.y)
+		world.player.pos.y, world.player.walls_of(world.fhm))
 	if stop != FootholdMap.NONE:
 		var wall_x := world.fhm.x1[stop]
 		if side > 0:

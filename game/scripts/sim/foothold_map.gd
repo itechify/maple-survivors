@@ -12,6 +12,13 @@ extends RefCounted
 ## connected through `prev`/`next`; walls and ceilings break chains. A wall blocks horizontal motion at a point when it
 ## covers the point 1 px above the feet, so a wall hanging below a platform end (a skirt) lets you walk off while a
 ## wall rising above it blocks.
+##
+## Walls only stop bodies of platforms they belong to (wall_applies): a wall applies to platform p when it shares a
+## foothold group with one of p's floors, is linked to one of them through prev/next, sits in group 0 or is
+## cantThrough. Group numbers are compared without their layer. tier B: NoLifeStory physics.cpp collides a mover only
+## with footholds of the group it last landed on, of group 0 or cantThrough; the linked wall is its ground-walk stop.
+## So the face of one structure does not wall off another structure's floor passing in front of it (103010000: the
+## layer-0 building walls at x -710 / 350 cross the layer-1 stairs and the layer-2 ground).
 
 const NONE := -1
 ## Width of the x buckets used by find_below / find_landing / wall_hit.
@@ -55,6 +62,11 @@ var plat_open_left := PackedByteArray()
 var plat_open_right := PackedByteArray()
 ## Per platform: 1 when any of its floors has floor_wall set (walk_blocked can only be true there).
 var plat_wall := PackedByteArray()
+## Per (platform, wall slot): 1 when the wall stops bodies of that platform (wall_applies). Row p starts at
+## p * _wall_count; _wall_slot maps a foothold index to its column (-1 for floors and ceilings).
+var _wall_rel := PackedByteArray()
+var _wall_slot := PackedInt32Array()
+var _wall_count := 0
 
 var _bounds := Rect2()
 var _gx0 := 0.0
@@ -230,9 +242,9 @@ func platform_fh_at(p: int, x: float) -> int:
 	return NONE
 
 
-## True when a wall stands across platform p's surface between xa and xb, so a walker going from one to the other stops
-## at it (platforms do not split at such walls; on 100010000 the hill's faces cross the ground chain, burying a stretch
-## of it). Follows the chain from the foothold under min(xa, xb).
+## True when a wall of platform p (wall_applies) stands across its surface between xa and xb, so a walker going from one
+## to the other stops at it (platforms do not split at such walls; on 103010000 the wall of a step at x -2290 stands on
+## the layer-1 ground of its own group). Follows the chain from the foothold under min(xa, xb).
 func walk_blocked(p: int, xa: float, xb: float) -> bool:
 	if p < 0 or p >= plat_wall.size() or plat_wall[p] == 0:
 		return false
@@ -248,7 +260,7 @@ func walk_blocked(p: int, xa: float, xb: float) -> bool:
 			if b > a:
 				var ya := y_at(f, a)
 				var yb := y_at(f, b)
-				if wall_hit(a, ya, b, yb) >= 0 or wall_hit(b, yb, a, ya) >= 0:
+				if wall_hit(a, ya, b, yb, p) >= 0 or wall_hit(b, yb, a, ya, p) >= 0:
 					return true
 		if x2[f] >= hi:
 			break
@@ -281,7 +293,7 @@ func slide_along(fh: int, x: float, side: int, distance: float, lo: float, hi: f
 		var seg_end := x2[f] if dir > 0.0 else x1[f]
 		var stop := minf(target, seg_end) if dir > 0.0 else maxf(target, seg_end)
 		if floor_wall[f] != 0:
-			var w := wall_hit(cur, y_at(f, cur), stop, y_at(f, stop))
+			var w := wall_hit(cur, y_at(f, cur), stop, y_at(f, stop), platform[f])
 			if w >= 0:
 				var wx := x1[w] - dir * EPS
 				cur = maxf(cur, wx) if dir > 0.0 else minf(cur, wx)
@@ -298,8 +310,10 @@ func slide_along(fh: int, x: float, side: int, distance: float, lo: float, hi: f
 
 ## Finds a Teleport landing {pos, fh}, or {}. Vertical blinks choose the nearest floor strictly in that direction.
 ## tier C: horizontal blinks choose the furthest floor point within range and snap vertically by at most range;
-## walls stop the blink at the existing collision epsilon. No unsupported air destination is returned.
-func teleport_destination(origin: Vector2, direction: Vector2, distance: float, limits: Rect2) -> Dictionary:
+## walls of platform `from_p` (the caster's, wall_applies; -1 = every wall) stop the blink at the existing collision
+## epsilon. No unsupported air destination is returned.
+func teleport_destination(origin: Vector2, direction: Vector2, distance: float, limits: Rect2,
+		from_p: int = NONE) -> Dictionary:
 	if distance <= 0.0 or direction == Vector2.ZERO:
 		return {}
 	var best := {}
@@ -313,7 +327,7 @@ func teleport_destination(origin: Vector2, direction: Vector2, distance: float, 
 	var side := signf(direction.x)
 	var target_x := clampf(origin.x + side * distance, lo, hi)
 	if horizontal:
-		var wall := wall_hit(origin.x, origin.y, target_x, origin.y)
+		var wall := wall_hit(origin.x, origin.y, target_x, origin.y, from_p)
 		if wall >= 0:
 			target_x = x1[wall] - side * EPS
 	for f in count():
@@ -330,7 +344,7 @@ func teleport_destination(origin: Vector2, direction: Vector2, distance: float, 
 			continue
 		var y := y_at(f, x)
 		if horizontal:
-			var wall := wall_hit(origin.x, origin.y, x, y)
+			var wall := wall_hit(origin.x, origin.y, x, y, from_p)
 			if wall >= 0:
 				x = x1[wall] - side * EPS
 				if x < x1[f] or x > x2[f] or (x - origin.x) * side <= EPS:
@@ -343,7 +357,7 @@ func teleport_destination(origin: Vector2, direction: Vector2, distance: float, 
 			continue
 		if not horizontal and dy * direction.y <= EPS:
 			continue
-		if horizontal and wall_hit(origin.x, origin.y, x, y) >= 0:
+		if horizontal and wall_hit(origin.x, origin.y, x, y, from_p) >= 0:
 			continue
 		var score := absf(target_x - x) if horizontal else absf(dy)
 		if score < best_score or (score == best_score and absf(dy) < absf(float(best.pos.y) - origin.y)):
@@ -405,8 +419,9 @@ func find_landing(xa: float, ya: float, xb: float, yb: float, ignore_platform: i
 
 ## The first wall crossed by a point moving from (xa, ya) to (xb, yb), or -1. A wall counts when the moving point,
 ## probed WALL_PROBE px above the feet, is within the wall's vertical extent where it crosses the wall's x. A point
-## exactly on the wall line is only blocked when moving into it from its own side.
-func wall_hit(xa: float, ya: float, xb: float, yb: float) -> int:
+## exactly on the wall line is only blocked when moving into it from its own side. With `p` >= 0 only walls that apply
+## to platform p count (wall_applies: the mover stands on p, or last stood on it while airborne); -1 counts every wall.
+func wall_hit(xa: float, ya: float, xb: float, yb: float, p: int = NONE) -> int:
 	if xa == xb or _gn == 0:
 		return NONE
 	var lo := minf(xa, xb)
@@ -416,9 +431,12 @@ func wall_hit(xa: float, ya: float, xb: float, yb: float) -> int:
 	var best := NONE
 	var best_d := INF
 	var right := xb > xa
+	var row := p * _wall_count if p >= 0 and p < plat_x1.size() else -1
 	for b in range(b0, b1 + 1):
 		for k in range(_wall_start[b], _wall_start[b + 1]):
 			var w := _wall_items[k]
+			if row >= 0 and _wall_rel[row + _wall_slot[w]] == 0:
+				continue
 			var wx := x1[w]
 			if right:
 				if wx <= xa or wx > xb:
@@ -435,6 +453,14 @@ func wall_hit(xa: float, ya: float, xb: float, yb: float) -> int:
 				best_d = d
 				best = w
 	return best
+
+
+## True when wall `w` stops bodies of platform `p` (see the header): it shares a group with one of p's floors, is
+## linked to one of them, sits in group 0 or is cantThrough. Always true for p = -1 (no platform known).
+func wall_applies(w: int, p: int) -> bool:
+	if p < 0 or p >= plat_x1.size() or w < 0 or w >= count() or _wall_slot[w] < 0:
+		return true
+	return _wall_rel[p * _wall_count + _wall_slot[w]] != 0
 
 
 ## True for ceilings / undersides (x1 > x2).
@@ -703,9 +729,46 @@ func _build_platforms() -> void:
 			plat_right_fh[p] = i
 		plat_y_min[p] = minf(plat_y_min[p], minf(y1[i], y2[i]))
 		plat_y_max[p] = maxf(plat_y_max[p], maxf(y1[i], y2[i]))
+	_build_wall_relevance()
 	for p in pc:
-		plat_open_left[p] = 0 if _end_blocked(plat_x1[p], y1[plat_left_fh[p]], -1.0) else 1
-		plat_open_right[p] = 0 if _end_blocked(plat_x2[p], y2[plat_right_fh[p]], 1.0) else 1
+		plat_open_left[p] = 0 if _end_blocked(p, plat_x1[p], y1[plat_left_fh[p]], -1.0) else 1
+		plat_open_right[p] = 0 if _end_blocked(p, plat_x2[p], y2[plat_right_fh[p]], 1.0) else 1
+
+
+## Fills the platform x wall table behind wall_applies.
+func _build_wall_relevance() -> void:
+	var n := count()
+	_wall_slot.resize(n)
+	_wall_slot.fill(NONE)
+	_wall_count = 0
+	for i in n:
+		if is_wall(i):
+			_wall_slot[i] = _wall_count
+			_wall_count += 1
+	var pc := plat_x1.size()
+	_wall_rel.resize(pc * _wall_count)
+	_wall_rel.fill(0)
+	# Groups present on each platform, and the walls linked to its floors.
+	var plat_groups: Array[Dictionary] = []
+	plat_groups.resize(pc)
+	for p in pc:
+		plat_groups[p] = {}
+	for i in n:
+		var p := platform[i]
+		if p < 0:
+			continue
+		plat_groups[p][group[i]] = true
+		for j: int in [next[i], prev[i]]:
+			if j >= 0 and is_wall(j):
+				_wall_rel[p * _wall_count + _wall_slot[j]] = 1
+	for w in n:
+		if not is_wall(w):
+			continue
+		var c := _wall_slot[w]
+		var everyone := group[w] == 0 or cant_through[w] != 0
+		for p in pc:
+			if everyone or plat_groups[p].has(group[w]):
+				_wall_rel[p * _wall_count + c] = 1
 
 
 ## Flags floors that have a wall within their x span whose vertical extent reaches the band a walker's wall probe
@@ -722,7 +785,7 @@ func _build_floor_walls() -> void:
 		for b in range(_bucket(x1[i]), _bucket(x2[i]) + 1):
 			for k in range(_wall_start[b], _wall_start[b + 1]):
 				var w := _wall_items[k]
-				if x1[w] < x1[i] or x1[w] > x2[i]:
+				if x1[w] < x1[i] or x1[w] > x2[i] or not wall_applies(w, platform[i]):
 					continue
 				if maxf(y1[w], y2[w]) < lo or minf(y1[w], y2[w]) > hi:
 					continue
@@ -734,9 +797,9 @@ func _build_floor_walls() -> void:
 			plat_wall[platform[i]] = 1
 
 
-## True when a wall at the end point (x, y) rises above the feet (it would stop a walker heading `dir`).
-func _end_blocked(x: float, y: float, dir: float) -> bool:
-	return wall_hit(x - dir * 0.5, y, x + dir * 0.5, y) >= 0
+## True when a wall of platform p at the end point (x, y) rises above the feet (it would stop a walker heading `dir`).
+func _end_blocked(p: int, x: float, y: float, dir: float) -> bool:
+	return wall_hit(x - dir * 0.5, y, x + dir * 0.5, y, p) >= 0
 
 
 static func _find_root(parent: PackedInt32Array, i: int) -> int:

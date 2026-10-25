@@ -647,6 +647,11 @@ hidden sparkles with `portal/game/ph/default/portalContinue`; the Tree's type-1 
 What the table above leaves open; the class doc comments have the rest.
 
 - **Footholds:** `x1 < x2` floor (landed on from above), `x1 == x2` wall, `x1 > x2` ceiling (stops upward motion).
+  A wall stops only bodies of the platforms it belongs to (`FootholdMap.wall_applies(w, p)`: same foothold group as
+  one of p's floors, linked to one of them, group 0 or cantThrough); `wall_hit(..., p)` takes the mover's platform
+  (the one it stands on, or last stood on while airborne: `PlayerMotion.wall_platform`, `MobSwarm.platform`;
+  `NavGraph.drop_landing` / jump arcs pass the takeoff platform), `-1` counts every wall. `floor_wall`,
+  `walk_blocked`, `slide_along` and the platform-end flags use the floor's own platform.
 - **`MobSwarm.step(dt, ctx)`**, `ctx` keys: `fhm` (required); `nav` = `NavGraph.build(fhm, {"can_jump": false})` for
   mobs whose `MobKind.can_jump` is false; `nav_jump` = `NavGraph.build(fhm, {"can_jump": true})` (default `nav`);
   `target` (player position); `target_fh` (player foothold, -1 = the floor below `target`); `bounds` (MapBounds rect);
@@ -668,8 +673,9 @@ What the table above leaves open; the class doc comments have the rest.
   A wall standing inside a platform (not at its ends) is not modelled: mobs stop at it, the graph routes past it;
   SpawnDirector never spawns (or relocates a mob) where such a wall stands anywhere on the point's way to the player
   (`FootholdMap.walk_blocked` on each platform of the way, following `best_edge` onto the player's platform, where the
-  last stretch ends at the player's x; on 100010000 the hill's faces cross the ground chain, so a mob dropping onto the
-  ground outside the faces would walk into one while the player is between them). A mob stopped at such a wall (it
+  last stretch ends at the player's x; where two faces of the ground's own structure cross the ground chain, a mob
+  dropping onto the ground outside the faces would walk into one while the player is between them). A mob stopped at
+  such a wall (it
   has not moved `stall_progress` px) keeps counting toward `stall_time` even on screen and is relocated as soon as it
   is off screen; the player walking up to it shortens its way but is not its progress. Mobs steer by the travel-cost field, not by `route()`: `prepare_target(to_p, tx, also_p)` prices
   every edge from its `take` x to the point (to_p, tx) (walks in px + `edge_cost` per drop/hop, the final walk to tx
