@@ -718,6 +718,13 @@ now dies, rather than clears; F/P Henesys bot seeds 1/2 reproduce I11's 651.7/30
 card trajectories, so the old six-skill sample is not a full-pool baseline. Other differences from older smokes are
 not causally attributed. Raw per-seed JSON, exact reports and configuration logs: `_scratch/331-smoke/` (gitignored).
 
+I12 verification: cached full suite **2205 executed passes, 0 failed, 0 skipped**; cache-less full suite
+**1967 executed passes, 0 failed, 238 SKIPs** (2205 total). SKIPs prove no asset behaviour; each is named in the
+preserved QA log. Both F/P oracles pass unchanged, and the complete-pool I/L oracle reproduces. Both redesign flows,
+the I/L Skill-window flow, ordinary Henesys/Sleepywood playtests and diagnostic casts of all twelve skills with wand
+and staff were checked by eye (`evidence/i12/`, gitignored), all final playtest summaries `missing: []`. Rust70 and
+web-shell62 passed. Pinned web templates are absent locally: export/artifact verification remains a CI gate.
+
 **I/L selection and tooling smoke (spec #319, I11 #330, 2026-10-28).** Feature smoke only, no tuning: Henesys, bot, training seeds
 1 and 2, real cache (`cache-320`, the I/L books), JOBS=3. F/P (212): both records are byte-identical to the spec #319 tip's
 (`spec/319-il-arch-mage` at c058729, same seeds; every record key equal), seed 1 DEAD 651.7 s Lv36, seed 2 DEAD 305.0 s Lv11. I/L

@@ -240,7 +240,7 @@ the character's worn cash equipment and pet, and the HP ALERT level (`game/scrip
 the round has an empty account and records are byte-identical to before. The record and output names carry the file name.
 The committed fixtures are `game/tests/fixtures/accounts/full_pet.json` (pet and every upgrade; the smoke's "full account")
 and `full_cash_pet.json` (the same plus a cash item in all 11 slots; for dressed playtest screenshots).
-The committed `game/tests/fixtures/characters/fp_arch_mage.json` is the character fixture: a format-3 Arch Mage (F/P)
+The committed `game/tests/fixtures/characters/fp_arch_mage.json` is the F/P character fixture: a format-3 Arch Mage (F/P)
 with tier 2 unlocked and the tier-1 equipment kit worn (a reqLevel-25 staff, reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15
 gloves, unscrolled); its `_doc` records the kit ids, label and revision, and `game/tools/character_fixture.gd --kit=<ids>
 --tiers=2` reproduces it (`game/tests/fixtures/characters/README.md`). Its I/L twin `il_arch_mage_t2.json` (job 222, spec #319 I11:
