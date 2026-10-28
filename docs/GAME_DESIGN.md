@@ -6095,8 +6095,8 @@ exclusion group.
 - **Subs.** `charged_blow` after 1.0 s, then every 3.0 s while the window lasts (so four blows in 12 s with enough HP and three
   mobs); the blow's art follows the element (`{art}`: fire 2, ice 1, lightning 3).
 - **Presentation.** Stance `alert4` shown 0.9 s (tier A: the node's three 300 ms frames), the 15-frame `effect` (60 ms), the
-  Use sound (the twin's is a UOL to the sword's). `art_by_family {blunt: twin}` swaps only the effect, hit and sound (and the
-  icon) for a blunt weapon through `SkillBook.art_skill_id` / `art_path`; the twins are identical to the sword versions in every
+  Use sound (the twin's is a UOL to the sword's). `art_by_family {blunt: twin}` swaps only the effect and the Use sound (the icon
+  stays the sword's, as Panic's) for a blunt weapon through `SkillBook.art_skill_id` / `art_path`; the twins are identical to the sword versions in every
   number. The weapon tint comes from the seam (7.61).
 - **Rarity (tier C, spec #308), same on all three.** Rare `mastery` "Mastery": `form_power` +0.10 (1.05 -> 1.15 at rank 1);
   Epic `booster` "Booster": cooldown x0.88; Unique `advanced_charge` "Advanced Charge": `damage` x1.3 (a Charge's `damage`
