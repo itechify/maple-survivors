@@ -6,112 +6,76 @@ extends Node
 ##   bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=C:/abs/dir
 ##
 ## Scenarios (--scenario=):
-##   maps    diagnostic Henesys map 1 -> 2, Quit round/Continue from map 1, then all three maps -> Free Market.
-##           --stage=<tier-1 key> (#257, default henesys) selects that card with Down on the real map select.
-##           Invulnerable, with lethal hits after each map timer; real CLEAR/fade/arrival
-##           presentation. Shots: maps_stage_select, map_N_cleared, map_N_fade, map_N_enter, maps_replayed,
-##           maps_free_market.
-##   rounds  creates two characters, clears tier 1 (diagnostic warp), walks to
-##           Free Market out00, saves/reloads map select, starts tier 2, quits/reloads the same boundary/seed,
-##           plays to death, deletes the spare character and checks both history entries. --diagnostic-victory=1
-##           also makes tier 2 invulnerable and applies diagnostic lethal boss hits after 15:00 to inspect victory;
-##           tier 1 always uses invulnerability/EXP drops and diagnostic boss hits after its timer (#232).
-##           This is presentation evidence, not balance evidence. Bosses/rewards still finish through RunWorld.
-##   full    title -> character select -> Explorer creation -> tier-1 map select -> keyboard-steered round -> cards ->
-##           pause/resume -> death -> results -> character select -> new character -> Quit round confirmation ->
-##           continue the saved round/seed -> Quit round -> history -> characters -> title -> quit.
-##           Slots/history go only to shots_dir/driver_save.json. Delete that file for a fresh repeat.
-##   clear   --run tool one-off: waits for clear -> results -> character select -> title -> quit; never saves.
+##   redesign the F/P slice end to end (#294): title -> create an Arch Mage (name, look, Job page) -> Free Market -> map select
+##           (Sleepywood locked, Start refused) -> an invulnerable diagnostic Henesys round (fixed-tick bot warp, lethal boss
+##           hits after each map timer, the real CLEAR/fade/arrival presentation; the first level-up, the first full-slots
+##           offer, the first Mastery offer and the boss bonus draw open the real window and are answered with a number key)
+##           -> results -> Free Market (tier 2 unlocked, loot kept) -> the highest-reqLevel drop worn at Lv1 by a double-click
+##           -> Sleepywood round (loot picked up, a lethal diagnostic hit) -> results -> Free Market (loot, worn item and the
+##           unlock kept) -> Save & quit -> delete the character -> history. Shots redesign_*.png; summary.json holds the
+##           offers (kinds, rarities, picks), the showcased windows and the history. `--seed` (default 1).
 ##   title   the title screen only: waits for it, saves the shot, quits (e.g. to check an exported build:
 ##           MapleSurvivors.exe res://scenes/debug/flow_driver.tscn -- --scenario=title --shots=<dir>).
-##   windows the in-run window system (#85): title -> new character -> map select -> run; S opens the Stat window (the
-##           sim is checked to hold), its title bar is dragged with the mouse, Esc closes it (the sim runs again); an
-##           EXP drop levels the player up, S opens Stat over the level-up choice, Esc returns to the choice, 1 picks;
-##           the status bar's Menu button opens the Menu popup, its Stat entry is clicked, Esc closes Stat; Esc pauses,
-##           Esc resumes, quit. Shots: stat_window, stat_dragged, stat_over_levelup, menu_popup, menu_stat.
-##   skill   the Skill window (#86): title -> new character -> map select -> run; the build is set up directly
-##           (a Wizard (Ice, Lightning) character, Twin Claw x2, Quick Claw, Forking Storm); K opens Skill
-##           on the 2nd-job tab (the sim is checked to hold), Down selects Thunder Bolt (keyboard tooltip), Left
-##           switches to the Magician tab, the wheel scrolls Magic Claw into view and hovering it shows its Upgrades, a
-##           click picks the Magician tab (there is no star tab, spec #225, nor a Beginner tab, #284), 1 switches to it, Esc closes; then
-##           K over a level-up choice (1 switches the tab instead of picking), Esc back to the choice, 1 picks, quit. Shots:
-##           skill_window, skill_keyboard_tooltip, skill_tooltip_upgrades, skill_over_levelup.
-##   keys    Key Config and Options (#87): title -> new character -> map select -> run (no bot); Esc pauses, 2 opens
-##           Key Config over the pause menu, the jump icon is dragged from C onto F, OK; Esc resumes; C no
-##           longer jumps, F does; Menu -> Options, WASD is clicked; the right arrow no longer moves the player, D does;
-##           Options -> Arrows, Key Config -> Default -> OK. user://settings.cfg (the player's real one) is backed up
-##           first and restored before the driver quits, also on failure. Shots: key_config, key_config_rebound,
-##           options, options_wasd. These three create a character in the evidence-only driver_save.json (3 slots).
-##   inventory the Equip and Item windows (#108): title -> new character; the slot's character becomes the F/P fixture
-##           (tests/fixtures/characters/fp_arch_mage.json) holding Metal Gear, a Blue Sauna Robe, Work Gloves and a
-##           Warrior shield it cannot wear (job only: no level or stat rows), with 123,456 mesos -> Free Market -> map
-##           select -> run; E opens Equip, I opens Item (the sim is checked to hold), the robe's tooltip, the shield's
-##           tooltip and the refused double-click, the hat worn by double-click, the robe by dragging it
-##           onto the Equip window, the gloves by double-click (hat, overall, gloves and wand drawn on the
-##           character), the Calas dragged out and the YesNo box answered No, the Use tab, Esc closes both; then
-##           the slot is moved to the Free Market and Continue opens the hub: E and I there, the hat taken off and
-##           put back, Save & quit shows the dressed character on character select. Shots: equip_window,
-##           item_windows, item_tooltip, item_tooltip_unmet, equip_refused, equip_worn, character_dressed,
-##           drop_confirm, item_use_tab, hub_windows, hub_hat_off, hub_dressed, character_select_dressed.
-##   scrolls scrolls on worn equipment (#110): the Lv38 F/P fixture holds three 100% wand scrolls, six 10% and thirty
-##           dark 30% wand scrolls and two 100% hat scrolls, wears Metal Gear -> run; E and I, the Use tab; a 100%
-##           scroll is dragged from the Use tab onto the Wooden Wand (Enchant Success plays, the stats and counts
-##           follow, the tooltip shows the new upgrade slots), then 10% scrolls until one fails (Enchant Failure, only
-##           the slot is spent), then dark scrolls until the wand is destroyed (the character is bare-handed); the slot
-##           moves to the Free Market and Continue opens the
-##           hub: a hat scroll is dragged onto Metal Gear there (effect, saved slot). Shots: scroll_use_tab,
-##           scroll_success, scroll_tooltip, scroll_failure, scroll_destroyed, scroll_bare_handed, hub_scroll_success.
-##   shops   the Free Market scroll shops (#111): the Lv38 F/P fixture with 250,000 mesos, a few scrolls and spare
-##           equipment is put in the hub; the four scroll NPCs are shown; Space next to El Moth opens his shop; a wand
-##           scroll is selected and bought (quantity box, mesos charged), a refused purchase shows the notice; the
-##           Use tab sells a scroll stack, the Equip tab a spare item (YesNo box); Esc closes; a double-click on Barun
-##           opens his shop (60% stock); NPC Chat is rebound in Key Config's draft. All input is injected. Shots:
-##           shop_npcs, shop_open, shop_selected, shop_quantity, shop_bought, shop_refused, shop_sell_use, shop_sell_confirm,
-##           shop_sold, shop_barun, shop_vega.
-##   botshop the bot shop plan (#112) in the Free Market: the same fixture with 600,000 mesos and spare equipment; the
-##           hub's bot hook (FreeMarket.bot_shop, BotShop.visit) sells, buys and reads scrolls through RunWorld and
-##           saves; the Item and Equip windows show the result. Shots: botshop_before_item, botshop_after_equip,
-##           botshop_after_item.
-##   economy the whole spec-#33 loop (#113): title -> new character -> a first round -> Lv38 F/P fixture -> Henesys
-##           round; four meso sprites and two items (Metal Gear, a Dark Calas) lie on the ground, the character walks
-##           over them (HUD notices); Metal Gear auto-equips (#222), the Calas stays in Item; E and I show their tooltips;
-##           the bot's fixed-tick warp
-##           clears the round into the Free Market (saved boundary checked: worn hat, inventory, mesos); the
-##           character walks past the four scroll NPCs, Space opens El Moth's shop, a 100% hat INT scroll is bought
-##           (quantity box) and the spare Calas sold (YesNo box), Space at Tulcus buys three 10% hat scrolls; they are
-##           dragged from the Use tab onto the worn hat (Enchant success, then until one fails); Save & quit,
-##           Continue: mesos, worn equipment, inventory and scrolls equal the snapshot before quitting. The warp
-##           takes a few minutes. Shots: economy_drops_on_the_ground, economy_pickup_notices, economy_picked_up,
-##           economy_worn_hat_tooltip, economy_tooltip_unmet, economy_equip_window_hat_worn, economy_scroll_npcs,
-##           economy_shop_open, economy_shop_buying, economy_shop_sell_selected, economy_shop_selling,
-##           economy_shop_sold, economy_shop_tulcus, economy_scroll_success, economy_scrolled_tooltip, economy_scroll_failure, economy_character_scrolled,
-##           economy_save_and_quit, economy_character_select, economy_continue_restored; summary.json.
+##   clear   --run tool one-off (`--run=<stage> --seed=<n> --autoplay --autopick --speed=<k>`): waits for the clear -> results ->
+##           character select -> title -> quit; never saves (the save file is checked unchanged).
 ##   import  a cache-less start, or the title's Re-import link when a cache exists: the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ##           Without --wz this checks the screen only and never writes the cache.
+##   windows the in-run window system (#85): title -> new character -> Free Market -> map select -> run; S opens the Stat window
+##           (the sim is checked to hold), its title bar is dragged with the mouse, Esc closes it (the sim runs again); an
+##           EXP drop levels the player up, S opens Stat over the level-up choice, Esc returns to the choice, 1 picks;
+##           the status bar's Menu button opens the Menu popup, its Stat entry is clicked, Esc closes Stat; Esc pauses,
+##           Esc resumes, quit. Shots: stat_window, stat_dragged, stat_over_levelup, menu_popup, menu_stat.
+##   skill   the Skill window (#86): a round with a small build set up directly (Magic Claw, Fire Arrow, Explosion with ranks and
+##           two common passives); K opens it on the job's own tab (the sim is checked to hold), Down selects the last row,
+##           Left switches to the previous job tab, a click picks the Common tab (nine passives) and its tooltip, the tab
+##           strip ends after the job's tab, 2 switches tabs, Esc closes; then K over a level-up choice (1 switches the tab
+##           instead of picking), Esc back to the choice, 1 picks. Shots: skill_window, skill_common_tab, skill_over_levelup.
+##   keys    Key Config and Options (#87): new character -> map select -> run (no bot); Esc pauses, 2 opens Key Config over the
+##           pause menu, the jump icon is dragged from C onto F, OK; Esc resumes; C no longer jumps, F does; Menu -> Options,
+##           WASD is clicked; the right arrow no longer moves the player, D does; Options -> Arrows, Key Config -> Default
+##           -> OK. user://settings.cfg (the player's real one) is backed up first and restored before the driver quits, also
+##           on failure. Shots: key_config, key_config_rebound, options, options_wasd.
+##   inventory the Equip and Item windows (#108): the slot's character becomes the F/P fixture (tests/fixtures/characters/
+##           fp_arch_mage.json) holding Metal Gear, a Blue Sauna Robe, Work Gloves and a Warrior shield it cannot wear (job
+##           only: no level or stat rows), with 123,456 mesos -> Free Market -> map select -> run; E opens Equip, I opens Item
+##           (the sim holds), the robe's tooltip, the shield's tooltip and the refused double-click, the hat worn by
+##           double-click, the robe by dragging it onto the Equip window, the gloves by double-click, the shield dragged out
+##           and the YesNo box answered No, the Use tab, Esc closes both; then the slot is moved to the Free Market and
+##           Continue opens the hub: E and I there, the hat taken off and put back, Save & quit shows the dressed character.
+##   scrolls scrolls on worn equipment (#110): the F/P fixture holds staff scrolls and hat scrolls -> run; E and I, the Use tab;
+##           a 100% scroll is dragged from the Use tab onto the weapon (Enchant Success plays, the stats and counts follow),
+##           then 10% scrolls until one fails (only the slot is spent), then dark scrolls until the weapon is destroyed (the
+##           character is bare-handed and still casts); the slot moves to the Free Market and Continue opens the hub: a hat
+##           scroll is dragged onto the hat there (effect, saved slot).
+##   shops   the Free Market scroll shops (#111): the F/P fixture with 250,000 mesos, a few scrolls and spare equipment is put in
+##           the hub; the four scroll NPCs are shown; Space next to El Moth opens his shop; a scroll is selected and bought
+##           (quantity box, mesos charged), a refused purchase shows the notice; the Use tab sells a scroll stack, the Equip tab a
+##           spare item (YesNo box); Esc closes; a double-click on Barun opens his shop; NPC Chat is rebound in Key Config's draft.
+##   botshop the bot shop plan (#112) in the Free Market: the same fixture with 600,000 mesos and spare equipment; the hub's bot
+##           hook (FreeMarket.bot_shop, BotShop.visit) sells, buys and reads scrolls through RunWorld and saves; the Item and
+##           Equip windows show the result.
 ##   cash_shop  the Cash Shop (#118) from a prepared test save (5,000 NX): title -> new character -> map select SHOP -> Equip tab
-##           (try-on, sub-tab, buy dialog, OK, a purchase that costs too much, Pet tab with locked upgrades) -> EXIT back to map
-##           select -> the saved boundary is turned into a Free Market one, Save & quit, Continue -> status bar SHOP -> EXIT
-##           back to the Free Market. Shots: shop_*.png (the first is the Cash Shop shot to compare with the v83 references).
-##   cash_equip  the Equip window's Cash tab and Pet page (#122), continuing the #118 purchase: 12,000 NX -> new character ->
-##           map select SHOP -> buy the first hat and the first pet -> Free Market (boundary patched, Save & quit, Continue) ->
-##           E, Cash tab, a double-click wears the hat -> PET EQUIP., a double-click brings the pet out -> out00 -> the next
-##           round has both. Shots: equip_00..07 (equip_02/03 Cash tab, equip_04/05 Pet page).
-##   account the whole NX and Cash Shop loop (#126): 11,000 NX prepared -> new character -> tier-1 map select SHOP (buy a hat
-##           and a pet) -> round 1: Equip window Cash tab wears the hat, Pet page brings the pet out -> warp clear -> Free
-##           Market "+N NX" notice and saved balance -> SHOP: buy Auto HP Potion Pouch -> Save & quit, Continue -> out00 ->
-##           tier-2 map select (balance) -> round 2 -> warp death -> results (NX earned) -> the slot is freed and the account
-##           keeps NX and every item -> a NEW character: shop shows everything owned, its round's Equip window wears the hat
-##           and brings the pet (with the upgrade) out. Shots acct_*.png (+ *_zoom.png crops around character and pet).
-##           --account-nx=<n> changes the prepared balance; --seed defaults to 4.
-## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
-## effects too), --stop-at=<run s> (full: 300), --seed=<n> (full: 1, rounds: 4), --wz=<folder> (import).
+##           (try-on, sub-tab, buy dialog, OK, a purchase that costs too much, Pet tab with locked upgrades) -> EXIT -> back to
+##           the Free Market, Save & quit, Continue -> status bar SHOP -> EXIT back to the Free Market. Shots: shop_*.png.
+##   cash_equip  the Equip window's Cash tab and Pet page (#122): 12,000 NX -> new character -> map select SHOP -> buy the first
+##           hat and the first pet -> Free Market (Save & quit, Continue) -> E, Cash tab, a double-click wears the hat -> PET
+##           EQUIP., a double-click brings the pet out -> out00 -> the next round has both. Shots: equip_00..07.
+##   account the whole NX and Cash Shop loop (#126): 11,000 NX prepared -> new character -> map select SHOP (buy a hat and a pet)
+##           -> round 1: Equip window Cash tab wears the hat, Pet page brings the pet out -> warp clear -> results -> Free Market
+##           "+N NX" notice and saved balance -> SHOP: buy Auto HP Potion Pouch -> Save & quit, Continue -> out00 -> Sleepywood
+##           (unlocked by the clear) -> round 2 -> warp death -> results (NX earned) -> the character survives and the account
+##           keeps NX and every item -> a NEW character uses them. Shots acct_*.png (+ *_zoom.png crops). `--account-nx=<n>`
+##           changes the prepared balance; `--seed` defaults to 4; `--natural-clear=1` plays round 1 without invulnerability.
+## The scenarios of the removed systems (maps, rounds, full, economy and the Warrior, Pirate, Bowman and Thief job/weapon pages)
+## were deleted with job advancement, saved rounds and the old creation flow (#284, #286, #294).
+## Other flags: --shots=<abs dir> (required), --seed=<n>, --wz=<folder> (import). The driver runs uncapped (vsync off).
 ##
 ## Screenshots are named NN_<step>.png; the driver prints one "flow_driver:" line per step and quits with exit code 1
-## when a step times out or the full scenario misses the pause-resume path. Full also writes summary.json
-## from RunScene's public snapshot, including the seed, potion totals, tier counts and missing assets.
-## tier C: diagnostic names, seeds 1 (full) and 4 (rounds), 1800s combat cap, 600-tick yields, 100s progress logs,
-## 30s/8px exit-walk guard and UI waits/timeouts are automation choices, never survivor tuning.
+## when a step times out or a check fails. Saves go to shots_dir/driver_save.json (delete the folder to repeat a scenario).
+## tier C: diagnostic names, seeds 1 (redesign) and 4 (account), the 1800 s combat cap, 600-tick yields, the 400 + 75 meso
+## loot, the 1e9 lethal hit, the Lv45 fallback staff, the card policy "rank the highest-ranked owned active once the slots are
+## full" and the UI waits/timeouts are automation choices, never survivor tuning.
 
 const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
 const StageSelectScene := preload("res://scenes/ui/stage_select.gd")

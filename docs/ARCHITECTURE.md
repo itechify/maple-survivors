@@ -103,11 +103,12 @@ trading through the map-less RunWorld (`shop_stock`, `buy_scroll`, `sell_item`, 
 module) and saving the slot at once.
 `--run` calls `start_run`, an independent one-off with no save writes.
 
-The `flow_driver.tscn` `rounds` scenario exercises these boundaries through injected signboard, character-slot,
-creation, pause and History input. It warps real fixed simulation ticks through combat, walks the hub to out00,
-reloads the evidence-only save from disk and checks byte-preserving Quit round and same-stage/seed Continue.
-Its optional tier-2 victory probe uses invulnerability and diagnostic boss hits after 15:00, then resolves real
-rewards and clear events. It checks presentation only; natural outcomes belong to balance smokes.
+The `flow_driver.tscn` `redesign` scenario exercises these boundaries through injected signboard, creation (name, look,
+Job page), Free Market walk, map select (a locked tier refused), level-up window, double-click equip, pause, deletion and
+History input. It warps real fixed simulation ticks through combat (invulnerable, with diagnostic boss hits after each map
+timer), plays the real CLEAR/fade/arrival presentation of the three maps, and reloads the evidence-only save from disk to
+check that a clear unlocks tier 2 and that a death keeps the loot and the unlock. It checks presentation and flow only;
+natural outcomes belong to balance smokes (AGENTS.md "Flow driver").
 
 ### 4.2 Autoloads
 
@@ -282,8 +283,8 @@ Balance records carry `map_times`, `ended_map: {index, id}` and `boss_fights[].m
 `summary.json` includes `map_times` and `ended_map` both at its root and within `summary`; RunScene's existing
 map_id/map_name/street_name fields identify the ending map. SUMMARY counts deaths by one-based map number and
 reports entry seconds for maps 2 and 3 with observation counts. Legacy records contribute no invented map data.
-`flow_driver --scenario=maps` exercises the real transitions, Save & quit on map 2, replay from map 1 and the hub;
-diagnostic invulnerability, EXP drops and post-timer boss hits make this flow evidence rather than balance evidence.
+`flow_driver --scenario=redesign` exercises the real map transitions and the hub; diagnostic invulnerability and post-timer
+boss hits make this flow evidence rather than balance evidence.
 
 ### 4.4.1 Run setup (what `RunWorld` is built from)
 

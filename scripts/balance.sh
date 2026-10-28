@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Headless pacing report: whole rounds across the real maps with the kiting autoplay bot and a card policy (default: the
 # sensible picks of BotInput.pick_card_for; --policy=random: a careless player who takes a random card of the three),
-# the first available job, one Godot process per seed in parallel (game/tools/balance_run.gd). Needs the asset cache.
+# the default job (Arch Mage, 212), one Godot process per seed in parallel (game/tools/balance_run.gd). Needs the asset cache.
 #
 #   bash scripts/balance.sh                                # henesys, training seeds 1..6
-#   bash scripts/balance.sh 1 2 --job=210     # force a first or second job (a second job takes its first job at the first
-#   # window); one the build cannot offer fails at startup (see the seed log). --branch=<id> is the deprecated alias. --job=100:spear / --job=120:blunt select an advancement family.
+#   bash scripts/balance.sh 1 2 --job=212     # the character's job (ADR 0006: chosen at creation, never changes); only a playable
+#   # job is accepted, anything else fails at startup (see the seed log). --branch=<id> is the deprecated alias.
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
 #   bash scripts/balance.sh 1 --account="C:/abs/account.json"  # a round with an account (spec #34): {"owned": [item ids],
 #   # "cash": {slot: id}, "pet": id, "alert": {"hp": f}} (all optional; nx and an old alert.mp ignored). owned = the account's
@@ -53,7 +53,7 @@
 # full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json. Potion fields: potions_used {hp} counts player drinks;
 # potion_uses [{time, level, kind, item_id, restored, capacity_waste}] records each player drink; pet.potions_used {hp}
 # counts pet drinks separately when a pet is out. Unlimited potions have no collection/stock metrics or collection/use ratio.
-# SYSTEMS reports player potions used, completed boss fight times, time to Magician, first-five-minute
+# SYSTEMS reports player potions used, completed boss fight times, first-five-minute
 # lifetime hits per ordinary kill, death-only times and whole boss-hit HP fractions; *_summary.json/log preserve the aggregate.
 # Per-run card_tiers_offered/picked count the displayed Potential tiers; SYSTEMS totals include an observed-run count.
 # Chain files use <stage>_chain_tier<N>_<policy>_<seed>.json and retain rounds[]; summaries group by tier,
@@ -88,7 +88,7 @@ for a in "$@"; do
     --job=*|--branch=*)
       [[ "$a" == --branch=* ]] && echo "balance.sh: --branch is deprecated: use --job=<id>" >&2
       JOB_ID="${a#--*=}"
-      [[ "$JOB_ID" =~ ^[0-9]+(:[a-z_]+)?$ ]] || { echo "--job must be a job id with an optional weapon family (e.g. 100:spear, 120:blunt)" >&2; exit 2; }
+      [[ "$JOB_ID" =~ ^[0-9]+$ ]] || { echo "--job must be a job id (e.g. 212)" >&2; exit 2; }
       EXTRA_JOB="--job=$JOB_ID" ;;
     --idle-after=*) EXTRA_IDLE="$a" ;;
     --cap=*) EXTRA_CAP="$a" ;;
