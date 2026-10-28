@@ -373,3 +373,42 @@ func test_the_bot_waits_three_seconds_between_dashes() -> void:
 	w.swarm.x[mob] = 440
 	w.swarm.y[mob] = 0
 	assert_true(BotInput.decide(w, memo).skill_pressed("rush"), "the same emergency dashes again after 3 s")
+
+
+# --- The real Skill.wz node -------------------------------------------------------------------------------------------
+
+func test_real_cache_rush_numbers_art_and_sound() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	assert_true(lib.open())
+	var imgs := lib.img("Skill.wz/112.img").root
+	var book := SkillBook.from_data(DataRepo.load_all().skills, {"112": imgs})
+	assert_eq(book.max_level(KEY), 30)
+	assert_eq(book.max_rank(KEY), 8, "the level-30 rank table")
+	assert_eq(book.canonical_level(KEY, 1), 4, "fixed rank 1 = WZ level 4")
+	# Independent literals read from Skill.wz/112.img/skill/1121006/level/4.
+	assert_eq(book.canonical(KEY, 4, "damage"), 78.0)
+	assert_eq(book.canonical(KEY, 4, "mobCount"), 15.0)
+	var lt: Array = book.level_node(KEY, 4).lt["$v"]
+	var rb: Array = book.level_node(KEY, 4).rb["$v"]
+	assert_eq([lt[0], lt[1], rb[0], rb[1]], [-170.0, -50.0, 0.0, 0.0])
+	assert_eq(book.def(KEY).action, "rush2")
+	# Through a world: the numbers the cast really uses.
+	var setup := RF.setup("quiet", 60, RF.quiet_data())
+	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
+	setup.skill_imgs["112"] = imgs
+	setup["job"] = 112
+	var w := RunWorld.new(setup)
+	var st := w.runner.stats_of(w, KEY)
+	assert_eq(int(st.level), 4)
+	assert_near(float(st.damage_pct), 0.78, 1e-9)
+	assert_eq(int(st.mob_count), 15)
+	assert_eq(float(st.displacement.distance), 170.0, "the dash covers the box reach")
+	assert_eq(st.box, Rect2(-170, -50, 170, 50))
+	# Art and sound named by the definition all resolve, including the dust.
+	assert_eq(lib.anim(String(book.def(KEY).effect)).frames.size(), 7, "effect/0 is blank, 1..6 the streak")
+	assert_eq(lib.anim(String(book.def(KEY).cast_visuals[0].path)).frames.size(), 6, "the dust")
+	assert_true(lib.sound(String(book.def(KEY).sounds.use)) != null)
+	assert_true(lib.missing.is_empty(), str(lib.missing))
+	lib.free()

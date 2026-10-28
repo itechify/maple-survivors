@@ -1834,9 +1834,11 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	})
 	_instant_dealt += roll.x
 	if roll.x > 0:
-		_on_player_hit(m, {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": magic,
-			"damage": roll.x, "element": String(st.get("element", "")), "damage_type": dtype,
-			"push_side": int(st.get("push_side", 0))})
+		var hit := {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": magic,
+			"damage": roll.x, "element": String(st.get("element", "")), "damage_type": dtype}
+		if st.has("push_side"):
+			hit["push_side"] = int(st.push_side) # a dash's direction (Rush): the knock-back shoves along it
+		_on_player_hit(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
 

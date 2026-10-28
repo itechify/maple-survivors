@@ -39,6 +39,7 @@
 			"hit": "",
 			"effect": "Skill.wz/112.img/skill/1121006/effect",
 			"rotate": false,
+			"cast_visuals": [{"path": "Skill.wz/112.img/skill/1121006/effect0", "x": 0}],
 			"sounds": {
 				"use": "Sound.wz/Skill.img/1121006/Use",
 				"hit": ""

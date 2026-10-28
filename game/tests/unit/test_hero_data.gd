@@ -56,7 +56,7 @@ func test_hero_is_the_last_line_so_the_merge_order_of_the_others_does_not_move()
 	assert_eq(DataRepo.fragment_path("skills", "hero", "res://data"), "res://data/survivor/skills/hero.json")
 
 
-func test_the_hero_line_loads_without_errors_and_adds_a_job_but_no_skill_yet() -> void:
+func test_the_hero_line_loads_without_errors_and_adds_a_job_and_its_skills() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
@@ -65,7 +65,7 @@ func test_the_hero_line_loads_without_errors_and_adds_a_job_but_no_skill_yet() -
 	assert_true(d.jobs_survivor.jobs.has("112"), "jobs/hero.json is merged into the survivor job data")
 	assert_eq(d.jobs_survivor.jobs.keys(), ["0", "200", "212", "112"], "base entries, then lines in LINES order")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "hero"))
-	assert_eq(frag.skills, {}, "H2 ships an empty skill skeleton; H5-H8 fill it")
+	assert_eq(frag.skills.keys(), ["rush_hero"], "H2's skeleton plus Rush (H6); H5, H7 and H8 add the pool skills")
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
 
@@ -107,7 +107,7 @@ func test_212_keeps_its_entry_unchanged() -> void:
 func test_pool_keys_not_yet_defined_stay_inert() -> void:
 	var data := _data()
 	var defined: Dictionary = data.skills.skills
-	for key: String in ["brandish", "shout", "monster_magnet", "panic", "coma", "rush_hero"]:
+	for key: String in ["brandish", "shout", "monster_magnet", "panic", "coma"]:
 		assert_false(defined.has(key), "%s is defined by its own ticket, not by H2" % key)
 
 

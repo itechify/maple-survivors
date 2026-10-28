@@ -97,9 +97,12 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
 			assert_eq(book.canonical_level(key, 5), 5)
 			continue
+		if key == "rush_hero" and not book.skill_imgs.has("112"):
+			continue # the synthetic fixtures carry no Hero book; the real-cache run covers it
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
-		if key in data.jobs_survivor.jobs["212"].skill_pool:
+		# Hero's Rush (#302) takes the level-30 survivor table like a pool skill, but stays at rank 1 for the whole round.
+		if key in data.jobs_survivor.jobs["212"].skill_pool or key == "rush_hero":
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
@@ -663,6 +666,8 @@ func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> 
 		assert_false(key in data.jobs_survivor.jobs["212"].skill_pool, "%s is a pool skill and needs rarity_bonuses (#288)" % key)
 		if int(s.get("job", -1)) == 0:
 			continue # #284: the Beginner is gone and its skills have no cards
+		if String(s.slot) == "mobility":
+			continue # a mobility skill is never offered as a card (Rush, #302)
 		if String(s.damage) != "none" or String(s.slot) == "active":
 			assert_true(covered.has(key), "%s needs a skill_mod card with more shots, targets or pierce" % key)
 

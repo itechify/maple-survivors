@@ -29,7 +29,7 @@ behaviour cards mentioned in them are gone. Target design:
 | Passives | 9 common passives, Maple-named: Maple Warrior (Might), Hyper Body (Max HP), Haste (Speed), Recovery (Regen), Booster (Cooldown), Area, Holy Symbol (EXP), Iron Body (Armor), Sharp Eyes (Crit). Rank 1-5, no rarity. Starting values follow the reference (tier C). | 7.6, 8 |
 | Cards | 3 per draw, weights 1.2 owned active or Mastery / 1.0 new active / 0.8 passive rank / 0.5 new passive. Boss bonus draw kept. No reroll, banish or skip. Power Elixir fallback. | 8 |
 | Combat | Maple formula plus auto-AP in one stat row per job. No MP (cooldowns only). No level-gap penalties. No MISS (ADR 0005). | 5, 6, 7 |
-| Mobility | Teleport, Flash Jump or Dash on a skill key from Lv1, outside the slots. | 2, 7.15 |
+| Mobility | Teleport, Flash Jump, Dash or Rush on a skill key from Lv1, outside the slots. | 2, 7.15, 7.33 |
 | Equipment | Job-class requirement only. `reqLevel` is the tier's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
 | Account | NX, Cash Shop, pets unchanged. Cash equipment adds Fortune. | 8.4 |
 
@@ -167,7 +167,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
-| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Each manual skill has its own key in Key Config (see 7.15) |
+| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Rush (Hero): X + direction dashes that way, damaging and shoving mobs (7.33; hold X to repeat after its 2 s cooldown). Each manual skill has its own key in Key Config (see 7.15) |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
@@ -179,7 +179,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
-There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash) are cast on their own skill keys, both X by default.
+There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash, Rush) are cast on their own skill keys, all X by default.
 
 Movement keys are a setting (`Settings` `[controls] movement`: `arrows`, the default, or `wasd`). Only the chosen set
 drives `move_*`, so the other set is free to bind; switching to WASD takes W/A/S/D off every other action (S stops
@@ -4838,9 +4838,11 @@ kind):
 
 ```json
 "displacement": {
-  "direction": "away" | "toward",      // default "away"; relative to the mob the cast faces
+  "direction": "away" | "toward" | "input",   // default "away"; relative to the mob the cast faces; "input" (a manual
+  // dash, 7.33 Rush) is chosen by the caster: the pressed arrow key, else the facing
   "when": "before" | "after" | "during",   // default "after"
-  "field": "x"                         // the distance in px: a canonical Skill.wz level field of this rank's level, or
+  "field": "x"                         // the distance in px: a canonical Skill.wz level field of this rank's level
+  // ("lt.x" is the box reach |lt.x|, Rush), or
   // "distances": [60, 90, 120]        // survivor px per rank (rank r uses entry r, the last one repeats), or
   // "distance": 80                    // one survivor px value. Precedence: field, distances, distance.
 }
@@ -4910,7 +4912,7 @@ pacing regressions retain their pre-Pirate job pool and unchanged goldens/bounds
 
 **Skill key** (GLOSSARY): the Key Config binding of one manual skill the character has learned. A manual skill
 (`cast.rule: "manual"`, never auto-cast) names its key in a `skill_key` field of its definition; the id is also the
-input action (`project.godot` has `teleport` and `dash`, both X) and is listed in `KeyBindings.SKILL_KEYS`. A new
+input action (`project.godot` has `teleport`, `dash` and `rush`, all X) and is listed in `KeyBindings.SKILL_KEYS`. A new
 manual skill adds its id there, an action in `project.godot` and a `skill_key` in its skill file. The three Teleports
 share `teleport`, so an existing `settings.cfg` `[input] teleport` binding is simply Teleport's skill key and
 Teleport behaves exactly as before.
@@ -4918,8 +4920,8 @@ Teleport behaves exactly as before.
 - **Key Config lists only learned manual skills.** `RunWorld.manual_skill_keys()` returns one
   `{action, name, icon, skill}` per learned skill key; `KeyConfigWindow` takes it when it opens and ends its tray with
   those icons (the skill's own icon and name, not the F/P Teleport icon for everyone). `KeyBindings` drafts the fixed
-  actions plus those ids; an unlearned skill key cannot be bound. Teleport and Dash both default to X; no character learns
-  both (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
+  actions plus those ids; an unlearned skill key cannot be bound. Teleport, Dash and Rush all default to X; no character
+  learns two of them (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
 - **Input.** `MoveInput.skills_pressed` / `skills_held` (id -> true; `press_skill`, `hold_skill`) replace the old
   `teleport_pressed` / `teleport_held`. `RunScene` latches presses of learned skill keys (a held key requests repeats).
   `RunWorld.manual_skill(id)` finds the learned skill (weapon-gated like any skill). Teleport keeps its handler
@@ -5565,6 +5567,47 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. No rarity lists ship until #288 lands; proposed lists are in T9-291.md.
 
+### 7.33 Hero pool and Rush (spec #296)
+
+#### Rush (1121006, `rush_hero`, #302 H6)
+
+Hero's `mobility_skill` (spec #296 D1): a manual directional dash on the skill key that damages and shoves mobs along its
+path. It is the first mobility skill that deals damage; Paladin and Dark Knight get their own Rush the same way. Rush is
+learned at round start next to Power Strike (`JobTree.start_skills`), consumes neither slot track, is not in the pool and
+is never offered as a card (`UpgradePool` only draws pool skills).
+
+- **Definition.** `skills/hero.json`: `slot "mobility"`, `kind "instant"`, `damage "physical"`, `cast {"rule": "manual"}`,
+  `skill_key "rush"`, `displacement {direction "input", when "during", field "lt.x"}`, `knockback {distance 80, direction
+  "dash"}` (no chance field), `rush {bot_threat_distance 60}`, action `rush2` (0.6 s), effect `effect` (frame 0 is a blank
+  1x1 that delays the streak 100 ms), the dust `effect0` as a `cast_visuals` entry, the `Use` sound. No `ranks` override: the
+  level-30 table gives rank 1 = WZ level 4.
+- **Input.** `rush` is a skill key (`KeyBindings.SKILL_KEYS`, an action in `project.godot`, X by default like Teleport and
+  Dash; a Hero never owns two). Press it with Left or Right to dash that way, otherwise the facing (Up and Down are
+  ignored; opposing arrows cancel). Holding repeats once the cooldown is over. Key Config lists it and the HUD quick slot
+  shows it with its cooldown sweep (`HudQuickSlot.movement_skill_of`).
+- **Movement** (`SkillRunner.cast_dash`, `PlayerMotion.dash_destination` / `dash_to`). Instant, like every displacement
+  (7.13): the distance is the box reach `|lt.x|` of the owned level (170 px at rank 1). Grounded it slides along the
+  platform (slopes, platform edge, walls, map limits: never off a ledge). Airborne it keeps its height and stops at the
+  walls of the platform last stood on and the map limits. It cannot start while climbing. A dash that could not move
+  at all is refused with nothing spent: no event, no cooldown. `rush2` plays for its action time. The `cast` event's
+  `pos` is where the dash began.
+- **Hits.** The swept box of 7.13 (`lt (-170,-50) rb (0,0)`, mirrored by the facing) at the start and at the end of the
+  move, and everything between: each mob in it is hit once per dash (one physical line, 78%), up to `mobCount` 15,
+  scheduled bosses first. Bosses are damaged and never shoved.
+- **Knock-back.** A `knockback` block **without a `chance_field` always applies and draws no random number** (this
+  ticket; every earlier block names one). `direction "dash"` shoves each hit mob 80 px along the dash that hit it
+  (the `hit.push_side` of the cast), not away from where the character stopped, so mobs the character ran past are pushed on
+  ahead of it instead of back toward where it started. `MobSwarm.knockback` takes the optional `force_side`.
+- **Cooldown.** 2.0 s (tier C, the balance lever for melee survivability), started by the cast; the HUD reads
+  `runner.cooldowns`. No rank: **mobility skills do not rank**. `RunWorld.mobility_rank(level)` is the one seam that
+  names a mobility skill's rank at a character level (1 today, so Rush stays at WZ level 4, 78%, 170 px for the whole
+  round, and F/P's Teleport is unchanged); a shared level-to-rank rule replaces that function and nothing else.
+- **No orbs.** Rush gives no Combo orb and takes no orb bonus: both belong to pool skills only (the meter reads the pool).
+- **Bot** (`BotInput`). Like Teleport: when a mob within 60 px stands on its level (|dy| <= 40) and Rush is ready, it
+  dashes **away** from the more dangerous side if that lane lets the dash cover at least half its reach, else **through**
+  the crowd the other way if that lane is free; no lane either way, no press. At most once per 3 s
+  (`BotInput.RUSH_MIN_INTERVAL`). It never presses Rush with no mob within 60 px, so it never uses it to approach.
+
 ### 7.35 Pull (#300, spec #296)
 
 The mirror of `knockback` (7.27): a generic skill block that drags mobs toward the caster along their foothold chain.
@@ -6050,6 +6093,9 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | Hero AP row (#298, spec #296) | `balance.player.ap["112"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204 (the secondary DEX target tracks the level plus about 4, the v83 Warrior gear pattern). HP growth is not re-listed: 112 inherits the Warrior row (100: 26 per level) through the lineage | C | Spec #296 |
 | Hero creation weapon (#298, spec #296) | `survivor/jobs/hero.json` `creation_weapon` 1302000, the plain Sword (reqJob 0, so wearing it checks no class); `weapon_families` `["sword", "axe"]` filters the existing Warrior drop list (one- and two-handed), armour and shields drop by the Warrior class bit; the weapon item id and stats are tier A | C | Spec #296 |
 | `default_job` pin (#298, spec #296) | `survivor/jobs.json` `default_job` 212: the job of a fresh character and of every tool run, test and oracle that names none, so Hero (`playable` false until the last Hero ticket) never changes it by becoming playable; Hero is always chosen explicitly (`--job=112`, the creation Job page). The owner can flip it with this one line | C | Spec #296, risk found while checking the slice |
+| Rush 2.0 s cooldown, always-on 80 px knock-back along the dash, hold-to-repeat, refused while climbing, airborne dash keeps its height (#302, spec #296) | `skills/hero.json` `rush_hero` (`cooldown`, `knockback`); damage 78%, `mobCount` 15, box reach 170 px (the dash distance) and `rush2` are Skill.wz level 4 (tier A) | C | Spec #296 D1; v83 Rush is a dash with a hit box |
+| Rush fixed at rank 1 = WZ level 4; `RunWorld.mobility_rank` returns 1 (#302) | mobility skills do not rank in #282; a shared rule can replace the function | C | Spec #296 |
+| Rush bot rule: dash from a mob within 60 px (on the bot's level), away when the lane covers half the reach else through the crowd, at most every 3 s (#302) | `skills/hero.json` `rush.bot_threat_distance` 60; `BotInput.RUSH_MIN_INTERVAL` 3.0, `RUSH_LANE_FRACTION` 0.5 | C | Spec #296 |
 | Cards on the job line (#284) | A card is eligible when one of its `requires.jobs` is the character's job or an ancestor (`UpgradePool.on_line`); no `carry_jobs`, no advancement draw, no weapon check; Beginner and Teleport cards deleted | C | Stopgap until the skill pool (#287) |
 | Removed RNG streams (#284) | Streams 5 (the basic attack) and 8 (bot job draws) are reserved and never drawn; no other stream is renumbered | C | Keeps every other stream's seeded sequence |
 | Region cards and ending-map results (#241, #247) | Map 1's mapMark beside the region; three ordered `map name → boss name` rows in the existing v83 parchment, each wrapping as needed with a 6 px gap between rows. Objective: "Defeat 3 bosses across 3 maps". Results keep region/continent and add the ending map's WZ name and mapMark, with a 6 px gap before stats | C layout/text; A map/boss names and marks | Owner #241 / #247; String.wz and each map's `info/mapMark`. Summary identity comes from `RunWorld.current_map_id()` |
