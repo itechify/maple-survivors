@@ -133,11 +133,7 @@ func test_every_event_matches_the_schema() -> void:
 		_check(e, seen)
 	# A death for player_died.
 	var d := RF.quiet_world(400.0)
-	RF.put_mob(d, 1110100, 430.0)
-	for t in 60 * 20:
-		d.step(DT, MoveInput.new())
-		if d.state == RunWorld.DEAD:
-			break
+	d.take_hit(1000.0, false, "", d.player.pos + Vector2(20, 0)) # Guaranteed lethal schema probe.
 	for e: Dictionary in d.drain_events():
 		_check(e, seen)
 	# Both player-hit variants obey the same documented event schema.

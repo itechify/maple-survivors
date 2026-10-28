@@ -13,7 +13,8 @@ const DT := 1.0 / 60.0
 ## Re-captured for #285 (no MP): no MP potion input, skills cast on their cooldown only.
 ## Re-captured for #284 on top (the #285 digests were 813012817 / 365424704): no basic attack; the Magician is the fresh 212 (Energy Bolt and Teleport), the Beginner
 ## a job-0 character set up with Three Snails.
-const MAGICIAN_DIGEST := 168893068
+## #293: faster F/P cooldowns change kills, hence kiting inputs; decision rules are unchanged.
+const MAGICIAN_DIGEST := 418980572
 const BEGINNER_DIGEST := 556679015
 
 

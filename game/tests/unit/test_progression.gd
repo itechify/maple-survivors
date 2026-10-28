@@ -133,7 +133,10 @@ func test_level_queue_opens_one_window_per_level() -> void:
 
 
 func test_touch_damage_invincibility_knockback_and_death() -> void:
-	var w := RF.quiet_world(400.0)
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["starting_skill"] = "" # Contact fixture must not kill its target first.
+	var w := RunWorld.new(RF.setup("quiet", 7, data))
+	RF.place_player(w, 400.0)
 	w.drain_events()
 	RF.put_mob(w, 1110100, 430.0)
 	var hits: Array = []
@@ -151,7 +154,7 @@ func test_touch_damage_invincibility_knockback_and_death() -> void:
 				died = true
 		if w.state != RunWorld.PLAYING:
 			break
-	assert_true(died, "one Green Mushroom hit kills a level 1 Beginner without gear")
+	assert_true(died, "one Green Mushroom hit kills a level 1 character without gear")
 	assert_eq(w.state, RunWorld.DEAD)
 	assert_true(w.player_state.dead)
 	assert_eq(w.player_state.hp, 0)
@@ -163,7 +166,10 @@ func test_touch_damage_invincibility_knockback_and_death() -> void:
 
 
 func test_knockback_and_whole_damage_to_hp() -> void:
-	var w := RF.quiet_world(400.0)
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["starting_skill"] = "" # Contact fixture must not kill its target first.
+	var w := RunWorld.new(RF.setup("quiet", 7, data))
+	RF.place_player(w, 400.0)
 	RF.change_job_bare(w, 200)
 	w.drain_events()
 	RF.put_mob(w, 130101, 375.0)
