@@ -398,7 +398,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `buff_pulse` | `skill`, `skill_id`, `amount` (canonical integer healing due; the HP gain is clamped to max). Recovery's final pulse precedes its expiry; Guard/Armor have no pulses. |
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
-| `mob_status_applied` | `mob`, `mob_id`, `status` (`slow`, `poison`, `freeze`, `threatened`, `stun`), `duration` (float canonical seconds); reapplication emits again and refreshes |
+| `mob_status_applied` | `mob`, `mob_id`, `status` (`slow`, `poison`, `freeze`, `threatened`, `stun`, `ice_weak`, `burn`), `duration` (float canonical seconds); reapplication emits again and refreshes |
 | `mob_status_expired` | `mob`, `mob_id`, `status`; natural timer expiry only; death/release/relocation clears silently |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
 | `player_hit` | `damage` (int), `miss` (bool), `dir` (-1/1), `pos`, `mob` (source slot, -1 when unspecified), `mob_id` (source id, 0 when unspecified), `boss` (bool), `max_hp` (HP pool at hit time), `source_kind` (String: `touch`, `attack`, `projectile`, or `other` for a direct unspecified source). Whole damage/max_hp supports encounter metrics. A miss spends no HP and gives no knockback/invincibility. |
@@ -567,21 +567,24 @@ renderer restarts a slot's animation when its generation changes, even if despaw
 
 Player-inflicted monster statuses live in one `MobSwarm` status table: packed `status_left` (seconds left, doubles)
 and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW = 0`, `POISON = 1`, `FREEZE = 2`,
-`THREATENED = 3` (Page Threaten, #183) and `STUN = 4` (#187), `STATUS_COUNT = 5`, plus `slow_factor`, the Threaten cut arrays `threat_pad`/`threat_pdd` (read through
+`THREATENED = 3` (Page Threaten, #183), `STUN = 4` (#187), `ICE_WEAK = 5` and `BURN = 6` (#337), `STATUS_COUNT = 7`, plus `slow_factor`, the Threaten cut arrays `threat_pad`/`threat_pdd` (read through
 `threatened_pad`/`threatened_pdd`, applied in `RunWorld.mob_weapon_attack` (touch and `MobAttacks._impact`), `RunWorld.mob_defense` and the
-bulk `lower_threatened_pdd`) and private poison pulse/damage/source arrays. The `crowd` cast rule takes its status from
+bulk `lower_threatened_pdd`) and private poison and burn pulse/damage/source arrays. Burn (`BurnStatus`, GAME_DESIGN 7.43) is
+poison's fire twin: `params.pulse` is a whole damage per second resolved from the cast (`Loadout.stats` `burn_pulse`, carried by
+the projectile pool's `burn_pulse` array or the instant `st`), its refresh keeps the running pulse clock, and its `mob_hit` pulses
+are credited in `swarm.burn_dealt`. The `crowd` cast rule takes its status from
 the skill's `cast.status` (`SkillRunner.crowd_status`, "slow" by default; `MobSwarm.can_crowd_cast`); Threaten has no
 `prop`, so it draws no random number and RNG stream 13, reserved for spec #165, stays unused. `status_time(slot, status)` reads a timer. The shared entry
 point is `apply_status(slot, name, params, events) -> bool` (`name` from `STATUS_NAMES`); `params` contains canonical
 `time`, signed Slow `x` (Threaten: signed `x` PAD and `y` WDEF), or poison skill `level`, an optional survivor `skill` key and an optional `element` overriding
-the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`, Threatened none). Stun ignores even a supplied element;
+the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`, Burn `F`, Threatened none). Stun ignores even a supplied element;
 bosses reject every status. Other statuses fail when the Mob.wz element digit is 1, 2 or 4 (`MobKind.resists_status`). `step` receives the current event list in
-`ctx.events`, advances status timers after movement and emits poison `mob_hit` events; it visits only a compact
-list of statused slots, and no status means no status pass at all. `RunWorld.damage_dealt` is a getter summing shots, instant hits and `swarm.poison_dealt`.
+`ctx.events`, advances status timers after movement and emits poison and burn `mob_hit` events; it visits only a compact
+list of statused slots, and no status means no status pass at all. `RunWorld.damage_dealt` is a getter summing shots, instant hits, `swarm.poison_dealt` and `swarm.burn_dealt`.
 `has_statuses()` lets presentation skip status work. `can_act(slot)` (settled, not frozen or stunned) gates monster touch
 damage as well as boss attacks/skills. Release, death and relocation clear these player-inflicted
 statuses; the existing `MobSkillRunner` monster buffs still transfer on relocation. `MobRenderer` uses pooled cached
-Slow/Poison/Threaten/Stun art and status tints; frozen state/animation clocks do not advance, though a frozen airborne monster still
+Slow/Poison/Threaten/Stun art, the skill-configured burn cue (`burn_cue_path`) and status tints (orange `BURN_TINT` without a cue); frozen state/animation clocks do not advance, though a frozen airborne monster still
 falls and a fading-in one keeps fading in. Stunned monsters stand without moving or flinching, keep their animation clocks,
 and fall straight down when airborne; a refresh keeps the longer remaining duration.
 
