@@ -50,7 +50,7 @@ func test_stage_labels_fall_back_to_the_old_name() -> void:
 
 
 func test_skills_reference_canonical_ids() -> void:
-	var skills: Dictionary = data.skills.skills
+	var skills: Dictionary = SkillTemplate.resolve(data.skills.skills)  # a templated child is only whole once resolved
 	var want := {"three_snails": 1000, "energy_bolt": 2001004, "magic_claw": 2001005,
 		"magic_armor": 2001003, "recovery": 1001, "nimble_feet": 1002}
 	for gone: String in ["magic_guard", "improved_max_mp", "improved_mp_recovery", "mp_eater_fp", "mp_eater_il",
@@ -648,7 +648,7 @@ func test_manual_skills_name_a_skill_key_with_an_input_action() -> void:
 
 
 func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> void:
-	var skills: Dictionary = data.skills.skills
+	var skills: Dictionary = SkillTemplate.resolve(data.skills.skills)
 	var covered := {}
 	for c: Dictionary in data.upgrades.cards:
 		if String(c.kind) != "skill_mod":

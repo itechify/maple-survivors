@@ -5626,6 +5626,31 @@ damage x1.2, repeats shrink x0.8, section 8). Each entry changes the resolved ca
 The Normal Mastery of these skills is the shared +5% damage (x0.8 per repeat). Thunder Bolt's `count` raises its
 `mob_count` (a nearest-target skill adds targets with `count`, a box skill with `count` through `mob_count`).
 
+**Blizzard and Big Bang (I10, #329).**
+
+| Skill / key | Behavior | Cooldown (tier C) |
+|---|---|---|
+| Blizzard 2221007 / `blizzard` | Meteor Shower's mirror (7.31): the WZ box (-400,-350)..(400,250), canonical `mobCount` 15, damage after the WZ `hitAfter` 1600 ms with targets queried at impact (never saved), ice (`elemAttr i`); every damaging line attempts a freeze for the canonical `time` (1 -> 3 s) | 4.8 s |
+| Big Bang 2221001 / `big_bang_il` | `{"extends": "big_bang", "skill_id": 2221001, "book": "222", "job": 222}` (7.63): F/P's charge, release, box (-250,-180)..(250,100), 2.8 s cooldown and rarity lists, with art and sounds under `Skill.wz/222.img/skill/2221001/...` and `Sound.wz/Skill.img/2221001/...` and its numbers read from book 222 | 2.8 s |
+
+- **Freeze reading (tier C).** Blizzard's WZ level nodes carry `time` 1 -> 3 and no `prop`; its description does not
+  mention freezing, and nothing else reads the field, so it is the freeze length, like Ice Strike's. The `on_hit` is
+  `{"status": "freeze", "duration_field": "time"}` with no chance field: every damaging line attempts it, and the
+  existing rules reject bosses, scheduled-boss slots and ice-immune or ice-strong monsters (`MobSwarm.accepts_status`).
+  The pending impact already goes through `RunWorld.hit_mob`, which applies `on_hit`, so no code changed. If the
+  smoke shows Blizzard and Ice Strike freeze-locking tier 1, the levers are a freeze `chance` or Blizzard's cooldown,
+  never the canonical `time`.
+- **Presentation.** `cast_visuals` plays `tile/0..8` at x = (k - 4) x 180 px, the WZ `tile/effectDistance`
+  (nine columns, -720..720; the WZ box that decides damage is +-400), and the top-level `effect` (25 frames, not
+  the 26 the spec draft says) plays on the caster as Meteor Shower's does. `hit/0` (21 frames) is the hit art; Use and
+  Hit sounds. Stance `blizzard` (0.8 s, the same body frames as Meteor Shower's `meteor`).
+- **Pending rules** (as 7.31): the cast snapshots its stats, the map transfer clears it (`SkillRunner.clear_pending`),
+  a monster that arrives during the delay is struck and one that leaves or dies is not.
+- **Rarity** (tier C, schema as 7.31/8): Rare `amplify` damage x1.2, Epic `storm` ("Wider Blizzard") area x1.2 (the box),
+  Unique `echo` +1 hit (`attack_count`), Legendary Echo plus damage x1.2 sharing Echo's repeat counter (so a Legendary
+  after a Unique is x1.16 on damage, the shared x0.8). Every effect changes the resolved cast (`test_il_blizzard`).
+  Big Bang inherits F/P's lists (power / area / echo / echo + power).
+
 ### 7.61 Vulnerability (spec #319 M4, #322)
 
 A vulnerability is a timed status that makes one element hit x1.5 on a monster. `MobSwarm.VULNERABLE` is the table
@@ -5833,6 +5858,8 @@ damage x1.2, so their repeats are shared; Rare is `power`, damage x1.2, for all)
 | Elquines (#291) | area x1.2 (`reach`) | +1 ally (`twin`, stat `summon_count`) |
 | Ice Demon (I/L, #326) | area x1.2 (`reach`) | +1 target (`crowd`) |
 | Element Composition (I/L, #326) | +1 pierce (`pierce`) | +1 projectile (`twin`) |
+| Blizzard (I/L, #329; Rare `amplify`, Epic `storm`) | area x1.2 (`storm`) | +1 hit (`echo`) |
+| Big Bang I/L (`big_bang_il`) | inherited from `big_bang` (7.63) | inherited |
 
 
 **Cards and the draw (current rules).** `data/survivor/upgrades.json` (base: draw weights, the rarity weights and magnitudes,
@@ -6187,6 +6214,12 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | I/L skill pool | `skill_pool` of 222: the twelve actives of the 200/220/221/222 books; undefined keys stay out of draws until I6-I10 define them | C |
 | Skill templates | `extends` resolved in `SkillBook` by `SkillTemplate` (7.63): deep copy of the parent, child keys on top, inherited Skill.wz/Sound.wz paths rewritten to the child's book and id | C |
 | Big Bang in the three books | 2121001, 2221001 and 2321001 are identical in every level number, art node count and sound (Use/Loop UOL to 2121001's); the drift guard re-checks it per `extends` pair | A |
+| Blizzard freeze | WZ `time` 1 -> 3 read as the freeze length (no `prop`; bosses and ice-immune monsters refuse it); every damaging line attempts it | C: the reading; A: the field |
+| Blizzard box, count, delay, art | box (-400,-350)..(400,250), `mobCount` 15, `hitAfter` 1600 ms, `tile` spacing 180 px, `effect` 25 frames, `elemAttr i`, Use/Hit sounds, `mad` 330 -> 570 | A |
+| Blizzard cooldown and stance | 4.8 s recast (Meteor Shower's); 0.8 s `blizzard` stance (the body's frames equal `meteor`'s) | C |
+| Blizzard tile columns | nine tiles at x = (k - 4) x 180 px around the caster, wider than the +-400 damage box | C |
+| Blizzard rarity bonuses | Rare damage x1.2, Epic area x1.2, Unique +1 hit, Legendary Unique plus damage x1.2; repeat scale 0.8 | C |
+| Big Bang I/L | `big_bang_il` is the three-line `extends: big_bang` (7.63); cooldown, charge, box and rarity lists inherited (7.31) | A: identity of the three books; C: the rest |
 | I/L playable | `playable: false` until I12 (job 212 stays `default_job` either way: 212 precedes 222) | C |
 | I/L core-bolt cooldowns (I6) | Cold Beam 0.5 s, Thunder Bolt 0.6 s, Ice Strike 1.6 s, Thunder Spear 0.8 s: the legacy / F/P-mirror base value (1.25, 1.5, 4, 2) x0.4 | C |
 | I/L core-bolt targeting (I6) | Cold Beam `nearest` 300 px one target; Thunder Spear `nearest` 400 px one target; Thunder Bolt and Ice Strike `box` (`min_targets` 1) | C |
