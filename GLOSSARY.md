@@ -208,6 +208,50 @@ _Avoid_: Luck, LUK
 A card's Potential tier (Normal, Rare, Epic, Unique, Legendary), which sets how much the card gives.
 _Avoid_: Quality, grade, card tier (tier is the run's difficulty step)
 
+## Survivor progression (ADR 0006, `redesign` branch)
+
+ADR 0006 replaces v83 progression. These terms come in with it. Run, run snapshot, victory, job advancement,
+advancement draw, advancement weapon, branch, weapon path, carried attack and behaviour card go away as each job
+moves to the new system. Rank, rarity, tier, character, mesos and equipment are redefined below or in ADR 0006.
+
+**Skill pool**:
+The hand-picked active skills a job's cards can offer, taken from its whole 1st-4th job lineage.
+_Avoid_: skill tree, class skills, deck
+
+**Starting skill**:
+The one skill from its pool a job begins every round with, already in its first active skill slot.
+_Avoid_: basic attack (removed), default skill
+
+**Skill slot**:
+One of a character's six active or six passive places in a round. A new skill takes a free slot of its kind, and
+the cards stop offering new skills of that kind once all six are full.
+_Avoid_: slot (on its own), weapon slot, equip slot
+
+**Common passive**:
+A job-neutral, Maple-named stat boost (Maple Warrior, Hyper Body, Haste, ...) that fills a passive skill slot. It
+caps at rank 5 and never rolls rarity.
+_Avoid_: talent, shared passive (the old cross-branch passives), passive skill (a job's own passives, no longer
+offered)
+
+**Rarity bonus**:
+The behaviour change (more damage, pierce, area, projectiles, a shorter cooldown, a status) that a Rare or better
+card for an active skill attaches to its rank. Each skill has its own bonus list per rarity.
+_Avoid_: behaviour card (the old standalone card), mod
+
+**Mastery card**:
+A card for an active skill already at rank 8: it adds no rank, only a rarity bonus, with diminishing returns per
+stack, so an active skill never fully maxes.
+_Avoid_: overrank, limit break; not a weapon mastery skill (Sword Mastery and similar)
+
+**Tier unlock**:
+A character's permission to pick a tier's stages, earned by clearing any stage of the tier before it.
+_Avoid_: level gate, progress
+
+**Drop band**:
+The `reqLevel` range of equipment a tier's monsters drop, with bosses rolling from its top. `reqLevel` is no longer
+a requirement to wear the item.
+_Avoid_: loot table, item level
+
 ## Monsters
 
 **Status effect**:

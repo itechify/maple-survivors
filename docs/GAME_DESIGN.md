@@ -7,6 +7,30 @@ you advance jobs at the classic milestones.
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
 
+## 0. Redesign in progress (ADR 0006)
+
+On the `redesign` branch, **ADR 0006** replaces v83 progression with survivor-genre progression. Sections 1-12 below
+describe the current game; each slice spec rewrites the sections it replaces. Where they conflict, ADR 0006 and the
+slice specs win. Target design:
+
+| Area | Target | Replaces |
+|---|---|---|
+| Character | One 4th job, chosen at creation (twelve v83 4th jobs; Beginner not playable). Name, look, slot as today. | 1, 9 |
+| Round | Standalone: Free Market -> map select (the character's unlocked tiers) -> 3 maps, 3 bosses (spec #241, unchanged) -> Free Market. Death ends only the round, and loot is kept. | 1 |
+| Tiers | Clearing any stage of tier N unlocks tier N+1 for that character. Cleared tiers can be replayed. The slice keeps the two existing tiers. | 1, 4.1 |
+| Level | Lv1 every round. First-pass EXP curve for about 75 picks per round, all 6 actives by about 5:00, end level about 45-55 (tier C). | 5 |
+| Skills | Job skill pool (lineage actives, all auto-cast; summons are timed allies in a slot; no buffs). Starting skill in slot 1. 6 active + 6 passive skill slots. | 7, 9 |
+| Ranks | Actives 1-8, mapped to WZ levels by a survivor table. +1 rank per card, plus a rarity bonus (Fortune applies). Mastery cards after rank 8. | 7, 8 |
+| Passives | 9 common passives, Maple-named: Maple Warrior (Might), Hyper Body (Max HP), Haste (Speed), Recovery (Regen), Booster (Cooldown), Area, Holy Symbol (EXP), Iron Body (Armor), Sharp Eyes (Crit). Rank 1-5, no rarity. Starting values follow the reference (tier C). | 7.6, 8 |
+| Cards | 3 per draw, weights 1.2 owned active or Mastery / 1.0 new active / 0.8 passive rank / 0.5 new passive. Boss bonus draw kept. No reroll, banish or skip. Power Elixir fallback. | 8 |
+| Combat | Maple formula plus auto-AP in one stat row per job. No MP (cooldowns only). No level-gap penalties. No MISS (ADR 0005). | 5, 6, 7 |
+| Mobility | Teleport, Flash Jump or Dash on a skill key from Lv1, outside the slots. | 2, 7.15 |
+| Equipment | Job-class requirement only. `reqLevel` is the tier's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
+| Account | NX, Cash Shop, pets unchanged. Cash equipment adds Fortune. | 8.4 |
+
+Order: the F/P Arch Mage slice, then Hero, then the other ten jobs, a tier rework (fewer starting choices), and last
+the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pass pacing (tier C) but don't tune.
+
 ## 1. The run
 
 1. **Create or continue.** Select one of three living characters, or create a named Beginner with the v83 Explorer

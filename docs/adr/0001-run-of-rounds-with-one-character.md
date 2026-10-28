@@ -1,5 +1,9 @@
 # A run is a series of rounds with one persistent character
 
+> **Superseded by ADR 0006** (2026-10-27) on the `redesign` branch: rounds are standalone, every round starts at
+> Lv1, tiers unlock per character, and death ends only the round. The rule against saving live simulation state
+> still holds.
+
 A single 15:00 stage capped a character in the mid-30s, so later jobs could never be reached. A run is now one
 character playing one stage per tier, round after round, with level, EXP, job, AP stats and skills carried
 over, and HP and MP refilled at every round boundary. Death ends the run, and clearing the last tier is a victory
