@@ -175,6 +175,7 @@ func test_mastery_and_booster_use_canonical_levels_costs_and_recast_without_stac
 
 func test_final_attack_rolls_canonical_chance_on_physical_hits_and_draws_current_arrow() -> void:
 	var w := _combat("final_attack_crossbow", 30)
+	RF.change_job_bare(w, 322) # the Marksman's exact-job schedule: Steel Arrow for Crossbow from Lv30 (D9)
 	assert_near(w.loadout.stats("final_attack_crossbow").damage_pct, 2.5)
 	assert_eq(w.book.canonical("final_attack_crossbow", 1, "prop"), 2.0)
 	assert_eq(w.book.canonical("final_attack_crossbow", 30, "prop"), 60.0)
@@ -254,13 +255,13 @@ func test_crossbowman_cards_casts_with_any_weapon_skill_window_and_no_soul_arrow
 		assert_false(key + "_new" in first.upgrades.eligible(first), "exact branch only")
 
 
-func test_arrow_tiers_emit_notices_at_thirty_forty_and_fifty() -> void:
+func test_marksman_arrow_tiers_emit_notices_at_fifteen_thirty_and_forty_five() -> void:
 	var w := _bowman(true)
-	w.progression.level = 29
-	RF.as_job(w, 320)
+	w.progression.level = 14
+	RF.as_job(w, 322)
 	assert_eq(w.ammo_id(), 2061000)
 	w.drain_events()
-	for pair: Array in [[30, 2061001], [40, 2061002], [50, 2061003]]:
+	for pair: Array in [[15, 2061001], [30, 2061002], [45, 2061003]]:
 		w.progression.level = int(pair[0])
 		w.refresh_player_stats()
 		assert_eq(w.ammo_id(), pair[1])
