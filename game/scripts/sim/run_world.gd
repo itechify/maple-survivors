@@ -2103,6 +2103,9 @@ func _final_attack_hit(slot: int, hit: Dictionary) -> void:
 
 ## Plays the queued follow-ups at their still-living original targets (tier C: a target the trigger killed gets none).
 func _play_final_attacks() -> void:
+	if mob_skills.is_stunned(time):
+		_final_queue.clear()
+		return
 	if _final_queue.is_empty():
 		return
 	var queue := _final_queue

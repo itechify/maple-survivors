@@ -96,6 +96,8 @@ func test_damage_knockback_and_potions_remain_usable() -> void:
 	assert_true(w.player.pos.x > pos.x, "knockback overrides held left")
 	assert_true(int(w.player_state.hp) < before)
 	assert_true(w.drink_potion("hp"), "tier C fallback: HP potion usable")
+	assert_true(w.spend_mp(1))
+	assert_true(w.drink_potion("mp"), "tier C fallback: MP potion usable")
 	assert_false(w.can_cast(), "drinking does not cure stun")
 
 func test_sixty_percent_rolls_repeat_for_same_seed_and_do_not_shift_combat_rng() -> void:
@@ -111,3 +113,44 @@ func test_sixty_percent_rolls_repeat_for_same_seed_and_do_not_shift_combat_rng()
 		assert_true(true in successes and false in successes, "canonical prop admits successes and failures")
 		results.append(successes)
 	assert_eq(results[0], results[1], "same seed, same status outcomes")
+
+func test_three_hundred_thirty_mobs_cannot_increase_the_boss_stun_rate() -> void:
+	var w := _world()
+	for mob in 330:
+		RF.put_mob(w, 100100, 1000.0)
+	var stunned_ticks := 0
+	var casts := 0
+	for tick in 62 * 60:
+		w.step(DT, MoveInput.new())
+		if not w.player_state.stun.is_empty():
+			stunned_ticks += 1
+		for event: Dictionary in w.drain_events():
+			if event.type == "boss_skill" and int(event.skill_id) == 123:
+				casts += 1
+	assert_eq(casts, 4, "15, 30, 45 and 60 seconds despite 330 ordinary mobs")
+	assert_eq(stunned_ticks, 480, "four successes occupy eight seconds; every pair has a 13 s actionable gap")
+
+func test_projectile_hits_cannot_trigger_new_final_attacks_while_stunned() -> void:
+	for stunned in [false, true]:
+		var w := _world()
+		_ticks(w, 900)
+		w.change_job(110)
+		var key := "final_attack_sword_fighter"
+		w.book.defs[key]["weapon_families"] = ["any"] # synthetic: isolate action gating from equipment
+		assert_true(w.learn_skill(key))
+		w.loadout.set_rank(key, 30)
+		w.refresh_player_stats()
+		if not stunned:
+			_ticks(w, 120)
+		w.drain_events()
+		var slot := int(w.bosses.records[0].slot)
+		for hit in 10:
+			w.hit_mob(slot, {"skill": "fixture", "damage_type": "physical", "magic": false,
+				"damage_min": 1.0, "damage_max": 1.0, "damage_pct": 1.0, "player_level": 55,
+				"crit": 0.0, "crit_mult": 1.5}, -1)
+		w.step(DT, MoveInput.new())
+		var followups := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "final_attack")
+		if stunned:
+			assert_true(followups.is_empty(), "no new follow-up attack during stun")
+		else:
+			assert_false(followups.is_empty(), "control: final attacks work without stun")
