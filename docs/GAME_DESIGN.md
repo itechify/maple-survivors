@@ -5762,6 +5762,11 @@ byte-identical: same state, same RNG stream, `test_character_baseline` and `test
   `info` has an `effect` node, each struck monster gets one `summon_strike` event ({skill, slot, mob, pos, effect}) and the
   presentation plays that animation on it. (Both events are emitted without being listed in `RunWorld.EVENT_FIELDS`, like `summon_attack`.)
 
+**Hover and the WZ origins.** The v83 follower frames already float above their anchor (Silver Hawk `fly` / `stand`: origin y
+137-221 on 63-113 px tall frames, i.e. 40-110 px above the anchor), so `hover` stacks on top of art that is already high: a
+hawk at `hover 80` was drawn about 190 px over the character in the #338 probe. The B11 definitions should start from a small
+`hover` (0-30) and look at a screenshot.
+
 **What the WZ `type 1` attack changes (verified on v83 Skill.wz 311.img / 312.img).** Silver Hawk (3111005) `attack1`:
 `info/type 1`, `attackAfter 100`, `effectAfter 600`, no `mobCount` (one target), box +-200 x +-150, a two-frame body
 animation (100 ms then 600 ms), `info/hit` (6 frames, 90 ms, the same frames as the skill's own `hit/0`) and `info/effect`
