@@ -17,11 +17,8 @@ func _ready() -> void:
 		"shots_dir": shots, "shot_every": 1.0, "quit_after": 5.0,
 		"world_prepared": func(w: RunWorld) -> void:
 			w.god = true
-			# Diagnostic only: H2 owns Hero's real job data, H8 the finishers.
-			w.meter = PlayerMeter.new({"id": "combo", "max": 10,
-				"gain": {"event": "cast_landed", "amount": 1, "exclude": "finisher"},
-				"per_unit": {"stat": "damage", "value": 0.02},
-				"art": "Skill.wz/111.img/skill/1111002/state"})
+			# Diagnostic: the live Hero configuration displayed on the F/P probe character.
+			w.meter = PlayerMeter.new(w.jobs.lineage_value(112, "meter", {}))
 			for i in 7:
 				w.meter.gain("cast_landed", w.events)
 	})

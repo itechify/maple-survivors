@@ -18,7 +18,7 @@ func has_skill(key: String) -> bool:
 func start(world: RunWorld, key: String, st: Dictionary, target: int) -> void:
 	var params: Dictionary = world.book.def(key).get("burst", {})
 	# tier C: unspecified wind-up/overshoot are zero, retarget defaults true; zero interval releases all due shots.
-	var entry := {"key": key, "st": st.duplicate(), "params": params.duplicate(true),
+	var entry := {"key": key, "st": SkillRunner.cast_snapshot(st), "params": params.duplicate(true),
 		"left": int(st.count), "age": 0.0, "next": maxf(0.0, float(params.get("wind_up", 0.0))),
 		"target": target, "identity": world.swarm.identity[target]}
 	_entries.append(entry)

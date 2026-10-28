@@ -66,6 +66,7 @@ var skill := PackedInt32Array()
 var level := PackedInt32Array()
 ## Shared cast receipts are cold metadata, never copied between shots of the same cast.
 var meter_receipts: Array[Dictionary] = []
+const NO_RECEIPT := {}
 
 ## RunWorld.visual_paths (shared).
 var paths: Array = []
@@ -136,7 +137,7 @@ func spawn(spec: Dictionary) -> int:
 	crit_mult[i] = float(spec.get("crit_mult", 1.5))
 	hits_left[i] = clampi(1 + int(spec.get("pierce", 0)), 1, MAX_HITS)
 	hit_count[i] = 0
-	meter_receipts[i] = spec.get("meter_receipt", {})
+	meter_receipts[i] = spec.get("meter_receipt", NO_RECEIPT)
 	pierce_falloff[i] = maxf(0.0, float(spec.get("pierce_falloff", 0.0)))
 	blast_count[i] = 0
 	blast_visual[i] = ""

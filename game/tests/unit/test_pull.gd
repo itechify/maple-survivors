@@ -252,3 +252,27 @@ func test_loadout_exposes_the_pull_numbers_and_a_skill_without_the_block_reports
 	assert_near(float(st.pull_gap), 80.0)
 	var plain := CF.world()
 	assert_near(float(plain.loadout.stats("synthetic").pull_chance), 0.0)
+
+
+func test_pull_waits_until_three_pullable_targets_are_present() -> void:
+	var w := _world(FLAT, {}, {"damage": "none", "cast": {"rule": "range_around", "min_targets": 3}, "cooldown": 10.0})
+	for dx in [10, 30, 50]:
+		RF.put_mob(w, MOB, CASTER_X + dx)
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+	w.runner.step(DT, w)
+	assert_eq(w.runner.casts, 0, "adjacent mobs cannot spend the pull cooldown")
+	for dx in [200, 300, 400]:
+		RF.put_mob(w, MOB, CASTER_X + dx)
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+	w.runner.step(DT, w)
+	assert_eq(w.runner.casts, 1)
+
+
+func test_pull_admission_keeps_the_damage_targets_of_a_combined_skill() -> void:
+	var w := _world(FLAT, {}, {"cast": {"rule": "range_around"}})
+	RF.put_mob(w, MOB, CASTER_X + 300)
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+	w.drain_events()
+	w.runner.step(DT, w)
+	assert_true(w.events.any(func(e: Dictionary) -> bool: return e.type == "mob_hit"),
+		"pull admission must retain the normal damaging cast plan")

@@ -184,3 +184,40 @@ func test_finisher_admission_waits_for_its_prepared_target_minimum() -> void:
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 1)
 	assert_eq(w.meter.value, 0)
+
+
+func test_plain_gate_spends_configured_units_and_uses_normal_cast_order() -> void:
+	var w := _world()
+	w.book.defs.magic_claw["meter"] = {"min": 3, "spend": 2}
+	w.book.defs.magic_claw.cooldown = 0.1
+	_mob(w, 240)
+	w.meter.value = 2
+	w.runner.step(DT, w)
+	assert_eq(w.runner.casts, 0)
+	w.meter.value = 5
+	w.runner.step(DT, w)
+	assert_eq(w.runner.casts, 1)
+	assert_eq(w.meter.value, 4, "spend two, then gain one landed unit")
+	assert_true(float(w.runner.cooldowns.magic_claw) < 0.2, "plain gates have no finisher floor")
+
+
+func test_new_and_idle_finishers_never_repeat_before_sixty_ticks() -> void:
+	for idle: int in [0, 180]:
+		var w := _world()
+		_finisher(w, "finish", 1)
+		w.loadout.order.erase("magic_claw")
+		w.loadout.add_skill_mod("finish", "meter_keep", "add", 5)
+		_mob(w, 240)
+		for tick in idle:
+			w.runner.step(DT, w)
+		w.meter.value = 5
+		var previous := -60
+		var observed := 0
+		for tick in 181:
+			w.runner.step(DT, w)
+			for event: Dictionary in w.drain_events():
+				if event.type == "cast":
+					assert_true(tick - previous >= 60, "finisher spacing: %d ticks" % (tick - previous))
+					previous = tick
+					observed += 1
+		assert_true(observed >= 3)

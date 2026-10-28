@@ -1,5 +1,5 @@
 extends TestCase
-## Hero's data seam (spec #296, ticket H2 #298): the `hero` data line loads and is the last of DataRepo.LINES, the job entry
+## Hero's data seam (spec #296, ticket H2 #298): the `hero` data line loads and is discovered after the fixed Adventurer lines, the job entry
 ## `survivor/jobs/hero.json` (112, playable alongside 212), its AP row, the `default_job` pin that keeps tools, tests and
 ## oracles on 212 whatever is playable, and the weapon families of its equipment drops (sword and axe, one- and two-handed;
 ## armour and shields by the Warrior class bit). Seeded RNG; item info is synthetic unless a test says "real cache".
@@ -50,8 +50,8 @@ func _rng(p_seed: int) -> RandomNumberGenerator:
 
 # --- the line ---------------------------------------------------------------------------------------------------------
 
-func test_hero_is_the_last_line_so_the_merge_order_of_the_others_does_not_move() -> void:
-	assert_eq(Array(DataRepo.LINES), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate", "hero"])
+func test_hero_line_is_discovered_without_a_shared_registration() -> void:
+	assert_true("hero" in DataRepo.lines())
 	assert_eq(DataRepo.fragment_path("jobs_survivor", "hero", "res://data"), "res://data/survivor/jobs/hero.json")
 	assert_eq(DataRepo.fragment_path("skills", "hero", "res://data"), "res://data/survivor/skills/hero.json")
 
@@ -63,7 +63,7 @@ func test_the_hero_line_loads_without_errors_and_adds_its_job_and_core_skills() 
 	assert_true(FileAccess.file_exists(DataRepo.fragment_path("jobs_survivor", "hero")))
 	assert_true(FileAccess.file_exists(DataRepo.fragment_path("skills", "hero")))
 	assert_true(d.jobs_survivor.jobs.has("112"), "jobs/hero.json is merged into the survivor job data")
-	assert_eq(d.jobs_survivor.jobs.keys(), ["0", "200", "212", "112"], "base entries, then lines in LINES order")
+	assert_eq(d.jobs_survivor.jobs.keys(), ["0", "200", "212", "112"], "base entries, then lines in discovered line order")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "hero"))
 	for key: String in ["power_strike", "slash_blast", "brandish"]:
 		assert_true(frag.skills.has(key), "H5 ports " + key)
@@ -264,3 +264,11 @@ func test_real_cache_the_creation_sword_is_wearable_and_the_shipped_pool_holds_s
 				assert_true(family in ["sword", "axe"], "%d is a %s" % [id, family])
 				hands["%s_%s" % [family, "2h" if WeaponInfo.is_two_handed(id) else "1h"]] = true
 		assert_eq(hands.size(), 4, "tier %d: sword and axe, one- and two-handed (%s)" % [tier + 1, hands.keys()])
+
+
+func test_class_owned_balance_rows_are_absent_from_shared_defaults() -> void:
+	var shared: Dictionary = DataRepo.load_json("res://data/survivor/balance.json")
+	assert_false(shared.player.ap.has("112"), "Hero AP belongs only to jobs/hero.json")
+	for key: String in DataRepo.jobs(DataRepo.load_all()).skill_pool(112):
+		assert_false(shared.bot.card_scores.has(key + "_new"), key)
+		assert_false(shared.bot.card_scores.has(key + "_rank"), key)
