@@ -90,6 +90,18 @@ func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
 	lib.free()
 
 
+## True when `key` is in the skill pool of any survivor job (F/P's 212, I/L's 222, ...): ported pool skills have eight ranks
+## and rarity bonuses. A pool entry that still carries a longer explicit `ranks` list (one rank per level) is a legacy
+## definition (the old Cold Beam, Thunder Bolt) that its I/L ticket has not ported yet.
+func _in_any_pool(key: String, definition: Dictionary) -> bool:
+	if definition.get("ranks", []).size() > 8:
+		return false
+	for job: Dictionary in data.jobs_survivor.jobs.values():
+		if key in job.get("skill_pool", []):
+			return true
+	return false
+
+
 func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 	for key: String in book.defs:
 		if bool(book.def(key).get("common_passive", false)):
@@ -97,9 +109,11 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
 			assert_eq(book.canonical_level(key, 5), 5)
 			continue
+		if book.skill_node(key).is_empty() and not book.skill_imgs.has(String(book.def(key).book)):
+			continue # a book the synthetic fixtures do not carry (the I/L 222 book); the real-cache test covers it
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
-		if key in data.jobs_survivor.jobs["212"].skill_pool:
+		if _in_any_pool(key, book.def(key)):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
@@ -660,7 +674,7 @@ func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> 
 					assert_false(entry.get("effects", []).is_empty(), "%s bonus has effects" % key)
 			assert_false(covered.has(key), "%s uses rarity bonuses instead of standalone cards" % key)
 			continue
-		assert_false(key in data.jobs_survivor.jobs["212"].skill_pool, "%s is a pool skill and needs rarity_bonuses (#288)" % key)
+		assert_false(_in_any_pool(key, s), "%s is a pool skill and needs rarity_bonuses (#288)" % key)
 		if int(s.get("job", -1)) == 0:
 			continue # #284: the Beginner is gone and its skills have no cards
 		if String(s.damage) != "none" or String(s.slot) == "active":
