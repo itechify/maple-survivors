@@ -43,10 +43,12 @@ const PET_BACK := 2700
 ## 3524cdb9...: with the bonus lists emptied and the added card fields stripped from the events in both trees, the digests
 ## are identical (9f2c3f49...).
 ## #293: selected pacing changes casts/kills/EXP and replay bytes; workload coverage guards below remain.
-const GOLDEN := "76f8429f5bda1512c7c2c6ef043d5e740a6dd65b2b19bb0e0a9d4d066f306efd"
-const TOTALS := {"exp": 7987, "mesos": 106958, "pickup_mesos": 106958, "equips_collected": 23,
-	"equips_dropped": 30, "inventory": 24, "kills": 362, "casts": 467, "level": 14,
-	"pool": 8, "time": 59.999999999997875}
+## #282 review fixes: passive draws no longer spend rarity RNG; corrected card selections change combat
+## and collected totals. The preview rank cap also changes event bytes. Coverage guards remain unchanged.
+const GOLDEN := "f9159d6757109d1ecf8b9fc83d9335e0d3e8589d8c502dcb4587ba075779652b"
+const TOTALS := {"exp": 8405, "mesos": 109212, "pickup_mesos": 109212, "equips_collected": 23,
+	"equips_dropped": 30, "inventory": 24, "kills": 386, "casts": 515, "level": 15,
+	"pool": 7, "time": 59.999999999997875}
 ## Re-captured for #289 (common passives): with the nine passive cards removed from the data, the #292 digest 29926829... and
 ## totals (exp 4097, kills 227, casts 260, level 13, equips_dropped 30) are reproduced exactly (checked); the bot now also takes passives (Max HP, Might, Haste...), which changes the run.
 const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_armor", "cold_beam", "thunder_bolt", "slow_il",
