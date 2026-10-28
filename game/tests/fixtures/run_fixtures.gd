@@ -376,6 +376,11 @@ static func skill_imgs() -> Dictionary:
 				node.lt = {"$v": [-200.0, -150.0]}
 				node.rb = {"$v": [200.0, 150.0]}
 		imgs[book].skill[str(spec[0])] = {"elemAttr": spec[4], "level": levels}
+	# #291: synthetic summon frames/info, canonical endpoint facts from T1.
+	imgs["212"].skill["2121005"] = {"elemAttr": "i",
+		"level": _levels(30, {"mad": [153.0, 270.0], "mastery": [10.0, 10.0], "time": [15.0, 160.0]}),
+		"summon": {"attack1": {"info": {"mobCount": 3.0, "attackAfter": 1080.0,
+			"range": {"lt": {"$v": [-200, -150]}, "rb": {"$v": [0, 30]}}}}}}
 	return imgs
 
 

@@ -49,6 +49,8 @@ var casts := 0
 ## True if any skill cast during the latest step (cleared even when casting is blocked).
 var fired_this_tick := false
 
+var summons := PlayerSummons.new()
+
 var _stats := {}
 var _version := -1
 var _buf := PackedInt32Array()
@@ -68,6 +70,7 @@ func _init() -> void:
 
 ## Drops queued map-space attacks, preserving cooldowns, auto-cast timers and round counters.
 func clear_pending() -> void:
+	summons.clear()
 	_flights.clear()
 	_areas.clear()
 
@@ -155,6 +158,7 @@ static func is_attack(st: Dictionary) -> bool:
 ## Counts down every active skill, including while casting is blocked.
 func tick_cooldowns(dt: float, world: RunWorld) -> void:
 	fired_this_tick = false
+	summons.step(dt, world)
 	_step_areas(dt, world)
 	if not _flights.is_empty():
 		_land_flights(dt, world)
@@ -222,6 +226,8 @@ func cast_manual_buff(world: RunWorld, key: String) -> bool:
 ## `not _admit_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
 ## ordering them, so a ready skill without a target costs no target list.
 func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> bool:
+	if String(st.kind) == "summon":
+		return true
 	match String(st.cast_rule):
 		"", "nearest":
 			if String(st.kind) == "buff":
@@ -393,6 +399,9 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": effect})
 	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 	var definition := world.book.def(key)
+	if String(st.kind) == "summon":
+		summons.spawn(world, st)
+		return
 	if definition.has("ground") or definition.has("pending"):
 		_queue_area(world, key, st)
 		return

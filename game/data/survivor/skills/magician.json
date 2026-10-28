@@ -769,6 +769,40 @@
 				"effect": "Skill.wz/212.img/skill/2121001/effect",
 				"follow_player": true
 			}
+		},
+		"elquines": {
+			"skill_id": 2121005,
+			"book": "212",
+			"job": 212,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Elquines",
+			"desc": "Calls an ice ally that follows you and attacks nearby monsters.",
+			"icon": "Skill.wz/212.img/skill/2121005/icon",
+			"damage": "magic",
+			"element": "i",
+			"cooldown": 30.0,
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/212.img/skill/2121005/hit/0",
+			"effect": "",
+			"rotate": false,
+			"cast": {
+				"rule": "summon"
+			},
+			"summon": {
+				"path": "Skill.wz/212.img/skill/2121005/summon",
+				"attack": "attack1",
+				"follow_speed": 180.0,
+				"follow_distance": 60.0,
+				"teleport_distance": 600.0,
+				"attack_interval": 2.4
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2121005/Use"
+			},
+			"_provenance": "Tier A: ice, WZ time/mad/mastery and summon attack info/art. Tier C: 30 s recast, follow settings, 2.4 s attack cycle; GAME_DESIGN 7.32."
 		}
 	}
 }

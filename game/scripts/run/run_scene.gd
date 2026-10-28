@@ -153,6 +153,7 @@ var player_tag: NameTags
 var mob_renderers: Array[MobRenderer] = []
 ## Foothold layer drawn by mob_renderers[i] (-1 = every slot).
 var mob_layers := PackedInt32Array()
+var summon_renderer: PlayerSummonRenderer
 var shots: ProjectileRenderer
 var mob_shots: ProjectileRenderer
 var drops: PickupRenderer
@@ -676,6 +677,9 @@ func _build_top_layer() -> void:
 	_top = Node2D.new()
 	_top.name = "Top"
 	map.actor_layer(MapRenderer.LAYER_COUNT - 1).add_child(_top)
+	summon_renderer = PlayerSummonRenderer.new()
+	summon_renderer.library = library
+	_top.add_child(summon_renderer)
 	shots = ProjectileRenderer.new()
 	shots.library = library
 	_top.add_child(shots)
@@ -1692,6 +1696,7 @@ func _present(delta: float) -> void:
 	var mob_actions := world.mob_action_view()
 	for i in mob_renderers.size():
 		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers, mob_actions)
+	summon_renderer.update_from(world.runner.summons)
 	shots.update_from(world.projectiles, world.visual_paths, delta)
 	mob_shots.update_from(world.mob_projectiles, world.visual_paths, delta)
 	drops.update_from(world.pickups, delta)
