@@ -69,6 +69,12 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		line = strip_mp_cost(clean(String(_wz(key).get(hs, ""))))
 	var mechanics := PackedStringArray()
 	var def := book.def(key)
+	if String(def.get("cast", {}).get("rule", "")) == "burst":
+		var burst: Dictionary = def.get("burst", {})
+		var shots := int(stats.get("count", 1))
+		var seconds := maxf(0.0, float(burst.get("wind_up", 0.0))) \
+			+ maxi(0, shots - 1) * maxf(0.0, float(burst.get("interval", 0.0)))
+		mechanics.append("Fires %d arrows over %s s" % [shots, number(seconds)])
 	if def.has("meter"):
 		mechanics.append("Needs %d orbs" % int(def.meter.get("min", 0)))
 		var keep := int(stats.get("meter_keep", 0))

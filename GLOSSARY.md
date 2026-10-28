@@ -435,3 +435,7 @@ _Avoid_: ultimate, proc
 **Physical follower**:
 A player summon (Silver Hawk, Phoenix, Golden Eagle, Frostprey) whose damage is physical and takes its W.Att from the skill level's `pad` instead of the worn weapon, optionally stunning on hit and flying above its trailing point. It is the Elquines seam (`PlayerSummons`) with data keys, not a separate system.
 _Avoid_: pet (the Free Market pet is a cosmetic companion), minion
+
+**Burst**:
+One automatic cast that schedules its resolved shot count over time, following the moving character's hand and a
+live target. The cooldown begins on admission; unfinished shots belong to the current map (`BurstCast`, #336).
