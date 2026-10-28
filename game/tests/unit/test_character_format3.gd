@@ -56,7 +56,7 @@ func test_round_trip_keeps_belongings_and_restarts_the_build() -> void:
 ## A quiet two-boss world on the first tier (stage "quiet" listed in tier index `tier`), god mode off for deaths.
 func _round(tier: int = 0, unlocked: int = 1) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.stages["tiers"] = [["other"], ["other2"]]
 	data.stages.tiers[tier].append("quiet")
 	RF.set_bosses(data.stages.stages.quiet, [

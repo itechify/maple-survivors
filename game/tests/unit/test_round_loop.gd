@@ -46,7 +46,7 @@ static func summary(cleared: bool, level: int = 12, stage: String = "henesys") -
 ## 250 mesos and a hat on the way.
 func _character_after(flow: SceneFlow, cleared: bool, tier: int = 0) -> Dictionary:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.stages["tiers"] = [["other"], ["other2"]]
 	data.stages.tiers[tier].append("quiet")
 	RF.set_bosses(data.stages.stages.quiet, [
