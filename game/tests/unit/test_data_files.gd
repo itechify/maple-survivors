@@ -631,7 +631,7 @@ func test_manual_skills_name_a_skill_key_with_an_input_action() -> void:
 			"skill key %s belongs to a skill" % id)
 
 
-func test_every_attack_skill_has_a_hit_more_mobs_card() -> void:
+func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> void:
 	var skills: Dictionary = data.skills.skills
 	var covered := {}
 	for c: Dictionary in data.upgrades.cards:
@@ -646,6 +646,14 @@ func test_every_attack_skill_has_a_hit_more_mobs_card() -> void:
 			assert_eq(String(s.damage), "none", "exempt %s must not be an attack skill" % key)
 			assert_true(String(s.slot) in ["active", "mobility"], "exempt %s is active or manual mobility" % key)
 			assert_false(covered.has(key), "%s has a hit-more-mobs card: remove its exemption" % key)
+			continue
+		if s.has("rarity_bonuses"):
+			for tier: String in ["rare", "epic", "unique", "legendary"]:
+				var entries: Array = s.rarity_bonuses.get(tier, [])
+				assert_false(entries.is_empty(), "%s needs %s rarity bonuses" % [key, tier])
+				for entry: Dictionary in entries:
+					assert_false(entry.get("effects", []).is_empty(), "%s bonus has effects" % key)
+			assert_false(covered.has(key), "%s uses rarity bonuses instead of standalone cards" % key)
 			continue
 		if int(s.get("job", -1)) == 0:
 			continue # #284: the Beginner is gone and its skills have no cards

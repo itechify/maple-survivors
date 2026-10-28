@@ -591,6 +591,25 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #282 / #288: rarity and Mastery regression smoke (2026-10-28)
+
+`ISOLATE=288`, real cache, seeds 1/2/2026 on all tier-1 stages, bot and random, no PATCH or tuning/held-out seeds.
+All 24 records: no crashes, warnings or missing assets; all DEAD, no clears/timeouts. This remains the incomplete
+four-active build before common passives/new attacks/pacing. Henesys seed 1 bot dies at 307.70 s / Lv12, versus
+#287's 309.90 s / Lv12: both spawn Mano at 300 s, neither finishes it (current completed 0/1, censored >=7.65 s).
+Job is already 212; the obsolete "reach Magician" advancement check no longer applies. Ellinia still dies early,
+recorded without tuning. Values below are death seconds min/median/max, three observations per cell.
+
+| Stage | Bot deaths (s), n=3 | Random deaths (s), n=3 |
+|---|---|---|
+| Henesys | 306.0 / 307.7 / 309.1 | 306.8 / 308.3 / 336.9 |
+| Ellinia | 35.2 / 39.2 / 76.4 | 35.2 / 39.2 / 126.3 |
+| Perion | 277.5 / 294.4 / 429.7 | 294.8 / 303.5 / 305.3 |
+| Kerning | 304.3 / 311.4 / 315.2 | 305.5 / 306.6 / 309.1 |
+
+Raw records/summary logs stay in ignored `_scratch/balance288/`. Short graphical Henesys seed-1 x8 playtest
+ends PLAYING at 60.10 s, Lv3, 13 kills, missing []; screenshot inspected (no performance claim: about 1 FPS here).
+
 #### Spec #282 (#285): no MP and no level gap: regression smoke (2026-10-28)
 
 Branch `t/285-remove-mp` off `spec/282-fp-slice`, real v83 cache, isolate `285s`, seeds 1 / 2 / 2026, `bot` and
