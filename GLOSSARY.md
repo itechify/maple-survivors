@@ -425,3 +425,13 @@ _Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)
 A pool active whose meter block gates admission and spends units for extra damage. Panic and Coma are Hero's
 finishers; their meter_keep rarity modifier leaves units unspent.
 _Avoid_: ultimate, proc
+
+**HP risk**:
+A skill that pays HP: a percentage of max HP as its cost, a gate that needs HP above a share of max HP, and recoil. It
+never kills the caster. Dark Knight is the first user; Bishop and Buccaneer reuse the same blocks.
+_Avoid_: life cost, blood magic
+
+**Recoil**:
+HP a skill takes from its caster after it hit, as a share of the damage the cast dealt, capped at a share of max HP and
+never the last HP. Reported as `hp_spent` with kind `recoil`.
+_Avoid_: backlash, self-damage (the data block is named `self_damage`)

@@ -205,17 +205,19 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		# without a target never needs the list. Only a skill about to cast is admitted in full.
 		if not has_target(world, key, st, origin):
 			continue
-		if not world.can_pay_hp(int(st.hp_cost)):
-			# Slash Blast pays HP and never casts when that would leave 0 HP; nothing is spent.
+		if not HpRisk.admits(world, st):
+			# An HP cost never casts when paying it would leave 0 HP, and an HP gate waits for more HP; nothing is spent.
 			continue
 		var plan := prepare_cast(world, key, st, origin)  # has_target said yes, so admission does too
-		st = _with_finish_art(world, key, world.meter.begin_cast(world, key, st))
-		world.spend_hp(int(st.hp_cost))
+		st = _with_finish_art(world, key, HpRisk.begin_cast(world, world.meter.begin_cast(world, key, st)))
+		HpRisk.pay_cost(world, st)
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		if String(meter_rule.get("role", "")) == "finisher":
 			cooldowns[key] = maxf(1.0, cooldowns[key])
 		cooldown_totals[key] = cooldowns[key]
+		var dealt_before := world.damage_dealt
 		_resolve_cast(world, key, st, origin, plan)
+		HpRisk.settle(world, st, dealt_before)
 		break
 
 
@@ -245,9 +247,9 @@ func cast_manual_buff(world: RunWorld, key: String) -> bool:
 		return false
 	var st := stats_of(world, key)
 	if String(st.kind) != "buff" or float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_start_buff(key, st) \
-			or not world.can_pay_hp(int(st.hp_cost)):
+			or not HpRisk.admits(world, st):
 		return false
-	world.spend_hp(int(st.hp_cost))
+	HpRisk.pay_cost(world, st)
 	cooldowns[key] = restart_cooldown(st)
 	cooldown_totals[key] = cooldowns[key]
 	_resolve_cast(world, key, st, world.cast_origin(), {})
@@ -263,12 +265,12 @@ func cast_dash(world: RunWorld, key: String, side: int) -> bool:
 	if side == 0 or not world.can_cast() or not world.loadout.book.is_active(key):
 		return false
 	var st := stats_of(world, key)
-	if float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_pay_hp(int(st.hp_cost)):
+	if float(cooldowns.get(key, 0.0)) > 1e-6 or not HpRisk.admits(world, st):
 		return false
 	var move := world.player.dash_destination(side, float(st.displacement.get("distance", 0.0)), world.fhm, world.bounds)
 	if move.is_empty():
 		return false
-	world.spend_hp(int(st.hp_cost))
+	HpRisk.pay_cost(world, st)
 	cooldowns[key] = restart_cooldown(st)
 	cooldown_totals[key] = cooldowns[key]
 	casts += 1
