@@ -29,7 +29,9 @@ func _world(def := {}, strike_effect := false, prop := 50.0, p_seed := 338) -> R
 	var info := {"attackAfter": 100.0, "mobCount": 2.0, "range": {"lt": {"$v": [-200, -150]}, "rb": {"$v": [200, 150]}}}
 	if strike_effect:
 		info["effect"] = {"0": {"delay": 80.0}}
-	setup.skill_imgs["212"].skill["2121099"] = {"level": levels, "summon": {"attack1": {"info": info}}}
+	# attack1 of Silver Hawk: a 100 ms body frame, then a 600 ms placeholder while the bolt strikes.
+	var attack := {"info": info, "0": {"delay": 100.0}, "1": {"delay": 600.0}}
+	setup.skill_imgs["212"].skill["2121099"] = {"level": levels, "summon": {"attack1": attack}}
 	setup.data.stages.stages.quiet.maps.append(setup.data.stages.stages.quiet.maps[0].duplicate(true))
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 200)
@@ -197,3 +199,20 @@ func test_elquines_twin_world_is_unchanged_by_explicit_defaults() -> void:
 		_run(w, 90)
 		states.append([w.runner.summons.x[0], w.runner.summons.y[0], w.runner.summons.action[0], w.swarm.hp[m], w.rng.state])
 	assert_eq(states[0], states[1])
+
+
+func test_a_settling_follower_leaves_its_attack_pose_and_keeps_following_between_strikes() -> void:
+	var plain := _world()
+	var settle := _world(_hawk_def({"summon": _hawk_def().summon.merged({"settle": true})}))
+	for w: RunWorld in [plain, settle]:
+		_mob(w, 1110100, 260)
+		w.runner.step(DT, w)
+		_run(w, 20) # past the summoned animation: the first strike starts
+		assert_eq(w.runner.summons.action[0], "attack1")
+		w.player.pos.x += 250
+		_run(w, 60) # 1 s: the 0.7 s attack animation is over, the 1.6 s interval is not
+	assert_eq(plain.runner.summons.action[0], "attack1", "Elquines-style: the pose is held for the whole interval")
+	assert_eq(settle.runner.summons.action[0], "fly", "a settling follower resumes its move node")
+	assert_true(settle.runner.summons.x[0] > plain.runner.summons.x[0] + 40.0, "and follows the caster between strikes")
+	_run(settle, 120)
+	assert_eq(settle.runner.summons.action[0], "attack1", "the next strike starts after the interval")

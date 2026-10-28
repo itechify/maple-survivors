@@ -42,6 +42,7 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 	# follower above its trailing point, and an attack node's `info/effect` is drawn on each struck monster.
 	d["move"] = String(d.get("move", "move"))
 	d["hover"] = float(d.get("hover", 0.0))
+	d["settle"] = bool(d.get("settle", false))
 	var strike: Variant = d.info.get("effect")
 	d["strike_effect"] = "%s/%s/info/effect" % [d.path, d.attack] if strike is Dictionary else ""
 	for a: String in ["summoned", "stand", String(d.move), String(d.attack), "die"]:
@@ -103,7 +104,11 @@ func step(dt: float, world: RunWorld) -> void:
 				impact[i] = -1.0
 				if not world.is_hidden() and not bool(world.player_state.dead):
 					_hit(i, world)
-		if wait[i] > 1e-6:
+		# Opt-in `settle`: once the attack animation is over a follower leaves its pose and keeps following until the
+		# attack interval ends (the hawk's body frame is empty while its bolt strikes), without choosing a new target.
+		var cooling := wait[i] > 1e-6
+		if cooling and not (bool(d.settle) and action[i] != "summoned" and impact[i] < 0.0
+				and (action[i] != String(d.attack) or age[i] >= float(d.durations[d.attack]))):
 			continue
 		var pos := Vector2(x[i], y[i])
 		var destination := world.player.pos + Vector2(offsets[i], -float(d.hover)) \
@@ -118,6 +123,8 @@ func step(dt: float, world: RunWorld) -> void:
 		y[i] = pos.y
 		_set_action(i, String(d.move) if moved else "stand")
 		if world.is_hidden() or bool(world.player_state.dead):
+			continue
+		if cooling:
 			continue
 		var targets := _targets(i, world, true)
 		if targets.is_empty():

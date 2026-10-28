@@ -5751,6 +5751,12 @@ byte-identical: same state, same RNG stream, `test_character_baseline` and `test
   node played while following (`fly` for the hawk and the phoenix); the sim stores that resolved node name as the ally's
   action and takes its duration from that node, so `PlayerSummonRenderer` draws it unchanged (it loops `stand` and the
   definition's move node).
+- **Settling between strikes.** `summon.settle` (default false: Elquines holds its attack pose for the whole
+  `attack_interval` and does not follow meanwhile, 7.32): a settling follower leaves the attack pose when the attack animation
+  has finished (and the hit has landed), plays its move / stand node and keeps following the caster until the interval ends,
+  then strikes again. The hawk needs it: its `attack1` body animation is a 100 ms frame followed by a 600 ms **1 x 1 px
+  placeholder** (the hawk is out of sight while its bolt strikes), so holding the last frame would hide the hawk for the rest
+  of its 1.6 s interval.
 - **Sounds and strike art.** `sounds.summon` (a `Sound.wz` path) rides the `summon_spawn` event as `sound` (the key is absent when the
   definition lists none, so Elquines' events are byte-identical) and the presentation plays it at each spawn, one per frame per path. When the attack node's
   `info` has an `effect` node, each struck monster gets one `summon_strike` event ({skill, slot, mob, pos, effect}) and the
@@ -7251,6 +7257,7 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 |---|---|---|
 | Follower damage W.Att | the level's `pad` (`summon.watk_field`) instead of the character's weapon attack | tier C reading of v83 "attack +23" / "basic attack 305"; `pad` itself tier A |
 | Literal `on_hit.duration` | seconds, beats `duration_field` | tier C (Silver Hawk's `time` is its lifetime) |
+| `summon.settle` | opt-in, default off: after the attack animation the follower plays its move/stand node and keeps following until the interval ends | tier C |
 | Flyer spawn / trailing height | `hover` px above the trailing point; spawn at that height | tier C |
 | Attack box anchor of a flyer | feet-relative (the trailing point on the ground), not the flyer | tier C |
 | `info/effect` strike art | played at the damage impact (`attackAfter`) on each struck monster; `effectAfter` not modelled | tier C; the nodes are tier A |
