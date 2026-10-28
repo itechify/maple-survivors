@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships one job, Arch Mage (Fire, Poison); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Arch Mage (Fire, Poison), the default, and Arch Mage (Ice, Lightning); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -14,7 +14,7 @@ On the `redesign` branch, **ADR 0006** replaced v83 progression with survivor-ge
 (spec #282, tickets #283-#294) built it end to end for one job; this section is the summary and the owner of any
 conflict: where a later section still describes a removed system, this section wins. The slice rewrote sections 1, 5,
 6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 describe mechanics of the other job lines (Warrior, Bowman, Thief, Pirate,
-I/L, Cleric): their data and tests stay on `redesign` and are unplayable until each line is ported, so read them as the
+Cleric): their data and tests stay on `redesign` and are unplayable until each line is ported, so read them as the
 specification for that port, not as the live game; advancement, weapon paths, weapon-gated skills and standalone
 behaviour cards mentioned in them are gone. Target design:
 
@@ -57,7 +57,7 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   `tiers_unlocked` (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
   every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
   Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
-  jobs (only 212), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
+  jobs (212 and 222), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
   Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
   tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
   `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
@@ -95,6 +95,13 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   scenarios and debug drivers removed, the one F/P fixture, the playtests and the regression smoke of 4.2, and the rewrites
   of sections 1, 5, 6.1.1, 7.5, 8 and 9 and of AGENTS.md.
 
+**Landed in the I/L Arch Mage spec (#319, #320–#331):** job 222 is playable beside the default 212, with Cold Beam
+and manual Teleport from Lv1. The twelve-skill pool adds the core ice/lightning bolts, Ice Demon and fire vulnerability,
+Ifrit with marked-target priority, Chain Lightning with visible hops and a staff stance fallback, Blizzard's delayed tiles
+and freeze, and Big Bang through the shared skill-template seam. Ranks, rarity bonuses, Mastery, equipment, saves and
+menus reuse the F/P systems. Tooling includes `--job=222`, the I/L tier-2 fixture and job-aware creation/redesign flows.
+The deterministic I/L oracle now covers the full pool; F/P oracles remain unchanged. QA results are in section 4.2.
+
 ### Known design gaps (open after the slice)
 
 These are findings of the QA pass, #293 and #307, recorded as gaps, not as met targets. Nothing here was tuned in #294.
@@ -122,7 +129,7 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
 ## 1. The run
 
 1. **Create or continue.** Character select shows three slots. Creating a character is name, look (the v83 Explorer
-   face, hair and outfit options) and a Job page listing the playable jobs (only Arch Mage (Fire, Poison) in this slice);
+   face, hair and outfit options) and a Job page listing the playable jobs (Arch Mage (Fire, Poison) and Arch Mage (Ice, Lightning));
    the character is that 4th job from Lv1 and keeps it for good. Selecting a living character opens its **Free Market**.
 2. **Free Market (home).** The v83 Entrance 910000000 with Bgm00/FloralLife. Walking, jumping, its two ladders and the
    existing same-map portal links work; no combat, spawning, drops or round timer run there. The Equip (E) and Item (I)
@@ -132,7 +139,7 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
 3. **Map select** lists every stage of every unlocked tier: Henesys, Ellinia, Perion and Kerning City (tier 1, always
    open) and Sleepywood (tier 2). A locked card is greyed, its details say "Locked. Clear any stage of Tier 1 to unlock
    Tier 2." and Start does nothing. Each stage contains three ordered maps (4.1). Back returns to the Free Market.
-4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt,
+4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt for F/P, Cold Beam for I/L,
    active slot 1) and Teleport on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
 5. **Survive** the growing swarms. Each map's boss arrives 300 seconds after entering it. Defeat it, collect all
    drops and finish every pending choice with combat frozen, then transfer automatically to the next map. HP, Hidden,
@@ -6266,7 +6273,7 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Blizzard tile columns | nine tiles at x = (k - 4) x 180 px around the caster, wider than the +-400 damage box | C |
 | Blizzard rarity bonuses | Rare damage x1.2, Epic area x1.2, Unique +1 hit, Legendary Unique plus damage x1.2; repeat scale 0.8 | C |
 | Big Bang I/L | `big_bang_il` is the three-line `extends: big_bang` (7.63); cooldown, charge, box and rarity lists inherited (7.31) | A: identity of the three books; C: the rest |
-| I/L playable | `playable: false` until I12 (job 212 stays `default_job` either way: 212 precedes 222) | C |
+| I/L playable | `playable: true` since I12 #331 (job 212 stays the default: 212 precedes 222) | C |
 | I/L core-bolt cooldowns (I6) | Cold Beam 0.5 s, Thunder Bolt 0.6 s, Ice Strike 1.6 s, Thunder Spear 0.8 s: the legacy / F/P-mirror base value (1.25, 1.5, 4, 2) x0.4 | C |
 | I/L core-bolt targeting (I6) | Cold Beam `nearest` 300 px one target; Thunder Spear `nearest` 400 px one target; Thunder Bolt and Ice Strike `box` (`min_targets` 1) | C |
 | I/L core-bolt stances (I6) | Cold Beam and Thunder Bolt `swingO1` 0.8 s (no WZ `action`); Ice Strike `magic2` and Thunder Spear `magic1` (tier A actions) held 0.8 s | C (stance names A) |
@@ -6338,7 +6345,7 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
-| Playable jobs and start skills (#284) | `survivor/jobs.json`: 212 is the only playable job and the default for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
+| Playable jobs and start skills (#284) | `survivor/jobs.json`: 212 is playable and the default for a fresh character and the tools; I12 #331 also enables 222; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
 | Auto-AP rows (#284) | `balance.player.ap`: one `{primary, secondary, keyframes}` row per job, nearest ancestor's row otherwise, all AP to STR without a row. 212: INT primary, LUK secondary at the old Magician keyframes (Lv1 3 -> Lv200 202); the 200/100/300/400/510/520 rows keep the unported lines' old single rows | C | Owner, spec #282 (212); the rest the earlier tier C rows without weapon paths |
 | Cards on the job line (#284) | A card is eligible when one of its `requires.jobs` is the character's job or an ancestor (`UpgradePool.on_line`); no `carry_jobs`, no advancement draw, no weapon check; Beginner and Teleport cards deleted | C | Stopgap until the skill pool (#287) |
 | Removed RNG streams (#284) | Streams 5 (the basic attack) and 8 (bot job draws) are reserved and never drawn; no other stream is renumbered | C | Keeps every other stream's seeded sequence |
@@ -7096,7 +7103,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Ifrit rarity bonuses (#328) | Rare damage x1.2, Epic area x1.2, Unique +1 ally, Legendary +1 ally and damage x1.2; repeats x0.8 | C: the Elquines lists |
 | I/L bot card scores (I11 #330) | `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for the ten I/L pool skills F/P's block lacks (cold_beam, thunder_bolt, ice_strike, thunder_spear, element_composition_il, ice_demon, ifrit, chain_lightning, blizzard, big_bang_il), appended as one block; the same numbers as every F/P pool skill. Explicit so Ifrit (a `summon`) and Blizzard, which the default scorer files with the passives, are taken; an entry for a skill not defined yet is inert | C |
 | I/L hub kit and fixture (I11) | `--hub --job=222` opens `il_arch_mage_t2.json` (job 222, tier 2, the F/P tier-1 kit 1382002/1002013/1072019/1082019 + starter top and bottom); the hub test kit is the F/P one (wand and staff scrolls, hat, staff, gloves, top): both Arch Mages wear the same families | C (test aid) |
-| I/L baseline oracle (I11) | `test_il_baseline`: seed 1, 72000 ticks, bot, god, synthetic assets, the 212 oracle's recipe, its own golden; the pool is frozen to Energy Bolt, Magic Claw, Cold Beam, Thunder Bolt, Ice Strike and Thunder Spear (what was defined when it was captured; Ice Demon, Element Composition and Ifrit merged after, and left the hash unchanged) so later I/L skills do not move it; I12 widens `POOL` to the twelve and re-captures once | C |
+| I/L baseline oracle (I11/I12) | `test_il_baseline`: seed 1, 72000 fixed 1/60 ticks, bot, god, synthetic assets; I12 widens the historical six-skill pool to all twelve with frozen synthetic level tables. The changed card pool and new cast/event bytes require one recapture; F/P goldens are unchanged | C |
 | I/L Job page row (I11) | no UI change: the page lists `playable_jobs()`, "Arch Mage (Ice, Lightning)" is the canonical name, one row below "Arch Mage (Fire, Poison)" (H9's row style: left-aligned names, the chosen row's plate in every Button state) | C |
 
 ### I/L Arch Mage (spec #319, I7 #326)

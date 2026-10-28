@@ -21,7 +21,7 @@ const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range"]
-const SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "ice_demon", "element_composition_il", "chain_lightning", "blizzard", "big_bang_il"]
+const SKILLS := ["energy_bolt", "magic_claw", "cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "ice_demon", "element_composition_il", "chain_lightning", "blizzard", "big_bang_il"]
 
 
 ## Synthetic Skill.wz levels 1..30 for Ice Demon (`box`: the canonical forward box) and Element Composition (I7 #326).
@@ -139,8 +139,18 @@ func test_every_covered_skill_has_bonuses_and_is_in_the_il_line() -> void:
 	var il: Dictionary = BOLTS._skill_file("il_arch_mage")
 	var resolved: Dictionary = SkillTemplate.resolve(DataRepo.load_all().skills.skills)  # a templated child inherits its lists
 	for key: String in SKILLS:
-		assert_true(il.has(key), key)
+		assert_true(il.has(key) or key in ["energy_bolt", "magic_claw"], key)
 		assert_true(resolved[key].has("rarity_bonuses"), key)
+
+
+func test_the_catalog_covers_the_whole_shipped_pool_including_the_summon_audit() -> void:
+	var data := DataRepo.load_all()
+	var pool: Array = data.jobs_survivor.jobs["222"].skill_pool.duplicate()
+	var covered: Array = SKILLS.duplicate()
+	covered.append("ifrit") # test_ifrit tests each effect with settled allies.
+	pool.sort()
+	covered.sort()
+	assert_eq(covered, pool, "a new pool skill needs a resolved-cast audit")
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:

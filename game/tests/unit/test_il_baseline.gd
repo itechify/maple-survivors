@@ -4,19 +4,15 @@ extends TestCase
 ## baseline (same opening freeze, legacy pool curve, `BotInput.auto_choose` + `decide`, 72000 ticks, var_to_bytes so the digest is
 ## platform independent, #142), and a golden of its own so the 212 one stays pinned to 212. Synthetic assets only: no cache needed.
 ##
-## The pool is frozen to the skills defined when this oracle was captured (Energy Bolt, Magic Claw and the four I6 bolts; Teleport is
-## the mobility skill), so tickets that add the other I/L skills (Chain Lightning, Ice Demon, Ifrit, Blizzard, Element Composition,
-## Big Bang) leave it unchanged and a changed hash means a shared-mechanics change. I12 widens POOL to the full twelve and re-captures
-## once every skill has landed (tier C: ours; the F/P oracle freezes nothing because its whole pool existed when it was captured).
-## The synthetic books below are this file's own copy of the I6 tests' (a baseline must not move when another test's fixture does).
-## Do not regenerate the golden to bless a change: find the cause (the T7 method: remove the new behaviour and the hash must return).
+## I12 widens the historical six-skill pool to all twelve, changing the offered cards and event bytes. The additional
+## synthetic books are frozen here too; no real cache is read. F/P oracle constants stay untouched.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const TICKS := 72000
-const POOL := ["energy_bolt", "magic_claw", "cold_beam", "thunder_bolt", "ice_strike", "thunder_spear"]
-## Captured on spec/319 at the I6 merge (c058729) plus I11, seed 1, 72000 ticks, Godot 4.7.2.
-const GOLDEN := "5768c01d2691e35493b11e7c9219497051d2da2eb68efb7eb79f0b97f99bf82a"
+const POOL := ["energy_bolt", "magic_claw", "cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "element_composition_il", "ice_demon", "ifrit", "chain_lightning", "blizzard", "big_bang_il"]
+## Captured by I12 on spec/319 tip ec6f50a with the complete pool, seed 1, 72000 ticks, Godot 4.7.2.
+const GOLDEN := "92a7b6274549dbb1f1fbccdb2685b46f3db27222a590bba05e542ffd61d74d44"
 
 
 # --- synthetic books --------------------------------------------------------------------------------------------------
@@ -86,7 +82,6 @@ static func _books() -> Dictionary:
 ## SHA-256 over the drained event bytes of a fixed-tick I/L bot run, seed 1, synthetic assets only (see the 212 baseline).
 func _event_digest(ticks: int, counts := {}) -> String:
 	var data := DataRepo.load_all()
-	data.jobs_survivor.jobs["222"]["playable"] = true # not playable in the shipped data until I12
 	data.jobs_survivor.jobs["222"]["skill_pool"] = POOL.duplicate()
 	# Tier C: the same pre-#241 opening freeze as the 212 oracle.
 	for opening: Array in [[0, 0.15, 3], [1, 0.4, 8], [2, 0.6, 12]]:
@@ -98,6 +93,19 @@ func _event_digest(ticks: int, counts := {}) -> String:
 	setup.skill_imgs["220"].skill["2201004"] = books.cold
 	setup.skill_imgs["220"].skill["2201005"] = books.thunder
 	setup.skill_imgs["221"] = {"skill": {"2211002": books.strike, "2211003": books.spear}}
+	setup.skill_imgs["221"].skill["2211006"] = {"level": _levels({"mad": {1: 80, 30: 140}, "time": {1: 1, 30: 2}})}
+	setup.skill_imgs["222"] = {"skill": {
+		"2221003": {"level": _levels({"mad": {1: 42, 30: 100}, "mobCount": {1: 2, 30: 6}, "time": {1: 10, 30: 15}},
+			func(n: Dictionary, _lv: int) -> void:
+				n["lt"] = {"$v": [-300, -100]}
+				n["rb"] = {"$v": [-15, 0]})},
+		"2221005": {"level": _levels({"mad": {1: 183, 30: 300}, "mastery": {1: 10, 30: 10}, "time": {1: 20, 30: 160}}),
+			"summon": {"attack1": {"info": {"attackAfter": 1080.0, "mobCount": 3.0, "priority": 2221003.0,
+				"range": {"lt": {"$v": [-200, -150]}, "rb": {"$v": [0, 30]}}}}}},
+		"2221006": {"level": _levels({"mad": {1: 103, 30: 180}, "mobCount": {1: 2, 30: 6}, "mastery": _mastery()})},
+		"2221007": {"level": _levels({"mad": {1: 330, 30: 570}, "mobCount": {1: 15, 30: 15}, "time": {1: 1, 30: 3}},
+			func(n: Dictionary, _lv: int) -> void: _box(n, 400, 350, 250))},
+		"2221001": {"level": _levels({"mad": {1: 160, 30: 450}, "mobCount": {1: 6, 30: 6}, "mastery": _mastery()})}}}
 	var w := RunWorld.new(setup)
 	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)
 	legacy_curve.erase("maps")

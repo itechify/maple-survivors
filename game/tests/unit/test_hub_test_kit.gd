@@ -157,14 +157,14 @@ func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
 	assert_eq(HubTestKit.job_error({}, fp, jobs), "", "no --job is fine")
 	assert_eq(HubTestKit.job_error({"job": 212}, fp, jobs), "")
 	assert_true(HubTestKit.job_error({"job": -1}, fp, jobs).contains("not a job id"))
-	assert_true(HubTestKit.job_error({"job": 222}, _il(), jobs).contains("not playable"), "shipped I/L is unplayable until I12")
-	DataRepo.patch = {"jobs_survivor": {"jobs": {"222": {"playable": true}}}}
+	assert_eq(HubTestKit.job_error({"job": 222}, _il(), jobs), "", "shipped I/L is playable")
+	DataRepo.patch = {"jobs_survivor": {"jobs": {"222": {"playable": false}}}}
 	var mirrored := DataRepo.load_all()
 	var both := JobTree.from_data(mirrored.jobs, mirrored.jobs_survivor)
 	DataRepo.patch = {}
-	assert_eq(HubTestKit.job_error({"job": 222}, _il(), both), "")
-	assert_true(HubTestKit.job_error({"job": 222}, fp, both).contains("does not match"), "an I/L request with an F/P character")
-	assert_true(HubTestKit.job_error({"job": 212}, _il(), both).contains("does not match"), "and the other way round")
+	assert_true(HubTestKit.job_error({"job": 222}, _il(), both).contains("not playable"))
+	assert_true(HubTestKit.job_error({"job": 222}, fp, jobs).contains("does not match"), "an I/L request with an F/P character")
+	assert_true(HubTestKit.job_error({"job": 212}, _il(), jobs).contains("does not match"), "and the other way round")
 
 
 func test_a_format_1_character_file_migrates_before_the_kit() -> void:
