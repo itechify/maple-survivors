@@ -35,7 +35,7 @@ func test_spawn_hp_ramps_on_round_clock_without_mutating_canonical_input() -> vo
 	assert_eq(int(MF.tauro_img().info.maxHP), canonical)
 
 
-func test_touch_and_attackN_damage_stack_with_source_scale_at_all_ramp_points() -> void:
+func test_touch_and_attack_n_damage_stack_with_source_scale_at_all_ramp_points() -> void:
 	for seconds: float in [0.0, 60.0, 120.0, 180.0]:
 		for attackN: bool in [false, true]:
 			var w := _world()
@@ -53,7 +53,7 @@ func test_touch_and_attackN_damage_stack_with_source_scale_at_all_ramp_points() 
 			assert_eq(w.mob_kinds[int(w.kind_of_id[MF.TAURO])].mad, 320, "canonical attack unchanged")
 
 
-func test_ordinary_attackN_impact_uses_opening_damage() -> void:
+func test_ordinary_attack_n_impact_uses_opening_damage() -> void:
 	var w := _world()
 	RF.put_mob(w, MF.TAURO, 600)
 	for tick in 600:

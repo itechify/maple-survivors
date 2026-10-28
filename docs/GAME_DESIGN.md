@@ -397,7 +397,8 @@ implementations remain sibling work.
 F/P pool cooldowns are 40% of the T8/T9 first-pass values, and Hyper Body / Recovery / Iron Body grant
 +40% Max HP / 2% Max HP per second / -6 damage per hit per rank. Other passive values, rarity bonuses
 and Mastery repeat factor remain unchanged. NX per gained level is 2 (was 5); boss/clear awards stay unchanged.
-This is a first pass, not the frozen balance pass. Canonical WZ numbers and spawn/boss/drop rules are unchanged.
+This is a first pass, not the frozen balance pass. #293 kept canonical WZ numbers and spawn/boss/drop rules
+unchanged; #307 adds only the opening scales described below.
 
 The revised slice target (#307) is picks ≈ levels + boss draws (about 50–60), with one pick per gained
 level and three boss draws: Lv45–55 yields 47–57 picks. Reward cadence stays unchanged. Regression guards cover six actives within
@@ -637,6 +638,35 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 101–130/201–212/301–330/401–430/501–530/601–630 are never reused for tuning or fresh evidence.
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
+
+**#307 / T11b opening ramp (training 1/2/2026 only).** All candidates used absolute `PATCH=` files;
+raw local records are `_scratch/307/`, not committed. Low starts (.001–.02 HP, .08 damage) made both
+starter and kit viable, erasing the equipment gate. Raising only damage killed both builds on map3.
+A .3 HP / .4 damage map1 opening separates starting weapons, but using it for later maps made all kits
+die just after map2 arrival. Selected: that opening with power6, plus map2/3 overrides .02 HP / .08 damage
+with power3, all ending at1 over1,200 s of whole-round time. This is first-pass evidence, not a frozen assessment.
+
+Paired Sleepywood smoke (seed order1/2/2026; all start Lv1, no cash/pet):
+
+| Starting equipment | Seed1 | Seed2 | Seed2026 | Map2 reached / clears |
+|---|---|---|---|---|
+| Unscrolled tier1 kit (`tier1_fp.json`) | DEAD792.2s, Lv71 | CLEAR931.6s, Lv72 | CLEAR921.6s, Lv78 | 3/3;2/3 |
+| Starter wand only | DEAD11.4s, Lv1 | DEAD11.9s, Lv3 | CLEAR917.0s, Lv77 | 1/3;1/3 |
+| Historical `fp_arch_mage.json` | DEAD11.4s, Lv1 | DEAD11.9s, Lv3 | CLEAR914.9s, Lv77 | 1/3;1/3 |
+
+The ticket's named `fp_arch_mage.json` is starter wand/clothes after format3 migration, not the tier1 kit;
+#293's synthetic `tier1_fp.json` supplies that kit. Both were checked explicitly rather than silently
+changing the historical fixture. Equipment makes the opening survive on seeds1/2; seed2026 escapes the
+starter gate and later drops narrow the gap. This is a small paired sample, not a universal equipment wall.
+All kit runs reach map3 and six actives by12.7–22.3s. Clear picks74/80 and levels72/78 exceed the nominal
+slice targets; this ticket changes no EXP/reward cadence and claims only the requested Henesys envelope.
+Kit completed boss fights: Zombie Mushmom median6.23s (3/3 spawned), Snack Bar2.67s (3/3), Jr. Balrog18.29s
+(2/2); no unfinished or skipped fights, final boss not spawned on seed1. The censored medians equal those
+completed medians. All nine final Sleepywood records have warnings=[] / missing=[] and no crashes.
+Henesys smoke with committed data (same training seeds, no character fixture): bot1/3clear,
+449.9–909.5s, Lv22–56; random0/3clear,308.0–615.4s,Lv10–31. These match #293's envelope.
+All15 final smoke records have warnings=[] / missing=[] and no crashes. Full-suite result follows after verification.
+
 
 **#293 / T11, first-pass candidate selection.** Training seeds 1/2/2026 only; no held-out or 701–730 seeds.
 All candidates used absolute `PATCH=` files before committing selected data. With the bot fix in every probe:
