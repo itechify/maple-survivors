@@ -26,7 +26,10 @@ const DT := 1.0 / 60.0
 ## card fields this ticket adds (rarity_bonus, skill_rank_before, desc, name) stripped from the events in both trees, the two
 ## hashes are identical (8aeffb90...). Common passives are always Normal with no bonus, so #289's picks are unchanged.
 ## #293: EXP, F/P cooldowns, defensive passives and sensible bot choices deliberately change replay bytes.
-const GOLDEN := "87227b632ffd8eb1124ffbd7a60f55493293136edae1b34472d0bd42ceb5a77e"
+## #282 review fixes: passive draws no longer spend rarity RNG, ground procs use stream 18, poison refreshes
+## preserve pulses, mobility ranks with round level, and card previews carry skill_rank_max. These deliberate
+## behavior/event changes replace the #293 replay hash; the fixed workload and coverage assertions remain.
+const GOLDEN := "763fdc226a2d2571eccb455250f7e9a3ec9f20e6f7d93938882eb8880c8646b3"
 ## Re-captured for #289 (common passives): with the nine passive cards removed from the pool the merged hash ccd64094... is
 ## reproduced exactly (checked), so the only new bytes are the passive offers and the bot's picks of them.
 

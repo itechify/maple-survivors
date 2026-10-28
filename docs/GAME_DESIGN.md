@@ -712,6 +712,28 @@ seven-frame Brandish sheet were inspected in `evidence/h5-301/`. Full suite: **2
 0 skipped**, 210 files, 1598.1 s; F/P oracle expectations unchanged. The live shots draw at about 1 FPS;
 they are cast/hit evidence, not performance evidence. The paused sheet verifies the body/weapon poses.
 
+**#282 review fixes (2026-10-28).** Targeted regression requested for this review task:
+Henesys, bot, training seed 1, real cache, no balance tuning or held-out seeds. Correct passive rarity RNG,
+independent ground procs, poison refresh and mobility progression deliberately change seeded trajectories.
+Both records have no warnings, missing assets or crashes; six active slots fill and two bosses die.
+
+| Henesys seed 1 equipment | Outcome / time / level | Six actives | Map 2 / 3 entry |
+|---|---|---|---|
+| Starter wand | DEAD / 651.7 s / Lv36; 37 picks, 2,706 kills | 136.7 s | 312.7 / 616.6 s |
+| Tier-1 F/P fixture (full-run guard check) | DEAD / 781.8 s / Lv47; 48 picks, 4,518 kills | 135.1 s | 308.2 / 611.3 s |
+
+The previous #294 three-seed Henesys starter bot sample cleared 1/3; this task repeats only seed 1,
+so it does not remeasure that whole cohort. The separate corrected full-run fixture sample
+(1/2/2026) clears 0/3, with deaths at approximately 782/660/643 s.
+This is a changed training baseline, not a balance claim. The feature regression retains six-slot, engagement,
+event/finale and warning checks, and requires at least one third-map arrival (two defeated bosses), replacing
+the old fixed-seed natural-clear quota. Natural-clear rate remains for the dedicated balance pass.
+The redesign flow passed with 31 screenshots, no missing assets or failures; the windows flow passed with
+10 screenshots. HUD and Stat MP masks were inspected by eye in `evidence/282fix/`.
+Final verification: `ISOLATE=282fix bash scripts/test.sh`: **1,992 tests, 0 failed, 0 skipped**,
+207 files; web shell: **62 passed, 0 failed, 0 skipped**.
+
+
 **#307 / T11b opening ramp (training seeds 1/2/2026 only).** All candidates used absolute `PATCH=` files;
 raw local records are `_scratch/307/`, not committed. Low starts (.001–.02 HP, .08 damage) made both
 starter and kit viable, erasing the equipment gate. Raising only damage killed both builds on map 3.
@@ -4463,7 +4485,8 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   `weapon_reach` and `range_around`, 7.8; the `self` rule of 7.16 is removed) resolves to
   `Loadout.stats().cast_rule` (empty when absent) and `cast_params` (the whole block). Absent/`nearest` keeps
   nearest-in-range attacks and `can_start_buff` admission. `manual` never auto-casts; unknown rules wait too.
-  `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line.
+  `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line;
+  `range_around` honours `min_targets` the same way (Monster Magnet, 7.33).
   Admission prepares targets before the cooldown/cast; later rules extend the same
   `SkillRunner._admit_cast` / `_resolve_cast` dispatches with their own admission/resolution functions.
 - Optional `displacement: {"direction", "when", "field" | "distances" | "distance"}` makes an attack move the character
@@ -4519,8 +4542,8 @@ existing shots finish separately from carry-over projectile kills.
 | Magic Armor (2001003) | Magician | Timed PDD (`pdd`) | ranks 1–20 = levels 1–20 | learn/rank |
 | Holy Arrow (2301005) | Cleric | Holy projectile at nearest mob: canonical mad/mastery/mpCon and element h; 1 s recast, 480 px reach, 520 px/s, radius 12 | ranks 1–30 = levels 1–30 | learn/rank; +1 projectile (3 steps), +1 pierce (2), cooldown ×0.88 (3); job 230 only |
 | Heal (2301002) | Cleric | Instant self recovery below 50% HP OR holy damage to every undead intersecting canonical lt/rb; 2 s recast, canonical mpCon/hp; provisional historical stat-based recovery fit, exact v83 amount unresolved ([evidence](research/cleric-heal.md)) | ranks 1–30 = levels 1–30 | learn/rank only; job 230 only |
-| Fire Arrow (2101004) | F/P Wizard | Nearest-target fire (`elemAttr f`) projectile every 1 s within 480 px, 520 px/s, radius 12 px, `shoot1` stance 0.8 s; canonical `mad`/`mastery`/`mpCon`, ball/hit/effect and Use sound | ranks 1–30 = levels 1–30 | learn/rank; Extra Fire Arrow (+1 shot, ×3), Fire Arrow Pierce (+1 pierce, ×2), Quick Fire Arrow (cooldown ×0.88, ×3) |
-| Poison Breath (2101005) | F/P Wizard | Nearest-target poison (`elemAttr s`) projectile every 1.25 s within 450 px, 400 px/s, radius 14 px, `swingO3` stance 0.8 s; canonical `mad`/`mastery`/`mpCon`; `on_hit` applies poison with canonical `prop`% for `time`; cached ball/hit/effect and Use/Hit sounds | ranks 1–30 = levels 1–30 | learn/rank; Poison Breath Pierce (+1 pierce, ×3), Quick Poison Breath (cooldown ×0.88, ×3) |
+| Fire Arrow (2101004) | F/P Wizard | Nearest-target fire (`elemAttr f`) projectile every 0.4 s within 480 px, 520 px/s, radius 12 px, `shoot1` stance 0.8 s; canonical `mad`/`mastery`, ball/hit/effect and Use sound | ranks 1–8 map to WZ levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and post-cap Mastery with per-rarity bonuses (8.2); no standalone modifier cards |
+| Poison Breath (2101005) | F/P Wizard | Nearest-target poison (`elemAttr s`) projectile every 0.5 s within 450 px, 400 px/s, radius 14 px, `swingO3` stance 0.8 s; canonical `mad`/`mastery`; `on_hit` applies poison with canonical `prop`% for `time`; cached ball/hit/effect and Use/Hit sounds | ranks 1–8 map to WZ levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and post-cap Mastery with per-rarity bonuses (8.2); no standalone modifier cards |
 | Meditation (2101001 / 2201001) | F/P / I/L Wizard | Self-only timed canonical `mad` -> magic attack; invalidates cached attack ranges on start/expiry | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
 | Bless (2301004) | Cleric | One timed buff: canonical `pdd`, `mdd`, `acc`, `eva` -> weapon/magic defence, accuracy, avoid; accuracy joins the player's ACC and raises the critical chance (6.1) | ranks 1–20 = levels 1–20 | learn/rank only |
 | Invincible (2301003) | Cleric | Canonical `x`% reduction of physical/touch damage before Magic Guard; magic damage unaffected | ranks 1–20 = levels 1–20 | learn/rank only |
@@ -5561,13 +5584,13 @@ No MP is spent. Bosses take damage but reject every status. Elquines belongs to 
 
 | Skill / key | Behavior | First-pass cooldown (tier C) |
 |---|---|---|
-| Explosion 2111002 / `explosion` | Fire damage in the canonical box around the character, canonical mob count | 4 s |
-| Poison Mist 2111003 / `poison_mist` | Fixed ground box lasting canonical `time`; checks occupants each second with canonical `prop`, applies existing nonlethal poison, including later arrivals; no direct damage | 8 s |
-| Element Composition 2111006 / `element_composition` | 500 px/s projectile, 450 px acquisition, one target; fire/poison attributes averaged equally; canonical `prop`/`time` poison uses poison resistance | 2 s |
-| Fire Demon 2121003 / `fire_demon` | Fire in its canonical forward box; survivors become ice-weak (x1.5) for canonical `time`; other attributes unchanged | 5 s |
-| Paralyze 2121006 / `paralyze` | Nearest target within 450 px, poison-element damage and existing stun for canonical `time`/`prop` | 3 s |
-| Meteor Shower 2121007 / `meteor_shower` | Fixed canonical 800×600 box; falling WZ tiles at canonical 180 px spacing; damage after canonical `hitAfter` 1800 ms, targets queried at impact | 12 s |
-| Big Bang 2121001 / `big_bang` | WZ keydown charge for one 18×60 ms loop, then full `mad` damage with canonical mob count around the current character position | 7 s |
+| Explosion 2111002 / `explosion` | Fire damage in the canonical box around the character, canonical mob count | 1.6 s |
+| Poison Mist 2111003 / `poison_mist` | Fixed ground box lasting canonical `time`; checks occupants each second with canonical `prop`, applies existing nonlethal poison, including later arrivals; no direct damage | 3.2 s |
+| Element Composition 2111006 / `element_composition` | 500 px/s projectile, 450 px acquisition, one target; fire/poison attributes averaged equally; canonical `prop`/`time` poison uses poison resistance | 0.8 s |
+| Fire Demon 2121003 / `fire_demon` | Fire in its canonical forward box; survivors become ice-weak (x1.5) for canonical `time`; other attributes unchanged | 2.0 s |
+| Paralyze 2121006 / `paralyze` | Nearest target within 450 px, poison-element damage and existing stun for canonical `time`/`prop` | 1.2 s |
+| Meteor Shower 2121007 / `meteor_shower` | Fixed canonical 800×600 box; falling WZ tiles at canonical 180 px spacing; damage after canonical `hitAfter` 1800 ms, targets queried at impact | 4.8 s |
+| Big Bang 2121001 / `big_bang` | WZ keydown charge for one 18×60 ms loop, then full `mad` damage with canonical mob count around the current character position | 2.8 s |
 
 Pending areas/releases snapshot cast stats, query live targets, and clear on map transfer. Mist pieces are anchored
 to cast feet and expire with the area. Big Bang's survivor box is (-250,-180)..(250,100); its charge is automatic,
@@ -5587,7 +5610,7 @@ Definition shape for later classes (Phoenix, Frostprey, Bahamut, Octopus, Puppet
 
 ```json
 {"kind":"summon", "slot":"active", "cast":{"rule":"summon"},
- "cooldown":30, "damage":"magic", "element":"i",
+ "cooldown":12, "damage":"magic", "element":"i",
  "summon":{"path":"Skill.wz/212.img/skill/2121005/summon", "attack":"attack1",
    "follow_speed":180, "follow_distance":60, "teleport_distance":600, "attack_interval":2.4}}
 ```
@@ -5606,15 +5629,18 @@ and seek on both sides of their own position. Attacks face the scheduled boss fi
 Attack timing pauses follow motion. Hits use `RunWorld.hit_mob`, including defence, crit, damage modifiers, element
 immunity and Fire Demon's per-mob ice weakness. No additional freeze is inferred from ice damage.
 
-Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 30 s recast,
+Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 12 s recast,
 180 px/s follow, 60 px trailing offset, 1 px stand/move deadzone, 600 px snap distance and 2.4 s minimum attack cycle (never shorter than the
 WZ animation or hit delay). A zero follow speed stops incremental following (distance snapping still applies); future stationary, taunt, projectile,
 ground-navigation or pet-like targeting behaviours must extend this seam with their own tests, not special-case IDs.
 `damage`, `area`, `count` (attack targets), `attack_count`, `cooldown` consume existing modifiers; `duration` and
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
-new casts pick up rank changes. No rarity lists ship until #288 lands; proposed lists are in T9-291.md.
+new casts pick up rank changes. Rarity lists ship in the skill definition.
 
-### 7.33 Hero core melee (#301, spec #296)
+### 7.33 Hero pool and Rush (spec #296)
+
+#### Core melee: Power Strike, Slash Blast, Brandish (H5, #301)
+
 
 Hero remains unselectable until the selection ticket. Its core attacks live in `skills/hero.json`;
 Power Strike and Slash Blast were moved from `warrior.json`, with no duplicate keys or weapon gates.
@@ -5639,6 +5665,40 @@ Epic Power Strike Booster cooldown x0.88, Slash Blast Wide Slash area x1.2 (incl
 Brandish Sweep +1 target. Unique Final Attack adds one damage line; Legendary uses the same
 `final_attack` counter and adds damage x1.2. Cards grant exactly one rank; at rank 8 Mastery repeats
 shrink by x0.8, including repeats taken before the cap. No standalone behavior cards remain for these skills.
+
+#### Crowd control: Shout and Monster Magnet (H7, #303)
+
+Both are auto-cast pool actives in `skills/hero.json` (books 111 and 112), eight ranks, no MP, no weapon gate, with
+`rarity_bonuses` (section 8). Their cooldowns, admission thresholds and action holds are tier C; every number that is a
+Skill.wz level field is tier A.
+
+| Skill / key | Cast | Behaviour | Cooldown |
+|---|---|---|---|
+| Shout 1111008 / `shout` | `box`, `min_targets 3` | Physical damage 14 -> 30 % to the `mobCount` 6 nearest mobs inside the centred WZ box (+-110..200 x +-82..150, scaled by `area`); each struck mob rolls the level's `prop` for a stun of `time` seconds (5 -> 10) through the shared `on_hit` status (bosses and scheduled bosses reject it). Stance `alert3`, 0.6 s hold. | 12 s |
+| Monster Magnet 1121001 / `monster_magnet` | `range_around`, `min_targets 3` | No damage. The shared `pull` block (7.35): up to `mobCount` 6 mobs 120 px or more away and within `range` (200 -> 400 px, scaled by `range` modifiers) each roll `prop` (48 -> 95 %) and slide to 60 px from the caster. Stance `alert2` (WZ's `dash` makes a two-handed axe vanish, H1), 0.6 s hold. | 10 s |
+
+- **Shout's rank table (D4).** `ranks` is `[5, 8, 12, 15, 19, 23, 27, 30]`. WZ level 4 has no `prop`: the node stores
+  `"58": 38`, a corrupted `prop` (String.wz says 58 %, and the series runs 52, 54, 56, 58, 60), so the standard 30-level
+  table (rank 1 = level 4) would give a stun that never lands. Rank 1 reads level 5 (60 %) instead; the other seven ranks
+  equal the standard table. A real-cache test asserts that level 4 still lacks `prop`, so a fixed WZ is noticed.
+- **`min_targets` on `range_around`.** The cast block's `min_targets` N (default 1, so every existing skill is unchanged)
+  admits the cast only when N mobs are inside `range`; the target list is still the nearest `mobCount`. Magnet's admission
+  counts every mob in range, including those under the 120 px pull floor that cannot be moved (tier C: simple and readable;
+  a cast that moves nothing still starts its cooldown).
+- **Bot reach.** `SkillRunner.reach_of` returns 0 for damage "none", so Monster Magnet adds nothing to the melee bot's
+  engage reach: it never holds the bot back from walking up to a mob, and a pull never draws it away from one.
+- **Rarity** (section 8 schema; Legendary shares the Unique's id and repeat counter): Shout Rare Area x1.2, Epic Booster
+  cooldown x0.88, Unique Echo Shout cooldown x0.75, Legendary Echo Shout plus area x1.2. Monster Magnet Rare Reach range
+  x1.2 (the spec table says `area`; at H7 `range_around` read only `range`. H5 then made a radial range scale with `area` too, so
+  either modifier works; `range` stays), Epic Bigger Grab
+  +2 targets (`count`), Unique Booster cooldown x0.75, Legendary Booster plus +2 targets.
+- **Bonus audit (merge of #301 and #303).** `test_rarity_bonus_effects` casts every rarity effect of every Hero and F/P skill,
+  with and without it, in a seeded world and asserts that the resolved cast changes: damage dealt, casts per 66 s, hit events,
+  mobs affected (`count`, `pierce`), allies (`summon_count`), or a mob just beyond the base reach hit only with `area` / `range`.
+  Every shipped bonus passes; a negative test shows the probe fails a modifier the rule never reads (`range` on a box, `pierce`
+  on Brandish). No bonus was swapped: Slash Blast's Epic `area` works since H5 scales a `range_around` radius by `area`.
+- **Text.** `SkillText.level_line` adds "Pulls up to N monsters from R px" for any skill with a `pull` block (the effective
+  `mob_count` and `range`, so Bigger Grab and Reach show), after the data's own line ("P% chance for each monster pulled").
 
 #### Rush (1121006, `rush_hero`, #302 H6)
 
@@ -5670,9 +5730,13 @@ is never offered as a card (`UpgradePool` only draws pool skills).
   (the `hit.push_side` of the cast), not away from where the character stopped, so mobs the character ran past are pushed on
   ahead of it instead of back toward where it started. `MobSwarm.knockback` takes the optional `force_side`.
 - **Cooldown.** 2.0 s (tier C, the balance lever for melee survivability), started by the cast; the HUD reads
-  `runner.cooldowns`. No rank: **mobility skills do not rank**. `RunWorld.mobility_rank(level)` is the one seam that
-  names a mobility skill's rank at a character level (1 today, so Rush stays at WZ level 4, 78%, 170 px for the whole
-  round, and F/P's Teleport is unchanged); a shared level-to-rank rule replaces that function and nothing else.
+  `runner.cooldowns`.
+- **Rank.** The job's mobility skill follows the shared `balance.mobility_rank_levels` rule (`RunWorld._level_ranks`, tier C):
+  rank 1 at Lv1, rank N at Lv 2N, clamped to the skill's rank cap. Rush has no `ranks` override, so it takes the level-30
+  table (eight ranks, WZ levels 4, 8, 12, 15, 19, 23, 27, 30): 78% damage and a 170 px dash at Lv1, 130% and 250 px
+  (the box reach) from Lv16. `mobCount` stays 15. No card ever raises it (it is outside the pool). To fix it at rank 1
+  instead, give it `"ranks": [4]`. (Spec #296 first said "fixed rank 1"; the shared rule landed while this was built and the
+  owner's instruction was to use it.)
 - **No orbs.** Rush gives no Combo orb and takes no orb bonus: both belong to pool skills only (the meter reads the pool).
 - **Bot** (`BotInput`). Like Teleport: when a mob within 60 px stands on its level (|dy| <= 40) and Rush is ready, it
   dashes **away** from the more dangerous side if that lane lets the dash cover at least half its reach, else **through**
@@ -5751,7 +5815,7 @@ No shipped skill carries the block yet, so no existing record changes.
   Statuses survive. Each mob that moved emits `mob_pulled {mob, from, pos}`.
 - **Pull-only skills.** A skill with `damage: "none"`, a `pull` block and a `box`, `weapon_reach` or `range_around` rule
   deals no damage lines (`_resolve_cast` skips the instant strike); casting admission stays the cast rule's
-  (`range_around` admits on one mob in range; a crowd threshold such as Magnet's 3 is the skill's own `cast` block, H7).
+  (`range_around` admits on one mob in range unless the cast block says `min_targets`: Magnet's 3, 7.33).
 - **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
   and Skill-window text (H7).
 
@@ -6138,6 +6202,19 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 
 ## 11. Constants and provenance
 
+
+### Review #282: constants and provenance
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Bot passive policy | balance.bot: after 3 actives, +20 passive score; Mastery effect score ×100; authorized bot behaviour fix | C |
+| Mobility rank progression | balance.mobility_rank_levels: rank 1 at Lv1, then rank N at Lv2N through rank 20 at Lv40, clamped to each mobility skill cap; shared across jobs | C |
+| Summon ordinal spread | summon.ordinal_spread: 36 px on x for each additional ally, at spawn and follow destination | C |
+| Ground status RNG / refresh | stream 18; ground data names status, element and chance field; refresh preserves pending poison pulse while updating duration and damage, direct hits retain restart policy | C |
+| Capture delay | skill.capture_delay: Paralyze 0.3 s, Big Bang 1.38 s | C |
+| Frame timing fallback | WeaponInfo.frame_times uses 100 ms for missing or zero frame delay | C |
+
+
 ### #307 opening ramp (tier C)
 
 Whole-round interpolation, clamped progress raised to optional `power` (default 1), HP at spawn,
@@ -6207,7 +6284,7 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | Hero creation weapon (#298, spec #296) | `survivor/jobs/hero.json` `creation_weapon` 1302000, the plain Sword (reqJob 0, so wearing it checks no class); `weapon_families` `["sword", "axe"]` filters the existing Warrior drop list (one- and two-handed), armour and shields drop by the Warrior class bit; the weapon item id and stats are tier A | C | Spec #296 |
 | `default_job` pin (#298, spec #296) | `survivor/jobs.json` `default_job` 212: the job of a fresh character and of every tool run, test and oracle that names none, so Hero (`playable` false until the last Hero ticket) never changes it by becoming playable; Hero is always chosen explicitly (`--job=112`, the creation Job page). The owner can flip it with this one line | C | Spec #296, risk found while checking the slice |
 | Rush 2.0 s cooldown, always-on 80 px knock-back along the dash, hold-to-repeat, refused while climbing, airborne dash keeps its height (#302, spec #296) | `skills/hero.json` `rush_hero` (`cooldown`, `knockback`); damage 78%, `mobCount` 15, box reach 170 px (the dash distance) and `rush2` are Skill.wz level 4 (tier A) | C | Spec #296 D1; v83 Rush is a dash with a hit box |
-| Rush fixed at rank 1 = WZ level 4; `RunWorld.mobility_rank` returns 1 (#302) | mobility skills do not rank in #282; a shared rule can replace the function | C | Spec #296 |
+| Rush ranks with the round level through `balance.mobility_rank_levels` (rank 1 = WZ level 4 at Lv1, rank 8 = level 30 from Lv16) (#302) | the shared mobility rule; Rush has the level-30 rank table and no card | C | Spec #296, #282 review fixes |
 | Rush bot rule: dash from a mob within 60 px (on the bot's level), away when the lane covers half the reach else through the crowd, at most every 3 s (#302) | `skills/hero.json` `rush.bot_threat_distance` 60; `BotInput.RUSH_MIN_INTERVAL` 3.0, `RUSH_LANE_FRACTION` 0.5 | C | Spec #296 |
 | Cards on the job line (#284) | A card is eligible when one of its `requires.jobs` is the character's job or an ancestor (`UpgradePool.on_line`); no `carry_jobs`, no advancement draw, no weapon check; Beginner and Teleport cards deleted | C | Stopgap until the skill pool (#287) |
 | Removed RNG streams (#284) | Streams 5 (the basic attack) and 8 (bot job draws) are reserved and never drawn; no other stream is renumbered | C | Keeps every other stream's seeded sequence |
@@ -6335,6 +6412,9 @@ Bowman (#166), generic mechanics (#200):
 | Pull selection (#300) | Up to `mobCount` candidates, farthest first (horizontal; slot breaks ties), only live grounded non-boss mobs at least 120 px from the caster (block key `min_distance` overrides) and within `range`; bosses and flyers never candidates (7.35) | C | ours, spec #296 |
 | Pull gap and slide (#300) | Per-skill `pull.min_gap` px (Monster Magnet ships 60, H7); the mob slides `max(0, dx - gap)` px toward the caster along its foothold chain, stopping at platform edges, walls and map bounds; never crosses the caster | C | ours, spec #296; shared slide |
 | Pull chance rolls (#300) | One main-stream draw per taken candidate, none at 100% or without a chance field; a 0% chance still draws; selection before rolls | C | ours (mirrors the knockback roll rule) |
+| Shout rank table (#303, spec #296 D4) | `ranks` `[5, 8, 12, 15, 19, 23, 27, 30]`: the standard 30-level table except rank 1 = level 5, because level 4 stores its `prop` under the stray key `58` (7.33) | A (levels, numbers), C (override) | Skill.wz 111.img, String.wz agrees with 58 % |
+| Shout and Monster Magnet timing (#303) | Cooldowns 12 s and 10 s, action holds 0.6 s, stances `alert3` / `alert2` (Magnet's node names none; WZ's `prepare` dash hides a two-handed axe), admission at 3 mobs (`cast.min_targets`) | C | ours, spec #296 |
+| Shout and Monster Magnet rarity bonuses (#303) | Shout: Area x1.2, Booster cooldown x0.88, Echo Shout cooldown x0.75, Legendary Echo Shout plus area x1.2. Magnet: Reach `range` x1.2, Bigger Grab +2 targets, Booster cooldown x0.75, Legendary Booster plus +2 targets; repeats shrink x0.8 | C | ours, spec #296 (first pass; the balance pass owns final sizes) |
 | Knock-back roll | One stream-1 roll per damaging line on a non-boss, even at 0/100%; canonical `chance_field` percent; canonical/scheduled bosses do not roll or move | A (canonical chance), C (stream, per-line rule, boss policy) | Skill.wz; #166 binding decisions |
 | Pierce fall-off schedule | Linear `max(floor, 1 - fraction * (n - 1))`; `balance.json/combat.pierce_floor` defaults to 0.1; 0.1 per mob means the sixth takes 50%; includes crit, rounded once | C | #166 binding decisions; WZ has no fall-off value; survivor data owns the floor |
 | Impact blast policy | First mob consumes shot; primary counts toward cap; box translated to primary feet, selected before hits; nearest body then slot; one `hit` animation at impact by default (`visual: "effect"` supported) | A (canonical box/cap/damage field), C (consumption, anchor/order/art choice) | Skill.wz; #200 |

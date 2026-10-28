@@ -274,3 +274,20 @@ func test_common_passives_never_get_rarity_bonuses_or_mastery() -> void:
 				assert_eq(c.tier, "normal")
 				assert_true(c.rarity_bonus.is_empty())
 				assert_ne(c.card_kind, "mastery")
+
+func test_passive_draws_spend_selection_rng_only_even_for_boss_bonus() -> void:
+	for boss: bool in [false, true]:
+		for owned: bool in [false, true]:
+			var w := RF.quiet_world()
+			if owned:
+				w.upgrades.apply("passive_might_new", w)
+			var id := "passive_might_rank" if owned else "passive_might_new"
+			w.upgrades = UpgradePool.from_data({"cards": [w.upgrades.card(id)]})
+			w.choice_bonus = boss
+			var rng := RandomNumberGenerator.new()
+			rng.seed = 282
+			var expected := RandomNumberGenerator.new()
+			expected.seed = 282
+			expected.randf() # one weighted selection; no rarity draw for a passive
+			assert_eq(w.upgrades.roll_choices(w, rng, 1)[0].tier, "normal")
+			assert_eq(rng.state, expected.state, "passive new/rank and boss draws never roll rarity")

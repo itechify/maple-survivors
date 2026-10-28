@@ -92,6 +92,9 @@ func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
 
 func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 	for key: String in book.defs:
+		var img: Dictionary = book.skill_imgs.get(String(book.def(key).get("book", "")), {})
+		if not img.get("skill", {}).has("%07d" % int(book.def(key).skill_id)):
+			continue # the synthetic fixtures hold only part of the Hero books (#296); the real-cache test covers them
 		if bool(book.def(key).get("common_passive", false)):
 			# #289: a common passive is survivor-made: its icon skill's WZ node has no level table, rank r is level r.
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
@@ -101,8 +104,10 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 			continue # the synthetic fixtures carry no Rush node; the real-cache run covers it
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
-		# Hero's Rush (#302) takes the level-30 survivor table like a pool skill, but stays at rank 1 for the whole round.
-		if key in data.jobs_survivor.jobs["212"].skill_pool or key in data.jobs_survivor.jobs["112"].skill_pool or key == "rush_hero":
+		# A pool skill (rarity bonuses, listed in a job's skill_pool) has eight ranks; any other skill keeps one rank per level.
+		# Hero's Rush (#302) is no pool skill but takes the same level-30 table, eight ranks that the shared mobility rule grows.
+		if key == "rush_hero" or book.def(key).has("rarity_bonuses") \
+				and data.jobs_survivor.jobs.values().any(func(j: Dictionary) -> bool: return key in j.get("skill_pool", [])):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue

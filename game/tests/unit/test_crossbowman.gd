@@ -114,7 +114,7 @@ func test_power_knockback_uses_canonical_range_count_cost_and_nonboss_chance() -
 func test_pierce_card_reaches_seventh_mob_at_forty_percent_and_shots_card_fires_two() -> void:
 	var w := _combat("iron_arrow", 30, true)
 	w.loadout.add_skill_mod("iron_arrow", "crit", "add", -1.0)
-	assert_true(w.upgrades.apply("iron_arrow_pierce", w))
+	RF.add_modifier_effects(w, w.upgrades.card("iron_arrow_pierce"))
 	for i in 7:
 		var slot := RF.put_mob(w, 1110100, 470 + i * 30, 190, 10000)
 		w.swarm.y[slot] = w.cast_origin().y + 5.0
@@ -125,7 +125,7 @@ func test_pierce_card_reaches_seventh_mob_at_forty_percent_and_shots_card_fires_
 	var hits := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "iron_arrow")
 	assert_eq(hits.map(func(e: Dictionary) -> int: return int(e.damage)), [100, 90, 80, 70, 60, 50, 40])
 	var shots := _combat("iron_arrow")
-	assert_true(shots.upgrades.apply("iron_arrow_shots", shots))
+	RF.add_modifier_effects(shots, shots.upgrades.card("iron_arrow_shots"))
 	RF.put_mob(shots, 1110100, 500, 190, 10000)
 	shots.mob_grid.rebuild(shots.swarm.x, shots.swarm.y, shots.swarm.active)
 	shots.runner.step(DT, shots)
@@ -197,7 +197,7 @@ func test_final_attack_rolls_canonical_chance_on_physical_hits_and_draws_current
 
 func test_final_attack_spread_card_strikes_one_more_mob_and_draws_both_arrows() -> void:
 	var w := _combat("final_attack_crossbow", 30)
-	assert_true(w.upgrades.apply("final_attack_crossbow_spread", w))
+	RF.add_modifier_effects(w, w.upgrades.card("final_attack_crossbow_spread"))
 	var first := RF.put_mob(w, 1110100, 510, 190, 10000)
 	var second := RF.put_mob(w, 1110100, 560, 190, 10000)
 	w.swarm.steady[first] = 1
@@ -226,7 +226,7 @@ func test_crossbowman_cards_casts_with_any_weapon_skill_window_and_no_soul_arrow
 		assert_false(key + "_rank" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	for key: String in ["power_knockback_crossbow_targets", "iron_arrow_pierce", "iron_arrow_shots"]:
 		assert_false(key in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
-		assert_true(w.upgrades.apply(key, w))
+		RF.add_modifier_effects(w, w.upgrades.card(key))
 	assert_eq(w.loadout.stats("power_knockback_crossbow").mob_count, 3)
 	assert_eq(w.loadout.stats("iron_arrow").pierce, 6)
 	assert_eq(w.loadout.stats("iron_arrow").count, 2)

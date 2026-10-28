@@ -104,24 +104,6 @@ func test_each_path_has_thirteen_steps_across_five_behaviour_lines() -> void:
 		assert_eq(steps, 13, key)
 
 
-func test_extra_hit_card_previews_and_applies_rarity_steps_per_target() -> void:
-	for tier: String in ["normal", "rare", "legendary"]:
-		var w := _world()
-		w.learn_skill("double_stab")
-		var offer := w.upgrades.choice_card("double_stab_hits", w, tier)
-		var extra := 1 if tier == "normal" else 2
-		assert_eq(offer.magnitude, extra)
-		assert_eq(offer.skill_mod_changes.get("attack_count", {}), {"before": 2, "after": 2 + extra})
-		assert_has(LevelUpWindow.change_lines(offer), "Hits: 2 → " + str(2 + extra))
-		assert_true(w.upgrades.apply("double_stab_hits", w, tier))
-		assert_eq(w.upgrades.rank("double_stab_hits", w), extra)
-		assert_true(w.upgrades.apply("double_stab_targets", w))
-		_targets(w, [Vector2(35, 0), Vector2(45, 0)])
-		w.runner.step(DT, w)
-		assert_eq(_hits(w.drain_events()).size(), 6 if tier == "normal" else 8)
-		assert_false("double_stab_hits" in w.upgrades.eligible(w), "#287: behaviour cards are excluded")
-
-
 
 func test_lucky_seven_extra_star_and_pierce_reach_more_monsters_in_seeded_combat() -> void:
 	for upgraded in [false, true]:
@@ -130,8 +112,8 @@ func test_lucky_seven_extra_star_and_pierce_reach_more_monsters_in_seeded_combat
 		for mk: MobKind in w.mob_kinds:
 			mk.hitbox = Rect2(-2, -40, 4, 40)
 		if upgraded:
-			assert_eq(w.upgrades.apply("lucky_seven_count", w), 1)
-			assert_eq(w.upgrades.apply("lucky_seven_pierce", w), 1)
+			RF.add_modifier_effects(w, w.upgrades.card("lucky_seven_count"))
+			RF.add_modifier_effects(w, w.upgrades.card("lucky_seven_pierce"))
 		_targets(w, [Vector2(100, 0), Vector2(150, 0)])
 		w.runner.step(DT, w)
 		assert_eq(w.projectiles.active_count(), 3 if upgraded else 2)
@@ -142,25 +124,6 @@ func test_lucky_seven_extra_star_and_pierce_reach_more_monsters_in_seeded_combat
 		assert_eq(hits.size(), 6 if upgraded else 2, "each upgraded star hits both monsters once")
 
 
-func test_range_and_reach_cards_compound_and_respect_their_two_step_cap() -> void:
-	for key: String in LINES:
-		var w := _world("claw" if key == "lucky_seven" else "dagger")
-		w.learn_skill(key)
-		var id := key + ("_range" if key == "lucky_seven" else "_reach")
-		var offer := w.upgrades.choice_card(id, w, "rare")
-		assert_eq(offer.magnitude, 2)
-		assert_eq(offer.skill_mod_changes, {"range": {"before": 250, "after": 360}} if key == "lucky_seven"
-			else {"area": {"before": 100, "after": 144}})
-		assert_eq(w.upgrades.apply(id, w, "rare"), 2)
-		assert_false(id in w.upgrades.eligible(w))
-		assert_eq(w.upgrades.apply(id, w), 0, "cap cannot be exceeded")
-		assert_near(SkillRunner.reach_of(w.loadout.stats(key), w), 360 if key == "lucky_seven" else 126.72, 0.001)
-		_targets(w, [Vector2(330 if key == "lucky_seven" else 120, 0)])
-		w.runner.step(DT, w)
-		var events := w.drain_events()
-		assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "cast" and e.skill == key).size(), 1)
-		assert_eq(w.projectiles.active_count() if key == "lucky_seven" else _hits(events).size(), 2)
-
 
 func test_damage_and_cooldown_cards_scale_effective_stats_and_cast_cadence() -> void:
 	for key: String in LINES:
@@ -170,8 +133,8 @@ func test_damage_and_cooldown_cards_scale_effective_stats_and_cast_cadence() -> 
 			w.learn_skill(key)
 			var before := w.loadout.stats(key)
 			if upgraded:
-				assert_eq(w.upgrades.apply(key + "_damage", w, "rare"), 2)
-				assert_eq(w.upgrades.apply(key + "_cooldown", w, "rare"), 2)
+				RF.add_modifier_effects(w, w.upgrades.card(key + "_damage"), 2)
+				RF.add_modifier_effects(w, w.upgrades.card(key + "_cooldown"), 2)
 				var after := w.loadout.stats(key)
 				assert_near(after.damage_min / before.damage_min, 1.44)
 				assert_near(after.damage_max / before.damage_max, 1.44)

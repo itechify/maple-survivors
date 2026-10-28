@@ -36,7 +36,7 @@ func value(gender: int, field: String, choices: Dictionary) -> int:
 	return 0 if values.is_empty() else int(values[posmod(int(choices.get(field, 0)), values.size())])
 
 
-## Snapshot look; weapons are stored separately so job advancement can replace them.
+## Snapshot look; weapons are stored separately as the initial character equipment.
 func look(gender: int, choices: Dictionary) -> Dictionary:
 	return {"skin": value(gender, "skin", choices), "face": value(gender, "face", choices),
 		"hair": value(gender, "hair", choices) + value(gender, "hair_colour", choices),

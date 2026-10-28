@@ -267,14 +267,26 @@ func test_a_press_inside_the_cooldown_does_nothing() -> void:
 	assert_true(w.player.pos.x - x < 200.0, "only ordinary walking moved the character")
 
 
-func test_rush_stays_rank_one_for_the_whole_round() -> void:
-	var w := _world()
-	for i in 45:
+func _level_to(w: RunWorld, level: int) -> void:
+	while int(w.player_state.level) < level:
 		w._gain_exp(w.progression.exp_to_next())
-	assert_true(int(w.player_state.level) >= 40, "level %d" % int(w.player_state.level))
-	assert_eq(w.loadout.rank(KEY), 1)
-	assert_eq(int(w.runner.stats_of(w, KEY).level), 4, "still WZ level 4: 78%")
-	assert_eq(w.mobility_rank(int(w.player_state.level)), 1, "the one seam a shared rank rule replaces")
+
+
+func test_rush_ranks_with_the_round_level_by_the_shared_mobility_rule() -> void:
+	var w := _world()
+	assert_eq(w.loadout.rank(KEY), 1, "rank 1 at Lv1: WZ level 4, 78%, 170 px")
+	assert_eq(int(w.runner.stats_of(w, KEY).level), 4)
+	# balance.mobility_rank_levels: rank N at Lv 2N (Lv 4 -> 2), clamped to the skill's eight ranks.
+	_level_to(w, 10)
+	assert_eq(w.loadout.rank(KEY), 5, "Lv10 -> rank 5 (WZ level 19)")
+	_level_to(w, 16)
+	assert_eq(w.loadout.rank(KEY), 8, "Lv16 -> rank 8, the top of the level-30 table")
+	var st := w.runner.stats_of(w, KEY)
+	assert_eq(int(st.level), 30)
+	assert_near(float(st.damage_pct), 1.30, 1e-9)
+	assert_eq(float(st.displacement.distance), 250.0, "the dash grows with the box reach")
+	_level_to(w, 40)
+	assert_eq(w.loadout.rank(KEY), 8, "clamped at the skill's rank cap; no card ever raises it")
 
 
 func test_rush_gives_no_orb_and_takes_no_orb_bonus() -> void:

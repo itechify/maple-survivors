@@ -158,10 +158,10 @@ func test_an_equip_that_does_not_fit_the_full_tab_is_skipped_without_looping() -
 	assert_false(w.equipment.worn.has("overall"))
 
 
-func test_equip_triggers_are_equipment_pickups_level_ups_and_job_changes() -> void:
+func test_equip_triggers_are_only_equipment_pickups() -> void:
 	assert_true(BotShop.equip_trigger([{"type": "pickup_collected", "kind": "equip"}]))
-	assert_true(BotShop.equip_trigger([{"type": "mob_hit"}, {"type": "level_up", "level": 5}]))
-	assert_true(BotShop.equip_trigger([{"type": "job_changed", "job_id": 200}]))
+	assert_false(BotShop.equip_trigger([{"type": "mob_hit"}, {"type": "level_up", "level": 5}]))
+	assert_false(BotShop.equip_trigger([{"type": "job_changed", "job_id": 200}]))
 	assert_false(BotShop.equip_trigger([{"type": "pickup_collected", "kind": "exp"}, {"type": "mob_died"}]))
 	assert_false(BotShop.equip_trigger([]))
 

@@ -72,7 +72,7 @@ const LADDER_JUMP_REACH := 115.0
 const LADDER_STAND_REACH := 45.0
 const CLIMB_GIVE_UP := 8 * 60
 
-## Card scores of pick_card_for (higher = taken first). Skill-mod stats not listed score SCORE_MOD_OTHER.
+## tier C: Card scores of pick_card_for (higher = taken first). Skill-mod stats not listed score SCORE_MOD_OTHER.
 const SCORE_NEW_ATTACK := 100.0
 const SCORE_NEW_PASSIVE := 50.0
 const SCORE_RANK_ATTACK := 62.0
@@ -82,6 +82,7 @@ const SCORE_MOD := {"count": 75.0, "damage": 64.0, "pierce": 58.0, "area": 58.0,
 const SCORE_MOD_OTHER := 25.0
 ## Bonus for cards of a skill of the player's current job (a Magician invests in Magician skills).
 const SCORE_JOB_BONUS := 12.0
+# tier C: bot card scoring defaults; survivor policy weights.
 const SCORE_PLAYER := {"max_hp": 46.0, "hp_regen": 36.0, "pdd": 34.0, "speed": 26.0}
 ## tier C: score added per step a card grants beyond its first (`c.magnitude - 1`); survivor balance.json bot.gain_step_score
 ## overrides it. 6 lets a Rare or Epic offer pass the cards just below it (a Rare +2 attack rank, 62+12+6 = 80, passes a
@@ -326,7 +327,7 @@ static func _backing_off(w: RunWorld, engage: Dictionary) -> bool:
 
 
 ## (longest attack reach the build owns, longest reach that is ready now), px. Counts the active damaging skills
-## (SkillRunner.reach_of); ready = off cooldown and affordable. Beginner (job 0) skills such as Three Snails only count while the build has no attack of its own job
+## (SkillRunner.reach_of); ready = off cooldown with enough HP. Beginner (job 0) skills such as Three Snails only count while the build has no attack of its own job
 ## line, so a Warrior's long starter shot does not make it kite. (0, 0) = nothing can attack.
 static func _reach_profile(w: RunWorld) -> Vector2:
 	var line := Vector2.ZERO
@@ -338,7 +339,7 @@ static func _reach_profile(w: RunWorld) -> Vector2:
 		var r := SkillRunner.reach_of(st, w)
 		if r <= 0.0:
 			continue
-		var ready := float(w.runner.cooldowns.get(key, 0.0)) <= 1e-6 and _affordable(w, st)
+		var ready := float(w.runner.cooldowns.get(key, 0.0)) <= 1e-6 and w.can_pay_hp(int(st.hp_cost))
 		var own := Vector2(r, r if ready else 0.0)
 		if int(w.book.def(key).get("job", 0)) == 0:
 			base = Vector2(maxf(base.x, own.x), maxf(base.y, own.y))
@@ -353,12 +354,7 @@ static func _can_take(w: RunWorld, i: int) -> bool:
 	return w.pickups.kind[i] != PickupSystem.EQUIP or w.equipment.inventory.size() < w.inventory_slots()
 
 
-## Whether the player can pay the HP cost of resolved skill stats `st` now (there is no MP, ADR 0006).
-static func _affordable(w: RunWorld, st: Dictionary) -> bool:
-	return w.can_pay_hp(int(st.hp_cost))
-
-
-## The manual flee buff the bot can press now ({} when it owns none, or it is running, cooling down or unaffordable):
+## The manual flee buff the bot can press now ({} when it owns none, or it is running, cooling down or cannot pay its HP cost):
 ## {id (skill key), hp (flee below this HP fraction), count (mobs
 ## on its level that surround it), distance (px)}, read from the skill's `manual` block (survivor data, tier C).
 static func _flee_buff(w: RunWorld) -> Dictionary:
@@ -370,7 +366,7 @@ static func _flee_buff(w: RunWorld) -> Dictionary:
 				or not w.can_cast():
 			continue
 		var st := w.runner.stats_of(w, key)
-		if not _affordable(w, st):
+		if not w.can_pay_hp(int(st.hp_cost)):
 			continue
 		var manual: Dictionary = def.manual
 		return {"id": id, "hp": float(manual.get("bot_flee_hp", 0.0)), "count": int(manual.get("bot_surround_count", 99)),
@@ -577,11 +573,11 @@ static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var base := _base_score(w, d)
 	var key := String(d.get("skill", ""))
 	# tier C (#293): after three actives, global boosts beat a low-value rank, but learning an active wins.
-	if w.book.def(key).get("common_passive", false) and w.loadout.slot_count("active") >= 3:
-		base += 20.0
+	if w.book.def(key).get("common_passive", false) and w.loadout.slot_count("active") >= int(w.balance.get("bot", {}).get("passive_active_threshold", 0)):
+		base += float(w.balance.get("bot", {}).get("passive_score_bonus", 0.0))
 	# tier C (#293): Mastery scores its actual diminished bonus; a 20% improvement is worth 20 points.
 	if String(c.get("card_kind", "")) == "mastery":
-		return bonus_score * 100.0
+		return bonus_score * float(w.balance.get("bot", {}).get("mastery_bonus_score", 0.0))
 	return base + bonus_score * step + step * float(maxi(int(c.get("magnitude", 1)), 1) - 1)
 
 

@@ -344,14 +344,14 @@ func test_the_more_mobs_cards_add_one_mob_per_step_up_to_three_steps() -> void:
 		var w := _brawler(key)
 		var base: int = w.loadout.stats(key).mob_count
 		for step in 3:
-			assert_true(w.upgrades.apply(key + "_targets", w), key)
+			RF.add_modifier_effects(w, w.upgrades.card(key + "_targets"))
 			assert_eq(w.loadout.stats(key).mob_count, base + step + 1, "%s step %d" % [key, step + 1])
 		assert_false(key + "_targets" in w.upgrades.eligible(w), "capped at three steps")
 
 
 func test_a_targets_card_makes_double_uppercut_strike_a_second_mob() -> void:
 	var w := _brawler("double_uppercut")
-	assert_true(w.upgrades.apply("double_uppercut_targets", w))
+	RF.add_modifier_effects(w, w.upgrades.card("double_uppercut_targets"))
 	var a := _mob(w, 450.0)
 	var b := _mob(w, 465.0)
 	var c := _mob(w, 475.0)
@@ -363,12 +363,12 @@ func test_a_targets_card_makes_double_uppercut_strike_a_second_mob() -> void:
 
 func test_a_targets_card_makes_backspin_and_corkscrew_strike_a_fourth_mob() -> void:
 	var back := _brawler("backspin_blow")
-	assert_true(back.upgrades.apply("backspin_blow_targets", back))
+	RF.add_modifier_effects(back, back.upgrades.card("backspin_blow_targets"))
 	for x in [450.0, 470.0, 490.0, 510.0]:
 		_mob(back, x)
 	assert_eq(_hit_slots(_cast(back)).size(), 4)
 	var screw := _brawler("corkscrew_blow")
-	assert_true(screw.upgrades.apply("corkscrew_blow_targets", screw))
+	RF.add_modifier_effects(screw, screw.upgrades.card("corkscrew_blow_targets"))
 	for x in [440.0, 470.0, 500.0, 530.0]:
 		_mob(screw, x)
 	assert_eq(_hit_slots(_cast(screw)).size(), 4)

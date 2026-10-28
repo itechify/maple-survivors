@@ -35,7 +35,7 @@ static func family_allows(id: int, families: Array) -> bool:
 
 ## Eligible item ids, in list order: job admitted (Equipment.job_allows), weapon family admitted (family_allows) and
 ## reqLevel in [band[0], band[1]].
-static func eligible(items: Array, infos: Dictionary, job_id: int, band: Array, _rules: Dictionary,
+static func eligible(items: Array, infos: Dictionary, job_id: int, band: Array,
 		families: Array) -> Array:
 	var out := []
 	for raw: Variant in items:
@@ -52,7 +52,7 @@ static func eligible(items: Array, infos: Dictionary, job_id: int, band: Array, 
 ## One ordinary drop: an eligible item, uniformly (tier C: owner call, #292). 0 when nothing is eligible.
 static func pick(items: Array, infos: Dictionary, job_id: int, band: Array, rules: Dictionary,
 		rng: RandomNumberGenerator, families: Array) -> int:
-	var ids := eligible(items, infos, job_id, band, rules, families)
+	var ids := eligible(items, infos, job_id, band, families)
 	if ids.is_empty():
 		return 0
 	return ids[rng.randi_range(0, ids.size() - 1)]
@@ -63,7 +63,7 @@ static func pick(items: Array, infos: Dictionary, job_id: int, band: Array, rule
 ## band (tier C). 0 only when the job can wear nothing admitted in the list.
 static func pick_boss(items: Array, infos: Dictionary, job_id: int, band: Array, rules: Dictionary,
 		rng: RandomNumberGenerator, families: Array) -> int:
-	var ids := eligible(items, infos, job_id, band, rules, families)
+	var ids := eligible(items, infos, job_id, band, families)
 	if ids.is_empty():
 		var best := 0
 		var best_d := 1 << 30

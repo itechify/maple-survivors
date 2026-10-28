@@ -106,11 +106,13 @@ func test_212_keeps_its_entry_unchanged() -> void:
 	assert_true(bool(jobs.job(212).playable))
 
 
-func test_pool_keys_not_yet_defined_stay_inert() -> void:
+func test_pool_keys_that_are_defined_belong_to_the_hero_books() -> void:
+	# Each Hero ticket (H5-H8) defines its own keys; a key still undefined stays inert, a defined one is a 100/110/111/112 skill.
 	var data := _data()
 	var defined: Dictionary = data.skills.skills
-	for key: String in ["shout", "monster_magnet", "panic", "coma"]:
-		assert_false(defined.has(key), "%s is defined by its own ticket, not by H2" % key)
+	for key: String in ["brandish", "shout", "monster_magnet", "panic", "coma", "rush_hero"]:
+		if defined.has(key):
+			assert_true(int(defined[key].job) in [100, 110, 111, 112], "%s belongs to a Hero book" % key)
 
 
 # --- AP row -----------------------------------------------------------------------------------------------------------
@@ -185,7 +187,7 @@ func test_a_fresh_world_is_still_212_with_hero_playable() -> void:
 
 func test_a_hero_drop_pool_holds_swords_and_axes_of_both_hands_and_no_other_weapon() -> void:
 	var families: Array = _jobs(_data()).weapon_families(112)
-	var ids := EquipmentDrops.eligible(_ids(), INFO, 112, BAND, RULES, families)
+	var ids := EquipmentDrops.eligible(_ids(), INFO, 112, BAND, families)
 	var weapons := ids.filter(func(id: int) -> bool: return Equipment.slot_of(id) == "weapon")
 	weapons.sort()
 	var want := HERO_WEAPONS.duplicate()

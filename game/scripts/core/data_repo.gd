@@ -367,7 +367,7 @@ static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {
 	for id: Variant in data.get("equipment_drops", {}).get("items", []):
 		_add_id(ids, int(id))
 	if not character.is_empty():
-		for id: Variant in CharacterSnapshot.held_item_ids(character, _jobs(data)):
+		for id: Variant in CharacterSnapshot.held_item_ids(character, jobs(data)):
 			_add_id(ids, int(id))
 	return ids
 
@@ -398,7 +398,7 @@ static func character_look(character: Dictionary, data: Dictionary, worn_cash: D
 	if character.get("equipment") is Dictionary:
 		look.equips = Equipment.worn_ids(character.equipment.get("worn", {}))
 	else:
-		look.equips = CharacterSnapshot.held_item_ids(character, _jobs(data))
+		look.equips = CharacterSnapshot.held_item_ids(character, jobs(data))
 	if not worn_cash.is_empty():
 		look["cash"] = worn_cash.duplicate()
 	return look
@@ -411,7 +411,8 @@ static func worn_cash(character: Dictionary, data: Dictionary, owned: Array) -> 
 	return CashCatalog.from_data(data).resolve(cash, 0, owned).worn
 
 
-static func _jobs(data: Dictionary) -> JobTree:
+## The canonical job tree with survivor flags and pools.
+static func jobs(data: Dictionary) -> JobTree:
 	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
 
 

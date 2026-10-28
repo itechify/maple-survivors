@@ -10,8 +10,6 @@ const BAR_H := 71
 const GAUGE_POS := Vector2(216, 37)
 ## Fill spans inside gauge/bar (x from, width) and the fill rows.
 const HP_FILL := Vector2(2, 105)
-## The v83 art's MP gauge span, drawn empty: there is no MP (ADR 0006).
-const MP_FILL := Vector2(110, 105)
 const EXP_FILL := Vector2(223, 115)
 const FILL_Y := 15.0
 const FILL_H := 14.0

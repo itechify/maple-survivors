@@ -364,7 +364,8 @@ func _threat_cut(i: int, value: float, cuts: PackedFloat32Array) -> float:
 
 ## Applies "slow" (canonical signed x/time), "freeze" or "stun" (time) or "threatened" (flat signed x/y and time), or "poison" (canonical level/time, optional skill
 ## key); `params.element` overrides the status's own element (STATUS_ELEMENTS; "stun" ignores it). Refreshes without
-## stacking (tier C, issue #54; a stun keeps the longer of the remaining and the new time, #187); poison snapshots the slot's max HP at application. Bosses and kinds immune, strong or neutral (Mob.wz
+## stacking; poison preserve_pulse refreshes the snapshot without restarting a pending pulse (ground areas only).
+## (tier C, issue #54; a stun keeps the longer of the remaining and the new time, #187); poison snapshots the slot's max HP at application. Bosses and kinds immune, strong or neutral (Mob.wz
 ## digit 4) against the status element reject it. Appends application/expiry events to the supplied simulation event list. Removal/death/
 ## relocation clears silently; mob_died/mob_spawned and the arrays describe those transitions.
 func apply_status(i: int, status: String, params: Dictionary, events: Array) -> bool:
@@ -378,7 +379,8 @@ func apply_status(i: int, status: String, params: Dictionary, events: Array) -> 
 		var level := int(params.get("level", 0))
 		if level <= 0 or level >= POISON_LEVEL_BASE:
 			return false
-		_poison_pulse[i] = POISON_INTERVAL
+		if status_left[j] <= 0.0 or not bool(params.get("preserve_pulse", false)):
+			_poison_pulse[i] = POISON_INTERVAL
 		_poison_damage[i] = mini(POISON_DAMAGE_CAP, ceili(float(max_hp[i]) / (POISON_LEVEL_BASE - level)))
 		# tier C: survivor ground-skill damage bonuses scale canonical poison after its cap, still nonlethal.
 		_poison_damage[i] = roundi(float(_poison_damage[i]) * maxf(0.0, float(params.get("damage_mult", 1.0))))
