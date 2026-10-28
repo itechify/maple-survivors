@@ -323,6 +323,8 @@ var _base_hp := 50.0
 var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
 var _earned_ap := 0
+## Tiers the character started the round with (CharacterSnapshot.tiers_unlocked); tier 1 is always unlocked.
+var _tiers_unlocked := 1
 var _base_fortune := 0.0
 ## Spec #34 cash items. `setup.account` ({owned: [item ids]}, absent = an empty account) decides which of the
 ## character's worn cash equipment and pet count; `setup.alert` ({hp}: a fraction of max HP, 0 = do not alert).
@@ -587,34 +589,26 @@ func advance_map() -> void:
 	emit("map_entered", {"map_index": map_index, "map_id": current_map_id()})
 
 
-## Returns independent round-boundary data; unresolved rewards/draws are an error, never dropped.
-## In release returns {} after push_error; debug also asserts so callers cannot silently discard a choice.
+## The character as it leaves this round (CharacterSnapshot, format 3): job, look, equipment, scrolls, mesos, cash, pet
+## and its unlocked tiers, which a CLEARED round advances. Everything picked up stays, whether the round was cleared, lost
+## or quit; the build (level, skills, cards) is not part of it. Always available, even with a choice pending.
 func character_snapshot() -> Dictionary:
-	if state == CHOOSING_UPGRADE or progression.has_pending() or pending_bonus_choices > 0 \
-			or choice_bonus or not pending_cards.is_empty():
-		push_error("RunWorld.character_snapshot: a character choice is pending")
-		assert(false, "RunWorld.character_snapshot: a character choice is pending")
-		return {}
-	var skills := {}
-	for key: String in loadout.order:
-		skills[key] = {"rank": loadout.rank(key),
-			"mods": CharacterSnapshot.encode_mods(loadout.skill_mods.get(key, {}))}
-	var snapshot := {"format": CharacterSnapshot.FORMAT, "level": progression.level, "exp": progression.exp,
-		"job_id": progression.job_id, "attributes": _attributes.duplicate(),
-		"base_attributes": _base_stats.duplicate(), "earned_ap": _earned_ap,
-		"base_hp": _base_hp,
-		"skills": skills, "skill_order": loadout.order.duplicate(),
-		"player_mods": CharacterSnapshot.encode_mods(loadout.player_mods),
-		"card_ranks": loadout.card_ranks.duplicate(),
-		"fortune": _own_fortune(), "base_fortune": _base_fortune,
+	var snapshot := {"format": CharacterSnapshot.FORMAT, "job_id": progression.job_id,
 		"look": character_look.duplicate(true), "equipment": equipment.duplicate(true),
-		"scrolls": scrolls.duplicate(), "mesos": mesos}
+		"scrolls": scrolls.duplicate(), "mesos": mesos, "tiers_unlocked": tiers_unlocked_now()}
 	# Spec #34 optional keys: written only when set, so characters without cash items keep their exact old bytes.
 	if not _cash_carried.is_empty():
 		snapshot["cash"] = _cash_carried.duplicate()
 	if _pet_carried > 0:
 		snapshot["pet"] = _pet_carried
 	return snapshot
+
+
+## The tiers the character has unlocked now: those it started the round with, plus the next tier when this round is CLEARED.
+func tiers_unlocked_now() -> int:
+	var stages: Dictionary = data.get("stages", {})
+	return CharacterSnapshot.unlocked_after_round(_tiers_unlocked, NxAward.tier_of(stages, stage_key),
+		state == CLEARED, stages.get("tiers", []).size())
 
 
 ## The character's own Fortune (base plus card modifiers), without the live cash-slot part.
@@ -2045,22 +2039,15 @@ func _init_player() -> void:
 func _restore_character(source: Dictionary) -> void:
 	assert(int(source.get("format", 0)) in CharacterSnapshot.FORMATS, "Unsupported CharacterSnapshot format")
 	var character := CharacterSnapshot.migrate(source, jobs, setup.get("equipment_info", {}))
-	progression.level = int(character.level)
-	progression.exp = int(character.exp)
 	progression.job_id = int(character.job_id) # handed to set_job by _init_player
-	_base_stats = CharacterSnapshot.integers(character.base_attributes)
-	_earned_ap = int(character.earned_ap)
-	_base_hp = float(character.base_hp)
-	_base_fortune = float(character.base_fortune)
-	CharacterSnapshot.restore_loadout(character, loadout)
-	apply_potion_schedule(progression.level, false) # tier C: silent catch-up to the schedule of the loaded level
-	character_look = character.get("look", {}).duplicate(true)
+	character_look = character.look.duplicate(true)
 	for field: String in ["skin", "face", "hair"]:
 		if character_look.has(field):
 			character_look[field] = int(character_look[field])
 	equipment = Equipment.normalized(character.equipment)
 	scrolls = CharacterSnapshot.integers(character.scrolls)
 	mesos = int(character.mesos)
+	_tiers_unlocked = int(character.tiers_unlocked)
 	_cash_carried = CharacterSnapshot.integers(character.get("cash", {}))
 	_pet_carried = int(character.get("pet", 0))
 
