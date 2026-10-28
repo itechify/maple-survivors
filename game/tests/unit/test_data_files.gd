@@ -100,13 +100,13 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
 			assert_eq(book.canonical_level(key, 5), 5)
 			continue
-		if key == "rush_hero" and book.skill_node(key).is_empty():
+		if key in ["rush_hero", "rush_paladin"] and book.skill_node(key).is_empty():
 			continue # the synthetic fixtures carry no Rush node; the real-cache run covers it
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
 		# A pool skill (rarity bonuses, listed in a job's skill_pool) has eight ranks; any other skill keeps one rank per level.
-		# Hero's Rush (#302) is no pool skill but takes the same level-30 table, eight ranks that the shared mobility rule grows.
-		if key == "rush_hero" or book.def(key).has("rarity_bonuses") \
+		# Hero's Rush (#302) and Paladin's (#312) are no pool skills but take the same level-30 table, eight ranks that the shared mobility rule grows.
+		if key in ["rush_hero", "rush_paladin"] or book.def(key).has("rarity_bonuses") \
 				and data.jobs_survivor.jobs.values().any(func(j: Dictionary) -> bool: return key in j.get("skill_pool", [])):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)

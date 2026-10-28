@@ -165,8 +165,10 @@ func test_power_strike_takes_slot_one_for_a_paladin_and_rush_is_learned_outside_
 	setup["job"] = 122
 	var w := RunWorld.new(setup)
 	assert_eq(String(w.loadout.order[0]), "power_strike", "slot 1")
-	assert_eq(w.loadout.order.size(), 1, "Rush is not in the slot track")
-	assert_false(w.book.has("rush_paladin"), "rush_paladin is undefined until P4, so it cannot be learned yet")
+	var tracked := w.loadout.order.filter(func(k: Variant) -> bool: return w.book.slot(String(k)) != "mobility")
+	assert_eq(tracked.size(), 1, "Rush is not on a slot track")
+	assert_true(w.loadout.has("rush_paladin"), "Rush (P4 #312) is learned at round start too")
+	assert_eq(w.book.slot("rush_paladin"), "mobility", "on the mobility slot, not a slot track")
 
 
 # --- AP row and growth ------------------------------------------------------------------------------------------------
