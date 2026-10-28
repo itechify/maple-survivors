@@ -18,7 +18,7 @@ slice specs win. Target design:
 | Character | One 4th job, chosen at creation (twelve v83 4th jobs; Beginner not playable). Name, look, slot as today. | 1, 9 |
 | Round | Standalone: Free Market -> map select (the character's unlocked tiers) -> 3 maps, 3 bosses (spec #241, unchanged) -> Free Market. Death ends only the round, and loot is kept. | 1 |
 | Tiers | Clearing any stage of tier N unlocks tier N+1 for that character. Cleared tiers can be replayed. The slice keeps the two existing tiers. | 1, 4.1 |
-| Level | Lv1 every round. First-pass EXP curve for about 75 picks per round, all 6 actives by about 5:00, end level about 45-55 (tier C). | 5 |
+| Level | Lv1 every round. First-pass EXP curve for picks ≈ levels + boss draws (about 50–60 per round), all 6 actives by about 5:00, end level about 45-55 (tier C). | 5 |
 | Skills | Job skill pool (lineage actives, all auto-cast; summons are timed allies in a slot; no buffs). Starting skill in slot 1. 6 active + 6 passive skill slots. | 7, 9 |
 | Ranks | Actives 1-8, mapped to WZ levels by a survivor table. +1 rank per card, plus a rarity bonus (Fortune applies). Mastery cards after rank 8. | 7, 8 |
 | Passives | 9 common passives, Maple-named: Maple Warrior (Might), Hyper Body (Max HP), Haste (Speed), Recovery (Regen), Booster (Cooldown), Area, Holy Symbol (EXP), Iron Body (Armor), Sharp Eyes (Crit). Rank 1-5, no rarity. Starting values follow the reference (tier C). | 7.6, 8 |
@@ -399,13 +399,28 @@ F/P pool cooldowns are 40% of the T8/T9 first-pass values, and Hyper Body / Reco
 and Mastery repeat factor remain unchanged. NX per gained level is 2 (was 5); boss/clear awards stay unchanged.
 This is a first pass, not the frozen balance pass. Canonical WZ numbers and spawn/boss/drop rules are unchanged.
 
-The ~75-pick target conflicts with Lv45–55: there is one pick per gained level and three boss draws, so
-those levels yield 47–57 picks. About 75 requires Lv73, extra draws per level, or more bonus draws. Reward
-cadence is outside this ticket's levers; it was left unchanged. Regression guards cover six actives within
+The revised slice target (#307) is picks ≈ levels + boss draws (about 50–60), with one pick per gained
+level and three boss draws: Lv45–55 yields 47–57 picks. Reward cadence stays unchanged. Regression guards cover six actives within
 360 s (60 s offer/route slack), clear levels 40–60 and 42–62 picks, and at least one Henesys clear in the
 three fixed training seeds with the tier-1 kit. Swarm engagement floor is 0.15 over 6:00–12:00; a growing leftover crowd and
 mandatory late damage are not pacing targets. The oracle now exercises actual map transfers rather than
 flattening three maps into the historical one-map curve. Ellinia remains informational.
+
+**#307 opening strength.** Every stage declares `opening_ramp` in survivor data. Its whole-round clock
+uses `p = clamp(round_time / seconds, 0, 1)^power` (default power 1), then interpolates each HP/damage
+start/end pair. A map may replace its stage ramp with its own complete `opening_ramp` object, to account
+for the large jumps between canonical map rosters. Map transfers do not reset the round clock. HP stacks with the existing spawn/elite HP scales and is
+captured at spawn; ordinary contact and physical/magic `attackN` damage use current progress at impact,
+after defense, stacking with existing source/elite scales. WZ stats are never edited. Bosses capture HP and
+both contact/attack multipliers at their actual arrival time (not warning time), on top of their own scales;
+those values stay fixed throughout that fight, including projectiles. Boss summons/revives use ordinary rules.
+Tier 1 is neutral (1 -> 1 over 900 s), deliberately retaining #293's pacing envelope. Sleepywood uses
+map1 HP 0.3 -> 1 / damage 0.4 -> 1 with power6; map2/3 HP 0.02 -> 1 / damage 0.08 -> 1
+with power3. All use 1,200 s of whole-round time. At 600 s the map2/3 added scales are
+HP 0.1425 / damage 0.195; at 1,200 s all scales reach 1, on top of existing stage scales. This deliberately
+allows a typical three-map round to end before the full ramp; longer rounds reach full strength at 20:00.
+Paired kit/starter measurements are recorded below. All ramp choices are tier C first-pass tuning.
+
 
 
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
@@ -6130,6 +6145,15 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+### #307 opening ramp (tier C)
+
+Whole-round interpolation, clamped progress raised to optional `power` (default 1), HP at spawn,
+ordinary damage after defense at impact, boss HP/contact/attack scale frozen at actual arrival:
+all are our survivor design. Tier1 HP/damage 1 -> 1 over 900 s. Sleepywood map1 HP .3 -> 1 / damage .4 -> 1 (power6),
+map2/3 HP .02 -> 1 / damage .08 -> 1 (power3), all over 1,200 s on the whole-round clock; trained only on1/2/2026. The 20:00 endpoint intentionally extends
+past the nominal15:00 schedule; no ordinary rate/cap/pool, boss encounter scale, canonical stat,
+EXP/cooldown/passive/drop value changed. Revised slice target: picks ≈ levels + boss draws (~50–60).
 
 ### #293 first-pass pacing (tier C)
 
