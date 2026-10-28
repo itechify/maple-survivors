@@ -184,7 +184,9 @@ static func validation_errors(defs: Dictionary) -> PackedStringArray:
 			var skill := String(sub.get("skill", ""))
 			var child: Dictionary = defs.get(skill, {})
 			var parents: Variant = child.get("form_sub_of", [])
-			if String(child.get("slot", "")) != "form_sub" or not key in parents:
+			if parents is String:
+				parents = [parents]
+			if String(child.get("slot", "")) != "form_sub" or not parents is Array or not key in parents:
 				errors.append("%s.form.subs: %s needs slot form_sub and form_sub_of parent" % [key, skill])
 			if not sub.get("first_after") is float and not sub.get("first_after") is int or float(sub.get("first_after", -1)) < 0:
 				errors.append("%s.form.subs.%s.first_after must be nonnegative seconds" % [key, skill])

@@ -159,6 +159,11 @@ func test_schema_rejects_unknown_effects_and_missing_sub_links() -> void:
 	var w := _world()
 	_sub(w)
 	assert_true(PlayerForms.validation_errors(w.book.defs).is_empty())
+	w.book.defs["test_form_more"] = w.book.defs.test_form.duplicate(true)
+	w.book.defs.test_form_more.form.subs = []
+	w.book.defs.test_sub.form_sub_of = "test_form_more"
+	assert_true("test_form.form.subs" in " ".join(PlayerForms.validation_errors(w.book.defs)), "string parent links match whole keys")
+	w.book.defs.test_sub.form_sub_of = ["test_form"]
 	w.book.defs.test_form.form.effects["typo"] = true
 	assert_true("effects.typo" in " ".join(PlayerForms.validation_errors(w.book.defs)))
 	w.book.defs.test_form.form.duration = -1
