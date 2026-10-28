@@ -278,7 +278,7 @@ static func _teleport_world() -> RunWorld:
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
 	setup.skill_imgs["210"] = {"skill": {"2101002": {"level": {"1": {"mpCon": 60, "range": 130}}}}}
 	var w := RunWorld.new(setup)
-	w.change_job(210)
+	RF.as_job(w, 210)
 	w.loadout.add_skill("teleport_fp")
 	w.player.place(Vector2(400, 0), w.fhm)
 	return w

@@ -11,7 +11,9 @@ const LINES := {
 
 func _world(path := "dagger") -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.balance.player.hp = 50 + 125 # the removed first-job grant (+125/+37), folded into the base pools (#284)
+	data.balance.player.mp = 5 + 37
 	var setup := RF.with_basic_attack(RF.setup("quiet", 208, data))
 	setup.equipment_info.merge({
 		1472061: {"incPAD": 11, "attackSpeed": 5, "tuc": 7},
@@ -19,7 +21,7 @@ func _world(path := "dagger") -> RunWorld:
 	}, true)
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
-	w.change_job(400, path)
+	RF.as_job(w, 400, path)
 	w.heal_fraction("mp", 1.0)
 	w.player.facing = 1
 	w.god = true
@@ -62,8 +64,8 @@ func test_reach_modifier_expands_only_this_skills_envelope_on_both_sides() -> vo
 	for side in [-1, 1]:
 		var w := _world()
 		assert_true(w.learn_skill("double_stab"))
-		var basic_box := w.basic.envelope(w)
-		assert_near(w.basic.reach(w), 88)
+		var basic_box := w.weapon_reach.envelope(w)
+		assert_near(w.weapon_reach.reach(w), 88)
 		_targets(w, [Vector2(100 * side, 0)])
 		w.runner.step(DT, w)
 		assert_true(_hits(w.drain_events()).is_empty(), "base envelope cannot reach 100px")
@@ -74,8 +76,8 @@ func test_reach_modifier_expands_only_this_skills_envelope_on_both_sides() -> vo
 		w.runner.step(DT, w)
 		assert_eq(_hits(w.drain_events()).size(), 2)
 		assert_eq(w.player.facing, side)
-		assert_eq(w.basic.envelope(w), basic_box, "basic swing envelope stays canonical")
-		assert_near(w.basic.reach(w), 88)
+		assert_eq(w.weapon_reach.envelope(w), basic_box, "the weapon swing envelope stays canonical")
+		assert_near(w.weapon_reach.reach(w), 88)
 		assert_near(SkillRunner.reach_of(w.loadout.stats("power_strike"), w), 88, 0.001, "another skill keeps base reach")
 	var far := _world()
 	far.learn_skill("double_stab")
@@ -121,35 +123,25 @@ func test_extra_hit_card_previews_and_applies_rarity_steps_per_target() -> void:
 		assert_eq("double_stab_hits" in w.upgrades.eligible(w), tier == "normal")
 
 
-func test_all_attack_cards_follow_the_held_weapon_at_each_carried_job_and_skip_advancement() -> void:
-	for job in [0, 200, 400, 410, 420]:
+func test_attack_cards_follow_the_thief_line_with_either_weapon() -> void:
+	# #284: a card is on offer to every job on its line (UpgradePool.on_line); weapons gate none.
+	for job in [200, 400, 410, 420]:
 		for path: String in ["claw", "dagger"]:
 			var w := _world(path)
-			w.change_job(job)
-			# The branch tracer may hand a new weapon; this test deliberately covers either family at either job.
-			w.equipment.worn.weapon = Equipment.create(1472061 if path == "claw" else 1332063,
-				w.setup.equipment_info[1472061 if path == "claw" else 1332063])
-			w.refresh_player_stats()
+			w.set_job(job)
 			for owned in [false, true]:
 				if owned:
 					w.learn_skill("lucky_seven")
 					w.learn_skill("double_stab")
 				var eligible := w.upgrades.eligible(w)
 				for key: String in LINES:
-					var allowed: bool = job in [400, 410, 420] and path == ("claw" if key == "lucky_seven" else "dagger")
-					assert_eq(key + "_new" in eligible, allowed and not owned)
+					var allowed: bool = job in [400, 410, 420]
+					assert_eq(key + "_new" in eligible, allowed and not owned, "%d:%s:%s_new" % [job, path, key])
 					assert_eq(key + "_rank" in eligible, allowed and owned)
 					for line: String in LINES[key]:
 						var id := key + "_" + line
 						assert_eq(id in eligible, allowed and owned, str(job) + ":" + path + ":" + id)
-						assert_eq(w.upgrades.card(id).requires, {"jobs": [400.0], "carry_jobs": [410.0, 420.0]})
-				var rng := RandomNumberGenerator.new()
-				rng.seed = 208
-				var draw := w.upgrades.roll_advancement_choices(w, rng)
-				for offer: Dictionary in draw:
-					assert_false(offer.kind == "skill_mod", "advancement never offers behaviour cards")
-					if job in [410, 420]:
-						assert_false(String(offer.skill) in LINES, "carried attacks never enter a branch advancement draw")
+						assert_eq(w.upgrades.card(id).requires, {"jobs": [400.0]})
 
 
 func test_lucky_seven_extra_star_and_pierce_reach_more_monsters_in_seeded_combat() -> void:

@@ -372,7 +372,8 @@ func test_create_character_enters_saved_tier_one_map_select() -> void:
 	assert_eq(int(saved.tier), 0)
 	assert_eq(saved.phase, "map_select")
 	assert_eq(int(saved.character.level), 1)
-	assert_eq(int(saved.character.job_id), 0)
+	assert_eq(int(saved.character.job_id), 212, "a new character is the one playable job, 212 (#284)")
+	assert_eq(saved.character.skill_order, ["energy_bolt", "teleport_fp"], "with its start skills")
 	assert_eq(flow.current.stages.map(func(c: Dictionary) -> String: return String(c.key)),
 		["henesys", "ellinia", "perion", "kerning"], "tier 1 offers the four Victoria Island job towns' regions")
 	assert_eq(flow.create_character("maple69"), -1, "living names are unique ignoring case")

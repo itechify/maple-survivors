@@ -1,5 +1,6 @@
 extends TestCase
-## Crossbowman (#203): public advancement, combat, cards and presentation contracts with fixed seeded ticks.
+## Crossbowman (#203): combat, cards and presentation contracts with fixed seeded ticks. The character is set up directly
+## (#284: no advancement), with the HP/MP the removed Bowman and Crossbowman grants used to add in its base pools.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -8,7 +9,9 @@ const SKILLS := ["crossbow_mastery", "final_attack_crossbow", "crossbow_booster"
 
 func _bowman(crossbow := false, fixed_damage := false) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.balance.player.hp = 50 + 125 + 325
+	data.balance.player.mp = 5 + 37 + 175
 	if fixed_damage:
 		data.skills.skills.iron_arrow.damage = "fixed"
 	var setup := RF.with_basic_attack(RF.setup("quiet", 203, data))
@@ -19,7 +22,7 @@ func _bowman(crossbow := false, fixed_damage := false) -> RunWorld:
 		1462001: {"incPAD": 29, "attackSpeed": 6},
 		1462000: {"incPAD": 44, "attackSpeed": 6, "reqLevel": 28, "reqJob": 4, "reqSTR": 28, "reqDEX": 80}}, true)
 	var w := RunWorld.new(setup)
-	w.change_job(300, "bow")
+	RF.as_job(w, 300, "bow")
 	if crossbow:
 		w.equipment.inventory.append(Equipment.create(1462001, setup.equipment_info[1462001]))
 		assert_eq(w.equip_item(_inventory(w).find(1462001)), "")
@@ -32,37 +35,10 @@ func _inventory(w: RunWorld) -> Array:
 	return w.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
 
 
-func test_advancement_at_thirty_upgrades_either_weapon_and_grants_hp_mp() -> void:
-	for crossbow: bool in [false, true]:
-		var w := _bowman(crossbow)
-		w.progression.level = 29
-		w.progression.add_exp(w.progression.exp_to_next())
-		w.step(DT, MoveInput.new())
-		assert_eq(w.state, RunWorld.CHOOSING_JOB)
-		var option := w.pending_jobs.filter(func(o: Dictionary) -> bool: return int(o.job_id) == 320)
-		assert_eq(option.size(), 1)
-		assert_true(option[0].available)
-		var hp: int = w.player_state.max_hp
-		var mp: int = w.player_state.max_mp
-		assert_true(w.apply_job(320))
-		assert_eq(w.progression.job_id, 320)
-		assert_eq(w.weapon_id(), 1462000)
-		assert_has(_inventory(w), 1462001 if crossbow else 1452051)
-		assert_eq(w.player_state.max_hp, hp + 325)
-		assert_eq(w.player_state.max_mp, mp + 175)
-		BotInput.auto_choose(w, false, 320)
-		w.apply_potion_schedule(w.progression.level, false) # the test sets the level directly: no level-up ran the schedule
-		var snapshot := w.character_snapshot()
-		assert_eq(CharacterSnapshot.validation_error(snapshot), "")
-		var setup := w.setup.duplicate(true)
-		setup.character = JSON.parse_string(JSON.stringify(snapshot))
-		assert_eq(RunWorld.new(setup).character_snapshot(), snapshot)
-
-
 func _combat(key := "", rank_value := 1, fixed_damage := false) -> RunWorld:
 	var w := _bowman(false, fixed_damage)
 	w.progression.level = 40
-	w.change_job(320)
+	RF.as_job(w, 320)
 	w.heal_fraction("mp", 1.0)
 	for mk: MobKind in w.mob_kinds:
 		mk.hitbox = Rect2(-2, -10, 4, 10)
@@ -263,7 +239,7 @@ func test_final_attack_spread_card_strikes_one_more_mob_and_draws_both_arrows() 
 	assert_eq(shots.size(), 2)
 
 
-func test_crossbow_only_cards_casts_and_skill_window_and_no_soul_arrow() -> void:
+func test_crossbowman_cards_casts_with_any_weapon_skill_window_and_no_soul_arrow() -> void:
 	var w := _combat()
 	for key: String in SKILLS:
 		assert_has(w.upgrades.eligible(w), key + "_new")
@@ -275,26 +251,21 @@ func test_crossbow_only_cards_casts_and_skill_window_and_no_soul_arrow() -> void
 	assert_eq(w.loadout.stats("power_knockback_crossbow").mob_count, 3)
 	assert_eq(w.loadout.stats("iron_arrow").pierce, 6)
 	assert_eq(w.loadout.stats("iron_arrow").count, 2)
+	# #284: weapons gate no skill, card or passive: with a bow the crossbow skills stay on offer and still cast.
 	assert_eq(w.equip_item(_inventory(w).find(1452051)), "")
-	var model := SkillWindowModel.new(w.book, w.upgrades, w.loadout, w.jobs, 320,
-		SkillText.new(w.book, {}), w.held_weapon_family)
-	var rows: Array = model.tabs[2].rows
+	var model := SkillWindowModel.new(w.book, w.upgrades, w.loadout, w.jobs, 320, SkillText.new(w.book, {}))
+	var rows: Array = model.tabs[1].rows
 	assert_eq(rows.size(), 5)
 	for key: String in SKILLS:
-		assert_false(model.usable(key), "greyed with a bow")
-		assert_false(model.skill_tooltip(key).usable)
-		assert_false(key + "_rank" in w.upgrades.eligible(w))
-	assert_eq(w.loadout.passive_total("acc"), 0.0)
-	assert_near(w.loadout.mastery, 0.1)
+		assert_has(w.upgrades.eligible(w), key + "_rank", "on offer with a bow")
+	assert_eq(w.loadout.passive_total("acc"), 1.0, "Crossbow Mastery counts with a bow")
 	RF.put_mob(w, 1110100, 470, 190, 10000)
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-	var mp: int = w.player_state.mp
 	w.drain_events()
 	for tick in 120:
 		w.step(DT, MoveInput.new())
 	var casts := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "cast" and e.skill in SKILLS)
-	assert_eq(casts.size(), 0)
-	assert_eq(w.player_state.mp, mp)
+	assert_true(casts.size() > 0, "a crossbow skill casts with a bow")
 	for def: Dictionary in w.book.defs.values():
 		assert_false(int(def.get("skill_id", 0)) in [3101004, 3201004])
 	for card: Dictionary in w.upgrades.cards:
@@ -304,27 +275,10 @@ func test_crossbow_only_cards_casts_and_skill_window_and_no_soul_arrow() -> void
 		assert_false(key + "_new" in first.upgrades.eligible(first), "exact branch only")
 
 
-func test_advancement_draw_offers_both_attacks_and_tool_accepts_job_320() -> void:
-	var w := _bowman()
-	w.progression.level = 29
-	w.progression.add_exp(w.progression.exp_to_next())
-	w.step(DT, MoveInput.new())
-	assert_true(w.apply_job(320))
-	var cards := w.pending_cards.map(func(c: Dictionary) -> String: return c.id)
-	assert_has(cards, "power_knockback_crossbow_new")
-	assert_has(cards, "iron_arrow_new")
-	for card: Dictionary in w.pending_cards:
-		assert_eq(int(w.book.def(card.skill).job), 320)
-	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=320"]))
-	assert_eq(parsed.options.job, 320)
-	assert_eq(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()), "")
-	assert_eq(RunLauncher.options_from_args({"job": "320"}).job, 320)
-
-
 func test_arrow_tiers_emit_notices_at_thirty_forty_and_fifty() -> void:
 	var w := _bowman(true)
 	w.progression.level = 29
-	w.change_job(320)
+	RF.as_job(w, 320)
 	assert_eq(w.ammo_id(), 2061000)
 	w.drain_events()
 	for pair: Array in [[30, 2061001], [40, 2061002], [50, 2061003]]:

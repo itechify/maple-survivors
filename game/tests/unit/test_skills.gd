@@ -6,6 +6,22 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
+## A world on the quiet stage whose character is job `job` (setup.job) owning only `skill` (none for ""), with `mp`
+## starting MP; #284 made a fresh character a 212 that starts with Energy Bolt and Teleport.
+func _world(job: int, skill: String, x := 400.0, mp := 5) -> RunWorld:
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.balance.player.mp = mp
+	var setup := RF.setup("quiet", 7, data)
+	setup["job"] = job
+	var w := RunWorld.new(setup)
+	if skill != "":
+		w.learn_skill(skill)
+	RF.place_player(w, x)
+	w.drain_events()
+	return w
+
+
 func _casts(w: RunWorld) -> Array:
 	var out: Array = []
 	for e: Dictionary in w.drain_events():
@@ -40,8 +56,7 @@ func test_skill_book_levels_and_paths() -> void:
 
 
 func test_three_snails_base_stats() -> void:
-	var w := RF.quiet_world()
-	assert_true(w.loadout.has("three_snails"), "a Beginner starts with Three Snails")
+	var w := _world(0, "three_snails")
 	var st := w.loadout.stats("three_snails")
 	assert_eq(st.skill_id, 1000)
 	assert_eq(st.rank, 1)
@@ -59,19 +74,8 @@ func test_three_snails_base_stats() -> void:
 	assert_eq(st.action, "swingO1")
 
 
-func test_three_snails_upgrades() -> void:
-	var w := RF.quiet_world()
-	var up := w.upgrades
-	up.apply("three_snails_count", w)
-	assert_eq(w.loadout.stats("three_snails").count, 2, "Additional Shell +1")
-	up.apply("three_snails_cooldown", w)
-	assert_near(w.loadout.stats("three_snails").cooldown, 1.1 * 0.88, 1e-5, "Faster Snails x0.88")
-	up.apply("three_snails_cooldown", w)
-	assert_near(w.loadout.stats("three_snails").cooldown, 1.1 * 0.88 * 0.88, 1e-5, "x0.88 per rank")
-	up.apply("three_snails_pierce", w)
-	assert_eq(w.loadout.stats("three_snails").pierce, 1, "Piercing Shells +1")
-	up.apply("three_snails_speed", w)
-	assert_near(w.loadout.stats("three_snails").speed, 500.0, 1e-3, "Rapid Snails +25%")
+func test_three_snails_ranks_follow_canonical_levels() -> void:
+	var w := _world(0, "three_snails")
 	w.loadout.set_rank("three_snails", 2)  # what level_ranks does at character Lv 3
 	var st := w.loadout.stats("three_snails")
 	assert_eq(st.rank, 2, "rank 2")
@@ -83,12 +87,11 @@ func test_three_snails_upgrades() -> void:
 	st = w.loadout.stats("three_snails")
 	assert_eq(st.level, 3)
 	assert_near(st.damage_max, 40.0, 1e-6, "rank 3 -> fixdamage 40")
-	assert_eq(w.loadout.card_ranks.three_snails_cooldown, 2)
 
 
 func test_magic_skills_resolve_from_canonical_levels() -> void:
-	var w := RF.quiet_world()
-	w.change_job(200)
+	var w := _world(0, "")
+	RF.as_job(w, 200) # wears the Wooden Wand (23 M.ATT) the removed advancement granted
 	w.learn_skill("energy_bolt")
 	w.learn_skill("magic_claw")
 	w.learn_skill("magic_guard")
@@ -123,10 +126,7 @@ func test_magic_skills_resolve_from_canonical_levels() -> void:
 
 
 func test_runner_fires_only_with_target_in_range() -> void:
-	var data := RF.quiet_data()
-	data.balance.player.mp = 20
-	var w := RunWorld.new(RF.setup("quiet", 7, data))
-	RF.place_player(w, 200)
+	var w := _world(0, "three_snails", 200.0, 20)
 	for i in 60:
 		w.step(DT, MoveInput.new())
 	assert_eq(_casts(w).size(), 0, "no mob, no cast")
@@ -157,8 +157,8 @@ func test_runner_fires_only_with_target_in_range() -> void:
 
 
 func test_runner_extra_shells_pick_different_targets() -> void:
-	var w := RF.quiet_world(200.0)
-	w.upgrades.apply("three_snails_count", w)
+	var w := _world(0, "three_snails", 200.0)
+	w.loadout.add_skill_mod("three_snails", "count", "add", 1.0) # one extra shell
 	var a := RF.put_mob(w, 1110100, 450.0, 190.0, 20.0)
 	var b := RF.put_mob(w, 1110100, 30.0, 190.0, 20.0)
 	w.step(DT, MoveInput.new())
@@ -177,12 +177,7 @@ func test_runner_extra_shells_pick_different_targets() -> void:
 
 
 func test_magic_claw_instant_two_hits() -> void:
-	var w := RF.quiet_world(200.0)
-	RF.change_job_bare(w, 200)
-	w.learn_skill("magic_claw")
-	w.loadout.ranks.erase("three_snails")
-	w.loadout.order.erase("three_snails")
-	w.loadout.version += 1
+	var w := _world(200, "magic_claw", 200.0, 125)
 	var m := RF.put_mob(w, 1110100, 380.0, 190.0, 20.0)
 	w.drain_events()
 	w.step(DT, MoveInput.new())
@@ -200,12 +195,7 @@ func test_magic_claw_instant_two_hits() -> void:
 	assert_eq(casts, 1)
 	assert_eq(hits, 2, "attackCount 2 lines at once")
 	assert_eq(w.projectiles.active_count(), 0, "no projectile")
-	var out_of_range := RF.quiet_world(200.0)
-	RF.change_job_bare(out_of_range, 200)
-	out_of_range.learn_skill("magic_claw")
-	out_of_range.loadout.ranks.erase("three_snails")
-	out_of_range.loadout.order.erase("three_snails")
-	out_of_range.loadout.version += 1
+	var out_of_range := _world(200, "magic_claw", 200.0, 125)
 	RF.put_mob(out_of_range, 1110100, 520.0, 190.0, 20.0)
 	out_of_range.step(DT, MoveInput.new())
 	assert_eq(_casts(out_of_range).size(), 0, "320 px is beyond Magic Claw's 260 px")

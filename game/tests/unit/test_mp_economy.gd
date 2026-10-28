@@ -5,9 +5,30 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
+## Quiet data whose fresh character learns no start skill (#284: a 212 starts with Energy Bolt and Teleport).
+static func _skill_less(data: Dictionary = {}) -> Dictionary:
+	if data.is_empty():
+		data = RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	return data
+
+
+## A Beginner-job world (setup.job 0) owning only Three Snails, with `mp` starting MP.
+static func _beginner(mp := 5, data: Dictionary = {}, p_seed := 9, x := 1200.0) -> RunWorld:
+	data = _skill_less(data)
+	data.balance.player.mp = mp
+	var setup := RF.setup("quiet", p_seed, data)
+	setup["job"] = 0
+	var world := RunWorld.new(setup)
+	world.learn_skill("three_snails")
+	RF.place_player(world, x)
+	return world
+
+
+## A Magician with the MP pool the removed Lv10 advancement granted (5 base + 120, #284 grants nothing).
 func _mage(skill: String = "") -> RunWorld:
-	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	var data := _skill_less()
+	data.balance.player.mp = 125
 	var world := RunWorld.new(RF.setup("quiet", 9, data))
 	RF.change_job_bare(world, 200)
 	RF.place_player(world, 1200)
@@ -22,10 +43,7 @@ func _mage(skill: String = "") -> RunWorld:
 
 func test_three_snails_pays_each_canonical_levels_mp_cost() -> void:
 	for example: Array in [[1, 3], [2, 5], [3, 7]]:
-		var data := RF.quiet_data()
-		data.balance.player.mp = 20
-		var world := RunWorld.new(RF.setup("quiet", 9, data))
-		RF.place_player(world, 1200)
+		var world := _beginner(20)
 		RF.put_mob(world, 1110100, 1350, 190, 100)
 		world.loadout.set_rank("three_snails", int(example[0]))
 		world.drain_events()
@@ -37,9 +55,8 @@ func test_three_snails_pays_each_canonical_levels_mp_cost() -> void:
 func test_v83_opening_pool_casts_three_snails_at_regen_pace() -> void:
 	var data := DataRepo.load_all()
 	data.stages.stages["quiet"] = RF.quiet_data().stages.stages.quiet
-	var world := RunWorld.new(RF.setup("quiet", 29, data))
+	var world := _beginner(5, data, 29, 400.0) # the v83 Beginner 5 MP (the shipped 30 is a #284 stopgap)
 	world.god = true
-	RF.place_player(world, 400)
 	RF.put_mob(world, 1110100, 600, 190, 1000.0)
 	world.mob_kinds[int(world.kind_of_id[1110100])].move_speed = 0.0
 	world.mob_kinds[int(world.kind_of_id[1110100])].pushed = 100000
@@ -59,7 +76,7 @@ func test_v83_opening_pool_casts_three_snails_at_regen_pace() -> void:
 
 
 func test_beginner_with_two_mp_waits_for_three_snails_and_signals_shortage() -> void:
-	var world := RF.quiet_world(1200, 9)
+	var world := _beginner()
 	RF.put_mob(world, 1110100, 1350, 190, 100)
 	world.spend_mp(3)
 	world.drain_events()
@@ -251,7 +268,7 @@ func test_recovery_healing_and_base_regeneration_have_separate_pulse_clocks() ->
 	world.take_hit(30, false, "", world.player.pos + Vector2(100, 0))
 	world.god = true
 	var hp: int = world.player_state.hp
-	world.upgrades.apply("recovery", world)
+	world.learn_skill("recovery") # #284: the Beginner's Recovery card is gone; the skill is learned at rank 1
 	for tick in 600:
 		world.step(DT, MoveInput.new())
 	assert_eq(world.hp_regen, 0.0, "Recovery no longer modifies permanent regeneration")

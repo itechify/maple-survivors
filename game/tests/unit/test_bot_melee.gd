@@ -1,7 +1,7 @@
 extends TestCase
-## Melee-aware bot movement (#162): SkillRunner.reach_of, BasicAttack.reach and BotInput's engage mode, on the
-## synthetic map of run_fixtures.gd with seeded RNG and fixed dt. Magician and Beginner inputs must stay identical to the
-## kiting bot of main (digests captured from main before the engage mode existed).
+## Melee-aware bot movement (#162): SkillRunner.reach_of, WeaponReach.reach and BotInput's engage mode, on the
+## synthetic map of run_fixtures.gd with seeded RNG and fixed dt. Magician and Beginner inputs are pinned by digests of
+## the kiting bot (first captured on main before the engage mode existed).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BF := preload("res://tests/fixtures/basic_attack_fixtures.gd")
@@ -10,8 +10,10 @@ const DT := 1.0 / 60.0
 ## Digest of 900 bot inputs plus player positions in the fixed swarm below, captured on main (b2ef00d lineage).
 ## Re-captured for #238: the Magician can request unlimited MP on its shared cooldown.
 ## Re-captured for #259 (wall rule; disabling it reproduces 720344116 / 130203406 exactly).
-const MAGICIAN_DIGEST := 202775136
-const BEGINNER_DIGEST := 367143366
+## Re-captured for #284: no basic attack; the Magician is the fresh 212 (Energy Bolt and Teleport), the Beginner a job-0
+## character set up with Three Snails.
+const MAGICIAN_DIGEST := 268496202
+const BEGINNER_DIGEST := 460890325
 
 
 ## Rolling digest over the decided inputs and the resulting player position, so any change to a decision shows.
@@ -39,9 +41,10 @@ func _swarm(w: RunWorld) -> void:
 
 
 func test_magician_inputs_are_identical_to_main() -> void:
-	var w := RF.quiet_world(400, 9)
-	RF.change_job_bare(w, 200)
-	w.learn_skill("energy_bolt")
+	var data := RF.quiet_data()
+	data.balance.player.mp = 100 # enough for Energy Bolt (6 MP at L1) on the quiet data's 5-MP base
+	var w := RunWorld.new(RF.setup("quiet", 9, data))
+	RF.place_player(w, 400)
 	_swarm(w)
 	w.heal_fraction("mp", 1.0)
 	var digest := _trace(w, 900)
@@ -49,14 +52,19 @@ func test_magician_inputs_are_identical_to_main() -> void:
 
 
 func test_beginner_inputs_are_identical_to_main() -> void:
-	var w := RF.quiet_world(400, 9)
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["0"]["start_skills"] = ["three_snails"]
+	var setup := RF.setup("quiet", 9, data)
+	setup["job"] = 0
+	var w := RunWorld.new(setup)
+	RF.place_player(w, 400)
 	_swarm(w)
 	w.heal_fraction("mp", 1.0)
 	var digest := _trace(w, 900)
 	assert_eq(digest, BEGINNER_DIGEST, "Beginner bot inputs match main")
 
 
-## BasicAttack's world with one synthetic short-reach box skill ("slash", job 100, fixed damage, box 90 px ahead) as the
+## The weapon-swing world with one synthetic short-reach box skill ("slash", job 100, fixed damage, box 90 px ahead) as the
 ## only skill, a sword (afterimage reach 88) and an invulnerable player on the first floor facing right.
 func _melee_world(seed_value := 9) -> RunWorld:
 	var data := RF.quiet_data()
@@ -92,14 +100,14 @@ func test_reach_of_reads_projectile_range_box_extent_and_zero_for_non_attacks() 
 	assert_eq(SkillRunner.reach_of(w.loadout.stats("slash"), w), 135.0, "area cards widen the box")
 
 
-func test_basic_attack_reach_is_the_widest_afterimage_stance_or_the_punch() -> void:
+func test_weapon_reach_is_the_widest_afterimage_stance_or_the_punch() -> void:
 	var w := BF.world(83)
-	assert_eq(w.basic.reach(w), 88.0, "the sword's afterimage box")
-	w.setup.afterimage_imgs.swordOL["0"].swingO3.lt["$v"][0] = -102.0
-	w.basic = BasicAttack.new(w.setup.body_img, w.setup.afterimage_imgs)
-	assert_eq(w.basic.reach(w), 102.0, "the longest stance gates a swing")
-	assert_eq(w.unequip_item("weapon"), "")
-	assert_eq(w.basic.reach(w), -BasicAttack.BARE_HANDS_BOX.position.x, "bare hands punch")
+	assert_eq(w.weapon_reach.reach(w), 88.0, "the sword's afterimage box")
+	var fresh := BF.world(83)
+	fresh.setup.afterimage_imgs.swordOL["0"].swingO3.lt["$v"][0] = -102.0
+	assert_eq(fresh.weapon_reach.reach(fresh), 102.0, "the longest stance is the reach")
+	assert_eq(fresh.unequip_item("weapon"), "")
+	assert_eq(fresh.weapon_reach.reach(fresh), -WeaponReach.BARE_HANDS_BOX.position.x, "bare hands punch")
 
 
 ## Ticks of a fixed swarm of tough snails around the melee world's player where the slash is ready; counts how many

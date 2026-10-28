@@ -20,7 +20,7 @@ func _world(element_attr: String = "") -> RunWorld:
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 200)
 	w.loadout.order.clear()
-	w.change_job(210)
+	RF.as_job(w, 210)
 	w.loadout.set_caster(100.0, 0.0, 30)
 	return w
 
@@ -152,13 +152,14 @@ func test_branch_cards_learning_rank_caps_power_flags_and_bot_scores() -> void:
 		var card := w.upgrades.card(id)
 		assert_false(card.is_empty(), id)
 		assert_true(w.upgrades.is_power(card), id + " raises attack output")
-		assert_eq(card.get("requires", {}).get("jobs", []), [210.0], id + " exact job gate")
+		assert_eq(card.get("requires", {}).get("jobs", []), [210.0], id + " lists the F/P Wizard")
 		assert_eq(BotInput.card_score(w, {"id": id}), scores[id], id + " uses existing attack scores")
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 55
-	var draw := w.upgrades.roll_advancement_choices(w, rng)
-	var ids := draw.map(func(c: Dictionary) -> String: return String(c.id))
-	assert_true("fire_arrow_new" in ids and "poison_breath_new" in ids, "both attacks appear in advancement draw")
+	var ids := w.upgrades.eligible(w)
+	assert_true("fire_arrow_new" in ids and "poison_breath_new" in ids, "both attacks are on offer to a 210")
+	w.set_job(212)
+	ids = w.upgrades.eligible(w)
+	assert_true("fire_arrow_new" in ids and "poison_breath_new" in ids, "and to a 212, whose line holds 210 (#284)")
+	w.set_job(210)
 	for key: String in ["fire_arrow", "poison_breath"]:
 		assert_eq(w.upgrades.apply(key + "_new", w, "legendary"), 1)
 		assert_eq(w.loadout.rank(key), 5, "tier starting rank")
@@ -168,9 +169,9 @@ func test_branch_cards_learning_rank_caps_power_flags_and_bot_scores() -> void:
 		assert_false(w.upgrades.is_eligible(w.upgrades.card(key + "_rank"), w))
 		assert_false(w.upgrades.is_eligible(w.upgrades.card(key + "_new"), w))
 	for job: int in [0, 200, 220, 230]:
-		w.change_job(job)
+		RF.as_job(w, job)
 		for id: String in scores:
-			assert_false(w.upgrades.is_eligible(w.upgrades.card(id), w), id + " unavailable outside 210")
+			assert_false(w.upgrades.is_eligible(w.upgrades.card(id), w), id + " unavailable off the F/P line")
 
 
 func test_cached_fire_poison_levels_visuals_and_sounds() -> void:

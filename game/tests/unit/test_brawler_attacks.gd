@@ -1,7 +1,8 @@
 extends TestCase
 ## The Brawler's attacks (spec #168 ticket #191, docs/GAME_DESIGN.md 7.18): Backspin Blow 5101002 (slides away, up to
 ## 3 mobs, stun), Double Uppercut 5101003 (2 hits, one mob, stun) and Corkscrew Blow 5101004 (a charge toward the mob
-## that strikes up to 3 mobs on the way). Shipping data through public RunWorld casts on a flat synthetic ground, seeded
+## that strikes up to 3 mobs on the way). The Brawler is stood directly (RF.as_job; #284 removed advancement).
+## Shipping data through public RunWorld casts on a flat synthetic ground, seeded
 ## and fixed-tick; the original-data checks at the end use the private asset cache and SKIP without it.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -25,15 +26,16 @@ const INFO := {
 ## its path with every MP point, knowing only `key` at `rank` (none when ""). Mobs get a tiny hitbox and do not move.
 func _brawler(key := "", rank := 1, x := 400.0, path := "knuckle", segments: Array = [GROUND]) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
 	data.balance.magnet_radius = 0
+	data.balance.player.mp = 1000 # the removed advancement granted MP (#284)
 	var setup := RF.with_basic_attack(RF.setup("quiet", 191, data))
 	setup.equipment_info.merge(INFO, true)
 	setup.map_img = RF.map_from_segments(segments)
+	setup["job"] = 500 # no start skills
 	var w := RunWorld.new(setup)
-	w.change_job(500, path)
+	RF.as_job(w, 500, path)
 	w.progression.level = 30
-	w.change_job(510)
+	RF.as_job(w, 510)
 	var family := "knuckle" if path == "knuckle" else "gun"
 	if w.held_weapon_family() != family:
 		var ids: Array = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
@@ -316,34 +318,17 @@ func test_corkscrew_blow_does_not_stun() -> void:
 
 # --- the held weapon ----------------------------------------------------------------------------------------------------
 
-func test_no_attack_casts_with_a_gun_in_hand_and_none_is_offered() -> void:
-	var w := _brawler("", 1, 400.0, "gun")
-	assert_eq(w.held_weapon_family(), "gun")
-	for key: String in SKILLS:
-		assert_true(w.learn_skill(key))
-	w.heal_fraction("mp", 1.0)
-	for x in [440.0, 470.0, 350.0]:
-		_mob(w, x)
-	var mp: int = w.player_state.mp
-	for tick in 300:
-		w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-		w.runner.step(DT, w)
-	var casts := _of(w.drain_events(), "cast")
-	for e: Dictionary in casts:
-		assert_false(String(e.skill) in SKILLS, "%s cannot cast with a gun" % e.skill)
-	assert_eq(w.player_state.mp, mp, "no MP was paid")
-	assert_eq(w.player.pos.x, 400.0, "no skill moved the character")
-	var cards := w.upgrades.eligible(w)
-	for key: String in SKILLS:
-		for suffix in ["_new", "_rank", "_targets"]:
-			assert_false(key + suffix in cards, key + suffix + " is hidden while a gun is held")
-
-
-func test_back_in_the_hand_the_knuckle_makes_every_attack_cast_again() -> void:
-	for key: String in SKILLS:
-		var w := _brawler(key)
-		_mob(w, 450.0)
-		assert_eq(_of(_cast(w), "cast").size(), 1, key)
+func test_every_attack_casts_with_a_knuckle_or_a_gun_in_hand() -> void:
+	# #284: weapons gate no skill. Double Uppercut strikes inside the held weapon's swing, and the synthetic gun has no
+	# swing data, so it is checked with the knuckle only.
+	for path: String in ["knuckle", "gun"]:
+		for key: String in SKILLS:
+			if path == "gun" and key == "double_uppercut":
+				continue
+			var w := _brawler(key, 1, 400.0, path)
+			assert_eq(w.held_weapon_family(), path)
+			_mob(w, 450.0)
+			assert_eq(_of(_cast(w), "cast").size(), 1, "%s with a %s" % [key, path])
 
 
 # --- cards --------------------------------------------------------------------------------------------------------------
@@ -359,7 +344,7 @@ func test_each_attack_has_learn_rank_and_more_mobs_cards_for_a_knuckle_brawler_o
 		assert_eq(card.requires.jobs.map(func(j: Variant) -> int: return int(j)), [510], "the exact branch")
 		assert_true(bool(card.power), "an attack card is a power card")
 	var first := RF.quiet_world()
-	first.change_job(500, "knuckle")
+	RF.as_job(first, 500, "knuckle")
 	for key: String in SKILLS:
 		assert_false(key + "_new" in first.upgrades.eligible(first), key + " needs the second job")
 	for key: String in SKILLS:
@@ -407,43 +392,11 @@ func test_a_targets_card_makes_backspin_and_corkscrew_strike_a_fourth_mob() -> v
 	assert_eq(_hit_slots(_cast(screw)).size(), 4)
 
 
-func _pirate_at_the_window() -> RunWorld:
-	var data := RF.quiet_data()
-	data.balance.player.skills = []
-	var setup := RF.with_basic_attack(RF.setup("quiet", 191, data))
-	setup.equipment_info.merge(INFO, true)
-	var w0 := RunWorld.new(setup)
-	w0.change_job(500, "knuckle")
-	setup.character = w0.character_snapshot()
-	var w := RunWorld.new(setup)
-	RF.place_player(w, 400)
-	w.god = true
-	w.progression.level = 29
-	w.progression.add_exp(w.progression.exp_to_next())
-	w.step(DT, MoveInput.new())
-	assert_eq(w.state, RunWorld.CHOOSING_JOB, "the Lv 30 advancement window is open")
-	w.drain_events()
-	return w
-
-
-func test_the_brawlers_advancement_draw_offers_the_three_attacks() -> void:
-	var w := _pirate_at_the_window()
-	assert_true(w.apply_job(510))
-	var ids: Array = w.pending_cards.map(func(c: Dictionary) -> String: return String(c.id))
-	for key: String in SKILLS:
-		assert_has(ids, key + "_new", "the draw offers %s: %s" % [key, ids])
-
-
 func test_the_gunslinger_is_never_offered_the_brawlers_attacks() -> void:
-	var w := _pirate_at_the_window()
-	assert_true(w.apply_job(520))
-	var ids: Array = w.pending_cards.map(func(c: Dictionary) -> String: return String(c.id))
+	var w := _brawler("", 1, 400.0, "gun")
+	w.set_job(520)
 	for key: String in SKILLS:
-		assert_false(key + "_new" in ids)
-	w.pending_cards = []
-	w.state = RunWorld.PLAYING
-	for key: String in SKILLS:
-		assert_false(key + "_new" in w.upgrades.eligible(w))
+		assert_false(key + "_new" in w.upgrades.eligible(w), key + " is a Brawler card")
 
 
 # --- determinism ----------------------------------------------------------------------------------------------------------

@@ -8,12 +8,12 @@ const DT := 1.0 / 60.0
 func _cornered_world(job := 210) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.mp = 200
-	# Synthetic fixed pool makes reserve boundaries independent of advancement bonuses.
-	data.jobs_survivor.jobs[str(job)].grants.max_mp = 0
+	# A fixed pool (no job grants MP since #284) and no start skills: the branch's Teleport is learned below.
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	var setup := RF.setup("quiet", 60, data)
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
 	var w := RunWorld.new(setup)
-	w.change_job(job)
+	RF.as_job(w, job)
 	w.heal_fraction("mp", 1.0)
 	w.learn_skill({210: "teleport_fp", 220: "teleport_il", 230: "teleport_cleric"}[job])
 	w.player.place(Vector2(20, 0), w.fhm)
@@ -36,7 +36,7 @@ func test_cornered_bot_keeps_quarter_pool_after_teleport_payment() -> void:
 		assert_true(input.right)
 		w.step(DT, input)
 		assert_eq(w.player.pos, Vector2(150, 0))
-		assert_eq(int(w.player_state.mp), 47, "50 retained for combat; the starter attack then spends 3")
+		assert_eq(int(w.player_state.mp), 50, "50 retained for combat (no attack owned to spend it)")
 
 
 func test_bot_reserves_two_casts_of_most_expensive_learned_auto_attack() -> void:

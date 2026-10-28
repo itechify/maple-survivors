@@ -425,13 +425,14 @@ func _world(chance: float, level: int, job: int, p_seed: int = 31) -> RunWorld:
 	var data := RF.quiet_data()
 	data.equipment_drops.items = INFO.keys()
 	data.equipment_drops.chance = chance
-	data.balance.player.skills = []
-	var w := RunWorld.new(_fit(RF.setup("quiet", p_seed, data)))
+	var setup := _fit(RF.setup("quiet", p_seed, data))
+	setup["job"] = job # no start skills; 0 is a (test-only) Beginner
+	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
 	w.god = true
 	w.progression.level = level
 	if job != 0:
-		RF.change_job_bare(w, job)
+		RF.as_job(w, job) # the weapon the removed advancement granted (the Magician's Wooden Wand)
 	return w
 
 

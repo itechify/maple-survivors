@@ -12,11 +12,12 @@ func _world(hp_fraction := 0.25, mob_dx := 100.0, rank := 1, seed_value := 211) 
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
 	data.balance.player.mp = 500
-	data.balance.player.skills = []
 	data.balance.regen.hp = 0
 	data.balance.regen.mp = 0
 	data.balance.magnet_radius = 0
-	var w := RunWorld.new(RF.with_basic_attack(RF.setup("quiet", seed_value, data)))
+	var setup := RF.with_basic_attack(RF.setup("quiet", seed_value, data))
+	setup["job"] = 400 # a Thief with no start skills (#284)
+	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
 	w.player.facing = 1
 	assert_true(w.learn_skill(KEY))
@@ -81,11 +82,11 @@ func test_recovery_ends_hidden_but_cooldown_still_counts_thirty_seconds_from_cas
 	assert_true(long_buff.is_hidden())
 
 
-func test_learn_and_rank_cards_require_first_job_four_hundred_with_any_weapon() -> void:
+func test_learn_and_rank_cards_are_on_the_thief_line_with_any_weapon() -> void:
 	var w := RF.quiet_world(400.0, 211)
-	for job in [0, 100, 200, 400, 410, 420, 500, 510]:
+	for job in [0, 100, 200, 212, 400, 410, 420, 500, 510]:
 		w.progression.job_id = job
-		assert_eq("dark_sight_new" in w.upgrades.eligible(w), job == 400)
+		assert_eq("dark_sight_new" in w.upgrades.eligible(w), job in [400, 410, 420], "job %d" % job)
 	w.progression.job_id = 400
 	assert_eq(w.upgrades.apply("dark_sight_new", w), 1)
 	assert_true(w.loadout.has(KEY))
@@ -95,8 +96,6 @@ func test_learn_and_rank_cards_require_first_job_four_hundred_with_any_weapon() 
 	assert_eq(w.loadout.rank(KEY), 2)
 	w.loadout.set_rank(KEY, 20)
 	assert_false("dark_sight_rank" in w.upgrades.eligible(w))
-	for family in ["", "claw", "dagger", "gun", "wand"]:
-		assert_true(w.book.usable_with(KEY, family))
 
 
 func test_canonical_speed_duration_and_cost_at_every_rank_and_no_failure_roll() -> void:
@@ -133,15 +132,14 @@ func test_canonical_speed_duration_and_cost_at_every_rank_and_no_failure_roll() 
 		"MP -5; Hidden for 200 sec.; Speed 0; 30 sec. between uses")
 
 
-func test_dark_sight_blocks_contact_and_both_basic_and_skill_attacks() -> void:
+func test_dark_sight_blocks_contact_and_skill_attacks() -> void:
 	var w := _world(0.25, 1.0, 20)
-	assert_true(w.learn_skill("three_snails"))
+	assert_true(w.learn_skill("energy_bolt"))
 	var hp := int(w.player_state.hp)
 	var events := _run(w, 120)
 	assert_true(w.is_hidden())
 	assert_true(_of(events, "player_hit").is_empty(), "contact cannot hurt a Hidden Thief")
 	assert_eq(int(w.player_state.hp), hp)
-	assert_true(_of(events, "basic_attack").is_empty())
 	assert_true(_of(events, "mob_hit").is_empty())
 	assert_true(_of(events, "cast").all(func(e: Dictionary) -> bool: return e.skill == KEY))
 

@@ -23,7 +23,7 @@ func _levels() -> Dictionary:
 
 func _world(p_seed := 183) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.player.hp = 100000
 	data.balance.player.mp = 300
 	data.balance.regen.hp = 0
@@ -431,14 +431,14 @@ func test_real_cache_cast_threatens_a_crowd_with_the_v83_level() -> void:
 		return
 	var data := DataRepo.load_all()
 	data.balance.player.mp = 300
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	var setup := DataRepo.build_setup(data, "henesys", 183, Vector2(800, 600), _img,
 		func(id: int) -> Dictionary: return _img("Mob.wz/%07d.img" % id))
 	if not setup.skill_imgs.has("120"):
 		skip("the cache has no Skill.wz/120.img (import with the Warrior second-job manifest)")
 		return
 	var w := RunWorld.new(setup)
-	w.change_job(120)
+	RF.as_job(w, 120)
 	w.learn_skill("threaten")
 	w.loadout.set_rank("threaten", 5)
 	w.god = true

@@ -24,7 +24,7 @@ func _world(lightning_attr: String = "", bolt_mob_count: float = 2.0) -> RunWorl
 		}},
 	}}
 	var w := RunWorld.new(setup)
-	w.change_job(220)
+	RF.as_job(w, 220)
 	RF.place_player(w, 200)
 	w.loadout.order.clear()
 	w.drain_events()
@@ -180,10 +180,10 @@ func test_ice_lightning_cards_gate_jobs_apply_steps_and_stop_at_caps() -> void:
 		assert_eq(card.requires.jobs, [220.0], id)
 		assert_true(bool(card.get("power", false)), id)
 	for job: int in [200, 210, 230]:
-		w.change_job(job)
+		RF.as_job(w, job)
 		for id: String in ids:
 			assert_false(id in w.upgrades.eligible(w), "%s excluded for job %d" % [id, job])
-	w.change_job(220)
+	RF.as_job(w, 220)
 	for skill: String in ["cold_beam", "thunder_bolt"]:
 		assert_has(w.upgrades.eligible(w), skill + "_new")
 		assert_eq(w.upgrades.apply(skill + "_new", w), 1)

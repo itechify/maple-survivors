@@ -229,7 +229,7 @@ func _scene(learn_teleport: bool) -> RunScene:
 	setup.skill_imgs["210"] = {"skill": {"2101002": {"level": {"1": {"mpCon": 60, "range": 130}}}}}
 	var w := RunWorld.new(setup)
 	if learn_teleport:
-		w.change_job(210)
+		RF.as_job(w, 210)
 		w.loadout.add_skill("teleport_fp")
 	w.player.place(Vector2(400, 0), w.fhm)
 	var scene := RunScene.new()
@@ -245,14 +245,16 @@ func test_a_run_feeds_the_learned_movement_skill_and_the_potions() -> void:
 	var scene := _scene(false)
 	var s := _settings()
 	scene.watch_settings(s)
-	assert_eq(scene.run_info().movement_skill, {}, "no movement skill before it is learned")
-	assert_eq(scene.hud.quick_slot.cell("teleport"), {}, "the movement cell is empty")
-	assert_eq(scene.hud.quick_slot.cell("drink_hp").caption, "Del")
-	scene.world.loadout.add_skill("teleport_fp")
-	scene.world.change_job(210)
-	scene.watch_settings(s) # refreshes the HUD like the next frame's snapshot change does
-	assert_eq(scene.run_info().movement_skill.action, "teleport")
+	# #284: a fresh 212 has Teleport on its key from Lv1.
+	assert_eq(scene.run_info().movement_skill.action, "teleport", "Teleport from the start")
 	assert_eq(scene.hud.quick_slot.cell("teleport").caption, "X", "Teleport on its default key")
+	assert_eq(scene.hud.quick_slot.cell("drink_hp").caption, "Del")
+	scene.world.loadout.order.erase("teleport_fp")
+	scene.world.loadout.ranks.erase("teleport_fp")
+	scene.world.loadout.version += 1
+	scene.watch_settings(s) # refreshes the HUD like the next frame's snapshot change does
+	assert_eq(scene.run_info().movement_skill, {}, "no movement skill without one owned")
+	assert_eq(scene.hud.quick_slot.cell("teleport"), {}, "the movement cell is empty")
 
 
 func test_the_collapse_button_folds_the_panel_and_remembers_it() -> void:

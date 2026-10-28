@@ -8,14 +8,14 @@ const DT := 1.0 / 60.0
 func test_nimble_feet_uses_canonical_speed_duration_mp_and_cast_cooldown() -> void:
 	for example: Array in [[1, 10, 4, 4], [2, 15, 8, 7], [3, 20, 12, 10]]:
 		var data := RF.quiet_data()
-		data.balance.player.skills = []
+		data.jobs_survivor.jobs["212"]["start_skills"] = []
 		data.balance.player.mp = 100
 		data.balance.regen.mp = 0
 		var w := RunWorld.new(RF.setup("quiet", 41, data))
 		RF.place_player(w, 400)
-		w.upgrades.apply("nimble_feet", w)
-		for pick in int(example[0]) - 1:
-			w.upgrades.apply("nimble_feet_rank", w)
+		# The skill is set up directly: its Beginner cards are gone (#284), its skill data stays.
+		w.learn_skill("nimble_feet")
+		w.loadout.set_rank("nimble_feet", int(example[0]))
 		w.step(DT, MoveInput.new())
 		var buff := _buff(w, "nimble_feet")
 		assert_false(buff.is_empty(), "Nimble Feet casts without a mob target")
@@ -48,7 +48,7 @@ func test_nimble_feet_uses_canonical_speed_duration_mp_and_cast_cooldown() -> vo
 
 func _mage(skill: String) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.player.hp = 1000
 	data.balance.player.mp = 300
 	data.balance.regen.mp = 0

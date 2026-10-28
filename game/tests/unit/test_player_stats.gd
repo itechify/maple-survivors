@@ -14,29 +14,7 @@ func _level_to(w: RunWorld, target: int) -> void:
 		if int(w.player_state.level) == target:
 			break
 	assert_eq(int(w.player_state.level), target, "EXP was collected through the run")
-	BotInput.auto_choose(w, false, 200) # these tests are about the Magician line: force it at the Lv 10 window
-
-
-func test_beginner_ap_and_magician_redistribution() -> void:
-	var w := RF.quiet_world(400.0, 501)
-	assert_eq(w.player_state.str, 12)
-	assert_eq(w.player_state.dex, 5)
-	assert_eq(w.player_state.int, 4)
-	assert_eq(w.player_state.luk, 4)
-	var beginner_str := [17, 22, 27, 32, 37, 42, 47, 52]
-	for level in range(2, 10):
-		_level_to(w, level)
-		assert_eq(w.player_state.str, beginner_str[level - 2], "all Beginner AP goes to STR")
-		assert_eq(w.player_state.int, 4, "a Beginner receives no INT AP")
-	_level_to(w, 10)
-	assert_eq(w.player_state.job_id, 200)
-	assert_eq(w.player_state.str, 12, "only earned AP is reset")
-	assert_eq(w.player_state.luk, 12, "nine levels of AP: 8 to reach the Lv10 LUK target 12 (AutoAp)")
-	assert_eq(w.player_state.int, 41, "the other 37 AP move to INT")
-	assert_eq(w.player_state.dex, 5)
-	_level_to(w, 11)
-	assert_eq(w.player_state.int, 45, "50 earned AP: LUK 13 takes 9, the other 41 go to INT")
-	assert_eq(w.player_state.str, 12)
+	BotInput.auto_choose(w, false) # these tests are about the Magician line: force it at the Lv 10 window
 
 
 func test_worn_equipment_defense_and_avoid() -> void:
@@ -54,7 +32,7 @@ func test_worn_equipment_defense_and_avoid() -> void:
 	assert_eq(w.player_state.pdd, 7.0, "sum of the worn gear's defense")
 	assert_eq(w.player_state.mdd, 5.0)
 	assert_eq(w.player_state.avoid, 15.0, "20 DEX / 4 + 10 LUK / 2 + 5 gear avoid")
-	w.change_job(200)
+	RF.as_job(w, 200)
 	assert_eq(w.player_state.pdd, 7.0, "changing weapon keeps the outfit defense")
 	assert_eq(w.player_state.avoid, 15.0)
 
@@ -63,6 +41,7 @@ func test_magician_mp_growth_uses_int_before_new_ap() -> void:
 	var data := RF.quiet_data()
 	data.upgrades.cards = [] # No max-MP cards change the known level-growth example; keep the Elixir fallback.
 	var w := RunWorld.new(RF.setup("quiet", 503, data))
+	w.wear_new_item(1372005) # the Wooden Wand (23 M.ATT) the removed Lv10 advancement used to grant
 	_level_to(w, 10)
 	assert_eq(w.player_state.int, 41)
 	var mp_at_10 := int(w.player_state.max_mp)
@@ -80,18 +59,16 @@ func test_magician_mp_growth_uses_int_before_new_ap() -> void:
 
 func test_max_mp_skill_recomputes_percentage_and_preserves_mp_ratio() -> void:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 100
-	data.balance.player.skills = []
+	data.balance.player.mp = 220
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.player.stats.int = 49
 	data.balance.regen.mp = 0
 	# No level-up MP refill, so the level-up below shows the passive's ratio rule on its own.
 	data.balance.level_up_refill = {"hp": 0.0, "mp": 0.0}
-	# Synthetic later-job grant exercises the recompute independently of future job balance.
-	data.jobs_survivor.jobs["210"]["grants"] = {"max_mp": 120}
 	var w := RunWorld.new(RF.setup("quiet", 41, data))
 	RF.place_player(w, 400)
-	w.change_job(200)
-	assert_eq(w.player_state.max_mp, 220, "base 100 plus the 120 job grant")
+	RF.as_job(w, 200)
+	assert_eq(w.player_state.max_mp, 220, "base 220 (the old 100 base plus a 120 job grant, #284)")
 	assert_true(w.spend_mp(110))
 	w.upgrades.apply("improved_max_mp", w)
 	assert_eq(w.loadout.level("improved_max_mp"), 1, "the learn card owns the real passive")
@@ -111,9 +88,9 @@ func test_max_mp_skill_recomputes_percentage_and_preserves_mp_ratio() -> void:
 	assert_eq(w.player_state.level, 2)
 	assert_eq(w.player_state.max_mp, 271, "base 220 + 22 growth + floor(49 INT/10), times 1.10 rounded once")
 	assert_eq(w.player_state.mp, 135, "half of 271 MP, displayed as whole MP without granting the full growth")
-	w.change_job(210)
-	assert_eq(w.player_state.max_mp, 403, "a later 120 MP job grant is multiplied too")
-	assert_eq(w.player_state.mp, 201, "the subsequent job recompute keeps the half-full ratio")
+	w.set_job(210)
+	assert_eq(w.player_state.max_mp, 271, "a job recompute grants nothing (#284) and does not compound the multiplier")
+	assert_eq(w.player_state.mp, 135, "and keeps the half-full pool")
 
 
 func test_real_starter_outfit_defense() -> void:

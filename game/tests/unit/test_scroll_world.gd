@@ -144,6 +144,9 @@ func test_a_destroyed_weapon_leaves_the_character_bare_handed_and_still_able_to_
 	assert_eq(world.weapon_attack(), 0.0)
 	assert_false(world.equipment.worn.has("weapon"))
 	assert_eq(CharacterSnapshot.validation_error(world.character_snapshot()), "")
+	# No basic attack since #284: a skill (weapons gate none) still attacks bare-handed.
+	assert_true(world.learn_skill("three_snails")) # 3 MP fits the fixture's 5 MP pool
+	world.heal_fraction("mp", 1.0)
 	var mob := RF.put_mob(world, 100100, 450.0, 190, 100)
 	world.swarm.hp[mob] = 1000
 	world.swarm.max_hp[mob] = 1000
@@ -153,7 +156,7 @@ func test_a_destroyed_weapon_leaves_the_character_bare_handed_and_still_able_to_
 		for event: Dictionary in world.drain_events():
 			if event.type == "mob_hit":
 				hits += 1
-	assert_true(hits >= 1, "the bare-handed punch still hits")
+	assert_true(hits >= 1, "a bare-handed character's skill still hits")
 
 
 func test_a_destroyed_overall_leaves_neither_top_nor_bottom_worn() -> void:

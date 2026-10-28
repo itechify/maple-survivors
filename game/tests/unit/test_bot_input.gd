@@ -33,7 +33,7 @@ func test_pick_card_for_prefers_attack_skills() -> void:
 func test_optional_card_scores_replace_the_base_without_job_bonus_and_missing_cards_keep_their_fallback() -> void:
 	var w := RF.quiet_world()
 	w.balance.erase("bot")
-	w.change_job(200)
+	RF.as_job(w, 200)
 	var cards := _cards(w, ["magic_guard_new", "energy_bolt_rank"])
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "without overrides the existing offense preference remains")
 	w.balance["bot"] = {"card_scores": {"magic_guard_new": 70.0}}
@@ -114,7 +114,7 @@ func test_a_large_enough_gain_outranks_the_card_that_wins_at_normal_tier() -> vo
 
 func test_a_card_score_override_is_the_base_and_the_gain_is_added_without_a_job_bonus() -> void:
 	var w := RF.quiet_world()
-	w.change_job(200)
+	RF.as_job(w, 200)
 	w.learn_skill("magic_guard")
 	w.balance["bot"] = {"card_scores": {"magic_guard_rank": 70.0, "magic_guard_new": 90.0}}
 	var step := BotInput.SCORE_GAIN_STEP
@@ -137,7 +137,11 @@ func test_elixir_score_ignores_tier_and_magnitude() -> void:
 
 func test_a_tiny_pool_never_wastes_a_blue_potion_on_a_shortage() -> void:
 	var data := RF.quiet_data()
-	var w := RunWorld.new(RF.setup("quiet", 26, data))
+	# A 5-MP character whose only skill is Three Snails (3 MP at L1), set up directly (#284: no Beginner start).
+	data.jobs_survivor.jobs["0"]["start_skills"] = ["three_snails"]
+	var setup := RF.setup("quiet", 26, data)
+	setup["job"] = 0
+	var w := RunWorld.new(setup)
 	w.god = true
 	RF.place_player(w, 400)
 	RF.put_mob(w, 1110100, 600, 190, 100.0)
@@ -147,23 +151,6 @@ func test_a_tiny_pool_never_wastes_a_blue_potion_on_a_shortage() -> void:
 		w.step(DT, MoveInput.new())
 	assert_true(w.player_state.mp_short, "a ready targeted shell cannot afford its canonical cost")
 	assert_false(BotInput.decide(w, {}).drink_mp, "three missing MP would waste 97 of a canonical 100-MP Blue")
-
-
-func test_duels_a_lone_mob_with_the_sword_when_no_skill_can_fire() -> void:
-	var w := RF.quiet_world(400, 9)
-	w.god = true
-	w.spend_mp(int(w.player_state.mp))
-	var mob := RF.put_mob(w, 100100, 470, 190, 100.0)
-	var face := 1 if w.player.facing > 0 else -1
-	w.swarm.x[mob] = 400.0 + 70.0 * face
-	var mi := BotInput.decide(w, {})
-	assert_false(mi.left or mi.right, "facing the lone snail: stand still so the basic attack swings")
-	w.swarm.x[mob] = 400.0 - 70.0 * face
-	mi = BotInput.decide(w, {})
-	assert_true(mi.left if face > 0 else mi.right, "a lone snail behind: one press turns toward it")
-	w.heal_fraction("mp", 1.0)
-	mi = BotInput.decide(w, {})
-	assert_true(mi.left or mi.right, "an affordable ready Three Snails: keep kiting, the skill does the work")
 
 
 func test_flees_two_mobs_instead_of_dueling() -> void:

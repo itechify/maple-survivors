@@ -118,10 +118,14 @@ func test_cards_are_consistent() -> void:
 			assert_false(effect.stat == "hp_regen", "%s cannot grant the removed passive Recovery regen" % c.id)
 		if "{value}" in String(c.desc):
 			assert_true(c.has("value"), "%s fills {value}" % c.id)
-	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
-			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new",
-			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery"]:
+	for id: String in ["energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new",
+			"improved_max_mp", "improved_mp_recovery"]:
 		assert_true(ids.has(id), "card %s" % id)
+	# #284: the Beginner is gone (its cards with it) and Teleport is a start skill, not a card.
+	for c: Dictionary in data.upgrades.cards:
+		assert_false(String(c.get("skill", "")) in ["three_snails", "nimble_feet", "recovery"], "%s is a Beginner card" % c.id)
+		assert_false(String(c.get("skill", "")).begins_with("teleport_"), "%s is a Teleport card" % c.id)
+		assert_false(c.get("requires", {}).has("carry_jobs"), "%s has no carry_jobs" % c.id)
 	var fallback: Dictionary = data.upgrades.fallback
 	assert_false(ids.has(fallback.id), "fallback is outside the weighted pool")
 	assert_eq(fallback.kind, "filler")
@@ -136,15 +140,14 @@ func test_cards_are_consistent() -> void:
 func test_stat_cards_are_replaced_by_owned_skills() -> void:
 	var pool := UpgradePool.from_data(data.upgrades)
 	assert_true(pool.card("max_hp").is_empty(), "the non-MapleStory Max HP card is removed")
-	for key: String in ["improved_max_mp", "nimble_feet"]:
-		assert_eq(pool.card(key).kind, "skill_new", "%s learns its skill" % key)
-		assert_eq(pool.card(key).skill, key)
-		assert_eq(pool.card(key).effects, [], "no flat stat effects remain")
-		assert_eq(pool.card(key + "_rank").kind, "skill_rank")
-		var is_mp := key == "improved_max_mp"
-		assert_eq(int(pool.card(key + "_rank").max_rank), 10 if is_mp else 3)
-		assert_eq(pool.card(key).requires.jobs, [200.0] if is_mp else [0.0])
-		assert_eq(pool.card(key + "_rank").requires.jobs, [200.0] if is_mp else [0.0])
+	var key := "improved_max_mp"
+	assert_eq(pool.card(key).kind, "skill_new", "%s learns its skill" % key)
+	assert_eq(pool.card(key).skill, key)
+	assert_eq(pool.card(key).effects, [], "no flat stat effects remain")
+	assert_eq(pool.card(key + "_rank").kind, "skill_rank")
+	assert_eq(int(pool.card(key + "_rank").max_rank), 10)
+	assert_eq(pool.card(key).requires.jobs, [200.0])
+	assert_eq(pool.card(key + "_rank").requires.jobs, [200.0])
 
 
 func test_stages_mobs_and_manifest() -> void:
@@ -344,15 +347,15 @@ func test_jobs_and_balance() -> void:
 	var tree := JobTree.from_data(data.jobs, data.jobs_survivor)
 	for k: String in data.jobs_survivor.jobs:
 		assert_false(tree.job(int(k)).is_empty(), "survivor job %s exists in the canonical tree" % k)
-	assert_true(tree.job(200).playable)
-	assert_true(tree.job(100).playable, "the Warrior is playable since #163")
-	for id: int in [210, 220, 230]:
-		assert_true(tree.job(id).playable, "%d playable" % id)
-	assert_true(tree.job(500).playable, "Pirate first job is playable since #186")
-	for id: int in [510, 520]:
-		assert_true(tree.job(id).playable, "%d is playable since #189" % id)
-	for id: int in [300, 310, 320, 400, 410, 420]:
-		assert_true(tree.job(id).playable, "%d playable since specs #166/#167" % id)
+	# #284 (ADR 0006): one fixed job; F/P Arch Mage is the only playable job until the next line is ported.
+	assert_eq(tree.playable_jobs(), [212] as Array[int])
+	for id: int in [0, 100, 110, 200, 210, 220, 230, 300, 400, 500, 510, 520]:
+		assert_false(tree.job(id).playable, "%d is not playable" % id)
+	for k: String in data.jobs_survivor.jobs:
+		for key: String in ["paths", "grants", "level"]:
+			assert_false(data.jobs_survivor.jobs[k].has(key), "job %s has no advancement %s" % [k, key])
+	for key: Variant in tree.start_skills(212):
+		assert_true(data.skills.skills.has(String(key)), "start skill %s exists" % key)
 	var b: Dictionary = data.balance
 	assert_false(b.has("invincible_time"), "replaced by the shrinking hit_window (spec #88)")
 	assert_eq(b.hit_window, {"lengths": [1.5, 1.0, 0.6, 0.4], "chain_gap": 2.5, "reset_after": 3.0})
@@ -377,9 +380,12 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.growth["0"].hp), 14.0)
 	assert_eq(float(b.growth["200"].mp), 22.0)
 	assert_eq(int(b.player.ap_per_level), 5)
-	assert_eq(b.player.ap_stat, {"0": "str", "100": "str", "200": "int", "300": "dex", "400": "luk", "500:knuckle": "str", "500:gun": "dex", "510": "str", "520": "dex"})
-	assert_eq(String(b.player.ap_secondary["200"].stat), "luk", "Magician AP keeps LUK at the v83 requirement pattern")
-	assert_false(b.player.ap_secondary.has("0"), "the Beginner has no secondary stat")
+	assert_false(b.player.has("ap_stat") or b.player.has("ap_secondary") or b.player.has("weapon_grants") \
+		or b.player.has("skills"), "#284: one AP row per job, no job weapon grant, start skills per job")
+	assert_eq([String(b.player.ap["212"].primary), String(b.player.ap["212"].secondary)], ["int", "luk"],
+		"212: INT primary, LUK secondary (spec #282)")
+	for job: String in b.player.ap:
+		assert_false(job.contains(":"), "no weapon-path AP row (%s)" % job)
 	assert_eq(float(b.growth["200"].int_mp_divisor), 10.0)
 
 
@@ -410,14 +416,15 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 		"AvatarRenderer.DEFAULT_LOOK.equips is the default creation outfit without its weapon")
 	var no_drops := data.duplicate()
 	no_drops.erase("equipment_drops")
-	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1372005, 1302077, 1432000, 1322006,
-		1452051, 1462001, 1472061, 1332063, 1482000, 1492000, 1302008, 1312005, 1322014, 1432002, 1442001, 1452005, 1462000, 1472008, 1332012, 1482004, 1492004]),
-		"without MakeCharInfo the setup loads the default outfit and every playable job's advancement weapons, including every Bowman path candidate")
+	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array(Equipment.DEFAULT_OUTFIT),
+		"without MakeCharInfo the setup loads the default outfit only (no job grants a weapon since #284)")
 	var with_drops := DataRepo.starter_equipment_ids(data)
+	var expected := {}
+	for id: Variant in Equipment.DEFAULT_OUTFIT + data.equipment_drops.items:
+		expected[int(id)] = true
 	for id: Variant in data.equipment_drops.items:
 		assert_true(int(id) in with_drops, "the drop list item %d has its info loaded" % int(id))
-	assert_eq(with_drops.size(), 5 + data.equipment_drops.items.size() - 4 + 5,
-		"listed items are added once (creation coat/pants/shoes, Wooden Wand and spare Bowman crossbow overlap; Warrior sword/Steel Pipe, Beginner Bowman's bow and both Thief gifts are outside the drop roster)")
+	assert_eq(with_drops.size(), expected.size(), "listed items are added once")
 
 
 func test_build_setup_and_paths() -> void:
@@ -637,6 +644,8 @@ func test_every_attack_skill_has_a_hit_more_mobs_card() -> void:
 			assert_eq(String(s.slot), "active", "exempt %s is an active skill" % key)
 			assert_false(covered.has(key), "%s has a hit-more-mobs card: remove its exemption" % key)
 			continue
+		if int(s.get("job", -1)) == 0:
+			continue # #284: the Beginner is gone and its skills have no cards
 		if String(s.damage) != "none" or String(s.slot) == "active":
 			assert_true(covered.has(key), "%s needs a skill_mod card with more shots, targets or pierce" % key)
 

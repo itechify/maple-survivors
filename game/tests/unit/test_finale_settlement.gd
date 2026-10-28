@@ -116,8 +116,9 @@ func test_sweep_collects_every_pickup_kind_once_and_conserves_capped_exp() -> vo
 	assert_eq(w.drain_events().size(), 0)
 
 
-func test_swept_exp_resolves_job_advancement_and_cards_before_snapshot_without_combat() -> void:
+func test_swept_exp_resolves_its_level_cards_before_snapshot_without_combat() -> void:
 	var w := _reward_world()
+	var job := w.job_id()
 	w.progression.level = 9
 	w.refresh_player_stats(false)
 	w.pickups.spawn(Vector2(1300, -500), w.progression.exp_to_next(), 4000000, w.player.pos)
@@ -125,22 +126,17 @@ func test_swept_exp_resolves_job_advancement_and_cards_before_snapshot_without_c
 	var t := w.time
 	w.drain_events()
 	_answer(w)
-	assert_eq(w.state, RunWorld.CHOOSING_JOB, "swept EXP uses the ordinary advancement queue")
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "swept EXP uses the ordinary level queue (no job window, #284)")
 	assert_eq(w.progression.level, 10)
 	assert_false(w.drain_events().any(func(e: Dictionary) -> bool: return e.type == "stage_cleared"))
 	w.step(DT, MoveInput.new())
-	if w.state != RunWorld.CHOOSING_JOB:
-		return
-	assert_true(w.apply_job(200))
-	assert_true(w.choice_advancement)
-	_answer(w)
-	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "the normal level card still follows advancement")
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "the frozen choice admits no combat tick")
 	_answer(w)
 	assert_eq(w.state, RunWorld.CLEARED)
 	assert_eq(w.time, t)
 	var snapshot := w.character_snapshot()
 	assert_eq(int(snapshot.level), 10)
-	assert_eq(int(snapshot.job_id), 200)
+	assert_eq(int(snapshot.job_id), job, "the job never changes")
 	assert_eq(int(snapshot.exp), 0)
 	var events := w.drain_events()
 	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "stage_cleared").size(), 1)
@@ -231,9 +227,8 @@ func test_balance_harness_observes_choice_only_settlement_without_counting_a_tic
 	w.refresh_player_stats(false)
 	w.balance.run_time_cap = DT
 	w.pickups.spawn(Vector2(1300, -500), w.progression.exp_to_next(), 4000000, w.player.pos)
-	var report: Dictionary = preload("res://tools/balance_run.gd").run_one(w, "first", 71, -1.0, 60.0, 200)
+	var report: Dictionary = preload("res://tools/balance_run.gd").run_one(w, "first", 71, -1.0, 60.0)
 	assert_eq(report.state, "CLEARED")
 	assert_eq(report.time, 0.0)
 	assert_eq(report.reach.get("10"), 0.0, "the sweep's level event is observed")
-	assert_eq(report.job_times.get("200"), 0.0, "the sweep's job event is observed")
 	assert_eq(report.mp_short_seconds, 0.0, "a frozen choice is not an MP-wait tick")

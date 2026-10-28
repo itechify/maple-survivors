@@ -1,6 +1,6 @@
 extends TestCase
 ## Worn equipment in the live character through RunWorld's public interface (equip_item, unequip_item, discard_item,
-## change_job, character_snapshot, player_state), seeded on the synthetic quiet stage with canonical-shaped info.
+## character_snapshot, player_state), seeded on the synthetic quiet stage with canonical-shaped info.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -101,7 +101,7 @@ func test_weapon_attack_and_magic_attack_come_from_every_worn_item() -> void:
 
 func test_max_mp_equipment_swaps_only_clamp_current_mp_with_a_passive() -> void:
 	var world := _world([1002001])
-	world.change_job(200)
+	RF.as_job(world, 200)
 	world.learn_skill("improved_max_mp")
 	assert_eq(world.equip_item(0), "")
 	world.spend_mp(int(world.player_state.max_mp) - 10)
@@ -121,8 +121,9 @@ func test_max_mp_equipment_swaps_only_clamp_current_mp_with_a_passive() -> void:
 
 
 func test_max_mp_passive_rank_growth_still_preserves_current_mp_ratio() -> void:
-	var world := _world([1002001])
-	world.change_job(200)
+	# The removed Magician grant's +120 MP, in the base pool (#284).
+	var world := _world([1002001], func(c: Dictionary) -> void: c.base_mp = 125.0)
+	RF.as_job(world, 200)
 	world.learn_skill("improved_max_mp")
 	assert_eq(world.equip_item(0), "")
 	world.spend_mp(int(world.player_state.max_mp) - 10)
@@ -136,7 +137,7 @@ func test_max_mp_passive_rank_growth_still_preserves_current_mp_ratio() -> void:
 
 func test_max_mp_equipment_and_passive_restore_full_pools_at_a_round_boundary() -> void:
 	var source := _world([1002001])
-	source.change_job(200)
+	RF.as_job(source, 200)
 	source.learn_skill("improved_max_mp")
 	assert_eq(source.equip_item(0), "")
 	source.spend_mp(int(source.player_state.max_mp) - 10)
@@ -173,7 +174,7 @@ func test_the_overall_rule_holds_for_the_live_character() -> void:
 
 func test_each_requirement_blocks_the_live_character_and_changes_nothing() -> void:
 	for spec: Array in [[1372005, {}, "reqLevel"], [1050010, {}, "reqLevel"],
-			[1082019, {"level": 30}, "reqJob"], [1082019, {"level": 30, "job_id": 200}, "reqINT"]]:
+			[1082019, {"level": 30, "job_id": 0}, "reqJob"], [1082019, {"level": 30, "job_id": 200}, "reqINT"]]:
 		var fields: Dictionary = spec[1]
 		var world := _world([spec[0]], func(c: Dictionary) -> void: c.merge(fields, true))
 		var snapshot := world.character_snapshot()
@@ -211,37 +212,6 @@ func test_a_full_inventory_blocks_unequipping() -> void:
 	assert_eq(int(world.balance.player.inventory_slots), 24)
 	assert_eq(world.unequip_item("weapon"), "inventory_full")
 	assert_eq(world.weapon_id(), 1302000)
-
-
-func test_magician_advancement_grants_and_wears_the_wooden_wand() -> void:
-	var world := _world()
-	world.drain_events()
-	world.change_job(200)
-	assert_eq(world.weapon_id(), 1372005)
-	assert_eq(world.equipment.worn.weapon, Equipment.create(1372005, INFO[1372005]))
-	assert_eq(_ids(world.equipment.inventory), [1302000], "the creation weapon moves to the inventory")
-	assert_eq(world.weapon_attack(), 15.0)
-	var changed := world.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "equipment_changed")
-	assert_eq(changed, [{"type": "equipment_changed", "action": "grant", "slot": "weapon", "item_id": 1372005}])
-	world.change_job(210)
-	assert_eq(_ids(world.equipment.inventory), [1302000], "second job grants nothing")
-
-
-func test_a_full_inventory_wears_the_wand_and_drops_the_old_weapon_at_the_feet() -> void:
-	var world := _world([], func(c: Dictionary) -> void:
-		for i in 24:
-			c.equipment.inventory.append(Equipment.create(1040002, INFO[1040002])))
-	world.drain_events()
-	world.change_job(200)
-	assert_eq(world.progression.job_id, 200, "the advancement itself still happens")
-	assert_eq(world.weapon_id(), 1372005, "the grant is worn (spec #151 #157: advancing never fails)")
-	assert_eq(world.equipment.inventory.size(), 24, "the inventory is unchanged")
-	var events := world.drain_events()
-	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "equipment_changed"),
-		[{"type": "equipment_changed", "action": "grant", "slot": "weapon", "item_id": 1372005}])
-	var spawned := events.filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned")
-	assert_eq(spawned.map(func(e: Dictionary) -> int: return int(e.item_id)), [1302000],
-		"the creation sword lies on the ground as a normal pickup")
 
 
 func test_format_two_round_trips_through_json_text_into_an_identical_world() -> void:

@@ -46,7 +46,7 @@ func test_miss_has_no_damage_knockback_or_invincibility() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.stats.dex = 4000 # Guaranteed avoid vs accuracy 42.
 	var w := RunWorld.new(RF.setup("quiet", 613, data))
-	w.change_job(200)
+	RF.as_job(w, 200)
 	w.learn_skill("magic_guard")
 	w.drain_events()
 	var before := w.player_state.duplicate()

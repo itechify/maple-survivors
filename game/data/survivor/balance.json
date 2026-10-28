@@ -7,8 +7,8 @@
 	"exp_mult": 1.0,
 	"combat": {"_doc":"Tier C (#166/#200): linear projectile pierce decay keeps at least this fraction of its damage; the shipped default is 10%.","pierce_floor":0.1},
 	"player": {
-		"_start": "Tier C: survivor starter stats, the v83 Beginner 50 HP / 5 MP. The skills a round starts with are per job (survivor/jobs.json start_skills, #284).",
-		"hp": 50, "mp": 5,
+		"_start": "Tier C: survivor starter stats, the v83 Beginner 50 HP. The skills a round starts with are per job (survivor/jobs.json start_skills, #284). MP 30 is a #284 stopgap (was the Beginner's 5): a Lv1 212 starts with Energy Bolt (6 MP at rank 1) and must afford it until #285 removes MP.",
+		"hp": 50, "mp": 30,
 		"fortune": 0, "_fortune": "Tier C: card-tier odds only; equipment/NX sources are deferred. This is separate from canonical LUK.",
 		"stats": {"str": 12, "dex": 5, "int": 4, "luk": 4},
 		"_ap": "Tier C: 5 automatic AP per level (AutoAp). ap: one row per job, {primary, secondary, keyframes} (#284, ADR 0006: no weapon paths, no redistribution on advancement); a job without its own row uses its nearest ancestor's, no row at all puts every AP into STR. Earned AP first fills the secondary stat up to its base-value target at the character's level (keyframes [{level, target}], linear, floored, held outside their range), the rest goes to the primary. 212 (owner, spec #282): INT primary, LUK secondary at about level + 2 (the v83 Magician equipment pattern: reqLUK 15 at Lv13, 30 at Lv28, 40 at Lv38, 70 at Lv68). The other rows keep the unported lines' skill tests meaningful until each line is ported: 200 the Magician lines; 100 the Warrior (all STR, #163); 300 the Bowman (DEX, STR level+5 through Lv30, STR35 through Lv34, STR40 at Lv35, level+5 through Lv70, #199/#202/#203); 400 the Thief (LUK, DEX max(25, level), #207); 510 / 520 the Brawler (STR, DEX = level) and Gunslinger (DEX, STR = level, #186/#189).",

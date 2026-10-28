@@ -2,12 +2,45 @@ extends TestCase
 ## Bandit attacks (#214): seeded casting, extra loot and per-logical-mob Stolen lifecycle.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const BRANCH := preload("res://tests/unit/test_thief_second_job.gd")
 const DT := 1.0 / 60.0
+const INFO := {
+	1472061: {"incPAD": 11, "attackSpeed": 5, "tuc": 7},
+	1332063: {"incPAD": 28, "attackSpeed": 3, "tuc": 7},
+	1472008: {"reqLevel": 30, "reqDEX": 60, "incPAD": 18, "attackSpeed": 4, "tuc": 7},
+	1332012: {"reqLevel": 30, "reqDEX": 60, "incPAD": 45, "attackSpeed": 4, "tuc": 7},
+}
+
+
+## A Lv30 Bandit (420) set directly (#284: no advancement) wearing the Reef Claw dagger, with the HP/MP the removed
+## first- and second-job grants used to add (+125/+37, +325/+175) folded into the base pools.
+func _bandit() -> RunWorld:
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.balance.player.hp = 50 + 125 + 325
+	data.balance.player.mp = 5 + 37 + 175
+	data.balance.regen.hp = 0
+	data.balance.regen.mp = 0
+	var setup := RF.with_basic_attack(RF.setup("quiet", 212, data))
+	setup.equipment_info.merge(INFO, true)
+	var w := RunWorld.new(setup)
+	w.progression.level = 30
+	RF.as_job(w, 420)
+	RF.place_player(w, 400)
+	w.god = true
+	w.drain_events()
+	return w
+
+
+func _wear(w: RunWorld, id: int) -> void:
+	var ids: Array = w.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
+	if id not in ids:
+		w.equipment.inventory.append(Equipment.create(id, INFO.get(id, {})))
+		ids.append(id)
+	assert_eq(w.equip_item(ids.find(id)), "")
 
 
 func _world() -> RunWorld:
-	var w: RunWorld = BRANCH.new()._branch(420, "dagger")
+	var w := _bandit()
 	# Synthetic afterimage permits a real dagger weapon_reach cast.
 	w.setup.equipment_info[1332012] = w.setup.equipment_info[1332012].merged({"afterImage": "swordOS"})
 	w.heal_fraction("mp", 1)
@@ -37,11 +70,12 @@ func test_bandit_without_steal_preserves_event_and_player_bytes() -> void:
 		digest.update(var_to_bytes(w.player_state))
 	assert_eq(w.thief_rng.state, thief_state)
 	# Captured before #214 on #212 c30848d; re-captured for #238 (cooldown snapshot replaces stock).
-	# This fixture learns neither new attack; stream 15 remains untouched.
-	assert_eq(digest.finish().hex_encode(), "db129c40c3c15bba8b62f4e20ce1c3223146c06a558a7f0274f7eec589600518")
+	# This fixture learns neither new attack; stream 15 remains untouched. Re-captured for #284 (no basic attack, the
+	# Bandit set directly).
+	assert_eq(digest.finish().hex_encode(), "f3df19508d5ac4dbd26619269e62cce9fd75ba573098f1d3b27b5c148a8df0f8")
 
 
-func test_savage_blow_casts_four_five_or_six_lines_and_requires_a_dagger() -> void:
+func test_savage_blow_casts_four_five_or_six_lines_with_any_weapon() -> void:
 	for pair: Array in [[1, 4, 15], [10, 4, 15], [11, 5, 18], [20, 5, 18], [21, 6, 27], [30, 6, 27]]:
 		var w := _world()
 		assert_true(w.learn_skill("savage_blow"))
@@ -51,13 +85,13 @@ func test_savage_blow_casts_four_five_or_six_lines_and_requires_a_dagger() -> vo
 		w.runner.step(DT, w)
 		assert_eq(_hits(w, "savage_blow").size(), pair[1])
 		assert_eq(w.player_state.mp, mp - int(pair[2]))
+	# #284: weapons gate no skill, so a claw casts it too.
 	var claw := _world()
 	claw.learn_skill("savage_blow")
-	BRANCH.new()._wear(claw, 1472061)
+	_wear(claw, 1472061)
 	_target(claw)
 	claw.runner.step(DT, claw)
-	assert_eq(_hits(claw, "savage_blow").size(), 0)
-	assert_eq(claw.runner.casts, 0)
+	assert_eq(_hits(claw, "savage_blow").size(), 4)
 
 
 func test_steal_rolls_canonical_chance_on_stream_15_and_retries_until_one_drop() -> void:
@@ -105,7 +139,7 @@ func test_steal_autocasts_in_melee_with_any_weapon_and_never_throws_a_star() -> 
 	for claw in [false, true]:
 		var w := _world()
 		if claw:
-			BRANCH.new()._wear(w, 1472061)
+			_wear(w, 1472061)
 		assert_true(w.learn_skill("steal"))
 		_target(w)
 		w.runner.step(DT, w)
@@ -165,7 +199,7 @@ func test_steal_extra_equipment_follows_job_and_current_weapon_with_meso_fallbac
 	for claw in [false, true]:
 		var w := _world()
 		if claw:
-			BRANCH.new()._wear(w, 1472061)
+			_wear(w, 1472061)
 		w.learn_skill("steal")
 		w.data.equipment_drops = w.data.equipment_drops.duplicate(true)
 		w.data.equipment_drops.chance = 1.0

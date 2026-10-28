@@ -128,7 +128,9 @@ func test_grenade_legacy_events_damage_and_rng_bytes_are_unchanged() -> void:
 		digest.update(var_to_bytes([legacy, s.world.player_state, s.world.swarm.hp,
 			s.world.rng.state, s.world.final_rng.state, s.world.pirate_rng.state]))
 	# Re-captured for #238: player_state.potions now carries cooldowns instead of stock.
-	assert_eq(digest.finish().hex_encode(), "ca694bf4c26bc6e870fb5fb5fc12446fcf3dcfa94507c2d93e9b857fb31601aa",
+	# Re-captured for #284: a fresh character is job 212, not the Beginner (job_id and the job-based accuracy in
+	# player_state, so crit odds; no basic attack in the fixture world). Previous digest ca694bf4...
+	assert_eq(digest.finish().hex_encode(), "3cf30e36d9c5cecf1483aa15206946fd033b4c21ad67be5ab4bf2c37e3ea382f",
 		"pre-fix legacy event/damage/RNG bytes; only the new landing event is excluded")
 	s.fx.free()
 	s.free()

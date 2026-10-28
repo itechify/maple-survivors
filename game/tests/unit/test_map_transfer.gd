@@ -102,9 +102,7 @@ func test_boss_kill_freezes_both_directions_and_sweeps_before_choices_once() -> 
 	var swept := w.pickups.collected_exp
 	assert_true(swept > 2, "includes the boss shower")
 	assert_true(w.apply_choice(String(w.pending_cards[0].id)))
-	assert_eq(w.state, RunWorld.CHOOSING_JOB)
-	assert_true(w.apply_job(200))
-	assert_true(w.choice_advancement)
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "the swept EXP's level-up card follows (no job window, #284)")
 	BotInput.auto_choose(w)
 	assert_true(w.transfer_pending)
 	assert_eq(w.time, t)
@@ -189,7 +187,6 @@ func test_transfer_keeps_character_timers_and_pools_clears_statuses_and_rehomes_
 	w.learn_skill("dark_sight")
 	assert_true(w.start_buff("dark_sight", w.runner.stats_of(w, "dark_sight")))
 	w.runner.cooldowns.dark_sight = 12.0
-	w.basic.cooldown = 0.75
 	w._teleport_left = 0.6
 	w.potions.consume("hp")
 	w.projectiles.spawn({"x": 1700, "y": -100, "vx": 1.0, "range": 500.0})
@@ -217,7 +214,6 @@ func test_transfer_keeps_character_timers_and_pools_clears_statuses_and_rehomes_
 	assert_eq(w.buffs.snapshot(), buffs)
 	assert_true(w.is_hidden())
 	assert_eq(w.skill_readiness("dark_sight").left, 12.0)
-	assert_eq(w.basic.cooldown, 0.75)
 	assert_eq(w._teleport_left, 0.6)
 	assert_eq(w.potions.cooldown_left, potion)
 	assert_eq(w.character_snapshot(), character)
@@ -252,9 +248,8 @@ func test_a_grenade_thrown_before_transfer_never_lands_or_damages_the_next_map()
 	w.swarm.y[boss] = 0.0
 	for kind: MobKind in w.mob_kinds:
 		kind.move_speed = 0.0
-	w.change_job(520)
+	RF.as_job(w, 520)
 	assert_true(w.learn_skill("grenade"))
-	w.basic.cooldown = 100.0
 	w.drain_events()
 	w.step(DT, MoveInput.new())
 	var thrown := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "skill_thrown")
@@ -262,13 +257,11 @@ func test_a_grenade_thrown_before_transfer_never_lands_or_damages_the_next_map()
 	if thrown.size() != 1:
 		return
 	var cooldowns := w.skill_readiness("grenade")
-	var basic_left := w.basic.cooldown
 	_kill(w)
 	w.step(DT, MoveInput.new())
 	assert_true(w.transfer_pending)
 	w.advance_map()
 	assert_eq(w.skill_readiness("grenade"), cooldowns, "transfer keeps the auto-cast timer and HUD total")
-	assert_eq(w.basic.cooldown, basic_left)
 	var victim := RF.put_mob(w, 1110100, 300.0, -5.0, 100000.0)
 	var hp := w.swarm.hp[victim]
 	w.drain_events()

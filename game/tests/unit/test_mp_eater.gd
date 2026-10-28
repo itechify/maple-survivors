@@ -95,7 +95,7 @@ func test_bot_prefers_attack_then_mp_eater_over_a_minor_modifier() -> void:
 	RF.change_job_bare(w, 210)
 	var learn := {"id": "mp_eater_fp_new"}
 	assert_true(BotInput.card_score(w, {"id": "fire_arrow_new"}) > BotInput.card_score(w, learn))
-	assert_true(BotInput.card_score(w, learn) > BotInput.card_score(w, {"id": "three_snails_speed"}))
+	assert_true(BotInput.card_score(w, learn) > BotInput.card_score(w, {"id": "slash_blast_range"}))
 	assert_true(BotInput.card_score(w, {"id": "mp_eater_fp_rank"}) > BotInput.card_score(w, learn))
 
 
@@ -125,11 +125,12 @@ func test_real_cache_mp_eater_levels_effects_and_monster_pools() -> void:
 func _world(prop: float = 100.0, percent: float = 40.0, branch: int = 0, learn: bool = true) -> RunWorld:
 	var setup := _setup()
 	setup.data = RF.quiet_data()
+	setup.data.balance.player.mp = 600 # the pool the removed 200 / 2x0 advancements granted (5 + 120 + 475, #284)
 	setup.stage = "quiet"
 	setup.skill_imgs[str(JOBS[branch])].skill[str(JOBS[branch] * 10000)].level["1"] = {"prop": prop, "x": percent}
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
-	w.change_job(JOBS[branch])
+	RF.as_job(w, JOBS[branch])
 	if learn:
 		w.learn_skill(KEYS[branch])
 	w.mob_kinds[0].max_mp = 200
@@ -337,7 +338,7 @@ func test_real_hit_presents_each_branch_effect_and_mp_gain_without_missing_sound
 		var tree := Engine.get_main_loop() as SceneTree
 		tree.current_scene.add_child(scene)
 		var w := scene.world
-		w.change_job(JOBS[branch])
+		RF.as_job(w, JOBS[branch])
 		w.learn_skill(KEYS[branch])
 		w.loadout.set_rank(KEYS[branch], 20)
 		w.spend_mp(int(w.player_state.mp))

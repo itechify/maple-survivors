@@ -3,13 +3,25 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
+## Synthetic stand-ins for the deleted Beginner cards (#284): the old Three Snails count / cooldown card shapes on the
+## start skill Energy Bolt, and a learn card for the three-rank Nimble Feet (its skill data stays).
+const LEGACY_CARDS := {
+	"bolt_count": {"id": "bolt_count", "kind": "skill_mod", "skill": "energy_bolt", "name": "Additional Bolt",
+		"desc": "Energy Bolt fires +{value} shell.", "value": 1, "max_rank": 4, "weight": 1,
+		"effects": [{"stat": "count", "op": "add", "value": 1}]},
+	"bolt_cooldown": {"id": "bolt_cooldown", "kind": "skill_mod", "skill": "energy_bolt", "name": "Faster Bolt",
+		"desc": "Energy Bolt cooldown -{value}%.", "value": 12, "max_rank": 4, "weight": 1,
+		"effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]},
+	"nimble_feet": {"id": "nimble_feet", "kind": "skill_new", "skill": "nimble_feet", "name": "Nimble Feet",
+		"desc": "Learn Nimble Feet.", "max_rank": 1, "weight": 1, "effects": []},
+}
 
 
 func _world(fortune: float = 0.0) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player["fortune"] = fortune
 	# A roomy stacking card preserves every rolled tier, so headroom cannot skew the odds measurement.
-	data.upgrades.cards = [{"id": "roomy", "kind": "skill_mod", "skill": "three_snails", "max_rank": 100,
+	data.upgrades.cards = [{"id": "roomy", "kind": "skill_mod", "skill": "energy_bolt", "max_rank": 100,
 		"effects": [{"stat": "count", "op": "add", "value": 1}]}]
 	data.upgrades.pity.draws = 0
 	return RunWorld.new(RF.setup("quiet", 43, data))
@@ -63,7 +75,10 @@ func test_seeded_fortune_distribution_and_base_run_stat() -> void:
 func _tier_world(tier: String, id: String) -> RunWorld:
 	var data := RF.quiet_data()
 	data.upgrades.rarity.weights = {tier: 1.0}
-	data.upgrades.cards = data.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.id == id)
+	if id == "energy_bolt_new":
+		data.jobs_survivor.jobs["212"]["start_skills"] = [] # learning it needs a character without it
+	data.upgrades.cards = [LEGACY_CARDS[id]] if LEGACY_CARDS.has(id) \
+		else data.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.id == id)
 	var w := RunWorld.new(RF.setup("quiet", 43, data))
 	RF.place_player(w, 400)
 	return w
@@ -115,20 +130,20 @@ func test_legendary_rank_grants_eight_or_the_remaining_ranks() -> void:
 func test_stacking_tiers_apply_steps_and_compound_the_displayed_value() -> void:
 	var expected := [2, 3, 4, 5, 5]
 	for i in TIERS.size():
-		var w := _tier_world(TIERS[i], "three_snails_count")
+		var w := _tier_world(TIERS[i], "bolt_count")
 		_open_level(w)
 		assert_eq(int(w.pending_cards[0].get("magnitude", 0)), expected[i] - 1)
 		assert_eq(int(w.pending_cards[0].rank), expected[i] - 1, "card stack count consumes every granted step")
 		assert_true(String(w.pending_cards[0].desc).contains("+%d shell" % (expected[i] - 1)))
-		assert_true(w.apply_choice("three_snails_count"))
-		assert_eq(w.loadout.stats("three_snails").count, expected[i])
-		assert_eq(w.loadout.card_ranks.three_snails_count, expected[i] - 1)
-	var cooldown := _tier_world("unique", "three_snails_cooldown")
-	var before: float = cooldown.loadout.stats("three_snails").cooldown
+		assert_true(w.apply_choice("bolt_count"))
+		assert_eq(w.loadout.stats("energy_bolt").count, expected[i])
+		assert_eq(w.loadout.card_ranks.bolt_count, expected[i] - 1)
+	var cooldown := _tier_world("unique", "bolt_cooldown")
+	var before: float = cooldown.loadout.stats("energy_bolt").cooldown
 	_open_level(cooldown)
 	assert_true(String(cooldown.pending_cards[0].desc).contains("40.03%"), "four x0.88 steps reduce cooldown 40.030464%")
-	assert_true(cooldown.apply_choice("three_snails_cooldown"))
-	assert_near(cooldown.loadout.stats("three_snails").cooldown, before * 0.59969536, 1e-6)
+	assert_true(cooldown.apply_choice("bolt_cooldown"))
+	assert_near(cooldown.loadout.stats("energy_bolt").cooldown, before * 0.59969536, 1e-6)
 	# Spec #225 removed the Magnet card; a synthetic stat card keeps the player-stat stacking path covered.
 	var data := RF.quiet_data()
 	data.upgrades.rarity.weights = {"unique": 1.0}
@@ -148,13 +163,13 @@ func test_legendary_stacking_grants_five_clamps_and_supports_unlimited_cards() -
 	for example: Array in [[8, 0, 5, "legendary", 111.0], [8, 5, 3, "epic", 99.0], [0, 0, 5, "legendary", 111.0]]:
 		var data := RF.quiet_data()
 		data.upgrades.rarity.weights = {"legendary": 1.0}
-		data.upgrades.cards = [{"id": "roomy", "kind": "skill_mod", "skill": "three_snails", "max_rank": example[0],
+		data.upgrades.cards = [{"id": "roomy", "kind": "skill_mod", "skill": "energy_bolt", "max_rank": example[0],
 			"desc": "+{magnitude} shells.", "effects": [{"stat": "count", "op": "add", "value": 1}]}]
 		var w := RunWorld.new(RF.setup("quiet", 43, data))
 		RF.place_player(w, 400)
 		for step in int(example[1]):
 			w.upgrades.apply("roomy", w)
-		var before := int(w.loadout.stats("three_snails").count)
+		var before := int(w.loadout.stats("energy_bolt").count)
 		_open_level(w)
 		var c: Dictionary = w.pending_cards[0]
 		assert_eq(int(c.magnitude), example[2])
@@ -163,7 +178,7 @@ func test_legendary_stacking_grants_five_clamps_and_supports_unlimited_cards() -
 		assert_eq(BotInput.card_score(w, c), example[4], "bot scores the granted steps")
 		assert_eq(c.skill_mod_changes.shots, {"before": before, "after": before + int(example[2])})
 		assert_true(w.apply_choice("roomy"))
-		assert_eq(w.loadout.stats("three_snails").count, before + int(example[2]))
+		assert_eq(w.loadout.stats("energy_bolt").count, before + int(example[2]))
 		assert_eq(w.loadout.card_ranks.roomy, int(example[1]) + int(example[2]))
 
 
@@ -195,13 +210,13 @@ func test_headroom_downgrades_to_the_highest_fitting_distinct_tier() -> void:
 		assert_eq(String(w.pending_cards[0].get("tier", "")), example[2], "draw preserves the downgrade")
 		assert_true(w.apply_choice("energy_bolt_rank"))
 		assert_eq(w.loadout.level("energy_bolt"), example[3])
-	var stacking := _tier_world("legendary", "three_snails_count")
-	stacking.upgrades.apply("three_snails_count", stacking)
-	stacking.upgrades.apply("three_snails_count", stacking)
+	var stacking := _tier_world("legendary", "bolt_count")
+	stacking.upgrades.apply("bolt_count", stacking)
+	stacking.upgrades.apply("bolt_count", stacking)
 	_open_level(stacking)
 	assert_eq(String(stacking.pending_cards[0].get("tier", "")), "rare", "Legendary's last two steps equal Rare")
-	assert_true(stacking.apply_choice("three_snails_count"))
-	assert_eq(stacking.loadout.stats("three_snails").count, 5)
+	assert_true(stacking.apply_choice("bolt_count"))
+	assert_eq(stacking.loadout.stats("energy_bolt").count, 5)
 	var beginner := _tier_world("legendary", "nimble_feet")
 	_open_level(beginner)
 	assert_eq(String(beginner.pending_cards[0].get("tier", "")), "epic", "three-rank skills cannot learn at rank five or four")
@@ -294,7 +309,7 @@ func test_every_default_tier_gives_more_and_equal_gains_wear_the_lowest_label() 
 			last = int(value)
 	var data := RF.quiet_data()
 	data.upgrades.rarity.weights = {"epic": 1.0}
-	data.upgrades.cards = [{"id": "flat", "kind": "skill_mod", "skill": "three_snails", "max_rank": 10,
+	data.upgrades.cards = [{"id": "flat", "kind": "skill_mod", "skill": "energy_bolt", "max_rank": 10,
 		"magnitudes": {"rare": 2, "epic": 2}, "desc": "+{magnitude}.", "effects": [{"stat": "count", "op": "add", "value": 1}]}]
 	var flat := RunWorld.new(RF.setup("quiet", 43, data))
 	RF.place_player(flat, 400)

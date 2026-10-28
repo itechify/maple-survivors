@@ -7,7 +7,7 @@ const DT := 1.0 / 60.0
 
 func _world(rank_value: int, threshold: float = 0.5) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.player.hp = 1000
 	data.balance.player.mp = 100
 	data.balance.regen.hp = 0
@@ -92,19 +92,3 @@ func test_recovery_does_not_cast_on_a_rope_but_existing_healing_continues() -> v
 	assert_eq(w.player_state.hp, hp + 72, "six canonical L3 pulses continue while hanging")
 	assert_true(w.player_state.buffs.is_empty())
 
-
-func test_recovery_cards_learn_then_rank_canonical_levels_without_passive_regen() -> void:
-	var w := RF.quiet_world()
-	assert_eq(w.upgrades.card("recovery").kind, "skill_new")
-	assert_has(w.upgrades.eligible(w), "recovery")
-	assert_false("recovery_rank" in w.upgrades.eligible(w))
-	w.upgrades.apply("recovery", w)
-	assert_eq(w.loadout.level("recovery"), 1)
-	assert_eq(w.hp_regen, 0.0)
-	assert_false("recovery" in w.upgrades.eligible(w))
-	for level in [2, 3]:
-		assert_has(w.upgrades.eligible(w), "recovery_rank")
-		w.upgrades.apply("recovery_rank", w)
-		assert_eq(w.loadout.level("recovery"), level)
-		assert_eq(w.hp_regen, 0.0)
-	assert_false("recovery_rank" in w.upgrades.eligible(w))

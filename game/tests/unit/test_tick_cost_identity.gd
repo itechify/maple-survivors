@@ -31,11 +31,14 @@ const MP_DRAIN := 60
 ## Re-captured for MS-24: player_state.mp_short now checks current affordability after refills. Substituting only
 ## runner.waiting_mp back into that snapshot field reproduces the previous 373bb381... digest exactly; all events,
 ## other player-state fields, drop-pool bytes and TOTALS are unchanged.
-## Re-captured for #238: no potion pickups/stock; per-kind cooldowns enter player_state.
-const GOLDEN := "26ddb7e6e2d0e86d6729511954361de2a22b76c1d7300992691c4608f7544e7b"
-const TOTALS := {"exp": 3658, "mesos": 88744, "pickup_mesos": 88744, "equips_collected": 24,
-	"equips_dropped": 30, "inventory": 24, "kills": 206, "casts": 183, "level": 12,
-	"pool": 6, "time": 59.999999999997875}
+## Re-captured for #238: no potion pickups/stock; per-kind cooldowns enter player_state (previous digest 26ddb7e6...).
+## Re-captured for #284: no basic attack, no Three Snails, no job advancement (the character is set to 220 directly, its
+## 595 advancement MP moved into balance.player.mp), so the events and totals legitimately differ (previous totals exp
+## 3658, kills 206, casts 183, level 12).
+const GOLDEN := "db7c420559c1a45238585e4b11514b155236eb90fd1b75ad354b7779c148eadf"
+const TOTALS := {"exp": 2984, "mesos": 84824, "pickup_mesos": 84824, "equips_collected": 23,
+	"equips_dropped": 40, "inventory": 24, "kills": 154, "casts": 159, "level": 12,
+	"pool": 17, "time": 59.999999999997875}
 const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_guard", "cold_beam", "thunder_bolt", "slow_il",
 	"heal", "fire_arrow", "poison_breath", "holy_arrow"]
 
@@ -51,7 +54,8 @@ func test_busy_round_with_a_big_drop_pool_and_mp_short_casts_is_unchanged() -> v
 	assert_true(int(c.mp_short_ticks) >= 1000, "long MP-short stretches (%d ticks)" % int(c.mp_short_ticks))
 	for rule: String in ["nearest", "box", "crowd", "buff"]:
 		assert_true(int(c.casts.get(rule, 0)) > 0, "a %s skill casts (%s)" % [rule, c.casts])
-	assert_true(int(c.kills) >= 200, "kills keep adding drops (%d)" % int(c.kills))
+	# tier C (test coverage only): 150, down from 200 since #284 removed the basic attack and Three Snails' kills.
+	assert_true(int(c.kills) >= 150, "kills keep adding drops (%d)" % int(c.kills))
 	assert_eq(r.totals, TOTALS, "collected totals, seed 146")
 	assert_eq(r.digest, GOLDEN, "event, player-state and drop-pool bytes, seed 146")
 
@@ -126,7 +130,7 @@ func test_bulk_live_defense_equals_the_per_slot_defense_and_immunity() -> void:
 			if tick == 60 and w == immunity:
 				var boss := int(w.bosses.records[0].slot)
 				w.hit_mob(boss, {"damage_min": 12000.0, "damage_max": 12000.0, "magic": false, "crit": 0.0,
-					"crit_mult": 1.5, "skill": "three_snails"}, -1)  # under the HP gate of skill 140 (from 30 s)
+					"crit_mult": 1.5, "skill": "energy_bolt"}, -1)  # under the HP gate of skill 140 (from 30 s)
 			if tick % 4 != 0:
 				continue
 			w._fill_live_defense()
@@ -167,6 +171,9 @@ static func _data() -> Dictionary:
 	}
 	data.equipment_drops.chance = 0.05
 	data.balance.regen.mp = 0
+	data.jobs_survivor.jobs["212"]["start_skills"] = [] # the loadout is exactly SKILLS
+	# The 595 MP the removed Magician/Ice-Lightning advancement grants added (#284), so the pool cycles as before.
+	data.balance.player.mp = 600
 	return data
 
 
@@ -175,7 +182,7 @@ static func _world() -> RunWorld:
 	s.account = {"owned": PF.EVERYTHING}
 	var w := RunWorld.new(s)
 	w.god = true
-	w.change_job(220)
+	RF.as_job(w, 220)
 	for key: String in SKILLS:
 		w.learn_skill(key)
 	# Several hundred drops lying on every floor of the map from the start: mesos, equipment, EXP.

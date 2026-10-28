@@ -22,8 +22,8 @@ func _world(key: String) -> RunWorld:
 	}}
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
-	w.change_job(200)
-	w.change_job(230)
+	RF.as_job(w, 200)
+	RF.as_job(w, 230)
 	w.loadout.order.clear()
 	w.learn_skill(key)
 	w.loadout.set_caster(100.0, 23.0, 30)

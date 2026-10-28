@@ -11,7 +11,7 @@ const REMOVED := ["magnet", "orange_potion", "white_potion", "mana_elixir"]
 func _level_up_once(w: RunWorld) -> void:
 	w.pickups.spawn(w.player.pos - Vector2(0, 25), w.progression.exp_to_next(), 4000019)
 	w.step(DT, MoveInput.new())
-	BotInput.auto_choose(w, false, 210)
+	BotInput.auto_choose(w, false)
 
 
 func _tier_events(w: RunWorld) -> Array:
@@ -198,7 +198,7 @@ func test_no_draw_contains_a_removed_card() -> void:
 	for c: Dictionary in data.upgrades.cards:
 		assert_false(String(c.id) in REMOVED, "%s is gone from the data" % c.id)
 		assert_ne(String(c.kind), "potion_tier")
-	for job in [0, 200, 210]:
+	for job in [212, 200, 210]:
 		for seed_value in range(1, 9):
 			var w := RF.quiet_world(400.0, seed_value)
 			RF.change_job_bare(w, job)
@@ -210,7 +210,6 @@ func test_no_draw_contains_a_removed_card() -> void:
 			w.choice_bonus = true
 			draws.append_array(w.upgrades.roll_choices(w, rng, 3))
 			w.choice_bonus = false
-			draws.append_array(w.upgrades.roll_advancement_choices(w, rng, 3))
 			for offered: Dictionary in draws:
 				assert_false(String(offered.id) in REMOVED, "job %d seed %d offered %s" % [job, seed_value, offered.id])
 			assert_false(w.upgrades.eligible(w).any(func(id: String) -> bool: return id in REMOVED))
@@ -227,7 +226,6 @@ func test_exhausted_job_pool_offers_the_power_elixir_alone_and_the_run_continues
 	w.choice_bonus = true
 	assert_eq(w.upgrades.roll_choices(w, rng, 3).map(func(c: Dictionary) -> String: return c.id), ["elixir"], "boss reward")
 	w.choice_bonus = false
-	assert_eq(w.upgrades.roll_advancement_choices(w, rng, 3).map(func(c: Dictionary) -> String: return c.id), ["elixir"])
 	w.drain_events()
 	w.pickups.spawn(w.player.pos - Vector2(0, 25), w.progression.exp_to_next(), 4000019)
 	w.step(DT, MoveInput.new())

@@ -46,7 +46,8 @@ func test_sweep_clears_clockwise_from_twelve_o_clock() -> void:
 
 func _mage(skill: String) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.balance.player.mp = 5 + 120 # the removed Magician grant, folded into the base pool (#284)
 	var world := RunWorld.new(RF.setup("quiet", 9, data))
 	RF.change_job_bare(world, 200)
 	RF.place_player(world, 1200)
@@ -97,7 +98,7 @@ func _teleporter() -> RunWorld:
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
 	setup.skill_imgs["210"] = {"skill": {"2101002": {"level": {"1": {"mpCon": 60, "range": 130}}}}}
 	var w := RunWorld.new(setup)
-	w.change_job(210)
+	RF.as_job(w, 210)
 	w.heal_fraction("mp", 1.0)
 	w.loadout.add_skill("teleport_fp")
 	w.player.place(Vector2(400, 0), w.fhm)

@@ -1,7 +1,8 @@
 extends TestCase
 ## Warrior second job weapon skills (spec #165 ticket #181, docs/GAME_DESIGN.md 7.9): the six Masteries, six Final
 ## Attacks and six Boosters of Fighter 110, Page 120 and Spearman 130 with their real survivor data, their cards, the
-## Spread card, and the advancement draw. Level tables are the exact v83 formulas (RF skill fixtures; the one cache test
+## Spread card. Weapons gate none of them (#284: a Mastery, Booster or Final Attack works whatever is held), and the job is
+## set directly (no advancement draw). Level tables are the exact v83 formulas (RF skill fixtures; the one cache test
 ## reads the real Skill.wz and SKIPs without the cache). Seeded, fixed ticks.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -39,12 +40,13 @@ func _info() -> Dictionary:
 func _world(job := 110, weapon := SWORD, p_seed := 181) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.mp = 1000
-	data.balance.player.skills = []
+	data.balance.player.hp = 600 # the base 50 plus the +225 / +325 HP the removed Warrior advancements granted (#284)
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.magnet_radius = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge(_info(), true)
 	var w0 := RunWorld.new(setup)
-	w0.change_job(job)
+	RF.as_job(w0, job)
 	var character := w0.character_snapshot()
 	character.equipment.worn.weapon = Equipment.create(weapon, setup.equipment_info[weapon])
 	character.equipment.inventory = []
@@ -97,7 +99,7 @@ func _hits(w: RunWorld, key: String) -> Array:
 
 # --- Masteries -----------------------------------------------------------------------------------------------------
 
-func test_every_mastery_raises_min_damage_and_acc_only_while_its_family_is_held() -> void:
+func test_every_mastery_raises_min_damage_and_acc_whatever_weapon_is_held() -> void:
 	for row: Array in ROWS:
 		var key := String(row[2])
 		var w := _world(int(row[0]), int(row[5]))
@@ -124,15 +126,15 @@ func test_every_mastery_raises_min_damage_and_acc_only_while_its_family_is_held(
 			if WeaponInfo.family(other) == String(row[1]):
 				continue
 			_wear(w, other)
-			assert_eq(w.loadout.mastery, 0.10, "%s: a %s gets no mastery" % [key, WeaponInfo.family(other)])
-			assert_near(w.loadout.acc, base_acc, 1e-6, "%s: and no ACC" % key)
+			assert_near(w.loadout.mastery, 0.60, 1e-6, "%s: a %s gets the mastery too (#284)" % [key, WeaponInfo.family(other)])
+			assert_near(w.loadout.acc, base_acc + 20.0, 1e-6, "%s: and the ACC" % key)
 			_wear(w, int(row[5]))
 			assert_near(w.loadout.mastery, 0.60, 1e-6, "%s: back in hand" % key)
 
 
 # --- Boosters ------------------------------------------------------------------------------------------------------
 
-func test_every_booster_pays_hp_and_mp_speeds_the_held_family_and_recasts_on_expiry() -> void:
+func test_every_booster_pays_hp_and_mp_speeds_any_weapon_and_recasts_on_expiry() -> void:
 	for row: Array in ROWS:
 		var key := String(row[4])
 		var w := _world(int(row[0]), int(row[5]))
@@ -151,11 +153,11 @@ func test_every_booster_pays_hp_and_mp_speeds_the_held_family_and_recasts_on_exp
 		assert_true(float(after.action_time) < float(before.action_time), "%s shortens the attack stance" % key)
 		assert_true(float(after.cooldown) < float(before.cooldown), "%s shortens the cooldown" % key)
 		assert_near(float(w.buffs.active[key].remaining), 10.0, 0.1, "level 1 lasts 10 s")
-		# Another family's weapon gets nothing from it.
+		# Another family's weapon is sped up too: weapons gate no skill (#284).
 		for other: int in WEAPONS:
 			if WeaponInfo.family(other) != String(row[1]):
 				_wear(w, other)
-				assert_eq(w.loadout.speed_steps, 0, "%s: a %s is not sped up" % [key, WeaponInfo.family(other)])
+				assert_eq(w.loadout.speed_steps, 2, "%s: a %s is sped up too" % [key, WeaponInfo.family(other)])
 				break
 		_wear(w, int(row[5]))
 		assert_eq(w.loadout.speed_steps, 2, "%s: back in hand" % key)
@@ -189,7 +191,7 @@ func test_the_booster_levels_follow_the_canonical_table() -> void:
 
 # --- Final Attacks --------------------------------------------------------------------------------------------------
 
-func test_every_final_attack_follows_only_a_hit_with_its_family() -> void:
+func test_every_final_attack_follows_a_hit_whatever_weapon_is_held() -> void:
 	for row: Array in ROWS:
 		var key := String(row[3])
 		var w := _world(int(row[0]), int(row[5]))
@@ -207,14 +209,15 @@ func test_every_final_attack_follows_only_a_hit_with_its_family() -> void:
 				_wear(w, other)
 				other_family = WeaponInfo.family(other)
 				break
+		var other_procs := 0
 		for hit in 100:
 			_trigger(w, mob)
 			w.step(DT, MoveInput.new())
-			procs += _hits(w, key).size()
-		assert_between(procs, 255, 345, "%s: no follow-up with a %s" % [key, other_family])
+			other_procs += _hits(w, key).size()
+		assert_between(other_procs, 40, 80, "%s: follow-ups with a %s too (expected 60, #284)" % [key, other_family])
 
 
-func test_a_fighter_holding_an_axe_follows_up_only_with_the_axe_final_attack() -> void:
+func test_a_fighter_holding_an_axe_follows_up_with_both_final_attacks() -> void:
 	var w := _world(110, AXE)
 	_learn(w, "final_attack_sword_fighter", 30)
 	_learn(w, "final_attack_axe", 30)
@@ -228,8 +231,8 @@ func test_a_fighter_holding_an_axe_follows_up_only_with_the_axe_final_attack() -
 			if e.type == "mob_hit":
 				sword_procs += 1 if String(e.skill) == "final_attack_sword_fighter" else 0
 				axe_procs += 1 if String(e.skill) == "final_attack_axe" else 0
-	assert_eq(sword_procs, 0, "the sword Final Attack never fires with an axe")
-	assert_between(axe_procs, 150, 210, "the axe one does (expected 180)")
+	assert_between(sword_procs, 150, 210, "the sword Final Attack fires with an axe too (expected 180, #284)")
+	assert_between(axe_procs, 150, 210, "and so does the axe one")
 
 
 func test_a_final_attack_hits_for_its_canonical_damage_percent_with_the_held_weapons_stance() -> void:
@@ -294,7 +297,7 @@ func test_without_spread_the_follow_up_strikes_only_the_target() -> void:
 
 func test_spread_strikes_up_to_n_more_monsters_within_reach_of_the_target_nearest_first() -> void:
 	var probe := _world()
-	var reach := probe.basic.reach(probe)
+	var reach := probe.weapon_reach.reach(probe)
 	assert_true(reach > 40.0, "the fixture sword has a swing reach to measure from")
 	var far := reach + 30.0 # beyond reach of the target
 	var edge := reach - 6.0 # still inside it
@@ -317,7 +320,7 @@ func test_spread_strikes_up_to_n_more_monsters_within_reach_of_the_target_neares
 
 func test_spread_counts_reach_from_the_struck_target_not_from_the_player() -> void:
 	var probe := _world()
-	var reach := probe.basic.reach(probe)
+	var reach := probe.weapon_reach.reach(probe)
 	# The candidate is 60 + (reach - 6) px from the player: beyond the player's own reach, within the target's.
 	var d := _spread_world(1, [reach - 6.0])
 	var hits := _struck(_follow_up(d.w, d.primary))
@@ -355,70 +358,32 @@ func test_spread_with_one_candidate_strikes_it_once_and_the_target_once() -> voi
 	assert_eq(struck.count(d.primary), 1)
 
 
-# --- Cards and the advancement draw ---------------------------------------------------------------------------------
+# --- Cards ---------------------------------------------------------------------------------------------------------
 
-## The cards of the six weapon skills of `key` that a held weapon of the wrong family must hide.
+## The eligible cards of `skills`.
 func _cards_of(w: RunWorld, skills: Array) -> Array:
 	return w.upgrades.eligible(w).filter(func(id: String) -> bool: return String(w.upgrades.card(id).skill) in skills)
 
 
-func test_a_fighter_holding_a_sword_is_offered_no_axe_card_until_it_swings_an_axe() -> void:
+func test_a_fighter_is_offered_its_cards_whatever_weapon_is_held() -> void:
 	var w := _world(110, SWORD)
 	for key: String in ["axe_mastery", "final_attack_axe", "axe_booster", "sword_mastery_fighter",
 			"final_attack_sword_fighter", "sword_booster_fighter"]:
 		_learn(w, key, 1)
-	var axe := ["axe_mastery", "final_attack_axe", "axe_booster"]
-	var sword := ["sword_mastery_fighter", "final_attack_sword_fighter", "sword_booster_fighter"]
-	assert_eq(_cards_of(w, axe), [], "no axe rank or Spread card while a sword is held")
-	var offered := _cards_of(w, sword)
-	for id in ["sword_mastery_fighter_rank", "final_attack_sword_fighter_rank", "final_attack_sword_fighter_spread",
+	for id in ["axe_mastery_rank", "final_attack_axe_rank", "final_attack_axe_spread", "axe_booster_rank",
+			"sword_mastery_fighter_rank", "final_attack_sword_fighter_rank", "final_attack_sword_fighter_spread",
 			"sword_booster_fighter_rank"]:
-		assert_has(offered, id, "%s is on offer with the sword" % id)
-	_wear(w, AXE)
-	assert_eq(_cards_of(w, sword), [], "swapped to the axe, the sword cards go")
-	for id in ["axe_mastery_rank", "final_attack_axe_rank", "final_attack_axe_spread", "axe_booster_rank"]:
-		assert_has(_cards_of(w, axe), id, "%s is on offer with the axe" % id)
+		assert_has(_cards_of(w, [w.upgrades.card(id).skill]), id, "%s is on offer with the sword (#284)" % id)
 
 
-func test_learn_cards_are_offered_for_the_held_family_only() -> void:
+func test_learn_cards_are_offered_for_the_jobs_own_line_only() -> void:
 	var w := _world(110, SWORD)
 	var ids := w.upgrades.eligible(w)
-	for id in ["sword_mastery_fighter_new", "final_attack_sword_fighter_new", "sword_booster_fighter_new"]:
+	for id in ["sword_mastery_fighter_new", "final_attack_sword_fighter_new", "sword_booster_fighter_new",
+			"axe_mastery_new", "final_attack_axe_new", "axe_booster_new"]:
 		assert_has(ids, id)
-	for id in ["axe_mastery_new", "final_attack_axe_new", "axe_booster_new", "sword_mastery_page_new",
-			"bw_mastery_new", "spear_mastery_new"]:
-		assert_false(id in ids, "%s is not on offer to a sword-holding Fighter" % id)
-
-
-func test_the_advancement_draw_of_a_sword_warrior_offers_the_sword_final_attack_and_booster() -> void:
-	for job in [110, 120]:
-		var w := _world(100, 1302077)
-		w.progression.level = 29
-		w.progression.add_exp(w.progression.exp_to_next())
-		w.step(DT, MoveInput.new())
-		assert_eq(w.state, RunWorld.CHOOSING_JOB, "the Lv 30 window opened")
-		assert_true(w.apply_job(job))
-		var ids: Array = w.pending_cards.map(func(c: Dictionary) -> String: return String(c.id))
-		var suffix := "fighter" if job == 110 else "page"
-		assert_has(ids, "final_attack_sword_%s_new" % suffix, "job %d: the held family's Final Attack" % job)
-		assert_has(ids, "sword_booster_%s_new" % suffix, "job %d: and its Booster" % job)
-		for id: String in ids:
-			assert_false(id.begins_with("axe_") or id.begins_with("bw_") or id.contains("_axe") or id.contains("_bw"),
-				"%s is another family's card" % id)
-
-
-func test_the_advancement_draw_of_a_polearm_spearman_offers_the_polearm_cards() -> void:
-	var w := _world(100, 1302077)
-	w.progression.level = 29
-	w.progression.add_exp(w.progression.exp_to_next())
-	w.step(DT, MoveInput.new())
-	assert_true(w.apply_job(130))
-	# A sword is no Spearman family: the first family's weapon (the spear) is worn.
-	assert_eq(w.held_weapon_family(), "spear")
-	var ids: Array = w.pending_cards.map(func(c: Dictionary) -> String: return String(c.id))
-	assert_has(ids, "final_attack_spear_new")
-	assert_has(ids, "spear_booster_new")
-	assert_false("final_attack_polearm_new" in ids)
+	for id in ["sword_mastery_page_new", "bw_mastery_new", "spear_mastery_new"]:
+		assert_false(id in ids, "%s is another branch's card" % id)
 
 
 func test_power_flags_and_requirements_of_the_new_cards() -> void:

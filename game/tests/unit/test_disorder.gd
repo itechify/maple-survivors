@@ -10,8 +10,8 @@ const DT := 1.0 / 60.0
 func _world() -> RunWorld:
 	var setup := MF.setup(210)
 	setup.data.balance.player.mp = 300
+	setup["job"] = 400 # a Thief with no start skills (#284)
 	var w := RunWorld.new(setup)
-	RF.change_job_bare(w, 400)
 	RF.place_player(w, 400)
 	w.drain_events()
 	return w
@@ -57,7 +57,6 @@ func test_disorder_requires_a_fresh_ordinary_crowd_and_pays_canonical_mp_once() 
 func test_disorder_cancels_a_windup_without_stun_or_rescheduling_but_threaten_does_not() -> void:
 	for key in ["disorder", "threaten"]:
 		var w := _world()
-		w.basic.cooldown = 10000.0
 		w.god = true
 		if key == "threaten":
 			RF.change_job_bare(w, 120)
@@ -101,7 +100,7 @@ func test_disorder_cancels_a_windup_without_stun_or_rescheduling_but_threaten_do
 		assert_near(next_start - float(first.time), 3.0, DT, "next attack starts at its original interval")
 
 
-func test_disorder_has_only_learn_and_rank_cards_at_first_job_with_any_weapon() -> void:
+func test_disorder_has_only_learn_and_rank_cards_on_the_thief_line() -> void:
 	var w := _world()
 	assert_eq(w.book.skill_id("disorder"), 4001002)
 	assert_eq(w.book.max_rank("disorder"), 20)
@@ -112,14 +111,11 @@ func test_disorder_has_only_learn_and_rank_cards_at_first_job_with_any_weapon() 
 		assert_eq(Array(c.requires.jobs).map(func(j: Variant) -> int: return int(j)), [400])
 		assert_false(c.requires.has("carry_jobs"))
 		assert_false(bool(c.get("power", false)))
-	for family in ["sword1h", "dagger", "claw", ""]:
-		assert_true(w.book.usable_with("disorder", family), "any held weapon or bare hands")
 
 
 func test_the_nearest_six_get_the_canonical_cut_and_it_expires_without_stun() -> void:
 	for rank in [1, 20]:
 		var w := _world()
-		w.basic.cooldown = 10000.0
 		w.god = true
 		w.learn_skill("disorder")
 		w.loadout.set_rank("disorder", rank)
@@ -176,8 +172,8 @@ func test_real_v83_levels_and_art_cast_through_the_survivor_fallback_box() -> vo
 	var setup := MF.setup(210)
 	setup.skill_imgs["400"] = img.root
 	setup.data.balance.player.mp = 300
+	setup["job"] = 400 # a Thief with no start skills (#284)
 	var w := RunWorld.new(setup)
-	RF.change_job_bare(w, 400)
 	RF.place_player(w, 400)
 	var times := [7,9,11,13,15,20,22,24,29,31,33,38,40,42,47,49,51,56,58,60]
 	var costs := [5,5,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,10,10,10]

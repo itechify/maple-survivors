@@ -8,6 +8,8 @@ const DT := 1.0 / 60.0
 func _world(key := "teleport_fp", job := 210, upper_y := -120) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.mp = 200
+	# #284: a fresh 212 starts with Teleport (FP); the job-line variant under test is learned directly instead.
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	var setup := RF.setup("quiet", 60, data)
 	setup.map_img = RF.map_from_segments([
 		{"x1": 0, "y1": 0, "x2": 1000, "y2": 0},
@@ -17,7 +19,7 @@ func _world(key := "teleport_fp", job := 210, upper_y := -120) -> RunWorld:
 		"1": {"mpCon": 60, "range": 130}, "2": {"mpCon": 57, "range": 131},
 		"20": {"mpCon": 13, "range": 150}}}}}
 	var w := RunWorld.new(setup)
-	w.change_job(job)
+	RF.as_job(w, job)
 	w.heal_fraction("mp", 1.0)
 	w.loadout.add_skill(key)
 	w.player.place(Vector2(400, 0), w.fhm)
@@ -99,13 +101,6 @@ func test_real_cache_teleport_effect_frames() -> void:
 	library.free()
 
 
-func test_rank_card_previews_canonical_range_and_mp_cost() -> void:
-	var w := _world()
-	var card := w.upgrades.choice_card("teleport_fp_rank", w)
-	assert_eq(card.skill_changes.get("range", {}), {"before": 130, "after": 131})
-	assert_eq(card.skill_changes.mpCon, {"before": 60, "after": 57})
-
-
 func test_manual_rule_never_auto_casts_or_scores_as_an_attack() -> void:
 	var w := _world()
 	w.loadout.add_skill_mod("teleport_fp", "range", "add", 500)
@@ -115,7 +110,7 @@ func test_manual_rule_never_auto_casts_or_scores_as_an_attack() -> void:
 		w.step(DT, MoveInput.new())
 	for event: Dictionary in w.drain_events():
 		assert_false(event.type == "cast" and event.skill == "teleport_fp", "manual skill excluded from automatic scan")
-	assert_near(BotInput.card_score(w, w.upgrades.card("teleport_fp_rank")), BotInput.SCORE_RANK_PASSIVE + BotInput.SCORE_JOB_BONUS)
+	assert_eq(SkillRunner.reach_of(w.runner.stats_of(w, "teleport_fp"), w), 0.0, "the bot never counts it as an attack")
 
 
 func test_airborne_left_blink_and_out_of_range_vertical_are_atomic() -> void:
@@ -185,7 +180,10 @@ func test_cost_direction_restrictions_and_repeat_delay() -> void:
 	mp = int(w.player_state.mp)
 	w.step(DT, input)
 	assert_eq(int(w.player_state.mp), mp, "climbing does not spend MP")
-	var unlearned := RF.quiet_world(400, 60)
+	var bare := RF.quiet_data()
+	bare.jobs_survivor.jobs["212"]["start_skills"] = []
+	var unlearned := RunWorld.new(RF.setup("quiet", 60, bare))
+	RF.place_player(unlearned, 400)
 	var at := unlearned.player.pos
 	unlearned.step(DT, input)
 	assert_eq(unlearned.player.pos, at, "unlearned key does nothing")

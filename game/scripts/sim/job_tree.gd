@@ -75,15 +75,6 @@ func name_of(id: int) -> String:
 	return String(_jobs[id].name) if _jobs.has(id) else ""
 
 
-## Child job ids of `id` in data order.
-func children(id: int) -> Array:
-	var out: Array = []
-	for j in _order:
-		if int(_jobs[j].parent) == id:
-			out.append(j)
-	return out
-
-
 ## True when `job_id` is `ancestor` or descends from it.
 func is_descendant(job_id: int, ancestor: int) -> bool:
 	return ancestor in lineage(job_id)

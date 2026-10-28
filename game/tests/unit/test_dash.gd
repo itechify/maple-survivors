@@ -17,13 +17,12 @@ const INFO := {
 func _world(mp := 200, skill := true) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.mp = mp
-	data.balance.player.skills = []
-	data.jobs_survivor.jobs["500"].grants.max_mp = 0
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	var setup := RF.with_basic_attack(RF.setup("quiet", 188, data))
 	setup.equipment_info.merge(INFO, true)
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 2000, "y2": 0}])
 	var w := RunWorld.new(setup)
-	w.change_job(500, "knuckle")
+	RF.as_job(w, 500, "knuckle")
 	w.heal_fraction("mp", 1.0)
 	if skill:
 		w.learn_skill("dash")
@@ -258,9 +257,9 @@ func test_the_shipping_data_defines_dash_and_its_cards() -> void:
 	var cards: Array = data.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.get("skill", "") == "dash")
 	assert_eq(cards.map(func(c: Dictionary) -> String: return c.id), ["dash_new", "dash_rank"])
 	for card: Dictionary in cards:
-		# #189: a first-job skill: job 500 in the advancement draw, kept on offer for both branches (carry_jobs).
-		var jobs: Array = (card.requires.jobs as Array) + (card.requires.get("carry_jobs", []) as Array)
-		assert_eq(jobs.map(func(j: Variant) -> int: return int(j)), [500, 510, 520], "the Pirate line only")
+		# A first-job skill: job 500, on offer to every job of the Pirate line (UpgradePool.on_line, #284).
+		var jobs: Array = card.requires.jobs as Array
+		assert_eq(jobs.map(func(j: Variant) -> int: return int(j)), [500], "the Pirate line only")
 	assert_eq(cards[1].max_rank, 10)
 
 

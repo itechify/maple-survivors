@@ -2,7 +2,6 @@ extends TestCase
 ## Physical combat's public formula and hit seams, with worked v83 examples and seeded synthetic runs.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const BF := preload("res://tests/fixtures/basic_attack_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
@@ -168,22 +167,6 @@ func test_job_accuracy_equipment_and_buffs_feed_crit_for_every_damage_type() -> 
 	assert_eq(world.loadout.watk, 17.0, "W.Att buff expiry refreshes physical bounds too")
 
 
-func test_basic_attack_can_crit_on_stream_five_without_consuming_combat_rng() -> void:
-	var world := BF.world(153)
-	world.loadout.crit_bonus = 1.0
-	var mob := RF.put_mob(world, 100100, 450, 190, 1000)
-	world.mob_kinds[world.swarm.kind[mob]].move_speed = 0
-	var combat_before := world.rng.state
-	var hits := []
-	for tick in 29:
-		world.step(DT, MoveInput.new())
-		hits.append_array(_hits(world))
-	assert_eq(hits.size(), 1)
-	if hits.size() == 1:
-		assert_true(hits[0].crit, "Beginner's basic attack can crit")
-	assert_eq(world.rng.state, combat_before, "basic damage and crit rolls both stay on stream5")
-
-
 func test_passive_crit_adds_skill_percent_and_default_crit_multiplies_on_all_damage_types() -> void:
 	var world := RF.quiet_world(400, 153)
 	var mob := RF.put_mob(world, 100100, 550, 190, 10000)
@@ -193,14 +176,14 @@ func test_passive_crit_adds_skill_percent_and_default_crit_multiplies_on_all_dam
 				"damage_min": 100.0, "damage_max": 100.0, "damage_pct": 1.5,
 				"crit": 1.0, "crit_mult": 1.5, "crit_damage_bonus": bonus}, -1)
 			var hit: Dictionary = _hits(world)[0]
-			assert_true(hit.crit, dtype + " can crit, including fixed Three Snails")
+			assert_true(hit.crit, dtype + " can crit, including fixed damage")
 			assert_eq(hit.damage, 225 if bonus == 0 else 250, "passive100 adds to skill150%, otherwise x1.5")
 
 
 func test_skill_runner_resolves_physical_lines_and_projectiles_from_canonical_damage() -> void:
 	for kind: String in ["instant", "projectile"]:
 		var data := RF.quiet_data()
-		data.balance.player.skills = ["fixture"]
+		data.jobs_survivor.jobs["212"]["start_skills"] = ["fixture"]
 		data.balance.crit.per_acc = 0.0
 		data.balance.player.stats = {"str": 100, "dex": 50, "int": 4, "luk": 200}
 		data.skills.skills.fixture = {"skill_id": 1001004, "book": "100", "kind": kind,

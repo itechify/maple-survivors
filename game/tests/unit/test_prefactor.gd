@@ -8,7 +8,7 @@ const DT := 1.0 / 60.0
 func test_shared_hit_uses_current_formula_and_guard() -> void:
 	var w := RF.quiet_world()
 	w.god = false
-	w.change_job(200)
+	RF.as_job(w, 200)
 	w.learn_skill("magic_guard")
 	w.step(DT, MoveInput.new())
 	var before: Dictionary = w.player_state.duplicate()
@@ -29,7 +29,11 @@ func test_shared_hit_uses_current_formula_and_guard() -> void:
 
 
 func test_cast_tick_signal_and_cooldowns() -> void:
-	var w := RF.quiet_world()
+	# The 212 start skill Energy Bolt (#284), with the MP to cast it.
+	var data := RF.quiet_data()
+	data.balance.player.mp = 200
+	var w := RunWorld.new(RF.setup("quiet", 7, data))
+	RF.place_player(w, 400)
 	assert_true(w.can_cast(), "standing is a valid cast state")
 	w.step(DT, MoveInput.new())
 	assert_false(w.runner.fired_this_tick, "no target")
@@ -38,9 +42,9 @@ func test_cast_tick_signal_and_cooldowns() -> void:
 	w.spawn_mob(0, Vector2(p.x, w.fhm.y_at(fh, p.x)), fh, 100.0, false)
 	w.step(DT, MoveInput.new())
 	assert_true(w.runner.fired_this_tick, "a target triggers the current skill path")
-	var cd := float(w.runner.cooldowns.three_snails)
+	var cd := float(w.runner.cooldowns.energy_bolt)
 	w.runner.tick_cooldowns(DT, w)
 	assert_false(w.runner.fired_this_tick, "cooldown tick does not cast")
-	assert_near(float(w.runner.cooldowns.three_snails), cd - DT, 1e-6)
+	assert_near(float(w.runner.cooldowns.energy_bolt), cd - DT, 1e-6)
 	w.runner.cast_ready(DT, w)
 	assert_false(w.runner.fired_this_tick, "separate cast phase still waits for the cooldown")

@@ -20,7 +20,7 @@ func _world(p_seed := 194, rank := 1, hp_fraction := 0.25, mob_dx := 100.0) -> R
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
 	data.balance.player.mp = 500
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.regen.hp = 0
 	data.balance.regen.mp = 0
 	data.balance.magnet_radius = 0
@@ -111,10 +111,9 @@ func test_skill_text_names_the_canonical_numbers() -> void:
 	assert_true(text.desc(KEY).begins_with("Transform into an oak barrel"))
 
 
-func test_no_weapon_is_required() -> void:
+func test_no_weapon_is_named() -> void:
 	var w := _world()
-	for family in ["", "knuckle", "gun", "sword", "any"]:
-		assert_true(w.book.usable_with(KEY, family), family)
+	assert_true(w.book.weapon_families(KEY).is_empty(), "its data names no weapon (and weapons gate no skill, #284)")
 
 
 # --- when it casts ---------------------------------------------------------------------------------------------------
@@ -166,7 +165,7 @@ func test_it_does_not_recast_while_its_barrel_is_up() -> void:
 func test_failure_follows_the_skill_wz_chance_on_stream_16() -> void:
 	for rank in [1, 5, 10]:
 		var w := _world(7 + rank, rank)
-		var other_streams := [w.rng.state, w.basic_rng.state, w.spawn_rng.state, w.card_rng.state, w.drop_rng.state]
+		var other_streams := [w.rng.state, w.spawn_rng.state, w.card_rng.state, w.drop_rng.state]
 		var ref := RandomNumberGenerator.new()
 		ref.seed = (7 + rank) * 1000003 + 16 * 7919
 		var fails := 0
@@ -189,7 +188,7 @@ func test_failure_follows_the_skill_wz_chance_on_stream_16() -> void:
 		var expected: float = PROP[rank - 1] * 2.0
 		assert_between(float(fails), expected * 0.6, expected * 1.4, "about %d%% of 200 casts fail" % PROP[rank - 1])
 		# Every other stream is untouched by the casts (no mob dies, no skill damages anything).
-		assert_eq([w.rng.state, w.basic_rng.state, w.spawn_rng.state, w.card_rng.state, w.drop_rng.state], other_streams)
+		assert_eq([w.rng.state, w.spawn_rng.state, w.card_rng.state, w.drop_rng.state], other_streams)
 
 
 func test_a_failed_cast_pays_mp_and_the_cooldown_but_hides_nothing() -> void:
@@ -299,12 +298,12 @@ func test_cards_are_offered_to_brawlers_only() -> void:
 	assert_false("oak_barrel_rank" in w.upgrades.eligible(w), "none at the top rank")
 
 
-## A real Brawler (#189): a knuckle Pirate advanced to 510 at Lv 30 through change_job, as the advancement window does.
+## A Brawler (#189) at Lv 30, set up directly as job 510 with its old knuckle (RF.as_job; #284 removed advancement).
 func _brawler(p_seed := 194) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
 	data.balance.player.mp = 500
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.regen.hp = 0
 	data.balance.regen.mp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
@@ -312,9 +311,9 @@ func _brawler(p_seed := 194) -> RunWorld:
 		1482004: {"incPAD": 36, "attackSpeed": 5, "tuc": 7, "reqLevel": 30}}, true)
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
-	w.change_job(500, "knuckle")
+	RF.as_job(w, 500, "knuckle")
 	w.progression.level = 30
-	w.change_job(510)
+	RF.as_job(w, 510)
 	w.pending_cards = []
 	w.state = RunWorld.PLAYING
 	w.drain_events()
