@@ -70,7 +70,7 @@ func test_catalog_two_finishers_with_eight_ranks_no_weapon_gate_and_the_spec_met
 		assert_eq(book.slot(key), "active")
 		assert_true(book.weapon_families(key).is_empty(), key)
 		var meter: Dictionary = book.def(key).meter
-		assert_eq([meter.role, int(meter.min), meter.spend, meter.damage_per_unit], ["finisher", 5, "all", 0.10])
+		assert_eq([meter.role, int(meter.min), meter.spend, meter.damage_per_unit], ["finisher", 5, "all", 0.20])
 		assert_eq(book.def(key).action, "weapon", "the first swing stance of the held weapon")
 	assert_eq(book.skill_id("panic"), 1111003)
 	assert_eq(book.skill_id("coma"), 1111005)
@@ -79,15 +79,15 @@ func test_catalog_two_finishers_with_eight_ranks_no_weapon_gate_and_the_spec_met
 
 # --- the orb multiplier ------------------------------------------------------------------------------------------
 
-func test_orb_multiplier_is_1_5_at_five_orbs_and_2_0_at_ten_on_top_of_the_held_bonus() -> void:
+func test_h11_orb_multiplier_is_2_at_five_orbs_and_3_at_ten_on_top_of_the_held_bonus() -> void:
 	for key: String in KEYS:
-		for pair: Array in [[5, 1.5], [10, 2.0]]:
+		for pair: Array in [[5, 2.0], [10, 3.0]]:
 			var w := _world()
 			w.learn_skill(key)
 			_orbs(w, int(pair[0]))
 			var base := w.runner.stats_of(w, key)
 			var cast := w.meter.begin_cast(w, key, base)
-			var held := 1.0 + int(pair[0]) * 0.02
+			var held := 1.0 + int(pair[0]) * 0.05
 			assert_near(float(cast.damage_max) / float(base.damage_max), held * float(pair[1]), 0.001, key)
 			assert_eq(cast.meter_spent, int(pair[0]))
 			assert_eq(w.meter.value, 0, "spend all")
@@ -379,10 +379,10 @@ func test_advanced_combo_unique_and_legendary_leave_two_orbs_and_trim_the_multip
 			var cast := w.meter.begin_cast(w, key, base)
 			assert_eq(cast.meter_spent, 3, "5 held, 2 kept")
 			assert_eq(w.meter.value, 2, key + tier)
-			var held := 1.0 + 5 * 0.02
+			var held := 1.0 + 5 * 0.05
 			var damage_card := 1.2 if tier == "legendary" else 1.0
 			# base already carries the card's damage multiplier; only the orb factors are applied by begin_cast.
-			assert_near(float(cast.damage_max) / float(base.damage_max), held * (1.0 + 3 * 0.10), 0.001)
+			assert_near(float(cast.damage_max) / float(base.damage_max), held * (1.0 + 3 * 0.20), 0.001)
 			assert_near(w.loadout.skill_stat(key, "damage", 1.0), damage_card, 0.001)
 
 func test_advanced_combo_keep_lets_the_finisher_chain_after_three_more_orbs() -> void:

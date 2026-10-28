@@ -189,13 +189,13 @@ func test_shout_bonus_values() -> void:
 	assert_near(rare.loadout.stats("shout").area, 1.2)
 	var epic := _world("shout", 303, false)
 	epic.upgrades.apply("shout_new", epic, "epic")
-	assert_near(epic.loadout.stats("shout").cooldown, 12.0 * 0.88, 0.0001)
+	assert_near(epic.loadout.stats("shout").cooldown, 4.8 * 0.88, 0.0001)
 	var unique := _world("shout", 303, false)
 	unique.upgrades.apply("shout_new", unique, "unique")
-	assert_near(unique.loadout.stats("shout").cooldown, 9.0, 0.0001, "Echo Shout: x0.75")
+	assert_near(unique.loadout.stats("shout").cooldown, 3.6, 0.0001, "Echo Shout: x0.75")
 	var legendary := _world("shout", 303, false)
 	legendary.upgrades.apply("shout_new", legendary, "legendary")
-	assert_near(legendary.loadout.stats("shout").cooldown, 9.0, 0.0001)
+	assert_near(legendary.loadout.stats("shout").cooldown, 3.6, 0.0001)
 	assert_near(legendary.loadout.stats("shout").area, 1.2)
 	assert_near(legendary.loadout.stats("shout").damage_max, base.loadout.stats("shout").damage_max, 0.0001,
 		"Legendary adds area, not damage")
@@ -218,10 +218,10 @@ func test_magnet_bonus_values_and_the_extra_targets_are_pulled() -> void:
 	assert_eq(_pulled(epic).size(), 8, "eight mobs are pulled")
 	var unique := _world("monster_magnet", 303, false)
 	unique.upgrades.apply("monster_magnet_new", unique, "unique")
-	assert_near(unique.loadout.stats("monster_magnet").cooldown, 7.5, 0.0001, "Booster: x0.75")
+	assert_near(unique.loadout.stats("monster_magnet").cooldown, 3.0, 0.0001, "Booster: x0.75")
 	var legendary := _world("monster_magnet", 303, false)
 	legendary.upgrades.apply("monster_magnet_new", legendary, "legendary")
-	assert_near(legendary.loadout.stats("monster_magnet").cooldown, 7.5, 0.0001)
+	assert_near(legendary.loadout.stats("monster_magnet").cooldown, 3.0, 0.0001)
 	assert_eq(legendary.loadout.stats("monster_magnet").mob_count, 8)
 
 
@@ -320,12 +320,12 @@ func test_magnet_deals_no_damage_and_stuns_nothing() -> void:
 	assert_true(w.events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit").is_empty())
 
 
-func test_magnet_cooldown_is_ten_seconds() -> void:
+func test_h11_magnet_cooldown_is_four_seconds() -> void:
 	var w := _world("monster_magnet")
 	for x in [150.0, 170.0, 180.0]:
 		RF.put_mob(w, MOB, CASTER_X + x)
 	_tick(w)
-	assert_near(w.runner.cooldowns["monster_magnet"], 10.0, 0.02, "10 s less the tick that cast it")
+	assert_near(w.runner.cooldowns["monster_magnet"], 4.0, 0.02, "4 s less the tick that cast it")
 
 
 func test_the_bot_does_not_count_magnet_as_a_reach() -> void:
