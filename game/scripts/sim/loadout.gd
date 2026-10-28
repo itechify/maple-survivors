@@ -281,6 +281,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
 ## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance, pull_chance (percent)/pull_gap (px; docs/GAME_DESIGN.md 7.35) and pierce_falloff,
+## burn_pulse / burn_time / burn_share (only a skill whose on_hit status is burn; docs/GAME_DESIGN.md 7.43),
 ## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
@@ -426,7 +427,23 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	if d.has("meter"):
 		resolved["meter"] = d.meter
 		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
+	_add_burn(resolved, key, d, lv)
 	return resolved
+
+
+## Adds the burn numbers of a skill whose `on_hit.status` is "burn" to its resolved stats: burn_pulse (whole damage per
+## second, BurnStatus.pulse of the cast's resolved bounds, the `pulse_field` share ("x") and the `burn_damage` modifier),
+## burn_time (the `duration_field` seconds, "time") and burn_share (the percent of base damage per second, burn_damage
+## included; the Skill window and cards show it). Other skills gain no key, so their stats are unchanged.
+func _add_burn(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> void:
+	var on_hit: Dictionary = d.get("on_hit", {})
+	if String(on_hit.get("status", "")) != "burn":
+		return
+	var share := book.canonical(key, lv, String(on_hit.get("pulse_field", "x")), 0.0)
+	var mult := skill_stat(key, "burn_damage", 1.0)
+	resolved["burn_pulse"] = BurnStatus.pulse(float(resolved.damage_min), float(resolved.damage_max), share, mult)
+	resolved["burn_time"] = book.canonical(key, lv, String(on_hit.get("duration_field", "time")), 0.0)
+	resolved["burn_share"] = share * maxf(0.0, mult)
 
 
 ## The W.Att a physical hit of `key` resolves with: the level field named by the definition's `summon.watk_field` (a

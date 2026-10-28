@@ -304,6 +304,12 @@ a set gap away. It picks the farthest monsters first, up to the skill's monster 
 never pulled. It is the mirror of knock-back (Monster Magnet, Snatch).
 _Avoid_: magnet, suck, vacuum
 
+**Burn**:
+A fire status that hurts a monster once a second for a few seconds, a little each time and never enough to kill it. The
+size of every pulse is decided by the cast that set the monster alight, and setting it alight again refreshes the burn
+without restarting or stacking it. Bosses and fire-proof monsters don't burn. It is the fire twin of poison (Inferno).
+_Avoid_: ignite, fire damage-over-time
+
 **Hit window**:
 The short time after the character is hit during which it can't be hit again. It shrinks with repeated hits, and
 boss attacks ignore it.

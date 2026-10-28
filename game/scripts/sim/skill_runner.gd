@@ -834,6 +834,7 @@ func fire_shot(world: RunWorld, key: String, st: Dictionary, origin: Vector2, ta
 		"pierce_falloff": float(st.pierce_falloff),
 		"impact_blast": st.impact_blast,
 		"meter_receipt": st.get("meter_receipt", ProjectileSystem.NO_RECEIPT),
+		"burn_pulse": int(st.get("burn_pulse", 0)),
 	})
 
 

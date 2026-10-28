@@ -6122,6 +6122,57 @@ unfinished bursts; already launched projectiles keep their existing lifetime rul
 no RNG; impact damage rolls retain the existing main stream. Bot reach is resolved range; SkillText reports
 "Fires N arrows over T s", where T includes wind-up and the final shot's deadline.
 
+### 7.43 Burn (#337, spec #332)
+
+A fire damage-over-time status beside poison in `MobSwarm`, whose pulse is sized by the cast that applied it. Inferno
+(3111003) is the first user (Bowmaster B9); Corsair's Flamethrower reuses it with its own `pulse_field`. No shipped
+skill carries the block yet (the tests use a synthetic skill), so no existing record changes.
+
+```json
+"on_hit": {"status": "burn", "duration_field": "time", "pulse_field": "x", "cue": "Skill.wz/312.img/skill/3111003/tile/2"}
+```
+
+- **Status.** `MobSwarm.BURN := 6`, appended after `ICE_WEAK`; `STATUS_COUNT` 7, `STATUS_NAMES` / `STATUS_ELEMENTS` gain
+  `"burn"` / `"F"`. Existing indices never move. Event names are unchanged: `mob_status_applied` / `mob_status_expired`
+  carry `status: "burn"`.
+- **Gate.** The common one (`accepts_status`): canonical and scheduled bosses reject it, and kinds whose Mob.wz fire digit
+  is 1, 2 or 4 (immune, strong, neutral) reject it; weak (3) takes it. The element is `F`; a skill's own `element` still
+  overrides it as for every status. Compatible with fire damage: the I/L `fire_weak` mark only changes the damage taken,
+  not this gate.
+- **Application.** `on_hit` with no `chance_field` always applies and draws no RNG. `duration_field` names the seconds
+  (default `time`); `pulse_field` the share (default `x`). A hit that deals no damage applies nothing (the existing
+  `on_hit` rule).
+- **Pulse size.** `Loadout.stats` adds `burn_pulse` for a skill whose `on_hit.status` is `burn`:
+  `BurnStatus.pulse(damage_min, damage_max, share, burn_damage)` = `round(mean(damage_min, damage_max) x share / 100 x
+  burn_damage)`, with the bounds the cast's resolved ones (before skill%, after `damage` modifiers, DEX/STR/W.Att), so a
+  `damage` card scales it and monster defence does not. The same call adds `burn_time` and `burn_share` (the percent of
+  base damage per second, `burn_damage` included) for the text. `burn_damage` is a new mul modifier (default 1.0) for
+  rarity bonuses (Inferno's Hellfire x1.5).
+- **Travel.** The pulse is part of the cast: the projectile pool stores it per shot (`ProjectileSystem.burn_pulse`, a
+  packed int array reset at every spawn) and the hit carries it, as `hit_mob` carries `st.burn_pulse` for instant skills.
+  `RunWorld._on_player_hit` passes it to `apply_status` as `params.pulse`, so a later rank change or a different cast does
+  not alter a burn already running, and impact blasts burn every target with the shooter's numbers.
+- **Pulses.** Every `POISON_INTERVAL` (1.0 s, shared) while the status lasts, the first one a full second after the first
+  application and the one due at expiry included. A pulse is `BurnStatus.tick_damage(pulse, hp)`: never below 1 HP, no stun,
+  no push, no flinch, nothing when it would deal 0. It is a `mob_hit` event (`crit` false, `hit_visual` "", `skill` the
+  applying skill's key), and the dealt amount is `MobSwarm.burn_dealt`; `RunWorld.damage_dealt` is shots + instant hits
+  + `poison_dealt` + `burn_dealt`. Poison's own arrays, counter and bytes are untouched.
+- **Refresh.** Re-applying while burning replaces the timer (not added) and the pulse size and skill key (the latest
+  snapshot) and **keeps the running pulse clock**: refreshing never restarts or stacks a pulse. This is the rule the #282
+  review fixed for overlapping Poison Mist clouds; two sources applying a burn half a second apart give exactly one pulse a
+  second, and a source that refreshed faster than the interval would otherwise starve the status of every pulse. Only a
+  burn that has ended starts a new clock.
+- **Clearing.** Death, release (including the map-transfer sweep) and relocation clear it silently, like every
+  player-inflicted status; it coexists with the other statuses and each keeps its own clock.
+- **Presentation.** `MobRenderer.BURN_CUE` (index 4, `CUES_PER_SLOT` 5) draws the animation at `MobRenderer.burn_cue_path`
+  on the body top, repeating while the status lasts, like the poison cue. `RunScene` sets the path from the first pool
+  skill whose `on_hit` names a `cue` (a Skill.wz path; Inferno's `tile/2`, B9's choice). With no cue configured the monster
+  takes the orange `BURN_TINT`; Freeze's tint still wins. `SkillText` appends "Burns for T s, N% of base damage per
+  second" to a burning skill's level line, and a `burn_damage` card previews as `Burn: 100% -> 150%`
+  (`UpgradePool.MOD_PREVIEW`, `LevelUpWindow.MOD_LABELS`).
+- **Not modelled.** The meter's finisher scaling (`PlayerMeter.begin_cast`) does not scale `burn_pulse`: no burning skill
+  is a meter skill yet.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7370,6 +7421,20 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
+
+### Bowmaster B5 constants (#337, burn)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Burn status index | `MobSwarm.BURN` = 6, appended after `ICE_WEAK`; `STATUS_COUNT` 7 | C |
+| Burn element | `F`: fire-immune, strong and neutral kinds (Mob.wz digit 1, 2, 4) reject it; bosses reject it | C (the v83 server reference rule for statuses) |
+| Burn pulse interval | `POISON_INTERVAL`, 1.0 s, shared with poison; first pulse one full interval after the first application, the pulse due at expiry lands | C |
+| Burn pulse size | `round(mean(damage_min, damage_max) x x/100 x burn_damage)`, the cast's resolved bounds before skill%; `x` is Inferno's undocumented burn share (21 -> 50) | C |
+| Burn is non-lethal | each pulse leaves at least 1 HP, never stuns, pushes or flinches; no RNG | C |
+| Burn refresh | replaces timer and snapshot, keeps the running pulse clock, never stacks | C |
+| Burn modifier | `burn_damage` (mul, default 1.0) | C |
+| Burn tint | `MobRenderer.BURN_TINT` Color(1.0, 0.62, 0.30) when no cue art is configured | C |
+| Burn cue | repeating animation on the body top, art path set by the skill (`on_hit.cue`) | C |
 
 ## 12. Later phases
 
