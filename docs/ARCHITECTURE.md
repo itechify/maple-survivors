@@ -391,6 +391,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `cast` | `skill`, `skill_id`, `level`, `pos`, `facing`, `action` (body stance to play when standing, e.g. `"swingO1"`), `effect` (WZ path of the caster effect or `""`) |
 | `boss_skill` | `mob`, `mob_id`, `skill_id`, `level` (ints), `pos` (boss feet Vector2), `facing` (int), `action`, `effect`, `player_effect`, `summon_effect`, `recipient_effect` (Strings; WZ paths or empty), `duration` (float seconds), `targets` (Array of int mob slots receiving buffs or summoned; empty for delayed heal); emitted at cast/stance/effect initiation, with delayed healing later reported as `mob_healed` |
 | `player_banished` | `mob`, `mob_id`, `skill_id`, `level` (ints), `from`, `pos` (the character's feet before and after, Vector2), `effect` (WZ path of the `affected` art or `""`), `message` (notice text or `""`); a boss's Banish (MobSkill 129, #256) moved the character to a random `sp` portal of the current map; emitted before that cast's `boss_skill`, after the pet's `pet_teleported` when a pet is out |
+| `hp_spent` | `skill`, `skill_id`, `amount` (HP actually paid, > 0), `kind` (`cost`: the skill's HP cost, flat `hpCon` or a percentage of max HP; `recoil`: a share of the damage the cast dealt); emitted by `HpRisk` after `spend_hp`, never at zero (7.71) |
 | `player_restored` | `stat` (`hp`/`mp`), `amount` (actual positive integer pool gain after capping), `skill` (key or empty), `pos` (player feet); emitted by `restore_player`, independent of legacy Recovery/potions |
 | `support_pulse` | `skill` (the pulse's sub-skill key), `skill_id`, `kind` (a `SupportSummons.KINDS` key), `slot` (the summon's `PlayerSummons` slot); emitted when a support summon's pulse fires, before its effect (`player_restored` / `buff_cast`). Presentation plays the parent's owner-side `affected` art |
 | `final_attack` | `skill`, `skill_id`, `level`, `mob` (the original target's slot), `pos`, `facing`, `action` (the skill's stance), `effect` (WZ path or `""`); emitted just before the follow-up's own `mob_hit` (skill = the Final Attack key; #161) |
@@ -602,6 +603,16 @@ element multiplier, including zero immunity before the normal minimum-one clamp.
 The generic meter emits `meter_changed {id, value, max}` on actual counter changes. Pull casts emit
 `mob_pulled {mob, from, pos}`, where `from` is the previous horizontal coordinate and `pos` is the resulting Vector2.
 Both are declared in `RunWorld.EVENT_FIELDS` and covered by the event schema test.
+
+**HP-risk boundary (`HpRisk`, #351, GAME_DESIGN 7.71).** `game/scripts/sim/hp_risk.gd` is the one stateless file for the
+percentage HP cost, the HP gate, recoil and the low-HP damage bonus; it draws no random number and owns no state.
+`Loadout.stats` calls `HpRisk.cost` and `HpRisk.resolve` (`hp_cost`, `hp_gate`, `self_damage`, `self_damage_cap`,
+`low_hp_damage`) against `Loadout.max_hp`, which `RunWorld._refresh_caster` keeps current. `SkillRunner` (cast, manual buff,
+dash), `PlayerMeter.preferred` and `BotInput` ask `HpRisk.admits` instead of `can_pay_hp` alone; `cast_ready` calls
+`HpRisk.begin_cast` (after the meter), `HpRisk.pay_cost` and `HpRisk.settle` (recoil). `RunWorld.spend_hp`/`can_pay_hp` stay
+the one place HP is paid. A later job adds only data: an `hp_cost`, `hp_gate` or `self_damage` block on its skill definition
+and `hp_cost`/`self_damage`/`low_hp_damage` rarity bonuses in its `skills/<line>.json`; it edits no script. Flat `hpCon`
+skills now also emit `hp_spent`.
 
 ### 4.4.4 Survivor data files (`game/data/survivor/`)
 

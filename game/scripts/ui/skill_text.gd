@@ -80,6 +80,7 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 			mechanics.append("Spends all orbs" if keep <= 0 else "Spends all but %d orbs; Keeps %d orbs" % [keep, keep])
 		elif def.meter.has("spend"):
 			mechanics.append("Spends %d orbs" % int(def.meter.spend))
+	mechanics.append_array(HpRisk.mechanic_lines(stats))
 	if def.has("knockback"):
 		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
 			number(float(stats.get("knockback_distance", 0.0)))])

@@ -53,6 +53,12 @@ var card_ranks := {}
 var int_stat := 4.0
 var matk := 0.0
 var char_level := 1
+## Max HP, kept current by RunWorld: a percentage HP cost (HpRisk) resolves against it.
+var max_hp := 1:
+	set(value):
+		if value != max_hp:
+			max_hp = value
+			version += 1
 ## tier C: display/preview input matching ProjectileSystem, supplied from balance.combat.pierce_floor at setup.
 var pierce_floor := 0.0
 ## Physical caster inputs; RunWorld._refresh_caster assembles these. Setters invalidate cached stats on change.
@@ -152,6 +158,7 @@ func clone() -> Loadout:
 	c.int_stat = int_stat
 	c.matk = matk
 	c.char_level = char_level
+	c.max_hp = max_hp
 	c.pierce_floor = pierce_floor
 	for field: String in ["str_stat", "dex_stat", "luk_stat", "watk", "acc", "weapon_id", "weapon_family",
 			"job_id", "mastery", "crit_bonus", "crit_damage_bonus", "crit_per_acc", "weapon_speed", "speed_steps"]:
@@ -356,7 +363,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"area": area,
 		"box": box,
 		"mob_count": maxi(1, roundi(skill_stat(key, "count", book.canonical(key, lv, "mobCount", float(cast.get("mob_count", 1.0)))))),
-		"hp_cost": maxi(0, int(book.canonical(key, lv, "hpCon", 0.0))),
+		"hp_cost": HpRisk.cost(self, key, lv),
 		"teleport_range": book.canonical(key, lv, "range", 0.0) if d.has("teleport") else 0.0,
 		"repeat_delay": float(d.get("teleport", {}).get("repeat_delay", 0.0)),
 		"damage_type": dtype,
@@ -424,8 +431,12 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"cooldown_from_cast": bool(buff.get("cooldown_from_cast", false)),
 		"displacement": _displacement(key, d, r, lv),
 	}
+<<<<<<< HEAD
 	if d.get("summon", {}).has("support"):
 		resolved["support"] = SupportSummons.resolve(self, key, r)
+=======
+	resolved.merge(HpRisk.resolve(self, key, lv))
+>>>>>>> origin/spec/348-dark-knight
 	if d.has("meter"):
 		resolved["meter"] = d.meter
 		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))

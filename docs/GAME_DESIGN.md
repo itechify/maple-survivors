@@ -719,6 +719,12 @@ These combined casting/admission changes need a later balance follow-up; no tuni
 Ellinia remains recorded rather than tuned. Hero bot death ranges: Henesys 327.7–688.2, Ellinia 221.0–646.5,
 Perion 288.9–493.0, Kerning 326.8–568.7 seconds.
 
+**HP-risk seam smoke (#351, spec #348 D3; no tuning).** `HpRisk` adds data blocks that no shipped skill carries, so a run of a
+job without them is unchanged: F/P, Hero and tick-cost oracles reproduce their hashes unrecaptured (Slash Blast and Coma now
+also emit `hp_spent`, which the oracle runs do not exercise). Henesys `balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3,
+deaths 305.0 / 454.5 / 651.7 s (Lv 11 / 21 / 36), Hero (112) 0/3, deaths 327.7 / 336.9 / 688.2 s (Lv 11 / 11 / 36). Both
+match the recorded numbers above exactly. No crashes, no world warnings.
+
 Merged-source full suites: **2151 passed / 0 failed / 0 skipped** cached; **1926 passed / 0 failed /
 225 skipped** without cache (skips prove no asset behavior). Both F/P goldens and the repaired Hero golden
 `409dba0d1bdffc32ba72644e326f99561e6ed9c0270feda39ace2573b0727cb3` match integration 3e37ec1 unchanged.
@@ -5994,6 +6000,7 @@ No shipped skill carries the block yet, so no existing record changes.
 - **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
   and Skill-window text (H7).
 
+<<<<<<< HEAD
 ### 7.72 Support summons and the Beholder (#352, spec #348)
 
 A **support summon** is a player summon (7.32) that pulses instead of attacking. `SupportSummons` (a `RefCounted`
@@ -6041,6 +6048,46 @@ tested on a synthetic Beholder (made-up job 999, no Dark Knight data): `test_sup
   PlayerSummons slot); the heal itself emits the ordinary `player_restored`. Presentation plays the parent skill's
   owner-side `affected` node on the player at each pulse (tier B: its use is not documented).
 - **What a later job adds.** A pulse kind is one `KINDS` entry (`resolve` and `apply`) plus its tests; a new sub is data.
+=======
+### 7.71 HP-risk skills (#351, spec #348, roster M17)
+
+Four small data-driven behaviours in one stateless file, `game/scripts/sim/hp_risk.gd` (`HpRisk`): a percentage HP cost, an
+HP gate, recoil as a share of the damage a cast dealt, and a low-HP damage bonus. Dark Knight (Dragon Roar, Sacrifice,
+Berserk) is the first user; Bishop, Buccaneer and any later job reuse the blocks unchanged. No skill ships a block yet, so no
+existing record changes. No RNG is drawn.
+
+```json
+"hp_cost":     {"field": "x", "of": "max_hp"}
+"hp_gate":     {"above": 0.5}
+"self_damage": {"field": "x", "of": "damage_dealt", "cap_max_hp": 0.10}
+```
+
+- **`hp_cost`** (`of`: `"flat"` is the default and today's `hpCon` rule, `"max_hp"` is a percentage). The cost is
+  `floor(field / 100 x max HP)` for a percentage, the canonical field as it is for flat (`field` defaults to `hpCon`), then
+  scaled by the `hp_cost` modifier and floored. It resolves into the same `hp_cost` stat every consumer already reads
+  (admission, `RunWorld.can_pay_hp`/`spend_hp`, the bot, `PlayerMeter.preferred`, the Skill window), against the max HP
+  `RunWorld` keeps in `Loadout.max_hp`; the stat is resolved again when max HP changes. A cast never pays the last HP
+  (`can_pay_hp`): it waits, spends nothing and takes no cooldown.
+- **`hp_gate`.** Admission also needs current HP strictly above `above` x max HP, read at the moment of the cast from the
+  exact (fractional) HP. A refused cast waits like an unpayable one. After a costly cast the gate usually closes, which
+  blocks the next cast until potions, Aura or regeneration refill HP: that loop is the identity of Dragon Roar.
+- **`self_damage`.** After the cast's instant lines resolve, the caster loses `floor(field / 100 x damage applied)`, where
+  damage applied is the growth of `RunWorld.damage_dealt` over the cast (every line on every target, after Berserk), at most
+  `floor(cap_max_hp x max HP)` and never the last HP (`floor(HP - 1)` at most). 0 when the cast dealt nothing. It pays
+  through `RunWorld.spend_hp`; there is no admission, the cast already happened. Shots and ground areas that land after
+  `_resolve_cast` returns are not counted (tier C; no shipped HP-risk skill uses one).
+- **`low_hp_damage`** (a modifier stat, a rarity bonus): `HpRisk.begin_cast`, after `PlayerMeter.begin_cast`, scales the
+  cast's `damage_min`, `damage_max` and `status_damage_mult` by `1 + bonus` while HP is at or below `HpRisk.BERSERK_BELOW`
+  (0.5) of max HP, read before the cost is paid. The bonus adds (`+0.5` is x1.5).
+- **Modifier stats** (rarity bonuses, `Loadout` skill mods, card previews, `SkillText`): `hp_cost` (mul: scales a flat or a
+  percentage cost), `self_damage` (mul: scales the recoil percentage; the cap does not move) and `low_hp_damage` (add). The
+  card text names them "HP cost", "Recoil" and "Low-HP damage"; `LevelUpWindow` shows before -> after for each.
+- **Event.** `hp_spent {skill, skill_id, amount, kind}`, `kind` `cost` or `recoil`, only when `amount > 0` and `amount` is what
+  was actually paid. A flat `hpCon` skill (Slash Blast, Coma) emits it too, with `kind: cost`, before its `cast` event; a
+  recoil follows the cast's hits. `RunScene` shows it as a red number at the player through the damage-number pool (`HP_SPENT`).
+- **Text.** The Skill window and tooltips add "Needs more than 50% HP", "Recoil: 20% of damage dealt (at most 10% of max
+  HP)" and "+50% damage at 50% HP or less" to a skill's line; the cost is the ordinary HP cost fact.
+>>>>>>> origin/spec/348-dark-knight
 
 ## 8. Upgrades
 
@@ -7319,3 +7366,17 @@ and gain exclusion compares the skill’s declared role. Rush explicitly present
 without changing movement physics. Pull admission counts only grounded non-boss targets outside its configured floor.
 Warrior bot equipment weights now explicitly name ancestor 100 with the same values formerly inherited from 0
 (tier C: existing physical baseline, unchanged). Hero AP and bot score values live in jobs/hero.json’s balance block.
+
+### HP-risk constants (#351)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Percentage cost, recoil rounding | floor(field / 100 x max HP), floor(field / 100 x damage dealt) | tier C: ours; the percentages themselves are WZ `x` fields (Dragon Roar, Sacrifice), tier A |
+| Never lethal | a cost waits at HP <= cost; a recoil stops at 1 HP | tier C: the existing `hpCon` rule generalised (Slash Blast) |
+| HP gate comparison | strictly above `above` x max HP, exact HP | tier C; the 50% threshold itself is Dragon Roar's description text, tier A |
+| `HpRisk.BERSERK_BELOW` | 0.5 of max HP, inclusive | tier A: Berserk (1320006) level 30 `x` 50 |
+| Low-HP bonus form | adds to the damage multiplier, read before the cost | tier C; the value of a bonus is data (DK-3) |
+| Recoil counts | instant lines resolved inside the cast call; not shots in flight | tier C |
+| `self_damage` modifier | multiplies the recoil percentage, never the cap | tier C |
+| `hp_spent` | emitted for every paid cost (flat too) and recoil, never at 0 | tier C: presentation event |
+| Red `hp_spent` number | NoRed digit set tinted (HP_SPENT) | tier C: presentation assignment |

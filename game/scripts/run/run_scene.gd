@@ -1129,6 +1129,11 @@ func handle_events(events: Array) -> void:
 				_mob_sound(int(e.mob_id), "Die")
 			"player_hit":
 				_on_player_hit(e)
+			"hp_spent":
+				var paid_at: Vector2 = world.player.pos + Vector2(0.0, world.body.position.y)
+				numbers.spawn(int(e.amount), paid_at, DamageNumbers.HP_SPENT, PLAYER_KEY)
+				counters.numbers += 1
+				_first_event_shot("hp_spent_" + String(e.kind), "hp_spent_%s.png" % String(e.kind), 0.1)
 			"player_restored":
 				var head: Vector2 = e.pos + Vector2(0.0, world.body.position.y)
 				numbers.spawn(int(e.amount), head, DamageNumbers.HP_GAIN, PLAYER_KEY)

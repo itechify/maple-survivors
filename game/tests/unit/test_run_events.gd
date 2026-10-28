@@ -362,6 +362,18 @@ func test_every_event_matches_the_schema() -> void:
 	meter.gain("cast_landed", meter_events)
 	for event: Dictionary in meter_events:
 		_check(event, seen)
+	# D3 (#351): no shipped skill pays HP in this probe's runs. Exercise both kinds of hp_spent through HpRisk.
+	var risk := RF.quiet_world(400.0, 351)
+	risk.god = false
+	risk.drain_events()
+	var risk_stats := {"skill": "synthetic", "skill_id": 9991000, "hp_cost": 5, "self_damage": 50.0, "self_damage_cap": 1.0}
+	HpRisk.pay_cost(risk, risk_stats)
+	HpRisk.settle(risk, risk_stats, risk.damage_dealt - 40)
+	var spent := risk.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "hp_spent")
+	assert_eq(spent.map(func(e: Dictionary) -> String: return e.kind), ["cost", "recoil"])
+	for event: Dictionary in spent:
+		assert_eq(event.size(), 5)
+		_check(event, seen)
 	var pull := CF.world({"pull": {"min_gap": 60}, "range": 600.0})
 	RF.put_mob(pull, 1110100, pull.player.pos.x + 300)
 	pull.mob_grid.rebuild(pull.swarm.x, pull.swarm.y, pull.swarm.active)

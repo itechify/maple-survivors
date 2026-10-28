@@ -28,7 +28,11 @@ const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_fal
 ## Active rarity-bonus stats a card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
 const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep",
+<<<<<<< HEAD
 	"support_heal", "support_rate"]
+=======
+	"hp_cost", "self_damage", "low_hp_damage"]
+>>>>>>> origin/spec/348-dark-knight
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -337,6 +341,9 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 			var kept := before * float(effect.value) if op == "mul" else before + float(effect.value)
 			labels.append("Keeps %d orbs" % maxi(0, roundi(kept)))
 			continue
+		if HpRisk.LABELS.has(String(effect.stat)):
+			labels.append(String(HpRisk.LABELS[String(effect.stat)]) + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
+			continue
 		labels.append(String(effect.stat).replace("attack_count", "Hits").capitalize() + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
 	bonus.text = String(bonus.get("text", bonus.id)) + ": " + ", ".join(labels)
 	bonus.counter = counter
@@ -399,6 +406,10 @@ static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: Str
 			return maxi(0, roundi(lo.skill_stat(skill, "meter_keep", 0.0)))
 		"pierce_falloff":
 			return snappedf(float(st.pierce_falloff) * 100.0, 0.01)
+		"self_damage":
+			return snappedf(float(st.self_damage), 0.01) # percent of the damage dealt
+		"low_hp_damage":
+			return roundi(float(st.low_hp_damage) * 100.0)
 		"cooldown":
 			return snappedf(SkillRunner.restart_cooldown(st), 0.01)
 		"area":
