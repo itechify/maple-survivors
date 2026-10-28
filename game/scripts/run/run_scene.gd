@@ -156,6 +156,8 @@ var mob_layers := PackedInt32Array()
 var summon_renderer: PlayerSummonRenderer
 var shots: ProjectileRenderer
 var mob_shots: ProjectileRenderer
+## The bolt art of the chain cast rule (skill_chain events).
+var chain_bolts: ChainBoltRenderer
 var drops: PickupRenderer
 ## The pet out (spec #34, #120); null without one. Drawn in the actor layer it stands in, behind the avatar.
 var pet_renderer: PetRenderer
@@ -692,6 +694,9 @@ func _build_top_layer() -> void:
 	fx.library = library
 	fx.behind = fx_back
 	_top.add_child(fx)
+	chain_bolts = ChainBoltRenderer.new()
+	chain_bolts.name = "ChainBolts"
+	_top.add_child(chain_bolts)
 	numbers = DamageNumbers.new()
 	numbers.library = library
 	_top.add_child(numbers)
@@ -905,6 +910,8 @@ func _warm_ui() -> void:
 		var burst := String(world.book.def(key).get("burst", ""))
 		if burst != "":
 			library.find_anim(burst)
+		for path: String in world.book.def(key).get("chain", {}).get("ball", []):
+			library.find_anim(path)
 		for rank in range(1, world.book.max_rank(key) + 1):
 			var level := world.book.canonical_level(key, rank)
 			for field: String in ["ball", "hit", "effect"]:
@@ -1081,6 +1088,8 @@ func handle_events(events: Array) -> void:
 				_on_skill_thrown(e)
 			"skill_landed":
 				_on_skill_landed(e)
+			"skill_chain":
+				_on_skill_chain(e)
 			"skill_ground":
 				var box: Rect2 = e.box
 				# tier C: tile strips spaced 80 px, lasting exactly the simulation area's lifetime.
@@ -1308,6 +1317,21 @@ func _on_skill_thrown(e: Dictionary) -> void:
 		"skill": String(e.skill), "cast_time": world.time})
 
 
+## A chain cast (ChainCast): the skill's ball art (its `chain.ball` paths, one variant per segment in turn) stretched along
+## every segment of the bolt, and its Hit sound once per struck link. The hit bursts come with each mob_hit.
+func _on_skill_chain(e: Dictionary) -> void:
+	var def := world.book.def(String(e.skill))
+	var anims: Array = []
+	for path: String in def.get("chain", {}).get("ball", []):
+		var anim := library.anim(path)
+		if anim != null and not anim.is_empty():
+			anims.append(anim)
+	chain_bolts.play(e.points, anims)
+	var hit := String(def.get("sounds", {}).get("hit", ""))
+	for link in (e.points as PackedVector2Array).size() - 1:
+		_sound(hit)
+
+
 ## The authoritative impact tick stops the matching flight and plays the captured blast, even with no victims.
 func _on_skill_landed(e: Dictionary) -> void:
 	for i in _throws.size():
@@ -1493,6 +1517,7 @@ func _reload_map() -> void:
 	mob_layers.clear()
 	_slot_layers.clear()
 	_throws.clear()
+	chain_bolts.clear()
 	_immunity_fx.clear()
 	_slow_fx = -1
 	_shown_action = ""

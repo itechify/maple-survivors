@@ -5587,6 +5587,31 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. Rarity lists ship in the skill definition.
 
+### 7.62 Chain cast rule (#323, spec #319 I4)
+
+`cast: {"rule": "chain", "acquire": 450, "hop": 200, "min_targets": 1}`, implemented in `chain_cast.gd` (`ChainCast`), a
+generic rule: a skill that strikes one monster and jumps to its neighbours. No cast rule hit "the nearest, then the
+nearest to that" before. Chain Lightning (I8) is its first user; Corsair or any other hopping skill can reuse it.
+
+- **Admission.** The head is a live monster whose body centre is within `acquire` px of the caster's body; a scheduled
+  boss first, then nearest, then slot (`RunWorld.targets_before`). `acquire` is the skill's `range` (Loadout.stats
+  falls back to the block's `acquire` when neither the definition nor the WZ level names a `range`), so the `range`
+  modifier widens it and the bot's `reach_of` reads it.
+- **Selection.** Deterministic, no RNG. Until `mob_count` monsters are chosen (canonical `mobCount` plus `count`
+  modifiers, via `strike_count`), the next link is the nearest unhit live monster to the **previous link's body
+  centre** within `hop` px times the `area` modifier (distance, then slot; bosses get no priority on a hop). A distance
+  exactly equal to `acquire` or `hop` is in range. A chain shorter than `mob_count` is fine; one shorter than
+  `min_targets` is not admitted.
+- **Resolution.** One `RunWorld.hit_mob` per chosen monster, `attack_count` lines each, in chain order, damage unchanged
+  along the chain, all on the cast tick; a monster that is gone by its turn is skipped. The caster faces the head.
+- **Events and art.** `cast`, then `skill_chain {skill, skill_id, points}` (the caster's hand, then each struck link's
+  body centre), then the `mob_hit` events. `RunScene` draws, per segment, one animation of the definition's
+  `"chain": {"ball": [<WZ path>, ...]}` (three variants for Chain Lightning, cycled along the chain), stretched along
+  the segment and rotated to its angle by `ChainBoltRenderer`; each link gets the skill's `hit` burst through its
+  `mob_hit`, the caster the `effect` through `cast`, the Use sound plays at the cast and the Hit sound once per link.
+- **Text.** `SkillText` adds "Jumps to up to N monsters within R px" (`mob_count`, `hop` x `area`).
+- Probe: `scenes/debug/chain_bolt_probe.tscn` draws a synthetic arrangement (evidence only).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -5982,6 +6007,16 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Capture delay | skill.capture_delay: Paralyze 0.3 s, Big Bang 1.38 s | C |
 | Frame timing fallback | WeaponInfo.frame_times uses 100 ms for missing or zero frame delay | C |
 
+
+### #323 chain cast rule (spec #319 I4)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Chain length and damage | WZ `mobCount` per level (Chain Lightning 2 -> 6) and its `mad`, unchanged along the chain (the WZ gives one `mad`); one hit per link | A |
+| Chain acquisition | `cast.acquire` 450 px from the caster's body centre (the WZ has no `lt/rb` or `range` for 2221006) | C |
+| Chain hop | `cast.hop` 200 px from the previous link's body centre | C |
+| Chain selection | head = scheduled boss, then nearest, then slot; hops = nearest unhit by distance then slot; distances inclusive; no RNG | C |
+| Chain bolt art | the skill's `chain.ball` animations stretched on their own x axis from segment start to end, centred on the line (WZ origin ignored), variants cycling per segment | C |
 
 ### #307 opening ramp (tier C)
 
