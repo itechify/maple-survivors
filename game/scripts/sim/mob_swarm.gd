@@ -456,11 +456,12 @@ func apply_hit(i: int, dmg: int, dir: int) -> bool:
 
 
 ## Skill knock-back along the current platform, without changing statuses; canonical and scheduled bosses resist.
-## Airborne mobs and flyers have no supporting foothold to slide along (tier C).
-func knockback(i: int, origin_x: float, distance: float, map: FootholdMap, limits: Rect2) -> void:
+## Airborne mobs and flyers have no supporting foothold to slide along (tier C). The push is away from `origin_x`,
+## or toward `force_side` (-1 / 1) when that is not 0 (a dash shoving everything along its own direction).
+func knockback(i: int, origin_x: float, distance: float, map: FootholdMap, limits: Rect2, force_side := 0) -> void:
 	if not is_live(i) or mob_kind(i).boss or steady[i] != 0 or fh[i] < 0:
 		return
-	var side := 1 if x[i] >= origin_x else -1
+	var side := force_side if force_side != 0 else (1 if x[i] >= origin_x else -1)
 	var stop := map.slide_along(fh[i], x[i], side, distance, limits.position.x, limits.end.x)
 	x[i] = float(stop.x)
 	y[i] = float(stop.y)

@@ -814,7 +814,7 @@ func _step_player(dt: float, input: MoveInput) -> void:
 	if input.drink_hp:
 		drink_potion("hp")
 	_try_manual_buffs(input)
-	if not _try_teleport(input) and not _take_portal(dt, input):
+	if not _try_rush(input) and not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
 		if flags & PlayerMotion.EV_JUMP:
 			emit("player_jump", {"pos": player.pos})
@@ -906,6 +906,18 @@ func _cooldown_total(key: String) -> float:
 	if _is_teleport(key):
 		return _teleport_total
 	return float(runner.cooldown_totals.get(key, 0.0))
+
+
+## A Rush press (or hold): dashes toward the pressed side arrow, else the facing (Up and Down are ignored, as in v83);
+## true when the dash started, which replaces this tick's ordinary movement. tier C: ours (#302).
+func _try_rush(input: MoveInput) -> bool:
+	if not input.skill_requested("rush"):
+		return false
+	var key := manual_skill("rush")
+	if key == "":
+		return false
+	var side := input.dir() if input.dir() != 0 else player.facing
+	return runner.cast_dash(self, key, side)
 
 
 func _try_teleport(input: MoveInput) -> bool:
@@ -1830,8 +1842,11 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	_instant_dealt += roll.x
 	if roll.x > 0:
 		meter.landed(st.get("meter_receipt", {}), events)
-		_on_player_hit(m, {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": magic,
-			"damage": roll.x, "element": String(st.get("element", "")), "damage_type": dtype})
+		var hit := {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": magic,
+			"damage": roll.x, "element": String(st.get("element", "")), "damage_type": dtype}
+		if st.has("push_side"):
+			hit["push_side"] = int(st.push_side) # a dash's direction (Rush): the knock-back shoves along it
+		_on_player_hit(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
 
@@ -1979,10 +1994,13 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 			swarm.apply_status(slot, String(status.get("status", "")), params, events)
 	var knockback: Dictionary = book.def(key).get("knockback", {})
 	if not knockback.is_empty() and not swarm.mob_kind(slot).boss and swarm.steady[slot] == 0:
-		var chance := book.canonical(key, level, String(knockback.get("chance_field", "prop")))
-		# tier C: one stream-1 roll per struck non-boss, including the 0/100% endpoints.
-		if rng.randf() * 100.0 < chance:
-			swarm.knockback(slot, player.pos.x, float(knockback.get("distance", 0.0)), fhm, bounds)
+		# tier C: one stream-1 roll per struck non-boss, including the 0/100% endpoints; a block without a chance field
+		# always applies and draws nothing (Rush, #302).
+		var always: bool = not knockback.has("chance_field")
+		if always or rng.randf() * 100.0 < book.canonical(key, level, String(knockback.chance_field)):
+			# `direction: "dash"` shoves along the dash that hit it instead of away from the player's final position.
+			swarm.knockback(slot, player.pos.x, float(knockback.get("distance", 0.0)), fhm, bounds,
+				int(hit.get("push_side", 0)) if String(knockback.get("direction", "")) == "dash" else 0)
 	for listener: Callable in _hit_listeners:
 		listener.call(slot, hit)
 

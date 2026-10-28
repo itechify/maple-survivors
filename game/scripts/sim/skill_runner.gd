@@ -233,6 +233,37 @@ func cast_manual_buff(world: RunWorld, key: String) -> bool:
 	return true
 
 
+## Casts the manual dash `key` (Rush, docs/GAME_DESIGN.md 7.33) toward `side` (-1 / 1): false, with nothing spent or
+## emitted, unless casting is free, the cooldown is over and the dash can move at least a pixel (never while climbing).
+## Otherwise the character faces `side`, the cooldown starts, `cast` is emitted where the dash begins, the character
+## slides up to the skill's displacement distance and the charge strikes what its box swept (_resolve_charge; each mob
+## once, up to mob_count, bosses first). Its knock-back shoves hit mobs along `side` (`push_side`). tier C: ours (#302).
+func cast_dash(world: RunWorld, key: String, side: int) -> bool:
+	if side == 0 or not world.can_cast() or not world.loadout.book.is_active(key):
+		return false
+	var st := stats_of(world, key)
+	if float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_pay_hp(int(st.hp_cost)):
+		return false
+	var move := world.player.dash_destination(side, float(st.displacement.get("distance", 0.0)), world.fhm, world.bounds)
+	if move.is_empty():
+		return false
+	world.spend_hp(int(st.hp_cost))
+	cooldowns[key] = restart_cooldown(st)
+	cooldown_totals[key] = cooldowns[key]
+	casts += 1
+	fired_this_tick = true
+	world.player.facing = side
+	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
+		"pos": world.player.pos, "facing": side, "action": String(st.action), "effect": String(st.effect)})
+	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
+	var start := world.player.pos
+	world.player.dash_to(move)
+	var cast_stats := st.duplicate()
+	cast_stats["push_side"] = side
+	_resolve_charge(world, cast_stats, start, side)
+	return true
+
+
 ## Whether ready skill `key` (resolved stats `st`) would be admitted from `origin` now: exactly
 ## `not prepare_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
 ## ordering them, so a ready skill without a target costs no target list.

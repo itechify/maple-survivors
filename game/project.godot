@@ -90,6 +90,10 @@ dash={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"physical_keycode":88)]
 }
+rush={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":88)]
+}
 stat_window={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"physical_keycode":83)]

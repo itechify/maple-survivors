@@ -382,7 +382,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"pierce": maxi(0, roundi(skill_stat(key, "pierce", float(d.get("pierce", 0))))),
 		"pierce_falloff": maxf(0.0, skill_stat(key, "pierce_falloff", float(d.get("pierce_falloff", 0.0)))),
 		"pierce_floor": pierce_floor,
-		"knockback_chance": book.canonical(key, lv, String(d.knockback.get("chance_field", "prop")))
+		# No chance field = the knock-back always applies (Rush, tier C #302).
+		"knockback_chance": (book.canonical(key, lv, String(d.knockback.chance_field)) if d.knockback.has("chance_field") else 100.0)
 			if d.has("knockback") else 0.0,
 		"knockback_distance": float(d.get("knockback", {}).get("distance", 0.0)),
 		"pull_chance": book.canonical(key, lv, String(d.pull.get("chance_field", "")), 100.0) if d.has("pull") else 0.0,
@@ -446,17 +447,23 @@ func _base_cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int) -> fl
 	return fallback
 
 
-## The resolved moving-attack block of `key` ({} for a skill that does not move): {direction "away" | "toward", when
-## "before" | "after" | "during", distance px >= 0}. The definition's `displacement` gives the distance as `field` (a
-## canonical level field of this rank's level), `distances` (survivor values per rank, the last one repeating) or a
-## plain `distance`, in that order (docs/GAME_DESIGN.md 7.13).
+## The resolved moving-attack block of `key` ({} for a skill that does not move): {direction "away" | "toward" | "input",
+## when "before" | "after" | "during", distance px >= 0}. The definition's `displacement` gives the distance as `field` (a
+## canonical level field of this rank's level; `lt.x` is the reach of its box, Rush), `distances` (survivor values per
+## rank, the last one repeating) or a plain `distance`, in that order (docs/GAME_DESIGN.md 7.13). `input` (a manual
+## dash, 7.33) is the pressed arrow key or the facing, chosen by the caster.
 func _displacement(key: String, d: Dictionary, rank: int, lv: int) -> Dictionary:
 	var block: Variant = d.get("displacement", {})
 	if not (block is Dictionary) or (block as Dictionary).is_empty():
 		return {}
 	var distance := 0.0
 	if block.has("field"):
-		distance = book.canonical(key, lv, String(block.field), 0.0)
+		var field := String(block.field)
+		if field.ends_with(".x") and book.level_node(key, lv).get(field.trim_suffix(".x")) is Dictionary:
+			var corner: Array = book.level_node(key, lv)[field.trim_suffix(".x")].get("$v", [0.0, 0.0])
+			distance = absf(float(corner[0]))
+		else:
+			distance = book.canonical(key, lv, field, 0.0)
 	elif block.has("distances") and not (block.distances as Array).is_empty():
 		var list: Array = block.distances
 		distance = float(list[clampi(rank - 1, 0, list.size() - 1)])
