@@ -11,7 +11,7 @@ extends Node2D
 ##   levelup_high    Unique / Legendary rank and new-skill previews; --bonus shows the boss-reward heading
 ##   levelup_dense   the longest current rank previews (description prose compacts to fit; values stay visible)
 ##   levelup_text    v83 skill text on a learn (Nimble Feet), a rank (Recovery) and a mod card (Additional Shell)
-##   levelup_text_mage  the same for Magic Guard (learn), Energy Bolt 4 -> 5 (rank) and Twin Claw 2 -> 3 (mod)
+##   levelup_text_mage  the same for Magic Armor (learn), Energy Bolt 4 -> 5 (rank) and Twin Claw 2 -> 3 (mod)
 ##   job             job advancement at Lv. 8 (Magician available, the others locked)
 ##   job10           at Lv. 10 (the others "Not in this build")       job_none  Lv. 30 Magician, nothing available
 ##   job_confirm     the confirmation line after picking Magician      pause     pause menu

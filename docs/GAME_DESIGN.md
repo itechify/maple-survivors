@@ -576,6 +576,30 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #282 (#285): no MP and no level gap: regression smoke (2026-10-28)
+
+Branch `t/285-remove-mp` off `spec/282-fp-slice`, real v83 cache, isolate `285s`, seeds 1 / 2 / 2026, `bot` and
+`random`, all four tier-1 regions; no PATCH, tuning or held-out seeds. Every command exits 0; every record has
+`warnings: []`, `missing: []` and no MP field (`mp_short_seconds`, `late_mp_*`, `mp_absorbed`, `potions_used.mp` are
+gone). C = CLEARED, D = DEAD, `@N` the one-based ending map, `jN` the final job:
+
+| Region / policy | Seed 1 | Seed 2 | Seed 2026 |
+|---|---|---|---|
+| Henesys bot | D 653.3@3 Lv44 j210 | C 973.5@3 Lv56 j230 | D 652.4@3 Lv44 j130 |
+| Henesys random | D 422.7@2 Lv23 j200 | D 408.6@2 Lv22 j200 | D 306.5@1 Lv11 j100 |
+| Ellinia bot | D 638.1@2 Lv26 j200 | D 651.5@3 Lv28 j200 | D 312.3@1 Lv11 j100 |
+| Ellinia random | D 628.6@2 Lv24 j200 | D 304.3@1 Lv13 j200 | D 309.1@1 Lv13 j100 |
+| Perion bot | D 466.6@2 Lv26 j200 | C 939.9@3 Lv44 j230 | D 456.9@2 Lv26 j100 |
+| Perion random | D 341.9@2 Lv16 j200 | D 327.9@1 Lv15 j200 | D 328.6@1 Lv15 j100 |
+| Kerning bot | D 310.3@1 Lv14 j200 | C 931.4@3 Lv47 j230 | D 420.1@2 Lv27 j100 |
+| Kerning random | D 308.0@1 Lv14 j200 | D 304.8@1 Lv14 j200 | D 339.4@2 Lv19 j100 |
+
+Skills casting on every cooldown makes runs stronger than the #257 / Kerning-walls records below (there every Kerning
+run died near 308 s on map 1 at Lv14-15): 3 of 12 bot runs clear and several reach Lv44-56, while every random run
+still dies, most around the first boss. That is a pacing signal for #293, not a breakage. `test_full_run`'s Henesys
+engagement floor dropped from 0.3 to 0.2 (seeds 1 and 2026 now measure 0.26 and 0.24: the casting mage clears its
+surroundings); #293 owns the bound.
+
 #### Walls stop only their own structure: Kerning's invisible walls (2026-10-24)
 
 Owner report: on Kerning City Construction Site (103010000) the brick stairs left of the x -630 landing, and a flat
