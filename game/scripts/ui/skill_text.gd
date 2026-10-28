@@ -95,6 +95,9 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("pierce_falloff"):
 		mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
 			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
+	if stats.has("burn_pulse"):
+		mechanics.append("Burns for %s s, %s%% of base damage per second" % [number(float(stats.get("burn_time", 0.0))),
+			number(float(stats.get("burn_share", 0.0)))])
 	if not mechanics.is_empty():
 		line += ("\n" if line != "" else "") + "; ".join(mechanics)
 	return line

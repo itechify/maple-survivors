@@ -646,9 +646,19 @@ func _build_mob_layers() -> void:
 		var mr := MobRenderer.new()
 		mr.name = "Mobs%d" % layer
 		mr.library = library
+		mr.burn_cue_path = _burn_cue_path()
 		map.actor_layer(layer).add_child(mr)
 		mob_renderers.append(mr)
 		mob_layers.append(layer if floor_layers.size() > 1 else -1)
+
+
+## The mob-cue art of the first pool skill that burns (`on_hit.cue`, a Skill.wz path), "" when none configures one.
+func _burn_cue_path() -> String:
+	for key: String in world.jobs.skill_pool(world.job_id()):
+		var on_hit: Dictionary = world.book.def(key).get("on_hit", {})
+		if String(on_hit.get("status", "")) == "burn" and on_hit.has("cue"):
+			return String(on_hit.cue)
+	return ""
 
 
 ## Drops, the behind-the-player effects and the player's avatar (placed on its layer by _place_player_layer).

@@ -276,10 +276,10 @@ var _map_swept := false
 var kills := 0
 ## Character level when the round began (a carried character keeps its level); see levels_gained().
 var start_level := 1
-## Total damage the player dealt: shots, instant skill hits and nonlethal poison (read-only).
+## Total damage the player dealt: shots, instant skill hits and nonlethal poison and burn (read-only).
 var damage_dealt: int:
 	get:
-		return projectiles.dealt + _instant_dealt + swarm.poison_dealt
+		return projectiles.dealt + _instant_dealt + swarm.poison_dealt + swarm.burn_dealt
 var state := PLAYING
 var view_size := DEFAULT_VIEW
 ## Player-centred logical view clamped to the bounds (spawn logic keeps mobs outside it).
@@ -1853,6 +1853,8 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 			"damage": roll.x, "element": String(st.get("element", "")), "damage_type": dtype}
 		if st.has("push_side"):
 			hit["push_side"] = int(st.push_side) # a dash's direction (Rush): the knock-back shoves along it
+		if st.has("burn_pulse"):
+			hit["burn_pulse"] = int(st.burn_pulse)
 		_on_player_hit(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
@@ -2001,6 +2003,9 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 				params["element"] = String(hit.element)
 			if status.has("element"):
 				params["element"] = String(status.element)
+			if String(status.get("status", "")) == "burn":
+				# tier C: the pulse was resolved from the cast (Loadout.stats) and travelled with the shot.
+				params["pulse"] = int(hit.get("burn_pulse", 0))
 			if status.has("cut"):
 				# tier C: a flat Threaten-style cut of min(skill level, cap) to weapon attack and defence (Panic; the node has none).
 				var cut := float(mini(level, int(status.cut.get("cap", level))))
