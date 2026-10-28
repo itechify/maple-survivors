@@ -104,9 +104,8 @@ query parameters become game user args (`?arg=--run=henesys&arg=--autoplay`).
 
 Stage keys are `henesys`, `ellinia`, `perion`, `kerning` (tier 1), and `sleepywood` (tier 2). Each round plays the
 region's three maps in order, with one boss 300 s after each entry; intermediate clears transfer automatically.
-`--stage=` and `--run=` also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. Continue always
-replays from map 1 with the boundary character and seed, including after quitting on a later map; map transfers never
-save.
+`--stage=` and `--run=` also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. A round is never
+saved (no resume, including after quitting on a later map); map transfers never save either ("Normal play" below).
 
 ### Playtests (`scripts/playtest.sh`)
 
@@ -151,6 +150,12 @@ playtests retain their existing behavior on a valid early-death summary.
 the title and opens the real Free Market to hand-test the scroll shops with the Lv38 F/P fixture (or `--character`) plus
 a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants) in a throwaway `user://tool_hub_save.json`
 recreated at every launch, standing on the floor between Barun and Tulcus; the real save, slots, bests and history are never touched. `--shot`/`--shot-at` work with it.
+
+`game/scenes/debug/round_loop_driver.tscn` (#286) is a small evidence driver for the new loop: the real creation screens
+(name, look, Job page), the Free Market home, map select with tier 2 locked and unlocked, results, character select and
+history (`ISOLATE=<name> bash scripts/run.sh res://scenes/debug/round_loop_driver.tscn -- --shots=<abs dir under evidence/>`).
+The flow-driver scenarios below still describe the old flow (job windows, saved rounds, Continue replay) and are T12's to
+rewrite (#282); do not trust them until then.
 
 The menu flow with injected keyboard/mouse input (v83 character signboard and creation, map select, arrow-key
 movement, level-up / job / pause windows, death, results, saved-round replay and history) is `game/scenes/debug/flow_driver.tscn`:
