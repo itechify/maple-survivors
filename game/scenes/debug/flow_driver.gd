@@ -43,7 +43,7 @@ extends Node
 ##           first and restored before the driver quits, also on failure. Shots: key_config, key_config_rebound,
 ##           options, options_wasd. These three create a character in the evidence-only driver_save.json (3 slots).
 ##   inventory the Equip and Item windows (#108): title -> new character; the slot's character becomes the Lv38
-##           F/P fixture (tests/fixtures/characters/lv35_magician_2nd.json) holding Metal Gear, a Blue Sauna Robe,
+##           F/P fixture (tests/fixtures/characters/fp_arch_mage.json) holding Metal Gear, a Blue Sauna Robe,
 ##           Work Gloves and a Dark Calas it cannot wear, with 123,456 mesos -> map select -> run; E opens
 ##           Equip, I opens Item (the sim is checked to hold), the robe's tooltip, the Calas's tooltip with its
 ##           red requirements and the refused double-click, the hat worn by double-click, the robe by dragging it
@@ -1542,7 +1542,7 @@ func _scenario_inventory() -> void:
 	if not await _create_character("Inv108"):
 		return
 	# The slot's character becomes the Lv38 F/P fixture carrying the evidence items (tests grant equipment directly).
-	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
 		_fail("the Lv38 F/P fixture did not load")
 		return
@@ -1713,7 +1713,7 @@ func _scenario_scrolls() -> void:
 	await _key(KEY_ENTER)
 	if not await _create_character("Scroll110"):
 		return
-	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
 		_fail("the Lv38 F/P fixture did not load")
 		return
@@ -1852,7 +1852,7 @@ func _scenario_shops() -> void:
 	await _key(KEY_ENTER)
 	if not await _create_character("Shop111"):
 		return
-	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
 		_fail("the Lv38 F/P fixture did not load")
 		return
@@ -2013,7 +2013,7 @@ func _scenario_botshop() -> void:
 	await _key(KEY_ENTER)
 	if not await _create_character("Bot112"):
 		return
-	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
 		_fail("the Lv38 F/P fixture did not load")
 		return
@@ -2078,7 +2078,7 @@ func _scenario_economy() -> void:
 	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "economy first round"):
 		return
 	(flow.current as RunScene).world.god = true
-	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
 		_fail("the Lv38 F/P fixture did not load")
 		return

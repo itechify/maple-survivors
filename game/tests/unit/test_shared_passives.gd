@@ -167,17 +167,6 @@ func test_max_hp_per_level_applies_at_each_level_up_after_learning_and_not_retro
 	assert_eq(float(w.player_state.max_hp), float(control.player_state.max_hp) + 4.0 + 12.0, "rank 3 pays 12 more")
 
 
-func test_max_hp_per_level_persists_through_the_character_snapshot() -> void:
-	var w := _world()
-	w.learn_skill("improved_hp")
-	w._on_level_up(w.progression.level + 1)
-	var snapshot := w.character_snapshot()
-	var setup := w.setup.duplicate()
-	setup.character = snapshot
-	var restored := RunWorld.new(setup)
-	assert_eq(restored.player_state.max_hp, w.player_state.max_hp, "the bonus lives in base_hp")
-
-
 # --- W.Att buffs ------------------------------------------------------------------------------------------------------
 
 ## A Rage-style buff: W.Att from `pad`, and a weapon-defence penalty from the positive WZ `pdd` taken with scale -1.

@@ -88,7 +88,7 @@ func _hub(species: int) -> void:
 	flow.save = SaveData.new(path)
 	flow.save.set_account({"nx": 0, "owned": [species]})
 	flow.create_character("Pet%d" % (species % 10))
-	var character: Dictionary = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var character: Dictionary = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	character["pet"] = species
 	flow.finish_run({"stage": "henesys", "cleared": true, "time": 960.0, "level": 35,
 		"job_id": 210, "job_name": "Wizard (Fire, Poison)", "kills": 3000, "damage_dealt": 100000, "seed": 1,

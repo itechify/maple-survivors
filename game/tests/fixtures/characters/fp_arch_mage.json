@@ -1,0 +1,71 @@
+{
+	"_doc": {
+		"branch": "spec32/ticket-67",
+		"forced_branch": 210,
+		"migration": {
+			"by": "spec33/ticket-105",
+			"from_format": 1,
+			"how": "tools/character_fixture.gd --migrate (CharacterSnapshot.migrate)",
+			"to_format": 2
+		},
+		"migration_286": {
+			"by": "spec282/ticket-286",
+			"from_format": 2,
+			"how": "kept job (set to 212, the one playable job), look, equipment, scrolls and mesos; dropped level, exp, skills, card ranks, player mods, AP and HP growth (ADR 0006); added tiers_unlocked 1",
+			"to_format": 3
+		},
+		"note": "gear of a real Lv38 headless F/P Henesys bot character (spec #32); the build it had is not part of a format-3 character",
+		"outcome": "CLEARED",
+		"policy": "bot",
+		"revision": "8a7dae594a36fe90356ab1976eca12172eebdbba",
+		"round_seconds": 930.1,
+		"rounding": "floating character fields rounded to six decimal places",
+		"seed": 1,
+		"source": "real headless Henesys bot round, all bosses/reward choices completed",
+		"stage": "henesys_hg1"
+	},
+	"equipment": {
+		"inventory": [],
+		"worn": {
+			"bottom": {
+				"id": 1060002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			"shoes": {
+				"id": 1072001,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			"top": {
+				"id": 1040002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 3
+				}
+			},
+			"weapon": {
+				"id": 1372005,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incMAD": 23,
+					"incPAD": 15
+				}
+			}
+		}
+	},
+	"format": 3,
+	"job_id": 212,
+	"look": {},
+	"mesos": 0,
+	"scrolls": {},
+	"tiers_unlocked": 1
+}

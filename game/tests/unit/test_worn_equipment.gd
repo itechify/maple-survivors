@@ -29,12 +29,12 @@ func _setup(character: Dictionary = {}) -> Dictionary:
 
 ## A fresh world's character with `inventory` ids added to its inventory (as later drops will).
 func _world(inventory: Array = [], change: Callable = Callable()) -> RunWorld:
-	var character := RunWorld.new(_setup()).character_snapshot()
+	var character := RF.character_with_round_state(RunWorld.new(_setup()))
 	for id: int in inventory:
 		character.equipment.inventory.append(Equipment.create(id, INFO[id]))
 	if change.is_valid():
 		change.call(character)
-	var world := RunWorld.new(_setup(character))
+	var world := RF.world_from(_setup(), character)
 	RF.place_player(world, 400)
 	return world
 
@@ -52,7 +52,7 @@ func test_a_new_character_wears_the_first_creation_outfit_with_plain_wz_stats() 
 	assert_eq(world.weapon_attack(), 17.0)
 	assert_eq(world.player_state.pdd, 7.0, "W.DEF 3 + 2 + 2")
 	var snapshot := world.character_snapshot()
-	assert_eq(int(snapshot.format), 2)
+	assert_eq(int(snapshot.format), 3)
 	assert_eq(snapshot.equipment, world.equipment)
 	assert_eq(snapshot.scrolls, {})
 	assert_eq(snapshot.mesos, 0)
@@ -195,7 +195,7 @@ func test_a_full_inventory_blocks_unequipping() -> void:
 	assert_eq(world.weapon_id(), 1302000)
 
 
-func test_format_two_round_trips_through_json_text_into_an_identical_world() -> void:
+func test_format_three_round_trips_through_json_text_into_an_identical_world() -> void:
 	var source := _world([1002001, 1050010], func(c: Dictionary) -> void:
 		c.mesos = 1234
 		c.scrolls = {"2040002": 3})
@@ -217,7 +217,7 @@ func test_a_snapshot_with_a_shield_round_trips_and_a_pre_shield_snapshot_loads_u
 	# A snapshot saved before the shield slot existed: its worn map has no "shield" key at all.
 	var old := RunWorld.new(_setup()).character_snapshot()
 	assert_false(old.equipment.worn.has("shield"))
-	assert_eq(int(old.format), 2, "no format bump")
+	assert_eq(int(old.format), 3)
 	var old_parsed: Dictionary = JSON.parse_string(JSON.stringify(old))
 	assert_eq(CharacterSnapshot.validation_error(old_parsed), "")
 	var loaded := RunWorld.new(_setup(old_parsed))

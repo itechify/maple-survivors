@@ -52,7 +52,6 @@ func _world(level := 10, mesos := 0, inventory: Array = [], scrolls: Dictionary 
 	setup.equipment_info = INFO.duplicate(true)
 	setup.scroll_info = SCROLL_INFO.duplicate(true)
 	var character := RunWorld.new(setup).character_snapshot()
-	character.level = level
 	character.job_id = 200
 	character.mesos = mesos
 	character.scrolls = scrolls
@@ -64,6 +63,9 @@ func _world(level := 10, mesos := 0, inventory: Array = [], scrolls: Dictionary 
 	next.scroll_info = SCROLL_INFO.duplicate(true)
 	next.character = character
 	var w := RunWorld.new(next)
+	# A character has no level (#286): `level` is the round's level at the start.
+	w.progression.level = level
+	w.refresh_player_stats()
 	RF.place_player(w, 400)
 	return w
 

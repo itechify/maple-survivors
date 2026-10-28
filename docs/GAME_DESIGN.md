@@ -45,6 +45,21 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   `balance.player.ap` row per job (212: INT primary, LUK secondary). The other lines' skill data and cards stay,
   unplayable until ported. Sections 1, 5, 6.1.1-6.1.2, 7.5, 8 and 9 below still describe the removed systems in places;
   where they conflict, this note wins until T12 rewrites them.
+- **#286 (T4): save format 3 and the standalone round loop.** A character is saved as `{name, created, rounds_played,
+  character}` and keeps only its job, look, worn equipment and inventory, scrolls, mesos, cash, pet and
+  `tiers_unlocked` (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
+  every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
+  Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
+  jobs (only 212), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
+  Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
+  tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
+  `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
+  the hub. Clearing any stage of tier N unlocks tier N+1 for that character (`CharacterSnapshot.unlocked_after_round`);
+  tier 1 is always open; cleared tiers can be replayed. There is no permadeath: death ends the round, never the
+  character, and only deletion frees a slot. Quit round is a death in every respect (its history ending is `quit`).
+  A format-1 or format-2 save moves its characters to the history (`retired`) on load, unmigrated; bests, counts, the
+  account and old history carry over. Tool files (`--character`, `--hub`, fixtures) of format 1 and 2 still load, reduced
+  to format 3. The scroll roll seed is `created` + `rounds_played` + a hash of the character's belongings.
 
 ## 1. The run
 
@@ -665,7 +680,7 @@ TIMEOUT at 1800 s on map 2, Shade `not_spawned`, Lv85. After the fix it is **CLE
 0 / 307.0 / 613.2 s, bosses dead at 303.0 / 607.0 / 913.2 s; Shade arrives on schedule, no fallback needed). Seed-1 bot
 records of Henesys, Ellinia, Perion, Kerning and the Sleepywood Lv38 F/P fixture are **identical field for field** to
 `d50443a`. A boss record gains `postponed_since` / `relocate_since` / `fallback` only once a postponement or failed
-relocation happens. The windowed playtest (`playtest.sh --stage=kerning --seed=1 --character=<lv35_magician_2nd.json>`,
+relocation happens. The windowed playtest (`playtest.sh --stage=kerning --seed=1 --character=<fp_arch_mage.json>`,
 x4) clears all three maps in 923.5 s at Lv59, `missing: []`. Screenshots, checked by eye: the character standing
 against the x 3185 wall at 8:00, Shade's arrival at 10:07, map 2 CLEAR at 10:13 and the final CLEAR at 15:23
 (`evidence/spec253/t260/kerning_fixture_s1_x4/`). The complete suite on `caches/s253` passes **2,198 tests, 0 failed, 0 skipped** (212 files).
@@ -986,7 +1001,7 @@ No overall steady-60-FPS claim is made at x8; a full headless suite was active o
 
 Presentation `2b54d5c` on integration `9ba2025`, cache `caches/s241`, private `ISOLATE=t246_*` mirrors.
 `balance.sh 1 2 2026` ran both legacy tier-1 stages and bot/random (12 runs), both Henesys tier-2 chains (6 chains),
-and both Dark Cave fixture policies (6 runs, `lv35_magician_2nd.json`). No tuning, PATCH or held-out seeds.
+and both Dark Cave fixture policies (6 runs, `fp_arch_mage.json`). No tuning, PATCH or held-out seeds.
 All 26 started rounds have `warnings: []`, `missing: []`; all eight commands exited zero, with no crash or engine/script warning.
 Tier-1 outcomes and end times match the preceding #237 smoke exactly. C/D = cleared/dead; columns are seeds 1 / 2 / 2026:
 
@@ -1207,7 +1222,7 @@ the restore at the pool (it only changes a drink when a potion restores more tha
 at Lv 40 and cannot touch these rounds, and a plain `--stage=henesys_hg1 --policy=bot` run gives the same records as the
 chain's tier-1 round. n = 3 per cell, a record not a finding. Goldens recaptured by this ticket: `test_character_baseline`
 `GOLDEN` only (with `potions.bot.pool_floor` 1.0, the old guard, the #228 hash is reproduced exactly). To show the steps fire, the committed Lv 38
-Magician fixture (`lv35_magician_2nd.json`) was copied to ignored `_scratch/` files with `level` 39 and `exp` just below
+Magician fixture (`fp_arch_mage.json`) was copied to ignored `_scratch/` files with `level` 39 and `exp` just below
 the next level (a diagnostic copy, Red/Blue potions held, 30 of each) and run on `--stage=dark_cave --policy=bot --cap=600`
 (seeds 1 and 2): both TIMED OUT at 10:00 at Lv 72 / 70 with no warnings and nothing missing; the character is Lv 60
 within the first minute (Dark Cave pays a lot of EXP), so Unagi / Pure Water (Lv 40) and Ice Cream Pop / Red Bean
@@ -1993,7 +2008,7 @@ becoming floats. No skipped check is being treated as evidence.
 
 Revision `8ef2fb0`, based on integration `eca037d`; `ISOLATE=t74`, training seeds **1/2/2026**, bot/random,
 default branches, 1800 s cap **per round**, no PATCH, tuning or held-out seeds. The existing Lv38 F/P fixture
-(`lv35_magician_2nd.json`, #67 seed-1 forced-F/P Henesys clear) is reused unchanged. Cache
+(`fp_arch_mage.json`, #67 seed-1 forced-F/P Henesys clear) is reused unchanged. Cache
 `C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t73` is reused read-only; no import or new cache.
 All **24 seed records / 26 rounds** finish with no crashes, engine/script errors or world warnings;
 every round's validated setup reports `missing=[]` (headless, not a rendering lookup trace).
@@ -2104,7 +2119,7 @@ and record-only. End times below use seed order; C marks a clear, all other time
 | Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 7 / 0 | 98.956 |
 
 Raw records/console/system reports: ignored `evidence/t67/smoke/`. The committed fixture
-`tests/fixtures/characters/lv35_magician_2nd.json` is actually Lv38, job210, from the seed-1 forced-F/P bot
+`tests/fixtures/characters/fp_arch_mage.json` is actually Lv38, job210, from the seed-1 forced-F/P bot
 clear at 930.1 s (all bosses dead, all choices resolved); `_doc` records the generation revision and policy.
 `tools/character_fixture.gd` reproduces it without balance edits. A 15 s seed-2 one-off using that fixture,
 `--character=<absolute path>`, reports `missing: []`; inspected `evidence/t67/fixture-playtest/t5.png` and
@@ -2121,7 +2136,7 @@ Real-cache checks execute; final log: ignored `_scratch/t67-full-final.log`.
 Report-only regression after `c50d511` merged integration `2b139cd` (#67 and #72), `ISOLATE=t73`, private cache
 `C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t73`. Seeds **1/2/2026**, bot/random, 1800 s cap,
 default branch choices, no PATCH, tuning candidates or held-out seeds. Original stages start fresh; Dark Cave
-uses committed `lv35_magician_2nd.json` (its actual character is **Lv38 F/P**, job210). Encounter data was frozen
+uses committed `fp_arch_mage.json` (its actual character is **Lv38 F/P**, job210). Encounter data was frozen
 before measurement: HP x0.8/1/3; contact/attack x0.8/1/1.25; canonical attacks with 8 s per-attack cadence.
 All **18 rounds** finish without crashes, script errors or world warnings. Henesys still reaches Magician and
 Mano in 3/3 per policy; both original stages reproduce #72's previous smoke exactly. Tree deaths remain record-only.
@@ -3488,7 +3503,7 @@ VAC-pulls nor fetches equipment it has no room for (`test_pet_pickup`).
 #### #76 ordinary mob attacks regression smoke (2026-10-17)
 
 Feature smoke only, no tuning (AGENTS.md): `ISOLATE=t76*`, seeds **1/2/2026**, Henesys and Tree one-off rounds (bot,
-random), the `--tier=2` chain (bot, random) and the Dark Cave Lv38 F/P fixture (`lv35_magician_2nd.json`, bot,
+random), the `--tier=2` chain (bot, random) and the Dark Cave Lv38 F/P fixture (`fp_arch_mage.json`, bot,
 random); baseline = `6519b73` (a detached worktree), after = this branch. The only balance data added is the
 `mob_attacks` block (tier C, section 11). Owner decision (2026-10-17): statuses on the character come only from bosses,
 so ordinary mobs cast nothing and Jr. Boogie deals contact damage only; the earlier Seal implementation is gone, which
@@ -5870,6 +5885,13 @@ random policy shares the movement and the camper policies still override it afte
 
 ## 11. Constants and provenance
 
+Rows added by #286 (save format 3 and the round loop): the Arch Mage's creation weapon is 1372005, the Wooden Wand
+(`jobs.json` `creation_weapon`, tier C: the Magician line's v83 starting wand; its item id and stats are tier A);
+tier unlocks follow "clearing a stage of tier N unlocks tier N+1, tier 1 always open" (tier C, owner, ADR 0006); a
+death or Quit round keeps the round's pickups and unlocks nothing (tier C, owner); the Quit round warning text, the
+history labels (cleared / died / quit / retired / deleted), the greyed locked-tier cards on map select and the Job page
+layout (one row per job inside the charSet panel) are ours (tier C).
+
 | #287 survivor rule | Tier / source |
 |---|---|
 | 6 active + 6 passive slots; mobility outside slots | C: owner ADR 0006, reference survivor loop |
@@ -5910,7 +5932,7 @@ random policy shares the movement and the camper policies still override it afte
 | Bot weapon choices (#232) | Uniform job-stream-8 family draw at each multi-family advancement unless that advancement offers the forced family; no implicit branch preference (an unforced second job keeps the held family since #261). BotShop upgrades the recorded family | C | Owner #226; binding decision 7 |
 | Weapon path migration and AP (#230) | Pathless saves use the held family at the deepest multi-path ancestor, else its first path; keep inventory. AP lookup falls back from job:path to plain job at each ancestor and re-splits earned AP on advancement | C | Owner #226 and binding implementation decisions |
 | Banish destination (MobSkill 129, #256) | A random `sp` portal of the current map dropped onto the floor below it (`PortalSet.start_point_away_from`, the map-arrival rule; the widest platform's middle on a map without `sp`), drawn uniformly on the dedicated stream 17 `banish_rng` so no other stream shifts. With two or more `sp` portals the one nearest the character is left out ("thrown elsewhere"); a single `sp` is used even if the character stands by it. The placement clears velocity, ladder and foothold, and an out pet is put beside the character like a map arrival (`pet_teleported`). 103000101 has two, (-258, 138) and (1115, 66), both landing on the y 198 platform, so a Banish there always lands at the other one | C (adaptation, nearest-portal exclusion: lead #256 review), B (destination: a random portal, Cosmic's server) | Owner #253; v83 `info/ban/banMap` sends the character to 103000100 Subway Ticketing Booth, outside the round |
-| Shade's arrival on 103000101 relative to the `sp` portals (measured, #253 review) | Seed 1, Lv38 F/P fixture `lv35_magician_2nd.json`, `bot` policy, Kerning City (headless `boss_spawned` pos, cache with the #253 manifest): Shade arrives at 604.47 s at (653.9, 198), 250 px (`spawn_distance`) left of the character at (903.9, 198) on the y 198 platform. Its Banish box there spans x 453.9..853.9, y 48..248, so neither `sp` portal, (-258, 138) nor (1115, 66) (nor their y 198 landing points), lies inside it at arrival; the nearer, (1115, 66), is 261 px past the box's right edge. The arrival point follows the character (the boss arrival rule), so other seeds and builds land elsewhere | Measurement, not a constant | Seed-1 headless record, #253 review |
+| Shade's arrival on 103000101 relative to the `sp` portals (measured, #253 review) | Seed 1, Lv38 F/P fixture `fp_arch_mage.json`, `bot` policy, Kerning City (headless `boss_spawned` pos, cache with the #253 manifest): Shade arrives at 604.47 s at (653.9, 198), 250 px (`spawn_distance`) left of the character at (903.9, 198) on the y 198 platform. Its Banish box there spans x 453.9..853.9, y 48..248, so neither `sp` portal, (-258, 138) nor (1115, 66) (nor their y 198 landing points), lies inside it at arrival; the nearer, (1115, 66), is 261 px past the box's right edge. The arrival point follows the character (the boss arrival rule), so other seeds and builds land elsewhere | Measurement, not a constant | Seed-1 headless record, #253 review |
 | Banish cooldown and cast rule (#256) | A boss entry's `skill_intervals` (`{"<skill id>": seconds}`) replaces that skill's WZ interval for both the first use after arrival and each recast; Shade's entry carries `{"129": 15}` (WZ 3 s). Banish is cast only with the character inside its canonical area lt(-200,-150) rb(200,50) around Shade's feet (prop 100: no roll; the one character whatever `count` 5 says), so a miss spends no cooldown; not cast while Hidden; Shade plays `skill1` | C (15 s; in-area gating, v83-like, accepted in the lead #256 review), A (area, prop, WZ interval) | Owner #253; v83 MobSkill.img/129/level/5 |
 | Banish message and art (#256) | System notice "As the Pentacle swayed in the shadows, you were thrown elsewhere in the Subway." (Shade's survivor `mobs.json` `banish_message`, reworded from v83 banMsg "... you were brought to the Subway Ticketing Booth."); `MobSkill.img/129/level/5/affected` plays once at the character's feet (pos 0); the camera snaps to the arrival. Not reproduced: Shade's eva 999 (the sim reads no mob avoid), the lamp NPC 1052107, `removeAfter` | C (text, anchor), A (art, original text) | Owner #253; Mob.wz/5090000.img/info/ban |
 
