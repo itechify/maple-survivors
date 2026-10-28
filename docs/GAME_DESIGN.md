@@ -686,6 +686,20 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
+**I/L selection and tooling smoke (spec #319, I11 #330, 2026-10-28).** Feature smoke only, no tuning: Henesys, bot, training seeds
+1 and 2, real cache (`cache-320`, the I/L books), JOBS=3. F/P (212): both records are byte-identical to the spec #319 tip's
+(`spec/319-il-arch-mage` at c058729, same seeds; every record key equal), seed 1 DEAD 651.7 s Lv36, seed 2 DEAD 305.0 s Lv11. I/L
+(`--job=222`, with `PATCH=` making it playable; the pool is Energy Bolt, Magic Claw, Cold Beam, Thunder Bolt, Ice Strike and
+Thunder Spear until I4 and I7-I10 land, so six actives fill with no Ifrit, Blizzard or Big Bang):
+
+| Henesys, bot | Outcome / time / level | Six actives | Map 2 / 3 entry |
+|---|---|---|---|
+| I/L seed 1 | DEAD / 378.0 s / Lv15; 15 picks, 388 kills (map 2 boss) | 177.0 s | 312.0 s / - |
+| I/L seed 2 | CLEARED / 916.3 s / Lv50; 52 picks, 4,522 kills | 211.8 s | 311.1 / 613.5 s |
+
+No crash, warning or missing asset in either; both oracles (`test_character_baseline`, `test_tick_cost_identity`) are unchanged. The I/L
+numbers are a first look at an incomplete pool, not a baseline (I12 owns the pass).
+
 **#282 review fixes (2026-10-28).** Targeted regression requested for this review task:
 Henesys, bot, training seed 1, real cache, no balance tuning or held-out seeds. Correct passive rarity RNG,
 independent ground procs, poison refresh and mobility progression deliberately change seeded trajectories.

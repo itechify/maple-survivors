@@ -86,6 +86,14 @@ const MAIN := "res://scenes/main.tscn"
 ## The redesign scenario's diagnostic fallback when a round dropped nothing the job can wear above Lv1: a staff for the Arch Mage
 ## (Lv45), the same staff for the I/L Arch Mage (#330; reqJob Magician). tier C: automation, not tuning.
 const FALLBACK_ITEM := {212: 1382001, 222: 1382001}
+## The `skill` scenario's debug build per job: three more pool actives with ranks and two common passives (cards applied directly).
+## tier C: automation, not tuning.
+const SKILL_BUILD := {
+	212: ["magic_claw_new", "magic_claw_rank", "fire_arrow_new", "explosion_new", "explosion_rank", "passive_might_new",
+		"passive_speed_new", "passive_speed_rank"],
+	222: ["magic_claw_new", "magic_claw_rank", "thunder_bolt_new", "ice_strike_new", "ice_strike_rank", "passive_might_new",
+		"passive_speed_new", "passive_speed_rank"],
+}
 ## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q potion; E is the
 ## Equip window).
 const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_C,
@@ -779,12 +787,12 @@ func _select_stage(key: String) -> bool:
 
 
 ## Title (Enter) -> a new character -> Free Market -> map select -> Start: the way into a round for the in-run scenarios.
-func _enter_round(character_name: String) -> bool:
+func _enter_round(character_name: String, job: int = 212) -> bool:
 	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
 		return false
 	await _sleep(2.0)
 	await _key(KEY_ENTER)
-	if not await _create_character(character_name):
+	if not await _create_character(character_name, job):
 		return false
 	if not await _open_map_select():
 		return false
@@ -1302,15 +1310,17 @@ func _shot_zoom(step: String, around: Node2D, also: Node2D = null) -> void:
 
 
 func _scenario_skill() -> void:
-	if not await _enter_round("Skill86"):
+	var job := _job_arg() # `--job=<id>` (default 212; 222 is the I/L Arch Mage, #330)
+	if job < 0:
+		return
+	if not await _enter_round("Skill86", job):
 		return
 	var run := flow.current as RunScene
 	await _sleep(3.0)
 	# A build to show (debug setup, like the windows scenario's EXP drop): three more pool actives with ranks, and two
 	# common passives (cards applied directly; the Teleport key skill and the starting Energy Bolt are already known).
 	var w := run.world
-	for id: String in ["magic_claw_new", "magic_claw_rank", "fire_arrow_new", "explosion_new", "explosion_rank",
-			"passive_might_new", "passive_speed_new", "passive_speed_rank"]:
+	for id: String in SKILL_BUILD.get(job, SKILL_BUILD[212]):
 		w.upgrades.apply(id, w)
 	await _sleep(0.5)
 	# K opens the Skill window on the job's tab (the last) and holds the sim.
@@ -1330,9 +1340,10 @@ func _scenario_skill() -> void:
 	for i in sw.rows().size():
 		await _key(KEY_DOWN)
 	await _sleep(0.3)
-	var last := sw.tooltip()
-	_check(String(last.get("key", "")) == String(sw.rows()[sw.rows().size() - 1].key), "Down selected the last row (%s)" % [last.get("key", "")])
-	await _shot("skill_keyboard_tooltip")
+	if not sw.rows().is_empty(): # the I/L Arch Mage's own book has no implemented skill until its last tickets (#330)
+		var last := sw.tooltip()
+		_check(String(last.get("key", "")) == String(sw.rows()[sw.rows().size() - 1].key), "Down selected the last row (%s)" % [last.get("key", "")])
+		await _shot("skill_keyboard_tooltip")
 	await _key(KEY_LEFT)
 	await _sleep(0.3)
 	_check(sw.tab == last_tab - 1, "Left switched to the previous job tab")
@@ -1359,7 +1370,7 @@ func _scenario_skill() -> void:
 	await _click_at(origin + sw.tab_rect(last_tab + 1).get_center())
 	await _sleep(0.3)
 	_check(sw.tab == last_tab, "no tab past the job's own to click")
-	for tab_index in [0, last_tab]:
+	for tab_index in range(last_tab + 1): # every tab: Common, then each book of the lineage (220 holds Teleport for the I/L)
 		await _click_at(origin + sw.tab_rect(tab_index).get_center())
 		await _sleep(0.2)
 		_check(sw.tab == tab_index, "skill tab %d shown" % tab_index)
