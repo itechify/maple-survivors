@@ -24,10 +24,10 @@ const PASSIVE_MAX_HP := Loadout.MAX_HP_PER_LEVEL
 const PASSIVE_REGEN_HP := "regen_hp"
 const PASSIVE_PREVIEW_KEYS := [PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 ## Effective opt-in mechanic values; fall-off is displayed as percentage points per later target.
-const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep"]
+const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep", "form_time", "form_power"]
 ## Active rarity-bonus stats a card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
-const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep"]
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "form_time", "form_power"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -336,7 +336,7 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 			var kept := before * float(effect.value) if op == "mul" else before + float(effect.value)
 			labels.append("Keeps %d orbs" % maxi(0, roundi(kept)))
 			continue
-		labels.append(String(effect.stat).replace("attack_count", "Hits").capitalize() + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
+		labels.append(String(effect.stat).replace("form_time", "Form duration").replace("form_power", "Form power").replace("attack_count", "Hits").capitalize() + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
 	bonus.text = String(bonus.get("text", bonus.id)) + ": " + ", ".join(labels)
 	bonus.counter = counter
 	return bonus
@@ -392,6 +392,10 @@ static func _bonus_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictio
 
 static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: String) -> Variant:
 	match stat:
+		"form_time":
+			return snappedf(float(st.get("duration", 0.0)), 0.01)
+		"form_power":
+			return snappedf(lo.skill_stat(skill, "form_power", 0.0) * 100.0, 0.01)
 		"meter_keep":
 			return maxi(0, roundi(lo.skill_stat(skill, "meter_keep", 0.0)))
 		"pierce_falloff":

@@ -1051,6 +1051,8 @@ func _after_tick() -> void:
 func handle_events(events: Array) -> void:
 	for e: Dictionary in events:
 		match String(e.type):
+			"form_started", "form_ended":
+				_refresh_form_tint()
 			"meter_changed":
 				hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
 			"map_cleared":
@@ -2169,3 +2171,15 @@ func _layer_at(p: Vector2) -> int:
 
 func _sfx_service() -> AudioService:
 	return get_node_or_null("/root/Sfx") as AudioService
+
+
+## Refreshes the held weapon only when a form starts or ends (tier C element palette).
+func _refresh_form_tint() -> void:
+	var colours := {"f": Color(1.0, 0.35, 0.2), "i": Color(0.3, 0.7, 1.0),
+		"l": Color(1.0, 0.85, 0.2), "h": Color(1.0, 0.8, 0.55), "s": Color(0.6, 0.9, 0.35)}
+	avatar.weapon_tint = Color.WHITE
+	for form: Dictionary in world.runner.forms.snapshot():
+		var element := String(form.effects.get("element", ""))
+		if colours.has(element):
+			avatar.weapon_tint = colours[element]
+			break

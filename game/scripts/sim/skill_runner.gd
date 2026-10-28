@@ -53,6 +53,7 @@ var casts := 0
 var fired_this_tick := false
 
 var summons := PlayerSummons.new()
+var forms := PlayerForms.new()
 
 var _stats := {}
 var _version := -1
@@ -165,6 +166,7 @@ static func is_attack(st: Dictionary) -> bool:
 func tick_cooldowns(dt: float, world: RunWorld) -> void:
 	fired_this_tick = false
 	summons.step(dt, world)
+	forms.step(dt, world)
 	_step_areas(dt, world)
 	if not _flights.is_empty():
 		_land_flights(dt, world)
@@ -192,7 +194,10 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		var cb := float(cooldowns.get(b, 0.0))
 		return ca < cb if ca != cb else lo.order.find(a) < lo.order.find(b))
 	var finisher := world.meter.preferred(world, ready) if not world.meter.config.is_empty() else ""
+	var preferred_forms := forms.preferred(world, ready)
 	for key: String in ready:
+		if world.book.kind(key) == "form" and (not forms.admits(world, key) or key not in preferred_forms):
+			continue
 		var meter_rule: Dictionary = world.book.def(key).get("meter", {})
 		if not world.meter.admits(world.book.def(key)) or (not meter_rule.is_empty() and key != finisher):
 			continue
@@ -208,7 +213,7 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 			# Slash Blast pays HP and never casts when that would leave 0 HP; nothing is spent.
 			continue
 		var plan := prepare_cast(world, key, st, origin)  # has_target said yes, so admission does too
-		st = _with_finish_art(world, key, world.meter.begin_cast(world, key, st))
+		st = forms.begin_cast(world, key, _with_finish_art(world, key, world.meter.begin_cast(world, key, st)))
 		world.spend_hp(int(st.hp_cost))
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		cooldown_totals[key] = cooldowns[key]
@@ -276,7 +281,7 @@ func cast_dash(world: RunWorld, key: String, side: int) -> bool:
 	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 	var start := world.player.pos
 	world.player.dash_to(move)
-	var cast_stats := st.duplicate()
+	var cast_stats := forms.begin_cast(world, key, st).duplicate()
 	cast_stats["push_side"] = side
 	_resolve_charge(world, cast_stats, start, side)
 	return true
@@ -286,6 +291,8 @@ func cast_dash(world: RunWorld, key: String, side: int) -> bool:
 ## `not prepare_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
 ## ordering them, so a ready skill without a target costs no target list.
 func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> bool:
+	if String(st.kind) == "form":
+		return forms.admits(world, key) and _buff_admission(world, st, origin) != BUFF_REFUSED
 	if String(st.kind) == "summon":
 		return true
 	match String(st.cast_rule):
@@ -340,6 +347,8 @@ func prepare_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2)
 
 
 func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
+	if String(st.kind) == "form":
+		return {"go": true} if has_target(world, key, st, origin) else {}
 	match String(st.cast_rule):
 		"", "nearest":
 			return _admit_nearest(world, key, st, origin)
@@ -475,6 +484,9 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 			"effect": String(st.finish_effect)})
 	if definition.has("pull") and String(st.kind) != "buff":
 		apply_pull(world, key, st, origin)
+	if String(st.kind) == "form":
+		forms.start(world, key, st)
+		return
 	if String(st.kind) == "summon":
 		summons.spawn(world, st)
 		return

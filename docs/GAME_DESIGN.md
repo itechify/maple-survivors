@@ -5946,6 +5946,43 @@ No shipped skill carries the block yet, so no existing record changes.
 - **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
   and Skill-window text (H7).
 
+### 7.61 Form / M2 (#311)
+
+A Form is a timed active stance. It does no damage itself, occupies one active slot, and starts its ordinary
+cooldown at cast time. Admission requires a living monster in `cast.mob_within`; a running form blocks every
+ready form in the same `exclusive_group`. Different groups coexist. Among ready forms per group, the largest
+sum of live monster element multipliers within 400 px of the cast origin wins; ready order breaks ties.
+No extra random draw occurs. Manual starts replace an occupied group.
+
+```json
+{"kind":"form", "slot":"active", "damage":"none", "cooldown":18,
+ "cast":{"rule":"form", "mob_within":400},
+ "form":{"duration":12, "exclusive_group":"example",
+   "effects":{"element":"f", "damage":{"field":"damage"}},
+   "subs":[{"skill":"example_sub", "first_after":1, "interval":3},
+           {"skill":"example_once", "first_after":0.5, "once":true}]}}
+```
+
+Durations and trigger times are survivor data, never rewritten WZ values. `form_time` multiplies duration at
+start; `form_power` adds to the canonical field percent multiplier (120% plus 0.1 becomes 1.3). A running window
+snapshots rank and effects. `element` affects only empty-element damaging casts; existing elements stay.
+`damage` scales min/max and status damage for every damaging cast, including manual mobility and sub-skills.
+The effects registry is the only dispatch boundary; future hidden/morph/hull keys belong to later specs.
+
+Sub definitions use `slot: form_sub`, `form_sub_of: [parent keys]` (a single string is also accepted), ordinary
+cast rules and their own rank tables. They are never learned into Loadout.order or offered as cards. At each due
+time they wait for their own range, minimum targets, casting gate and HP payment. A successful cast consumes
+`once` or restarts `interval` from that cast (no catch-up burst). Stats use the parent's snapshotted rank through
+the sub's own table, current parent skill-local damage and area modifiers, and no parent cooldown modifier.
+The usual cast/hit/stance/sound path handles their output. Map transfer keeps timers and consumed once state,
+but drops queued delayed strikes; death clears all windows. A new window resets sub clocks.
+
+The buff row shows the existing icon/countdown entry. The held weapon and cash weapon cover alone receive a
+code-drawn element tint; start/end events refresh it. SkillText lists duration, element, multiplier and each
+sub's trigger, mapped level, damage and target count. Form rarity previews use seconds for time and percentage
+points for power. `player_form_probe.tscn` injects a synthetic fire form for visual QA without Paladin data.
+
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7186,6 +7223,14 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
 
+<!-- #311 provenance additions -->
+
+Form constants and provenance (#311): tier C elemental arbitration radius **400 px**; ties preserve ready order.
+Tier C sub cadence: wait until admitted, restart interval at successful cast, no catch-up bursts; expiry wins
+on the window's final tick. Tier C weapon tint RGB: fire (1,.35,.2), ice (.3,.7,1), lightning (1,.85,.2),
+holy (1,.8,.55), poison (.6,.9,.35); white without an elemental form. Synthetic test/probe durations are diagnostic,
+not playable tuning. Canonical effect percentages remain tier A data read through each form's mapped level.
+
 ## 12. Later phases
 
 Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.
@@ -7205,3 +7250,4 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 | Finisher gate / spend multiplier | 5; all minus meter_keep; +10% per spent orb | tier C, #296; H8 skill data |
 | Finisher repeat floor / arbitration | 1 s; single-target scheduled boss, else most targets | tier C, #296; shared admission |
 | Meter HUD geometry | origin (244,20), 12 px pitch, 4 px radius, 10 px orb image, 1 px border | tier C presentation layout; original orb pixels tier A |
+

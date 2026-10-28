@@ -724,3 +724,13 @@ func test_meter_catalog_schema() -> void:
 		assert_eq(String(meter.spend), "all")
 		assert_true(float(meter.damage_per_unit) >= 0.0)
 		assert_eq(String(skill.slot), "active")
+
+func test_form_catalog_schema_and_subs_excluded_from_pools_and_cards() -> void:
+	assert_true(PlayerForms.validation_errors(data.skills.skills).is_empty(), " ".join(PlayerForms.validation_errors(data.skills.skills)))
+	for key: String in data.skills.skills:
+		if String(data.skills.skills[key].get("slot", "")) != "form_sub":
+			continue
+		for job: Dictionary in data.jobs_survivor.jobs.values():
+			assert_false(key in job.get("skill_pool", []), "%s: sub never in pool" % key)
+		for card: Dictionary in data.upgrades.cards:
+			assert_false(String(card.get("skill", "")) == key, "%s: sub never a card" % key)
