@@ -5979,7 +5979,7 @@ but drops queued delayed strikes; death clears all windows. A new window resets 
 
 The buff row shows the existing icon/countdown entry. The held weapon and cash weapon cover alone receive a
 code-drawn element tint; start/end events refresh it. SkillText lists duration, element, multiplier and each
-sub's trigger, mapped level, damage and target count. Form rarity previews use seconds for time and percentage
+sub's trigger, mapped level, base skill power, target count and HP cost. Form rarity previews use seconds for time and percentage
 points for power. `player_form_probe.tscn` injects a synthetic fire form for visual QA without Paladin data.
 
 

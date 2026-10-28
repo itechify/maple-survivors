@@ -145,6 +145,7 @@ func test_sub_rank_damage_area_inheritance_and_slot_exclusion() -> void:
 
 func test_form_modifiers_snapshot_and_text() -> void:
 	var w := _world()
+	_sub(w)
 	w.loadout.add_skill_mod("test_form", "form_time", "mul", 2.0)
 	w.loadout.add_skill_mod("test_form", "form_power", "add", 0.1)
 	_start(w)
@@ -154,6 +155,7 @@ func test_form_modifiers_snapshot_and_text() -> void:
 	assert_near(w.runner.forms.snapshot()[0].remaining, 2.0, 0.001)
 	var line := SkillText.new(w.book).level_line("test_form", 1, w.loadout.stats("test_form"))
 	assert_true("fire" in line and "4 s" in line and "30%" in line, line)
+	assert_true("10 fixed damage" in line and "every 0.2 s" in line and "5 HP" in line, line)
 
 func test_schema_rejects_unknown_effects_and_missing_sub_links() -> void:
 	var w := _world()
@@ -170,6 +172,11 @@ func test_schema_rejects_unknown_effects_and_missing_sub_links() -> void:
 	w.book.defs.test_sub.erase("form_sub_of")
 	var errors := " ".join(PlayerForms.validation_errors(w.book.defs))
 	assert_true("duration" in errors and "form_sub_of" in errors, errors)
+	w.book.defs.test_form.cast.mob_within = {}
+	w.book.defs.test_form.form.subs[0].interval = "later"
+	w.book.defs.test_form.form.subs[0].once = "yes"
+	errors = " ".join(PlayerForms.validation_errors(w.book.defs))
+	assert_true("mob_within" in errors and "interval" in errors and "once" in errors, errors)
 
 func test_preferred_scores_living_nearby_mobs_and_keeps_order_on_ties() -> void:
 	var w := _world()

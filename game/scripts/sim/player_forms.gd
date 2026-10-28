@@ -153,12 +153,12 @@ static func validation_errors(defs: Dictionary) -> PackedStringArray:
 		if not block is Dictionary:
 			errors.append("%s.form needs an object" % key)
 			continue
-		if not block.get("duration") is float and not block.get("duration") is int or float(block.get("duration", 0)) <= 0:
+		if _seconds(block.get("duration")) <= 0:
 			errors.append("%s.form.duration must be positive seconds" % key)
 		if not block.get("exclusive_group") is String or String(block.get("exclusive_group", "")).strip_edges().is_empty():
 			errors.append("%s.form.exclusive_group must be nonempty" % key)
 		var cast: Variant = d.get("cast", {})
-		if not cast is Dictionary or String(cast.get("rule", "")) != "form" or float(cast.get("mob_within", 0)) <= 0:
+		if not cast is Dictionary or String(cast.get("rule", "")) != "form" or _seconds(cast.get("mob_within")) <= 0:
 			errors.append("%s.cast needs rule form and positive mob_within" % key)
 		if String(d.get("damage", "")) != "none" or String(d.get("slot", "")) != "active":
 			errors.append("%s: form needs damage none and slot active" % key)
@@ -188,8 +188,18 @@ static func validation_errors(defs: Dictionary) -> PackedStringArray:
 				parents = [parents]
 			if String(child.get("slot", "")) != "form_sub" or not parents is Array or not key in parents:
 				errors.append("%s.form.subs: %s needs slot form_sub and form_sub_of parent" % [key, skill])
-			if not sub.get("first_after") is float and not sub.get("first_after") is int or float(sub.get("first_after", -1)) < 0:
+			if _seconds(sub.get("first_after")) < 0:
 				errors.append("%s.form.subs.%s.first_after must be nonnegative seconds" % [key, skill])
-			if not bool(sub.get("once", false)) and float(sub.get("interval", 0)) <= 0:
+			var once: Variant = sub.get("once", false)
+			if not once is bool:
+				errors.append("%s.form.subs.%s.once must be boolean" % [key, skill])
+			if not (once is bool and bool(once)) and _seconds(sub.get("interval")) <= 0:
 				errors.append("%s.form.subs.%s needs once or positive interval" % [key, skill])
 	return errors
+
+
+static func _seconds(value: Variant) -> float:
+	if not (value is float or value is int):
+		return -1.0
+	var seconds := float(value)
+	return seconds if is_finite(seconds) else -1.0

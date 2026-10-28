@@ -187,6 +187,14 @@ _Avoid_: follow-up skill, proc
 **Party buff**:
 A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here it affects the character only.
 
+**Form**:
+A timed active stance that changes the character's attacks and carries sub-skills. A running form survives
+map transfer and ends on death.
+
+**Sub-skill**:
+An attack carried by a Form, used automatically while the form lasts. It grows with its parent, occupies no
+skill slot and is never offered as a card.
+
 ## Cards and rarity
 
 **Rank**:
@@ -425,11 +433,3 @@ _Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)
 A pool active whose meter block gates admission and spends units for extra damage. Panic and Coma are Hero's
 finishers; their meter_keep rarity modifier leaves units unspent.
 _Avoid_: ultimate, proc
-
-**Form**:
-A timed active stance that changes the caster's damaging casts and drives its own sub-skills. Forms in the same
-exclusive group never overlap; their timers survive map transfer but not death.
-
-**Sub-skill**:
-An attack carried by a Form, with its own cast rule and rank table, driven by the parent window's trigger clock.
-It uses its parent's rank, occupies no slot and is never a card.

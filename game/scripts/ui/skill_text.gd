@@ -87,8 +87,19 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 			sub_lo.add_skill_mod(sub_key, "damage", "mul", float(stats.get("form_sub_damage", 1.0)))
 			sub_lo.add_skill_mod(sub_key, "area", "mul", float(stats.get("form_sub_area", 1.0)))
 			var sub_stats := sub_lo.stats(sub_key, int(stats.get("rank", 1)))
-			mechanics.append("%s %s (Lv%d): %s" % [String(_wz(sub_key).get("name", book.def(sub_key).get("name", sub_key.replace("_", " ").capitalize()))), trigger, sub_level, level_line(sub_key, sub_level, sub_stats) + " %s-%s damage, %d targets" % [
-				number(float(sub_stats.damage_min)), number(float(sub_stats.damage_max)), SkillRunner.strike_count(sub_stats)]])
+			var details := level_line(sub_key, sub_level, sub_stats)
+			var base := ""
+			match String(sub_stats.damage_type):
+				"fixed":
+					base = "Base %s fixed damage" % number(book.canonical(sub_key, sub_level, "fixdamage"))
+				"physical":
+					base = "Base %s%% weapon damage" % number(book.canonical(sub_key, sub_level, "damage", 100.0))
+				"magic":
+					base = "Base %s magic power" % number(book.canonical(sub_key, sub_level, "mad"))
+			var cost := ", %d HP" % int(sub_stats.hp_cost) if int(sub_stats.hp_cost) > 0 else ""
+			mechanics.append("%s %s (Lv%d): %s %s, %d targets%s" % [String(_wz(sub_key).get("name",
+				book.def(sub_key).get("name", sub_key.replace("_", " ").capitalize()))), trigger, sub_level,
+				details, base, SkillRunner.strike_count(sub_stats), cost])
 	if def.has("meter"):
 		mechanics.append("Needs %d orbs" % int(def.meter.get("min", 0)))
 		var keep := int(stats.get("meter_keep", 0))
