@@ -5644,8 +5644,14 @@ Skill.wz level field is tier A.
   engage reach: it never holds the bot back from walking up to a mob, and a pull never draws it away from one.
 - **Rarity** (section 8 schema; Legendary shares the Unique's id and repeat counter): Shout Rare Area x1.2, Epic Booster
   cooldown x0.88, Unique Echo Shout cooldown x0.75, Legendary Echo Shout plus area x1.2. Monster Magnet Rare Reach range
-  x1.2 (spec says `area`, but `range_around` and `pull` read `range`, never `area`: a tier C correction), Epic Bigger Grab
+  x1.2 (the spec table says `area`; at H7 `range_around` read only `range`. H5 then made a radial range scale with `area` too, so
+  either modifier works; `range` stays), Epic Bigger Grab
   +2 targets (`count`), Unique Booster cooldown x0.75, Legendary Booster plus +2 targets.
+- **Bonus audit (merge of #301 and #303).** `test_rarity_bonus_effects` casts every rarity effect of every Hero and F/P skill,
+  with and without it, in a seeded world and asserts that the resolved cast changes: damage dealt, casts per 66 s, hit events,
+  mobs affected (`count`, `pierce`), allies (`summon_count`), or a mob just beyond the base reach hit only with `area` / `range`.
+  Every shipped bonus passes; a negative test shows the probe fails a modifier the rule never reads (`range` on a box, `pierce`
+  on Brandish). No bonus was swapped: Slash Blast's Epic `area` works since H5 scales a `range_around` radius by `area`.
 - **Text.** `SkillText.level_line` adds "Pulls up to N monsters from R px" for any skill with a `pull` block (the effective
   `mob_count` and `range`, so Bigger Grab and Reach show), after the data's own line ("P% chance for each monster pulled").
 
