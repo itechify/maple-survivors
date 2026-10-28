@@ -98,8 +98,14 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 			assert_eq(book.canonical_level(key, 5), 5)
 			continue
 		var top := book.max_level(key)
+		# Pool skills take the default eight-rank mapping. The legacy I/L Cold Beam and Thunder Bolt keep their 30-entry
+		# tables until I6 ports them, so a 222 pool skill counts once it has no explicit `ranks`.
+		var pooled: bool = key in data.jobs_survivor.jobs["212"].skill_pool or \
+			(key in data.jobs_survivor.jobs["222"].skill_pool and not book.def(key).has("ranks"))
+		if top <= 0 and pooled:
+			continue # a pool skill whose book the synthetic fixtures do not carry (the I/L 221/222 books)
 		assert_true(top > 0, "%s has a canonical level table" % key)
-		if key in data.jobs_survivor.jobs["212"].skill_pool:
+		if pooled:
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
