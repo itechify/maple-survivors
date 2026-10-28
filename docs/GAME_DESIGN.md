@@ -596,6 +596,21 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
+**#291 summon regression smoke (2026-10-28).** Seeds 1/2/2026, every tier-1 stage, bot/random,
+read-only T1 cache, no patches or tuning. All 24 records ended DEAD, warnings=[] and missing=[]; no crashes.
+Ellinia's known early deaths remain. Henesys seed-1 bot now dies at 378.5 s, Lv16, map 2, compared with
+#290's 307.8 s, Lv12, map 1. Mano completes in 39.40 s for that seed; across Henesys bot, completed 3/3 spawned,
+completed median 28.40 s and censored median 28.40 s (0 unfinished); later bosses never spawned.
+No held-out seeds used. Full console reports and records are local `_scratch/balance291/`.
+
+| Stage | Bot death seconds (min–max), end levels | Random death seconds (min–max), end levels |
+|---|---|---|
+| Henesys | 350.9–395.4, Lv16–19 | 307.0–371.3, Lv12–17 |
+| Ellinia | 35.2–76.4, Lv1–2 | 35.2–76.4, Lv1–2 |
+| Perion | 308.4–424.6, Lv13–20 | 306.7–340.6, Lv13–14 |
+| Kerning | 304.8–307.1, Lv14 | 306.9–311.7, Lv14–15 |
+
+
 Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` (whole headless runs on the real map,
 `game/tools/balance_run.gd`). Movement is always the autoplay bot (`BotInput`): it kites on the ground (dueling a
 lone ordinary mob with the basic attack while no attack skill can fire), walks to EXP drops and climbs a ladder or
@@ -5419,7 +5434,7 @@ immunity and Fire Demon's per-mob ice weakness. No additional freeze is inferred
 
 Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 30 s recast,
 180 px/s follow, 60 px trailing offset, 600 px snap distance and 2.4 s minimum attack cycle (never shorter than the
-WZ animation or hit delay). A zero follow speed permits stationary later definitions; future taunt, projectile,
+WZ animation or hit delay). A zero follow speed stops incremental following (distance snapping still applies); future stationary, taunt, projectile,
 ground-navigation or pet-like targeting behaviours must extend this seam with their own tests, not special-case IDs.
 `damage`, `area`, `count` (attack targets), `attack_count`, `cooldown` consume existing modifiers; `duration` and
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
