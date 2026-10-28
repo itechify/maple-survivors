@@ -150,9 +150,7 @@ func stats_of(world: RunWorld, key: String) -> Dictionary:
 
 ## Advances cooldowns and fires the oldest ready skill with a target.
 func step(dt: float, world: RunWorld, preserve_manual_cast: bool = false) -> void:
-	if not preserve_manual_cast:
-		fired_this_tick = false
-	tick_cooldowns(dt, world)
+	tick_cooldowns(dt, world, preserve_manual_cast)
 	if world.can_cast() and not fired_this_tick:
 		cast_ready(dt, world)
 
@@ -164,7 +162,9 @@ static func is_attack(st: Dictionary) -> bool:
 
 
 ## Counts down every active skill, including while casting is blocked.
-func tick_cooldowns(dt: float, world: RunWorld) -> void:
+func tick_cooldowns(dt: float, world: RunWorld, preserve_manual_cast: bool = false) -> void:
+	if not preserve_manual_cast:
+		fired_this_tick = false
 	summons.step(dt, world)
 	_step_areas(dt, world)
 	if not _flights.is_empty():
