@@ -92,6 +92,8 @@ func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
 
 func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 	for key: String in book.defs:
+		if not book.skill_imgs.has(String(book.def(key).get("book", ""))):
+			continue # the synthetic fixtures hold no 111/112 book (Hero, #296); the real-cache test covers them
 		if bool(book.def(key).get("common_passive", false)):
 			# #289: a common passive is survivor-made: its icon skill's WZ node has no level table, rank r is level r.
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
@@ -99,7 +101,10 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 			continue
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
-		if key in data.jobs_survivor.jobs["212"].skill_pool:
+		# A pool skill has eight ranks. A Hero pool key still on its legacy 20-rank warrior.json entry (no rarity bonuses
+		# until H5 ports it) keeps one rank per level.
+		if book.def(key).has("rarity_bonuses") \
+				and data.jobs_survivor.jobs.values().any(func(j: Dictionary) -> bool: return key in j.get("skill_pool", [])):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue

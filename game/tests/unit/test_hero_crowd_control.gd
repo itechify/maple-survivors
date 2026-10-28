@@ -334,3 +334,24 @@ func test_the_bot_does_not_count_magnet_as_a_reach() -> void:
 	assert_eq(SkillRunner.reach_of(w.loadout.stats("monster_magnet"), w), 0.0)
 	var s := _world("shout")
 	assert_true(SkillRunner.reach_of(s.loadout.stats("shout"), s) > 100.0, "Shout reaches its box's far edge")
+
+
+# --- Text -------------------------------------------------------------------------------------------------------------
+
+func test_magnet_text_says_how_many_monsters_and_from_how_far() -> void:
+	var w := _world("monster_magnet")
+	w.loadout.set_rank("monster_magnet", 8)
+	var text := SkillText.new(w.book, {})
+	var line := text.level_line("monster_magnet", w.loadout.stats("monster_magnet").level, w.loadout.stats("monster_magnet"))
+	assert_true(line.contains("Pulls up to 6 monsters from 400 px"), line)
+	assert_true(line.contains("100% chance"), line)
+	w.upgrades.apply("monster_magnet_rank", w, "epic")
+	var wider := text.level_line("monster_magnet", 30, w.loadout.stats("monster_magnet"))
+	assert_true(wider.contains("Pulls up to 8 monsters"), "Bigger Grab shows in the text: " + wider)
+
+
+func test_shout_text_shows_damage_targets_stun_chance_and_seconds() -> void:
+	var w := _world("shout")
+	var line := SkillText.new(w.book, {}).level_line("shout", 5, w.loadout.stats("shout"))
+	assert_true(line.contains("up to 6 monsters"), line)
+	assert_true(line.contains("50% chance each to stun for 3 sec"), line)
