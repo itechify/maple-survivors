@@ -21,7 +21,7 @@ func _trace(w: RunWorld, ticks: int) -> int:
 	for t in ticks:
 		var mi := BotInput.decide(w, memo)
 		var bits := int(mi.left) + 2 * int(mi.right) + 4 * int(mi.up) + 8 * int(mi.down) + 16 * int(mi.jump_pressed) \
-				+ 32 * int(mi.jump_held) + 64 * int(mi.drink_hp) + 128 * int(mi.drink_mp)
+				+ 32 * int(mi.jump_held) + 64 * int(mi.drink_hp)
 		h = (h * 31 + bits) % 1000000007
 		w.step(DT, mi)
 		w.drain_events()
@@ -43,7 +43,6 @@ func test_magician_inputs_are_identical_to_main() -> void:
 	RF.change_job_bare(w, 200)
 	w.learn_skill("energy_bolt")
 	_swarm(w)
-	w.heal_fraction("mp", 1.0)
 	var digest := _trace(w, 900)
 	assert_eq(digest, MAGICIAN_DIGEST, "Magician bot inputs match main")
 
@@ -51,7 +50,6 @@ func test_magician_inputs_are_identical_to_main() -> void:
 func test_beginner_inputs_are_identical_to_main() -> void:
 	var w := RF.quiet_world(400, 9)
 	_swarm(w)
-	w.heal_fraction("mp", 1.0)
 	var digest := _trace(w, 900)
 	assert_eq(digest, BEGINNER_DIGEST, "Beginner bot inputs match main")
 
@@ -61,7 +59,6 @@ func test_beginner_inputs_are_identical_to_main() -> void:
 func _melee_world(seed_value := 9) -> RunWorld:
 	var data := RF.quiet_data()
 	data.upgrades.cards = []
-	data.balance.player.mp = 100
 	data.balance.magnet_radius = 0
 	data.skills.skills["slash"] = {"skill_id": 9991001, "book": "999", "job": 100, "kind": "instant",
 		"damage": "fixed", "ranks": [1], "cooldown": 1.0, "action": "swingO1", "action_time": 0.4,
