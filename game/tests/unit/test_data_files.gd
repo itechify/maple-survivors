@@ -51,8 +51,11 @@ func test_stage_labels_fall_back_to_the_old_name() -> void:
 
 func test_skills_reference_canonical_ids() -> void:
 	var skills: Dictionary = data.skills.skills
-	var want := {"three_snails": 1000, "energy_bolt": 2001004, "magic_claw": 2001005, "magic_guard": 2001002,
-		"magic_armor": 2001003, "recovery": 1001, "improved_max_mp": 2000001, "nimble_feet": 1002}
+	var want := {"three_snails": 1000, "energy_bolt": 2001004, "magic_claw": 2001005,
+		"magic_armor": 2001003, "recovery": 1001, "nimble_feet": 1002}
+	for gone: String in ["magic_guard", "improved_max_mp", "improved_mp_recovery", "mp_eater_fp", "mp_eater_il",
+			"mp_eater_cleric", "mp_recovery"]:
+		assert_false(skills.has(gone), "%s went with MP (#285)" % gone)
 	for key: String in want:
 		assert_true(skills.has(key), key)
 		assert_eq(int(skills[key].skill_id), want[key], key)
@@ -119,16 +122,15 @@ func test_cards_are_consistent() -> void:
 		if "{value}" in String(c.desc):
 			assert_true(c.has("value"), "%s fills {value}" % c.id)
 	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
-			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new",
-			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery"]:
+			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_armor_new",
+			"nimble_feet", "recovery"]:
 		assert_true(ids.has(id), "card %s" % id)
 	var fallback: Dictionary = data.upgrades.fallback
 	assert_false(ids.has(fallback.id), "fallback is outside the weighted pool")
 	assert_eq(fallback.kind, "filler")
 	assert_eq(fallback.requires, {}, "fallback is job-neutral")
 	assert_eq(int(fallback.max_rank), 0, "healing can be taken again on a later reward")
-	assert_eq(fallback.effects, [{"stat": "hp", "op": "heal", "value": 1.0},
-		{"stat": "mp", "op": "heal", "value": 1.0}], "Power Elixir fully restores both pools")
+	assert_eq(fallback.effects, [{"stat": "hp", "op": "heal", "value": 1.0}], "Power Elixir fully restores HP (no MP, #285)")
 	var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
 	assert_has(manifest.items, 2000005.0, "Power Elixir art is imported")
 
@@ -136,15 +138,15 @@ func test_cards_are_consistent() -> void:
 func test_stat_cards_are_replaced_by_owned_skills() -> void:
 	var pool := UpgradePool.from_data(data.upgrades)
 	assert_true(pool.card("max_hp").is_empty(), "the non-MapleStory Max HP card is removed")
-	for key: String in ["improved_max_mp", "nimble_feet"]:
-		assert_eq(pool.card(key).kind, "skill_new", "%s learns its skill" % key)
-		assert_eq(pool.card(key).skill, key)
-		assert_eq(pool.card(key).effects, [], "no flat stat effects remain")
-		assert_eq(pool.card(key + "_rank").kind, "skill_rank")
-		var is_mp := key == "improved_max_mp"
-		assert_eq(int(pool.card(key + "_rank").max_rank), 10 if is_mp else 3)
-		assert_eq(pool.card(key).requires.jobs, [200.0] if is_mp else [0.0])
-		assert_eq(pool.card(key + "_rank").requires.jobs, [200.0] if is_mp else [0.0])
+	var key := "nimble_feet"
+	assert_eq(pool.card(key).kind, "skill_new", "%s learns its skill" % key)
+	assert_eq(pool.card(key).skill, key)
+	assert_eq(pool.card(key).effects, [], "no flat stat effects remain")
+	assert_eq(pool.card(key + "_rank").kind, "skill_rank")
+	assert_eq(int(pool.card(key + "_rank").max_rank), 3)
+	assert_eq(pool.card(key).requires.jobs, [0.0])
+	assert_eq(pool.card(key + "_rank").requires.jobs, [0.0])
+	assert_true(pool.card("improved_max_mp").is_empty(), "the MaxMP card went with MP (#285)")
 
 
 func test_stages_mobs_and_manifest() -> void:
@@ -359,28 +361,27 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.magnet_radius), 90.0)
 	assert_eq(float(b.mob_speed_factor), 0.625)
 	assert_eq(float(b.knockback.speed), 187.5)
-	assert_eq(float(b.mp_regen), 0.0, "no per-second MP recovery")
-	assert_eq(b.regen, {"interval": 10.0, "hp": 10.0, "mp": 3.0})
-	assert_eq(float(b.level_up_refill.hp), 0.0, "level-ups add no HP (owner choice)")
-	assert_eq(float(b.level_up_refill.mp), 1.0, "level-ups refill MP to the new maximum")
-	assert_eq(b.potions.cooldown, {"hp": 20.0, "mp": 10.0}, "tier C: spec #237 per-kind cooldowns")
+	assert_false(b.has("mp_regen"), "no MP (#285)")
+	assert_eq(b.regen, {"interval": 10.0, "hp": 10.0})
+	assert_eq(b.level_up_refill, {"hp": 0.0}, "level-ups add no HP (owner choice); no MP refill (#285)")
+	assert_eq(b.potions.cooldown, {"hp": 20.0}, "tier C: spec #237 cooldown; no MP potion (#285)")
+	assert_false(b.potions.has("mp"), "no MP potion (#285)")
 	assert_false(b.potions.has("drops"))
 	assert_false(b.bosses.rewards.has("potions"))
 	assert_false(b.bosses.rewards.has("potion_spread"))
-	for kind: String in ["hp", "mp"]:
-		assert_false(b.potions[kind].has("start"))
+	assert_false(b.potions.hp.has("start"))
 	for key: String in data.stages.stages:
 		for kf: Dictionary in data.stages.stages[key].get("keyframes", []):
 			assert_false(kf.has("normal_mp_drop_chance") or kf.has("normal_hp_drop_chance"), "%s has no potion curves" % key)
 		for boss: Dictionary in DataRepo.stage_bosses(data.stages.stages[key]):
 			assert_false(boss.get("rewards", {}).has("potions"))
 	assert_eq(float(b.growth["0"].hp), 14.0)
-	assert_eq(float(b.growth["200"].mp), 22.0)
+	assert_false(b.growth["200"].has("mp"), "no MP growth (#285)")
 	assert_eq(int(b.player.ap_per_level), 5)
 	assert_eq(b.player.ap_stat, {"0": "str", "100": "str", "200": "int", "300": "dex", "400": "luk", "500:knuckle": "str", "500:gun": "dex", "510": "str", "520": "dex"})
 	assert_eq(String(b.player.ap_secondary["200"].stat), "luk", "Magician AP keeps LUK at the v83 requirement pattern")
 	assert_false(b.player.ap_secondary.has("0"), "the Beginner has no secondary stat")
-	assert_eq(float(b.growth["200"].int_mp_divisor), 10.0)
+	assert_false(b.growth["200"].has("int_mp_divisor"))
 
 
 ## Code fallbacks exist only for synthetic setups without balance data; each must repeat the shipped value exactly so
@@ -505,23 +506,22 @@ func test_setup_carries_canonical_potion_specs() -> void:
 			var items := {}
 			for id in DataRepo.potion_item_ids(data):
 				if DataRepo.potion_img_path(id) == path:
-					items["%08d" % id] = {"spec": {"hp": float(id), "mp": float(id)}, "info": {"price": 25.0}}
+					items["%08d" % id] = {"spec": {"hp": float(id)}, "info": {"price": 25.0}}
 			return items
 		return {"info": {}}
 	var setup := DataRepo.build_setup(data, "henesys", 10, Vector2(800, 600), loader,
 		func(_id: int) -> Dictionary: return {"info": {"maxHP": 1}})
 	assert_eq(setup.get("item_info", {}).get(2000000, {}).get("spec", {}).get("hp", -1), 2000000.0,
 		"canonical potion spec reaches the pure simulation")
-	assert_eq(DataRepo.potion_item_ids(data), PackedInt32Array([2000000, 2000001, 2000002, 2000003, 2000006,
-		2001001, 2001002, 2022000, 2022003]),
-		"the starters and the potions.schedule items: Red, Orange, White, Blue, Mana Elixir, Ice Cream Pop, Red Bean Sundae, Pure Water, Unagi")
+	assert_eq(DataRepo.potion_item_ids(data), PackedInt32Array([2000000, 2000001, 2000002, 2001001, 2022003]),
+		"the starter and the potions.schedule items: Red, Orange, White, Ice Cream Pop, Unagi (no MP potions, #285)")
 	assert_eq(setup.get("item_info", {}).keys(), Array(DataRepo.potion_item_ids(data)), "every scheduled potion is retained")
 	assert_eq(setup.item_info[2022003].spec.hp, 2022003.0, "Unagi comes from Consume/0202.img")
-	assert_eq(setup.item_info[2001002].spec.mp, 2001002.0, "Red Bean Sundae comes from Consume/0200.img")
+	assert_eq(setup.item_info[2001001].spec.hp, 2001001.0, "Ice Cream Pop comes from Consume/0200.img")
 	assert_eq(asked.count("Item.wz/Consume/0202.img"), 1, "each potion img is read once")
 	assert_eq(asked.count("Item.wz/Consume/0200.img"), 1)
 	assert_eq(DataRepo.potion_img_path(2022000), "Item.wz/Consume/0202.img")
-	assert_eq(DataRepo.potion_img_path(2000006), "Item.wz/Consume/0200.img")
+	assert_eq(DataRepo.potion_img_path(2000002), "Item.wz/Consume/0200.img")
 	var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
 	var sounds := []
 	for entry: Dictionary in manifest.imgs:
@@ -597,7 +597,6 @@ const HIT_MORE_EXEMPT := {
 	"teleport_il": "movement: deals no damage",
 	"teleport_cleric": "movement: deals no damage",
 	"dash": "movement buff: deals no damage",
-	"mp_recovery": "support: turns HP into MP, deals no damage",
 	"threaten": "support: threatens, deals no damage",
 	"disorder": "support: threatens and interrupts, deals no damage",
 }

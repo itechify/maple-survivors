@@ -184,7 +184,6 @@ func test_transfer_keeps_character_timers_and_pools_clears_statuses_and_rehomes_
 	w.god = true
 	_ticks(w, 16 * 60)
 	assert_false(w.mob_skills.slow_state(w.time).is_empty(), "the canonical synthetic boss cast Slow")
-	w.spend_mp(2)
 	w.spend_hp(7)
 	w.learn_skill("dark_sight")
 	assert_true(w.start_buff("dark_sight", w.runner.stats_of(w, "dark_sight")))
@@ -201,7 +200,6 @@ func test_transfer_keeps_character_timers_and_pools_clears_statuses_and_rehomes_
 	w.step(DT, MoveInput.new())
 	assert_true(w.transfer_pending)
 	var hp: int = w.player_state.hp
-	var mp: int = w.player_state.mp
 	var buffs := w.buffs.snapshot()
 	var potion := w.potions.cooldown_left.duplicate()
 	var character := w.character_snapshot()
@@ -213,7 +211,6 @@ func test_transfer_keeps_character_timers_and_pools_clears_statuses_and_rehomes_
 	assert_eq(w.time, t)
 	assert_eq(w.map_entered_at, t)
 	assert_eq(w.player_state.hp, hp)
-	assert_eq(w.player_state.mp, mp)
 	assert_eq(w.buffs.snapshot(), buffs)
 	assert_true(w.is_hidden())
 	assert_eq(w.skill_readiness("dark_sight").left, 12.0)
@@ -240,7 +237,6 @@ func test_transfer_keeps_character_timers_and_pools_clears_statuses_and_rehomes_
 
 func test_a_grenade_thrown_before_transfer_never_lands_or_damages_the_next_map() -> void:
 	var setup := _setup(0.1)
-	setup.data.balance.player.mp = 200
 	# Overlapping map geometry makes the old landing point dangerous to a new map's mob too.
 	setup.map_imgs[1] = setup.map_imgs[0].duplicate(true)
 	var w := RunWorld.new(setup)

@@ -32,7 +32,7 @@ func test_bot_waits_five_simulation_seconds_between_escape_requests() -> void:
 		w.player.place(Vector2(20, 0), w.fhm)
 		w.swarm.x[0] = 48
 		w.swarm.y[0] = 0
-			input = BotInput.decide(w, memo)
+		input = BotInput.decide(w, memo)
 		assert_false(input.skill_pressed("teleport") or input.skill_held("teleport"), "wait despite a persistent threat")
 		w.step(DT, MoveInput.new())
 	w.player.place(Vector2(20, 0), w.fhm)

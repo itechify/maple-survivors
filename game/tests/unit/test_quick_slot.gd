@@ -8,8 +8,7 @@ var cfg_path := TestCase.test_dir("quick_slot_test.cfg")
 var _saved_map: Dictionary = {}
 var _nodes: Array[Node] = []
 
-const POTIONS := {"hp": {"item_id": 2000000, "cooldown_left": 10.0, "cooldown_total": 20.0},
-	"mp": {"item_id": 2000003, "cooldown_left": 0.0, "cooldown_total": 10.0}}
+const POTIONS := {"hp": {"item_id": 2000000, "cooldown_left": 10.0, "cooldown_total": 20.0}}
 const TELEPORT := {"action": "teleport", "name": "Teleport", "icon": "Skill.wz/200.img/skill/2001002/icon",
 	"skill": "teleport_fp"}
 const DASH := {"action": "dash", "name": "Dash", "icon": "Skill.wz/500.img/skill/5001005/icon", "skill": "dash"}
@@ -61,8 +60,10 @@ func test_the_cells_are_in_the_fixed_order_with_key_config_icons_and_default_key
 	var order: Array[String] = []
 	for c: Dictionary in cells:
 		order.append(c.action)
-	assert_eq(order, ["drink_hp", "drink_mp", "", "jump", "equip_window", "item_window", "stat_window", "skill_window"],
-		"top row HP, MP, movement skill, Jump; bottom row Equip, Item, Stat, Skill")
+	assert_eq(order, ["drink_hp", "", "", "jump", "equip_window", "item_window", "stat_window", "skill_window"],
+		"top row HP, a blank cell (no MP, #285), movement skill, Jump; bottom row Equip, Item, Stat, Skill")
+	assert_eq(cells[1].icon_path, "", "the blank cell draws no icon")
+	assert_eq(cells[1].caption, "", "and no caption")
 	for action: String in ["jump", "equip_window", "item_window", "stat_window", "skill_window"]:
 		assert_eq(_cell(cells, action).icon_path, KeyActionArt.icon_path(action), "%s uses the Key Config icon" % action)
 	assert_eq(_cell(cells, "jump").caption, "Alt", "Jump: its first key (Alt, then C)")
@@ -71,7 +72,6 @@ func test_the_cells_are_in_the_fixed_order_with_key_config_icons_and_default_key
 	assert_eq(_cell(cells, "stat_window").caption, "S")
 	assert_eq(_cell(cells, "skill_window").caption, "K")
 	assert_eq(_cell(cells, "drink_hp").caption, "Del", "the first key only (HP is on Del and Q)")
-	assert_eq(_cell(cells, "drink_mp").caption, "End")
 
 
 func test_potion_cells_show_the_current_item_icon_without_stock() -> void:
@@ -80,12 +80,9 @@ func test_potion_cells_show_the_current_item_icon_without_stock() -> void:
 	assert_eq(hp.icon_path, AssetLibrary.item_icon_path(2000000, false), "the current Red Potion's icon")
 	assert_false(hp.has("count"), "unlimited potions carry no stock number")
 	assert_eq(hp.item_id, 2000000)
-	var mp := _cell(cells, "drink_mp")
-	assert_false(mp.has("count"))
-	assert_eq(mp.icon_path, AssetLibrary.item_icon_path(2000003, false))
 	for c: Dictionary in cells:
 		assert_false(c.has("count"), "no quick-slot cell carries a count")
-	var none := HudQuickSlot.cells({}, {"hp": {"item_id": 0, "count": 0}, "mp": {}}, {})
+	var none := HudQuickSlot.cells({}, {"hp": {"item_id": 0, "count": 0}}, {})
 	assert_eq(none[0].icon_path, KeyActionArt.icon_path("drink_hp"), "no item yet: the Key Config potion icon")
 	assert_false(none[1].has("count"))
 
@@ -105,18 +102,15 @@ func test_potion_sweeps_match_skills_and_redraw_only_when_the_step_changes() -> 
 	_nodes.append(w)
 	w.update({"potions": POTIONS}, {})
 	assert_eq(w.displayed("hp").sweep_step, 48, "half of the HP cooldown")
-	assert_eq(w.displayed("mp").sweep_step, 0, "MP is independently ready")
 	assert_false(w.displayed("hp").has("count"))
-	var left := PackedFloat32Array([10.0, 0.0])
-	var total := PackedFloat32Array([20.0, 10.0])
+	var left := PackedFloat32Array([10.0])
+	var total := PackedFloat32Array([20.0])
 	assert_false(w.set_cooldowns(left, total), "the snapshot already drew these steps")
 	left[0] = 9.99
 	assert_false(w.set_cooldowns(left, total), "same sweep step: no redraw")
 	left[0] = 9.0
-	left[1] = 10.0
-	assert_true(w.set_cooldowns(left, total), "HP advances and MP starts")
+	assert_true(w.set_cooldowns(left, total), "HP advances")
 	assert_eq(w.displayed("hp").sweep_step, HudSkills.sweep_step(9.0, 20.0))
-	assert_eq(w.displayed("mp").sweep_step, 96, "full MP overlay")
 	for seconds: float in [20.0, 15.0, 10.0, 5.0, 0.01, 0.0, -1.0, 30.0]:
 		left[0] = seconds
 		w.set_cooldowns(left, total)
@@ -126,7 +120,6 @@ func test_potion_sweeps_match_skills_and_redraw_only_when_the_step_changes() -> 
 	w.set_cooldowns(left, total)
 	w.refresh_key_labels()
 	assert_eq(w.displayed("hp").sweep_step, 0, "a caption refresh keeps the per-frame sweep")
-	assert_eq(w.displayed("mp").sweep_step, 0, "both are ready again")
 	total.fill(0.0)
 	left.fill(1.0)
 	assert_false(w.set_cooldowns(left, total), "no cooldown total means ready")

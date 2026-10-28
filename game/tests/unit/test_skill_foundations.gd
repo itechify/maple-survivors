@@ -7,7 +7,6 @@ const DT := 1.0 / 60.0
 
 func _world(cast: Dictionary = {}, kind: String = "instant", on_hit: Dictionary = {}) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 100
 	data.skills.skills["synthetic"] = {"skill_id": 9991000, "book": "999", "kind": kind,
 		"damage": "fixed", "ranks": [1, 2], "cooldown": 1.0, "range": 400.0, "speed": 400.0,
 		"cast": cast, "on_hit": on_hit}
@@ -71,20 +70,18 @@ func _events(w: RunWorld, type: String) -> Array:
 	return w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == type)
 
 
-func test_box_admission_pays_once_and_hits_capped_targets_per_line() -> void:
+func test_box_admission_casts_once_and_hits_capped_targets_per_line() -> void:
 	var w := _world({"rule": "box", "min_targets": 2}, "projectile")
 	w.player.facing = -1
 	var a := RF.put_mob(w, 1110100, 165, 195)
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 	w.runner.step(DT, w)
 	assert_eq(_events(w, "cast").size(), 0, "one target cannot admit min_targets=2")
-	assert_eq(w.player_state.mp, 100)
 	var b := RF.put_mob(w, 1110100, 145, 195)
 	var c := RF.put_mob(w, 1110100, 125, 195)
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 	w.runner.step(DT, w)
 	assert_eq(_events(w, "cast").size(), 1)
-	assert_eq(w.player_state.mp, 93, "one mpCon for the whole cast")
 	assert_eq(w.swarm.hp[a], 230, "two lines on nearest")
 	assert_eq(w.swarm.hp[b], 230)
 	assert_eq(w.swarm.hp[c], 250, "canonical mobCount caps targets")
@@ -123,16 +120,14 @@ func test_box_and_nearest_skip_remaining_lines_after_kill_and_preserve_hit_order
 		assert_eq(w.rng.state, control.rng.state, "no rolls for lines after death: " + rule)
 
 
-func test_manual_and_unknown_rules_never_auto_cast_or_wait_for_mp() -> void:
+func test_manual_and_unknown_rules_never_auto_cast() -> void:
 	for rule: String in ["manual", "unimplemented"]:
 		var w := _world({"rule": rule})
 		RF.put_mob(w, 1110100, 250)
-		w.spend_mp(100)
 		w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 		w.drain_events()
 		w.runner.step(DT, w)
 		assert_true(w.drain_events().is_empty(), rule)
-		assert_false(w.runner.waiting_mp, rule)
 
 
 func test_explicit_nearest_uses_legacy_targeting_and_climbing_gate() -> void:
@@ -236,20 +231,16 @@ func test_hook_receives_post_element_magic_and_physical_hits_but_no_poison_or_im
 func test_restoration_clamps_emits_actual_gain_and_rejects_invalid_pools() -> void:
 	var w := _world()
 	assert_eq(w.take_hit(20, false, "", w.player.pos - Vector2(10, 0)), 18, "seeded injury setup")
-	w.spend_mp(25)
 	w.drain_events()
 	assert_eq(w.restore_player("hp", 8, "synthetic"), 8)
 	assert_eq(w.restore_player("hp", 999, "synthetic"), 10)
-	assert_eq(w.restore_player("mp", 999, ""), 25)
-	assert_eq(w.restore_player("mp", 1, "synthetic"), 0)
+	assert_eq(w.restore_player("mp", 999, ""), 0, "there is no MP pool to restore (#285)")
 	assert_eq(w.restore_player("hp", -10, "synthetic"), 0)
 	assert_eq(w.restore_player("str", 99, "synthetic"), 0)
 	assert_eq(w.player_state.hp, w.player_state.max_hp)
-	assert_eq(w.player_state.mp, w.player_state.max_mp)
 	assert_eq(w.drain_events(), [
 		{"type": "player_restored", "stat": "hp", "amount": 8, "skill": "synthetic", "pos": w.player.pos},
 		{"type": "player_restored", "stat": "hp", "amount": 10, "skill": "synthetic", "pos": w.player.pos},
-		{"type": "player_restored", "stat": "mp", "amount": 25, "skill": "", "pos": w.player.pos},
 	])
 
 

@@ -8,21 +8,19 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const SNAIL := 100100
 const KEY := "oak_barrel"
-## Skill.wz/510.img/skill/5101007/level/1..10 (tier A, read from the owner's v83 files).
+## Skill.wz/510.img/skill/5101007/level/1..10 (tier A, read from the owner's v83 files; mpCon is unused, no MP #285).
 const MP := [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 const TIME := [12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
 const PROP := [37, 34, 31, 28, 25, 22, 19, 16, 13, 10]
 const COOLTIME := [35, 35, 30, 30, 25, 25, 20, 20, 15, 15]
 
 
-## A world with Oak Barrel learned at `rank`, 1000 HP at `hp_fraction`, 500 MP, one still mob `mob_dx` px to the right.
+## A world with Oak Barrel learned at `rank`, 1000 HP at `hp_fraction`, one still mob `mob_dx` px to the right.
 func _world(p_seed := 194, rank := 1, hp_fraction := 0.25, mob_dx := 100.0) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
-	data.balance.player.mp = 500
 	data.balance.player.skills = []
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	data.balance.magnet_radius = 0
 	data.balance.mob_motion.push_px = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
@@ -78,7 +76,6 @@ func _seed_whose_first_roll(fails: bool, rank := 1) -> int:
 func _reset_for_next_cast(w: RunWorld) -> void:
 	w.runner.cooldowns[KEY] = 0.0
 	w.buffs.clear()
-	w.heal_fraction("mp", 1.0)
 
 
 # --- the definition --------------------------------------------------------------------------------------------------
@@ -90,7 +87,6 @@ func test_stats_come_from_the_skill_wz_levels() -> void:
 		assert_eq(st.kind, "buff")
 		assert_true(bool(st.hidden))
 		assert_eq(st.morph, 1002)
-		assert_eq(st.mp_cost, MP[rank - 1])
 		assert_near(float(st.duration), float(TIME[rank - 1]))
 		assert_near(float(st.fail_chance), PROP[rank - 1] / 100.0)
 		assert_near(float(st.buff_cooldown), float(COOLTIME[rank - 1]))
@@ -105,9 +101,9 @@ func test_skill_text_names_the_canonical_numbers() -> void:
 	var w := _world()
 	var text := SkillText.new(w.book)
 	assert_eq(text.level_line(KEY, 1, w.loadout.stats(KEY, 1)),
-		"MP -11; barrel for 12 sec.; 37% chance to fail; 35 sec. between uses")
+		"Barrel for 12 sec.; 37% chance to fail; 35 sec. between uses")
 	assert_eq(text.level_line(KEY, 10, w.loadout.stats(KEY, 10)),
-		"MP -20; barrel for 30 sec.; 10% chance to fail; 15 sec. between uses")
+		"Barrel for 30 sec.; 10% chance to fail; 15 sec. between uses")
 	assert_true(text.desc(KEY).begins_with("Transform into an oak barrel"))
 
 
@@ -139,11 +135,9 @@ func test_it_needs_a_mob_within_reach() -> void:
 	assert_eq(_casts(_run(behind, 30)).size(), 1, "reach covers both sides")
 
 
-func test_it_waits_for_its_cooldown_and_pays_its_mp_each_cast() -> void:
+func test_it_waits_for_its_cooldown_between_casts() -> void:
 	var w := _world(_seed_whose_first_roll(true), 1)
-	var mp := int(w.player_state.mp)
 	assert_eq(_casts(_run(w, 5)).size(), 1)
-	assert_eq(int(w.player_state.mp), mp - MP[0], "the canonical mpCon is paid")
 	assert_eq(_casts(_run(w, 60 * 34)).size(), 0, "35 s cooldown, still below 30% HP with a mob near")
 	assert_eq(_casts(_run(w, 60 * 2)).size(), 1, "ready again after 35 s")
 
@@ -192,9 +186,8 @@ func test_failure_follows_the_skill_wz_chance_on_stream_16() -> void:
 		assert_eq([w.rng.state, w.basic_rng.state, w.spawn_rng.state, w.card_rng.state, w.drop_rng.state], other_streams)
 
 
-func test_a_failed_cast_pays_mp_and_the_cooldown_but_hides_nothing() -> void:
+func test_a_failed_cast_starts_the_cooldown_but_hides_nothing() -> void:
 	var w := _world(_seed_whose_first_roll(true))
-	var mp := int(w.player_state.mp)
 	var events := _run(w, 1)
 	var failed := _of(events, "buff_failed")
 	assert_eq(failed.size(), 1)
@@ -205,7 +198,6 @@ func test_a_failed_cast_pays_mp_and_the_cooldown_but_hides_nothing() -> void:
 	assert_false(w.is_hidden())
 	assert_eq(w.morph_id(), 0)
 	assert_eq(int(w.player_state.morph), 0)
-	assert_eq(int(w.player_state.mp), mp - MP[0])
 	assert_near(w.runner.cooldowns[KEY], 35.0, 0.1)
 	assert_true(w.player_state.buffs.is_empty())
 
@@ -303,10 +295,8 @@ func test_cards_are_offered_to_brawlers_only() -> void:
 func _brawler(p_seed := 194) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
-	data.balance.player.mp = 500
 	data.balance.player.skills = []
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({1482000: {"incPAD": 18, "attackSpeed": 5, "tuc": 7},
 		1482004: {"incPAD": 36, "attackSpeed": 5, "tuc": 7, "reqLevel": 30}}, true)

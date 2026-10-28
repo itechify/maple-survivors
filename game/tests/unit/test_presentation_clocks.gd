@@ -127,8 +127,9 @@ func test_grenade_legacy_events_damage_and_rng_bytes_are_unchanged() -> void:
 				legacy.append(event)
 		digest.update(var_to_bytes([legacy, s.world.player_state, s.world.swarm.hp,
 			s.world.rng.state, s.world.final_rng.state, s.world.pirate_rng.state]))
-	# Re-captured for #238: player_state.potions now carries cooldowns instead of stock.
-	assert_eq(digest.finish().hex_encode(), "ca694bf4c26bc6e870fb5fb5fc12446fcf3dcfa94507c2d93e9b857fb31601aa",
+	# Re-captured for #238: player_state.potions now carries cooldowns instead of stock. Re-captured for #285 (no MP:
+	# player_state has no MP fields and no MP potion).
+	assert_eq(digest.finish().hex_encode(), "519df45ec5e4c6d556d1f7941363567abdeadafc7316cf80256eaedf8be10ce1",
 		"pre-fix legacy event/damage/RNG bytes; only the new landing event is excluded")
 	s.fx.free()
 	s.free()

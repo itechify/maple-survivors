@@ -1,7 +1,7 @@
 extends TestCase
 ## The v83 Skill window (#86): SkillWindowModel's tabs (one per job on the character's path and no star tab, spec #225),
 ## rows (every implemented skill of the job with its level / max, unlearned ones at 0), the tooltips (SkillText lines,
-## cooldown, MP cost, the Upgrades list of behaviour cards); then SkillWindow's
+## cooldown, HP cost (no MP, #285), the Upgrades list of behaviour cards); then SkillWindow's
 ## keyboard navigation. All data is synthetic (no cache): a two-branch job tree, a few skills, a few cards.
 
 ## Synthetic String.wz/Skill.img: book names and skill lines.
@@ -174,23 +174,23 @@ func test_the_skill_tooltip_lists_each_behaviour_card_taken_with_its_steps() -> 
 	assert_eq(m.skill_tooltip("energy_bolt").upgrades, [], "no cards taken, no Upgrades")
 
 
-func test_the_skill_tooltip_has_the_skill_text_cooldown_and_mp_cost() -> void:
+func test_the_skill_tooltip_has_the_skill_text_and_cooldown() -> void:
 	var m := _model(200, _magician_loadout(_book()))
 	var tip := m.skill_tooltip("magic_claw")
 	assert_eq([tip.name, tip.icon], ["Magic Claw", "Skill.wz/200.img/skill/2001005/icon"])
 	assert_eq(tip.desc, "Use MP to attack an enemy twice.")
-	assert_eq([tip.level, tip.current], [1, "MP -10, basic attack 11"], "the owned level's line")
-	assert_eq([tip.next_level, tip.next], [2, "MP -10, basic attack 12"], "the next level's line")
+	assert_eq([tip.level, tip.current], [1, "Basic attack 11"], "the owned level's line, without the WZ MP cost")
+	assert_eq([tip.next_level, tip.next], [2, "Basic attack 12"], "the next level's line")
 	assert_near(tip.cooldown, 1.1, 1e-6, "the effective cooldown: 1.25 s with one Quick Claw step (x0.88)")
-	assert_eq(tip.mp_cost, 10)
+	assert_false(tip.has("mp_cost"), "no MP cost (no MP, #285)")
 	var maxed := m.skill_tooltip("three_snails")
-	assert_eq([maxed.level, maxed.current, maxed.next_level, maxed.next], [2, "MP -3, damage 25", 0, ""],
+	assert_eq([maxed.level, maxed.current, maxed.next_level, maxed.next], [2, "Damage 25", 0, ""],
 		"no next level at the cap")
 	var unlearned := m.skill_tooltip("energy_bolt")
 	assert_eq([unlearned.level, unlearned.current, unlearned.next_level, unlearned.next],
-		[0, "", 1, "MP -6, basic attack 20"], "an unlearned skill shows what level 1 does")
+		[0, "", 1, "Basic attack 20"], "an unlearned skill shows what level 1 does")
 	var passive := m.skill_tooltip("improved_mp_recovery")
-	assert_eq([passive.cooldown, passive.mp_cost], [-1.0, -1], "a passive has neither")
+	assert_eq(passive.cooldown, -1.0, "a passive has no cooldown")
 
 
 static func _key(code: Key) -> InputEventKey:
@@ -243,7 +243,7 @@ func test_the_tooltip_draws_an_orange_upgrades_section() -> void:
 		if l[2] == MapleText.ORANGE:
 			orange.append(String(l[1]))
 	assert_true("[Current Level : 1]" in shown and "[Next Level : 2]" in shown, "both level headings")
-	assert_true("Cooldown 1.1 sec.   MP cost 10" in shown, "cooldown and MP cost")
+	assert_true("Cooldown 1.1 sec." in shown, "the cooldown, and no MP cost")
 	assert_eq(orange, ["Upgrades", "Twin Claw ×2: +2 targets", "Quick Claw ×1: -12% cooldown"])
 
 

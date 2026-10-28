@@ -1,6 +1,6 @@
 extends TestCase
 ## Warrior first job (100, spec #151 ticket #163), end to end on the synthetic map with the real survivor data: the
-## advancement window and grants, Power Strike (weapon reach), Slash Blast (range around, HP and MP cost), facing
+## advancement window and grants, Power Strike (weapon reach), Slash Blast (range around, HP cost), facing
 ## before a cast, Iron Body, the three passives, the cards and the bot's weapon-aware scans. Seeded, fixed ticks.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -11,7 +11,6 @@ const MOB := 1110100
 
 func _world(seed_value := 7, job := 100) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 1000
 	data.balance.player.skills = []
 	data.balance.magnet_radius = 0
 	var w := RunWorld.new(RF.with_basic_attack(RF.setup("quiet", seed_value, data)))
@@ -30,11 +29,9 @@ func _mob(w: RunWorld, dx: float) -> int:
 	return RF.put_mob(w, MOB, w.player.pos.x + dx, 190.0, 1000.0)
 
 
-## Sets the HP and MP pools directly and refreshes the published player_state.
-func _pools(w: RunWorld, hp: float, mp: float = -1.0) -> void:
+## Sets the HP pool directly and refreshes the published player_state.
+func _pools(w: RunWorld, hp: float) -> void:
 	w._hp = hp
-	if mp >= 0.0:
-		w._mp = mp
 	w._write_player_state(0.0)
 
 
@@ -62,7 +59,7 @@ func _of(events: Array, type: String) -> Array:
 
 
 func test_cheap_target_check_matches_warrior_admission_on_both_sides() -> void:
-	# The #146 MP-short scan must keep both #151 rules, including Power Strike turning while walking or airborne.
+	# The #146 cheap target scan must keep both #151 rules, including Power Strike turning while walking or airborne.
 	for key: String in ["power_strike", "slash_blast"]:
 		for facing in [-1, 1]:
 			for dx in [-1000.0, -40.0, 40.0, 1000.0]:
@@ -106,11 +103,9 @@ func test_the_lv10_window_offers_the_warrior_and_advancing_gives_hp_and_str_ap()
 	assert_eq(others.size(), 2, "Bowman and Thief once each")
 	assert_true(others.all(func(o: Dictionary) -> bool: return o.available), "Bowman and Thief are playable")
 	var hp0: int = w.player_state.max_hp
-	var mp0: int = w.player_state.max_mp
 	var str0: int = w.player_state.str
 	assert_true(w.apply_job(100))
 	assert_eq(w.player_state.max_hp, hp0 + 225, "first-job Max HP grant")
-	assert_eq(w.player_state.max_mp, mp0, "no MP grant")
 	assert_eq(w.player_state.str, str0, "advancing redistributes nothing: the earned AP already sat in STR")
 	assert_eq(w.player_state.dex, 5, "DEX takes no AP: no Warrior item needs it")
 	assert_eq(w.weapon_id(), 1302077, "the Beginner Warrior's sword is granted and worn")
@@ -221,13 +216,11 @@ func test_the_shipped_warrior_grant_data() -> void:
 		assert_true(id in ids, "%d loads its canonical info with the setup" % id)
 
 
-func test_warrior_growth_is_26_hp_and_5_mp_per_level() -> void:
+func test_warrior_growth_is_26_hp_per_level() -> void:
 	var w := _world(12)
 	var hp0: int = w.player_state.max_hp
-	var mp0: int = w.player_state.max_mp
 	_level_up(w)
 	assert_eq(w.player_state.max_hp, hp0 + 26)
-	assert_eq(w.player_state.max_mp, mp0 + 5)
 
 
 func test_an_unforced_bot_picks_a_seeded_random_first_job_and_job_forces_one() -> void:
@@ -307,14 +300,12 @@ func test_power_strike_hits_the_nearest_mob_inside_the_weapon_reach_and_none_out
 	assert_eq(w.swarm.hp[far], w.swarm.max_hp[far])
 	var mid := _mob(w, -60.0)
 	var near := _mob(w, -40.0)
-	var mp0: int = w.player_state.mp
 	events = _cast(w)
 	var hits := _of(events, "mob_hit")
 	assert_eq(_of(events, "cast").size(), 1)
 	assert_eq(hits.size(), 1, "attackCount 1 and one target")
 	assert_eq(hits[0].mob, near, "the nearest mob in reach")
 	assert_eq(hits[0].skill, "power_strike")
-	assert_eq(mp0 - int(w.player_state.mp), 4, "canonical rank-1 MP cost")
 	assert_eq(w.swarm.hp[mid], w.swarm.max_hp[mid])
 	assert_eq(w.swarm.hp[far], w.swarm.max_hp[far])
 
@@ -360,9 +351,9 @@ func test_target_cards_are_the_only_source_of_extra_power_strike_targets() -> vo
 	assert_eq(hits.map(func(e: Dictionary) -> int: return e.mob), [mobs[0], mobs[1]], "the two nearest")
 
 
-# --- Slash Blast: everything around, for HP and MP --------------------------------------------------------------
+# --- Slash Blast: everything around, for HP -------------------------------------------------------------------
 
-func test_slash_blast_hits_at_most_six_mobs_within_range_on_both_sides_and_costs_hp_and_mp() -> void:
+func test_slash_blast_hits_at_most_six_mobs_within_range_on_both_sides_and_costs_hp() -> void:
 	var w := _world(31)
 	w.learn_skill("slash_blast")
 	var st := w.loadout.stats("slash_blast")
@@ -370,21 +361,18 @@ func test_slash_blast_hits_at_most_six_mobs_within_range_on_both_sides_and_costs
 	assert_near(float(st.range), 130.0, 1e-9, "rank 1 canonical range")
 	assert_eq(st.mob_count, 6)
 	assert_eq(st.hp_cost, 8)
-	assert_eq(st.mp_cost, 6)
 	var outside := _mob(w, 160.0)
 	var inside: Array[int] = []
 	for dx: float in [-20.0, 30.0, -50.0, 70.0, -90.0, 110.0, -120.0, 125.0]:
 		inside.append(_mob(w, dx))
 	w.god = false
 	var hp0: int = w.player_state.hp
-	var mp0: int = w.player_state.mp
 	var events := _cast(w)
 	var hits := _of(events, "mob_hit")
 	assert_eq(hits.size(), 6, "mobCount 6 caps the blast")
 	assert_eq(hits.map(func(e: Dictionary) -> int: return e.mob), [inside[0], inside[1], inside[2], inside[3], inside[4], inside[5]],
 		"the six nearest")
 	assert_eq(hp0 - int(w.player_state.hp), 8, "canonical hpCon")
-	assert_eq(mp0 - int(w.player_state.mp), 6, "canonical mpCon")
 	assert_eq(w.swarm.hp[outside], w.swarm.max_hp[outside], "beyond range")
 	assert_eq(w.swarm.hp[inside[7]], w.swarm.max_hp[inside[7]], "inside range but past the sixth")
 
@@ -407,30 +395,14 @@ func test_slash_blast_never_casts_when_its_hp_cost_would_leave_no_hp() -> void:
 	w.god = false
 	var m := _mob(w, 40.0)
 	_pools(w, 8.0) # exactly the rank-1 cost: paying it would kill
-	var mp0: int = w.player_state.mp
 	var events := _cast(w)
 	assert_eq(_of(events, "cast").size(), 0)
-	assert_eq(_of(events, "mp_short").size(), 0, "it is not an MP shortage")
 	assert_eq(w.player_state.hp, 8)
-	assert_eq(w.player_state.mp, mp0, "nothing is paid")
 	assert_eq(w.swarm.hp[m], w.swarm.max_hp[m])
 	_pools(w, 9.0)
 	events = _cast(w)
 	assert_eq(_of(events, "cast").size(), 1, "one HP to spare is enough")
 	assert_eq(w.player_state.hp, 1)
-
-
-func test_slash_blast_does_not_charge_hp_or_mp_when_mp_is_short() -> void:
-	var w := _world(34)
-	w.learn_skill("slash_blast")
-	w.god = false
-	_mob(w, 40.0)
-	_pools(w, w._hp, 5.0)
-	var hp0: int = w.player_state.hp
-	var events := _cast(w)
-	assert_eq(_of(events, "mp_short").size(), 1)
-	assert_eq(w.player_state.hp, hp0, "a failed MP payment leaves HP alone")
-	assert_eq(w.player_state.mp, 5)
 
 
 # --- facing ---------------------------------------------------------------------------------------------------------
@@ -653,22 +625,22 @@ func test_the_tooltip_shows_an_hp_cost_only_for_a_skill_that_pays_one() -> void:
 	assert_eq(model.skill_tooltip("power_strike").hp_cost, 0)
 	var lines := SkillTooltip.layout(model.skill_tooltip("slash_blast")).filter(
 		func(l: Array) -> bool: return l[0] == "text").map(func(l: Array) -> String: return String(l[1]))
-	assert_has(lines, "Cooldown 1.6 sec.   HP cost 8   MP cost 6")
+	assert_has(lines, "Cooldown 1.6 sec.   HP cost 8")
 	assert_has(lines, "Weapon : Sword / Axe / Blunt weapon / Spear / Pole Arm")
 	lines = SkillTooltip.layout(model.skill_tooltip("power_strike")).filter(
 		func(l: Array) -> bool: return l[0] == "text").map(func(l: Array) -> String: return String(l[1]))
-	assert_has(lines, "Cooldown 1 sec.   MP cost 4")
+	assert_has(lines, "Cooldown 1 sec.")
 
 
-func test_slash_blast_text_names_its_hp_and_mp_cost_range_and_targets() -> void:
+func test_slash_blast_text_names_its_hp_cost_range_and_targets() -> void:
 	var w := _world(92)
 	w.learn_skill("slash_blast")
 	var text := SkillText.new(w.book)
 	var line := text.level_line("slash_blast", 1, w.loadout.stats("slash_blast"))
-	assert_eq(line, "HP -8, MP -6; damage 72%, up to 6 monsters within 130 px")
+	assert_eq(line, "HP -8; damage 72%, up to 6 monsters within 130 px")
 	w.learn_skill("power_strike")
 	assert_eq(text.level_line("power_strike", 20, w.loadout.stats("power_strike", 20)),
-		"MP -12; damage 260%, up to 1 monster")
+		"Damage 260%, up to 1 monster")
 
 
 # --- Save & quit -> Continue (QA #164) --------------------------------------------------------------------------

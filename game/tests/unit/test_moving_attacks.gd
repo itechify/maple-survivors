@@ -92,7 +92,6 @@ func test_slide_stays_inside_the_horizontal_limits_and_is_total() -> void:
 ## 60 high) and mobCount 3.
 func _world(displacement: Dictionary, x := 400.0, kind := "instant", segments: Array = [GROUND]) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 100
 	data.balance.magnet_radius = 0
 	var def := {"skill_id": 9991000, "book": "999", "kind": kind, "damage": "fixed", "ranks": [1, 2, 3],
 		"cooldown": 1.0, "range": 400.0, "speed": 400.0, "count": 1, "cast": {"rule": "nearest"}}
@@ -189,7 +188,6 @@ func test_the_move_stops_at_a_platform_edge_and_the_cast_still_happens() -> void
 	assert_true(w.player.fh >= 0)
 	assert_eq(_of(events, "cast").size(), 1, "terrain never fails the cast")
 	assert_eq(_hit_slots(events).size(), 1)
-	assert_eq(w.player_state.mp, 93, "MP was paid once")
 	# A character already on the edge casts without moving.
 	var edge := _world({"direction": "away", "when": "after", "distance": 100.0}, 1000.0)
 	_mob(edge, 920.0)
@@ -275,7 +273,6 @@ func test_a_charge_hits_up_to_the_mob_count_along_its_path() -> void:
 	assert_eq(_hit_slots(events), [m1, m2, m3], "the three nearest mobs in the path, in path order")
 	assert_false(m4 in _hit_slots(events), "capped at the skill's mob count")
 	assert_false(behind in _hit_slots(events) or beyond in _hit_slots(events), "outside the swept path")
-	assert_eq(w.player_state.mp, 93)
 
 
 func test_a_charge_that_stops_at_a_wall_only_sweeps_what_it_covered() -> void:
@@ -338,7 +335,6 @@ func test_wall_clipping_keeps_the_rear_edge_of_the_charge_sweep_in_both_directio
 		assert_eq(_hit_slots(events), [near], "clip the wall edge without extending the rear edge, side %d" % side)
 		assert_false(rear in _hit_slots(events) or past in _hit_slots(events))
 		assert_near(world.player.pos.x, wall_x - side * FootholdMap.EPS, 1e-4, "movement is unchanged")
-		assert_eq(world.player_state.mp, 93, "one cast cost")
 
 
 func test_a_charge_boxes_the_sweep_by_the_players_body_without_a_skill_box() -> void:

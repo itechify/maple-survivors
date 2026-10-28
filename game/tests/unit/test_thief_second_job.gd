@@ -16,7 +16,6 @@ func _thief(path := "claw") -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", 212, data))
 	setup.equipment_info.merge(INFO, true)
 	var w := RunWorld.new(setup)
@@ -61,12 +60,10 @@ func test_lv30_offers_both_branches_grants_pools_and_wears_the_branch_weapon_wit
 			assert_eq(w.pending_jobs.filter(func(o: Dictionary) -> bool: return o.available).map(
 				func(o: Dictionary) -> int: return int(o.job_id)), [410, 420])
 			var hp: int = w.player_state.max_hp
-			var mp: int = w.player_state.max_mp
 			assert_true(w.apply_job(job))
 			assert_eq(w.weapon_id(), 1472008 if job == 410 else 1332012)
 			assert_has(_inventory(w), 1472061 if path == "claw" else 1332063)
 			assert_eq(w.player_state.max_hp, hp + 325)
-			assert_eq(w.player_state.max_mp, mp + 175)
 			assert_eq(w.weapon_path, path)
 
 
@@ -102,20 +99,17 @@ func _ticks(w: RunWorld, count: int) -> void:
 		w.step(DT, MoveInput.new())
 
 
-func test_boosters_pay_both_costs_speed_the_branch_weapon_and_stop_counting_on_a_swap() -> void:
+func test_boosters_pay_hp_speed_the_branch_weapon_and_stop_counting_on_a_swap() -> void:
 	for job in [410, 420]:
 		var w := _branch(job)
 		var key := "claw_booster" if job == 410 else "dagger_booster"
 		assert_true(w.learn_skill(key))
 		w.heal_fraction("hp", 1)
-		w.heal_fraction("mp", 1)
 		var hp: int = w.player_state.hp
-		var mp: int = w.player_state.mp
 		_ticks(w, 1)
 		assert_true(w.buffs.has(key))
 		assert_eq(w.attack_speed_boost(), 2)
 		assert_eq(w.player_state.hp, hp - 29)
-		assert_eq(w.player_state.mp, mp - 29)
 		_wear(w, 1332063 if job == 410 else 1472061)
 		assert_true(w.buffs.has(key))
 		assert_eq(w.attack_speed_boost(), 0)
@@ -132,7 +126,6 @@ func test_haste_auto_casts_with_either_weapon_and_caps_speed_and_jump() -> void:
 				_wear(w, 1332063 if job == 410 else 1472061)
 			var key := "haste_assassin" if job == 410 else "haste_bandit"
 			assert_true(w.learn_skill(key))
-			w.heal_fraction("mp", 1)
 			_ticks(w, 1)
 			assert_true(w.buffs.has(key), "self auto-cast without a mob")
 			assert_eq(w.player.speed_stat, 102)
@@ -142,14 +135,13 @@ func test_haste_auto_casts_with_either_weapon_and_caps_speed_and_jump() -> void:
 			# Synthetic shoes exercise the existing caps with canonical Haste at its maximum.
 			w.equipment.worn["shoes"] = Equipment.create(1072001, {"incSpeed": 20, "incJump": 10})
 			w.refresh_player_stats(false)
-			w.heal_fraction("mp", 1)
 			_ticks(w, 610)
 			assert_true(w.buffs.has(key))
 			assert_eq(w.player.speed_stat, 140)
 			assert_eq(w.player.jump_stat, 123)
 
 
-func test_endure_pulses_both_pools_anywhere_on_its_own_clock_from_learning() -> void:
+func test_endure_pulses_hp_anywhere_on_its_own_clock_from_learning() -> void:
 	for job in [410, 420]:
 		for rank_value in [1, 20]:
 			var w := _branch(job)
@@ -160,45 +152,35 @@ func test_endure_pulses_both_pools_anywhere_on_its_own_clock_from_learning() -> 
 			w.loadout.set_rank(key, rank_value)
 			w.heal_fraction("hp", 1)
 			w.spend_hp(int(w.player_state.hp) - 1)
-			w.spend_mp(int(w.player_state.mp))
 			var interval := 29 if rank_value == 1 else 10
 			_ticks(w, interval * 60 - 1)
 			assert_eq(w.player_state.hp, 1, "no shared 10s pulse or early own pulse")
-			assert_eq(w.player_state.mp, 0)
 			_ticks(w, 1)
 			assert_eq(w.player_state.hp, 4 if rank_value == 1 else 61)
-			assert_eq(w.player_state.mp, 1 if rank_value == 1 else 20)
 			_ticks(w, interval * 60)
 			assert_eq(w.player_state.hp, 7 if rank_value == 1 else 121)
-			assert_eq(w.player_state.mp, 2 if rank_value == 1 else 40)
 
 
-func test_endure_clamps_both_pools_pauses_with_the_world_and_resets_at_round_boundaries() -> void:
+func test_endure_clamps_hp_pauses_with_the_world_and_resets_at_round_boundaries() -> void:
 	var w := _branch(410)
 	w.learn_skill("endure_assassin")
 	w.loadout.set_rank("endure_assassin", 20)
 	w.heal_fraction("hp", 1)
-	w.heal_fraction("mp", 1)
 	w.spend_hp(1)
-	w.spend_mp(1)
 	_ticks(w, 599)
 	var setup := w.setup.duplicate(true)
 	setup.character = w.character_snapshot()
 	var restored := RunWorld.new(setup)
 	RF.place_player(restored, 400)
 	restored.spend_hp(int(restored.player_state.hp) - 1)
-	restored.spend_mp(int(restored.player_state.mp))
 	_ticks(restored, 1)
 	assert_eq(restored.player_state.hp, 1, "the previous round's 599 ticks are not carried")
-	assert_eq(restored.player_state.mp, 0)
 	w.state = RunWorld.CHOOSING_UPGRADE
 	_ticks(w, 120)
 	assert_eq(w.player_state.hp, w.player_state.max_hp - 1)
-	assert_eq(w.player_state.mp, w.player_state.max_mp - 1)
 	w.state = RunWorld.PLAYING
 	_ticks(w, 1)
 	assert_eq(w.player_state.hp, w.player_state.max_hp)
-	assert_eq(w.player_state.mp, w.player_state.max_mp)
 
 
 const BRANCH_SKILLS := {410: ["claw_mastery", "critical_throw", "endure_assassin", "claw_booster", "haste_assassin"],
@@ -272,7 +254,6 @@ func test_each_assassin_tier_fires_the_current_stars_as_lucky_seven_projectiles(
 	for tier in range(6):
 		var w := _branch(410, "claw", 30 + 5 * tier)
 		w.learn_skill("lucky_seven")
-		w.heal_fraction("mp", 1)
 		RF.put_mob(w, 1110100, w.player.pos.x + 100, 190, 10000)
 		w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 		w.runner.step(DT, w)
@@ -313,9 +294,9 @@ func test_original_branch_tables_costs_art_sounds_and_weapons_resolve_in_the_pri
 	var lo := Loadout.new(book)
 	var text := SkillText.new(book, {})
 	assert_eq(text.level_line("haste_assassin", 20, lo.stats("haste_assassin", 20)),
-		"MP -30; Speed +40, Jump +20 for 200 sec.")
+		"Speed +40, Jump +20 for 200 sec.")
 	assert_eq(text.level_line("endure_bandit", 20, lo.stats("endure_bandit", 20)),
-		"Recover +60 HP and +20 MP every 10 sec.")
+		"Recover +60 HP every 10 sec.")
 	for keys: Array in BRANCH_SKILLS.values():
 		for key: String in keys:
 			assert_eq(book.max_level(key), 30 if key == "critical_throw" else 20)
@@ -332,7 +313,6 @@ func test_original_branch_tables_costs_art_sounds_and_weapons_resolve_in_the_pri
 					var st := lo.stats(key, lv)
 					assert_eq(st.buff_effects.attack_speed, 2.0)
 					assert_eq(st.hp_cost, 29 if lv == 1 else 10)
-					assert_eq(st.mp_cost, 29 if lv == 1 else 10)
 	for item in [1472008, 1332012]:
 		var info: Dictionary = lib.node("Character.wz/Weapon/%08d.img/info" % item)
 		assert_eq(int(info.reqLevel), 30)

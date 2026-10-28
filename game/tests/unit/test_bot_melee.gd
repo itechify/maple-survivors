@@ -10,8 +10,9 @@ const DT := 1.0 / 60.0
 ## Digest of 900 bot inputs plus player positions in the fixed swarm below, captured on main (b2ef00d lineage).
 ## Re-captured for #238: the Magician can request unlimited MP on its shared cooldown.
 ## Re-captured for #259 (wall rule; disabling it reproduces 720344116 / 130203406 exactly).
-const MAGICIAN_DIGEST := 202775136
-const BEGINNER_DIGEST := 367143366
+## Re-captured for #285 (no MP): no MP potion input, skills cast on their cooldown only.
+const MAGICIAN_DIGEST := 813012817
+const BEGINNER_DIGEST := 365424704
 
 
 ## Rolling digest over the decided inputs and the resulting player position, so any change to a decision shows.

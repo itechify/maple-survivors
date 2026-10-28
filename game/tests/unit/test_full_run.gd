@@ -17,7 +17,9 @@ const CHECK_PACING := true
 ## The swarm engagement box (balance_run.gd ENG_X / ENG_Y) and the least share of the live mobs in it at 6:00-12:00.
 const ENGAGED_X := 400.0
 const ENGAGED_Y := 200.0
-const ENGAGED_MIN := 0.3 # tier C: inherited swarm-pressure regression floor
+## tier C: inherited swarm-pressure regression floor, lowered from 0.3 for #285: without MP the Magician casts on every
+## cooldown and clears its surroundings (Henesys seeds 1/2026 measured 0.26 / 0.24). First-pass pacing (#293) resets it.
+const ENGAGED_MIN := 0.2
 
 
 ## The inherited whole-round pacing oracle uses the old full curve; #245's map-local pools have their own tests.

@@ -11,10 +11,8 @@ const KEY := "dark_sight"
 func _world(hp_fraction := 0.25, mob_dx := 100.0, rank := 1, seed_value := 211) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
-	data.balance.player.mp = 500
 	data.balance.player.skills = []
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	data.balance.magnet_radius = 0
 	var w := RunWorld.new(RF.with_basic_attack(RF.setup("quiet", seed_value, data)))
 	RF.place_player(w, 400)
@@ -43,7 +41,7 @@ func _of(events: Array, type: String) -> Array:
 	return events.filter(func(e: Dictionary) -> bool: return e.type == type)
 
 
-func test_cast_requires_low_hp_nearby_mob_and_affordable_mp() -> void:
+func test_cast_requires_low_hp_and_a_nearby_mob() -> void:
 	for hp: float in [1.0, 0.6, 0.3]:
 		var w := _world(hp)
 		assert_true(_of(_run(w, 30), "buff_cast").is_empty(), "no cast at or above 30% HP")
@@ -54,11 +52,6 @@ func test_cast_requires_low_hp_nearby_mob_and_affordable_mp() -> void:
 		var w := _world(0.29, dx)
 		assert_eq(_of(_run(w, 1), "buff_cast").size(), 1)
 		assert_true(w.is_hidden())
-		assert_eq(int(w.player_state.mp), 476, "rank 1 pays 24 MP once")
-	var empty := _world()
-	empty.heal_fraction("mp", -1.0)
-	assert_true(_of(_run(empty, 30), "buff_cast").is_empty())
-	assert_false(empty.is_hidden())
 
 
 func test_recovery_ends_hidden_but_cooldown_still_counts_thirty_seconds_from_cast() -> void:
@@ -73,7 +66,6 @@ func test_recovery_ends_hidden_but_cooldown_still_counts_thirty_seconds_from_cas
 	w.heal_fraction("hp", -0.36)
 	assert_true(_of(_run(w, 60 * 29), "buff_cast").is_empty(), "early recovery must not reset the cooldown")
 	assert_eq(_of(_run(w, 60 * 2), "buff_cast").size(), 1, "ready again 30 seconds from the original cast")
-	assert_eq(int(w.player_state.mp), 452)
 	var long_buff := _world(0.25, 100.0, 20)
 	assert_eq(_of(_run(long_buff, 1), "buff_cast").size(), 1)
 	assert_near(float(long_buff.skill_readiness(KEY).total), 30.0)
@@ -99,12 +91,11 @@ func test_learn_and_rank_cards_require_first_job_four_hundred_with_any_weapon() 
 		assert_true(w.book.usable_with(KEY, family))
 
 
-func test_canonical_speed_duration_and_cost_at_every_rank_and_no_failure_roll() -> void:
+func test_canonical_speed_and_duration_at_every_rank_and_no_failure_roll() -> void:
 	var w := _world()
 	var speed := [-30, -28, -26, -24, -22, -20, -18, -16, -14, -12, -10, -8, -7, -6, -5, -4, -3, -2, -1, 0]
 	for rank in range(1, 21):
 		var st := w.loadout.stats(KEY, rank)
-		assert_eq(int(st.mp_cost), 25 - rank)
 		assert_near(float(st.duration), float(rank * 10))
 		assert_near(float(st.buff_effects.speed), float(speed[rank - 1]))
 		assert_near(float(st.fail_chance), 0.0)
@@ -128,9 +119,9 @@ func test_canonical_speed_duration_and_cost_at_every_rank_and_no_failure_roll() 
 	assert_near(w.player_speed_stat(), 100.0, 1e-6, "the speed penalty ends with Hidden")
 	var text := SkillText.new(w.book)
 	assert_eq(text.level_line(KEY, 1, w.loadout.stats(KEY, 1)),
-		"MP -24; Hidden for 10 sec.; Speed -30; 30 sec. between uses")
+		"Hidden for 10 sec.; Speed -30; 30 sec. between uses")
 	assert_eq(text.level_line(KEY, 20, w.loadout.stats(KEY, 20)),
-		"MP -5; Hidden for 200 sec.; Speed 0; 30 sec. between uses")
+		"Hidden for 200 sec.; Speed 0; 30 sec. between uses")
 
 
 func test_dark_sight_blocks_contact_and_both_basic_and_skill_attacks() -> void:
@@ -148,9 +139,7 @@ func test_dark_sight_blocks_contact_and_both_basic_and_skill_attacks() -> void:
 
 func test_dark_sight_blocks_ordinary_mob_attacks_and_boss_attacks() -> void:
 	for setup: Dictionary in [MF.setup(211), BF.setup(6130101, 211)]:
-		setup.data.balance.player.mp = 500
 		setup.data.balance.regen.hp = 0
-		setup.data.balance.regen.mp = 0
 		var w := RunWorld.new(setup)
 		assert_true(w.learn_skill(KEY))
 		w.loadout.set_rank(KEY, 20)

@@ -1,6 +1,6 @@
 extends TestCase
 ## Brawler 510 and Gunslinger 520 playable at Lv 30 (spec #168 ticket #189, docs/GAME_DESIGN.md sections 7.17 and 9):
-## +325 Max HP / +175 Max MP, one advancement weapon per branch (Prime Hands 1482004, Cold Mind 1492004), the auto-AP rows
+## +325 Max HP, one advancement weapon per branch (Prime Hands 1482004, Cold Mind 1492004), the auto-AP rows
 ## that follow the branch's weapon whichever first-job path was taken, Improve MaxHP, the two Masteries and the two
 ## Boosters (each only while its weapon family is held), and the Gunslinger's Split Bullet / Mighty Bullet. Seeded
 ## worlds with fixed ticks; the original-data checks at the end use the private asset cache and SKIP without it.
@@ -84,9 +84,9 @@ func _wear(w: RunWorld, id: int) -> void:
 	assert_eq(w.equip_item(index), "", "wearing %d" % id)
 
 
-# --- the window, the Max HP / MP and the weapons -------------------------------------------------------------------------
+# --- the window, the Max HP and the weapons ---------------------------------------------------------------------------
 
-func test_a_lv30_pirate_is_offered_both_branches_on_either_path_and_each_adds_325_hp_and_175_mp() -> void:
+func test_a_lv30_pirate_is_offered_both_branches_on_either_path_and_each_adds_325_hp() -> void:
 	for path in ["knuckle", "gun"]:
 		for job in [510, 520]:
 			var w := _pirate(path)
@@ -95,23 +95,19 @@ func test_a_lv30_pirate_is_offered_both_branches_on_either_path_and_each_adds_32
 				.map(func(o: Dictionary) -> int: return int(o.job_id))
 			assert_eq(offered, [510, 520], "both Pirate branches on offer to a %s Pirate" % path)
 			var hp0: int = w.player_state.max_hp
-			var mp0: int = w.player_state.max_mp
 			assert_true(w.apply_job(job))
 			assert_eq(w.progression.job_id, job)
 			assert_eq(w.weapon_path, path, "the first-job path stays recorded")
 			assert_eq(w.player_state.max_hp, hp0 + 325, "second-job Max HP grant (tier B midpoint)")
-			assert_eq(w.player_state.max_mp, mp0 + 175, "second-job Max MP grant (tier B midpoint)")
 
 
-func test_pirate_growth_stays_25_hp_and_20_5_mp_per_level_after_the_second_job() -> void:
+func test_pirate_growth_stays_25_hp_per_level_after_the_second_job() -> void:
 	var w := _branch(510)
 	var hp0: int = w.player_state.max_hp
-	var mp0: int = w.player_state.max_mp
 	for level in range(31, 41):
 		w._gain_exp(w.progression.exp_to_next())
 		assert_eq(w.progression.level, level)
 	assert_eq(w.player_state.max_hp - hp0, 250, "25 HP x 10 levels")
-	assert_between(w.player_state.max_mp - mp0, 204, 206, "20.5 MP x 10 levels, accumulated before rounding")
 
 
 func test_each_branch_wears_its_advancement_weapon_and_the_tab_gets_the_old_one() -> void:
@@ -174,13 +170,11 @@ func test_the_magician_branches_grant_no_weapon_and_advance_as_before() -> void:
 		var weapon := w.weapon_id()
 		var inventory := _inventory_ids(w)
 		var hp0: int = w.player_state.max_hp
-		var mp0: int = w.player_state.max_mp
 		assert_eq(w.jobs.paths_of(job), [], "no advancement weapon for %d" % job)
 		assert_true(w.apply_job(job))
 		assert_eq(w.weapon_id(), weapon, "the Magician keeps its wand")
 		assert_eq(_inventory_ids(w), inventory)
 		assert_eq(w.player_state.max_hp, hp0)
-		assert_eq(w.player_state.max_mp, mp0 + 475)
 		assert_eq(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "equipment_changed").size(), 0)
 
 
@@ -299,7 +293,6 @@ func test_gun_mastery_applies_only_with_a_gun_held() -> void:
 
 func _cast_booster(w: RunWorld, key: String) -> Array:
 	w.heal_fraction("hp", 1.0)
-	w.heal_fraction("mp", 1.0)
 	w.drain_events()
 	var events: Array = []
 	for tick in 90:
@@ -310,13 +303,12 @@ func _cast_booster(w: RunWorld, key: String) -> Array:
 	return events
 
 
-func test_knuckler_booster_speeds_a_held_knuckle_by_two_steps_and_pays_hp_and_mp() -> void:
+func test_knuckler_booster_speeds_a_held_knuckle_by_two_steps_and_pays_hp() -> void:
 	var w := _branch(510)
 	assert_true(w.learn_skill("knuckler_booster"))
 	var hp0: int = w.player_state.max_hp
 	w.heal_fraction("hp", 1.0)
 	var hp_full: int = w.player_state.hp
-	var mp_full: int = w.player_state.max_mp
 	assert_eq(w.attack_speed_boost(), 0)
 	var events := _cast_booster(w, "knuckler_booster")
 	assert_true(w.buffs.has("knuckler_booster"), "it auto-casts while inactive")
@@ -324,7 +316,6 @@ func test_knuckler_booster_speeds_a_held_knuckle_by_two_steps_and_pays_hp_and_mp
 	assert_eq(w.attack_speed_boost(), 2, "x = -2 is two steps faster")
 	assert_eq(w.loadout.speed_steps, 2)
 	assert_eq(w.player_state.hp, hp_full - 29, "canonical hpCon 29 at rank 1")
-	assert_eq(w.player_state.mp, mp_full - 29, "canonical mpCon 29 at rank 1")
 	assert_true(hp0 > 0)
 	_wear(w, STEEL_KNUCKLER)
 	assert_eq(w.attack_speed_boost(), 2)
@@ -482,7 +473,6 @@ func test_the_shipped_rows_grant_one_advancement_weapon_each() -> void:
 		assert_true(bool(row.playable))
 		assert_eq(int(row.level), 30, "canonical Lv 30")
 		assert_eq(int(row.grants.max_hp), 325)
-		assert_eq(int(row.grants.max_mp), 175)
 		assert_eq(jobs.paths_of(entry[0]).map(func(p: Dictionary) -> Array: return [p.family, p.item_id]),
 			[[entry[1], entry[2]]])
 	for id in [210, 220, 230]:
@@ -539,7 +529,6 @@ func test_the_snapshot_round_trips_both_branches_on_both_paths() -> void:
 			assert_eq(restored.weapon_path, path)
 			assert_eq(restored.weapon_id(), PRIME_HANDS if job == 510 else COLD_MIND)
 			assert_eq(restored.player_state.max_hp, w.player_state.max_hp)
-			assert_eq(restored.player_state.max_mp, w.player_state.max_mp)
 
 
 func test_the_skill_text_hides_the_unused_bullet_recharge() -> void:
@@ -579,7 +568,6 @@ func test_original_second_job_tables_art_and_sounds_resolve_in_the_private_cache
 	for key in ["knuckler_booster", "gun_booster"]:
 		for rank_value in [1, 20]:
 			var st := loadout.stats(key, rank_value)
-			assert_eq(st.mp_cost, 29 if rank_value == 1 else 10, key)
 			assert_eq(st.hp_cost, 29 if rank_value == 1 else 10, key)
 			assert_eq(st.duration, 10.0 if rank_value == 1 else 200.0, key)
 			assert_eq(st.buff_effects.get("attack_speed"), 2.0, "x = -2 with scale -1: two steps faster")

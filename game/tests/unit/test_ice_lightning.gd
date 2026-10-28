@@ -7,7 +7,6 @@ const DT := 1.0 / 60.0
 
 func _world(lightning_attr: String = "", bolt_mob_count: float = 2.0) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 1000
 	var setup := RF.setup("quiet", 56, data)
 	setup.mob_imgs[1110100].info.elemAttr = lightning_attr
 	# Synthetic level nodes: endpoints exercise rank-dependent damage, mastery, MP and freeze duration.
@@ -40,7 +39,7 @@ func _events(w: RunWorld, type: String) -> Array:
 	return w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == type)
 
 
-func test_cold_beam_cast_uses_rank_damage_cost_and_guaranteed_freeze_except_bosses() -> void:
+func test_cold_beam_cast_uses_rank_damage_and_guaranteed_freeze_except_bosses() -> void:
 	for rank: int in [1, 30]:
 		for boss: bool in [false, true]:
 			var w := _world()
@@ -60,10 +59,8 @@ func test_cold_beam_cast_uses_rank_damage_cost_and_guaranteed_freeze_except_boss
 			w.swarm.mob_kind(m).mdd = 0
 			w.swarm.mob_kind(m).boss = boss
 			_targets(w)
-			var mp_before := int(w.player_state.mp)
 			var hp_before := w.swarm.hp[m]
 			w.runner.step(DT, w)
-			assert_eq(mp_before - int(w.player_state.mp), 12 if rank == 1 else 24)
 			var hits := _events(w, "mob_hit")
 			assert_eq(hits.size(), 1, "one instant line on one target")
 			if not hits.is_empty():
@@ -86,10 +83,8 @@ func test_thunder_bolt_admits_only_box_targets_caps_canonical_count_and_expands_
 			mk.hitbox = Rect2(-5, -10, 10, 10)
 		var outside := w.spawn_mob(int(w.kind_of_id[1110100]), w.player.pos + Vector2(165, 0), w.player.fh, 100.0, false)
 		_targets(w)
-		var mp_before := int(w.player_state.mp)
 		w.runner.step(DT, w)
 		assert_eq(_events(w, "cast").size(), 0, "target beyond canonical box cannot trigger")
-		assert_eq(w.player_state.mp, mp_before)
 		w.loadout.add_skill_mod("thunder_bolt", "area", "mul", 1.2)
 		assert_true((w.loadout.stats("thunder_bolt").box as Rect2).is_equal_approx(Rect2(-180, -60, 360, 120)))
 		var mobs: Array[int] = []
@@ -100,7 +95,6 @@ func test_thunder_bolt_admits_only_box_targets_caps_canonical_count_and_expands_
 		var hits := _events(w, "mob_hit")
 		assert_eq(hits.size(), 2, "synthetic canonical mobCount=2 caps crowded casts")
 		assert_eq(hits.map(func(e: Dictionary) -> int: return e.mob), [mobs[0], mobs[1]])
-		assert_eq(mp_before - int(w.player_state.mp), 20, "one canonical cost for the whole area")
 		for m: int in [outside, mobs[2], mobs[3]]:
 			assert_eq(w.swarm.hp[m], w.swarm.max_hp[m], "unselected targets take no damage")
 		for m: int in mobs:
@@ -127,13 +121,11 @@ func test_thunder_bolt_target_card_raises_hits_in_a_crowded_box_by_two_per_step(
 			var dx := (i / 2 + 1) * 10 * (1 if i % 2 == 0 else -1)
 			mobs.append(w.spawn_mob(int(w.kind_of_id[1110100]), w.player.pos + Vector2(dx, 0), w.player.fh, 100.0, false))
 		_targets(w)
-		var mp_before := int(w.player_state.mp)
 		w.runner.step(DT, w)
 		var hit_mobs := {}
 		for e: Dictionary in _events(w, "mob_hit"):
 			hit_mobs[e.mob] = true
 		assert_eq(hit_mobs.size(), 6 + 2 * steps, "%d card steps: distinct monsters hit by one cast" % steps)
-		assert_eq(mp_before - int(w.player_state.mp), 20, "one cost for the whole cast at %d steps" % steps)
 	var w := _world()
 	assert_false("thunder_bolt_targets" in w.upgrades.eligible(w), "needs Thunder Bolt learned")
 	w.upgrades.apply("thunder_bolt_new", w)
@@ -157,9 +149,7 @@ func test_thunder_bolt_cast_applies_lightning_weakness_with_the_same_seed() -> v
 		var m := RF.put_mob(w, 1110100, 300, 190, 100.0)
 		w.swarm.mob_kind(m).mdd = 0
 		_targets(w)
-		var mp_before := int(w.player_state.mp)
 		w.runner.step(DT, w)
-		assert_eq(mp_before - int(w.player_state.mp), 40)
 		var hits := _events(w, "mob_hit")
 		assert_eq(hits.size(), 1)
 		if not hits.is_empty():
@@ -229,11 +219,9 @@ func test_cold_beam_target_card_hits_and_freezes_distinct_nearest_monsters() -> 
 	for dx: int in [40, 80, 120, 160, 200]:
 		mobs.append(RF.put_mob(w, 1110100, 200 + dx, 190, 100.0))
 	_targets(w)
-	var mp_before := int(w.player_state.mp)
 	w.runner.step(DT, w)
 	var hits := _events(w, "mob_hit")
 	assert_eq(hits.map(func(e: Dictionary) -> int: return e.mob), mobs.slice(0, 4))
-	assert_eq(mp_before - int(w.player_state.mp), 12, "extra targets still pay only once")
 	for m: int in mobs.slice(0, 4):
 		assert_near(w.swarm.status_time(m, MobSwarm.FREEZE), 1.0)
 	assert_near(w.swarm.status_time(mobs[4], MobSwarm.FREEZE), 0.0)
@@ -258,7 +246,6 @@ func test_real_cache_ice_lightning_levels_freeze_fields_art_and_use_sounds() -> 
 			var node := book.level_node(key, rank)
 			var st := lo.stats(key)
 			assert_eq(st.level, rank)
-			assert_eq(st.mp_cost, int(node.mpCon), "%s rank %d" % [key, rank])
 			if key == "cold_beam":
 				assert_false(node.has("prop"), "no canonical proc roll")
 				assert_eq(int(node.x), -100)

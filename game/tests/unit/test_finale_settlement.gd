@@ -24,6 +24,13 @@ func _answer(w: RunWorld) -> void:
 		assert_true(w.apply_choice(String(w.pending_cards[0].id)))
 
 
+## Keeps every owned skill on its cooldown, so no auto-cast kills the lethal source first (an empty MP pool did this
+## before MP was removed, #285).
+func _hold_skills(w: RunWorld) -> void:
+	for key: String in w.loadout.order:
+		w.runner.cooldowns[key] = 1.0e9
+
+
 func _lethal_contact(w: RunWorld) -> void:
 	var slot := RF.put_mob(w, 100100, 400.0)
 	w.swarm.alpha[slot] = 1.0
@@ -32,13 +39,13 @@ func _lethal_contact(w: RunWorld) -> void:
 	w.mob_kinds[w.swarm.kind[slot]].pad = 100000.0
 	w.mob_kinds[w.swarm.kind[slot]].acc = 100000.0
 	w._hp = 1.0
-	w._mp = 0.0
+	_hold_skills(w)
 	w.refresh_player_stats(false)
 
 
 func _lethal_ball(w: RunWorld) -> int:
 	w._hp = 1.0
-	w._mp = 0.0
+	_hold_skills(w)
 	w.refresh_player_stats(false)
 	return w.mob_projectiles.spawn({"pos": w.player_body_center(), "velocity": Vector2(60, 0),
 		"visual": 0, "range": 500.0, "mob": -1, "mob_id": 100100, "damage": 100000.0,
@@ -236,4 +243,4 @@ func test_balance_harness_observes_choice_only_settlement_without_counting_a_tic
 	assert_eq(report.time, 0.0)
 	assert_eq(report.reach.get("10"), 0.0, "the sweep's level event is observed")
 	assert_eq(report.job_times.get("200"), 0.0, "the sweep's job event is observed")
-	assert_eq(report.mp_short_seconds, 0.0, "a frozen choice is not an MP-wait tick")
+	assert_false(report.has("mp_short_seconds"), "no MP-wait field (#285)")
