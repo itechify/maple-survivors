@@ -28,6 +28,10 @@ const FLEE_DIST := 160.0
 const DUEL_DY := 40.0
 ## tier C: five seconds leaves several auto-cast cycles and ordinary kiting between emergency blink requests.
 const TELEPORT_MIN_INTERVAL := 5.0
+## tier C (#302): three seconds between Rush dashes (the 2.0 s cooldown plus room for ordinary kiting), and a dash needs
+## room to cover at least this share of its reach, else it would only bump the nearest wall or ledge.
+const RUSH_MIN_INTERVAL := 3.0
+const RUSH_LANE_FRACTION := 0.5
 ## tier C (#257): after a same-map warp the reverse link (back to where it came from) stays closed this long (s), so
 ## an escape through a two-way pair (Perion's hide00/tohide00) is not undone by the drop route on the next portal
 ## cooldown, straight back into the crowd it fled.
@@ -177,6 +181,22 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 				mi.right = escape > 0
 				mi.press_skill("teleport")
 				memo["teleport_at"] = w.time
+				return mi
+	# tier C (#302): the manual damaging dash (Rush) leaves a mob within its threat distance on the bot's level, away from it
+	# when that lane is free, else through the crowd; never toward a mob that is not an emergency.
+	var rush := w.manual_skill("rush")
+	if rush != "" and w.can_cast() and float(w.skill_readiness(rush).left) <= 1e-6 \
+			and w.time - float(memo.get("rush_at", -INF)) >= RUSH_MIN_INTERVAL - 1e-6 \
+			and minf(threat_nearest[0], threat_nearest[1]) < float(w.book.def(rush).rush.bot_threat_distance):
+		var reach := float(w.runner.stats_of(w, rush).displacement.distance)
+		var away := -1 if danger[0] < danger[1] else 1
+		for side: int in [away, -away]:
+			var lane: Dictionary = w.player.dash_destination(side, reach, w.fhm, w.bounds)
+			if not lane.is_empty() and float(lane.moved) >= reach * RUSH_LANE_FRACTION:
+				mi.left = side < 0
+				mi.right = side > 0
+				mi.press_skill("rush")
+				memo["rush_at"] = w.time
 				return mi
 	# tier C (#188): a manual flee buff (Dash) is pressed when HP is low with a mob close, or when mobs surround the bot.
 	if not flee_buff.is_empty():
@@ -533,14 +553,13 @@ static func pick_card_for(w: RunWorld, cards: Array) -> String:
 ## a survivor bot.card_scores entry replaces the base and gets no job bonus) plus gain_step_score for every step beyond
 ## the first that the offer grants (`c.magnitude`, the resolved ranks / steps / starting rank; missing or <= 0 counts as
 ## 1). The Elixir filler scores its base, regardless of magnitude; a
-## card the pool does not know scores 0. #293 adds a global-passive preference after three actives and scores
+## card the pool does not know scores 0 (a meter-gated finisher scores like any pool skill, #305: balance.bot.card_scores gives
+## its cards new 100 and rank 74). #293 adds a global-passive preference after three actives and scores
 ## Mastery by its diminished effect (100 points per unit), so a small repeat cannot crowd out a global boost.
 static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var d := w.upgrades.card(String(c.get("id", "")))
 	if d.is_empty():
 		return 0.0
-	if w.book.def(String(d.get("skill", ""))).has("meter"):
-		return 0.0 # H3 admission hook only; H8/H9 supply finisher-specific card policy.
 	var kind := String(d.get("kind", ""))
 	if kind == "filler":
 		return _base_score(w, d) # the Elixir fallback ignores magnitude even if a table ever gave it one

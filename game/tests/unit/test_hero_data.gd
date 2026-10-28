@@ -67,7 +67,7 @@ func test_the_hero_line_loads_without_errors_and_adds_its_job_and_core_skills() 
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "hero"))
 	for key: String in ["power_strike", "slash_blast", "brandish"]:
 		assert_true(frag.skills.has(key), "H5 ports " + key)
-	assert_true(frag.skills is Dictionary)
+	assert_true(frag.skills.has("rush_hero"), "H6 defines Rush")
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
 
