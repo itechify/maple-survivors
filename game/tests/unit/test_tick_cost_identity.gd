@@ -1,7 +1,7 @@
 extends TestCase
 ## Issue #146: the per-tick cost work leaves the simulation bit-identical. A fixed-seed, fixed-tick round on the
 ## synthetic map (no WZ data) that is busy in the places the work touches: 160 mobs refilled around a god-mode player
-## whose MP runs dry (every cast rule waiting for MP between refills), a Magician loadout with every auto-cast rule
+## (there is no MP since #285, so skills are gated by their cooldowns only), a Magician loadout with every auto-cast rule
 ## (nearest, box, crowd, hp_or_undead, buffs), a drop pool of several hundred meso, equipment and EXP drops
 ## lying on every floor, an Equip tab that fills up (pickup_blocked), and a pet with VAC brought out, dismissed with
 ## drops in flight and brought back. The digest covers every drained event, the player state after every tick and the
@@ -17,10 +17,6 @@ const TICKS := 3600
 const PET_ON := 2400
 const PET_OFF := 2415
 const PET_BACK := 2700
-## Every MP_CYCLE ticks a fifth of the MP pool is refilled and MP_DRAIN ticks later it is spent to 0, so casts come in
-## bursts between long MP-short stretches (level-ups refill it too).
-const MP_CYCLE := 300
-const MP_DRAIN := 60
 ## Re-captured on Windows on the unoptimised spec #151 tip (19ca0a8), then matched against the #177 merge.
 ## Spec #151 changes crit RNG, physical combat and player-state fields (including attack speed and accuracy), so
 ## its events and totals legitimately differ from main's 4e51522e... baseline. The #146 optimisation changes neither.
@@ -32,15 +28,18 @@ const MP_DRAIN := 60
 ## runner.waiting_mp back into that snapshot field reproduces the previous 373bb381... digest exactly; all events,
 ## other player-state fields, drop-pool bytes and TOTALS are unchanged.
 ## Re-captured for #238: no potion pickups/stock; per-kind cooldowns enter player_state.
-const GOLDEN := "26ddb7e6e2d0e86d6729511954361de2a22b76c1d7300992691c4608f7544e7b"
-const TOTALS := {"exp": 3658, "mesos": 88744, "pickup_mesos": 88744, "equips_collected": 24,
-	"equips_dropped": 30, "inventory": 24, "kills": 206, "casts": 183, "level": 12,
+## Re-captured for #285 (no MP): skills cast on their cooldowns only, Magic Armor replaces Magic Guard in the loadout and
+## the MP refill/drain cycle is gone (previous digest 26ddb7e6..., previous totals exp 3658, mesos 88744, kills 206,
+## casts 183, level 12).
+const GOLDEN := "65b2f44b4b4aacc06db552d158da7905949f5ebaf3879fa525c07654001d5889"
+const TOTALS := {"exp": 10509, "mesos": 119292, "pickup_mesos": 119292, "equips_collected": 24,
+	"equips_dropped": 30, "inventory": 24, "kills": 465, "casts": 498, "level": 18,
 	"pool": 6, "time": 59.999999999997875}
-const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_guard", "cold_beam", "thunder_bolt", "slow_il",
+const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_armor", "cold_beam", "thunder_bolt", "slow_il",
 	"heal", "fire_arrow", "poison_breath", "holy_arrow"]
 
 
-func test_busy_round_with_a_big_drop_pool_and_mp_short_casts_is_unchanged() -> void:
+func test_busy_round_with_a_big_drop_pool_is_unchanged() -> void:
 	var r := _replay(TICKS)
 	var c: Dictionary = r.coverage
 	# The scenario must exercise what it guards; a quiet replay would prove nothing.
@@ -48,7 +47,6 @@ func test_busy_round_with_a_big_drop_pool_and_mp_short_casts_is_unchanged() -> v
 	assert_true(int(c.max_meso) >= 300, "hundreds of meso drops lying at once (max %d)" % int(c.max_meso))
 	assert_true(int(c.blocked) > 0, "an equipment drop is blocked by the full Equip tab")
 	assert_true(int(c.pet_pickups) >= 200, "the VAC pet collects hundreds of drops (%d)" % int(c.pet_pickups))
-	assert_true(int(c.mp_short_ticks) >= 1000, "long MP-short stretches (%d ticks)" % int(c.mp_short_ticks))
 	for rule: String in ["nearest", "box", "crowd", "buff"]:
 		assert_true(int(c.casts.get(rule, 0)) > 0, "a %s skill casts (%s)" % [rule, c.casts])
 	assert_true(int(c.kills) >= 200, "kills keep adding drops (%d)" % int(c.kills))
@@ -56,8 +54,8 @@ func test_busy_round_with_a_big_drop_pool_and_mp_short_casts_is_unchanged() -> v
 	assert_eq(r.digest, GOLDEN, "event, player-state and drop-pool bytes, seed 146")
 
 
-func test_mp_short_target_check_agrees_with_full_admission_for_every_cast_rule() -> void:
-	# cast_ready asks has_target instead of building the target list while a skill is short of MP; on every platform
+func test_target_check_agrees_with_full_admission_for_every_cast_rule() -> void:
+	# cast_ready asks has_target instead of building the target list for a ready skill; on every platform
 	# it must give admission's own answer, for every skill, with and without targets.
 	var w := _world()
 	# Half the mob kinds undead, so hp_or_undead is admitted through its undead targets at full HP (god mode), not
@@ -70,10 +68,6 @@ func test_mp_short_target_check_agrees_with_full_admission_for_every_cast_rule()
 	assert_true(undead > 0 and undead < w.mob_kinds.size(), "some kinds undead, some not (%d)" % undead)
 	var seen := {}
 	for tick in 1500:
-		if tick % MP_CYCLE == 0:
-			w.heal_fraction("mp", 0.2)
-		elif tick % MP_CYCLE == MP_DRAIN:
-			w.spend_mp(int(w.player_state.mp))
 		BotInput.auto_choose(w)
 		if tick % 3 == 0 and w.state == RunWorld.PLAYING:
 			var origin := w.cast_origin()
@@ -153,7 +147,7 @@ func test_bulk_live_defense_equals_the_per_slot_defense_and_immunity() -> void:
 	assert_true(immune > 0, "some slots compared under weapon immunity (%d)" % immune)
 
 
-## Data: the real files plus a stage that keeps 160 mobs alive, more equipment drops and little MP.
+## Data: the real files plus a stage that keeps 160 mobs alive and more equipment drops.
 static func _data() -> Dictionary:
 	var data := DataRepo.load_all()
 	var pool := {}
@@ -166,7 +160,6 @@ static func _data() -> Dictionary:
 		"bursts": {}, "elites": {},
 	}
 	data.equipment_drops.chance = 0.05
-	data.balance.regen.mp = 0
 	return data
 
 
@@ -211,17 +204,13 @@ static func _replay(ticks: int) -> Dictionary:
 	var w := _world()
 	var digest := HashingContext.new()
 	digest.start(HashingContext.HASH_SHA256)
-	var coverage := {"max_pool": 0, "max_meso": 0, "blocked": 0, "pet_pickups": 0, "mp_short_ticks": 0, "casts": {},
+	var coverage := {"max_pool": 0, "max_meso": 0, "blocked": 0, "pet_pickups": 0, "casts": {},
 		"kills": 0}
 	for tick in ticks:
 		if tick == PET_ON or tick == PET_BACK:
 			w.set_pet(PF.KITTY)
 		elif tick == PET_OFF:
 			w.set_pet(0)
-		if tick % MP_CYCLE == 0:
-			w.heal_fraction("mp", 0.2)
-		elif tick % MP_CYCLE == MP_DRAIN:
-			w.spend_mp(int(w.player_state.mp))
 		BotInput.auto_choose(w)
 		w.step(DT, _input(tick))
 		var events := w.drain_events()
@@ -241,8 +230,6 @@ static func _replay(ticks: int) -> Dictionary:
 					var rule := "buff" if String(st.kind) == "buff" else String(st.cast_rule)
 					rule = "nearest" if rule == "" else rule
 					coverage.casts[rule] = int(coverage.casts.get(rule, 0)) + 1
-		if w.runner.waiting_mp:
-			coverage.mp_short_ticks += 1
 		coverage.max_pool = maxi(coverage.max_pool, w.pickups.active_count())
 		var mesos := 0
 		for i in w.pickups.capacity():

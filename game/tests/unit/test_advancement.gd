@@ -57,15 +57,13 @@ func test_ninth_skill_of_either_kind_can_be_offered_and_learned() -> void:
 		assert_eq(w.loadout.rank("synthetic_8"), 1)
 
 
-func test_second_jobs_add_mp_without_skills_and_keep_the_level_choice() -> void:
+func test_second_jobs_add_no_skills_and_keep_the_level_choice() -> void:
 	for branch in [210, 220, 230]:
 		var w := _level_window(200, 30, branch)
 		assert_eq(w.state, RunWorld.CHOOSING_JOB)
 		var owned := w.loadout.order.duplicate()
-		var mp := int(w.player_state.max_mp)
 		assert_true(w.apply_job(branch), "branch %d is playable" % branch)
 		assert_eq(w.progression.job_id, branch)
-		assert_eq(int(w.player_state.max_mp), mp + 475)
 		assert_eq(w.loadout.order, owned)
 		if branch == 210:
 			assert_has(w.pending_cards.map(func(c: Dictionary) -> String: return c.id), "fire_arrow_new")

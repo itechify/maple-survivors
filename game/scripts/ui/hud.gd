@@ -126,10 +126,6 @@ func messages() -> Array[Dictionary]:
 	return system_messages.messages()
 
 
-## Whether a ready skill is waiting for MP in the current HUD snapshot.
-func low_mp_visible() -> bool:
-	return system_messages.low_mp_visible()
-
 ## Advances message lifetimes for tests and non-processing hosts.
 func advance_messages(dt: float) -> void:
 	system_messages.advance_messages(dt)

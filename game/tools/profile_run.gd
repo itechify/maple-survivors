@@ -71,8 +71,6 @@ func _init() -> void:
 	acc.resize(PARTS.size())
 	var bot_us := 0
 	var step_us := 0
-	var wait_ticks := 0
-	var wait_us := 0
 	var ticks := 0
 	var minute := {}
 	var t_start := Time.get_ticks_msec()
@@ -93,11 +91,7 @@ func _init() -> void:
 			continue
 		bot_us += b1 - b0
 		var s0 := Time.get_ticks_usec()
-		var attacks0 := acc[2]
 		_timed_step(w, DT, input, acc)
-		if w.runner.waiting_mp:
-			wait_ticks += 1
-			wait_us += acc[2] - attacks0
 		step_us += Time.get_ticks_usec() - s0
 		BotShop.equip_after(w, w.drain_events())  # the bot wears its best drops, as RunScene and balance_run do
 		ticks += 1
@@ -144,10 +138,8 @@ func _init() -> void:
 		var n := float(r.n)
 		print("%4d:00 %6.1f %7.1f (%5.1f %6.1f %4.1f | %6.1f %4.1f %4.1f) %7.1f" % [m, r.alive / n, r.drops / n,
 			r.exp / n, r.meso / n, r.equip / n, r.rest / n, r.air / n, r.magnet / n, r.hi / n])
-	print("job %d, level %d, skills %s; MP-short ticks %d of %d, player attacks %.1f us/tick in them, %.1f in the others" % [
-		w.progression.job_id, w.progression.level, w.loadout.order, wait_ticks, ticks,
-		float(wait_us) / maxf(1.0, wait_ticks),
-		float(acc[2] - wait_us) / maxf(1.0, ticks - wait_ticks)])
+	print("job %d, level %d, skills %s; player attacks %.1f us/tick over %d ticks" % [
+		w.progression.job_id, w.progression.level, w.loadout.order, float(acc[2]) / maxf(1.0, ticks), ticks])
 	print("collected: exp %d, mesos %d, equips %d, kills %d" % [w.pickups.collected_exp, w.mesos, w.equips_collected,
 		w.kills])
 	quit()

@@ -1,7 +1,7 @@
 extends TestCase
-## HUD skill icon state (#82): the cooldown sweep shape, the sim's per-skill readiness (cooldown left/total,
-## waiting for MP) on seeded worlds, the allocation-free per-frame cooldown query, and the skill widget redrawing only
-## when a sweep step or tint changes.
+## HUD skill icon state (#82): the cooldown sweep shape, the sim's per-skill readiness (cooldown left/total; there is
+## no MP wait, #285) on seeded worlds, the allocation-free per-frame cooldown query, and the skill widget redrawing only
+## when a sweep step or the blocked tint changes.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -73,41 +73,25 @@ func test_cast_exposes_cooldown_left_and_total_of_the_skill() -> void:
 	var mid := world.skill_readiness("energy_bolt")
 	assert_near(float(mid.left), float(after.total) - 27 * DT, 1e-4, "counts down by dt per tick")
 	assert_near(float(mid.total), float(after.total), 1e-6, "the total stays until the next cast")
-	assert_false(bool(mid.mp_short), "a cooling skill is not waiting for MP")
-
-
-func test_ready_skill_below_its_mp_cost_is_mp_short_until_affordable() -> void:
-	var world := _mage("energy_bolt")
-	world.spend_mp(int(world.player_state.mp) - 5)
-	world.step(DT, MoveInput.new())
-	var row := world.skill_readiness("energy_bolt")
-	assert_true(bool(row.mp_short), "ready, in range, 5 MP < 6: waiting for MP")
-	assert_eq(float(row.left), 0.0, "still ready")
-	world.heal_fraction("mp", 1.0)
-	world.step(DT, MoveInput.new())
-	row = world.skill_readiness("energy_bolt")
-	assert_false(bool(row.mp_short), "cast once affordable")
-	assert_true(float(row.left) > 0.0, "and cooling down again")
+	assert_false(mid.has("mp_short"), "no MP wait exists")
 
 
 func _teleporter() -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 200
 	var setup := RF.setup("quiet", 60, data)
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
 	setup.skill_imgs["210"] = {"skill": {"2101002": {"level": {"1": {"mpCon": 60, "range": 130}}}}}
 	var w := RunWorld.new(setup)
 	w.change_job(210)
-	w.heal_fraction("mp", 1.0)
 	w.loadout.add_skill("teleport_fp")
 	w.player.place(Vector2(400, 0), w.fhm)
 	w.drain_events()
 	return w
 
 
-func test_teleport_exposes_its_repeat_timer_and_waits_for_mp_only_when_ready() -> void:
+func test_teleport_exposes_its_repeat_timer() -> void:
 	var w := _teleporter()
-	assert_false(bool(w.skill_readiness("teleport_fp").mp_short), "affordable and ready")
+	assert_eq(float(w.skill_readiness("teleport_fp").left), 0.0, "ready")
 	var press := MoveInput.new()
 	press.press_skill("teleport")
 	w.step(DT, press)
@@ -115,15 +99,10 @@ func test_teleport_exposes_its_repeat_timer_and_waits_for_mp_only_when_ready() -
 	# Teleport's survivor repeat delay is 0.3 s (skills.json).
 	assert_near(float(row.total), 0.3, 1e-6, "total is Teleport's repeat delay")
 	assert_near(float(row.left), 0.3, 1e-6, "full right after the blink")
-	w.spend_mp(int(w.player_state.mp))
-	assert_false(bool(w.skill_readiness("teleport_fp").mp_short), "cooling down: the sweep shows, not the MP tint")
 	for tick in 20:
 		w.step(DT, MoveInput.new())
 	row = w.skill_readiness("teleport_fp")
 	assert_eq(float(row.left), 0.0, "ready again")
-	assert_true(bool(row.mp_short), "ready but below its MP cost")
-	w.heal_fraction("mp", 1.0)
-	assert_false(bool(w.skill_readiness("teleport_fp").mp_short), "affordable again")
 
 
 func test_lean_cooldown_query_fills_the_callers_buffers_like_skill_readiness() -> void:
@@ -132,12 +111,7 @@ func test_lean_cooldown_query_fills_the_callers_buffers_like_skill_readiness() -
 	var left := PackedFloat32Array()
 	var total := PackedFloat32Array()
 	var short := PackedByteArray()
-	var tinted := false
 	for frame: int in 4:
-		if frame == 0:
-			world.spend_mp(int(world.player_state.mp)) # ready with a target but out of MP: the tint
-		if frame == 1:
-			world.heal_fraction("mp", 1.0) # then both cast, one per tick, and cool down
 		world.step(DT, MoveInput.new())
 		world.read_skill_cooldowns(left, total, short)
 		assert_eq(left.size(), world.loadout.order.size(), "one entry per owned skill, in learned order")
@@ -146,17 +120,15 @@ func test_lean_cooldown_query_fills_the_callers_buffers_like_skill_readiness() -
 			var r := world.skill_readiness(key)
 			assert_near(left[i], float(r.left), 1e-5, "left of %s" % key)
 			assert_near(total[i], float(r.total), 1e-5, "total of %s" % key)
-			assert_eq(short[i], int(bool(r.mp_short)), "mp_short of %s" % key)
-		tinted = tinted or 1 in short
-	assert_true(tinted, "a ready skill out of MP shows the tint in the buffers too")
-	assert_true(left[0] > 0.0 and left[1] > 0.0, "and both cooling once paid for")
+			assert_eq(short[i], RunWorld.SKILL_STATE_BLOCKED if bool(r.blocked) else 0, "state of %s" % key)
+	assert_true(left[0] > 0.0 and left[1] > 0.0, "both cast, one per tick, and cool down")
 
 
 func _row(left: float, total: float) -> Dictionary:
-	return {"icon": "", "rank": 1, "key_label": "", "cooldown_left": left, "cooldown_total": total, "mp_short": false}
+	return {"icon": "", "rank": 1, "key_label": "", "cooldown_left": left, "cooldown_total": total, "blocked": false}
 
 
-func test_skill_widget_redraws_only_when_a_sweep_step_or_tint_changes() -> void:
+func test_skill_widget_redraws_only_when_a_sweep_step_or_blocked_tint_changes() -> void:
 	var w := HudSkills.new()
 	w.update({}, {"skills": [_row(0.0, 0.0), _row(0.0, 0.0)]})
 	var left := PackedFloat32Array([0.0, 0.0])
@@ -177,7 +149,7 @@ func test_skill_widget_redraws_only_when_a_sweep_step_or_tint_changes() -> void:
 	assert_false(w.set_cooldowns(left, total, short), "a 30 s cooldown waits for its next step, not every tick")
 	left[1] = 30.0 - 20 * DT
 	assert_true(w.set_cooldowns(left, total, short), "and moves once the step is crossed")
-	short[1] = 1
-	assert_true(w.set_cooldowns(left, total, short), "the MP-wait tint redraws")
-	assert_true(bool(w.displayed()[1].mp_short))
+	short[1] = HudSkills.STATE_BLOCKED
+	assert_true(w.set_cooldowns(left, total, short), "the blocked tint redraws")
+	assert_true(bool(w.displayed()[1].blocked))
 	w.free()

@@ -66,6 +66,8 @@ func test_fixtures_restore_and_play_on_the_real_map() -> void:
 		assert_eq(w.weapon_path, character.weapon_path)
 		assert_eq(w.weapon_id(), int(character.equipment.worn.weapon.id))
 		for key: String in character.skills:
+			if not w.book.has(key):
+				continue # a removed skill (MP Recovery, #285) is dropped on load
 			assert_eq(w.loadout.rank(key), int(character.skills[key].rank), key)
 		for i in 600:
 			w.step(1.0 / 60.0, MoveInput.new())

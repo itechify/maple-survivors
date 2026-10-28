@@ -61,12 +61,10 @@ func test_one_job_offers_both_paths_and_grants_only_the_chosen_weapon() -> void:
 		assert_true(w.jobs.advancements(0, 9).filter(func(o: Dictionary) -> bool: return int(o.job_id) == 500).all(
 			func(o: Dictionary) -> bool: return not o.available and o.reason == "Lv. 10"))
 		var hp: int = w.player_state.max_hp
-		var mp: int = w.player_state.max_mp
 		assert_true(w.apply_job(500, path))
 		assert_eq(w.weapon_id(), WEAPONS[path])
 		assert_eq(w.weapon_path, path)
 		assert_eq(w.player_state.max_hp, hp + 125)
-		assert_eq(w.player_state.max_mp, mp + 37)
 		assert_eq(_inventory(w), [1302000])
 
 
@@ -100,10 +98,8 @@ func test_seeded_bot_meets_level_thirty_weapon_requirements_on_both_paths() -> v
 		assert_eq(Equipment.requirement_error(requirements, w.player_state), "", "Prime Hands / Cold Mind")
 		assert_eq(w.player_state.dex if path == "knuckle" else w.player_state.str, 30)
 		var hp: int = w.player_state.max_hp
-		var mp: int = w.player_state.max_mp
 		_level(w, 31, path, branch)
 		assert_true(w.player_state.max_hp - hp >= 25, "25 HP growth, plus Improve MaxHP when a draw took it")
-		assert_between(w.player_state.max_mp - mp, 20, 21, "20.5 MP accumulates before rounding")
 
 
 func test_snapshot_keeps_the_chosen_path_and_weapon() -> void:
@@ -145,7 +141,6 @@ func test_bullet_time_adds_canonical_accuracy_crit_and_avoid_with_either_weapon(
 func _combat(path: String, key: String, rank_value := 1) -> RunWorld:
 	var w := _world()
 	w.change_job(500, path)
-	w.heal_fraction("mp", 1.0)
 	for mk: MobKind in w.mob_kinds:
 		mk.hitbox = Rect2(-2, -10, 4, 10)
 		mk.move_speed = 0
@@ -169,27 +164,23 @@ func _cast(w: RunWorld, positions: Array) -> Array:
 func test_flash_fist_uses_front_box_cost_and_one_target_and_needs_a_knuckle() -> void:
 	for path: String in WEAPONS:
 		var w := _combat(path, "flash_fist")
-		var mp: int = w.player_state.mp
 		var events := _cast(w, [35.0, 45.0, -35.0, 200.0])
 		var hits := events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "flash_fist")
 		assert_eq(hits.size(), 1 if path == "knuckle" else 0)
-		assert_eq(w.player_state.mp, mp - (6 if path == "knuckle" else 0))
 		if not hits.is_empty():
 			assert_near(hits[0].pos.x, w.player.pos.x + 35)
 			assert_true(int(hits[0].damage) > 0)
 	var out_of_reach := _combat("knuckle", "flash_fist")
-	assert_true(_cast(out_of_reach, [-35.0, 200.0]).is_empty(), "no front target means no cast or cost")
+	assert_true(_cast(out_of_reach, [-35.0, 200.0]).is_empty(), "no front target means no cast")
 
 
 func test_somersault_kick_strikes_around_with_either_weapon_at_canonical_caps_and_costs() -> void:
 	for path: String in WEAPONS:
 		for rank_value in [1, 20]:
 			var w := _combat(path, "somersault_kick", rank_value)
-			var mp: int = w.player_state.mp
 			var events := _cast(w, [-60.0, -50.0, -40.0, 30.0, 40.0, 50.0, 60.0, 300.0])
 			var hits := events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "somersault_kick")
 			assert_eq(hits.size(), 3 if rank_value == 1 else 6)
-			assert_eq(w.player_state.mp, mp - (8 if rank_value == 1 else 16))
 			assert_true(hits.any(func(e: Dictionary) -> bool: return e.pos.x < w.player.pos.x))
 			assert_true(hits.any(func(e: Dictionary) -> bool: return e.pos.x > w.player.pos.x))
 
@@ -201,10 +192,8 @@ func test_double_shot_uses_two_bullets_canonical_range_and_cost_and_requires_a_g
 			var st := w.loadout.stats("double_shot")
 			assert_eq(st.count, 2)
 			assert_eq(st.range, 215.0 if rank_value == 1 else 350.0)
-			var mp: int = w.player_state.mp
 			var events := _cast(w, [100.0])
 			assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 1 if path == "gun" else 0)
-			assert_eq(w.player_state.mp, mp - ((4 if rank_value == 1 else 7) if path == "gun" else 0))
 			assert_eq(w.projectiles.active_count(), 2 if path == "gun" else 0)
 			if path == "gun":
 				for tick in 30:
@@ -288,16 +277,6 @@ func test_pirate_rng_is_stream_sixteen_and_does_not_shift_existing_streams() -> 
 		assert_eq(left.randi(), right.randi(), property + " retains its next draw")
 
 
-func test_attacks_wait_without_spending_when_mp_is_short() -> void:
-	for key: String in ["flash_fist", "somersault_kick", "double_shot"]:
-		var w := _combat("gun" if key == "double_shot" else "knuckle", key)
-		assert_true(w.spend_mp(int(w.player_state.mp)))
-		var events := _cast(w, [40.0])
-		assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 0)
-		assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "mp_short").size(), 1)
-		assert_eq(w.player_state.mp, 0)
-
-
 func test_path_ap_survives_swaps_and_a_branch_row_takes_precedence() -> void:
 	var w := _world()
 	w.god = true
@@ -371,7 +350,6 @@ func test_original_pirate_tables_art_actions_and_sounds_resolve_in_the_private_c
 		assert_eq(book.max_level(key), 20)
 		for rank_value in [1, 20]:
 			var st := loadout.stats(key, rank_value)
-			assert_eq(st.mp_cost, facts[key][0 if rank_value == 1 else 1])
 			assert_near(st.damage_pct, facts[key][2 if rank_value == 1 else 3])
 			if key == "double_shot":
 				assert_eq(st.count, 2)

@@ -10,8 +10,7 @@ extends RefCounted
 ## of the pool spawns as an elite (hp_mult x HP; RunWorld pays exp_mult x EXP). With a positive `post_duration_slope`
 ## the rate/max_alive/hp/speed keyframe slopes, the burst size and the elite frequency keep growing at that pace
 ## after the last keyframe until the clear (value_at, burst_count_at, elite_interval_at).
-## An optional ordinary HP drop chance interpolates, with the global HP fallback and endpoint holding (normal MP has no
-## stage values: one global chance, owner 2026-10-16).
+## An optional ordinary HP drop chance interpolates, with the global HP fallback and endpoint holding.
 ##
 ## Positions (tier C): a random point on a floor outside the view grown by `margin` px, inside the map bounds and at
 ## least `min_player_dist` from the player, searched in three rings: within `band` px of the view (with `band_y` >= 0

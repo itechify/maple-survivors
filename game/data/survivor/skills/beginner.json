@@ -14,9 +14,9 @@
 		"recovery": {
 			"skill_id": 1001, "book": "000", "job": 0, "kind": "buff", "slot": "passive",
 			"name": "Recovery", "desc": "Heals HP every 5 seconds for 30 seconds when hurt.",
-			"text": {"desc": "Recovers HP over time when your HP falls below half.", "h": "MP -{mp_cost}; recover {x} HP every 5 sec. for {duration} sec.; {buff_cooldown} sec. between uses"},
+			"text": {"desc": "Recovers HP over time when your HP falls below half.", "h": "Recover {x} HP every 5 sec. for {duration} sec.; {buff_cooldown} sec. between uses"},
 			"icon": "Skill.wz/000.img/skill/0001001/icon", "damage": "none", "ranks": [1, 2, 3],
-			"_buff": "Tier C: cast below 50% HP; interpret canonical x as HP every 5 s, six pulses including the final pulse at 30 s. Values, duration, MP cost and cooldown stay canonical.",
+			"_buff": "Tier C: cast below 50% HP; interpret canonical x as HP every 5 s, six pulses including the final pulse at 30 s. Values, duration and cooldown stay canonical.",
 			"buff": {"stat": "hp", "field": "x", "duration_field": "time", "cooldown_field": "cooltime",
 				"pulse_interval": 5, "hp_threshold": 0.5},
 			"action": "", "action_time": 0.0, "ball": "", "hit": "",
@@ -26,7 +26,7 @@
 		"three_snails": {
 			"skill_id": 1000, "book": "000", "job": 0, "kind": "projectile", "slot": "active",
 			"name": "Three Snails", "desc": "Hurls snail shells at the nearest monster.",
-			"text": {"h": "MP -{mp_cost}; Damage {fixdamage}, {count|shell|shells} per throw"},
+			"text": {"h": "Damage {fixdamage}, {count|shell|shells} per throw"},
 			"icon": "Skill.wz/000.img/skill/0001000/icon",
 			"damage": "fixed",
 			"cooldown": 1.1, "range": 420, "speed": 400, "count": 1, "pierce": 0, "radius": 12,

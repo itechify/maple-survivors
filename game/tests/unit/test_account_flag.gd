@@ -20,10 +20,11 @@ func _write(name: String, value: Variant) -> String:
 func test_validation_accepts_the_documented_shape_and_rejects_bad_files() -> void:
 	assert_eq(AccountFile.validation_error(ACCOUNT), "")
 	assert_eq(AccountFile.validation_error({}), "", "an empty account file is an empty account")
+	assert_eq(AccountFile.validation_error({"alert": {"hp": 0.3, "mp": 7}}), "", "an old MP ALERT is tolerated, not checked")
 	assert_eq(AccountFile.validation_error(JSON.parse_string(JSON.stringify(ACCOUNT))), "", "JSON floats")
 	for bad: Variant in [[], "x", {"owned": 5}, {"owned": ["a"]}, {"owned": [0]}, {"owned": [1.5]},
 			{"cash": {"hat": "x"}}, {"cash": {"crown": 1000001}}, {"pet": -1}, {"pet": "x"},
-			{"alert": 5}, {"alert": {"hp": 2.0}}, {"alert": {"mp": -0.1}}, {"alert": {"hp": "x"}}]:
+			{"alert": 5}, {"alert": {"hp": 2.0}}, {"alert": {"hp": -0.1}}, {"alert": {"hp": "x"}}]:
 		assert_ne(AccountFile.validation_error(bad), "", "rejects %s" % [bad])
 
 
@@ -41,7 +42,7 @@ func test_load_reports_missing_and_invalid_files() -> void:
 	assert_eq(loaded.owned, [1000001, 1070001, 5000001, 1812002])
 	assert_eq(loaded.cash, {"hat": 1000001, "shoes": 1070001})
 	assert_eq(loaded.pet, 5000001)
-	assert_eq(loaded.alert, {"hp": 0.5, "mp": 0.25})
+	assert_eq(loaded.alert, {"hp": 0.5}, "an old file's MP ALERT is read and dropped (no MP, ADR 0006)")
 	assert_false(loaded.has("nx"), "nx is ignored: tool rounds never credit NX")
 
 
@@ -50,13 +51,13 @@ func test_apply_puts_account_alert_and_worn_items_on_the_round_setup() -> void:
 	var setup := RF.setup("quiet", 5, data)
 	AccountFile.apply(setup, AccountFile.normalized(ACCOUNT))
 	assert_eq(setup.account, {"owned": [1000001, 1070001, 5000001, 1812002]})
-	assert_eq(setup.alert, {"hp": 0.5, "mp": 0.25})
+	assert_eq(setup.alert, {"hp": 0.5})
 	assert_eq(setup.character.cash, {"hat": 1000001, "shoes": 1070001}, "a fresh character wears the account's items")
 	assert_eq(setup.character.pet, 5000001)
 	var w := RunWorld.new(setup)
 	assert_eq(w.player_state.fortune, 19.0, "hat 10 + shoes 9")
 	assert_eq(w.pet, 5000001)
-	assert_eq(w.alert, {"hp": 0.5, "mp": 0.25})
+	assert_eq(w.alert, {"hp": 0.5})
 	assert_eq(w.warnings.size(), 0)
 	var other := RF.setup("quiet", 5, data)
 	assert_false(other.has("character"), "applying to one setup leaves other setups alone")
@@ -85,7 +86,7 @@ func test_balance_run_applies_the_account_to_every_prepared_setup() -> void:
 	BR.apply_account(setups, AccountFile.normalized(ACCOUNT))
 	for setup: Dictionary in setups:
 		assert_eq(setup.account.owned, [1000001, 1070001, 5000001, 1812002])
-		assert_eq(setup.alert, {"hp": 0.5, "mp": 0.25})
+		assert_eq(setup.alert, {"hp": 0.5})
 	assert_eq(setups[0].character.cash, {"hat": 1000001, "shoes": 1070001})
 	assert_false(setups[1].has("character"), "later tiers get the character carried from the clear")
 	data.stages.stages.quiet.duration = 1.0

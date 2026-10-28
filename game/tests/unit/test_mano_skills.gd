@@ -204,13 +204,14 @@ func test_weapon_defense_reduces_basic_attacks_without_mutating_weapon_or_mob_st
 	for tick in 60*15:
 		w.step(DT, MoveInput.new())
 		for e: Dictionary in w.drain_events():
-			if e.type == "mob_hit" and e.skill == "basic_attack":
+			if e.type == "mob_hit" and e.skill == "basic_attack" and not bool(e.crit):
 				(before if w.time < 10 else after).append(int(e.damage))
 	assert_true(before.size() >= 10 and after.size() >= 5, "basic attacks landed on both sides of the buff")
 	if before.is_empty() or after.is_empty():
 		return
 	assert_true(before.max() > 40, "known STR112 Sword can hit above 40 before PDD buff")
-	assert_true(after.max() <= 10, "active PDD105 lowers the known physical maximum to under ten")
+	# Sword max (4 x 112 STR + 5 DEX) x 17 W.Att / 100 = 77.0, minus 0.5 x 105 PDD = 24.5. No level-gap factor (#285).
+	assert_true(after.max() <= 25, "active PDD105 lowers the known physical maximum to 24.5 (got %d)" % after.max())
 	assert_eq(w.weapon_info().incPAD, 17.0)
 	assert_eq(w.mob_kinds[int(w.kind_of_id[2220000])].pdd, 20)
 

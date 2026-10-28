@@ -32,7 +32,7 @@ func _inventory(w: RunWorld) -> Array:
 	return w.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
 
 
-func test_advancement_at_thirty_upgrades_either_weapon_and_grants_hp_mp() -> void:
+func test_advancement_at_thirty_upgrades_either_weapon_and_grants_hp() -> void:
 	for crossbow: bool in [false, true]:
 		var w := _bowman(crossbow)
 		w.progression.level = 29
@@ -43,13 +43,11 @@ func test_advancement_at_thirty_upgrades_either_weapon_and_grants_hp_mp() -> voi
 		assert_eq(option.size(), 1)
 		assert_true(option[0].available)
 		var hp: int = w.player_state.max_hp
-		var mp: int = w.player_state.max_mp
 		assert_true(w.apply_job(320))
 		assert_eq(w.progression.job_id, 320)
 		assert_eq(w.weapon_id(), 1462000)
 		assert_has(_inventory(w), 1462001 if crossbow else 1452051)
 		assert_eq(w.player_state.max_hp, hp + 325)
-		assert_eq(w.player_state.max_mp, mp + 175)
 		BotInput.auto_choose(w, false, 320)
 		w.apply_potion_schedule(w.progression.level, false) # the test sets the level directly: no level-up ran the schedule
 		var snapshot := w.character_snapshot()
@@ -63,7 +61,6 @@ func _combat(key := "", rank_value := 1, fixed_damage := false) -> RunWorld:
 	var w := _bowman(false, fixed_damage)
 	w.progression.level = 40
 	w.change_job(320)
-	w.heal_fraction("mp", 1.0)
 	for mk: MobKind in w.mob_kinds:
 		mk.hitbox = Rect2(-2, -10, 4, 10)
 		mk.move_speed = 0
@@ -78,7 +75,6 @@ func _combat(key := "", rank_value := 1, fixed_damage := false) -> RunWorld:
 func test_iron_arrow_casts_one_own_ball_and_hits_six_in_order_with_linear_falloff() -> void:
 	var w := _combat("iron_arrow", 30, true)
 	var st := w.loadout.stats("iron_arrow")
-	assert_eq(st.mp_cost, 28)
 	assert_near(_combat("iron_arrow", 30).loadout.stats("iron_arrow").damage_pct, 1.8)
 	assert_eq(st.pierce, 5)
 	assert_eq(st.count, 1)
@@ -91,9 +87,7 @@ func test_iron_arrow_casts_one_own_ball_and_hits_six_in_order_with_linear_fallof
 		w.swarm.y[slots[-1]] = w.cast_origin().y + 5.0
 	w.mob_kinds[w.swarm.kind[slots[0]]].pdd = 0
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-	var mp: int = w.player_state.mp
 	w.runner.step(DT, w)
-	assert_eq(w.player_state.mp, mp - 28)
 	assert_eq(w.projectiles.active_count(), 1)
 	for p in w.projectiles.capacity():
 		if w.projectiles.active[p] != 0:
@@ -115,16 +109,13 @@ func test_power_knockback_uses_canonical_range_count_cost_and_nonboss_chance() -
 		assert_eq(st.range, 130.0 if rank_value == 1 else 150.0)
 		assert_near(st.damage_pct, 1.05 if rank_value == 1 else 2.0)
 		assert_eq(st.knockback_chance, 13.0 if rank_value == 1 else 70.0)
-		assert_eq(st.mp_cost, 8 if rank_value == 1 else 15)
 		w.runner.step(DT, w)
 		assert_eq(w.runner.casts, 0, "no target, no cost")
 		var slots: Array[int] = []
 		for dx: float in [-90, -60, 60, 90, 110, 130, 250]:
 			slots.append(RF.put_mob(w, 1110100, w.player.pos.x + dx, 190, 10000))
 		w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-		var mp: int = w.player_state.mp
 		w.runner.step(DT, w)
-		assert_eq(w.player_state.mp, mp - int(st.mp_cost))
 		var hits := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "power_knockback_crossbow")
 		assert_eq(hits.size(), 2 if rank_value == 1 else 6)
 		assert_eq(w.swarm.hp[slots[-1]], w.swarm.max_hp[slots[-1]], "out of reach")
@@ -164,20 +155,14 @@ func test_pierce_card_reaches_seventh_mob_at_forty_percent_and_shots_card_fires_
 	assert_eq(shots.projectiles.active_count(), 2)
 
 
-func test_attack_skills_wait_for_mp_and_targets_without_spending_or_casting() -> void:
+func test_attack_skills_wait_for_targets_without_casting() -> void:
 	for key: String in ["power_knockback_crossbow", "iron_arrow"]:
 		var w := _combat(key)
-		var mp: int = w.player_state.mp
-		w.runner.step(DT, w)
-		assert_eq(w.runner.casts, 0)
-		assert_eq(w.player_state.mp, mp)
-		RF.put_mob(w, 1110100, 470, 190, 10000)
-		w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-		assert_true(w.spend_mp(w.player_state.mp))
 		w.runner.step(DT, w)
 		assert_eq(w.runner.casts, 0)
 		assert_eq(w.projectiles.active_count(), 0)
-		w.heal_fraction("mp", 1.0)
+		RF.put_mob(w, 1110100, 470, 190, 10000)
+		w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 		w.runner.step(DT, w)
 		assert_eq(w.runner.casts, 1)
 
@@ -195,23 +180,16 @@ func test_mastery_and_booster_use_canonical_levels_costs_and_recast_without_stac
 		assert_eq(st.buff_effects, {"attack_speed": 2.0})
 		var cost := 29 if rank_value == 1 else 10
 		assert_eq(st.hp_cost, cost)
-		assert_eq(st.mp_cost, cost)
 		assert_true(w.spend_hp(w.player_state.hp - cost))
 		w.runner.step(DT, w)
 		assert_false(w.buffs.has("crossbow_booster"), "HP cost must never kill")
 		w.heal_fraction("hp", 1.0)
-		w.spend_mp(w.player_state.mp)
-		w.runner.step(DT, w)
-		assert_false(w.buffs.has("crossbow_booster"), "needs MP too")
-		w.heal_fraction("mp", 1.0)
 		var hp: int = w.player_state.hp
-		var mp: int = w.player_state.mp
 		w.runner.step(DT, w)
 		assert_eq(w.player_state.hp, hp - cost)
-		assert_eq(w.player_state.mp, mp - cost)
 		assert_eq(w.loadout.speed_steps, 2)
 		w.runner.step(DT, w)
-		assert_eq(w.player_state.mp, mp - cost, "no early recast")
+		assert_eq(w.runner.casts, 1, "no early recast")
 		for tick in int(st.duration * 60) + 5:
 			w.step(DT, MoveInput.new())
 		assert_eq(w.runner.casts, 2, "recasts on expiry without a target")
@@ -288,13 +266,11 @@ func test_crossbow_only_cards_casts_and_skill_window_and_no_soul_arrow() -> void
 	assert_near(w.loadout.mastery, 0.1)
 	RF.put_mob(w, 1110100, 470, 190, 10000)
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-	var mp: int = w.player_state.mp
 	w.drain_events()
 	for tick in 120:
 		w.step(DT, MoveInput.new())
 	var casts := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "cast" and e.skill in SKILLS)
 	assert_eq(casts.size(), 0)
-	assert_eq(w.player_state.mp, mp)
 	for def: Dictionary in w.book.defs.values():
 		assert_false(int(def.get("skill_id", 0)) in [3101004, 3201004])
 	for card: Dictionary in w.upgrades.cards:
@@ -381,20 +357,17 @@ func test_original_crossbowman_tables_icons_art_sounds_and_weapon_resolve() -> v
 				assert_true(lib.sound(sound) != null)
 	for rank_value in [1, 30]:
 		var iron := lo.stats("iron_arrow", rank_value)
-		assert_eq(iron.mp_cost, 23 if rank_value == 1 else 28)
 		assert_near(iron.damage_pct, 1.22 if rank_value == 1 else 1.80)
 		assert_eq(iron.pierce, 5)
 		assert_eq(book.canonical("iron_arrow", rank_value, "mobCount"), 6.0)
 		assert_eq(book.canonical("final_attack_crossbow", rank_value, "prop"), 2.0 if rank_value == 1 else 60.0)
 	for rank_value in [1, 20]:
 		var pkb := lo.stats("power_knockback_crossbow", rank_value)
-		assert_eq(pkb.mp_cost, 8 if rank_value == 1 else 15)
 		assert_eq(pkb.mob_count, 2 if rank_value == 1 else 6)
 		assert_eq(pkb.knockback_chance, 13.0 if rank_value == 1 else 70.0)
 		assert_eq(pkb.range, 130.0 if rank_value == 1 else 150.0)
 		var booster := lo.stats("crossbow_booster", rank_value)
 		assert_eq(booster.hp_cost, 29 if rank_value == 1 else 10)
-		assert_eq(booster.mp_cost, 29 if rank_value == 1 else 10)
 		assert_eq(booster.duration, 10.0 if rank_value == 1 else 200.0)
 		assert_eq(booster.buff_effects, {"attack_speed": 2.0})
 	var info: Dictionary = lib.node("Character.wz/Weapon/01462000.img/info")

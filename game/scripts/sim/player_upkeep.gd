@@ -2,11 +2,11 @@ class_name PlayerUpkeep
 extends RefCounted
 ## The player's per-tick timers (docs/ARCHITECTURE.md 4.4.6), owned by RunWorld as `upkeep`: timed buffs
 ## (PlayerBuffs) and their healing pulses, hit invincibility, the knockback guard, the cast-stance hold, shared regen and skill recovery clocks.
-## RunWorld owns the HP/MP pools: tick() reports the buff healing due and regen_pulses() how many regeneration
+## RunWorld owns the HP pool (there is no MP, ADR 0006): tick() reports the buff healing due and regen_pulses() how many regeneration
 ## pulses fell due, and the world applies them. Pure: no nodes, files or time.
 
-## tier B: v83 MP recovery cadence/base; tier C: owner-selected always-on HP recovery.
-const DEFAULT_REGEN := {"interval": 10.0, "hp": 10.0, "mp": 3.0}
+## tier B: v83 recovery cadence; tier C: owner-selected always-on HP recovery.
+const DEFAULT_REGEN := {"interval": 10.0, "hp": 10.0}
 
 ## tier C (ours, spec #88): the shrinking hit window; balance.hit_window overrides it.
 const DEFAULT_HIT_WINDOW := {"lengths": [1.5, 1.0, 0.6, 0.4], "chain_gap": 2.5, "reset_after": 3.0}
@@ -116,14 +116,9 @@ func pulse_hp() -> float:
 	return float(_regen.get("hp", DEFAULT_REGEN.hp))
 
 
-## Base MP restored by one pulse (before mp_regen modifiers and the skills' Loadout.regen_bonus).
-func pulse_mp() -> float:
-	return float(_regen.get("mp", DEFAULT_REGEN.mp))
-
-
-## Advances each owned periodic_recovery skill's canonical interval; returns HP/MP due, independently of shared regen.
+## Advances each owned periodic_recovery skill's canonical interval; returns the HP due, independently of shared regen.
 ## A weapon-gated recovery pauses while unusable. Rank changes preserve elapsed seconds; a new round starts fresh.
-func periodic_recovery(dt: float, loadout: Loadout) -> Vector2:
+func periodic_recovery(dt: float, loadout: Loadout) -> float:
 	if _recovery_version != loadout.version:
 		var next := {}
 		for key: String in loadout.order:
@@ -135,11 +130,10 @@ func periodic_recovery(dt: float, loadout: Loadout) -> Vector2:
 			if interval <= 0.0:
 				continue
 			next[key] = {"elapsed": float(_recoveries.get(key, {}).get("elapsed", 0.0)), "interval": interval,
-				"hp": loadout.book.canonical(key, level, String(rule.get("hp_field", "hp"))),
-				"mp": loadout.book.canonical(key, level, String(rule.get("mp_field", "mp")))}
+				"hp": loadout.book.canonical(key, level, String(rule.get("hp_field", "hp")))}
 		_recoveries = next
 		_recovery_version = loadout.version
-	var due := Vector2.ZERO
+	var due := 0.0
 	for key: String in _recoveries:
 		if not loadout.book.usable_with(key, loadout.weapon_family):
 			continue
@@ -147,7 +141,7 @@ func periodic_recovery(dt: float, loadout: Loadout) -> Vector2:
 		clock.elapsed += dt
 		while float(clock.elapsed) >= float(clock.interval) - _EPS:
 			clock.elapsed = maxf(0.0, float(clock.elapsed) - float(clock.interval))
-			due += Vector2(float(clock.hp), float(clock.mp))
+			due += float(clock.hp)
 	return due
 
 

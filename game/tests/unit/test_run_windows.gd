@@ -277,7 +277,7 @@ func test_stat_window_shows_the_sims_v83_stats() -> void:
 	assert_eq(sw.value_text("job"), "Beginner")
 	assert_eq(sw.value_text("level"), str(int(ps.level)))
 	assert_eq(sw.value_text("hp"), "%d / %d" % [int(ps.hp), int(ps.max_hp)])
-	assert_eq(sw.value_text("mp"), "%d / %d" % [int(ps.mp), int(ps.max_mp)])
+	assert_eq(sw.value_text("mp"), "-", "no MP row value (no MP, #285)")
 	for stat: String in ["str", "dex", "int", "luk"]:
 		assert_eq(sw.value_text(stat), str(int(ps[stat])), stat)
 	assert_eq(sw.value_text("ap"), "0", "AP is spent automatically")

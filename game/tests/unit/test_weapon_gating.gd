@@ -105,7 +105,6 @@ func test_every_family_has_a_display_name() -> void:
 ## claw-only skill "claw_skill" (canonical weapon 47) and an any-weapon "free_skill" (survivor ["any"]) owned.
 func _world(cards: Array = [], learn: bool = true) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 100
 	data.upgrades.cards = cards
 	for key: String in ["claw_skill", "free_skill"]:
 		data.skills.skills[key] = {"skill_id": 9991000 if key == "claw_skill" else 9991001, "book": "999",
@@ -157,12 +156,10 @@ func test_a_claw_skill_stops_casting_with_the_wrong_weapon_and_resumes_when_it_i
 	for tick in 90:
 		w.runner.step(DT, w)
 	assert_eq(_casts(w), [], "a sword is not a claw")
-	assert_eq(w.player_state.mp, 100, "and nothing was paid")
 	_wear(w, 1472061)
 	assert_eq(w.held_weapon_family(), "claw")
 	w.runner.step(DT, w)
 	assert_eq(_casts(w), ["claw_skill"], "it casts the moment a claw is held (its cooldown ran out meanwhile)")
-	assert_eq(w.player_state.mp, 95)
 	for tick in 80:
 		w.runner.step(DT, w)
 	assert_eq(_casts(w), ["claw_skill"], "a second cast once its cooldown (1 s) ran out")
@@ -199,21 +196,6 @@ func test_a_skill_the_weapon_blocks_does_not_hold_back_the_others() -> void:
 	for tick in 5:
 		w.runner.step(DT, w)
 	assert_eq(_casts(w), ["free_skill"], "the sword casts the any-weapon skill; the claw skill is skipped")
-
-
-func test_a_blocked_skill_that_was_waiting_for_mp_stops_waiting() -> void:
-	var w := _world()
-	w.loadout.order.erase("free_skill")
-	_wear(w, 1472061)
-	RF.put_mob(w, 1110100, 250)
-	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-	w.spend_mp(98)
-	w.runner.step(DT, w)
-	assert_true(w.runner.is_waiting_mp("claw_skill"), "claw held, 2 MP left: short of the 5 MP cost")
-	_wear(w, 1302000)
-	w.runner.step(DT, w)
-	assert_false(w.runner.is_waiting_mp("claw_skill"), "a sword again: the skill is not even considered")
-	assert_false(w.runner.waiting_mp)
 
 
 # --- Cards -------------------------------------------------------------------------------------------------------------
@@ -340,16 +322,14 @@ func test_the_skill_tooltip_prints_the_needed_weapon_line() -> void:
 
 # --- Manual skills and the HUD ----------------------------------------------------------------------------------------
 
-## A Fire/Poison Magician with Teleport on a flat map and plenty of MP; its weapon requirement is set per test.
+## A Fire/Poison Magician with Teleport on a flat map; its weapon requirement is set per test.
 func _teleporter(families: Array) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 200
 	var setup := RF.setup("quiet", 60, data)
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
 	setup.skill_imgs["210"] = {"skill": {"2101002": {"level": {"1": {"mpCon": 60, "range": 130}}}}}
 	var w := RunWorld.new(setup)
 	w.change_job(210)
-	w.heal_fraction("mp", 1.0)
 	w.loadout.add_skill("teleport_fp")
 	w.book.def("teleport_fp")["weapon_families"] = families
 	w.player.place(Vector2(400, 0), w.fhm)
@@ -369,9 +349,7 @@ func _blink(w: RunWorld) -> bool:
 func test_a_weapon_gated_manual_skill_refuses_to_cast_with_the_wrong_weapon() -> void:
 	var w := _teleporter(["claw"])
 	assert_ne(w.held_weapon_family(), "claw")
-	var mp0: int = w.player_state.mp
 	assert_false(_blink(w), "the held weapon is not a claw: no blink")
-	assert_eq(int(w.player_state.mp), mp0, "and nothing is paid")
 	assert_eq(w.teleport_skill(), "", "the bot and HUD see no usable Teleport")
 	var ok := _teleporter([w.held_weapon_family()])
 	assert_true(_blink(ok), "the same skill works once the held family is listed")
@@ -397,13 +375,12 @@ func test_the_hud_shows_a_weapon_blocked_skill_as_blocked_not_ready() -> void:
 	assert_eq(state[claw], 0)
 	var hud := HudSkills.new()
 	hud.update({}, {"skills": [
-		{"icon": "", "rank": 1, "key_label": "", "cooldown_left": 0.0, "cooldown_total": 0.0, "mp_short": false,
+		{"icon": "", "rank": 1, "key_label": "", "cooldown_left": 0.0, "cooldown_total": 0.0,
 			"blocked": true},
-		{"icon": "", "rank": 1, "key_label": "", "cooldown_left": 0.0, "cooldown_total": 0.0, "mp_short": true,
+		{"icon": "", "rank": 1, "key_label": "", "cooldown_left": 0.0, "cooldown_total": 0.0,
 			"blocked": false}]})
 	assert_true(bool(hud.displayed()[0].blocked))
-	assert_false(bool(hud.displayed()[0].mp_short), "a blocked skill is not waiting for MP")
-	assert_true(bool(hud.displayed()[1].mp_short))
+	assert_false(bool(hud.displayed()[1].blocked))
 	hud.free()
 
 

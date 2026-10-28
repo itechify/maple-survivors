@@ -59,7 +59,7 @@ func weapon_needed(key: String) -> String:
 
 ## The tooltip of skill `key`: {name, icon, desc, level (0 when unlearned), current (the owned level's line, "" when
 ## unlearned), next_level (0 at the cap), next (that level's line), cooldown (s between casts:
-## SkillRunner.restart_cooldown; -1 for a passive), mp_cost (-1 for a passive), hp_cost (only for an active skill that
+## SkillRunner.restart_cooldown; -1 for a passive), hp_cost (only for an active skill that
 ## pays HP, Slash Blast), needs (the weapon it needs, "" for any;
 ## weapon_needed), usable (the held weapon can use it), upgrades: [{id, name, steps, effect, text}] (every behaviour
 ## card taken for the skill, in card order: "Twin Claw ×2: +2 targets")}. Lines come from SkillText filled with the
@@ -71,14 +71,13 @@ func skill_tooltip(key: String) -> Dictionary:
 	var kind := book.kind(key)
 	var tip := {"key": key, "name": String(d.get("name", key)), "icon": String(d.get("icon", "")),
 		"desc": text.desc(key), "level": loadout.level(key), "current": "", "next_level": 0, "next": "",
-		"cooldown": -1.0, "mp_cost": -1, "needs": weapon_needed(key), "usable": usable(key), "upgrades": []}
+		"cooldown": -1.0, "needs": weapon_needed(key), "usable": usable(key), "upgrades": []}
 	if r > 0:
 		tip.current = text.level_line(key, loadout.level(key), st)
 	if r < book.max_rank(key):
 		tip.next_level = book.canonical_level(key, r + 1)
 		tip.next = text.level_line(key, tip.next_level, loadout.stats(key, r + 1))
 	if kind != "passive":
-		tip.mp_cost = int(st.mp_cost)
 		tip.hp_cost = int(st.hp_cost)
 		tip.cooldown = SkillRunner.restart_cooldown(st)
 	var upgrades: Array[Dictionary] = []

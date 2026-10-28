@@ -1,6 +1,7 @@
 class_name HudStatusBar
 extends HudWidget
-## The original status bar, gauges and identity; the right-hand decorative controls are reserved for potions.
+## The original status bar, gauges and identity; the right-hand decorative controls are reserved for potions. There is
+## no MP (ADR 0006): the v83 art's MP gauge is drawn empty (all gray) with no numbers.
 
 func _draw() -> void:
 	var view := get_viewport_rect().size
@@ -24,16 +25,13 @@ func _draw_gauges(g: Vector2) -> void:
 	_blit(bar, g)
 	var hp := float(player_state.get("hp", 0))
 	var max_hp := float(player_state.get("max_hp", 0))
-	var mp := float(player_state.get("mp", 0))
-	var max_mp := float(player_state.get("max_mp", 0))
 	var exp_v := float(player_state.get("exp", 0))
 	var exp_next := float(run_info.get("exp_next", 0))
 	_gray(g, HP_FILL, fill_width(hp, max_hp, HP_FILL.y))
-	_gray(g, MP_FILL, fill_width(mp, max_mp, MP_FILL.y))
+	_gray(g, MP_FILL, 0.0)
 	_gray(g, EXP_FILL, fill_width(exp_v, exp_next, EXP_FILL.y))
 	_blit(_frame(SB + "gauge/graduation"), g)
 	_number_text(g + Vector2(HP_TEXT_X, TEXT_Y), "[%d/%d]" % [int(hp), int(max_hp)])
-	_number_text(g + Vector2(MP_TEXT_X, TEXT_Y), "[%d/%d]" % [int(mp), int(max_mp)])
 	var pct := 0 if exp_next <= 0.0 else int(floorf(100.0 * clampf(exp_v / exp_next, 0.0, 1.0)))
 	_number_text(g + Vector2(EXP_TEXT_X, TEXT_Y), "%d[%d%%]" % [int(exp_v), pct])
 

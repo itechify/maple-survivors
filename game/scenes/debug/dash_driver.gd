@@ -30,7 +30,6 @@ func _drive() -> void:
 	w.upgrades.apply("dash_new", w)
 	for i in int(args.get("rank", 10)) - 1:
 		w.upgrades.apply("dash_rank", w)
-	w.heal_fraction("mp", 1.0)
 	run.handle_events(w.drain_events())
 	await _frames(0.5)
 	# Key Config lists Dash's skill key (and nothing else of this kind).
@@ -52,7 +51,6 @@ func _drive() -> void:
 	await _frames(0.6)
 	var speed_before := w.player.speed_stat
 	var jump_before := w.player.jump_stat
-	var mp_before := int(w.player_state.mp)
 	_press(KEY_X, true)
 	await _frames(1.0 / 60.0)
 	_press(KEY_X, false)
@@ -60,7 +58,6 @@ func _drive() -> void:
 	await _shot("dash_cast.png")
 	var speed_after := w.player.speed_stat
 	var jump_after := w.player.jump_stat
-	var mp_after := int(w.player_state.mp)
 	start = w.player.pos
 	_press(KEY_RIGHT, true)
 	await _frames(0.5)
@@ -71,7 +68,7 @@ func _drive() -> void:
 	var file := FileAccess.open(shots.path_join("summary.json"), FileAccess.WRITE)
 	file.store_string(JSON.stringify({"skill_keys_listed": listed, "rank": w.loadout.rank("dash"),
 		"speed_stat": [speed_before, speed_after], "jump_stat": [jump_before, jump_after],
-		"mp": [mp_before, mp_after], "run_px_per_second": {"plain": plain, "dash": dashed},
+		"run_px_per_second": {"plain": plain, "dash": dashed},
 		"buff_left": float(w.buffs.active.get("dash", {}).get("remaining", 0.0))}, "\t"))
 	get_tree().quit()
 

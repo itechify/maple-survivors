@@ -14,7 +14,7 @@
 			"desc": "Shells fly {value}% faster.", "value": 25, "icon": "Skill.wz/000.img/skill/0001000/icon",
 			"max_rank": 3, "weight": 1, "requires": {"jobs": [0]}, "effects": [{"stat": "speed", "op": "mul", "value": 1.25}]},
 		{"id": "nimble_feet", "kind": "skill_new", "skill": "nimble_feet", "name": "Nimble Feet",
-			"desc": "Learn Nimble Feet: temporarily boosts your speed. Costs MP, with 1 min. between uses.",
+			"desc": "Learn Nimble Feet: temporarily boosts your speed. 1 min. between uses.",
 			"icon": "Skill.wz/000.img/skill/0001002/icon", "max_rank": 1, "weight": 1, "requires": {"jobs": [0]}, "effects": []},
 		{"id": "nimble_feet_rank", "kind": "skill_rank", "skill": "nimble_feet", "name": "Nimble Feet",
 			"desc": "+{magnitude} skill level: a stronger, longer speed boost.",
@@ -24,7 +24,7 @@
 			"desc": "Learn Recovery: six healing pulses when below half HP, with a 120 s cooldown.",
 			"icon": "Skill.wz/000.img/skill/0001001/icon", "max_rank": 1, "weight": 2, "requires": {"jobs": [0]}, "effects": []},
 		{"id": "recovery_rank", "kind": "skill_rank", "skill": "recovery", "name": "Recovery",
-			"desc": "Recovery +{magnitude} skill level: stronger healing pulses for a little more MP.",
+			"desc": "Recovery +{magnitude} skill level: stronger healing pulses.",
 			"icon": "Skill.wz/000.img/skill/0001001/icon", "max_rank": 3, "weight": 2,
 			"requires": {"jobs": [0], "skills": ["recovery"]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
 

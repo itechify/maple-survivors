@@ -8,8 +8,8 @@
 #   # window); one the build cannot offer fails at startup (see the seed log). --branch=<id> is the deprecated alias. --job=100:spear / --job=120:blunt select an advancement family.
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
 #   bash scripts/balance.sh 1 --account="C:/abs/account.json"  # a round with an account (spec #34): {"owned": [item ids],
-#   # "cash": {slot: id}, "pet": id, "alert": {"hp": f, "mp": f}} (all optional; nx ignored). owned = the account's cash items,
-#   # cash/pet = what the run's character wears/has out (replacing a --character's), alert = HP/MP ALERT fractions. Works with
+#   # "cash": {slot: id}, "pet": id, "alert": {"hp": f}} (all optional; nx and an old alert.mp ignored). owned = the account's
+#   # cash items, cash/pet = what the run's character wears/has out (replacing a --character's), alert = the HP ALERT fraction. Works with
 #   # --tier chains. No flag = an empty account and byte-identical records. The record gets "account": <file name> and the
 #   # output files <stage>_<policy>_acct-<name>_<seed>.json, so runs with different accounts never overwrite each other.
 #   bash scripts/balance.sh 1 2 2026 --tier=2               # tier-1 clears feed tier 2, one chain per seed
@@ -50,10 +50,10 @@
 # swarm engagement at 6/9/12 min (live mobs within 400 x 200 px of the player over the minute centred there, see
 # balance_run.gd), the stale share at 6/9/12 min (live mobs outside that box for 20 s or more in a row; a relocated
 # mob keeps its time), recycled mobs per spawn and relocated mobs per spawn) and a summary, and writes every run's
-# full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json. Potion fields: potions_used {hp, mp} counts player drinks;
-# potion_uses [{time, level, kind, item_id, restored, capacity_waste}] records each player drink; pet.potions_used {hp, mp}
+# full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json. Potion fields: potions_used {hp} counts player drinks;
+# potion_uses [{time, level, kind, item_id, restored, capacity_waste}] records each player drink; pet.potions_used {hp}
 # counts pet drinks separately when a pet is out. Unlimited potions have no collection/stock metrics or collection/use ratio.
-# SYSTEMS reports player potions used, MP wait, completed boss fight times, time to Magician, late MP waits with observation counts, first-five-minute
+# SYSTEMS reports player potions used, completed boss fight times, time to Magician, first-five-minute
 # lifetime hits per ordinary kill, death-only times and whole boss-hit HP fractions; *_summary.json/log preserve the aggregate.
 # Per-run card_tiers_offered/picked count the displayed Potential tiers; SYSTEMS totals include an observed-run count.
 # Chain files use <stage>_chain_tier<N>_<policy>_<seed>.json and retain rounds[]; summaries group by tier,

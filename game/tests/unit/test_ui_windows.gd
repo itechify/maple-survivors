@@ -284,24 +284,23 @@ func test_dense_tiered_choices_fit_the_view_and_keep_the_mouse_targets() -> void
 func test_level_up_card_details_show_canonical_rank_changes() -> void:
 	var card := {"kind": "skill_rank", "desc": "Rank up Energy Bolt.", "skill_changes": {
 		"mad": {"before": 20, "after": 28}, "mastery": {"before": 15, "after": 25},
-		"mpCon": {"before": 6, "after": 9}, "fixdamage": {"before": 10, "after": 25}}}
+		"fixdamage": {"before": 10, "after": 25}}}
 	assert_eq(LevelUpWindow.change_lines(card), PackedStringArray([
-		"Magic ATT: 20 → 28", "Mastery: 15% → 25%", "MP cost: 6 → 9", "Damage: 10 → 25"]),
+		"Magic ATT: 20 → 28", "Mastery: 15% → 25%", "Damage: 10 → 25"]),
 		"all canonical changes have a readable label and before/after values")
 	assert_eq(LevelUpWindow.change_lines({"kind": "stat", "desc": "Speed +6."}), PackedStringArray(),
 		"ordinary cards have no fabricated skill values")
 	var x_change := {"x": {"before": 4, "after": 8}}
 	assert_eq(LevelUpWindow.change_lines({"skill_changes": x_change, "skill_effect_stat": "hp"}),
 		PackedStringArray(["HP / pulse: 4 → 8"]), "a healing buff's x is HP per pulse (skills.json buff.stat hp)")
-	assert_eq(LevelUpWindow.change_lines({"skill_changes": x_change, "skill_effect_stat": "mp_guard"}),
-		PackedStringArray(["MP absorption: 4% → 8%"]), "Magic Guard's x is the percent MP absorbs")
-	assert_eq(LevelUpWindow.change_lines({"skill_changes": {"speed": {"before": 10, "after": 15},
-		Loadout.MAX_MP_PERCENT: {"before": 2, "after": 4}}}), PackedStringArray(["Speed: 10 → 15", "Max MP: 2% → 4%"]),
-		"Nimble Feet speed and the Improved MaxMP Increase percentage have readable lines")
+	assert_eq(LevelUpWindow.change_lines({"skill_changes": x_change, "skill_effect_stat": "other"}),
+		PackedStringArray(["Effect: 4 → 8"]), "any other stat's x shows as a plain effect value")
+	assert_eq(LevelUpWindow.change_lines({"skill_changes": {"speed": {"before": 10, "after": 15}}}),
+		PackedStringArray(["Speed: 10 → 15"]), "Nimble Feet speed has a readable line")
 
 
 func test_rank_preview_uses_the_space_for_values_that_change() -> void:
-	assert_eq(LevelUpWindow.change_lines({"skill_changes": {"mpCon": {"before": 6, "after": 6},
+	assert_eq(LevelUpWindow.change_lines({"skill_changes": {"hpCon": {"before": 6, "after": 6},
 		"time": {"before": 30, "after": 30}, "fixdamage": {"before": 10, "after": 25}}}),
 		PackedStringArray(["Damage: 10 → 25"]), "unchanged cost and duration do not crowd out the offered gain")
 

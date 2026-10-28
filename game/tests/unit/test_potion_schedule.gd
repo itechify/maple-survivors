@@ -32,18 +32,16 @@ func _snapshot_at(level: int) -> Dictionary:
 	return s
 
 
-## The researched schedule (docs/research/v83-potion-progression.md section 6): the three old card gates, then Unagi and
-## Pure Water at Lv 40 and Ice Cream Pop and Red Bean Sundae at Lv 60 (spec #225 / #229).
-const STEPS := [{"level": 10, "kind": "hp", "item": 2000001}, {"level": 20, "kind": "mp", "item": 2000006},
-	{"level": 25, "kind": "hp", "item": 2000002}, {"level": 40, "kind": "hp", "item": 2022003},
-	{"level": 40, "kind": "mp", "item": 2022000}, {"level": 60, "kind": "hp", "item": 2001001},
-	{"level": 60, "kind": "mp", "item": 2001002}]
+## The researched schedule (docs/research/v83-potion-progression.md section 6): the two old HP card gates, then Unagi at
+## Lv 40 and Ice Cream Pop at Lv 60 (spec #225 / #229). The MP steps went with MP (#285).
+const STEPS := [{"level": 10, "kind": "hp", "item": 2000001}, {"level": 25, "kind": "hp", "item": 2000002},
+	{"level": 40, "kind": "hp", "item": 2022003}, {"level": 60, "kind": "hp", "item": 2001001}]
 
 
 func test_schedule_data_ships_the_researched_steps() -> void:
 	var balance: Dictionary = DataRepo.load_all().balance
 	var potions: Dictionary = balance.potions
-	assert_eq((potions.schedule as Array).size(), 7, "three card gates and four researched steps")
+	assert_eq((potions.schedule as Array).size(), 4, "two card gates and two researched steps")
 	assert_eq(PotionSchedule.steps(balance), STEPS)
 	assert_has(potions, "_schedule")
 	assert_true(String(potions._schedule).contains("docs/research/v83-potion-progression.md"), "tier C pointer to the doc")
@@ -53,14 +51,11 @@ func test_schedule_data_ships_the_researched_steps() -> void:
 func test_schedule_fires_at_exactly_its_levels_keeping_the_cooldown() -> void:
 	var w := RF.quiet_world(400.0, 111)
 	w.drink_potion("hp")
-	w.drink_potion("mp")
 	w.drain_events()
 	var expected := {
-		10: [["hp", 2000000, 2000001]], 20: [["mp", 2000003, 2000006]], 25: [["hp", 2000001, 2000002]],
-		40: [["hp", 2000002, 2022003], ["mp", 2000006, 2022000]],
-		60: [["hp", 2022003, 2001001], ["mp", 2022000, 2001002]]}
+		10: [["hp", 2000000, 2000001]], 25: [["hp", 2000001, 2000002]],
+		40: [["hp", 2000002, 2022003]], 60: [["hp", 2022003, 2001001]]}
 	var hp_items := {0: 2000000, 10: 2000001, 25: 2000002, 40: 2022003, 60: 2001001}
-	var mp_items := {0: 2000003, 20: 2000006, 40: 2022000, 60: 2001002}
 	while w.progression.level < 62:
 		_level_up_once(w)
 		var level := w.progression.level
@@ -76,31 +71,25 @@ func test_schedule_fires_at_exactly_its_levels_keeping_the_cooldown() -> void:
 		for from_level: int in hp_items:
 			if level >= from_level:
 				hp_item = hp_items[from_level]
-		var mp_item := 0
-		for from_level: int in mp_items:
-			if level >= from_level:
-				mp_item = mp_items[from_level]
 		assert_eq(w.player_state.potions.hp.item_id, hp_item, "HP item at Lv %d" % level)
-		assert_eq(w.player_state.potions.mp.item_id, mp_item, "MP item at Lv %d" % level)
+		assert_false(w.player_state.potions.has("mp"), "no MP potion at Lv %d" % level)
 		assert_near(float(w.potions.cooldown_left.hp), 20.0 - w.time, 0.0001)
-		assert_near(float(w.potions.cooldown_left.mp), 10.0 - w.time, 0.0001)
 
 
 func test_the_schedule_is_monotonic_per_kind_in_the_real_item_data() -> void:
 	if not require_cache():
 		return
 	var lib := AssetLibrary.get_default()
-	var last := {"hp": 50, "mp": 100} # the starters: Red Potion and Blue Potion
+	var last := {"hp": 50} # the starter: Red Potion
 	var data := DataRepo.load_all()
-	for kind: String in ["hp", "mp"]:
-		assert_eq(_spec_of(lib, int(data.balance.potions[kind].item_id), kind), last[kind], "starter %s restore" % kind)
+	assert_eq(_spec_of(lib, int(data.balance.potions.hp.item_id), "hp"), last.hp, "starter hp restore")
 	for step: Dictionary in PotionSchedule.steps(data.balance):
 		var kind := String(step.kind)
 		var restore := _spec_of(lib, int(step.item), kind)
 		assert_true(restore > int(last[kind]), "%s step %d at Lv %d restores %d > %d" % [kind, step.item, step.level,
 			restore, last[kind]])
 		last[kind] = restore
-	assert_eq(last, {"hp": 2000, "mp": 2000})
+	assert_eq(last, {"hp": 2000})
 
 
 func test_every_scheduled_item_resolves_in_the_cache_with_icon_name_and_sound() -> void:
@@ -119,7 +108,6 @@ func test_every_scheduled_item_resolves_in_the_cache_with_icon_name_and_sound() 
 		assert_true(lib.frame(AssetLibrary.item_icon_path(id, false)) != null, "icon of %d" % id)
 		assert_ne(String(lib.find(InventoryModel.name_path(id))), "", "String.wz name of %d" % id)
 		assert_true(lib.sound("Sound.wz/Item.img/%08d/Use" % id) != null, "Use sound of %d" % id)
-	assert_eq((setup.item_info[2022000] as Dictionary).spec.mp, 800.0, "Pure Water: its sound links to ../02012002/Use")
 	assert_eq(String(lib.find(InventoryModel.name_path(2022003))), "Unagi")
 
 
@@ -132,8 +120,7 @@ func _spec_of(lib: AssetLibrary, id: int, kind: String) -> int:
 
 
 func test_an_old_cache_without_the_new_items_stops_at_the_last_resolvable_tier() -> void:
-	var old_items := {2000000: {"spec": {"hp": 50}}, 2000001: {"spec": {"hp": 150}}, 2000002: {"spec": {"hp": 300}},
-		2000003: {"spec": {"mp": 100}}, 2000006: {"spec": {"mp": 300}}}
+	var old_items := {2000000: {"spec": {"hp": 50}}, 2000001: {"spec": {"hp": 150}}, 2000002: {"spec": {"hp": 300}}}
 	var setup := RF.setup("quiet", 14, RF.quiet_data())
 	setup.item_info = old_items
 	var w := RunWorld.new(setup)
@@ -142,14 +129,12 @@ func test_an_old_cache_without_the_new_items_stops_at_the_last_resolvable_tier()
 	while w.progression.level < 62:
 		_level_up_once(w)
 	assert_eq(w.player_state.potions.hp.item_id, 2000002, "HP stays White: Unagi and Ice Cream Pop do not resolve")
-	assert_eq(w.player_state.potions.mp.item_id, 2000006, "MP stays Mana Elixir: Pure Water and Red Bean Sundae do not resolve")
 	var snapshot := _snapshot_at(60)
 	var setup2 := RF.setup("quiet", 15, RF.quiet_data())
 	setup2.item_info = old_items
 	setup2.character = snapshot
 	var loaded := RunWorld.new(setup2)
 	assert_eq(loaded.player_state.potions.hp.item_id, 2000002, "a Lv 60 load on an old cache catches up to White")
-	assert_eq(loaded.player_state.potions.mp.item_id, 2000006)
 	# A partly newer cache (Unagi but no Ice Cream Pop) reaches exactly the tiers it holds.
 	old_items[2022003] = {"spec": {"hp": 1000}}
 	var setup3 := RF.setup("quiet", 16, RF.quiet_data())
@@ -164,33 +149,29 @@ func test_several_levels_in_one_tick_apply_every_due_step_in_level_order() -> vo
 	w.pickups.spawn(w.player.pos - Vector2(0, 25), w.progression.curve.total_to(26) + 1, 4000019)
 	w.step(DT, MoveInput.new())
 	var events := _tier_events(w)
-	assert_eq(events.map(func(e: Dictionary) -> int: return int(e.item_id)), [2000001, 2000006, 2000002])
+	assert_eq(events.map(func(e: Dictionary) -> int: return int(e.item_id)), [2000001, 2000002])
 	assert_eq(w.player_state.potions.hp.item_id, 2000002)
-	assert_eq(w.player_state.potions.mp.item_id, 2000006)
 
 
-func test_lv38_fixture_loads_with_white_and_mana_elixir_without_notices() -> void:
+func test_lv38_fixture_loads_with_white_without_notices() -> void:
 	var text := FileAccess.get_file_as_string("res://tests/fixtures/characters/lv35_magician_2nd.json")
 	var character: Dictionary = JSON.parse_string(text)
 	assert_eq(int(character.level), 38)
 	character.potions = {"hp": {"item_id": 2000000, "count": 9}, "mp": {"item_id": 2000003, "count": 17}}
 	var w := _loaded(character)
 	assert_eq(w.player_state.potions.hp, {"item_id": 2000002, "cooldown_left": 0.0, "cooldown_total": 20.0})
-	assert_eq(w.player_state.potions.mp, {"item_id": 2000006, "cooldown_left": 0.0, "cooldown_total": 10.0})
+	assert_false(w.player_state.potions.has("mp"), "the legacy MP stock is ignored: no MP (#285)")
 	assert_eq(_tier_events(w).size(), 0, "a load catches up silently")
 	var untouched: Dictionary = JSON.parse_string(text)
 	var v := _loaded(untouched)
 	assert_eq(v.player_state.potions.hp.item_id, 2000002)
-	assert_eq(v.player_state.potions.mp.item_id, 2000006)
 
 
 func test_snapshot_catch_up_derives_tiers_only_from_level() -> void:
-	for example: Array in [[9, 2000000, 2000003], [10, 2000001, 2000003], [19, 2000001, 2000003],
-			[20, 2000001, 2000006], [24, 2000001, 2000006], [25, 2000002, 2000006], [39, 2000002, 2000006], [40, 2022003, 2022000],
-			[59, 2022003, 2022000], [60, 2001001, 2001002], [70, 2001001, 2001002]]:
+	for example: Array in [[9, 2000000], [10, 2000001], [24, 2000001], [25, 2000002], [39, 2000002], [40, 2022003],
+			[59, 2022003], [60, 2001001], [70, 2001001]]:
 		var w := _loaded(_snapshot_at(example[0]))
 		assert_eq(w.player_state.potions.hp.item_id, example[1], "HP at Lv %d" % example[0])
-		assert_eq(w.player_state.potions.mp.item_id, example[2], "MP at Lv %d" % example[0])
 
 
 func test_no_draw_contains_a_removed_card() -> void:

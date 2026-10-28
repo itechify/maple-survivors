@@ -310,11 +310,9 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 	get_viewport().size_changed.connect(_place_shop_button)
 	_place_shop_button()
 	var hp := maxi(1, roundi(loadout.player_stat("max_hp", float(character.get("base_hp", 1)))))
-	var mp := maxi(0, roundi(loadout.player_stat("max_mp", float(character.get("base_mp", 0))
-		+ float(character.get("job_mp", 0))) * (1.0 + loadout.passive_total(Loadout.MAX_MP_PERCENT))))
 	var level := int(character.get("level", 1))
 	var curve := ExpCurve.from_data(data.balance.get("exp_curve", {}))
-	status.update({"level": level, "exp": int(character.get("exp", 0)), "hp": hp, "mp": mp, "max_hp": hp, "max_mp": mp},
+	status.update({"level": level, "exp": int(character.get("exp", 0)), "hp": hp, "max_hp": hp},
 		{"name": snapshot.get("name", ""), "job_name": JobTree.from_data(data.jobs, {}).name_of(int(character.get("job_id", 0))),
 		"exp_next": curve.exp_to_next(level)})
 	var help := MapleText.new("", MapleText.SIZE, MapleText.WHITE, true)

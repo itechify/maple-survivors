@@ -23,8 +23,6 @@ var name := ""
 var level := 1
 ## Canonical maxHP x hp_mult (rounded, at least 1).
 var max_hp := 1
-## Canonical maxMP, independent of survivor HP multipliers (tier A: Mob.wz info/maxMP).
-var max_mp := 0
 var exp := 0
 var pad := 0
 var pdd := 0
@@ -73,7 +71,6 @@ static func from_wz(mob_img: Dictionary, p_id: int, overrides: Dictionary = {}) 
 	k.name = String(overrides.get("name", ""))
 	k.level = int(info.get("level", 1))
 	k.max_hp = maxi(1, int(round(float(info.get("maxHP", 1)) * float(overrides.get("hp_mult", 1.0)))))
-	k.max_mp = int(info.get("maxMP", 0))
 	k.exp = int(info.get("exp", 0))
 	k.pad = int(info.get("PADamage", 0))
 	k.pdd = int(info.get("PDDamage", 0))

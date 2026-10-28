@@ -42,8 +42,8 @@ extends Node
 ##           (the held weapon cannot use Magic Claw: greyed row, tooltip "Weapon : Claw (not held)"), Esc closes. Shots:
 ##           skill_weapon_greyed, skill_weapon_tooltip.
 ##   skill_warrior  the Warrior's Skill window (#163): a Warrior owning all six skills and a Cleaving Strike card (debug
-##           setup); K opens Skill on the Warrior tab, hovering Slash Blast shows its HP / MP cost and weapon line, Esc
-##           closes and Iron Body casts itself (debug MP). Shots: skill_warrior_window, skill_warrior_tooltip,
+##           setup); K opens Skill on the Warrior tab, hovering Slash Blast shows its HP cost and weapon line, Esc
+##           closes and Iron Body casts itself. Shots: skill_warrior_window, skill_warrior_tooltip,
 ##           skill_warrior_iron_body.
 ##   keys    Key Config and Options (#87): title -> new character -> map select -> run (no bot); Esc pauses, 2 opens
 ##           Key Config over the pause menu, the jump icon is dragged from C onto F, OK; Esc resumes; C no
@@ -159,10 +159,10 @@ extends Node
 const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
 const StageSelectScene := preload("res://scenes/ui/stage_select.gd")
 const MAIN := "res://scenes/main.tscn"
-## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q / End potions; E is
-## the Equip window).
+## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q potion; E is the
+## Equip window).
 const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_C,
-	"drink_hp": KEY_Q, "drink_mp": KEY_END}
+	"drink_hp": KEY_Q}
 
 var args := {}
 var shots_dir := ""
@@ -1567,10 +1567,7 @@ func _scenario_skill_warrior() -> void:
 	_check(String(tip.get("key", "")) == "slash_blast" and int(tip.get("hp_cost", 0)) == 8 and bool(tip.get("usable", false)),
 		"the tooltip shows Slash Blast's HP cost and says the sword can use it")
 	await _shot("skill_warrior_tooltip")
-	# Debug setup: enough MP for Iron Body, which auto-casts as soon as Esc lets the sim run again.
-	w._base_mp = 100.0
-	w.refresh_player_stats()
-	w.heal_fraction("mp", 1.0)
+	# Iron Body auto-casts as soon as Esc lets the sim run again.
 	await _key(KEY_ESCAPE)
 	await _sleep(0.5)
 	_check(w.buffs.has("iron_body"), "Iron Body was cast once the window closed")
@@ -1801,7 +1798,6 @@ func _scenario_thief() -> void:
 	var key := "lucky_seven" if path_id == "claw" else "double_stab"
 	w.upgrades.apply(key + "_new", w) # evidence: ensure this attack is available regardless of the random draw.
 	w.upgrades.apply("nimble_body_new", w)
-	w.heal_fraction("mp", 1.0)
 	run.handle_events(w.drain_events())
 	var kills0 := w.kills
 	_steer = true
@@ -1815,7 +1811,6 @@ func _scenario_thief() -> void:
 	w.spawn_mob(mob_kind, w.player.pos + Vector2(dx, 0), w.player.fh, 1000.0, false)
 	w.basic.cooldown = 60.0
 	w.runner.cooldowns[key] = 0.0
-	w.heal_fraction("mp", 1.0)
 	run.handle_events(w.drain_events())
 	if not await _until(func() -> bool: return String(w.player_state.action) == String(w.book.def(key).action) \
 		and float(w.player_state.action_t) < 0.1, 15.0, "Thief attack action"):
@@ -1875,7 +1870,6 @@ func _thief_disorder(run: RunScene) -> void:
 		w.runner.cooldowns[key] = 10000.0
 	w.basic.cooldown = 10000.0
 	w.upgrades.apply("disorder_new", w)
-	w.heal_fraction("mp", 1.0)
 	var mobs := []
 	# tier C: evidence-only placement/durability; no survivor balance values are changed.
 	w.mob_kinds[0].move_speed = 0.0
@@ -1960,7 +1954,6 @@ func _scenario_pirate() -> void:
 		return
 	# Dash (#188): its card is applied as debug setup; the skill is then cast on its own key.
 	w.upgrades.apply("dash_new", w)
-	w.heal_fraction("mp", 1.0)
 	run.handle_events(w.drain_events())
 	_check(w.loadout.rank("dash") == 1, "Dash is learned (rank %d)" % w.loadout.rank("dash"))
 	# Lv30 by a debug warp (EXP drops, invulnerable), then the real Lv 30 window.
@@ -1973,7 +1966,6 @@ func _scenario_pirate() -> void:
 	_check(w.weapon_path == path_id, "the recorded weapon path is still %s" % w.weapon_path)
 	_check(w.loadout.rank("dash") == 1, "Dash survived the second advancement")
 	w.god = false
-	w.heal_fraction("mp", 1.0)
 	w.heal_fraction("hp", 1.0)
 	# A few seconds of real play with the bot's steering, then Dash on its real key.
 	var kills0 := w.kills
@@ -1983,13 +1975,11 @@ func _scenario_pirate() -> void:
 	_steer = false
 	_release_all()
 	await _shot("pirate_playing")
-	w.heal_fraction("mp", 1.0)
 	var speed0 := w.player.speed_stat
-	var mp0 := int(w.player_state.mp)
 	await _key(KEY_X)
 	await _sleep(0.4)
-	_check(w.buffs.active.has("dash") and w.player.speed_stat > speed0 and int(w.player_state.mp) < mp0,
-		"Dash on X: buff active, speed %s -> %s, MP %d -> %d" % [speed0, w.player.speed_stat, mp0, int(w.player_state.mp)])
+	_check(w.buffs.active.has("dash") and w.player.speed_stat > speed0,
+		"Dash on X: buff active, speed %s -> %s" % [speed0, w.player.speed_stat])
 	await _hold(KEY_RIGHT, 0.5)
 	await _shot("pirate_dash")
 	_collect_missing(run)
@@ -3647,7 +3637,6 @@ func _steer_run() -> void:
 	_set_key("down", mi.down)
 	_set_key("jump", mi.jump_pressed)
 	_set_key("drink_hp", mi.drink_hp)
-	_set_key("drink_mp", mi.drink_mp)
 
 
 func _set_key(action: String, down: bool) -> void:

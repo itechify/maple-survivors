@@ -10,7 +10,6 @@ func _world() -> RunWorld:
 	var w: RunWorld = BRANCH.new()._branch(420, "dagger")
 	# Synthetic afterimage permits a real dagger weapon_reach cast.
 	w.setup.equipment_info[1332012] = w.setup.equipment_info[1332012].merged({"afterImage": "swordOS"})
-	w.heal_fraction("mp", 1)
 	return w
 
 
@@ -37,8 +36,9 @@ func test_bandit_without_steal_preserves_event_and_player_bytes() -> void:
 		digest.update(var_to_bytes(w.player_state))
 	assert_eq(w.thief_rng.state, thief_state)
 	# Captured before #214 on #212 c30848d; re-captured for #238 (cooldown snapshot replaces stock).
-	# This fixture learns neither new attack; stream 15 remains untouched.
-	assert_eq(digest.finish().hex_encode(), "db129c40c3c15bba8b62f4e20ce1c3223146c06a558a7f0274f7eec589600518")
+	# This fixture learns neither new attack; stream 15 remains untouched. Re-captured for #285 (no MP: player_state
+	# has no mp/max_mp/mp_short and casts pay no MP).
+	assert_eq(digest.finish().hex_encode(), "7f5f37d96b4be90a4103f06b27be781ab7dfe742de4e5de5dc8ac11e1b119e30")
 
 
 func test_savage_blow_casts_four_five_or_six_lines_and_requires_a_dagger() -> void:
@@ -47,10 +47,8 @@ func test_savage_blow_casts_four_five_or_six_lines_and_requires_a_dagger() -> vo
 		assert_true(w.learn_skill("savage_blow"))
 		w.loadout.set_rank("savage_blow", pair[0])
 		_target(w)
-		var mp: int = w.player_state.mp
 		w.runner.step(DT, w)
 		assert_eq(_hits(w, "savage_blow").size(), pair[1])
-		assert_eq(w.player_state.mp, mp - int(pair[2]))
 	var claw := _world()
 	claw.learn_skill("savage_blow")
 	BRANCH.new()._wear(claw, 1472061)
@@ -112,7 +110,6 @@ func test_steal_autocasts_in_melee_with_any_weapon_and_never_throws_a_star() -> 
 		assert_eq(_hits(w, "steal").size(), 1)
 		assert_eq(w.projectiles.active_count(), 0)
 		assert_eq(w.runner.casts, 1)
-		assert_eq(w.player_state.mp, int(w.player_state.max_mp) - 12)
 	var far := _world()
 	far.learn_skill("steal")
 	RF.put_mob(far, 1110100, 650)

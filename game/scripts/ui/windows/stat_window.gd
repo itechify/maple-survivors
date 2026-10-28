@@ -4,9 +4,10 @@ extends UiWindow
 ## name, job, level, guild, HP, MP, EXP, fame, ability points, STR/DEX/INT/LUK) with the `backgrnd2` detail panel
 ## (attack, weapon defence, magic, magic defence, accuracy, avoidability, hands, speed, jump) beside it; BtDetail
 ## shows / hides the detail panel, BtUIClose closes the window. Read-only: AP is spent automatically, so the BtApUp
-## buttons are never shown. v83 stats only (survivor cards are skills, listed on the Skill window).
+## buttons are never shown. v83 stats only (survivor cards are skills, listed on the Skill window). There is no MP
+## (ADR 0006): the art's baked MP row stays empty.
 ##
-##   StatWindow.new(info)   # info: RunScene.stat_info() - name, job, level, exp, exp_next, hp, max_hp, mp, max_mp,
+##   StatWindow.new(info)   # info: RunScene.stat_info() - name, job, level, exp, exp_next, hp, max_hp,
 ##                          # str, dex, int, luk, ap, attack, magic, weapon_def, magic_def, accuracy, avoid, speed, jump
 ##                          # and str_bonus .. luk_bonus (what worn equipment adds)
 ## A main stat with an equipment bonus shows the v83 way, "total (base+bonus)"; without one just the total.
@@ -31,7 +32,7 @@ const DETAIL_BUTTON_POS := Vector2(120, 324)
 const CLOSE_BUTTON_POS := Vector2(10, 325)
 ## Main panel rows: key, label (fallback drawing only), field top y (v83 backgrnd; the job field is two rows tall).
 const MAIN_ROWS := [["name", "NAME", 33], ["job", "JOB", 56], ["level", "LEVEL", 79], ["guild", "GUILD", 97],
-	["hp", "HP", 115], ["mp", "MP", 133], ["exp", "EXP.", 151], ["fame", "FAME", 169], ["str", "STR", 245],
+	["hp", "HP", 115], ["exp", "EXP.", 151], ["fame", "FAME", 169], ["str", "STR", 245],
 	["dex", "DEX", 263], ["int", "INT", 281], ["luk", "LUK", 299]]
 ## Detail panel rows (v83 backgrnd2).
 const DETAIL_ROWS := [["attack", "ATTACK", 7], ["weapon_def", "WEAPON DEF.", 25], ["magic", "MAGIC", 43],
@@ -82,7 +83,7 @@ func set_info(p_info: Dictionary) -> void:
 
 ## The text shown for row `key` ("-" when the sim has no such stat).
 func value_text(key: String) -> String:
-	if key == "hp" or key == "mp":
+	if key == "hp":
 		if not info.has(key):
 			return "-"
 		return "%d / %d" % [int(info[key]), int(info.get("max_" + key, 0))]

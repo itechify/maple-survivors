@@ -26,14 +26,12 @@ func test_character_survives_round_boundary_with_full_pools() -> void:
 	w.upgrade_potion("hp", 2000002)
 	w.drink_potion("hp")
 	w.learn_skill("teleport_fp")
-	w.spend_mp(13)
 	var snapshot := w.character_snapshot()
 	var setup := RF.setup("quiet", 2, RF.quiet_data())
 	setup.character = snapshot
 	var next := RunWorld.new(setup)
 	assert_eq(next.character_snapshot(), snapshot, "every carried field, including partial EXP and growth")
 	assert_eq(next.player_state.hp, next.player_state.max_hp)
-	assert_eq(next.player_state.mp, next.player_state.max_mp)
 	assert_eq(next.player_state.fortune, 12.0)
 	assert_eq(next.progression.exp, 17)
 	assert_eq(next.loadout.rank("fire_arrow"), 7)
@@ -102,7 +100,6 @@ func test_round_start_resets_buffs_slow_timers_and_every_map_pool() -> void:
 	w.upkeep.start_action("alert2", 0.8)
 	w.upkeep.invincible_t = 1.5
 	w.basic.cooldown = 0.7
-	w.spend_mp(1)
 	w.pickups.spawn(w.player.pos, 19, 4000019)
 	w.drink_potion("hp")
 	var input := MoveInput.new()
@@ -115,7 +112,6 @@ func test_round_start_resets_buffs_slow_timers_and_every_map_pool() -> void:
 	setup.character = w.character_snapshot()
 	var next := RunWorld.new(setup)
 	assert_eq(next.player_state.hp, next.player_state.max_hp)
-	assert_eq(next.player_state.mp, next.player_state.max_mp)
 	assert_eq(next.buffs.snapshot(), [])
 	assert_eq(next.player_state.slow, {})
 	assert_eq(next.runner.cooldowns, {})

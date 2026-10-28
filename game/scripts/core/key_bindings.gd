@@ -12,7 +12,7 @@ extends RefCounted
 ##   kb.apply_to(Settings)        # OK: saved and applied at once; Cancel just drops the draft
 
 ## The actions every character may rebind, in tray order. The skill keys of learned manual skills follow them (below).
-const BINDABLE := ["jump", "drink_hp", "drink_mp", "equip_window", "item_window", "stat_window", "skill_window",
+const BINDABLE := ["jump", "drink_hp", "equip_window", "item_window", "stat_window", "skill_window",
 	"npc_chat"]
 ## Every skill key there is: the id a manual skill names in its `skill_key` field is also its input action, with the
 ## project defaults in project.godot (Teleport and Dash both X: a character never learns both). Key Config only lists

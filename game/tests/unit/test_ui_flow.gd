@@ -425,7 +425,6 @@ func test_clear_carries_character_to_next_tier_and_refills_pools() -> void:
 	setup.character = boundary.character
 	var next := RunWorld.new(setup)
 	assert_eq(next.player_state.hp, next.player_state.max_hp)
-	assert_eq(next.player_state.mp, next.player_state.max_mp)
 	assert_eq(next.progression.exp, 17)
 	assert_true(next.potions.is_ready("hp"))
 	assert_eq(flow.save.runs_for("henesys"), 1)

@@ -10,7 +10,9 @@ const DT := 1.0 / 60.0
 ## Re-captured for #238: unlimited potions on cooldowns, no potion drops and two boss equipment drops.
 ## Re-captured for #259 (the bot jumps a wall it can clear and remembers one it cannot): with that rule disabled
 ## (`BotInput._wall_ahead` returning -1, `_held_wall` 0) the #238 hash 44fd3997... is reproduced exactly.
-const GOLDEN := "8114bff348a7e310f18e3612097e22bfa923e96f32476f5a57fe6e688f385a1d"
+## Re-captured for #285 (no MP): skills cast on their cooldowns only, there are no MP potions, and physical damage has
+## no level-gap factor (previous digest 8114bff3...).
+const GOLDEN := "bc79242fb205e00ef391ff9b48e91ee090bc558b626ff1b85fd11de42819a970"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

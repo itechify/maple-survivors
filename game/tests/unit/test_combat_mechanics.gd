@@ -237,7 +237,7 @@ func test_ranged_final_attack_fires_current_ammo_with_immediate_unchanged_damage
 		var mk := w.swarm.mob_kind(m)
 		var expected := ProjectileSystem.roll_damage(st.damage_min, st.damage_max, false, mk.pdd,
 			w.projectiles.magic_defense_k, st.crit, st.crit_mult, expected_rng, 1.0, "physical",
-			st.damage_pct, st.player_level, mk.level, st.crit_damage_bonus)
+			st.damage_pct, st.crit_damage_bonus)
 		w.hit_mob(m, {"skill": "trigger", "damage_type": "physical", "damage_min": 1,
 			"damage_max": 1, "crit": 0, "crit_mult": 1.5}, -1)
 		w.step(DT, MoveInput.new())

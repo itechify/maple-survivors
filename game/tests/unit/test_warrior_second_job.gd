@@ -83,19 +83,16 @@ func test_a_lv30_warriors_window_offers_all_three_branches_and_each_adds_325_max
 			.map(func(o: Dictionary) -> int: return int(o.job_id))
 		assert_eq(offered, [110, 120, 130], "the three Warrior branches are on offer")
 		var hp0: int = w.player_state.max_hp
-		var mp0: int = w.player_state.max_mp
 		assert_true(w.apply_job(job))
 		assert_eq(w.progression.job_id, job)
 		assert_eq(w.player_state.max_hp, hp0 + 325, "second-job Max HP grant (tier B midpoint)")
-		assert_eq(w.player_state.max_mp, mp0, "no MP grant")
 
 
-func test_warrior_growth_stays_26_hp_and_5_mp_per_level_after_the_second_job() -> void:
+func test_warrior_growth_stays_26_hp_per_level_after_the_second_job() -> void:
 	var w := _warrior()
 	_advance(w, 110)
 	RF.auto_choose(w)
 	var hp0: int = w.player_state.max_hp
-	var mp0: int = w.player_state.max_mp
 	w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
 	for tick in 120:
 		w.step(DT, MoveInput.new())
@@ -104,7 +101,6 @@ func test_warrior_growth_stays_26_hp_and_5_mp_per_level_after_the_second_job() -
 	RF.auto_choose(w)
 	assert_eq(w.progression.level, 31)
 	assert_eq(w.player_state.max_hp, hp0 + 26)
-	assert_eq(w.player_state.max_mp, mp0 + 5)
 
 
 # --- advancement weapons -----------------------------------------------------------------------------------------------

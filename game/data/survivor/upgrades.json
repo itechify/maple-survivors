@@ -9,7 +9,7 @@
 		"stacking": {"normal": 1, "rare": 2, "epic": 3, "unique": 4, "legendary": 5},
 		"skill_new": {"normal": 1, "rare": 2, "epic": 3, "unique": 4, "legendary": 5}},
 	"fallback": {"id": "elixir", "kind": "filler", "skill": "", "name": "Power Elixir",
-		"desc": "Fully restores HP and MP.", "icon": "Item.wz/Consume/0200.img/02000005/info/icon",
+		"desc": "Fully restores HP.", "icon": "Item.wz/Consume/0200.img/02000005/info/icon",
 		"max_rank": 0, "weight": 0, "requires": {},
-		"effects": [{"stat": "hp", "op": "heal", "value": 1}, {"stat": "mp", "op": "heal", "value": 1}]}
+		"effects": [{"stat": "hp", "op": "heal", "value": 1}]}
 }

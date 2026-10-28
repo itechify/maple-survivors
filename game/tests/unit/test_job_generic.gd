@@ -19,10 +19,10 @@ func _with_lines(data: Dictionary) -> Dictionary:
 	pb.ap_stat["100"] = "str"
 	pb.ap_stat["300"] = "dex"
 	pb.ap_secondary["100"] = {"stat": "dex", "keyframes": [{"level": 1, "target": 8}]}
-	data.balance.growth["100"] = {"hp": 26, "mp": 5}
-	data.balance.growth["300"] = {"hp": 22, "mp": 15}
+	data.balance.growth["100"] = {"hp": 26}
+	data.balance.growth["300"] = {"hp": 22}
 	data.jobs_survivor.jobs["100"] = {"playable": true, "grants": {"max_hp": 300}}
-	data.jobs_survivor.jobs["300"] = {"playable": true, "grants": {"max_hp": 200, "max_mp": 50}}
+	data.jobs_survivor.jobs["300"] = {"playable": true, "grants": {"max_hp": 200}}
 	return data
 
 
@@ -44,13 +44,10 @@ func test_warrior_line_gets_ap_stat_growth_and_max_hp_grant_from_data() -> void:
 	var w := RunWorld.new(RF.setup("quiet", 71, _with_lines(_data())))
 	RF.place_player(w, 400)
 	var hp0: int = w.player_state.max_hp
-	var mp0: int = w.player_state.max_mp
 	w.change_job(100)
 	assert_eq(w.player_state.max_hp, hp0 + 300, "grants.max_hp raises Max HP")
-	assert_eq(w.player_state.max_mp, mp0, "no max_mp grant for the Warrior")
 	_level_to(w, 2)
 	assert_eq(w.player_state.max_hp, hp0 + 300 + 26, "Warrior growth: 26 HP per level")
-	assert_eq(w.player_state.max_mp, mp0 + 5, "Warrior growth: 5 MP per level")
 	assert_eq(w.player_state.dex, 8, "the secondary stat takes earned AP up to its target first")
 	assert_eq(w.player_state.str, 14, "the rest of the 5 earned AP goes to the primary STR")
 	_level_to(w, 3)
@@ -59,19 +56,16 @@ func test_warrior_line_gets_ap_stat_growth_and_max_hp_grant_from_data() -> void:
 	assert_eq(w.player_state.max_hp, hp0 + 300 + 52)
 
 
-func test_bowman_line_puts_ap_in_dex_and_grants_both_pools() -> void:
+func test_bowman_line_puts_ap_in_dex_and_grants_max_hp() -> void:
 	var w := RunWorld.new(RF.setup("quiet", 72, _with_lines(_data())))
 	RF.place_player(w, 400)
 	var hp0: int = w.player_state.max_hp
-	var mp0: int = w.player_state.max_mp
 	w.change_job(300)
 	assert_eq(w.player_state.max_hp, hp0 + 200)
-	assert_eq(w.player_state.max_mp, mp0 + 50)
 	_level_to(w, 2)
 	assert_eq(w.player_state.dex, 10, "Bowman AP goes to DEX (5 base + 5)")
 	assert_eq(w.player_state.str, 12)
 	assert_eq(w.player_state.max_hp, hp0 + 200 + 22)
-	assert_eq(w.player_state.max_mp, mp0 + 50 + 15)
 
 
 func test_max_hp_grant_survives_the_character_snapshot() -> void:
@@ -111,51 +105,34 @@ func test_unlisted_job_falls_back_to_the_beginner_rows() -> void:
 
 # --- the generic regen passive ----------------------------------------------------------------------------------
 
-func _regen_world(pool: String, skill_level: int, char_level: int) -> RunWorld:
+## Improved HP Recovery (1000000, its `regen` field) owned at `skill_level`; base regeneration off, 1000 max HP,
+## invulnerable.
+func _regen_world(skill_level: int) -> RunWorld:
 	var data := _data()
 	data.balance.player.skills = []
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
-	var def: Dictionary = (data.skills.skills.improved_mp_recovery as Dictionary).duplicate(true)
-	def.regen = {"pool": pool, "divisor": 10}
-	data.skills.skills["synthetic_recovery"] = def
+	data.balance.player.hp = 1000 # room above 1 HP for the whole Lv 16 bonus
 	var w := RunWorld.new(RF.setup("quiet", 76, data))
 	RF.place_player(w, 400)
-	w.change_job(200)
-	w.learn_skill("synthetic_recovery")
-	w.loadout.set_rank("synthetic_recovery", skill_level)
-	w.progression.level = char_level
+	w.learn_skill("improved_hp_recovery")
+	w.loadout.set_rank("improved_hp_recovery", skill_level)
 	w.god = true
 	return w
 
 
-func test_regen_passive_adds_floor_of_level_times_skill_level_over_divisor() -> void:
-	var mp := _regen_world("mp", 5, 23)
-	assert_eq(mp.loadout.level("synthetic_recovery"), 5)
-	assert_eq(mp.loadout.regen_bonus("mp", 23), 11.0, "floor(23 x 5 / 10)")
-	assert_eq(mp.loadout.regen_bonus("hp", 23), 0.0, "other pools are untouched")
-	mp.spend_mp(int(mp.player_state.mp))
-	for tick in 600:
-		mp.step(DT, MoveInput.new())
-	assert_eq(mp.player_state.mp, 11, "one 10 s pulse restores the bonus to MP")
-
-
-func test_regen_passive_serves_hp_with_data_only() -> void:
-	var w := _regen_world("hp", 4, 30)
-	assert_eq(w.loadout.regen_bonus("hp", 30), 12.0, "floor(30 x 4 / 10)")
-	assert_eq(w.loadout.regen_bonus("mp", 30), 0.0)
-	var mp0: int = w.player_state.mp
-	w._hp = 1.0
-	for tick in 600:
-		w.step(DT, MoveInput.new())
-	assert_eq(w.player_state.hp, 13, "1 HP plus the 12 HP pulse bonus")
-	assert_eq(w.player_state.mp, mp0, "the HP skill adds no MP")
+func test_regen_passive_adds_its_canonical_hp_to_each_pulse() -> void:
+	for example: Array in [[1, 3.0], [16, 50.0]]: # the synthetic table's end points: hp 3 at Lv 1, 50 at Lv 16
+		var w := _regen_world(int(example[0]))
+		assert_eq(w.loadout.regen_bonus(), float(example[1]), "skill level %d" % example[0])
+		w._hp = 1.0
+		for tick in 600:
+			w.step(DT, MoveInput.new())
+		assert_eq(w.player_state.hp, 1 + int(example[1]), "one 10 s pulse adds the bonus (level %d)" % example[0])
 
 
 func test_regen_bonus_is_zero_without_the_skill() -> void:
 	var w := RunWorld.new(RF.setup("quiet", 77, _data()))
-	assert_eq(w.loadout.regen_bonus("mp", 50), 0.0)
-	assert_eq(w.loadout.regen_bonus("hp", 50), 0.0)
+	assert_eq(w.loadout.regen_bonus(), 0.0)
 
 
 # --- bot equipment weights per job line ----------------------------------------------------------------------

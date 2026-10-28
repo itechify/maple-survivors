@@ -5,9 +5,10 @@ extends SceneTree
 ## over the minute, so burst spikes do not dominate), the mean number of mobs near the player (within NEAR_X px
 ## horizontally and NEAR_Y px vertically), the swarm engagement (below), the mean EXP drops lying on the map, mobs
 ## recycled and relocated per minute, the lowest HP fraction per minute, EXP lost to expired drops, and how it ended.
-## Also records per-boss fight duration, MP waiting and whole boss-hit fractions. Potion metrics are player-only
-## potions_used {hp, mp} and potion_uses [{time, level, kind, item_id, restored, capacity_waste}]; a pet adds its own
-## pet.potions_used {hp, mp}. SYSTEMS sums player drinks only. Unlimited potions have no collection/stock metrics.
+## Also records per-boss fight duration and whole boss-hit fractions. Potion metrics are player-only
+## potions_used {hp} and potion_uses [{time, level, kind, item_id, restored, capacity_waste}]; a pet adds its own
+## pet.potions_used {hp}. There is no MP (ADR 0006), so no MP-short or MP-absorbed fields. SYSTEMS sums player
+## drinks only. Unlimited potions have no collection/stock metrics.
 ## Three-map schema: map_times = reached-map entry seconds from round start, starting [0.0]; ended_map =
 ## {index: zero-based map index, id: original v83 map id}. boss_fights[] retains map_index/map_id even for unspawned
 ## bosses. SUMMARY deaths_by_map uses one-based string keys; map_entry_seconds["2"/"3"] has count/min/median/max/mean
@@ -71,8 +72,6 @@ const CAMPER := preload("res://tools/camper_input.gd")
 const POLICIES := ["bot", "random", "first", "camper_henesys_top", "camper_henesys_rope", "camper_tree_top"]
 ## tier C: harness timeout fallback; balance.run_time_cap and --cap override it.
 const DEFAULT_RUN_CAP := 1800.0
-## tier C: late MP economy observation starts at eight minutes, matching the existing late-hit report.
-const LATE_MP_START := 480.0
 ## tier C measurement: ordinary hits per kill are reported for the first this-many run minutes.
 const EARLY_MINUTES := 5
 ## The numeric fields of a round record's `shop` (the Free Market visit at its end) that aggregate() summarises.
@@ -355,9 +354,6 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var mob_attack_hits := 0
 	var buff_casts: Array = []
 	var potion_uses: Array = []
-	var mp_short_seconds := 0.0
-	var late_mp_short_seconds := 0.0
-	var late_observed_seconds := 0.0
 	var reach := {}
 	var alive_min: Array = []
 	var level_min: Array = []
@@ -410,11 +406,6 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			w.step(DT, MoveInput.new() if idle else movement(w, policy, memo, camp_after))
 			if w.transfer_pending:
 				w.advance_map()
-			var late_dt := clampf(w.time - LATE_MP_START, 0.0, DT)
-			late_observed_seconds += late_dt
-			if bool(w.player_state.get("mp_short",false)):
-				mp_short_seconds += DT
-				late_mp_short_seconds += late_dt
 			var a := w.swarm.alive_count()
 			alive_sum += a
 			near_sum += _near(w)
@@ -466,7 +457,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 						if bool(e.boss):
 							boss_hits.append({"mob_id": int(e.mob_id), "time": w.time, "damage": int(e.damage),
 								"max_hp": int(e.max_hp), "fraction": float(e.damage) / maxi(1, int(e.max_hp)),
-								"mp_absorbed": int(e.mp_absorbed), "source_kind": String(e.get("source_kind","other"))})
+								"source_kind": String(e.get("source_kind","other"))})
 				"pickup_collected":
 					exp_total += int(e.exp)
 				"equipment_changed":
@@ -532,10 +523,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"timeout": w.state == RunWorld.PLAYING, "run_time_cap": cap,
 		"bosses": _boss_snapshots(w), "boss_hits": boss_hits, "buff_casts": buff_casts,
 		"boss_fights": fight_records(w), "boss_hit_fraction": statistics(boss_hits.map(func(hit: Dictionary) -> float: return float(hit.fraction))),
-		"mp_short_seconds": snappedf(mp_short_seconds,0.001),
 		"teleports": teleports,
-		"late_mp_start": LATE_MP_START, "late_mp_short_seconds": snappedf(late_mp_short_seconds, 0.001),
-		"late_observed_seconds": snappedf(late_observed_seconds, 0.001),
 		"camper": {"policy":policy if CAMPER.STAGES.has(policy) else "", "started_time":float(memo.get("started_time",-1.0)),
 			"reached":bool(memo.get("reached",false)),"reached_time":float(memo.get("reached_time",-1.0)),"portals":portal_names},
 		"time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
@@ -674,7 +662,7 @@ static func describe(r: Dictionary) -> String:
 	lines.append("  NX awarded %d (bosses killed %d, levels gained %d)" % [int(r.get("nx_awarded", 0)),
 		int(r.get("bosses_killed", 0)), int(r.get("levels_gained", 0))])
 	lines.append("  boss fights %s" % [r.get("boss_fights",[])])
-	lines.append("  potions used %s; MP-short %.3f s; boss-hit fractions %s" % [r.get("potions_used",{}),float(r.get("mp_short_seconds",0.0)),r.get("boss_hit_fraction",{})])
+	lines.append("  potions used %s; boss-hit fractions %s" % [r.get("potions_used",{}),r.get("boss_hit_fraction",{})])
 	if r.has("pet"):
 		lines.append("  pet %s" % [r.pet])
 	lines.append("  camper %s" % [r.get("camper",{})])
@@ -745,21 +733,17 @@ static func movement(world: RunWorld, policy: String, memo: Dictionary, camp_aft
 static func aggregate(records: Array) -> Dictionary:
 	if not records.is_empty() and records[0].get("mode", "") == "chain":
 		return aggregate_chain(records)
-	var result := {"runs": records.size(), "potions_used": {"hp": 0, "mp": 0},
+	var result := {"runs": records.size(), "potions_used": {"hp": 0},
 		"boss_fights": {}, "boss_hits": {}, "camper_runs": 0, "camper_started": 0, "camper_reached": 0,
 		"ordinary_kill_hits_by_min": KillHits.empty_buckets()}
 	result["branches"] = {}
 	result["card_tier_runs"] = 0
 	result["card_tiers_offered"] = UpgradePool.empty_tier_counts()
 	result["card_tiers_picked"] = result.card_tiers_offered.duplicate()
-	var waits: Array = []
 	var deaths: Array = []
 	result["deaths_by_map"] = {"1": 0, "2": 0, "3": 0}
 	var map_entries := {"2": [], "3": []}
 	result["outcomes"] = {"CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
-	var late_waits: Array = []
-	result["late_mp_observed_runs"] = 0
-	result["late_mp_short_runs"] = 0
 	var job_samples := {} # job id -> advancement times
 	var mesos_earned: Array = []
 	var equips_dropped: Array = []
@@ -811,11 +795,6 @@ static func aggregate(records: Array) -> Dictionary:
 			var index := int(number) - 1
 			if map_times.size() > index:
 				map_entries[number].append(float(map_times[index]))
-		if float(record.get("late_observed_seconds", 0.0)) > 0.0:
-			result.late_mp_observed_runs += 1
-			var late_wait := float(record.get("late_mp_short_seconds", 0.0))
-			late_waits.append(late_wait)
-			result.late_mp_short_runs += 1 if late_wait > 0.0 else 0
 		var kill_hits: Array = record.get("ordinary_kill_hits_by_min", [])
 		for minute in mini(EARLY_MINUTES, kill_hits.size()):
 			result.ordinary_kill_hits_by_min[minute].hits += int(kill_hits[minute].hits)
@@ -830,7 +809,6 @@ static func aggregate(records: Array) -> Dictionary:
 			if not job_samples.has(id):
 				job_samples[id] = []
 			job_samples[id].append(float(times[id]))
-		waits.append(float(record.get("mp_short_seconds", 0.0)))
 		if record.has("equips_dropped"):
 			equips_dropped.append(int(record.equips_dropped))
 			equips_collected.append(int(record.get("equips_collected", 0)))
@@ -841,8 +819,7 @@ static func aggregate(records: Array) -> Dictionary:
 				shop_samples[field].append(int(record.shop.get(field, 0)))
 		if record.has("mesos_earned"):
 			mesos_earned.append(int(record.mesos_earned))
-		for kind: String in ["hp", "mp"]:
-			result.potions_used[kind] += int(record.get("potions_used", {}).get(kind, 0))
+		result.potions_used.hp += int(record.get("potions_used", {}).get("hp", 0))
 		var camper: Dictionary = record.get("camper", {})
 		if String(camper.get("policy", "")) != "":
 			result.camper_runs += 1
@@ -881,12 +858,10 @@ static func aggregate(records: Array) -> Dictionary:
 		for source: String in hit_samples[id].sources:
 			sources[source] = statistics(hit_samples[id].sources[source])
 		result.boss_hits[id] = {"whole_fraction": statistics(hit_samples[id].all), "by_source": sources}
-	result["mp_short_seconds"] = statistics(waits)
 	result["death_seconds"] = statistics(deaths)
 	result["map_entry_seconds"] = {}
 	for number: String in map_entries:
 		result.map_entry_seconds[number] = statistics(map_entries[number])
-	result["late_mp_short_seconds"] = statistics(late_waits)
 	result["job_seconds"] = {}
 	for id: String in job_samples:
 		result.job_seconds[id] = statistics(job_samples[id])
@@ -967,9 +942,8 @@ static func describe_metrics(summary: Dictionary) -> String:
 		lines.append("SUMMARY tier %d: %d started, %d cleared; start level %s; end level %s; Lv70 reached %d/%d" % [
 			int(summary.tier), int(summary.runs), int(summary.outcomes.CLEARED), _range(summary.start_level),
 			_range(summary.end_level), int(summary.lv70_reached), int(summary.runs)])
-	lines.append("SYSTEMS %d runs: potions used HP %d MP %d; MP-short seconds %s%s" % [
-		int(summary.runs), int(summary.potions_used.hp), int(summary.potions_used.mp),
-		_range(summary.mp_short_seconds), _campers(summary)])
+	lines.append("SYSTEMS %d runs: potions used HP %d%s" % [int(summary.runs), int(summary.potions_used.hp),
+		_campers(summary)])
 	for branch_key: String in summary.get("branches", {}):
 		lines.append("  SUMMARY branch %s: %s" % [branch_key, summary.branches[branch_key]])
 	var job_ids: Array = summary.job_seconds.keys()
@@ -995,8 +969,6 @@ static func describe_metrics(summary: Dictionary) -> String:
 		lines.append("  cards %s offered %d picked %d" % [tier.capitalize(), int(summary.card_tiers_offered[tier]),
 			int(summary.card_tiers_picked[tier])])
 	lines.append("  outcomes %s; death-only seconds %s" % [summary.outcomes, _range(summary.death_seconds)])
-	lines.append("  MP-short after 8:00 seconds %s; %d/%d observed runs waited" % [
-		_range(summary.late_mp_short_seconds), int(summary.late_mp_short_runs), int(summary.late_mp_observed_runs)])
 	for minute in summary.ordinary_kill_hits_by_min.size():
 		var bucket: Dictionary = summary.ordinary_kill_hits_by_min[minute]
 		lines.append("  minute %d ordinary hits/kill %s (%d hits / %d kills)" % [minute + 1,

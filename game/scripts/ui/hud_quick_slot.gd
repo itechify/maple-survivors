@@ -1,27 +1,29 @@
 class_name HudQuickSlot
 extends HudWidget
 ## The v83 quick slot: UI.wz/StatusBar.img/base/quickSlot (151 x 80, a 4 x 2 grid of blank cells) above the right end of
-## the status bar, showing in a fixed order the HP potion, the MP potion, the learned movement skill (Teleport or Dash,
-## empty until learned) and Jump on the top row, and the Equip, Item, Stat and Skill windows on the bottom row. Each cell
+## the status bar, showing in a fixed order the HP potion, a blank cell (the MP potion's, before ADR 0006 removed MP),
+## the learned movement skill (Teleport or Dash, empty until learned) and Jump on the top row, and the Equip, Item, Stat and Skill windows on the bottom row. Each cell
 ## holds the icon Key Config uses for its action (KeyActionArt) and a small caption of the first key it is bound to,
 ## wherever that is; the potions show their current item's icon and a cooldown sweep.
 ##
 ## Display only: the widget takes no mouse (the collapse button is a Hud sibling) and nothing is clickable or draggable;
 ## rebinding stays in Key Config. The model (`cells`) is pure; captions are re-read from the live bindings on
 ## refresh_key_labels() (RunScene calls it on Settings.changed). Text goes through MapleText.
-## set_cooldowns() takes per-frame HP / MP remaining and total seconds from reused buffers, redrawing only when a
+## set_cooldowns() takes the per-frame HP potion remaining and total seconds from reused buffers, redrawing only when a
 ## sweep step changes. The polygon and overlay drawing are shared with HudSkills through CooldownSweep.
 
 ## The panel art and its size.
 const FRAME := HudWidget.SB + "base/quickSlot"
 const PANEL_SIZE := Vector2(151, 80)
-## Cells per row, and the order of the 8 cells (the movement slot is filled with the learned skill key).
+## Cells per row, and the order of the 8 cells (the movement slot is filled with the learned skill key; BLANK stays
+## empty).
 const COLUMNS := 4
 const MOVEMENT := "movement"
-const ORDER := ["drink_hp", "drink_mp", MOVEMENT, "jump", "equip_window", "item_window", "stat_window", "skill_window"]
+const BLANK := ""
+const ORDER := ["drink_hp", BLANK, MOVEMENT, "jump", "equip_window", "item_window", "stat_window", "skill_window"]
 ## Potion cell -> its kind (also the per-frame cooldown buffer order).
-const POTION_KINDS := {"drink_hp": "hp", "drink_mp": "mp"}
-const COOLDOWN_KINDS := ["hp", "mp"]
+const POTION_KINDS := {"drink_hp": "hp"}
+const COOLDOWN_KINDS := ["hp"]
 ## tier C (measured on the v83 quickSlot canvas): the first cell's white interior and the pitch from cell to cell; the
 ## 32 px icon box that centres an icon on a cell's bevelled tile.
 const CELL_INTERIOR := Rect2(10, 9, 27, 25)
@@ -44,8 +46,8 @@ var collapsed: bool:
 var _potions: Dictionary = {}
 var _movement: Dictionary = {}
 var _cells: Array[Dictionary] = []
-## HP / MP overlay steps and reused draw polygon, independent of the slower snapshot feed.
-var _steps := PackedInt32Array([0, 0])
+## The HP potion's overlay step and reused draw polygon, independent of the slower snapshot feed.
+var _steps := PackedInt32Array([0])
 var _sweep := PackedVector2Array()
 
 
@@ -55,7 +57,7 @@ func _init() -> void:
 
 
 ## The 8 cell models in ORDER: [{action, icon_path, caption, item_id}]. `captions` maps an action to its key
-## caption ("" or absent = unbound), `potions` is the snapshot's {hp, mp: {item_id, cooldown_left, cooldown_total}}
+## caption ("" or absent = unbound), `potions` is the snapshot's {hp: {item_id, cooldown_left, cooldown_total}}
 ## and `movement_skill` the learned skill key `{action, name, icon}` ({} = none learned). Pure.
 static func cells(captions: Dictionary, potions: Dictionary, movement_skill: Dictionary) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
@@ -115,7 +117,7 @@ func update(ps: Dictionary, info: Dictionary) -> void:
 	_rebuild()
 
 
-## Takes per-frame HP / MP remaining and total seconds from reused buffers. Redraws and returns true only when
+## Takes the per-frame HP potion remaining and total seconds from reused buffers. Redraws and returns true only when
 ## a potion's sweep step changes; builds no arrays or dictionaries.
 func set_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array) -> bool:
 	var changed := false
@@ -147,7 +149,7 @@ func cell(action: String) -> Dictionary:
 	return {}
 
 
-## The potion cell of `kind` ("hp" / "mp") as {kind, item_id, key_label, icon: SpriteFrame, sweep_step}, or {} for an
+## The potion cell of `kind` ("hp") as {kind, item_id, key_label, icon: SpriteFrame, sweep_step}, or {} for an
 ## unknown kind: the same snapshot and art _draw uses.
 func displayed(kind: String) -> Dictionary:
 	for action: String in POTION_KINDS:
