@@ -140,7 +140,9 @@ func test_cached_high_actives_resolve_all_ranks_art_and_sounds() -> void:
 		assert_eq(int(lo.stats(key).level), 30)
 		var d := book.def(key)
 		var paths: Array = [d.effect, d.ball, d.hit]
-		paths.append_array(d.get("pending", {}).get("visuals", []))
+		paths.append_array(d.get("release_visuals", []))
+		for visual: Dictionary in d.get("cast_visuals", []):
+			paths.append(visual.path)
 		paths.append(String(d.get("ground", {}).get("tile", "")))
 		for path: String in paths:
 			if path != "":

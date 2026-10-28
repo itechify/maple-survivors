@@ -4152,6 +4152,24 @@ weaker before the successor features. No balance data was tuned. The complete re
 |---|---|---|---|---|
 | 1 / bot | DEAD map 1, 309.90 s | 12 | 239 | Mano spawned at 300 s, alive at death; 0/1 completed, censored fight >=9.87 s |
 
+### Spec #282 / #290 interim regression smoke (2026-10-28)
+
+Training seeds 1/2/2026, every tier-1 stage, bot/random, real T1 private cache: 24 runs, no crashes, warnings or
+missing assets. No tuning or held-out seeds. Henesys seed-1 bot: DEAD 307.8 s, Lv12, 233 kills, first boss alive
+(0/1 completed, censored >=7.82 s); previous #287: DEAD 309.9 s, Lv12, 239 kills. Six Henesys runs reached the
+first boss; two reached map 2. The Tree That Grew retains its known early deaths. No balance files changed.
+
+| Stage | Bot deaths (seconds), seeds 1/2/2026 | Random deaths (seconds), seeds 1/2/2026 | Map-2 arrivals, bot/random |
+|---|---|---|---|
+| Henesys | 307.8 / 306 / 366 | 306 / 308 / 361 | 1/3, 1/3 |
+| Ellinia | 39 / 35 / 76 | 39 / 35 / 76 | 0/3, 0/3 |
+| Perion | 308 / 308 / 411 | 388 / 324 / 309 | 1/3, 1/3 |
+| Kerning | 306 / 316 / 306 | 306 / 310 / 319 | 0/3, 0/3 |
+
+Mist consumes skill/global damage modifiers as a survivor multiplier on the existing capped, nonlethal canonical
+poison pulse (tier C); its area modifier scales the canonical box. All other high-job actives consume existing
+damage/count/attack-count/area/cooldown modifiers at cast time. #288 owns rarity selection and Mastery stacking.
+
 ## 7. Skills (auto-cast and manual)
 
 **ADR 0006 / #287 supersedes the old rank and pool rules below.** Job 212's exact pool and starting skill live in

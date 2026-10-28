@@ -361,7 +361,7 @@ static func skill_imgs() -> Dictionary:
 	for lv in range(1, 31):
 		steal[str(lv)] = {"mpCon": 12 if lv <= 15 else 24, "damage": 40 + 2 * lv, "prop": 10 + lv}
 	imgs["420"].skill["4201004"] = {"action": "swingO2", "level": steal}
-	# #290: synthetic interpolation of verified T1 endpoint facts; no decoded WZ art.
+	# #290: T1 damage endpoints interpolated synthetically; timing/boxes below are deliberate test values, no WZ art.
 	for spec: Array in [[2111002, 60, 120, 6, "f"], [2111003, 32, 90, 0, "s"],
 			[2111006, 80, 150, 1, ""], [2121001, 160, 450, 6, ""],
 			[2121003, 62, 120, 6, "f"], [2121006, 133, 210, 1, "s"], [2121007, 330, 570, 15, "f"]]:
