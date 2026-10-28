@@ -991,6 +991,18 @@ D's fresh Henesys: clear966.7 / dead674.0 / dead447.0, all map2; kit Sleepywood:
 dead656.5 / dead223.9 / clear906.9, two map3. No claim of frozen balance or F/P parity beyond these targets.
 Raw records and logs stay in `_scratch/346/`; no held-out seeds used.
 
+The complete 30-run Hero regression smoke (tier-1 bot/random seeds1/2/2026, Sleepywood starter/kit bot)
+has 5 clears / 25 deaths / 0 timeouts, warnings=[] and missing=[] throughout; no crashes. Compared with
+H10's 0/30 Hero clears, tier-1 clears are Henesys bot1/3, random1/3, Perion random1/3 and Kerning random1/3;
+all other tier-1 configurations remain0/3. Ellinia remains record-only (deaths224.2–935.8s).
+Sleepywood starter remains0/3 (deaths16.4–20.2s); kit1/3 with2/3map2. Henesys bot six slots fill at
+130.6–253.0s (all3), with first boss defeated3/3. These samples meet H11 targets without claiming all-stage viability.
+The paired seed1 Henesys F/P record is byte-identical before/after (SHA-256 `a5a9901ca32b43059550b9de45a731ebf5dc1959785a8a76374679fc8cb4c942`);
+both F/P oracle files are unchanged. Hero's old replay cast nothing because its synthetic weapon lacked afterimages;
+H11 adds existing synthetic swing reach, a cast-coverage assertion and initial-player-state digest, then recaptures
+`409dba0d1bdffc32ba72644e326f99561e6ed9c0270feda39ace2573b0727cb3` with independent repeat equality.
+
+
 | Configuration | Before | Chosen D |
 |---|---|---|
 | Henesys fresh bot, 1/2/2026 | boss1/map2 0/3; clears0/3 | boss1/map2 3/3; clears1/3 |
@@ -5950,9 +5962,12 @@ bot scores every declared pool skill (new 100, rank 74); these are existing atta
 
 **#288 rarity bonuses and Mastery (supersedes rarity multipliers below).** Each active card grants one rank,
 then its rarity bonus. At rank 8 the same `<skill>_rank` id becomes `card_kind: mastery`, grants zero ranks,
-and stays eligible at weight 1.2. A Normal Mastery grants +5% damage on that skill, or cooldown x0.95 when its `damage` is `none` (#346). Both use
-repeat id `mastery_damage`, shared by every Normal Mastery of the skill, so the 0.8^n diminishing returns apply;
-tier C, owner decisions #288/#346: Normal Mastery is never a dead pick; the damage default is `upgrades.json` `mastery_bonus`); a Rare+ Mastery gives its rarity bonus instead.
+and stays eligible at weight 1.2. A Normal Mastery grants +5% damage on that skill, or cooldown x0.95
+when its `damage` is `none` (#346). Both use repeat id `mastery_damage`, shared by every Normal Mastery
+of the skill, so the 0.8^n diminishing returns apply. These are tier C owner decisions (#288/#346): Normal
+Mastery is never a dead pick. The damage default comes from `upgrades.json` `mastery_bonus`.
+A Rare+ Mastery gives its rarity bonus instead. The literal `damage:none` rule also applies to Poison Mist
+(its poison damage is secondary), as well as Monster Magnet; the paired F/P records do not exercise that post-cap choice.
 Boss draws retain their Rare floor. Common passives remain Normal and stop at their own cap. Standalone behaviour cards for
 the four ported skills are deleted; unported lines retain their inert legacy definitions for direct mechanics tests.
 
