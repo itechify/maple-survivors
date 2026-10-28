@@ -41,6 +41,8 @@ func _start(w: RunWorld, key: String = "test_form") -> void:
 func _twin(w: RunWorld, key: String, element: String, group: String = "test") -> void:
 	w.book.defs[key] = w.book.defs.test_form.duplicate(true)
 	w.book.defs[key].form.effects.element = element
+	if element.is_empty():
+		w.book.defs[key].form.effects.erase("element")
 	w.book.defs[key].form.exclusive_group = group
 	w.loadout.add_skill(key)
 

@@ -673,8 +673,8 @@ func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> 
 		assert_false(key in data.jobs_survivor.jobs["212"].skill_pool, "%s is a pool skill and needs rarity_bonuses (#288)" % key)
 		if int(s.get("job", -1)) == 0:
 			continue # #284: the Beginner is gone and its skills have no cards
-		if String(s.slot) == "mobility":
-			continue # a mobility skill is never offered as a card (Rush, #302)
+		if String(s.slot) in ["mobility", "form_sub"]:
+			continue # mobility and form sub-skills are never offered as cards
 		if String(s.damage) != "none" or String(s.slot) == "active":
 			assert_true(covered.has(key), "%s needs a skill_mod card with more shots, targets or pierce" % key)
 
