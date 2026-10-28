@@ -38,6 +38,7 @@ func begin_cast(world: RunWorld, key: String, stats: Dictionary) -> Dictionary:
 	if finisher:
 		var spent := maxi(0, value - maxi(0, roundi(world.loadout.skill_stat(key, "meter_keep", 0.0))))
 		factor *= 1.0 + spent * float(rule.get("damage_per_unit", 0.0))
+		out["meter_spent"] = spent
 		_set_value(value - spent, world.events)
 	for field: String in ["damage_min", "damage_max", "status_damage_mult"]:
 		out[field] = float(out.get(field, 0.0)) * factor
@@ -67,6 +68,8 @@ func preferred(world: RunWorld, ready: Array[String]) -> String:
 		var plan := world.runner.prepare_cast(world, key, st, world.cast_origin())
 		var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
 		var count := mini(targets.size(), SkillRunner.strike_count(st))
+		if count < maxi(1, int(st.cast_params.get("min_targets", 1))):
+			continue
 		# tier C: single-target finishers prefer a scheduled boss over the crowd finisher.
 		var boss := SkillRunner.strike_count(st) == 1 and not targets.is_empty() and world.is_scheduled_boss(targets[0])
 		var candidate := count + (world.swarm.capacity() if boss else 0)

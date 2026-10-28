@@ -75,6 +75,7 @@ func test_finisher_gate_spend_keep_bonus_snapshot_and_cooldown_floor() -> void:
 	w.loadout.add_skill_mod("finish", "meter_keep", "add", 2)
 	var boosted := w.meter.begin_cast(w, "finish", base)
 	assert_near(float(boosted.damage_max), float(base.damage_max) * 1.1 * 1.3, 0.001)
+	assert_eq(boosted.meter_spent, 3, "cast metadata is available to finisher art")
 	assert_eq(w.meter.value, 2, "only three orbs spent")
 	for i in 3:
 		w.meter.gain("cast_landed", w.events)
@@ -166,3 +167,20 @@ func test_a_projectile_cast_that_misses_does_not_gain_and_manual_hits_have_no_re
 	st = w.meter.begin_cast(w, "rush_hero", st)
 	w.hit_mob(m, st, -1)
 	assert_eq(w.meter.value, 0, "out-of-pool manual attack gives no orb")
+
+func test_finisher_admission_waits_for_its_prepared_target_minimum() -> void:
+	var w := _world()
+	_finisher(w, "crowd", 3)
+	w.loadout.order.erase("magic_claw")
+	w.book.defs.crowd.cast = {"rule": "range_around", "mob_count": 3, "min_targets": 3}
+	for i in 5:
+		w.meter.gain("cast_landed", w.events)
+	_mob(w, 240)
+	w.runner.step(DT, w)
+	assert_eq(w.runner.casts, 0, "a crowd finisher waits even when it is the only finisher owned")
+	assert_eq(w.meter.value, 5, "target rejection spends nothing")
+	_mob(w, 260)
+	_mob(w, 280)
+	w.runner.step(DT, w)
+	assert_eq(w.runner.casts, 1)
+	assert_eq(w.meter.value, 0)
