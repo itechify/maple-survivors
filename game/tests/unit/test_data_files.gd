@@ -102,7 +102,7 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
 		# Hero's Rush (#302) takes the level-30 survivor table like a pool skill, but stays at rank 1 for the whole round.
-		if key in data.jobs_survivor.jobs["212"].skill_pool or key == "rush_hero":
+		if key in data.jobs_survivor.jobs["212"].skill_pool or key in data.jobs_survivor.jobs["112"].skill_pool or key == "rush_hero":
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
