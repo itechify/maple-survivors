@@ -1,0 +1,9 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Hero line (spec #296 #297). The 3rd and 4th job Warrior skill books Skill.wz/111.img (Crusader) and 112.img (Hero) whole, and the Sound.wz/Skill.img nodes of the Hero pool and mobility skills: Combo Attack 1111002, Panic: Sword 1111003, Panic: Axe 1111004, Coma: Sword 1111005, Coma: Axe 1111006, Shout 1111008, Monster Magnet 1121001, Rush 1121006 and Brandish 1121008. The Shout stun stars (111.img skill/1111008/mob) used to be a path entry in asset_manifest.json; they come with the whole book now (a whole img and its sub-paths in two files conflict). The sword, axe, spear and polearm weapons, afterimages and Power Strike and Slash Blast art are in warrior.json.",
+	"imgs": [
+		{"img": "Skill.wz/111.img"},
+		{"img": "Skill.wz/112.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["1111002", "1111003", "1111004", "1111005", "1111006", "1111008", "1121001", "1121006", "1121008"]}
+	]
+}
