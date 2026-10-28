@@ -1,48 +1,6 @@
 {
 	"_doc": "Warrior skills. First job (book 100, job 100): Power Strike, Slash Blast, Iron Body and the passives Improved HP Recovery and Improved MaxHP Increase (spec #151 ticket #163; the owner dropped Endure 1000002 after the spec, so it has no entry, cards or sound). Second job (spec #165, appended after the first-job entries, rows by skill id): Fighter 110, Page 120 and Spearman 130 each have two Masteries, two Final Attacks and two Boosters (#181; keys sword_mastery_fighter ... polearm_booster, each listing its weapon_families), plus Rage and Power Guard (Fighter, #182), Power Guard and Threaten (Page, #182 #183) and Iron Will and Hyper Body (Spearman, #184); a second job has no attack skill of its own, the Final Attack is its attack skill (docs/GAME_DESIGN.md 7.9-7.12). Entry format and tier rules: see ../skills.json _doc. New keys here: action \"weapon\" (the cast stance is the held weapon's first basic-attack stance, WeaponInfo.skill_action, so a spear stabs and a polearm swings; tier C: the WZ nodes have no action); cast rules weapon_reach (the nearest mob inside the held weapon's swing envelope, BasicAttack.envelope; tier A reach, the same as the basic attack) and range_around (up to mobCount mobs whose body centre is within the canonical level's `range` px of the player; tier A numbers); regen {pool, field} (Loadout.regen_bonus reads the canonical level field instead of a level formula). hpCon is read from the canonical level as hp_cost. Prerequisites in the WZ req nodes are ignored (tier C owner choice #31). cooldown and action_time are tier C (ours).",
 	"skills": {
-		"power_strike": {
-			"skill_id": 1001004, "book": "100", "job": 100, "kind": "instant", "slot": "active",
-			"name": "Power Strike", "desc": "Deals a killer blow to the nearest monster within your weapon's reach.",
-			"text": {"desc": "Deliver a killer blow to a monster within your weapon's reach.", "h": "Damage {damage}%, up to {mob_count|monster|monsters}"},
-			"icon": "Skill.wz/100.img/skill/1001004/icon",
-			"damage": "physical",
-			"weapon_families": ["sword", "axe", "blunt", "spear", "polearm"],
-			"_survivor": "Tier A: canonical damage %, mpCon, 20 levels, effect/hit art and sound, attackCount 1. Tier C: the WZ node names no weapon (the String text says a sword), so the Warrior melee families (sword, axe, blunt, spear, polearm; v83-facts section 2) can use it; auto-cast on the nearest mob inside the held weapon's swing envelope (the basic attack's reach), 1 s cooldown, stance of the weapon's first basic-attack action held 0.6 s; extra targets only from cards.",
-			"cast": {"rule": "weapon_reach"}, "cooldown": 1.0,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "weapon", "action_time": 0.6, "ball": "",
-			"hit": "Skill.wz/100.img/skill/1001004/hit/0",
-			"effect": "Skill.wz/100.img/skill/1001004/effect",
-			"char_level": {
-				"thresholds": [10, 15, 20, 25],
-				"hit": "Skill.wz/100.img/skill/1001004/CharLevel/{cl}/hit/0",
-				"effect": "Skill.wz/100.img/skill/1001004/CharLevel/{cl}/effect"
-			},
-			"rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/1001004/Use", "hit": ""}
-		},
-		"slash_blast": {
-			"skill_id": 1001005, "book": "100", "job": 100, "kind": "instant", "slot": "active",
-			"name": "Slash Blast", "desc": "Spends HP to strike every monster around you.",
-			"text": {"desc": "Use HP to attack the monsters around you.", "h": "HP -{hp_cost}; damage {damage}%, up to {mob_count|monster|monsters} within {range} px"},
-			"icon": "Skill.wz/100.img/skill/1001005/icon",
-			"damage": "physical",
-			"weapon_families": ["sword", "axe", "blunt", "spear", "polearm"],
-			"_survivor": "Tier A: canonical damage %, hpCon, mpCon, range (130 to 150), mobCount 6, 20 levels, effect/hit art and sound. Tier C: the same Warrior melee weapon families as Power Strike; auto-cast when a monster is within range of the player's body, never when the HP cost would leave 0 HP, 1.6 s cooldown, stance of the weapon's first basic-attack action held 0.6 s; extra targets and a wider range only from cards.",
-			"cast": {"rule": "range_around"}, "cooldown": 1.6,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "weapon", "action_time": 0.6, "ball": "",
-			"hit": "Skill.wz/100.img/skill/1001005/hit/0",
-			"effect": "Skill.wz/100.img/skill/1001005/effect",
-			"char_level": {
-				"thresholds": [10, 15, 20, 25],
-				"hit": "Skill.wz/100.img/skill/1001005/CharLevel/{cl}/hit/0",
-				"effect": "Skill.wz/100.img/skill/1001005/CharLevel/{cl}/effect"
-			},
-			"rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/1001005/Use", "hit": ""}
-		},
 		"iron_body": {
 			"skill_id": 1001003, "book": "100", "job": 100, "kind": "buff", "slot": "passive",
 			"name": "Iron Body", "desc": "Temporarily increases your weapon defence.",

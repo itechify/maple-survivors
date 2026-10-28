@@ -1,4 +1,301 @@
 {
-	"_doc": "Hero line (spec #296, H2 #298), books 111/112 (and 100/110 skills moved here only when a Hero ticket ports them). An empty skeleton: H5 (Power Strike, Slash Blast, Brandish), H6 (Rush), H7 (Shout, Monster Magnet) and H8 (Panic, Coma) each append their own entries. Power Strike and Slash Blast stay in warrior.json until H5 ports them.",
-	"skills": {}
+	"_doc": "Hero core melee (H5 #301). Tier A: WZ levels, boxes, hit counts, art and sounds. Tier C: cooldowns, auto-targeting and rarity bonuses; see GAME_DESIGN 7.33.",
+	"skills": {
+		"power_strike": {
+			"skill_id": 1001004,
+			"book": "100",
+			"job": 100,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Power Strike",
+			"desc": "Deals a killer blow to the nearest monster within your weapon's reach.",
+			"text": {
+				"desc": "Deliver a killer blow to a monster within your weapon's reach.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters}"
+			},
+			"icon": "Skill.wz/100.img/skill/1001004/icon",
+			"damage": "physical",
+			"_survivor": "Tier A: unchanged WZ fields and visuals. Tier C: eight survivor ranks, cooldown/targeting and rarity bonuses (GAME_DESIGN 7.33); no weapon gate.",
+			"cast": {
+				"rule": "weapon_reach"
+			},
+			"cooldown": 1.0,
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/100.img/skill/1001004/hit/0",
+			"effect": "Skill.wz/100.img/skill/1001004/effect",
+			"char_level": {
+				"thresholds": [
+					10,
+					15,
+					20,
+					25
+				],
+				"hit": "Skill.wz/100.img/skill/1001004/CharLevel/{cl}/hit/0",
+				"effect": "Skill.wz/100.img/skill/1001004/CharLevel/{cl}/effect"
+			},
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1001004/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Sword Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"slash_blast": {
+			"skill_id": 1001005,
+			"book": "100",
+			"job": 100,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Slash Blast",
+			"desc": "Spends HP to strike every monster around you.",
+			"text": {
+				"desc": "Use HP to attack the monsters around you.",
+				"h": "HP -{hp_cost}; damage {damage}%, up to {mob_count|monster|monsters} within {range} px"
+			},
+			"icon": "Skill.wz/100.img/skill/1001005/icon",
+			"damage": "physical",
+			"_survivor": "Tier A: unchanged WZ fields and visuals. Tier C: eight survivor ranks, cooldown/targeting and rarity bonuses (GAME_DESIGN 7.33); no weapon gate.",
+			"cast": {
+				"rule": "range_around"
+			},
+			"cooldown": 1.6,
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/100.img/skill/1001005/hit/0",
+			"effect": "Skill.wz/100.img/skill/1001005/effect",
+			"char_level": {
+				"thresholds": [
+					10,
+					15,
+					20,
+					25
+				],
+				"hit": "Skill.wz/100.img/skill/1001005/CharLevel/{cl}/hit/0",
+				"effect": "Skill.wz/100.img/skill/1001005/CharLevel/{cl}/effect"
+			},
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1001005/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Sword Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "reach",
+						"text": "Wide Slash",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"brandish": {
+			"skill_id": 1121008,
+			"book": "112",
+			"job": 112,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Brandish",
+			"desc": "Strike monsters in front of you twice.",
+			"text": {
+				"desc": "Strike monsters in front of you twice.",
+				"h": "Damage {damage}%, {attack_count} hits, up to {mob_count|monster|monsters}"
+			},
+			"icon": "Skill.wz/112.img/skill/1121008/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 1.4,
+			"action": "brandish1",
+			"action_time": 0.84,
+			"action_by_handedness": {
+				"one": "brandish1",
+				"two": "brandish2"
+			},
+			"effect_by_handedness": {
+				"one": "Skill.wz/112.img/skill/1121008/effect/0",
+				"two": "Skill.wz/112.img/skill/1121008/effect/1"
+			},
+			"ball": "",
+			"hit": "Skill.wz/112.img/skill/1121008/hit/0",
+			"effect": "Skill.wz/112.img/skill/1121008/effect/0",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1121008/Use",
+				"hit": "Sound.wz/Skill.img/1121008/Hit"
+			},
+			"_survivor": "Tier A: box, attackCount, mobCount, action aliases and their 840 ms total delay. Tier C: 1.4 s cooldown, forward admission, one body action/effect per cast chosen by handedness (orchestrator ruling #301), rarity bonuses.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Sword Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "sweep",
+						"text": "Sweep",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		}
+	}
 }
