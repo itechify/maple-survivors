@@ -5609,6 +5609,46 @@ Reserved, not built: a `"*"` table entry for an all-element mark (Corsair's Homi
 the same `element_multiplier`, so Ifrit's fire meets Ice Demon's mark there with no special case. The renderer has no
 per-status tint for `ice_weak`, so `fire_weak` adds none.
 
+### 7.63 Skill templates: `extends` (spec #319 I5, M19)
+
+Big Bang exists three times in v83 (F/P 2121001, I/L 2221001, Bishop 2321001) with the same numbers (`mad` 160 -> 450,
+`mastery`, `mobCount` 6), the same image sizes under `keydown`, `effect`, `special` and `prepare`, and the same sounds
+(the I/L and Bishop `Use`/`Loop` are UOLs to 2121001's); none has an `elemAttr`. There is no element to parametrise, so
+a skill definition may say "I am that skill, in my book" instead of copying 40 lines that would drift apart.
+
+- **Syntax.** `"extends": "<parent key>"`. The child states its own `skill_id`, `book` and `job` (all three required) and
+  anything it overrides. Bishop's is three lines:
+  `{"extends": "big_bang", "skill_id": 2321001, "book": "232", "job": 232}`. **A child extends the plain parent**
+  (`big_bang`, F/P's, in `skills/magician.json`), never another child: `big_bang_il` is not a parent, so the I/L and
+  Bishop versions share no dependency on each other.
+- **Where.** `SkillTemplate.resolve(skills, errors)` (pure, `scripts/sim/skill_template.gd`) runs in `SkillBook.from_data`
+  once every line fragment has merged, so the result does not depend on `DataRepo.LINES` order or on which line file holds
+  the parent. `SkillBook.def(key)` and `defs` hold only resolved definitions; raw JSON from `DataRepo.load_all` still
+  carries the `extends` line, so a test or tool that needs a templated skill's fields goes through `SkillBook`.
+- **Merge.** Resolved child = a deep copy of the parent, then the child's own keys on top: dictionaries merge key by key,
+  arrays and scalars are replaced. `_`-prefixed documentation keys of the parent (`_provenance`, `_rarity`, at any depth)
+  are not inherited; the child's own are kept. `rarity_bonuses`, `ranks`, `cast`, `pending`, `cooldown`, `sounds` and the
+  rest are inherited unless the child states them (a child's `ranks` replaces the parent's eight-entry table, a child's
+  `rarity_bonuses.epic` list replaces only the Epic list).
+- **Path rewrite.** In every *inherited* string, `Skill.wz/<parent book>.img/skill/<parent id>` becomes
+  `Skill.wz/<child book>.img/skill/<child id>` and `Sound.wz/Skill.img/<parent id>` becomes
+  `Sound.wz/Skill.img/<child id>`, matched at a path boundary: the id must be followed by `/` or the end of the string,
+  and must not continue a longer word. A string that merely contains the id, and every string the child states, is left
+  alone. The icon, `effect`, `release_visuals`, `pending.effect` and the sound paths therefore point at the child's own
+  nodes. WZ numbers always come from the child's own book at the mapped level (`SkillBook.canonical` reads `book` +
+  `skill_id`), so a book that ever differs gets its own numbers.
+- **Errors** (`DataRepo.load_all` lists them, `resolve` drops the child): `extends` is not a key name; `skill_id`, `book`
+  or `job` missing on the child; the parent is not defined; the parent itself `extends` (one level only, which also rules
+  out cycles and a self-parent); the child key is defined by two files (the existing duplicate rule).
+- **F/P is unchanged.** `big_bang` has no `extends`: data without any `extends` resolves to the same dictionary, and a
+  test pins that `big_bang` resolves equal to its raw definition.
+- **Drift guard.** `SkillTemplate.drift_problems(book, child, parent, exists)`: the child's and the parent's level node
+  agree at each of the eight mapped levels (every number and vector), the art nodes under every top-level key of the
+  skill node (`level` aside) have the same counts, and every Skill.wz/Sound.wz path of the child resolves in the cache.
+  `test_skill_template` runs it for every `extends` pair of the shipped data (`SkillTemplate.pairs`) against the real
+  cache (a SKIP without it), on a synthetic pair so it is not vacuous, and on synthetic books for each failure. If a book
+  ever differs, the guard fails and the child must override the difference.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -6013,6 +6053,8 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | I/L creation weapon | 1372005, the Wooden Wand F/P starts with (reqJob Magician; no level requirement) | C |
 | I/L weapon families | `weapon_families` wand and staff; armour drops by the Magician class bit, no shields or Warrior weapons | C |
 | I/L skill pool | `skill_pool` of 222: the twelve actives of the 200/220/221/222 books; undefined keys stay out of draws until I6-I10 define them | C |
+| Skill templates | `extends` resolved in `SkillBook` by `SkillTemplate` (7.63): deep copy of the parent, child keys on top, inherited Skill.wz/Sound.wz paths rewritten to the child's book and id | C |
+| Big Bang in the three books | 2121001, 2221001 and 2321001 are identical in every level number, art node count and sound (Use/Loop UOL to 2121001's); the drift guard re-checks it per `extends` pair | A |
 | I/L playable | `playable: false` until I12 (job 212 stays `default_job` either way: 212 precedes 222) | C |
 
 
