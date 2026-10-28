@@ -1,0 +1,229 @@
+extends TestCase
+## Hero's Rush (spec #296 H6, WZ 1121006): the first damaging manual skill, a directional dash on the `rush` key.
+## Synthetic worlds with the real `hero.json` skill data and a Skill.wz-shaped level-4 node (the real numbers are
+## asserted in the real-cache test at the end).
+
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const DT := 1.0 / 60.0
+const KEY := "rush_hero"
+
+
+## Skill.wz/112.img/skill/1121006 in the shape the book reads, with the real node's level 1 / 4 / 30 numbers so a wrong
+## level shows; the img tops out at level 30 (the survivor rank table follows the WZ maximum level).
+static func _rush_img() -> Dictionary:
+	var levels := {}
+	for lv in range(1, 31):
+		var reach := 160.0 if lv < 4 else 170.0 if lv == 4 else 250.0
+		levels[str(lv)] = {"damage": 72.0 if lv < 4 else 78.0 if lv == 4 else 130.0, "mobCount": 15.0,
+			"lt": {"$v": [-reach, -50.0]}, "rb": {"$v": [0.0, 0.0]}}
+	return {"icon": RF._canvas(32, 32), "action": {"0": "rush2"}, "effect": RF._anim(7, 120.0, 86, 98),
+		"level": levels}
+
+
+## A Hero (job 112, the creation sword) on a flat map 0..1000 with `segments` instead when given; the player stands at x.
+func _world(x := 400.0, segments: Array = []) -> RunWorld:
+	var data := RF.quiet_data()
+	var setup := RF.setup("quiet", 60, data)
+	setup.map_img = RF.map_from_segments(segments if not segments.is_empty()
+		else [{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
+	setup.skill_imgs["112"] = {"skill": {"1121006": _rush_img()}}
+	setup["job"] = 112
+	var w := RunWorld.new(setup)
+	w.player.place(Vector2(x, 0), w.fhm)
+	w.drain_events()
+	return w
+
+
+func _press(w: RunWorld, left := false, right := false) -> void:
+	# The mob grid is rebuilt inside a tick (after the player's move); mobs placed by the test enter it like the previous tick's.
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active, w.swarm.capacity())
+	var input := MoveInput.new()
+	input.press_skill("rush")
+	input.left = left
+	input.right = right
+	w.step(DT, input)
+
+
+# --- Definition and learning ------------------------------------------------------------------------------------------
+
+func test_learned_at_round_start_on_the_mobility_slot_outside_the_pool() -> void:
+	var w := _world()
+	assert_true(w.loadout.has(KEY), "Rush is a start skill of the Hero")
+	assert_eq(w.book.slot(KEY), "mobility")
+	assert_eq(w.jobs.mobility_skill(112), KEY)
+	assert_false(KEY in w.jobs.skill_pool(112), "never in the pool, so never offered as a card")
+	assert_eq(w.loadout.rank(KEY), 1)
+	assert_eq(w.skill_key_of(KEY), "rush")
+	var st := w.runner.stats_of(w, KEY)
+	assert_eq(int(st.level), 4, "fixed rank 1 reads WZ level 4")
+	assert_near(float(st.damage_pct), 0.78, 1e-9)
+	assert_eq(int(st.mob_count), 15)
+
+
+# --- Movement: distance, direction, stops -----------------------------------------------------------------------------
+
+func test_the_dash_covers_the_level_4_reach_toward_the_pressed_arrow() -> void:
+	var w := _world()
+	_press(w, false, true)
+	assert_eq(w.player.pos, Vector2(570, 0), "lt.x of level 4 = 170 px to the right")
+	assert_eq(w.player.facing, 1)
+	var left := _world()
+	_press(left, true, false)
+	assert_eq(left.player.pos, Vector2(230, 0))
+	assert_eq(left.player.facing, -1)
+
+
+func test_without_an_arrow_the_dash_follows_the_facing_and_opposing_arrows_cancel() -> void:
+	var w := _world()
+	w.player.facing = -1
+	_press(w)
+	assert_eq(w.player.pos, Vector2(230, 0), "facing left, no arrow")
+	var both := _world()
+	both.player.facing = 1
+	_press(both, true, true)
+	assert_eq(both.player.pos, Vector2(570, 0), "left + right cancel and fall back to the facing")
+
+
+func test_up_and_down_arrows_do_not_change_the_horizontal_direction() -> void:
+	var w := _world()
+	var input := MoveInput.new()
+	input.press_skill("rush")
+	input.up = true
+	w.step(DT, input)
+	assert_eq(w.player.pos, Vector2(570, 0), "Rush is horizontal only: the facing decides when no side key is held")
+
+
+func test_the_cast_event_and_cooldown() -> void:
+	var w := _world()
+	_press(w, false, true)
+	var casts: Array = []
+	for event: Dictionary in w.drain_events():
+		if event.type == "cast":
+			casts.append(event)
+	assert_eq(casts.size(), 1)
+	assert_eq(casts[0].skill, KEY)
+	assert_eq(casts[0].pos, Vector2(400, 0), "the cast begins where the dash starts")
+	assert_eq(casts[0].action, "rush2")
+	assert_eq(int(casts[0].level), 4)
+	var ready := w.skill_readiness(KEY)
+	assert_near(float(ready.total), 2.0, 1e-6)
+	assert_near(float(ready.left), 2.0 - DT, 1e-6, "the cooldown ticks down in the cast's own tick")
+
+
+func test_stops_at_a_wall_the_map_edge_and_a_platform_edge() -> void:
+	# A platform edge: the floor ends at x = 500, so the dash from 400 covers 100 px, never off the ledge.
+	var ledge := _world(400.0, [{"x1": 0, "y1": 0, "x2": 500, "y2": 0}])
+	_press(ledge, false, true)
+	assert_eq(ledge.player.pos, Vector2(500, 0), "stops on the platform's last pixel")
+	# The map edge: a floor wider than the map is cut at the map limit.
+	var edge := _world(40.0, [{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
+	_press(edge, true, false)
+	assert_true(edge.player.pos.x >= 0.0 and edge.player.pos.x < 40.0, "never past x = 0")
+	# A wall across the floor stops the dash short of it.
+	var walled := _world(400.0, [{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}, {"x1": 520, "y1": 0, "x2": 520, "y2": -200}])
+	_press(walled, false, true)
+	assert_true(walled.player.pos.x > 400.0 and walled.player.pos.x < 520.0, "stops before the wall at 520: %s" % walled.player.pos)
+
+
+func test_an_impossible_dash_spends_nothing() -> void:
+	var w := _world(500.0, [{"x1": 0, "y1": 0, "x2": 500, "y2": 0}])
+	_press(w, false, true)
+	assert_eq(w.player.pos, Vector2(500, 0), "already on the edge: nowhere to go")
+	assert_eq(float(w.skill_readiness(KEY).left), 0.0, "no cooldown")
+	for event: Dictionary in w.drain_events():
+		assert_ne(event.type, "cast", "no cast event")
+
+
+func test_no_dash_starts_while_climbing() -> void:
+	var w := _world()
+	w.player.state = PlayerMotion.ST_LADDER
+	_press(w, false, true)
+	assert_true(w.player.pos.x < 401.0, "no 170 px dash: %s" % w.player.pos)
+	assert_eq(float(w.skill_readiness(KEY).left), 0.0)
+	for event: Dictionary in w.drain_events():
+		assert_ne(event.type, "cast")
+
+
+func test_an_airborne_dash_moves_in_the_air() -> void:
+	var w := _world()
+	w.player.pos = Vector2(400, -60)
+	w.player.fh = -1
+	w.player.vel = Vector2.ZERO
+	_press(w, false, true)
+	assert_near(w.player.pos.x, 570.0, 1.0, "the dash covers its reach in the air")
+	assert_true(w.player.pos.y >= -60.0 - 1e-6, "no upward lift")
+
+
+# --- Hits and knock-back ----------------------------------------------------------------------------------------------
+
+## Mob 1110100 (250 HP) at x with the HP multiplier that lets it survive several 78% hits; returns its slot.
+func _mob(w: RunWorld, x: float) -> int:
+	return RF.put_mob(w, 1110100, x, 0, 1000)
+
+
+func _hits(w: RunWorld) -> Dictionary:
+	var out := {}
+	for event: Dictionary in w.drain_events():
+		if event.type == "mob_hit":
+			out[int(event.mob)] = int(out.get(int(event.mob), 0)) + 1
+	return out
+
+
+func test_every_mob_in_the_path_is_hit_once_and_only_those() -> void:
+	var w := _world(400.0, [{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}, {"x1": 0, "y1": -300, "x2": 1000, "y2": -300}])
+	var ahead := _mob(w, 450)       # inside the start box (400..570)
+	var far := _mob(w, 700)         # inside the box at the end of the dash (570..740)
+	var beyond := _mob(w, 820)      # past the dash and its box
+	var behind := _mob(w, 300)      # behind the caster
+	var above := RF.put_mob(w, 1110100, 450, -300, 1000) # the platform above: outside the 50 px box
+	_press(w, false, true)
+	var hits := _hits(w)
+	assert_eq(hits.get(ahead, 0), 1)
+	assert_eq(hits.get(far, 0), 1)
+	assert_eq(hits.get(beyond, 0), 0)
+	assert_eq(hits.get(behind, 0), 0)
+	assert_eq(hits.get(above, 0), 0)
+
+
+func test_the_dash_strikes_at_most_fifteen_mobs() -> void:
+	var w := _world()
+	for i in 20:
+		_mob(w, 420 + i * 7)
+	_press(w, false, true)
+	var hits := _hits(w)
+	assert_eq(hits.size(), 15, "mobCount 15 of the 20 mobs in the path")
+
+
+func test_the_hit_shoves_mobs_80_px_along_the_dash_for_both_directions() -> void:
+	var w := _world()
+	var passed := _mob(w, 450)   # the dash ends at 570: this mob is now behind the caster
+	var ahead := _mob(w, 600)    # inside the box at the end of the dash
+	_press(w, false, true)
+	assert_near(w.swarm.x[passed], 530.0, 1.5, "pushed forward 80 px, not back toward the start")
+	assert_near(w.swarm.x[ahead], 680.0, 1.5)
+	var left := _world()
+	var l_mob := _mob(left, 350)
+	_press(left, true, false)
+	assert_near(left.swarm.x[l_mob], 270.0, 1.5)
+
+
+func test_knockback_always_applies_and_draws_no_random_number() -> void:
+	var with_shove := _world()
+	_mob(with_shove, 450)
+	var plain := _world()
+	plain.book.defs[KEY].erase("knockback")
+	plain.loadout.version += 1 # drop the cached stats
+	_mob(plain, 450)
+	_press(with_shove, false, true)
+	_press(plain, false, true)
+	assert_eq(with_shove.rng.state, plain.rng.state, "the shove rolls nothing: the streams stay in step")
+	assert_ne(with_shove.swarm.x[0], plain.swarm.x[0], "and the mob was moved")
+
+
+func test_bosses_are_damaged_but_not_shoved() -> void:
+	var w := _world()
+	var boss := _mob(w, 450)
+	w.swarm.steady[boss] = 1 # a scheduled boss
+	_press(w, false, true)
+	assert_eq(_hits(w).get(boss, 0), 1)
+	assert_near(w.swarm.x[boss], 450.0, 0.02)

@@ -1,4 +1,48 @@
 {
-	"_doc": "Hero line (spec #296, H2 #298), books 111/112 (and 100/110 skills moved here only when a Hero ticket ports them). An empty skeleton: H5 (Power Strike, Slash Blast, Brandish), H6 (Rush), H7 (Shout, Monster Magnet) and H8 (Panic, Coma) each append their own entries. Power Strike and Slash Blast stay in warrior.json until H5 ports them.",
-	"skills": {}
+	"_doc": "Hero line (spec #296, H2 #298), books 111/112 (and 100/110 skills moved here only when a Hero ticket ports them). H5 (Power Strike, Slash Blast, Brandish), H7 (Shout, Monster Magnet) and H8 (Panic, Coma) each append their own entries; H6 (#302) owns rush_hero. Power Strike and Slash Blast stay in warrior.json until H5 ports them.",
+	"skills": {
+		"rush_hero": {
+			"skill_id": 1121006,
+			"book": "112",
+			"job": 112,
+			"kind": "instant",
+			"slot": "mobility",
+			"name": "Rush",
+			"desc": "Press the skill key with an arrow key to charge that way, damaging and shoving every monster in your path. Hold to repeat.",
+			"text": {
+				"desc": "Press the Rush key with an arrow key to charge that way, damaging and knocking back the monsters in your path. Hold the key to keep charging.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters}, charges forward."
+			},
+			"icon": "Skill.wz/112.img/skill/1121006/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "manual"
+			},
+			"skill_key": "rush",
+			"cooldown": 2.0,
+			"displacement": {
+				"direction": "input",
+				"when": "during",
+				"field": "lt.x"
+			},
+			"knockback": {
+				"distance": 80.0,
+				"direction": "dash"
+			},
+			"rush": {
+				"bot_threat_distance": 60.0
+			},
+			"_rush": "Tier A: WZ 1121006 at fixed rank 1 = WZ level 4 (the survivor rank table for a level-30 skill, ceil(1 x 30 / 8)): damage 78%, mobCount 15, box lt (-170,-50) rb (0,0), whose reach is also the dash distance (field lt.x), action rush2 (stabOF), effect/1..6 and effect0 dust, the Use sound. Tier C: the 2.0 s cooldown (the balance lever), always-on 80 px knockback in the dash direction (bosses resist, no chance field, no RNG draw), hold-to-repeat, no start while climbing, no orb gain or bonus, the bot dashes away from a mob within 60 px, at most every 3 s (BotInput.RUSH_MIN_INTERVAL). Mobility skills do not rank: nothing raises Rush above rank 1 (RunWorld.mobility_rank).",
+			"action": "rush2",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/112.img/skill/1121006/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1121006/Use",
+				"hit": ""
+			}
+		}
+	}
 }
