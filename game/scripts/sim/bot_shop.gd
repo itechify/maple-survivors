@@ -39,12 +39,11 @@ static func item_score(instance: Dictionary, weights: Dictionary) -> float:
 	return stats_score(instance.get("stats", {}), weights)
 
 
-## Whether any of `events` (drained RunWorld events) is a reason to look at the equipment again: an equipment pickup, a
-## level-up (new stats can meet a requirement) or a job change (a new job wears more items).
+## Whether drained events contain an equipment pickup that warrants checking the equipment again.
 static func equip_trigger(events: Array) -> bool:
 	for e: Dictionary in events:
 		var type := String(e.get("type", ""))
-		if type == "level_up" or type == "job_changed" or (type == "pickup_collected" and String(e.get("kind", "")) == "equip"):
+		if type == "pickup_collected" and String(e.get("kind", "")) == "equip":
 			return true
 	return false
 

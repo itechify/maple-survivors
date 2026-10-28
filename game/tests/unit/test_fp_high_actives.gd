@@ -187,3 +187,22 @@ func test_mist_skill_damage_modifiers_scale_its_poison_pulses() -> void:
 			w.step(DT, MoveInput.new())
 		totals.append(w.swarm.poison_dealt)
 	assert_eq(totals[1], totals[0] * 2, "damage bonuses work on ground poison")
+
+func test_offset_mists_keep_poison_pulsing_and_refresh_existing_poison() -> void:
+	var w := _world("poison_mist")
+	var m := _mob(w)
+	w.runner.step(DT, w)
+	w.loadout.order.clear()
+	for tick in 90:
+		w.step(DT, MoveInput.new())
+	var before := w.swarm.poison_dealt
+	# A second cloud first refreshes the existing poison halfway through its pulse.
+	w.learn_skill("poison_mist")
+	w.loadout.order.append("poison_mist")
+	w.runner.cooldowns.poison_mist = 0.0
+	w.runner.step(DT, w)
+	w.loadout.order.clear()
+	for tick in 240:
+		w.step(DT, MoveInput.new())
+	assert_true(w.swarm.poison_dealt - before >= 4548, "offset refreshes must preserve four poison pulses")
+	assert_true(w.swarm.hp[m] < 100000)

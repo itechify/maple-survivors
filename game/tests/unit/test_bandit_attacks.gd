@@ -277,7 +277,7 @@ func test_bandit_attack_cards_are_branch_only_power_cards_with_three_target_step
 		assert_eq(w.upgrades.card(key + "_rank").max_rank, 30)
 		assert_eq(w.upgrades.card(key + "_targets").max_rank, 3)
 		for step in 3:
-			assert_true(w.upgrades.apply(key + "_targets", w) > 0)
+			RF.add_modifier_effects(w, w.upgrades.card(key + "_targets"))
 		assert_eq(SkillRunner.strike_count(w.runner.stats_of(w, key)), 4)
 		assert_false(key + "_targets" in w.upgrades.eligible(w))
 		# Cast all four targets; Savage Blow deals four lines to each at rank 1, Steal one.

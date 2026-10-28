@@ -33,7 +33,7 @@ func test_seeded_bowman_drops_use_only_the_listed_family_through_both_bands() ->
 					assert_eq(WeaponInfo.family(id), family, "%d only %s" % [id, family])
 	for job in [0, 100, 200, 210, 400, 500, 520]:
 		for family: String in ["bow", "crossbow"]:
-			assert_eq(EquipmentDrops.eligible(rules.items, INFO, job, [0, 70], rules, [family]), [])
+			assert_eq(EquipmentDrops.eligible(rules.items, INFO, job, [0, 70], [family]), [])
 			assert_eq(EquipmentDrops.pick_boss(rules.items, INFO, job, [0, 70], rules, _rng(), [family]), 0)
 
 
@@ -113,7 +113,7 @@ func test_every_bowman_drop_has_regular_v83_info_icons_and_progression_in_the_pr
 	assert_false(slots.has("shield"))
 	for band: Array in [[0, 30], [30, 70]]:
 		for family: String in ["bow", "crossbow"]:
-			var eligible := EquipmentDrops.eligible(weapons, infos, 300, band, data.equipment_drops, [family])
+			var eligible := EquipmentDrops.eligible(weapons, infos, 300, band, [family])
 			assert_false(eligible.is_empty(), "%s progression in band %s" % [family, band])
 	var scroll_infos := DataRepo.scroll_info(Scrolls.ids(data.scrolls), func(path: String) -> Dictionary:
 		var img := lib.img(path)

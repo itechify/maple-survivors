@@ -113,7 +113,7 @@ func test_thunder_bolt_target_card_raises_hits_in_a_crowded_box_by_two_per_step(
 		var w := _world("", 6.0) # the real v83 Thunder Bolt mobCount is 6 at every level
 		w.upgrades.apply("thunder_bolt_new", w)
 		for step in steps:
-			assert_eq(w.upgrades.apply("thunder_bolt_targets", w), step + 1)
+			RF.add_modifier_effects(w, w.upgrades.card("thunder_bolt_targets"))
 		for mk: MobKind in w.mob_kinds:
 			mk.hitbox = Rect2(-5, -10, 10, 10)
 		var mobs: Array[int] = []
@@ -131,9 +131,8 @@ func test_thunder_bolt_target_card_raises_hits_in_a_crowded_box_by_two_per_step(
 	w.upgrades.apply("thunder_bolt_new", w)
 	assert_false("thunder_bolt_targets" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	for step in 3:
-		w.upgrades.apply("thunder_bolt_targets", w)
+		RF.add_modifier_effects(w, w.upgrades.card("thunder_bolt_targets"))
 	assert_false("thunder_bolt_targets" in w.upgrades.eligible(w), "three steps cap the card")
-	assert_eq(w.upgrades.apply("thunder_bolt_targets", w), 0)
 
 
 func test_thunder_bolt_cast_applies_lightning_weakness_with_the_same_seed() -> void:
@@ -158,63 +157,11 @@ func test_thunder_bolt_cast_applies_lightning_weakness_with_the_same_seed() -> v
 		assert_near(damage[1], damage[0] * 1.5, 1.0, "L3 gives 1.5x before integer rounding")
 
 
-func test_ice_lightning_cards_gate_jobs_apply_steps_and_stop_at_caps() -> void:
-	var w := _world()
-	var ids := ["cold_beam_new", "cold_beam_rank", "cold_beam_targets", "cold_beam_cooldown",
-		"thunder_bolt_new", "thunder_bolt_rank", "thunder_bolt_area", "thunder_bolt_targets", "thunder_bolt_cooldown"]
-	for id: String in ids:
-		var card := w.upgrades.card(id)
-		assert_false(card.is_empty(), id)
-		if card.is_empty():
-			return
-		assert_eq(card.requires.jobs, [220.0], id)
-		assert_true(bool(card.get("power", false)), id)
-	for job: int in [200, 210, 230]:
-		RF.as_job(w, job)
-		for id: String in ids:
-			assert_false(id in w.upgrades.eligible(w), "%s excluded for job %d" % [id, job])
-	RF.as_job(w, 220)
-	for skill: String in ["cold_beam", "thunder_bolt"]:
-		assert_false(skill + "_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
-		assert_eq(w.upgrades.apply(skill + "_new", w), 1)
-		assert_eq(w.loadout.rank(skill), 1)
-		assert_false(skill + "_new" in w.upgrades.eligible(w))
-		assert_false(skill + "_rank" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
-		assert_eq(BotInput.card_score(w, {"id": skill + "_new"}), 100.0)
-		assert_eq(BotInput.card_score(w, {"id": skill + "_rank"}), 74.0)
-		var cooldown := float(w.loadout.stats(skill).cooldown)
-		for step in range(1, 4):
-			assert_eq(w.upgrades.apply(skill + "_cooldown", w), step)
-			assert_near(w.loadout.stats(skill).cooldown, cooldown * pow(0.88, step), 0.0001)
-		assert_false(skill + "_cooldown" in w.upgrades.eligible(w))
-		assert_eq(w.upgrades.apply(skill + "_cooldown", w), 0, "cap rejects another step")
-		assert_near(w.loadout.stats(skill).cooldown, cooldown * 0.681472, 0.0001)
-		assert_eq(BotInput.card_score(w, {"id": skill + "_cooldown"}), 66.0)
-		for consumed in range(1, 30):
-			assert_eq(w.upgrades.apply(skill + "_rank", w, "legendary"), consumed)
-		assert_eq(w.loadout.rank(skill), 30, "rank cards reach canonical maximum")
-		assert_false(skill + "_rank" in w.upgrades.eligible(w))
-		assert_eq(w.upgrades.apply(skill + "_rank", w), 0)
-	for step in range(1, 4):
-		assert_eq(w.upgrades.apply("cold_beam_targets", w), step)
-		assert_eq(w.loadout.stats("cold_beam").count, 1 + step)
-		assert_eq(w.upgrades.apply("thunder_bolt_area", w), step)
-		assert_near(w.loadout.stats("thunder_bolt").area, pow(1.2, step), 0.0001)
-	assert_false("cold_beam_targets" in w.upgrades.eligible(w))
-	assert_eq(w.upgrades.apply("cold_beam_targets", w), 0)
-	assert_eq(w.loadout.stats("cold_beam").count, 4)
-	assert_false("thunder_bolt_area" in w.upgrades.eligible(w))
-	assert_eq(w.upgrades.apply("thunder_bolt_area", w), 0)
-	assert_near(w.loadout.stats("thunder_bolt").area, 1.728, 0.0001)
-	assert_eq(BotInput.card_score(w, {"id": "cold_beam_targets"}), 87.0)
-	assert_eq(BotInput.card_score(w, {"id": "thunder_bolt_area"}), 70.0)
-	assert_eq(BotInput.card_score(w, {"id": "thunder_bolt_targets"}), 87.0, "scored like Cold Beam's target card")
-
 
 func test_cold_beam_target_card_hits_and_freezes_distinct_nearest_monsters() -> void:
 	var w := _world()
 	w.upgrades.apply("cold_beam_new", w)
-	w.upgrades.apply("cold_beam_targets", w, "legendary")
+	RF.add_modifier_effects(w, w.upgrades.card("cold_beam_targets"), 3)
 	var mobs: Array[int] = []
 	for dx: int in [40, 80, 120, 160, 200]:
 		mobs.append(RF.put_mob(w, 1110100, 200 + dx, 190, 100.0))

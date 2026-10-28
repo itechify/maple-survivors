@@ -110,30 +110,30 @@ const WEAPONS := ["wand", "staff"]
 
 
 func test_a_beginner_only_gets_all_job_items_and_a_magician_both() -> void:
-	var beginner := EquipmentDrops.eligible(_ids(), INFO, 0, [0, 30], RULES, [])
+	var beginner := EquipmentDrops.eligible(_ids(), INFO, 0, [0, 30], [])
 	for id: int in beginner:
 		assert_eq(int(INFO[id].reqJob), 0, "%d is for every job" % id)
 	assert_true(1002001 in beginner and 1040002 in beginner)
 	assert_false(1372005 in beginner, "no weapon family, no wand (the job lists none)")
 	assert_false(1002017 in beginner, "a Magician hat never drops for a Beginner")
-	var magician := EquipmentDrops.eligible(_ids(), INFO, 200, [0, 30], RULES, WEAPONS)
+	var magician := EquipmentDrops.eligible(_ids(), INFO, 200, [0, 30], WEAPONS)
 	assert_true(1002017 in magician and 1372005 in magician and 1072006 in magician, "Magician and all-job")
 	for job in [210, 220, 230, 211, 232]:
-		assert_true(1002017 in EquipmentDrops.eligible(_ids(), INFO, job, [0, 30], RULES, WEAPONS), "job %d wears Magician gear" % job)
-	assert_false(1002017 in EquipmentDrops.eligible(_ids(), INFO, 100, [0, 30], RULES, WEAPONS), "a Warrior line is not eligible")
+		assert_true(1002017 in EquipmentDrops.eligible(_ids(), INFO, job, [0, 30], WEAPONS), "job %d wears Magician gear" % job)
+	assert_false(1002017 in EquipmentDrops.eligible(_ids(), INFO, 100, [0, 30], WEAPONS), "a Warrior line is not eligible")
 
 
 func test_the_band_is_inclusive_at_both_ends_and_the_level_is_not_an_input() -> void:
-	assert_eq(EquipmentDrops.eligible(_ids(), INFO, 200, [23, 23], RULES, WEAPONS), [1050001, 1372004],
+	assert_eq(EquipmentDrops.eligible(_ids(), INFO, 200, [23, 23], WEAPONS), [1050001, 1372004],
 		"reqLevel 23 exactly: the overall and the Ice Wand")
-	assert_eq(EquipmentDrops.eligible(_ids(), INFO, 200, [24, 37], RULES, WEAPONS), [], "nothing between 24 and 37")
-	assert_eq(EquipmentDrops.eligible(_ids(), INFO, 200, [38, 38], RULES, WEAPONS), [1372000], "the Lv38 wand at the edge")
-	assert_true(1382019 in EquipmentDrops.eligible(_ids(), INFO, 200, [30, 60], RULES, WEAPONS), "Lv40 is inside 30..60")
-	assert_false(1002017 in EquipmentDrops.eligible(_ids(), INFO, 200, [30, 60], RULES, WEAPONS), "Lv10 is below it")
+	assert_eq(EquipmentDrops.eligible(_ids(), INFO, 200, [24, 37], WEAPONS), [], "nothing between 24 and 37")
+	assert_eq(EquipmentDrops.eligible(_ids(), INFO, 200, [38, 38], WEAPONS), [1372000], "the Lv38 wand at the edge")
+	assert_true(1382019 in EquipmentDrops.eligible(_ids(), INFO, 200, [30, 60], WEAPONS), "Lv40 is inside 30..60")
+	assert_false(1002017 in EquipmentDrops.eligible(_ids(), INFO, 200, [30, 60], WEAPONS), "Lv10 is below it")
 
 
 func test_items_missing_from_the_info_table_never_drop() -> void:
-	assert_eq(EquipmentDrops.eligible([1002001, 9999999], {1002001: INFO[1002001]}, 0, [0, 30], RULES, []), [1002001])
+	assert_eq(EquipmentDrops.eligible([1002001, 9999999], {1002001: INFO[1002001]}, 0, [0, 30], []), [1002001])
 
 
 func test_every_item_in_the_band_is_equally_likely() -> void:
@@ -239,7 +239,7 @@ func test_every_listed_item_has_cache_info_and_an_icon_and_every_band_has_drops(
 	var stages: Dictionary = DataRepo.load_all().stages
 	for tier in stages.tiers.size():
 		var band := EquipmentDrops.band_of(stages, tier)
-		assert_true(EquipmentDrops.eligible(ed.items, infos, 212, band, ed, WEAPONS).size() > 20, "tier %d has drops" % (tier + 1))
+		assert_true(EquipmentDrops.eligible(ed.items, infos, 212, band, WEAPONS).size() > 20, "tier %d has drops" % (tier + 1))
 		var floor_req := EquipmentDrops.boss_floor(band, ed)
 		for i in 30:
 			var boss := EquipmentDrops.pick_boss(ed.items, infos, 212, band, ed, rng, WEAPONS)

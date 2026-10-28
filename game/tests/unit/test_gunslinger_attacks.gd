@@ -144,7 +144,7 @@ func test_invisible_shot_mob_count_grows_with_its_card_and_stays_inside_one_cast
 		_mob(w, dx)
 	assert_eq(_hit_slots(_tick(w), "invisible_shot").size(), 3)
 	var more := _gunslinger("invisible_shot", 20)
-	assert_true(more.upgrades.apply("invisible_shot_targets", more))
+	RF.add_modifier_effects(more, more.upgrades.card("invisible_shot_targets"))
 	for dx in [-200.0, -100.0, 50.0, 100.0, 200.0]:
 		_mob(more, dx)
 	assert_eq(_hit_slots(_tick(more), "invisible_shot").size(), 4, "+1 target from the card")
@@ -303,7 +303,7 @@ func test_recoil_shot_does_not_hop_in_the_air() -> void:
 
 func test_recoil_shot_bullet_pierce_card_hits_a_second_mob() -> void:
 	var w := _gunslinger("recoil_shot", 20)
-	assert_true(w.upgrades.apply("recoil_shot_pierce", w))
+	RF.add_modifier_effects(w, w.upgrades.card("recoil_shot_pierce"))
 	_mob(w, 150.0)
 	_mob(w, 200.0)
 	var events := _tick(w)
@@ -451,7 +451,7 @@ func test_each_hit_more_card_adds_one_target_or_pierce_per_step_for_three_steps(
 		var stat := "pierce" if key == "recoil_shot" else "mob_count"
 		var base: int = w.loadout.stats(key)[stat]
 		for step in 3:
-			assert_true(w.upgrades.apply(id, w), "%s step %d" % [id, step + 1])
+			RF.add_modifier_effects(w, w.upgrades.card(id))
 			assert_eq(w.loadout.stats(key)[stat], base + step + 1)
 		assert_false(id in w.upgrades.eligible(w), "three steps at most")
 

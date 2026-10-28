@@ -96,7 +96,7 @@ func test_heal_holy_arrow_cards_are_cleric_only_and_behaviour_steps_match_first_
 		var max_steps := 2 if id == "holy_arrow_pierce" else 3
 		for pick in max_steps:
 			assert_false(id in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
-			w.upgrades.apply(id, w)
+			RF.add_modifier_effects(w, w.upgrades.card(id))
 		assert_false(id in w.upgrades.eligible(w), "modifier cap: " + id)
 	assert_eq(w.loadout.stats("holy_arrow").count, 4)
 	assert_eq(w.loadout.stats("holy_arrow").pierce, 2)

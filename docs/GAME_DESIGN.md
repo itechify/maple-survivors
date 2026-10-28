@@ -712,6 +712,28 @@ seven-frame Brandish sheet were inspected in `evidence/h5-301/`. Full suite: **2
 0 skipped**, 210 files, 1598.1 s; F/P oracle expectations unchanged. The live shots draw at about 1 FPS;
 they are cast/hit evidence, not performance evidence. The paused sheet verifies the body/weapon poses.
 
+**#282 review fixes (2026-10-28).** Targeted regression requested for this review task:
+Henesys, bot, training seed 1, real cache, no balance tuning or held-out seeds. Correct passive rarity RNG,
+independent ground procs, poison refresh and mobility progression deliberately change seeded trajectories.
+Both records have no warnings, missing assets or crashes; six active slots fill and two bosses die.
+
+| Henesys seed 1 equipment | Outcome / time / level | Six actives | Map 2 / 3 entry |
+|---|---|---|---|
+| Starter wand | DEAD / 651.7 s / Lv36; 37 picks, 2,706 kills | 136.7 s | 312.7 / 616.6 s |
+| Tier-1 F/P fixture (full-run guard check) | DEAD / 781.8 s / Lv47; 48 picks, 4,518 kills | 135.1 s | 308.2 / 611.3 s |
+
+The previous #294 three-seed Henesys starter bot sample cleared 1/3; this task repeats only seed 1,
+so it does not remeasure that whole cohort. The separate corrected full-run fixture sample
+(1/2/2026) clears 0/3, with deaths at approximately 782/660/643 s.
+This is a changed training baseline, not a balance claim. The feature regression retains six-slot, engagement,
+event/finale and warning checks, and requires at least one third-map arrival (two defeated bosses), replacing
+the old fixed-seed natural-clear quota. Natural-clear rate remains for the dedicated balance pass.
+The redesign flow passed with 31 screenshots, no missing assets or failures; the windows flow passed with
+10 screenshots. HUD and Stat MP masks were inspected by eye in `evidence/282fix/`.
+Final verification: `ISOLATE=282fix bash scripts/test.sh`: **1,992 tests, 0 failed, 0 skipped**,
+207 files; web shell: **62 passed, 0 failed, 0 skipped**.
+
+
 **#307 / T11b opening ramp (training seeds 1/2/2026 only).** All candidates used absolute `PATCH=` files;
 raw local records are `_scratch/307/`, not committed. Low starts (.001–.02 HP, .08 damage) made both
 starter and kit viable, erasing the equipment gate. Raising only damage killed both builds on map 3.
@@ -4520,8 +4542,8 @@ existing shots finish separately from carry-over projectile kills.
 | Magic Armor (2001003) | Magician | Timed PDD (`pdd`) | ranks 1–20 = levels 1–20 | learn/rank |
 | Holy Arrow (2301005) | Cleric | Holy projectile at nearest mob: canonical mad/mastery/mpCon and element h; 1 s recast, 480 px reach, 520 px/s, radius 12 | ranks 1–30 = levels 1–30 | learn/rank; +1 projectile (3 steps), +1 pierce (2), cooldown ×0.88 (3); job 230 only |
 | Heal (2301002) | Cleric | Instant self recovery below 50% HP OR holy damage to every undead intersecting canonical lt/rb; 2 s recast, canonical mpCon/hp; provisional historical stat-based recovery fit, exact v83 amount unresolved ([evidence](research/cleric-heal.md)) | ranks 1–30 = levels 1–30 | learn/rank only; job 230 only |
-| Fire Arrow (2101004) | F/P Wizard | Nearest-target fire (`elemAttr f`) projectile every 1 s within 480 px, 520 px/s, radius 12 px, `shoot1` stance 0.8 s; canonical `mad`/`mastery`/`mpCon`, ball/hit/effect and Use sound | ranks 1–30 = levels 1–30 | learn/rank; Extra Fire Arrow (+1 shot, ×3), Fire Arrow Pierce (+1 pierce, ×2), Quick Fire Arrow (cooldown ×0.88, ×3) |
-| Poison Breath (2101005) | F/P Wizard | Nearest-target poison (`elemAttr s`) projectile every 1.25 s within 450 px, 400 px/s, radius 14 px, `swingO3` stance 0.8 s; canonical `mad`/`mastery`/`mpCon`; `on_hit` applies poison with canonical `prop`% for `time`; cached ball/hit/effect and Use/Hit sounds | ranks 1–30 = levels 1–30 | learn/rank; Poison Breath Pierce (+1 pierce, ×3), Quick Poison Breath (cooldown ×0.88, ×3) |
+| Fire Arrow (2101004) | F/P Wizard | Nearest-target fire (`elemAttr f`) projectile every 0.4 s within 480 px, 520 px/s, radius 12 px, `shoot1` stance 0.8 s; canonical `mad`/`mastery`, ball/hit/effect and Use sound | ranks 1–8 map to WZ levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and post-cap Mastery with per-rarity bonuses (8.2); no standalone modifier cards |
+| Poison Breath (2101005) | F/P Wizard | Nearest-target poison (`elemAttr s`) projectile every 0.5 s within 450 px, 400 px/s, radius 14 px, `swingO3` stance 0.8 s; canonical `mad`/`mastery`; `on_hit` applies poison with canonical `prop`% for `time`; cached ball/hit/effect and Use/Hit sounds | ranks 1–8 map to WZ levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and post-cap Mastery with per-rarity bonuses (8.2); no standalone modifier cards |
 | Meditation (2101001 / 2201001) | F/P / I/L Wizard | Self-only timed canonical `mad` -> magic attack; invalidates cached attack ranges on start/expiry | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
 | Bless (2301004) | Cleric | One timed buff: canonical `pdd`, `mdd`, `acc`, `eva` -> weapon/magic defence, accuracy, avoid; accuracy joins the player's ACC and raises the critical chance (6.1) | ranks 1–20 = levels 1–20 | learn/rank only |
 | Invincible (2301003) | Cleric | Canonical `x`% reduction of physical/touch damage before Magic Guard; magic damage unaffected | ranks 1–20 = levels 1–20 | learn/rank only |
@@ -5560,13 +5582,13 @@ No MP is spent. Bosses take damage but reject every status. Elquines belongs to 
 
 | Skill / key | Behavior | First-pass cooldown (tier C) |
 |---|---|---|
-| Explosion 2111002 / `explosion` | Fire damage in the canonical box around the character, canonical mob count | 4 s |
-| Poison Mist 2111003 / `poison_mist` | Fixed ground box lasting canonical `time`; checks occupants each second with canonical `prop`, applies existing nonlethal poison, including later arrivals; no direct damage | 8 s |
-| Element Composition 2111006 / `element_composition` | 500 px/s projectile, 450 px acquisition, one target; fire/poison attributes averaged equally; canonical `prop`/`time` poison uses poison resistance | 2 s |
-| Fire Demon 2121003 / `fire_demon` | Fire in its canonical forward box; survivors become ice-weak (x1.5) for canonical `time`; other attributes unchanged | 5 s |
-| Paralyze 2121006 / `paralyze` | Nearest target within 450 px, poison-element damage and existing stun for canonical `time`/`prop` | 3 s |
-| Meteor Shower 2121007 / `meteor_shower` | Fixed canonical 800×600 box; falling WZ tiles at canonical 180 px spacing; damage after canonical `hitAfter` 1800 ms, targets queried at impact | 12 s |
-| Big Bang 2121001 / `big_bang` | WZ keydown charge for one 18×60 ms loop, then full `mad` damage with canonical mob count around the current character position | 7 s |
+| Explosion 2111002 / `explosion` | Fire damage in the canonical box around the character, canonical mob count | 1.6 s |
+| Poison Mist 2111003 / `poison_mist` | Fixed ground box lasting canonical `time`; checks occupants each second with canonical `prop`, applies existing nonlethal poison, including later arrivals; no direct damage | 3.2 s |
+| Element Composition 2111006 / `element_composition` | 500 px/s projectile, 450 px acquisition, one target; fire/poison attributes averaged equally; canonical `prop`/`time` poison uses poison resistance | 0.8 s |
+| Fire Demon 2121003 / `fire_demon` | Fire in its canonical forward box; survivors become ice-weak (x1.5) for canonical `time`; other attributes unchanged | 2.0 s |
+| Paralyze 2121006 / `paralyze` | Nearest target within 450 px, poison-element damage and existing stun for canonical `time`/`prop` | 1.2 s |
+| Meteor Shower 2121007 / `meteor_shower` | Fixed canonical 800×600 box; falling WZ tiles at canonical 180 px spacing; damage after canonical `hitAfter` 1800 ms, targets queried at impact | 4.8 s |
+| Big Bang 2121001 / `big_bang` | WZ keydown charge for one 18×60 ms loop, then full `mad` damage with canonical mob count around the current character position | 2.8 s |
 
 Pending areas/releases snapshot cast stats, query live targets, and clear on map transfer. Mist pieces are anchored
 to cast feet and expire with the area. Big Bang's survivor box is (-250,-180)..(250,100); its charge is automatic,
@@ -5586,7 +5608,7 @@ Definition shape for later classes (Phoenix, Frostprey, Bahamut, Octopus, Puppet
 
 ```json
 {"kind":"summon", "slot":"active", "cast":{"rule":"summon"},
- "cooldown":30, "damage":"magic", "element":"i",
+ "cooldown":12, "damage":"magic", "element":"i",
  "summon":{"path":"Skill.wz/212.img/skill/2121005/summon", "attack":"attack1",
    "follow_speed":180, "follow_distance":60, "teleport_distance":600, "attack_interval":2.4}}
 ```
@@ -5605,13 +5627,13 @@ and seek on both sides of their own position. Attacks face the scheduled boss fi
 Attack timing pauses follow motion. Hits use `RunWorld.hit_mob`, including defence, crit, damage modifiers, element
 immunity and Fire Demon's per-mob ice weakness. No additional freeze is inferred from ice damage.
 
-Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 30 s recast,
+Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 12 s recast,
 180 px/s follow, 60 px trailing offset, 1 px stand/move deadzone, 600 px snap distance and 2.4 s minimum attack cycle (never shorter than the
 WZ animation or hit delay). A zero follow speed stops incremental following (distance snapping still applies); future stationary, taunt, projectile,
 ground-navigation or pet-like targeting behaviours must extend this seam with their own tests, not special-case IDs.
 `damage`, `area`, `count` (attack targets), `attack_count`, `cooldown` consume existing modifiers; `duration` and
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
-new casts pick up rank changes. No rarity lists ship until #288 lands; proposed lists are in T9-291.md.
+new casts pick up rank changes. Rarity lists ship in the skill definition.
 
 ### 7.33 Hero pool and Rush (spec #296)
 
@@ -6134,6 +6156,19 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+
+### Review #282: constants and provenance
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Bot passive policy | balance.bot: after 3 actives, +20 passive score; Mastery effect score ×100; authorized bot behaviour fix | C |
+| Mobility rank progression | balance.mobility_rank_levels: rank 1 at Lv1, then rank N at Lv2N through rank 20 at Lv40, clamped to each mobility skill cap; shared across jobs | C |
+| Summon ordinal spread | summon.ordinal_spread: 36 px on x for each additional ally, at spawn and follow destination | C |
+| Ground status RNG / refresh | stream 18; ground data names status, element and chance field; refresh preserves pending poison pulse while updating duration and damage, direct hits retain restart policy | C |
+| Capture delay | skill.capture_delay: Paralyze 0.3 s, Big Bang 1.38 s | C |
+| Frame timing fallback | WeaponInfo.frame_times uses 100 ms for missing or zero frame delay | C |
+
 
 ### #307 opening ramp (tier C)
 

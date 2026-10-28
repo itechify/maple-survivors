@@ -5,7 +5,7 @@ extends UiWindow
 ## (attack, weapon defence, magic, magic defence, accuracy, avoidability, hands, speed, jump) beside it; BtDetail
 ## shows / hides the detail panel, BtUIClose closes the window. Read-only: AP is spent automatically, so the BtApUp
 ## buttons are never shown. v83 stats only (survivor cards are skills, listed on the Skill window). There is no MP
-## (ADR 0006): the art's baked MP row stays empty.
+## (ADR 0006): the baked MP label and row are covered with a blank panel strip.
 ##
 ##   StatWindow.new(info)   # info: RunScene.stat_info() - name, job, level, exp, exp_next, hp, max_hp,
 ##                          # str, dex, int, luk, ap, attack, magic, weapon_def, magic_def, accuracy, avoid, speed, jump
@@ -141,6 +141,11 @@ func _resize() -> void:
 
 func _draw() -> void:
 	_draw_panel(ART + "backgrnd", Vector2.ZERO, MAIN_SIZE, MAIN_ROWS, MAIN_VALUE_X - 4.0)
+	# Cover the baked MP row with a blank gutter from the same panel.
+	var background := UiArt.frame(ART + "backgrnd")
+	if background != null:
+		draw_texture_rect_region(background.page, Rect2(6, 132, 160, 18),
+			Rect2(background.region.position + Vector2(6, 191), Vector2(160, 1)))
 	var black := MapleText.BLACK
 	for row: Array in MAIN_ROWS:
 		MapleText.draw(self, Vector2(MAIN_VALUE_X, float(row[2]) + 2.0), value_text(String(row[0])), black,
