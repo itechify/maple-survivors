@@ -208,7 +208,7 @@ pages) were deleted with job advancement, saved rounds and the old creation flow
 
 Other debug scenes are tool-only drivers and contact sheets (`ISOLATE=<name> bash scripts/run.sh res://scenes/debug/<scene>.tscn
 -- --shots=<abs dir>`): `cash_gallery.tscn` (every curated cash item on the avatar), `weapon_gallery.tscn` (every weapon family:
-stand, walk and each stance on a dummy; `-- --mode=cash` a cash weapon cover; `-- --mode=ammo [--branch=410 --level=37]` ammo
+stand, walk and each stance on a dummy; `-- --mode=cash` a cash weapon cover; `-- --mode=ammo [--job=412 --level=37]` (the exact job and the round's level; `--branch` is the deprecated alias) ammo
 projectiles per tier), `hair_cap_probe.tscn` (cap vs hair layers), `ui_gallery.tscn` (`--window=<name>`: the level-up, Skill,
 Stat and other windows), `equipment_requirements_driver.tscn` (the hub kit, Equip and Item windows with no requirement rows,
 an item above Lv1 worn), `equipment_drop_driver.tscn` (drops on the ground and the full-Equip-tab notice),

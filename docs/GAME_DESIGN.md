@@ -4477,17 +4477,18 @@ multiplier (6.1). No weapon is required to cast: a bare-handed Arch Mage casts t
 --shots=<abs dir>`, `--mode=cash` a cash weapon cover over a two-handed sword and a claw) draws one sheet per family: stand and
 walk facing both ways, and every stance frozen on its impact frame with the afterimage, spark and swing box.
 
-#### 6.1.2 Ranged ammo (unported lines)
+#### 6.1.2 Ranged ammo
 
-A bow, crossbow, claw or gun (`WeaponInfo.RANGED_FAMILIES`) fires ammo for the skills of the unported Bowman, Thief and
-Pirate lines through `ProjectileSystem`: the shot carries the skill's physical damage, ends after the family's reach plus
-`overshoot` (`survivor/ammo.json`), and **ammo is endless** (never consumed, stocked, carded, dropped or saved: the current
-ammo is derived from the held weapon family, the job and the character level, `Ammo.item_for`). The current ammo's Item.wz
-`incPAD` adds to W.Att for ranged attacks (`weapon_attack(true)`): Throwing Stars +15..+27, Bullet +10..+14, arrows +0..+4.
+A bow, crossbow, claw or gun (`WeaponInfo.RANGED_FAMILIES`) fires ammo for the ranged skills through `ProjectileSystem`: the
+shot carries the skill's physical damage, ends after the family's reach plus `overshoot` (`survivor/ammo.json`), and **ammo is
+endless** (never consumed, stocked, carded, dropped or saved: the current ammo is derived from the held weapon family, the
+character's exact job and the round's level, `Ammo.item_for`). The current ammo's Item.wz `incPAD` adds to W.Att for ranged
+attacks (`weapon_attack(true)`): Throwing Stars +15..+25, Bullet +10..+14, arrows +0..+4.
 Starting ammo (tier A ids): claw Throwing Stars 2070015 (+15), bow Arrow for Bow 2060000 (+0), crossbow Arrow for Crossbow
-2061000 (+0), gun Bullet 2330000 (+10). The upgrade schedules per branch (tier C levels, Gunslinger tier A) and how ammo
-steps without branches are open until the first ranged job is ported (out of scope of #282); `Ammo.item_for` and
-`weapon_gallery.tscn --mode=ammo [--branch=<id> --level=<n>]` keep working on the old tables.
+2061000 (+0), gun Bullet 2330000 (+10). **How ammo steps without branches is settled (ADR 0006 consequences, roster ruling
+D9, spec #332, ticket #335): see 7.41.** `ammo.json` format 2 keys each schedule by the exact `job` and its steps by the
+round's level; `Ammo.item_for(ammo, family, job_id, level)` takes no `JobTree`, and `weapon_gallery.tscn --mode=ammo
+[--job=<id> --level=<n>]` shows one job's ammo at a level (`--branch` is the deprecated alias of `--job`).
 
 ### 6.2 Damage to the player
 
@@ -5176,9 +5177,9 @@ primary, STR secondary at the level), and a branch row wins over a path row. The
 recorded path: a knuckle-path Gunslinger switches to DEX with an STR secondary when it advances (tier C; only earned
 AP move).
 
-**Ammo.** The Gunslinger's schedule (6.1.2: Split Bullet 2330001 at Lv 30, Mighty Bullet 2330002 at Lv 50) applies to job
-520 once it is playable: advancing at Lv 30 shows the one `ammo_upgraded` notice, advancing past Lv 50 goes straight to
-Mighty Bullet. A Brawler holding a gun keeps the basic Bullet 2330000.
+**Ammo.** (Superseded by 7.41, #335.) The Gunslinger's branch schedule no longer exists: a gun steps by the exact job and the
+round's level, which for the Corsair (522, once it is playable) is Split Bullet 2330001 from Lv18 and Mighty Bullet 2330002
+from Lv35. Every other job holding a gun keeps the basic Bullet 2330000.
 
 | Skill | Kind | Weapon | Canonical L1 → top | Survivor behaviour |
 |---|---|---|---|---|
@@ -5669,8 +5670,8 @@ cards remain eligible after advancement per binding #199/#180, outside the branc
 stop contributing, attacks stop casting and Hunter cards disappear. The existing running buff can survive the swap.
 Soul Arrow 3101004 is deliberately absent from skills and cards: endless ammo makes it redundant (owner #166).
 
-The existing Hunter ammo schedule supplies Bronze2060001 at 30, Steel 2060002 at 40 and Red 2060003 at 50, including
-the highest reached tier when advancing late. Each upgrade changes the current arrow sprite and emits its notice.
+(Superseded by 7.41, #335: the Hunter branch schedule is gone; the bow steps for the exact Bowmaster job 312 at round Lv15 /
+30 / 45, Bronze 2060001, Steel 2060002, Red 2060003, each upgrade changing the current arrow sprite and emitting its notice.)
 Tool `--job=310` follows Bowman at 10 and Hunter at 30. The combined untuned regression smoke is in 4.2 (#204).
 Deterministic tests: `test_hunter.gd`; real-cache diagnostic evidence: `scenes/debug/hunter_driver.tscn`.
 
@@ -6042,6 +6043,42 @@ No shipped skill carries the block yet, so no existing record changes.
   (`range_around` admits on one mob in range unless the cast block says `min_targets`: Magnet's 3, 7.33).
 - **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
   and Skill-window text (H7).
+
+### 7.41 Ammo by exact job and round level (D9, #335, spec #332)
+
+ADR 0006 removed advancement and every round starts at Lv1, so the format-1 schedules (keyed by `branch` 310/320/410/520, steps
+at Lv30-55) belonged to jobs nobody can be and levels a round rarely reaches. Format 2 settles the open ADR item:
+
+- **Data.** `survivor/ammo.json` `families` are unchanged. `schedules[]` is `{"job": 312, "family": "bow", "steps": [{"level":
+  15, "item": 2060001, "tier": "C"}, ...]}`. `level` is the **round's level** (`progression.level`, Lv1 at every round start,
+  kept across maps); the family's `start` covers Lv1, so a step's level is above 1. A schedule that still carries `branch`
+  or has no `job` is a data error (`Ammo.schedule_errors`, listed by `DataRepo.load_all` in its `errors` and asserted in
+  `test_data_files`).
+- **Lookup.** `Ammo.item_for(ammo, family, job_id, level) -> int`: a schedule applies only when its `job` **equals** the
+  character's job and its `family` equals the held weapon's family; the highest step whose level is reached wins, else the
+  family's start; 0 for a family without ammo. There is no lineage walk: a Bowmaster (312) holding a crossbow, a Hunter (310)
+  or an F/P Arch Mage (212) holding a bow fire the plain arrow. Callers: `RunWorld._sync_ammo`, `RunWorld.ammo_tooltip`.
+- **World.** Unchanged and already tested: `ammo_upgraded {family, from_item_id, item_id, level}` fires when a level-up moves the
+  held family to a higher step (never at round start, never on a weapon swap; `RunScene` shows "Your arrows are now Bronze
+  Arrow for Bow"), the shot is the current ammo's `bullet` art, its `incPAD` adds to W.Att for ranged attacks only.
+
+| Job (family) | Steps: round level -> ammo (`incPAD`) |
+|---|---|
+| 312 Bowmaster (bow) | Lv1 Arrow for Bow 2060000 (+0) -> **15** Bronze 2060001 (+1) -> **30** Steel 2060002 (+2) -> **45** Red 2060003 (+4) |
+| 322 Marksman (crossbow) | Lv1 Arrow for Crossbow 2061000 (+0) -> **15** Bronze 2061001 (+1) -> **30** Steel 2061002 (+2) -> **45** Blue 2061003 (+4) |
+| 412 Night Lord (claw) | Lv1 Beginner Thief's Throwing Stars 2070015 (+15) -> **10** Wolbi 2070001 (+17) -> **20** Mokbi 2070002 (+19) -> **30** Kumbi 2070003 (+21) -> **40** Tobi 2070004 (+23) -> **50** Steely Throwing-Knives 2070005 (+25) |
+| 522 Corsair (gun) | Lv1 Bullet 2330000 (+10) -> **18** Split Bullet 2330001 (+12) -> **35** Mighty Bullet 2330002 (+14) |
+
+This ticket writes all four schedules; only the Bowmaster is playable today, so the other three are inert data under a
+structural test (`test_ammo`: exact levels, no inheritance, one schedule per job and family) until their specs make the job
+playable and may retune their own entry. Left out on purpose: Ilbi Throwing-Stars 2070006 (+27) and Vital Bullet 2330003 (+16,
+its img is not imported), for the specs that own those jobs to add if a round can reach them (`Ammo.item_ids` no longer names
+2070006, so the setup loads 17 ammo items). Summons never use ammo W.Att (their damage is the WZ `pad`). Arrows are almost
+cosmetic (+0..+4 W.Att, about 7% at Lv45); stars and bullets matter, hence their extra steps.
+Tests: `test_ammo` (rule, data file, real-cache `incPAD` strictly increasing along each schedule, real String.wz names in the
+notice), `test_ammo_world` (a Bowmaster levelled through 15/30/45 with real EXP: one `ammo_upgraded` each, none at the start
+or on a weapon swap, the shot sprite follows the ammo). The old Hunter / Crossbowman / Assassin / Gunslinger ammo assertions
+elsewhere were moved onto the exact jobs 312 / 322 / 412 / 522 at the new levels.
 
 ### 7.42 Channelled burst (#336, Bowmaster B4)
 
@@ -7121,7 +7158,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Weapon stances / actions (#154) | `stand<info/stand>`, `walk<info/walk>`; `WeaponInfo.BASIC_ACTIONS` per weapon type; `basic_kind` (ranged families shoot) | A (stance numbers, stances in the items), C (which stances a family attacks with) | v83 `Character.wz/Weapon`; ours |
 | Ranged basic-attack reach (#154) | `WeaponInfo.RANGED_REACH` bow/crossbow 300, claw/gun 250 px, box 65 px tall: when the attack starts; the shot flies this plus `overshoot` | C | ours |
 | Ammo ids, incPAD and names (#155) | starting ammo per family (2070015, 2060000, 2061000, 2330000) and every scheduled item; incPAD from Item.wz, names from String.wz | A | v83 `Item.wz/Consume` 0206/0207/0233 (refs `class-specs/v83-facts.md` 1) |
-| Ammo upgrade levels (#155) | Assassin 30/35/40/45/50/55, Hunter 30/40/50, Crossbowman 30/40/50 (`survivor/ammo.json`) | C | ours; the Gunslinger's 30/50 are the items' v83 `reqLevel` (A) |
+| Ammo upgrade levels (#155, #335) | superseded: see "Bowmaster B3 constants (#335)" (exact job, round level) | C | ours; `survivor/ammo.json` |
 | Endless ammo (#155) | never consumed, never an item, derived from family/job/level; v83 consumes `bulletCount` per attack | C | owner spec #151 |
 | Ammo projectile numbers (#155) | speed 800 (claw), 900 (bow), 1000 (crossbow), 1200 (gun) px/s; radius 8/6/6/5 px; range = reach + 80 px; arrows and bullets rotate | C | ours; `survivor/ammo.json` |
 | Ammo W.Att on ranged attacks (#155) | the current ammo's incPAD adds to W.Att | B | Cosmic Character.recalcLocalStats / RangedAttackHandler (v83-facts 1) |
@@ -7403,6 +7440,18 @@ and gain exclusion compares the skill’s declared role. Rush explicitly present
 without changing movement physics. Pull admission counts only grounded non-boss targets outside its configured floor.
 Warrior bot equipment weights now explicitly name ancestor 100 with the same values formerly inherited from 0
 (tier C: existing physical baseline, unchanged). Hero AP and bot score values live in jobs/hero.json’s balance block.
+
+### Bowmaster B3 constants (#335)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Ammo schedule key | the exact job id (`job`), not a branch; no lineage walk; a `branch` key is a data error | tier C, ruling D9 (spec #332) |
+| Ammo schedule level | the round's level (Lv1 every round); the family start covers Lv1 | tier C, ruling D9 |
+| Bowmaster arrows (312, bow) | Lv15 Bronze 2060001, Lv30 Steel 2060002, Lv45 Red 2060003 | tier C levels (spec #332 table); tier A item ids and `incPAD` +1/+2/+4 (`Item.wz`) |
+| Marksman arrows (322, crossbow) | Lv15 Bronze 2061001, Lv30 Steel 2061002, Lv45 Blue 2061003 | tier C levels; tier A ids and `incPAD` +1/+2/+4 |
+| Night Lord stars (412, claw) | Lv10 Wolbi 2070001, Lv20 Mokbi 2070002, Lv30 Kumbi 2070003, Lv40 Tobi 2070004, Lv50 Steely 2070005 (`incPAD` +17..+25) | tier C levels; tier A ids and `incPAD` |
+| Corsair bullets (522, gun) | Lv18 Split 2330001, Lv35 Mighty 2330002 (`incPAD` +12, +14) | tier C levels; tier A ids and `incPAD` |
+| Ilbi Throwing-Stars 2070006, Vital Bullet 2330003 | not scheduled | tier C: left to the specs that own those jobs |
 
 ### Bowmaster B6 constants (#338)
 

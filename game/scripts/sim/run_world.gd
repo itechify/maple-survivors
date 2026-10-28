@@ -1570,7 +1570,7 @@ func weapon_attack(ranged: bool = false) -> float:
 
 
 ## The ammo item the held weapon fires (Item.wz id); 0 when it is not a bow, crossbow, claw or gun. Endless: it is never
-## consumed, and it follows the weapon family, job and level (Ammo.item_for).
+## consumed, and it follows the weapon family, exact job and round level (Ammo.item_for).
 func ammo_id() -> int:
 	return _ammo_id
 
@@ -1583,7 +1583,7 @@ func ammo_attack() -> float:
 ## The ammo a tooltip of weapon `weapon` lists: {"item_id", "incPAD"} of the ammo this character would fire with it (the
 ## window adds the String.wz name); {} for a melee weapon.
 func ammo_tooltip(weapon: int) -> Dictionary:
-	var id := Ammo.item_for(data.get("ammo", {}), WeaponInfo.family(weapon), progression.job_id, progression.level, jobs)
+	var id := Ammo.item_for(data.get("ammo", {}), WeaponInfo.family(weapon), progression.job_id, progression.level)
 	if id == 0:
 		return {}
 	return {"item_id": id, "incPAD": int(setup.get("ammo_info", {}).get(id, {}).get("incPAD", 0))}
@@ -1593,7 +1593,7 @@ func ammo_tooltip(weapon: int) -> Dictionary:
 ## the first computation is silent). Called by _refresh_caster, which every level-up, job change and weapon change reaches.
 func _sync_ammo() -> void:
 	var family := held_weapon_family()
-	var id := Ammo.item_for(data.get("ammo", {}), family, progression.job_id, progression.level, jobs)
+	var id := Ammo.item_for(data.get("ammo", {}), family, progression.job_id, progression.level)
 	if id != _ammo_id and _ammo_id != 0 and id != 0 and family == _ammo_family:
 		var from := _ammo_id
 		_ammo_id = id

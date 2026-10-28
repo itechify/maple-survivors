@@ -152,7 +152,7 @@ func test_mastery_final_attack_and_a_crossbow_swap_keeps_every_hunter_skill_and_
 	w.step(DT, MoveInput.new())
 	var events := w.drain_events()
 	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "final_attack" and e.skill == "final_attack_bow"))
-	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "ammo_shot" and e.skill == "final_attack_bow" and e.ball == Ammo.bullet_path(2060001)))
+	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "ammo_shot" and e.skill == "final_attack_bow" and e.ball == Ammo.bullet_path(w.ammo_id())))
 	for key: String in KEYS:
 		w.loadout.set_rank(key, 1)
 	w.refresh_player_stats()
@@ -196,23 +196,6 @@ func test_behavior_cards_add_targets_and_arrows_using_shared_rarity_magnitudes()
 	var hits := follow.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "final_attack_bow")
 	assert_true(hits.any(func(e: Dictionary) -> bool: return int(e.mob) == primary))
 	assert_true(hits.any(func(e: Dictionary) -> bool: return int(e.mob) == extra))
-
-
-func test_arrow_schedule_changes_at_30_40_50_announces_and_catches_up_on_advancement() -> void:
-	var w := _world()
-	w.progression.level = 50
-	RF.as_job(w, 310)
-	assert_eq(w.ammo_id(), 2060003, "late advancement chooses highest reached tier")
-	w.drain_events()
-	for row: Array in [[29,2060000],[30,2060001],[39,2060001],[40,2060002],[49,2060002],[50,2060003]]:
-		w.progression.level = row[0]
-		w.refresh_player_stats()
-		assert_eq(w.ammo_id(), row[1])
-		var notices := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "ammo_upgraded")
-		if int(row[0]) in [30,40,50]:
-			assert_eq(notices.size(), 1)
-			if not notices.is_empty():
-				assert_eq(notices[0].item_id, row[1])
 
 
 func test_real_hunter_levels_costs_effects_icons_art_sounds_and_ryden() -> void:

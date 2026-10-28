@@ -100,9 +100,10 @@ func test_assassin_cards_learn_rank_and_add_three_pierce_steps() -> void:
 
 
 func test_drain_uses_the_current_star_at_every_assassin_tier_and_casts_with_any_weapon() -> void:
-	for tier in range(6):
+	for tier in range(5):
 		var w := _world()
-		w.progression.level = 30 + 5 * tier
+		RF.as_job(w, 412) # the Night Lord's schedule (Wolbi at Lv10, then every 10 levels: D9)
+		w.progression.level = 10 * (tier + 1)
 		w.refresh_player_stats(false)
 		w.learn_skill("drain")
 		RF.put_mob(w, 1110100, 500, 190, 1000)

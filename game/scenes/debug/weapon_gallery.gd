@@ -2,7 +2,7 @@ extends Node2D
 ## Debug contact sheets of every weapon family on the avatar (spec #151 #154), for evidence screenshots. Tool-only.
 ##
 ##   bash scripts/godot.sh --path game res://scenes/debug/weapon_gallery.tscn -- --shots=C:/abs/dir [--weapons=1302000,1452000]
-##       [--mode=cash] [--mode=ammo [--branch=410 --level=37]]
+##       [--mode=cash] [--mode=ammo [--job=412 --level=37]]
 ##
 ## One PNG per weapon (<family>_<id>.png): row 1 stands and walks facing left and right in the weapon's own stances
 ## (WeaponInfo.stand_stance / walk_stance); row 2 fires every basic-attack action of the family (WeaponInfo.basic_actions)
@@ -159,22 +159,23 @@ func _sheet(weapon: int, cash: Dictionary, file_name: String) -> void:
 ## --mode=ammo: one sheet per ranged family (ammo_<family>.png), a cell per ammo tier: the avatar at the release frame of
 ## its shoot action, the ammo projectile (_shot_spec through a ProjectileSystem, drawn by ProjectileRenderer)
 ## 0.1 s after release, and the ammo's sprite at 3x with its name and W.Att. Without flags every tier of the family is shown
-## (its start ammo, then each schedule step); --branch=<job id> --level=<n> shows the one ammo that job and level would
-## fire (Ammo.item_for), e.g. --branch=410 --level=37 for Mokbi.
+## (its start ammo, then each schedule step); --job=<exact job id> --level=<round level> shows the one ammo that job and
+## level would fire (Ammo.item_for), e.g. --job=412 --level=37 for Kumbi. --branch is the deprecated alias of --job.
 func _ammo_sheets(args: Dictionary) -> void:
 	var data := DataRepo.load_all()
-	var jobs := DataRepo.jobs(data)
 	var infos := DataRepo.ammo_info(data.ammo, func(path: String) -> Dictionary:
 		var found := _lib.img(path)
 		return found.root if found != null else {})
 	for family: String in AMMO_WEAPONS:
 		var tiers: Array = []
 		var file_name := "ammo_" + family
-		if args.has("branch") or args.has("level"):
-			var branch := int(args.get("branch", 0))
+		if args.has("job") or args.has("branch") or args.has("level"):
+			if args.has("branch"):
+				printerr("--branch is deprecated: use --job=<id>")
+			var job := int(args.get("job", args.get("branch", 0)))
 			var level := int(args.get("level", 1))
-			tiers = [Ammo.item_for(data.ammo, family, branch, level, jobs)]
-			file_name += "_b%d_l%d" % [branch, level]
+			tiers = [Ammo.item_for(data.ammo, family, job, level)]
+			file_name += "_j%d_l%d" % [job, level]
 		else:
 			tiers = [int(data.ammo.families[family].start)]
 			for schedule: Dictionary in data.ammo.schedules:

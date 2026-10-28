@@ -421,12 +421,12 @@ func test_a_two_handed_weapon_takes_the_shield_off_and_a_full_inventory_refuses_
 
 func test_a_ranged_weapons_tooltip_lists_the_current_ammo() -> void:
 	var world := _world([1472000, 1302000], func(character: Dictionary) -> void:
-		character.job_id = 410
+		character.job_id = 412
 		character.level = 52)
 	var made := _windows(world)
 	var iw: ItemWindow = made[2]
 	var claw := iw.tooltip_for(iw.cell(0))
-	assert_eq(claw.ammo.item_id, 2070005, "Lv 52 Assassin: Steely Throwing-Knives")
+	assert_eq(claw.ammo.item_id, 2070005, "Lv 52 Night Lord: Steely Throwing-Knives")
 	assert_eq(claw.ammo.incPAD, 25)
 	assert_true(String(claw.ammo.name) != "", "named from String.wz, or by id without the cache")
 	var lines := ItemTooltip.fact_lines(claw)
