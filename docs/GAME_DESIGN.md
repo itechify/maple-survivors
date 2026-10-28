@@ -719,6 +719,12 @@ These combined casting/admission changes need a later balance follow-up; no tuni
 Ellinia remains recorded rather than tuned. Hero bot death ranges: Henesys 327.7–688.2, Ellinia 221.0–646.5,
 Perion 288.9–493.0, Kerning 326.8–568.7 seconds.
 
+**HP-risk seam smoke (#351, spec #348 D3; no tuning).** `HpRisk` adds data blocks that no shipped skill carries, so a run of a
+job without them is unchanged: F/P, Hero and tick-cost oracles reproduce their hashes unrecaptured (Slash Blast and Coma now
+also emit `hp_spent`, which the oracle runs do not exercise). Henesys `balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3,
+deaths 305.0 / 454.5 / 651.7 s (Lv 11 / 21 / 36), Hero (112) 0/3, deaths 327.7 / 336.9 / 688.2 s (Lv 11 / 11 / 36). Both
+match the recorded numbers above exactly. No crashes, no world warnings.
+
 Merged-source full suites: **2151 passed / 0 failed / 0 skipped** cached; **1926 passed / 0 failed /
 225 skipped** without cache (skips prove no asset behavior). Both F/P goldens and the repaired Hero golden
 `409dba0d1bdffc32ba72644e326f99561e6ed9c0270feda39ace2573b0727cb3` match integration 3e37ec1 unchanged.
