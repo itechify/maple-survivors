@@ -778,6 +778,10 @@ runs, against 1/3 for the starter wand, so equipment does matter; the gap is not
 clears on seed 2026 (section 0 gaps). The smoke raises no new finding of the kind that stops a feature ticket (no stage where
 every run dies before the first boss, none where every run clears without a death).
 
+Final validation (#294): `ISOLATE=294u bash scripts/test.sh` with the real cache: **1992 tests, 0 failed, 0 skipped**, 207 files,
+1,016.9 s (the merged tree, #307 included; no test file deleted, one fixture test replaced, three fixture-dependent tests
+updated); `cargo test` 70 passed, 0 failed; `node --test web/dev/test/*.test.mjs` 62 passed, 0 failed.
+
 **#293 / T11, first-pass candidate selection.** Training seeds 1/2/2026 only; no held-out or 701–730 seeds.
 All candidates used absolute `PATCH=` files before committing selected data. With the bot fix in every probe:
 EXP `(4,6,0.5)` cleared Henesys 3/3 but ended Lv137–142; `(64,-60,8)` died 3/3 at Lv15–22 and was rejected
