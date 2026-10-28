@@ -43,7 +43,10 @@ tools/wzimport/target/release/wzimport dump --wz "C:/Nexon/MapleStory" Mob.wz/01
 
 The game can also run it: if the cache is missing, the first screen asks for the v83 folder and launches the bundled
 `wzimport` as a local child process. The cache location can be overridden with `MAPLE_SURVIVORS_CACHE`; the WZ folder
-with `MAPLE_WZ_ROOT` (also used by tests).
+with `MAPLE_WZ_ROOT` (also used by tests). Without the override, `import.sh` writes where the game reads
+(`AssetCachePaths`, the custom user dir `MapleSurvivors` of `project.godot`): `%APPDATA%/MapleSurvivors/asset_cache/v83`
+on Windows, `${XDG_DATA_HOME:-~/.local/share}/MapleSurvivors/asset_cache/v83` on Linux and
+`~/Library/Application Support/MapleSurvivors/asset_cache/v83` on macOS.
 
 Import is incremental: an img is rewritten when its source archive (size + mtime), selection or importer version
 changed, its JSON/atlas/audio files are missing, or `--force` is given. Legacy index entries containing sounds but
