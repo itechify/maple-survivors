@@ -143,3 +143,194 @@ func test_shout_stun_chance_and_seconds_follow_the_mapped_level() -> void:
 	assert_eq(top[0], 1.0, "rank 8 (level 30, prop 100) always stuns")
 	assert_near(top[1], 8.0, 0.05)
 	assert_eq(_stun_rate(1, 60), low, "same seed, same outcome")
+
+
+# --- Rarity bonuses ---------------------------------------------------------------------------------------------------
+
+const BONUS_STATS := {
+	"shout": {"rare": ["area"], "epic": ["cooldown"], "unique": ["cooldown"], "legendary": ["cooldown", "area"]},
+	"monster_magnet": {"rare": ["range"], "epic": ["count"], "unique": ["cooldown"], "legendary": ["cooldown", "count"]},
+}
+
+
+func test_both_skills_declare_all_four_rarity_lists_and_legendary_shares_the_uniques_id() -> void:
+	var w := _world("shout", 303, false)
+	for key: String in BONUS_STATS:
+		var bonuses: Dictionary = w.book.def(key).rarity_bonuses
+		for tier: String in BONUS_STATS[key]:
+			assert_eq(bonuses[tier].size(), 1, "%s %s" % [key, tier])
+			var stats: Array = bonuses[tier][0].effects.map(func(e: Dictionary) -> String: return e.stat)
+			assert_eq(stats, BONUS_STATS[key][tier], "%s %s effects" % [key, tier])
+		assert_eq(bonuses.legendary[0].id, bonuses.unique[0].id, "%s: Legendary shares the Unique's repeats" % key)
+		assert_false(w.upgrades.card(key + "_new").is_empty(), "%s has a pool card" % key)
+		assert_false(w.upgrades.card(key + "_rank").is_empty())
+
+
+func test_a_rare_or_better_card_adds_one_rank_and_its_bonus() -> void:
+	for key: String in BONUS_STATS:
+		for tier: String in BONUS_STATS[key]:
+			var a := _world(key, 303, false)
+			var b := _world(key, 303, false)
+			var c := a.upgrades.choice_card(key + "_new", a, tier)
+			assert_false(c.get("rarity_bonus", {}).is_empty(), "%s %s offers a bonus" % [key, tier])
+			assert_eq(c, a.upgrades.choice_card(key + "_new", a, tier), "the preview is stable")
+			a.upgrades.apply(key + "_new", a, tier)
+			b.upgrades.apply(key + "_new", b, tier)
+			assert_eq(a.loadout.rank(key), 1, "%s %s: exactly one rank" % [key, tier])
+			assert_eq(a.loadout.skill_mods.get(key, {}), b.loadout.skill_mods.get(key, {}), "same bonus in both runs")
+			assert_eq(a.loadout.skill_mods[key].keys(), BONUS_STATS[key][tier], "%s %s" % [key, tier])
+
+
+func test_shout_bonus_values() -> void:
+	var base := _world("shout", 303, false)
+	base.upgrades.apply("shout_new", base, "normal")
+	var rare := _world("shout", 303, false)
+	rare.upgrades.apply("shout_new", rare, "rare")
+	assert_near(rare.loadout.stats("shout").area, 1.2)
+	var epic := _world("shout", 303, false)
+	epic.upgrades.apply("shout_new", epic, "epic")
+	assert_near(epic.loadout.stats("shout").cooldown, 12.0 * 0.88, 0.0001)
+	var unique := _world("shout", 303, false)
+	unique.upgrades.apply("shout_new", unique, "unique")
+	assert_near(unique.loadout.stats("shout").cooldown, 9.0, 0.0001, "Echo Shout: x0.75")
+	var legendary := _world("shout", 303, false)
+	legendary.upgrades.apply("shout_new", legendary, "legendary")
+	assert_near(legendary.loadout.stats("shout").cooldown, 9.0, 0.0001)
+	assert_near(legendary.loadout.stats("shout").area, 1.2)
+	assert_near(legendary.loadout.stats("shout").damage_max, base.loadout.stats("shout").damage_max, 0.0001,
+		"Legendary adds area, not damage")
+	legendary.upgrades.apply("shout_rank", legendary, "unique")
+	assert_near(legendary.loadout.skill_stat("shout", "cooldown", 1.0), 0.75 * (1.0 - 0.25 * 0.8), 0.0001,
+		"Unique and Legendary share the Echo counter, the repeat shrinks x0.8")
+
+
+func test_magnet_bonus_values_and_the_extra_targets_are_pulled() -> void:
+	var rare := _world("monster_magnet", 303, false)
+	rare.upgrades.apply("monster_magnet_new", rare, "rare")
+	assert_near(rare.loadout.stats("monster_magnet").range, 192.0 * 1.2, 0.0001)
+	var epic := _world("monster_magnet", 303, false)
+	epic.upgrades.apply("monster_magnet_new", epic, "epic")
+	assert_eq(epic.loadout.stats("monster_magnet").mob_count, 8, "Bigger Grab: +2 targets")
+	epic.loadout.set_rank("monster_magnet", 8)
+	for i in 10:
+		RF.put_mob(epic, MOB, CASTER_X + 150 + i * 20)
+	_tick(epic)
+	assert_eq(_pulled(epic).size(), 8, "eight mobs are pulled")
+	var unique := _world("monster_magnet", 303, false)
+	unique.upgrades.apply("monster_magnet_new", unique, "unique")
+	assert_near(unique.loadout.stats("monster_magnet").cooldown, 7.5, 0.0001, "Booster: x0.75")
+	var legendary := _world("monster_magnet", 303, false)
+	legendary.upgrades.apply("monster_magnet_new", legendary, "legendary")
+	assert_near(legendary.loadout.stats("monster_magnet").cooldown, 7.5, 0.0001)
+	assert_eq(legendary.loadout.stats("monster_magnet").mob_count, 8)
+
+
+func test_mastery_after_rank_8_is_never_a_dead_pick_for_either_skill() -> void:
+	for key: String in BONUS_STATS:
+		var w := _world(key, 303, false)
+		w.upgrades.apply(key + "_new", w, "normal")
+		w.loadout.set_rank(key, 8)
+		var normal := w.upgrades.choice_card(key + "_rank", w)
+		var rare := w.upgrades.choice_card(key + "_rank", w, "rare")
+		assert_eq(normal.card_kind, "mastery")
+		assert_true(BotInput.card_score(w, normal) > 0.0, "%s: Normal Mastery is not dead" % key)
+		assert_true(BotInput.card_score(w, rare) > BotInput.card_score(w, normal), key)
+
+
+# --- Monster Magnet ---------------------------------------------------------------------------------------------------
+
+func _pulled(w: RunWorld) -> Array:
+	return w.events.filter(func(e: Dictionary) -> bool: return e.type == "mob_pulled")
+
+
+func test_magnet_needs_three_mobs_in_range() -> void:
+	var w := _world("monster_magnet")
+	w.loadout.set_rank("monster_magnet", 8) # prop 100: every candidate is pulled
+	RF.put_mob(w, MOB, CASTER_X + 150)
+	RF.put_mob(w, MOB, CASTER_X - 150)
+	_tick(w)
+	assert_eq(w.runner.casts, 0, "two mobs in range do not admit the cast")
+	RF.put_mob(w, MOB, CASTER_X + 170)
+	_tick(w)
+	assert_eq(w.runner.casts, 1, "the third mob admits it")
+	assert_eq(_pulled(w).size(), 3)
+
+
+func test_magnet_ignores_mobs_beyond_its_range_when_counting() -> void:
+	var w := _world("monster_magnet")
+	for x in [150.0, 170.0]:
+		RF.put_mob(w, MOB, CASTER_X + x)
+	RF.put_mob(w, MOB, CASTER_X + 600.0)
+	_tick(w)
+	assert_eq(w.runner.casts, 0, "rank 1 reaches 192 px: the far third mob is not counted")
+
+
+func test_magnet_range_chance_and_mob_cap_follow_the_mapped_level() -> void:
+	for rank in [1, 8]:
+		var w := _world("monster_magnet")
+		w.loadout.set_rank("monster_magnet", rank)
+		var st := w.loadout.stats("monster_magnet")
+		assert_eq(st.level, MAGNET_LEVELS[rank - 1])
+		assert_eq(st.range, float(160 + 8 * st.level))
+		assert_eq(st.mob_count, 6)
+		assert_eq(st.pull_chance, float(40 + 2 * st.level))
+		assert_eq(st.pull_gap, 60.0)
+	var w := _world("monster_magnet")
+	w.loadout.set_rank("monster_magnet", 8) # range 400, prop 100: always
+	var ids := []
+	for i in 8:
+		ids.append(RF.put_mob(w, MOB, CASTER_X + 150 + i * 30))
+	_tick(w)
+	assert_eq(_pulled(w).size(), 6, "the six farthest are pulled")
+	assert_false(_pulled(w).any(func(e: Dictionary) -> bool: return e.mob == ids[0] or e.mob == ids[1]),
+		"the two nearest keep their place")
+	for e: Dictionary in _pulled(w):
+		assert_near(w.swarm.x[int(e.mob)], CASTER_X + 60.0, 0.01, "pulled to the 60 px gap")
+
+
+func test_magnet_pulls_from_both_sides_and_never_bosses_or_flyers() -> void:
+	var w := _world("monster_magnet")
+	w.loadout.set_rank("monster_magnet", 8)
+	var boss := RF.put_mob(w, BOSS, CASTER_X + 300)
+	var flyer := RF.put_mob(w, FLYER, CASTER_X + 280)
+	w.swarm.fh[flyer] = -1
+	var a := RF.put_mob(w, MOB, CASTER_X + 250)
+	var b := RF.put_mob(w, MOB, CASTER_X - 250)
+	var c := RF.put_mob(w, MOB, CASTER_X + 220)
+	var boss_x := float(w.swarm.x[boss])
+	var flyer_x := float(w.swarm.x[flyer])
+	_tick(w)
+	assert_eq(w.runner.casts, 1)
+	assert_near(w.swarm.x[boss], boss_x, 0.001, "a boss is never pulled")
+	assert_near(w.swarm.x[flyer], flyer_x, 0.001, "a flyer is never pulled")
+	assert_near(w.swarm.x[a], CASTER_X + 60.0, 0.01)
+	assert_near(w.swarm.x[c], CASTER_X + 60.0, 0.01)
+	assert_near(w.swarm.x[b], CASTER_X - 60.0, 0.01)
+
+
+func test_magnet_deals_no_damage_and_stuns_nothing() -> void:
+	var w := _world("monster_magnet")
+	var ids := []
+	for x in [150.0, 170.0, 180.0]:
+		ids.append(RF.put_mob(w, MOB, CASTER_X + x, 190.0, 100.0))
+	_tick(w)
+	assert_eq(w.runner.casts, 1)
+	for m: int in ids:
+		assert_eq(w.swarm.hp[m], w.swarm.max_hp[m])
+	assert_true(w.events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit").is_empty())
+
+
+func test_magnet_cooldown_is_ten_seconds() -> void:
+	var w := _world("monster_magnet")
+	for x in [150.0, 170.0, 180.0]:
+		RF.put_mob(w, MOB, CASTER_X + x)
+	_tick(w)
+	assert_near(w.runner.cooldowns["monster_magnet"], 10.0, 0.02, "10 s less the tick that cast it")
+
+
+func test_the_bot_does_not_count_magnet_as_a_reach() -> void:
+	# tier C: a damage "none" skill has no reach (SkillRunner.reach_of), so a pull never makes the melee bot hold its distance.
+	var w := _world("monster_magnet")
+	assert_eq(SkillRunner.reach_of(w.loadout.stats("monster_magnet"), w), 0.0)
+	var s := _world("shout")
+	assert_true(SkillRunner.reach_of(s.loadout.stats("shout"), s) > 100.0, "Shout reaches its box's far edge")
