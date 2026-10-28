@@ -5923,9 +5923,9 @@ bot scores every declared pool skill (new 100, rank 74); these are existing atta
 
 **#288 rarity bonuses and Mastery (supersedes rarity multipliers below).** Each active card grants one rank,
 then its rarity bonus. At rank 8 the same `<skill>_rank` id becomes `card_kind: mastery`, grants zero ranks,
-and stays eligible at weight 1.2. A Normal Mastery grants +5% damage on that skill (`upgrades.json` `mastery_bonus`,
+and stays eligible at weight 1.2. A Normal Mastery grants +5% damage on that skill, or cooldown x0.95 when its `damage` is `none` (#346). Both use (`upgrades.json` `mastery_bonus`,
 repeat id `mastery_damage`, shared by every Normal Mastery of the skill, so the 0.8^n diminishing returns apply;
-tier C, owner decision on #288: Normal Mastery is never a dead pick); a Rare+ Mastery gives its rarity bonus instead.
+tier C, owner decisions #288/#346: Normal Mastery is never a dead pick); a Rare+ Mastery gives its rarity bonus instead.
 Boss draws retain their Rare floor. Common passives remain Normal and stop at their own cap. Standalone behaviour cards for
 the four ported skills are deleted; unported lines retain their inert legacy definitions for direct mechanics tests.
 
@@ -6336,7 +6336,7 @@ These replace older first-pass/inherited pacing statements where they conflict. 
 
 | Rule | Value | Tier | Source |
 |---|---|---|---|
-| Normal Mastery #288 | +5% damage on the skill (`mastery_bonus`, shared repeat id `mastery_damage`, x0.8^n repeats) | C | owner decision on #288 |
+| Normal Mastery #288/#346 | +5% damage, or cooldown x0.95 for `damage:none`; shared repeat id `mastery_damage`, x0.8^n repeats; bot scores the resolved effect (5, then 4 points) | C | owner decisions #288/#346 |
 | #290 rarity bonuses | Rare damage x1.2; Epic area x1.2 (Composition +1 pierce, Paralyze cooldown x0.88); Unique/Legendary +1 hit (Composition +1 projectile, Fire Demon +1 target, Poison Mist cooldown x0.8); Legendary adds damage x1.2; section 8 | C | ours; first pass, T11 tunes |
 | #291 Elquines rarity bonuses | Rare damage x1.2; Epic area x1.2; Unique +1 ally (`summon_count`); Legendary adds damage x1.2 and shares the Unique's repeats; every pool skill now has all four lists (`test_data_files`); common passives (#289) never roll rarity, get a bonus or Mastery; section 8 | C | ours; first pass, T11 tunes (T9 proposed haste for Unique and +1 ally for Legendary: changed to the Unique/Legendary convention above) |
 | Rarity/Mastery #288 | Rare damage x1.2; Epic +1 pierce or cooldown x0.88; Unique +1 projectile/hit; Legendary signature plus damage x1.2; repeats x0.8 (multiplier distance from 1), authored-list cycling and actual-effect bot scores | C | ours; ADR 0006, first pass, section 8 |
