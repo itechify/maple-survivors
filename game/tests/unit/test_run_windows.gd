@@ -198,7 +198,7 @@ func test_skill_hotkey_opens_the_skill_window_and_routes_the_keys_to_it() -> voi
 	_frames(10)
 	RF.as_job(w, 200)
 	w.upgrades.apply("magic_claw_new", w)
-	w.upgrades.apply("magic_claw_targets", w)
+	w.loadout.add_skill_mod("magic_claw", "count", "add", 1.0)
 	var t := w.time
 	assert_true(scene.handle_hotkey(_key(KEY_K)), "K is the Skill hotkey")
 	var sw := scene.ui_windows.top() as SkillWindow
@@ -221,7 +221,8 @@ func test_skill_hotkey_opens_the_skill_window_and_routes_the_keys_to_it() -> voi
 		scene.handle_hotkey(_key(KEY_DOWN))
 	var tip := sw.tooltip()
 	assert_eq(tip.get("key"), "magic_claw")
-	assert_eq(tip.upgrades[0].text, "Twin Claw ×1: +1 target", "the real card's Upgrades line")
+	assert_true(tip.upgrades.is_empty(), "retired standalone cards have no Upgrades rows")
+	assert_eq(w.loadout.stats("magic_claw").count, 2, "effective modifier remains in the skill stats")
 	assert_false("canonical" in String(tip.desc) + String(tip.current) + String(tip.next), "player-visible text")
 	scene.handle_hotkey(_key(KEY_2))
 	assert_eq(sw.tab, 0, "2: there is no second tab (no Beginner or star tab), so the tab is unchanged")

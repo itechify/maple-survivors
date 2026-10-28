@@ -173,6 +173,10 @@ func card_rect(i: int) -> Rect2:
 ## The offered canonical skill level (learn/rank) or consumed modifier steps; fillers have no rank text.
 static func rank_text(card: Dictionary) -> String:
 	var kind := String(card.get("kind", ""))
+	if card.get("card_kind", "") == "mastery":
+		return "Rank 8 · Mastery"
+	if card.get("card_kind", "") == "owned_active":
+		return "Rank %d → %d" % [int(card.get("skill_rank_before", 0)), int(card.get("skill_rank_before", 0)) + 1]
 	if kind == "filler":
 		return ""
 	var rank := int(card.get("rank", 1))

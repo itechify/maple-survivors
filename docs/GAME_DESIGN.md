@@ -606,6 +606,25 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #282 / #288: rarity and Mastery regression smoke (2026-10-28)
+
+`ISOLATE=288`, real cache, seeds 1/2/2026 on all tier-1 stages, bot and random, no PATCH or tuning/held-out seeds.
+All 24 records: no crashes, warnings or missing assets; all DEAD, no clears/timeouts. This remains the incomplete
+four-active build before common passives/new attacks/pacing. Henesys seed 1 bot dies at 307.70 s / Lv12, versus
+#287's 309.90 s / Lv12: both spawn Mano at 300 s, neither finishes it (current completed 0/1, censored >=7.65 s).
+Job is already 212; the obsolete "reach Magician" advancement check no longer applies. Ellinia still dies early,
+recorded without tuning. Values below are death seconds min/median/max, three observations per cell.
+
+| Stage | Bot deaths (s), n=3 | Random deaths (s), n=3 |
+|---|---|---|
+| Henesys | 306.0 / 307.7 / 309.1 | 306.8 / 308.3 / 336.9 |
+| Ellinia | 35.2 / 39.2 / 76.4 | 35.2 / 39.2 / 126.3 |
+| Perion | 277.5 / 294.4 / 429.7 | 294.8 / 303.5 / 305.3 |
+| Kerning | 304.3 / 311.4 / 315.2 | 305.5 / 306.6 / 309.1 |
+
+Raw records/summary logs stay in ignored `_scratch/balance288/`. Short graphical Henesys seed-1 x8 playtest
+ends PLAYING at 60.10 s, Lv3, 13 kills, missing []; screenshot inspected (no performance claim: about 1 FPS here).
+
 #### Spec #282 (#285): no MP and no level gap: regression smoke (2026-10-28)
 
 Branch `t/285-remove-mp` off `spec/282-fp-slice`, real v83 cache, isolate `285s`, seeds 1 / 2 / 2026, `bot` and
@@ -5389,15 +5408,49 @@ are first-pass survivor interpretations, not balance tuning. Recasts refresh the
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
-rarity; active rarity still rolls with Fortune and the existing odds, awaiting #288's bonuses. Standalone behaviour
+rarity; active rarity still rolls with Fortune and the existing odds, with #288 bonuses documented below. Standalone behaviour
 cards and job-specific buffs/passives are excluded from draws. `UpgradePool.card_kind` classifies owned_active,
-new_active, passive_rank, new_passive; #288 adds mastery here. The per-card weights in `upgrades.json.draw_weights`
+new_active, passive_rank, new_passive and mastery. The per-card weights in `upgrades.json.draw_weights`
 are 1.2/1.0/0.8/0.5 respectively (mastery reserves 1.2). Slots stop new skills of their kind at six; owned rank
 cards remain eligible until the skill's cap. Common passive definitions opt in with `common_passive: true`, use
 `slot: passive`, carry their own rank table, and get Normal-only cards. No common passives ship until #289.
 Draws sample three distinct cards without replacement. Sparse draws add one Power Elixir alternative. Pity is gone.
 Each boss retains its separate bonus draw; random/first policies still choose from the same offers. The sensible
 bot scores every declared pool skill (new 100, rank 74); these are existing attack priorities, not balance tuning.
+
+
+**#288 rarity bonuses and Mastery (supersedes rarity multipliers below).** Each active card grants one rank,
+then its rarity bonus. At rank 8 the same `<skill>_rank` id becomes `card_kind: mastery`, grants zero ranks,
+and stays eligible at weight 1.2. Normal Mastery deliberately grants nothing (no extra rarity floor); boss draws
+retain their Rare floor. Common passives remain Normal and stop at their own cap. Standalone behaviour cards for
+the four ported skills are deleted; unported lines retain their inert legacy definitions for direct mechanics tests.
+
+Bonus schema for #290/#291 and later classes: add `rarity_bonuses` to the skill definition in `skills/<line>.json`:
+
+```json
+"rarity_bonuses": {
+  "rare": [{"id": "damage", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+  "epic": [{"id": "pierce", "text": "Pierce", "effects": [{"stat": "pierce", "op": "add", "value": 1}]}],
+  "unique": [{"id": "extra", "text": "Extra projectile", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+  "legendary": [{"id": "extra", "text": "Extra projectile and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+}
+```
+
+No Normal entry. Each tier list cycles in authored order, using the sum of its entries' repeat counts modulo list
+length; no extra RNG is consumed. Every effect in the selected entry applies to that skill through
+`Loadout.add_skill_mod`. Supported existing stats include damage, cooldown, count (projectiles or targets by kind),
+attack_count, pierce, area, range, speed and crit; a new mechanic must first be implemented by its skill runtime.
+Use `slot: active` for ground/summon definitions and implement their consumption of these modifiers in #290/#291.
+`id` is stable within the skill: sharing an id across tiers shares repeats. Repeats include pre-Mastery awards.
+Repeat n scales additive effects by `0.8^n` and multipliers by `1 + (value - 1) * 0.8^n` (first award n=0).
+Counters use `loadout.card_ranks["bonus:<skill>:<id>"]`, round-local; no new save schema. Integer mechanics accumulate
+fractional modifiers and use the existing round-to-nearest conversion in resolved skill stats (some repeats give no
+immediate extra projectile). Preview uses the same effects without mutating the world. Cards show survivor rank step,
+bonus magnitude and effective before/after values. Bot bonus score uses actual diminished effects and gain_step_score;
+Mastery has no rank base score. All schema selection rules, sizes and scoring are tier C, provisional until T11.
+
+First-pass lists: all four have Rare damage x1.2. Epic Energy Bolt/Fire Arrow +1 pierce, Magic Claw/Poison Breath
+cooldown x0.88. Unique +1 projectile (Magic Claw +1 hit); Legendary the same signature plus damage x1.2.
 
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -5906,6 +5959,10 @@ random policy shares the movement and the camper policies still override it afte
 | Meteor delay / tile spacing | 1.8 s / 180 px | A: WZ hit/0/hitAfter and tile/effectDistance |
 | Big Bang full-charge release | 1.08 s; box (-250,-180)..(250,100), follows caster until release | A: 18 keydown frames × 60 ms, full-charge mad; C: one-loop automatic release and box |
 
+
+| Rule | Value | Tier | Source |
+|---|---|---|---|
+| Rarity/Mastery #288 | Rare damage x1.2; Epic +1 pierce or cooldown x0.88; Unique +1 projectile/hit; Legendary signature plus damage x1.2; repeats x0.8 (multiplier distance from 1), authored-list cycling and actual-effect bot scores | C | ours; ADR 0006, first pass, section 8 |
 
 Rows added by #286 (save format 3 and the round loop): the Arch Mage's creation weapon is 1372005, the Wooden Wand
 (`jobs.json` `creation_weapon`, tier C: the Magician line's v83 starting wand; its item id and stats are tier A);

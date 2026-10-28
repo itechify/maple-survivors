@@ -15,7 +15,9 @@ const DT := 1.0 / 60.0
 ## and no level-gap factor, so every byte after the setup events changes. The #259 hash was 8114bff3...
 ## Re-captured for #287: pool-only offers, eight mapped ranks and +1 rank at every rarity.
 ## Re-captured for #290: seven newly implemented pool skills enter draws and cast with synthetic high-job tables.
-const GOLDEN := "8eda4bb9cf53db1222269d8665e191cb7366de7a52d3d2551ac75b979c512fb1"
+## Re-captured for #288: rarity bonus offer fields, actual bonuses and post-cap Mastery change event bytes.
+## Existing fixed-tick workload/coverage and collected-total checks remain unchanged.
+const GOLDEN := "fa1fd59cf57a0be4a5a5a1b2e3cf4171fb13e0d1ff911f014d40621540657487"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

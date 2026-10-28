@@ -432,6 +432,14 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `teleport` | `skill`, `skill_id`, `level`, `phase` (`departure`/`arrival`), `pos`, `facing`, `effect`; fixed world positions for the manual player blink |
 | `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
 
+ADR 0006 #288 extends each choice card with `card_kind` (including `mastery`), `slots` (display summary),
+`skill_rank_before` (survivor rank, distinct from canonical `skill_level`) and `rarity_bonus` (empty or
+`{id, text, counter, effects: [{stat, op, value}]}`). `skill_mod_changes` also previews rarity effects on new/rank/Mastery
+cards. Pool-active new/rank magnitude is always 1; at rank 8 Mastery reuses the rank-card id with magnitude 0.
+The rolled active rarity is preserved; passive rarity is Normal. Bonus repeat counters live in the round loadout's
+`card_ranks` under `bonus:<skill>:<bonus-id>`; schema and diminishing rules are in GAME_DESIGN 8.
+
+
 
 `RunWorld.bosses.records` has one row per stage boss: `{boss_index, mob_id, map_index, map_id, slot, warned, arrival, spawn_time,
 death_time, dead, skipped, teleports}`. Times are -1 before arrival/death. `arrival` starts at the schedule

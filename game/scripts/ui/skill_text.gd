@@ -106,6 +106,8 @@ func dress(cards: Array, lo: Loadout) -> Array:
 				var line := level_line(skill, lo.book.canonical_level(skill, r), lo.stats(skill, r))
 				if line != "":
 					card["desc"] = line
+		if lo.book.def(skill).has("rarity_bonuses"):
+			card["desc"] = c.get("desc", "") # preserve rank/bonus wording after dressing the learn detail
 		out.append(card)
 	return out
 
