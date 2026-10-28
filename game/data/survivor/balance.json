@@ -15,7 +15,6 @@
 		"ap_per_level": 5,
 		"ap": {
 			"212": {"primary": "int", "secondary": "luk", "keyframes": [{"level": 1, "target": 3}, {"level": 200, "target": 202}]},
-			"112": {"primary": "str", "secondary": "dex", "keyframes": [{"level": 1, "target": 4}, {"level": 200, "target": 204}]},
 			"200": {"primary": "int", "secondary": "luk", "keyframes": [{"level": 1, "target": 3}, {"level": 200, "target": 202}]},
 			"100": {"primary": "str"},
 			"300": {"primary": "dex", "secondary": "str", "keyframes": [{"level": 1, "target": 6}, {"level": 30, "target": 35}, {"level": 34, "target": 35}, {"level": 35, "target": 40}, {"level": 70, "target": 75}]},

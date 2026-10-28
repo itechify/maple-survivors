@@ -263,3 +263,11 @@ func test_real_cache_the_creation_sword_is_wearable_and_the_shipped_pool_holds_s
 				assert_true(family in ["sword", "axe"], "%d is a %s" % [id, family])
 				hands["%s_%s" % [family, "2h" if WeaponInfo.is_two_handed(id) else "1h"]] = true
 		assert_eq(hands.size(), 4, "tier %d: sword and axe, one- and two-handed (%s)" % [tier + 1, hands.keys()])
+
+
+func test_class_owned_balance_rows_are_absent_from_shared_defaults() -> void:
+	var shared: Dictionary = DataRepo.load_json("res://data/survivor/balance.json")
+	assert_false(shared.player.ap.has("112"), "Hero AP belongs only to jobs/hero.json")
+	for key: String in DataRepo.jobs(DataRepo.load_all()).skill_pool(112):
+		assert_false(shared.bot.card_scores.has(key + "_new"), key)
+		assert_false(shared.bot.card_scores.has(key + "_rank"), key)
