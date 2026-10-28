@@ -1,6 +1,7 @@
 extends TestCase
 ## Spec #225 / #228: no job-neutral cards but the Power Elixir filler, and potions that upgrade by character level from
-## the balance.potions.schedule through RunWorld's level-up and snapshot-load seams (seeded RNG, fixed dt).
+## the balance.potions.schedule through RunWorld's level-up seam (seeded RNG, fixed dt). A character has no level to load
+## (#286), so every round starts at the first tier and there is no snapshot catch-up.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -16,20 +17,6 @@ func _level_up_once(w: RunWorld) -> void:
 
 func _tier_events(w: RunWorld) -> Array:
 	return w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "potion_tier_up")
-
-
-func _loaded(character: Dictionary, p_seed := 5) -> RunWorld:
-	var setup := RF.setup("quiet", p_seed, RF.quiet_data())
-	setup.character = character
-	return RunWorld.new(setup)
-
-
-func _snapshot_at(level: int) -> Dictionary:
-	var w := RF.quiet_world(400.0, 3)
-	var s := w.character_snapshot()
-	s.level = level
-	s.exp = 0
-	return s
 
 
 ## The researched schedule (docs/research/v83-potion-progression.md section 6): the two old HP card gates, then Unagi at
@@ -129,18 +116,15 @@ func test_an_old_cache_without_the_new_items_stops_at_the_last_resolvable_tier()
 	while w.progression.level < 62:
 		_level_up_once(w)
 	assert_eq(w.player_state.potions.hp.item_id, 2000002, "HP stays White: Unagi and Ice Cream Pop do not resolve")
-	var snapshot := _snapshot_at(60)
-	var setup2 := RF.setup("quiet", 15, RF.quiet_data())
-	setup2.item_info = old_items
-	setup2.character = snapshot
-	var loaded := RunWorld.new(setup2)
-	assert_eq(loaded.player_state.potions.hp.item_id, 2000002, "a Lv 60 load on an old cache catches up to White")
 	# A partly newer cache (Unagi but no Ice Cream Pop) reaches exactly the tiers it holds.
 	old_items[2022003] = {"spec": {"hp": 1000}}
 	var setup3 := RF.setup("quiet", 16, RF.quiet_data())
 	setup3.item_info = old_items
-	setup3.character = snapshot
-	assert_eq(RunWorld.new(setup3).player_state.potions.hp.item_id, 2022003)
+	var partial := RunWorld.new(setup3)
+	RF.place_player(partial, 400)
+	while partial.progression.level < 62:
+		_level_up_once(partial)
+	assert_eq(partial.player_state.potions.hp.item_id, 2022003)
 
 
 func test_several_levels_in_one_tick_apply_every_due_step_in_level_order() -> void:
@@ -151,27 +135,6 @@ func test_several_levels_in_one_tick_apply_every_due_step_in_level_order() -> vo
 	var events := _tier_events(w)
 	assert_eq(events.map(func(e: Dictionary) -> int: return int(e.item_id)), [2000001, 2000002])
 	assert_eq(w.player_state.potions.hp.item_id, 2000002)
-
-
-func test_lv38_fixture_loads_with_white_without_notices() -> void:
-	var text := FileAccess.get_file_as_string("res://tests/fixtures/characters/lv35_magician_2nd.json")
-	var character: Dictionary = JSON.parse_string(text)
-	assert_eq(int(character.level), 38)
-	character.potions = {"hp": {"item_id": 2000000, "count": 9}, "mp": {"item_id": 2000003, "count": 17}}
-	var w := _loaded(character)
-	assert_eq(w.player_state.potions.hp, {"item_id": 2000002, "cooldown_left": 0.0, "cooldown_total": 20.0})
-	assert_false(w.player_state.potions.has("mp"), "the legacy MP stock is ignored: no MP (#285)")
-	assert_eq(_tier_events(w).size(), 0, "a load catches up silently")
-	var untouched: Dictionary = JSON.parse_string(text)
-	var v := _loaded(untouched)
-	assert_eq(v.player_state.potions.hp.item_id, 2000002)
-
-
-func test_snapshot_catch_up_derives_tiers_only_from_level() -> void:
-	for example: Array in [[9, 2000000], [10, 2000001], [24, 2000001], [25, 2000002], [39, 2000002], [40, 2022003],
-			[59, 2022003], [60, 2001001], [70, 2001001]]:
-		var w := _loaded(_snapshot_at(example[0]))
-		assert_eq(w.player_state.potions.hp.item_id, example[1], "HP at Lv %d" % example[0])
 
 
 func test_no_draw_contains_a_removed_card() -> void:
@@ -230,23 +193,6 @@ func test_a_pool_without_any_card_never_opens_an_unanswerable_window() -> void:
 	w.step(DT, MoveInput.new())
 	assert_eq(w.state, RunWorld.PLAYING, "nothing to offer: the level-up is consumed instead of soft-locking")
 	assert_false(w.progression.has_pending())
-
-
-func test_snapshot_with_magnet_ranks_loads_with_the_base_radius() -> void:
-	var character := _snapshot_at(20)
-	character.card_ranks["magnet"] = 3
-	character.card_ranks["improved_max_mp"] = 2
-	character.player_mods["magnet"] = [0.0, 1.953125]
-	var w := _loaded(character)
-	assert_eq(w.magnet_r, float(w.balance.magnet_radius))
-	assert_false(w.loadout.card_ranks.has("magnet"))
-	assert_false(w.loadout.player_mods.has("magnet"))
-	assert_eq(int(w.loadout.card_ranks.get("improved_max_mp", 0)), 2, "other ranks are kept")
-	assert_false(w.character_snapshot().card_ranks.has("magnet"))
-	var migrated := CharacterSnapshot.migrate(character, w.jobs, {})
-	assert_false(migrated.card_ranks.has("magnet"))
-	assert_false(migrated.player_mods.has("magnet"))
-	assert_true(character.card_ranks.has("magnet"), "the source is not mutated")
 
 
 func test_notice_text_reads_right_for_every_scheduled_item() -> void:

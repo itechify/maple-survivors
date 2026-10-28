@@ -43,12 +43,12 @@ func _setup(character: Dictionary = {}) -> Dictionary:
 
 ## A world whose character holds `inventory` ids (fresh instances), after `change` edited the snapshot.
 func _world(inventory: Array = [], change: Callable = Callable()) -> RunWorld:
-	var character := RunWorld.new(_setup()).character_snapshot()
+	var character := RF.character_with_round_state(RunWorld.new(_setup()))
 	for id: int in inventory:
 		character.equipment.inventory.append(Equipment.create(id, INFO[id]))
 	if change.is_valid():
 		change.call(character)
-	var world := RunWorld.new(_setup(character))
+	var world := RF.world_from(_setup(), character)
 	RF.place_player(world, 400)
 	return world
 

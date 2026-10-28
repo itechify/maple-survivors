@@ -64,20 +64,22 @@ func test_bowman_line_puts_ap_in_dex_and_grows_hp() -> void:
 	assert_eq(w.player_state.max_hp, hp0 + 22)
 
 
-func test_job_and_growth_survive_the_character_snapshot() -> void:
+func test_the_job_survives_the_character_snapshot_but_the_growth_does_not() -> void:
 	var data := _with_lines(_data())
 	var w := RunWorld.new(RF.setup("quiet", 73, data))
 	RF.place_player(w, 400)
 	w.set_job(100)
+	var fresh_hp: int = w.player_state.max_hp
 	_level_to(w, 2)
+	assert_true(w.player_state.max_hp > fresh_hp, "the round grew the pool")
 	var snapshot := w.character_snapshot()
 	assert_eq(CharacterSnapshot.validation_error(snapshot), "")
 	var setup := RF.setup("quiet", 74, _with_lines(_data()))
 	setup.character = JSON.parse_string(JSON.stringify(snapshot))
 	var restored := RunWorld.new(setup)
-	assert_eq(restored.player_state.max_hp, w.player_state.max_hp, "Continue keeps the growth")
-	assert_eq(restored.player_state.job_id, 100)
-	assert_eq(restored.character_snapshot(), snapshot, "the snapshot format is unchanged")
+	assert_eq(restored.player_state.max_hp, fresh_hp, "a new round starts at Lv1's pool: growth is not saved (#286)")
+	assert_eq(restored.player_state.job_id, 100, "the job is")
+	assert_eq(restored.character_snapshot(), snapshot)
 
 
 func test_unlisted_job_falls_back_to_the_beginner_rows() -> void:

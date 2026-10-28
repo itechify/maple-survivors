@@ -4,6 +4,8 @@
 		"212": {
 			"starting_skill": "energy_bolt",
 			"mobility_skill": "teleport_fp",
+			"creation_weapon": 1372005,
+			"_creation_weapon": "tier C: #286, the Magician line's own v83 starting wand (Wooden Wand); wearing rules are #292's",
 			"skill_pool": [
 				"energy_bolt",
 				"magic_claw",

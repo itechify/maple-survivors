@@ -5,50 +5,10 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
-func test_character_survives_round_boundary_with_full_pools() -> void:
-	var w := RF.quiet_world(400.0, 1)
-	# Earn levels and AP through the same pickup/window interface as a real round.
-	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(35) + 17, 4000019)
-	for tick in 120:
-		BotInput.auto_choose(w, false)
-		w.step(DT, MoveInput.new())
-	BotInput.auto_choose(w, false)
-	assert_eq(w.progression.level, 35)
-	assert_eq(w.progression.job_id, 212, "the job never changes (#284)")
-	w.learn_skill("fire_arrow")
-	w.loadout.set_rank("fire_arrow", 7)
-	var old_count := int(w.loadout.stats("fire_arrow").count)
-	w.loadout.add_skill_mod("fire_arrow", "count", "add", 2.0)
-	w.loadout.add_skill_mod("fire_arrow", "cooldown", "mul", 0.88)
-	w.loadout.add_player_mod("fortune", "add", 12.0)
-	w.loadout.add_player_mod("max_hp", "mul", 1.1)
-	w.refresh_player_stats()
-	w.upgrade_potion("hp", 2000002)
-	w.drink_potion("hp")
-	w.learn_skill("teleport_fp")
-	var snapshot := w.character_snapshot()
-	var setup := RF.setup("quiet", 2, RF.quiet_data())
-	setup.character = snapshot
-	var next := RunWorld.new(setup)
-	assert_eq(next.character_snapshot(), snapshot, "every carried field, including partial EXP and growth")
-	assert_eq(next.player_state.hp, next.player_state.max_hp)
-	assert_eq(next.player_state.fortune, 12.0)
-	assert_eq(next.progression.exp, 17)
-	assert_eq(next.loadout.rank("fire_arrow"), 7)
-	assert_eq(next.loadout.stats("fire_arrow").count, old_count + 2)
-
-
 func test_json_character_and_same_seed_replay_identically_for_three_minutes() -> void:
 	var source := RF.quiet_world()
-	source.set_job(210)
-	source.learn_skill("fire_arrow")
-	source.learn_skill("teleport_fp")
-	source.loadout.set_rank("fire_arrow", 7)
-	source.loadout.add_skill_mod("fire_arrow", "cooldown", "mul", 0.88)
 	source.character_look = {"skin": 0, "face": 20000, "hair": 30030}
 	var character := source.character_snapshot()
-	character.level = 35
-	character.exp = 17
 	var parsed: Dictionary = JSON.parse_string(JSON.stringify(character))
 	var setup := RF.with_basic_attack(RF.setup("henesys", 2026))
 	setup.character = character
@@ -92,9 +52,7 @@ func test_round_start_resets_buffs_slow_timers_and_every_map_pool() -> void:
 		w.step(DT, MoveInput.new())
 	w.time = 16.0
 	w.mob_skills.step(w)
-	w.set_job(210)
 	w.learn_skill("nimble_feet")
-	w.learn_skill("teleport_fp")
 	w.start_buff("nimble_feet", w.loadout.stats("nimble_feet"))
 	w.runner.cooldowns["nimble_feet"] = 60.0
 	w.upkeep.start_action("alert2", 0.8)
@@ -109,7 +67,6 @@ func test_round_start_resets_buffs_slow_timers_and_every_map_pool() -> void:
 	assert_true(w.swarm.alive_count() > 0)
 	var setup := RF.setup("quiet", 2026, RF.quiet_data())
 	setup.character = w.character_snapshot()
-	setup.character.base_mp = 200.0 # room for Teleport's MP, which the removed 210 grant used to give (#284)
 	var next := RunWorld.new(setup)
 	assert_eq(next.player_state.hp, next.player_state.max_hp)
 	assert_eq(next.buffs.snapshot(), [])
@@ -130,16 +87,18 @@ func test_round_start_resets_buffs_slow_timers_and_every_map_pool() -> void:
 	assert_eq(blinks.size(), 2, "learned manual skill can cast immediately in the new round")
 
 
-func test_pending_choices_fail_loudly_in_child_process() -> void:
+func test_a_snapshot_is_always_available_even_with_choices_pending() -> void:
+	# Nothing a choice would change is saved (no level, skill or card), so a death or Quit round mid-choice loses nothing.
 	for mode: String in ["card", "queue", "reward"]:
-		var output: Array = []
-		var status := OS.execute(OS.get_executable_path(), ["--headless", "--path",
-			ProjectSettings.globalize_path("res://"), "--script", "res://tests/fixtures/pending_character_probe.gd",
-			"--", mode], output, true)
-		assert_eq(status, 0)
-		var log := "\n".join(output)
-		assert_true(log.contains("RunWorld.character_snapshot: a character choice is pending"), mode + " is loud")
-		assert_true(log.contains("PENDING_SNAPSHOT_EMPTY=true"), mode + " returns no lossy snapshot")
+		var w := RF.quiet_world()
+		match mode:
+			"card": w.state = RunWorld.CHOOSING_UPGRADE
+			"queue": w.progression.queue.append(2)
+			"reward": w.pending_bonus_choices = 1
+		w.mesos = 55
+		var character := w.character_snapshot()
+		assert_eq(character.mesos, 55, mode)
+		assert_eq(CharacterSnapshot.validation_error(character), "", mode)
 
 
 func test_character_file_rejects_missing_malformed_and_unknown_formats() -> void:
@@ -148,7 +107,7 @@ func test_character_file_rejects_missing_malformed_and_unknown_formats() -> void
 	assert_eq(errors.size(), 1)
 	var path := test_dir("invalid.json")
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(path.get_base_dir()))
-	for text: String in ["{", "[]", '{"format": 2}', '{"format": 3}', '{"format": 1, "level": 35}']:
+	for text: String in ["{", "[]", '{"format": 2}', '{"format": 3}', '{"format": 4}', '{"format": 1, "level": 35}']:
 		var file := FileAccess.open(path, FileAccess.WRITE)
 		file.store_string(text)
 		file.close()
@@ -183,10 +142,8 @@ func _format1(character: Dictionary, equips: Array, weapon: int) -> Dictionary:
 	return old
 
 
-func test_format_one_migrates_to_an_equal_character_plus_worn_equipment() -> void:
+func test_format_one_migrates_to_a_format_three_character_wearing_the_old_outfit() -> void:
 	var source := RunWorld.new(_creation_setup())
-	source.loadout.add_player_mod("fortune", "add", 4.0)
-	source.refresh_player_stats()
 	var current := source.character_snapshot()
 	for spec: Array in [[0, [1041011, 1061008, 1072038], 1322005, [1041011, 1061008, 1072038, 1322005]],
 			[210, [1041011, 1061008, 1072038], 1322005, [1041011, 1061008, 1072038, 1372005]],
@@ -194,38 +151,60 @@ func test_format_one_migrates_to_an_equal_character_plus_worn_equipment() -> voi
 		var character := current.duplicate(true)
 		character.job_id = spec[0]
 		var old := _format1(character, spec[1], spec[2])
-		assert_eq(CharacterSnapshot.validation_error(old), "", "format-1 saves stay valid")
+		assert_eq(CharacterSnapshot.validation_error(old), "", "format-1 tool files stay valid")
 		var parsed: Dictionary = JSON.parse_string(JSON.stringify(old))
+		var expected := {"format": 3, "job_id": spec[0], "look": {"skin": 3, "face": 21002, "hair": 31057},
+			"equipment": {"worn": Equipment.worn_from_ids(spec[3], CREATION_INFO), "inventory": []},
+			"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
+		assert_eq(CharacterSnapshot.migrate(old, source.jobs, CREATION_INFO), expected,
+			"job %d: the outfit and resolved weapon are worn, nothing of the old build is kept" % spec[0])
 		var setup := _creation_setup()
 		setup.character = parsed
 		var migrated := RunWorld.new(setup).character_snapshot()
-		var expected := character.duplicate(true)
-		expected.look = {"skin": 3, "face": 21002, "hair": 31057}
-		expected.equipment = {"worn": Equipment.worn_from_ids(spec[3], CREATION_INFO), "inventory": []}
-		assert_eq(migrated, expected, "job %d: same character, the outfit and resolved weapon now worn" % spec[0])
-		assert_eq(CharacterSnapshot.migrate(old, source.jobs, CREATION_INFO), expected, "the pure migration agrees")
-		assert_eq(migrated.mesos, 0)
-		assert_eq(migrated.scrolls, {})
+		expected.job_id = spec[0]
+		assert_eq(migrated, expected, "a world restored from it hands over the same character")
 		assert_eq(DataRepo.character_look(old, DataRepo.load_all()).equips, spec[3],
-			"a format-1 slot draws exactly what it will wear")
+			"a format-1 file draws exactly what it will wear")
 
 
-func test_format_one_and_two_save_slots_load_and_unknown_formats_are_rejected() -> void:
+func test_format_two_tool_files_migrate_to_format_three() -> void:
+	var current := RunWorld.new(_creation_setup()).character_snapshot()
+	var old := current.duplicate(true)
+	for key: String in ["tiers_unlocked"]:
+		old.erase(key)
+	old.merge({"format": 2, "level": 38, "exp": 12, "skills": {}, "skill_order": [], "player_mods": {}, "card_ranks": {},
+		"attributes": {"str": 4, "dex": 4, "int": 4, "luk": 4}, "base_attributes": {"str": 4, "dex": 4, "int": 4, "luk": 4},
+		"earned_ap": 0, "base_hp": 50.0, "fortune": 0.0, "base_fortune": 0.0, "mesos": 99, "pet": 5000000}, true)
+	assert_eq(CharacterSnapshot.validation_error(old), "")
+	var migrated := CharacterSnapshot.migrate(old, JobTree.from_data(DataRepo.load_all().jobs, {}), {})
+	var keys := migrated.keys()
+	keys.sort()
+	assert_eq(keys, ["equipment", "format", "job_id", "look", "mesos", "pet", "scrolls", "tiers_unlocked"])
+	assert_eq(migrated.mesos, 99)
+	assert_eq(migrated.tiers_unlocked, 1)
+	assert_eq(CharacterSnapshot.migrate(migrated, JobTree.from_data(DataRepo.load_all().jobs, {}), {}), migrated,
+		"migrating is idempotent")
+
+
+func test_only_a_format_three_character_is_a_living_slot() -> void:
 	var character := RunWorld.new(_creation_setup()).character_snapshot()
-	var wrapper := {"name": "Maple70", "created": "2026-10-16", "tier": 0, "phase": "map_select",
-		"rounds_played": 0, "tiers_cleared": 0}
-	for value: Dictionary in [character, _format1(character, [1041011, 1061008, 1072038], 1322005)]:
-		wrapper.character = value
-		assert_eq(SaveData.validation_error(wrapper), "", "format %d" % int(value.format))
+	var wrapper := {"name": "Maple70", "created": "2026-10-16", "rounds_played": 0, "character": character}
+	assert_eq(SaveData.validation_error(wrapper), "")
+	var old := _format1(character, [1041011, 1061008, 1072038], 1322005)
+	assert_eq(CharacterSnapshot.validation_error(old), "", "a tool file of format 1 still validates")
+	wrapper.character = old
+	assert_ne(SaveData.validation_error(wrapper), "", "but a slot holds only format 3: older characters are history")
 	var future := character.duplicate(true)
-	future.format = 3
+	future.format = 4
 	assert_ne(CharacterSnapshot.validation_error(future), "")
 	var bad := character.duplicate(true)
 	bad.equipment.worn.top = bad.equipment.worn.weapon
 	assert_ne(CharacterSnapshot.validation_error(bad), "", "an item in the wrong equip slot")
+	for broken: Dictionary in [{"mesos": null}, {"scrolls": {"2040002": -1}}, {"tiers_unlocked": 0}, {"tiers_unlocked": 1.5},
+			{"job_id": -1}, {"look": []}, {"cash": {"nowhere": 1}}, {"pet": -1}]:
+		bad = character.duplicate(true)
+		bad.merge(broken, true)
+		assert_ne(CharacterSnapshot.validation_error(bad), "", str(broken))
 	bad = character.duplicate(true)
 	bad.erase("mesos")
-	assert_ne(CharacterSnapshot.validation_error(bad), "")
-	bad = character.duplicate(true)
-	bad.scrolls = {"2040002": -1}
 	assert_ne(CharacterSnapshot.validation_error(bad), "")

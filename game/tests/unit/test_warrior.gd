@@ -400,23 +400,6 @@ func test_the_forced_warrior_bot_closes_to_melee_range() -> void:
 	assert_true(mi.right, "it walks toward a mob 200 px away instead of kiting")
 
 
-# --- the committed fixture ----------------------------------------------------------------------------------------------
-
-func test_the_warrior_fixture_restores_as_a_living_warrior_with_both_attacks() -> void:
-	var character := DataRepo.load_json("res://tests/fixtures/characters/lv11_warrior_1st.json") as Dictionary
-	assert_eq(int(character.format), CharacterSnapshot.FORMAT)
-	assert_eq(int(character._doc.forced_branch), 100, "its _doc says which bot round made it")
-	var setup := RF.with_basic_attack(RF.setup("quiet", 5, RF.quiet_data()))
-	setup.character = character
-	var w := RunWorld.new(setup)
-	assert_eq(w.progression.job_id, 100)
-	assert_eq(w.progression.level, 11)
-	assert_true(w.loadout.has("power_strike") and w.loadout.has("slash_blast"))
-	assert_eq(w.weapon_id(), 1432000, "the bot's planner wore the Spear")
-	assert_eq(w.player_state.str, 62, "the earned AP are all in STR")
-	assert_eq(w.player_state.max_hp, 427 + int(w.equipment_bonus("incMHP")), "225 grant + 26 per level over the Beginner's")
-
-
 # --- card previews and skill text --------------------------------------------------------------------------------------
 
 func test_passive_rank_cards_preview_their_own_numbers() -> void:
@@ -460,15 +443,16 @@ func test_slash_blast_text_names_its_hp_cost_range_and_targets() -> void:
 
 # --- Save & quit -> Continue (QA #164) --------------------------------------------------------------------------
 
-func test_a_warrior_with_a_shield_keeps_job_weapon_shield_and_skills_through_save_and_continue() -> void:
+func test_a_warrior_with_a_shield_keeps_job_weapon_and_shield_through_save_and_continue() -> void:
 	var shield := {"reqLevel": 5, "incPDD": 5, "tuc": 7}
 	var setup := RF.with_basic_attack(RF.setup("quiet", 41, RF.quiet_data()))
 	setup.equipment_info[1092003] = shield
 	var base := RunWorld.new(setup).character_snapshot()
-	base.level = 10
 	base.equipment.inventory.append(Equipment.create(1092003, shield))
 	setup.character = base
 	var w := RunWorld.new(setup)
+	w.progression.level = 10 # the shield needs Lv5; a character has no level between rounds (#286)
+	w.refresh_player_stats()
 	RF.as_job(w, 100)
 	assert_true(w.learn_skill("power_strike"))
 	assert_eq(w.equip_item(0), "", "the shield is worn beside the sword")
@@ -484,5 +468,5 @@ func test_a_warrior_with_a_shield_keeps_job_weapon_shield_and_skills_through_sav
 	assert_eq(again.held_weapon_family(), "sword")
 	assert_eq(int(again.equipment.worn.shield.id), 1092003, "and the shield")
 	assert_eq(again.player_state.pdd, pdd_before, "the shield still counts")
-	assert_eq(again.loadout.rank("power_strike"), 1, "the Warrior's skills come back")
+	assert_false(again.loadout.has("power_strike"), "skills are not saved: a new round starts from the job's own")
 	assert_eq(again.character_snapshot(), saved, "a second save changes nothing")

@@ -85,6 +85,15 @@ func start_skills(id: int) -> PackedStringArray:
 	return out
 
 
+## The weapon item id a new character of job `id` wears (creation, #286); the line's `format1_weapon` when the job has no
+## `creation_weapon`, else Equipment's default outfit weapon.
+func creation_weapon(id: int) -> int:
+	var own: Variant = _survivor.get(id, {}).get("creation_weapon")
+	if own != null:
+		return int(own)
+	return int(lineage_value(id, "format1_weapon", Equipment.DEFAULT_OUTFIT[-1]))
+
+
 ## Display name of a job ("" when unknown).
 func name_of(id: int) -> String:
 	return String(_jobs[id].name) if _jobs.has(id) else ""

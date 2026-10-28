@@ -189,8 +189,10 @@ test('validateSaveText: accepts the SaveData shapes and refuses others before an
 	const slots = [{ name: 'Alpha' }, null, { name: 'Gamma' }];
 	const v2 = JSON.stringify({ format: 2, best: {}, runs: {}, slots, history: [] });
 	assert.deepEqual(lib.validateSaveText(v2), { ok: true, slots: 2 });
+	const v3 = JSON.stringify({ format: 3, best: {}, runs: {}, slots, history: [] });
+	assert.deepEqual(lib.validateSaveText(v3), { ok: true, slots: 2 });
 	assert.deepEqual(lib.validateSaveText('{"format":1,"best":{},"runs":{}}'), { ok: true, slots: 0 });
-	for (const bad of ['{', '[]', '{"format":3,"best":{},"runs":{}}', '{"format":2,"best":{},"runs":{}}',
+	for (const bad of ['{', '[]', '{"format":4,"best":{},"runs":{}}', '{"format":3,"best":{},"runs":{}}', '{"format":2,"best":{},"runs":{}}',
 		JSON.stringify({ format: 2, best: {}, runs: {}, slots: [null, null], history: [] }),
 		JSON.stringify({ format: 2, best: [], runs: {}, slots: [null, null, null], history: [] })]) {
 		const r = lib.validateSaveText(bad);
