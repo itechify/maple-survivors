@@ -5579,6 +5579,11 @@ and seek on both sides of their own position. Attacks face the scheduled boss fi
 Attack timing pauses follow motion. Hits use `RunWorld.hit_mob`, including defence, crit, damage modifiers, element
 immunity and Fire Demon's per-mob ice weakness. No additional freeze is inferred from ice damage.
 
+Opt-in `summon.priority_status` (a `MobSwarm` status name, #328): when the definition carries it, an ally's target order
+is scheduled bosses, then monsters running that status, then distance, then slot, for both the choice of who to attack and
+the impact's targets. A definition without the key sorts exactly as before, so Elquines and every F/P oracle are unchanged
+(7.64 has Ifrit, the first user; Elquines is not given `ice_weak`, that is a balance-pass lever).
+
 Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 12 s recast,
 180 px/s follow, 60 px trailing offset, 1 px stand/move deadzone, 600 px snap distance and 2.4 s minimum attack cycle (never shorter than the
 WZ animation or hit delay). A zero follow speed stops incremental following (distance snapping still applies); future stationary, taunt, projectile,
@@ -5608,6 +5613,32 @@ Ice-weak raises `il` and `i` (not `fs`); fire-weak raises `fs` and `f` (not `il`
 Reserved, not built: a `"*"` table entry for an all-element mark (Corsair's Homing Beacon). Summons and projectiles use
 the same `element_multiplier`, so Ifrit's fire meets Ice Demon's mark there with no special case. The renderer has no
 per-status tint for `ice_weak`, so `fire_weak` adds none.
+
+### 7.64 Ifrit (spec #319, I9 #328)
+
+Ifrit (2221005, book 222, job 222, `ifrit`) is Elquines' fire mirror: `kind: summon`, `slot: active`,
+`cast: {"rule": "summon"}`, `damage: magic`, **`element: "f"`**, one definition in `skills/il_arch_mage.json` and no code
+beside the target order. Everything the seam reads is canonical (tier A): WZ `summon/attack1/info` is identical to Elquines'
+(type 0, box (-200,-150)..(0,30), `mobCount` 3, `attackAfter` 1080 ms), `mad` 183 -> 300 (192 / 230 / 300 at ranks 1 / 4 / 8),
+`mastery` 10, lifetime `time` 15 -> 160 s (30 / 85 / 160 s), the five animations `summoned` 15, `stand` 6, `move` 6, `attack1`
+19, `die` 12 frames and `hit/0` 8 frames, caster stance `alert2`, Use sound only. The recast (12 s), follow speed (180 px/s),
+trail (60 px), snap (600 px), 2.4 s minimum cycle and 36 px ordinal spread are the Elquines values (tier C).
+
+**Priority.** WZ `attack1/info/priority` is 2221003, Ice Demon (Elquines' names Fire Demon). The tier C reading is
+`summon.priority_status: "fire_weak"` (7.32): scheduled bosses first (they take no statuses), then monsters whose `fire_weak`
+timer (Ice Demon's mark, 7.61) runs, then nearer, then lower slot. Ifrit's fire goes through `RunWorld.hit_mob` and
+`MobSwarm.element_multiplier`, so a marked monster takes x1.5 (even a fire-immune one); that is the whole Ice Demon synergy.
+
+**Rarity** (tier C, first pass, the Elquines lists): Rare "Power" damage x1.2; Epic "Reach" area x1.2 (the attack box, through
+`stats.area`); Unique "Twin Ifrit" +1 ally (`summon_count`, 36 px apart); Legendary the Unique's id plus damage x1.2 (shared repeat
+counter, repeats x0.8, as every pool skill). `test_ifrit` casts each effect with and without it and checks the damage dealt,
+the monster just beyond the base box and the ally count; a `range` modifier (which a summon never reads) is the negative control.
+
+Evidence (I9, tool-only `player_summon_probe.tscn --skill=ifrit`, real Henesys, Lv1 invulnerable, rank 8, damage x0.01, 200
+stationary high-HP monsters, half of them `fire_weak`, 20 s, vsync off): Ifrit's `attack1` and `hit/0` art appear beside the
+avatar, `missing: []`. Frame ms p50 / p95 and sim: Ifrit 1.71 / 2.76 (work 720 / 1790 us, sim 1154 us per tick), Elquines
+matched run 1.71 / 2.76 (sim 1154 us), no-summon control 1.70 / 2.69 (sim 1101 us). The two summons cost the same; this is
+art and cost evidence, not survival evidence.
 
 ## 8. Upgrades
 
@@ -6832,6 +6863,9 @@ items) reaches a round as the setup key `account`, never inside the character.
 |---|---|---|
 | Vulnerability table (#322) | `MobSwarm.VULNERABLE` {`ice_weak` 5 -> `i`, `fire_weak` 6 -> `f`}; x1.5 (`VULNERABLE_MULT`) while the timer runs, overriding that element's resistance and immunity; refreshes without stacking; bosses and `steady` slots reject; no per-status tint | A: Fire Demon / Ice Demon descriptions ("weak against" the element for `time` seconds), x1.5 as the canonical weakness; C: the table shape, `fire_weak` as a second timer, no stacking, boss exclusion |
 | Element composition mean (#322) | `MobSwarm.COMPOSITIONS` `fs` -> f,s and `il` -> i,l: the mean of the constituents' live multipliers (equal split) | C: equal split (the WZ nodes carry no `elemAttr`); `fs` numerically identical to #290 |
+| Ifrit (#328) | `ifrit` 2221005: fire summon on the 7.32 seam; WZ `mad` 183 -> 300, `mastery` 10, `time` 15 -> 160 s, `attack1/info` (box (-200,-150)..(0,30), `mobCount` 3, `attackAfter` 1080 ms, the same as Elquines'), animations and hit art as read from the cache; recast 12 s, follow 180 px/s, trail 60 px, snap 600 px, minimum cycle 2.4 s, spread 36 px | A: element `f`, `info`, `priority` 2221003, levels, art; C: recast, follow settings, cycle (the Elquines values) |
+| `summon.priority_status` (#328) | Opt-in key on a summon definition: bosses, then monsters carrying the named status, then distance, then slot; absent = the shared order, byte-identical for Elquines | C: our reading of the WZ `priority` (Ifrit -> Ice Demon's fire_weak mark) |
+| Ifrit rarity bonuses (#328) | Rare damage x1.2, Epic area x1.2, Unique +1 ally, Legendary +1 ally and damage x1.2; repeats x0.8 | C: the Elquines lists |
 
 ## 12. Later phases
 
