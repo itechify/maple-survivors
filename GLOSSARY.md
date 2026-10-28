@@ -171,6 +171,11 @@ _Avoid_: transformation, disguise
 The Key Config binding of one manual skill the character has learned.
 _Avoid_: hotkey, quickslot
 
+**Skill template**:
+A skill definition with `"extends": "<key>"`: it inherits another definition and rewrites its art and sound paths to
+its own book and skill id (the I/L and Bishop Big Bangs extend F/P's). Resolved only by `SkillBook`.
+_Avoid_: copy, clone, alias
+
 **Passive skill**:
 A skill that is always in effect once learned and is never cast, such as MP Eater.
 
