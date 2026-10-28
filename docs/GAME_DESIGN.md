@@ -5775,6 +5775,28 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. Rarity lists ship in the skill definition.
 
+### 7.40 Bowmaster pool and job data (#334, spec #332 B2)
+
+Bowmaster (312) gets its own data line `bowmaster` (`survivor/jobs/bowmaster.json`, `survivor/skills/bowmaster.json`
+as an empty skeleton), discovered with the other class lines in sorted order: after the seven Adventurers and before
+`hero` (the spec said "last"; the discovery rule sorts class names, so it is not). The job entry carries the ten-skill pool
+(`arrow_blow` starting, then `bow_double_shot`, `arrow_bomb`, `strafe`, `inferno`, `arrow_rain`, `dragons_breath`,
+`hurricane`, `silver_hawk`, `phoenix`; the WZ ids are in spec #332's pool table), `weapon_families: ["bow"]`, the War Bow
+1452002 as creation weapon, and `playable: false`. Its AP row (DEX primary, STR secondary, the Bowman keyframes copied
+verbatim) lives in the line's own `balance` block. The pool keys that are not yet defined are inert.
+
+**D1, no mobility skill.** The entry has no `mobility_skill` key. `JobTree.start_skills(312)` is `["arrow_blow"]`, and a
+round learns only Arrow Blow. Nothing else changes in the code: `HudQuickSlot.movement_skill_of` returns `{}`, the
+quick slot's movement cell is blank with no icon, Key Config lists no skill row, the run scene reports one owned skill, and the
+bot never presses a skill key (it presses Teleport or Rush only when it owns them). `test_bowmaster_data` proves each of these;
+the paths had only ever met jobs that own a mobility skill, and needed no fix. If playtests ever ask for one, it follows
+`balance.mobility_rank_levels` like Teleport and Rush (spec #332 D1).
+
+**Drops.** `weapon_families: ["bow"]` filters the Bowman list down to bows (145xxxx): crossbows (146xxxx), swords, axes,
+blunt weapons, spears, claws and guns never drop for a Bowmaster, in the synthetic or the shipped pool. Armour and shields
+drop by the Bowman class bit (reqJob 4), and `requirement_error` refuses other classes' gear. The War Bow is wearable at
+creation (cache-backed test).
+
 ### 7.44 Physical followers (#338, spec #332 M8)
 
 The Elquines seam (7.32) with four data-driven extensions, shared by Silver Hawk, Phoenix, Golden Eagle and Frostprey (and
@@ -7309,6 +7331,18 @@ and gain exclusion compares the skill’s declared role. Rush explicitly present
 without changing movement physics. Pull admission counts only grounded non-boss targets outside its configured floor.
 Warrior bot equipment weights now explicitly name ancestor 100 with the same values formerly inherited from 0
 (tier C: existing physical baseline, unchanged). Hero AP and bot score values live in jobs/hero.json’s balance block.
+
+### Bowmaster B2 constants (#334)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Bowmaster pool (ten actives) | `arrow_blow`, `bow_double_shot`, `arrow_bomb`, `strafe`, `inferno`, `arrow_rain`, `dragons_breath`, `hurricane`, `silver_hawk`, `phoenix`, from the 300/310/311/312 books | tier C pool choice, spec #332 (WZ ids tier A) |
+| Starting active | `arrow_blow` (3001004), learned at Lv1 in slot 1 | tier C, spec #332 |
+| Mobility skill | none: the job entry has no `mobility_skill` key | tier C, spec #332 ruling D1 |
+| Weapon families | `["bow"]` (145xxxx); crossbows are Marksman's | tier C, spec #332; WeaponInfo family tier A |
+| Creation weapon | War Bow 1452002 (reqJob 4, the Bowman bit), wearable at creation | tier A item fact (cache); the choice is tier C, spec #332 |
+| AP row `balance.player.ap["312"]` | DEX primary, STR secondary, keyframes Lv1 -> 6, Lv30 -> 35, Lv34 -> 35, Lv35 -> 40, Lv70 -> 75 (the Bowman 300 row verbatim) | tier C: Bowman gear pattern, spec #332; no new tuning |
+| `playable` | false until B12/B13; `default_job` stays 212 | tier C, spec #332 / #298 pin |
 
 ### Bowmaster B6 constants (#338)
 

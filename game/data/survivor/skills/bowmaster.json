@@ -1,0 +1,4 @@
+{
+	"_doc": "Bowmaster line (spec #332, ticket B2 #334): an empty skeleton. Each Bowmaster skill ticket (B7-B11) appends its own definitions in its own marked region; until a key is defined, the job's pool entry for it is inert (never offered, never learned). Shared keys with Bowman (arrow_blow, bow_double_shot, arrow_bomb) stay in skills/bowman.json until B7 moves them here.",
+	"skills": {}
+}
