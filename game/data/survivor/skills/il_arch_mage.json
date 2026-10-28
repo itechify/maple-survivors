@@ -1,0 +1,4 @@
+{
+	"_doc": "I/L Arch Mage line (spec #319, I2 #321), books 220/221/222. An empty skeleton: each of I6-I10 owns one contiguous region and appends its entries there, so the parallel tickets never collide. I6 (#325): Cold Beam, Thunder Bolt, Teleport (moves from magician.json), Ice Strike, Thunder Spear. I7 (#326): Ice Demon, Element Composition (il). I8 (#327): Chain Lightning. I9 (#328): Ifrit. I10 (#329): Blizzard, Big Bang (il). Energy Bolt and Magic Claw stay in magician.json (F/P's pool entries too).",
+	"skills": {}
+}
