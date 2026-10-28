@@ -306,28 +306,21 @@ class RegionScroll extends ParchmentScroll:
 		custom_minimum_size = size
 		content.size = size
 
-	func _draw() -> void:
+	func _paper_area() -> Rect2:
+		return CARD_AREA
+
+	func _blit_frame(frame: SpriteFrame) -> void:
 		var open_anim := UiArt.anim(UNROLL)
-		var frame: SpriteFrame = null
-		if _state == "open" and open_anim != null and not open_anim.is_empty():
-			frame = open_anim.frames[open_anim.frame_count() - 1]
-		elif _anim != null and not _anim.is_empty():
-			frame = _anim.frame_at(_t, false)
-		if frame != null:
-			var dims := frame.region.size
-			# tier C: insert up to 48 native paper scanlines as the scroll unrolls, retaining both rollers.
-			var split := 240.0
-			var extra := 0.0
-			if dims.y > split and open_anim != null and not open_anim.is_empty():
-				var full_height := open_anim.frames[open_anim.frame_count() - 1].region.size.y
-				extra = floorf(PAPER_EXTRA * clampf((dims.y - split) / (full_height - split), 0.0, 1.0))
-			if extra > 0:
-				UiArt.blit_part(self, frame, Rect2(0, 0, dims.x, split), Vector2.ZERO)
-				UiArt.blit_part(self, frame, Rect2(0, split, dims.x, extra), Vector2(0, split))
-				UiArt.blit_part(self, frame, Rect2(0, split, dims.x, dims.y - split), Vector2(0, split + extra))
-			else:
-				UiArt.blit(self, frame, Vector2.ZERO)
-		elif is_open():
-			draw_rect(CARD_AREA.grow(8), Color8(255, 221, 170))
-		if is_open():
-			draw_content.emit(self)
+		var dims := frame.region.size
+		# tier C: insert up to 48 native paper scanlines as the scroll unrolls, retaining both rollers.
+		var split := 240.0
+		var extra := 0.0
+		if dims.y > split and open_anim != null and not open_anim.is_empty():
+			var full_height := open_anim.frames[open_anim.frame_count() - 1].region.size.y
+			extra = floorf(PAPER_EXTRA * clampf((dims.y - split) / (full_height - split), 0.0, 1.0))
+		if extra > 0:
+			UiArt.blit_part(self, frame, Rect2(0, 0, dims.x, split), Vector2.ZERO)
+			UiArt.blit_part(self, frame, Rect2(0, split, dims.x, extra), Vector2(0, split))
+			UiArt.blit_part(self, frame, Rect2(0, split, dims.x, dims.y - split), Vector2(0, split + extra))
+		else:
+			UiArt.blit(self, frame, Vector2.ZERO)

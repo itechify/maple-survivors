@@ -440,6 +440,7 @@ func _motion_map_img() -> Dictionary:
 	if entry.get("trench_ramps", []).is_empty():
 		return img
 	img = img.duplicate(true)
+	var width := float(entry.trench_ramp_width)
 	var floors: Dictionary = img.foothold["5"]["0"]
 	for ids: Array in entry.trench_ramps:
 		var left: Dictionary = floors[str(int(ids[1]))]
@@ -448,13 +449,13 @@ func _motion_map_img() -> Dictionary:
 		var x_right := float(right.x1)
 		var y_top := float(left.y2)
 		var y_ground := float(left.y1)
-		# tier C #279: 192 px approaches keep the local slopes walkable with unchanged v83 physics.
+		# tier C #279: survivor-authored approach width keeps slopes walkable with unchanged v83 physics.
 		for f: Dictionary in floors.values():
 			if float(f.y1) == y_ground and float(f.y2) == y_ground:
 				for end: String in ["1", "2"]:
 					var x := float(f["x"+end])
 					var distance := maxf(x_left-x,x-x_right)
-					f["y"+end] = lerpf(y_top,y_ground,clampf(distance/192.0,0,1))
+					f["y"+end] = lerpf(y_top,y_ground,clampf(distance/width,0,1))
 		left.y1 = y_top
 		right.y2 = y_top
 	return img
@@ -1972,6 +1973,18 @@ func mob_defense(m: int, magic: bool) -> float:
 ## Whether a physical impact may damage this slot at the current simulation time.
 func physical_hit_allowed(m: int) -> bool:
 	return mob_skills.physical_hit_allowed(m, time)
+
+
+## Spawns and registers a scheduled boss by MapleStory mob ID; returns its slot or -1.
+func spawn_boss(mob_id: int, boss_index: int, pos: Vector2, fh: int, hp_mult: float) -> int:
+	if not kind_of_id.has(mob_id):
+		return -1
+	var slot := spawn_mob(int(kind_of_id[mob_id]), pos, fh, hp_mult, false)
+	if slot >= 0:
+		mob_boss[slot] = boss_index
+		# tier C: scheduled bosses never flinch or get pushed, whatever their WZ info/boss flag.
+		swarm.steady[slot] = 1
+	return slot
 
 
 ## Spawns a mob of kind index k on foothold fh at pos with max_hp x hp_mult; emits mob_spawned. Returns the slot.

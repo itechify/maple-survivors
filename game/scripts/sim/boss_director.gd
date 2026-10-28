@@ -151,14 +151,11 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 		if point.z < -1.0:
 			_postpone(index, world)
 			continue
-		var slot := world.spawn_mob(int(world.kind_of_id[int(entry.mob_id)]), Vector2(point.x, point.y),
-			int(point.z), float(entry.get("hp_mult", 1.0)), false)
+		var slot := world.spawn_boss(int(entry.mob_id), index, Vector2(point.x, point.y),
+			int(point.z), float(entry.get("hp_mult", 1.0)))
 		if slot < 0:
 			_postpone(index, world)
 			continue
-		world.mob_boss[slot] = index
-		# Scheduled bosses never flinch or get pushed, whatever their WZ info/boss flag (spec; tier C rule).
-		world.swarm.steady[slot] = 1
 		record.slot = slot
 		record.identity = world.swarm.identity[slot]
 		record.spawn_time = world.time
@@ -341,14 +338,12 @@ func continue_final_form(index: int, source: int, pos: Vector2, world: RunWorld)
 	if final_id <= 0 or int(records[index].mob_id) == final_id:
 		return false
 	var revive: Dictionary = world.mob_img(int(records[index].mob_id)).get("info", {}).get("revive", {})
-	if not final_id in StageRoster.list_ids(revive) or not world.kind_of_id.has(final_id):
+	if not final_id in StageRoster.list_ids(revive):
 		return false
-	var slot := world.spawn_mob(int(world.kind_of_id[final_id]), pos, world.swarm.fh[source],
-		float(entry.get("hp_mult", 1.0)), false)
+	var slot := world.spawn_boss(final_id, index, pos, world.swarm.fh[source],
+		float(entry.get("hp_mult", 1.0)))
 	if slot < 0:
 		return false
-	world.mob_boss[slot] = index
-	world.swarm.steady[slot] = 1
 	var record: Dictionary = records[index]
 	record.slot = slot
 	record.identity = world.swarm.identity[slot]

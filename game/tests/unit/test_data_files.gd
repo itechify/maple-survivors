@@ -665,6 +665,7 @@ func test_stage_keyframe_parser_ignores_retired_potion_curve() -> void:
 	assert_near(director.rate_at(0.0), 1.0, 1e-6, "supported pacing fields are still parsed")
 
 
+## Verifies nautilus region contract.
 func test_nautilus_region_contract() -> void:
 	assert_has(data.stages.stages, "nautilus")
 	if not data.stages.stages.has("nautilus"):
@@ -684,6 +685,7 @@ func test_nautilus_region_contract() -> void:
 			assert_has(kf.pool, "1110100")
 
 
+## Verifies opt in king clang chain defers boss death until final form.
 func test_opt_in_king_clang_chain_defers_boss_death_until_final_form() -> void:
 	var tf = preload("res://tests/fixtures/tree_boss_fixtures.gd")
 	var setup: Dictionary = tf.setup(5220001, [], ["attack1"])
@@ -726,6 +728,7 @@ func test_opt_in_king_clang_chain_defers_boss_death_until_final_form() -> void:
 
 
 
+## Verifies nautilus assets and roster on real cache.
 func test_nautilus_assets_and_roster_on_real_cache() -> void:
 	if not require_cache():
 		return
@@ -759,6 +762,7 @@ func test_nautilus_assets_and_roster_on_real_cache() -> void:
 	lib.free()
 
 
+## Verifies ordinary revive still finishes scheduled encounter.
 func test_ordinary_revive_still_finishes_scheduled_encounter() -> void:
 	var tf = preload("res://tests/fixtures/tree_boss_fixtures.gd")
 	var w := RunWorld.new(tf.setup(9300003, []))
@@ -774,6 +778,7 @@ func test_ordinary_revive_still_finishes_scheduled_encounter() -> void:
 	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "mob_revives_spawned").size(), 1)
 
 
+## Verifies nautilus signature exp items are imported.
 func test_nautilus_signature_exp_items_are_imported() -> void:
 	var manifest := AssetManifest.load_merged("res://data/asset_manifest.json")
 	var items := {9001005: 4000006, 5220001: 4000044, 5220000: 4000044, 3230102: 4000043, 4230104: 4000044}
