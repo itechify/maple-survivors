@@ -9,7 +9,6 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const POOL := ["power_strike", "slash_blast", "blast", "monster_magnet_paladin", "fire_charge", "ice_charge",
 	"thunder_charge", "holy_charge"]
 const DEFINED_IN_HERO := ["power_strike", "slash_blast"]
-const UNDEFINED := ["blast", "monster_magnet_paladin", "fire_charge", "ice_charge", "thunder_charge", "holy_charge"]
 ## Synthetic item info for the Warrior-bit weapons (reqJob 1) and the Mace (reqJob 3, as in the v83 Item.wz).
 const MACE := 1322000
 const INFO := {
@@ -137,12 +136,18 @@ func test_each_shared_pool_key_is_defined_in_exactly_one_file() -> void:
 		assert_eq(_defining_lines(key), ["hero"], "%s is defined by Hero's file only" % key)
 
 
-func test_the_pool_keys_defined_in_the_shipped_data_are_exactly_the_two_shared_ones() -> void:
+## The pool keys no skills file defines yet: P5 #313, P7 #315 and P8 #316 each define theirs, so this list shrinks to nothing.
+func _undefined() -> Array:
 	var defined: Dictionary = _data().skills.skills
-	var resolved := POOL.filter(func(key: String) -> bool: return defined.has(key))
-	assert_eq(resolved, DEFINED_IN_HERO, "the rest wait for their tickets")
-	for key: String in UNDEFINED:
-		assert_false(defined.has(key), "%s is not defined yet (inert)" % key)
+	return POOL.filter(func(key: String) -> bool: return not defined.has(key))
+
+
+func test_the_two_shared_pool_keys_are_defined_and_the_rest_wait_for_their_tickets() -> void:
+	var defined: Dictionary = _data().skills.skills
+	for key: String in DEFINED_IN_HERO:
+		assert_true(defined.has(key), "%s is Hero's definition" % key)
+	for key: String in _undefined():
+		assert_false(key in DEFINED_IN_HERO, key)
 
 
 func test_an_undefined_pool_key_is_never_offered_but_a_defined_one_is() -> void:
@@ -152,7 +157,7 @@ func test_an_undefined_pool_key_is_never_offered_but_a_defined_one_is() -> void:
 	setup["job"] = 122
 	var w := RunWorld.new(setup)
 	var ids := Array(w.upgrades.eligible(w))
-	for key: String in UNDEFINED:
+	for key: String in _undefined():
 		assert_false(ids.has(key + "_new") or ids.has(key + "_rank"), "%s is not offered" % key)
 	assert_false(ids.has("rush_paladin_new"), "Rush is not a card")
 	assert_true(ids.has("power_strike_new") or w.loadout.has("power_strike"),
