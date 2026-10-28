@@ -6,8 +6,8 @@ extends TestCase
 ## Skills of a book whose ticket has not merged (Chain Lightning, Blizzard, Big Bang) are inert, so the 222 tab holds only Ifrit
 ## today; the tests list a tab's rows from the defined pool and widen with it.
 
+const IL := preload("res://tests/fixtures/il_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const BOLTS := preload("res://tests/unit/test_il_bolts.gd")
 const DT := 1.0 / 60.0
 
 var lib: AssetLibrary
@@ -36,7 +36,7 @@ static func _key(code: Key) -> InputEventKey:
 
 
 func _model() -> SkillWindowModel:
-	var w: RunWorld = BOLTS.new()._round({}, 330)
+	var w: RunWorld = IL.round_world({}, 330)
 	return SkillWindowModel.new(w.book, w.upgrades, w.loadout, w.jobs, 222, SkillText.new(w.book, {}))
 
 
@@ -64,7 +64,7 @@ static func _among(tab: Dictionary, keys: Array) -> Array:
 
 func test_each_tab_lists_the_pool_skills_of_its_book_with_teleport_first_on_220() -> void:
 	var m := _model()
-	var w: RunWorld = BOLTS.new()._round({}, 330)
+	var w: RunWorld = IL.round_world({}, 330)
 	assert_eq(_among(m.tabs[1], ["energy_bolt", "magic_claw"]), ["energy_bolt", "magic_claw"], "the shared 200 bolts, in v83 skill id order")
 	var l220 := _row_keys(m.tabs[2])
 	assert_eq(l220.slice(0, 3), ["teleport_il", "cold_beam", "thunder_bolt"],
@@ -90,7 +90,7 @@ func test_each_tab_lists_the_pool_skills_of_its_book_with_teleport_first_on_220(
 
 func test_no_row_of_another_jobs_line_leaks_in_and_every_row_is_a_pool_skill_or_teleport() -> void:
 	var m := _model()
-	var w: RunWorld = BOLTS.new()._round({}, 330)
+	var w: RunWorld = IL.round_world({}, 330)
 	var allowed: Array = w.jobs.skill_pool(222) + ["teleport_il"]
 	for t: Dictionary in m.tabs.slice(1):
 		for r: Dictionary in t.rows:

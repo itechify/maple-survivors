@@ -29,7 +29,6 @@ func _levels(box: bool) -> Dictionary:
 
 func _setup() -> Dictionary:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["222"]["playable"] = true # the pool cards exist for playable jobs only
 	var setup := RF.with_basic_attack(RF.setup("quiet", 326, data))
 	setup.skill_imgs["222"] = {"skill": {"2221003": {"level": _levels(true)}}}
 	setup.skill_imgs["221"] = {"skill": {"2211006": {"level": _levels(false)}}}

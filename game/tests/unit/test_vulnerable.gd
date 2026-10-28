@@ -43,6 +43,7 @@ func test_table_names_the_element_each_timer_makes_weak() -> void:
 	assert_eq(MobSwarm.VULNERABLE[MobSwarm.FIRE_WEAK], "f")
 	assert_eq(MobSwarm.FIRE_WEAK, 6)
 	assert_eq(MobSwarm.STATUS_COUNT, 7)
+	assert_eq(MobSwarm.STATUS_TABLE.size(), MobSwarm.STATUS_COUNT)
 	assert_eq(MobSwarm.STATUS_NAMES.size(), MobSwarm.STATUS_COUNT)
 	assert_eq(MobSwarm.STATUS_ELEMENTS.size(), MobSwarm.STATUS_COUNT)
 	assert_eq(MobSwarm.STATUS_NAMES[MobSwarm.FIRE_WEAK], "fire_weak")

@@ -4,6 +4,7 @@ extends TestCase
 ## Level tables are synthetic: the recorded v83 values at levels 1, 4, 15, 19 and 30, linear between them. The real-cache
 ## tests (require_cache(), SKIP without it) read Skill.wz itself.
 
+const IL := preload("res://tests/fixtures/il_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const MOB := 1110100
@@ -15,92 +16,10 @@ const TIERS := ["rare", "epic", "unique", "legendary"]
 
 # --- fixtures ---------------------------------------------------------------------------------------------------------
 
-## value at `lv` from recorded {level: value} points, linear in between.
-static func _lerp_points(points: Dictionary, lv: int) -> float:
-	var xs := points.keys()
-	xs.sort()
-	for i in xs.size() - 1:
-		var a: int = xs[i]
-		var b: int = xs[i + 1]
-		if lv >= a and lv <= b:
-			return lerpf(float(points[a]), float(points[b]), float(lv - a) / float(b - a))
-	return float(points[xs.back()])
-
-
-static func _levels(fields: Dictionary, extra: Callable = Callable()) -> Dictionary:
-	var out := {}
-	for lv in range(1, 31):
-		var node := {}
-		for field: String in fields:
-			node[field] = float(roundi(_lerp_points(fields[field], lv)))
-		if extra.is_valid():
-			extra.call(node, lv)
-		out[str(lv)] = node
-	return out
-
-
-static func _box(node: Dictionary, half_w: float, up: float, down: float) -> void:
-	node["lt"] = {"$v": [-half_w, -up]}
-	node["rb"] = {"$v": [half_w, down]}
-
-
-static func _mastery() -> Dictionary:
-	return {1: 1, 4: 2, 15: 5, 19: 7, 30: 10}
-
-
-static func _anim(frames: int) -> Dictionary:
-	var out := {}
-	for i in frames:
-		out[str(i)] = {"$canvas": [0, 0, 0, 40, 40], "delay": 100.0}
-	return out
-
-
-## Skill.wz-shaped books 220 (Cold Beam, Thunder Bolt) and 221 (Ice Strike, Thunder Spear) with the recorded levels.
-static func _books() -> Dictionary:
-	var cold := {"icon": {"$canvas": [0, 0, 0, 32, 32]}, "elemAttr": "i", "effect": _anim(4), "hit": {"0": _anim(6)},
-		"level": _levels({"mad": {1: 13, 4: 22, 15: 55, 19: 67, 30: 100}, "mastery": _mastery(),
-			"x": {1: -100, 30: -100}}, func(node: Dictionary, lv: int) -> void: node["time"] = 1.0 if lv < 19 else 2.0)}
-	var thunder := {"icon": {"$canvas": [0, 0, 0, 32, 32]}, "elemAttr": "l", "effect": _anim(7), "hit": {"0": _anim(9)},
-		"level": _levels({"mad": {1: 2, 4: 8, 15: 30, 19: 38, 30: 60}, "mastery": _mastery(), "mobCount": {1: 6, 30: 6}},
-			func(node: Dictionary, lv: int) -> void:
-				_box(node, 150.0 if lv < 19 else 170.0, 50.0 if lv < 19 else 70.0, 50.0 if lv < 19 else 70.0))}
-	var strike := {"icon": {"$canvas": [0, 0, 0, 32, 32]}, "elemAttr": "i", "action": {"0": "magic2"},
-		"effect": _anim(11), "hit": {"0": _anim(6)},
-		"level": _levels({"mad": {1: 32, 4: 38, 15: 60, 19: 68, 30: 90}, "mastery": _mastery(), "mobCount": {1: 6, 30: 6}},
-			func(node: Dictionary, lv: int) -> void:
-				node["time"] = 1.0 if lv < 19 else 2.0
-				_box(node, roundf(_lerp_points({1: 110, 4: 120, 15: 150, 19: 170, 30: 200}, lv)),
-					roundf(_lerp_points({1: 82, 4: 90, 15: 112, 19: 127, 30: 150}, lv)),
-					roundf(_lerp_points({1: 83, 4: 90, 15: 113, 19: 128, 30: 150}, lv))))}
-	var spear := {"icon": {"$canvas": [0, 0, 0, 32, 32]}, "elemAttr": "l", "action": {"0": "magic1"},
-		"effect": _anim(15), "hit": {"0": _anim(5)},
-		"level": _levels({"mad": {1: 80, 4: 100, 15: 135, 19: 145, 30: 170}, "mastery": _mastery()})}
-	return {"cold": cold, "thunder": thunder, "strike": strike, "spear": spear}
-
-
-func _data() -> Dictionary:
-	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["222"]["playable"] = true # card generation walks the playable jobs' pools
-	return data
-
-
-## A fresh I/L round (Cold Beam and Teleport learned at rank 1) on the quiet stage, with `data` and the synthetic books.
-func _round(data: Dictionary = {}, p_seed := 325) -> RunWorld:
-	var setup := RF.setup("quiet", p_seed, _data() if data.is_empty() else data)
-	var books := _books()
-	setup.job = 222
-	setup.skill_imgs["220"].skill["2201004"] = books.cold
-	setup.skill_imgs["220"].skill["2201005"] = books.thunder
-	setup.skill_imgs["221"] = {"skill": {"2211002": books.strike, "2211003": books.spear}}
-	var w := RunWorld.new(setup)
-	RF.place_player(w, 200)
-	w.drain_events()
-	return w
-
 
 ## The same round with only `key` learned, at `rank`, for a cast test.
 func _alone(key: String, rank := 1) -> RunWorld:
-	var w := _round()
+	var w := IL.round_world()
 	w.loadout.ranks.clear()
 	w.loadout.order.clear()
 	w.learn_skill(key)
@@ -136,14 +55,10 @@ func _mob_at(w: RunWorld, dx: float, dy := 0.0) -> int:
 
 # --- the line ---------------------------------------------------------------------------------------------------------
 
-static func _skill_file(line: String) -> Dictionary:
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/survivor/skills/%s.json" % line))
-	return parsed.skills if parsed is Dictionary else {}
-
 
 func test_the_five_skills_live_in_the_il_line_and_not_in_magician_json() -> void:
-	var il := _skill_file("il_arch_mage")
-	var magician := _skill_file("magician")
+	var il := IL.skill_file("il_arch_mage")
+	var magician := IL.skill_file("magician")
 	for key: String in KEYS + ["teleport_il"]:
 		assert_true(il.has(key), "%s is in skills/il_arch_mage.json" % key)
 		assert_false(magician.has(key), "%s left skills/magician.json (a key in two files is a load error)" % key)
@@ -188,7 +103,7 @@ func test_no_standalone_card_survives_for_the_four_pool_skills() -> void:
 		for prefix: String in ["cold_beam_", "thunder_bolt_", "ice_strike_", "thunder_spear_"]:
 			assert_false(String(c.id).begins_with(prefix) and String(c.get("kind", "")) == "skill_mod",
 				"%s: ported skills carry no standalone mod cards" % c.id)
-	var w := _round()
+	var w := IL.round_world()
 	assert_eq(w.upgrades.card("cold_beam_new").get("kind"), "skill_new", "new and rank cards are generated from the pool")
 	assert_eq(w.upgrades.card("thunder_spear_rank").get("kind"), "skill_rank")
 	assert_true(w.upgrades.card("ice_strike_new").get("effects", []).is_empty())
@@ -349,8 +264,8 @@ func test_thunder_spear_damage_follows_the_rank() -> void:
 # --- Teleport ---------------------------------------------------------------------------------------------------------
 
 func test_teleport_il_is_the_mobility_skill_outside_both_slot_tracks() -> void:
-	var data := _data()
-	var skills: Dictionary = data.skills.skills
+	var data := IL.data()
+	var skills: Dictionary = SkillBook.from_data(data.skills, {}).defs
 	assert_eq(skills.teleport_il.slot, "mobility")
 	assert_eq(skills.teleport_il.skill_key, "teleport")
 	assert_eq(skills.teleport_il.cast.rule, "manual")
@@ -358,7 +273,7 @@ func test_teleport_il_is_the_mobility_skill_outside_both_slot_tracks() -> void:
 	assert_eq(skills.teleport_il.sounds.use, "Sound.wz/Skill.img/2201002/Use")
 	assert_eq(skills.teleport_il.teleport, skills.teleport_fp.teleport, "the same 0.3 s repeat and bot threat distance")
 	assert_eq(skills.teleport_il.ranks, skills.teleport_fp.ranks, "the same 20 ranks")
-	var w := _round()
+	var w := IL.round_world()
 	assert_true(w.loadout.has("teleport_il"), "learned at round start")
 	assert_eq(w.loadout.rank("teleport_il"), 1)
 	assert_false("teleport_il" in w.jobs.skill_pool(222), "not a pool entry")
@@ -371,7 +286,7 @@ func test_teleport_il_is_the_mobility_skill_outside_both_slot_tracks() -> void:
 func test_teleport_il_blinks_exactly_like_the_fp_one() -> void:
 	var landed := {}
 	for job: int in [212, 222]:
-		var data := _data()
+		var data := IL.data()
 		var setup := RF.setup("quiet", 60, data)
 		setup.job = job
 		setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
@@ -387,7 +302,7 @@ func test_teleport_il_blinks_exactly_like_the_fp_one() -> void:
 
 
 func test_teleport_il_rank_follows_mobility_rank_levels() -> void:
-	var w := _round()
+	var w := IL.round_world()
 	assert_eq(w.loadout.rank("teleport_il"), 1)
 	var table: Dictionary = w.balance.mobility_rank_levels
 	assert_eq(table["20"], 10, "the shared rule: rank N at character level 2N")
@@ -440,7 +355,7 @@ func test_the_four_rarity_lists_name_the_spec_entries() -> void:
 func test_a_rare_plus_card_adds_one_rank_plus_its_bonus_and_legendary_shares_the_unique_counter() -> void:
 	for key: String in KEYS:
 		for tier: String in TIERS:
-			var w := _round()
+			var w := IL.round_world()
 			var id := key + ("_rank" if w.loadout.has(key) else "_new")
 			var offered := w.upgrades.choice_card(id, w, tier)
 			assert_false(offered.get("rarity_bonus", {}).is_empty(), "%s %s offers a bonus" % [key, tier])
@@ -448,7 +363,7 @@ func test_a_rare_plus_card_adds_one_rank_plus_its_bonus_and_legendary_shares_the
 			w.upgrades.apply(id, w, tier)
 			assert_true(w.loadout.has(key))
 			assert_false(w.loadout.skill_mods.get(key, {}).is_empty(), "%s %s applied the bonus" % [key, tier])
-		var w := _round()
+		var w := IL.round_world()
 		w.upgrades.apply(key + ("_rank" if w.loadout.has(key) else "_new"), w, "unique")
 		w.upgrades.apply(key + "_rank", w, "legendary")
 		var unique_id: String = BONUSES[key].unique[0]
@@ -458,7 +373,7 @@ func test_a_rare_plus_card_adds_one_rank_plus_its_bonus_and_legendary_shares_the
 
 func test_mastery_repeats_shrink_by_0_8_on_every_new_skill() -> void:
 	for key: String in KEYS:
-		var w := _round()
+		var w := IL.round_world()
 		w.learn_skill(key)
 		w.loadout.set_rank(key, 8)
 		var mastery := w.upgrades.choice_card(key + "_rank", w, "rare")
@@ -537,7 +452,7 @@ func test_real_cache_the_eight_ranks_map_to_the_wz_levels_and_teleport_has_its_t
 # --- text -------------------------------------------------------------------------------------------------------------
 
 func test_skill_text_fills_every_placeholder_of_the_four_overrides() -> void:
-	var w := _round()
+	var w := IL.round_world()
 	var text := SkillText.new(w.book, {})
 	var want := {
 		"cold_beam": "Basic attack 22, mastery 20%, up to 1 monster, freeze for 1 sec.",

@@ -9,8 +9,6 @@ extends RefCounted
 const KEY := "extends"
 ## Keys a child must state itself (its identity); everything else it may inherit.
 const REQUIRED: PackedStringArray = ["skill_id", "book", "job"]
-## Levels compared by the drift guard: the eight survivor ranks of SkillBook.canonical_level.
-const MAPPED_LEVELS := 8
 
 
 ## `skills` (the `skills` entries of the merged skills data) with every template resolved. A child that breaks a rule
@@ -169,7 +167,7 @@ static func drift_problems(book: SkillBook, child: String, parent: String, exist
 		out.append("%s extends %s: no canonical node (%s: %s, %s: %s)" % [child, parent,
 				child, book.wz_path(child), parent, book.wz_path(parent)])
 		return out
-	for rank in range(1, MAPPED_LEVELS + 1):
+	for rank in range(1, book.max_rank(child) + 1):
 		var cl := book.canonical_level(child, rank)
 		var pl := book.canonical_level(parent, rank)
 		var cnode := book.level_node(child, cl)

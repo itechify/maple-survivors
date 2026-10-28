@@ -17,7 +17,17 @@ extends RefCounted
 ## mob_count links is fine. A distance exactly equal to `acquire` or `hop` is in range.
 
 ## How many candidates has_target looks at before it reads the whole grid query (a monster is usually in reach).
-const ANY_PROBE := 8
+const ANY_PROBE := 8 # tier C: query optimization, does not change admission.
+
+
+## Ball animation paths in variant order for presentation and preloading.
+static func ball_paths(definition: Dictionary) -> Array:
+	return definition.get("chain", {}).get("ball", [])
+
+
+## Default acquisition range of a chain definition, before Loadout range modifiers.
+static func base_range(cast: Dictionary) -> float:
+	return float(cast.get("acquire", 0.0))
 
 static var _buf := PackedInt32Array()
 

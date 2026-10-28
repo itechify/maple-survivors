@@ -58,17 +58,32 @@ const THREATENED := 3
 const STUN := 4
 const ICE_WEAK := 5
 const FIRE_WEAK := 6
-const STATUS_COUNT := 7
-## Status names used by apply_status and the mob_status_* events, in table order.
-const STATUS_NAMES := ["slow", "poison", "freeze", "threatened", "stun", "ice_weak", "fire_weak"]
-## tier A: the element a status shares with its applying v83 skill (Slow none, Poison Breath elemAttr s, Cold Beam i).
-## Stun has none and never reads an element, not even one passed in `params` (tier C, #187).
-const STATUS_ELEMENTS := ["", "S", "I", "", "", "", ""]
-## Vulnerability table (spec #319 M4): status index -> the element letter that status makes weak (x1.5 while it runs,
-## overriding that element's resistance and immunity). tier A: the Fire Demon / Ice Demon descriptions; tier C: the table.
-## Reserved, not built: a `"*"` entry would mark every element at once (Corsair's Homing Beacon); `_live_multiplier` is
-## where it would be read.
-const VULNERABLE := {ICE_WEAK: "i", FIRE_WEAK: "f"}
+## tier C: status registry order is persistent within a run; append new rows, preserving existing IDs.
+const STATUS_TABLE := [
+	{"name": "slow", "element": ""},
+	{"name": "poison", "element": "S"},
+	{"name": "freeze", "element": "I"},
+	{"name": "threatened", "element": ""},
+	{"name": "stun", "element": ""},
+	{"name": "ice_weak", "element": "", "vulnerable": "i"},
+	{"name": "fire_weak", "element": "", "vulnerable": "f"},
+]
+const STATUS_COUNT := FIRE_WEAK + 1
+## tier A: applying skill elements (Poison Breath S, Cold Beam I); stun ignores incoming elements (tier C, #187).
+static var STATUS_NAMES: Array = STATUS_TABLE.map(func(row: Dictionary) -> String: return row.name)
+static var STATUS_ELEMENTS: Array = STATUS_TABLE.map(func(row: Dictionary) -> String: return row.element)
+## Status index -> element made weak, tier A: Demon descriptions; tier C: registry mechanism.
+static var VULNERABLE: Dictionary = _vulnerabilities()
+
+
+static func _vulnerabilities() -> Dictionary:
+	var out := {}
+	for i in STATUS_TABLE.size():
+		if STATUS_TABLE[i].has("vulnerable"):
+			out[i] = STATUS_TABLE[i].vulnerable
+	return out
+
+
 ## The weakness multiplier of a vulnerability mark. tier A: Fire Demon "weak against ice".
 const VULNERABLE_MULT := 1.5
 ## Element compositions: a composite letter pair -> its constituents; a hit's multiplier is the mean of their live

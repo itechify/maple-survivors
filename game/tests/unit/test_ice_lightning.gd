@@ -9,7 +9,6 @@ const DAMAGE_LV4 := [31.533333, 91.666667]
 
 func _world(lightning_attr: String = "", bolt_mob_count: float = 2.0) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["222"]["playable"] = true # #325: the bolts are I/L pool skills; cards are generated per playable job
 	var setup := RF.setup("quiet", 56, data)
 	setup.job = 222
 	setup.mob_imgs[1110100].info.elemAttr = lightning_attr

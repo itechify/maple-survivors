@@ -141,7 +141,6 @@ func test_its_numbers_come_from_book_222_not_from_the_parent_book() -> void:
 
 func test_the_inherited_rarity_lists_resolve_for_job_222() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["222"]["playable"] = true
 	var w := RunWorld.new(RF.setup("quiet", 329, data))
 	w.set_job(222)
 	var bonuses: Dictionary = w.book.def("big_bang_il").rarity_bonuses

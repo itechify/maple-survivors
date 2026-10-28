@@ -1,16 +1,22 @@
 extends Node
 ## Tool-only summon art/performance probe: --shots=<absolute evidence dir> [--skill=elquines|ifrit] [--without-summon].
-## Ifrit runs as the I/L job (222) with every other monster fire_weak, so its priority order shows. Never saves a character.
+## --job=<id> and --status=<name> override the skill job and summon priority status. Never saves a character.
 
 func _ready() -> void:
 	var shots := ""
 	var enabled := true
 	var skill := "elquines"
+	var job := 0
+	var status := ""
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--shots="):
 			shots = arg.trim_prefix("--shots=")
 		if arg.begins_with("--skill="):
 			skill = arg.trim_prefix("--skill=")
+		if arg.begins_with("--job="):
+			job = int(arg.trim_prefix("--job="))
+		if arg.begins_with("--status="):
+			status = arg.trim_prefix("--status=")
 		if arg == "--without-summon":
 			enabled = false
 	if shots.is_empty():
@@ -24,8 +30,8 @@ func _ready() -> void:
 		"shots_dir": shots, "shot_every": 1.0, "quit_after": 20.0,
 		"world_prepared": func(w: RunWorld) -> void:
 			w.god = true
-			if skill == "ifrit":
-				w.set_job(222)
+			w.set_job(job if job > 0 else int(w.book.def(skill).job))
+			var mark := status if status != "" else String(w.book.def(skill).get("summon", {}).get("priority_status", ""))
 			w.loadout.order.clear()
 			if enabled:
 				w.learn_skill(skill)
@@ -39,7 +45,7 @@ func _ready() -> void:
 				if slot >= 0:
 					w.swarm.hp[slot] = 100000
 					w.swarm.max_hp[slot] = 100000
-					if skill == "ifrit" and i % 2 == 0:
-						w.swarm.apply_status(slot, "fire_weak", {"time": 1000.0}, w.events)
+					if mark != "" and i % 2 == 0:
+						w.swarm.apply_status(slot, mark, {"time": 1000.0}, w.events)
 	})
 	add_child(run)

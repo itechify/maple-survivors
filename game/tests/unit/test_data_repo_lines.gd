@@ -22,7 +22,7 @@ func _put(rel: String, value: Dictionary) -> String:
 	return root
 
 
-func test_lines_are_fixed_adventurers_then_discovered_classes_sorted() -> void:
+func test_lines_are_fixed_adventurers_then_registered_classes() -> void:
 	var root := _put("survivor/jobs/paladin.json", {"jobs": {}})
 	_put("survivor/skills/hero.json", {"skills": {}})
 	_put("survivor/jobs/il_arch_mage.json", {"jobs": {}})
@@ -36,9 +36,7 @@ func test_the_shipped_class_lines_are_discovered_from_their_files() -> void:
 	assert_eq(lines.slice(0, 7), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
 	var classes: Array = lines.slice(7)
 	assert_true("hero" in classes and "il_arch_mage" in classes, "both shipped class lines are found by their files")
-	var sorted_classes := classes.duplicate()
-	sorted_classes.sort()
-	assert_eq(classes, sorted_classes, "the class lines are sorted, with no list to edit (#319)")
+	assert_true(classes.find("hero") < classes.find("il_arch_mage"), "existing class order stays stable")
 
 
 func test_job_fragments_contribute_balance_through_load_all() -> void:
@@ -257,7 +255,7 @@ func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:
 	assert_true(errors.is_empty(), "%s" % [errors])
 	var root := DataRepo.DATA_ROOT
 	# skills: book 000 in beginner, 2xx in magician; 220/221/222-book skills may live in il_arch_mage (#321: the I/L
-	# skills stay in magician.json until I6 moves them, so the I/L fragment is still empty)
+	# skills ship in il_arch_mage.json)
 	for line in ["beginner", "magician"]:
 		var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", line, root))
 		assert_false(frag.skills.is_empty(), "skills/%s.json has entries" % line)
@@ -303,3 +301,10 @@ func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:
 		"two_handed_sword", "two_handed_axe", "two_handed_blunt", "spear", "polearm", "shield", "wand", "staff", "bow", "crossbow", "claw", "dagger", "knuckle", "gun"])
 	assert_eq(d.shops.weapon_slots, ["sword", "axe", "blunt", "two_handed_sword", "two_handed_axe", "two_handed_blunt",
 		"spear", "polearm", "wand", "staff", "bow", "crossbow", "claw", "dagger", "knuckle", "gun"], "line order: Warrior, Magician, Bowman, Thief, Pirate")
+
+
+func test_new_alphabetically_earlier_class_does_not_move_shipped_lines() -> void:
+	var root := _put("survivor/skills/hero.json", {"skills": {}})
+	_put("survivor/skills/il_arch_mage.json", {"skills": {}})
+	_put("survivor/jobs/bishop.json", {"jobs": {}})
+	assert_eq(Array(DataRepo.lines(root)).slice(7), ["hero", "il_arch_mage", "bishop"])

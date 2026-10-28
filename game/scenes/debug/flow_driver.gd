@@ -16,7 +16,7 @@ extends Node
 ##           offers (kinds, rarities, picks), the showcased windows and the history. `--seed` (default 1).
 ##   creation the Job page and character creation (spec #296, H9): title -> create a character of each job in `--jobs=<id,id>`
 ##           (default: every playable job, in separate slots, then the Job page is checked to list them in order and to show the
-##           chosen row) -> Free Market each time -> character select with both slots. Shots creation_*.png, job_<id>_*.png.
+##           chosen row) -> Free Market each time -> character select with all character slots. Shots creation_*.png, job_<id>_*.png.
 ##   title   the title screen only: waits for it, saves the shot, quits (e.g. to check an exported build:
 ##           MapleSurvivors.exe res://scenes/debug/flow_driver.tscn -- --scenario=title --shots=<dir>).
 ##   clear   --run tool one-off (`--run=<stage> --seed=<n> --autoplay --autopick --speed=<k>`): waits for the clear -> results ->
@@ -72,6 +72,7 @@ extends Node
 ##           changes the prepared balance; `--seed` defaults to 4; `--natural-clear=1` plays round 1 without invulnerability.
 ## The scenarios of the removed systems (maps, rounds, full, economy and the Warrior, Pirate, Bowman and Thief job/weapon pages)
 ## were deleted with job advancement, saved rounds and the old creation flow (#284, #286, #294).
+## The skill scenario accepts --job=<playable id> (default 212).
 ## Other flags: --shots=<abs dir> (required), --seed=<n>, --wz=<folder> (import). The driver runs uncapped (vsync off).
 ##
 ## Screenshots are named NN_<step>.png; the driver prints one "flow_driver:" line per step and quits with exit code 1
@@ -83,14 +84,23 @@ extends Node
 const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
 const StageSelectScene := preload("res://scenes/ui/stage_select.gd")
 const MAIN := "res://scenes/main.tscn"
-## The `skill` scenario's debug build per job: three more pool actives with ranks and two common passives (cards applied directly).
-## tier C: automation, not tuning.
-const SKILL_BUILD := {
-	212: ["magic_claw_new", "magic_claw_rank", "fire_arrow_new", "explosion_new", "explosion_rank", "passive_might_new",
-		"passive_speed_new", "passive_speed_rank"],
-	222: ["magic_claw_new", "magic_claw_rank", "thunder_bolt_new", "ice_strike_new", "ice_strike_rank", "passive_might_new",
-		"passive_speed_new", "passive_speed_rank"],
-}
+## Diagnostic build from the selected job's first three unlearned pool actives, plus common passives.
+## tier C: automation policy, not tuning. No job-specific card list.
+static func skill_build(w: RunWorld) -> Array:
+	var cards := []
+	var added := 0
+	for key: String in w.jobs.skill_pool(w.job_id()):
+		if not w.book.has(key) or w.loadout.has(key):
+			continue
+		cards.append(key + "_new")
+		cards.append(key + "_rank")
+		added += 1
+		if added == 3:
+			break
+	cards.append_array(["passive_might_new", "passive_speed_new", "passive_speed_rank"])
+	return cards
+
+
 ## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q potion; E is the
 ## Equip window).
 const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_C,
@@ -1325,7 +1335,7 @@ func _scenario_skill() -> void:
 	# A build to show (debug setup, like the windows scenario's EXP drop): three more pool actives with ranks, and two
 	# common passives (cards applied directly; the Teleport key skill and the starting Energy Bolt are already known).
 	var w := run.world
-	for id: String in SKILL_BUILD.get(job, SKILL_BUILD[212]):
+	for id: String in skill_build(w):
 		w.upgrades.apply(id, w)
 	await _sleep(0.5)
 	# K opens the Skill window on the job's tab (the last) and holds the sim.
@@ -1345,7 +1355,7 @@ func _scenario_skill() -> void:
 	for i in sw.rows().size():
 		await _key(KEY_DOWN)
 	await _sleep(0.3)
-	if not sw.rows().is_empty(): # the I/L Arch Mage's own book has no implemented skill until its last tickets (#330)
+	if not sw.rows().is_empty(): # a sparse synthetic book may have no rows
 		var last := sw.tooltip()
 		_check(String(last.get("key", "")) == String(sw.rows()[sw.rows().size() - 1].key), "Down selected the last row (%s)" % [last.get("key", "")])
 		await _shot("skill_keyboard_tooltip")

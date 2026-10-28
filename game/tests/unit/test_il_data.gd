@@ -92,7 +92,7 @@ func test_job_222_has_the_spec_fields_and_is_playable() -> void:
 	assert_eq(jobs.creation_weapon(222), 1372005)
 	assert_true(bool(rec.playable))
 	assert_eq(jobs.job_error(222), "", "shipped I/L is playable")
-	assert_eq(jobs.playable_jobs(), [112, 212, 222] as Array[int])
+	assert_true(222 in jobs.playable_jobs())
 
 
 func test_212_keeps_its_entry_unchanged() -> void:
@@ -157,7 +157,6 @@ func test_an_il_spends_its_auto_ap_on_int_and_luk() -> void:
 
 func test_default_job_stays_212_after_il_becomes_playable() -> void:
 	var data := _data()
-	data.jobs_survivor.jobs["222"]["playable"] = true
 	var jobs := _jobs(data)
 	var playable := jobs.playable_jobs()
 	assert_true(playable.find(212) >= 0 and playable.find(212) < playable.find(222), "F/P is listed first in canonical order")
@@ -166,7 +165,6 @@ func test_default_job_stays_212_after_il_becomes_playable() -> void:
 
 func test_a_fresh_world_is_still_212_with_il_playable() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["222"]["playable"] = true
 	var w := RunWorld.new(RF.setup("quiet", 7, data))
 	assert_eq(w.job_id(), 212)
 

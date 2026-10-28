@@ -188,7 +188,7 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
   (tool one-off: `--run=<stage> --seed=<n> --autoplay --autopick --speed=<k>` waits for the clear -> results -> character
   select, and checks the save file did not change).
 - In-run windows: `windows` (#85: Stat opened, dragged and closed, the sim holds, Stat over a level-up choice, the Menu
-  popup, pause), `skill` (#86: the Skill window on the job's tab, the Common tab of the nine passives, tab keys and clicks,
+  popup, pause), `skill` (`--job=<playable id>`, default 212; #86: the Skill window on the job's tab, the Common tab of the nine passives, tab keys and clicks,
   the window over a level-up choice) and `keys` (#87: Key Config and Options; `user://settings.cfg` is backed up and restored).
 - Mesos, equipment, scrolls and shops (spec #33): `inventory` (#108: Equip and Item windows, a refused Warrior shield, wear
   by double-click and drag; the F/P fixture plus spare items), `scrolls` (#110: scrolls dragged onto worn equipment in a

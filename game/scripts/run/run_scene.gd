@@ -911,7 +911,7 @@ func _warm_ui() -> void:
 		var burst := String(world.book.def(key).get("burst", ""))
 		if burst != "":
 			library.find_anim(burst)
-		for path: String in world.book.def(key).get("chain", {}).get("ball", []):
+		for path: String in ChainCast.ball_paths(world.book.def(key)):
 			library.find_anim(path)
 		for rank in range(1, world.book.max_rank(key) + 1):
 			var level := world.book.canonical_level(key, rank)
@@ -1326,14 +1326,14 @@ func _on_skill_thrown(e: Dictionary) -> void:
 func _on_skill_chain(e: Dictionary) -> void:
 	var def := world.book.def(String(e.skill))
 	var anims: Array = []
-	for path: String in def.get("chain", {}).get("ball", []):
+	for path: String in ChainCast.ball_paths(def):
 		var anim := library.anim(path)
 		if anim != null and not anim.is_empty():
 			anims.append(anim)
 	chain_bolts.play(e.points, anims)
 	var hit := String(def.get("sounds", {}).get("hit", ""))
 	for link in (e.points as PackedVector2Array).size() - 1:
-		_sound(hit)
+		_play_sound(hit)
 
 
 ## The authoritative impact tick stops the matching flight and plays the captured blast, even with no victims.
@@ -1565,6 +1565,13 @@ func _sound(path: String, phase: String = "") -> void:
 	if path == "" or _frame_sounds.has(key):
 		return
 	_frame_sounds[key] = true
+	_play_sound(path)
+
+
+## Starts one sound without frame coalescing; chain links are separate audible hits.
+func _play_sound(path: String) -> void:
+	if path == "":
+		return
 	var sfx := _sfx_service()
 	if sfx != null and sfx.play(path):
 		counters.sounds += 1

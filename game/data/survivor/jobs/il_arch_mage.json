@@ -86,7 +86,7 @@
 			}
 		},
 		"bot": {
-			"_card_scores": "Tier C (spec #319, I11 #330): the ten I/L pool skills beyond Energy Bolt and Magic Claw (cold_beam, thunder_bolt, ice_strike, thunder_spear, element_composition_il, ice_demon, ifrit, chain_lightning, blizzard, big_bang_il) score like every other pool skill, new 100 and rank 74, appended to card_scores as one block. Ifrit (a summon) and Blizzard (a ground field) would otherwise fall to the passive score; a key whose skill is not defined yet is inert.",
+			"_card_scores": "Tier C (spec #319, I11 #330): the ten I/L pool skills beyond Energy Bolt and Magic Claw (cold_beam, thunder_bolt, ice_strike, thunder_spear, element_composition_il, ice_demon, ifrit, chain_lightning, blizzard, big_bang_il) score like every other pool skill, new 100 and rank 74, appended to card_scores as one block. Ifrit (a summon) and Blizzard (a ground field) would otherwise fall to the passive score; all twelve pool skills now ship.",
 			"card_scores": {
 				"cold_beam_new": 100,
 				"cold_beam_rank": 74,

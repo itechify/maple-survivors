@@ -1,5 +1,5 @@
 {
-	"_doc": "I/L Arch Mage line (spec #319, I2 #321), books 220/221/222. Each of I6-I10 owns one contiguous region and appends its entries there, so the parallel tickets never collide. I6 (#325): Cold Beam, Thunder Bolt, Teleport (moved from magician.json), Ice Strike, Thunder Spear. I7 (#326): Ice Demon, Element Composition (il). I8 (#327): Chain Lightning. I9 (#328): Ifrit. I10 (#329): Blizzard, Big Bang (il). Energy Bolt and Magic Claw stay in magician.json (F/P's pool entries too). Tier C cooldowns are the F/P base values x0.4 (GAME_DESIGN 7.60).",
+	"_doc": "I/L Arch Mage line (spec #319, I2 #321), books 220/221/222. Ships the complete twelve-skill pool with the shared magician bolts. I6 (#325): Cold Beam, Thunder Bolt, Teleport (moved from magician.json), Ice Strike, Thunder Spear. I7 (#326): Ice Demon, Element Composition (il). I8 (#327): Chain Lightning. I9 (#328): Ifrit. I10 (#329): Blizzard, Big Bang (il). Energy Bolt and Magic Claw stay in magician.json (F/P's pool entries too). Tier C cooldowns are the F/P base values x0.4 (GAME_DESIGN 7.60).",
 	"skills": {
 		"cold_beam": {
 			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.60.",
@@ -40,19 +40,7 @@
 			"effect": "Skill.wz/220.img/skill/2201005/effect", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2201005/Use", "hit": ""}
 		},
-		"teleport_il": {
-			"skill_id": 2201002, "book": "220", "job": 220, "kind": "instant", "slot": "mobility",
-			"name": "Teleport", "desc": "Press X and a direction to blink to a platform. Hold X to repeat.",
-			"text": {"desc": "Press the Teleport key with an arrow key to teleport a set distance to another platform in the same map. Hold the key to keep teleporting."},
-			"icon": "Skill.wz/220.img/skill/2201002/icon", "damage": "none",
-			"cast": {"rule": "manual"}, "skill_key": "teleport",
-			"teleport": {"repeat_delay": 0.3, "bot_threat_distance": 60.0},
-			"_teleport": "Tier C: 0.3 s survivor repeat delay; bot blinks from threats within 60 px. Canonical mpCon and range from Skill.wz. Same numbers as teleport_fp; the rank follows balance.mobility_rank_levels (the job's mobility_skill), so it has no cards.",
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "", "action_time": 0.0, "ball": "", "hit": "",
-			"effect": "Effect.wz/BasicEff.img/Teleport", "rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/2201002/Use", "hit": ""}
-		},
+		"teleport_il": {"extends": "teleport_fp", "skill_id": 2201002, "book": "220", "job": 220},
 		"ice_strike": {
 			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.60.",
 			"rarity_bonuses": {

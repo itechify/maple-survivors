@@ -179,7 +179,7 @@ _Avoid_: splash, bounce (which can imply repeat hits)
 
 **Skill template**:
 A skill definition with `"extends": "<key>"`: it inherits another definition and rewrites its art and sound paths to
-its own book and skill id (the I/L and Bishop Big Bangs extend F/P's). Resolved only by `SkillBook`.
+its own book and skill id (the I/L Big Bang extends F/P's; Bishop can reuse the same template). Resolved only by `SkillBook`.
 _Avoid_: copy, clone, alias
 
 **Passive skill**:
