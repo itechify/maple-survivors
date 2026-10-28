@@ -253,6 +253,7 @@ func test_recoil_shot_fires_the_current_ammo_bullet_then_hops_back_the_canonical
 
 func test_recoil_shot_bullet_is_the_ammo_item_visual_and_follows_the_tier() -> void:
 	var w := _gunslinger("recoil_shot")
+	RF.change_job_bare(w, 522) # the Corsair's schedule: Split Bullet from Lv18, Mighty Bullet from Lv35 (D9)
 	_mob(w, 200.0)
 	_tick(w)
 	assert_eq(w.ammo_id(), 2330001, "Split Bullet at Lv 30")
@@ -264,10 +265,11 @@ func test_recoil_shot_bullet_is_the_ammo_item_visual_and_follows_the_tier() -> v
 	assert_eq(w.projectiles.paths[w.projectiles.visual[shot]], Ammo.bullet_path(2330001))
 	assert_eq(w.projectiles.rotate[shot], 1, "bullets turn to their direction")
 	var upgraded := _gunslinger("recoil_shot")
-	upgraded.progression.level = 50
+	RF.change_job_bare(upgraded, 522)
+	upgraded.progression.level = 35
 	upgraded.refresh_player_stats()
 	upgraded._sync_ammo()
-	assert_eq(upgraded.ammo_id(), 2330002, "Mighty Bullet from Lv 50")
+	assert_eq(upgraded.ammo_id(), 2330002, "Mighty Bullet from Lv 35")
 	_mob(upgraded, 200.0)
 	_tick(upgraded)
 	for i in upgraded.projectiles.capacity():

@@ -23,6 +23,15 @@ func test_load_all_has_every_file() -> void:
 	assert_eq(bad.size(), 13, "every missing file reported")
 
 
+func test_an_ammo_schedule_keyed_by_branch_is_a_load_error() -> void:
+	assert_true(Ammo.schedule_errors(data.ammo).is_empty(), "the shipped schedules are keyed by exact job (format 2)")
+	var old: Dictionary = data.ammo.duplicate(true)
+	old.schedules[0].erase("job")
+	old.schedules[0]["branch"] = 310
+	var errors := Ammo.schedule_errors(old)
+	assert_eq(errors.size(), 2, "the branch key and the missing job: %s" % [errors])
+
+
 func test_every_stage_names_its_region_and_continent() -> void:
 	var want := {"henesys": ["Henesys", "Victoria Island"], "ellinia": ["Ellinia", "Victoria Island"],
 		"perion": ["Perion", "Victoria Island"], "kerning": ["Kerning City", "Victoria Island"],
@@ -486,7 +495,7 @@ func test_build_setup_and_paths() -> void:
 	assert_has(s.skill_imgs, "230", "Cleric attacks and Teleport book")
 	assert_eq(s.mob_imgs.size(), mob_ids.size() - 1, "all stage kinds except the loader's missing Green Mushroom")
 	assert_eq(missing, PackedStringArray(["Mob.wz/1110100.img"]))
-	assert_eq(s.ammo_info.size(), 18, "the ammo items' canonical facts are in the setup (#155)")
+	assert_eq(s.ammo_info.size(), 17, "the ammo items' canonical facts are in the setup (#155)")
 	assert_eq(s.ammo_info[2070001], {"incPAD": 7})
 	assert_eq(s.scroll_info.size(), Scrolls.ids(data.scrolls).size(), "every roster scroll's canonical info is loaded")
 	assert_eq(s.scroll_info[2043700], {"success": 60, "incMAD": 2})

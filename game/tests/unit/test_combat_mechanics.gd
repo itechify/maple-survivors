@@ -226,8 +226,9 @@ func test_projectile_pool_reuse_clears_blast_and_falloff() -> void:
 
 
 func test_ranged_final_attack_fires_current_ammo_with_immediate_unchanged_damage_rolls() -> void:
-	for row: Array in [[1452000, 310, 2060002], [1462000, 320, 2061002],
-			[1472000, 410, 2070003], [1492000, 520, 2330001]]:
+	# Lv40 (CF.ranged_final's default) of each ammo job's exact schedule (D9): Steel, Steel, Tobi, Mighty Bullet.
+	for row: Array in [[1452000, 312, 2060002], [1462000, 322, 2061002],
+			[1472000, 412, 2070004], [1492000, 522, 2330002]]:
 		var w := CF.ranged_final(row[0], row[1])
 		var m := RF.put_mob(w, 1110100, 380, 190, 100)
 		w.mob_kinds[w.swarm.kind[m]].move_speed = 0
@@ -258,7 +259,7 @@ func test_ranged_final_attack_fires_current_ammo_with_immediate_unchanged_damage
 
 
 func test_ranged_final_attack_spread_uses_the_ranged_reach() -> void:
-	var w := CF.ranged_final(1452000, 310)
+	var w := CF.ranged_final(1452000, 312)
 	w.loadout.add_skill_mod("synthetic", "count", "add", 1)
 	var primary := RF.put_mob(w, 1110100, 350, 190, 100)
 	var nearby := RF.put_mob(w, 1110100, 550, 190, 100)

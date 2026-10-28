@@ -129,6 +129,7 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 			merge_patch(out.balance, fragment.balance)
 	errors.append_array(stage_label_errors(out.get("stages", {})))
 	errors.append_array(stage_map_errors(out.get("stages", {})))
+	errors.append_array(Ammo.schedule_errors(out.get("ammo", {})))
 	return out
 
 
