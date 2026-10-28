@@ -1,12 +1,8 @@
 extends TestCase
-## The creation Job page with the I/L Arch Mage (222) playable (spec #319, I11 #330). I/L is not playable in the shipped data until
-## I12, so these tests mirror the data with `DataRepo.patch` (the H9 #305 test seam) and drive the real page and SceneFlow through it.
-## The rows are the shipped playable jobs plus 222 in canonical order: [212, 222] today, [112, 212, 222] once Hero is on the branch
-## (Hero is added to the mirror only when its entry exists, so the same file covers both). The Job page needs the cache (Look OK
-## stays disabled without the hair and face columns), so only the data-level test runs in CI. Saves go to TestCase.test_dir().
+## The shipped I/L creation page: canonical job rows, selection, weapons and separate character slots.
+## Job-page tests need the cache because Look OK requires the hair/face columns. Data assertions run cache-free.
 
 const CREATE := preload("res://scenes/ui/character_create.gd")
-const IL_PATCH := {"jobs_survivor": {"jobs": {"222": {"playable": true}}}}
 
 var save_path := TestCase.test_dir("creation_il/save.json")
 var _nodes: Array[Node] = []
@@ -15,7 +11,7 @@ var _nodes: Array[Node] = []
 func before_each() -> void:
 	TestCase.remove_tree(save_path.get_base_dir())
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(save_path.get_base_dir()))
-	DataRepo.patch = _mirror()
+	DataRepo.patch = {}
 
 
 func after_each() -> void:
@@ -27,16 +23,7 @@ func after_each() -> void:
 	TestCase.remove_tree(save_path.get_base_dir())
 
 
-## The mirror: I/L playable, and every other job the branch ships a (still unplayable) entry for that I11 knows (Hero, 112).
-func _mirror() -> Dictionary:
-	var patch := IL_PATCH.duplicate(true)
-	var shipped := DataRepo.load_all()
-	if shipped.jobs_survivor.jobs.has("112"):
-		patch.jobs_survivor.jobs["112"] = {"playable": true}
-	return patch
-
-
-## The jobs the mirror makes playable, in canonical order.
+## The shipped playable jobs, in canonical order.
 func _expected() -> Array[int]:
 	return _tree().playable_jobs()
 
@@ -82,7 +69,7 @@ func _row(creation: Control, id: int) -> Button:
 	return creation.find_child("Job_%d" % id, true, false) as Button
 
 
-func test_the_mirror_makes_il_playable_in_canonical_order_and_the_shipped_data_does_not() -> void:
+func test_shipped_il_is_playable_in_canonical_order() -> void:
 	var tree := _tree()
 	assert_true(tree.job(222).playable)
 	var expected: Array[int] = [212, 222]
@@ -91,11 +78,6 @@ func test_the_mirror_makes_il_playable_in_canonical_order_and_the_shipped_data_d
 	assert_eq(tree.playable_jobs(), expected, "canonical order: I/L sits below F/P (Hero above it when the branch has Hero)")
 	assert_eq(tree.name_of(222), "Arch Mage (Ice, Lightning)", "the name is the canonical job list's")
 	assert_eq(tree.default_job(), 212, "F/P stays the default (Hero's pin on a branch that has it, canonical order here)")
-	DataRepo.patch = {}
-	var shipped := _tree()
-	assert_false(shipped.job(222).playable, "I11 does not flip playable (I12 does)")
-	assert_false(222 in shipped.playable_jobs())
-	assert_ne(shipped.job_error(222), "", "an unplayable job is refused by the tools")
 
 
 func test_rows_follow_the_playable_jobs_names_from_the_job_data_and_212_chosen() -> void:
@@ -201,13 +183,13 @@ func test_create_makes_an_i_l_with_its_wand_and_a_separate_f_p_in_the_next_slot(
 	assert_eq(flow.save.slot(0).character.tiers_unlocked, 1, "each job has its own tier ladder")
 
 
-func test_i_l_is_refused_again_when_the_mirror_is_removed() -> void:
+func test_i_l_is_refused_when_disabled_after_selection() -> void:
 	if not require_cache():
 		return
 	var flow := _flow()
 	var creation := _job_page(flow, "Refused01")
 	creation.select_job(222)
-	DataRepo.patch = {}
+	DataRepo.patch = {"jobs_survivor": {"jobs": {"222": {"playable": false}}}}
 	creation.create_button.pressed.emit()
 	assert_eq(creation.phase, "job", "still on the page")
 	assert_ne(String(creation.message.text), "", "the refusal is shown")

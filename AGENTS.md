@@ -240,11 +240,11 @@ the character's worn cash equipment and pet, and the HP ALERT level (`game/scrip
 the round has an empty account and records are byte-identical to before. The record and output names carry the file name.
 The committed fixtures are `game/tests/fixtures/accounts/full_pet.json` (pet and every upgrade; the smoke's "full account")
 and `full_cash_pet.json` (the same plus a cash item in all 11 slots; for dressed playtest screenshots).
-The committed `game/tests/fixtures/characters/fp_arch_mage.json` is the character fixture: a format-3 Arch Mage (F/P)
+The committed `game/tests/fixtures/characters/fp_arch_mage.json` is the F/P character fixture: a format-3 Arch Mage (F/P)
 with tier 2 unlocked and the tier-1 equipment kit worn (a reqLevel-25 staff, reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15
 gloves, unscrolled); its `_doc` records the kit ids, label and revision, and `game/tools/character_fixture.gd --kit=<ids>
 --tiers=2` reproduces it (`game/tests/fixtures/characters/README.md`). Its I/L twin `il_arch_mage_t2.json` (job 222, spec #319 I11:
-the same kit and tier 2) was made with `--job=222 --patch=<playable patch>` while I/L is not yet `playable`, and its `_doc.patch` names
+the same kit and tier 2) was made with `--job=222 --patch=<playable patch>` before I12 enabled I/L, and its `_doc.patch` names
 the patch file; `--hub --job=222` opens it, `--character=<it>` runs an I/L (a `--job=212` with it fails). The same tool can also write
 the character a real bot round leaves behind, and converts old files.
 
@@ -275,9 +275,7 @@ Use focused filters excluding `full_run` while tuning; freeze data and pacing wi
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
 `--job=<id>` names the character's job in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd` and the fixture tool (ADR 0006:
-a character has one job, chosen at creation, and it never changes). Only a playable job is accepted (212 today; the I/L Arch Mage, 222, once its last ticket (I12, spec #319) flips `playable`: until
-then `balance_run.gd` and `character_fixture.gd` take `--patch=<JSON>` with `{"jobs_survivor": {"jobs": {"222": {"playable": true}}}}`,
-`balance.sh` as `PATCH=<file>`, and tests mirror it with `DataRepo.patch`); anything
+a character has one job, chosen at creation, and it never changes). Only a playable job is accepted (212, the default F/P Arch Mage, and 222, the I/L Arch Mage); anything
 else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`, `SceneFlow.forced_job_error`), and a
 `--character` whose job disagrees fails. `--branch=<id>` is the deprecated alias. There is no advancement, so records have no
 `branch`, `forced_branch`, `job_t` or `job_times`; they carry the job id (`jobs` in the summary) and, from #293, `picks`
