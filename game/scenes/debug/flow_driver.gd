@@ -582,6 +582,13 @@ func _answer_choices(run: RunScene) -> bool:
 			if wanted:
 				index = i
 				break
+		# Direct warp picks can queue further choice_pending events. They describe older offers by the
+		# time we showcase this one; do not let RunScene._process reopen one over the live cards.
+		run.handle_events(w.drain_events().filter(func(e: Dictionary) -> bool:
+			return String(e.type) != "choice_pending"))
+		run._pending_window = {}
+		if run.window != null:
+			run._close_window()
 		run.handle_events([{"type": "choice_pending", "cards": cards, "bonus": bonus}])
 		run.set_process(true)
 		if not await _until(func() -> bool: return run.window is LevelUpWindow and (run.window as MapleWindow).is_open(),

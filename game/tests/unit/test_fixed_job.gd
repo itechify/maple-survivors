@@ -36,7 +36,7 @@ func test_tool_job_flag_names_a_whole_playable_job() -> void:
 	JobTree.put_job(options, "212")
 	assert_eq(SceneFlow.forced_job_error(options, data), "")
 	JobTree.put_job(options, "210")
-	assert_ne(SceneFlow.forced_job_error(options, data), "", "a second job is not playable any more")
+	assert_ne(SceneFlow.forced_job_error(options, data), "", "the unported F/P second job is not selectable")
 	JobTree.put_job(options, "100:spear")
 	assert_ne(SceneFlow.forced_job_error(options, data), "")
 	assert_eq(SceneFlow.forced_job_error({}, data), "", "no --job is fine")

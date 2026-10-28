@@ -70,3 +70,26 @@ func test_balance_explicit_empty_character_flag_is_an_error() -> void:
 	assert_eq(status, 1)
 	assert_true("\n".join(output).contains("balance_run: character"))
 	assert_false("\n".join(output).contains("BALANCE "))
+
+
+func test_hero_fixture_is_format_three_from_a_diagnostic_tier_one_clear() -> void:
+	var errors := PackedStringArray()
+	var character := DataRepo.load_character("res://tests/fixtures/characters/hero_t2.json", errors)
+	assert_eq(errors, PackedStringArray())
+	assert_false(character.is_empty())
+	if character.is_empty():
+		return
+	assert_eq(int(character.format), 3)
+	assert_eq(int(character.job_id), 112)
+	assert_eq(int(character.tiers_unlocked), 2)
+	assert_eq(CharacterSnapshot.validation_error(character), "")
+	assert_true(WeaponInfo.family(int(character.equipment.worn.weapon.id)) in ["sword", "axe"])
+	assert_eq(character._doc.stage, "henesys")
+	assert_eq(int(character._doc.seed), 1)
+	assert_eq(character._doc.policy, "bot")
+	assert_eq(character._doc.outcome, "CLEARED")
+	assert_true(character._doc.invulnerable, "diagnostic fixture, never survival evidence")
+	assert_eq(String(character._doc.revision).length(), 40)
+	assert_false(character._doc.has("patch"), "Hero is shipped playable")
+	for gone: String in ["level", "exp", "skills", "card_ranks", "attributes", "base_hp"]:
+		assert_false(character.has(gone), "the fixture carries no " + gone)
