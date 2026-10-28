@@ -275,7 +275,7 @@ func test_stat_window_shows_the_sims_v83_stats() -> void:
 	if sw == null:
 		return
 	assert_eq(sw.value_text("name"), RunScene.DEFAULT_NAME, "the character name placeholder")
-	assert_eq(sw.value_text("job"), "Arch Mage (Fire, Poison)", "a fresh character is the only playable job, 212")
+	assert_eq(sw.value_text("job"), "Arch Mage (Fire, Poison)", "a fresh character is the default job, 212")
 	assert_eq(sw.value_text("level"), str(int(ps.level)))
 	assert_eq(sw.value_text("hp"), "%d / %d" % [int(ps.hp), int(ps.max_hp)])
 	assert_eq(sw.value_text("mp"), "-", "no MP row value (no MP, #285)")

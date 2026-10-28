@@ -19,6 +19,9 @@ extends SceneTree
 ## time cap: the round stops there and only has to be alive and warning-free; without it the round must clear).
 ## `--god` is a documented diagnostic aid: RunWorld.god makes the character invulnerable, so the bot can reach a clear its
 ## play does not survive to; use it with a round, and the fixture's _doc records it (`invulnerable` and `diagnostic`).
+## `--patch=<absolute JSON path>` deep-merges a JSON patch into the loaded data first, as balance_run does: Hero is `playable: false`
+## until the spec #296 QA ticket, so a Hero fixture is made with `--patch` of `{"jobs_survivor": {"jobs": {"112": {"playable":
+## true}}}}` until then (the fixture's _doc records the patch file name).
 ## `--exp-mult=<k>` multiplies the round's EXP (balance `exp_mult`); recorded in the _doc as well.
 ## Only numeric character state/IDs and provenance are written; never cache trees or decoded assets.
 
@@ -37,6 +40,7 @@ func _init() -> void:
 	var label := "spec32/ticket-67"
 	var kit := ""
 	var tiers := 1
+	var patch_file := ""
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="):
 			output = arg.substr(6)
@@ -60,6 +64,8 @@ func _init() -> void:
 			kit = arg.substr(6)
 		elif arg.begins_with("--tiers="):
 			tiers = int(arg.substr(8))
+		elif arg.begins_with("--patch="):
+			patch_file = arg.substr(8)
 	if output != "" and migrate != "":
 		_migrate(migrate, output)
 		return
@@ -68,6 +74,13 @@ func _init() -> void:
 		quit(2)
 		return
 	var data := DataRepo.load_all()
+	if patch_file != "":
+		var patch: Variant = JSON.parse_string(FileAccess.get_file_as_string(patch_file))
+		if not (patch is Dictionary):
+			print("character_fixture: cannot read the patch %s" % patch_file)
+			quit(1)
+			return
+		HARNESS.deep_merge(data, patch)
 	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
 	if job == -2:
 		job = jobs.default_job()
@@ -80,7 +93,7 @@ func _init() -> void:
 	library.open()
 	var missing := PackedStringArray()
 	if kit != "":
-		_kit(kit, tiers, job, output, revision, label, seed_value, data, library)
+		_kit(kit, tiers, job, output, revision, label, seed_value, data, library, patch_file)
 		return
 	var setup := DataRepo.build_setup(data, "henesys", seed_value, Vector2(800, 600),
 		func(path: String) -> Dictionary:
@@ -114,6 +127,8 @@ func _init() -> void:
 		"branch": label, "revision": revision,
 		"outcome": record.state, "round_seconds": record.time,
 		"rounding": "floating character fields rounded to six decimal places"}
+	if patch_file != "":
+		character._doc["patch"] = patch_file.get_file()
 	if god:
 		character._doc["invulnerable"] = true
 		character._doc["source"] = "real headless Henesys bot round with the character invulnerable (RunWorld.god)" + (", stopped at the %d s cap" % int(seconds) if seconds > 0.0 else ", all bosses/reward choices completed")
@@ -136,7 +151,7 @@ func _init() -> void:
 
 ## A fresh Lv1 character of `job` wearing the equipment ids in `kit` (a comma list), `tiers` tiers unlocked, written to `output`.
 func _kit(kit: String, tiers: int, job: int, output: String, revision: String, label: String, seed_value: int,
-		data: Dictionary, library: AssetLibrary) -> void:
+		data: Dictionary, library: AssetLibrary, patch_file := "") -> void:
 	var missing := PackedStringArray()
 	var setup := DataRepo.build_setup(data, "henesys", seed_value, Vector2(800, 600),
 		func(path: String) -> Dictionary:
@@ -166,6 +181,8 @@ func _kit(kit: String, tiers: int, job: int, output: String, revision: String, l
 	character["_doc"] = {"by": label, "revision": revision, "job": job, "kit": ids,
 		"note": "Synthetic format-3 kit (tools/character_fixture.gd --kit): unscrolled canonical equipment of the Lv0-30 tier-1 "
 			+ "drop band and tier %d unlocked, no cash, pet or carried build; a Lv1 character for the Sleepywood checks." % tiers}
+	if patch_file != "":
+		character._doc["patch"] = patch_file.get_file()
 	var file := FileAccess.open(output, FileAccess.WRITE)
 	if file == null:
 		print("character_fixture: cannot write " + output)

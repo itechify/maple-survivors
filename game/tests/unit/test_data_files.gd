@@ -358,8 +358,10 @@ func test_jobs_and_balance() -> void:
 	var tree := JobTree.from_data(data.jobs, data.jobs_survivor)
 	for k: String in data.jobs_survivor.jobs:
 		assert_false(tree.job(int(k)).is_empty(), "survivor job %s exists in the canonical tree" % k)
-	# #284 (ADR 0006): one fixed job; F/P Arch Mage is the only playable job until the next line is ported.
-	assert_eq(tree.playable_jobs(), [212] as Array[int])
+	# #284 (ADR 0006): one fixed job per character. The F/P Arch Mage is playable; Hero (112) becomes playable in H10 (#306, spec #296),
+	# so this names the jobs instead of listing every playable one.
+	assert_true(tree.job(212).playable, "212 is playable")
+	assert_eq(tree.default_job(), 212)
 	for id: int in [0, 100, 110, 200, 210, 220, 230, 300, 400, 500, 510, 520]:
 		assert_false(tree.job(id).playable, "%d is not playable" % id)
 	for k: String in data.jobs_survivor.jobs:
