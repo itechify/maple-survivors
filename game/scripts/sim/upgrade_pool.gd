@@ -25,7 +25,7 @@ const PASSIVE_REGEN_HP := "regen_hp"
 const PASSIVE_PREVIEW_KEYS := [PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 ## Effective opt-in mechanic values; fall-off is displayed as percentage points per later target.
 const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff"]
-## Skill modifier stats a skill_mod card previews. Each is its own skill_mod_changes key, except "count", which is
+## Active rarity-bonus stats a card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
 const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
@@ -72,7 +72,7 @@ func card(id: String) -> Dictionary:
 	return _by_id.get(id, {})
 
 
-## Consumed rank/modifier steps of card `id`; a one-time learn card consumes one.
+## Number of picks consumed by card `id`, including repeat Mastery picks.
 func rank(id: String, state: RunWorld) -> int:
 	return int(state.loadout.card_ranks.get(id, 0))
 
@@ -193,7 +193,7 @@ static func is_power(c: Dictionary) -> bool:
 ## {before, after} for PREVIEW_FIELDS; mastery is a percent, other values are original WZ numbers; a survivor per-level
 ## passive shows only its own stat in percent), skill_effect_stat (the skill's
 ## skills.json buff `stat`, e.g. "hp" for Recovery; "" for other skills),
-## skill_mod_changes (skill_mod cards on an owned skill: effective value -> {before, after} once all the card's steps
+## skill_mod_changes (rarity bonuses: effective value -> {before, after} once the bonus effects
 ## are taken, keys as MOD_PREVIEW names them: shots / targets / attack_count / pierce / speed / range (whole numbers), cooldown
 ## (seconds between casts as SkillRunner.restart_cooldown counts them, two decimals), area / damage / crit (percent);
 ## {} otherwise)}.

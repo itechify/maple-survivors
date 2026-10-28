@@ -385,7 +385,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 |---|---|
 | `skill_ground` | `skill`, `pos`, `box`, `effect`, `duration`: anchored area art |
 | `summon_spawn` | `skill`, `slot`: new player ally |
-| `summon_attack` | `skill`, `slot`, `action`: ally attack animation |
+| `summon_attack` | `skill`, `slot`, `pos`: ally attack animation |
 | `cast` | `skill`, `skill_id`, `level`, `pos`, `facing`, `action` (body stance to play when standing, e.g. `"swingO1"`), `effect` (WZ path of the caster effect or `""`) |
 | `boss_skill` | `mob`, `mob_id`, `skill_id`, `level` (ints), `pos` (boss feet Vector2), `facing` (int), `action`, `effect`, `player_effect`, `summon_effect`, `recipient_effect` (Strings; WZ paths or empty), `duration` (float seconds), `targets` (Array of int mob slots receiving buffs or summoned; empty for delayed heal); emitted at cast/stance/effect initiation, with delayed healing later reported as `mob_healed` |
 | `player_banished` | `mob`, `mob_id`, `skill_id`, `level` (ints), `from`, `pos` (the character's feet before and after, Vector2), `effect` (WZ path of the `affected` art or `""`), `message` (notice text or `""`); a boss's Banish (MobSkill 129, #256) moved the character to a random `sp` portal of the current map; emitted before that cast's `boss_skill`, after the pet's `pet_teleported` when a pet is out |

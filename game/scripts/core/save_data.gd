@@ -321,10 +321,11 @@ func delete_slot(index: int, date: String) -> Error:
 	return _commit(data)
 
 
-## The canonical name of a job id (jobs.json), or the id as text when it has none.
+## Immutable canonical names, loaded once per process.
 static var _job_names: Dictionary = {}
 
 
+## The canonical name of a job id, or the id as text when unknown.
 static func job_name_of(job_id: int) -> String:
 	if _job_names.is_empty():
 		for job: Dictionary in DataRepo.load_all().jobs.get("jobs", []):
