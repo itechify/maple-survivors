@@ -196,7 +196,7 @@ func test_skill_hotkey_opens_the_skill_window_and_routes_the_keys_to_it() -> voi
 	scene = _make(13, {"autoplay": true, "autopick": true})
 	var w := scene.world
 	_frames(10)
-	w.change_job(200)
+	RF.as_job(w, 200)
 	w.upgrades.apply("magic_claw_new", w)
 	w.upgrades.apply("magic_claw_targets", w)
 	var t := w.time
@@ -210,8 +210,8 @@ func test_skill_hotkey_opens_the_skill_window_and_routes_the_keys_to_it() -> voi
 	var names := []
 	for tab: Dictionary in sw.model.tabs:
 		names.append(String(tab.name))
-	assert_eq(names, ["Beginner", "Magician"], "the job path, with no star tab")
-	assert_eq(sw.tab, 1, "on the current job's tab")
+	assert_eq(names, ["Magician"], "the job line, with no Beginner or star tab")
+	assert_eq(sw.tab, 0, "on the current job's tab")
 	assert_true(scene.handle_hotkey(_key(KEY_DOWN)), "the run hands arrows to the top window")
 	var claw_row := -1
 	for i in sw.rows().size():
@@ -223,8 +223,8 @@ func test_skill_hotkey_opens_the_skill_window_and_routes_the_keys_to_it() -> voi
 	assert_eq(tip.get("key"), "magic_claw")
 	assert_eq(tip.upgrades[0].text, "Twin Claw ×1: +1 target", "the real card's Upgrades line")
 	assert_false("canonical" in String(tip.desc) + String(tip.current) + String(tip.next), "player-visible text")
-	scene.handle_hotkey(_key(KEY_3))
-	assert_eq(sw.tab, 1, "3: there is no third tab (the star tab is gone), so the tab is unchanged")
+	scene.handle_hotkey(_key(KEY_2))
+	assert_eq(sw.tab, 0, "2: there is no second tab (no Beginner or star tab), so the tab is unchanged")
 	scene.handle_hotkey(_key(KEY_ESCAPE))
 	assert_false(scene.ui_windows.has_windows(), "Esc closed it")
 	assert_false(scene.paused)
@@ -274,7 +274,7 @@ func test_stat_window_shows_the_sims_v83_stats() -> void:
 	if sw == null:
 		return
 	assert_eq(sw.value_text("name"), RunScene.DEFAULT_NAME, "the character name placeholder")
-	assert_eq(sw.value_text("job"), "Beginner")
+	assert_eq(sw.value_text("job"), "Arch Mage (Fire, Poison)", "a fresh character is the only playable job, 212")
 	assert_eq(sw.value_text("level"), str(int(ps.level)))
 	assert_eq(sw.value_text("hp"), "%d / %d" % [int(ps.hp), int(ps.max_hp)])
 	assert_eq(sw.value_text("mp"), "-", "no MP row value (no MP, #285)")

@@ -4,6 +4,8 @@ extends Node
 ## ISOLATE=s166-t201-visual MAPLE_SURVIVORS_CACHE=<private cache> bash scripts/run.sh \
 ##   res://scenes/debug/bowman_equipment_driver.tscn -- --shots=<absolute evidence directory>
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 var shots := ""
 
 
@@ -24,7 +26,7 @@ func _drive() -> void:
 	var w := run.world
 	w.god = true
 	w.progression.level = 10
-	w.change_job(300, "bow")
+	RF.as_job(w, 300, "bow")
 	# tier C: diagnostic placement clear of the west portal beam, on the same floor as the drop.
 	var floor_id := w.fhm.find_below(-150.0, 100.0)
 	w.player.place(Vector2(-150.0, w.fhm.y_at(floor_id, -150.0)), w.fhm)

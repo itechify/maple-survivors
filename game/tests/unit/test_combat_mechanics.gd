@@ -81,7 +81,7 @@ func test_knockback_rolls_only_stream_one_once_per_nonboss_hit() -> void:
 		control.hit_mob(c, control.loadout.stats("synthetic"), -1)
 		control.rng.randf()
 	assert_eq(w.rng.state, control.rng.state)
-	for stream: String in ["basic_rng", "final_rng", "spawn_rng", "drop_rng", "card_rng", "job_rng",
+	for stream: String in ["final_rng", "spawn_rng", "drop_rng", "card_rng",
 			"potion_rng", "meso_rng", "equip_rng", "scroll_rng", "reward_rng", "pirate_rng"]:
 		assert_eq((w.get(stream) as RandomNumberGenerator).state,
 			(control.get(stream) as RandomNumberGenerator).state, stream)

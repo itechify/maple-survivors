@@ -117,7 +117,7 @@ func pulse_hp() -> float:
 
 
 ## Advances each owned periodic_recovery skill's canonical interval; returns the HP due, independently of shared regen.
-## A weapon-gated recovery pauses while unusable. Rank changes preserve elapsed seconds; a new round starts fresh.
+## Rank changes preserve elapsed seconds; a new round starts fresh.
 func periodic_recovery(dt: float, loadout: Loadout) -> float:
 	if _recovery_version != loadout.version:
 		var next := {}
@@ -135,8 +135,6 @@ func periodic_recovery(dt: float, loadout: Loadout) -> float:
 		_recovery_version = loadout.version
 	var due := 0.0
 	for key: String in _recoveries:
-		if not loadout.book.usable_with(key, loadout.weapon_family):
-			continue
 		var clock: Dictionary = _recoveries[key]
 		clock.elapsed += dt
 		while float(clock.elapsed) >= float(clock.interval) - _EPS:

@@ -1,5 +1,6 @@
 extends TestCase
-## Hunter #202: seeded advancement, real-data skill contracts and fixed-tick combat through public interfaces.
+## Hunter #202: real-data skill contracts and fixed-tick combat through public interfaces. The Hunter is set up directly
+## (#284: no advancement), with the HP/MP the removed Bowman and Hunter grants used to add in its base pools.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -8,13 +9,14 @@ const KEYS := ["bow_mastery", "final_attack_bow", "bow_booster", "power_knockbac
 
 func _world() -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.balance.player.hp = 50 + 125 + 325
 	var setup := RF.with_basic_attack(RF.setup("quiet", 202, data))
 	setup.equipment_info.merge({1452051: {"incPAD": 28, "attackSpeed": 6, "tuc": 7},
 		1462001: {"incPAD": 29, "attackSpeed": 6, "tuc": 7},
 		1452005: {"incPAD": 45, "attackSpeed": 6, "tuc": 7}}, true)
 	var w := RunWorld.new(setup)
-	w.change_job(300, "bow")
+	RF.as_job(w, 300, "bow")
 	# Weapon-switch tests own an acquired crossbow; it is no longer an advancement spare.
 	w.equipment.inventory.append(Equipment.create(1462001, setup.equipment_info[1462001]))
 	RF.place_player(w, 400)
@@ -26,32 +28,10 @@ func _ids(w: RunWorld) -> Array:
 	return w.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
 
 
-func test_hunter_advancement_wears_ryden_from_either_family_and_grants_pools() -> void:
-	for crossbow in [false, true]:
-		var w := _world()
-		if crossbow:
-			assert_eq(w.equip_item(_ids(w).find(1462001)), "")
-		w.progression.level = 29
-		w.progression.add_exp(w.progression.exp_to_next())
-		w.step(DT, MoveInput.new())
-		assert_eq(w.state, RunWorld.CHOOSING_JOB)
-		var hp: int = w.player_state.max_hp
-		assert_true(w.apply_job(310))
-		assert_eq(w.weapon_id(), 1452005)
-		assert_has(_ids(w), 1462001 if crossbow else 1452051)
-		assert_eq(w.player_state.max_hp, hp + 325)
-		var cards := w.pending_cards.map(func(c: Dictionary) -> String: return c.id)
-		assert_has(cards, "power_knockback_bow_new")
-		assert_has(cards, "arrow_bomb_new")
-		assert_true(w.pending_cards.all(func(c: Dictionary) -> bool: return int(w.book.def(c.skill).job) == 310))
-	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=310"]))
-	assert_eq(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()), "")
-
-
 func test_power_knockback_formula_uses_150_divisor_and_fixed_mastery() -> void:
 	var w := _world()
 	w.progression.level = 30
-	w.change_job(310)
+	RF.as_job(w, 310)
 	assert_true(w.learn_skill("power_knockback_bow"))
 	w.loadout.str_stat = 35
 	w.loadout.dex_stat = 100
@@ -68,7 +48,7 @@ func test_power_knockback_formula_uses_150_divisor_and_fixed_mastery() -> void:
 func _hunter(key := "", rank_value := 1) -> RunWorld:
 	var w := _world()
 	w.progression.level = 30
-	w.change_job(310)
+	RF.as_job(w, 310)
 	for kind: MobKind in w.mob_kinds:
 		kind.move_speed = 0
 		kind.hitbox = Rect2(-2, -10, 4, 10)
@@ -157,9 +137,8 @@ func test_booster_refuses_lethal_hp_then_pays_hp_and_recasts() -> void:
 	assert_eq(w.attack_speed_boost(), 2, "refresh never stacks")
 
 
-func test_mastery_final_attack_and_crossbow_swap_gate_every_hunter_skill_card_and_window_row() -> void:
+func test_mastery_final_attack_and_a_crossbow_swap_keeps_every_hunter_skill_and_card() -> void:
 	var w := _hunter()
-	var model := SkillWindowModel.new(w.book, w.upgrades, w.loadout, w.jobs, 310, SkillText.new(w.book), w.held_weapon_family)
 	for key: String in KEYS:
 		assert_has(w.upgrades.eligible(w), key + "_new")
 		assert_true(w.learn_skill(key))
@@ -179,23 +158,13 @@ func test_mastery_final_attack_and_crossbow_swap_gate_every_hunter_skill_card_an
 	w.refresh_player_stats()
 	for key: String in KEYS:
 		assert_has(w.upgrades.eligible(w), key + "_rank")
+	# #284: weapons gate no skill, card or passive: with a crossbow every Hunter skill still counts and stays on offer.
+	var mastery := w.loadout.mastery
 	assert_eq(w.equip_item(_ids(w).find(1462001)), "")
-	assert_near(w.loadout.mastery, 0.1)
-	assert_near(w.loadout.passive_total("acc"), 0)
-	assert_eq(w.attack_speed_boost(), 0)
+	assert_near(w.loadout.mastery, mastery, 1e-6, "Bow Mastery counts with a crossbow")
 	for key: String in KEYS:
-		assert_false(model.usable(key), "Skill window greys " + key)
-		assert_false(model.skill_tooltip(key).usable)
-		assert_eq(w.book.weapon_families(key), PackedStringArray(["bow"]))
-	for card: Dictionary in w.upgrades.cards:
-		if String(card.get("skill", "")) in KEYS:
-			assert_false(String(card.id) in w.upgrades.eligible(w), "no Hunter card with crossbow held")
-	var casts := w.runner.casts
-	w.drain_events()
-	for tick in 100:
-		w.step(DT, MoveInput.new())
-	assert_eq(w.runner.casts, casts)
-	assert_false(w.drain_events().any(func(e: Dictionary) -> bool: return e.type == "final_attack"))
+		assert_eq(w.book.weapon_families(key), PackedStringArray(["bow"]), "the data still names the bow")
+		assert_has(w.upgrades.eligible(w), key + "_rank")
 	assert_false(w.book.defs.values().any(func(d: Dictionary) -> bool: return int(d.get("skill_id", 0)) in [3101004, 3201004]))
 
 
@@ -232,7 +201,7 @@ func test_behavior_cards_add_targets_and_arrows_using_shared_rarity_magnitudes()
 func test_arrow_schedule_changes_at_30_40_50_announces_and_catches_up_on_advancement() -> void:
 	var w := _world()
 	w.progression.level = 50
-	w.change_job(310)
+	RF.as_job(w, 310)
 	assert_eq(w.ammo_id(), 2060003, "late advancement chooses highest reached tier")
 	w.drain_events()
 	for row: Array in [[29,2060000],[30,2060001],[39,2060001],[40,2060002],[49,2060002],[50,2060003]]:

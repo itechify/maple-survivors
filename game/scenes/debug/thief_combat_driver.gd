@@ -3,6 +3,8 @@ extends Node
 ## --shots=<absolute evidence dir>. Diagnostic setup: direct job grants, rank 10 attacks, god mode, stationary durable
 ## mobs, disabled basic attack and held waves. Fixed ticks capture the actual cast/flight, including level-up ammo events.
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 const DT := 1.0 / 60.0
 # tier C: diagnostic placements, ranks, timing and seeds only; no survivor tuning.
 const SCENARIOS := {
@@ -51,10 +53,10 @@ func _scenario(key: String) -> Dictionary:
 	var w := run.world
 	w.god = true
 	w.progression.level = 10
-	w.change_job(400, String(spec.path))
+	RF.as_job(w, 400, String(spec.path))
 	if int(spec.job) != 400:
 		w.progression.level = 30
-		w.change_job(int(spec.job))
+		RF.as_job(w, int(spec.job))
 	w.progression.level = int(spec.level) - 1 if spec.get("upgrade", false) else int(spec.level)
 	w.pending_cards.clear()
 	w.state = RunWorld.PLAYING
@@ -87,7 +89,6 @@ func _scenario(key: String) -> Dictionary:
 	var mf := w.fhm.find_below(mx, w.player.pos.y - 5.0)
 	var m := w.spawn_mob(0, Vector2(mx, w.fhm.y_at(mf, mx)), mf, 10000.0, false)
 	w.swarm.alpha[m] = 1.0
-	w.basic.cooldown = 10000.0
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 	run.handle_events(w.drain_events())
 	# Settle camera/presentation without advancing waves or casting before capture.

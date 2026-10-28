@@ -21,7 +21,7 @@ const INFO := {
 func _setup(character: Dictionary = {}) -> Dictionary:
 	var setup := RF.setup("quiet", 7, RF.quiet_data())
 	setup.equipment_info = INFO.duplicate(true)
-	setup.data.balance.player.skills = []
+	setup.data.jobs_survivor.jobs["212"]["start_skills"] = []
 	if not character.is_empty():
 		setup.character = character
 	return setup

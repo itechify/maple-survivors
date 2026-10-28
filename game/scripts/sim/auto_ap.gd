@@ -1,7 +1,7 @@
 class_name AutoAp
 ## Automatic AP split (spec #33 ticket #106, docs/GAME_DESIGN.md section 11): the earned AP of a character goes first
 ## into a job line's secondary stat until that stat's base value reaches the target for the character's level, and the
-## rest goes to the primary stat. Pure static functions; the targets come from balance.json `player.ap_secondary`.
+## rest goes to the primary stat. Pure static functions; the rows come from balance.json `player.ap` (one per job, #284).
 
 ## Target of the secondary stat at `level`: linear keyframes of `[{level, target}, ...]` (sorted by level), floored;
 ## held at the first and last keyframe outside their range. No keyframes gives 0.

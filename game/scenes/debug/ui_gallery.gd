@@ -6,21 +6,12 @@ extends Node2D
 ##
 ## --window=<name>:
 ##   levelup         level-up choice (3 cards)          levelup_missing  cards with "" / missing icons, long texts
-##   levelup_rank    rank previews: Energy Bolt 4 -> 5, Nimble Feet 1 -> 2 (Speed), Magic Armor 1 -> 2 (Weapon DEF)
+##   levelup_rank    rank previews: Energy Bolt 4 -> 5, Magic Claw 1 -> 2, Magic Armor 1 -> 2 (Weapon DEF)
 ##   levelup_tiers   Normal / Rare / Epic previews from the real upgrade pool
 ##   levelup_high    Unique / Legendary rank and new-skill previews; --bonus shows the boss-reward heading
 ##   levelup_dense   the longest current rank previews (description prose compacts to fit; values stay visible)
-##   levelup_text    v83 skill text on a learn (Nimble Feet), a rank (Recovery) and a mod card (Additional Shell)
+##   levelup_text    v83 skill text on a learn (Fire Arrow), a rank (Poison Breath) and a mod card (Energy Bolt)
 ##   levelup_text_mage  the same for Magic Armor (learn), Energy Bolt 4 -> 5 (rank) and Twin Claw 2 -> 3 (mod)
-##   job             job advancement at Lv. 8 (Magician available, the others locked)
-##   job10           at Lv. 10 (the others "Not in this build")       job_none  Lv. 30 Magician, nothing available
-##   job_confirm     the confirmation line after picking Magician      pause     pause menu
-##   job_paths       Lv. 10 with the shipped Thief weapon paths made playable by a test-only override (spec #151 #157)
-##   job_pirate      shipping Pirate paths at Lv. 10 with Kyrin (#186)
-##   job_pirate30    the shipping Lv. 30 Pirate window: Brawler and Gunslinger (#189)
-##   job_pages       the two-page job window from the real job tree (spec #226): --from=<job id> --level=<n>
-##                   --held=<family> choose the options, --pick=<job id> presses that job (weapon page or confirmation),
-##                   --pick-path=<family> then presses that family, --focus=<i> focuses an entry
 ##   options         the Options window (BGM, SOUND, FRAME CAP, MOVE KEYS, HP ALERT) with default settings
 ##   title | stage_select | results | results_dead | import            the menu screens (sample data)
 ##   flow            the real scene flow end to end (Flow autoload, this node as its host): title -> stage select ->
@@ -55,25 +46,6 @@ const MISSING_CARDS := [
 		"icon": "", "rank": 3, "max_rank": 5},
 	{"id": "elixir", "kind": "filler", "skill": "", "name": "Elixir", "desc": "Recover 50% of max HP.",
 		"icon": "Item.wz/Consume/0200.img/02000004/info/icon", "rank": 1, "max_rank": 0},
-]
-const JOB8 := [
-	{"job_id": 200, "name": "Magician", "available": true, "reason": ""},
-	{"job_id": 100, "name": "Warrior", "available": false, "reason": "Lv. 10"},
-	{"job_id": 300, "name": "Bowman", "available": false, "reason": "Lv. 10"},
-	{"job_id": 400, "name": "Thief", "available": false, "reason": "Lv. 10"},
-	{"job_id": 500, "name": "Pirate", "available": false, "reason": "Lv. 10"},
-]
-const JOB10 := [
-	{"job_id": 200, "name": "Magician", "available": true, "reason": ""},
-	{"job_id": 100, "name": "Warrior", "available": false, "reason": "Not in this build"},
-	{"job_id": 300, "name": "Bowman", "available": false, "reason": "Not in this build"},
-	{"job_id": 400, "name": "Thief", "available": false, "reason": "Not in this build"},
-	{"job_id": 500, "name": "Pirate", "available": false, "reason": "Not in this build"},
-]
-const JOB30 := [
-	{"job_id": 210, "name": "Wizard (Fire, Poison)", "available": false, "reason": "Phase 2"},
-	{"job_id": 220, "name": "Wizard (Ice, Lightning)", "available": false, "reason": "Not yet available"},
-	{"job_id": 230, "name": "Cleric", "available": false, "reason": "Not yet available"},
 ]
 const SCREENS := {
 	"title": "res://scenes/ui/title_screen.tscn",
@@ -210,59 +182,6 @@ func _show_window(which: String) -> void:
 			window = w
 			if args.has("focus"):
 				w.set_focus(int(args.focus))
-		"job_pages":
-			# Spec #226 (#231): the two-page window from the real job tree. --from=<job id> --level=<n> --held=<family>
-			# pick the options, --pick=<job id> presses that job on page 1 (the weapon page opens for a multi-family
-			# job, the confirmation otherwise), --pick-path=<family> then presses that family.
-			var w := JobAdvanceWindow.new()
-			layer.add_child(w)
-			var data := DataRepo.load_all()
-			var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
-			var from := int(args.get("from", 0))
-			var lvl := int(args.get("level", 10))
-			w.confirm_seconds = 999.0
-			w.open(jobs.advancements(from, lvl, str(args.get("held", ""))), lvl, from)
-			w.job_chosen.connect(func(id: int) -> void: print("ui_gallery: job_chosen ", id, " ", w.picked_path))
-			w.declined.connect(func() -> void: print("ui_gallery: declined"))
-			if args.has("pick"):
-				for i in w.entries.size():
-					if int(w.entries[i].job_id) == int(args.pick):
-						w.select(i)
-						break
-			if args.has("pick-path"):
-				for i in w.entries.size():
-					if str(w.entries[i].path) == str(args["pick-path"]):
-						w.select(i)
-						break
-			if args.has("focus"):
-				w.set_focus(int(args.focus))
-			window = w
-		"job", "job10", "job_none", "job_confirm", "job_paths", "job_pirate", "job_pirate30":
-			var w := JobAdvanceWindow.new()
-			layer.add_child(w)
-			match which:
-				"job10":
-					w.open(JOB10, 10, 0)
-				"job_paths":
-					w.open(_playable_thief_options(), 10, 0)
-				"job_pirate":
-					var data := DataRepo.load_all()
-					var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
-					w.open(jobs.advancements(0, 10).filter(func(o: Dictionary) -> bool: return int(o.job_id) == 500), 10, 0)
-				"job_pirate30":
-					var data := DataRepo.load_all()
-					var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
-					w.open(jobs.advancements(500, 30), 30, 500)
-				"job_none":
-					w.open(JOB30, 30, 200)
-				_:
-					w.open(JOB8, 8, 0)
-			w.job_chosen.connect(func(id: int) -> void: print("ui_gallery: job_chosen ", id))
-			w.declined.connect(func() -> void: print("ui_gallery: declined"))
-			if which == "job_confirm":
-				w.confirm_seconds = 999.0
-				w.select(0)
-			window = w
 		"ammo":
 			# #155: an Assassin reaches Lv 55 and the throwing stars become Ilbi: the real notice, and the Equip window
 			# with the claw's tooltip listing the ammo (the real world and events, the real String.wz names).
@@ -312,36 +231,29 @@ func _ammo_world() -> RunWorld:
 	var setup := {"data": data, "seed": 3, "equipment_info": DataRepo.equipment_info(ids, loader),
 		"ammo_info": DataRepo.ammo_info(data.ammo, loader)}
 	var world := RunWorld.new(setup)
-	world.change_job(410)
+	world.set_job(410)
+	world.wear_new_item(1472008)
 	world.progression.level = 54
-	world.progression.job_id = 410
 	world.refresh_player_stats(false)
 	world.drain_events()
 	return world
-
-
-## The Lv. 10 advancement options with the shipped Thief row made playable (test-only override; the build keeps it locked).
-func _playable_thief_options() -> Array:
-	var data := DataRepo.load_all()
-	data.jobs_survivor.jobs["400"].playable = true
-	return JobTree.from_data(data.jobs, data.jobs_survivor).advancements(0, 10)
 
 
 func _rank_cards() -> Array:
 	var imgs := {}
 	var lib := UiArt.lib()
 	if lib != null:
-		for book: String in ["000", "200"]:
+		for book: String in ["200", "210"]:
 			var img := lib.img(DataRepo.skill_img_path(book))
 			if img != null:
 				imgs[book] = img.root
 	# The real choice-card boundary supplies the preview; no hard-coded WZ values in the gallery.
 	var world := RunWorld.new({"data": DataRepo.load_all(), "skill_imgs": imgs, "seed": 14})
-	for skill: String in ["energy_bolt", "nimble_feet", "magic_armor"]:
+	for skill: String in ["energy_bolt", "magic_claw", "magic_armor"]:
 		world.loadout.add_skill(skill)
 		world.loadout.set_rank(skill, 4 if skill == "energy_bolt" else 1)
 	return [world.upgrades.choice_card("energy_bolt_rank", world),
-		world.upgrades.choice_card("nimble_feet_rank", world), world.upgrades.choice_card("magic_armor_rank", world)]
+		world.upgrades.choice_card("magic_claw_rank", world), world.upgrades.choice_card("magic_armor_rank", world)]
 
 
 ## A learn, a rank and a mod card from the real upgrade pool, dressed with the real v83 skill text exactly as RunScene
@@ -350,15 +262,14 @@ func _text_cards(mage: bool) -> Array:
 	var imgs := {}
 	var lib := UiArt.lib()
 	if lib != null:
-		for book: String in ["000", "200"]:
+		for book: String in ["200", "210"]:
 			var img := lib.img(DataRepo.skill_img_path(book))
 			if img != null:
 				imgs[book] = img.root
 	var world := RunWorld.new({"data": DataRepo.load_all(), "skill_imgs": imgs, "seed": 14})
-	var offers := [["nimble_feet", "normal"], ["recovery_rank", "rare"], ["three_snails_count", "normal"]]
-	world.loadout.add_skill("recovery")
+	var offers := [["fire_arrow_new", "normal"], ["poison_breath_rank", "rare"], ["energy_bolt_count", "normal"]]
+	world.loadout.add_skill("poison_breath")
 	if mage:
-		world.change_job(200)
 		for skill: String in ["energy_bolt", "magic_claw"]:
 			world.loadout.add_skill(skill)
 		world.loadout.set_rank("energy_bolt", 4)
@@ -377,19 +288,19 @@ func _tier_cards(which: String) -> Array:
 	var imgs := {}
 	var lib := UiArt.lib()
 	if lib != null:
-		for book: String in ["000", "200"]:
+		for book: String in ["200", "210"]:
 			var img := lib.img(DataRepo.skill_img_path(book))
 			if img != null:
 				imgs[book] = img.root
 	var world := RunWorld.new({"data": DataRepo.load_all(), "skill_imgs": imgs, "seed": 14})
 	var owned := {"energy_bolt": 4, "magic_armor": 1}
-	var offers := [["energy_bolt_rank", "normal"], ["magic_armor_rank", "rare"], ["three_snails_count", "epic"]]
+	var offers := [["energy_bolt_rank", "normal"], ["magic_armor_rank", "rare"], ["energy_bolt_count", "epic"]]
 	if which == "levelup_high":
 		owned = {"energy_bolt": 4, "magic_armor": 1}
 		offers = [["energy_bolt_rank", "unique"], ["magic_armor_rank", "legendary"], ["magic_claw_new", "legendary"]]
 	elif which == "levelup_dense":
-		owned = {"energy_bolt": 4, "recovery": 1, "nimble_feet": 1}
-		offers = [["energy_bolt_rank", "normal"], ["recovery_rank", "rare"], ["nimble_feet_rank", "rare"]]
+		owned = {"energy_bolt": 4, "magic_claw": 1, "fire_arrow": 1}
+		offers = [["energy_bolt_rank", "normal"], ["magic_claw_rank", "rare"], ["fire_arrow_rank", "rare"]]
 	for skill: String in owned:
 		world.loadout.add_skill(skill)
 		world.loadout.set_rank(skill, int(owned[skill]))

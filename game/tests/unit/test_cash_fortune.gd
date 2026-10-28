@@ -154,7 +154,7 @@ func _tier_counts(w: RunWorld, draws: int) -> Dictionary:
 
 func test_card_rarity_weights_follow_the_existing_formula_with_cash_fortune() -> void:
 	var data := _data()
-	data.upgrades.cards = [{"id": "roomy", "kind": "skill_mod", "skill": "three_snails", "max_rank": 100,
+	data.upgrades.cards = [{"id": "roomy", "kind": "skill_mod", "skill": "energy_bolt", "max_rank": 100,
 		"effects": [{"stat": "count", "op": "add", "value": 1}]}]
 	data.upgrades.pity.draws = 0
 	var character := _with_cash(data, EVERY_SLOT)

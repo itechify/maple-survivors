@@ -16,8 +16,7 @@ extends RefCounted
 ## spawn(spec) keys: x, y, vx, vy (px/s), range, radius, visual (index into paths), hit_visual (index or -1),
 ## rotate (bool), dmg_min, dmg_max, damage_type (fixed/magic/physical; defaults from legacy magic bool), damage_pct
 ## (skill% / 100, default 1), element, crit, crit_mult, crit_damage_bonus (skill-% points), pierce,
-## skill (survivor key), level (canonical skill level at cast), alt_rng (bool: roll this shot on `alt_rng`, the basic-attack
-## stream 5, instead of `rng`; the ranged basic attack of #155). Defence is live at impact.
+## skill (survivor key), level (canonical skill level at cast). Defence is live at impact.
 ## Optional pierce_falloff is linear damage lost per previous contact (floor set by survivor combat data). impact_blast is a
 ## cast-time {box: Rect2, count: int, visual: String} that explodes at the first contact instead of piercing.
 
@@ -71,10 +70,6 @@ var paths: Array = []
 ## Survivor skill keys referenced by `skill`.
 var skill_names := PackedStringArray()
 var rng: RandomNumberGenerator
-## The stream shots spawned with `alt_rng` roll on (RunWorld: the basic-attack stream); `rng` when unset.
-var alt_rng: RandomNumberGenerator
-## 1 when the shot rolls on `alt_rng`.
-var uses_alt := PackedByteArray()
 var bounds := Rect2()
 var magic_defense_k := CombatMath.MAGIC_DEFENSE_K
 ## tier C: minimum per-contact multiplier, configured from balance.combat.pierce_floor by RunWorld.
@@ -158,7 +153,6 @@ func spawn(spec: Dictionary) -> int:
 		skill_names.append(key)
 	skill[i] = si
 	level[i] = int(spec.get("level", 0))
-	uses_alt[i] = 1 if bool(spec.get("alt_rng", false)) else 0
 	_count += 1
 	_hi = maxi(_hi, i + 1)
 	return i
@@ -364,7 +358,7 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 	var defense := (float(live_pdd[m]) if m < live_pdd.size() else float(mk.pdd)) \
 		if kind == CombatMath.DAMAGE_PHYSICAL else (float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd))
 	var roll := roll_damage(dmg_min[i], dmg_max[i], is_magic, defense, magic_defense_k, crit[i],
-		crit_mult[i], alt_rng if uses_alt[i] != 0 and alt_rng != null else rng, mk.element_multiplier(element[i]),
+		crit_mult[i], rng, mk.element_multiplier(element[i]),
 		CombatMath.DAMAGE_TYPE_NAMES[kind], damage_pct[i], crit_damage_bonus[i],
 		multiplier)
 	var dir := 1 if vx[i] >= 0.0 else -1
@@ -406,7 +400,7 @@ func _grow(n: int) -> void:
 	var old := capacity()
 	if n <= old:
 		return
-	for arr: Variant in [active, rotate, damage_kind, uses_alt]:
+	for arr: Variant in [active, rotate, damage_kind]:
 		arr.resize(n)
 	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus, pierce_falloff]:
 		arr.resize(n)

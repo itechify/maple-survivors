@@ -2,6 +2,8 @@ extends Node
 ## Crossbowman evidence (#203): real RunScene casts, piercing line, ranged Final Attack and ammo tiers.
 ## Fixed-tick diagnostic targets, no player saves. Run with --shots=<absolute evidence directory>.
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 var run: RunScene
 var shots := ""
 var summary := {}
@@ -109,10 +111,9 @@ func _new_run(level := 40) -> void:
 	var w := run.world
 	w.god = true
 	w.progression.level = level
-	w.change_job(300, "bow")
-	w.change_job(320)
+	RF.as_job(w, 300, "bow")
+	RF.as_job(w, 320)
 	w.loadout.order.clear()
-	w.basic.cooldown = 1000.0
 	for kind: MobKind in w.mob_kinds:
 		kind.move_speed = 0
 	var f := w.fhm.find_below(-150.0, 100.0)

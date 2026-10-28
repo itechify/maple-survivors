@@ -10,28 +10,23 @@ const DT := 1.0 / 60.0
 ## Re-captured for #238: unlimited potions on cooldowns, no potion drops and two boss equipment drops.
 ## Re-captured for #259 (the bot jumps a wall it can clear and remembers one it cannot): with that rule disabled
 ## (`BotInput._wall_ahead` returning -1, `_held_wall` 0) the #238 hash 44fd3997... is reproduced exactly.
-## Re-captured for #285 (no MP): skills cast on their cooldowns only, there are no MP potions, and physical damage has
-## no level-gap factor (previous digest 8114bff3...).
-const GOLDEN := "bc79242fb205e00ef391ff9b48e91ee090bc558b626ff1b85fd11de42819a970"
+## Regenerated for #284 (ADR 0006, spec #282 asks for it) together with #285 (no MP): the fresh character is the
+## fixed 212 with Energy Bolt and Teleport at Lv1, with no job advancement, no basic attack, no stream-8 draw, no MP
+## and no level-gap factor, so every byte after the setup events changes. The #259 hash was 8114bff3...
+const GOLDEN := "ff04862a59f1c32fb053515bed40a4d1bcf38519353b5d703ddaa1678f7cc6a8"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded
 ## with var_to_bytes, which writes ints, floats and Vector2 components as binary and never goes through float-to-text
 ## (JSON.stringify turned Vector2 into "(1090.813, 260.0)", whose decimal-tie rounding differs between platforms, #142).
 func _event_digest(ticks: int) -> String:
-	# #186 froze Pirate out of this baseline. #199 keeps that exclusion and adds Bowman to the retained job pool;
-	# the golden changes for the new job option / stream-8 choice, not a new combat RNG stream.
+	# #284: a fresh character is the fixed 212 (Energy Bolt + Teleport, no advancement), so no job pool is frozen.
 	var data := DataRepo.load_all()
 	# Tier C: freeze the pre-#241 opening so the schema/key migration must reproduce the existing golden unchanged.
 	for opening: Array in [[0, 0.15, 3], [1, 0.4, 8], [2, 0.6, 12]]:
 		data.stages.stages.henesys.keyframes[int(opening[0])].rate = float(opening[1])
 		data.stages.stages.henesys.keyframes[int(opening[0])].max_alive = int(opening[2])
-	# #207: retain the same pre-expansion pool; the Thief is covered by its tracer tests.
-	data.jobs_survivor.jobs["400"].playable = false
-	data.jobs_survivor.jobs["400"].reason = "Not in this build"
-	data.jobs_survivor.jobs["500"].playable = false
-	data.jobs_survivor.jobs["500"].reason = "Not in this build"
-	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys", 1, data)))
+	var w := RunWorld.new(RF.setup("henesys", 1, data))
 	# Keep this pre-#241 oracle on the historical whole-round pool curve as well as the historical opening.
 	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)
 	legacy_curve.erase("maps")

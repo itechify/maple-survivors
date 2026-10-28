@@ -5,8 +5,10 @@ extends TestCase
 ## The fresh held-out matrix is a separate frozen-candidate assessment in GAME_DESIGN 4.2.
 ## Checks include spawning/engagement, kills/EXP, progression/event consistency, ordinary late landed hits,
 ## no lost mobs and all scheduled bosses dead before clear. Individual progression windows allow build spread;
-## Henesys stage sample medians use Lv8 180–270s, Mage at Lv10 180–330s and Lv30 480–720s when reached (#241's
-## denser opening uses the existing individual lower bounds; final pacing waits for the balance pass).
+## Henesys stage sample medians use Lv8 180–270s, Lv10 180–330s and Lv30 480–720s when reached (#241's
+## denser opening uses the existing individual lower bounds; final pacing waits for the balance pass). #284: the
+## character is the fixed 212 from Lv1 (Energy Bolt + Teleport, no job advancement or basic attack); the job never
+## changes and no job event is emitted.
 ## Tree records outcomes without judging its pacing; both stages retain event, cache and finale invariants.
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -36,7 +38,7 @@ func _historical_world(setup: Dictionary) -> RunWorld:
 ## Runs `w` to the end (or balance.run_time_cap) and returns statistics.
 func _run(w: RunWorld) -> Dictionary:
 	var st := {
-		"spawn_minutes": PackedInt32Array(), "alive": PackedInt32Array(), "killers": {}, "exp": 0, "job_time": -1.0,
+		"spawn_minutes": PackedInt32Array(), "alive": PackedInt32Array(), "killers": {}, "exp": 0, "job_events": 0,
 		"lv8_time": -1.0, "lv10_time": -1.0, "lv30_time": -1.0, "levels": 0, "died": false, "cleared": false,
 		"events": 0, "hits_after_8": 0, "ordinary_hits_after_8": 0, "near_after_8": 0, "engaged_6_12": 0, "alive_6_12": 0,
 	}
@@ -86,9 +88,8 @@ func _run(w: RunWorld) -> Dictionary:
 						st.hits_after_8 = int(st.hits_after_8) + 1
 						if not bool(e.boss):
 							st.ordinary_hits_after_8 = int(st.ordinary_hits_after_8) + 1
-				"job_changed":
-					if int(e.job_id) == 200:
-						st.job_time = w.time
+				"job_changed", "job_advance_pending":
+					st.job_events = int(st.job_events) + 1
 				"player_died":
 					st.died = true
 				"stage_cleared":
@@ -103,9 +104,9 @@ func _run(w: RunWorld) -> Dictionary:
 func _assert_run(w: RunWorld, st: Dictionary, label: String, enforce_pacing := true) -> void:
 	var alive: PackedInt32Array = st.alive
 	var minutes := int(w.time / 60.0)
-	print("%s: %.0f s, %s, level %d, job %d, kills %d, EXP %d, lv8 at %.0f s, lv10 at %.0f s, lv30 at %.0f s, job 200 at %.0f s, hits after 8:00 %d (ordinary %d), killers %s, alive/min %s, engaged 6:00-12:00 %.2f, relocated %d" % [
+	print("%s: %.0f s, %s, level %d, job %d, kills %d, EXP %d, lv8 at %.0f s, lv10 at %.0f s, lv30 at %.0f s, hits after 8:00 %d (ordinary %d), killers %s, alive/min %s, engaged 6:00-12:00 %.2f, relocated %d" % [
 		label, w.time, w.state_name(), w.player_state.level, w.player_state.job_id, w.kills, st.exp, st.lv8_time,
-		st.lv10_time, st.lv30_time, st.job_time, st.hits_after_8, st.ordinary_hits_after_8, st.killers, _per_minute(alive), _engaged_share(st),
+		st.lv10_time, st.lv30_time, st.hits_after_8, st.ordinary_hits_after_8, st.killers, _per_minute(alive), _engaged_share(st),
 		w.director.relocated])
 	var spawn_minutes: PackedInt32Array = st.spawn_minutes
 	if CHECK_PACING and enforce_pacing:
@@ -114,17 +115,21 @@ func _assert_run(w: RunWorld, st: Dictionary, label: String, enforce_pacing := t
 		var third := maxi(1, floori(alive.size() / 3.0))
 		assert_true(_mean(alive, alive.size() - third, alive.size()) > _mean(alive, 0, third),
 			"%s: the mean alive count grows (%s)" % [label, _per_minute(alive)])
-		# The v83 Beginner kills with Three Snails (one cast per MP pulse) and, mostly, the basic attack.
-		assert_true(int(st.killers.get("three_snails", 0)) + int(st.killers.get("basic_attack", 0)) > 20,
-			"%s: Three Snails and the basic attack killed mobs %s" % [label, st.killers])
-	assert_true(int(st.exp) > 0, "%s: EXP collected" % label)
+		# #284: the 212 kills with its own auto-cast skills (Energy Bolt from Lv1, then its cards); no basic attack.
+		var skill_kills := 0
+		for key: String in st.killers:
+			if w.book.has(key):
+				skill_kills += int(st.killers[key])
+		assert_true(skill_kills > 20, "%s: the character's skills killed mobs %s" % [label, st.killers])
+		assert_false(st.killers.has("basic_attack"), "%s: no basic attack" % label)
+		assert_true(int(st.exp) > 0, "%s: EXP collected" % label)
 	assert_eq(int(st.exp), w.pickups.collected_exp, "%s: collected EXP matches its events" % label)
 	var kill_events := 0
 	for count: int in st.killers.values():
 		kill_events += count
 	assert_eq(kill_events, w.kills, "%s: exactly one death event per kill" % label)
-	if enforce_pacing and float(st.job_time) > 0.0:
-		assert_true(w.jobs.is_descendant(int(w.player_state.job_id), 200), label + ": Magician lineage survives second advancement")
+	assert_eq(int(w.player_state.job_id), 212, "%s: the job never changes" % label)
+	assert_eq(int(st.job_events), 0, "%s: no job advancement events" % label)
 	assert_eq(st.levels, w.player_state.level - 1, "%s: one level_up event per level" % label)
 	assert_true(w.state == RunWorld.DEAD or w.state == RunWorld.CLEARED or (not enforce_pacing and w.state == RunWorld.PLAYING),
 		"%s: ended or informational Tree timeout (%s)" % [label, w.state_name()])
@@ -152,7 +157,9 @@ func _assert_run(w: RunWorld, st: Dictionary, label: String, enforce_pacing := t
 
 
 func test_full_run_synthetic_map() -> void:
-	var w := _historical_world(RF.with_basic_attack(RF.setup("henesys", 2026)))
+	var setup := RF.with_basic_attack(RF.setup("henesys", 2026))
+	setup.data = setup.data.duplicate(true)
+	var w := _historical_world(setup)
 	assert_true(w.warnings.is_empty(), "every pool mob has an img: %s" % [w.warnings])
 	_assert_run(w, _run(w), "synthetic")
 
@@ -162,17 +169,8 @@ func test_full_run_real_map() -> void:
 	if not require_cache():
 		return
 	var data := DataRepo.load_all()
-	# #186/#199/#207 intentionally expand the unforced job pool. Preserve this inherited Magician pacing regression's
-	# original Warrior/Magician pool and all its bounds; #195/#204/#215 own the new lines' regression smokes.
-	data.jobs_survivor.jobs["400"].playable = false
-	data.jobs_survivor.jobs["400"].reason = "Not in this build"
-	data.jobs_survivor.jobs["500"].playable = false
-	data.jobs_survivor.jobs["500"].reason = "Not in this build"
-	data.jobs_survivor.jobs["300"].playable = false
-	data.jobs_survivor.jobs["300"].reason = "Not in this build"
 	for stage: String in ["henesys", "ellinia"]:
 		var outcomes := {"CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
-		var magician: Array[float] = []
 		var lv8: Array[float] = []
 		var lv10: Array[float] = []
 		var lv30: Array[float] = []
@@ -198,26 +196,23 @@ func test_full_run_real_map() -> void:
 				_assert_pacing(w, st, label)
 			if float(st.lv8_time) > 0.0:
 				lv8.append(float(st.lv8_time))
-			if float(st.job_time) > 0.0:
-				magician.append(float(st.job_time))
 			if float(st.lv10_time) > 0.0:
 				lv10.append(float(st.lv10_time))
 			if float(st.lv30_time) > 0.0:
 				lv30.append(float(st.lv30_time))
-		print("%s outcomes %s; milestone reaches Lv8 %d/3, Lv10 %d/3, Magician %d/3, Lv30 %d/3" % [
-			stage, outcomes, lv8.size(), lv10.size(), magician.size(), lv30.size()])
+		print("%s outcomes %s; milestone reaches Lv8 %d/3, Lv10 %d/3, Lv30 %d/3" % [
+			stage, outcomes, lv8.size(), lv10.size(), lv30.size()])
 		if CHECK_PACING and stage == "henesys":
 			# Population acceptance allows early deaths. The fixed sample still needs majority Lv8 progression. Lv10 /
 			# Magician need only 1/3 until the balance pass (#77, owner 2026-10-19): merging #223's knockback guard with
 			# spec #225's card changes moved seeds 2 and 2026 to Beginner deaths a few seconds before Lv10, while over
 			# training seeds 1-24 (bot, job 200) main and the merge both reach Lv10 21/24 at the same median (4:33 / 4:35).
-			assert_true(lv8.size() >= 2 and lv10.size() >= 1 and magician.size() >= 1,
-				"%s: Lv8 on 2/3 and Lv10 / Magician on 1/3 predetermined runs" % stage)
+			# #284: the Magician milestone is gone with job advancement; the Lv8/Lv10 majority stays.
+			assert_true(lv8.size() >= 2 and lv10.size() >= 1,
+				"%s: Lv8 on 2/3 and Lv10 on 1/3 predetermined runs" % stage)
 			if not lv8.is_empty():
 				# Tier C: #241's owner-approved denser opening uses the existing individual early-progress floor.
 				assert_between(_median(lv8), 180.0, 270.0, "%s: Lv8 median180–270s (n%d/3)" % [stage, lv8.size()])
-			if not magician.is_empty():
-				assert_between(_median(magician), 180.0, 330.0, "%s: Mage median180–330s (n%d/3)" % [stage, magician.size()])
 			if not lv10.is_empty():
 				assert_between(_median(lv10), 180.0, 330.0, "%s: Lv10 median180–330s (n%d/3)" % [stage, lv10.size()])
 			# Spec #88 (owner, 2026-10-17): the shrinking hit window means no Henesys seed reaches Lv30 now; the Lv30 guard
@@ -241,10 +236,6 @@ static func _median(values: Array[float]) -> float:
 func _assert_pacing(w: RunWorld, st: Dictionary, label: String) -> void:
 	if float(st.lv8_time) > 0.0:
 		assert_between(float(st.lv8_time), 180.0, 300.0, "%s: reached Lv8 between3:00 and5:00" % label)
-	if float(st.job_time) > 0.0:
-		assert_between(float(st.job_time), 150.0, 360.0, "%s: reached Magician between2:30 and6:00" % label)
-		# _run drains the accepted job event after the next fixed tick; allow floating-point accumulation error.
-		assert_near(float(st.job_time), float(st.lv10_time) + DT, 1e-6, "%s: Magician at Lv10" % label)
 	if float(st.lv10_time) > 0.0:
 		assert_between(float(st.lv10_time), 150.0, 360.0, "%s: reached Lv10 between2:30 and6:00" % label)
 	if float(st.lv30_time) > 0.0:

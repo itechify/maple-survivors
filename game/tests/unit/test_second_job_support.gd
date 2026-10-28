@@ -7,7 +7,7 @@ const DT := 1.0 / 60.0
 
 func _world(skill: String, seed: int = 58) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.player.hp = 100000
 	data.balance.regen.hp = 0
 	data.skills.skills["support"] = {"skill_id": 9991000, "book": "999", "kind": "buff",

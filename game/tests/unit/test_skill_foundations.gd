@@ -246,7 +246,7 @@ func test_restoration_clamps_emits_actual_gain_and_rejects_invalid_pools() -> vo
 
 func test_area_card_has_attack_modifier_score_default() -> void:
 	var data := RF.quiet_data()
-	data.upgrades.cards.append({"id": "synthetic_area", "kind": "skill_mod", "skill": "three_snails",
+	data.upgrades.cards.append({"id": "synthetic_area", "kind": "skill_mod", "skill": "energy_bolt",
 		"effects": [{"stat": "area", "op": "mul", "value": 1.2}]})
 	var w := RunWorld.new(RF.setup("quiet", 31, data))
 	assert_eq(BotInput.card_score(w, {"id": "synthetic_area"}), 70.0, "58 area plus existing 12 current-job bonus")

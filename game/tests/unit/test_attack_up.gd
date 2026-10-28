@@ -36,7 +36,7 @@ func _skill_img(intervals := {}) -> Dictionary:
 func _world(skills: Array, mult := 1.15, attack := false, magic := false, intervals := {},
 		p_seed := 255) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.player.hp = 1000000
 	data.balance.regen.hp = 0
 	data.balance.bosses.teleport_stall = 10000.0

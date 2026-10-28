@@ -223,8 +223,9 @@ func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:
 		assert_false(frag.skills.is_empty(), "skills/%s.json has entries" % line)
 		for key: String in frag.skills:
 			assert_eq(String(frag.skills[key].book) == "000", line == "beginner", "%s in %s" % [key, line])
-	# cards: no skill -> common, book 000 skill -> beginner, otherwise magician
-	for line in ["common", "beginner", "magician"]:
+	# cards: no skill -> common, otherwise magician; #284 deleted the Beginner cards (no upgrades/beginner.json)
+	assert_false(FileAccess.file_exists(DataRepo.fragment_path("upgrades", "beginner", root)))
+	for line in ["common", "magician"]:
 		var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("upgrades", line, root))
 		# Spec #225: there are no job-neutral cards, so the common fragment is empty.
 		assert_eq(frag.cards.is_empty(), line == "common", "upgrades/%s.json cards" % line)

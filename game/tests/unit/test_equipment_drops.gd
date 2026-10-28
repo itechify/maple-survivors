@@ -425,13 +425,14 @@ func _world(chance: float, level: int, job: int, p_seed: int = 31) -> RunWorld:
 	var data := RF.quiet_data()
 	data.equipment_drops.items = INFO.keys()
 	data.equipment_drops.chance = chance
-	data.balance.player.skills = []
-	var w := RunWorld.new(_fit(RF.setup("quiet", p_seed, data)))
+	var setup := _fit(RF.setup("quiet", p_seed, data))
+	setup["job"] = job # no start skills; 0 is a (test-only) Beginner
+	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
 	w.god = true
 	w.progression.level = level
 	if job != 0:
-		RF.change_job_bare(w, job)
+		RF.as_job(w, job) # the weapon the removed advancement granted (the Magician's Wooden Wand)
 	return w
 
 
@@ -522,7 +523,7 @@ func _boss_world(chance: float, level: int, p_seed: int = 20) -> RunWorld:
 	var data := RF.quiet_data()
 	data.equipment_drops.items = INFO.keys()
 	data.equipment_drops.chance = chance
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
 		"rewards": {"exp_mult": 5, "exp_drops": 2, "spread": 100, "potions": {"hp": 1, "mp": 1}, "bonus_choices": 1}}])
 	var w := RunWorld.new(_fit(RF.setup("quiet", p_seed, data)))
@@ -563,7 +564,7 @@ func test_a_boss_drop_is_deterministic_per_seed() -> void:
 
 func test_each_scheduled_boss_death_drops_two_equipment_items_and_no_potions() -> void:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.bosses.rewards.bonus_choices = 0
 	data.equipment_drops.items = INFO.keys()
 	data.equipment_drops.chance = 0.0

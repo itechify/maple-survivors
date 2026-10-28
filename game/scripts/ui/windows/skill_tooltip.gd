@@ -21,8 +21,6 @@ const FILL := Color(0.06, 0.08, 0.15, 0.9)
 const FRAME := Color(0.78, 0.82, 0.9)
 const TEXT := Color(1, 1, 1)
 const DIM := Color8(190, 200, 215)
-## tier C (ours): the "Weapon : X (not held)" line of a skill the held weapon cannot use.
-const BLOCKED := Color8(255, 130, 130)
 
 ## The data shown (SkillWindowModel.skill_tooltip); {} hides the tooltip.
 var data: Dictionary = {}
@@ -82,10 +80,6 @@ static func layout(d: Dictionary) -> Array:
 		facts.append("HP cost %d" % int(d.hp_cost))
 	if not facts.is_empty():
 		out.append(["text", "   ".join(facts), DIM, float(MapleText.LINE_SMALL) + 2.0])
-	if String(d.get("needs", "")) != "":
-		var blocked := not bool(d.get("usable", true))
-		out.append(["text", "Weapon : %s%s" % [d.needs, " (not held)" if blocked else ""], BLOCKED if blocked else DIM,
-			float(MapleText.LINE_SMALL) + 2.0])
 	var ups: Array = d.get("upgrades", [])
 	if not ups.is_empty():
 		out.append(["rule", "", FRAME, 7.0])

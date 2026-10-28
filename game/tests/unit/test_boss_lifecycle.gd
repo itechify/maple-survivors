@@ -8,7 +8,7 @@ const DT := 1.0 / 60.0
 
 func _setup(times: Array = [3.5]) -> Dictionary:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	var stage: Dictionary = data.stages.stages.quiet
 	stage.duration = 5.0
 	var entries: Array = []

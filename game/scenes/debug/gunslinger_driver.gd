@@ -6,6 +6,8 @@ extends Node
 ## MAPLE_SURVIVORS_CACHE=<cache> ISOLATE=<name> bash scripts/run.sh res://scenes/debug/gunslinger_driver.tscn -- \
 ##   --shots=<abs evidence dir> [--rank=10]
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 ## skill -> [monster x offsets, [seconds after the first frame of the cast to take the two screenshots]]
 const SCENARIOS := {
 	"invisible_shot": [[110.0, 190.0, -110.0, -190.0], [0.10, 0.45]],
@@ -47,9 +49,9 @@ func _scenario(key: String, rank: int) -> void:
 	run.set_process(false)
 	var w := run.world
 	w.god = true
-	w.change_job(500, "gun")
+	RF.as_job(w, 500, "gun")
 	w.progression.level = 30
-	w.change_job(520)
+	RF.as_job(w, 520)
 	w.drain_events()
 	w.loadout.order.clear()
 	w.learn_skill(key)

@@ -83,7 +83,7 @@ func test_rarity_report_counts_offers_and_picks_including_queued_boss_rewards() 
 	var data := RF.quiet_data()
 	data.balance.run_time_cap = DT
 	data.upgrades.rarity.weights = {"normal": 1.0}
-	data.upgrades.cards = [{"id": "count", "kind": "skill_mod", "skill": "three_snails", "max_rank": 4,
+	data.upgrades.cards = [{"id": "count", "kind": "skill_mod", "skill": "energy_bolt", "max_rank": 4,
 		"effects": [{"stat": "count", "op": "add", "value": 1}]}]
 	var w := RunWorld.new(RF.setup("quiet", 43, data))
 	w.pending_bonus_choices = 2
@@ -136,7 +136,7 @@ func test_report_reader_normalizes_only_legacy_nonfinite_boss_diagnostics() -> v
 
 func test_record_counts_the_whole_boss_hit_fraction() -> void:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.run_time_cap = 1.0
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	RF.place_player(w, 400)
@@ -161,7 +161,7 @@ func test_record_counts_the_whole_boss_hit_fraction() -> void:
 func test_buff_cast_timeline_records_seeded_canonical_snapshots() -> void:
 	for rank: int in [1, 20]:
 		var data := RF.quiet_data()
-		data.balance.player.skills = []
+		data.jobs_survivor.jobs["212"]["start_skills"] = []
 		data.balance.run_time_cap = 1.0
 		var w := RunWorld.new(RF.setup("quiet", 27, data))
 		RF.place_player(w, 400)
@@ -185,7 +185,7 @@ func test_buff_cast_timeline_records_seeded_canonical_snapshots() -> void:
 
 func test_ordinary_kill_hits_follow_relocation_and_reset_on_same_kind_slot_reuse() -> void:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.run_time_cap = DT
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	w.god = true
@@ -228,6 +228,7 @@ func test_kill_hit_means_pool_lifetime_hits_over_kills_instead_of_averaging_run_
 
 func test_hits_before_a_minute_boundary_belong_to_the_minute_of_death() -> void:
 	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["start_skills"] = ["three_snails"] # the old fixed-damage shot this oracle uses
 	data.balance.run_time_cap = 60.8
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	RF.place_player(w, 400)
@@ -243,7 +244,7 @@ func test_hits_before_a_minute_boundary_belong_to_the_minute_of_death() -> void:
 
 func test_magic_claw_counts_each_landed_line_but_a_scheduled_boss_is_excluded() -> void:
 	var data := RF.quiet_data()
-	data.balance.player.skills = ["magic_claw"]
+	data.jobs_survivor.jobs["212"]["start_skills"] = ["magic_claw"]
 	data.skills.skills.magic_claw.damage = "fixed"
 	data.balance.run_time_cap = 0.1
 	var setup := RF.setup("quiet", 26, data)
@@ -275,6 +276,7 @@ func test_summary_counts_clears_deaths_and_timeouts_separately() -> void:
 func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 	var data := RF.quiet_data()
 	data.balance.run_time_cap = 4.0
+	data.jobs_survivor.jobs["212"]["start_skills"] = ["three_snails"] # a quick 0.5 s boss kill within the 5 MP pool
 	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.5, "mob_id": 100100}])
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	w.god = true
@@ -287,7 +289,7 @@ func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 	assert_between(fight.duration, 0.0, 3.5)
 	assert_near(fight.duration, float(fight.death_time)-float(fight.spawn_time), 0.000001)
 	data = RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.run_time_cap = 901.0
 	data.stages.stages.quiet.duration = 900.0
 	RF.set_bosses(data.stages.stages.quiet, [{"time": 900.0, "mob_id": 100100, "hp_mult": 1000.0}])
@@ -302,7 +304,7 @@ func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 
 func _real_map_world(map_id: int) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.stages.stages.quiet.maps[0].map_id = map_id
 	var setup := RF.setup("quiet", 26, data)
 	setup.map_img = AssetLibrary.get_default().img(DataRepo.map_img_path(map_id)).root
@@ -395,30 +397,9 @@ func test_summary_reports_zero_drinks_without_collection_or_stock_metrics() -> v
 		assert_true(BR.describe_metrics(summary).contains("potions used HP 0"))
 
 
-func test_summary_reports_observed_times_per_job() -> void:
-	# Records from before job_times only had the Magician's job_t.
-	var summary := BR.aggregate([{"job_t": 240.0}, {"job_t": 260.0}, {"job_t": -1.0}, {}])
-	assert_true(summary.job_seconds.has("200"), "report includes advancement timing")
-	assert_eq(summary.job_seconds["200"].count, 2, "unreached and missing times are not observations")
-	assert_eq(summary.job_seconds["200"].median, 250.0)
-	assert_true("Job 200 seconds 240.00/250.00/260.00 (n=2)" in BR.describe_metrics(summary))
-	var absent := BR.aggregate([{"job_t": -1.0}, {}])
-	assert_true(absent.job_seconds.is_empty())
-	assert_true("Job seconds none (n=0)" in BR.describe_metrics(absent))
-	var mixed := BR.aggregate([{"job_t": 240.0, "job_times": {"200": 240.0, "210": 1000.0}},
-		{"job_t": 260.0, "job_times": {"200": 260.0, "220": 900.0}}, {"job_t": 300.0, "job_times": {"200": 300.0}}])
-	assert_eq(mixed.job_seconds.keys(), ["200", "210", "220"], "every job id advanced into has its own times")
-	assert_eq(mixed.job_seconds["200"].count, 3)
-	assert_eq(mixed.job_seconds["210"].median, 1000.0)
-	assert_eq(mixed.job_seconds["220"].count, 1)
-	var text := BR.describe_metrics(mixed)
-	assert_true("Job 210 seconds 1000.00/1000.00/1000.00 (n=1)" in text, text)
-	assert_true("Job 220 seconds 900.00/900.00/900.00 (n=1)" in text, text)
-
-
 func test_run_records_unlimited_potion_drinks_and_restore_amounts() -> void:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.run_time_cap = 1.0
 	# Harness recording, not drinking policy: let the bot sip as soon as one point is missing.
 	data.balance.potions.bot.min_restore_fraction = 0.01
@@ -442,7 +423,7 @@ func test_run_records_unlimited_potion_drinks_and_restore_amounts() -> void:
 
 func test_pet_drinks_stay_separate_from_player_use_totals_and_timeline() -> void:
 	var data := PF.data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.run_time_cap = 1.0
 	var world := PF.world([PF.KITTY, PF.AUTO_HP], {"hp": 0.5}, data)
 	world.take_hit(40, false, "", world.player.pos + Vector2(10, 0))
@@ -470,26 +451,23 @@ func test_camper_arrivals_are_counted_over_camper_runs_only() -> void:
 	assert_true(BR.describe_metrics(summary).contains("campers reached 1/1 runs (1 started)"))
 
 
-func test_forced_branch_is_recorded_and_summary_groups_outcomes() -> void:
+func test_job_is_recorded_and_summary_groups_outcomes_by_job() -> void:
 	var data := RF.quiet_data()
 	data.balance.run_time_cap = DT
 	var w := RunWorld.new(RF.setup("quiet", 53, data))
-	w.change_job(200)
-	w.progression.level = 29
-	w.progression.add_exp(w.progression.exp_to_next())
-	w.step(DT, MoveInput.new())
-	var r := BR.run_one(w, "bot", 53, -1.0, 60.0, 230)
-	assert_eq(r.get("branch", 0), 230)
-	assert_eq(r.get("forced_branch", 0), 230)
-	assert_true(r.get("job_times") is Dictionary, "advancements are timed per job id (the one-tick cap leaves it empty)")
+	var r := BR.run_one(w, "bot", 53, -1.0, 60.0)
+	assert_eq(int(r.get("job", 0)), 212, "a fresh character is the default job")
+	for key: String in ["branch", "forced_branch", "job_t", "job_times"]:
+		assert_false(r.has(key), "#284: no advancement field %s" % key)
 	var legacy := r.duplicate(true)
-	legacy.erase("branch")
+	legacy.erase("job")
 	legacy.state = "DEAD"
 	var summary := BR.aggregate([r, r, legacy])
-	assert_eq(summary.get("branches", {}).get("230", {}).get("runs", 0), 2)
-	assert_eq(summary.get("branches", {}).get("230", {}).get("TIMEOUT", 0), 2)
-	assert_eq(summary.get("branches", {}).get("unobserved", {}).get("DEAD", 0), 1)
-	assert_true(BR.describe_metrics(summary).contains("SUMMARY branch 230"))
+	assert_false(summary.has("branches") or summary.has("job_seconds"))
+	assert_eq(summary.get("jobs", {}).get("212", {}).get("runs", 0), 2)
+	assert_eq(summary.get("jobs", {}).get("212", {}).get("TIMEOUT", 0), 2)
+	assert_eq(summary.get("jobs", {}).get("unobserved", {}).get("DEAD", 0), 1)
+	assert_true(BR.describe_metrics(summary).contains("SUMMARY job 212"))
 
 
 func test_records_carry_the_nx_a_round_would_pay_and_the_summary_reports_it() -> void:

@@ -45,7 +45,7 @@ func _world(seed_value := 182, job := 110, mutate: Callable = Callable()) -> Run
 	var w := RunWorld.new(setup)
 	for mk: MobKind in w.mob_kinds:
 		mk.move_speed = 0.0
-	w.change_job(job)
+	RF.as_job(w, job)
 	RF.place_player(w, 400)
 	w.player_avoid = 0.0
 	w.drain_events()

@@ -8,7 +8,7 @@ const DT := 1.0 / 60.0
 
 func _mage(skill: String = "") -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	var world := RunWorld.new(RF.setup("quiet", 9, data))
 	RF.place_player(world, 1200)
 	if skill != "":
@@ -93,7 +93,7 @@ func test_recovery_healing_and_base_regeneration_have_separate_pulse_clocks() ->
 	world.take_hit(30, false, "", world.player.pos + Vector2(100, 0))
 	world.god = true
 	var hp: int = world.player_state.hp
-	world.upgrades.apply("recovery", world)
+	world.learn_skill("recovery") # #284: no Recovery card (the Beginner cards are gone)
 	for tick in 600:
 		world.step(DT, MoveInput.new())
 	assert_eq(world.hp_regen, 0.0, "Recovery no longer modifies permanent regeneration")

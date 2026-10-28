@@ -27,14 +27,16 @@ const PET_BACK := 2700
 ## Re-captured for MS-24: player_state.mp_short now checks current affordability after refills. Substituting only
 ## runner.waiting_mp back into that snapshot field reproduces the previous 373bb381... digest exactly; all events,
 ## other player-state fields, drop-pool bytes and TOTALS are unchanged.
-## Re-captured for #238: no potion pickups/stock; per-kind cooldowns enter player_state.
+## Re-captured for #238: no potion pickups/stock; per-kind cooldowns enter player_state (previous digest 26ddb7e6...).
 ## Re-captured for #285 (no MP): skills cast on their cooldowns only, Magic Armor replaces Magic Guard in the loadout and
-## the MP refill/drain cycle is gone (previous digest 26ddb7e6..., previous totals exp 3658, mesos 88744, kills 206,
-## casts 183, level 12).
-const GOLDEN := "65b2f44b4b4aacc06db552d158da7905949f5ebaf3879fa525c07654001d5889"
-const TOTALS := {"exp": 10509, "mesos": 119292, "pickup_mesos": 119292, "equips_collected": 24,
-	"equips_dropped": 30, "inventory": 24, "kills": 465, "casts": 498, "level": 18,
-	"pool": 6, "time": 59.999999999997875}
+## the MP refill/drain cycle is gone (#285 digest 65b2f44b..., totals exp 10509, kills 465, casts 498, level 18).
+## Re-captured for #284 on top: no basic attack, no Three Snails, no job advancement
+## (the character is set to 220 directly), so the events and totals legitimately differ (pre-#285 totals exp 3658,
+## kills 206, casts 183, level 12).
+const GOLDEN := "6e66998b2732cbdd2eee9f78fb49f7e369661cd62f2ce21ecbc50571285ffb51"
+const TOTALS := {"exp": 11257, "mesos": 127804, "pickup_mesos": 127804, "equips_collected": 23,
+	"equips_dropped": 47, "inventory": 24, "kills": 521, "casts": 454, "level": 19,
+	"pool": 24, "time": 59.999999999997875}
 const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_armor", "cold_beam", "thunder_bolt", "slow_il",
 	"heal", "fire_arrow", "poison_breath", "holy_arrow"]
 
@@ -49,7 +51,8 @@ func test_busy_round_with_a_big_drop_pool_is_unchanged() -> void:
 	assert_true(int(c.pet_pickups) >= 200, "the VAC pet collects hundreds of drops (%d)" % int(c.pet_pickups))
 	for rule: String in ["nearest", "box", "crowd", "buff"]:
 		assert_true(int(c.casts.get(rule, 0)) > 0, "a %s skill casts (%s)" % [rule, c.casts])
-	assert_true(int(c.kills) >= 200, "kills keep adding drops (%d)" % int(c.kills))
+	# tier C (test coverage only): 150, down from 200 since #284 removed the basic attack and Three Snails' kills.
+	assert_true(int(c.kills) >= 150, "kills keep adding drops (%d)" % int(c.kills))
 	assert_eq(r.totals, TOTALS, "collected totals, seed 146")
 	assert_eq(r.digest, GOLDEN, "event, player-state and drop-pool bytes, seed 146")
 
@@ -120,7 +123,7 @@ func test_bulk_live_defense_equals_the_per_slot_defense_and_immunity() -> void:
 			if tick == 60 and w == immunity:
 				var boss := int(w.bosses.records[0].slot)
 				w.hit_mob(boss, {"damage_min": 12000.0, "damage_max": 12000.0, "magic": false, "crit": 0.0,
-					"crit_mult": 1.5, "skill": "three_snails"}, -1)  # under the HP gate of skill 140 (from 30 s)
+					"crit_mult": 1.5, "skill": "energy_bolt"}, -1)  # under the HP gate of skill 140 (from 30 s)
 			if tick % 4 != 0:
 				continue
 			w._fill_live_defense()
@@ -160,6 +163,7 @@ static func _data() -> Dictionary:
 		"bursts": {}, "elites": {},
 	}
 	data.equipment_drops.chance = 0.05
+	data.jobs_survivor.jobs["212"]["start_skills"] = [] # the loadout is exactly SKILLS
 	return data
 
 
@@ -168,7 +172,7 @@ static func _world() -> RunWorld:
 	s.account = {"owned": PF.EVERYTHING}
 	var w := RunWorld.new(s)
 	w.god = true
-	w.change_job(220)
+	RF.as_job(w, 220)
 	for key: String in SKILLS:
 		w.learn_skill(key)
 	# Several hundred drops lying on every floor of the map from the start: mesos, equipment, EXP.

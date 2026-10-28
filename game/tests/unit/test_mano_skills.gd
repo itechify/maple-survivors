@@ -63,6 +63,7 @@ func test_ready_skills_wait_for_hp_gate_then_fire_on_the_first_eligible_tick() -
 	for id in [126, 112, 113]:
 		var setup := MF.setup([id])
 		setup.mob_skill_img[str(id)].level[str(MF.LEVELS[id])].hp = 50.0 # Synthetic gate case; Mano's real slow omits hp => 100%.
+		setup.data.jobs_survivor.jobs["212"]["start_skills"] = [] # no auto-cast may touch the boss's HP (#284 + #285)
 		var w := RunWorld.new(setup)
 		w.god = true
 		RF.place_player(w, 400)
@@ -110,6 +111,9 @@ func test_summon_interval_hp_gate_and_exact_two_of_each_canonical_snail() -> voi
 
 func test_summon_limit_survives_relocation_and_ordinary_slot_reuse() -> void:
 	var w := MF.world([200])
+	# The 212 start skills cast freely without MP (#284 + #285) and would kill the summons: this test is about the cap.
+	w.loadout.order.clear()
+	w.loadout.version += 1
 	_hurt_to_summon_gate(w)
 	var summoned: Array = []
 	for wave in 5:
@@ -184,12 +188,10 @@ func test_magic_defense_changes_both_instant_and_in_flight_projectile_damage() -
 		assert_eq(_magic_hit(w, slot, projectile), 57, "100 raw magic against active MDD115 on either hit path")
 
 
-func test_weapon_defense_reduces_basic_attacks_without_mutating_weapon_or_mob_stats() -> void:
+func test_weapon_defense_reduces_physical_hits_without_mutating_weapon_or_mob_stats() -> void:
 	var setup := MF.setup([112])
 	var basic_setup: Dictionary = preload("res://tests/fixtures/basic_attack_fixtures.gd").world().setup
 	setup.equipment_info = basic_setup.equipment_info
-	setup.body_img = basic_setup.body_img
-	setup.afterimage_imgs = basic_setup.afterimage_imgs
 	var w := RunWorld.new(setup)
 	w.god = true
 	RF.place_player(w, 400)
@@ -199,14 +201,22 @@ func test_weapon_defense_reduces_basic_attacks_without_mutating_weapon_or_mob_st
 	_ticks(w, 1)
 	var slot := int(w.bosses.records[0].slot)
 	w.relocate_mob(slot, Vector2(450, 200), w.fhm.find_below(450, 190))
+	# The held Sword's physical swing line (#284 removed the basic attack that used to land it), struck every 30 ticks.
+	var lo := w.loadout
+	var swing := CombatMath.physical_damage_range(lo.str_stat, lo.dex_stat, lo.luk_stat, w.weapon_attack(false),
+		w.weapon_id(), "swing", lo.job_id, lo.mastery)
+	var line := {"skill": "probe", "damage_type": "physical", "magic": false, "damage_min": swing.x,
+		"damage_max": swing.y, "damage_pct": 1.0, "player_level": lo.char_level, "crit": 0.0, "crit_mult": 1.5}
 	var before := []
 	var after := []
 	for tick in 60*15:
+		if tick % 30 == 0 and w.swarm.active[slot] != 0:
+			w.hit_mob(slot, line, -1)
 		w.step(DT, MoveInput.new())
 		for e: Dictionary in w.drain_events():
-			if e.type == "mob_hit" and e.skill == "basic_attack" and not bool(e.crit):
+			if e.type == "mob_hit" and e.skill == "probe":
 				(before if w.time < 10 else after).append(int(e.damage))
-	assert_true(before.size() >= 10 and after.size() >= 5, "basic attacks landed on both sides of the buff")
+	assert_true(before.size() >= 10 and after.size() >= 5, "physical hits landed on both sides of the buff")
 	if before.is_empty() or after.is_empty():
 		return
 	assert_true(before.max() > 40, "known STR112 Sword can hit above 40 before PDD buff")

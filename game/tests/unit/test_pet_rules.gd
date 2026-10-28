@@ -37,7 +37,11 @@ func test_upgrades_without_a_pet_out_do_nothing() -> void:
 
 
 func _fingerprint(seed_value: int) -> String:
-	var w := RunWorld.new(PF.busy_setup(seed_value))
+	var setup := PF.busy_setup(seed_value)
+	# #284: the fresh character is a 212 whose Energy Bolt costs 6 MP, more than the 5-MP Lv1 pool; a bigger pool keeps
+	# the round busy (kills, drops for the pet) under the current MP rules (#285 owns MP).
+	setup.character.base_mp = 30.0
+	var w := RunWorld.new(setup)
 	var bot_memo := {}
 	var out: Array = []
 	for tick in 3600:

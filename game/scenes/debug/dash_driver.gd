@@ -5,6 +5,8 @@ extends Node
 ## MAPLE_SURVIVORS_CACHE=<cache> ISOLATE=<name> bash scripts/run.sh res://scenes/debug/dash_driver.tscn -- \
 ##   --shots=<abs evidence dir> [--rank=10]
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 var run: RunScene
 var shots := ""
 
@@ -26,7 +28,7 @@ func _drive() -> void:
 	run.set_process(false)
 	var w := run.world
 	w.god = true
-	w.change_job(500, "knuckle")
+	RF.as_job(w, 500, "knuckle")
 	w.upgrades.apply("dash_new", w)
 	for i in int(args.get("rank", 10)) - 1:
 		w.upgrades.apply("dash_rank", w)

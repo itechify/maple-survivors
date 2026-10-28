@@ -120,15 +120,6 @@ func skill_with_effect(stat: String) -> String:
 	return ""
 
 
-## effect_total over the buffs whose skill key `keep` (a Callable(skill: String) -> bool) accepts.
-func effect_total_where(stat: String, keep: Callable) -> float:
-	var total := 0.0
-	for skill: String in active:
-		if keep.call(skill):
-			total += float(active[skill].effects.get(stat, 0.0))
-	return total
-
-
 ## Detached presentation snapshot, in cast order.
 func snapshot() -> Array:
 	return active.values().duplicate(true)

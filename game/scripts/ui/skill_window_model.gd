@@ -1,8 +1,8 @@
 class_name SkillWindowModel
 extends RefCounted
 ## What the v83 Skill window (SkillWindow, #86) shows, built from plain run data so it can be tested without nodes or
-## the cache: one tab per job on the character's path (Beginner, 1st job, the 2nd-job branch reached), each listing
-## every skill of that job the game implements (spec #225: there are no job-neutral cards, so no star tab). Read-only:
+## the cache: one tab per job on the character's line below the Beginner (1st job up to the character's own job; #284:
+## the Beginner is no longer playable), each listing every skill of that job the game implements (spec #225: there are no job-neutral cards, so no star tab). Read-only:
 ## it never changes the loadout.
 ##
 ##   var m := SkillWindowModel.new(world.book, world.upgrades, world.loadout, world.jobs, job_id, run.skill_text)
@@ -17,16 +17,12 @@ var loadout: Loadout
 var jobs: JobTree
 var job_id := 0
 var text: SkillText
-## Returns the family of the weapon held now (RunWorld.held_weapon_family; "" = bare hands). Without one (not valid) no
-## weapon is held, which only matters for skills that name a weapon.
-var held_family: Callable
 ## The tabs, left to right (see the class doc).
 var tabs: Array[Dictionary] = []
 
 
 func _init(p_book: SkillBook, p_pool: UpgradePool, p_loadout: Loadout, p_jobs: JobTree, p_job_id: int,
-		p_text: SkillText, p_held_family: Callable = Callable()) -> void:
-	held_family = p_held_family
+		p_text: SkillText) -> void:
 	book = p_book
 	pool = p_pool
 	loadout = p_loadout
@@ -37,6 +33,8 @@ func _init(p_book: SkillBook, p_pool: UpgradePool, p_loadout: Loadout, p_jobs: J
 	path.reverse()
 	for id in path:
 		var j := jobs.job(id)
+		if int(j.get("tier", 0)) == 0:
+			continue
 		var bk := String(j.get("book", ""))
 		var names: Variant = text.strings.get(bk, {}) if text != null else {}
 		tabs.append({"name":String(j.get("name", str(id))), "job_id": id, "tier": int(j.get("tier", 0)),
@@ -44,24 +42,10 @@ func _init(p_book: SkillBook, p_pool: UpgradePool, p_loadout: Loadout, p_jobs: J
 			"book_icon": "Skill.wz/%s.img/info/icon" % bk if bk != "" else "", "rows": _skill_rows(id)})
 
 
-## True when the weapon held now can use skill `key` (SkillBook.usable_with); the window greys the row otherwise.
-func usable(key: String) -> bool:
-	return book.usable_with(key, String(held_family.call()) if held_family.is_valid() else "")
-
-
-## The weapon a skill needs for the tooltip: "Claw", "Knuckle / Gun" ("" when any weapon works).
-func weapon_needed(key: String) -> String:
-	var names := PackedStringArray()
-	for family in book.weapon_families(key):
-		names.append(WeaponInfo.family_label(family))
-	return " / ".join(names)
-
-
 ## The tooltip of skill `key`: {name, icon, desc, level (0 when unlearned), current (the owned level's line, "" when
 ## unlearned), next_level (0 at the cap), next (that level's line), cooldown (s between casts:
 ## SkillRunner.restart_cooldown; -1 for a passive), hp_cost (only for an active skill that
-## pays HP, Slash Blast), needs (the weapon it needs, "" for any;
-## weapon_needed), usable (the held weapon can use it), upgrades: [{id, name, steps, effect, text}] (every behaviour
+## pays HP, Slash Blast), upgrades: [{id, name, steps, effect, text}] (every behaviour
 ## card taken for the skill, in card order: "Twin Claw ×2: +2 targets")}. Lines come from SkillText filled with the
 ## effective stats, so cards show in the numbers.
 func skill_tooltip(key: String) -> Dictionary:
@@ -71,7 +55,7 @@ func skill_tooltip(key: String) -> Dictionary:
 	var kind := book.kind(key)
 	var tip := {"key": key, "name": String(d.get("name", key)), "icon": String(d.get("icon", "")),
 		"desc": text.desc(key), "level": loadout.level(key), "current": "", "next_level": 0, "next": "",
-		"cooldown": -1.0, "needs": weapon_needed(key), "usable": usable(key), "upgrades": []}
+		"cooldown": -1.0, "upgrades": []}
 	if r > 0:
 		tip.current = text.level_line(key, loadout.level(key), st)
 	if r < book.max_rank(key):

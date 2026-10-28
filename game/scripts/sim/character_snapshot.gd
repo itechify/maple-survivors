@@ -19,10 +19,7 @@ extends RefCounted
 ##     top, bottom, shoes, gloves, cape, weapon, shield). An overall's id is stored under both top and bottom, a
 ##     two-handed weapon cover's under both weapon and shield.
 ##   pet: species id of the owned pet that is out (0 or absent = none).
-## Optional spec #151 key (#157), also without a FORMAT bump:
-##   weapon_path: the latest multi-family advancement choice ("sword", "claw", ...; JobTree.paths_of).
-##     Pathless characters infer it from the held family at their deepest multi-family job (tier C: spec #226).
-## Both are only what the character wears and takes out; whether the account owns them is decided each round
+## Cash and pet are only what the character wears and takes out; whether the account owns them is decided each round
 ## (RunWorld ignores and warns about what it does not own). Fortune from cash slots is computed live, never stored:
 ## base_fortune and fortune above exclude it. Cash equipment is drawn over the worn equipment (AvatarLayers).
 ## No HP, map state, buffs, statuses, choices, RNG states or timers are persisted. The next round refills
@@ -63,19 +60,6 @@ static func migrate(value: Dictionary, jobs: JobTree, equipment_info: Dictionary
 		if out.get("look") is Dictionary:
 			out.look.erase("equips")
 		out.format = FORMAT
-	if String(out.get("weapon_path", "")) == "":
-		var held := WeaponInfo.family(int(out.get("equipment", {}).get("worn", {}).get("weapon", {}).get("id", 0)))
-		for j in jobs.lineage(int(out.get("job_id", 0))):
-			var paths := jobs.paths_of(j)
-			if paths.size() < 2:
-				continue
-			# tier C: migrate only the deepest multi-family row; an incompatible or missing weapon uses its first path.
-			out.weapon_path = String(paths[0].id)
-			for p: Dictionary in paths:
-				if String(p.family) == held:
-					out.weapon_path = String(p.id)
-					break
-			break
 	return out
 
 
@@ -140,8 +124,6 @@ static func validation_error(value: Variant) -> String:
 	var cash_message := cash_error(value)
 	if cash_message != "":
 		return cash_message
-	if value.has("weapon_path") and not value.weapon_path is String:
-		return "invalid weapon_path"
 	if format == 1:
 		return ""
 	var equipment_error := Equipment.validation_error(value.get("equipment"))

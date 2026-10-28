@@ -2,7 +2,6 @@ extends TestCase
 ## Tree bosses through the seeded fixed-tick world, including immunity at live impact time.
 const TF := preload("res://tests/fixtures/tree_boss_fixtures.gd")
 const DT := 1.0 / 60.0
-const BF := preload("res://tests/fixtures/basic_attack_fixtures.gd")
 
 
 func _until(w: RunWorld, t: float) -> void:
@@ -65,30 +64,6 @@ func test_shell_immunity_is_checked_at_impact_not_at_launch() -> void:
 	_shell(w, slot)
 	_until(w, 37.0)
 	assert_eq(w.swarm.hp[slot], hp - 40, "shell launched while immune lands after expiry and damages")
-
-
-func test_basic_swings_are_blocked_during_immunity_then_resume() -> void:
-	var setup := TF.setup()
-	var basic := BF.world()
-	setup.body_img = basic.setup.body_img
-	setup.afterimage_imgs = basic.setup.afterimage_imgs
-	setup.equipment_info = basic.setup.equipment_info
-	var w := RunWorld.new(setup)
-	w.god = true
-	_until(w, 1.0)
-	var slot := int(w.bosses.records[0].slot)
-	_hit(w, slot, 12000)
-	_until(w, 30.5)
-	w.player.facing = 1 if w.swarm.x[slot] >= w.player.pos.x else -1
-	w.drain_events()
-	var hp := w.swarm.hp[slot]
-	_until(w, 34.5)
-	var events := w.drain_events()
-	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "basic_attack"), "real basic swings occur")
-	assert_false(events.any(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "basic_attack"))
-	assert_eq(w.swarm.hp[slot], hp)
-	_until(w, 37.0)
-	assert_true(w.swarm.hp[slot] < hp, "basic attacks resume once the timed status expires")
 
 
 func test_dyle_heal_uses_hp90_interval20_and_zero_effect_delay() -> void:

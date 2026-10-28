@@ -4,15 +4,19 @@ extends RefCounted
 ## 1/60 s step() calls, reporting what happened through `events`. Pure: no nodes, input, time, files or autoloads.
 ##
 ## Per PLAYING tick: drinks -> portals/movement -> view/timers (regen/buffs) -> swarm -> boss lifecycle,
-## skills/attacks/monster balls -> ordinary spawns/hash -> SkillRunner/BasicAttack -> player shots/kills/rewards ->
+## skills/attacks/monster balls -> ordinary spawns/hash -> SkillRunner -> player shots/kills/rewards ->
 ## pickups -> touch -> collected EXP/level-ups -> state snapshot. Death during that tick takes priority. After all
 ## bosses and choices finish, clear settlement sweeps drops and resolves their choices without another combat tick.
 ##
-## Pause protocol (4.4.2): step() does nothing unless `state` is PLAYING. For each queued level the job tree is checked
-## first (CHOOSING_JOB + job_advance_pending when JobTree.should_offer), then CHOOSING_UPGRADE + choice_pending with
-## cards drawn when the window opens. apply_job(id) adds an advancement draw; decline_job() skips it;
-## apply_choice(id) applies the card and moves to the next queued level, clear settlement or PLAYING. They return false (and
-## change nothing) when called in the wrong state or with an id that is not on offer.
+## Pause protocol (4.4.2): step() does nothing unless `state` is PLAYING. Each queued level opens CHOOSING_UPGRADE +
+## choice_pending with cards drawn when the window opens; apply_choice(id) applies the card and moves to the next queued
+## level, clear settlement or PLAYING. It returns false (and changes nothing) in the wrong state or with an id that is not
+## on offer.
+##
+## The character's job (ADR 0006): one job, fixed for the round and the character's life. progression.job_id holds it;
+## set_job() is its only writer: _init_player calls it once with the character's job (a restored snapshot's job_id, else
+## setup.job, else JobTree.default_job()), and a fresh round learns that job's JobTree.start_skills at rank 1. There is no
+## advancement, no weapon path and no basic attack; weapons gate no skill.
 ##
 ## Events: every emitted Dictionary has `type` plus exactly the fields of EVENT_FIELDS[type]. `player_hit.damage` is the
 ## whole hit (the number shown); `miss` hits do no damage and
@@ -50,11 +54,11 @@ extends RefCounted
 ## equipment and return "" or a Shop reason (count, mesos, use_full, no_item, unsellable, not_sold), changing nothing then;
 ## each success emits equipment_changed (action "buy" / "sell"). Worn equipment is never sold (sell_item takes inventory
 ## indices; Shop.sell_worn is the refusal).
-## change_job(200) grants and wears balance.player.weapon_grants' weapon (the Wooden Wand). weapon_id() is the worn
-## weapon (0 bare-handed), weapon_attack() the W.ATT summed over all worn items.
+## weapon_id() is the worn weapon (0 bare-handed), weapon_attack() the W.ATT summed over all worn items.
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
-## draws, 4 drop pops, 5 basic-attack stances/damage/crits, 6 boss reward scatter, 7 reserved (removed potion rolls, spec #237), 8 bot branch choices,
+## draws, 4 drop pops, 5 reserved (the removed basic attack, #284), 6 boss reward scatter, 7 reserved (removed potion
+## rolls, spec #237), 8 reserved (the removed bot job draws, #284),
 ## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls,
 ## 12 Final Attack proc and follow-up damage/crit rolls; 13 Threaten (spec #165; no prop in v83, so unused),
 ## 14 reserved for Bowman,
@@ -64,16 +68,13 @@ extends RefCounted
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
-const CHOOSING_JOB := 1
-const CHOOSING_UPGRADE := 2
-const DEAD := 3
-const CLEARED := 4
-const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CLEARED"]
+const CHOOSING_UPGRADE := 1
+const DEAD := 2
+const CLEARED := 3
+const STATE_NAMES := ["PLAYING", "CHOOSING_UPGRADE", "DEAD", "CLEARED"]
 ## Production stage names for the optional clock-free instrumentation callback, in execution order.
 const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "touch", "gain_exp",
 	"player_state", "end_tick"]
-## read_skill_cooldowns state of a skill icon blocked by the held weapon (0 = normal). There is no MP (ADR 0006).
-const SKILL_STATE_BLOCKED := 2
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
@@ -92,7 +93,6 @@ const EVENT_FIELDS := {
 	# #194: a buff cast with a failure chance (Oak Barrel) that failed; nothing started.
 	"buff_failed": ["skill", "skill_id", "level"],
 	"buff_pulse": ["skill", "skill_id", "amount"],
-	"basic_attack": ["phase", "weapon_id", "action", "facing", "pos", "afterimage", "sound", "hit_after", "interval"],
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
 	"mob_status_applied": ["mob", "mob_id", "status", "duration"],
@@ -112,9 +112,7 @@ const EVENT_FIELDS := {
 	"pet_teleported": ["from", "pos"],
 	"potion_tier_up": ["kind", "from_item_id", "item_id"],
 	"level_up": ["level"],
-	"job_advance_pending": ["options"],
-	"job_changed": ["job_id", "name"],
-	"choice_pending": ["cards", "bonus", "advancement"],
+	"choice_pending": ["cards", "bonus"],
 	"upgrade_applied": ["id", "rank", "tier", "magnitude"],
 	"skill_learned": ["skill", "skill_id"],
 	"burst": ["count"],
@@ -194,8 +192,6 @@ var meso_rng: RandomNumberGenerator
 var equip_rng: RandomNumberGenerator
 var scroll_rng: RandomNumberGenerator
 var reward_rng: RandomNumberGenerator
-## Independent seeded branch choices do not perturb card, combat or careless-card streams.
-var job_rng: RandomNumberGenerator
 ## Final Attack's proc and damage/crit rolls only (stream 12, #161).
 var final_rng: RandomNumberGenerator
 ## Thief-only rolls (stream 15, #207): reserved for Steal's success chance (#214).
@@ -284,18 +280,12 @@ var view_size := DEFAULT_VIEW
 var view := Rect2()
 ## WZ paths referenced by ProjectileSystem.visual (and hit visuals); append-only.
 var visual_paths: Array = []
-## The weapon path the first job was taken with (JobTree.paths_of id: "claw", "dagger", ...; "" = none). Set by
-## change_job/apply_job, carried by the snapshot's optional `weapon_path` key (spec #151 #157).
-var weapon_path := ""
 ## The ammo item the held ranged weapon uses (0 for a melee weapon or bare hands), derived from the weapon family, job and
 ## level by _sync_ammo; never saved, never consumed (Ammo, spec #151 #155).
 var _ammo_id := 0
 var _ammo_family := ""
-## Options / cards of the open window.
-var pending_jobs: Array = []
+## Cards of the open window.
 var pending_cards: Array = []
-## True while the extra new-job skill draw is open; it does not consume a queued level or boss reward.
-var choice_advancement := false
 ## Card draws in a row that offered no power card (UpgradePool pity).
 var power_dry := 0
 ## Offered cards / selected cards per displayed tier, counting cards once rather than the steps they grant.
@@ -362,11 +352,10 @@ var equips_collected := 0
 var _equipment_speed := 0.0
 var _equipment_jump := 0.0
 var _dead := false
-var basic: BasicAttack
-var basic_rng: RandomNumberGenerator
+## The held weapon's swing reach and envelope (weapon_reach skills, Final Attack spread).
+var weapon_reach: WeaponReach
 var _action := ""
 var _action_t := 0.0
-var _job_checked := false
 var _instant_dealt := 0
 var _ctx := {}
 var _visual_ids := {}
@@ -401,13 +390,13 @@ func _init(p_setup: Dictionary = {}) -> void:
 ## One seeded stream per owner (see the header).
 func _init_rng_streams() -> void:
 	rng = _stream(1)
-	basic_rng = _stream(5)
+	# Stream 5 reserved (the removed basic attack, #284): do not renumber any other RNG stream.
 	spawn_rng = _stream(2)
 	card_rng = _stream(3)
 	drop_rng = _stream(4)
 	potion_rng = _stream(7) # Reserved: do not renumber any other RNG stream.
 	reward_rng = _stream(6)
-	job_rng = _stream(8) # tier C: independent bot branch stream, #53.
+	# Stream 8 reserved (the removed bot job draws, #284).
 	meso_rng = _stream(9) # tier C: meso rolls never shift another stream, #107.
 	equip_rng = _stream(10) # tier C: equipment rolls never shift another stream, #109.
 	scroll_rng = _stream(11) # tier C: scroll success/curse rolls never shift another stream, #110.
@@ -448,7 +437,6 @@ func _init_mobs() -> void:
 func _init_drops_and_shots() -> void:
 	projectiles = ProjectileSystem.new(64, rng)
 	projectiles.paths = visual_paths
-	projectiles.alt_rng = basic_rng # the ranged basic attack's shots roll on stream 5, like its instant swings
 	projectiles.bounds = bounds
 	projectiles.magic_defense_k = float(balance.get("magic_defense_k", CombatMath.MAGIC_DEFENSE_K))
 	projectiles.pierce_floor = float(balance.get("combat", {}).get("pierce_floor", 0.0))
@@ -470,7 +458,7 @@ func _init_skills_and_progression() -> void:
 	loadout.crit_mult = float(crit.get("mult", 1.5))
 	loadout.crit_per_acc = float(crit.get("per_acc", 0.0))
 	runner = SkillRunner.new()
-	basic = BasicAttack.new(setup.get("body_img", {}), setup.get("afterimage_imgs", {}))
+	weapon_reach = WeaponReach.new(setup.get("body_img", {}), setup.get("afterimage_imgs", {}))
 	progression = RunProgression.new(ExpCurve.from_data(balance.get("exp_curve", {})),
 		int(balance.get("max_level", 200)))
 	jobs = JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
@@ -579,7 +567,6 @@ func advance_map() -> void:
 	for slot in pickups.capacity():
 		pickups.despawn(slot)
 	_final_queue.clear()
-	basic.clear_pending()
 	runner.clear_pending()
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
@@ -600,11 +587,11 @@ func advance_map() -> void:
 	emit("map_entered", {"map_index": map_index, "map_id": current_map_id()})
 
 
-## Returns independent round-boundary data; unresolved rewards/jobs/advancement draws are an error, never dropped.
+## Returns independent round-boundary data; unresolved rewards/draws are an error, never dropped.
 ## In release returns {} after push_error; debug also asserts so callers cannot silently discard a choice.
 func character_snapshot() -> Dictionary:
-	if state in [CHOOSING_JOB, CHOOSING_UPGRADE] or progression.has_pending() or pending_bonus_choices > 0 \
-			or choice_bonus or choice_advancement or not pending_jobs.is_empty() or not pending_cards.is_empty():
+	if state == CHOOSING_UPGRADE or progression.has_pending() or pending_bonus_choices > 0 \
+			or choice_bonus or not pending_cards.is_empty():
 		push_error("RunWorld.character_snapshot: a character choice is pending")
 		assert(false, "RunWorld.character_snapshot: a character choice is pending")
 		return {}
@@ -622,8 +609,6 @@ func character_snapshot() -> Dictionary:
 		"fortune": _own_fortune(), "base_fortune": _base_fortune,
 		"look": character_look.duplicate(true), "equipment": equipment.duplicate(true),
 		"scrolls": scrolls.duplicate(), "mesos": mesos}
-	if weapon_path != "":
-		snapshot["weapon_path"] = weapon_path
 	# Spec #34 optional keys: written only when set, so characters without cash items keep their exact old bytes.
 	if not _cash_carried.is_empty():
 		snapshot["cash"] = _cash_carried.duplicate()
@@ -657,8 +642,8 @@ func nx_awarded() -> int:
 ## The objective is complete only after all mandatory choices; settlement may queue more from swept EXP.
 func can_clear() -> bool:
 	var objective := bosses.all_dead() if bosses.has_bosses() else time >= duration - 1e-6
-	return objective and pending_bonus_choices == 0 and not choice_bonus and not choice_advancement \
-		and not progression.has_pending() and pending_cards.is_empty() and pending_jobs.is_empty()
+	return objective and pending_bonus_choices == 0 and not choice_bonus and not progression.has_pending() \
+		and pending_cards.is_empty()
 
 
 ## Drinks one HP potion instantly while playing, including on ropes; false during cooldown or without a restore spec.
@@ -855,47 +840,39 @@ func skill_key_of(key: String) -> String:
 	return String((d as Dictionary).get("skill_key", "")) if d is Dictionary else ""
 
 
-## Owned manual skill of skill key `id` that the held weapon can use (SkillBook.usable_with), or "".
+## Owned manual skill of skill key `id`, or "".
 func manual_skill(id: String) -> String:
-	var held := held_weapon_family()
 	for key: String in loadout.order:
-		if skill_key_of(key) == id and book.usable_with(key, held):
+		if skill_key_of(key) == id:
 			return key
 	return ""
 
 
-## Owned branch Teleport key the held weapon can use (SkillBook.usable_with), or empty before learning it or while the
-## weapon blocks it: a weapon-gated manual skill neither casts nor is offered to the bot.
+## Owned Teleport key (a job line's variant), or "" before the character has one.
 func teleport_skill() -> String:
-	var held := held_weapon_family()
 	for key: String in loadout.order:
-		if _is_teleport(key) and book.usable_with(key, held):
+		if _is_teleport(key):
 			return key
 	return ""
 
 
 ## HUD readiness of an owned skill: `left` seconds until ready (>= 0), the cooldown `total` set at its last cast
-## (0 before any) and `blocked` (the held weapon cannot use the skill, SkillBook.usable_with). Teleport reports its
-## repeat timer.
+## (0 before any). Teleport reports its repeat timer.
 func skill_readiness(key: String) -> Dictionary:
-	var blocked := not book.usable_with(key, held_weapon_family())
-	return {"left": _cooldown_left(key), "total": _cooldown_total(key), "blocked": blocked}
+	return {"left": _cooldown_left(key), "total": _cooldown_total(key)}
 
 
 ## The HUD's per-frame readiness of every owned skill, in loadout.order, written into the caller's reused buffers
 ## (resized in place; nothing is allocated once they have the right size): left and total as skill_readiness reports
-## them, and `state` per skill (SKILL_STATE_*): 0 normal, 2 blocked by the held weapon.
-func read_skill_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array, state: PackedByteArray) -> void:
+## them.
+func read_skill_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array) -> void:
 	var n := loadout.order.size()
 	left.resize(n)
 	total.resize(n)
-	state.resize(n)
-	var held := held_weapon_family()
 	for i in n:
 		var key: String = loadout.order[i]
 		left[i] = _cooldown_left(key)
 		total[i] = _cooldown_total(key)
-		state[i] = SKILL_STATE_BLOCKED if not book.usable_with(key, held) else 0
 
 
 ## Pressing (or holding) the skill key of a manual buff such as Dash casts it: it needs no cooldown left, no active
@@ -987,12 +964,9 @@ func _step_monsters(dt: float) -> void:
 	mob_grid.rebuild(swarm.x, swarm.y, swarm.active, swarm.capacity())
 
 
-## Auto-casts, the basic swing, then the player's shots against live defense/immunity; kills drop their rewards.
+## Auto-casts, then the player's shots against live defense/immunity; kills drop their rewards.
 func _step_player_attacks(dt: float) -> void:
 	runner.step(dt, self)
-	if _map_clearing:
-		return
-	basic.step(dt, self)
 	if _map_clearing:
 		return
 	_fill_live_defense()
@@ -1138,40 +1112,6 @@ func _settle_map() -> bool:
 	return true
 
 
-## Takes an available job and one of its path ids; an empty path defaults to its first page path.
-func apply_job(job_id: int, path := "") -> bool:
-	if state != CHOOSING_JOB:
-		return false
-	var ok := false
-	for o: Dictionary in pending_jobs:
-		if int(o.job_id) == job_id and bool(o.available):
-			var paths: Array = o.get("paths", [])
-			ok = path == "" or JobTree.has_path(paths, path)
-			if ok and path == "":
-				path = JobTree.default_path(paths)
-			break
-	if not ok:
-		return false
-	pending_jobs = []
-	change_job(job_id, path)
-	choice_bonus = false
-	choice_advancement = true
-	pending_cards = upgrades.roll_advancement_choices(self, card_rng)
-	state = CHOOSING_UPGRADE
-	emit("choice_pending", {"cards": pending_cards.duplicate(true), "bonus": false, "advancement": true})
-	return true
-
-
-## "Not now": keeps the current job and continues to the level's upgrade choice.
-func decline_job() -> bool:
-	if state != CHOOSING_JOB:
-		return false
-	pending_jobs = []
-	state = PLAYING
-	_advance_queue()
-	return true
-
-
 ## Applies card `card_id` from the open choice window and continues with the next queued level (or play).
 func apply_choice(card_id: String) -> bool:
 	if state != CHOOSING_UPGRADE:
@@ -1187,35 +1127,28 @@ func apply_choice(card_id: String) -> bool:
 	var tier := String(selected.get("tier", "normal"))
 	card_tiers_picked[tier] += 1
 	pending_cards = []
-	if choice_advancement:
-		choice_advancement = false
-	elif choice_bonus:
+	if choice_bonus:
 		pending_bonus_choices -= 1
 		choice_bonus = false
 	else:
 		progression.pop_front()
-		_job_checked = false
 	state = PLAYING
 	_advance_queue()
 	_write_player_state(0.0)
 	return true
 
 
-## Changes the job and HP grants without learning skills; emits job_changed. Tier C (#226): choose one
-## weapon in page order, recording multi-family choices only. Single-family branches preserve the earlier path.
-func change_job(job_id: int, path := "") -> void:
-	var paths := jobs.page_paths(job_id, held_weapon_family())
-	if path == "":
-		path = JobTree.default_path(paths)
+## Sets the character's job (see the header): the only writer of progression.job_id. It grants, learns and wears
+## nothing; the stats that follow the job (AP split, growth, accuracy, ammo) are refreshed. _init_player calls it once;
+## tests and debug drivers call it before play to stand a character of another line.
+func set_job(job_id: int) -> void:
 	progression.job_id = job_id
-	if paths.size() >= 2 and JobTree.has_path(paths, path):
-		weapon_path = path
-	var j := jobs.job(job_id)
-	var grants: Dictionary = j.get("grants", {})
-	_base_hp += float(grants.get("max_hp", 0.0))
-	refresh_player_stats()
-	emit("job_changed", {"job_id": job_id, "name": jobs.name_of(job_id)})
-	_grant_job_weapon(job_id, path)
+	refresh_player_stats(false)
+
+
+## The character's job id (progression.job_id).
+func job_id() -> int:
+	return progression.job_id
 
 
 ## Learns a skill (emits skill_learned); false when unknown or owned.
@@ -1268,18 +1201,17 @@ func restore_player(stat: String, amount: int, skill: String) -> int:
 ## clamp HP; level growth suppresses flat grants too, before the separate level-up refill (#41).
 ## `attribute_level` lets a batch EXP gain allocate AP for each intermediate level; -1 uses the current level.
 func refresh_player_stats(grant_growth: bool = true, attribute_level: int = -1) -> void:
-	var pb: Dictionary = balance.get("player", {})
-	var primary := String(_job_value(pb.get("ap_stat", {}), "str", true))
-	# Earned AP splits between the job line's secondary stat (AutoAp, ticket #106) and the primary stat.
-	var secondary_cfg: Dictionary = _job_value(pb.get("ap_secondary", {}), {}, true)
-	var secondary := String(secondary_cfg.get("stat", ""))
+	# Earned AP splits between the job's secondary stat (AutoAp, ticket #106) and its primary stat: the job's one
+	# balance.player.ap row (#284), else its nearest ancestor's.
+	var row: Dictionary = _job_value(balance.get("player", {}).get("ap", {}), {})
+	var primary := String(row.get("primary", "str"))
+	var secondary := String(row.get("secondary", ""))
 	if secondary == primary or not _base_stats.has(secondary):
 		secondary = ""
 	var secondary_ap := 0
 	if secondary != "":
 		secondary_ap = AutoAp.secondary_ap(_earned_ap, progression.level if attribute_level < 0 else attribute_level,
-			float(_base_stats[secondary]),
-			secondary_cfg.get("keyframes", []))
+			float(_base_stats[secondary]), row.get("keyframes", []))
 	for stat: String in _base_stats:
 		var ap := 0
 		if stat == primary:
@@ -1323,7 +1255,7 @@ func player_speed_stat() -> float:
 
 func _refresh_caster() -> void:
 	loadout.weapon_id = weapon_id()
-	loadout.weapon_family = held_weapon_family() # first: the weapon-gated passives below read it
+	loadout.weapon_family = held_weapon_family()
 	loadout.set_caster(float(_attributes.int), equipment_bonus("incMAD") + buffs.effect_total("matk"), progression.level)
 	loadout.str_stat = float(_attributes.str)
 	loadout.dex_stat = float(_attributes.dex)
@@ -1337,7 +1269,7 @@ func _refresh_caster() -> void:
 	loadout.speed_steps = attack_speed_boost()
 	player.stand_stance = WeaponInfo.stand_stance(held)
 	player.walk_stance = WeaponInfo.walk_stance(held)
-	# Weapon-gated passives (#161): mastery replaces the untrained 10%; crit chance is a percent; crit damage is the
+	# Passives (#161): mastery replaces the untrained 10%; crit chance is a percent; crit damage is the
 	# critical hit's total percent, so its additive bonus is the part above 100.
 	var mastery := loadout.passive_best(Loadout.MASTERY)
 	loadout.mastery = CombatMath.mastery_fraction(int(mastery)) if mastery > 0.0 else Loadout.BASE_MASTERY
@@ -1352,13 +1284,9 @@ func attack_speed_step() -> int:
 	return int(info.get("attackSpeed", 0)) if not info.is_empty() else WeaponInfo.NORMAL_SPEED
 
 
-## Attack speed steps the active Boosters add (positive = faster). A buff counts only while the held weapon fits its
-## skill's weapon families (SkillBook.usable_with): a Sword Booster keeps running through a weapon change but does
-## nothing until a sword is held again (spec #151, #160).
+## Attack speed steps the active Boosters add (positive = faster).
 func attack_speed_boost() -> int:
-	var held := held_weapon_family()
-	return roundi(buffs.effect_total_where("attack_speed", func(skill: String) -> bool:
-		return loadout.book.usable_with(skill, held)))
+	return roundi(buffs.effect_total("attack_speed"))
 
 
 ## Applies player_speed_stat() to the movement model (whole speed points) and the jump stat (100 + worn incJump,
@@ -1583,7 +1511,7 @@ func face_toward(tx: float, any_state := false) -> void:
 		player.facing = 1 if tx > player.pos.x else -1
 
 
-## Starts a stance for its frame time; airborne opts basic swings into the same visual without changing motion; `scale`
+## Starts a stance for its frame time; airborne plays the same stance in the air without changing motion; `scale`
 ## is the attack-speed fraction of the frame time it plays in (WeaponInfo.speed_factor).
 func start_action(action: String, seconds: float, airborne: bool = false, scale: float = 1.0) -> void:
 	upkeep.start_action(action, seconds, airborne, scale)
@@ -1796,31 +1724,15 @@ func _equipment_changed(action: String, slot: String, id: int) -> void:
 	emit("equipment_changed", {"action": action, "slot": slot, "item_id": id})
 
 
-## Wears only the chosen path weapon (tier C: #226), or the Magician balance grant, without requirements.
-## Displaced equipment goes to the Equip tab and spills at the feet when full, so a grant never fails.
-func _grant_job_weapon(job_id: int, path := "") -> void:
-	var id := int(balance.get("player", {}).get("weapon_grants", {}).get(str(job_id), 0))
-	for p: Dictionary in jobs.paths_of(job_id):
-		if String(p.id) == path:
-			id = int(p.item_id)
-			break
-	if id <= 0:
-		return
-	var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
-	# Every slot the grant displaces (the weapon, and the shield of a two-handed grant) goes to the Equip tab while it
-	# has room; the rest, last slot first (the shield), is taken off here and dropped after the grant is worn.
-	var displaced := Equipment.displaced_slots(equipment.worn, id)
-	var room := maxi(0, inventory_slots() - equipment.inventory.size())
-	var spilled: Array = []
-	while displaced.size() > room:
-		var slot: String = displaced.pop_back()
-		spilled.append(equipment.worn[slot])
-		equipment.worn.erase(slot)
-	var error := Equipment.grant(equipment, instance, inventory_slots())
-	assert(error == "", "a job grant always fits once the displaced items are spilled")
-	_equipment_changed("grant", "weapon", id)
-	for item: Dictionary in spilled:
-		spawn_equipment(player.pos, item)
+## Wears a new instance of item `id` (its canonical stats from setup.equipment_info) without requirements; what it
+## displaces goes to the Equip tab. "" or Equipment.grant's reason (inventory_full), changing nothing then. A hook for
+## tests, debug drivers and fixture tools only: no gameplay path grants an item (#284 removed the job weapon grant).
+func wear_new_item(id: int) -> String:
+	var error := Equipment.grant(equipment, Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id)),
+		inventory_slots())
+	if error == "":
+		_equipment_changed("grant", Equipment.slot_of(id), id)
+	return error
 
 
 ## Per-slot mob stance snapshot (bosses' and ordinary mobs' authored stances) for MobSwarm and the renderer;
@@ -1887,7 +1799,7 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	return j
 
 
-## One instant damage line with live defence; hv = hit visual index. Optional hit_rng selects basic stream 5.
+## One instant damage line with live defence; hv = hit visual index. Optional hit_rng replaces stream 1 (Final Attack's 12).
 func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = null) -> void:
 	if _map_clearing or swarm.active[m] == 0:
 		return
@@ -1961,10 +1873,7 @@ func _final_attack_hit(slot: int, hit: Dictionary) -> void:
 	if _final_keys.is_empty() or int(hit.damage) <= 0 or String(hit.get("damage_type", "")) != "physical" \
 			or book.def(String(hit.skill)).has("final_attack"):
 		return
-	var held := held_weapon_family()
 	for key: String in _final_keys:
-		if not book.usable_with(key, held):
-			continue
 		var chance := book.canonical(key, loadout.level(key), String(book.def(key).final_attack.chance_field))
 		if chance <= 0.0 or (chance < 100.0 and final_rng.randf() * 100.0 >= chance):
 			continue
@@ -1982,8 +1891,6 @@ func _play_final_attacks() -> void:
 		if swarm.active[slot] == 0 or swarm.identity[slot] != entry.identity:
 			continue
 		var key := String(entry.skill)
-		if not book.usable_with(key, held_weapon_family()):
-			continue
 		var st := runner.stats_of(self, key)
 		# The follow-up plays the skill's own stance when its data has one (tier C: it replaces a swing still playing).
 		start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
@@ -2018,7 +1925,7 @@ func _spread_targets(target: int, want: int) -> Array[int]:
 	var found: Array[int] = []
 	if want <= 0:
 		return found
-	var reach := basic.reach(self)
+	var reach := weapon_reach.reach(self)
 	if WeaponInfo.is_ranged(weapon_id()):
 		reach = maxf(reach, float(WeaponInfo.RANGED_REACH.get(held_weapon_family(), 0.0)))
 	if reach <= 0.0:
@@ -2122,13 +2029,16 @@ func _init_player() -> void:
 	if setup.has("character"):
 		_restore_character(setup.character)
 	else:
+		progression.job_id = int(setup.get("job", jobs.default_job()))
 		equipment.worn = Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.get("equipment_info", {}))
+	set_job(progression.job_id)
 	_init_cash()
 	refresh_player_stats()
 	_hp = _max_hp
-	if not setup.has("character"):
-		for key: Variant in pb.get("skills", []):
-			learn_skill(String(key))
+	# Every round of the job has its start skills (Teleport on its key from Lv1, #284); a carried character keeps its rank.
+	for key in jobs.start_skills(progression.job_id):
+		if book.has(key) and not loadout.has(key):
+			learn_skill(key)
 	_action = player.stance()
 
 
@@ -2137,7 +2047,7 @@ func _restore_character(source: Dictionary) -> void:
 	var character := CharacterSnapshot.migrate(source, jobs, setup.get("equipment_info", {}))
 	progression.level = int(character.level)
 	progression.exp = int(character.exp)
-	progression.job_id = int(character.job_id)
+	progression.job_id = int(character.job_id) # handed to set_job by _init_player
 	_base_stats = CharacterSnapshot.integers(character.base_attributes)
 	_earned_ap = int(character.earned_ap)
 	_base_hp = float(character.base_hp)
@@ -2153,7 +2063,6 @@ func _restore_character(source: Dictionary) -> void:
 	mesos = int(character.mesos)
 	_cash_carried = CharacterSnapshot.integers(character.get("cash", {}))
 	_pet_carried = int(character.get("pet", 0))
-	weapon_path = String(character.get("weapon_path", ""))
 
 
 ## Sets the HP ALERT level from {hp} (a fraction of max HP, clamped; 0 = do not alert; an old `mp` key is ignored).
@@ -2637,15 +2546,11 @@ func _level_ranks(level: int) -> void:
 			loadout.set_rank(key, want)
 
 
-## The current job's table entry, else its nearest ancestor's. AP tables optionally check "<job>:<weapon_path>"
-## before that job's plain key; a branch's own row therefore wins over its first-job path's row.
-func _job_value(table: Variant, fallback: Variant, by_path := false) -> Variant:
+## The current job's table entry, else its nearest ancestor's (balance.json per-job rows).
+func _job_value(table: Variant, fallback: Variant) -> Variant:
 	if not (table is Dictionary):
 		return fallback
 	for j in jobs.lineage(progression.job_id):
-		var path_key := "%d:%s" % [j, weapon_path]
-		if by_path and weapon_path != "" and table.has(path_key):
-			return table[path_key]
 		if table.has(str(j)):
 			return table[str(j)]
 	return table.get("0", fallback)
@@ -2661,26 +2566,17 @@ func _advance_queue() -> void:
 			continue
 		pending_cards = bonus_cards
 		state = CHOOSING_UPGRADE
-		emit("choice_pending", {"cards": bonus_cards.duplicate(true), "bonus": true, "advancement": false})
+		emit("choice_pending", {"cards": bonus_cards.duplicate(true), "bonus": true})
 		return
 	while progression.has_pending():
-		var lvl := progression.front()
-		if not _job_checked:
-			_job_checked = true
-			if jobs.should_offer(progression.job_id, lvl):
-				pending_jobs = jobs.advancements(progression.job_id, lvl, held_weapon_family())
-				state = CHOOSING_JOB
-				emit("job_advance_pending", {"options": pending_jobs.duplicate(true)})
-				return
 		choice_bonus = false
 		var cards := upgrades.roll_choices(self, card_rng, 3)
 		if cards.is_empty():
 			progression.pop_front() # no card at all (no filler in the data): consume the level instead of soft-locking
-			_job_checked = false
 			continue
 		pending_cards = cards
 		state = CHOOSING_UPGRADE
-		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false, "advancement": false})
+		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false})
 		return
 	state = PLAYING
 	if not _settle_map():

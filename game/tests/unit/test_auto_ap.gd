@@ -1,6 +1,7 @@
 extends TestCase
-## Automatic AP split between a job line's secondary stat and its primary stat (spec #33 ticket #106): the pure split,
-## seeded Magician and Beginner levelling through RunWorld, and loading the committed Lv38 Magician snapshot.
+## Automatic AP split between a job's secondary stat and its primary stat (spec #33 ticket #106; one row per job since
+## #284): the pure split, seeded 212 levelling and a row-less job through RunWorld, and loading the committed Lv38
+## Magician snapshot.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const FIXTURE := "res://tests/fixtures/characters/lv35_magician_2nd.json"
@@ -10,10 +11,10 @@ const V83_REQ_LUK := {13: 15, 28: 30, 38: 40, 48: 50, 58: 60, 68: 70}
 
 
 func _keyframes() -> Array:
-	return DataRepo.load_all().balance.player.ap_secondary["200"].keyframes
+	return DataRepo.load_all().balance.player.ap["212"].keyframes
 
 
-func _level_to(w: RunWorld, target: int, forced_job := 0) -> void:
+func _level_to(w: RunWorld, target: int) -> void:
 	var exp := (w.progression.curve.total_to(target) - w.progression.curve.total_to(w.progression.level)
 		- w.progression.exp)
 	w.pickups.spawn(w.player.pos, exp, 4000019)
@@ -22,7 +23,7 @@ func _level_to(w: RunWorld, target: int, forced_job := 0) -> void:
 		if int(w.player_state.level) == target:
 			break
 	assert_eq(int(w.player_state.level), target, "EXP was collected through the run")
-	BotInput.auto_choose(w, false, forced_job)
+	BotInput.auto_choose(w, false)
 
 
 func test_luk_target_matches_the_v83_magician_requirements() -> void:
@@ -40,12 +41,11 @@ func test_split_fills_the_secondary_stat_up_to_target_and_never_more_than_earned
 	assert_eq(AutoAp.secondary_ap(45, 10, 4.0, []), 0, "no keyframes means no secondary stat")
 
 
-func test_magician_levelled_from_10_to_70_keeps_base_luk_at_target_and_the_rest_in_int() -> void:
+func test_arch_mage_levelled_from_2_to_70_keeps_base_luk_at_target_and_the_rest_in_int() -> void:
 	var w := RF.quiet_world(400.0, 601)
-	_level_to(w, 9, 200)
-	for level in range(10, 71):
-		_level_to(w, level, 200) # #199: exercise Magician AP independently of the expanding first-job pool.
-		assert_true(int(w.player_state.job_id) in [200, 210, 220, 230], "a Magician line job")
+	for level in range(2, 71):
+		_level_to(w, level)
+		assert_eq(int(w.player_state.job_id), 212, "the job never changes")
 		var earned := 5 * (level - 1)
 		# Base values come from the Beginner start (LUK 4, INT 4); equipment is not involved here.
 		var luk := int(w.player_state.luk)
@@ -56,15 +56,10 @@ func test_magician_levelled_from_10_to_70_keeps_base_luk_at_target_and_the_rest_
 		assert_eq(int(w.player_state.dex), 5)
 
 
-func test_beginner_attributes_are_unchanged_at_every_level() -> void:
-	var data := RF.quiet_data()
-	# Keep the line at Beginner past Lv10 so that only the Beginner rules are exercised.
-	data.jobs_survivor.jobs["200"].playable = false
-	data.jobs_survivor.jobs["100"].playable = false
-	data.jobs_survivor.jobs["400"].playable = false
-	data.jobs_survivor.jobs["500"].playable = false
-	data.jobs_survivor.jobs["300"].playable = false
-	var w := RunWorld.new(RF.setup("quiet", 602, data))
+func test_a_job_without_an_ap_row_puts_every_point_into_str() -> void:
+	var setup := RF.setup("quiet", 602, RF.quiet_data())
+	setup["job"] = 0 # the Beginner has no balance.player.ap row (nor an ancestor with one)
+	var w := RunWorld.new(setup)
 	RF.place_player(w, 400.0)
 	for level in range(2, 31):
 		_level_to(w, level)
@@ -92,7 +87,7 @@ func test_committed_lv38_magician_snapshot_derives_the_split_on_load() -> void:
 
 func test_batch_exp_matches_stepwise_growth_and_keeps_level_and_potion_queue_order() -> void:
 	var initial := RF.quiet_world(400.0, 1)
-	initial.change_job(200)
+	RF.as_job(initial, 200)
 	initial.progression.level = 20
 	initial._earned_ap = 95
 	initial.refresh_player_stats(false)

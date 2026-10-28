@@ -82,7 +82,7 @@ func test_level_up_cards_show_the_skill_text_at_the_offered_level() -> void:
 	var text := SkillText.new(w.book, {"2001003": {"desc": "[Master Level : 20]\\nBoosts the weapon def.",
 		"h1": "MP -8; weapon def. +2", "h2": "MP -8; weapon def. +4"}})
 	var learn := w.upgrades.choice_card("magic_armor_new", w)
-	var mod := w.upgrades.choice_card("three_snails_count", w)
+	var mod := w.upgrades.choice_card("energy_bolt_count", w) # the 212 start skill (#284; the Beginner cards are gone)
 	var magnet := w.upgrades.choice_card("elixir", w)
 	var cards := text.dress([learn, mod, magnet], w.loadout)
 	assert_eq([cards[0].desc, cards[0].detail], ["Boosts the weapon def.", "Weapon def. +2"],
@@ -132,7 +132,7 @@ func test_templates_pick_the_singular_and_leave_unknown_names() -> void:
 
 func test_bless_text_explains_the_accuracy_bonus_that_raises_critical_chance() -> void:
 	var world := RF.quiet_world(400.0, 1)
-	world.change_job(230)
+	RF.as_job(world, 230)
 	world.learn_skill("energy_bolt")
 	world.learn_skill("bless")
 	var before := float(world.loadout.stats("energy_bolt").crit)

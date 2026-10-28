@@ -10,11 +10,11 @@ func test_character_survives_round_boundary_with_full_pools() -> void:
 	# Earn levels and AP through the same pickup/window interface as a real round.
 	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(35) + 17, 4000019)
 	for tick in 120:
-		BotInput.auto_choose(w, false, 210)
+		BotInput.auto_choose(w, false)
 		w.step(DT, MoveInput.new())
-	BotInput.auto_choose(w, false, 210)
+	BotInput.auto_choose(w, false)
 	assert_eq(w.progression.level, 35)
-	assert_eq(w.progression.job_id, 210)
+	assert_eq(w.progression.job_id, 212, "the job never changes (#284)")
 	w.learn_skill("fire_arrow")
 	w.loadout.set_rank("fire_arrow", 7)
 	var old_count := int(w.loadout.stats("fire_arrow").count)
@@ -40,7 +40,7 @@ func test_character_survives_round_boundary_with_full_pools() -> void:
 
 func test_json_character_and_same_seed_replay_identically_for_three_minutes() -> void:
 	var source := RF.quiet_world()
-	source.change_job(210)
+	source.set_job(210)
 	source.learn_skill("fire_arrow")
 	source.learn_skill("teleport_fp")
 	source.loadout.set_rank("fire_arrow", 7)
@@ -92,14 +92,13 @@ func test_round_start_resets_buffs_slow_timers_and_every_map_pool() -> void:
 		w.step(DT, MoveInput.new())
 	w.time = 16.0
 	w.mob_skills.step(w)
-	w.change_job(210)
+	w.set_job(210)
 	w.learn_skill("nimble_feet")
 	w.learn_skill("teleport_fp")
 	w.start_buff("nimble_feet", w.loadout.stats("nimble_feet"))
 	w.runner.cooldowns["nimble_feet"] = 60.0
 	w.upkeep.start_action("alert2", 0.8)
 	w.upkeep.invincible_t = 1.5
-	w.basic.cooldown = 0.7
 	w.pickups.spawn(w.player.pos, 19, 4000019)
 	w.drink_potion("hp")
 	var input := MoveInput.new()
@@ -110,12 +109,12 @@ func test_round_start_resets_buffs_slow_timers_and_every_map_pool() -> void:
 	assert_true(w.swarm.alive_count() > 0)
 	var setup := RF.setup("quiet", 2026, RF.quiet_data())
 	setup.character = w.character_snapshot()
+	setup.character.base_mp = 200.0 # room for Teleport's MP, which the removed 210 grant used to give (#284)
 	var next := RunWorld.new(setup)
 	assert_eq(next.player_state.hp, next.player_state.max_hp)
 	assert_eq(next.buffs.snapshot(), [])
 	assert_eq(next.player_state.slow, {})
 	assert_eq(next.runner.cooldowns, {})
-	assert_eq(next.basic.cooldown, 0.0)
 	assert_eq(next.upkeep.cast_left, 0.0)
 	assert_eq(next.upkeep.invincible_t, 0.0)
 	assert_eq(next.swarm.alive_count(), 0)
@@ -132,7 +131,7 @@ func test_round_start_resets_buffs_slow_timers_and_every_map_pool() -> void:
 
 
 func test_pending_choices_fail_loudly_in_child_process() -> void:
-	for mode: String in ["job", "card", "queue", "reward", "advancement"]:
+	for mode: String in ["card", "queue", "reward"]:
 		var output: Array = []
 		var status := OS.execute(OS.get_executable_path(), ["--headless", "--path",
 			ProjectSettings.globalize_path("res://"), "--script", "res://tests/fixtures/pending_character_probe.gd",

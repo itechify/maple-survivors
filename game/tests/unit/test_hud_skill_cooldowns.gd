@@ -1,7 +1,7 @@
 extends TestCase
 ## HUD skill icon state (#82): the cooldown sweep shape, the sim's per-skill readiness (cooldown left/total; there is
 ## no MP wait, #285) on seeded worlds, the allocation-free per-frame cooldown query, and the skill widget redrawing only
-## when a sweep step or the blocked tint changes.
+## when a sweep step changes (no MP wait, #285, and no weapon-blocked tint, #284).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -46,7 +46,7 @@ func test_sweep_clears_clockwise_from_twelve_o_clock() -> void:
 
 func _mage(skill: String) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	var world := RunWorld.new(RF.setup("quiet", 9, data))
 	RF.change_job_bare(world, 200)
 	RF.place_player(world, 1200)
@@ -82,7 +82,7 @@ func _teleporter() -> RunWorld:
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
 	setup.skill_imgs["210"] = {"skill": {"2101002": {"level": {"1": {"mpCon": 60, "range": 130}}}}}
 	var w := RunWorld.new(setup)
-	w.change_job(210)
+	RF.as_job(w, 210)
 	w.loadout.add_skill("teleport_fp")
 	w.player.place(Vector2(400, 0), w.fhm)
 	w.drain_events()
@@ -110,46 +110,41 @@ func test_lean_cooldown_query_fills_the_callers_buffers_like_skill_readiness() -
 	world.learn_skill("magic_claw")
 	var left := PackedFloat32Array()
 	var total := PackedFloat32Array()
-	var short := PackedByteArray()
 	for frame: int in 4:
 		world.step(DT, MoveInput.new())
-		world.read_skill_cooldowns(left, total, short)
+		world.read_skill_cooldowns(left, total)
 		assert_eq(left.size(), world.loadout.order.size(), "one entry per owned skill, in learned order")
 		for i in world.loadout.order.size():
 			var key := String(world.loadout.order[i])
 			var r := world.skill_readiness(key)
 			assert_near(left[i], float(r.left), 1e-5, "left of %s" % key)
 			assert_near(total[i], float(r.total), 1e-5, "total of %s" % key)
-			assert_eq(short[i], RunWorld.SKILL_STATE_BLOCKED if bool(r.blocked) else 0, "state of %s" % key)
 	assert_true(left[0] > 0.0 and left[1] > 0.0, "both cast, one per tick, and cool down")
 
 
 func _row(left: float, total: float) -> Dictionary:
-	return {"icon": "", "rank": 1, "key_label": "", "cooldown_left": left, "cooldown_total": total, "blocked": false}
+	return {"icon": "", "rank": 1, "key_label": "", "cooldown_left": left, "cooldown_total": total}
 
 
-func test_skill_widget_redraws_only_when_a_sweep_step_or_blocked_tint_changes() -> void:
+func test_skill_widget_redraws_only_when_a_sweep_step_changes() -> void:
 	var w := HudSkills.new()
 	w.update({}, {"skills": [_row(0.0, 0.0), _row(0.0, 0.0)]})
 	var left := PackedFloat32Array([0.0, 0.0])
 	var total := PackedFloat32Array([0.0, 0.0])
-	var short := PackedByteArray([0, 0])
-	assert_false(w.set_cooldowns(left, total, short), "both ready, as last drawn: no redraw")
+	assert_false(w.set_cooldowns(left, total), "both ready, as last drawn: no redraw")
 	left[0] = 0.9
 	total[0] = 0.9
-	assert_true(w.set_cooldowns(left, total, short), "a cast covers the icon")
+	assert_true(w.set_cooldowns(left, total), "a cast covers the icon")
 	assert_eq(int(w.displayed()[0].sweep_step), HudSkills.SWEEP_STEPS, "fully dark")
-	assert_false(w.set_cooldowns(left, total, short), "same values: no redraw")
+	assert_false(w.set_cooldowns(left, total), "same values: no redraw")
 	left[0] = 0.9 - DT
-	assert_true(w.set_cooldowns(left, total, short), "a 0.9 s cooldown moves its sweep every tick")
+	assert_true(w.set_cooldowns(left, total), "a 0.9 s cooldown moves its sweep every tick")
 	left[1] = 30.0
 	total[1] = 30.0
-	w.set_cooldowns(left, total, short)
+	w.set_cooldowns(left, total)
 	left[1] = 30.0 - DT
-	assert_false(w.set_cooldowns(left, total, short), "a 30 s cooldown waits for its next step, not every tick")
+	assert_false(w.set_cooldowns(left, total), "a 30 s cooldown waits for its next step, not every tick")
 	left[1] = 30.0 - 20 * DT
-	assert_true(w.set_cooldowns(left, total, short), "and moves once the step is crossed")
-	short[1] = HudSkills.STATE_BLOCKED
-	assert_true(w.set_cooldowns(left, total, short), "the blocked tint redraws")
-	assert_true(bool(w.displayed()[1].blocked))
+	assert_true(w.set_cooldowns(left, total), "and moves once the step is crossed")
+	assert_false(w.displayed()[1].has("blocked") or w.displayed()[1].has("mp_short"), "no tint states remain")
 	w.free()

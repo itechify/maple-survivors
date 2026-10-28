@@ -25,10 +25,13 @@ func _book130() -> Dictionary:
 	return {"skill": {"1301006": {"level": will}, "1301007": {"level": hyper}}}
 
 
-## A Spearman (130) with regeneration off and the cap in the inventory (not worn).
+## A Spearman (130) with regeneration off and the cap in the inventory (not worn); set up directly (#284).
 func _spearman(seed_value := 11, god := true) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	# #284: no advancement grants HP; give the 50 + 225 + 325 the Warrior and Spearman advancements added, and no start
+	# skills (a fresh character is a 212).
+	data.balance.player.hp = 600
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.magnet_radius = 0
 	data.balance.regen.hp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", seed_value, data))
@@ -36,7 +39,7 @@ func _spearman(seed_value := 11, god := true) -> RunWorld:
 	setup.skill_imgs["130"] = _book130()
 	var w := RunWorld.new(setup)
 	w.equipment.inventory.append(Equipment.create(CAP, INFO[CAP]))
-	w.change_job(130)
+	RF.as_job(w, 130)
 	RF.place_player(w, 400)
 	w.god = god
 	w.drain_events()

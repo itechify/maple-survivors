@@ -31,6 +31,21 @@ slice specs win. Target design:
 Order: the F/P Arch Mage slice, then Hero, then the other ten jobs, a tier rework (fewer starting choices), and last
 the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pass pacing (tier C) but don't tune.
 
+**Landed in the F/P slice (spec #282):**
+
+- **#284 (T2): one fixed job.** `survivor/jobs.json` marks only 212 playable. A character's job never changes: there is
+  no job advancement, job window, advancement draw, weapon path, job weapon grant or carried attack, and the Beginner
+  is gone. `RunWorld.set_job` is the only writer of the job (`progression.job_id`): a restored character's `job_id`,
+  else `setup.job` (the tools' `--job=<id>`, only a playable job), else `JobTree.default_job()`. Every round of a job
+  learns its `start_skills` at rank 1: 212 starts with Energy Bolt (a stand-in until the skill pool, #287) and
+  Teleport on its key from Lv1 (no Teleport cards). The separate basic attack is gone (`WeaponReach` keeps only the
+  weapon's swing reach, which `weapon_reach` skills and Final Attack spread measure). Weapons gate no skill, card or
+  passive. A card is on offer when one of its `requires.jobs` is on the character's job line (`UpgradePool.on_line`),
+  so 212 sees the Magician and F/P Wizard cards; the Beginner cards are deleted. Auto-AP reads one
+  `balance.player.ap` row per job (212: INT primary, LUK secondary). The other lines' skill data and cards stay,
+  unplayable until ported. Sections 1, 5, 6.1.1-6.1.2, 7.5, 8 and 9 below still describe the removed systems in places;
+  where they conflict, this note wins until T12 rewrites them.
+
 ## 1. The run
 
 1. **Create or continue.** Select one of three living characters, or create a named Beginner with the v83 Explorer
@@ -5794,13 +5809,17 @@ random policy shares the movement and the camper policies still override it afte
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
+| Playable jobs and start skills (#284) | `survivor/jobs.json`: 212 is the only playable job and the default for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
+| Auto-AP rows (#284) | `balance.player.ap`: one `{primary, secondary, keyframes}` row per job, nearest ancestor's row otherwise, all AP to STR without a row. 212: INT primary, LUK secondary at the old Magician keyframes (Lv1 3 -> Lv200 202); the 200/100/300/400/510/520 rows keep the unported lines' old single rows | C | Owner, spec #282 (212); the rest the earlier tier C rows without weapon paths |
+| Cards on the job line (#284) | A card is eligible when one of its `requires.jobs` is the character's job or an ancestor (`UpgradePool.on_line`); no `carry_jobs`, no advancement draw, no weapon check; Beginner and Teleport cards deleted | C | Stopgap until the skill pool (#287) |
+| Removed RNG streams (#284) | Streams 5 (the basic attack) and 8 (bot job draws) are reserved and never drawn; no other stream is renumbered | C | Keeps every other stream's seeded sequence |
 | Region cards and ending-map results (#241, #247) | Map 1's mapMark beside the region; three ordered `map name → boss name` rows in the existing v83 parchment, each wrapping as needed with a 6 px gap between rows. Objective: "Defeat 3 bosses across 3 maps". Results keep region/continent and add the ending map's WZ name and mapMark, with a 6 px gap before stats | C layout/text; A map/boss names and marks | Owner #241 / #247; String.wz and each map's `info/mapMark`. Summary identity comes from `RunWorld.current_map_id()` |
 | Region map order and pool declarations (#241, #243) | Henesys: 104040000 / 104010001 / 100030001; Ellinia: 101010100 / 100040100 / 100040105; Sleepywood: 105050400 / 105090310 / 105090900. Map 1 declares `pool: "curve"`; later maps declare life-list pools, except Sanctuary's explicit Cold Eye 4230100 ×5, Tauromacis 7130100 ×2, Taurospear 7130101 ×5; Pig Beach excludes Iron Hook 4090000 | C | Owner #241 Implementation Decisions; owner pool policy; StagePools resolves canonical life lists |
 | Map boss delay and curve offset (#241) | `map_seconds = 300`; boss relative `time = 300`; curve time = zero-based map index x 300 + time since entry. Entry uses spawn stream 2; existing streams, including reserved 7, retain their numbers | C | Owner #241; deterministic map transfer |
 | Map-1 pool cutoff (#241) | Last curve pool at or before curve time, considering only keyframes with `t < 300`; life pools count ordinary entries, skip hidden/event variants; exclusions and Sanctuary override are in the map-order row | C | Owner #241; no other pool tuning |
 | Map transfer carry and settlement (#241) | Freeze on map boss death; sweep all pickups once, resolve choices, discard ordinary mobs without drops/kills; preserve HP, buffs, Hidden, cooldowns, kills and damage; clear boss statuses; random destination `sp` on stream 2; no mid-round save | C | Owner #241 |
 | Camper map ownership (#241, #248) | Henesys top/rope park only on map 1 id 104040000; Tree top only on Ellinia map 1 id 101010100. Later maps use the sensible bot; camper activation/arrival/portal metrics refer to map 1 | C policy, A map ids | Owner #241; no placement rescue after knockback |
-| Maps flow diagnostic (#248) | Training seed 1, invulnerability, EXP drops for the Lv10 Warrior/Sword pages, diagnostic lethal boss hits only after each map's 300 s timer; fixed-tick warp with 600-tick yields and 1800 s cap | C | Tool-only flow evidence; no survival/balance claim |
+| Maps flow diagnostic (#248) | Training seed 1, invulnerability (the Lv10 Warrior/Sword page probe went with advancement, #284), diagnostic lethal boss hits only after each map's 300 s timer; fixed-tick warp with 600-tick yields and 1800 s cap | C | Tool-only flow evidence; no survival/balance claim |
 | Henesys opening (#241, #243) | t0 rate 0.25 / alive cap 6; t120 0.55 / 11; t180 0.75 / 15; t240 onward and all keyframe pools unchanged | C | Owner #241; the spec's only balance change |
 | Potion model (#237, #238) | Unlimited HP potions (no MP, #285); no stock, starter quantities or drops; old snapshot counts ignored without a format bump; tiers derive from starter items plus level; every round including Continue starts ready, cooldowns never saved | C | Owner 2026-10-21, spec #237 |
 | Potion cooldowns (#237, #238) | HP 20 s (`balance.potions.cooldown`) in fixed sim time; paused windows freeze the timers, tier-ups preserve them, presses during cooldown silently do nothing | C | Owner 2026-10-21, spec #237 starting values; no tuning |
