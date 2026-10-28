@@ -57,12 +57,23 @@ const FREEZE := 2
 const THREATENED := 3
 const STUN := 4
 const ICE_WEAK := 5
-const STATUS_COUNT := 6
+const FIRE_WEAK := 6
+const STATUS_COUNT := 7
 ## Status names used by apply_status and the mob_status_* events, in table order.
-const STATUS_NAMES := ["slow", "poison", "freeze", "threatened", "stun", "ice_weak"]
+const STATUS_NAMES := ["slow", "poison", "freeze", "threatened", "stun", "ice_weak", "fire_weak"]
 ## tier A: the element a status shares with its applying v83 skill (Slow none, Poison Breath elemAttr s, Cold Beam i).
 ## Stun has none and never reads an element, not even one passed in `params` (tier C, #187).
-const STATUS_ELEMENTS := ["", "S", "I", "", "", ""]
+const STATUS_ELEMENTS := ["", "S", "I", "", "", "", ""]
+## Vulnerability table (spec #319 M4): status index -> the element letter that status makes weak (x1.5 while it runs,
+## overriding that element's resistance and immunity). tier A: the Fire Demon / Ice Demon descriptions; tier C: the table.
+## Reserved, not built: a `"*"` entry would mark every element at once (Corsair's Homing Beacon); `_live_multiplier` is
+## where it would be read.
+const VULNERABLE := {ICE_WEAK: "i", FIRE_WEAK: "f"}
+## The weakness multiplier of a vulnerability mark. tier A: Fire Demon "weak against ice".
+const VULNERABLE_MULT := 1.5
+## Element compositions: a composite letter pair -> its constituents; a hit's multiplier is the mean of their live
+## multipliers (tier C: equal split; the WZ nodes carry no elemAttr).
+const COMPOSITIONS := {"fs": ["f", "s"], "il": ["i", "l"]}
 
 ## Tunables (keys of the `tuning` Dictionary given to _init).
 const TUNING_DEFAULTS := {
@@ -1017,13 +1028,24 @@ func _grow(n: int) -> void:
 		_free.append(i)
 
 
-## Live element attributes including Fire Demon's timed ice weakness; mixed fire/poison averages both attributes.
+## Live element multiplier for a hit of `element` on slot i: a composition (`COMPOSITIONS`: fs, il) is the mean of its
+## constituents' live multipliers; a single element is 1.5 while a matching vulnerability timer runs (`VULNERABLE`:
+## Fire Demon's ice mark, Ice Demon's fire mark), else the kind's own attribute.
 func element_multiplier(i: int, element: String) -> float:
-	var mk := mob_kind(i)
-	if element.to_lower() == "fs":
-		# tier C: equal fire/poison composition, preserving either element's resistance and immunity.
-		return (mk.element_multiplier("f") + mk.element_multiplier("s")) * 0.5
-	if element.to_lower() == "i" and status_time(i, ICE_WEAK) > 0.0:
-		# tier A: Fire Demon description makes monsters weak against ice for level/time seconds.
-		return 1.5
-	return mk.element_multiplier(element)
+	var e := element.to_lower()
+	var parts: Variant = COMPOSITIONS.get(e)
+	if parts == null:
+		return _live_multiplier(i, element, e)
+	var sum := 0.0
+	for part: String in parts:
+		sum += _live_multiplier(i, part, part)
+	return sum * (1.0 / parts.size())
+
+
+## One element's multiplier on slot i: x1.5 under a running vulnerability timer for it, else the kind's own value.
+## `element` is passed on to MobKind as given; `lower` is its lower-case form.
+func _live_multiplier(i: int, element: String, lower: String) -> float:
+	for s: int in VULNERABLE:
+		if VULNERABLE[s] == lower and status_left[i * STATUS_COUNT + s] > 0.0:
+			return VULNERABLE_MULT
+	return mob_kind(i).element_multiplier(element)

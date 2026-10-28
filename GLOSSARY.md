@@ -171,6 +171,11 @@ _Avoid_: transformation, disguise
 The Key Config binding of one manual skill the character has learned.
 _Avoid_: hotkey, quickslot
 
+**Skill template**:
+A skill definition with `"extends": "<key>"`: it inherits another definition and rewrites its art and sound paths to
+its own book and skill id (the I/L and Bishop Big Bangs extend F/P's). Resolved only by `SkillBook`.
+_Avoid_: copy, clone, alias
+
 **Passive skill**:
 A skill that is always in effect once learned and is never cast, such as MP Eater.
 
@@ -266,6 +271,12 @@ _Avoid_: loot table, item level
 A timed condition a skill puts on a monster: slowed, poisoned, frozen, threatened (weaker attacks and defence) or
 stunned (neither moving nor attacking). Bosses take none.
 _Avoid_: debuff, ailment
+
+**Vulnerability**:
+A status effect that makes a monster weak to one element for a time (x1.5 damage of that element, whatever the
+monster's own attribute): Fire Demon's ice-weak and Ice Demon's fire-weak. A monster can carry several, and bosses take
+none. A mixed-element hit (fire/poison, ice/lightning) is the mean of its parts, each counted with its live weakness.
+_Avoid_: debuff, curse
 
 **Stolen**:
 A monster a successful Steal has already taken an extra drop from; Steal can't take from it again. It is not a

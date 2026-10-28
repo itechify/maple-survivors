@@ -1,0 +1,32 @@
+{
+	"_doc": "I/L Arch Mage line (spec #319, I2 #321). The line's shape is the one Hero's line set (docs/ARCHITECTURE.md 4.4.4): jobs/il_arch_mage.json, skills/il_arch_mage.json (a skeleton that I6-I10 fill), and no asset_manifest.d fragment yet (I1 owns it). Skill keys stay inert until their skills are defined in skills/il_arch_mage.json (an undefined key is never offered). playable flips to true in the last I/L ticket (I12); until then I/L cannot be chosen, and JobTree.default_job() stays 212 because 212 precedes 222 in canonical order.",
+	"jobs": {
+		"222": {
+			"starting_skill": "cold_beam",
+			"_starting_skill": "tier C: spec #319 D2: every round starts with Cold Beam in active slot 1.",
+			"mobility_skill": "teleport_il",
+			"_mobility_skill": "tier C: spec #319 R4: Teleport (2201002) is I/L's manual mobility skill on the skill key, outside both slot tracks; its data moves into this line with I6.",
+			"skill_pool": [
+				"energy_bolt",
+				"magic_claw",
+				"cold_beam",
+				"thunder_bolt",
+				"ice_strike",
+				"thunder_spear",
+				"element_composition_il",
+				"ice_demon",
+				"ifrit",
+				"chain_lightning",
+				"blizzard",
+				"big_bang_il"
+			],
+			"_skill_pool": "tier C: spec #319: the twelve auto-cast actives of the 200/220/221/222 books. Energy Bolt and Magic Claw are F/P's own definitions (one set of data, no copies).",
+			"weapon_families": ["wand", "staff"],
+			"_weapon_families": "tier C: spec #319: the wand and staff families, as F/P; the Magician armour drops by the class bit.",
+			"creation_weapon": 1372005,
+			"_creation_weapon": "tier C: spec #319: the same Wooden Wand as F/P; wearing it needs only the Magician class bit (reqJob, no level requirement).",
+			"playable": false,
+			"_provenance": "tier C: spec #319 (I2 #321): not playable until the I/L skills, bot and QA are in."
+		}
+	}
+}

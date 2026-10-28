@@ -22,8 +22,15 @@ func _put(rel: String, value: Dictionary) -> String:
 	return root
 
 
-func test_lines_are_common_then_job_line_id_order() -> void:
-	assert_eq(Array(DataRepo.LINES), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
+func test_lines_are_common_then_job_line_id_order_then_the_class_lines_as_they_landed() -> void:
+	# #321: a class spec appends its line (never inserts), so the seven adventurer lines keep their merge order. Hero (#296)
+	# and I/L (#319) can land in either order, so the class lines are checked as a set, not as an exact list.
+	var lines := Array(DataRepo.LINES)
+	assert_eq(lines.slice(0, 7), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
+	var class_lines: Array = lines.slice(7)
+	assert_true("il_arch_mage" in class_lines, "il_arch_mage is a class line")
+	for line: String in class_lines:
+		assert_true(line in ["hero", "il_arch_mage"], "%s is a class line this build knows" % line)
 	assert_eq(DataRepo.fragment_path("skills", "magician", "res://data"), "res://data/survivor/skills/magician.json")
 
 
@@ -39,6 +46,23 @@ func test_skills_merge_in_line_order_and_keep_the_base_doc() -> void:
 	assert_eq(d.skills.keys(), ["base_one", "b_one", "w_one", "m_one", "m_two"], "base, beginner, warrior, magician")
 	assert_eq(d.skills.w_one, {"n": 9.0})
 	assert_eq(d.keys(), ["_doc", "skills"], "fragment _doc notes are not merged")
+
+
+func test_a_class_line_after_pirate_merges_last_for_jobs_and_skills() -> void:
+	# #321: il_arch_mage is appended after pirate, so its entries come after the Magician's and the Pirate's.
+	_put("survivor/jobs.json", {"_doc": "d", "default_reason": "r", "jobs": {"0": {"a": 1}}})
+	_put("survivor/jobs/magician.json", {"jobs": {"212": {"playable": true}}})
+	_put("survivor/jobs/il_arch_mage.json", {"_doc": "il", "jobs": {"222": {"playable": false}}})
+	_put("survivor/skills.json", {"_doc": "d"})
+	_put("survivor/skills/il_arch_mage.json", {"skills": {"i": {}}})
+	_put("survivor/skills/pirate.json", {"skills": {"p": {}}})
+	var errors := PackedStringArray()
+	var jobs := DataRepo.load_split("jobs_survivor", test_dir(WORK), errors)
+	var skills := DataRepo.load_split("skills", test_dir(WORK), errors)
+	assert_true(errors.is_empty(), "%s" % [errors])
+	assert_eq(jobs.jobs.keys(), ["0", "212", "222"], "base, magician, then il_arch_mage")
+	assert_eq(skills.skills.keys(), ["p", "i"], "pirate, then il_arch_mage")
+	assert_eq(jobs.default_reason, "r", "top-level config stays in the base")
 
 
 func test_missing_fragments_are_skipped_and_the_entries_key_always_exists() -> void:
@@ -217,12 +241,16 @@ func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
 	var root := DataRepo.DATA_ROOT
-	# skills: book 000 in beginner, 2xx in magician
+	# skills: book 000 in beginner, 2xx in magician; 220/221/222-book skills may live in il_arch_mage (#321: the I/L
+	# skills stay in magician.json until I6 moves them, so the I/L fragment is still empty)
 	for line in ["beginner", "magician"]:
 		var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", line, root))
 		assert_false(frag.skills.is_empty(), "skills/%s.json has entries" % line)
 		for key: String in frag.skills:
 			assert_eq(String(frag.skills[key].book) == "000", line == "beginner", "%s in %s" % [key, line])
+	var il_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "il_arch_mage", root))
+	for key: String in il_frag.skills:
+		assert_true(String(il_frag.skills[key].book) in ["220", "221", "222"], "%s in il_arch_mage" % key)
 	# cards: no skill or a common passive's -> common, otherwise magician; #284 deleted the Beginner cards (no
 	# upgrades/beginner.json)
 	assert_false(FileAccess.file_exists(DataRepo.fragment_path("upgrades", "beginner", root)))

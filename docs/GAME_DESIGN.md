@@ -5537,7 +5537,7 @@ No MP is spent. Bosses take damage but reject every status. Elquines belongs to 
 | Explosion 2111002 / `explosion` | Fire damage in the canonical box around the character, canonical mob count | 1.6 s |
 | Poison Mist 2111003 / `poison_mist` | Fixed ground box lasting canonical `time`; checks occupants each second with canonical `prop`, applies existing nonlethal poison, including later arrivals; no direct damage | 3.2 s |
 | Element Composition 2111006 / `element_composition` | 500 px/s projectile, 450 px acquisition, one target; fire/poison attributes averaged equally; canonical `prop`/`time` poison uses poison resistance | 0.8 s |
-| Fire Demon 2121003 / `fire_demon` | Fire in its canonical forward box; survivors become ice-weak (x1.5) for canonical `time`; other attributes unchanged | 2.0 s |
+| Fire Demon 2121003 / `fire_demon` | Fire in its canonical forward box; survivors become ice-weak (x1.5) for canonical `time` (vulnerability, 7.61); other attributes unchanged | 2.0 s |
 | Paralyze 2121006 / `paralyze` | Nearest target within 450 px, poison-element damage and existing stun for canonical `time`/`prop` | 1.2 s |
 | Meteor Shower 2121007 / `meteor_shower` | Fixed canonical 800×600 box; falling WZ tiles at canonical 180 px spacing; damage after canonical `hitAfter` 1800 ms, targets queried at impact | 4.8 s |
 | Big Bang 2121001 / `big_bang` | WZ keydown charge for one 18×60 ms loop, then full `mad` damage with canonical mob count around the current character position | 2.8 s |
@@ -5545,7 +5545,7 @@ No MP is spent. Bosses take damage but reject every status. Elquines belongs to 
 Pending areas/releases snapshot cast stats, query live targets, and clear on map transfer. Mist pieces are anchored
 to cast feet and expire with the area. Big Bang's survivor box is (-250,-180)..(250,100); its charge is automatic,
 without a manual key or partial-charge damage. Element Composition's equal elemental split is tier C (the WZ node
-has no `elemAttr`); Fire Demon's ice vulnerability follows its WZ description (tier A). Other targeting/timings
+has no `elemAttr`); Fire Demon's ice vulnerability follows its WZ description (tier A; the generalised contract is 7.61). Other targeting/timings
 are first-pass survivor interpretations, not balance tuning. Recasts refresh the existing status without stacking.
 
 ### 7.32 Player summons (#291)
@@ -5611,6 +5611,68 @@ nearest to that" before. Chain Lightning (I8) is its first user; Corsair or any 
   `mob_hit`, the caster the `effect` through `cast`, the Use sound plays at the cast and the Hit sound once per link.
 - **Text.** `SkillText` adds "Jumps to up to N monsters within R px" (`mob_count`, `hop` x `area`).
 - Probe: `scenes/debug/chain_bolt_probe.tscn` draws a synthetic arrangement (evidence only).
+
+### 7.61 Vulnerability (spec #319 M4, #322)
+
+A vulnerability is a timed status that makes one element hit x1.5 on a monster. `MobSwarm.VULNERABLE` is the table
+`{status index: element letter}`: `ice_weak` (index 5, Fire Demon) -> `i`, `fire_weak` (index 6, Ice Demon, skill in
+ticket I7) -> `f`. A monster may carry both timers. The statuses are ordinary `MobSwarm` timers (`STATUS_COUNT` 7), so
+they follow the status rules unchanged: reapplying refreshes to the new `time` without stacking, bosses and `steady`
+(scheduled boss) slots reject them, a skill applies one with `on_hit: {"status": "fire_weak", "element": ""}`
+(the empty element means kind resistance and immunity never block the mark), and `mob_status_applied` /
+`mob_status_expired` carry the status name. The mark overrides the element's resistance and immunity: a fire-immune
+monster under `fire_weak` takes x1.5 from fire. It never stacks with the kind's own weakness (x1.5, not x2.25).
+
+`MobSwarm.element_multiplier(slot, element)` resolves a hit's element: a composition (`COMPOSITIONS`: `fs` -> `f`,`s`
+for Element Composition; `il` -> `i`,`l` for its I/L twin) is the **mean of its constituents' live multipliers**,
+where a live multiplier is 1.5 while that element's vulnerability timer runs, else the kind's own value. A single
+element is its own live multiplier. With no vulnerability running the result is numerically identical to before (`fs`
+is `(f + s) * 0.5`; a table test compares every mob-attribute combination to the old formula), so F/P is unchanged.
+Ice-weak raises `il` and `i` (not `fs`); fire-weak raises `fs` and `f` (not `il`).
+
+Reserved, not built: a `"*"` table entry for an all-element mark (Corsair's Homing Beacon). Summons and projectiles use
+the same `element_multiplier`, so Ifrit's fire meets Ice Demon's mark there with no special case. The renderer has no
+per-status tint for `ice_weak`, so `fire_weak` adds none.
+
+### 7.63 Skill templates: `extends` (spec #319 I5, M19)
+
+Big Bang exists three times in v83 (F/P 2121001, I/L 2221001, Bishop 2321001) with the same numbers (`mad` 160 -> 450,
+`mastery`, `mobCount` 6), the same image sizes under `keydown`, `effect`, `special` and `prepare`, and the same sounds
+(the I/L and Bishop `Use`/`Loop` are UOLs to 2121001's); none has an `elemAttr`. There is no element to parametrise, so
+a skill definition may say "I am that skill, in my book" instead of copying 40 lines that would drift apart.
+
+- **Syntax.** `"extends": "<parent key>"`. The child states its own `skill_id`, `book` and `job` (all three required) and
+  anything it overrides. Bishop's is three lines:
+  `{"extends": "big_bang", "skill_id": 2321001, "book": "232", "job": 232}`. **A child extends the plain parent**
+  (`big_bang`, F/P's, in `skills/magician.json`), never another child: `big_bang_il` is not a parent, so the I/L and
+  Bishop versions share no dependency on each other.
+- **Where.** `SkillTemplate.resolve(skills, errors)` (pure, `scripts/sim/skill_template.gd`) runs in `SkillBook.from_data`
+  once every line fragment has merged, so the result does not depend on `DataRepo.LINES` order or on which line file holds
+  the parent. `SkillBook.def(key)` and `defs` hold only resolved definitions; raw JSON from `DataRepo.load_all` still
+  carries the `extends` line, so a test or tool that needs a templated skill's fields goes through `SkillBook`.
+- **Merge.** Resolved child = a deep copy of the parent, then the child's own keys on top: dictionaries merge key by key,
+  arrays and scalars are replaced. `_`-prefixed documentation keys of the parent (`_provenance`, `_rarity`, at any depth)
+  are not inherited; the child's own are kept. `rarity_bonuses`, `ranks`, `cast`, `pending`, `cooldown`, `sounds` and the
+  rest are inherited unless the child states them (a child's `ranks` replaces the parent's eight-entry table, a child's
+  `rarity_bonuses.epic` list replaces only the Epic list).
+- **Path rewrite.** In every *inherited* string, `Skill.wz/<parent book>.img/skill/<parent id>` becomes
+  `Skill.wz/<child book>.img/skill/<child id>` and `Sound.wz/Skill.img/<parent id>` becomes
+  `Sound.wz/Skill.img/<child id>`, matched at a path boundary: the id must be followed by `/` or the end of the string,
+  and must not continue a longer word. A string that merely contains the id, and every string the child states, is left
+  alone. The icon, `effect`, `release_visuals`, `pending.effect` and the sound paths therefore point at the child's own
+  nodes. WZ numbers always come from the child's own book at the mapped level (`SkillBook.canonical` reads `book` +
+  `skill_id`), so a book that ever differs gets its own numbers.
+- **Errors** (`DataRepo.load_all` lists them, `resolve` drops the child): `extends` is not a key name; `skill_id`, `book`
+  or `job` missing on the child; the parent is not defined; the parent itself `extends` (one level only, which also rules
+  out cycles and a self-parent); the child key is defined by two files (the existing duplicate rule).
+- **F/P is unchanged.** `big_bang` has no `extends`: data without any `extends` resolves to the same dictionary, and a
+  test pins that `big_bang` resolves equal to its raw definition.
+- **Drift guard.** `SkillTemplate.drift_problems(book, child, parent, exists)`: the child's and the parent's level node
+  agree at each of the eight mapped levels (every number and vector), the art nodes under every top-level key of the
+  skill node (`level` aside) have the same counts, and every Skill.wz/Sound.wz path of the child resolves in the cache.
+  `test_skill_template` runs it for every `extends` pair of the shipped data (`SkillTemplate.pairs`) against the real
+  cache (a SKIP without it), on a synthetic pair so it is not vacuous, and on synthetic books for each failure. If a book
+  ever differs, the guard fails and the child must override the difference.
 
 ## 8. Upgrades
 
@@ -6018,6 +6080,18 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Chain selection | head = scheduled boss, then nearest, then slot; hops = nearest unhit by distance then slot; distances inclusive; no RNG | C |
 | Chain bolt art | the skill's `chain.ball` animations stretched on their own x axis from segment start to end, centred on the line (WZ origin ignored), variants cycling per segment | C |
 
+### I/L Arch Mage (spec #319, I2 #321)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| I/L auto-AP row | `balance.player.ap["222"]`: INT primary, LUK secondary, keyframes Lv1 -> 3, Lv200 -> 202 (the 212 curve, copied) | C |
+| I/L creation weapon | 1372005, the Wooden Wand F/P starts with (reqJob Magician; no level requirement) | C |
+| I/L weapon families | `weapon_families` wand and staff; armour drops by the Magician class bit, no shields or Warrior weapons | C |
+| I/L skill pool | `skill_pool` of 222: the twelve actives of the 200/220/221/222 books; undefined keys stay out of draws until I6-I10 define them | C |
+| Skill templates | `extends` resolved in `SkillBook` by `SkillTemplate` (7.63): deep copy of the parent, child keys on top, inherited Skill.wz/Sound.wz paths rewritten to the child's book and id | C |
+| Big Bang in the three books | 2121001, 2221001 and 2321001 are identical in every level number, art node count and sound (Use/Loop UOL to 2121001's); the drift guard re-checks it per `extends` pair | A |
+| I/L playable | `playable: false` until I12 (job 212 stays `default_job` either way: 212 precedes 222) | C |
+
 ### #307 opening ramp (tier C)
 
 Whole-round interpolation, clamped progress raised to optional `power` (default 1), HP at spawn,
@@ -6044,7 +6118,7 @@ These replace older first-pass/inherited pacing statements where they conflict. 
 | High-job cooldowns, targeting | Table 7.31; 450 px nearest acquisition; projectile speed 500 px/s, radius 10; cast stance 0.8 s | C: first-pass survivor data, #282/#290 |
 | Mist ground occupancy | 1 s checks, no direct hit; canonical poison chance/time; all occupants; tile strips 80 px apart | C: survivor ground-area interpretation; A: WZ box, prop/time, existing poison formula |
 | Composition elements | Mean of fire and poison multipliers; poison status checks poison alone | C: equal fire/poison interpretation of the skill's description; no WZ elemAttr |
-| Fire Demon ice weakness | Timed x1.5 ice, replaces ice resistance/immunity; bosses reject it | A: WZ description/time; C: existing boss status exclusion |
+| Fire Demon ice weakness | Timed x1.5 ice, replaces ice resistance/immunity; bosses reject it (generalised: 7.61) | A: WZ description/time; C: existing boss status exclusion |
 | Meteor delay / tile spacing | 1.8 s / 180 px | A: WZ hit/0/hitAfter and tile/effectDistance |
 | Big Bang full-charge release | 1.08 s; box (-250,-180)..(250,100), follows caster until release | A: 18 keydown frames × 60 ms, full-charge mad; C: one-loop automatic release and box |
 
@@ -6827,6 +6901,13 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
+
+### I/L Arch Mage (spec #319)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Vulnerability table (#322) | `MobSwarm.VULNERABLE` {`ice_weak` 5 -> `i`, `fire_weak` 6 -> `f`}; x1.5 (`VULNERABLE_MULT`) while the timer runs, overriding that element's resistance and immunity; refreshes without stacking; bosses and `steady` slots reject; no per-status tint | A: Fire Demon / Ice Demon descriptions ("weak against" the element for `time` seconds), x1.5 as the canonical weakness; C: the table shape, `fire_weak` as a second timer, no stacking, boss exclusion |
+| Element composition mean (#322) | `MobSwarm.COMPOSITIONS` `fs` -> f,s and `il` -> i,l: the mean of the constituents' live multipliers (equal split) | C: equal split (the WZ nodes carry no `elemAttr`); `fs` numerically identical to #290 |
 
 ## 12. Later phases
 
