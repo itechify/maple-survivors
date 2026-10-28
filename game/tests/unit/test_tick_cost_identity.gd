@@ -42,10 +42,11 @@ const PET_BACK := 2700
 ## Re-captured on the merge with #289/#291/#292 (merge/288f): the TOTALS are unchanged. Checked against the spec tip
 ## 3524cdb9...: with the bonus lists emptied and the added card fields stripped from the events in both trees, the digests
 ## are identical (9f2c3f49...).
-const GOLDEN := "b09b9d4216ad93fa18763964a6f3f1625c86c87b2a9b27db2f912db9a1baa75a"
-const TOTALS := {"exp": 5474, "mesos": 97004, "pickup_mesos": 97004, "equips_collected": 23,
-	"equips_dropped": 30, "inventory": 24, "kills": 287, "casts": 280, "level": 14,
-	"pool": 7, "time": 59.999999999997875}
+## #293: selected pacing changes casts/kills/EXP and replay bytes; workload coverage guards below remain.
+const GOLDEN := "76f8429f5bda1512c7c2c6ef043d5e740a6dd65b2b19bb0e0a9d4d066f306efd"
+const TOTALS := {"exp": 7987, "mesos": 106958, "pickup_mesos": 106958, "equips_collected": 23,
+	"equips_dropped": 30, "inventory": 24, "kills": 362, "casts": 467, "level": 14,
+	"pool": 8, "time": 59.999999999997875}
 ## Re-captured for #289 (common passives): with the nine passive cards removed from the data, the #292 digest 29926829... and
 ## totals (exp 4097, kills 227, casts 260, level 13, equips_dropped 30) are reproduced exactly (checked); the bot now also takes passives (Max HP, Might, Haste...), which changes the run.
 const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_armor", "cold_beam", "thunder_bolt", "slow_il",

@@ -212,7 +212,7 @@ func test_magician_wand_skills_and_swings_keep_their_current_timing() -> void:
 	var st := w.loadout.stats("energy_bolt")
 	assert_eq(w.loadout.weapon_speed, 6)
 	assert_eq(st.speed_factor, 1.0)
-	assert_eq(st.cooldown, 0.9, "Energy Bolt's tier C cooldown")
+	assert_eq(st.cooldown, 0.36, "Energy Bolt's #293 tier C cooldown")
 	assert_eq(st.action_time, 0.8, "and its stance")
 	var spec := w.weapon_reach.action_spec(WAND, w.weapon_info(), "swingO1")
 	assert_near(float(spec.interval), 0.81, 1e-9)

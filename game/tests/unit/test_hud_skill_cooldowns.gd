@@ -65,13 +65,13 @@ func test_cast_exposes_cooldown_left_and_total_of_the_skill() -> void:
 	assert_eq(float(before.left), 0.0, "ready before the first cast")
 	world.step(DT, MoveInput.new())
 	var after := world.skill_readiness("energy_bolt")
-	# Energy Bolt's survivor cooldown is 0.9 s; the first tick's overshoot (one dt) carries into it.
-	assert_near(float(after.total), 0.9, DT + 1e-6, "total is the cooldown set at the cast")
+	# Energy Bolt's survivor cooldown is 0.36 s; the first tick's overshoot (one dt) carries into it.
+	assert_near(float(after.total), 0.36, DT + 1e-6, "total is the cooldown set at the cast")
 	assert_near(float(after.left), float(after.total), 1e-6, "full at the cast")
-	for tick in 27:
+	for tick in 9:
 		world.step(DT, MoveInput.new())
 	var mid := world.skill_readiness("energy_bolt")
-	assert_near(float(mid.left), float(after.total) - 27 * DT, 1e-4, "counts down by dt per tick")
+	assert_near(float(mid.left), float(after.total) - 9 * DT, 1e-4, "counts down by dt per tick")
 	assert_near(float(mid.total), float(after.total), 1e-6, "the total stays until the next cast")
 	assert_false(mid.has("mp_short"), "no MP wait exists")
 
