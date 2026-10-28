@@ -5668,6 +5668,27 @@ nearest to that" before. Chain Lightning (I8) is its first user; Corsair or any 
 - **Text.** `SkillText` adds "Jumps to up to N monsters within R px" (`mob_count`, `hop` x `area`).
 - Probe: `scenes/debug/chain_bolt_probe.tscn` draws a synthetic arrangement (evidence only).
 
+**Chain Lightning (2221006, I8 #327)** is the rule's first user, `chain_lightning` in `skills/il_arch_mage.json`:
+`cast: {"rule": "chain", "acquire": 450, "hop": 200, "min_targets": 1}`, no `range` field (acquire is the range), 1.6 s
+cooldown (the legacy base 4 s x0.4), `chainlightning` stance (the WZ `action`) held 0.8 s, `damage: magic`, `elemAttr l`.
+Canonical `mad` (112 / 145 / 180 % at ranks 1 / 4 / 8) and `mobCount` give the chain length: **2, 3, 3, 4, 5, 5, 6, 6
+links at ranks 1..8** (WZ levels 4, 8, 12, 15, 19, 23, 27, 30), one line per link, damage unchanged along the chain. Art is
+v83's: `effect` (12 frames) at the caster, `ball/0..2` (6 frames each) stretched along the segments through
+`"chain": {"ball": [...]}`, `hit/0` on every link, the Use sound at the cast and the Hit sound per link. No status.
+
+| Rank card | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Chain Lightning | `amplify` Element Amplification: damage x1.2 | `conduct` Conductor: area x1.2 (hop 200 -> 240 px) | `fork` Longer Chain: +1 link (`count`) | Longer Chain + damage x1.2 |
+
+Rules: Rare+ cards add one rank plus the bonus, Legendary shares the Unique's counter, Mastery is +5 % damage (x0.8 per
+repeat). `test_il_chain_lightning` checks the definition, the link counts, the hop, the boss-first head, the bolt event
+and the bonuses; `test_il_rarity_bonus_effects` checks that each effect changes the resolved cast.
+
+**Weapon fallback for `stabO2` (I8).** Chain Lightning's body action is `swingO3.0, stabO2.1`, and 9 of the 14 imported
+staves (1382000-1382006, 1382018, 1382019) have no `stabO2` art, so their second frame lost the weapon. Any weapon that
+lacks `stabO2` now draws `stabO1` at the same frame index (`AvatarLayers.weapon_stance_frame`, `STANCE_FALLBACKS`);
+armour and other equipment are not borrowed from another stance. Tier C, one pair only.
+
 ### 7.63 Skill templates: `extends` (spec #319 I5, M19)
 
 Big Bang exists three times in v83 (F/P 2121001, I/L 2221001, Bishop 2321001) with the same numbers (`mad` 160 -> 450,
@@ -6113,6 +6134,17 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Chain hop | `cast.hop` 200 px from the previous link's body centre | C |
 | Chain selection | head = scheduled boss, then nearest, then slot; hops = nearest unhit by distance then slot; distances inclusive; no RNG | C |
 | Chain bolt art | the skill's `chain.ball` animations stretched on their own x axis from segment start to end, centred on the line (WZ origin ignored), variants cycling per segment | C |
+
+### #327 Chain Lightning (spec #319 I8)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Chain Lightning cooldown | 1.6 s (the legacy base 4 s x0.4, as every I/L skill) | C |
+| Chain Lightning acquire and hop | 450 px and 200 px, as the cast block of 7.62 (the WZ has no `lt/rb` or `range`) | C |
+| Chain Lightning stance | `chainlightning` (the WZ `action`, tier A) held 0.8 s | C (name A) |
+| Chain Lightning rank values | `mad` and `mobCount` of the mapped level (rank 1 / 4 / 8: 112 / 145 / 180 %, 2 / 4 / 6 links) | A |
+| Chain Lightning rarity bonuses | Element Amplification damage x1.2 (Rare), Conductor area x1.2 = hop 240 px (Epic), Longer Chain +1 link (Unique), Longer Chain + damage x1.2 (Legendary, shared counter); repeats x0.8 | C |
+| Weapon stance fallback | a weapon with no `stabO2` draws `stabO1` at the same frame index (`AvatarLayers.STANCE_FALLBACKS`); 9 of 14 staves lack `stabO2`, no wand does | C |
 
 ### I/L Arch Mage (spec #319, I2 #321)
 
