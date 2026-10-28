@@ -145,8 +145,8 @@ func test_pirate_drop_scroll_and_shop_rosters_follow_the_held_family() -> void:
 		assert_has(data.scrolls.families, path)
 		var own: int = WEAPONS[path]
 		var other: int = WEAPONS["gun" if path == "knuckle" else "knuckle"]
-		assert_true(EquipmentDrops.family_allows(own, path, data.equipment_drops))
-		assert_false(EquipmentDrops.family_allows(other, path, data.equipment_drops))
+		assert_true(EquipmentDrops.family_allows(own, [path]))
+		assert_false(EquipmentDrops.family_allows(other, [path]))
 
 
 func test_pirate_rng_is_stream_sixteen_and_does_not_shift_existing_streams() -> void:

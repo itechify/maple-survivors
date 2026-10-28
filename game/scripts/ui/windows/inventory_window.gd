@@ -107,7 +107,7 @@ func dragged() -> Dictionary:
 	return _drag
 
 
-## The character's totals the v83 requirements are checked against (RunWorld.player_state).
+## The character fields the tooltip and requirement check read (RunWorld.player_state; only job_id matters, #292).
 func character_totals() -> Dictionary:
 	var ps := world.player_state if world != null else {}
 	return {"level": int(ps.get("level", 1)), "job_id": int(ps.get("job_id", 0)), "str": int(ps.get("str", 0)),

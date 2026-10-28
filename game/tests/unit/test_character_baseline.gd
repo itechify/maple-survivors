@@ -15,8 +15,10 @@ const DT := 1.0 / 60.0
 ## and no level-gap factor, so every byte after the setup events changes. The #259 hash was 8114bff3...
 ## Re-captured for #287: pool-only offers, eight mapped ranks and +1 rank at every rarity.
 ## Re-captured for #290: seven newly implemented pool skills enter draws and cast with synthetic high-job tables.
-# Re-captured for #291: Elquines completes the twelve-skill pool, adding summon casts/attacks to the event stream.
-const GOLDEN := "2093303d29eb7a86baf8b892874bd21ae69e5a9bf350d33e6d2aea5fc7075043"
+## Re-captured for #291 and #292 on the merge (merge/292): Elquines adds summon casts/attacks to the event stream (#291 alone
+## 2093303d...), and equipment drops follow the tier band and the job's weapon families, not the level and the held weapon,
+## so the Lv1 character wears what it picks up (#292 alone ecb90f67...). The merged stream differs from both.
+const GOLDEN := "ccd64094380fe8f70e66b7299b963108225f3ffe1596bad881478b7fecaa235d"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

@@ -1,7 +1,8 @@
 # Equipment drops from monsters, and Free Market shops sell only scrolls
 
 > **Partly superseded by ADR 0006** (2026-10-27): mesos and equipment stay with the character instead of ending with
-> the run, and drops follow the tier's drop band instead of the character's level. Shops still sell only scrolls.
+> the run, and drops follow the tier's drop band instead of the character's level; equipment has no level or stat
+> requirement, only the job class (#292), and a job lists the weapon families it can receive. Shops still sell only scrolls.
 
 v83 towns had NPC shops that sold equipment and potions. Ours sell neither. Equipment comes only from monster drops,
 always wearable by the character's current job, and the Free Market's NPC shops sell only scrolls (one NPC per

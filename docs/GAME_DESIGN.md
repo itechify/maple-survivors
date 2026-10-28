@@ -61,6 +61,17 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   account and old history carry over. Tool files (`--character`, `--hub`, fixtures) of format 1 and 2 still load, reduced
   to format 3. The scroll roll seed is `created` + `rounds_played` + a hash of the character's belongings.
 
+- **#292 (T10): equipment without level or stat requirements, tier drop bands, job weapon families.**
+  `Equipment.requirement_error` checks only `reqJob`; `reqLevel` and `reqSTR/DEX/INT/LUK` are ignored by equipping, the
+  pickup auto-wear (#222) and the bot shop, and the Equip/Item tooltip has no REQ LEV / STR / DEX / INT / LUK rows (its job
+  row stays). `stages.json` `drop_bands[i]` is the `reqLevel` band of tier i ([0, 30], [30, 60]); `RunWorld.drop_band()`
+  gives the band of the current stage's tier and `EquipmentDrops` picks inside it (uniform for ordinary drops, the top
+  third `boss_floor` for bosses, `equipment_drops.boss_top_parts` 3). The character's level and the held weapon no longer
+  matter. `survivor/jobs/<line>.json` lists each job's `weapon_families` (`JobTree.weapon_families`; 212: wand, staff); a
+  weapon drops only from them, armour and shields by job class alone (the per-line `shield_families` and `shared_families`
+  rules are gone). Mesos, worn equipment, the Equip tab and scrolls already traveled with the format-3 snapshot (#286);
+  `test_equipment_persistence` covers a death, a clear and a Quit round through the real save file.
+
 ## 1. The run
 
 1. **Create or continue.** Select one of three living characters, or create a named Beginner with the v83 Explorer
@@ -156,8 +167,8 @@ The Equip and Item windows (#108) are the v83 ones (`UIWindow.img/Equip`, `UIWin
 window shows each worn item's icon in its v83 slot (CAP, CLOTHES for a top or an overall, PANTS, SHOES, GLOVES,
 WEAPON); a double-click takes an item off into the inventory, as does dragging it onto the Item window. The Item
 window has the v83 tabs: Equip holds the 24 slots of spare equipment (a double-click, or a drag onto the Equip
-window, wears an item, swapping out what was in its slot; a refused v83 requirement shows a message and changes
-nothing), Use holds only scroll stacks in all 24 slots (potions live only in the quick slot), Set-up / Etc / Cash
+window, wears an item, swapping out what was in its slot; an item of another job class shows a message and changes
+nothing: only the job is a requirement, #292), Use holds only scroll stacks in all 24 slots (potions live only in the quick slot), Set-up / Etc / Cash
 are empty, and the meso line shows the character's mesos. Dragging equipment or a scroll
 stack off the windows asks v83's YesNo question and then destroys the item (it is not dropped on the ground, the
 magnet would take it straight back; worn items have to be taken off first). Hovering
@@ -3665,8 +3676,8 @@ by at least 1 px through its own movement; a boss already at the player does not
 
 Boss deaths replace ordinary drops with a shower totaling rounded canonical boss EXP × survivor reward multiplier
 (×5), split into 12 drops with no remainder lost, spread ±120 px. Every scheduled boss also drops exactly two
-equipment items (`equipment_drops.boss_drops`, tier C, owner 2026-10-21, spec #237), selected with the unchanged
-`boss_top` rule on stream 10. Boss rewards contain no potions. Each death
+equipment items (`equipment_drops.boss_drops`, tier C, owner 2026-10-21, spec #237), selected from the top third of the
+tier's drop band (`boss_top_parts`, #292) on stream 10. Boss rewards contain no potions. Each death
 also grants one bonus upgrade pick, before any queued normal level pick, with no level gain or queued-level
 consumption. Each map clear waits for the choices to finish. On maps 1 and 2, combat freezes on the boss death, all pickups
 are swept once using the finale rules below, and leftover mobs vanish without drops or kill credit. After every
@@ -4199,6 +4210,10 @@ first boss; two reached map 2. The Tree That Grew retains its known early deaths
 Mist consumes skill/global damage modifiers as a survivor multiplier on the existing capped, nonlethal canonical
 poison pulse (tier C); its area modifier scales the canonical box. All other high-job actives consume existing
 damage/count/attack-count/area/cooldown modifiers at cast time. #288 owns rarity selection and Mastery stacking.
+
+#292 (equipment bands and families, `ISOLATE=292 bash scripts/balance.sh 1 --stage=henesys`): identical end (DEAD map 1,
+309.90 s, Lv12, no warnings, no missing assets); 11,788 mesos, no equipment drop in that short run (0.2% x 239 kills).
+Same pool-only interim build, no balance data touched.
 
 ## 7. Skills (auto-cast and manual)
 
@@ -5055,9 +5070,8 @@ Learn/rank weights are 2/2 and `power:false` (tier C, untuned, matching Nimble B
 effective in either second-job branch while a claw is held. Cards and the Skill window show the canonical pixel bonus.
 
 Drops are a curated ordinary Lv10–70 roster of Thief-bit claws/daggers, armour by tier/gender and Lv22 shields
-(tier C selection; canonical stats unchanged). Weapon drops follow the held family; Thief shield drops require a dagger
-through `equipment_drops.json`'s optional `shield_families` map (first-job id -> allowed held families),
-including the boss fallback. Claw/dagger ordinary and dark ATT scrolls and Free Market weapon slots use existing pricing.
+(tier C selection; canonical stats unchanged). Weapon drops followed the held family and Thief shields required a dagger (`shield_families`); #292 removed
+both rules: a job lists its `weapon_families` and shields go by job class alone. Claw/dagger ordinary and dark ATT scrolls and Free Market weapon slots use existing pricing.
 The export's existing `data/survivor/*/*.json` include filter covers these files.
 
 `RunWorld.thief_rng` registers stream 15 without drawing from it; only Steal's success roll (#214) will use it.
@@ -5673,10 +5687,10 @@ Bowman equipment (#166/#201) lives in its own `equipment_drops`, `scrolls` and `
 regular progression has 12 bows (1452000-1452011), 10 crossbows (1462000-1462009) and 202 reqJob-4 armour items
 through Lv70: hats, tops, bottoms, overalls, shoes and gloves, with no shields. Selection is tier C; each item's
 canonical requirements, stats, icons and animation remain tier A. Cash, restricted, event/Maple and instructor-only
-variants are excluded. Only the held weapon's family drops; bow and crossbow never share a drop group.
+variants are excluded. A Bowman's weapon drops come from its job's weapon families (bow and crossbow are separate families).
 Both ATT scroll families stock ordinary 100/60/10 and dark 70/30 at the existing rate NPCs for the existing
 70,000-meso weapon price. The shop's job filter admits both families for Bowmen; applying a scroll still requires
-its matching held family. This adds no drop-rate, level-window, meso or price tuning. The regression smoke is in 4.2 (#204).
+its matching held family. This adds no drop-rate, band, meso or price tuning. The regression smoke is in 4.2 (#204).
 
 The economy loop, in the order a character meets it (terms: `GLOSSARY.md` "Mesos and equipment"; decisions: ADR 0002;
 every constant, with its tier, is in section 11 under the tables named below):
@@ -5684,16 +5698,18 @@ every constant, with its tier, is in section 11 under the tables named below):
 1. **Mesos** drop from kills (40% per kill from the mob's v83 meso range, x14 survivor multiplier) and 4 bundles from
    each boss, with the v83 coin sprites; the magnet collects them like EXP. They are carried across rounds with the
    character and lost with the run. ("Meso rule", section 11.)
-2. **Equipment** drops from kills (0.2% per ordinary kill, one guaranteed from each boss): a v83 hat, top, bottom,
-   overall, shoes, gloves, shield or weapon that the character's current job can wear, near its level, with v83's random
-   stat rolls. A weapon drops only from the family of the weapon held when the drop rolls (a sword holder gets one- and
-   two-handed swords, an axe holder axes, ...; bare hands get no weapon; a Magician holding a wand or a staff gets both),
-   so a Warrior's weapon drops are of the one family it holds (sword, axe, blunt weapon, spear or polearm) and its armour
-   drops include Warrior shields (#159). It goes to the
+2. **Equipment** drops from kills (0.2% per ordinary kill, two guaranteed from each boss): a v83 hat, top, bottom,
+   overall, shoes, gloves, shield or weapon that the character's job class can wear, with v83's random stat rolls. Since
+   #292 a drop never depends on the character's level or the weapon it holds: the stage's tier fixes a `reqLevel` band
+   (`stages.json` `drop_bands`: tier 1 [0, 30], tier 2 [30, 60]) that an ordinary drop lies in (uniform among the
+   eligible items) and a boss drop lies in the top third of (tier 1: Lv 20-30, tier 2: Lv 50-60). A weapon drops only
+   when it belongs to one of the job's weapon families (`survivor/jobs/<line>.json` `weapon_families`; 212: wand and
+   staff). Equipment has no level or stat requirement to wear; only the item's job class (`reqJob`) is checked, by the
+   Equip and Item windows, the auto-wear and the bot shop alike. It goes to the
    Equip tab (24 slots; a full tab leaves the item on the ground). ("Equipment drop rule".) If its slot is empty and the
-   character meets its requirements it is worn at once instead, with an "Equipped <name>" notice (#222, "Auto-equip rule").
-   It still waits in the tab when the slot is occupied (an item is never replaced, even by a better one), a requirement
-   (level, job or a stat, the check the Item window uses) fails, it is a shield beside a two-handed weapon, or it is a top or
+   job class admits it, it is worn at once instead, with an "Equipped <name>" notice (#222, "Auto-equip rule").
+   It still waits in the tab when the slot is occupied (an item is never replaced, even by a better one), its job class
+   is another, it is a shield beside a two-handed weapon, or it is a top or
    bottom beside an overall or an overall beside a top or bottom.
 3. The **Equip** (E) and **Item** (I) windows wear, take off and discard it, in a round (the run is held while they are
    open) and in the Free Market; worn equipment adds to the character's stats and is what is drawn. (Controls above.)
@@ -5703,9 +5719,9 @@ every constant, with its tier, is in section 11 under the tables named below):
 5. A **scroll** is dragged from the Use tab onto a worn item: it succeeds at its rate (adding its v83 stats and one to
    the "(+N)" count) or fails; either way it spends one upgrade slot, and a failed dark scroll can destroy the item.
    ("Scroll rules", "Scroll effect" and the other #110 rows.)
-6. Everything is saved with the character at each boundary, so Save & quit -> Continue restores mesos, worn equipment,
-   inventory and scrolls. Quitting a round and continuing replays it from its boundary, so what changed mid-round is
-   lost (ADR 0001, amended).
+6. Mesos, worn equipment, the Equip tab and scrolls stay with the character (ADR 0006, #292): `CharacterSnapshot` hands
+   them back after a clear, a death or a Quit round with whatever the round picked up, and the save file keeps them
+   (format 3). A round always starts at Lv1, so the gear it wears is whatever the character already owns.
 7. Bots follow the same rules (`BotShop`): they wear the best item they own and visit the shops between tiers of a
    `balance.sh --tier=N` chain. ("Bot shopping rule".)
 
@@ -6266,24 +6282,24 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 |---|---|---|---|
 | Eligible list | `survivor/equipment_drops/<line>.json` `items`, ids only (reqLevel, reqJob, stats stay in the Character.wz info of the asset cache): v83 caps, coats, longcoats, pants, shoes, gloves, wands (137xxxx) and staves (138xxxx), not cash, reqLevel 0-70, reqJob 0 or a Magician bit, that a regular v83 server gave out: dropped by an ordinary mob (id 100000-7999999) or sold by a regular NPC shop (shop id below 9000000, not 1337). That keeps quest, event, GM and boss-only items out | B | Cosmic `drop_data` and `shopitems` rows used as facts; reqLevel/reqJob/cash read from v83 Character.wz (A) |
 | Warrior list (#159) | `equipment_drops/warrior.json`: the same selection for the sword (130xxxx, 140xxxx), axe (131, 141), blunt (132, 142), spear (143) and polearm (144) weapons and the shields (109xxxx) whose reqJob has the Warrior bit (88 weapons, 17 shields; some weapons are shared with Thieves and Bowmen). reqJob 0 weapons and shields are left out on purpose: a Beginner and a Magician would otherwise draw them, and their drops stay as they were | B (selection rule), C (the reqJob 0 exclusion) | Cosmic `drop_data` / `shopitems`; v83 Character.wz |
-| Weapon family rule (#159) | A weapon is eligible only when its family (`WeaponInfo.family`) is the family of the weapon held when the drop rolls (`RunWorld.held_weapon_family`, read per drop, ordinary and boss): one- and two-handed swords, axes and blunt weapons share a family; bare hands get no weapon; armour and shields do not depend on the held weapon (`EquipmentDrops.family_allows`). `equipment_drops.shared_families` `[["wand", "staff"]]` lets a Magician holding either see both, so Magician drops stay as before; a Beginner holding the creation sword no longer sees the reqJob 0 wands | C (ours; the ticket's rule, with the wand/staff group) | Ticket #159 |
-| Job filter | Only items whose `reqJob` is 0 or has the bit of the character's current job branch (`Equipment.job_allows`); a Beginner only gets all-job items, every playable Magician job gets Magician and all-job items | A | v83 `reqJob` bits (owner #33: current job only) |
-| Level window | reqLevel in [level - 10, level + 5] (`equipment_drops.below`, `above`) | C | Owner #33 |
-| Weighting | Weight 1 / (1 + 0.25 x abs(reqLevel - level)), so items nearer the character's level drop more often (`equipment_drops.falloff`) | C | Ours |
+| Weapon family rule (#159, #292) | A weapon is eligible only when its family (`WeaponInfo.family`) is one of the job's `weapon_families` (`JobTree.weapon_families`, `survivor/jobs/<line>.json`; 212: `["wand", "staff"]`, tier C), read per drop for ordinary and boss drops alike and independent of the weapon worn; one- and two-handed swords, axes and blunt weapons share a family; a job with no list gets no weapon; armour and shields do not depend on it (`EquipmentDrops.family_allows`). #292 replaces the held-family rule of #159 and its `shared_families` / `shield_families` data | C (ours; the ticket's rule) | Ticket #292 |
+| Job filter | Only items whose `reqJob` is 0 or has the bit of the character's job branch (`Equipment.job_allows`); a job-0 test character only gets all-job items, every Magician job gets Magician and all-job items. It is also the only wear requirement (#292) | A | v83 `reqJob` bits (owner #33: current job only) |
+| Drop band (#292) | `stages.json` `drop_bands[tier]` = [min, max] `reqLevel` (tier 1 [0, 30], tier 2 [30, 60], inclusive); an item drops only when its `reqLevel` is inside the band of the current stage's tier (`NxAward.tier_of`; a stage outside the tiers counts as tier 1). The character's level is not read (a round starts at Lv1). Replaces the [level - 10, level + 5] window | C | Owner 2026-10-27 (ADR 0006, #292) |
+| Weighting | Uniform among the eligible items of the band (the 1 / (1 + 0.25 x distance) falloff of #109 is gone with the level) | C | Ours (#292) |
 | Drop chance | 0.002 per ordinary kill (`equipment_drops.chance`), unchanged by #237's two-item boss rewards; originally sized from an estimate of about 3,300 kills in a full Henesys round. v83 mobs gave equipment on about 0.7-2% of kills | C | Ours (ticket #109) |
-| Boss drop | Each scheduled boss death drops exactly 2 items (`equipment_drops.boss_drops`), no chance roll, uniform among the window's items with reqLevel in [level + 5 - 5, level + 5] (`boss_top`); the highest reqLevel in the window when none is that high, the nearest-level job-eligible item when the window is empty | C | Owner 2026-10-21, spec #237 (count); ours #109 (selection) |
+| Boss drop | Each scheduled boss death drops exactly 2 items (`equipment_drops.boss_drops`), no chance roll, uniform among the eligible items with `reqLevel` in the top third of the band (`EquipmentDrops.boss_floor`: `max - (max - min) / boss_top_parts`, 3, so tier 1 Lv 20-30, tier 2 Lv 50-60); the highest `reqLevel` in the band when none is that high, the job-eligible item nearest the band when it is empty | C | Owner 2026-10-21, spec #237 (count); owner #292 (top third); ours #109 (fallbacks) |
 | Random stats | Every non-zero `inc*` stat of a drop varies by a whole number up to 10% of its base (rounded up) either side, capped at 5 for STR DEX INT LUK PAD MAD ACC EVA Speed Jump and at 10 for PDD MDD MHP MMP, uniform, never below 0; upgrade slots (`tuc`) never vary; other `inc*` keys keep their base (`Equipment.create_drop`) | B | The v83 server rule as the ticket #109 states it (implemented from that prose) |
 | RNG | Chance, item pick, stat rolls and boss scatter use RNG stream 10 (`equip_rng`), so no other stream moves; the pop of the drop uses stream 4 like every drop | C | Ours |
 | Lifetime and pickup | Equipment never expires, merges or counts toward the EXP-drop cap; magnet and collect radius like EXP drops; with a full Equip tab (`balance.player.inventory_slots`) it is not magnetised, stays on the ground, and is picked up once there is room | C | Owner #33 |
 | Notices | "You have gained an item (Name)" on pickup (name from String.wz/Eqp.img) and "You can't get anymore items." when a full tab refuses a drop, in the system-message queue | B | v83 client string pool (open client reimplementations) |
-| Auto-equip rule (#222; `Equipment.auto_wear_error`, `RunWorld._step_pickups`) | A collected equipment drop is worn at once when wearing it displaces nothing (its slot is empty; no overall beside a top or bottom, no top or bottom beside an overall, no shield beside a two-handed weapon) and the character passes `Equipment.requirement_error` (level, job, total STR/DEX/INT/LUK incl. equipment), through the same `Equipment.equip` as the Item window. The world emits `equipment_changed` "pickup" and then "auto_equip" (slot, item), the stats refresh and the HUD shows "Equipped <name>". Otherwise it stays in the Equip tab. A weapon qualifies only for an empty weapon slot (never past Lv10); cash equipment is out of scope. Runs in the sim, so bots and headless runs get it; `BotShop.auto_equip` keeps its upgrade logic for occupied slots. No RNG | C | Owner brief (playtest 3 grilling, 2026-10-18); the "Equipped <name>" wording is ours |
+| Auto-equip rule (#222; `Equipment.auto_wear_error`, `RunWorld._step_pickups`) | A collected equipment drop is worn at once when wearing it displaces nothing (its slot is empty; no overall beside a top or bottom, no top or bottom beside an overall, no shield beside a two-handed weapon) and the character passes `Equipment.requirement_error` (the item's job class only since #292; level and stat requirements are ignored), through the same `Equipment.equip` as the Item window. The world emits `equipment_changed` "pickup" and then "auto_equip" (slot, item), the stats refresh and the HUD shows "Equipped <name>". Otherwise it stays in the Equip tab. A weapon qualifies only for an empty weapon slot (never past Lv10); cash equipment is out of scope. Runs in the sim, so bots and headless runs get it; `BotShop.auto_equip` keeps its upgrade logic for occupied slots. No RNG | C | Owner brief (playtest 3 grilling, 2026-10-18); the "Equipped <name>" wording is ours |
 
 | Bot shopping rule (spec #33, #112; `BotShop`, bots only, never the player) | Value / behavior | Tier | Source |
 |---|---|---|---|
 | Equipment value | An instance scores the sum of weight x value over its `inc*` stats (`balance.bot.equipment_weights`, keyed by job id, `"0"` Beginner and `"200"` Magician; a job uses its nearest ancestor's entry through `JobTree.lineage`). Magician: M.ATT 10, INT 6, M.DEF 2, W.DEF 1.5, LUK 1, Speed 0.5, then ACC/EVA/Jump/pools; Beginner: W.ATT 10, STR 6, DEX 3, W.DEF 1.5. Scrolls already read are part of the stats | C | Owner brief (#112: Magicians want M.ATT, INT, then defences); the numbers are ours |
-| Equip rule | At each equipment pickup, level-up and job change a bot wears, repeatedly, the highest-gain inventory item that scores above what it replaces (an overall against the top and bottom it displaces; an empty slot against 0) and that the v83 requirements and the Equip tab's room allow. Not a decision point, no RNG | C | Owner brief (#112); the job-change trigger is ours (a new job unlocks items) |
+| Equip rule | At each equipment pickup, level-up and job change a bot wears, repeatedly, the highest-gain inventory item that scores above what it replaces (an overall against the top and bottom it displaces; an empty slot against 0) and that the item's job class and the Equip tab's room allow. Not a decision point, no RNG | C | Owner brief (#112); the job-change trigger is ours (a new job unlocks items) |
 | Pickups it cannot take | Bots ignore equipment drops while the Equip tab is full (no walking to them, no camping on them); EXP and meso drops are unchanged | C | Follow-up of #109 (lead) |
-| Sensible plan | At a Free Market visit: sell the spare equipment it will not wear (everything except a better item that only fails the level requirement); then for each worn item with upgrade slots in the order weapon, overall, gloves, hat, top, bottom, shoes, read the 100% or 60% scroll of its item type with the best expected score (success chance x stat score; the 60% INT/M.ATT scrolls beat the 100% ones at equal price), using held scrolls first and buying one per upgrade slot while mesos (plus the sales) last. Never dark scrolls | C | Owner brief (#112 baseline); expected-value choice between 100% and 60% is ours |
+| Sensible plan | At a Free Market visit: sell the spare equipment it will not wear (everything except a better item its job class admits); then for each worn item with upgrade slots in the order weapon, overall, gloves, hat, top, bottom, shoes, read the 100% or 60% scroll of its item type with the best expected score (success chance x stat score; the 60% INT/M.ATT scrolls beat the 100% ones at equal price), using held scrolls first and buying one per upgrade slot while mesos (plus the sales) last. Never dark scrolls | C | Owner brief (#112 baseline); expected-value choice between 100% and 60% is ours |
 | Careless plan | Sells nothing; while a worn item has an upgrade slot and an affordable scroll of its type exists (any rate, dark ones included) it picks a random (item, scroll) pair, buys and reads it. Its stream: `hash("careless-shop-<run seed>-<tier index>")` | C | Owner brief (#112) |
 | Plan application | Only through `RunWorld.sell_item`, `buy_scroll`, `use_scroll`; a dark scroll that destroys an item ends the pass and the plan is redone from the live state (at most 8 passes). Scroll rolls use the next round's `scroll_rng` (stream 11) | C | Ours |
 | Where it runs | `scripts/balance.sh --tier=N` chains between tiers (the next round's world is built from the boundary snapshot and visits before it plays), mid-round equipping in every balance run and in RunScene's autoplay, and `FreeMarket.bot_shop` for a hub driver. With `--autoplay` on a menu-started character (`SceneFlow.autoplay`, set from the flag in `main.gd`) the Free Market runs the sensible visit once on entry (`FreeMarket.shop_visit`) and resumed rounds autoplay; `playtest.sh --run` is a tool one-off with no Free Market | C | Ours |
