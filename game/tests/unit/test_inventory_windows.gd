@@ -19,6 +19,7 @@ const INFO := {
 	1082002: {"reqLevel": 10, "incPDD": 2, "tuc": 5},
 	1050035: {"reqJob": 2, "reqLevel": 38, "reqINT": 115, "reqLUK": 40, "incINT": 1, "incLUK": 4, "incPDD": 36,
 		"incMDD": 18, "tuc": 10},
+	1402001: {"reqJob": 1, "incPAD": 41, "attackSpeed": 6, "tuc": 7}, # a Warrior's two-handed sword
 }
 
 var _nodes: Array[Node] = []
@@ -111,7 +112,7 @@ static func drag_to(w: UiWindow, a: Vector2, to: Vector2) -> void:
 
 # --- InventoryModel -------------------------------------------------------------------------------------------------
 
-func test_tooltip_data_lists_requirements_with_met_flags_category_stats_and_upgrade_slots() -> void:
+func test_tooltip_data_lists_jobs_category_stats_and_upgrade_slots_and_no_level_or_stat_requirements() -> void:
 	var character := {"level": 20, "job_id": 200, "str": 4, "dex": 4, "int": 60, "luk": 10}
 	var tip := InventoryModel.tooltip(Equipment.create(1050035, INFO[1050035]), INFO[1050035], character,
 		"Brown Starlight")
@@ -119,15 +120,16 @@ func test_tooltip_data_lists_requirements_with_met_flags_category_stats_and_upgr
 	assert_eq(tip.category, 21, "ToolTip/Equip/ItemCategory 21 = LONGCOAT")
 	assert_eq(tip.weapon_category, -1)
 	assert_eq(tip.attack_speed, -1, "armour has no attack speed")
-	assert_eq(tip.reqs, [{"key": "reqLEV", "value": 38, "met": false}, {"key": "reqSTR", "value": 0, "met": true},
-		{"key": "reqDEX", "value": 0, "met": true}, {"key": "reqINT", "value": 115, "met": false},
-		{"key": "reqLUK", "value": 40, "met": false}])
+	assert_false(tip.has("reqs"), "no REQ LEV / STR / DEX / INT / LUK rows (#292)")
 	assert_eq(tip.jobs, ["magician"], "reqJob 2 = the Magician line")
 	assert_true(tip.job_ok, "a Magician (200) may wear it")
 	assert_eq(tip.stats, [["incINT", 1], ["incLUK", 4], ["incPDD", 36], ["incMDD", 18]], "v83 stat order, non-zero only")
 	assert_eq(tip.slots, 10)
 	assert_eq(tip.scrolls, 0)
-	assert_false(tip.can_equip, "level, INT and LUK fail")
+	assert_true(tip.can_equip, "the Lv38 / INT 115 / LUK 40 item is wearable by a Lv20 Magician: only the job class counts")
+	var warrior_sword := InventoryModel.tooltip(Equipment.create(1402001, INFO[1402001]), INFO[1402001], character, "Sword")
+	assert_false(warrior_sword.can_equip, "a Warrior item is not")
+	assert_false(warrior_sword.job_ok)
 	var sword := InventoryModel.tooltip(Equipment.create(1302000, INFO[1302000]), INFO[1302000],
 		{"level": 1, "job_id": 0, "str": 4, "dex": 4, "int": 4, "luk": 4}, "Sword")
 	assert_eq(sword.weapon_category, 30, "ToolTip/Equip/WeaponCategory 30 = ONE-HANDED SWORD")
@@ -203,8 +205,8 @@ func test_a_full_inventory_blocks_taking_off_and_says_so() -> void:
 	assert_eq(notices, [InventoryWindow.MESSAGES.inventory_full], "the full-inventory message")
 
 
-func test_a_failed_requirement_shows_the_message_and_changes_nothing() -> void:
-	var world := _world([1050035])
+func test_a_failed_job_requirement_shows_the_message_and_changes_nothing() -> void:
+	var world := _world([1402001])
 	var made := _windows(world)
 	var iw: ItemWindow = made[2]
 	var notices := []
@@ -219,8 +221,8 @@ func test_a_failed_requirement_shows_the_message_and_changes_nothing() -> void:
 	assert_eq(world.character_snapshot(), before, "nothing changed")
 	assert_eq(world.drain_events(), [])
 	var tip := iw.tooltip_for(iw.cell(0))
-	assert_false(tip.can_equip, "the tooltip marks the unmet requirements")
-	assert_false(tip.reqs[0].met, "REQ LEV 38 in red")
+	assert_false(tip.can_equip, "the tooltip marks the other job's item")
+	assert_false(tip.has("reqs"))
 
 
 # --- dragging ----------------------------------------------------------------------------------------------------------
@@ -354,7 +356,7 @@ func test_hovering_a_slot_shows_its_tooltip() -> void:
 	var tip := iw.tooltip()
 	assert_eq(tip.get("weapon_category"), 37, "WAND")
 	assert_eq(tip.get("attack_speed"), 3, "attackSpeed 6 = NORMAL")
-	assert_false(bool(tip.reqs[0].met), "REQ LEV 8 unmet at Lv 1")
+	assert_true(bool(tip.can_equip), "the Lv8 wand is wearable at Lv1")
 	var m2 := InputEventMouseMotion.new()
 	m2.position = ew.slot_rect("top").get_center()
 	ew._gui_input(m2)

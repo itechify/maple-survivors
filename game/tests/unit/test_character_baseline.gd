@@ -15,10 +15,12 @@ const DT := 1.0 / 60.0
 ## and no level-gap factor, so every byte after the setup events changes. The #259 hash was 8114bff3...
 ## Re-captured for #287: pool-only offers, eight mapped ranks and +1 rank at every rarity.
 ## Re-captured for #290: seven newly implemented pool skills enter draws and cast with synthetic high-job tables.
-# Re-captured for #291: Elquines completes the twelve-skill pool, adding summon casts/attacks to the event stream.
-## Re-captured for #289 (common passives): with the nine passive cards removed from the pool the #291 hash 2093303d... is
+## Re-captured for #291 and #292 on the merge (merge/292): Elquines adds summon casts/attacks to the event stream (#291 alone
+## 2093303d...), and equipment drops follow the tier band and the job's weapon families, not the level and the held weapon,
+## so the Lv1 character wears what it picks up (#292 alone ecb90f67...). The merged stream differs from both.
+const GOLDEN := "439fae923a4c12a8e67cc182e4e769a631bd6ae1c1b470309d2cde3cfb475047"
+## Re-captured for #289 (common passives): with the nine passive cards removed from the pool the merged hash ccd64094... is
 ## reproduced exactly (checked), so the only new bytes are the passive offers and the bot's picks of them.
-const GOLDEN := "cc0827c69a9af83cd53561ed0988c73c02aa8034c62644b399b7726d00045699"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

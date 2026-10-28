@@ -216,23 +216,19 @@ func test_lucky_seven_uses_the_current_star_sprite_when_the_ammo_tier_changes() 
 				assert_eq(w.projectiles.paths[w.projectiles.visual[i]], Ammo.bullet_path(expected))
 
 
-func test_drop_scroll_and_shop_rosters_follow_the_held_family() -> void:
+func test_drop_scroll_and_shop_rosters_follow_the_job_families() -> void:
 	var data := DataRepo.load_all()
 	for id in [1332000, 1332012, 1472000, 1472008, 1002122, 1040031, 1060021, 1072070, 1082029, 1092018]:
 		assert_has(data.equipment_drops.items, float(id))
 	for path: String in WEAPONS:
 		assert_has(data.shops.weapon_slots, path)
 		assert_has(data.scrolls.families, path)
-		assert_true(EquipmentDrops.family_allows(WEAPONS[path], path, data.equipment_drops))
-		assert_false(EquipmentDrops.family_allows(WEAPONS["dagger" if path == "claw" else "claw"], path, data.equipment_drops))
+		assert_true(EquipmentDrops.family_allows(WEAPONS[path], [path]))
+		assert_false(EquipmentDrops.family_allows(WEAPONS["dagger" if path == "claw" else "claw"], [path]))
 	var shield_info := {1092018: {"reqJob": 8, "reqLevel": 22}}
-	assert_eq(EquipmentDrops.eligible([1092018], shield_info, 400, 22, data.equipment_drops, "dagger"), [1092018])
-	assert_eq(EquipmentDrops.eligible([1092018], shield_info, 400, 22, data.equipment_drops, "claw"), [], "Thief shields are for the one-handed dagger")
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 207
-	assert_eq(EquipmentDrops.pick_boss([1092018], shield_info, 400, 70, data.equipment_drops, rng, "claw"), 0,
-		"the boss fallback respects the same shield filter outside the level window")
-	assert_eq(EquipmentDrops.pick_boss([1092018], shield_info, 400, 70, data.equipment_drops, rng, "dagger"), 1092018)
+	for families: Array in [["dagger"], ["claw"], []]:
+		assert_eq(EquipmentDrops.eligible([1092018], shield_info, 400, [0, 30], data.equipment_drops, families), [1092018],
+			"a Thief shield drops by job class alone (#292 removed the dagger-only rule)")
 	var manifest := AssetManifest.load_merged("res://data/asset_manifest.json")
 	for id in data.equipment_drops.items:
 		assert_has(manifest.character, id)

@@ -29,7 +29,7 @@ extends InventoryWindow
 ##
 ## A double-click on a worn item takes it off into the inventory (RunWorld.unequip_item), so does dragging it onto
 ## the Item window; an inventory item dragged from the Item window onto this window is worn (RunWorld.equip_item,
-## v83 requirements enforced). Worn items cannot be discarded: a drag off the windows does nothing. Hovering an item
+## job class enforced). Worn items cannot be discarded: a drag off the windows does nothing. Hovering an item
 ## shows its tooltip. Without the cache the window keeps its size and draws plain slots.
 
 const ART := "UI.wz/UIWindow.img/Equip/"

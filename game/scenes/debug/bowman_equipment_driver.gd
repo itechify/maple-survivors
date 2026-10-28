@@ -36,10 +36,9 @@ func _drive() -> void:
 	rng.seed = 201
 	var id := 0
 	for attempt in 1000:
-		var picked := EquipmentDrops.pick(w.data.equipment_drops.items, w.setup.equipment_info, 300, 10,
-			w.data.equipment_drops, rng, "bow")
-		# Drops may be up to five levels ahead; this probe wears one the current character already qualifies for.
-		if WeaponInfo.family(picked) == "bow" and int(Equipment.info_of(w.setup.equipment_info, picked).reqLevel) <= 10:
+		var picked := EquipmentDrops.pick(w.data.equipment_drops.items, w.setup.equipment_info, 300, [0, 30],
+			w.data.equipment_drops, rng, ["bow"])
+		if WeaponInfo.family(picked) == "bow":
 			id = picked
 			break
 	assert(id > 0, "seeded drop roster must contain a bow")
@@ -49,7 +48,7 @@ func _drive() -> void:
 		run.advance_frame(1.0 / 60.0)
 	var index: int = w.equipment.inventory.find(dropped)
 	assert(index >= 0, "the real pickup must collect the dropped bow")
-	assert(w.equip_item(index) == "", "the dropped Lv10 bow must be wearable")
+	assert(w.equip_item(index) == "", "the dropped bow must be wearable")
 	run.handle_events(w.drain_events())
 	run.toggle_window("equip")
 	await get_tree().create_timer(0.3).timeout

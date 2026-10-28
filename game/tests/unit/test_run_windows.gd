@@ -511,7 +511,8 @@ func test_an_open_item_window_refreshes_when_an_equipment_drop_is_picked_up() ->
 	var drawn: int = iw.get("refresh_count") if iw.get("refresh_count") != null else -1
 	# The run is held while a window is open, so nothing is picked up through advance_frame; drive the sim directly,
 	# as a world that keeps running under the window (a bot's, a later feature's) would.
-	w.spawn_equipment(w.player.pos, {"id": 1002001, "stats": {"incPDD": 4}, "slots": 7, "scrolls": 0})
+	# a second wand: the weapon slot is taken, so the pickup stays in the Equip tab instead of being worn at once
+	w.spawn_equipment(w.player.pos, {"id": 1372006, "stats": {"incMAD": 25}, "slots": 7, "scrolls": 0})
 	var events := []
 	for i in 120:
 		w.step(DT, MoveInput.new())
@@ -520,6 +521,6 @@ func test_an_open_item_window_refreshes_when_an_equipment_drop_is_picked_up() ->
 			break
 	assert_eq(w.equipment.inventory.size(), had + 1, "the magnet put the drop in the Equip tab")
 	scene.handle_events(events)
-	assert_eq(iw.cell(had).get("id"), 1002001, "the Item window's Equip tab lists the drop")
+	assert_eq(iw.cell(had).get("id"), 1372006, "the Item window's Equip tab lists the drop")
 	var after: Variant = iw.get("refresh_count")
 	assert_true(after != null and int(after) > drawn, "and the window redrew for it")

@@ -56,7 +56,7 @@ static func equip_after(w: RunWorld, events: Array) -> int:
 
 
 ## Wears, for every equip slot, the best wearable item of the Equip tab: one that scores higher than what it replaces (an
-## overall against the top and bottom it displaces, an empty slot against nothing) and that the v83 requirements and the
+## overall against the top and bottom it displaces, an empty slot against nothing) and that the item's job class and the
 ## tab's room allow. Repeats until nothing improves (a better top can raise INT enough for a wand). Returns how many items
 ## it put on. No RNG.
 static func auto_equip(w: RunWorld) -> int:
@@ -226,8 +226,7 @@ static func _plan_careless(character: Dictionary, stock: Array, facts: Dictionar
 	return {"sell": [], "steps": steps}
 
 
-## Whether a sensible bot keeps spare equipment `instance`: it would be an upgrade for its slot, and wearing it fails at most
-## on the level requirement (a higher level will let a later auto_equip put it on).
+## Whether a sensible bot keeps spare equipment `instance`: it would be an upgrade for its slot and its job class admits it.
 static func _keeps(instance: Dictionary, character: Dictionary, equipment_info: Dictionary, weights: Dictionary) -> bool:
 	var id := int(instance.id)
 	var slot := Equipment.slot_of(id)
@@ -235,9 +234,8 @@ static func _keeps(instance: Dictionary, character: Dictionary, equipment_info: 
 		return false
 	if item_score(instance, weights) - _displaced_score(character.equipment.worn, id, weights) <= 1e-9:
 		return false
-	var who := {"level": int(character.get("level", 1)), "job_id": int(character.get("job_id", 0))}
-	who.merge(character.get("stats", {}))
-	return Equipment.requirement_error(Equipment.info_of(equipment_info, id), who) in ["", "reqLevel"]
+	var who := {"job_id": int(character.get("job_id", 0))}
+	return Equipment.requirement_error(Equipment.info_of(equipment_info, id), who) == ""
 
 
 ## The stock entry whose scroll fits `instance` and has the best expected score (success chance x its stats under

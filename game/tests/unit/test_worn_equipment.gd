@@ -16,6 +16,7 @@ const INFO := {
 	1050010: {"reqLevel": 15, "incPDD": 20, "tuc": 10},
 	1092005: {"reqLevel": 10, "incPDD": 10, "incMDD": 3, "tuc": 7}, # a shield
 	1402000: {"incPAD": 40, "attackSpeed": 6, "tuc": 7}, # a two-handed sword
+	1402001: {"reqJob": 1, "incPAD": 41, "attackSpeed": 6, "tuc": 7}, # a Warrior's two-handed sword
 }
 
 
@@ -153,9 +154,8 @@ func test_the_overall_rule_holds_for_the_live_character() -> void:
 	assert_eq(world.player_state.pdd, 5.0)
 
 
-func test_each_requirement_blocks_the_live_character_and_changes_nothing() -> void:
-	for spec: Array in [[1372005, {}, "reqLevel"], [1050010, {}, "reqLevel"],
-			[1082019, {"level": 30, "job_id": 0}, "reqJob"], [1082019, {"level": 30, "job_id": 200}, "reqINT"]]:
+func test_only_the_job_class_blocks_the_live_character_and_changes_nothing() -> void:
+	for spec: Array in [[1082019, {"job_id": 0}, "reqJob"], [1402001, {}, "reqJob"]]:
 		var fields: Dictionary = spec[1]
 		var world := _world([spec[0]], func(c: Dictionary) -> void: c.merge(fields, true))
 		var snapshot := world.character_snapshot()
@@ -165,13 +165,14 @@ func test_each_requirement_blocks_the_live_character_and_changes_nothing() -> vo
 		assert_eq(world.character_snapshot(), snapshot)
 		assert_eq(world.player_state, state)
 		assert_eq(world.drain_events(), [])
-	var lucky := _world([1082019, 1002001], func(c: Dictionary) -> void:
-		c.level = 30
-		c.job_id = 200
-		c.base_attributes.int = 36)
-	assert_eq(lucky.equip_item(0), "reqINT", "INT 36 < 40")
-	assert_eq(lucky.equip_item(1), "", "the hat adds INT 4")
-	assert_eq(lucky.equip_item(0), "", "total INT including equipment meets reqINT 40")
+
+
+func test_level_and_stat_requirements_never_block_a_level_one_character() -> void:
+	var world := _world([1372005, 1082019, 1050010])
+	assert_eq(world.progression.level, 1)
+	assert_eq(world.equip_item(0), "", "the Lv8 wand")
+	assert_eq(world.equip_item(0), "", "reqLevel 20 / reqINT 40 gloves for the Magician (the wand took inventory slot 0)")
+	assert_eq(world.equip_item(0), "", "the Lv15 overall")
 
 
 func test_equipment_changes_emit_one_event_and_discard_removes_inventory_items() -> void:

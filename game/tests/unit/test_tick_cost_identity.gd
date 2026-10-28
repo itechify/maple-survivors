@@ -34,13 +34,15 @@ const PET_BACK := 2700
 ## (the character is set to 220 directly), so the events and totals legitimately differ (pre-#285 totals exp 3658,
 ## kills 206, casts 183, level 12).
 ## Re-captured for #287: pool-only offers, eight mapped ranks and +1 rank at every rarity.
-## Re-captured for #289 (common passives): with the nine passive cards removed from the data, the #287 digest edc2d55c...
-## and totals (exp 4097, kills 227, casts 260, level 13) are reproduced exactly (checked); the bot now also takes
-## passives (Max HP, Might, Haste...), which changes the run.
-const GOLDEN := "72b6fb2b616d7460d3df2a1cf72f969eeb07686a1da9b2a7f9a25e7ecdbcdb55"
+## Re-captured for #292: equipment drops follow the tier band and the job's weapon families, not the level and the held
+## weapon (equips_dropped 47 -> 30, pool 24 -> 7); every other total (exp, mesos, kills, casts, level) is unchanged. The
+## workload coverage asserts (big pool, blocked drop, VAC pet, every cast rule) all still hold.
+const GOLDEN := "3524cdb9c67b11c44e8ef6852a87b6b842306fc580f5a26b4b53ac04b2827712"
 const TOTALS := {"exp": 5474, "mesos": 97004, "pickup_mesos": 97004, "equips_collected": 23,
-	"equips_dropped": 47, "inventory": 24, "kills": 287, "casts": 280, "level": 14,
-	"pool": 24, "time": 59.999999999997875}
+	"equips_dropped": 30, "inventory": 24, "kills": 287, "casts": 280, "level": 14,
+	"pool": 7, "time": 59.999999999997875}
+## Re-captured for #289 (common passives): with the nine passive cards removed from the data, the #292 digest 29926829... and
+## totals (exp 4097, kills 227, casts 260, level 13, equips_dropped 30) are reproduced exactly (checked); the bot now also takes passives (Max HP, Might, Haste...), which changes the run.
 const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_armor", "cold_beam", "thunder_bolt", "slow_il",
 	"heal", "fire_arrow", "poison_breath", "holy_arrow"]
 

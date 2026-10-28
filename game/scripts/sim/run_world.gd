@@ -35,7 +35,7 @@ extends RefCounted
 ## methods, which apply the pure Equipment functions, refresh the derived stats and emit `equipment_changed`; each
 ## returns "" on success or an Equipment reason (reqLevel, reqJob, reqSTR..., inventory_full, no_item, empty) and then
 ## changes nothing:
-##   equip_item(inventory_index)  - wear an inventory item (v83 requirements against total stats)
+##   equip_item(inventory_index)  - wear an inventory item (only the item's job class is checked, #292)
 ##   unequip_item(slot)           - move a worn item to the inventory
 ##   discard_item(inventory_index) - destroy an inventory item (worn items cannot be discarded)
 ## Equipment drops (#109) come from kills and bosses (EquipmentDrops, equipment_drops.json); collecting one appends it
@@ -1592,11 +1592,9 @@ func auto_wear_error(id: int) -> String:
 		_wearer())
 
 
-## The character fields Equipment checks requirements against: level, job and the total main stats.
+## The character fields Equipment checks requirements against: only the job (ADR 0006, #292).
 func _wearer() -> Dictionary:
-	var who := {"level": progression.level, "job_id": progression.job_id}
-	who.merge(_attributes)
-	return who
+	return {"job_id": progression.job_id}
 
 
 ## Wears inventory item `index` and emits `equipment_changed` with `action` ("equip", or "auto_equip" from a pickup).
@@ -2282,20 +2280,27 @@ func _roll_mesos(mk: MobKind) -> int:
 	return MesoDrops.roll(meso_rng, span, float(cfg.get("mult", 1.0)))
 
 
-## One equipment drop for the character's current job, level and held weapon family (EquipmentDrops; `boss` takes the
-## top of the level window) with v83 random stats, from the equipment stream; nothing when no listed item has info and
-## fits. A weapon only drops from the family held now; bare hands get none (#159).
+## One equipment drop for the character's job (EquipmentDrops; `boss` takes the top third of the band) inside the reqLevel
+## band of this stage's tier (stages.json drop_bands; never the character's level, #292), a weapon only from the job's
+## weapon families, with v83 random stats, from the equipment stream; nothing when no listed item has info and fits.
 ## Returns whether an equipment pickup was spawned (Steal falls back to mesos when none fits).
 func _drop_equipment(pos: Vector2, boss: bool) -> bool:
 	var cfg: Dictionary = data.get("equipment_drops", {})
 	var infos: Dictionary = setup.get("equipment_info", {})
 	var items: Array = cfg.get("items", [])
-	var family := held_weapon_family()
-	var id := EquipmentDrops.pick_boss(items, infos, progression.job_id, progression.level, cfg, equip_rng, family) if boss \
-		else EquipmentDrops.pick(items, infos, progression.job_id, progression.level, cfg, equip_rng, family)
+	var band := drop_band()
+	var families := jobs.weapon_families(progression.job_id)
+	var id := EquipmentDrops.pick_boss(items, infos, progression.job_id, band, cfg, equip_rng, families) if boss \
+		else EquipmentDrops.pick(items, infos, progression.job_id, band, cfg, equip_rng, families)
 	if id > 0:
 		return spawn_equipment(pos, Equipment.create_drop(id, Equipment.info_of(infos, id), equip_rng)) >= 0
 	return false
+
+
+## The reqLevel band [min, max] this stage's equipment drops come from (its tier's stages.json drop_bands entry).
+func drop_band() -> Array:
+	var stages: Dictionary = data.get("stages", {})
+	return EquipmentDrops.band_of(stages, NxAward.tier_of(stages, stage_key))
 
 
 ## Drops an equipment instance on the ground at pos (drawn with the item's icon); the magnet collects it while the
