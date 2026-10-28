@@ -64,9 +64,32 @@ const MOB_SKILL_IMG := "Skill.wz/MobSkill.img"
 const SCROLL_IMG := "Item.wz/Consume/0204.img"
 
 
+## A test seam (spec #296, H9 #305): a JSON-shaped patch deep-merged (Dictionaries key by key, anything else replaces)
+## into what `load_all(DATA_ROOT)` returns while it is non-empty, so a test can mirror the shipped data with one job made
+## playable (`{"jobs_survivor": {"jobs": {"112": {"playable": true}}}}`) and drive the creation page, SceneFlow and the
+## tools through their own `DataRepo.load_all()` calls. Always empty in the game; a test that sets it clears it again.
+static var patch := {}
+
+
 ## Every data file parsed, keyed as in setup.data. A missing or malformed file gives {} for its key and is listed in
 ## `errors` (when given). The keys in SPLIT are the base file plus the merged line fragments (load_split).
 static func load_all(root: String = DATA_ROOT, errors: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var out := _load_all(root, errors)
+	if root == DATA_ROOT and not patch.is_empty():
+		merge_patch(out, patch)
+	return out
+
+
+## Deep-merges `with` into `into`: Dictionaries key by key, any other value replaces.
+static func merge_patch(into: Dictionary, with: Dictionary) -> void:
+	for k: Variant in with:
+		if with[k] is Dictionary and into.get(k) is Dictionary:
+			merge_patch(into[k], with[k])
+		else:
+			into[k] = with[k].duplicate(true) if with[k] is Dictionary or with[k] is Array else with[k]
+
+
+static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 	var out := {}
 	for key: String in FILES:
 		if SPLIT.has(key):

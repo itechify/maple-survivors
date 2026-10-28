@@ -13,13 +13,15 @@ extends TestCase
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BOLTS := preload("res://tests/unit/test_il_bolts.gd")
 const CHAIN := preload("res://tests/unit/test_il_chain_lightning.gd")
+const BLIZZARD := preload("res://tests/unit/test_il_blizzard.gd")
+const BIG_BANG := preload("res://tests/unit/test_il_big_bang.gd")
 const DT := 1.0 / 60.0
 const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range"]
-const SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "ice_demon", "element_composition_il", "chain_lightning"]
+const SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "ice_demon", "element_composition_il", "chain_lightning", "blizzard", "big_bang_il"]
 
 
 ## Synthetic Skill.wz levels 1..30 for Ice Demon (`box`: the canonical forward box) and Element Composition (I7 #326).
@@ -42,8 +44,10 @@ func _world(key: String) -> RunWorld:
 	setup.skill_imgs["220"].skill["2201005"] = books.thunder
 	setup.skill_imgs["221"] = {"skill": {"2211002": books.strike, "2211003": books.spear,
 		"2211006": {"level": _demon_levels(false)}}}
+	# Blizzard (I10 #329: the WZ box, 15 mobs) and Big Bang I/L (no lt/rb, as in the WZ: the survivor box applies).
 	setup.skill_imgs["222"] = {"skill": {"2221003": {"level": _demon_levels(true)},
-		"2221006": CHAIN.book_node()}}
+		"2221006": CHAIN.book_node(),
+		"2221007": {"level": BLIZZARD.levels(120.0, 1.0)}, "2221001": {"level": BIG_BANG.levels(120.0, 1.0)}}}
 	var w := RunWorld.new(setup)
 	w.bounds = Rect2(0, -500, 4000, 1000)
 	w.fhm = FootholdMap.from_segments(FLAT)
@@ -133,13 +137,14 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 
 func test_every_covered_skill_has_bonuses_and_is_in_the_il_line() -> void:
 	var il: Dictionary = BOLTS._skill_file("il_arch_mage")
+	var resolved: Dictionary = SkillTemplate.resolve(DataRepo.load_all().skills.skills)  # a templated child inherits its lists
 	for key: String in SKILLS:
 		assert_true(il.has(key), key)
-		assert_true(il[key].has("rarity_bonuses"), key)
+		assert_true(resolved[key].has("rarity_bonuses"), key)
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
-	var skills: Dictionary = DataRepo.load_all().skills.skills
+	var skills: Dictionary = SkillTemplate.resolve(DataRepo.load_all().skills.skills)
 	var checked := 0
 	for key: String in SKILLS:
 		var bonuses: Dictionary = skills[key].rarity_bonuses

@@ -160,8 +160,9 @@ func test_no_skill_or_card_text_says_canonical_or_leaves_markup_or_placeholders(
 	var data := DataRepo.load_all()
 	var imgs := {}
 	var strings := {}
-	for key: String in data.skills.skills:
-		var d: Dictionary = data.skills.skills[key]
+	var resolved: Dictionary = SkillTemplate.resolve(data.skills.skills)
+	for key: String in resolved:
+		var d: Dictionary = resolved[key]
 		var id := "%07d" % int(d.skill_id)
 		var levels := {}
 		var s := {"name": String(d.name), "desc": "[Master Level : 20]\\nSynthetic %s. \\n#cTerms between skills : 1 min.#\\nRequired Skill : #cAt least Level 1 on X#" % key}
