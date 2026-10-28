@@ -6052,6 +6052,30 @@ code-drawn element tint; start/end events refresh it. SkillText lists duration, 
 sub's trigger, mapped level, base skill power, target count and HP cost. Form rarity previews use seconds for time and percentage
 points for power. `player_form_probe.tscn` injects a synthetic fire form for visual QA without Paladin data.
 
+### 7.62 Charges, Charged Blow and Heaven's Hammer (spec #308)
+
+**Charged Blow (#314, WZ 1211002).** The stun nova every Charge carries: a `form_sub` of the Form seam, so it is in no
+pool, no `Loadout.order` and no card, and has no rarity list (its damage grows through the parent Charge's `damage`
+modifier, the "Advanced Charge" bonus of the spec). The Charges list it in their `subs` entry (`first_after` 1.0 s,
+`interval` 3.0 s, P7/P8); until a Charge runs it never casts, and `form_sub_of` names the four Charges.
+
+- **Cast.** `range_around` with `min_targets 3`: at least three mobs within the level's `range` of the body, then up to
+  `mobCount` 6 are struck, bosses first. Physical `damage` 162 -> 250 %, `range` 130 -> 150 px, `hpCon` 15 -> 25 (never lethal:
+  the due cast waits, the seam keeps it due), all tier A, read through the rank table 4, 8, 12, 15, 19, 23, 27, 30
+  (rank 1 = level 4: 168 %, 130 px, 38 % stun for 2 s, 15 HP; rank 8 = level 30: 250 %, 150 px, 90 %, 4 s, 25 HP).
+- **Stun in every element** (spec P-3): `on_hit stun {chance_field prop, duration_field time}`, prop 32 -> 90 %, time 2 -> 4 s.
+  The roll is the usual on-hit roll: one main-stream draw per struck mob, none when the chance is 100 %. There is no freeze
+  variant for Ice Charge.
+- **Element.** The nova takes the running Charge's element through `PlayerForms.begin_cast` (a fire-weak mob takes 1.5x).
+- **Element-keyed art.** The skill's `effect` and `hit` paths carry the token `{art}` (`.../effect/{art}`,
+  `.../hit/0/{art}`). `PlayerForms.begin_cast` fills it from the cast's element through one table, `PlayerForms.ART_INDEX`
+  (`""` 0, ice 1, fire 2, lightning 3, holy 5: tier A from the pixels, P1 #309; the spec's fire/ice order was wrong). A
+  later element (poison, 4) is one row. A skill that is not a Form sub can use the same token (Blast's `effect/{0,1,2,3,5}`
+  and `hit/0/{0,1,2,3,5}`), because the fill runs for every damaging cast, with key 0 when no Charge is running. The
+  round's art warm-up loads every key. The stun stars (`mob`) are the shared stars `MobRenderer` already draws for a stun.
+- **Presentation (tier C).** Stance: the held weapon's first swing (as Coma), shown 0.6 s; Use sound
+  `Sound.wz/Skill.img/1211002/Use`.
+
 
 ## 8. Upgrades
 
@@ -6535,6 +6559,8 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | Paladin creation weapon and families (#310, spec #308) | `jobs/paladin.json` `creation_weapon` 1322000, the Mace (Item.wz, reqJob 3, which includes the Warrior bit, so `requirement_error` accepts it for 122); `weapon_families` `["sword", "blunt"]` filters the shipped Warrior drop list (one- and two-handed), so axes, spears and polearms never drop for a Paladin; armour and shields drop by the Warrior class bit. The item id and stats are tier A | C | Spec #308 |
 | Paladin skill pool and start (#310, spec #308) | `jobs/paladin.json`: `starting_skill` power_strike (slot 1), `mobility_skill` rush_paladin, eight-key `skill_pool` (power_strike, slash_blast, blast, monster_magnet_paladin, fire_charge, ice_charge, thunder_charge, holy_charge). Power Strike and Slash Blast are Hero's definitions; the rest are inert until their tickets define them. The pool and the start are design choices; the WZ ids are tier A | C | Spec #308 (Skill pool table) |
 | Paladin not playable (#310, spec #308) | `jobs/paladin.json` `playable` false: no tool, creation page or test can choose job 122 until P9 (#317) flips it; `default_job` stays 212 | C | Spec #308 |
+| Charged Blow form sub-skill (#314, spec #308) | `skills/paladin.json` `charged_blow`: `slot form_sub`, `form_sub_of` the four Charges (until P7/P8 define them `test_data_files` allows those parents to be undefined), `cast {range_around, min_targets 3}`, `cooldown` 3.0 (not consulted: the Charge's `subs` interval sets the pace), `ranks` 4, 8, 12, 15, 19, 23, 27, 30 (the standard table written out), `action weapon` with `action_time` 0.6, no rarity list. The WZ numbers (damage, prop, time, range, mobCount, hpCon) are tier A | C | Spec #308 (Skill definitions) |
+| Element art index table (#314, spec #308) | `PlayerForms.ART_INDEX` and the `{art}` path token: none 0, ice 1, fire 2, lightning 3, holy 5 (tier A, P1 #309, read from the pixels; the spec's order was wrong); the token fill is ours | C | Spec #308 (Element art) |
 | Job page rows (#305) | rows are left-aligned, and the chosen row keeps its plate in every Button state (hover and pressed too), so it stays highlighted under the mouse; the Job blurb repeats the weapon box (creation weapon name, WATK, swing time) | C | Ours, layout |
 | Rush 2.0 s cooldown, always-on 80 px knock-back along the dash, hold-to-repeat, refused while climbing, airborne dash keeps its height (#302, spec #296) | `skills/hero.json` `rush_hero` (`cooldown`, `knockback`); damage 78%, `mobCount` 15, box reach 170 px (the dash distance) and `rush2` are Skill.wz level 4 (tier A) | C | Spec #296 D1; v83 Rush is a dash with a hit box |
 | Rush ranks with the round level through `balance.mobility_rank_levels` (rank 1 = WZ level 4 at Lv1, rank 8 = level 30 from Lv16) (#302) | the shared mobility rule; Rush has the level-30 rank table and no card | C | Spec #296, #282 review fixes |

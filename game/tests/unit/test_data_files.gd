@@ -106,7 +106,8 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 		assert_true(top > 0, "%s has a canonical level table" % key)
 		# A pool skill (rarity bonuses, listed in a job's skill_pool) has eight ranks; any other skill keeps one rank per level.
 		# Hero's Rush (#302) is no pool skill but takes the same level-30 table, eight ranks that the shared mobility rule grows.
-		if key == "rush_hero" or book.def(key).has("rarity_bonuses") \
+		# A Form sub-skill (Charged Blow, #314) ranks with its parent Charge (spec P-5): eight ranks through its own table.
+		if key == "rush_hero" or String(book.def(key).get("slot", "")) == "form_sub" or book.def(key).has("rarity_bonuses") \
 				and data.jobs_survivor.jobs.values().any(func(j: Dictionary) -> bool: return key in j.get("skill_pool", [])):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
@@ -725,8 +726,14 @@ func test_meter_catalog_schema() -> void:
 		assert_true(float(meter.damage_per_unit) >= 0.0)
 		assert_eq(String(skill.slot), "active")
 
+## Charges that Charged Blow (P6 #314) already names in `form_sub_of` before P7 #315 and P8 #316 define them; the "unknown form"
+## error for these keys is expected until then, and the ticket that defines the last one deletes this list.
+const PENDING_CHARGES := ["fire_charge", "ice_charge", "thunder_charge", "holy_charge"]
+
 func test_form_catalog_schema_and_subs_excluded_from_pools_and_cards() -> void:
-	assert_true(PlayerForms.validation_errors(data.skills.skills).is_empty(), " ".join(PlayerForms.validation_errors(data.skills.skills)))
+	var errors := Array(PlayerForms.validation_errors(data.skills.skills)).filter(func(e: String) -> bool:
+		return not PENDING_CHARGES.any(func(k: String) -> bool: return not data.skills.skills.has(k) and e.ends_with("unknown form " + k)))
+	assert_true(errors.is_empty(), " ".join(errors))
 	for key: String in data.skills.skills:
 		if String(data.skills.skills[key].get("slot", "")) != "form_sub":
 			continue
