@@ -72,8 +72,10 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("meter"):
 		mechanics.append("Needs %d orbs" % int(def.meter.get("min", 0)))
 		var keep := int(stats.get("meter_keep", 0))
-		if keep > 0:
-			mechanics.append("Keeps %d orbs" % keep)
+		if str(def.meter.get("spend", "")) == "all":
+			mechanics.append("Spends all orbs" if keep <= 0 else "Spends all but %d orbs; Keeps %d orbs" % [keep, keep])
+		elif def.meter.has("spend"):
+			mechanics.append("Spends %d orbs" % int(def.meter.spend))
 	if def.has("knockback"):
 		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
 			number(float(stats.get("knockback_distance", 0.0)))])

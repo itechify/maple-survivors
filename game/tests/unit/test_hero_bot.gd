@@ -105,3 +105,11 @@ func test_every_defined_hero_skill_has_a_known_reach_and_none_is_longer_than_the
 		w.learn_skill(key)
 		var reach := SkillRunner.reach_of(w.loadout.stats(key), w)
 		assert_true(reach >= 0.0 and reach < kite_reach, "%s reach %.0f" % [key, reach])
+
+
+func test_pool_scoring_needs_no_per_skill_override() -> void:
+	var w := _hero_world()
+	w.balance.bot.card_scores.clear()
+	for key: String in ["panic", "coma", "monster_magnet"]:
+		assert_eq(BotInput.card_score(w, w.upgrades.choice_card(key + "_new", w, "normal")), 100.0)
+		assert_eq(BotInput.card_score(w, w.upgrades.choice_card(key + "_rank", w, "normal")), 74.0)

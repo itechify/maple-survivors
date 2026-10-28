@@ -183,6 +183,7 @@ static func _data() -> Dictionary:
 
 static func _world() -> RunWorld:
 	var s := RF.with_basic_attack(RF.setup("pool_146", 146, _data()))
+	s["job"] = 212
 	s.account = {"owned": PF.EVERYTHING}
 	var w := RunWorld.new(s)
 	w.god = true

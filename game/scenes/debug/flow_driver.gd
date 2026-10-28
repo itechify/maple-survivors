@@ -85,7 +85,7 @@ const StageSelectScene := preload("res://scenes/ui/stage_select.gd")
 const MAIN := "res://scenes/main.tscn"
 ## The redesign scenario's diagnostic fallback when a round dropped nothing the job can wear above Lv1: a staff for the Arch Mage
 ## (Lv45), a sword for Hero (1302009, Lv40; reqJob Warrior). tier C: automation, not tuning.
-const FALLBACK_ITEM := {212: 1382001, 112: 1302009}
+
 ## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q potion; E is the
 ## Equip window).
 const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_C,
@@ -523,7 +523,7 @@ func _equip_high_req_item(hub: FreeMarket, character: Dictionary, job: int = 212
 				and Equipment.slot_of(id) != "":
 			best = {"id": id, "slot": Equipment.slot_of(id), "req_level": int(info.get("reqLevel", 0)), "source": "round drop"}
 	if best.is_empty():
-		var weapon: int = FALLBACK_ITEM.get(job, 0)
+		var weapon: int = HubTestKit.fallback_item(job)
 		if not _expect(weapon != 0, "the scenario has no diagnostic fallback item for job %d" % job):
 			return {}
 		var img := lib.img(AvatarRenderer.part_img_path(weapon))
