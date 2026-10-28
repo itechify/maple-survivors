@@ -110,7 +110,7 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 			if not lo.book.has(skill) or lo.has(skill) or not lo.has_free_slot(lo.book.slot(skill)):
 				return false
 		"skill_rank":
-			if not lo.has(skill) or lo.rank(skill) >= lo.book.max_rank(skill):
+			if not lo.has(skill) or (lo.rank(skill) >= lo.book.max_rank(skill) and slot != "active"):
 				return false
 		"skill_mod":
 			if not lo.has(skill):
@@ -143,6 +143,8 @@ func card_kind(c: Dictionary, state: RunWorld) -> String:
 		return "filler"
 	if state.book.slot(skill) == "passive":
 		return "passive_rank" if state.loadout.has(skill) else "new_passive"
+	if String(c.get("kind", "")) == "skill_rank" and state.book.slot(skill) == "active" and state.loadout.has(skill) and state.loadout.rank(skill) >= state.book.max_rank(skill):
+		return "mastery"
 	return "owned_active" if state.loadout.has(skill) else "new_active"
 
 
@@ -193,7 +195,14 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 	var c := card(id)
 	tier = _honest_tier(c, state, tier)
 	var magnitude := _magnitude(c, state, tier)
+	var bonus := rarity_bonus(c, state, tier)
 	var desc := describe(id, magnitude)
+	if state.book.def(String(c.get("skill", ""))).has("rarity_bonuses"):
+		desc = "Learn at rank 1." if String(c.get("kind", "")) == "skill_new" else "+1 rank."
+	if card_kind(c, state) == "mastery":
+		desc = "Mastery: no rank gained."
+	if not bonus.is_empty():
+		desc += " " + String(bonus.text) + "."
 	var kind := String(c.get("kind", ""))
 	var skill := String(c.get("skill", ""))
 	var skill_name := ""
@@ -263,7 +272,9 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		"kind": kind,
 		"card_kind": card_kind(c, state),
 		"slots": lo.slot_summary(),
-		"name": String(c.get("name", id)),
+		"skill_rank_before": lo.rank(skill),
+		"name": String(c.get("name", id)) + (" Mastery" if card_kind(c, state) == "mastery" else ""),
+		"rarity_bonus": bonus,
 		"desc": desc,
 		"icon": String(c.get("icon", "")),
 		"rank": rank(id, state) + _consumed_steps(c, magnitude),
@@ -276,8 +287,35 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		"skill_level_max": level_max,
 		"skill_changes": changes,
 		"skill_effect_stat": effect_stat,
-		"skill_mod_changes": _mod_changes(c, lo, magnitude) if kind == "skill_mod" and lo.has(skill) else {},
+		"skill_mod_changes": _mod_changes({"skill": skill, "effects": bonus.get("effects", [])}, lo, 1) if not bonus.is_empty() else (_mod_changes(c, lo, magnitude) if kind == "skill_mod" and lo.has(skill) else {}),
 	}
+
+
+## Resolves the next data-only bonus without consuming RNG; preview and application use the same entry.
+## Lists cycle in data order. A shared id across rarities shares its repeat count.
+func rarity_bonus(c: Dictionary, state: RunWorld, tier: String) -> Dictionary:
+	var skill := String(c.get("skill", ""))
+	if tier == "normal" or state.book.slot(skill) != "active" or not String(c.get("kind", "")) in ["skill_new", "skill_rank"]:
+		return {}
+	var entries: Array = state.book.def(skill).get("rarity_bonuses", {}).get(tier, [])
+	if entries.is_empty():
+		return {}
+	var count := 0
+	for entry: Dictionary in entries:
+		count += int(state.loadout.card_ranks.get("bonus:" + skill + ":" + String(entry.id), 0))
+	var bonus: Dictionary = entries[count % entries.size()].duplicate(true)
+	var counter := "bonus:" + skill + ":" + String(bonus.id)
+	# tier C: repeated bonuses shrink x0.8, including awards received before Mastery.
+	var scale := pow(0.8, int(state.loadout.card_ranks.get(counter, 0)))
+	var labels: Array[String] = []
+	for effect: Dictionary in bonus.effects:
+		var op := String(effect.get("op", "add"))
+		var value := float(effect.value)
+		effect.value = 1.0 + (value - 1.0) * scale if op == "mul" else value * scale
+		labels.append(String(effect.stat) + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
+	bonus.text = String(bonus.get("text", bonus.id)) + ": " + ", ".join(labels)
+	bonus.counter = counter
+	return bonus
 
 
 ## [canonical field, preview key] for a Warrior passive whose number a rank card shows under another name (see
@@ -354,6 +392,8 @@ static func _rank_step(c: Dictionary) -> int:
 
 
 func _magnitude(c: Dictionary, state: RunWorld, tier: String) -> int:
+	if card_kind(c, state) == "mastery":
+		return 0
 	if String(c.get("kind", "")) in ["skill_new", "skill_rank"]:
 		return 1
 	if _always_normal(c):
@@ -457,12 +497,13 @@ func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 	var kind := String(c.get("kind", ""))
 	var lo: Loadout = state.loadout
 	var magnitude := _magnitude(c, state, tier)
+	var bonus := rarity_bonus(c, state, tier)
 	if (kind == "skill_new" and (lo.has(String(c.skill)) or not lo.has_free_slot(lo.book.slot(String(c.skill))))) \
-			or (kind == "skill_rank" and (not lo.has(String(c.skill)) or lo.rank(String(c.skill)) >= lo.book.max_rank(String(c.skill)))):
+			or (kind == "skill_rank" and (not lo.has(String(c.skill)) or (lo.rank(String(c.skill)) >= lo.book.max_rank(String(c.skill)) and lo.book.slot(String(c.skill)) != "active"))):
 		return 0
-	if magnitude <= 0:
+	if magnitude <= 0 and card_kind(c, state) != "mastery":
 		return 0
-	var r := rank(id, state) + _consumed_steps(c, magnitude)
+	var r := rank(id, state) + maxi(1, _consumed_steps(c, magnitude))
 	lo.card_ranks[id] = r
 	var skill := String(c.get("skill", ""))
 	if kind == "skill_new":
@@ -485,6 +526,10 @@ func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 				lo.add_skill_mod(skill, stat, op, value)
 		else:
 			lo.add_player_mod(stat, op, value)
+	if not bonus.is_empty():
+		for effect: Dictionary in bonus.effects:
+			lo.add_skill_mod(skill, String(effect.stat), String(effect.op), float(effect.value))
+		lo.card_ranks[String(bonus.counter)] = int(lo.card_ranks.get(String(bonus.counter), 0)) + 1
 	state.refresh_player_stats()
 	state.emit("upgrade_applied", {"id": id, "rank": r, "tier": tier, "magnitude": magnitude})
 	return r

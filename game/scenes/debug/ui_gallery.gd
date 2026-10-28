@@ -7,6 +7,7 @@ extends Node2D
 ## --window=<name>:
 ##   levelup         level-up choice (3 cards)          levelup_missing  cards with "" / missing icons, long texts
 ##   levelup_rank    rank previews: Energy Bolt 4 -> 5, Magic Claw 1 -> 2, Magic Armor 1 -> 2 (Weapon DEF)
+##   levelup_mastery Rare rank / Legendary Mastery / Epic learn (#288)
 ##   levelup_tiers   Normal / Rare / Epic previews from the real upgrade pool
 ##   levelup_high    Unique / Legendary rank and new-skill previews; --bonus shows the boss-reward heading
 ##   levelup_dense   the longest current rank previews (description prose compacts to fit; values stay visible)
@@ -165,7 +166,7 @@ func _show_window(which: String) -> void:
 	add_child(layer)
 	match which:
 		"levelup", "levelup_missing", "levelup_rank", "levelup_tiers", "levelup_high", "levelup_dense", \
-				"levelup_text", "levelup_text_mage":
+				"levelup_text", "levelup_text_mage", "levelup_mastery":
 			var w := LevelUpWindow.new()
 			layer.add_child(w)
 			var cards: Array = SAMPLE_CARDS
@@ -173,7 +174,7 @@ func _show_window(which: String) -> void:
 				cards = MISSING_CARDS
 			elif which == "levelup_rank":
 				cards = _rank_cards()
-			elif which in ["levelup_tiers", "levelup_high", "levelup_dense"]:
+			elif which in ["levelup_tiers", "levelup_high", "levelup_dense", "levelup_mastery"]:
 				cards = _tier_cards(which)
 			elif which.begins_with("levelup_text"):
 				cards = _text_cards(which == "levelup_text_mage")
@@ -295,7 +296,10 @@ func _tier_cards(which: String) -> Array:
 	var world := RunWorld.new({"data": DataRepo.load_all(), "skill_imgs": imgs, "seed": 14})
 	var owned := {"energy_bolt": 4, "magic_armor": 1}
 	var offers := [["energy_bolt_rank", "normal"], ["magic_armor_rank", "rare"], ["energy_bolt_count", "epic"]]
-	if which == "levelup_high":
+	if which == "levelup_mastery":
+		owned = {"energy_bolt": 4, "magic_claw": 8}
+		offers = [["energy_bolt_rank", "rare"], ["magic_claw_rank", "legendary"], ["fire_arrow_new", "epic"]]
+	elif which == "levelup_high":
 		owned = {"energy_bolt": 4, "magic_armor": 1}
 		offers = [["energy_bolt_rank", "unique"], ["magic_armor_rank", "legendary"], ["magic_claw_new", "legendary"]]
 	elif which == "levelup_dense":

@@ -546,7 +546,12 @@ static func card_score(w: RunWorld, c: Dictionary) -> float:
 	if kind == "filler":
 		return _base_score(w, d) # the Elixir fallback ignores magnitude even if a table ever gave it one
 	var step := float(w.balance.get("bot", {}).get("gain_step_score", SCORE_GAIN_STEP))
-	return _base_score(w, d) + step * float(maxi(int(c.get("magnitude", 1)), 1) - 1)
+	var bonus_score := 0.0
+	# tier C: score the actual diminished effect, not the rarity label or fictitious ranks.
+	for effect: Dictionary in c.get("rarity_bonus", {}).get("effects", []):
+		var value := float(effect.get("value", 0.0))
+		bonus_score += absf(value - 1.0) * step if String(effect.get("op", "add")) == "mul" else absf(value) * step
+	return (0.0 if String(c.get("card_kind", "")) == "mastery" else _base_score(w, d)) + bonus_score + step * float(maxi(int(c.get("magnitude", 1)), 1) - 1)
 
 
 ## The score of card definition `d` before the gain term (Normal tier, one step).

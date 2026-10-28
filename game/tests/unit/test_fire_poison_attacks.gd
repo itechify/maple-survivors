@@ -113,33 +113,6 @@ func test_seeded_fire_arrow_projectile_applies_canonical_fire_weakness() -> void
 		assert_near(float(damage[1]), float(damage[0]) * 1.5, 1.0, "same roll, weakness x1.5 before rounding")
 
 
-func test_behaviour_cards_change_stats_per_step_and_stop_at_cap() -> void:
-	for example: Array in [["fire_arrow_count", "fire_arrow", "count", 3, 1.0, 4.0],
-			["fire_arrow_pierce", "fire_arrow", "pierce", 2, 0.0, 2.0],
-			["fire_arrow_cooldown", "fire_arrow", "cooldown", 3, 1.0, 0.681472],
-			["poison_breath_pierce", "poison_breath", "pierce", 3, 0.0, 3.0],
-			["poison_breath_cooldown", "poison_breath", "cooldown", 3, 1.25, 0.85184]]:
-		var w := _world()
-		var id := String(example[0])
-		var key := String(example[1])
-		var stat := String(example[2])
-		var card := w.upgrades.card(id)
-		assert_false(card.is_empty(), id + " exists")
-		if card.is_empty():
-			continue
-		assert_false(w.upgrades.is_eligible(card, w), "requires owned skill")
-		w.learn_skill(key)
-		assert_near(float(w.loadout.stats(key)[stat]), example[4])
-		for step in int(example[3]):
-			assert_false(w.upgrades.is_eligible(card, w), "#287: standalone behaviour cards are excluded")
-			assert_eq(w.upgrades.apply(id, w), step + 1)
-			var expected := float(example[4]) * pow(0.88, step + 1) if stat == "cooldown" else float(example[4]) + step + 1
-			assert_near(float(w.loadout.stats(key)[stat]), expected, 1e-6, id)
-		assert_false(w.upgrades.is_eligible(card, w), id + " exhausted")
-		w.upgrades.apply(id, w, "legendary")
-		assert_eq(w.upgrades.rank(id, w), example[3], "cannot spend past max steps")
-		assert_near(float(w.loadout.stats(key)[stat]), example[5], 1e-6, "exhausted card cannot change stats")
-
 
 func test_pool_cards_learning_rank_caps_power_flags_and_bot_scores() -> void:
 	var w := _world()
@@ -154,7 +127,7 @@ func test_pool_cards_learning_rank_caps_power_flags_and_bot_scores() -> void:
 			assert_eq(w.upgrades.apply(key + "_rank", w, "legendary"), consumed)
 		assert_eq(w.loadout.rank(key), 8)
 		assert_eq(w.loadout.level(key), 30)
-		assert_false(w.upgrades.is_eligible(w.upgrades.card(key + "_rank"), w))
+		assert_true(w.upgrades.is_eligible(w.upgrades.card(key + "_rank"), w), "Mastery")
 		assert_false(w.upgrades.is_eligible(w.upgrades.card(key + "_new"), w))
 
 

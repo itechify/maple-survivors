@@ -101,32 +101,16 @@ func test_draws_are_distinct_seeded_and_weighted() -> void:
 
 func test_exhausted_pool_and_one_card_draw_offer_one_elixir_alternative() -> void:
 	var w := RF.quiet_world()
-	# Max out everything a 212 can take (learning a skill opens its later cards, so two passes).
-	for pass_i in 2:
-		for c: Dictionary in w.upgrades.cards:
-			var guard := 0
-			while w.upgrades.is_eligible(c, w) and guard < 40:
-				w.upgrades.apply(String(c.id), w)
-				guard += 1
-	assert_eq(w.upgrades.eligible(w).size(), 0, "nothing left")
+	var data := DataRepo.load_all()
+	w.upgrades = UpgradePool.from_data({"cards": [], "fallback": data.upgrades.fallback})
 	var cards := w.upgrades.roll_choices(w, _rng(5), 3)
-	assert_eq(cards.map(func(c: Dictionary) -> String: return c.id), ["elixir"], "an exhausted pool still gives a choice")
-	# Exactly one card left: offer it and one Elixir, without repeating identical healing cards.
-	var w2 := RF.quiet_world()
-	for pass_i in 2:
-		for c: Dictionary in w2.upgrades.cards:
-			if c.id == "magic_claw_new":
-				continue # left unlearned, so its rank card stays ineligible too
-			var guard := 0
-			while w2.upgrades.is_eligible(c, w2) and guard < 40:
-				w2.upgrades.apply(String(c.id), w2)
-				guard += 1
-	var mixed := w2.upgrades.roll_choices(w2, _rng(9), 3)
+	assert_eq(cards.map(func(c: Dictionary) -> String: return c.id), ["elixir"])
+	w.upgrades = UpgradePool.from_data({"cards": [{"id": "magic_claw_new", "kind": "skill_new", "skill": "magic_claw"}], "fallback": data.upgrades.fallback})
+	var mixed := w.upgrades.roll_choices(w, _rng(9), 3)
 	assert_eq(mixed.size(), 2)
 	assert_eq(mixed[0].id, "magic_claw_new")
-	if mixed.size() == 2:
-		assert_eq(mixed[1].id, "elixir")
-	assert_false("elixir" in w2.upgrades.eligible(w2), "Elixir never enters the weighted pool")
+	assert_eq(mixed[1].id, "elixir")
+	assert_false("elixir" in w.upgrades.eligible(w))
 
 
 func test_picking_elixir_from_an_exhausted_levelup_fully_restores_hp() -> void:
@@ -176,7 +160,7 @@ func test_choice_cards_carry_the_skill_level_change() -> void:
 		w.upgrades.apply("energy_bolt_rank", w)
 		assert_eq(w.loadout.rank("energy_bolt"), r)
 	assert_eq(w.loadout.level("energy_bolt"), 20)
-	assert_false("energy_bolt_rank" in w.upgrades.eligible(w))
+	assert_has(w.upgrades.eligible(w), "energy_bolt_rank", "Mastery replaces capped ranks")
 
 
 func test_rank_cards_preview_canonical_attack_and_mastery() -> void:
@@ -193,37 +177,8 @@ func test_rank_cards_preview_canonical_attack_and_mastery() -> void:
 		"mastery": {"before": 15, "after": 20},
 	}, "rank preview uses canonical levels and mastery percent; no MP cost (#285)")
 	assert_eq(w.upgrades.choice_card("energy_bolt_new", w).skill_changes, {}, "learning has no prior skill rank")
-	assert_eq(w.upgrades.choice_card("energy_bolt_count", w).skill_changes, {}, "modifiers have no canonical rank change")
 	assert_eq(w.upgrades.choice_card("elixir", w).skill_changes, {}, "the filler has no canonical skill values")
 
-
-func test_mod_cards_preview_the_effective_stat_they_change() -> void:
-	var w := RF.quiet_world()
-	assert_eq(w.upgrades.choice_card("energy_bolt_count", w).skill_mod_changes, {"shots": {"before": 1, "after": 2}},
-		"a projectile skill's count is its bolts")
-	w.upgrades.apply("magic_claw_new", w)
-	assert_eq(w.upgrades.choice_card("magic_claw_cooldown", w).skill_mod_changes,
-		{"cooldown": {"before": 1.25, "after": 1.1}}, "1.25 s x0.88, to two decimals")
-	w.upgrades.apply("poison_breath_new", w)
-	w.upgrades.apply("poison_breath_pierce", w)
-	var pierce0 := int(w.loadout.stats("poison_breath").pierce)
-	assert_eq(w.upgrades.choice_card("poison_breath_pierce", w, "rare").skill_mod_changes,
-		{"pierce": {"before": pierce0, "after": pierce0 + 2}}, "a Rare pick shows both of its steps on top of the one taken")
-	assert_eq(w.upgrades.choice_card("elixir", w).skill_mod_changes, {}, "the filler changes no skill")
-	assert_eq(w.upgrades.choice_card("fire_arrow_new", w).skill_mod_changes, {}, "learn cards have no modifier preview")
-	assert_eq(w.upgrades.choice_card("magic_claw_targets", w).skill_mod_changes, {"targets": {"before": 1, "after": 2}},
-		"a nearest instant skill's count is its targets")
-	assert_eq(w.upgrades.choice_card("energy_bolt_damage", w, "rare").skill_mod_changes,
-		{"damage": {"before": 100, "after": 144}}, "damage x1.2 twice, in percent")
-	assert_eq(w.loadout.skill_mods.get("energy_bolt", {}), {}, "previewing changes nothing")
-	RF.change_job_bare(w, 220)
-	w.upgrades.apply("thunder_bolt_new", w)
-	assert_eq(w.upgrades.choice_card("thunder_bolt_area", w).skill_mod_changes, {"area": {"before": 100, "after": 120}},
-		"reach in percent of the canonical box")
-	var pool := UpgradePool.from_data({"cards": [{"id": "storm_targets", "kind": "skill_mod", "skill": "thunder_bolt",
-		"max_rank": 3, "effects": [{"stat": "count", "op": "add", "value": 2}]}]})
-	assert_eq(pool.choice_card("storm_targets", w).skill_mod_changes, {"targets": {"before": 6, "after": 8}},
-		"a box skill's targets are its canonical mobCount plus cards")
 
 
 func test_loadout_clone_copies_every_field_and_stays_independent() -> void:

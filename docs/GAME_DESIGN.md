@@ -5334,15 +5334,49 @@ The tool flag `--job=320` forces Bowman then Crossbowman. These defaults are unt
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
-rarity; active rarity still rolls with Fortune and the existing odds, awaiting #288's bonuses. Standalone behaviour
+rarity; active rarity still rolls with Fortune and the existing odds, with #288 bonuses documented below. Standalone behaviour
 cards and job-specific buffs/passives are excluded from draws. `UpgradePool.card_kind` classifies owned_active,
-new_active, passive_rank, new_passive; #288 adds mastery here. The per-card weights in `upgrades.json.draw_weights`
+new_active, passive_rank, new_passive and mastery. The per-card weights in `upgrades.json.draw_weights`
 are 1.2/1.0/0.8/0.5 respectively (mastery reserves 1.2). Slots stop new skills of their kind at six; owned rank
 cards remain eligible until the skill's cap. Common passive definitions opt in with `common_passive: true`, use
 `slot: passive`, carry their own rank table, and get Normal-only cards. No common passives ship until #289.
 Draws sample three distinct cards without replacement. Sparse draws add one Power Elixir alternative. Pity is gone.
 Each boss retains its separate bonus draw; random/first policies still choose from the same offers. The sensible
 bot scores every declared pool skill (new 100, rank 74); these are existing attack priorities, not balance tuning.
+
+
+**#288 rarity bonuses and Mastery (supersedes rarity multipliers below).** Each active card grants one rank,
+then its rarity bonus. At rank 8 the same `<skill>_rank` id becomes `card_kind: mastery`, grants zero ranks,
+and stays eligible at weight 1.2. Normal Mastery deliberately grants nothing (no extra rarity floor); boss draws
+retain their Rare floor. Common passives remain Normal and stop at their own cap. Standalone behaviour cards for
+the four ported skills are deleted; unported lines retain their inert legacy definitions for direct mechanics tests.
+
+Bonus schema for #290/#291 and later classes: add `rarity_bonuses` to the skill definition in `skills/<line>.json`:
+
+```json
+"rarity_bonuses": {
+  "rare": [{"id": "damage", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+  "epic": [{"id": "pierce", "text": "Pierce", "effects": [{"stat": "pierce", "op": "add", "value": 1}]}],
+  "unique": [{"id": "extra", "text": "Extra projectile", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+  "legendary": [{"id": "extra", "text": "Extra projectile and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+}
+```
+
+No Normal entry. Each tier list cycles in authored order, using the sum of its entries' repeat counts modulo list
+length; no extra RNG is consumed. Every effect in the selected entry applies to that skill through
+`Loadout.add_skill_mod`. Supported existing stats include damage, cooldown, count (projectiles or targets by kind),
+attack_count, pierce, area, range, speed and crit; a new mechanic must first be implemented by its skill runtime.
+Use `slot: active` for ground/summon definitions and implement their consumption of these modifiers in #290/#291.
+`id` is stable within the skill: sharing an id across tiers shares repeats. Repeats include pre-Mastery awards.
+Repeat n scales additive effects by `0.8^n` and multipliers by `1 + (value - 1) * 0.8^n` (first award n=0).
+Counters use `loadout.card_ranks["bonus:<skill>:<id>"]`, round-local; no new save schema. Integer mechanics accumulate
+fractional modifiers and use the existing round-to-nearest conversion in resolved skill stats (some repeats give no
+immediate extra projectile). Preview uses the same effects without mutating the world. Cards show survivor rank step,
+bonus magnitude and effective before/after values. Bot bonus score uses actual diminished effects and gain_step_score;
+Mastery has no rank base score. All schema selection rules, sizes and scoring are tier C, provisional until T11.
+
+First-pass lists: all four have Rare damage x1.2. Epic Energy Bolt/Fire Arrow +1 pierce, Magic Claw/Poison Breath
+cooldown x0.88. Unique +1 projectile (Magic Claw +1 hit); Legendary the same signature plus damage x1.2.
 
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -5841,6 +5875,9 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+| Rarity/Mastery #288 | Rare damage x1.2; Epic +1 pierce or cooldown x0.88; Unique +1 projectile/hit; Legendary signature plus damage x1.2; repeats x0.8 (multiplier distance from 1), authored-list cycling and actual-effect bot scores | C | ours; ADR 0006, first pass, section 8 |
+
 
 | #287 survivor rule | Tier / source |
 |---|---|

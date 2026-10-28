@@ -198,7 +198,7 @@ func test_skill_hotkey_opens_the_skill_window_and_routes_the_keys_to_it() -> voi
 	_frames(10)
 	RF.as_job(w, 200)
 	w.upgrades.apply("magic_claw_new", w)
-	w.upgrades.apply("magic_claw_targets", w)
+	w.loadout.add_skill_mod("magic_claw", "count", "add", 1.0)
 	var t := w.time
 	assert_true(scene.handle_hotkey(_key(KEY_K)), "K is the Skill hotkey")
 	var sw := scene.ui_windows.top() as SkillWindow
