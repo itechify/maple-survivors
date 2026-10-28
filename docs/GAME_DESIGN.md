@@ -713,8 +713,9 @@ The later balance pass owns Rush cooldown/rank/knock-back, Slash Blast/Coma HP c
 F/P Henesys bot still fills six slots (136.7–205.3 s, 3/3) and reaches the first boss (3/3). The older H5 smoke above
 had 1/3 Henesys and 2/3 kit Sleepywood clears, compared with 0/3 and 1/3 here; do not call those outcomes unchanged.
 A paired seed-1 Henesys F/P control with Hero disabled produces a **byte-identical full record** to Hero enabled
-(`_scratch/306-fp-disabled-control/henesys_bot_1.json`); this observed difference from H5 is already present on the
-integration tree, not introduced by Hero's playability flip. Ellinia is recorded only, pending the owner's rework.
+(`_scratch/306-fp-disabled-control/henesys_bot_1.json`); this Henesys seed-1 difference from H5 is already present on the
+integration tree, not introduced by Hero's playability flip. Other smoke differences are recorded without a cause
+attribution. Ellinia is recorded only, pending the owner's rework.
 
 Both real `redesign --job=112` and `--job=212` scenarios pass: creation, full-slot/Mastery/boss windows, three real
 clear/fade/arrival transitions, kept equipment/mesos and unlocked tier, Sleepywood death, save/quit, deletion and history.
@@ -729,6 +730,10 @@ although the skill deals none. Its rarity bonuses work; the Normal Mastery polic
 
 Hero's separate synthetic replay oracle hashes 7,200 fixed ticks twice (seed 1, explicit job 112, bot, invulnerable):
 `9adb0cee8138e1bf1aa6f91a2656e1cd4ad29f8552913269dbe08ec0cb841661`. The two F/P oracle expectations are untouched.
+Cached full suite: **2,137 tests, 0 failed, 0 skipped** (219 files); both existing F/P oracles and the Hero oracle pass.
+No-cache full suite: **2,137 total, 1,912 executed passes, 0 failed, 225 SKIPs**; SKIPs prove no art behavior.
+Every skipped test is named as `SKIP` in `_scratch/306-qa/no-cache-skips.log`. Final cached fixture/driver checks:
+21 tests, 0 failed, 0 skipped.
 Rust tests: 70 passed; web shell: 62 passed. Web export and artifact gate were **not run**: the pinned web templates
 are absent (`godot_templates.sh dir`); merge readiness therefore carries this explicit unverified gate.
 
