@@ -431,9 +431,37 @@ func _init_rng_streams() -> void:
 	banish_rng = _stream(17) # tier C: Banish portal draws never shift another stream, #256.
 
 
+## Applies only the Test Room survivor collision ramps; cached WZ geometry is never mutated.
+func _motion_map_img() -> Dictionary:
+	var img := _current_map_img()
+	if current_map_id() != 108000500:
+		return img
+	var entry: Dictionary = stage.maps[map_index] if _map_images_available() else stage
+	if entry.get("trench_ramps", []).is_empty():
+		return img
+	img = img.duplicate(true)
+	var floors: Dictionary = img.foothold["5"]["0"]
+	for ids: Array in entry.trench_ramps:
+		var left: Dictionary = floors[str(int(ids[1]))]
+		var right: Dictionary = floors[str(int(ids[2]))]
+		var x_left := float(left.x1)
+		var x_right := float(right.x1)
+		var y_top := float(left.y2)
+		var y_ground := float(left.y1)
+		# tier C #279: 192 px approaches keep the local slopes walkable with unchanged v83 physics.
+		for f: Dictionary in floors.values():
+			if float(f.y1) == y_ground and float(f.y2) == y_ground:
+				for end: String in ["1", "2"]:
+					var x := float(f["x"+end])
+					var distance := maxf(x_left-x,x-x_right)
+					f["y"+end] = lerpf(y_top,y_ground,clampf(distance/192.0,0,1))
+		left.y1 = y_top
+		right.y2 = y_top
+	return img
+
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
 func _init_map() -> void:
-	var map_img := _current_map_img()
+	var map_img := _motion_map_img()
 	physics = PhysicsConstants.from_wz(setup.get("physics_img", {}))
 	fhm = FootholdMap.from_wz(map_img)
 	bounds = MapBounds.from_map(map_img, fhm)
