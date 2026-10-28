@@ -232,7 +232,7 @@ means a fresh Arch Mage with the starter wand. Every round starts at Lv1; the fi
 mesos, cash, pet and unlocked tiers. The same flag works with `--run=<stage>` and `scripts/playtest.sh`. It never writes
 character saves.
 `--account=<absolute JSON>` (balance.sh, playtest.sh, `--run`, tier chains) gives the round an account: owned cash items,
-the character's worn cash equipment and pet, and the HP/MP ALERT levels (`game/scripts/core/account_file.gd`); without it
+the character's worn cash equipment and pet, and the HP ALERT level (`game/scripts/core/account_file.gd`); without it
 the round has an empty account and records are byte-identical to before. The record and output names carry the file name.
 The committed fixtures are `game/tests/fixtures/accounts/full_pet.json` (pet and every upgrade; the smoke's "full account")
 and `full_cash_pet.json` (the same plus a cash item in all 11 slots; for dressed playtest screenshots).

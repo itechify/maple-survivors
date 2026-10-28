@@ -87,34 +87,37 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   travel with the format-3 snapshot (`test_equipment_persistence` covers a death, a clear and a Quit round).
 - **#293 (T11): first-pass pacing** (4.1, section 11): EXP `round(4 + 8 L^2)`, F/P cooldowns x0.4, three defensive passive
   values, NX 2 per gained level, and a bot that ranks global passives after three actives.
+- **#307 (T11b): an opening ramp per tier** (4.1, section 11): `stages.json` `opening_ramp` scales monster HP (at spawn) and
+  contact/`attackN` damage (at impact) from a start to an end value over round time, so a Lv1 character can play every
+  tier: tier 1 is neutral (1 -> 1), Sleepywood opens at HP 0.3 / damage 0.4 on map 1 and 0.02 / 0.08 on maps 2 and 3,
+  all reaching 1 at 20:00. Bosses capture the ramp at their arrival. WZ stats are never edited.
 - **#294 (T12): QA and docs.** The `redesign` flow scenario (`flow_driver.tscn --scenario=redesign`), the retired
   scenarios and debug drivers removed, the one F/P fixture, the playtests and the regression smoke of 4.2, and the rewrites
   of sections 1, 5, 6.1.1, 7.5, 8 and 9 and of AGENTS.md.
 
 ### Known design gaps (open after the slice)
 
-These are findings of the QA pass and of #293, recorded as gaps, not as met targets. Nothing here was tuned in #294.
+These are findings of the QA pass, #293 and #307, recorded as gaps, not as met targets. Nothing here was tuned in #294.
 
-- **Picks per round.** The "about 75 picks" target cannot be met by the levers #293 had: a round gives one pick per gained
-  level plus three boss draws, so a clear at Lv45-55 yields about 48-58 picks, and about 75 would need Lv73 or more draws.
-  The revised target (#307) is picks about equal to levels plus boss draws, about 50-60. The recorded clears
-  (Lv47-58) fit the revised target; they were never the original one.
-- **Sleepywood at Lv1.** Before the opening ramp of #307, a Lv1 character with or without the tier-1 kit died on map 1
-  at 7-8 s with 0 kills (the WZ stats of Lv40+ monsters apply in full from second 0), so tier 2 could not be climbed and gear
-  had no measurable worth. 4.2 records the post-ramp playtest.
+- **Picks per round.** The original "about 75 picks" target could not be met by the levers #293 had: a round gives one pick
+  per gained level plus three boss draws, so a clear at Lv45-55 yields about 48-58 picks, and 75 would need Lv73 or more
+  draws. The revised target (#307) is picks about equal to levels plus boss draws, about 50-60. Tier 1 meets it (Henesys
+  clears at Lv47-58). Sleepywood does not: the paired kit runs of #307 cleared at Lv72-78 with 74-80 picks, above the
+  revised target, because the ramp-adjusted tier-2 monsters pay EXP at full WZ value.
+- **The gear gate is soft.** After the ramp a Lv1 character with the tier-1 kit reaches map 2 in 3/3 training runs and clears
+  2/3, while the starter wand alone dies in 11-12 s on seeds 1 and 2 but clears on seed 2026 (#307's table in 4.2); a
+  small paired sample, not a measured equipment wall.
 - **Mastery is rare for the bot.** After three actives the bot ranks passives first (#293: +20 on global passives), so
-  across the Henesys smoke it seldom takes the seven rank-ups one skill needs for rank 8. The `redesign` scenario therefore
-  ranks the highest-ranked owned active once the slots are full (a diagnostic policy, recorded in the driver) to show a
-  Mastery card; with that policy a Mastery card first appeared at Lv23 (7:40) in the seed-1 round. The scenario's offers
-  summary counts the Mastery offers; no balance claim follows.
+  across the Henesys smoke it seldom takes the seven rank-ups one skill needs for rank 8. The `redesign` scenario
+  therefore ranks the highest-ranked owned active once the slots are full (a diagnostic policy, recorded in the driver) to
+  show a Mastery card: the seed-1 round offered its first at Lv23 (7:40) and 14 in the round. No balance claim follows.
 - **Meso income.** A Henesys clear leaves a character with about 0.9-1.0 million mesos (drop x14 survivor multiplier,
   `balance.mesos`), enough to buy every shop scroll many times over. Section 8.3 prices were set for the old run; no
   sink or income retune was done.
 - **Skill window tooltips.** The tooltip's "Upgrades" list shows only standalone behaviour cards (`skill_mod`), which the
   ported skills no longer have, so a rarity bonus taken in a round is not listed in the Skill window; the card text and
   the resolved stats show it.
-- **Elite and perf.** Frame time past 10:00 is measured in 4.2 with the number of other Godot processes noted; it is a
-  throughput check of this slice, not a performance budget.
+- **Ellinia (The Tree That Grew)** still dies early; the owner's rework is pending (record only).
 
 ## 1. The run
 
@@ -694,13 +697,14 @@ Paired Sleepywood smoke (seed order 1/2/2026; all start Lv1, no cash/pet):
 
 | Starting equipment | Seed 1 | Seed 2 | Seed 2026 | Map 2 reached / clears |
 |---|---|---|---|---|
-| Unscrolled tier-1 kit (`tier1_fp.json`) | DEAD, 792.2 s, Lv71 | CLEAR, 931.6 s, Lv72 | CLEAR, 921.6 s, Lv78 | 3/3; 2/3 |
+| Unscrolled tier-1 kit (#307 called it `tier1_fp.json`; it is `fp_arch_mage.json` since #294) | DEAD, 792.2 s, Lv71 | CLEAR, 931.6 s, Lv72 | CLEAR, 921.6 s, Lv78 | 3/3; 2/3 |
 | Starter wand only | DEAD, 11.4 s, Lv1 | DEAD, 11.9 s, Lv3 | CLEAR, 917.0 s, Lv77 | 1/3; 1/3 |
-| Historical `fp_arch_mage.json` | DEAD, 11.4 s, Lv1 | DEAD, 11.9 s, Lv3 | CLEAR, 914.9 s, Lv77 | 1/3; 1/3 |
+| Old `fp_arch_mage.json` (starter wand and clothes; replaced in #294) | DEAD, 11.4 s, Lv1 | DEAD, 11.9 s, Lv3 | CLEAR, 914.9 s, Lv77 | 1/3; 1/3 |
 
-The ticket's named `fp_arch_mage.json` is starter wand/clothes after format-3 migration, not the tier-1 kit;
-#293's synthetic `tier1_fp.json` supplies that kit. Both were checked explicitly; the historical fixture
-was preserved. Equipment enables the opening on seeds 1/2; seed 2026 escapes the starter gate and later
+At #307 the committed `fp_arch_mage.json` was starter wand and clothes after the format-3 migration, and #293's
+synthetic `tier1_fp.json` supplied the kit; both were checked explicitly. #294 merged them into the single committed
+fixture, which is that kit with tier 2 unlocked (`game/tests/fixtures/characters/README.md`); the starter-wand case is a run
+with no `--character`. Equipment enables the opening on seeds 1/2; seed 2026 escapes the starter gate and later
 drops narrow the gap. This small paired sample does not establish a universal equipment wall.
 All kit runs reach map 3 and six actives by 12.7–22.3 s. Clear picks 74/80 and levels 72/78 exceed the nominal
 slice targets; this ticket changes no EXP/reward cadence and guards the requested Henesys envelope.
@@ -714,6 +718,65 @@ Final validation: `ISOLATE=307 bash scripts/test.sh` with the real cache: **1992
 0 skipped**, 207 files, 1038.6 s. Seven deterministic ramp tests added; none deleted. Existing corrupt-settings
 recovery diagnostics and two dummy TextureStorage RID shutdown diagnostics remain. The final integration
 fetch/merge was already up to date (5cd40ea); no gameplay changes after validation. Final focused rerun: 7/7 passed.
+
+**#294 / T12, slice QA (2026-10-28).** The F/P slice after #307 (merged into the QA branch), real v83 cache, training seeds
+1/2/2026 and no held-out seeds; nothing was tuned and no balance data changed. Raw records, consoles and screenshots live in the
+ignored `_scratch/balance294/` and `evidence/` of the QA worktree.
+
+*Flow scenario.* `flow_driver.tscn --scenario=redesign --seed=1` passed (exit 0, `missing: []`, 31 screenshots checked by eye;
+about 6 minutes). Created an Arch Mage through name, look and the Job page; Sleepywood showed locked and its Start was
+refused; the invulnerable Henesys round (diagnostic, bot steering, post-timer boss hits) ended Lv47, 3,697 kills, 900 s, with
+49 picks (46 level-ups and three boss draws): first level-up at Lv2 (0:16), all six active slots full at Lv7 (3:00), the first
+boss bonus draw at Lv12 (5:00), the first Mastery offer at Lv23 (7:40) under the scenario's own policy (it ranks the
+highest-ranked owned active once the slots are full; the bot's policy does not reach rank 8 in this sample, section 0). The
+offers: 14 Mastery, 8 new-active, 68 owned-active, 49 new-passive and 8 passive-rank cards, rarities 119 Normal / 22 Rare / 5 Epic /
+1 Unique; 12 Mastery, 5 new-active, 28 owned-active, 3 new-passive and 1 passive-rank taken. The clear unlocked tier 2 and kept
+the loot (991,759 mesos after the Sleepywood death); a reqLevel-30 shoe drop was worn at Lv1 by a double-click in the Item window (no REQ rows
+in the tooltip); the Sleepywood round picked up 475 mesos on the ground and a diagnostic lethal hit ended it at Lv1; back in
+the Free Market the mesos, the worn shoes and tier 2 were intact; after Save & quit the character was deleted and the
+history listed cleared (Henesys, Lv47), died (Sleepywood, Lv1) and deleted. Every other kept scenario (`title`, `import`,
+`windows`, `skill`, `keys`, `inventory`, `scrolls`, `shops`, `botshop`, `cash_shop`, `cash_equip`, `account`) also exits 0 (each
+checks its own asset lookups); `clear` passes with `--run=henesys --seed=2026 --autoplay --autopick --speed=8`. The
+`maps`, `rounds`, `full` and `economy` scenarios were deleted, as were the debug drivers of the unported lines (AGENTS.md).
+
+*Playtests* (`playtest.sh --job=212`, windowed, screenshots checked by eye, `missing: []` in every summary):
+
+| Run | Result |
+|---|---|
+| Henesys seed 2026, x4, `--window-autopick=1` | CLEARED at 913.5 s (15:13), Lv56, 6,306 kills, 330 mobs at most, 58 level-up windows (55 level-ups and 3 boss draws), map entries at 0 / 308.5 / 611.1 s |
+| Henesys seed 2026, `--warp=600 --minutes=13 --speed=1 --vsync=off --require-window --min-frames-100=120 --min-frames-200=60` | QUALIFIED: warped to 600 s, 10,800 ticks, 31,039 frames with 100+ mobs and 23,302 with 200+; alive at 13:00, Lv44, 4,168 kills, 272 mobs at most |
+| Sleepywood seed 2, tier-1 kit (`fp_arch_mage.json`), x4, `--window-autopick=1` | CLEARED at 933.4 s, Lv72, 6,074 kills; Lv13 and 187 kills at 1:00; map entries at 0 / 307.1 / 612.4 s |
+| Sleepywood seed 2, starter wand only (no `--character`), x4 | DEAD at 12.1 s, Lv1, 0 kills, on map 1 |
+
+*Frame time* (the Henesys warp run above, `--vsync=off`, past 10:00 with 200+ mobs): frames over the whole 600-780 s window
+p50 3.36 ms, p95 6.72 ms, p99 7.64 ms, max 47.2 ms (average 3.80 ms); frames with 200+ mobs p50 3.72 ms, p95 7.03 ms, p99
+7.97 ms; `frame_work_us` average 1,940 / p50 1,654 / p95 4,110; `sim_us_per_tick` 1,355. Conditions: an Intel UHD (CML GT2)
+through Mesa's GL Compatibility driver, 12 logical cores, load average about 1.2-1.5; `pgrep -c godot` read 1 at the start
+(another worktree's headless balance job) and 0 at the end, besides the measured window itself. This is a throughput
+check of the slice, not a frame budget. Earlier tickets saw about 1 FPS in windowed runs with many agents running Godot; here a
+vsync-on window also measured 1 FPS with one to three other Godot processes alive, while the same scene ran at 750+ FPS with
+`--vsync=off`, so that was the window's frame pacing under vsync, not load. The flow driver therefore runs uncapped.
+
+*Regression smoke* (`balance.sh 1 2 2026`, bot and random on every tier-1 stage; Sleepywood with the kit and with the starter
+wand and with no `--character`; 33 records, no warnings, no missing assets, no crashes). Tier 1 reproduces #293's smoke exactly (the tier-1 ramp is neutral);
+Sleepywood reproduces #307's paired table:
+
+| Stage / starting equipment | Bot | Random |
+|---|---|---|
+| henesys | 1/3 clear; 449.9-909.5 s; Lv22-56; six actives at 138-184 s | 0/3 clear; 308.0-615.4 s; Lv10-31 |
+| ellinia | 0/3 clear; 625.4-650.9 s; Lv22-23 | 0/3 clear; 321.8-688.0 s; Lv12-23 |
+| perion | 0/3 clear; 430.6-668.6 s; Lv25-42 | 0/3 clear; 277.3-574.8 s; Lv10-32 |
+| kerning | 0/3 clear; 306.2-749.1 s; Lv12-42 | 0/3 clear; 308.3-442.2 s; Lv13-23 |
+| sleepywood, tier-1 kit | 2/3 clear (seeds 2, 2026); seed 1 dies on map 3 at 792.2 s; 792.2-931.6 s; Lv71-78; picks 72-80; six actives at 13-22 s | not sampled |
+| sleepywood, starter wand | 1/3 clear (seed 2026, 914.9 s, Lv77); seeds 1 and 2 die at 11.4 s (Lv1) and 11.9 s (Lv3) | not sampled |
+| sleepywood, no `--character` (default sword, no MAD) | 0/3 clear; 10.6-12.0 s; Lv1; 0 kills | not sampled |
+
+Henesys random fills six slots at 306/323 s on two seeds and dies before filling them on the third; Ellinia remains early
+death and is record only. Sleepywood kit boss fights: Zombie Mushmom median 6.23 s (3/3 completed), Snack Bar 2.67 s
+(3/3), Jr. Balrog 18.29 s (2/2 spawned; the final boss never spawned on seed 1's map-3 death). The kit reaches map 3 in 3/3
+runs, against 1/3 for the starter wand, so equipment does matter; the gap is not a wall, because the starter wand
+clears on seed 2026 (section 0 gaps). The smoke raises no new finding of the kind that stops a feature ticket (no stage where
+every run dies before the first boss, none where every run clears without a death).
 
 **#293 / T11, first-pass candidate selection.** Training seeds 1/2/2026 only; no held-out or 701–730 seeds.
 All candidates used absolute `PATCH=` files before committing selected data. With the bot fix in every probe:
@@ -5736,7 +5799,7 @@ every constant, with its tier, is in section 11 under the tables named below):
 7. Bots follow the same rules (`BotShop`): they wear the best item they own and visit the shops between tiers of a
    `balance.sh --tier=N` chain. ("Bot shopping rule".)
 
-Verified end to end by `flow_driver --scenario=economy` (AGENTS.md) and by the combined regression smoke in 4.2
+Verified by the `shops`, `scrolls`, `botshop` and `redesign` flow scenarios (AGENTS.md; the old `economy` scenario was retired in #294) and by the combined regression smoke in 4.2
 "Spec #33 / #113". The numbers above are first-pass and are not tuned: equipment per round measured 5-7 against the
 8-12 target (4.2 #109, #113), and the dedicated balance pass (#77) owns them.
 
