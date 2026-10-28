@@ -60,7 +60,7 @@ func test_stage_select_ignores_retired_save_records() -> void:
 	assert_eq(s.runs_for("henesys"), 1)
 	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
 	assert_eq(offered.map(func(c: Dictionary) -> String: return String(c.key)),
-		["henesys", "ellinia", "perion", "kerning", "sleepywood"])
+		["henesys", "ellinia", "perion", "kerning", "nautilus", "sleepywood"])
 	assert_eq(STAGE_SELECT.best_text(s.best_for(String(offered[0].key))),
 		"Best: Survived 05:00, Lv. 12, 400 kills")
 
@@ -322,7 +322,7 @@ func test_error_screen_and_goto_without_host() -> void:
 func test_stage_select_lists_the_region_and_continent() -> void:
 	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
 	var want := [["Henesys", "Victoria Island"], ["Ellinia", "Victoria Island"], ["Perion", "Victoria Island"],
-		["Kerning City", "Victoria Island"], ["Sleepywood", "Victoria Island"]]
+		["Kerning City", "Victoria Island"], ["Nautilus", "Victoria Island"], ["Sleepywood", "Victoria Island"]]
 	for i in want.size():
 		assert_eq(String(offered[i].region), want[i][0], "stage %d region" % i)
 		assert_eq(String(offered[i].continent), want[i][1], "stage %d continent" % i)
@@ -374,7 +374,7 @@ func test_create_character_enters_saved_tier_one_map_select() -> void:
 	assert_eq(int(saved.character.level), 1)
 	assert_eq(int(saved.character.job_id), 0)
 	assert_eq(flow.current.stages.map(func(c: Dictionary) -> String: return String(c.key)),
-		["henesys", "ellinia", "perion", "kerning"], "tier 1 offers the four Victoria Island job towns' regions")
+		["henesys", "ellinia", "perion", "kerning", "nautilus"], "tier 1 offers the five Victoria Island job towns' regions")
 	assert_eq(flow.create_character("maple69"), -1, "living names are unique ignoring case")
 	assert_eq(flow.create_character("no!"), -1)
 

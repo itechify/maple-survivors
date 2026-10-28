@@ -6,12 +6,13 @@ func test_regions_have_three_ordered_maps_and_relative_bosses() -> void:
 	var errors := PackedStringArray()
 	var file: Dictionary = DataRepo.load_all(DataRepo.DATA_ROOT, errors).stages
 	assert_eq(errors, PackedStringArray())
-	assert_eq(file.tiers, [["henesys", "ellinia", "perion", "kerning"], ["sleepywood"]])
+	assert_eq(file.tiers, [["henesys", "ellinia", "perion", "kerning", "nautilus"], ["sleepywood"]])
 	var expected := {
 		"henesys": [104040000, 104010001, 100030001],
 		"ellinia": [101010100, 100040100, 100040105],
 		"perion": [102010000, 101030404, 106000101],
 		"kerning": [103010000, 103000101, 107000000],
+		"nautilus": [912030000, 100030000, 108000500],
 		"sleepywood": [105050400, 105090310, 105090900],
 	}
 	for key: String in expected:

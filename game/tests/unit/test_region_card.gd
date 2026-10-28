@@ -19,6 +19,7 @@ func test_region_cards_list_three_maps_with_their_bosses_from_the_cache() -> voi
 		"ellinia": ["The Tree That Grew I → Stumpy", "The Forest of Wisdom → King Slime", "The Forest of Evil I → Dyle"],
 		"perion": ["West Street Corner of Perion → Mano", "East Rocky Mountain V → Stumpy", "The Burnt Land I → Iron Hook"],
 		"kerning": ["Kerning City Construction Site → King Slime", "Line 1 <Area 1> → Shade", "The Swamp of Despair I → Dyle"],
+		"nautilus": ["Pirate Training Center → Mano", "The Forest East of Henesys → Mushmom", "Pirate Test Room → King Clang"],
 		"sleepywood": ["Dark Cave → Zombie Mushmom", "Drake Area → Snack Bar", "The Cursed Sanctuary → Jr. Balrog"],
 	}
 	var cards := SELECT.load_stages(data)
