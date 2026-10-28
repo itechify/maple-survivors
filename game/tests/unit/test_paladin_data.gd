@@ -74,7 +74,7 @@ func test_the_paladin_line_loads_without_errors_and_adds_only_its_job_and_an_emp
 	assert_true(d.jobs_survivor.jobs.has("122"), "jobs/paladin.json is merged into the survivor job data")
 	assert_eq(d.jobs_survivor.jobs.keys(), ["0", "200", "212", "112", "122"], "base entries, then lines in discovered order")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "paladin"))
-	assert_eq(frag.skills, {}, "an empty skeleton: the skill tickets append their own definitions")
+	assert_eq(frag.skills.keys(), ["rush_paladin"], "P4 (#312) defines Rush; the other skill tickets append their own")
 	assert_true(frag.has("_doc"))
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
@@ -162,8 +162,10 @@ func test_power_strike_takes_slot_one_for_a_paladin_and_rush_is_learned_outside_
 	setup["job"] = 122
 	var w := RunWorld.new(setup)
 	assert_eq(String(w.loadout.order[0]), "power_strike", "slot 1")
-	assert_eq(w.loadout.order.size(), 1, "Rush is not in the slot track")
-	assert_false(w.book.has("rush_paladin"), "rush_paladin is undefined until P4, so it cannot be learned yet")
+	var tracked := w.loadout.order.filter(func(k: Variant) -> bool: return w.book.slot(String(k)) != "mobility")
+	assert_eq(tracked.size(), 1, "Rush is not on a slot track")
+	assert_true(w.loadout.has("rush_paladin"), "Rush (P4 #312) is learned at round start too")
+	assert_eq(w.book.slot("rush_paladin"), "mobility", "on the mobility slot, not a slot track")
 
 
 # --- AP row and growth ------------------------------------------------------------------------------------------------

@@ -65,12 +65,16 @@ func run(filters: PackedStringArray) -> int:
 	return 0 if failed == 0 else 1
 
 
+## The test_* methods of `script` and of the scripts it extends (a file may run another file's set for a second job, #312).
 static func _discover_methods(script: GDScript) -> Array:
 	var methods: Array = []
-	for m in script.get_script_method_list():
-		if String(m.name).begins_with("test_") and not (int(m.flags) & METHOD_FLAG_STATIC) \
-				and not (m.name in methods):
-			methods.append(m.name)
+	var s: Script = script
+	while s != null:
+		for m in s.get_script_method_list():
+			if String(m.name).begins_with("test_") and not (int(m.flags) & METHOD_FLAG_STATIC) \
+					and not (m.name in methods):
+				methods.append(m.name)
+		s = s.get_base_script()
 	methods.sort()
 	return methods
 
