@@ -5,6 +5,7 @@ extends TestCase
 
 const PATCH := {"jobs_survivor": {"jobs": {"222": {"playable": true}}}}
 const FP_FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
+const IL_FIXTURE := "res://tests/fixtures/characters/il_arch_mage_t2.json"
 
 var work_dir := TestCase.test_dir("il_selection")
 
@@ -129,3 +130,41 @@ func test_the_fixture_tool_makes_an_il_with_patch_and_refuses_it_without() -> vo
 		assert_true(id in worn, "%d is worn" % id)
 	assert_eq(int(character.equipment.worn.weapon.id), 1382002)
 	assert_eq(character._doc.patch, "il_playable.json", "the _doc records the patch the fixture was made with")
+
+
+func test_the_committed_fixture_is_a_format_three_il_with_the_tier_one_kit() -> void:
+	var errors := PackedStringArray()
+	var character := DataRepo.load_character(IL_FIXTURE, errors)
+	assert_eq(errors, PackedStringArray())
+	if character.is_empty():
+		return
+	assert_eq(int(character.format), 3)
+	assert_eq(int(character.job_id), 222)
+	assert_eq(int(character.tiers_unlocked), 2, "tier 2 is unlocked")
+	assert_eq(CharacterSnapshot.validation_error(character), "")
+	assert_eq(String(character._doc.revision).length(), 40)
+	var kit: Array = character._doc.kit.map(func(id: Variant) -> int: return int(id))
+	assert_eq(kit, [1382002, 1002013, 1072019, 1082019, 1040002, 1060002], "the same tier-1 kit as the F/P fixture")
+	assert_eq(int(character._doc.job), 222)
+	assert_eq(character._doc.patch, "il_playable.json", "made before I12 flipped playable: the _doc records the patch")
+	assert_eq(Equipment.worn_ids(character.equipment.worn), [1002013, 1040002, 1060002, 1072019, 1082019, 1382002])
+	var fp: Dictionary = DataRepo.load_json(FP_FIXTURE)
+	assert_eq(character.equipment, fp.equipment, "the gear is F/P's (both Arch Mages wear the same wands and staves)")
+	assert_eq(character.scrolls, {})
+	assert_eq(int(character.mesos), 0)
+
+
+func test_the_fixture_starts_an_il_round_without_a_job_flag() -> void:
+	if not require_cache():
+		return
+	var run := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=sleepywood", "--seed=2", "--cap=0.016666667",
+		"--character=" + ProjectSettings.globalize_path(IL_FIXTURE)]))
+	assert_eq(run.status, 0, run.text)
+	var record := _record(run.text)
+	assert_false(record.is_empty(), "a record was printed")
+	if record.is_empty():
+		return
+	assert_eq(int(record.job), 222, "the job comes from the character")
+	assert_eq(int(record.start_character.tiers_unlocked), 2)
+	assert_eq(record.missing, [])
+	assert_eq(record.warnings, [])

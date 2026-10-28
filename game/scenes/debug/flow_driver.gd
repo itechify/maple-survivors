@@ -84,8 +84,8 @@ const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
 const StageSelectScene := preload("res://scenes/ui/stage_select.gd")
 const MAIN := "res://scenes/main.tscn"
 ## The redesign scenario's diagnostic fallback when a round dropped nothing the job can wear above Lv1: a staff for the Arch Mage
-## (Lv45), a sword for Hero (1302009, Lv40; reqJob Warrior). tier C: automation, not tuning.
-const FALLBACK_ITEM := {212: 1382001, 112: 1302009}
+## (Lv45), the same staff for the I/L Arch Mage (#330; reqJob Magician). tier C: automation, not tuning.
+const FALLBACK_ITEM := {212: 1382001, 222: 1382001}
 ## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q potion; E is the
 ## Equip window).
 const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_C,

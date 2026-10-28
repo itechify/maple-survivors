@@ -121,7 +121,7 @@ bash scripts/playtest.sh --speed=1 --minutes=3                 # 3 minutes in re
 bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-forward to 10:00 without drawing,
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
 bash scripts/playtest.sh --stage=ellinia --seed=7 --window-autopick=1   # windows open and answer themselves
-bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the one playable job; the default)
+bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the default job; --job=222 is the I/L Arch Mage)
 bash scripts/playtest.sh --stage=sleepywood --character=$PWD/game/tests/fixtures/characters/fp_arch_mage.json
                                                                # tier 2 with the tier-1 kit (omit --character: the starter wand only)
 ```
@@ -146,7 +146,8 @@ the workload). Qualification exits non-zero with `UNQUALIFIED` unless `warped_to
 one density check, and at least one must stay positive. This verifies coverage; it makes no frame-time claim. Ordinary
 playtests retain their existing behavior on a valid early-death summary.
 
-`bash scripts/run.sh -- --hub [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`) skips
+`bash scripts/run.sh -- --hub [--job=<id>] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`; `--job=222`
+opens the I/L fixture `il_arch_mage_t2.json` with the same kit; a `--job` the character is not of is an error screen) skips
 the title and opens the real Free Market to hand-test the scroll shops with the F/P fixture (or `--character`) plus
 a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants, every tier unlocked) in a throwaway
 `user://tool_hub_save.json` recreated at every launch, standing on the floor between Barun and Tulcus; the real save,
@@ -166,7 +167,8 @@ fresh `--shots` directory and the character slots, history and account go to its
 ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scenario=<name> --shots=<abs dir under evidence/>
 ```
 
-- `redesign` (#294, the slice's QA; about 6 minutes): title -> create an Arch Mage (name, look, Job page) -> Free Market ->
+- `redesign` (#294, the slice's QA; about 6 minutes; `--job=<id>`, default 212, `--job=222` for the I/L Arch Mage: its Job page row is
+  clicked, the checks name its start skills and its fallback item is a staff, #330): title -> create an Arch Mage (name, look, Job page) -> Free Market ->
   map select with Sleepywood locked and its Start refused -> an invulnerable Henesys round (`--seed`, default 1; the bot
   steers, the first level-up, the first offer with every active slot filled, the first Mastery offer and the first boss
   bonus draw open the real window and are answered with a number key; the real CLEAR, fade and arrival presentation) ->
@@ -177,6 +179,8 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
   scenario plays its own card policy once the slots are full (it ranks the highest-ranked owned active so a Mastery card
   appears; the bot rarely gets there, GAME_DESIGN section 0); `summary.json` holds the offers, picks, rarities and the
   showcased windows. This is flow evidence, not survival or balance evidence.
+- `creation` (#330: the Job page and creation of every playable job, or of `--jobs=<id,id>` such as `--jobs=212,222`, in separate slots:
+  the page lists them in canonical order, the chosen row is highlighted, each slot holds its job with its creation weapon; about 30 s).
 - `title` (the title screen only; for checking an exported build: `MapleSurvivors.exe res://scenes/debug/flow_driver.tscn
   -- --scenario=title --shots=<dir>`), `import` (a cache-less start, or the title's Re-import link: the import screen,
   `--wz=<folder>` typed into the path field; without `--wz` it checks the screen and never writes the cache) and `clear`
@@ -236,11 +240,13 @@ the character's worn cash equipment and pet, and the HP ALERT level (`game/scrip
 the round has an empty account and records are byte-identical to before. The record and output names carry the file name.
 The committed fixtures are `game/tests/fixtures/accounts/full_pet.json` (pet and every upgrade; the smoke's "full account")
 and `full_cash_pet.json` (the same plus a cash item in all 11 slots; for dressed playtest screenshots).
-The committed `game/tests/fixtures/characters/fp_arch_mage.json` is the one character fixture: a format-3 Arch Mage (F/P)
+The committed `game/tests/fixtures/characters/fp_arch_mage.json` is the character fixture: a format-3 Arch Mage (F/P)
 with tier 2 unlocked and the tier-1 equipment kit worn (a reqLevel-25 staff, reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15
 gloves, unscrolled); its `_doc` records the kit ids, label and revision, and `game/tools/character_fixture.gd --kit=<ids>
---tiers=2` reproduces it (`game/tests/fixtures/characters/README.md`). The same tool can also write the character a real bot
-round leaves behind, and converts old files.
+--tiers=2` reproduces it (`game/tests/fixtures/characters/README.md`). Its I/L twin `il_arch_mage_t2.json` (job 222, spec #319 I11:
+the same kit and tier 2) was made with `--job=222 --patch=<playable patch>` while I/L is not yet `playable`, and its `_doc.patch` names
+the patch file; `--hub --job=222` opens it, `--character=<it>` runs an I/L (a `--job=212` with it fails). The same tool can also write
+the character a real bot round leaves behind, and converts old files.
 
 **Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
 or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on every tier-1 stage, both `bot` and
@@ -269,7 +275,9 @@ Use focused filters excluding `full_run` while tuning; freeze data and pacing wi
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
 `--job=<id>` names the character's job in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd` and the fixture tool (ADR 0006:
-a character has one job, chosen at creation, and it never changes). Only a playable job (212 today) is accepted; anything
+a character has one job, chosen at creation, and it never changes). Only a playable job is accepted (212 today; the I/L Arch Mage, 222, once its last ticket (I12, spec #319) flips `playable`: until
+then `balance_run.gd` and `character_fixture.gd` take `--patch=<JSON>` with `{"jobs_survivor": {"jobs": {"222": {"playable": true}}}}`,
+`balance.sh` as `PATCH=<file>`, and tests mirror it with `DataRepo.patch`); anything
 else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`, `SceneFlow.forced_job_error`), and a
 `--character` whose job disagrees fails. `--branch=<id>` is the deprecated alias. There is no advancement, so records have no
 `branch`, `forced_branch`, `job_t` or `job_times`; they carry the job id (`jobs` in the summary) and, from #293, `picks`
