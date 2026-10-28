@@ -291,3 +291,24 @@ func test_passive_draws_spend_selection_rng_only_even_for_boss_bonus() -> void:
 			expected.randf() # one weighted selection; no rarity draw for a passive
 			assert_eq(w.upgrades.roll_choices(w, rng, 1)[0].tier, "normal")
 			assert_eq(rng.state, expected.state, "passive new/rank and boss draws never roll rarity")
+
+func test_no_damage_normal_mastery_reduces_cooldown_with_shared_diminishing_counter() -> void:
+	var w := RF.quiet_world()
+	w.set_job(112)
+	w.book.def("monster_magnet")["ranks"] = [1, 2, 3, 4, 5, 6, 7, 8] # synthetic rank table, no cache needed
+	w.learn_skill("monster_magnet")
+	w.loadout.set_rank("monster_magnet", 8)
+	var base := float(w.loadout.stats("monster_magnet").cooldown)
+	var c := w.upgrades.choice_card("monster_magnet_rank", w)
+	assert_eq(c.rarity_bonus.id, "mastery_damage")
+	assert_true("Cooldown x0.95" in String(c.desc), c.desc)
+	assert_near(BotInput.card_score(w, c), 5.0, 0.00001)
+	w.upgrades.apply(c.id, w)
+	assert_near(w.loadout.stats("monster_magnet").cooldown, base * 0.95)
+	c = w.upgrades.choice_card("monster_magnet_rank", w)
+	assert_near(BotInput.card_score(w, c), 4.0, 0.00001)
+	w.upgrades.apply(c.id, w)
+	assert_near(w.loadout.stats("monster_magnet").cooldown, base * 0.95 * 0.96)
+	assert_eq(w.loadout.rank("monster_magnet"), 8)
+	assert_eq(int(w.loadout.card_ranks["bonus:monster_magnet:mastery_damage"]), 2)
+	w.step(1.0 / 60.0, MoveInput.new())

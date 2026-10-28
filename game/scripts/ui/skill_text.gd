@@ -69,9 +69,20 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		line = strip_mp_cost(clean(String(_wz(key).get(hs, ""))))
 	var mechanics := PackedStringArray()
 	var def := book.def(key)
+	if def.has("meter"):
+		mechanics.append("Needs %d orbs" % int(def.meter.get("min", 0)))
+		var keep := int(stats.get("meter_keep", 0))
+		if str(def.meter.get("spend", "")) == "all":
+			mechanics.append("Spends all orbs" if keep <= 0 else "Spends all but %d orbs; Keeps %d orbs" % [keep, keep])
+		elif def.meter.has("spend"):
+			mechanics.append("Spends %d orbs" % int(def.meter.spend))
 	if def.has("knockback"):
 		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
 			number(float(stats.get("knockback_distance", 0.0)))])
+	if def.has("pull"):
+		var pulled := int(stats.get("mob_count", 1))
+		mechanics.append("Pulls up to %d %s from %s px" % [pulled, "monster" if pulled == 1 else "monsters",
+			number(float(stats.get("range", 0.0)))])
 	if int(stats.get("blast_targets", 0)) > 0:
 		var targets := int(stats.blast_targets)
 		mechanics.append("Blast: %d %s" % [targets, "target" if targets == 1 else "targets"])

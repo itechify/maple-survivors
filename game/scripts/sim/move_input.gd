@@ -30,7 +30,7 @@ static func make(p_left := false, p_right := false, p_up := false, p_down := fal
 	return m
 
 
-## Marks the skill key `id` ("teleport", "dash") as pressed on this tick.
+## Marks the skill key `id` ("teleport", "dash", "rush") as pressed on this tick.
 func press_skill(id: String) -> void:
 	skills_pressed[id] = true
 

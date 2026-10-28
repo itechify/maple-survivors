@@ -92,14 +92,22 @@ func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
 
 func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 	for key: String in book.defs:
+		var img: Dictionary = book.skill_imgs.get(String(book.def(key).get("book", "")), {})
+		if not img.get("skill", {}).has("%07d" % int(book.def(key).skill_id)):
+			continue # the synthetic fixtures hold only part of the Hero books (#296); the real-cache test covers them
 		if bool(book.def(key).get("common_passive", false)):
 			# #289: a common passive is survivor-made: its icon skill's WZ node has no level table, rank r is level r.
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
 			assert_eq(book.canonical_level(key, 5), 5)
 			continue
+		if key == "rush_hero" and book.skill_node(key).is_empty():
+			continue # the synthetic fixtures carry no Rush node; the real-cache run covers it
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
-		if key in data.jobs_survivor.jobs["212"].skill_pool:
+		# A pool skill (rarity bonuses, listed in a job's skill_pool) has eight ranks; any other skill keeps one rank per level.
+		# Hero's Rush (#302) is no pool skill but takes the same level-30 table, eight ranks that the shared mobility rule grows.
+		if key == "rush_hero" or book.def(key).has("rarity_bonuses") \
+				and data.jobs_survivor.jobs.values().any(func(j: Dictionary) -> bool: return key in j.get("skill_pool", [])):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
@@ -358,8 +366,10 @@ func test_jobs_and_balance() -> void:
 	var tree := JobTree.from_data(data.jobs, data.jobs_survivor)
 	for k: String in data.jobs_survivor.jobs:
 		assert_false(tree.job(int(k)).is_empty(), "survivor job %s exists in the canonical tree" % k)
-	# #284 (ADR 0006): one fixed job; F/P Arch Mage is the only playable job until the next line is ported.
-	assert_eq(tree.playable_jobs(), [212] as Array[int])
+	# #284 (ADR 0006): one fixed job per character; Hero and F/P are playable (#306).
+	assert_true(tree.job(212).playable, "212 is playable")
+	assert_true(tree.job(112).playable, "112 is playable")
+	assert_eq(tree.default_job(), 212)
 	for id: int in [0, 100, 110, 200, 210, 220, 230, 300, 400, 500, 510, 520]:
 		assert_false(tree.job(id).playable, "%d is not playable" % id)
 	for k: String in data.jobs_survivor.jobs:
@@ -663,6 +673,8 @@ func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> 
 		assert_false(key in data.jobs_survivor.jobs["212"].skill_pool, "%s is a pool skill and needs rarity_bonuses (#288)" % key)
 		if int(s.get("job", -1)) == 0:
 			continue # #284: the Beginner is gone and its skills have no cards
+		if String(s.slot) == "mobility":
+			continue # a mobility skill is never offered as a card (Rush, #302)
 		if String(s.damage) != "none" or String(s.slot) == "active":
 			assert_true(covered.has(key), "%s needs a skill_mod card with more shots, targets or pierce" % key)
 
@@ -689,3 +701,26 @@ func test_stage_keyframe_parser_ignores_retired_potion_curve() -> void:
 	var director := SpawnDirector.create(stage, {})
 	assert_false(director.keyframes[0].has("normal_hp_drop_chance"), "retired potion curves are not parsed")
 	assert_near(director.rate_at(0.0), 1.0, 1e-6, "supported pacing fields are still parsed")
+
+func test_meter_catalog_schema() -> void:
+	for job: Dictionary in data.jobs_survivor.jobs.values():
+		if not job.has("meter"):
+			continue
+		var meter: Dictionary = job.meter
+		assert_true(meter.id is String and not String(meter.id).is_empty())
+		assert_true(float(meter.max) > 0 and float(meter.max) == floorf(float(meter.max)))
+		assert_true(String(meter.gain.event) in ["cast_landed", "hit_taken", "meso_picked"])
+		assert_true(float(meter.gain.amount) > 0 and float(meter.gain.amount) == floorf(float(meter.gain.amount)))
+		assert_true(String(meter.gain.get("exclude", "")) in ["", "finisher"])
+		assert_eq(String(meter.per_unit.stat), "damage")
+		assert_true(float(meter.per_unit.value) >= 0.0)
+		assert_true(meter.get("art", "") is String)
+	for skill: Dictionary in data.skills.skills.values():
+		if not skill.has("meter"):
+			continue
+		var meter: Dictionary = skill.meter
+		assert_eq(String(meter.role), "finisher")
+		assert_true(float(meter.min) > 0 and float(meter.min) == floorf(float(meter.min)))
+		assert_eq(String(meter.spend), "all")
+		assert_true(float(meter.damage_per_unit) >= 0.0)
+		assert_eq(String(skill.slot), "active")

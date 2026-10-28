@@ -24,10 +24,10 @@ const PASSIVE_MAX_HP := Loadout.MAX_HP_PER_LEVEL
 const PASSIVE_REGEN_HP := "regen_hp"
 const PASSIVE_PREVIEW_KEYS := [PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 ## Effective opt-in mechanic values; fall-off is displayed as percentage points per later target.
-const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff"]
+const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep"]
 ## Active rarity-bonus stats a card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
-const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff"]
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -255,7 +255,7 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 			var old_stats := lo.stats(skill, r)
 			var new_stats := lo.stats(skill, r + magnitude)
 			for field: String in MECHANIC_PREVIEW_KEYS:
-				if old_stats[field] != new_stats[field]:
+				if old_stats.get(field, 0) != new_stats.get(field, 0):
 					changes[field] = {"before": _preview_value(field, old_stats, lo, skill),
 						"after": _preview_value(field, new_stats, lo, skill)}
 			var damage_field := String(lo.book.def(skill).get("impact_blast", {}).get("damage_field", "damage"))
@@ -311,9 +311,12 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 	if tier == "normal" and category != MASTERY:
 		return {}
 	var entries: Array = state.book.def(skill).get("rarity_bonuses", {}).get(tier, [])
-	# tier C: a Normal Mastery grants the shared Mastery damage bonus so it is never a dead pick.
+	# tier C (#346): Normal Mastery gives damage, or cooldown x0.95 for damage:none skills.
 	if tier == "normal" and category == MASTERY and not _mastery_bonus.is_empty():
-		entries = [_mastery_bonus]
+		var normal := _mastery_bonus.duplicate(true)
+		if String(state.book.def(skill).get("damage", "")) == "none":
+			normal.effects = [{"stat": "cooldown", "op": "mul", "value": 0.95}]
+		entries = [normal]
 	if entries.is_empty():
 		return {}
 	var count := 0
@@ -328,6 +331,11 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 		var op := String(effect.get("op", "add"))
 		var value := float(effect.value)
 		effect.value = 1.0 + (value - 1.0) * scale if op == "mul" else value * scale
+		if String(effect.stat) == "meter_keep":
+			var before := state.loadout.skill_stat(skill, "meter_keep", 0.0)
+			var kept := before * float(effect.value) if op == "mul" else before + float(effect.value)
+			labels.append("Keeps %d orbs" % maxi(0, roundi(kept)))
+			continue
 		labels.append(String(effect.stat).replace("attack_count", "Hits").capitalize() + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
 	bonus.text = String(bonus.get("text", bonus.id)) + ": " + ", ".join(labels)
 	bonus.counter = counter
@@ -384,6 +392,8 @@ static func _bonus_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictio
 
 static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: String) -> Variant:
 	match stat:
+		"meter_keep":
+			return maxi(0, roundi(lo.skill_stat(skill, "meter_keep", 0.0)))
 		"pierce_falloff":
 			return snappedf(float(st.pierce_falloff) * 100.0, 0.01)
 		"cooldown":

@@ -122,7 +122,8 @@ How many advancements a job is from Beginner: 0 Beginner, 1 first job, 2 second 
 
 **Job line**:
 A first job and every job below it, named after it (warrior, magician, bowman, thief, pirate), plus beginner for
-job 0 and common for job-neutral data. Survivor data and the asset manifest keep one file per line
+job 0 and common for job-neutral data. A class spec after the slice adds a *data line* named after the class
+(`hero`, #296), discovered by `DataRepo.lines()` after the fixed Adventurer lines, sorted by name, so jobs of the same Adventurer line no longer share one file. Survivor data and the asset manifest keep one file per line
 (`survivor/<name>/<line>.json`, `asset_manifest.d/<line>.json`), and a per-job table resolves a job through its
 lineage to the nearest listed ancestor.
 _Avoid_: class line, family (a weapon family is a kind of weapon)
@@ -297,6 +298,12 @@ A skill effect that pushes a struck monster away from the character, by a chance
 back. It is not the small push any hit gives a monster whose damage reaches its canonical `pushed` threshold.
 _Avoid_: push-back, knockdown
 
+**Pull**:
+A skill effect that drags monsters toward the character along their platform, by a chance per monster, until they stand
+a set gap away. It picks the farthest monsters first, up to the skill's monster count. Bosses and airborne monsters are
+never pulled. It is the mirror of knock-back (Monster Magnet, Snatch).
+_Avoid_: magnet, suck, vacuum
+
 **Hit window**:
 The short time after the character is hit during which it can't be hit again. It shrinks with repeated hits, and
 boss attacks ignore it.
@@ -404,3 +411,17 @@ _Avoid_: mirror (the project never names one), WZ root (that is the desktop fold
 A timed player-owned ally cast by an active skill. It follows or waits at its own position and attacks monsters;
 its map-local lifetime ends on expiry or map transfer. It occupies its skill’s active slot, uses the original skill
 id and WZ animations, and is separate from a cash pet or a monster summoned by a boss.
+
+**Meter**:
+A round-owned integer counter, filled by configured events and spent by finishers. It survives map transfers,
+starts at zero each round, and is shown as HUD pips. M1 is shared by Hero, Buccaneer and Shadower.
+_Avoid_: mana, buff, form
+
+**Combo orb**:
+One unit of Hero's Combo meter. A landed non-finisher pool cast earns one; each held orb adds damage.
+_Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)
+
+**Finisher**:
+A pool active whose meter block gates admission and spends units for extra damage. Panic and Coma are Hero's
+finishers; their meter_keep rarity modifier leaves units unspent.
+_Avoid_: ultimate, proc

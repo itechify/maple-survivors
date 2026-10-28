@@ -26,6 +26,7 @@ var knockback_guard_t := 0.0
 var cast_action := ""
 var cast_left := 0.0
 var action_airborne := false
+var action_walking := false
 ## The fraction of the stance's canonical frame time it plays in (attack speed, WeaponInfo.speed_factor); 1.0 normally.
 var action_scale := 1.0
 var _buffs: PlayerBuffs
@@ -151,4 +152,5 @@ func start_action(action: String, seconds: float, airborne: bool = false, scale:
 	cast_action = action
 	cast_left = seconds
 	action_airborne = airborne
+	action_walking = false
 	action_scale = scale

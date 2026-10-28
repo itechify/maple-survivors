@@ -1,0 +1,122 @@
+{
+	"_doc": "Hero line (spec #296, H2 #298). The first class line added after the #282 slice: a class spec adds jobs/<line>.json, skills/<line>.json (and upgrades/, equipment_drops/ ... only when it has entries) and asset_manifest.d/<line>.json, automatically discovered by DataRepo.lines() (docs/ARCHITECTURE.md 4.4.4). Skill keys stay inert until their skills are defined in skills/hero.json (an undefined key is never offered). H10 enables Hero alongside F/P; JobTree.default_job() stays 212 (survivor/jobs.json default_job).",
+	"jobs": {
+		"112": {
+			"starting_skill": "power_strike",
+			"mobility_skill": "rush_hero",
+			"_mobility_skill": "tier C: spec #296 D1: Rush (1121006) is Hero's manual mobility skill on the skill key, outside both slot tracks; defined by H6.",
+			"skill_pool": [
+				"power_strike",
+				"slash_blast",
+				"brandish",
+				"shout",
+				"monster_magnet",
+				"panic",
+				"coma"
+			],
+			"_skill_pool": "tier C: spec #296: the seven hand-picked Hero actives (Rush is the mobility skill, not a pool entry).",
+			"weapon_families": [
+				"sword",
+				"axe"
+			],
+			"_weapon_families": "tier C: spec #296: one- and two-handed swords and axes (WeaponInfo.family); armour and shields drop by the Warrior class bit.",
+			"creation_weapon": 1302000,
+			"_creation_weapon": "tier C: spec #296: the plain Sword (reqJob 0); wearing it needs no class.",
+			"meter": {
+				"id": "combo",
+				"max": 10,
+				"gain": {
+					"event": "cast_landed",
+					"amount": 1,
+					"exclude": "finisher"
+				},
+				"per_unit": {
+					"stat": "damage",
+					"value": 0.05
+				},
+				"art": "Skill.wz/111.img/skill/1111002/state"
+			},
+			"_meter": "tier C: spec #296 Combo orbs; #346 raises per-orb damage to 5% (first-pass training, GAME_DESIGN 4.2). Live round-owned counter; tier A source: Combo Attack's description (max 5), Advanced Combo (up to 10).",
+			"playable": true,
+			"_provenance": "tier C: spec #296 H10 #306: Hero is playable alongside F/P; 212 remains the default.",
+			"hub_kit": {
+				"fixture": "res://tests/fixtures/characters/hero_t2.json",
+				"scrolls": [
+					2043000,
+					2043001,
+					2043002,
+					2043004,
+					2043005,
+					2044000,
+					2044001,
+					2044002,
+					2044004,
+					2044005,
+					2043100,
+					2043101,
+					2043102,
+					2043104,
+					2043105,
+					2044100,
+					2044101,
+					2044102,
+					2044104,
+					2044105
+				],
+				"equipment": [
+					1002001,
+					1402000,
+					1082002,
+					1040010
+				],
+				"fallback_item": 1302009
+			}
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"112": {
+					"hp": 600,
+					"_hp": "tier C #346: melee starting HP; training seeds only, GAME_DESIGN 4.2.",
+					"primary": "str",
+					"secondary": "dex",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 4
+						},
+						{
+							"level": 200,
+							"target": 204
+						}
+					]
+				}
+			}
+		},
+		"bot": {
+			"card_scores": {
+				"power_strike_new": 100,
+				"power_strike_rank": 74,
+				"slash_blast_new": 100,
+				"slash_blast_rank": 74,
+				"brandish_new": 100,
+				"brandish_rank": 74,
+				"shout_new": 100,
+				"shout_rank": 74,
+				"monster_magnet_new": 100,
+				"monster_magnet_rank": 74,
+				"panic_new": 100,
+				"panic_rank": 74,
+				"coma_new": 100,
+				"coma_rank": 74
+			}
+		},
+		"growth": {
+			"112": {
+				"hp": 65,
+				"_hp": "tier C #346: melee HP growth per level; GAME_DESIGN 4.2."
+			}
+		}
+	}
+}

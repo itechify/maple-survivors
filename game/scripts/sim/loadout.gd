@@ -280,7 +280,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
-## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance and pierce_falloff,
+## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance, pull_chance (percent)/pull_gap (px; docs/GAME_DESIGN.md 7.35) and pierce_falloff,
 ## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
@@ -293,6 +293,11 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	if action == "weapon":
 		# tier C: the stance (and so the swing/stab multiplier) of the held weapon's first basic-attack action.
 		action = WeaponInfo.skill_action(weapon_id)
+	# tier C: one body action and matching effect by handedness (Brandish, #301 ruling).
+	var handedness := "two" if WeaponInfo.is_two_handed(weapon_id) else "one"
+	action = String(d.get("action_by_handedness", {}).get(handedness, action))
+	var effect := String(d.get("effect_by_handedness", {}).get(handedness, book.visual(key, "effect", lv, char_level)))
+	effect = book.art_path(key, effect, weapon_family) # tier C: art_by_family twin, art only (Panic/Coma : Axe)
 	var attack_kind := WeaponInfo.attack_kind(action)
 	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0) * (1.0 + passive_total(DAMAGE_PCT) / 100.0)
 	var lo := 0.0
@@ -337,7 +342,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 			# tier C: surround attacks retain canonical reach/height on both sides of the player (Pirate kick).
 			var extent := maxf(absf(box.position.x), absf(box.end.x))
 			box = Rect2(-extent, box.position.y, extent * 2.0, box.size.y)
-	return {
+	var resolved := {
 		"skill": key,
 		"skill_id": book.skill_id(key),
 		"kind": book.kind(key),
@@ -370,6 +375,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"speed_factor": speed_factor,
 		"cooldown": _cooldown(key, d, heal, lv, speed_factor),
 		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0))))
+			* (area if String(cast.get("rule", "")) == "range_around" else 1.0)
 			+ (passive_total(RANGE) if attacks and weapon_family in WeaponInfo.RANGED_FAMILIES
 				and weapon_family in book.weapon_families(key) else 0.0),
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
@@ -377,9 +383,12 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"pierce": maxi(0, roundi(skill_stat(key, "pierce", float(d.get("pierce", 0))))),
 		"pierce_falloff": maxf(0.0, skill_stat(key, "pierce_falloff", float(d.get("pierce_falloff", 0.0)))),
 		"pierce_floor": pierce_floor,
-		"knockback_chance": book.canonical(key, lv, String(d.knockback.get("chance_field", "prop")))
+		# No chance field = the knock-back always applies (Rush, tier C #302).
+		"knockback_chance": (book.canonical(key, lv, String(d.knockback.chance_field)) if d.knockback.has("chance_field") else 100.0)
 			if d.has("knockback") else 0.0,
 		"knockback_distance": float(d.get("knockback", {}).get("distance", 0.0)),
+		"pull_chance": book.canonical(key, lv, String(d.pull.get("chance_field", "")), 100.0) if d.has("pull") else 0.0,
+		"pull_gap": float(d.pull.get("min_gap", 0.0)) if d.has("pull") else 0.0,
 		"blast_targets": maxi(1, roundi(skill_stat(key, "blast_targets", book.canonical(key, lv, "mobCount", 1.0))))
 			if d.has("impact_blast") and has_box else 0,
 		"impact_blast": {"box": box, "count": maxi(1, roundi(skill_stat(key, "blast_targets",
@@ -388,8 +397,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 			if d.has("impact_blast") and has_box else {},
 		"radius": float(d.get("radius", 10.0)),
 		"ball": book.visual(key, "ball", lv, char_level),
-		"hit": book.visual(key, "hit", lv, char_level),
-		"effect": book.visual(key, "effect", lv, char_level),
+		"hit": book.art_path(key, book.visual(key, "hit", lv, char_level), weapon_family),
+		"effect": effect,
 		"action": action,
 		"action_time": float(d.get("action_time", 0.0)) * speed_factor,
 		"rotate": bool(d.get("rotate", false)),
@@ -414,6 +423,10 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"cooldown_from_cast": bool(buff.get("cooldown_from_cast", false)),
 		"displacement": _displacement(key, d, r, lv),
 	}
+	if d.has("meter"):
+		resolved["meter"] = d.meter
+		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
+	return resolved
 
 
 ## Seconds between casts: the skill's own cooldown with its cards, then the cast speed passives (an active skill's cooldown
@@ -435,17 +448,23 @@ func _base_cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int) -> fl
 	return fallback
 
 
-## The resolved moving-attack block of `key` ({} for a skill that does not move): {direction "away" | "toward", when
-## "before" | "after" | "during", distance px >= 0}. The definition's `displacement` gives the distance as `field` (a
-## canonical level field of this rank's level), `distances` (survivor values per rank, the last one repeating) or a
-## plain `distance`, in that order (docs/GAME_DESIGN.md 7.13).
+## The resolved moving-attack block of `key` ({} for a skill that does not move): {direction "away" | "toward" | "input",
+## when "before" | "after" | "during", distance px >= 0}. The definition's `displacement` gives the distance as `field` (a
+## canonical level field of this rank's level; `lt.x` is the reach of its box, Rush), `distances` (survivor values per
+## rank, the last one repeating) or a plain `distance`, in that order (docs/GAME_DESIGN.md 7.13). `input` (a manual
+## dash, 7.33) is the pressed arrow key or the facing, chosen by the caster.
 func _displacement(key: String, d: Dictionary, rank: int, lv: int) -> Dictionary:
 	var block: Variant = d.get("displacement", {})
 	if not (block is Dictionary) or (block as Dictionary).is_empty():
 		return {}
 	var distance := 0.0
 	if block.has("field"):
-		distance = book.canonical(key, lv, String(block.field), 0.0)
+		var field := String(block.field)
+		if field.ends_with(".x") and book.level_node(key, lv).get(field.trim_suffix(".x")) is Dictionary:
+			var corner: Array = book.level_node(key, lv)[field.trim_suffix(".x")].get("$v", [0.0, 0.0])
+			distance = absf(float(corner[0]))
+		else:
+			distance = book.canonical(key, lv, field, 0.0)
 	elif block.has("distances") and not (block.distances as Array).is_empty():
 		var list: Array = block.distances
 		distance = float(list[clampi(rank - 1, 0, list.size() - 1)])

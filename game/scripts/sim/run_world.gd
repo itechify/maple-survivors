@@ -79,6 +79,8 @@ const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
+	"mob_pulled": ["mob", "from", "pos"],
+	"meter_changed": ["id", "value", "max"],
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"player_restored": ["stat", "amount", "skill", "pos"],
@@ -244,6 +246,7 @@ var buffs := PlayerBuffs.new()
 var upkeep: PlayerUpkeep
 var book: SkillBook
 var loadout: Loadout
+var meter := PlayerMeter.new()
 var runner: SkillRunner
 var _teleport_left := 0.0
 var _teleport_total := 0.0
@@ -771,6 +774,7 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 	time += dt
 	potions.tick(dt)
 	refresh_player_speed()
+	runner.fired_this_tick = false
 	_step_player(dt, input)
 	if after_stage.is_valid():
 		after_stage.call("player")
@@ -812,7 +816,7 @@ func _step_player(dt: float, input: MoveInput) -> void:
 	if input.drink_hp:
 		drink_potion("hp")
 	_try_manual_buffs(input)
-	if not _try_teleport(input) and not _take_portal(dt, input):
+	if not _try_input_dash(input) and not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
 		if flags & PlayerMotion.EV_JUMP:
 			emit("player_jump", {"pos": player.pos})
@@ -906,6 +910,23 @@ func _cooldown_total(key: String) -> float:
 	return float(runner.cooldown_totals.get(key, 0.0))
 
 
+## An input-directed manual dash press (or hold): side arrow, else facing (Up and Down are ignored).
+## true when the dash started, which replaces this tick's ordinary movement. tier C: ours (#302).
+func _try_input_dash(input: MoveInput) -> bool:
+	for key: String in loadout.order:
+		var action := skill_key_of(key)
+		if not input.skill_requested(action):
+			continue
+		var definition := book.def(key)
+		if String(definition.get("cast", {}).get("rule", "")) != "manual" \
+				or String(definition.get("displacement", {}).get("direction", "")) != "input":
+			continue
+		var side := input.dir() if input.dir() != 0 else player.facing
+		if runner.cast_dash(self, key, side):
+			return true
+	return false
+
+
 func _try_teleport(input: MoveInput) -> bool:
 	if not input.skill_requested("teleport") or _teleport_left > 1e-6 or not can_cast():
 		return false
@@ -968,7 +989,7 @@ func _step_monsters(dt: float) -> void:
 
 ## Auto-casts, then the player's shots against live defense/immunity; kills drop their rewards.
 func _step_player_attacks(dt: float) -> void:
-	runner.step(dt, self)
+	runner.step(dt, self, true)
 	if _map_clearing:
 		return
 	_fill_live_defense()
@@ -1145,6 +1166,7 @@ func apply_choice(card_id: String) -> bool:
 ## tests and debug drivers call it before play to stand a character of another line.
 func set_job(job_id: int) -> void:
 	progression.job_id = job_id
+	meter = PlayerMeter.new(jobs.lineage_value(job_id, "meter", {}))
 	refresh_player_stats(false)
 
 
@@ -1826,8 +1848,12 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	})
 	_instant_dealt += roll.x
 	if roll.x > 0:
-		_on_player_hit(m, {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": magic,
-			"damage": roll.x, "element": String(st.get("element", "")), "damage_type": dtype})
+		meter.landed(st.get("meter_receipt", {}), events)
+		var hit := {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": magic,
+			"damage": roll.x, "element": String(st.get("element", "")), "damage_type": dtype}
+		if st.has("push_side"):
+			hit["push_side"] = int(st.push_side) # a dash's direction (Rush): the knock-back shoves along it
+		_on_player_hit(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
 
@@ -1958,6 +1984,7 @@ func _spread_targets(target: int, want: int) -> Array[int]:
 
 
 func _on_player_hit(slot: int, hit: Dictionary) -> void:
+	meter.landed(hit.get("meter_receipt", {}), events)
 	var key := String(hit.skill)
 	var level := int(hit.level)
 	var status: Dictionary = book.def(key).get("on_hit", {})
@@ -1971,13 +1998,21 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 				params["element"] = String(hit.element)
 			if status.has("element"):
 				params["element"] = String(status.element)
+			if status.has("cut"):
+				# tier C: a flat Threaten-style cut of min(skill level, cap) to weapon attack and defence (Panic; the node has none).
+				var cut := float(mini(level, int(status.cut.get("cap", level))))
+				params["x"] = -cut
+				params["y"] = -cut
 			swarm.apply_status(slot, String(status.get("status", "")), params, events)
 	var knockback: Dictionary = book.def(key).get("knockback", {})
 	if not knockback.is_empty() and not swarm.mob_kind(slot).boss and swarm.steady[slot] == 0:
-		var chance := book.canonical(key, level, String(knockback.get("chance_field", "prop")))
-		# tier C: one stream-1 roll per struck non-boss, including the 0/100% endpoints.
-		if rng.randf() * 100.0 < chance:
-			swarm.knockback(slot, player.pos.x, float(knockback.get("distance", 0.0)), fhm, bounds)
+		# tier C: one stream-1 roll per struck non-boss, including the 0/100% endpoints; a block without a chance field
+		# always applies and draws nothing (Rush, #302).
+		var always: bool = not knockback.has("chance_field")
+		if always or rng.randf() * 100.0 < book.canonical(key, level, String(knockback.chance_field)):
+			# `direction: "dash"` shoves along the dash that hit it instead of away from the player's final position.
+			swarm.knockback(slot, player.pos.x, float(knockback.get("distance", 0.0)), fhm, bounds,
+				int(hit.get("push_side", 0)) if String(knockback.get("direction", "")) == "dash" else 0)
 	for listener: Callable in _hit_listeners:
 		listener.call(slot, hit)
 
@@ -2040,6 +2075,8 @@ func _init_player() -> void:
 		progression.job_id = int(setup.get("job", jobs.default_job()))
 		equipment.worn = Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.get("equipment_info", {}))
 	set_job(progression.job_id)
+	# tier C (#346): an optional job AP-row HP baseline; absent rows keep the shared starter HP.
+	_base_hp = float(_job_value(pb.get("ap", {}), {}).get("hp", _base_hp))
 	_init_cash()
 	refresh_player_stats()
 	_hp = _max_hp
@@ -2621,7 +2658,8 @@ func _advance_queue() -> void:
 func _write_player_state(dt: float) -> void:
 	var a := "dead" if _dead else player.stance()
 	if not _dead and upkeep.cast_left > 0.0 and (player.state == PlayerMotion.ST_STAND
-			or (upkeep.action_airborne and player.state == PlayerMotion.ST_AIR)):
+			or (upkeep.action_airborne and player.state == PlayerMotion.ST_AIR)
+			or (upkeep.action_walking and player.state == PlayerMotion.ST_WALK)):
 		a = upkeep.cast_action
 	if a != _action:
 		_action = a

@@ -12,6 +12,7 @@ const MOB := 1110100
 
 func _world(seed_value := 7, job := 100) -> RunWorld:
 	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["112"].playable = true
 	data.balance.player.hp = 275 # the Beginner's 50 plus the removed first-job +225 grant (#284)
 	data.balance.magnet_radius = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", seed_value, data))
@@ -96,10 +97,10 @@ func test_the_six_warrior_skills_are_defined_with_canonical_ids_and_level_counts
 	for key: String in want:
 		assert_true(w.book.has(key), key)
 		assert_eq(w.book.skill_id(key), want[key][0], key)
-		assert_eq(w.book.max_rank(key), want[key][1], "%s canonical levels" % key)
+		assert_eq(w.book.max_rank(key), 8 if key in ["power_strike", "slash_blast"] else want[key][1], "%s canonical levels" % key)
 		assert_eq(w.book.max_level(key), want[key][1], key)
 	for key in ["power_strike", "slash_blast"]:
-		assert_eq(Array(w.book.weapon_families(key)), ["sword", "axe", "blunt", "spear", "polearm"])
+		assert_true(w.book.weapon_families(key).is_empty())
 	for key in ["iron_body", "improved_hp_recovery", "improved_max_hp"]:
 		assert_true(w.book.weapon_families(key).is_empty(), "%s names no weapon" % key)
 
@@ -116,7 +117,7 @@ func test_real_100_img_matches_the_data() -> void:
 		return
 	var book := SkillBook.from_data(DataRepo.load_all().skills, {"100": img.root})
 	for key in ["power_strike", "slash_blast", "iron_body", "improved_hp_recovery", "improved_max_hp"]:
-		assert_eq(book.max_level(key), book.max_rank(key), "%s: ranks cover every canonical level" % key)
+		assert_eq(book.max_rank(key), 8 if key in ["power_strike", "slash_blast"] else book.max_level(key), "%s: ranks cover every canonical level" % key)
 	assert_eq(book.canonical("power_strike", 1, "damage"), 165.0)
 	assert_eq(book.canonical("power_strike", 20, "damage"), 260.0)
 	assert_eq(book.canonical("slash_blast", 1, "hpCon"), 8.0)
@@ -158,7 +159,7 @@ func test_power_strike_damage_follows_the_canonical_percent_and_the_physical_for
 	w.learn_skill("power_strike")
 	var st := w.loadout.stats("power_strike")
 	assert_eq(st.damage_type, "physical")
-	assert_near(float(st.damage_pct), 1.65, 1e-9, "rank 1 is 165 %")
+	assert_near(float(st.damage_pct), 1.75, 1e-9, "rank 1 maps to level 3: 175 %")
 	assert_eq(st.attack_kind, "swing", "the sword's first basic stance is a swing")
 	assert_eq(st.action, "swingO1")
 	w.loadout.set_rank("power_strike", 20)
@@ -188,7 +189,7 @@ func test_target_cards_are_the_only_source_of_extra_power_strike_targets() -> vo
 		mobs.append(_mob(w, dx))
 	assert_eq(_of(_cast(w), "mob_hit").size(), 1)
 	w.runner.cooldowns["power_strike"] = 0.0
-	RF.add_modifier_effects(w, w.upgrades.card("power_strike_targets"))
+	w.loadout.add_skill_mod("power_strike", "count", "add", 1)
 	assert_eq(w.loadout.stats("power_strike").mob_count, 2)
 	var hits := _of(_cast(w), "mob_hit")
 	assert_eq(hits.map(func(e: Dictionary) -> int: return e.mob), [mobs[0], mobs[1]], "the two nearest")
@@ -201,9 +202,9 @@ func test_slash_blast_hits_at_most_six_mobs_within_range_on_both_sides_and_costs
 	w.learn_skill("slash_blast")
 	var st := w.loadout.stats("slash_blast")
 	assert_eq(st.cast_rule, "range_around")
-	assert_near(float(st.range), 130.0, 1e-9, "rank 1 canonical range")
+	assert_near(float(st.range), 132.0, 1e-9, "rank 1 canonical range")
 	assert_eq(st.mob_count, 6)
-	assert_eq(st.hp_cost, 8)
+	assert_eq(st.hp_cost, 9)
 	var outside := _mob(w, 160.0)
 	var inside: Array[int] = []
 	for dx: float in [-20.0, 30.0, -50.0, 70.0, -90.0, 110.0, -120.0, 125.0]:
@@ -215,7 +216,7 @@ func test_slash_blast_hits_at_most_six_mobs_within_range_on_both_sides_and_costs
 	assert_eq(hits.size(), 6, "mobCount 6 caps the blast")
 	assert_eq(hits.map(func(e: Dictionary) -> int: return e.mob), [inside[0], inside[1], inside[2], inside[3], inside[4], inside[5]],
 		"the six nearest")
-	assert_eq(hp0 - int(w.player_state.hp), 8, "canonical hpCon")
+	assert_eq(hp0 - int(w.player_state.hp), 9, "canonical hpCon")
 	assert_eq(w.swarm.hp[outside], w.swarm.max_hp[outside], "beyond range")
 	assert_eq(w.swarm.hp[inside[7]], w.swarm.max_hp[inside[7]], "inside range but past the sixth")
 
@@ -225,10 +226,10 @@ func test_slash_blast_range_and_target_cards_widen_it() -> void:
 	w.learn_skill("slash_blast")
 	var edge := _mob(w, 150.0)
 	assert_eq(_of(_cast(w), "cast").size(), 0, "150 px is beyond the rank-1 range")
-	RF.add_modifier_effects(w, w.upgrades.card("slash_blast_range"))
-	assert_near(float(w.loadout.stats("slash_blast").range), 156.0, 1e-3, "range x1.2")
+	w.loadout.add_skill_mod("slash_blast", "area", "mul", 1.2)
+	assert_near(float(w.loadout.stats("slash_blast").range), 158.4, 1e-3, "range x1.2")
 	assert_eq(_of(_cast(w), "mob_hit").map(func(e: Dictionary) -> int: return e.mob), [edge])
-	RF.add_modifier_effects(w, w.upgrades.card("slash_blast_targets"))
+	w.loadout.add_skill_mod("slash_blast", "count", "add", 2)
 	assert_eq(w.loadout.stats("slash_blast").mob_count, 8, "+2 targets per step over the canonical 6")
 
 
@@ -237,12 +238,12 @@ func test_slash_blast_never_casts_when_its_hp_cost_would_leave_no_hp() -> void:
 	w.learn_skill("slash_blast")
 	w.god = false
 	var m := _mob(w, 40.0)
-	_pools(w, 8.0) # exactly the rank-1 cost: paying it would kill
+	_pools(w, 9.0) # exactly the rank-1 cost: paying it would kill
 	var events := _cast(w)
 	assert_eq(_of(events, "cast").size(), 0)
-	assert_eq(w.player_state.hp, 8)
+	assert_eq(w.player_state.hp, 9)
 	assert_eq(w.swarm.hp[m], w.swarm.max_hp[m])
-	_pools(w, 9.0)
+	_pools(w, 10.0)
 	events = _cast(w)
 	assert_eq(_of(events, "cast").size(), 1, "one HP to spare is enough")
 	assert_eq(w.player_state.hp, 1)
@@ -340,15 +341,12 @@ func test_improved_max_hp_adds_its_hp_to_each_later_level_up_only() -> void:
 # --- cards ----------------------------------------------------------------------------------------------------------
 
 
-func test_every_attack_has_a_hits_more_mobs_card() -> void:
-	var w := _world(72)
-	for pair: Array in [["power_strike", "power_strike_targets"], ["slash_blast", "slash_blast_targets"]]:
-		var card := w.upgrades.card(pair[1])
-		assert_eq(card.kind, "skill_mod")
-		assert_eq(card.skill, pair[0])
-		assert_eq(card.effects[0].stat, "count")
-		assert_true(bool(card.get("power", false)), "it counts as a power card")
-	assert_true(w.upgrades.card("slash_blast_range").effects[0].stat == "range", "and Slash Blast a wider-area card")
+func test_core_melee_has_rarity_bonuses_instead_of_standalone_mod_cards() -> void:
+	var w := _world()
+	for key: String in ["power_strike", "slash_blast"]:
+		assert_true(w.book.def(key).has("rarity_bonuses"))
+		for card: Dictionary in w.upgrades.cards:
+			assert_false(card.get("skill", "") == key and card.kind == "skill_mod")
 
 
 func test_rank_cards_raise_the_level_and_preview_the_damage_percent() -> void:
@@ -356,10 +354,10 @@ func test_rank_cards_raise_the_level_and_preview_the_damage_percent() -> void:
 	assert_eq(w.upgrades.apply("power_strike_new", w), 1)
 	assert_eq(w.upgrades.apply("power_strike_rank", w), 1)
 	assert_eq(w.loadout.rank("power_strike"), 2)
-	assert_near(float(w.loadout.stats("power_strike").damage_pct), 1.7, 1e-9)
+	assert_near(float(w.loadout.stats("power_strike").damage_pct), 1.85, 1e-9)
 	var card := w.upgrades.choice_card("power_strike_rank", w)
 	assert_has(card.skill_changes, "damage")
-	assert_eq(int(card.skill_changes.damage.before), 170)
+	assert_eq(int(card.skill_changes.damage.before), 185)
 
 
 # --- reach and the bot -----------------------------------------------------------------------------------------------
@@ -370,24 +368,24 @@ func test_reach_of_reads_the_weapon_swing_and_the_slash_blast_range() -> void:
 	w.learn_skill("slash_blast")
 	w.learn_skill("iron_body")
 	assert_near(SkillRunner.reach_of(w.loadout.stats("power_strike"), w), 88.0, 0.001, "the weapon's swing reach")
-	assert_near(SkillRunner.reach_of(w.loadout.stats("slash_blast"), w), 130.0, 1e-6, "range around the body")
+	assert_near(SkillRunner.reach_of(w.loadout.stats("slash_blast"), w), 132.0, 1e-6, "range around the body")
 	assert_eq(SkillRunner.reach_of(w.loadout.stats("iron_body"), w), 0.0, "a buff is not an attack")
-	RF.add_modifier_effects(w, w.upgrades.card("slash_blast_range"))
-	assert_near(SkillRunner.reach_of(w.loadout.stats("slash_blast"), w), 156.0, 1e-3)
+	w.loadout.add_skill_mod("slash_blast", "area", "mul", 1.2)
+	assert_near(SkillRunner.reach_of(w.loadout.stats("slash_blast"), w), 158.4, 1e-3)
 
 
 func test_the_bot_counts_slash_blast_ready_only_while_its_hp_cost_can_be_paid() -> void:
 	var w := _world(82)
 	w.learn_skill("slash_blast")
-	assert_near(BotInput._reach_profile(w).x, 130.0, 1e-6, "with a sword Slash Blast is the longest attack")
-	assert_near(BotInput._reach_profile(w).y, 130.0, 1e-6, "and it is ready")
+	assert_near(BotInput._reach_profile(w).x, 132.0, 1e-6, "with a sword Slash Blast is the longest attack")
+	assert_near(BotInput._reach_profile(w).y, 132.0, 1e-6, "and it is ready")
 	w.god = false
-	_pools(w, 8.0)
+	_pools(w, 9.0)
 	assert_eq(BotInput._reach_profile(w).y, 0.0, "it cannot be paid in HP: nothing is ready (no basic attack, #284)")
 	_pools(w, 200.0)
 	w.equipment.worn["weapon"] = {"id": 1372005}
 	w.loadout.weapon_family = w.held_weapon_family()
-	assert_near(BotInput._reach_profile(w).x, 130.0, 1e-6, "a wand does not block Slash Blast (#284)")
+	assert_near(BotInput._reach_profile(w).x, 132.0, 1e-6, "a wand does not block Slash Blast (#284)")
 
 
 func test_the_forced_warrior_bot_closes_to_melee_range() -> void:
@@ -420,14 +418,14 @@ func test_the_tooltip_shows_an_hp_cost_only_for_a_skill_that_pays_one() -> void:
 	w.learn_skill("slash_blast")
 	w.learn_skill("power_strike")
 	var model := SkillWindowModel.new(w.book, w.upgrades, w.loadout, w.jobs, 100, SkillText.new(w.book))
-	assert_eq(model.skill_tooltip("slash_blast").hp_cost, 8)
+	assert_eq(model.skill_tooltip("slash_blast").hp_cost, 9)
 	assert_eq(model.skill_tooltip("power_strike").hp_cost, 0)
 	var lines := SkillTooltip.layout(model.skill_tooltip("slash_blast")).filter(
 		func(l: Array) -> bool: return l[0] == "text").map(func(l: Array) -> String: return String(l[1]))
-	assert_has(lines, "Cooldown 1.6 sec.   HP cost 8")
+	assert_has(lines, "Cooldown 0.64 sec.   HP cost 9")
 	lines = SkillTooltip.layout(model.skill_tooltip("power_strike")).filter(
 		func(l: Array) -> bool: return l[0] == "text").map(func(l: Array) -> String: return String(l[1]))
-	assert_has(lines, "Cooldown 1 sec.")
+	assert_has(lines, "Cooldown 0.4 sec.")
 
 
 func test_slash_blast_text_names_its_hp_cost_range_and_targets() -> void:
@@ -435,7 +433,7 @@ func test_slash_blast_text_names_its_hp_cost_range_and_targets() -> void:
 	w.learn_skill("slash_blast")
 	var text := SkillText.new(w.book)
 	var line := text.level_line("slash_blast", 1, w.loadout.stats("slash_blast"))
-	assert_eq(line, "HP -8; damage 72%, up to 6 monsters within 130 px")
+	assert_eq(line, "HP -9; damage 72%, up to 6 monsters within 132 px")
 	w.learn_skill("power_strike")
 	assert_eq(text.level_line("power_strike", 20, w.loadout.stats("power_strike", 20)),
 		"Damage 260%, up to 1 monster")
