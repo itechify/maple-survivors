@@ -314,7 +314,7 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 	var level := 1
 	var curve := ExpCurve.from_data(data.balance.get("exp_curve", {}))
 	status.update({"level": level, "exp": 0, "hp": hp, "max_hp": hp},
-		{"name": snapshot.get("name", ""), "job_name": JobTree.from_data(data.jobs, {}).name_of(int(character.get("job_id", 0))),
+		{"name": snapshot.get("name", ""), "job_name": DataRepo.jobs(data).name_of(int(character.get("job_id", 0))),
 		"exp_next": curve.exp_to_next(level)})
 	var help := MapleText.new("", MapleText.SIZE, MapleText.WHITE, true)
 	_hint = help

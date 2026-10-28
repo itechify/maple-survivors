@@ -704,10 +704,11 @@ func _step_areas(dt: float, world: RunWorld) -> void:
 			var targets := world.skill_rect_targets(blast_rect(st, anchor), anchor, limit)
 			if float(a.interval) > 0.0:
 				for m in targets:
-					var chance := world.book.canonical(key, int(st.level), "prop")
-					if world.rng.randf() * 100.0 < chance:
-						world.swarm.apply_status(m, "poison", {"time": a.duration, "level": st.level,
-							"skill": key, "element": "s", "damage_mult": st.status_damage_mult}, world.events)
+					var ground: Dictionary = world.book.def(key).get("ground", {})
+					var chance := world.book.canonical(key, int(st.level), String(ground.get("chance_field", "")))
+					if world.ground_rng.randf() * 100.0 < chance:
+						world.swarm.apply_status(m, String(ground.get("status", "")), {"time": a.duration, "level": st.level,
+							"skill": key, "element": String(ground.get("element", "")), "preserve_pulse": true, "damage_mult": st.status_damage_mult}, world.events)
 				a.next = float(a.next) + float(a.interval)
 			else:
 				world.emit("skill_impact", {"skill": key, "pos": anchor, "effect": String(a.effect)})

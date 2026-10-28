@@ -64,7 +64,7 @@ func _init() -> void:
 	setup.seed = seed_value
 	if forced_job != -2:
 		var job_error := "not a job id" if forced_job < 0 \
-			else JobTree.from_data(data.jobs, data.jobs_survivor).job_error(forced_job)
+			else DataRepo.jobs(data).job_error(forced_job)
 		if job_error != "":
 			print("profile_run: --job: " + job_error)
 			quit(2)

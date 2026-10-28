@@ -13,9 +13,10 @@ var wait := PackedFloat64Array()
 var impact := PackedFloat64Array()
 var stats: Array[Dictionary] = []
 var definitions: Array[Dictionary] = []
+var offsets := PackedFloat32Array()
 var _buf := PackedInt32Array()
 
-## Number of allies still able to attack.
+## Test hook: number of allies still able to attack.
 func living_count() -> int:
 	var count := 0
 	for i in active.size():
@@ -38,13 +39,7 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 	d["info"] = attack_node.get("info", {})
 	d["durations"] = {}
 	for a: String in ["summoned", "stand", "move", String(d.attack), "die"]:
-		var total := 0.0
-		for k: String in node.get(a, {}):
-			if k.is_valid_int():
-				# tier C: missing/zero frame delay uses 100 ms, matching SpriteAnim.
-				var delay := absf(float(node[a][k].get("delay", 100)))
-				total += (delay if delay > 0.0 else 100.0) / 1000.0
-		d.durations[a] = total
+		d.durations[a] = WeaponInfo.frame_times(node.get(a, {})).total
 	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "summon_count", 1.0)))
 	for ordinal in count:
 		var i := active.find(0)
@@ -52,6 +47,7 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 			i = active.size()
 			active.append(0)
 			x.append(0)
+			offsets.append(0)
 			y.append(0)
 			left.append(0)
 			facing.append(0)
@@ -62,7 +58,8 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 			stats.append({})
 			definitions.append({})
 		active[i] = 1
-		x[i] = world.player.pos.x
+		offsets[i] = ordinal * float(d.get("ordinal_spread", 36.0)) # tier C: per-ally spacing.
+		x[i] = world.player.pos.x + offsets[i]
 		y[i] = world.player.pos.y
 		facing[i] = world.player.facing
 		left[i] = maxf(0.0, world.loadout.skill_stat(st.skill, "duration", float(st.duration)))
@@ -99,7 +96,7 @@ func step(dt: float, world: RunWorld) -> void:
 		if wait[i] > 1e-6:
 			continue
 		var pos := Vector2(x[i], y[i])
-		var destination := world.player.pos - Vector2(world.player.facing * float(d.follow_distance), 0)
+		var destination := world.player.pos + Vector2(offsets[i], 0) - Vector2(world.player.facing * float(d.follow_distance), 0)
 		# tier C: one-pixel stand/move deadzone prevents animation flicker at the trailing point.
 		var moved := pos.distance_to(destination) > 1.0
 		if pos.distance_to(destination) > float(d.teleport_distance):

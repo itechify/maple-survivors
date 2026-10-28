@@ -22,6 +22,7 @@ extends SceneTree
 ## `--exp-mult=<k>` multiplies the round's EXP (balance `exp_mult`); recorded in the _doc as well.
 ## Only numeric character state/IDs and provenance are written; never cache trees or decoded assets.
 
+const DEFAULT_JOB := -2
 const HARNESS := preload("res://tools/balance_run.gd")
 
 
@@ -29,7 +30,7 @@ func _init() -> void:
 	var output := ""
 	var revision := ""
 	var migrate := ""
-	var job := -2 # -2: the default job
+	var job := DEFAULT_JOB
 	var god := false
 	var exp_mult := 1.0
 	var seconds := 0.0
@@ -68,8 +69,8 @@ func _init() -> void:
 		quit(2)
 		return
 	var data := DataRepo.load_all()
-	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
-	if job == -2:
+	var jobs := DataRepo.jobs(data)
+	if job == DEFAULT_JOB:
 		job = jobs.default_job()
 	var job_error := "not a job id" if job < 0 else jobs.job_error(job)
 	if job_error != "":
@@ -79,9 +80,6 @@ func _init() -> void:
 	var library := AssetLibrary.new()
 	library.open()
 	var missing := PackedStringArray()
-	if kit != "":
-		_kit(kit, tiers, job, output, revision, label, seed_value, data, library)
-		return
 	var setup := DataRepo.build_setup(data, "henesys", seed_value, Vector2(800, 600),
 		func(path: String) -> Dictionary:
 			var img := library.img(path)
@@ -91,6 +89,9 @@ func _init() -> void:
 		print("character_fixture: cache missing " + str(missing))
 		library.free()
 		quit(1)
+		return
+	if kit != "":
+		_kit({"kit": kit, "tiers": tiers, "job": job, "output": output, "revision": revision, "label": label}, setup, library)
 		return
 	setup["job"] = job
 	var world := RunWorld.new(setup)
@@ -135,19 +136,13 @@ func _init() -> void:
 
 
 ## A fresh Lv1 character of `job` wearing the equipment ids in `kit` (a comma list), `tiers` tiers unlocked, written to `output`.
-func _kit(kit: String, tiers: int, job: int, output: String, revision: String, label: String, seed_value: int,
-		data: Dictionary, library: AssetLibrary) -> void:
-	var missing := PackedStringArray()
-	var setup := DataRepo.build_setup(data, "henesys", seed_value, Vector2(800, 600),
-		func(path: String) -> Dictionary:
-			var img := library.img(path)
-			return img.root if img != null else {},
-		func(id: int) -> Dictionary: return library.mob_root(id), missing)
-	if not missing.is_empty():
-		print("character_fixture: cache missing " + str(missing))
-		library.free()
-		quit(1)
-		return
+func _kit(options: Dictionary, setup: Dictionary, library: AssetLibrary) -> void:
+	var kit := String(options.kit)
+	var tiers := int(options.tiers)
+	var job := int(options.job)
+	var output := String(options.output)
+	var revision := String(options.revision)
+	var label := String(options.label)
 	setup["job"] = job
 	var world := RunWorld.new(setup)
 	var ids: Array[int] = []

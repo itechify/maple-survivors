@@ -321,13 +321,16 @@ func delete_slot(index: int, date: String) -> Error:
 	return _commit(data)
 
 
-## The canonical name of a job id (jobs.json), or the id as text when it has none.
+## Immutable canonical names, loaded once per process.
+static var _job_names: Dictionary = {}
+
+
+## The canonical name of a job id, or the id as text when unknown.
 static func job_name_of(job_id: int) -> String:
-	var jobs: Dictionary = DataRepo.load_json(DataRepo.DATA_ROOT.path_join(DataRepo.FILES.jobs))
-	for job: Dictionary in jobs.get("jobs", []):
-		if int(job.id) == job_id:
-			return String(job.name)
-	return str(job_id)
+	if _job_names.is_empty():
+		for job: Dictionary in DataRepo.load_all().jobs.get("jobs", []):
+			_job_names[int(job.id)] = String(job.name)
+	return String(_job_names.get(job_id, str(job_id)))
 
 
 ## Validates a slot (the run wrapper of specs #32 and #70, trimmed by #286) and delegates the character to CharacterSnapshot.
