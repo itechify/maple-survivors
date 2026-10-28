@@ -369,7 +369,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"crit_damage_bonus": crit_damage_bonus,
 		"speed_factor": speed_factor,
 		"cooldown": _cooldown(key, d, heal, lv, speed_factor),
-		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0))))
+		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range",
+			float(cast.get("acquire", 0.0))))))  # a chain cast's acquisition radius is its range (tier C)
 			+ (passive_total(RANGE) if attacks and weapon_family in WeaponInfo.RANGED_FAMILIES
 				and weapon_family in book.weapon_families(key) else 0.0),
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
