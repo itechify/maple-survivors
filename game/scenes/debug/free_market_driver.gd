@@ -26,7 +26,7 @@ func _ready() -> void:
 			DirAccess.remove_absolute(file)
 	flow.save = SaveData.new(path)
 	flow.create_character("Market71")
-	var character: Dictionary = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var character: Dictionary = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	flow.finish_run({"stage": "henesys", "cleared": true, "time": 960.0, "level": 35,
 		"job_id": 210, "job_name": "Wizard (Fire, Poison)", "kills": 3000, "damage_dealt": 100000, "seed": 1,
 		"bosses_killed": 3, "levels_gained": 12, "nx_awarded": 310}, character)

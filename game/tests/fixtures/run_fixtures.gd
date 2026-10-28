@@ -657,6 +657,28 @@ static func quiet_world(x := 400.0, p_seed := 7) -> RunWorld:
 	return w
 
 
+## The character of `w` for a test to edit: its format-3 snapshot plus `level` and `base_attributes` (a copy of the world's
+## base stats), the round state that no longer travels with a character (#286). Pass the edited dictionary to `world_from`.
+static func character_with_round_state(w: RunWorld) -> Dictionary:
+	var character := w.character_snapshot()
+	character["level"] = w.progression.level
+	character["base_attributes"] = w._base_stats.duplicate()
+	return character
+
+
+## A world of `setup` whose character is `character` (a format-3 snapshot, JSON-safe) and whose round starts at the `level`
+## and `base_attributes` that dictionary may carry (extra keys are ignored on load; see character_with_round_state).
+static func world_from(setup: Dictionary, character: Dictionary) -> RunWorld:
+	setup.character = character
+	var w := RunWorld.new(setup)
+	if character.has("level"):
+		w.progression.level = int(character.level)
+	for stat: String in character.get("base_attributes", {}):
+		w._base_stats[stat] = int(character.base_attributes[stat])
+	w.refresh_player_stats()
+	return w
+
+
 ## Stands `w`'s character as job `job_id` (RunWorld.set_job) wearing the weapon its removed advancement granted
 ## (LEGACY_JOB_WEAPONS, `family` picking a multi-family first job's), when the job had one. Learns no skill.
 static func as_job(w: RunWorld, job_id: int, family := "") -> void:

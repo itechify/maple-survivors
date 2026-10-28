@@ -1,6 +1,6 @@
 class_name FreeMarket
 extends Node2D
-## Walkable round boundary. SceneFlow owns the saved character and the next tier.
+## The character's home between rounds (ADR 0006, #286). SceneFlow owns the saved character; Up at out00 opens map select.
 ## Uses PlayerMotion/PortalSet directly, without a RunWorld, swarm, casting or round timer.
 ##
 ## In-run windows (#108): the hub hosts the same WindowStack as a round (`ui_windows`, CanvasLayer 11) with the Equip
@@ -68,8 +68,8 @@ func configure(p_snapshot: Dictionary, p_flow: SceneFlow, p_options: Dictionary 
 	notice = p_notice
 
 
-## The seed of the hub's scroll rolls, a pure function of the saved boundary: the run's stored seed mixed with a hash of
-## the character's equipment, scrolls and mesos. The same save always rolls the same, every scroll (or purchase, sale
+## The seed of the hub's scroll rolls, a pure function of the saved slot: its creation date and rounds played mixed with a
+## hash of the character's equipment, scrolls and mesos. The same save always rolls the same, every scroll (or purchase, sale
 ## or pickup) changes the next seed, and quitting and continuing cannot reroll (tier C, review of spec #33).
 static func scroll_seed(p_snapshot: Dictionary) -> int:
 	var character: Dictionary = p_snapshot.get("character", {})
@@ -77,7 +77,8 @@ static func scroll_seed(p_snapshot: Dictionary) -> int:
 	var state := {"equipment": Equipment.normalized(character.get("equipment", Equipment.empty_state())),
 		"scrolls": CharacterSnapshot.integers(character.get("scrolls", {})),
 		"mesos": int(character.get("mesos", 0))}
-	return (int(p_snapshot.get("round_seed", 0)) * 1000003 + hash(JSON.stringify(state, "", true))) & 0x7FFFFFFF
+	return (hash(String(p_snapshot.get("created", ""))) + int(p_snapshot.get("rounds_played", 0)) * 1000003
+		+ hash(JSON.stringify(state, "", true))) & 0x7FFFFFFF
 
 
 func _ready() -> void:
@@ -134,7 +135,7 @@ func _ready() -> void:
 			_present(0.0)
 	if RunScene.option_flag(options, "autoplay"):
 		# The playtest autoplay shops once on entry, like the headless chains between tiers (#112).
-		shop_visit = bot_shop("bot", int(snapshot.get("round_seed", 0)))
+		shop_visit = bot_shop("bot", int(snapshot.get("rounds_played", 0)))
 	var sfx := get_node_or_null("/root/Sfx") as AudioService
 	if sfx != null:
 		sfx.play_bgm(String(map.map_root.get("info", {}).get("bgm", "")))
@@ -290,7 +291,6 @@ static func owned_pet(character: Dictionary, data: Dictionary, owned: Array) -> 
 static func _boundary_loadout(character: Dictionary, data: Dictionary) -> Loadout:
 	var loadout := Loadout.new(SkillBook.from_data(data.skills, {}))
 	loadout.pierce_floor = float(data.balance.get("combat", {}).get("pierce_floor", 0.0))
-	CharacterSnapshot.restore_loadout(character, loadout)
 	return loadout
 
 
@@ -309,10 +309,11 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 	layer.add_child(shop_button)
 	get_viewport().size_changed.connect(_place_shop_button)
 	_place_shop_button()
-	var hp := maxi(1, roundi(loadout.player_stat("max_hp", float(character.get("base_hp", 1)))))
-	var level := int(character.get("level", 1))
+	# A character has no level between rounds (ADR 0006): the bar shows the Lv1 a round starts at.
+	var hp := maxi(1, roundi(loadout.player_stat("max_hp", float(data.balance.get("player", {}).get("hp", 1)))))
+	var level := 1
 	var curve := ExpCurve.from_data(data.balance.get("exp_curve", {}))
-	status.update({"level": level, "exp": int(character.get("exp", 0)), "hp": hp, "max_hp": hp},
+	status.update({"level": level, "exp": 0, "hp": hp, "max_hp": hp},
 		{"name": snapshot.get("name", ""), "job_name": JobTree.from_data(data.jobs, {}).name_of(int(character.get("job_id", 0))),
 		"exp_next": curve.exp_to_next(level)})
 	var help := MapleText.new("", MapleText.SIZE, MapleText.WHITE, true)
@@ -356,7 +357,7 @@ func _refresh_hint() -> void:
 		return
 	var chat := GameSettings.action_label("npc_chat")
 	var talk := "%s: talk to a scroll NPC" % chat if chat != "-" else "NPC Chat unbound: double-click NPC"
-	_hint.text = "Free Market  /  %s at the exit: next map  /  %s  /  %s: Save & quit" % [
+	_hint.text = "Free Market  /  %s at the exit: map select  /  %s  /  %s: Save & quit" % [
 		GameSettings.action_label("move_up"), talk, GameSettings.action_label("pause")]
 
 

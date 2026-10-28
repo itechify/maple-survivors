@@ -104,9 +104,8 @@ query parameters become game user args (`?arg=--run=henesys&arg=--autoplay`).
 
 Stage keys are `henesys`, `ellinia`, `perion`, `kerning` (tier 1), and `sleepywood` (tier 2). Each round plays the
 region's three maps in order, with one boss 300 s after each entry; intermediate clears transfer automatically.
-`--stage=` and `--run=` also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. Continue always
-replays from map 1 with the boundary character and seed, including after quitting on a later map; map transfers never
-save.
+`--stage=` and `--run=` also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. A round is never
+saved (no resume, including after quitting on a later map); map transfers never save either ("Normal play" below).
 
 ### Playtests (`scripts/playtest.sh`)
 
@@ -151,6 +150,12 @@ playtests retain their existing behavior on a valid early-death summary.
 the title and opens the real Free Market to hand-test the scroll shops with the Lv38 F/P fixture (or `--character`) plus
 a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants) in a throwaway `user://tool_hub_save.json`
 recreated at every launch, standing on the floor between Barun and Tulcus; the real save, slots, bests and history are never touched. `--shot`/`--shot-at` work with it.
+
+`game/scenes/debug/round_loop_driver.tscn` (#286) is a small evidence driver for the new loop: the real creation screens
+(name, look, Job page), the Free Market home, map select with tier 2 locked and unlocked, results, character select and
+history (`ISOLATE=<name> bash scripts/run.sh res://scenes/debug/round_loop_driver.tscn -- --shots=<abs dir under evidence/>`).
+The flow-driver scenarios below still describe the old flow (job windows, saved rounds, Continue replay) and are T12's to
+rewrite (#282); do not trust them until then.
 
 The menu flow with injected keyboard/mouse input (v83 character signboard and creation, map select, arrow-key
 movement, level-up / job / pause windows, death, results, saved-round replay and history) is `game/scenes/debug/flow_driver.tscn`:
@@ -215,10 +220,15 @@ account into the evidence-only `driver_save.json`; delete it (or use a fresh sho
 `scenes/debug/cash_gallery.tscn` (every curated cash item on the avatar), `shield_gallery.tscn` (the Equip window and avatar with a shield / a two-handed weapon), `weapon_gallery.tscn` (every weapon family: stand, walk and each basic-attack action on a dummy; `-- --mode=cash` a cash weapon cover over a two-handed sword and a claw; `-- --mode=ammo [--branch=410 --level=37]` real ammo projectiles per tier) and `hair_cap_probe.tscn` (cap vs hair layers)
 are the avatar contact-sheet tools.
 
-Normal play keeps three living character slots. A non-final clear autosaves the carried character in the Free Market;
-Up at out00 opens the next tier's map select. Save & quit is available at both boundaries. Quit round warns that
-Continue replays the saved stage/seed from its beginning. Death, final-tier victory and confirmed deletion archive
-the run and free its slot. `--run=<stage> [--character=<absolute JSON>]` stays tool-only and never writes saves/bests.
+Normal play (save format 3, ADR 0006, #286) keeps three character slots. Character select opens the character's Free
+Market (home); Up at out00 opens map select, listing every stage of every unlocked tier (a clear of any tier-N stage
+unlocks tier N+1; tier 1 is always open); a round ends back at the Free Market, after a clear, a death or Quit round
+(which ends the round like a death). Every round starts at Lv1: the character keeps only its look, job, equipment,
+scrolls, mesos, cash, pet and unlocked tiers, plus what a round picked up even when it died. Saves happen at the hub
+and when a round ends; there is no saved round, so closing the game mid-round loses it and Continue only opens the
+hub. Only confirmed deletion frees a slot; every round (and each deletion) adds a history entry. A save file of
+format 1 or 2 moves its characters to the history on load. `--run=<stage> [--character=<absolute JSON>]` stays
+tool-only and never writes saves/bests.
 
 ### Balance (`scripts/balance.sh`)
 
@@ -230,7 +240,7 @@ the character's worn cash equipment and pet, and the HP/MP ALERT levels (`game/s
 the round has an empty account and records are byte-identical to before. The record and output names carry the file name.
 The committed fixtures are `game/tests/fixtures/accounts/full_pet.json` (pet and every upgrade; the smoke's "full account")
 and `full_cash_pet.json` (the same plus a cash item in all 11 slots; for dressed playtest screenshots).
-The committed `game/tests/fixtures/characters/lv35_magician_2nd.json` is a real headless Henesys bot character;
+The committed `game/tests/fixtures/characters/fp_arch_mage.json` is a real headless Henesys bot character;
 its `_doc` records seed, branch, policy and generation revision. `game/tools/character_fixture.gd` reproduces it.
 
 **Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
@@ -313,12 +323,12 @@ and held-out seeds remain separate.
 Henesys). `--tier=N` continues through N, choosing the first stage of each later `stages.json` `tiers` entry.
 Only CLEARED after all choices feeds the next round; death/TIMEOUT stops the chain. `--cap` applies per round.
 Tier 1 keeps the run seed; later round seeds are derived deterministically. Chain files use
-`<stage>_chain_tier<N>_<policy>_<seed>.json`, retaining `rounds[]`. Per-tier summaries include start/end levels,
+`<stage>_chain_tier<N>_<policy>_<seed>.json`, retaining `rounds[]`. Per-tier summaries include end levels (every round starts at Lv1),
 Lv70 reach and the tier-1 feed count; unstarted rounds contribute no death/boss observations. See the
 `scripts/balance.sh` header for the seed formula and record/report contract.
 
 `--character=<absolute JSON path>` starts one one-off round from a CharacterSnapshot; use it with
-`--stage=sleepywood` for fixture checks. `game/tests/fixtures/characters/lv35_magician_2nd.json` is actually Lv38
+`--stage=sleepywood` for fixture checks. `game/tests/fixtures/characters/fp_arch_mage.json` is actually Lv38
 F/P (job210), from a real seed-1 forced-F/P Henesys bot clear; `_doc` records provenance and
 `tools/character_fixture.gd` reproduces it. `--tier` requires a fresh character and bot/random/first policies;
 use `--character` and campers only for one-off rounds. Spec #32 smokes also cover chain and Dark Cave fixture

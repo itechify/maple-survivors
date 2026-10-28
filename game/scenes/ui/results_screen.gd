@@ -3,8 +3,9 @@ extends Node2D
 ## select, unrolled with the run's results. Left: the headline ("Stage Clear!" or "You died", with the v83 tombstone
 ## Effect.wz/Tomb.img/land/0), the region, continent and ending map, time survived, level, job, kills, damage dealt and a NEW BEST marker; right: the
 ## skills owned (Skill.wz icons with Basic.img/ItemNo rank digits, as on the HUD) and the previous best.
-## The single Back button returns to character select; Enter and Esc do the same. Persistent last-tier clears
-## say Victory and show tiers cleared; tool-only clears still say Stage Clear. No retry creates a parallel run.
+## The single Back button returns to the character's Free Market (character select after a tool-only round); Enter and
+## Esc do the same. A clear says Stage Clear, a death You died and a Quit round Round ended (#286). No retry creates a
+## parallel run.
 
 const BT_BACK := "UI.wz/Login.img/Common/BtStart"
 const ROLLED := "WorldSelect/signboard/2"
@@ -77,28 +78,33 @@ func _ready() -> void:
 	scroll.draw_content.connect(_draw_parchment)
 	scroll.opened.connect(func() -> void: backdrop.hide_objs(ROLLED))
 	back_button = WzButton.new(BT_BACK)
-	back_button.name = "CharacterSelect"
+	back_button.name = "Back"
 	back_button.fallback_size = Vector2(124, 52)
-	back_button.label = "" if back_button.has_art() else "Character select"
-	back_button.pressed.connect(to_character_select)
+	back_button.label = "" if back_button.has_art() else "Free Market"
+	back_button.pressed.connect(to_hub)
 	ui.add_child(back_button)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	scroll.unroll()
 
 
-## Returns to the living character slots after an ended run or a one-off round.
-func to_character_select() -> void:
+## Returns to the active character's Free Market after a round (with the NX it paid), or to the character slots after a
+## tool-only round.
+func to_hub() -> void:
 	if flow == null:
 		flow = get_node_or_null("/root/Flow") as SceneFlow
-	if flow != null:
+	if flow == null:
+		return
+	if flow.active_slot >= 0:
+		flow.goto_free_market(SceneFlow.nx_notice(summary))
+	else:
 		flow.goto_character_select()
 
 
 ## Headline of a summary.
 static func headline(p_summary: Dictionary) -> String:
-	if p_summary.get("ending") == "victory":
-		return "Victory!"
+	if p_summary.get("ending") == "quit":
+		return "Round ended"
 	return "Stage Clear!" if bool(p_summary.get("cleared", false)) else "You died..."
 
 
@@ -114,8 +120,6 @@ static func stat_rows(p_summary: Dictionary) -> Array:
 		["Kills", group_digits(int(p_summary.get("kills", 0)))],
 		["Damage dealt", group_digits(int(p_summary.get("damage_dealt", 0)))],
 	]
-	if p_summary.has("tiers_cleared"):
-		rows.append(["Tiers cleared", str(int(p_summary.tiers_cleared))])
 	# Only persistent endings were credited; a tool round computes nx_awarded but never shows it.
 	if p_summary.has("ending") and p_summary.has("nx_awarded"):
 		rows.append(["NX earned", "+%s NX" % group_digits(int(p_summary.nx_awarded))])
