@@ -553,6 +553,87 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #264 (#268): Nautilus QA and regression smoke (2026-10-27)
+
+Integration base `5ab97d6`, branch `t268-nautilus-qa`, private `caches/s264`, `ISOLATE=t268`.
+Import recheck: **1,150 images up to date, 0 warnings, 0 errors**. Fixed training seeds **1 / 2 / 2026**,
+bot and random, all five tier-1 regions, Nautilus tier-2 chains and Sleepywood Lv38 F/P fixture; no PATCH,
+tuning or held-out seeds. Detailed map entries, boss durations/censoring, Lv10/job times and warnings/missing
+are retained per run in `evidence/s264-t268/smoke-final/`.
+
+| Region | bot death s @ map (1 / 2 / 2026) | random death s @ map |
+|---|---|---|
+| henesys | 308.3@1 / 435.4@2 / 310.0@1 | 432.2@2 / 375.7@2 / 436.2@2 |
+| ellinia | 630.8@2 / 39.1@1 / 34.7@1 | 697.5@2 / 39.1@1 / 34.7@1 |
+| perion | 423.7@2 / 382.4@2 / 306.8@1 | 383.5@2 / 460.2@2 / 389.5@2 |
+| kerning | 307.7@1 / 307.8@1 / 318.6@1 | 306.6@1 / 314.5@1 / 308.7@1 |
+| nautilus | 692.2@3 / 712.2@3 / 596.7@2 | 309.9@1 / 320.8@1 / 308.4@1 |
+
+Nautilus bot map-2 entries: 323.183 / 316.867 / 316.583 s; map-3 entries: 660.933 / 631.167 / absent.
+Lv10: 213.2 / 216.5 / 211.5 s; first jobs: 200 at 213.3 / 200 at 216.5 / 100 at 211.5 s;
+second jobs: 210 at 486.0 / 230 at 570.0 / 130 at 496.3 s. Mano completes 3/3 spawned in
+23.183 / 16.867 / 16.583 s; Mushmom completes 2/2 spawned in 37.750 / 14.300 s (seed2026 not spawned).
+King Clang never spawns in these natural smoke runs. Random Lv10/first-job times are 212.1 (200) /
+220.7 (200) / 216.8 (100) s; no map-2/3 entry or second job. Mano completes 0/3 spawned, censored at
+9.867 / 20.833 / 8.367 s; every later boss is not spawned. These are observations, not tuning targets.
+
+Comparison with #257: Henesys and Perion retain those outcomes. Ellinia bot seed 1's 630.8 s rather than
+632.7 s and the six Kerning deaths reflect the already-recorded #263 wall-scope correction. Compare with
+#265's immediate baseline below for this ticket's regression. All 24 older-region records and all six
+Sleepywood fixture records are identical field for field to the pre-fix s264 rerun. Only Nautilus bot
+seeds 1/2 change (689.1/723.0 -> 692.2/712.2 s, still deaths on map 3); map-1/2 entries, job times and
+completed boss durations remain unchanged. The six Nautilus chains stop in tier 1, with zero tier-2 feeds;
+their rounds match the corresponding plain runs. All **42 started rounds** have `warnings: []` and `missing: []`.
+
+**Flow and presentation.** `flow-final/summary.json`: PASSED, missing/failures empty. Save & quit on map 2
+replays map 1 with the same boundary character and seed. The diagnostic replay enters maps at
+0 / 300.000 / 600.017 s and clears at 900.067 s, then reaches the Free Market. All 26 flow shots were
+checked by eye (`flow-contact.png`), including banners, CLEAR and fades. `04_maps_stage_select.png` has
+all five real marks, Nautilus selected, and Start clear of the fifth card. The natural x4 seed-2026
+playtest dies on map 2; the Lv38 fixture seed-1 x4 run clears at Lv51 (`fixture/summary.json`), with
+all three arrival/boss/clear shots and no missing assets. Mushmom's slam is visible in
+`fixture/boss_shockwave_1_attack1.png`. Black frames are retained in `fixture/map_1_black.png` and
+`map_2_black.png`. BGM source/cache checks are distinct from listening verification; no auditory-review claim.
+
+**King Clang.** The real Test Room diagnostic preserves canonical skill intervals/chance and boss data,
+but uses invulnerability, direct map staging, player placement beside the crab, and diagnostic hits
+(shell kill, crab below the canonical 80% summon threshold, then final kill). It is not natural survival
+evidence. `diagnostic-after/record.json` records the final crab identity, successful MobSkill 123 level 8
+with affected art, MobSkill 200 level 82's five recipients, and crab death before `stage_cleared`.
+`diagnostic-after/shell.png` shows the shell, `skill_123.png` shows the yellow above-head Stun art, and
+`summons_visible.png` shows the summoned Lorang/Clang after their arrival smoke (`skill_200.png`).
+The final boss record is `mob_id: 5220000, dead: true`.
+
+**Test Room traversal, [#279](https://github.com/itechify/maple-survivors/issues/279), fixed.** The suspected
+trenches are raised crates over the y150 floor: 72 px tops with 112-113 px vertical faces. The original
+probe cannot cross any face with repeated 77 px jumps. The survivor map entry now opts into local collision
+approaches beside these three crates only; cached WZ and all physics constants stay unchanged. These are
+tier C collision ramps, not new art: the avatar can stand above the drawn floor on an approach. Player
+walking, bot drop collection and walking-mob pursuit each cross all three in both directions on fixed
+ticks. A scope test passes deliberately configured overrides to every other shipped stage map and verifies
+identical foothold coordinates and links. Before/after traces: `trenches-before.log`, `trenches-after.log`;
+red/green: `trenches-red.log`, `trenches-all.log`.
+
+**Training Center, [#280](https://github.com/itechify/maple-survivors/issues/280), owner decision.** It plays
+as a vertical stack of long tiers over a narrow ground arena. Ladders work: manual jump/Up on rope x322
+climbs y125 to -115 in 360 fixed ticks (`training/player_rope_climb.png`). The diagnostic seed-1 bot also
+reaches y-115 by 220 s; `training/record.json` records mobs on platforms 0/1/7 then. Natural seed2026 is
+still fighting on the ground at 240 s while loot remains above (`natural/t240.png`). This is an arena
+fitness concern, not evidence of broken ladders; retain it or use the spec's map-1 fallback. No map swap
+or tuning here. Random-policy deaths all on map 1 are flagged for owner review; bot outcomes span maps 2/3.
+
+**Manifest fixture, [#281](https://github.com/itechify/maple-survivors/issues/281), fixed.** Rust and web
+shipping-manifest tests initially failed because #265's ten approved selections were absent from their
+shared golden. It now adds precisely those ten entries; importer behavior is unchanged.
+
+**Final checks:** Godot **2,233 tests, 0 failed, 0 skipped**, 217 files, 811.302 s, on s264 after merging
+the current integration tip (still `5ab97d6`). The two pre-existing dummy-renderer texture RID allocations
+are reported at shutdown. Rust **70 passed, 0 failed, 0 ignored**, including all 18 real-WZ checks with
+`MAPLE_WZ_ROOT` set; web **62 passed, 0 failed, 0 skipped**. The separate Test Room checks are included
+in the full Godot count. `bgm.log` confirms each map's canonical BGM loaded and started successfully.
+Evidence is gitignored under `evidence/s264-t268/`; diagnostic scripts are retained there. These checks
+establish flow and implementation regression, not balanced survival.
+
 #### Nautilus data and final-form chain (#265, 2026-10-27)
 
 Regression smoke on private `caches/s264`, fixed training seeds **1 / 2 / 2026**, both card policies, the four
@@ -6597,6 +6678,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 
 | Nautilus region and pools (#264, #265) | Map order 912030000 / 100030000 / 108000500; original life Pig 25 / Green Mushroom 9. Henesys numeric curve unchanged; Blue Snail only until 120 s, then Snail 2 / Pig 3, from 210 s Snail 1 / Pig 3 / Green Mushroom 2. Forest life excludes Strange 9400617/9400655/9400656 (no other timed/hidden mobs); Test Room uses OctoPirate life | C choices/weights; A IDs/life | Owner spec #264; original v83 WZ |
 | Nautilus bosses and opt-in final_form (#265) | Mano/Mushmom entries copied from Henesys. King Clang shell 5220001 has real stand/die art, no link; final_form 5220000 preserves one encounter through canonical revive, both forms use hp_mult 7000/29000 (966 + 6034 = 7000 HP), touch 1.34 (181..214) and attack 1.21 (179..212) at PDD7/HP448; matches Blue Mushmom 7000 HP, touch 181..214, attack 180..212 with nearest 0.01 endpoint error; attack cadence 8 s. Existing non-opt-in revives end their encounter on scheduled death | C encounter/multipliers; A canonical stats/art/revive | Starting values, untuned; same-slot method #254. 85-100% rolls, floor(.75 x 7)=5 defense |
+| Test Room collision approaches (#279) | map 108000500 only, opt-in trench_ramps: three crate face pairs get 192 px approaches, shared by player, bot navigation and mobs; WZ and physics unchanged | C survivor traversal override | #268 real-cache player, bot, mob and other-map scope checks |
 | Nautilus mob metadata and stun art (#265) | OctoPirate borrows Octopus Leg EXP icon; Lorang uses Lorang Claw 4000043, Clang/King Clang use Clang Claw 4000044 (signature associations, not drop-table claims); explicit empty mesos uses level fallback. Shell boss bar borrows final crab icon. Skill.wz/MobSkill.img/123/level/8/affected has frames 0/1/2, pos/repeat; it is the character above-head stun art, with no separate effect node; full MobSkill image already imported | C metadata associations/fallback; A art paths | Original v83 WZ; no drop-table claims |
 
 ## 12. Later phases
