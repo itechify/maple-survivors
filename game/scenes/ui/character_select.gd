@@ -186,7 +186,7 @@ func select_slot(index: int) -> void:
 		return
 	var slot := flow.save_data().slot(selected)
 	var data := DataRepo.load_all()
-	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
+	var jobs := DataRepo.jobs(data)
 	# A character has no level or stats between rounds (ADR 0006, #286): the scroll shows the Lv1 a round starts at.
 	var stats: Dictionary = data.balance.get("player", {}).get("stats", {})
 	selected_info = {"name": slot.name, "level": 1, "job": jobs.name_of(int(slot.character.job_id)),

@@ -234,7 +234,7 @@ func test_bowman_cards_are_offered_with_any_weapon_and_each_attack_can_hit_more_
 			assert_false(key + "_rank" in combat.upgrades.eligible(combat), "#287: unported skills have no pool offers")
 			assert_false(key + "_shots" in combat.upgrades.eligible(combat), "#287: unported skills have no pool offers")
 			var before: int = combat.loadout.stats(key).count
-			assert_true(combat.upgrades.apply(key + "_shots", combat))
+			RF.add_modifier_effects(combat, combat.upgrades.card(key + "_shots"))
 			assert_eq(combat.loadout.stats(key).count, before + 1)
 
 

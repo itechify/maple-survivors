@@ -1,7 +1,7 @@
 class_name HudStatusBar
 extends HudWidget
 ## The original status bar, gauges and identity; the right-hand decorative controls are reserved for potions. There is
-## no MP (ADR 0006): the v83 art's MP gauge is drawn empty (all gray) with no numbers.
+## no MP (ADR 0006): the v83 art's MP span is covered with the adjacent status-bar background.
 
 func _draw() -> void:
 	var view := get_viewport_rect().size
@@ -28,9 +28,13 @@ func _draw_gauges(g: Vector2) -> void:
 	var exp_v := float(player_state.get("exp", 0))
 	var exp_next := float(run_info.get("exp_next", 0))
 	_gray(g, HP_FILL, fill_width(hp, max_hp, HP_FILL.y))
-	_gray(g, MP_FILL, 0.0)
 	_gray(g, EXP_FILL, fill_width(exp_v, exp_next, EXP_FILL.y))
 	_blit(_frame(SB + "gauge/graduation"), g)
+	# Copy a blank strip of the status bar over the baked MP label, fill and ticks.
+	var bg := _frame(SB + "base/backgrnd")
+	if bg != null:
+		draw_texture_rect_region(bg.page, Rect2(g + Vector2(109, 0), Vector2(108, 30)),
+			Rect2(bg.region.position + Vector2(570, 38), Vector2(1, 30)))
 	_number_text(g + Vector2(HP_TEXT_X, TEXT_Y), "[%d/%d]" % [int(hp), int(max_hp)])
 	var pct := 0 if exp_next <= 0.0 else int(floorf(100.0 * clampf(exp_v / exp_next, 0.0, 1.0)))
 	_number_text(g + Vector2(EXP_TEXT_X, TEXT_Y), "%d[%d%%]" % [int(exp_v), pct])

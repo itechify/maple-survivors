@@ -188,7 +188,7 @@ func test_cards_are_on_offer_whatever_weapon_is_held_and_on_both_branches() -> v
 			var id := key + ("_count" if key == "lucky_seven" else "_targets")
 			assert_false(id in eligible, "#287: unported skills have no pool offers")
 			var before := w.loadout.stats(key)
-			assert_true(w.upgrades.apply(id, w))
+			RF.add_modifier_effects(w, w.upgrades.card(id))
 			var after := w.loadout.stats(key)
 			assert_eq(after.count if key == "lucky_seven" else after.mob_count,
 				(before.count if key == "lucky_seven" else before.mob_count) + 1)
@@ -227,7 +227,7 @@ func test_drop_scroll_and_shop_rosters_follow_the_job_families() -> void:
 		assert_false(EquipmentDrops.family_allows(WEAPONS["dagger" if path == "claw" else "claw"], [path]))
 	var shield_info := {1092018: {"reqJob": 8, "reqLevel": 22}}
 	for families: Array in [["dagger"], ["claw"], []]:
-		assert_eq(EquipmentDrops.eligible([1092018], shield_info, 400, [0, 30], data.equipment_drops, families), [1092018],
+		assert_eq(EquipmentDrops.eligible([1092018], shield_info, 400, [0, 30], families), [1092018],
 			"a Thief shield drops by job class alone (#292 removed the dagger-only rule)")
 	var manifest := AssetManifest.load_merged("res://data/asset_manifest.json")
 	for id in data.equipment_drops.items:
