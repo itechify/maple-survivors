@@ -5565,6 +5565,40 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. No rarity lists ship until #288 lands; proposed lists are in T9-291.md.
 
+### 7.35 Pull (#300, spec #296)
+
+The mirror of `knockback` (7.27): a generic skill block that drags mobs toward the caster along their foothold chain.
+Monster Magnet (1121001, 1221001, 1321001) is the first user; Paladin, Dark Knight and Buccaneer (Snatch) reuse it.
+No shipped skill carries the block yet, so no existing record changes.
+
+```json
+"pull": {"chance_field": "prop", "range_field": "range", "min_gap": 60}
+```
+
+- **Keys.** `chance_field`: the canonical level field read as a percent (empty or absent means always). `range_field`:
+  the reach in px (`"range"` reads the resolved `range` stat, so area/reach modifiers apply; any other name reads that
+  canonical field). `min_gap`: the closest a pulled mob ends from the caster, in px. Optional `min_distance` overrides
+  the 120 px floor below. The cap is the resolved `mob_count` (canonical `mobCount` plus count modifiers).
+- **When.** `SkillRunner.apply_pull` runs once per cast of any non-buff skill with the block, right after the `cast`
+  event (before the damage lines of a skill that also hits, as Snatch will). It scans the live mobs itself; it does not use
+  the cast rule's target list.
+- **Selection (tier C).** Candidates are live, grounded, non-boss mobs whose body centre is within `range` of the cast
+  origin and whose feet are at least 120 px away horizontally. Scheduled bosses, canonical bosses, airborne mobs and
+  flyers are never candidates and never spend a slot. The `mob_count` farthest candidates are taken, farthest first
+  (horizontal distance; the lower slot breaks ties). Mobs under 120 px are left alone: they are already in the pile.
+- **Roll.** One draw per taken candidate, in that order, on the main stream (`world.rng`, stream 1): pulled when
+  `draw * 100 < chance`. No draw at a chance of 100 or without a `chance_field`. A 0% chance still draws (as knockback does).
+  A miss keeps its slot; selection happens before the rolls.
+- **Move.** `MobSwarm.pull` slides the mob toward the caster's x with `FootholdMap.slide_along` by
+  `max(0, |dx| - min_gap)` px, so it never crosses the caster. It follows slopes and linked footholds and stops at the
+  platform's end, at a wall (EPS short of it) and at the map bounds. A mob already inside the gap is rolled and not moved.
+  Statuses survive. Each mob that moved emits `mob_pulled {mob, from, pos}`.
+- **Pull-only skills.** A skill with `damage: "none"`, a `pull` block and a `box`, `weapon_reach` or `range_around` rule
+  deals no damage lines (`_resolve_cast` skips the instant strike); casting admission stays the cast rule's
+  (`range_around` admits on one mob in range; a crowd threshold such as Magnet's 3 is the skill's own `cast` block, H7).
+- **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
+  and Skill-window text (H7).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -5894,7 +5928,7 @@ Where a job's data lives (one seam per fact, all tier C unless noted):
 
 | What | Where | 212 today |
 |---|---|---|
-| Playable | `survivor/jobs.json` `jobs.<id>.playable`, set by the line file | true; `JobTree.playable_jobs()`, `default_job()` = the first playable job |
+| Playable | `survivor/jobs.json` `jobs.<id>.playable`, set by the line file | true; `JobTree.playable_jobs()`; `default_job()` = `survivor/jobs.json` `default_job` (212, tier C, #298) while that job is playable, else the first playable job |
 | Starting skill, key skill, pool | `survivor/jobs/<line>.json` `starting_skill`, `mobility_skill`, `skill_pool` | Energy Bolt; Teleport (F/P, outside the slots); twelve keys (section 8) |
 | Creation weapon | same file, `creation_weapon` | Wooden Wand 1372005 (the Magician line's v83 starting wand; wearing it checks only the job class) |
 | Weapon families of drops | same file, `weapon_families` | wand, staff (a job without a list drops no weapons) |
@@ -6013,6 +6047,9 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 |---|---|---|---|
 | Playable jobs and start skills (#284) | `survivor/jobs.json`: 212 is the only playable job and the default for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
 | Auto-AP rows (#284) | `balance.player.ap`: one `{primary, secondary, keyframes}` row per job, nearest ancestor's row otherwise, all AP to STR without a row. 212: INT primary, LUK secondary at the old Magician keyframes (Lv1 3 -> Lv200 202); the 200/100/300/400/510/520 rows keep the unported lines' old single rows | C | Owner, spec #282 (212); the rest the earlier tier C rows without weapon paths |
+| Hero AP row (#298, spec #296) | `balance.player.ap["112"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204 (the secondary DEX target tracks the level plus about 4, the v83 Warrior gear pattern). HP growth is not re-listed: 112 inherits the Warrior row (100: 26 per level) through the lineage | C | Spec #296 |
+| Hero creation weapon (#298, spec #296) | `survivor/jobs/hero.json` `creation_weapon` 1302000, the plain Sword (reqJob 0, so wearing it checks no class); `weapon_families` `["sword", "axe"]` filters the existing Warrior drop list (one- and two-handed), armour and shields drop by the Warrior class bit; the weapon item id and stats are tier A | C | Spec #296 |
+| `default_job` pin (#298, spec #296) | `survivor/jobs.json` `default_job` 212: the job of a fresh character and of every tool run, test and oracle that names none, so Hero (`playable` false until the last Hero ticket) never changes it by becoming playable; Hero is always chosen explicitly (`--job=112`, the creation Job page). The owner can flip it with this one line | C | Spec #296, risk found while checking the slice |
 | Cards on the job line (#284) | A card is eligible when one of its `requires.jobs` is the character's job or an ancestor (`UpgradePool.on_line`); no `carry_jobs`, no advancement draw, no weapon check; Beginner and Teleport cards deleted | C | Stopgap until the skill pool (#287) |
 | Removed RNG streams (#284) | Streams 5 (the basic attack) and 8 (bot job draws) are reserved and never drawn; no other stream is renumbered | C | Keeps every other stream's seeded sequence |
 | Region cards and ending-map results (#241, #247) | Map 1's mapMark beside the region; three ordered `map name → boss name` rows in the existing v83 parchment, each wrapping as needed with a 6 px gap between rows. Objective: "Defeat 3 bosses across 3 maps". Results keep region/continent and add the ending map's WZ name and mapMark, with a 6 px gap before stats | C layout/text; A map/boss names and marks | Owner #241 / #247; String.wz and each map's `info/mapMark`. Summary identity comes from `RunWorld.current_map_id()` |
@@ -6133,6 +6170,9 @@ Bowman (#166), generic mechanics (#200):
 | Constant / rule | Value | Tier | Source |
 |---|---|---|---|
 | Skill knock-back distance | Per-skill `knockback.distance` in px; no shipped default in #200 (synthetic test: 120 px); follows the platform and clamps at walls/edges; airborne/flying mobs stay put, statuses stay | C | Survivor rule, owner #166; shared moving-attack slide |
+| Pull selection (#300) | Up to `mobCount` candidates, farthest first (horizontal; slot breaks ties), only live grounded non-boss mobs at least 120 px from the caster (block key `min_distance` overrides) and within `range`; bosses and flyers never candidates (7.35) | C | ours, spec #296 |
+| Pull gap and slide (#300) | Per-skill `pull.min_gap` px (Monster Magnet ships 60, H7); the mob slides `max(0, dx - gap)` px toward the caster along its foothold chain, stopping at platform edges, walls and map bounds; never crosses the caster | C | ours, spec #296; shared slide |
+| Pull chance rolls (#300) | One main-stream draw per taken candidate, none at 100% or without a chance field; a 0% chance still draws; selection before rolls | C | ours (mirrors the knockback roll rule) |
 | Knock-back roll | One stream-1 roll per damaging line on a non-boss, even at 0/100%; canonical `chance_field` percent; canonical/scheduled bosses do not roll or move | A (canonical chance), C (stream, per-line rule, boss policy) | Skill.wz; #166 binding decisions |
 | Pierce fall-off schedule | Linear `max(floor, 1 - fraction * (n - 1))`; `balance.json/combat.pierce_floor` defaults to 0.1; 0.1 per mob means the sixth takes 50%; includes crit, rounded once | C | #166 binding decisions; WZ has no fall-off value; survivor data owns the floor |
 | Impact blast policy | First mob consumes shot; primary counts toward cap; box translated to primary feet, selected before hits; nearest body then slot; one `hit` animation at impact by default (`visual: "effect"` supported) | A (canonical box/cap/damage field), C (consumption, anchor/order/art choice) | Skill.wz; #200 |

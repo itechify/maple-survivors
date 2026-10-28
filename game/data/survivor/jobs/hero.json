@@ -1,0 +1,25 @@
+{
+	"_doc": "Hero line (spec #296, H2 #298). The first class line added after the #282 slice: a class spec adds jobs/<line>.json, skills/<line>.json (and upgrades/, equipment_drops/ ... only when it has entries) and asset_manifest.d/<line>.json, then appends <line> to DataRepo.LINES (docs/ARCHITECTURE.md 4.4.4). Skill keys stay inert until their skills are defined in skills/hero.json (an undefined key is never offered). playable flips to true in the last Hero ticket (H9/H10); until then Hero cannot be chosen and JobTree.default_job() stays 212 either way (survivor/jobs.json default_job).",
+	"jobs": {
+		"112": {
+			"starting_skill": "power_strike",
+			"mobility_skill": "rush_hero",
+			"_mobility_skill": "tier C: spec #296 D1: Rush (1121006) is Hero's manual mobility skill on the skill key, outside both slot tracks; defined by H6.",
+			"skill_pool": ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma"],
+			"_skill_pool": "tier C: spec #296: the seven hand-picked Hero actives (Rush is the mobility skill, not a pool entry).",
+			"weapon_families": ["sword", "axe"],
+			"_weapon_families": "tier C: spec #296: one- and two-handed swords and axes (WeaponInfo.family); armour and shields drop by the Warrior class bit.",
+			"creation_weapon": 1302000,
+			"_creation_weapon": "tier C: spec #296: the plain Sword (reqJob 0); wearing it needs no class.",
+			"meter": {
+				"id": "combo", "max": 10,
+				"gain": {"event": "cast_landed", "amount": 1, "exclude": "finisher"},
+				"per_unit": {"stat": "damage", "value": 0.02},
+				"art": "Skill.wz/111.img/skill/1111002/state"
+			},
+			"_meter": "tier C: spec #296 Combo orbs. Data only until the meter ticket (H3) reads it; tier A source: Combo Attack's description (max 5), Advanced Combo (up to 10).",
+			"playable": false,
+			"_provenance": "tier C: spec #296 (H2 #298): not playable until the Hero skills, bot and QA are in."
+		}
+	}
+}

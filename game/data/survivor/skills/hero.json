@@ -1,0 +1,4 @@
+{
+	"_doc": "Hero line (spec #296, H2 #298), books 111/112 (and 100/110 skills moved here only when a Hero ticket ports them). An empty skeleton: H5 (Power Strike, Slash Blast, Brandish), H6 (Rush), H7 (Shout, Monster Magnet) and H8 (Panic, Coma) each append their own entries. Power Strike and Slash Blast stay in warrior.json until H5 ports them.",
+	"skills": {}
+}

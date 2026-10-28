@@ -122,7 +122,8 @@ How many advancements a job is from Beginner: 0 Beginner, 1 first job, 2 second 
 
 **Job line**:
 A first job and every job below it, named after it (warrior, magician, bowman, thief, pirate), plus beginner for
-job 0 and common for job-neutral data. Survivor data and the asset manifest keep one file per line
+job 0 and common for job-neutral data. A class spec after the slice adds a *data line* named after the class
+(`hero`, #296), appended to `DataRepo.LINES`, so jobs of the same Adventurer line no longer share one file. Survivor data and the asset manifest keep one file per line
 (`survivor/<name>/<line>.json`, `asset_manifest.d/<line>.json`), and a per-job table resolves a job through its
 lineage to the nearest listed ancestor.
 _Avoid_: class line, family (a weapon family is a kind of weapon)
@@ -296,6 +297,12 @@ status effects on the character only ever come from bosses.
 A skill effect that pushes a struck monster away from the character, by a chance per hit. Bosses are never knocked
 back. It is not the small push any hit gives a monster whose damage reaches its canonical `pushed` threshold.
 _Avoid_: push-back, knockdown
+
+**Pull**:
+A skill effect that drags monsters toward the character along their platform, by a chance per monster, until they stand
+a set gap away. It picks the farthest monsters first, up to the skill's monster count. Bosses and airborne monsters are
+never pulled. It is the mirror of knock-back (Monster Magnet, Snatch).
+_Avoid_: magnet, suck, vacuum
 
 **Hit window**:
 The short time after the character is hit during which it can't be hit again. It shrinks with repeated hits, and
