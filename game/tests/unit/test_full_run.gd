@@ -44,6 +44,8 @@ func _run(w: RunWorld) -> Dictionary:
 		var ticked := w.state == RunWorld.PLAYING and t < ticks
 		if ticked:
 			w.step(DT, RF.bot_input(w, memo))
+			if w.transfer_pending:
+				w.advance_map()
 			if t % 60 == 0:
 				alive.append(w.swarm.alive_count())
 				if w.time >= 480.0:
@@ -51,7 +53,10 @@ func _run(w: RunWorld) -> Dictionary:
 				if w.time >= 360.0 and w.time < 720.0:
 					st.engaged_6_12 = int(st.engaged_6_12) + _engaged(w)
 					st.alive_6_12 = int(st.alive_6_12) + w.swarm.alive_count()
-		for e: Dictionary in w.drain_events():
+		var events := w.drain_events()
+		# Match normal autoplay/balance: a sensible player wears eligible upgrades picked up mid-round.
+		BotShop.equip_after(w, events)
+		for e: Dictionary in events:
 			st.events += 1
 			match String(e.type):
 				"mob_spawned":
