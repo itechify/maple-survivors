@@ -913,8 +913,10 @@ func _warm_ui() -> void:
 			for field: String in ["ball", "hit", "effect"]:
 				for char_level: Variant in char_levels:
 					var path := world.book.visual(key, field, level, int(char_level))
-					if path != "":
-						library.find_anim(path)
+					# An element-keyed path (`{art}`, PlayerForms.ART_INDEX) loads at every element's key.
+					for element: String in (PlayerForms.ART_INDEX.keys() if path.contains(PlayerForms.ART_TOKEN) else [""]):
+						if path != "":
+							library.find_anim(PlayerForms.fill_art(path, element))
 
 
 ## Loads what the scheduled bosses first show or play, so their first appearance does not

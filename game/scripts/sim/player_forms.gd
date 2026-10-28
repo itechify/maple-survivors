@@ -6,6 +6,11 @@ extends RefCounted
 static var EFFECTS := {"element": _element, "damage": _damage}
 ## tier C: nearby elemental arbitration radius, independent of a form's admission radius.
 const PREFERRED_RADIUS := 400.0
+## tier A (P1 #309, read from the pixels): the art key of an element in element-keyed Skill.wz nodes (`effect/<n>`,
+## `hit/0/<n>`): 0 none, 1 ice, 2 fire, 3 lightning, 5 holy. Poison would be 4 (no node uses it). One row per element.
+const ART_INDEX := {"": 0, "i": 1, "f": 2, "l": 3, "h": 5}
+## The path token a skill definition writes where the element's art key goes (`hit/0/{art}`).
+const ART_TOKEN := "{art}"
 var _active: Array[Dictionary] = []
 
 ## Whether no running stance occupies this definition's exclusion group.
@@ -73,16 +78,32 @@ func step(dt: float, world: RunWorld) -> void:
 			# No catch-up burst after a wait: the interval starts at the successful cast.
 			sub.next = float(state.age) + float(sub.rule.get("interval", 0.0))
 
-## Applies every active effect to a cast-local copy. Non-damaging casts remain untouched.
+## Applies every active effect to a cast-local copy, then fills the `{art}` token of its hit and effect paths with the
+## cast's element. Non-damaging casts remain untouched.
 func begin_cast(_world: RunWorld, _key: String, stats: Dictionary) -> Dictionary:
-	if _active.is_empty() or String(stats.damage_type) == "none":
+	if String(stats.damage_type) == "none":
 		return stats
-	var out := stats.duplicate()
-	for state in _active:
-		for effect: String in state.effects:
-			if EFFECTS.has(effect):
-				(EFFECTS[effect] as Callable).call(out, state.effects[effect])
+	var out := stats
+	if not _active.is_empty():
+		out = stats.duplicate()
+		for state in _active:
+			for effect: String in state.effects:
+				if EFFECTS.has(effect):
+					(EFFECTS[effect] as Callable).call(out, state.effects[effect])
+	for field: String in ["hit", "effect"]:
+		if String(out.get(field, "")).contains(ART_TOKEN):
+			if is_same(out, stats):
+				out = stats.duplicate()
+			out[field] = fill_art(String(out[field]), String(out.get("element", "")))
 	return out
+
+## The art key of `element` (0 for none or an element with no art row).
+static func art_index(element: String) -> int:
+	return int(ART_INDEX.get(element, 0))
+
+## `path` with its `{art}` token replaced by the art key of `element`.
+static func fill_art(path: String, element: String) -> String:
+	return path.replace(ART_TOKEN, str(art_index(element)))
 
 ## Selects the best admitted form per group; ready order breaks elemental-score ties.
 func preferred(world: RunWorld, ready: Array[String]) -> Array[String]:
