@@ -19,9 +19,8 @@ extends SceneTree
 ## time cap: the round stops there and only has to be alive and warning-free; without it the round must clear).
 ## `--god` is a documented diagnostic aid: RunWorld.god makes the character invulnerable, so the bot can reach a clear its
 ## play does not survive to; use it with a round, and the fixture's _doc records it (`invulnerable` and `diagnostic`).
-## `--patch=<absolute JSON path>` deep-merges a JSON patch into the loaded data first, as balance_run does: Hero is `playable: false`
-## until the spec #296 QA ticket, so a Hero fixture is made with `--patch` of `{"jobs_survivor": {"jobs": {"112": {"playable":
-## true}}}}` until then (the fixture's _doc records the patch file name).
+## `--patch=<absolute JSON path>` deep-merges a JSON patch into loaded data first, as balance_run does; `_doc.patch`
+## records its file name. Both Hero (112) and F/P (212, default) ship playable; generating either needs no patch.
 ## `--exp-mult=<k>` multiplies the round's EXP (balance `exp_mult`); recorded in the _doc as well.
 ## Only numeric character state/IDs and provenance are written; never cache trees or decoded assets.
 

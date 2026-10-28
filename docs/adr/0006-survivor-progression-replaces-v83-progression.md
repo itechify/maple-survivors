@@ -58,6 +58,8 @@ grilling.
 
 ## Consequences
 
+F/P (212, default) and Hero (112) are playable; #306 records the QA gates for the orchestrator’s `redesign` merge readiness decision.
+
 - **Supersedes:**
   - ADR 0001: the chained run, carried level, EXP and skills, final-tier victory, and run-ending death.
   - ADR 0002: mesos ending with the run, and drops filtered by character level.

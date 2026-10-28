@@ -1,10 +1,8 @@
 extends TestCase
-## The creation Job page with two playable jobs (spec #296, H9 #305): Hero (112) and the Arch Mage (F/P, 212). Hero is not
-## playable in the shipped data until H10, so these tests mirror the data with `DataRepo.patch` (the test seam) and drive the
+## The creation Job page with two playable jobs (spec #296, H9 #305): Hero (112) and the Arch Mage (F/P, 212). Both jobs are playable; these tests drive the
 ## real page and SceneFlow through it. Saves go to TestCase.test_dir().
 
 const CREATE := preload("res://scenes/ui/character_create.gd")
-const PATCH := {"jobs_survivor": {"jobs": {"112": {"playable": true}}}}
 
 var save_path := TestCase.test_dir("creation_two_jobs/save.json")
 var _nodes: Array[Node] = []
@@ -13,7 +11,7 @@ var _nodes: Array[Node] = []
 func before_each() -> void:
 	TestCase.remove_tree(save_path.get_base_dir())
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(save_path.get_base_dir()))
-	DataRepo.patch = PATCH.duplicate(true)
+	DataRepo.patch = {}
 
 
 func after_each() -> void:
@@ -57,17 +55,33 @@ func _key(keycode: Key) -> InputEventKey:
 	return e
 
 
-func test_the_test_mirror_makes_hero_playable_and_the_shipped_data_does_not() -> void:
-	var mirrored := DataRepo.load_all()
-	var tree := JobTree.from_data(mirrored.jobs, mirrored.jobs_survivor)
+func test_shipped_jobs_are_playable_and_a_patch_can_refuse_hero() -> void:
+	var shipped := DataRepo.load_all()
+	var tree := DataRepo.jobs(shipped)
 	assert_eq(tree.playable_jobs(), [112, 212] as Array[int], "canonical order: Hero above the Arch Mage")
 	assert_eq(tree.default_job(), 212, "the pin keeps 212 the default with two playable jobs")
-	DataRepo.patch = {}
-	var shipped := DataRepo.load_all()
-	assert_false(JobTree.from_data(shipped.jobs, shipped.jobs_survivor).job(112).playable, "H9 does not flip playable (H10 does)")
+	assert_true(JobTree.from_data(shipped.jobs, shipped.jobs_survivor).job(112).playable)
+	DataRepo.patch = {"jobs_survivor": {"jobs": {"112": {"playable": false}}}}
+	assert_false(DataRepo.jobs(DataRepo.load_all()).job(112).playable)
+
+
+func test_name_to_look_and_cancel_work_without_art() -> void:
+	var flow := _flow()
+	flow.goto_character_select()
+	flow.current.show_creation()
+	var creation: Control = flow.current.creation
+	assert_eq(creation.phase, "name")
+	creation.name_edit.text = "NoArt306"
+	creation.create_button.pressed.emit()
+	assert_eq(creation.phase, "look")
+	creation._return_name()
+	assert_eq(creation.phase, "name")
 
 
 func test_two_rows_in_canonical_order_names_from_the_job_data_and_212_chosen() -> void:
+	# Look OK needs the cache-backed face/hair columns; do not bypass the real creation flow.
+	if not require_cache():
+		return
 	var creation := _job_page(_flow(), "TwoJobs01")
 	assert_eq(creation.job_ids, [112, 212])
 	assert_eq(creation.job_id, 212, "the default job is chosen when the page opens")
@@ -85,6 +99,9 @@ func test_two_rows_in_canonical_order_names_from_the_job_data_and_212_chosen() -
 
 
 func test_clicking_a_row_selects_it_and_moves_the_highlight() -> void:
+	# Look OK needs the cache-backed face/hair columns; do not bypass the real creation flow.
+	if not require_cache():
+		return
 	var creation := _job_page(_flow(), "TwoJobs02")
 	(creation.find_child("Job_112", true, false) as Button).pressed.emit()
 	assert_eq(creation.job_id, 112)
@@ -101,6 +118,9 @@ func test_clicking_a_row_selects_it_and_moves_the_highlight() -> void:
 
 
 func test_up_and_down_step_the_selection_and_clamp_at_the_ends() -> void:
+	# Look OK needs the cache-backed face/hair columns; do not bypass the real creation flow.
+	if not require_cache():
+		return
 	var creation := _job_page(_flow(), "TwoJobs03")
 	creation._input(_key(KEY_UP))
 	assert_eq(creation.job_id, 112, "Up from 212 is Hero")
@@ -140,6 +160,9 @@ func test_the_weapon_box_follows_the_chosen_jobs_creation_weapon() -> void:
 
 
 func test_create_makes_a_hero_with_its_sword_and_a_separate_arch_mage_in_the_next_slot() -> void:
+	# Look OK needs the cache-backed face/hair columns; do not bypass the real creation flow.
+	if not require_cache():
+		return
 	var flow := _flow()
 	var creation := _job_page(flow, "HeroOne01")
 	creation.select_job(112)
@@ -160,11 +183,14 @@ func test_create_makes_a_hero_with_its_sword_and_a_separate_arch_mage_in_the_nex
 	assert_eq(flow.save.slot(0).character.tiers_unlocked, 1, "each job has its own tier ladder")
 
 
-func test_hero_is_refused_again_when_the_mirror_is_removed() -> void:
+func test_hero_is_refused_when_disabled_after_selection() -> void:
+	# Look OK needs the cache-backed face/hair columns; do not bypass the real creation flow.
+	if not require_cache():
+		return
 	var flow := _flow()
 	var creation := _job_page(flow, "Refused01")
 	creation.select_job(112)
-	DataRepo.patch = {}
+	DataRepo.patch = {"jobs_survivor": {"jobs": {"112": {"playable": false}}}}
 	creation.create_button.pressed.emit()
 	assert_eq(creation.phase, "job", "still on the page")
 	assert_ne(String(creation.message.text), "", "the refusal is shown")

@@ -1,6 +1,6 @@
 extends TestCase
 ## Hero's data seam (spec #296, ticket H2 #298): the `hero` data line loads and is the last of DataRepo.LINES, the job entry
-## `survivor/jobs/hero.json` (112, playable false until H9), its AP row, the `default_job` pin that keeps tools, tests and
+## `survivor/jobs/hero.json` (112, playable alongside 212), its AP row, the `default_job` pin that keeps tools, tests and
 ## oracles on 212 whatever is playable, and the weapon families of its equipment drops (sword and axe, one- and two-handed;
 ## armour and shields by the Warrior class bit). Seeded RNG; item info is synthetic unless a test says "real cache".
 
@@ -73,7 +73,7 @@ func test_the_hero_line_loads_without_errors_and_adds_its_job_and_core_skills() 
 
 # --- the job entry ----------------------------------------------------------------------------------------------------
 
-func test_job_112_has_the_spec_fields_and_is_not_playable() -> void:
+func test_job_112_has_the_spec_fields_and_is_playable() -> void:
 	var data := _data()
 	var jobs := _jobs(data)
 	var rec := jobs.job(112)
@@ -86,9 +86,9 @@ func test_job_112_has_the_spec_fields_and_is_not_playable() -> void:
 	assert_false("rush_hero" in jobs.skill_pool(112), "Rush is the mobility skill, not a pool entry")
 	assert_eq(jobs.weapon_families(112), ["sword", "axe"])
 	assert_eq(jobs.creation_weapon(112), 1302000)
-	assert_false(bool(rec.playable))
-	assert_ne(jobs.job_error(112), "", "the tools refuse an unplayable job")
-	assert_eq(jobs.playable_jobs(), [212] as Array[int])
+	assert_true(bool(rec.playable))
+	assert_eq(jobs.job_error(112), "")
+	assert_eq(jobs.playable_jobs(), [112, 212] as Array[int])
 	var meter: Dictionary = data.jobs_survivor.jobs["112"].meter
 	assert_eq(String(meter.id), "combo")
 	assert_eq(int(meter.max), 10)
@@ -164,6 +164,7 @@ func test_default_job_stays_212_after_hero_becomes_playable() -> void:
 
 func test_without_a_pin_or_with_an_unplayable_pin_the_first_playable_job_is_the_default() -> void:
 	var data := _data()
+	data.jobs_survivor.jobs["112"]["playable"] = false
 	data.jobs_survivor.erase("default_job")
 	assert_eq(_jobs(data).default_job(), 212, "data without the pin behaves as before")
 	data.jobs_survivor.jobs["112"]["playable"] = true
