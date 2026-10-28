@@ -587,6 +587,11 @@ for Henesys, Kerning and Nautilus (SHA-256 prefixes `f01deaa1e8c5`, `0981dc93ac1
 The configurable-width test failed before implementation; the focused trench/boss/revive/data/card checks
 then passed **102 tests, 0 failures, 0 skips**. Fresh evidence lives under `_scratch/t264fix/`;
 `evidence/t264-review-fixes/04_maps_stage_select.png` was checked by eye for the five marks, details and Start.
+The fresh five-region smoke (seeds 1/2/2026, bot/random) completed **30 rounds, 0 warnings, 0 missing**;
+all 30 records are byte-identical to the preceding #268 QA smoke, including Henesys jobs/bosses and Ellinia's
+recorded early deaths. The Nautilus diagnostic maps flow also passed all three maps, replay and Free Market.
+Full cache-backed suite (`ISOLATE=t264fix`, private `caches/s264`): **2,234 tests, 0 failed, 0 skipped**
+(217 files, 747.273 s); the existing two dummy texture RID allocations are reported at shutdown.
 
 Comparison with #257: Henesys and Perion retain those outcomes. Ellinia bot seed 1's 630.8 s rather than
 632.7 s and the six Kerning deaths reflect the already-recorded #263 wall-scope correction. Compare with
