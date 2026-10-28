@@ -1078,6 +1078,10 @@ func handle_events(events: Array) -> void:
 					_event_shot("boss_shockwave_%d_%s.png" % [int(e.boss_index), String(e.attack)], 0.12)
 			"mob_attack":
 				_on_mob_attack(e)
+			"summon_spawn":
+				_sound(String(e.get("sound", "")))
+			"summon_strike":
+				fx.play(String(e.effect), e.pos)
 			"cast":
 				_on_cast(e)
 			"skill_thrown":

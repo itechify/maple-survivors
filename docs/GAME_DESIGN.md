@@ -5775,6 +5775,56 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. Rarity lists ship in the skill definition.
 
+### 7.44 Physical followers (#338, spec #332 M8)
+
+The Elquines seam (7.32) with four data-driven extensions, shared by Silver Hawk, Phoenix, Golden Eagle and Frostprey (and
+any later follower). None is an ID switch; a definition without the keys behaves exactly as before (Elquines is
+byte-identical: same state, same RNG stream, `test_character_baseline` and `test_tick_cost_identity` unchanged).
+
+- **Physical damage source.** `damage: "physical"` with `summon.watk_field: "pad"`: `Loadout.stats` resolves the damage
+  with that level field as the W.Att in the ordinary physical formula (`CombatMath.physical_damage_range`: the held
+  weapon's multiplier row, so a bow gives 3.4 x DEX + STR, then x pad / 100, the character's mastery for the minimum) instead of the character's `watk`
+  (worn weapon, buffs and ammo). `Loadout._summon_watk` is the only place that reads the key. The level is the skill's mapped
+  rank level, so `pad` plays the role `mad` plays for Elquines; `damage_pct` stays 1 (the nodes have no `damage` field). The
+  mob's PDD applies (`defense: pdd`), crit and survivor multipliers as for any physical hit. Tier C reading of v83's
+  "attack +23" (Silver Hawk) and "basic attack 305" (Phoenix) text.
+- **Stun from the hit, literal duration.** The strike goes through `RunWorld.hit_mob`, so the skill's `on_hit` applies.
+  `on_hit` gains an optional literal `duration` (seconds), beside `duration_field`, which wins when present: a status whose
+  WZ `time` is something else (Silver Hawk's `time` is the lifetime, 103-180 s) can still use `chance_field` (`prop`) for
+  the chance. One stream-1 draw per hit when `prop` is under 100, none at 100; bosses and steady mobs reject stun as always.
+- **Flyers.** `summon.hover` (px, default 0) lifts the follower above its trailing point: it enters, follows and snaps at
+  that height. The attack box stays feet-relative (anchored at the trailing point on the ground, not at the flyer), so a
+  hovering Phoenix's +-60 px box still reaches ground monsters (tier C). `summon.move` (default `"move"`) names the animation
+  node played while following (`fly` for the hawk and the phoenix); the sim stores that resolved node name as the ally's
+  action and takes its duration from that node, so `PlayerSummonRenderer` draws it unchanged (it loops `stand` and the
+  definition's move node).
+- **Settling between strikes.** `summon.settle` (default false: Elquines holds its attack pose for the whole
+  `attack_interval` and does not follow meanwhile, 7.32): a settling follower leaves the attack pose when the attack animation
+  has finished (and the hit has landed), plays its move / stand node and keeps following the caster until the interval ends,
+  then strikes again. The hawk needs it: its `attack1` body animation is a 100 ms frame followed by a 600 ms **1 x 1 px
+  placeholder** (the hawk is out of sight while its bolt strikes), so holding the last frame would hide the hawk for the rest
+  of its 1.6 s interval.
+- **Sounds and strike art.** `sounds.summon` (a `Sound.wz` path) rides the `summon_spawn` event as `sound` (the key is absent when the
+  definition lists none, so Elquines' events are byte-identical) and the presentation plays it at each spawn, one per frame per path. When the attack node's
+  `info` has an `effect` node, each struck monster gets one `summon_strike` event ({skill, slot, mob, pos, effect}) and the
+  presentation plays that animation on it. (Both events are emitted without being listed in `RunWorld.EVENT_FIELDS`, like `summon_attack`.)
+
+**Hover and the WZ origins.** The v83 follower frames already float above their anchor (Silver Hawk `fly` / `stand`: origin y
+137-221 on 63-113 px tall frames, i.e. 40-110 px above the anchor), so `hover` stacks on top of art that is already high: a
+hawk at `hover 80` was drawn about 190 px over the character in the #338 probe. The B11 definitions should start from a small
+`hover` (0-30) and look at a screenshot.
+
+**What the WZ `type 1` attack changes (verified on v83 Skill.wz 311.img / 312.img).** Silver Hawk (3111005) `attack1`:
+`info/type 1`, `attackAfter 100`, `effectAfter 600`, no `mobCount` (one target), box +-200 x +-150, a two-frame body
+animation (100 ms then 600 ms), `info/hit` (6 frames, 90 ms, the same frames as the skill's own `hit/0`) and `info/effect`
+(4 frames, 80 ms, origin 140-200 px above the frame: a bolt that lands on the target). Phoenix (3121006) `attack1`: `type 1`,
+`attackAfter 360`, `mobCount 4`, box +-100 x +-60, eleven body frames, **no** `info/hit` and **no** `info/effect` (its fire
+art is the skill's `hit` / `tile` nodes). So `type 1` marks an attack whose impact art hangs off `info` instead of the
+body frames. The sim never branches on `type`. Damage lands at `attackAfter` for both (T9 timing); `info/hit` is the
+skill's `hit/0` the existing hit visual already draws, `info/effect` is drawn at the same impact on each struck monster
+(tier C: `effectAfter` is not modelled as a separate delay; the bolt art simply plays on the impact tick). Silver Hawk
+and Phoenix `Use` / `Summon` sounds are UOLs into 3211005 (Golden Eagle).
+
 ### 7.33 Hero pool and Rush (spec #296)
 
 #### Core melee: Power Strike, Slash Blast, Brandish (H5, #301)
@@ -7259,3 +7309,15 @@ and gain exclusion compares the skill’s declared role. Rush explicitly present
 without changing movement physics. Pull admission counts only grounded non-boss targets outside its configured floor.
 Warrior bot equipment weights now explicitly name ancestor 100 with the same values formerly inherited from 0
 (tier C: existing physical baseline, unchanged). Hero AP and bot score values live in jobs/hero.json’s balance block.
+
+### Bowmaster B6 constants (#338)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Follower damage W.Att | the level's `pad` (`summon.watk_field`) instead of the character's weapon attack | tier C reading of v83 "attack +23" / "basic attack 305"; `pad` itself tier A |
+| Literal `on_hit.duration` | seconds, beats `duration_field` | tier C (Silver Hawk's `time` is its lifetime) |
+| `summon.settle` | opt-in, default off: after the attack animation the follower plays its move/stand node and keeps following until the interval ends | tier C |
+| Flyer spawn / trailing height | `hover` px above the trailing point; spawn at that height | tier C |
+| Attack box anchor of a flyer | feet-relative (the trailing point on the ground), not the flyer | tier C |
+| `info/effect` strike art | played at the damage impact (`attackAfter`) on each struck monster; `effectAfter` not modelled | tier C; the nodes are tier A |
+| `Summon` sound | plays at each follower spawn when `sounds.summon` is listed | tier C (no sound in the v83 client was verified to play at spawn) |

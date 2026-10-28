@@ -1992,7 +1992,10 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 		var chance_field := String(status.get("chance_field", ""))
 		var chance := book.canonical(key, level, chance_field) if chance_field != "" else 100.0
 		if chance > 0.0 and (chance >= 100.0 or rng.randf() * 100.0 < chance):
-			var params := {"time": book.canonical(key, level, String(status.get("duration_field", "time"))),
+			# A literal `duration` (seconds, spec #332 M8) beats the level field: a status whose WZ `time` is something else.
+			var time: float = float(status.duration) if status.has("duration") \
+				else book.canonical(key, level, String(status.get("duration_field", "time")))
+			var params := {"time": time,
 				"level": level, "skill": key, "x": book.canonical(key, level, "x")}
 			if String(hit.element) != "":
 				params["element"] = String(hit.element)
