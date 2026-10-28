@@ -34,8 +34,8 @@ const WINDOW_CHOICES := {1: "key_config", 2: "options"}
 const BOUNDARY_CHOICES := ["Resume", "Save & quit"]
 ## Hub boundaries save safely without a round-loss confirmation (tier C: owner #32).
 var boundary_mode := false
-## tier C: owner #32 round-boundary warning, verbatim.
-const QUIT_WARNING := "You'll lose this round's progress. Continue later to restart the round from its beginning."
+## tier C: ours (#286): Quit round ends the round like a death, so what it picked up is kept and nothing is unlocked.
+const QUIT_WARNING := "This ends the round like a death: you keep what you picked up, but a stage is not cleared."
 var confirming_quit := false
 
 ## Focused choice (index into choices()).

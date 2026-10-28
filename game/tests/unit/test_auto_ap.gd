@@ -4,7 +4,7 @@ extends TestCase
 ## Magician snapshot.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const FIXTURE := "res://tests/fixtures/characters/lv35_magician_2nd.json"
+const FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 
 ## v83 Character.wz reqLUK of the Magician equipment levels: the independent source for the LUK targets.
 const V83_REQ_LUK := {13: 15, 28: 30, 38: 40, 48: 50, 58: 60, 68: 70}
@@ -70,36 +70,20 @@ func test_a_job_without_an_ap_row_puts_every_point_into_str() -> void:
 		assert_eq(int(w.player_state.luk), 4)
 
 
-func test_committed_lv38_magician_snapshot_derives_the_split_on_load() -> void:
-	var errors := PackedStringArray()
-	var character := DataRepo.load_character(FIXTURE, errors)
-	assert_eq(errors, PackedStringArray())
-	if character.is_empty():
-		return
-	var setup := RF.setup("quiet", 2, RF.quiet_data())
-	setup.character = character
-	var w := RunWorld.new(setup)
-	assert_eq(int(w.progression.level), 38)
-	assert_eq(int(w.player_state.luk), 40, "base LUK 4 + 36 AP reaches the Lv38 target")
-	assert_eq(int(w.player_state.int), 153, "base INT 4 + 185 earned - 36 AP moved to LUK")
-	assert_eq(int(w.character_snapshot().earned_ap), 185, "the snapshot still stores only earned AP")
-
-
 func test_batch_exp_matches_stepwise_growth_and_keeps_level_and_potion_queue_order() -> void:
-	var initial := RF.quiet_world(400.0, 1)
-	RF.as_job(initial, 200)
-	initial.progression.level = 20
-	initial._earned_ap = 95
-	initial.refresh_player_stats(false)
 	var setup := RF.setup("quiet", 1, RF.quiet_data())
-	setup.character = initial.character_snapshot()
 	# Include two synthetic potion schedule boundaries in the batch and check their event order.
 	setup.data.balance.potions.schedule = [{"level": 22, "kind": "hp", "item": 2000001},
 		{"level": 25, "kind": "hp", "item": 2000002}]
 	var batch := RunWorld.new(setup)
 	var stepwise := RunWorld.new(setup)
-	batch.drain_events()
-	stepwise.drain_events()
+	# A character has no level between rounds (#286): stand both mid-round at Lv20 with 95 earned AP.
+	for w: RunWorld in [batch, stepwise]:
+		RF.as_job(w, 200)
+		w.progression.level = 20
+		w._earned_ap = 95
+		w.refresh_player_stats(false)
+		w.drain_events()
 	var total := 0
 	for level in range(20, 28):
 		var exp := stepwise.progression.curve.exp_to_next(level)

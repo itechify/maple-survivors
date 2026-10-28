@@ -1,7 +1,7 @@
 extends TestCase
-## How SceneFlow credits and shows the NX a round pays (#115): a non-final clear credits it in the boundary save and
-## announces it in the Free Market; a death or the final clear credits it in the save that archives the run and shows
-## "+N NX" on the results screen; deletion, Quit round and one-off rounds credit nothing; map select shows the balance.
+## How SceneFlow credits and shows the NX a round pays (#115, #286): every round (a clear, a death, Quit round) credits it
+## in the save that ends the round, shows "+N NX" on the results screen and announces it in the Free Market on arrival;
+## deletion and one-off rounds credit nothing; map select shows the balance.
 
 const UI_FLOW := preload("res://tests/unit/test_ui_flow.gd")
 const RESULTS := preload("res://scenes/ui/results_screen.gd")
@@ -38,16 +38,18 @@ func _summary(cleared: bool, nx: int) -> Dictionary:
 	return s
 
 
-func test_non_final_clear_credits_nx_in_the_boundary_save_and_announces_it_in_the_free_market() -> void:
+func test_a_clear_credits_nx_in_the_round_save_and_the_free_market_announces_it() -> void:
 	var flow := _flow()
 	flow.create_character("Clear115")
 	var character: Dictionary = flow.save.slot(0).character
 	flow.finish_run(_summary(true, 140), character)
-	assert_eq(flow.current_name, "free_market")
+	assert_eq(flow.current_name, "results")
 	var reloaded := SaveData.new(save_path)
-	assert_eq(reloaded.account.nx, 140, "spendable straight away")
-	assert_eq(reloaded.slot(0).phase, "free_market", "credited by the same save as the boundary")
-	assert_eq(int(reloaded.slot(0).tiers_cleared), 1)
+	assert_eq(reloaded.account.nx, 140, "spendable straight away, credited by the save that ends the round")
+	assert_eq(int(reloaded.slot(0).rounds_played), 1)
+	assert_true(RESULTS.stat_rows(flow.last_summary).has(["NX earned", "+140 NX"]))
+	flow.current.to_hub()
+	assert_eq(flow.current_name, "free_market")
 	assert_eq((flow.current as FreeMarket).notice, "You have gained 140 NX.")
 	flow.save_and_quit()
 	flow.save = SaveData.new(save_path)
@@ -57,7 +59,7 @@ func test_non_final_clear_credits_nx_in_the_boundary_save_and_announces_it_in_th
 	assert_eq(SaveData.new(save_path).account.nx, 140, "never paid twice")
 
 
-func test_death_credits_nx_in_the_save_that_archives_the_run_and_results_show_it() -> void:
+func test_a_death_credits_nx_too_and_results_show_it() -> void:
 	var flow := _flow()
 	flow.create_character("Death115")
 	flow.save.set_account({"nx": 25, "owned": []})
@@ -66,23 +68,23 @@ func test_death_credits_nx_in_the_save_that_archives_the_run_and_results_show_it
 	var reloaded := SaveData.new(save_path)
 	assert_eq(reloaded.account.nx, 85)
 	assert_eq(reloaded.history.size(), 1)
-	assert_eq(reloaded.slot(0), {})
+	assert_eq(reloaded.slot(0).name, "Death115", "the character lives on")
 	assert_true(RESULTS.stat_rows(flow.last_summary).has(["NX earned", "+60 NX"]))
 
 
-func test_final_clear_credits_nx_and_victory_results_show_it() -> void:
+func test_every_clear_credits_nx_there_is_no_final_tier_to_end_a_character() -> void:
 	var flow := _flow()
 	flow.create_character("Win115")
 	var character: Dictionary = flow.save.slot(0).character
 	var total := 0
-	for tier in SceneFlow.tiers().size():
-		flow.finish_run(_summary(true, 100 + tier), character)
-		total += 100 + tier
+	for round_index in 3:
+		flow.finish_run(_summary(true, 100 + round_index), character)
+		total += 100 + round_index
 	assert_eq(flow.current_name, "results")
 	assert_eq(SaveData.new(save_path).account.nx, total)
-	assert_eq(flow.last_summary.ending, "victory")
-	var last := 100 + SceneFlow.tiers().size() - 1
-	assert_true(RESULTS.stat_rows(flow.last_summary).has(["NX earned", "+%d NX" % last]))
+	assert_eq(flow.last_summary.ending, "cleared")
+	assert_eq(SaveData.new(save_path).slot(0).name, "Win115", "victory archives nothing")
+	assert_true(RESULTS.stat_rows(flow.last_summary).has(["NX earned", "+102 NX"]))
 
 
 func test_deleting_a_character_credits_nothing() -> void:
@@ -93,18 +95,12 @@ func test_deleting_a_character_credits_nothing() -> void:
 	assert_eq(SaveData.new(save_path).account.nx, 30)
 
 
-func test_quit_round_leaves_the_account_and_the_boundary_alone() -> void:
-	if not require_cache():
-		return
+func test_quit_round_pays_its_nx_like_a_death() -> void:
 	var flow := _flow()
 	flow.create_character("Quit115")
-	flow.finish_run(_summary(true, 140), flow.save.slot(0).character)
-	flow.goto_stage_select()
-	flow.start_round("sleepywood", 11)
-	var bytes := FileAccess.get_file_as_string(save_path)
-	flow.quit_round()
-	assert_eq(FileAccess.get_file_as_string(save_path), bytes)
-	assert_eq(SaveData.new(save_path).account.nx, 140)
+	flow.finish_run(_summary(false, 40), flow.save.slot(0).character, "quit")
+	assert_eq(SaveData.new(save_path).account.nx, 40)
+	assert_eq(flow.save.history[0].ending, "quit")
 
 
 func test_one_off_round_credits_nothing_and_writes_no_save() -> void:
@@ -121,5 +117,6 @@ func test_map_select_shows_the_account_balance() -> void:
 	var flow := _flow()
 	flow.save.set_account({"nx": 12345, "owned": []})
 	flow.create_character("Select115")
+	flow.goto_stage_select()
 	assert_eq(flow.current_name, "stage_select")
 	assert_true(flow.current.character_label.text.contains("12,345 NX"), flow.current.character_label.text)

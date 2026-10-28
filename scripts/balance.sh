@@ -57,7 +57,7 @@
 # lifetime hits per ordinary kill, death-only times and whole boss-hit HP fractions; *_summary.json/log preserve the aggregate.
 # Per-run card_tiers_offered/picked count the displayed Potential tiers; SYSTEMS totals include an observed-run count.
 # Chain files use <stage>_chain_tier<N>_<policy>_<seed>.json and retain rounds[]; summaries group by tier,
-# showing tier-1 feed count, rounds started/cleared, start/end levels and Lv70 reach alongside death/boss metrics.
+# showing tier-1 feed count, rounds started/cleared, end levels and Lv70 reach alongside death/boss metrics.
 # Each round records tier (1-based), stage, seed, start_character and lv70_reached; character is the outgoing
 # snapshot only on CLEARED ({} otherwise). missing=[] confirms setup asset validation, not rendering lookups.
 # Equipment and mesos (spec #33, #112): every bot wears the best item it owns at each equipment pickup, level-up and job

@@ -19,15 +19,14 @@ func test_drink_starts_the_cooldown_and_repeated_press_is_silent() -> void:
 	assert_near(float(w.potions.snapshot().hp.get("cooldown_left", -1)), 19.0, 0.0001)
 
 
-func test_legacy_stock_is_ignored_and_rounds_start_ready_at_the_scheduled_tier() -> void:
+func test_legacy_stock_is_ignored_and_rounds_start_ready_at_the_first_tier() -> void:
 	var character := RF.quiet_world(400.0, 238).character_snapshot()
-	character.level = 25
 	character.potions = {"hp": {"item_id": 2001001, "count": 900}, "mp": {"item_id": 2000003, "count": 0}}
 	assert_eq(CharacterSnapshot.validation_error(character), "")
 	var setup := RF.setup("quiet", 238)
 	setup.character = character
 	var w := RunWorld.new(setup)
-	assert_eq(w.potions.snapshot().hp.item_id, 2000002, "legacy item and count do not override the schedule")
+	assert_eq(w.potions.snapshot().hp.item_id, 2000000, "legacy item and count do not override the schedule (Lv1)")
 	assert_false(w.potions.snapshot().has("mp"), "a legacy MP stock is ignored too (no MP, #285)")
 	assert_eq(w.potions.snapshot().hp.get("cooldown_left"), 0.0)
 	assert_true(w.drink_potion("hp"))

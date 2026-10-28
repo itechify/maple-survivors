@@ -3,7 +3,7 @@ extends TestCase
 ## the character (mesos, scroll stacks, spare equipment) and format-1 migration. Saves go to TestCase.test_dir(); the
 ## real user://save.json must stay untouched.
 
-const FIXTURE := "res://tests/fixtures/characters/lv35_magician_2nd.json"
+const FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 ## Every rate (100, 60, 10, dark 70, dark 30) of wand Magic Att., hat INT, top DEF and gloves Magic Att. (scrolls.json).
 const KIT_SCROLL_IDS := [2043700, 2043701, 2043702, 2043704, 2043705, 2040024, 2040025, 2040026, 2040012, 2040013,
 	2040400, 2040401, 2040402, 2040404, 2040405, 2040818, 2040817, 2040816, 2040814, 2040815]
@@ -66,7 +66,8 @@ func test_the_kit_sets_mesos_and_leaves_the_character_valid() -> void:
 	assert_eq(character.mesos, 500000)
 	assert_eq(CharacterSnapshot.validation_error(character), "")
 	assert_eq(HubTestKit.apply(_fixture(), 77, _loader()).mesos, 77)
-	assert_eq(character.level, 38, "the rest of the character is untouched")
+	assert_eq(character.job_id, 212, "the rest of the character is untouched")
+	assert_eq(character.tiers_unlocked, 2, "the kit unlocks every tier, so map select shows them all")
 	assert_eq(character.equipment.worn.weapon.id, 1372005)
 
 
@@ -158,8 +159,7 @@ func test_start_hub_enters_the_free_market_through_a_throwaway_slot_and_spares_t
 	assert_eq(flow.save.path, path)
 	assert_eq(flow.active_slot, 0)
 	var boundary := SaveData.new(path).slot(0)
-	assert_eq(boundary.phase, "free_market")
-	assert_eq(int(boundary.tier), 1, "out00 opens the second tier's map select, as after a real clear")
+	assert_eq(int(boundary.character.tiers_unlocked), 2, "map select lists both tiers unlocked")
 	assert_eq(boundary.character.mesos, 321000)
 	assert_eq(boundary.character.scrolls.size(), KIT_SCROLL_IDS.size())
 	assert_eq(boundary.character.equipment.inventory.size(), 4)
@@ -219,8 +219,7 @@ func test_start_hub_places_the_character_beside_the_scroll_npcs_and_normal_arriv
 
 
 func _snapshot() -> Dictionary:
-	return {"name": "HubTester", "created": "2026-01-01T00:00:00", "character": _fixture(), "tier": 1,
-		"phase": "free_market", "rounds_played": 1, "tiers_cleared": 1}
+	return {"name": "HubTester", "created": "2026-01-01T00:00:00", "character": _fixture(), "rounds_played": 1}
 
 
 func _flow() -> SceneFlow:

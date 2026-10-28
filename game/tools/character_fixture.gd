@@ -16,12 +16,13 @@ extends SceneTree
 ## `exp_mult`) for a line the bot cannot level at its natural pace (the knuckle Pirate: its damage cannot beat the second
 ## boss), and is recorded in the _doc as well.
 ## Only numeric character state/IDs/skill keys and provenance are written; never cache trees or decoded assets.
-## The snapshot written is the current CharacterSnapshot format (2: worn equipment, inventory, scrolls, mesos).
+## The snapshot written is the current CharacterSnapshot format (3, #286): job, look, worn equipment, inventory, scrolls,
+## mesos, unlocked tiers, cash and pet, i.e. the character as the round leaves it (its pickups). It has no level or build.
 ##
-## `--migrate=<absolute JSON path> --out=<absolute JSON path>` instead converts an existing format-1 fixture to format 2
-## with real-cache item info (CharacterSnapshot.migrate), keeping its character and _doc provenance and recording the
-## migration in _doc.migration. The committed fixture was migrated this way by spec #33 (#105), not regenerated, so its
-## Dark Cave records stay comparable.
+## `--migrate=<absolute JSON path> --out=<absolute JSON path>` instead converts an existing format-1 or -2 fixture to
+## format 3 with real-cache item info (CharacterSnapshot.migrate), keeping its job, look and belongings and its _doc
+## provenance and recording the migration in _doc.migration. The committed fp_arch_mage.json was converted by hand the
+## same way (its _doc.migration_286).
 
 const HARNESS := preload("res://tools/balance_run.gd")
 
@@ -121,7 +122,7 @@ func _init() -> void:
 		return
 	file.store_string(JSON.stringify(_rounded(character), "\t") + "\n")
 	file.close()
-	print("FIXTURE_WRITTEN %s Lv%d job%d missing=%s" % [output, character.level, character.job_id, missing])
+	print("FIXTURE_WRITTEN %s job%d reached Lv%d missing=%s" % [output, character.job_id, int(record.level), missing])
 	library.free()
 	quit()
 
@@ -129,8 +130,8 @@ func _init() -> void:
 func _migrate(input: String, output: String) -> void:
 	var errors := PackedStringArray()
 	var old := DataRepo.load_character(input, errors)
-	if not errors.is_empty() or int(old.get("format", 0)) != 1:
-		print("character_fixture: --migrate needs a valid format-1 character: %s" % "; ".join(errors))
+	if not errors.is_empty() or int(old.get("format", 0)) not in [1, 2]:
+		print("character_fixture: --migrate needs a valid format-1 or format-2 character: %s" % "; ".join(errors))
 		quit(1)
 		return
 	var library := AssetLibrary.new()
@@ -150,9 +151,10 @@ func _migrate(input: String, output: String) -> void:
 	var character := RunWorld.new(setup).character_snapshot()
 	character["_doc"] = old._doc.duplicate(true)
 	for key: String in ["forced_branch", "seed"]:
-		character._doc[key] = int(character._doc[key])
-	character._doc["migration"] = {"from_format": 1, "to_format": CharacterSnapshot.FORMAT,
-		"by": "spec33/ticket-105", "how": "tools/character_fixture.gd --migrate (CharacterSnapshot.migrate)"}
+		if character._doc.has(key):
+			character._doc[key] = int(character._doc[key])
+	character._doc["migration"] = {"from_format": int(old.format), "to_format": CharacterSnapshot.FORMAT,
+		"by": "spec282/ticket-286", "how": "tools/character_fixture.gd --migrate (CharacterSnapshot.migrate)"}
 	var file := FileAccess.open(output, FileAccess.WRITE)
 	if file == null:
 		print("character_fixture: cannot write " + output)

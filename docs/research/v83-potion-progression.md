@@ -178,7 +178,7 @@ Thief 22, Pirate 25, Warrior 26, before equipment, Improved MaxHP and job grants
 | 60 | 776 | 1276 | 1426 | 1476 |
 | 70 | 896 | 1496 | 1676 | 1736 |
 
-The Lv 38 Magician fixture (`game/tests/fixtures/characters/lv35_magician_2nd.json`) has `base_hp` 512, which is exactly
+The Lv 38 Magician fixture (`game/tests/fixtures/characters/fp_arch_mage.json`) has `base_hp` 512, which is exactly
 `50 + 14 x 9 + 12 x 28`, so the formula holds for a line without HP grants. Lines with Improved MaxHP or job grants run
 higher: Lv 34 Fighter 1350, Lv 50 Bandit 1506, Lv 30 Hunter 1066. Max MP of the same fixtures: Lv 38 Magician `base_mp`
 1019, Lv 50 Bandit 695, Lv 37 Brawler 648, Lv 34 Fighter 215. Consequences:

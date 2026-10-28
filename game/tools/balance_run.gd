@@ -742,14 +742,11 @@ static func aggregate(records: Array) -> Dictionary:
 	var fight_samples := {}
 	var censored_samples := {}
 	var hit_samples := {}
-	var start_levels: Array = []
 	var end_levels: Array = []
 	var nx_samples: Array = []
 	result["lv70_reached"] = 0
 	result["tier"] = int(records[0].get("tier", 0)) if not records.is_empty() else 0
 	for record: Dictionary in records:
-		if record.get("start_character", {}).has("level"):
-			start_levels.append(int(record.start_character.level))
 		if record.has("level"):
 			end_levels.append(int(record.level))
 		if record.has("nx_awarded"):
@@ -848,7 +845,6 @@ static func aggregate(records: Array) -> Dictionary:
 		for field: String in SHOP_FIELDS:
 			result.shop[field] = statistics(shop_samples[field])
 	result["boss_hit_fraction"] = statistics(fractions)
-	result["start_level"] = statistics(start_levels)
 	result["end_level"] = statistics(end_levels)
 	result["nx_awarded"] = statistics(nx_samples)
 	for bucket: Dictionary in result.ordinary_kill_hits_by_min:
@@ -912,8 +908,8 @@ static func describe_metrics(summary: Dictionary) -> String:
 	for number: String in summary.map_entry_seconds:
 		lines.append("  map-%s entry seconds %s" % [number, _range(summary.map_entry_seconds[number])])
 	if int(summary.get("tier", 0)) > 0:
-		lines.append("SUMMARY tier %d: %d started, %d cleared; start level %s; end level %s; Lv70 reached %d/%d" % [
-			int(summary.tier), int(summary.runs), int(summary.outcomes.CLEARED), _range(summary.start_level),
+		lines.append("SUMMARY tier %d: %d started, %d cleared; end level %s; Lv70 reached %d/%d" % [
+			int(summary.tier), int(summary.runs), int(summary.outcomes.CLEARED),
 			_range(summary.end_level), int(summary.lv70_reached), int(summary.runs)])
 	lines.append("SYSTEMS %d runs: potions used HP %d%s" % [int(summary.runs), int(summary.potions_used.hp),
 		_campers(summary)])
