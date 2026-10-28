@@ -1,4 +1,57 @@
 {
 	"_doc": "I/L Arch Mage line (spec #319, I2 #321), books 220/221/222. An empty skeleton: each of I6-I10 owns one contiguous region and appends its entries there, so the parallel tickets never collide. I6 (#325): Cold Beam, Thunder Bolt, Teleport (moves from magician.json), Ice Strike, Thunder Spear. I7 (#326): Ice Demon, Element Composition (il). I8 (#327): Chain Lightning. I9 (#328): Ifrit. I10 (#329): Blizzard, Big Bang (il). Energy Bolt and Magic Claw stay in magician.json (F/P's pool entries too).",
-	"skills": {}
+	"skills": {
+		"blizzard": {
+			"_rarity": "Tier C: first-pass #329 bonuses (spec #319), repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "amplify", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "storm", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2221007,
+			"book": "222",
+			"job": 222,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Blizzard",
+			"desc": "Calls down a blizzard over a wide area. The ice lands after a short delay and freezes what it hits.",
+			"text": {"desc": "Calls down a blizzard over a wide area. The ice lands after a short delay and freezes what it hits."},
+			"icon": "Skill.wz/222.img/skill/2221007/icon",
+			"damage": "magic",
+			"element": "i",
+			"cooldown": 4.8,
+			"range": 450,
+			"count": 1,
+			"action": "blizzard",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/222.img/skill/2221007/hit/0",
+			"effect": "Skill.wz/222.img/skill/2221007/effect",
+			"rotate": false,
+			"cast": {"rule": "box"},
+			"sounds": {"use": "Sound.wz/Skill.img/2221007/Use", "hit": "Sound.wz/Skill.img/2221007/Hit"},
+			"_provenance": "Tier A: WZ damage, box, mobCount, freeze time, hitAfter, tile and effect art, elemAttr i, Use/Hit sounds. Tier C: the freeze reading of the WZ time field (no prop, bosses and ice-immune refuse it), the 4.8 s cooldown, targeting and timing; GAME_DESIGN 7.60.",
+			"pending": {"delay": 1.6, "effect": ""},
+			"on_hit": {"status": "freeze", "duration_field": "time"},
+			"cast_visuals": [
+				{"path": "Skill.wz/222.img/skill/2221007/tile/0", "x": -720},
+				{"path": "Skill.wz/222.img/skill/2221007/tile/1", "x": -540},
+				{"path": "Skill.wz/222.img/skill/2221007/tile/2", "x": -360},
+				{"path": "Skill.wz/222.img/skill/2221007/tile/3", "x": -180},
+				{"path": "Skill.wz/222.img/skill/2221007/tile/4", "x": 0},
+				{"path": "Skill.wz/222.img/skill/2221007/tile/5", "x": 180},
+				{"path": "Skill.wz/222.img/skill/2221007/tile/6", "x": 360},
+				{"path": "Skill.wz/222.img/skill/2221007/tile/7", "x": 540},
+				{"path": "Skill.wz/222.img/skill/2221007/tile/8", "x": 720}
+			]
+		},
+		"big_bang_il": {
+			"_provenance": "Tier A: the identity of the three Big Bangs (2121001, 2221001, 2321001) in v83 data, re-checked by the drift guard. Tier C: the template mechanism (GAME_DESIGN 7.63). Everything else is inherited from big_bang (GAME_DESIGN 7.31, 7.60).",
+			"extends": "big_bang",
+			"skill_id": 2221001,
+			"book": "222",
+			"job": 222
+		}
+	}
 }
