@@ -294,7 +294,7 @@
 			"kind": "skill_new",
 			"skill": "bow_booster",
 			"name": "Bow Booster",
-			"desc": "Learn Bow Booster: Uses HP and MP to temporarily increase bow attack speed.",
+			"desc": "Learn Bow Booster: Uses HP to temporarily increase bow attack speed.",
 			"icon": "Skill.wz/310.img/skill/3101002/icon",
 			"max_rank": 1,
 			"weight": 2,
@@ -579,7 +579,7 @@
 					320
 				]
 			},
-			"desc": "Learn Crossbow Booster: Uses HP and MP to temporarily boost the attack speed of your crossbow.",
+			"desc": "Learn Crossbow Booster: Uses HP to temporarily boost the attack speed of your crossbow.",
 			"max_rank": 1,
 			"weight": 2,
 			"effects": []

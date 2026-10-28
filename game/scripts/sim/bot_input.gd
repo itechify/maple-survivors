@@ -27,11 +27,6 @@ const EDGE_DANGER := 4.0
 const FLEE_DIST := 160.0
 ## tier C: a mob within this height of the feet (px) is on the bot's level for a sword duel.
 const DUEL_DY := 40.0
-## tier C: a manual skill (Teleport, Dash) leaves a quarter of the pool for Magic Guard, or two most-expensive learned auto
-## attacks, whichever is larger.
-const MANUAL_SKILL_MP_RESERVE_FRACTION := 0.25
-## tier C: one attack plus an equal combat margin, even for a small MP pool or costly learned attack.
-const MANUAL_SKILL_ATTACK_RESERVE_CASTS := 2.0
 ## tier C: five seconds leaves several auto-cast cycles and ordinary kiting between emergency blink requests.
 const TELEPORT_MIN_INTERVAL := 5.0
 ## tier C (#257): after a same-map warp the reverse link (back to where it came from) stays closed this long (s), so
@@ -84,8 +79,7 @@ const SCORE_MOD := {"count": 75.0, "damage": 64.0, "pierce": 58.0, "area": 58.0,
 const SCORE_MOD_OTHER := 25.0
 ## Bonus for cards of a skill of the player's current job (a Magician invests in Magician skills).
 const SCORE_JOB_BONUS := 12.0
-const SCORE_PLAYER := {"max_hp": 46.0, "hp_regen": 36.0, "pdd": 34.0, "speed": 26.0, "max_mp": 16.0,
-	"mp_regen": 16.0}
+const SCORE_PLAYER := {"max_hp": 46.0, "hp_regen": 36.0, "pdd": 34.0, "speed": 26.0}
 ## tier C: score added per step a card grants beyond its first (`c.magnitude - 1`); survivor balance.json bot.gain_step_score
 ## overrides it. 6 lets a Rare or Epic offer pass the cards just below it (a Rare +2 attack rank, 62+12+6 = 80, passes a
 ## Normal pierce card, 70). A Unique stacking card (+4 shots, 87+18 = 105) and a Legendary +8 attack rank
@@ -106,7 +100,6 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var guard := float(w.balance.get("potions", {}).get("bot", {}).get("min_restore_fraction", 0.5))
 	var ps := w.player_state
 	mi.drink_hp = worth_drinking(w, "hp", float(ps.max_hp) - float(ps.hp), guard)
-	mi.drink_mp = worth_drinking(w, "mp", float(ps.max_mp) - float(ps.mp), guard)
 	var s := w.swarm
 	var p := w.player.pos
 	# Keep Up held during the small hop onto a portal's entrance ledge.
@@ -174,7 +167,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	danger[0] += EDGE_DANGER / (room[0] + 10.0)
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
 	var teleport := w.teleport_skill()
-	if teleport != "" and w.can_cast() and w.teleport_affordable() and _keeps_mp_reserve(w, teleport) \
+	if teleport != "" and w.can_cast() \
 			and w.time - float(memo.get("teleport_at", -INF)) >= TELEPORT_MIN_INTERVAL - 1e-6:
 		var reach := float(w.runner.stats_of(w, teleport).teleport_range)
 		var threat_distance := float(w.book.def(teleport).teleport.bot_threat_distance)
@@ -357,19 +350,19 @@ static func _can_take(w: RunWorld, i: int) -> bool:
 	return w.pickups.kind[i] != PickupSystem.EQUIP or w.equipment.inventory.size() < w.inventory_slots()
 
 
-## Whether the held weapon can use owned skill `key` (SkillBook.usable_with, spec #151 #156/#163): the bot's MP and reach
+## Whether the held weapon can use owned skill `key` (SkillBook.usable_with, spec #151 #156/#163): the bot's reach
 ## scans skip a skill the runner would never cast.
 static func _usable(w: RunWorld, key: String) -> bool:
 	return w.book.usable_with(key, w.held_weapon_family())
 
 
-## Whether the player can pay the MP and HP cost of resolved skill stats `st` now.
+## Whether the player can pay the HP cost of resolved skill stats `st` now (there is no MP, ADR 0006).
 static func _affordable(w: RunWorld, st: Dictionary) -> bool:
-	return float(w.player_state.mp) >= int(st.mp_cost) and w.can_pay_hp(int(st.hp_cost))
+	return w.can_pay_hp(int(st.hp_cost))
 
 
 ## The manual flee buff the bot can press now ({} when it owns none, or it is running, cooling down, blocked by the
-## weapon, unaffordable or would eat the MP reserve): {id (skill key), hp (flee below this HP fraction), count (mobs
+## weapon or unaffordable): {id (skill key), hp (flee below this HP fraction), count (mobs
 ## on its level that surround it), distance (px)}, read from the skill's `manual` block (survivor data, tier C).
 static func _flee_buff(w: RunWorld) -> Dictionary:
 	for key: String in w.loadout.order:
@@ -380,7 +373,7 @@ static func _flee_buff(w: RunWorld) -> Dictionary:
 				or not w.can_cast():
 			continue
 		var st := w.runner.stats_of(w, key)
-		if not _affordable(w, st) or not _keeps_mp_reserve(w, key):
+		if not _affordable(w, st):
 			continue
 		var manual: Dictionary = def.manual
 		return {"id": id, "hp": float(manual.get("bot_flee_hp", 0.0)), "count": int(manual.get("bot_surround_count", 99)),
@@ -388,22 +381,10 @@ static func _flee_buff(w: RunWorld) -> Dictionary:
 	return {}
 
 
-## Whether paying manual skill `manual_key` (Teleport, Dash) still leaves the attack/Magic Guard MP reserve.
-static func _keeps_mp_reserve(w: RunWorld, manual_key: String) -> bool:
-	var reserve := float(w.player_state.max_mp) * MANUAL_SKILL_MP_RESERVE_FRACTION
-	for key: String in w.loadout.order:
-		if not w.book.is_active(key) or not _usable(w, key):
-			continue
-		var stats := w.runner.stats_of(w, key)
-		if String(stats.kind) != "buff" and String(stats.cast_rule) != "manual" and String(stats.damage_type) != "none":
-			reserve = maxf(reserve, float(stats.mp_cost) * MANUAL_SKILL_ATTACK_RESERVE_CASTS)
-	return float(w.player_state.mp) - float(w.runner.stats_of(w, manual_key).mp_cost) >= reserve
-
-
 ## tier C: drink a `kind` potion only when its cooldown is ready and `missing` is at least `guard` of one potion's canonical
-## restore, so most of it lands below the pool cap. The restore counts only up to the max HP/MP pool (#229: the
+## restore, so most of it lands below the pool cap. The restore counts only up to the max HP pool (#229: the
 ## 1000-2000 point steps restore more than a pool holds, and would otherwise never be worth drinking), but never as less
-## than `potions.bot.pool_floor` of the potion, so a tiny pool (the 5-MP Beginner) still never wastes a 100-MP Blue.
+## than `potions.bot.pool_floor` of the potion, so a tiny pool never wastes a big potion.
 static func worth_drinking(w: RunWorld, kind: String, missing: float, guard: float) -> bool:
 	var restore := w.potions.restore_amount(kind)
 	var floor_share := float(w.balance.get("potions", {}).get("bot", {}).get("pool_floor", 0.25))

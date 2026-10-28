@@ -84,8 +84,6 @@ var vx := PackedFloat32Array()
 var vy := PackedFloat32Array()
 var hp := PackedInt32Array()
 var max_hp := PackedInt32Array()
-## Remaining canonical monster MP; fresh spawns reset it, relocation preserves it.
-var mp := PackedInt32Array()
 ## Steal has taken this logical mob's extra loot; not a status. Relocation preserves it, fresh spawns reset it.
 var stolen := PackedByteArray()
 var state := PackedInt32Array()
@@ -251,7 +249,6 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	vy[i] = 0.0
 	hp[i] = h
 	max_hp[i] = h
-	mp[i] = kinds[k].max_mp if k >= 0 and k < kinds.size() else 0
 	stolen[i] = 0
 	state[i] = STAND if f >= 0 else JUMP
 	state_t[i] = 0.0
@@ -292,7 +289,7 @@ func despawn(i: int) -> bool:
 	return true
 
 
-## Relocates the same live mob through despawn/spawn, preserving identity, HP/MP, Stolen and Slow cast history.
+## Relocates the same live mob through despawn/spawn, preserving identity, HP, Stolen and Slow cast history.
 ## Active statuses and movement reset as on a fresh spawn. Returns the new slot, or -1 when not live.
 func relocate(i: int, pos: Vector2, f: int) -> int:
 	if not is_live(i):
@@ -303,7 +300,6 @@ func relocate(i: int, pos: Vector2, f: int) -> int:
 	var slow_streak := _slow_cast_streak[i]
 	var old_hp := hp[i]
 	var old_max_hp := max_hp[i]
-	var old_mp := mp[i]
 	var old_stolen := stolen[i]
 	despawn(i)
 	var j := spawn(k, pos.x, pos.y, f, old_max_hp)
@@ -311,7 +307,6 @@ func relocate(i: int, pos: Vector2, f: int) -> int:
 	_slow_cast_serial[j] = slow_serial
 	_slow_cast_streak[j] = slow_streak
 	hp[j] = old_hp
-	mp[j] = old_mp
 	stolen[j] = old_stolen
 	return j
 
@@ -937,7 +932,6 @@ func _set_state(i: int, s: int) -> void:
 
 func _release(i: int) -> void:
 	_clear_statuses(i)
-	mp[i] = 0
 	state[i] = FREE
 	active[i] = 0
 	fh[i] = -1
@@ -976,7 +970,6 @@ func _grow(n: int) -> void:
 	vy.resize(n)
 	hp.resize(n)
 	max_hp.resize(n)
-	mp.resize(n)
 	stolen.resize(n)
 	state.resize(n)
 	identity.resize(n)

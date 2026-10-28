@@ -3,7 +3,8 @@ extends RefCounted
 ## JSON-safe round-boundary character format (tier C: spec #32 owner carry/refill rules; format 2: spec #33).
 ## format: 2; level/exp/job_id: integers (EXP into this level); attributes: resolved STR/DEX/INT/LUK including
 ## equipment; base_attributes: original attributes before automatic earned_ap and player_mods; earned_ap: integer;
-## base_hp/base_mp/job_mp: accumulated growth and advancement grants, before modifiers/passives;
+## base_hp: accumulated growth and advancement grants, before modifiers/passives (older files' base_mp/job_mp are
+## ignored: there is no MP, ADR 0006);
 ## skills: {key: {rank: int, mods: {stat: [add, mul]}}}; skill_order: keys in casting/learning order;
 ## player_mods: {stat: [add, mul]}; card_ranks: {card_id: consumed steps}, preserving card limits;
 ## fortune: resolved survivor stat; base_fortune: its unmodified starting value;
@@ -24,7 +25,7 @@ extends RefCounted
 ## Both are only what the character wears and takes out; whether the account owns them is decided each round
 ## (RunWorld ignores and warns about what it does not own). Fortune from cash slots is computed live, never stored:
 ## base_fortune and fortune above exclude it. Cash equipment is drawn over the worn equipment (AvatarLayers).
-## No HP/MP, map state, buffs, statuses, choices, RNG states or timers are persisted. The next round refills
+## No HP, map state, buffs, statuses, choices, RNG states or timers are persisted. The next round refills
 ## computed maxima and creates new systems. Extra metadata such as fixture _doc is ignored.
 ##
 ## Format 1 (spec #32) had no equipment, scrolls or mesos; its look carried {equips: [top, bottom, shoes]} and a
@@ -106,7 +107,7 @@ static func validation_error(value: Variant) -> String:
 	if not _number(value.get("format")) or int(value.format) not in FORMATS:
 		return "unsupported CharacterSnapshot format"
 	var format := int(value.format)
-	var numbers: Array = ["level", "exp", "job_id", "earned_ap", "base_hp", "base_mp", "job_mp", "fortune",
+	var numbers: Array = ["level", "exp", "job_id", "earned_ap", "base_hp", "fortune",
 		"base_fortune"]
 	numbers.append("beginner_weapon" if format == 1 else "mesos")
 	for field: String in numbers:

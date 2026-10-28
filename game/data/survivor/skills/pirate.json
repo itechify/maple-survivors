@@ -1,5 +1,5 @@
 {
-	"_doc": "Pirate line (#168), first job (#186). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). Dash (#188) is the first manual buff. Second jobs: passives and boosters #189 (Improve MaxHP, Knuckler/Gun Mastery, Knuckler/Gun Booster; their cards require the exact branch), Brawler attacks #191 (Backspin Blow, Double Uppercut, Corkscrew Blow), Gunslinger attacks #192, MP Recovery #193, Oak Barrel #194.",
+	"_doc": "Pirate line (#168), first job (#186). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). Dash (#188) is the first manual buff. Second jobs: passives and boosters #189 (Improve MaxHP, Knuckler/Gun Mastery, Knuckler/Gun Booster; their cards require the exact branch), Brawler attacks #191 (Backspin Blow, Double Uppercut, Corkscrew Blow), Gunslinger attacks #192, Oak Barrel #194 (MP Recovery #193 went with MP, ADR 0006).",
 	"skills": {
 		"flash_fist": {
 			"skill_id": 5001001, "book": "500", "job": 500, "kind": "instant", "slot": "active",
@@ -93,7 +93,7 @@
 		"backspin_blow": {
 			"skill_id": 5101002, "book": "510", "job": 510, "kind": "instant", "slot": "active",
 			"name": "Backspin Blow", "desc": "Slides back and elbows up to 3 monsters, stunning them.",
-			"text": {"desc": "Slide back and elbow the monsters around you to damage and briefly stun them.", "h": "MP -{mp_cost}; damage {damage}%, up to {mob_count|monster|monsters}, stun for 1 sec."},
+			"text": {"desc": "Slide back and elbow the monsters around you to damage and briefly stun them.", "h": "Damage {damage}%, up to {mob_count|monster|monsters}, stun for 1 sec."},
 			"icon": "Skill.wz/510.img/skill/5101002/icon", "damage": "physical", "weapon_families": ["knuckle"],
 			"_tier": "Tier A: canonical damage 88 to 240%, mpCon 12 to 30, mobCount 3, time 1 (the stun), the backspin action, effect/hit art, Use and Hit sounds, and the box height and 140 px reach. Skill.wz has no prop, so every landed hit stuns (bosses resist, see Monster statuses and elements in GAME_DESIGN). Tier C: knuckle requirement (the WZ node names no weapon); the canonical box lies behind the facing, so cast.around mirrors it to both sides and the attack strikes the nearest mobs on either side, then the character turns to the nearest one and slides 100 px away from it after the hits (7.13), stopping at platform edges and walls; cooldown 1.5 s and action hold 0.8 s; untuned.",
 			"cast": {"rule": "box", "around": true}, "cooldown": 1.5,
@@ -107,7 +107,7 @@
 		"double_uppercut": {
 			"skill_id": 5101003, "book": "510", "job": 510, "kind": "instant", "slot": "active",
 			"name": "Double Uppercut", "desc": "Two quick punches that damage and stun the monster in front of you.",
-			"text": {"desc": "Two quick punches to damage and briefly stun a monster within your knuckler's reach.", "h": "MP -{mp_cost}; damage {damage}% x {attack_count}, up to {mob_count|monster|monsters}, stun for 1 sec."},
+			"text": {"desc": "Two quick punches to damage and briefly stun a monster within your knuckler's reach.", "h": "Damage {damage}% x {attack_count}, up to {mob_count|monster|monsters}, stun for 1 sec."},
 			"icon": "Skill.wz/510.img/skill/5101003/icon", "damage": "physical", "weapon_families": ["knuckle"],
 			"_tier": "Tier A: canonical damage 100 to 290%, attackCount 2, mpCon 15 to 30, time 1 (the stun), the doubleupper action, effect/hit art, Use and Hit sounds. Skill.wz has no prop, so every landed hit stuns (bosses resist). Tier C: knuckle requirement; the level has no box or mobCount, so it follows the Power Strike rule: it strikes one monster inside the knuckle's swing envelope (the basic attack's reach), more only from cards; cooldown 1.2 s and action hold 1.0 s; untuned.",
 			"cast": {"rule": "weapon_reach"}, "cooldown": 1.2,
@@ -120,7 +120,7 @@
 		"corkscrew_blow": {
 			"skill_id": 5101004, "book": "510", "job": 510, "kind": "instant", "slot": "active",
 			"name": "Corkscrew Blow", "desc": "Charges forward and punches up to 3 monsters on the way.",
-			"text": {"desc": "Run forward and punch the monsters in your path.", "h": "MP -{mp_cost}; damage {damage}%, up to {mob_count|monster|monsters}, charges forward."},
+			"text": {"desc": "Run forward and punch the monsters in your path.", "h": "Damage {damage}%, up to {mob_count|monster|monsters}, charges forward."},
 			"icon": "Skill.wz/510.img/skill/5101004/icon", "damage": "physical", "weapon_families": ["knuckle"],
 			"_tier": "Tier A: canonical damage 135 to 420%, mpCon 20 to 36, mobCount 3, the box reach 100 to 200 px (also the charge distance: displacement.distances copies -lt.x per level, checked against Skill.wz by a test) and height, the screw action, effect/hit art, Use and Hit sounds. Tier C: knuckle requirement; a mob in the box starts a full charge toward it (no prepare/keydown wind-up, the Loop sound is not played) that strikes up to mobCount mobs along the swept path (7.13) and stops at platform edges and walls; cooldown 2.0 s and action hold 0.8 s; untuned.",
 			"cast": {"rule": "box"}, "cooldown": 2.0,
@@ -143,7 +143,7 @@
 		"invisible_shot": {
 			"skill_id": 5201001, "book": "520", "job": 520, "kind": "instant", "slot": "active",
 			"name": "Invisible Shot", "desc": "Shoots the monsters in front of you and behind you.",
-			"text": {"desc": "Fires at the monsters in front of you and behind you.", "h": "MP -{mp_cost}; damage {damage}%, up to {mob_count|monster|monsters} in front of and behind you"},
+			"text": {"desc": "Fires at the monsters in front of you and behind you.", "h": "Damage {damage}%, up to {mob_count|monster|monsters} in front of and behind you"},
 			"icon": "Skill.wz/520.img/skill/5201001/icon", "damage": "physical", "weapon_families": ["gun"],
 			"_tier": "Tier A: gun requirement (WZ weapon 49), canonical box reach 250 and height, damage %, mpCon, mobCount 3, bulletConsume (ammo is endless here, 6.1.2) and hit art; its sound is the WZ Hit sound. Tier C (owner, #168): cast.around mirrors the box's far reach to both sides, so it strikes in front and behind; auto-cast when a monster is inside the box, cooldown 1 s, the held gun's first basic-attack stance held 0.6 s, no visible bullet (the name; the WZ has no ball); untuned.",
 			"cast": {"rule": "box", "around": true}, "cooldown": 1.0,
@@ -155,7 +155,7 @@
 		"blank_shot": {
 			"skill_id": 5201004, "book": "520", "job": 520, "kind": "instant", "slot": "active",
 			"name": "Blank Shot", "desc": "Fires a flag shot at the monsters in front of you and may stun them.",
-			"text": {"h": "MP -{mp_cost}; damage {damage}%, up to {mob_count|monster|monsters} in front; {prop}% chance to stun for {time} sec."},
+			"text": {"h": "Damage {damage}%, up to {mob_count|monster|monsters} in front; {prop}% chance to stun for {time} sec."},
 			"icon": "Skill.wz/520.img/skill/5201004/icon", "damage": "physical", "weapon_families": ["gun"],
 			"_tier": "Tier A: gun requirement (WZ weapon 49), the front-only canonical box (-250..-20), damage %, mpCon, mobCount 3, prop (stun chance 43 to 100%), time (1 to 4 s), the fake action, hit and effect art and the Use sound. Stuns go through the shared on_hit status (spec #187; scheduled bosses resist). Tier C: auto-cast when a monster is inside the box, cooldown 1.4 s, action hold 0.6 s; untuned.",
 			"cast": {"rule": "box"}, "cooldown": 1.4,
@@ -168,7 +168,7 @@
 		"grenade": {
 			"skill_id": 5201002, "book": "520", "job": 520, "kind": "instant", "slot": "active",
 			"name": "Grenade", "desc": "Throws a grenade at the nearest cluster of monsters.",
-			"text": {"desc": "Throws a fully charged grenade at the nearest cluster of monsters; it explodes on the group.", "h": "MP -{mp_cost}; damage {damage}%, up to {mob_count|monster|monsters} around the blast"},
+			"text": {"desc": "Throws a fully charged grenade at the nearest cluster of monsters; it explodes on the group.", "h": "Damage {damage}%, up to {mob_count|monster|monsters} around the blast"},
 			"icon": "Skill.wz/520.img/skill/5201002/icon", "damage": "physical", "weapon_families": ["any"],
 			"_tier": "Tier A: canonical blast box (-50,-50)..(50,20) around the landing point, damage %, mpCon (15 to 27, not the String text's 36), mobCount 3 to 6, the ball, special (blast) and hit art, and the WZ Use2 and Hit sounds. Tier C (owner, #168): thrown as if fully charged with no wind-up (no prepare/keydown), usable with any weapon, auto-cast at the cluster (cast.rule cluster, GAME_DESIGN 7.20): the target is the nearest of the 12 nearest monsters within the throw range whose blast would strike the most monsters (a scheduled boss first), the ball flies there at `speed` px/s (never faster than 0.1 s) and the blast lands when it arrives; throw range 400 px, cooldown 2 s, the held weapon's first basic-attack stance held 0.6 s; untuned.",
 			"cast": {"rule": "cluster"}, "cooldown": 2.0, "range": 400, "speed": 600,
@@ -181,7 +181,7 @@
 		"recoil_shot": {
 			"skill_id": 5201006, "book": "520", "job": 520, "kind": "projectile", "slot": "active",
 			"name": "Recoil Shot", "desc": "Fires a shot at the nearest monster, then hops back away from it.",
-			"text": {"h": "MP -{mp_cost}; damage {damage}%, then hop back away from the monster"},
+			"text": {"h": "Damage {damage}%, then hop back away from the monster"},
 			"icon": "Skill.wz/520.img/skill/5201006/icon", "damage": "physical", "weapon_families": ["gun"],
 			"_tier": "Tier A: gun requirement (WZ weapon 49), damage %, mpCon, the backstep action, effect art, the Use sound and the hop `range` (115 to 250 px, read as the displacement). Tier C (owner, #168): the shot is the current ammo's bullet (`ammo_shot`: Ammo.bullet_path, so Split and Mighty Bullets show) at 1000 px/s, radius 6, rotating, reach 300 px, no base pierce; the hop is instant and away from the faced monster after the shot, cut short at platform edges and walls (7.13), none while airborne; cooldown 1.8 s, action hold 0.6 s; the WZ has no hit art; untuned.",
 			"cast": {"rule": "nearest"}, "cooldown": 1.8, "range": 300, "speed": 1000, "radius": 6, "pierce": 0, "count": 1,
@@ -206,25 +206,12 @@
 			"effect": "Skill.wz/500.img/skill/5001005/effect", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/5001005/Use", "hit": ""}
 		},
-		"mp_recovery": {
-			"skill_id": 5101005, "book": "510", "job": 510, "kind": "instant", "slot": "active",
-			"name": "MP Recovery", "desc": "Turns some of your HP into MP when your MP runs low and your HP is high.",
-			"text": {"desc": "Turns part of your Max HP into MP when your MP runs low and your HP is high.", "h": "Pays {x}% of Max HP, recovers {y}% of it as MP; {cooldown} sec. between uses"},
-			"icon": "Skill.wz/510.img/skill/5101005/icon", "damage": "none", "weapon_families": ["any"],
-			"_tier": "Tier A: pay share x (10% of MaxHP), MP share y (55-100% of the HP paid), cooltime (70-25 s), recovery action and effect art, no weapon requirement. Tier C (owner, #168 grilling): it auto-casts only while MP is below 30% of MaxMP and HP is at least 75% of MaxHP before paying, needs no monster, rounds the HP paid to whole points (the MP gained down), and never leaves 0 HP; action hold 0.6s; untuned.",
-			"cast": {"rule": "self", "mp_below": 0.30, "hp_at_least": 0.75},
-			"convert": {"pay_field": "x", "gain_field": "y"}, "cooldown_field": "cooltime",
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-			"action": "recovery", "action_time": 0.6, "ball": "", "hit": "",
-			"effect": "Skill.wz/510.img/skill/5101005/effect", "rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/5101005/Use", "hit": ""}
-		},
 		"oak_barrel": {
 			"skill_id": 5101007, "book": "510", "job": 510, "kind": "buff", "slot": "passive",
 			"name": "Oak Barrel", "desc": "Turns you into a barrel for a while: monsters ignore you, but you cannot attack.",
-			"text": {"desc": "Transform into an oak barrel. Monsters cannot see you, and you cannot attack, until it wears off or you recover.", "h": "MP -{mp_cost}; barrel for {duration} sec.; {prop}% chance to fail; {buff_cooldown} sec. between uses"},
+			"text": {"desc": "Transform into an oak barrel. Monsters cannot see you, and you cannot attack, until it wears off or you recover.", "h": "Barrel for {duration} sec.; {prop}% chance to fail; {buff_cooldown} sec. between uses"},
 			"icon": "Skill.wz/510.img/skill/5101007/icon", "damage": "none",
-			"_buff": "Tier A: canonical time, prop (the failure chance, rolled once per cast on stream 16), cooltime, mpCon, morph 1002, effect art and sound. Tier C: auto-casts below 30% HP with a monster within cast.mob_within px (250), the barrel ends early once HP is above 60%, the cooldown counts from the cast even when the barrel outlasts it (the active barrel blocks a recast), and a failed cast still pays MP and starts the cooldown. No weapon requirement.",
+			"_buff": "Tier A: canonical time, prop (the failure chance, rolled once per cast on stream 16), cooltime, mpCon, morph 1002, effect art and sound. Tier C: auto-casts below 30% HP with a monster within cast.mob_within px (250), the barrel ends early once HP is above 60%, the cooldown counts from the cast even when the barrel outlasts it (the active barrel blocks a recast), and a failed cast still starts the cooldown. No weapon requirement.",
 			"cast": {"rule": "nearest", "mob_within": 250},
 			"buff": {"hidden": true, "morph_field": "morph", "fail_field": "prop", "duration_field": "time",
 				"cooldown_field": "cooltime", "hp_threshold": 0.3, "end_hp_above": 0.6, "cooldown_from_cast": true},

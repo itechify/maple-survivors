@@ -15,14 +15,14 @@ extends RefCounted
 ## Pity (upgrades.json `pity.draws` = N > 0): after N draws in a row that offered no
 ## "power" card (cards flagged `"power": true`: new attack skills, attack skill ranks, more shots / targets / damage),
 ## the next draw's first card is drawn among the eligible power cards, so a run's damage cannot stall on bad offers.
-## RunWorld.power_dry counts those draws. A sparse draw adds one separate `fallback` card (Power Elixir, full HP/MP),
+## RunWorld.power_dry counts those draws. A sparse draw adds one separate `fallback` card (Power Elixir, full HP),
 ## never weighted; an exhausted pool offers it alone. Tier C: survivor reward rule, preserving earlier-job skills.
 ## Each scalable offer rolls a Potential tier with the same seeded RNG. Fortune shifts only tier odds; magnitude
 ## tables resolve the skill ranks / modifier steps. Tiers in magnitudes.clamp clamp to remaining headroom; other
 ## tiers drop to the highest fitting tier. Equal gains wear the lowest label, before preview and application.
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
-const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp",
+const PREVIEW_FIELDS := ["mad", "mastery", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp",
 	"damage", "hpCon", "prop"]
 ## Preview keys of passive skills whose canonical number means something else than its field name (the Warrior
 ## passives, #163): Max HP per level-up for Improved MaxHP Increase (field x), HP per regeneration pulse for Improved HP
@@ -219,7 +219,7 @@ static func is_power(c: Dictionary) -> bool:
 ## for cards without a skill), skill_changes (rank cards: canonical field ->
 ## {before, after} for PREVIEW_FIELDS; mastery is a percent, other values are original WZ numbers; a survivor per-level
 ## passive shows only its own stat in percent, e.g. Loadout.MAX_MP_PERCENT), skill_effect_stat (the skill's
-## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills),
+## skills.json buff `stat`, e.g. "hp" for Recovery; "" for other skills),
 ## skill_mod_changes (skill_mod cards on an owned skill: effective value -> {before, after} once all the card's steps
 ## are taken, keys as MOD_PREVIEW names them: shots / targets / attack_count / pierce / speed / range (whole numbers), cooldown
 ## (seconds between casts as SkillRunner.restart_cooldown counts them, two decimals), area / damage / crit (percent);
@@ -287,7 +287,7 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 				changes.erase(renamed[0])
 			var passive: Dictionary = lo.book.def(skill).get("passive", {})
 			if passive.has("per_level"):
-				# tier C: a survivor per-level passive (Improved MaxMP Increase) previews its own fraction as a percent,
+				# tier C: a survivor per-level passive previews its own fraction as a percent,
 				# not the canonical fields it reinterprets.
 				changes = {String(passive.stat): {"before": roundi(lo.passive_value(skill, level, passive) * 100.0),
 					"after": roundi(lo.passive_value(skill, level_next, passive) * 100.0)}}
