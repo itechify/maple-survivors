@@ -431,12 +431,9 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"cooldown_from_cast": bool(buff.get("cooldown_from_cast", false)),
 		"displacement": _displacement(key, d, r, lv),
 	}
-<<<<<<< HEAD
 	if d.get("summon", {}).has("support"):
 		resolved["support"] = SupportSummons.resolve(self, key, r)
-=======
 	resolved.merge(HpRisk.resolve(self, key, lv))
->>>>>>> origin/spec/348-dark-knight
 	if d.has("meter"):
 		resolved["meter"] = d.meter
 		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))

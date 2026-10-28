@@ -28,11 +28,7 @@ const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_fal
 ## Active rarity-bonus stats a card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
 const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep",
-<<<<<<< HEAD
-	"support_heal", "support_rate"]
-=======
-	"hp_cost", "self_damage", "low_hp_damage"]
->>>>>>> origin/spec/348-dark-knight
+	"hp_cost", "self_damage", "low_hp_damage", "support_heal", "support_rate"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
