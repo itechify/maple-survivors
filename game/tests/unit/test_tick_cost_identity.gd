@@ -34,10 +34,13 @@ const PET_BACK := 2700
 ## (the character is set to 220 directly), so the events and totals legitimately differ (pre-#285 totals exp 3658,
 ## kills 206, casts 183, level 12).
 ## Re-captured for #287: pool-only offers, eight mapped ranks and +1 rank at every rarity.
-const GOLDEN := "edc2d55c267197c243c66cf4027e8985219cad5f79e704c1ed78b02c8b53bd75"
+## Re-captured for #292: equipment drops follow the tier band and the job's weapon families, not the level and the held
+## weapon (equips_dropped 47 -> 30, pool 24 -> 7); every other total (exp, mesos, kills, casts, level) is unchanged. The
+## workload coverage asserts (big pool, blocked drop, VAC pet, every cast rule) all still hold.
+const GOLDEN := "29926829b2ab8776417125b4beb6025912b317d5a596f102e57656c9e5dd6bc7"
 const TOTALS := {"exp": 4097, "mesos": 88744, "pickup_mesos": 88744, "equips_collected": 23,
-	"equips_dropped": 47, "inventory": 24, "kills": 227, "casts": 260, "level": 13,
-	"pool": 24, "time": 59.999999999997875}
+	"equips_dropped": 30, "inventory": 24, "kills": 227, "casts": 260, "level": 13,
+	"pool": 7, "time": 59.999999999997875}
 const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_armor", "cold_beam", "thunder_bolt", "slow_il",
 	"heal", "fire_arrow", "poison_breath", "holy_arrow"]
 

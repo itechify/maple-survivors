@@ -14,7 +14,10 @@ const DT := 1.0 / 60.0
 ## fixed 212 with Energy Bolt and Teleport at Lv1, with no job advancement, no basic attack, no stream-8 draw, no MP
 ## and no level-gap factor, so every byte after the setup events changes. The #259 hash was 8114bff3...
 ## Re-captured for #287: pool-only offers, eight mapped ranks and +1 rank at every rarity.
-const GOLDEN := "6bcaa33a0c012c1e5327f3997231f2170d348f21ed2ccb0c2fb34a0743ce01cc"
+## Re-captured for #292 (equipment drops follow the tier band and the job's weapon families, not the level and the held
+## weapon; the Lv1 character now wears what it picks up): with equipment_drops.chance and boss_drops set to 0 the #287
+## hash 6bcaa33a... is reproduced exactly on the spec tip and on this branch, so only equipment events changed.
+const GOLDEN := "f39c67470bf4c1a0bc92addbd233751d4e63402fa04e35ed2c2e53c9c176808d"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

@@ -256,8 +256,8 @@ A character's permission to pick a tier's stages, earned by clearing any stage o
 _Avoid_: level gate, progress
 
 **Drop band**:
-The `reqLevel` range of equipment a tier's monsters drop, with bosses rolling from its top. `reqLevel` is no longer
-a requirement to wear the item.
+The `reqLevel` range of equipment a tier's monsters drop (tier 1 0-30, tier 2 30-60), with bosses rolling from its top
+third. It replaces the character's level in the drop rule; `reqLevel` is no longer a requirement to wear the item.
 _Avoid_: loot table, item level
 
 ## Monsters
@@ -312,12 +312,13 @@ _Avoid_: mob cap, max mobs
 
 **Mesos**:
 The run's money: dropped by monsters, spent on scrolls in the Free Market shops (which also buy spare equipment and
-scrolls back), carried between rounds with the character, and lost when the run ends.
+scrolls back), and carried between rounds with the character; a death or a clear keeps them.
 _Avoid_: Gold, coins, money; not to be confused with NX, which outlives runs
 
 **Equipment**:
-The v83 items a character can wear, each with its real stats and its level, job and stat requirements. Equipment
-comes only from monster drops (plus the weapon a job advancement hands over), never from shops.
+The v83 items a character can wear, each with its real stats. Its job class is the only requirement to wear it: its
+`reqLevel` and stat requirements do not apply (they place it in a tier's drop band). Equipment comes only from monster
+drops (plus the creation weapon of a new character), never from shops, and stays with the character between rounds.
 _Avoid_: Gear (in player-visible text), armour, loot
 
 **Equip slot**:

@@ -7,6 +7,7 @@ static func setup(seconds := 300.0) -> Dictionary:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.mesos.boss_drops = 0
+	data.equipment_drops.boss_drops = 0 # these tests count the one equipment drop they spawn themselves (#292: boss drops now find items at Lv1)
 	var stage: Dictionary = data.stages.stages.quiet
 	stage.erase("map_id")
 	stage.erase("bosses")

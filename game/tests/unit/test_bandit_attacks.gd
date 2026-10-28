@@ -189,7 +189,7 @@ func test_bosses_can_be_stolen_once_relocation_preserves_it_and_fresh_slots_rese
 		assert_eq(w.swarm.stolen[next], 0)
 
 
-func test_steal_extra_equipment_follows_job_and_current_weapon_with_meso_fallback() -> void:
+func test_steal_extra_equipment_follows_job_and_weapon_families_with_meso_fallback() -> void:
 	for claw in [false, true]:
 		var w := _world()
 		if claw:
@@ -202,6 +202,9 @@ func test_steal_extra_equipment_follows_job_and_current_weapon_with_meso_fallbac
 		w.setup.equipment_info[1332012].reqJob = 8
 		w.setup.equipment_info[1472008].reqJob = 8
 		w.setup.equipment_info[1372005].reqJob = 2
+		var survivor: Dictionary = w.data.jobs_survivor.duplicate(true)
+		survivor.jobs[str(w.progression.job_id)] = {"weapon_families": ["claw" if claw else "dagger"]}
+		w.jobs = JobTree.from_data(w.data.jobs, survivor) # the job's weapon family, not the held weapon, picks (#292)
 		var m := _target(w)
 		w.drain_events()
 		var st := w.runner.stats_of(w, "steal")
