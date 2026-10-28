@@ -688,6 +688,25 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
+**#296 review fixes / H12, before merging #346 (2026-10-28).** Regression smoke only; no balance tuning. Read-only default
+cache, `ISOLATE=296fix`, `JOBS=3`, seeds 1/2/2026: every tier-1 stage with bot/random for 212 and 112,
+plus Sleepywood bot with starter equipment and each job’s fixture. All **60 records** finished without
+crashes, world warnings, missing assets or TIMEOUTs. Full reports remain in `_scratch/296-review/smoke/`.
+Compared with H10 below, F/P’s outcomes and recorded stage ranges reproduce; Hero remains 0/30 clears
+with no scheduled boss defeated. Henesys boss-reach counts and bot six-slot coverage are unchanged;
+Hero bot now also reaches Kerning’s first boss in 1/3. Hero death seconds shift after the casting/admission
+fixes (Henesys bot 278.8–321.9, random 302.8–316.3); its known weak survival is left to #346.
+
+| Job | Tier-1 clears (bot + random) | Henesys bot six actives | Henesys first boss, bot / random | Sleepywood clears, starter / kit |
+|---|---|---|---|---|
+| F/P 212 | 0/24 | 3/3; 136.7–205.3 s | 3/3 / 3/3 | 0/3 / 1/3 |
+| Hero 112 | 0/24 | 3/3; 142.4–254.4 s | 2/3 / 3/3 | 0/3 / 0/3 |
+
+Full suites: cached **2148 passed / 0 failed / 0 skipped**; without cache **1923 passed / 0 failed /
+225 skipped** (skips prove no asset behavior). Both F/P goldens and the Hero golden remain unchanged.
+A 120-second Hero visual playtest (seed2026, x4, vsync off) completed 7200 ticks with missing assets `[]`;
+Rush’s streak/hit capture was inspected in `evidence/296-review-uncapped/`. No tests were deleted.
+
 **#306 / H10 Hero enablement and H9 completion (2026-10-28).** No balance tuning. Read-only real cache,
 `ISOLATE=306`, `JOBS=3`, training seeds 1/2/2026 only. All four tier-1 stages, bot/random, both jobs;
 Sleepywood bot with starter equipment and each job's fixture (`hero_t2.json`, `fp_arch_mage.json`).
