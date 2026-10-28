@@ -227,6 +227,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `Ammo` | Endless ammo of the ranged basic attack (static, pure; `survivor/ammo.json`) | `item_for(ammo, family, job_id, level, jobs)` (start ammo, or the highest reached step of a branch schedule), `projectile(ammo, family)`, `noun`, `notice(noun, name)`, `item_ids(ammo)`, `img_path(id)`, `bullet_path(id)`; `RunWorld.ammo_id()` / `ammo_attack()` / `ammo_tooltip(weapon)` derive the current ammo (never saved) |
 | `WeaponInfo` | Weapon facts (static, pure) read by combat and presentation | `type_of(id)`, `family(id)`, `family_of_skill_code(code)`, `is_two_handed(id)`, `attack_kind(action)` (swing/stab/shoot/empty), `basic_actions(id)` (the family's basic-attack stances), `basic_kind(id, action)` (ranged families always shoot), `is_ranged(id)`, `ranged_box(id)`, `stand_stance(info)` / `walk_stance(info)` (PlayerMotion and AvatarRenderer play the held weapon's stances), `physical_formula(id, job)` (swing/stab multipliers and primary/secondary stats; tier B except wand/staff/bare fallback), `afterimage_name(info)`, `afterimage_img_path`, `afterimage_frame_path`, `hit_spark_path`, `attack_interval(info)`, `sound_path(info)` |
 | `SkillRunner` | Auto-casting and manual damaging dashes | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, HP costs and meter admission, then casts one ready skill (oldest-ready first, with finisher arbitration through `PlayerMeter`); `tick_cooldowns` and `cast_ready` are separate entry points. `cast_dash(world, key, side)` validates a destination, starts the action/cooldown and resolves swept hits plus directional knock-back (Hero Rush, #302); mobility takes no slot and earns/spends no Combo orbs. `fired_this_tick`, `cooldowns` and `cooldown_totals` feed run presentation/readiness; static `count_meaning`, `strike_count` and `restart_cooldown` define the shared targeting/cooldown rules for previews and the Skill window |
+| `PlayerForms` | Timed M2 stances owned by `SkillRunner.forms` | `admits(world,key)`, `start(world,key,stats)`, `step(dt,world)`, `begin_cast(world,key,stats)`, `preferred(world,ready)`, `snapshot()`, `clear(world,reason)`. Effects registry maps keys to cast-local handlers; `element` and canonical-percent `damage` ship in #311. Sub-skills resolve through the normal runner with parent rank and damage/area modifiers. No IDs, assets, nodes or RNG. Transfer keeps windows but drops pending map strikes; death ends them. Schema: GAME_DESIGN 7.61. |
 | `PlayerMeter` | Round-owned M1 counter (`RunWorld.meter`, #299) | `gain(event, events)`, `admits(definition)`, `begin_cast(world, key, stats)`, `landed(receipt, events)`, `preferred(world, ready)`, `snapshot()`; job data configures capacity/gain/bonus, skill data configures finishers. Shared cast receipts deduplicate delayed hits; map transfer preserves the counter. HudMeter consumes value-change events. Schema: GAME_DESIGN 7.34. |
 | `PlayerSummons` | Map-local player allies owned by `SkillRunner.summons` (#291) | `spawn(world, resolved_stats)`, `step(dt, world)`, `clear()`, `living_count()`; packed position/lifetime/facing/animation/windup state, cold cast snapshots; reads canonical summon attack info through SkillBook, hits through RunWorld; `clear_pending()` removes allies on transfer. `PlayerSummonRenderer` draws the pool through one SpritePool without entity Nodes. Definition schema: GAME_DESIGN 7.32. |
 | `PlayerBuffs` | Timed player effects, periodic healing and detached HUD snapshots | `has(skill)`, `start(skill, stats)`, `step(dt, events) -> int` (HP healing due), `effect_total(stat)`, `snapshot()` |
@@ -286,6 +287,16 @@ map_id/map_name/street_name fields identify the ending map. SUMMARY counts death
 reports entry seconds for maps 2 and 3 with observation counts. Legacy records contribute no invented map data.
 `flow_driver --scenario=redesign` exercises the real map transitions and the hub; diagnostic invulnerability and post-timer
 boss hits make this flow evidence rather than balance evidence.
+
+The Form effect registry is the extension boundary; later class tickets add their own handlers and tests:
+
+| Later class | Its own ticket adds |
+|---|---|
+| Shadower | `hidden` effect, sub flags `ignores_hidden` and `ends_form` |
+| Buccaneer | `morph` effect and Morph.wz presentation |
+| Corsair | `hull` absorption effect and mount art |
+
+These are future extensions, not effects implemented by #311.
 
 ### 4.4.1 Run setup (what `RunWorld` is built from)
 
@@ -392,6 +403,8 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `player_banished` | `mob`, `mob_id`, `skill_id`, `level` (ints), `from`, `pos` (the character's feet before and after, Vector2), `effect` (WZ path of the `affected` art or `""`), `message` (notice text or `""`); a boss's Banish (MobSkill 129, #256) moved the character to a random `sp` portal of the current map; emitted before that cast's `boss_skill`, after the pet's `pet_teleported` when a pet is out |
 | `player_restored` | `stat` (`hp`/`mp`), `amount` (actual positive integer pool gain after capping), `skill` (key or empty), `pos` (player feet); emitted by `restore_player`, independent of legacy Recovery/potions |
 | `final_attack` | `skill`, `skill_id`, `level`, `mob` (the original target's slot), `pos`, `facing`, `action` (the skill's stance), `effect` (WZ path or `""`); emitted just before the follow-up's own `mob_hit` (skill = the Final Attack key; #161) |
+| `form_started` | `skill`, `skill_id`, `element`, `duration` (resolved seconds); existing buff row consumes the parallel PlayerBuffs entry |
+| `form_ended` | `skill`, `skill_id`, `reason` (`expired`, `died`, `replaced`); buff expiry accompanies removal |
 | `buff_cast` | `skill`, `skill_id`, `level`, `duration` (float canonical seconds); also emits ordinary `cast` for stance, effect and sound |
 | `buff_expired` | `skill`, `skill_id`; once when an active timer expires (or a buff ends early: Oak Barrel above its `end_hp_above`); a run ending first need not emit expiry |
 | `buff_failed` | `skill`, `skill_id`, `level` (#194); a buff cast with a `fail_chance` (Oak Barrel) whose roll failed: nothing started, cooldown was paid, the accompanying `cast` event has `effect` `""` |

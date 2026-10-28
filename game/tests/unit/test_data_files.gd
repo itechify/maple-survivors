@@ -673,8 +673,8 @@ func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> 
 		assert_false(key in data.jobs_survivor.jobs["212"].skill_pool, "%s is a pool skill and needs rarity_bonuses (#288)" % key)
 		if int(s.get("job", -1)) == 0:
 			continue # #284: the Beginner is gone and its skills have no cards
-		if String(s.slot) == "mobility":
-			continue # a mobility skill is never offered as a card (Rush, #302)
+		if String(s.slot) in ["mobility", "form_sub"]:
+			continue # mobility and form sub-skills are never offered as cards
 		if String(s.damage) != "none" or String(s.slot) == "active":
 			assert_true(covered.has(key), "%s needs a skill_mod card with more shots, targets or pierce" % key)
 
@@ -724,3 +724,13 @@ func test_meter_catalog_schema() -> void:
 		assert_eq(String(meter.spend), "all")
 		assert_true(float(meter.damage_per_unit) >= 0.0)
 		assert_eq(String(skill.slot), "active")
+
+func test_form_catalog_schema_and_subs_excluded_from_pools_and_cards() -> void:
+	assert_true(PlayerForms.validation_errors(data.skills.skills).is_empty(), " ".join(PlayerForms.validation_errors(data.skills.skills)))
+	for key: String in data.skills.skills:
+		if String(data.skills.skills[key].get("slot", "")) != "form_sub":
+			continue
+		for job: Dictionary in data.jobs_survivor.jobs.values():
+			assert_false(key in job.get("skill_pool", []), "%s: sub never in pool" % key)
+		for card: Dictionary in data.upgrades.cards:
+			assert_false(String(card.get("skill", "")) == key, "%s: sub never a card" % key)

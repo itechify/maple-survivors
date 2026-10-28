@@ -698,6 +698,29 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+**#311 / P3 Form seam regression smoke (2026-10-28).** No balance tuning; training seeds 1/2/2026,
+job 212, bot/random on every tier-1 stage and bot Sleepywood with starter/`fp_arch_mage.json` equipment.
+`ISOLATE=311`, `JOBS=3` set, one seed submitted at a time to limit memory; shared cache read-only.
+All **30 records** finished: **1 clear / 29 deaths / 0 timeouts**, no world warnings, missing assets or crashes.
+Cells are **clears / 3; death-second range (deaths only); end-level range**.
+
+| Stage / equipment | Bot | Random |
+|---|---|---|
+| Henesys | 0/3; 305.0–651.7; 11–36 | 0/3; 308.3–309.9; 10–11 |
+| Ellinia | 0/3; 629.1–644.2; 21–23 | 0/3; 328.4–660.2; 12–23 |
+| Perion | 0/3; 305.7–456.3; 10–19 | 0/3; 308.7–421.5; 13–19 |
+| Kerning | 0/3; 307.9–315.0; 12–13 | 0/3; 306.0–317.3; 12–13 |
+| Sleepywood starter | 0/3; 10.6–12.0; 1–1 | — |
+| Sleepywood kit | 1/3; 23.8–826.2; 8–72 | — |
+
+These ranges match H10's recorded F/P smoke. Henesys bot fills six slots in 3/3 at 136.7–205.3 s and
+reaches the first boss in 3/3; Ellinia remains record-only. The kit's sole clear is seed 2, 936.2 s, Lv72.
+The 30 worlds ran on the frozen pre-H12 mirror (P3 gameplay unchanged since 7c1a226); the final H12
+integration at b981f41 is checked separately by the merged full suites. The merged-tree seed-1 Henesys
+bot control is byte-identical to its pre-merge complete record (`_scratch/311/postmerge-control/`).
+Exact records and combined three-seed systems reports remain in `_scratch/311/smoke/`; final validation
+and source boundaries are recorded in the external `P3-311.md` handover. No held-out seeds were used.
+
 **#296 review fixes / H12, after integrating #346 (2026-10-28).** No balance values changed by the
 review fixes: incoming AP HP 600, growth 65, orb 0.05, cooldowns and finisher coefficients are preserved exactly;
 Hero AP/growth/score rows now live in `jobs/hero.json`'s `balance` block. Read-only cache, `ISOLATE=296fix`,
@@ -5993,6 +6016,43 @@ No shipped skill carries the block yet, so no existing record changes.
 - **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
   and Skill-window text (H7).
 
+### 7.61 Form / M2 (#311)
+
+A Form is a timed active stance. It does no damage itself, occupies one active slot, and starts its ordinary
+cooldown at cast time. Admission requires a living monster in `cast.mob_within`; a running form blocks every
+ready form in the same `exclusive_group`. Different groups coexist. Among ready forms per group, the largest
+sum of live monster element multipliers within 400 px of the cast origin wins; ready order breaks ties.
+No extra random draw occurs. Manual starts replace an occupied group.
+
+```json
+{"kind":"form", "slot":"active", "damage":"none", "cooldown":18,
+ "cast":{"rule":"form", "mob_within":400},
+ "form":{"duration":12, "exclusive_group":"example",
+   "effects":{"element":"f", "damage":{"field":"damage"}},
+   "subs":[{"skill":"example_sub", "first_after":1, "interval":3},
+           {"skill":"example_once", "first_after":0.5, "once":true}]}}
+```
+
+Durations and trigger times are survivor data, never rewritten WZ values. `form_time` multiplies duration at
+start; `form_power` adds to the canonical field percent multiplier (120% plus 0.1 becomes 1.3). A running window
+snapshots rank and effects. `element` affects only empty-element damaging casts; existing elements stay.
+`damage` scales min/max and status damage for every damaging cast, including manual mobility and sub-skills.
+The effects registry is the only dispatch boundary; future hidden/morph/hull keys belong to later specs.
+
+Sub definitions use `slot: form_sub`, `form_sub_of: [parent keys]` (a single string is also accepted), ordinary
+cast rules and their own rank tables. They are never learned into Loadout.order or offered as cards. At each due
+time they wait for their own range, minimum targets, casting gate and HP payment. A successful cast consumes
+`once` or restarts `interval` from that cast (no catch-up burst). Stats use the parent's snapshotted rank through
+the sub's own table, current parent skill-local damage and area modifiers, and no parent cooldown modifier.
+The usual cast/hit/stance/sound path handles their output. Map transfer keeps timers and consumed once state,
+but drops queued delayed strikes; death clears all windows. A new window resets sub clocks.
+
+The buff row shows the existing icon/countdown entry. The held weapon and cash weapon cover alone receive a
+code-drawn element tint; start/end events refresh it. SkillText lists duration, element, multiplier and each
+sub's trigger, mapped level, base skill power, target count and HP cost. Form rarity previews use seconds for time and percentage
+points for power. `player_form_probe.tscn` injects a synthetic fire form for visual QA without Paladin data.
+
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7232,6 +7292,14 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
+
+<!-- #311 provenance additions -->
+
+Form constants and provenance (#311): tier C elemental arbitration radius **400 px**; ties preserve ready order.
+Tier C sub cadence: wait until admitted, restart interval at successful cast, no catch-up bursts; expiry wins
+on the window's final tick. Tier C weapon tint RGB: fire (1,.35,.2), ice (.3,.7,1), lightning (1,.85,.2),
+holy (1,.8,.55), poison (.6,.9,.35); white without an elemental form. Synthetic test/probe durations are diagnostic,
+not playable tuning. Canonical effect percentages remain tier A data read through each form's mapped level.
 
 ## 12. Later phases
 

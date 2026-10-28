@@ -187,6 +187,14 @@ _Avoid_: follow-up skill, proc
 **Party buff**:
 A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here it affects the character only.
 
+**Form**:
+A timed active stance that changes the character's attacks and carries sub-skills. A running form survives
+map transfer and ends on death.
+
+**Sub-skill**:
+An attack carried by a Form, used automatically while the form lasts. It grows with its parent, occupies no
+skill slot and is never offered as a card.
+
 ## Cards and rarity
 
 **Rank**:

@@ -68,6 +68,12 @@ var _face: WzImg
 var _hair: WzImg
 ## Worn items in draw order: {"id": int, "img": WzImg, "vslot": {code: true}, "cash": bool}.
 var _sources: Array[Dictionary] = []
+## Presentation-only element tint, applied to held weapon layers (tier C).
+var weapon_tint := Color.WHITE:
+	set(value):
+		if weapon_tint != value:
+			weapon_tint = value
+			queue_redraw()
 var _weapon_type := 0
 ## The worn real weapon's info node ({} bare-handed): its stand/walk numbers pick the generic stances.
 var _weapon_info: Dictionary = {}
@@ -488,7 +494,9 @@ func _draw() -> void:
 		var f: SpriteFrame = p.frame
 		if f.page == null:
 			continue
-		draw_texture_rect_region(f.page, Rect2(p.pos - f.origin, f.region.size), f.region)
+		var owner := int(p.get("owner", 0))
+		var weapon := AvatarLayers.weapon_type(owner) > 0 or floori(float(owner) / 10000.0) == CashCatalog.WEAPON_COVER_CATEGORY
+		draw_texture_rect_region(f.page, Rect2(p.pos - f.origin, f.region.size), f.region, weapon_tint if weapon else Color.WHITE)
 	if facing > 0:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 

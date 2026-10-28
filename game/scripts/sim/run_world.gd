@@ -79,6 +79,8 @@ const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
+	"form_started": ["skill", "skill_id", "element", "duration"],
+	"form_ended": ["skill", "skill_id", "reason"],
 	"mob_pulled": ["mob", "from", "pos"],
 	"meter_changed": ["id", "value", "max"],
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
@@ -2524,6 +2526,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		_hp = 0.0
 		_dead = true
 		state = DEAD
+		runner.forms.clear(self)
 		emit("player_died", {"pos": player.pos})
 	elif bypass or upkeep.may_knock_back():
 		# tier C (owner, #223): a hit inside the knockback guard does its damage without pushing the player; a boss
