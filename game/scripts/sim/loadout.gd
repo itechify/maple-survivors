@@ -313,7 +313,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		lo = rng.x * dmg_mult
 		hi = rng.y * dmg_mult
 	elif dtype == "physical":
-		var bounds := CombatMath.physical_damage_range(str_stat, dex_stat, luk_stat, watk, weapon_id,
+		var bounds := CombatMath.physical_damage_range(str_stat, dex_stat, luk_stat, _summon_watk(key, lv, d), weapon_id,
 			attack_kind, job_id, mastery, d.get("physical_formula", {}))
 		lo = bounds.x * dmg_mult
 		hi = bounds.y * dmg_mult
@@ -444,6 +444,13 @@ func _add_burn(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> voi
 	resolved["burn_pulse"] = BurnStatus.pulse(float(resolved.damage_min), float(resolved.damage_max), share, mult)
 	resolved["burn_time"] = book.canonical(key, lv, String(on_hit.get("duration_field", "time")), 0.0)
 	resolved["burn_share"] = share * maxf(0.0, mult)
+
+
+## The W.Att a physical hit of `key` resolves with: the level field named by the definition's `summon.watk_field` (a
+## physical follower's `pad`, spec #332 M8) in place of the worn weapon plus ammo, else the character's `watk`.
+func _summon_watk(key: String, lv: int, d: Dictionary) -> float:
+	var field := String(d.get("summon", {}).get("watk_field", ""))
+	return book.canonical(key, lv, field, 0.0) if field != "" else watk
 
 
 ## Seconds between casts: the skill's own cooldown with its cards, then the cast speed passives (an active skill's cooldown

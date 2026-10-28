@@ -1,7 +1,6 @@
 extends Control
 ## v83 Explorer creation with live composited preview; every allowed value comes from MakeCharInfo. Three steps: Name,
-## Look, then the Job page (#286) listing JobTree.playable_jobs() in canonical order (Hero above the Arch Mage once H10 flips it
-## playable, #296); the character shows its 4th-job title from Lv1. The Look step's weapon row is the chosen job's creation weapon and has no arrows.
+## Look, then the Job page (#286) listing JobTree.playable_jobs() in canonical order (Hero above the Arch Mage, #296); the character shows its 4th-job title from Lv1. The Look step's weapon row is the chosen job's creation weapon and has no arrows.
 
 signal cancelled()
 

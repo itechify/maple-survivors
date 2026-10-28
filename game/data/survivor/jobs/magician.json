@@ -6,7 +6,10 @@
 			"mobility_skill": "teleport_fp",
 			"creation_weapon": 1372005,
 			"_creation_weapon": "tier C: #286, the Magician line's own v83 starting wand (Wooden Wand); wearing it needs only its job class (#292)",
-			"weapon_families": ["wand", "staff"],
+			"weapon_families": [
+				"wand",
+				"staff"
+			],
 			"_weapon_families": "tier C: #292, the weapon families an equipment drop may come from (WeaponInfo.family); a job lists its own and a class spec adds more.",
 			"skill_pool": [
 				"energy_bolt",
@@ -23,7 +26,39 @@
 				"big_bang"
 			],
 			"playable": true,
-			"_provenance": "tier C: ADR 0006: only 212 playable."
+			"_provenance": "tier C: ADR 0006 curated F/P job and tool-only hub kit.",
+			"hub_kit": {
+				"fixture": "res://tests/fixtures/characters/fp_arch_mage.json",
+				"scrolls": [
+					2043700,
+					2043701,
+					2043702,
+					2043704,
+					2043705,
+					2040024,
+					2040025,
+					2040026,
+					2040012,
+					2040013,
+					2040400,
+					2040401,
+					2040402,
+					2040404,
+					2040405,
+					2040818,
+					2040817,
+					2040816,
+					2040814,
+					2040815
+				],
+				"equipment": [
+					1002001,
+					1382001,
+					1082002,
+					1040004
+				],
+				"fallback_item": 1382001
+			}
 		}
 	}
 }
