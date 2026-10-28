@@ -74,7 +74,7 @@ func test_the_line_loads_without_errors_and_adds_a_job_but_no_skill_yet() -> voi
 		"base, then lines in LINES order: 222 after 212")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "il_arch_mage"))
 	assert_eq(frag.skills, {}, "I2 ships an empty skill skeleton; I6-I10 fill it")
-	assert_false(FileAccess.file_exists("res://data/asset_manifest.d/il_arch_mage.json"), "I1 owns the manifest fragment")
+	assert_true(FileAccess.file_exists("res://data/asset_manifest.d/il_arch_mage.json"), "I1 (#320) added the manifest fragment")
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
 
