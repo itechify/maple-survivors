@@ -54,29 +54,6 @@ func _magnitude(c: Dictionary) -> int:
 	return int(c.get("magnitude", 1))
 
 
-func test_the_same_card_at_a_higher_tier_scores_strictly_more_by_the_gain_step() -> void:
-	var w := RF.quiet_world()
-	RF.change_job_bare(w, 200)
-	w.balance.erase("bot")
-	var step := BotInput.SCORE_GAIN_STEP
-	var normal_new := w.upgrades.choice_card("energy_bolt_new", w, "normal")
-	var epic_new := w.upgrades.choice_card("energy_bolt_new", w, "epic")
-	assert_true(_magnitude(epic_new) > _magnitude(normal_new), "an Epic new skill starts at a higher rank")
-	assert_eq(BotInput.card_score(w, normal_new), BotInput.SCORE_NEW_ATTACK, "Normal scores exactly the base")
-	assert_eq(BotInput.card_score(w, epic_new), BotInput.SCORE_NEW_ATTACK + step * float(_magnitude(epic_new) - 1))
-	w.upgrades.apply("energy_bolt_new", w)
-	for id: String in ["energy_bolt_rank", "energy_bolt_count"]:
-		var normal := w.upgrades.choice_card(id, w, "normal")
-		var rare := w.upgrades.choice_card(id, w, "rare")
-		assert_true(_magnitude(rare) > _magnitude(normal), id + ": a Rare offer grants more than a Normal one")
-		var base := BotInput.card_score(w, normal)
-		assert_eq(BotInput.card_score(w, rare), base + step * float(_magnitude(rare) - 1), id)
-		assert_true(BotInput.card_score(w, rare) > base, id + ": strictly more")
-	assert_eq(BotInput.card_score(w, w.upgrades.choice_card("energy_bolt_rank", w, "normal")),
-		BotInput.SCORE_RANK_ATTACK + BotInput.SCORE_JOB_BONUS, "a Normal rank card keeps its old score")
-	assert_eq(BotInput.card_score(w, w.upgrades.choice_card("energy_bolt_count", w, "normal")),
-		BotInput.SCORE_MOD.count + BotInput.SCORE_JOB_BONUS, "a Normal stacking card keeps its old score")
-
 
 func test_a_missing_or_non_positive_magnitude_counts_as_one_step() -> void:
 	var w := RF.quiet_world()
@@ -91,26 +68,6 @@ func test_a_missing_or_non_positive_magnitude_counts_as_one_step() -> void:
 	assert_eq(BotInput.card_score(w, {"id": "energy_bolt_new", "magnitude": 4}), base + 30.0, "survivor data sets the step")
 
 
-func test_a_large_enough_gain_outranks_the_card_that_wins_at_normal_tier() -> void:
-	var w := RF.quiet_world()
-	RF.change_job_bare(w, 200)
-	w.balance.erase("bot")
-	w.upgrades.apply("energy_bolt_new", w)
-	var normal := [w.upgrades.choice_card("energy_bolt_count", w, "normal"),
-		w.upgrades.choice_card("energy_bolt_rank", w, "normal")]
-	assert_eq(BotInput.pick_card_for(w, normal), "energy_bolt_count", "more shots wins at Normal tier")
-	var rare_rank := w.upgrades.choice_card("energy_bolt_rank", w, "rare")
-	var big_rank := w.upgrades.choice_card("energy_bolt_rank", w, "unique")
-	assert_true(_magnitude(big_rank) >= 4, "the Unique rank offer grants several ranks")
-	assert_eq(BotInput.pick_card_for(w, [normal[0], rare_rank]), "energy_bolt_count", "+2 ranks is not yet enough")
-	assert_eq(BotInput.pick_card_for(w, [normal[0], big_rank]), "energy_bolt_rank", "a Unique rank offer outweighs one more shot")
-	assert_eq(BotInput.pick_card_for(w, [big_rank, normal[0]]), "energy_bolt_rank", "regardless of the order")
-	# A real Rare +2 passive rank offer must not beat a Normal new attack skill.
-	w.learn_skill("magic_armor")
-	var rare_passive := w.upgrades.choice_card("magic_armor_rank", w, "rare")
-	assert_eq(_magnitude(rare_passive), 2, "a Rare passive rank offer grants two ranks")
-	assert_true(BotInput.card_score(w, rare_passive) < BotInput.card_score(w, {"id": "energy_bolt_new"}))
-
 
 func test_a_card_score_override_is_the_base_and_the_gain_is_added_without_a_job_bonus() -> void:
 	var w := RF.quiet_world()
@@ -122,7 +79,7 @@ func test_a_card_score_override_is_the_base_and_the_gain_is_added_without_a_job_
 	assert_eq(BotInput.card_score(w, {"id": "magic_armor_rank", "magnitude": 3}), 70.0 + 2.0 * step)
 	assert_eq(BotInput.card_score(w, {"id": "magic_armor_new", "magnitude": 5}), 90.0 + 4.0 * step)
 	var cards := [w.upgrades.choice_card("magic_armor_rank", w, "rare"), w.upgrades.choice_card("energy_bolt_rank", w, "normal")]
-	assert_true(_magnitude(cards[0]) > 1)
+	assert_eq(_magnitude(cards[0]), 1)
 	assert_eq(BotInput.card_score(w, cards[0]), 70.0 + step * float(_magnitude(cards[0]) - 1))
 
 
@@ -250,3 +207,9 @@ func test_a_full_equip_tab_leaves_the_bot_idle_when_only_equipment_lies_around()
 		w.step(DT, BotInput.decide(w, memo))
 		w.drain_events()
 	assert_true(absf(centre - w.player.pos.x) < start - 100.0, "it heads for the map centre, not to the drop it cannot take")
+
+func test_pool_card_scores_do_not_multiply_rank_by_rarity() -> void:
+	var w := RF.quiet_world()
+	for tier in UpgradePool.TIERS:
+		assert_eq(BotInput.card_score(w, w.upgrades.choice_card("energy_bolt_rank", w, tier)), 74.0)
+		assert_eq(BotInput.card_score(w, w.upgrades.choice_card("magic_claw_new", w, tier)), 100.0)

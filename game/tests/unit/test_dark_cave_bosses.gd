@@ -22,7 +22,7 @@ func test_shipped_schedule_arrives_at_five_ten_and_fifteen_minutes_and_waits_for
 	stage.bursts = {}
 	stage.elites = {}
 	data.stages.stages.quiet = stage
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var setup := RF.setup("quiet", 73, data)
 	setup.map_img = RF.map_from_segments([{"x1": -2000, "y1": 0, "x2": 2000, "y2": 0}], [Vector2.ZERO])
 	for id in [6300005, 8220009, 8130100, 7130100, 7130101]:

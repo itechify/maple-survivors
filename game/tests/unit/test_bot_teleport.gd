@@ -8,7 +8,7 @@ const DT := 1.0 / 60.0
 func _cornered_world(job := 210) -> RunWorld:
 	var data := RF.quiet_data()
 	# No start skills: the branch's Teleport is learned below.
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var setup := RF.setup("quiet", 60, data)
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
 	var w := RunWorld.new(setup)

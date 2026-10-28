@@ -8,7 +8,7 @@ const DT := 1.0 / 60.0
 func _world(key := "teleport_fp", job := 210, upper_y := -120) -> RunWorld:
 	var data := RF.quiet_data()
 	# #284: a fresh 212 starts with Teleport (FP); the job-line variant under test is learned directly instead.
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var setup := RF.setup("quiet", 60, data)
 	setup.map_img = RF.map_from_segments([
 		{"x1": 0, "y1": 0, "x2": 1000, "y2": 0},
@@ -162,7 +162,7 @@ func test_direction_restrictions_and_repeat_delay() -> void:
 	w.step(DT, input)
 	assert_eq(w.player.pos.x, on_ladder.x, "climbing does not teleport")
 	var bare := RF.quiet_data()
-	bare.jobs_survivor.jobs["212"]["start_skills"] = []
+	bare.jobs_survivor.jobs["212"]["starting_skill"] = ""; bare.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var unlearned := RunWorld.new(RF.setup("quiet", 60, bare))
 	RF.place_player(unlearned, 400)
 	var at := unlearned.player.pos

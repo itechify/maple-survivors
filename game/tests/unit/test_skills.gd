@@ -10,7 +10,7 @@ const DT := 1.0 / 60.0
 ## unused: there is no MP, #285); #284 made a fresh character a 212 that starts with Energy Bolt and Teleport.
 func _world(job: int, skill: String, x := 400.0, _mp := 5) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var setup := RF.setup("quiet", 7, data)
 	setup["job"] = job
 	var w := RunWorld.new(setup)
@@ -38,8 +38,8 @@ func test_skill_book_levels_and_paths() -> void:
 	assert_eq(b.max_rank("three_snails"), 3)
 	for r in range(1, 4):
 		assert_eq(b.canonical_level("three_snails", r), r, "Three Snails rank = level")
-	for r in range(1, 21):
-		assert_eq(b.canonical_level("energy_bolt", r), r, "Energy Bolt rank %d" % r)
+	for r in range(1, 9):
+		assert_eq(b.canonical_level("energy_bolt", r), [3,5,8,10,13,15,18,20][r-1])
 	assert_eq(b.canonical_level("energy_bolt", 21), 20, "clamped to the last rank")
 	assert_eq(b.canonical_level("magic_armor", 20), 20)
 	assert_eq(b.max_level("energy_bolt"), 20, "levels in the img")
@@ -96,7 +96,7 @@ func test_magic_skills_resolve_from_canonical_levels() -> void:
 	w.learn_skill("magic_armor")
 	var int_stat := float(w.player_state.int)
 	var eb := w.loadout.stats("energy_bolt")
-	var expect := CombatMath.magic_damage_range(int_stat, 23.0, 20.0, 0.15)
+	var expect := CombatMath.magic_damage_range(int_stat, 23.0, 24.0, 0.20)
 	assert_eq(eb.damage_type, "magic")
 	assert_true(eb.magic)
 	assert_near(eb.damage_min, expect.x, 1e-3, "Energy Bolt L1 min with INT and the wand's 23 magic attack")
@@ -105,9 +105,9 @@ func test_magic_skills_resolve_from_canonical_levels() -> void:
 	assert_near(w.loadout.stats("energy_bolt").damage_max, expect.y * 1.2, 1e-3, "Overcharge +20%")
 	w.upgrades.apply("energy_bolt_rank", w)
 	var eb2 := w.loadout.stats("energy_bolt")
-	assert_eq(eb2.level, 2, "rank 2 = level 2")
-	var mad2 := w.book.canonical("energy_bolt", 2, "mad")
-	var mas2 := CombatMath.mastery_fraction(int(w.book.canonical("energy_bolt", 2, "mastery")))
+	assert_eq(eb2.level, 5, "rank 2 maps to WZ level 5")
+	var mad2 := w.book.canonical("energy_bolt", 5, "mad")
+	var mas2 := CombatMath.mastery_fraction(int(w.book.canonical("energy_bolt", 5, "mastery")))
 	assert_near(eb2.damage_max, CombatMath.magic_damage_range(int_stat, 23.0, mad2, mas2).y * 1.2, 1e-3)
 	var mc := w.loadout.stats("magic_claw")
 	assert_eq(mc.kind, "instant")

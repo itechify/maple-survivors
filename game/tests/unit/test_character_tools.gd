@@ -55,7 +55,7 @@ func test_balance_character_flag_uses_fixture_in_one_off_round() -> void:
 			character.skill_order.erase(key)
 	assert_eq(record.start_character.skills.size(), character.skills.size())
 	for key: String in character.skills:
-		assert_eq(int(record.start_character.skills[key].rank), int(character.skills[key].rank))
+		assert_eq(int(record.start_character.skills[key].rank), mini(int(character.skills[key].rank), SkillBook.from_data(DataRepo.load_all().skills, {}).max_rank(key)))
 		for stat: String in character.skills[key].mods:
 			for component in 2:
 				assert_near(float(record.start_character.skills[key].mods[stat][component]),
@@ -65,7 +65,7 @@ func test_balance_character_flag_uses_fixture_in_one_off_round() -> void:
 	assert_eq(int(record.level), int(character.level))
 	assert_eq(int(record.job), int(character.job_id))
 	for key: String in character.skills:
-		assert_eq(int(record.skills.get(key, 0)), int(character.skills[key].rank))
+		assert_eq(int(record.skills.get(key, 0)), mini(int(character.skills[key].rank), SkillBook.from_data(DataRepo.load_all().skills, {}).max_rank(key)))
 	assert_false(record.has("potions_start"))
 	assert_false(record.start_character.has("potions"))
 	assert_eq(record.warnings, [])

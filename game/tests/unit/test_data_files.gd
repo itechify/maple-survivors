@@ -94,6 +94,10 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 	for key: String in book.defs:
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
+		if key in ["energy_bolt", "magic_claw", "fire_arrow", "poison_breath"]:
+			assert_eq(book.max_rank(key), 8)
+			assert_eq(book.canonical_level(key, 8), top)
+			continue
 		assert_eq(book.max_rank(key), top, "%s: one rank per canonical level" % key)
 		var ranks: Array = book.def(key).ranks
 		for level in range(1, top + 1):
@@ -114,7 +118,7 @@ func test_cards_are_consistent() -> void:
 		if String(c.kind).begins_with("skill_"):
 			assert_true(skills.has(String(c.skill)), "%s: skill %s exists" % [c.id, c.skill])
 		if c.kind == "skill_rank":
-			assert_eq(int(c.max_rank), skills[c.skill].ranks.size(), "%s: max_rank is the canonical level cap" % c.id)
+			assert_eq(int(c.max_rank), 0 if c.skill in ["energy_bolt", "magic_claw", "fire_arrow", "poison_breath"] else skills[c.skill].ranks.size(), "%s: max_rank is the canonical level cap" % c.id)
 			assert_eq(c.effects, [{"stat": "rank", "op": "add", "value": 1.0}], "%s: one level per card" % c.id)
 		for effect: Dictionary in c.effects:
 			assert_false(effect.op == "heal", "%s cannot heal by percentage" % c.id)
@@ -640,7 +644,7 @@ func test_every_attack_skill_has_a_hit_more_mobs_card() -> void:
 		var s: Dictionary = skills[key]
 		if HIT_MORE_EXEMPT.has(key):
 			assert_eq(String(s.damage), "none", "exempt %s must not be an attack skill" % key)
-			assert_eq(String(s.slot), "active", "exempt %s is an active skill" % key)
+			assert_true(String(s.slot) in ["active", "mobility"], "exempt %s is active or manual mobility" % key)
 			assert_false(covered.has(key), "%s has a hit-more-mobs card: remove its exemption" % key)
 			continue
 		if int(s.get("job", -1)) == 0:

@@ -1,0 +1,25 @@
+{
+	"_doc": "tier C: ADR 0006 #282 curated pool. Undefined skills stay out of draws until implemented. Original numeric IDs live in skill definitions.",
+	"jobs": {
+		"212": {
+			"starting_skill": "energy_bolt",
+			"mobility_skill": "teleport_fp",
+			"skill_pool": [
+				"energy_bolt",
+				"magic_claw",
+				"fire_arrow",
+				"poison_breath",
+				"explosion",
+				"poison_mist",
+				"element_composition",
+				"fire_demon",
+				"elquines",
+				"paralyze",
+				"meteor_shower",
+				"big_bang"
+			],
+			"playable": true,
+			"_provenance": "tier C: ADR 0006: only 212 playable."
+		}
+	}
+}

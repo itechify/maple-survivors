@@ -88,7 +88,7 @@ func test_level_up_cards_show_the_skill_text_at_the_offered_level() -> void:
 	assert_eq([cards[0].desc, cards[0].detail], ["Boosts the weapon def.", "Weapon def. +2"],
 		"a learn card: the skill's desc and its level-1 line")
 	assert_eq(text.dress([w.upgrades.choice_card("magic_armor_new", w, "rare")], w.loadout)[0].detail,
-		"Weapon def. +4", "a Rare learn starts at level 2 and shows that line")
+		"Weapon def. +2", "a Rare learn gives rank 1 too (#287)")
 	assert_eq(cards[1].desc, mod.desc, "a mod card keeps its own effect text")
 	assert_has(LevelUpWindow.change_lines(cards[1]), "Shots: 1 → 2", "with the number it changes")
 	assert_eq(cards[2], magnet, "cards without a skill are left alone")

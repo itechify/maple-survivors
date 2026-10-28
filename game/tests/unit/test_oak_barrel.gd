@@ -19,7 +19,7 @@ const COOLTIME := [35, 35, 30, 30, 25, 25, 20, 20, 15, 15]
 func _world(p_seed := 194, rank := 1, hp_fraction := 0.25, mob_dx := 100.0) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.regen.hp = 0
 	data.balance.magnet_radius = 0
 	data.balance.mob_motion.push_px = 0
@@ -267,34 +267,11 @@ func test_a_barrel_is_not_attacked_and_does_not_attack() -> void:
 
 # --- cards -----------------------------------------------------------------------------------------------------------
 
-func test_cards_are_offered_to_brawlers_only() -> void:
-	var w := _world()
-	w.loadout.ranks.erase(KEY)
-	w.loadout.order.erase(KEY)
-	w.loadout.version += 1
-	for job in [510, 500, 520, 100, 0, 200]:
-		w.progression.job_id = job
-		var ids: Array = w.upgrades.eligible(w)
-		assert_eq("oak_barrel_new" in ids, job == 510, "learn card for job %d" % job)
-		assert_false("oak_barrel_rank" in ids, "no rank card before it is learned")
-	w.progression.job_id = 510
-	assert_true(w.learn_skill(KEY))
-	var ids: Array = w.upgrades.eligible(w)
-	assert_false("oak_barrel_new" in ids)
-	assert_true("oak_barrel_rank" in ids)
-	var card: Dictionary = w.upgrades.card("oak_barrel_rank")
-	assert_eq(int(card.max_rank), 10)
-	assert_eq(int(card.requires.jobs[0]), 510)
-	assert_eq(card.requires.jobs.size(), 1)
-	w.loadout.set_rank(KEY, 10)
-	assert_false("oak_barrel_rank" in w.upgrades.eligible(w), "none at the top rank")
 
-
-## A Brawler (#189) at Lv 30, set up directly as job 510 with its old knuckle (RF.as_job; #284 removed advancement).
 func _brawler(p_seed := 194) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.regen.hp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({1482000: {"incPAD": 18, "attackSpeed": 5, "tuc": 7},
@@ -313,7 +290,7 @@ func _brawler(p_seed := 194) -> RunWorld:
 func test_a_real_brawler_is_offered_the_cards_and_the_barrel_works() -> void:
 	var w := _brawler()
 	assert_eq(w.progression.job_id, 510)
-	assert_true("oak_barrel_new" in w.upgrades.eligible(w), "the learn card reaches a Brawler")
+	assert_false("oak_barrel_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	var gunner := _brawler()
 	gunner.progression.job_id = 520
 	assert_false("oak_barrel_new" in gunner.upgrades.eligible(gunner), "not a Gunslinger")
@@ -324,7 +301,7 @@ func test_a_real_brawler_is_offered_the_cards_and_the_barrel_works() -> void:
 	assert_eq(card.skill_name, "Oak Barrel")
 	assert_eq(w.upgrades.apply("oak_barrel_new", w), 1)
 	assert_true(w.loadout.has(KEY))
-	assert_true("oak_barrel_rank" in w.upgrades.eligible(w))
+	assert_false("oak_barrel_rank" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	# Learned: below 30% HP with a snail by it, the Brawler turns into the barrel (a seed whose roll succeeds).
 	var seed_value := _seed_whose_first_roll(false)
 	var b := _brawler(seed_value)

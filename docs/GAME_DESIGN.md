@@ -4141,7 +4141,30 @@ remain canonical. No Summon.img sound1 exists, so summons use Mano's canonical S
 canvas items. Evidence facts: original v83 Mob.wz/2220000 and Skill.wz/MobSkill.img; local research/stage-bosses/out/
 bosses_2220000.json confirms the same fields. The real-import test checks the canonical rows and the summon art.
 
+### Spec #282 / #287 interim regression smoke (2026-10-28)
+
+Pool/slot/rank plumbing only; the eight new attacks, rarity bonuses, common passives and pacing are not landed.
+Seed 1, Henesys, bot, real cache (`ISOLATE=287 bash scripts/balance.sh 1 --stage=henesys`): no crash, no warnings,
+no missing assets. The previous #284 smoke died on map 2 at 9:17 / Lv32 with 1,422 kills; this pool-only build is
+weaker before the successor features. No balance data was tuned. The complete regional smoke belongs to slice QA (#294).
+
+| Seed / policy | End | Level | Kills | Boss observation |
+|---|---|---|---|---|
+| 1 / bot | DEAD map 1, 309.90 s | 12 | 239 | Mano spawned at 300 s, alive at death; 0/1 completed, censored fight >=9.87 s |
+
 ## 7. Skills (auto-cast and manual)
+
+**ADR 0006 / #287 supersedes the old rank and pool rules below.** Job 212's exact pool and starting skill live in
+`survivor/jobs/magician.json`, merged through DataRepo's normal per-line loader. Energy Bolt starts at rank 1 in
+active slot one; Teleport is the separate `mobility_skill`, outside both tracks. The twelve declared pool keys
+include the eight forthcoming skills; only definitions implemented in SkillBook are offered. New implementations
+get standard new/rank cards automatically (explicit upgrade data can supply their text).
+
+`Loadout` owns slot occupancy, capacity checks and display text; capacities are `skills.json.slot_limits` (6/6).
+`SkillBook.rank_table` owns rank limits and WZ mapping: per-skill `ranks` overrides `skills.json.rank_levels`, keyed
+by WZ maxLevel. Eight active ranks map by ceil(r × maxLevel / 8): 20 -> [3,5,8,10,13,15,18,20],
+30 -> [4,8,12,15,19,23,27,30]. WZ numbers and visual levels are read at the mapped level.
+
 
 **No MP (ADR 0006, #285).** Skills are gated by their cooldown (and an HP cost, Slash Blast and the Boosters) only.
 Canonical `mpCon` values quoted in this section and its tables are Skill.wz facts kept for reference; nothing pays
@@ -5310,6 +5333,18 @@ The tool flag `--job=320` forces Bowman then Crossbowman. These defaults are unt
 
 ## 8. Upgrades
 
+**ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
+rarity; active rarity still rolls with Fortune and the existing odds, awaiting #288's bonuses. Standalone behaviour
+cards and job-specific buffs/passives are excluded from draws. `UpgradePool.card_kind` classifies owned_active,
+new_active, passive_rank, new_passive; #288 adds mastery here. The per-card weights in `upgrades.json.draw_weights`
+are 1.2/1.0/0.8/0.5 respectively (mastery reserves 1.2). Slots stop new skills of their kind at six; owned rank
+cards remain eligible until the skill's cap. Common passive definitions opt in with `common_passive: true`, use
+`slot: passive`, carry their own rank table, and get Normal-only cards. No common passives ship until #289.
+Draws sample three distinct cards without replacement. Sparse draws add one Power Elixir alternative. Pity is gone.
+Each boss retains its separate bonus draw; random/first policies still choose from the same offers. The sensible
+bot scores every declared pool skill (new 100, rank 74); these are existing attack priorities, not balance tuning.
+
+
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
 `stat`, `filler` for the separate fallback; potions follow a level schedule, not cards, spec #225), `skill` (for skill cards), `icon` (a WZ path, e.g. `Skill.wz/000.img/skill/0001000/icon`), `name`,
 `desc` (with `{value}` placeholders), `max_rank`, `weight`, `requires` (job ids, owned skills, min skill rank, min
@@ -5806,6 +5841,15 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+| #287 survivor rule | Tier / source |
+|---|---|
+| 6 active + 6 passive slots; mobility outside slots | C: owner ADR 0006, reference survivor loop |
+| Curated 212 pool, Energy Bolt start, Teleport mobility | C: owner spec #282; original numeric skill IDs remain in definitions |
+| Eight ranks; ceil(r × WZ maxLevel / 8), per-skill table overrides | C: owner #282/#287; WZ levels themselves unchanged (A) |
+| Per-card draw weights 1.2 owned / 1 new / 0.8 passive rank / 0.5 new passive; reserved mastery 1.2 | C: owner #282 |
+| Bot pool new/rank scores 100/74 | C: existing attack priorities applied to declared pool, #287 |
+
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|

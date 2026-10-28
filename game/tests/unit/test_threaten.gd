@@ -23,7 +23,7 @@ func _levels() -> Dictionary:
 
 func _world(p_seed := 183) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 100000
 	data.balance.regen.hp = 0
 	data.balance.mob_attacks = {"default_interval": 5.0}
@@ -425,7 +425,7 @@ func test_real_cache_cast_threatens_a_crowd_with_the_v83_level() -> void:
 	if not require_cache():
 		return
 	var data := DataRepo.load_all()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var setup := DataRepo.build_setup(data, "henesys", 183, Vector2(800, 600), _img,
 		func(id: int) -> Dictionary: return _img("Mob.wz/%07d.img" % id))
 	if not setup.skill_imgs.has("120"):

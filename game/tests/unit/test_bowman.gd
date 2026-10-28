@@ -9,7 +9,7 @@ const WEAPONS := {"bow": 1452051, "crossbow": 1462001}
 
 func _world(free := 24) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	# The removed first-job advancement's +125 HP (v83-facts 4).
 	data.balance.player.hp = 175
 	var setup := RF.with_basic_attack(RF.setup("quiet", 199, data))
@@ -226,11 +226,11 @@ func test_bowman_cards_are_offered_with_any_weapon_and_each_attack_can_hit_more_
 	for family: String in ["bow", "crossbow", "sword"]:
 		var combat := _combat(family)
 		for key: String in ["arrow_blow", "bow_double_shot", "blessing_of_amazon", "critical_shot", "eye_of_amazon", "focus"]:
-			assert_has(combat.upgrades.eligible(combat), key + "_new", "weapons gate no card (#284)")
+			assert_false(key + "_new" in combat.upgrades.eligible(combat), "#287: unported skills have no pool offers")
 			combat.learn_skill(key)
 		for key: String in ["arrow_blow", "bow_double_shot"]:
-			assert_has(combat.upgrades.eligible(combat), key + "_rank")
-			assert_has(combat.upgrades.eligible(combat), key + "_shots")
+			assert_false(key + "_rank" in combat.upgrades.eligible(combat), "#287: unported skills have no pool offers")
+			assert_false(key + "_shots" in combat.upgrades.eligible(combat), "#287: unported skills have no pool offers")
 			var before: int = combat.loadout.stats(key).count
 			assert_true(combat.upgrades.apply(key + "_shots", combat))
 			assert_eq(combat.loadout.stats(key).count, before + 1)
@@ -295,7 +295,7 @@ func test_original_bowman_levels_stats_art_and_sounds_resolve_in_private_cache()
 
 func test_range_passive_is_reusable_by_a_gun_line() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.skills.skills["reach_training"] = data.skills.skills.eye_of_amazon.duplicate(true)
 	data.skills.skills.reach_training.weapon_families = ["gun"]
 	var setup := RF.with_basic_attack(RF.setup("quiet", 199, data))

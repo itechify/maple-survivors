@@ -40,7 +40,7 @@ func _info() -> Dictionary:
 func _world(job := 110, weapon := SWORD, p_seed := 181) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 600 # the base 50 plus the +225 / +325 HP the removed Warrior advancements granted (#284)
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.magnet_radius = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge(_info(), true)
@@ -361,25 +361,6 @@ func _cards_of(w: RunWorld, skills: Array) -> Array:
 	return w.upgrades.eligible(w).filter(func(id: String) -> bool: return String(w.upgrades.card(id).skill) in skills)
 
 
-func test_a_fighter_is_offered_its_cards_whatever_weapon_is_held() -> void:
-	var w := _world(110, SWORD)
-	for key: String in ["axe_mastery", "final_attack_axe", "axe_booster", "sword_mastery_fighter",
-			"final_attack_sword_fighter", "sword_booster_fighter"]:
-		_learn(w, key, 1)
-	for id in ["axe_mastery_rank", "final_attack_axe_rank", "final_attack_axe_spread", "axe_booster_rank",
-			"sword_mastery_fighter_rank", "final_attack_sword_fighter_rank", "final_attack_sword_fighter_spread",
-			"sword_booster_fighter_rank"]:
-		assert_has(_cards_of(w, [w.upgrades.card(id).skill]), id, "%s is on offer with the sword (#284)" % id)
-
-
-func test_learn_cards_are_offered_for_the_jobs_own_line_only() -> void:
-	var w := _world(110, SWORD)
-	var ids := w.upgrades.eligible(w)
-	for id in ["sword_mastery_fighter_new", "final_attack_sword_fighter_new", "sword_booster_fighter_new",
-			"axe_mastery_new", "final_attack_axe_new", "axe_booster_new"]:
-		assert_has(ids, id)
-	for id in ["sword_mastery_page_new", "bw_mastery_new", "spear_mastery_new"]:
-		assert_false(id in ids, "%s is another branch's card" % id)
 
 
 func test_power_flags_and_requirements_of_the_new_cards() -> void:

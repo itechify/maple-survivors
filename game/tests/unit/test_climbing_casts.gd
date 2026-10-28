@@ -17,7 +17,7 @@ func test_rope_and_ladder_block_casts_without_pausing_cooldowns() -> void:
 	for is_ladder in [0, 1]:
 		var data := RF.quiet_data()
 		# One auto-cast skill set up directly (#284: a fresh 212 starts with Energy Bolt and Teleport).
-		data.jobs_survivor.jobs["212"]["start_skills"] = ["three_snails"]
+		data.jobs_survivor.jobs["212"]["starting_skill"] = "three_snails"
 		var world := RunWorld.new(RF.setup("quiet", 8, data))
 		RF.place_player(world, 400)
 		world.god = true

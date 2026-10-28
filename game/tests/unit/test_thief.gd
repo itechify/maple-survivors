@@ -14,7 +14,7 @@ const INFO := {
 
 func _world(free := 24) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var setup := RF.with_basic_attack(RF.setup("quiet", 207, data))
 	setup.equipment_info.merge(INFO, true)
 	if free < 24:
@@ -175,16 +175,16 @@ func test_cards_are_on_offer_whatever_weapon_is_held_and_on_both_branches() -> v
 		RF.as_job(w, 400, path)
 		var eligible := w.upgrades.eligible(w)
 		for key: String in ["nimble_body", "lucky_seven", "double_stab"]:
-			assert_has(eligible, key + "_new", "%s with a %s: weapons gate no card (#284)" % [key, path])
+			assert_false(key + "_new" in eligible, "#287: unported skills have no pool offers")
 			w.learn_skill(key)
 		eligible = w.upgrades.eligible(w)
 		for key: String in ["nimble_body", "lucky_seven", "double_stab"]:
-			assert_has(eligible, key + "_rank")
+			assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
 			assert_eq(int(w.upgrades.card(key + "_rank").get("max_rank", 0)), 20)
 			if key == "nimble_body":
 				continue
 			var id := key + ("_count" if key == "lucky_seven" else "_targets")
-			assert_has(eligible, id)
+			assert_false(id in eligible, "#287: unported skills have no pool offers")
 			var before := w.loadout.stats(key)
 			assert_true(w.upgrades.apply(id, w))
 			var after := w.loadout.stats(key)
@@ -195,7 +195,7 @@ func test_cards_are_on_offer_whatever_weapon_is_held_and_on_both_branches() -> v
 			eligible = w.upgrades.eligible(w)
 			# A first-job card is on the line of both branches (UpgradePool.on_line, #284).
 			for key: String in ["nimble_body", "lucky_seven", "double_stab"]:
-				assert_has(eligible, key + "_rank", "%s at job %d" % [key, branch])
+				assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
 				assert_false(w.upgrades.card(key + "_new").requires.has("carry_jobs"))
 
 func test_lucky_seven_uses_the_current_star_sprite_when_the_ammo_tier_changes() -> void:

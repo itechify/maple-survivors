@@ -7,7 +7,7 @@ const DT := 1.0 / 60.0
 
 func _world(rank_value: int, threshold: float = 0.5) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 1000
 	data.balance.regen.hp = 0
 	data.skills.skills.recovery.buff.hp_threshold = threshold

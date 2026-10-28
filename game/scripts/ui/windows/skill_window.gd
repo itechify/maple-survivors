@@ -46,7 +46,7 @@ var selected := -1
 var scroll := 0
 
 var _hover := -1
-var _seen_family := ""
+var _seen_loadout_version := -1
 var _mouse := Vector2.ZERO
 var _tip: SkillTooltip
 var _bt_close: WzButton
@@ -187,12 +187,10 @@ func _window_gui_input(event: InputEvent, local: Vector2) -> void:
 
 
 func _process(_delta: float) -> void:
-	# The held weapon can change while the window is open (Equip window): redraw the greyed rows.
-	if model != null and model.held_family.is_valid():
-		var family := String(model.held_family.call())
-		if family != _seen_family:
-			_seen_family = family
-			_refresh()
+	# Slot use and ranks can change while another window is on top.
+	if model != null and model.loadout.version != _seen_loadout_version:
+		_seen_loadout_version = model.loadout.version
+		_refresh()
 
 
 func _notification(what: int) -> void:
@@ -238,6 +236,8 @@ func _draw() -> void:
 	_draw_book()
 	_draw_rows()
 	_draw_scrollbar()
+	if model != null:
+		MapleText.draw_centered(self, 4, 250, size.x - 8, model.loadout.slot_summary(), MapleText.BLACK, MapleText.SMALL)
 	MapleText.draw_centered(self, SP_BOX.position.x, SP_BOX.position.y + 1.0, SP_BOX.size.x, "0", MapleText.BLACK,
 		MapleText.SMALL)
 

@@ -6,7 +6,7 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 ## A synthetic Stumpy setup with canonical-shaped attack metadata and selected attacks.
 static func setup(attacks: Array = ["attack2"], seed_value: int = 2401) -> Dictionary:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 300
 	data.balance.player.stats.dex = 0
 	data.balance.player.stats.luk = 0

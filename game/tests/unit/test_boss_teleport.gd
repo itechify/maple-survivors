@@ -7,7 +7,7 @@ const DT := 1.0 / 60.0
 
 func _world() -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 1000
 	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000}])
 	var setup := RF.setup("quiet", 20, data)

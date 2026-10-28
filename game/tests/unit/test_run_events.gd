@@ -80,8 +80,8 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			for c: Dictionary in e.cards:
 				var ck: Array = c.keys()
 				ck.sort()
-				if ck != ["desc", "icon", "id", "kind", "magnitude", "max_rank", "name", "rank", "rank_before", "skill", "skill_changes", "skill_effect_stat",
-						"skill_level", "skill_level_max", "skill_level_next", "skill_mod_changes", "skill_name", "tier"]:
+				if ck != ["card_kind", "desc", "icon", "id", "kind", "magnitude", "max_rank", "name", "rank", "rank_before", "skill", "skill_changes", "skill_effect_stat",
+						"skill_level", "skill_level_max", "skill_level_next", "skill_mod_changes", "skill_name", "slots", "tier"]:
 					fail("card fields %s" % [ck])
 				elif typeof(c.rank) != TYPE_INT or typeof(c.max_rank) != TYPE_INT or typeof(c.skill_level) != TYPE_INT 						or typeof(c.skill_level_next) != TYPE_INT:
 					fail("card rank types %s" % [c])
@@ -150,7 +150,7 @@ func test_every_event_matches_the_schema() -> void:
 		_check(e, seen)
 	# A short scheduled boss encounter covers warning/spawn/death and a boss hit's source fields.
 	var boss_setup := RF.setup("quiet", 19, RF.quiet_data())
-	boss_setup.data.jobs_survivor.jobs["212"]["start_skills"] = []
+	boss_setup.data.jobs_survivor.jobs["212"]["starting_skill"] = ""; boss_setup.data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	RF.set_bosses(boss_setup.data.stages.stages.quiet, [{"time": 0.5, "mob_id": 100100}])
 	var b := RunWorld.new(boss_setup)
 	b.god = true
@@ -232,7 +232,7 @@ func test_every_event_matches_the_schema() -> void:
 	for e: Dictionary in potion.drain_events():
 		_check(e, seen)
 	var buff_setup := RF.setup("quiet", 12, RF.quiet_data())
-	buff_setup.data.jobs_survivor.jobs["212"]["start_skills"] = []
+	buff_setup.data.jobs_survivor.jobs["212"]["starting_skill"] = ""; buff_setup.data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var buff_world := RunWorld.new(buff_setup)
 	RF.as_job(buff_world, 200)
 	buff_world.loadout.ranks.erase("energy_bolt")

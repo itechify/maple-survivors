@@ -114,7 +114,7 @@ func _world(chance: float, mult: float = 1.0, p_seed: int = 15) -> RunWorld:
 	data.balance.mesos.chance = chance
 	data.balance.mesos.mult = mult
 	data.balance.mesos.boss_drops = 3
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var w := RunWorld.new(RF.setup("quiet", p_seed, data))
 	RF.place_player(w, 400)
 	w.god = true
@@ -216,7 +216,7 @@ func test_a_boss_drops_its_configured_number_of_range_rolled_bundles() -> void:
 	var data := RF.quiet_data()
 	data.balance.mesos.mult = 1.0
 	data.balance.mesos.boss_drops = 3
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
 		"rewards": {"exp_mult": 5, "exp_drops": 2, "spread": 100, "potions": {"hp": 1, "mp": 1}, "bonus_choices": 1}}])
 	var w := RunWorld.new(RF.setup("quiet", 20, data))

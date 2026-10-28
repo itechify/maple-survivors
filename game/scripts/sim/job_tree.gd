@@ -1,9 +1,8 @@
 class_name JobTree
 extends RefCounted
 ## The canonical Explorer job tree (`data/canonical/jobs.json`: id, name, parent, tier, level, book) plus the survivor
-## flags (`data/survivor/jobs.json`: playable, reason, start_skills). ADR 0006: a character is one job, fixed for its
-## life; there is no advancement. The tree stays for the lineage lookups (per-job balance rows, the skill cards of a
-## job's line, accuracy and ammo rules) and for names.
+## flags (`data/survivor/jobs.json`: playable, reason, skill_pool, starting_skill, mobility_skill). ADR 0006: a character is one job, fixed for its
+## life; there is no advancement. The tree stays for the lineage lookups (per-job balance rows, accuracy and ammo rules) and for names.
 ##
 ## playable_jobs() are the jobs a character can be, default_job() the one a fresh character and the tools get, and
 ## job_error(id) why a tool cannot make a character of job `id` ("" when it can).
@@ -41,7 +40,9 @@ func job(id: int) -> Dictionary:
 	var s: Dictionary = _survivor.get(id, {})
 	d["playable"] = bool(s.get("playable", false))
 	d["reason"] = String(s.get("reason", _default_reason))
-	d["start_skills"] = start_skills(id)
+	d["skill_pool"] = skill_pool(id)
+	d["starting_skill"] = starting_skill(id)
+	d["mobility_skill"] = mobility_skill(id)
 	return d
 
 
@@ -60,13 +61,27 @@ func default_job() -> int:
 	return ids[0] if not ids.is_empty() else 0
 
 
-## The skill keys a fresh round of job `id` starts with (rank 1, in casting order); [] when none.
+## Curated active skill keys for this exact job (not inherited).
+func skill_pool(id: int) -> Array:
+	return _survivor.get(id, {}).get("skill_pool", [])
+
+
+## The skill occupying active slot one at the start of a round.
+func starting_skill(id: int) -> String:
+	return String(_survivor.get(id, {}).get("starting_skill", ""))
+
+
+## Manual mobility outside both slot tracks.
+func mobility_skill(id: int) -> String:
+	return String(_survivor.get(id, {}).get("mobility_skill", ""))
+
+
+## Initial learning order: starting active, then manual mobility.
 func start_skills(id: int) -> PackedStringArray:
 	var out := PackedStringArray()
-	var raw: Variant = _survivor.get(id, {}).get("start_skills", [])
-	if raw is Array:
-		for key: Variant in raw:
-			out.append(String(key))
+	for key in [starting_skill(id), mobility_skill(id)]:
+		if key != "":
+			out.append(key)
 	return out
 
 
