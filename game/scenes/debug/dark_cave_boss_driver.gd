@@ -5,7 +5,7 @@ extends Node
 ## It uses real RunWorld attack events and RunScene presentation, never synthetic art or balance candidates.
 
 const DT := 1.0 / 60.0 # tier C: normal simulation tick, matching RunScene.
-const FIXTURE := "res://tests/fixtures/characters/lv35_magician_2nd.json"
+const FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 var shots := ""
 var records: Array = []
 

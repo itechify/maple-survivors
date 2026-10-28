@@ -1,27 +1,26 @@
 extends TestCase
 ## The committed real-bot character and balance tool's public --character file boundary.
 
-const FIXTURE := "res://tests/fixtures/characters/lv35_magician_2nd.json"
+const FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 
 
-func test_fixture_is_complete_second_job_magician_character() -> void:
+func test_fixture_is_a_format_three_arch_mage_with_its_gear() -> void:
 	var errors := PackedStringArray()
 	var character := DataRepo.load_character(FIXTURE, errors)
 	assert_eq(errors, PackedStringArray())
 	if character.is_empty():
 		return
-	assert_between(float(character.level), 33.0, 39.0, "approximately level 35")
-	assert_true(int(character.job_id) in [210, 220, 230])
-	assert_true(character.skills.size() > 1)
+	assert_eq(int(character.format), 3)
+	assert_eq(int(character.job_id), 212)
+	assert_eq(int(character.tiers_unlocked), 1)
+	for gone: String in ["level", "exp", "skills", "skill_order", "card_ranks", "player_mods", "earned_ap", "attributes", "base_hp"]:
+		assert_false(character.has(gone), "a format-3 character keeps no " + gone)
 	assert_eq(character._doc.seed, 1)
 	assert_eq(character._doc.policy, "bot")
-	assert_eq(character._doc.outcome, "CLEARED")
 	assert_eq(String(character._doc.revision).length(), 40)
-	# Migrated to format 2 by #105 (character_fixture.gd --migrate), not regenerated.
-	assert_eq(int(character.format), CharacterSnapshot.FORMAT)
-	assert_eq(int(character._doc.migration.from_format), 1)
+	assert_eq(int(character._doc.migration_286.to_format), 3)
 	assert_eq(Equipment.worn_ids(character.equipment.worn), [1040002, 1060002, 1072001, 1372005],
-		"the old outfit and the Magician's Wooden Wand are worn")
+		"the outfit and the Arch Mage's wand are worn")
 	assert_eq(int(character.mesos), 0)
 
 
@@ -45,27 +44,14 @@ func test_balance_character_flag_uses_fixture_in_one_off_round() -> void:
 	if record.is_empty():
 		return
 	var character: Dictionary = DataRepo.load_json(FIXTURE)
-	assert_eq(int(record.start_character.level), int(character.level), "report captures the actual starting boundary")
-	assert_eq(int(record.start_character.job_id), int(character.job_id))
-	# The fixture still lists Magic Guard; a removed skill (no MP, #285) is dropped on load, so compare the rest.
-	var known: Dictionary = DataRepo.load_all().skills.skills
-	for key: String in character.skills.keys():
-		if not known.has(key):
-			character.skills.erase(key)
-			character.skill_order.erase(key)
-	assert_eq(record.start_character.skills.size(), character.skills.size())
-	for key: String in character.skills:
-		assert_eq(int(record.start_character.skills[key].rank), int(character.skills[key].rank))
-		for stat: String in character.skills[key].mods:
-			for component in 2:
-				assert_near(float(record.start_character.skills[key].mods[stat][component]),
-					float(character.skills[key].mods[stat][component]), 0.000001, "mods use the sim's float32 vectors")
-	assert_eq(record.start_character.skill_order, character.skill_order)
+	var start: Dictionary = record.start_character
+	assert_eq(int(start.format), 3)
+	assert_eq(int(start.job_id), int(character.job_id), "report captures the actual starting boundary")
+	assert_eq(start.equipment, JSON.parse_string(JSON.stringify(character.equipment)), "the same gear")
+	assert_eq(int(start.tiers_unlocked), 1)
 	assert_eq(record.missing, [])
-	assert_eq(int(record.level), int(character.level))
 	assert_eq(int(record.job), int(character.job_id))
-	for key: String in character.skills:
-		assert_eq(int(record.skills.get(key, 0)), int(character.skills[key].rank))
+	assert_eq(int(record.start_character.mesos), 0)
 	assert_false(record.has("potions_start"))
 	assert_false(record.start_character.has("potions"))
 	assert_eq(record.warnings, [])

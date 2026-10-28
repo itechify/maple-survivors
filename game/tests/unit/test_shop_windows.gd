@@ -378,7 +378,7 @@ func test_hovering_a_stock_row_shows_the_scrolls_tooltip() -> void:
 # --- the Free Market hub ----------------------------------------------------------------------------------------------
 
 func _hub() -> FreeMarket:
-	var character := DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json") as Dictionary
+	var character := DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json") as Dictionary
 	character.mesos = 100000
 	var hub := FreeMarket.new()
 	hub.configure({"name": "Shopper", "character": character}, null)

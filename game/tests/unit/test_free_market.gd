@@ -83,7 +83,7 @@ func test_real_hub_draws_all_npcs_refills_pools_and_keeps_rooms_inert() -> void:
 	if not require_cache():
 		return
 	var data := DataRepo.load_all()
-	var character := DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json") as Dictionary
+	var character := DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json") as Dictionary
 	assert_false(character.is_empty())
 	var hub := FreeMarket.new()
 	hub.configure({"name": "Market71", "character": character}, null)
@@ -125,7 +125,7 @@ func test_name_tag_skipped_for_npcs_the_map_hides() -> void:
 func test_real_hub_hidden_maple_tv_has_no_name_tag() -> void:
 	if not require_cache():
 		return
-	var character := DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json") as Dictionary
+	var character := DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json") as Dictionary
 	var hub := FreeMarket.new()
 	hub.configure({"name": "Market111", "character": character}, null)
 	(Engine.get_main_loop() as SceneTree).current_scene.add_child(hub)
@@ -140,7 +140,7 @@ func test_real_hub_hidden_maple_tv_has_no_name_tag() -> void:
 
 ## A real hub (needs the cache) for the Lv38 fixture carrying `mesos`; `options` as FreeMarket.configure takes them.
 func _bot_hub(mesos: int, options: Dictionary = {}, round_seed := 4242) -> FreeMarket:
-	var character := DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json") as Dictionary
+	var character := DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json") as Dictionary
 	character.mesos = mesos
 	var hub := FreeMarket.new()
 	hub.configure({"name": "BotHub", "character": character, "round_seed": round_seed}, null, options)
@@ -253,7 +253,7 @@ func test_bot_shop_is_reproducible_for_a_seed_in_purchases_and_scroll_results() 
 
 ## Spec #225: an old format-2 save (Magnet ranks, starter potions at Lv 45) is migrated and caught up on every load path.
 func _old_potion_character() -> Dictionary:
-	var character := DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json") as Dictionary
+	var character := DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json") as Dictionary
 	character.level = 45
 	character.card_ranks["magnet"] = 3
 	character.player_mods["magnet"] = [0.0, 1.953125]

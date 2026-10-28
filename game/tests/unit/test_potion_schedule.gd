@@ -154,7 +154,7 @@ func test_several_levels_in_one_tick_apply_every_due_step_in_level_order() -> vo
 
 
 func test_lv38_fixture_loads_with_white_without_notices() -> void:
-	var text := FileAccess.get_file_as_string("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var text := FileAccess.get_file_as_string("res://tests/fixtures/characters/fp_arch_mage.json")
 	var character: Dictionary = JSON.parse_string(text)
 	assert_eq(int(character.level), 38)
 	character.potions = {"hp": {"item_id": 2000000, "count": 9}, "mp": {"item_id": 2000003, "count": 17}}

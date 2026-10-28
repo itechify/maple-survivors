@@ -4,7 +4,7 @@ extends TestCase
 ## Magician snapshot.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const FIXTURE := "res://tests/fixtures/characters/lv35_magician_2nd.json"
+const FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 
 ## v83 Character.wz reqLUK of the Magician equipment levels: the independent source for the LUK targets.
 const V83_REQ_LUK := {13: 15, 28: 30, 38: 40, 48: 50, 58: 60, 68: 70}

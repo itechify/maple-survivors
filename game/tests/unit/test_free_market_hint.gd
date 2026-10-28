@@ -32,7 +32,7 @@ func test_hint_refreshes_on_settings_changes_and_explains_unbound_chat() -> void
 	_settings.movement_keys = "arrows"
 	_settings.apply_movement()
 	var hub := FreeMarket.new()
-	var character := DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json") as Dictionary
+	var character := DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json") as Dictionary
 	hub.configure({"name": "Hint", "character": character}, null)
 	(Engine.get_main_loop() as SceneTree).current_scene.add_child(hub)
 	hub.set_process(false)

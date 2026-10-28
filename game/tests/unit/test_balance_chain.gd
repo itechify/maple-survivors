@@ -16,7 +16,7 @@ func test_chain_replays_records_and_carries_every_character_field_after_clear() 
 	data.stages.stages.quiet.keyframes = [{"t": 0, "rate": 10, "max_alive": 20, "pool": {"100100": 1}}]
 	data.balance.run_time_cap = 3.0
 	var setups := [RF.setup("quiet", 0, data), RF.setup("quiet", 0, data)]
-	setups[0].character = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	setups[0].character = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	var a: Dictionary = BR.run_chain(setups, "random", 2026)
 	var b: Dictionary = BR.run_chain(setups, "random", 2026)
 	assert_eq(JSON.stringify(a), JSON.stringify(b), "whole chain records reproduce byte for byte")
@@ -108,7 +108,7 @@ func test_timeout_does_not_feed_a_later_tier() -> void:
 func test_tier2_report_counts_only_started_rounds_and_exposes_small_feed_sample() -> void:
 	var tier1 := {"tier": 1, "state": "CLEARED", "level": 38, "time": 950.0}
 	var tier2 := {"tier": 2, "state": "DEAD", "level": 61, "time": 780.0,
-		"start_character": {"level": 38}, "lv70_reached": false,
+		"start_character": {"format": 3}, "lv70_reached": false,
 		"boss_fights": [{"mob_id": 8130100, "status": "not_spawned"}]}
 	var failed := {"tier": 1, "state": "DEAD", "level": 10, "time": 320.0}
 	var summary: Dictionary = BR.aggregate([
@@ -117,7 +117,7 @@ func test_tier2_report_counts_only_started_rounds_and_exposes_small_feed_sample(
 	assert_eq(summary.tier1_clears, 1)
 	assert_eq(summary.tiers["2"].runs, 1, "tier-1 death is excluded from tier-2 denominator")
 	assert_eq(summary.tiers["2"].outcomes.DEAD, 1)
-	assert_eq(summary.tiers["2"].start_level.median, 38.0)
+	assert_false(summary.tiers["2"].has("start_level"), "every round starts at Lv1 (ADR 0006): no start level to report")
 	assert_eq(summary.tiers["2"].end_level.median, 61.0)
 	assert_eq(summary.tiers["2"].lv70_reached, 0)
 	assert_eq(summary.tiers["2"].boss_fights["8130100"].not_spawned, 1)
@@ -127,10 +127,9 @@ func test_tier2_report_counts_only_started_rounds_and_exposes_small_feed_sample(
 	assert_true(text.contains("Lv70 reached 0/1"))
 	var empty: Dictionary = BR.aggregate([{"mode": "chain", "target_tier": 2, "rounds": [failed]}])
 	assert_eq(empty.tiers["2"].runs, 0)
-	assert_eq(empty.tiers["2"].start_level.count, 0)
 	assert_true(BR.describe_metrics(empty).contains("SUMMARY tier 2: 0 started, 0 cleared"))
 	var fixture_summary: Dictionary = BR.aggregate([tier2, {"tier": 2, "state": "TIMEOUT", "level": 70,
-		"start_character": {"level": 38}, "lv70_reached": true}])
+		"start_character": {"format": 3}, "lv70_reached": true}])
 	assert_eq(fixture_summary.lv70_reached, 1)
 	assert_true(BR.describe_metrics(fixture_summary).contains("Lv70 reached 1/2"))
 
@@ -178,7 +177,7 @@ func test_chain_cli_reads_tiers_and_replays_both_round_records() -> void:
 func test_character_cli_accepts_new_and_legacy_stage_keys_with_map_records() -> void:
 	if not require_cache():
 		return
-	var character := ProjectSettings.globalize_path("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var character := ProjectSettings.globalize_path("res://tests/fixtures/characters/fp_arch_mage.json")
 	var a := _cli(["--stage=sleepywood", "--seed=1", "--cap=0.05", "--character=" + character])
 	var b := _cli(["--stage=dark_cave", "--seed=1", "--cap=0.05", "--character=" + character])
 	assert_eq(a.status, 0)

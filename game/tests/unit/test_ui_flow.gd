@@ -551,7 +551,7 @@ func test_one_off_character_round_leaves_existing_save_bytes_unchanged() -> void
 	var flow := _flow()
 	flow.create_character("Tool69")
 	var bytes := FileAccess.get_file_as_string(save_path)
-	var path := ProjectSettings.globalize_path("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	var path := ProjectSettings.globalize_path("res://tests/fixtures/characters/fp_arch_mage.json")
 	flow.start_run("henesys", 7, {"character": path})
 	var run := flow.current as RunScene
 	assert_eq(int(run.world.player_state.level), 1, "a tool character also starts the round at Lv1")

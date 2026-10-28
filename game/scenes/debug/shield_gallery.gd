@@ -10,7 +10,7 @@ extends Node2D
 ## window shows the weapon and shield cells; the character is a snapshot edit (no requirement check), so a Magician
 ## fixture can wear the any-job shield 1092003.
 
-const FIXTURE := "res://tests/fixtures/characters/lv35_magician_2nd.json"
+const FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 const FRAMES := 30
 
 var _shots := ""
