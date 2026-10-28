@@ -277,6 +277,25 @@ func test_rush_stays_rank_one_for_the_whole_round() -> void:
 	assert_eq(w.mobility_rank(int(w.player_state.level)), 1, "the one seam a shared rank rule replaces")
 
 
+func test_rush_gives_no_orb_and_takes_no_orb_bonus() -> void:
+	var empty := _world()
+	var full := _world()
+	assert_false(empty.meter.config.is_empty(), "the Hero's Combo meter is configured")
+	full.meter.value = 5
+	for w: RunWorld in [empty, full]:
+		_mob(w, 450)
+		_press(w, false, true)
+	assert_eq(empty.meter.value, 0, "a landed dash earns no orb")
+	assert_eq(full.meter.value, 5, "and spends none")
+	var damage := {}
+	for pair: Array in [["empty", empty], ["full", full]]:
+		for event: Dictionary in (pair[1] as RunWorld).drain_events():
+			if event.type == "mob_hit":
+				damage[pair[0]] = event.damage
+	assert_true(damage.has("empty") and damage.has("full"))
+	assert_eq(damage.full, damage.empty, "five held orbs add nothing to Rush (same seed, same roll)")
+
+
 func test_the_card_draw_never_offers_rush() -> void:
 	var w := _world()
 	for i in 60:
