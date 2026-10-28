@@ -38,9 +38,8 @@ func _hero_file() -> String:
 
 func _tool(script: String, args: PackedStringArray) -> Dictionary:
 	var output: Array = []
-	var all := PackedStringArray(["--headless", "--path", ProjectSettings.globalize_path("res://"), "--script", script, "--"])
-	all.append_array(args)
-	var status := OS.execute(OS.get_executable_path(), all, output, true)
+	var status := OS.execute(OS.get_executable_path(), ["--headless", "--path",
+		ProjectSettings.globalize_path("res://"), "--script", script, "--"] + Array(args), output, true)
 	return {"status": status, "text": "\n".join(output)}
 
 
