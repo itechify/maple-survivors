@@ -188,7 +188,7 @@ func test_target_cards_are_the_only_source_of_extra_power_strike_targets() -> vo
 		mobs.append(_mob(w, dx))
 	assert_eq(_of(_cast(w), "mob_hit").size(), 1)
 	w.runner.cooldowns["power_strike"] = 0.0
-	w.upgrades.apply("power_strike_targets", w)
+	RF.add_modifier_effects(w, w.upgrades.card("power_strike_targets"))
 	assert_eq(w.loadout.stats("power_strike").mob_count, 2)
 	var hits := _of(_cast(w), "mob_hit")
 	assert_eq(hits.map(func(e: Dictionary) -> int: return e.mob), [mobs[0], mobs[1]], "the two nearest")
@@ -225,10 +225,10 @@ func test_slash_blast_range_and_target_cards_widen_it() -> void:
 	w.learn_skill("slash_blast")
 	var edge := _mob(w, 150.0)
 	assert_eq(_of(_cast(w), "cast").size(), 0, "150 px is beyond the rank-1 range")
-	w.upgrades.apply("slash_blast_range", w)
+	RF.add_modifier_effects(w, w.upgrades.card("slash_blast_range"))
 	assert_near(float(w.loadout.stats("slash_blast").range), 156.0, 1e-3, "range x1.2")
 	assert_eq(_of(_cast(w), "mob_hit").map(func(e: Dictionary) -> int: return e.mob), [edge])
-	w.upgrades.apply("slash_blast_targets", w)
+	RF.add_modifier_effects(w, w.upgrades.card("slash_blast_targets"))
 	assert_eq(w.loadout.stats("slash_blast").mob_count, 8, "+2 targets per step over the canonical 6")
 
 
@@ -372,7 +372,7 @@ func test_reach_of_reads_the_weapon_swing_and_the_slash_blast_range() -> void:
 	assert_near(SkillRunner.reach_of(w.loadout.stats("power_strike"), w), 88.0, 0.001, "the weapon's swing reach")
 	assert_near(SkillRunner.reach_of(w.loadout.stats("slash_blast"), w), 130.0, 1e-6, "range around the body")
 	assert_eq(SkillRunner.reach_of(w.loadout.stats("iron_body"), w), 0.0, "a buff is not an attack")
-	w.upgrades.apply("slash_blast_range", w)
+	RF.add_modifier_effects(w, w.upgrades.card("slash_blast_range"))
 	assert_near(SkillRunner.reach_of(w.loadout.stats("slash_blast"), w), 156.0, 1e-3)
 
 

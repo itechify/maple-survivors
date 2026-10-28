@@ -188,7 +188,7 @@ func test_cards_are_on_offer_whatever_weapon_is_held_and_on_both_branches() -> v
 			var id := key + ("_count" if key == "lucky_seven" else "_targets")
 			assert_false(id in eligible, "#287: unported skills have no pool offers")
 			var before := w.loadout.stats(key)
-			assert_true(w.upgrades.apply(id, w))
+			RF.add_modifier_effects(w, w.upgrades.card(id))
 			var after := w.loadout.stats(key)
 			assert_eq(after.count if key == "lucky_seven" else after.mob_count,
 				(before.count if key == "lucky_seven" else before.mob_count) + 1)

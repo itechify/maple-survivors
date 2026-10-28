@@ -730,3 +730,12 @@ static func map_from_segments(list: Array, portals: Array = []) -> Dictionary:
 	for k in portals.size():
 		po[str(k)] = {"pn": "sp", "pt": 0.0, "x": portals[k].x, "y": portals[k].y}
 	return {"info": {}, "foothold": {"1": {"0": fh}}, "portal": po}
+
+
+## Arrange unported combat tests from retained effect definitions; this never applies an upgrade card.
+static func add_modifier_effects(w: RunWorld, definition: Dictionary, repeats: int = 1) -> void:
+	for repeat in repeats:
+		for effect: Dictionary in definition.get("effects", []):
+			w.loadout.add_skill_mod(String(definition.skill), String(effect.stat),
+				String(effect.get("op", "add")), float(effect.value))
+	w.refresh_player_stats()

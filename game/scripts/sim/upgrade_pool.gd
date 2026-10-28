@@ -201,8 +201,8 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 	var c := card(id)
 	var category := card_kind(c, state)
 	tier = _honest_tier(c, state, tier)
-	var magnitude := _magnitude(c, state, tier)
-	var bonus := rarity_bonus(c, state, tier)
+	var magnitude := 0 if category == MASTERY else 1
+	var bonus := rarity_bonus(c, state, tier, category)
 	var desc := describe(id, magnitude)
 	if state.book.def(String(c.get("skill", ""))).has("rarity_bonuses"):
 		desc = "Learn at rank 1." if String(c.get("kind", "")) == SKILL_NEW else "+1 rank."
@@ -302,8 +302,9 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 
 ## Resolves the next data-only bonus without consuming RNG; preview and application use the same entry.
 ## Lists cycle in data order. A shared id across rarities shares its repeat count.
-func rarity_bonus(c: Dictionary, state: RunWorld, tier: String) -> Dictionary:
-	var category := card_kind(c, state)
+func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String = "") -> Dictionary:
+	if category == "":
+		category = card_kind(c, state)
 	var skill := String(c.get("skill", ""))
 	if state.book.slot(skill) != "active" or not String(c.get("kind", "")) in [SKILL_NEW, SKILL_RANK]:
 		return {}
@@ -396,10 +397,6 @@ static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: Str
 	return roundi(float(st[stat]))
 
 
-func _magnitude(c: Dictionary, state: RunWorld, _tier: String) -> int:
-	return 0 if card_kind(c, state) == MASTERY else 1
-
-
 func _honest_tier(c: Dictionary, state: RunWorld, tier: String) -> String:
 	return tier if String(c.get("kind", "")) in [SKILL_NEW, SKILL_RANK] and state.book.slot(String(c.get("skill", ""))) == "active" else "normal"
 
@@ -433,8 +430,8 @@ func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 	tier = _honest_tier(c, state, tier)
 	var kind := String(c.get("kind", ""))
 	var lo: Loadout = state.loadout
-	var magnitude := _magnitude(c, state, tier)
-	var bonus := rarity_bonus(c, state, tier)
+	var magnitude := 0 if category == MASTERY else 1
+	var bonus := rarity_bonus(c, state, tier, category)
 	if (kind == SKILL_NEW and (lo.has(String(c.skill)) or not lo.has_free_slot(lo.book.slot(String(c.skill))))) \
 			or (kind == SKILL_RANK and (not lo.has(String(c.skill)) or (lo.rank(String(c.skill)) >= lo.book.max_rank(String(c.skill)) and category != MASTERY))):
 		return 0
