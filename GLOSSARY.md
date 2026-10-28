@@ -425,3 +425,7 @@ _Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)
 A pool active whose meter block gates admission and spends units for extra damage. Panic and Coma are Hero's
 finishers; their meter_keep rarity modifier leaves units unspent.
 _Avoid_: ultimate, proc
+
+**Burst**:
+One automatic cast that schedules its resolved shot count over time, following the moving character's hand and a
+live target. The cooldown begins on admission; unfinished shots belong to the current map (`BurstCast`, #336).
