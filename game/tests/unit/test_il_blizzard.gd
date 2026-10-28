@@ -4,6 +4,7 @@ extends TestCase
 ## freeze (bosses and ice-immune mobs refuse it), the tile placement and the transfer clear.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const IlBigBang := preload("res://tests/unit/test_il_big_bang.gd")
 const DT := 1.0 / 60.0
 const BLIZZARD := 2221007
 
@@ -168,3 +169,135 @@ func test_a_map_transfer_clears_the_pending_blizzard() -> void:
 	w.runner.clear_pending()
 	_advance(w, 2.0)
 	assert_eq(w.swarm.hp[m], 100000)
+
+
+# --- rarity bonuses (spec #319 "Rarity bonuses", the H7 lesson: every effect must change the resolved cast) --------------
+
+const TIERS := ["rare", "epic", "unique", "legendary"]
+const CASTER_X := 2000.0
+const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
+
+
+## A job-222 world (playable flipped in the test copy of the data) with only `key` learned, god mode, a long flat floor.
+func _il_world(key: String) -> RunWorld:
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["222"]["playable"] = true
+	var setup := RF.setup("quiet", 329, data)
+	setup.skill_imgs["222"] = {"skill": {str(BLIZZARD): {"level": levels(120.0, 1.0)},
+		"2221001": {"level": IlBigBang.levels(120.0, 1.0)}}}
+	setup.skill_imgs["212"] = {"skill": {"2121001": {"level": IlBigBang.levels(120.0, 1.0)}}}
+	var w := RunWorld.new(setup)
+	w.set_job(222)
+	w.bounds = Rect2(0, -500, 4000, 1000)
+	w.fhm = FootholdMap.from_segments(FLAT)
+	w.swarm.fhm = w.fhm
+	RF.place_player(w, CASTER_X)
+	w.loadout.ranks.clear()
+	w.loadout.order.clear()
+	w.learn_skill(key)
+	w.god = true
+	for mk: MobKind in w.mob_kinds:
+		mk.hitbox = Rect2(-5, -10, 10, 10)
+		mk.move_speed = 0.0
+	w.drain_events()
+	return w
+
+
+## What one probe cast of `key` with `effects` did: hit lines, mobs struck, damage dealt, and whether the edge mob was struck.
+## Mobs stand inside the box; the edge mob stands just beyond the base half-width (400 px Blizzard, 250 px Big Bang).
+func _probe(key: String, effects: Array, edge_offset: float) -> Dictionary:
+	var w := _il_world(key)
+	var slots := []
+	for off: float in [60.0, -90.0, 120.0, -150.0]:
+		slots.append(RF.put_mob(w, 1110100, CASTER_X + off, 190.0, 100000.0))
+	var edge := RF.put_mob(w, 1110100, CASTER_X + edge_offset, 190.0, 100000.0)
+	for e: Dictionary in effects:
+		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
+	var lines := 0
+	var struck := {}
+	for tick in int(5.0 / DT):
+		w.step(DT, MoveInput.new())
+		if w.runner.casts >= 1:
+			w.runner.cooldowns[key] = 1.0e9
+		for e: Dictionary in w.drain_events():
+			if e.type == "mob_hit":
+				lines += 1
+				struck[int(e.mob)] = true
+	return {"lines": lines, "struck": struck.size(), "dealt": w.damage_dealt, "edge": struck.has(edge)}
+
+
+func test_each_blizzard_bonus_effect_changes_the_resolved_cast() -> void:
+	var w := _il_world("blizzard")
+	var bonuses: Dictionary = w.book.def("blizzard").rarity_bonuses
+	var base := _probe("blizzard", [], 440.0)
+	assert_false(bool(base.edge), "the edge mob is outside the base box")
+	assert_true(int(base.lines) > 0, "the probe casts")
+	var seen := {}
+	for tier: String in TIERS:
+		assert_eq(bonuses[tier].size(), 1, tier)
+		for effect: Dictionary in bonuses[tier][0].effects:
+			var with := _probe("blizzard", [effect], 440.0)
+			var label := "%s %s" % [tier, effect.stat]
+			match String(effect.stat):
+				"damage": assert_true(int(with.dealt) > int(base.dealt), "%s: damage dealt %d -> %d" % [label, base.dealt, with.dealt])
+				"area": assert_true(bool(with.edge), "%s: the mob beyond the base box is inside the widened one" % label)
+				"attack_count": assert_true(int(with.lines) > int(base.lines), "%s: hit lines %d -> %d" % [label, base.lines, with.lines])
+				_: fail("%s: a stat this audit does not know" % label)
+			seen[String(effect.stat)] = true
+	assert_eq(seen.keys().size(), 3, "damage, area and attack_count are all exercised")
+
+
+func test_each_inherited_big_bang_bonus_effect_changes_the_resolved_cast_for_job_222() -> void:
+	var w := _il_world("big_bang_il")
+	var bonuses: Dictionary = w.book.def("big_bang_il").rarity_bonuses
+	var base := _probe("big_bang_il", [], 275.0)
+	assert_false(bool(base.edge))
+	assert_true(int(base.lines) > 0)
+	for tier: String in TIERS:
+		for effect: Dictionary in bonuses[tier][0].effects:
+			var with := _probe("big_bang_il", [effect], 275.0)
+			match String(effect.stat):
+				"damage": assert_true(int(with.dealt) > int(base.dealt), "%s damage" % tier)
+				"area": assert_true(bool(with.edge), "%s area" % tier)
+				"attack_count": assert_true(int(with.lines) > int(base.lines), "%s attack_count" % tier)
+				_: fail("%s: a stat this audit does not know" % tier)
+
+
+func test_the_probe_catches_a_modifier_blizzard_never_reads() -> void:
+	# `range` is a nearest-target stat; the box rule ignores it, so a bonus built on it would be a dead card.
+	var reach := {"stat": "range", "op": "mul", "value": 1.5}
+	assert_false(bool(_probe("blizzard", [reach], 440.0).edge), "a range modifier does not widen a box")
+
+
+func test_blizzard_cards_follow_the_rare_plus_rank_rule_the_shared_legendary_counter_and_mastery() -> void:
+	for tier: String in TIERS:
+		var a := _il_world("blizzard")
+		var b := _il_world("blizzard")
+		var c := a.upgrades.choice_card("blizzard_rank", a, tier)
+		assert_false(c.get("rarity_bonus", {}).is_empty(), "%s offers a bonus" % tier)
+		assert_eq(c, a.upgrades.choice_card("blizzard_rank", a, tier), "preview is stable")
+		a.upgrades.apply("blizzard_rank", a, tier)
+		b.upgrades.apply("blizzard_rank", b, tier)
+		assert_eq(a.loadout.rank("blizzard"), 2, "%s: exactly one rank" % tier)
+		assert_eq(a.loadout.skill_mods.get("blizzard", {}), b.loadout.skill_mods.get("blizzard", {}), "same bonus both runs")
+	var w := _il_world("blizzard")
+	w.upgrades.apply("blizzard_rank", w, "epic")
+	w.upgrades.apply("blizzard_rank", w, "epic")
+	assert_near(w.loadout.stats("blizzard").area, 1.2 * 1.16, 0.00001, "the second Epic is x1.16")
+	var hits := _il_world("blizzard")
+	var base_lines: int = hits.loadout.stats("blizzard").attack_count
+	hits.upgrades.apply("blizzard_rank", hits, "unique")
+	hits.upgrades.apply("blizzard_rank", hits, "legendary")
+	assert_near(hits.loadout.skill_stat("blizzard", "attack_count", 1.0), 1.0 + 1.0 + 0.8, 0.00001,
+		"Unique and Legendary share the echo counter")
+	assert_near(hits.loadout.skill_stat("blizzard", "damage", 1.0), 1.0 + 0.2 * 0.8, 0.00001,
+		"the Legendary's damage x1.2 shrinks with the repeat of the shared echo counter")
+	assert_true(int(hits.loadout.stats("blizzard").attack_count) > base_lines)
+	var m := _il_world("blizzard")
+	m.loadout.set_rank("blizzard", 8)
+	var normal := m.upgrades.choice_card("blizzard_rank", m, "normal")
+	assert_eq(normal.card_kind, "mastery")
+	m.upgrades.apply("blizzard_rank", m, "normal")
+	m.upgrades.apply("blizzard_rank", m, "normal")
+	assert_near(m.loadout.skill_stat("blizzard", "damage", 1.0), 1.05 * 1.04, 0.00001, "Mastery repeats shrink x0.8")
+	assert_eq(m.loadout.rank("blizzard"), 8)

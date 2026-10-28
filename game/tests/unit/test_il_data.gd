@@ -73,7 +73,7 @@ func test_the_line_loads_without_errors_and_adds_a_job_but_no_skill_yet() -> voi
 	assert_true(d.jobs_survivor.jobs.keys().find("222") > d.jobs_survivor.jobs.keys().find("212"),
 		"base, then lines in LINES order: 222 after 212")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "il_arch_mage"))
-	assert_eq(frag.skills, {}, "I2 ships an empty skill skeleton; I6-I10 fill it")
+	assert_true(frag.has("skills"), "the skeleton I6-I10 fill")
 	assert_true(FileAccess.file_exists("res://data/asset_manifest.d/il_arch_mage.json"), "I1 (#320) added the manifest fragment")
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
@@ -109,7 +109,7 @@ func test_212_keeps_its_entry_unchanged() -> void:
 func test_pool_keys_not_yet_defined_stay_inert() -> void:
 	var defined: Dictionary = _data().skills.skills
 	for key: String in ["ice_strike", "thunder_spear", "element_composition_il", "ice_demon", "ifrit",
-			"chain_lightning", "blizzard", "big_bang_il"]:
+			"chain_lightning"]:
 		assert_false(defined.has(key), "%s is defined by its own ticket, not by I2" % key)
 
 
@@ -122,7 +122,7 @@ func test_every_defined_pool_key_belongs_to_the_200_220_221_or_222_book() -> voi
 			continue
 		found += 1
 		assert_true(String(defined[key].book) in ["200", "220", "221", "222"], "%s is book %s" % [key, defined[key].book])
-	assert_eq(found, 4, "energy_bolt, magic_claw, cold_beam, thunder_bolt are defined today")
+	assert_eq(found, 6, "energy_bolt, magic_claw, cold_beam, thunder_bolt, blizzard (I10) and big_bang_il (I10) are defined today")
 
 
 # --- AP row -----------------------------------------------------------------------------------------------------------
