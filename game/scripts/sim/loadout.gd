@@ -358,10 +358,11 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"defense": "pdd" if dtype == "physical" else "mdd" if dtype == "magic" else "none",
 		"damage_pct": book.canonical(key, lv, String(blast.get("damage_field", "damage")), 100.0) / 100.0
 			if dtype == "physical" else 1.0,
+		"status_damage_mult": dmg_mult,
 		"damage_min": lo,
 		"damage_max": hi,
 		"magic": dtype == "magic",
-		"element": String(book.skill_node(key).get("elemAttr", "")),
+		"element": String(d.get("element", book.skill_node(key).get("elemAttr", ""))),
 		"attack_count": maxi(1, roundi(skill_stat(key, "attack_count", book.canonical(key, lv, "attackCount", 1.0)))),
 		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance + acc * crit_per_acc + crit_bonus),
 		"crit_mult": crit_mult,

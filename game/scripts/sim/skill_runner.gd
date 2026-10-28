@@ -58,6 +58,8 @@ var _undead := PackedByteArray()
 var _slow_serial := 0
 ## Grenades in flight: {left seconds, st (resolved stats at the cast), landing (blast anchor), aim}.
 var _flights: Array[Dictionary] = []
+## Ground areas and delayed releases retain cast stats and map anchors.
+var _areas: Array[Dictionary] = []
 
 
 func _init() -> void:
@@ -67,6 +69,7 @@ func _init() -> void:
 ## Drops queued map-space attacks, preserving cooldowns, auto-cast timers and round counters.
 func clear_pending() -> void:
 	_flights.clear()
+	_areas.clear()
 
 
 ## SHOTS for a projectile skill kind, TARGETS otherwise.
@@ -152,6 +155,7 @@ static func is_attack(st: Dictionary) -> bool:
 ## Counts down every active skill, including while casting is blocked.
 func tick_cooldowns(dt: float, world: RunWorld) -> void:
 	fired_this_tick = false
+	_step_areas(dt, world)
 	if not _flights.is_empty():
 		_land_flights(dt, world)
 	for key: String in world.loadout.order:
@@ -388,6 +392,10 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
 		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": effect})
 	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
+	var definition := world.book.def(key)
+	if definition.has("ground") or definition.has("pending"):
+		_queue_area(world, key, st)
+		return
 	var start := world.player.pos
 	# `during` on a projectile skill has no sweep to resolve: the shots fly after the move, like `before`.
 	var charge := when == "during" and String(st.kind) != "projectile"
@@ -656,3 +664,47 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 			})
 	else:
 		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), hv)
+
+
+func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
+	var d := world.book.def(key)
+	var ground: Dictionary = d.get("ground", {})
+	var pending: Dictionary = d.get("pending", {})
+	var duration := world.book.canonical(key, int(st.level), "time") if not ground.is_empty() else 0.0
+	var interval := float(ground.get("interval", 0.0))
+	_areas.append({"st": st.duplicate(true), "anchor": world.player.pos, "age": 0.0,
+		"next": interval if interval > 0.0 else float(pending.get("delay", 0.0)),
+		"duration": duration, "interval": interval, "follow": bool(pending.get("follow_player", false)),
+		"effect": String(pending.get("effect", ""))})
+	if not ground.is_empty():
+		world.emit("skill_ground", {"skill": key, "pos": world.player.pos, "box": st.box,
+			"effect": String(ground.get("tile", "")), "duration": duration})
+
+
+func _step_areas(dt: float, world: RunWorld) -> void:
+	for i in range(_areas.size() - 1, -1, -1):
+		var a := _areas[i]
+		a.age = float(a.age) + dt
+		var st: Dictionary = a.st
+		var key := String(st.skill)
+		while float(a.age) + 1e-9 >= float(a.next):
+			if float(a.interval) > 0.0 and float(a.next) > float(a.duration) + 1e-9:
+				break
+			var anchor: Vector2 = world.player.pos if bool(a.follow) else a.anchor
+			var limit := world.swarm.capacity() if float(a.interval) > 0.0 else int(st.mob_count)
+			var targets := world.skill_rect_targets(blast_rect(st, anchor), anchor, limit)
+			if float(a.interval) > 0.0:
+				for m in targets:
+					var chance := world.book.canonical(key, int(st.level), "prop")
+					if world.rng.randf() * 100.0 < chance:
+						world.swarm.apply_status(m, "poison", {"time": a.duration, "level": st.level,
+							"skill": key, "element": "s", "damage_mult": st.status_damage_mult}, world.events)
+				a.next = float(a.next) + float(a.interval)
+			else:
+				world.emit("skill_impact", {"skill": key, "pos": anchor, "effect": String(a.effect)})
+				_resolve_instant_targets(world, st, targets, limit, int(st.attack_count),
+					world.visual_index(String(st.hit)))
+				break
+		if (float(a.interval) <= 0.0 and float(a.age) + 1e-9 >= float(a.next)) \
+				or (float(a.interval) > 0.0 and float(a.age) + 1e-9 >= float(a.duration)):
+			_areas.remove_at(i)

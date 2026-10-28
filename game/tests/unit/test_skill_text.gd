@@ -165,7 +165,7 @@ func test_no_skill_or_card_text_says_canonical_or_leaves_markup_or_placeholders(
 		var id := "%07d" % int(d.skill_id)
 		var levels := {}
 		var s := {"name": String(d.name), "desc": "[Master Level : 20]\\nSynthetic %s. \\n#cTerms between skills : 1 min.#\\nRequired Skill : #cAt least Level 1 on X#" % key}
-		for lv in range(1, d.ranks.size() + 1):
+		for lv in range(1, (d.get("ranks", [4,8,12,15,19,23,27,30]) as Array).max() + 1):
 			var node := {"hs": "h%d" % lv, "lt": {"$v": [-100.0, -50.0]}, "rb": {"$v": [100.0, 50.0]}}
 			for f: String in LEVEL_FIELDS:
 				node[f] = float(lv)

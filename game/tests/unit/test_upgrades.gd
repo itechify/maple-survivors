@@ -113,14 +113,9 @@ func test_exhausted_pool_and_one_card_draw_offer_one_elixir_alternative() -> voi
 	assert_eq(cards.map(func(c: Dictionary) -> String: return c.id), ["elixir"], "an exhausted pool still gives a choice")
 	# Exactly one card left: offer it and one Elixir, without repeating identical healing cards.
 	var w2 := RF.quiet_world()
-	for pass_i in 2:
-		for c: Dictionary in w2.upgrades.cards:
-			if c.id == "magic_claw_new":
-				continue # left unlearned, so its rank card stays ineligible too
-			var guard := 0
-			while w2.upgrades.is_eligible(c, w2) and guard < 40:
-				w2.upgrades.apply(String(c.id), w2)
-				guard += 1
+	var sparse: Dictionary = DataRepo.load_all().upgrades.duplicate(true)
+	sparse.cards = [w2.upgrades.card("magic_claw_new")]
+	w2.upgrades = UpgradePool.from_data(sparse)
 	var mixed := w2.upgrades.roll_choices(w2, _rng(9), 3)
 	assert_eq(mixed.size(), 2)
 	assert_eq(mixed[0].id, "magic_claw_new")

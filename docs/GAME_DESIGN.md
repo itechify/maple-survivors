@@ -4172,6 +4172,24 @@ weaker before the successor features. No balance data was tuned. The complete re
 bot took no passive in this run (a pool attack was on offer at every level-up, and passives score below attacks), so the
 run differs from #287 only through the extra offers the seeded draw spends on passive cards. No balance data tuned.
 
+### Spec #282 / #290 interim regression smoke (2026-10-28)
+
+Training seeds 1/2/2026, every tier-1 stage, bot/random, real T1 private cache: 24 runs, no crashes, warnings or
+missing assets. No tuning or held-out seeds. Henesys seed-1 bot: DEAD 307.8 s, Lv12, 233 kills, first boss alive
+(0/1 completed, censored >=7.82 s); previous #287: DEAD 309.9 s, Lv12, 239 kills. Six Henesys runs reached the
+first boss; two reached map 2. The Tree That Grew retains its known early deaths. No balance files changed.
+
+| Stage | Bot deaths (seconds), seeds 1/2/2026 | Random deaths (seconds), seeds 1/2/2026 | Map-2 arrivals, bot/random |
+|---|---|---|---|
+| Henesys | 307.8 / 306 / 366 | 306 / 308 / 361 | 1/3, 1/3 |
+| Ellinia | 39 / 35 / 76 | 39 / 35 / 76 | 0/3, 0/3 |
+| Perion | 308 / 308 / 411 | 388 / 324 / 309 | 1/3, 1/3 |
+| Kerning | 306 / 316 / 306 | 306 / 310 / 319 | 0/3, 0/3 |
+
+Mist consumes skill/global damage modifiers as a survivor multiplier on the existing capped, nonlethal canonical
+poison pulse (tier C); its area modifier scales the canonical box. All other high-job actives consume existing
+damage/count/attack-count/area/cooldown modifiers at cast time. #288 owns rarity selection and Mastery stacking.
+
 ## 7. Skills (auto-cast and manual)
 
 **ADR 0006 / #287 supersedes the old rank and pool rules below.** Job 212's exact pool and starting skill live in
@@ -5351,6 +5369,28 @@ Soul Arrow: Crossbow 3201004 is deliberately absent, with no skill or card: endl
 2061002 at Lv 40 and Blue 2061003 at Lv 50, changing the projectile and emitting the existing upgrade notice.
 The tool flag `--job=320` forces Bowman then Crossbowman. These defaults are untuned; the regression smoke is in 4.2 (#204).
 
+### 7.31 F/P high-job pool actives (#290)
+
+All seven skills occupy an active skill slot, auto-cast and use the default eight-rank mapping to WZ levels.
+Damage (`mad`/mastery), attack count, mob count, boxes, status chance and status duration come from those levels.
+No MP is spent. Bosses take damage but reject every status. Elquines belongs to #291.
+
+| Skill / key | Behavior | First-pass cooldown (tier C) |
+|---|---|---|
+| Explosion 2111002 / `explosion` | Fire damage in the canonical box around the character, canonical mob count | 4 s |
+| Poison Mist 2111003 / `poison_mist` | Fixed ground box lasting canonical `time`; checks occupants each second with canonical `prop`, applies existing nonlethal poison, including later arrivals; no direct damage | 8 s |
+| Element Composition 2111006 / `element_composition` | 500 px/s projectile, 450 px acquisition, one target; fire/poison attributes averaged equally; canonical `prop`/`time` poison uses poison resistance | 2 s |
+| Fire Demon 2121003 / `fire_demon` | Fire in its canonical forward box; survivors become ice-weak (x1.5) for canonical `time`; other attributes unchanged | 5 s |
+| Paralyze 2121006 / `paralyze` | Nearest target within 450 px, poison-element damage and existing stun for canonical `time`/`prop` | 3 s |
+| Meteor Shower 2121007 / `meteor_shower` | Fixed canonical 800×600 box; falling WZ tiles at canonical 180 px spacing; damage after canonical `hitAfter` 1800 ms, targets queried at impact | 12 s |
+| Big Bang 2121001 / `big_bang` | WZ keydown charge for one 18×60 ms loop, then full `mad` damage with canonical mob count around the current character position | 7 s |
+
+Pending areas/releases snapshot cast stats, query live targets, and clear on map transfer. Mist pieces are anchored
+to cast feet and expire with the area. Big Bang's survivor box is (-250,-180)..(250,100); its charge is automatic,
+without a manual key or partial-charge damage. Element Composition's equal elemental split is tier C (the WZ node
+has no `elemAttr`); Fire Demon's ice vulnerability follows its WZ description (tier A). Other targeting/timings
+are first-pass survivor interpretations, not balance tuning. Recasts refresh the existing status without stacking.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -5889,6 +5929,16 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+| #290 constant / interpretation | Value | Tier / source |
+|---|---|---|
+| High-job cooldowns, targeting | Table 7.31; 450 px nearest acquisition; projectile speed 500 px/s, radius 10; cast stance 0.8 s | C: first-pass survivor data, #282/#290 |
+| Mist ground occupancy | 1 s checks, no direct hit; canonical poison chance/time; all occupants; tile strips 80 px apart | C: survivor ground-area interpretation; A: WZ box, prop/time, existing poison formula |
+| Composition elements | Mean of fire and poison multipliers; poison status checks poison alone | C: equal fire/poison interpretation of the skill's description; no WZ elemAttr |
+| Fire Demon ice weakness | Timed x1.5 ice, replaces ice resistance/immunity; bosses reject it | A: WZ description/time; C: existing boss status exclusion |
+| Meteor delay / tile spacing | 1.8 s / 180 px | A: WZ hit/0/hitAfter and tile/effectDistance |
+| Big Bang full-charge release | 1.08 s; box (-250,-180)..(250,100), follows caster until release | A: 18 keydown frames × 60 ms, full-charge mad; C: one-loop automatic release and box |
+
 
 Rows added by #286 (save format 3 and the round loop): the Arch Mage's creation weapon is 1372005, the Wooden Wand
 (`jobs.json` `creation_weapon`, tier C: the Magician line's v83 starting wand; its item id and stats are tier A);

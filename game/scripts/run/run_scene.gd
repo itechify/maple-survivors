@@ -1077,9 +1077,18 @@ func handle_events(events: Array) -> void:
 				_on_skill_thrown(e)
 			"skill_landed":
 				_on_skill_landed(e)
+			"skill_ground":
+				var box: Rect2 = e.box
+				# tier C: tile strips spaced 80 px, lasting exactly the simulation area's lifetime.
+				for offset in range(int(box.position.x), int(box.end.x), 80):
+					fx.play_repeating(String(e.effect), e.pos + Vector2(offset, 0), float(e.duration))
 			"skill_impact":
-				fx.play(String(e.effect), e.pos)
-				_sound(String(world.book.def(String(e.skill)).get("sounds", {}).get("hit", "")))
+				if String(e.effect) != "":
+					fx.play(String(e.effect), e.pos)
+				var d := world.book.def(String(e.skill))
+				for path: String in d.get("release_visuals", []):
+					fx.play(path, e.pos - Vector2(0, world.cast_height))
+				_sound(String(d.get("sounds", {}).get("hit", "")))
 			"ammo_shot":
 				_on_ammo_shot(e)
 			"teleport":
@@ -1272,7 +1281,18 @@ func _on_cast(e: Dictionary) -> void:
 	if effect != "":
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
-	_first_event_shot(key, "cast_%s.png" % key, 0.05) # tier C: playtest evidence of each skill's first cast, 50 ms in (the cast effect is short).
+	for visual: Dictionary in world.book.def(key).get("cast_visuals", []):
+		fx.play(String(visual.path), e.pos + Vector2(float(visual.x), 0))
+	var loop := String(world.book.def(key).get("sounds", {}).get("loop", ""))
+	if loop != "":
+		_sound(loop)
+	# tier C: sample delayed/charged skills after release, and Paralyze after its opening blank frames.
+	var capture_delay := float(world.book.def(key).get("pending", {}).get("delay", 0.0)) + 0.05
+	if key == "paralyze":
+		capture_delay = 0.3
+	elif key == "big_bang":
+		capture_delay = 1.38
+	_first_event_shot(key, "cast_%s.png" % key, capture_delay)
 	var use := String(world.book.def(key).get("sounds", {}).get("use", ""))
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
