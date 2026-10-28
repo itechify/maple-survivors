@@ -4416,7 +4416,8 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   `weapon_reach` and `range_around`, 7.8; the `self` rule of 7.16 is removed) resolves to
   `Loadout.stats().cast_rule` (empty when absent) and `cast_params` (the whole block). Absent/`nearest` keeps
   nearest-in-range attacks and `can_start_buff` admission. `manual` never auto-casts; unknown rules wait too.
-  `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line.
+  `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line;
+  `range_around` honours `min_targets` the same way (Monster Magnet, 7.33).
   Admission prepares targets before the cooldown/cast; later rules extend the same
   `SkillRunner._admit_cast` / `_resolve_cast` dispatches with their own admission/resolution functions.
 - Optional `displacement: {"direction", "when", "field" | "distances" | "distance"}` makes an attack move the character
@@ -5565,6 +5566,36 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. No rarity lists ship until #288 lands; proposed lists are in T9-291.md.
 
+### 7.33 Hero pool and Rush (spec #296)
+
+#### Crowd control: Shout and Monster Magnet (H7, #303)
+
+Both are auto-cast pool actives in `skills/hero.json` (books 111 and 112), eight ranks, no MP, no weapon gate, with
+`rarity_bonuses` (section 8). Their cooldowns, admission thresholds and action holds are tier C; every number that is a
+Skill.wz level field is tier A.
+
+| Skill / key | Cast | Behaviour | Cooldown |
+|---|---|---|---|
+| Shout 1111008 / `shout` | `box`, `min_targets 3` | Physical damage 14 -> 30 % to the `mobCount` 6 nearest mobs inside the centred WZ box (+-110..200 x +-82..150, scaled by `area`); each struck mob rolls the level's `prop` for a stun of `time` seconds (5 -> 10) through the shared `on_hit` status (bosses and scheduled bosses reject it). Stance `alert3`, 0.6 s hold. | 12 s |
+| Monster Magnet 1121001 / `monster_magnet` | `range_around`, `min_targets 3` | No damage. The shared `pull` block (7.35): up to `mobCount` 6 mobs 120 px or more away and within `range` (200 -> 400 px, scaled by `range` modifiers) each roll `prop` (48 -> 95 %) and slide to 60 px from the caster. Stance `alert2` (WZ's `dash` makes a two-handed axe vanish, H1), 0.6 s hold. | 10 s |
+
+- **Shout's rank table (D4).** `ranks` is `[5, 8, 12, 15, 19, 23, 27, 30]`. WZ level 4 has no `prop`: the node stores
+  `"58": 38`, a corrupted `prop` (String.wz says 58 %, and the series runs 52, 54, 56, 58, 60), so the standard 30-level
+  table (rank 1 = level 4) would give a stun that never lands. Rank 1 reads level 5 (60 %) instead; the other seven ranks
+  equal the standard table. A real-cache test asserts that level 4 still lacks `prop`, so a fixed WZ is noticed.
+- **`min_targets` on `range_around`.** The cast block's `min_targets` N (default 1, so every existing skill is unchanged)
+  admits the cast only when N mobs are inside `range`; the target list is still the nearest `mobCount`. Magnet's admission
+  counts every mob in range, including those under the 120 px pull floor that cannot be moved (tier C: simple and readable;
+  a cast that moves nothing still starts its cooldown).
+- **Bot reach.** `SkillRunner.reach_of` returns 0 for damage "none", so Monster Magnet adds nothing to the melee bot's
+  engage reach: it never holds the bot back from walking up to a mob, and a pull never draws it away from one.
+- **Rarity** (section 8 schema; Legendary shares the Unique's id and repeat counter): Shout Rare Area x1.2, Epic Booster
+  cooldown x0.88, Unique Echo Shout cooldown x0.75, Legendary Echo Shout plus area x1.2. Monster Magnet Rare Reach range
+  x1.2 (spec says `area`, but `range_around` and `pull` read `range`, never `area`: a tier C correction), Epic Bigger Grab
+  +2 targets (`count`), Unique Booster cooldown x0.75, Legendary Booster plus +2 targets.
+- **Text.** `SkillText.level_line` adds "Pulls up to N monsters from R px" for any skill with a `pull` block (the effective
+  `mob_count` and `range`, so Bigger Grab and Reach show), after the data's own line ("P% chance for each monster pulled").
+
 ### 7.35 Pull (#300, spec #296)
 
 The mirror of `knockback` (7.27): a generic skill block that drags mobs toward the caster along their foothold chain.
@@ -5595,7 +5626,7 @@ No shipped skill carries the block yet, so no existing record changes.
   Statuses survive. Each mob that moved emits `mob_pulled {mob, from, pos}`.
 - **Pull-only skills.** A skill with `damage: "none"`, a `pull` block and a `box`, `weapon_reach` or `range_around` rule
   deals no damage lines (`_resolve_cast` skips the instant strike); casting admission stays the cast rule's
-  (`range_around` admits on one mob in range; a crowd threshold such as Magnet's 3 is the skill's own `cast` block, H7).
+  (`range_around` admits on one mob in range unless the cast block says `min_targets`: Magnet's 3, 7.33).
 - **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
   and Skill-window text (H7).
 
@@ -6173,6 +6204,9 @@ Bowman (#166), generic mechanics (#200):
 | Pull selection (#300) | Up to `mobCount` candidates, farthest first (horizontal; slot breaks ties), only live grounded non-boss mobs at least 120 px from the caster (block key `min_distance` overrides) and within `range`; bosses and flyers never candidates (7.35) | C | ours, spec #296 |
 | Pull gap and slide (#300) | Per-skill `pull.min_gap` px (Monster Magnet ships 60, H7); the mob slides `max(0, dx - gap)` px toward the caster along its foothold chain, stopping at platform edges, walls and map bounds; never crosses the caster | C | ours, spec #296; shared slide |
 | Pull chance rolls (#300) | One main-stream draw per taken candidate, none at 100% or without a chance field; a 0% chance still draws; selection before rolls | C | ours (mirrors the knockback roll rule) |
+| Shout rank table (#303, spec #296 D4) | `ranks` `[5, 8, 12, 15, 19, 23, 27, 30]`: the standard 30-level table except rank 1 = level 5, because level 4 stores its `prop` under the stray key `58` (7.33) | A (levels, numbers), C (override) | Skill.wz 111.img, String.wz agrees with 58 % |
+| Shout and Monster Magnet timing (#303) | Cooldowns 12 s and 10 s, action holds 0.6 s, stances `alert3` / `alert2` (Magnet's node names none; WZ's `prepare` dash hides a two-handed axe), admission at 3 mobs (`cast.min_targets`) | C | ours, spec #296 |
+| Shout and Monster Magnet rarity bonuses (#303) | Shout: Area x1.2, Booster cooldown x0.88, Echo Shout cooldown x0.75, Legendary Echo Shout plus area x1.2. Magnet: Reach `range` x1.2, Bigger Grab +2 targets, Booster cooldown x0.75, Legendary Booster plus +2 targets; repeats shrink x0.8 | C | ours, spec #296 (first pass; the balance pass owns final sizes) |
 | Knock-back roll | One stream-1 roll per damaging line on a non-boss, even at 0/100%; canonical `chance_field` percent; canonical/scheduled bosses do not roll or move | A (canonical chance), C (stream, per-line rule, boss policy) | Skill.wz; #166 binding decisions |
 | Pierce fall-off schedule | Linear `max(floor, 1 - fraction * (n - 1))`; `balance.json/combat.pierce_floor` defaults to 0.1; 0.1 per mob means the sixth takes 50%; includes crit, rounded once | C | #166 binding decisions; WZ has no fall-off value; survivor data owns the floor |
 | Impact blast policy | First mob consumes shot; primary counts toward cap; box translated to primary feet, selected before hits; nearest body then slot; one `hit` animation at impact by default (`visual: "effect"` supported) | A (canonical box/cap/damage field), C (consumption, anchor/order/art choice) | Skill.wz; #200 |

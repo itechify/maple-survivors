@@ -355,3 +355,80 @@ func test_shout_text_shows_damage_targets_stun_chance_and_seconds() -> void:
 	var line := SkillText.new(w.book, {}).level_line("shout", 5, w.loadout.stats("shout"))
 	assert_true(line.contains("up to 6 monsters"), line)
 	assert_true(line.contains("50% chance each to stun for 3 sec"), line)
+
+
+# --- Real cache (SKIPs without it: a SKIP proves nothing) ---------------------------------------------------------------
+
+## A world with the real 111/112 books in place of the synthetic ones.
+func _real_world(key: String, lib: AssetLibrary) -> RunWorld:
+	var w := _world(key)
+	w.book.skill_imgs["111"] = lib.img("Skill.wz/111.img").root
+	w.book.skill_imgs["112"] = lib.img("Skill.wz/112.img").root
+	return w
+
+
+func test_real_cache_shout_ranks_map_to_the_eight_levels_and_level_4_still_lacks_prop() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	assert_true(lib.open(AssetCachePaths.resolve_cache_root()))
+	var w := _real_world("shout", lib)
+	# Tier A literals read from Skill.wz 111.img (H1 #297): rank -> level -> damage, prop, time, mobCount.
+	var want := {1: [5, 15, 60, 5], 4: [15, 22, 80, 7], 8: [30, 30, 95, 10]}
+	assert_false(w.book.level_node("shout", 4).has("prop"), "the corrupted level 4 has no prop: the override stays needed")
+	assert_eq(int(w.book.level_node("shout", 4).get("58", 0)), 38, "its chance sits under the stray key 58")
+	var last_prop := 0.0
+	for rank in range(1, 9):
+		var st := w.loadout.stats("shout", rank)
+		assert_eq(st.level, SHOUT_LEVELS[rank - 1], "rank %d" % rank)
+		var node := w.book.level_node("shout", st.level)
+		assert_true(node.has("prop") and node.has("time") and node.has("damage"), "level %d has every field" % st.level)
+		assert_true(float(node.prop) > last_prop, "prop rises with the rank")
+		last_prop = float(node.prop)
+		assert_eq(st.mob_count, 6)
+		assert_true(st.has_box and -st.box.position.x == st.box.end.x, "rank %d: a centred box" % rank)
+		if want.has(rank):
+			assert_eq(st.level, want[rank][0])
+			assert_eq(int(node.damage), want[rank][1], "rank %d damage" % rank)
+			assert_eq(int(node.prop), want[rank][2], "rank %d prop" % rank)
+			assert_eq(int(node.time), want[rank][3], "rank %d stun seconds" % rank)
+	assert_eq(w.loadout.stats("shout", 8).box, Rect2(-200, -150, 400, 300))
+	lib.free()
+
+
+func test_real_cache_magnet_ranks_map_to_the_standard_table() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	assert_true(lib.open(AssetCachePaths.resolve_cache_root()))
+	var w := _real_world("monster_magnet", lib)
+	var want := {1: [4, 200, 48], 4: [15, 300, 70], 8: [30, 400, 95]}
+	for rank in range(1, 9):
+		var st := w.loadout.stats("monster_magnet", rank)
+		assert_eq(st.level, MAGNET_LEVELS[rank - 1], "rank %d" % rank)
+		assert_eq(st.mob_count, 6)
+		assert_eq(st.pull_gap, 60.0)
+		if want.has(rank):
+			assert_eq(st.level, want[rank][0])
+			assert_eq(int(st.range), want[rank][1], "rank %d range" % rank)
+			assert_eq(int(st.pull_chance), want[rank][2], "rank %d chance" % rank)
+	assert_false(w.book.skill_node("monster_magnet").has("action"), "the node names no action: alert2 is our choice")
+	lib.free()
+
+
+func test_real_cache_art_and_sounds_of_both_skills_resolve() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	assert_true(lib.open(AssetCachePaths.resolve_cache_root()))
+	for key: String in ["shout", "monster_magnet"]:
+		var w := _real_world(key, lib)
+		var d := w.book.def(key)
+		assert_true(lib.frame(String(d.icon)) != null, key + " icon")
+		assert_true(lib.sound(String(d.sounds.use)) != null, key + " Use sound")
+		var effect := lib.anim(String(w.loadout.stats(key).effect))
+		assert_true(effect != null, key + " effect")
+		assert_eq(effect.frames.size(), 17 if key == "shout" else 18, key + " effect frames")
+	assert_true(lib.anim("Skill.wz/111.img/skill/1111008/hit/0") != null, "Shout hit burst")
+	assert_true(lib.anim("Skill.wz/111.img/skill/1111008/mob") != null, "Shout stun stars")
+	lib.free()
