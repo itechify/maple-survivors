@@ -374,8 +374,11 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 	})
 	dealt += roll.x
 	if roll.x > 0 and on_hit.is_valid():
-		on_hit.call(m, {"skill": skill_names[skill[i]], "level": level[i], "magic": is_magic,
-			"meter_receipt": meter_receipts[i], "damage": roll.x, "element": element[i], "damage_type": CombatMath.DAMAGE_TYPE_NAMES[kind]})
+		var hit := {"skill": skill_names[skill[i]], "level": level[i], "magic": is_magic,
+			"damage": roll.x, "element": element[i], "damage_type": CombatMath.DAMAGE_TYPE_NAMES[kind]}
+		if not meter_receipts[i].is_empty():
+			hit["meter_receipt"] = meter_receipts[i]
+		on_hit.call(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
 		if on_kill.is_valid():

@@ -6816,4 +6816,4 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 | Held-unit damage bonus | +2% per orb | tier C, #296; H2 job data |
 | Finisher gate / spend multiplier | 5; all minus meter_keep; +10% per spent orb | tier C, #296; H8 skill data |
 | Finisher repeat floor / arbitration | 1 s; single-target scheduled boss, else most targets | tier C, #296; shared admission |
-| Meter HUD geometry | 12 px pitch, 4 px radius, 10 px orb image | tier C presentation layout; original orb pixels tier A |
+| Meter HUD geometry | origin (244,20), 12 px pitch, 4 px radius, 10 px orb image, 1 px border | tier C presentation layout; original orb pixels tier A |

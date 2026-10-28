@@ -25,6 +25,7 @@ func _draw() -> void:
 	var art := String(run_info.get("meter", {}).get("art", ""))
 	var orb := _frame(art + "/1") if art != "" else null
 	for i in pip_count():
+		# tier C: row origin (244,20), 10 px orb image and 1 px pip border.
 		var center := Vector2(244 + i * PITCH, 20)
 		draw_circle(center, RADIUS + 1, Color(0.12, 0.09, 0.16, 0.9))
 		if orb != null and i < filled_count():
