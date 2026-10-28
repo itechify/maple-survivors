@@ -96,6 +96,11 @@ func hide(i: int) -> void:
 		RenderingServer.canvas_item_set_visible(items[i], false)
 
 
+## The tint slot `i` was last shown with (white before its first show).
+func tint_of(i: int) -> Color:
+	return _tint[i] if i < _tint.size() else Color.WHITE
+
+
 ## True when slot `i` is visible.
 func is_shown(i: int) -> bool:
 	return i < items.size() and _shown[i] == 1

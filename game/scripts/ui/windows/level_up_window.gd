@@ -42,7 +42,7 @@ const PERCENT_FIELDS := ["mastery", "hp", "damage", "prop", "knockback_chance", 
 ## TARGETS), in display order. tier C: our wording.
 const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Targets", ""], "attack_count": ["Hits", ""], "pierce": ["Pierce", ""],
 	"blast_targets": ["Blast targets", ""], "pierce_falloff": ["Pierce fall-off", "%"],
-	"damage": ["Damage", "%"], "cooldown": ["Cooldown", " s"], "area": ["Reach", "%"], "range": ["Range", " px"],
+	"damage": ["Damage", "%"], "burn_damage": ["Burn", "%"], "cooldown": ["Cooldown", " s"], "area": ["Reach", "%"], "range": ["Range", " px"],
 	"speed": ["Shot speed", ""], "crit": ["Critical rate", "%"]}
 
 ## Emitted with the picked card's id.

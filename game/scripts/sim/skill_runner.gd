@@ -798,6 +798,7 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 				"pierce_falloff": float(st.pierce_falloff),
 				"impact_blast": st.impact_blast,
 				"meter_receipt": st.get("meter_receipt", {}),
+				"burn_pulse": int(st.get("burn_pulse", 0)),
 			})
 	else:
 		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), hv)
