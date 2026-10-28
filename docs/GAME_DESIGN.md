@@ -4141,6 +4141,17 @@ remain canonical. No Summon.img sound1 exists, so summons use Mano's canonical S
 canvas items. Evidence facts: original v83 Mob.wz/2220000 and Skill.wz/MobSkill.img; local research/stage-bosses/out/
 bosses_2220000.json confirms the same fields. The real-import test checks the canonical rows and the summon art.
 
+### Spec #282 / #287 interim regression smoke (2026-10-28)
+
+Pool/slot/rank plumbing only; the eight new attacks, rarity bonuses, common passives and pacing are not landed.
+Seed 1, Henesys, bot, real cache (`ISOLATE=287 bash scripts/balance.sh 1 --stage=henesys`): no crash, no warnings,
+no missing assets. The previous #284 smoke died on map 2 at 9:17 / Lv32 with 1,422 kills; this pool-only build is
+weaker before the successor features. No balance data was tuned. The complete regional smoke belongs to slice QA (#294).
+
+| Seed / policy | End | Level | Kills | Boss observation |
+|---|---|---|---|---|
+| 1 / bot | DEAD map 1, 309.90 s | 12 | 239 | Mano spawned at 300 s, alive at death; 0/1 completed, censored fight >=9.87 s |
+
 ## 7. Skills (auto-cast and manual)
 
 **ADR 0006 / #287 supersedes the old rank and pool rules below.** Job 212's exact pool and starting skill live in
