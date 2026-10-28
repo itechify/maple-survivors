@@ -5861,10 +5861,12 @@ Skill.wz level field is tier A.
 - **Text.** `SkillText.level_line` adds "Pulls up to N monsters from R px" for any skill with a `pull` block (the effective
   `mob_count` and `range`, so Bigger Grab and Reach show), after the data's own line ("P% chance for each monster pulled").
 
-#### Rush (1121006, `rush_hero`, #302 H6)
+#### Rush (1121006, `rush_hero`, #302 H6; 1221007, `rush_paladin`, #312 P4)
 
 Hero's `mobility_skill` (spec #296 D1): a manual directional dash on the skill key that damages and shoves mobs along its
-path. It is the first mobility skill that deals damage; Paladin and Dark Knight get their own Rush the same way. Rush is
+path. It is the first mobility skill that deals damage. Paladin's Rush (`rush_paladin`, #312) is a copy of Hero's on
+book 122: the same definition, shape, rank rule and tier C numbers (`test_rush_paladin.gd` runs the Hero set for it and
+compares the two ranks at every round level); only the ids, art and sound paths differ. Dark Knight gets its own the same way. Rush is
 learned at round start next to Power Strike (`JobTree.start_skills`), consumes neither slot track, is not in the pool and
 is never offered as a card (`UpgradePool` only draws pool skills).
 
@@ -6565,6 +6567,7 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | Rush 2.0 s cooldown, always-on 80 px knock-back along the dash, hold-to-repeat, refused while climbing, airborne dash keeps its height (#302, spec #296) | `skills/hero.json` `rush_hero` (`cooldown`, `knockback`); damage 78%, `mobCount` 15, box reach 170 px (the dash distance) and `rush2` are Skill.wz level 4 (tier A) | C | Spec #296 D1; v83 Rush is a dash with a hit box |
 | Rush ranks with the round level through `balance.mobility_rank_levels` (rank 1 = WZ level 4 at Lv1, rank 8 = level 30 from Lv16) (#302) | the shared mobility rule; Rush has the level-30 rank table and no card | C | Spec #296, #282 review fixes |
 | Rush bot rule: dash from a mob within 60 px (on the bot's level), away when the lane covers half the reach else through the crowd, at most every 3 s (#302) | `skills/hero.json` `rush.bot_threat_distance` 60; `BotInput.RUSH_MIN_INTERVAL` 3.0, `RUSH_LANE_FRACTION` 0.5 | C | Spec #296 |
+| Paladin Rush copies Hero's (#312, spec #308 D1): cooldown, knock-back, hold-to-repeat, bot rule and the shared rank rule | `skills/paladin.json` `rush_paladin` equals `rush_hero` in every field but ids, art and sound (tested); WZ 1221007 equals 1121006 at every level (tier A, P1 #309) | C | Spec #308 D1 |
 | Cards on the job line (#284) | A card is eligible when one of its `requires.jobs` is the character's job or an ancestor (`UpgradePool.on_line`); no `carry_jobs`, no advancement draw, no weapon check; Beginner and Teleport cards deleted | C | Stopgap until the skill pool (#287) |
 | Removed RNG streams (#284) | Streams 5 (the basic attack) and 8 (bot job draws) are reserved and never drawn; no other stream is renumbered | C | Keeps every other stream's seeded sequence |
 | Region cards and ending-map results (#241, #247) | Map 1's mapMark beside the region; three ordered `map name → boss name` rows in the existing v83 parchment, each wrapping as needed with a 6 px gap between rows. Objective: "Defeat 3 bosses across 3 maps". Results keep region/continent and add the ending map's WZ name and mapMark, with a 6 px gap before stats | C layout/text; A map/boss names and marks | Owner #241 / #247; String.wz and each map's `info/mapMark`. Summary identity comes from `RunWorld.current_map_id()` |

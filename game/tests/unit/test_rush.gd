@@ -1,14 +1,31 @@
 extends TestCase
-## Hero's Rush (spec #296 H6, WZ 1121006): the first damaging manual skill, a directional dash on the `rush` key.
-## Synthetic worlds with the real `hero.json` skill data and a Skill.wz-shaped level-4 node (the real numbers are
-## asserted in the real-cache test at the end).
+## Rush (spec #296 H6, WZ 1121006, Hero): the first damaging manual skill, a directional dash on the `rush` key.
+## Synthetic worlds with the real skill data and a Skill.wz-shaped level-4 node (the real numbers are asserted in the
+## real-cache test at the end). The set is job-agnostic: test_rush_paladin.gd extends this file, so every test here
+## runs again for Paladin's Rush (#312, WZ 1221007) through the four overrides below.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-const KEY := "rush_hero"
 
 
-## Skill.wz/112.img/skill/1121006 in the shape the book reads, with the real node's level 1 / 4 / 30 numbers so a wrong
+## The job, its skill book, the Rush key and its WZ skill id this run tests. Hero's values here; subclasses override.
+func _job() -> int:
+	return 112
+
+
+func _book() -> String:
+	return "112"
+
+
+func _key() -> String:
+	return "rush_hero"
+
+
+func _skill_id() -> int:
+	return 1121006
+
+
+## Skill.wz/<book>.img/skill/<id> in the shape the book reads, with the real node's level 1 / 4 / 30 numbers so a wrong
 ## level shows; the img tops out at level 30 (the survivor rank table follows the WZ maximum level).
 static func _rush_img() -> Dictionary:
 	var levels := {}
@@ -20,18 +37,28 @@ static func _rush_img() -> Dictionary:
 		"level": levels}
 
 
-## A Hero (job 112, the creation sword) on a flat map 0..1000 with `segments` instead when given; the player stands at x.
-func _world(x := 400.0, segments: Array = []) -> RunWorld:
+## The quiet test data with `job` playable (Paladin is not playable in the shipped data until P9; a test drives it directly).
+static func _data_for(job: int) -> Dictionary:
 	var data := RF.quiet_data()
-	var setup := RF.setup("quiet", 60, data)
+	data.jobs_survivor.jobs[str(job)]["playable"] = true
+	return data
+
+
+## A world for `job` with its Rush (`skill_id` in `book`) on a flat map 0..1000, or `segments` when given; the player stands at x.
+static func _world_for(job: int, book: String, skill_id: int, x := 400.0, segments: Array = []) -> RunWorld:
+	var setup := RF.setup("quiet", 60, _data_for(job))
 	setup.map_img = RF.map_from_segments(segments if not segments.is_empty()
 		else [{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
-	setup.skill_imgs["112"] = {"skill": {"1121006": _rush_img()}}
-	setup["job"] = 112
+	setup.skill_imgs[book] = {"skill": {str(skill_id): _rush_img()}}
+	setup["job"] = job
 	var w := RunWorld.new(setup)
 	w.player.place(Vector2(x, 0), w.fhm)
 	w.drain_events()
 	return w
+
+
+func _world(x := 400.0, segments: Array = []) -> RunWorld:
+	return _world_for(_job(), _book(), _skill_id(), x, segments)
 
 
 func _press(w: RunWorld, left := false, right := false) -> void:
@@ -48,13 +75,13 @@ func _press(w: RunWorld, left := false, right := false) -> void:
 
 func test_learned_at_round_start_on_the_mobility_slot_outside_the_pool() -> void:
 	var w := _world()
-	assert_true(w.loadout.has(KEY), "Rush is a start skill of the Hero")
-	assert_eq(w.book.slot(KEY), "mobility")
-	assert_eq(w.jobs.mobility_skill(112), KEY)
-	assert_false(KEY in w.jobs.skill_pool(112), "never in the pool, so never offered as a card")
-	assert_eq(w.loadout.rank(KEY), 1)
-	assert_eq(w.skill_key_of(KEY), "rush")
-	var st := w.runner.stats_of(w, KEY)
+	assert_true(w.loadout.has(_key()), "Rush is a start skill of the job")
+	assert_eq(w.book.slot(_key()), "mobility")
+	assert_eq(w.jobs.mobility_skill(_job()), _key())
+	assert_false(_key() in w.jobs.skill_pool(_job()), "never in the pool, so never offered as a card")
+	assert_eq(w.loadout.rank(_key()), 1)
+	assert_eq(w.skill_key_of(_key()), "rush")
+	var st := w.runner.stats_of(w, _key())
 	assert_eq(int(st.level), 4, "fixed rank 1 reads WZ level 4")
 	assert_near(float(st.damage_pct), 0.78, 1e-9)
 	assert_eq(int(st.mob_count), 15)
@@ -101,11 +128,11 @@ func test_the_cast_event_and_cooldown() -> void:
 		if event.type == "cast":
 			casts.append(event)
 	assert_eq(casts.size(), 1)
-	assert_eq(casts[0].skill, KEY)
+	assert_eq(casts[0].skill, _key())
 	assert_eq(casts[0].pos, Vector2(400, 0), "the cast begins where the dash starts")
 	assert_eq(casts[0].action, "rush2")
 	assert_eq(int(casts[0].level), 4)
-	var ready := w.skill_readiness(KEY)
+	var ready := w.skill_readiness(_key())
 	assert_near(float(ready.total), 2.0, 1e-6)
 	assert_near(float(ready.left), 2.0 - DT, 1e-6, "the cooldown ticks down in the cast's own tick")
 
@@ -129,7 +156,7 @@ func test_an_impossible_dash_spends_nothing() -> void:
 	var w := _world(500.0, [{"x1": 0, "y1": 0, "x2": 500, "y2": 0}])
 	_press(w, false, true)
 	assert_eq(w.player.pos, Vector2(500, 0), "already on the edge: nowhere to go")
-	assert_eq(float(w.skill_readiness(KEY).left), 0.0, "no cooldown")
+	assert_eq(float(w.skill_readiness(_key()).left), 0.0, "no cooldown")
 	for event: Dictionary in w.drain_events():
 		assert_ne(event.type, "cast", "no cast event")
 
@@ -139,7 +166,7 @@ func test_no_dash_starts_while_climbing() -> void:
 	w.player.state = PlayerMotion.ST_LADDER
 	_press(w, false, true)
 	assert_true(w.player.pos.x < 401.0, "no 170 px dash: %s" % w.player.pos)
-	assert_eq(float(w.skill_readiness(KEY).left), 0.0)
+	assert_eq(float(w.skill_readiness(_key()).left), 0.0)
 	for event: Dictionary in w.drain_events():
 		assert_ne(event.type, "cast")
 
@@ -211,7 +238,7 @@ func test_knockback_always_applies_and_draws_no_random_number() -> void:
 	var with_shove := _world()
 	_mob(with_shove, 450)
 	var plain := _world()
-	plain.book.defs[KEY].erase("knockback")
+	plain.book.defs[_key()].erase("knockback")
 	plain.loadout.version += 1 # drop the cached stats
 	_mob(plain, 450)
 	_press(with_shove, false, true)
@@ -234,7 +261,7 @@ func test_bosses_are_damaged_but_not_shoved() -> void:
 func _count_casts(w: RunWorld) -> int:
 	var n := 0
 	for event: Dictionary in w.drain_events():
-		if event.type == "cast" and event.skill == KEY:
+		if event.type == "cast" and event.skill == _key():
 			n += 1
 	return n
 
@@ -274,26 +301,25 @@ func _level_to(w: RunWorld, level: int) -> void:
 
 func test_rush_ranks_with_the_round_level_by_the_shared_mobility_rule() -> void:
 	var w := _world()
-	assert_eq(w.loadout.rank(KEY), 1, "rank 1 at Lv1: WZ level 4, 78%, 170 px")
-	assert_eq(int(w.runner.stats_of(w, KEY).level), 4)
+	assert_eq(w.loadout.rank(_key()), 1, "rank 1 at Lv1: WZ level 4, 78%, 170 px")
+	assert_eq(int(w.runner.stats_of(w, _key()).level), 4)
 	# balance.mobility_rank_levels: rank N at Lv 2N (Lv 4 -> 2), clamped to the skill's eight ranks.
 	_level_to(w, 10)
-	assert_eq(w.loadout.rank(KEY), 5, "Lv10 -> rank 5 (WZ level 19)")
+	assert_eq(w.loadout.rank(_key()), 5, "Lv10 -> rank 5 (WZ level 19)")
 	_level_to(w, 16)
-	assert_eq(w.loadout.rank(KEY), 8, "Lv16 -> rank 8, the top of the level-30 table")
-	var st := w.runner.stats_of(w, KEY)
+	assert_eq(w.loadout.rank(_key()), 8, "Lv16 -> rank 8, the top of the level-30 table")
+	var st := w.runner.stats_of(w, _key())
 	assert_eq(int(st.level), 30)
 	assert_near(float(st.damage_pct), 1.30, 1e-9)
 	assert_eq(float(st.displacement.distance), 250.0, "the dash grows with the box reach")
 	_level_to(w, 40)
-	assert_eq(w.loadout.rank(KEY), 8, "clamped at the skill's rank cap; no card ever raises it")
+	assert_eq(w.loadout.rank(_key()), 8, "clamped at the skill's rank cap; no card ever raises it")
 
 
 func test_rush_gives_no_orb_and_takes_no_orb_bonus() -> void:
 	var empty := _world()
 	var full := _world()
-	assert_false(empty.meter.config.is_empty(), "the Hero's Combo meter is configured")
-	full.meter.value = 5
+	full.meter.value = 5 # Hero's Combo orbs; Paladin has no meter (its Forms are P3), and the rule holds either way
 	for w: RunWorld in [empty, full]:
 		_mob(w, 450)
 		_press(w, false, true)
@@ -312,7 +338,7 @@ func test_the_card_draw_never_offers_rush() -> void:
 	var w := _world()
 	for i in 60:
 		for card: Dictionary in w.upgrades.roll_choices(w, w.card_rng, 3):
-			assert_ne(String(card.get("skill", "")), KEY)
+			assert_ne(String(card.get("skill", "")), _key())
 
 
 # --- Key Config and the HUD -------------------------------------------------------------------------------------------
@@ -326,13 +352,13 @@ func test_rush_is_a_skill_key_bound_to_x_like_teleport_and_dash() -> void:
 	assert_true(key.is_action_pressed("rush"), "X is the default, shared with Teleport and Dash")
 
 
-func test_key_config_lists_exactly_the_rush_key_for_a_hero() -> void:
+func test_key_config_lists_exactly_the_rush_key_for_the_job() -> void:
 	var w := _world()
 	var keys := w.manual_skill_keys()
-	assert_eq(keys.size(), 1, "a Hero owns Rush alone: one skill key row")
+	assert_eq(keys.size(), 1, "the job owns Rush alone: one skill key row")
 	assert_eq(keys[0].action, "rush")
 	assert_eq(keys[0].name, "Rush")
-	assert_eq(keys[0].icon, "Skill.wz/112.img/skill/1121006/icon")
+	assert_eq(keys[0].icon, "Skill.wz/%s.img/skill/%d/icon" % [_book(), _skill_id()])
 	var draft := KeyBindings.from_settings(GameSettings.new(), ["rush"])
 	assert_eq(draft.skill_keys, ["rush"])
 	assert_true(draft.keys.has("rush"), "the draft binds it")
@@ -413,34 +439,34 @@ func test_real_cache_rush_numbers_art_and_sound() -> void:
 		return
 	var lib := AssetLibrary.new()
 	assert_true(lib.open())
-	var imgs := lib.img("Skill.wz/112.img").root
-	var book := SkillBook.from_data(DataRepo.load_all().skills, {"112": imgs})
-	assert_eq(book.max_level(KEY), 30)
-	assert_eq(book.max_rank(KEY), 8, "the level-30 rank table")
-	assert_eq(book.canonical_level(KEY, 1), 4, "fixed rank 1 = WZ level 4")
-	# Independent literals read from Skill.wz/112.img/skill/1121006/level/4.
-	assert_eq(book.canonical(KEY, 4, "damage"), 78.0)
-	assert_eq(book.canonical(KEY, 4, "mobCount"), 15.0)
-	var lt: Array = book.level_node(KEY, 4).lt["$v"]
-	var rb: Array = book.level_node(KEY, 4).rb["$v"]
+	var imgs := lib.img("Skill.wz/%s.img" % _book()).root
+	var book := SkillBook.from_data(DataRepo.load_all().skills, {_book(): imgs})
+	assert_eq(book.max_level(_key()), 30)
+	assert_eq(book.max_rank(_key()), 8, "the level-30 rank table")
+	assert_eq(book.canonical_level(_key(), 1), 4, "fixed rank 1 = WZ level 4")
+	# Independent literals read from Skill.wz/<book>.img/skill/<id>/level/4 (Hero's 112.img/1121006 values; Paladin's match, P1 #309).
+	assert_eq(book.canonical(_key(), 4, "damage"), 78.0)
+	assert_eq(book.canonical(_key(), 4, "mobCount"), 15.0)
+	var lt: Array = book.level_node(_key(), 4).lt["$v"]
+	var rb: Array = book.level_node(_key(), 4).rb["$v"]
 	assert_eq([lt[0], lt[1], rb[0], rb[1]], [-170.0, -50.0, 0.0, 0.0])
-	assert_eq(book.def(KEY).action, "rush2")
+	assert_eq(book.def(_key()).action, "rush2")
 	# Through a world: the numbers the cast really uses.
-	var setup := RF.setup("quiet", 60, RF.quiet_data())
+	var setup := RF.setup("quiet", 60, _data_for(_job()))
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
-	setup.skill_imgs["112"] = imgs
-	setup["job"] = 112
+	setup.skill_imgs[_book()] = imgs
+	setup["job"] = _job()
 	var w := RunWorld.new(setup)
-	var st := w.runner.stats_of(w, KEY)
+	var st := w.runner.stats_of(w, _key())
 	assert_eq(int(st.level), 4)
 	assert_near(float(st.damage_pct), 0.78, 1e-9)
 	assert_eq(int(st.mob_count), 15)
 	assert_eq(float(st.displacement.distance), 170.0, "the dash covers the box reach")
 	assert_eq(st.box, Rect2(-170, -50, 170, 50))
 	# Art and sound named by the definition all resolve, including the dust.
-	assert_eq(lib.anim(String(book.def(KEY).effect)).frames.size(), 7, "effect/0 is blank, 1..6 the streak")
-	assert_eq(lib.anim(String(book.def(KEY).cast_visuals[0].path)).frames.size(), 6, "the dust")
-	assert_true(lib.sound(String(book.def(KEY).sounds.use)) != null)
+	assert_eq(lib.anim(String(book.def(_key()).effect)).frames.size(), 7, "effect/0 is blank, 1..6 the streak")
+	assert_eq(lib.anim(String(book.def(_key()).cast_visuals[0].path)).frames.size(), 6, "the dust")
+	assert_true(lib.sound(String(book.def(_key()).sounds.use)) != null)
 	assert_true(lib.missing.is_empty(), str(lib.missing))
 	lib.free()
 
@@ -468,7 +494,7 @@ func test_rush_action_is_presented_while_walking_and_airborne() -> void:
 
 func test_input_directed_dash_dispatches_on_its_declared_skill_key() -> void:
 	var w := _world()
-	w.book.defs[KEY].skill_key = "teleport"
+	w.book.defs[_key()].skill_key = "teleport"
 	var input := MoveInput.new()
 	input.press_skill("teleport")
 	input.right = true
