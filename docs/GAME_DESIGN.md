@@ -708,7 +708,8 @@ record: running the unchanged integration code at 4419535 produces an **identica
 (DEAD 12.0 s, Lv1), so this is not an H5 regression. Ellinia is recorded only, with no tuning.
 The diagnostic Hero run (playable flipped, invulnerable, three core skills learned in a throwaway mirror)
 ends PLAYING at 60.13 s, job 112, 18 kills, missing []; each `cast_<skill>` shot and the four-weapon,
-seven-frame Brandish sheet were inspected in `evidence/h5-301/`. The live shots draw at about 1 FPS;
+seven-frame Brandish sheet were inspected in `evidence/h5-301/`. Full suite: **2028 tests, 0 failed,
+0 skipped**, 210 files, 1598.1 s; F/P oracle expectations unchanged. The live shots draw at about 1 FPS;
 they are cast/hit evidence, not performance evidence. The paused sheet verifies the body/weapon poses.
 
 **#307 / T11b opening ramp (training seeds 1/2/2026 only).** All candidates used absolute `PATCH=` files;
