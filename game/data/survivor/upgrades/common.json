@@ -1,4 +1,203 @@
 {
-	"_doc": "Job-neutral cards: none since spec #225 (Magnet and the potion tier cards were removed; potions upgrade by level through balance.potions.schedule, and the Power Elixir is the fallback in ../upgrades.json). The file stays so the per-line merge order keeps its first entry. Card format and tier rules: see ../upgrades.json _doc.",
-	"cards": []
+	"_doc": "Job-neutral cards: the nine common passives (spec #282 ticket #289), a skill_new and a skill_rank card each. weight is unused since #287 (draw_weights in ../upgrades.json pick: new passive 0.5, passive rank 0.8). They never roll rarity and always give exactly one rank. Card format and tier rules: see ../upgrades.json _doc.",
+	"cards": [
+		{
+			"id": "passive_might_new",
+			"kind": "skill_new",
+			"skill": "passive_might",
+			"name": "Maple Warrior",
+			"desc": "Raises the damage of all your skills.",
+			"icon": "Skill.wz/2112.img/skill/21121000/icon",
+			"max_rank": 1,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_might_rank",
+			"kind": "skill_rank",
+			"skill": "passive_might",
+			"name": "Maple Warrior",
+			"desc": "+1 rank",
+			"icon": "Skill.wz/2112.img/skill/21121000/icon",
+			"max_rank": 0,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_max_hp_new",
+			"kind": "skill_new",
+			"skill": "passive_max_hp",
+			"name": "Hyper Body",
+			"desc": "Raises your Max HP.",
+			"icon": "Skill.wz/910.img/skill/9101008/icon",
+			"max_rank": 1,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_max_hp_rank",
+			"kind": "skill_rank",
+			"skill": "passive_max_hp",
+			"name": "Hyper Body",
+			"desc": "+1 rank",
+			"icon": "Skill.wz/910.img/skill/9101008/icon",
+			"max_rank": 0,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_speed_new",
+			"kind": "skill_new",
+			"skill": "passive_speed",
+			"name": "Haste",
+			"desc": "Raises your movement speed.",
+			"icon": "Skill.wz/910.img/skill/9101001/icon",
+			"max_rank": 1,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_speed_rank",
+			"kind": "skill_rank",
+			"skill": "passive_speed",
+			"name": "Haste",
+			"desc": "+1 rank",
+			"icon": "Skill.wz/910.img/skill/9101001/icon",
+			"max_rank": 0,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_regen_new",
+			"kind": "skill_new",
+			"skill": "passive_regen",
+			"name": "Recovery",
+			"desc": "Recovers HP every second.",
+			"icon": "Skill.wz/1000.img/skill/10001001/icon",
+			"max_rank": 1,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_regen_rank",
+			"kind": "skill_rank",
+			"skill": "passive_regen",
+			"name": "Recovery",
+			"desc": "+1 rank",
+			"icon": "Skill.wz/1000.img/skill/10001001/icon",
+			"max_rank": 0,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_cooldown_new",
+			"kind": "skill_new",
+			"skill": "passive_cooldown",
+			"name": "Spell Booster",
+			"desc": "Your skills cast faster.",
+			"icon": "Skill.wz/1210.img/skill/12101004/icon",
+			"max_rank": 1,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_cooldown_rank",
+			"kind": "skill_rank",
+			"skill": "passive_cooldown",
+			"name": "Spell Booster",
+			"desc": "+1 rank",
+			"icon": "Skill.wz/1210.img/skill/12101004/icon",
+			"max_rank": 0,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_area_new",
+			"kind": "skill_new",
+			"skill": "passive_area",
+			"name": "Dragon Roar",
+			"desc": "Widens the reach of your skills.",
+			"icon": "Skill.wz/910.img/skill/9101006/icon",
+			"max_rank": 1,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_area_rank",
+			"kind": "skill_rank",
+			"skill": "passive_area",
+			"name": "Dragon Roar",
+			"desc": "+1 rank",
+			"icon": "Skill.wz/910.img/skill/9101006/icon",
+			"max_rank": 0,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_exp_new",
+			"kind": "skill_new",
+			"skill": "passive_exp",
+			"name": "Holy Symbol",
+			"desc": "Raises the EXP you gain.",
+			"icon": "Skill.wz/910.img/skill/9101002/icon",
+			"max_rank": 1,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_exp_rank",
+			"kind": "skill_rank",
+			"skill": "passive_exp",
+			"name": "Holy Symbol",
+			"desc": "+1 rank",
+			"icon": "Skill.wz/910.img/skill/9101002/icon",
+			"max_rank": 0,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_armor_new",
+			"kind": "skill_new",
+			"skill": "passive_armor",
+			"name": "Iron Body",
+			"desc": "Takes a flat amount off every hit you suffer.",
+			"icon": "Skill.wz/1100.img/skill/11001001/icon",
+			"max_rank": 1,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_armor_rank",
+			"kind": "skill_rank",
+			"skill": "passive_armor",
+			"name": "Iron Body",
+			"desc": "+1 rank",
+			"icon": "Skill.wz/1100.img/skill/11001001/icon",
+			"max_rank": 0,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_crit_new",
+			"kind": "skill_new",
+			"skill": "passive_crit",
+			"name": "Sharp Eyes",
+			"desc": "Raises your critical hit chance.",
+			"icon": "Skill.wz/312.img/skill/3121002/icon",
+			"max_rank": 1,
+			"requires": {},
+			"effects": []
+		},
+		{
+			"id": "passive_crit_rank",
+			"kind": "skill_rank",
+			"skill": "passive_crit",
+			"name": "Sharp Eyes",
+			"desc": "+1 rank",
+			"icon": "Skill.wz/312.img/skill/3121002/icon",
+			"max_rank": 0,
+			"requires": {},
+			"effects": []
+		}
+	]
 }

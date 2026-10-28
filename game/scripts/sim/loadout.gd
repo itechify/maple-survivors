@@ -23,6 +23,20 @@ const MAX_HP_PER_LEVEL := "max_hp_per_level"
 const RANGE := "range"
 ## tier B: untrained physical mastery is 10% (SouthPerry/HS.net).
 const BASE_MASTERY := 0.10
+## Passive stats of the nine common passives (skills/common.json, spec #282 ticket #289); every value is per rank in the
+## unit its name gives (tier C, docs/GAME_DESIGN.md 8). damage_pct, cast_speed_pct and area_pct feed stats(); max_hp_pct,
+## speed_pct, regen_pct, exp_pct and armor_flat feed RunWorld.
+const DAMAGE_PCT := "damage_pct"
+const MAX_HP_PCT := "max_hp_pct"
+const SPEED_PCT := "speed_pct"
+const REGEN_PCT := "regen_pct"
+const CAST_SPEED_PCT := "cast_speed_pct"
+const AREA_PCT := "area_pct"
+const EXP_PCT := "exp_pct"
+const ARMOR_FLAT := "armor_flat"
+## tier C: the cooldown factor (cast speed passives, cooldown cards and every other cooldown source together) never goes
+## below this share of the skill's own cooldown. The reference's x0.35 floor.
+const COOLDOWN_FLOOR := 0.35
 
 var book: SkillBook
 ## Owned skill key -> survivor rank (>= 1).
@@ -269,7 +283,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		# tier C: the stance (and so the swing/stab multiplier) of the held weapon's first basic-attack action.
 		action = WeaponInfo.skill_action(weapon_id)
 	var attack_kind := WeaponInfo.attack_kind(action)
-	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0)
+	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0) * (1.0 + passive_total(DAMAGE_PCT) / 100.0)
 	var lo := 0.0
 	var hi := 0.0
 	if dtype == "fixed":
@@ -301,7 +315,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var box_node: Dictionary = node if node.get("lt") is Dictionary and node.get("rb") is Dictionary \
 		else cast.get("box", {})
 	var has_box := box_node.get("lt") is Dictionary and box_node.get("rb") is Dictionary
-	var area := skill_stat(key, "area", 1.0)
+	var area := skill_stat(key, "area", 1.0) * (1.0 + passive_total(AREA_PCT) / 100.0)
 	var box := Rect2()
 	if has_box:
 		var lt: Array = box_node.lt.get("$v", [0.0, 0.0])
@@ -342,7 +356,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
 		"speed_factor": speed_factor,
-		"cooldown": maxf(0.05, skill_stat(key, "cooldown", _base_cooldown(key, d, heal, lv)) * speed_factor),
+		"cooldown": _cooldown(key, d, heal, lv, speed_factor),
 		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0))))
 			+ (passive_total(RANGE) if attacks and weapon_family in WeaponInfo.RANGED_FAMILIES
 				and weapon_family in book.weapon_families(key) else 0.0),
@@ -388,6 +402,16 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"cooldown_from_cast": bool(buff.get("cooldown_from_cast", false)),
 		"displacement": _displacement(key, d, r, lv),
 	}
+
+
+## Seconds between casts: the skill's own cooldown with its cards, then the cast speed passives (an active skill's cooldown
+## x (1 - cast speed)), the product of every factor floored at COOLDOWN_FLOOR of the base, then attack speed.
+func _cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int, speed_factor: float) -> float:
+	var base := _base_cooldown(key, d, heal, lv)
+	var cooldown := skill_stat(key, "cooldown", base)
+	if book.slot(key) == "active" and base > 0.0:
+		cooldown = maxf(cooldown * (1.0 - passive_total(CAST_SPEED_PCT) / 100.0), base * COOLDOWN_FLOOR)
+	return maxf(0.05, cooldown * speed_factor)
 
 
 ## The seconds between casts before cards and attack speed: the definition's `cooldown_field` (a canonical level number,

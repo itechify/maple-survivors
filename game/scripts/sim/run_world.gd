@@ -317,6 +317,11 @@ var _final_keys_version := -1
 var _max_hp := 1
 ## The Hyper Body Max HP percentage already inside _max_hp; a change refreshes the maximum.
 var _max_buff_applied := 0.0
+## Common passive state (#289): the Recovery passive's percent of Max HP per second, refreshed with the stats, and the
+## fraction of EXP the Holy Symbol bonus has not paid out yet.
+var _passive_regen_pct := 0.0
+var _passive_speed_pct := 0.0
+var _exp_carry := 0.0
 var _base_hp := 50.0
 var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
@@ -1225,11 +1230,14 @@ func refresh_player_stats(grant_growth: bool = true, attribute_level: int = -1) 
 	# tier C: equipment max HP adds flat after card modifiers. The Hyper Body buff then scales that whole total (base,
 	# growth, passives, equipment; tier B, v83).
 	_max_buff_applied = _max_buff_percent()
+	# tier C: the Max HP passive (Hyper Body card, #289) scales the same total before the Hyper Body buff does.
 	_max_hp = maxi(1, roundi((loadout.player_stat("max_hp", _base_hp) + equipment_bonus("incMHP"))
-		* (1.0 + _max_buff_applied / 100.0)))
+		* (1.0 + loadout.passive_total(Loadout.MAX_HP_PCT) / 100.0) * (1.0 + _max_buff_applied / 100.0)))
 	if grant_growth and _max_hp > old_hp:
 		_hp += _max_hp - old_hp
 	_hp = minf(_hp, _max_hp)
+	_passive_regen_pct = loadout.passive_total(Loadout.REGEN_PCT)
+	_passive_speed_pct = loadout.passive_total(Loadout.SPEED_PCT)
 	_equipment_speed = equipment_bonus("incSpeed")
 	_equipment_jump = equipment_bonus("incJump")
 	player_acc = CombatMath.base_accuracy(float(_attributes.dex), float(_attributes.luk), jobs.lineage(progression.job_id)) \
@@ -1246,10 +1254,12 @@ func refresh_player_stats(grant_growth: bool = true, attribute_level: int = -1) 
 
 
 ## Upgraded movement speed plus worn equipment's incSpeed and active canonical buff points, capped at the v83 140
-## (Equipment.SPEED_CAP), then composed with the canonical-area slow.
+## (Equipment.SPEED_CAP), then the Haste passive's percent (tier C: applied after the cap, #289), then composed with the
+## canonical-area slow. The passive percent is read when the stats were last refreshed.
 func player_speed_stat() -> float:
 	var speed := loadout.player_stat("speed", 100.0) + _equipment_speed + buffs.effect_total("speed")
-	return minf(speed, Equipment.SPEED_CAP) * mob_skills.speed_multiplier(time)
+	return minf(speed, Equipment.SPEED_CAP) * (1.0 + _passive_speed_pct / 100.0) \
+		* mob_skills.speed_multiplier(time)
 
 
 func _refresh_caster() -> void:
@@ -2203,6 +2213,7 @@ func _tick_timers(dt: float) -> void:
 	for _pulse in upkeep.regen_pulses(dt):
 		_hp = minf(_max_hp, _hp + upkeep.pulse_hp() + hp_regen + loadout.regen_bonus())
 	_hp = minf(_max_hp, _hp + upkeep.periodic_recovery(dt, loadout))
+	_hp = minf(_max_hp, _hp + float(_max_hp) * _passive_regen_pct / 100.0 * dt)
 	_end_buffs_above_hp()
 
 
@@ -2447,6 +2458,8 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	if not magic:
 		# tier C: apply canonical Invincible percent to the whole weapon hit; minimum 1.
 		dmg = maxi(1, roundi(dmg * (1.0 - clampf(buffs.effect_total("weapon_damage_reduction"), 0.0, 100.0) / 100.0)))
+	# The Armor passive (Iron Body card, #289): a flat amount off every hit, physical or magic; minimum 1.
+	dmg = maxi(1, dmg - roundi(loadout.passive_total(Loadout.ARMOR_FLAT)))
 	# Power Guard (#182): a no-op, with no RNG and no event, unless the buff is active and this is contact damage.
 	var reflect := _power_guard_reflect(dmg, magic, source)
 	dmg -= reflect
@@ -2511,6 +2524,13 @@ func can_cast() -> bool:
 
 func _gain_exp(n: int) -> void:
 	var before := progression.level
+	# The Holy Symbol passive (#289): +x% on every gain; the fraction that does not make a whole point carries over, so
+	# many small orbs lose nothing.
+	var bonus := loadout.passive_total(Loadout.EXP_PCT)
+	if bonus > 0.0 and n > 0:
+		var total := float(n) * (1.0 + bonus / 100.0) + _exp_carry
+		n = floori(total + 1e-9)
+		_exp_carry = maxf(0.0, total - float(n))
 	var gained := progression.add_exp(n)
 	for k in gained:
 		_on_level_up(before + k + 1)
