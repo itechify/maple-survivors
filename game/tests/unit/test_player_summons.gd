@@ -133,3 +133,19 @@ func test_two_allies_have_separate_spawn_and_follow_positions() -> void:
 	for tick in 60:
 		w.runner.tick_cooldowns(DT, w)
 	assert_true(absf(w.runner.summons.x[0] - w.runner.summons.x[1]) >= 30.0)
+
+func test_elquines_has_no_priority_status_so_a_marked_monster_gets_no_preference() -> void:
+	# #328: priority_status is opt-in; Elquines keeps boss, distance, slot even beside a fire_weak or ice_weak monster.
+	assert_false(_world().book.def("elquines").summon.has("priority_status"))
+	for status in ["ice_weak", "fire_weak"]:
+		var w := _world()
+		w.loadout.add_skill_mod("elquines", "count", "add", -1.0)
+		var near := _mob(w, 260)
+		var far := _mob(w, 330)
+		w.swarm.apply_status(far, status, {"time": 10.0}, w.events)
+		w.runner.step(DT, w)
+		w.loadout.order.clear()
+		for tick in 8:
+			w.runner.tick_cooldowns(DT, w)
+		assert_true(w.swarm.hp[near] < 100000, status)
+		assert_eq(w.swarm.hp[far], 100000, status)
