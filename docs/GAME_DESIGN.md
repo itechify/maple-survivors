@@ -686,6 +686,31 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
+**#301 / H5 core melee regression smoke (training seeds 1/2/2026).** No balance tuning.
+Shared real cache, `ISOLATE=301`; four tier-1 stages with bot/random, Sleepywood with bot,
+with and without the tier-1 `fp_arch_mage.json` kit. All 30 runs finished without crashes,
+world warnings or missing assets. Records and summaries are `_scratch/balance301/` (Sleepywood
+in separate `starter/` and `kit/` folders because the script reuses its output names).
+
+| Stage / equipment | Bot: clears; death seconds; end levels | Random: clears; death seconds; end levels |
+|---|---|---|
+| Henesys | 1/3; 449.9–711.5; 22–56 | 0/3; 308.0–615.4; 10–31 |
+| Ellinia | 0/3; 625.4–650.9; 22–23 | 0/3; 321.8–688.0; 12–23 |
+| Perion | 0/3; 430.6–668.6; 25–42 | 0/3; 277.3–574.8; 10–32 |
+| Kerning | 0/3; 306.2–749.1; 12–42 | 0/3; 308.3–442.2; 13–23 |
+| Sleepywood starter | 0/3; 10.6–12.0; 1 | — |
+| Sleepywood tier-1 kit | 2/3; 792.2 (one death); 71–78 | — |
+
+Henesys bot fills six active slots at 137.5–183.6 s and reaches the first boss in all three runs;
+seed 2026 clears at 909.5 s. Henesys outcomes/times match the preceding #307 smoke.
+Kit Sleepywood outcomes/times also match #307. The starter seed-2026 death differs from that older
+record: running the unchanged integration code at 4419535 produces an **identical complete record**
+(DEAD 12.0 s, Lv1), so this is not an H5 regression. Ellinia is recorded only, with no tuning.
+The diagnostic Hero run (playable flipped, invulnerable, three core skills learned in a throwaway mirror)
+ends PLAYING at 60.13 s, job 112, 18 kills, missing []; each `cast_<skill>` shot and the four-weapon,
+seven-frame Brandish sheet were inspected in `evidence/h5-301/`. The live shots draw at about 1 FPS;
+they are cast/hit evidence, not performance evidence. The paused sheet verifies the body/weapon poses.
+
 **#307 / T11b opening ramp (training seeds 1/2/2026 only).** All candidates used absolute `PATCH=` files;
 raw local records are `_scratch/307/`, not committed. Low starts (.001–.02 HP, .08 damage) made both
 starter and kit viable, erasing the equipment gate. Raising only damage killed both builds on map 3.
