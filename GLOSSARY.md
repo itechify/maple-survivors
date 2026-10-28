@@ -272,6 +272,12 @@ A timed condition a skill puts on a monster: slowed, poisoned, frozen, threatene
 stunned (neither moving nor attacking). Bosses take none.
 _Avoid_: debuff, ailment
 
+**Vulnerability**:
+A status effect that makes a monster weak to one element for a time (x1.5 damage of that element, whatever the
+monster's own attribute): Fire Demon's ice-weak and Ice Demon's fire-weak. A monster can carry several, and bosses take
+none. A mixed-element hit (fire/poison, ice/lightning) is the mean of its parts, each counted with its live weakness.
+_Avoid_: debuff, curse
+
 **Stolen**:
 A monster a successful Steal has already taken an extra drop from; Steal can't take from it again. It is not a
 status effect, so a boss can be stolen from.

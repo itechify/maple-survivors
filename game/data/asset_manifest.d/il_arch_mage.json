@@ -1,0 +1,9 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the I/L Arch Mage line (spec #319 #320). The 3rd and 4th job Ice/Lightning skill books Skill.wz/221.img (Mage) and 222.img (Arch Mage) whole, and the Sound.wz/Skill.img nodes of the I/L pool skills that no other fragment lists: Ice Strike 2211002, Thunder Spear 2211003, Element Composition 2211006, Big Bang 2221001, Ice Demon 2221003, Ifrit 2221005, Chain Lightning 2221006 and Blizzard 2221007. 2211006 Use and 2221001 Use/Loop are UOLs to the F/P nodes 2111006 and 2121001 (magician.json); the importer exports each skill under its own node name. Skill.wz/200.img and 220.img (Cold Beam, Thunder Bolt, Teleport) and their sounds are in magician.json.",
+	"imgs": [
+		{"img": "Skill.wz/221.img"},
+		{"img": "Skill.wz/222.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["2211002", "2211003", "2211006", "2221001", "2221003", "2221005", "2221006", "2221007"]}
+	]
+}
