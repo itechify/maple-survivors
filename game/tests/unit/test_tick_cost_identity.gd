@@ -178,6 +178,17 @@ static func _data() -> Dictionary:
 	}
 	data.equipment_drops.chance = 0.05
 	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = "" # the loadout is exactly SKILLS
+	# #325 re-tuned Cold Beam and Thunder Bolt (I/L pool: 0.5 / 0.6 s, eight ranks, rarity bonuses). This oracle guards the
+	# engine's per-tick cost work, not those skills, so it keeps the pre-#325 definitions to stay byte-identical.
+	var legacy_ranks := range(1, 31)
+	var cold: Dictionary = data.skills.skills.cold_beam
+	cold.cooldown = 1.25
+	cold.ranks = legacy_ranks
+	cold.erase("rarity_bonuses")
+	var bolt: Dictionary = data.skills.skills.thunder_bolt
+	bolt.cooldown = 1.5
+	bolt.ranks = legacy_ranks
+	bolt.erase("rarity_bonuses")
 	return data
 
 

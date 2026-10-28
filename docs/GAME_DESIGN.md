@@ -4502,15 +4502,14 @@ existing shots finish separately from carry-over projectile kills.
 | Slow (2101003 / 2201003) | F/P / I/L Wizard | At least 3 eligible unslowed mobs in canonical `lt`/`rb`; nearest-first up to `mobCount`, signed canonical `x` for `time`, 1 s recast delay | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
 
 | Teleport (2101002 / 2201002 / 2301001; `teleport_fp` / `teleport_il` / `teleport_cleric`) | F/P / I/L / Cleric | Manual X: arrow direction, otherwise facing. Horizontal blink lands on a floor up to canonical range, stopped by walls/map limits; vertical blink needs a floor strictly above/below within range. Ground/air allowed; climbing blocks it. Successful blinks pay canonical MP and emit fixed departure/arrival effects and Use sound. Hold repeats every 0.3 s (tier C); invalid destinations and short MP spend nothing. HUD shows X and dims when unaffordable. | ranks 1-20 = levels 1-20; `mpCon` 60 to 13, `range` 130 to 150 px (tier A, all three books) | branch-specific learn and rank cards only; no grant or slot cap |
-| Cold Beam (2201004) | I/L Wizard | Instant ice hit on the nearest target within 300 px every 1.25 s; canonical `mad`/`mastery`/`mpCon`; guaranteed freeze attempt for canonical `time` (1–2 s), rejected by bosses and ice-status immunity; real `effect` and `hit/0`, no `ball` | ranks 1–30 = levels 1–30 | learn/rank; Spreading Frost (+1 target, 3 steps), Quick Frost (cooldown ×0.88, 3 steps) |
-| Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Forking Storm (+2 targets, 3 steps; tier C), Quick Storm (cooldown ×0.88, 3 steps) |
+| Cold Beam (2201004) | I/L Arch Mage | Moved to the I/L pool, section 7.60 (I6, #325): nearest-target ice hit every 0.5 s, freeze for canonical `time`; eight mapped ranks, rarity bonuses | ranks 1–8 = levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and Mastery with rarity bonuses (section 8); no standalone modifier cards |
+| Thunder Bolt (2201005) | I/L Arch Mage | Moved to the I/L pool, section 7.60 (I6, #325): box lightning every 0.6 s up to canonical `mobCount` (6); eight mapped ranks, rarity bonuses | ranks 1–8 = levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and Mastery with rarity bonuses (section 8); no standalone modifier cards |
 
-Ice/Lightning attack cards require exactly job 220 and all eight learn/rank/behaviour cards are power cards.
-Behaviour steps share the first-job Potential magnitudes and remaining-headroom clamp. Cold Beam uses the existing
-`count` modifier (up to four distinct targets); Thunder Bolt uses `cast: {"rule": "box"}` and the shared `area`
-modifier (up to ×1.728 on both canonical offsets). Cold Beam's `on_hit` block omits `chance_field`: every v83 level
-has `x = -100` and `time`, with no `prop`. Freeze duration is canonical, and no separate proc or box path is added.
-Both cached skills have no `action` node; selecting `swingO1` for a 0.8 s cast stance is tier C.
+Cold Beam and Thunder Bolt were the Ice/Lightning Wizard's (job 220) pre-redesign attacks, with 30 ranks and standalone
+Spreading Frost / Quick Frost / Wider Storm / Forking Storm / Quick Storm cards. #325 moved them into the `il_arch_mage`
+line and deleted the cards; the same names live on as rarity bonuses (7.60). Cold Beam's `on_hit` block omits
+`chance_field`: every v83 level has `x = -100` and `time`, with no `prop`. Freeze duration is canonical, and no separate
+proc or box path is added. Both cached skills have no `action` node; selecting `swingO1` for a 0.8 s cast stance is tier C.
 
 Fire/Poison attack cards require current job 210. Both learn/rank cards and all five behaviour cards are power
 cards. Behaviour caps count modifier steps, so three Extra Fire Arrow steps produce four shots. Poison Breath
@@ -5587,6 +5586,41 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. Rarity lists ship in the skill definition.
 
+### 7.60 I/L pool and Teleport (spec #319, I6 #325)
+
+The I/L Arch Mage's (222) simple instant skills: **Cold Beam** (2201004), **Thunder Bolt** (2201005), **Ice Strike**
+(2211002) and **Thunder Spear** (2211003), plus **Teleport** (`teleport_il`, 2201002) as its mobility skill. All five
+live in `skills/il_arch_mage.json`; Cold Beam, Thunder Bolt and Teleport moved there from `skills/magician.json`
+(a key in two files is a load error). Every pool skill uses the default eight-rank table (WZ levels 4, 8, 12, 15, 19,
+23, 27, 30), no MP, no `ranks` override, and rarity bonuses instead of standalone cards (section 8).
+
+| Skill / key | Behaviour | Cooldown (tier C) |
+|---|---|---|
+| Cold Beam / `cold_beam` (the start skill) | `nearest` instant, 300 px, one target (`count` adds targets, nearest first); every damaging line attempts a freeze for canonical `time` (1 s, 2 s from WZ level 19); bosses and ice-immune monsters take the damage and refuse the freeze; `swingO1` 0.8 s | 0.5 s |
+| Thunder Bolt / `thunder_bolt` | `box` instant: canonical `lt`/`rb` around the player (±150×±50, ±170×±70 from WZ level 19, i.e. rank 5), up to canonical `mobCount` 6, nearest first; `swingO1` 0.8 s | 0.6 s |
+| Ice Strike / `ice_strike` | `box` instant, `min_targets` 1: canonical box (half-width 120 / 150 / 200 px, half-height 90 / 112 / 150 at ranks 1 / 4 / 8), `mobCount` 6, freeze on every hit line for canonical `time` (1, then 2 s); `magic2` 0.8 s | 1.6 s |
+| Thunder Spear / `thunder_spear` | `nearest` instant, 400 px, exactly one target (the WZ node has no `mobCount` and no box); `magic1` 0.8 s | 0.8 s |
+| Teleport / `teleport_il` | `slot: mobility`, manual X with an arrow direction, `range` 130 to 150 px (tier A); numbers identical to `teleport_fp`; learned at round start through `JobTree.start_skills`, outside both slot tracks, never offered as a card. Its rank follows `balance.mobility_rank_levels` (rank N at character level 2N, cap 20) | 0.3 s repeat |
+
+Cooldowns are the legacy or F/P-mirror base values x0.4 (Cold Beam 1.25, Thunder Bolt 1.5, Ice Strike 4, Thunder
+Spear 2), so the two Arch Mages run at one pace until the balance pass. Cold Beam is the lever to watch: 0.5 s against
+a 1-2 s freeze keeps the nearest monster frozen. Elements are tier A (`elemAttr` i, l, i, l); Ice Strike and Thunder
+Spear have a `Use` sound and no `Hit` sound; none of the four has a `ball`. Cold Beam's and Thunder Bolt's `Hit` sounds
+are empty strings (no sound in the WZ).
+
+Rarity bonuses (tier C, named after the lineage's passives; Legendary = the Unique's effect with the same id plus
+damage x1.2, repeats shrink x0.8, section 8). Each entry changes the resolved cast (`test_il_rarity_bonus_effects`):
+
+| Skill | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Cold Beam | `amplify` damage x1.2 | `booster` cooldown x0.88 | `spread` Spreading Frost: +1 target | Spreading Frost + damage x1.2 |
+| Thunder Bolt | `amplify` damage x1.2 | `storm` Wider Storm: area x1.2 | `fork` Forking Storm: +2 targets | Forking Storm + damage x1.2 |
+| Ice Strike | `amplify` damage x1.2 | `storm` Wider Frost: area x1.2 | `shatter` Shatter: +1 hit | Shatter + damage x1.2 |
+| Thunder Spear | `amplify` damage x1.2 | `booster` Spell Booster: cooldown x0.88 | `echo` Echo: +1 hit | Echo + damage x1.2 |
+
+The Normal Mastery of these skills is the shared +5% damage (x0.8 per repeat). Thunder Bolt's `count` raises its
+`mob_count` (a nearest-target skill adds targets with `count`, a box skill with `count` through `mob_count`).
+
 ### 7.61 Vulnerability (spec #319 M4, #322)
 
 A vulnerability is a timed status that makes one element hit x1.5 on a monster. `MobSwarm.VULNERABLE` is the table
@@ -5834,7 +5868,7 @@ MP Eaters, Invincible and both Slows):
 | Magic Claw (2001005) | desc, h | Twin Claw cards strike more monsters |
 | Fire Arrow (2101004), Holy Arrow (2301005) | desc, h | "a single monster": extra-arrow and pierce cards |
 | Poison Breath (2101005) | desc | "a single monster": pierce cards |
-| Cold Beam (2201004) | desc, h | Spreading Frost cards freeze more monsters |
+| Cold Beam (2201004) | desc, h | the Spreading Frost bonus freezes more monsters |
 | Thunder Bolt (2201005) | desc, h | "all monsters in the range": it hits up to its mob count (canonical 6 plus cards) |
 | Heal (2301002) | desc | party healing: here it heals you below half HP and strikes every undead in its box |
 | Meditation (2101001, 2201001) | desc, h | "party members": self-only |
@@ -6056,6 +6090,13 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Skill templates | `extends` resolved in `SkillBook` by `SkillTemplate` (7.63): deep copy of the parent, child keys on top, inherited Skill.wz/Sound.wz paths rewritten to the child's book and id | C |
 | Big Bang in the three books | 2121001, 2221001 and 2321001 are identical in every level number, art node count and sound (Use/Loop UOL to 2121001's); the drift guard re-checks it per `extends` pair | A |
 | I/L playable | `playable: false` until I12 (job 212 stays `default_job` either way: 212 precedes 222) | C |
+| I/L core-bolt cooldowns (I6) | Cold Beam 0.5 s, Thunder Bolt 0.6 s, Ice Strike 1.6 s, Thunder Spear 0.8 s: the legacy / F/P-mirror base value (1.25, 1.5, 4, 2) x0.4 | C |
+| I/L core-bolt targeting (I6) | Cold Beam `nearest` 300 px one target; Thunder Spear `nearest` 400 px one target; Thunder Bolt and Ice Strike `box` (`min_targets` 1) | C |
+| I/L core-bolt stances (I6) | Cold Beam and Thunder Bolt `swingO1` 0.8 s (no WZ `action`); Ice Strike `magic2` and Thunder Spear `magic1` (tier A actions) held 0.8 s | C (stance names A) |
+| I/L core-bolt freeze (I6) | Cold Beam and Ice Strike `on_hit freeze`, duration from the level's `time` (A), no `chance_field` (no `prop` in WZ, A): every damaging line attempts it | A |
+| I/L core-bolt WZ facts (I6) | `mad`/`mastery`, `time`, `mobCount`, `lt`/`rb`, `elemAttr` of 2201004, 2201005, 2211002, 2211003 at the mapped levels; Thunder Spear has no `mobCount` or box | A |
+| I/L core-bolt rarity bonuses (I6) | Rare damage x1.2 (all four); Epic Cold Beam / Thunder Spear cooldown x0.88, Thunder Bolt / Ice Strike area x1.2; Unique Cold Beam +1 target, Thunder Bolt +2 targets, Ice Strike and Thunder Spear +1 hit; Legendary = Unique + damage x1.2 | C |
+| I/L Teleport (I6) | `teleport_il`: `slot: mobility`, same numbers as `teleport_fp`; rank from the shared `balance.mobility_rank_levels` | C (range/cost A) |
 
 
 ### #307 opening ramp (tier C)
@@ -6666,10 +6707,10 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Flyer speed / bob / arrivals | (`flySpeed` + 100) × `mob_speed_factor` × stage speed; bob 2 px / 1.2 s (`balance.mob_motion`); Henesys arrival keyframes 180 / 300 / 480 / 660 s, weights 1 | C (conversion and tuning); A (stats and frames) | ours; original v83 WZ |
 | Goblin Fire EXP icon | Firebomb Flame 4000081 stands in for a signature EXP drop | C | ours (item art A) |
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
-| I/L attacks (#56) | Cold Beam nearest-target auto-cast: 300 px, 1 target, 1.25 s cooldown; Thunder Bolt box auto-cast: at least 1 target, 1.5 s cooldown; both use swingO1 for 0.8 s | C | survivor skill definitions; v83 has no action node for either skill |
-| I/L canonical attack facts (#56) | ranks 1–30, elements i/l, mad/mastery/mpCon; Cold Beam x=-100/time=1–2 with no prop; Thunder Bolt mobCount=6 and lt/rb; effect/hit art and Use sounds, no ball | A | original v83 Skill.wz/220.img and Sound.wz/Skill.img/2201004–2201005, real-cache tests |
-| I/L cards (#56) | Cold Beam +1 target; Thunder Bolt box offsets ×1.2; both cooldown ×0.88; 3 modifier steps each; learn/rank/modifier weights 4/3/2, all power, exact job 220; shared rarity magnitudes | C | owner #31/#56 behaviour choices; existing count/area/cooldown and Potential seams |
-| Thunder Bolt target card (#84) | Forking Storm: `count` +2 per step, max 3 steps (canonical `mobCount` 6 → 12), weight 2, power, exact job 220; bot scores it as a `count` mod (75 + job bonus 12) | C (placeholder until the balance pass) | #84 hit-more-mobs rule; upgrades.json `thunder_bolt_targets` |
+| I/L attacks (#56; cooldowns now x0.4 and bonuses, #325, section 7.60) | Cold Beam nearest-target auto-cast: 300 px, 1 target, 1.25 s base cooldown; Thunder Bolt box auto-cast: at least 1 target, 1.5 s cooldown; both use swingO1 for 0.8 s | C | survivor skill definitions; v83 has no action node for either skill |
+| I/L canonical attack facts (#56) | WZ levels 1–30 (eight mapped ranks, #325), elements i/l, mad/mastery/mpCon; Cold Beam x=-100/time=1–2 with no prop; Thunder Bolt mobCount=6 and lt/rb; effect/hit art and Use sounds, no ball | A | original v83 Skill.wz/220.img and Sound.wz/Skill.img/2201004–2201005, real-cache tests |
+| I/L cards (#56; deleted by #325, now rarity bonuses) | Cold Beam +1 target; Thunder Bolt box offsets ×1.2; both cooldown ×0.88; 3 modifier steps each; learn/rank/modifier weights 4/3/2, all power, exact job 220; shared rarity magnitudes | C | owner #31/#56 behaviour choices; existing count/area/cooldown and Potential seams |
+| Thunder Bolt target card (#84; deleted by #325, now the Unique `fork` bonus) | Forking Storm: `count` +2 per step, max 3 steps (canonical `mobCount` 6 → 12), weight 2, power, exact job 220; bot scores it as a `count` mod (75 + job bonus 12) | C (placeholder until the balance pass) | #84 hit-more-mobs rule; upgrades.json `thunder_bolt_targets` |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
 | Potion schedule (#225, #228) | `balance.potions.schedule`: HP Orange @ Lv 10, HP White @ Lv 25 (the MP step removed, #285); applied at level-up with a notice and silently on snapshot load, cooldown kept, never downgrades; replaces the potion-tier cards | C | owner choice (the old card gates); balance.json |

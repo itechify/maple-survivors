@@ -63,7 +63,7 @@ func test_il_arch_mage_is_a_class_line_after_the_seven_adventurer_lines() -> voi
 		"res://data/survivor/skills/il_arch_mage.json")
 
 
-func test_the_line_loads_without_errors_and_adds_a_job_but_no_skill_yet() -> void:
+func test_the_line_loads_without_errors_and_adds_a_job_and_only_its_own_skills() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
@@ -73,7 +73,8 @@ func test_the_line_loads_without_errors_and_adds_a_job_but_no_skill_yet() -> voi
 	assert_true(d.jobs_survivor.jobs.keys().find("222") > d.jobs_survivor.jobs.keys().find("212"),
 		"base, then lines in LINES order: 222 after 212")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "il_arch_mage"))
-	assert_eq(frag.skills, {}, "I2 ships an empty skill skeleton; I6-I10 fill it")
+	for key: String in frag.skills:
+		assert_true(key in POOL or key == "teleport_il", "%s is a pool skill or Teleport (I6-I10 fill the skeleton)" % key)
 	assert_true(FileAccess.file_exists("res://data/asset_manifest.d/il_arch_mage.json"), "I1 (#320) added the manifest fragment")
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
@@ -108,9 +109,12 @@ func test_212_keeps_its_entry_unchanged() -> void:
 
 func test_pool_keys_not_yet_defined_stay_inert() -> void:
 	var defined: Dictionary = _data().skills.skills
-	for key: String in ["ice_strike", "thunder_spear", "element_composition_il", "ice_demon", "ifrit",
-			"chain_lightning", "blizzard", "big_bang_il"]:
-		assert_false(defined.has(key), "%s is defined by its own ticket, not by I2" % key)
+	# I6 (#325) defined ice_strike and thunder_spear; I7-I10 own the rest. A key is either defined or one of theirs.
+	for key: String in ["energy_bolt", "magic_claw", "cold_beam", "thunder_bolt", "ice_strike", "thunder_spear"]:
+		assert_true(defined.has(key), "%s is defined (I6 and the F/P line)" % key)
+	for key: String in ["element_composition_il", "ice_demon", "ifrit", "chain_lightning", "blizzard", "big_bang_il"]:
+		if not defined.has(key):
+			assert_false(key in _data().jobs_survivor.jobs["212"].skill_pool, "%s is only in 222's pool" % key)
 
 
 func test_every_defined_pool_key_belongs_to_the_200_220_221_or_222_book() -> void:
@@ -122,7 +126,7 @@ func test_every_defined_pool_key_belongs_to_the_200_220_221_or_222_book() -> voi
 			continue
 		found += 1
 		assert_true(String(defined[key].book) in ["200", "220", "221", "222"], "%s is book %s" % [key, defined[key].book])
-	assert_eq(found, 4, "energy_bolt, magic_claw, cold_beam, thunder_bolt are defined today")
+	assert_true(found >= 6, "energy_bolt, magic_claw, cold_beam, thunder_bolt, ice_strike, thunder_spear (%d)" % found)
 
 
 # --- AP row -----------------------------------------------------------------------------------------------------------
