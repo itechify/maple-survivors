@@ -5433,7 +5433,7 @@ Attack timing pauses follow motion. Hits use `RunWorld.hit_mob`, including defen
 immunity and Fire Demon's per-mob ice weakness. No additional freeze is inferred from ice damage.
 
 Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 30 s recast,
-180 px/s follow, 60 px trailing offset, 600 px snap distance and 2.4 s minimum attack cycle (never shorter than the
+180 px/s follow, 60 px trailing offset, 1 px stand/move deadzone, 600 px snap distance and 2.4 s minimum attack cycle (never shorter than the
 WZ animation or hit delay). A zero follow speed stops incremental following (distance snapping still applies); future stationary, taunt, projectile,
 ground-navigation or pet-like targeting behaviours must extend this seam with their own tests, not special-case IDs.
 `damage`, `area`, `count` (attack targets), `attack_count`, `cooldown` consume existing modifiers; `duration` and

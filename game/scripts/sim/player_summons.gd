@@ -100,6 +100,7 @@ func step(dt: float, world: RunWorld) -> void:
 			continue
 		var pos := Vector2(x[i], y[i])
 		var destination := world.player.pos - Vector2(world.player.facing * float(d.follow_distance), 0)
+		# tier C: one-pixel stand/move deadzone prevents animation flicker at the trailing point.
 		var moved := pos.distance_to(destination) > 1.0
 		if pos.distance_to(destination) > float(d.teleport_distance):
 			pos = destination
