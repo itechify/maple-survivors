@@ -15,9 +15,9 @@ const DT := 1.0 / 60.0
 ## and no level-gap factor, so every byte after the setup events changes. The #259 hash was 8114bff3...
 ## Re-captured for #287: pool-only offers, eight mapped ranks and +1 rank at every rarity.
 ## Re-captured for #290: seven newly implemented pool skills enter draws and cast with synthetic high-job tables.
-const GOLDEN := "c87a6d436941cf224665f9a65bf8d5f5368e7d80e7a050cabc818aa91f875904"
 ## Re-captured for #289 (common passives): with the nine passive cards removed from the pool the #290 hash 8eda4bb9... is
 ## reproduced exactly (checked), so the only new bytes are the passive offers and the bot's picks of them.
+const GOLDEN := "c87a6d436941cf224665f9a65bf8d5f5368e7d80e7a050cabc818aa91f875904"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded
