@@ -422,10 +422,10 @@ func test_the_tooltip_shows_an_hp_cost_only_for_a_skill_that_pays_one() -> void:
 	assert_eq(model.skill_tooltip("power_strike").hp_cost, 0)
 	var lines := SkillTooltip.layout(model.skill_tooltip("slash_blast")).filter(
 		func(l: Array) -> bool: return l[0] == "text").map(func(l: Array) -> String: return String(l[1]))
-	assert_has(lines, "Cooldown 1.6 sec.   HP cost 9")
+	assert_has(lines, "Cooldown 0.64 sec.   HP cost 9")
 	lines = SkillTooltip.layout(model.skill_tooltip("power_strike")).filter(
 		func(l: Array) -> bool: return l[0] == "text").map(func(l: Array) -> String: return String(l[1]))
-	assert_has(lines, "Cooldown 1 sec.")
+	assert_has(lines, "Cooldown 0.4 sec.")
 
 
 func test_slash_blast_text_names_its_hp_cost_range_and_targets() -> void:

@@ -14,10 +14,10 @@
 			"meter": {
 				"id": "combo", "max": 10,
 				"gain": {"event": "cast_landed", "amount": 1, "exclude": "finisher"},
-				"per_unit": {"stat": "damage", "value": 0.02},
+				"per_unit": {"stat": "damage", "value": 0.05},
 				"art": "Skill.wz/111.img/skill/1111002/state"
 			},
-			"_meter": "tier C: spec #296 Combo orbs. Data only until the meter ticket (H3) reads it; tier A source: Combo Attack's description (max 5), Advanced Combo (up to 10).",
+			"_meter": "tier C: spec #296 Combo orbs; #346 raises per-orb damage to 5% (first-pass training, GAME_DESIGN 4.2). Data only until the meter ticket (H3) reads it; tier A source: Combo Attack's description (max 5), Advanced Combo (up to 10).",
 			"playable": true,
 			"_provenance": "tier C: spec #296 H10 #306: Hero is playable alongside F/P; 212 remains the default."
 		}

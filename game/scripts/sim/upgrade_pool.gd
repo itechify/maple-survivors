@@ -311,9 +311,12 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 	if tier == "normal" and category != MASTERY:
 		return {}
 	var entries: Array = state.book.def(skill).get("rarity_bonuses", {}).get(tier, [])
-	# tier C: a Normal Mastery grants the shared Mastery damage bonus so it is never a dead pick.
+	# tier C (#346): Normal Mastery gives damage, or cooldown x0.95 for damage:none skills.
 	if tier == "normal" and category == MASTERY and not _mastery_bonus.is_empty():
-		entries = [_mastery_bonus]
+		var normal := _mastery_bonus.duplicate(true)
+		if String(state.book.def(skill).get("damage", "")) == "none":
+			normal.effects = [{"stat": "cooldown", "op": "mul", "value": 0.95}]
+		entries = [normal]
 	if entries.is_empty():
 		return {}
 	var count := 0

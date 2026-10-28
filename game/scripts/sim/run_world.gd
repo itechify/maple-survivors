@@ -2068,6 +2068,8 @@ func _init_player() -> void:
 		progression.job_id = int(setup.get("job", jobs.default_job()))
 		equipment.worn = Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.get("equipment_info", {}))
 	set_job(progression.job_id)
+	# tier C (#346): an optional job AP-row HP baseline; absent rows keep the shared starter HP.
+	_base_hp = float(_job_value(pb.get("ap", {}), {}).get("hp", _base_hp))
 	_init_cash()
 	refresh_player_stats()
 	_hp = _max_hp

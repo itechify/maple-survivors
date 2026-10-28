@@ -15,7 +15,7 @@
 		"ap_per_level": 5,
 		"ap": {
 			"212": {"primary": "int", "secondary": "luk", "keyframes": [{"level": 1, "target": 3}, {"level": 200, "target": 202}]},
-			"112": {"primary": "str", "secondary": "dex", "keyframes": [{"level": 1, "target": 4}, {"level": 200, "target": 204}]},
+			"112": {"hp": 600, "_hp": "tier C #346: melee starting HP; training seeds only, GAME_DESIGN 4.2.", "primary": "str", "secondary": "dex", "keyframes": [{"level": 1, "target": 4}, {"level": 200, "target": 204}]},
 			"200": {"primary": "int", "secondary": "luk", "keyframes": [{"level": 1, "target": 3}, {"level": 200, "target": 202}]},
 			"100": {"primary": "str"},
 			"300": {"primary": "dex", "secondary": "str", "keyframes": [{"level": 1, "target": 6}, {"level": 30, "target": 35}, {"level": 34, "target": 35}, {"level": 35, "target": 40}, {"level": 70, "target": 75}]},
@@ -33,6 +33,7 @@
 	"growth": {
 		"0": {"hp": 14},
 		"_100": "Tier B: Warrior HP 24-28 per level (Cosmic levelUp, v83-facts 4), fixed midpoint 26; Improved MaxHP Increase adds its own HP per level-up on top.",
+		"112": {"hp": 65, "_hp": "tier C #346: melee HP growth per level; GAME_DESIGN 4.2."},
 		"100": {"hp": 26},
 		"200": {"hp": 12},
 		"_300": "Tier B (#199): Bowman HP20-24 per level, fixed midpoint 22 (v83-facts4).",

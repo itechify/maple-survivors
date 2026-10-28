@@ -93,7 +93,7 @@ func test_job_112_has_the_spec_fields_and_is_playable() -> void:
 	assert_eq(String(meter.id), "combo")
 	assert_eq(int(meter.max), 10)
 	assert_eq(meter.gain, {"event": "cast_landed", "amount": 1.0, "exclude": "finisher"})
-	assert_eq(meter.per_unit, {"stat": "damage", "value": 0.02})
+	assert_eq(meter.per_unit, {"stat": "damage", "value": 0.05})
 	assert_eq(String(meter.art), "Skill.wz/111.img/skill/1111002/state")
 
 
@@ -122,7 +122,8 @@ func test_the_112_ap_row_is_str_primary_dex_secondary() -> void:
 	assert_eq([String(row.primary), String(row.secondary)], ["str", "dex"])
 	assert_eq(row.keyframes, [{"level": 1.0, "target": 4.0}, {"level": 200.0, "target": 204.0}])
 	var growth: Dictionary = _data().balance.growth
-	assert_false(growth.has("112"), "HP growth is inherited from the Warrior row (100)")
+	assert_eq(int(growth["112"].hp), 65, "H11 Hero-only melee HP growth")
+	assert_eq(int(row.hp), 600, "H11 melee starting HP")
 	assert_eq(int(growth["100"].hp), 26)
 
 
