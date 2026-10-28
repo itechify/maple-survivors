@@ -123,3 +123,13 @@ func test_another_skill_id_and_attack_node_share_the_summon_runtime_and_recasts_
 	w.runner.step(DT, w)
 	assert_eq(w.runner.summons.living_count(), 2, "recast replaces its group")
 	assert_eq(w.runner.summons.active.size(), 2, "dead slots are reused")
+
+func test_two_allies_have_separate_spawn_and_follow_positions() -> void:
+	var w := _world()
+	w.loadout.add_skill_mod("elquines", "summon_count", "add", 1.0)
+	w.runner.step(DT, w)
+	assert_true(absf(w.runner.summons.x[0] - w.runner.summons.x[1]) >= 30.0)
+	w.loadout.order.clear()
+	for tick in 60:
+		w.runner.tick_cooldowns(DT, w)
+	assert_true(absf(w.runner.summons.x[0] - w.runner.summons.x[1]) >= 30.0)

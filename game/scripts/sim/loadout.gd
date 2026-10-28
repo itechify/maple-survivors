@@ -19,7 +19,7 @@ const ACC := "acc"
 const CRIT_CHANCE := "crit_chance"
 const CRIT_DAMAGE := "crit_damage"
 const MAX_HP_PER_LEVEL := "max_hp_per_level"
-## tier C (#199): additive pixels of reach for ranged basic attacks and weapon-gated ranged attack skills.
+## tier C (#199): additive pixels of reach for ranged weapon stances and weapon-gated ranged attack skills.
 const RANGE := "range"
 ## tier B: untrained physical mastery is 10% (SouthPerry/HS.net).
 const BASE_MASTERY := 0.10

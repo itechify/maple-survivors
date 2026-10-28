@@ -4,7 +4,7 @@
 
 A single-player, fully offline survival game that looks, sounds and moves like **MapleStory v83**, with a
 Vampire-Survivors-style loop: survive a region's three classic maps against ever-growing swarms of familiar monsters
-while your skills fire automatically, pick upgrades as you level, and advance jobs at the classic milestones.
+while your skills fire automatically, pick upgrades as you level, with one fixed fourth job and six active and six passive slots.
 
 The game renders **your own** original v83 data. No MapleStory files are included in this repository, and the game
 needs no server, account or internet connection. (The web build is the same offline game; see "Play in the browser".)
@@ -22,10 +22,10 @@ needs no server, account or internet connection. (The web build is the same offl
    ```bash
    bash scripts/run.sh
    ```
-   Title -> Start -> create or continue a character -> pick a region stage. Each round plays three ordered maps,
-   with one boss 5:00 after entering each map; a map clear transfers automatically. A non-final round clear enters
-   the Free Market, while death or final-tier victory shows results. Continue replays an unfinished round from map 1
-   with the same seed and boundary character. Slots, history and best results live in `%APPDATA%/MapleSurvivors/save.json`.
+   Title -> character select -> Free Market -> map select -> round -> results -> Free Market.
+   Each round starts at Lv1 and plays three maps, with a boss 5:00 after each entry. Equipment, scrolls, mesos,
+   cash, pet and tier unlocks persist after death or clear. Continue opens the hub; rounds are never saved.
+   Slots, history and best results live in the local MapleSurvivors save.json.
 4. Optional: `bash scripts/export.sh` builds a stand-alone Windows game in `game/export/` (`MapleSurvivors.exe` with
    `wzimport.exe` beside it; needs the Godot 4.7.2 export templates).
 
@@ -58,23 +58,21 @@ and Stat needs another binding (or Menu -> Stat).
 | Drop through a platform | Down + Jump (S + Jump in W/A/S/D mode) |
 | Prone | Down on the ground (S in W/A/S/D mode) |
 | Drink HP potion | Delete (or Q) |
-| Drink MP potion | End |
 | Teleport (after learning it) | X + direction; hold X to repeat; facing if no direction |
 | Dash (after learning it) | X starts its timed buff; hold X to cast again when it ends |
 | Stat / Skill windows | S / K; Skill uses Up / Down to select and Left / Right or number keys to switch tabs |
 | Equip / Item windows | E / I (also in the Free Market) |
-| Pick an upgrade / job | Mouse, 1 / 2 / 3, or Up / Down + Enter |
+| Pick an upgrade | Mouse, 1 / 2 / 3, or Up / Down + Enter |
 | Pause / close a window | Esc closes the front window first; with none open, it pauses |
 | Key Config / Options | Status bar Menu, or the pause menu |
 | Performance overlay | F3 (fixed, shown as Perf in Key Config) |
 
 Opening an inspection window pauses the round. The pause menu offers Resume, Key Config, Options and Quit round.
-Quit round asks for confirmation: Continue replays the saved round from its beginning with the same seed and starting
-character. In the Free Market, Esc instead offers Resume / Save & quit.
+Quit round asks for confirmation and ends the round like a death, returning to the Free Market. In the Free Market, Esc instead offers Resume / Save & quit.
 
-Attacks cast on their own; Teleport and Dash use their skill keys after you learn them. You choose where to stand,
+Attacks cast on their own; mobility uses its skill key from Lv1. You choose where to stand,
 what to pick up and which upgrades to take. Hanging on a rope stops new casts and weapon swings; active buffs and
-Recovery continue. Job skills spend MP and wait when it is short.
+Recovery continue. Skills have cooldowns and use no MP.
 
 ## For developers
 
@@ -83,8 +81,7 @@ frame-time statistics into `evidence/`, and `bash scripts/balance.sh` reports th
 [`AGENTS.md`](AGENTS.md).
 
 Playtests allow up to 30:00 by default so the final boss can die. `--minutes` is an absolute run-time limit, including
-any `--warp` fast-forward. Balance defaults to training seeds 1–6. Tune only on 1–60 and 2026; after freezing a
-candidate, explicitly report `101..130` on both stages with `--policy=bot` and `--policy=random`.
+any `--warp` fast-forward. Balance defaults to training seeds 1–6. Tune only on 1–60 and 2026; the reserved balance-pass assessment uses 701–730 once, after freezing the candidate.
 
 ## Docs
 

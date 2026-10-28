@@ -229,18 +229,30 @@ func test_creation_opens_on_name_and_cancel_returns_one_step() -> void:
 	creation.create_button.pressed.emit()
 	assert_eq(creation.phase, "look", "Name OK goes to Look")
 	assert_eq(creation.create_button, creation._look_ok)
-	creation.create_button.pressed.emit()
-	assert_eq(creation.phase, "job", "Look OK goes to the Job page")
-	assert_eq(creation.create_button, creation._job_ok)
-	assert_eq(creation.job_ids, [212], "only the ported job is listed")
-	creation._return_look()
-	assert_eq(creation.phase, "look", "Job Cancel goes back to Look")
 	creation._return_name()
 	assert_eq(creation.phase, "name", "Look Cancel goes back to Name")
 	var closed := [false]
 	creation.cancelled.connect(func() -> void: closed[0] = true)
 	creation._cancel_name()
 	assert_true(closed[0], "Name Cancel closes creation back to character select")
+
+
+func test_creation_look_ok_opens_the_job_page_and_job_cancel_returns_to_look() -> void:
+	# Look OK stays disabled until the cache supplies the hair and face columns (CharacterCreateModel.available()).
+	if not require_cache():
+		return
+	var flow := _flow()
+	flow.goto_character_select()
+	flow.current.show_creation()
+	var creation: Control = flow.current.creation
+	creation.name_edit.text = "Phase218"
+	creation.create_button.pressed.emit()
+	creation.create_button.pressed.emit()
+	assert_eq(creation.phase, "job", "Look OK goes to the Job page")
+	assert_eq(creation.create_button, creation._job_ok)
+	assert_eq(creation.job_ids, [212], "only the ported job is listed")
+	creation._return_look()
+	assert_eq(creation.phase, "look", "Job Cancel goes back to Look")
 
 
 func test_creation_defaults_to_male_and_the_look_row_flips_to_female() -> void:

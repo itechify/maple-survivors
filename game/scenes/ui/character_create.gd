@@ -69,7 +69,7 @@ func _ready() -> void:
 	var img := library.img(CharacterCreation.IMG) if library != null else null
 	model = CharacterCreation.new(img.root if img != null else {})
 	var data := DataRepo.load_all()
-	_jobs = JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
+	_jobs = DataRepo.jobs(data)
 	job_ids = _jobs.playable_jobs()
 	job_id = _jobs.default_job()
 	_name_surface = Control.new()

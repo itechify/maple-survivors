@@ -187,7 +187,7 @@ func test_a_fresh_world_is_still_212_with_hero_playable() -> void:
 
 func test_a_hero_drop_pool_holds_swords_and_axes_of_both_hands_and_no_other_weapon() -> void:
 	var families: Array = _jobs(_data()).weapon_families(112)
-	var ids := EquipmentDrops.eligible(_ids(), INFO, 112, BAND, RULES, families)
+	var ids := EquipmentDrops.eligible(_ids(), INFO, 112, BAND, families)
 	var weapons := ids.filter(func(id: int) -> bool: return Equipment.slot_of(id) == "weapon")
 	weapons.sort()
 	var want := HERO_WEAPONS.duplicate()

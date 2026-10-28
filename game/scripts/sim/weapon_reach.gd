@@ -111,14 +111,7 @@ func _spec(weapon: int, info: Dictionary, action: String, boost: int = 0) -> Dic
 	if last < 0:
 		return {}
 	var impact := frame if frame != 999 else last
-	var before := 0.0
-	var total := 0.0
-	for key: String in body:
-		if key.is_valid_int():
-			var delay := absf(float(body[key].get("delay", 100))) / 1000.0
-			total += delay
-			if int(key) < impact:
-				before += delay
+	var timing := WeaponInfo.frame_times(body, impact)
 	var box := WeaponInfo.ranged_box(weapon)
 	if not ranged:
 		var lt := Vector2(float(node.lt["$v"][0]), float(node.lt["$v"][1]))
@@ -126,7 +119,7 @@ func _spec(weapon: int, info: Dictionary, action: String, boost: int = 0) -> Dic
 		box = Rect2(lt, rb - lt).abs()
 	var trail := frame != 999 and not (ranged and boxed)
 	var scale := WeaponInfo.speed_factor(int(info.get("attackSpeed", 0)), boost)
-	return {"box": box, "hit_after": before * scale, "action_time": total * scale, "scale": scale,
+	return {"box": box, "hit_after": float(timing.before) * scale, "action_time": float(timing.total) * scale, "scale": scale,
 		"interval": WeaponInfo.attack_interval(info, boost),
 		"afterimage": WeaponInfo.afterimage_frame_path(name, action, frame) if trail else "",
 		"hit_visual": WeaponInfo.hit_spark_path(name, action), "sound": WeaponInfo.sound_path(info)}
@@ -140,15 +133,8 @@ func _bare_spec(body: Dictionary, action: String, boost: int = 0) -> Dictionary:
 			last = maxi(last, int(key))
 	if last < 0:
 		return {}
-	var before := 0.0
-	var total := 0.0
-	for key: String in body:
-		if key.is_valid_int():
-			var delay := absf(float(body[key].get("delay", 100))) / 1000.0
-			total += delay
-			if int(key) < last:
-				before += delay
+	var timing := WeaponInfo.frame_times(body, last)
 	var scale := WeaponInfo.speed_factor(int(BARE_HANDS.attackSpeed), boost)
-	return {"box": BARE_HANDS_BOX, "hit_after": before * scale, "action_time": total * scale, "scale": scale,
+	return {"box": BARE_HANDS_BOX, "hit_after": float(timing.before) * scale, "action_time": float(timing.total) * scale, "scale": scale,
 		"interval": WeaponInfo.attack_interval(BARE_HANDS, boost), "afterimage": "", "hit_visual": "",
 		"sound": WeaponInfo.sound_path(BARE_HANDS)}

@@ -297,6 +297,49 @@
 				]
 			}
 		},
+		"shout": {
+			"_rarity": "Tier C: first-pass #303 bonuses named after the lineage (spec #296): Rare area x1.2, Epic Booster cooldown x0.88, Unique Echo Shout cooldown x0.75, Legendary Echo Shout plus area x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.33.",
+			"rarity_bonuses": {
+				"rare": [{"id": "reach", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "booster", "text": "Booster: cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"unique": [{"id": "echo", "text": "Echo Shout: cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.75}]}],
+				"legendary": [{"id": "echo", "text": "Echo Shout: cooldown and area", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.75}, {"stat": "area", "op": "mul", "value": 1.2}]}]
+			},
+			"_provenance": "Tier A: Skill.wz 1111008 damage 14 to 30 %, mobCount 6, the centred box (-110..-200, -82..-150) to (110..200, 83..150), prop (stun chance 52 to 95 %), time (stun seconds 5 to 10), the alert3 action, effect and hit art, the Use sound and the stun stars (`mob`). Tier C: the explicit `ranks` table (D4): level 4 stores its prop under the stray key \"58\" (String.wz agrees with 58 %, so the key is a corrupted `prop`), so rank 1 reads level 5 (60 %) instead; the 12 s cooldown, the three-mob admission gate and the 0.6 s action hold. Docs: GAME_DESIGN 7.33.",
+			"skill_id": 1111008, "book": "111", "job": 111, "kind": "instant", "slot": "active",
+			"name": "Shout", "desc": "Roars at the monsters around you, hurting and stunning them.",
+			"text": {"desc": "Roar at the crowd around you to damage and stun up to 6 monsters. Needs 3 monsters in the roar's box.", "h": "Damage {damage}%, up to {mob_count|monster|monsters}; {prop}% chance each to stun for {time} sec."},
+			"icon": "Skill.wz/111.img/skill/1111008/icon",
+			"damage": "physical",
+			"cast": {"rule": "box", "min_targets": 3},
+			"cooldown": 12.0,
+			"ranks": [5, 8, 12, 15, 19, 23, 27, 30],
+			"action": "alert3", "action_time": 0.6, "ball": "",
+			"hit": "Skill.wz/111.img/skill/1111008/hit/0", "effect": "Skill.wz/111.img/skill/1111008/effect", "rotate": false,
+			"on_hit": {"status": "stun", "chance_field": "prop", "duration_field": "time"},
+			"sounds": {"use": "Sound.wz/Skill.img/1111008/Use", "hit": ""}
+		},
+		"monster_magnet": {
+			"_rarity": "Tier C: first-pass #303 bonuses (spec #296): Rare reach x1.2 (the `range` modifier: a range_around cast reads `range`, never `area`), Epic Bigger Grab +2 targets, Unique Booster cooldown x0.75, Legendary Booster plus +2 targets (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.33.",
+			"rarity_bonuses": {
+				"rare": [{"id": "reach", "text": "Reach", "effects": [{"stat": "range", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "grab", "text": "Bigger Grab: targets", "effects": [{"stat": "count", "op": "add", "value": 2}]}],
+				"unique": [{"id": "booster", "text": "Booster: cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.75}]}],
+				"legendary": [{"id": "booster", "text": "Booster: cooldown and targets", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.75}, {"stat": "count", "op": "add", "value": 2}]}]
+			},
+			"_provenance": "Tier A: Skill.wz 1121001 range 200 to 400 px, prop (pull chance 48 to 95 %), mobCount 6, the 18-frame effect and the Use sound. Tier C: no damage (the node has none); pulling is the shared `pull` block (7.35); the alert2 action (the node names none; its `prepare` dash makes a two-handed axe vanish, H1 #297), the 10 s cooldown, the three-mob admission gate (`cast.min_targets`, any mob in range counts, pulled or not) and the 0.6 s action hold. Docs: GAME_DESIGN 7.33.",
+			"skill_id": 1121001, "book": "112", "job": 112, "kind": "instant", "slot": "active",
+			"name": "Monster Magnet", "desc": "Drags the monsters around you toward you.",
+			"text": {"desc": "Drag distant monsters toward you, into reach of your other skills. Needs 3 monsters in range.", "h": "{prop}% chance for each monster pulled."},
+			"icon": "Skill.wz/112.img/skill/1121001/icon",
+			"damage": "none",
+			"cast": {"rule": "range_around", "min_targets": 3},
+			"pull": {"chance_field": "prop", "range_field": "range", "min_gap": 60},
+			"cooldown": 10.0,
+			"action": "alert2", "action_time": 0.6, "ball": "",
+			"hit": "", "effect": "Skill.wz/112.img/skill/1121001/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/1121001/Use", "hit": ""}
+		},
 		"panic": {
 			"_rarity": "Tier C: first-pass #304 bonuses named after the lineage (spec #296): Rare Sword Mastery damage x1.2, Epic Booster cooldown x0.88 (the 2 s base keeps it above the 1 s meter floor, so it shows), Unique Advanced Combo keeps 2 orbs, Legendary Advanced Combo plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.33.",
 			"_provenance": "Tier A: Skill.wz 1111003 damage 150 to 350 %, prop (38 to 90 %), time (5 to 9 s), the finish/1..10 and hit/0|1 art, the Use sound, req Combo Attack; the axe twin 1111004 has identical nodes. Tier C: the nearest-target auto-cast within 250 px with scheduled bosses first, a 2.0 s cooldown (the 1.0 s meter floor would hide a Booster), the Threaten cut of min(level, 20) on the threatened status, finish art keyed by orbs spent (tier B reading), first swing stance of the held weapon. Bosses take the damage but never the status. Docs: GAME_DESIGN 7.33.",

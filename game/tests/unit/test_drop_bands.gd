@@ -113,20 +113,20 @@ func test_a_boss_falls_back_to_the_highest_item_in_the_band_then_the_nearest_to_
 
 
 func test_the_job_class_still_filters() -> void:
-	var ids: Array = EquipmentDrops.eligible(INFO.keys(), INFO, 212, [0, 100], RULES, MAGE)
+	var ids: Array = EquipmentDrops.eligible(INFO.keys(), INFO, 212, [0, 100], MAGE)
 	assert_false(1302008 in ids, "a Warrior sword never drops for a Magician")
 	assert_false(1332000 in ids, "a Thief dagger never drops for a Magician")
 	assert_true(1002001 in ids and 1002579 in ids)
 
 
 func test_weapons_follow_the_job_families_not_a_held_weapon() -> void:
-	var wands: Array = EquipmentDrops.eligible(INFO.keys(), INFO, 212, TIER1, RULES, ["wand"])
+	var wands: Array = EquipmentDrops.eligible(INFO.keys(), INFO, 212, TIER1, ["wand"])
 	assert_true(1372004 in wands)
 	assert_false(1382012 in wands, "a staff is not in a wand-only list")
-	var none: Array = EquipmentDrops.eligible(INFO.keys(), INFO, 212, TIER1, RULES, [])
+	var none: Array = EquipmentDrops.eligible(INFO.keys(), INFO, 212, TIER1, [])
 	assert_false(1372004 in none or 1382012 in none, "a job with no family gets no weapon")
 	assert_true(1050001 in none, "armour does not depend on the families")
-	var swords: Array = EquipmentDrops.eligible(INFO.keys(), INFO, 100, TIER1, RULES, ["sword"])
+	var swords: Array = EquipmentDrops.eligible(INFO.keys(), INFO, 100, TIER1, ["sword"])
 	assert_eq(swords, [1002001, 1040002, 1302008], "another job takes its own families (reqJob 1)")
 
 

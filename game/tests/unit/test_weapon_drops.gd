@@ -47,7 +47,7 @@ func _ids() -> Array:
 
 
 func _eligible(job_id: int, families: Array) -> Array:
-	return EquipmentDrops.eligible(_ids(), INFO, job_id, BAND, RULES, families)
+	return EquipmentDrops.eligible(_ids(), INFO, job_id, BAND, families)
 
 
 func _weapons(ids: Array) -> Array:
@@ -478,12 +478,12 @@ func test_every_shipped_band_has_drops_for_each_warrior_family_and_for_a_boss() 
 	for tier in data.stages.tiers.size():
 		var band := EquipmentDrops.band_of(data.stages, tier)
 		for family in WARRIOR_FAMILIES:
-			var got := _weapons(EquipmentDrops.eligible(ed.items, infos, 100, band, ed, [family]))
+			var got := _weapons(EquipmentDrops.eligible(ed.items, infos, 100, band, [family]))
 			assert_true(got.size() > 0, "tier %d band %s has a %s weapon" % [tier + 1, band, family])
 			for id: int in got:
 				assert_eq(WeaponInfo.family(id), family)
 		assert_true(EquipmentDrops.pick_boss(ed.items, infos, 100, band, ed, rng, ["sword"]) > 0, "tier %d boss" % (tier + 1))
-		assert_true(EquipmentDrops.eligible(ed.items, infos, 100, band, ed, []).size() > 0, "tier %d without a family" % (tier + 1))
+		assert_true(EquipmentDrops.eligible(ed.items, infos, 100, band, []).size() > 0, "tier %d without a family" % (tier + 1))
 
 
 func test_the_magician_drop_pools_are_unchanged_by_the_warrior_data() -> void:
@@ -498,11 +498,11 @@ func test_the_magician_drop_pools_are_unchanged_by_the_warrior_data() -> void:
 	for tier in data.stages.tiers.size():
 		var band := EquipmentDrops.band_of(data.stages, tier)
 		for job in [200, 210, 220, 230, 212]:
-			assert_eq(EquipmentDrops.eligible(ed.items, infos, job, band, ed, ["wand", "staff"]),
-				EquipmentDrops.eligible(old_items, infos, job, band, ed, ["wand", "staff"]), "job %d tier %d" % [job, tier + 1])
+			assert_eq(EquipmentDrops.eligible(ed.items, infos, job, band, ["wand", "staff"]),
+				EquipmentDrops.eligible(old_items, infos, job, band, ["wand", "staff"]), "job %d tier %d" % [job, tier + 1])
 		# no Warrior-only gear ever reaches a Magician or a Beginner
 		for job in [0, 200]:
-			for id: int in EquipmentDrops.eligible(ed.items, infos, job, band, ed, ["sword"]):
+			for id: int in EquipmentDrops.eligible(ed.items, infos, job, band, ["sword"]):
 				assert_false(id in warrior, "%d for job %d" % [id, job])
 
 
@@ -515,7 +515,7 @@ func test_the_212_magician_finds_wands_staves_and_every_armour_slot_in_both_ship
 	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
 	for tier in data.stages.tiers.size():
 		var band := EquipmentDrops.band_of(data.stages, tier)
-		var ids := EquipmentDrops.eligible(ed.items, infos, 212, band, ed, jobs.weapon_families(212))
+		var ids := EquipmentDrops.eligible(ed.items, infos, 212, band, jobs.weapon_families(212))
 		var families := {}
 		var slots := {}
 		for id: int in ids:

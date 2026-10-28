@@ -33,7 +33,7 @@ extends RefCounted
 ## Live character state (docs/ARCHITECTURE.md 4.4): RunWorld owns the character's worn equipment and inventory
 ## (`equipment`, the Equipment state shape), `scrolls` and `mesos`. UI and bots change them only through these
 ## methods, which apply the pure Equipment functions, refresh the derived stats and emit `equipment_changed`; each
-## returns "" on success or an Equipment reason (reqLevel, reqJob, reqSTR..., inventory_full, no_item, empty) and then
+## returns "" on success or an Equipment reason (reqJob, inventory_full, no_item, empty) and then
 ## changes nothing:
 ##   equip_item(inventory_index)  - wear an inventory item (only the item's job class is checked, #292)
 ##   unequip_item(slot)           - move a worn item to the inventory
@@ -64,7 +64,8 @@ extends RefCounted
 ## 14 reserved for Bowman,
 ## 15 Thief-only rolls (thief_rng, Steal success in #214),
 ## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194),
-## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256).
+## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256),
+## 18 ground-area status rolls (ground_rng).
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -202,6 +203,8 @@ var thief_rng: RandomNumberGenerator
 var pirate_rng: RandomNumberGenerator
 ## Banish's destination `sp` portal draws only (stream 17, #256), so a Banish never shifts spawning or map arrivals.
 var banish_rng: RandomNumberGenerator
+## Stream 18: ground-area status proc rolls, independent of combat.
+var ground_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
 var choice_bonus := false
@@ -410,6 +413,7 @@ func _init_rng_streams() -> void:
 	final_rng = _stream(12) # tier C: Final Attack procs and follow-up rolls never shift another stream, #161.
 	thief_rng = _stream(15) # tier C: independent Thief-only rolls; reserved for Steal success, #207/#214.
 	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14 reserved, #186.
+	ground_rng = _stream(18) # tier C: dedicated ground proc stream.
 	banish_rng = _stream(17) # tier C: Banish portal draws never shift another stream, #256.
 
 
@@ -1068,7 +1072,7 @@ func _settle_clear() -> bool:
 		return false
 	_sweep_map_drops()
 	if progression.has_pending():
-		_advance_queue() # normal job/advancement/card flow; step stays frozen until every answer is in
+		_advance_queue() # normal job/card flow; step stays frozen until every answer is in
 	else:
 		state = CLEARED
 		emit("stage_cleared", {"time": time})
@@ -2572,10 +2576,11 @@ func _on_level_up(level: int) -> void:
 
 
 ## Skills with `level_ranks` ({character level: rank}, skills.json) reach at least that rank at that level (like the
-## SP a v83 Beginner spends on Three Snails); cards may get there sooner.
+## SP a v83 Beginner spends on Three Snails); cards may get there sooner. The job's mobility_skill instead uses
+## the shared balance.mobility_rank_levels rule (tier C, ADR 0006).
 func _level_ranks(level: int) -> void:
 	for key: String in loadout.order:
-		var lr: Variant = book.def(key).get("level_ranks")
+		var lr: Variant = balance.get("mobility_rank_levels", {}) if key == jobs.mobility_skill(job_id()) else book.def(key).get("level_ranks")
 		if not (lr is Dictionary):
 			continue
 		var want := 0
