@@ -4,6 +4,8 @@ extends Node
 ## Tool only, no save writes. ISOLATE=s167-t211 MAPLE_SURVIVORS_CACHE=<cache> bash scripts/run.sh \
 ## res://scenes/debug/dark_sight_driver.tscn -- --shots=<absolute evidence dir> [--path=claw|dagger]
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 var run: RunScene
 var shots := ""
 
@@ -25,7 +27,7 @@ func _drive() -> void:
 	run.set_process(false)
 	var w := run.world
 	w.progression.level = 10
-	w.change_job(400, String(args.get("path", "dagger")))
+	RF.as_job(w, 400, String(args.get("path", "dagger")))
 	w.pending_cards = []
 	w.state = RunWorld.PLAYING
 	w.upgrades.apply("dark_sight_new", w)

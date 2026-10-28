@@ -7,6 +7,8 @@ extends Node
 ## MAPLE_SURVIVORS_CACHE=<cache> ISOLATE=<name> bash scripts/run.sh res://scenes/debug/pirate_combat_driver.tscn -- \
 ##   --shots=<abs evidence dir> [--rank=10]
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 ## name -> {job, path, level, skill, mobs (x offsets), times (seconds after the first frame to shoot)}; job 500 is the first
 ## job at Lv 10, 510 / 520 the second jobs at Lv 30 (50 for the last bullet step).
 const SCENARIOS := {
@@ -65,10 +67,10 @@ func _scenario(key: String, rank: int) -> void:
 	var w := run.world
 	w.god = true
 	w.progression.level = 10
-	w.change_job(500, String(spec.path))
+	RF.as_job(w, 500, String(spec.path))
 	if int(spec.job) != 500:
 		w.progression.level = 30
-		w.change_job(int(spec.job))
+		RF.as_job(w, int(spec.job))
 	w.progression.level = int(spec.level)
 	w.drain_events()
 	w.loadout.order.clear()

@@ -26,7 +26,7 @@ func _init() -> void:
 	var from := 780.0
 	var to := 1020.0
 	var account_file := ""
-	var forced_job := 0
+	var forced_job := -2 # -2: the default job
 	var god := true
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
@@ -40,7 +40,7 @@ func _init() -> void:
 		elif a.begins_with("--account="):
 			account_file = a.substr(10)
 		elif a.begins_with("--job="):
-			forced_job = int(a.substr(6))
+			forced_job = JobTree.parse_job(a.substr(6))
 		elif a == "--mortal":
 			god = false
 	var data := DataRepo.load_all()
@@ -62,6 +62,14 @@ func _init() -> void:
 			return
 		BR.apply_account([setup], account)
 	setup.seed = seed_value
+	if forced_job != -2:
+		var job_error := "not a job id" if forced_job < 0 \
+			else JobTree.from_data(data.jobs, data.jobs_survivor).job_error(forced_job)
+		if job_error != "":
+			print("profile_run: --job: " + job_error)
+			quit(2)
+			return
+		setup["job"] = forced_job
 	var w := RunWorld.new(setup)
 	w.god = god
 	var memo := {}
@@ -77,7 +85,7 @@ func _init() -> void:
 	var minute := {}
 	var t_start := Time.get_ticks_msec()
 	while w.time < to:
-		BR.choose(w, "bot", rng, cards, forced_job)
+		BR.choose(w, "bot", rng, cards)
 		if w.transfer_pending:
 			w.advance_map()
 		if w.state != RunWorld.PLAYING:

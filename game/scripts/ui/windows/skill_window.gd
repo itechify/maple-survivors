@@ -281,8 +281,7 @@ func _draw_rows() -> void:
 			break
 		var row: Dictionary = list[idx]
 		var r := row_rect(i)
-		# A skill the held weapon cannot use (#156) is drawn like an unlearned one: the v83 skill0 plate, iconDisabled.
-		var learned := bool(row.get("learned", true)) and model.usable(String(row.key))
+		var learned := bool(row.get("learned", true))
 		var plate := UiArt.frame(ART + ("skill1" if learned else "skill0"))
 		if plate != null:
 			UiArt.blit(self, plate, r.position)

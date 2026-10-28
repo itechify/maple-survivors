@@ -346,21 +346,14 @@ static func stage_mob_ids(data: Dictionary, stage_key: String, mob_imgs: Diction
 
 
 ## Every item whose canonical info a setup loads, without duplicates: the default creation outfit
-## (Equipment.DEFAULT_OUTFIT), the job weapon grants (balance.player.weapon_grants), every MakeCharInfo top, bottom,
+## (Equipment.DEFAULT_OUTFIT), every MakeCharInfo top, bottom,
 ## shoes and weapon option of both genders, every equipment_drops item, and everything `character` (a CharacterSnapshot,
 ## format 1 or 2) holds.
 static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {},
 		character: Dictionary = {}) -> PackedInt32Array:
-	var pb: Dictionary = data.get("balance", {}).get("player", {})
 	var ids := PackedInt32Array()
-	for id: Variant in Equipment.DEFAULT_OUTFIT + pb.get("weapon_grants", {}).values():
+	for id: Variant in Equipment.DEFAULT_OUTFIT:
 		_add_id(ids, int(id))
-	# Chosen-only advancement weapons (tier C #226); load every offered path of playable jobs.
-	var job_rows: Variant = data.get("jobs_survivor", {}).get("jobs", {})
-	for row: Variant in job_rows.values() if job_rows is Dictionary else []:
-		if row is Dictionary and bool(row.get("playable", false)):
-			for path: Variant in row.get("paths", []) if row.get("paths", []) is Array else []:
-				_add_id(ids, int(path.get("item_id", 0)) if path is Dictionary else 0)
 	var creation := CharacterCreation.new(creation_img)
 	for gender in CharacterCreation.GENDERS.size():
 		for field: String in ["top", "bottom", "shoes", "weapon"]:

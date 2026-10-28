@@ -1,5 +1,5 @@
 {
-	"_doc": "Bowman first-job cards (#199), followed by Hunter (#202) and Crossbowman (#203) cards. Crossbowman ranks20/30/20/20/30; attacks learn/rank4/3 and passives/buff2/2; behaviour +1/max3/weight2, exact job320, held crossbow, shared rarities. Tier A: rank caps16/20/8/20/20/20. Tier C: attacks learn/rank weights4/3, other skills2/2; +1 shot per behaviour step, max3, weight2; shared Potential rarity magnitudes and held-weapon eligibility. First-job cards carry to310/320, but never displace their own advancement draws. Untuned.",
+	"_doc": "#284 (ADR 0006): this line is unplayable until ported; its cards are kept for the line's skill tests. A card is on offer to every job on the line of its requires.jobs (UpgradePool.on_line), weapons gate no card, and the carried-attack and advancement-draw rules below are gone. Bowman first-job cards (#199), followed by Hunter (#202) and Crossbowman (#203) cards. Crossbowman ranks20/30/20/20/30; attacks learn/rank4/3 and passives/buff2/2; behaviour +1/max3/weight2, exact job320, held crossbow, shared rarities. Tier A: rank caps16/20/8/20/20/20. Tier C: attacks learn/rank weights4/3, other skills2/2; +1 shot per behaviour step, max3, weight2; shared Potential rarity magnitudes and held-weapon eligibility. First-job cards carry to310/320, but never displace their own advancement draws. Untuned.",
 	"cards": [
 		{
 			"id": "blessing_of_amazon_new",
@@ -11,7 +11,7 @@
 			"icon": "Skill.wz/300.img/skill/3000000/icon",
 			"max_rank": 1,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": []
 		},
 		{
@@ -24,7 +24,7 @@
 			"icon": "Skill.wz/300.img/skill/3000000/icon",
 			"max_rank": 16,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": [
 				{"stat": "rank", "op": "add", "value": 1}
 			]
@@ -39,7 +39,7 @@
 			"icon": "Skill.wz/300.img/skill/3000001/icon",
 			"max_rank": 1,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": []
 		},
 		{
@@ -52,7 +52,7 @@
 			"icon": "Skill.wz/300.img/skill/3000001/icon",
 			"max_rank": 20,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": [
 				{"stat": "rank", "op": "add", "value": 1}
 			]
@@ -67,7 +67,7 @@
 			"icon": "Skill.wz/300.img/skill/3000002/icon",
 			"max_rank": 1,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": []
 		},
 		{
@@ -80,7 +80,7 @@
 			"icon": "Skill.wz/300.img/skill/3000002/icon",
 			"max_rank": 8,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": [
 				{"stat": "rank", "op": "add", "value": 1}
 			]
@@ -95,7 +95,7 @@
 			"icon": "Skill.wz/300.img/skill/3001003/icon",
 			"max_rank": 1,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": []
 		},
 		{
@@ -108,7 +108,7 @@
 			"icon": "Skill.wz/300.img/skill/3001003/icon",
 			"max_rank": 20,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": [
 				{"stat": "rank", "op": "add", "value": 1}
 			]
@@ -123,7 +123,7 @@
 			"icon": "Skill.wz/300.img/skill/3001004/icon",
 			"max_rank": 1,
 			"weight": 4,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": []
 		},
 		{
@@ -136,7 +136,7 @@
 			"icon": "Skill.wz/300.img/skill/3001004/icon",
 			"max_rank": 20,
 			"weight": 3,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": [
 				{"stat": "rank", "op": "add", "value": 1}
 			]
@@ -152,7 +152,7 @@
 			"icon": "Skill.wz/300.img/skill/3001004/icon",
 			"max_rank": 3,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": [
 				{"stat": "count", "op": "add", "value": 1}
 			]
@@ -167,7 +167,7 @@
 			"icon": "Skill.wz/300.img/skill/3001005/icon",
 			"max_rank": 1,
 			"weight": 4,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": []
 		},
 		{
@@ -180,7 +180,7 @@
 			"icon": "Skill.wz/300.img/skill/3001005/icon",
 			"max_rank": 20,
 			"weight": 3,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": [
 				{"stat": "rank", "op": "add", "value": 1}
 			]
@@ -196,7 +196,7 @@
 			"icon": "Skill.wz/300.img/skill/3001005/icon",
 			"max_rank": 3,
 			"weight": 2,
-			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"requires": {"jobs": [300]},
 			"effects": [
 				{"stat": "count", "op": "add", "value": 1}
 			]

@@ -9,6 +9,8 @@ extends Node
 ## `--job=510` makes the character a real Brawler first (Pirate at Lv 10 on the knuckle path, Lv 30, advanced to 510 with
 ## its Prime Hands) and takes Oak Barrel through its learn card instead of forcing the skill.
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 var run: RunScene
 var shots := ""
 var hits_taken := 0
@@ -33,9 +35,9 @@ func _drive() -> void:
 	var w := run.world
 	if int(args.get("job", 0)) == 510:
 		w.progression.level = 10
-		w.change_job(500, "knuckle")
+		RF.as_job(w, 500, "knuckle")
 		w.progression.level = 30
-		w.change_job(510)
+		RF.as_job(w, 510)
 		w.pending_cards = []
 		w.state = RunWorld.PLAYING
 		w.upgrades.apply("oak_barrel_new", w)

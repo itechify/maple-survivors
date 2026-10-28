@@ -490,7 +490,7 @@ static func parse_run_args(list: PackedStringArray) -> Dictionary:
 		elif key in INT_OPTIONS:
 			options[key] = int(v)
 		elif key == "job":
-			JobTree.put_forced(options, v) # --job=<id>[:<weapon path>], spec #151 #157
+			JobTree.put_job(options, v) # --job=<id>: the tool character's job (#284)
 		elif key in FLOAT_OPTIONS:
 			options[key] = float(v)
 		elif key == "perf":
@@ -500,15 +500,15 @@ static func parse_run_args(list: PackedStringArray) -> Dictionary:
 	return {"run": String(flags.run), "seed": seed_v, "options": options}
 
 
-## Why the run options' forced job (`--job=<id>[:<path>]`) cannot be played ("" when none is forced or it can): an unknown
-## id, a job above the second advancement, a job (or its first job) that is not playable in this build, or a weapon path
-## its line does not have.
+## Why the run options' `--job=<id>` (the tool character's job, #284) cannot be played ("" when none is named or it
+## can): not a whole job id (the old `<id>:<path>` form included), unknown, or not playable in this build.
 static func forced_job_error(options: Dictionary, data: Dictionary) -> String:
-	var job_id := int(options.get("job", 0))
-	if job_id == 0:
+	if not options.has("job"):
 		return ""
-	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {})).forced_job_error(job_id,
-		String(options.get("job_path", "")))
+	var job_id := int(options.job)
+	if job_id < 0:
+		return "'%s' is not a job id" % String(options.get("job_text", options.job))
+	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {})).job_error(job_id)
 
 
 ## A minimal screen with an error message and a way back to the title (used when the run scene is missing).

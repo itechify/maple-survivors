@@ -3,6 +3,8 @@ extends Node
 ## ISOLATE=s167-t214-visual bash scripts/run.sh res://scenes/debug/bandit_attack_driver.tscn -- --shots=<evidence dir>
 ## Only this diagnostic disables waves/collection and holds simulation between casts; no saves or balance edits.
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 const DT := 1.0 / 60.0
 
 var run: RunScene
@@ -30,9 +32,9 @@ func _drive() -> void:
 		get_tree().quit(2)
 		return
 	w.god = true
-	w.change_job(400, "dagger")
+	RF.as_job(w, 400, "dagger")
 	w.progression.level = 30
-	w.change_job(420)
+	RF.as_job(w, 420)
 	w.pending_cards.clear()
 	w.state = RunWorld.PLAYING
 	w.loadout.ranks.clear()

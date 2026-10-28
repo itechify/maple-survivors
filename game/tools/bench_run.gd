@@ -112,16 +112,11 @@ static func _keep_statuses(w: RunWorld) -> void:
 			sw.apply_status(i, "freeze", {"time": 2.0}, w.events)
 
 
-## Three Snails rank 3 x5 shells, pierce 3; Magician with Energy Bolt rank 4 x4 bolts and Magic Claw.
+## The 212 start (Energy Bolt, #284) at rank 4 with x4 bolts, plus Magic Claw and Fire Arrow.
 static func _late_game_build(w: RunWorld) -> void:
 	var up := w.upgrades
-	for id: String in ["three_snails_rank", "three_snails_rank", "three_snails_count", "three_snails_count",
-			"three_snails_count", "three_snails_count", "three_snails_pierce", "three_snails_pierce",
-			"three_snails_pierce"]:
-		up.apply(id, w)
-	w.change_job(200)
-	for id: String in ["energy_bolt_new", "energy_bolt_rank", "energy_bolt_rank", "energy_bolt_rank",
-			"energy_bolt_count", "energy_bolt_count", "energy_bolt_count", "magic_claw_new"]:
+	for id: String in ["energy_bolt_rank", "energy_bolt_rank", "energy_bolt_rank",
+			"energy_bolt_count", "energy_bolt_count", "energy_bolt_count", "magic_claw_new", "fire_arrow_new"]:
 		up.apply(id, w)
 	w.drain_events()
 

@@ -7,6 +7,21 @@ extends RefCounted
 ## are filled in by linear interpolation (synthetic, labelled as such where tests rely on them).
 
 const WF := preload("res://tests/fixtures/world_fixtures.gd")
+## The weapon each removed job advancement wore (#284 removed advancement and its grants), by "<job>:<family>" for a
+## multi-family first job and "<job>" otherwise (item stats tier A; the choice was tier C, spec #226). Tests and debug
+## drivers of the unported lines stand their character with it through as_job.
+const LEGACY_JOB_WEAPONS := {
+	"100:sword": 1302077, "100:spear": 1432000, "100:blunt": 1322006, "100": 1302077,
+	"200": 1372005,
+	"300:bow": 1452051, "300:crossbow": 1462001, "300": 1452051,
+	"400:claw": 1472061, "400:dagger": 1332063, "400": 1472061,
+	"500:knuckle": 1482000, "500:gun": 1492000, "500": 1482000,
+	"110:sword": 1302008, "110:axe": 1312005, "110": 1302008,
+	"120:sword": 1302008, "120:blunt": 1322014, "120": 1302008,
+	"130:spear": 1432002, "130:polearm": 1442001, "130": 1432002,
+	"310": 1452005, "320": 1462000, "410": 1472008, "420": 1332012, "510": 1482004, "520": 1492004,
+	"210": 1372005, "220": 1372005, "230": 1372005,
+}
 
 
 ## Gives a synthetic stage an absolute boss schedule using the per-map schema; keeps its first map id.
@@ -567,12 +582,6 @@ static func bot_input(w: RunWorld, memo: Dictionary) -> MoveInput:
 	return BotInput.decide(w, memo)
 
 
-## The job id the bot would take from window `options` (BotInput.pick_choice's job_id; -1 = "Not now").
-static func pick_job(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
-		forced_path := "") -> int:
-	return int(BotInput.pick_choice(options, rng, forced, jobs, forced_path).job_id)
-
-
 ## Basic-attack bounds after level gap and live PDD, for the examples that predate the physical hit path (LUK 0):
 ## the physical weapon bounds of the stance `action`, then CombatMath.physical_defense.
 static func physical_bounds(str_stat: int, dex_stat: int, watk: float, weapon_id: int, action: String,
@@ -581,15 +590,15 @@ static func physical_bounds(str_stat: int, dex_stat: int, watk: float, weapon_id
 		WeaponInfo.attack_kind(action)), player_level, mob_level, pdd)
 
 
-## Resolves an open window like BotInput: the first available job (else "Not now") and BotInput.pick_card_for's card.
+## Resolves an open card window like BotInput (BotInput.pick_card_for's card).
 static func auto_choose(w: RunWorld) -> void:
 	BotInput.auto_choose(w)
 	if w.transfer_pending:
 		w.advance_map()
 
 
-## Adds canonical-shaped weapon afterimage and body timing data to `setup` so the automatic basic attack can swing on
-## the synthetic map (the v83 Beginner kills mostly with it). Returns `setup`.
+## Adds canonical-shaped weapon afterimage and body timing data to `setup` so the held weapon has a swing reach
+## (WeaponReach: weapon_reach skills, Final Attack spread) on the synthetic map. Returns `setup`.
 static func with_basic_attack(setup: Dictionary) -> Dictionary:
 	setup.equipment_info = {
 		1302000: {"incPAD": 17.0, "attackSpeed": 4.0, "afterImage": "swordOL", "sfx": "swordL"},
@@ -602,7 +611,7 @@ static func with_basic_attack(setup: Dictionary) -> Dictionary:
 		1322006: {"reqJob": 0, "reqLevel": 10, "incPAD": 29.0, "attackSpeed": 5.0, "afterImage": "mace", "sfx": "mace"}}
 	setup.body_img = {}
 	var images := {"0": {}}
-	for action: String in BasicAttack.ACTIONS:
+	for action: String in WeaponReach.ACTIONS:
 		setup.body_img[action] = {"0": {"delay": 300.0}, "1": {"delay": 150.0}, "2": {"delay": 350.0}}
 		images["0"][action] = {"lt": {"$v": [-88.0, -62.0]}, "rb": {"$v": [-18.0, -6.0]},
 			"2": {"0": {"$canvas": [0, 0, 0, 40, 30], "delay": 200.0}}}
@@ -636,9 +645,18 @@ static func quiet_world(x := 400.0, p_seed := 7) -> RunWorld:
 	return w
 
 
-## Changes job without learning skills (retained fixture alias for existing callers).
+## Stands `w`'s character as job `job_id` (RunWorld.set_job) wearing the weapon its removed advancement granted
+## (LEGACY_JOB_WEAPONS, `family` picking a multi-family first job's), when the job had one. Learns no skill.
+static func as_job(w: RunWorld, job_id: int, family := "") -> void:
+	w.set_job(job_id)
+	var weapon := int(LEGACY_JOB_WEAPONS.get("%d:%s" % [job_id, family], LEGACY_JOB_WEAPONS.get(str(job_id), 0)))
+	if weapon > 0 and w.weapon_id() != weapon:
+		w.wear_new_item(weapon)
+
+
+## Stands `w`'s character as job `job_id` without changing its equipment (RunWorld.set_job).
 static func change_job_bare(w: RunWorld, job_id: int) -> void:
-	w.change_job(job_id)
+	w.set_job(job_id)
 
 
 ## Stands the player on the first floor at or below (x, y) (default: the ground) and refreshes the view.

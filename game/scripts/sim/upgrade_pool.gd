@@ -3,15 +3,12 @@ extends RefCounted
 ## Data-driven upgrade cards (`data/survivor/upgrades.json`, docs/GAME_DESIGN.md section 8): eligibility, seeded
 ## weighted draws and applying a card to a run. `state` is the RunWorld (its loadout, progression, jobs and player).
 ##
-## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (exact current job id, or one of
-## `requires.carry_jobs`: later jobs that keep a card on offer but never in the advancement draw),
-## `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
-## needs the skill unowned; skill_rank / skill_mod need the skill owned (skill_rank also below its max rank).
+## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (on_line: one of them is the
+## character's job or one of its ancestors, so a 212 sees the 200 and 210 cards; ADR 0006 #284), `requires.skills`
+## (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also needs the skill unowned;
+## skill_rank / skill_mod need the skill owned (skill_rank also below its max rank). Weapons gate no card.
 ## There are no job-neutral cards: potions upgrade by level (PotionSchedule), the Power Elixir is the only filler.
 ## Draws pick distinct eligible cards with seeded weights.
-## Cards of a skill (any kind with a `skill`) are eligible only while the weapon held when the draw rolls can use the
-## skill (SkillBook.usable_with with RunWorld.held_weapon_family); the advancement draw goes through the same check.
-## An accepted job opens a separate roll_advancement_choices draw before the normal level draw.
 ## Pity (upgrades.json `pity.draws` = N > 0): after N draws in a row that offered no
 ## "power" card (cards flagged `"power": true`: new attack skills, attack skill ranks, more shots / targets / damage),
 ## the next draw's first card is drawn among the eligible power cards, so a run's damage cannot stall on bad offers.
@@ -104,16 +101,8 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	if max_rank > 0 and rank(id, state) >= max_rank:
 		return false
 	var req: Dictionary = c.get("requires", {}) if c.get("requires") is Dictionary else {}
-	var jobs: Array = req.get("jobs", [])
-	if not jobs.is_empty():
-		var ok := false
-		# carry_jobs (spec #165 #180): later jobs that keep offering the card; the advancement draw reads `jobs` only.
-		for j: Variant in jobs + req.get("carry_jobs", []):
-			if state.progression.job_id == int(j):
-				ok = true
-				break
-		if not ok:
-			return false
+	if not on_line(req.get("jobs", []), state.jobs.lineage(state.job_id())):
+		return false
 	for s: Variant in req.get("skills", []):
 		if not lo.has(String(s)):
 			return false
@@ -124,9 +113,6 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	if state.progression.level < int(req.get("min_level", 0)):
 		return false
 	var skill := String(c.get("skill", ""))
-	# Spec #151 (#156): a skill's cards are offered only while the held weapon can use the skill.
-	if skill != "" and not lo.book.usable_with(skill, state.held_weapon_family()):
-		return false
 	match String(c.get("kind", "")):
 		"skill_new":
 			if not lo.book.has(skill) or lo.has(skill):
@@ -176,34 +162,15 @@ func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Ar
 	return out
 
 
-## Extra job draw: every eligible new power skill, then seeded new-skill choices of that exact job up to n.
-## Tier C: no slot caps or prerequisites; a sparse draw includes the usual Elixir alternative.
-func roll_advancement_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Array:
-	var picked: Array = []
-	var other: Array = []
-	for id: String in eligible(state):
-		var c := card(id)
-		if String(c.get("kind", "")) != "skill_new" or not _lists_job(c, state.progression.job_id):
-			continue
-		if is_power(c):
-			picked.append(id)
-		else:
-			other.append(id)
-	while picked.size() < n and not other.is_empty():
-		var id := _weighted_pick(other, rng)
-		picked.append(id)
-		other.erase(id)
-	if picked.size() < n and _fallback_id != "":
-		picked.append(_fallback_id)
-	var out: Array = []
-	var power := false
-	for id: String in picked:
-		var offered := choice_card(id, state, "normal" if _always_normal(card(id)) else _roll_tier(state, rng))
-		out.append(offered)
-		state.card_tiers_offered[String(offered.tier)] += 1
-		power = power or is_power(card(id))
-	state.power_dry = 0 if power else state.power_dry + 1
-	return out
+## Whether a card listing `card_jobs` (requires.jobs; empty = any job) is on the job line `lineage` (JobTree.lineage of
+## the character's job: the job and its ancestors).
+static func on_line(card_jobs: Array, lineage: PackedInt32Array) -> bool:
+	if card_jobs.is_empty():
+		return true
+	for j: Variant in card_jobs:
+		if int(j) in lineage:
+			return true
+	return false
 
 
 ## True for a card flagged `"power": true` (it raises an attack skill's damage output).
@@ -514,16 +481,6 @@ func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 	state.refresh_player_stats()
 	state.emit("upgrade_applied", {"id": id, "rank": r, "tier": tier, "magnitude": magnitude})
 	return r
-
-
-func _lists_job(c: Dictionary, job: int) -> bool:
-	var req: Variant = c.get("requires", {})
-	if not (req is Dictionary):
-		return false
-	for j: Variant in req.get("jobs", []):
-		if int(j) == job:
-			return true
-	return false
 
 
 func _weighted_pick(ids: Array, rng: RandomNumberGenerator) -> String:

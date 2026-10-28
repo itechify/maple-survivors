@@ -1,5 +1,5 @@
 {
-	"_doc": "Magician line cards (jobs 200, 210, 220, 230). Card format and tier rules: see ../upgrades.json _doc.",
+	"_doc": "Magician line cards (jobs 200, 210, 220, 230). #284 (ADR 0006): a card is on offer to every job on the line of its requires.jobs (UpgradePool.on_line), so the playable 212 sees the 200 and 210 cards; Teleport has no cards (every round of a job starts with it on its key, survivor/jobs.json start_skills). Card format and tier rules: see ../upgrades.json _doc.",
 	"cards": [
 		{"id": "energy_bolt_new", "power": true, "kind": "skill_new", "skill": "energy_bolt", "name": "Energy Bolt",
 			"desc": "Learn Energy Bolt: a magic bolt at the nearest monster.", "icon": "Skill.wz/200.img/skill/2001004/icon",
@@ -391,12 +391,6 @@
 					"value": 1
 				}
 			]
-		},
-		{"id":"teleport_fp_new","kind":"skill_new","skill":"teleport_fp","name":"Teleport","desc":"Learn Teleport: press X and a direction to blink.","icon":"Skill.wz/210.img/skill/2101002/icon","max_rank":1,"weight":2,"requires":{"jobs":[210]},"effects":[]},
-		{"id":"teleport_fp_rank","kind":"skill_rank","skill":"teleport_fp","name":"Teleport","desc":"Higher skill level lowers MP cost and increases blink range.","icon":"Skill.wz/210.img/skill/2101002/icon","max_rank":20,"weight":2,"requires":{"jobs":[210],"skills":["teleport_fp"]},"effects":[{"stat":"rank","op":"add","value":1}]},
-		{"id":"teleport_il_new","kind":"skill_new","skill":"teleport_il","name":"Teleport","desc":"Learn Teleport: press X and a direction to blink.","icon":"Skill.wz/220.img/skill/2201002/icon","max_rank":1,"weight":2,"requires":{"jobs":[220]},"effects":[]},
-		{"id":"teleport_il_rank","kind":"skill_rank","skill":"teleport_il","name":"Teleport","desc":"Higher skill level lowers MP cost and increases blink range.","icon":"Skill.wz/220.img/skill/2201002/icon","max_rank":20,"weight":2,"requires":{"jobs":[220],"skills":["teleport_il"]},"effects":[{"stat":"rank","op":"add","value":1}]},
-		{"id":"teleport_cleric_new","kind":"skill_new","skill":"teleport_cleric","name":"Teleport","desc":"Learn Teleport: press X and a direction to blink.","icon":"Skill.wz/230.img/skill/2301001/icon","max_rank":1,"weight":2,"requires":{"jobs":[230]},"effects":[]},
-		{"id":"teleport_cleric_rank","kind":"skill_rank","skill":"teleport_cleric","name":"Teleport","desc":"Higher skill level lowers MP cost and increases blink range.","icon":"Skill.wz/230.img/skill/2301001/icon","max_rank":20,"weight":2,"requires":{"jobs":[230],"skills":["teleport_cleric"]},"effects":[{"stat":"rank","op":"add","value":1}]}
+		}
 	]
 }

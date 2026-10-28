@@ -3,6 +3,8 @@ extends Node
 ## ISOLATE=t60 bash scripts/run.sh res://scenes/debug/teleport_driver.tscn -- --branch=210 --shots=<abs evidence dir>
 ## Saves departure/arrival and unaffordable HUD views plus summary.json. No cache import or balance edits.
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 var run: RunScene
 var shots := ""
 
@@ -29,9 +31,9 @@ func _drive() -> void:
 	run.set_process(false)
 	var w := run.world
 	w.god = true
-	w.change_job(200)
-	w.change_job(branch)
-	w.upgrades.apply(key + "_new", w)
+	RF.as_job(w, 200)
+	RF.as_job(w, branch)
+	w.learn_skill(key)
 	w.heal_fraction("mp", 1.0)
 	run.handle_events(w.drain_events())
 	# WZ effects advance in presentation time, independently of this driver's fixed simulation ticks.

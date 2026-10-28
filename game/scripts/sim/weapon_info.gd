@@ -1,9 +1,11 @@
 class_name WeaponInfo
 extends RefCounted
-## What the basic attack needs to know about a weapon (docs/GAME_DESIGN.md 6.1.1), from its original item id and its
+## What the weapon swing (its reach, WeaponReach) and physical damage need to know about a weapon (docs/GAME_DESIGN.md
+## 6.1.1; the automatic basic attack itself is gone, #284), from its original item id and its
 ## canonical Character.wz/Weapon info node: the weapon type (id / 10000), physical formula stats and multipliers, the
 ## afterimage (info/afterImage) with its hit-spark family, the canonical attack interval (info/attackSpeed) and the
-## swing sound (info/sfx). Read by CombatMath, BasicAttack and DataRepo (which afterimage imgs a setup loads).
+## swing sound (info/sfx). Read by CombatMath, WeaponReach and DataRepo (which afterimage imgs a setup loads). The
+## "basic" stance sets below are the stances a weapon swings in (reach boxes, physical skills' default stance).
 ## Pure: plain data in, values out.
 
 ## Weapon type (item id / 10000) of one-handed swords (Character.wz/Weapon/0130xxxx).

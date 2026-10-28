@@ -444,26 +444,21 @@ func passive_effects(key: String) -> Array:
 	return out
 
 
-## Sum of owned passive effects of `passive_stat`: canonical fields or survivor per-level values from skills.json. A skill
-## whose weapon requirement the held family fails (SkillBook.usable_with with `weapon_family`) contributes nothing.
+## Sum of owned passive effects of `passive_stat`: canonical fields or survivor per-level values from skills.json.
 func passive_total(passive_stat: String) -> float:
 	var t := 0.0
 	for k: String in order:
-		if not book.usable_with(k, weapon_family):
-			continue
 		for effect: Dictionary in passive_effects(k):
 			if String(effect.get("stat", "")) == passive_stat:
 				t += passive_value(k, level(k), effect)
 	return t
 
 
-## The largest single owned effect of `passive_stat` (same weapon gating as passive_total); 0 when none. For stats that
-## do not stack across skills (mastery, crit damage).
+## The largest single owned effect of `passive_stat`; 0 when none. For stats that do not stack across skills (mastery,
+## crit damage).
 func passive_best(passive_stat: String) -> float:
 	var best := 0.0
 	for k: String in order:
-		if not book.usable_with(k, weapon_family):
-			continue
 		for effect: Dictionary in passive_effects(k):
 			if String(effect.get("stat", "")) == passive_stat:
 				best = maxf(best, passive_value(k, level(k), effect))

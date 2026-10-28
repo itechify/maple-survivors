@@ -99,7 +99,8 @@ func skill_node(key: String) -> Dictionary:
 	return node if node is Dictionary else {}
 
 
-## Weapon families that can use `key` (WeaponInfo.FAMILIES values); empty = any weapon, bare hands included. Source, in
+## Weapon families a skill's data names (WeaponInfo.FAMILIES values; weapons gate no skill since #284, so this only says
+## which weapons a skill was made for: a ranged skill's passive range bonus). Empty = any weapon. Source, in
 ## order: survivor skills.json `weapon_families` (tier C: an array of family names, or ["any"] for explicitly any weapon;
 ## it overrides the canonical value), then the Skill.wz `weapon` code (tier A: weapon type - 100, see
 ## WeaponInfo.family_of_skill_code), read from `weapon` and from `"weapon "` with a trailing space (tier A: the WZ typo on
@@ -142,13 +143,6 @@ func _read_weapon_families(key: String) -> PackedStringArray:
 				out.append(family)
 				break
 	return out
-
-
-## True when a character holding weapon family `family` ("" = bare hands) can use `key`: it has no weapon requirement,
-## or `family` is one of its weapon_families.
-func usable_with(key: String, family: String) -> bool:
-	var needs := weapon_families(key)
-	return needs.is_empty() or family in needs
 
 
 ## Number of canonical levels in the img (0 when the img is absent).

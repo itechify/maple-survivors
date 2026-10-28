@@ -2,6 +2,8 @@ extends Node
 ## Hunter #202 visual evidence: real cache, stationary diagnostic targets, fixed ticks, no player saves.
 ## Run with private cache through scripts/run.sh res://scenes/debug/hunter_driver.tscn -- --shots=<evidence dir>.
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 var run: RunScene
 var shots := ""
 var summary := {}
@@ -112,10 +114,9 @@ func _new_run(level := 30) -> void:
 	var w := run.world
 	w.god = true
 	w.progression.level = level
-	w.change_job(300, "bow")
-	w.change_job(310)
+	RF.as_job(w, 300, "bow")
+	RF.as_job(w, 310)
 	w.loadout.order.clear()
-	w.basic = BasicAttack.new({}, {})
 	w.heal_fraction("mp", 1.0)
 	for kind: MobKind in w.mob_kinds:
 		kind.move_speed = 0

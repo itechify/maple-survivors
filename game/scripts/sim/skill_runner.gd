@@ -17,8 +17,8 @@ extends RefCounted
 ## A `self` skill (Brawler MP Recovery, docs/GAME_DESIGN.md 7.16) needs no monster: it casts when its survivor conditions
 ## on the character's own pools hold (`mp_below`, `hp_at_least`; RunWorld.self_cast_ready) and pays HP for MP (`convert`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
-## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped. While the character is
-## Hidden (docs/GAME_DESIGN.md 7.18) every attack skill is skipped the same way; buffs and non-damaging casts still run.
+## Weapons gate no skill (#284). While the character is Hidden (docs/GAME_DESIGN.md 7.18) every attack skill is skipped;
+## buffs and non-damaging casts still run.
 ## A buff whose cast block names `mob_within` (Oak Barrel) also needs a living mob within that many px of the cast origin.
 ## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
 ## ready and signals its waiting episode once; a later affordable skill may cast instead. Buffs need no mob target,
@@ -110,7 +110,7 @@ static func reach_of(st: Dictionary, world: RunWorld) -> float:
 		"", "nearest", "range_around", "cluster":
 			return maxf(float(st.range), 0.0)
 		"weapon_reach":
-			return maxf(world.basic.reach(world) * float(st.area), 0.0)
+			return maxf(world.weapon_reach.reach(world) * float(st.area), 0.0)
 		"box":
 			if not bool(st.has_box):
 				return 0.0
@@ -119,9 +119,9 @@ static func reach_of(st: Dictionary, world: RunWorld) -> float:
 
 
 ## The held weapon's swing envelope scaled for this skill only. Reuses area cards' feet-relative scaling on both axes
-## (tier C survivor reach modifier, #208); the basic attack's cached canonical envelope stays unchanged.
+## (tier C survivor reach modifier, #208); the cached canonical envelope stays unchanged.
 static func weapon_envelope(st: Dictionary, world: RunWorld) -> Rect2:
-	var box := world.basic.envelope(world)
+	var box := world.weapon_reach.envelope(world)
 	var area := float(st.area)
 	return Rect2(box.position * area, box.size * area)
 
@@ -174,18 +174,12 @@ func tick_cooldowns(dt: float, world: RunWorld) -> void:
 func cast_ready(dt: float, world: RunWorld) -> void:
 	var lo := world.loadout
 	var ready: Array[String] = []
-	var held := world.held_weapon_family()
 	var hidden := world.is_hidden()
 	for key: String in lo.order:
 		if not lo.book.is_active(key):
 			continue
 		if hidden and is_attack(stats_of(world, key)):
 			# Hidden (#194): the character cannot attack; the skill keeps its cooldown and resumes when Hidden ends.
-			_shortages.erase(key)
-			continue
-		if not lo.book.usable_with(key, held):
-			# The held weapon cannot use it (spec #151, #156): not considered, its cooldown keeps running, and it
-			# resumes on the first tick a matching weapon is held again.
 			_shortages.erase(key)
 			continue
 		if not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6 \
@@ -230,8 +224,7 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 ## the buff is not already running, its cooldown is over and its MP and HP can be paid. Same cast as an auto-cast buff
 ## (cooldown = its duration, `buff_cast` then `cast` events), minus the target scan.
 func cast_manual_buff(world: RunWorld, key: String) -> bool:
-	if not world.can_cast() or not world.loadout.book.is_active(key) or not world.loadout.book.usable_with(key,
-			world.held_weapon_family()):
+	if not world.can_cast() or not world.loadout.book.is_active(key):
 		return false
 	var st := stats_of(world, key)
 	if String(st.kind) != "buff" or float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_start_buff(key, st) \

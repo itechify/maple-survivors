@@ -1,8 +1,11 @@
 extends Node
-## First-job Bowman evidence (#199): real job/Skill windows and each attack with each weapon on Henesys.
+## First-job Bowman evidence (#199): the real Skill window and each attack with each weapon on Henesys (the job window
+## is gone with job advancement, #284).
 ## Uses a private asset cache, fixed ticks and motionless targets; never writes player saves.
 ## MAPLE_SURVIVORS_CACHE=<cache> ISOLATE=s166-t199-visual bash scripts/run.sh \
 ##   res://scenes/debug/bowman_driver.tscn -- --shots=<absolute evidence dir>
+
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
 var run: RunScene
 var shots := ""
@@ -20,28 +23,17 @@ func _drive() -> void:
 		get_tree().quit(2)
 		return
 	DirAccess.make_dir_recursive_absolute(shots)
-	await _new_run()
-	run.world.progression.level = 10
-	run.world.refresh_player_stats()
-	await _frames(0.1)
-	var job := JobAdvanceWindow.new()
-	run.windows_layer.add_child(job)
-	job.open(run.world.jobs.advancements(0, 10), 10, 0)
-	await _frames(0.5)
-	await _shot("job_window.png")
-	job.queue_free()
-	await get_tree().process_frame
 	for family: String in ["bow", "crossbow"]:
 		for key: String in ["arrow_blow", "bow_double_shot"]:
 			await _scenario(family, key)
 	await _new_run()
 	var w := run.world
 	w.progression.level = 20
-	w.change_job(300, "bow")
+	RF.as_job(w, 300, "bow")
 	for key: String in ["blessing_of_amazon", "critical_shot", "eye_of_amazon", "focus", "arrow_blow", "bow_double_shot"]:
 		w.learn_skill(key)
 	w.refresh_player_stats()
-	run.handle_events(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type != "job_changed"))
+	run.handle_events(w.drain_events())
 	await _frames(0.1)
 	run.toggle_window("skill")
 	await _frames(0.5)
@@ -72,10 +64,7 @@ func _scenario(family: String, key: String) -> void:
 	await _new_run()
 	var w := run.world
 	w.progression.level = 20
-	w.change_job(300, "bow")
-	if family == "crossbow":
-		var ids: Array = w.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
-		assert(w.equip_item(ids.find(1462001)) == "")
+	RF.as_job(w, 300, family)
 	w.loadout.order.clear()
 	w.learn_skill(key)
 	w.loadout.set_rank(key, 10)
@@ -88,7 +77,7 @@ func _scenario(family: String, key: String) -> void:
 	w.player.place(Vector2(-150.0, w.fhm.y_at(f, -150.0)), w.fhm)
 	w.player.facing = 1
 	w.update_view()
-	run.handle_events(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type != "job_changed"))
+	run.handle_events(w.drain_events())
 	await _frames(0.1)
 	for dx: float in [120.0, 240.0]:
 		var x := w.player.pos.x + dx

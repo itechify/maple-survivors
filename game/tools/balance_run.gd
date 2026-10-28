@@ -26,19 +26,17 @@ extends SceneTree
 ##   bash scripts/balance.sh                       # henesys, training seeds 1..6, in parallel
 ##   bash scripts/balance.sh 7 11 --stage=ellinia
 ##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys]
-##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>] [--job=<id>[:<path>]]
+##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>] [--job=<id>]
 ##
-## Card policies (jobs: seeded random choice, overridden by --job=<first or second job id>: a second job takes its first
-## job at the first window and itself at the second; a job this build cannot offer fails at startup). At every
-## multi-family advancement use an offered forced family (`100:spear`, `120:blunt`), else draw on job stream 8.
-## For example `110:axe` draws a Warrior family at Lv10, then takes Axe at Lv30.
-## --branch=<id> is the deprecated alias):
+## --job=<id> names a fresh character's job (#284; the default is JobTree.default_job(), 212). A job this build cannot
+## play, or one that differs from a --character's own job, fails at startup; --branch=<id> is the deprecated alias.
+## Card policies:
 ##   bot     BotInput.pick_card_for: the card a sensible player takes (the policy RunScene's autopick uses).
 ##   random  a careless player: a seeded random card of the three offered (its own RNG, so the sim's streams are the
 ##           same as with any other policy until the choices differ). This is the "careless player" of the tuning
 ##           record; it does not favour the first slot, where UpgradePool puts a guaranteed card.
-##   first   always the first card offered (--first-card is the same). Not a random player: guaranteed cards (the
-##           advancement attacks, pity cards) are always drawn first, so this policy always takes them.
+##   first   always the first card offered (--first-card is the same). Not a random player: guaranteed cards (pity
+##           cards) are always drawn first, so this policy always takes them.
 ##
 ## Camper movement policies: camper_henesys_top, camper_henesys_rope, camper_tree_top (sensible cards/potions).
 ## --camp-after=S: begin parking after S seconds (default 60); Tree reaches its top branch through portals.
@@ -57,8 +55,6 @@ extends SceneTree
 ## Chain BALANCE records contain rounds[]; only CLEARED (including all rewards) feeds the next tier.
 
 const DT := 1.0 / 60.0
-## The weapon path named by `--job=<id>:<path>` ("" = none); the bot's job choice reads it (spec #151 #157).
-static var forced_path := ""
 const MILESTONES := [8, 10, 20, 30, 40, 50]
 ## "Near the player" box for the engagement metric (px from the player's feet).
 const NEAR_X := 300.0
@@ -132,7 +128,7 @@ func _init() -> void:
 	var cap := -1.0
 	var camp_after := 60.0
 	var stage_explicit := false
-	var forced_job := 0
+	var forced_job := -2 # -2: no --job; -1: a malformed one
 	var character_file := ""
 	var has_character := false
 	var account_file := ""
@@ -144,12 +140,10 @@ func _init() -> void:
 			stage = DataRepo.canonical_stage_key(a.substr(8))
 			stage_explicit = true
 		elif a.begins_with("--job="):
-			var forced := JobTree.parse_forced(a.substr(6))
-			forced_job = int(forced.job)
-			forced_path = String(forced.path)
+			forced_job = JobTree.parse_job(a.substr(6))
 		elif a.begins_with("--branch="):
 			printerr("balance_run: --branch is deprecated: use --job=<id>")
-			forced_job = int(JobTree.parse_forced(a.substr(9)).job)
+			forced_job = JobTree.parse_job(a.substr(9))
 		elif a.begins_with("--patch="):
 			patch_file = a.substr(8)
 		elif a.begins_with("--character="):
@@ -195,8 +189,9 @@ func _init() -> void:
 			quit(1)
 			return
 		deep_merge(data, patch)
-	if forced_job != 0:
-		var job_error := JobTree.from_data(data.jobs, data.jobs_survivor).forced_job_error(forced_job, forced_path)
+	if forced_job != -2:
+		var job_error := "not a job id" if forced_job < 0 \
+			else JobTree.from_data(data.jobs, data.jobs_survivor).job_error(forced_job)
 		if job_error != "":
 			print("balance_run: --job: " + job_error)
 			quit(2)
@@ -226,6 +221,10 @@ func _init() -> void:
 			print("balance_run: " + "; ".join(errors))
 			quit(1)
 			return
+		if forced_job >= 0 and int(character.get("job_id", -1)) != forced_job:
+			print("balance_run: --job=%d does not match the character's job %d" % [forced_job, int(character.get("job_id", -1))])
+			quit(2)
+			return
 	var account := {}
 	if has_account:
 		var account_errors := PackedStringArray()
@@ -247,19 +246,21 @@ func _init() -> void:
 			return
 		if has_character:
 			setup.character = character
+		elif forced_job >= 0:
+			setup["job"] = forced_job
 		setups.append(setup)
 	if has_account:
 		apply_account(setups, account)
 	for s in seeds:
 		var r: Dictionary
 		if chain:
-			r = run_chain(setups, policy, s, idle_after, camp_after, forced_job)
+			r = run_chain(setups, policy, s, idle_after, camp_after)
 		else:
 			var setup: Dictionary = setups[0].duplicate()
 			setup.seed = s
 			var world := RunWorld.new(setup)
 			var start_character := world.character_snapshot()
-			r = run_one(world, policy, s, idle_after, camp_after, forced_job)
+			r = run_one(world, policy, s, idle_after, camp_after)
 			r.merge({"seed": s, "stage": stage, "policy": policy, "start_character": start_character, "missing": []})
 			for tier_index in tiers.size():
 				if stage in tiers[tier_index]:
@@ -289,7 +290,7 @@ static func round_seed(run_seed: int, tier_index: int) -> int:
 
 ## Plays prepared tier setups in order, carrying a boundary snapshot only after CLEARED; no menu/save dependency.
 static func run_chain(setups: Array, policy: String, run_seed: int, idle_after := -1.0,
-		camp_after := 60.0, forced_job := 0) -> Dictionary:
+		camp_after := 60.0) -> Dictionary:
 	var rounds: Array = []
 	var carried: RunWorld = null
 	for tier_index in setups.size():
@@ -297,7 +298,7 @@ static func run_chain(setups: Array, policy: String, run_seed: int, idle_after :
 		setup.seed = round_seed(run_seed, tier_index)
 		var world := carried if carried != null else RunWorld.new(setup)
 		var start_character := world.character_snapshot()
-		var record := run_one(world, policy, int(setup.seed), idle_after, camp_after, forced_job)
+		var record := run_one(world, policy, int(setup.seed), idle_after, camp_after)
 		record["start_character"] = start_character
 		record.merge({"seed": setup.seed, "stage": setup.stage, "policy": policy, "tier": tier_index + 1, "missing": []})
 		rounds.append(record)
@@ -320,17 +321,11 @@ static func run_chain(setups: Array, policy: String, run_seed: int, idle_after :
 		"target_tier": setups.size(), "rounds": rounds}
 
 
-## Answers an open job / card window of `w` with `policy` (see the class doc); `rng` drives the random policy.
-static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, cards_taken: Array, forced_job := 0) -> void:
+## Answers an open card window of `w` with `policy` (see the class doc); `rng` drives the random policy.
+static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, cards_taken: Array) -> void:
 	var guard := 0
-	while guard < 64 and (w.state == RunWorld.CHOOSING_JOB or w.state == RunWorld.CHOOSING_UPGRADE):
+	while guard < 64 and w.state == RunWorld.CHOOSING_UPGRADE:
 		guard += 1
-		if w.state == RunWorld.CHOOSING_JOB:
-			var pick := BotInput.pick_choice(w.pending_jobs, w.job_rng, forced_job, w.jobs, forced_path,
-				w.held_weapon_family())
-			if pick.job_id < 0 or not w.apply_job(pick.job_id, pick.path):
-				w.decline_job()
-			continue
 		var id := ""
 		match policy:
 			"random":
@@ -344,7 +339,7 @@ static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, card
 
 
 ## Plays `w` to its end/cap with movement/card policy `policy` and returns the pacing record.
-static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0, forced_job := 0) -> Dictionary:
+static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0) -> Dictionary:
 	var memo := {}
 	var portal_names: Array = []
 	var rng := RandomNumberGenerator.new()
@@ -395,13 +390,11 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var taken := 0
 	var max_alive := 0
 	var max_alive_t := 0.0
-	var job_t := -1.0
-	var job_times := {} # job id (string) -> run time of its first job_changed, for every advancement
 	var ticks := maxi(0, ceili((cap - w.time) / DT - 1e-6))
 	var next_min := 60.0
 	var low_hp := 1.0
 	for t in ticks + 1: # drain the final choice-only settlement too, without adding a combat/measurement tick
-		choose(w, policy, rng, cards_taken, forced_job)
+		choose(w, policy, rng, cards_taken)
 		if w.transfer_pending:
 			w.advance_map()
 		var ticked := w.state == RunWorld.PLAYING and t < ticks
@@ -485,11 +478,6 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 					var lv := int(e.level)
 					if lv in MILESTONES and not reach.has(str(lv)):
 						reach[str(lv)] = snappedf(w.time, 0.1)
-				"job_changed":
-					if int(e.job_id) == 200 and job_t < 0.0:
-						job_t = snappedf(w.time, 0.1)
-					if not job_times.has(str(int(e.job_id))):
-						job_times[str(int(e.job_id))] = snappedf(w.time, 0.1)
 		if not ticked:
 			break
 		if w.time >= next_min - 1e-6:
@@ -539,8 +527,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"camper": {"policy":policy if CAMPER.STAGES.has(policy) else "", "started_time":float(memo.get("started_time",-1.0)),
 			"reached":bool(memo.get("reached",false)),"reached_time":float(memo.get("reached_time",-1.0)),"portals":portal_names},
 		"time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
-		"branch": w.jobs.second_job(w.progression.job_id),
-		"forced_branch": forced_job, "job": int(w.player_state.job_id), "job_t": job_t, "job_times": job_times, "kills": w.kills, "reach": reach,
+		"job": int(w.player_state.job_id), "kills": w.kills, "reach": reach,
 		"alive_by_min": alive_min, "level_by_min": level_min, "hits_by_min": hits_min, "taken_by_min": taken_min,
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,
 		"ordinary_kill_hits_by_min": kill_hits.buckets,
@@ -651,9 +638,9 @@ static func describe(r: Dictionary) -> String:
 	var parts := PackedStringArray()
 	for lv: int in MILESTONES:
 		parts.append("Lv%d %s" % [lv, _mmss(float(reach.get(str(lv), -1.0)))])
-	var head := "seed %d (%s): %s at %s, Lv %d, job %d (at %s), kills %d, max alive %d at %s, lowest HP %d%%" % [
+	var head := "seed %d (%s): %s at %s, Lv %d, job %d, kills %d, max alive %d at %s, lowest HP %d%%" % [
 		int(r.seed), String(r.get("policy", "bot")), r.state, _mmss(float(r.time)), int(r.level), int(r.job),
-		_mmss(float(r.job_t)), int(r.kills), int(r.max_alive), _mmss(float(r.max_alive_t)),
+		int(r.kills), int(r.max_alive), _mmss(float(r.max_alive_t)),
 		roundi(float(r.low_hp_after_1min) * 100.0)]
 	var lines := PackedStringArray([head, "  " + "  ".join(parts),
 		"  EXP collected %d, expired %d (%d drops); mesos earned %d; equipment %d dropped, %d picked up" % [int(r.exp_collected), int(r.expired_exp),
@@ -748,7 +735,7 @@ static func aggregate(records: Array) -> Dictionary:
 	var result := {"runs": records.size(), "potions_used": {"hp": 0, "mp": 0},
 		"boss_fights": {}, "boss_hits": {}, "camper_runs": 0, "camper_started": 0, "camper_reached": 0,
 		"ordinary_kill_hits_by_min": KillHits.empty_buckets()}
-	result["branches"] = {}
+	result["jobs"] = {}
 	result["card_tier_runs"] = 0
 	result["card_tiers_offered"] = UpgradePool.empty_tier_counts()
 	result["card_tiers_picked"] = result.card_tiers_offered.duplicate()
@@ -760,7 +747,6 @@ static func aggregate(records: Array) -> Dictionary:
 	var late_waits: Array = []
 	result["late_mp_observed_runs"] = 0
 	result["late_mp_short_runs"] = 0
-	var job_samples := {} # job id -> advancement times
 	var mesos_earned: Array = []
 	var equips_dropped: Array = []
 	var equips_collected: Array = []
@@ -785,10 +771,10 @@ static func aggregate(records: Array) -> Dictionary:
 		if record.has("nx_awarded"):
 			nx_samples.append(int(record.nx_awarded))
 		result.lv70_reached += 1 if bool(record.get("lv70_reached", int(record.get("level", 0)) >= LEVEL_TARGET)) else 0
-		var branch_key := str(int(record.get("branch", 0))) if record.has("branch") else "unobserved"
-		if not result.branches.has(branch_key):
-			result.branches[branch_key] = {"runs": 0, "CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
-		var group: Dictionary = result.branches[branch_key]
+		var job_key := str(int(record.get("job", 0))) if record.has("job") else "unobserved"
+		if not result.jobs.has(job_key):
+			result.jobs[job_key] = {"runs": 0, "CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
+		var group: Dictionary = result.jobs[job_key]
 		group.runs += 1
 		var outcome := String(record.get("state", ""))
 		if group.has(outcome):
@@ -820,16 +806,6 @@ static func aggregate(records: Array) -> Dictionary:
 		for minute in mini(EARLY_MINUTES, kill_hits.size()):
 			result.ordinary_kill_hits_by_min[minute].hits += int(kill_hits[minute].hits)
 			result.ordinary_kill_hits_by_min[minute].kills += int(kill_hits[minute].kills)
-		# Per-job advancement times; records from before job_times only have the Magician's job_t.
-		var times: Dictionary = record.get("job_times", {})
-		if not record.has("job_times") and float(record.get("job_t", -1.0)) >= 0.0:
-			times = {"200": float(record.job_t)}
-		for id: String in times:
-			if float(times[id]) < 0.0:
-				continue
-			if not job_samples.has(id):
-				job_samples[id] = []
-			job_samples[id].append(float(times[id]))
 		waits.append(float(record.get("mp_short_seconds", 0.0)))
 		if record.has("equips_dropped"):
 			equips_dropped.append(int(record.equips_dropped))
@@ -887,9 +863,6 @@ static func aggregate(records: Array) -> Dictionary:
 	for number: String in map_entries:
 		result.map_entry_seconds[number] = statistics(map_entries[number])
 	result["late_mp_short_seconds"] = statistics(late_waits)
-	result["job_seconds"] = {}
-	for id: String in job_samples:
-		result.job_seconds[id] = statistics(job_samples[id])
 	result["mesos_earned"] = statistics(mesos_earned)
 	result["equips_dropped"] = statistics(equips_dropped)
 	result["equips_collected"] = statistics(equips_collected)
@@ -970,14 +943,8 @@ static func describe_metrics(summary: Dictionary) -> String:
 	lines.append("SYSTEMS %d runs: potions used HP %d MP %d; MP-short seconds %s%s" % [
 		int(summary.runs), int(summary.potions_used.hp), int(summary.potions_used.mp),
 		_range(summary.mp_short_seconds), _campers(summary)])
-	for branch_key: String in summary.get("branches", {}):
-		lines.append("  SUMMARY branch %s: %s" % [branch_key, summary.branches[branch_key]])
-	var job_ids: Array = summary.job_seconds.keys()
-	job_ids.sort_custom(func(a: String, b: String) -> bool: return int(a) < int(b))
-	for id: String in job_ids:
-		lines.append("  Job %s seconds %s" % [id, _range(summary.job_seconds[id])])
-	if job_ids.is_empty():
-		lines.append("  Job seconds none (n=0)")
+	for job_key: String in summary.get("jobs", {}):
+		lines.append("  SUMMARY job %s: %s" % [job_key, summary.jobs[job_key]])
 	if summary.has("nx_awarded"):
 		lines.append("  NX awarded per run (not credited) " + _range(summary.nx_awarded))
 	if summary.has("mesos_earned"):
