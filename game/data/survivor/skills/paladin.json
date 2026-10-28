@@ -2,7 +2,7 @@
 	"_doc": "Paladin skill definitions (spec #308, one region per ticket): P4 #312 appends rush_paladin, P5 #313 blast and monster_magnet_paladin, P6 #314 charged_blow, P7 #315 and P8 #316 the four Charges and heavens_hammer. Power Strike and Slash Blast are defined by skills/hero.json and are never repeated here (a duplicate key across files is a load error, docs/ARCHITECTURE.md 4.4.4). Until a key is defined here it is inert: never offered or learned.",
 	"skills": {
 		"blast": {
-			"_provenance": "Tier A: Skill.wz 1221009 (a single `damage` field, 170 to 550%, so one line and one target; the `blast` body action and its 840 ms (540 + 300 ms) timing; the 14-frame cast effect and the 3-frame hit, both keyed by the element art index 0/1/2/3/5; the five Use sounds). Tier C: 2.0 s cooldown (the balance pass owns it), weapon_reach targeting (the nearest mob in the held weapon's swing, as Power Strike), 0.84 s action hold, art index 0 (no Charge) until P7 picks the running Charge's node, the five sounds played in order by cast number (SkillBook.use_sound, no RNG), the rarity bonuses (Mastery, Booster, Final Attack). Docs: GAME_DESIGN 7.60.",
+			"_provenance": "Tier A: Skill.wz 1221009 (a single `damage` field, 170 to 550%, so one line and one target; the `blast` body action and its 840 ms (540 + 300 ms) timing; the 14-frame cast effect and the 3-frame hit, both keyed by the element art index 0/1/2/3/5; the five Use sounds). Tier C: 2.0 s cooldown (the balance pass owns it), weapon_reach targeting (the nearest mob in the held weapon's swing, as Power Strike), 0.84 s action hold, art index 0 (no Charge) until P7 picks the running Charge's node, the five sounds played in order by cast number (SkillBook.use_sound, no RNG), the rarity bonuses (Mastery, Booster, Final Attack). Docs: GAME_DESIGN 7.60. The screenshot `capture_delay` 0.72 s samples the thrust frame and the slash.",
 			"skill_id": 1221009,
 			"book": "122",
 			"job": 122,
@@ -23,6 +23,7 @@
 			"cooldown": 2.0,
 			"action": "blast",
 			"action_time": 0.84,
+			"capture_delay": 0.72,
 			"ball": "",
 			"hit": "Skill.wz/122.img/skill/1221009/hit/0/0",
 			"effect": "Skill.wz/122.img/skill/1221009/effect/0",
@@ -159,7 +160,7 @@
 					}
 				]
 			},
-			"_provenance": "Tier A: Skill.wz 1221001 range 200 to 400 px, prop (pull chance 48 to 95 %), mobCount 6, the 18-frame effect and the Use sound (a UOL to Hero's 1121001); identical to Hero's 1121001 level by level (P1 #309). Tier C: a copy of Hero's `monster_magnet` under its own key (a skill key is unique across files): no damage, the shared `pull` block (7.35), the alert2 action (the node names none), the three-mob admission gate (`cast.min_targets`), the 0.6 s action hold, the 10 s cooldown (spec #308; Hero's own 4 s is tuned on Hero's runs by #346 and is not inherited), and the rarity bonuses. Docs: GAME_DESIGN 7.60.",
+			"_provenance": "Tier A: Skill.wz 1221001 range 200 to 400 px, prop (pull chance 48 to 95 %), mobCount 6, the 18-frame effect and the Use sound (a UOL to Hero's 1121001); identical to Hero's 1121001 level by level (P1 #309). Tier C: a copy of Hero's `monster_magnet` under its own key (a skill key is unique across files): no damage, the shared `pull` block (7.35), the alert2 action (the node names none), the three-mob admission gate (`cast.min_targets`), the 0.6 s action hold, the 10 s cooldown (spec #308; Hero's own 4 s is tuned on Hero's runs by #346 and is not inherited), and the rarity bonuses. Docs: GAME_DESIGN 7.60. The screenshot `capture_delay` 0.35 s samples the horseshoe.",
 			"skill_id": 1221001,
 			"book": "122",
 			"job": 122,
@@ -185,6 +186,7 @@
 			"cooldown": 10,
 			"action": "alert2",
 			"action_time": 0.6,
+			"capture_delay": 0.35,
 			"ball": "",
 			"hit": "",
 			"effect": "Skill.wz/122.img/skill/1221001/effect",
