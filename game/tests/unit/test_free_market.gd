@@ -143,7 +143,7 @@ func _bot_hub(mesos: int, options: Dictionary = {}, round_seed := 4242) -> FreeM
 	var character := DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json") as Dictionary
 	character.mesos = mesos
 	var hub := FreeMarket.new()
-	hub.configure({"name": "BotHub", "character": character, "round_seed": round_seed}, null, options)
+	hub.configure({"name": "BotHub", "character": character, "rounds_played": round_seed}, null, options)
 	(Engine.get_main_loop() as SceneTree).current_scene.add_child(hub)
 	hub.set_process(false)
 	return hub
@@ -165,7 +165,7 @@ func test_autoplay_runs_the_sensible_shop_visit_once_on_entering_the_hub() -> vo
 
 
 func test_the_hub_seeds_scrolls_from_the_saved_state_so_reloading_cannot_reroll() -> void:
-	var base := {"name": "A", "round_seed": 77, "character": {"mesos": 10, "scrolls": {"2043700": 2},
+	var base := {"name": "A", "created": "2026-10-16", "rounds_played": 77, "character": {"mesos": 10, "scrolls": {"2043700": 2},
 		"equipment": {"worn": {"hat": {"id": 1002001, "stats": {"incPDD": 4}, "slots": 7, "scrolls": 0}}, "inventory": []}}}
 	var seed_a := FreeMarket.scroll_seed(base)
 	assert_eq(seed_a, FreeMarket.scroll_seed(base.duplicate(true)), "the same save always gives the same seed")
@@ -179,9 +179,12 @@ func test_the_hub_seeds_scrolls_from_the_saved_state_so_reloading_cannot_reroll(
 	var richer := base.duplicate(true)
 	richer.character.mesos = 11
 	assert_ne(FreeMarket.scroll_seed(richer), seed_a, "mesos are part of the state")
-	var other_run := base.duplicate(true)
-	other_run.round_seed = 78
-	assert_ne(FreeMarket.scroll_seed(other_run), seed_a, "the run's stored seed is mixed in")
+	var other_round := base.duplicate(true)
+	other_round.rounds_played = 78
+	assert_ne(FreeMarket.scroll_seed(other_round), seed_a, "the rounds played are mixed in")
+	var other_character := base.duplicate(true)
+	other_character.created = "2026-10-17"
+	assert_ne(FreeMarket.scroll_seed(other_character), seed_a, "and so is the creation date")
 
 
 func test_two_hubs_from_the_same_save_read_the_same_scroll_results() -> void:
@@ -204,6 +207,8 @@ func test_live_scroll_rolls_after_an_inventory_action_match_a_rebuilt_saved_hub(
 	if not require_cache():
 		return
 	var live := _bot_hub(0, {}, 1)
+	# Equipment requirements (reqLevel) are #292's: a Lv1 hub world would refuse the Lv8 wand, so play at Lv20 here.
+	live.inventory.progression.level = 20
 	live.inventory.grant_scrolls(2043701, 3)
 	# A real inventory action saves/reseeds through the handler used by Equip, Item and shops.
 	assert_eq(live.inventory.unequip_item("weapon"), "")
@@ -216,6 +221,7 @@ func test_live_scroll_rolls_after_an_inventory_action_match_a_rebuilt_saved_hub(
 		rebuilt.configure(saved, null)
 		(Engine.get_main_loop() as SceneTree).current_scene.add_child(rebuilt)
 		rebuilt.set_process(false)
+		rebuilt.inventory.progression.level = 20
 		var live_state := live.inventory.scroll_rng.state
 		var rebuilt_state := rebuilt.inventory.scroll_rng.state
 		var live_rolls := []
@@ -251,36 +257,18 @@ func test_bot_shop_is_reproducible_for_a_seed_in_purchases_and_scroll_results() 
 	assert_ne(JSON.stringify([records[0], worn[0]]), JSON.stringify([records[2], worn[2]]), "another seed, another visit")
 
 
-## Spec #225: an old format-2 save (Magnet ranks, starter potions at Lv 45) is migrated and caught up on every load path.
-func _old_potion_character() -> Dictionary:
-	var character := DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json") as Dictionary
-	character.level = 45
-	character.card_ranks["magnet"] = 3
-	character.player_mods["magnet"] = [0.0, 1.953125]
-	character.potions = {"hp": {"item_id": 2000000, "count": 99}, "mp": {"item_id": 2000003, "count": 99}}
-	return character
-
-
-func test_continue_migration_drops_magnet_from_a_format_2_save() -> void:
-	var character := _old_potion_character()
-	var migrated := SceneFlow.migrated_character(character, Callable())
-	assert_false(migrated.card_ranks.has("magnet"), "the Magnet rank is dropped on a format-2 load")
-	assert_false(migrated.player_mods.has("magnet"))
-	assert_true(character.card_ranks.has("magnet"), "the source is not mutated")
-	assert_eq(SceneFlow.migrated_character(migrated, Callable()), migrated, "idempotent")
-
-
-func test_hub_boundary_of_an_old_save_has_no_magnet_and_shows_the_caught_up_potions() -> void:
+func test_the_hub_loads_older_tool_files_as_format_three_with_potions_of_lv1() -> void:
 	if not require_cache():
 		return
+	var old := DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json") as Dictionary
+	old.merge({"format": 2, "level": 45, "exp": 0, "mesos": 0, "potions": {"hp": {"item_id": 2000000, "count": 99}}}, true)
 	var hub := FreeMarket.new()
-	hub.configure({"name": "OldSave", "character": _old_potion_character(), "round_seed": 9}, null, {})
+	hub.configure({"name": "OldFile", "character": old, "rounds_played": 9}, null, {})
 	(Engine.get_main_loop() as SceneTree).current_scene.add_child(hub)
 	hub.set_process(false)
-	var loadout := FreeMarket._boundary_loadout(hub.snapshot.character, DataRepo.load_all())
-	assert_false(loadout.player_mods.has("magnet"), "no magnet radius modifier in the hub")
-	assert_false(hub.snapshot.character.card_ranks.has("magnet"))
-	assert_eq(hub.inventory.potions.item_id("hp"), 2022003, "Lv 45 selects Unagi")
+	assert_eq(int(hub.snapshot.character.format), 3, "an older character is reduced to format 3")
+	assert_false(hub.snapshot.character.has("level"), "and has no level of its own")
+	assert_eq(hub.inventory.potions.item_id("hp"), 2000000, "the hub's potions are those of Lv1, whatever the old file said")
 	assert_eq(hub.inventory.potions.item_id("mp"), 0, "and no MP potion (#285)")
 	var iw := ItemWindow.new(hub.inventory)
 	iw.select_tab(1)

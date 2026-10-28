@@ -27,12 +27,15 @@ func _setup(character: Dictionary = {}) -> Dictionary:
 	return setup
 
 
-## A world whose character starts as the creation outfit (top, bottom, shoes, sword), changed by `change`.
+## A world whose character starts as the creation outfit (top, bottom, shoes, sword), changed by `change`. A character has
+## no level (#286), so a `level` key `change` sets is the round's level at the start.
 func _world(change: Callable = Callable()) -> RunWorld:
 	var character := RunWorld.new(_setup()).character_snapshot()
 	if change.is_valid():
 		change.call(character)
 	var world := RunWorld.new(_setup(character))
+	world.progression.level = int(character.get("level", 1))
+	world.refresh_player_stats()
 	RF.place_player(world, 400)
 	world.god = true
 	world.drain_events()

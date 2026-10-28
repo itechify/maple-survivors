@@ -28,11 +28,12 @@ func test_chain_replays_records_and_carries_every_character_field_after_clear() 
 	assert_eq(a.rounds[0].seed, 2026)
 	assert_eq(a.rounds[1].seed, BR.round_seed(2026, 1))
 	assert_false(setups[1].has("character"), "reusing prepared setups cannot leak an earlier chain's character")
-	assert_eq(a.rounds[1].start_character.level, 38)
-	assert_eq(a.rounds[1].start_character.job_id, 210)
+	assert_eq(a.rounds[1].start_character.job_id, 212)
+	assert_eq(a.rounds[1].start_character.tiers_unlocked, 2, "the clear unlocked the next tier for the carried character")
+	assert_eq(a.rounds[0].start_character.tiers_unlocked, 1)
 
 
-## Two quiet rounds whose carried character is a Lv 10 Magician with 200,000 mesos and a spare wand (synthetic item info).
+## Two quiet rounds whose carried character is a Magician with 200,000 mesos and a spare wand (synthetic item info).
 func _shopping_setups() -> Array:
 	var data := RF.quiet_data()
 	data.stages.stages.quiet.duration = 2.0
@@ -52,7 +53,6 @@ func _shopping_setups() -> Array:
 			2040700: {"incDEX": 1, "success": 100, "price": 1}}
 		setups.append(setup)
 	var character := RunWorld.new(setups[0]).character_snapshot()
-	character.level = 10
 	character.job_id = 200
 	character.mesos = 200000
 	character.equipment.worn.weapon = Equipment.create(1372005, setups[0].equipment_info[1372005])

@@ -42,7 +42,7 @@ func test_hint_refreshes_on_settings_changes_and_explains_unbound_chat() -> void
 			hint = label as MapleText
 	assert_true(hint != null)
 	if hint != null:
-		assert_eq(hint.text, "Free Market  /  Up at the exit: next map  /  Space: talk to a scroll NPC  /  Esc: Save & quit")
+		assert_eq(hint.text, "Free Market  /  Up at the exit: map select  /  Space: talk to a scroll NPC  /  Esc: Save & quit")
 		assert_eq(hint.position, Vector2(12, 12), "the default plate keeps its inset")
 		_settings.movement_keys = "wasd"
 		_settings.apply_movement()
