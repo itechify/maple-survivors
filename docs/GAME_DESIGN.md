@@ -698,6 +698,34 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+**#296 review fixes / H12, after integrating #346 (2026-10-28).** No balance values changed by the
+review fixes: incoming AP HP 600, growth 65, orb 0.05, cooldowns and finisher coefficients are preserved exactly;
+Hero AP/growth/score rows now live in `jobs/hero.json`'s `balance` block. Read-only cache, `ISOLATE=296fix`,
+`JOBS=3`, seeds 1/2/2026; all four tier-1 stages bot/random for both jobs, Sleepywood bot starter/own fixture.
+All **60 completed records** have no world warnings, missing assets or TIMEOUTs. A combined shell received
+SIGTERM during kit startup after 27 records; only unfinished batches were resumed, with no source/config changes.
+Complete records and console summaries: `_scratch/296-review/smoke/` and `_scratch/296-review/smoke.log`.
+
+| Job | Clears / 30 | Henesys bot six slots | Henesys bot map 2 / 3 | Sleepywood kit map 2 / 3; clears / 3 |
+|---|---|---|---|---|
+| F/P 212 | 1/30 | 3/3; 136.7–205.3 s | 2/3 | 2/3; 1/3 |
+| Hero 112 | 5/30 | 3/3; 139.9–249.2 s | 1/3 | 3/3; 2/3 |
+
+F/P's 30 records reproduce the earlier smoke outcomes and times.
+Hero's total matches H11's 5/30 clears, but its mix changes: random Henesys/Ellinia/Perion 1/3 each,
+Sleepywood kit 2/3, all other configurations 0/3. All three fresh Henesys bot runs reach boss 1, but
+**map 2 reach falls from H11's 3/3 to 1/3**, below #346's>=2/3 target. Sleepywood kit map 2 improves 2/3 -> 3/3.
+These combined casting/admission changes need a later balance follow-up; no tuning or extra/held-out seeds were run.
+Ellinia remains recorded rather than tuned. Hero bot death ranges: Henesys 327.7–688.2, Ellinia 221.0–646.5,
+Perion 288.9–493.0, Kerning 326.8–568.7 seconds.
+
+Merged-source full suites: **2151 passed / 0 failed / 0 skipped** cached; **1926 passed / 0 failed /
+225 skipped** without cache (skips prove no asset behavior). Both F/P goldens and the repaired Hero golden
+`409dba0d1bdffc32ba72644e326f99561e6ed9c0270feda39ace2573b0727cb3` match integration 3e37ec1 unchanged.
+The change from the original H10 Hero hash came from #346's synthetic weapon-reach/cast assertion and
+initial-state coverage repair, not a review-fix rebaseline. No tests deleted. Rush visual evidence remains
+`evidence/296-review-uncapped/`; the 120-second, 7200-tick capture had missing assets `[]`.
+
 **#296 review fixes / H12, before merging #346 (2026-10-28).** Regression smoke only; no balance tuning. Read-only default
 cache, `ISOLATE=296fix`, `JOBS=3`, seeds 1/2/2026: every tier-1 stage with bot/random for 212 and 112,
 plus Sleepywood bot with starter equipment and each job’s fixture. All **60 records** finished without
