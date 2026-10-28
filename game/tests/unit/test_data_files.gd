@@ -97,8 +97,8 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
 			assert_eq(book.canonical_level(key, 5), 5)
 			continue
-		if key == "rush_hero" and not book.skill_imgs.has("112"):
-			continue # the synthetic fixtures carry no Hero book; the real-cache run covers it
+		if key == "rush_hero" and book.skill_node(key).is_empty():
+			continue # the synthetic fixtures carry no Rush node; the real-cache run covers it
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
 		# Hero's Rush (#302) takes the level-30 survivor table like a pool skill, but stays at rank 1 for the whole round.

@@ -65,8 +65,51 @@ func test_the_hero_line_loads_without_errors_and_adds_its_job_and_core_skills() 
 	assert_true(d.jobs_survivor.jobs.has("112"), "jobs/hero.json is merged into the survivor job data")
 	assert_eq(d.jobs_survivor.jobs.keys(), ["0", "200", "212", "112"], "base entries, then lines in LINES order")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "hero"))
-	for key: String in ["shout", "monster_magnet", "panic", "coma", "rush_hero"]:
+	for key: String in ["power_strike", "slash_blast", "brandish"]:
+		assert_true(frag.skills.has(key), "H5 ports " + key)
 	assert_true(frag.skills.has("rush_hero"), "H6 defines Rush")
+	assert_eq(Array(DataRepo.unknown_line_files()), [])
+
+
+# --- the job entry ----------------------------------------------------------------------------------------------------
+
+func test_job_112_has_the_spec_fields_and_is_not_playable() -> void:
+	var data := _data()
+	var jobs := _jobs(data)
+	var rec := jobs.job(112)
+	assert_eq(String(rec.name), "Hero")
+	assert_eq(jobs.starting_skill(112), "power_strike")
+	assert_eq(jobs.mobility_skill(112), "rush_hero")
+	assert_eq(Array(jobs.start_skills(112)), ["power_strike", "rush_hero"])
+	assert_eq(jobs.skill_pool(112), ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma"])
+	assert_eq(jobs.skill_pool(112).size(), 7)
+	assert_false("rush_hero" in jobs.skill_pool(112), "Rush is the mobility skill, not a pool entry")
+	assert_eq(jobs.weapon_families(112), ["sword", "axe"])
+	assert_eq(jobs.creation_weapon(112), 1302000)
+	assert_false(bool(rec.playable))
+	assert_ne(jobs.job_error(112), "", "the tools refuse an unplayable job")
+	assert_eq(jobs.playable_jobs(), [212] as Array[int])
+	var meter: Dictionary = data.jobs_survivor.jobs["112"].meter
+	assert_eq(String(meter.id), "combo")
+	assert_eq(int(meter.max), 10)
+	assert_eq(meter.gain, {"event": "cast_landed", "amount": 1.0, "exclude": "finisher"})
+	assert_eq(meter.per_unit, {"stat": "damage", "value": 0.02})
+	assert_eq(String(meter.art), "Skill.wz/111.img/skill/1111002/state")
+
+
+func test_212_keeps_its_entry_unchanged() -> void:
+	var jobs := _jobs(_data())
+	assert_eq(jobs.starting_skill(212), "energy_bolt")
+	assert_eq(jobs.mobility_skill(212), "teleport_fp")
+	assert_eq(jobs.weapon_families(212), ["wand", "staff"])
+	assert_eq(jobs.creation_weapon(212), 1372005)
+	assert_true(bool(jobs.job(212).playable))
+
+
+func test_pool_keys_not_yet_defined_stay_inert() -> void:
+	var data := _data()
+	var defined: Dictionary = data.skills.skills
+	for key: String in ["shout", "monster_magnet", "panic", "coma"]:
 		assert_false(defined.has(key), "%s is defined by its own ticket, not by H2" % key)
 
 
