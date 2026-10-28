@@ -566,7 +566,7 @@ renderer restarts a slot's animation when its generation changes, even if despaw
 
 Player-inflicted monster statuses live in one `MobSwarm` status table: packed `status_left` (seconds left, doubles)
 and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW = 0`, `POISON = 1`, `FREEZE = 2`,
-`THREATENED = 3` (Page Threaten, #183) and `STUN = 4` (#187), `STATUS_COUNT = 5`, plus `slow_factor`, the Threaten cut arrays `threat_pad`/`threat_pdd` (read through
+`THREATENED = 3` (Page Threaten, #183) and `STUN = 4` (#187), `ICE_WEAK = 5` and `FIRE_WEAK = 6` (vulnerabilities, #322), `STATUS_COUNT = 7`, plus `slow_factor`, the Threaten cut arrays `threat_pad`/`threat_pdd` (read through
 `threatened_pad`/`threatened_pdd`, applied in `RunWorld.mob_weapon_attack` (touch and `MobAttacks._impact`), `RunWorld.mob_defense` and the
 bulk `lower_threatened_pdd`) and private poison pulse/damage/source arrays. The `crowd` cast rule takes its status from
 the skill's `cast.status` (`SkillRunner.crowd_status`, "slow" by default; `MobSwarm.can_crowd_cast`); Threaten has no
@@ -574,7 +574,10 @@ the skill's `cast.status` (`SkillRunner.crowd_status`, "slow" by default; `MobSw
 point is `apply_status(slot, name, params, events) -> bool` (`name` from `STATUS_NAMES`); `params` contains canonical
 `time`, signed Slow `x` (Threaten: signed `x` PAD and `y` WDEF), or poison skill `level`, an optional survivor `skill` key and an optional `element` overriding
 the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`, Threatened none). Stun ignores even a supplied element;
-bosses reject every status. Other statuses fail when the Mob.wz element digit is 1, 2 or 4 (`MobKind.resists_status`). `step` receives the current event list in
+bosses reject every status. The vulnerability table `MobSwarm.VULNERABLE` maps `ICE_WEAK` -> `i` and `FIRE_WEAK` -> `f`;
+`element_multiplier(slot, element)` is 1.5 for an element whose mark runs, else the kind's value, and a composition
+(`COMPOSITIONS`: `fs`, `il`) is the mean of its constituents' live values (GAME_DESIGN 7.61; `"*"` is reserved for an
+all-element mark). Other statuses fail when the Mob.wz element digit is 1, 2 or 4 (`MobKind.resists_status`). `step` receives the current event list in
 `ctx.events`, advances status timers after movement and emits poison `mob_hit` events; it visits only a compact
 list of statused slots, and no status means no status pass at all. `RunWorld.damage_dealt` is a getter summing shots, instant hits and `swarm.poison_dealt`.
 `has_statuses()` lets presentation skip status work. `can_act(slot)` (settled, not frozen or stunned) gates monster touch
