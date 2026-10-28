@@ -5731,6 +5731,8 @@ first swing stance of the held weapon, held 0.6 s). A cast spends every held orb
   Advanced Combo `meter_keep` +2, Legendary Advanced Combo plus damage x1.2. Coma: Rare Sword Mastery, Epic Wide Reach area x1.2
   (`range_around` scales its radius by `area`), Unique and Legendary as Panic's. Legendary shares the Unique's id and repeat
   counter. Each bonus changes the resolved cast and has its own test (`test_hero_finishers`): damage, cooldown, reach and kept orbs.
+  The shared audit (`test_rarity_bonus_effects`) also covers both: its probe tops the meter up for a finisher and adds `meter_keep`
+  (orbs left after one cast) to the stats it checks.
 
 ### 7.34 Combo meter (#299, Hero H3)
 

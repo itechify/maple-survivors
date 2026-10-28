@@ -2,7 +2,7 @@ extends TestCase
 ## Every rarity bonus of every Hero and F/P skill changes the resolved cast, not just a stat number (spec #296, H7 audit).
 ## For each effect of each tier the same seeded world is cast twice, with and without the effect, against a field of mobs
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
-## pierce (mobs affected), summon_count (allies), and area / range (a mob just beyond the base reach is only affected with
+## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
 ## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
 ## Hero books (111/112) are synthetic generic tables; the F/P books come from the shared run fixtures.
 
@@ -12,7 +12,7 @@ const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
-const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range"]
+const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep"]
 
 
 ## Generic Skill.wz levels: a centred box, six mobs, one line, a 300 px range, a certain proc (the shape test_fp_high_actives uses).
@@ -124,8 +124,16 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	var window := 66.0 if stat == "cooldown" else 12.0 if stat == "damage" else 3.5
 	var affected := {}
 	var lines := 0
+	# A Combo finisher (Panic, Coma) needs orbs: ten every tick when counting casts or damage, five once otherwise, so
+	# that `meter_keep` shows in what a single cast leaves behind.
+	var finisher: bool = w.book.def(key).has("meter")
+	var orbs_left := -1
 	for tick in int(window / DT):
+		if finisher and (repeating or w.runner.casts == 0):
+			w.meter.value = 10 if repeating else 5
 		w.step(DT, MoveInput.new())
+		if finisher and orbs_left < 0 and w.runner.casts >= 1:
+			orbs_left = w.meter.value
 		if not repeating and w.runner.casts >= 1:
 			w.runner.cooldowns[key] = 1.0e9
 		for e: Dictionary in w.drain_events():
@@ -146,14 +154,15 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 		edge_hit = edge_hit or affected.has(s)
 	var direct_damage: bool = String(w.loadout.stats(key).damage_type) != "none"
 	return {"casts": w.runner.casts, "dealt": w.damage_dealt - w.swarm.poison_dealt if direct_damage else w.swarm.poison_dealt, "lines": lines, "affected": affected.size(), "edge": edge_hit,
-		"summons": w.runner.summons.active.count(1)}
+		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left}
 
 
 func test_every_pool_skill_with_bonuses_was_found() -> void:
 	var keys := _skills_with_bonuses()
-	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "energy_bolt", "explosion", "elquines"]:
+	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
+			"elquines"]:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 17, "five Hero and twelve F/P skills: %d" % keys.size())
+	assert_true(keys.size() >= 19, "seven Hero and twelve F/P skills: %d" % keys.size())
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
@@ -183,6 +192,9 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 			assert_true(int(with.affected) > int(base.affected), "%s: mobs affected %d -> %d" % [label, base.affected, with.affected])
 		"summon_count":
 			assert_true(int(with.summons) > int(base.summons), "%s: allies %d -> %d" % [label, base.summons, with.summons])
+		"meter_keep":
+			assert_true(int(base.orbs_left) >= 0 and int(with.orbs_left) > int(base.orbs_left),
+				"%s: orbs left after the cast %d -> %d" % [label, base.orbs_left, with.orbs_left])
 		"area", "range":
 			assert_false(bool(base.edge), "%s: the mob beyond the base reach is outside it" % label)
 			assert_true(bool(with.edge), "%s: the mob beyond the base reach is inside the widened one" % label)
