@@ -123,7 +123,7 @@ How many advancements a job is from Beginner: 0 Beginner, 1 first job, 2 second 
 **Job line**:
 A first job and every job below it, named after it (warrior, magician, bowman, thief, pirate), plus beginner for
 job 0 and common for job-neutral data. A class spec after the slice adds a *data line* named after the class
-(`hero`, #296), appended to `DataRepo.LINES`, so jobs of the same Adventurer line no longer share one file. Survivor data and the asset manifest keep one file per line
+(`hero`, #296), discovered by `DataRepo.lines()` after the fixed Adventurer lines, sorted by name, so jobs of the same Adventurer line no longer share one file. Survivor data and the asset manifest keep one file per line
 (`survivor/<name>/<line>.json`, `asset_manifest.d/<line>.json`), and a per-job table resolves a job through its
 lineage to the nearest listed ancestor.
 _Avoid_: class line, family (a weapon family is a kind of weapon)
@@ -425,3 +425,11 @@ _Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)
 A pool active whose meter block gates admission and spends units for extra damage. Panic and Coma are Hero's
 finishers; their meter_keep rarity modifier leaves units unspent.
 _Avoid_: ultimate, proc
+
+**Physical follower**:
+A player summon (Silver Hawk, Phoenix, Golden Eagle, Frostprey) whose damage is physical and takes its W.Att from the skill level's `pad` instead of the worn weapon, optionally stunning on hit and flying above its trailing point. It is the Elquines seam (`PlayerSummons`) with data keys, not a separate system.
+_Avoid_: pet (the Free Market pet is a cosmetic companion), minion
+
+**Burst**:
+One automatic cast that schedules its resolved shot count over time, following the moving character's hand and a
+live target. The cooldown begins on admission; unfinished shots belong to the current map (`BurstCast`, #336).

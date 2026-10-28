@@ -312,7 +312,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		lo = rng.x * dmg_mult
 		hi = rng.y * dmg_mult
 	elif dtype == "physical":
-		var bounds := CombatMath.physical_damage_range(str_stat, dex_stat, luk_stat, watk, weapon_id,
+		var bounds := CombatMath.physical_damage_range(str_stat, dex_stat, luk_stat, _summon_watk(key, lv, d), weapon_id,
 			attack_kind, job_id, mastery, d.get("physical_formula", {}))
 		lo = bounds.x * dmg_mult
 		hi = bounds.y * dmg_mult
@@ -427,6 +427,13 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		resolved["meter"] = d.meter
 		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
 	return resolved
+
+
+## The W.Att a physical hit of `key` resolves with: the level field named by the definition's `summon.watk_field` (a
+## physical follower's `pad`, spec #332 M8) in place of the worn weapon plus ammo, else the character's `watk`.
+func _summon_watk(key: String, lv: int, d: Dictionary) -> float:
+	var field := String(d.get("summon", {}).get("watk_field", ""))
+	return book.canonical(key, lv, field, 0.0) if field != "" else watk
 
 
 ## Seconds between casts: the skill's own cooldown with its cards, then the cast speed passives (an active skill's cooldown

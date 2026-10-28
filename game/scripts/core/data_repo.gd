@@ -4,7 +4,7 @@ extends RefCounted
 ## (`game/data/canonical/*.json`) into the `data` Dictionary of a RunWorld setup (docs/ARCHITECTURE.md 4.4.1, 4.4.4),
 ## and assembles a whole setup from an img loader. Presentation/core code: it reads files; the sim never does.
 ## Skills, upgrades, equipment drops, scrolls and shops are a base file plus per-job-line fragments
-## (`survivor/<name>/<line>.json`) merged by `load_split` (SPLIT, LINES; docs/ARCHITECTURE.md 4.4.4).
+## (`survivor/<name>/<line>.json`) merged by `load_split` (SPLIT, lines(); docs/ARCHITECTURE.md 4.4.4).
 ##
 ##   var data := DataRepo.load_all()
 ##   var setup := DataRepo.build_setup(data, "henesys", 12345, Vector2(800, 600),
@@ -37,15 +37,27 @@ const FILES := {
 	"cash_items": "survivor/cash_items.json",
 	"ammo": "survivor/ammo.json",
 }
-## The data lines whose fragment files may exist, in merge order: common (job-neutral) first, then the Adventurer job-line
-## ids in ascending order (Beginner 0, Warrior 1, Magician 2, Bowman 3, Thief 4, Pirate 5), then the class lines in the
-## order their specs landed (hero, #296). A class spec adds its line by appending its name here (never inserting, so the
-## merge order of the lines before it, and every recorded oracle, stays byte-identical) and creating
-## `jobs/<line>.json`, `skills/<line>.json` and `asset_manifest.d/<line>.json` (plus `upgrades/`, `equipment_drops/`,
-## `scrolls/` or `shops/` fragments only when it has entries for them); the loader probes exactly these names in this
-## order (line order, not file-name order: it decides the order of the merged cards that the level-up roll walks), and
-## test_data_repo_lines fails on any other file in a fragment directory.
-const LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate", "hero"]
+## Adventurer lines retain their historical merge order; class lines are discovered and sorted after them.
+const ADVENTURER_LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"]
+
+
+## All JSON fragment names present in any split directory, fixed Adventurers first then sorted class names.
+static func lines(root: String = DATA_ROOT) -> PackedStringArray:
+	var classes := PackedStringArray()
+	for key: String in SPLIT:
+		var dir := DirAccess.open(root.path_join(String(FILES[key]).trim_suffix(".json")))
+		if dir == null:
+			continue
+		for file in dir.get_files():
+			var line := file.trim_suffix(".json")
+			if file.ends_with(".json") and line not in ADVENTURER_LINES and line not in classes:
+				classes.append(line)
+	classes.sort()
+	var out := ADVENTURER_LINES.duplicate()
+	out.append_array(classes)
+	return out
+
+
 ## setup.data key -> how the entries of its line fragments (survivor/<name>/<line>.json) merge into the base file
 ## (survivor/<name>.json): `entries` is the key the fragments fill, `merge` the rule (docs/ARCHITECTURE.md 4.4.4).
 ##   keys:      Dictionary, entry keys concatenated (skills)
@@ -82,11 +94,17 @@ static func load_all(root: String = DATA_ROOT, errors: PackedStringArray = Packe
 	return out
 
 
-## Deep-merges `with` into `into`: Dictionaries key by key, any other value replaces.
-static func merge_patch(into: Dictionary, with: Dictionary) -> void:
+## Deep-merges dictionaries; optional equal-length array patches merge entries and retain null slots (balance tools).
+static func merge_patch(into: Dictionary, with: Dictionary, merge_arrays: bool = false) -> void:
 	for k: Variant in with:
 		if with[k] is Dictionary and into.get(k) is Dictionary:
-			merge_patch(into[k], with[k])
+			merge_patch(into[k], with[k], merge_arrays)
+		elif merge_arrays and with[k] is Array and into.get(k) is Array and with[k].size() == into[k].size():
+			for i in with[k].size():
+				if with[k][i] is Dictionary and into[k][i] is Dictionary:
+					merge_patch(into[k][i], with[k][i], true)
+				elif with[k][i] != null:
+					into[k][i] = with[k][i]
 		else:
 			into[k] = with[k].duplicate(true) if with[k] is Dictionary or with[k] is Array else with[k]
 
@@ -104,6 +122,11 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 		else:
 			out[key] = {}
 			errors.append("cannot read %s" % path)
+	# Class-owned balance rows enter through this single reader, after the shared defaults.
+	for line in lines(root):
+		var fragment: Variant = load_json(fragment_path("jobs_survivor", line, root))
+		if fragment is Dictionary and fragment.get("balance") is Dictionary:
+			merge_patch(out.balance, fragment.balance)
 	errors.append_array(stage_label_errors(out.get("stages", {})))
 	errors.append_array(stage_map_errors(out.get("stages", {})))
 	errors.append_array(Ammo.schedule_errors(out.get("ammo", {})))
@@ -111,7 +134,7 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 
 
 ## The data of a SPLIT key: its base file (`_doc` and the job-neutral config) with the entries of every existing line
-## fragment `<name>/<line>.json` merged in LINES order, per SPLIT's rule. A duplicate entry across files is listed in
+## fragment `<name>/<line>.json` merged in lines(root) order, per SPLIT's rule. A duplicate entry across files is listed in
 ## `errors` and the first value kept; an unreadable fragment, or a key in it that is neither `_`-prefixed nor the
 ## entries key, is listed too. `_`-prefixed keys of a fragment (its `_doc`, notes) are never merged. A missing or
 ## malformed base gives {} (and no fragments are read). The entries key always exists in the result.
@@ -127,7 +150,7 @@ static func load_split(key: String, root: String = DATA_ROOT, errors: PackedStri
 	var merge: String = spec.merge
 	if not out.has(entries_key):
 		out[entries_key] = {} if merge in ["keys", "families"] else []
-	for line in LINES:
+	for line in lines(root):
 		var path := fragment_path(key, line, root)
 		if not FileAccess.file_exists(path):
 			continue
@@ -146,8 +169,7 @@ static func fragment_path(key: String, line: String, root: String = DATA_ROOT) -
 	return root.path_join(String(FILES[key]).trim_suffix(".json")).path_join(line + ".json")
 
 
-## Files in the fragment directories whose name is not `<known line>.json` (e.g. "survivor/skills/rogue.json"). They
-## would be ignored by load_all, so a unit test requires this to be empty. Lists directories: tools and tests only.
+## Non-JSON files in fragment directories; every JSON name is a discovered line. Tools/tests only.
 static func unknown_line_files(root: String = DATA_ROOT) -> PackedStringArray:
 	var out := PackedStringArray()
 	for key: String in SPLIT:
@@ -156,7 +178,7 @@ static func unknown_line_files(root: String = DATA_ROOT) -> PackedStringArray:
 		if dir == null:
 			continue
 		for file in dir.get_files():
-			if not (file.ends_with(".json") and file.trim_suffix(".json") in LINES):
+			if not file.ends_with(".json"):
 				out.append(String(FILES[key]).trim_suffix(".json").path_join(file))
 	out.sort()
 	return out
@@ -167,7 +189,7 @@ static func _merge_fragment(out: Dictionary, frag: Dictionary, spec: Dictionary,
 	var entries_key: String = spec.entries
 	for k: Variant in frag:
 		var name := String(k)
-		if name.begins_with("_"):
+		if name.begins_with("_") or (name == "balance" and entries_key == "jobs"):
 			continue
 		if name != entries_key:
 			errors.append("%s: unexpected key '%s' (only '%s' and _-prefixed notes)" % [path, name, entries_key])

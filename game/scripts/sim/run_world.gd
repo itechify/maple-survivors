@@ -79,6 +79,7 @@ const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
+	"mob_pulled": ["mob", "from", "pos"],
 	"meter_changed": ["id", "value", "max"],
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
@@ -773,6 +774,7 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 	time += dt
 	potions.tick(dt)
 	refresh_player_speed()
+	runner.fired_this_tick = false
 	_step_player(dt, input)
 	if after_stage.is_valid():
 		after_stage.call("player")
@@ -814,7 +816,7 @@ func _step_player(dt: float, input: MoveInput) -> void:
 	if input.drink_hp:
 		drink_potion("hp")
 	_try_manual_buffs(input)
-	if not _try_rush(input) and not _try_teleport(input) and not _take_portal(dt, input):
+	if not _try_input_dash(input) and not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
 		if flags & PlayerMotion.EV_JUMP:
 			emit("player_jump", {"pos": player.pos})
@@ -908,16 +910,21 @@ func _cooldown_total(key: String) -> float:
 	return float(runner.cooldown_totals.get(key, 0.0))
 
 
-## A Rush press (or hold): dashes toward the pressed side arrow, else the facing (Up and Down are ignored, as in v83);
+## An input-directed manual dash press (or hold): side arrow, else facing (Up and Down are ignored).
 ## true when the dash started, which replaces this tick's ordinary movement. tier C: ours (#302).
-func _try_rush(input: MoveInput) -> bool:
-	if not input.skill_requested("rush"):
-		return false
-	var key := manual_skill("rush")
-	if key == "":
-		return false
-	var side := input.dir() if input.dir() != 0 else player.facing
-	return runner.cast_dash(self, key, side)
+func _try_input_dash(input: MoveInput) -> bool:
+	for key: String in loadout.order:
+		var action := skill_key_of(key)
+		if not input.skill_requested(action):
+			continue
+		var definition := book.def(key)
+		if String(definition.get("cast", {}).get("rule", "")) != "manual" \
+				or String(definition.get("displacement", {}).get("direction", "")) != "input":
+			continue
+		var side := input.dir() if input.dir() != 0 else player.facing
+		if runner.cast_dash(self, key, side):
+			return true
+	return false
 
 
 func _try_teleport(input: MoveInput) -> bool:
@@ -982,7 +989,7 @@ func _step_monsters(dt: float) -> void:
 
 ## Auto-casts, then the player's shots against live defense/immunity; kills drop their rewards.
 func _step_player_attacks(dt: float) -> void:
-	runner.step(dt, self)
+	runner.step(dt, self, true)
 	if _map_clearing:
 		return
 	_fill_live_defense()
@@ -1985,7 +1992,10 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 		var chance_field := String(status.get("chance_field", ""))
 		var chance := book.canonical(key, level, chance_field) if chance_field != "" else 100.0
 		if chance > 0.0 and (chance >= 100.0 or rng.randf() * 100.0 < chance):
-			var params := {"time": book.canonical(key, level, String(status.get("duration_field", "time"))),
+			# A literal `duration` (seconds, spec #332 M8) beats the level field: a status whose WZ `time` is something else.
+			var time: float = float(status.duration) if status.has("duration") \
+				else book.canonical(key, level, String(status.get("duration_field", "time")))
+			var params := {"time": time,
 				"level": level, "skill": key, "x": book.canonical(key, level, "x")}
 			if String(hit.element) != "":
 				params["element"] = String(hit.element)
@@ -2651,7 +2661,8 @@ func _advance_queue() -> void:
 func _write_player_state(dt: float) -> void:
 	var a := "dead" if _dead else player.stance()
 	if not _dead and upkeep.cast_left > 0.0 and (player.state == PlayerMotion.ST_STAND
-			or (upkeep.action_airborne and player.state == PlayerMotion.ST_AIR)):
+			or (upkeep.action_airborne and player.state == PlayerMotion.ST_AIR)
+			or (upkeep.action_walking and player.state == PlayerMotion.ST_WALK)):
 		a = upkeep.cast_action
 	if a != _action:
 		_action = a

@@ -1078,6 +1078,10 @@ func handle_events(events: Array) -> void:
 					_event_shot("boss_shockwave_%d_%s.png" % [int(e.boss_index), String(e.attack)], 0.12)
 			"mob_attack":
 				_on_mob_attack(e)
+			"summon_spawn":
+				_sound(String(e.get("sound", "")))
+			"summon_strike":
+				fx.play(String(e.effect), e.pos)
 			"cast":
 				_on_cast(e)
 			"skill_thrown":
@@ -1095,7 +1099,7 @@ func handle_events(events: Array) -> void:
 				var d := world.book.def(String(e.skill))
 				for path: String in d.get("release_visuals", []):
 					fx.play(path, e.pos - Vector2(0, world.cast_height))
-				_sound(String(d.get("sounds", {}).get("hit", "")))
+				_sound(world.book.art_path(String(e.skill), String(d.get("sounds", {}).get("hit", "")), world.loadout.weapon_family))
 			"ammo_shot":
 				_on_ammo_shot(e)
 			"teleport":
@@ -1289,7 +1293,7 @@ func _on_cast(e: Dictionary) -> void:
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
 	for visual: Dictionary in world.book.def(key).get("cast_visuals", []):
-		fx.play(String(visual.path), e.pos + Vector2(float(visual.x), 0))
+		fx.play(world.book.art_path(key, String(visual.path), world.loadout.weapon_family), e.pos + Vector2(float(visual.x), 0))
 	var loop := String(world.book.def(key).get("sounds", {}).get("loop", ""))
 	if loop != "":
 		_sound(loop)

@@ -361,6 +361,15 @@ func test_every_event_matches_the_schema() -> void:
 	meter.gain("cast_landed", meter_events)
 	for event: Dictionary in meter_events:
 		_check(event, seen)
+	var pull := CF.world({"pull": {"min_gap": 60}, "range": 600.0})
+	RF.put_mob(pull, 1110100, pull.player.pos.x + 300)
+	pull.mob_grid.rebuild(pull.swarm.x, pull.swarm.y, pull.swarm.active)
+	pull.runner.apply_pull(pull, "synthetic", pull.loadout.stats("synthetic"), pull.cast_origin())
+	var pulls := pull.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mob_pulled")
+	assert_eq(pulls.size(), 1)
+	for event: Dictionary in pulls:
+		assert_eq(event.size(), 4)
+		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "ammo_shot":
 			var archer := CF.ranged_final(1452000, 312)

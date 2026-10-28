@@ -3,23 +3,28 @@ extends HudWidget
 ## Event-fed, job-neutral meter pips beside the skill bar. Jobs without a meter draw nothing.
 ## Uses the configured state/1 orb image when available, otherwise draws a code pip.
 
+
 ## tier C: 12 px pitch and 4 px pip radius keep ten units beside the skill row at base resolution.
 const PITCH := 12.0
 const RADIUS := 4.0
+
 
 ## Number of visible capacity pips.
 func pip_count() -> int:
 	return maxi(0, int(run_info.get("meter", {}).get("max", 0)))
 
+
 ## Number of lit pips.
 func filled_count() -> int:
 	return clampi(int(run_info.get("meter", {}).get("value", 0)), 0, pip_count())
+
 
 ## Changes only when the counter does; no per-frame redraw for an unchanged meter.
 func update(ps: Dictionary, info: Dictionary) -> void:
 	if run_info.get("meter", {}) == info.get("meter", {}):
 		return
 	super.update(ps, info)
+
 
 func _draw() -> void:
 	var art := String(run_info.get("meter", {}).get("art", ""))

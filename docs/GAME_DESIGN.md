@@ -698,6 +698,53 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+**#296 review fixes / H12, after integrating #346 (2026-10-28).** No balance values changed by the
+review fixes: incoming AP HP 600, growth 65, orb 0.05, cooldowns and finisher coefficients are preserved exactly;
+Hero AP/growth/score rows now live in `jobs/hero.json`'s `balance` block. Read-only cache, `ISOLATE=296fix`,
+`JOBS=3`, seeds 1/2/2026; all four tier-1 stages bot/random for both jobs, Sleepywood bot starter/own fixture.
+All **60 completed records** have no world warnings, missing assets or TIMEOUTs. A combined shell received
+SIGTERM during kit startup after 27 records; only unfinished batches were resumed, with no source/config changes.
+Complete records and console summaries: `_scratch/296-review/smoke/` and `_scratch/296-review/smoke.log`.
+
+| Job | Clears / 30 | Henesys bot six slots | Henesys bot map 2 / 3 | Sleepywood kit map 2 / 3; clears / 3 |
+|---|---|---|---|---|
+| F/P 212 | 1/30 | 3/3; 136.7–205.3 s | 2/3 | 2/3; 1/3 |
+| Hero 112 | 5/30 | 3/3; 139.9–249.2 s | 1/3 | 3/3; 2/3 |
+
+F/P's 30 records reproduce the earlier smoke outcomes and times.
+Hero's total matches H11's 5/30 clears, but its mix changes: random Henesys/Ellinia/Perion 1/3 each,
+Sleepywood kit 2/3, all other configurations 0/3. All three fresh Henesys bot runs reach boss 1, but
+**map 2 reach falls from H11's 3/3 to 1/3**, below #346's>=2/3 target. Sleepywood kit map 2 improves 2/3 -> 3/3.
+These combined casting/admission changes need a later balance follow-up; no tuning or extra/held-out seeds were run.
+Ellinia remains recorded rather than tuned. Hero bot death ranges: Henesys 327.7–688.2, Ellinia 221.0–646.5,
+Perion 288.9–493.0, Kerning 326.8–568.7 seconds.
+
+Merged-source full suites: **2151 passed / 0 failed / 0 skipped** cached; **1926 passed / 0 failed /
+225 skipped** without cache (skips prove no asset behavior). Both F/P goldens and the repaired Hero golden
+`409dba0d1bdffc32ba72644e326f99561e6ed9c0270feda39ace2573b0727cb3` match integration 3e37ec1 unchanged.
+The change from the original H10 Hero hash came from #346's synthetic weapon-reach/cast assertion and
+initial-state coverage repair, not a review-fix rebaseline. No tests deleted. Rush visual evidence remains
+`evidence/296-review-uncapped/`; the 120-second, 7200-tick capture had missing assets `[]`.
+
+**#296 review fixes / H12, before merging #346 (2026-10-28).** Regression smoke only; no balance tuning. Read-only default
+cache, `ISOLATE=296fix`, `JOBS=3`, seeds 1/2/2026: every tier-1 stage with bot/random for 212 and 112,
+plus Sleepywood bot with starter equipment and each job’s fixture. All **60 records** finished without
+crashes, world warnings, missing assets or TIMEOUTs. Full reports remain in `_scratch/296-review/pre-346-smoke/`.
+Compared with H10 below, F/P’s outcomes and recorded stage ranges reproduce; Hero remains 0/30 clears
+with no scheduled boss defeated. Henesys boss-reach counts and bot six-slot coverage are unchanged;
+Hero bot now also reaches Kerning’s first boss in 1/3. Hero death seconds shift after the casting/admission
+fixes (Henesys bot 278.8–321.9, random 302.8–316.3); its known weak survival is left to #346.
+
+| Job | Tier-1 clears (bot + random) | Henesys bot six actives | Henesys first boss, bot / random | Sleepywood clears, starter / kit |
+|---|---|---|---|---|
+| F/P 212 | 0/24 | 3/3; 136.7–205.3 s | 3/3 / 3/3 | 0/3 / 1/3 |
+| Hero 112 | 0/24 | 3/3; 142.4–254.4 s | 2/3 / 3/3 | 0/3 / 0/3 |
+
+Full suites: cached **2148 passed / 0 failed / 0 skipped**; without cache **1923 passed / 0 failed /
+225 skipped** (skips prove no asset behavior). Both F/P goldens and the Hero golden remain unchanged.
+A 120-second Hero visual playtest (seed2026, x4, vsync off) completed 7200 ticks with missing assets `[]`;
+Rush’s streak/hit capture was inspected in `evidence/296-review-uncapped/`. No tests were deleted.
+
 **#306 / H10 Hero enablement and H9 completion (2026-10-28).** No balance tuning. Read-only real cache,
 `ISOLATE=306`, `JOBS=3`, training seeds 1/2/2026 only. All four tier-1 stages, bot/random, both jobs;
 Sleepywood bot with starter equipment and each job's fixture (`hero_t2.json`, `fp_arch_mage.json`).
@@ -833,7 +880,7 @@ fetch/merge was already up to date (5cd40ea); no gameplay changes after validati
 training seeds 1/2/2026, bot/random on every tier-1 region and bot Sleepywood with/without the tier-1 kit.
 No tuning or held-out seeds. All 30 records have empty warnings/missing lists, no crashes or timeouts.
 All 30 records after merging H1/H2/H4 are byte-identical to the preserved pre-merge meter-runtime records.
-The results reproduce the preceding #294 smoke; Hero stays unplayable (H9/H10), so Combo is exercised by
+Historical H7 results reproduce the preceding #294 smoke; Hero was then unplayable (before H9/H10), so Combo is exercised by
 seeded synthetic tests and the diagnostic HUD probe rather than claimed as Hero survival evidence.
 
 | Stage / kit | Bot clear / dead; time range; end level | Random clear / dead; time range; end level |
@@ -5729,6 +5776,56 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. Rarity lists ship in the skill definition.
 
+### 7.44 Physical followers (#338, spec #332 M8)
+
+The Elquines seam (7.32) with four data-driven extensions, shared by Silver Hawk, Phoenix, Golden Eagle and Frostprey (and
+any later follower). None is an ID switch; a definition without the keys behaves exactly as before (Elquines is
+byte-identical: same state, same RNG stream, `test_character_baseline` and `test_tick_cost_identity` unchanged).
+
+- **Physical damage source.** `damage: "physical"` with `summon.watk_field: "pad"`: `Loadout.stats` resolves the damage
+  with that level field as the W.Att in the ordinary physical formula (`CombatMath.physical_damage_range`: the held
+  weapon's multiplier row, so a bow gives 3.4 x DEX + STR, then x pad / 100, the character's mastery for the minimum) instead of the character's `watk`
+  (worn weapon, buffs and ammo). `Loadout._summon_watk` is the only place that reads the key. The level is the skill's mapped
+  rank level, so `pad` plays the role `mad` plays for Elquines; `damage_pct` stays 1 (the nodes have no `damage` field). The
+  mob's PDD applies (`defense: pdd`), crit and survivor multipliers as for any physical hit. Tier C reading of v83's
+  "attack +23" (Silver Hawk) and "basic attack 305" (Phoenix) text.
+- **Stun from the hit, literal duration.** The strike goes through `RunWorld.hit_mob`, so the skill's `on_hit` applies.
+  `on_hit` gains an optional literal `duration` (seconds), beside `duration_field`, which wins when present: a status whose
+  WZ `time` is something else (Silver Hawk's `time` is the lifetime, 103-180 s) can still use `chance_field` (`prop`) for
+  the chance. One stream-1 draw per hit when `prop` is under 100, none at 100; bosses and steady mobs reject stun as always.
+- **Flyers.** `summon.hover` (px, default 0) lifts the follower above its trailing point: it enters, follows and snaps at
+  that height. The attack box stays feet-relative (anchored at the trailing point on the ground, not at the flyer), so a
+  hovering Phoenix's +-60 px box still reaches ground monsters (tier C). `summon.move` (default `"move"`) names the animation
+  node played while following (`fly` for the hawk and the phoenix); the sim stores that resolved node name as the ally's
+  action and takes its duration from that node, so `PlayerSummonRenderer` draws it unchanged (it loops `stand` and the
+  definition's move node).
+- **Settling between strikes.** `summon.settle` (default false: Elquines holds its attack pose for the whole
+  `attack_interval` and does not follow meanwhile, 7.32): a settling follower leaves the attack pose when the attack animation
+  has finished (and the hit has landed), plays its move / stand node and keeps following the caster until the interval ends,
+  then strikes again. The hawk needs it: its `attack1` body animation is a 100 ms frame followed by a 600 ms **1 x 1 px
+  placeholder** (the hawk is out of sight while its bolt strikes), so holding the last frame would hide the hawk for the rest
+  of its 1.6 s interval.
+- **Sounds and strike art.** `sounds.summon` (a `Sound.wz` path) rides the `summon_spawn` event as `sound` (the key is absent when the
+  definition lists none, so Elquines' events are byte-identical) and the presentation plays it at each spawn, one per frame per path. When the attack node's
+  `info` has an `effect` node, each struck monster gets one `summon_strike` event ({skill, slot, mob, pos, effect}) and the
+  presentation plays that animation on it. (Both events are emitted without being listed in `RunWorld.EVENT_FIELDS`, like `summon_attack`.)
+
+**Hover and the WZ origins.** The v83 follower frames already float above their anchor (Silver Hawk `fly` / `stand`: origin y
+137-221 on 63-113 px tall frames, i.e. 40-110 px above the anchor), so `hover` stacks on top of art that is already high: a
+hawk at `hover 80` was drawn about 190 px over the character in the #338 probe. The B11 definitions should start from a small
+`hover` (0-30) and look at a screenshot.
+
+**What the WZ `type 1` attack changes (verified on v83 Skill.wz 311.img / 312.img).** Silver Hawk (3111005) `attack1`:
+`info/type 1`, `attackAfter 100`, `effectAfter 600`, no `mobCount` (one target), box +-200 x +-150, a two-frame body
+animation (100 ms then 600 ms), `info/hit` (6 frames, 90 ms, the same frames as the skill's own `hit/0`) and `info/effect`
+(4 frames, 80 ms, origin 140-200 px above the frame: a bolt that lands on the target). Phoenix (3121006) `attack1`: `type 1`,
+`attackAfter 360`, `mobCount 4`, box +-100 x +-60, eleven body frames, **no** `info/hit` and **no** `info/effect` (its fire
+art is the skill's `hit` / `tile` nodes). So `type 1` marks an attack whose impact art hangs off `info` instead of the
+body frames. The sim never branches on `type`. Damage lands at `attackAfter` for both (T9 timing); `info/hit` is the
+skill's `hit/0` the existing hit visual already draws, `info/effect` is drawn at the same impact on each struck monster
+(tier C: `effectAfter` is not modelled as a separate delay; the bolt art simply plays on the impact tick). Silver Hawk
+and Phoenix `Use` / `Summon` sounds are UOLs into 3211005 (Golden Eagle).
+
 ### 7.33 Hero pool and Rush (spec #296)
 
 #### Core melee: Power Strike, Slash Blast, Brandish (H5, #301)
@@ -5859,7 +5956,7 @@ first swing stance of the held weapon, held 0.6 s). A cast spends every held orb
   for an axe and the skill's own id otherwise, `art_path` re-points a Skill.wz/Sound.wz path at it. Loadout applies it to the
   skill's `effect` and `hit`, the finisher block below to its finish art, and the presentation to the Use sound. Sim numbers are
   shared (the twins are identical in the WZ; only the icon differs).
-- **Finish art by orbs spent (tier B reading, no source states it).** A `finish` block `{effect "…/finish/{n}", at, max_n 10,
+- **Finish art by orbs spent (tier C reading, no source states it).** A `finish` block `{effect "…/finish/{n}", at, max_n 10,
   advanced_above 5, hit_advanced "…/hit/1"}`: the cast plays `finish/N` for N orbs spent (1..10, so 5..10 for a plain cast and
   fewer with Advanced Combo keeping orbs) and the hit art is `hit/1` above 5 orbs spent, else `hit/0`. Coma's finish plays on the
   caster (the cast event's effect); Panic's plays on its target (a `skill_mob_effect`). Coma's `mob` stun stars are the same art
@@ -5982,6 +6079,26 @@ Tests: `test_ammo` (rule, data file, real-cache `incPAD` strictly increasing alo
 notice), `test_ammo_world` (a Bowmaster levelled through 15/30/45 with real EXP: one `ammo_upgraded` each, none at the start
 or on a weapon swap, the shot sprite follows the ammo). The old Hunter / Crossbowman / Assassin / Gunslinger ammo assertions
 elsewhere were moved onto the exact jobs 312 / 322 / 412 / 522 at the new levels.
+
+### 7.42 Channelled burst (#336, Bowmaster B4)
+
+`kind: "projectile"`, `cast: {"rule": "burst"}` dispatches to `BurstCast`, owned and ticked by SkillRunner.
+The definition's `burst: {"interval": 0.1, "wind_up": 0.4, "retarget": true}` schedules resolved `count` shots:
+first at wind-up seconds after admission, then every interval (on the first fixed tick at/after each deadline).
+Zero wind-up fires on admission. Admission uses nearest targeting, scheduled bosses first, inside resolved `range`.
+One ordinary cast event/stance and cooldown start at admission; the active burst blocks that skill's recast even
+when cooldown expires. Different skills can run concurrently. No skill uses this rule until its data ticket lands.
+
+Each shot uses the current hand and target centre, calling the same `SkillRunner.fire_shot` as nearest projectiles.
+Nearest's simultaneous reused-target spread is preserved; burst arrows have no spread. Stats are snapshotted at
+admission, including a shared meter receipt (at most one landed cast), while ammo art is resolved at each launch.
+The target remains until its logical mob identity dies or its centre leaves range. Optional `burst.overshoot`
+(default 0 px) extends retention only; replacements still require `range`. With `retarget: false`, invalidating the
+target drops all remaining shots; otherwise the nearest eligible replacement is acquired, bosses first. No eligible
+replacement also drops remaining shots without refund. Map transfer (`clear_pending`), death and Hidden cancel
+unfinished bursts; already launched projectiles keep their existing lifetime rules. Timing and targeting consume
+no RNG; impact damage rolls retain the existing main stream. Bot reach is resolved range; SkillText reports
+"Fires N arrows over T s", where T includes wind-up and the final shot's deadline.
 
 ## 8. Upgrades
 
@@ -6369,6 +6486,15 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 
 ## 11. Constants and provenance
 
+### Bowmaster #336 constants
+
+| Constant / rule | Tier | Source |
+|---|---|---|
+| Burst defaults: wind-up 0 s, retention overshoot 0 px, retarget true; negative timing/overshoot clamp to 0; zero interval releases all due arrows in order | C | #332 automatic held-key adaptation; optional overshoot makes retention explicit without adding reach to acquisition |
+| Invalid target without replacement drops remaining shots, no cooldown refund; Hidden/death cancel; no reused-target spread on burst shots | C | #332 / #336 survivor burst policy |
+
+
+
 
 ### Review #282: constants and provenance
 
@@ -6459,7 +6585,7 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | Hero AP row (#298, spec #296) | `balance.player.ap["112"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204 (the secondary DEX target tracks the level plus about 4, the v83 Warrior gear pattern). HP growth is not re-listed: 112 inherits the Warrior row (100: 26 per level) through the lineage | C | Spec #296 |
 | Hero creation weapon (#298, spec #296) | `survivor/jobs/hero.json` `creation_weapon` 1302000, the plain Sword (reqJob 0, so wearing it checks no class); `weapon_families` `["sword", "axe"]` filters the existing Warrior drop list (one- and two-handed), armour and shields drop by the Warrior class bit; the weapon item id and stats are tier A | C | Spec #296 |
 | `default_job` pin (#298, spec #296) | `survivor/jobs.json` `default_job` 212: the job of a fresh character and of every tool run, test and oracle that names none, so Hero never changes it by becoming playable; Hero is always chosen explicitly (`--job=112`, the creation Job page). The owner can flip it with this one line | C | Spec #296, risk found while checking the slice |
-| Hero bot card scores (#305, spec #296) | `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for each of the seven Hero pool skills (power_strike, slash_blast, brandish, shout, monster_magnet, panic, coma), the same numbers every F/P pool skill has (the default attack scoring, 100 and 62 + 12 job bonus), set explicitly so the meter-gated finishers and the pull, which the default scorer would not take for attacks, are taken whatever their cast rule | C | Spec #296 |
+| Hero bot card scores (#305, spec #296) | `jobs/hero.json` balance.bot.card_scores: `<key>_new` 100 and `<key>_rank` 74 for each of the seven Hero pool skills (power_strike, slash_blast, brandish, shout, monster_magnet, panic, coma), the same numbers every F/P pool skill has (the default attack scoring, 100 and 62 + 12 job bonus), set explicitly so the meter-gated finishers and the pull, which the default scorer would not take for attacks, are taken whatever their cast rule | C | Spec #296 |
 | Hero hub kit (#305, spec #296) | `HubTestKit.HERO_KIT_SCROLLS` (every rate of the ATT scrolls of the sword, two-handed sword, axe and two-handed axe, 20 stacks of 10) and `HERO_KIT_EQUIPMENT` (1002001 hat, 1402000 two-handed sword, 1082002 gloves, 1040010 top), used for a character of job 112; `--hub --job=112` opens `hero_t2.json`; 500,000 mesos as for F/P | C | Ours, a test aid |
 | Job page rows (#305) | rows are left-aligned, and the chosen row keeps its plate in every Button state (hover and pressed too), so it stays highlighted under the mouse; the Job blurb repeats the weapon box (creation weapon name, WATK, swing time) | C | Ours, layout |
 | Rush 2.0 s cooldown, always-on 80 px knock-back along the dash, hold-to-repeat, refused while climbing, airborne dash keeps its height (#302, spec #296) | `skills/hero.json` `rush_hero` (`cooldown`, `knockback`); damage 78%, `mobCount` 15, box reach 170 px (the dash distance) and `rush2` are Skill.wz level 4 (tier A) | C | Spec #296 D1; v83 Rush is a dash with a hit box |
@@ -6591,7 +6717,7 @@ Bowman (#166), generic mechanics (#200):
 | Hero finishers (#304) | Panic nearest within 250 px, 2.0 s cooldown; Coma range_around, `min_targets` 3, 1.0 s; both `meter` min 5 / spend all / +10% per orb spent, first swing stance held 0.6 s | C | ours, spec #296 |
 | Panic Threaten cut (#304) | Flat `min(level, 20)` weapon attack and defence while threatened; bosses refuse the status | C | ours, spec #296 |
 | Hero finisher WZ fields (#304) | 1111003/1111005 mapped level `damage`, `prop`, `time`, Coma `range`/`mobCount`/`hpCon`; finish/1..10, hit/0|1, Use sounds; axe twins 1111004/1111006 identical | A | original v83 Skill.wz |
-| Finish art by orbs spent (#304) | `finish/N` for N orbs spent, `hit/1` above 5 orbs, axe twin for an axe | B (layout reading), C (keying) | H1 notes |
+| Finish art by orbs spent (#304) | `finish/N` for N orbs spent, `hit/1` above 5 orbs, axe twin for an axe | C (layout reading and keying) | H1 notes |
 | Pull selection (#300) | Up to `mobCount` candidates, farthest first (horizontal; slot breaks ties), only live grounded non-boss mobs at least 120 px from the caster (block key `min_distance` overrides) and within `range`; bosses and flyers never candidates (7.35) | C | ours, spec #296 |
 | Pull gap and slide (#300) | Per-skill `pull.min_gap` px (Monster Magnet ships 60, H7); the mob slides `max(0, dx - gap)` px toward the caster along its foothold chain, stopping at platform edges, walls and map bounds; never crosses the caster | C | ours, spec #296; shared slide |
 | Pull chance rolls (#300) | One main-stream draw per taken candidate, none at 100% or without a chance field; a 0% chance still draws; selection before rolls | C | ours (mirrors the knockback roll rule) |
@@ -7243,6 +7369,13 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 | Finisher repeat floor / arbitration | 1 s; single-target scheduled boss, else most targets | tier C, #296; shared admission |
 | Meter HUD geometry | origin (244,20), 12 px pitch, 4 px radius, 10 px orb image, 1 px border | tier C presentation layout; original orb pixels tier A |
 
+Review #296 clarification: finisher cooldowns have a strict 1.0-second floor after tick overshoot (tier C,
+spec #296); ordinary meter gates use normal cooldown and cast order. `meter.spend` accepts `"all"` or an integer,
+and gain exclusion compares the skill’s declared role. Rush explicitly presents its action while walking or airborne
+without changing movement physics. Pull admission counts only grounded non-boss targets outside its configured floor.
+Warrior bot equipment weights now explicitly name ancestor 100 with the same values formerly inherited from 0
+(tier C: existing physical baseline, unchanged). Hero AP and bot score values live in jobs/hero.json’s balance block.
+
 ### Bowmaster B3 constants (#335)
 
 | Constant / rule | Value | Provenance |
@@ -7254,3 +7387,15 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 | Night Lord stars (412, claw) | Lv10 Wolbi 2070001, Lv20 Mokbi 2070002, Lv30 Kumbi 2070003, Lv40 Tobi 2070004, Lv50 Steely 2070005 (`incPAD` +17..+25) | tier C levels; tier A ids and `incPAD` |
 | Corsair bullets (522, gun) | Lv18 Split 2330001, Lv35 Mighty 2330002 (`incPAD` +12, +14) | tier C levels; tier A ids and `incPAD` |
 | Ilbi Throwing-Stars 2070006, Vital Bullet 2330003 | not scheduled | tier C: left to the specs that own those jobs |
+
+### Bowmaster B6 constants (#338)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Follower damage W.Att | the level's `pad` (`summon.watk_field`) instead of the character's weapon attack | tier C reading of v83 "attack +23" / "basic attack 305"; `pad` itself tier A |
+| Literal `on_hit.duration` | seconds, beats `duration_field` | tier C (Silver Hawk's `time` is its lifetime) |
+| `summon.settle` | opt-in, default off: after the attack animation the follower plays its move/stand node and keeps following until the interval ends | tier C |
+| Flyer spawn / trailing height | `hover` px above the trailing point; spawn at that height | tier C |
+| Attack box anchor of a flyer | feet-relative (the trailing point on the ground), not the flyer | tier C |
+| `info/effect` strike art | played at the damage impact (`attackAfter`) on each struck monster; `effectAfter` not modelled | tier C; the nodes are tier A |
+| `Summon` sound | plays at each follower spawn when `sounds.summon` is listed | tier C (no sound in the v83 client was verified to play at spawn) |
