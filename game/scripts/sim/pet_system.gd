@@ -151,7 +151,7 @@ func step(dt: float, player: PlayerMotion, fhm: FootholdMap, bounds: Rect2, drop
 ## ALERT level (fraction of max, 0 = off): it has the pouch, there is a maximum, the value is below the level and the
 ## shared cooldown is ready (tier C: spec #237).
 func should_drink(kind: String, current: float, maximum: int, alert_level: float, ready: bool) -> bool:
-	return bool(abilities["auto_" + kind]) and alert_level > 0.0 and maximum > 0 \
+	return bool(abilities.get("auto_" + kind, false)) and alert_level > 0.0 and maximum > 0 \
 		and current / float(maximum) < alert_level and ready
 
 

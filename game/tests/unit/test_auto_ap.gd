@@ -95,12 +95,11 @@ func test_batch_exp_matches_stepwise_growth_and_keeps_level_and_potion_queue_ord
 	initial.change_job(200)
 	initial.progression.level = 20
 	initial._earned_ap = 95
-	initial._base_mp = 400.0
 	initial.refresh_player_stats(false)
 	var setup := RF.setup("quiet", 1, RF.quiet_data())
 	setup.character = initial.character_snapshot()
 	# Include two synthetic potion schedule boundaries in the batch and check their event order.
-	setup.data.balance.potions.schedule = [{"level": 22, "kind": "mp", "item": 2022000},
+	setup.data.balance.potions.schedule = [{"level": 22, "kind": "hp", "item": 2000001},
 		{"level": 25, "kind": "hp", "item": 2000002}]
 	var batch := RunWorld.new(setup)
 	var stepwise := RunWorld.new(setup)
@@ -112,8 +111,6 @@ func test_batch_exp_matches_stepwise_growth_and_keeps_level_and_potion_queue_ord
 		total += exp
 		stepwise._gain_exp(exp)
 	batch._gain_exp(total)
-	assert_eq(batch._base_mp, 648.0, "INT before each level's AP determines MP growth")
-	assert_eq(batch._base_mp, stepwise._base_mp, "EXP collection grouping must not change permanent MP")
 	assert_eq(batch._base_hp, stepwise._base_hp)
 	assert_eq(batch._earned_ap, stepwise._earned_ap)
 	assert_eq(batch._attributes, stepwise._attributes)
@@ -125,7 +122,7 @@ func test_batch_exp_matches_stepwise_growth_and_keeps_level_and_potion_queue_ord
 	var events := batch.drain_events()
 	assert_eq(events, stepwise.drain_events(), "level-up and potion notices stay in intermediate-level order")
 	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "potion_tier_up")
-		.map(func(e: Dictionary) -> String: return String(e.kind)), ["mp", "hp"])
+		.map(func(e: Dictionary) -> int: return int(e.item_id)), [2000001, 2000002])
 	batch._advance_queue()
 	assert_eq(batch.state, RunWorld.CHOOSING_UPGRADE, "the first queued level opens its normal choice")
 	assert_eq(batch.progression.front(), 21)

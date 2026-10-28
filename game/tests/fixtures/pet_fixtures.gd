@@ -9,11 +9,10 @@ const DT := 1.0 / 60.0
 
 const KITTY := 5000000
 const AUTO_HP := 1812002
-const AUTO_MP := 1812003
 const WING := 1812004
 const BINOCULAR := 1812005
 const VAC := 9990000
-const EVERYTHING: Array = [KITTY, AUTO_HP, AUTO_MP, WING, BINOCULAR, VAC]
+const EVERYTHING: Array = [KITTY, AUTO_HP, WING, BINOCULAR, VAC]
 
 
 ## Quiet data with `overrides` ({pet tuning key: value}) merged into the pet block.
@@ -25,7 +24,7 @@ static func data(overrides: Dictionary = {}) -> Dictionary:
 
 
 ## A quiet-stage setup on the tiers map (the player starts at x=300 on the ground) with `owned` account items, `pet`
-## worn by the carried character (0 = none) and ALERT fractions.
+## worn by the carried character (0 = none) and the HP ALERT fraction.
 static func setup(d: Dictionary, pet: int, owned: Array, alert: Dictionary = {}, seed_value := 5) -> Dictionary:
 	var s := RF.setup("quiet", seed_value, d)
 	s.map_img = RF.map_from_segments(WF.tiers_segments(), [Vector2(300, 0)])
@@ -46,7 +45,7 @@ static func busy_setup(seed_value: int) -> Dictionary:
 	character.pet = KITTY
 	s.character = character
 	s.account = {"owned": EVERYTHING}
-	s.alert = {"hp": 0.6, "mp": 0.6}
+	s.alert = {"hp": 0.6}
 	return s
 
 
