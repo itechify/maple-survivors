@@ -247,6 +247,20 @@ func test_every_il_skill_with_bonuses_is_audited_here_or_named_as_audited_elsewh
 		assert_true(resolved[key].has("rarity_bonuses"), key)
 
 
+func test_the_audits_cover_the_whole_shipped_il_pool() -> void:
+	# I12 #331: Energy Bolt and Magic Claw are the F/P audit's (shared skills, found by _skills_with_bonuses); Ifrit is audited by test_ifrit.
+	var pool: Array = DataRepo.load_all().jobs_survivor.jobs["222"].skill_pool.duplicate()
+	var keys := _skills_with_bonuses()
+	var covered: Array = IL_SKILLS.duplicate()
+	for key: String in ["energy_bolt", "magic_claw"]:
+		assert_true(key in keys, "%s (shared with F/P) is audited" % key)
+		covered.append(key)
+	covered.append_array(IL_AUDITED_ELSEWHERE)
+	pool.sort()
+	covered.sort()
+	assert_eq(covered, pool, "a new I/L pool skill needs a resolved-cast audit")
+
+
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
 	var skills := _resolved()
 	var il_checked := 0

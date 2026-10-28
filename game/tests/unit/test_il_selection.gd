@@ -1,9 +1,8 @@
 extends TestCase
-## `--job=222` through the tools (spec #319, I11 #330; the I/L copy of H9 #305's test_hero_selection): the run flags, balance_run, the fixture tool and a `--character` of the
-## other job. I/L is `playable: false` in the shipped data until I12, so the accepting cases mirror the data with
-## `DataRepo.patch` (in-process) or `--patch=<file>` (the tools' own flag); the refusing ones run against the shipped data.
+## Shipped I/L through the tools: run flags, balance_run, fixture generation and mismatched characters.
+## An explicit disabling patch preserves the refusal tests after I12 enables job 222.
 
-const PATCH := {"jobs_survivor": {"jobs": {"222": {"playable": true}}}}
+const PATCH := {"jobs_survivor": {"jobs": {"222": {"playable": false}}}}
 const FP_FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 const IL_FIXTURE := "res://tests/fixtures/characters/il_arch_mage_t2.json"
 
@@ -56,24 +55,24 @@ func test_run_flags_carry_job_222_and_the_error_names_the_unplayable_job() -> vo
 	assert_eq(int(parsed.options.job), 222)
 	assert_eq(RunLauncher.options_from_args({"job": "222"}).job, 222)
 	var data := DataRepo.load_all()
-	assert_true(SceneFlow.forced_job_error(parsed.options, data).contains("not playable"), "shipped I/L: I12 flips it")
+	assert_eq(SceneFlow.forced_job_error(parsed.options, data), "", "shipped I/L is playable")
 	DataRepo.patch = PATCH.duplicate(true)
-	assert_eq(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()), "", "--job=222 is valid once I/L is playable")
-	assert_eq(SceneFlow.forced_job_error({"job": 212}, DataRepo.load_all()), "", "and --job=212 still is")
+	assert_true(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()).contains("not playable"))
+	assert_eq(SceneFlow.forced_job_error({"job": 212}, DataRepo.load_all()), "")
 
 
-func test_balance_run_accepts_job_222_once_il_is_playable_and_refuses_it_before() -> void:
+func test_balance_run_accepts_job_222_and_refuses_an_explicitly_disabled_job() -> void:
 	if not require_cache():
 		return
-	var patch := _file("il_playable.json", JSON.stringify(PATCH))
-	var ok := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--seed=1", "--cap=0.016666667", "--job=222", "--patch=" + patch]))
+	var patch := _file("il_disabled.json", JSON.stringify(PATCH))
+	var ok := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--seed=1", "--cap=0.016666667", "--job=222"]))
 	assert_eq(ok.status, 0, ok.text)
 	var record := _record(ok.text)
 	assert_false(record.is_empty(), "a record was printed")
 	if not record.is_empty():
 		assert_eq(int(record.job), 222)
 		assert_eq(record.missing, [])
-	var refused := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--cap=0.016666667", "--job=222"]))
+	var refused := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--cap=0.016666667", "--job=222", "--patch=" + patch]))
 	assert_eq(refused.status, 2)
 	assert_true(refused.text.contains("not playable"), refused.text)
 	assert_true(_record(refused.text).is_empty())
@@ -82,17 +81,16 @@ func test_balance_run_accepts_job_222_once_il_is_playable_and_refuses_it_before(
 func test_job_212_with_an_il_character_and_job_222_with_an_fp_character_are_errors() -> void:
 	if not require_cache():
 		return
-	var patch := _file("il_playable.json", JSON.stringify(PATCH))
 	var il := _il_file()
 	var base := PackedStringArray(["--stage=henesys", "--cap=0.016666667"])
 	var a := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--job=212", "--character=" + il]))
 	assert_eq(a.status, 2, a.text)
 	assert_true(a.text.contains("does not match the character's job 222"), a.text)
-	var b := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--job=222", "--patch=" + patch,
+	var b := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--job=222",
 		"--character=" + ProjectSettings.globalize_path(FP_FIXTURE)]))
 	assert_eq(b.status, 2, b.text)
 	assert_true(b.text.contains("does not match the character's job 212"), b.text)
-	var same := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--job=222", "--patch=" + patch, "--character=" + il]))
+	var same := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--job=222", "--character=" + il]))
 	assert_eq(same.status, 0, same.text)
 	assert_eq(int(_record(same.text).job), 222, "an I/L character runs as an I/L")
 
@@ -105,18 +103,18 @@ func test_an_il_character_file_needs_no_job_flag() -> void:
 	assert_eq(int(_record(run.text).job), 222, "the job comes from the character")
 
 
-func test_the_fixture_tool_makes_an_il_with_patch_and_refuses_it_without() -> void:
+func test_the_fixture_tool_makes_a_shipped_il_and_refuses_a_disabled_job() -> void:
 	if not require_cache():
 		return
-	var patch := _file("il_playable.json", JSON.stringify(PATCH))
+	var patch := _file("il_disabled.json", JSON.stringify(PATCH))
 	var out := ProjectSettings.globalize_path(work_dir.path_join("il_kit.json"))
 	var args := PackedStringArray(["--out=" + out, "--revision=0123456789012345678901234567890123456789", "--job=222",
 		"--kit=1382002,1002013,1072019,1082019", "--tiers=2", "--label=test"])
-	var refused := _tool("res://tools/character_fixture.gd", args)
+	var refused := _tool("res://tools/character_fixture.gd", args + PackedStringArray(["--patch=" + patch]))
 	assert_eq(refused.status, 2, refused.text)
 	assert_true(refused.text.contains("not playable"), refused.text)
 	assert_false(FileAccess.file_exists(out))
-	var made := _tool("res://tools/character_fixture.gd", args + PackedStringArray(["--patch=" + patch]))
+	var made := _tool("res://tools/character_fixture.gd", args)
 	assert_eq(made.status, 0, made.text)
 	var errors := PackedStringArray()
 	var character := DataRepo.load_character(out, errors)
@@ -129,7 +127,7 @@ func test_the_fixture_tool_makes_an_il_with_patch_and_refuses_it_without() -> vo
 	for id: int in [1382002, 1002013, 1072019, 1082019]:
 		assert_true(id in worn, "%d is worn" % id)
 	assert_eq(int(character.equipment.worn.weapon.id), 1382002)
-	assert_eq(character._doc.patch, "il_playable.json", "the _doc records the patch the fixture was made with")
+	assert_false(character._doc.has("patch"), "shipped I/L needs no patch")
 
 
 func test_the_committed_fixture_is_a_format_three_il_with_the_tier_one_kit() -> void:

@@ -211,20 +211,16 @@ func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
 	assert_eq(HubTestKit.job_error({"job": 212}, fp, jobs), "")
 	assert_true(HubTestKit.job_error({"job": -1}, fp, jobs).contains("not a job id"))
 	assert_eq(HubTestKit.job_error({"job": 112}, _hero(), jobs), "")
-	var both := jobs
-	assert_eq(HubTestKit.job_error({"job": 112}, _hero(), both), "")
-	assert_true(HubTestKit.job_error({"job": 112}, fp, both).contains("does not match"), "a Hero request with an F/P character")
-	assert_true(HubTestKit.job_error({"job": 212}, _hero(), both).contains("does not match"), "and the other way round")
-	# I/L (#319 I11): refused while its job is not playable (a mirror of the playable flag stands in for the flip in I12)
-	if not jobs.job(222).playable:
-		assert_true(HubTestKit.job_error({"job": 222}, _il(), jobs).contains("not playable"), "shipped I/L is unplayable until I12")
-	DataRepo.patch = {"jobs_survivor": {"jobs": {"222": {"playable": true}}}}
+	assert_true(HubTestKit.job_error({"job": 112}, fp, jobs).contains("does not match"), "a Hero request with an F/P character")
+	assert_true(HubTestKit.job_error({"job": 212}, _hero(), jobs).contains("does not match"), "and the other way round")
+	assert_eq(HubTestKit.job_error({"job": 222}, _il(), jobs), "", "shipped I/L is playable")
+	DataRepo.patch = {"jobs_survivor": {"jobs": {"222": {"playable": false}}}}
 	var mirrored := DataRepo.load_all()
 	var with_il := JobTree.from_data(mirrored.jobs, mirrored.jobs_survivor)
 	DataRepo.patch = {}
-	assert_eq(HubTestKit.job_error({"job": 222}, _il(), with_il), "")
-	assert_true(HubTestKit.job_error({"job": 222}, fp, with_il).contains("does not match"), "an I/L request with an F/P character")
-	assert_true(HubTestKit.job_error({"job": 212}, _il(), with_il).contains("does not match"), "and the other way round")
+	assert_true(HubTestKit.job_error({"job": 222}, _il(), with_il).contains("not playable"))
+	assert_true(HubTestKit.job_error({"job": 222}, fp, jobs).contains("does not match"), "an I/L request with an F/P character")
+	assert_true(HubTestKit.job_error({"job": 212}, _il(), jobs).contains("does not match"), "and the other way round")
 
 
 func test_a_format_1_character_file_migrates_before_the_kit() -> void:

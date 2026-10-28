@@ -172,6 +172,11 @@ _Avoid_: transformation, disguise
 The Key Config binding of one manual skill the character has learned.
 _Avoid_: hotkey, quickslot
 
+**Chain**:
+A cast that hits its first target, then jumps from the previous target to the nearest unhit monster within its hop
+radius, stopping at its target cap or when no neighbour is in reach. Chain Lightning draws a bolt along those links.
+_Avoid_: splash, bounce (which can imply repeat hits)
+
 **Skill template**:
 A skill definition with `"extends": "<key>"`: it inherits another definition and rewrites its art and sound paths to
 its own book and skill id (the I/L and Bishop Big Bangs extend F/P's). Resolved only by `SkillBook`.

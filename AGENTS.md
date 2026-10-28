@@ -245,7 +245,7 @@ The committed `game/tests/fixtures/characters/fp_arch_mage.json` is the F/P char
 with tier 2 unlocked and the tier-1 equipment kit worn (a reqLevel-25 staff, reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15
 gloves, unscrolled); its `_doc` records the kit ids, label and revision, and `game/tools/character_fixture.gd --kit=<ids>
 --tiers=2` reproduces it (`game/tests/fixtures/characters/README.md`). `hero_t2.json` is the Hero (112) fixture: the equipment and loot from a seed-1 invulnerable Henesys bot clear,
-with tier 2 unlocked; its `_doc` records this diagnostic origin. Reproduce it with `--job=112 --god`. Its I/L twin `il_arch_mage_t2.json` (job 222, spec #319 I11: the same kit as F/P's and tier 2) was made with `--job=222 --patch=<playable patch>` while I/L was not yet `playable`, and its `_doc.patch` names the patch file; `--hub --job=222` opens it, `--character=<it>` runs an I/L (a `--job=212` with it fails).
+with tier 2 unlocked; its `_doc` records this diagnostic origin. Reproduce it with `--job=112 --god`. Its I/L twin `il_arch_mage_t2.json` (job 222, spec #319 I11: the same kit as F/P's and tier 2) was made with `--job=222 --patch=<playable patch>` before I12 enabled I/L, and its `_doc.patch` names the patch file (history; new generation needs no patch); `--hub --job=222` opens it, `--character=<it>` runs an I/L (a `--job=212` with it fails).
 The same tool can also write the character a real bot
 round leaves behind, and converts old files.
 
@@ -276,7 +276,7 @@ Use focused filters excluding `full_run` while tuning; freeze data and pacing wi
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
 `--job=<id>` names the character's job in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd` and the fixture tool (ADR 0006:
-a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112) and Arch Mage (Fire, Poison, 212); the I/L Arch Mage (222) joins them once its last ticket (I12, spec #319) flips `playable`: until then `balance_run.gd` and `character_fixture.gd` take `--patch=<JSON>` with `{"jobs_survivor": {"jobs": {"222": {"playable": true}}}}`, `balance.sh` as `PATCH=<file>`, and tests mirror it with `DataRepo.patch`. `--job=112` selects Hero; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
+a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Arch Mage (Fire, Poison, 212) and Arch Mage (Ice, Lightning, 222; spec #319, I12 flipped `playable`); `--job=112` selects Hero and `--job=222` the I/L Arch Mage; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
 `SceneFlow.forced_job_error`), and a `--character` whose job disagrees fails. A tool that names no job gets
 `JobTree.default_job()`, pinned to 212 by `survivor/jobs.json` whatever else is playable. `--branch=<id>` is the deprecated alias. There is no advancement, so records have no
 `branch`, `forced_branch`, `job_t` or `job_times`; they carry the job id (`jobs` in the summary) and, from #293, `picks`

@@ -178,6 +178,7 @@ func test_without_a_pin_or_with_an_unplayable_pin_the_first_playable_job_is_the_
 	assert_eq(_jobs(data).default_job(), 112, "a pin on an unplayable job is ignored")
 	data.jobs_survivor.jobs["112"]["playable"] = false
 	data.jobs_survivor.jobs["212"]["playable"] = false
+	data.jobs_survivor.jobs["222"]["playable"] = false
 	assert_eq(_jobs(data).default_job(), 0, "nothing playable")
 
 

@@ -1,6 +1,6 @@
 extends TestCase
 ## The I/L Arch Mage's data seam (spec #319, ticket I2 #321): the `il_arch_mage` data line loads and is the last of the
-## class lines, the job entry `survivor/jobs/il_arch_mage.json` (222, playable false until I12), its AP row, the pool
+## class lines, the job entry `survivor/jobs/il_arch_mage.json` (222, playable since I12), its AP row, the pool
 ## keys that are defined belonging to the 200/220/221/222 books, and the weapon families of its equipment drops (wands
 ## and staves only; armour by the Magician class bit). Seeded RNG; item info is synthetic unless a test says "real cache".
 
@@ -78,7 +78,7 @@ func test_the_line_loads_without_errors_and_adds_a_job_and_only_its_own_skills()
 
 # --- the job entry ----------------------------------------------------------------------------------------------------
 
-func test_job_222_has_the_spec_fields_and_is_not_playable() -> void:
+func test_job_222_has_the_spec_fields_and_is_playable() -> void:
 	var jobs := _jobs(_data())
 	var rec := jobs.job(222)
 	assert_eq(String(rec.name), "Arch Mage (Ice, Lightning)")
@@ -90,9 +90,9 @@ func test_job_222_has_the_spec_fields_and_is_not_playable() -> void:
 	assert_false("teleport_il" in jobs.skill_pool(222), "Teleport is the mobility skill, not a pool entry")
 	assert_eq(jobs.weapon_families(222), ["wand", "staff"])
 	assert_eq(jobs.creation_weapon(222), 1372005)
-	assert_false(bool(rec.playable))
-	assert_ne(jobs.job_error(222), "", "the tools refuse an unplayable job")
-	assert_false(222 in jobs.playable_jobs())
+	assert_true(bool(rec.playable))
+	assert_eq(jobs.job_error(222), "", "shipped I/L is playable")
+	assert_eq(jobs.playable_jobs(), [112, 212, 222] as Array[int])
 
 
 func test_212_keeps_its_entry_unchanged() -> void:
