@@ -5895,6 +5895,8 @@ random policy shares the movement and the camper policies still override it afte
 
 ## 11. Constants and provenance
 
+| Rule | Value | Tier | Source |
+|---|---|---|---|
 | Rarity/Mastery #288 | Rare damage x1.2; Epic +1 pierce or cooldown x0.88; Unique +1 projectile/hit; Legendary signature plus damage x1.2; repeats x0.8 (multiplier distance from 1), authored-list cycling and actual-effect bot scores | C | ours; ADR 0006, first pass, section 8 |
 
 
