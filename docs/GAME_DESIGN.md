@@ -5587,6 +5587,28 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. Rarity lists ship in the skill definition.
 
+### 7.61 Vulnerability (spec #319 M4, #322)
+
+A vulnerability is a timed status that makes one element hit x1.5 on a monster. `MobSwarm.VULNERABLE` is the table
+`{status index: element letter}`: `ice_weak` (index 5, Fire Demon) -> `i`, `fire_weak` (index 6, Ice Demon, skill in
+ticket I7) -> `f`. A monster may carry both timers. The statuses are ordinary `MobSwarm` timers (`STATUS_COUNT` 7), so
+they follow the status rules unchanged: reapplying refreshes to the new `time` without stacking, bosses and `steady`
+(scheduled boss) slots reject them, a skill applies one with `on_hit: {"status": "fire_weak", "element": ""}`
+(the empty element means kind resistance and immunity never block the mark), and `mob_status_applied` /
+`mob_status_expired` carry the status name. The mark overrides the element's resistance and immunity: a fire-immune
+monster under `fire_weak` takes x1.5 from fire. It never stacks with the kind's own weakness (x1.5, not x2.25).
+
+`MobSwarm.element_multiplier(slot, element)` resolves a hit's element: a composition (`COMPOSITIONS`: `fs` -> `f`,`s`
+for Element Composition; `il` -> `i`,`l` for its I/L twin) is the **mean of its constituents' live multipliers**,
+where a live multiplier is 1.5 while that element's vulnerability timer runs, else the kind's own value. A single
+element is its own live multiplier. With no vulnerability running the result is numerically identical to before (`fs`
+is `(f + s) * 0.5`; a table test compares every mob-attribute combination to the old formula), so F/P is unchanged.
+Ice-weak raises `il` and `i` (not `fs`); fire-weak raises `fs` and `f` (not `il`).
+
+Reserved, not built: a `"*"` table entry for an all-element mark (Corsair's Homing Beacon). Summons and projectiles use
+the same `element_multiplier`, so Ifrit's fire meets Ice Demon's mark there with no special case. The renderer has no
+per-status tint for `ice_weak`, so `fire_weak` adds none.
+
 ### 7.62 Chain cast rule (#323, spec #319 I4)
 
 `cast: {"rule": "chain", "acquire": 450, "hop": 200, "min_targets": 1}`, implemented in `chain_cast.gd` (`ChainCast`), a
@@ -5611,28 +5633,6 @@ nearest to that" before. Chain Lightning (I8) is its first user; Corsair or any 
   `mob_hit`, the caster the `effect` through `cast`, the Use sound plays at the cast and the Hit sound once per link.
 - **Text.** `SkillText` adds "Jumps to up to N monsters within R px" (`mob_count`, `hop` x `area`).
 - Probe: `scenes/debug/chain_bolt_probe.tscn` draws a synthetic arrangement (evidence only).
-
-### 7.61 Vulnerability (spec #319 M4, #322)
-
-A vulnerability is a timed status that makes one element hit x1.5 on a monster. `MobSwarm.VULNERABLE` is the table
-`{status index: element letter}`: `ice_weak` (index 5, Fire Demon) -> `i`, `fire_weak` (index 6, Ice Demon, skill in
-ticket I7) -> `f`. A monster may carry both timers. The statuses are ordinary `MobSwarm` timers (`STATUS_COUNT` 7), so
-they follow the status rules unchanged: reapplying refreshes to the new `time` without stacking, bosses and `steady`
-(scheduled boss) slots reject them, a skill applies one with `on_hit: {"status": "fire_weak", "element": ""}`
-(the empty element means kind resistance and immunity never block the mark), and `mob_status_applied` /
-`mob_status_expired` carry the status name. The mark overrides the element's resistance and immunity: a fire-immune
-monster under `fire_weak` takes x1.5 from fire. It never stacks with the kind's own weakness (x1.5, not x2.25).
-
-`MobSwarm.element_multiplier(slot, element)` resolves a hit's element: a composition (`COMPOSITIONS`: `fs` -> `f`,`s`
-for Element Composition; `il` -> `i`,`l` for its I/L twin) is the **mean of its constituents' live multipliers**,
-where a live multiplier is 1.5 while that element's vulnerability timer runs, else the kind's own value. A single
-element is its own live multiplier. With no vulnerability running the result is numerically identical to before (`fs`
-is `(f + s) * 0.5`; a table test compares every mob-attribute combination to the old formula), so F/P is unchanged.
-Ice-weak raises `il` and `i` (not `fs`); fire-weak raises `fs` and `f` (not `il`).
-
-Reserved, not built: a `"*"` table entry for an all-element mark (Corsair's Homing Beacon). Summons and projectiles use
-the same `element_multiplier`, so Ifrit's fire meets Ice Demon's mark there with no special case. The renderer has no
-per-status tint for `ice_weak`, so `fire_weak` adds none.
 
 ### 7.63 Skill templates: `extends` (spec #319 I5, M19)
 
