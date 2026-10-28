@@ -692,6 +692,11 @@ func test_opt_in_king_clang_chain_defers_boss_death_until_final_form() -> void:
 	setup.mob_imgs[5220000] = setup.mob_imgs[5220001].duplicate(true)
 	setup.mob_imgs[5220000].info.erase("revive")
 	setup.mob_imgs[5220000].info.maxHP = 25000
+	setup.data.balance.mob_skills.enabled_ids = [5220001, 5220000]
+	setup.mob_imgs[5220000].info.skill = {"0": {"skill": 200, "level": 82, "action": 1, "effectAfter": 0}}
+	setup.mob_skill_img["200"].level["82"] = {"hp": 100, "interval": 1, "limit": 2, "0": 210100}
+	assert_has(DataRepo.stage_mob_ids(setup.data, "quiet", setup.mob_imgs, setup.mob_skill_img), 210100,
+		"final form canonical summons are preloaded")
 	var w := RunWorld.new(setup)
 	w.god = true
 	for i in 60:
@@ -704,8 +709,15 @@ func test_opt_in_king_clang_chain_defers_boss_death_until_final_form() -> void:
 	var crab := int(w.bosses.records[0].slot)
 	assert_eq(int(w.bosses.records[0].mob_id), 5220000)
 	assert_eq(w.mob_boss[crab], 0)
+	assert_near(float(w.bosses.records[0].spawn_time), 0.5, 0.0001, "one encounter clock")
 	assert_eq(w.swarm.max_hp[crab], 37500, "final form inherits fixture hp_mult 1.5")
 	assert_near(w.bosses.damage_multiplier(0), 0.0, 0.0001)
+	assert_near(float(w.bosses.entries[0].attack_dmg_mult), 2.09, 0.0001)
+	for i in 60:
+		w.step(1.0 / 60.0, MoveInput.new())
+	assert_true(w.drain_events().any(func(e: Dictionary) -> bool:
+		return e.type == "boss_skill" and int(e.mob_id) == 5220000 and int(e.skill_id) == 200),
+		"revived final form casts its own canonical kit")
 	w.hit_mob(crab, {"damage_min": 1000000, "damage_max": 1000000, "magic": true, "crit": 0.0, "crit_mult": 1.5, "skill": "energy_bolt"}, -1)
 	assert_true(w.bosses.all_dead(), "final death ends encounter")
 	assert_eq(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "boss_died").size(), 1)
