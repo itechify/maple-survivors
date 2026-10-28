@@ -2,6 +2,13 @@
 	"_doc": "Magician line skills (books 200 First Job Magician, 210 F/P, 220 I/L, 230 Cleric). Entry format and tier rules: see ../skills.json _doc.",
 	"skills": {
 		"energy_bolt": {
+			"_rarity": "Tier C: first-pass bonuses from legacy behaviour cards; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "damage", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "pierce", "text": "Pierce", "effects": [{"stat": "pierce", "op": "add", "value": 1}]}],
+				"unique": [{"id": "count", "text": "Extra projectile", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "count", "text": "Extra projectile and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2001004, "book": "200", "job": 200, "kind": "projectile", "slot": "active",
 			"name": "Energy Bolt", "desc": "Fires a bolt of energy at the nearest monster.",
 			"text": {"desc": "Attacks the nearest monster with a bolt of energy.", "h": "Basic attack {mad}, mastery {mastery_pct}%, {count|bolt|bolts} per cast"},
@@ -17,6 +24,13 @@
 			"sounds": {"use": "Sound.wz/Skill.img/2001004/Use", "hit": ""}
 		},
 		"magic_claw": {
+			"_rarity": "Tier C: first-pass bonuses from legacy behaviour cards; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "damage", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "cooldown", "text": "Cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"unique": [{"id": "attack_count", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "attack_count", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2001005, "book": "200", "job": 200, "kind": "instant", "slot": "active",
 			"name": "Magic Claw", "desc": "Rakes the nearest monster twice with a magic claw.",
 			"text": {"desc": "Attacks the nearest monsters twice each with a magic claw.", "h": "Basic attack {mad}, mastery {mastery_pct}%, up to {count|monster|monsters}"},
@@ -103,6 +117,13 @@
 			"sounds": {"use": "Sound.wz/Skill.img/2201005/Use", "hit": ""}
 		},
 		"fire_arrow": {
+			"_rarity": "Tier C: first-pass bonuses from legacy behaviour cards; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "damage", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "pierce", "text": "Pierce", "effects": [{"stat": "pierce", "op": "add", "value": 1}]}],
+				"unique": [{"id": "count", "text": "Extra projectile", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "count", "text": "Extra projectile and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2101004, "book": "210", "job": 210, "kind": "projectile", "slot": "active",
 			"name": "Fire Arrow", "desc": "Fire/Poison Wizard. Shoots a flaming arrow at the nearest monster.",
 			"text": {"desc": "Attacks the nearest monster with a fire arrow using the magic power. Ice-based monsters take 1.5 times the damage, fire-based monsters half.", "h": "Basic attack {mad}, mastery {mastery_pct}%, {count|arrow|arrows} per cast"},
@@ -119,6 +140,13 @@
 			"sounds": {"use": "Sound.wz/Skill.img/2101004/Use", "hit": ""}
 		},
 		"poison_breath": {
+			"_rarity": "Tier C: first-pass bonuses from legacy behaviour cards; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "damage", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "cooldown", "text": "Cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"unique": [{"id": "count", "text": "Extra projectile", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "count", "text": "Extra projectile and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2101005, "book": "210", "job": 210, "kind": "projectile", "slot": "active",
 			"name": "Poison Breath", "desc": "Fires a poisonous orb at the nearest monster, with a chance to poison on hit.",
 			"text": {"desc": "Attacks the nearest monster by splashing a Poison drop. With a given success rate, the monster gets temporarily poisoned."},
@@ -495,6 +523,13 @@
 			"sounds": {"use": "Sound.wz/Skill.img/2301001/Use", "hit": ""}
 		},
 		"explosion": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2111002,
 			"book": "211",
 			"job": 211,
@@ -524,6 +559,13 @@
 			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31."
 		},
 		"poison_mist": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "linger", "text": "Cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}]}],
+				"legendary": [{"id": "linger", "text": "Cooldown and damage", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2111003,
 			"book": "211",
 			"job": 211,
@@ -557,6 +599,13 @@
 			}
 		},
 		"element_composition": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "pierce", "text": "Pierce", "effects": [{"stat": "pierce", "op": "add", "value": 1}]}],
+				"unique": [{"id": "twin", "text": "Extra projectile", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "twin", "text": "Extra projectile and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2111006,
 			"book": "211",
 			"job": 211,
@@ -593,6 +642,13 @@
 			}
 		},
 		"fire_demon": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "crowd", "text": "Extra target", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "crowd", "text": "Extra target and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2121003,
 			"book": "212",
 			"job": 212,
@@ -627,6 +683,13 @@
 			}
 		},
 		"paralyze": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "haste", "text": "Cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2121006,
 			"book": "212",
 			"job": 212,
@@ -661,6 +724,13 @@
 			}
 		},
 		"meteor_shower": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2121007,
 			"book": "212",
 			"job": 212,
@@ -721,6 +791,13 @@
 			]
 		},
 		"big_bang": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2121001,
 			"book": "212",
 			"job": 212,
@@ -771,6 +848,13 @@
 			}
 		},
 		"elquines": {
+			"_rarity": "Tier C: first-pass #291 bonuses (damage, area, one extra ally); repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "reach", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "twin", "text": "Extra ally", "effects": [{"stat": "summon_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "twin", "text": "Extra ally and damage", "effects": [{"stat": "summon_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2121005,
 			"book": "212",
 			"job": 212,

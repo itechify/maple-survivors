@@ -101,7 +101,7 @@ func test_magic_skills_resolve_from_canonical_levels() -> void:
 	assert_true(eb.magic)
 	assert_near(eb.damage_min, expect.x, 1e-3, "Energy Bolt L1 min with INT and the wand's 23 magic attack")
 	assert_near(eb.damage_max, expect.y, 1e-3, "max")
-	w.upgrades.apply("energy_bolt_damage", w)
+	w.loadout.add_skill_mod("energy_bolt", "damage", "mul", 1.2)
 	assert_near(w.loadout.stats("energy_bolt").damage_max, expect.y * 1.2, 1e-3, "Overcharge +20%")
 	w.upgrades.apply("energy_bolt_rank", w)
 	var eb2 := w.loadout.stats("energy_bolt")

@@ -18,7 +18,14 @@ const DT := 1.0 / 60.0
 ## Re-captured for #291 and #292 on the merge (merge/292): Elquines adds summon casts/attacks to the event stream (#291 alone
 ## 2093303d...), and equipment drops follow the tier band and the job's weapon families, not the level and the held weapon,
 ## so the Lv1 character wears what it picks up (#292 alone ecb90f67...). The merged stream differs from both.
-const GOLDEN := "439fae923a4c12a8e67cc182e4e769a631bd6ae1c1b470309d2cde3cfb475047"
+## Re-captured for #288: rarity bonus offer fields, actual bonuses and post-cap Mastery change event bytes.
+## Existing fixed-tick workload/coverage and collected-total checks remain unchanged.
+## Re-captured for the #288 + #290 merge: the seven high-job actives carry rarity bonuses and Normal Mastery gives +5% damage.
+## Re-captured for the #288 + #289 + #291 + #292 merge (merge/288f): Elquines has rarity bonuses too. Checked against the spec tip
+## 439fae92...: with every rarity_bonuses list and mastery_bonus emptied, capped actives not eligible for Mastery again, and the
+## card fields this ticket adds (rarity_bonus, skill_rank_before, desc, name) stripped from the events in both trees, the two
+## hashes are identical (8aeffb90...). Common passives are always Normal with no bonus, so #289's picks are unchanged.
+const GOLDEN := "24ced25e75e757b7f4a0ccb3cd71660b106f11033e6bbf9bcead853114ed81a5"
 ## Re-captured for #289 (common passives): with the nine passive cards removed from the pool the merged hash ccd64094... is
 ## reproduced exactly (checked), so the only new bytes are the passive offers and the bot's picks of them.
 
