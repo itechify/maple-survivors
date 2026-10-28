@@ -229,6 +229,8 @@ func test_creation_opens_on_name_and_cancel_returns_one_step() -> void:
 	creation.create_button.pressed.emit()
 	assert_eq(creation.phase, "look", "Name OK goes to Look")
 	assert_eq(creation.create_button, creation._look_ok)
+	if not require_cache():
+		return # without the cache no Look columns exist, so Look OK is disabled and the Job page is unreachable
 	creation.create_button.pressed.emit()
 	assert_eq(creation.phase, "job", "Look OK goes to the Job page")
 	assert_eq(creation.create_button, creation._job_ok)
