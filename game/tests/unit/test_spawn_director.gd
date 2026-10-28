@@ -18,7 +18,9 @@ func _walled_world(left_x1 := 300.0, left_x2 := 1300.0) -> RunWorld:
 		{"x1": 1300.0, "y1": -10.0, "x2": 3000.0, "y2": -10.0},
 		{"x1": 0.0, "y1": 60.0, "x2": 1.0, "y2": 60.0},
 	]
-	var s := RF.setup("quiet", 3, RF.quiet_data())
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["starting_skill"] = "" # Isolate spawn/relocation from combat.
+	var s := RF.setup("quiet", 3, data)
 	s.map_img = RF.map_from_segments(segs)
 	var w := RunWorld.new(s)
 	RF.place_player(w, 800.0, -5.0)
