@@ -1,0 +1,9 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Bowmaster line (spec #332 #333). The 3rd and 4th job Bowman skill books Skill.wz/311.img (Ranger) and 312.img (Bowmaster) whole, and the Sound.wz/Skill.img nodes of the Bowmaster pool: Inferno 3111003, Arrow Rain 3111004, Silver Hawk 3111005, Strafe 3111006, Dragon's Breath 3121003, Hurricane 3121004 and Phoenix 3121006, plus Golden Eagle 3211005 (the Use and Summon sounds of Silver Hawk and Phoenix are UOLs to ../3211005/...; the Marksman fragment must not list it again). The Sharp Eyes common-passive icon (312.img skill/3121002/icon, iconMouseOver, iconDisabled) used to be a path entry in common.json; it comes with the whole book now (a whole img and its sub-paths in two files conflict). The Bowman, Hunter and Crossbowman books, bows, arrows and the Bowman sounds are in bowman.json.",
+	"imgs": [
+		{"img": "Skill.wz/311.img"},
+		{"img": "Skill.wz/312.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["3111003", "3111004", "3111005", "3111006", "3121003", "3121004", "3121006", "3211005"]}
+	]
+}
