@@ -1972,6 +1972,11 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 				params["element"] = String(hit.element)
 			if status.has("element"):
 				params["element"] = String(status.element)
+			if status.has("cut"):
+				# tier C: a flat Threaten-style cut of min(skill level, cap) to weapon attack and defence (Panic; the node has none).
+				var cut := float(mini(level, int(status.cut.get("cap", level))))
+				params["x"] = -cut
+				params["y"] = -cut
 			swarm.apply_status(slot, String(status.get("status", "")), params, events)
 	var knockback: Dictionary = book.def(key).get("knockback", {})
 	if not knockback.is_empty() and not swarm.mob_kind(slot).boss and swarm.steady[slot] == 0:

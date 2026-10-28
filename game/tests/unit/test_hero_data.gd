@@ -67,6 +67,7 @@ func test_the_hero_line_loads_without_errors_and_adds_its_job_and_core_skills() 
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "hero"))
 	for key: String in ["power_strike", "slash_blast", "brandish"]:
 		assert_true(frag.skills.has(key), "H5 ports " + key)
+	assert_true(frag.skills is Dictionary)
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
 
@@ -105,11 +106,13 @@ func test_212_keeps_its_entry_unchanged() -> void:
 	assert_true(bool(jobs.job(212).playable))
 
 
-func test_pool_keys_not_yet_defined_stay_inert() -> void:
+func test_pool_keys_that_are_defined_belong_to_the_hero_books() -> void:
+	# Each Hero ticket (H5-H8) defines its own keys; a key still undefined stays inert, a defined one is a 100/110/111/112 skill.
 	var data := _data()
 	var defined: Dictionary = data.skills.skills
-	for key: String in ["shout", "monster_magnet", "panic", "coma", "rush_hero"]:
-		assert_false(defined.has(key), "%s is defined by its own ticket, not by H2" % key)
+	for key: String in ["brandish", "shout", "monster_magnet", "panic", "coma", "rush_hero"]:
+		if defined.has(key):
+			assert_true(int(defined[key].job) in [100, 110, 111, 112], "%s belongs to a Hero book" % key)
 
 
 # --- AP row -----------------------------------------------------------------------------------------------------------

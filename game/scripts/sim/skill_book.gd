@@ -56,6 +56,22 @@ func skill_id(key: String) -> int:
 	return int(def(key).get("skill_id", 0))
 
 
+## Skill id whose art (effect, hit, finish nodes and Use sound) a cast of `key` shows with a weapon of `family`: the
+## `art_by_family` twin (Panic : Axe for Panic) for that family, else the skill's own id. Numbers are never taken from it.
+func art_skill_id(key: String, family: String) -> int:
+	return int(def(key).get("art_by_family", {}).get(family, skill_id(key)))
+
+
+## `path` (a Skill.wz or Sound.wz path naming this skill's id) re-pointed at the art twin for `family`; unchanged when
+## there is no twin, no path, or the path does not name the skill.
+func art_path(key: String, path: String, family: String) -> String:
+	var own := skill_id(key)
+	var twin := art_skill_id(key, family)
+	if path == "" or twin == own:
+		return path
+	return path.replace("/%07d/" % own, "/%07d/" % twin)
+
+
 ## "projectile", "instant", "buff" or "passive".
 func kind(key: String) -> String:
 	return String(def(key).get("kind", ""))

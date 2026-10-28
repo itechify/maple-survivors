@@ -208,12 +208,30 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 			# Slash Blast pays HP and never casts when that would leave 0 HP; nothing is spent.
 			continue
 		var plan := prepare_cast(world, key, st, origin)  # has_target said yes, so admission does too
-		st = world.meter.begin_cast(world, key, st)
+		st = _with_finish_art(world, key, world.meter.begin_cast(world, key, st))
 		world.spend_hp(int(st.hp_cost))
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		cooldown_totals[key] = cooldowns[key]
 		_resolve_cast(world, key, st, origin, plan)
 		break
+
+
+## A finisher's art for the orbs the cast spent (the skill's `finish` block, Panic and Coma): `effect` is the finish
+## animation numbered by orbs spent (1..max_n), played on the caster (`at` "caster", the cast event's effect) or on the
+## first target (`at` "target", `finish_effect`, a skill_mob_effect); above `advanced_above` orbs the hit art is the
+## Advanced Combo set. The held weapon's art twin applies (SkillBook.art_path). tier B: this reading of the nodes is
+## ours, no source states it. `st` is the cast-local copy PlayerMeter.begin_cast made; other casts pass through.
+func _with_finish_art(world: RunWorld, key: String, st: Dictionary) -> Dictionary:
+	var block: Dictionary = world.book.def(key).get("finish", {})
+	if block.is_empty() or not st.has("meter_spent"):
+		return st
+	var family := world.loadout.weapon_family
+	var spent := int(st.meter_spent)
+	var path := world.book.art_path(key, String(block.effect).replace("{n}", str(clampi(spent, 1, int(block.max_n)))), family)
+	st["finish_effect" if String(block.at) == "target" else "effect"] = path
+	if spent > int(block.advanced_above):
+		st["hit"] = world.book.art_path(key, String(block.hit_advanced), family)
+	return st
 
 
 ## Casts the manual buff `key` (its skill key was pressed): false, with nothing spent or emitted, unless casting is free,
@@ -415,6 +433,9 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": effect})
 	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 	var definition := world.book.def(key)
+	if st.has("finish_effect") and not targets.is_empty():
+		world.emit("skill_mob_effect", {"skill": key, "mob": targets[0], "pos": world.mob_center(targets[0]),
+			"effect": String(st.finish_effect)})
 	if definition.has("pull") and String(st.kind) != "buff":
 		apply_pull(world, key, st, origin)
 	if String(st.kind) == "summon":
