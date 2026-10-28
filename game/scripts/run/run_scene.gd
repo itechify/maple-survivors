@@ -191,7 +191,7 @@ var _speed := 1
 var _acc := 0.0
 var _jump_latch := false
 var _drink_hp_latch := false
-## Skill key id ("teleport", "dash") -> true once its key went down since the last tick (consumed by _read_input).
+## Skill key id ("teleport", "dash", "rush") -> true once its key went down since the last tick (consumed by _read_input).
 var _skill_latches := {}
 var _bot_memo := {}
 var _kind_ids := PackedInt32Array()
@@ -714,6 +714,7 @@ func _build_overlays() -> void:
 	hud = Hud.new()
 	hud.library = library
 	add_child(hud)
+	hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
 	# Below notices/windows so pause and inventory remain usable over a partly faded world.
 	var fade_layer := CanvasLayer.new()
 	fade_layer.name = "MapTransfer"
@@ -1057,6 +1058,8 @@ func _after_tick() -> void:
 func handle_events(events: Array) -> void:
 	for e: Dictionary in events:
 		match String(e.type):
+			"meter_changed":
+				hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
 			"map_cleared":
 				_on_map_cleared(int(e.map_index))
 			"boss_warning":
@@ -1101,7 +1104,7 @@ func handle_events(events: Array) -> void:
 				var d := world.book.def(String(e.skill))
 				for path: String in d.get("release_visuals", []):
 					fx.play(path, e.pos - Vector2(0, world.cast_height))
-				_sound(String(d.get("sounds", {}).get("hit", "")))
+				_sound(world.book.art_path(String(e.skill), String(d.get("sounds", {}).get("hit", "")), world.loadout.weapon_family))
 			"ammo_shot":
 				_on_ammo_shot(e)
 			"teleport":
@@ -1295,7 +1298,7 @@ func _on_cast(e: Dictionary) -> void:
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
 	for visual: Dictionary in world.book.def(key).get("cast_visuals", []):
-		fx.play(String(visual.path), e.pos + Vector2(float(visual.x), 0))
+		fx.play(world.book.art_path(key, String(visual.path), world.loadout.weapon_family), e.pos + Vector2(float(visual.x), 0))
 	var loop := String(world.book.def(key).get("sounds", {}).get("loop", ""))
 	if loop != "":
 		_sound(loop)
@@ -1303,7 +1306,8 @@ func _on_cast(e: Dictionary) -> void:
 	var capture_delay := float(world.book.def(key).get("pending", {}).get("delay", 0.0)) + 0.05
 	capture_delay = float(world.book.def(key).get("capture_delay", capture_delay))
 	_first_event_shot(key, "cast_%s.png" % key, capture_delay)
-	var use := String(world.book.def(key).get("sounds", {}).get("use", ""))
+	var use := world.book.art_path(key, String(world.book.def(key).get("sounds", {}).get("use", "")),
+		world.loadout.weapon_family) # art_by_family twin (Panic/Coma : Axe)
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
@@ -1935,7 +1939,7 @@ func run_time() -> float:
 
 ## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with icon, rank, key_label
 ## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether the held weapon blocks each, and
-## the learned movement skill (Teleport or Dash, HudQuickSlot.movement_skill_of; {} before it is learned).
+## the learned movement skill (Teleport, Dash or Rush, HudQuickSlot.movement_skill_of; {} before it is learned).
 func run_info() -> Dictionary:
 	var skills: Array = []
 	for key: String in world.loadout.order:

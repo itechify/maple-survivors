@@ -403,7 +403,7 @@ func test_teleport_il_rank_follows_mobility_rank_levels() -> void:
 	assert_false("teleport_il_rank" in w.upgrades.eligible(w))
 
 
-# --- rarity: every entry changes the cast (see also test_il_rarity_bonus_effects) ------------------------------------------
+# --- rarity: every entry changes the cast (see also test_rarity_bonus_effects) ------------------------------------------
 
 const BONUSES := {
 	"cold_beam": {"rare": ["amplify", "damage"], "epic": ["booster", "cooldown"], "unique": ["spread", "count"],

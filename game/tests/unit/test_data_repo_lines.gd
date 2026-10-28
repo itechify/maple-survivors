@@ -1,6 +1,6 @@
 extends TestCase
 ## The per-job-line survivor data files (DataRepo.load_split / load_all, docs/ARCHITECTURE.md 4.4.4): a base file
-## `survivor/<name>.json` plus line fragments `survivor/<name>/<line>.json` merged in DataRepo.LINES order. Merge rules
+## `survivor/<name>.json` plus line fragments `survivor/<name>/<line>.json` merged in DataRepo.lines() order. Merge rules
 ## are tested on synthetic fixture directories under the user data dir; the shipped data is checked for the files that
 ## exist (only known line names) and for the entry placement rules (skills by book, cards by skill, wands in magician).
 
@@ -22,16 +22,32 @@ func _put(rel: String, value: Dictionary) -> String:
 	return root
 
 
-func test_lines_are_common_then_job_line_id_order_then_the_class_lines_as_they_landed() -> void:
-	# #321: a class spec appends its line (never inserts), so the seven adventurer lines keep their merge order. Hero (#296)
-	# and I/L (#319) can land in either order, so the class lines are checked as a set, not as an exact list.
-	var lines := Array(DataRepo.LINES)
-	assert_eq(lines.slice(0, 7), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
-	var class_lines: Array = lines.slice(7)
-	assert_true("il_arch_mage" in class_lines, "il_arch_mage is a class line")
-	for line: String in class_lines:
-		assert_true(line in ["hero", "il_arch_mage"], "%s is a class line this build knows" % line)
+func test_lines_are_fixed_adventurers_then_discovered_classes_sorted() -> void:
+	var root := _put("survivor/jobs/paladin.json", {"jobs": {}})
+	_put("survivor/skills/hero.json", {"skills": {}})
+	_put("survivor/jobs/il_arch_mage.json", {"jobs": {}})
+	assert_eq(Array(DataRepo.lines(root)), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate",
+		"hero", "il_arch_mage", "paladin"])
 	assert_eq(DataRepo.fragment_path("skills", "magician", "res://data"), "res://data/survivor/skills/magician.json")
+
+
+func test_the_shipped_class_lines_are_discovered_from_their_files() -> void:
+	var lines := Array(DataRepo.lines())
+	assert_eq(lines.slice(0, 7), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
+	var classes: Array = lines.slice(7)
+	assert_true("hero" in classes and "il_arch_mage" in classes, "both shipped class lines are found by their files")
+	var sorted_classes := classes.duplicate()
+	sorted_classes.sort()
+	assert_eq(classes, sorted_classes, "the class lines are sorted, with no list to edit (#319)")
+
+
+func test_job_fragments_contribute_balance_through_load_all() -> void:
+	var root := _put("survivor/jobs.json", {})
+	_put("survivor/balance.json", {"player": {"ap": {"212": {"str": 4}}}})
+	_put("survivor/jobs/hero.json", {"jobs": {}, "balance": {"player": {"ap": {"112": {"str": 5}}}}})
+	var data := DataRepo.load_all(root)
+	assert_eq(data.balance.player.ap["112"], {"str": 5.0})
+	assert_eq(data.balance.player.ap["212"], {"str": 4.0})
 
 
 func test_skills_merge_in_line_order_and_keep_the_base_doc() -> void:
@@ -49,20 +65,19 @@ func test_skills_merge_in_line_order_and_keep_the_base_doc() -> void:
 
 
 func test_a_class_line_after_pirate_merges_last_for_jobs_and_skills() -> void:
-	# #321: il_arch_mage is appended after pirate, so its entries come after the Magician's and the Pirate's.
-	_put("survivor/jobs.json", {"_doc": "d", "default_reason": "r", "jobs": {"0": {"a": 1}}})
+	_put("survivor/jobs.json", {"_doc": "d", "default_job": 212, "jobs": {"0": {"a": 1}}})
 	_put("survivor/jobs/magician.json", {"jobs": {"212": {"playable": true}}})
-	_put("survivor/jobs/il_arch_mage.json", {"_doc": "il", "jobs": {"222": {"playable": false}}})
+	_put("survivor/jobs/hero.json", {"_doc": "hero", "jobs": {"112": {"playable": false}}})
 	_put("survivor/skills.json", {"_doc": "d"})
-	_put("survivor/skills/il_arch_mage.json", {"skills": {"i": {}}})
+	_put("survivor/skills/hero.json", {"skills": {"h": {}}})
 	_put("survivor/skills/pirate.json", {"skills": {"p": {}}})
 	var errors := PackedStringArray()
 	var jobs := DataRepo.load_split("jobs_survivor", test_dir(WORK), errors)
 	var skills := DataRepo.load_split("skills", test_dir(WORK), errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
-	assert_eq(jobs.jobs.keys(), ["0", "212", "222"], "base, magician, then il_arch_mage")
-	assert_eq(skills.skills.keys(), ["p", "i"], "pirate, then il_arch_mage")
-	assert_eq(jobs.default_reason, "r", "top-level config stays in the base")
+	assert_eq(jobs.jobs.keys(), ["0", "212", "112"], "base, magician, then hero")
+	assert_eq(jobs.default_job, 212, "top-level config stays in the base")
+	assert_eq(skills.skills.keys(), ["p", "h"])
 
 
 func test_missing_fragments_are_skipped_and_the_entries_key_always_exists() -> void:
@@ -222,18 +237,18 @@ func test_load_all_merges_the_split_keys_and_a_missing_base_is_one_error() -> vo
 	assert_eq(d.skills.skills.keys(), ["a"])
 
 
-func test_an_unknown_line_file_is_detected() -> void:
+func test_json_names_are_discovered_and_non_json_files_are_reported() -> void:
 	var root := _put("survivor/skills/beginner.json", {})
 	_put("survivor/skills/rogue.json", {})
 	_put("survivor/upgrades/magician.json", {})
 	_put("survivor/upgrades/mage.json", {})
 	_put("survivor/shops/notes.txt", {})
 	var unknown := DataRepo.unknown_line_files(root)
-	assert_eq(Array(unknown), ["survivor/shops/notes.txt", "survivor/skills/rogue.json", "survivor/upgrades/mage.json"])
+	assert_eq(Array(unknown), ["survivor/shops/notes.txt"])
 
 
-func test_the_shipped_fragment_directories_hold_only_known_line_files() -> void:
-	assert_eq(Array(DataRepo.unknown_line_files()), [], "a fragment file must be named after a DataRepo.LINES entry")
+func test_the_shipped_fragment_directories_hold_only_json_files() -> void:
+	assert_eq(Array(DataRepo.unknown_line_files()), [], "a fragment file must be named after a discovered line")
 
 
 func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:

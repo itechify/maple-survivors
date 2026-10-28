@@ -1,9 +1,8 @@
 extends TestCase
 ## The creation Job page with the I/L Arch Mage (222) playable (spec #319, I11 #330). I/L is not playable in the shipped data until
 ## I12, so these tests mirror the data with `DataRepo.patch` (the H9 #305 test seam) and drive the real page and SceneFlow through it.
-## The rows are the shipped playable jobs plus 222 in canonical order: [212, 222] today, [112, 212, 222] once Hero is on the branch
-## (Hero is added to the mirror only when its entry exists, so the same file covers both). The Job page needs the cache (Look OK
-## stays disabled without the hair and face columns), so only the data-level test runs in CI. Saves go to TestCase.test_dir().
+## The rows are `playable_jobs()` with the mirror applied, in canonical order: [112, 212, 222] (Hero and F/P ship playable). The Job page
+## needs the cache (Look OK stays disabled without the hair and face columns), so only the data-level test runs in CI. Saves go to TestCase.test_dir().
 
 const CREATE := preload("res://scenes/ui/character_create.gd")
 const IL_PATCH := {"jobs_survivor": {"jobs": {"222": {"playable": true}}}}
@@ -27,13 +26,9 @@ func after_each() -> void:
 	TestCase.remove_tree(save_path.get_base_dir())
 
 
-## The mirror: I/L playable, and every other job the branch ships a (still unplayable) entry for that I11 knows (Hero, 112).
+## The mirror: I/L playable (Hero and F/P already ship playable).
 func _mirror() -> Dictionary:
-	var patch := IL_PATCH.duplicate(true)
-	var shipped := DataRepo.load_all()
-	if shipped.jobs_survivor.jobs.has("112"):
-		patch.jobs_survivor.jobs["112"] = {"playable": true}
-	return patch
+	return IL_PATCH.duplicate(true)
 
 
 ## The jobs the mirror makes playable, in canonical order.
@@ -85,10 +80,8 @@ func _row(creation: Control, id: int) -> Button:
 func test_the_mirror_makes_il_playable_in_canonical_order_and_the_shipped_data_does_not() -> void:
 	var tree := _tree()
 	assert_true(tree.job(222).playable)
-	var expected: Array[int] = [212, 222]
-	if DataRepo.load_all().jobs_survivor.jobs.has("112"):
-		expected = [112, 212, 222]
-	assert_eq(tree.playable_jobs(), expected, "canonical order: I/L sits below F/P (Hero above it when the branch has Hero)")
+	var expected: Array[int] = [112, 212, 222]
+	assert_eq(tree.playable_jobs(), expected, "canonical order: Hero, then F/P, then I/L below it")
 	assert_eq(tree.name_of(222), "Arch Mage (Ice, Lightning)", "the name is the canonical job list's")
 	assert_eq(tree.default_job(), 212, "F/P stays the default (Hero's pin on a branch that has it, canonical order here)")
 	DataRepo.patch = {}
@@ -104,7 +97,7 @@ func test_rows_follow_the_playable_jobs_names_from_the_job_data_and_212_chosen()
 	var creation := _job_page(_flow(), "IlRows01")
 	var expected := _expected()
 	assert_eq(creation.job_ids, expected)
-	assert_eq(creation.job_id, expected[0], "the default job is chosen when the page opens")
+	assert_eq(creation.job_id, 212, "the default job (F/P, not the first row) is chosen when the page opens")
 	var mage := _row(creation, 212)
 	var il := _row(creation, 222)
 	assert_true(mage != null and il != null, "one row per playable job")

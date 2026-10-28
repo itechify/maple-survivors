@@ -34,6 +34,9 @@ const CLUSTER_CANDIDATES := 12
 const BUFF_REFUSED := 0
 const BUFF_ADMITTED := 1
 const BUFF_FALLS_THROUGH := -1
+## Closest a mob may start to be pulled, in px of horizontal distance from the caster (a `pull` block's `min_distance`
+## overrides it). Nearer mobs are left alone so a pull never spends its target cap on a crowd already at the caster. tier C: ours (#300).
+const PULL_MIN_DISTANCE := 120.0
 ## Shortest flight of a thrown grenade in seconds, so a point-blank throw still lands after the ball is seen. tier C: ours (#192).
 const MIN_FLIGHT := 0.1
 ## What a skill's `count` is, by its kind (count_meaning): SHOTS (projectiles fired per cast) for a projectile, else
@@ -56,6 +59,8 @@ var _version := -1
 var _buf := PackedInt32Array()
 var _tgt := PackedInt32Array()
 var _tgt_d := PackedFloat64Array()
+var _pull_ids := PackedInt32Array()
+var _pull_dx := PackedFloat64Array()
 var _undead := PackedByteArray()
 var _slow_serial := 0
 ## Grenades in flight: {left seconds, st (resolved stats at the cast), landing (blast anchor), aim}.
@@ -96,7 +101,8 @@ static func restart_cooldown(st: Dictionary) -> float:
 		if bool(st.get("cooldown_from_cast", false)):
 			return float(st.buff_cooldown)
 		return maxf(float(st.duration), float(st.buff_cooldown))
-	return float(st.cooldown)
+	# tier C: finisher repeat floor (Hero spec #296); the meter controls its cadence.
+	return maxf(1.0, float(st.cooldown)) if String(st.get("meter", {}).get("role", "")) == "finisher" else float(st.cooldown)
 
 
 ## Horizontal reach in px from the player of a resolved skill `st` (Loadout.stats), the one number the bot reads to
@@ -105,7 +111,7 @@ static func restart_cooldown(st: Dictionary) -> float:
 ## casts). One switch on the cast rule: weapon_reach is the held weapon's swing reach scaled by this skill's area
 ## modifier, range_around the level's `range` around the body.
 static func reach_of(st: Dictionary, world: RunWorld) -> float:
-	if String(st.kind) == "buff" or String(st.damage_type) == "none":
+	if String(st.get("meter", {}).get("role", "")) == "finisher" or String(st.kind) == "buff" or String(st.damage_type) == "none":
 		return 0.0
 	match String(st.cast_rule):
 		"", "nearest", "range_around", "cluster":
@@ -145,9 +151,9 @@ func stats_of(world: RunWorld, key: String) -> Dictionary:
 
 
 ## Advances cooldowns and fires the oldest ready skill with a target.
-func step(dt: float, world: RunWorld) -> void:
-	tick_cooldowns(dt, world)
-	if world.can_cast():
+func step(dt: float, world: RunWorld, preserve_manual_cast: bool = false) -> void:
+	tick_cooldowns(dt, world, preserve_manual_cast)
+	if world.can_cast() and not fired_this_tick:
 		cast_ready(dt, world)
 
 
@@ -158,8 +164,9 @@ static func is_attack(st: Dictionary) -> bool:
 
 
 ## Counts down every active skill, including while casting is blocked.
-func tick_cooldowns(dt: float, world: RunWorld) -> void:
-	fired_this_tick = false
+func tick_cooldowns(dt: float, world: RunWorld, preserve_manual_cast: bool = false) -> void:
+	if not preserve_manual_cast:
+		fired_this_tick = false
 	summons.step(dt, world)
 	_step_areas(dt, world)
 	if not _flights.is_empty():
@@ -187,7 +194,11 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		var ca := float(cooldowns.get(a, 0.0))
 		var cb := float(cooldowns.get(b, 0.0))
 		return ca < cb if ca != cb else lo.order.find(a) < lo.order.find(b))
+	var finisher := world.meter.preferred(world, ready) if not world.meter.config.is_empty() else ""
 	for key: String in ready:
+		var meter_rule: Dictionary = world.book.meter_rule(key)
+		if not world.meter.admits(world.book.def(key)) or (String(meter_rule.get("role", "")) == "finisher" and key != finisher):
+			continue
 		var cd := float(cooldowns.get(key, 0.0))
 		var st := stats_of(world, key)
 		var origin := world.cast_origin()
@@ -199,12 +210,33 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		if not world.can_pay_hp(int(st.hp_cost)):
 			# Slash Blast pays HP and never casts when that would leave 0 HP; nothing is spent.
 			continue
-		var plan := _admit_cast(world, key, st, origin)  # has_target said yes, so admission does too
+		var plan := prepare_cast(world, key, st, origin)  # has_target said yes, so admission does too
+		st = _with_finish_art(world, key, world.meter.begin_cast(world, key, st))
 		world.spend_hp(int(st.hp_cost))
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
+		if String(meter_rule.get("role", "")) == "finisher":
+			cooldowns[key] = maxf(1.0, cooldowns[key])
 		cooldown_totals[key] = cooldowns[key]
 		_resolve_cast(world, key, st, origin, plan)
 		break
+
+
+## A finisher's art for the orbs the cast spent (the skill's `finish` block, Panic and Coma): `effect` is the finish
+## animation numbered by orbs spent (1..max_n), played on the caster (`at` "caster", the cast event's effect) or on the
+## first target (`at` "target", `finish_effect`, a skill_mob_effect); above `advanced_above` orbs the hit art is the
+## Advanced Combo set. The held weapon's art twin applies (SkillBook.art_path). tier C: this reading of the nodes is
+## ours, no source states it. `st` is the cast-local copy PlayerMeter.begin_cast made; other casts pass through.
+func _with_finish_art(world: RunWorld, key: String, st: Dictionary) -> Dictionary:
+	var block: Dictionary = world.book.def(key).get("finish", {})
+	if block.is_empty() or not st.has("meter_spent"):
+		return st
+	var family := world.loadout.weapon_family
+	var spent := int(st.meter_spent)
+	var path := world.book.art_path(key, String(block.effect).replace("{n}", str(clampi(spent, 1, int(block.max_n)))), family)
+	st["finish_effect" if String(block.at) == "target" else "effect"] = path
+	if spent > int(block.advanced_above):
+		st["hit"] = world.book.art_path(key, String(block.hit_advanced), family)
+	return st
 
 
 ## Casts the manual buff `key` (its skill key was pressed): false, with nothing spent or emitted, unless casting is free,
@@ -224,8 +256,40 @@ func cast_manual_buff(world: RunWorld, key: String) -> bool:
 	return true
 
 
+## Casts the manual dash `key` (Rush, docs/GAME_DESIGN.md 7.33) toward `side` (-1 / 1): false, with nothing spent or
+## emitted, unless casting is free, the cooldown is over and the dash can move at least a pixel (never while climbing).
+## Otherwise the character faces `side`, the cooldown starts, `cast` is emitted where the dash begins, the character
+## slides up to the skill's displacement distance and the charge strikes what its box swept (_resolve_charge; each mob
+## once, up to mob_count, bosses first). Its knock-back shoves hit mobs along `side` (`push_side`). tier C: ours (#302).
+func cast_dash(world: RunWorld, key: String, side: int) -> bool:
+	if side == 0 or not world.can_cast() or not world.loadout.book.is_active(key):
+		return false
+	var st := stats_of(world, key)
+	if float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_pay_hp(int(st.hp_cost)):
+		return false
+	var move := world.player.dash_destination(side, float(st.displacement.get("distance", 0.0)), world.fhm, world.bounds)
+	if move.is_empty():
+		return false
+	world.spend_hp(int(st.hp_cost))
+	cooldowns[key] = restart_cooldown(st)
+	cooldown_totals[key] = cooldowns[key]
+	casts += 1
+	fired_this_tick = true
+	world.player.facing = side
+	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
+		"pos": world.player.pos, "facing": side, "action": String(st.action), "effect": String(st.effect)})
+	world.start_action(String(st.action), float(st.action_time), true, float(st.speed_factor))
+	world.upkeep.action_walking = true
+	var start := world.player.pos
+	world.player.dash_to(move)
+	var cast_stats := st.duplicate()
+	cast_stats["push_side"] = side
+	_resolve_charge(world, cast_stats, start, side)
+	return true
+
+
 ## Whether ready skill `key` (resolved stats `st`) would be admitted from `origin` now: exactly
-## `not _admit_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
+## `not prepare_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
 ## ordering them, so a ready skill without a target costs no target list.
 func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> bool:
 	if String(st.kind) == "summon":
@@ -252,6 +316,11 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			return world.skill_box_count(box, 1) > 0 or world.skill_box_count(box, 1, Callable(),
 				PackedByteArray(), -world.player.facing) > 0
 		"range_around":
+			var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
+			if world.book.def(key).has("pull"):
+				return _pull_count(world, st, origin, need) >= need
+			if need > 1:
+				return _find_targets(world, origin, float(st.range), need) >= need
 			return _any_target(world, origin, float(st.range), strike_count(st))
 		"cluster":
 			return bool(st.has_box) and _any_target(world, origin, float(st.range), 1)
@@ -273,6 +342,11 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 				any = any or _undead[k] != 0
 			return any and world.skill_box_count(st.box, 1, Callable(), _undead) >= 1
 	return false
+
+
+## Full target plan used by cast admission and shared meter arbitration; does not spend resources.
+func prepare_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
+	return _admit_cast(world, key, st, origin)
 
 
 func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
@@ -346,9 +420,14 @@ func _admit_weapon_reach(world: RunWorld, st: Dictionary) -> Dictionary:
 
 
 ## Range-around rule (Warrior Slash Blast): the nearest live mobs whose body centre is within the level's `range` of the
-## player's body, up to the skill's mob count; bosses first (RunWorld.targets_before).
+## player's body, up to the skill's mob count; bosses first (RunWorld.targets_before). A cast block `min_targets` N asks
+## for at least N of them (tier C: Monster Magnet admits at 3, #303); the default 1 keeps every existing skill unchanged.
 func _admit_range_around(world: RunWorld, st: Dictionary, origin: Vector2) -> Dictionary:
-	if _find_targets(world, origin, float(st.range), strike_count(st)) == 0:
+	var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
+	if world.book.def(String(st.skill)).has("pull") and _pull_count(world, st, origin, need) < need:
+		return {}
+	var found := _find_targets(world, origin, float(st.range), maxi(strike_count(st), need))
+	if found == 0 or found < need:
 		return {}
 	return {"targets": _tgt.duplicate()}
 
@@ -405,6 +484,11 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": effect})
 	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 	var definition := world.book.def(key)
+	if st.has("finish_effect") and not targets.is_empty():
+		world.emit("skill_mob_effect", {"skill": key, "mob": targets[0], "pos": world.mob_center(targets[0]),
+			"effect": String(st.finish_effect)})
+	if definition.has("pull") and String(st.kind) != "buff":
+		apply_pull(world, key, st, origin)
 	if String(st.kind) == "summon":
 		summons.spawn(world, st)
 		return
@@ -421,8 +505,10 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	else:
 		match String(st.cast_rule):
 			"box", "weapon_reach", "range_around":
-				_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
-					world.visual_index(String(st.hit)))
+				# A pull-only cast (damage "none" with a `pull` block, Monster Magnet) has no damage lines: apply_pull moved the mobs.
+				if not (definition.has("pull") and String(st.damage_type) == "none"):
+					_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
+						world.visual_index(String(st.hit)))
 			"crowd":
 				_resolve_crowd(world, key, st, targets)
 			"cluster":
@@ -436,6 +522,71 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 					_resolve_nearest(world, key, st, origin, targets)
 	if when == "after":
 		world.displace_player(side, float(disp.distance))
+
+
+## True for the same grounded, non-boss, outside-floor candidates that a pull can move.
+func _pullable(world: RunWorld, st: Dictionary, origin: Vector2, m: int) -> bool:
+	var block: Dictionary = world.book.def(String(st.skill)).get("pull", {})
+	var range_field := String(block.get("range_field", "range"))
+	var reach := float(st.range) if range_field == "range" else world.book.canonical(String(st.skill), int(st.level), range_field)
+	var s := world.swarm
+	return s.active[m] != 0 and s.fh[m] >= 0 and s.steady[m] == 0 and not s.mob_kind(m).boss \
+		and absf(s.x[m] - origin.x) >= float(block.get("min_distance", PULL_MIN_DISTANCE)) \
+		and world.mob_center(m).distance_squared_to(origin) <= reach * reach
+
+
+func _pull_count(world: RunWorld, st: Dictionary, origin: Vector2, need: int) -> int:
+	var count := 0
+	for m in world.swarm.capacity():
+		if _pullable(world, st, origin, m):
+			count += 1
+			if count >= need:
+				break
+	return count
+
+
+## The `pull` block (docs/GAME_DESIGN.md 7.35), run once per cast of any non-buff skill that has one. Candidates are the
+## living grounded non-boss mobs whose body centre is within the level's `range` (range_field; the skill's reach modifiers
+## apply to `range`) of `origin` and at least `min_distance` (default PULL_MIN_DISTANCE) px away horizontally; the `mob_count`
+## farthest (slot breaks ties) are taken, each rolls the `chance_field` percent on the main stream (no draw at 100 or
+## without a chance field) and a success slides the mob toward the caster to `min_gap` px from them (MobSwarm.pull).
+## Emits `mob_pulled {mob, from, pos}` per moved mob. Returns how many moved. tier C: ours (#300).
+func apply_pull(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> int:
+	var block: Dictionary = world.book.def(key).get("pull", {})
+	var level := int(st.level)
+	var range_field := String(block.get("range_field", "range"))
+	var reach := float(st.range) if range_field == "range" else world.book.canonical(key, level, range_field)
+	var chance := float(st.pull_chance)
+	var min_gap := float(st.pull_gap)
+	var want := int(st.mob_count)
+	var s := world.swarm
+	var n := world.mob_grid.query_radius(origin, reach + world.body_pad, _buf)
+	_pull_ids.resize(0)
+	_pull_dx.resize(0)
+	for c in n:
+		var m := _buf[c]
+		if not _pullable(world, st, origin, m):
+			continue
+		var dx := absf(s.x[m] - origin.x)
+		var at := _pull_ids.size()
+		while at > 0 and (dx > _pull_dx[at - 1] or (dx == _pull_dx[at - 1] and m < _pull_ids[at - 1])):
+			at -= 1
+		if at >= want:
+			continue
+		_pull_ids.insert(at, m)
+		_pull_dx.insert(at, dx)
+		if _pull_ids.size() > want:
+			_pull_ids.resize(want)
+			_pull_dx.resize(want)
+	var moved := 0
+	for m in _pull_ids:
+		if chance < 100.0 and world.rng.randf() * 100.0 >= chance:
+			continue
+		var from_x := s.x[m]
+		if s.pull(m, origin.x, min_gap, world.fhm, world.bounds) > 0.0:
+			moved += 1
+			world.emit("mob_pulled", {"mob": m, "from": from_x, "pos": s.pos(m)})
+	return moved
 
 
 ## A charge (displacement `during`): the character has already moved from `start` to where the terrain let it stop; it
@@ -678,9 +829,18 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 				"pierce": int(st.pierce), "skill": key, "level": int(st.level), "element": String(st.element),
 				"pierce_falloff": float(st.pierce_falloff),
 				"impact_blast": st.impact_blast,
+				"meter_receipt": st.get("meter_receipt", ProjectileSystem.NO_RECEIPT),
 			})
 	else:
 		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), hv)
+
+
+## Detached nested cast stats with only the first-hit receipt deliberately shared.
+static func cast_snapshot(st: Dictionary) -> Dictionary:
+	var out := st.duplicate(true)
+	if st.has("meter_receipt"):
+		out["meter_receipt"] = st.meter_receipt
+	return out
 
 
 func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
@@ -689,7 +849,7 @@ func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
 	var pending: Dictionary = d.get("pending", {})
 	var duration := world.book.canonical(key, int(st.level), "time") if not ground.is_empty() else 0.0
 	var interval := float(ground.get("interval", 0.0))
-	_areas.append({"st": st.duplicate(true), "anchor": world.player.pos, "age": 0.0,
+	_areas.append({"st": cast_snapshot(st), "anchor": world.player.pos, "age": 0.0,
 		"next": interval if interval > 0.0 else float(pending.get("delay", 0.0)),
 		"duration": duration, "interval": interval, "follow": bool(pending.get("follow_player", false)),
 		"effect": String(pending.get("effect", ""))})

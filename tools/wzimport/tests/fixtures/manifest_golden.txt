@@ -1038,7 +1038,8 @@ img Skill.wz/110.img *
 img Skill.wz/1100.img skill/11001001/icon
 img Skill.wz/1100.img skill/11001001/iconDisabled
 img Skill.wz/1100.img skill/11001001/iconMouseOver
-img Skill.wz/111.img skill/1111008/mob
+img Skill.wz/111.img *
+img Skill.wz/112.img *
 img Skill.wz/120.img *
 img Skill.wz/1210.img skill/12101004/icon
 img Skill.wz/1210.img skill/12101004/iconDisabled
@@ -1104,6 +1105,15 @@ img Sound.wz/Skill.img 1101004
 img Sound.wz/Skill.img 1101005
 img Sound.wz/Skill.img 1101006
 img Sound.wz/Skill.img 1101007
+img Sound.wz/Skill.img 1111002
+img Sound.wz/Skill.img 1111003
+img Sound.wz/Skill.img 1111004
+img Sound.wz/Skill.img 1111005
+img Sound.wz/Skill.img 1111006
+img Sound.wz/Skill.img 1111008
+img Sound.wz/Skill.img 1121001
+img Sound.wz/Skill.img 1121006
+img Sound.wz/Skill.img 1121008
 img Sound.wz/Skill.img 1201004
 img Sound.wz/Skill.img 1201005
 img Sound.wz/Skill.img 1201006

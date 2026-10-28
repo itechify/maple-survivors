@@ -3,7 +3,7 @@ extends RefCounted
 ## Skill templates (spec #319 I5, M19, GAME_DESIGN 7.63): a skill definition may carry `"extends": "<parent key>"` to say
 ## "I am that skill, in my book". The resolved child is a deep copy of the parent with the child's own keys on top, and
 ## the parent's art and sound paths rewritten to the child's book and skill id. Pure static data transforms; SkillBook
-## resolves once, after every line fragment has merged, so nothing depends on DataRepo.LINES order. Tier C (mechanism):
+## resolves once, after every line fragment has merged, so nothing depends on DataRepo.lines() order. Tier C (mechanism):
 ## the three Big Bangs (2121001, 2221001, 2321001) are identical in the v83 data (tier A, `drift_problems` re-checks it).
 
 const KEY := "extends"

@@ -50,13 +50,10 @@ func _rng(p_seed: int) -> RandomNumberGenerator:
 # --- the line ---------------------------------------------------------------------------------------------------------
 
 func test_il_arch_mage_is_a_class_line_after_the_seven_adventurer_lines() -> void:
-	var lines := Array(DataRepo.LINES)
+	var lines := Array(DataRepo.lines())
 	assert_eq(lines.slice(0, 7), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"],
 		"the lines before it keep their merge order")
-	assert_true("il_arch_mage" in lines.slice(7), "appended after pirate")
-	var class_lines: Array = lines.slice(7)
-	for line: String in class_lines:
-		assert_true(line in ["hero", "il_arch_mage"], "%s is a class line this spec knows" % line)
+	assert_true("il_arch_mage" in lines.slice(7), "discovered from its files after pirate; no list to edit")
 	assert_eq(DataRepo.fragment_path("jobs_survivor", "il_arch_mage", "res://data"),
 		"res://data/survivor/jobs/il_arch_mage.json")
 	assert_eq(DataRepo.fragment_path("skills", "il_arch_mage", "res://data"),
@@ -71,7 +68,7 @@ func test_the_line_loads_without_errors_and_adds_a_job_and_only_its_own_skills()
 	assert_true(FileAccess.file_exists(DataRepo.fragment_path("skills", "il_arch_mage")))
 	assert_true(d.jobs_survivor.jobs.has("222"), "jobs/il_arch_mage.json is merged into the survivor job data")
 	assert_true(d.jobs_survivor.jobs.keys().find("222") > d.jobs_survivor.jobs.keys().find("212"),
-		"base, then lines in LINES order: 222 after 212")
+		"base, then lines in discovered line order: 222 after 212")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "il_arch_mage"))
 	for key: String in frag.skills:
 		assert_true(key in POOL or key == "teleport_il", "%s is a pool skill or Teleport (I6-I10 fill the skeleton)" % key)
@@ -95,7 +92,7 @@ func test_job_222_has_the_spec_fields_and_is_not_playable() -> void:
 	assert_eq(jobs.creation_weapon(222), 1372005)
 	assert_false(bool(rec.playable))
 	assert_ne(jobs.job_error(222), "", "the tools refuse an unplayable job")
-	assert_eq(jobs.playable_jobs(), [212] as Array[int])
+	assert_false(222 in jobs.playable_jobs())
 
 
 func test_212_keeps_its_entry_unchanged() -> void:
@@ -162,7 +159,8 @@ func test_default_job_stays_212_after_il_becomes_playable() -> void:
 	var data := _data()
 	data.jobs_survivor.jobs["222"]["playable"] = true
 	var jobs := _jobs(data)
-	assert_eq(jobs.playable_jobs(), [212, 222] as Array[int], "F/P is listed first in canonical order")
+	var playable := jobs.playable_jobs()
+	assert_true(playable.find(212) >= 0 and playable.find(212) < playable.find(222), "F/P is listed first in canonical order")
 	assert_eq(jobs.default_job(), 212, "212 < 222: the first playable job stays the default")
 
 

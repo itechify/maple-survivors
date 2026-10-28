@@ -1,7 +1,7 @@
 extends TestCase
 ## The rarity bonuses of the I/L Ice Demon and Element Composition (spec #319, ticket I7 #326): the catalog has the four
 ## lists, a Rare+ card adds one rank plus its bonus, the Legendary shares the Unique's counter, and Mastery repeats shrink
-## x0.8. That each effect changes the resolved cast is audited with the other I/L skills in test_il_rarity_bonus_effects.
+## x0.8. That each effect changes the resolved cast is audited with the other I/L skills in test_rarity_bonus_effects.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const CASTER_X := 2000.0

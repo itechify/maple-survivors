@@ -159,6 +159,12 @@ static func skill_imgs() -> Dictionary:
 	bowman["3001003"].level["20"].acc = "20"  # tier A: the original Focus max-level field is a string.
 	var imgs := {"000": b000, "100": b100, "200": b200, "210": b210, "220": b220, "230": b230,
 		"300": {"skill": bowman}}
+	# #301: synthetic Brandish endpoint interpolation; fixed canonical geometry and two lines.
+	var brandish_levels := _levels(30, {"damage": [135.0, 260.0], "attackCount": [2.0, 2.0], "mobCount": [1.0, 3.0]})
+	for row: Dictionary in brandish_levels.values():
+		row.lt = {"$v": [-150.0, -110.0]}
+		row.rb = {"$v": [-10.0, 0.0]}
+	imgs["112"] = {"skill": {"1121008": {"level": brandish_levels}}}
 	# #202: v83 Hunter endpoints; intermediate rows are synthetic linear interpolation, no proprietary art.
 	var bomb_levels := _levels(30, {"mpCon": [14.0, 28.0], "x": [72.0, 130.0], "prop": [31.0, 60.0],
 		"time": [2.0, 6.0], "mobCount": [6.0, 6.0]})

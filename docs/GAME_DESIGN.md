@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships one job, Arch Mage (Fire, Poison); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112) and Arch Mage (Fire, Poison, 212); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -29,7 +29,7 @@ behaviour cards mentioned in them are gone. Target design:
 | Passives | 9 common passives, Maple-named: Maple Warrior (Might), Hyper Body (Max HP), Haste (Speed), Recovery (Regen), Booster (Cooldown), Area, Holy Symbol (EXP), Iron Body (Armor), Sharp Eyes (Crit). Rank 1-5, no rarity. Starting values follow the reference (tier C). | 7.6, 8 |
 | Cards | 3 per draw, weights 1.2 owned active or Mastery / 1.0 new active / 0.8 passive rank / 0.5 new passive. Boss bonus draw kept. No reroll, banish or skip. Power Elixir fallback. | 8 |
 | Combat | Maple formula plus auto-AP in one stat row per job. No MP (cooldowns only). No level-gap penalties. No MISS (ADR 0005). | 5, 6, 7 |
-| Mobility | Teleport, Flash Jump or Dash on a skill key from Lv1, outside the slots. | 2, 7.15 |
+| Mobility | Teleport, Flash Jump, Dash or Rush on a skill key from Lv1, outside the slots. | 2, 7.15, 7.33 |
 | Equipment | Job-class requirement only. `reqLevel` is the tier's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
 | Account | NX, Cash Shop, pets unchanged. Cash equipment adds Fortune. | 8.4 |
 
@@ -57,7 +57,7 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   `tiers_unlocked` (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
   every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
   Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
-  jobs (only 212), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
+  jobs (Hero 112 and Arch Mage 212), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
   Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
   tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
   `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
@@ -95,6 +95,8 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   scenarios and debug drivers removed, the one F/P fixture, the playtests and the regression smoke of 4.2, and the rewrites
   of sections 1, 5, 6.1.1, 7.5, 8 and 9 and of AGENTS.md.
 
+**Landed in the Hero spec (#296, H1–H10 #297–#306):** Hero (112) is selectable alongside F/P, which remains the default (212). Hero starts with Power Strike and manual Rush, seven pool actives, a ten-orb Combo meter, Panic/Coma finishers and Monster Magnet's shared pull. H1 verified the books, sounds and weapon actions; H2 added the class line/AP/drop families; H3/H4 built the deterministic meter/pull boundaries; H5–H8 supplied skills and rarity effects; H9/H10 supplied two-job creation/tooling, the diagnostic `hero_t2.json`, the independent Hero replay oracle and QA. Sections 7.33–7.35 and the provenance rows own the mechanics. No balance tuning was done; melee survivability remains a balance-pass concern.
+
 ### Known design gaps (open after the slice)
 
 These are findings of the QA pass, #293 and #307, recorded as gaps, not as met targets. Nothing here was tuned in #294.
@@ -122,7 +124,7 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
 ## 1. The run
 
 1. **Create or continue.** Character select shows three slots. Creating a character is name, look (the v83 Explorer
-   face, hair and outfit options) and a Job page listing the playable jobs (only Arch Mage (Fire, Poison) in this slice);
+   face, hair and outfit options) and a Job page listing the playable jobs (Hero and Arch Mage (Fire, Poison), with the latter selected by default);
    the character is that 4th job from Lv1 and keeps it for good. Selecting a living character opens its **Free Market**.
 2. **Free Market (home).** The v83 Entrance 910000000 with Bgm00/FloralLife. Walking, jumping, its two ladders and the
    existing same-map portal links work; no combat, spawning, drops or round timer run there. The Equip (E) and Item (I)
@@ -132,8 +134,8 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
 3. **Map select** lists every stage of every unlocked tier: Henesys, Ellinia, Perion and Kerning City (tier 1, always
    open) and Sleepywood (tier 2). A locked card is greyed, its details say "Locked. Clear any stage of Tier 1 to unlock
    Tier 2." and Start does nothing. Each stage contains three ordered maps (4.1). Back returns to the Free Market.
-4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt,
-   active slot 1) and Teleport on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
+4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt for F/P, Power Strike for Hero,
+   active slot 1) and its mobility skill (Teleport or Rush) on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
 5. **Survive** the growing swarms. Each map's boss arrives 300 seconds after entering it. Defeat it, collect all
    drops and finish every pending choice with combat frozen, then transfer automatically to the next map. HP, Hidden,
    cooldowns, kills and damage carry; map entities and boss-inflicted statuses clear. Only map 3 clears the round. Slow
@@ -167,7 +169,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
-| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Each manual skill has its own key in Key Config (see 7.15) |
+| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Rush (Hero): X + direction dashes that way, damaging and shoving mobs (7.33; hold X to repeat after its 2 s cooldown). Each manual skill has its own key in Key Config (see 7.15) |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
@@ -179,7 +181,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
-There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash) are cast on their own skill keys, both X by default.
+There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash, Rush) are cast on their own skill keys, all X by default.
 
 Movement keys are a setting (`Settings` `[controls] movement`: `arrows`, the default, or `wasd`). Only the chosen set
 drives `move_*`, so the other set is free to bind; switching to WASD takes W/A/S/D off every other action (S stops
@@ -684,7 +686,140 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 **701–730** for the dedicated balance pass after its data and guards freeze. Spent or retired
 101–130/201–212/301–330/401–430/501–530/601–630 are never reused for tuning or fresh evidence.
 
-### 4.2 Tuning record (`scripts/balance.sh`)
+#### #346 Hero first-pass melee survivability
+
+Tier C, training only: Hero starts at 600 HP (`balance.player.ap.112.hp`) and gains 65 HP/level
+(`balance.growth.112.hp`). An absent AP-row `hp` preserves the shared baseline. Five pool cooldowns
+are x0.4: Power Strike .4, Slash Blast .64, Brandish .56, Shout 4.8, Monster Magnet 4 seconds.
+Panic stays 2 seconds and Coma 1 second with their shared one-second meter floor. Each held Combo
+orb adds 5% damage; finishers add 20% per orb spent. These supersede #296/H3/H8 first-pass values.
+No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening multiplier was needed.
+Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
+
+## 4.2 Tuning record (`scripts/balance.sh`)
+
+**#296 review fixes / H12, after integrating #346 (2026-10-28).** No balance values changed by the
+review fixes: incoming AP HP 600, growth 65, orb 0.05, cooldowns and finisher coefficients are preserved exactly;
+Hero AP/growth/score rows now live in `jobs/hero.json`'s `balance` block. Read-only cache, `ISOLATE=296fix`,
+`JOBS=3`, seeds 1/2/2026; all four tier-1 stages bot/random for both jobs, Sleepywood bot starter/own fixture.
+All **60 completed records** have no world warnings, missing assets or TIMEOUTs. A combined shell received
+SIGTERM during kit startup after 27 records; only unfinished batches were resumed, with no source/config changes.
+Complete records and console summaries: `_scratch/296-review/smoke/` and `_scratch/296-review/smoke.log`.
+
+| Job | Clears / 30 | Henesys bot six slots | Henesys bot map 2 / 3 | Sleepywood kit map 2 / 3; clears / 3 |
+|---|---|---|---|---|
+| F/P 212 | 1/30 | 3/3; 136.7–205.3 s | 2/3 | 2/3; 1/3 |
+| Hero 112 | 5/30 | 3/3; 139.9–249.2 s | 1/3 | 3/3; 2/3 |
+
+F/P's 30 records reproduce the earlier smoke outcomes and times.
+Hero's total matches H11's 5/30 clears, but its mix changes: random Henesys/Ellinia/Perion 1/3 each,
+Sleepywood kit 2/3, all other configurations 0/3. All three fresh Henesys bot runs reach boss 1, but
+**map 2 reach falls from H11's 3/3 to 1/3**, below #346's>=2/3 target. Sleepywood kit map 2 improves 2/3 -> 3/3.
+These combined casting/admission changes need a later balance follow-up; no tuning or extra/held-out seeds were run.
+Ellinia remains recorded rather than tuned. Hero bot death ranges: Henesys 327.7–688.2, Ellinia 221.0–646.5,
+Perion 288.9–493.0, Kerning 326.8–568.7 seconds.
+
+Merged-source full suites: **2151 passed / 0 failed / 0 skipped** cached; **1926 passed / 0 failed /
+225 skipped** without cache (skips prove no asset behavior). Both F/P goldens and the repaired Hero golden
+`409dba0d1bdffc32ba72644e326f99561e6ed9c0270feda39ace2573b0727cb3` match integration 3e37ec1 unchanged.
+The change from the original H10 Hero hash came from #346's synthetic weapon-reach/cast assertion and
+initial-state coverage repair, not a review-fix rebaseline. No tests deleted. Rush visual evidence remains
+`evidence/296-review-uncapped/`; the 120-second, 7200-tick capture had missing assets `[]`.
+
+**#296 review fixes / H12, before merging #346 (2026-10-28).** Regression smoke only; no balance tuning. Read-only default
+cache, `ISOLATE=296fix`, `JOBS=3`, seeds 1/2/2026: every tier-1 stage with bot/random for 212 and 112,
+plus Sleepywood bot with starter equipment and each job’s fixture. All **60 records** finished without
+crashes, world warnings, missing assets or TIMEOUTs. Full reports remain in `_scratch/296-review/pre-346-smoke/`.
+Compared with H10 below, F/P’s outcomes and recorded stage ranges reproduce; Hero remains 0/30 clears
+with no scheduled boss defeated. Henesys boss-reach counts and bot six-slot coverage are unchanged;
+Hero bot now also reaches Kerning’s first boss in 1/3. Hero death seconds shift after the casting/admission
+fixes (Henesys bot 278.8–321.9, random 302.8–316.3); its known weak survival is left to #346.
+
+| Job | Tier-1 clears (bot + random) | Henesys bot six actives | Henesys first boss, bot / random | Sleepywood clears, starter / kit |
+|---|---|---|---|---|
+| F/P 212 | 0/24 | 3/3; 136.7–205.3 s | 3/3 / 3/3 | 0/3 / 1/3 |
+| Hero 112 | 0/24 | 3/3; 142.4–254.4 s | 2/3 / 3/3 | 0/3 / 0/3 |
+
+Full suites: cached **2148 passed / 0 failed / 0 skipped**; without cache **1923 passed / 0 failed /
+225 skipped** (skips prove no asset behavior). Both F/P goldens and the Hero golden remain unchanged.
+A 120-second Hero visual playtest (seed2026, x4, vsync off) completed 7200 ticks with missing assets `[]`;
+Rush’s streak/hit capture was inspected in `evidence/296-review-uncapped/`. No tests were deleted.
+
+**#306 / H10 Hero enablement and H9 completion (2026-10-28).** No balance tuning. Read-only real cache,
+`ISOLATE=306`, `JOBS=3`, training seeds 1/2/2026 only. All four tier-1 stages, bot/random, both jobs;
+Sleepywood bot with starter equipment and each job's fixture (`hero_t2.json`, `fp_arch_mage.json`).
+All **60 records** finished without crashes, world warnings or missing assets; no TIMEOUTs.
+Records, complete console reports and machine summaries remain under `_scratch/306-smoke/<job>/<stage>/<policy-or-kit>/`.
+Cells are **clears / 3; death-second range (deaths only); end-level range**.
+
+| Stage / equipment | Hero bot | Hero random | F/P bot | F/P random |
+|---|---|---|---|---|
+| Henesys | 0/3; 259.2–322.3; 8–11 | 0/3; 302.8–326.8; 10–11 | 0/3; 305.0–651.7; 11–36 | 0/3; 308.3–309.9; 10–11 |
+| Ellinia | 0/3; 144.5–156.3; 5–6 | 0/3; 155.5–163.6; 5–6 | 0/3; 629.1–644.2; 21–23 | 0/3; 328.4–660.2; 12–23 |
+| Perion | 0/3; 229.8–251.1; 8–8 | 0/3; 201.8–256.4; 7–8 | 0/3; 305.7–456.3; 10–19 | 0/3; 308.7–421.5; 13–19 |
+| Kerning | 0/3; 221.1–267.0; 8–10 | 0/3; 232.1–252.1; 9–10 | 0/3; 307.9–315.0; 12–13 | 0/3; 306.0–317.3; 12–13 |
+| Sleepywood starter | 0/3; 7.2–7.6; 1–1 | — | 0/3; 10.6–12.0; 1–1 | — |
+| Sleepywood kit | 0/3; 7.8–10.1; 1–3 | — | 1/3; 23.8–826.2; 8–72 | — |
+
+**Melee survivability remains unresolved.** Hero cleared 0/30, defeated no scheduled boss, and reached the first
+Henesys boss in 2/3 bot and 3/3 random runs; every other Hero run died before its first boss. Hero Henesys bot filled
+six active slots at 134.1–253.2 s (3/3). Sleepywood's diagnostic equipment fixture did not make the opening survivable.
+Per the owner's H10 instruction, QA continues and reports this to the orchestrator rather than tuning or stopping.
+The later balance pass owns Rush cooldown/rank/knock-back, Slash Blast/Coma HP costs, Shout stun and the orb bonus.
+
+F/P Henesys bot still fills six slots (136.7–205.3 s, 3/3) and reaches the first boss (3/3). The older H5 smoke above
+had 1/3 Henesys and 2/3 kit Sleepywood clears, compared with 0/3 and 1/3 here; do not call those outcomes unchanged.
+A paired seed-1 Henesys F/P control with Hero disabled produces a **byte-identical full record** to Hero enabled
+(`_scratch/306-fp-disabled-control/henesys_bot_1.json`); this Henesys seed-1 difference from H5 is already present on the
+integration tree, not introduced by Hero's playability flip. Other smoke differences are recorded without a cause
+attribution. Ellinia is recorded only, pending the owner's rework.
+
+Both real `redesign --job=112` and `--job=212` scenarios pass: creation, full-slot/Mastery/boss windows, three real
+clear/fade/arrival transitions, kept equipment/mesos and unlocked tier, Sleepywood death, save/quit, deletion and history.
+These are diagnostic invulnerable flows with post-timer boss hits, not survival evidence. The driver now drains stale
+choice requests and waits for the window's input delay before injecting a number key (under load a visible window
+could still reject that key). Screenshots in `evidence/h10/redesign_112/` and `redesign_212/` were inspected.
+Ordinary Hero playtests (`--job=112 --speed=8 --vsync=off`) ended DEAD on Henesys seed 2026 at 304.9 s, Lv11,
+and Sleepywood seed 1 with `hero_t2.json` at 8.3 s, Lv1; both `missing: []`. Art-only probes supply stationary,
+durable targets and injected orbs for sword/axe finishers; no diagnostic probe code or art is committed.
+The Mastery screenshot also exposes a pre-existing design gap: Monster Magnet's Normal Mastery advertises +5% damage
+although the skill deals none. Its rarity bonuses work; #346 resolves this with cooldown x0.95, the same repeat counter and diminishing returns.
+
+Hero's separate synthetic replay oracle hashes 7,200 fixed ticks twice (seed 1, explicit job 112, bot, invulnerable):
+`9adb0cee8138e1bf1aa6f91a2656e1cd4ad29f8552913269dbe08ec0cb841661`. The two F/P oracle expectations are untouched.
+Cached full suite: **2,137 tests, 0 failed, 0 skipped** (219 files); both existing F/P oracles and the Hero oracle pass.
+No-cache full suite: **2,137 total, 1,912 executed passes, 0 failed, 225 SKIPs**; SKIPs prove no art behavior.
+Every skipped test is named as `SKIP` in `_scratch/306-qa/no-cache-skips.log`. Final cached fixture/driver checks:
+21 tests, 0 failed, 0 skipped.
+Rust tests: 70 passed; web shell: 62 passed. Web export and artifact gate were **not run**: the pinned web templates
+are absent (`godot_templates.sh dir`); merge readiness therefore carries this explicit unverified gate.
+
+
+**#301 / H5 core melee regression smoke (training seeds 1/2/2026).** No balance tuning.
+Shared real cache, `ISOLATE=301`; four tier-1 stages with bot/random, Sleepywood with bot,
+with and without the tier-1 `fp_arch_mage.json` kit. All 30 runs finished without crashes,
+world warnings or missing assets. Records and summaries are `_scratch/balance301/` (Sleepywood
+in separate `starter/` and `kit/` folders because the script reuses its output names).
+
+| Stage / equipment | Bot: clears; death seconds; end levels | Random: clears; death seconds; end levels |
+|---|---|---|
+| Henesys | 1/3; 449.9–711.5; 22–56 | 0/3; 308.0–615.4; 10–31 |
+| Ellinia | 0/3; 625.4–650.9; 22–23 | 0/3; 321.8–688.0; 12–23 |
+| Perion | 0/3; 430.6–668.6; 25–42 | 0/3; 277.3–574.8; 10–32 |
+| Kerning | 0/3; 306.2–749.1; 12–42 | 0/3; 308.3–442.2; 13–23 |
+| Sleepywood starter | 0/3; 10.6–12.0; 1 | — |
+| Sleepywood tier-1 kit | 2/3; 792.2 (one death); 71–78 | — |
+
+Henesys bot fills six active slots at 137.5–183.6 s and reaches the first boss in all three runs;
+seed 2026 clears at 909.5 s. Henesys outcomes/times match the preceding #307 smoke.
+Kit Sleepywood outcomes/times also match #307. The starter seed-2026 death differs from that older
+record: running the unchanged integration code at 4419535 produces an **identical complete record**
+(DEAD 12.0 s, Lv1), so this is not an H5 regression. Ellinia is recorded only, with no tuning.
+The diagnostic Hero run (playable flipped, invulnerable, three core skills learned in a throwaway mirror)
+ends PLAYING at 60.13 s, job 112, 18 kills, missing []; each `cast_<skill>` shot and the four-weapon,
+seven-frame Brandish sheet were inspected in `evidence/h5-301/`. Full suite: **2028 tests, 0 failed,
+0 skipped**, 210 files, 1598.1 s; F/P oracle expectations unchanged. The live shots draw at about 1 FPS;
+they are cast/hit evidence, not performance evidence. The paused sheet verifies the body/weapon poses.
 
 **I/L selection and tooling smoke (spec #319, I11 #330, 2026-10-28).** Feature smoke only, no tuning: Henesys, bot, training seeds
 1 and 2, real cache (`cache-320`, the I/L books), JOBS=3. F/P (212): both records are byte-identical to the spec #319 tip's
@@ -754,6 +889,27 @@ Final validation: `ISOLATE=307 bash scripts/test.sh` with the real cache: **1992
 0 skipped**, 207 files, 1038.6 s. Seven deterministic ramp tests added; none deleted. Existing corrupt-settings
 recovery diagnostics and two dummy TextureStorage RID shutdown diagnostics remain. The final integration
 fetch/merge was already up to date (5cd40ea); no gameplay changes after validation. Final focused rerun: 7/7 passed.
+
+**#299 / H3 meter infrastructure regression smoke (2026-10-28).** Job 212, real v83 cache,
+training seeds 1/2/2026, bot/random on every tier-1 region and bot Sleepywood with/without the tier-1 kit.
+No tuning or held-out seeds. All 30 records have empty warnings/missing lists, no crashes or timeouts.
+All 30 records after merging H1/H2/H4 are byte-identical to the preserved pre-merge meter-runtime records.
+Historical H7 results reproduce the preceding #294 smoke; Hero was then unplayable (before H9/H10), so Combo is exercised by
+seeded synthetic tests and the diagnostic HUD probe rather than claimed as Hero survival evidence.
+
+| Stage / kit | Bot clear / dead; time range; end level | Random clear / dead; time range; end level |
+|---|---|---|
+| Henesys | 1 / 2; 449.9–909.5 s; Lv22–56 | 0 / 3; 308.0–615.4 s; Lv10–31 |
+| Ellinia | 0 / 3; 625.4–650.9 s; Lv22–23 | 0 / 3; 321.8–688.0 s; Lv12–23 |
+| Perion | 0 / 3; 430.6–668.6 s; Lv25–42 | 0 / 3; 277.3–574.8 s; Lv10–32 |
+| Kerning | 0 / 3; 306.2–749.1 s; Lv12–42 | 0 / 3; 308.3–442.2 s; Lv13–23 |
+| Sleepywood, tier-1 kit | 2 / 1; 792.2–931.6 s; Lv71–78 | not sampled |
+| Sleepywood, no character file (default sword) | 0 / 3; 10.6–12.0 s; Lv1 | not sampled |
+
+Henesys bot fills six actives at 137.5/183.6/139.2 s and all three runs defeat Mano; the no-character
+Sleepywood command still uses the tool's default sword, not the creation wand (same distinction as #294).
+The tier-1 kit reaches map 3 on all seeds; seeds 2/2026 clear. Ellinia remains record-only, unchanged.
+Raw records and exact configuration logs are retained under ignored _scratch/299-smoke and /tmp/299-*.log.
 
 **#294 / T12, slice QA (2026-10-28).** The F/P slice after #307 (merged into the QA branch), real v83 cache, training seeds
 1/2/2026 and no held-out seeds; nothing was tuned and no balance data changed. Raw records, consoles and screenshots live in the
@@ -885,7 +1041,36 @@ card of the three (the old `--first-card` policy is no longer a careless proxy: 
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00. Older records below
 quote the bot's former job draws, basic-attack duels and Guard scores: they describe the game of their date.
 
-#### Spec #282 / #288: rarity and Mastery regression smoke (2026-10-28)
+#### #346 candidate comparison
+
+Absolute `PATCH=` variants, `ISOLATE=346`, `JOBS=3`, training seeds 1/2/2026 (kit Henesys 1..12).
+A: growth65, five cooldowns x.4, orb .05 / finisher .20; B adds HP300; C adds HP1000;
+D selects HP600. A missed both three-seed targets. B met fresh Henesys but missed Sleepywood.
+C cleared kit Sleepywood3/3; reduced the baseline and stopped its unfinished batches before D.
+B's unfinished kit batch and C's unfinished fresh/kit batches are not target evidence.
+D's fresh Henesys: clear966.7 / dead674.0 / dead447.0, all map2; kit Sleepywood:
+dead656.5 / dead223.9 / clear906.9, two map3. No claim of frozen balance or F/P parity beyond these targets.
+Raw records and logs stay in `_scratch/346/`; no held-out seeds used.
+
+The complete 30-run Hero regression smoke (tier-1 bot/random seeds1/2/2026, Sleepywood starter/kit bot)
+has 5 clears / 25 deaths / 0 timeouts, warnings=[] and missing=[] throughout; no crashes. Compared with
+H10's 0/30 Hero clears, tier-1 clears are Henesys bot1/3, random1/3, Perion random1/3 and Kerning random1/3;
+all other tier-1 configurations remain0/3. Ellinia remains record-only (deaths224.2–935.8s).
+Sleepywood starter remains0/3 (deaths16.4–20.2s); kit1/3 with2/3map2. Henesys bot six slots fill at
+130.6–253.0s (all3), with first boss defeated3/3. These samples meet H11 targets without claiming all-stage viability.
+The paired seed1 Henesys F/P record is byte-identical before/after (SHA-256 `a5a9901ca32b43059550b9de45a731ebf5dc1959785a8a76374679fc8cb4c942`);
+both F/P oracle files are unchanged. Hero's old replay cast nothing because its synthetic weapon lacked afterimages;
+H11 adds existing synthetic swing reach, a cast-coverage assertion and initial-player-state digest, then recaptures
+`409dba0d1bdffc32ba72644e326f99561e6ed9c0270feda39ace2573b0727cb3` with independent repeat equality.
+
+
+| Configuration | Before | Chosen D |
+|---|---|---|
+| Henesys fresh bot, 1/2/2026 | boss1/map2 0/3; clears0/3 | boss1/map2 3/3; clears1/3 |
+| Henesys Hero kit bot, 1..12 | clears1/12 (seed3) | clears4/12 (seeds1/3/5/7) |
+| Sleepywood Hero kit bot, 1/2/2026 | map2 0/3; deaths7.8–10.1s | map2 2/3; clears1/3; deaths223.9/656.5s |
+
+### Spec #282 / #288: rarity and Mastery regression smoke (2026-10-28)
 
 `ISOLATE=288`, real cache, seeds 1/2/2026 on all tier-1 stages, bot and random, no PATCH or tuning/held-out seeds.
 All 24 records: no crashes, warnings or missing assets; all DEAD, no clears/timeouts. This remains the incomplete
@@ -4452,7 +4637,8 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   `weapon_reach` and `range_around`, 7.8; the `self` rule of 7.16 is removed) resolves to
   `Loadout.stats().cast_rule` (empty when absent) and `cast_params` (the whole block). Absent/`nearest` keeps
   nearest-in-range attacks and `can_start_buff` admission. `manual` never auto-casts; unknown rules wait too.
-  `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line.
+  `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line;
+  `range_around` honours `min_targets` the same way (Monster Magnet, 7.33).
   Admission prepares targets before the cooldown/cast; later rules extend the same
   `SkillRunner._admit_cast` / `_resolve_cast` dispatches with their own admission/resolution functions.
 - Optional `displacement: {"direction", "when", "field" | "distances" | "distance"}` makes an attack move the character
@@ -4873,9 +5059,11 @@ kind):
 
 ```json
 "displacement": {
-  "direction": "away" | "toward",      // default "away"; relative to the mob the cast faces
+  "direction": "away" | "toward" | "input",   // default "away"; relative to the mob the cast faces; "input" (a manual
+  // dash, 7.33 Rush) is chosen by the caster: the pressed arrow key, else the facing
   "when": "before" | "after" | "during",   // default "after"
-  "field": "x"                         // the distance in px: a canonical Skill.wz level field of this rank's level, or
+  "field": "x"                         // the distance in px: a canonical Skill.wz level field of this rank's level
+  // ("lt.x" is the box reach |lt.x|, Rush), or
   // "distances": [60, 90, 120]        // survivor px per rank (rank r uses entry r, the last one repeats), or
   // "distance": 80                    // one survivor px value. Precedence: field, distances, distance.
 }
@@ -4945,7 +5133,7 @@ pacing regressions retain their pre-Pirate job pool and unchanged goldens/bounds
 
 **Skill key** (GLOSSARY): the Key Config binding of one manual skill the character has learned. A manual skill
 (`cast.rule: "manual"`, never auto-cast) names its key in a `skill_key` field of its definition; the id is also the
-input action (`project.godot` has `teleport` and `dash`, both X) and is listed in `KeyBindings.SKILL_KEYS`. A new
+input action (`project.godot` has `teleport`, `dash` and `rush`, all X) and is listed in `KeyBindings.SKILL_KEYS`. A new
 manual skill adds its id there, an action in `project.godot` and a `skill_key` in its skill file. The three Teleports
 share `teleport`, so an existing `settings.cfg` `[input] teleport` binding is simply Teleport's skill key and
 Teleport behaves exactly as before.
@@ -4953,8 +5141,8 @@ Teleport behaves exactly as before.
 - **Key Config lists only learned manual skills.** `RunWorld.manual_skill_keys()` returns one
   `{action, name, icon, skill}` per learned skill key; `KeyConfigWindow` takes it when it opens and ends its tray with
   those icons (the skill's own icon and name, not the F/P Teleport icon for everyone). `KeyBindings` drafts the fixed
-  actions plus those ids; an unlearned skill key cannot be bound. Teleport and Dash both default to X; no character learns
-  both (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
+  actions plus those ids; an unlearned skill key cannot be bound. Teleport, Dash and Rush all default to X; no character
+  learns two of them (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
 - **Input.** `MoveInput.skills_pressed` / `skills_held` (id -> true; `press_skill`, `hold_skill`) replace the old
   `teleport_pressed` / `teleport_held`. `RunScene` latches presses of learned skill keys (a held key requests repeats).
   `RunWorld.manual_skill(id)` finds the learned skill (weapon-gated like any skill). Teleport keeps its handler
@@ -5605,6 +5793,224 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. Rarity lists ship in the skill definition.
 
+### 7.33 Hero pool and Rush (spec #296)
+
+#### Core melee: Power Strike, Slash Blast, Brandish (H5, #301)
+
+
+Hero remains unselectable until the selection ticket. Its core attacks live in `skills/hero.json`;
+Power Strike and Slash Blast were moved from `warrior.json`, with no duplicate keys or weapon gates.
+All three use eight ranks: 20-level skills map to 3/5/8/10/13/15/18/20, Brandish to
+4/8/12/15/19/23/27/30. WZ damage, HP costs, target counts and boxes are unchanged (tier A).
+
+| Skill | Auto-cast and cooldown (tier C) | Canonical behavior (tier A) |
+|---|---|---|
+| Power Strike 1001004 | Nearest mob in the weapon swing envelope; 1.0 s, weapon action held 0.6 s | 175% at rank 1, 260% at rank 8; one target |
+| Slash Blast 1001005 | Nearest mobs around the caster; 1.6 s, weapon action held 0.6 s; refuses a lethal HP cost | 78% to 130%, six targets, range 130–150 px, hpCon from the mapped level |
+| Brandish 1121008 | Forward box, at least one target; 1.4 s | (-150,-110)..(-10,0), two lines, 150% to 260% per line, one to three targets |
+
+Brandish plays **one** body action per cast, `brandish1` for one-handed swords/axes and `brandish2`
+for two-handed swords/axes, with `effect/0` or `effect/1` respectively. This is the orchestrator's
+ruling over the spec's two-action sequence: the opposite-handed action loses the weapon (H1).
+The 0.84 s action hold is the sum of the seven absolute 120 ms body frame delays (tier A).
+Use and Hit sounds and hit/0 art come from 1121008. Loadout resolves optional
+`action_by_handedness` / `effect_by_handedness` maps; definitions without them behave as before.
+
+Rarity bonuses (tier C) follow the shared card schema: Rare Sword Mastery damage x1.2 for all three;
+Epic Power Strike Booster cooldown x0.88, Slash Blast Wide Slash area x1.2 (including radial reach),
+Brandish Sweep +1 target. Unique Final Attack adds one damage line; Legendary uses the same
+`final_attack` counter and adds damage x1.2. Cards grant exactly one rank; at rank 8 Mastery repeats
+shrink by x0.8, including repeats taken before the cap. No standalone behavior cards remain for these skills.
+
+#### Crowd control: Shout and Monster Magnet (H7, #303)
+
+Both are auto-cast pool actives in `skills/hero.json` (books 111 and 112), eight ranks, no MP, no weapon gate, with
+`rarity_bonuses` (section 8). Their cooldowns, admission thresholds and action holds are tier C; every number that is a
+Skill.wz level field is tier A.
+
+| Skill / key | Cast | Behaviour | Cooldown |
+|---|---|---|---|
+| Shout 1111008 / `shout` | `box`, `min_targets 3` | Physical damage 14 -> 30 % to the `mobCount` 6 nearest mobs inside the centred WZ box (+-110..200 x +-82..150, scaled by `area`); each struck mob rolls the level's `prop` for a stun of `time` seconds (5 -> 10) through the shared `on_hit` status (bosses and scheduled bosses reject it). Stance `alert3`, 0.6 s hold. | 12 s |
+| Monster Magnet 1121001 / `monster_magnet` | `range_around`, `min_targets 3` | No damage. The shared `pull` block (7.35): up to `mobCount` 6 mobs 120 px or more away and within `range` (200 -> 400 px, scaled by `range` modifiers) each roll `prop` (48 -> 95 %) and slide to 60 px from the caster. Stance `alert2` (WZ's `dash` makes a two-handed axe vanish, H1), 0.6 s hold. | 10 s |
+
+- **Shout's rank table (D4).** `ranks` is `[5, 8, 12, 15, 19, 23, 27, 30]`. WZ level 4 has no `prop`: the node stores
+  `"58": 38`, a corrupted `prop` (String.wz says 58 %, and the series runs 52, 54, 56, 58, 60), so the standard 30-level
+  table (rank 1 = level 4) would give a stun that never lands. Rank 1 reads level 5 (60 %) instead; the other seven ranks
+  equal the standard table. A real-cache test asserts that level 4 still lacks `prop`, so a fixed WZ is noticed.
+- **`min_targets` on `range_around`.** The cast block's `min_targets` N (default 1, so every existing skill is unchanged)
+  admits the cast only when N mobs are inside `range`; the target list is still the nearest `mobCount`. Magnet's admission
+  counts every mob in range, including those under the 120 px pull floor that cannot be moved (tier C: simple and readable;
+  a cast that moves nothing still starts its cooldown).
+- **Bot reach.** `SkillRunner.reach_of` returns 0 for damage "none", so Monster Magnet adds nothing to the melee bot's
+  engage reach: it never holds the bot back from walking up to a mob, and a pull never draws it away from one.
+- **Rarity** (section 8 schema; Legendary shares the Unique's id and repeat counter): Shout Rare Area x1.2, Epic Booster
+  cooldown x0.88, Unique Echo Shout cooldown x0.75, Legendary Echo Shout plus area x1.2. Monster Magnet Rare Reach range
+  x1.2 (the spec table says `area`; at H7 `range_around` read only `range`. H5 then made a radial range scale with `area` too, so
+  either modifier works; `range` stays), Epic Bigger Grab
+  +2 targets (`count`), Unique Booster cooldown x0.75, Legendary Booster plus +2 targets.
+- **Bonus audit (merge of #301 and #303).** `test_rarity_bonus_effects` casts every rarity effect of every Hero and F/P skill,
+  with and without it, in a seeded world and asserts that the resolved cast changes: damage dealt, casts per 66 s, hit events,
+  mobs affected (`count`, `pierce`), allies (`summon_count`), or a mob just beyond the base reach hit only with `area` / `range`.
+  Every shipped bonus passes; a negative test shows the probe fails a modifier the rule never reads (`range` on a box, `pierce`
+  on Brandish). No bonus was swapped: Slash Blast's Epic `area` works since H5 scales a `range_around` radius by `area`.
+- **Text.** `SkillText.level_line` adds "Pulls up to N monsters from R px" for any skill with a `pull` block (the effective
+  `mob_count` and `range`, so Bigger Grab and Reach show), after the data's own line ("P% chance for each monster pulled").
+
+#### Rush (1121006, `rush_hero`, #302 H6)
+
+Hero's `mobility_skill` (spec #296 D1): a manual directional dash on the skill key that damages and shoves mobs along its
+path. It is the first mobility skill that deals damage; Paladin and Dark Knight get their own Rush the same way. Rush is
+learned at round start next to Power Strike (`JobTree.start_skills`), consumes neither slot track, is not in the pool and
+is never offered as a card (`UpgradePool` only draws pool skills).
+
+- **Definition.** `skills/hero.json`: `slot "mobility"`, `kind "instant"`, `damage "physical"`, `cast {"rule": "manual"}`,
+  `skill_key "rush"`, `displacement {direction "input", when "during", field "lt.x"}`, `knockback {distance 80, direction
+  "dash"}` (no chance field), `rush {bot_threat_distance 60}`, action `rush2` (0.6 s), effect `effect` (frame 0 is a blank
+  1x1 that delays the streak 100 ms), the dust `effect0` as a `cast_visuals` entry, the `Use` sound. No `ranks` override: the
+  level-30 table gives rank 1 = WZ level 4.
+- **Input.** `rush` is a skill key (`KeyBindings.SKILL_KEYS`, an action in `project.godot`, X by default like Teleport and
+  Dash; a Hero never owns two). Press it with Left or Right to dash that way, otherwise the facing (Up and Down are
+  ignored; opposing arrows cancel). Holding repeats once the cooldown is over. Key Config lists it and the HUD quick slot
+  shows it with its cooldown sweep (`HudQuickSlot.movement_skill_of`).
+- **Movement** (`SkillRunner.cast_dash`, `PlayerMotion.dash_destination` / `dash_to`). Instant, like every displacement
+  (7.13): the distance is the box reach `|lt.x|` of the owned level (170 px at rank 1). Grounded it slides along the
+  platform (slopes, platform edge, walls, map limits: never off a ledge). Airborne it keeps its height and stops at the
+  walls of the platform last stood on and the map limits. It cannot start while climbing. A dash that could not move
+  at all is refused with nothing spent: no event, no cooldown. `rush2` plays for its action time. The `cast` event's
+  `pos` is where the dash began.
+- **Hits.** The swept box of 7.13 (`lt (-170,-50) rb (0,0)`, mirrored by the facing) at the start and at the end of the
+  move, and everything between: each mob in it is hit once per dash (one physical line, 78%), up to `mobCount` 15,
+  scheduled bosses first. Bosses are damaged and never shoved.
+- **Knock-back.** A `knockback` block **without a `chance_field` always applies and draws no random number** (this
+  ticket; every earlier block names one). `direction "dash"` shoves each hit mob 80 px along the dash that hit it
+  (the `hit.push_side` of the cast), not away from where the character stopped, so mobs the character ran past are pushed on
+  ahead of it instead of back toward where it started. `MobSwarm.knockback` takes the optional `force_side`.
+- **Cooldown.** 2.0 s (tier C, the balance lever for melee survivability), started by the cast; the HUD reads
+  `runner.cooldowns`.
+- **Rank.** The job's mobility skill follows the shared `balance.mobility_rank_levels` rule (`RunWorld._level_ranks`, tier C):
+  rank 1 at Lv1, rank N at Lv 2N, clamped to the skill's rank cap. Rush has no `ranks` override, so it takes the level-30
+  table (eight ranks, WZ levels 4, 8, 12, 15, 19, 23, 27, 30): 78% damage and a 170 px dash at Lv1, 130% and 250 px
+  (the box reach) from Lv16. `mobCount` stays 15. No card ever raises it (it is outside the pool). To fix it at rank 1
+  instead, give it `"ranks": [4]`. (Spec #296 first said "fixed rank 1"; the shared rule landed while this was built and the
+  owner's instruction was to use it.)
+- **No orbs.** Rush gives no Combo orb and takes no orb bonus: both belong to pool skills only (the meter reads the pool).
+- **Bot** (`BotInput`). Like Teleport: when a mob within 60 px stands on its level (|dy| <= 40) and Rush is ready, it
+  dashes **away** from the more dangerous side if that lane lets the dash cover at least half its reach, else **through**
+  the crowd the other way if that lane is free; no lane either way, no press. At most once per 3 s
+  (`BotInput.RUSH_MIN_INTERVAL`). It never presses Rush with no mob within 60 px, so it never uses it to approach.
+
+#### Combo finishers: Panic and Coma (H8, #304)
+
+Both are meter finishers (7.34: `meter {role finisher, min 5, spend all, damage_per_unit 0.10}`), auto-cast pool actives in
+`skills/hero.json` (book 111), eight ranks mapped to levels 4/8/12/15/19/23/27/30, no weapon gate, action `weapon` (the
+first swing stance of the held weapon, held 0.6 s). A cast spends every held orb except `meter_keep` and multiplies damage by
+`(1 + 0.02 * held) * (1 + 0.10 * spent)` (x1.5 at 5 orbs, x2.0 at 10, before the held bonus); finishers never earn an orb.
+
+| Skill | Cast (tier C) | Canonical behaviour (tier A) |
+|---|---|---|
+| Panic : Sword 1111003 | `nearest` rule, one target within 250 px, scheduled bosses first (the shared target order), 2.0 s cooldown | 194% (rank 1) to 350%, `prop` 38 to 90%, `time` 5 to 9 s |
+| Coma : Sword 1111005 | `range_around`, needs 3 mobs in range, 1.0 s cooldown (the meter floor), HP cost never lethal (can_pay_hp) | 96% (rank 1) to 200%, six mobs, range 130 to 150, `hpCon` 15 to 25, stun `prop` 38 to 90%, `time` 2 to 4 s |
+
+- **Threaten cut (Panic).** `on_hit` `threatened` carries `cut {stat level, cap 20}`: the mob loses `min(skill level, 20)` weapon
+  attack and weapon defence (flat, tier C; Panic's node has no such field). Like every status it is refused by bosses
+  (MobSwarm.accepts_status), so Panic on a boss deals the damage but never weakens it.
+- **Which finisher.** Admission goes through `PlayerMeter.preferred` (7.34): Coma wins with the larger crowd, Panic when a
+  scheduled boss is in its range; one owned finisher casts alone.
+- **Cooldown (decision).** The spec gives both a "1.0 s floor". Panic's Epic is Booster (cooldown x0.88), which a 1.0 s base would
+  hide completely under the 1.0 s meter floor (`SkillRunner.restart_cooldown`), so Panic's base cooldown is 2.0 s and the
+  Booster takes it to 1.76 s. Coma keeps 1.0 s: it has no cooldown bonus. The meter, not the clock, paces both in normal play.
+- **Weapon-variant art.** `art_by_family {"axe": 1111004 | 1111006}`; `SkillBook.art_skill_id(key, family)` returns the twin id
+  for an axe and the skill's own id otherwise, `art_path` re-points a Skill.wz/Sound.wz path at it. Loadout applies it to the
+  skill's `effect` and `hit`, the finisher block below to its finish art, and the presentation to the Use sound. Sim numbers are
+  shared (the twins are identical in the WZ; only the icon differs).
+- **Finish art by orbs spent (tier C reading, no source states it).** A `finish` block `{effect "…/finish/{n}", at, max_n 10,
+  advanced_above 5, hit_advanced "…/hit/1"}`: the cast plays `finish/N` for N orbs spent (1..10, so 5..10 for a plain cast and
+  fewer with Advanced Combo keeping orbs) and the hit art is `hit/1` above 5 orbs spent, else `hit/0`. Coma's finish plays on the
+  caster (the cast event's effect); Panic's plays on its target (a `skill_mob_effect`). Coma's `mob` stun stars are the same art
+  the mob renderer already draws for Shout.
+- **Rarity (tier C, section 8; repeat scale 0.8).** Panic: Rare Sword Mastery damage x1.2, Epic Booster cooldown x0.88, Unique
+  Advanced Combo `meter_keep` +2, Legendary Advanced Combo plus damage x1.2. Coma: Rare Sword Mastery, Epic Wide Reach area x1.2
+  (`range_around` scales its radius by `area`), Unique and Legendary as Panic's. Legendary shares the Unique's id and repeat
+  counter. Each bonus changes the resolved cast and has its own test (`test_hero_finishers`): damage, cooldown, reach and kept orbs.
+  The shared audit (`test_rarity_bonus_effects`) also covers both: its probe tops the meter up for a finisher and adds `meter_keep`
+  (orbs left after one cast) to the stats it checks.
+
+### 7.34 Combo meter (#299, Hero H3)
+
+`PlayerMeter` is the round-owned, deterministic M1 counter. Hero's data (H2) supplies:
+
+```json
+{"meter":{"id":"combo","max":10,"gain":{"event":"cast_landed","amount":1,"exclude":"finisher"},
+ "per_unit":{"stat":"damage","value":0.02},"art":"Skill.wz/111.img/skill/1111002/state"}}
+```
+
+A round starts at zero; map transfers preserve it. Each non-finisher pool cast earns one orb on its first
+positive damage line, including a delayed impact. Multi-target, multi-line and multi-projectile casts share a receipt;
+a missed cast earns nothing. Mobility is outside the pool, so Rush neither earns orbs nor receives their bonus.
+The held-unit bonus multiplies the cast's resolved damage bounds and status damage multiplier, preserving its
+snapshot through delayed impacts. There is no expiry, timer or RNG. Jobs without a meter keep their old stats/events.
+
+Finisher definitions (H8) add:
+
+```json
+{"meter":{"role":"finisher","min":5,"spend":"all","damage_per_unit":0.10}}
+```
+
+Admission requires the minimum, normal cooldown, prepared targets and payable HP. At admission, snapshot the held-orb
+bonus, retain `round(meter_keep)` units (clamped to 0..held), and multiply damage by `1 + spent * damage_per_unit`.
+Finishers cannot earn Combo. Their repeat cooldown has a 1 s floor, even with cooldown modifiers.
+When multiple finishers are ready, compare their ordinary target plans: a single-target scheduled-boss attack wins,
+otherwise the larger eligible target count wins (capped to strike count); cooldown/learned order breaks ties.
+Finisher admission enforces the prepared plan's min_targets, including range_around casts.
+H8 supplies Coma's three-target threshold and Panic's range/target rules. No job or skill IDs enter the meter runtime.
+The cast snapshot carries meter_spent for H8's finish-art selection; no-meter cast events stay unchanged.
+Other auto-skills keep their oldest-ready order.
+
+`meter_keep` is an ordinary skill modifier, available to rarity bonuses and Mastery; previews say “Keeps N orbs”.
+SkillText appends “Needs N orbs” and the retained count to card/Skill-window descriptions.
+Each actual value change appends `meter_changed {id, value, max}`. HudMeter receives those events, draws max pips
+beside the skill icons, and lights value pips. Combo uses the verified orb art at `state/1` (43x42 in v83);
+unavailable art uses drawn pips. Jobs without a meter display nothing.
+
+Later jobs can configure `gain.event` to `hit_taken` or `meso_picked` and call `gain(event, events)` at their
+event source; H3 wires landed casts only. M23 owns meso pickup coupling; energy/form rules belong to Buccaneer's spec.
+The current `per_unit.stat` contract is `damage`; additional stat semantics need an explicit extension.
+Paladin uses M2 forms, not M1. Meter state is absent from CharacterSnapshot: a new round always starts empty.
+
+### 7.35 Pull (#300, spec #296)
+
+The mirror of `knockback` (7.27): a generic skill block that drags mobs toward the caster along their foothold chain.
+Monster Magnet (1121001, 1221001, 1321001) is the first user; Paladin, Dark Knight and Buccaneer (Snatch) reuse it.
+No shipped skill carries the block yet, so no existing record changes.
+
+```json
+"pull": {"chance_field": "prop", "range_field": "range", "min_gap": 60}
+```
+
+- **Keys.** `chance_field`: the canonical level field read as a percent (empty or absent means always). `range_field`:
+  the reach in px (`"range"` reads the resolved `range` stat, so area/reach modifiers apply; any other name reads that
+  canonical field). `min_gap`: the closest a pulled mob ends from the caster, in px. Optional `min_distance` overrides
+  the 120 px floor below. The cap is the resolved `mob_count` (canonical `mobCount` plus count modifiers).
+- **When.** `SkillRunner.apply_pull` runs once per cast of any non-buff skill with the block, right after the `cast`
+  event (before the damage lines of a skill that also hits, as Snatch will). It scans the live mobs itself; it does not use
+  the cast rule's target list.
+- **Selection (tier C).** Candidates are live, grounded, non-boss mobs whose body centre is within `range` of the cast
+  origin and whose feet are at least 120 px away horizontally. Scheduled bosses, canonical bosses, airborne mobs and
+  flyers are never candidates and never spend a slot. The `mob_count` farthest candidates are taken, farthest first
+  (horizontal distance; the lower slot breaks ties). Mobs under 120 px are left alone: they are already in the pile.
+- **Roll.** One draw per taken candidate, in that order, on the main stream (`world.rng`, stream 1): pulled when
+  `draw * 100 < chance`. No draw at a chance of 100 or without a `chance_field`. A 0% chance still draws (as knockback does).
+  A miss keeps its slot; selection happens before the rolls.
+- **Move.** `MobSwarm.pull` slides the mob toward the caster's x with `FootholdMap.slide_along` by
+  `max(0, |dx| - min_gap)` px, so it never crosses the caster. It follows slopes and linked footholds and stops at the
+  platform's end, at a wall (EPS short of it) and at the map bounds. A mob already inside the gap is rolled and not moved.
+  Statuses survive. Each mob that moved emits `mob_pulled {mob, from, pos}`.
+- **Pull-only skills.** A skill with `damage: "none"`, a `pull` block and a `box`, `weapon_reach` or `range_around` rule
+  deals no damage lines (`_resolve_cast` skips the instant strike); casting admission stays the cast rule's
+  (`range_around` admits on one mob in range unless the cast block says `min_targets`: Magnet's 3, 7.33).
+- **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
+  and Skill-window text (H7).
+
 ### 7.60 I/L pool and Teleport (spec #319, I6 #325)
 
 The I/L Arch Mage's (222) simple instant skills: **Cold Beam** (2201004), **Thunder Bolt** (2201005), **Ice Strike**
@@ -5628,7 +6034,7 @@ Spear have a `Use` sound and no `Hit` sound; none of the four has a `ball`. Cold
 are empty strings (no sound in the WZ).
 
 Rarity bonuses (tier C, named after the lineage's passives; Legendary = the Unique's effect with the same id plus
-damage x1.2, repeats shrink x0.8, section 8). Each entry changes the resolved cast (`test_il_rarity_bonus_effects`):
+damage x1.2, repeats shrink x0.8, section 8). Each entry changes the resolved cast (`test_rarity_bonus_effects`):
 
 | Skill | Rare | Epic | Unique | Legendary |
 |---|---|---|---|---|
@@ -5726,7 +6132,7 @@ v83's: `effect` (12 frames) at the caster, `ball/0..2` (6 frames each) stretched
 
 Rules: Rare+ cards add one rank plus the bonus, Legendary shares the Unique's counter, Mastery is +5 % damage (x0.8 per
 repeat). `test_il_chain_lightning` checks the definition, the link counts, the hop, the boss-first head, the bolt event
-and the bonuses; `test_il_rarity_bonus_effects` checks that each effect changes the resolved cast.
+and the bonuses; `test_rarity_bonus_effects` checks that each effect changes the resolved cast.
 
 **Weapon fallback for `stabO2` (I8).** Chain Lightning's body action is `swingO3.0, stabO2.1`, and 9 of the 14 imported
 staves (1382000-1382006, 1382018, 1382019) have no `stabO2` art, so their second frame lost the weapon. Any weapon that
@@ -5746,7 +6152,7 @@ a skill definition may say "I am that skill, in my book" instead of copying 40 l
   (`big_bang`, F/P's, in `skills/magician.json`), never another child: `big_bang_il` is not a parent, so the I/L and
   Bishop versions share no dependency on each other.
 - **Where.** `SkillTemplate.resolve(skills, errors)` (pure, `scripts/sim/skill_template.gd`) runs in `SkillBook.from_data`
-  once every line fragment has merged, so the result does not depend on `DataRepo.LINES` order or on which line file holds
+  once every line fragment has merged, so the result does not depend on `DataRepo.lines()` order or on which line file holds
   the parent. `SkillBook.def(key)` and `defs` hold only resolved definitions; raw JSON from `DataRepo.load_all` still
   carries the `extends` line, so a test or tool that needs a templated skill's fields goes through `SkillBook`.
 - **Merge.** Resolved child = a deep copy of the parent, then the child's own keys on top: dictionaries merge key by key,
@@ -5825,7 +6231,7 @@ repeats shrink x0.8; Rare is `amplify` "Element Amplification", damage x1.2, for
 | Ice Demon | `reach` "Wide Chill": area x1.2 (the box grows) | `crowd` "Cold Crowd": +1 target (`count` through `mob_count`) |
 | Element Composition (I/L) | `pierce` "Pierce": +1 pierce | `twin` "Twin Bolt": +1 projectile (`count`) |
 
-`test_il_rarity_bonus_effects` (with the other I/L skills; the card, counter and Mastery rules are in `test_il_ice_demon_rarity`) casts each effect with and without it in the same seeded world and asserts damage dealt, mobs
+`test_rarity_bonus_effects` (with the other I/L skills; the card, counter and Mastery rules are in `test_il_ice_demon_rarity`) casts each effect with and without it in the same seeded world and asserts damage dealt, mobs
 affected (count, pierce) or a monster just beyond the base box (area). A projectile's extra shot goes to the second
 nearest monster, so a monster on the same line behind the first is shielded: Twin Bolt's extra target stands elsewhere.
 
@@ -5845,9 +6251,12 @@ bot scores every declared pool skill (new 100, rank 74); these are existing atta
 
 **#288 rarity bonuses and Mastery (supersedes rarity multipliers below).** Each active card grants one rank,
 then its rarity bonus. At rank 8 the same `<skill>_rank` id becomes `card_kind: mastery`, grants zero ranks,
-and stays eligible at weight 1.2. A Normal Mastery grants +5% damage on that skill (`upgrades.json` `mastery_bonus`,
-repeat id `mastery_damage`, shared by every Normal Mastery of the skill, so the 0.8^n diminishing returns apply;
-tier C, owner decision on #288: Normal Mastery is never a dead pick); a Rare+ Mastery gives its rarity bonus instead.
+and stays eligible at weight 1.2. A Normal Mastery grants +5% damage on that skill, or cooldown x0.95
+when its `damage` is `none` (#346). Both use repeat id `mastery_damage`, shared by every Normal Mastery
+of the skill, so the 0.8^n diminishing returns apply. These are tier C owner decisions (#288/#346): Normal
+Mastery is never a dead pick. The damage default comes from `upgrades.json` `mastery_bonus`.
+A Rare+ Mastery gives its rarity bonus instead. The literal `damage:none` rule also applies to Poison Mist
+(its poison damage is secondary), as well as Monster Magnet; the paired F/P records do not exercise that post-cap choice.
 Boss draws retain their Rare floor. Common passives remain Normal and stop at their own cap. Standalone behaviour cards for
 the four ported skills are deleted; unported lines retain their inert legacy definitions for direct mechanics tests.
 
@@ -6162,7 +6571,7 @@ Where a job's data lives (one seam per fact, all tier C unless noted):
 
 | What | Where | 212 today |
 |---|---|---|
-| Playable | `survivor/jobs.json` `jobs.<id>.playable`, set by the line file | true; `JobTree.playable_jobs()`, `default_job()` = the first playable job |
+| Playable | `survivor/jobs.json` `jobs.<id>.playable`, set by the line file | true; `JobTree.playable_jobs()`; `default_job()` = `survivor/jobs.json` `default_job` (212, tier C, #298) while that job is playable, else the first playable job |
 | Starting skill, key skill, pool | `survivor/jobs/<line>.json` `starting_skill`, `mobility_skill`, `skill_pool` | Energy Bolt; Teleport (F/P, outside the slots); twelve keys (section 8) |
 | Creation weapon | same file, `creation_weapon` | Wooden Wand 1372005 (the Magician line's v83 starting wand; wearing it checks only the job class) |
 | Weapon families of drops | same file, `weapon_families` | wand, staff (a job without a list drops no weapons) |
@@ -6228,6 +6637,14 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Capture delay | skill.capture_delay: Paralyze 0.3 s, Big Bang 1.38 s | C |
 | Frame timing fallback | WeaponInfo.frame_times uses 100 ms for missing or zero frame delay | C |
 
+
+### #346 Hero survivability (tier C)
+
+HP600 at round startup from job AP row, HP65/level; five ungated pool cooldowns x.4;
+Combo per-unit damage .05, both finishers damage_per_unit .20. Owner-authorized first-pass
+training under #346 (section4.2), superseding original Hero values in sections7.33/7.34.
+Normal Mastery for `damage:none`: cooldown x.95 with the same mastery_damage counter and .8^n
+diminishing; preview and bot use the resolved bonus. Shared default/F/P values are unchanged.
 
 ### #323 chain cast rule (spec #319 I4)
 
@@ -6308,7 +6725,7 @@ These replace older first-pass/inherited pacing statements where they conflict. 
 
 | Rule | Value | Tier | Source |
 |---|---|---|---|
-| Normal Mastery #288 | +5% damage on the skill (`mastery_bonus`, shared repeat id `mastery_damage`, x0.8^n repeats) | C | owner decision on #288 |
+| Normal Mastery #288/#346 | +5% damage, or cooldown x0.95 for `damage:none`; shared repeat id `mastery_damage`, x0.8^n repeats; bot scores the resolved effect (5, then 4 points) | C | owner decisions #288/#346 |
 | #290 rarity bonuses | Rare damage x1.2; Epic area x1.2 (Composition +1 pierce, Paralyze cooldown x0.88); Unique/Legendary +1 hit (Composition +1 projectile, Fire Demon +1 target, Poison Mist cooldown x0.8); Legendary adds damage x1.2; section 8 | C | ours; first pass, T11 tunes |
 | #291 Elquines rarity bonuses | Rare damage x1.2; Epic area x1.2; Unique +1 ally (`summon_count`); Legendary adds damage x1.2 and shares the Unique's repeats; every pool skill now has all four lists (`test_data_files`); common passives (#289) never roll rarity, get a bonus or Mastery; section 8 | C | ours; first pass, T11 tunes (T9 proposed haste for Unique and +1 ally for Legendary: changed to the Unique/Legendary convention above) |
 | Rarity/Mastery #288 | Rare damage x1.2; Epic +1 pierce or cooldown x0.88; Unique +1 projectile/hit; Legendary signature plus damage x1.2; repeats x0.8 (multiplier distance from 1), authored-list cycling and actual-effect bot scores | C | ours; ADR 0006, first pass, section 8 |
@@ -6338,8 +6755,18 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
-| Playable jobs and start skills (#284) | `survivor/jobs.json`: 212 is the only playable job and the default for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
+| Playable jobs and start skills (#284) | `survivor/jobs.json`: 112 and 212 are playable (spec #296); 212 is the default (`default_job`) for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
 | Auto-AP rows (#284) | `balance.player.ap`: one `{primary, secondary, keyframes}` row per job, nearest ancestor's row otherwise, all AP to STR without a row. 212: INT primary, LUK secondary at the old Magician keyframes (Lv1 3 -> Lv200 202); the 200/100/300/400/510/520 rows keep the unported lines' old single rows | C | Owner, spec #282 (212); the rest the earlier tier C rows without weapon paths |
+| Hero playability and QA fixture (#306) | Playable 112 and 212; default 212. `hero_t2.json`: seed 1, bot, invulnerable Henesys clear, tier 2 unlocked; all equipment from the tier-1 drop band. Diagnostic equipment fixture, never survival evidence | C | Spec #296; fixture `_doc` |
+| Hero AP row (#298, spec #296) | `balance.player.ap["112"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204 (the secondary DEX target tracks the level plus about 4, the v83 Warrior gear pattern). HP growth is not re-listed: 112 inherits the Warrior row (100: 26 per level) through the lineage | C | Spec #296 |
+| Hero creation weapon (#298, spec #296) | `survivor/jobs/hero.json` `creation_weapon` 1302000, the plain Sword (reqJob 0, so wearing it checks no class); `weapon_families` `["sword", "axe"]` filters the existing Warrior drop list (one- and two-handed), armour and shields drop by the Warrior class bit; the weapon item id and stats are tier A | C | Spec #296 |
+| `default_job` pin (#298, spec #296) | `survivor/jobs.json` `default_job` 212: the job of a fresh character and of every tool run, test and oracle that names none, so Hero never changes it by becoming playable; Hero is always chosen explicitly (`--job=112`, the creation Job page). The owner can flip it with this one line | C | Spec #296, risk found while checking the slice |
+| Hero bot card scores (#305, spec #296) | `jobs/hero.json` balance.bot.card_scores: `<key>_new` 100 and `<key>_rank` 74 for each of the seven Hero pool skills (power_strike, slash_blast, brandish, shout, monster_magnet, panic, coma), the same numbers every F/P pool skill has (the default attack scoring, 100 and 62 + 12 job bonus), set explicitly so the meter-gated finishers and the pull, which the default scorer would not take for attacks, are taken whatever their cast rule | C | Spec #296 |
+| Hero hub kit (#305, spec #296) | `HubTestKit.HERO_KIT_SCROLLS` (every rate of the ATT scrolls of the sword, two-handed sword, axe and two-handed axe, 20 stacks of 10) and `HERO_KIT_EQUIPMENT` (1002001 hat, 1402000 two-handed sword, 1082002 gloves, 1040010 top), used for a character of job 112; `--hub --job=112` opens `hero_t2.json`; 500,000 mesos as for F/P | C | Ours, a test aid |
+| Job page rows (#305) | rows are left-aligned, and the chosen row keeps its plate in every Button state (hover and pressed too), so it stays highlighted under the mouse; the Job blurb repeats the weapon box (creation weapon name, WATK, swing time) | C | Ours, layout |
+| Rush 2.0 s cooldown, always-on 80 px knock-back along the dash, hold-to-repeat, refused while climbing, airborne dash keeps its height (#302, spec #296) | `skills/hero.json` `rush_hero` (`cooldown`, `knockback`); damage 78%, `mobCount` 15, box reach 170 px (the dash distance) and `rush2` are Skill.wz level 4 (tier A) | C | Spec #296 D1; v83 Rush is a dash with a hit box |
+| Rush ranks with the round level through `balance.mobility_rank_levels` (rank 1 = WZ level 4 at Lv1, rank 8 = level 30 from Lv16) (#302) | the shared mobility rule; Rush has the level-30 rank table and no card | C | Spec #296, #282 review fixes |
+| Rush bot rule: dash from a mob within 60 px (on the bot's level), away when the lane covers half the reach else through the crowd, at most every 3 s (#302) | `skills/hero.json` `rush.bot_threat_distance` 60; `BotInput.RUSH_MIN_INTERVAL` 3.0, `RUSH_LANE_FRACTION` 0.5 | C | Spec #296 |
 | Cards on the job line (#284) | A card is eligible when one of its `requires.jobs` is the character's job or an ancestor (`UpgradePool.on_line`); no `carry_jobs`, no advancement draw, no weapon check; Beginner and Teleport cards deleted | C | Stopgap until the skill pool (#287) |
 | Removed RNG streams (#284) | Streams 5 (the basic attack) and 8 (bot job draws) are reserved and never drawn; no other stream is renumbered | C | Keeps every other stream's seeded sequence |
 | Region cards and ending-map results (#241, #247) | Map 1's mapMark beside the region; three ordered `map name → boss name` rows in the existing v83 parchment, each wrapping as needed with a 6 px gap between rows. Objective: "Defeat 3 bosses across 3 maps". Results keep region/continent and add the ending map's WZ name and mapMark, with a 6 px gap before stats | C layout/text; A map/boss names and marks | Owner #241 / #247; String.wz and each map's `info/mapMark`. Summary identity comes from `RunWorld.current_map_id()` |
@@ -6460,6 +6887,19 @@ Bowman (#166), generic mechanics (#200):
 | Constant / rule | Value | Tier | Source |
 |---|---|---|---|
 | Skill knock-back distance | Per-skill `knockback.distance` in px; no shipped default in #200 (synthetic test: 120 px); follows the platform and clamps at walls/edges; airborne/flying mobs stay put, statuses stay | C | Survivor rule, owner #166; shared moving-attack slide |
+| Hero core melee (#301) | Power Strike 1.0 s, Slash Blast 1.6 s, both weapon action held 0.6 s; Brandish 1.4 s, forward admission at one target; eight survivor ranks; rarity values in 7.33 | C | ours, spec #296 |
+| Hero core WZ fields (#301) | 1001004/1001005/1121008 mapped level fields, Brandish box, two hits, 1–3 targets, Use/Hit, body action 7 x 120 ms = 0.84 s | A | original v83 Skill.wz, Character.wz |
+| Brandish handedness (#301) | One action per cast: brandish1 + effect/0 for one-handed, brandish2 + effect/1 for two-handed | C (selection), A (aliases/art) | orchestrator ruling; H1 weapon visibility findings |
+| Hero finishers (#304) | Panic nearest within 250 px, 2.0 s cooldown; Coma range_around, `min_targets` 3, 1.0 s; both `meter` min 5 / spend all / +10% per orb spent, first swing stance held 0.6 s | C | ours, spec #296 |
+| Panic Threaten cut (#304) | Flat `min(level, 20)` weapon attack and defence while threatened; bosses refuse the status | C | ours, spec #296 |
+| Hero finisher WZ fields (#304) | 1111003/1111005 mapped level `damage`, `prop`, `time`, Coma `range`/`mobCount`/`hpCon`; finish/1..10, hit/0|1, Use sounds; axe twins 1111004/1111006 identical | A | original v83 Skill.wz |
+| Finish art by orbs spent (#304) | `finish/N` for N orbs spent, `hit/1` above 5 orbs, axe twin for an axe | C (layout reading and keying) | H1 notes |
+| Pull selection (#300) | Up to `mobCount` candidates, farthest first (horizontal; slot breaks ties), only live grounded non-boss mobs at least 120 px from the caster (block key `min_distance` overrides) and within `range`; bosses and flyers never candidates (7.35) | C | ours, spec #296 |
+| Pull gap and slide (#300) | Per-skill `pull.min_gap` px (Monster Magnet ships 60, H7); the mob slides `max(0, dx - gap)` px toward the caster along its foothold chain, stopping at platform edges, walls and map bounds; never crosses the caster | C | ours, spec #296; shared slide |
+| Pull chance rolls (#300) | One main-stream draw per taken candidate, none at 100% or without a chance field; a 0% chance still draws; selection before rolls | C | ours (mirrors the knockback roll rule) |
+| Shout rank table (#303, spec #296 D4) | `ranks` `[5, 8, 12, 15, 19, 23, 27, 30]`: the standard 30-level table except rank 1 = level 5, because level 4 stores its `prop` under the stray key `58` (7.33) | A (levels, numbers), C (override) | Skill.wz 111.img, String.wz agrees with 58 % |
+| Shout and Monster Magnet timing (#303) | Cooldowns 12 s and 10 s, action holds 0.6 s, stances `alert3` / `alert2` (Magnet's node names none; WZ's `prepare` dash hides a two-handed axe), admission at 3 mobs (`cast.min_targets`) | C | ours, spec #296 |
+| Shout and Monster Magnet rarity bonuses (#303) | Shout: Area x1.2, Booster cooldown x0.88, Echo Shout cooldown x0.75, Legendary Echo Shout plus area x1.2. Magnet: Reach `range` x1.2, Bigger Grab +2 targets, Booster cooldown x0.75, Legendary Booster plus +2 targets; repeats shrink x0.8 | C | ours, spec #296 (first pass; the balance pass owns final sizes) |
 | Knock-back roll | One stream-1 roll per damaging line on a non-boss, even at 0/100%; canonical `chance_field` percent; canonical/scheduled bosses do not roll or move | A (canonical chance), C (stream, per-line rule, boss policy) | Skill.wz; #166 binding decisions |
 | Pierce fall-off schedule | Linear `max(floor, 1 - fraction * (n - 1))`; `balance.json/combat.pierce_floor` defaults to 0.1; 0.1 per mob means the sixth takes 50%; includes crit, rounded once | C | #166 binding decisions; WZ has no fall-off value; survivor data owns the floor |
 | Impact blast policy | First mob consumes shot; primary counts toward cap; box translated to primary feet, selected before hits; nearest body then slot; one `hit` animation at impact by default (`visual: "effect"` supported) | A (canonical box/cap/damage field), C (consumption, anchor/order/art choice) | Skill.wz; #200 |
@@ -7119,3 +7559,20 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 #291 tier C provenance: summon auto-admission, replacement groups, nearest/boss-first two-sided acquisition,
 current-body impact selection, follow/snap model and the numeric first-pass Elquines settings are in 7.32.
 Missing/zero summon frame delays use the existing 100 ms presentation default (tier C); WZ delays are otherwise unchanged.
+
+### Hero H3 meter constants (#299)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Combo capacity, gain | 10; +1 per landed non-finisher pool cast | tier C survivor adaptation; tier A source: Combo Attack/Advanced Combo counter descriptions |
+| Held-unit damage bonus | +2% per orb | tier C, #296; H2 job data |
+| Finisher gate / spend multiplier | 5; all minus meter_keep; +10% per spent orb | tier C, #296; H8 skill data |
+| Finisher repeat floor / arbitration | 1 s; single-target scheduled boss, else most targets | tier C, #296; shared admission |
+| Meter HUD geometry | origin (244,20), 12 px pitch, 4 px radius, 10 px orb image, 1 px border | tier C presentation layout; original orb pixels tier A |
+
+Review #296 clarification: finisher cooldowns have a strict 1.0-second floor after tick overshoot (tier C,
+spec #296); ordinary meter gates use normal cooldown and cast order. `meter.spend` accepts `"all"` or an integer,
+and gain exclusion compares the skill’s declared role. Rush explicitly presents its action while walking or airborne
+without changing movement physics. Pull admission counts only grounded non-boss targets outside its configured floor.
+Warrior bot equipment weights now explicitly name ancestor 100 with the same values formerly inherited from 0
+(tier C: existing physical baseline, unchanged). Hero AP and bot score values live in jobs/hero.json’s balance block.

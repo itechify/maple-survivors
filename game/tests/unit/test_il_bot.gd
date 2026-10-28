@@ -115,11 +115,12 @@ func test_a_chain_skill_reads_as_a_ranged_attack_and_the_bot_kites_with_it() -> 
 	assert_true(BotInput.decide(w, {}).left, "a mob 70 px ahead: back away (kite)")
 
 
-func test_without_its_entry_ifrit_would_be_scored_below_an_attack() -> void:
-	# Why the entries exist: Ifrit is a `summon`, which the default scorer files with the passives.
+func test_without_its_entry_a_pool_skill_still_scores_like_an_attack() -> void:
+	# Ifrit is a `summon`, which the default scorer once filed with the passives. Pool skills without a score override now default
+	# to new 100 / rank 74 (spec #296 review), so the entries in jobs/il_arch_mage.json are the same numbers written out.
 	var w := _il_world()
 	var card := w.upgrades.choice_card("ifrit_new", w, "normal")
 	assert_false(card.is_empty())
 	assert_eq(BotInput.card_score(w, card), 100.0)
 	w.balance.bot.card_scores.erase("ifrit_new")
-	assert_true(BotInput.card_score(w, card) < 100.0, "the default scorer would not take it like an attack")
+	assert_eq(BotInput.card_score(w, card), 100.0, "the pool-skill default takes over")

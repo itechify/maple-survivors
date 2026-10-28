@@ -83,9 +83,6 @@ extends Node
 const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
 const StageSelectScene := preload("res://scenes/ui/stage_select.gd")
 const MAIN := "res://scenes/main.tscn"
-## The redesign scenario's diagnostic fallback when a round dropped nothing the job can wear above Lv1: a staff for the Arch Mage
-## (Lv45), the same staff for the I/L Arch Mage (#330; reqJob Magician). tier C: automation, not tuning.
-const FALLBACK_ITEM := {212: 1382001, 222: 1382001}
 ## The `skill` scenario's debug build per job: three more pool actives with ranks and two common passives (cards applied directly).
 ## tier C: automation, not tuning.
 const SKILL_BUILD := {
@@ -518,7 +515,7 @@ func _scenario_redesign() -> void:
 
 
 ## Wears, with a double-click in the Item window's Equip tab, the carried item with the highest reqLevel this job can wear
-## (the round's own drop). When the round dropped none, the job's FALLBACK_ITEM (a Lv40-45 weapon) is added to the Equip tab
+## (the round's own drop). When the round dropped none, the job's hub_kit fallback_item (a Lv40-45 weapon) is added to the Equip tab
 ## (diagnostic) and the report says so. Returns {id, slot, req_level, source}, empty after a failure.
 func _equip_high_req_item(hub: FreeMarket, character: Dictionary, job: int = 212) -> Dictionary:
 	var lib := AssetLibrary.get_default()
@@ -531,7 +528,7 @@ func _equip_high_req_item(hub: FreeMarket, character: Dictionary, job: int = 212
 				and Equipment.slot_of(id) != "":
 			best = {"id": id, "slot": Equipment.slot_of(id), "req_level": int(info.get("reqLevel", 0)), "source": "round drop"}
 	if best.is_empty():
-		var weapon: int = FALLBACK_ITEM.get(job, 0)
+		var weapon: int = HubTestKit.fallback_item(job)
 		if not _expect(weapon != 0, "the scenario has no diagnostic fallback item for job %d" % job):
 			return {}
 		var img := lib.img(AvatarRenderer.part_img_path(weapon))
@@ -590,9 +587,17 @@ func _answer_choices(run: RunScene) -> bool:
 			if wanted:
 				index = i
 				break
+		# Direct warp picks can queue further choice_pending events. They describe older offers by the
+		# time we showcase this one; do not let RunScene._process reopen one over the live cards.
+		run.handle_events(w.drain_events().filter(func(e: Dictionary) -> bool:
+			return String(e.type) != "choice_pending"))
+		run._pending_window = {}
+		if run.window != null:
+			run._close_window()
 		run.handle_events([{"type": "choice_pending", "cards": cards, "bonus": bonus}])
 		run.set_process(true)
-		if not await _until(func() -> bool: return run.window is LevelUpWindow and (run.window as MapleWindow).is_open(),
+		if not await _until(func() -> bool: return run.window is LevelUpWindow and (run.window as MapleWindow).is_open() \
+				and run.window._since_open >= run.window.input_delay,
 				10.0, "the %s window" % show):
 			return false
 		await _shot("redesign_offer_" + show, 0.9)

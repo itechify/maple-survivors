@@ -6,6 +6,7 @@
 #   bash scripts/balance.sh                                # henesys, training seeds 1..6
 #   bash scripts/balance.sh 1 2 --job=212     # the character's job (ADR 0006: chosen at creation, never changes); only a playable
 #   # job is accepted, anything else fails at startup (see the seed log). --branch=<id> is the deprecated alias.
+#   # --job=112 is Hero (spec #296, playable).
 #   # --job=222 is the I/L Arch Mage (spec #319); until its last ticket flips `playable`, preview it with
 #   #   PATCH=/abs/il_playable.json bash scripts/balance.sh 1 --job=222   (a patch: {"jobs_survivor":{"jobs":{"222":{"playable":true}}}})
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves

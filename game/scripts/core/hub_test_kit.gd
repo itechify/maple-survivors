@@ -9,44 +9,41 @@ extends RefCounted
 ## a throwaway save file (SAVE_PATH, recreated on every launch) and continues it, so the hub behaves exactly as in real
 ## play. Pure static helpers: flag parsing, character loading (format 1 migrates), the test kit and the throwaway save.
 ##
-## The test kit (all of it is the constants below): mesos, a stack of every rate of the scroll families the character's gear
-## and spare equipment take, and a few spare equipment items with their plain WZ stats. Both Arch Mages (F/P and I/L) wear wands
-## and staves from the same scroll line, so they share this kit; `--job=<id>` without `--character` opens that job's fixture
-## (DEFAULT_CHARACTER_BY_JOB, spec #296 H9 / #319 I11) and `--job` with a character of another job is an error.
+## Class tool kits come from jobs/<line>.json hub_kit through JobTree.lineage_value.
+## Jobs without a kit use the configured default job’s kit.
 
 ## The throwaway save (tool-only name, deleted and recreated by every `--hub` launch).
 const SAVE_PATH := "user://tool_hub_save.json"
-## The character used when `--character` is not given: the gear of a real F/P bot character (format 3, job 212).
-## Tool-only fixture; tests are excluded from exported builds.
-const DEFAULT_CHARACTER := "res://tests/fixtures/characters/fp_arch_mage.json"
-## The fixture `--hub --job=<id>` opens when `--character` is not given (the job's committed character; a job without one
-## falls back to DEFAULT_CHARACTER and the hub reports the mismatch).
-const DEFAULT_CHARACTER_BY_JOB := {
-	212: DEFAULT_CHARACTER,
-	222: "res://tests/fixtures/characters/il_arch_mage_t2.json",
-}
 ## Mesos the kit gives (`--mesos=N` overrides).
 const DEFAULT_MESOS := 500000 # tier C: ours (owner brief)
 ## Scrolls per stack in the kit.
 const SCROLL_COUNT := 10 # tier C: ours
-## The kit's scroll stacks, every rate of each family (scrolls.json ids: 100%, 60%, 10%, dark 70%, dark 30%): wand
-## Magic Att. (the worn wand), hat INT, top DEF (the worn top; v83 has no INT scroll for tops) and gloves Magic Att.
-## 20 stacks, inside the Use tab's 24 slots for scrolls.
-const KIT_SCROLLS := [ # tier C: ours
-	2043700, 2043701, 2043702, 2043704, 2043705,
-	2040024, 2040025, 2040026, 2040012, 2040013,
-	2040400, 2040401, 2040402, 2040404, 2040405,
-	2040818, 2040817, 2040816, 2040814, 2040815,
-]
-## Spare equipment put in the inventory to sell and wear: a hat, a staff, gloves and a top (plain WZ stats).
-const KIT_EQUIPMENT := [1002001, 1382001, 1082002, 1040004]
+
+
+## Class-owned tool configuration, resolved through the same job lineage as other job data.
+static func _kit(job: int) -> Dictionary:
+	var jobs := DataRepo.jobs(DataRepo.load_all())
+	var kit: Dictionary = jobs.lineage_value(job, "hub_kit", {})
+	return kit if not kit.is_empty() else jobs.lineage_value(jobs.default_job(), "hub_kit", {})
+
+
+## The default job’s fixture when the tool names no character.
+static func default_character() -> String:
+	return String(_kit(-1).get("fixture", ""))
+
+
+## Diagnostic weapon when a round produced no equipment drop.
+static func fallback_item(job: int) -> int:
+	return int(_kit(job).get("fallback_item", 0))
+
+
 ## Name of the throwaway character.
 const CHARACTER_NAME := "HubTester"
 
 
 ## {} unless the args hold `--hub`; else {"character": res:// or absolute JSON path, "mesos": int >= 0}, plus "job" (the id of
 ## `--job=<id>`, -1 when it is not a whole number) when the flag is given. Without `--character` the character is the fixture
-## of `--job` (DEFAULT_CHARACTER_BY_JOB), else the F/P one.
+## of `--job` (hub_kit.fixture), else the F/P one.
 static func parse_args(list: PackedStringArray) -> Dictionary:
 	var flags := SceneFlow.parse_flags(list)
 	if not flags.has("hub") or String(flags.hub) == "0":
@@ -60,7 +57,7 @@ static func parse_args(list: PackedStringArray) -> Dictionary:
 	var mesos := DEFAULT_MESOS
 	if flags.has("mesos") and String(flags.mesos).is_valid_int():
 		mesos = maxi(0, int(flags.mesos))
-	out["character"] = path if path != "" and path != "1" else String(DEFAULT_CHARACTER_BY_JOB.get(job, DEFAULT_CHARACTER))
+	out["character"] = path if path != "" and path != "1" else String(_kit(job).get("fixture", ""))
 	out["mesos"] = mesos
 	return out
 
@@ -81,6 +78,16 @@ static func job_error(request: Dictionary, character: Dictionary, jobs: JobTree)
 	return ""
 
 
+## The job’s configured scroll stacks, or the default job’s kit.
+static func kit_scrolls(job: int) -> Array:
+	return (_kit(job).get("scrolls", []) as Array).map(func(id: Variant) -> int: return int(id))
+
+
+## The job’s configured spare equipment, or the default job’s kit.
+static func kit_equipment(job: int) -> Array:
+	return (_kit(job).get("equipment", []) as Array).map(func(id: Variant) -> int: return int(id))
+
+
 ## {"character": format-3 CharacterSnapshot (the "_doc" note dropped; formats 1 and 2 migrated), "error": ""} from a JSON file,
 ## or {"character": {}, "error": message}. `img_loader` (path -> img root) gives migrated items their stats.
 static func load_character(path: String, img_loader: Callable) -> Dictionary:
@@ -93,17 +100,19 @@ static func load_character(path: String, img_loader: Callable) -> Dictionary:
 
 
 ## A copy of the format-3 `character` with the test kit: `mesos`, every tier unlocked (so map select shows them all), the
-## KIT_SCROLLS stacks (SCROLL_COUNT each, on top of what it holds, within the Use tab) and the KIT_EQUIPMENT items created
-## from `img_loader` info.
+## kit_scrolls stacks (SCROLL_COUNT each, on top of what it holds, within the Use tab) and the kit_equipment items created
+## from `img_loader` info, of the character's job (kit_scrolls, kit_equipment).
 static func apply(character: Dictionary, mesos: int, img_loader: Callable) -> Dictionary:
 	var out := character.duplicate(true)
 	out.mesos = mesos
 	out.tiers_unlocked = maxi(int(out.get("tiers_unlocked", 1)), SceneFlow.tiers().size())
 	var limit := Shop.use_stack_limit()
-	for id: int in KIT_SCROLLS:
+	var job := int(out.get("job_id", 0))
+	for id: int in kit_scrolls(job):
 		Scrolls.add(out.scrolls, id, SCROLL_COUNT, 0, limit)
-	var infos := DataRepo.equipment_info(PackedInt32Array(KIT_EQUIPMENT), img_loader)
-	for id: int in KIT_EQUIPMENT:
+	var spare := kit_equipment(job)
+	var infos := DataRepo.equipment_info(PackedInt32Array(spare), img_loader)
+	for id: int in spare:
 		out.equipment.inventory.append(Equipment.create(id, infos.get(id, {})))
 	return out
 
