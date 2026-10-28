@@ -200,10 +200,25 @@ func test_preferred_scores_living_nearby_mobs_and_keeps_order_on_ties() -> void:
 	w.runner.cast_ready(DT, w)
 	assert_eq(w.runner.forms.snapshot()[0].skill, "test_form", "other form starts when first expires")
 
-func test_pending_sub_is_dropped_on_transfer_but_once_remains_consumed() -> void:
-	var w := _world()
+func _pending_sub(w: RunWorld) -> void:
 	_sub(w, true)
 	w.book.defs.test_sub.pending = {"delay": 0.4}
+	for level: Dictionary in w.book.skill_imgs["999"].skill["9991002"].level.values():
+		level["lt"] = {"$v": [-150, -100]}
+		level["rb"] = {"$v": [150, 0]}
+
+func test_pending_sub_is_dropped_on_transfer_but_once_remains_consumed() -> void:
+	var control := _world()
+	_pending_sub(control)
+	var target := _mob(control, 240)
+	_mob(control, 250)
+	_start(control)
+	var control_hp := control.swarm.hp[target]
+	for i in 36:
+		control.runner.tick_cooldowns(DT, control)
+	assert_near(control_hp - control.swarm.hp[target], 12.0, 0.01, "control: pending strike actually hits")
+	var w := _world()
+	_pending_sub(w)
 	_mob(w, 240)
 	_mob(w, 250)
 	_start(w)
