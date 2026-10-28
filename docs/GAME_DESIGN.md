@@ -722,6 +722,7 @@ fetch/merge was already up to date (5cd40ea); no gameplay changes after validati
 **#299 / H3 meter infrastructure regression smoke (2026-10-28).** Job 212, real v83 cache,
 training seeds 1/2/2026, bot/random on every tier-1 region and bot Sleepywood with/without the tier-1 kit.
 No tuning or held-out seeds. All 30 records have empty warnings/missing lists, no crashes or timeouts.
+All 30 records after merging H1/H2/H4 are byte-identical to the preserved pre-merge meter-runtime records.
 The results reproduce the preceding #294 smoke; Hero stays unplayable (H9/H10), so Combo is exercised by
 seeded synthetic tests and the diagnostic HUD probe rather than claimed as Hero survival evidence.
 
