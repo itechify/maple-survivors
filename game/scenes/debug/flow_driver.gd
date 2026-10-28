@@ -42,11 +42,11 @@ extends Node
 ##           Options -> Arrows, Key Config -> Default -> OK. user://settings.cfg (the player's real one) is backed up
 ##           first and restored before the driver quits, also on failure. Shots: key_config, key_config_rebound,
 ##           options, options_wasd. These three create a character in the evidence-only driver_save.json (3 slots).
-##   inventory the Equip and Item windows (#108): title -> new character; the slot's character becomes the Lv38
-##           F/P fixture (tests/fixtures/characters/fp_arch_mage.json) holding Metal Gear, a Blue Sauna Robe,
-##           Work Gloves and a Dark Calas it cannot wear, with 123,456 mesos -> map select -> run; E opens
-##           Equip, I opens Item (the sim is checked to hold), the robe's tooltip, the Calas's tooltip with its
-##           red requirements and the refused double-click, the hat worn by double-click, the robe by dragging it
+##   inventory the Equip and Item windows (#108): title -> new character; the slot's character becomes the F/P fixture
+##           (tests/fixtures/characters/fp_arch_mage.json) holding Metal Gear, a Blue Sauna Robe, Work Gloves and a
+##           Warrior shield it cannot wear (job only: no level or stat rows), with 123,456 mesos -> Free Market -> map
+##           select -> run; E opens Equip, I opens Item (the sim is checked to hold), the robe's tooltip, the shield's
+##           tooltip and the refused double-click, the hat worn by double-click, the robe by dragging it
 ##           onto the Equip window, the gloves by double-click (hat, overall, gloves and wand drawn on the
 ##           character), the Calas dragged out and the YesNo box answered No, the Use tab, Esc closes both; then
 ##           the slot is moved to the Free Market and Continue opens the hub: E and I there, the hat taken off and
@@ -767,6 +767,14 @@ func _open_map_select() -> bool:
 	return true
 
 
+## Continues the active character (the hub is rebuilt from the saved slot) and waits for the NEW Free Market scene.
+func _reopen_hub() -> bool:
+	var old := flow.current
+	flow.continue_character(flow.active_slot)
+	return await _until(func() -> bool: return flow.current != old and is_instance_valid(flow.current) \
+			and flow.current_name == "free_market", 10.0, "Free Market (continued)")
+
+
 ## Presses Down on the open map select until the card of stage `key` is selected.
 func _select_stage(key: String) -> bool:
 	var select: StageSelectScene = flow.current
@@ -1306,15 +1314,14 @@ func _scenario_skill() -> void:
 		return
 	var run := flow.current as RunScene
 	await _sleep(3.0)
-	# A build to show (debug setup, like the windows scenario's EXP drop): a Wizard (Ice, Lightning) character (set
-	# directly; #284 removed advancement), with behaviour cards on Magic Claw and Thunder Bolt.
+	# A build to show (debug setup, like the windows scenario's EXP drop): three more pool actives with ranks, and two
+	# common passives (cards applied directly; the Teleport key skill and the starting Energy Bolt are already known).
 	var w := run.world
-	w.set_job(220)
-	for id: String in ["magic_claw_new", "magic_claw_targets", "magic_claw_targets", "magic_claw_cooldown",
-			"thunder_bolt_new", "thunder_bolt_targets"]:
+	for id: String in ["magic_claw_new", "magic_claw_rank", "fire_arrow_new", "explosion_new", "explosion_rank",
+			"passive_might_new", "passive_speed_new", "passive_speed_rank"]:
 		w.upgrades.apply(id, w)
 	await _sleep(0.5)
-	# K opens the Skill window on the current job's tab and holds the sim.
+	# K opens the Skill window on the job's tab (the last) and holds the sim.
 	await _key(KEY_K)
 	if not await _until(func() -> bool: return run.ui_windows.find_window("skill") != null, 3.0, "Skill window (K)"):
 		return
@@ -1322,51 +1329,52 @@ func _scenario_skill() -> void:
 	var t0 := run.world.time
 	await _sleep(0.8)
 	_check(run.world.time == t0, "the sim holds while Skill is open")
-	_check(sw.tab == 1 and sw.model.tabs.size() == 2, "opened on the 2nd-job tab of I / II (no Beginner or star tab)")
+	var last_tab: int = sw.model.tabs.size() - 1
+	_check(sw.model.tabs[0].name == "Common" and last_tab >= 1 and sw.tab == last_tab,
+		"opened on the job's own tab, the last, after the Common tab (no Beginner or star tab; %d tabs)" % sw.model.tabs.size())
+	_check(sw.model.loadout.slot_summary().begins_with("Active 4/6"), "four active skills held (%s)" % sw.model.loadout.slot_summary())
 	await _shot("skill_window")
-	# Keyboard: Down moves the selection to Thunder Bolt (the last Ice & Lightning skill) with its tooltip; Left
-	# switches to the Magician tab.
+	# Keyboard: Down moves the selection to the last row with its tooltip; Left switches to the Common tab.
 	for i in sw.rows().size():
 		await _key(KEY_DOWN)
 	await _sleep(0.3)
-	var tb := sw.tooltip()
-	_check(String(tb.get("key", "")) == "thunder_bolt" and not (tb.get("upgrades", []) as Array).is_empty(),
-		"Down selected Thunder Bolt with its Upgrades (%s)" % [tb.get("key", "")])
+	var last := sw.tooltip()
+	_check(String(last.get("key", "")) == String(sw.rows()[sw.rows().size() - 1].key), "Down selected the last row (%s)" % [last.get("key", "")])
 	await _shot("skill_keyboard_tooltip")
 	await _key(KEY_LEFT)
 	await _sleep(0.3)
-	_check(sw.tab == 0, "Left switched to the Magician tab")
-	# Mouse: the wheel scrolls Magic Claw into view; hovering it shows the tooltip with its Upgrades.
+	_check(sw.tab == last_tab - 1, "Left switched to the previous job tab")
 	var origin := sw.get_global_rect().position
-	var claw := -1
-	for i in sw.rows().size():
-		if String(sw.rows()[i].get("key", "")) == "magic_claw":
-			claw = i
-	for i in maxi(0, claw - SkillWindow.VISIBLE_ROWS + 1):
-		await _wheel(origin + sw.row_rect(1).get_center(), true)
-	_hover(origin + sw.row_rect(claw - sw.scroll).get_center())
-	await _sleep(0.4)
-	var tip := sw.tooltip()
-	_check(String(tip.get("key", "")) == "magic_claw" and (tip.get("upgrades", []) as Array).size() == 2,
-		"hovering Magic Claw shows Twin Claw and Quick Claw (%s)" % [tip.get("upgrades", [])])
-	await _shot("skill_tooltip_upgrades")
-	# Spec #225: no star tab; #284: no Beginner tab. The mouse picks the Magician tab, and the strip ends after the
-	# 2nd-job tab.
 	await _click_at(origin + sw.tab_rect(0).get_center())
 	await _sleep(0.3)
-	_check(sw.tab == 0, "clicked the Magician tab")
-	await _click_at(origin + sw.tab_rect(2).get_center())
+	_check(sw.tab == 0, "a click picked the Common tab")
+	var common_keys: Array = sw.rows().map(func(row: Dictionary) -> String: return String(row.key))
+	_check(common_keys.size() == 9 and "passive_might" in common_keys and "passive_crit" in common_keys,
+		"the Common tab lists the nine common passives (%s)" % [common_keys])
+	await _shot("skill_common_tab")
+	# Mouse: hovering a learned common passive shows its tooltip.
+	var might := common_keys.find("passive_might")
+	_hover(origin + sw.row_rect(might - sw.scroll).get_center())
+	await _sleep(0.4)
+	var tip := sw.tooltip()
+	_check(String(tip.get("key", "")) == "passive_might" and int(tip.get("level", 0)) == 1,
+		"hovering Maple Warrior shows rank 1 (%s)" % [tip.get("key", "")])
+	await _shot("skill_tooltip_passive")
+	# The mouse picks the job's tab; the strip ends after the last job tab.
+	await _click_at(origin + sw.tab_rect(last_tab).get_center())
 	await _sleep(0.3)
-	_check(sw.tab == 0, "no third tab to click")
-	# The other job tabs (#219: the tab shapes).
-	for t in [0, 1]:
-		await _click_at(origin + sw.tab_rect(t).get_center())
+	_check(sw.tab == last_tab, "clicked the job's tab")
+	await _click_at(origin + sw.tab_rect(last_tab + 1).get_center())
+	await _sleep(0.3)
+	_check(sw.tab == last_tab, "no tab past the job's own to click")
+	for tab_index in [0, last_tab]:
+		await _click_at(origin + sw.tab_rect(tab_index).get_center())
 		await _sleep(0.2)
-		_check(sw.tab == t, "skill tab %d shown" % t)
-		await _shot("skill_tab_%d" % t)
-	await _key(KEY_1)
+		_check(sw.tab == tab_index, "skill tab %d shown" % tab_index)
+		await _shot("skill_tab_%d" % tab_index)
+	await _key(KEY_2)
 	await _sleep(0.2)
-	_check(sw.tab == 0, "1 switched to the Magician tab")
+	_check(sw.tab == 1, "2 switched to the second tab (the Magician)")
 	await _key(KEY_ESCAPE)
 	await _sleep(0.4)
 	_check(not run.ui_windows.has_windows() and not run.paused, "Esc closed Skill without pausing")
@@ -1383,7 +1391,7 @@ func _scenario_skill() -> void:
 	_check(run.ui_windows.top() is SkillWindow and lw.input_blocked, "Skill opened over the level-up choice")
 	await _key(KEY_1)
 	await _sleep(0.2)
-	_check(run.world.state == RunWorld.CHOOSING_UPGRADE, "1 picked nothing under the Skill window")
+	_check(run.world.state == RunWorld.CHOOSING_UPGRADE, "1 picked nothing under the Skill window (it switches tabs)")
 	await _key(KEY_DOWN)
 	await _sleep(0.3)
 	await _shot("skill_over_levelup")
@@ -1513,14 +1521,15 @@ func _scenario_inventory() -> void:
 	var slot := flow.save.slot(flow.active_slot)
 	var character: Dictionary = fixture
 	character.erase("_doc")
-	for id: int in [1002001, 1050018, 1082002, 1050049]:
+	for id: int in [1002001, 1050018, 1082002, 1092000]:
 		var img := lib.img(AvatarRenderer.part_img_path(id))
 		character.equipment.inventory.append(Equipment.create(id, img.root.get("info", {}) if img != null else {}))
 	character.mesos = 123456
 	character.scrolls = {"2040000": 2, "2043700": 1}
 	slot.character = character
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the fixture character was saved into the slot")
-	flow.continue_character(flow.active_slot)
+	if not await _reopen_hub():
+		return
 	if not await _open_map_select():
 		return
 	await _start_selected(flow.current)
@@ -1556,7 +1565,7 @@ func _scenario_inventory() -> void:
 	await _shot("item_windows")
 	var io := iw.get_global_rect().position
 	var eo := ew.get_global_rect().position
-	# Tooltips: the robe (wearable) and the Dark Calas (level, INT and LUK unmet, in red).
+	# Tooltips: the robe (wearable) and a Warrior shield (the job row only; no level or stat rows, ADR 0006).
 	_hover(io + iw.slot_rect(1).get_center())
 	await _sleep(0.4)
 	_check(String(iw.tooltip().get("name", "")) == "Blue Sauna Robe" and bool(iw.tooltip().get("can_equip", false)),
@@ -1564,12 +1573,12 @@ func _scenario_inventory() -> void:
 	await _shot("item_tooltip")
 	_hover(io + iw.slot_rect(3).get_center())
 	await _sleep(0.4)
-	_check(String(iw.tooltip().get("name", "")) == "Dark Calas" and not bool(iw.tooltip().get("can_equip", true)),
-		"the Calas's tooltip marks its unmet requirements")
+	_check(not bool(iw.tooltip().get("can_equip", true)) and not iw.tooltip().has("reqs"),
+		"the Warrior shield's tooltip marks the job it cannot be worn by, with no level or stat rows")
 	await _shot("item_tooltip_unmet")
 	await _double_click_at(io + iw.slot_rect(3).get_center())
 	await _sleep(0.3)
-	_check(iw.cells().size() == 4 and not run.world.equipment.worn.has("overall"), "the refused Calas stays put")
+	_check(iw.cells().size() == 4 and not run.world.equipment.worn.has("overall"), "the refused Warrior shield stays put")
 	await _shot("equip_refused")
 	# Wear the hat (double-click), the robe (drag onto the Equip window) and the gloves (double-click). The robe
 	# displaces the top (into its slot) and the bottom (appended): [top, gloves, calas, bottom].
@@ -1582,7 +1591,7 @@ func _scenario_inventory() -> void:
 	await _double_click_at(io + iw.slot_rect(1).get_center())
 	await _sleep(0.3)
 	_check(ew.worn_id("gloves") == 1082002, "Work Gloves worn by double-click")
-	_check(iw.cells().size() == 3, "the top and bottom took the worn items' places, the Calas stays (%d)"
+	_check(iw.cells().size() == 3, "the top and bottom took the worn items' places, the shield stays (%d)"
 		% iw.cells().size())
 	_hover(eo + ew.slot_rect("top").get_center())
 	await _sleep(0.4)
@@ -1590,7 +1599,7 @@ func _scenario_inventory() -> void:
 	# Drag the Calas out: the YesNo box; No keeps it.
 	var calas := -1
 	for i in iw.cells().size():
-		if int(iw.cells()[i].id) == 1050049:
+		if int(iw.cells()[i].id) == 1092000:
 			calas = i
 	await _drag(io + iw.slot_rect(calas).get_center(), Vector2(get_viewport().get_visible_rect().size.x - 60.0, 120.0))
 	await _sleep(0.4)
@@ -1600,7 +1609,7 @@ func _scenario_inventory() -> void:
 	if confirm != null:
 		await _click(confirm._bt_no)
 		await _sleep(0.3)
-	_check(iw.cells().size() == 3, "No kept the Calas")
+	_check(iw.cells().size() == 3, "No kept the shield")
 	await _click_at(io + iw.tab_rect(1).get_center())
 	await _sleep(0.3)
 	_check(iw.tab == 1 and iw.cells() == [{"kind": "scroll", "id": 2040000, "count": 2},
@@ -1626,8 +1635,7 @@ func _scenario_inventory() -> void:
 	slot = flow.save.slot(flow.active_slot)
 	slot.character = carried
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the dressed character was saved at the hub")
-	flow.continue_character(flow.active_slot)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+	if not await _reopen_hub():
 		return
 	var hub := flow.current as FreeMarket
 	await _sleep(1.5)
@@ -1690,7 +1698,8 @@ func _scenario_scrolls() -> void:
 	character.scrolls = {"2043700": 3, "2043702": 6, "2043705": 30, "2040000": 2}
 	slot.character = character
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the fixture character was saved into the slot")
-	flow.continue_character(flow.active_slot)
+	if not await _reopen_hub():
+		return
 	if not await _open_map_select():
 		return
 	await _start_selected(flow.current)
@@ -1778,8 +1787,7 @@ func _scenario_scrolls() -> void:
 	slot = flow.save.slot(flow.active_slot)
 	slot.character = carried
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the character was saved at the hub")
-	flow.continue_character(flow.active_slot)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+	if not await _reopen_hub():
 		return
 	var hub := flow.current as FreeMarket
 	await _sleep(1.5)
@@ -1832,8 +1840,7 @@ func _scenario_shops() -> void:
 		character.equipment.inventory.append(Equipment.create(id, img.root.get("info", {}) if img != null else {}))
 	slot.character = character
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the character was saved at the hub")
-	flow.continue_character(flow.active_slot)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+	if not await _reopen_hub():
 		return
 	var hub := flow.current as FreeMarket
 	await _sleep(1.5)
@@ -1991,8 +1998,7 @@ func _scenario_botshop() -> void:
 		character.equipment.inventory.append(Equipment.create(id, img.root.get("info", {}) if img != null else {}))
 	slot.character = character
 	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the character was saved at the hub")
-	flow.continue_character(flow.active_slot)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+	if not await _reopen_hub():
 		return
 	var hub := flow.current as FreeMarket
 	await _sleep(1.5)

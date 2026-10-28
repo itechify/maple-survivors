@@ -1,28 +1,26 @@
 extends SceneTree
-## Reproduces a character fixture from an unmodified real-cache Henesys round (seed 1, bot; the spec #32 one was a
-## forced-210 round before #284 removed job advancement).
-## ISOLATE=t67 bash scripts/test.sh character_snapshot # prepares the isolated project, then:
-## ISOLATE=t67 bash scripts/godot.sh --headless --path _scratch/godot_runs/t67/game
-##   --script res://tools/character_fixture.gd -- --out=<absolute JSON path> --revision=<git SHA>
-## `--label=<ticket>` (the _doc.branch provenance; default spec32/ticket-67, the Lv38 F/P fixture; lv11_warrior_1st.json says
-## spec151/ticket-163), `--job=<id>` (the character's job; default JobTree.default_job(), 212; it must be playable),
-## `--seed=<n>` (default 1) and `--seconds=<s>` pick the job, the seed and a time cap:
-## with a cap the round stops there (a low-level fixture such as lv20_warrior_1st.json: `--job=100 --seconds=600`) and only
-## has to be alive and warning-free; without one the round must clear.
-## `--god` is a documented diagnostic
-## aid (spec #165 #185 and spec #168 #195): RunWorld.god makes the character invulnerable, so the bot can reach a level its play does not
-## survive to (Warrior, Pirate and Thief second-job fixtures). Use it with `--seconds`, and the
-## fixture's _doc records it (`invulnerable` and `diagnostic`). `--exp-mult=<k>` is a second aid: it multiplies the round's EXP (balance
-## `exp_mult`) for a line the bot cannot level at its natural pace (the knuckle Pirate: its damage cannot beat the second
-## boss), and is recorded in the _doc as well.
-## Only numeric character state/IDs/skill keys and provenance are written; never cache trees or decoded assets.
-## The snapshot written is the current CharacterSnapshot format (3, #286): job, look, worn equipment, inventory, scrolls,
-## mesos, unlocked tiers, cash and pet, i.e. the character as the round leaves it (its pickups). It has no level or build.
+## Writes the character fixtures (format 3, ADR 0006: job, look, worn equipment, inventory, scrolls, mesos, tiers unlocked,
+## cash and pet; no level or build). Three modes:
 ##
-## `--migrate=<absolute JSON path> --out=<absolute JSON path>` instead converts an existing format-1 or -2 fixture to
-## format 3 with real-cache item info (CharacterSnapshot.migrate), keeping its job, look and belongings and its _doc
-## provenance and recording the migration in _doc.migration. The committed fp_arch_mage.json was converted by hand the
-## same way (its _doc.migration_286).
+##  * a real round: an unmodified real-cache Henesys round (default seed 1, the kiting bot) whose character is written as
+##    the round leaves it, with its pickups and the tier its clear unlocks.
+##  * `--kit=<id,id,...>`: a synthetic kit, no round: a fresh Lv1 character of `--job` wearing those equipment ids with
+##    their canonical stats (what they displace is dropped), `--tiers=<n>` tiers unlocked (default 1). This is how the
+##    committed `fp_arch_mage.json` is made (the tier-1 kit of the Sleepywood checks, tier 2 unlocked).
+##  * `--migrate=<absolute JSON path>`: converts an existing format-1 or format-2 file to format 3 with real-cache item
+##    info (CharacterSnapshot.migrate), keeping its job, look and belongings and its `_doc`.
+##
+## ISOLATE=<name> bash scripts/test.sh character_snapshot # prepares the isolated project, then:
+## ISOLATE=<name> bash scripts/godot.sh --headless --path _scratch/godot_runs/<name>/game
+##   --script res://tools/character_fixture.gd -- --out=<absolute JSON path> --revision=<git SHA> [mode flags]
+## The committed kit fixture is `--kit=1382002,1002013,1072019,1082019,1040002,1060002 --tiers=2 --label=spec282/ticket-294`.
+## Flags: `--label=<ticket>` (the _doc.branch provenance), `--job=<id>` (the character's job; default
+## JobTree.default_job(), 212; it must be playable), `--seed=<n>` (a round's seed, default 1) and `--seconds=<s>` (a round's
+## time cap: the round stops there and only has to be alive and warning-free; without it the round must clear).
+## `--god` is a documented diagnostic aid: RunWorld.god makes the character invulnerable, so the bot can reach a clear its
+## play does not survive to; use it with a round, and the fixture's _doc records it (`invulnerable` and `diagnostic`).
+## `--exp-mult=<k>` multiplies the round's EXP (balance `exp_mult`); recorded in the _doc as well.
+## Only numeric character state/IDs and provenance are written; never cache trees or decoded assets.
 
 const HARNESS := preload("res://tools/balance_run.gd")
 
@@ -37,6 +35,8 @@ func _init() -> void:
 	var seconds := 0.0
 	var seed_value := 1
 	var label := "spec32/ticket-67"
+	var kit := ""
+	var tiers := 1
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="):
 			output = arg.substr(6)
@@ -56,6 +56,10 @@ func _init() -> void:
 			label = arg.substr(8)
 		elif arg.begins_with("--seed="):
 			seed_value = int(arg.substr(7))
+		elif arg.begins_with("--kit="):
+			kit = arg.substr(6)
+		elif arg.begins_with("--tiers="):
+			tiers = int(arg.substr(8))
 	if output != "" and migrate != "":
 		_migrate(migrate, output)
 		return
@@ -75,6 +79,9 @@ func _init() -> void:
 	var library := AssetLibrary.new()
 	library.open()
 	var missing := PackedStringArray()
+	if kit != "":
+		_kit(kit, tiers, job, output, revision, label, seed_value, data, library)
+		return
 	var setup := DataRepo.build_setup(data, "henesys", seed_value, Vector2(800, 600),
 		func(path: String) -> Dictionary:
 			var img := library.img(path)
@@ -123,6 +130,51 @@ func _init() -> void:
 	file.store_string(JSON.stringify(_rounded(character), "\t") + "\n")
 	file.close()
 	print("FIXTURE_WRITTEN %s job%d reached Lv%d missing=%s" % [output, character.job_id, int(record.level), missing])
+	library.free()
+	quit()
+
+
+## A fresh Lv1 character of `job` wearing the equipment ids in `kit` (a comma list), `tiers` tiers unlocked, written to `output`.
+func _kit(kit: String, tiers: int, job: int, output: String, revision: String, label: String, seed_value: int,
+		data: Dictionary, library: AssetLibrary) -> void:
+	var missing := PackedStringArray()
+	var setup := DataRepo.build_setup(data, "henesys", seed_value, Vector2(800, 600),
+		func(path: String) -> Dictionary:
+			var img := library.img(path)
+			return img.root if img != null else {},
+		func(id: int) -> Dictionary: return library.mob_root(id), missing)
+	if not missing.is_empty():
+		print("character_fixture: cache missing " + str(missing))
+		library.free()
+		quit(1)
+		return
+	setup["job"] = job
+	var world := RunWorld.new(setup)
+	var ids: Array[int] = []
+	for part: String in kit.split(","):
+		var id := int(part)
+		var error := world.wear_new_item(id)
+		if error != "" or Equipment.slot_of(id) == "":
+			print("character_fixture: cannot wear %s: %s" % [part, error])
+			library.free()
+			quit(1)
+			return
+		ids.append(id)
+	var character := world.character_snapshot()
+	character.equipment.inventory = [] # the kit is what is worn: the pieces it displaced are dropped
+	character.tiers_unlocked = tiers
+	character["_doc"] = {"by": label, "revision": revision, "job": job, "kit": ids,
+		"note": "Synthetic format-3 kit (tools/character_fixture.gd --kit): unscrolled canonical equipment of the Lv0-30 tier-1 "
+			+ "drop band and tier %d unlocked, no cash, pet or carried build; a Lv1 character for the Sleepywood checks." % tiers}
+	var file := FileAccess.open(output, FileAccess.WRITE)
+	if file == null:
+		print("character_fixture: cannot write " + output)
+		library.free()
+		quit(1)
+		return
+	file.store_string(JSON.stringify(_rounded(character), "\t") + "\n")
+	file.close()
+	print("FIXTURE_WRITTEN %s kit %s tiers %d" % [output, ids, tiers])
 	library.free()
 	quit()
 
