@@ -10,6 +10,8 @@ const WEAPONS := {"bow": 1452051, "crossbow": 1462001}
 func _world(free := 24) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
+	# The common passives (#289, Max HP above all) would move the HP growth this test measures.
+	data.upgrades.cards = data.upgrades.cards.filter(func(c: Dictionary) -> bool: return not String(c.get("skill", "")).begins_with("passive_"))
 	# The removed first-job advancement's +125 HP (v83-facts 4).
 	data.balance.player.hp = 175
 	var setup := RF.with_basic_attack(RF.setup("quiet", 199, data))

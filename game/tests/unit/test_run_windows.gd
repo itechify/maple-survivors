@@ -210,8 +210,8 @@ func test_skill_hotkey_opens_the_skill_window_and_routes_the_keys_to_it() -> voi
 	var names := []
 	for tab: Dictionary in sw.model.tabs:
 		names.append(String(tab.name))
-	assert_eq(names, ["Magician"], "the job line, with no Beginner or star tab")
-	assert_eq(sw.tab, 0, "on the current job's tab")
+	assert_eq(names, ["Common", "Magician"], "the common passives, then the job line (no Beginner or star tab)")
+	assert_eq(sw.tab, 1, "on the current job's tab")
 	assert_true(scene.handle_hotkey(_key(KEY_DOWN)), "the run hands arrows to the top window")
 	var claw_row := -1
 	for i in sw.rows().size():
@@ -223,8 +223,8 @@ func test_skill_hotkey_opens_the_skill_window_and_routes_the_keys_to_it() -> voi
 	assert_eq(tip.get("key"), "magic_claw")
 	assert_eq(tip.upgrades[0].text, "Twin Claw ×1: +1 target", "the real card's Upgrades line")
 	assert_false("canonical" in String(tip.desc) + String(tip.current) + String(tip.next), "player-visible text")
-	scene.handle_hotkey(_key(KEY_2))
-	assert_eq(sw.tab, 0, "2: there is no second tab (no Beginner or star tab), so the tab is unchanged")
+	scene.handle_hotkey(_key(KEY_3))
+	assert_eq(sw.tab, 1, "3: there is no third tab, so the tab is unchanged")
 	scene.handle_hotkey(_key(KEY_ESCAPE))
 	assert_false(scene.ui_windows.has_windows(), "Esc closed it")
 	assert_false(scene.paused)

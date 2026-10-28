@@ -107,7 +107,9 @@ func test_cards_follow_the_job_line_without_beginner_or_teleport_cards() -> void
 	for id: String in ["energy_bolt_rank", "magic_claw_new", "fire_arrow_new", "poison_breath_new"]:
 		assert_has(eligible, id, "a 200 or 210 card is on a 212's line")
 	for id: String in eligible:
-		assert_has(w.jobs.skill_pool(212), String(w.upgrades.card(id).skill))
+		var skill := String(w.upgrades.card(id).skill)
+		if not bool(w.book.def(skill).get("common_passive", false)): # #289: job-neutral passives join every pool
+			assert_has(w.jobs.skill_pool(212), skill)
 		assert_false(id.begins_with("teleport_"), "Teleport needs no card")
 	assert_false(eligible.has("energy_bolt_new"), "the start skill is owned")
 	assert_false(eligible.has("cold_beam_new"), "an Ice/Lightning card is off the F/P line")

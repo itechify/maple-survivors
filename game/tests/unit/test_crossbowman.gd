@@ -233,7 +233,7 @@ func test_crossbowman_cards_casts_with_any_weapon_skill_window_and_no_soul_arrow
 	# #284: weapons gate no skill, card or passive: with a bow the crossbow skills stay on offer and still cast.
 	assert_eq(w.equip_item(_inventory(w).find(1452051)), "")
 	var model := SkillWindowModel.new(w.book, w.upgrades, w.loadout, w.jobs, 320, SkillText.new(w.book, {}))
-	var rows: Array = model.tabs[1].rows
+	var rows: Array = model.tabs[model.tabs.size() - 1].rows
 	assert_eq(rows.size(), 5)
 	for key: String in SKILLS:
 		assert_false(key + "_rank" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")

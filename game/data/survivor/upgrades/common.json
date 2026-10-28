@@ -1,5 +1,5 @@
 {
-	"_doc": "Job-neutral cards: the nine common passives (spec #282 ticket #289), a skill_new and a skill_rank card each. weight is unused since #287 (draw_weights in ../upgrades.json pick: new passive 0.5, passive rank 0.8). They never roll rarity and always give exactly one rank. Card format and tier rules: see ../upgrades.json _doc.",
+	"_doc": "Job-neutral cards: the nine common passives (spec #282 ticket #289), a skill_new and a skill_rank card each, in the shape test_data_files checks (weight is unused since #287: upgrades.json draw_weights pick, new passive 0.5 and passive rank 0.8; a rank card's max_rank is the skill's five ranks). They never roll rarity and always give exactly one rank. Card format and tier rules: see ../upgrades.json _doc.",
 	"cards": [
 		{
 			"id": "passive_might_new",
@@ -10,7 +10,8 @@
 			"icon": "Skill.wz/2112.img/skill/21121000/icon",
 			"max_rank": 1,
 			"requires": {},
-			"effects": []
+			"effects": [],
+			"weight": 1
 		},
 		{
 			"id": "passive_might_rank",
@@ -19,9 +20,16 @@
 			"name": "Maple Warrior",
 			"desc": "+1 rank",
 			"icon": "Skill.wz/2112.img/skill/21121000/icon",
-			"max_rank": 0,
+			"max_rank": 5,
 			"requires": {},
-			"effects": []
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			],
+			"weight": 1
 		},
 		{
 			"id": "passive_max_hp_new",
@@ -32,7 +40,8 @@
 			"icon": "Skill.wz/910.img/skill/9101008/icon",
 			"max_rank": 1,
 			"requires": {},
-			"effects": []
+			"effects": [],
+			"weight": 1
 		},
 		{
 			"id": "passive_max_hp_rank",
@@ -41,9 +50,16 @@
 			"name": "Hyper Body",
 			"desc": "+1 rank",
 			"icon": "Skill.wz/910.img/skill/9101008/icon",
-			"max_rank": 0,
+			"max_rank": 5,
 			"requires": {},
-			"effects": []
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			],
+			"weight": 1
 		},
 		{
 			"id": "passive_speed_new",
@@ -54,7 +70,8 @@
 			"icon": "Skill.wz/910.img/skill/9101001/icon",
 			"max_rank": 1,
 			"requires": {},
-			"effects": []
+			"effects": [],
+			"weight": 1
 		},
 		{
 			"id": "passive_speed_rank",
@@ -63,9 +80,16 @@
 			"name": "Haste",
 			"desc": "+1 rank",
 			"icon": "Skill.wz/910.img/skill/9101001/icon",
-			"max_rank": 0,
+			"max_rank": 5,
 			"requires": {},
-			"effects": []
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			],
+			"weight": 1
 		},
 		{
 			"id": "passive_regen_new",
@@ -76,7 +100,8 @@
 			"icon": "Skill.wz/1000.img/skill/10001001/icon",
 			"max_rank": 1,
 			"requires": {},
-			"effects": []
+			"effects": [],
+			"weight": 1
 		},
 		{
 			"id": "passive_regen_rank",
@@ -85,9 +110,16 @@
 			"name": "Recovery",
 			"desc": "+1 rank",
 			"icon": "Skill.wz/1000.img/skill/10001001/icon",
-			"max_rank": 0,
+			"max_rank": 5,
 			"requires": {},
-			"effects": []
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			],
+			"weight": 1
 		},
 		{
 			"id": "passive_cooldown_new",
@@ -98,7 +130,8 @@
 			"icon": "Skill.wz/1210.img/skill/12101004/icon",
 			"max_rank": 1,
 			"requires": {},
-			"effects": []
+			"effects": [],
+			"weight": 1
 		},
 		{
 			"id": "passive_cooldown_rank",
@@ -107,9 +140,16 @@
 			"name": "Spell Booster",
 			"desc": "+1 rank",
 			"icon": "Skill.wz/1210.img/skill/12101004/icon",
-			"max_rank": 0,
+			"max_rank": 5,
 			"requires": {},
-			"effects": []
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			],
+			"weight": 1
 		},
 		{
 			"id": "passive_area_new",
@@ -120,7 +160,8 @@
 			"icon": "Skill.wz/910.img/skill/9101006/icon",
 			"max_rank": 1,
 			"requires": {},
-			"effects": []
+			"effects": [],
+			"weight": 1
 		},
 		{
 			"id": "passive_area_rank",
@@ -129,9 +170,16 @@
 			"name": "Dragon Roar",
 			"desc": "+1 rank",
 			"icon": "Skill.wz/910.img/skill/9101006/icon",
-			"max_rank": 0,
+			"max_rank": 5,
 			"requires": {},
-			"effects": []
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			],
+			"weight": 1
 		},
 		{
 			"id": "passive_exp_new",
@@ -142,7 +190,8 @@
 			"icon": "Skill.wz/910.img/skill/9101002/icon",
 			"max_rank": 1,
 			"requires": {},
-			"effects": []
+			"effects": [],
+			"weight": 1
 		},
 		{
 			"id": "passive_exp_rank",
@@ -151,9 +200,16 @@
 			"name": "Holy Symbol",
 			"desc": "+1 rank",
 			"icon": "Skill.wz/910.img/skill/9101002/icon",
-			"max_rank": 0,
+			"max_rank": 5,
 			"requires": {},
-			"effects": []
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			],
+			"weight": 1
 		},
 		{
 			"id": "passive_armor_new",
@@ -164,7 +220,8 @@
 			"icon": "Skill.wz/1100.img/skill/11001001/icon",
 			"max_rank": 1,
 			"requires": {},
-			"effects": []
+			"effects": [],
+			"weight": 1
 		},
 		{
 			"id": "passive_armor_rank",
@@ -173,9 +230,16 @@
 			"name": "Iron Body",
 			"desc": "+1 rank",
 			"icon": "Skill.wz/1100.img/skill/11001001/icon",
-			"max_rank": 0,
+			"max_rank": 5,
 			"requires": {},
-			"effects": []
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			],
+			"weight": 1
 		},
 		{
 			"id": "passive_crit_new",
@@ -186,7 +250,8 @@
 			"icon": "Skill.wz/312.img/skill/3121002/icon",
 			"max_rank": 1,
 			"requires": {},
-			"effects": []
+			"effects": [],
+			"weight": 1
 		},
 		{
 			"id": "passive_crit_rank",
@@ -195,9 +260,16 @@
 			"name": "Sharp Eyes",
 			"desc": "+1 rank",
 			"icon": "Skill.wz/312.img/skill/3121002/icon",
-			"max_rank": 0,
+			"max_rank": 5,
 			"requires": {},
-			"effects": []
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			],
+			"weight": 1
 		}
 	]
 }

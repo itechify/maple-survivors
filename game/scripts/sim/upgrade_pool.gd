@@ -251,9 +251,10 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 				changes[renamed[1]] = changes[renamed[0]]
 				changes.erase(renamed[0])
 			var passive: Dictionary = lo.book.def(skill).get("passive", {})
-			if passive.has("per_level"):
+			if passive.has("per_level") and not bool(lo.book.def(skill).get("common_passive", false)):
 				# tier C: a survivor per-level passive previews its own fraction as a percent,
-				# not the canonical fields it reinterprets.
+				# not the canonical fields it reinterprets. A common passive (#289) has no canonical fields and states
+				# its per-rank value in its own unit: its card text (SkillText) shows it.
 				changes = {String(passive.stat): {"before": roundi(lo.passive_value(skill, level, passive) * 100.0),
 					"after": roundi(lo.passive_value(skill, level_next, passive) * 100.0)}}
 	return {

@@ -257,3 +257,16 @@ func test_the_sensible_bot_ranks_passives_below_pool_attacks_and_by_usefulness()
 	_take(w, "might", 1)
 	assert_true(BotInput.card_score(w, w.upgrades.choice_card("passive_might_rank", w))
 		< BotInput.card_score(w, w.upgrades.choice_card("passive_might_new", RF.quiet_world())), "rank scores 4 less")
+
+
+func test_a_passive_rank_card_previews_through_its_text_not_canonical_fields() -> void:
+	var w := _world_with("might", 2)
+	var c := w.upgrades.choice_card("passive_might_rank", w)
+	assert_eq(c.skill_level, 2)
+	assert_eq(c.skill_level_next, 3)
+	assert_eq(c.skill_level_max, 5)
+	assert_eq(c.skill_changes, {})
+	var dressed: Array = SkillText.new(w.book).dress([c], w.loadout)
+	assert_eq(dressed[0].desc, "Damage +30%")
+	var fresh := RF.quiet_world().upgrades.choice_card("passive_regen_new", RF.quiet_world())
+	assert_eq(SkillText.new(w.book).dress([fresh], w.loadout)[0].detail, "Recover 1% of Max HP per second")
