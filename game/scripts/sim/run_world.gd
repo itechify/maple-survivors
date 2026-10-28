@@ -78,6 +78,7 @@ const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
+	"meter_changed": ["id", "value", "max"],
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"player_restored": ["stat", "amount", "skill", "pos"],
@@ -241,6 +242,7 @@ var buffs := PlayerBuffs.new()
 var upkeep: PlayerUpkeep
 var book: SkillBook
 var loadout: Loadout
+var meter := PlayerMeter.new()
 var runner: SkillRunner
 var _teleport_left := 0.0
 var _teleport_total := 0.0
@@ -1141,6 +1143,7 @@ func apply_choice(card_id: String) -> bool:
 ## tests and debug drivers call it before play to stand a character of another line.
 func set_job(job_id: int) -> void:
 	progression.job_id = job_id
+	meter = PlayerMeter.new(jobs.lineage_value(job_id, "meter", {}))
 	refresh_player_stats(false)
 
 
@@ -1822,6 +1825,7 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	})
 	_instant_dealt += roll.x
 	if roll.x > 0:
+		meter.landed(st.get("meter_receipt", {}), events)
 		_on_player_hit(m, {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": magic,
 			"damage": roll.x, "element": String(st.get("element", "")), "damage_type": dtype})
 	if swarm.apply_hit(m, roll.x, dir):
@@ -1954,6 +1958,7 @@ func _spread_targets(target: int, want: int) -> Array[int]:
 
 
 func _on_player_hit(slot: int, hit: Dictionary) -> void:
+	meter.landed(hit.get("meter_receipt", {}), events)
 	var key := String(hit.skill)
 	var level := int(hit.level)
 	var status: Dictionary = book.def(key).get("on_hit", {})

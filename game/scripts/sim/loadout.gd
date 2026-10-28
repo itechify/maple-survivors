@@ -293,6 +293,10 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	if action == "weapon":
 		# tier C: the stance (and so the swing/stab multiplier) of the held weapon's first basic-attack action.
 		action = WeaponInfo.skill_action(weapon_id)
+	# tier C: one body action and matching effect by handedness (Brandish, #301 ruling).
+	var handedness := "two" if WeaponInfo.is_two_handed(weapon_id) else "one"
+	action = String(d.get("action_by_handedness", {}).get(handedness, action))
+	var effect := String(d.get("effect_by_handedness", {}).get(handedness, book.visual(key, "effect", lv, char_level)))
 	var attack_kind := WeaponInfo.attack_kind(action)
 	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0) * (1.0 + passive_total(DAMAGE_PCT) / 100.0)
 	var lo := 0.0
@@ -337,7 +341,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 			# tier C: surround attacks retain canonical reach/height on both sides of the player (Pirate kick).
 			var extent := maxf(absf(box.position.x), absf(box.end.x))
 			box = Rect2(-extent, box.position.y, extent * 2.0, box.size.y)
-	return {
+	var resolved := {
 		"skill": key,
 		"skill_id": book.skill_id(key),
 		"kind": book.kind(key),
@@ -370,6 +374,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"speed_factor": speed_factor,
 		"cooldown": _cooldown(key, d, heal, lv, speed_factor),
 		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0))))
+			* (area if String(cast.get("rule", "")) == "range_around" else 1.0)
 			+ (passive_total(RANGE) if attacks and weapon_family in WeaponInfo.RANGED_FAMILIES
 				and weapon_family in book.weapon_families(key) else 0.0),
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
@@ -391,7 +396,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"radius": float(d.get("radius", 10.0)),
 		"ball": book.visual(key, "ball", lv, char_level),
 		"hit": book.visual(key, "hit", lv, char_level),
-		"effect": book.visual(key, "effect", lv, char_level),
+		"effect": effect,
 		"action": action,
 		"action_time": float(d.get("action_time", 0.0)) * speed_factor,
 		"rotate": bool(d.get("rotate", false)),
@@ -416,6 +421,10 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"cooldown_from_cast": bool(buff.get("cooldown_from_cast", false)),
 		"displacement": _displacement(key, d, r, lv),
 	}
+	if d.has("meter"):
+		resolved["meter"] = d.meter
+		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
+	return resolved
 
 
 ## Seconds between casts: the skill's own cooldown with its cards, then the cast speed passives (an active skill's cooldown

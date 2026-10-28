@@ -64,6 +64,8 @@ var hit_visual := PackedInt32Array()
 var skill := PackedInt32Array()
 ## Canonical skill level at launch; later rank changes do not alter on-hit status parameters.
 var level := PackedInt32Array()
+## Shared cast receipts are cold metadata, never copied between shots of the same cast.
+var meter_receipts: Array[Dictionary] = []
 
 ## RunWorld.visual_paths (shared).
 var paths: Array = []
@@ -134,6 +136,7 @@ func spawn(spec: Dictionary) -> int:
 	crit_mult[i] = float(spec.get("crit_mult", 1.5))
 	hits_left[i] = clampi(1 + int(spec.get("pierce", 0)), 1, MAX_HITS)
 	hit_count[i] = 0
+	meter_receipts[i] = spec.get("meter_receipt", {})
 	pierce_falloff[i] = maxf(0.0, float(spec.get("pierce_falloff", 0.0)))
 	blast_count[i] = 0
 	blast_visual[i] = ""
@@ -371,8 +374,11 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 	})
 	dealt += roll.x
 	if roll.x > 0 and on_hit.is_valid():
-		on_hit.call(m, {"skill": skill_names[skill[i]], "level": level[i], "magic": is_magic,
-			"damage": roll.x, "element": element[i], "damage_type": CombatMath.DAMAGE_TYPE_NAMES[kind]})
+		var hit := {"skill": skill_names[skill[i]], "level": level[i], "magic": is_magic,
+			"damage": roll.x, "element": element[i], "damage_type": CombatMath.DAMAGE_TYPE_NAMES[kind]}
+		if not meter_receipts[i].is_empty():
+			hit["meter_receipt"] = meter_receipts[i]
+		on_hit.call(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
 		if on_kill.is_valid():
@@ -407,6 +413,7 @@ func _grow(n: int) -> void:
 	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, blast_count]:
 		arr.resize(n)
 	hit_list.resize(n * MAX_HITS)
+	meter_receipts.resize(n)
 	generation.resize(n)
 	element.resize(n)
 	blast_position.resize(n)

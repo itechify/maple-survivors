@@ -686,6 +686,32 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
+**#301 / H5 core melee regression smoke (training seeds 1/2/2026).** No balance tuning.
+Shared real cache, `ISOLATE=301`; four tier-1 stages with bot/random, Sleepywood with bot,
+with and without the tier-1 `fp_arch_mage.json` kit. All 30 runs finished without crashes,
+world warnings or missing assets. Records and summaries are `_scratch/balance301/` (Sleepywood
+in separate `starter/` and `kit/` folders because the script reuses its output names).
+
+| Stage / equipment | Bot: clears; death seconds; end levels | Random: clears; death seconds; end levels |
+|---|---|---|
+| Henesys | 1/3; 449.9–711.5; 22–56 | 0/3; 308.0–615.4; 10–31 |
+| Ellinia | 0/3; 625.4–650.9; 22–23 | 0/3; 321.8–688.0; 12–23 |
+| Perion | 0/3; 430.6–668.6; 25–42 | 0/3; 277.3–574.8; 10–32 |
+| Kerning | 0/3; 306.2–749.1; 12–42 | 0/3; 308.3–442.2; 13–23 |
+| Sleepywood starter | 0/3; 10.6–12.0; 1 | — |
+| Sleepywood tier-1 kit | 2/3; 792.2 (one death); 71–78 | — |
+
+Henesys bot fills six active slots at 137.5–183.6 s and reaches the first boss in all three runs;
+seed 2026 clears at 909.5 s. Henesys outcomes/times match the preceding #307 smoke.
+Kit Sleepywood outcomes/times also match #307. The starter seed-2026 death differs from that older
+record: running the unchanged integration code at 4419535 produces an **identical complete record**
+(DEAD 12.0 s, Lv1), so this is not an H5 regression. Ellinia is recorded only, with no tuning.
+The diagnostic Hero run (playable flipped, invulnerable, three core skills learned in a throwaway mirror)
+ends PLAYING at 60.13 s, job 112, 18 kills, missing []; each `cast_<skill>` shot and the four-weapon,
+seven-frame Brandish sheet were inspected in `evidence/h5-301/`. Full suite: **2028 tests, 0 failed,
+0 skipped**, 210 files, 1598.1 s; F/P oracle expectations unchanged. The live shots draw at about 1 FPS;
+they are cast/hit evidence, not performance evidence. The paused sheet verifies the body/weapon poses.
+
 **#307 / T11b opening ramp (training seeds 1/2/2026 only).** All candidates used absolute `PATCH=` files;
 raw local records are `_scratch/307/`, not committed. Low starts (.001–.02 HP, .08 damage) made both
 starter and kit viable, erasing the equipment gate. Raising only damage killed both builds on map 3.
@@ -718,6 +744,27 @@ Final validation: `ISOLATE=307 bash scripts/test.sh` with the real cache: **1992
 0 skipped**, 207 files, 1038.6 s. Seven deterministic ramp tests added; none deleted. Existing corrupt-settings
 recovery diagnostics and two dummy TextureStorage RID shutdown diagnostics remain. The final integration
 fetch/merge was already up to date (5cd40ea); no gameplay changes after validation. Final focused rerun: 7/7 passed.
+
+**#299 / H3 meter infrastructure regression smoke (2026-10-28).** Job 212, real v83 cache,
+training seeds 1/2/2026, bot/random on every tier-1 region and bot Sleepywood with/without the tier-1 kit.
+No tuning or held-out seeds. All 30 records have empty warnings/missing lists, no crashes or timeouts.
+All 30 records after merging H1/H2/H4 are byte-identical to the preserved pre-merge meter-runtime records.
+The results reproduce the preceding #294 smoke; Hero stays unplayable (H9/H10), so Combo is exercised by
+seeded synthetic tests and the diagnostic HUD probe rather than claimed as Hero survival evidence.
+
+| Stage / kit | Bot clear / dead; time range; end level | Random clear / dead; time range; end level |
+|---|---|---|
+| Henesys | 1 / 2; 449.9–909.5 s; Lv22–56 | 0 / 3; 308.0–615.4 s; Lv10–31 |
+| Ellinia | 0 / 3; 625.4–650.9 s; Lv22–23 | 0 / 3; 321.8–688.0 s; Lv12–23 |
+| Perion | 0 / 3; 430.6–668.6 s; Lv25–42 | 0 / 3; 277.3–574.8 s; Lv10–32 |
+| Kerning | 0 / 3; 306.2–749.1 s; Lv12–42 | 0 / 3; 308.3–442.2 s; Lv13–23 |
+| Sleepywood, tier-1 kit | 2 / 1; 792.2–931.6 s; Lv71–78 | not sampled |
+| Sleepywood, no character file (default sword) | 0 / 3; 10.6–12.0 s; Lv1 | not sampled |
+
+Henesys bot fills six actives at 137.5/183.6/139.2 s and all three runs defeat Mano; the no-character
+Sleepywood command still uses the tool's default sword, not the creation wand (same distinction as #294).
+The tier-1 kit reaches map 3 on all seeds; seeds 2/2026 clear. Ellinia remains record-only, unchanged.
+Raw records and exact configuration logs are retained under ignored _scratch/299-smoke and /tmp/299-*.log.
 
 **#294 / T12, slice QA (2026-10-28).** The F/P slice after #307 (merged into the QA branch), real v83 cache, training seeds
 1/2/2026 and no held-out seeds; nothing was tuned and no balance data changed. Raw records, consoles and screenshots live in the
@@ -5565,6 +5612,74 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. No rarity lists ship until #288 lands; proposed lists are in T9-291.md.
 
+### 7.33 Hero core melee (#301, spec #296)
+
+Hero remains unselectable until the selection ticket. Its core attacks live in `skills/hero.json`;
+Power Strike and Slash Blast were moved from `warrior.json`, with no duplicate keys or weapon gates.
+All three use eight ranks: 20-level skills map to 3/5/8/10/13/15/18/20, Brandish to
+4/8/12/15/19/23/27/30. WZ damage, HP costs, target counts and boxes are unchanged (tier A).
+
+| Skill | Auto-cast and cooldown (tier C) | Canonical behavior (tier A) |
+|---|---|---|
+| Power Strike 1001004 | Nearest mob in the weapon swing envelope; 1.0 s, weapon action held 0.6 s | 175% at rank 1, 260% at rank 8; one target |
+| Slash Blast 1001005 | Nearest mobs around the caster; 1.6 s, weapon action held 0.6 s; refuses a lethal HP cost | 78% to 130%, six targets, range 130–150 px, hpCon from the mapped level |
+| Brandish 1121008 | Forward box, at least one target; 1.4 s | (-150,-110)..(-10,0), two lines, 150% to 260% per line, one to three targets |
+
+Brandish plays **one** body action per cast, `brandish1` for one-handed swords/axes and `brandish2`
+for two-handed swords/axes, with `effect/0` or `effect/1` respectively. This is the orchestrator's
+ruling over the spec's two-action sequence: the opposite-handed action loses the weapon (H1).
+The 0.84 s action hold is the sum of the seven absolute 120 ms body frame delays (tier A).
+Use and Hit sounds and hit/0 art come from 1121008. Loadout resolves optional
+`action_by_handedness` / `effect_by_handedness` maps; definitions without them behave as before.
+
+Rarity bonuses (tier C) follow the shared card schema: Rare Sword Mastery damage x1.2 for all three;
+Epic Power Strike Booster cooldown x0.88, Slash Blast Wide Slash area x1.2 (including radial reach),
+Brandish Sweep +1 target. Unique Final Attack adds one damage line; Legendary uses the same
+`final_attack` counter and adds damage x1.2. Cards grant exactly one rank; at rank 8 Mastery repeats
+shrink by x0.8, including repeats taken before the cap. No standalone behavior cards remain for these skills.
+
+### 7.34 Combo meter (#299, Hero H3)
+
+`PlayerMeter` is the round-owned, deterministic M1 counter. Hero's data (H2) supplies:
+
+```json
+{"meter":{"id":"combo","max":10,"gain":{"event":"cast_landed","amount":1,"exclude":"finisher"},
+ "per_unit":{"stat":"damage","value":0.02},"art":"Skill.wz/111.img/skill/1111002/state"}}
+```
+
+A round starts at zero; map transfers preserve it. Each non-finisher pool cast earns one orb on its first
+positive damage line, including a delayed impact. Multi-target, multi-line and multi-projectile casts share a receipt;
+a missed cast earns nothing. Mobility is outside the pool, so Rush neither earns orbs nor receives their bonus.
+The held-unit bonus multiplies the cast's resolved damage bounds and status damage multiplier, preserving its
+snapshot through delayed impacts. There is no expiry, timer or RNG. Jobs without a meter keep their old stats/events.
+
+Finisher definitions (H8) add:
+
+```json
+{"meter":{"role":"finisher","min":5,"spend":"all","damage_per_unit":0.10}}
+```
+
+Admission requires the minimum, normal cooldown, prepared targets and payable HP. At admission, snapshot the held-orb
+bonus, retain `round(meter_keep)` units (clamped to 0..held), and multiply damage by `1 + spent * damage_per_unit`.
+Finishers cannot earn Combo. Their repeat cooldown has a 1 s floor, even with cooldown modifiers.
+When multiple finishers are ready, compare their ordinary target plans: a single-target scheduled-boss attack wins,
+otherwise the larger eligible target count wins (capped to strike count); cooldown/learned order breaks ties.
+Finisher admission enforces the prepared plan's min_targets, including range_around casts.
+H8 supplies Coma's three-target threshold and Panic's range/target rules. No job or skill IDs enter the meter runtime.
+The cast snapshot carries meter_spent for H8's finish-art selection; no-meter cast events stay unchanged.
+Other auto-skills keep their oldest-ready order.
+
+`meter_keep` is an ordinary skill modifier, available to rarity bonuses and Mastery; previews say “Keeps N orbs”.
+SkillText appends “Needs N orbs” and the retained count to card/Skill-window descriptions.
+Each actual value change appends `meter_changed {id, value, max}`. HudMeter receives those events, draws max pips
+beside the skill icons, and lights value pips. Combo uses the verified orb art at `state/1` (43x42 in v83);
+unavailable art uses drawn pips. Jobs without a meter display nothing.
+
+Later jobs can configure `gain.event` to `hit_taken` or `meso_picked` and call `gain(event, events)` at their
+event source; H3 wires landed casts only. M23 owns meso pickup coupling; energy/form rules belong to Buccaneer's spec.
+The current `per_unit.stat` contract is `damage`; additional stat semantics need an explicit extension.
+Paladin uses M2 forms, not M1. Meter state is absent from CharacterSnapshot: a new round always starts empty.
+
 ### 7.35 Pull (#300, spec #296)
 
 The mirror of `knockback` (7.27): a generic skill block that drags mobs toward the caster along their foothold chain.
@@ -6173,6 +6288,9 @@ Bowman (#166), generic mechanics (#200):
 | Constant / rule | Value | Tier | Source |
 |---|---|---|---|
 | Skill knock-back distance | Per-skill `knockback.distance` in px; no shipped default in #200 (synthetic test: 120 px); follows the platform and clamps at walls/edges; airborne/flying mobs stay put, statuses stay | C | Survivor rule, owner #166; shared moving-attack slide |
+| Hero core melee (#301) | Power Strike 1.0 s, Slash Blast 1.6 s, both weapon action held 0.6 s; Brandish 1.4 s, forward admission at one target; eight survivor ranks; rarity values in 7.33 | C | ours, spec #296 |
+| Hero core WZ fields (#301) | 1001004/1001005/1121008 mapped level fields, Brandish box, two hits, 1–3 targets, Use/Hit, body action 7 x 120 ms = 0.84 s | A | original v83 Skill.wz, Character.wz |
+| Brandish handedness (#301) | One action per cast: brandish1 + effect/0 for one-handed, brandish2 + effect/1 for two-handed | C (selection), A (aliases/art) | orchestrator ruling; H1 weapon visibility findings |
 | Pull selection (#300) | Up to `mobCount` candidates, farthest first (horizontal; slot breaks ties), only live grounded non-boss mobs at least 120 px from the caster (block key `min_distance` overrides) and within `range`; bosses and flyers never candidates (7.35) | C | ours, spec #296 |
 | Pull gap and slide (#300) | Per-skill `pull.min_gap` px (Monster Magnet ships 60, H7); the mob slides `max(0, dx - gap)` px toward the caster along its foothold chain, stopping at platform edges, walls and map bounds; never crosses the caster | C | ours, spec #296; shared slide |
 | Pull chance rolls (#300) | One main-stream draw per taken candidate, none at 100% or without a chance field; a 0% chance still draws; selection before rolls | C | ours (mirrors the knockback roll rule) |
@@ -6810,3 +6928,13 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 #291 tier C provenance: summon auto-admission, replacement groups, nearest/boss-first two-sided acquisition,
 current-body impact selection, follow/snap model and the numeric first-pass Elquines settings are in 7.32.
 Missing/zero summon frame delays use the existing 100 ms presentation default (tier C); WZ delays are otherwise unchanged.
+
+### Hero H3 meter constants (#299)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Combo capacity, gain | 10; +1 per landed non-finisher pool cast | tier C survivor adaptation; tier A source: Combo Attack/Advanced Combo counter descriptions |
+| Held-unit damage bonus | +2% per orb | tier C, #296; H2 job data |
+| Finisher gate / spend multiplier | 5; all minus meter_keep; +10% per spent orb | tier C, #296; H8 skill data |
+| Finisher repeat floor / arbitration | 1 s; single-target scheduled boss, else most targets | tier C, #296; shared admission |
+| Meter HUD geometry | origin (244,20), 12 px pitch, 4 px radius, 10 px orb image, 1 px border | tier C presentation layout; original orb pixels tier A |
