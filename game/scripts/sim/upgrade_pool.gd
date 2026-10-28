@@ -25,6 +25,7 @@ const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 var cards: Array = []
 var _rarity := {}
 var _magnitudes := {}
+var _mastery_bonus := {}
 var _by_id := {}
 var _draw_weights := {}
 var _fallback_id := ""
@@ -44,6 +45,7 @@ static func from_data(root: Dictionary) -> UpgradePool:
 	p._rarity = root.get("rarity", {})
 	p._draw_weights = root.get("draw_weights", {})
 	p._magnitudes = root.get("magnitudes", {})
+	p._mastery_bonus = root.get("mastery_bonus", {})
 	for c: Dictionary in root.get("cards", []):
 		var id := String(c.get("id", ""))
 		if id == "" or p._by_id.has(id):
@@ -295,9 +297,14 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 ## Lists cycle in data order. A shared id across rarities shares its repeat count.
 func rarity_bonus(c: Dictionary, state: RunWorld, tier: String) -> Dictionary:
 	var skill := String(c.get("skill", ""))
-	if tier == "normal" or state.book.slot(skill) != "active" or not String(c.get("kind", "")) in ["skill_new", "skill_rank"]:
+	if state.book.slot(skill) != "active" or not String(c.get("kind", "")) in ["skill_new", "skill_rank"]:
+		return {}
+	if tier == "normal" and card_kind(c, state) != "mastery":
 		return {}
 	var entries: Array = state.book.def(skill).get("rarity_bonuses", {}).get(tier, [])
+	# tier C: a Normal Mastery grants the shared Mastery damage bonus so it is never a dead pick.
+	if tier == "normal" and card_kind(c, state) == "mastery" and not _mastery_bonus.is_empty():
+		entries = [_mastery_bonus]
 	if entries.is_empty():
 		return {}
 	var count := 0

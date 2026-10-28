@@ -1,5 +1,5 @@
 {
-	"_doc": "ADR 0006 #287: pool-filtered new/rank cards; three distinct per-card weighted offers. Exactly +1 rank at every rarity. Active rarity rolls with Fortune; common passive definitions (common_passive: true) stay Normal. Ported skill behaviour cards become rarity_bonuses on skill definitions (#288); unported legacy cards stay excluded from draws. Rank-8 pool actives offer Mastery (zero ranks, rarity bonus only). No pity. Sparse draws add the separate Power Elixir fallback. Weights and all survivor rules are tier C; WZ data is unchanged.",
+	"_doc": "ADR 0006 #287: pool-filtered new/rank cards; three distinct per-card weighted offers. Exactly +1 rank at every rarity. Active rarity rolls with Fortune; common passive definitions (common_passive: true) stay Normal. Ported skill behaviour cards become rarity_bonuses on skill definitions (#288); unported legacy cards stay excluded from draws. Rank-8 pool actives offer Mastery (zero ranks; Normal gives mastery_bonus, higher rarities their rarity bonus). No pity. Sparse draws add the separate Power Elixir fallback. Weights and all survivor rules are tier C; WZ data is unchanged.",
 	"rarity": {
 		"_tier": "Tier C: spec #30 survivor card odds (owner restored the spec weights over C46 on 2026-10-15; tuning waits for the dedicated balance pass); non-Normal weights multiply by 1 + max(0, Fortune) * fortune_scale, then all weights normalize.",
 		"weights": {
@@ -37,6 +37,7 @@
 		"mastery": 1.2
 	},
 	"_draw_provenance": "tier C: ADR 0006 #282 per-card draw weights. Every active/common-passive card gives exactly one rank; rarity applies only to actives.",
+	"mastery_bonus": {"_tier": "Tier C: a Normal Mastery card is never a dead pick (owner decision on #288): +5% damage on that skill, one shared repeat id per skill so the 0.8^n diminishing returns apply.", "id": "mastery_damage", "text": "Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.05}]},
 	"magnitudes": {
 		"stacking": {
 			"normal": 1,

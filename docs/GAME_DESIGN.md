@@ -5421,8 +5421,10 @@ bot scores every declared pool skill (new 100, rank 74); these are existing atta
 
 **#288 rarity bonuses and Mastery (supersedes rarity multipliers below).** Each active card grants one rank,
 then its rarity bonus. At rank 8 the same `<skill>_rank` id becomes `card_kind: mastery`, grants zero ranks,
-and stays eligible at weight 1.2. Normal Mastery deliberately grants nothing (no extra rarity floor); boss draws
-retain their Rare floor. Common passives remain Normal and stop at their own cap. Standalone behaviour cards for
+and stays eligible at weight 1.2. A Normal Mastery grants +5% damage on that skill (`upgrades.json` `mastery_bonus`,
+repeat id `mastery_damage`, shared by every Normal Mastery of the skill, so the 0.8^n diminishing returns apply;
+tier C, owner decision on #288: Normal Mastery is never a dead pick); a Rare+ Mastery gives its rarity bonus instead.
+Boss draws retain their Rare floor. Common passives remain Normal and stop at their own cap. Standalone behaviour cards for
 the four ported skills are deleted; unported lines retain their inert legacy definitions for direct mechanics tests.
 
 Bonus schema for #290/#291 and later classes: add `rarity_bonuses` to the skill definition in `skills/<line>.json`:
@@ -5451,6 +5453,19 @@ Mastery has no rank base score. All schema selection rules, sizes and scoring ar
 
 First-pass lists: all four have Rare damage x1.2. Epic Energy Bolt/Fire Arrow +1 pierce, Magic Claw/Poison Breath
 cooldown x0.88. Unique +1 projectile (Magic Claw +1 hit); Legendary the same signature plus damage x1.2.
+
+First-pass lists for the seven #290 actives (tier C; each tier has one entry, Legendary shares the Unique's id and adds
+damage x1.2, so their repeats are shared; Rare is `power`, damage x1.2, for all):
+
+| Skill | Epic | Unique / Legendary signature |
+|---|---|---|
+| Explosion | area x1.2 (`area`) | +1 hit (`echo`) |
+| Poison Mist | area x1.2 (`area`) | cooldown x0.8 (`linger`) |
+| Element Composition | +1 pierce (`pierce`) | +1 projectile (`twin`) |
+| Fire Demon | area x1.2 (`area`) | +1 target (`crowd`) |
+| Paralyze | cooldown x0.88 (`haste`) | +1 hit (`echo`) |
+| Meteor Shower | area x1.2 (`area`) | +1 hit (`echo`) |
+| Big Bang | area x1.2 (`area`) | +1 hit (`echo`) |
 
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -5962,6 +5977,8 @@ random policy shares the movement and the camper policies still override it afte
 
 | Rule | Value | Tier | Source |
 |---|---|---|---|
+| Normal Mastery #288 | +5% damage on the skill (`mastery_bonus`, shared repeat id `mastery_damage`, x0.8^n repeats) | C | owner decision on #288 |
+| #290 rarity bonuses | Rare damage x1.2; Epic area x1.2 (Composition +1 pierce, Paralyze cooldown x0.88); Unique/Legendary +1 hit (Composition +1 projectile, Fire Demon +1 target, Poison Mist cooldown x0.8); Legendary adds damage x1.2; section 8 | C | ours; first pass, T11 tunes |
 | Rarity/Mastery #288 | Rare damage x1.2; Epic +1 pierce or cooldown x0.88; Unique +1 projectile/hit; Legendary signature plus damage x1.2; repeats x0.8 (multiplier distance from 1), authored-list cycling and actual-effect bot scores | C | ours; ADR 0006, first pass, section 8 |
 
 Rows added by #286 (save format 3 and the round loop): the Arch Mage's creation weapon is 1372005, the Wooden Wand

@@ -17,7 +17,8 @@ const DT := 1.0 / 60.0
 ## Re-captured for #290: seven newly implemented pool skills enter draws and cast with synthetic high-job tables.
 ## Re-captured for #288: rarity bonus offer fields, actual bonuses and post-cap Mastery change event bytes.
 ## Existing fixed-tick workload/coverage and collected-total checks remain unchanged.
-const GOLDEN := "fa1fd59cf57a0be4a5a5a1b2e3cf4171fb13e0d1ff911f014d40621540657487"
+## Re-captured for the #288 + #290 merge: the seven high-job actives carry rarity bonuses and Normal Mastery gives +5% damage.
+const GOLDEN := "a4aecab9aea22cf5b5f8e6149ced5e7b6ce34c645c4b356fcf4dc4d3f170c9c5"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

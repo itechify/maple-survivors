@@ -523,6 +523,13 @@
 			"sounds": {"use": "Sound.wz/Skill.img/2301001/Use", "hit": ""}
 		},
 		"explosion": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2111002,
 			"book": "211",
 			"job": 211,
@@ -552,6 +559,13 @@
 			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31."
 		},
 		"poison_mist": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "linger", "text": "Cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}]}],
+				"legendary": [{"id": "linger", "text": "Cooldown and damage", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2111003,
 			"book": "211",
 			"job": 211,
@@ -585,6 +599,13 @@
 			}
 		},
 		"element_composition": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "pierce", "text": "Pierce", "effects": [{"stat": "pierce", "op": "add", "value": 1}]}],
+				"unique": [{"id": "twin", "text": "Extra projectile", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "twin", "text": "Extra projectile and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2111006,
 			"book": "211",
 			"job": 211,
@@ -621,6 +642,13 @@
 			}
 		},
 		"fire_demon": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "crowd", "text": "Extra target", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "crowd", "text": "Extra target and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2121003,
 			"book": "212",
 			"job": 212,
@@ -655,6 +683,13 @@
 			}
 		},
 		"paralyze": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "haste", "text": "Cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2121006,
 			"book": "212",
 			"job": 212,
@@ -689,6 +724,13 @@
 			}
 		},
 		"meteor_shower": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2121007,
 			"book": "212",
 			"job": 212,
@@ -749,6 +791,13 @@
 			]
 		},
 		"big_bang": {
+			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Area", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "echo", "text": "Extra hit", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Extra hit and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
 			"skill_id": 2121001,
 			"book": "212",
 			"job": 212,
