@@ -184,3 +184,76 @@ func test_crit_adds_five_percent_chance_per_rank() -> void:
 	var c0: float = _world_with("crit", 0).loadout.stats("energy_bolt").crit
 	assert_true(absf(_world_with("crit", 1).loadout.stats("energy_bolt").crit - (c0 + 0.05)) < 1e-6)
 	assert_true(absf(_world_with("crit", 5).loadout.stats("energy_bolt").crit - (c0 + 0.25)) < 1e-6)
+
+
+# --- windows ---
+
+func test_the_skill_window_has_a_common_tab_with_the_nine_passives_and_their_ranks() -> void:
+	var w := _world_with("might", 3)
+	_take(w, "crit", 1)
+	var text := SkillText.new(w.book)
+	var m := SkillWindowModel.new(w.book, w.upgrades, w.loadout, w.jobs, 212, text)
+	assert_eq(m.tabs[0].name, "Common")
+	assert_eq(m.tabs[0].tier, 0)
+	assert_eq(m.tabs[m.tabs.size() - 1].job_id, 212, "the window still opens on the job's own tab")
+	var rows: Array = m.tabs[0].rows
+	assert_eq(rows.size(), 9)
+	var by_name := {}
+	for r: Dictionary in rows:
+		by_name[r.name] = r
+	assert_eq(by_name["Maple Warrior"].level, 3)
+	assert_eq(by_name["Maple Warrior"].max_level, 5)
+	assert_true(by_name["Maple Warrior"].learned)
+	assert_eq(by_name["Sharp Eyes"].level, 1)
+	assert_eq(by_name["Iron Body"].level, 0)
+	assert_false(by_name["Iron Body"].learned)
+	var tip := m.skill_tooltip("passive_might")
+	assert_eq(tip.current, "Damage +30%")
+	assert_eq(tip.next, "Damage +40%")
+	assert_eq(m.skill_tooltip("passive_armor").next, "Damage taken -2 per hit")
+
+
+func test_held_common_passives_list_name_icon_and_rank_in_learning_order() -> void:
+	var w := RF.quiet_world()
+	assert_eq(w.loadout.held_common_passives(), [])
+	_take(w, "crit", 2)
+	_take(w, "might", 1)
+	var held := w.loadout.held_common_passives()
+	assert_eq(held.size(), 2)
+	assert_eq(held[0], {"key": "passive_crit", "name": "Sharp Eyes", "icon": PASSIVES.crit[1], "rank": 2, "max_rank": 5})
+	assert_eq(held[1].name, "Maple Warrior")
+
+
+func test_the_stat_window_lists_the_passives_held_with_their_ranks() -> void:
+	var w := _world_with("might", 2)
+	var sw := StatWindow.new({"passives": w.loadout.held_common_passives()})
+	assert_eq(sw.passive_texts(), PackedStringArray(["Maple Warrior  2/5"]))
+	sw.set_info({})
+	assert_eq(sw.passive_texts(), PackedStringArray())
+	sw.free()
+
+
+# --- bot ---
+
+func test_the_sensible_bot_ranks_passives_below_pool_attacks_and_by_usefulness() -> void:
+	var w := RF.quiet_world()
+	var offer := func(ids: Array) -> Array:
+		var out: Array = []
+		for id: String in ids:
+			out.append(w.upgrades.choice_card(id, w))
+		return out
+	assert_eq(BotInput.pick_card_for(w, offer.call(["passive_exp_new", "passive_might_new", "passive_speed_new"])),
+		"passive_might_new")
+	assert_eq(BotInput.pick_card_for(w, offer.call(["passive_might_new", "magic_claw_new", "passive_cooldown_new"])),
+		"magic_claw_new", "a new pool attack beats every passive")
+	assert_eq(BotInput.pick_card_for(w, offer.call(["passive_might_new", "energy_bolt_rank"])), "energy_bolt_rank",
+		"so does an attack rank")
+	var order := ["might", "cooldown", "crit", "max_hp", "area", "armor", "regen", "speed", "exp"]
+	var last := INF
+	for name: String in order:
+		var s := BotInput.card_score(w, w.upgrades.choice_card(_key(name) + "_new", w))
+		assert_true(s < last and s > 0.0, name)
+		last = s
+	_take(w, "might", 1)
+	assert_true(BotInput.card_score(w, w.upgrades.choice_card("passive_might_rank", w))
+		< BotInput.card_score(w, w.upgrades.choice_card("passive_might_new", RF.quiet_world())), "rank scores 4 less")

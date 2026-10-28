@@ -215,6 +215,17 @@ func has_free_slot(slot_name: String) -> bool:
 	return slot_limit(slot_name) <= 0 or slot_count(slot_name) < slot_limit(slot_name)
 
 
+## The common passives held, in learning order, for the Stat window: [{key, name, icon, rank, max_rank}].
+func held_common_passives() -> Array:
+	var out: Array = []
+	for k: String in order:
+		var d := book.def(k)
+		if bool(d.get("common_passive", false)):
+			out.append({"key": k, "name": String(d.get("name", k)), "icon": String(d.get("icon", "")), "rank": rank(k),
+				"max_rank": book.max_rank(k)})
+	return out
+
+
 ## Shared display of both slot tracks for the HUD windows.
 func slot_summary() -> String:
 	return "Active %d/%d   Passive %d/%d" % [slot_count("active"), slot_limit("active"),

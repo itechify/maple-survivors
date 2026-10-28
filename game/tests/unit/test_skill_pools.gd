@@ -27,7 +27,9 @@ func test_starting_skill_and_mobility_use_only_one_active_slot() -> void:
 
 func test_only_implemented_pool_skills_offer_one_rank_at_every_rarity() -> void:
 	var w := RF.quiet_world()
-	assert_eq(w.upgrades.eligible(w), ["energy_bolt_rank", "magic_claw_new", "fire_arrow_new", "poison_breath_new"])
+	var offers: Array = w.upgrades.eligible(w).filter(func(id: String) -> bool: return not id.begins_with("passive_"))
+	assert_eq(offers, ["energy_bolt_rank", "magic_claw_new", "fire_arrow_new", "poison_breath_new"])
+	assert_eq(w.upgrades.eligible(w).size(), 4 + 9, "plus the nine common passives (#289)")
 	for tier in UpgradePool.TIERS:
 		var c := w.upgrades.choice_card("energy_bolt_rank", w, tier)
 		assert_eq(c.magnitude, 1)
@@ -54,14 +56,15 @@ func test_seeded_draw_weights_by_kind_and_distinct_offers() -> void:
 	var w := RF.quiet_world()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 287
-	var counts := {"energy_bolt_rank": 0, "magic_claw_new": 0, "fire_arrow_new": 0, "poison_breath_new": 0}
+	var counts := {"energy_bolt_rank": 0, "magic_claw_new": 0, "fire_arrow_new": 0, "poison_breath_new": 0, "passive": 0}
 	for i in 12000:
 		var offer := w.upgrades.roll_choices(w, rng, 1)
-		counts[offer[0].id] += 1
-	# Independent expected frequencies: weights 1.2:1:1:1. Within 2 percentage points.
-	assert_true(absf(float(counts.energy_bolt_rank) / 12000.0 - 2.0/7.0) < 0.02)
+		counts["passive" if String(offer[0].id).begins_with("passive_") else offer[0].id] += 1
+	# Independent expected frequencies: weights 1.2 (owned active) : 1 x3 (new actives) : 0.5 x9 (new passives) = 8.7.
+	assert_true(absf(float(counts.energy_bolt_rank) / 12000.0 - 1.2 / 8.7) < 0.02)
 	for key in ["magic_claw_new", "fire_arrow_new", "poison_breath_new"]:
-		assert_true(absf(float(counts[key]) / 12000.0 - 5.0/21.0) < 0.02)
+		assert_true(absf(float(counts[key]) / 12000.0 - 1.0 / 8.7) < 0.02)
+	assert_true(absf(float(counts.passive) / 12000.0 - 4.5 / 8.7) < 0.02)
 	for i in 100:
 		var ids := {}
 		for c in w.upgrades.roll_choices(w, rng):
