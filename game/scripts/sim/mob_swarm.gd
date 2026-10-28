@@ -465,6 +465,23 @@ func knockback(i: int, origin_x: float, distance: float, map: FootholdMap, limit
 	fh[i] = int(stop.fh)
 
 
+## Skill pull toward x `origin_x` along the current platform (the mirror of knockback): slides mob i until it is `min_gap`
+## px from the origin, the platform ends or a wall stops it, never past the origin. Bosses, scheduled bosses, airborne mobs
+## and flyers stay put (tier C); statuses survive. Returns the horizontal px actually covered.
+func pull(i: int, origin_x: float, min_gap: float, map: FootholdMap, limits: Rect2) -> float:
+	if not is_live(i) or mob_kind(i).boss or steady[i] != 0 or fh[i] < 0:
+		return 0.0
+	var gap := absf(x[i] - origin_x) - maxf(min_gap, 0.0)
+	if gap <= 0.0:
+		return 0.0
+	var side := -1 if x[i] > origin_x else 1
+	var stop := map.slide_along(fh[i], x[i], side, gap, limits.position.x, limits.end.x)
+	x[i] = float(stop.x)
+	y[i] = float(stop.y)
+	fh[i] = int(stop.fh)
+	return float(stop.moved)
+
+
 ## Advances every mob by dt seconds (see the class comment for ctx).
 func step(dt: float, ctx: Dictionary) -> void:
 	fhm = ctx.fhm

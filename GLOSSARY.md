@@ -297,6 +297,12 @@ A skill effect that pushes a struck monster away from the character, by a chance
 back. It is not the small push any hit gives a monster whose damage reaches its canonical `pushed` threshold.
 _Avoid_: push-back, knockdown
 
+**Pull**:
+A skill effect that drags monsters toward the character along their platform, by a chance per monster, until they stand
+a set gap away. It picks the farthest monsters first, up to the skill's monster count. Bosses and airborne monsters are
+never pulled. It is the mirror of knock-back (Monster Magnet, Snatch).
+_Avoid_: magnet, suck, vacuum
+
 **Hit window**:
 The short time after the character is hit during which it can't be hit again. It shrinks with repeated hits, and
 boss attacks ignore it.
