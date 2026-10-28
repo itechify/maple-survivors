@@ -3624,6 +3624,10 @@ scratch-worktree-only `world.god` switch), same seed and character:
 The two versions overlap (old 1616-1966 µs against HEAD 1844-1872 µs average frame work); `missing` is `[]` in all four.
 Raw: ignored `evidence/t76/perf3/`, `_scratch/t76/perf_probe_runs*.txt`, probe `_scratch/t76/probe/perf_load.gd`.
 
+**Regression smoke, merge of #288/#290 with #289/#291/#292 (`merge/288f`).** Henesys seeds 1/2/2026, no crash, no warnings,
+`missing` empty; no tuning, no held-out seeds. Bot: 3 DEAD on map 2 at 6:39 / 6:17 / 6:18, Lv 22 / 17 / 19. Random: 3 DEAD on map 1
+at 5:07 / 5:10 / 5:08, Lv 11 / 11 / 12. No clears or timeouts.
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
