@@ -1,8 +1,8 @@
 extends Node2D
 ## Debug probe for the chain cast rule's bolt art (spec #319 I4): a synthetic arrangement (a caster and five monsters as
 ## discs, a bolt through four of them) drawn by ChainBoltRenderer with synthetic ball strips, three variants. Evidence
-## only; the real v83 art arrives with the Chain Lightning definition.
-##   bash scripts/godot.sh --path game res://scenes/debug/chain_bolt_probe.tscn -- --shots=C:/abs/dir
+## only. `--real` draws Chain Lightning's own ball art (`chain.ball` of the definition, from the asset cache) instead.
+##   bash scripts/godot.sh --path game res://scenes/debug/chain_bolt_probe.tscn -- --shots=C:/abs/dir [--real]
 const POINTS := [Vector2(110, 300), Vector2(260, 260), Vector2(380, 330), Vector2(540, 250), Vector2(690, 330)]
 const BYSTANDER := Vector2(420, 180)
 const COLORS := [Color(0.6, 0.85, 1.0), Color(1.0, 0.95, 0.5), Color(0.85, 0.7, 1.0)]
@@ -58,8 +58,13 @@ func _ready() -> void:
 	_bolts = ChainBoltRenderer.new()
 	add_child(_bolts)
 	var anims: Array = []
-	for color: Color in COLORS:
-		anims.append(_variant(color))
+	if args.has("real"):
+		var library := AssetLibrary.get_default()
+		for path: String in DataRepo.load_all().skills.skills.chain_lightning.chain.ball:
+			anims.append(library.anim(path))
+	else:
+		for color: Color in COLORS:
+			anims.append(_variant(color))
 	_bolts.play(PackedVector2Array(POINTS), anims)
 	_bolts.advance(0.12)
 	await RenderingServer.frame_post_draw
