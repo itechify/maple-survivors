@@ -1,0 +1,70 @@
+{
+	"_doc": {
+		"by": "#293",
+		"note": "Synthetic format-3 tier-1 kit: unscrolled canonical equipment in the [0,30] drop band, no cash/pet or carried build. Starting at Lv1. Used for paired Sleepywood pacing checks."
+	},
+	"equipment": {
+		"inventory": [],
+		"worn": {
+			"bottom": {
+				"id": 1060002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			"shoes": {
+				"id": 1072019,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 7,
+					"incMDD": 3,
+					"incINT": 1
+				}
+			},
+			"top": {
+				"id": 1040002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 3
+				}
+			},
+			"weapon": {
+				"id": 1382002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 29,
+					"incMAD": 40
+				}
+			},
+			"hat": {
+				"id": 1002013,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 9,
+					"incMDD": 40,
+					"incINT": 2
+				}
+			},
+			"gloves": {
+				"id": 1082019,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 4
+				}
+			}
+		}
+	},
+	"format": 3,
+	"job_id": 212,
+	"look": {},
+	"mesos": 0,
+	"scrolls": {},
+	"tiers_unlocked": 2
+}

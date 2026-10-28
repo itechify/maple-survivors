@@ -209,3 +209,27 @@ func test_pool_card_scores_do_not_multiply_rank_by_rarity() -> void:
 	for tier in UpgradePool.TIERS:
 		assert_true(BotInput.card_score(w, w.upgrades.choice_card("energy_bolt_rank", w, tier)) >= 74.0)
 		assert_true(BotInput.card_score(w, w.upgrades.choice_card("magic_claw_new", w, tier)) >= 100.0)
+
+
+func test_established_build_takes_global_passive_before_low_rank() -> void:
+	var w := RF.quiet_world()
+	w.learn_skill("magic_claw")
+	w.learn_skill("fire_arrow")
+	var cards := _cards(w, ["energy_bolt_rank", "passive_might_new"])
+	assert_eq(BotInput.pick_card_for(w, cards), "passive_might_new")
+	cards = _cards(w, ["explosion_new", "passive_might_new"])
+	assert_eq(BotInput.pick_card_for(w, cards), "explosion_new", "fill active slots first")
+
+
+func test_mastery_values_real_bonus_and_its_diminishing_repeats() -> void:
+	var w := RF.quiet_world()
+	w.loadout.set_rank("energy_bolt", 8)
+	var normal := w.upgrades.choice_card("energy_bolt_rank", w, "normal")
+	var unique := w.upgrades.choice_card("energy_bolt_rank", w, "unique")
+	assert_true(BotInput.card_score(w, unique) > BotInput.card_score(w, normal))
+	assert_eq(BotInput.pick_card_for(w, [normal, w.upgrades.choice_card("passive_might_new", w)]),
+		"passive_might_new", "a global boost beats a small Mastery repeat")
+	var before := BotInput.card_score(w, unique)
+	w.upgrades.apply("energy_bolt_rank", w, "unique")
+	assert_true(BotInput.card_score(w, w.upgrades.choice_card("energy_bolt_rank", w, "unique")) < before,
+		"same signature has less value after its repeat counter rises")

@@ -55,7 +55,7 @@
 			"damage": "none",
 			"passive": {
 				"stat": "max_hp_pct",
-				"per_level": 20
+				"per_level": 40
 			},
 			"ranks": [
 				1,
@@ -129,7 +129,7 @@
 			"damage": "none",
 			"passive": {
 				"stat": "regen_pct",
-				"per_level": 1
+				"per_level": 2
 			},
 			"ranks": [
 				1,
@@ -277,7 +277,7 @@
 			"damage": "none",
 			"passive": {
 				"stat": "armor_flat",
-				"per_level": 2
+				"per_level": 6
 			},
 			"ranks": [
 				1,
@@ -334,5 +334,6 @@
 				"hit": ""
 			}
 		}
-	}
+	},
+	"_pacing_293": "Tier C first pass: Hyper Body +40% Max HP/rank, Recovery 2% Max HP/s/rank, Iron Body -6 damage/hit/rank; other values unchanged."
 }

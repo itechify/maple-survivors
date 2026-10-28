@@ -344,6 +344,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("careless-%d" % seed_value)
 	var cards_taken: Array = []
+	var six_actives_at := -1.0
 	var boss_hits: Array = []
 	# #76: landed ordinary mob attack hits (recorded only when nonzero).
 	var mob_attack_hits := 0
@@ -391,6 +392,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var low_hp := 1.0
 	for t in ticks + 1: # drain the final choice-only settlement too, without adding a combat/measurement tick
 		choose(w, policy, rng, cards_taken)
+		if six_actives_at < 0.0 and w.loadout.slot_count("active") == 6:
+			six_actives_at = w.time
 		if w.transfer_pending:
 			w.advance_map()
 		var ticked := w.state == RunWorld.PLAYING and t < ticks
@@ -530,6 +533,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"spawned": w.director.spawned, "recycled": w.director.recycled, "relocated": w.director.relocated,
 		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,
 		"max_alive": max_alive, "max_alive_t": snappedf(max_alive_t, 1.0), "low_hp_after_1min": snappedf(low_hp, 0.01),
+		"six_actives_at": six_actives_at, "picks": cards_taken.size(),
 		"skills": skills, "cards": w.loadout.card_ranks.duplicate(), "cards_taken": cards_taken,
 		# #115: what the round would pay (tier C placeholders); tools record it and never credit it or write a save.
 		"nx_awarded": w.nx_awarded(), "bosses_killed": w.bosses_killed(), "levels_gained": w.levels_gained(),
