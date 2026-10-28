@@ -537,14 +537,13 @@ static func pick_card_for(w: RunWorld, cards: Array) -> String:
 ## a survivor bot.card_scores entry replaces the base and gets no job bonus) plus gain_step_score for every step beyond
 ## the first that the offer grants (`c.magnitude`, the resolved ranks / steps / starting rank; missing or <= 0 counts as
 ## 1). The Elixir filler scores its base, regardless of magnitude; a
-## card the pool does not know scores 0. #293 adds a global-passive preference after three actives and scores
+## card the pool does not know scores 0 (a meter-gated finisher scores like any pool skill, #305: balance.bot.card_scores gives
+## its cards new 100 and rank 74). #293 adds a global-passive preference after three actives and scores
 ## Mastery by its diminished effect (100 points per unit), so a small repeat cannot crowd out a global boost.
 static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var d := w.upgrades.card(String(c.get("id", "")))
 	if d.is_empty():
 		return 0.0
-	if w.book.def(String(d.get("skill", ""))).has("meter"):
-		return 0.0 # H3 admission hook only; H8/H9 supply finisher-specific card policy.
 	var kind := String(d.get("kind", ""))
 	if kind == "filler":
 		return _base_score(w, d) # the Elixir fallback ignores magnitude even if a table ever gave it one
