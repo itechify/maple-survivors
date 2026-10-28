@@ -163,3 +163,16 @@ func test_a_skill_naming_a_weapon_casts_with_any_weapon() -> void:
 			cast = cast or (e.type == "cast" and String(e.skill) == "energy_bolt")
 	assert_true(cast, "Energy Bolt casts though its data names a claw (weapons gate no skill)")
 	assert_has(w.upgrades.eligible(w), "energy_bolt_rank", "and its cards stay on offer")
+
+func test_mobility_ranks_follow_round_level_without_cards() -> void:
+	var w := RF.quiet_world()
+	assert_eq(w.loadout.rank("teleport_fp"), 1)
+	for level in range(2, 41):
+		w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
+		w.step(DT, MoveInput.new())
+		while w.state == RunWorld.CHOOSING_UPGRADE:
+			w.apply_choice(String(w.pending_cards[0].id))
+		if level == 20:
+			assert_eq(w.loadout.rank("teleport_fp"), 10)
+	assert_eq(w.loadout.rank("teleport_fp"), 20, "mobility reaches its cap at level 40")
+	assert_false("teleport_fp_rank" in w.upgrades.eligible(w))

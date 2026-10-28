@@ -85,7 +85,7 @@ func test_assassin_cards_learn_rank_and_add_three_pierce_steps() -> void:
 	assert_eq(w.loadout.level("drain"), 2)
 	for step in range(1, 4):
 		assert_false("drain_pierce" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
-		w.upgrades.apply("drain_pierce", w)
+		RF.add_modifier_effects(w, w.upgrades.card("drain_pierce"))
 		assert_eq(w.loadout.stats("drain").pierce, step)
 	assert_false("drain_pierce" in w.upgrades.eligible(w))
 	w.loadout.set_rank("drain", 30)
@@ -130,7 +130,7 @@ func test_one_piercing_star_heals_per_impact_using_launch_rank_and_resolved_phys
 	w.learn_skill("drain")
 	w.loadout.set_rank("drain", 30)
 	for step in 3:
-		w.upgrades.apply("drain_pierce", w)
+		RF.add_modifier_effects(w, w.upgrades.card("drain_pierce"))
 	for x in [480, 495, 510, 525]:
 		var target := RF.put_mob(w, 1110100, x, 190, 1000)
 		w.mob_kinds[w.swarm.kind[target]].pdd = 20

@@ -261,7 +261,7 @@ process below, do the smoke instead and say so. The rest of this section is the 
 `bash scripts/balance.sh [seeds | a..b] [--stage=<key>] [--policy=bot|random|first]` plays whole runs headless on the
 real map (one Godot process per seed, at most `JOBS` (12) at once; ~1 min for 12 seeds) with the kiting bot and a card
 policy (`bot`: BotInput.pick_card_for, the sensible player; `random`: a careless player taking a random card of the
-three; `first`: always the first card, which always takes guaranteed cards), and prints when each run reached
+three; `first`: always the first card), and prints when each run reached
 Lv 8/10/20/30, levels, alive mobs and mobs near the player at 4/8/12 min, hits before 6:00 and after 8:00, EXP drops on
 the map at 8:00, the outcome and a SUMMARY (clears, death times, milestone spreads); full records go to `$BALANCE_OUT`
 (default `_scratch/balance/`). `PATCH=/abs/variant.json` deep-merges a JSON patch into the data first, so variants can

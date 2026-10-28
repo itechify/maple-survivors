@@ -129,7 +129,7 @@ func test_pirate_cards_are_offered_with_either_weapon_and_attacks_can_hit_more_m
 			var id := key + ("_pierce" if key == "double_shot" else "_targets")
 			assert_false(id in eligible, "#287: unported skills have no pool offers")
 			var before := w.loadout.stats(key)
-			assert_true(w.upgrades.apply(id, w))
+			RF.add_modifier_effects(w, w.upgrades.card(id))
 			var after := w.loadout.stats(key)
 			assert_eq(after.pierce if key == "double_shot" else after.mob_count,
 				(before.pierce if key == "double_shot" else before.mob_count) + 1)

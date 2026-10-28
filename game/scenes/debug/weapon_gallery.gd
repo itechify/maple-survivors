@@ -163,7 +163,7 @@ func _sheet(weapon: int, cash: Dictionary, file_name: String) -> void:
 ## fire (Ammo.item_for), e.g. --branch=410 --level=37 for Mokbi.
 func _ammo_sheets(args: Dictionary) -> void:
 	var data := DataRepo.load_all()
-	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
+	var jobs := DataRepo.jobs(data)
 	var infos := DataRepo.ammo_info(data.ammo, func(path: String) -> Dictionary:
 		var found := _lib.img(path)
 		return found.root if found != null else {})

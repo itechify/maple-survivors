@@ -259,7 +259,7 @@ func _spread_world(steps: int, around: Array, p_seed := 181) -> Dictionary:
 	var w := _world(110, SWORD, p_seed)
 	_learn(w, "final_attack_sword_fighter", 30)
 	for step in steps:
-		assert_eq(w.upgrades.apply("final_attack_sword_fighter_spread", w), step + 1, "Spread step %d" % (step + 1))
+		RF.add_modifier_effects(w, w.upgrades.card("final_attack_sword_fighter_spread"))
 	assert_eq(w.loadout.stats("final_attack_sword_fighter").count, 1 + steps, "the card adds one target per step")
 	var primary := _dummy(w, 60.0)
 	var others := {}

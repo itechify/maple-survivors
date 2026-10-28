@@ -150,7 +150,7 @@ func create_character(character_name: String, look: Dictionary = {}, job: int = 
 	if not action_error.is_empty():
 		return -1
 	var data := DataRepo.load_all()
-	var jobs := JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
+	var jobs := DataRepo.jobs(data)
 	var job_id := jobs.default_job() if job == 0 else job
 	action_error = jobs.job_error(job_id)
 	if not action_error.is_empty():
@@ -170,7 +170,7 @@ func create_character(character_name: String, look: Dictionary = {}, job: int = 
 ## from `img_loader` (path -> img root, {} when absent); an empty look wears Equipment.DEFAULT_OUTFIT. Tier 1 is unlocked.
 static func new_character(look: Dictionary, job_id: int, img_loader: Callable) -> Dictionary:
 	var data := DataRepo.load_all()
-	var jobs := JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
+	var jobs := DataRepo.jobs(data)
 	var ids: Array = look.get("equips", []).duplicate() if look.get("equips") is Array else []
 	if ids.is_empty():
 		ids = Equipment.DEFAULT_OUTFIT.filter(func(id: int) -> bool: return Equipment.slot_of(id) != "weapon")
@@ -187,7 +187,7 @@ static func new_character(look: Dictionary, job_id: int, img_loader: Callable) -
 ## item info from `img_loader` for the items a format-1 file migrates (as new_character).
 static func migrated_character(character: Dictionary, img_loader: Callable) -> Dictionary:
 	var data := DataRepo.load_all()
-	var jobs := JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
+	var jobs := DataRepo.jobs(data)
 	if int(character.get("format", 0)) == CharacterSnapshot.FORMAT:
 		return CharacterSnapshot.migrate(character, jobs, {})
 	var ids := PackedInt32Array(CharacterSnapshot.held_item_ids(character, jobs))
@@ -483,7 +483,7 @@ static func forced_job_error(options: Dictionary, data: Dictionary) -> String:
 	var job_id := int(options.job)
 	if job_id < 0:
 		return "'%s' is not a job id" % String(options.get("job_text", options.job))
-	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {})).job_error(job_id)
+	return DataRepo.jobs(data).job_error(job_id)
 
 
 ## A minimal screen with an error message and a way back to the title (used when the run scene is missing).

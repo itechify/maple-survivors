@@ -104,7 +104,7 @@ func _ready() -> void:
 	shop_button.label = "" if shop_button.has_art() else "SHOP"
 	shop_button.pressed.connect(_on_shop)
 	_ui.add_child(shop_button)
-	var jobs := JobTree.from_data(DataRepo.load_all().jobs, {})
+	var jobs := DataRepo.jobs(DataRepo.load_all())
 	character_label = MapleText.new("%s / %s / %s NX" % [snapshot.get("name", ""),
 		jobs.name_of(int(snapshot.get("character", {}).get("job_id", 0))), SaveData._group(int(save.account.nx))],
 		MapleText.SIZE, MapleText.WHITE, true)

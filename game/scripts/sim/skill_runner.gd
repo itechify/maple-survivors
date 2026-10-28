@@ -261,6 +261,9 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			return world.skill_box_count(box, 1) > 0 or world.skill_box_count(box, 1, Callable(),
 				PackedByteArray(), -world.player.facing) > 0
 		"range_around":
+			var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
+			if need > 1:
+				return _find_targets(world, origin, float(st.range), need) >= need
 			return _any_target(world, origin, float(st.range), strike_count(st))
 		"cluster":
 			return bool(st.has_box) and _any_target(world, origin, float(st.range), 1)
@@ -356,9 +359,12 @@ func _admit_weapon_reach(world: RunWorld, st: Dictionary) -> Dictionary:
 
 
 ## Range-around rule (Warrior Slash Blast): the nearest live mobs whose body centre is within the level's `range` of the
-## player's body, up to the skill's mob count; bosses first (RunWorld.targets_before).
+## player's body, up to the skill's mob count; bosses first (RunWorld.targets_before). A cast block `min_targets` N asks
+## for at least N of them (tier C: Monster Magnet admits at 3, #303); the default 1 keeps every existing skill unchanged.
 func _admit_range_around(world: RunWorld, st: Dictionary, origin: Vector2) -> Dictionary:
-	if _find_targets(world, origin, float(st.range), strike_count(st)) == 0:
+	var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
+	var found := _find_targets(world, origin, float(st.range), maxi(strike_count(st), need))
+	if found == 0 or found < need:
 		return {}
 	return {"targets": _tgt.duplicate()}
 
@@ -774,10 +780,11 @@ func _step_areas(dt: float, world: RunWorld) -> void:
 			var targets := world.skill_rect_targets(blast_rect(st, anchor), anchor, limit)
 			if float(a.interval) > 0.0:
 				for m in targets:
-					var chance := world.book.canonical(key, int(st.level), "prop")
-					if world.rng.randf() * 100.0 < chance:
-						world.swarm.apply_status(m, "poison", {"time": a.duration, "level": st.level,
-							"skill": key, "element": "s", "damage_mult": st.status_damage_mult}, world.events)
+					var ground: Dictionary = world.book.def(key).get("ground", {})
+					var chance := world.book.canonical(key, int(st.level), String(ground.get("chance_field", "")))
+					if world.ground_rng.randf() * 100.0 < chance:
+						world.swarm.apply_status(m, String(ground.get("status", "")), {"time": a.duration, "level": st.level,
+							"skill": key, "element": String(ground.get("element", "")), "preserve_pulse": true, "damage_mult": st.status_damage_mult}, world.events)
 				a.next = float(a.next) + float(a.interval)
 			else:
 				world.emit("skill_impact", {"skill": key, "pos": anchor, "effect": String(a.effect)})

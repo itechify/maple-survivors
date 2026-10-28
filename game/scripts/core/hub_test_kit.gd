@@ -17,6 +17,7 @@ extends RefCounted
 ## The throwaway save (tool-only name, deleted and recreated by every `--hub` launch).
 const SAVE_PATH := "user://tool_hub_save.json"
 ## The character used when `--character` is not given: the gear of a real F/P bot character (format 3, job 212).
+## Tool-only fixture; tests are excluded from exported builds.
 const DEFAULT_CHARACTER := "res://tests/fixtures/characters/fp_arch_mage.json"
 ## The fixture `--hub --job=<id>` opens when `--character` is not given (the job's committed character; a job without one
 ## falls back to DEFAULT_CHARACTER and the hub reports the mismatch).

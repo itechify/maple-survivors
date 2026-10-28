@@ -1295,10 +1295,7 @@ func _on_cast(e: Dictionary) -> void:
 		_sound(loop)
 	# tier C: sample delayed/charged skills after release, and Paralyze after its opening blank frames.
 	var capture_delay := float(world.book.def(key).get("pending", {}).get("delay", 0.0)) + 0.05
-	if key == "paralyze":
-		capture_delay = 0.3
-	elif key == "big_bang":
-		capture_delay = 1.38
+	capture_delay = float(world.book.def(key).get("capture_delay", capture_delay))
 	_first_event_shot(key, "cast_%s.png" % key, capture_delay)
 	var use := String(world.book.def(key).get("sounds", {}).get("use", ""))
 	if use == "":
