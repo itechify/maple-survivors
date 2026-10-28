@@ -4,7 +4,8 @@ extends TestCase
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
 ## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
-## Hero books (111/112) are synthetic generic tables; the F/P books come from the shared run fixtures.
+## Hero and Paladin books (111/112, 121/122) are synthetic generic tables; the F/P books come from the shared run fixtures.
+## Paladin's skills (Blast, Monster Magnet) run as job 122 (P5 #313).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -35,15 +36,17 @@ func _skills_with_bonuses() -> Array:
 
 func _world(key: String) -> RunWorld:
 	var data := RF.quiet_data()
-	var job := 112 if int(data.skills.skills[key].job) in [100, 110, 111, 112] else 212
+	var skill_job := int(data.skills.skills[key].job)
+	var job := 122 if skill_job in [121, 122] else 112 if skill_job in [100, 110, 111, 112] else 212
 	data.jobs_survivor.jobs["112"]["playable"] = true
+	data.jobs_survivor.jobs["122"]["playable"] = true
 	var setup := RF.with_basic_attack(RF.setup("quiet", 296, data))
 	var imgs: Dictionary = setup.skill_imgs
 	# Hero books are synthetic; the F/P box and crowd skills get the same generic table (their fixtures carry no box).
 	for k: String in data.skills.skills:
 		var d: Dictionary = data.skills.skills[k]
 		var id := int(d.skill_id)
-		if int(d.job) in [111, 112] or id in [2111002, 2111003, 2111006, 2121001, 2121003, 2121006, 2121007]:
+		if int(d.job) in [111, 112, 121, 122] or id in [2111002, 2111003, 2111006, 2121001, 2121003, 2121006, 2121007]:
 			var book := String(d.book)
 			if not imgs.has(book):
 				imgs[book] = {"skill": {}}
@@ -160,9 +163,9 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 func test_every_pool_skill_with_bonuses_was_found() -> void:
 	var keys := _skills_with_bonuses()
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
-			"elquines"]:
+			"elquines", "blast", "monster_magnet_paladin"]:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 19, "seven Hero and twelve F/P skills: %d" % keys.size())
+	assert_true(keys.size() >= 21, "seven Hero, two Paladin and twelve F/P skills: %d" % keys.size())
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:

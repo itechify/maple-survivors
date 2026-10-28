@@ -77,6 +77,15 @@ func art_path(key: String, path: String, family: String) -> String:
 	return path.replace("/%07d/" % own, "/%07d/" % twin)
 
 
+## The Use sound of the `nth` cast (zero-based) of `key` for a weapon of `family`: the `sounds.use_cycle` list in order and
+## wrapping (Blast's five Use sounds, no RNG), else the single `sounds.use` ("" when the skill has none or is unknown).
+func use_sound(key: String, nth: int, family: String) -> String:
+	var sounds: Dictionary = def(key).get("sounds", {})
+	var cycle: Array = sounds.get("use_cycle", [])
+	var path := String(cycle[posmod(nth, cycle.size())]) if not cycle.is_empty() else String(sounds.get("use", ""))
+	return art_path(key, path, family)
+
+
 ## "projectile", "instant", "buff" or "passive".
 func kind(key: String) -> String:
 	return String(def(key).get("kind", ""))
