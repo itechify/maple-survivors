@@ -416,8 +416,8 @@ after defense, stacking with existing source/elite scales. WZ stats are never ed
 both contact/attack multipliers at their actual arrival time (not warning time), on top of their own scales;
 those values stay fixed throughout that fight, including projectiles. Boss summons/revives use ordinary rules.
 Tier 1 is neutral (1 -> 1 over 900 s), deliberately retaining #293's pacing envelope. Sleepywood uses
-map1 HP 0.3 -> 1 / damage 0.4 -> 1 with power6; map2/3 HP 0.02 -> 1 / damage 0.08 -> 1
-with power3. All use 1,200 s of whole-round time. At 600 s the map2/3 added scales are
+map 1 HP 0.3 -> 1 / damage 0.4 -> 1 with power 6; map 2/3 HP 0.02 -> 1 / damage 0.08 -> 1
+with power 3. All use 1,200 s of whole-round time. At 600 s the map2/3 added scales are
 HP 0.1425 / damage 0.195; at 1,200 s all scales reach 1, on top of existing stage scales. This deliberately
 allows a typical three-map round to end before the full ramp; longer rounds reach full strength at 20:00.
 Paired kit/starter measurements are recorded below. All ramp choices are tier C first-pass tuning.
@@ -639,34 +639,37 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
-**#307 / T11b opening ramp (training 1/2/2026 only).** All candidates used absolute `PATCH=` files;
+**#307 / T11b opening ramp (training seeds 1/2/2026 only).** All candidates used absolute `PATCH=` files;
 raw local records are `_scratch/307/`, not committed. Low starts (.001–.02 HP, .08 damage) made both
-starter and kit viable, erasing the equipment gate. Raising only damage killed both builds on map3.
-A .3 HP / .4 damage map1 opening separates starting weapons, but using it for later maps made all kits
-die just after map2 arrival. Selected: that opening with power6, plus map2/3 overrides .02 HP / .08 damage
-with power3, all ending at1 over1,200 s of whole-round time. This is first-pass evidence, not a frozen assessment.
+starter and kit viable, erasing the equipment gate. Raising only damage killed both builds on map 3.
+A .3 HP / .4 damage opening separates starting weapons, but applying it to later maps made every kit
+die just after map 2 arrival. Selected: that opening with power 6, plus map 2/3 overrides .02 HP / .08 damage
+with power 3, all ending at 1 over 1,200 s of whole-round time. This is first-pass evidence, not a frozen assessment.
 
-Paired Sleepywood smoke (seed order1/2/2026; all start Lv1, no cash/pet):
+Paired Sleepywood smoke (seed order 1/2/2026; all start Lv1, no cash/pet):
 
-| Starting equipment | Seed1 | Seed2 | Seed2026 | Map2 reached / clears |
+| Starting equipment | Seed 1 | Seed 2 | Seed 2026 | Map 2 reached / clears |
 |---|---|---|---|---|
-| Unscrolled tier1 kit (`tier1_fp.json`) | DEAD792.2s, Lv71 | CLEAR931.6s, Lv72 | CLEAR921.6s, Lv78 | 3/3;2/3 |
-| Starter wand only | DEAD11.4s, Lv1 | DEAD11.9s, Lv3 | CLEAR917.0s, Lv77 | 1/3;1/3 |
-| Historical `fp_arch_mage.json` | DEAD11.4s, Lv1 | DEAD11.9s, Lv3 | CLEAR914.9s, Lv77 | 1/3;1/3 |
+| Unscrolled tier-1 kit (`tier1_fp.json`) | DEAD, 792.2 s, Lv71 | CLEAR, 931.6 s, Lv72 | CLEAR, 921.6 s, Lv78 | 3/3; 2/3 |
+| Starter wand only | DEAD, 11.4 s, Lv1 | DEAD, 11.9 s, Lv3 | CLEAR, 917.0 s, Lv77 | 1/3; 1/3 |
+| Historical `fp_arch_mage.json` | DEAD, 11.4 s, Lv1 | DEAD, 11.9 s, Lv3 | CLEAR, 914.9 s, Lv77 | 1/3; 1/3 |
 
-The ticket's named `fp_arch_mage.json` is starter wand/clothes after format3 migration, not the tier1 kit;
-#293's synthetic `tier1_fp.json` supplies that kit. Both were checked explicitly rather than silently
-changing the historical fixture. Equipment makes the opening survive on seeds1/2; seed2026 escapes the
-starter gate and later drops narrow the gap. This is a small paired sample, not a universal equipment wall.
-All kit runs reach map3 and six actives by12.7–22.3s. Clear picks74/80 and levels72/78 exceed the nominal
-slice targets; this ticket changes no EXP/reward cadence and claims only the requested Henesys envelope.
-Kit completed boss fights: Zombie Mushmom median6.23s (3/3 spawned), Snack Bar2.67s (3/3), Jr. Balrog18.29s
-(2/2); no unfinished or skipped fights, final boss not spawned on seed1. The censored medians equal those
+The ticket's named `fp_arch_mage.json` is starter wand/clothes after format-3 migration, not the tier-1 kit;
+#293's synthetic `tier1_fp.json` supplies that kit. Both were checked explicitly; the historical fixture
+was preserved. Equipment enables the opening on seeds 1/2; seed 2026 escapes the starter gate and later
+drops narrow the gap. This small paired sample does not establish a universal equipment wall.
+All kit runs reach map 3 and six actives by 12.7–22.3 s. Clear picks 74/80 and levels 72/78 exceed the nominal
+slice targets; this ticket changes no EXP/reward cadence and guards the requested Henesys envelope.
+Kit completed boss fights: Zombie Mushmom median 6.23 s (3/3 spawned), Snack Bar 2.67 s (3/3), Jr. Balrog 18.29 s
+(2/2); no unfinished or skipped fights, final boss not spawned on seed 1. The censored medians equal those
 completed medians. All nine final Sleepywood records have warnings=[] / missing=[] and no crashes.
-Henesys smoke with committed data (same training seeds, no character fixture): bot1/3clear,
-449.9–909.5s, Lv22–56; random0/3clear,308.0–615.4s,Lv10–31. These match #293's envelope.
-All15 final smoke records have warnings=[] / missing=[] and no crashes. Full-suite result follows after verification.
-
+Henesys smoke with committed data (same training seeds, no character fixture): bot 1/3 clear,
+449.9–909.5 s, Lv22–56; random 0/3 clear, 308.0–615.4 s, Lv10–31. These match #293's envelope.
+All 15 final smoke records have warnings=[] / missing=[] and no crashes.
+Final validation: `ISOLATE=307 bash scripts/test.sh` with the real cache: **1992 tests, 0 failed,
+0 skipped**, 207 files, 1038.6 s. Seven deterministic ramp tests added; none deleted. Existing corrupt-settings
+recovery diagnostics and two dummy TextureStorage RID shutdown diagnostics remain. The final integration
+fetch/merge was already up to date (5cd40ea); no gameplay changes after validation. Final focused rerun: 7/7 passed.
 
 **#293 / T11, first-pass candidate selection.** Training seeds 1/2/2026 only; no held-out or 701–730 seeds.
 All candidates used absolute `PATCH=` files before committing selected data. With the bot fix in every probe:
@@ -6180,10 +6183,11 @@ random policy shares the movement and the camper policies still override it afte
 
 Whole-round interpolation, clamped progress raised to optional `power` (default 1), HP at spawn,
 ordinary damage after defense at impact, boss HP/contact/attack scale frozen at actual arrival:
-all are our survivor design. Tier1 HP/damage 1 -> 1 over 900 s. Sleepywood map1 HP .3 -> 1 / damage .4 -> 1 (power6),
-map2/3 HP .02 -> 1 / damage .08 -> 1 (power3), all over 1,200 s on the whole-round clock; trained only on1/2/2026. The 20:00 endpoint intentionally extends
-past the nominal15:00 schedule; no ordinary rate/cap/pool, boss encounter scale, canonical stat,
-EXP/cooldown/passive/drop value changed. Revised slice target: picks ≈ levels + boss draws (~50–60).
+all are our survivor design. Tier 1 HP/damage 1 -> 1 over 900 s. Sleepywood map 1 HP .3 -> 1 / damage .4 -> 1
+(power 6), map 2/3 HP .02 -> 1 / damage .08 -> 1 (power 3), all over 1,200 s on the whole-round clock;
+trained only on 1/2/2026. The 20:00 endpoint intentionally extends past the nominal 15:00 schedule.
+No ordinary rate/cap/pool, boss encounter scale, canonical stat, EXP/cooldown/passive/drop value changed.
+Revised slice target: picks ≈ levels + boss draws (~50–60).
 
 ### #293 first-pass pacing (tier C)
 
