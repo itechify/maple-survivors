@@ -319,3 +319,57 @@ func test_the_hud_row_carries_the_rush_key_and_its_cooldown() -> void:
 	assert_near(float(row.cooldown_total), 2.0, 1e-6)
 	assert_true(float(row.cooldown_left) > 1.9, "the sweep reads the 2.0 s cooldown")
 	scene.free()
+
+
+# --- The bot -----------------------------------------------------------------------------------------------------------
+
+func test_the_bot_dashes_away_from_a_mob_within_60_px_and_never_otherwise() -> void:
+	var w := _world()
+	assert_false(BotInput.decide(w, {}).skill_pressed("rush"), "no mob: no dash")
+	var mob := _mob(w, 530)
+	w.player.facing = 1
+	assert_false(BotInput.decide(w, {}).skill_pressed("rush"), "a mob 130 px away is no emergency, and never a reason to approach")
+	w.swarm.x[mob] = 450
+	var input := BotInput.decide(w, {})
+	assert_true(input.skill_pressed("rush"), "a mob 50 px away on the right")
+	assert_true(input.left and not input.right, "the dash goes away from it")
+	w.swarm.x[mob] = 350
+	input = BotInput.decide(w, {})
+	assert_true(input.skill_pressed("rush") and input.right and not input.left, "and the other way for a mob on the left")
+
+
+func test_the_bot_ignores_mobs_on_other_platforms_and_dashes_nowhere_it_cannot_go() -> void:
+	var w := _world(400.0, [{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}, {"x1": 0, "y1": -300, "x2": 1000, "y2": -300}])
+	RF.put_mob(w, 1110100, 440, -300, 1000)
+	assert_false(BotInput.decide(w, {}).skill_pressed("rush"), "a mob on the platform above is no threat")
+	# Pinned: the floor ends 20 px behind the bot, so fleeing from the mob on its right has no lane. It dashes through the mob.
+	var pinned := _world(420.0, [{"x1": 400, "y1": 0, "x2": 1000, "y2": 0}])
+	_mob(pinned, 460)
+	var input := BotInput.decide(pinned, {})
+	assert_true(input.skill_pressed("rush") and input.right and not input.left, "escapes through the crowd, not off the ledge")
+	# No lane either way: a 30 px floor.
+	var boxed := _world(420.0, [{"x1": 400, "y1": 0, "x2": 440, "y2": 0}])
+	_mob(boxed, 435)
+	assert_false(BotInput.decide(boxed, {}).skill_pressed("rush"), "nowhere to go: no press")
+
+
+func test_the_bot_waits_three_seconds_between_dashes() -> void:
+	var w := _world()
+	w.god = true
+	var mob := _mob(w, 440)
+	var memo := {}
+	var input := BotInput.decide(w, memo)
+	assert_true(input.skill_pressed("rush"))
+	w.step(DT, input)
+	for tick in int(2.9 / DT):
+		w.player.place(Vector2(400, 0), w.fhm)
+		w.swarm.x[mob] = 440
+		w.swarm.y[mob] = 0
+		w.step(DT, MoveInput.new())
+		assert_false(BotInput.decide(w, memo).skill_pressed("rush"), "no second request inside 3 s (tick %d)" % tick)
+	for tick in int(0.2 / DT):
+		w.step(DT, MoveInput.new())
+	w.player.place(Vector2(400, 0), w.fhm)
+	w.swarm.x[mob] = 440
+	w.swarm.y[mob] = 0
+	assert_true(BotInput.decide(w, memo).skill_pressed("rush"), "the same emergency dashes again after 3 s")
