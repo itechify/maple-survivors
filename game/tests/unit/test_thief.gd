@@ -201,13 +201,13 @@ func test_cards_are_on_offer_whatever_weapon_is_held_and_on_both_branches() -> v
 				assert_false(w.upgrades.card(key + "_new").requires.has("carry_jobs"))
 
 func test_lucky_seven_uses_the_current_star_sprite_when_the_ammo_tier_changes() -> void:
-	for branch in [400, 410]:
+	for branch in [400, 412]:
 		var w := _combat("claw", "lucky_seven")
 		RF.as_job(w, branch)
-		w.progression.level = 30 if branch == 410 else 10
+		w.progression.level = 30 if branch == 412 else 10
 		w.refresh_player_stats()
 		w._sync_ammo()
-		var expected := 2070001 if branch == 410 else 2070015
+		var expected := 2070003 if branch == 412 else 2070015
 		assert_eq(w.ammo_id(), expected)
 		_cast(w, [100.0])
 		assert_eq(w.projectiles.active_count(), 2)
@@ -267,7 +267,7 @@ func test_original_thief_values_art_sounds_and_equipment_resolve_in_the_private_
 	loadout.set_rank("nimble_body", 20)
 	assert_eq(loadout.passive_total("acc"), 20.0)
 	assert_eq(loadout.passive_total("avoid"), 20.0)
-	for id in [2070015, 2070001, 2070006]:
+	for id in [2070015, 2070001, 2070005]:
 		assert_false(lib.anim(Ammo.bullet_path(id)).is_empty())
 	for book_id in [410, 420]:
 		assert_true(lib.img("Skill.wz/%d.img" % book_id) != null)

@@ -302,13 +302,13 @@ func test_every_event_matches_the_schema() -> void:
 	assert_eq(scroller.use_scroll(2040400, "top"), "")
 	for event: Dictionary in scroller.drain_events():
 		_check(event, seen)
-	# An Assassin's throwing stars reach the next tier (#155): ammo_upgraded, schema-checked like every event.
+	# A Night Lord's throwing stars reach the next tier (#155, exact job 412): ammo_upgraded, schema-checked like every event.
 	var thrower := RF.quiet_world()
 	thrower.setup.equipment_info[1472000] = {"incPAD": 10.0, "attackSpeed": 6.0}
 	thrower.equipment.inventory.append(Equipment.create(1472000, {"incPAD": 10.0, "attackSpeed": 6.0}))
 	assert_eq(thrower.equip_item(thrower.equipment.inventory.size() - 1), "")
 	thrower.progression.level = 37
-	RF.as_job(thrower, 410)
+	RF.as_job(thrower, 412)
 	for event: Dictionary in thrower.drain_events():
 		_check(event, seen)
 	# A Gunslinger's Grenade is thrown (#192): skill_thrown, schema-checked like every event.
@@ -372,7 +372,7 @@ func test_every_event_matches_the_schema() -> void:
 		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "ammo_shot":
-			var archer := CF.ranged_final(1452000, 310)
+			var archer := CF.ranged_final(1452000, 312)
 			var dummy := RF.put_mob(archer, 1110100, 350, 190, 100)
 			archer.hit_mob(dummy, {"skill": "fixture", "damage_type": "physical", "damage_min": 1,
 				"damage_max": 1, "crit": 0, "crit_mult": 1.5}, -1)
