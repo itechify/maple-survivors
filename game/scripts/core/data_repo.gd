@@ -37,12 +37,13 @@ const FILES := {
 	"cash_items": "survivor/cash_items.json",
 	"ammo": "survivor/ammo.json",
 }
-## The job lines whose fragment files may exist, in merge order: common (job-neutral) first, then the job-line ids in
-## ascending order (Beginner 0, Warrior 1, Magician 2, Bowman 3, Thief 4, Pirate 5). A class spec adds its line by
-## creating `<name>/<line>.json` next to the base file; the loader probes exactly these names in this order (job-line
-## order, not file-name order: it decides the order of the merged cards that the level-up roll walks), and
-## test_data_repo_lines fails on any other file in a fragment directory.
-const LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"]
+## The data lines whose fragment files may exist, in merge order: common (job-neutral) first, then the Adventurer job-line
+## ids in ascending order (Beginner 0, Warrior 1, Magician 2, Bowman 3, Thief 4, Pirate 5), then the class lines in the
+## order their specs landed (il_arch_mage, #319). A class spec adds its line by appending its name here (never inserting,
+## so the merge order of the lines before it stays put) and creating `<name>/<line>.json` next to the base file; the loader
+## probes exactly these names in this order (line order, not file-name order: it decides the order of the merged cards
+## that the level-up roll walks), and test_data_repo_lines fails on any other file in a fragment directory.
+const LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate", "il_arch_mage"]
 ## setup.data key -> how the entries of its line fragments (survivor/<name>/<line>.json) merge into the base file
 ## (survivor/<name>.json): `entries` is the key the fragments fill, `merge` the rule (docs/ARCHITECTURE.md 4.4.4).
 ##   keys:      Dictionary, entry keys concatenated (skills)
