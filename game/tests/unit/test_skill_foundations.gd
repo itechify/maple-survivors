@@ -212,13 +212,12 @@ func test_hook_receives_post_element_magic_and_physical_hits_but_no_poison_or_im
 				st.magic = magic
 				st.damage_type = "magic" if magic else "physical"
 				st.defense = "mdd" if magic else "pdd"
-				st.player_level = mk.level
 				st.crit = 0.0 # This checks listener/element routing independently of accuracy crit rolls.
 				st.element = "f"
 				if projectile:
 					w.projectiles.spawn({"x": w.swarm.x[m], "y": w.swarm.y[m] - 5,
 						"dmg_min": 10, "dmg_max": 10, "magic": magic, "damage_type": st.damage_type,
-						"player_level": mk.level, "element": "f", "skill": "synthetic", "level": 1})
+						"element": "f", "skill": "synthetic", "level": 1})
 					w.step(DT, MoveInput.new())
 				else:
 					w.hit_mob(m, st, -1)

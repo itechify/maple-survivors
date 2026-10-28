@@ -241,7 +241,7 @@ func _dummy(w: RunWorld) -> int:
 
 func _trigger(w: RunWorld, mob: int, dtype := "physical") -> void:
 	w.hit_mob(mob, {"skill": "fixture", "damage_type": dtype, "magic": dtype == "magic", "damage_min": 100.0,
-		"damage_max": 100.0, "damage_pct": 1.0, "player_level": 1, "crit": 0.0, "crit_mult": 1.5}, -1)
+		"damage_max": 100.0, "damage_pct": 1.0, "crit": 0.0, "crit_mult": 1.5}, -1)
 
 
 func _count(w: RunWorld, skill: String) -> int:
@@ -302,7 +302,7 @@ func test_final_attack_hits_for_its_own_percent_through_live_defence() -> void:
 	var st := w.loadout.stats("final_blade")
 	assert_eq(st.damage_pct, 2.5)
 	var mk: MobKind = w.mob_kinds[w.swarm.kind[mob]]
-	var defended := CombatMath.physical_defense(Vector2(st.damage_min, st.damage_max), 1, mk.level, mk.pdd)
+	var defended := CombatMath.physical_defense(Vector2(st.damage_min, st.damage_max), mk.pdd)
 	_trigger(w, mob)
 	w.step(DT, MoveInput.new())
 	var follow: Array = w.drain_events().filter(func(e: Dictionary) -> bool:
@@ -353,7 +353,7 @@ func test_final_attack_follows_projectile_hits_and_announces_itself() -> void:
 	w.loadout.set_rank("final_blade", 2)
 	w.drain_events()
 	w.projectiles.spawn({"x": 200.0, "y": w.mob_center(mob).y, "vx": 600.0, "range": 400.0, "damage_type": "physical",
-		"dmg_min": 100.0, "dmg_max": 100.0, "damage_pct": 1.0, "player_level": 1, "crit": 0.0, "skill": "fixture"})
+		"dmg_min": 100.0, "dmg_max": 100.0, "damage_pct": 1.0, "crit": 0.0, "skill": "fixture"})
 	var events := []
 	for tick in 30:
 		w.step(DT, MoveInput.new())

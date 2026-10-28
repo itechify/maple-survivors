@@ -1997,8 +1997,7 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	var roll := ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
 		mob_defense(m, magic), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult),
 		hit_rng if hit_rng != null else rng, mk.element_multiplier(String(st.get("element", ""))), dtype,
-		float(st.get("damage_pct", 1.0)), int(st.get("player_level", progression.level)), mk.level,
-		float(st.get("crit_damage_bonus", 0.0)))
+		float(st.get("damage_pct", 1.0)), float(st.get("crit_damage_bonus", 0.0)))
 	var dir := 1 if swarm.x[m] >= player.pos.x else -1
 	emit("mob_hit", {
 		"mob": m, "mob_id": mk.id, "damage": roll.x, "crit": roll.y != 0,

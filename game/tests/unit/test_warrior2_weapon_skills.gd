@@ -87,7 +87,7 @@ func _dummy(w: RunWorld, dx := 60.0, dy := 0.0) -> int:
 ## A physical trigger line such as a basic attack or skill hit reports.
 func _trigger(w: RunWorld, mob: int) -> void:
 	w.hit_mob(mob, {"skill": "fixture", "damage_type": "physical", "magic": false, "damage_min": 100.0,
-		"damage_max": 100.0, "damage_pct": 1.0, "player_level": 1, "crit": 0.0, "crit_mult": 1.5}, -1)
+		"damage_max": 100.0, "damage_pct": 1.0, "crit": 0.0, "crit_mult": 1.5}, -1)
 
 
 ## mob_hit events of skill `key` among the world's pending events (drains them).

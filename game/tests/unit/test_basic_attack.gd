@@ -245,19 +245,19 @@ func test_five_stances_are_uniform_and_level_three_stats_one_shot_snails() -> vo
 	assert_true(one_shots >= 500, "level3 STR22 stats one-shot 8HP Snail in at least half: %d/1000" % one_shots)
 
 
-func test_known_physical_bounds_include_weapon_stance_defense_and_level_difference() -> void:
-	var sword := RF.physical_bounds(12, 4, 17, 1302000, "swingO1", 1, 1, 0)
+func test_known_physical_bounds_include_weapon_stance_and_defense() -> void:
+	var sword := RF.physical_bounds(12, 4, 17, 1302000, "swingO1", 0)
 	assert_near(sword.x, 1.4144, 0.00001)
 	assert_near(sword.y, 8.84, 0.00001)
-	var swing := RF.physical_bounds(12, 4, 15, 1372005, "swingO1", 1, 1, 0)
+	var swing := RF.physical_bounds(12, 4, 15, 1372005, "swingO1", 0)
 	assert_near(swing.x, 1.3128, 0.00001)
 	assert_near(swing.y, 8.52, 0.00001)
-	var stab := RF.physical_bounds(12, 4, 15, 1372005, "stabO1", 1, 1, 0)
+	var stab := RF.physical_bounds(12, 4, 15, 1372005, "stabO1", 0)
 	assert_near(stab.x, 1.1184, 0.00001)
 	assert_near(stab.y, 6.36, 0.00001)
-	var defended := RF.physical_bounds(12, 4, 17, 1302000, "swingO1", 1, 6, 5)
+	var defended := RF.physical_bounds(12, 4, 17, 1302000, "swingO1", 5)
 	assert_near(defended.x, 1.0, 0.00001)
-	assert_near(defended.y, 5.898, 0.00001)
+	assert_near(defended.y, 6.34, 0.00001)
 
 
 func test_weapon_info_reads_type_afterimage_interval_and_sound_from_the_canonical_node() -> void:

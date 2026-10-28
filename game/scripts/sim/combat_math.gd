@@ -108,11 +108,11 @@ static func physical_damage_range(str_stat: float, dex_stat: float, luk_stat: fl
 	return Vector2(minf(lo, hi), hi)
 
 
-## Physical bounds after level gap and live PDD (tier B: AGF/Stereo), each floored at 1 before rolling.
-static func physical_defense(bounds: Vector2, player_level: int, mob_level: int, pdd: float) -> Vector2:
-	var level_factor := 1.0 - 0.01 * maxi(0, mob_level - player_level)
-	var hi := maxf(1.0, bounds.y * level_factor - 0.5 * pdd)
-	var lo := maxf(1.0, bounds.x * level_factor - 0.6 * pdd)
+## Physical bounds after live PDD (tier B: AGF/Stereo), each floored at 1 before rolling. No level-gap term: the
+## monster's level never changes damage (ADR 0006).
+static func physical_defense(bounds: Vector2, pdd: float) -> Vector2:
+	var hi := maxf(1.0, bounds.y - 0.5 * pdd)
+	var lo := maxf(1.0, bounds.x - 0.6 * pdd)
 	return Vector2(minf(lo, hi), hi)
 
 

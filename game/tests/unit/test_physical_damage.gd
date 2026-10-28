@@ -81,7 +81,7 @@ func test_mastery_and_lucky_seven_override_and_unchanged_creation_weapon_bounds(
 			[1312004, "swingO1", 1.48784, 9.656], [1312004, "stabO1", 1.26752, 7.208],
 			[1322005, "swingO1", 1.48784, 9.656], [1322005, "stabO1", 1.26752, 7.208],
 			[0, "swingO1", 1.0, 1.0], [0, "stabO1", 1.0, 1.0]]:
-		var bounds := RF.physical_bounds(12, 4, 0 if c[0] == 0 else 17, c[0], c[1], 1, 1, 0)
+		var bounds := RF.physical_bounds(12, 4, 0 if c[0] == 0 else 17, c[0], c[1], 0)
 		assert_near(bounds.x, c[2], 0.00001)
 		assert_near(bounds.y, c[3], 0.00001)
 	for c: Array in [["swingO3", "swing"], ["stabT2", "stab"], ["shoot1", "shoot"], ["throw1", "shoot"], ["alert2", ""]]:
@@ -97,19 +97,19 @@ func test_instant_hits_choose_live_pdd_or_mdd_and_apply_skill_percent_after_defe
 	kind.mdd = 150
 	var control := RandomNumberGenerator.new()
 	control.state = world.rng.state
-	var expected := roundi(control.randf_range(66, 70) * 2.0)
+	var expected := roundi(control.randf_range(76, 80) * 2.0)
 	world.drain_events()
 	world.hit_mob(mob, {"skill": "fixture", "damage_type": "physical", "magic": false,
-		"damage_min": 100.0, "damage_max": 100.0, "damage_pct": 2.0, "player_level": 1,
+		"damage_min": 100.0, "damage_max": 100.0, "damage_pct": 2.0, 
 		"crit": 0.0, "crit_mult": 1.5}, -1)
-	assert_eq(_hits(world)[0].damage, expected, "level gap10 and PDD40 act on bounds BEFORE skill200%")
+	assert_eq(_hits(world)[0].damage, expected, "PDD40 acts on bounds BEFORE skill200%; mobLv11 changes nothing")
 	for c: Array in [["magic", true, 50], ["fixed", false, 100]]:
 		world.hit_mob(mob, {"skill": "fixture", "damage_type": c[0], "magic": c[1],
 			"damage_min": 100.0, "damage_max": 100.0, "crit": 0.0, "crit_mult": 1.5}, -1)
 		assert_eq(_hits(world)[0].damage, c[2], str(c))
 
 
-func test_physical_projectiles_use_target_level_and_pdd_at_impact() -> void:
+func test_physical_projectiles_use_pdd_at_impact() -> void:
 	var world := RF.quiet_world(400, 153)
 	world.loadout.order.clear()
 	var mob := RF.put_mob(world, 1110100, 550, 190, 100)
@@ -120,7 +120,7 @@ func test_physical_projectiles_use_target_level_and_pdd_at_impact() -> void:
 	kind.mdd = 150
 	world.projectiles.spawn({"x": 500.0, "y": world.mob_center(mob).y, "vx": 400.0, "range": 500.0,
 		"damage_type": "physical", "dmg_min": 100.0, "dmg_max": 100.0, "damage_pct": 2.0,
-		"player_level": 1, "crit": 0.0, "skill": "fixture"})
+		"crit": 0.0, "skill": "fixture"})
 	kind.pdd = 40 # Changed after launch: the impact must not retain the original defence.
 	var hits := []
 	for tick in 20:
@@ -128,7 +128,7 @@ func test_physical_projectiles_use_target_level_and_pdd_at_impact() -> void:
 		hits.append_array(_hits(world))
 	assert_eq(hits.size(), 1)
 	if hits.size() == 1:
-		assert_between(hits[0].damage, 132, 140, "live PDD40 and mobLv11, then skill200%")
+		assert_between(hits[0].damage, 152, 160, "live PDD40 (mobLv11 changes nothing), then skill200%")
 
 
 func _hits(world: RunWorld) -> Array:
@@ -246,11 +246,11 @@ func test_live_defence_buff_reduces_instant_and_airborne_physical_hits() -> void
 		if projectile:
 			world.projectiles.spawn({"x": world.mob_center(mob).x, "y": world.mob_center(mob).y, "vx": 0.0,
 				"range": 100, "damage_type": "physical", "dmg_min": 100.0, "dmg_max": 100.0,
-				"player_level": 20, "damage_pct": 2.0, "skill": "fixture"})
+				"damage_pct": 2.0, "skill": "fixture"})
 			world.step(DT, MoveInput.new())
 		else:
 			world.hit_mob(mob, {"skill": "fixture", "damage_type": "physical", "magic": false,
-				"damage_min": 100.0, "damage_max": 100.0, "player_level": 20, "damage_pct": 2.0,
+				"damage_min": 100.0, "damage_max": 100.0, "damage_pct": 2.0,
 				"crit": 0.0, "crit_mult": 1.5}, -1)
 		var hits := _hits(world)
 		assert_eq(hits.size(), 1)

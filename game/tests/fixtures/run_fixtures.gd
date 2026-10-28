@@ -573,12 +573,12 @@ static func pick_job(options: Array, rng: RandomNumberGenerator = null, forced :
 	return int(BotInput.pick_choice(options, rng, forced, jobs, forced_path).job_id)
 
 
-## Basic-attack bounds after level gap and live PDD, for the examples that predate the physical hit path (LUK 0):
+## Basic-attack bounds after live PDD, for the examples that predate the physical hit path (LUK 0):
 ## the physical weapon bounds of the stance `action`, then CombatMath.physical_defense.
 static func physical_bounds(str_stat: int, dex_stat: int, watk: float, weapon_id: int, action: String,
-		player_level: int, mob_level: int, pdd: float) -> Vector2:
+		pdd: float) -> Vector2:
 	return CombatMath.physical_defense(CombatMath.physical_damage_range(str_stat, dex_stat, 0.0, watk, weapon_id,
-		WeaponInfo.attack_kind(action)), player_level, mob_level, pdd)
+		WeaponInfo.attack_kind(action)), pdd)
 
 
 ## Resolves an open window like BotInput: the first available job (else "Not now") and BotInput.pick_card_for's card.

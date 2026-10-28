@@ -687,7 +687,7 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 				"rotate": bool(st.rotate), "dmg_min": float(st.damage_min), "dmg_max": float(st.damage_max),
 				"magic": bool(st.magic), "crit": float(st.crit), "crit_mult": float(st.crit_mult),
 				"damage_type": String(st.damage_type), "damage_pct": float(st.damage_pct),
-				"player_level": int(st.player_level), "crit_damage_bonus": float(st.crit_damage_bonus),
+				"crit_damage_bonus": float(st.crit_damage_bonus),
 				"pierce": int(st.pierce), "skill": key, "level": int(st.level), "element": String(st.element),
 				"pierce_falloff": float(st.pierce_falloff),
 				"impact_blast": st.impact_blast,

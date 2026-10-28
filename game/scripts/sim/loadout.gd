@@ -321,7 +321,6 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"defense": "pdd" if dtype == "physical" else "mdd" if dtype == "magic" else "none",
 		"damage_pct": book.canonical(key, lv, String(blast.get("damage_field", "damage")), 100.0) / 100.0
 			if dtype == "physical" else 1.0,
-		"player_level": char_level,
 		"damage_min": lo,
 		"damage_max": hi,
 		"magic": dtype == "magic",
