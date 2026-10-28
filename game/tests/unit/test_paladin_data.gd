@@ -74,7 +74,11 @@ func test_the_paladin_line_loads_without_errors_and_adds_only_its_job_and_an_emp
 	assert_true(d.jobs_survivor.jobs.has("122"), "jobs/paladin.json is merged into the survivor job data")
 	assert_eq(d.jobs_survivor.jobs.keys(), ["0", "200", "212", "112", "122"], "base entries, then lines in discovered order")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "paladin"))
-	assert_eq(frag.skills, {}, "an empty skeleton: the skill tickets append their own definitions")
+	# The skill tickets append their own definitions (P4-P8); only the spec's Paladin keys may live here.
+	var own := ["rush_paladin", "blast", "monster_magnet_paladin", "charged_blow", "fire_charge", "ice_charge", "thunder_charge",
+		"holy_charge", "heavens_hammer"]
+	for key: String in frag.skills:
+		assert_true(key in own, "%s is a Paladin key of the spec" % key)
 	assert_true(frag.has("_doc"))
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
