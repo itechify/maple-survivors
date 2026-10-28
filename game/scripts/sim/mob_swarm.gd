@@ -56,12 +56,13 @@ const POISON := 1
 const FREEZE := 2
 const THREATENED := 3
 const STUN := 4
-const STATUS_COUNT := 5
+const ICE_WEAK := 5
+const STATUS_COUNT := 6
 ## Status names used by apply_status and the mob_status_* events, in table order.
-const STATUS_NAMES := ["slow", "poison", "freeze", "threatened", "stun"]
+const STATUS_NAMES := ["slow", "poison", "freeze", "threatened", "stun", "ice_weak"]
 ## tier A: the element a status shares with its applying v83 skill (Slow none, Poison Breath elemAttr s, Cold Beam i).
 ## Stun has none and never reads an element, not even one passed in `params` (tier C, #187).
-const STATUS_ELEMENTS := ["", "S", "I", "", ""]
+const STATUS_ELEMENTS := ["", "S", "I", "", "", ""]
 
 ## Tunables (keys of the `tuning` Dictionary given to _init).
 const TUNING_DEFAULTS := {
@@ -84,8 +85,6 @@ var vx := PackedFloat32Array()
 var vy := PackedFloat32Array()
 var hp := PackedInt32Array()
 var max_hp := PackedInt32Array()
-## Remaining canonical monster MP; fresh spawns reset it, relocation preserves it.
-var mp := PackedInt32Array()
 ## Steal has taken this logical mob's extra loot; not a status. Relocation preserves it, fresh spawns reset it.
 var stolen := PackedByteArray()
 var state := PackedInt32Array()
@@ -251,7 +250,6 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	vy[i] = 0.0
 	hp[i] = h
 	max_hp[i] = h
-	mp[i] = kinds[k].max_mp if k >= 0 and k < kinds.size() else 0
 	stolen[i] = 0
 	state[i] = STAND if f >= 0 else JUMP
 	state_t[i] = 0.0
@@ -292,7 +290,7 @@ func despawn(i: int) -> bool:
 	return true
 
 
-## Relocates the same live mob through despawn/spawn, preserving identity, HP/MP, Stolen and Slow cast history.
+## Relocates the same live mob through despawn/spawn, preserving identity, HP, Stolen and Slow cast history.
 ## Active statuses and movement reset as on a fresh spawn. Returns the new slot, or -1 when not live.
 func relocate(i: int, pos: Vector2, f: int) -> int:
 	if not is_live(i):
@@ -303,7 +301,6 @@ func relocate(i: int, pos: Vector2, f: int) -> int:
 	var slow_streak := _slow_cast_streak[i]
 	var old_hp := hp[i]
 	var old_max_hp := max_hp[i]
-	var old_mp := mp[i]
 	var old_stolen := stolen[i]
 	despawn(i)
 	var j := spawn(k, pos.x, pos.y, f, old_max_hp)
@@ -311,7 +308,6 @@ func relocate(i: int, pos: Vector2, f: int) -> int:
 	_slow_cast_serial[j] = slow_serial
 	_slow_cast_streak[j] = slow_streak
 	hp[j] = old_hp
-	mp[j] = old_mp
 	stolen[j] = old_stolen
 	return j
 
@@ -368,7 +364,8 @@ func _threat_cut(i: int, value: float, cuts: PackedFloat32Array) -> float:
 
 ## Applies "slow" (canonical signed x/time), "freeze" or "stun" (time) or "threatened" (flat signed x/y and time), or "poison" (canonical level/time, optional skill
 ## key); `params.element` overrides the status's own element (STATUS_ELEMENTS; "stun" ignores it). Refreshes without
-## stacking (tier C, issue #54; a stun keeps the longer of the remaining and the new time, #187); poison snapshots the slot's max HP at application. Bosses and kinds immune, strong or neutral (Mob.wz
+## stacking; poison preserve_pulse refreshes the snapshot without restarting a pending pulse (ground areas only).
+## (tier C, issue #54; a stun keeps the longer of the remaining and the new time, #187); poison snapshots the slot's max HP at application. Bosses and kinds immune, strong or neutral (Mob.wz
 ## digit 4) against the status element reject it. Appends application/expiry events to the supplied simulation event list. Removal/death/
 ## relocation clears silently; mob_died/mob_spawned and the arrays describe those transitions.
 func apply_status(i: int, status: String, params: Dictionary, events: Array) -> bool:
@@ -382,8 +379,11 @@ func apply_status(i: int, status: String, params: Dictionary, events: Array) -> 
 		var level := int(params.get("level", 0))
 		if level <= 0 or level >= POISON_LEVEL_BASE:
 			return false
-		_poison_pulse[i] = POISON_INTERVAL
+		if status_left[j] <= 0.0 or not bool(params.get("preserve_pulse", false)):
+			_poison_pulse[i] = POISON_INTERVAL
 		_poison_damage[i] = mini(POISON_DAMAGE_CAP, ceili(float(max_hp[i]) / (POISON_LEVEL_BASE - level)))
+		# tier C: survivor ground-skill damage bonuses scale canonical poison after its cap, still nonlethal.
+		_poison_damage[i] = roundi(float(_poison_damage[i]) * maxf(0.0, float(params.get("damage_mult", 1.0))))
 		_poison_skill[i] = String(params.get("skill", STATUS_NAMES[POISON]))
 	elif s == SLOW:
 		# tier C: a canonical positive x would speed the monster up; only slowing is applied.
@@ -937,7 +937,6 @@ func _set_state(i: int, s: int) -> void:
 
 func _release(i: int) -> void:
 	_clear_statuses(i)
-	mp[i] = 0
 	state[i] = FREE
 	active[i] = 0
 	fh[i] = -1
@@ -976,7 +975,6 @@ func _grow(n: int) -> void:
 	vy.resize(n)
 	hp.resize(n)
 	max_hp.resize(n)
-	mp.resize(n)
 	stolen.resize(n)
 	state.resize(n)
 	identity.resize(n)
@@ -1017,3 +1015,15 @@ func _grow(n: int) -> void:
 		platform[i] = -1
 		facing[i] = -1
 		_free.append(i)
+
+
+## Live element attributes including Fire Demon's timed ice weakness; mixed fire/poison averages both attributes.
+func element_multiplier(i: int, element: String) -> float:
+	var mk := mob_kind(i)
+	if element.to_lower() == "fs":
+		# tier C: equal fire/poison composition, preserving either element's resistance and immunity.
+		return (mk.element_multiplier("f") + mk.element_multiplier("s")) * 0.5
+	if element.to_lower() == "i" and status_time(i, ICE_WEAK) > 0.0:
+		# tier A: Fire Demon description makes monsters weak against ice for level/time seconds.
+		return 1.5
+	return mk.element_multiplier(element)

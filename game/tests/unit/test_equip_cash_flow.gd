@@ -32,18 +32,11 @@ func _flow() -> SceneFlow:
 	return flow
 
 
-func _clear_into_free_market(flow: SceneFlow) -> void:
-	var summary := UI_FLOW.summary(true, 900.0, 20, 1000)
-	summary["nx_awarded"] = 0
-	flow.finish_run(summary, flow.save.slot(0).character)
-
-
 func test_cash_and_pet_chosen_in_the_free_market_are_saved_continue_and_reach_the_next_round() -> void:
 	if not require_cache():
 		return
 	var flow := _flow()
 	flow.create_character("Dress122")
-	_clear_into_free_market(flow)
 	assert_eq(flow.current_name, "free_market")
 	var hub := flow.current as FreeMarket
 	hub.ui_windows.toggle("equip")
@@ -69,7 +62,7 @@ func test_cash_and_pet_chosen_in_the_free_market_are_saved_continue_and_reach_th
 	assert_true(hub.pet_renderer != null and hub.motion.pet.species == PET, "the pet is out again after Continue")
 	# The next round plays with them.
 	flow.goto_stage_select()
-	flow.start_round(String(SceneFlow.tiers()[1][0]), 7)
+	flow.start_round(String(SceneFlow.tiers()[0][0]), 7)
 	var run := flow.current as RunScene
 	assert_true(run != null, "the next round is running")
 	if run == null:

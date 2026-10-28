@@ -51,6 +51,7 @@ const LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "
 ##   values:    Array of unique values, concatenated in line order (shop weapon slots)
 ##   families:  Dictionary slot -> Dictionary family -> rates, merged per slot (scrolls)
 const SPLIT := {
+	"jobs_survivor": {"entries": "jobs", "merge": "keys"},
 	"skills": {"entries": "skills", "merge": "keys"},
 	"upgrades": {"entries": "cards", "merge": "ids"},
 	"equipment_drops": {"entries": "items", "merge": "sorted"},
@@ -346,21 +347,14 @@ static func stage_mob_ids(data: Dictionary, stage_key: String, mob_imgs: Diction
 
 
 ## Every item whose canonical info a setup loads, without duplicates: the default creation outfit
-## (Equipment.DEFAULT_OUTFIT), the job weapon grants (balance.player.weapon_grants), every MakeCharInfo top, bottom,
+## (Equipment.DEFAULT_OUTFIT), every MakeCharInfo top, bottom,
 ## shoes and weapon option of both genders, every equipment_drops item, and everything `character` (a CharacterSnapshot,
 ## format 1 or 2) holds.
 static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {},
 		character: Dictionary = {}) -> PackedInt32Array:
-	var pb: Dictionary = data.get("balance", {}).get("player", {})
 	var ids := PackedInt32Array()
-	for id: Variant in Equipment.DEFAULT_OUTFIT + pb.get("weapon_grants", {}).values():
+	for id: Variant in Equipment.DEFAULT_OUTFIT:
 		_add_id(ids, int(id))
-	# Chosen-only advancement weapons (tier C #226); load every offered path of playable jobs.
-	var job_rows: Variant = data.get("jobs_survivor", {}).get("jobs", {})
-	for row: Variant in job_rows.values() if job_rows is Dictionary else []:
-		if row is Dictionary and bool(row.get("playable", false)):
-			for path: Variant in row.get("paths", []) if row.get("paths", []) is Array else []:
-				_add_id(ids, int(path.get("item_id", 0)) if path is Dictionary else 0)
 	var creation := CharacterCreation.new(creation_img)
 	for gender in CharacterCreation.GENDERS.size():
 		for field: String in ["top", "bottom", "shoes", "weapon"]:
@@ -370,7 +364,7 @@ static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {
 	for id: Variant in data.get("equipment_drops", {}).get("items", []):
 		_add_id(ids, int(id))
 	if not character.is_empty():
-		for id: Variant in CharacterSnapshot.held_item_ids(character, _jobs(data)):
+		for id: Variant in CharacterSnapshot.held_item_ids(character, jobs(data)):
 			_add_id(ids, int(id))
 	return ids
 
@@ -401,7 +395,7 @@ static func character_look(character: Dictionary, data: Dictionary, worn_cash: D
 	if character.get("equipment") is Dictionary:
 		look.equips = Equipment.worn_ids(character.equipment.get("worn", {}))
 	else:
-		look.equips = CharacterSnapshot.held_item_ids(character, _jobs(data))
+		look.equips = CharacterSnapshot.held_item_ids(character, jobs(data))
 	if not worn_cash.is_empty():
 		look["cash"] = worn_cash.duplicate()
 	return look
@@ -414,7 +408,8 @@ static func worn_cash(character: Dictionary, data: Dictionary, owned: Array) -> 
 	return CashCatalog.from_data(data).resolve(cash, 0, owned).worn
 
 
-static func _jobs(data: Dictionary) -> JobTree:
+## The canonical job tree with survivor flags and pools.
+static func jobs(data: Dictionary) -> JobTree:
 	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
 
 

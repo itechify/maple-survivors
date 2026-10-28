@@ -1,22 +1,25 @@
 class_name SaveData
 extends RefCounted
-## Local save file (user://save.json): best results, round counts, character slots and ended-run history. Nothing leaves
+## Local save file (user://save.json): best results, round counts, character slots and the round history. Nothing leaves
 ## machine (docs/ARCHITECTURE.md section 7).
 ##
-## File: {format: 2, best: {stage_key: record}, runs: {stage_key: int}, slots: [null | run snapshot], history: [],
+## File: {format: 3, best: {stage_key: record}, runs: {stage_key: int}, slots: [null | slot], history: [],
 ## account?: {nx: int, owned: [int]}}. The optional `account` (spec #34; see Account) is NX plus owned cash item ids:
-## a save without it is an empty account, and the format number stays 2 so older files need no migration step.
+## a save without it is an empty account.
 ## A best record is
 ## {time, duration, cleared, level, job_id, job_name, kills, damage_dealt, seed}. Missing files start empty;
 ## format 1 converts on load, keeping playable-stage bests/counts. Writes replace the file via a sibling temporary.
 ## Legacy stage keys migrate through DataRepo.STAGE_ALIASES on load and write, without changing the save format.
-## Run snapshot: {name, created, character: CharacterSnapshot, tier, phase, rounds_played, tiers_cleared,
-## stage?, round_seed?}; tier indexes the next tier (0-based). phase is free_market/map_select/round;
-## round requires stage and round_seed. Keep the last stage outside a round for deletion history.
-## History: {name, job_id, job_name, level, tiers_cleared, rounds_played, ending, stage, date}; ending is
-## died/victory/deleted. Dates are nonempty caller-supplied strings; persistence never generates gameplay dates or seeds.
-## A round summary's `nx_awarded` is added to the account inside the same write as update_slot (clear boundary) or
-## end_run (death/victory); deletion never credits. set_account replaces the whole block (Cash Shop spending).
+## Slot: {name, created, rounds_played, character: CharacterSnapshot (format 3)}. The character is saved at the hub
+## (Free Market) and after every round; there is no saved round, tier cursor or seed to resume (ADR 0006, #286).
+## History: one entry per round, {name, job_id, job_name, stage, level, ending, date} (level = reached in that round),
+## plus one when a character is deleted (stage "", level 1) or retired. ending is
+## cleared/died/quit (a round, finish_round), deleted (delete_slot) or retired (a character of a format-2 file, moved here
+## on load unmigrated: level and stage are the ones it had). Format 2 history entries (died/victory/deleted, with
+## tiers_cleared and rounds_played) are kept as they are. Dates are nonempty caller-supplied strings; persistence never
+## generates gameplay dates or seeds.
+## A round summary's `nx_awarded` is added to the account inside the same write as finish_round (every round ending);
+## deletion never credits. set_account replaces the whole block (Cash Shop spending).
 ## Corrupt/unsupported files are copied to .bad[.N]; valid .bak recovers a missing or rejected primary.
 ## Web imports are staged at .import and fully validated here before promotion; rejection leaves committed files alone.
 ##
@@ -24,7 +27,10 @@ extends RefCounted
 ## more damage.
 
 const PATH := "user://save.json"
-const FORMAT := 2 # tier C: spec #32 save schema.
+const FORMAT := 3 # tier C: spec #282 / #286 (ADR 0006): characters without a saved round or build.
+## History endings: a round (finish_round), a deleted or retired character, and format 2's "victory".
+const ROUND_ENDINGS := ["cleared", "died", "quit"]
+const HISTORY_ENDINGS := ["cleared", "died", "quit", "victory", "deleted", "retired"]
 const SLOT_COUNT := 3 # tier C: spec #32 owner choice.
 ## Summary keys kept in a best record.
 const RECORD_KEYS := ["time", "duration", "cleared", "level", "job_id", "job_name", "kills", "damage_dealt", "seed"]
@@ -34,7 +40,7 @@ var path := PATH
 var best: Dictionary = {}
 ## stage key -> runs finished.
 var runs: Dictionary = {}
-## Detached views; mutate characters through create_slot/update_slot/end_run.
+## Detached views; mutate characters through create_slot/update_slot/finish_round/delete_slot.
 var slots: Array:
 	get:
 		return _slots.duplicate(true)
@@ -93,7 +99,7 @@ func load_file() -> void:
 		_primary_valid = source == path
 		var migrated := _apply_file(parsed)
 		last_error = OK
-		if source != path or int(parsed.format) == 1 or migrated:
+		if source != path or int(parsed.format) < FORMAT or migrated:
 			last_error = save_file()
 		break
 	_load_import()
@@ -134,11 +140,24 @@ func _apply_file(parsed: Dictionary) -> bool:
 		if stages.has(k):
 			runs[k] = int(parsed.runs[k])
 	# Format 1 validates only bests/counts: later fields must be ignored, not adopted without validation.
-	var current := int(parsed.format) == FORMAT
-	_slots = parsed.get("slots", [null, null, null]) if current else [null, null, null]
-	_history = parsed.get("history", []) if current else []
-	_account = Account.normalized(parsed.get("account", Account.empty())) if current else Account.empty()
+	var format := int(parsed.format)
+	_slots = parsed.slots if format == FORMAT else [null, null, null]
+	_history = parsed.get("history", []) if format >= 2 else []
+	_account = Account.normalized(parsed.get("account", Account.empty())) if format >= 2 else Account.empty()
+	if format == 2:
+		# Format 3 has no saved build or round: a living character of an older file goes to the history, unmigrated.
+		for old: Variant in parsed.slots:
+			if old is Dictionary:
+				_history.append(_retired_entry(old))
 	return migrated
+
+
+## The history entry of a format-2 character that this version cannot continue.
+static func _retired_entry(old: Dictionary) -> Dictionary:
+	var character: Dictionary = old.get("character", {})
+	return {"name": old.name, "job_id": int(character.get("job_id", 0)),
+		"job_name": job_name_of(int(character.get("job_id", 0))), "level": maxi(1, int(character.get("level", 1))),
+		"stage": String(old.get("stage", "")), "ending": "retired", "date": String(old.get("created", "unknown"))}
 
 
 static func _canonical_stages(source: Dictionary) -> Dictionary:
@@ -157,7 +176,7 @@ static func _canonical_stages(source: Dictionary) -> Dictionary:
 		var key := DataRepo.canonical_stage_key(old)
 		out.runs[key] = int(out.runs.get(key, 0)) + int(source.runs[old])
 	# Format 1's extra fields have never been validated and must remain ignored.
-	if int(source.format) == FORMAT:
+	if int(source.format) >= 2:
 		for snapshot: Variant in out.slots:
 			if snapshot is Dictionary:
 				_canonical_stage_field(snapshot)
@@ -243,8 +262,8 @@ func create_slot(snapshot: Dictionary) -> int:
 	return -1
 
 
-## Saves an occupied slot's boundary; an optional finished-round summary counts toward bests in the same write.
-func update_slot(index: int, snapshot: Dictionary, round_summary: Dictionary = {}) -> Error:
+## Saves an occupied slot (the hub: equipment, scrolls and mesos changes) in one write.
+func update_slot(index: int, snapshot: Dictionary) -> Error:
 	if slot(index).is_empty():
 		last_error = ERR_INVALID_PARAMETER
 		return last_error
@@ -253,9 +272,6 @@ func update_slot(index: int, snapshot: Dictionary, round_summary: Dictionary = {
 		return last_error
 	var data := _state()
 	data.slots[index] = snapshot.duplicate(true)
-	if not round_summary.is_empty():
-		_record_into(data, round_summary)
-		_credit(data, round_summary)
 	return _commit(data)
 
 
@@ -269,66 +285,71 @@ func set_account(value: Variant) -> Error:
 	return _commit(data)
 
 
-## Frees a slot and appends history in one save. Optional final snapshot/round summary capture terminal progress.
-## Date comes from the caller. Omit the final snapshot when deleting a character at its saved boundary.
-func end_run(index: int, ending: String, date: String, final_snapshot: Dictionary = {},
-		round_summary: Dictionary = {}) -> Error:
-	if slot(index).is_empty() or ending not in ["died", "victory", "deleted"] or date.is_empty():
+## Ends a round for the character in slot `index`, in one write: the slot takes `snapshot` (its character as the round
+## left it, pickups included), the summary counts toward the stage's best and run count and credits its NX, and the
+## history gains the round (`ending` is one of ROUND_ENDINGS). The character is never removed: a death or a quit ends
+## the round only. The date comes from the caller.
+func finish_round(index: int, snapshot: Dictionary, ending: String, date: String, round_summary: Dictionary) -> Error:
+	if slot(index).is_empty() or ending not in ROUND_ENDINGS or date.is_empty():
 		last_error = ERR_INVALID_PARAMETER
 		return last_error
-	var snapshot := slot(index) if final_snapshot.is_empty() else final_snapshot
 	if not validation_error(snapshot).is_empty() or not _name_available(String(snapshot.name), index):
 		last_error = ERR_INVALID_DATA
 		return last_error
-	var character: Dictionary = snapshot.character
-	var job_id := int(character.job_id)
-	var jobs: Dictionary = DataRepo.load_json(DataRepo.DATA_ROOT.path_join(DataRepo.FILES.jobs))
-	var job_name := str(job_id)
-	for job: Dictionary in jobs.get("jobs", []):
-		if int(job.id) == job_id:
-			job_name = String(job.name)
-			break
 	var data := _state()
-	data.slots[index] = null
-	data.history.append({"name": snapshot.name, "job_id": job_id, "job_name": job_name,
-		"level": int(character.level), "tiers_cleared": int(snapshot.tiers_cleared),
-		"rounds_played": int(snapshot.rounds_played), "ending": ending,
-		"stage": snapshot.get("stage", ""), "date": date})
-	if not round_summary.is_empty():
-		_record_into(data, round_summary)
-		if ending != "deleted":
-			_credit(data, round_summary)
+	data.slots[index] = snapshot.duplicate(true)
+	var job_id := int(snapshot.character.job_id)
+	data.history.append({"name": snapshot.name, "job_id": job_id, "job_name": job_name_of(job_id),
+		"stage": DataRepo.canonical_stage_key(String(round_summary.get("stage", ""))),
+		"level": maxi(1, int(round_summary.get("level", 1))), "ending": ending, "date": date})
+	_record_into(data, round_summary)
+	_credit(data, round_summary)
 	return _commit(data)
 
 
-## Validates the binding spec #32 run wrapper and delegates character validation to CharacterSnapshot.
+## Frees slot `index` and appends a "deleted" history entry (no stage, level 1) in one save. The date comes from the caller.
+func delete_slot(index: int, date: String) -> Error:
+	if slot(index).is_empty() or date.is_empty():
+		last_error = ERR_INVALID_PARAMETER
+		return last_error
+	var snapshot := slot(index)
+	var job_id := int(snapshot.character.job_id)
+	var data := _state()
+	data.slots[index] = null
+	data.history.append({"name": snapshot.name, "job_id": job_id, "job_name": job_name_of(job_id), "stage": "",
+		"level": 1, "ending": "deleted", "date": date})
+	return _commit(data)
+
+
+## Immutable canonical names, loaded once per process.
+static var _job_names: Dictionary = {}
+
+
+## The canonical name of a job id, or the id as text when unknown.
+static func job_name_of(job_id: int) -> String:
+	if _job_names.is_empty():
+		for job: Dictionary in DataRepo.load_all().jobs.get("jobs", []):
+			_job_names[int(job.id)] = String(job.name)
+	return String(_job_names.get(job_id, str(job_id)))
+
+
+## Validates a slot (the run wrapper of specs #32 and #70, trimmed by #286) and delegates the character to CharacterSnapshot.
+## Only a format-3 character is a living one; an older one is a history entry (see _apply_file).
 static func validation_error(value: Variant) -> String:
 	if not value is Dictionary or not _json_safe(value):
-		return "expected a JSON-safe run snapshot"
+		return "expected a JSON-safe slot"
 	if not value.get("name") is String or not _valid_name(value.name):
 		return "name must be 4-12 letters or digits"
-	# Legacy format-2 wrappers may carry a duplicate look. Only character.look is consumed (#70/#71).
-	if value.has("look") and not value.look is Dictionary:
-		return "invalid look"
 	if not value.get("created") is String or value.created.is_empty():
 		return "invalid created date"
 	var character: Variant = value.get("character")
-	if not character is Dictionary or not _whole(character.get("format")):
+	if not character is Dictionary or not _whole(character.get("format")) or int(character.format) != CharacterSnapshot.FORMAT:
 		return "invalid CharacterSnapshot format"
 	var character_error := CharacterSnapshot.validation_error(character)
 	if not character_error.is_empty():
 		return character_error
-	for key: String in ["tier", "rounds_played", "tiers_cleared"]:
-		if not _whole(value.get(key)):
-			return "invalid " + key
-	if value.get("phase") not in ["free_market", "map_select", "round"]:
-		return "invalid phase"
-	if value.has("stage") and not value.stage is String:
-		return "invalid stage"
-	if value.has("round_seed") and not _whole(value.round_seed):
-		return "invalid round_seed"
-	if value.phase == "round" and (String(value.get("stage", "")).is_empty() or not value.has("round_seed")):
-		return "a round needs a stage and round_seed"
+	if not _whole(value.get("rounds_played")):
+		return "invalid rounds_played"
 	return ""
 
 
@@ -388,7 +409,7 @@ static func _json_safe(value: Variant) -> bool:
 static func _valid_file(value: Variant) -> bool:
 	if not value is Dictionary or not _json_safe(value) or not _whole(value.get("format")):
 		return false
-	if int(value.format) not in [1, FORMAT] or not value.get("best") is Dictionary or not value.get("runs") is Dictionary:
+	if int(value.format) not in [1, 2, FORMAT] or not value.get("best") is Dictionary or not value.get("runs") is Dictionary:
 		return false
 	for count: Variant in value.runs.values():
 		if not _whole(count):
@@ -403,24 +424,44 @@ static func _valid_file(value: Variant) -> bool:
 	for snapshot: Variant in value.slots:
 		if snapshot == null:
 			continue
-		if not validation_error(snapshot).is_empty():
+		# A format-2 character is only read for its history entry: its name, job and level, not its build.
+		if int(value.format) == 2:
+			if not _valid_retiring_slot(snapshot):
+				return false
+		elif not validation_error(snapshot).is_empty():
 			return false
 		var name: String = snapshot.name.to_lower()
 		if names.has(name):
 			return false
 		names[name] = true
 	for entry: Variant in value.history:
-		if not entry is Dictionary:
-			return false
-		for key: String in ["name", "job_name", "stage", "date"]:
-			if not entry.get(key) is String:
-				return false
-		for key: String in ["job_id", "level", "tiers_cleared", "rounds_played"]:
-			if not _whole(entry.get(key)):
-				return false
-		if int(entry.level) < 1 or entry.get("ending") not in ["died", "victory", "deleted"]:
+		if not _valid_history_entry(entry):
 			return false
 	return true
+
+
+static func _valid_retiring_slot(value: Variant) -> bool:
+	if not value is Dictionary or not value.get("name") is String or not _valid_name(value.name) \
+			or not value.get("character") is Dictionary:
+		return false
+	var character: Dictionary = value.character
+	return _whole(character.get("job_id")) and (not character.has("level") or _whole(character.level)) \
+		and (not value.has("stage") or value.stage is String) and (not value.has("created") or value.created is String)
+
+
+static func _valid_history_entry(entry: Variant) -> bool:
+	if not entry is Dictionary:
+		return false
+	for key: String in ["name", "job_name", "stage", "date"]:
+		if not entry.get(key) is String:
+			return false
+	for key: String in ["job_id", "level"]:
+		if not _whole(entry.get(key)):
+			return false
+	for key: String in ["tiers_cleared", "rounds_played"]: # format 2 entries only
+		if entry.has(key) and not _whole(entry[key]):
+			return false
+	return int(entry.level) >= 1 and entry.get("ending") in HISTORY_ENDINGS
 
 
 func _state() -> Dictionary:

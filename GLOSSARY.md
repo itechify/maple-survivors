@@ -6,20 +6,26 @@ monsters through a series of increasingly hard maps.
 ## Runs and rounds
 
 **Run**:
-One character's whole journey, from creation until it dies, clears the last tier or is deleted.
+No longer a unit of play (ADR 0006): a character has no journey that ends. The word survives only in tool names
+(`--run`, "run scene") for one round. Say character or round.
 _Avoid_: Game, save, playthrough
 
 **Character**:
-The named, persistent hero a run belongs to: level, EXP, job, AP stats, skills and look.
+The named, persistent hero a player creates: its name, look, 4th job (chosen at creation, never changed), worn
+equipment and inventory, scrolls, mesos, cash equipment, pet and unlocked tiers. It has no level, EXP, skills or AP
+between rounds: those belong to a round and start fresh at Lv1 (save format 3, #286).
 _Avoid_: Player (the person), avatar (the drawing), hero
 
 **Character slot**:
-One of the places a living character is kept between sessions; a character occupies a slot until its run ends.
+One of the three places a character is kept between sessions; a character occupies a slot until the player deletes it.
+Dying never frees a slot.
 _Avoid_: Save file, profile
 
 **Round**:
-One full stage played by a character, from its first map until death or all its maps are cleared.
-_Avoid_: Level, wave, run (a run is many rounds)
+One stage played by a character from Lv1, from its first map until all its maps are cleared, the character dies or the
+player quits the round (Quit round counts as a death). Every round is standalone and ends back in the Free Market. A
+round exists only while it is played: closing the game mid-round loses it.
+_Avoid_: Level, wave, run
 
 **Stage**:
 A region's ordered maps with their monster rosters, pacing and bosses; a round is one play of a stage.
@@ -34,49 +40,51 @@ The automatic move after a map clear to the next map of the same round, carrying
 _Avoid_: Round boundary (a transfer stays inside the round), checkpoint
 
 **Tier**:
-A difficulty step of the run, holding one or more stages; a character plays one stage from each tier in order.
+A difficulty step, holding one or more stages. Tier 1 is always open; clearing any stage of tier N unlocks tier N+1 for
+that character, and every unlocked tier can be replayed.
 _Avoid_: Act, world, chapter; not to be confused with a job tier or a card's rarity
 
 **Round boundary**:
-The moment between two rounds, where the character is carried over and HP and MP refill.
+The moment between two rounds. The character is saved with what the finished round gave it (mesos, equipment, scrolls,
+and an unlocked tier after a clear).
 
-**Run snapshot**:
-The character as it stood at the last round boundary, together with the next round's stage and seed; resuming a run
-always starts from it.
-_Avoid_: Mid-round save, checkpoint
+**Character snapshot**:
+The character as saved (format 3): what it keeps between rounds, listed under Character. There is no saved round to
+resume: saves happen at the Free Market and when a round ends.
+_Avoid_: Run snapshot, mid-round save, checkpoint
 
 **Free Market**:
-The walkable hub (v83 Free Market Entrance) a character visits after every cleared round, before map select.
+The walkable hub (v83 Free Market Entrance) that is a character's home: it starts there, returns there after every
+round, and goes up at its exit to map select.
 _Avoid_: Town, lobby, shop (shops live inside it)
 
 **Map select**:
-The screen where a character picks the next tier's stage.
+The screen where a character picks the stage of its next round, from every stage of every tier it has unlocked (a
+locked tier is shown greyed).
 _Avoid_: Stage select (the old single-stage screen)
 
-**Victory**:
-The end of a run that clears the last tier there is.
-
-**Run history**:
-The list of ended runs and how each ended: died, victory or deleted.
-_Avoid_: Graveyard, hall of fame
+**Round history**:
+One entry per round (character, job, stage, level reached, how it ended: cleared, died or quit), plus one when a
+character is deleted and one for each character of an old save (retired, format 2 files).
+_Avoid_: Run history, graveyard, hall of fame
 
 **Best result**:
-The best round ever played on a stage, kept per stage across all runs.
+The best round ever played on a stage, kept per stage across all characters.
 _Avoid_: High score
 
 **One-off round**:
-A single round with a fresh or supplied character that belongs to no run and is never saved; only tools start one.
+A single round with a fresh or supplied character that belongs to no slot and is never saved; only tools start one.
 _Avoid_: Quick play, practice run
 
 ## Account and NX
 
 **Account**:
-Everything the player keeps across runs: NX, cash items, run history and best results.
+Everything the player keeps across characters: NX, cash items, round history and best results.
 _Avoid_: Profile, meta save, meta progression
 
 **NX**:
 The account's currency, earned at the end of every round and spent in the Cash Shop.
-_Avoid_: Cash, gems, meta currency; not mesos (mesos belong to one run)
+_Avoid_: Cash, gems, meta currency; not mesos (mesos belong to one character)
 
 **Cash item**:
 Anything bought with NX: owned once by the account, never expires, and every character can use it.
@@ -248,8 +256,8 @@ A character's permission to pick a tier's stages, earned by clearing any stage o
 _Avoid_: level gate, progress
 
 **Drop band**:
-The `reqLevel` range of equipment a tier's monsters drop, with bosses rolling from its top. `reqLevel` is no longer
-a requirement to wear the item.
+The `reqLevel` range of equipment a tier's monsters drop (tier 1 0-30, tier 2 30-60), with bosses rolling from its top
+third. It replaces the character's level in the drop rule; `reqLevel` is no longer a requirement to wear the item.
 _Avoid_: loot table, item level
 
 ## Monsters
@@ -304,12 +312,13 @@ _Avoid_: mob cap, max mobs
 
 **Mesos**:
 The run's money: dropped by monsters, spent on scrolls in the Free Market shops (which also buy spare equipment and
-scrolls back), carried between rounds with the character, and lost when the run ends.
+scrolls back), and carried between rounds with the character; a death or a clear keeps them.
 _Avoid_: Gold, coins, money; not to be confused with NX, which outlives runs
 
 **Equipment**:
-The v83 items a character can wear, each with its real stats and its level, job and stat requirements. Equipment
-comes only from monster drops (plus the weapon a job advancement hands over), never from shops.
+The v83 items a character can wear, each with its real stats. Its job class is the only requirement to wear it: its
+`reqLevel` and stat requirements do not apply (they place it in a tier's drop band). Equipment comes only from monster
+drops (plus the creation weapon of a new character), never from shops, and stays with the character between rounds.
 _Avoid_: Gear (in player-visible text), armour, loot
 
 **Equip slot**:
@@ -390,3 +399,8 @@ _Avoid_: launcher, wrapper
 Where one import reads the player's v83 `.wz` files from: an install folder, a `.zip`, or (web build only) a URL the
 player pastes.
 _Avoid_: mirror (the project never names one), WZ root (that is the desktop folder setting)
+
+**Summon**:
+A timed player-owned ally cast by an active skill. It follows or waits at its own position and attacks monsters;
+its map-local lifetime ends on expiry or map transfer. It occupies its skill’s active slot, uses the original skill
+id and WZ animations, and is separate from a cash pet or a monster summoned by a boss.

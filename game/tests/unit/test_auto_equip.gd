@@ -14,6 +14,7 @@ const INFO := {
 	1050010: {"reqLevel": 15, "incPDD": 20, "tuc": 10}, # an overall
 	1092005: {"reqLevel": 10, "incPDD": 10, "tuc": 7}, # a shield
 	1402000: {"incPAD": 40, "attackSpeed": 6, "tuc": 7}, # a two-handed sword
+	1092006: {"reqJob": 1, "incPDD": 40, "tuc": 7}, # a Warrior's shield
 	1372005: {"reqLevel": 8, "incPAD": 15, "incMAD": 23, "attackSpeed": 6, "tuc": 7}, # a wand
 }
 
@@ -21,18 +22,21 @@ const INFO := {
 func _setup(character: Dictionary = {}) -> Dictionary:
 	var setup := RF.setup("quiet", 7, RF.quiet_data())
 	setup.equipment_info = INFO.duplicate(true)
-	setup.data.balance.player.skills = []
+	setup.data.jobs_survivor.jobs["212"]["starting_skill"] = ""; setup.data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	if not character.is_empty():
 		setup.character = character
 	return setup
 
 
-## A world whose character starts as the creation outfit (top, bottom, shoes, sword), changed by `change`.
+## A world whose character starts as the creation outfit (top, bottom, shoes, sword), changed by `change`. A character has
+## no level (#286), so a `level` key `change` sets is the round's level at the start.
 func _world(change: Callable = Callable()) -> RunWorld:
 	var character := RunWorld.new(_setup()).character_snapshot()
 	if change.is_valid():
 		change.call(character)
 	var world := RunWorld.new(_setup(character))
+	world.progression.level = int(character.get("level", 1))
+	world.refresh_player_stats()
 	RF.place_player(world, 400)
 	world.god = true
 	world.drain_events()
@@ -80,8 +84,11 @@ func test_an_occupied_slot_keeps_the_pickup_in_the_equip_tab() -> void:
 	assert_eq(changed.map(func(e: Dictionary) -> String: return e.action), ["pickup"])
 
 
-func test_an_unmet_requirement_keeps_the_pickup_in_the_equip_tab() -> void:
-	for spec: Array in [[1002017, {}], [1082019, {"level": 30, "job_id": 200}]]:
+func test_another_jobs_item_stays_in_the_equip_tab_and_level_and_stats_do_not_matter() -> void:
+	var lv1 := _world()
+	_pick_up(lv1, 1002017)
+	assert_eq(lv1.equipment.worn.hat.id, 1002017, "the Lv10 Magician hat is worn at Lv1")
+	for spec: Array in [[1092006, {}], [1082019, {"job_id": 0}]]:
 		var fields: Dictionary = spec[1]
 		var world := _world(func(c: Dictionary) -> void: c.merge(fields, true))
 		var changed := _pick_up(world, spec[0])

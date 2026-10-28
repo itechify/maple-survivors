@@ -11,7 +11,6 @@ var jump_pressed := false
 var jump_held := false
 ## Potion presses are consumed once by a sim tick; holding the key does not repeatedly drink.
 var drink_hp := false
-var drink_mp := false
 ## Manual skill presses (skill key id -> true) consumed once, and the skill keys still held (a held key requests
 ## repeats: Teleport after its survivor delay, a manual buff when it is ready again). See press_skill / hold_skill.
 var skills_pressed := {}

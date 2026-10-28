@@ -7,17 +7,17 @@ const DT := 1.0 / 60.0
 
 func _world() -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.balance.player.hp = 500 # the removed advancements granted +125 / +325 HP (#284)
 	data.balance.player.stats = {"str": 4, "dex": 30, "int": 4, "luk": 100}
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", 213, data))
 	setup.equipment_info[1472008] = {"incPAD": 18, "attackSpeed": 4, "tuc": 7}
 	setup.equipment_info[1332063] = {"incPAD": 28, "attackSpeed": 3, "tuc": 7}
+	setup["job"] = 400 # no start skills
 	var w := RunWorld.new(setup)
-	w.change_job(400, "claw")
+	RF.as_job(w, 400, "claw")
 	w.progression.level = 30
-	w.change_job(410)
+	RF.as_job(w, 410)
 	RF.place_player(w, 400)
 	w.god = true
 	w.pending_cards = []
@@ -78,14 +78,14 @@ func test_other_skills_do_not_heal() -> void:
 
 func test_assassin_cards_learn_rank_and_add_three_pierce_steps() -> void:
 	var w := _world()
-	assert_has(w.upgrades.eligible(w), "drain_new")
+	assert_false("drain_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	w.upgrades.apply("drain_new", w)
 	assert_eq(w.loadout.rank("drain"), 1)
 	w.upgrades.apply("drain_rank", w)
 	assert_eq(w.loadout.level("drain"), 2)
 	for step in range(1, 4):
-		assert_has(w.upgrades.eligible(w), "drain_pierce")
-		w.upgrades.apply("drain_pierce", w)
+		assert_false("drain_pierce" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
+		RF.add_modifier_effects(w, w.upgrades.card("drain_pierce"))
 		assert_eq(w.loadout.stats("drain").pierce, step)
 	assert_false("drain_pierce" in w.upgrades.eligible(w))
 	w.loadout.set_rank("drain", 30)
@@ -99,7 +99,7 @@ func test_assassin_cards_learn_rank_and_add_three_pierce_steps() -> void:
 			assert_false(w.upgrades.is_eligible(w.upgrades.card(id), w))
 
 
-func test_drain_needs_a_claw_and_uses_the_current_star_at_every_assassin_tier() -> void:
+func test_drain_uses_the_current_star_at_every_assassin_tier_and_casts_with_any_weapon() -> void:
 	for tier in range(6):
 		var w := _world()
 		w.progression.level = 30 + 5 * tier
@@ -110,16 +110,15 @@ func test_drain_needs_a_claw_and_uses_the_current_star_at_every_assassin_tier() 
 		w.equipment.inventory.append(Equipment.create(1332063, w.setup.equipment_info[1332063]))
 		var dagger: int = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id)).find(1332063)
 		assert_eq(w.equip_item(dagger), "")
-		var mp: int = w.player_state.mp
 		w.runner.step(DT, w)
-		assert_eq(w.projectiles.active_count(), 0)
-		assert_eq(w.player_state.mp, mp)
-		assert_false("drain_new" in w.upgrades.eligible(w))
+		assert_eq(w.projectiles.active_count(), 1, "a dagger in hand still casts Drain (#284: no weapon gate)")
+		for i in w.projectiles.capacity():
+			w.projectiles.despawn(i)
+		w.runner.cooldowns["drain"] = 0.0
 		var claw: int = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id)).find(1472008)
 		assert_eq(w.equip_item(claw), "")
 		w.runner.step(DT, w)
 		assert_eq(w.projectiles.active_count(), 1)
-		assert_eq(w.player_state.mp, mp - 12)
 		for i in w.projectiles.capacity():
 			if w.projectiles.active[i] != 0:
 				assert_eq(w.projectiles.paths[w.projectiles.visual[i]],
@@ -131,8 +130,7 @@ func test_one_piercing_star_heals_per_impact_using_launch_rank_and_resolved_phys
 	w.learn_skill("drain")
 	w.loadout.set_rank("drain", 30)
 	for step in 3:
-		w.upgrades.apply("drain_pierce", w)
-	w.basic.cooldown = 60
+		RF.add_modifier_effects(w, w.upgrades.card("drain_pierce"))
 	for x in [480, 495, 510, 525]:
 		var target := RF.put_mob(w, 1110100, x, 190, 1000)
 		w.mob_kinds[w.swarm.kind[target]].pdd = 20
@@ -172,6 +170,6 @@ func test_original_drain_tables_art_sound_and_tooltip_resolve_from_the_read_only
 	assert_true(lib.sound(String(book.def("drain").sounds.use)) != null)
 	var lo := Loadout.new(book)
 	assert_eq(SkillText.new(book, {}).level_line("drain", 30, lo.stats("drain", 30)),
-		"MP -24; Damage 160%, absorb 45% of damage as HP.")
+		"Damage 160%, absorb 45% of damage as HP.")
 	assert_eq(Array(lib.missing), [])
 	lib.free()

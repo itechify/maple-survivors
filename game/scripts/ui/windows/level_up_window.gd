@@ -24,20 +24,20 @@ extends MapleWindow
 ## `desc` and `detail` may hold v83 markup (#c...# is drawn orange, "\n" breaks the line).
 
 ## Label and unit of a rank card's canonical `x` by the skill's buff effect stat (skills.json `buff.stat`, the card's
-## `skill_effect_stat`): a healing buff's x is HP per pulse; otherwise (Magic Guard) it is the percent absorbed by MP.
+## `skill_effect_stat`): a healing buff's x is HP per pulse; any other stat shows as a plain effect value.
 const X_LABELS := {"hp": ["HP / pulse", ""], "weapon_damage_reduction": ["Weapon reduction", "%"], "slow": ["Move speed", "%"],
 	"acc": ["Accuracy", ""],
 	"threatened": ["Monster weapon ATT / DEF", ""]}
-const X_LABEL_DEFAULT := ["MP absorption", "%"]
+const X_LABEL_DEFAULT := ["Effect", ""]
 ## Label of each previewed field (UpgradePool.PREVIEW_FIELDS plus survivor passive stats); `x` comes from X_LABELS.
-const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",
+const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "fixdamage": "Damage",
 	"time": "Duration", "pdd": "Weapon DEF", "mdd": "Magic DEF", "acc": "Accuracy", "eva": "Avoid",
 	"mobCount": "Targets", "cooltime": "Cooldown", "speed": "Speed", "range": "Range", "hp": "Recovery power",
-	"damage": "Damage", "hpCon": "HP cost", "prop": "Success rate", Loadout.MAX_MP_PERCENT: "Max MP",
+	"damage": "Damage", "hpCon": "HP cost", "prop": "Success rate",
 	"knockback_chance": "Knock-back chance", "blast_targets": "Blast targets", "pierce_falloff": "Pierce fall-off",
 	UpgradePool.PASSIVE_MAX_HP: "Max HP per level-up", UpgradePool.PASSIVE_REGEN_HP: "HP per pulse"}
 ## Fields shown as a percent (canonical `damage` is the skill's percent of the weapon damage).
-const PERCENT_FIELDS := ["mastery", "hp", "damage", "prop", Loadout.MAX_MP_PERCENT, "knockback_chance", "pierce_falloff"]
+const PERCENT_FIELDS := ["mastery", "hp", "damage", "prop", "knockback_chance", "pierce_falloff"]
 ## Label and unit of each mod-card value (UpgradePool skill_mod_changes keys: a `count` card is SkillRunner.SHOTS or
 ## TARGETS), in display order. tier C: our wording.
 const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Targets", ""], "attack_count": ["Hits", ""], "pierce": ["Pierce", ""],
@@ -88,7 +88,7 @@ const BLANK_X := 14.0
 ## Choice rows inside the panel's inner fill (x 12..202). tier C: use the blanked notice sentence for compactness.
 const ROWS_TOP := 140.0
 ## tier C: reward title plus instruction above the same canonical card rows.
-const BONUS_ROWS_TOP := 52.0
+const BONUS_ROWS_TOP := 64.0
 const ROW_X := 12.0
 const ROW_W := 191.0
 const ROW_H := 35.0
@@ -109,8 +109,6 @@ var cards: Array = []
 var level := 0
 ## Boss rewards use the same card-choice interface without the gained-level notice.
 var bonus := false
-## Extra new-job skill draw, independent of the queued level and boss reward.
-var advancement := false
 ## Index of the focused card (-1 = none).
 var focus := -1
 
@@ -127,11 +125,10 @@ func _init() -> void:
 
 
 ## Opens the window with the cards of a choice_pending event and the new level.
-func open(p_cards: Array, p_level: int, p_bonus: bool = false, p_advancement: bool = false) -> void:
+func open(p_cards: Array, p_level: int, p_bonus: bool = false) -> void:
 	cards = p_cards.duplicate(true)
 	level = p_level
 	bonus = p_bonus
-	advancement = p_advancement
 	focus = 0 if not cards.is_empty() else -1
 	_build_layout()
 	_show_window()
@@ -176,6 +173,12 @@ func card_rect(i: int) -> Rect2:
 ## The offered canonical skill level (learn/rank) or consumed modifier steps; fillers have no rank text.
 static func rank_text(card: Dictionary) -> String:
 	var kind := String(card.get("kind", ""))
+	if card.get("card_kind", "") == "mastery":
+		return "Rank %d · Mastery" % int(card.get("skill_rank_max", 0))
+	if card.get("card_kind", "") == "owned_active":
+		return "Rank %d → %d" % [int(card.get("skill_rank_before", 0)), int(card.get("skill_rank_before", 0)) + 1]
+	if card.get("card_kind", "") == "new_active":
+		return "NEW  Rank 1"
 	if kind == "filler":
 		return ""
 	var rank := int(card.get("rank", 1))
@@ -261,13 +264,13 @@ func _panel_gui_input(event: InputEvent, local: Vector2) -> void:
 
 
 func _build_layout() -> void:
-	var minimum := BONUS_ROWS_TOP + BOTTOM_H if bonus or advancement else ART_SIZE.y
+	var minimum := BONUS_ROWS_TOP + BOTTOM_H if bonus else ART_SIZE.y
 	var height := minimum
 	var view_h := size.y if size.y > 0.0 else Vector2(GameSettings.BASE_VIEW).y
 	# tier C: dense previews shorten prose before hiding any tier, magnitude or changed canonical value.
 	for desc_limit in range(DESC_MAX_LINES, 0, -1):
 		_blocks.clear()
-		var y := BONUS_ROWS_TOP if bonus or advancement else ROWS_TOP
+		var y := BONUS_ROWS_TOP if bonus else ROWS_TOP
 		for c: Variant in cards:
 			var card: Dictionary = c if c is Dictionary else {}
 			var desc := MapleText.wrap_markup(String(card.get("desc", "")), ROW_W - 8.0, MapleText.SMALL)
@@ -291,11 +294,14 @@ func _build_layout() -> void:
 
 
 func _draw_panel(ci: Control) -> void:
-	if bonus or advancement:
+	if bonus:
 		_draw_bonus_art(ci, UiArt.frame(ART))
 	else:
 		_draw_art_without_sentence(ci, UiArt.frame(ART))
 		_draw_level(ci)
+	if not cards.is_empty():
+		MapleText.draw_centered(ci, 8, 128 if not bonus else 48, panel_size.x - 16,
+			String(cards[0].get("slots", "")), MapleText.BLACK, MapleText.SMALL)
 	var row0 := UiArt.frame(ROW)
 	var row1 := UiArt.frame(ROW_FOCUS)
 	for i in mini(cards.size(), _blocks.size()):
@@ -313,8 +319,8 @@ func _draw_bonus_art(ci: Control, f: SpriteFrame) -> void:
 			UiArt.blit_part(ci, f, Rect2(0, MID_Y, f.region.size.x, h), Vector2(0, y))
 			y += h
 		UiArt.blit_part(ci, f, Rect2(0, bottom_y, f.region.size.x, bottom_h), Vector2(0, end))
-	MapleText.draw_centered(ci, 0, 12, panel_size.x, "Job Advancement" if advancement else "Boss Reward", MapleText.WHITE, MapleText.SIZE, true)
-	MapleText.draw_centered(ci, 0, 30, panel_size.x, "Choose a new skill" if advancement else "Choose an upgrade", MapleText.WHITE, MapleText.SMALL)
+	MapleText.draw_centered(ci, 0, 12, panel_size.x, "Boss Reward", MapleText.WHITE, MapleText.SIZE, true)
+	MapleText.draw_centered(ci, 0, 30, panel_size.x, "Choose an upgrade", MapleText.WHITE, MapleText.SMALL)
 
 
 ## The window art like TiledFrame.draw_v_slices, with the notice sentence's words (SENTENCE_BANDS) replaced by the

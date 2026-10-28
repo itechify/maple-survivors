@@ -18,7 +18,6 @@ static func decide(world: RunWorld, policy: String, memo: Dictionary, after: flo
 		return bot
 	var input := MoveInput.new()
 	input.drink_hp = bot.drink_hp
-	input.drink_mp = bot.drink_mp
 	if not memo.has("started_time"):
 		memo.started_time = world.time
 		memo.reached = false

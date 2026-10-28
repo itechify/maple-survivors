@@ -2,12 +2,13 @@ class_name AccountFile
 extends RefCounted
 ## The account file of tool rounds (`--account=<absolute JSON>` on balance.sh, playtest.sh and `--run`, spec #34):
 ##
-##   {"owned": [item ids], "cash": {slot: item id}, "pet": species id, "alert": {"hp": 0..1, "mp": 0..1}}
+##   {"owned": [item ids], "cash": {slot: item id}, "pet": species id, "alert": {"hp": 0..1}}
 ##
 ## Every key is optional; unknown keys (`_doc`, `nx`) are ignored, because tool rounds never credit NX. `owned` is the
 ## account's cash items. `cash`, `pet` and `alert` are applied to the round's character (a fresh one or the carried
 ## `--character`): `cash`/`pet` replace what the character wears and has out when the file names them, `alert` becomes
-## the round setup's `alert` (fractions of max HP/MP; 0 = do not alert). Leaving the flag out is an empty account and
+## the round setup's `alert` (a fraction of max HP; 0 = do not alert; an old file's `alert.mp` is accepted and ignored,
+## since there is no MP, ADR 0006). Leaving the flag out is an empty account and
 ## changes nothing. Presentation/core code: it reads files; the sim only sees the resulting setup keys.
 
 ## Reads and validates an account file; {} plus a message in `errors` when it is missing or malformed. The result is
@@ -37,21 +38,20 @@ static func validation_error(value: Variant) -> String:
 	if value.has("alert"):
 		if not value.alert is Dictionary:
 			return "invalid alert"
-		for kind: String in ["hp", "mp"]:
-			var level: Variant = value.alert.get(kind, 0.0)
-			if not _number(level) or float(level) < 0.0 or float(level) > 1.0:
-				return "invalid alert"
+		var level: Variant = value.alert.get("hp", 0.0)
+		if not _number(level) or float(level) < 0.0 or float(level) > 1.0:
+			return "invalid alert"
 	return ""
 
 
-## A validated account as plain typed data: {owned: [int], alert: {hp, mp}} always, plus cash {slot: int} and pet int
+## A validated account as plain typed data: {owned: [int], alert: {hp}} always, plus cash {slot: int} and pet int
 ## only when the file names them.
 static func normalized(value: Dictionary) -> Dictionary:
 	var owned: Array = []
 	for id: Variant in value.get("owned", []):
 		owned.append(int(id))
 	var alert: Dictionary = value.get("alert", {})
-	var out := {"owned": owned, "alert": {"hp": float(alert.get("hp", 0.0)), "mp": float(alert.get("mp", 0.0))}}
+	var out := {"owned": owned, "alert": {"hp": float(alert.get("hp", 0.0))}}
 	if value.has("cash"):
 		out["cash"] = CharacterSnapshot.integers(value.cash)
 	if value.has("pet"):
@@ -63,7 +63,7 @@ static func normalized(value: Dictionary) -> Dictionary:
 ## worn items on the setup's character (creating the fresh character when the setup has none).
 static func apply(setup: Dictionary, account: Dictionary) -> void:
 	setup["account"] = {"owned": account.get("owned", []).duplicate()}
-	setup["alert"] = account.get("alert", {"hp": 0.0, "mp": 0.0}).duplicate()
+	setup["alert"] = account.get("alert", {"hp": 0.0}).duplicate()
 	if not account.has("cash") and not account.has("pet"):
 		return
 	var character: Dictionary

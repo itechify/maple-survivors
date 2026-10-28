@@ -38,26 +38,30 @@ func test_creation_choices_become_worn_equipment_and_are_what_is_drawn() -> void
 	# Synthetic img roots shaped like Character.wz items (stats invented).
 	var imgs := {}
 	for spec: Array in [[1041011, {"incPDD": 3, "tuc": 7}], [1061008, {"incPDD": 2, "tuc": 7}],
-			[1072038, {"incPDD": 2, "tuc": 5}], [1322005, {"incPAD": 19, "tuc": 7}]]:
+			[1072038, {"incPDD": 2, "tuc": 5}], [1372005, {"incPAD": 15, "incMAD": 23, "tuc": 7}]]:
 		imgs[AvatarRenderer.part_img_path(spec[0])] = {"info": spec[1]}
 	var loader := func(path: String) -> Dictionary: return imgs.get(path, {})
 	var character := SceneFlow.new_character({"skin": 3, "face": 21002, "hair": 31057,
-		"equips": [1041011, 1061008, 1072038]}, 1322005, loader)
+		"equips": [1041011, 1061008, 1072038]}, 212, loader)
 	assert_eq(CharacterSnapshot.validation_error(character), "")
 	assert_eq(character.look, {"skin": 3, "face": 21002, "hair": 31057})
-	assert_eq(character.equipment.worn.weapon, {"id": 1322005, "stats": {"incPAD": 19}, "slots": 7, "scrolls": 0})
+	assert_eq(character.equipment.worn.weapon, {"id": 1372005, "stats": {"incPAD": 15, "incMAD": 23}, "slots": 7,
+		"scrolls": 0}, "the job's creation weapon, with its plain WZ stats")
+	assert_eq(character.job_id, 212)
+	assert_eq(character.tiers_unlocked, 1)
 	assert_eq(character.equipment.worn.shoes.slots, 5)
 	assert_eq(character.equipment.inventory, [])
 	assert_eq(character.mesos, 0)
 	assert_eq(DataRepo.character_look(character, DataRepo.load_all()), {"skin": 3, "face": 21002, "hair": 31057,
-		"equips": [1041011, 1061008, 1072038, 1322005]}, "the creation items look exactly as before")
+		"equips": [1041011, 1061008, 1072038, 1372005]}, "the creation items look exactly as before")
 	var world_setup := RF.setup("quiet", 1, RF.quiet_data())
 	world_setup.character = character
 	var world := RunWorld.new(world_setup)
-	assert_eq(world.weapon_id(), 1322005)
+	assert_eq(world.weapon_id(), 1372005)
 	assert_eq(world.player_state.pdd, 7.0, "the creation outfit's own W.DEF")
-	var plain := SceneFlow.new_character({}, 0, loader)
-	assert_eq(Equipment.worn_ids(plain.equipment.worn), Equipment.DEFAULT_OUTFIT)
+	var plain := SceneFlow.new_character({}, 212, loader)
+	assert_eq(Equipment.worn_ids(plain.equipment.worn),
+		Equipment.DEFAULT_OUTFIT.slice(0, 3) + [1372005], "an empty look wears the default outfit and the job's wand")
 
 
 func test_name_validation_explains_length_symbols_and_living_duplicate() -> void:
@@ -69,7 +73,7 @@ func test_name_validation_explains_length_symbols_and_living_duplicate() -> void
 	assert_true(save.name_error("Maplé").contains("letters"))
 	var character := RunWorld.new({"data": DataRepo.load_all()}).character_snapshot()
 	assert_eq(save.create_slot({"name": "Maple70", "character": character, "created": "2026-10-16",
-		"tier": 0, "phase": "map_select", "rounds_played": 0, "tiers_cleared": 0}), 0)
+		"rounds_played": 0}), 0)
 	assert_true(save.name_error("maple70").contains("already"))
 	assert_eq(save.name_error("Maple71"), "")
 
@@ -112,6 +116,6 @@ func test_imported_creation_options_have_every_renderable_variant_and_canonical_
 	assert_eq(int(setup.equipment_info[1372005].reqLevel), 8)
 	var fresh := RunWorld.new(setup)
 	assert_eq(fresh.player_state.pdd, 7.0, "the default outfit's W.DEF 3 + 2 + 2")
-	assert_true(lib.sound(WeaponInfo.sound_path(BasicAttack.BARE_HANDS)) != null, "the bare-handed punch sound")
+	assert_true(lib.sound(WeaponInfo.sound_path(WeaponReach.BARE_HANDS)) != null, "the bare-handed punch sound")
 	assert_eq(lib.missing, PackedStringArray())
 	lib.free()

@@ -16,7 +16,6 @@ func _ctx(w: RunWorld) -> Dictionary:
 ## A world whose skill "synthetic" hits the mob and carries the given on_hit block (level 1: prop 30, time 3).
 func _skill_world(on_hit: Dictionary) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 100
 	data.skills.skills["synthetic"] = {"skill_id": 9991000, "book": "999", "kind": "instant",
 		"damage": "fixed", "ranks": [1, 2], "cooldown": 1.0, "range": 400.0, "speed": 400.0,
 		"cast": {}, "on_hit": on_hit}

@@ -1,9 +1,10 @@
 class_name SkillWindowModel
 extends RefCounted
 ## What the v83 Skill window (SkillWindow, #86) shows, built from plain run data so it can be tested without nodes or
-## the cache: one tab per job on the character's path (Beginner, 1st job, the 2nd-job branch reached), each listing
-## every skill of that job the game implements (spec #225: there are no job-neutral cards, so no star tab). Read-only:
-## it never changes the loadout.
+## the cache: one tab per job on the character's line below the Beginner (1st job up to the character's own job; #284:
+## the Beginner is no longer playable), each listing every skill of that job the game implements. The first tab, when the
+## book has any, is Common: the nine job-neutral passives (spec #289), learned or not. Read-only: it never changes the
+## loadout.
 ##
 ##   var m := SkillWindowModel.new(world.book, world.upgrades, world.loadout, world.jobs, job_id, run.skill_text)
 ##   m.tabs        # [{name, job_id, tier, book_name, book_icon, rows: [...]}]
@@ -17,26 +18,29 @@ var loadout: Loadout
 var jobs: JobTree
 var job_id := 0
 var text: SkillText
-## Returns the family of the weapon held now (RunWorld.held_weapon_family; "" = bare hands). Without one (not valid) no
-## weapon is held, which only matters for skills that name a weapon.
-var held_family: Callable
 ## The tabs, left to right (see the class doc).
 var tabs: Array[Dictionary] = []
 
 
 func _init(p_book: SkillBook, p_pool: UpgradePool, p_loadout: Loadout, p_jobs: JobTree, p_job_id: int,
-		p_text: SkillText, p_held_family: Callable = Callable()) -> void:
-	held_family = p_held_family
+		p_text: SkillText) -> void:
 	book = p_book
 	pool = p_pool
 	loadout = p_loadout
 	jobs = p_jobs
 	job_id = p_job_id
 	text = p_text
+	var common := _common_rows()
+	if not common.is_empty():
+		# Spec #289: the job-neutral passives sit on the first tab, wearing the Beginner glyph (nobody is a Beginner now).
+		tabs.append({"name": "Common", "job_id": 0, "tier": 0, "book_name": "Common Passives",
+			"book_icon": String(common[0].icon), "rows": common})
 	var path := jobs.lineage(job_id)
 	path.reverse()
 	for id in path:
 		var j := jobs.job(id)
+		if int(j.get("tier", 0)) == 0:
+			continue
 		var bk := String(j.get("book", ""))
 		var names: Variant = text.strings.get(bk, {}) if text != null else {}
 		tabs.append({"name":String(j.get("name", str(id))), "job_id": id, "tier": int(j.get("tier", 0)),
@@ -44,24 +48,10 @@ func _init(p_book: SkillBook, p_pool: UpgradePool, p_loadout: Loadout, p_jobs: J
 			"book_icon": "Skill.wz/%s.img/info/icon" % bk if bk != "" else "", "rows": _skill_rows(id)})
 
 
-## True when the weapon held now can use skill `key` (SkillBook.usable_with); the window greys the row otherwise.
-func usable(key: String) -> bool:
-	return book.usable_with(key, String(held_family.call()) if held_family.is_valid() else "")
-
-
-## The weapon a skill needs for the tooltip: "Claw", "Knuckle / Gun" ("" when any weapon works).
-func weapon_needed(key: String) -> String:
-	var names := PackedStringArray()
-	for family in book.weapon_families(key):
-		names.append(WeaponInfo.family_label(family))
-	return " / ".join(names)
-
-
 ## The tooltip of skill `key`: {name, icon, desc, level (0 when unlearned), current (the owned level's line, "" when
 ## unlearned), next_level (0 at the cap), next (that level's line), cooldown (s between casts:
-## SkillRunner.restart_cooldown; -1 for a passive), mp_cost (-1 for a passive), hp_cost (only for an active skill that
-## pays HP, Slash Blast), needs (the weapon it needs, "" for any;
-## weapon_needed), usable (the held weapon can use it), upgrades: [{id, name, steps, effect, text}] (every behaviour
+## SkillRunner.restart_cooldown; -1 for a passive), hp_cost (only for an active skill that
+## pays HP, Slash Blast), upgrades: [{id, name, steps, effect, text}] (every behaviour
 ## card taken for the skill, in card order: "Twin Claw ×2: +2 targets")}. Lines come from SkillText filled with the
 ## effective stats, so cards show in the numbers.
 func skill_tooltip(key: String) -> Dictionary:
@@ -71,14 +61,13 @@ func skill_tooltip(key: String) -> Dictionary:
 	var kind := book.kind(key)
 	var tip := {"key": key, "name": String(d.get("name", key)), "icon": String(d.get("icon", "")),
 		"desc": text.desc(key), "level": loadout.level(key), "current": "", "next_level": 0, "next": "",
-		"cooldown": -1.0, "mp_cost": -1, "needs": weapon_needed(key), "usable": usable(key), "upgrades": []}
+		"cooldown": -1.0, "upgrades": []}
 	if r > 0:
 		tip.current = text.level_line(key, loadout.level(key), st)
 	if r < book.max_rank(key):
 		tip.next_level = book.canonical_level(key, r + 1)
 		tip.next = text.level_line(key, tip.next_level, loadout.stats(key, r + 1))
 	if kind != "passive":
-		tip.mp_cost = int(st.mp_cost)
 		tip.hp_cost = int(st.hp_cost)
 		tip.cooldown = SkillRunner.restart_cooldown(st)
 	var upgrades: Array[Dictionary] = []
@@ -122,11 +111,29 @@ static func mod_effect(c: Dictionary, steps: int, skill_kind: String) -> String:
 	return ", ".join(parts)
 
 
+## The rows of the common passives (skills.json `common_passive`), in definition order: every one, learned or not.
+func _common_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for key: String in book.defs:
+		var d := book.def(key)
+		if not bool(d.get("common_passive", false)):
+			continue
+		var icon := String(d.get("icon", ""))
+		rows.append({"key": key, "skill_id": book.skill_id(key), "name": String(d.get("name", key)), "icon": icon,
+			"icon_disabled": icon.trim_suffix("icon") + "iconDisabled" if icon.ends_with("/icon") else "",
+			"level": loadout.level(key), "max_level": book.canonical_level(key, book.max_rank(key)),
+			"learned": loadout.has(key)})
+	return rows
+
+
 ## The rows of job `id`: every skills.json skill of that job that a card offers or the run owns, by skill id.
 func _skill_rows(id: int) -> Array[Dictionary]:
 	var offered := {}
+	var curated := jobs.skill_pool(job_id)
 	for c: Dictionary in pool.cards:
-		offered[String(c.get("skill", ""))] = true
+		var key := String(c.get("skill", ""))
+		if curated.is_empty() or key in curated:
+			offered[key] = true
 	var keys: Array = []
 	for key: String in book.defs:
 		if int(book.def(key).get("job", -1)) == id and (offered.has(key) or loadout.has(key)):

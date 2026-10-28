@@ -9,7 +9,7 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 static func setup(id: int = 6130101, p_seed: int = 2302, area: Rect2 = Rect2(-250, -150, 500, 150)) -> Dictionary:
 	var data := RF.quiet_data()
 	var shipped := shipped_entry(data, id)
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = float(shipped.typical_hp)
 	data.balance.player.stats.dex = 0
 	data.balance.player.stats.luk = 0

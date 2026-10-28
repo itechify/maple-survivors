@@ -14,12 +14,13 @@ extends RefCounted
 ## Sources, per skill (survivor key of skills.json):
 ## - desc: the survivor override `text.desc` in skills.json (plain text), else String.wz/Skill.img/<7-digit id>/desc.
 ## - level line: the override template `text.h`, else the WZ line the level node names (`hs`, else "h<level>").
-## WZ text is cleaned: its literal "\n" / "\r\n" escapes become line breaks; the "[Master Level : N]" line and the
+## WZ text is cleaned: its literal "\n" / "\r\n" escapes become line breaks; a WZ level line drops its MP cost ("MP -10, ",
+## "Use 20 MP, ", ...: there is no MP, ADR 0006; strip_mp_cost); the "[Master Level : N]" line and the
 ## "Required Skill : ..." lines go (tier C: the level text shows the cap, and WZ prerequisites are ignored, #31).
 ##
 ## Templates (override `h` only): `{name}` is replaced by a number, `{name|monster|monsters}` by the number and
 ## the singular or plural word. Names resolve, in order, from the effective `stats` passed in (Loadout.stats: count,
-## mob_count, pierce, mp_cost, cooldown, duration, level, ... including behaviour cards), then the canonical fields of
+## mob_count, pierce, hp_cost, cooldown, duration, level, ... including behaviour cards), then the canonical fields of
 ## that level node (mad, x, time, prop, ...; so `speed` and `range` mean the effective projectile values), then
 ## `mastery_pct` (canonical mastery as the percent v83 shows) and `passive_pct` (a survivor passive's value in %).
 ## An unknown name stays as written, so tests catch it.
@@ -32,6 +33,12 @@ var strings: Dictionary
 
 static var _master_re: RegEx
 static var _token_re: RegEx
+static var _mp_cost_res: Array[RegEx] = []
+## tier C (ours): the v83 String.wz wordings of a level's MP cost that strip_mp_cost removes, in order (measured on
+## the v83 Skill.img h lines; a rarer wording stays as written).
+const MP_COST_PATTERNS := ["(?<=HP)(\\s*-\\s*\\d+)\\s*,\\s*MP\\s*-\\s*\\d+", "-?\\bMP\\s*-?\\s*\\d+\\s*(consume)?\\s*[,;]\\s*",
+	"\\bUse\\s+\\d+%?\\s*MP\\s*[,;]\\s*", "\\bUse\\s+MP\\s*\\d+\\s*[,;]\\s*", "\\bConsumes\\s+\\d+\\s*MP\\s*[,.;]\\s*",
+	",\\s*\\d+\\s*MP\\b(?!\\s*[+%])", "(?<=HP \\d)(\\d*),\\s*MP\\s*\\d+"]
 
 
 ## `p_book`: the run's SkillBook (skills.json defs with their `text` overrides, and the canonical level tables).
@@ -59,7 +66,7 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	else:
 		var node := book.level_node(key, level)
 		var hs := String(node.get("hs", "h%d" % level))
-		line = clean(String(_wz(key).get(hs, "")))
+		line = strip_mp_cost(clean(String(_wz(key).get(hs, ""))))
 	var mechanics := PackedStringArray()
 	var def := book.def(key)
 	if def.has("knockback"):
@@ -99,12 +106,28 @@ func dress(cards: Array, lo: Loadout) -> Array:
 				var line := level_line(skill, lo.book.canonical_level(skill, r), lo.stats(skill, r))
 				if line != "":
 					card["desc"] = line
+		if lo.book.def(skill).has("rarity_bonuses"):
+			card["desc"] = c.get("desc", "") # preserve rank/bonus wording after dressing the learn detail
 		out.append(card)
 	return out
 
 
 ## `s` with WZ escapes turned into line breaks, the Master Level and Required Skill lines removed, and each line
 ## trimmed at its end.
+## `line` without its v83 MP-cost wording (MP_COST_PATTERNS), its first letter capitalised when a cost led it.
+static func strip_mp_cost(line: String) -> String:
+	if _mp_cost_res.is_empty():
+		for pattern: String in MP_COST_PATTERNS:
+			_mp_cost_res.append(RegEx.create_from_string(pattern))
+	var out := line
+	for i in _mp_cost_res.size():
+		# The HP-cost patterns keep their HP number (group 1); the rest are dropped whole.
+		out = _mp_cost_res[i].sub(out, "$1" if i == 0 or i == _mp_cost_res.size() - 1 else "", true)
+	if out != line and out != "":
+		out = out.substr(0, 1).to_upper() + out.substr(1)
+	return out
+
+
 static func clean(s: String) -> String:
 	if _master_re == null:
 		_master_re = RegEx.create_from_string("^\\[?Master Level\\s*:\\s*\\d+\\]\\s*")

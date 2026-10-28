@@ -7,6 +7,21 @@ extends RefCounted
 ## are filled in by linear interpolation (synthetic, labelled as such where tests rely on them).
 
 const WF := preload("res://tests/fixtures/world_fixtures.gd")
+## The weapon each removed job advancement wore (#284 removed advancement and its grants), by "<job>:<family>" for a
+## multi-family first job and "<job>" otherwise (item stats tier A; the choice was tier C, spec #226). Tests and debug
+## drivers of the unported lines stand their character with it through as_job.
+const LEGACY_JOB_WEAPONS := {
+	"100:sword": 1302077, "100:spear": 1432000, "100:blunt": 1322006, "100": 1302077,
+	"200": 1372005,
+	"300:bow": 1452051, "300:crossbow": 1462001, "300": 1452051,
+	"400:claw": 1472061, "400:dagger": 1332063, "400": 1472061,
+	"500:knuckle": 1482000, "500:gun": 1492000, "500": 1482000,
+	"110:sword": 1302008, "110:axe": 1312005, "110": 1302008,
+	"120:sword": 1302008, "120:blunt": 1322014, "120": 1302008,
+	"130:spear": 1432002, "130:polearm": 1442001, "130": 1432002,
+	"310": 1452005, "320": 1462000, "410": 1472008, "420": 1332012, "510": 1482004, "520": 1492004,
+	"210": 1372005, "220": 1372005, "230": 1372005,
+}
 
 
 ## Gives a synthetic stage an absolute boss schedule using the per-map schema; keeps its first map id.
@@ -346,6 +361,26 @@ static func skill_imgs() -> Dictionary:
 	for lv in range(1, 31):
 		steal[str(lv)] = {"mpCon": 12 if lv <= 15 else 24, "damage": 40 + 2 * lv, "prop": 10 + lv}
 	imgs["420"].skill["4201004"] = {"action": "swingO2", "level": steal}
+	# #290: T1 damage endpoints interpolated synthetically; timing/boxes below are deliberate test values, no WZ art.
+	for spec: Array in [[2111002, 60, 120, 6, "f"], [2111003, 32, 90, 0, "s"],
+			[2111006, 80, 150, 1, ""], [2121001, 160, 450, 6, ""],
+			[2121003, 62, 120, 6, "f"], [2121006, 133, 210, 1, "s"], [2121007, 330, 570, 15, "f"]]:
+		var book := str(int(spec[0]) / 10000)
+		if not imgs.has(book):
+			imgs[book] = {"skill": {}}
+		var levels := _levels(30, {"mad": [float(spec[1]), float(spec[2])], "mastery": [1.0, 10.0],
+			"time": [4.0, 40.0], "prop": [41.0, 70.0]})
+		if int(spec[3]) > 1:
+			for node: Dictionary in levels.values():
+				node.mobCount = int(spec[3])
+				node.lt = {"$v": [-200.0, -150.0]}
+				node.rb = {"$v": [200.0, 150.0]}
+		imgs[book].skill[str(spec[0])] = {"elemAttr": spec[4], "level": levels}
+	# #291: synthetic summon frames/info, canonical endpoint facts from T1.
+	imgs["212"].skill["2121005"] = {"elemAttr": "i",
+		"level": _levels(30, {"mad": [153.0, 270.0], "mastery": [10.0, 10.0], "time": [15.0, 160.0]}),
+		"summon": {"attack1": {"info": {"mobCount": 3.0, "attackAfter": 1080.0,
+			"range": {"lt": {"$v": [-200, -150]}, "rb": {"$v": [0, 30]}}}}}}
 	return imgs
 
 
@@ -509,9 +544,7 @@ static func setup(stage := "henesys", p_seed := 12345, data: Dictionary = {}) ->
 			1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0}},
 		# Synthetic item nodes with independently verified v83 restore amounts.
 		"item_info": {2000000: {"spec": {"hp": 50}}, 2000001: {"spec": {"hp": 150}},
-			2000002: {"spec": {"hp": 300}}, 2000003: {"spec": {"mp": 100}}, 2000006: {"spec": {"mp": 300}},
-			2022003: {"spec": {"hp": 1000}}, 2022000: {"spec": {"mp": 800}},
-			2001001: {"spec": {"hp": 2000}}, 2001002: {"spec": {"mp": 2000}}},
+			2000002: {"spec": {"hp": 300}}, 2022003: {"spec": {"hp": 1000}}, 2001001: {"spec": {"hp": 2000}}},
 		"ammo_info": ammo_info(),
 		"data": data if not data.is_empty() else DataRepo.load_all(),
 		"stage": stage,
@@ -567,29 +600,23 @@ static func bot_input(w: RunWorld, memo: Dictionary) -> MoveInput:
 	return BotInput.decide(w, memo)
 
 
-## The job id the bot would take from window `options` (BotInput.pick_choice's job_id; -1 = "Not now").
-static func pick_job(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
-		forced_path := "") -> int:
-	return int(BotInput.pick_choice(options, rng, forced, jobs, forced_path).job_id)
-
-
-## Basic-attack bounds after level gap and live PDD, for the examples that predate the physical hit path (LUK 0):
+## Basic-attack bounds after live PDD, for the examples that predate the physical hit path (LUK 0):
 ## the physical weapon bounds of the stance `action`, then CombatMath.physical_defense.
 static func physical_bounds(str_stat: int, dex_stat: int, watk: float, weapon_id: int, action: String,
-		player_level: int, mob_level: int, pdd: float) -> Vector2:
+		pdd: float) -> Vector2:
 	return CombatMath.physical_defense(CombatMath.physical_damage_range(str_stat, dex_stat, 0.0, watk, weapon_id,
-		WeaponInfo.attack_kind(action)), player_level, mob_level, pdd)
+		WeaponInfo.attack_kind(action)), pdd)
 
 
-## Resolves an open window like BotInput: the first available job (else "Not now") and BotInput.pick_card_for's card.
+## Resolves an open card window like BotInput (BotInput.pick_card_for's card).
 static func auto_choose(w: RunWorld) -> void:
 	BotInput.auto_choose(w)
 	if w.transfer_pending:
 		w.advance_map()
 
 
-## Adds canonical-shaped weapon afterimage and body timing data to `setup` so the automatic basic attack can swing on
-## the synthetic map (the v83 Beginner kills mostly with it). Returns `setup`.
+## Adds canonical-shaped weapon afterimage and body timing data to `setup` so the held weapon has a swing reach
+## (WeaponReach: weapon_reach skills, Final Attack spread) on the synthetic map. Returns `setup`.
 static func with_basic_attack(setup: Dictionary) -> Dictionary:
 	setup.equipment_info = {
 		1302000: {"incPAD": 17.0, "attackSpeed": 4.0, "afterImage": "swordOL", "sfx": "swordL"},
@@ -602,7 +629,7 @@ static func with_basic_attack(setup: Dictionary) -> Dictionary:
 		1322006: {"reqJob": 0, "reqLevel": 10, "incPAD": 29.0, "attackSpeed": 5.0, "afterImage": "mace", "sfx": "mace"}}
 	setup.body_img = {}
 	var images := {"0": {}}
-	for action: String in BasicAttack.ACTIONS:
+	for action: String in WeaponReach.ACTIONS:
 		setup.body_img[action] = {"0": {"delay": 300.0}, "1": {"delay": 150.0}, "2": {"delay": 350.0}}
 		images["0"][action] = {"lt": {"$v": [-88.0, -62.0]}, "rb": {"$v": [-18.0, -6.0]},
 			"2": {"0": {"$canvas": [0, 0, 0, 40, 30], "delay": 200.0}}}
@@ -614,7 +641,6 @@ static func with_basic_attack(setup: Dictionary) -> Dictionary:
 ## Combat tests can place every mob themselves and opt into resources/coverage independently of balance tuning.
 static func quiet_data() -> Dictionary:
 	var data := DataRepo.load_all()
-	data.balance.player.mp = 5
 	data.skills.skills.three_snails.count = 1
 	data.skills.skills.energy_bolt.count = 1
 	var stages: Dictionary = data.stages.stages
@@ -636,9 +662,40 @@ static func quiet_world(x := 400.0, p_seed := 7) -> RunWorld:
 	return w
 
 
-## Changes job without learning skills (retained fixture alias for existing callers).
+## The character of `w` for a test to edit: its format-3 snapshot plus `level` and `base_attributes` (a copy of the world's
+## base stats), the round state that no longer travels with a character (#286). Pass the edited dictionary to `world_from`.
+static func character_with_round_state(w: RunWorld) -> Dictionary:
+	var character := w.character_snapshot()
+	character["level"] = w.progression.level
+	character["base_attributes"] = w._base_stats.duplicate()
+	return character
+
+
+## A world of `setup` whose character is `character` (a format-3 snapshot, JSON-safe) and whose round starts at the `level`
+## and `base_attributes` that dictionary may carry (extra keys are ignored on load; see character_with_round_state).
+static func world_from(setup: Dictionary, character: Dictionary) -> RunWorld:
+	setup.character = character
+	var w := RunWorld.new(setup)
+	if character.has("level"):
+		w.progression.level = int(character.level)
+	for stat: String in character.get("base_attributes", {}):
+		w._base_stats[stat] = int(character.base_attributes[stat])
+	w.refresh_player_stats()
+	return w
+
+
+## Stands `w`'s character as job `job_id` (RunWorld.set_job) wearing the weapon its removed advancement granted
+## (LEGACY_JOB_WEAPONS, `family` picking a multi-family first job's), when the job had one. Learns no skill.
+static func as_job(w: RunWorld, job_id: int, family := "") -> void:
+	w.set_job(job_id)
+	var weapon := int(LEGACY_JOB_WEAPONS.get("%d:%s" % [job_id, family], LEGACY_JOB_WEAPONS.get(str(job_id), 0)))
+	if weapon > 0 and w.weapon_id() != weapon:
+		w.wear_new_item(weapon)
+
+
+## Stands `w`'s character as job `job_id` without changing its equipment (RunWorld.set_job).
 static func change_job_bare(w: RunWorld, job_id: int) -> void:
-	w.change_job(job_id)
+	w.set_job(job_id)
 
 
 ## Stands the player on the first floor at or below (x, y) (default: the ground) and refreshes the view.
@@ -673,3 +730,12 @@ static func map_from_segments(list: Array, portals: Array = []) -> Dictionary:
 	for k in portals.size():
 		po[str(k)] = {"pn": "sp", "pt": 0.0, "x": portals[k].x, "y": portals[k].y}
 	return {"info": {}, "foothold": {"1": {"0": fh}}, "portal": po}
+
+
+## Arrange unported combat tests from retained effect definitions; this never applies an upgrade card.
+static func add_modifier_effects(w: RunWorld, definition: Dictionary, repeats: int = 1) -> void:
+	for repeat in repeats:
+		for effect: Dictionary in definition.get("effects", []):
+			w.loadout.add_skill_mod(String(definition.skill), String(effect.stat),
+				String(effect.get("op", "add")), float(effect.value))
+	w.refresh_player_stats()

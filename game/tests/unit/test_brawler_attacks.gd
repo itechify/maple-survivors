@@ -1,7 +1,8 @@
 extends TestCase
 ## The Brawler's attacks (spec #168 ticket #191, docs/GAME_DESIGN.md 7.18): Backspin Blow 5101002 (slides away, up to
 ## 3 mobs, stun), Double Uppercut 5101003 (2 hits, one mob, stun) and Corkscrew Blow 5101004 (a charge toward the mob
-## that strikes up to 3 mobs on the way). Shipping data through public RunWorld casts on a flat synthetic ground, seeded
+## that strikes up to 3 mobs on the way). The Brawler is stood directly (RF.as_job; #284 removed advancement).
+## Shipping data through public RunWorld casts on a flat synthetic ground, seeded
 ## and fixed-tick; the original-data checks at the end use the private asset cache and SKIP without it.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -22,18 +23,18 @@ const INFO := {
 
 
 ## A Lv 30 Brawler (first job on `path`) on a flat ground at y = 0, standing at x facing right, holding the weapon of
-## its path with every MP point, knowing only `key` at `rank` (none when ""). Mobs get a tiny hitbox and do not move.
+## its path, knowing only `key` at `rank` (none when ""). Mobs get a tiny hitbox and do not move.
 func _brawler(key := "", rank := 1, x := 400.0, path := "knuckle", segments: Array = [GROUND]) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
 	data.balance.magnet_radius = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", 191, data))
 	setup.equipment_info.merge(INFO, true)
 	setup.map_img = RF.map_from_segments(segments)
+	setup["job"] = 500 # no start skills
 	var w := RunWorld.new(setup)
-	w.change_job(500, path)
+	RF.as_job(w, 500, path)
 	w.progression.level = 30
-	w.change_job(510)
+	RF.as_job(w, 510)
 	var family := "knuckle" if path == "knuckle" else "gun"
 	if w.held_weapon_family() != family:
 		var ids: Array = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
@@ -45,7 +46,6 @@ func _brawler(key := "", rank := 1, x := 400.0, path := "knuckle", segments: Arr
 	w.player.facing = 1
 	w.update_view()
 	w.god = true
-	w.heal_fraction("mp", 1.0)
 	if key != "":
 		assert_true(w.learn_skill(key), "learn " + key)
 		w.loadout.set_rank(key, rank)
@@ -82,9 +82,9 @@ func _stunned(w: RunWorld, slot: int) -> float:
 
 func test_the_three_skills_carry_the_v83_tables_by_rank() -> void:
 	var facts := {
-		"backspin_blow": {"mp": [12, 30], "pct": [0.88, 2.40], "mobs": 3, "lines": 1},
-		"double_uppercut": {"mp": [15, 30], "pct": [1.00, 2.90], "mobs": 1, "lines": 2},
-		"corkscrew_blow": {"mp": [20, 36], "pct": [1.35, 4.20], "mobs": 3, "lines": 1},
+		"backspin_blow": {"pct": [0.88, 2.40], "mobs": 3, "lines": 1},
+		"double_uppercut": {"pct": [1.00, 2.90], "mobs": 1, "lines": 2},
+		"corkscrew_blow": {"pct": [1.35, 4.20], "mobs": 3, "lines": 1},
 	}
 	var w := _brawler()
 	for key: String in facts:
@@ -93,7 +93,6 @@ func test_the_three_skills_carry_the_v83_tables_by_rank() -> void:
 		assert_eq(w.book.weapon_families(key), PackedStringArray(["knuckle"]), key + " needs a knuckle")
 		for r in [1, 20]:
 			var st := w.loadout.stats(key, r)
-			assert_eq(st.mp_cost, facts[key].mp[0 if r == 1 else 1], "%s mp at rank %d" % [key, r])
 			assert_near(st.damage_pct, facts[key].pct[0 if r == 1 else 1], 1e-6, "%s damage at rank %d" % [key, r])
 			assert_eq(strike_count(st), facts[key].mobs, "%s mobs" % key)
 			assert_eq(st.attack_count, facts[key].lines, "%s lines" % key)
@@ -104,15 +103,12 @@ func strike_count(st: Dictionary) -> int:
 	return SkillRunner.strike_count(st)
 
 
-func test_damage_percent_and_mp_follow_the_canonical_level_every_rank() -> void:
+func test_damage_percent_follows_the_canonical_level_every_rank() -> void:
 	var w := _brawler()
 	for r in range(1, 21):
 		assert_near(w.loadout.stats("backspin_blow", r).damage_pct, (80.0 + 8.0 * r) / 100.0, 1e-6, "backspin %d" % r)
 		assert_near(w.loadout.stats("double_uppercut", r).damage_pct, (90.0 + 10.0 * r) / 100.0, 1e-6, "uppercut %d" % r)
 		assert_near(w.loadout.stats("corkscrew_blow", r).damage_pct, (120.0 + 15.0 * r) / 100.0, 1e-6, "corkscrew %d" % r)
-		assert_eq(w.loadout.stats("backspin_blow", r).mp_cost, 12 + 2 * ((r - 1) / 2), "backspin mp %d" % r)
-		assert_eq(w.loadout.stats("double_uppercut", r).mp_cost, 15 + 5 * ((r - 1) / 5), "uppercut mp %d" % r)
-		assert_eq(w.loadout.stats("corkscrew_blow", r).mp_cost, 20 + 4 * ((r - 1) / 4), "corkscrew mp %d" % r)
 
 
 func test_displacement_blocks_resolve_direction_when_and_distance_by_rank() -> void:
@@ -130,9 +126,8 @@ func test_displacement_blocks_resolve_direction_when_and_distance_by_rank() -> v
 
 # --- Backspin Blow -----------------------------------------------------------------------------------------------------
 
-func test_backspin_blow_hits_the_three_nearest_mobs_pays_mp_and_slides_away() -> void:
+func test_backspin_blow_hits_the_three_nearest_mobs_and_slides_away() -> void:
 	var w := _brawler("backspin_blow")
-	var mp: int = w.player_state.mp
 	var near := _mob(w, 450.0)
 	var second := _mob(w, 480.0)
 	var third := _mob(w, 520.0)
@@ -142,7 +137,6 @@ func test_backspin_blow_hits_the_three_nearest_mobs_pays_mp_and_slides_away() ->
 	assert_eq(_of(events, "cast").size(), 1)
 	assert_eq(_hit_slots(events), [near, second, third], "the 3 nearest mobs, one line each")
 	assert_false(fourth in _hit_slots(events) or far in _hit_slots(events))
-	assert_eq(w.player_state.mp, mp - 12, "rank 1 costs 12 MP")
 	assert_near(w.player.pos.x, 300.0, 1e-6, "100 px away from the nearest mob (it is on the right)")
 	assert_eq(w.player.facing, 1, "still facing the mob it backed away from")
 	assert_true(int(_of(events, "mob_hit")[0].damage) > 0)
@@ -168,7 +162,6 @@ func test_backspin_blow_stops_at_the_platform_edge_and_a_wall_and_still_strikes(
 	events = _cast(walled)
 	assert_eq(_hit_slots(events), [left])
 	assert_near(walled.player.pos.x, 450.0 - FootholdMap.EPS, 1e-4, "stopped short of the wall")
-	assert_eq(walled.player_state.mp, walled.player_state.max_mp - 12, "terrain never fails the cast")
 
 
 func test_backspin_blow_stuns_every_struck_mob_for_one_second_and_only_those() -> void:
@@ -211,31 +204,25 @@ func test_backspin_blow_in_the_air_casts_without_moving() -> void:
 
 # --- Double Uppercut ---------------------------------------------------------------------------------------------------
 
-func test_double_uppercut_lands_two_hits_on_one_mob_for_its_mp_and_stuns_once_for_a_second() -> void:
+func test_double_uppercut_lands_two_hits_on_one_mob_and_stuns_once_for_a_second() -> void:
 	var w := _brawler("double_uppercut")
-	var mp: int = w.player_state.mp
 	var first := _mob(w, 450.0)
 	var second := _mob(w, 460.0)
 	var events := _cast(w)
 	assert_eq(_of(events, "cast").size(), 1)
 	assert_eq(_hit_slots(events), [first, first], "two lines on the one nearest mob")
-	assert_eq(w.player_state.mp, mp - 15)
 	assert_near(_stunned(w, first), 1.0, 1e-6, "two stuns keep the one second, they do not add up")
 	assert_near(_stunned(w, second), 0.0, 1e-6)
 	assert_eq(w.player.pos.x, 400.0, "Double Uppercut does not move")
 	var rank20 := _brawler("double_uppercut", 20)
 	_mob(rank20, 450.0)
-	assert_eq(rank20.player_state.mp, rank20.player_state.max_mp)
-	_cast(rank20)
-	assert_eq(rank20.player_state.mp, rank20.player_state.max_mp - 30)
+	assert_eq(_of(_cast(rank20), "cast").size(), 1, "rank 20 casts too")
 
 
-func test_double_uppercut_strikes_nothing_out_of_the_knuckles_reach_and_costs_nothing() -> void:
+func test_double_uppercut_strikes_nothing_out_of_the_knuckles_reach_and_does_not_cast() -> void:
 	var w := _brawler("double_uppercut")
-	var mp: int = w.player_state.mp
 	_mob(w, 700.0)
 	assert_true(_of(_cast(w), "cast").is_empty())
-	assert_eq(w.player_state.mp, mp)
 
 
 func test_double_uppercut_damage_scales_with_its_rank() -> void:
@@ -255,7 +242,6 @@ func test_double_uppercut_damage_scales_with_its_rank() -> void:
 
 func test_corkscrew_blow_charges_toward_the_mob_and_strikes_three_along_the_way() -> void:
 	var w := _brawler("corkscrew_blow")
-	var mp: int = w.player_state.mp
 	var a := _mob(w, 440.0)
 	var b := _mob(w, 500.0)
 	var c := _mob(w, 560.0)
@@ -266,13 +252,11 @@ func test_corkscrew_blow_charges_toward_the_mob_and_strikes_three_along_the_way(
 	assert_near(w.player.pos.x, 500.0, 1e-6, "rank 1 charges its full 100 px toward the mob")
 	assert_eq(_hit_slots(events), [a, b, c], "three mobs along the path, nearest first")
 	assert_false(d in _hit_slots(events) or beyond in _hit_slots(events))
-	assert_eq(w.player_state.mp, mp - 20)
 	assert_eq(_of(events, "cast")[0].pos, Vector2(400, 0), "the cast event reports where the charge began")
 	var top := _brawler("corkscrew_blow", 20)
 	_mob(top, 590.0)  # inside the 200 px box
 	events = _cast(top)
 	assert_near(top.player.pos.x, 600.0, 1e-6, "rank 20 charges 200 px")
-	assert_eq(top.player_state.mp, top.player_state.max_mp - 36)
 	assert_eq(_hit_slots(events).size(), 1)
 
 
@@ -316,34 +300,17 @@ func test_corkscrew_blow_does_not_stun() -> void:
 
 # --- the held weapon ----------------------------------------------------------------------------------------------------
 
-func test_no_attack_casts_with_a_gun_in_hand_and_none_is_offered() -> void:
-	var w := _brawler("", 1, 400.0, "gun")
-	assert_eq(w.held_weapon_family(), "gun")
-	for key: String in SKILLS:
-		assert_true(w.learn_skill(key))
-	w.heal_fraction("mp", 1.0)
-	for x in [440.0, 470.0, 350.0]:
-		_mob(w, x)
-	var mp: int = w.player_state.mp
-	for tick in 300:
-		w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-		w.runner.step(DT, w)
-	var casts := _of(w.drain_events(), "cast")
-	for e: Dictionary in casts:
-		assert_false(String(e.skill) in SKILLS, "%s cannot cast with a gun" % e.skill)
-	assert_eq(w.player_state.mp, mp, "no MP was paid")
-	assert_eq(w.player.pos.x, 400.0, "no skill moved the character")
-	var cards := w.upgrades.eligible(w)
-	for key: String in SKILLS:
-		for suffix in ["_new", "_rank", "_targets"]:
-			assert_false(key + suffix in cards, key + suffix + " is hidden while a gun is held")
-
-
-func test_back_in_the_hand_the_knuckle_makes_every_attack_cast_again() -> void:
-	for key: String in SKILLS:
-		var w := _brawler(key)
-		_mob(w, 450.0)
-		assert_eq(_of(_cast(w), "cast").size(), 1, key)
+func test_every_attack_casts_with_a_knuckle_or_a_gun_in_hand() -> void:
+	# #284: weapons gate no skill. Double Uppercut strikes inside the held weapon's swing, and the synthetic gun has no
+	# swing data, so it is checked with the knuckle only.
+	for path: String in ["knuckle", "gun"]:
+		for key: String in SKILLS:
+			if path == "gun" and key == "double_uppercut":
+				continue
+			var w := _brawler(key, 1, 400.0, path)
+			assert_eq(w.held_weapon_family(), path)
+			_mob(w, 450.0)
+			assert_eq(_of(_cast(w), "cast").size(), 1, "%s with a %s" % [key, path])
 
 
 # --- cards --------------------------------------------------------------------------------------------------------------
@@ -352,22 +319,22 @@ func test_each_attack_has_learn_rank_and_more_mobs_cards_for_a_knuckle_brawler_o
 	var w := _brawler()
 	var eligible := w.upgrades.eligible(w)
 	for key: String in SKILLS:
-		assert_has(eligible, key + "_new", key + " can be learned")
+		assert_false(key + "_new" in eligible, "#287: unported skills have no pool offers")
 		assert_false(key + "_rank" in eligible, "no rank card before learning")
 		assert_false(key + "_targets" in eligible)
 		var card := w.upgrades.card(key + "_new")
 		assert_eq(card.requires.jobs.map(func(j: Variant) -> int: return int(j)), [510], "the exact branch")
 		assert_true(bool(card.power), "an attack card is a power card")
 	var first := RF.quiet_world()
-	first.change_job(500, "knuckle")
+	RF.as_job(first, 500, "knuckle")
 	for key: String in SKILLS:
 		assert_false(key + "_new" in first.upgrades.eligible(first), key + " needs the second job")
 	for key: String in SKILLS:
 		assert_true(w.learn_skill(key))
 	eligible = w.upgrades.eligible(w)
 	for key: String in SKILLS:
-		assert_has(eligible, key + "_rank")
-		assert_has(eligible, key + "_targets")
+		assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
+		assert_false(key + "_targets" in eligible, "#287: unported skills have no pool offers")
 		assert_eq(int(w.upgrades.card(key + "_rank").max_rank), 20)
 		assert_eq(int(w.upgrades.card(key + "_targets").max_rank), 3)
 
@@ -377,14 +344,14 @@ func test_the_more_mobs_cards_add_one_mob_per_step_up_to_three_steps() -> void:
 		var w := _brawler(key)
 		var base: int = w.loadout.stats(key).mob_count
 		for step in 3:
-			assert_true(w.upgrades.apply(key + "_targets", w), key)
+			RF.add_modifier_effects(w, w.upgrades.card(key + "_targets"))
 			assert_eq(w.loadout.stats(key).mob_count, base + step + 1, "%s step %d" % [key, step + 1])
 		assert_false(key + "_targets" in w.upgrades.eligible(w), "capped at three steps")
 
 
 func test_a_targets_card_makes_double_uppercut_strike_a_second_mob() -> void:
 	var w := _brawler("double_uppercut")
-	assert_true(w.upgrades.apply("double_uppercut_targets", w))
+	RF.add_modifier_effects(w, w.upgrades.card("double_uppercut_targets"))
 	var a := _mob(w, 450.0)
 	var b := _mob(w, 465.0)
 	var c := _mob(w, 475.0)
@@ -396,54 +363,22 @@ func test_a_targets_card_makes_double_uppercut_strike_a_second_mob() -> void:
 
 func test_a_targets_card_makes_backspin_and_corkscrew_strike_a_fourth_mob() -> void:
 	var back := _brawler("backspin_blow")
-	assert_true(back.upgrades.apply("backspin_blow_targets", back))
+	RF.add_modifier_effects(back, back.upgrades.card("backspin_blow_targets"))
 	for x in [450.0, 470.0, 490.0, 510.0]:
 		_mob(back, x)
 	assert_eq(_hit_slots(_cast(back)).size(), 4)
 	var screw := _brawler("corkscrew_blow")
-	assert_true(screw.upgrades.apply("corkscrew_blow_targets", screw))
+	RF.add_modifier_effects(screw, screw.upgrades.card("corkscrew_blow_targets"))
 	for x in [440.0, 470.0, 500.0, 530.0]:
 		_mob(screw, x)
 	assert_eq(_hit_slots(_cast(screw)).size(), 4)
 
 
-func _pirate_at_the_window() -> RunWorld:
-	var data := RF.quiet_data()
-	data.balance.player.skills = []
-	var setup := RF.with_basic_attack(RF.setup("quiet", 191, data))
-	setup.equipment_info.merge(INFO, true)
-	var w0 := RunWorld.new(setup)
-	w0.change_job(500, "knuckle")
-	setup.character = w0.character_snapshot()
-	var w := RunWorld.new(setup)
-	RF.place_player(w, 400)
-	w.god = true
-	w.progression.level = 29
-	w.progression.add_exp(w.progression.exp_to_next())
-	w.step(DT, MoveInput.new())
-	assert_eq(w.state, RunWorld.CHOOSING_JOB, "the Lv 30 advancement window is open")
-	w.drain_events()
-	return w
-
-
-func test_the_brawlers_advancement_draw_offers_the_three_attacks() -> void:
-	var w := _pirate_at_the_window()
-	assert_true(w.apply_job(510))
-	var ids: Array = w.pending_cards.map(func(c: Dictionary) -> String: return String(c.id))
-	for key: String in SKILLS:
-		assert_has(ids, key + "_new", "the draw offers %s: %s" % [key, ids])
-
-
 func test_the_gunslinger_is_never_offered_the_brawlers_attacks() -> void:
-	var w := _pirate_at_the_window()
-	assert_true(w.apply_job(520))
-	var ids: Array = w.pending_cards.map(func(c: Dictionary) -> String: return String(c.id))
+	var w := _brawler("", 1, 400.0, "gun")
+	w.set_job(520)
 	for key: String in SKILLS:
-		assert_false(key + "_new" in ids)
-	w.pending_cards = []
-	w.state = RunWorld.PLAYING
-	for key: String in SKILLS:
-		assert_false(key + "_new" in w.upgrades.eligible(w))
+		assert_false(key + "_new" in w.upgrades.eligible(w), key + " is a Brawler card")
 
 
 # --- determinism ----------------------------------------------------------------------------------------------------------
@@ -487,7 +422,6 @@ func test_original_tables_reach_art_actions_and_sounds_resolve_in_the_private_ca
 		var node := book.level_node("corkscrew_blow", r)
 		assert_near(loadout.stats("corkscrew_blow", r).displacement.distance, -float(node.lt["$v"][0]), 1e-6,
 			"the charge equals the WZ reach at level %d" % r)
-		assert_eq(loadout.stats("backspin_blow", r).mp_cost, int(book.canonical("backspin_blow", r, "mpCon")))
 		assert_near(loadout.stats("backspin_blow", r).damage_pct, 0.80 + 0.08 * r, 1e-6)
 		assert_near(loadout.stats("double_uppercut", r).damage_pct, 0.90 + 0.10 * r, 1e-6)
 		assert_near(loadout.stats("corkscrew_blow", r).damage_pct, 1.20 + 0.15 * r, 1e-6)

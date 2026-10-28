@@ -82,23 +82,19 @@ buttons are `TitleButton`s drawn from code. The emblem is `game/icon.png` (windo
 `application/modify_resources`); the web shell ships the favicons, `site.webmanifest` and `title.jpg` from `web/`.
 Character select and creation keep the v83 MapLogin backdrop (`LoginBackdrop`).
 
-`SceneFlow` owns the active slot and boundary persistence ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
-It saves phase `free_market` on a non-final clear,
-`map_select` on exit/first creation and phase `round`
-with stage/seed before launch. Quit round leaves that snapshot unchanged; Continue restarts its boundary character on map 1 with the same
-seed, including after quitting on map 2 or 3. `RunScene.configure` accepts `options.character` as a snapshot Dictionary or the tool JSON-file path. The
-coordinator's header documents #70's small character-screen calls and the sole `_after_round_cleared` boundary.
-The outgoing CharacterSnapshot is required only on clears. Terminal death archives the last saved boundary
-character when no outgoing snapshot is supplied, even with unanswerable rewards/jobs/cards; results and stage
-bests use the actual round-end summary. `CharacterSnapshot.restore_loadout` decodes skills, ranks and modifiers
-for both RunWorld and the Free Market.
+`SceneFlow` owns the active slot and the round loop ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md),
+ADR 0006, #286): character select opens the character's Free Market, whose out00 opens map select (every stage of
+every unlocked tier), `start_round` launches a round **without writing anything**, and `finish_run(summary, character,
+ending)` is the one exit of a persistent round (clear, death, and Quit round with `ending` "quit"): it saves the
+outgoing character, the best, the run count, the NX and one history entry in a single `SaveData.finish_round` write and
+shows the results screen, whose button returns to the hub. `RunScene.configure` accepts `options.character` as a
+snapshot Dictionary or the tool JSON-file path. The coordinator's header documents #70's small character-screen calls.
+`RunWorld.character_snapshot()` is always available (no choice can block it) and is where a clear unlocks the next tier.
 On clear, RunWorld first settles every collectible ground drop and every resulting choice (4.4.2); `stage_cleared`
 is emitted only after that settlement. RunScene takes the outgoing snapshot after the clear presentation hold.
-Quit round during a settlement choice still leaves the starting round boundary unchanged. Continue either replays
-that original round or resumes the saved, fully settled hub character; no live pickups or settlement flags persist.
 `FreeMarket` uses `FreeMarketMotion` (PlayerMotion, FootholdMap, LadderSet and PortalSet) without a RunWorld;
 there are no combat, spawning, drop or round-clock systems. MapRenderer/CameraRig draw the map and AvatarRenderer
-draws CharacterSnapshot.look with the character's worn equipment. A status bar displays full HP/MP and identity, while
+draws CharacterSnapshot.look with the character's worn equipment. A status bar displays full HP and identity, while
 PauseMenu's boundary mode offers Save & quit without the round-loss warning. NPC stand animations use canonical
 life positions/facing and remain inert, including Maple TV (drawn despite its v83 hide flag, per #71). The four scroll
 NPCs (#111, `survivor/shops.json`) stand on the floor beside them and are the only NPCs that can be talked to: NPC Chat
@@ -107,40 +103,41 @@ trading through the map-less RunWorld (`shop_stock`, `buy_scroll`, `sell_item`, 
 module) and saving the slot at once.
 `--run` calls `start_run`, an independent one-off with no save writes.
 
-The `flow_driver.tscn` `rounds` scenario exercises these boundaries through injected signboard, character-slot,
-creation, pause and History input. It warps real fixed simulation ticks through combat, walks the hub to out00,
-reloads the evidence-only save from disk and checks byte-preserving Quit round and same-stage/seed Continue.
-Its optional tier-2 victory probe uses invulnerability and diagnostic boss hits after 15:00, then resolves real
-rewards and clear events. It checks presentation only; natural outcomes belong to balance smokes.
+The `flow_driver.tscn` `redesign` scenario exercises these boundaries through injected signboard, creation (name, look,
+Job page), Free Market walk, map select (a locked tier refused), level-up window, double-click equip, pause, deletion and
+History input. It warps real fixed simulation ticks through combat (invulnerable, with diagnostic boss hits after each map
+timer), plays the real CLEAR/fade/arrival presentation of the three maps, and reloads the evidence-only save from disk to
+check that a clear unlocks tier 2 and that a death keeps the loot and the unlock. It checks presentation and flow only;
+natural outcomes belong to balance smokes (AGENTS.md "Flow driver").
 
 ### 4.2 Autoloads
 
 | Autoload | Script | Role |
 |---|---|---|
 | `Assets` | `scripts/assets/asset_library.gd` | Locates the cache, loads/caches img JSON (`WzImg`), atlas page textures, sounds; builds `SpriteAnim` frame lists |
-| `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, frame cap (`[display] max_fps`: vsync on and `Engine.max_fps` = the display's refresh rate by default, `--vsync=off` uncaps), key bindings (rebound actions applied to the `InputMap`), HP / MP ALERT levels (`[alert]`; persistent rounds only, #121) |
+| `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, frame cap (`[display] max_fps`: vsync on and `Engine.max_fps` = the display's refresh rate by default, `--vsync=off` uncaps), key bindings (rebound actions applied to the `InputMap`), HP ALERT levels (`[alert]`; persistent rounds only, #121) |
 | `Sfx` | `scripts/audio/audio_service.gd` | BGM player with fade, pooled SFX players |
-| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child; character slots, tiered map select, saved round seeds, carry/death/victory; tool-only `start_run` (`--run`) bypasses persistence |
+| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child; character slots, the Free Market home, map select over the unlocked tiers, standalone rounds (no saved round); tool-only `start_run` (`--run`) bypasses persistence |
 
 Everything else is owned by the scene that uses it.
 
-`SaveData` owns local `user://save.json`, format 2: `best`, `runs`, three nullable `slots`, and `history`, plus an
-optional `account: {nx, owned}` (spec #34; absent = an empty account, no format bump). A finished round's `nx_awarded`
-is credited inside the same atomic write as the clear boundary or the death/victory archive.
-The run wrapper is `{name, look, created, character, tier, phase, rounds_played, tiers_cleared, stage?, round_seed?}`;
-`character` is #67's validated `CharacterSnapshot`, `tier` indexes the next tier, and `phase` is `free_market`,
-`map_select` or `round`. A round requires its chosen stage and seed, saved before entering the simulation.
-The caller supplies dates and seeds. Outside a round, retain the last stage for deletion history.
+`SaveData` owns local `user://save.json`, format 3: `best`, `runs`, three nullable `slots`, and `history`, plus an
+optional `account: {nx, owned}` (spec #34; absent = an empty account). A finished round's `nx_awarded` is credited
+inside the same atomic write as the round's slot, best and history entry.
+A slot is `{name, created, rounds_played, character}`; `character` is the validated format-3 `CharacterSnapshot`
+(job, look, equipment, scrolls, mesos, cash, pet, `tiers_unlocked`). There is no phase, tier cursor, stage or seed: a
+round is never saved. The caller supplies dates and seeds.
 
 `slot(index)`, `slots` and `history` return detached copies. `create_slot(snapshot)` returns the first free index
-(or -1, with `last_error`); `update_slot(index, snapshot, round_summary := {})` returns `Error`.
-`end_run(index, ending, date, final_snapshot := {}, round_summary := {})` frees the slot and appends
-`{name, job_id, job_name, level, tiers_cleared, rounds_played, ending, stage, date}` in one write. It resolves the job
-name from canonical jobs; pass the final run wrapper for terminal progress, or omit it to delete the saved character.
-`ending` is `died`, `victory` or `deleted`. Supplying a finished-round summary to either mutation counts that round
-and compares its best in the same transaction. Supply it once; do not also call `record` for that round.
+(or -1, with `last_error`); `update_slot(index, snapshot)` saves the hub's changes and returns `Error`.
+`finish_round(index, snapshot, ending, date, round_summary)` (`ending` cleared/died/quit) stores the character the round
+left, counts the round for its stage's best and run count, credits its NX and appends
+`{name, job_id, job_name, stage, level, ending, date}` in one write; the character is never removed.
+`delete_slot(index, date)` frees the slot and appends a `deleted` entry. A format-2 file's living characters move to the
+history on load as `retired` entries (name, job, the level and stage they had) and the file is rewritten as format 3;
+its bests, counts, history and account are kept. Older history entries keep their `tiers_cleared` / `rounds_played`.
 The legacy `record`, `best_for`, `runs_for`, `is_better` and presentation helpers retain their existing behavior;
-#69 implements the scene-flow switch and skips every persistence call for tool-only one-off rounds.
+tool-only one-off rounds skip every persistence call.
 
 Format 1 converts on load and writes back with empty slots/history, retaining playable-stage bests/counts.
 Malformed or unsupported saves are copied to `.bad`, `.bad.1`, etc.; preservation failure blocks writes. A valid
@@ -213,7 +210,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `MapBounds` | Camera/world limits | `static from_map(map_img, fhm) -> Rect2`: `info/VR*` if present, else `miniMap` rect, else foothold bbox (top -300, bottom +100) |
 | `LadderSet` | Ladders and ropes | `static from_wz(map_img)`, `static from_list(list)`, `find_grab(x, y, reach) -> int`, arrays `x y1 y2 is_ladder uf page` |
 | `PortalSet` | Same-map portal links and activation | `static from_wz(map_img, map_id, tuning)`, `step(dt, feet, up) -> Dictionary` (warp or `{}`), `static start_point(map_img, fhm, bounds, rng)` (a random `sp` portal dropped to the floor, else the widest platform's middle), `static start_point_away_from(map_img, fhm, bounds, rng, from)` (Banish, #256: the same with the `sp` nearest `from` left out when there are two or more); `links` rows `{name, target, pos, target_pos}` use canonical portal points |
-| `MoveInput` | One tick of player intent | `left right up down jump_pressed jump_held drink_hp drink_mp skills_pressed skills_held` (drink flags and `skills_pressed` are presses; `skills_held` requests repeats; both are skill-key id -> true maps, set with `press_skill(id)` / `hold_skill(id)`, read with `skill_pressed(id)` / `skill_held(id)` / `skill_requested(id)`; ids are the manual skills' `skill_key`, "teleport" and "dash") |
+| `MoveInput` | One tick of player intent | `left right up down jump_pressed jump_held drink_hp skills_pressed skills_held` (drink flags and `skills_pressed` are presses; `skills_held` requests repeats; both are skill-key id -> true maps, set with `press_skill(id)` / `hold_skill(id)`, read with `skill_pressed(id)` / `skill_held(id)` / `skill_requested(id)`; ids are the manual skills' `skill_key`, "teleport" and "dash") |
 | `PlayerMotion` | Player movement per Physics.img | `_init(constants)`, `place(pos, fhm)`, `teleport_destination(direction, distance, fhm, bounds) -> Dictionary`, `step(dt, input, fhm, ladders, bounds) -> int` (event flags), `knockback(dir)`, fields `pos vel fh ladder facing state speed_stat jump_stat`, `stance() -> String` |
 | `NavGraph` | Platform graph for mob pathing | `static build(fhm, opts)`, `route(from_p, to_p) -> int` (edge index, fewest edges), `edge(e) -> Dictionary` (`kind` drop/jump, `from_p`, `to_p`, `x_from`, `x_to`), `reachable(a, b)`; travel-cost field toward a point: `prepare_target(to_p, tx, also_p := -1)`, then `route_cost(p, x) -> float` (px, INF = no way), `best_edge(p, x) -> int`, arrays `cost`, `take` (per edge) |
 | `MobKind` | One mob type: canonical WZ stats + survivor overrides + animation timing needed by the sim | `static from_wz(mob_img, id, overrides)`, fields `id name level max_hp exp pad pdd mad mdd speed_stat fly_speed_stat move_speed can_jump flies hitbox die_time hit_time pushed body_attack boss elem_attr` |
@@ -221,20 +218,21 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events, live_mdd := PackedFloat32Array(), physical_allowed := PackedByteArray(), on_hit := Callable(), live_pdd := PackedFloat32Array())`, per-shot pierce and already-hit list; live defense/immunity arrays are indexed by target slot at impact |
 | `PickupSystem` | EXP, meso and equipment drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_meso(pos, amount)`, `spawn_equipment(pos, instance)`, `step(dt, player_pos, magnet_r, fhm, events, equip_room := -1)`, `active_count()`, `exp_count()` |
-| `PotionInventory` | Unlimited HP/MP with independent cooldowns and canonical restore specs | `item_id(kind)`, `cooldown_left`, `cooldown_total(kind)`, `is_ready(kind)`, `tick(dt)`, `snapshot()`, `upgrade(kind, item_id)` (keeps cooldown), `consume(kind, by_pet := false)`; `used`, `pet_used` drink counters |
+| `PotionInventory` | Unlimited HP with independent cooldowns and canonical restore specs | `item_id(kind)`, `cooldown_left`, `cooldown_total(kind)`, `is_ready(kind)`, `tick(dt)`, `snapshot()`, `upgrade(kind, item_id)` (keeps cooldown), `consume(kind, by_pet := false)`; `used`, `pet_used` drink counters |
 | `PotionSchedule` | Level schedule of automatic potion upgrades (static, pure; `balance.potions.schedule`, spec #225) | `steps(balance)` (valid steps sorted by level), `due(schedule, level, current) -> Array` (re-scanned each time: no applied-step state, never a downgrade), `items(balance)`, `notice_text(from_name, to_name)`; `RunWorld.apply_potion_schedule(level, announce)` applies the due steps through `PotionInventory.upgrade` at each level-up (with a `potion_tier_up` event) and silently when a snapshot is restored |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
-| `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, `mp_cost` from canonical `mpCon` or survivor override, cooldown, count, pierce, speed, range, size...), `regen_bonus(pool, char_level)` (HP/MP per regeneration pulse from skills with a `regen` field: `{pool, divisor}` or `{pool, field}`, the canonical level field), `SkillBook.weapon_families(key)` / `usable_with(key, family)` (the weapon a skill needs, #156), `clone()` (an independent copy for previews) |
+| `SkillBook` / `Loadout` | Survivor skill definitions, owned skills and ranks | `add_skill`, `rank`, `stats` (damage, cooldown, count, pierce, speed, range, size; no MP cost), `clone` for previews; weapons do not gate skills |
 | `MobSkillRunner` | Scheduled canonical mob skills, delayed heals, summons, timed per-slot defense/attack/immunity, player slow and Banish | `step(world)`, `defense_bonus(slot, magic, time)`, `attack_multiplier(slot, time)`, `slow_state(time)`, `immunity_state(slot, time)`, `summoned_alive(world, encounter)`, `resize`, `reset_slot`, `move_slot`; reads setup MobSkill/skill-list nodes and shares BossDirector action timing; named MobSkill ids `SKILL_ATTACK_UP` 100, `SKILL_ATTACK_UP_AREA` 110, `SKILL_PDD_UP_AREA` 112, `SKILL_MDD_UP_AREA` 113, `SKILL_HEAL_AREA` 114, `SKILL_SLOW` 126, `SKILL_BANISH` 129, `SKILL_WEAPON_IMMUNITY` 140, `SKILL_SUMMON` 200 (`SUPPORTED`); a boss entry's optional `skill_intervals` (`{"<skill id>": seconds}`, read through `world.bosses.skill_interval`) replaces that skill's WZ `interval` (#256); the Banish notice is the boss's survivor `mobs.json` `banish_message` (read from `world.data`); reads the world only through `RunWorld`/`MobSwarm` accessors (`swarm.pos`, `is_settled`, `live_in_rect`, `mob_kind`, `world.summoned_alive`, `spawn_offspring`, `refresh_player_speed`, `banish_player`) |
-| `BasicAttack` | Automatic physical weapon swing | `step(dt, world)` starts after skill priority, resolves the canonical facing afterimage box and body-frame impact, and hits one nearest living slot; a separate seeded stream chooses one of the held weapon family's stances (`WeaponInfo.basic_actions`); weapon facts come from `WeaponInfo`; `action_spec(weapon, info, action)` is the public view of one action (box, timing, effect paths), `last_action` / `last_kind` the latest swing; a ranged family (bow, crossbow, claw, gun) instead spawns one ammo projectile through `ProjectileSystem` at the impact (`shot_spec(...)` builds the spawn spec, `shots` counts them) |
+| `WeaponReach` | The held weapon's swing reach (#284 removed the automatic basic attack) | `reach(world)` (the farthest edge of the held weapon's canonical afterimage boxes, the punch box bare-handed) and `envelope(world)` (their union), read by `weapon_reach` skills and Final Attack spread; `action_spec(weapon, info, action)` is one stance's box, timing and effect paths (the weapon gallery) |
 | `Ammo` | Endless ammo of the ranged basic attack (static, pure; `survivor/ammo.json`) | `item_for(ammo, family, job_id, level, jobs)` (start ammo, or the highest reached step of a branch schedule), `projectile(ammo, family)`, `noun`, `notice(noun, name)`, `item_ids(ammo)`, `img_path(id)`, `bullet_path(id)`; `RunWorld.ammo_id()` / `ammo_attack()` / `ammo_tooltip(weapon)` derive the current ammo (never saved) |
 | `WeaponInfo` | Weapon facts (static, pure) read by combat and presentation | `type_of(id)`, `family(id)`, `family_of_skill_code(code)`, `is_two_handed(id)`, `attack_kind(action)` (swing/stab/shoot/empty), `basic_actions(id)` (the family's basic-attack stances), `basic_kind(id, action)` (ranged families always shoot), `is_ranged(id)`, `ranged_box(id)`, `stand_stance(info)` / `walk_stance(info)` (PlayerMotion and AvatarRenderer play the held weapon's stances), `physical_formula(id, job)` (swing/stab multipliers and primary/secondary stats; tier B except wand/staff/bare fallback), `afterimage_name(info)`, `afterimage_img_path`, `afterimage_frame_path`, `hit_spark_path`, `attack_interval(info)`, `sound_path(info)` |
 | `SkillRunner` | Auto-casting | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, then casts one affordable ready skill, oldest-ready first; `tick_cooldowns` and `cast_ready` are separate entry points; `fired_this_tick` reports any cast and `waiting_mp` feeds the persistent HUD cue; `cooldown_totals` (cooldown set at each skill's last cast) and `is_waiting_mp(key)` feed `RunWorld.skill_readiness`; static `count_meaning` (shots / targets), `strike_count` and `restart_cooldown` are the one definition of those rules for card previews and the Skill window |
+| `PlayerSummons` | Map-local player allies owned by `SkillRunner.summons` (#291) | `spawn(world, resolved_stats)`, `step(dt, world)`, `clear()`, `living_count()`; packed position/lifetime/facing/animation/windup state, cold cast snapshots; reads canonical summon attack info through SkillBook, hits through RunWorld; `clear_pending()` removes allies on transfer. `PlayerSummonRenderer` draws the pool through one SpritePool without entity Nodes. Definition schema: GAME_DESIGN 7.32. |
 | `PlayerBuffs` | Timed player effects, periodic healing and detached HUD snapshots | `has(skill)`, `start(skill, stats)`, `step(dt, events) -> int` (HP healing due), `effect_total(stat)`, `snapshot()` |
 | `PlayerUpkeep` | The player's per-tick timers, owned as `RunWorld.upkeep`: buffs (steps `PlayerBuffs`), hit invincibility, the cast-stance hold and the `balance.regen` pulse clock; the world owns the pools and applies what it reports | `tick(dt, events) -> float` (buff healing due), `regen_pulses(dt) -> int`, `pulse_hp()`, `pulse_mp()`, `start_action`, `land_hit(boss_skill) -> float` (starts the hit window a landed hit earns and steps the #88 shrinking chain), static `bypasses_window(source) -> bool` (boss skill attack/ball), fields `invincible_t hit_step since_hit cast_action cast_left action_airborne` (`hit_step`/`since_hit` are per-round chain state, not saved with the character), `DEFAULT_REGEN`, `DEFAULT_HIT_WINDOW` (balance.hit_window: `lengths`, `chain_gap`, `reset_after`) |
 | `ExpCurve`, `RunProgression` | Survivor EXP curve, level, job, pending level-ups | `exp_to_next(level)`, `add_exp(n) -> int` levels gained |
-| `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level, held_family := "") -> Array` (one entry per child job with page-ordered `paths`), `page_paths(job, held_family)`, `job(id)`, `paths_of(id)`, `line_paths(job)` (the deepest line job's paths), static `has_path(paths, id)` / `default_path(paths)` / `clean_paths(raw)`, `lineage(job)`, `parse_forced("100:spear") -> {job, path}`, `forced_job_error(job, path)` |
-| `UpgradePool` | Data-driven upgrade eligibility, normal and advancement draws | `eligible(state) -> Array`, `roll_choices(state, rng, n) -> Array`, `roll_advancement_choices(state, rng, n) -> Array`, `apply(id, state)` |
+| `JobTree` | Canonical jobs with survivor pools and flags | `playable_jobs`, `skill_pool`, `start_skills`, `creation_weapon`, `job_error`, `parse_job`, `put_job`, `lineage`, `job`; presentation/tools use `DataRepo.jobs(data)` |
+| `UpgradePool` | Pool-based eligibility and seeded draws | `eligible(state)`, `roll_choices(state, rng, n)`, `apply(id, state)`; active new/rank/Mastery cards roll rarity, common passives do not |
 | `SpawnDirector` | Stage pacing, spawn positions, relocation | `step(dt, world)`, `pick_spawn(world, k, side := 0) -> Vector3` (x, y, foothold: -1 for flyer air points, -2 when no point is found), `screen_rect(world) -> Rect2` (what spawns stay out of: the view + `margin`, + `trail_margin` behind a moving player); ground spawns prefer short reachable routes; flyers sample off-screen air within map bounds; moves off-screen mobs that stall, are far or cannot reach the player to a point ahead of the player (`relocated`) |
 | `StageRoster` | Which mob ids a stage needs | `static named_ids(stage)` (keyframe pools + boss ids), `static boss_extra_ids(boss_img, mob_skill_img)` (MobSkill 200 summons at each level the boss lists in `info/skill`, plus `info/revive`), `static mob_ids(stage, mob_imgs, mob_skill_img)` (both, ascending), `static list_ids(node)` (a WZ list node's ids in key order: summon levels, revive lists); used by `RunWorld` (mob kinds) and `DataRepo.build_setup` (two passes: named imgs, then derived ids) |
 | `BossDirector` | Scheduled warnings, arrivals, pursuit teleports, shared action timing, deaths and completion | `step(world, dt := 0)`, `live_count()`, `all_dead()`, `normal_spawn_multiplier()`, `damage_multiplier(index)`, `skill_interval(index, skill_id, fallback)` (an entry's `skill_intervals` override, else `fallback`), `can_act`, `begin_action`, `prepare_actions`, `action_snapshot`; public `entries` and lifecycle `records`, owned as `RunWorld.bosses` |
@@ -242,8 +240,8 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `MobAttacks` | The shared canonical type 0/1/2 attack code (`plan`, `service`, `emit`, `area_at`) and ordinary mobs' attacks (#76) | `step(world, dt)`, `reset_slot`, `move_slot`, `resize`, `wait_left(slot)`, static `attack_names(img)`, `first_wait(interval, identity)`; owned as `RunWorld.mob_attacks`; per-slot waits in a packed array, pending windups keyed by slot and checked against the swarm identity |
 | `MobActions` | Ordinary mobs' authored attack stances per slot in packed arrays, and the composed per-slot action view | `begin`, `busy`, `reset_slot`, `resize`, `view(boss_view, bosses, swarm, now)`; owned as `RunWorld.mob_actions`; `RunWorld.mob_action_view()` is what MobSwarm and MobRenderer read |
 | `MobProjectileSystem` | Monster type-2 balls as pooled packed arrays, separate from player shots | `spawn(spec)`, `step(dt, world)`, `active_count()`; captured source/damage metadata, swept player collision through take_hit; an ordinary ball that `RunWorld.hit_window_blocks(source)` turns away is not consumed and flies on (spec #88), while boss balls ignore the window; same ProjectileRenderer drawing interface |
-| `RunWorld` | Owns one deterministic round across its maps | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING_JOB / CHOOSING_UPGRADE / DEAD / CLEARED); TIMEOUT is a harness outcome while the sim remains PLAYING; `skill_readiness(key) -> {left, total, mp_short}` is the HUD's per-skill cooldown sweep and blue waiting-for-MP data (Teleport: its repeat timer); `read_skill_cooldowns(left, total, mp_short)` writes the same for every owned skill into the caller's reused Packed arrays (the HUD's allocation-free per-frame feed) |
-| `BotInput` | The autoplay bot (RunScene `autoplay`/`autopick`, the full-run tests, `scripts/balance.sh`, the benchmarks): kites (melee builds close to their attack reach instead, #162: `SkillRunner.reach_of`, `BasicAttack.reach`), collects drops, climbs or uses same-map portals, picks jobs and cards | `decide(world, memo) -> MoveInput`, `auto_choose(world, first_card := false)`, `pick_card_for(world, cards)`, `pick_choice(options, rng, forced, jobs, forced_path) -> {job_id, path}` (an unforced bot draws the first job and its weapon path on the job stream 8) |
+| `RunWorld` | Owns one deterministic round across its maps | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING_UPGRADE / DEAD / CLEARED); `job_id()` the character's fixed job, written only by `set_job(job_id)` (#284: once at construction from the character, `setup.job` or `JobTree.default_job()`; tests call it to stand other lines); TIMEOUT is a harness outcome while the sim remains PLAYING; `skill_readiness(key) -> {left, total}` is the HUD's per-skill cooldown sweep data (Teleport: its repeat timer); `read_skill_cooldowns(left, total)` writes the same for every owned skill into the caller's reused Packed arrays (the HUD's allocation-free per-frame feed) |
+| `BotInput` | The autoplay bot (RunScene `autoplay`/`autopick`, the full-run tests, `scripts/balance.sh`, the benchmarks): kites (melee builds close to their attack reach instead, #162: `SkillRunner.reach_of`), collects drops, climbs or uses same-map portals, picks cards | `decide(world, memo) -> MoveInput`, `auto_choose(world, first_card := false)`, `pick_card_for(world, cards)` |
 | `BotShop` | What the bots do with equipment and mesos (spec #33, #112), beside `BotInput`: wears the best item it owns, and plans and applies one Free Market visit through RunWorld's equip/shop API. Used by `balance_run.gd` (mid-round and between `--tier` rounds), RunScene's autoplay and `FreeMarket.bot_shop` | `auto_equip(world) -> int`, `equip_trigger(events)`, `plan(character, stock, facts, policy, rng) -> {sell, steps}`, `visit(world, policy, rng) -> record`, `character_of / stock_of / facts_of(world)` |
 
 Player projectile hit exclusion uses `MobSwarm.identity`, a packed 64-bit logical identity independent of the
@@ -272,10 +270,10 @@ finale settlement. No stream is renumbered; stream 7 stays reserved.
 
 | Per-round state retained at transfer | Per-map state rebuilt or cleared |
 |---|---|
-| HP/MP, level/EXP/job/AP, loadout, buffs, Hidden, auto-cast timers, skill/basic-attack/manual and potion cooldowns, equipment/inventory, mesos, pet, RNG streams, time, kills/damage, boss history and aggregate counters | Footholds, bounds, ladders, navigation, portals, spatial hash, mobs, projectiles (player and monster), pickups, attacks/actions, per-slot statuses and motion; boss-inflicted player statuses clear |
+| HP, level/EXP/job/AP, loadout, buffs, Hidden, auto-cast timers, skill/manual and potion cooldowns, equipment/inventory, mesos, pet, RNG streams, time, kills/damage, boss history and aggregate counters | Footholds, bounds, ladders, navigation, portals, spatial hash, mobs, projectiles (player and monster), pickups, attacks/actions, per-slot statuses and motion; boss-inflicted player statuses clear |
 
 SpawnDirector retains round counters and scheduling clocks while selecting the new map's pool. Cooldowns and buffs
-remain on their deterministic clocks through the frozen transfer; HP/MP do not refill. Headless drivers advance
+remain on their deterministic clocks through the frozen transfer; HP do not refill. Headless drivers advance
 immediately. RunScene holds the CLEAR notice, fades out, draws one black frame, advances, reloads map/camera/mob
 layers/actors/BGM, fades in and shows the destination name. Pause/in-run windows hold the presentation clock.
 The bot's navigation memo clears on arrival. There is no live-world save at a map transfer: Continue always
@@ -285,8 +283,8 @@ Balance records carry `map_times`, `ended_map: {index, id}` and `boss_fights[].m
 `summary.json` includes `map_times` and `ended_map` both at its root and within `summary`; RunScene's existing
 map_id/map_name/street_name fields identify the ending map. SUMMARY counts deaths by one-based map number and
 reports entry seconds for maps 2 and 3 with observation counts. Legacy records contribute no invented map data.
-`flow_driver --scenario=maps` exercises the real transitions, Save & quit on map 2, replay from map 1 and the hub;
-diagnostic invulnerability, EXP drops and post-timer boss hits make this flow evidence rather than balance evidence.
+`flow_driver --scenario=redesign` exercises the real map transitions and the hub; diagnostic invulnerability and post-timer
+boss hits make this flow evidence rather than balance evidence.
 
 ### 4.4.1 Run setup (what `RunWorld` is built from)
 
@@ -322,7 +320,7 @@ var setup := {
 	                                  # are what the character wants to wear / bring out
 	"account": {"owned": [1002469, 5000000]},  # optional (spec #34): the account's owned cash item ids, absent = an
 	                                  # empty account; `nx` is never part of the setup, only the save credits it
-	"alert": {"hp": 0.3, "mp": 0.2},  # optional: HP / MP ALERT fractions the pet's auto potions follow, absent = 0
+	"alert": {"hp": 0.3},  # optional: HP ALERT fractions the pet's auto potions follow, absent = 0
 }
 ```
 
@@ -345,11 +343,10 @@ Tests build the same Dictionary from synthetic data. `scripts/core/data_repo.gd`
 
 ### 4.4.2 Pause protocol
 
-`RunWorld.state` is one of `PLAYING`, `CHOOSING_JOB`, `CHOOSING_UPGRADE`, `DEAD`, `CLEARED`. `step()` advances the
+`RunWorld.state` is one of `PLAYING`, `CHOOSING_UPGRADE`, `DEAD`, `CLEARED`. `step()` advances the
 world only while `PLAYING`. When EXP crosses one or more levels, the world queues them. For each queued level it
-first checks the job tree: if an advancement is offered at that level it enters `CHOOSING_JOB` and emits
-`job_advance_pending`; otherwise (or after the job choice) it enters `CHOOSING_UPGRADE` and emits `choice_pending`
-for every queued level. Accepted jobs add an advancement draw (`advancement: true`) before that normal draw; it preserves the queued level, includes every eligible new power skill of the exact job, and fills remaining places up to three with other new job skills. Normal draws return up to three distinct eligible current-job or job-neutral cards; if fewer
+enters `CHOOSING_UPGRADE` and emits `choice_pending` (there is no job advancement, #284). Draws return up to three
+distinct eligible cards of the character's job line (`UpgradePool.on_line`); if fewer
 than three are available, they include one Power Elixir fallback alternative. An exhausted pool therefore
 still opens a one-card window rather than consuming the level silently. The fallback is separate from the
 weighted `upgrades.cards` pool in `upgrades.fallback`.
@@ -357,8 +354,6 @@ The presentation layer shows the windows and calls back:
 
 | Call | Effect |
 |---|---|
-| `apply_job(job_id, path := "")` | advance (emits `job_changed`; a path records `weapon_path`, #157; the job grant is worn), open an extra advancement draw, then the normal upgrade choice for that level |
-| `decline_job()` | stay, then continue to the upgrade choice |
 | `apply_choice(card_id)` | apply the card (emits `upgrade_applied`), then the next queued level, else settle a completed objective or return to `PLAYING` |
 
 Level-up effects and their short pause before the window are presentation-only. Boss bonus picks use
@@ -388,23 +383,24 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 
 | type | fields |
 |---|---|
+| `skill_ground` | `skill`, `pos`, `box`, `effect`, `duration`: anchored area art |
+| `summon_spawn` | `skill`, `slot`: new player ally |
+| `summon_attack` | `skill`, `slot`, `pos`: ally attack animation |
 | `cast` | `skill`, `skill_id`, `level`, `pos`, `facing`, `action` (body stance to play when standing, e.g. `"swingO1"`), `effect` (WZ path of the caster effect or `""`) |
 | `boss_skill` | `mob`, `mob_id`, `skill_id`, `level` (ints), `pos` (boss feet Vector2), `facing` (int), `action`, `effect`, `player_effect`, `summon_effect`, `recipient_effect` (Strings; WZ paths or empty), `duration` (float seconds), `targets` (Array of int mob slots receiving buffs or summoned; empty for delayed heal); emitted at cast/stance/effect initiation, with delayed healing later reported as `mob_healed` |
 | `player_banished` | `mob`, `mob_id`, `skill_id`, `level` (ints), `from`, `pos` (the character's feet before and after, Vector2), `effect` (WZ path of the `affected` art or `""`), `message` (notice text or `""`); a boss's Banish (MobSkill 129, #256) moved the character to a random `sp` portal of the current map; emitted before that cast's `boss_skill`, after the pet's `pet_teleported` when a pet is out |
-| `basic_attack` | `phase` (String: `start` / `impact`), `weapon_id` (int), `action`, `facing` (int), `pos` (Vector2 feet), `afterimage`, `sound` (WZ paths), `hit_after`, `interval` (float seconds); start plays stance/sound, impact plays afterimage; a landed hit also emits `mob_hit` with `skill = "basic_attack"` |
-| `mp_short` | `skill`, `skill_id`, `required_mp` (int), `mp` (available whole MP, int); once per eligible ready skill's waiting episode, including targetless buffs |
 | `player_restored` | `stat` (`hp`/`mp`), `amount` (actual positive integer pool gain after capping), `skill` (key or empty), `pos` (player feet); emitted by `restore_player`, independent of legacy Recovery/potions |
 | `final_attack` | `skill`, `skill_id`, `level`, `mob` (the original target's slot), `pos`, `facing`, `action` (the skill's stance), `effect` (WZ path or `""`); emitted just before the follow-up's own `mob_hit` (skill = the Final Attack key; #161) |
 | `buff_cast` | `skill`, `skill_id`, `level`, `duration` (float canonical seconds); also emits ordinary `cast` for stance, effect and sound |
 | `buff_expired` | `skill`, `skill_id`; once when an active timer expires (or a buff ends early: Oak Barrel above its `end_hp_above`); a run ending first need not emit expiry |
-| `buff_failed` | `skill`, `skill_id`, `level` (#194); a buff cast with a `fail_chance` (Oak Barrel) whose roll failed: nothing started, MP and cooldown were paid, the accompanying `cast` event has `effect` `""` |
+| `buff_failed` | `skill`, `skill_id`, `level` (#194); a buff cast with a `fail_chance` (Oak Barrel) whose roll failed: nothing started, cooldown was paid, the accompanying `cast` event has `effect` `""` |
 | `buff_pulse` | `skill`, `skill_id`, `amount` (canonical integer healing due; the HP gain is clamped to max). Recovery's final pulse precedes its expiry; Guard/Armor have no pulses. |
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
 | `mob_status_applied` | `mob`, `mob_id`, `status` (`slow`, `poison`, `freeze`, `threatened`, `stun`), `duration` (float canonical seconds); reapplication emits again and refreshes |
 | `mob_status_expired` | `mob`, `mob_id`, `status`; natural timer expiry only; death/release/relocation clears silently |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
-| `player_hit` | `damage` (int), `mp_absorbed` (int), `miss` (bool), `dir` (-1/1), `pos`, `mob` (source slot, -1 when unspecified), `mob_id` (source id, 0 when unspecified), `boss` (bool), `max_hp` (HP pool at hit time), `source_kind` (String: `touch`, `attack`, `projectile`, or `other` for a direct unspecified source). Whole damage/max_hp supports encounter metrics. A miss spends no HP/MP and gives no knockback/invincibility. |
+| `player_hit` | `damage` (int), `miss` (bool), `dir` (-1/1), `pos`, `mob` (source slot, -1 when unspecified), `mob_id` (source id, 0 when unspecified), `boss` (bool), `max_hp` (HP pool at hit time), `source_kind` (String: `touch`, `attack`, `projectile`, or `other` for a direct unspecified source). Whole damage/max_hp supports encounter metrics. A miss spends no HP and gives no knockback/invincibility. |
 | `player_jump` | `pos` |
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
@@ -412,7 +408,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind` (exp/meso/equip), `potion_kind` (empty compatibility field), `count` (meso amount; 1 for equipment), `collector` (`player`, including the finale sweep, or `pet` when the pet's pickup radius or VAC took it; credited the same, mesos and equipment included) |
 | `pickup_blocked` | `pickup`, `item_id`, `pos`, `reason` (`inventory_full`): an equipment drop meets a full Equip tab during magnet pickup or finale settlement; once per approach (or settlement attempt until room changes), the drop stays on the ground |
 | `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping); no `count` |
-| `pet_potion_used` | same fields as `potion_used`, for the pet's Auto HP/MP Potion Pouch drinks (counted apart from the player's) |
+| `pet_potion_used` | same fields as `potion_used`, for the pet's Auto HP Potion Pouch drinks (counted apart from the player's) |
 | `pet_teleported` | `from`, `pos` (the pet's feet): it jumped to the player; a renderer snaps instead of interpolating |
 | `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item; cooldown preserved): one per `potions.schedule` step applied at a level-up (never on a snapshot load). `RunScene` shows "Your Red Potions are now Orange Potions." from the String.wz item names |
 | `ammo_upgraded` | `family` (bow/crossbow/claw/gun), `from_item_id`, `item_id` (the new ammo, Item.wz id), `level` (character level): the held ranged weapon's endless ammo moved to a higher tier (#155) on a level-up or on advancing into the branch; a weapon swap and the first computation are silent. On a level-up it comes before `level_up` (the caster refresh runs inside the level-up). `RunScene` shows "Your throwing stars are now Ilbi Throwing-Stars" |
@@ -421,9 +417,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `skill_impact` | `skill`, `pos` (struck mob's feet before hits), `effect` (blast art path): an opt-in projectile impact blast (#200), followed by ordinary `mob_hit` events for the primary and splash targets. `RunScene` plays the effect at the captured position |
 | `ammo_shot` | `skill`, `from` (hand), `to` (target body centre), `seconds` (distance / current ammo speed), `ball` (current ammo sprite path), `rotate` (bool): a presentation-only ranged Final Attack flight (#200). Damage already lands during this tick on stream 12; the visual follows a straight line using pooled effects and cannot hit again |
 | `level_up` | `level` |
-| `job_advance_pending` | `options`: `[{job_id, name, available, reason, paths}]`, one entry per child job; `paths` in page order, `[]` for jobs without paths or locked jobs (#226) |
-| `job_changed` | `job_id`, `name` |
-| `choice_pending` | `bonus` (bool), `advancement` (bool; extra new-job draw, preserving the queued level), `cards`: `[{id, kind, name, desc, icon, tier, magnitude, rank_before, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_level_max, skill_changes, skill_effect_stat, skill_mod_changes}]`; `skill_mod_changes` (skill_mod cards on an owned skill, `{}` otherwise) maps the effective values the card's steps change (`shots`/`targets`/`pierce`/`speed`/`range` whole numbers, `cooldown` seconds to two decimals, `area`/`damage`/`crit` percent) to `{before, after}`; the level-up window shows them and dresses skill cards with SkillText (GAME_DESIGN 8.2); `skill_level_max` is the skill's canonical level cap (0 without a skill; the window marks a learn at the cap MAX); `tier` is lowercase `normal/rare/epic/unique/legendary` after the headroom clamp; `magnitude` is granted ranks, modifier steps or starting skill rank. `rank_before/rank` are consumed card steps before/after (skill learns consume one). `skill_effect_stat` is the skill's skills.json `buff.stat` (`hp` Recovery, `mp_guard` Magic Guard, `pdd` Armor, `speed` Nimble Feet, `""` otherwise; the level-up window labels `x` from it); `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`, `time`, `x`, `pdd`, `cooltime`, `speed`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent. Improved MaxMP Increase instead exposes `max_mp_percent`, the survivor per-level percentage, never canonical MP growth |
+| `choice_pending` | `bonus`, `cards`: card id, kind/category, skill, rank step, mapped WZ levels, rarity bonus and before/after previews; active Mastery grants only a diminished bonus, common passives always stay Normal |
 | `upgrade_applied` | `id`, `rank`, `tier` (displayed Potential tier), `magnitude` (actual ranks/steps/starting rank) |
 | `skill_learned` | `skill`, `skill_id` |
 | `burst` | `count` (a spawn burst started) |
@@ -440,6 +434,14 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `equipment_changed` | `action` (`equip`, `unequip`, `discard`, `grant`, `pickup`, `auto_equip`), `slot` (equip slot, `""` for a discard), `item_id`; after the derived stats were refreshed; the presentation redraws the worn look. Emitted by `equip_item`, `unequip_item`, `discard_item`, a job's weapon grant in `change_job` (the Magician's wand, a weapon path's weapon, a second job's branch weapon; #157) and an equipment pickup (`slot` `""`, `item_id` the new item); a pickup whose slot is empty and whose requirements are met is followed at once by `auto_equip` (`slot` the worn slot, `Equipment.auto_wear_error`, #222) |
 | `teleport` | `skill`, `skill_id`, `level`, `phase` (`departure`/`arrival`), `pos`, `facing`, `effect`; fixed world positions for the manual player blink |
 | `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
+
+ADR 0006 #288 extends each choice card with `card_kind` (including `mastery`), `slots` (display summary),
+`skill_rank_before` (survivor rank, distinct from canonical `skill_level`) and `rarity_bonus` (empty or
+`{id, text, counter, effects: [{stat, op, value}]}`). `skill_mod_changes` also previews rarity effects on new/rank/Mastery
+cards. Pool-active new/rank magnitude is always 1; at rank 8 Mastery reuses the rank-card id with magnitude 0 (a Normal Mastery carries the shared `mastery_damage` bonus, +5% damage).
+The rolled active rarity is preserved; passive rarity is Normal. Bonus repeat counters live in the round loadout's
+`card_ranks` under `bonus:<skill>:<bonus-id>`; schema and diminishing rules are in GAME_DESIGN 8.
+
 
 
 `RunWorld.bosses.records` has one row per stage boss: `{boss_index, mob_id, map_index, map_id, slot, warned, arrival, spawn_time,
@@ -554,7 +556,7 @@ ratio (`elite_interval_at`); ordinary alive targets still obey `hard_cap`.
 Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `RunWorld.mob_kinds[kind].id`, `state`,
 `state_t`, `facing`, `alpha`, `x`, `y`), `ProjectileSystem` arrays (`active`, `x`, `y`, `vx`, `vy`, `visual` ->
 `RunWorld.visual_paths[visual]`, `rotate`, `generation`), `PickupSystem` arrays (`active`, `x`, `y`, `item_id`), and
-`RunWorld.player` / `RunWorld.player_state` (`hp`, `mp`, `mp_short` (bool, an eligible ready skill failed affordability), `max_hp`, `max_mp`, `exp`, `level`, `job_id`,
+`RunWorld.player` / `RunWorld.player_state` (`hp`, `max_hp`, `exp`, `level`, `job_id`,
 `str`, `dex`, `int`, `luk` (integer attributes), `pdd`, `mdd`, `avoid` (equipment-derived defense and avoidability),
 `fortune` (survivor card-tier stat from `balance.player.fortune`, separate from LUK),
 `invincible_t`, `action`, `action_t`, `dead`, plus detached `buffs`, `slow` and `potions` snapshots described below).
@@ -596,13 +598,8 @@ element multiplier, including zero immunity before the normal minimum-one clamp.
 
 ### 4.4.4 Survivor data files (`game/data/survivor/`)
 
-Weapon paths (#226) use `jobs.paths: [{id, label, item_id, family}]` for first and second jobs, including
-single-family branches. Only the chosen weapon is granted; no spare-item grant fields remain. A multi-family
-choice records `weapon_path`; a single-family branch preserves it. Pathless snapshots infer it from the held family
-at the deepest multi-family ancestor, falling back to that ancestor's first path. Inventory is retained.
-`balance.player.ap_stat` and `ap_secondary` accept `"<job>:<weapon_path>"` keys. At each lineage step the path key is
-checked before the plain job key, so a branch's own AP row wins over its first-job ancestor's path row. The path is
-the recorded advancement choice, independent of later weapon swaps. Other per-job tables retain plain-job lookup.
+ADR 0006 removes weapon paths and advancement. `balance.player.ap` has one row per job; lookup follows
+canonical lineage to the nearest configured ancestor. The held weapon never selects an AP row.
 `Loadout.stats` defaults projectile `count` to canonical `bulletCount`, and `range` to canonical `range`, when their
 survivor overrides are absent. For a box cast, optional `cast.around:true` mirrors its far horizontal edge across the
 player while retaining canonical height (Somersault Kick; tier C). `RunWorld.pirate_rng` owns stream 16; stream
@@ -619,21 +616,21 @@ equipment chance and job/held-family pool, with a normal meso bundle fallback. C
 |---|---|
 | `skills.json` + `skills/<line>.json` | survivor behaviour per skill key (line fragments, see below): canonical `skill_id`, `book`, job, kind (projectile / instant / passive / buff), cooldown, range, speed, count, pierce, rank -> canonical level map, `level_ranks`, buff effect fields and canonical time/cooltime, survivor pulse interval and HP threshold, optional `weapon_families` (family names or `["any"]`; overrides the Skill.wz `weapon` requirement, GAME_DESIGN section 7), visuals and sounds |
 | `upgrades.json` + `upgrades/<line>.json` | upgrade cards (`GAME_DESIGN.md` §8, in the line fragments), `power` flags, the `pity` rule, rarity, magnitudes and the fallback Elixir (base) |
-| `equipment_drops.json` + `equipment_drops/<line>.json` | the drop rules (window, falloff, chance, boss drops; base) and the eligible equipment ids (fragments) |
+| `equipment_drops.json` + `equipment_drops/<line>.json` | the drop rules (chance, boss drops, boss_top_parts; base) and the eligible equipment ids (fragments) |
 | `scrolls.json` + `scrolls/<line>.json` | the scroll roster: item slot -> family -> rate -> item id (fragments) |
 | `shops.json` + `shops/<line>.json` | the Free Market scroll NPCs, prices and talk range (base) and the weapon-priced slots (fragments) |
 | `stages.json` | region stage key -> ordered `maps` (map_id, pool rule, boss with relative time/mob_id/hp_mult/dmg_mult), `map_seconds`, duration, pacing keyframes, bursts, elites, `spawn`, `exp_mult`, note and `post_duration_slope`; no top-level map_id/bosses. StagePools derives life pools; StageRoster derives boss summon/revive ids |
-| `balance.json` | EXP curve, player base attributes, automatic AP and job primary-stat rules, worn equipment ids and job weapons, cast origin / `cast_forward`, HP/MP growth and INT MP divisor per job, the shrinking `hit_window`, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), mob speed factor, `mob_motion` flyer bob amplitude/period passed to MobSwarm |
+| `balance.json` | EXP curve, player base attributes, automatic AP and job primary-stat rules, worn equipment ids and job weapons, cast origin / `cast_forward`, HP growth per job, the shrinking `hit_window`, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), mob speed factor, `mob_motion` flyer bob amplitude/period passed to MobSwarm |
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
-| `jobs.json` | which canonical jobs are playable and what advancing grants (Max HP/MP, extra advancement draw, no skills); `paths` pairs each family with one candidate item, one chosen weapon worn without requirements (#226); Magician stays in `balance.player.weapon_grants` |
+| `jobs.json` | Playable jobs, fixed starting and mobility skills, active skill pools, allowed weapon families and creation weapon |
 | `ammo.json` | endless ammo (#155): per ranged weapon family the starting ammo item, its notice noun and projectile numbers, and the specialist branches' level schedules (`Ammo`; the setup key `ammo_info` carries the Item.wz incPAD of every ammo item, `DataRepo.ammo_info`) |
 | `cash_items.json` | the Cash Shop catalog (id, kind equip / pet / pet_upgrade, NX price, Commodity SN, prerequisites) and the tier C Fortune each cash slot adds (`CashCatalog`, spec #34); the account and the worn items reach a round as setup keys `account` / `alert` and the CharacterSnapshot `cash` / `pet` keys |
 
-**Job-line fragments.** The five files above that name `<line>.json` are a base file (`_doc` and the job-neutral, non-entry config) plus one fragment per job line in a directory beside it (`survivor/skills/magician.json`). `DataRepo.load_all` returns the merged result under the same `setup.data` keys as before, so nothing downstream knows about the split. The fragments are probed by name, in the fixed order `DataRepo.LINES` = common (job-neutral), beginner, warrior, magician, bowman, thief, pirate (job-line id order after common); the order is job-line order, not file-name order, because it decides the order of the merged cards that the level-up roll walks, and `test_data_repo_lines` fails on a file in a fragment directory that is not named after a line. Merge rules (`DataRepo.SPLIT`): `skills` entries are concatenated by key; `cards` and `weapon_slots` are concatenated in line order; `equipment_drops.items` are concatenated and sorted ascending; `scrolls.families` merge per slot, so a later line can add families to an armour slot another file started. A repeated skill key, card `id`, item id, weapon slot or slot+family across files is an error in the `errors` list of `load_all` and the first value is kept; `_`-prefixed keys of a fragment (its `_doc`, notes) are never merged and never overwrite the base. Placement: skills by Skill.wz book (000 beginner, 2xx magician), cards by their skill (none = common, book 000 = beginner, else the skill's line), equipment ids by canonical `reqJob` (0 = common armour, a Magician bit or any wand/staff = magician, the Warrior bit with the sword/axe/blunt/spear/polearm weapons and shields = warrior; weapons and shields never take reqJob 0, so a Beginner's drops stay as they were), armour scrolls in common, wand/staff scrolls in magician and the sword/axe/blunt/two-handed/spear/polearm/shield scrolls in warrior (`weapon_slots` in `shops/<line>.json`). A weapon drops only from the family held at the roll (`EquipmentDrops.family_allows`, `equipment_drops.shared_families`). **A class spec adds its line** (Warrior, Bowman, Thief, Pirate) by creating its own `<name>/<line>.json` files, never by editing another line's file; an export ships them through `data/survivor/*/*.json` in the `include_filter` of `game/export_presets.cfg`. Tools that deep-merge a patch (`balance_run.gd --patch`) work on the merged data.
+**Job-line fragments.** The five files above that name `<line>.json` are a base file (`_doc` and the job-neutral, non-entry config) plus one fragment per job line in a directory beside it (`survivor/skills/magician.json`). `DataRepo.load_all` returns the merged result under the same `setup.data` keys as before, so nothing downstream knows about the split. The fragments are probed by name, in the fixed order `DataRepo.LINES` = common (job-neutral), beginner, warrior, magician, bowman, thief, pirate (job-line id order after common); the order is job-line order, not file-name order, because it decides the order of the merged cards that the level-up roll walks, and `test_data_repo_lines` fails on a file in a fragment directory that is not named after a line. Merge rules (`DataRepo.SPLIT`): `skills` entries are concatenated by key; `cards` and `weapon_slots` are concatenated in line order; `equipment_drops.items` are concatenated and sorted ascending; `scrolls.families` merge per slot, so a later line can add families to an armour slot another file started. A repeated skill key, card `id`, item id, weapon slot or slot+family across files is an error in the `errors` list of `load_all` and the first value is kept; `_`-prefixed keys of a fragment (its `_doc`, notes) are never merged and never overwrite the base. Placement: skills by Skill.wz book (000 beginner, 2xx magician), cards by their skill (none = common, book 000 = beginner, else the skill's line), equipment ids by canonical `reqJob` (0 = common armour, a Magician bit or any wand/staff = magician, the Warrior bit with the sword/axe/blunt/spear/polearm weapons and shields = warrior; weapons and shields never take reqJob 0, so a Beginner's drops stay as they were), armour scrolls in common, wand/staff scrolls in magician and the sword/axe/blunt/two-handed/spear/polearm/shield scrolls in warrior (`weapon_slots` in `shops/<line>.json`). A weapon drops only from the job's `weapon_families` (`EquipmentDrops.family_allows`). **A class spec adds its line** (Warrior, Bowman, Thief, Pirate) by creating its own `<name>/<line>.json` files, never by editing another line's file; an export ships them through `data/survivor/*/*.json` in the `include_filter` of `game/export_presets.cfg`. Tools that deep-merge a patch (`balance_run.gd --patch`) work on the merged data.
 
-The base `equipment_drops.json` also accepts `shield_families`, an optional map from first-job id to allowed held
-weapon families. `EquipmentDrops` applies it to that entire job line, including boss fallback outside the level
-window; unlisted lines retain unrestricted shield eligibility (subject to canonical `reqJob`).
+Equipment drops no longer read the character's level or held weapon (#292): `stages.json` `drop_bands` gives each tier a
+`reqLevel` band, `survivor/jobs/<line>.json` lists each exact job's `weapon_families` (`JobTree.weapon_families`), and
+`EquipmentDrops` takes both as arguments. A shield or armour piece is eligible by canonical `reqJob` alone.
 
 `RunWorld` checks `PortalSet` before movement each PLAYING tick. Holding Up inside a same-map link's activation box
 places the player at the destination minus the configured lift, resets velocity/ladder/down-jump state, and emits
@@ -690,18 +687,10 @@ What the table above leaves open; the class doc comments have the rest.
 
 ### 4.4.6 Run details (`ProjectileSystem` ... `RunWorld`)
 
-`RunWorld.spend_mp(amount) -> bool` atomically pays a cost without changing the pool on failure. Regen is applied
-in `balance.regen.interval` pulses (`PlayerUpkeep` keeps the clock; RunWorld applies each pulse to its pools): HP/MP
-base amounts plus `Loadout.regen_bonus(pool, character level)`: every owned skill with a `regen` field (`{"pool": "hp"|"mp", "divisor": n}`, e.g. Improved MP Recovery) adds `floor(character level x skill level / divisor)` to that pool; a `regen` of the shape
-`{"pool", "field"}` (Improved HP Recovery, #163) adds the canonical level field instead. `hp_regen` / `mp_regen` modifiers add
-to each pulse. Level growth calls `refresh_player_stats(false, level, true)` to allocate AP at each intermediate level
-of a batch and preserve the MaxMP passive's MP fraction before the separate level-up refill. Equipment calls `refresh_player_stats(false)`
-to clamp current pools only; explicit pool upgrades retain the normal granted-growth behavior.
-
-Skills with `periodic_recovery: {interval_field, hp_field, mp_field}` (#212 Endure) have independent clocks in
-PlayerUpkeep. `periodic_recovery(dt, loadout) -> Vector2` reports the HP/MP due; RunWorld clamps both pools after
-the shared pulse. Canonical values are cached by loadout version; rank changes preserve elapsed time, weapon-gated
-clocks pause while unusable, and all clocks reset with the round. This adds no CharacterSnapshot or player_state field.
+Regeneration runs in fixed `balance.regen.interval` pulses through `PlayerUpkeep`; only HP exists.
+Level growth allocates AP for each gained level, refreshes maximum HP, then applies the configured HP refill.
+Equipment refreshes derived stats without granting a refill. `periodic_recovery` skills retain independent clocks
+for HP recovery. There are no MP costs, regeneration, conversion, alerts or absorption fields (ADR 0006).
 
 What the tables above leave open; the class doc comments have the rest.
 
@@ -722,34 +711,19 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   has `exp_next`. The calls of 4.4.2 return `bool` (false and no change when not on offer). A relocated mob's
   `mob_spawned` carries the usual fields; the presentation treats it like a new mob (its slot may be the one it had);
   tools that follow a mob across relocations (`balance_run.gd`'s stale share) use `relocated_from`.
-  Narrow accessors for the components that act on the world (MobSkillRunner, BossAttacks, BasicAttack): `player_box()`,
+  Narrow accessors for the components that act on the world (MobSkillRunner, BossAttacks): `player_box()`,
   `player_body_center()`, `mob_img(id)`, `refresh_player_speed()`, `summoned_alive(owner)` and `spawn_offspring(source,
   center_x, ids, owner, max_count := -1)` (MobSkill 200 summons and info/revive offspring: the same symmetric
   `mob_skills.summon_spacing` spread on the source's platform, centred on the whole list). Its tick reads as
   `_step_player` (drinks, `_take_portal` or movement, view, `_tick_timers`), `_step_monsters`, `_step_player_attacks`,
   `_step_pickups`, touch, EXP, state snapshot, `_end_tick`; `_on_boss_kill` handles a scheduled boss's death.
-- **Event details:** `player_hit.damage` is the whole hit (the number shown), `mp_absorbed` the part Magic Guard paid
-  with MP. `player_hit.miss` renders the violet MISS and produces no hit expression or invincibility blink.
-  `RunWorld.take_hit` takes attack, magic flag, element, source position and optional source fields `accuracy`,
-  `elite`, `dmg_mult`, `mob`, `mob_id`, `boss`, `source_kind`. Its public hit API is `take_hit` plus
-  `hit_window_blocks(source)`, the hit-window check alone (true while `upkeep.invincible_t > 0` for a source that is
-  not a boss skill attack or ball; god and death are take_hit's own guards). A landed hit starts the window through
-  `PlayerUpkeep.land_hit` (spec #88). Balls ask `hit_window_blocks` before calling take_hit, because take_hit returns 0
-  for both a blocked hit and a miss. Only explicit elite/source multipliers scale damage; time keyframes
-  never do. `player_hit.max_hp` is captured before any later level-up in that tick changes the pool. Power Guard
-  (spec #165 #182) is one step inside `take_hit` for `source_kind` "touch" with a `power_guard` buff total: the reflect
-  comes off the damage before Magic Guard's split and is dealt to `source.mob` as a `mob_hit` plus `_on_kill`
-  (GAME_DESIGN 7.10); it is a no-op, with no RNG, when the buff is off.
-  `choice_pending` card `rank` is the rank the card gives when taken (1 = new); `max_rank` 0 = unlimited;
-  `skill_name` is the card's skill's name ("" without a skill), `skill_level` its canonical level now (0 = not owned)
-  and `skill_level_next` its canonical level once the card is taken (0 unless the card learns or ranks the skill; the
-  level-up window shows "Skill Lv. 2 → 3" for a skill_rank card, whose own rank is not the skill's level).
-  The run's starting skill emits `skill_learned` before the first `step()`.
+- **Event details:** `player_hit.damage` is whole HP damage; there is no MP absorption.
+
 - **Hidden and morph (#194, GAME_DESIGN 7.18):** a buff whose snapshot has `hidden` (from `buff.hidden`) makes
   `RunWorld.is_hidden()` true; `player_state.hidden` and `player_state.morph` (the Morph.wz id of the first morphing
   buff, 0 for the plain avatar, always 0 once dead) feed the presentation. Mobs, bosses, mob skills and balls read
   `is_hidden()` (MobSwarm `ctx.hidden`, MobAttacks, MobProjectileSystem, MobSkillRunner, BossDirector, SpawnDirector,
-  `take_hit`, `_touch`), the player's attacks read it too (SkillRunner, BasicAttack). `RunScene` passes `morph` to
+  `take_hit`, `_touch`), the player's attacks read it too (SkillRunner). `RunScene` passes `morph` to
   `AvatarRenderer.set_morph`.
 - **Player buffs:** `player_state.buffs` is an array of `{skill, skill_id, level, icon, remaining, duration,
   effect_stat, value}` (plus `hidden`, `morph`, `end_hp_above` since #194). Duration/effect are snapshotted from canonical `time` and `x`/`pdd` at cast level; upgrading a
@@ -759,26 +733,23 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   `hit_defense()` adds active Armor PDD to equipment/stat defense; `magic_guard_ratio()` reads active Guard only.
   Expiry drops the effect immediately; an affordable, permitted recast may happen on that same tick. `HudBuffRow`
   draws canonical Skill.wz icons and whole-second remaining labels; the HUD signature updates on countdown changes.
-  Rank previews add canonical `time`, `x`, `pdd` changes to MP cost and existing combat fields.
+  Rank previews add canonical `time`, `x`, `pdd` changes to existing combat fields.
   Recovery also reads canonical `cooltime`; its `buff.hp_threshold` and `pulse_interval` are survivor rules.
-  `RunWorld.can_start_buff(skill, stats)` checks the HP threshold before spending MP. Recovery's cooldown starts at
+  `RunWorld.can_start_buff(skill, stats)` checks the HP threshold before casting. Recovery's cooldown starts at
   cast time and keeps ticking during its HoT and while climbing. PlayerBuffs applies periodic intervals only inside
   the active duration, returns total healing due to the world, and emits the final pulse before expiry. The six
   5-second pulses over 30 seconds are a tier C interpretation of canonical `x`. Rank previews include `cooltime`,
   and Recovery's `x` is labelled HP per pulse rather than an absorption percentage.
-  Nimble Feet reads canonical `speed`, `time`, `mpCon` and `cooltime`; its active speed points are added before
+  Nimble Feet reads canonical `speed`, `time` and `cooltime`; its active speed points are added before
   the mob-skill slow multiplier. Speed refreshes immediately on cast and expiry. Its 60 s cooldown starts at
-  cast, so the 4/8/12 s buff does not recast at expiry before that cooldown elapses. Improved MaxMP Increase is
-  a passive with data-defined `per_level` feeding `max_mp_percent`: RunWorld multiplies its base MP plus job
-  grant on every recompute, rounds once, and preserves current MP ratio on growth when this passive is owned.
-  Ordinary level growth without the passive still grants no current MP.
+  cast, so the 4/8/12 s buff does not recast at expiry before that cooldown elapses.
 - **`ProjectileSystem`:** `rng` (combat stream), `paths` (= `RunWorld.visual_paths`), `bounds`; `step()` fills
   `kills` (mob slots killed this tick) and RunWorld turns them into `mob_died` + an EXP drop, like instant hits.
   Shots capture `damage_type`, `damage_pct`, `player_level`, `crit_damage_bonus` and pre-defence bounds in packed
   arrays; target level and live PDD/MDD are read at each impact. `roll_damage` is shared with `RunWorld.hit_mob`;
   physical bounds take level-gap/PDD reduction before rolling and skill%, magic keeps its existing MDD rule,
   and fixed damage ignores defence. `hit_mob(m, stats, visual, hit_rng := null)` defaults to combat stream 1;
-  BasicAttack supplies stream 5 for both the damage and crit rolls.
+  Final Attack supplies stream 12 for both the damage and crit rolls (stream 5 is reserved since #284).
 - **Physical caster (#153):** `Loadout` exposes `str_stat`, `dex_stat`, `luk_stat`, `watk`, `acc`, `weapon_id`,
   `weapon_family`, `job_id`, `mastery` (fraction, default .10), `crit_bonus` (chance), `crit_damage_bonus`
   (skill-percentage points). `clone()` copies these; changed inputs invalidate `version`. `RunWorld._refresh_caster`
@@ -794,7 +765,7 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
 - **Shared passives, buffs and Final Attack (#161):** `RunWorld._refresh_caster` is the one place that turns owned
   passives into caster fields. `Loadout.passive_total(stat)` / `passive_best(stat)` read every effect of a skill's
   `passive` (the legacy `stat` + `field`/`per_level`, plus an optional `effects: [{stat, field | per_level}]` list) and skip
-  skills the held weapon family cannot use (`SkillBook.usable_with`). Stats: `mastery` (canonical N, fraction
+  skills outside the job pool. Stats: `mastery` (canonical N, fraction
   (10 + 5N)%, best wins), `acc` (summed into `Loadout.acc`), `crit_chance` (percent, summed into `crit_bonus`),
   `crit_damage` (total crit percent; `crit_damage_bonus` is the part above 100, best wins) and `max_hp_per_level`
   (added to the base HP at each `_on_level_up`, so it persists in the snapshot's `base_hp`). A buff `effects` entry may
@@ -814,32 +785,25 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   the full tab cannot hold is refused (`inventory_full`, "You can't get anymore items."), and
   `Equipment.validation_error` rejects a snapshot that wears both.
 - **Attack speed (#160).** `WeaponInfo.speed_factor(base, boost)` is 1.0 without a Booster. `RunWorld.attack_speed_boost()`
-  sums the running buffs' `attack_speed` effect (`PlayerBuffs.effect_total_where`, counted only while
-  `SkillBook.usable_with` the held family); `_refresh_caster` feeds `Loadout.weapon_speed` / `speed_steps`,
+  sums the running buffs' `attack_speed` effect (`PlayerBuffs.effect_total_where`); `_refresh_caster` feeds `Loadout.weapon_speed` / `speed_steps`,
   `Loadout.stats()` multiplies a damaging skill's `action_time` and `cooldown` by `speed_factor`, and
-  `BasicAttack.action_spec(..., boost)` plus `player_state.action_scale` shorten the swing and the avatar's frames.
+  `WeaponReach.action_spec(..., boost)` plus `player_state.action_scale` shorten the swing and the avatar's frames.
 - **Weapon-bound casts and HP cost (#163).** `SkillRunner` has two more cast rules beside `nearest` / `box` / `crowd`:
-  `weapon_reach` (the nearest mob inside `BasicAttack.envelope(world)`, the union of the held weapon's afterimage boxes)
+  `weapon_reach` (the nearest mob inside `WeaponReach.envelope(world)`, the union of the held weapon's afterimage boxes)
   and `range_around` (up to `mob_count` mobs whose body centre is within the canonical `range`); `reach_of` and
   `strike_count` are their shared definitions. A skill with `"action": "weapon"` plays `WeaponInfo.skill_action(weapon)`
-  (the first basic-attack stance), which also picks the swing/stab multiplier. `Loadout.stats().hp_cost` (canonical
-  `hpCon`) is paid with the MP: `cast_ready` skips a skill `RunWorld.can_pay_hp` refuses (HP must stay above 0) and
+  (the first weapon stance), which also picks the swing/stab multiplier. `Loadout.stats().hp_cost` (canonical
+  `hpCon`) is paid at cast time: `cast_ready` skips a skill `RunWorld.can_pay_hp` refuses (HP must stay above 0) and
   `RunWorld.spend_hp` pays it.
 - **Melee behaviour cards (#208).** `Loadout.stats().attack_count` applies skill modifiers to canonical `attackCount`;
   target count remains separate. `SkillRunner.weapon_envelope(stats, world)` scales a copy of
-  `BasicAttack.envelope(world)` by the skill's existing `area` modifier on both axes. Admission and the short-MP
-  probe share that box; `reach_of` scales the basic reach by the same area for the bot. The basic attack's cached
+  `WeaponReach.envelope(world)` by the skill's existing `area` modifier on both axes. Admission uses that box; `reach_of` scales the weapon reach by the same area for the bot. The cached
   envelope is never mutated. `UpgradePool` previews `attack_count` as whole hits alongside the existing percent
   `area` preview; the level-up window labels them Hits and Reach. No snapshot schema or RNG stream changes.
-- **Self casts and HP-to-MP conversion (#193).** The `self` cast rule needs no monster: `SkillRunner.has_target` asks
-  `RunWorld.self_cast_ready(stats)` (the cast block's `mp_below` / `hp_at_least` fractions plus `can_pay_hp`), and the
-  cast calls `RunWorld.convert_hp_to_mp` for a `convert` block (`Loadout.stats().conversion`), reporting the MP through
-  `player_restored`. `cooldown_field` reads a skill's cooldown from a canonical level field. GAME_DESIGN 7.16.
-- **Weapon paths and grants (#226).** `RunWorld.apply_job(id, path := "")` validates an available entry and its
-  path ids; an empty path means the first page path. `change_job` records multi-family choices and wears only the
-  selected item; 0/1 paths preserve `weapon_path`. Second-job page order puts the held family first. The Magician
-  keeps its `balance.player.weapon_grants` wand. Displaced weapon/shield enter the Equip tab or spill at the feet
-  when full. Drops and skill/card gates follow the held family (`EquipmentDrops.family_allows`, stream 10).
+- **Self casts:** the generic self-cast rule requires no monster; MP conversion was removed by ADR 0006.
+
+- **Weapon paths and grants** (#226) are gone (#284): no job grants or records a weapon; drops still follow the
+  held family (`EquipmentDrops.family_allows`, stream 10) until #292.
 - **`PickupSystem`:** `step()` returns the EXP collected this tick; at `max_active`, `spawn()` absorbs the drop farthest
   from the supplied player position and reuses its slot at the new death position, restarting the pop and age with
   the combined EXP. `merged` reports absorption, and `RunWorld` still emits `pickup_spawned`. With `lifetime` > 0 a drop expires silently
@@ -864,14 +828,14 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   takes how many items the Equip tab still holds (RunWorld passes `inventory_slots() - inventory.size()`, -1 = unlimited):
   a collected drop is appended to `collected_equipment` (RunWorld puts it in `equipment.inventory`, emits
   `equipment_changed` action `pickup`, counts `equips_collected`, then wears it at once through `equip` with action
-  `auto_equip` when its slot is empty and its requirements are met, #222). With room 0 a drop is not magnetised (one already flying
+  `auto_equip` when its slot is empty and its job class admits it, #222). With room 0 a drop is not magnetised (one already flying
   falls back to the floor) and `pickup_blocked` is emitted once each time the player comes within magnet range; it is picked
   up as soon as room appears. `EquipmentDrops` (pure statics: `eligible`, `pick`, `pick_boss`) filters
   `survivor/equipment_drops/<line>.json` `items` (ids only; reqLevel, reqJob and stats come from `setup.equipment_info`, which
-  `DataRepo.starter_equipment_ids` extends with the list) by the character's current job (`Equipment.job_allows`) and
-  level window, weighting nearer reqLevels; `Equipment.create_drop(id, info, rng)` rolls the v83 random stats. A kill rolls
+  `DataRepo.starter_equipment_ids` extends with the list) by the character's job (`Equipment.job_allows`), the job's weapon
+  families and the `reqLevel` band of the stage's tier (`RunWorld.drop_band()`, uniform inside it); `Equipment.create_drop(id, info, rng)` rolls the v83 random stats. A kill rolls
   `equipment_drops.chance` on its own RNG stream (10, `equip_rng`); a scheduled boss's death drops
-  `equipment_drops.boss_drops` item(s) from the top of the window with no chance roll. `RunWorld.spawn_equipment` is the public
+  `equipment_drops.boss_drops` item(s) from the top third of the band with no chance roll. `RunWorld.spawn_equipment` is the public
   seam; RunScene shows "You have gained an item (name)" and "You can't get anymore items." through the HUD message queue.
   The balance record carries `equips_dropped` and `equips_collected` per round.
 - **Potions (spec #237):** setup.item_info maps original item ids to canonical Consume nodes. Each kind in
@@ -896,8 +860,7 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   per due step and preserves the remaining cooldown; the event and refreshed player state update the quickslot immediately.
   `CharacterSnapshot.migrate` drops `magnet` and the
   removed potion cards from `card_ranks` (and the `magnet` modifier from `player_mods`) on load.
-- **Job window:** opens at a queued level whenever an option is available, and once at exactly the tier's first
-  advancement level even when none is (Magician at 30 sees 210/220/230 as unavailable once).
+- **Job selection:** fixed at character creation; there is no advancement window.
 
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
 
@@ -906,16 +869,15 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
 minute/crowd grouping semantics. Ordinary play keeps only the last two seconds, capped at 2048 samples even if frame
 deltas are zero. F3 reads this bounded window immediately when toggled mid-round and does not enable full recording.
 
-`RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 2; format 1 migrates on load) and
-exposes `character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
-it carries progression, original attributes/earned AP, accumulated HP/MP growth and advancement grants, ordered
-skills with ranks/modifiers, player modifiers/card limits, Fortune, look, worn equipment and
-inventory (`scripts/sim/equipment.gd` instances), scroll stacks and mesos.
-Resolved attributes/Fortune are also included for consumers. RunWorld owns the live equipment: UI and bots change it
+`RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 3; tool files of format 1 and 2 migrate on
+load) and exposes `character_snapshot()`. The schema, and the one list of what a character keeps, is in
+`scripts/sim/character_snapshot.gd`: job, look, worn equipment and inventory (`scripts/sim/equipment.gd` instances),
+scroll stacks, mesos, cash, pet and unlocked tiers; never level, EXP, skills, cards, AP or HP. Every world starts at Lv1.
+RunWorld owns the live equipment: UI and bots change it
 only through `equip_item`, `unequip_item` and `discard_item` (see the RunWorld header); a character without a
-snapshot wears `Equipment.DEFAULT_OUTFIT`. `SceneFlow.new_character` makes the creation choices worn equipment and
-`continue_character` migrates a format-1 save slot once. Each new world refills computed HP/MP and creates
-fresh map systems, timers, buffs and statuses. Snapshot reads during any pending level/job/reward/advancement
+snapshot wears `Equipment.DEFAULT_OUTFIT`. `SceneFlow.new_character` makes the creation choices and the job's creation
+weapon worn equipment. Each new world computes full HP and creates
+fresh map systems, timers, buffs and statuses. Snapshot reads during any pending level/reward
 choice push an error, return empty in release and assert in debug. With no character the original setup/event
 path is retained. The sim does no file I/O: `DataRepo.load_character` validates the explicit tool JSON file for
 RunScene's `options.character` path and `tools/balance_run.gd --character=<abs path>`.
@@ -924,7 +886,7 @@ The headless `tools/balance_run.gd` advances the same fixed ticks with real-map 
 policies. Its record/aggregate contract and CLI are in AGENTS.md's Balance section: milestone reach counts,
 completed versus censored boss fights, per-hit whole damage/max-HP fractions by boss/source, player `potions_used`,
 per-drink restoration/waste in `potion_uses`, separate `pet.potions_used`,
-per-run MP-short ticks, and camper activation/arrival. A later affordable skill may cast during an MP-short tick.
+and camper activation/arrival.
 TIMEOUT is a measurement cap, never a sim clear. Potion metrics describe unlimited drinks on cooldown (spec #237).
 Offensive cast counts and aggregated Guard coverage are not separate recorded metrics. Monster balls retain captured source/damage after
 caster death; their original mob slot may be reused, while captured mob ID/source position remain meaningful.
@@ -934,8 +896,7 @@ bot's additional entrance-floor activation-height check.
 `buff_casts` is an additive harness diagnostic: event-observation time, skill/key ID, canonical level/duration,
 and effect stat/value copied from the public cast snapshot. Normal runs drain after each fixed step, so this is
 that cast tick; already-pending setup events are observed at the next drain. It adds no RNG calls or gameplay
-changes. Earlier records lacking this field are unavailable observations, not zero casts. Hit MP absorption may
-be clipped by available MP, so it is not a substitute for the canonical active effect or a coverage measure.
+changes. Earlier records lacking this field are unavailable observations, not zero casts.
 Legacy `cards_taken` strings prefix the card ID with the front queued level, or −1 when that queue is empty.
 A bonus choice can have a positive prefix while levels remain queued. The field supplies neither a bonus flag
 nor a choice timestamp, so it cannot isolate normal-choice acquisition timing.
@@ -952,8 +913,8 @@ among offered cards with its own seeded RNG and never reads the score setting. T
 | `NameTags` | Elite name tags under mobs (`RunWorld.mob_elite`), drawn like v83's code-drawn default name tag. |
 | `FxRenderer` | Pooled one-shot WZ animations and repeating slow/immunity icons; `play_repeating`, `stop` and `place` follow sim status/expiration without per-entity Nodes. |
 | `DamageNumbers` | `Effect.wz/BasicEff.img` digit sets: first digit large set, rest small; 400 ms hold then 600 ms fade + 30 px rise (tier B). |
-| `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills`, `HudMessages`, `HudQuickSlot`, `HudBuffRow` and `HudBossBar` widgets, all extending the one base `HudWidget` (a mouse-ignoring Control with its own state snapshot, the HUD fonts and the only copies of the WZ drawing helpers `_frame(path, report_missing)`, `_blit`, `_blit_rect`, `_text`, `_rank`). `HudSkills` draws each cooling icon's clockwise sweep (one polygon per icon, filled into a reused array by the shared static `CooldownSweep.sweep_polygon(left, total, rect, out)`) and a blue tint on skills waiting for MP; RunScene feeds its snapshot (icons, ranks, key labels) when the HUD signature changes and the cooldowns every frame through `set_cooldowns` from reused buffers, which redraws only when a sweep step or tint changes. Key labels are cached and re-read on `Settings.changed` (`RunScene.watch_settings`, `GameSettings.action_label`). RunScene feeds potion icons and independent cooldown sweeps through reused HP/MP buffers, buff icons with ceiling-second MM:SS labels, and live boss bars stacked below the timer. `HudQuickSlot` is the v83 quick slot: a pure `cells()` model (8 cells in a fixed order; icons from `KeyActionArt`, the table the Key Config window also uses; captions from `GameSettings.first_key_label`, current potion items without stock counts, the learned movement skill from `run_info.movement_skill`), re-read on `Settings.changed` and display only. The HUD controls that take the mouse are the status bar's Menu button (`Hud.menu_button`, a `WzButton` on `StatusBar.img/BtMenu`) and the quick slot's collapse button (`Hud.quick_slot_button`, `QuickSlotD` / `QuickSlot`; `RunScene.toggle_quick_slot` stores the state in `GameSettings.quick_slot_collapsed`, `[hud] quick_slot_collapsed`), both with process mode ALWAYS so they work while the HUD is frozen. |
-| Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. In-run windows (Stat, Skill, the Menu popup, Key Config, Options): `UiWindow` Controls (draggable, art-sized) in a `WindowStack` on CanvasLayer 11; a window kind is one `ui_windows.register(id, factory)` in `RunScene._build_ui_windows()`, after which its hotkey (`RunScene.WINDOW_HOTKEYS`) and Menu entry work; keys RunScene does not use itself go to the front window's `UiWindow.handle_key`. The Skill window draws a `SkillWindowModel` (plain data from the SkillBook, UpgradePool, Loadout ranks / mods / `card_ranks`, JobTree and SkillText; read-only). The Equip and Item windows (#108; `InventoryWindow` base: the v83 double-click / drag protocol, `ItemTooltip`, `DropConfirm` on `Basic.img/YesNo`) show and change the character only through a RunWorld (`equip_item`, `unequip_item`, `discard_item`, `discard_scrolls`, and `use_scroll` for a scroll dragged from the Use tab onto a worn item, resolved by the pure `Scrolls` module on RNG stream 11) and read their plain data through `InventoryModel`; `RunScene._on_item_action` maps the world's `equipment_changed` and `scroll_used` at once (the Enchant effect is an `EnchantFx` layer above the windows, unfrozen while the run is held). The Free Market hosts the same stack (`FreeMarket.ui_windows`) over `FreeMarket.inventory`, a map-less RunWorld of the saved character whose `character_snapshot()` is written back into the save slot after every change. The tick loop also holds while the stack has a window, Esc closes the front one before the pause menu, and a choice window below sets `input_blocked`. Key Config edits a `KeyBindings` draft (`scripts/core/key_bindings.gd`, no scene) that OK writes through `Settings.set_bindings`; Options calls the `Settings` setters directly; both also open from the pause menu (`RunScene.PAUSE_WINDOWS`). Title, character select/creation, map select, the Cash Shop (`cash_shop.gd`, opened by `SceneFlow.goto_cash_shop(origin)` from map select or the Free Market; rules in `scripts/core/cash_shop.gd`), results and import are scenes under `scenes/ui/`; in the Free Market the pause menu is Resume / Save & quit only (`PauseMenu.boundary_mode`). |
+| `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills`, `HudMessages`, `HudQuickSlot`, `HudBuffRow` and `HudBossBar` widgets, all extending the one base `HudWidget` (a mouse-ignoring Control with its own state snapshot, the HUD fonts and the only copies of the WZ drawing helpers `_frame(path, report_missing)`, `_blit`, `_blit_rect`, `_text`, `_rank`). `HudSkills` draws each cooling icon's clockwise sweep (one polygon per icon, filled into a reused array by the shared static `CooldownSweep.sweep_polygon(left, total, rect, out)`); RunScene feeds its snapshot (icons, ranks, key labels) when the HUD signature changes and the cooldowns every frame through `set_cooldowns` from reused buffers, which redraws only when a sweep step changes. Key labels are cached and re-read on `Settings.changed` (`RunScene.watch_settings`, `GameSettings.action_label`). RunScene feeds potion icons and independent cooldown sweeps through reused HP buffers, buff icons with ceiling-second MM:SS labels, and live boss bars stacked below the timer. `HudQuickSlot` is the v83 quick slot: a pure `cells()` model (8 cells in a fixed order; icons from `KeyActionArt`, the table the Key Config window also uses; captions from `GameSettings.first_key_label`, current potion items without stock counts, the learned movement skill from `run_info.movement_skill`), re-read on `Settings.changed` and display only. The HUD controls that take the mouse are the status bar's Menu button (`Hud.menu_button`, a `WzButton` on `StatusBar.img/BtMenu`) and the quick slot's collapse button (`Hud.quick_slot_button`, `QuickSlotD` / `QuickSlot`; `RunScene.toggle_quick_slot` stores the state in `GameSettings.quick_slot_collapsed`, `[hud] quick_slot_collapsed`), both with process mode ALWAYS so they work while the HUD is frozen. |
+| Windows | Level-up choice (`LevelUpWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. In-run windows (Stat, Skill, the Menu popup, Key Config, Options): `UiWindow` Controls (draggable, art-sized) in a `WindowStack` on CanvasLayer 11; a window kind is one `ui_windows.register(id, factory)` in `RunScene._build_ui_windows()`, after which its hotkey (`RunScene.WINDOW_HOTKEYS`) and Menu entry work; keys RunScene does not use itself go to the front window's `UiWindow.handle_key`. The Skill window draws a `SkillWindowModel` (plain data from the SkillBook, UpgradePool, Loadout ranks / mods / `card_ranks`, JobTree and SkillText; read-only). The Equip and Item windows (#108; `InventoryWindow` base: the v83 double-click / drag protocol, `ItemTooltip`, `DropConfirm` on `Basic.img/YesNo`) show and change the character only through a RunWorld (`equip_item`, `unequip_item`, `discard_item`, `discard_scrolls`, and `use_scroll` for a scroll dragged from the Use tab onto a worn item, resolved by the pure `Scrolls` module on RNG stream 11) and read their plain data through `InventoryModel`; `RunScene._on_item_action` maps the world's `equipment_changed` and `scroll_used` at once (the Enchant effect is an `EnchantFx` layer above the windows, unfrozen while the run is held). The Free Market hosts the same stack (`FreeMarket.ui_windows`) over `FreeMarket.inventory`, a map-less RunWorld of the saved character whose `character_snapshot()` is written back into the save slot after every change. The tick loop also holds while the stack has a window, Esc closes the front one before the pause menu, and a choice window below sets `input_blocked`. Key Config edits a `KeyBindings` draft (`scripts/core/key_bindings.gd`, no scene) that OK writes through `Settings.set_bindings`; Options calls the `Settings` setters directly; both also open from the pause menu (`RunScene.PAUSE_WINDOWS`). Title, character select/creation, map select, the Cash Shop (`cash_shop.gd`, opened by `SceneFlow.goto_cash_shop(origin)` from map select or the Free Market; rules in `scripts/core/cash_shop.gd`), results and import are scenes under `scenes/ui/`; in the Free Market the pause menu is Resume / Save & quit only (`PauseMenu.boundary_mode`). |
 | `Camera` | Follows the player with smoothing (tier C), clamped to `MapBounds`, positions rounded to whole pixels. |
 
 `RunScene` holds `map_cleared` at the sim's `transfer_pending` boundary while the original party-quest CLEAR effect
@@ -971,7 +932,7 @@ mob id, name, HP/max HP, ratio, icon and gauge paths. The bar uses `UI.wz/UIWind
 `Mob/<id>` icons and `Gage/<hpTagColor>/0`, `Gage/<hpTagBgcolor>/1` strips. `mobs.json.boss_ui` supplies only missing
 presentation metadata; the cache is untouched. A dead boss is omitted immediately, including when others remain.
 `boss_warning` and `boss_spawned` map to keyed yellow encounter notices above the ordinary EXP queue (and above
-the low-MP cue), so EXP churn cannot evict them. Arrival replaces that boss's warning, plays the canonical
+the low-HP cue), so EXP churn cannot evict them. Arrival replaces that boss's warning, plays the canonical
 `Effect.wz/BasicEff.img/Summoned` animation at its position, and requests an evidence screenshot when enabled.
 
 Logical resolution 800x600 (v83's native size and the width of `StatusBar.img/base/backgrnd`), `stretch/mode=canvas_items`
@@ -1111,7 +1072,7 @@ sources. Each is implemented as a labelled, data-driven constant so it can be co
 
 Worn equipment instances supply every `inc*` stat (W.ATT summed over all worn items); the canonical `equipment_info`
 supplies requirements, weapon speed, `afterImage` and `sfx`. `RunWorld.weapon_id()` is the worn weapon (0 means a
-bare-handed punch, `BasicAttack.BARE_HANDS`); `mob_defense(slot, magic)` reads live slot defense, and
+bare-handed punch, `WeaponReach.BARE_HANDS`); `mob_defense(slot, magic)` reads live slot defense, and
 `physical_hit_allowed(slot)` is the physical-immunity seam. Basic swings show their action while standing or airborne;
 new skills retain standing-only action presentation. Neither action changes movement or locks it.
 
@@ -1293,7 +1254,7 @@ detected from `onExit`, and also from a page error mentioning `currentTime` of n
 teardown after a quit with audio alive; the final IndexedDB sync has already happened by then).
 
 Save import refuses, before writing anything, a file that is not JSON or lacks `SaveData`'s top-level shape (format 1
-or 2; `best` and `runs` objects; format 2: exactly 3 `slots` and a `history` array). The game still validates the
+2 or 3; `best` and `runs` objects; formats 2 and 3: exactly 3 `slots` and a `history` array). The game still validates the
 contents of the staged `.import` file before promotion. An invalid candidate is preserved as `.import.bad[.N]`
 and consumed without touching the primary or `.bak`; no second nested validator lives in JavaScript. A valid
 candidate goes through SaveData's normal temporary/backup write, then the staging file is removed. The shell's

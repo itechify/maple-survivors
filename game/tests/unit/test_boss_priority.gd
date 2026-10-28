@@ -3,7 +3,6 @@ extends TestCase
 ## targeting rule. Seeded synthetic worlds stepped with a fixed dt.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const BF := preload("res://tests/fixtures/basic_attack_fixtures.gd")
 const DT := 1.0 / 60.0
 ## Mob HP multiplier: every target survives the hits so hit order is fully observable.
 const TOUGH := 1000.0
@@ -12,7 +11,6 @@ const TOUGH := 1000.0
 ## A world with one synthetic skill (nearest rule unless `cast` names another), player at x=200 facing left.
 func _world(cast: Dictionary = {}, kind: String = "instant") -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 100
 	data.skills.skills["synthetic"] = {"skill_id": 9991000, "book": "999", "kind": kind,
 		"damage": "fixed", "ranks": [1], "cooldown": 1.0, "range": 400.0, "speed": 400.0, "cast": cast}
 	var setup := RF.setup("quiet", 83, data)
@@ -100,33 +98,6 @@ func test_nearest_projectiles_aim_at_the_boss_first() -> void:
 	assert_eq(w.player.facing, 1, "the caster turns toward the boss")
 
 
-## Mob hits after one full basic swing (the 0.45 s afterimage frame lands within 28 ticks).
-func _swing_hits(w: RunWorld) -> Array:
-	var hits := []
-	for tick in 28:
-		w.step(DT, MoveInput.new())
-		for e: Dictionary in w.drain_events():
-			if e.type == "mob_hit":
-				hits.append(int(e.mob))
-	return hits
-
-
-func _basic_target(w: RunWorld, x: float) -> int:
-	w.mob_kinds[int(w.kind_of_id[100100])].move_speed = 0
-	return RF.put_mob(w, 100100, x, 190, TOUGH)
-
-
-func test_basic_attack_hits_a_boss_in_its_swing_box_over_a_nearer_mob() -> void:
-	for facing: int in [-1, 1]:
-		var w := BF.world()
-		w.player.facing = facing
-		var near := _basic_target(w, 400 + facing * 50)
-		var boss := _basic_target(w, 400 + facing * 70)
-		_make_boss(w, boss)
-		assert_eq(_swing_hits(w), [boss], "the single swing target is the boss")
-		assert_eq(w.swarm.hp[near], w.swarm.max_hp[near], "the nearer normal mob is untouched")
-
-
 ## Slots slowed by the next crowd cast, in the order of `slots`.
 func _slowed(w: RunWorld, slots: Array) -> Array:
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
@@ -176,10 +147,3 @@ func test_without_a_boss_every_rule_keeps_nearest_first_and_elites_get_no_priori
 	var c_mid := RF.put_mob(crowd, 1110100, 160, 190, TOUGH)
 	var c_elite := RF.put_mob(crowd, 1110100, 120, 190, TOUGH, true)
 	assert_eq(_slowed(crowd, [c_near, c_mid, c_elite]), [c_near, c_mid], "crowd: nearest first")
-	for facing: int in [-1, 1]:
-		var basic := BF.world()
-		basic.player.facing = facing
-		var near := _basic_target(basic, 400 + facing * 50)
-		var elite := _basic_target(basic, 400 + facing * 70)
-		basic.mob_elite[elite] = 1
-		assert_eq(_swing_hits(basic), [near], "basic attack: the nearest mob")

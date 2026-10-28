@@ -59,9 +59,10 @@ func test_seed_items_use_the_real_commodity_prices_and_prerequisites() -> void:
 	for pet: int in [5000000, 5000001, 5000002]:
 		assert_eq(catalog.kind_of(pet), "pet")
 		assert_eq(catalog.price_of(pet), 4900, "Commodity.img price of pet %d (tier A)" % pet)
-	for upgrade: int in [1812002, 1812003, 1812004, 1812005]:
+	for upgrade: int in [1812002, 1812004, 1812005]:
 		assert_eq(catalog.kind_of(upgrade), "pet_upgrade")
 		assert_eq(catalog.price_of(upgrade), 1800)
+	assert_eq(catalog.kind_of(1812003), "", "the Auto MP Potion Pouch is not sold: no MP (#285)")
 	assert_eq(catalog.kind_of(9990000), "pet_upgrade", "VAC is a survivor-only pet upgrade")
 	assert_eq(catalog.price_of(9990000), 20000)
 	assert_eq(catalog.item(9990000).desc, "Your pet pulls every drop on the map to itself.")

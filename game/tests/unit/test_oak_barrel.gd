@@ -8,21 +8,19 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const SNAIL := 100100
 const KEY := "oak_barrel"
-## Skill.wz/510.img/skill/5101007/level/1..10 (tier A, read from the owner's v83 files).
+## Skill.wz/510.img/skill/5101007/level/1..10 (tier A, read from the owner's v83 files; mpCon is unused, no MP #285).
 const MP := [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 const TIME := [12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
 const PROP := [37, 34, 31, 28, 25, 22, 19, 16, 13, 10]
 const COOLTIME := [35, 35, 30, 30, 25, 25, 20, 20, 15, 15]
 
 
-## A world with Oak Barrel learned at `rank`, 1000 HP at `hp_fraction`, 500 MP, one still mob `mob_dx` px to the right.
+## A world with Oak Barrel learned at `rank`, 1000 HP at `hp_fraction`, one still mob `mob_dx` px to the right.
 func _world(p_seed := 194, rank := 1, hp_fraction := 0.25, mob_dx := 100.0) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
-	data.balance.player.mp = 500
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	data.balance.magnet_radius = 0
 	data.balance.mob_motion.push_px = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
@@ -78,7 +76,6 @@ func _seed_whose_first_roll(fails: bool, rank := 1) -> int:
 func _reset_for_next_cast(w: RunWorld) -> void:
 	w.runner.cooldowns[KEY] = 0.0
 	w.buffs.clear()
-	w.heal_fraction("mp", 1.0)
 
 
 # --- the definition --------------------------------------------------------------------------------------------------
@@ -90,7 +87,6 @@ func test_stats_come_from_the_skill_wz_levels() -> void:
 		assert_eq(st.kind, "buff")
 		assert_true(bool(st.hidden))
 		assert_eq(st.morph, 1002)
-		assert_eq(st.mp_cost, MP[rank - 1])
 		assert_near(float(st.duration), float(TIME[rank - 1]))
 		assert_near(float(st.fail_chance), PROP[rank - 1] / 100.0)
 		assert_near(float(st.buff_cooldown), float(COOLTIME[rank - 1]))
@@ -105,16 +101,15 @@ func test_skill_text_names_the_canonical_numbers() -> void:
 	var w := _world()
 	var text := SkillText.new(w.book)
 	assert_eq(text.level_line(KEY, 1, w.loadout.stats(KEY, 1)),
-		"MP -11; barrel for 12 sec.; 37% chance to fail; 35 sec. between uses")
+		"Barrel for 12 sec.; 37% chance to fail; 35 sec. between uses")
 	assert_eq(text.level_line(KEY, 10, w.loadout.stats(KEY, 10)),
-		"MP -20; barrel for 30 sec.; 10% chance to fail; 15 sec. between uses")
+		"Barrel for 30 sec.; 10% chance to fail; 15 sec. between uses")
 	assert_true(text.desc(KEY).begins_with("Transform into an oak barrel"))
 
 
-func test_no_weapon_is_required() -> void:
+func test_no_weapon_is_named() -> void:
 	var w := _world()
-	for family in ["", "knuckle", "gun", "sword", "any"]:
-		assert_true(w.book.usable_with(KEY, family), family)
+	assert_true(w.book.weapon_families(KEY).is_empty(), "its data names no weapon (and weapons gate no skill, #284)")
 
 
 # --- when it casts ---------------------------------------------------------------------------------------------------
@@ -139,11 +134,9 @@ func test_it_needs_a_mob_within_reach() -> void:
 	assert_eq(_casts(_run(behind, 30)).size(), 1, "reach covers both sides")
 
 
-func test_it_waits_for_its_cooldown_and_pays_its_mp_each_cast() -> void:
+func test_it_waits_for_its_cooldown_between_casts() -> void:
 	var w := _world(_seed_whose_first_roll(true), 1)
-	var mp := int(w.player_state.mp)
 	assert_eq(_casts(_run(w, 5)).size(), 1)
-	assert_eq(int(w.player_state.mp), mp - MP[0], "the canonical mpCon is paid")
 	assert_eq(_casts(_run(w, 60 * 34)).size(), 0, "35 s cooldown, still below 30% HP with a mob near")
 	assert_eq(_casts(_run(w, 60 * 2)).size(), 1, "ready again after 35 s")
 
@@ -166,7 +159,7 @@ func test_it_does_not_recast_while_its_barrel_is_up() -> void:
 func test_failure_follows_the_skill_wz_chance_on_stream_16() -> void:
 	for rank in [1, 5, 10]:
 		var w := _world(7 + rank, rank)
-		var other_streams := [w.rng.state, w.basic_rng.state, w.spawn_rng.state, w.card_rng.state, w.drop_rng.state]
+		var other_streams := [w.rng.state, w.spawn_rng.state, w.card_rng.state, w.drop_rng.state]
 		var ref := RandomNumberGenerator.new()
 		ref.seed = (7 + rank) * 1000003 + 16 * 7919
 		var fails := 0
@@ -189,12 +182,11 @@ func test_failure_follows_the_skill_wz_chance_on_stream_16() -> void:
 		var expected: float = PROP[rank - 1] * 2.0
 		assert_between(float(fails), expected * 0.6, expected * 1.4, "about %d%% of 200 casts fail" % PROP[rank - 1])
 		# Every other stream is untouched by the casts (no mob dies, no skill damages anything).
-		assert_eq([w.rng.state, w.basic_rng.state, w.spawn_rng.state, w.card_rng.state, w.drop_rng.state], other_streams)
+		assert_eq([w.rng.state, w.spawn_rng.state, w.card_rng.state, w.drop_rng.state], other_streams)
 
 
-func test_a_failed_cast_pays_mp_and_the_cooldown_but_hides_nothing() -> void:
+func test_a_failed_cast_starts_the_cooldown_but_hides_nothing() -> void:
 	var w := _world(_seed_whose_first_roll(true))
-	var mp := int(w.player_state.mp)
 	var events := _run(w, 1)
 	var failed := _of(events, "buff_failed")
 	assert_eq(failed.size(), 1)
@@ -205,7 +197,6 @@ func test_a_failed_cast_pays_mp_and_the_cooldown_but_hides_nothing() -> void:
 	assert_false(w.is_hidden())
 	assert_eq(w.morph_id(), 0)
 	assert_eq(int(w.player_state.morph), 0)
-	assert_eq(int(w.player_state.mp), mp - MP[0])
 	assert_near(w.runner.cooldowns[KEY], 35.0, 0.1)
 	assert_true(w.player_state.buffs.is_empty())
 
@@ -276,45 +267,20 @@ func test_a_barrel_is_not_attacked_and_does_not_attack() -> void:
 
 # --- cards -----------------------------------------------------------------------------------------------------------
 
-func test_cards_are_offered_to_brawlers_only() -> void:
-	var w := _world()
-	w.loadout.ranks.erase(KEY)
-	w.loadout.order.erase(KEY)
-	w.loadout.version += 1
-	for job in [510, 500, 520, 100, 0, 200]:
-		w.progression.job_id = job
-		var ids: Array = w.upgrades.eligible(w)
-		assert_eq("oak_barrel_new" in ids, job == 510, "learn card for job %d" % job)
-		assert_false("oak_barrel_rank" in ids, "no rank card before it is learned")
-	w.progression.job_id = 510
-	assert_true(w.learn_skill(KEY))
-	var ids: Array = w.upgrades.eligible(w)
-	assert_false("oak_barrel_new" in ids)
-	assert_true("oak_barrel_rank" in ids)
-	var card: Dictionary = w.upgrades.card("oak_barrel_rank")
-	assert_eq(int(card.max_rank), 10)
-	assert_eq(int(card.requires.jobs[0]), 510)
-	assert_eq(card.requires.jobs.size(), 1)
-	w.loadout.set_rank(KEY, 10)
-	assert_false("oak_barrel_rank" in w.upgrades.eligible(w), "none at the top rank")
 
-
-## A real Brawler (#189): a knuckle Pirate advanced to 510 at Lv 30 through change_job, as the advancement window does.
 func _brawler(p_seed := 194) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
-	data.balance.player.mp = 500
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({1482000: {"incPAD": 18, "attackSpeed": 5, "tuc": 7},
 		1482004: {"incPAD": 36, "attackSpeed": 5, "tuc": 7, "reqLevel": 30}}, true)
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
-	w.change_job(500, "knuckle")
+	RF.as_job(w, 500, "knuckle")
 	w.progression.level = 30
-	w.change_job(510)
+	RF.as_job(w, 510)
 	w.pending_cards = []
 	w.state = RunWorld.PLAYING
 	w.drain_events()
@@ -324,7 +290,7 @@ func _brawler(p_seed := 194) -> RunWorld:
 func test_a_real_brawler_is_offered_the_cards_and_the_barrel_works() -> void:
 	var w := _brawler()
 	assert_eq(w.progression.job_id, 510)
-	assert_true("oak_barrel_new" in w.upgrades.eligible(w), "the learn card reaches a Brawler")
+	assert_false("oak_barrel_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	var gunner := _brawler()
 	gunner.progression.job_id = 520
 	assert_false("oak_barrel_new" in gunner.upgrades.eligible(gunner), "not a Gunslinger")
@@ -335,7 +301,7 @@ func test_a_real_brawler_is_offered_the_cards_and_the_barrel_works() -> void:
 	assert_eq(card.skill_name, "Oak Barrel")
 	assert_eq(w.upgrades.apply("oak_barrel_new", w), 1)
 	assert_true(w.loadout.has(KEY))
-	assert_true("oak_barrel_rank" in w.upgrades.eligible(w))
+	assert_false("oak_barrel_rank" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	# Learned: below 30% HP with a snail by it, the Brawler turns into the barrel (a seed whose roll succeeds).
 	var seed_value := _seed_whose_first_roll(false)
 	var b := _brawler(seed_value)

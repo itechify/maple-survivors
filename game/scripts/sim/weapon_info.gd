@@ -1,9 +1,11 @@
 class_name WeaponInfo
 extends RefCounted
-## What the basic attack needs to know about a weapon (docs/GAME_DESIGN.md 6.1.1), from its original item id and its
+## What the weapon swing (its reach, WeaponReach) and physical damage need to know about a weapon (docs/GAME_DESIGN.md
+## 6.1.1; the automatic basic attack itself is gone, #284), from its original item id and its
 ## canonical Character.wz/Weapon info node: the weapon type (id / 10000), physical formula stats and multipliers, the
 ## afterimage (info/afterImage) with its hit-spark family, the canonical attack interval (info/attackSpeed) and the
-## swing sound (info/sfx). Read by CombatMath, BasicAttack and DataRepo (which afterimage imgs a setup loads).
+## swing sound (info/sfx). Read by CombatMath, WeaponReach and DataRepo (which afterimage imgs a setup loads). The
+## "basic" stance sets below are the stances a weapon swings in (reach boxes, physical skills' default stance).
 ## Pure: plain data in, values out.
 
 ## Weapon type (item id / 10000) of one-handed swords (Character.wz/Weapon/0130xxxx).
@@ -19,12 +21,6 @@ const FAMILIES := {
 	130: "sword", 131: "axe", 132: "blunt", 133: "dagger", 137: "wand", 138: "staff",
 	140: "sword", 141: "axe", 142: "blunt", 143: "spear", 144: "polearm",
 	145: "bow", 146: "crossbow", 147: "claw", 148: "knuckle", 149: "gun",
-}
-## What the Skill window calls each family when a skill needs it ("Weapon : Pole Arm"). tier C: ours, v83 item names.
-const FAMILY_LABELS := {
-	"sword": "Sword", "axe": "Axe", "blunt": "Blunt weapon", "dagger": "Dagger", "wand": "Wand", "staff": "Staff",
-	"spear": "Spear", "polearm": "Pole Arm", "bow": "Bow", "crossbow": "Crossbow", "claw": "Claw",
-	"knuckle": "Knuckle", "gun": "Gun",
 }
 ## tier B: Cosmic `isTwoHanded` (server reimplementation): every weapon type from 140 (two-handed swords, axes and
 ## blunt weapons, spears, polearms, bows, crossbows, claws, knuckles, guns) takes both hands, so no shield.
@@ -57,10 +53,10 @@ const BASIC_ACTIONS := {
 	143: ["stabT1", "stabT2", "swingP1"], 144: ["swingP1", "swingP2", "swingT2"],
 	145: ["shoot1"], 146: ["shoot2"], 147: ["swingO1", "swingO2", "swingO3"], 148: ["stabO1", "stabO2"], 149: ["shoot1"],
 }
-## Families that attack from a distance: their basic attack is a "shoot" whatever the body stance is called (a Claw
+## Families that attack from a distance: their weapon stance is a "shoot" whatever the body stance is called (a Claw
 ## throws with swingO, and the ammo W.Att of #155 rides on the kind), and they have no melee afterimage box.
 const RANGED_FAMILIES: Array[String] = ["bow", "crossbow", "claw", "gun"]
-## tier C: reach in px of a ranged basic attack: how far a target may be for the attack to start (the ammo projectile of
+## tier C: reach in px of a ranged weapon stance: how far a target may be for the attack to start (the ammo projectile of
 ## #155 then flies this far plus survivor/ammo.json's overshoot); the target box is feet-relative and faces left like the
 ## afterimage boxes.
 const RANGED_REACH := {"bow": 300.0, "crossbow": 300.0, "claw": 250.0, "gun": 250.0}
@@ -86,11 +82,6 @@ static func family_of_skill_code(code: int) -> String:
 	return String(FAMILIES.get(code + 100, ""))
 
 
-## Display name of a weapon family ("Claw", "Pole Arm"); "Bare hands" for "".
-static func family_label(family: String) -> String:
-	return String(FAMILY_LABELS.get(family, family)) if family != "" else "Bare hands"
-
-
 ## True for a two-handed weapon (it blocks the shield slot); false bare-handed or for a non-weapon id.
 static func is_two_handed(weapon_id: int) -> bool:
 	return FAMILIES.has(type_of(weapon_id)) and type_of(weapon_id) >= FIRST_TWO_HANDED_TYPE
@@ -111,7 +102,7 @@ static func is_ranged(weapon_id: int) -> bool:
 	return family(weapon_id) in RANGED_FAMILIES
 
 
-## The target box of a ranged family's basic attack, feet-relative and facing left (RANGED_REACH wide); an empty Rect2
+## The target box of a ranged family's weapon shot, feet-relative and facing left (RANGED_REACH wide); an empty Rect2
 ## for a melee weapon, whose box is its afterimage's.
 static func ranged_box(weapon_id: int) -> Rect2:
 	var reach := float(RANGED_REACH.get(family(weapon_id), 0.0))
@@ -220,3 +211,17 @@ static func attack_interval(info: Dictionary, boost: int = 0) -> float:
 ## WZ path of the swing sound named by the canonical info/sfx.
 static func sound_path(info: Dictionary) -> String:
 	return "Sound.wz/Weapon.img/%s/Attack" % String(info.get("sfx", ""))
+
+
+## Seconds before impact and for all numbered frames; tier C: missing/zero delays use 100 ms.
+static func frame_times(node: Dictionary, impact_key: int = 0) -> Dictionary:
+	var before := 0.0
+	var total := 0.0
+	for key: String in node:
+		if key.is_valid_int():
+			var delay := absf(float(node[key].get("delay", 100)))
+			delay = (delay if delay > 0.0 else 100.0) / 1000.0
+			total += delay
+			if int(key) < impact_key:
+				before += delay
+	return {"before": before, "total": total}

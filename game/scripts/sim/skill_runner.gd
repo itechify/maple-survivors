@@ -14,15 +14,13 @@ extends RefCounted
 ## from or toward its first target before, after or during the hits (`_resolve_cast`, `_resolve_charge`).
 ## A `cluster` skill (Gunslinger Grenade, docs/GAME_DESIGN.md 7.20) throws at once at the nearest cluster of mobs within its throw range; the blast
 ## strikes its canonical box around the landing point when the ball arrives (`_throw`, `_land_flights`).
-## A `self` skill (Brawler MP Recovery, docs/GAME_DESIGN.md 7.16) needs no monster: it casts when its survivor conditions
-## on the character's own pools hold (`mp_below`, `hp_at_least`; RunWorld.self_cast_ready) and pays HP for MP (`convert`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
-## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped. While the character is
-## Hidden (docs/GAME_DESIGN.md 7.18) every attack skill is skipped the same way; buffs and non-damaging casts still run.
+## Weapons gate no skill (#284). While the character is Hidden (docs/GAME_DESIGN.md 7.18) every attack skill is skipped;
+## buffs and non-damaging casts still run.
 ## A buff whose cast block names `mob_within` (Oak Barrel) also needs a living mob within that many px of the cast origin.
-## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
-## ready and signals its waiting episode once; a later affordable skill may cast instead. Buffs need no mob target,
-## stay out of the ready list while active, and use their canonical duration as the next readiness time.
+## At most one skill fires per tick, oldest-ready first. There is no MP (ADR 0006): a skill is gated by its cooldown,
+## its target and an HP cost only. Buffs need no mob target, stay out of the ready list while active, and use their
+## canonical duration as the next readiness time.
 ## Stats come from Loadout.stats(), cached until Loadout.version changes.
 
 ## Vertical spacing of shots that reuse a target. tier C: ours.
@@ -50,19 +48,20 @@ var cooldown_totals := {}
 var casts := 0
 ## True if any skill cast during the latest step (cleared even when casting is blocked).
 var fired_this_tick := false
-## True while a ready, targeted skill is waiting for MP this tick (persistent presentation cue).
-var waiting_mp := false
+
+var summons := PlayerSummons.new()
 
 var _stats := {}
 var _version := -1
 var _buf := PackedInt32Array()
 var _tgt := PackedInt32Array()
 var _tgt_d := PackedFloat64Array()
-var _shortages := {}
 var _undead := PackedByteArray()
 var _slow_serial := 0
 ## Grenades in flight: {left seconds, st (resolved stats at the cast), landing (blast anchor), aim}.
 var _flights: Array[Dictionary] = []
+## Ground areas and delayed releases retain cast stats and map anchors.
+var _areas: Array[Dictionary] = []
 
 
 func _init() -> void:
@@ -71,7 +70,9 @@ func _init() -> void:
 
 ## Drops queued map-space attacks, preserving cooldowns, auto-cast timers and round counters.
 func clear_pending() -> void:
+	summons.clear()
 	_flights.clear()
+	_areas.clear()
 
 
 ## SHOTS for a projectile skill kind, TARGETS otherwise.
@@ -110,7 +111,7 @@ static func reach_of(st: Dictionary, world: RunWorld) -> float:
 		"", "nearest", "range_around", "cluster":
 			return maxf(float(st.range), 0.0)
 		"weapon_reach":
-			return maxf(world.basic.reach(world) * float(st.area), 0.0)
+			return maxf(world.weapon_reach.reach(world) * float(st.area), 0.0)
 		"box":
 			if not bool(st.has_box):
 				return 0.0
@@ -119,9 +120,9 @@ static func reach_of(st: Dictionary, world: RunWorld) -> float:
 
 
 ## The held weapon's swing envelope scaled for this skill only. Reuses area cards' feet-relative scaling on both axes
-## (tier C survivor reach modifier, #208); the basic attack's cached canonical envelope stays unchanged.
+## (tier C survivor reach modifier, #208); the cached canonical envelope stays unchanged.
 static func weapon_envelope(st: Dictionary, world: RunWorld) -> Rect2:
-	var box := world.basic.envelope(world)
+	var box := world.weapon_reach.envelope(world)
 	var area := float(st.area)
 	return Rect2(box.position * area, box.size * area)
 
@@ -141,12 +142,7 @@ func stats_of(world: RunWorld, key: String) -> Dictionary:
 	return _stats[key]
 
 
-## Whether `key` was ready with a target but short of MP at its latest cast scan (cleared by casting or losing it).
-func is_waiting_mp(key: String) -> bool:
-	return _shortages.has(key)
-
-
-## Advances cooldowns and fires the oldest affordable ready skill with a target.
+## Advances cooldowns and fires the oldest ready skill with a target.
 func step(dt: float, world: RunWorld) -> void:
 	tick_cooldowns(dt, world)
 	if world.can_cast():
@@ -162,7 +158,8 @@ static func is_attack(st: Dictionary) -> bool:
 ## Counts down every active skill, including while casting is blocked.
 func tick_cooldowns(dt: float, world: RunWorld) -> void:
 	fired_this_tick = false
-	waiting_mp = false
+	summons.step(dt, world)
+	_step_areas(dt, world)
 	if not _flights.is_empty():
 		_land_flights(dt, world)
 	for key: String in world.loadout.order:
@@ -170,23 +167,16 @@ func tick_cooldowns(dt: float, world: RunWorld) -> void:
 			cooldowns[key] = float(cooldowns.get(key, 0.0)) - dt
 
 
-## Fires one affordable skill, oldest-ready first; learned order breaks ties. Short MP never restarts cooldowns.
+## Fires one ready skill with a target, oldest-ready first; learned order breaks ties.
 func cast_ready(dt: float, world: RunWorld) -> void:
 	var lo := world.loadout
 	var ready: Array[String] = []
-	var held := world.held_weapon_family()
 	var hidden := world.is_hidden()
 	for key: String in lo.order:
 		if not lo.book.is_active(key):
 			continue
 		if hidden and is_attack(stats_of(world, key)):
 			# Hidden (#194): the character cannot attack; the skill keeps its cooldown and resumes when Hidden ends.
-			_shortages.erase(key)
-			continue
-		if not lo.book.usable_with(key, held):
-			# The held weapon cannot use it (spec #151, #156): not considered, its cooldown keeps running, and it
-			# resumes on the first tick a matching weapon is held again.
-			_shortages.erase(key)
 			continue
 		if not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6 \
 				and String(stats_of(world, key).cast_rule) != "manual":
@@ -201,25 +191,14 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		var origin := world.cast_origin()
 		var is_buff := String(st.kind) == "buff"
 		# has_target gives admission's answer without building and sorting the target list (issue #146): a ready skill
-		# without a target, or short of MP, never needs the list. Only a skill about to cast is admitted in full.
+		# without a target never needs the list. Only a skill about to cast is admitted in full.
 		if not has_target(world, key, st, origin):
-			_shortages.erase(key)
 			continue
 		if not world.can_pay_hp(int(st.hp_cost)):
-			# Slash Blast pays HP too and never casts when that would leave 0 HP: not an MP shortage, nothing is spent.
-			_shortages.erase(key)
-			continue
-		if not world.mp_affordable(int(st.mp_cost)):
-			waiting_mp = true
-			if not _shortages.has(key):
-				world.emit("mp_short", {"skill": key, "skill_id": int(st.skill_id), "required_mp": int(st.mp_cost),
-					"mp": int(world.player_state.mp)})
-			_shortages[key] = true
+			# Slash Blast pays HP and never casts when that would leave 0 HP; nothing is spent.
 			continue
 		var plan := _admit_cast(world, key, st, origin)  # has_target said yes, so admission does too
-		world.spend_mp(int(st.mp_cost))
 		world.spend_hp(int(st.hp_cost))
-		_shortages.erase(key)
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		cooldown_totals[key] = cooldowns[key]
 		_resolve_cast(world, key, st, origin, plan)
@@ -227,19 +206,16 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 
 
 ## Casts the manual buff `key` (its skill key was pressed): false, with nothing spent or emitted, unless casting is free,
-## the buff is not already running, its cooldown is over and its MP and HP can be paid. Same cast as an auto-cast buff
+## the buff is not already running, its cooldown is over and its HP cost can be paid. Same cast as an auto-cast buff
 ## (cooldown = its duration, `buff_cast` then `cast` events), minus the target scan.
 func cast_manual_buff(world: RunWorld, key: String) -> bool:
-	if not world.can_cast() or not world.loadout.book.is_active(key) or not world.loadout.book.usable_with(key,
-			world.held_weapon_family()):
+	if not world.can_cast() or not world.loadout.book.is_active(key):
 		return false
 	var st := stats_of(world, key)
 	if String(st.kind) != "buff" or float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_start_buff(key, st) \
-			or not world.mp_affordable(int(st.mp_cost)) or not world.can_pay_hp(int(st.hp_cost)):
+			or not world.can_pay_hp(int(st.hp_cost)):
 		return false
-	world.spend_mp(int(st.mp_cost))
 	world.spend_hp(int(st.hp_cost))
-	_shortages.erase(key)
 	cooldowns[key] = restart_cooldown(st)
 	cooldown_totals[key] = cooldowns[key]
 	_resolve_cast(world, key, st, world.cast_origin(), {})
@@ -248,8 +224,10 @@ func cast_manual_buff(world: RunWorld, key: String) -> bool:
 
 ## Whether ready skill `key` (resolved stats `st`) would be admitted from `origin` now: exactly
 ## `not _admit_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
-## ordering them. cast_ready uses it while the skill is short of MP, when the targets themselves are never used.
+## ordering them, so a ready skill without a target costs no target list.
 func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> bool:
+	if String(st.kind) == "summon":
+		return true
 	match String(st.cast_rule):
 		"", "nearest":
 			if String(st.kind) == "buff":
@@ -275,8 +253,6 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			return _any_target(world, origin, float(st.range), strike_count(st))
 		"cluster":
 			return bool(st.has_box) and _any_target(world, origin, float(st.range), 1)
-		"self":
-			return world.self_cast_ready(st)
 		"hp_or_undead":
 			var heal: Dictionary = world.book.def(key).get("heal", {})
 			if float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0)):
@@ -311,8 +287,6 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return _admit_cluster(world, st, origin)
 		"hp_or_undead":
 			return _admit_hp_or_undead(world, key, st)
-		"self":
-			return {"go": true}
 		"manual":
 			return {}
 	return {}
@@ -417,13 +391,20 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	fired_this_tick = true
 	var effect := String(st.effect)
 	if String(st.cast_rule) in ["", "nearest", "manual"] and String(st.kind) == "buff":
-		# A failed cast (Oak Barrel's chance, #194) pays MP and starts the cooldown but plays no effect.
+		# A failed cast (Oak Barrel's chance, #194) starts the cooldown but plays no effect.
 		if not world.start_buff(key, st):
 			effect = ""
 	# The cast event's pos is where the cast begins, before any displacement.
 	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
 		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": effect})
 	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
+	var definition := world.book.def(key)
+	if String(st.kind) == "summon":
+		summons.spawn(world, st)
+		return
+	if definition.has("ground") or definition.has("pending"):
+		_queue_area(world, key, st)
+		return
 	var start := world.player.pos
 	# `during` on a projectile skill has no sweep to resolve: the shots fly after the move, like `before`.
 	var charge := when == "during" and String(st.kind) != "projectile"
@@ -442,8 +423,6 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 				_throw(world, key, st, plan)
 			"hp_or_undead":
 				_resolve_hp_or_undead(world, key, st, targets)
-			"self":
-				world.convert_hp_to_mp(key, st)
 			"", "nearest":
 				if String(st.kind) != "buff":
 					_resolve_nearest(world, key, st, origin, targets)
@@ -548,7 +527,7 @@ func _admit_crowd(world: RunWorld, st: Dictionary) -> Dictionary:
 	var status := crowd_status(st)
 	var targets := world.skill_box_targets(st.box, func(slot: int) -> bool:
 		return world.swarm.can_crowd_cast(slot, status, _slow_serial))
-	# tier C: survivor crowd threshold lives in the skill's cast block, before MP payment.
+	# tier C: survivor crowd threshold lives in the skill's cast block.
 	if targets.size() < maxi(1, int(st.cast_params.get("min_targets", 1))):
 		return {}
 	return {"targets": targets}
@@ -687,10 +666,55 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 				"rotate": bool(st.rotate), "dmg_min": float(st.damage_min), "dmg_max": float(st.damage_max),
 				"magic": bool(st.magic), "crit": float(st.crit), "crit_mult": float(st.crit_mult),
 				"damage_type": String(st.damage_type), "damage_pct": float(st.damage_pct),
-				"player_level": int(st.player_level), "crit_damage_bonus": float(st.crit_damage_bonus),
+				"crit_damage_bonus": float(st.crit_damage_bonus),
 				"pierce": int(st.pierce), "skill": key, "level": int(st.level), "element": String(st.element),
 				"pierce_falloff": float(st.pierce_falloff),
 				"impact_blast": st.impact_blast,
 			})
 	else:
 		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), hv)
+
+
+func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
+	var d := world.book.def(key)
+	var ground: Dictionary = d.get("ground", {})
+	var pending: Dictionary = d.get("pending", {})
+	var duration := world.book.canonical(key, int(st.level), "time") if not ground.is_empty() else 0.0
+	var interval := float(ground.get("interval", 0.0))
+	_areas.append({"st": st.duplicate(true), "anchor": world.player.pos, "age": 0.0,
+		"next": interval if interval > 0.0 else float(pending.get("delay", 0.0)),
+		"duration": duration, "interval": interval, "follow": bool(pending.get("follow_player", false)),
+		"effect": String(pending.get("effect", ""))})
+	if not ground.is_empty():
+		world.emit("skill_ground", {"skill": key, "pos": world.player.pos, "box": st.box,
+			"effect": String(ground.get("tile", "")), "duration": duration})
+
+
+func _step_areas(dt: float, world: RunWorld) -> void:
+	for i in range(_areas.size() - 1, -1, -1):
+		var a := _areas[i]
+		a.age = float(a.age) + dt
+		var st: Dictionary = a.st
+		var key := String(st.skill)
+		while float(a.age) + 1e-9 >= float(a.next):
+			if float(a.interval) > 0.0 and float(a.next) > float(a.duration) + 1e-9:
+				break
+			var anchor: Vector2 = world.player.pos if bool(a.follow) else a.anchor
+			var limit := world.swarm.capacity() if float(a.interval) > 0.0 else int(st.mob_count)
+			var targets := world.skill_rect_targets(blast_rect(st, anchor), anchor, limit)
+			if float(a.interval) > 0.0:
+				for m in targets:
+					var ground: Dictionary = world.book.def(key).get("ground", {})
+					var chance := world.book.canonical(key, int(st.level), String(ground.get("chance_field", "")))
+					if world.ground_rng.randf() * 100.0 < chance:
+						world.swarm.apply_status(m, String(ground.get("status", "")), {"time": a.duration, "level": st.level,
+							"skill": key, "element": String(ground.get("element", "")), "preserve_pulse": true, "damage_mult": st.status_damage_mult}, world.events)
+				a.next = float(a.next) + float(a.interval)
+			else:
+				world.emit("skill_impact", {"skill": key, "pos": anchor, "effect": String(a.effect)})
+				_resolve_instant_targets(world, st, targets, limit, int(st.attack_count),
+					world.visual_index(String(st.hit)))
+				break
+		if (float(a.interval) <= 0.0 and float(a.age) + 1e-9 >= float(a.next)) \
+				or (float(a.interval) > 0.0 and float(a.age) + 1e-9 >= float(a.duration)):
+			_areas.remove_at(i)

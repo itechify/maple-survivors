@@ -10,8 +10,6 @@ extends RefCounted
 ## base numbers with the modifiers, the damage range for the current INT / magic attack, and the visual paths.
 ## `version` increments on every change so callers can cache stats().
 
-## Passive stat of Improved MaxMP Increase: a fraction of the computed Max MP (tier C survivor reinterpretation).
-const MAX_MP_PERCENT := "max_mp_percent"
 ## Passive stats of the shared physical passives (docs/GAME_DESIGN.md 7.6). mastery: the canonical Mastery skill value N
 ## (the mastery fraction is (10 + 5N)%); acc: skill ACC; crit_chance: percent chance (Skill.wz `prop`); crit_damage: the
 ## critical hit's total percent (Skill.wz `damage`; the bonus is that minus 100); max_hp_per_level: Max HP gained at each
@@ -21,10 +19,24 @@ const ACC := "acc"
 const CRIT_CHANCE := "crit_chance"
 const CRIT_DAMAGE := "crit_damage"
 const MAX_HP_PER_LEVEL := "max_hp_per_level"
-## tier C (#199): additive pixels of reach for ranged basic attacks and weapon-gated ranged attack skills.
+## tier C (#199): additive pixels of reach for ranged weapon stances and weapon-gated ranged attack skills.
 const RANGE := "range"
 ## tier B: untrained physical mastery is 10% (SouthPerry/HS.net).
 const BASE_MASTERY := 0.10
+## Passive stats of the nine common passives (skills/common.json, spec #282 ticket #289); every value is per rank in the
+## unit its name gives (tier C, docs/GAME_DESIGN.md 8). damage_pct, cast_speed_pct and area_pct feed stats(); max_hp_pct,
+## speed_pct, regen_pct, exp_pct and armor_flat feed RunWorld.
+const DAMAGE_PCT := "damage_pct"
+const MAX_HP_PCT := "max_hp_pct"
+const SPEED_PCT := "speed_pct"
+const REGEN_PCT := "regen_pct"
+const CAST_SPEED_PCT := "cast_speed_pct"
+const AREA_PCT := "area_pct"
+const EXP_PCT := "exp_pct"
+const ARMOR_FLAT := "armor_flat"
+## tier C: the cooldown factor (cast speed passives, cooldown cards and every other cooldown source together) never goes
+## below this share of the skill's own cooldown. The reference's x0.35 floor.
+const COOLDOWN_FLOOR := 0.35
 
 var book: SkillBook
 ## Owned skill key -> survivor rank (>= 1).
@@ -33,8 +45,7 @@ var ranks := {}
 var order: Array = []
 ## skill key -> {stat: Vector2(add, mul)}.
 var skill_mods := {}
-## stat -> Vector2(add, mul) for player-wide stats (max_hp, max_mp, speed, magnet, hp_regen, mp_regen, pdd, damage,
-## crit).
+## stat -> Vector2(add, mul) for player-wide stats (max_hp, speed, magnet, hp_regen, pdd, damage, crit).
 var player_mods := {}
 ## Upgrade card id -> consumed rank/modifier steps (one per learned skill card), respecting its maximum.
 var card_ranks := {}
@@ -153,7 +164,7 @@ func clone() -> Loadout:
 
 ## Learns `key` at rank 1. False when unknown or already owned.
 func add_skill(key: String) -> bool:
-	if not book.has(key) or ranks.has(key):
+	if not book.has(key) or ranks.has(key) or not has_free_slot(book.slot(key)):
 		return false
 	ranks[key] = 1
 	order.append(key)
@@ -192,6 +203,33 @@ func slot_count(slot_name: String) -> int:
 		if book.slot(k) == slot_name:
 			n += 1
 	return n
+
+
+## Maximum slots of a kind, supplied by survivor data. Untracked kinds (mobility) have no limit.
+func slot_limit(slot_name: String) -> int:
+	return int(book.slot_limits.get(slot_name, 0))
+
+
+## Whether another skill of this kind fits; mobility consumes neither track.
+func has_free_slot(slot_name: String) -> bool:
+	return slot_limit(slot_name) <= 0 or slot_count(slot_name) < slot_limit(slot_name)
+
+
+## The common passives held, in learning order, for the Stat window: [{key, name, icon, rank, max_rank}].
+func held_common_passives() -> Array:
+	var out: Array = []
+	for k: String in order:
+		var d := book.def(k)
+		if bool(d.get("common_passive", false)):
+			out.append({"key": k, "name": String(d.get("name", k)), "icon": String(d.get("icon", "")), "rank": rank(k),
+				"max_rank": book.max_rank(k)})
+	return out
+
+
+## Shared display of both slot tracks for the HUD windows.
+func slot_summary() -> String:
+	return "Active %d/%d   Passive %d/%d" % [slot_count("active"), slot_limit("active"),
+		slot_count("passive"), slot_limit("passive")]
 
 
 ## Stacks one effect on skill `key` (op "add" or "mul").
@@ -238,7 +276,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## attackCount plus skill modifiers, damage lines per target),
 ## crit, crit_mult, speed_factor (attack speed: the fraction of the data's cooldown and action time left), cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
 ## has_box, box (canonical left-facing feet offsets scaled by area), area, mob_count (canonical plus count mods),
-## mp_cost (canonical mpCon unless overridden by survivor data), hp_cost (canonical hpCon, 0 for most skills; Slash Blast),
+## hp_cost (canonical hpCon, 0 for most skills; Slash Blast; there is no MP cost, ADR 0006),
 ## speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
@@ -256,7 +294,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		# tier C: the stance (and so the swing/stab multiplier) of the held weapon's first basic-attack action.
 		action = WeaponInfo.skill_action(weapon_id)
 	var attack_kind := WeaponInfo.attack_kind(action)
-	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0)
+	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0) * (1.0 + passive_total(DAMAGE_PCT) / 100.0)
 	var lo := 0.0
 	var hi := 0.0
 	if dtype == "fixed":
@@ -288,7 +326,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var box_node: Dictionary = node if node.get("lt") is Dictionary and node.get("rb") is Dictionary \
 		else cast.get("box", {})
 	var has_box := box_node.get("lt") is Dictionary and box_node.get("rb") is Dictionary
-	var area := skill_stat(key, "area", 1.0)
+	var area := skill_stat(key, "area", 1.0) * (1.0 + passive_total(AREA_PCT) / 100.0)
 	var box := Rect2()
 	if has_box:
 		var lt: Array = box_node.lt.get("$v", [0.0, 0.0])
@@ -312,7 +350,6 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"area": area,
 		"box": box,
 		"mob_count": maxi(1, roundi(skill_stat(key, "count", book.canonical(key, lv, "mobCount", float(cast.get("mob_count", 1.0)))))),
-		"mp_cost": maxi(0, int(d.get("mp_cost_override", book.canonical(key, lv, "mpCon", 0.0)))),
 		"hp_cost": maxi(0, int(book.canonical(key, lv, "hpCon", 0.0))),
 		"teleport_range": book.canonical(key, lv, "range", 0.0) if d.has("teleport") else 0.0,
 		"repeat_delay": float(d.get("teleport", {}).get("repeat_delay", 0.0)),
@@ -321,17 +358,17 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"defense": "pdd" if dtype == "physical" else "mdd" if dtype == "magic" else "none",
 		"damage_pct": book.canonical(key, lv, String(blast.get("damage_field", "damage")), 100.0) / 100.0
 			if dtype == "physical" else 1.0,
-		"player_level": char_level,
+		"status_damage_mult": dmg_mult,
 		"damage_min": lo,
 		"damage_max": hi,
 		"magic": dtype == "magic",
-		"element": String(book.skill_node(key).get("elemAttr", "")),
+		"element": String(d.get("element", book.skill_node(key).get("elemAttr", ""))),
 		"attack_count": maxi(1, roundi(skill_stat(key, "attack_count", book.canonical(key, lv, "attackCount", 1.0)))),
 		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance + acc * crit_per_acc + crit_bonus),
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
 		"speed_factor": speed_factor,
-		"cooldown": maxf(0.05, skill_stat(key, "cooldown", _base_cooldown(key, d, heal, lv)) * speed_factor),
+		"cooldown": _cooldown(key, d, heal, lv, speed_factor),
 		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0))))
 			+ (passive_total(RANGE) if attacks and weapon_family in WeaponInfo.RANGED_FAMILIES
 				and weapon_family in book.weapon_families(key) else 0.0),
@@ -376,28 +413,26 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"end_hp_above": float(buff.get("end_hp_above", 0.0)),
 		"cooldown_from_cast": bool(buff.get("cooldown_from_cast", false)),
 		"displacement": _displacement(key, d, r, lv),
-		"conversion": _conversion(key, d, lv),
 	}
 
 
+## Seconds between casts: the skill's own cooldown with its cards, then the cast speed passives (an active skill's cooldown
+## x (1 - cast speed)), the product of every factor floored at COOLDOWN_FLOOR of the base, then attack speed.
+func _cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int, speed_factor: float) -> float:
+	var base := _base_cooldown(key, d, heal, lv)
+	var cooldown := skill_stat(key, "cooldown", base)
+	if book.slot(key) == "active" and base > 0.0:
+		cooldown = maxf(cooldown * (1.0 - passive_total(CAST_SPEED_PCT) / 100.0), base * COOLDOWN_FLOOR)
+	return maxf(0.05, cooldown * speed_factor)
+
+
 ## The seconds between casts before cards and attack speed: the definition's `cooldown_field` (a canonical level number,
-## MP Recovery's `cooltime`) when it names one, else the Heal `recast_delay`, else the survivor `cooldown`, else 1.
+## e.g. `cooltime`) when it names one, else the Heal `recast_delay`, else the survivor `cooldown`, else 1.
 func _base_cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int) -> float:
 	var fallback := float(heal.get("recast_delay", d.get("cooldown", 1.0)))
 	if d.has("cooldown_field"):
 		return book.canonical(key, lv, String(d.cooldown_field), fallback)
 	return fallback
-
-
-## The resolved HP-to-MP conversion of `key` ({} for a skill that has none): {pay, gain} as fractions, `pay` the share of
-## MaxHP paid and `gain` the share of the HP paid that comes back as MP. The definition's `convert` block names the
-## canonical level fields (percent numbers) as `pay_field` and `gain_field` (docs/GAME_DESIGN.md 7.16).
-func _conversion(key: String, d: Dictionary, lv: int) -> Dictionary:
-	var block: Variant = d.get("convert", {})
-	if not (block is Dictionary) or (block as Dictionary).is_empty():
-		return {}
-	return {"pay": maxf(0.0, book.canonical(key, lv, String(block.get("pay_field", "x"))) / 100.0),
-		"gain": maxf(0.0, book.canonical(key, lv, String(block.get("gain_field", "y"))) / 100.0)}
 
 
 ## The resolved moving-attack block of `key` ({} for a skill that does not move): {direction "away" | "toward", when
@@ -444,45 +479,36 @@ func passive_effects(key: String) -> Array:
 	return out
 
 
-## Sum of owned passive effects of `passive_stat`: canonical fields or survivor per-level values from skills.json. A skill
-## whose weapon requirement the held family fails (SkillBook.usable_with with `weapon_family`) contributes nothing.
+## Sum of owned passive effects of `passive_stat`: canonical fields or survivor per-level values from skills.json.
 func passive_total(passive_stat: String) -> float:
 	var t := 0.0
 	for k: String in order:
-		if not book.usable_with(k, weapon_family):
-			continue
 		for effect: Dictionary in passive_effects(k):
 			if String(effect.get("stat", "")) == passive_stat:
 				t += passive_value(k, level(k), effect)
 	return t
 
 
-## The largest single owned effect of `passive_stat` (same weapon gating as passive_total); 0 when none. For stats that
-## do not stack across skills (mastery, crit damage).
+## The largest single owned effect of `passive_stat`; 0 when none. For stats that do not stack across skills (mastery,
+## crit damage).
 func passive_best(passive_stat: String) -> float:
 	var best := 0.0
 	for k: String in order:
-		if not book.usable_with(k, weapon_family):
-			continue
 		for effect: Dictionary in passive_effects(k):
 			if String(effect.get("stat", "")) == passive_stat:
 				best = maxf(best, passive_value(k, level(k), effect))
 	return best
 
 
-## Extra HP or MP (`pool` "hp" / "mp") that the owned skills with a `regen` field add to one regeneration pulse at
-## `char_level`. A skill declares `"regen": {"pool": "mp", "divisor": 10}`; its bonus is floor(character level x skill
-## level / divisor), whole points. tier B: the pre-Big-Bang Improved MP Recovery rule. A `"field"` instead of a divisor
-## (`{"pool": "hp", "field": "hp"}`, Improved HP Recovery) adds that canonical level number as it is (tier A: +3 to +50).
-func regen_bonus(pool: String, char_level: int) -> float:
+## Extra HP that the owned skills with a `regen` field add to one regeneration pulse. A skill declares
+## `"regen": {"pool": "hp", "field": "hp"}` (Improved HP Recovery) and adds that canonical level number as it is
+## (tier A: +3 to +50).
+func regen_bonus() -> float:
 	var t := 0.0
 	for k: String in order:
 		var r: Variant = book.def(k).get("regen")
-		if r is Dictionary and String(r.get("pool", "")) == pool:
-			if r.has("field"):
-				t += book.canonical(k, level(k), String(r.field))
-			else:
-				t += floorf(float(char_level * level(k)) / maxf(1.0, float(r.get("divisor", 1.0))))
+		if r is Dictionary and String(r.get("pool", "hp")) == "hp" and r.has("field"):
+			t += book.canonical(k, level(k), String(r.field))
 	return t
 
 

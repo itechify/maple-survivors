@@ -14,8 +14,9 @@ extends RefCounted
 
 ## The throwaway save (tool-only name, deleted and recreated by every `--hub` launch).
 const SAVE_PATH := "user://tool_hub_save.json"
-## The character used when `--character` is not given: a real Lv38 F/P bot character (format 2).
-const DEFAULT_CHARACTER := "res://tests/fixtures/characters/lv35_magician_2nd.json"
+## The character used when `--character` is not given: the gear of a real F/P bot character (format 3, job 212).
+## Tool-only fixture; tests are excluded from exported builds.
+const DEFAULT_CHARACTER := "res://tests/fixtures/characters/fp_arch_mage.json"
 ## Mesos the kit gives (`--mesos=N` overrides).
 const DEFAULT_MESOS := 500000 # tier C: ours (owner brief)
 ## Scrolls per stack in the kit.
@@ -47,7 +48,7 @@ static func parse_args(list: PackedStringArray) -> Dictionary:
 	return {"character": path if path != "" and path != "1" else DEFAULT_CHARACTER, "mesos": mesos}
 
 
-## {"character": format-2 CharacterSnapshot (the "_doc" note dropped; format 1 migrated), "error": ""} from a JSON file,
+## {"character": format-3 CharacterSnapshot (the "_doc" note dropped; formats 1 and 2 migrated), "error": ""} from a JSON file,
 ## or {"character": {}, "error": message}. `img_loader` (path -> img root) gives migrated items their stats.
 static func load_character(path: String, img_loader: Callable) -> Dictionary:
 	var errors := PackedStringArray()
@@ -58,11 +59,13 @@ static func load_character(path: String, img_loader: Callable) -> Dictionary:
 	return {"character": SceneFlow.migrated_character(character, img_loader), "error": ""}
 
 
-## A copy of the format-2 `character` with the test kit: `mesos`, the KIT_SCROLLS stacks (SCROLL_COUNT each, on top of
-## what it holds, within the Use tab) and the KIT_EQUIPMENT items created from `img_loader` info.
+## A copy of the format-3 `character` with the test kit: `mesos`, every tier unlocked (so map select shows them all), the
+## KIT_SCROLLS stacks (SCROLL_COUNT each, on top of what it holds, within the Use tab) and the KIT_EQUIPMENT items created
+## from `img_loader` info.
 static func apply(character: Dictionary, mesos: int, img_loader: Callable) -> Dictionary:
 	var out := character.duplicate(true)
 	out.mesos = mesos
+	out.tiers_unlocked = maxi(int(out.get("tiers_unlocked", 1)), SceneFlow.tiers().size())
 	var limit := Shop.use_stack_limit()
 	for id: int in KIT_SCROLLS:
 		Scrolls.add(out.scrolls, id, SCROLL_COUNT, 0, limit)

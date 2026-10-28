@@ -1,7 +1,7 @@
 extends TestCase
 ## Gunslinger attacks (spec #168 ticket #192, docs/GAME_DESIGN.md 7.20): Invisible Shot, Blank Shot, Grenade and Recoil
 ## Shot through the shipping data on seeded synthetic worlds with fixed ticks (a flat floor, tiny mob bodies that never
-## move), then the cards and the Lv 30 advancement draw, then the original v83 numbers and art in the private cache
+## move), then the cards, then the original v83 numbers and art in the private cache
 ## (those SKIP without it).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -20,19 +20,19 @@ const ATTACKS := ["invisible_shot", "blank_shot", "grenade", "recoil_shot"]
 const GUN_ONLY := ["invisible_shot", "blank_shot", "recoil_shot"]
 
 
-## A Gunslinger (job 520 by way of a gun-path Pirate) on a flat floor at x = 400, a spare knuckle in the Equip tab,
-## mob bodies shrunk to 4 x 10 px and standing still, MP full, `key` learned at `rank_value`.
+## A Gunslinger (job 520 set directly with its old Lv 30 gun, RF.as_job; #284 removed advancement) on a flat floor at x = 400, a spare knuckle in the Equip tab,
+## mob bodies shrunk to 4 x 10 px and standing still, `key` learned at `rank_value`.
 func _gunslinger(key: String, rank_value := 1, segments: Array = [GROUND], x := 400.0, p_seed := 192) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.magnet_radius = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge(INFO, true)
 	setup.map_img = RF.map_from_segments(segments)
 	var w := RunWorld.new(setup)
-	w.change_job(500, "gun")
+	RF.as_job(w, 500, "gun")
 	w.progression.level = 30
-	w.change_job(520)
+	RF.as_job(w, 520)
 	w.equipment.inventory.append(Equipment.create(STEEL_KNUCKLER, INFO[STEEL_KNUCKLER]))
 	w.pending_cards = []
 	w.state = RunWorld.PLAYING
@@ -48,7 +48,6 @@ func _gunslinger(key: String, rank_value := 1, segments: Array = [GROUND], x := 
 		assert_true(w.learn_skill(key), "learn " + key)
 		w.loadout.set_rank(key, rank_value)
 	w.refresh_player_stats()
-	w.heal_fraction("mp", 1.0)
 	w.drain_events()
 	return w
 
@@ -82,21 +81,20 @@ func _wear(w: RunWorld, id: int) -> void:
 
 # --- numbers by rank ----------------------------------------------------------------------------------------------------
 
-func test_cast_rule_cost_count_and_damage_by_rank() -> void:
-	# [mp, damage fraction, mob count] at rank 1 and 20 (Skill.wz/520.img).
+func test_cast_rule_count_and_damage_by_rank() -> void:
+	# [damage fraction, mob count] at rank 1 and 20 (Skill.wz/520.img).
 	var want := {
-		"invisible_shot": [[10, 0.75, 3], [25, 1.70, 3]],
-		"blank_shot": [[10, 0.63, 3], [25, 1.20, 3]],
-		"grenade": [[15, 0.45, 3], [27, 1.40, 6]],
-		"recoil_shot": [[14, 0.70, 1], [26, 2.60, 1]],
+		"invisible_shot": [[0.75, 3], [1.70, 3]],
+		"blank_shot": [[0.63, 3], [1.20, 3]],
+		"grenade": [[0.45, 3], [1.40, 6]],
+		"recoil_shot": [[0.70, 1], [2.60, 1]],
 	}
 	for key: String in ATTACKS:
 		var w := _gunslinger(key)
 		for i in 2:
 			var st := w.loadout.stats(key, 1 if i == 0 else 20)
-			assert_eq(st.mp_cost, want[key][i][0], "%s MP at rank %d" % [key, 1 if i == 0 else 20])
-			assert_near(st.damage_pct, want[key][i][1], 1e-6, key + " damage")
-			assert_eq(st.mob_count, want[key][i][2], key + " mobs")
+			assert_near(st.damage_pct, want[key][i][0], 1e-6, key + " damage")
+			assert_eq(st.mob_count, want[key][i][1], key + " mobs")
 			assert_eq(st.damage_type, "physical")
 		assert_eq(w.loadout.stats(key).cast_rule, {"invisible_shot": "box", "blank_shot": "box", "grenade": "cluster",
 			"recoil_shot": "nearest"}[key])
@@ -104,21 +102,12 @@ func test_cast_rule_cost_count_and_damage_by_rank() -> void:
 		assert_eq(w.book.max_level(key), 20)
 
 
-func test_each_attack_pays_its_mp_once_per_cast_and_waits_when_short() -> void:
+func test_each_attack_casts_once_with_a_target() -> void:
 	for key: String in ATTACKS:
 		var w := _gunslinger(key)
-		var mp: int = w.player_state.mp
 		_mob(w, 100.0)
 		var events := _tick(w)
 		assert_eq(_of(events, "cast").size(), 1, key + " cast")
-		assert_eq(w.player_state.mp, mp - w.loadout.stats(key).mp_cost, key + " paid its cost")
-		var short := _gunslinger(key)
-		assert_true(short.spend_mp(int(short.player_state.mp)))
-		_mob(short, 100.0)
-		events = _tick(short)
-		assert_eq(_of(events, "cast").size(), 0, key + " does not cast without MP")
-		assert_eq(_of(events, "mp_short").size(), 1)
-		assert_eq(short.player_state.mp, 0)
 
 
 # --- Invisible Shot -----------------------------------------------------------------------------------------------------
@@ -146,8 +135,7 @@ func test_invisible_shot_hits_in_front_and_behind_up_to_three_mobs_inside_the_bo
 	var far := _gunslinger("invisible_shot")
 	_mob(far, 300.0)
 	_mob(far, -300.0)
-	assert_eq(_of(_tick(far), "cast").size(), 0, "nothing inside the box: no cast, no cost")
-	assert_eq(far.player_state.mp, far.player_state.max_mp)
+	assert_eq(_of(_tick(far), "cast").size(), 0, "nothing inside the box: no cast")
 
 
 func test_invisible_shot_mob_count_grows_with_its_card_and_stays_inside_one_cast() -> void:
@@ -156,7 +144,7 @@ func test_invisible_shot_mob_count_grows_with_its_card_and_stays_inside_one_cast
 		_mob(w, dx)
 	assert_eq(_hit_slots(_tick(w), "invisible_shot").size(), 3)
 	var more := _gunslinger("invisible_shot", 20)
-	assert_true(more.upgrades.apply("invisible_shot_targets", more))
+	RF.add_modifier_effects(more, more.upgrades.card("invisible_shot_targets"))
 	for dx in [-200.0, -100.0, 50.0, 100.0, 200.0]:
 		_mob(more, dx)
 	assert_eq(_hit_slots(_tick(more), "invisible_shot").size(), 4, "+1 target from the card")
@@ -201,7 +189,6 @@ func test_blank_shot_rank_one_stun_chance_is_forty_three_percent_for_one_second(
 	var slots: Array = [_mob(w, 80.0), _mob(w, 120.0), _mob(w, 160.0)]
 	for cast in 120:
 		w.runner.cooldowns["blank_shot"] = 0.0
-		w.heal_fraction("mp", 1.0)
 		for slot in slots:
 			w.swarm.hp[slot] = w.swarm.max_hp[slot]
 		var events := _tick(w)
@@ -221,7 +208,6 @@ func test_blank_shot_rank_one_stun_chance_is_forty_three_percent_for_one_second(
 	var stunned2 := 0
 	for cast in 120:
 		again.runner.cooldowns["blank_shot"] = 0.0
-		again.heal_fraction("mp", 1.0)
 		for slot in slots2:
 			again.swarm.hp[slot] = again.swarm.max_hp[slot]
 		stunned2 += _of(_tick(again), "mob_status_applied").filter(
@@ -317,7 +303,7 @@ func test_recoil_shot_does_not_hop_in_the_air() -> void:
 
 func test_recoil_shot_bullet_pierce_card_hits_a_second_mob() -> void:
 	var w := _gunslinger("recoil_shot", 20)
-	assert_true(w.upgrades.apply("recoil_shot_pierce", w))
+	RF.add_modifier_effects(w, w.upgrades.card("recoil_shot_pierce"))
 	_mob(w, 150.0)
 	_mob(w, 200.0)
 	var events := _tick(w)
@@ -386,7 +372,6 @@ func test_grenade_strikes_up_to_its_mob_count_by_rank_inside_the_canonical_blast
 			hits.append_array(_hit_slots(_tick(w), "grenade"))
 		assert_eq(hits.size(), case[1], "rank %d strikes %d mobs" % case)
 		assert_false(outside in hits)
-		assert_eq(w.player_state.mp, w.player_state.max_mp - w.loadout.stats("grenade", case[0]).mp_cost)
 
 
 func test_grenade_casts_with_a_knuckle_and_with_any_weapon() -> void:
@@ -419,24 +404,20 @@ func test_grenade_throw_range_and_a_scheduled_boss_priority() -> void:
 
 # --- the gun-only skills and the knuckle --------------------------------------------------------------------------------
 
-func test_the_gun_only_skills_do_not_cast_with_a_knuckle() -> void:
+func test_the_gun_skills_cast_with_a_knuckle_too() -> void:
+	# Weapons gate no skill (#284): the data still names the gun, but a knuckle casts them as well.
 	for key: String in GUN_ONLY:
 		var w := _gunslinger(key)
 		_wear(w, STEEL_KNUCKLER)
-		var mp: int = w.player_state.mp
 		_mob(w, 100.0)
 		_mob(w, -100.0)
 		var events := _tick(w)
-		assert_eq(_of(events, "cast").size(), 0, key + " needs a gun")
-		assert_eq(w.player_state.mp, mp)
-		assert_eq(w.player.pos.x, 400.0)
+		assert_eq(_of(events, "cast").size(), 1, key + " casts with a knuckle")
 	for key: String in GUN_ONLY:
 		assert_eq(_gunslinger(key).book.weapon_families(key), PackedStringArray(["gun"]), key)
-	assert_true(_gunslinger("grenade").book.usable_with("grenade", "knuckle"))
-	assert_true(_gunslinger("grenade").book.usable_with("grenade", ""))
 
 
-# --- cards and the advancement draw -------------------------------------------------------------------------------------
+# --- cards ---------------------------------------------------------------------------------------------------------------
 
 func test_every_attack_has_learn_rank_and_a_hit_more_mobs_card_for_the_gunslinger_only() -> void:
 	var w := _gunslinger("")
@@ -456,34 +437,11 @@ func test_every_attack_has_learn_rank_and_a_hit_more_mobs_card_for_the_gunslinge
 		assert_true(float(more.effects[0].value) > 0.0)
 	for case: Array in [[510, ""], [500, "gun"], [210, ""]]:
 		var other := _gunslinger("")
-		other.change_job(case[0], case[1] if case[0] == 500 else "")
+		RF.as_job(other, case[0], case[1] if case[0] == 500 else "")
 		var eligible: Array = other.upgrades.eligible(other)
 		for key: String in ATTACKS:
 			assert_false(key + "_new" in eligible, "%s is not on offer to job %d" % [key, case[0]])
 
-
-func test_gun_only_cards_are_offered_only_while_a_gun_is_held() -> void:
-	var w := _gunslinger("")
-	var eligible: Array = w.upgrades.eligible(w)
-	for key: String in ATTACKS:
-		assert_has(eligible, key + "_new")
-	_wear(w, STEEL_KNUCKLER)
-	eligible = w.upgrades.eligible(w)
-	for key: String in GUN_ONLY:
-		assert_false(key + "_new" in eligible, key + " needs a gun")
-	assert_has(eligible, "grenade_new", "Grenade takes any weapon")
-	for key: String in ATTACKS:
-		assert_true(w.learn_skill(key))
-	eligible = w.upgrades.eligible(w)
-	for key: String in GUN_ONLY:
-		assert_false(key + "_rank" in eligible)
-		assert_false(key + "_targets" in eligible or key + "_pierce" in eligible)
-	assert_has(eligible, "grenade_rank")
-	assert_has(eligible, "grenade_targets")
-	_wear(w, PISTOL)
-	eligible = w.upgrades.eligible(w)
-	for key: String in GUN_ONLY:
-		assert_has(eligible, key + "_rank")
 
 
 func test_each_hit_more_card_adds_one_target_or_pierce_per_step_for_three_steps() -> void:
@@ -493,45 +451,13 @@ func test_each_hit_more_card_adds_one_target_or_pierce_per_step_for_three_steps(
 		var stat := "pierce" if key == "recoil_shot" else "mob_count"
 		var base: int = w.loadout.stats(key)[stat]
 		for step in 3:
-			assert_true(w.upgrades.apply(id, w), "%s step %d" % [id, step + 1])
+			RF.add_modifier_effects(w, w.upgrades.card(id))
 			assert_eq(w.loadout.stats(key)[stat], base + step + 1)
 		assert_false(id in w.upgrades.eligible(w), "three steps at most")
 
 
-func _pirate_at_the_window(path: String) -> RunWorld:
-	var data := RF.quiet_data()
-	data.balance.player.skills = []
-	var setup := RF.with_basic_attack(RF.setup("quiet", 192, data))
-	setup.equipment_info.merge(INFO, true)
-	var w := RunWorld.new(setup)
-	w.change_job(500, path)
-	RF.place_player(w, 400)
-	w.god = true
-	w.progression.level = 29
-	w.progression.add_exp(w.progression.exp_to_next())
-	w.step(DT, MoveInput.new())
-	assert_eq(w.state, RunWorld.CHOOSING_JOB)
-	return w
-
-
-func test_the_gunslinger_advancement_draw_offers_the_four_attacks() -> void:
-	for path in ["gun", "knuckle"]:
-		var w := _pirate_at_the_window(path)
-		assert_true(w.apply_job(520), "Gunslinger on offer to a %s Pirate" % path)
-		assert_eq(w.held_weapon_family(), "gun", "the branch's weapon is worn at once")
-		var ids: Array = w.pending_cards.map(func(c: Dictionary) -> String: return String(c.id))
-		for key: String in ATTACKS:
-			assert_has(ids, key + "_new")
-		var brawler := _pirate_at_the_window(path)
-		assert_true(brawler.apply_job(510))
-		var brawler_ids: Array = brawler.pending_cards.map(func(c: Dictionary) -> String: return String(c.id))
-		for key: String in ATTACKS:
-			assert_false(key + "_new" in brawler_ids, "the Brawler's draw has none of the Gunslinger's attacks")
-
-
 func test_every_attack_card_choice_teaches_a_working_skill() -> void:
-	var w := _pirate_at_the_window("gun")
-	assert_true(w.apply_job(520))
+	var w := _gunslinger("")
 	for key: String in ATTACKS:
 		assert_true(w.upgrades.apply(key + "_new", w), key)
 		assert_true(w.loadout.has(key))
@@ -552,16 +478,15 @@ func test_original_v83_tables_boxes_art_and_sounds_resolve_in_the_private_cache(
 	var book := SkillBook.from_data(DataRepo.load_all().skills, {"520": img.root})
 	var loadout := Loadout.new(book)
 	var facts := {
-		"invisible_shot": {"mp": [10, 25], "damage": [0.75, 1.70], "mobs": [3, 3], "lt": Vector2(-250, -80), "rb": Vector2(-10, 40)},
-		"blank_shot": {"mp": [10, 25], "damage": [0.63, 1.20], "mobs": [3, 3], "lt": Vector2(-250, -80), "rb": Vector2(-20, 30)},
-		"grenade": {"mp": [15, 27], "damage": [0.45, 1.40], "mobs": [3, 6], "lt": Vector2(-50, -50), "rb": Vector2(50, 20)},
-		"recoil_shot": {"mp": [14, 26], "damage": [0.70, 2.60], "mobs": [1, 1]},
+		"invisible_shot": {"damage": [0.75, 1.70], "mobs": [3, 3], "lt": Vector2(-250, -80), "rb": Vector2(-10, 40)},
+		"blank_shot": {"damage": [0.63, 1.20], "mobs": [3, 3], "lt": Vector2(-250, -80), "rb": Vector2(-20, 30)},
+		"grenade": {"damage": [0.45, 1.40], "mobs": [3, 6], "lt": Vector2(-50, -50), "rb": Vector2(50, 20)},
+		"recoil_shot": {"damage": [0.70, 2.60], "mobs": [1, 1]},
 	}
 	for key: String in facts:
 		assert_eq(book.max_level(key), 20, key)
 		for i in 2:
 			var st := loadout.stats(key, 1 if i == 0 else 20)
-			assert_eq(st.mp_cost, facts[key].mp[i], key + " mpCon")
 			assert_near(st.damage_pct, facts[key].damage[i], 1e-6, key)
 			assert_eq(st.mob_count, facts[key].mobs[i], key)
 			if facts[key].has("lt") and key != "invisible_shot":

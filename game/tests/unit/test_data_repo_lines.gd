@@ -223,14 +223,17 @@ func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:
 		assert_false(frag.skills.is_empty(), "skills/%s.json has entries" % line)
 		for key: String in frag.skills:
 			assert_eq(String(frag.skills[key].book) == "000", line == "beginner", "%s in %s" % [key, line])
-	# cards: no skill -> common, book 000 skill -> beginner, otherwise magician
-	for line in ["common", "beginner", "magician"]:
+	# cards: no skill or a common passive's -> common, otherwise magician; #284 deleted the Beginner cards (no
+	# upgrades/beginner.json)
+	assert_false(FileAccess.file_exists(DataRepo.fragment_path("upgrades", "beginner", root)))
+	for line in ["common", "magician"]:
 		var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("upgrades", line, root))
-		# Spec #225: there are no job-neutral cards, so the common fragment is empty.
-		assert_eq(frag.cards.is_empty(), line == "common", "upgrades/%s.json cards" % line)
+		# Spec #289: the common fragment holds the common passives' cards (they carry no job); the Magician's has the rest.
+		assert_false(frag.cards.is_empty(), "upgrades/%s.json cards" % line)
 		for c: Dictionary in frag.cards:
 			var skill := String(c.get("skill", ""))
-			var want := "common" if skill == "" else ("beginner" if String(d.skills.skills[skill].book) == "000" else "magician")
+			var want := "common" if skill == "" or bool(d.skills.skills[skill].get("common_passive", false)) \
+				else ("beginner" if String(d.skills.skills[skill].book) == "000" else "magician")
 			assert_eq(line, want, "card %s" % c.id)
 	assert_false(d.upgrades.has("cards") and d.upgrades.cards.is_empty())
 	assert_eq(d.upgrades.fallback.id, "elixir", "the fallback card stays in the base")

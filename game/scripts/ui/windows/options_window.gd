@@ -1,13 +1,13 @@
 class_name OptionsWindow
 extends UiWindow
 ## The Options window (Menu -> Options, or the pause menu): BGM and SFX volume, the frame cap (web: FULLSCREEN),
-## the movement keys and the HP / MP ALERT levels. Every change is applied and saved at once through the Settings setters (set_volume, set_max_fps,
+## the movement keys and the HP ALERT level (there is no MP, ADR 0006). Every change is applied and saved at once through the Settings setters (set_volume, set_max_fps,
 ## set_movement_keys, set_alert); BtOK (or Esc) only closes.
 ##
 ##   OptionsWindow.new(Settings)
 ##
 ## Art: composed from the v83 System Option window (UI.wz/UIWindow.img/SysOpt `backgrnd`): its title, its BGM, SOUND,
-## HP ALERT and MP ALERT rows as they are (SOFT ... LOUD and DO NOT ALERT ... 100% sliders from Basic.img/Slider, the
+## HP ALERT row as it is (SOFT ... LOUD and DO NOT ALERT ... 100% sliders from Basic.img/Slider, the
 ## MUTE boxes from Basic.img/CheckBox), two of its empty rows relabelled FRAME CAP and MOVE KEYS with a CheckBox per
 ## choice, and its bottom strip with KeyConfig's BtOK. The other SysOpt rows (picture quality, mouse cursor...) have no
 ## meaning here and are left out. Without the cache the window keeps its layout and draws plain rows.
@@ -17,11 +17,11 @@ const SLIDER := "UI.wz/Basic.img/Slider/"
 const CHECK := "UI.wz/Basic.img/CheckBox/"
 const WIDTH := 299.0
 ## tier C (ours, measured on the v83 SysOpt backgrnd): its title part, row pitch, the source rows used (BGM 1, SOUND
-## 2, HP ALERT 5, MP ALERT 6, the empty MONSTER INFO. row 8 as the template of ours), the bottom strip, the label box
+## 2, HP ALERT 5, the empty MONSTER INFO. row 8 as the template of ours), the bottom strip, the label box
 ## and the panel.
 const HEADER_H := 32.0
 const ROW_H := 30.0
-const SRC_ROW_Y := {"bgm": 62.0, "sfx": 92.0, "hp_alert": 182.0, "mp_alert": 212.0, "blank": 272.0}
+const SRC_ROW_Y := {"bgm": 62.0, "sfx": 92.0, "hp_alert": 182.0, "blank": 272.0}
 const SRC_BOTTOM_Y := 330.0
 const BOTTOM_H := 36.0
 const LABEL_BOX := Rect2(9, 1, 46, 27)
@@ -36,16 +36,16 @@ const MUTE_BOX := Vector2(243, 9)
 const CHECK_SIZE := Vector2(12, 12)
 ## Rows top to bottom: id, label lines (our rows only; the ALERT rows keep the art's baked labels).
 const ROWS := [["bgm", ""], ["sfx", ""], ["frame_cap", "FRAME\nCAP"], ["movement", "MOVE\nKEYS"],
-	["hp_alert", ""], ["mp_alert", ""]]
+	["hp_alert", ""]]
 ## Web build (WebProfile): FULL SCREEN takes the FRAME CAP row (the browser paces the frames); same row height.
 const WEB_ROWS := [["bgm", ""], ["sfx", ""], ["fullscreen", "FULL\nSCREEN"], ["movement", "MOVE\nKEYS"],
-	["hp_alert", ""], ["mp_alert", ""]]
+	["hp_alert", ""]]
 const FULLSCREEN_NAME := "FULLSCREEN"
-## The volume sliders (GameSettings.set_volume) and the ALERT sliders: row id -> the ALERT kind set_alert takes.
+## The volume sliders (GameSettings.set_volume) and the ALERT slider: row id -> the ALERT kind set_alert takes.
 const VOLUME_ROWS := ["bgm", "sfx"]
-const ALERT_ROWS := {"hp_alert": "hp", "mp_alert": "mp"}
-## tier C (ours): plain-mode captions of the ALERT rows (no cache: the art's baked words are missing).
-const ALERT_TITLES := {"hp_alert": "HP\nALERT", "mp_alert": "MP\nALERT"}
+const ALERT_ROWS := {"hp_alert": "hp"}
+## tier C (ours): plain-mode caption of the ALERT row (no cache: the art's baked words are missing).
+const ALERT_TITLES := {"hp_alert": "HP\nALERT"}
 ## tier C (ours): the frame cap choices (GameSettings.max_fps: 0 = the display's refresh rate, -1 = uncapped) and
 ## their captions, then the movement choices.
 const FRAME_CAPS := [0, 60, 144, -1]
@@ -121,7 +121,7 @@ func fullscreen_rect() -> Rect2:
 	return _choice_rect("fullscreen", [FULLSCREEN_NAME], 0)
 
 
-## The local rect of the slider track of row "bgm", "sfx", "hp_alert" or "mp_alert".
+## The local rect of the slider track of row "bgm", "sfx" or "hp_alert".
 func slider_rect(kind: String) -> Rect2:
 	var track := ALERT_TRACK if ALERT_ROWS.has(kind) else TRACK
 	return Rect2(track.position + Vector2(0, row_y(kind)), track.size)
@@ -175,11 +175,11 @@ func _slider_hit(kind: String) -> Rect2:
 	return Rect2(r.position.x - THUMB.x * 0.5, r.position.y - 4.0, r.size.x + THUMB.x, THUMB.y)
 
 
-## The ALERT level (fraction of max, 0 = do not alert) of row "hp_alert" / "mp_alert".
-func _alert_level(id: String) -> float:
+## The ALERT level (fraction of max, 0 = do not alert) of row "hp_alert".
+func _alert_level(_id: String) -> float:
 	if settings == null:
 		return 0.0
-	return settings.alert_hp if ALERT_ROWS[id] == "hp" else settings.alert_mp
+	return settings.alert_hp
 
 
 func _set_from_slider(kind: String, x: float) -> void:
@@ -263,7 +263,7 @@ func _draw() -> void:
 		match id:
 			"bgm", "sfx":
 				_draw_volume(id, bg == null)
-			"hp_alert", "mp_alert":
+			"hp_alert":
 				_draw_alert(id, bg == null)
 			"frame_cap":
 				for i in FRAME_CAPS.size():

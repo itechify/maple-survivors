@@ -26,7 +26,7 @@ func _world(mode: String) -> RunWorld:
 		assert_eq(w.mob_defense(mob, false), 10.0)
 		w.projectiles.spawn({"x": w.swarm.x[mob], "y": w.swarm.y[mob] - 10, "vx": 600,
 			"range": 600, "radius": 1, "dmg_min": 100, "dmg_max": 100, "damage_type": "physical",
-			"player_level": 40, "skill": "fixture", "crit": 0.0})
+			"skill": "fixture", "crit": 0.0})
 	w.drain_events()
 	return w
 

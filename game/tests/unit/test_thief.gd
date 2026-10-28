@@ -1,5 +1,6 @@
 extends TestCase
-## Thief first-job tracer (#207): shipping data through public RunWorld advancement, combat, cards and snapshots.
+## Thief first-job tracer (#207): shipping data through public RunWorld combat, cards and AP, with the job set directly
+## (#284 removed advancement and weapon paths; the line is unplayable until ported, its skills stay).
 ## Seeded synthetic worlds use fixed ticks; real-cache checks verify the original v83 facts separately.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -13,7 +14,9 @@ const INFO := {
 
 func _world(free := 24) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
+	# The common passives (#289, Max HP above all) would move the HP growth this test measures.
+	data.upgrades.cards = data.upgrades.cards.filter(func(c: Dictionary) -> bool: return not String(c.get("skill", "")).begins_with("passive_"))
 	var setup := RF.with_basic_attack(RF.setup("quiet", 207, data))
 	setup.equipment_info.merge(INFO, true)
 	if free < 24:
@@ -26,99 +29,35 @@ func _world(free := 24) -> RunWorld:
 	return w
 
 
-func _level(w: RunWorld, target: int, path := "claw", forced := 400) -> void:
+func _level(w: RunWorld, target: int) -> void:
 	var needed := w.progression.curve.total_to(target) - w.progression.curve.total_to(w.progression.level) - w.progression.exp
 	w.pickups.spawn(w.player.pos, needed, 4000019)
 	for tick in 120:
 		w.step(DT, MoveInput.new())
 		if w.state != RunWorld.PLAYING:
-			BotInput.auto_choose(w, false, forced, path)
+			BotInput.auto_choose(w, false)
 		if w.progression.level == target:
 			break
 	assert_eq(w.progression.level, target)
-
-
-func _open(w: RunWorld) -> void:
-	w.progression.level = 9
-	w.progression.add_exp(w.progression.exp_to_next())
-	w.step(DT, MoveInput.new())
-	assert_eq(w.state, RunWorld.CHOOSING_JOB)
 
 
 func _inventory(w: RunWorld) -> Array:
 	return w.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
 
 
-func test_one_job_offers_both_paths_and_grants_only_the_chosen_weapon() -> void:
-	for path: String in WEAPONS:
-		var w := _world()
-		_open(w)
-		var options := w.pending_jobs.filter(func(o: Dictionary) -> bool: return int(o.job_id) == 400)
-		assert_eq(options.size(), 1)
-		assert_eq(options[0].paths.map(func(p: Dictionary) -> String: return p.id), ["claw", "dagger"])
-		assert_eq(options.map(func(o: Dictionary) -> String: return o.name), ["Thief"])
-		assert_true(options.all(func(o: Dictionary) -> bool: return o.available))
-		assert_true(w.jobs.advancements(0, 9).filter(func(o: Dictionary) -> bool: return int(o.job_id) == 400).all(
-			func(o: Dictionary) -> bool: return not o.available and o.reason == "Lv. 10"))
-		var hp: int = w.player_state.max_hp
-		var mp: int = w.player_state.max_mp
-		assert_true(w.apply_job(400, path))
-		assert_eq(w.weapon_id(), WEAPONS[path])
-		assert_eq(w.weapon_path, path)
-		assert_eq(w.player_state.max_hp, hp + 125)
-		assert_eq(w.player_state.max_mp, mp + 37)
-		assert_eq(_inventory(w), [1302000])
-
-
-func test_full_equip_tab_spills_only_the_old_weapon() -> void:
-	for path: String in WEAPONS:
-		var w := _world(0)
-		_open(w)
-		w.drain_events()
-		assert_true(w.apply_job(400, path))
-		assert_eq(w.weapon_id(), WEAPONS[path])
-		assert_eq(w.equipment.inventory.size(), 24)
-		var drops := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned")
-		assert_eq(drops.size(), 1)
-		assert_true(drops.all(func(e: Dictionary) -> bool: return e.pos == w.player.pos and e.kind == "equip"))
-		assert_eq(drops.map(func(e: Dictionary) -> int: return int(e.item_id)),
-			[1302000])
-
-
-func test_snapshot_keeps_the_chosen_path_and_weapon() -> void:
-	for path: String in WEAPONS:
-		var w := _world()
-		_open(w)
-		w.apply_job(400, path)
-		BotInput.auto_choose(w, false, 400, path)
-		w.apply_potion_schedule(w.progression.level, false) # the test sets the level directly: no level-up ran the schedule
-		var snapshot := w.character_snapshot()
-		assert_eq(CharacterSnapshot.validation_error(snapshot), "")
-		var setup := w.setup.duplicate(true)
-		setup.character = JSON.parse_string(JSON.stringify(snapshot))
-		var restored := RunWorld.new(setup)
-		assert_eq(restored.character_snapshot(), snapshot)
-		assert_eq(restored.weapon_path, path)
-		assert_eq(restored.weapon_id(), WEAPONS[path])
-		assert_eq(_inventory(restored), [1302000])
-
-
-
-func test_seeded_bot_has_luk_eighty_and_dex_twenty_five_by_thirty_on_both_paths() -> void:
+func test_seeded_bot_has_luk_eighty_and_dex_twenty_five_by_thirty_on_both_branches() -> void:
 	for path: String in WEAPONS:
 		var w := _world()
 		w.god = true
+		RF.as_job(w, 410 if path == "claw" else 420)
 		for level in range(2, 31):
-			_level(w, level, path, 410 if path == "claw" else 420)
+			_level(w, level)
 		assert_eq(w.progression.job_id, 410 if path == "claw" else 420)
-		assert_eq(w.weapon_path, path)
 		assert_true(int(w.player_state.luk) >= 80, "LUK first, no stat reset")
 		assert_true(int(w.player_state.dex) >= 25, "v83 first-job DEX minimum")
 		var hp: int = w.player_state.max_hp
-		var mp: int = w.player_state.max_mp
-		_level(w, 31, path, 410 if path == "claw" else 420)
+		_level(w, 31)
 		assert_eq(w.player_state.max_hp - hp, 22)
-		assert_eq(w.player_state.max_mp - mp, 15)
 		var weights := BotShop.weights_for(w.balance, 400, w.jobs)
 		assert_true(float(weights.get("incLUK", 0)) > float(weights.get("incDEX", 0)), "LUK equipment first")
 
@@ -135,8 +74,8 @@ func test_thief_rng_is_stream_fifteen_and_does_not_shift_existing_streams() -> v
 	assert_eq(thief.randi(), expected.randi(), "registered id 15")
 	for i in 100:
 		thief.randi()
-	for property: String in ["rng", "spawn_rng", "card_rng", "drop_rng", "basic_rng", "reward_rng", "potion_rng",
-			"job_rng", "meso_rng", "equip_rng", "scroll_rng", "final_rng", "pirate_rng"]:
+	for property: String in ["rng", "spawn_rng", "card_rng", "drop_rng", "reward_rng", "potion_rng",
+			"meso_rng", "equip_rng", "scroll_rng", "final_rng", "pirate_rng"]:
 		var left: RandomNumberGenerator = a.get(property)
 		var right: RandomNumberGenerator = b.get(property)
 		assert_eq(left.state, right.state, property + " retains its state")
@@ -146,14 +85,15 @@ func test_thief_rng_is_stream_fifteen_and_does_not_shift_existing_streams() -> v
 func test_nimble_body_adds_canonical_accuracy_crit_and_avoid_with_either_weapon() -> void:
 	for path: String in WEAPONS:
 		var w := _world()
-		w.change_job(400, path)
+		RF.as_job(w, 400, path)
+		assert_true(w.learn_skill("lucky_seven"))
 		var acc: float = w.player_state.acc
 		var avoid: float = w.player_state.avoid
-		var crit: float = w.loadout.stats("three_snails").crit
+		var crit: float = w.loadout.stats("lucky_seven").crit
 		assert_true(w.learn_skill("nimble_body"))
 		assert_near(w.player_state.acc, acc + 1)
 		assert_near(w.player_state.avoid, avoid + 1)
-		assert_near(w.loadout.stats("three_snails").crit, crit + w.loadout.crit_per_acc)
+		assert_near(w.loadout.stats("lucky_seven").crit, crit + w.loadout.crit_per_acc)
 		w.loadout.set_rank("nimble_body", 20)
 		w.refresh_player_stats()
 		assert_near(w.player_state.acc, acc + 20)
@@ -163,8 +103,7 @@ func test_nimble_body_adds_canonical_accuracy_crit_and_avoid_with_either_weapon(
 
 func _combat(path: String, key: String, rank_value := 1) -> RunWorld:
 	var w := _world()
-	w.change_job(400, path)
-	w.heal_fraction("mp", 1.0)
+	RF.as_job(w, 400, path)
 	for mk: MobKind in w.mob_kinds:
 		mk.hitbox = Rect2(-2, -10, 4, 10)
 		mk.move_speed = 0
@@ -186,7 +125,7 @@ func _cast(w: RunWorld, positions: Array) -> Array:
 
 
 
-func test_lucky_seven_fires_two_stars_at_nearest_with_luk_formula_and_claw_gate() -> void:
+func test_lucky_seven_fires_two_stars_at_nearest_with_luk_formula_and_any_weapon() -> void:
 	for path: String in WEAPONS:
 		for rank_value in [1, 20]:
 			var w := _combat(path, "lucky_seven", rank_value)
@@ -201,81 +140,70 @@ func test_lucky_seven_fires_two_stars_at_nearest_with_luk_formula_and_claw_gate(
 			var bounds := w.loadout.stats("lucky_seven")
 			assert_eq(bounds.damage_min, 125.0)
 			assert_eq(bounds.damage_max, 250.0)
-			var mp: int = w.player_state.mp
 			var events := _cast(w, [100.0])
-			assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 1 if path == "claw" else 0)
-			assert_eq(w.player_state.mp, mp - ((8 if rank_value == 1 else 16) if path == "claw" else 0))
-			assert_eq(w.projectiles.active_count(), 2 if path == "claw" else 0)
-			if path == "claw":
-				for tick in 30:
-					w.step(DT, MoveInput.new())
-				var hits := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "lucky_seven")
-				assert_eq(hits.size(), 2)
+			# Weapons gate no skill (#284): a dagger throws the stars too.
+			assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 1, path)
+			assert_eq(w.projectiles.active_count(), 2)
+			for tick in 30:
+				w.step(DT, MoveInput.new())
+			var hits := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "lucky_seven")
+			assert_eq(hits.size(), 2, path)
 	var too_far := _combat("claw", "lucky_seven")
 	assert_true(_cast(too_far, [260.0]).is_empty(), "outside base claw reach waits")
 
-func test_double_stab_hits_twice_in_weapon_reach_with_dagger_gate_and_canonical_cost() -> void:
-	for path: String in WEAPONS:
+func test_double_stab_hits_twice_in_the_dagger_reach() -> void:
+	for path: String in ["dagger"]:
 		for rank_value in [1, 20]:
 			var w := _combat(path, "double_stab", rank_value)
 			var st := w.loadout.stats("double_stab")
 			assert_eq(st.cast_rule, "weapon_reach")
 			assert_eq(st.attack_count, 2)
 			assert_near(st.damage_pct, 0.98 if rank_value == 1 else 1.40)
-			var mp: int = w.player_state.mp
 			var events := _cast(w, [35.0, 45.0, 300.0])
 			var hits := events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "double_stab")
-			assert_eq(hits.size(), 2 if path == "dagger" else 0)
-			assert_eq(w.player_state.mp, mp - ((8 if rank_value == 1 else 14) if path == "dagger" else 0))
+			assert_eq(hits.size(), 2)
 			for hit: Dictionary in hits:
 				assert_near(hit.pos.x, w.player.pos.x + 35)
 	var too_far := _combat("dagger", "double_stab")
 	assert_true(_cast(too_far, [300.0]).is_empty(), "outside melee reach waits")
+	# Weapons gate no skill (#284): with a claw it still casts, inside the claw's own reach.
+	var claw := _combat("claw", "double_stab")
+	assert_eq(_cast(claw, [35.0]).filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 1)
 
 
-func test_cards_follow_the_held_weapon_and_attack_cards_carry_to_both_branches() -> void:
+func test_cards_are_on_offer_whatever_weapon_is_held_and_on_both_branches() -> void:
 	for path: String in WEAPONS:
 		var w := _world()
-		w.change_job(400, path)
+		RF.as_job(w, 400, path)
 		var eligible := w.upgrades.eligible(w)
-		assert_has(eligible, "nimble_body_new")
-		assert_eq("lucky_seven_new" in eligible, path == "claw")
-		assert_eq("double_stab_new" in eligible, path == "dagger")
 		for key: String in ["nimble_body", "lucky_seven", "double_stab"]:
+			assert_false(key + "_new" in eligible, "#287: unported skills have no pool offers")
 			w.learn_skill(key)
 		eligible = w.upgrades.eligible(w)
 		for key: String in ["nimble_body", "lucky_seven", "double_stab"]:
-			var usable := w.book.usable_with(key, path)
-			assert_eq(key + "_rank" in eligible, usable)
+			assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
 			assert_eq(int(w.upgrades.card(key + "_rank").get("max_rank", 0)), 20)
 			if key == "nimble_body":
 				continue
 			var id := key + ("_count" if key == "lucky_seven" else "_targets")
-			assert_eq(id in eligible, usable)
-			if usable:
-				var before := w.loadout.stats(key)
-				assert_true(w.upgrades.apply(id, w))
-				var after := w.loadout.stats(key)
-				assert_eq(after.count if key == "lucky_seven" else after.mob_count,
-					(before.count if key == "lucky_seven" else before.mob_count) + 1)
-		var other: int = WEAPONS["dagger" if path == "claw" else "claw"]
-		w.equipment.inventory.append(Equipment.create(other, INFO[other]))
-		assert_eq(w.equip_item(_inventory(w).find(other)), "")
-		eligible = w.upgrades.eligible(w)
-		assert_eq("lucky_seven_rank" in eligible, path == "dagger")
-		assert_eq("double_stab_rank" in eligible, path == "claw")
+			assert_false(id in eligible, "#287: unported skills have no pool offers")
+			var before := w.loadout.stats(key)
+			RF.add_modifier_effects(w, w.upgrades.card(id))
+			var after := w.loadout.stats(key)
+			assert_eq(after.count if key == "lucky_seven" else after.mob_count,
+				(before.count if key == "lucky_seven" else before.mob_count) + 1)
 		for branch in [410, 420]:
-			w.change_job(branch)
+			RF.as_job(w, branch)
 			eligible = w.upgrades.eligible(w)
-			assert_false("nimble_body_rank" in eligible)
-			for key: String in ["lucky_seven", "double_stab"]:
-				assert_eq(key + "_rank" in eligible, w.book.usable_with(key, w.held_weapon_family()))
-				assert_eq(w.upgrades.card(key + "_new").requires.carry_jobs, [410.0, 420.0])
+			# A first-job card is on the line of both branches (UpgradePool.on_line, #284).
+			for key: String in ["nimble_body", "lucky_seven", "double_stab"]:
+				assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
+				assert_false(w.upgrades.card(key + "_new").requires.has("carry_jobs"))
 
 func test_lucky_seven_uses_the_current_star_sprite_when_the_ammo_tier_changes() -> void:
 	for branch in [400, 410]:
 		var w := _combat("claw", "lucky_seven")
-		w.change_job(branch)
+		RF.as_job(w, branch)
 		w.progression.level = 30 if branch == 410 else 10
 		w.refresh_player_stats()
 		w._sync_ammo()
@@ -287,42 +215,20 @@ func test_lucky_seven_uses_the_current_star_sprite_when_the_ammo_tier_changes() 
 			if w.projectiles.active[i] != 0:
 				assert_eq(w.projectiles.paths[w.projectiles.visual[i]], Ammo.bullet_path(expected))
 
-func test_attacks_wait_without_cost_when_mp_is_short() -> void:
-	for key: String in ["lucky_seven", "double_stab"]:
-		var w := _combat("claw" if key == "lucky_seven" else "dagger", key)
-		w.spend_mp(int(w.player_state.mp))
-		var events := _cast(w, [40.0])
-		assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 0)
-		assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "mp_short").size(), 1)
-		assert_eq(w.player_state.mp, 0)
 
-func test_forced_thief_paths_are_accepted_by_run_and_launcher() -> void:
-	var data := DataRepo.load_all()
-	for path: String in WEAPONS:
-		var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=400:" + path]))
-		assert_eq(parsed.options.job, 400)
-		assert_eq(parsed.options.job_path, path)
-		assert_eq(SceneFlow.forced_job_error(parsed.options, data), "")
-		assert_eq(RunLauncher.options_from_args({"job": "400:" + path}).job_path, path)
-
-
-func test_drop_scroll_and_shop_rosters_follow_the_held_family() -> void:
+func test_drop_scroll_and_shop_rosters_follow_the_job_families() -> void:
 	var data := DataRepo.load_all()
 	for id in [1332000, 1332012, 1472000, 1472008, 1002122, 1040031, 1060021, 1072070, 1082029, 1092018]:
 		assert_has(data.equipment_drops.items, float(id))
 	for path: String in WEAPONS:
 		assert_has(data.shops.weapon_slots, path)
 		assert_has(data.scrolls.families, path)
-		assert_true(EquipmentDrops.family_allows(WEAPONS[path], path, data.equipment_drops))
-		assert_false(EquipmentDrops.family_allows(WEAPONS["dagger" if path == "claw" else "claw"], path, data.equipment_drops))
+		assert_true(EquipmentDrops.family_allows(WEAPONS[path], [path]))
+		assert_false(EquipmentDrops.family_allows(WEAPONS["dagger" if path == "claw" else "claw"], [path]))
 	var shield_info := {1092018: {"reqJob": 8, "reqLevel": 22}}
-	assert_eq(EquipmentDrops.eligible([1092018], shield_info, 400, 22, data.equipment_drops, "dagger"), [1092018])
-	assert_eq(EquipmentDrops.eligible([1092018], shield_info, 400, 22, data.equipment_drops, "claw"), [], "Thief shields are for the one-handed dagger")
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 207
-	assert_eq(EquipmentDrops.pick_boss([1092018], shield_info, 400, 70, data.equipment_drops, rng, "claw"), 0,
-		"the boss fallback respects the same shield filter outside the level window")
-	assert_eq(EquipmentDrops.pick_boss([1092018], shield_info, 400, 70, data.equipment_drops, rng, "dagger"), 1092018)
+	for families: Array in [["dagger"], ["claw"], []]:
+		assert_eq(EquipmentDrops.eligible([1092018], shield_info, 400, [0, 30], families), [1092018],
+			"a Thief shield drops by job class alone (#292 removed the dagger-only rule)")
 	var manifest := AssetManifest.load_merged("res://data/asset_manifest.json")
 	for id in data.equipment_drops.items:
 		assert_has(manifest.character, id)
@@ -344,7 +250,6 @@ func test_original_thief_values_art_sounds_and_equipment_resolve_in_the_private_
 		assert_eq(book.max_level(key), 20)
 		for rank_value in [1, 20]:
 			var st := loadout.stats(key, rank_value)
-			assert_eq(st.mp_cost, (8 if rank_value == 1 else 16) if key == "lucky_seven" else (8 if rank_value == 1 else 14))
 			assert_near(st.damage_pct, (0.58 if rank_value == 1 else 1.50) if key == "lucky_seven" else (0.98 if rank_value == 1 else 1.40))
 			assert_eq(st.count if key == "lucky_seven" else st.attack_count, 2)
 		for level in [1, 10, 15, 20, 25]:

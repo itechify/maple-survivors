@@ -18,7 +18,9 @@ func _walled_world(left_x1 := 300.0, left_x2 := 1300.0) -> RunWorld:
 		{"x1": 1300.0, "y1": -10.0, "x2": 3000.0, "y2": -10.0},
 		{"x1": 0.0, "y1": 60.0, "x2": 1.0, "y2": 60.0},
 	]
-	var s := RF.setup("quiet", 3, RF.quiet_data())
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["starting_skill"] = "" # Isolate spawn/relocation from combat.
+	var s := RF.setup("quiet", 3, data)
 	s.map_img = RF.map_from_segments(segs)
 	var w := RunWorld.new(s)
 	RF.place_player(w, 800.0, -5.0)
@@ -373,11 +375,11 @@ func test_stage_exp_mult_scales_drops() -> void:
 	RF.place_player(w, 400.0)
 	var m := RF.put_mob(w, 100100, 430.0)
 	var got_exp := 0
-	for t in 240:
-		w.step(DT, MoveInput.new())
-		for e: Dictionary in w.drain_events():
-			if e.type == "mob_died" and int(e.mob) == m:
-				got_exp = int(e.exp)
-		if got_exp > 0:
-			break
+	w.drain_events()
+	# A lethal hit through the shared hit path (the kill reward, not the start skill's damage, is under test).
+	w.hit_mob(m, {"skill": "energy_bolt", "magic": true, "damage_min": 1e9, "damage_max": 1e9, "crit": 0.0,
+		"crit_mult": 1.0}, -1)
+	for e: Dictionary in w.drain_events():
+		if e.type == "mob_died" and int(e.mob) == m:
+			got_exp = int(e.exp)
 	assert_eq(got_exp, 2 * roundi(w.mob_kinds[w.kind_of_id[100100]].exp), "the stage's exp_mult doubles the Snail's EXP")

@@ -4,7 +4,9 @@
 #   bash scripts/import.sh "C:/Nexon/MapleStory"           # or set MAPLE_WZ_ROOT
 #   bash scripts/import.sh "C:/Nexon/MapleStory" --force   # rewrite every img
 #
-# Output: $MAPLE_SURVIVORS_CACHE, default %APPDATA%/MapleSurvivors/asset_cache/v83 (the game's user data folder).
+# Output: $MAPLE_SURVIVORS_CACHE, default <user data dir>/asset_cache/v83, the folder the game reads
+# (AssetCachePaths; project.godot sets a custom user dir "MapleSurvivors"): %APPDATA%/MapleSurvivors on Windows,
+# ${XDG_DATA_HOME:-~/.local/share}/MapleSurvivors on Linux, ~/Library/Application Support/MapleSurvivors on macOS.
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 WZ="${1:-${MAPLE_WZ_ROOT:-}}"
@@ -18,8 +20,10 @@ if [[ -n "${MAPLE_SURVIVORS_CACHE:-}" ]]; then
   OUT="$MAPLE_SURVIVORS_CACHE"
 elif [[ -n "${APPDATA:-}" ]]; then
   OUT="$(cygpath -m "$APPDATA" 2>/dev/null || echo "$APPDATA")/MapleSurvivors/asset_cache/v83"
+elif [[ "$(uname -s)" == Darwin ]]; then
+  OUT="$HOME/Library/Application Support/MapleSurvivors/asset_cache/v83"
 else
-  OUT="${XDG_DATA_HOME:-$HOME/.local/share}/godot/app_userdata/MapleSurvivors/asset_cache/v83"
+  OUT="${XDG_DATA_HOME:-$HOME/.local/share}/MapleSurvivors/asset_cache/v83"
 fi
 
 (cd "$REPO/tools/wzimport" && cargo build --release --quiet)

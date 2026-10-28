@@ -1,8 +1,8 @@
 extends TestCase
 ## Spearman buffs (spec #165 ticket #184, docs/GAME_DESIGN.md 7.12): Iron Will (W.DEF and M.DEF through the shared pdd/mdd
-## buff consumers) and Hyper Body (a percentage MaxHP/MaxMP buff on the whole maximum). The simulation tests run on a
-## synthetic Skill.wz 130 shaped like the real one (_book130: the level formulas of the v83 tables); one test compares
-## it with the real cache and SKIPs without it. Seeded, fixed ticks, no HP/MP regeneration.
+## buff consumers) and Hyper Body (a percentage MaxHP buff on the whole maximum; its Max MP half went with MP, #285). The
+## simulation tests run on a synthetic Skill.wz 130 shaped like the real one (_book130: the level formulas of the v83
+## tables); one test compares it with the real cache and SKIPs without it. Seeded, fixed ticks, no HP regeneration.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -25,20 +25,21 @@ func _book130() -> Dictionary:
 	return {"skill": {"1301006": {"level": will}, "1301007": {"level": hyper}}}
 
 
-## A Spearman (130) with `mp` MP, regeneration off, the cap in the inventory (not worn).
-func _spearman(seed_value := 11, mp := 1000, god := true) -> RunWorld:
+## A Spearman (130) with regeneration off and the cap in the inventory (not worn); set up directly (#284).
+func _spearman(seed_value := 11, god := true) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = mp
-	data.balance.player.skills = []
+	# #284: no advancement grants HP; give the 50 + 225 + 325 the Warrior and Spearman advancements added, and no start
+	# skills (a fresh character is a 212).
+	data.balance.player.hp = 600
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.magnet_radius = 0
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", seed_value, data))
 	setup.equipment_info.merge(INFO.duplicate(true))
 	setup.skill_imgs["130"] = _book130()
 	var w := RunWorld.new(setup)
 	w.equipment.inventory.append(Equipment.create(CAP, INFO[CAP]))
-	w.change_job(130)
+	RF.as_job(w, 130)
 	RF.place_player(w, 400)
 	w.god = god
 	w.drain_events()
@@ -55,10 +56,10 @@ func _rank(w: RunWorld, key: String, rank: int) -> void:
 	w.refresh_player_stats()
 
 
-## Steps one tick and checks that `skill` was cast on it (a buff starts on the first affordable tick).
+## Steps one tick and checks that `skill` was cast on it (a buff starts on the first ready tick).
 func _cast(w: RunWorld, skill: String) -> void:
 	w.step(DT, MoveInput.new())
-	assert_true(w.buffs.has(skill), "%s cast on the first affordable tick" % skill)
+	assert_true(w.buffs.has(skill), "%s cast on the first ready tick" % skill)
 	w.drain_events()
 
 
@@ -79,7 +80,7 @@ func test_iron_will_lowers_physical_and_magic_damage_taken_while_active() -> voi
 	for magic: bool in [false, true]:
 		var taken: Array[int] = []
 		for active: bool in [false, true]:
-			var w := _spearman(21, 1000, false)
+			var w := _spearman(21, false)
 			_rank(w, "iron_will", 20)
 			if active:
 				_cast(w, "iron_will")
@@ -92,12 +93,11 @@ func test_iron_will_lowers_physical_and_magic_damage_taken_while_active() -> voi
 			% ("magic" if magic else "physical"))
 
 
-func test_iron_will_recasts_on_expiry_with_its_mp_cost() -> void:
+func test_iron_will_recasts_on_expiry() -> void:
 	var w := _spearman()
 	_rank(w, "iron_will", 1)
 	_cast(w, "iron_will")
 	assert_eq(15.0, float(w.loadout.stats("iron_will").duration))
-	assert_eq(int(w.player_state.mp), 1000 - 12, "Lv 1 costs 12 MP")
 	var casts := 1
 	var expiries := 0
 	for tick in int(16.0 / DT):
@@ -107,35 +107,31 @@ func test_iron_will_recasts_on_expiry_with_its_mp_cost() -> void:
 		expiries += _of(events, "buff_expired").size()
 	assert_eq(expiries, 1, "ran out once in 16 s")
 	assert_eq(casts, 2, "and was recast")
-	assert_eq(int(w.player_state.mp), 1000 - 24, "each cast paid its MP")
 	assert_true(w.buffs.has("iron_will"))
 
 
 # --- Hyper Body --------------------------------------------------------------------------------------------------------
 
-func test_hyper_body_raises_max_hp_and_max_mp_by_the_levels_percent() -> void:
+func test_hyper_body_raises_max_hp_by_the_levels_percent() -> void:
 	var w := _spearman()
 	_rank(w, "hyper_body", 5)
 	var max_hp := int(w.player_state.max_hp)
-	var max_mp := int(w.player_state.max_mp)
 	assert_eq(50.0, float(w.loadout.stats("hyper_body").duration), "Lv 5 lasts 50 s")
 	_cast(w, "hyper_body")
 	assert_eq(int(w.player_state.max_hp), roundi(max_hp * 1.10), "Lv 5: Max HP +10%")
-	assert_eq(int(w.player_state.max_mp), roundi(max_mp * 1.10), "Lv 5: Max MP +10%")
+	assert_false(w.player_state.has("max_mp"), "no Max MP to raise (#285)")
 	assert_true(int(w.player_state.max_hp) > max_hp)
 
 
-func test_hyper_body_leaves_current_hp_and_mp_unchanged_at_cast() -> void:
+func test_hyper_body_leaves_current_hp_unchanged_at_cast() -> void:
 	for full: bool in [true, false]:
 		var w := _spearman()
 		_rank(w, "hyper_body", 10)
 		var hp := float(w.player_state.max_hp) if full else 77.0
 		w._hp = hp
 		w._write_player_state(0.0)
-		var mp := float(w.player_state.mp)
 		_cast(w, "hyper_body")
 		assert_eq(float(w.player_state.hp), hp, "HP stays where it was (full: %s)" % full)
-		assert_eq(float(w.player_state.mp), mp - 20.0, "MP only pays the Lv 10 cost of 20")
 
 
 func test_hyper_body_expiry_clamps_hp_above_the_normal_max_and_keeps_hp_below_it() -> void:
@@ -143,35 +139,29 @@ func test_hyper_body_expiry_clamps_hp_above_the_normal_max_and_keeps_hp_below_it
 		var w := _spearman()
 		_rank(w, "hyper_body", 1)
 		var normal_hp := int(w.player_state.max_hp)
-		var normal_mp := int(w.player_state.max_mp)
 		_cast(w, "hyper_body")
 		assert_true(int(w.player_state.max_hp) > normal_hp, "raised while active")
-		assert_true(int(w.player_state.max_mp) > normal_mp)
+		w.runner.cooldowns["hyper_body"] = 1000.0 # held, so the tick it ends does not recast it
 		w._hp = float(w.player_state.max_hp) if above else 5.0
 		w._write_player_state(0.0)
 		var expired := false
 		for tick in int(11.0 / DT):
-			# The tick it ends finds too little MP to recast.
-			w._mp = 0.0 if float(w.buffs.active.hyper_body.remaining) < 2.0 * DT else float(normal_mp) + 1.0
 			w.step(DT, MoveInput.new())
 			if not w.buffs.has("hyper_body"):
 				expired = true
 				break
 		assert_true(expired, "Hyper Body ended")
 		assert_eq(int(w.player_state.max_hp), normal_hp, "the maximum is back to normal")
-		assert_eq(int(w.player_state.max_mp), normal_mp)
 		assert_eq(int(w.player_state.hp), normal_hp if above else 5, "above the normal max drops to it; below is untouched")
 
 
 func test_hyper_body_applies_to_base_equipment_and_improved_max_hp() -> void:
 	var plain := _spearman()
 	var base_hp := int(plain.player_state.max_hp)
-	var base_mp := int(plain.player_state.max_mp)
 	var w := _spearman()
 	_rank(w, "improved_max_hp", 10)
 	assert_eq(w.equip_item(0), "", "the cap is worn")
 	assert_eq(int(w.player_state.max_hp), base_hp + 40, "equipment HP before the buff")
-	assert_eq(int(w.player_state.max_mp), base_mp + 25)
 	# Improved MaxHP Increase: +40 Max HP per level-up at Lv 10, never retroactive.
 	var level := w.progression.level
 	w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
@@ -183,7 +173,6 @@ func test_hyper_body_applies_to_base_equipment_and_improved_max_hp() -> void:
 	RF.auto_choose(w)
 	w.drain_events()
 	var normal_hp := int(w.player_state.max_hp)
-	var normal_mp := int(w.player_state.max_mp)
 	assert_true(normal_hp > base_hp + 40 + 40, "the level-up grew Max HP by more than the passive alone")
 	_rank(w, "hyper_body", 10)
 	for tick in 120: # the level-up card may have been another buff, whose cast hold comes first
@@ -192,14 +181,12 @@ func test_hyper_body_applies_to_base_equipment_and_improved_max_hp() -> void:
 			break
 	assert_true(w.buffs.has("hyper_body"), "Hyper Body cast")
 	assert_eq(int(w.player_state.max_hp), roundi(normal_hp * 1.20), "Lv 10: +20% of base, passive growth and equipment")
-	assert_eq(int(w.player_state.max_mp), roundi(normal_mp * 1.20))
 
 
-func test_hyper_body_recasts_on_expiry_with_its_mp_cost() -> void:
+func test_hyper_body_recasts_on_expiry() -> void:
 	var w := _spearman()
 	_rank(w, "hyper_body", 1)
 	_cast(w, "hyper_body")
-	assert_eq(int(w.player_state.mp), 1000 - 20, "Lv 1 costs 20 MP")
 	var casts := 1
 	var expiries := 0
 	for tick in int(11.0 / DT):
@@ -209,15 +196,8 @@ func test_hyper_body_recasts_on_expiry_with_its_mp_cost() -> void:
 		expiries += _of(events, "buff_expired").size()
 	assert_eq(expiries, 1, "ran out once in 11 s")
 	assert_eq(casts, 2, "and was recast")
-	assert_eq(int(w.player_state.mp), 1000 - 40)
 	assert_true(w.buffs.has("hyper_body"))
 	assert_true(int(w.player_state.max_hp) > 0)
-
-
-func test_hyper_body_does_not_touch_the_max_mp_passive_path() -> void:
-	var w := _spearman()
-	_rank(w, "hyper_body", 10)
-	assert_eq(w.loadout.passive_total(Loadout.MAX_MP_PERCENT), 0.0, "a buff is not the MaxMP passive")
 
 
 # --- data and text -----------------------------------------------------------------------------------------------------
@@ -233,17 +213,6 @@ func test_both_skills_read_without_party_or_canonical_wording() -> void:
 		assert_eq(String(d.sounds.use), "Sound.wz/Skill.img/%d/Use" % int(d.skill_id), "%s keeps its Use sound" % key)
 		assert_eq(String(d.kind), "buff")
 
-
-func test_the_cards_are_job_gated_and_not_power() -> void:
-	var w := _spearman()
-	for id in ["iron_will_new", "iron_will_rank", "hyper_body_new", "hyper_body_rank"]:
-		var card := w.upgrades.card(id)
-		assert_false(card.is_empty(), "%s exists" % id)
-		assert_false(bool(card.get("power", false)), "%s is not a power card" % id)
-		assert_eq(card.requires.jobs, [130.0], "%s is the Spearman's" % id)
-		assert_false(w.balance.bot.card_scores.has(id), "%s keeps the default bot score (like Iron Body)" % id)
-	assert_has(w.upgrades.eligible(w), "iron_will_new")
-	assert_has(w.upgrades.eligible(w), "hyper_body_new")
 
 
 func test_real_130_img_matches_the_data_and_the_fixture_formulas() -> void:

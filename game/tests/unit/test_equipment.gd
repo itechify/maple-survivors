@@ -101,17 +101,14 @@ func test_a_full_inventory_blocks_a_swap_that_needs_room() -> void:
 	assert_eq(Equipment.equip(full, 3, INFO[1040002], _magician(), 24), "no_item")
 
 
-func test_each_requirement_blocks_equipping_with_its_reason_and_changes_nothing() -> void:
+func test_only_the_job_class_blocks_equipping_and_a_refusal_changes_nothing() -> void:
 	var cases := [
-		[1050010, _magician(14), "reqLevel"],
+		[1050010, _magician(1, 4), ""], # reqLevel 15 at Lv1: ignored (#292)
+		[1082019, _magician(1, 4), ""], # reqLevel 20 and reqINT 40 at Lv1 with INT 4: ignored
 		[1050010, {"level": 30, "job_id": 0, "str": 4, "dex": 4, "int": 60, "luk": 4}, "reqJob"],
 		[1050010, {"level": 30, "job_id": 100, "str": 4, "dex": 4, "int": 60, "luk": 4}, "reqJob"],
-		[1082019, _magician(30, 39), "reqINT"],
 		[1302000, _magician(), ""],
 	]
-	var str_item := {"reqSTR": 35, "tuc": 7}
-	var dex_item := {"reqDEX": 25, "tuc": 7}
-	var luk_item := {"reqLUK": 20, "tuc": 7}
 	for spec: Array in cases:
 		var state := _state([1040002, 1060002], [spec[0]])
 		var before := state.duplicate(true)
@@ -119,12 +116,23 @@ func test_each_requirement_blocks_equipping_with_its_reason_and_changes_nothing(
 		assert_eq(reason, spec[2], "%d %s" % [spec[0], spec[1]])
 		if spec[2] != "":
 			assert_eq(state, before, "a failed check changes nothing")
-	var who := _magician()
-	assert_eq(Equipment.requirement_error(str_item, who), "reqSTR")
-	assert_eq(Equipment.requirement_error(dex_item, who), "reqDEX")
-	assert_eq(Equipment.requirement_error(luk_item, who), "reqLUK")
-	who.luk = 20
-	assert_eq(Equipment.requirement_error(luk_item, who), "")
+
+
+func test_a_level_100_magician_item_is_worn_at_level_one_and_a_warrior_item_is_not() -> void:
+	var info := {"reqLevel": 100, "reqSTR": 200, "reqDEX": 200, "reqINT": 200, "reqLUK": 200, "reqJob": 2, "tuc": 7}
+	var wizard := {"job_id": 212}
+	assert_eq(Equipment.requirement_error(info, wizard), "", "no level or stat requirement")
+	assert_eq(Equipment.requirement_error(info, {"job_id": 212, "level": 1, "str": 4, "dex": 4, "int": 4, "luk": 4}), "")
+	var state := _state([], [1050010])
+	assert_eq(Equipment.equip(state, 0, info, wizard, 24), "")
+	assert_eq(state.worn.overall.id, 1050010)
+	var sword := {"reqLevel": 0, "reqJob": 1, "tuc": 7}
+	assert_eq(Equipment.requirement_error(sword, wizard), "reqJob", "a Warrior item stays out of a Magician's hands")
+	var other := _state([], [1302000])
+	assert_eq(Equipment.equip(other, 0, sword, wizard, 24), "reqJob")
+	assert_eq(other.worn, {})
+	assert_eq(Equipment.auto_wear_error({}, 1050010, info, wizard), "", "auto-wear ignores them too")
+	assert_eq(Equipment.auto_wear_error({}, 1302000, sword, wizard), "reqJob")
 
 
 func test_req_job_is_the_v83_bit_mask() -> void:
@@ -198,9 +206,9 @@ func test_a_shield_is_worn_beside_a_one_handed_weapon_and_its_stats_count() -> v
 	assert_eq(_ids(state.inventory), [1092005])
 
 
-func test_a_shield_takes_the_v83_requirements() -> void:
-	for spec: Array in [[1092005, _warrior(9), "reqLevel"], [1092005, _magician(30), "reqJob"],
-			[1092000, _warrior(30, 39), "reqSTR"], [1092000, _warrior(30, 40), ""]]:
+func test_a_shield_takes_the_job_requirement_only() -> void:
+	for spec: Array in [[1092005, _warrior(9), ""], [1092005, _magician(30), "reqJob"],
+			[1092000, _warrior(30, 39), ""], [1092000, _warrior(30, 40), ""]]:
 		var state := _state([1302000], [spec[0]])
 		var before := state.duplicate(true)
 		var reason := Equipment.equip(state, 0, INFO[spec[0]], spec[1], 24)

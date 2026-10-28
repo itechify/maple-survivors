@@ -1,6 +1,6 @@
 class_name MapleWindow
 extends Control
-## Base of the modal MapleStory windows (LevelUpWindow, JobAdvanceWindow, PauseMenu).
+## Base of the modal MapleStory windows (LevelUpWindow, PauseMenu).
 ##
 ## The window is a full-view Control (anchors on the viewport, so it works under a CanvasLayer at any logical view
 ## size, e.g. 1066x600) that blocks the mouse while open. Its art is drawn by `panel`, a child Control of

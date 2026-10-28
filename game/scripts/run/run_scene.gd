@@ -22,17 +22,17 @@ extends Node2D
 ## Loop: advance_frame(delta) (called from _process; tests call it directly) accumulates delta, runs at most
 ## MAX_TICKS_PER_FRAME x speed ticks of RunWorld.step() with the keyboard or BotInput, drains and maps the events after
 ## every tick (slot indices are only valid right after the step that emitted them), then updates the renderers from
-## the sim state. The tick loop stops while the world is not PLAYING (level-up / job windows, death, clear) and while
+## the sim state. The tick loop stops while the world is not PLAYING (level-up windows, death, clear) and while
 ## the pause menu is open.
 ## Intermediate map clears hold the sim through CLEAR, fade-out, a black-frame reload and fade-in. Pause/in-run
 ## windows hold that presentation clock too; Resume continues the same phase. Only map-owned renderers are replaced.
 ##
-## Windows (LevelUpWindow, JobAdvanceWindow, PauseMenu: game/scripts/ui/windows/) are hosted in a CanvasLayer (layer
-## 10); while one is open the fixed-tick loop holds (the sim is also held by its CHOOSING_* state). The level-up window
-## opens WINDOW_DELAY s after the LevelUp effect starts, and after a job advancement only once the JobChanged effect
-## has played; several queued levels open their windows one after another. The windows' art is loaded during setup
-## (_warm_ui) so the first window does not stall a frame; _warm_stage likewise loads the job-change sounds and every
-## scheduled boss's stances, skill/attack art, sounds, name and boss-bar art before the run starts.
+## Windows (LevelUpWindow, PauseMenu: game/scripts/ui/windows/) are hosted in a CanvasLayer (layer 10); while one is
+## open the fixed-tick loop holds (the sim is also held by its CHOOSING_UPGRADE state). The level-up window opens
+## WINDOW_DELAY s after the LevelUp effect starts; several queued levels open their windows one after another. The
+## windows' art is loaded during setup (_warm_ui) so the first window does not stall a frame; _warm_stage likewise loads
+## the level-up sounds and every scheduled boss's stances, skill/attack art, sounds, name and boss-bar art before the run
+## starts.
 ##
 ## In-run windows (#85; WindowStack in `ui_layer`, CanvasLayer 11, above the modal windows): `ui_windows` hosts the
 ## draggable Stat window (stat_window action, S), the Skill window (skill_window, K; #86), the Equip and Item windows
@@ -41,9 +41,9 @@ extends Node2D
 ## popup (hud.menu_button); keys the run does not use go to the front window (UiWindow.handle_key); later windows
 ## register a factory in _build_ui_windows() (`ui_windows.register("skill", ...)`) and become reachable from their
 ## hotkey and the Menu at once. While any of them is open the tick loop holds and the world freezes exactly like the
-## pause menu, the modal window below (if any) ignores input (MapleWindow.input_blocked), and no new level-up / job
-## window opens. Esc (handle_hotkey) closes the top window first; only with none open does it open the pause menu.
-## Stat / Skill open over a level-up or job choice (those windows pass the hotkeys on) but not while paused or once
+## pause menu, the modal window below (if any) ignores input (MapleWindow.input_blocked), and no new level-up window
+## opens. Esc (handle_hotkey) closes the top window first; only with none open does it open the pause menu.
+## Stat / Skill open over a level-up choice (that window passes the hotkeys on) but not while paused or once
 ## the run is ending.
 ## Key Config and Options (#87; `settings`, the Settings autoload) are Menu entries and pause-menu choices; from the pause
 ## menu they open over it (PAUSE_WINDOWS) and Esc closes them back to it.
@@ -51,7 +51,8 @@ extends Node2D
 ## then run_finished(summary) is emitted and, when the "Flow" autoload exists, Flow.finish_run(summary) is called (with
 ## quit_after set the app writes summary.json and quits instead).
 ## options.character is a carried CharacterSnapshot Dictionary (Flow) or an absolute JSON path (--character).
-## Persistent clears pass the boundary character to Flow; deaths retain the last saved boundary for history.
+## Persistent rounds pass the character as the round left it (pickups kept; the next tier unlocked after a clear) to Flow
+## on a clear, a death and a Quit round alike (Flow.finish_run's `ending` "quit").
 ## One-off rounds never persist.
 
 ## Emitted when the run is over (always, before Flow.finish_run). See build_summary() for the fields.
@@ -68,14 +69,12 @@ const THROW_ARC := 40.0
 const SCENE_PATH := "res://scenes/run/run_scene.tscn"
 
 const FX_LEVEL_UP := "Effect.wz/BasicEff.img/LevelUp"
-const FX_JOB_CHANGED := "Effect.wz/BasicEff.img/JobChanged"
 ## The party-quest "CLEAR" field effect (anchored at the screen centre: its last frame's origin is its middle).
 const FX_CLEAR := "Map.wz/Effect.img/quest/party/clear"
 const SND_JUMP := "Sound.wz/Game.img/Jump"
 const SND_DROP := "Sound.wz/Game.img/DropItem"
 const SND_PICKUP := "Sound.wz/Game.img/PickUpItem"
 const SND_LEVEL_UP := "Sound.wz/Game.img/LevelUp"
-const SND_JOB_CHANGED := "Sound.wz/Game.img/JobChanged"
 const SND_TOMB := "Sound.wz/Game.img/Tombstone"
 const SND_CLEAR := "Sound.wz/Field.img/Party1/Clear"
 const SND_MOB := "Sound.wz/Mob.img/%07d/%s"
@@ -88,9 +87,6 @@ const DEFAULT_NAME := "MapleHero"
 ## tier C (ours): seconds of the LevelUp effect before the upgrade window opens (about the pillar's peak; the whole
 ## effect is ~2.1 s).
 const WINDOW_DELAY := 1.2
-## tier C (ours): seconds the JobChanged effect plays before the next window opens when its animation is missing
-## (otherwise the animation's own length, ~1.3 s, is used).
-const JOB_WINDOW_DELAY := 1.3
 ## Input action -> the in-run window it toggles (project.godot defaults S and K; rebindable in Settings).
 const WINDOW_HOTKEYS := {"stat_window": "stat", "skill_window": "skill", "equip_window": "equip",
 	"item_window": "item"}
@@ -157,6 +153,7 @@ var player_tag: NameTags
 var mob_renderers: Array[MobRenderer] = []
 ## Foothold layer drawn by mob_renderers[i] (-1 = every slot).
 var mob_layers := PackedInt32Array()
+var summon_renderer: PlayerSummonRenderer
 var shots: ProjectileRenderer
 var mob_shots: ProjectileRenderer
 var drops: PickupRenderer
@@ -179,7 +176,7 @@ var ui_windows: WindowStack
 ## The settings the Key Config and Options windows edit (the "Settings" autoload unless a test sets another first).
 var settings: GameSettings
 var perf_layer: CanvasLayer
-## The open window (LevelUpWindow / JobAdvanceWindow / PauseMenu), null when none.
+## The open window (LevelUpWindow / PauseMenu), null when none.
 var window: Node
 ## True while the pause menu (or the fallback pause) holds the run.
 var paused := false
@@ -192,7 +189,6 @@ var _speed := 1
 var _acc := 0.0
 var _jump_latch := false
 var _drink_hp_latch := false
-var _drink_mp_latch := false
 ## Skill key id ("teleport", "dash") -> true once its key went down since the last tick (consumed by _read_input).
 var _skill_latches := {}
 var _bot_memo := {}
@@ -204,7 +200,7 @@ var _player_layer := -1
 var _pet_layer := -1
 var _top: Node2D
 var _tag_source: _TagSource
-## Waiting window request {"kind": "job"/"cards", ...} and the presentation delay before it opens.
+## Waiting window request {"kind": "cards", cards, bonus} and the presentation delay before it opens.
 var _pending_window: Dictionary = {}
 var _window_delay := 0.0
 var _window_kind := ""
@@ -231,10 +227,9 @@ var _hud_sig_scratch := PackedInt32Array()
 var _skill_labels := {}
 var _cd_left := PackedFloat32Array()
 var _cd_total := PackedFloat32Array()
-var _cd_short := PackedByteArray()
-## Reused HP / MP buffers in HudQuickSlot.COOLDOWN_KINDS order; potion timers bypass the HUD snapshot signature.
-var _potion_cd_left := PackedFloat32Array([0.0, 0.0])
-var _potion_cd_total := PackedFloat32Array([0.0, 0.0])
+## Reused potion buffers in HudQuickSlot.COOLDOWN_KINDS order; potion timers bypass the HUD snapshot signature.
+var _potion_cd_left := PackedFloat32Array([0.0])
+var _potion_cd_total := PackedFloat32Array([0.0])
 ## "" while playing, "dead" or "cleared" once the end sequence started.
 var _end_kind := ""
 var _end_left := 0.0
@@ -345,6 +340,9 @@ func _ready() -> void:
 		if not character_errors.is_empty():
 			_fail("; ".join(character_errors))
 			return
+	if options.has("job") and not character.is_empty() and int(character.get("job_id", -1)) != int(options.job):
+		_fail("--job=%d does not match the character's job %d" % [int(options.job), int(character.get("job_id", -1))])
+		return
 	var lib := library
 	# The character's held items join the equipment info the setup loads.
 	var setup := DataRepo.build_setup(data, stage_key, run_seed, _view_size(),
@@ -353,6 +351,8 @@ func _ready() -> void:
 		setup_missing, character)
 	for m in setup_missing:
 		push_warning("RunScene: missing in the asset cache: " + m)
+	if options.has("job"):
+		setup["job"] = int(options.job) # the tool-only `--job=<id>` names a fresh character's job (#284)
 	var tool_account := account_from_options(options)
 	if not tool_account.errors.is_empty():
 		_fail("; ".join(tool_account.errors))
@@ -425,9 +425,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif event.is_action_pressed("drink_hp"):
 			_drink_hp_latch = true
-			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("drink_mp"):
-			_drink_mp_latch = true
 			get_viewport().set_input_as_handled()
 	var key := event as InputEventKey
 	if key != null and key.pressed and not key.echo and key.keycode == KEY_F3:
@@ -518,8 +515,9 @@ func stat_info() -> Dictionary:
 		"exp_next": int(ps.exp_next), "attack": roundi(world.weapon_attack()),
 		"magic": int(world.loadout.int_stat + world.loadout.matk), "weapon_def": int(ps.pdd), "magic_def": int(ps.mdd),
 		"accuracy": int(ps.get("acc", 0)), "avoid": int(ps.avoid), "speed": roundi(world.player_speed_stat()),
-		"jump": world.player.jump_stat}
-	for key: String in ["level", "exp", "hp", "max_hp", "mp", "max_mp", "str", "dex", "int", "luk"]:
+		"jump": world.player.jump_stat, "passives": world.loadout.held_common_passives(),
+		"passive_slots": world.loadout.slot_limit("passive")}
+	for key: String in ["level", "exp", "hp", "max_hp", "str", "dex", "int", "luk"]:
 		out[key] = int(ps.get(key, 0))
 	for stat: String in ["str", "dex", "int", "luk"]:
 		out[stat + "_bonus"] = roundi(world.equipment_bonus("inc" + stat.to_upper()))
@@ -568,7 +566,6 @@ func advance_frame(delta: float) -> void:
 		_acc = 0.0
 		_jump_latch = false
 		_drink_hp_latch = false
-		_drink_mp_latch = false
 		_skill_latches.clear()
 	if _window_delay > 0.0:
 		_window_delay = maxf(0.0, _window_delay - delta)
@@ -681,6 +678,9 @@ func _build_top_layer() -> void:
 	_top = Node2D.new()
 	_top.name = "Top"
 	map.actor_layer(MapRenderer.LAYER_COUNT - 1).add_child(_top)
+	summon_renderer = PlayerSummonRenderer.new()
+	summon_renderer.library = library
+	_top.add_child(summon_renderer)
 	shots = ProjectileRenderer.new()
 	shots.library = library
 	_top.add_child(shots)
@@ -756,8 +756,7 @@ func _build_ui_windows() -> void:
 	use_window_stack(stack)
 	ui_windows.register("stat", func() -> UiWindow: return StatWindow.new(stat_info()))
 	ui_windows.register("skill", func() -> UiWindow: return SkillWindow.new(SkillWindowModel.new(world.book,
-		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text,
-		world.held_weapon_family)))
+		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text)))
 	wiring = InventoryWiring.install(stack, world, self, library, _on_item_action,
 		func(text: String) -> void: hud.push_notice("inventory", text), _sound)
 	enchant = wiring.enchant
@@ -877,28 +876,21 @@ func _sync_modal_input() -> void:
 		(window as MapleWindow).input_blocked = ui_windows_open()
 
 
-## Loads what the first level-up / job / pause window and the level-up effect draw (the UI imgs, the Magician
-## instructor NPC and its name, the fonts), and what a job advancement or a skill rank swaps in at once (the job's
-## weapon and every skill rank's projectile / hit / effect art), plus victory art, so none is decoded mid-run.
+## Loads what the first level-up / pause window and the level-up effect draw (the UI imgs, the fonts), the worn weapon
+## and every skill rank's projectile / hit / effect art, plus victory art, so none is decoded mid-run.
 func _warm_ui() -> void:
 	for path: String in [LevelUpWindow.ART, LevelUpWindow.ROW, LevelUpWindow.ROW_FOCUS, LevelUpWindow.LEVEL_DIGITS + "2",
-			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t",
+			LevelUpWindow.KEY_DIGITS + "1", PauseMenu.BOX + "t",
 			EquipWindow.ART + "backgrnd", EquipWindow.ART + "pet", ItemWindow.ART + "backgrnd", DropConfirm.ART, ItemTooltip.TT + "Can/reqLEV"]:
 		UiArt.frame(path)
-	# Every playable job line's instructor (the first-job ids of INSTRUCTORS; second-job windows use the same NPC).
-	for first_job: int in JobAdvanceWindow.INSTRUCTORS:
-		var npc := int(JobAdvanceWindow.INSTRUCTORS[first_job])
-		if npc > 0 and bool(world.jobs.job(first_job).get("playable", false)):
-			UiArt.anim("Npc.wz/%07d.img/stand" % npc)
-			UiArt.text("String.wz/Npc.img/%d/name" % npc)
-	for path: String in [FX_LEVEL_UP, FX_JOB_CHANGED, FX_CLEAR]:
+	for path: String in [FX_LEVEL_UP, FX_CLEAR]:
 		if library != null:
 			library.find_anim(path)
 	MapleText.width("Lv.", MapleText.SMALL, true)
 	MapleText.width("Lv.", MapleText.SIZE, false)
 	if library == null:
 		return
-	for wid: Variant in Equipment.held_ids(world.equipment) + world.balance.player.get("weapon_grants", {}).values():
+	for wid: Variant in Equipment.held_ids(world.equipment):
 		var wimg := library.img(AvatarRenderer.part_img_path(int(wid)))
 		if wimg != null:
 			for i in wimg.pages.size():
@@ -922,14 +914,14 @@ func _warm_ui() -> void:
 						library.find_anim(path)
 
 
-## Loads what the job advancement and the scheduled bosses first show or play, so their first appearance does not
-## decode atlas pages or audio mid-run: the level-up / job-change / victory sounds; per boss its skill and attack stances, the
+## Loads what the scheduled bosses first show or play, so their first appearance does not
+## decode atlas pages or audio mid-run: the level-up / victory sounds; per boss its skill and attack stances, the
 ## enabled MobSkill effect / recipient / affected / status / summon art, attack effect, ball and hit art, its sounds,
 ## its String.wz name and boss-bar MobGage icon and colour strips; and the BasicEff Summoned arrival effect.
 func _warm_stage() -> void:
 	if library == null:
 		return
-	for path: String in [SND_LEVEL_UP, SND_JOB_CHANGED, SND_CLEAR, LevelUpWindow.SND_HIGH_TIER]:
+	for path: String in [SND_LEVEL_UP, SND_CLEAR, LevelUpWindow.SND_HIGH_TIER]:
 		_warm_sound(path)
 	library.find_anim("Effect.wz/BasicEff.img/Summoned")
 	for frame: String in ["backgrnd", "backgrnd2", "backgrnd3", "backgrnd4"]:
@@ -1017,17 +1009,6 @@ func _fail(msg: String) -> void:
 	push_error("RunScene: " + msg)
 
 
-## The job the autoplay bot forces (options.job, `--job=<id>`; the first job of a forced second job is taken at the
-## first window); 0 = the seeded random choice.
-func _forced_job() -> int:
-	return int(options.get("job", 0))
-
-
-## The weapon path named after the forced job (options.job_path, e.g. `--job=100:spear` or `--job=120:blunt`); "" = the bot's own pick.
-func _forced_job_path() -> String:
-	return String(options.get("job_path", ""))
-
-
 # --- loop ----------------------------------------------------------------------------------------------------
 
 ## The MoveInput of the next tick: BotInput with autoplay, else the input actions (jump_pressed only on the first
@@ -1053,9 +1034,7 @@ func _read_input(first_tick: bool) -> MoveInput:
 			mi.press_skill(skill_id)
 		_skill_latches.clear()
 		mi.drink_hp = _drink_hp_latch
-		mi.drink_mp = _drink_mp_latch
 		_drink_hp_latch = false
-		_drink_mp_latch = false
 	return mi
 
 
@@ -1102,9 +1081,18 @@ func handle_events(events: Array) -> void:
 				_on_skill_thrown(e)
 			"skill_landed":
 				_on_skill_landed(e)
+			"skill_ground":
+				var box: Rect2 = e.box
+				# tier C: tile strips spaced 80 px, lasting exactly the simulation area's lifetime.
+				for offset in range(int(box.position.x), int(box.end.x), 80):
+					fx.play_repeating(String(e.effect), e.pos + Vector2(offset, 0), float(e.duration))
 			"skill_impact":
-				fx.play(String(e.effect), e.pos)
-				_sound(String(world.book.def(String(e.skill)).get("sounds", {}).get("hit", "")))
+				if String(e.effect) != "":
+					fx.play(String(e.effect), e.pos)
+				var d := world.book.def(String(e.skill))
+				for path: String in d.get("release_visuals", []):
+					fx.play(path, e.pos - Vector2(0, world.cast_height))
+				_sound(String(d.get("sounds", {}).get("hit", "")))
 			"ammo_shot":
 				_on_ammo_shot(e)
 			"teleport":
@@ -1128,12 +1116,6 @@ func handle_events(events: Array) -> void:
 					_event_shot("mob_heal.png", 0.15) # tier C: show the canonical mob0 effect while the bar reflects healing.
 			"mob_revives_spawned":
 				_event_shot("king_slime_split.png", 0.15) # tier C: capture canonical death art with its living offspring.
-			"basic_attack":
-				if e.phase == "start":
-					_restart_action = true
-					_sound(String(e.sound))
-				elif String(e.afterimage) != "": # a bare-handed punch has no afterimage
-					fx.play(String(e.afterimage), Vector2.ZERO, int(e.facing) > 0, avatar)
 			"mob_hit":
 				_on_mob_hit(e)
 			"skill_mob_effect":
@@ -1144,17 +1126,8 @@ func handle_events(events: Array) -> void:
 				_on_player_hit(e)
 			"player_restored":
 				var head: Vector2 = e.pos + Vector2(0.0, world.body.position.y)
-				numbers.spawn(int(e.amount), head, DamageNumbers.HP_GAIN if e.stat == "hp" else DamageNumbers.MP_GAIN, PLAYER_KEY)
+				numbers.spawn(int(e.amount), head, DamageNumbers.HP_GAIN, PLAYER_KEY)
 				counters.numbers += 1
-			"mp_eater_absorbed":
-				var key := String(e.skill)
-				fx.play(world.book.visual(key, "effect", world.loadout.level(key), int(world.player_state.level)),
-					Vector2.ZERO, world.player.facing > 0, avatar)
-				# tier A: v83 has no MP Eater Sound.wz entry; quietly probe any optional cached use sound.
-				var sound := SND_SKILL_USE % world.book.skill_id(key)
-				if library.find(sound) is Dictionary:
-					_sound(sound)
-				_event_shot("mp_eater.png", 0.12) # tier C: capture the 700 ms canonical absorb effect early.
 			"final_attack":
 				# The follow-up's own player effect where Skill.wz has one (finalAttack dirs); its hit is a mob_hit.
 				if world.player.state == PlayerMotion.ST_STAND and not bool(world.player_state.dead) \
@@ -1200,10 +1173,6 @@ func handle_events(events: Array) -> void:
 				_window_delay = WINDOW_DELAY
 				if int(e.level) <= 2 or int(e.level) % 10 == 0:
 					_event_shot("levelup_%d.png" % int(e.level), 0.4)
-			"job_advance_pending":
-				_pending_window = {"kind": "job", "options": e.options}
-			"job_changed":
-				_on_job_changed(int(e.job_id))
 			"equipment_changed":
 				_apply_look()
 				_refresh_inventory_windows() # a pickup can land while the windows are open (spec #33, #113)
@@ -1215,7 +1184,7 @@ func handle_events(events: Array) -> void:
 			"ammo_upgraded":
 				_on_ammo_upgraded(e)
 			"choice_pending":
-				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus), "advancement": bool(e.get("advancement", false))}
+				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus)}
 			"player_died":
 				_on_player_died(e.pos)
 			"stage_cleared":
@@ -1316,7 +1285,15 @@ func _on_cast(e: Dictionary) -> void:
 	if effect != "":
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
-	_first_event_shot(key, "cast_%s.png" % key, 0.05) # tier C: playtest evidence of each skill's first cast, 50 ms in (the cast effect is short).
+	for visual: Dictionary in world.book.def(key).get("cast_visuals", []):
+		fx.play(String(visual.path), e.pos + Vector2(float(visual.x), 0))
+	var loop := String(world.book.def(key).get("sounds", {}).get("loop", ""))
+	if loop != "":
+		_sound(loop)
+	# tier C: sample delayed/charged skills after release, and Paralyze after its opening blank frames.
+	var capture_delay := float(world.book.def(key).get("pending", {}).get("delay", 0.0)) + 0.05
+	capture_delay = float(world.book.def(key).get("capture_delay", capture_delay))
+	_first_event_shot(key, "cast_%s.png" % key, capture_delay)
 	var use := String(world.book.def(key).get("sounds", {}).get("use", ""))
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
@@ -1401,21 +1378,8 @@ func _on_player_hit(e: Dictionary) -> void:
 	_first_event_shot("hit", "hit_first.png", BLINK_PERIOD * 0.7)
 
 
-func _on_job_changed(job_id: int) -> void:
-	fx.play(FX_JOB_CHANGED, Vector2.ZERO, false, avatar)
-	_sound(SND_JOB_CHANGED)
-	# The level's upgrade window follows at once in the sim: hold it until the JobChanged pillar has played, or the
-	# centred window hides the effect (autopick runs never wait).
-	var a := library.find_anim(FX_JOB_CHANGED) if library != null else null
-	_window_delay = maxf(_window_delay, a.total if a != null and a.total > 0.0 else JOB_WINDOW_DELAY)
-	_apply_look()
-	_event_shot("job_%d.png" % job_id, 0.8)
-	_event_shot("job_%d_after.png" % job_id, 4.0)
-
-
 ## Draws the carried look with the live worn equipment (the only source of what is drawn) and the round's owned cash
-## equipment over it. Never reads world.character_snapshot(), which refuses while a choice is pending (job
-## advancement is drawn mid-choice).
+## equipment over it. Never reads world.character_snapshot(), which refuses while a choice is pending.
 func _apply_look() -> void:
 	avatar.set_look(DataRepo.character_look({"look": world.character_look, "equipment": world.equipment}, data,
 		world.worn_cash))
@@ -1426,10 +1390,10 @@ func _apply_look() -> void:
 ## Stops early when the run ends.
 func _warp(to: float) -> void:
 	while world.time < to - 1e-6:
-		BotInput.auto_choose(world, false, _forced_job(), _forced_job_path())
+		BotInput.auto_choose(world)
 		if world.transfer_pending:
 			world.advance_map()
-		if world.state in [RunWorld.CHOOSING_JOB, RunWorld.CHOOSING_UPGRADE]:
+		if world.state == RunWorld.CHOOSING_UPGRADE:
 			break # auto_choose's bounded batch left choices for the presentation; preserve their pending events
 		if world.state == RunWorld.PLAYING:
 			world.step(DT, BotInput.decide(world, _bot_memo))
@@ -1580,7 +1544,7 @@ func _sound(path: String, phase: String = "") -> void:
 
 # --- windows -------------------------------------------------------------------------------------------------
 
-## Opens the waiting window request (JobAdvanceWindow / LevelUpWindow), or with autopick resolves it at once.
+## Opens the waiting window request (LevelUpWindow), or with autopick resolves it at once.
 func _service_windows() -> void:
 	var guard := 0
 	while not _pending_window.is_empty() and window == null and guard < 64:
@@ -1590,38 +1554,22 @@ func _service_windows() -> void:
 		var req := _pending_window
 		_pending_window = {}
 		var level := world.progression.front() if world.progression.has_pending() else int(world.player_state.level)
-		if String(req.kind) == "job":
-			if _autopick:
-				counters.autopicks += 1
-				var j := BotInput.pick_choice(req.options, world.job_rng, _forced_job(), world.jobs, _forced_job_path(),
-					world.held_weapon_family())
-				if j.job_id < 0 or not world.apply_job(j.job_id, j.path):
-					world.decline_job()
-				handle_events(world.drain_events())
-				continue
-			var jw := JobAdvanceWindow.new()
-			_show_window(jw, "job", req, level)
-			jw.job_chosen.connect(func(id: int) -> void: _on_job_chosen(id, jw.picked_path))
-			jw.declined.connect(_on_job_declined)
-			jw.open(req.options, level, int(world.player_state.job_id))
-		else:
-			if _autopick:
-				counters.autopicks += 1
-				world.apply_choice(BotInput.pick_card_for(world, req.cards))
-				handle_events(world.drain_events())
-				continue
-			var lw := LevelUpWindow.new()
-			_show_window(lw, "cards", req, level)
-			lw.card_chosen.connect(_on_card_chosen)
-			lw.open(skill_text.dress(req.cards, world.loadout), level, bool(req.get("bonus", false)),
-				bool(req.get("advancement", false)))
+		if _autopick:
+			counters.autopicks += 1
+			world.apply_choice(BotInput.pick_card_for(world, req.cards))
+			handle_events(world.drain_events())
+			continue
+		var lw := LevelUpWindow.new()
+		_show_window(lw, "cards", req, level)
+		lw.card_chosen.connect(_on_card_chosen)
+		lw.open(skill_text.dress(req.cards, world.loadout), level, bool(req.get("bonus", false)))
 
 
-## window_autopick: an open level-up / job window is answered with BotInput's choice after that many seconds (the
-## card BotInput.pick_card_for prefers, a seeded branch; demos and evidence runs: the window is shown, then
-## answered through the same handlers as its signals).
+## window_autopick: an open level-up window is answered with BotInput's choice after that many seconds (the card
+## BotInput.pick_card_for prefers; demos and evidence runs: the window is shown, then answered through the same handler
+## as its signal).
 func _auto_resolve_window(delta: float) -> void:
-	if _window_auto <= 0.0 or window == null or (_window_kind != "cards" and _window_kind != "job"):
+	if _window_auto <= 0.0 or window == null or _window_kind != "cards":
 		return
 	_window_open_t += delta
 	if _window_open_t < _window_auto:
@@ -1629,15 +1577,7 @@ func _auto_resolve_window(delta: float) -> void:
 	# Answered from outside the window: hide it now (its own buttons would have started its fade-out).
 	if window is CanvasItem:
 		(window as CanvasItem).visible = false
-	if _window_kind == "cards":
-		_on_card_chosen(BotInput.pick_card_for(world, _window_req.get("cards", [])))
-	else:
-		var j := BotInput.pick_choice(_window_req.get("options", []), world.job_rng, _forced_job(), world.jobs,
-			_forced_job_path(), world.held_weapon_family())
-		if j.job_id < 0:
-			_on_job_declined()
-		else:
-			_on_job_chosen(j.job_id, j.path)
+	_on_card_chosen(BotInput.pick_card_for(world, _window_req.get("cards", [])))
 
 
 func _show_window(w: Node, kind: String, req: Dictionary = {}, level: int = 0) -> void:
@@ -1647,7 +1587,7 @@ func _show_window(w: Node, kind: String, req: Dictionary = {}, level: int = 0) -
 	_window_open_t = 0.0
 	counters.windows += 1
 	if kind != "pause":
-		_event_shot("window_%s_%d.png" % ["advancement" if bool(req.get("advancement", false)) else kind, level], 0.6)
+		_event_shot("window_%s_%d.png" % [kind, level], 0.6)
 	windows_layer.add_child(w)
 	_sync_modal_input()
 
@@ -1673,22 +1613,6 @@ func _on_card_chosen(card_id: String) -> void:
 		_close_window()
 		_pending_window = req
 		_service_windows()
-		return
-	_close_window()
-	handle_events(world.drain_events())
-	_service_windows()
-
-
-func _on_job_chosen(job_id: int, path := "") -> void:
-	if _window_kind != "job" or not world.apply_job(job_id, path):
-		return
-	_close_window()
-	handle_events(world.drain_events())
-	_service_windows()
-
-
-func _on_job_declined() -> void:
-	if _window_kind != "job" or not world.decline_job():
 		return
 	_close_window()
 	handle_events(world.drain_events())
@@ -1726,11 +1650,7 @@ func resume() -> void:
 
 func _on_quit_requested() -> void:
 	resume()
-	var flow := get_node_or_null("/root/Flow")
-	if flow != null and flow.has_method("quit_round") and bool(options.get("use_flow", true)):
-		flow.call("quit_round")
-	else:
-		_finish()
+	_finish("quit")
 
 
 ## Stops (or restarts) every world animation and the HUD while the pause menu is open.
@@ -1774,6 +1694,7 @@ func _present(delta: float) -> void:
 	var mob_actions := world.mob_action_view()
 	for i in mob_renderers.size():
 		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers, mob_actions)
+	summon_renderer.update_from(world.runner.summons)
 	shots.update_from(world.projectiles, world.visual_paths, delta)
 	mob_shots.update_from(world.mob_projectiles, world.visual_paths, delta)
 	drops.update_from(world.pickups, delta)
@@ -1842,7 +1763,7 @@ func _update_player(delta: float) -> void:
 		if avatar.stance != "dead":
 			avatar.play("dead", true, false)
 	elif action != motion:
-		# Skill stance while standing; basic swing stance while standing or airborne.
+		# Skill stance while standing (or airborne, for a stance the sim plays in the air).
 		var st := action if avatar.has_stance(action) else DEFAULT_ACTION
 		avatar.play(st, _restart_action or _shown_action != st, false)
 		_shown_action = st
@@ -1914,8 +1835,8 @@ func _update_hud() -> void:
 	if not _hud_snapshot_changed(ps):
 		# Cooldown sweeps move every tick: the skill icons take them every frame from reused buffers (no new arrays,
 		# dictionaries or strings) and redraw only when a sweep step or tint changed.
-		world.read_skill_cooldowns(_cd_left, _cd_total, _cd_short)
-		hud.skills.set_cooldowns(_cd_left, _cd_total, _cd_short)
+		world.read_skill_cooldowns(_cd_left, _cd_total)
+		hud.skills.set_cooldowns(_cd_left, _cd_total)
 		_update_potion_cooldowns()
 		return
 	var info := run_info()
@@ -1942,26 +1863,22 @@ func _update_potion_cooldowns() -> void:
 func _hud_snapshot_changed(ps: Dictionary) -> bool:
 	var buffs: Array = ps.buffs
 	var sig := _hud_sig_scratch
-	sig.resize(16 + buffs.size() * 2)
+	sig.resize(12 + buffs.size() * 2)
 	sig[0] = int(ps.hp)
-	sig[1] = int(ps.mp)
-	sig[2] = int(ps.max_hp)
-	sig[3] = int(ps.max_mp)
-	sig[4] = int(ps.exp)
-	sig[5] = int(ps.exp_next)
-	sig[6] = int(ps.level)
-	sig[7] = int(ps.job_id)
-	sig[8] = int(run_time())
-	sig[9] = world.kills
-	sig[10] = world.loadout.version
-	sig[11] = int(ps.potions.hp.item_id)
-	sig[12] = int(ps.potions.mp.item_id)
-	sig[13] = int(bool(ps.get("mp_short", false)))
-	sig[14] = world.state
-	sig[15] = int(_end_kind != "")
+	sig[1] = int(ps.max_hp)
+	sig[2] = int(ps.exp)
+	sig[3] = int(ps.exp_next)
+	sig[4] = int(ps.level)
+	sig[5] = int(ps.job_id)
+	sig[6] = int(run_time())
+	sig[7] = world.kills
+	sig[8] = world.loadout.version
+	sig[9] = int(ps.potions.hp.item_id)
+	sig[10] = world.state
+	sig[11] = int(_end_kind != "")
 	for i in buffs.size():
-		sig[16 + i * 2] = int(buffs[i].skill_id)
-		sig[17 + i * 2] = ceili(float(buffs[i].remaining))
+		sig[12 + i * 2] = int(buffs[i].skill_id)
+		sig[13 + i * 2] = ceili(float(buffs[i].remaining))
 	if sig == _hud_sig:
 		return false
 	_hud_sig = sig.duplicate()
@@ -1993,7 +1910,7 @@ func run_time() -> float:
 
 
 ## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with icon, rank, key_label
-## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether each is waiting for MP, and
+## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether the held weapon blocks each, and
 ## the learned movement skill (Teleport or Dash, HudQuickSlot.movement_skill_of; {} before it is learned).
 func run_info() -> Dictionary:
 	var skills: Array = []
@@ -2001,8 +1918,7 @@ func run_info() -> Dictionary:
 		var label := _skill_key_label(world.skill_key_of(key))
 		var ready := world.skill_readiness(key)
 		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
-			"key_label": label, "cooldown_left": float(ready.left), "cooldown_total": float(ready.total),
-			"mp_short": bool(ready.mp_short), "blocked": bool(ready.blocked)})
+			"key_label": label, "cooldown_left": float(ready.left), "cooldown_total": float(ready.total)})
 	return {"time": run_time(), "kills": world.kills, "name": _player_name(), "state": world.state, "ending": _end_kind != "",
 		"job_name": world.jobs.name_of(int(world.player_state.job_id)),
 		"exp_next": int(world.player_state.exp_next), "skills": skills,
@@ -2051,13 +1967,14 @@ func build_summary() -> Dictionary:
 		"street_name": library.string_name("Street", ending_map_id), "time": run_time(), "duration": world.duration,
 		"cleared": world.state == RunWorld.CLEARED, "level": int(world.player_state.level), "job_id": job_id,
 		"job_name": world.jobs.name_of(job_id), "kills": world.kills, "damage_dealt": world.damage_dealt,
-		"skills": skills, "seed": run_seed, "branch": world.jobs.second_job(job_id),
+		"skills": skills, "seed": run_seed,
 		"bosses_killed": world.bosses_killed(), "levels_gained": world.levels_gained(),
 		"nx_awarded": world.nx_awarded(),
 	}
 
 
-func _finish() -> void:
+## Ends the round: `ending` "" is the world's own (cleared or died), "quit" is Quit round, which Flow ends like a death.
+func _finish(ending: String = "") -> void:
 	if _finished:
 		return
 	_finished = true
@@ -2068,8 +1985,7 @@ func _finish() -> void:
 		return
 	var flow := get_node_or_null("/root/Flow")
 	if flow != null and flow.has_method("finish_run") and bool(options.get("use_flow", true)):
-		flow.call("finish_run", summary,
-			world.character_snapshot() if flow.active_slot >= 0 and world.state == RunWorld.CLEARED else {})
+		flow.call("finish_run", summary, world.character_snapshot() if flow.active_slot >= 0 else {}, ending)
 
 
 ## Screenshots every shot_every s of run time; quit_after ends an automated run (summary.json, final shot, quit).

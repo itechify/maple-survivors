@@ -9,8 +9,8 @@ const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
 const SF := preload("res://tests/fixtures/shade_fixtures.gd")
 const DT := 1.0 / 60.0
 
-const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
-	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id"]
+const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage",
+	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
 const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message"]
@@ -80,8 +80,8 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			for c: Dictionary in e.cards:
 				var ck: Array = c.keys()
 				ck.sort()
-				if ck != ["desc", "icon", "id", "kind", "magnitude", "max_rank", "name", "rank", "rank_before", "skill", "skill_changes", "skill_effect_stat",
-						"skill_level", "skill_level_max", "skill_level_next", "skill_mod_changes", "skill_name", "tier"]:
+				if ck != ["card_kind", "desc", "icon", "id", "kind", "magnitude", "max_rank", "name", "rank", "rank_before", "rarity_bonus", "skill", "skill_changes", "skill_effect_stat",
+						"skill_level", "skill_level_max", "skill_level_next", "skill_mod_changes", "skill_name", "skill_rank_before", "skill_rank_max", "slots", "tier"]:
 					fail("card fields %s" % [ck])
 				elif typeof(c.rank) != TYPE_INT or typeof(c.max_rank) != TYPE_INT or typeof(c.skill_level) != TYPE_INT 						or typeof(c.skill_level_next) != TYPE_INT:
 					fail("card rank types %s" % [c])
@@ -92,15 +92,15 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 				else:
 					for field: String in c.skill_changes:
 						var change: Dictionary = c.skill_changes[field]
-						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed", "range", "hp", "max_mp_percent", "mobCount", "damage", "hpCon", "max_hp_per_level", "regen_hp"] or change.size() != 2 \
+						if not field in ["mad", "mastery", "fixdamage", "time", "x", "pdd", "cooltime", "speed", "range", "hp", "mobCount", "damage", "hpCon", "max_hp_per_level", "regen_hp"] or change.size() != 2 \
 								or typeof(change.get("before")) != TYPE_INT or typeof(change.get("after")) != TYPE_INT:
 							fail("card skill change schema %s: %s" % [field, change])
 		"mob_hit":
 			if int(e.damage) < 1:
 				fail("damage below 1")
 		"player_hit":
-			if bool(e.miss) and (int(e.damage) != 0 or int(e.mp_absorbed) != 0):
-				fail("a missed hit cannot spend HP or MP")
+			if bool(e.miss) and int(e.damage) != 0:
+				fail("a missed hit cannot spend HP")
 			elif not bool(e.miss) and int(e.damage) < 1:
 				fail("a landed hit must deal at least 1")
 		"cast":
@@ -113,15 +113,11 @@ func test_every_event_matches_the_schema() -> void:
 	w.god = true # Schema coverage uses a living run; separate seeded full runs test actual survival.
 	var seen := {}
 	var memo := {}
-	var declined := false
 	for t in 60 * 360:
 		var guard := 0
 		while w.state != RunWorld.PLAYING and w.state != RunWorld.DEAD and w.state != RunWorld.CLEARED and guard < 64:
 			guard += 1
-			if w.state == RunWorld.CHOOSING_JOB and not declined:
-				declined = w.decline_job()
-			else:
-				RF.auto_choose(w)
+			RF.auto_choose(w)
 		if w.state != RunWorld.PLAYING:
 			break
 		w.step(DT, RF.bot_input(w, memo))
@@ -137,11 +133,7 @@ func test_every_event_matches_the_schema() -> void:
 		_check(e, seen)
 	# A death for player_died.
 	var d := RF.quiet_world(400.0)
-	RF.put_mob(d, 1110100, 430.0)
-	for t in 60 * 20:
-		d.step(DT, MoveInput.new())
-		if d.state == RunWorld.DEAD:
-			break
+	d.take_hit(1000.0, false, "", d.player.pos + Vector2(20, 0)) # Guaranteed lethal schema probe.
 	for e: Dictionary in d.drain_events():
 		_check(e, seen)
 	# Both player-hit variants obey the same documented event schema.
@@ -154,7 +146,7 @@ func test_every_event_matches_the_schema() -> void:
 		_check(e, seen)
 	# A short scheduled boss encounter covers warning/spawn/death and a boss hit's source fields.
 	var boss_setup := RF.setup("quiet", 19, RF.quiet_data())
-	boss_setup.data.balance.player.skills = []
+	boss_setup.data.jobs_survivor.jobs["212"]["starting_skill"] = ""; boss_setup.data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	RF.set_bosses(boss_setup.data.stages.stages.quiet, [{"time": 0.5, "mob_id": 100100}])
 	var b := RunWorld.new(boss_setup)
 	b.god = true
@@ -227,33 +219,23 @@ func test_every_event_matches_the_schema() -> void:
 		mano.step(DT,MoveInput.new())
 	for event: Dictionary in mano.drain_events():
 		_check(event,seen)
-	var basic_world := preload("res://tests/fixtures/basic_attack_fixtures.gd").world()
-	RF.put_mob(basic_world, 100100, 450, 190, 100)
-	for tick in 30:
-		basic_world.step(DT, MoveInput.new())
-	for event: Dictionary in basic_world.drain_events():
-		_check(event, seen)
 	# Guaranteed unlimited potion use exercises the consumable schema.
 	var potion := RF.quiet_world()
 	potion.step(DT, MoveInput.new())
 	potion.drink_potion("hp")
-	potion.drink_potion("mp")
 	potion.progression.level = 10
 	potion.apply_potion_schedule(10, true)
 	for e: Dictionary in potion.drain_events():
 		_check(e, seen)
 	var buff_setup := RF.setup("quiet", 12, RF.quiet_data())
-	buff_setup.data.balance.player.skills = []
-	buff_setup.data.balance.regen.mp = 0
+	buff_setup.data.jobs_survivor.jobs["212"]["starting_skill"] = ""; buff_setup.data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var buff_world := RunWorld.new(buff_setup)
-	buff_world.change_job(200)
+	RF.as_job(buff_world, 200)
 	buff_world.loadout.ranks.erase("energy_bolt")
 	buff_world.loadout.order.erase("energy_bolt")
-	buff_world.learn_skill("magic_guard")
 	buff_world.learn_skill("magic_armor")
 	for tick in 2:
 		buff_world.step(DT, MoveInput.new())
-	buff_world.spend_mp(int(buff_world.player_state.mp))
 	for tick in 60 * 112:
 		buff_world.step(DT, MoveInput.new())
 	for e: Dictionary in buff_world.drain_events():
@@ -274,8 +256,7 @@ func test_every_event_matches_the_schema() -> void:
 	for event: Dictionary in statuses.drain_events():
 		_check(event, seen)
 	var teleporter := RF.quiet_world(400, 60)
-	teleporter.change_job(210)
-	teleporter.heal_fraction("mp", 1.0)
+	RF.as_job(teleporter, 210)
 	teleporter.learn_skill("teleport_fp")
 	var blink := MoveInput.new()
 	blink.press_skill("teleport")
@@ -284,20 +265,9 @@ func test_every_event_matches_the_schema() -> void:
 		_check(event, seen)
 	# Shared restoration has no live skill consumer until the second-job tickets land.
 	var restored := RF.quiet_world()
-	restored.spend_mp(3)
-	restored.restore_player("mp", 2, "synthetic")
+	restored.take_hit(10, false, "", restored.player.pos + Vector2(10, 0))
+	restored.restore_player("hp", 2, "synthetic")
 	for event: Dictionary in restored.drain_events():
-		_check(event, seen)
-	# MP Eater's effect event is distinct from actual capped player restoration (also shown at full player MP).
-	var eater := RF.quiet_world()
-	eater.change_job(210)
-	eater.learn_skill("mp_eater_fp")
-	eater.book.skill_imgs["210"].skill["2100000"].level["1"].prop = 100.0
-	eater.mob_kinds[0].max_mp = 200
-	var victim := eater.spawn_mob(0, eater.player.pos + Vector2(100, 0), eater.player.fh, 100, false)
-	eater.hit_mob(victim, {"skill": "magic_claw", "level": 1, "magic": true, "damage_min": 1.0,
-		"damage_max": 1.0, "crit": 0.0, "crit_mult": 1.5}, -1)
-	for event: Dictionary in eater.drain_events():
 		_check(event, seen)
 	# A synthetic Final Attack (#161) follows a physical line of the held sword with its own event.
 	var final_data := RF.quiet_data()
@@ -338,12 +308,12 @@ func test_every_event_matches_the_schema() -> void:
 	thrower.equipment.inventory.append(Equipment.create(1472000, {"incPAD": 10.0, "attackSpeed": 6.0}))
 	assert_eq(thrower.equip_item(thrower.equipment.inventory.size() - 1), "")
 	thrower.progression.level = 37
-	thrower.change_job(410)
+	RF.as_job(thrower, 410)
 	for event: Dictionary in thrower.drain_events():
 		_check(event, seen)
 	# A Gunslinger's Grenade is thrown (#192): skill_thrown, schema-checked like every event.
 	var grenadier := RF.quiet_world()
-	grenadier.change_job(520)
+	RF.as_job(grenadier, 520)
 	grenadier.loadout.order.clear()
 	assert_true(grenadier.learn_skill("grenade"))
 	RF.put_mob(grenadier, 1110100, grenadier.player.pos.x + 200, 190, 1000)
@@ -351,16 +321,8 @@ func test_every_event_matches_the_schema() -> void:
 		grenadier.step(DT, MoveInput.new())
 	for event: Dictionary in grenadier.drain_events():
 		_check(event, seen)
-	# A job-weapon grant with a full Equip tab is skipped and reported (review fix of #33).
-	var blocked := RF.quiet_world()
-	blocked.setup.equipment_info = {1372005: {"reqJob": 2, "incMAD": 23, "tuc": 7}}
-	while blocked.equipment.inventory.size() < blocked.inventory_slots():
-		blocked.equipment.inventory.append({"id": 1002001, "stats": {}, "slots": 7, "scrolls": 0})
-	blocked.change_job(200)
-	for event: Dictionary in blocked.drain_events():
-		_check(event, seen)
 	# Spec #34 pet events: the pet's own drink and its teleport to a player who left it behind.
-	var pet_world := PF.world([PF.KITTY, PF.AUTO_HP], {"hp": 0.5, "mp": 0.0})
+	var pet_world := PF.world([PF.KITTY, PF.AUTO_HP], {"hp": 0.5})
 	pet_world._hp = 1.0
 	PF.put_pet(pet_world, Vector2(30.0, 0.0))
 	PF.put_player(pet_world, 1100.0, 0.0)
@@ -374,10 +336,9 @@ func test_every_event_matches_the_schema() -> void:
 		_check(event, seen)
 	# #210: Disorder's recipient art is a status effect, never a fake damaging mob_hit.
 	var disorder := RF.quiet_world()
-	disorder.change_job(400, "dagger")
+	RF.as_job(disorder, 400, "dagger")
 	disorder.loadout.order.clear()
 	disorder.learn_skill("disorder")
-	disorder.heal_fraction("mp", 1.0)
 	for dx in [40.0, 80.0, 120.0]:
 		RF.put_mob(disorder, 1110100, disorder.player.pos.x + dx, disorder.player.pos.y)
 	disorder.mob_grid.rebuild(disorder.swarm.x, disorder.swarm.y, disorder.swarm.active)
@@ -410,15 +371,6 @@ func test_every_event_matches_the_schema() -> void:
 				blaster.step(DT, MoveInput.new())
 			for event: Dictionary in blaster.drain_events():
 				_check(event, seen)
-		if type == "mp_short":
-			var short_world := RF.quiet_world()
-			short_world.change_job(200)
-			short_world.spend_mp(int(short_world.player_state.mp))
-			RF.put_mob(short_world, 1110100, short_world.player.pos.x + 100, 190, 100)
-			for tick in 3:
-				short_world.step(DT, MoveInput.new())
-			for event: Dictionary in short_world.drain_events():
-				_check(event, seen)
 		if type == "player_banished":
 			var shaded := SF.world()
 			for tick in 15 * 60:
@@ -426,7 +378,6 @@ func test_every_event_matches_the_schema() -> void:
 			for event: Dictionary in shaded.drain_events():
 				_check(event, seen)
 		assert_true(seen.has(type), "%s was emitted (seen %s)" % [type, seen])
-	assert_true(declined, "the run went through a declined job window")
 
 
 func _digest(p_seed: int, seconds: float) -> String:

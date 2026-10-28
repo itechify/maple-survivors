@@ -5,31 +5,29 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
-func test_shared_hit_uses_current_formula_and_guard() -> void:
+func test_shared_hit_uses_current_formula_whole_on_hp() -> void:
 	var w := RF.quiet_world()
 	w.god = false
-	w.change_job(200)
-	w.learn_skill("magic_guard")
 	w.step(DT, MoveInput.new())
 	var before: Dictionary = w.player_state.duplicate()
 	var expected_rng := RandomNumberGenerator.new()
 	expected_rng.state = w.rng.state
 	var expected := CombatMath.monster_damage(30.0, expected_rng.randf(), w.player_pdd)
-	var split := CombatMath.magic_guard_split(expected, w.magic_guard_ratio(), int(before.mp))
 	w.drain_events()
 	w.take_hit(30.0, false, "", w.player.pos - Vector2(10, 0))
-	assert_eq(int(w.player_state.hp), int(before.hp) - split.x)
-	assert_eq(int(w.player_state.mp), int(before.mp) - split.y)
+	assert_eq(int(w.player_state.hp), int(before.hp) - expected, "the whole hit comes off HP (no Magic Guard, #285)")
 	var hit: Dictionary = w.drain_events()[0]
 	assert_eq(hit.type, "player_hit")
 	assert_eq(hit.damage, expected)
-	assert_eq(hit.mp_absorbed, split.y)
+	assert_false(hit.has("mp_absorbed"))
 	assert_eq(hit.dir, 1)
 	assert_eq(w.rng.state, expected_rng.state, "exactly the old random roll is consumed")
 
 
 func test_cast_tick_signal_and_cooldowns() -> void:
-	var w := RF.quiet_world()
+	# The 212 start skill Energy Bolt (#284).
+	var w := RunWorld.new(RF.setup("quiet", 7, RF.quiet_data()))
+	RF.place_player(w, 400)
 	assert_true(w.can_cast(), "standing is a valid cast state")
 	w.step(DT, MoveInput.new())
 	assert_false(w.runner.fired_this_tick, "no target")
@@ -38,9 +36,9 @@ func test_cast_tick_signal_and_cooldowns() -> void:
 	w.spawn_mob(0, Vector2(p.x, w.fhm.y_at(fh, p.x)), fh, 100.0, false)
 	w.step(DT, MoveInput.new())
 	assert_true(w.runner.fired_this_tick, "a target triggers the current skill path")
-	var cd := float(w.runner.cooldowns.three_snails)
+	var cd := float(w.runner.cooldowns.energy_bolt)
 	w.runner.tick_cooldowns(DT, w)
 	assert_false(w.runner.fired_this_tick, "cooldown tick does not cast")
-	assert_near(float(w.runner.cooldowns.three_snails), cd - DT, 1e-6)
+	assert_near(float(w.runner.cooldowns.energy_bolt), cd - DT, 1e-6)
 	w.runner.cast_ready(DT, w)
 	assert_false(w.runner.fired_this_tick, "separate cast phase still waits for the cooldown")

@@ -8,10 +8,12 @@ extends RefCounted
 ## changes exactly what the original level-up changed (damage, mastery, the projectile art). Visual paths are
 ## templates: `{level}` becomes the canonical level, `{cl}` the CharLevel variant for the character's level.
 
-const ACTIVE_KINDS := ["projectile", "instant", "buff"]
+const ACTIVE_KINDS := ["projectile", "instant", "buff", "summon"]
 ## Skill.wz keys holding a weapon requirement code; the second has a trailing space (tier A: only 5001003 spells it so).
 const WEAPON_FIELDS := ["weapon", "weapon "]
 
+var rank_levels := {}
+var slot_limits := {}
 var defs := {}
 var skill_imgs := {}
 
@@ -26,6 +28,8 @@ static func from_data(skills_root: Dictionary, p_skill_imgs: Dictionary) -> Skil
 	var d: Variant = skills_root.get("skills", {})
 	if d is Dictionary:
 		b.defs = d
+	b.rank_levels = skills_root.get("rank_levels", {})
+	b.slot_limits = skills_root.get("slot_limits", {})
 	b.skill_imgs = p_skill_imgs
 	for key: String in b.defs:
 		b._by_id[int(b.defs[key].get("skill_id", 0))] = key
@@ -67,14 +71,22 @@ func slot(key: String) -> String:
 	return String(def(key).get("slot", "active" if is_active(key) else "passive"))
 
 
+## Survivor rank mapping: explicit per-skill override, else the table for the WZ maximum level.
+func rank_table(key: String) -> Array:
+	var d := def(key)
+	if d.has("ranks"):
+		return d.ranks
+	return rank_levels.get(str(max_level(key)), [1])
+
+
 ## Highest survivor rank (the length of `ranks`, at least 1).
 func max_rank(key: String) -> int:
-	return maxi(1, def(key).get("ranks", [1]).size())
+	return maxi(1, rank_table(key).size())
 
 
 ## Canonical skill level for survivor rank `rank` (clamped to 1..max_rank and to the img's level count).
 func canonical_level(key: String, rank: int) -> int:
-	var ranks: Array = def(key).get("ranks", [1])
+	var ranks := rank_table(key)
 	if ranks.is_empty():
 		return 1
 	var lv := int(ranks[clampi(rank, 1, ranks.size()) - 1])
@@ -99,7 +111,8 @@ func skill_node(key: String) -> Dictionary:
 	return node if node is Dictionary else {}
 
 
-## Weapon families that can use `key` (WeaponInfo.FAMILIES values); empty = any weapon, bare hands included. Source, in
+## Weapon families a skill's data names (WeaponInfo.FAMILIES values; weapons gate no skill since #284, so this only says
+## which weapons a skill was made for: a ranged skill's passive range bonus). Empty = any weapon. Source, in
 ## order: survivor skills.json `weapon_families` (tier C: an array of family names, or ["any"] for explicitly any weapon;
 ## it overrides the canonical value), then the Skill.wz `weapon` code (tier A: weapon type - 100, see
 ## WeaponInfo.family_of_skill_code), read from `weapon` and from `"weapon "` with a trailing space (tier A: the WZ typo on
@@ -142,13 +155,6 @@ func _read_weapon_families(key: String) -> PackedStringArray:
 				out.append(family)
 				break
 	return out
-
-
-## True when a character holding weapon family `family` ("" = bare hands) can use `key`: it has no weapon requirement,
-## or `family` is one of its weapon_families.
-func usable_with(key: String, family: String) -> bool:
-	var needs := weapon_families(key)
-	return needs.is_empty() or family in needs
 
 
 ## Number of canonical levels in the img (0 when the img is absent).

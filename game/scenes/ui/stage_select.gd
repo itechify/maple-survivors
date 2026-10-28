@@ -3,14 +3,16 @@ extends Node2D
 ## WORLD_SELECT without the Neo City promo, BGM BgmUI/WCSelect); the world-select scroll (ParchmentScroll) unrolls from
 ## the rolled scroll hanging on the rod and lists the stages of game/data/survivor/stages.json.
 ##
-## Left column: one entry per stage with its map mark (Map.wz/MapHelper.img/mark/<info/mapMark>) and its region
-## (stages.json `region`: Henesys, Ellinia, Sleepywood; #221). Right column, for the selected stage: region and continent,
-## the objective, the best result from SaveData and the ordered maps with their bosses (String.wz names).
+## Left column: one entry per stage of EVERY tier, in tier order, with its map mark (Map.wz/MapHelper.img/mark/<info/mapMark>)
+## and its region (stages.json `region`: Henesys, Ellinia, Sleepywood; #221). Four cards fit; the list scrolls with the
+## selection and the mouse wheel. The stages of a tier the character has not unlocked (its `tiers_unlocked`, #286) are shown
+## greyed and cannot be started: the details say what unlocks them. Right column, for the selected stage: region and
+## continent, its tier, the objective, the best result from SaveData and the ordered maps with their bosses (String.wz names).
 ## Buttons: Start (Login.img/CharSelect/
 ## BtSelect) on the parchment, Back (Login.img/Common/BtStart, the "Back" banner) at the bottom-left of the book and the
 ## v83 status-bar CASH SHOP button (StatusBar.img/BtShop, #118) beside it.
-## Keys: Up/Down select, Enter starts, Esc saves and returns to character select.
-## Flow supplies the snapshot and owner through configure(); only its next tier is displayed.
+## Keys: Up/Down select, Enter starts, Esc returns to the character's Free Market.
+## Flow supplies the snapshot and owner through configure().
 
 const BT_START := "UI.wz/Login.img/CharSelect/BtSelect"
 const BT_BACK := "UI.wz/Login.img/Common/BtStart"
@@ -22,8 +24,8 @@ const MARK := "Map.wz/MapHelper.img/mark/"
 const LIST_X := 46.0
 const LIST_W := 176.0
 const ENTRY_H := 46.0
-## The most region cards one tier can list: four 46 px rows from the parchment top end exactly where the Start button
-## begins (tier C, spec #253). A fifth region needs a scrolling list.
+## The most region cards the list shows at once: four 46 px rows from the parchment top end exactly where the Start button
+## begins (tier C, spec #253). More stages scroll (tier C, #286: tier 1 has four regions, tier 2 one).
 const MAX_CARDS := 4
 const DETAIL_X := 234.0
 const DETAIL_W := 232.0
@@ -31,6 +33,7 @@ const MAP_ROW_GAP := 6.0 # tier C: compact map/boss groups on the v83 parchment;
 const INK := Color8(102, 51, 0)
 const INK_SOFT := Color8(136, 85, 34)
 const INK_RED := Color8(170, 34, 0)
+const INK_LOCKED := Color8(150, 134, 112) # tier C: ours, the parchment ink faded for a locked tier
 
 var backdrop: LoginBackdrop
 var scroll: ParchmentScroll
@@ -41,8 +44,9 @@ var shop_button: WzButton
 var character_label: Label
 ## Region cards in file order: key, first map_id/mark, region, continent, duration, objective and ordered map_rows.
 var stages: Array[Dictionary] = []
-## Selected stage index.
+## Selected stage index, and the index of the first card shown.
 var selected := 0
+var top := 0
 ## Best results (Flow's SaveData).
 var save: SaveData
 
@@ -67,7 +71,7 @@ func _ready() -> void:
 	if flow == null:
 		flow = get_node_or_null("/root/Flow") as SceneFlow
 	save = flow.save_data() if flow != null else SaveData.new()
-	stages = load_stages(DataRepo.load_all(), int(snapshot.get("tier", 0)))
+	stages = load_all_tiers(DataRepo.load_all(), int(snapshot.get("character", {}).get("tiers_unlocked", 1)))
 	var layer := CanvasLayer.new()
 	layer.layer = 2
 	add_child(layer)
@@ -91,7 +95,7 @@ func _ready() -> void:
 	back_button.set_plate(124, 4)
 	back_button.name = "Back"
 	back_button.fallback_size = Vector2(124, 52)
-	back_button.label = "Save & quit"
+	back_button.label = "Back"
 	back_button.pressed.connect(_on_back)
 	_ui.add_child(back_button)
 	shop_button = WzButton.new(HudWidget.SB + "BtShop")
@@ -100,14 +104,14 @@ func _ready() -> void:
 	shop_button.label = "" if shop_button.has_art() else "SHOP"
 	shop_button.pressed.connect(_on_shop)
 	_ui.add_child(shop_button)
-	character_label = MapleText.new("Tier %d / %s / Lv. %d %s / %s NX" % [int(snapshot.get("tier", 0)) + 1,
-		snapshot.get("name", ""), int(snapshot.get("character", {}).get("level", 1)),
-		JobTree.from_data(DataRepo.load_all().jobs, {}).name_of(int(snapshot.get("character", {}).get("job_id", 0))),
-		SaveData._group(int(save.account.nx))],
+	var jobs := DataRepo.jobs(DataRepo.load_all())
+	character_label = MapleText.new("%s / %s / %s NX" % [snapshot.get("name", ""),
+		jobs.name_of(int(snapshot.get("character", {}).get("job_id", 0))), SaveData._group(int(save.account.nx))],
 		MapleText.SIZE, MapleText.WHITE, true)
 	_ui.add_child(character_label)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
+	_refresh()
 	scroll.unroll()
 
 
@@ -140,7 +144,8 @@ static func load_stages(data: Dictionary, tier: int = -1) -> Array[Dictionary]:
 			var boss_name := library.string_name("Mob", boss_id).strip_edges() if library != null else ""
 			map_rows.append("%s → %s" % [map_name if map_name != "" else str(id),
 				boss_name if boss_name != "" else str(boss_id)])
-		out.append({"key": key, "map_id": map_id,
+		out.append({"key": key, "map_id": map_id, "tier": maxi(tier, NxAward.tier_of(data.get("stages", {}), key)),
+			"locked": false,
 			"region": String(labels.region),
 			"continent": String(labels.continent),
 			"mark": mark,
@@ -151,9 +156,27 @@ static func load_stages(data: Dictionary, tier: int = -1) -> Array[Dictionary]:
 	return out
 
 
-## Starts the selected stage (new random seed).
+## Every stage of every tier in tier order; those of a tier beyond the `tiers_unlocked` first ones are marked locked.
+static func load_all_tiers(data: Dictionary, tiers_unlocked: int) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var ordered: Array = data.get("stages", {}).get("tiers", [])
+	for tier in ordered.size():
+		for card in load_stages(data, tier):
+			card["tier"] = tier
+			card["locked"] = tier >= maxi(1, tiers_unlocked)
+			out.append(card)
+	return out
+
+
+## The keys of the stages the character may start, in list order.
+func unlocked_keys() -> Array:
+	return stages.filter(func(card: Dictionary) -> bool: return not bool(card.locked)).map(
+		func(card: Dictionary) -> String: return String(card.key))
+
+
+## Starts the selected stage (new random seed); a locked stage does nothing.
 func start_selected() -> void:
-	if selected < 0 or selected >= stages.size():
+	if selected < 0 or selected >= stages.size() or bool(stages[selected].locked):
 		return
 	if flow != null:
 		flow.start_round(String(stages[selected].key))
@@ -166,8 +189,9 @@ func select(i: int) -> void:
 	i = clampi(i, 0, stages.size() - 1)
 	if i != selected:
 		selected = i
+		top = clampi(top, maxi(0, selected - MAX_CARDS + 1), selected)
 		UiArt.play_sound(UiArt.SND_OVER)
-		scroll.queue_redraw()
+		_refresh()
 
 
 func _on_shop() -> void:
@@ -177,7 +201,15 @@ func _on_shop() -> void:
 
 func _on_back() -> void:
 	if flow != null:
-		flow.save_and_quit()
+		flow.goto_free_market()
+
+
+## Redraws the parchment and dims Start for a locked stage.
+func _refresh() -> void:
+	if start_button != null:
+		start_button.disabled = selected < stages.size() and bool(stages[selected].locked)
+	if scroll != null:
+		scroll.queue_redraw()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -196,31 +228,34 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _on_scroll_input(event: InputEvent) -> void:
-	if not scroll.is_open():
+	if not scroll.is_open() or not event is InputEventMouseButton:
 		return
-	var p := (event as InputEventMouse).position if event is InputEventMouse else Vector2(-1, -1)
-	var hit := _entry_at(p)
-	if hit < 0:
+	var mb := event as InputEventMouseButton
+	if not mb.pressed:
 		return
-	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			if mb.double_click and hit == selected:
-				start_selected()
-			else:
-				select(hit)
+	if mb.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		select(selected + (1 if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1))
+		return
+	var hit := _entry_at(mb.position)
+	if hit < 0 or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if mb.double_click and hit == selected:
+		start_selected()
+	else:
+		select(hit)
 
 
 func _entry_at(p: Vector2) -> int:
-	for i in stages.size():
+	for i in range(top, mini(stages.size(), top + MAX_CARDS)):
 		if _entry_rect(i).has_point(p):
 			return i
 	return -1
 
 
+## The card of stage `i` in the list window (cards above `top` or below the fourth are not shown).
 func _entry_rect(i: int) -> Rect2:
 	var r := ParchmentScroll.PARCHMENT
-	return Rect2(LIST_X, r.position.y + 6.0 + i * ENTRY_H, LIST_W, ENTRY_H - 2.0)
+	return Rect2(LIST_X, r.position.y + 6.0 + (i - top) * ENTRY_H, LIST_W, ENTRY_H - 2.0)
 
 
 func _layout() -> void:
@@ -239,29 +274,43 @@ func _layout() -> void:
 
 func _draw_parchment(ci: Control) -> void:
 	var r := ParchmentScroll.PARCHMENT
-	for i in stages.size():
+	for i in range(top, mini(stages.size(), top + MAX_CARDS)):
 		_draw_entry(ci, i)
+	_draw_list_arrows(ci)
 	PixelDraw.vline(ci, DETAIL_X - 7.0, r.position.y + 8.0, r.end.y - 8.0, Color(INK_SOFT, 0.45))
 	if selected >= 0 and selected < stages.size():
 		_draw_details(ci, stages[selected])
 
 
+## Small triangles at the list's right edge when cards are hidden above or below.
+func _draw_list_arrows(ci: Control) -> void:
+	var r := ParchmentScroll.PARCHMENT
+	var x := LIST_X + LIST_W + 3.0
+	if top > 0:
+		var y := r.position.y + 8.0
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(x, y + 5), Vector2(x + 8, y + 5), Vector2(x + 4, y)]), INK_SOFT)
+	if top + MAX_CARDS < stages.size():
+		var y := r.position.y + 6.0 + MAX_CARDS * ENTRY_H - 10.0
+		ci.draw_colored_polygon(PackedVector2Array([Vector2(x, y), Vector2(x + 8, y), Vector2(x + 4, y + 5)]), INK_SOFT)
+
+
 func _draw_entry(ci: Control, i: int) -> void:
 	var st: Dictionary = stages[i]
+	var locked := bool(st.locked)
 	var e := _entry_rect(i)
 	if i == selected:
 		ci.draw_rect(e, Color8(255, 170, 68, 70))
 		PixelDraw.outline(ci, e, Color8(170, 85, 0, 160))
 	var mark := UiArt.frame(MARK + String(st.mark)) if String(st.mark) != "" else null
 	if mark != null:
-		UiArt.blit(ci, mark, e.position + Vector2(3, 3))
+		UiArt.blit(ci, mark, e.position + Vector2(3, 3), Color(1, 1, 1, 0.4) if locked else Color.WHITE)
 	var tx := e.position.x + 46.0
 	var tw := e.size.x - 48.0
 	var lines := MapleText.wrap(String(st.region), tw, MapleText.SMALL, true)
 	var y := e.position.y + (6.0 if lines.size() > 1 else 14.0)
 	for k in mini(2, lines.size()):
 		MapleText.draw(ci, Vector2(tx, y), MapleText.ellipsize(lines[k], tw, MapleText.SMALL, true),
-			INK_RED if i == selected else INK, MapleText.SMALL, true)
+			INK_LOCKED if locked else (INK_RED if i == selected else INK), MapleText.SMALL, true)
 		y += MapleText.LINE_SMALL + 1.0
 
 
@@ -272,8 +321,13 @@ func _draw_details(ci: Control, st: Dictionary) -> void:
 	MapleText.draw(ci, Vector2(x, y), MapleText.ellipsize(String(st.region), DETAIL_W, MapleText.SIZE, true), INK,
 		MapleText.SIZE, true)
 	y += 16.0
-	MapleText.draw(ci, Vector2(x, y), String(st.continent), INK_SOFT, MapleText.SMALL)
+	MapleText.draw(ci, Vector2(x, y), "%s / Tier %d" % [st.continent, int(st.tier) + 1], INK_SOFT, MapleText.SMALL)
 	y += 18.0
+	if bool(st.locked):
+		for line: String in MapleText.wrap(locked_text(int(st.tier)), DETAIL_W, MapleText.SMALL, true):
+			MapleText.draw(ci, Vector2(x, y), line, INK_RED, MapleText.SMALL, true)
+			y += MapleText.LINE_SMALL
+		y += MAP_ROW_GAP
 	MapleText.draw(ci, Vector2(x, y), String(st.objective), INK,
 		MapleText.SMALL)
 	y += 15.0
@@ -290,6 +344,11 @@ func _draw_details(ci: Control, st: Dictionary) -> void:
 			MapleText.draw(ci, Vector2(x, y), line, INK, MapleText.SMALL)
 			y += MapleText.LINE_SMALL
 		y += MAP_ROW_GAP
+
+
+## What unlocks a tier ("" for tier 1, which is always open).
+static func locked_text(tier: int) -> String:
+	return "Locked. Clear any stage of Tier %d to unlock Tier %d." % [tier, tier + 1]
 
 
 ## The best-result line of the details column.

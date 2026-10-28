@@ -1,7 +1,8 @@
 extends TestCase
-## Warrior first job (100, spec #151 ticket #163), end to end on the synthetic map with the real survivor data: the
-## advancement window and grants, Power Strike (weapon reach), Slash Blast (range around, HP and MP cost), facing
-## before a cast, Iron Body, the three passives, the cards and the bot's weapon-aware scans. Seeded, fixed ticks.
+## Warrior first job (100, spec #151 ticket #163), on the synthetic map with the real survivor data: Power Strike
+## (weapon reach), Slash Blast (range around, HP cost), facing before a cast, Iron Body, the three passives, the
+## cards and the bot's reach scans. The character is stood as a Warrior directly (RF.as_job: job 100 with the sword its
+## removed advancement granted; #284 removed advancement). Seeded, fixed ticks.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -11,15 +12,16 @@ const MOB := 1110100
 
 func _world(seed_value := 7, job := 100) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 1000
-	data.balance.player.skills = []
+	data.balance.player.hp = 275 # the Beginner's 50 plus the removed first-job +225 grant (#284)
 	data.balance.magnet_radius = 0
-	var w := RunWorld.new(RF.with_basic_attack(RF.setup("quiet", seed_value, data)))
+	var setup := RF.with_basic_attack(RF.setup("quiet", seed_value, data))
+	setup["job"] = job # a job without start skills: the loadout starts empty
+	var w := RunWorld.new(setup)
 	for mk: MobKind in w.mob_kinds:
 		mk.hitbox = Rect2(-5, -10, 10, 10)
 		mk.move_speed = 0.0
 	if job != 0:
-		w.change_job(job)
+		RF.as_job(w, job)
 	RF.place_player(w, 400)
 	w.god = true # nothing here is about taking damage; HP-cost tests set the pool directly
 	w.drain_events()
@@ -30,11 +32,9 @@ func _mob(w: RunWorld, dx: float) -> int:
 	return RF.put_mob(w, MOB, w.player.pos.x + dx, 190.0, 1000.0)
 
 
-## Sets the HP and MP pools directly and refreshes the published player_state.
-func _pools(w: RunWorld, hp: float, mp: float = -1.0) -> void:
+## Sets the HP pool directly and refreshes the published player_state.
+func _pools(w: RunWorld, hp: float) -> void:
 	w._hp = hp
-	if mp >= 0.0:
-		w._mp = mp
 	w._write_player_state(0.0)
 
 
@@ -62,7 +62,7 @@ func _of(events: Array, type: String) -> Array:
 
 
 func test_cheap_target_check_matches_warrior_admission_on_both_sides() -> void:
-	# The #146 MP-short scan must keep both #151 rules, including Power Strike turning while walking or airborne.
+	# The #146 cheap target scan must keep both #151 rules, including Power Strike turning while walking or airborne.
 	for key: String in ["power_strike", "slash_blast"]:
 		for facing in [-1, 1]:
 			for dx in [-1000.0, -40.0, 40.0, 1000.0]:
@@ -80,173 +80,11 @@ func test_cheap_target_check_matches_warrior_admission_on_both_sides() -> void:
 				assert_eq(w.player.facing, facing, "admission checks do not turn the player")
 
 
-# --- the job window and its grants ----------------------------------------------------------------------------
-
-func test_the_lv10_window_offers_the_warrior_and_advancing_gives_hp_and_str_ap() -> void:
-	var w := _world(11, 0)
-	var exp_gain := func(level: int) -> void:
-		var need := w.progression.curve.total_to(level) - w.progression.curve.total_to(w.progression.level) \
-			- w.progression.exp
-		w.pickups.spawn(w.player.pos, need, 4000019)
-		for tick in 120:
-			w.step(DT, MoveInput.new())
-			if w.state != RunWorld.PLAYING or w.progression.level == level:
-				break
-	for level in range(2, 10):
-		exp_gain.call(level)
-		RF.auto_choose(w)
-	assert_eq(w.progression.level, 9)
-	exp_gain.call(10)
-	assert_eq(w.state, RunWorld.CHOOSING_JOB, "Lv 10 opens the advancement window")
-	var warrior: Array = w.pending_jobs.filter(func(o: Dictionary) -> bool: return int(o.job_id) == 100)
-	assert_eq(warrior.size(), 1)
-	assert_true(bool(warrior[0].available), "the Warrior is on offer at Lv 10")
-	assert_eq(warrior[0].name, "Warrior")
-	var others: Array = w.pending_jobs.filter(func(o: Dictionary) -> bool: return int(o.job_id) in [300, 400])
-	assert_eq(others.size(), 2, "Bowman and Thief once each")
-	assert_true(others.all(func(o: Dictionary) -> bool: return o.available), "Bowman and Thief are playable")
-	var hp0: int = w.player_state.max_hp
-	var mp0: int = w.player_state.max_mp
-	var str0: int = w.player_state.str
-	assert_true(w.apply_job(100))
-	assert_eq(w.player_state.max_hp, hp0 + 225, "first-job Max HP grant")
-	assert_eq(w.player_state.max_mp, mp0, "no MP grant")
-	assert_eq(w.player_state.str, str0, "advancing redistributes nothing: the earned AP already sat in STR")
-	assert_eq(w.player_state.dex, 5, "DEX takes no AP: no Warrior item needs it")
-	assert_eq(w.weapon_id(), 1302077, "the Beginner Warrior's sword is granted and worn")
-	assert_eq(w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id)), [1302000],
-		"only the creation sword waits in the Equip tab")
-	var ids := w.pending_cards.map(func(c: Dictionary) -> String: return c.id)
-	assert_has(ids, "power_strike_new", "the advancement draw offers Power Strike")
-	assert_has(ids, "slash_blast_new", "and Slash Blast")
-	assert_eq(w.pending_cards.size(), 3)
-	w.apply_choice("power_strike_new")
-	RF.auto_choose(w)
-	var str1: int = w.player_state.str
-	exp_gain.call(11)
-	RF.auto_choose(w)
-	assert_eq(w.player_state.str, str1 + 5, "every earned AP goes to STR")
-	assert_eq(w.player_state.dex, 5)
-
-
-## A Beginner at Lv 10 with a full Equip tab but `free` slots, the window open.
-func _advancing(free: int, creation_weapon := 1302000, job := 100) -> RunWorld:
-	var data := RF.quiet_data()
-	data.upgrades.cards = []
-	var setup := RF.with_basic_attack(RF.setup("quiet", 5, data))
-	var character := RunWorld.new(setup).character_snapshot()
-	character.equipment.worn.weapon = Equipment.create(creation_weapon, setup.equipment_info.get(creation_weapon, {"incPAD": 19.0, "attackSpeed": 5.0}))
-	for i in 24 - free:
-		character.equipment.inventory.append(Equipment.create(1040002, {"incPDD": 3, "tuc": 7}))
-	setup.character = character
-	var w := RunWorld.new(setup)
-	RF.place_player(w, 400)
-	w.progression.level = 9
-	w.progression.add_exp(w.progression.exp_to_next())
-	w.step(DT, MoveInput.new())
-	assert_eq(w.state, RunWorld.CHOOSING_JOB, "the advancement window is open")
-	w.drain_events()
-	assert_true(w.apply_job(job))
-	return w
-
-
-func _inventory_ids(w: RunWorld) -> Array:
-	return w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
-
-
-func test_the_warrior_default_advancement_gives_only_the_sword() -> void:
-	var w := _advancing(24)
-	assert_eq(w.weapon_id(), 1302077, "the Beginner Warrior's sword (PAD 30) is worn")
-	assert_eq(int(w.weapon_info().incPAD), 30)
-	assert_eq(w.held_weapon_family(), "sword")
-	assert_eq(_inventory_ids(w), [1302000], "only the old sword")
-	assert_eq(_of(w.drain_events(), "pickup_spawned").size(), 0, "everything fit: nothing lies on the ground")
-	var held: Array = w.equipment.inventory.map(func(i: Dictionary) -> String: return WeaponInfo.family(int(i.id)))
-	assert_eq(held, ["sword"])
-
-
-func test_an_axe_wielding_warrior_gets_the_same_grants_and_keeps_the_axe_in_the_tab() -> void:
-	var w := _advancing(24, 1312004)
-	assert_eq(w.weapon_id(), 1302077)
-	assert_eq(_inventory_ids(w), [1312004])
-
-
-func test_a_full_equip_tab_drops_only_the_old_weapon() -> void:
-	var w := _advancing(0)
-	assert_eq(w.weapon_id(), 1302077, "advancing never fails")
-	assert_eq(w.equipment.inventory.size(), 24, "the tab is unchanged")
-	var spawned := _of(w.drain_events(), "pickup_spawned")
-	var ids: Array = spawned.map(func(e: Dictionary) -> int: return int(e.item_id))
-	ids.sort()
-	assert_eq(ids, [1302000], "only the old sword")
-	for e: Dictionary in spawned:
-		assert_eq(e.kind, "equip")
-		assert_eq(e.pos, w.player.pos, "at the player's feet")
-
-
-func test_bot_planner_keeps_the_chosen_family_when_an_alternative_is_owned() -> void:
-	var w := _advancing(24)
-	w.equipment.inventory.append(Equipment.create(1432000, w.setup.equipment_info[1432000]))
-	assert_eq(BotShop.auto_equip(w), 0, "auto-equip preserves the held family after a path is recorded")
-	assert_eq(w.weapon_id(), 1302077)
-	assert_eq(_inventory_ids(w).size(), 2, "the creation sword and acquired spear wait in the tab")
-	assert_has(_inventory_ids(w), 1432000)
-
-
-func test_one_free_slot_keeps_the_old_weapon() -> void:
-	var w := _advancing(1)
-	assert_eq(w.equipment.inventory.size(), 24)
-	assert_eq(_inventory_ids(w).slice(23), [1302000], "the displaced weapon has priority for the free slot")
-	var ids: Array = _of(w.drain_events(), "pickup_spawned").map(func(e: Dictionary) -> int: return int(e.item_id))
-	ids.sort()
-	assert_eq(ids, [])
-
-
-func test_the_magician_advancement_is_unchanged() -> void:
-	var w := _advancing(24, 1302000, 200)
-	assert_eq(w.weapon_id(), 1372005, "the Wooden Wand")
-	assert_eq(_inventory_ids(w), [1302000], "only the old weapon moves; no extra items")
-	assert_eq(_of(w.drain_events(), "pickup_spawned").size(), 0)
-
-
-func test_the_shipped_warrior_grant_data() -> void:
-	var data := DataRepo.load_all()
-	assert_false(data.balance.player.weapon_grants.has("100"), "Warrior grants live only in paths")
-	var grants: Dictionary = data.jobs_survivor.jobs["100"].grants
-	assert_false(grants.has("items"), "no spare grants")
-	assert_eq(data.jobs_survivor.jobs["100"].paths.map(func(p: Dictionary) -> int: return int(p.item_id)), [1302077, 1432000, 1322006])
-	assert_false(data.jobs_survivor.jobs["200"].grants.has("items"), "the Magician has no extra items")
-	var ids := DataRepo.starter_equipment_ids(data)
-	for id in [1302077, 1432000, 1322006]:
-		assert_true(id in ids, "%d loads its canonical info with the setup" % id)
-
-
-func test_warrior_growth_is_26_hp_and_5_mp_per_level() -> void:
+func test_warrior_growth_is_26_hp_per_level() -> void:
 	var w := _world(12)
 	var hp0: int = w.player_state.max_hp
-	var mp0: int = w.player_state.max_mp
 	_level_up(w)
 	assert_eq(w.player_state.max_hp, hp0 + 26)
-	assert_eq(w.player_state.max_mp, mp0 + 5)
-
-
-func test_an_unforced_bot_picks_a_seeded_random_first_job_and_job_forces_one() -> void:
-	var options := [{"job_id": 100, "available": true}, {"job_id": 200, "available": true}]
-	var seen := {}
-	for seed_value in range(1, 31):
-		var a := RandomNumberGenerator.new()
-		a.seed = seed_value
-		var b := RandomNumberGenerator.new()
-		b.seed = seed_value
-		var pick := RF.pick_job(options, a)
-		assert_eq(pick, RF.pick_job(options, b), "seed %d picks the same job twice" % seed_value)
-		seen[pick] = true
-	assert_eq(seen.keys().size(), 2, "over 30 seeds the job stream picks both the Warrior and the Magician")
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 9
-	assert_eq(RF.pick_job(options, rng, 100), 100, "--job=100 takes the Warrior")
-	assert_eq(RF.pick_job(options, rng, 200), 200, "--job=200 the Magician")
-	assert_eq(RF.pick_job([{"job_id": 100, "available": true}], rng), 100, "the only open job is taken")
 
 
 # --- data -----------------------------------------------------------------------------------------------------
@@ -262,10 +100,8 @@ func test_the_six_warrior_skills_are_defined_with_canonical_ids_and_level_counts
 		assert_eq(w.book.max_level(key), want[key][1], key)
 	for key in ["power_strike", "slash_blast"]:
 		assert_eq(Array(w.book.weapon_families(key)), ["sword", "axe", "blunt", "spear", "polearm"])
-		for family in ["dagger", "wand", "staff", "bow", "claw", "knuckle", "gun", ""]:
-			assert_false(w.book.usable_with(key, family), "%s is not usable with %s" % [key, family if family != "" else "bare hands"])
 	for key in ["iron_body", "improved_hp_recovery", "improved_max_hp"]:
-		assert_true(w.book.usable_with(key, "") and w.book.usable_with(key, "wand"), "%s needs no weapon" % key)
+		assert_true(w.book.weapon_families(key).is_empty(), "%s names no weapon" % key)
 
 
 func test_real_100_img_matches_the_data() -> void:
@@ -299,7 +135,7 @@ func test_power_strike_hits_the_nearest_mob_inside_the_weapon_reach_and_none_out
 	var w := _world(21)
 	w.learn_skill("power_strike")
 	w.player.facing = -1
-	var reach := w.basic.reach(w)
+	var reach := w.weapon_reach.reach(w)
 	assert_near(reach, 88.0, 0.001, "the synthetic sword afterimage reaches 88 px")
 	var far := _mob(w, -150.0)
 	var events := _cast(w)
@@ -307,14 +143,12 @@ func test_power_strike_hits_the_nearest_mob_inside_the_weapon_reach_and_none_out
 	assert_eq(w.swarm.hp[far], w.swarm.max_hp[far])
 	var mid := _mob(w, -60.0)
 	var near := _mob(w, -40.0)
-	var mp0: int = w.player_state.mp
 	events = _cast(w)
 	var hits := _of(events, "mob_hit")
 	assert_eq(_of(events, "cast").size(), 1)
 	assert_eq(hits.size(), 1, "attackCount 1 and one target")
 	assert_eq(hits[0].mob, near, "the nearest mob in reach")
 	assert_eq(hits[0].skill, "power_strike")
-	assert_eq(mp0 - int(w.player_state.mp), 4, "canonical rank-1 MP cost")
 	assert_eq(w.swarm.hp[mid], w.swarm.max_hp[mid])
 	assert_eq(w.swarm.hp[far], w.swarm.max_hp[far])
 
@@ -354,15 +188,15 @@ func test_target_cards_are_the_only_source_of_extra_power_strike_targets() -> vo
 		mobs.append(_mob(w, dx))
 	assert_eq(_of(_cast(w), "mob_hit").size(), 1)
 	w.runner.cooldowns["power_strike"] = 0.0
-	w.upgrades.apply("power_strike_targets", w)
+	RF.add_modifier_effects(w, w.upgrades.card("power_strike_targets"))
 	assert_eq(w.loadout.stats("power_strike").mob_count, 2)
 	var hits := _of(_cast(w), "mob_hit")
 	assert_eq(hits.map(func(e: Dictionary) -> int: return e.mob), [mobs[0], mobs[1]], "the two nearest")
 
 
-# --- Slash Blast: everything around, for HP and MP --------------------------------------------------------------
+# --- Slash Blast: everything around, for HP -------------------------------------------------------------------
 
-func test_slash_blast_hits_at_most_six_mobs_within_range_on_both_sides_and_costs_hp_and_mp() -> void:
+func test_slash_blast_hits_at_most_six_mobs_within_range_on_both_sides_and_costs_hp() -> void:
 	var w := _world(31)
 	w.learn_skill("slash_blast")
 	var st := w.loadout.stats("slash_blast")
@@ -370,21 +204,18 @@ func test_slash_blast_hits_at_most_six_mobs_within_range_on_both_sides_and_costs
 	assert_near(float(st.range), 130.0, 1e-9, "rank 1 canonical range")
 	assert_eq(st.mob_count, 6)
 	assert_eq(st.hp_cost, 8)
-	assert_eq(st.mp_cost, 6)
 	var outside := _mob(w, 160.0)
 	var inside: Array[int] = []
 	for dx: float in [-20.0, 30.0, -50.0, 70.0, -90.0, 110.0, -120.0, 125.0]:
 		inside.append(_mob(w, dx))
 	w.god = false
 	var hp0: int = w.player_state.hp
-	var mp0: int = w.player_state.mp
 	var events := _cast(w)
 	var hits := _of(events, "mob_hit")
 	assert_eq(hits.size(), 6, "mobCount 6 caps the blast")
 	assert_eq(hits.map(func(e: Dictionary) -> int: return e.mob), [inside[0], inside[1], inside[2], inside[3], inside[4], inside[5]],
 		"the six nearest")
 	assert_eq(hp0 - int(w.player_state.hp), 8, "canonical hpCon")
-	assert_eq(mp0 - int(w.player_state.mp), 6, "canonical mpCon")
 	assert_eq(w.swarm.hp[outside], w.swarm.max_hp[outside], "beyond range")
 	assert_eq(w.swarm.hp[inside[7]], w.swarm.max_hp[inside[7]], "inside range but past the sixth")
 
@@ -394,10 +225,10 @@ func test_slash_blast_range_and_target_cards_widen_it() -> void:
 	w.learn_skill("slash_blast")
 	var edge := _mob(w, 150.0)
 	assert_eq(_of(_cast(w), "cast").size(), 0, "150 px is beyond the rank-1 range")
-	w.upgrades.apply("slash_blast_range", w)
+	RF.add_modifier_effects(w, w.upgrades.card("slash_blast_range"))
 	assert_near(float(w.loadout.stats("slash_blast").range), 156.0, 1e-3, "range x1.2")
 	assert_eq(_of(_cast(w), "mob_hit").map(func(e: Dictionary) -> int: return e.mob), [edge])
-	w.upgrades.apply("slash_blast_targets", w)
+	RF.add_modifier_effects(w, w.upgrades.card("slash_blast_targets"))
 	assert_eq(w.loadout.stats("slash_blast").mob_count, 8, "+2 targets per step over the canonical 6")
 
 
@@ -407,30 +238,14 @@ func test_slash_blast_never_casts_when_its_hp_cost_would_leave_no_hp() -> void:
 	w.god = false
 	var m := _mob(w, 40.0)
 	_pools(w, 8.0) # exactly the rank-1 cost: paying it would kill
-	var mp0: int = w.player_state.mp
 	var events := _cast(w)
 	assert_eq(_of(events, "cast").size(), 0)
-	assert_eq(_of(events, "mp_short").size(), 0, "it is not an MP shortage")
 	assert_eq(w.player_state.hp, 8)
-	assert_eq(w.player_state.mp, mp0, "nothing is paid")
 	assert_eq(w.swarm.hp[m], w.swarm.max_hp[m])
 	_pools(w, 9.0)
 	events = _cast(w)
 	assert_eq(_of(events, "cast").size(), 1, "one HP to spare is enough")
 	assert_eq(w.player_state.hp, 1)
-
-
-func test_slash_blast_does_not_charge_hp_or_mp_when_mp_is_short() -> void:
-	var w := _world(34)
-	w.learn_skill("slash_blast")
-	w.god = false
-	_mob(w, 40.0)
-	_pools(w, w._hp, 5.0)
-	var hp0: int = w.player_state.hp
-	var events := _cast(w)
-	assert_eq(_of(events, "mp_short").size(), 1)
-	assert_eq(w.player_state.hp, hp0, "a failed MP payment leaves HP alone")
-	assert_eq(w.player_state.mp, 5)
 
 
 # --- facing ---------------------------------------------------------------------------------------------------------
@@ -524,30 +339,6 @@ func test_improved_max_hp_adds_its_hp_to_each_later_level_up_only() -> void:
 
 # --- cards ----------------------------------------------------------------------------------------------------------
 
-func test_warrior_cards_are_offered_only_to_job_100_holding_a_warrior_weapon() -> void:
-	var warrior_cards := ["power_strike_new", "slash_blast_new", "iron_body_new", "improved_hp_recovery_new",
-		"improved_max_hp_new"]
-	var magician := _world(71, 200)
-	var beginner := _world(71, 0)
-	for id in warrior_cards:
-		assert_false(id in magician.upgrades.eligible(magician), "%s is not offered to a Magician" % id)
-		assert_false(id in beginner.upgrades.eligible(beginner), "%s is not offered to a Beginner" % id)
-	var w := _world(71)
-	var ids: Array = w.upgrades.eligible(w)
-	for id in warrior_cards:
-		assert_has(ids, id)
-	# A wand can use no attack: the attack cards go, the weaponless skills stay.
-	w.equipment.worn["weapon"] = {"id": 1372005}
-	ids = w.upgrades.eligible(w)
-	assert_false("power_strike_new" in ids or "slash_blast_new" in ids, "no Power Strike or Slash Blast with a wand")
-	for id in ["iron_body_new", "improved_hp_recovery_new", "improved_max_hp_new"]:
-		assert_has(ids, id)
-	w.equipment.worn.erase("weapon")
-	ids = w.upgrades.eligible(w)
-	assert_false("power_strike_new" in ids or "slash_blast_new" in ids, "no attack cards bare-handed")
-	w.equipment.worn["weapon"] = {"id": 1432000}
-	assert_has(w.upgrades.eligible(w), "power_strike_new", "a spear is a Warrior weapon")
-
 
 func test_every_attack_has_a_hits_more_mobs_card() -> void:
 	var w := _world(72)
@@ -578,27 +369,25 @@ func test_reach_of_reads_the_weapon_swing_and_the_slash_blast_range() -> void:
 	w.learn_skill("power_strike")
 	w.learn_skill("slash_blast")
 	w.learn_skill("iron_body")
-	assert_near(SkillRunner.reach_of(w.loadout.stats("power_strike"), w), 88.0, 0.001, "the basic attack's reach")
+	assert_near(SkillRunner.reach_of(w.loadout.stats("power_strike"), w), 88.0, 0.001, "the weapon's swing reach")
 	assert_near(SkillRunner.reach_of(w.loadout.stats("slash_blast"), w), 130.0, 1e-6, "range around the body")
 	assert_eq(SkillRunner.reach_of(w.loadout.stats("iron_body"), w), 0.0, "a buff is not an attack")
-	w.upgrades.apply("slash_blast_range", w)
+	RF.add_modifier_effects(w, w.upgrades.card("slash_blast_range"))
 	assert_near(SkillRunner.reach_of(w.loadout.stats("slash_blast"), w), 156.0, 1e-3)
 
 
-func test_the_bot_ignores_skills_the_held_weapon_cannot_use_and_unaffordable_hp_costs() -> void:
+func test_the_bot_counts_slash_blast_ready_only_while_its_hp_cost_can_be_paid() -> void:
 	var w := _world(82)
 	w.learn_skill("slash_blast")
 	assert_near(BotInput._reach_profile(w).x, 130.0, 1e-6, "with a sword Slash Blast is the longest attack")
 	assert_near(BotInput._reach_profile(w).y, 130.0, 1e-6, "and it is ready")
 	w.god = false
 	_pools(w, 8.0)
-	assert_near(BotInput._reach_profile(w).y, 88.0, 0.001, "it cannot be paid in HP: only the swing is ready")
+	assert_eq(BotInput._reach_profile(w).y, 0.0, "it cannot be paid in HP: nothing is ready (no basic attack, #284)")
 	_pools(w, 200.0)
 	w.equipment.worn["weapon"] = {"id": 1372005}
 	w.loadout.weapon_family = w.held_weapon_family()
-	assert_near(BotInput._reach_profile(w).x, 88.0, 0.001, "a wand cannot use Slash Blast: only the swing counts")
-	var m := _mob(w, 40.0)
-	assert_true(BotInput._can_duel(w, m), "and nothing else can fire, so the bot stands and swings")
+	assert_near(BotInput._reach_profile(w).x, 130.0, 1e-6, "a wand does not block Slash Blast (#284)")
 
 
 func test_the_forced_warrior_bot_closes_to_melee_range() -> void:
@@ -609,23 +398,6 @@ func test_the_forced_warrior_bot_closes_to_melee_range() -> void:
 	var memo := {}
 	var mi := BotInput.decide(w, memo)
 	assert_true(mi.right, "it walks toward a mob 200 px away instead of kiting")
-
-
-# --- the committed fixture ----------------------------------------------------------------------------------------------
-
-func test_the_warrior_fixture_restores_as_a_living_warrior_with_both_attacks() -> void:
-	var character := DataRepo.load_json("res://tests/fixtures/characters/lv11_warrior_1st.json") as Dictionary
-	assert_eq(int(character.format), CharacterSnapshot.FORMAT)
-	assert_eq(int(character._doc.forced_branch), 100, "its _doc says which bot round made it")
-	var setup := RF.with_basic_attack(RF.setup("quiet", 5, RF.quiet_data()))
-	setup.character = character
-	var w := RunWorld.new(setup)
-	assert_eq(w.progression.job_id, 100)
-	assert_eq(w.progression.level, 11)
-	assert_true(w.loadout.has("power_strike") and w.loadout.has("slash_blast"))
-	assert_eq(w.weapon_id(), 1432000, "the bot's planner wore the Spear")
-	assert_eq(w.player_state.str, 62, "the earned AP are all in STR")
-	assert_eq(w.player_state.max_hp, 427 + int(w.equipment_bonus("incMHP")), "225 grant + 26 per level over the Beginner's")
 
 
 # --- card previews and skill text --------------------------------------------------------------------------------------
@@ -647,42 +419,41 @@ func test_the_tooltip_shows_an_hp_cost_only_for_a_skill_that_pays_one() -> void:
 	var w := _world(93)
 	w.learn_skill("slash_blast")
 	w.learn_skill("power_strike")
-	var model := SkillWindowModel.new(w.book, w.upgrades, w.loadout, w.jobs, 100, SkillText.new(w.book),
-		func() -> String: return "sword")
+	var model := SkillWindowModel.new(w.book, w.upgrades, w.loadout, w.jobs, 100, SkillText.new(w.book))
 	assert_eq(model.skill_tooltip("slash_blast").hp_cost, 8)
 	assert_eq(model.skill_tooltip("power_strike").hp_cost, 0)
 	var lines := SkillTooltip.layout(model.skill_tooltip("slash_blast")).filter(
 		func(l: Array) -> bool: return l[0] == "text").map(func(l: Array) -> String: return String(l[1]))
-	assert_has(lines, "Cooldown 1.6 sec.   HP cost 8   MP cost 6")
-	assert_has(lines, "Weapon : Sword / Axe / Blunt weapon / Spear / Pole Arm")
+	assert_has(lines, "Cooldown 1.6 sec.   HP cost 8")
 	lines = SkillTooltip.layout(model.skill_tooltip("power_strike")).filter(
 		func(l: Array) -> bool: return l[0] == "text").map(func(l: Array) -> String: return String(l[1]))
-	assert_has(lines, "Cooldown 1 sec.   MP cost 4")
+	assert_has(lines, "Cooldown 1 sec.")
 
 
-func test_slash_blast_text_names_its_hp_and_mp_cost_range_and_targets() -> void:
+func test_slash_blast_text_names_its_hp_cost_range_and_targets() -> void:
 	var w := _world(92)
 	w.learn_skill("slash_blast")
 	var text := SkillText.new(w.book)
 	var line := text.level_line("slash_blast", 1, w.loadout.stats("slash_blast"))
-	assert_eq(line, "HP -8, MP -6; damage 72%, up to 6 monsters within 130 px")
+	assert_eq(line, "HP -8; damage 72%, up to 6 monsters within 130 px")
 	w.learn_skill("power_strike")
 	assert_eq(text.level_line("power_strike", 20, w.loadout.stats("power_strike", 20)),
-		"MP -12; damage 260%, up to 1 monster")
+		"Damage 260%, up to 1 monster")
 
 
 # --- Save & quit -> Continue (QA #164) --------------------------------------------------------------------------
 
-func test_a_warrior_with_a_shield_keeps_job_weapon_shield_and_skills_through_save_and_continue() -> void:
+func test_a_warrior_with_a_shield_keeps_job_weapon_and_shield_through_save_and_continue() -> void:
 	var shield := {"reqLevel": 5, "incPDD": 5, "tuc": 7}
 	var setup := RF.with_basic_attack(RF.setup("quiet", 41, RF.quiet_data()))
 	setup.equipment_info[1092003] = shield
 	var base := RunWorld.new(setup).character_snapshot()
-	base.level = 10
 	base.equipment.inventory.append(Equipment.create(1092003, shield))
 	setup.character = base
 	var w := RunWorld.new(setup)
-	w.change_job(100)
+	w.progression.level = 10 # the shield needs Lv5; a character has no level between rounds (#286)
+	w.refresh_player_stats()
+	RF.as_job(w, 100)
 	assert_true(w.learn_skill("power_strike"))
 	assert_eq(w.equip_item(0), "", "the shield is worn beside the sword")
 	var pdd_before: int = w.player_state.pdd
@@ -697,6 +468,5 @@ func test_a_warrior_with_a_shield_keeps_job_weapon_shield_and_skills_through_sav
 	assert_eq(again.held_weapon_family(), "sword")
 	assert_eq(int(again.equipment.worn.shield.id), 1092003, "and the shield")
 	assert_eq(again.player_state.pdd, pdd_before, "the shield still counts")
-	assert_eq(again.loadout.rank("power_strike"), 1, "the Warrior's skills come back")
-	assert_true(again.book.usable_with("power_strike", again.held_weapon_family()))
+	assert_false(again.loadout.has("power_strike"), "skills are not saved: a new round starts from the job's own")
 	assert_eq(again.character_snapshot(), saved, "a second save changes nothing")

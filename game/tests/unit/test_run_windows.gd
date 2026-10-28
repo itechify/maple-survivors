@@ -196,9 +196,9 @@ func test_skill_hotkey_opens_the_skill_window_and_routes_the_keys_to_it() -> voi
 	scene = _make(13, {"autoplay": true, "autopick": true})
 	var w := scene.world
 	_frames(10)
-	w.change_job(200)
+	RF.as_job(w, 200)
 	w.upgrades.apply("magic_claw_new", w)
-	w.upgrades.apply("magic_claw_targets", w)
+	w.loadout.add_skill_mod("magic_claw", "count", "add", 1.0)
 	var t := w.time
 	assert_true(scene.handle_hotkey(_key(KEY_K)), "K is the Skill hotkey")
 	var sw := scene.ui_windows.top() as SkillWindow
@@ -210,7 +210,7 @@ func test_skill_hotkey_opens_the_skill_window_and_routes_the_keys_to_it() -> voi
 	var names := []
 	for tab: Dictionary in sw.model.tabs:
 		names.append(String(tab.name))
-	assert_eq(names, ["Beginner", "Magician"], "the job path, with no star tab")
+	assert_eq(names, ["Common", "Magician"], "the common passives, then the job line (no Beginner or star tab)")
 	assert_eq(sw.tab, 1, "on the current job's tab")
 	assert_true(scene.handle_hotkey(_key(KEY_DOWN)), "the run hands arrows to the top window")
 	var claw_row := -1
@@ -221,10 +221,11 @@ func test_skill_hotkey_opens_the_skill_window_and_routes_the_keys_to_it() -> voi
 		scene.handle_hotkey(_key(KEY_DOWN))
 	var tip := sw.tooltip()
 	assert_eq(tip.get("key"), "magic_claw")
-	assert_eq(tip.upgrades[0].text, "Twin Claw ×1: +1 target", "the real card's Upgrades line")
+	assert_true(tip.upgrades.is_empty(), "retired standalone cards have no Upgrades rows")
+	assert_eq(w.loadout.stats("magic_claw").count, 2, "effective modifier remains in the skill stats")
 	assert_false("canonical" in String(tip.desc) + String(tip.current) + String(tip.next), "player-visible text")
 	scene.handle_hotkey(_key(KEY_3))
-	assert_eq(sw.tab, 1, "3: there is no third tab (the star tab is gone), so the tab is unchanged")
+	assert_eq(sw.tab, 1, "3: there is no third tab, so the tab is unchanged")
 	scene.handle_hotkey(_key(KEY_ESCAPE))
 	assert_false(scene.ui_windows.has_windows(), "Esc closed it")
 	assert_false(scene.paused)
@@ -274,10 +275,10 @@ func test_stat_window_shows_the_sims_v83_stats() -> void:
 	if sw == null:
 		return
 	assert_eq(sw.value_text("name"), RunScene.DEFAULT_NAME, "the character name placeholder")
-	assert_eq(sw.value_text("job"), "Beginner")
+	assert_eq(sw.value_text("job"), "Arch Mage (Fire, Poison)", "a fresh character is the only playable job, 212")
 	assert_eq(sw.value_text("level"), str(int(ps.level)))
 	assert_eq(sw.value_text("hp"), "%d / %d" % [int(ps.hp), int(ps.max_hp)])
-	assert_eq(sw.value_text("mp"), "%d / %d" % [int(ps.mp), int(ps.max_mp)])
+	assert_eq(sw.value_text("mp"), "-", "no MP row value (no MP, #285)")
 	for stat: String in ["str", "dex", "int", "luk"]:
 		assert_eq(sw.value_text(stat), str(int(ps[stat])), stat)
 	assert_eq(sw.value_text("ap"), "0", "AP is spent automatically")
@@ -511,7 +512,8 @@ func test_an_open_item_window_refreshes_when_an_equipment_drop_is_picked_up() ->
 	var drawn: int = iw.get("refresh_count") if iw.get("refresh_count") != null else -1
 	# The run is held while a window is open, so nothing is picked up through advance_frame; drive the sim directly,
 	# as a world that keeps running under the window (a bot's, a later feature's) would.
-	w.spawn_equipment(w.player.pos, {"id": 1002001, "stats": {"incPDD": 4}, "slots": 7, "scrolls": 0})
+	# a second wand: the weapon slot is taken, so the pickup stays in the Equip tab instead of being worn at once
+	w.spawn_equipment(w.player.pos, {"id": 1372006, "stats": {"incMAD": 25}, "slots": 7, "scrolls": 0})
 	var events := []
 	for i in 120:
 		w.step(DT, MoveInput.new())
@@ -520,6 +522,6 @@ func test_an_open_item_window_refreshes_when_an_equipment_drop_is_picked_up() ->
 			break
 	assert_eq(w.equipment.inventory.size(), had + 1, "the magnet put the drop in the Equip tab")
 	scene.handle_events(events)
-	assert_eq(iw.cell(had).get("id"), 1002001, "the Item window's Equip tab lists the drop")
+	assert_eq(iw.cell(had).get("id"), 1372006, "the Item window's Equip tab lists the drop")
 	var after: Variant = iw.get("refresh_count")
 	assert_true(after != null and int(after) > drawn, "and the window redrew for it")

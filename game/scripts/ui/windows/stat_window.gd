@@ -4,9 +4,10 @@ extends UiWindow
 ## name, job, level, guild, HP, MP, EXP, fame, ability points, STR/DEX/INT/LUK) with the `backgrnd2` detail panel
 ## (attack, weapon defence, magic, magic defence, accuracy, avoidability, hands, speed, jump) beside it; BtDetail
 ## shows / hides the detail panel, BtUIClose closes the window. Read-only: AP is spent automatically, so the BtApUp
-## buttons are never shown. v83 stats only (survivor cards are skills, listed on the Skill window).
+## buttons are never shown. v83 stats only (survivor cards are skills, listed on the Skill window). There is no MP
+## (ADR 0006): the baked MP label and row are covered with a blank panel strip.
 ##
-##   StatWindow.new(info)   # info: RunScene.stat_info() - name, job, level, exp, exp_next, hp, max_hp, mp, max_mp,
+##   StatWindow.new(info)   # info: RunScene.stat_info() - name, job, level, exp, exp_next, hp, max_hp,
 ##                          # str, dex, int, luk, ap, attack, magic, weapon_def, magic_def, accuracy, avoid, speed, jump
 ##                          # and str_bonus .. luk_bonus (what worn equipment adds)
 ## A main stat with an equipment bonus shows the v83 way, "total (base+bonus)"; without one just the total.
@@ -31,13 +32,17 @@ const DETAIL_BUTTON_POS := Vector2(120, 324)
 const CLOSE_BUTTON_POS := Vector2(10, 325)
 ## Main panel rows: key, label (fallback drawing only), field top y (v83 backgrnd; the job field is two rows tall).
 const MAIN_ROWS := [["name", "NAME", 33], ["job", "JOB", 56], ["level", "LEVEL", 79], ["guild", "GUILD", 97],
-	["hp", "HP", 115], ["mp", "MP", 133], ["exp", "EXP.", 151], ["fame", "FAME", 169], ["str", "STR", 245],
+	["hp", "HP", 115], ["exp", "EXP.", 151], ["fame", "FAME", 169], ["str", "STR", 245],
 	["dex", "DEX", 263], ["int", "INT", 281], ["luk", "LUK", 299]]
 ## Detail panel rows (v83 backgrnd2).
 const DETAIL_ROWS := [["attack", "ATTACK", 7], ["weapon_def", "WEAPON DEF.", 25], ["magic", "MAGIC", 43],
 	["magic_def", "MAGIC DEF.", 61], ["accuracy", "ACCURACY", 79], ["avoid", "AVOIDABILITY", 97],
 	["hands", "HANDS", 115], ["speed", "SPEED", 133], ["jump", "JUMP", 151]]
 const FIELD_H := 16.0
+## tier C (ours, #289): the common passives panel fills the free corner above the detail panel (the v83 art has nothing
+## there): the header line, then one line per passive held (at most the six passive slots).
+const PASSIVES_RECT := Rect2(175, 0, 177, 140)
+const PASSIVES_ROW_H := 16.0
 
 ## The stats shown (RunScene.stat_info()).
 var info: Dictionary = {}
@@ -82,7 +87,7 @@ func set_info(p_info: Dictionary) -> void:
 
 ## The text shown for row `key` ("-" when the sim has no such stat).
 func value_text(key: String) -> String:
-	if key == "hp" or key == "mp":
+	if key == "hp":
 		if not info.has(key):
 			return "-"
 		return "%d / %d" % [int(info[key]), int(info.get("max_" + key, 0))]
@@ -105,6 +110,15 @@ func value_text(key: String) -> String:
 	return str(int(v))
 
 
+## The lines of the common passives held, "Maple Warrior  2/5" (info `passives`: Loadout.held_common_passives).
+func passive_texts() -> PackedStringArray:
+	var out := PackedStringArray()
+	for p: Variant in info.get("passives", []):
+		if p is Dictionary:
+			out.append("%s  %d/%d" % [String(p.name), int(p.rank), int(p.max_rank)])
+	return out
+
+
 ## The +AP buttons are never shown (AP is spent automatically).
 func ap_buttons_visible() -> bool:
 	return false
@@ -117,7 +131,7 @@ func title_rect() -> Rect2:
 func _has_point(p: Vector2) -> bool:
 	if Rect2(Vector2.ZERO, MAIN_SIZE).has_point(p):
 		return true
-	return show_detail and Rect2(DETAIL_POS, DETAIL_SIZE).has_point(p)
+	return show_detail and (Rect2(DETAIL_POS, DETAIL_SIZE).has_point(p) or PASSIVES_RECT.has_point(p))
 
 
 func _resize() -> void:
@@ -127,6 +141,11 @@ func _resize() -> void:
 
 func _draw() -> void:
 	_draw_panel(ART + "backgrnd", Vector2.ZERO, MAIN_SIZE, MAIN_ROWS, MAIN_VALUE_X - 4.0)
+	# Cover the baked MP row with a blank gutter from the same panel.
+	var background := UiArt.frame(ART + "backgrnd")
+	if background != null:
+		draw_texture_rect_region(background.page, Rect2(6, 132, 160, 18),
+			Rect2(background.region.position + Vector2(6, 191), Vector2(160, 1)))
 	var black := MapleText.BLACK
 	for row: Array in MAIN_ROWS:
 		MapleText.draw(self, Vector2(MAIN_VALUE_X, float(row[2]) + 2.0), value_text(String(row[0])), black,
@@ -135,10 +154,25 @@ func _draw() -> void:
 		MapleText.SMALL)
 	if not show_detail:
 		return
+	_draw_passives()
 	_draw_panel(ART + "backgrnd2", DETAIL_POS, DETAIL_SIZE, DETAIL_ROWS, DETAIL_VALUE_X - 4.0)
 	for row: Array in DETAIL_ROWS:
 		MapleText.draw(self, DETAIL_POS + Vector2(DETAIL_VALUE_X, float(row[2]) + 2.0), value_text(String(row[0])),
 			black, MapleText.SMALL)
+
+
+## The common passives held: a plain panel in the corner above the detail panel (one line per passive, name and rank).
+func _draw_passives() -> void:
+	var lines := passive_texts()
+	draw_rect(PASSIVES_RECT, Color8(220, 228, 240))
+	PixelDraw.outline(self, PASSIVES_RECT, Color8(99, 147, 183))
+	MapleText.draw(self, PASSIVES_RECT.position + Vector2(8, 4), "PASSIVES  %d/%d" % [lines.size(),
+		int(info.get("passive_slots", 6))], MapleText.BLACK, MapleText.SMALL, true)
+	for i in lines.size():
+		MapleText.draw(self, PASSIVES_RECT.position + Vector2(8, 24.0 + PASSIVES_ROW_H * i),
+			MapleText.ellipsize(lines[i], PASSIVES_RECT.size.x - 16.0, MapleText.SMALL), MapleText.BLACK, MapleText.SMALL)
+	if lines.is_empty():
+		MapleText.draw(self, PASSIVES_RECT.position + Vector2(8, 24), "None yet", MapleText.GREY, MapleText.SMALL)
 
 
 ## The panel art, or (without the cache) a plain panel with the row labels.

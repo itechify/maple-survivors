@@ -19,7 +19,7 @@ const TAURO_MAD := 320.0
 ## A quiet seeded setup with both fixture mobs in the (rate 0) pool. `attack` overrides balance.mob_attacks.
 static func setup(p_seed: int = 76, attack: Dictionary = {}, view := Vector2(800, 600)) -> Dictionary:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 5000
 	data.balance.player.stats.dex = 0
 	data.balance.player.stats.luk = 0

@@ -12,7 +12,7 @@ const BOSS_AT := Vector2(700, 200)
 ## A quiet-stage setup whose only boss is the synthetic Shade; `boss` fields merge into its stage entry.
 static func setup(boss: Dictionary = {"skill_intervals": {"129": 15}}, seed_value := 22) -> Dictionary:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.bosses.teleport_stall = 10000.0
 	data.balance.mob_motion.push_px = 0
 	data.balance.magnet_radius = 0

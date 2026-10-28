@@ -22,7 +22,6 @@ static func world(extra: Dictionary = {}) -> RunWorld:
 	RF.place_player(w, 200)
 	w.loadout.order.clear()
 	w.learn_skill("synthetic")
-	w.basic.cooldown = 1000.0
 	w.god = true
 	w.drain_events()
 	return w

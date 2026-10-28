@@ -7,7 +7,8 @@ const DT := 1.0 / 60.0
 
 func _world(element_attr: String = "") -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 1000
+	# Raw canonical behaviour probes use an explicit identity mapping, independent of survivor rank compression.
+	data.skills.skills.poison_breath.ranks = range(1, 31)
 	var setup := RF.setup("quiet", 55, data)
 	# Synthetic boundary levels exercise changing MP, mastery, poison chance and duration without shared fixtures.
 	setup.skill_imgs["210"].skill["2101005"] = {"elemAttr": "s", "level": {
@@ -20,7 +21,7 @@ func _world(element_attr: String = "") -> RunWorld:
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 200)
 	w.loadout.order.clear()
-	w.change_job(210)
+	RF.as_job(w, 210)
 	w.loadout.set_caster(100.0, 0.0, 30)
 	return w
 
@@ -43,7 +44,7 @@ func _one_cast(w: RunWorld) -> Array:
 	return w.drain_events()
 
 
-func test_poison_breath_rank_resolves_canonical_damage_and_cost_at_projectile_impact() -> void:
+func test_poison_breath_rank_resolves_canonical_damage_at_projectile_impact() -> void:
 	# Independently worked magic ranges with INT=100, MATK=0, at canonical boundary levels.
 	for example: Array in [[1, 10, 15.4, 50.0], [16, 20, 85.4, 175.0],
 			[29, 20, 179.0666667, 283.3333333], [30, 20, 184.3333333, 291.6666667]]:
@@ -55,14 +56,11 @@ func test_poison_breath_rank_resolves_canonical_damage_and_cost_at_projectile_im
 		w.loadout.set_caster(100.0, 0.0, 30)
 		var st := w.loadout.stats("poison_breath")
 		assert_eq(st.level, example[0])
-		assert_eq(st.mp_cost, example[1])
 		assert_eq(st.element, "s", "element comes from canonical skill node")
 		assert_near(st.damage_min, example[2], 1e-4)
 		assert_near(st.damage_max, example[3], 1e-4)
 		var m := _target(w)
-		var before := int(w.player_state.mp)
 		var events := _one_cast(w)
-		assert_eq(before - int(w.player_state.mp), example[1], "one canonical MP payment")
 		var hits := events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit")
 		assert_eq(hits.size(), 1, "one projectile line")
 		if hits.size() == 1:
@@ -115,62 +113,22 @@ func test_seeded_fire_arrow_projectile_applies_canonical_fire_weakness() -> void
 		assert_near(float(damage[1]), float(damage[0]) * 1.5, 1.0, "same roll, weakness x1.5 before rounding")
 
 
-func test_behaviour_cards_change_stats_per_step_and_stop_at_cap() -> void:
-	for example: Array in [["fire_arrow_count", "fire_arrow", "count", 3, 1.0, 4.0],
-			["fire_arrow_pierce", "fire_arrow", "pierce", 2, 0.0, 2.0],
-			["fire_arrow_cooldown", "fire_arrow", "cooldown", 3, 1.0, 0.681472],
-			["poison_breath_pierce", "poison_breath", "pierce", 3, 0.0, 3.0],
-			["poison_breath_cooldown", "poison_breath", "cooldown", 3, 1.25, 0.85184]]:
-		var w := _world()
-		var id := String(example[0])
-		var key := String(example[1])
-		var stat := String(example[2])
-		var card := w.upgrades.card(id)
-		assert_false(card.is_empty(), id + " exists")
-		if card.is_empty():
-			continue
-		assert_false(w.upgrades.is_eligible(card, w), "requires owned skill")
-		w.learn_skill(key)
-		assert_near(float(w.loadout.stats(key)[stat]), example[4])
-		for step in int(example[3]):
-			assert_true(w.upgrades.is_eligible(card, w), id)
-			assert_eq(w.upgrades.apply(id, w), step + 1)
-			var expected := float(example[4]) * pow(0.88, step + 1) if stat == "cooldown" else float(example[4]) + step + 1
-			assert_near(float(w.loadout.stats(key)[stat]), expected, 1e-6, id)
-		assert_false(w.upgrades.is_eligible(card, w), id + " exhausted")
-		w.upgrades.apply(id, w, "legendary")
-		assert_eq(w.upgrades.rank(id, w), example[3], "cannot spend past max steps")
-		assert_near(float(w.loadout.stats(key)[stat]), example[5], 1e-6, "exhausted card cannot change stats")
 
-
-func test_branch_cards_learning_rank_caps_power_flags_and_bot_scores() -> void:
+func test_pool_cards_learning_rank_caps_power_flags_and_bot_scores() -> void:
 	var w := _world()
-	var scores := {"fire_arrow_new": 100.0, "fire_arrow_rank": 74.0, "fire_arrow_count": 87.0,
-		"fire_arrow_pierce": 70.0, "fire_arrow_cooldown": 66.0, "poison_breath_new": 100.0,
-		"poison_breath_rank": 74.0, "poison_breath_pierce": 70.0, "poison_breath_cooldown": 66.0}
-	for id: String in scores:
-		var card := w.upgrades.card(id)
-		assert_false(card.is_empty(), id)
-		assert_true(w.upgrades.is_power(card), id + " raises attack output")
-		assert_eq(card.get("requires", {}).get("jobs", []), [210.0], id + " exact job gate")
-		assert_eq(BotInput.card_score(w, {"id": id}), scores[id], id + " uses existing attack scores")
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 55
-	var draw := w.upgrades.roll_advancement_choices(w, rng)
-	var ids := draw.map(func(c: Dictionary) -> String: return String(c.id))
-	assert_true("fire_arrow_new" in ids and "poison_breath_new" in ids, "both attacks appear in advancement draw")
+	w.book.def("poison_breath").ranks = [4,8,12,15,19,23,27,30]
+	w.set_job(212)
 	for key: String in ["fire_arrow", "poison_breath"]:
+		assert_has(w.upgrades.eligible(w), key + "_new")
+		assert_eq(BotInput.card_score(w, {"id": key + "_new"}), 100.0)
 		assert_eq(w.upgrades.apply(key + "_new", w, "legendary"), 1)
-		assert_eq(w.loadout.rank(key), 5, "tier starting rank")
-		for consumed: int in [8, 16, 24, 25]:
+		assert_eq(w.loadout.rank(key), 1)
+		for consumed in range(1, 8):
 			assert_eq(w.upgrades.apply(key + "_rank", w, "legendary"), consumed)
-		assert_eq(w.loadout.rank(key), 30, "canonical attack cap")
-		assert_false(w.upgrades.is_eligible(w.upgrades.card(key + "_rank"), w))
+		assert_eq(w.loadout.rank(key), 8)
+		assert_eq(w.loadout.level(key), 30)
+		assert_true(w.upgrades.is_eligible(w.upgrades.card(key + "_rank"), w), "Mastery")
 		assert_false(w.upgrades.is_eligible(w.upgrades.card(key + "_new"), w))
-	for job: int in [0, 200, 220, 230]:
-		w.change_job(job)
-		for id: String in scores:
-			assert_false(w.upgrades.is_eligible(w.upgrades.card(id), w), id + " unavailable outside 210")
 
 
 func test_cached_fire_poison_levels_visuals_and_sounds() -> void:
@@ -184,11 +142,10 @@ func test_cached_fire_poison_levels_visuals_and_sounds() -> void:
 	for key: String in ["fire_arrow", "poison_breath"]:
 		lo.add_skill(key)
 		assert_eq(book.max_level(key), 30)
-		for rank in range(1, 31):
+		for rank in range(1, 9):
 			lo.set_rank(key, rank)
 			var st := lo.stats(key)
-			assert_eq(st.level, rank)
-			assert_eq(st.mp_cost, int(book.level_node(key, rank).mpCon))
+			assert_eq(st.level, [4,8,12,15,19,23,27,30][rank - 1])
 		for field: String in ["ball", "hit", "effect"]:
 			assert_true(lib.anim(String(lo.stats(key)[field])).frames.size() > 0, key + " " + field)
 		for path: String in book.def(key).sounds.values():

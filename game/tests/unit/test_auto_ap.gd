@@ -1,19 +1,20 @@
 extends TestCase
-## Automatic AP split between a job line's secondary stat and its primary stat (spec #33 ticket #106): the pure split,
-## seeded Magician and Beginner levelling through RunWorld, and loading the committed Lv38 Magician snapshot.
+## Automatic AP split between a job's secondary stat and its primary stat (spec #33 ticket #106; one row per job since
+## #284): the pure split, seeded 212 levelling and a row-less job through RunWorld, and loading the committed Lv38
+## Magician snapshot.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const FIXTURE := "res://tests/fixtures/characters/lv35_magician_2nd.json"
+const FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 
 ## v83 Character.wz reqLUK of the Magician equipment levels: the independent source for the LUK targets.
 const V83_REQ_LUK := {13: 15, 28: 30, 38: 40, 48: 50, 58: 60, 68: 70}
 
 
 func _keyframes() -> Array:
-	return DataRepo.load_all().balance.player.ap_secondary["200"].keyframes
+	return DataRepo.load_all().balance.player.ap["212"].keyframes
 
 
-func _level_to(w: RunWorld, target: int, forced_job := 0) -> void:
+func _level_to(w: RunWorld, target: int) -> void:
 	var exp := (w.progression.curve.total_to(target) - w.progression.curve.total_to(w.progression.level)
 		- w.progression.exp)
 	w.pickups.spawn(w.player.pos, exp, 4000019)
@@ -22,7 +23,7 @@ func _level_to(w: RunWorld, target: int, forced_job := 0) -> void:
 		if int(w.player_state.level) == target:
 			break
 	assert_eq(int(w.player_state.level), target, "EXP was collected through the run")
-	BotInput.auto_choose(w, false, forced_job)
+	BotInput.auto_choose(w, false)
 
 
 func test_luk_target_matches_the_v83_magician_requirements() -> void:
@@ -40,12 +41,11 @@ func test_split_fills_the_secondary_stat_up_to_target_and_never_more_than_earned
 	assert_eq(AutoAp.secondary_ap(45, 10, 4.0, []), 0, "no keyframes means no secondary stat")
 
 
-func test_magician_levelled_from_10_to_70_keeps_base_luk_at_target_and_the_rest_in_int() -> void:
+func test_arch_mage_levelled_from_2_to_70_keeps_base_luk_at_target_and_the_rest_in_int() -> void:
 	var w := RF.quiet_world(400.0, 601)
-	_level_to(w, 9, 200)
-	for level in range(10, 71):
-		_level_to(w, level, 200) # #199: exercise Magician AP independently of the expanding first-job pool.
-		assert_true(int(w.player_state.job_id) in [200, 210, 220, 230], "a Magician line job")
+	for level in range(2, 71):
+		_level_to(w, level)
+		assert_eq(int(w.player_state.job_id), 212, "the job never changes")
 		var earned := 5 * (level - 1)
 		# Base values come from the Beginner start (LUK 4, INT 4); equipment is not involved here.
 		var luk := int(w.player_state.luk)
@@ -56,15 +56,10 @@ func test_magician_levelled_from_10_to_70_keeps_base_luk_at_target_and_the_rest_
 		assert_eq(int(w.player_state.dex), 5)
 
 
-func test_beginner_attributes_are_unchanged_at_every_level() -> void:
-	var data := RF.quiet_data()
-	# Keep the line at Beginner past Lv10 so that only the Beginner rules are exercised.
-	data.jobs_survivor.jobs["200"].playable = false
-	data.jobs_survivor.jobs["100"].playable = false
-	data.jobs_survivor.jobs["400"].playable = false
-	data.jobs_survivor.jobs["500"].playable = false
-	data.jobs_survivor.jobs["300"].playable = false
-	var w := RunWorld.new(RF.setup("quiet", 602, data))
+func test_a_job_without_an_ap_row_puts_every_point_into_str() -> void:
+	var setup := RF.setup("quiet", 602, RF.quiet_data())
+	setup["job"] = 0 # the Beginner has no balance.player.ap row (nor an ancestor with one)
+	var w := RunWorld.new(setup)
 	RF.place_player(w, 400.0)
 	for level in range(2, 31):
 		_level_to(w, level)
@@ -75,45 +70,26 @@ func test_beginner_attributes_are_unchanged_at_every_level() -> void:
 		assert_eq(int(w.player_state.luk), 4)
 
 
-func test_committed_lv38_magician_snapshot_derives_the_split_on_load() -> void:
-	var errors := PackedStringArray()
-	var character := DataRepo.load_character(FIXTURE, errors)
-	assert_eq(errors, PackedStringArray())
-	if character.is_empty():
-		return
-	var setup := RF.setup("quiet", 2, RF.quiet_data())
-	setup.character = character
-	var w := RunWorld.new(setup)
-	assert_eq(int(w.progression.level), 38)
-	assert_eq(int(w.player_state.luk), 40, "base LUK 4 + 36 AP reaches the Lv38 target")
-	assert_eq(int(w.player_state.int), 153, "base INT 4 + 185 earned - 36 AP moved to LUK")
-	assert_eq(int(w.character_snapshot().earned_ap), 185, "the snapshot still stores only earned AP")
-
-
 func test_batch_exp_matches_stepwise_growth_and_keeps_level_and_potion_queue_order() -> void:
-	var initial := RF.quiet_world(400.0, 1)
-	initial.change_job(200)
-	initial.progression.level = 20
-	initial._earned_ap = 95
-	initial._base_mp = 400.0
-	initial.refresh_player_stats(false)
 	var setup := RF.setup("quiet", 1, RF.quiet_data())
-	setup.character = initial.character_snapshot()
 	# Include two synthetic potion schedule boundaries in the batch and check their event order.
-	setup.data.balance.potions.schedule = [{"level": 22, "kind": "mp", "item": 2022000},
+	setup.data.balance.potions.schedule = [{"level": 22, "kind": "hp", "item": 2000001},
 		{"level": 25, "kind": "hp", "item": 2000002}]
 	var batch := RunWorld.new(setup)
 	var stepwise := RunWorld.new(setup)
-	batch.drain_events()
-	stepwise.drain_events()
+	# A character has no level between rounds (#286): stand both mid-round at Lv20 with 95 earned AP.
+	for w: RunWorld in [batch, stepwise]:
+		RF.as_job(w, 200)
+		w.progression.level = 20
+		w._earned_ap = 95
+		w.refresh_player_stats(false)
+		w.drain_events()
 	var total := 0
 	for level in range(20, 28):
 		var exp := stepwise.progression.curve.exp_to_next(level)
 		total += exp
 		stepwise._gain_exp(exp)
 	batch._gain_exp(total)
-	assert_eq(batch._base_mp, 648.0, "INT before each level's AP determines MP growth")
-	assert_eq(batch._base_mp, stepwise._base_mp, "EXP collection grouping must not change permanent MP")
 	assert_eq(batch._base_hp, stepwise._base_hp)
 	assert_eq(batch._earned_ap, stepwise._earned_ap)
 	assert_eq(batch._attributes, stepwise._attributes)
@@ -125,7 +101,7 @@ func test_batch_exp_matches_stepwise_growth_and_keeps_level_and_potion_queue_ord
 	var events := batch.drain_events()
 	assert_eq(events, stepwise.drain_events(), "level-up and potion notices stay in intermediate-level order")
 	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "potion_tier_up")
-		.map(func(e: Dictionary) -> String: return String(e.kind)), ["mp", "hp"])
+		.map(func(e: Dictionary) -> int: return int(e.item_id)), [2000001, 2000002])
 	batch._advance_queue()
 	assert_eq(batch.state, RunWorld.CHOOSING_UPGRADE, "the first queued level opens its normal choice")
 	assert_eq(batch.progression.front(), 21)

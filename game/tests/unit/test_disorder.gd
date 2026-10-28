@@ -9,9 +9,8 @@ const DT := 1.0 / 60.0
 
 func _world() -> RunWorld:
 	var setup := MF.setup(210)
-	setup.data.balance.player.mp = 300
+	setup["job"] = 400 # a Thief with no start skills (#284)
 	var w := RunWorld.new(setup)
-	RF.change_job_bare(w, 400)
 	RF.place_player(w, 400)
 	w.drain_events()
 	return w
@@ -23,7 +22,7 @@ func _put(w: RunWorld, x: float) -> int:
 	return slot
 
 
-func test_disorder_requires_a_fresh_ordinary_crowd_and_pays_canonical_mp_once() -> void:
+func test_disorder_requires_a_fresh_ordinary_crowd_and_casts_once() -> void:
 	var w := _world()
 	assert_true(w.book.has("disorder"), "Disorder is available")
 	if not w.book.has("disorder"):
@@ -36,14 +35,11 @@ func test_disorder_requires_a_fresh_ordinary_crowd_and_pays_canonical_mp_once() 
 	var already := _put(w, 440)
 	w.swarm.apply_status(already, "threatened", {"time": 30.0, "x": -10.0, "y": -10.0}, w.events)
 	_put(w, 750) # outside the survivor box
-	var mp := int(w.player_state.mp)
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 0, "two eligible mobs do not satisfy the crowd rule")
-	assert_eq(int(w.player_state.mp), mp)
 	var c := _put(w, 550)
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 1)
-	assert_eq(int(w.player_state.mp), mp - 5)
 	for slot: int in [a, b, c]:
 		assert_near(w.swarm.status_time(slot, MobSwarm.THREATENED), 7.0)
 		assert_eq(w.swarm.threatened_pad(slot, 100.0), 99.0)
@@ -57,7 +53,6 @@ func test_disorder_requires_a_fresh_ordinary_crowd_and_pays_canonical_mp_once() 
 func test_disorder_cancels_a_windup_without_stun_or_rescheduling_but_threaten_does_not() -> void:
 	for key in ["disorder", "threaten"]:
 		var w := _world()
-		w.basic.cooldown = 10000.0
 		w.god = true
 		if key == "threaten":
 			RF.change_job_bare(w, 120)
@@ -101,7 +96,7 @@ func test_disorder_cancels_a_windup_without_stun_or_rescheduling_but_threaten_do
 		assert_near(next_start - float(first.time), 3.0, DT, "next attack starts at its original interval")
 
 
-func test_disorder_has_only_learn_and_rank_cards_at_first_job_with_any_weapon() -> void:
+func test_disorder_has_only_learn_and_rank_cards_on_the_thief_line() -> void:
 	var w := _world()
 	assert_eq(w.book.skill_id("disorder"), 4001002)
 	assert_eq(w.book.max_rank("disorder"), 20)
@@ -112,24 +107,19 @@ func test_disorder_has_only_learn_and_rank_cards_at_first_job_with_any_weapon() 
 		assert_eq(Array(c.requires.jobs).map(func(j: Variant) -> int: return int(j)), [400])
 		assert_false(c.requires.has("carry_jobs"))
 		assert_false(bool(c.get("power", false)))
-	for family in ["sword1h", "dagger", "claw", ""]:
-		assert_true(w.book.usable_with("disorder", family), "any held weapon or bare hands")
 
 
 func test_the_nearest_six_get_the_canonical_cut_and_it_expires_without_stun() -> void:
 	for rank in [1, 20]:
 		var w := _world()
-		w.basic.cooldown = 10000.0
 		w.god = true
 		w.learn_skill("disorder")
 		w.loadout.set_rank("disorder", rank)
 		var mobs := []
 		for x in [610.0, 580.0, 550.0, 520.0, 490.0, 460.0, 430.0]:
 			mobs.append(_put(w, x))
-		var mp := int(w.player_state.mp)
 		w.runner.step(DT, w)
 		w.runner.cooldowns.disorder = 10000.0 # observe expiry without an immediate new cast
-		assert_eq(int(w.player_state.mp), mp - (5 if rank == 1 else 10))
 		assert_near(w.swarm.status_time(mobs[0], MobSwarm.THREATENED), 0.0, 1e-6, "farthest is beyond the six-target cap")
 		var slot := int(mobs[-1])
 		assert_eq(w.swarm.threatened_pad(slot, 100.0), 99.0 if rank == 1 else 80.0)
@@ -175,9 +165,8 @@ func test_real_v83_levels_and_art_cast_through_the_survivor_fallback_box() -> vo
 		return
 	var setup := MF.setup(210)
 	setup.skill_imgs["400"] = img.root
-	setup.data.balance.player.mp = 300
+	setup["job"] = 400 # a Thief with no start skills (#284)
 	var w := RunWorld.new(setup)
-	RF.change_job_bare(w, 400)
 	RF.place_player(w, 400)
 	var times := [7,9,11,13,15,20,22,24,29,31,33,38,40,42,47,49,51,56,58,60]
 	var costs := [5,5,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,10,10,10]
@@ -192,10 +181,8 @@ func test_real_v83_levels_and_art_cast_through_the_survivor_fallback_box() -> vo
 	w.learn_skill("disorder")
 	w.loadout.set_rank("disorder", 6)
 	var mobs := [_put(w, 450), _put(w, 500), _put(w, 550)]
-	var mp := int(w.player_state.mp)
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 1)
-	assert_eq(int(w.player_state.mp), mp - 6)
 	assert_near(w.swarm.status_time(mobs[0], MobSwarm.THREATENED), 20.0)
 	assert_eq(w.swarm.threatened_pad(mobs[0], 100.0), 94.0)
 	library.free()

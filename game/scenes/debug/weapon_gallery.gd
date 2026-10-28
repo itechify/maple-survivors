@@ -7,7 +7,7 @@ extends Node2D
 ## One PNG per weapon (<family>_<id>.png): row 1 stands and walks facing left and right in the weapon's own stances
 ## (WeaponInfo.stand_stance / walk_stance); row 2 fires every basic-attack action of the family (WeaponInfo.basic_actions)
 ## at a dummy target, each cell frozen on the impact frame with the afterimage trail and the hit spark, the swing box
-## (BasicAttack.action_spec, the data the automatic attack uses) outlined. --mode=cash: a cash weapon cover
+## (WeaponReach.action_spec, the data weapon reach uses) outlined. --mode=cash: a cash weapon cover
 ## (CASH_COVER) worn over a two-handed sword and over a claw (cash_<id>.png). Prints the action specs and every missing
 ## asset. Needs an asset cache imported with asset_manifest.d/common.json (MAPLE_SURVIVORS_CACHE).
 
@@ -63,7 +63,7 @@ func _sheet(weapon: int, cash: Dictionary, file_name: String) -> void:
 	var after_name := WeaponInfo.afterimage_name(info)
 	var after := _lib.img(WeaponInfo.afterimage_img_path(after_name))
 	var images := {after_name: after.root} if after != null else {}
-	var attack := BasicAttack.new(_body, images)
+	var attack := WeaponReach.new(_body, images)
 	var actions := WeaponInfo.basic_actions(weapon)
 	var specs := {}
 	var widths := PackedFloat32Array()
@@ -157,13 +157,13 @@ func _sheet(weapon: int, cash: Dictionary, file_name: String) -> void:
 
 
 ## --mode=ammo: one sheet per ranged family (ammo_<family>.png), a cell per ammo tier: the avatar at the release frame of
-## its shoot action, the real projectile (BasicAttack.shot_spec through a ProjectileSystem, drawn by ProjectileRenderer)
+## its shoot action, the ammo projectile (_shot_spec through a ProjectileSystem, drawn by ProjectileRenderer)
 ## 0.1 s after release, and the ammo's sprite at 3x with its name and W.Att. Without flags every tier of the family is shown
 ## (its start ammo, then each schedule step); --branch=<job id> --level=<n> shows the one ammo that job and level would
 ## fire (Ammo.item_for), e.g. --branch=410 --level=37 for Mokbi.
 func _ammo_sheets(args: Dictionary) -> void:
 	var data := DataRepo.load_all()
-	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
+	var jobs := DataRepo.jobs(data)
 	var infos := DataRepo.ammo_info(data.ammo, func(path: String) -> Dictionary:
 		var found := _lib.img(path)
 		return found.root if found != null else {})
@@ -192,7 +192,7 @@ func _ammo_sheet(family: String, weapon: int, tiers: Array, ammo: Dictionary, in
 	var info: Dictionary = item.node("info")
 	var after_name := WeaponInfo.afterimage_name(info)
 	var after := _lib.img(WeaponInfo.afterimage_img_path(after_name))
-	var attack := BasicAttack.new(_body, {after_name: after.root} if after != null else {})
+	var attack := WeaponReach.new(_body, {after_name: after.root} if after != null else {})
 	var action: String = WeaponInfo.basic_actions(weapon)[0]
 	var spec := attack.action_spec(weapon, info, action)
 	var size := Vector2(AMMO_CELL_W * tiers.size(), ROW2_H + 90.0) * SCALE
@@ -217,8 +217,6 @@ func _ammo_sheet(family: String, weapon: int, tiers: Array, ammo: Dictionary, in
 	var still := ProjectileSystem.new(8)
 	flying.paths = paths
 	still.paths = paths
-	var swing := {"damage_min": 1.0, "damage_max": 1.0, "damage_pct": 1.0, "player_level": 1, "crit": 0.0, "crit_mult": 1.5,
-		"crit_damage_bonus": 0.0}
 	var look := {"skin": 0, "face": 20000, "hair": 30030, "equips": OUTFIT + [weapon]}
 	var missing := PackedStringArray()
 	for n in tiers.size():
@@ -232,8 +230,8 @@ func _ammo_sheet(family: String, weapon: int, tiers: Array, ammo: Dictionary, in
 		var path := Ammo.bullet_path(id)
 		paths.append(path)
 		var hand := origin + Vector2(30.0, -40.0)
-		flying.spawn(BasicAttack.shot_spec(swing, family, ammo, hand, Vector2.RIGHT, paths.size() - 1, -1))
-		var still_spec := BasicAttack.shot_spec(swing, family, ammo, Vector2.ZERO, Vector2.RIGHT, paths.size() - 1, -1)
+		flying.spawn(_shot_spec(family, ammo, hand, Vector2.RIGHT, paths.size() - 1))
+		var still_spec := _shot_spec(family, ammo, Vector2.ZERO, Vector2.RIGHT, paths.size() - 1)
 		still_spec["vx"] = 0.0
 		still_spec["x"] = (x + 60.0) / 3.0
 		still_spec["y"] = (origin.y + 80.0) / 3.0
@@ -293,3 +291,16 @@ func _args() -> Dictionary:
 			var kv := a.substr(2).split("=", true, 1)
 			out[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	return out
+
+
+## A ProjectileSystem spec of one harmless ammo shot of `family` (survivor/ammo.json speed, radius and rotation; the
+## family's ranged reach plus the overshoot) from `start` along `dir`, drawn with `visual`.
+static func _shot_spec(family: String, ammo: Dictionary, start: Vector2, dir: Vector2, visual: int) -> Dictionary:
+	var shot := Ammo.projectile(ammo, family)
+	if shot.is_empty():
+		return {}
+	var speed := float(shot.speed)
+	return {"x": start.x, "y": start.y, "vx": dir.x * speed, "vy": dir.y * speed,
+		"range": float(WeaponInfo.RANGED_REACH.get(family, 0.0)) + float(shot.overshoot),
+		"radius": float(shot.radius), "rotate": bool(shot.rotate), "visual": visual, "hit_visual": -1,
+		"dmg_min": 1.0, "dmg_max": 1.0, "damage_type": "physical", "skill": "", "level": 0}

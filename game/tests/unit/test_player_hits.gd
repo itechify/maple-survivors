@@ -46,7 +46,7 @@ func test_miss_has_no_damage_knockback_or_invincibility() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.stats.dex = 4000 # Guaranteed avoid vs accuracy 42.
 	var w := RunWorld.new(RF.setup("quiet", 613, data))
-	w.change_job(200)
+	RF.as_job(w, 200)
 	w.learn_skill("magic_guard")
 	w.drain_events()
 	var before := w.player_state.duplicate()
@@ -57,9 +57,8 @@ func test_miss_has_no_damage_knockback_or_invincibility() -> void:
 	assert_eq(events[0].type, "player_hit")
 	assert_eq(events[0].miss, true)
 	assert_eq(events[0].damage, 0)
-	assert_eq(events[0].mp_absorbed, 0)
+	assert_false(events[0].has("mp_absorbed"), "no MP (#285)")
 	assert_eq(w.player_state.hp, before.hp)
-	assert_eq(w.player_state.mp, before.mp)
 	assert_eq(w.player_state.invincible_t, 0.0)
 	assert_eq(w.player.vel, velocity)
 

@@ -12,7 +12,7 @@ const TEXT_WIDTH := 88.0
 func _init() -> void:
 	super("UI.wz/Login.img/ViewAllChar/BtVAC")
 	focus_mode = Control.FOCUS_ALL
-	tooltip_text = "Run history [H]"
+	tooltip_text = "Round history [H]"
 	focus_entered.connect(func() -> void: key_focused = true)
 	focus_exited.connect(func() -> void: key_focused = false)
 
@@ -21,6 +21,6 @@ func _draw() -> void:
 	super._draw()
 	draw_colored_polygon(PATCH, BURGUNDY)
 	draw_set_transform(TEXT_AT, TEXT_ANGLE)
-	MapleText.draw_centered(self, 0, 0, TEXT_WIDTH, "Run history", Color8(255, 238, 204), MapleText.SMALL,
+	MapleText.draw_centered(self, 0, 0, TEXT_WIDTH, "Round history", Color8(255, 238, 204), MapleText.SMALL,
 		false, 1, Color8(68, 34, 0))
 	draw_set_transform(Vector2.ZERO)

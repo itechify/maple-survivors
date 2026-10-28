@@ -220,8 +220,7 @@ func _world(job_id := 0, mesos := 0, inventory: Array = [], scrolls: Dictionary 
 		character.equipment.inventory.append(Equipment.create(id, INFO[id]))
 	setup.character = character
 	var world := RunWorld.new(setup)
-	if job_id != 0:
-		RF.change_job_bare(world, job_id)
+	RF.change_job_bare(world, job_id) # a fresh character is 212 (#284); 0 stands a Beginner-class character directly
 	return world
 
 
