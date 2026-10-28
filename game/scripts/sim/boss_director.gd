@@ -151,14 +151,11 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 		if point.z < -1.0:
 			_postpone(index, world)
 			continue
-		var slot := world.spawn_mob(int(world.kind_of_id[int(entry.mob_id)]), Vector2(point.x, point.y),
-			int(point.z), float(entry.get("hp_mult", 1.0)), false)
+		var slot := world.spawn_boss(int(entry.mob_id), index, Vector2(point.x, point.y),
+			int(point.z), float(entry.get("hp_mult", 1.0)))
 		if slot < 0:
 			_postpone(index, world)
 			continue
-		world.mob_boss[slot] = index
-		# Scheduled bosses never flinch or get pushed, whatever their WZ info/boss flag (spec; tier C rule).
-		world.swarm.steady[slot] = 1
 		record.slot = slot
 		record.identity = world.swarm.identity[slot]
 		record.spawn_time = world.time
@@ -332,3 +329,30 @@ func skill_interval(index: int, skill_id: int, fallback: float) -> float:
 func reward_config(index: int) -> Dictionary:
 	var defaults: Dictionary = rules.get("rewards", {})
 	return defaults.merged(entries[index].get("rewards", {}), true) if index >= 0 and index < entries.size() else defaults
+
+
+## Opt-in canonical revive into a final form; ordinary revive bosses retain their original death/reward semantics.
+func continue_final_form(index: int, source: int, pos: Vector2, world: RunWorld) -> bool:
+	var entry: Dictionary = entries[index]
+	var final_id := int(entry.get("final_form", 0))
+	if final_id <= 0 or int(records[index].mob_id) == final_id:
+		return false
+	var revive: Dictionary = world.mob_img(int(records[index].mob_id)).get("info", {}).get("revive", {})
+	if not final_id in StageRoster.list_ids(revive):
+		return false
+	var slot := world.spawn_boss(final_id, index, pos, world.swarm.fh[source],
+		float(entry.get("hp_mult", 1.0)))
+	if slot < 0:
+		return false
+	var record: Dictionary = records[index]
+	record.slot = slot
+	record.identity = world.swarm.identity[slot]
+	record.mob_id = final_id
+	record.anchor = pos
+	record.stall = 0.0
+	record.best_distance = INF
+	_actions[index] = {"action": "", "start": world.time, "until": world.time, "facing": -1}
+	world.emit("mob_revives_spawned", {"boss_index": index, "mob": source,
+		"mob_id": world.swarm.mob_kind(source).id, "pos": pos,
+		"revives": [{"mob": slot, "mob_id": final_id}], "time": world.time})
+	return true

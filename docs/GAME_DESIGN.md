@@ -327,10 +327,10 @@ implementations remain sibling work.
 
 ### 4.1 Pacing (`stages.json`)
 
-Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
+Stages use region keys `henesys`, `ellinia`, `perion`, `kerning`, `nautilus` and `sleepywood`, with `region` and `continent`
 labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
 aliases; living slots, bests, history and run snapshots migrate on load. The tier list is
-`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253).
+`[[henesys, ellinia, perion, kerning, nautilus], [sleepywood]]` (Nautilus added by spec #264; Perion and Kerning City added by spec #253).
 
 | Stage key | Map 1 | Map 2 | Map 3 | Boss order |
 |---|---|---|---|---|
@@ -338,11 +338,12 @@ aliases; living slots, bests, history and run snapshots migrate on load. The tie
 | `ellinia` | The Tree That Grew I (101010100) | The Forest of Wisdom (100040100) | The Forest of Evil I (100040105) | Stumpy / King Slime / Dyle |
 | `perion` | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) | Mano / Stumpy / Iron Hook |
 | `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
+| `nautilus` | Pirate Training Center (912030000) | The Forest East of Henesys (100030000) | Pirate Test Room (108000500) | Mano / Mushmom / King Clang |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `tiers` order; its objective is
-"Defeat 3 bosses across 3 maps". Four cards per tier is the most the parchment fits above the Start button
-(`stage_select.gd` `MAX_CARDS`); a fifth region would need a scrolling list. Results show the region and ending map. The opening title shows continent above region; transfer
+"Defeat 3 bosses across 3 maps". Up to six cards per tier fit without scrolling
+(`stage_select.gd` `MAX_CARDS`); Start sits under the detail column on the extended parchment. Results show the region and ending map. The opening title shows continent above region; transfer
 arrivals show the destination's v83 street and map name. Summaries retain region/continent and the ending WZ names.
 
 Round time includes all combat on every map. The pacing clock is `curve_time = (N - 1) * 300 + time_on_map` for
@@ -551,6 +552,134 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Spec #264 (#268): Nautilus QA and regression smoke (2026-10-27)
+
+Integration base `5ab97d6`, branch `t268-nautilus-qa`, private `caches/s264`, `ISOLATE=t268`.
+Import recheck: **1,150 images up to date, 0 warnings, 0 errors**. Fixed training seeds **1 / 2 / 2026**,
+bot and random, all five tier-1 regions, Nautilus tier-2 chains and Sleepywood Lv38 F/P fixture; no PATCH,
+tuning or held-out seeds. Detailed map entries, boss durations/censoring, Lv10/job times and warnings/missing
+are retained per run in `evidence/s264-t268/smoke-final/`.
+
+All cells list seeds **1 / 2 / 2026**, in seconds rounded to one decimal. Entry groups are map 2; map 3;
+boss groups are map 1; map 2; map 3. `>=` marks an unfinished spawned fight (censored elapsed time);
+`n/a` means the milestone or boss was not reached, or the field is absent. Job cells include every observed advancement.
+
+| Region / policy | Death s @ map | Map 2 / map 3 entry s | Boss fight s by map (1; 2; 3) | Lv10 s | Job ID @ s |
+|---|---|---|---|---|---|
+| henesys bot | 308.3@1 / 435.4@2 / 310.0@1 | n/a / 324.6 / n/a; n/a / n/a / n/a | >=8.2 / 24.6 / >=10.0; n/a / n/a / n/a; n/a / n/a / n/a | 255.4 / 260.6 / 258.5 | 200@255.4 / 200@260.6 / 100@258.5 |
+| henesys random | 432.2@2 / 375.7@2 / 436.2@2 | 344.9 / 320.8 / 323.8; n/a / n/a / n/a | 44.9 / 20.7 / 23.8; n/a / n/a / n/a; n/a / n/a / n/a | 260.7 / 260.2 / 256.8 | 200@260.7 / 200@260.2 / 100@256.8 |
+| ellinia bot | 630.8@2 / 39.1@1 / 34.7@1 | 321.6 / n/a / n/a; n/a / n/a / n/a | 21.6 / n/a / n/a; >=9.2 / n/a / n/a; n/a / n/a / n/a | 209.2 / n/a / n/a | 200@209.2 / n/a / n/a |
+| ellinia random | 697.5@2 / 39.1@1 / 34.7@1 | 364.1 / n/a / n/a; n/a / n/a / n/a | 64.1 / n/a / n/a; >=33.3 / n/a / n/a; n/a / n/a / n/a | 208.0 / n/a / n/a | 200@208.0 / n/a / n/a |
+| perion bot | 423.7@2 / 382.4@2 / 306.8@1 | 342.0 / 318.3 / n/a; n/a / n/a / n/a | 42.0 / 18.2 / >=6.8; n/a / n/a / n/a; n/a / n/a / n/a | 248.6 / 260.3 / 255.5 | 200@248.6 / 200@260.3 / 100@255.5 |
+| perion random | 383.5@2 / 460.2@2 / 389.5@2 | 318.4 / 438.0 / 342.8; n/a / n/a / n/a | 18.3 / 138.0 / 42.8; n/a / n/a / n/a; n/a / n/a / n/a | 240.5 / 295.5 / 241.4 | 200@240.5 / 200@295.5 / 100@241.4 |
+| kerning bot | 307.7@1 / 307.8@1 / 318.6@1 | n/a / n/a / n/a; n/a / n/a / n/a | >=7.6 / >=7.8 / >=18.6; n/a / n/a / n/a; n/a / n/a / n/a | 222.0 / 228.7 / 227.8 | 200@222.1 / 200@228.7 / 100@227.8 |
+| kerning random | 306.6@1 / 314.5@1 / 308.7@1 | n/a / n/a / n/a; n/a / n/a / n/a | >=6.6 / >=14.5 / >=8.7; n/a / n/a / n/a; n/a / n/a / n/a | 227.6 / 226.1 / 221.5 | 200@227.6 / 200@226.1 / 100@221.6 |
+| nautilus bot | 692.2@3 / 712.2@3 / 596.7@2 | 323.2 / 316.9 / 316.6; 660.9 / 631.2 / n/a | 23.2 / 16.9 / 16.6; 37.7 / 14.3 / n/a; n/a / n/a / n/a | 213.2 / 216.5 / 211.5 | 200@213.3, 210@486.0 / 200@216.5, 230@570.0 / 100@211.5, 130@496.3 |
+| nautilus random | 309.9@1 / 320.8@1 / 308.4@1 | n/a / n/a / n/a; n/a / n/a / n/a | >=9.9 / >=20.8 / >=8.4; n/a / n/a / n/a; n/a / n/a / n/a | 212.1 / 220.7 / 216.8 | 200@212.1 / 200@220.7 / 100@216.8 |
+
+These are observations, not tuning targets.
+
+**Review fixes (#264).** The collision approach width now lives beside the Test Room ramps as
+`trench_ramp_width: 192` (tier C); boss slot registration and parchment frame dispatch are shared operations.
+Training seed-1 bot records captured on integration `0f4be21` and after the refactor are **byte-identical**
+for Henesys, Kerning and Nautilus (SHA-256 prefixes `f01deaa1e8c5`, `0981dc93ac1d`, `a87c6d6037e8`).
+The configurable-width test failed before implementation; the focused trench/boss/revive/data/card checks
+then passed **102 tests, 0 failures, 0 skips**. Fresh evidence lives under `_scratch/t264fix/`;
+`evidence/t264-review-fixes/04_maps_stage_select.png` was checked by eye for the five marks, details and Start.
+The fresh five-region smoke (seeds 1/2/2026, bot/random) completed **30 rounds, 0 warnings, 0 missing**;
+all 30 records are byte-identical to the preceding #268 QA smoke, including Henesys jobs/bosses and Ellinia's
+recorded early deaths. The Nautilus diagnostic maps flow also passed all three maps, replay and Free Market.
+Full cache-backed suite (`ISOLATE=t264fix`, private `caches/s264`): **2,234 tests, 0 failed, 0 skipped**
+(217 files, 747.273 s); the existing two dummy texture RID allocations are reported at shutdown.
+
+Comparison with #257: Henesys and Perion retain those outcomes. Ellinia bot seed 1's 630.8 s rather than
+632.7 s and the six Kerning deaths reflect the already-recorded #263 wall-scope correction. Compare with
+#265's immediate baseline below for this ticket's regression. All 24 older-region records and all six
+Sleepywood fixture records are identical field for field to the pre-fix s264 rerun. Only Nautilus bot
+seeds 1/2 change (689.1/723.0 -> 692.2/712.2 s, still deaths on map 3); map-1/2 entries, job times and
+completed boss durations remain unchanged. The six Nautilus chains stop in tier 1, with zero tier-2 feeds;
+their rounds match the corresponding plain runs. All **42 started rounds** have `warnings: []` and `missing: []`.
+
+**Flow and presentation.** `flow-final/summary.json`: PASSED, missing/failures empty. Save & quit on map 2
+replays map 1 with the same boundary character and seed. The diagnostic replay enters maps at
+0 / 300.000 / 600.017 s and clears at 900.067 s, then reaches the Free Market. All 26 flow shots were
+checked by eye (`flow-contact.png`), including banners, CLEAR and fades. `04_maps_stage_select.png` has
+all five real marks, Nautilus selected, and Start clear of the fifth card. The natural x4 seed-2026
+playtest dies on map 2; the Lv38 fixture seed-1 x4 run clears at Lv51 (`fixture/summary.json`), with
+all three arrival/boss/clear shots and no missing assets. Mushmom's slam is visible in
+`fixture/boss_shockwave_1_attack1.png`. Black frames are retained in `fixture/map_1_black.png` and
+`map_2_black.png`. BGM source/cache checks are distinct from listening verification; no auditory-review claim.
+
+**King Clang.** The real Test Room diagnostic preserves canonical skill intervals/chance and boss data,
+but uses invulnerability, direct map staging, player placement beside the crab, and diagnostic hits
+(shell kill, crab below the canonical 80% summon threshold, then final kill). It is not natural survival
+evidence. `diagnostic-after/record.json` records the final crab identity, successful MobSkill 123 level 8
+with affected art, MobSkill 200 level 82's five recipients, and crab death before `stage_cleared`.
+`diagnostic-after/shell.png` shows the shell, `skill_123.png` shows the yellow above-head Stun art, and
+`summons_visible.png` shows the summoned Lorang/Clang after their arrival smoke (`skill_200.png`).
+The final boss record is `mob_id: 5220000, dead: true`.
+
+**Test Room traversal, [#279](https://github.com/itechify/maple-survivors/issues/279), fixed.** The suspected
+trenches are raised crates over the y150 floor: 72 px tops with 112-113 px vertical faces. The original
+probe cannot cross any face with repeated 77 px jumps. The survivor map entry now opts into local collision
+approaches beside these three crates only; cached WZ and all physics constants stay unchanged. These are
+tier C collision ramps, not new art: the avatar can stand above the drawn floor on an approach. Player
+walking, bot drop collection and walking-mob pursuit each cross all three in both directions on fixed
+ticks. A scope test passes deliberately configured overrides to every other shipped stage map and verifies
+identical foothold coordinates and links. Before/after traces: `trenches-before.log`, `trenches-after.log`;
+red/green: `trenches-red.log`, `trenches-all.log`.
+
+**Training Center, [#280](https://github.com/itechify/maple-survivors/issues/280), owner decision.** It plays
+as a vertical stack of long tiers over a narrow ground arena. Ladders work: manual jump/Up on rope x322
+climbs y125 to -115 in 360 fixed ticks (`training/player_rope_climb.png`). The diagnostic seed-1 bot also
+reaches y-115 by 220 s; `training/record.json` records mobs on platforms 0/1/7 then. Natural seed2026 is
+still fighting on the ground at 240 s while loot remains above (`natural/t240.png`). This is an arena
+fitness concern, not evidence of broken ladders; retain it or use the spec's map-1 fallback. No map swap
+or tuning here. Random-policy deaths all on map 1 are flagged for owner review; bot outcomes span maps 2/3.
+
+**Manifest fixture, [#281](https://github.com/itechify/maple-survivors/issues/281), fixed.** Rust and web
+shipping-manifest tests initially failed because #265's ten approved selections were absent from their
+shared golden. It now adds precisely those ten entries; importer behavior is unchanged.
+
+**Final checks:** Godot **2,233 tests, 0 failed, 0 skipped**, 217 files, 811.302 s, on s264 after merging
+the current integration tip (still `5ab97d6`). The two pre-existing dummy-renderer texture RID allocations
+are reported at shutdown. Rust **70 passed, 0 failed, 0 ignored**, including all 18 real-WZ checks with
+`MAPLE_WZ_ROOT` set; web **62 passed, 0 failed, 0 skipped**. The separate Test Room checks are included
+in the full Godot count. `bgm.log` confirms each map's canonical BGM loaded and started successfully.
+Evidence is gitignored under `evidence/s264-t268/`; diagnostic scripts are retained there. These checks
+establish flow and implementation regression, not balanced survival.
+
+#### Nautilus data and final-form chain (#265, 2026-10-27)
+
+Regression smoke on private `caches/s264`, fixed training seeds **1 / 2 / 2026**, both card policies, the four
+pre-existing tier-1 regions plus Nautilus (all five). No tuning or held-out seeds. All 30 runs completed without a crash or world warning;
+Henesys reached Magician and Mano in 6/6. The four existing regions match the preceding #263 smoke (including Ellinia bot seed 1
+at 630.8 s and the six Kerning outcomes below). Existing five stage entries are unchanged. The synthetic King Slime
+revive test explicitly verifies its encounter still ends on the scheduled boss's death; only `final_form` opts in.
+Death seconds @ one-based ending map, seeds 1 / 2 / 2026:
+
+| Region | bot | random |
+|---|---|---|
+| Henesys | 308.3@1 / 435.4@2 / 310.0@1 | 432.2@2 / 375.7@2 / 436.2@2 |
+| Ellinia | 630.8@2 / 39.1@1 / 34.7@1 | 697.5@2 / 39.1@1 / 34.7@1 |
+| Perion | 423.7@2 / 382.4@2 / 306.8@1 | 383.5@2 / 460.2@2 / 389.5@2 |
+| Kerning | 307.7@1 / 307.8@1 / 318.6@1 | 306.6@1 / 314.5@1 / 308.7@1 |
+| Nautilus | 689.1@3 / 723.0@3 / 596.7@2 | 309.9@1 / 320.8@1 / 308.4@1 |
+
+Nautilus reaches Mano in all six runs; bot seeds 1/2 defeat Mushmom and enter the Test Room, but die before
+King Clang arrives. No natural-clear claim or tuning follows from this smoke.
+
+Private-cache import: 0 errors. Real `flow_driver --scenario=maps --stage=nautilus` passed with `missing: []`,
+no failures, and all three bosses defeated before the Free Market (diagnostic invulnerability/hits, not natural
+survival evidence). Entries at 0 / 300.000 / 600.017 s; final map 108000500, clear at 900.067 s. Save & quit on map 2
+and Continue replayed the same seed from map 1. All three arrival screenshots were inspected. Synthetic checks
+cover shell/final scaling, one encounter clock, final-form canonical summons, final death only, and ordinary revive
+semantics. Affected checks after merging T2 and updating the stale region/transfer/meso contracts: **128 tests, 0 failed, 0 skipped**.
+The full suite on that merged implementation and s264 passes **2,220 tests, 0 failed, 0 skipped** (214 files,
+833.343 s), with the two pre-existing dummy-renderer texture RID allocations reported at shutdown. T2/T3/T4 own card layout, Stun mechanics and
+arena/natural-play QA respectively; these results do not establish arena fitness or balance.
+
 
 #### Walls stop only their own structure: Kerning's invisible walls (2026-10-24)
 
@@ -6550,14 +6679,23 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Perion and Kerning City pools (#253, #254) | Henesys's numeric curve copied exactly (keyframes, bursts, elites, `exp_mult` 2.5, `hard_cap` 400, `post_duration_slope` 0.25) plus a 210 s keyframe interpolated from it (rate 0.875, cap 17.5, speed 1.0375) that only carries the 3:30 pool. Map 1 opens with Blue Snail 100101 only (owner Q4 weaker-neighbour clause, invoked after T1 seed-1 deaths at 0:15/2:15 (Lv1)); from 2:00 Perion Blue Snail 2 / Stump 3 / Red Snail 2, +Dark Stump 1 at 3:00, Dark Stump 3 / Stump 2 / Red Snail 1 / Blue Snail 1 at 3:30; Kerning Blue Snail 2 / Red Snail 3 / Slime 3, +Orange Mushroom 3 at 3:00, +Octopus 1 and Blue Snail 1 at 3:30. Keyframes from 300 s carry no pool. Maps 2 and 3: their v83 life lists, no exclusions (no timed or hidden entries) | C weights, A life lists | Owner, spec #253 |
 | Perion and Kerning City boss multipliers (#253, #254) | Each boss matches the Henesys boss of its map slot at that slot's `typical_hp`/`typical_pdd`: same survivor HP (round(maxHP × hp_mult)) and the 0.01 multiplier steps whose 85–100% roll range is closest to the slot's (within 1 HP). Perion: Mano as in Henesys; Stumpy 0.6857 / touch 1.38 / attacks 1.25; Iron Hook 3.1818 / 2.38 (touch only). Kerning: King Slime 0.45 / 0.78 / slam 0.61 (matches Mano's touch: Mano has no attack); Shade 1.0 / 1.04 (touch only); Dyle 0.2258 / 1.15. Attacks every 8 s. Canonical PDD/MDD, levels and undead flags are not normalized | C | Starting values, untuned (#77 tunes) |
 | Boss skill interval override (#253) | A `stages.json` boss entry may carry `skill_intervals` {"<mob skill id>": seconds > 0} replacing that skill's WZ interval for that boss on that map; `DataRepo.stage_map_errors` rejects other shapes. Shade's Kerning entry: `{"129": 15}` (one Banish per 15 s instead of the canonical 3 s) | C | Owner, spec #253; read by #256 |
-| Map-select card limit (#253) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list | C | Layout measurement, spec #253 |
+| Map-select card limit (#253, #266) | At most six region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows at (46, 154), width 176, height 44; writable paper (40, 148, 432, 286). Repeat 48 native paper scanlines and move the scroll up 48 px, keeping the bottom fixed and all text/art unscaled. Start is centred under the detail column (x 234, width 232), at y 384. Shipped tiers are tested against capacity | C | Layout measurement, spec #264 |
 | Perion and Kerning City mob metadata (#253, #254) | Mesos: v83 server `drop_data` itemid 0 ranges; EXP pickup: the most likely Etc drop (Dark Axe Stump uses Axe 4000215 of the two equal ones; Shade Someone's Hat 4000413). Iron Hook has no server drops: level-fallback mesos and the Wild Boar Tooth icon. Boss bars borrow MobGage icons for Iron Hook (Zeno 6220001) and Shade (Riche 6090000) with hpTag 1/5; both are enabled boss kits (`mob_skills.enabled_ids`) | B mesos/items, C icons/associations | Cosmic drop data (facts only); owner #253 |
 | Mobs without v83 sounds (#253) | A mob with no `Sound.wz/Mob.img/<id>` entry (Iron Hook 4090000) plays no hit, death or skill sound and records nothing missing, as in the client | A (absence) | v83 Sound.wz |
 | Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks unchanged; the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
+| Player Stun values (#267) | King Clang 5220000 uses MobSkill 123 level 8: interval 15 s, duration 2 s, prop 60%, lt(-200,-120), rb(200,20); affected has three 100 ms frames, pos1, repeat1; no effect node | A | original v83 Mob.wz/5220000.img/info/skill/0 and Skill.wz/MobSkill.img/123/level/8, read with research/wz-inventory/wz.js |
+| Player Stun behavior (#267) | scheduled bosses only; Hidden skips it. In-area casts roll prop on isolated RNG stream 18, failures spend the interval; successful recasts refresh without stacking. Movement, jump, climb, portal use, basic attacks (including pending windup), Final Attack follow-ups and new casts stop; cooldowns, existing projectiles, gravity, knockback and incoming damage continue. Repeating affected art above the character ends with status/death/map transfer; Slow has no HUD status icon, so neither does Stun | C (runtime/application/anchor), A (chance/duration/art) | spec #264; ours |
+| Potions during Stun (#267) | HP/MP potions remain usable and do not cure Stun. No reliable v83 client or documented non-copyleft evidence established the potion restriction; contemporary/post-Big-Bang status descriptions do not establish v83 behavior | C fallback | owner rule, #267; v83 client remains protected (docs/research/rea-client.md); no copyleft code consulted |
+| Stun cooldown decision (#267) | no override: 2 s per 15 s gives at most 13.33% uptime (13 s actionable gap even on every success), expected 8% at prop60 when always in range. A 300+ mob swarm cannot increase the scheduled boss's cast rate; other boss actions can only delay it. Preserve canonical interval, no balance tuning | A inputs, C decision | #267; analytical upper bound from 123/8, deterministic interval/expiry tests: with 330 ordinary mobs and prop100, four casts at 15/30/45/60 s occupy exactly 480 fixed ticks (8 s) by 62 s |
 | Floor/wall corner landing (#260) | An air sub-step whose path crosses a floor line inside the floor's span while its end x lies past the floor's end lands on that floor at the end x pulled EPS = 0.01 px inside (`FootholdMap.find_corner_landing`); player only, mobs/pickups/NavGraph keep `find_landing` | C | ours: the 1 px wall probe at the crossing x was already below a wall rising from the floor end, so neither landing nor wall caught it (Kerning 103000101, x 3185) |
 | Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
+
+| Nautilus region and pools (#264, #265) | Map order 912030000 / 100030000 / 108000500; original life Pig 25 / Green Mushroom 9. Henesys numeric curve unchanged; Blue Snail only until 120 s, then Snail 2 / Pig 3, from 210 s Snail 1 / Pig 3 / Green Mushroom 2. Forest life excludes Strange 9400617/9400655/9400656 (no other timed/hidden mobs); Test Room uses OctoPirate life | C choices/weights; A IDs/life | Owner spec #264; original v83 WZ |
+| Nautilus bosses and opt-in final_form (#265) | Mano/Mushmom entries copied from Henesys. King Clang shell 5220001 has real stand/die art, no link; final_form 5220000 preserves one encounter through canonical revive, both forms use hp_mult 7000/29000 (966 + 6034 = 7000 HP), touch 1.34 (181..214) and attack 1.21 (179..212) at PDD7/HP448; matches Blue Mushmom 7000 HP, touch 181..214, attack 180..212 with nearest 0.01 endpoint error; attack cadence 8 s. Existing non-opt-in revives end their encounter on scheduled death | C encounter/multipliers; A canonical stats/art/revive | Starting values, untuned; same-slot method #254. 85-100% rolls, floor(.75 x 7)=5 defense |
+| Test Room collision approaches (#279) | map 108000500 only, opt-in trench_ramps: three crate face pairs get 192 px approaches, shared by player, bot navigation and mobs; WZ and physics unchanged | C survivor traversal override | #268 real-cache player, bot, mob and other-map scope checks |
+| Nautilus mob metadata and stun art (#265) | OctoPirate borrows Octopus Leg EXP icon; Lorang uses Lorang Claw 4000043, Clang/King Clang use Clang Claw 4000044 (signature associations, not drop-table claims); explicit empty mesos uses level fallback. Shell boss bar borrows final crab icon. Skill.wz/MobSkill.img/123/level/8/affected has frames 0/1/2, pos/repeat; it is the character above-head stun art, with no separate effect node; full MobSkill image already imported | C metadata associations/fallback; A art paths | Original v83 WZ; no drop-table claims |
 
 ## 12. Later phases
 

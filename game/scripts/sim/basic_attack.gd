@@ -44,8 +44,8 @@ func clear_pending() -> void:
 ## Advances the existing swing, then starts one when its interval and the shared action gate allow it.
 func step(dt: float, world: RunWorld) -> void:
 	cooldown -= dt
-	if world.is_hidden():
-		# Hidden (#194): the character cannot attack; a swing still in its windup is dropped, and a new one waits.
+	if world.is_hidden() or world.mob_skills.is_stunned(world.time):
+		# Hidden/Stun (#194/#267): the character cannot attack; a swing still in its windup is dropped, and a new one waits.
 		_pending = {}
 		return
 	if not _pending.is_empty():

@@ -60,7 +60,8 @@ extends RefCounted
 ## 14 reserved for Bowman,
 ## 15 Thief-only rolls (thief_rng, Steal success in #214),
 ## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194),
-## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256).
+## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256),
+## 18 boss player-status chance rolls (mob_status_rng, Stun in #267).
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -209,6 +210,7 @@ var thief_rng: RandomNumberGenerator
 ## needs its own stream.
 var pirate_rng: RandomNumberGenerator
 ## Banish's destination `sp` portal draws only (stream 17, #256), so a Banish never shifts spawning or map arrivals.
+var mob_status_rng: RandomNumberGenerator
 var banish_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
@@ -425,12 +427,42 @@ func _init_rng_streams() -> void:
 	final_rng = _stream(12) # tier C: Final Attack procs and follow-up rolls never shift another stream, #161.
 	thief_rng = _stream(15) # tier C: independent Thief-only rolls; reserved for Steal success, #207/#214.
 	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14 reserved, #186.
+	mob_status_rng = _stream(18) # tier C: boss player-status chance rolls (#267), isolated from combat.
 	banish_rng = _stream(17) # tier C: Banish portal draws never shift another stream, #256.
 
 
+## Applies only the Test Room survivor collision ramps; cached WZ geometry is never mutated.
+func _motion_map_img() -> Dictionary:
+	var img := _current_map_img()
+	if current_map_id() != 108000500:
+		return img
+	var entry: Dictionary = stage.maps[map_index] if _map_images_available() else stage
+	if entry.get("trench_ramps", []).is_empty():
+		return img
+	img = img.duplicate(true)
+	var width := float(entry.trench_ramp_width)
+	var floors: Dictionary = img.foothold["5"]["0"]
+	for ids: Array in entry.trench_ramps:
+		var left: Dictionary = floors[str(int(ids[1]))]
+		var right: Dictionary = floors[str(int(ids[2]))]
+		var x_left := float(left.x1)
+		var x_right := float(right.x1)
+		var y_top := float(left.y2)
+		var y_ground := float(left.y1)
+		# tier C #279: survivor-authored approach width keeps slopes walkable with unchanged v83 physics.
+		for f: Dictionary in floors.values():
+			if float(f.y1) == y_ground and float(f.y2) == y_ground:
+				for end: String in ["1", "2"]:
+					var x := float(f["x"+end])
+					var distance := maxf(x_left-x,x-x_right)
+					f["y"+end] = lerpf(y_top,y_ground,clampf(distance/width,0,1))
+		left.y1 = y_top
+		right.y2 = y_top
+	return img
+
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
 func _init_map() -> void:
-	var map_img := _current_map_img()
+	var map_img := _motion_map_img()
 	physics = PhysicsConstants.from_wz(setup.get("physics_img", {}))
 	fhm = FootholdMap.from_wz(map_img)
 	bounds = MapBounds.from_map(map_img, fhm)
@@ -869,6 +901,9 @@ func _step_player(dt: float, input: MoveInput) -> void:
 		drink_potion("hp")
 	if input.drink_mp:
 		drink_potion("mp")
+	# tier C (#267): potions stay usable while stunned; v83 potion gating is unverified.
+	if mob_skills.is_stunned(time):
+		input = MoveInput.new()
 	_try_manual_buffs(input)
 	if not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
@@ -1940,6 +1975,18 @@ func physical_hit_allowed(m: int) -> bool:
 	return mob_skills.physical_hit_allowed(m, time)
 
 
+## Spawns and registers a scheduled boss by MapleStory mob ID; returns its slot or -1.
+func spawn_boss(mob_id: int, boss_index: int, pos: Vector2, fh: int, hp_mult: float) -> int:
+	if not kind_of_id.has(mob_id):
+		return -1
+	var slot := spawn_mob(int(kind_of_id[mob_id]), pos, fh, hp_mult, false)
+	if slot >= 0:
+		mob_boss[slot] = boss_index
+		# tier C: scheduled bosses never flinch or get pushed, whatever their WZ info/boss flag.
+		swarm.steady[slot] = 1
+	return slot
+
+
 ## Spawns a mob of kind index k on foothold fh at pos with max_hp x hp_mult; emits mob_spawned. Returns the slot.
 func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> int:
 	if k < 0 or k >= mob_kinds.size():
@@ -2097,6 +2144,9 @@ func _final_attack_hit(slot: int, hit: Dictionary) -> void:
 
 ## Plays the queued follow-ups at their still-living original targets (tier C: a target the trigger killed gets none).
 func _play_final_attacks() -> void:
+	if mob_skills.is_stunned(time):
+		_final_queue.clear()
+		return
 	if _final_queue.is_empty():
 		return
 	var queue := _final_queue
@@ -2544,6 +2594,9 @@ func spawn_meso(pos: Vector2, amount: int) -> int:
 ## A scheduled boss died: boss_died, mob_died with the boss reward EXP (canonical EXP x rewards.exp_mult; no ordinary
 ## ordinary EXP rolls), its canonical revive list, then the reward shower and bonus choices.
 func _on_boss_kill(m: int, mk: MobKind, pos: Vector2, elite: bool) -> void:
+	if bosses.continue_final_form(mob_boss[m], m, pos, self):
+		emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": 0, "elite": elite})
+		return
 	var rewards := bosses.reward_config(mob_boss[m])
 	var e := maxi(0, roundi(mk.exp * float(rewards.get("exp_mult", 1.0))))
 	bosses.mark_dead(mob_boss[m], m, pos, self)
@@ -2734,9 +2787,9 @@ func _emit_player_hit(damage: int, mp_absorbed: int, miss: bool, dir: int, sourc
 		"boss": bool(source.get("boss", false)), "max_hp": _max_hp, "source_kind": String(source.get("source_kind", "other"))})
 
 
-## Whether auto-actions may cast now: hanging on a rope/ladder blocks new casts, not their cooldowns or effects.
+## Whether auto-actions may cast now: climbing or Stun blocks new casts, not cooldowns or existing effects.
 func can_cast() -> bool:
-	return state == PLAYING and not _dead and not _map_clearing and player.state != PlayerMotion.ST_LADDER
+	return state == PLAYING and not _dead and not _map_clearing and player.state != PlayerMotion.ST_LADDER and not mob_skills.is_stunned(time)
 
 
 func _gain_exp(n: int) -> void:
@@ -2851,6 +2904,12 @@ func _write_player_state(dt: float) -> void:
 	player_state["exp"] = progression.exp
 	player_state["exp_next"] = progression.exp_to_next()
 	player_state["slow"] = mob_skills.slow_state(time)
+	# Preserve legacy snapshot bytes in runs without Stun (#267).
+	var stun := mob_skills.stun_state(time)
+	if stun.is_empty():
+		player_state.erase("stun")
+	else:
+		player_state["stun"] = stun
 	player_state["level"] = progression.level
 	player_state["job_id"] = progression.job_id
 	for stat: String in _attributes:

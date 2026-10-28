@@ -213,6 +213,7 @@ var _window_open_t := 0.0
 var _window_auto := 0.0
 var _restart_action := false
 var _slow_fx := -1
+var _stun_fx := -1
 var _immunity_fx := {}
 var _shown_action := ""
 var _blink_t := 0.0
@@ -1236,10 +1237,16 @@ func _on_boss_skill(e: Dictionary) -> void:
 		elif slot != source and String(e.recipient_effect) != "":
 			fx.play(String(e.recipient_effect),world.mob_center(slot))
 	if String(e.player_effect) != "":
-		if _slow_fx >= 0:
-			fx.stop(_slow_fx)
+		var stun := int(e.skill_id) == MobSkillRunner.SKILL_STUN
+		var old_fx := _stun_fx if stun else _slow_fx
+		if old_fx >= 0:
+			fx.stop(old_fx)
 		# tier C: affected pos1 is anchored above the player's canonical body box; lifetime follows sim status.
-		_slow_fx = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
+		var status_fx := fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
+		if stun:
+			_stun_fx = status_fx
+		else:
+			_slow_fx = status_fx
 	_mob_sound(int(e.mob_id), String(e.action).replace("skill", "Skill"))
 
 
@@ -1531,6 +1538,7 @@ func _reload_map() -> void:
 	_throws.clear()
 	_immunity_fx.clear()
 	_slow_fx = -1
+	_stun_fx = -1
 	_shown_action = ""
 	_player_layer = -1
 	_pet_layer = -1
@@ -1763,6 +1771,9 @@ static func option_flag(opts: Dictionary, key: String) -> bool:
 # --- presentation --------------------------------------------------------------------------------------------
 
 func _present(delta: float) -> void:
+	if _stun_fx >= 0 and (world.player_state.get("stun",{}).is_empty() or bool(world.player_state.dead)):
+		fx.stop(_stun_fx)
+		_stun_fx = -1
 	if _slow_fx >= 0 and (world.player_state.get("slow",{}).is_empty() or bool(world.player_state.dead)):
 		fx.stop(_slow_fx)
 		_slow_fx = -1

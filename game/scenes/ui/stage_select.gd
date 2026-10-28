@@ -22,9 +22,10 @@ const MARK := "Map.wz/MapHelper.img/mark/"
 const LIST_X := 46.0
 const LIST_W := 176.0
 const ENTRY_H := 46.0
-## The most region cards one tier can list: four 46 px rows from the parchment top end exactly where the Start button
-## begins (tier C, spec #253). A fifth region needs a scrolling list.
-const MAX_CARDS := 4
+## tier C: six 46 px rows on paper extended by 48 px; Start uses the detail column (#266).
+const MAX_CARDS := 6
+const PAPER_EXTRA := 48.0
+const CARD_AREA := Rect2(40, 148, 432, 286)
 const DETAIL_X := 234.0
 const DETAIL_W := 232.0
 const MAP_ROW_GAP := 6.0 # tier C: compact map/boss groups on the v83 parchment; wrapped lines stay together.
@@ -75,7 +76,7 @@ func _ready() -> void:
 	_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_ui)
-	scroll = ParchmentScroll.new()
+	scroll = RegionScroll.new()
 	scroll.name = "Scroll"
 	_ui.add_child(scroll)
 	scroll.draw_content.connect(_draw_parchment)
@@ -219,16 +220,16 @@ func _entry_at(p: Vector2) -> int:
 
 
 func _entry_rect(i: int) -> Rect2:
-	var r := ParchmentScroll.PARCHMENT
+	var r := CARD_AREA
 	return Rect2(LIST_X, r.position.y + 6.0 + i * ENTRY_H, LIST_W, ENTRY_H - 2.0)
 
 
 func _layout() -> void:
 	var view := get_viewport_rect().size
 	var o := ((view - Vector2(GameSettings.BASE_VIEW)) * 0.5).floor()
-	scroll.position = (view * 0.5 + SCROLL_WORLD_POS - LoginBackdrop.WORLD_SELECT).floor()
-	var r := ParchmentScroll.PARCHMENT
-	start_button.position = Vector2(LIST_X + floorf((LIST_W - start_button.size.x) * 0.5), r.end.y - 50.0)
+	scroll.position = (view * 0.5 + SCROLL_WORLD_POS - Vector2(0, PAPER_EXTRA) - LoginBackdrop.WORLD_SELECT).floor()
+	var r := CARD_AREA
+	start_button.position = Vector2(DETAIL_X + floorf((DETAIL_W - start_button.size.x) * 0.5), r.end.y - 50.0)
 	back_button.position = o + Vector2(18, 600 - 74)
 	# tier C: the v83 status-bar CASH SHOP button (54x34) beside Save & quit, centred on its plank.
 	shop_button.position = back_button.position + Vector2(back_button.size.x + 8.0,
@@ -238,7 +239,7 @@ func _layout() -> void:
 
 
 func _draw_parchment(ci: Control) -> void:
-	var r := ParchmentScroll.PARCHMENT
+	var r := CARD_AREA
 	for i in stages.size():
 		_draw_entry(ci, i)
 	PixelDraw.vline(ci, DETAIL_X - 7.0, r.position.y + 8.0, r.end.y - 8.0, Color(INK_SOFT, 0.45))
@@ -266,7 +267,7 @@ func _draw_entry(ci: Control, i: int) -> void:
 
 
 func _draw_details(ci: Control, st: Dictionary) -> void:
-	var r := ParchmentScroll.PARCHMENT
+	var r := CARD_AREA
 	var x := DETAIL_X
 	var y := r.position.y + 6.0
 	MapleText.draw(ci, Vector2(x, y), MapleText.ellipsize(String(st.region), DETAIL_W, MapleText.SIZE, true), INK,
@@ -295,3 +296,31 @@ func _draw_details(ci: Control, st: Dictionary) -> void:
 ## The best-result line of the details column.
 static func best_text(best: Dictionary) -> String:
 	return "Best: no record yet" if best.is_empty() else "Best: " + SaveData.describe(best)
+
+
+## Map-select-only extension: repeat a paper strip at native resolution; text and marks are never scaled.
+class RegionScroll extends ParchmentScroll:
+	func _init() -> void:
+		super()
+		size.y += PAPER_EXTRA
+		custom_minimum_size = size
+		content.size = size
+
+	func _paper_area() -> Rect2:
+		return CARD_AREA
+
+	func _blit_frame(frame: SpriteFrame) -> void:
+		var open_anim := UiArt.anim(UNROLL)
+		var dims := frame.region.size
+		# tier C: insert up to 48 native paper scanlines as the scroll unrolls, retaining both rollers.
+		var split := 240.0
+		var extra := 0.0
+		if dims.y > split and open_anim != null and not open_anim.is_empty():
+			var full_height := open_anim.frames[open_anim.frame_count() - 1].region.size.y
+			extra = floorf(PAPER_EXTRA * clampf((dims.y - split) / (full_height - split), 0.0, 1.0))
+		if extra > 0:
+			UiArt.blit_part(self, frame, Rect2(0, 0, dims.x, split), Vector2.ZERO)
+			UiArt.blit_part(self, frame, Rect2(0, split, dims.x, extra), Vector2(0, split))
+			UiArt.blit_part(self, frame, Rect2(0, split, dims.x, dims.y - split), Vector2(0, split + extra))
+		else:
+			UiArt.blit(self, frame, Vector2.ZERO)

@@ -464,6 +464,10 @@ func test_real_cache_transfers_through_each_regions_maps_with_valid_arrivals() -
 			w.time = w.map_entered_at + 300.0 - DT
 			w.step(DT, MoveInput.new())
 			_kill(w)
+			if stage.maps[index].boss.has("final_form"):
+				assert_false(bool(w.bosses.records[index].dead), "shell death preserves the encounter")
+				assert_eq(int(w.bosses.records[index].mob_id), int(stage.maps[index].boss.final_form))
+				_kill(w) # The opt-in final form must die too; non-chain bosses retain the single kill.
 			w.step(DT, MoveInput.new())
 			BotInput.auto_choose(w)
 			if index < 2:
