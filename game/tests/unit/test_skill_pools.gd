@@ -27,7 +27,10 @@ func test_starting_skill_and_mobility_use_only_one_active_slot() -> void:
 
 func test_only_implemented_pool_skills_offer_one_rank_at_every_rarity() -> void:
 	var w := RF.quiet_world()
-	assert_eq(w.upgrades.eligible(w), ["energy_bolt_rank", "magic_claw_new", "fire_arrow_new", "poison_breath_new"])
+	assert_eq(w.upgrades.eligible(w), ["energy_bolt_rank", "magic_claw_new", "fire_arrow_new", "poison_breath_new",
+		"explosion_new", "poison_mist_new", "element_composition_new", "fire_demon_new", "paralyze_new",
+		"meteor_shower_new", "big_bang_new"])
+	assert_false("elquines_new" in w.upgrades.eligible(w), "summon is still unimplemented")
 	for tier in UpgradePool.TIERS:
 		var c := w.upgrades.choice_card("energy_bolt_rank", w, tier)
 		assert_eq(c.magnitude, 1)
@@ -51,7 +54,10 @@ func test_six_slots_stop_new_actives_but_keep_owned_rank_cards() -> void:
 	assert_eq(w.upgrades.apply("probe2_new", w, "legendary"), 0)
 
 func test_seeded_draw_weights_by_kind_and_distinct_offers() -> void:
-	var w := RF.quiet_world()
+	var data := RF.quiet_data()
+	# Freeze this four-card probability probe independently of newly ported pool definitions.
+	data.jobs_survivor.jobs["212"].skill_pool = ["energy_bolt", "magic_claw", "fire_arrow", "poison_breath"]
+	var w := RunWorld.new(RF.setup("quiet", 287, data))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 287
 	var counts := {"energy_bolt_rank": 0, "magic_claw_new": 0, "fire_arrow_new": 0, "poison_breath_new": 0}
