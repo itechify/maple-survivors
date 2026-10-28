@@ -698,6 +698,29 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+**#311 / P3 Form seam regression smoke (2026-10-28).** No balance tuning; training seeds 1/2/2026,
+job 212, bot/random on every tier-1 stage and bot Sleepywood with starter/`fp_arch_mage.json` equipment.
+`ISOLATE=311`, `JOBS=3` set, one seed submitted at a time to limit memory; shared cache read-only.
+All **30 records** finished: **1 clear / 29 deaths / 0 timeouts**, no world warnings, missing assets or crashes.
+Cells are **clears / 3; death-second range (deaths only); end-level range**.
+
+| Stage / equipment | Bot | Random |
+|---|---|---|
+| Henesys | 0/3; 305.0–651.7; 11–36 | 0/3; 308.3–309.9; 10–11 |
+| Ellinia | 0/3; 629.1–644.2; 21–23 | 0/3; 328.4–660.2; 12–23 |
+| Perion | 0/3; 305.7–456.3; 10–19 | 0/3; 308.7–421.5; 13–19 |
+| Kerning | 0/3; 307.9–315.0; 12–13 | 0/3; 306.0–317.3; 12–13 |
+| Sleepywood starter | 0/3; 10.6–12.0; 1–1 | — |
+| Sleepywood kit | 1/3; 23.8–826.2; 8–72 | — |
+
+These ranges match H10's recorded F/P smoke. Henesys bot fills six slots in 3/3 at 136.7–205.3 s and
+reaches the first boss in 3/3; Ellinia remains record-only. The kit's sole clear is seed 2, 936.2 s, Lv72.
+The 30 worlds ran on the frozen pre-H12 mirror (P3 gameplay unchanged since 7c1a226); the final H12
+integration at b981f41 is checked separately by the merged full suites. The merged-tree seed-1 Henesys
+bot control is byte-identical to its pre-merge complete record (`_scratch/311/postmerge-control/`).
+Exact records and combined three-seed systems reports remain in `_scratch/311/smoke/`; final validation
+and source boundaries are recorded in the external `P3-311.md` handover. No held-out seeds were used.
+
 **#296 review fixes / H12, after integrating #346 (2026-10-28).** No balance values changed by the
 review fixes: incoming AP HP 600, growth 65, orb 0.05, cooldowns and finisher coefficients are preserved exactly;
 Hero AP/growth/score rows now live in `jobs/hero.json`'s `balance` block. Read-only cache, `ISOLATE=296fix`,
