@@ -215,10 +215,15 @@ account into the evidence-only `driver_save.json`; delete it (or use a fresh sho
 `scenes/debug/cash_gallery.tscn` (every curated cash item on the avatar), `shield_gallery.tscn` (the Equip window and avatar with a shield / a two-handed weapon), `weapon_gallery.tscn` (every weapon family: stand, walk and each basic-attack action on a dummy; `-- --mode=cash` a cash weapon cover over a two-handed sword and a claw; `-- --mode=ammo [--branch=410 --level=37]` real ammo projectiles per tier) and `hair_cap_probe.tscn` (cap vs hair layers)
 are the avatar contact-sheet tools.
 
-Normal play keeps three living character slots. A non-final clear autosaves the carried character in the Free Market;
-Up at out00 opens the next tier's map select. Save & quit is available at both boundaries. Quit round warns that
-Continue replays the saved stage/seed from its beginning. Death, final-tier victory and confirmed deletion archive
-the run and free its slot. `--run=<stage> [--character=<absolute JSON>]` stays tool-only and never writes saves/bests.
+Normal play (save format 3, ADR 0006, #286) keeps three character slots. Character select opens the character's Free
+Market (home); Up at out00 opens map select, listing every stage of every unlocked tier (a clear of any tier-N stage
+unlocks tier N+1; tier 1 is always open); a round ends back at the Free Market, after a clear, a death or Quit round
+(which ends the round like a death). Every round starts at Lv1: the character keeps only its look, job, equipment,
+scrolls, mesos, cash, pet and unlocked tiers, plus what a round picked up even when it died. Saves happen at the hub
+and when a round ends; there is no saved round, so closing the game mid-round loses it and Continue only opens the
+hub. Only confirmed deletion frees a slot; every round (and each deletion) adds a history entry. A save file of
+format 1 or 2 moves its characters to the history on load. `--run=<stage> [--character=<absolute JSON>]` stays
+tool-only and never writes saves/bests.
 
 ### Balance (`scripts/balance.sh`)
 

@@ -82,20 +82,16 @@ buttons are `TitleButton`s drawn from code. The emblem is `game/icon.png` (windo
 `application/modify_resources`); the web shell ships the favicons, `site.webmanifest` and `title.jpg` from `web/`.
 Character select and creation keep the v83 MapLogin backdrop (`LoginBackdrop`).
 
-`SceneFlow` owns the active slot and boundary persistence ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
-It saves phase `free_market` on a non-final clear,
-`map_select` on exit/first creation and phase `round`
-with stage/seed before launch. Quit round leaves that snapshot unchanged; Continue restarts its boundary character on map 1 with the same
-seed, including after quitting on map 2 or 3. `RunScene.configure` accepts `options.character` as a snapshot Dictionary or the tool JSON-file path. The
-coordinator's header documents #70's small character-screen calls and the sole `_after_round_cleared` boundary.
-The outgoing CharacterSnapshot is required only on clears. Terminal death archives the last saved boundary
-character when no outgoing snapshot is supplied, even with unanswerable rewards/jobs/cards; results and stage
-bests use the actual round-end summary. `CharacterSnapshot.restore_loadout` decodes skills, ranks and modifiers
-for both RunWorld and the Free Market.
+`SceneFlow` owns the active slot and the round loop ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md),
+ADR 0006, #286): character select opens the character's Free Market, whose out00 opens map select (every stage of
+every unlocked tier), `start_round` launches a round **without writing anything**, and `finish_run(summary, character,
+ending)` is the one exit of a persistent round (clear, death, and Quit round with `ending` "quit"): it saves the
+outgoing character, the best, the run count, the NX and one history entry in a single `SaveData.finish_round` write and
+shows the results screen, whose button returns to the hub. `RunScene.configure` accepts `options.character` as a
+snapshot Dictionary or the tool JSON-file path. The coordinator's header documents #70's small character-screen calls.
+`RunWorld.character_snapshot()` is always available (no choice can block it) and is where a clear unlocks the next tier.
 On clear, RunWorld first settles every collectible ground drop and every resulting choice (4.4.2); `stage_cleared`
 is emitted only after that settlement. RunScene takes the outgoing snapshot after the clear presentation hold.
-Quit round during a settlement choice still leaves the starting round boundary unchanged. Continue either replays
-that original round or resumes the saved, fully settled hub character; no live pickups or settlement flags persist.
 `FreeMarket` uses `FreeMarketMotion` (PlayerMotion, FootholdMap, LadderSet and PortalSet) without a RunWorld;
 there are no combat, spawning, drop or round-clock systems. MapRenderer/CameraRig draw the map and AvatarRenderer
 draws CharacterSnapshot.look with the character's worn equipment. A status bar displays full HP/MP and identity, while
@@ -120,27 +116,27 @@ rewards and clear events. It checks presentation only; natural outcomes belong t
 | `Assets` | `scripts/assets/asset_library.gd` | Locates the cache, loads/caches img JSON (`WzImg`), atlas page textures, sounds; builds `SpriteAnim` frame lists |
 | `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, frame cap (`[display] max_fps`: vsync on and `Engine.max_fps` = the display's refresh rate by default, `--vsync=off` uncaps), key bindings (rebound actions applied to the `InputMap`), HP / MP ALERT levels (`[alert]`; persistent rounds only, #121) |
 | `Sfx` | `scripts/audio/audio_service.gd` | BGM player with fade, pooled SFX players |
-| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child; character slots, tiered map select, saved round seeds, carry/death/victory; tool-only `start_run` (`--run`) bypasses persistence |
+| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child; character slots, the Free Market home, map select over the unlocked tiers, standalone rounds (no saved round); tool-only `start_run` (`--run`) bypasses persistence |
 
 Everything else is owned by the scene that uses it.
 
-`SaveData` owns local `user://save.json`, format 2: `best`, `runs`, three nullable `slots`, and `history`, plus an
-optional `account: {nx, owned}` (spec #34; absent = an empty account, no format bump). A finished round's `nx_awarded`
-is credited inside the same atomic write as the clear boundary or the death/victory archive.
-The run wrapper is `{name, look, created, character, tier, phase, rounds_played, tiers_cleared, stage?, round_seed?}`;
-`character` is #67's validated `CharacterSnapshot`, `tier` indexes the next tier, and `phase` is `free_market`,
-`map_select` or `round`. A round requires its chosen stage and seed, saved before entering the simulation.
-The caller supplies dates and seeds. Outside a round, retain the last stage for deletion history.
+`SaveData` owns local `user://save.json`, format 3: `best`, `runs`, three nullable `slots`, and `history`, plus an
+optional `account: {nx, owned}` (spec #34; absent = an empty account). A finished round's `nx_awarded` is credited
+inside the same atomic write as the round's slot, best and history entry.
+A slot is `{name, created, rounds_played, character}`; `character` is the validated format-3 `CharacterSnapshot`
+(job, look, equipment, scrolls, mesos, cash, pet, `tiers_unlocked`). There is no phase, tier cursor, stage or seed: a
+round is never saved. The caller supplies dates and seeds.
 
 `slot(index)`, `slots` and `history` return detached copies. `create_slot(snapshot)` returns the first free index
-(or -1, with `last_error`); `update_slot(index, snapshot, round_summary := {})` returns `Error`.
-`end_run(index, ending, date, final_snapshot := {}, round_summary := {})` frees the slot and appends
-`{name, job_id, job_name, level, tiers_cleared, rounds_played, ending, stage, date}` in one write. It resolves the job
-name from canonical jobs; pass the final run wrapper for terminal progress, or omit it to delete the saved character.
-`ending` is `died`, `victory` or `deleted`. Supplying a finished-round summary to either mutation counts that round
-and compares its best in the same transaction. Supply it once; do not also call `record` for that round.
+(or -1, with `last_error`); `update_slot(index, snapshot)` saves the hub's changes and returns `Error`.
+`finish_round(index, snapshot, ending, date, round_summary)` (`ending` cleared/died/quit) stores the character the round
+left, counts the round for its stage's best and run count, credits its NX and appends
+`{name, job_id, job_name, stage, level, ending, date}` in one write; the character is never removed.
+`delete_slot(index, date)` frees the slot and appends a `deleted` entry. A format-2 file's living characters move to the
+history on load as `retired` entries (name, job, the level and stage they had) and the file is rewritten as format 3;
+its bests, counts, history and account are kept. Older history entries keep their `tiers_cleared` / `rounds_played`.
 The legacy `record`, `best_for`, `runs_for`, `is_better` and presentation helpers retain their existing behavior;
-#69 implements the scene-flow switch and skips every persistence call for tool-only one-off rounds.
+tool-only one-off rounds skip every persistence call.
 
 Format 1 converts on load and writes back with empty slots/history, retaining playable-stage bests/counts.
 Malformed or unsupported saves are copied to `.bad`, `.bad.1`, etc.; preservation failure blocks writes. A valid
@@ -898,15 +894,14 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
 minute/crowd grouping semantics. Ordinary play keeps only the last two seconds, capped at 2048 samples even if frame
 deltas are zero. F3 reads this bounded window immediately when toggled mid-round and does not enable full recording.
 
-`RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 2; format 1 migrates on load) and
-exposes `character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
-it carries progression, original attributes/earned AP, accumulated HP/MP growth and advancement grants, ordered
-skills with ranks/modifiers, player modifiers/card limits, Fortune, look, worn equipment and
-inventory (`scripts/sim/equipment.gd` instances), scroll stacks and mesos.
-Resolved attributes/Fortune are also included for consumers. RunWorld owns the live equipment: UI and bots change it
+`RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 3; tool files of format 1 and 2 migrate on
+load) and exposes `character_snapshot()`. The schema, and the one list of what a character keeps, is in
+`scripts/sim/character_snapshot.gd`: job, look, worn equipment and inventory (`scripts/sim/equipment.gd` instances),
+scroll stacks, mesos, cash, pet and unlocked tiers; never level, EXP, skills, cards, AP or HP. Every world starts at Lv1.
+RunWorld owns the live equipment: UI and bots change it
 only through `equip_item`, `unequip_item` and `discard_item` (see the RunWorld header); a character without a
-snapshot wears `Equipment.DEFAULT_OUTFIT`. `SceneFlow.new_character` makes the creation choices worn equipment and
-`continue_character` migrates a format-1 save slot once. Each new world refills computed HP/MP and creates
+snapshot wears `Equipment.DEFAULT_OUTFIT`. `SceneFlow.new_character` makes the creation choices and the job's creation
+weapon worn equipment. Each new world computes full HP and creates
 fresh map systems, timers, buffs and statuses. Snapshot reads during any pending level/job/reward/advancement
 choice push an error, return empty in release and assert in debug. With no character the original setup/event
 path is retained. The sim does no file I/O: `DataRepo.load_character` validates the explicit tool JSON file for
@@ -1285,7 +1280,7 @@ detected from `onExit`, and also from a page error mentioning `currentTime` of n
 teardown after a quit with audio alive; the final IndexedDB sync has already happened by then).
 
 Save import refuses, before writing anything, a file that is not JSON or lacks `SaveData`'s top-level shape (format 1
-or 2; `best` and `runs` objects; format 2: exactly 3 `slots` and a `history` array). The game still validates the
+2 or 3; `best` and `runs` objects; formats 2 and 3: exactly 3 `slots` and a `history` array). The game still validates the
 contents of the staged `.import` file before promotion. An invalid candidate is preserved as `.import.bad[.N]`
 and consumed without touching the primary or `.bak`; no second nested validator lives in JavaScript. A valid
 candidate goes through SaveData's normal temporary/backup write, then the staging file is removed. The shell's

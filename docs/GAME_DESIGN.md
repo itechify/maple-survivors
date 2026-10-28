@@ -45,6 +45,21 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   `balance.player.ap` row per job (212: INT primary, LUK secondary). The other lines' skill data and cards stay,
   unplayable until ported. Sections 1, 5, 6.1.1-6.1.2, 7.5, 8 and 9 below still describe the removed systems in places;
   where they conflict, this note wins until T12 rewrites them.
+- **#286 (T4): save format 3 and the standalone round loop.** A character is saved as `{name, created, rounds_played,
+  character}` and keeps only its job, look, worn equipment and inventory, scrolls, mesos, cash, pet and
+  `tiers_unlocked` (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
+  every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
+  Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
+  jobs (only 212), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
+  Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
+  tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
+  `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
+  the hub. Clearing any stage of tier N unlocks tier N+1 for that character (`CharacterSnapshot.unlocked_after_round`);
+  tier 1 is always open; cleared tiers can be replayed. There is no permadeath: death ends the round, never the
+  character, and only deletion frees a slot. Quit round is a death in every respect (its history ending is `quit`).
+  A format-1 or format-2 save moves its characters to the history (`retired`) on load, unmigrated; bests, counts, the
+  account and old history carry over. Tool files (`--character`, `--hub`, fixtures) of format 1 and 2 still load, reduced
+  to format 3. The scroll roll seed is `created` + `rounds_played` + a hash of the character's belongings.
 
 ## 1. The run
 
@@ -5806,6 +5821,13 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+Rows added by #286 (save format 3 and the round loop): the Arch Mage's creation weapon is 1372005, the Wooden Wand
+(`jobs.json` `creation_weapon`, tier C: the Magician line's v83 starting wand; its item id and stats are tier A);
+tier unlocks follow "clearing a stage of tier N unlocks tier N+1, tier 1 always open" (tier C, owner, ADR 0006); a
+death or Quit round keeps the round's pickups and unlocks nothing (tier C, owner); the Quit round warning text, the
+history labels (cleared / died / quit / retired / deleted), the greyed locked-tier cards on map select and the Job page
+layout (one row per job inside the charSet panel) are ours (tier C).
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
