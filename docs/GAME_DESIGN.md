@@ -4166,6 +4166,11 @@ weaker before the successor features. No balance data was tuned. The complete re
 | Seed / policy | End | Level | Kills | Boss observation |
 |---|---|---|---|---|
 | 1 / bot | DEAD map 1, 309.90 s | 12 | 239 | Mano spawned at 300 s, alive at death; 0/1 completed, censored fight >=9.87 s |
+| 1 / bot, #289 (common passives landed) | DEAD map 1, 328.20 s | 13 | 259 | Mano spawned at 300 s, alive at death; 0/1 completed, censored fight >=28.17 s |
+
+#289 smoke (`ISOLATE=289 bash scripts/balance.sh 1 --stage=henesys`, seed 1 only): no crash, no warnings, no missing assets. The
+bot took no passive in this run (a pool attack was on offer at every level-up, and passives score below attacks), so the
+run differs from #287 only through the extra offers the seeded draw spends on passive cards. No balance data tuned.
 
 ## 7. Skills (auto-cast and manual)
 
