@@ -72,7 +72,7 @@ func preferred(world: RunWorld, ready: Array[String]) -> String:
 		if String(world.book.meter_rule(key).get("role", "")) != "finisher" or not admits(definition):
 			continue
 		var st := world.runner.stats_of(world, key)
-		if not world.can_pay_hp(int(st.hp_cost)) or not world.runner.has_target(world, key, st, world.cast_origin()):
+		if not HpRisk.admits(world, st) or not world.runner.has_target(world, key, st, world.cast_origin()):
 			continue
 		var plan := world.runner.prepare_cast(world, key, st, world.cast_origin())
 		var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())

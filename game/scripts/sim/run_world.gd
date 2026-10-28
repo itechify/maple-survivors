@@ -81,6 +81,7 @@ const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "
 const EVENT_FIELDS := {
 	"mob_pulled": ["mob", "from", "pos"],
 	"meter_changed": ["id", "value", "max"],
+	"hp_spent": ["skill", "skill_id", "amount", "kind"],
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"player_restored": ["stat", "amount", "skill", "pos"],
@@ -1196,6 +1197,11 @@ func can_pay_hp(amount: int) -> bool:
 	return amount <= 0 or _hp > float(amount)
 
 
+## The exact current HP (player_state.hp is rounded up), for HpRisk's gate and low-HP checks.
+func hp_exact() -> float:
+	return _hp
+
+
 ## Pays an action's HP cost (Slash Blast); refuses, changing nothing, when it would leave 0 HP.
 func spend_hp(amount: int) -> bool:
 	if amount <= 0:
@@ -1285,6 +1291,7 @@ func player_speed_stat() -> float:
 func _refresh_caster() -> void:
 	loadout.weapon_id = weapon_id()
 	loadout.weapon_family = held_weapon_family()
+	loadout.max_hp = _max_hp
 	loadout.set_caster(float(_attributes.int), equipment_bonus("incMAD") + buffs.effect_total("matk"), progression.level)
 	loadout.str_stat = float(_attributes.str)
 	loadout.dex_stat = float(_attributes.dex)

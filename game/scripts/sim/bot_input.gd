@@ -339,7 +339,7 @@ static func _reach_profile(w: RunWorld) -> Vector2:
 		var r := SkillRunner.reach_of(st, w)
 		if r <= 0.0:
 			continue
-		var ready := float(w.runner.cooldowns.get(key, 0.0)) <= 1e-6 and w.can_pay_hp(int(st.hp_cost))
+		var ready := float(w.runner.cooldowns.get(key, 0.0)) <= 1e-6 and HpRisk.admits(w, st)
 		var own := Vector2(r, r if ready else 0.0)
 		if int(w.book.def(key).get("job", 0)) == 0:
 			base = Vector2(maxf(base.x, own.x), maxf(base.y, own.y))
@@ -366,7 +366,7 @@ static func _flee_buff(w: RunWorld) -> Dictionary:
 				or not w.can_cast():
 			continue
 		var st := w.runner.stats_of(w, key)
-		if not w.can_pay_hp(int(st.hp_cost)):
+		if not HpRisk.admits(w, st):
 			continue
 		var manual: Dictionary = def.manual
 		return {"id": id, "hp": float(manual.get("bot_flee_hp", 0.0)), "count": int(manual.get("bot_surround_count", 99)),
