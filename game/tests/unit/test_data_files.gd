@@ -26,7 +26,7 @@ func test_load_all_has_every_file() -> void:
 func test_every_stage_names_its_region_and_continent() -> void:
 	var want := {"henesys": ["Henesys", "Victoria Island"], "ellinia": ["Ellinia", "Victoria Island"],
 		"perion": ["Perion", "Victoria Island"], "kerning": ["Kerning City", "Victoria Island"],
-		"sleepywood": ["Sleepywood", "Victoria Island"]}
+		"nautilus": ["Nautilus", "Victoria Island"], "sleepywood": ["Sleepywood", "Victoria Island"]}
 	assert_eq(data.stages.stages.keys(), want.keys())
 	for key: String in want:
 		var st: Dictionary = data.stages.stages[key]
@@ -153,11 +153,11 @@ func test_stages_mobs_and_manifest() -> void:
 	var manifest: Variant = AssetManifest.load_merged("res://data/asset_manifest.json")
 	assert_true(manifest is Dictionary)
 	var want_maps := {"henesys": 104040000, "ellinia": 101010100, "perion": 102010000, "kerning": 103010000,
-		"sleepywood": 105050400}
-	assert_eq(stages.keys(), want_maps.keys(), "the five distinct stages are offered")
+		"nautilus": 912030000, "sleepywood": 105050400}
+	assert_eq(stages.keys(), want_maps.keys(), "the six distinct stages are offered")
 	assert_eq(manifest.maps, [104040000.0, 104010001.0, 100030001.0, 101010100.0, 100040100.0,
 		100040105.0, 102010000.0, 101030404.0, 106000101.0, 103010000.0, 103000101.0, 107000000.0,
-		105050400.0, 105090310.0, 105090900.0, 910000000.0],
+		105050400.0, 105090310.0, 105090900.0, 912030000.0, 100030000.0, 108000500.0, 910000000.0],
 		"the three maps of each region and the Free Market hub are imported")
 	for key: String in want_maps:
 		assert_true(stages.has(key), key)
@@ -663,3 +663,98 @@ func test_stage_keyframe_parser_ignores_retired_potion_curve() -> void:
 	var director := SpawnDirector.create(stage, {})
 	assert_false(director.keyframes[0].has("normal_hp_drop_chance"), "retired potion curves are not parsed")
 	assert_near(director.rate_at(0.0), 1.0, 1e-6, "supported pacing fields are still parsed")
+
+
+func test_nautilus_region_contract() -> void:
+	assert_has(data.stages.stages, "nautilus")
+	if not data.stages.stages.has("nautilus"):
+		return
+	var st: Dictionary = data.stages.stages.nautilus
+	assert_eq(st.maps.map(func(m: Dictionary) -> int: return int(m.map_id)), [912030000, 100030000, 108000500])
+	assert_eq(st.maps[1].exclude, [9400617.0, 9400655.0, 9400656.0])
+	assert_eq(int(st.maps[2].boss.mob_id), 5220001)
+	assert_eq(int(st.maps[2].boss.final_form), 5220000)
+	assert_eq(st.original_life, {"1210100": 25.0, "1110100": 9.0})
+	for kf: Dictionary in st.keyframes:
+		if float(kf.t) < 120:
+			assert_eq(kf.pool, {"100101": 1.0})
+		if float(kf.t) >= 120 and float(kf.t) < 300:
+			assert_has(kf.pool, "1210100")
+		if float(kf.t) >= 210 and float(kf.t) < 300:
+			assert_has(kf.pool, "1110100")
+
+
+func test_opt_in_king_clang_chain_defers_boss_death_until_final_form() -> void:
+	var tf = preload("res://tests/fixtures/tree_boss_fixtures.gd")
+	var setup: Dictionary = tf.setup(5220001, [], ["attack1"])
+	setup.data.stages.stages.quiet.maps[0].boss.final_form = 5220000
+	setup.mob_imgs[5220001].info.revive = {"0": 5220000}
+	setup.mob_imgs[5220000] = setup.mob_imgs[5220001].duplicate(true)
+	setup.mob_imgs[5220000].info.erase("revive")
+	setup.mob_imgs[5220000].info.maxHP = 25000
+	var w := RunWorld.new(setup)
+	w.god = true
+	for i in 60:
+		w.step(1.0 / 60.0, MoveInput.new())
+	var shell := int(w.bosses.records[0].slot)
+	w.drain_events()
+	w.hit_mob(shell, {"damage_min": 1000000, "damage_max": 1000000, "magic": true, "crit": 0.0, "crit_mult": 1.5, "skill": "energy_bolt"}, -1)
+	assert_false(w.bosses.all_dead(), "shell death does not end opt-in encounter")
+	assert_false(w.drain_events().any(func(e: Dictionary) -> bool: return e.type == "boss_died"))
+	var crab := int(w.bosses.records[0].slot)
+	assert_eq(int(w.bosses.records[0].mob_id), 5220000)
+	assert_eq(w.mob_boss[crab], 0)
+	assert_eq(w.swarm.max_hp[crab], 37500, "final form inherits fixture hp_mult 1.5")
+	assert_near(w.bosses.damage_multiplier(0), 0.0, 0.0001)
+	w.hit_mob(crab, {"damage_min": 1000000, "damage_max": 1000000, "magic": true, "crit": 0.0, "crit_mult": 1.5, "skill": "energy_bolt"}, -1)
+	assert_true(w.bosses.all_dead(), "final death ends encounter")
+	assert_eq(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "boss_died").size(), 1)
+
+
+
+func test_nautilus_assets_and_roster_on_real_cache() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	var renderer := MapRenderer.new()
+	renderer.library = lib
+	for id: int in [912030000, 100030000, 108000500]:
+		assert_true(renderer.load_map(id), "Nautilus map %d loads" % id)
+		assert_true(renderer.missing.is_empty(), str(renderer.missing))
+	var manifest := AssetManifest.load_merged("res://data/asset_manifest.json")
+	var mr := MobRenderer.new()
+	mr.library = lib
+	for id: int in [9001005, 5220001, 5220000, 3230102, 4230104]:
+		assert_has(manifest.mobs, float(id))
+		assert_has(data.mobs.mobs, str(id))
+		assert_true(lib.frame(AssetLibrary.item_icon_path(int(data.mobs.mobs[str(id)].exp_item))) != null)
+		var anim := mr.anim_for(id, MobRenderer.STAND)
+		assert_true(anim != null and not anim.is_empty(), "mob %d drawable" % id)
+		if anim != null:
+			for frame: SpriteFrame in anim.frames:
+				assert_true(frame.page != null)
+	for frame in 3:
+		assert_true(lib.frame("Skill.wz/MobSkill.img/123/level/8/affected/%d" % frame) != null)
+	assert_eq(StageRoster.boss_extra_ids(lib.mob_root(5220000), lib.img("Skill.wz/MobSkill.img").root),
+		PackedInt32Array([3230102, 4230104]), "canonical summons of final form")
+	assert_true(lib.missing.is_empty(), str(lib.missing))
+	assert_true(mr.missing.is_empty(), str(mr.missing))
+	mr.free()
+	renderer.free()
+	lib.free()
+
+
+func test_ordinary_revive_still_finishes_scheduled_encounter() -> void:
+	var tf = preload("res://tests/fixtures/tree_boss_fixtures.gd")
+	var w := RunWorld.new(tf.setup(9300003, []))
+	w.god = true
+	for i in 60:
+		w.step(1.0 / 60.0, MoveInput.new())
+	w.drain_events()
+	w.hit_mob(int(w.bosses.records[0].slot), {"damage_min": 1000000, "damage_max": 1000000,
+		"magic": true, "crit": 0.0, "crit_mult": 1.5, "skill": "energy_bolt"}, -1)
+	assert_true(w.bosses.all_dead(), "non-opt-in King Slime ends immediately despite living offspring")
+	var events := w.drain_events()
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "boss_died").size(), 1)
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "mob_revives_spawned").size(), 1)

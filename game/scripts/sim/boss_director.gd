@@ -332,3 +332,32 @@ func skill_interval(index: int, skill_id: int, fallback: float) -> float:
 func reward_config(index: int) -> Dictionary:
 	var defaults: Dictionary = rules.get("rewards", {})
 	return defaults.merged(entries[index].get("rewards", {}), true) if index >= 0 and index < entries.size() else defaults
+
+
+## Opt-in canonical revive into a final form; ordinary revive bosses retain their original death/reward semantics.
+func continue_final_form(index: int, source: int, pos: Vector2, world: RunWorld) -> bool:
+	var entry: Dictionary = entries[index]
+	var final_id := int(entry.get("final_form", 0))
+	if final_id <= 0 or int(records[index].mob_id) == final_id:
+		return false
+	var revive: Dictionary = world.mob_img(int(records[index].mob_id)).get("info", {}).get("revive", {})
+	if not final_id in StageRoster.list_ids(revive) or not world.kind_of_id.has(final_id):
+		return false
+	var slot := world.spawn_mob(int(world.kind_of_id[final_id]), pos, world.swarm.fh[source],
+		float(entry.get("hp_mult", 1.0)), false)
+	if slot < 0:
+		return false
+	world.mob_boss[slot] = index
+	world.swarm.steady[slot] = 1
+	var record: Dictionary = records[index]
+	record.slot = slot
+	record.identity = world.swarm.identity[slot]
+	record.mob_id = final_id
+	record.anchor = pos
+	record.stall = 0.0
+	record.best_distance = INF
+	_actions[index] = {"action": "", "start": world.time, "until": world.time, "facing": -1}
+	world.emit("mob_revives_spawned", {"boss_index": index, "mob": source,
+		"mob_id": world.swarm.mob_kind(source).id, "pos": pos,
+		"revives": [{"mob": slot, "mob_id": final_id}], "time": world.time})
+	return true

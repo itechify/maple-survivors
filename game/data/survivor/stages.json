@@ -1,7 +1,7 @@
 {
-	"_doc": "Stages (docs/GAME_DESIGN.md 4.1): region stage key -> ordered maps with one boss and pool rule each, map_seconds (boss delay from map entry), round duration (s), pacing keyframes, bursts, elites. Keyframe numbers (rate = mobs/s, max_alive, hp and speed multipliers) interpolate linearly in time between keyframes; the pool (mob id -> weight) is the one of the last keyframe at or before t. Bursts: every `every` s from `first`, a ring of count_min..count_max mobs (growing with time) around the view, allowed past max_alive up to `hard_cap`. Elites: every `every` s from `first`, one mob of the current pool with hp_mult x HP, exp_mult x EXP and damage_mult x mitigated damage. spawn: overrides of balance.json spawn for this region. exp_mult: EXP multiplier of this stage. note: a line shown on the stage card. region and continent (both required, tier C owner choice #221): the town the player sees as the stage name and the small line above or beside it; they replace the WZ map and street names everywhere. original_life is the map's own spawn list (shown on the stage card). Potions are unlimited on per-kind cooldowns; no potion drops exist (spec #237). Boss summon and revive mob ids are not listed here: they come from the bosses' canonical MobSkill 200 and info/revive data (StageRoster). All numbers tier C (ours).",
-	"_tiers": "Tier C: owner region keys and map lists, spec #241 (Perion and Kerning City added by spec #253); run tiers from spec #32. Map select fits at most four cards per tier (stage_select.gd MAX_CARDS). Zero-based run tier index; choose one stage from each list.",
-	"tiers": [["henesys", "ellinia", "perion", "kerning"], ["sleepywood"]],
+	"_doc": "Stages (docs/GAME_DESIGN.md 4.1): region stage key -> ordered maps with one boss and pool rule each, map_seconds (boss delay from map entry), round duration (s), pacing keyframes, bursts, elites. Keyframe numbers (rate = mobs/s, max_alive, hp and speed multipliers) interpolate linearly in time between keyframes; the pool (mob id -> weight) is the one of the last keyframe at or before t. Bursts: every `every` s from `first`, a ring of count_min..count_max mobs (growing with time) around the view, allowed past max_alive up to `hard_cap`. Elites: every `every` s from `first`, one mob of the current pool with hp_mult x HP, exp_mult x EXP and damage_mult x mitigated damage. spawn: overrides of balance.json spawn for this region. exp_mult: EXP multiplier of this stage. note: a line shown on the stage card. region and continent (both required, tier C owner choice #221): the town the player sees as the stage name and the small line above or beside it; they replace the WZ map and street names everywhere. original_life is the map's own spawn list (shown on the stage card). Potions are unlimited on per-kind cooldowns; no potion drops exist (spec #237). Boss summon and revive mob ids are not listed here: they come from the bosses' canonical MobSkill 200 and info/revive data (StageRoster). final_form: optional opt-in final boss id; canonical revive transfers the encounter identity and multipliers until that form dies; ordinary revives do not extend encounters. All numbers tier C (ours).",
+	"_tiers": "Tier C: owner region keys and map lists, spec #241 (Perion and Kerning City added by spec #253); run tiers from spec #32. Spec #264 adds Nautilus as the fifth tier-1 region; map select supports up to six cards. Zero-based run tier index; choose one stage from each list.",
+	"tiers": [["henesys", "ellinia", "perion", "kerning", "nautilus"], ["sleepywood"]],
 	"stages": {
 		"henesys": {
 			"name": "Henesys Hunting Ground I",
@@ -354,6 +354,208 @@
 			"elites": {"first": 240, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
 			"note": "Home of the Thieves.",
 			"original_life": {"130101": 14, "210100": 17, "1210102": 14, "1120100": 6}
+		},
+		"nautilus": {
+			"_tier": "Tier A: v83 map IDs and original_life. Tier C: spec #264 region, map order and pools; numeric pacing copies Henesys exactly, with its linearly interpolated 210 s keyframe.",
+			"name": "Pirate Training Center",
+			"region": "Nautilus",
+			"continent": "Victoria Island",
+			"duration": 900,
+			"hard_cap": 400,
+			"_bosses": "Tier C: slots 1/2 copy Henesys entries exactly. King Clang matches slot 3 effective HP, touch and attack roll endpoints at typical_hp 448 / typical_pdd 7; not tuned.",
+			"map_seconds": 300,
+			"_maps": "Tier C: spec #264 map order. Forest life has only the three excluded Strange event mobs beyond ordinary pigs/mushrooms; all mobTime and hide fields are zero. Shell 5220001 has its own 142x131 stand canvas and die1 art (no info/link), so use the opt-in final_form chain through 5220000.",
+			"maps": [
+				{
+					"map_id": 912030000,
+					"pool": "curve",
+					"boss": {
+						"time": 300,
+						"mob_id": 2220000,
+						"hp_mult": 1.8,
+						"dmg_mult": 1.15,
+						"typical_hp": 196,
+						"typical_pdd": 7
+					}
+				},
+				{
+					"map_id": 100030000,
+					"pool_from_life": true,
+					"exclude": [
+						9400617,
+						9400655,
+						9400656
+					],
+					"boss": {
+						"time": 300,
+						"mob_id": 6130101,
+						"hp_mult": 0.24,
+						"dmg_mult": 0.85,
+						"typical_hp": 340,
+						"typical_pdd": 7,
+						"attacks": [
+							"attack1"
+						],
+						"attack_interval": 8,
+						"attack_dmg_mult": 0.55,
+						"_attacks": "tier C: 8 s start-to-start cadence and separate slam scaling; canonical type0 attack300/attackAfter1050ms/range remain unchanged"
+					}
+				},
+				{
+					"map_id": 108000500,
+					"pool_from_life": true,
+					"boss": {
+						"time": 300,
+						"mob_id": 5220001,
+						"final_form": 5220000,
+						"hp_mult": 0.2413793103448276,
+						"dmg_mult": 1.34,
+						"typical_hp": 448,
+						"typical_pdd": 7,
+						"attacks": [
+							"attack1"
+						],
+						"attack_interval": 8,
+						"attack_dmg_mult": 1.21,
+						"_tier": "Tier C: final_form opts into one encounter across canonical revive. HP: Blue Mushmom 200000 x .035 = 7000; (4000 + 25000) x 7000/29000 rounds to 966 + 6034. Touch: 165 at 1.34 gives 181..214, matching Blue Mushmom 450 at .48. Attack: 180 at 1.21 gives 179..212 (Blue Mushmom 300 at .72: 180..212), nearest 0.01 multiplier by endpoint error. Both at PDD7 (floor(.75x7)=5), roll .85..1. 8 s cadence."
+					}
+				}
+			],
+			"exp_mult": 2.5,
+			"post_duration_slope": 0.25,
+			"_pools": "Tier C weights, spec #264: Blue Snail 1 until 120 s; then Blue Snail 2 / Pig 3; from 210 s Blue Snail 1 / Pig 3 / Green Mushroom 2. Later keyframes have no pool; maps 2/3 use canonical life counts.",
+			"keyframes": [
+				{
+					"t": 0,
+					"rate": 0.25,
+					"max_alive": 6,
+					"hp": 1,
+					"speed": 1,
+					"pool": {
+						"100101": 1
+					}
+				},
+				{
+					"t": 120,
+					"rate": 0.55,
+					"max_alive": 11,
+					"hp": 1,
+					"speed": 1,
+					"pool": {
+						"100101": 2,
+						"1210100": 3
+					}
+				},
+				{
+					"t": 180,
+					"rate": 0.75,
+					"max_alive": 15,
+					"hp": 1,
+					"speed": 1.025,
+					"pool": {
+						"100101": 2,
+						"1210100": 3
+					}
+				},
+				{
+					"t": 210,
+					"rate": 0.875,
+					"max_alive": 17.5,
+					"hp": 1,
+					"speed": 1.0375,
+					"pool": {
+						"100101": 1,
+						"1110100": 2,
+						"1210100": 3
+					}
+				},
+				{
+					"t": 240,
+					"rate": 1,
+					"max_alive": 20,
+					"hp": 1,
+					"speed": 1.05,
+					"pool": {
+						"100101": 1,
+						"1110100": 2,
+						"1210100": 3
+					}
+				},
+				{
+					"t": 300,
+					"rate": 2.5,
+					"max_alive": 50,
+					"hp": 1.25,
+					"speed": 1.075
+				},
+				{
+					"t": 360,
+					"rate": 4.5,
+					"max_alive": 85,
+					"hp": 1.75,
+					"speed": 1.1
+				},
+				{
+					"t": 480,
+					"rate": 8.2666666667,
+					"max_alive": 143.3333333333,
+					"hp": 3.84,
+					"speed": 1.1533333333
+				},
+				{
+					"t": 540,
+					"rate": 9.4,
+					"max_alive": 165,
+					"hp": 3.9,
+					"speed": 1.18
+				},
+				{
+					"t": 660,
+					"rate": 12.1333333333,
+					"max_alive": 215,
+					"hp": 4.7,
+					"speed": 1.2466666667
+				},
+				{
+					"t": 720,
+					"rate": 13.5,
+					"max_alive": 240,
+					"hp": 6.375,
+					"speed": 1.28
+				},
+				{
+					"t": 780,
+					"rate": 15.6666666667,
+					"max_alive": 270,
+					"hp": 7.6875,
+					"speed": 1.32
+				},
+				{
+					"t": 900,
+					"rate": 20,
+					"max_alive": 330,
+					"hp": 8.25,
+					"speed": 1.4
+				}
+			],
+			"bursts": {
+				"first": 300,
+				"every": 90,
+				"count_min": 10,
+				"count_max": 40
+			},
+			"elites": {
+				"first": 240,
+				"every": 60,
+				"hp_mult": 8,
+				"exp_mult": 5,
+				"damage_mult": 1.5
+			},
+			"note": "Home of the Pirates.",
+			"original_life": {
+				"1110100": 9,
+				"1210100": 25
+			}
 		},
 		"sleepywood": {
 			"_tier": "Tier A: map ID and original_life from v83 Map.wz. Tier C: owner roster/order, 900 s duration, all pacing values, pool weights, EXP, burst and elite settings; first-pass data chosen before measurement for arriving Lv35-43 second-job characters, not calibrated (#77). Tauromacis/Taurospear use their canonical attacks (#76; cadence in balance.json mob_attacks). Jr. Boogie deals contact damage only and casts nothing: ordinary mobs cast no mob skills because character statuses come only from bosses (owner, #76).",

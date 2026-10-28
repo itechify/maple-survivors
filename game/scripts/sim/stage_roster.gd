@@ -21,6 +21,8 @@ static func named_ids(stage: Dictionary) -> PackedInt32Array:
 				_add(ids, int(key))
 	for boss: Dictionary in DataRepo.stage_bosses(stage):
 		_add(ids, int(boss.get("mob_id", 0)))
+		if boss.has("final_form"):
+			_add(ids, int(boss.final_form))
 	ids.sort()
 	return ids
 
@@ -55,6 +57,11 @@ static func mob_ids(stage: Dictionary, mob_imgs: Dictionary, mob_skill_img: Dict
 	var ids := named_ids(stage)
 	for boss: Dictionary in DataRepo.stage_bosses(stage):
 		var id := int(boss.get("mob_id", 0))
+		if boss.has("final_form"):
+			var final_id := int(boss.final_form)
+			var final_img: Dictionary = mob_imgs.get(final_id, mob_imgs.get(str(final_id), {}))
+			for extra in boss_extra_ids(final_img, mob_skill_img):
+				_add(ids, extra)
 		var img: Variant = mob_imgs.get(id, mob_imgs.get(str(id), {}))
 		if img is Dictionary:
 			for extra in boss_extra_ids(img, mob_skill_img):
