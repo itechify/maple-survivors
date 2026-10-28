@@ -150,6 +150,39 @@ func displace(side: int, distance: float, fhm: FootholdMap, bounds: Rect2) -> fl
 	return float(slid.moved)
 
 
+## Where a horizontal dash (Rush, docs/GAME_DESIGN.md 7.33) of up to `distance` px toward `side` (-1 / 1) would end, as
+## {x, y, fh, moved}, or {} when it cannot start or would not move (a climbing player, a blocked or degenerate dash).
+## Grounded it slides along the platform (displace's rules: slopes, platform edge, walls, map limits); airborne it keeps its
+## height and stops at the walls of the platform last stood on and the map limits. Changes nothing. tier C: ours (#302).
+func dash_destination(side: int, distance: float, fhm: FootholdMap, bounds: Rect2) -> Dictionary:
+	if ladder >= 0 or state == ST_LADDER or side == 0 or distance <= 0.0:
+		return {}
+	var lim := _x_limits(fhm, bounds)
+	if fh >= 0:
+		var slid := fhm.slide_along(fh, pos.x, side, distance, lim.x, lim.y)
+		if float(slid.moved) <= 0.0:
+			return {}
+		return {"x": float(slid.x), "y": float(slid.y), "fh": int(slid.fh), "moved": float(slid.moved)}
+	var target := clampf(pos.x + signf(side) * distance, lim.x, lim.y)
+	var wall := fhm.wall_hit(pos.x, pos.y, target, pos.y, walls_of(fhm))
+	if wall != FootholdMap.NONE:
+		target = fhm.x1[wall] - signf(side) * FootholdMap.EPS
+	var moved := absf(target - pos.x)
+	if moved <= 0.0 or (target - pos.x) * signf(side) <= 0.0:
+		return {}
+	return {"x": target, "y": pos.y, "fh": -1, "moved": moved}
+
+
+## Applies a dash_destination result: the position and foothold change, the horizontal speed stops, everything else
+## (facing, timers, a fall in progress) is kept.
+func dash_to(dest: Dictionary) -> void:
+	pos = Vector2(float(dest.x), float(dest.y))
+	fh = int(dest.fh)
+	vel.x = 0.0
+	if fh >= 0:
+		vel = Vector2.ZERO
+
+
 ## Advances by dt seconds (normally 1/60) in `substeps` sub-steps. `ladders` may be null; `bounds` is the MapBounds
 ## rect (an empty Rect2 means only the foothold extent limits x). Returns EV_* flags of what happened.
 func step(dt: float, input: MoveInput, fhm: FootholdMap, ladders: LadderSet, bounds: Rect2) -> int:
