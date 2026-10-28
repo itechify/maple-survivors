@@ -22,8 +22,9 @@ func _put(rel: String, value: Dictionary) -> String:
 	return root
 
 
-func test_lines_are_common_then_job_line_id_order() -> void:
-	assert_eq(Array(DataRepo.LINES), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
+func test_lines_are_common_then_job_line_id_order_then_the_class_lines_as_they_landed() -> void:
+	# #298: a class spec appends its line at the end (hero, #296), so the merge order of the lines before it never moves.
+	assert_eq(Array(DataRepo.LINES), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate", "hero"])
 	assert_eq(DataRepo.fragment_path("skills", "magician", "res://data"), "res://data/survivor/skills/magician.json")
 
 
@@ -39,6 +40,22 @@ func test_skills_merge_in_line_order_and_keep_the_base_doc() -> void:
 	assert_eq(d.skills.keys(), ["base_one", "b_one", "w_one", "m_one", "m_two"], "base, beginner, warrior, magician")
 	assert_eq(d.skills.w_one, {"n": 9.0})
 	assert_eq(d.keys(), ["_doc", "skills"], "fragment _doc notes are not merged")
+
+
+func test_a_class_line_after_pirate_merges_last_for_jobs_and_skills() -> void:
+	_put("survivor/jobs.json", {"_doc": "d", "default_job": 212, "jobs": {"0": {"a": 1}}})
+	_put("survivor/jobs/magician.json", {"jobs": {"212": {"playable": true}}})
+	_put("survivor/jobs/hero.json", {"_doc": "hero", "jobs": {"112": {"playable": false}}})
+	_put("survivor/skills.json", {"_doc": "d"})
+	_put("survivor/skills/hero.json", {"skills": {"h": {}}})
+	_put("survivor/skills/pirate.json", {"skills": {"p": {}}})
+	var errors := PackedStringArray()
+	var jobs := DataRepo.load_split("jobs_survivor", test_dir(WORK), errors)
+	var skills := DataRepo.load_split("skills", test_dir(WORK), errors)
+	assert_true(errors.is_empty(), "%s" % [errors])
+	assert_eq(jobs.jobs.keys(), ["0", "212", "112"], "base, magician, then hero")
+	assert_eq(jobs.default_job, 212, "top-level config stays in the base")
+	assert_eq(skills.skills.keys(), ["p", "h"])
 
 
 func test_missing_fragments_are_skipped_and_the_entries_key_always_exists() -> void:

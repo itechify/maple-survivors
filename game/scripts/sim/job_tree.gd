@@ -11,6 +11,7 @@ var _jobs := {}
 var _order: Array[int] = []
 var _survivor := {}
 var _default_reason := "Not yet available"
+var _default_job := 0
 
 
 ## Builds the tree from the canonical jobs.json root ({"jobs": [...]}) and the survivor jobs.json root.
@@ -28,6 +29,7 @@ static func from_data(canonical: Dictionary, survivor: Dictionary) -> JobTree:
 		for k: String in sj:
 			t._survivor[int(k)] = sj[k]
 	t._default_reason = String(survivor.get("default_reason", t._default_reason))
+	t._default_job = int(survivor.get("default_job", 0))
 	return t
 
 
@@ -56,9 +58,13 @@ func playable_jobs() -> Array[int]:
 	return out
 
 
-## The job of a fresh character (the first playable job); 0 when the data has none.
+## The job of a fresh character and of every tool or test that names none: survivor `jobs.json` `default_job` (tier C,
+## #298) while that job is playable, else the first playable job (so data without the pin behaves as before); 0 when
+## nothing is playable. A second playable job never changes it.
 func default_job() -> int:
 	var ids := playable_jobs()
+	if _default_job in ids:
+		return _default_job
 	return ids[0] if not ids.is_empty() else 0
 
 

@@ -122,7 +122,8 @@ How many advancements a job is from Beginner: 0 Beginner, 1 first job, 2 second 
 
 **Job line**:
 A first job and every job below it, named after it (warrior, magician, bowman, thief, pirate), plus beginner for
-job 0 and common for job-neutral data. Survivor data and the asset manifest keep one file per line
+job 0 and common for job-neutral data. A class spec after the slice adds a *data line* named after the class
+(`hero`, #296), appended to `DataRepo.LINES`, so jobs of the same Adventurer line no longer share one file. Survivor data and the asset manifest keep one file per line
 (`survivor/<name>/<line>.json`, `asset_manifest.d/<line>.json`), and a per-job table resolves a job through its
 lineage to the nearest listed ancestor.
 _Avoid_: class line, family (a weapon family is a kind of weapon)
