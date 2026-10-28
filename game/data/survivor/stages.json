@@ -6,6 +6,8 @@
 	"drop_bands": [[0, 30], [30, 60]],
 	"stages": {
 		"henesys": {
+			"_opening_ramp": "Tier C (#307): whole-round opening multiplier; neutral tier-1 ramp preserves #293 pacing. HP captures at spawn; ordinary damage at impact; bosses capture both on arrival.",
+			"opening_ramp": {"seconds": 900, "hp": {"start": 1.0, "end": 1.0}, "damage": {"start": 1.0, "end": 1.0}},
 			"name": "Henesys Hunting Ground I",
 			"region": "Henesys",
 			"continent": "Victoria Island",
@@ -104,6 +106,8 @@
 			"original_life": {"120100": 10, "100101": 8, "130101": 12, "1210100": 9}
 		},
 		"ellinia": {
+			"_opening_ramp": "Tier C (#307): whole-round opening multiplier; neutral tier-1 ramp preserves #293 pacing. HP captures at spawn; ordinary damage at impact; bosses capture both on arrival.",
+			"opening_ramp": {"seconds": 900, "hp": {"start": 1.0, "end": 1.0}, "damage": {"start": 1.0, "end": 1.0}},
 			"name": "The Tree That Grew I",
 			"region": "Ellinia",
 			"continent": "Victoria Island",
@@ -188,6 +192,8 @@
 			"original_life": {"210100": 25, "130101": 5}
 		},
 		"perion": {
+			"_opening_ramp": "Tier C (#307): whole-round opening multiplier; neutral tier-1 ramp preserves #293 pacing. HP captures at spawn; ordinary damage at impact; bosses capture both on arrival.",
+			"opening_ramp": {"seconds": 900, "hp": {"start": 1.0, "end": 1.0}, "damage": {"start": 1.0, "end": 1.0}},
 			"_tier": "Tier A: map IDs and original_life from v83 Map.wz. Tier C (owner, spec #253): region, map order, boss picks and pool rules; the numeric curve (keyframe rate/max_alive/hp/speed, bursts, elites, exp_mult, hard_cap, post_duration_slope) copies Henesys exactly. The 210 s keyframe is Henesys's curve interpolated at 3:30 (rate 0.875, max_alive 17.5, speed 1.0375), added only to carry the 3:30 pool change; keyframes from 300 s carry no pool because map 1 picks only keyframes with t < 300 (maps 2 and 3 use their own life lists).",
 			"name": "West Street Corner of Perion",
 			"region": "Perion",
@@ -273,6 +279,8 @@
 			"original_life": {"130100": 22, "130101": 9, "1110101": 7}
 		},
 		"kerning": {
+			"_opening_ramp": "Tier C (#307): whole-round opening multiplier; neutral tier-1 ramp preserves #293 pacing. HP captures at spawn; ordinary damage at impact; bosses capture both on arrival.",
+			"opening_ramp": {"seconds": 900, "hp": {"start": 1.0, "end": 1.0}, "damage": {"start": 1.0, "end": 1.0}},
 			"_tier": "Tier A: map IDs and original_life from v83 Map.wz. Tier C (owner, spec #253): region, map order, boss picks and pool rules; the numeric curve (keyframe rate/max_alive/hp/speed, bursts, elites, exp_mult, hard_cap, post_duration_slope) copies Henesys exactly. The 210 s keyframe is Henesys's curve interpolated at 3:30 (rate 0.875, max_alive 17.5, speed 1.0375), added only to carry the 3:30 pool change; keyframes from 300 s carry no pool because map 1 picks only keyframes with t < 300 (maps 2 and 3 use their own life lists).",
 			"name": "Kerning City Construction Site",
 			"region": "Kerning City",
@@ -358,6 +366,8 @@
 			"original_life": {"130101": 14, "210100": 17, "1210102": 14, "1120100": 6}
 		},
 		"sleepywood": {
+			"_opening_ramp": "Tier C (#307): whole-round ramp over 1200 s: map1 HP .3 -> 1 / damage .4 -> 1, power6; maps2/3 override HP .02 -> 1 / damage .08 -> 1, power3, to account for their stronger canonical rosters. All stack on existing scales. Training seeds 1/2/2026 only. Boss HP/contact/attack capture the ramp at actual arrival; ordinary damage follows current time. Full WZ strength reached at 20:00; typical three-map rounds may finish sooner.",
+			"opening_ramp": {"seconds": 1200, "power": 6, "hp": {"start": 0.3, "end": 1.0}, "damage": {"start": 0.4, "end": 1.0}},
 			"_tier": "Tier A: map ID and original_life from v83 Map.wz. Tier C: owner roster/order, 900 s duration, all pacing values, pool weights, EXP, burst and elite settings; first-pass data chosen before measurement for arriving Lv35-43 second-job characters, not calibrated (#77). Tauromacis/Taurospear use their canonical attacks (#76; cadence in balance.json mob_attacks). Jr. Boogie deals contact damage only and casts nothing: ordinary mobs cast no mob skills because character statuses come only from bosses (owner, #76).",
 			"name": "Dark Cave",
 			"region": "Sleepywood",
@@ -385,6 +395,7 @@
 				},
 				{
 					"map_id": 105090310,
+					"opening_ramp": {"seconds": 1200, "power": 3, "hp": {"start": 0.02, "end": 1.0}, "damage": {"start": 0.08, "end": 1.0}},
 					"pool_from_life": true,
 					"boss": {
 						"time": 300,
@@ -402,6 +413,7 @@
 				},
 				{
 					"map_id": 105090900,
+					"opening_ramp": {"seconds": 1200, "power": 3, "hp": {"start": 0.02, "end": 1.0}, "damage": {"start": 0.08, "end": 1.0}},
 					"pool": {
 						"4230100": 5,
 						"7130100": 2,
