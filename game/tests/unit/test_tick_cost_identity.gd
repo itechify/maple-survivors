@@ -34,7 +34,9 @@ const PET_BACK := 2700
 ## (the character is set to 220 directly), so the events and totals legitimately differ (pre-#285 totals exp 3658,
 ## kills 206, casts 183, level 12).
 ## Re-captured for #287: pool-only offers, eight mapped ranks and +1 rank at every rarity.
-const GOLDEN := "edc2d55c267197c243c66cf4027e8985219cad5f79e704c1ed78b02c8b53bd75"
+## Re-captured for #288: rarity bonus offer fields, actual bonuses and post-cap Mastery change event bytes.
+## Existing fixed-tick workload/coverage and collected-total checks remain unchanged.
+const GOLDEN := "bcfe77596e1977ec23ef90f021f6402f851b8ad77585e7b7a620c027deed6c54"
 const TOTALS := {"exp": 4097, "mesos": 88744, "pickup_mesos": 88744, "equips_collected": 23,
 	"equips_dropped": 47, "inventory": 24, "kills": 227, "casts": 260, "level": 13,
 	"pool": 24, "time": 59.999999999997875}

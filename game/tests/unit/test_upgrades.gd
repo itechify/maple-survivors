@@ -232,3 +232,15 @@ func test_fixed_damage_rank_card_previews_only_fields_in_canonical_data() -> voi
 	var c := w.upgrades.choice_card("fixed_rank", w)
 	assert_eq(c.skill_changes, {"fixdamage": {"before": 10, "after": 25}},
 		"canonical fixed damage; no MP cost (#285), no fabricated magic attack or mastery")
+
+
+func test_unported_modifier_previews_keep_existing_mechanics() -> void:
+	var w := RF.quiet_world()
+	RF.change_job_bare(w, 220)
+	w.upgrades.apply("thunder_bolt_new", w)
+	assert_eq(w.upgrades.choice_card("thunder_bolt_area", w).skill_mod_changes, {"area": {"before": 100, "after": 120}},
+		"reach in percent of the canonical box")
+	var pool := UpgradePool.from_data({"cards": [{"id": "storm_targets", "kind": "skill_mod", "skill": "thunder_bolt",
+		"max_rank": 3, "effects": [{"stat": "count", "op": "add", "value": 2}]}]})
+	assert_eq(pool.choice_card("storm_targets", w).skill_mod_changes, {"targets": {"before": 6, "after": 8}},
+		"a box skill's targets are its canonical mobCount plus cards")

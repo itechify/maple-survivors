@@ -65,3 +65,22 @@ func test_seeded_fortune_shifts_active_rarity_without_standalone_mod_offers() ->
 				high += 1
 		counts.append(high)
 	assert_true(counts[1] > counts[0] + 500)
+
+func test_bonus_lists_extend_by_data_and_preview_does_not_spend_the_bonus() -> void:
+	var data := RF.quiet_data()
+	data.skills.skills.energy_bolt.rarity_bonuses.epic = [
+		{"id": "wide", "text": "Wide", "effects": [{"stat": "area", "op": "mul", "value": 1.5}]},
+		{"id": "quick", "text": "Quick", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.5}]}]
+	var w := RunWorld.new(RF.setup("quiet", 288, data))
+	w.loadout.set_rank("energy_bolt", 8)
+	var first := w.upgrades.choice_card("energy_bolt_rank", w, "epic")
+	assert_eq(first, w.upgrades.choice_card("energy_bolt_rank", w, "epic"))
+	assert_eq(w.loadout.skill_stat("energy_bolt", "area", 1.0), 1.0)
+	w.upgrades.apply(first.id, w, "epic")
+	assert_near(w.loadout.stats("energy_bolt").area, 1.5)
+	w.upgrades.apply(first.id, w, "epic")
+	assert_near(w.loadout.stats("energy_bolt").cooldown, 0.45)
+	w.upgrades.apply(first.id, w, "epic")
+	assert_near(w.loadout.stats("energy_bolt").area, 2.1, 0.00001)
+	w.step(1.0 / 60.0, MoveInput.new())
+	assert_eq(w.loadout.rank("energy_bolt"), 8)
