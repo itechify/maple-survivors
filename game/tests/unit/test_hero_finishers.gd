@@ -260,6 +260,7 @@ func test_art_skill_id_returns_the_axe_twin_only_for_an_axe() -> void:
 	assert_eq(book.art_path("panic", "Skill.wz/111.img/skill/1111003/finish/5", "sword"),
 		"Skill.wz/111.img/skill/1111003/finish/5")
 	assert_eq(book.art_path("panic", "", "axe"), "")
+	assert_eq(book.art_path("coma", "Sound.wz/Skill.img/1111005/Use", "axe"), "Sound.wz/Skill.img/1111006/Use")
 
 func test_the_cast_plays_finish_art_keyed_by_orbs_spent_with_the_axe_twin_for_an_axe() -> void:
 	for pair: Array in [[SWORD, 1111005], [TWO_HAND_AXE, 1111006], [1312004, 1111006]]:
