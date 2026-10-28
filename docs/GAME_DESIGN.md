@@ -686,7 +686,17 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 **701–730** for the dedicated balance pass after its data and guards freeze. Spent or retired
 101–130/201–212/301–330/401–430/501–530/601–630 are never reused for tuning or fresh evidence.
 
-### 4.2 Tuning record (`scripts/balance.sh`)
+#### #346 Hero first-pass melee survivability
+
+Tier C, training only: Hero starts at 600 HP (`balance.player.ap.112.hp`) and gains 65 HP/level
+(`balance.growth.112.hp`). An absent AP-row `hp` preserves the shared baseline. Five pool cooldowns
+are x0.4: Power Strike .4, Slash Blast .64, Brandish .56, Shout 4.8, Monster Magnet 4 seconds.
+Panic stays 2 seconds and Coma 1 second with their shared one-second meter floor. Each held Combo
+orb adds 5% damage; finishers add 20% per orb spent. These supersede #296/H3/H8 first-pass values.
+No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening multiplier was needed.
+Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
+
+## 4.2 Tuning record (`scripts/balance.sh`)
 
 **#306 / H10 Hero enablement and H9 completion (2026-10-28).** No balance tuning. Read-only real cache,
 `ISOLATE=306`, `JOBS=3`, training seeds 1/2/2026 only. All four tier-1 stages, bot/random, both jobs;
@@ -726,7 +736,7 @@ Ordinary Hero playtests (`--job=112 --speed=8 --vsync=off`) ended DEAD on Henesy
 and Sleepywood seed 1 with `hero_t2.json` at 8.3 s, Lv1; both `missing: []`. Art-only probes supply stationary,
 durable targets and injected orbs for sword/axe finishers; no diagnostic probe code or art is committed.
 The Mastery screenshot also exposes a pre-existing design gap: Monster Magnet's Normal Mastery advertises +5% damage
-although the skill deals none. Its rarity bonuses work; the Normal Mastery policy is left for owner review, with no tuning.
+although the skill deals none. Its rarity bonuses work; #346 resolves this with cooldown x0.95, the same repeat counter and diminishing returns.
 
 Hero's separate synthetic replay oracle hashes 7,200 fixed ticks twice (seed 1, explicit job 112, bot, invulnerable):
 `9adb0cee8138e1bf1aa6f91a2656e1cd4ad29f8552913269dbe08ec0cb841661`. The two F/P oracle expectations are untouched.
@@ -970,7 +980,24 @@ card of the three (the old `--first-card` policy is no longer a careless proxy: 
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00. Older records below
 quote the bot's former job draws, basic-attack duels and Guard scores: they describe the game of their date.
 
-#### Spec #282 / #288: rarity and Mastery regression smoke (2026-10-28)
+#### #346 candidate comparison
+
+Absolute `PATCH=` variants, `ISOLATE=346`, `JOBS=3`, training seeds 1/2/2026 (kit Henesys 1..12).
+A: growth65, five cooldowns x.4, orb .05 / finisher .20; B adds HP300; C adds HP1000;
+D selects HP600. A missed both three-seed targets. B met fresh Henesys but missed Sleepywood.
+C cleared kit Sleepywood3/3; reduced the baseline and stopped its unfinished batches before D.
+B's unfinished kit batch and C's unfinished fresh/kit batches are not target evidence.
+D's fresh Henesys: clear966.7 / dead674.0 / dead447.0, all map2; kit Sleepywood:
+dead656.5 / dead223.9 / clear906.9, two map3. No claim of frozen balance or F/P parity beyond these targets.
+Raw records and logs stay in `_scratch/346/`; no held-out seeds used.
+
+| Configuration | Before | Chosen D |
+|---|---|---|
+| Henesys fresh bot, 1/2/2026 | boss1/map2 0/3; clears0/3 | boss1/map2 3/3; clears1/3 |
+| Henesys Hero kit bot, 1..12 | clears1/12 (seed3) | clears4/12 (seeds1/3/5/7) |
+| Sleepywood Hero kit bot, 1/2/2026 | map2 0/3; deaths7.8–10.1s | map2 2/3; clears1/3; deaths223.9/656.5s |
+
+### Spec #282 / #288: rarity and Mastery regression smoke (2026-10-28)
 
 `ISOLATE=288`, real cache, seeds 1/2/2026 on all tier-1 stages, bot and random, no PATCH or tuning/held-out seeds.
 All 24 records: no crashes, warnings or missing assets; all DEAD, no clears/timeouts. This remains the incomplete
@@ -5923,9 +5950,9 @@ bot scores every declared pool skill (new 100, rank 74); these are existing atta
 
 **#288 rarity bonuses and Mastery (supersedes rarity multipliers below).** Each active card grants one rank,
 then its rarity bonus. At rank 8 the same `<skill>_rank` id becomes `card_kind: mastery`, grants zero ranks,
-and stays eligible at weight 1.2. A Normal Mastery grants +5% damage on that skill, or cooldown x0.95 when its `damage` is `none` (#346). Both use (`upgrades.json` `mastery_bonus`,
+and stays eligible at weight 1.2. A Normal Mastery grants +5% damage on that skill, or cooldown x0.95 when its `damage` is `none` (#346). Both use
 repeat id `mastery_damage`, shared by every Normal Mastery of the skill, so the 0.8^n diminishing returns apply;
-tier C, owner decisions #288/#346: Normal Mastery is never a dead pick); a Rare+ Mastery gives its rarity bonus instead.
+tier C, owner decisions #288/#346: Normal Mastery is never a dead pick; the damage default is `upgrades.json` `mastery_bonus`); a Rare+ Mastery gives its rarity bonus instead.
 Boss draws retain their Rare floor. Common passives remain Normal and stop at their own cap. Standalone behaviour cards for
 the four ported skills are deleted; unported lines retain their inert legacy definitions for direct mechanics tests.
 
@@ -6302,6 +6329,14 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Capture delay | skill.capture_delay: Paralyze 0.3 s, Big Bang 1.38 s | C |
 | Frame timing fallback | WeaponInfo.frame_times uses 100 ms for missing or zero frame delay | C |
 
+
+### #346 Hero survivability (tier C)
+
+HP600 at round startup from job AP row, HP65/level; five ungated pool cooldowns x.4;
+Combo per-unit damage .05, both finishers damage_per_unit .20. Owner-authorized first-pass
+training under #346 (section4.2), superseding original Hero values in sections7.33/7.34.
+Normal Mastery for `damage:none`: cooldown x.95 with the same mastery_damage counter and .8^n
+diminishing; preview and bot use the resolved bonus. Shared default/F/P values are unchanged.
 
 ### #307 opening ramp (tier C)
 
