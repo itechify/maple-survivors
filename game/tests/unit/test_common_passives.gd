@@ -111,12 +111,12 @@ func test_might_adds_ten_percent_damage_per_rank() -> void:
 		assert_true(absf(st.damage_min - base.damage_min * k) < 1e-6, "min at rank %d" % rank)
 
 
-func test_max_hp_adds_twenty_percent_per_rank_and_grants_the_new_hp() -> void:
+func test_max_hp_adds_forty_percent_per_rank_and_grants_the_new_hp() -> void:
 	var base := _world_with("crit", 0)
 	var m0 := int(base.player_state.max_hp)
 	for rank: int in [1, 5]:
 		var w := _world_with("max_hp", rank)
-		assert_eq(int(w.player_state.max_hp), roundi(m0 * (1.0 + 0.20 * rank)), "rank %d" % rank)
+		assert_eq(int(w.player_state.max_hp), roundi(m0 * (1.0 + 0.40 * rank)), "rank %d" % rank)
 		assert_eq(int(w.player_state.hp), int(w.player_state.max_hp), "a full bar stays full as the maximum grows")
 
 
@@ -136,11 +136,11 @@ func _hp_gained_over(w: RunWorld, seconds: float) -> float:
 	return float(w.player_state.hp) - hp0
 
 
-func test_regen_heals_one_percent_of_max_hp_per_second_per_rank() -> void:
+func test_regen_heals_two_percent_of_max_hp_per_second_per_rank() -> void:
 	# 8 s sits between the base 10 s pulses, so only the passive heals. Max HP is 50 at Lv1.
 	assert_true(absf(_hp_gained_over(_world_with("crit", 0), 8.0)) < 0.01)
-	assert_true(absf(_hp_gained_over(_world_with("regen", 1), 8.0) - 4.0) < 0.5)
-	assert_true(absf(_hp_gained_over(_world_with("regen", 5), 8.0) - 20.0) < 0.5)
+	assert_true(absf(_hp_gained_over(_world_with("regen", 1), 2.0) - 2.0) < 0.5)
+	assert_true(absf(_hp_gained_over(_world_with("regen", 5), 2.0) - 10.0) < 0.5)
 
 
 func test_cooldown_multiplies_by_one_minus_eight_percent_per_rank_with_a_floor_of_035() -> void:
@@ -170,13 +170,13 @@ func test_exp_adds_eight_percent_per_rank_without_losing_the_fraction() -> void:
 		assert_eq(w.progression.exp - before, rank_expected[1], "100 one-EXP orbs at rank %d" % rank_expected[0])
 
 
-func test_armor_takes_two_flat_per_rank_off_every_hit_but_never_below_one() -> void:
+func test_armor_takes_six_flat_per_rank_off_every_hit_but_never_below_one() -> void:
 	var raw := _world_with("crit", 0).take_hit(40.0, false, "", Vector2.ZERO)
 	assert_true(raw > 12, "the hit is big enough to show the reduction")
-	assert_eq(_world_with("armor", 1).take_hit(40.0, false, "", Vector2.ZERO), raw - 2)
-	assert_eq(_world_with("armor", 5).take_hit(40.0, false, "", Vector2.ZERO), raw - 10)
+	assert_eq(_world_with("armor", 1).take_hit(40.0, false, "", Vector2.ZERO), raw - 6)
+	assert_eq(_world_with("armor", 5).take_hit(40.0, false, "", Vector2.ZERO), maxi(1, raw - 30))
 	assert_eq(_world_with("armor", 5).take_hit(40.0, true, "", Vector2.ZERO),
-		_world_with("crit", 0).take_hit(40.0, true, "", Vector2.ZERO) - 10, "magic hits too")
+		_world_with("crit", 0).take_hit(40.0, true, "", Vector2.ZERO) - 30, "magic hits too")
 	assert_eq(_world_with("armor", 5).take_hit(3.0, false, "", Vector2.ZERO), 1)
 
 
@@ -210,7 +210,7 @@ func test_the_skill_window_has_a_common_tab_with_the_nine_passives_and_their_ran
 	var tip := m.skill_tooltip("passive_might")
 	assert_eq(tip.current, "Damage +30%")
 	assert_eq(tip.next, "Damage +40%")
-	assert_eq(m.skill_tooltip("passive_armor").next, "Damage taken -2 per hit")
+	assert_eq(m.skill_tooltip("passive_armor").next, "Damage taken -6 per hit")
 
 
 func test_held_common_passives_list_name_icon_and_rank_in_learning_order() -> void:
@@ -269,4 +269,4 @@ func test_a_passive_rank_card_previews_through_its_text_not_canonical_fields() -
 	var dressed: Array = SkillText.new(w.book).dress([c], w.loadout)
 	assert_eq(dressed[0].desc, "Damage +30%")
 	var fresh := RF.quiet_world().upgrades.choice_card("passive_regen_new", RF.quiet_world())
-	assert_eq(SkillText.new(w.book).dress([fresh], w.loadout)[0].detail, "Recover 1% of Max HP per second")
+	assert_eq(SkillText.new(w.book).dress([fresh], w.loadout)[0].detail, "Recover 2% of Max HP per second")

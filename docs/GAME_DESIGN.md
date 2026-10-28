@@ -392,6 +392,22 @@ implementations remain sibling work.
 
 ### 4.1 Pacing (`stages.json`)
 
+**#293 first-pass pacing (ADR 0006, training only).** The current 212 round aims for six actives by about
+5:00 and a clear around Lv45–55. The selected survivor EXP curve is `round(4 + 8 L²)` (minimum 1),
+F/P pool cooldowns are 40% of the T8/T9 first-pass values, and Hyper Body / Recovery / Iron Body grant
++40% Max HP / 2% Max HP per second / -6 damage per hit per rank. Other passive values, rarity bonuses
+and Mastery repeat factor remain unchanged. NX per gained level is 2 (was 5); boss/clear awards stay unchanged.
+This is a first pass, not the frozen balance pass. Canonical WZ numbers and spawn/boss/drop rules are unchanged.
+
+The ~75-pick target conflicts with Lv45–55: there is one pick per gained level and three boss draws, so
+those levels yield 47–57 picks. About 75 requires Lv73, extra draws per level, or more bonus draws. Reward
+cadence is outside this ticket's levers; it was left unchanged. Regression guards cover six actives within
+360 s (60 s offer/route slack), clear levels 40–60 and 42–62 picks, and at least one Henesys clear in the
+three fixed training seeds with the tier-1 kit. Swarm engagement floor is 0.15 over 6:00–12:00; a growing leftover crowd and
+mandatory late damage are not pacing targets. The oracle now exercises actual map transfers rather than
+flattening three maps into the historical one-map curve. Ellinia remains informational.
+
+
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
 labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
 aliases; living slots, bests, history and run snapshots migrate on load. The tier list is
@@ -606,6 +622,48 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 101–130/201–212/301–330/401–430/501–530/601–630 are never reused for tuning or fresh evidence.
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
+
+**#293 / T11, first-pass candidate selection.** Training seeds 1/2/2026 only; no held-out or 701–730 seeds.
+All candidates used absolute `PATCH=` files before committing selected data. With the bot fix in every probe:
+EXP `(4,6,0.5)` cleared Henesys 3/3 but ended Lv137–142; `(64,-60,8)` died 3/3 at Lv15–22 and was rejected
+(the minimum clamp also makes its opening uneven); `(4,0,8)` died 3/3 at Lv10–17. Adding cooldown x0.4
+cleared 1/3 fresh runs (Lv56), but the unscrolled tier-1 kit died 3/3 at Lv36–41. The selected candidate adds
+the three defensive passive values above: kit clears 2/3, Lv51/58 at 908.8/905.6 s, with 53/60 picks;
+seed1 dies on map3 at 652.3 s, Lv36. All kit runs fill six actives at 131–167 s. Local raw records/logs live
+under `_scratch/293/`, not in git. This narrow sample establishes plausibility, not clear probability.
+
+**Bot behaviour fix:** after three actives, common-passive base scores gain 20 points: useful global boosts
+can beat an ordinary rank, while new actives still win. Mastery scores its actual diminished effect at 100 points
+per unit (e.g. 5% = 5, +1 hit = 100), instead of 6 per unit; repeat decay therefore lowers its priority.
+Random choice, draw weights and eligibility are unchanged. This fixes the old bot's starvation of all passives.
+
+Final smoke, seeds 1/2/2026 (seconds include the whole round; ranges include deaths and clears):
+
+| Stage / starting equipment | Bot | Random |
+|---|---|---|
+| henesys | 1/3 clear; 449.9–909.5 s; Lv22–56 | 0/3 clear; 308.0–615.4 s; Lv10–31 |
+| ellinia | 0/3 clear; 625.4–650.9 s; Lv22–23 | 0/3 clear; 321.8–688.0 s; Lv12–23 |
+| perion | 0/3 clear; 430.6–668.6 s; Lv25–42 | 0/3 clear; 277.3–574.8 s; Lv10–32 |
+| kerning | 0/3 clear; 306.2–749.1 s; Lv12–42 | 0/3 clear; 308.3–442.2 s; Lv13–23 |
+| Henesys, tier-1 kit | 2/3 clear; 652.3–908.8 s; Lv36–58 | not sampled |
+| Sleepywood, starter / tier-1 kit | both 0/3 clear; 7.0–8.1 s; Lv1 | not sampled |
+
+All 24 tier-1 records and six paired Sleepywood records have no warnings/missing assets or crashes.
+Henesys kit boss completed fight medians: Mano 5.27 s (3/3 spawned), Mushmom 1.95 s (3/3),
+Blue Mushmom 1.10 s (2/2); no unfinished fights. The last boss was not spawned on the map-3 death.
+Sleepywood is **not yet viable**: both the historical starter fixture and the unscrolled tier-1 kit die on
+map1 at Lv1 with zero kills, before any pick/passive/rarity can help. This does not demonstrate a working
+gear ladder. The tier-2 opening needs a separate starting-power or opening mob/spawn review; those rules
+were not changed here. No chain assessment was substituted for standalone Lv1 rounds. Random Henesys fills
+six slots at 306/323 s on two seeds and dies before filling them on the third; the ~5:00 target is established
+for the sensible bot, not every careless build. Clear levels 56/58 exceed the nominal 55 upper target slightly;
+recorded within the documented 40–60 regression envelope, not claimed to meet every target.
+
+Final validation (#293): `ISOLATE=293 bash scripts/test.sh` with the real cache: **1985 tests, 0 failed,
+0 skipped**, 206 files, 1002.5 s. No tests deleted; contact/relocation/schema fixtures isolate the mechanic
+from faster starting spells, and the EXP/cooldown-dependent replay baselines were refreshed.
+
+
 
 **#291 summon regression smoke (2026-10-28).** Seeds 1/2/2026, every tier-1 stage, bot/random,
 read-only T1 cache, no patches or tuning. All 24 records ended DEAD, warnings=[] and missing=[]; no crashes.
@@ -6072,6 +6130,17 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+### #293 first-pass pacing (tier C)
+
+All new values are our survivor tuning, trained only on seeds 1/2/2026: EXP `(a,b,c)=(4,0,8)`;
+F/P pool cooldowns x0.4 (Bolt .36, Claw .5, Arrow .4, Breath .5, Explosion 1.6, Mist 3.2,
+Composition .8, Demon 2, Elquines 12, Paralyze 1.2, Meteor 4.8, Big Bang 2.8 seconds);
+Hyper Body 40%/rank, Recovery 2% Max HP/s/rank, Iron Body 6/hit/rank; NX 2/gained level.
+Bot: three-actives threshold, passive preference +20, Mastery 100 points/unit of diminished effect.
+Regression bounds: six slots 0–360 s, clear Lv40–60 / 42–62 picks, engagement >=0.15, >=1/3 Henesys clear.
+These replace older first-pass/inherited pacing statements where they conflict. No frozen assessment performed.
+
 
 | #290 constant / interpretation | Value | Tier / source |
 |---|---|---|

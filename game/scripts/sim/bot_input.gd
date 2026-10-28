@@ -537,7 +537,8 @@ static func pick_card_for(w: RunWorld, cards: Array) -> String:
 ## a survivor bot.card_scores entry replaces the base and gets no job bonus) plus gain_step_score for every step beyond
 ## the first that the offer grants (`c.magnitude`, the resolved ranks / steps / starting rank; missing or <= 0 counts as
 ## 1). The Elixir filler scores its base, regardless of magnitude; a
-## card the pool does not know scores 0.
+## card the pool does not know scores 0. #293 adds a global-passive preference after three actives and scores
+## Mastery by its diminished effect (100 points per unit), so a small repeat cannot crowd out a global boost.
 static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var d := w.upgrades.card(String(c.get("id", "")))
 	if d.is_empty():
@@ -550,8 +551,16 @@ static func card_score(w: RunWorld, c: Dictionary) -> float:
 	# tier C: score the actual diminished effect, not the rarity label or fictitious ranks.
 	for effect: Dictionary in c.get("rarity_bonus", {}).get("effects", []):
 		var value := float(effect.get("value", 0.0))
-		bonus_score += absf(value - 1.0) * step if String(effect.get("op", "add")) == "mul" else absf(value) * step
-	return (0.0 if String(c.get("card_kind", "")) == "mastery" else _base_score(w, d)) + bonus_score + step * float(maxi(int(c.get("magnitude", 1)), 1) - 1)
+		bonus_score += absf(value - 1.0) if String(effect.get("op", "add")) == "mul" else absf(value)
+	var base := _base_score(w, d)
+	var key := String(d.get("skill", ""))
+	# tier C (#293): after three actives, global boosts beat a low-value rank, but learning an active wins.
+	if w.book.def(key).get("common_passive", false) and w.loadout.slot_count("active") >= 3:
+		base += 20.0
+	# tier C (#293): Mastery scores its actual diminished bonus; a 20% improvement is worth 20 points.
+	if String(c.get("card_kind", "")) == "mastery":
+		return bonus_score * 100.0
+	return base + bonus_score * step + step * float(maxi(int(c.get("magnitude", 1)), 1) - 1)
 
 
 ## The score of card definition `d` before the gain term (Normal tier, one step).

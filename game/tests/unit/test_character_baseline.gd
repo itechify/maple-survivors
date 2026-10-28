@@ -25,7 +25,8 @@ const DT := 1.0 / 60.0
 ## 439fae92...: with every rarity_bonuses list and mastery_bonus emptied, capped actives not eligible for Mastery again, and the
 ## card fields this ticket adds (rarity_bonus, skill_rank_before, desc, name) stripped from the events in both trees, the two
 ## hashes are identical (8aeffb90...). Common passives are always Normal with no bonus, so #289's picks are unchanged.
-const GOLDEN := "24ced25e75e757b7f4a0ccb3cd71660b106f11033e6bbf9bcead853114ed81a5"
+## #293: EXP, F/P cooldowns, defensive passives and sensible bot choices deliberately change replay bytes.
+const GOLDEN := "87227b632ffd8eb1124ffbd7a60f55493293136edae1b34472d0bd42ceb5a77e"
 ## Re-captured for #289 (common passives): with the nine passive cards removed from the pool the merged hash ccd64094... is
 ## reproduced exactly (checked), so the only new bytes are the passive offers and the bot's picks of them.
 

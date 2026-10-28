@@ -69,7 +69,8 @@ func test_bandit_without_steal_preserves_event_and_player_bytes() -> void:
 	# Captured before #214 on #212 c30848d; re-captured for #238 (cooldown snapshot replaces stock).
 	# This fixture learns neither new attack; stream 15 remains untouched. Re-captured for #284 (no basic attack, the
 	# Bandit set directly) with #285 (no MP: player_state has no mp/max_mp/mp_short and casts pay no MP).
-	assert_eq(digest.finish().hex_encode(), "a1ab34c5cd8709e9a7546996f1c3813a98a3a3b5cbc13e6c416a46f90794124d")
+	# #293: selected EXP/cooldowns change player-state/event bytes; mechanic assertions remain unchanged.
+	assert_eq(digest.finish().hex_encode(), "f4143c8fc55784e58adb22cd5ae9efae704955fe97432808aed4b32189a530c5")
 
 
 func test_savage_blow_casts_four_five_or_six_lines_with_any_weapon() -> void:

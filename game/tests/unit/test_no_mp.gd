@@ -31,10 +31,10 @@ func test_a_skill_casts_on_its_cooldown_with_no_mp() -> void:
 			types[event.type] = true
 			if event.type == "cast" and String(event.skill) == "energy_bolt":
 				times.append(world.time)
-	# Energy Bolt's survivor cooldown is 0.9 s: about ten casts in nine seconds, each one cooldown after the last.
-	assert_true(times.size() >= 10, "Energy Bolt fires on every cooldown with a 0-MP pool: %d casts" % times.size())
+	# Energy Bolt's survivor cooldown is 0.36 s: about twenty-five casts in nine seconds, each one cooldown after the last.
+	assert_true(times.size() >= 24, "Energy Bolt fires on every cooldown with a 0-MP pool: %d casts" % times.size())
 	for i in range(1, times.size()):
-		assert_near(times[i] - times[i - 1], 0.9, DT + 1e-6, "cast %d follows the cooldown" % i)
+		assert_near(times[i] - times[i - 1], 0.36, DT + 1e-6, "cast %d follows the cooldown" % i)
 	assert_false(types.has("mp_short"), "no MP shortage exists")
 	for key: String in ["mp", "max_mp", "mp_short"]:
 		assert_false(world.player_state.has(key), "player_state has no %s" % key)
