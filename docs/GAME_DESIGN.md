@@ -5741,6 +5741,8 @@ damage x1.2, so their repeats are shared; Rare is `power`, damage x1.2, for all)
 | Meteor Shower | area x1.2 (`area`) | +1 hit (`echo`) |
 | Big Bang | area x1.2 (`area`) | +1 hit (`echo`) |
 | Elquines (#291) | area x1.2 (`reach`) | +1 ally (`twin`, stat `summon_count`) |
+| Blizzard (I/L, #329; Rare `amplify`, Epic `storm`) | area x1.2 (`storm`) | +1 hit (`echo`) |
+| Big Bang I/L (`big_bang_il`) | inherited from `big_bang` (7.63) | inherited |
 
 
 **Cards and the draw (current rules).** `data/survivor/upgrades.json` (base: draw weights, the rarity weights and magnitudes,
