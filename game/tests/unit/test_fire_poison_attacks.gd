@@ -7,6 +7,8 @@ const DT := 1.0 / 60.0
 
 func _world(element_attr: String = "") -> RunWorld:
 	var data := RF.quiet_data()
+	# Raw canonical behaviour probes use an explicit identity mapping, independent of survivor rank compression.
+	data.skills.skills.poison_breath.ranks = range(1, 31)
 	var setup := RF.setup("quiet", 55, data)
 	# Synthetic boundary levels exercise changing MP, mastery, poison chance and duration without shared fixtures.
 	setup.skill_imgs["210"].skill["2101005"] = {"elemAttr": "s", "level": {
@@ -129,7 +131,7 @@ func test_behaviour_cards_change_stats_per_step_and_stop_at_cap() -> void:
 		w.learn_skill(key)
 		assert_near(float(w.loadout.stats(key)[stat]), example[4])
 		for step in int(example[3]):
-			assert_true(w.upgrades.is_eligible(card, w), id)
+			assert_false(w.upgrades.is_eligible(card, w), "#287: standalone behaviour cards are excluded")
 			assert_eq(w.upgrades.apply(id, w), step + 1)
 			var expected := float(example[4]) * pow(0.88, step + 1) if stat == "cooldown" else float(example[4]) + step + 1
 			assert_near(float(w.loadout.stats(key)[stat]), expected, 1e-6, id)
@@ -139,35 +141,21 @@ func test_behaviour_cards_change_stats_per_step_and_stop_at_cap() -> void:
 		assert_near(float(w.loadout.stats(key)[stat]), example[5], 1e-6, "exhausted card cannot change stats")
 
 
-func test_branch_cards_learning_rank_caps_power_flags_and_bot_scores() -> void:
+func test_pool_cards_learning_rank_caps_power_flags_and_bot_scores() -> void:
 	var w := _world()
-	var scores := {"fire_arrow_new": 100.0, "fire_arrow_rank": 74.0, "fire_arrow_count": 87.0,
-		"fire_arrow_pierce": 70.0, "fire_arrow_cooldown": 66.0, "poison_breath_new": 100.0,
-		"poison_breath_rank": 74.0, "poison_breath_pierce": 70.0, "poison_breath_cooldown": 66.0}
-	for id: String in scores:
-		var card := w.upgrades.card(id)
-		assert_false(card.is_empty(), id)
-		assert_true(w.upgrades.is_power(card), id + " raises attack output")
-		assert_eq(card.get("requires", {}).get("jobs", []), [210.0], id + " lists the F/P Wizard")
-		assert_eq(BotInput.card_score(w, {"id": id}), scores[id], id + " uses existing attack scores")
-	var ids := w.upgrades.eligible(w)
-	assert_true("fire_arrow_new" in ids and "poison_breath_new" in ids, "both attacks are on offer to a 210")
+	w.book.def("poison_breath").ranks = [4,8,12,15,19,23,27,30]
 	w.set_job(212)
-	ids = w.upgrades.eligible(w)
-	assert_true("fire_arrow_new" in ids and "poison_breath_new" in ids, "and to a 212, whose line holds 210 (#284)")
-	w.set_job(210)
 	for key: String in ["fire_arrow", "poison_breath"]:
+		assert_has(w.upgrades.eligible(w), key + "_new")
+		assert_eq(BotInput.card_score(w, {"id": key + "_new"}), 100.0)
 		assert_eq(w.upgrades.apply(key + "_new", w, "legendary"), 1)
-		assert_eq(w.loadout.rank(key), 5, "tier starting rank")
-		for consumed: int in [8, 16, 24, 25]:
+		assert_eq(w.loadout.rank(key), 1)
+		for consumed in range(1, 8):
 			assert_eq(w.upgrades.apply(key + "_rank", w, "legendary"), consumed)
-		assert_eq(w.loadout.rank(key), 30, "canonical attack cap")
+		assert_eq(w.loadout.rank(key), 8)
+		assert_eq(w.loadout.level(key), 30)
 		assert_false(w.upgrades.is_eligible(w.upgrades.card(key + "_rank"), w))
 		assert_false(w.upgrades.is_eligible(w.upgrades.card(key + "_new"), w))
-	for job: int in [0, 200, 220, 230]:
-		RF.as_job(w, job)
-		for id: String in scores:
-			assert_false(w.upgrades.is_eligible(w.upgrades.card(id), w), id + " unavailable off the F/P line")
 
 
 func test_cached_fire_poison_levels_visuals_and_sounds() -> void:
@@ -181,10 +169,10 @@ func test_cached_fire_poison_levels_visuals_and_sounds() -> void:
 	for key: String in ["fire_arrow", "poison_breath"]:
 		lo.add_skill(key)
 		assert_eq(book.max_level(key), 30)
-		for rank in range(1, 31):
+		for rank in range(1, 9):
 			lo.set_rank(key, rank)
 			var st := lo.stats(key)
-			assert_eq(st.level, rank)
+			assert_eq(st.level, [4,8,12,15,19,23,27,30][rank - 1])
 		for field: String in ["ball", "hit", "effect"]:
 			assert_true(lib.anim(String(lo.stats(key)[field])).frames.size() > 0, key + " " + field)
 		for path: String in book.def(key).sounds.values():

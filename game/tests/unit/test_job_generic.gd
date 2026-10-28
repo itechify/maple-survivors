@@ -103,7 +103,7 @@ func test_unlisted_job_falls_back_to_the_beginner_rows() -> void:
 ## invulnerable.
 func _regen_world(skill_level: int) -> RunWorld:
 	var data := _data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.regen.hp = 0
 	data.balance.player.hp = 1000 # room above 1 HP for the whole Lv 16 bonus
 	var w := RunWorld.new(RF.setup("quiet", 76, data))

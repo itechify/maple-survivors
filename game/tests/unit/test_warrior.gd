@@ -339,26 +339,6 @@ func test_improved_max_hp_adds_its_hp_to_each_later_level_up_only() -> void:
 
 # --- cards ----------------------------------------------------------------------------------------------------------
 
-func test_warrior_cards_are_offered_only_on_the_warrior_line_with_any_weapon() -> void:
-	var warrior_cards := ["power_strike_new", "slash_blast_new", "iron_body_new", "improved_hp_recovery_new",
-		"improved_max_hp_new"]
-	for job: int in [0, 200, 212]:
-		var other := _world(71, job)
-		for id in warrior_cards:
-			assert_false(id in other.upgrades.eligible(other), "%s is not offered to job %d" % [id, job])
-	for job: int in [100, 110]:
-		var w := _world(71, job)
-		for id in warrior_cards:
-			assert_has(w.upgrades.eligible(w), id, "job %d is on the Warrior line" % job)
-	# #284: weapons gate no card; a wand or bare hands keep every Warrior card on offer.
-	var w := _world(71)
-	w.equipment.worn["weapon"] = {"id": 1372005}
-	for id in warrior_cards:
-		assert_has(w.upgrades.eligible(w), id, "with a wand")
-	w.equipment.worn.erase("weapon")
-	for id in warrior_cards:
-		assert_has(w.upgrades.eligible(w), id, "bare-handed")
-
 
 func test_every_attack_has_a_hits_more_mobs_card() -> void:
 	var w := _world(72)

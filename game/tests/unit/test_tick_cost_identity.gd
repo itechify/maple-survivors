@@ -33,9 +33,10 @@ const PET_BACK := 2700
 ## Re-captured for #284 on top: no basic attack, no Three Snails, no job advancement
 ## (the character is set to 220 directly), so the events and totals legitimately differ (pre-#285 totals exp 3658,
 ## kills 206, casts 183, level 12).
-const GOLDEN := "6e66998b2732cbdd2eee9f78fb49f7e369661cd62f2ce21ecbc50571285ffb51"
-const TOTALS := {"exp": 11257, "mesos": 127804, "pickup_mesos": 127804, "equips_collected": 23,
-	"equips_dropped": 47, "inventory": 24, "kills": 521, "casts": 454, "level": 19,
+## Re-captured for #287: pool-only offers, eight mapped ranks and +1 rank at every rarity.
+const GOLDEN := "edc2d55c267197c243c66cf4027e8985219cad5f79e704c1ed78b02c8b53bd75"
+const TOTALS := {"exp": 4097, "mesos": 88744, "pickup_mesos": 88744, "equips_collected": 23,
+	"equips_dropped": 47, "inventory": 24, "kills": 227, "casts": 260, "level": 13,
 	"pool": 24, "time": 59.999999999997875}
 const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_armor", "cold_beam", "thunder_bolt", "slow_il",
 	"heal", "fire_arrow", "poison_breath", "holy_arrow"]
@@ -163,7 +164,7 @@ static func _data() -> Dictionary:
 		"bursts": {}, "elites": {},
 	}
 	data.equipment_drops.chance = 0.05
-	data.jobs_survivor.jobs["212"]["start_skills"] = [] # the loadout is exactly SKILLS
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = "" # the loadout is exactly SKILLS
 	return data
 
 

@@ -6,7 +6,7 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 ## An isolated King Slime or Dyle encounter with selected canonical skills.
 static func setup(id: int = 6220000, skills: Array = [140], attacks: Array = [], seed_value: int = 2501) -> Dictionary:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 550
 	data.balance.player.stats.dex = 0
 	data.balance.player.stats.luk = 0

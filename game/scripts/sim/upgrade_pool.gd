@@ -2,21 +2,8 @@ class_name UpgradePool
 extends RefCounted
 ## Data-driven upgrade cards (`data/survivor/upgrades.json`, docs/GAME_DESIGN.md section 8): eligibility, seeded
 ## weighted draws and applying a card to a run. `state` is the RunWorld (its loadout, progression, jobs and player).
-##
-## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (on_line: one of them is the
-## character's job or one of its ancestors, so a 212 sees the 200 and 210 cards; ADR 0006 #284), `requires.skills`
-## (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also needs the skill unowned;
-## skill_rank / skill_mod need the skill owned (skill_rank also below its max rank). Weapons gate no card.
-## There are no job-neutral cards: potions upgrade by level (PotionSchedule), the Power Elixir is the only filler.
-## Draws pick distinct eligible cards with seeded weights.
-## Pity (upgrades.json `pity.draws` = N > 0): after N draws in a row that offered no
-## "power" card (cards flagged `"power": true`: new attack skills, attack skill ranks, more shots / targets / damage),
-## the next draw's first card is drawn among the eligible power cards, so a run's damage cannot stall on bad offers.
-## RunWorld.power_dry counts those draws. A sparse draw adds one separate `fallback` card (Power Elixir, full HP),
-## never weighted; an exhausted pool offers it alone. Tier C: survivor reward rule, preserving earlier-job skills.
-## Each scalable offer rolls a Potential tier with the same seeded RNG. Fortune shifts only tier odds; magnitude
-## tables resolve the skill ranks / modifier steps. Tiers in magnitudes.clamp clamp to remaining headroom; other
-## tiers drop to the highest fitting tier. Equal gains wear the lowest label, before preview and application.
+## Pool membership replaces job-line card filtering. Only new/rank cards for pool actives and common passives
+## are drawn. card_kind is the extension seam for rarity/Mastery and common passives (#288/#289).
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
 const PREVIEW_FIELDS := ["mad", "mastery", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp",
@@ -36,11 +23,10 @@ const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "r
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
 var cards: Array = []
-## Draws in a row without a power card after which a power card is guaranteed (0 = no pity).
-var pity_draws := 0
 var _rarity := {}
 var _magnitudes := {}
 var _by_id := {}
+var _draw_weights := {}
 var _fallback_id := ""
 
 
@@ -56,10 +42,8 @@ static func empty_tier_counts() -> Dictionary:
 static func from_data(root: Dictionary) -> UpgradePool:
 	var p := UpgradePool.new()
 	p._rarity = root.get("rarity", {})
+	p._draw_weights = root.get("draw_weights", {})
 	p._magnitudes = root.get("magnitudes", {})
-	var pity: Variant = root.get("pity", {})
-	if pity is Dictionary:
-		p.pity_draws = maxi(0, int(pity.get("draws", 0)))
 	for c: Dictionary in root.get("cards", []):
 		var id := String(c.get("id", ""))
 		if id == "" or p._by_id.has(id):
@@ -101,8 +85,16 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	if max_rank > 0 and rank(id, state) >= max_rank:
 		return false
 	var req: Dictionary = c.get("requires", {}) if c.get("requires") is Dictionary else {}
-	if not on_line(req.get("jobs", []), state.jobs.lineage(state.job_id())):
-		return false
+	var skill_key := String(c.get("skill", ""))
+	var slot := lo.book.slot(skill_key)
+	if String(c.get("kind", "")) != "filler":
+		if not String(c.get("kind", "")) in ["skill_new", "skill_rank"]:
+			return false
+		if slot == "passive":
+			if not bool(lo.book.def(skill_key).get("common_passive", false)):
+				return false
+		elif slot != "active" or not skill_key in state.jobs.skill_pool(state.job_id()):
+			return false
 	for s: Variant in req.get("skills", []):
 		if not lo.has(String(s)):
 			return false
@@ -115,7 +107,7 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	var skill := String(c.get("skill", ""))
 	match String(c.get("kind", "")):
 		"skill_new":
-			if not lo.book.has(skill) or lo.has(skill):
+			if not lo.book.has(skill) or lo.has(skill) or not lo.has_free_slot(lo.book.slot(skill)):
 				return false
 		"skill_rank":
 			if not lo.has(skill) or lo.rank(skill) >= lo.book.max_rank(skill):
@@ -129,48 +121,54 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 ## Draws up to n distinct eligible cards, adding one fallback alternative when short (see choice_card for fields).
 func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Array:
 	var pool := eligible(state)
-	if state.choice_bonus:
-		# tier C: an almost-maxed rank card that cannot sustain Rare is omitted from boss rewards. The
-		# Power Elixir filler is an always-Normal exception to the boss floor, so an exhausted reward still opens a window.
-		pool = pool.filter(func(id: String) -> bool:
-			return _always_normal(card(id)) or _honest_tier(card(id), state, "rare") != "normal")
 	var picked: Array = []
-	if pity_draws > 0 and state.power_dry >= pity_draws:
-		var gpool: Array = []
-		for id: String in pool:
-			var c := card(id)
-			if is_power(c):
-				gpool.append(id)
-		var gid := _weighted_pick(gpool, rng)
-		if gid != "":
-			picked.append(gid)
-			pool.erase(gid)
 	while picked.size() < n and not pool.is_empty():
-		var id := _weighted_pick(pool, rng)
+		var id := _weighted_pick(pool, rng, state)
 		picked.append(id)
 		pool.erase(id)
 	if picked.size() < n and _fallback_id != "":
 		picked.append(_fallback_id)
 	var out: Array = []
-	var power := false
 	for id: String in picked:
 		var offered := choice_card(id, state, "normal" if _always_normal(card(id)) else _roll_tier(state, rng))
 		out.append(offered)
 		state.card_tiers_offered[String(offered.tier)] += 1
-		power = power or is_power(card(id))
-	state.power_dry = 0 if power else state.power_dry + 1
 	return out
 
 
-## Whether a card listing `card_jobs` (requires.jobs; empty = any job) is on the job line `lineage` (JobTree.lineage of
-## the character's job: the job and its ancestors).
-static func on_line(card_jobs: Array, lineage: PackedInt32Array) -> bool:
-	if card_jobs.is_empty():
-		return true
-	for j: Variant in card_jobs:
-		if int(j) in lineage:
-			return true
-	return false
+## Stable draw category, independent of the legacy card encoding. #288 can return mastery here at rank 8.
+func card_kind(c: Dictionary, state: RunWorld) -> String:
+	var skill := String(c.get("skill", ""))
+	if String(c.get("kind", "")) == "filler":
+		return "filler"
+	if state.book.slot(skill) == "passive":
+		return "passive_rank" if state.loadout.has(skill) else "new_passive"
+	return "owned_active" if state.loadout.has(skill) else "new_active"
+
+
+## Per-card sampling weight from survivor data; Fortune changes rarity only.
+func draw_weight(c: Dictionary, state: RunWorld) -> float:
+	return maxf(0.0, float(_draw_weights.get(card_kind(c, state), 1.0)))
+
+
+## Add standard new/rank cards for newly implemented pool definitions; explicit data cards may override text.
+func add_pool_skills(book: SkillBook, jobs: JobTree) -> void:
+	if cards.is_empty():
+		return # explicit empty card catalog (tools and synthetic worlds)
+	for job in jobs.playable_jobs():
+		for key: String in jobs.skill_pool(job):
+			if not book.has(key):
+				continue
+			for kind: String in ["skill_new", "skill_rank"]:
+				var id := key + ("_new" if kind == "skill_new" else "_rank")
+				if _by_id.has(id):
+					continue
+				var d := book.def(key)
+				var c := {"id": id, "kind": kind, "skill": key, "name": d.get("name", key),
+					"icon": d.get("icon", book.wz_path(key) + "/icon"), "desc": "+1 rank", "max_rank": 0,
+					"effects": [], "power": true}
+				cards.append(c)
+				_by_id[id] = c
 
 
 ## True for a card flagged `"power": true` (it raises an attack skill's damage output).
@@ -263,6 +261,8 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		"tier": tier,
 		"magnitude": magnitude,
 		"kind": kind,
+		"card_kind": card_kind(c, state),
+		"slots": lo.slot_summary(),
 		"name": String(c.get("name", id)),
 		"desc": desc,
 		"icon": String(c.get("icon", "")),
@@ -354,6 +354,8 @@ static func _rank_step(c: Dictionary) -> int:
 
 
 func _magnitude(c: Dictionary, state: RunWorld, tier: String) -> int:
+	if String(c.get("kind", "")) in ["skill_new", "skill_rank"]:
+		return 1
 	if _always_normal(c):
 		return 1
 	var headroom := _headroom(c, state)
@@ -388,6 +390,8 @@ func _requested_magnitude(c: Dictionary, state: RunWorld, tier: String) -> int:
 
 
 func _honest_tier(c: Dictionary, state: RunWorld, tier: String) -> String:
+	if String(c.get("kind", "")) in ["skill_new", "skill_rank"]:
+		return "normal" if state.book.slot(String(c.get("skill", ""))) == "passive" else tier
 	if _always_normal(c):
 		return "normal"
 	var headroom := _headroom(c, state)
@@ -453,6 +457,9 @@ func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 	var kind := String(c.get("kind", ""))
 	var lo: Loadout = state.loadout
 	var magnitude := _magnitude(c, state, tier)
+	if (kind == "skill_new" and (lo.has(String(c.skill)) or not lo.has_free_slot(lo.book.slot(String(c.skill))))) \
+			or (kind == "skill_rank" and (not lo.has(String(c.skill)) or lo.rank(String(c.skill)) >= lo.book.max_rank(String(c.skill)))):
+		return 0
 	if magnitude <= 0:
 		return 0
 	var r := rank(id, state) + _consumed_steps(c, magnitude)
@@ -483,17 +490,17 @@ func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 	return r
 
 
-func _weighted_pick(ids: Array, rng: RandomNumberGenerator) -> String:
+func _weighted_pick(ids: Array, rng: RandomNumberGenerator, state: RunWorld) -> String:
 	if ids.is_empty():
 		return ""
 	var total := 0.0
 	for id: String in ids:
-		total += maxf(0.0, float(card(id).get("weight", 1.0)))
+		total += draw_weight(card(id), state)
 	if total <= 0.0:
 		return ids[rng.randi_range(0, ids.size() - 1)]
 	var r := rng.randf() * total
 	for id: String in ids:
-		r -= maxf(0.0, float(card(id).get("weight", 1.0)))
+		r -= draw_weight(card(id), state)
 		if r < 0.0:
 			return id
 	return ids[ids.size() - 1]

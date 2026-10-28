@@ -1,11 +1,12 @@
 {
-	"_doc": "Survivor flags of the canonical jobs (ADR 0006, spec #282). A character is one job, fixed for its life: there is no advancement. `playable` lists the jobs a character can be (in creation order; the first is the default for a fresh character and the tools); every other job is locked with `reason` (else default_reason). start_skills: the skills (survivor keys) a fresh round of this job starts with at rank 1, in casting order: 212 starts with Energy Bolt (until the skill pool lands, #287) and Teleport on its key from Lv1 (#284). creation_weapon is the weapon a new character of the job wears (creation, #286; tier C, the Magician line's own v83 starting wand, 1372005; wearing rules are #292's). format1_weapon is the frozen tier C spec #32 migration weapon of format-1 snapshots, resolved through the job lineage.",
+	"_doc": "Survivor job flags; skill_pool, starting_skill and mobility_skill live in jobs/<line>.json (tier C: ADR 0006).",
 	"default_reason": "Not yet available",
 	"jobs": {
-		"0": {"format1_weapon": 1302000},
-		"200": {"format1_weapon": 1372005},
-		"212": {"playable": true, "start_skills": ["energy_bolt", "teleport_fp"],
-			"creation_weapon": 1372005,
-			"_provenance": "tier C: owner, ADR 0006 / spec #282: F/P Arch Mage is the only playable job of the slice. Energy Bolt stands in for the starting skill until #287; Teleport (2101002) is a manual skill on its key from Lv1."}
+		"0": {
+			"format1_weapon": 1302000
+		},
+		"200": {
+			"format1_weapon": 1372005
+		}
 	}
 }

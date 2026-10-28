@@ -16,7 +16,7 @@ const INFO := {
 
 func _world(skill := true) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var setup := RF.with_basic_attack(RF.setup("quiet", 188, data))
 	setup.equipment_info.merge(INFO, true)
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 2000, "y2": 0}])

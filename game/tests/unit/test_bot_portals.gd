@@ -9,7 +9,7 @@ const DT := 1.0 / 60.0
 
 func _world() -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = [] # the portal bot is skill-less (#284 start skills)
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = "" # the portal bot is skill-less (#284 start skills)
 	var s := RF.setup("quiet", 18, data)
 	s.map_img = RF.map_from_segments([
 		{"x1": 0, "y1": 200, "x2": 1200, "y2": 200},
@@ -71,7 +71,7 @@ func test_bot_does_not_take_a_portal_that_moves_away_from_nearby_drops() -> void
 ## upper entrance at x 800 on a ledge walled at both ends. The floors are joined only by the portals.
 func _two_way_world() -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = [] # the portal bot is skill-less (#284 start skills)
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = "" # the portal bot is skill-less (#284 start skills)
 	var s := RF.setup("quiet", 18, data)
 	s.map_img = RF.map_from_segments([
 		{"x1": 0, "y1": 200, "x2": 1200, "y2": 200},
@@ -139,7 +139,7 @@ func test_bot_reaches_top_of_real_tree_through_the_portal_chain() -> void:
 		lib.free()
 		return
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = [] # the portal bot is skill-less (#284 start skills)
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = "" # the portal bot is skill-less (#284 start skills)
 	data.stages.stages.quiet.maps[0].map_id = 101010100
 	var s := RF.setup("quiet", 18, data)
 	s.map_img = img.root
@@ -165,7 +165,7 @@ func test_bot_reaches_top_of_real_tree_through_the_portal_chain() -> void:
 
 func test_bot_and_camper_approach_the_same_portal_ledge_with_identical_inputs() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = [] # the portal bot is skill-less (#284 start skills)
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = "" # the portal bot is skill-less (#284 start skills)
 	var setup := RF.setup("quiet", 18, data)
 	setup.map_img = RF.map_from_segments([
 		{"x1": 0, "y1": 200, "x2": 1200, "y2": 200},

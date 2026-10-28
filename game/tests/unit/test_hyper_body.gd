@@ -31,7 +31,7 @@ func _spearman(seed_value := 11, god := true) -> RunWorld:
 	# #284: no advancement grants HP; give the 50 + 225 + 325 the Warrior and Spearman advancements added, and no start
 	# skills (a fresh character is a 212).
 	data.balance.player.hp = 600
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.magnet_radius = 0
 	data.balance.regen.hp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", seed_value, data))
@@ -213,17 +213,6 @@ func test_both_skills_read_without_party_or_canonical_wording() -> void:
 		assert_eq(String(d.sounds.use), "Sound.wz/Skill.img/%d/Use" % int(d.skill_id), "%s keeps its Use sound" % key)
 		assert_eq(String(d.kind), "buff")
 
-
-func test_the_cards_are_job_gated_and_not_power() -> void:
-	var w := _spearman()
-	for id in ["iron_will_new", "iron_will_rank", "hyper_body_new", "hyper_body_rank"]:
-		var card := w.upgrades.card(id)
-		assert_false(card.is_empty(), "%s exists" % id)
-		assert_false(bool(card.get("power", false)), "%s is not a power card" % id)
-		assert_eq(card.requires.jobs, [130.0], "%s is the Spearman's" % id)
-		assert_false(w.balance.bot.card_scores.has(id), "%s keeps the default bot score (like Iron Body)" % id)
-	assert_has(w.upgrades.eligible(w), "iron_will_new")
-	assert_has(w.upgrades.eligible(w), "hyper_body_new")
 
 
 func test_real_130_img_matches_the_data_and_the_fixture_formulas() -> void:

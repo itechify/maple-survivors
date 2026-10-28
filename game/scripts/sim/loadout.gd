@@ -150,7 +150,7 @@ func clone() -> Loadout:
 
 ## Learns `key` at rank 1. False when unknown or already owned.
 func add_skill(key: String) -> bool:
-	if not book.has(key) or ranks.has(key):
+	if not book.has(key) or ranks.has(key) or not has_free_slot(book.slot(key)):
 		return false
 	ranks[key] = 1
 	order.append(key)
@@ -189,6 +189,22 @@ func slot_count(slot_name: String) -> int:
 		if book.slot(k) == slot_name:
 			n += 1
 	return n
+
+
+## Maximum slots of a kind, supplied by survivor data. Untracked kinds (mobility) have no limit.
+func slot_limit(slot_name: String) -> int:
+	return int(book.slot_limits.get(slot_name, 0))
+
+
+## Whether another skill of this kind fits; mobility consumes neither track.
+func has_free_slot(slot_name: String) -> bool:
+	return slot_limit(slot_name) <= 0 or slot_count(slot_name) < slot_limit(slot_name)
+
+
+## Shared display of both slot tracks for the HUD windows.
+func slot_summary() -> String:
+	return "Active %d/%d   Passive %d/%d" % [slot_count("active"), slot_limit("active"),
+		slot_count("passive"), slot_limit("passive")]
 
 
 ## Stacks one effect on skill `key` (op "add" or "mul").

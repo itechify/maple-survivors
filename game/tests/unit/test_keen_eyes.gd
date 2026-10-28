@@ -93,28 +93,6 @@ func test_dagger_is_unchanged_and_swapping_back_uses_the_current_rank() -> void:
 	assert_near(w.loadout.stats("lucky_seven").range, 275)
 
 
-func test_cards_are_offered_on_the_thief_line_with_any_weapon_and_cap_at_eight() -> void:
-	for path: String in ["claw", "dagger"]:
-		var w := _world(path)
-		var base_reach := w.weapon_reach.reach(w)
-		assert_has(w.upgrades.eligible(w), "keen_eyes_new", "with a " + path)
-		assert_true(w.upgrades.apply("keen_eyes_new", w))
-		assert_has(w.upgrades.eligible(w), "keen_eyes_rank")
-		assert_true(w.upgrades.apply("keen_eyes_rank", w))
-		assert_eq(w.loadout.rank("keen_eyes"), 2)
-		assert_near(w.weapon_reach.reach(w), 300.0 if path == "claw" else base_reach)
-		for id: String in ["keen_eyes_new", "keen_eyes_rank"]:
-			var card := w.upgrades.card(id)
-			assert_eq(card.get("requires", {}).get("jobs", []), [400.0])
-			assert_false(card.get("requires", {}).has("carry_jobs"))
-		w.loadout.set_rank("keen_eyes", 8)
-		assert_false("keen_eyes_rank" in w.upgrades.eligible(w), "capped at eight")
-		w.loadout.set_rank("keen_eyes", 1)
-		for branch in [410, 420]:
-			w.set_job(branch)
-			assert_has(w.upgrades.eligible(w), "keen_eyes_rank", "%d is on the Thief line" % branch)
-			assert_near(w.weapon_reach.reach(w), 275 if path == "claw" else base_reach)
-
 
 func test_melee_weapons_and_unrelated_skill_ranges_are_unchanged() -> void:
 	for weapon in [1302000, 1372005]:

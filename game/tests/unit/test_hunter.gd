@@ -9,7 +9,7 @@ const KEYS := ["bow_mastery", "final_attack_bow", "bow_booster", "power_knockbac
 
 func _world() -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 50 + 125 + 325
 	var setup := RF.with_basic_attack(RF.setup("quiet", 202, data))
 	setup.equipment_info.merge({1452051: {"incPAD": 28, "attackSpeed": 6, "tuc": 7},
@@ -140,7 +140,7 @@ func test_booster_refuses_lethal_hp_then_pays_hp_and_recasts() -> void:
 func test_mastery_final_attack_and_a_crossbow_swap_keeps_every_hunter_skill_and_card() -> void:
 	var w := _hunter()
 	for key: String in KEYS:
-		assert_has(w.upgrades.eligible(w), key + "_new")
+		assert_false(key + "_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 		assert_true(w.learn_skill(key))
 		w.loadout.set_rank(key, w.book.max_rank(key))
 	w.refresh_player_stats()
@@ -157,14 +157,14 @@ func test_mastery_final_attack_and_a_crossbow_swap_keeps_every_hunter_skill_and_
 		w.loadout.set_rank(key, 1)
 	w.refresh_player_stats()
 	for key: String in KEYS:
-		assert_has(w.upgrades.eligible(w), key + "_rank")
+		assert_false(key + "_rank" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	# #284: weapons gate no skill, card or passive: with a crossbow every Hunter skill still counts and stays on offer.
 	var mastery := w.loadout.mastery
 	assert_eq(w.equip_item(_ids(w).find(1462001)), "")
 	assert_near(w.loadout.mastery, mastery, 1e-6, "Bow Mastery counts with a crossbow")
 	for key: String in KEYS:
 		assert_eq(w.book.weapon_families(key), PackedStringArray(["bow"]), "the data still names the bow")
-		assert_has(w.upgrades.eligible(w), key + "_rank")
+		assert_false(key + "_rank" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	assert_false(w.book.defs.values().any(func(d: Dictionary) -> bool: return int(d.get("skill_id", 0)) in [3101004, 3201004]))
 
 
@@ -181,7 +181,7 @@ func test_behavior_cards_add_targets_and_arrows_using_shared_rarity_magnitudes()
 	assert_eq(w.loadout.stats("arrow_bomb").count, 2)
 	assert_eq(w.loadout.stats("arrow_bomb").blast_targets, 7)
 	# The binding first-job carry exception survives; its cards never enter the advancement draw.
-	assert_has(w.upgrades.eligible(w), "arrow_blow_new")
+	assert_false("arrow_blow_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	var first := _world()
 	for key: String in KEYS:
 		assert_false(key + "_new" in first.upgrades.eligible(first))

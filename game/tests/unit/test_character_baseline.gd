@@ -13,7 +13,8 @@ const DT := 1.0 / 60.0
 ## Regenerated for #284 (ADR 0006, spec #282 asks for it) together with #285 (no MP): the fresh character is the
 ## fixed 212 with Energy Bolt and Teleport at Lv1, with no job advancement, no basic attack, no stream-8 draw, no MP
 ## and no level-gap factor, so every byte after the setup events changes. The #259 hash was 8114bff3...
-const GOLDEN := "ff04862a59f1c32fb053515bed40a4d1bcf38519353b5d703ddaa1678f7cc6a8"
+## Re-captured for #287: pool-only offers, eight mapped ranks and +1 rank at every rarity.
+const GOLDEN := "6bcaa33a0c012c1e5327f3997231f2170d348f21ed2ccb0c2fb34a0743ce01cc"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

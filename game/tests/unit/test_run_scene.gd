@@ -1089,7 +1089,7 @@ func test_mano_slow_uses_repeating_canonical_effect_and_shared_skill_stance() ->
 	sfx.library = lib
 	scene = _make("henesys",22,{})
 	var data := scene.data.duplicate(true)
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.bosses.teleport_stall = 10000.0
 	STAGE_FIXTURES.set_bosses(data.stages.stages.henesys, [{"mob_id":2220000,"time":0.0}])
 	for keyframe: Dictionary in data.stages.stages.henesys.keyframes:
@@ -1237,7 +1237,7 @@ func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
 func _canonical_dyle_area_buff(skill_entry: String) -> Dictionary:
 	scene = _make("ellinia", 2026, {})
 	var data := scene.data.duplicate(true)
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	for keyframe: Dictionary in data.stages.stages.ellinia.keyframes:
 		keyframe.rate = 0
 		keyframe.max_alive = 0
@@ -1322,7 +1322,7 @@ func test_dyle_immunity_icon_follows_live_boss_and_ends_with_status_and_death() 
 		return
 	scene = _make("ellinia", 25, {})
 	var data := scene.data.duplicate(true)
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.bosses.teleport_stall = 10000.0
 	for keyframe: Dictionary in data.stages.stages.ellinia.keyframes:
 		keyframe.rate = 0

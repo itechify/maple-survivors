@@ -15,7 +15,7 @@ const INFO := {
 ## first- and second-job grants used to add (+125, +325) folded into the base pool (no MP, #285).
 func _bandit() -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 50 + 125 + 325
 	data.balance.regen.hp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", 212, data))
@@ -267,7 +267,7 @@ func test_learning_steal_does_not_add_steal_rolls_to_other_attacks() -> void:
 func test_bandit_attack_cards_are_branch_only_power_cards_with_three_target_steps() -> void:
 	for key in ["savage_blow", "steal"]:
 		var w := _world()
-		assert_has(w.upgrades.eligible(w), key + "_new")
+		assert_false(key + "_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 		assert_true(w.upgrades.card(key + "_new").power)
 		assert_true(w.upgrades.apply(key + "_new", w) > 0)
 		assert_eq(w.upgrades.card(key + "_rank").max_rank, 30)

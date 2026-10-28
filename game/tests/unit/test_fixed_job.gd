@@ -107,8 +107,7 @@ func test_cards_follow_the_job_line_without_beginner_or_teleport_cards() -> void
 	for id: String in ["energy_bolt_rank", "magic_claw_new", "fire_arrow_new", "poison_breath_new"]:
 		assert_has(eligible, id, "a 200 or 210 card is on a 212's line")
 	for id: String in eligible:
-		var jobs: Array = w.upgrades.card(id).get("requires", {}).get("jobs", [])
-		assert_true(UpgradePool.on_line(jobs, w.jobs.lineage(212)), "%s lists %s" % [id, jobs])
+		assert_has(w.jobs.skill_pool(212), String(w.upgrades.card(id).skill))
 		assert_false(id.begins_with("teleport_"), "Teleport needs no card")
 	assert_false(eligible.has("energy_bolt_new"), "the start skill is owned")
 	assert_false(eligible.has("cold_beam_new"), "an Ice/Lightning card is off the F/P line")
@@ -116,8 +115,6 @@ func test_cards_follow_the_job_line_without_beginner_or_teleport_cards() -> void
 		assert_false(c.get("requires", {}).has("carry_jobs"), "%s has no carry_jobs" % c.id)
 		for j: Variant in c.get("requires", {}).get("jobs", []):
 			assert_ne(int(j), 0, "%s is not a Beginner card" % c.id)
-	assert_true(UpgradePool.on_line([], w.jobs.lineage(212)), "a card without jobs is on every line")
-	assert_false(UpgradePool.on_line([220, 230], w.jobs.lineage(212)))
 
 
 func test_auto_ap_reads_the_212_row_int_primary_luk_secondary() -> void:

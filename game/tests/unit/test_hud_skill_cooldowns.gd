@@ -46,7 +46,7 @@ func test_sweep_clears_clockwise_from_twelve_o_clock() -> void:
 
 func _mage(skill: String) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var world := RunWorld.new(RF.setup("quiet", 9, data))
 	RF.change_job_bare(world, 200)
 	RF.place_player(world, 1200)

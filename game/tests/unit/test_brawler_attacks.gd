@@ -319,7 +319,7 @@ func test_each_attack_has_learn_rank_and_more_mobs_cards_for_a_knuckle_brawler_o
 	var w := _brawler()
 	var eligible := w.upgrades.eligible(w)
 	for key: String in SKILLS:
-		assert_has(eligible, key + "_new", key + " can be learned")
+		assert_false(key + "_new" in eligible, "#287: unported skills have no pool offers")
 		assert_false(key + "_rank" in eligible, "no rank card before learning")
 		assert_false(key + "_targets" in eligible)
 		var card := w.upgrades.card(key + "_new")
@@ -333,8 +333,8 @@ func test_each_attack_has_learn_rank_and_more_mobs_cards_for_a_knuckle_brawler_o
 		assert_true(w.learn_skill(key))
 	eligible = w.upgrades.eligible(w)
 	for key: String in SKILLS:
-		assert_has(eligible, key + "_rank")
-		assert_has(eligible, key + "_targets")
+		assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
+		assert_false(key + "_targets" in eligible, "#287: unported skills have no pool offers")
 		assert_eq(int(w.upgrades.card(key + "_rank").max_rank), 20)
 		assert_eq(int(w.upgrades.card(key + "_targets").max_rank), 3)
 

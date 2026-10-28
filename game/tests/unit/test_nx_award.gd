@@ -10,7 +10,7 @@ const CONFIG := {"clear_bonus": [100, 250], "per_level": 5, "per_boss": 40}
 
 func _world(stage_in_tier: int = 0, with_boss := true) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance["nx_award"] = CONFIG.duplicate(true)
 	data.stages["tiers"] = [["other"], ["other2"]]
 	data.stages.tiers[stage_in_tier].append("quiet")
