@@ -1755,11 +1755,12 @@ func physical_hit_allowed(m: int) -> bool:
 	return mob_skills.physical_hit_allowed(m, time)
 
 
-## Spawns a mob of kind index k on foothold fh at pos with max_hp x hp_mult; emits mob_spawned. Returns the slot.
+## Spawns kind k with HP scaled by hp_mult and the round opening ramp; bosses capture it on arrival. Emits mob_spawned.
 func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> int:
 	if k < 0 or k >= mob_kinds.size():
 		return -1
 	var mk: MobKind = mob_kinds[k]
+	hp_mult *= opening_multiplier("hp")
 	var i := swarm.spawn(k, pos.x, pos.y, fh, maxi(1, roundi(mk.max_hp * hp_mult)))
 	_sync_slots()
 	mob_elite[i] = 1 if elite else 0
@@ -2416,9 +2417,25 @@ func hit_defense() -> Dictionary:
 	return {"pdd": player_pdd + buffs.effect_total("pdd"), "mdd": player_mdd + buffs.effect_total("mdd"), "resistance": {}}
 
 
-## Only explicit source scaling: elites use stage.elites.damage_mult; boss sources may pass dmg_mult.
+## Tier C (#307): survivor opening multiplier on the whole round clock; absent ramps preserve existing strength.
+func opening_multiplier(stat: String) -> float:
+	var ramp: Dictionary = stage.get("opening_ramp", {})
+	var maps: Array = stage.get("maps", [])
+	if map_index >= 0 and map_index < maps.size():
+		ramp = maps[map_index].get("opening_ramp", ramp)
+	var values: Dictionary = ramp.get(stat, {})
+	var seconds := float(ramp.get("seconds", 0.0))
+	var progress := clampf(time / seconds, 0.0, 1.0) if seconds > 0.0 else 1.0
+	progress = pow(progress, float(ramp.get("power", 1.0)))
+	return lerpf(float(values.get("start", 1.0)), float(values.get("end", 1.0)), progress)
+
+
+## Survivor scales stack after defense: ordinary opening ramp, elite scale, and explicit source scale.
+## Tier C: scheduled boss sources already include the ramp captured at arrival.
 func hit_source_multiplier(source: Dictionary) -> float:
 	var mult := float(source.get("dmg_mult", 1.0))
+	if not bool(source.get("boss", false)):
+		mult *= opening_multiplier("damage")
 	if bool(source.get("elite", false)):
 		mult *= float(stage.get("elites", {}).get("damage_mult", 1.0))
 	return mult
