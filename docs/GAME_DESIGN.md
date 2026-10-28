@@ -659,6 +659,10 @@ six slots at 306/323 s on two seeds and dies before filling them on the third; t
 for the sensible bot, not every careless build. Clear levels 56/58 exceed the nominal 55 upper target slightly;
 recorded within the documented 40–60 regression envelope, not claimed to meet every target.
 
+Final validation (#293): `ISOLATE=293 bash scripts/test.sh` with the real cache: **1985 tests, 0 failed,
+0 skipped**, 206 files, 1002.5 s. No tests deleted; contact/relocation/schema fixtures isolate the mechanic
+from faster starting spells, and the EXP/cooldown-dependent replay baselines were refreshed.
+
 
 
 **#291 summon regression smoke (2026-10-28).** Seeds 1/2/2026, every tier-1 stage, bot/random,
