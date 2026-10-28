@@ -1,10 +1,9 @@
 class_name ItemTooltip
 extends Control
 ## The v83 item tooltip of the Equip and Item windows (#108), laid out the way the v83 client shows equipment: the
-## name in bold (with "(+N)" after N successful scrolls; tier B, RE clients), the icon in its box with the
-## requirements beside it (UIWindow.img/ToolTip/Equip `Can` / `Cannot` label and digit art: REQ LEV / STR / DEX /
-## INT / LUK, the `Cannot` red set for an unmet one), the job row (`beginner` .. `pirate`, lit for the lines the item
-## allows), then one line per fact with the v83 label art (`Property`: CATEGORY, ATTACK SPEED, WEAPON ATTACK ..
+## name in bold (with "(+N)" after N successful scrolls; tier B, RE clients), the icon in its box, the job row
+## (`beginner` .. `pirate`, lit (`Can`) for the lines the item allows; the only requirement left, ADR 0006 and #292
+## dropped REQ LEV / STR / DEX / INT / LUK), then one line per fact with the v83 label art (`Property`: CATEGORY, ATTACK SPEED, WEAPON ATTACK ..
 ## JUMP, NUMBER OF UPGRADES AVAILABLE) and the `ItemCategory` / `WeaponCategory` / `Speed` word art for its value;
 ## STR / DEX / INT / LUK / MaxHP have no v83 label art and are drawn as text (MaxMP is never shown: no MP, ADR 0006). A Use item (scroll)
 ## shows its name, icon and String.wz description. v83 has no tooltip frame art (UI.wz holds no UIToolTip.img), so
@@ -29,11 +28,6 @@ const TEXT := Color(1, 1, 1)
 const DIM := Color8(190, 200, 215)
 const RED := Color8(255, 80, 80)
 const CREAM := Color8(255, 236, 200)
-## tier C (ours): where each requirement sits beside the icon box (relative to the requirement block).
-const REQ_AT := {"reqLEV": Vector2(0, 2), "reqSTR": Vector2(0, 18), "reqDEX": Vector2(0, 28),
-	"reqINT": Vector2(75, 18), "reqLUK": Vector2(75, 28)}
-const REQ_TEXT := {"reqLEV": "REQ LEV", "reqSTR": "REQ STR", "reqDEX": "REQ DEX", "reqINT": "REQ INT",
-	"reqLUK": "REQ LUK"}
 ## Fact -> ToolTip/Equip/Property label canvas (tier A art, read: 3 CATEGORY, 4 ATTACK SPEED, 6 WEAPON ATTACK,
 ## 7 MAGIC ATTACK, 8 WEAPON DEF., 9 MAGIC DEF., 10 ACCURACY, 11 AVOIDABILITY, 13 SPEED, 14 JUMP, 16 NUMBER OF
 ## UPGRADES AVAILABLE); facts without art use TEXT_LABELS.
@@ -116,13 +110,8 @@ func _paint(paint: bool) -> float:
 		draw_rect(Rect2(icon_at, ICON_BOX), Color(1, 1, 1, 0.12))
 		draw_rect(Rect2(icon_at, ICON_BOX).grow(0.5), Color(1, 1, 1, 0.7), false, 1.0)
 		UiArt.blit_icon(self, UiArt.icon_or_fallback(String(data.get("icon", ""))), icon_at + Vector2(2, 2))
-	if not data.has("reqs"):
+	if not data.has("jobs"):
 		return _paint_use(paint, y, icon_at)
-	var req_at := Vector2(icon_at.x + ICON_BOX.x + 16.0, y)
-	for req: Dictionary in data.reqs:
-		var at: Vector2 = req_at + REQ_AT.get(String(req.key), Vector2.ZERO)
-		if paint:
-			_draw_req(at, String(req.key), int(req.value), bool(req.met))
 	y += 44.0
 	if paint:
 		_draw_jobs(Vector2(PAD + 2.0, y), data.get("jobs", []))
@@ -157,25 +146,6 @@ func _paint_use(paint: bool, y: float, icon_at: Vector2) -> float:
 			MapleText.draw(self, Vector2(x, ty), text, TEXT, MapleText.SMALL)
 		ty += LINE
 	return maxf(ty, y + ICON_BOX.y) + PAD
-
-
-## One requirement: the v83 label art and three digits (Can or Cannot set), or text without the cache.
-func _draw_req(at: Vector2, key: String, value: int, met: bool) -> void:
-	var set := TT + ("Can/" if met else "Cannot/")
-	var label := UiArt.frame(set + key)
-	if label == null:
-		MapleText.draw(self, at - Vector2(0, 2), "%s : %03d" % [String(REQ_TEXT.get(key, key)), value],
-			CREAM if met else RED, 9)
-		return
-	UiArt.blit(self, label, at)
-	var x := at.x + label.region.size.x + 3.0
-	for ch in "%03d" % value:
-		var d := UiArt.frame(set + ch)
-		if d == null:
-			continue
-		# The narrow "1" has origin x -1: every digit advances one 6 px cell.
-		UiArt.blit(self, d, Vector2(x - d.origin.x, at.y))
-		x += 6.0
 
 
 ## The job row: every line's v83 word, lit (`Can`) for the lines the item allows.

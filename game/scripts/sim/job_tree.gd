@@ -1,7 +1,7 @@
 class_name JobTree
 extends RefCounted
 ## The canonical Explorer job tree (`data/canonical/jobs.json`: id, name, parent, tier, level, book) plus the survivor
-## flags (`data/survivor/jobs.json`: playable, reason, skill_pool, starting_skill, mobility_skill). ADR 0006: a character is one job, fixed for its
+## flags (`data/survivor/jobs.json`: playable, reason, skill_pool, starting_skill, mobility_skill, weapon_families). ADR 0006: a character is one job, fixed for its
 ## life; there is no advancement. The tree stays for the lineage lookups (per-job balance rows, accuracy and ammo rules) and for names.
 ##
 ## playable_jobs() are the jobs a character can be, default_job() the one a fresh character and the tools get, and
@@ -43,6 +43,7 @@ func job(id: int) -> Dictionary:
 	d["skill_pool"] = skill_pool(id)
 	d["starting_skill"] = starting_skill(id)
 	d["mobility_skill"] = mobility_skill(id)
+	d["weapon_families"] = weapon_families(id)
 	return d
 
 
@@ -69,6 +70,11 @@ func skill_pool(id: int) -> Array:
 ## The skill occupying active slot one at the start of a round.
 func starting_skill(id: int) -> String:
 	return String(_survivor.get(id, {}).get("starting_skill", ""))
+
+
+## The weapon families (WeaponInfo.family keys) this exact job's equipment drops may contain; empty = no weapon drops.
+func weapon_families(id: int) -> Array:
+	return _survivor.get(id, {}).get("weapon_families", [])
 
 
 ## Manual mobility outside both slot tracks.

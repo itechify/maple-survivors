@@ -1,93 +1,83 @@
 class_name EquipmentDrops
 extends RefCounted
-## Which equipment a kill drops (spec #33, #109, #159), pure functions over the survivor list (equipment_drops.json
-## "items"), the canonical item info ({id: Character.wz info}, as in setup.equipment_info) and one seeded RNG. Only items
-## the character's current job can wear and whose reqLevel is near the character's level are eligible; items without
-## info never drop. A weapon is eligible only when its family (WeaponInfo.family) is the family of the weapon held at the
-## roll (`held_family`; "" = bare hands, so no weapon): one- and two-handed swords share "sword", and the families listed
-## together in `rules.shared_families` (wand and staff: a Magician wields either) drop for each other's holder. Armour
-## does not depend on the held weapon; shields additionally follow rules.shield_families, an optional first-job id ->
-## allowed held families map. Unlisted job lines admit any held family. `rules` is
-## equipment_drops.json (below, above, falloff, boss_top, shared_families, shield_families); random stats come from
-## Equipment.create_drop.
+## Which equipment a kill drops (spec #33, #109, #159, #292), pure functions over the survivor list (equipment_drops.json
+## "items"), the canonical item info ({id: Character.wz info}, as in setup.equipment_info) and one seeded RNG. A drop does
+## not follow the character's level (ADR 0006): the stage's tier fixes a reqLevel `band` [min, max] (stages.json
+## `drop_bands`, see band_of) and an ordinary drop is any eligible item whose reqLevel lies in it, equally likely. A boss drop
+## comes from the top third of the band. Eligible means the job class wears it (Equipment.job_allows) and, for a weapon, that
+## it belongs to one of the job's weapon `families` (JobTree.weapon_families, WeaponInfo.family: one- and two-handed swords
+## share "sword"); armour and shields depend on the job class alone. Items without info never drop. `rules` is
+## equipment_drops.json (boss_top_parts); random stats come from Equipment.create_drop.
 
 
-## Whether item `id` may drop for a character holding a weapon of `held_family`: any non-weapon, a weapon of that family
-## or of a family it shares a drop group with (rules.shared_families, e.g. [["wand", "staff"]]). Bare hands ("") get no
-## weapon.
-static func family_allows(id: int, held_family: String, rules: Dictionary) -> bool:
+## The reqLevel band [min, max] of tier index `tier` in stages.json `stages` root `drop_bands` (a tier past the list takes
+## the last band; no list at all means no limit, [0, 999]).
+static func band_of(stages: Dictionary, tier: int) -> Array:
+	var bands: Array = stages.get("drop_bands", [])
+	if bands.is_empty():
+		return [0, 999]
+	var band: Array = bands[clampi(tier, 0, bands.size() - 1)]
+	return [int(band[0]), int(band[1])]
+
+
+## The lowest reqLevel of a boss drop: the top 1/`rules.boss_top_parts` (3: a third) of the band, rounded down. Tier 1
+## [0, 30] gives 20, tier 2 [30, 60] gives 50.
+static func boss_floor(band: Array, rules: Dictionary) -> int:
+	return int(band[1]) - (int(band[1]) - int(band[0])) / maxi(1, int(rules.get("boss_top_parts", 3)))
+
+
+## Whether weapon item `id` may drop for a job whose weapon families are `families`: any non-weapon, a weapon of one of them.
+static func family_allows(id: int, families: Array) -> bool:
 	if Equipment.slot_of(id) != "weapon":
 		return true
-	var family := WeaponInfo.family(id)
-	if family == "" or held_family == "":
-		return false
-	if family == held_family:
-		return true
-	for group: Variant in rules.get("shared_families", []):
-		if family in group and held_family in group:
-			return true
-	return false
+	return WeaponInfo.family(id) in families
 
 
-## Eligible item ids, in list order: job admitted (Equipment.job_allows), weapon family admitted (family_allows for
-## `held_family`) and reqLevel in [level - rules.below, level + rules.above].
-static func eligible(items: Array, infos: Dictionary, job_id: int, level: int, rules: Dictionary,
-		held_family: String) -> Array:
-	var lo := level - int(rules.get("below", 10))
-	var hi := level + int(rules.get("above", 5))
+## Eligible item ids, in list order: job admitted (Equipment.job_allows), weapon family admitted (family_allows) and
+## reqLevel in [band[0], band[1]].
+static func eligible(items: Array, infos: Dictionary, job_id: int, band: Array, _rules: Dictionary,
+		families: Array) -> Array:
 	var out := []
 	for raw: Variant in items:
 		var id := int(raw)
 		var info := Equipment.info_of(infos, id)
-		if info.is_empty() or not _allows(id, info, job_id, held_family, rules):
+		if info.is_empty() or not _allows(id, info, job_id, families):
 			continue
 		var req := int(info.get("reqLevel", 0))
-		if req >= lo and req <= hi:
+		if req >= int(band[0]) and req <= int(band[1]):
 			out.append(id)
 	return out
 
 
-## One ordinary drop: an eligible item, nearer reqLevels likelier (weight 1 / (1 + falloff x distance), tier C). 0 when
-## nothing is eligible.
-static func pick(items: Array, infos: Dictionary, job_id: int, level: int, rules: Dictionary,
-		rng: RandomNumberGenerator, held_family: String) -> int:
-	var ids := eligible(items, infos, job_id, level, rules, held_family)
+## One ordinary drop: an eligible item, uniformly (tier C: owner call, #292). 0 when nothing is eligible.
+static func pick(items: Array, infos: Dictionary, job_id: int, band: Array, rules: Dictionary,
+		rng: RandomNumberGenerator, families: Array) -> int:
+	var ids := eligible(items, infos, job_id, band, rules, families)
 	if ids.is_empty():
 		return 0
-	var falloff := float(rules.get("falloff", 0.25))
-	var weights := PackedFloat32Array()
-	var total := 0.0
-	for id: int in ids:
-		var w := 1.0 / (1.0 + falloff * absf(float(int(Equipment.info_of(infos, id).get("reqLevel", 0)) - level)))
-		weights.append(w)
-		total += w
-	var roll := rng.randf() * total
-	for i in ids.size():
-		roll -= weights[i]
-		if roll < 0.0:
-			return ids[i]
-	return ids[ids.size() - 1]
+	return ids[rng.randi_range(0, ids.size() - 1)]
 
 
-## One boss drop: uniformly from the top of the window, reqLevel in [level + above - boss_top, level + above]; with
-## nothing there the highest reqLevel in the window; with an empty window the job- and family-eligible item whose
-## reqLevel is nearest the character's level (tier C). 0 only when the job can wear nothing admitted in the list.
-static func pick_boss(items: Array, infos: Dictionary, job_id: int, level: int, rules: Dictionary,
-		rng: RandomNumberGenerator, held_family: String) -> int:
-	var ids := eligible(items, infos, job_id, level, rules, held_family)
+## One boss drop: uniformly from the eligible items in the top of the band (reqLevel >= boss_floor); with nothing there
+## the highest reqLevel in the band; with an empty band the job- and family-eligible item whose reqLevel is nearest to the
+## band (tier C). 0 only when the job can wear nothing admitted in the list.
+static func pick_boss(items: Array, infos: Dictionary, job_id: int, band: Array, rules: Dictionary,
+		rng: RandomNumberGenerator, families: Array) -> int:
+	var ids := eligible(items, infos, job_id, band, rules, families)
 	if ids.is_empty():
 		var best := 0
 		var best_d := 1 << 30
 		for raw: Variant in items:
 			var info := Equipment.info_of(infos, int(raw))
-			if info.is_empty() or not _allows(int(raw), info, job_id, held_family, rules):
+			if info.is_empty() or not _allows(int(raw), info, job_id, families):
 				continue
-			var d := absi(int(info.get("reqLevel", 0)) - level)
+			var req := int(info.get("reqLevel", 0))
+			var d := maxi(int(band[0]) - req, req - int(band[1]))
 			if d < best_d:
 				best_d = d
 				best = int(raw)
 		return best
-	var top := level + int(rules.get("above", 5)) - int(rules.get("boss_top", 5))
+	var top := boss_floor(band, rules)
 	var pool := ids.filter(func(id: int) -> bool: return int(Equipment.info_of(infos, id).get("reqLevel", 0)) >= top)
 	if pool.is_empty():
 		var highest := -1
@@ -97,10 +87,5 @@ static func pick_boss(items: Array, infos: Dictionary, job_id: int, level: int, 
 	return pool[rng.randi_range(0, pool.size() - 1)]
 
 
-static func _allows(id: int, info: Dictionary, job_id: int, held_family: String, rules: Dictionary) -> bool:
-	if Equipment.slot_of(id) == "shield":
-		var line := str(floori(float(job_id) / 100.0) * 100)
-		var families: Dictionary = rules.get("shield_families", {})
-		if families.has(line) and held_family not in families[line]:
-			return false
-	return Equipment.job_allows(info, job_id) and family_allows(id, held_family, rules)
+static func _allows(id: int, info: Dictionary, job_id: int, families: Array) -> bool:
+	return Equipment.job_allows(info, job_id) and family_allows(id, families)

@@ -6,6 +6,8 @@
 			"mobility_skill": "teleport_fp",
 			"creation_weapon": 1372005,
 			"_creation_weapon": "tier C: #286, the Magician line's own v83 starting wand (Wooden Wand); wearing rules are #292's",
+			"weapon_families": ["wand", "staff"],
+			"_weapon_families": "tier C: #292, the weapon families an equipment drop may come from (WeaponInfo.family); a job lists its own and a class spec adds more.",
 			"skill_pool": [
 				"energy_bolt",
 				"magic_claw",

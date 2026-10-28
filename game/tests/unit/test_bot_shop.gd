@@ -90,12 +90,9 @@ func test_a_bot_keeps_what_it_wears_when_the_new_item_scores_lower() -> void:
 	assert_eq(_inventory_ids(w), [1372008])
 
 
-func test_a_bot_does_not_wear_an_item_it_cannot_equip_yet_until_it_levels_into_it() -> void:
+func test_a_bot_wears_an_item_whatever_its_required_level() -> void:
 	var w := _world(10, 0, [1372007])
-	assert_eq(BotShop.auto_equip(w), 0, "reqLevel 40 at Lv 10")
-	assert_eq(w.weapon_id(), 1372005)
-	w.progression.level = 40
-	assert_eq(BotShop.auto_equip(w), 1, "worn once it is Lv 40")
+	assert_eq(BotShop.auto_equip(w), 1, "reqLevel 40 at Lv 10: only the job class counts (#292)")
 	assert_eq(w.weapon_id(), 1372007)
 
 

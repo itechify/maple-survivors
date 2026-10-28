@@ -7,16 +7,14 @@ extends RefCounted
 ##
 ## Tooltip (tooltip()): {"name", "category": UIWindow.img/ToolTip/Equip/ItemCategory index (-1 for weapons),
 ## "weapon_category": ToolTip/Equip/WeaponCategory index (item id / 10000 - 100; -1 for armour), "attack_speed":
-## ToolTip/Equip/Speed index (-1 without one), "reqs": [{"key": "reqLEV".., "value", "met"}] in v83 order,
-## "jobs": the job lines the reqJob mask allows (ToolTip/Equip/Can names), "job_ok", "can_equip",
+## ToolTip/Equip/Speed index (-1 without one),
+## "jobs": the job lines the reqJob mask allows (ToolTip/Equip/Can names), "job_ok", "can_equip" (= job_ok: ADR 0006
+## drops the level and stat requirements, so there are no REQ LEV / STR / DEX / INT / LUK rows),
 ## "stats": [[inc key, value], ...] in v83 order (non-zero only), "slots" (upgrade slots left), "scrolls"}.
 
 ## Item category (id / 10000) -> ToolTip/Equip/ItemCategory canvas (tier A: the v83 label art reads HAT, TOP,
 ## LONGCOAT, BOTTOM, SHOES, GLOVE, SHIELD (10); the mapping to categories is ours, tier C).
 const CATEGORY_LABELS := {100: 1, 104: 5, 105: 21, 106: 6, 107: 7, 108: 8, 109: 10}
-## Tooltip requirement rows: ToolTip/Equip/Can|Cannot label -> (info field, character stat; "" = the level).
-const REQ_ROWS := [["reqLEV", "reqLevel", "level"], ["reqSTR", "reqSTR", "str"], ["reqDEX", "reqDEX", "dex"],
-	["reqINT", "reqINT", "int"], ["reqLUK", "reqLUK", "luk"]]
 ## Job lines in the tooltip's row, with their reqJob bits (tier A: v83 reqJob masks).
 const JOB_ROW := [["beginner", 0], ["warrior", 1], ["magician", 2], ["bowman", 4], ["thief", 8], ["pirate", 16]]
 ## Stat lines in v83 tooltip order (every `inc*` key an instance may carry, except incMMP: there is no MP, ADR 0006).
@@ -27,20 +25,11 @@ const STAT_ORDER := ["incSTR", "incDEX", "incINT", "incLUK", "incMHP", "incPAD",
 const SPEED_WORDS := {2: 0, 3: 1, 4: 2, 5: 2, 6: 3, 7: 4, 8: 5, 9: 6}
 
 
-## The tooltip data of an equipment `instance` with canonical `info` for `character` ({level, job_id, str, dex, int,
-## luk}: total stats) and its player-visible `name`.
+## The tooltip data of an equipment `instance` with canonical `info` for `character` ({job_id}) and its player-visible `name`.
 @warning_ignore("integer_division")
 static func tooltip(instance: Dictionary, info: Dictionary, character: Dictionary, name: String) -> Dictionary:
 	var id := int(instance.get("id", 0))
 	var category := id / 10000
-	var reqs := []
-	var can := true
-	for row: Array in REQ_ROWS:
-		var value := int(info.get(row[1], 0))
-		var have := int(character.get(row[2], 0))
-		var met := have >= value
-		can = can and met
-		reqs.append({"key": String(row[0]), "value": value, "met": met})
 	var mask := int(info.get("reqJob", 0))
 	var jobs := []
 	for job: Array in JOB_ROW:
@@ -56,7 +45,7 @@ static func tooltip(instance: Dictionary, info: Dictionary, character: Dictionar
 	return {"name": name, "category": -1 if weapon else int(CATEGORY_LABELS.get(category, -1)),
 		"weapon_category": category - 100 if weapon else -1,
 		"attack_speed": speed_index(int(info.get("attackSpeed", 0))) if weapon else -1,
-		"reqs": reqs, "jobs": jobs, "job_ok": job_ok, "can_equip": can and job_ok, "stats": stats,
+		"jobs": jobs, "job_ok": job_ok, "can_equip": job_ok, "stats": stats,
 		"slots": int(instance.get("slots", 0)), "scrolls": int(instance.get("scrolls", 0))}
 
 

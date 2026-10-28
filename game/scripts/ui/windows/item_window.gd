@@ -10,7 +10,7 @@ extends InventoryWindow
 ##   ItemWindow.new(world)   # world: the RunWorld whose character is shown and changed
 ##
 ## Equip tab: the spare equipment (RunWorld.equipment.inventory) in order; a double-click wears an item, so does
-## dragging it onto the Equip window (RunWorld.equip_item: v83 requirements enforced, a refusal shows its message
+## dragging it onto the Equip window (RunWorld.equip_item: job class enforced, a refusal shows its message
 ## and changes nothing); a worn item dragged here from the Equip window is taken off. Dragging an item off the
 ## windows asks the v83 YesNo question (DropConfirm) and then destroys it (RunWorld.discard_item; it is not dropped
 ## on the ground, the magnet would take it straight back: tier C). Use tab: scroll stacks (Basic.img/ItemNo counts),

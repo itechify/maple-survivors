@@ -14,6 +14,7 @@ const INFO := {
 	1050010: {"reqLevel": 15, "incPDD": 20, "tuc": 10}, # an overall
 	1092005: {"reqLevel": 10, "incPDD": 10, "tuc": 7}, # a shield
 	1402000: {"incPAD": 40, "attackSpeed": 6, "tuc": 7}, # a two-handed sword
+	1092006: {"reqJob": 1, "incPDD": 40, "tuc": 7}, # a Warrior's shield
 	1372005: {"reqLevel": 8, "incPAD": 15, "incMAD": 23, "attackSpeed": 6, "tuc": 7}, # a wand
 }
 
@@ -83,8 +84,11 @@ func test_an_occupied_slot_keeps_the_pickup_in_the_equip_tab() -> void:
 	assert_eq(changed.map(func(e: Dictionary) -> String: return e.action), ["pickup"])
 
 
-func test_an_unmet_requirement_keeps_the_pickup_in_the_equip_tab() -> void:
-	for spec: Array in [[1002017, {}], [1082019, {"level": 30, "job_id": 200}]]:
+func test_another_jobs_item_stays_in_the_equip_tab_and_level_and_stats_do_not_matter() -> void:
+	var lv1 := _world()
+	_pick_up(lv1, 1002017)
+	assert_eq(lv1.equipment.worn.hat.id, 1002017, "the Lv10 Magician hat is worn at Lv1")
+	for spec: Array in [[1092006, {}], [1082019, {"job_id": 0}]]:
 		var fields: Dictionary = spec[1]
 		var world := _world(func(c: Dictionary) -> void: c.merge(fields, true))
 		var changed := _pick_up(world, spec[0])
