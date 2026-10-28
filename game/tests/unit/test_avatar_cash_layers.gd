@@ -251,6 +251,51 @@ func test_cash_shield_is_drawn() -> void:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+# A weapon without the cast stance (I/L #327: Chain Lightning's second frame is stabO2, which 9 of 14 staves lack)
+
+func _two_frame_stance(marker_a: int, marker_b: int) -> Dictionary:
+	return {"0": {"weapon": _c("weapon", marker_a)}, "1": {"weapon": _c("weapon", marker_b)}}
+
+
+func _stab_body() -> void:
+	lib.images[_path(BODY)] = _wz({"stand1": {"0": {"body": _c("body", 1)}},
+		"stabO2": {"0": {"body": _c("body", 1)}, "1": {"body": _c("body", 1)}}})
+
+
+func _compose_at(look: Dictionary, stance: String, index: int) -> Array:
+	avatar.set_look(look)
+	return avatar.compose(stance, index)
+
+
+func test_a_weapon_without_stabO2_draws_stabO1_at_the_same_frame_index() -> void:
+	_stab_body()
+	lib.images[_path(WAND)] = _wz({"stabO1": _two_frame_stance(20, 21)}, "Wp")
+	var look := _look([WAND])
+	assert_true(20 in _markers(_compose_at(look, "stabO2", 0)), "frame 0 falls back to stabO1 frame 0")
+	assert_true(21 in _markers(_compose_at(look, "stabO2", 1)), "frame 1 falls back to stabO1 frame 1")
+
+
+func test_a_weapon_with_stabO2_keeps_its_own_art() -> void:
+	_stab_body()
+	lib.images[_path(WAND)] = _wz({"stabO1": _two_frame_stance(20, 21), "stabO2": _two_frame_stance(30, 31)}, "Wp")
+	var parts := _compose_at(_look([WAND]), "stabO2", 1)
+	assert_true(31 in _markers(parts), "its own stabO2 frame")
+	assert_false(21 in _markers(parts), "no fallback when the stance exists")
+
+
+func test_a_weapon_with_neither_stab_stance_still_draws_nothing_for_it() -> void:
+	_stab_body()
+	lib.images[_path(WAND)] = _wz({"swingO1": _two_frame_stance(20, 21)}, "Wp")
+	assert_eq(_owned_by(_compose_at(_look([WAND]), "stabO2", 1), WAND).size(), 0, "only stabO2 falls back, and only to stabO1")
+
+
+func test_the_stab_fallback_is_for_weapons_only() -> void:
+	_stab_body()
+	lib.images[_path(COAT)] = _wz({"stabO1": {"0": {"mailChest": _c("mailChest", 7)}}}, "Ma")
+	assert_eq(_owned_by(_compose_at(_look([COAT]), "stabO2", 0), COAT).size(), 0, "a coat is not borrowed from another stance")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 # vslot hiding through smap.img
 
 func _cap_img(vslot: String) -> WzImg:
