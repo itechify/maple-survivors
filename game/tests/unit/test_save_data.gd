@@ -47,7 +47,7 @@ func test_a_format_two_save_moves_its_characters_to_the_history_unmigrated() -> 
 	var disk: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(save_path))
 	assert_eq(int(disk.format), 3, "rewritten as format 3")
 	assert_eq(disk.slots, [null, null, null])
-	assert_eq(SaveData.new(save_path).history, loaded.history, "loading again changes nothing")
+	assert_eq(SaveData.new(save_path).history, JSON.parse_string(JSON.stringify(loaded.history)), "loading again changes nothing")
 	assert_eq(JSON.parse_string(FileAccess.get_file_as_string(save_path)), disk)
 	assert_eq(loaded.create_slot(snapshot("Old1")), 0, "a retired character's name and slot are free again")
 
