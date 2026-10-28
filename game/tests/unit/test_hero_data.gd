@@ -63,7 +63,7 @@ func test_the_hero_line_loads_without_errors_and_adds_its_job_and_core_skills() 
 	assert_true(FileAccess.file_exists(DataRepo.fragment_path("jobs_survivor", "hero")))
 	assert_true(FileAccess.file_exists(DataRepo.fragment_path("skills", "hero")))
 	assert_true(d.jobs_survivor.jobs.has("112"), "jobs/hero.json is merged into the survivor job data")
-	assert_eq(d.jobs_survivor.jobs.keys(), ["0", "200", "212", "112"], "base entries, then lines in discovered line order")
+	assert_eq(d.jobs_survivor.jobs.keys(), ["0", "200", "212", "112", "122"], "base entries, then lines in discovered line order (Paladin #310 is the class line after Hero)")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "hero"))
 	for key: String in ["power_strike", "slash_blast", "brandish"]:
 		assert_true(frag.skills.has(key), "H5 ports " + key)

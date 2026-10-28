@@ -1,0 +1,52 @@
+{
+	"_doc": "Paladin line (spec #308, ticket P2 #310). The second class line after Hero: a class spec adds jobs/<line>.json, skills/<line>.json (empty skeleton until its tickets define skills) and asset_manifest.d/<line>.json (P1 #309), automatically discovered by DataRepo.lines() (docs/ARCHITECTURE.md 4.4.4). Skill keys stay inert until their definitions exist in skills/paladin.json (or skills/hero.json for power_strike and slash_blast): an undefined key is never offered. The AP row lives in this file's balance block. playable stays false until P9 (#317) flips it; default_job stays 212.",
+	"jobs": {
+		"122": {
+			"starting_skill": "power_strike",
+			"_starting_skill": "tier C: spec #308: the fast filler, slot 1; defined by Hero's skills/hero.json (not edited here).",
+			"mobility_skill": "rush_paladin",
+			"_mobility_skill": "tier C: spec #308 D1: Rush (WZ 1221007) is Paladin's manual mobility skill on the skill key, outside both slot tracks; defined by P4 #312.",
+			"skill_pool": [
+				"power_strike",
+				"slash_blast",
+				"blast",
+				"monster_magnet_paladin",
+				"fire_charge",
+				"ice_charge",
+				"thunder_charge",
+				"holy_charge"
+			],
+			"_skill_pool": "tier C: spec #308 (skill pool table): eight entries for six slots. power_strike and slash_blast are Hero's definitions; blast, monster_magnet_paladin and the four Charges are defined by P5 (#313), P7 (#315) and P8 (#316). Charged Blow and Heaven's Hammer are sub-skills of the Charges, not pool entries.",
+			"weapon_families": [
+				"sword",
+				"blunt"
+			],
+			"_weapon_families": "tier C: spec #308: one- and two-handed swords and blunt weapons (WeaponInfo.family), the Paladin's weapons; axe, spear and polearm never drop. Armour and shields drop by the Warrior class bit.",
+			"creation_weapon": 1322000,
+			"_creation_weapon": "tier A: the Mace (Item.wz 1322000, reqJob 3 includes the Warrior bit; the level requirement is gone with #292). Already in the Warrior manifest fragment.",
+			"playable": false,
+			"_provenance": "tier C: spec #308 P2 #310: Paladin is data-only until P9 (#317) flips playable; nothing offers it before then."
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"122": {
+					"primary": "str",
+					"secondary": "dex",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 4
+						},
+						{
+							"level": 200,
+							"target": 204
+						}
+					],
+					"_ap": "tier C: spec #308 (Job data): the Hero 112 row's shape, STR primary, DEX secondary, DEX ~ level + 4 at the keyframes. No starting HP row: the Paladin starts at the shared default; HP growth is inherited from the 100 row (26 per level)."
+				}
+			}
+		}
+	}
+}
