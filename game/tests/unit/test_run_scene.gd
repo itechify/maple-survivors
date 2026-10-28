@@ -213,10 +213,8 @@ func test_one_off_character_file_option_restores_character() -> void:
 		return
 	var original := preload("res://tests/fixtures/run_fixtures.gd").quiet_world()
 	STAGE_FIXTURES.as_job(original, 210)
+	original.mesos = 777
 	var character := original.character_snapshot()
-	character.level = 35
-	character.exp = 17
-	# A Lv 35 character holds the scheduled potions (a load would catch Red and Blue up to these).
 	var path := ProjectSettings.globalize_path(test_dir("one off character.json"))
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var file := FileAccess.open(path, FileAccess.WRITE)
@@ -224,7 +222,8 @@ func test_one_off_character_file_option_restores_character() -> void:
 	file.close()
 	scene = _make("henesys", 1, {"character": path, "autoplay": true, "autopick": true})
 	assert_eq(scene.world.character_snapshot(), character)
-	assert_eq(int(scene.world.player_state.level), 35)
+	assert_eq(scene.world.mesos, 777)
+	assert_eq(int(scene.world.player_state.level), 1, "a one-off character starts the round at Lv1 too")
 	_assert_nothing_missing(scene, "one-off character file")
 
 func test_account_option_reaches_the_round_setup() -> void:

@@ -70,7 +70,7 @@ func test_tier_of_a_stage_is_its_index_in_the_stage_tiers() -> void:
 	assert_eq(NxAward.tier_of(stages, "elsewhere"), 0, "tool stages outside the tiers count as tier 1")
 
 
-func test_world_counts_levels_gained_this_round_not_the_carried_level() -> void:
+func test_world_counts_levels_gained_this_round_and_a_new_round_starts_at_lv1() -> void:
 	var w := _world()
 	assert_eq(w.levels_gained(), 0)
 	_gain_levels(w, 3)
@@ -80,8 +80,8 @@ func test_world_counts_levels_gained_this_round_not_the_carried_level() -> void:
 	var setup := RF.setup("quiet", 21, data)
 	setup.character = carried
 	var next := RunWorld.new(setup)
-	assert_eq(next.progression.level, w.progression.level)
-	assert_eq(next.levels_gained(), 0, "a carried character starts the round with no gains")
+	assert_eq(next.progression.level, 1, "a carried character has no level (#286)")
+	assert_eq(next.levels_gained(), 0, "and starts the round with no gains")
 	_gain_levels(next, 2)
 	assert_eq(next.levels_gained(), 2)
 
