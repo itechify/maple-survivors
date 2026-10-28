@@ -6043,6 +6043,26 @@ No shipped skill carries the block yet, so no existing record changes.
 - **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
   and Skill-window text (H7).
 
+### 7.42 Channelled burst (#336, Bowmaster B4)
+
+`kind: "projectile"`, `cast: {"rule": "burst"}` dispatches to `BurstCast`, owned and ticked by SkillRunner.
+The definition's `burst: {"interval": 0.1, "wind_up": 0.4, "retarget": true}` schedules resolved `count` shots:
+first at wind-up seconds after admission, then every interval (on the first fixed tick at/after each deadline).
+Zero wind-up fires on admission. Admission uses nearest targeting, scheduled bosses first, inside resolved `range`.
+One ordinary cast event/stance and cooldown start at admission; the active burst blocks that skill's recast even
+when cooldown expires. Different skills can run concurrently. No skill uses this rule until its data ticket lands.
+
+Each shot uses the current hand and target centre, calling the same `SkillRunner.fire_shot` as nearest projectiles.
+Nearest's simultaneous reused-target spread is preserved; burst arrows have no spread. Stats are snapshotted at
+admission, including a shared meter receipt (at most one landed cast), while ammo art is resolved at each launch.
+The target remains until its logical mob identity dies or its centre leaves range. Optional `burst.overshoot`
+(default 0 px) extends retention only; replacements still require `range`. With `retarget: false`, invalidating the
+target drops all remaining shots; otherwise the nearest eligible replacement is acquired, bosses first. No eligible
+replacement also drops remaining shots without refund. Map transfer (`clear_pending`), death and Hidden cancel
+unfinished bursts; already launched projectiles keep their existing lifetime rules. Timing and targeting consume
+no RNG; impact damage rolls retain the existing main stream. Bot reach is resolved range; SkillText reports
+"Fires N arrows over T s", where T includes wind-up and the final shot's deadline.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -6428,6 +6448,15 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+### Bowmaster #336 constants
+
+| Constant / rule | Tier | Source |
+|---|---|---|
+| Burst defaults: wind-up 0 s, retention overshoot 0 px, retarget true; negative timing/overshoot clamp to 0; zero interval releases all due arrows in order | C | #332 automatic held-key adaptation; optional overshoot makes retention explicit without adding reach to acquisition |
+| Invalid target without replacement drops remaining shots, no cooldown refund; Hidden/death cancel; no reused-target spread on burst shots | C | #332 / #336 survivor burst policy |
+
+
 
 
 ### Review #282: constants and provenance
