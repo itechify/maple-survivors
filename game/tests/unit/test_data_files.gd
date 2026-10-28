@@ -770,3 +770,11 @@ func test_ordinary_revive_still_finishes_scheduled_encounter() -> void:
 	var events := w.drain_events()
 	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "boss_died").size(), 1)
 	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "mob_revives_spawned").size(), 1)
+
+
+func test_nautilus_signature_exp_items_are_imported() -> void:
+	var manifest := AssetManifest.load_merged("res://data/asset_manifest.json")
+	var items := {9001005: 4000006, 5220001: 4000044, 5220000: 4000044, 3230102: 4000043, 4230104: 4000044}
+	for id: int in items:
+		assert_eq(int(data.mobs.mobs[str(id)].exp_item), items[id])
+		assert_has(manifest.items, float(items[id]))
