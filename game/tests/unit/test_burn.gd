@@ -506,3 +506,16 @@ func test_a_burn_damage_card_previews_the_percent_before_and_after() -> void:
 	assert_eq(changes.burn_damage, {"before": 100, "after": 150})
 	var lines := LevelUpWindow.change_lines({"skill_mod_changes": changes})
 	assert_eq(Array(lines), ["Burn: 100% → 150%"])
+
+
+func test_fire_shot_launches_with_the_cast_pulse_for_the_nearest_and_burst_paths() -> void:
+	var w := _burn_world({"kind": "projectile", "radius": 1})
+	var st := w.loadout.stats("synthetic")
+	var m := RF.put_mob(w, 1110100, 350, 190, 100)
+	w.runner.fire_shot(w, "synthetic", st, w.player.pos, w.mob_center(m))
+	var launched := -1
+	for i in w.projectiles.capacity():
+		if w.projectiles.active[i] != 0:
+			launched = i
+	assert_true(launched >= 0, "fixture: a shot is in flight")
+	assert_eq(w.projectiles.burn_pulse[launched], 72)
