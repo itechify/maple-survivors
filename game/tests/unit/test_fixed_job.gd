@@ -1,5 +1,5 @@
 extends TestCase
-## A character is one fixed job (#284, ADR 0006): 212 is the only playable job, a fresh round starts with its start
+## A character is one fixed job (#284, ADR 0006): 212 is the default job (and playable; Hero joins it in spec #296), a fresh round starts with its start
 ## skills (Energy Bolt, Teleport on its key from Lv1), levelling never opens a job window, cards follow the job's line,
 ## auto-AP reads the job's one row, there is no basic attack and weapons gate no skill. Seeded synthetic worlds, fixed dt.
 
@@ -14,10 +14,10 @@ func _world(p_seed := 7) -> RunWorld:
 	return w
 
 
-func test_212_is_the_only_playable_job_and_the_default() -> void:
+func test_212_is_playable_and_the_default() -> void:
 	var data := DataRepo.load_all()
 	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
-	assert_eq(jobs.playable_jobs(), [212] as Array[int])
+	assert_true(212 in jobs.playable_jobs())
 	assert_eq(jobs.default_job(), 212)
 	assert_eq(jobs.job_error(212), "")
 	for id: int in [0, 100, 200, 210, 211, 220, 500]:
