@@ -79,9 +79,20 @@ static func load_all(root: String = DATA_ROOT, errors: PackedStringArray = Packe
 		else:
 			out[key] = {}
 			errors.append("cannot read %s" % path)
+	errors.append_array(skill_template_errors(out.get("skills", {})))
 	errors.append_array(stage_label_errors(out.get("stages", {})))
 	errors.append_array(stage_map_errors(out.get("stages", {})))
 	return out
+
+
+## The errors of the skill templates (`extends`, spec #319 M19, SkillTemplate) in the merged skills data. The data is
+## left raw: SkillBook resolves it.
+static func skill_template_errors(skills_file: Dictionary) -> PackedStringArray:
+	var errors := PackedStringArray()
+	var skills: Variant = skills_file.get("skills")
+	if skills is Dictionary:
+		SkillTemplate.resolve(skills, errors)
+	return errors
 
 
 ## The data of a SPLIT key: its base file (`_doc` and the job-neutral config) with the entries of every existing line
