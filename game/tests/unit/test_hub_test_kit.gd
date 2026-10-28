@@ -68,7 +68,7 @@ func test_the_kit_sets_mesos_and_leaves_the_character_valid() -> void:
 	assert_eq(HubTestKit.apply(_fixture(), 77, _loader()).mesos, 77)
 	assert_eq(character.job_id, 212, "the rest of the character is untouched")
 	assert_eq(character.tiers_unlocked, 2, "the kit unlocks every tier, so map select shows them all")
-	assert_eq(character.equipment.worn.weapon.id, 1372005)
+	assert_eq(character.equipment.worn.weapon.id, 1382002, "the fixture's tier-1 staff")
 
 
 func test_the_kit_holds_every_rate_of_the_main_families_within_the_use_tab() -> void:
