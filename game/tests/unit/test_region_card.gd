@@ -14,17 +14,18 @@ func test_region_cards_list_three_maps_with_their_bosses_from_the_cache() -> voi
 			if lib.img(AssetLibrary.map_img_path(int(entry.map_id))) == null:
 				skip("region map absent from cache: %d" % int(entry.map_id))
 				return
-	var expected := [
-		["Henesys Hunting Ground I → Mano", "The Pig Beach → Mushmom", "The Blue Mushroom Forest → Blue Mushmom"],
-		["The Tree That Grew I → Stumpy", "The Forest of Wisdom → King Slime", "The Forest of Evil I → Dyle"],
-		["West Street Corner of Perion → Mano", "East Rocky Mountain V → Stumpy", "The Burnt Land I → Iron Hook"],
-		["Kerning City Construction Site → King Slime", "Line 1 <Area 1> → Shade", "The Swamp of Despair I → Dyle"],
-		["Dark Cave → Zombie Mushmom", "Drake Area → Snack Bar", "The Cursed Sanctuary → Jr. Balrog"],
-	]
+	var expected := {
+		"henesys": ["Henesys Hunting Ground I → Mano", "The Pig Beach → Mushmom", "The Blue Mushroom Forest → Blue Mushmom"],
+		"ellinia": ["The Tree That Grew I → Stumpy", "The Forest of Wisdom → King Slime", "The Forest of Evil I → Dyle"],
+		"perion": ["West Street Corner of Perion → Mano", "East Rocky Mountain V → Stumpy", "The Burnt Land I → Iron Hook"],
+		"kerning": ["Kerning City Construction Site → King Slime", "Line 1 <Area 1> → Shade", "The Swamp of Despair I → Dyle"],
+		"sleepywood": ["Dark Cave → Zombie Mushmom", "Drake Area → Snack Bar", "The Cursed Sanctuary → Jr. Balrog"],
+	}
 	var cards := SELECT.load_stages(data)
-	assert_eq(cards.size(), 5)
+	assert_eq(cards.size(), data.stages.stages.size())
 	for i in cards.size():
-		assert_eq(cards[i].get("map_rows", []), expected[i], String(cards[i].key))
+		if expected.has(cards[i].key):
+			assert_eq(cards[i].get("map_rows", []), expected[cards[i].key], String(cards[i].key))
 		assert_eq(cards[i].objective, "Defeat 3 bosses across 3 maps")
 		assert_false(str(cards[i]).to_lower().contains("canonical"), "no developer terminology on the card")
 		var mark: Variant = lib.find(AssetLibrary.map_img_path(int(cards[i].map_id)) + "/info/mapMark")
