@@ -6078,6 +6078,33 @@ modifier, the "Advanced Charge" bonus of the spec). The Charges list it in their
 - **Presentation (tier C).** Stance: the held weapon's first swing (as Coma), shown 0.6 s; Use sound
   `Sound.wz/Skill.img/1211002/Use`.
 
+**Fire, Ice and Thunder Charge (#315, WZ 1211003 / 1211005 / 1211007; blunt twins 1211004 / 1211006 / 1211008).** The first
+three Forms. Each is a pool skill (`kind form`, `slot active`, `damage none`, book 121, job 121) of the `paladin_charge`
+exclusion group.
+
+- **Window.** 12 s, cooldown 18 s counted from the cast, admitted only with a living mob within 400 px (`cast {rule form,
+  mob_within 400}`): tier C (spec P-9, WZ `time` is session-scale). One Charge covers 12 s of every 18 (67 %); two cover the whole
+  round. A Charge is not admitted while another of its group runs and its cooldown keeps counting, so it starts on the tick the first
+  ends (tested: no gap, never two running). Of several ready Charges the one whose element does the most damage to the mobs within
+  400 px of the player is chosen (`PlayerForms.preferred`, learned order on ties).
+- **Effects.** `effects {element f|i|l, damage {field damage}}`: every damaging cast of the owner takes the element (a mob weak to
+  it takes x1.5, resistant x0.5, immune nothing) and the WZ `damage` percent at the Charge's rank, rank 1 = level 4 through the
+  table 4, 8, 12, 15, 19, 23, 27, 30 (tier A, P1 #309): Fire 105 109 111 112 114 116 118 120 %, Ice 102 103 104 105 107 108 109
+  110 %, Thunder 107 111 115 117 119 121 123 125 % (level 1 would read 102 / 100 / 102). Power Strike, Slash Blast, Blast, the
+  Charged Blow it carries and Rush all take it (spec P-4); the rank and effects are fixed when the window starts.
+- **Subs.** `charged_blow` after 1.0 s, then every 3.0 s while the window lasts (so four blows in 12 s with enough HP and three
+  mobs); the blow's art follows the element (`{art}`: fire 2, ice 1, lightning 3).
+- **Presentation.** Stance `alert4` shown 0.9 s (tier A: the node's three 300 ms frames), the 15-frame `effect` (60 ms), the
+  Use sound (the twin's is a UOL to the sword's). `art_by_family {blunt: twin}` swaps only the effect, hit and sound (and the
+  icon) for a blunt weapon through `SkillBook.art_skill_id` / `art_path`; the twins are identical to the sword versions in every
+  number. The weapon tint comes from the seam (7.61).
+- **Rarity (tier C, spec #308), same on all three.** Rare `mastery` "Mastery": `form_power` +0.10 (1.05 -> 1.15 at rank 1);
+  Epic `booster` "Booster": cooldown x0.88; Unique `advanced_charge` "Advanced Charge": `damage` x1.3 (a Charge's `damage`
+  modifier multiplies its subs, so Charged Blow) and `form_time` x1.25 (12 -> 15 s); Legendary `advanced_charge` plus `damage`
+  x1.2 (shares the Unique's id and repeat counter). Repeats scale x0.8 as for every skill; after rank 8 a Rare+ card is a
+  Mastery (no rank). `test_rarity_bonus_effects` measures each effect on the real definitions: `form_power` raises Power Strike's
+  hits inside the window, `form_time` the window's ticks, `cooldown` the windows started in 66 s and `damage` Charged Blow's hits.
+
 
 ## 8. Upgrades
 
@@ -6562,6 +6589,7 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | Paladin skill pool and start (#310, spec #308) | `jobs/paladin.json`: `starting_skill` power_strike (slot 1), `mobility_skill` rush_paladin, eight-key `skill_pool` (power_strike, slash_blast, blast, monster_magnet_paladin, fire_charge, ice_charge, thunder_charge, holy_charge). Power Strike and Slash Blast are Hero's definitions; the rest are inert until their tickets define them. The pool and the start are design choices; the WZ ids are tier A | C | Spec #308 (Skill pool table) |
 | Paladin not playable (#310, spec #308) | `jobs/paladin.json` `playable` false: no tool, creation page or test can choose job 122 until P9 (#317) flips it; `default_job` stays 212 | C | Spec #308 |
 | Charged Blow form sub-skill (#314, spec #308) | `skills/paladin.json` `charged_blow`: `slot form_sub`, `form_sub_of` the four Charges (until P7/P8 define them `test_data_files` allows those parents to be undefined), `cast {range_around, min_targets 3}`, `cooldown` 3.0 (not consulted: the Charge's `subs` interval sets the pace), `ranks` 4, 8, 12, 15, 19, 23, 27, 30 (the standard table written out), `action weapon` with `action_time` 0.6, no rarity list. The WZ numbers (damage, prop, time, range, mobCount, hpCon) are tier A | C | Spec #308 (Skill definitions) |
+| Fire, Ice and Thunder Charge numbers (#315, spec #308) | `skills/paladin.json` `fire_charge` / `ice_charge` / `thunder_charge`: `form.duration` 12.0, `cooldown` 18.0, `cast.mob_within` 400, `exclusive_group paladin_charge`, `subs` charged_blow `first_after` 1.0 / `interval` 3.0, `action_time` 0.9; rarity Mastery `form_power` +0.10, Booster cooldown x0.88, Advanced Charge `damage` x1.3 and `form_time` x1.25, Legendary + `damage` x1.2 (WZ `damage` per rank, `alert4`, the 15-frame effect and the twin ids are tier A) | C | Spec #308 (P-1, P-2, P-4, P-9) |
 | Element art index table (#314, spec #308) | `PlayerForms.ART_INDEX` and the `{art}` path token: none 0, ice 1, fire 2, lightning 3, holy 5 (tier A, P1 #309, read from the pixels; the spec's order was wrong); the token fill is ours | C | Spec #308 (Element art) |
 | Job page rows (#305) | rows are left-aligned, and the chosen row keeps its plate in every Button state (hover and pressed too), so it stays highlighted under the mouse; the Job blurb repeats the weapon box (creation weapon name, WATK, swing time) | C | Ours, layout |
 | Rush 2.0 s cooldown, always-on 80 px knock-back along the dash, hold-to-repeat, refused while climbing, airborne dash keeps its height (#302, spec #296) | `skills/hero.json` `rush_hero` (`cooldown`, `knockback`); damage 78%, `mobCount` 15, box reach 170 px (the dash distance) and `rush2` are Skill.wz level 4 (tier A) | C | Spec #296 D1; v83 Rush is a dash with a hit box |

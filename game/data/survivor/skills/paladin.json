@@ -101,6 +101,369 @@
 				"use": "Sound.wz/Skill.img/1211002/Use",
 				"hit": ""
 			}
+		},
+		"fire_charge": {
+			"_provenance": "Tier A: Skill.wz 1211003 (book 121, twin 1211004 identical in every field) damage 102 to 120 % (rank 1 reads level 4), alert4, the 15-frame effect and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, the fire element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.62.",
+			"_rarity": "Tier C: first-pass #315 bonuses named after the lineage (spec #308): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge Charged Blow damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.62.",
+			"skill_id": 1211003,
+			"book": "121",
+			"job": 121,
+			"kind": "form",
+			"slot": "active",
+			"name": "Fire Charge: Sword",
+			"desc": "Coats your weapon with fire for a while: everything you swing takes that element.",
+			"text": {
+				"desc": "Coats your weapon with fire for a while: all your attacks, Rush included, deal fire damage and hit harder. Casts when a monster is near. Charged Blow fires while it lasts. Only one Charge runs at a time; the one the nearby monsters are weak to goes first.",
+				"h": ""
+			},
+			"icon": "Skill.wz/121.img/skill/1211003/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "form",
+				"mob_within": 400
+			},
+			"cooldown": 18.0,
+			"form": {
+				"duration": 12.0,
+				"exclusive_group": "paladin_charge",
+				"effects": {
+					"element": "f",
+					"damage": {
+						"field": "damage"
+					}
+				},
+				"subs": [
+					{
+						"skill": "charged_blow",
+						"first_after": 1.0,
+						"interval": 3.0
+					}
+				]
+			},
+			"art_by_family": {
+				"blunt": 1211004
+			},
+			"action": "alert4",
+			"action_time": 0.9,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/121.img/skill/1211003/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1211003/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "form_power",
+								"op": "add",
+								"value": 0.1
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"ice_charge": {
+			"_provenance": "Tier A: Skill.wz 1211005 (book 121, twin 1211006 identical in every field) damage 100 to 110 % (rank 1 reads level 4), alert4, the 15-frame effect and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, the ice element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.62.",
+			"_rarity": "Tier C: first-pass #315 bonuses named after the lineage (spec #308): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge Charged Blow damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.62.",
+			"skill_id": 1211005,
+			"book": "121",
+			"job": 121,
+			"kind": "form",
+			"slot": "active",
+			"name": "Ice Charge: Sword",
+			"desc": "Coats your weapon with ice for a while: everything you swing takes that element.",
+			"text": {
+				"desc": "Coats your weapon with ice for a while: all your attacks, Rush included, deal ice damage and hit harder. Casts when a monster is near. Charged Blow fires while it lasts. Only one Charge runs at a time; the one the nearby monsters are weak to goes first.",
+				"h": ""
+			},
+			"icon": "Skill.wz/121.img/skill/1211005/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "form",
+				"mob_within": 400
+			},
+			"cooldown": 18.0,
+			"form": {
+				"duration": 12.0,
+				"exclusive_group": "paladin_charge",
+				"effects": {
+					"element": "i",
+					"damage": {
+						"field": "damage"
+					}
+				},
+				"subs": [
+					{
+						"skill": "charged_blow",
+						"first_after": 1.0,
+						"interval": 3.0
+					}
+				]
+			},
+			"art_by_family": {
+				"blunt": 1211006
+			},
+			"action": "alert4",
+			"action_time": 0.9,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/121.img/skill/1211005/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1211005/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "form_power",
+								"op": "add",
+								"value": 0.1
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"thunder_charge": {
+			"_provenance": "Tier A: Skill.wz 1211007 (book 121, twin 1211008 identical in every field) damage 102 to 125 % (rank 1 reads level 4), alert4, the 15-frame effect and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, the lightning element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.62.",
+			"_rarity": "Tier C: first-pass #315 bonuses named after the lineage (spec #308): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge Charged Blow damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.62.",
+			"skill_id": 1211007,
+			"book": "121",
+			"job": 121,
+			"kind": "form",
+			"slot": "active",
+			"name": "Thunder Charge: Sword",
+			"desc": "Coats your weapon with lightning for a while: everything you swing takes that element.",
+			"text": {
+				"desc": "Coats your weapon with lightning for a while: all your attacks, Rush included, deal lightning damage and hit harder. Casts when a monster is near. Charged Blow fires while it lasts. Only one Charge runs at a time; the one the nearby monsters are weak to goes first.",
+				"h": ""
+			},
+			"icon": "Skill.wz/121.img/skill/1211007/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "form",
+				"mob_within": 400
+			},
+			"cooldown": 18.0,
+			"form": {
+				"duration": 12.0,
+				"exclusive_group": "paladin_charge",
+				"effects": {
+					"element": "l",
+					"damage": {
+						"field": "damage"
+					}
+				},
+				"subs": [
+					{
+						"skill": "charged_blow",
+						"first_after": 1.0,
+						"interval": 3.0
+					}
+				]
+			},
+			"art_by_family": {
+				"blunt": 1211008
+			},
+			"action": "alert4",
+			"action_time": 0.9,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/121.img/skill/1211007/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1211007/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "form_power",
+								"op": "add",
+								"value": 0.1
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
 		}
 	}
 }
