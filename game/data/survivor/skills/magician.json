@@ -594,7 +594,7 @@
 				"use": "Sound.wz/Skill.img/2111003/Use"
 			},
 			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
-			"ground": {
+			"ground": {"status": "poison", "element": "s", "chance_field": "prop",
 				"interval": 1.0,
 				"tile": "Skill.wz/211.img/skill/2111003/tile/0"
 			}
@@ -684,6 +684,7 @@
 			}
 		},
 		"paralyze": {
+			"capture_delay": 0.3,
 			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
 			"rarity_bonuses": {
 				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
@@ -792,6 +793,7 @@
 			]
 		},
 		"big_bang": {
+			"capture_delay": 1.38,
 			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",
 			"rarity_bonuses": {
 				"rare": [{"id": "power", "text": "Damage", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
@@ -876,7 +878,7 @@
 			"cast": {
 				"rule": "summon"
 			},
-			"summon": {
+			"summon": {"ordinal_spread": 36.0,
 				"path": "Skill.wz/212.img/skill/2121005/summon",
 				"attack": "attack1",
 				"follow_speed": 180.0,
