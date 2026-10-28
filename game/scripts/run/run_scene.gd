@@ -189,7 +189,7 @@ var _speed := 1
 var _acc := 0.0
 var _jump_latch := false
 var _drink_hp_latch := false
-## Skill key id ("teleport", "dash") -> true once its key went down since the last tick (consumed by _read_input).
+## Skill key id ("teleport", "dash", "rush") -> true once its key went down since the last tick (consumed by _read_input).
 var _skill_latches := {}
 var _bot_memo := {}
 var _kind_ids := PackedInt32Array()
@@ -1914,7 +1914,7 @@ func run_time() -> float:
 
 ## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with icon, rank, key_label
 ## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether the held weapon blocks each, and
-## the learned movement skill (Teleport or Dash, HudQuickSlot.movement_skill_of; {} before it is learned).
+## the learned movement skill (Teleport, Dash or Rush, HudQuickSlot.movement_skill_of; {} before it is learned).
 func run_info() -> Dictionary:
 	var skills: Array = []
 	for key: String in world.loadout.order:

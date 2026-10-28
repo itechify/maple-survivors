@@ -282,3 +282,40 @@ func test_the_card_draw_never_offers_rush() -> void:
 	for i in 60:
 		for card: Dictionary in w.upgrades.roll_choices(w, w.card_rng, 3):
 			assert_ne(String(card.get("skill", "")), KEY)
+
+
+# --- Key Config and the HUD -------------------------------------------------------------------------------------------
+
+func test_rush_is_a_skill_key_bound_to_x_like_teleport_and_dash() -> void:
+	assert_true("rush" in KeyBindings.SKILL_KEYS)
+	assert_true(InputMap.has_action("rush"), "the project defines the action")
+	var key := InputEventKey.new()
+	key.physical_keycode = KEY_X
+	key.pressed = true
+	assert_true(key.is_action_pressed("rush"), "X is the default, shared with Teleport and Dash")
+
+
+func test_key_config_lists_exactly_the_rush_key_for_a_hero() -> void:
+	var w := _world()
+	var keys := w.manual_skill_keys()
+	assert_eq(keys.size(), 1, "a Hero owns Rush alone: one skill key row")
+	assert_eq(keys[0].action, "rush")
+	assert_eq(keys[0].name, "Rush")
+	assert_eq(keys[0].icon, "Skill.wz/112.img/skill/1121006/icon")
+	var draft := KeyBindings.from_settings(GameSettings.new(), ["rush"])
+	assert_eq(draft.skill_keys, ["rush"])
+	assert_true(draft.keys.has("rush"), "the draft binds it")
+	assert_eq(HudQuickSlot.movement_skill_of(keys).get("action", ""), "rush", "the quick slot shows it")
+
+
+func test_the_hud_row_carries_the_rush_key_and_its_cooldown() -> void:
+	var scene := RunScene.new()
+	scene.world = _world()
+	var row: Dictionary = scene.run_info().skills.back()
+	assert_eq(row.key_label, "X")
+	assert_eq(row.cooldown_left, 0.0)
+	_press(scene.world, false, true)
+	row = scene.run_info().skills.back()
+	assert_near(float(row.cooldown_total), 2.0, 1e-6)
+	assert_true(float(row.cooldown_left) > 1.9, "the sweep reads the 2.0 s cooldown")
+	scene.free()
