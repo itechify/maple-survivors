@@ -38,7 +38,13 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 	var attack_node: Dictionary = node.get(String(d.attack), {})
 	d["info"] = attack_node.get("info", {})
 	d["durations"] = {}
-	for a: String in ["summoned", "stand", "move", String(d.attack), "die"]:
+	# Spec #332 M8: `move` names the animation node played while following (`fly` for a flyer), `hover` lifts the
+	# follower above its trailing point, and an attack node's `info/effect` is drawn on each struck monster.
+	d["move"] = String(d.get("move", "move"))
+	d["hover"] = float(d.get("hover", 0.0))
+	var strike: Variant = d.info.get("effect")
+	d["strike_effect"] = "%s/%s/info/effect" % [d.path, d.attack] if strike is Dictionary else ""
+	for a: String in ["summoned", "stand", String(d.move), String(d.attack), "die"]:
 		d.durations[a] = WeaponInfo.frame_times(node.get(a, {})).total
 	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "summon_count", 1.0)))
 	for ordinal in count:
@@ -60,7 +66,7 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 		active[i] = 1
 		offsets[i] = ordinal * float(d.get("ordinal_spread", 36.0)) # tier C: per-ally spacing.
 		x[i] = world.player.pos.x + offsets[i]
-		y[i] = world.player.pos.y
+		y[i] = world.player.pos.y - float(d.hover) # tier C: a flyer enters at its hover height.
 		facing[i] = world.player.facing
 		left[i] = maxf(0.0, world.loadout.skill_stat(st.skill, "duration", float(st.duration)))
 		stats[i] = st.duplicate()
@@ -69,7 +75,11 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 		_set_action(i, "summoned")
 		wait[i] = float(d.durations.summoned)
 		impact[i] = -1.0
-		world.emit("summon_spawn", {"skill": st.skill, "slot": i})
+		var spawned := {"skill": st.skill, "slot": i}
+		var sound := String(world.book.def(st.skill).get("sounds", {}).get("summon", ""))
+		if sound != "":
+			spawned["sound"] = sound # only when listed: Elquines' event bytes stay what the F/P oracles hash.
+		world.emit("summon_spawn", spawned)
 
 ## Advances follow, windup, impact and expiry with fixed simulation ticks.
 func step(dt: float, world: RunWorld) -> void:
@@ -96,7 +106,8 @@ func step(dt: float, world: RunWorld) -> void:
 		if wait[i] > 1e-6:
 			continue
 		var pos := Vector2(x[i], y[i])
-		var destination := world.player.pos + Vector2(offsets[i], 0) - Vector2(world.player.facing * float(d.follow_distance), 0)
+		var destination := world.player.pos + Vector2(offsets[i], -float(d.hover)) \
+			- Vector2(world.player.facing * float(d.follow_distance), 0)
 		# tier C: one-pixel stand/move deadzone prevents animation flicker at the trailing point.
 		var moved := pos.distance_to(destination) > 1.0
 		if pos.distance_to(destination) > float(d.teleport_distance):
@@ -105,7 +116,7 @@ func step(dt: float, world: RunWorld) -> void:
 			pos = pos.move_toward(destination, float(d.follow_speed) * dt)
 		x[i] = pos.x
 		y[i] = pos.y
-		_set_action(i, "move" if moved else "stand")
+		_set_action(i, String(d.move) if moved else "stand")
 		if world.is_hidden() or bool(world.player_state.dead):
 			continue
 		var targets := _targets(i, world, true)
@@ -131,7 +142,7 @@ func _box(i: int) -> Rect2:
 		Vector2(float(rb[0]) - float(lt[0]), float(rb[1]) - float(lt[1])) * scale)
 
 func _targets(i: int, world: RunWorld, both_sides: bool) -> PackedInt32Array:
-	var pos := Vector2(x[i], y[i])
+	var pos := Vector2(x[i], y[i] + float(definitions[i].hover)) # the box is feet-relative: hover is only flight height.
 	var box := _box(i)
 	var mirrored := Rect2(Vector2(-box.end.x, box.position.y), box.size)
 	var query := box.merge(mirrored) if both_sides else (mirrored if facing[i] > 0 else box)
@@ -154,7 +165,11 @@ func _hit(i: int, world: RunWorld) -> void:
 	var st := stats[i]
 	var targets := _targets(i, world, false)
 	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "count", float(definitions[i].info.get("mobCount", 1)))))
+	var strike := String(definitions[i].strike_effect)
 	for t in mini(count, targets.size()):
+		if strike != "":
+			world.emit("summon_strike", {"skill": st.skill, "slot": i, "mob": targets[t],
+				"pos": world.mob_center(targets[t]), "effect": strike})
 		for line in int(st.attack_count):
 			if world.swarm.active[targets[t]] == 0:
 				break

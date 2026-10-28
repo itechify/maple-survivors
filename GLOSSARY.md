@@ -425,3 +425,7 @@ _Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)
 A pool active whose meter block gates admission and spends units for extra damage. Panic and Coma are Hero's
 finishers; their meter_keep rarity modifier leaves units unspent.
 _Avoid_: ultimate, proc
+
+**Physical follower**:
+A player summon (Silver Hawk, Phoenix, Golden Eagle, Frostprey) whose damage is physical and takes its W.Att from the skill level's `pad` instead of the worn weapon, optionally stunning on hit and flying above its trailing point. It is the Elquines seam (`PlayerSummons`) with data keys, not a separate system.
+_Avoid_: pet (the Free Market pet is a cosmetic companion), minion
