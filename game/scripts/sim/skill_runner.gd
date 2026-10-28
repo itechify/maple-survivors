@@ -34,6 +34,9 @@ const CLUSTER_CANDIDATES := 12
 const BUFF_REFUSED := 0
 const BUFF_ADMITTED := 1
 const BUFF_FALLS_THROUGH := -1
+## Closest a mob may start to be pulled, in px of horizontal distance from the caster (a `pull` block's `min_distance`
+## overrides it). Nearer mobs are left alone so a pull never spends its target cap on a crowd already at the caster. tier C: ours (#300).
+const PULL_MIN_DISTANCE := 120.0
 ## Shortest flight of a thrown grenade in seconds, so a point-blank throw still lands after the ball is seen. tier C: ours (#192).
 const MIN_FLIGHT := 0.1
 ## What a skill's `count` is, by its kind (count_meaning): SHOTS (projectiles fired per cast) for a projectile, else
@@ -56,6 +59,8 @@ var _version := -1
 var _buf := PackedInt32Array()
 var _tgt := PackedInt32Array()
 var _tgt_d := PackedFloat64Array()
+var _pull_ids := PackedInt32Array()
+var _pull_dx := PackedFloat64Array()
 var _undead := PackedByteArray()
 var _slow_serial := 0
 ## Grenades in flight: {left seconds, st (resolved stats at the cast), landing (blast anchor), aim}.
@@ -410,6 +415,8 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": effect})
 	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 	var definition := world.book.def(key)
+	if definition.has("pull") and String(st.kind) != "buff":
+		apply_pull(world, key, st, origin)
 	if String(st.kind) == "summon":
 		summons.spawn(world, st)
 		return
@@ -426,8 +433,10 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	else:
 		match String(st.cast_rule):
 			"box", "weapon_reach", "range_around":
-				_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
-					world.visual_index(String(st.hit)))
+				# A pull-only cast (damage "none" with a `pull` block, Monster Magnet) has no damage lines: apply_pull moved the mobs.
+				if not (definition.has("pull") and String(st.damage_type) == "none"):
+					_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
+						world.visual_index(String(st.hit)))
 			"crowd":
 				_resolve_crowd(world, key, st, targets)
 			"cluster":
@@ -439,6 +448,55 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 					_resolve_nearest(world, key, st, origin, targets)
 	if when == "after":
 		world.displace_player(side, float(disp.distance))
+
+
+## The `pull` block (docs/GAME_DESIGN.md 7.35), run once per cast of any non-buff skill that has one. Candidates are the
+## living grounded non-boss mobs whose body centre is within the level's `range` (range_field; the skill's reach modifiers
+## apply to `range`) of `origin` and at least `min_distance` (default PULL_MIN_DISTANCE) px away horizontally; the `mob_count`
+## farthest (slot breaks ties) are taken, each rolls the `chance_field` percent on the main stream (no draw at 100 or
+## without a chance field) and a success slides the mob toward the caster to `min_gap` px from them (MobSwarm.pull).
+## Emits `mob_pulled {mob, from, pos}` per moved mob. Returns how many moved. tier C: ours (#300).
+func apply_pull(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> int:
+	var block: Dictionary = world.book.def(key).get("pull", {})
+	var level := int(st.level)
+	var range_field := String(block.get("range_field", "range"))
+	var reach := float(st.range) if range_field == "range" else world.book.canonical(key, level, range_field)
+	var chance_field := String(block.get("chance_field", ""))
+	var chance := world.book.canonical(key, level, chance_field) if chance_field != "" else 100.0
+	var min_gap := float(block.get("min_gap", 0.0))
+	var floor_px := float(block.get("min_distance", PULL_MIN_DISTANCE))
+	var want := int(st.mob_count)
+	var s := world.swarm
+	var n := world.mob_grid.query_radius(origin, reach + world.body_pad, _buf)
+	_pull_ids.resize(0)
+	_pull_dx.resize(0)
+	var r2 := reach * reach
+	for c in n:
+		var m := _buf[c]
+		if s.active[m] == 0 or s.fh[m] < 0 or s.steady[m] != 0 or s.mob_kind(m).boss:
+			continue
+		var dx := absf(s.x[m] - origin.x)
+		if dx < floor_px or world.mob_center(m).distance_squared_to(origin) > r2:
+			continue
+		var at := _pull_ids.size()
+		while at > 0 and (dx > _pull_dx[at - 1] or (dx == _pull_dx[at - 1] and m < _pull_ids[at - 1])):
+			at -= 1
+		if at >= want:
+			continue
+		_pull_ids.insert(at, m)
+		_pull_dx.insert(at, dx)
+		if _pull_ids.size() > want:
+			_pull_ids.resize(want)
+			_pull_dx.resize(want)
+	var moved := 0
+	for m in _pull_ids:
+		if chance < 100.0 and world.rng.randf() * 100.0 >= chance:
+			continue
+		var from_x := s.x[m]
+		if s.pull(m, origin.x, min_gap, world.fhm, world.bounds) > 0.0:
+			moved += 1
+			world.emit("mob_pulled", {"mob": m, "from": from_x, "pos": s.pos(m)})
+	return moved
 
 
 ## A charge (displacement `during`): the character has already moved from `start` to where the terrain let it stop; it

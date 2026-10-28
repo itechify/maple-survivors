@@ -15,7 +15,6 @@
 		{"img": "UI.wz/Login.img"},
 		{"img": "Etc.wz/MakeCharInfo.img", "paths": ["Info/CharMale", "Info/CharFemale", "Name/CharMale", "Name/CharFemale"]},
 		{"img": "Skill.wz/MobSkill.img"},
-		{"img": "Skill.wz/111.img", "paths": ["skill/1111008/mob"]},
 		{"img": "Sound.wz/Game.img"},
 		{"img": "Sound.wz/Item.img", "paths": ["02000000/Use", "02000001/Use", "02000002/Use", "02000003/Use", "02000004/Use", "02000005/Use", "02000006/Use"]},
 		{"img": "Sound.wz/UI.img"},

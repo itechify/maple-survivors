@@ -280,7 +280,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
-## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance and pierce_falloff,
+## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance, pull_chance (percent)/pull_gap (px; docs/GAME_DESIGN.md 7.35) and pierce_falloff,
 ## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
@@ -380,6 +380,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"knockback_chance": book.canonical(key, lv, String(d.knockback.get("chance_field", "prop")))
 			if d.has("knockback") else 0.0,
 		"knockback_distance": float(d.get("knockback", {}).get("distance", 0.0)),
+		"pull_chance": book.canonical(key, lv, String(d.pull.get("chance_field", "")), 100.0) if d.has("pull") else 0.0,
+		"pull_gap": float(d.pull.get("min_gap", 0.0)) if d.has("pull") else 0.0,
 		"blast_targets": maxi(1, roundi(skill_stat(key, "blast_targets", book.canonical(key, lv, "mobCount", 1.0))))
 			if d.has("impact_blast") and has_box else 0,
 		"impact_blast": {"box": box, "count": maxi(1, roundi(skill_stat(key, "blast_targets",
