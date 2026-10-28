@@ -693,6 +693,31 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
+**I/L QA smoke (spec #319, I12 #331, 2026-10-28).** Training seeds 1, 2, 2026, `JOBS=3`, private
+`cache-320`, no patch: every tier-1 stage with bot and random for both 222 and 212, plus Sleepywood bot with
+starter gear and each job's tier-1 kit fixture. All 60 records completed without crashes, warnings, missing assets
+or TIMEOUTs. No balance tuning or held-out seeds. Cells are clears/3 and death-time range in seconds; Sleepywood
+lists each seed's D(eath)/C(lear) time in seed order 1/2/2026.
+
+| Stage | I/L bot | I/L random | F/P bot | F/P random |
+|---|---|---|---|---|
+| Henesys | 0/3; 309.5–505.0 | 0/3; 309.1–672.6 | 0/3; 305.0–651.7 | 0/3; 308.3–309.9 |
+| Ellinia | 0/3; 624.1–654.6 | 0/3; 627.6–658.2 | 0/3; 629.1–644.2 | 0/3; 328.4–660.2 |
+| Perion | 0/3; 308.3–669.7 | 0/3; 389.6–425.7 | 0/3; 305.7–456.3 | 0/3; 308.7–421.5 |
+| Kerning | 0/3; 309.6–537.7 | 0/3; 307.0–316.4 | 0/3; 307.9–315.0 | 0/3; 306.0–317.3 |
+| Sleepywood starter | 0/3; D11.4, D11.8, D11.6 | — | 0/3; D11.4, D10.6, D12.0 | — |
+| Sleepywood kit | 1/3; D683.6, C918.6, D14.7 | — | 1/3; D23.8, C936.2, D826.2 | — |
+
+**Weak survival, for the orchestrator:** both jobs cleared 0/24 tier-1 runs. Every I/L tier-1 run reached the first
+boss (some defeated one or two); this is neither "every run dies before the first boss" nor "every run clears".
+Henesys bot filled six actives 3/3 for I/L (137.0–228.3 s) and F/P (136.7–205.3 s), and reached the first boss 3/3
+each. I/L Sleepywood kit seed 2 cleared all three bosses at Lv80; seed 1 died at Lv64 after two bosses and seed
+2026 died at Lv4. Starter Sleepywood died before the first boss for both jobs. These are smoke findings, not balance
+acceptance; the orchestrator decides readiness. Compared with I11's incomplete-pool first look, I/L Henesys seed 2
+now dies, rather than clears; F/P Henesys bot seeds 1/2 reproduce I11's 651.7/305.0 s. I/L's complete pool changes
+card trajectories, so the old six-skill sample is not a full-pool baseline. Other differences from older smokes are
+not causally attributed. Raw per-seed JSON, exact reports and configuration logs: `_scratch/331-smoke/` (gitignored).
+
 **I/L selection and tooling smoke (spec #319, I11 #330, 2026-10-28).** Feature smoke only, no tuning: Henesys, bot, training seeds
 1 and 2, real cache (`cache-320`, the I/L books), JOBS=3. F/P (212): both records are byte-identical to the spec #319 tip's
 (`spec/319-il-arch-mage` at c058729, same seeds; every record key equal), seed 1 DEAD 651.7 s Lv36, seed 2 DEAD 305.0 s Lv11. I/L
