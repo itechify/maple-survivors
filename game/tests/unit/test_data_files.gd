@@ -99,7 +99,7 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 			continue
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
-		if key in data.jobs_survivor.jobs["212"].skill_pool:
+		if key in data.jobs_survivor.jobs["212"].skill_pool or key in data.jobs_survivor.jobs["112"].skill_pool:
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
