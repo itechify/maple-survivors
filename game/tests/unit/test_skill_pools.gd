@@ -29,10 +29,9 @@ func test_only_implemented_pool_skills_offer_one_rank_at_every_rarity() -> void:
 	var w := RF.quiet_world()
 	var offers: Array = w.upgrades.eligible(w).filter(func(id: String) -> bool: return not id.begins_with("passive_"))
 	assert_eq(offers, ["energy_bolt_rank", "magic_claw_new", "fire_arrow_new", "poison_breath_new",
-		"explosion_new", "poison_mist_new", "element_composition_new", "fire_demon_new", "paralyze_new",
+		"explosion_new", "poison_mist_new", "element_composition_new", "fire_demon_new", "elquines_new", "paralyze_new",
 		"meteor_shower_new", "big_bang_new"])
-	assert_false("elquines_new" in w.upgrades.eligible(w), "summon is still unimplemented")
-	assert_eq(w.upgrades.eligible(w).size(), 11 + 9, "plus the nine common passives (#289)")
+	assert_eq(w.upgrades.eligible(w).size(), 12 + 9, "plus the nine common passives (#289)")
 	for tier in UpgradePool.TIERS:
 		var c := w.upgrades.choice_card("energy_bolt_rank", w, tier)
 		assert_eq(c.magnitude, 1)

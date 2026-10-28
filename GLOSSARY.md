@@ -398,3 +398,8 @@ _Avoid_: launcher, wrapper
 Where one import reads the player's v83 `.wz` files from: an install folder, a `.zip`, or (web build only) a URL the
 player pastes.
 _Avoid_: mirror (the project never names one), WZ root (that is the desktop folder setting)
+
+**Summon**:
+A timed player-owned ally cast by an active skill. It follows or waits at its own position and attacks monsters;
+its map-local lifetime ends on expiry or map transfer. It occupies its skill’s active slot, uses the original skill
+id and WZ animations, and is separate from a cash pet or a monster summoned by a boss.

@@ -8,7 +8,7 @@ extends RefCounted
 ## changes exactly what the original level-up changed (damage, mastery, the projectile art). Visual paths are
 ## templates: `{level}` becomes the canonical level, `{cl}` the CharLevel variant for the character's level.
 
-const ACTIVE_KINDS := ["projectile", "instant", "buff"]
+const ACTIVE_KINDS := ["projectile", "instant", "buff", "summon"]
 ## Skill.wz keys holding a weapon requirement code; the second has a trailing space (tier A: only 5001003 spells it so).
 const WEAPON_FIELDS := ["weapon", "weapon "]
 

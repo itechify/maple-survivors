@@ -596,6 +596,21 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
+**#291 summon regression smoke (2026-10-28).** Seeds 1/2/2026, every tier-1 stage, bot/random,
+read-only T1 cache, no patches or tuning. All 24 records ended DEAD, warnings=[] and missing=[]; no crashes.
+Ellinia's known early deaths remain. Henesys seed-1 bot now dies at 378.5 s, Lv16, map 2, compared with
+#290's 307.8 s, Lv12, map 1. Mano completes in 39.40 s for that seed; across Henesys bot, completed 3/3 spawned,
+completed median 28.40 s and censored median 28.40 s (0 unfinished); later bosses never spawned.
+No held-out seeds used. Full console reports and records are local `_scratch/balance291/`.
+
+| Stage | Bot death seconds (min–max), end levels | Random death seconds (min–max), end levels |
+|---|---|---|
+| Henesys | 350.9–395.4, Lv16–19 | 307.0–371.3, Lv12–17 |
+| Ellinia | 35.2–76.4, Lv1–2 | 35.2–76.4, Lv1–2 |
+| Perion | 308.4–424.6, Lv13–20 | 306.7–340.6, Lv13–14 |
+| Kerning | 304.8–307.1, Lv14 | 306.9–311.7, Lv14–15 |
+
+
 Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` (whole headless runs on the real map,
 `game/tools/balance_run.gd`). Movement is always the autoplay bot (`BotInput`): it kites on the ground (dueling a
 lone ordinary mob with the basic attack while no attack skill can fire), walks to EXP drops and climbs a ladder or
@@ -5391,6 +5406,45 @@ without a manual key or partial-charge damage. Element Composition's equal eleme
 has no `elemAttr`); Fire Demon's ice vulnerability follows its WZ description (tier A). Other targeting/timings
 are first-pass survivor interpretations, not balance tuning. Recasts refresh the existing status without stacking.
 
+### 7.32 Player summons (#291)
+
+`kind: "summon"`, `slot: "active"`, `cast: {"rule":"summon"}` uses the same pool, eight mapped ranks,
+auto-cast cooldown, damage formula and rarity modifier seam as other active skills. A summon casts without a mob
+present. Each cast replaces that skill's previous group; different summon skills coexist. Map transfer removes all
+allies (including windups and death art), preserving cooldowns. A later recast restores them. No ally persists in a
+character snapshot. Hidden/dead characters' allies cannot attack.
+
+Definition shape for later classes (Phoenix, Frostprey, Bahamut, Octopus, Puppet, Silver Hawk, Golden Eagle):
+
+```json
+{"kind":"summon", "slot":"active", "cast":{"rule":"summon"},
+ "cooldown":30, "damage":"magic", "element":"i",
+ "summon":{"path":"Skill.wz/212.img/skill/2121005/summon", "attack":"attack1",
+   "follow_speed":180, "follow_distance":60, "teleport_distance":600, "attack_interval":2.4}}
+```
+
+The ordinary skill fields supply WZ book/id, rank table, hit art, Use sound and caster stance. `summon.path` is
+presentation's animation root; sim reads the matching skill node's `summon`. `summon.attack` chooses the animation
+and its `info`: `range.lt/rb` is the left-facing feet-relative attack rectangle, `mobCount` the target cap, and
+`attackAfter` the hit delay in milliseconds. `level.time` supplies lifetime, `level.mad/mastery` damage. Frames under
+`summoned/stand/move/<attack>/die` supply animation durations. These are tier A, never balance copies.
+
+Packed arrays store active/position/lifetime/facing/action/age/windup state; cast-time stats and per-group resolved
+metadata are cold dictionaries. One SpritePool renders every ally, with no per-entity Nodes. After the summoned
+animation, allies follow toward a point behind the character in two dimensions, snap after a large separation,
+and seek on both sides of their own position. Attacks face the scheduled boss first, otherwise nearest target
+(slot breaks ties). Impact queries current bodies in the facing box; it never remembers recyclable target slots.
+Attack timing pauses follow motion. Hits use `RunWorld.hit_mob`, including defence, crit, damage modifiers, element
+immunity and Fire Demon's per-mob ice weakness. No additional freeze is inferred from ice damage.
+
+Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 30 s recast,
+180 px/s follow, 60 px trailing offset, 1 px stand/move deadzone, 600 px snap distance and 2.4 s minimum attack cycle (never shorter than the
+WZ animation or hit delay). A zero follow speed stops incremental following (distance snapping still applies); future stationary, taunt, projectile,
+ground-navigation or pet-like targeting behaviours must extend this seam with their own tests, not special-case IDs.
+`damage`, `area`, `count` (attack targets), `attack_count`, `cooldown` consume existing modifiers; `duration` and
+`summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
+new casts pick up rank changes. No rarity lists ship until #288 lands; proposed lists are in T9-291.md.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -6717,3 +6771,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.
 The Tree That Grew I and the six stage bosses are already playable. Phase 3: other Explorer paths, 3rd/4th job,
 additional bosses, elite waves with modifiers, passive items, skill evolutions, run modifiers, persistent unlocks.
+
+#291 tier C provenance: summon auto-admission, replacement groups, nearest/boss-first two-sided acquisition,
+current-body impact selection, follow/snap model and the numeric first-pass Elquines settings are in 7.32.
+Missing/zero summon frame delays use the existing 100 ms presentation default (tier C); WZ delays are otherwise unchanged.
