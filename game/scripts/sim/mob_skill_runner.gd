@@ -1,6 +1,6 @@
 class_name MobSkillRunner
 extends RefCounted
-## Canonical scheduled-boss skills (MobSkill 100/110/112/113/114/126/129/140/200) and their timed status state
+## Canonical scheduled-boss skills (MobSkill 100/110/112/113/114/123/126/129/140/200) and their timed status state
 ## (docs/ARCHITECTURE.md 4.4.3, docs/GAME_DESIGN.md 4.3): no files, nodes or canonical-stat mutation.
 
 ## Original Skill.wz/MobSkill.img ids of the skills this runner casts.
@@ -9,13 +9,14 @@ const SKILL_ATTACK_UP_AREA := 110
 const SKILL_PDD_UP_AREA := 112
 const SKILL_MDD_UP_AREA := 113
 const SKILL_HEAL_AREA := 114
+const SKILL_STUN := 123
 const SKILL_SLOW := 126
 const SKILL_BANISH := 129
 const SKILL_WEAPON_IMMUNITY := 140
 const SKILL_SUMMON := StageRoster.SUMMON_SKILL
 ## Every MobSkill id `step` can cast; a boss's other listed skills are skipped.
 const SUPPORTED := [SKILL_SLOW, SKILL_SUMMON, SKILL_PDD_UP_AREA, SKILL_MDD_UP_AREA, SKILL_HEAL_AREA,
-	SKILL_WEAPON_IMMUNITY, SKILL_ATTACK_UP, SKILL_ATTACK_UP_AREA, SKILL_BANISH]
+	SKILL_WEAPON_IMMUNITY, SKILL_ATTACK_UP, SKILL_ATTACK_UP_AREA, SKILL_BANISH, SKILL_STUN]
 ## tier C: Attack Up (100/110) multiplies the weapon attack of the buffed mobs by this while it lasts (spec #253). The
 ## v83 x115 is not read: whether it is flat or a percentage is unverified. balance.mob_skills.attack_up_mult sets it.
 const DEFAULT_ATTACK_UP_MULT := 1.15
@@ -24,6 +25,8 @@ var _images: Dictionary
 var _tables: Dictionary
 var _enabled: Array
 var _ready := {}
+var _stun_until := 0.0
+var _stun_visual := ""
 var _slow_until := 0.0
 var _slow_factor := 1.0
 var _slow_visual := ""
@@ -56,6 +59,16 @@ func slow_state(now: float) -> Dictionary:
 	return {"skill_id": SKILL_SLOW, "remaining": _slow_until - now, "multiplier": _slow_factor, "visual": _slow_visual} if now < _slow_until - 1e-9 else {}
 
 
+## Whether the player is stunned at this simulation time.
+func is_stunned(now: float) -> bool:
+	return now < _stun_until - 1e-9
+
+
+## Detached presentation state for the timed player Stun.
+func stun_state(now: float) -> Dictionary:
+	return {"skill_id": SKILL_STUN, "remaining": _stun_until - now, "visual": _stun_visual} if is_stunned(now) else {}
+
+
 ## Casts one ready canonical skill per boss after its own HP gate and stance availability.
 func step(world: RunWorld) -> void:
 	_resolve_heals(world)
@@ -75,8 +88,8 @@ func step(world: RunWorld) -> void:
 			var spec: Dictionary = _tables.get(str(id), {}).get("level", {}).get(str(level), {})
 			if spec.is_empty() or id not in SUPPORTED:
 				continue
-			# Hidden (#194): a skill aimed at the character (Slow, Banish) is not cast while it is Hidden.
-			if id in [SKILL_SLOW, SKILL_BANISH] and world.is_hidden():
+			# Hidden (#194): a skill aimed at the character (Slow, Banish, Stun) is not cast while it is Hidden.
+			if id in [SKILL_SLOW, SKILL_BANISH, SKILL_STUN] and world.is_hidden():
 				continue
 			var key := "%d/%d/%d" % [index, id, level]
 			var interval := world.bosses.skill_interval(index, id, float(spec.get("interval", 0.0)))
@@ -103,6 +116,13 @@ func step(world: RunWorld) -> void:
 				_slow_until = now + duration
 				_slow_visual = path + "/affected"
 				affected = _slow_visual
+			if id == SKILL_STUN and _area(spec, pos, facing).has_point(world.player.pos):
+				var prop := float(spec.get("prop", 100.0))
+				# tier C: one isolated stream-18 chance roll per in-area cast; cooldown is spent on failure too.
+				if prop >= 100.0 or (prop > 0.0 and world.mob_status_rng.randf() * 100.0 < prop):
+					_stun_until = now + duration
+					_stun_visual = path + "/affected"
+					affected = _stun_visual
 			var targets: Array = []
 			if id == SKILL_SUMMON:
 				var available := maxi(0, int(spec.get("limit", 0)) - world.summoned_alive(index))

@@ -60,7 +60,8 @@ extends RefCounted
 ## 14 reserved for Bowman,
 ## 15 Thief-only rolls (thief_rng, Steal success in #214),
 ## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194),
-## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256).
+## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256),
+## 18 boss player-status chance rolls (mob_status_rng, Stun in #267).
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -209,6 +210,7 @@ var thief_rng: RandomNumberGenerator
 ## needs its own stream.
 var pirate_rng: RandomNumberGenerator
 ## Banish's destination `sp` portal draws only (stream 17, #256), so a Banish never shifts spawning or map arrivals.
+var mob_status_rng: RandomNumberGenerator
 var banish_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
@@ -425,6 +427,7 @@ func _init_rng_streams() -> void:
 	final_rng = _stream(12) # tier C: Final Attack procs and follow-up rolls never shift another stream, #161.
 	thief_rng = _stream(15) # tier C: independent Thief-only rolls; reserved for Steal success, #207/#214.
 	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14 reserved, #186.
+	mob_status_rng = _stream(18) # tier C: boss player-status chance rolls (#267), isolated from combat.
 	banish_rng = _stream(17) # tier C: Banish portal draws never shift another stream, #256.
 
 
@@ -869,6 +872,9 @@ func _step_player(dt: float, input: MoveInput) -> void:
 		drink_potion("hp")
 	if input.drink_mp:
 		drink_potion("mp")
+	# tier C (#267): potions stay usable while stunned; v83 potion gating is unverified.
+	if mob_skills.is_stunned(time):
+		input = MoveInput.new()
 	_try_manual_buffs(input)
 	if not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
@@ -2734,9 +2740,9 @@ func _emit_player_hit(damage: int, mp_absorbed: int, miss: bool, dir: int, sourc
 		"boss": bool(source.get("boss", false)), "max_hp": _max_hp, "source_kind": String(source.get("source_kind", "other"))})
 
 
-## Whether auto-actions may cast now: hanging on a rope/ladder blocks new casts, not their cooldowns or effects.
+## Whether auto-actions may cast now: climbing or Stun blocks new casts, not cooldowns or existing effects.
 func can_cast() -> bool:
-	return state == PLAYING and not _dead and not _map_clearing and player.state != PlayerMotion.ST_LADDER
+	return state == PLAYING and not _dead and not _map_clearing and player.state != PlayerMotion.ST_LADDER and not mob_skills.is_stunned(time)
 
 
 func _gain_exp(n: int) -> void:
@@ -2851,6 +2857,7 @@ func _write_player_state(dt: float) -> void:
 	player_state["exp"] = progression.exp
 	player_state["exp_next"] = progression.exp_to_next()
 	player_state["slow"] = mob_skills.slow_state(time)
+	player_state["stun"] = mob_skills.stun_state(time)
 	player_state["level"] = progression.level
 	player_state["job_id"] = progression.job_id
 	for stat: String in _attributes:
