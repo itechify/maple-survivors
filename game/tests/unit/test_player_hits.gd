@@ -57,9 +57,8 @@ func test_miss_has_no_damage_knockback_or_invincibility() -> void:
 	assert_eq(events[0].type, "player_hit")
 	assert_eq(events[0].miss, true)
 	assert_eq(events[0].damage, 0)
-	assert_eq(events[0].mp_absorbed, 0)
+	assert_false(events[0].has("mp_absorbed"), "no MP (#285)")
 	assert_eq(w.player_state.hp, before.hp)
-	assert_eq(w.player_state.mp, before.mp)
 	assert_eq(w.player_state.invincible_t, 0.0)
 	assert_eq(w.player.vel, velocity)
 

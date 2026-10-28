@@ -1,7 +1,7 @@
 extends TestCase
 ## Dash 5001005 (#188): the Pirate's manual buff on its skill key. Seeded synthetic worlds with the Skill.wz table of
-## Dash (level -> mpCon, speed x, jump y, time) copied out; one real-cache test checks that table against the
-## imported Skill.wz/500.img. The bot's flee rule is tested on the same world.
+## Dash (level -> mpCon (unused: no MP, #285), speed x, jump y, time) copied out; one real-cache test checks that
+## table against the imported Skill.wz/500.img. The bot's flee rule is tested on the same world.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -14,16 +14,14 @@ const INFO := {
 }
 
 
-func _world(mp := 200, skill := true) -> RunWorld:
+func _world(skill := true) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = mp
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	var setup := RF.with_basic_attack(RF.setup("quiet", 188, data))
 	setup.equipment_info.merge(INFO, true)
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 2000, "y2": 0}])
 	var w := RunWorld.new(setup)
 	RF.as_job(w, 500, "knuckle")
-	w.heal_fraction("mp", 1.0)
 	if skill:
 		w.learn_skill("dash")
 	RF.place_player(w, 400, 0)
@@ -41,14 +39,13 @@ func _types(events: Array) -> Array:
 	return events.map(func(e: Dictionary) -> String: return e.type)
 
 
-func test_each_rank_resolves_the_skill_wz_speed_jump_duration_and_mp() -> void:
+func test_each_rank_resolves_the_skill_wz_speed_jump_and_duration() -> void:
 	var w := _world()
 	assert_eq(w.book.max_rank("dash"), 10, "ten ranks, one per canonical level")
 	assert_eq(w.book.max_level("dash"), 10)
 	for rank in range(1, 11):
 		var row: Array = TABLE[rank - 1]
 		var st := w.loadout.stats("dash", rank)
-		assert_eq(st.mp_cost, row[0], "rank %d MP" % rank)
 		assert_eq(st.buff_effects.speed, float(row[1]), "rank %d speed" % rank)
 		assert_eq(st.buff_effects.jump, float(row[2]), "rank %d jump" % rank)
 		assert_eq(st.duration, float(row[3]), "rank %d duration" % rank)
@@ -56,16 +53,14 @@ func test_each_rank_resolves_the_skill_wz_speed_jump_duration_and_mp() -> void:
 		assert_eq(st.cast_rule, "manual", "a manual skill: never auto-cast")
 
 
-func test_pressing_the_key_starts_the_buff_pays_mp_and_raises_speed_and_jump() -> void:
+func test_pressing_the_key_starts_the_buff_and_raises_speed_and_jump() -> void:
 	for rank in [1, 5, 10]:
 		var w := _world()
 		w.loadout.set_rank("dash", rank)
 		var row: Array = TABLE[rank - 1]
-		var before := int(w.player_state.mp)
 		assert_eq(w.player.speed_stat, 100)
 		_press(w)
 		assert_true(w.buffs.has("dash"))
-		assert_eq(int(w.player_state.mp), before - int(row[0]), "rank %d pays mpCon" % rank)
 		assert_eq(w.player.speed_stat, 100 + int(row[1]), "rank %d speed" % rank)
 		assert_eq(w.player.jump_stat, 100 + int(row[2]), "rank %d jump" % rank)
 		assert_eq(w.buffs.active.dash.duration, float(row[3]))
@@ -84,41 +79,19 @@ func test_the_buff_ends_after_its_time_and_the_key_casts_it_again() -> void:
 	w.step(DT, MoveInput.new())
 	assert_eq(w.player.speed_stat, 100, "speed is back")
 	assert_eq(w.player.jump_stat, 100, "jump is back")
-	var mp := int(w.player_state.mp)
 	_press(w)
 	assert_true(w.buffs.has("dash"), "the key casts it again once it ended")
-	assert_true(int(w.player_state.mp) <= mp - 13, "paid again: %d -> %d" % [mp, int(w.player_state.mp)])
 
 
-func test_pressing_without_enough_mp_does_nothing() -> void:
-	var w := _world()
-	w.spend_mp(int(w.player_state.mp) - 13) # rank 1 costs 14
-	assert_eq(int(w.player_state.mp), 13)
-	_press(w)
-	assert_false(w.buffs.has("dash"))
-	assert_eq(int(w.player_state.mp), 13, "nothing was spent")
-	assert_eq(w.player.speed_stat, 100)
-	assert_eq(_types(w.drain_events()).filter(func(t: String) -> bool: return t in ["buff_cast", "cast", "mp_short"]), [],
-		"no cast and no event")
-	var short := w.skill_readiness("dash")
-	assert_true(short.mp_short, "the HUD shows it waiting for MP")
-	w.heal_fraction("mp", 1.0)
-	assert_false(w.skill_readiness("dash").mp_short)
-	_press(w)
-	assert_true(w.buffs.has("dash"), "enough MP: it casts")
-
-
-func test_a_press_while_running_costs_nothing_and_the_buff_is_never_auto_cast() -> void:
+func test_a_press_while_running_does_nothing_and_the_buff_is_never_auto_cast() -> void:
 	var w := _world()
 	for i in 300:
 		w.step(DT, MoveInput.new())
 	assert_false(w.buffs.has("dash"), "no key press: no cast")
 	_press(w)
-	var mp := int(w.player_state.mp)
 	for i in 20:
 		_press(w)
-	assert_eq(int(w.player_state.mp), mp, "pressing while it runs spends nothing")
-	assert_eq(_types(w.drain_events()).count("buff_cast"), 1)
+	assert_eq(_types(w.drain_events()).count("buff_cast"), 1, "pressing while it runs casts nothing")
 
 
 func test_holding_the_key_casts_again_when_the_buff_ends() -> void:
@@ -133,7 +106,7 @@ func test_holding_the_key_casts_again_when_the_buff_ends() -> void:
 
 
 func test_only_the_owner_of_a_skill_key_can_press_it() -> void:
-	var plain := _world(200, false)
+	var plain := _world(false)
 	_press(plain)
 	assert_false(plain.buffs.has("dash"), "an unlearned Dash does nothing")
 	var w := _world()
@@ -177,7 +150,6 @@ func test_the_hud_row_carries_the_skill_key_caption() -> void:
 	scene.world = _world()
 	var row: Dictionary = scene.run_info().skills.back()
 	assert_eq(row.key_label, "X", "Dash's default key on its icon")
-	assert_false(row.mp_short)
 	_press(scene.world)
 	row = scene.run_info().skills.back()
 	assert_near(row.cooldown_left, 4.0, 0.05, "the icon counts the buff down")
@@ -219,9 +191,6 @@ func test_the_bot_dashes_when_hurt_with_a_mob_close_and_not_otherwise() -> void:
 	assert_true(BotInput.decide(w, {}).skill_pressed("dash"), "hurt with a mob inside the flee distance")
 	_set_hp(w, 0.8)
 	assert_false(BotInput.decide(w, {}).skill_pressed("dash"), "healthy with one mob close: no dash")
-	_set_hp(w, 0.4)
-	w.spend_mp(int(w.player_state.mp) - 13)
-	assert_false(BotInput.decide(w, {}).skill_pressed("dash"), "it cannot pay")
 	var far := _bot_world()
 	_set_hp(far, 0.4)
 	RF.put_mob(far, 100100, 400 + 400, 0, 100000)
@@ -278,7 +247,6 @@ func test_real_cache_dash_table_matches_skill_wz() -> void:
 	for rank in range(1, 11):
 		var row: Array = TABLE[rank - 1]
 		var st := loadout.stats("dash", rank)
-		assert_eq(st.mp_cost, row[0], "rank %d MP" % rank)
 		assert_eq(st.buff_effects.speed, float(row[1]), "rank %d speed" % rank)
 		assert_eq(st.buff_effects.jump, float(row[2]), "rank %d jump" % rank)
 		assert_eq(st.duration, float(row[3]), "rank %d duration" % rank)

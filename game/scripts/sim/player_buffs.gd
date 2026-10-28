@@ -104,7 +104,7 @@ func _refresh() -> void:
 		_ends_on_hp = _ends_on_hp or float(buff.get("end_hp_above", 0.0)) > 0.0
 
 
-## Sum of active canonical effects feeding a hit-rule stat (e.g. mp_guard or pdd).
+## Sum of active canonical effects feeding a hit-rule stat (e.g. pdd or avoid).
 func effect_total(stat: String) -> float:
 	var total := 0.0
 	for buff: Dictionary in active.values():

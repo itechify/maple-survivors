@@ -15,8 +15,8 @@ extends RefCounted
 ##
 ## spawn(spec) keys: x, y, vx, vy (px/s), range, radius, visual (index into paths), hit_visual (index or -1),
 ## rotate (bool), dmg_min, dmg_max, damage_type (fixed/magic/physical; defaults from legacy magic bool), damage_pct
-## (skill% / 100, default 1), player_level, element, crit, crit_mult, crit_damage_bonus (skill-% points), pierce,
-## skill (survivor key), level (canonical skill level at cast). Defence and target level are live at impact.
+## (skill% / 100, default 1), element, crit, crit_mult, crit_damage_bonus (skill-% points), pierce,
+## skill (survivor key), level (canonical skill level at cast). Defence is live at impact.
 ## Optional pierce_falloff is linear damage lost per previous contact (floor set by survivor combat data). impact_blast is a
 ## cast-time {box: Rect2, count: int, visual: String} that explodes at the first contact instead of piercing.
 
@@ -43,7 +43,6 @@ var dmg_max := PackedFloat32Array()
 ## Per shot CombatMath.DAMAGE_FIXED / DAMAGE_MAGIC / DAMAGE_PHYSICAL (CombatMath.DAMAGE_TYPE_NAMES gives the name).
 var damage_kind := PackedByteArray()
 var damage_pct := PackedFloat64Array()
-var player_level := PackedInt32Array()
 var crit_damage_bonus := PackedFloat64Array()
 ## Canonical attacking skill elemAttr; resistance is resolved against each target at impact.
 var element := PackedStringArray()
@@ -129,7 +128,6 @@ func spawn(spec: Dictionary) -> int:
 	damage_kind[i] = CombatMath.damage_type_code(
 		CombatMath.damage_type_of(String(spec.get("damage_type", "")), bool(spec.get("magic", false))))
 	damage_pct[i] = float(spec.get("damage_pct", 1.0))
-	player_level[i] = int(spec.get("player_level", 1))
 	crit_damage_bonus[i] = float(spec.get("crit_damage_bonus", 0.0))
 	element[i] = String(spec.get("element", ""))
 	crit[i] = float(spec.get("crit", 0.0))
@@ -267,13 +265,13 @@ static func segment_enter(ax: float, ay: float, bx: float, by: float, r: Rect2) 
 ## Legacy calls infer fixed/magic from is_magic; explicit damage_type selects physical. Returns damage and crit0/1.
 static func roll_damage(lo: float, hi: float, is_magic: bool, defense: float, k: float, crit_chance: float, cmult: float,
 		r: RandomNumberGenerator, element_mult: float = 1.0, damage_type: String = "", damage_pct: float = 1.0,
-		player_level: int = 1, mob_level: int = 1, crit_damage_bonus: float = 0.0,
+		crit_damage_bonus: float = 0.0,
 		damage_multiplier: float = 1.0) -> Vector2i:
 	if element_mult <= 0.0:
 		return Vector2i.ZERO
 	var dtype := CombatMath.damage_type_of(damage_type, is_magic)
 	if dtype == "physical":
-		var defended := CombatMath.physical_defense(Vector2(lo, hi), player_level, mob_level, defense)
+		var defended := CombatMath.physical_defense(Vector2(lo, hi), defense)
 		lo = defended.x
 		hi = defended.y
 	var dmg := r.randf_range(lo, hi) if hi > lo else lo
@@ -361,7 +359,7 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 		if kind == CombatMath.DAMAGE_PHYSICAL else (float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd))
 	var roll := roll_damage(dmg_min[i], dmg_max[i], is_magic, defense, magic_defense_k, crit[i],
 		crit_mult[i], rng, mk.element_multiplier(element[i]),
-		CombatMath.DAMAGE_TYPE_NAMES[kind], damage_pct[i], player_level[i], mk.level, crit_damage_bonus[i],
+		CombatMath.DAMAGE_TYPE_NAMES[kind], damage_pct[i], crit_damage_bonus[i],
 		multiplier)
 	var dir := 1 if vx[i] >= 0.0 else -1
 	var head := Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y)
@@ -406,7 +404,7 @@ func _grow(n: int) -> void:
 		arr.resize(n)
 	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus, pierce_falloff]:
 		arr.resize(n)
-	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, player_level, blast_count]:
+	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, blast_count]:
 		arr.resize(n)
 	hit_list.resize(n * MAX_HITS)
 	generation.resize(n)

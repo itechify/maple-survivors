@@ -10,10 +10,10 @@ const DT := 1.0 / 60.0
 ## Re-captured for #238: unlimited potions on cooldowns, no potion drops and two boss equipment drops.
 ## Re-captured for #259 (the bot jumps a wall it can clear and remembers one it cannot): with that rule disabled
 ## (`BotInput._wall_ahead` returning -1, `_held_wall` 0) the #238 hash 44fd3997... is reproduced exactly.
-## Regenerated for #284 (ADR 0006, spec #282 asks for it): the fresh character is the fixed 212 with Energy Bolt and
-## Teleport at Lv1 (MP stopgap 30), with no job advancement, no basic attack and no stream-8 draw, so every byte after
-## the setup events changes. The #259 hash was 8114bff3...; this one is stable across repeated Linux runs.
-const GOLDEN := "ba34b32ec1ee2a30a9a2f237d6fa24cc9e725b9e8322d4a43c4bb67c1046d5cf"
+## Regenerated for #284 (ADR 0006, spec #282 asks for it) together with #285 (no MP): the fresh character is the
+## fixed 212 with Energy Bolt and Teleport at Lv1, with no job advancement, no basic attack, no stream-8 draw, no MP
+## and no level-gap factor, so every byte after the setup events changes. The #259 hash was 8114bff3...
+const GOLDEN := "ff04862a59f1c32fb053515bed40a4d1bcf38519353b5d703ddaa1678f7cc6a8"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

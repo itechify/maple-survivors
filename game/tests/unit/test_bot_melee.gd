@@ -10,10 +10,11 @@ const DT := 1.0 / 60.0
 ## Digest of 900 bot inputs plus player positions in the fixed swarm below, captured on main (b2ef00d lineage).
 ## Re-captured for #238: the Magician can request unlimited MP on its shared cooldown.
 ## Re-captured for #259 (wall rule; disabling it reproduces 720344116 / 130203406 exactly).
-## Re-captured for #284: no basic attack; the Magician is the fresh 212 (Energy Bolt and Teleport), the Beginner a job-0
-## character set up with Three Snails.
-const MAGICIAN_DIGEST := 268496202
-const BEGINNER_DIGEST := 460890325
+## Re-captured for #285 (no MP): no MP potion input, skills cast on their cooldown only.
+## Re-captured for #284 on top (the #285 digests were 813012817 / 365424704): no basic attack; the Magician is the fresh 212 (Energy Bolt and Teleport), the Beginner
+## a job-0 character set up with Three Snails.
+const MAGICIAN_DIGEST := 168893068
+const BEGINNER_DIGEST := 556679015
 
 
 ## Rolling digest over the decided inputs and the resulting player position, so any change to a decision shows.
@@ -23,7 +24,7 @@ func _trace(w: RunWorld, ticks: int) -> int:
 	for t in ticks:
 		var mi := BotInput.decide(w, memo)
 		var bits := int(mi.left) + 2 * int(mi.right) + 4 * int(mi.up) + 8 * int(mi.down) + 16 * int(mi.jump_pressed) \
-				+ 32 * int(mi.jump_held) + 64 * int(mi.drink_hp) + 128 * int(mi.drink_mp)
+				+ 32 * int(mi.jump_held) + 64 * int(mi.drink_hp)
 		h = (h * 31 + bits) % 1000000007
 		w.step(DT, mi)
 		w.drain_events()
@@ -42,11 +43,9 @@ func _swarm(w: RunWorld) -> void:
 
 func test_magician_inputs_are_identical_to_main() -> void:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 100 # enough for Energy Bolt (6 MP at L1) on the quiet data's 5-MP base
 	var w := RunWorld.new(RF.setup("quiet", 9, data))
 	RF.place_player(w, 400)
 	_swarm(w)
-	w.heal_fraction("mp", 1.0)
 	var digest := _trace(w, 900)
 	assert_eq(digest, MAGICIAN_DIGEST, "Magician bot inputs match main")
 
@@ -59,7 +58,6 @@ func test_beginner_inputs_are_identical_to_main() -> void:
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
 	_swarm(w)
-	w.heal_fraction("mp", 1.0)
 	var digest := _trace(w, 900)
 	assert_eq(digest, BEGINNER_DIGEST, "Beginner bot inputs match main")
 
@@ -69,7 +67,6 @@ func test_beginner_inputs_are_identical_to_main() -> void:
 func _melee_world(seed_value := 9) -> RunWorld:
 	var data := RF.quiet_data()
 	data.upgrades.cards = []
-	data.balance.player.mp = 100
 	data.balance.magnet_radius = 0
 	data.skills.skills["slash"] = {"skill_id": 9991001, "book": "999", "job": 100, "kind": "instant",
 		"damage": "fixed", "ranks": [1], "cooldown": 1.0, "action": "swingO1", "action_time": 0.4,

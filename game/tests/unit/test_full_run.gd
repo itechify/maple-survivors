@@ -19,7 +19,9 @@ const CHECK_PACING := true
 ## The swarm engagement box (balance_run.gd ENG_X / ENG_Y) and the least share of the live mobs in it at 6:00-12:00.
 const ENGAGED_X := 400.0
 const ENGAGED_Y := 200.0
-const ENGAGED_MIN := 0.3 # tier C: inherited swarm-pressure regression floor
+## tier C: inherited swarm-pressure regression floor, lowered from 0.3 for #285: without MP the Magician casts on every
+## cooldown and clears its surroundings (Henesys seeds 1/2026 measured 0.26 / 0.24). First-pass pacing (#293) resets it.
+const ENGAGED_MIN := 0.2
 
 
 ## The inherited whole-round pacing oracle uses the old full curve; #245's map-local pools have their own tests.
@@ -156,10 +158,7 @@ func _assert_run(w: RunWorld, st: Dictionary, label: String, enforce_pacing := t
 
 func test_full_run_synthetic_map() -> void:
 	var setup := RF.with_basic_attack(RF.setup("henesys", 2026))
-	# #284 stand-in for #285 (no MP): on the synthetic map a Lv1 212 with the 30 MP stopgap starves after five Energy
-	# Bolts and dies at Lv1 (one kill in 44 s), so this whole-simulation run gets an MP pool that never runs dry.
 	setup.data = setup.data.duplicate(true)
-	setup.data.balance.player.mp = 100000
 	var w := _historical_world(setup)
 	assert_true(w.warnings.is_empty(), "every pool mob has an img: %s" % [w.warnings])
 	_assert_run(w, _run(w), "synthetic")

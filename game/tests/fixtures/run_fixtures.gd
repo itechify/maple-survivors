@@ -524,9 +524,7 @@ static func setup(stage := "henesys", p_seed := 12345, data: Dictionary = {}) ->
 			1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0}},
 		# Synthetic item nodes with independently verified v83 restore amounts.
 		"item_info": {2000000: {"spec": {"hp": 50}}, 2000001: {"spec": {"hp": 150}},
-			2000002: {"spec": {"hp": 300}}, 2000003: {"spec": {"mp": 100}}, 2000006: {"spec": {"mp": 300}},
-			2022003: {"spec": {"hp": 1000}}, 2022000: {"spec": {"mp": 800}},
-			2001001: {"spec": {"hp": 2000}}, 2001002: {"spec": {"mp": 2000}}},
+			2000002: {"spec": {"hp": 300}}, 2022003: {"spec": {"hp": 1000}}, 2001001: {"spec": {"hp": 2000}}},
 		"ammo_info": ammo_info(),
 		"data": data if not data.is_empty() else DataRepo.load_all(),
 		"stage": stage,
@@ -582,12 +580,12 @@ static func bot_input(w: RunWorld, memo: Dictionary) -> MoveInput:
 	return BotInput.decide(w, memo)
 
 
-## Basic-attack bounds after level gap and live PDD, for the examples that predate the physical hit path (LUK 0):
+## Basic-attack bounds after live PDD, for the examples that predate the physical hit path (LUK 0):
 ## the physical weapon bounds of the stance `action`, then CombatMath.physical_defense.
 static func physical_bounds(str_stat: int, dex_stat: int, watk: float, weapon_id: int, action: String,
-		player_level: int, mob_level: int, pdd: float) -> Vector2:
+		pdd: float) -> Vector2:
 	return CombatMath.physical_defense(CombatMath.physical_damage_range(str_stat, dex_stat, 0.0, watk, weapon_id,
-		WeaponInfo.attack_kind(action)), player_level, mob_level, pdd)
+		WeaponInfo.attack_kind(action)), pdd)
 
 
 ## Resolves an open card window like BotInput (BotInput.pick_card_for's card).
@@ -623,7 +621,6 @@ static func with_basic_attack(setup: Dictionary) -> Dictionary:
 ## Combat tests can place every mob themselves and opt into resources/coverage independently of balance tuning.
 static func quiet_data() -> Dictionary:
 	var data := DataRepo.load_all()
-	data.balance.player.mp = 5
 	data.skills.skills.three_snails.count = 1
 	data.skills.skills.energy_bolt.count = 1
 	var stages: Dictionary = data.stages.stages

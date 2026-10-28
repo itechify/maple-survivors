@@ -1,6 +1,6 @@
 class_name HudMessages
 extends HudWidget
-## Transient system messages above the status bar, plus a persistent cue while a skill waits for MP.
+## Transient system messages above the status bar and timed encounter notices.
 
 var _messages: Array[Dictionary] = []
 var _notices: Array[Dictionary] = []
@@ -8,7 +8,7 @@ var _notices: Array[Dictionary] = []
 func _draw() -> void:
 	var origin := bar_origin(get_viewport_rect().size)
 	_draw_messages(origin)
-	# tier C: encounter notices sit one line above the low-MP cue, independently of the six EXP lines.
+	# tier C: encounter notices sit two lines above the six EXP lines, independently of them.
 	var y := origin.y - MSG_INSET.y - (MSG_MAX + 1) * MSG_LINE
 	for notice: Dictionary in _notices:
 		var alpha := clampf((float(notice.life) - float(notice.age)) / MSG_FADE, 0.0, 1.0)
@@ -16,16 +16,6 @@ func _draw() -> void:
 		color.a *= alpha
 		_text(Vector2(origin.x + MSG_INSET.x, y), notice.text, color, FONT_SIZE, null, alpha)
 		y -= MSG_LINE
-	if low_mp_visible():
-		# tier C: low-MP cue above the six-line EXP message area, in warm red with the standard text outline.
-		_text(origin + Vector2(MSG_INSET.x, -MSG_INSET.y - MSG_MAX * MSG_LINE), "Not enough MP", Color8(255, 112, 96))
-
-
-## Whether the persistent low-MP cue is visible in the current run snapshot.
-func low_mp_visible() -> bool:
-	return bool(player_state.get("mp_short", false)) and not bool(player_state.get("dead", false)) \
-		and not int(run_info.get("state", RunWorld.PLAYING)) in [RunWorld.DEAD, RunWorld.CLEARED] \
-		and not bool(run_info.get("ending", false))
 
 ## Adds a system message, evicting the oldest when the message area is full.
 func push_message(text: String, color: Color = SYSTEM_YELLOW) -> void:

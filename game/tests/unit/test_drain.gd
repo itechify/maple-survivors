@@ -7,11 +7,9 @@ const DT := 1.0 / 60.0
 
 func _world() -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.hp = 500 # the removed advancements granted +125 / +325 HP and MP (#284)
-	data.balance.player.mp = 500
+	data.balance.player.hp = 500 # the removed advancements granted +125 / +325 HP (#284)
 	data.balance.player.stats = {"str": 4, "dex": 30, "int": 4, "luk": 100}
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", 213, data))
 	setup.equipment_info[1472008] = {"incPAD": 18, "attackSpeed": 4, "tuc": 7}
 	setup.equipment_info[1332063] = {"incPAD": 28, "attackSpeed": 3, "tuc": 7}
@@ -112,19 +110,15 @@ func test_drain_uses_the_current_star_at_every_assassin_tier_and_casts_with_any_
 		w.equipment.inventory.append(Equipment.create(1332063, w.setup.equipment_info[1332063]))
 		var dagger: int = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id)).find(1332063)
 		assert_eq(w.equip_item(dagger), "")
-		var mp: int = w.player_state.mp
 		w.runner.step(DT, w)
 		assert_eq(w.projectiles.active_count(), 1, "a dagger in hand still casts Drain (#284: no weapon gate)")
-		assert_eq(w.player_state.mp, mp - 12)
 		for i in w.projectiles.capacity():
 			w.projectiles.despawn(i)
 		w.runner.cooldowns["drain"] = 0.0
 		var claw: int = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id)).find(1472008)
 		assert_eq(w.equip_item(claw), "")
-		mp = w.player_state.mp
 		w.runner.step(DT, w)
 		assert_eq(w.projectiles.active_count(), 1)
-		assert_eq(w.player_state.mp, mp - 12)
 		for i in w.projectiles.capacity():
 			if w.projectiles.active[i] != 0:
 				assert_eq(w.projectiles.paths[w.projectiles.visual[i]],
@@ -176,6 +170,6 @@ func test_original_drain_tables_art_sound_and_tooltip_resolve_from_the_read_only
 	assert_true(lib.sound(String(book.def("drain").sounds.use)) != null)
 	var lo := Loadout.new(book)
 	assert_eq(SkillText.new(book, {}).level_line("drain", 30, lo.stats("drain", 30)),
-		"MP -24; Damage 160%, absorb 45% of damage as HP.")
+		"Damage 160%, absorb 45% of damage as HP.")
 	assert_eq(Array(lib.missing), [])
 	lib.free()

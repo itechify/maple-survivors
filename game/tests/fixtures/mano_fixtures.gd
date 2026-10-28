@@ -6,7 +6,7 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const LEVELS := {126: 7, 200: 78, 112: 1, 113: 1}
 static func setup(ids: Array = [126], seed_value: int = 22) -> Dictionary:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	# Timer/area tests hold the synthetic boss still; separate lifecycle tests cover pursuit teleport.
 	data.balance.bosses.teleport_stall = 10000.0
 	data.balance.mob_motion.push_px = 0

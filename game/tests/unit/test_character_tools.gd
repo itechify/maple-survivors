@@ -47,6 +47,12 @@ func test_balance_character_flag_uses_fixture_in_one_off_round() -> void:
 	var character: Dictionary = DataRepo.load_json(FIXTURE)
 	assert_eq(int(record.start_character.level), int(character.level), "report captures the actual starting boundary")
 	assert_eq(int(record.start_character.job_id), int(character.job_id))
+	# The fixture still lists Magic Guard; a removed skill (no MP, #285) is dropped on load, so compare the rest.
+	var known: Dictionary = DataRepo.load_all().skills.skills
+	for key: String in character.skills.keys():
+		if not known.has(key):
+			character.skills.erase(key)
+			character.skill_order.erase(key)
 	assert_eq(record.start_character.skills.size(), character.skills.size())
 	for key: String in character.skills:
 		assert_eq(int(record.start_character.skills[key].rank), int(character.skills[key].rank))

@@ -11,7 +11,6 @@ func _world() -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.player.hp = 50 + 125 + 325
-	data.balance.player.mp = 5 + 37 + 175
 	var setup := RF.with_basic_attack(RF.setup("quiet", 202, data))
 	setup.equipment_info.merge({1452051: {"incPAD": 28, "attackSpeed": 6, "tuc": 7},
 		1462001: {"incPAD": 29, "attackSpeed": 6, "tuc": 7},
@@ -50,7 +49,6 @@ func _hunter(key := "", rank_value := 1) -> RunWorld:
 	var w := _world()
 	w.progression.level = 30
 	RF.as_job(w, 310)
-	w.heal_fraction("mp", 1.0)
 	for kind: MobKind in w.mob_kinds:
 		kind.move_speed = 0
 		kind.hitbox = Rect2(-2, -10, 4, 10)
@@ -68,19 +66,16 @@ func _mob(w: RunWorld, dx: float, boss := false) -> int:
 	return slot
 
 
-func test_knockback_waits_for_range_pays_once_faces_nearest_caps_and_pushes_nonbosses() -> void:
+func test_knockback_waits_for_range_casts_once_faces_nearest_caps_and_pushes_nonbosses() -> void:
 	var w := _hunter("power_knockback_bow")
 	var far := _mob(w, 170)
-	var mp: int = w.player_state.mp
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 0)
-	assert_eq(w.player_state.mp, mp)
 	var near := _mob(w, -60)
 	var second := _mob(w, 80)
 	var boss := _mob(w, 100, true)
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 1)
-	assert_eq(w.player_state.mp, mp - 8)
 	assert_eq(w.player.facing, -1)
 	var hits := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "power_knockback_bow")
 	assert_eq(hits.size(), 2, "canonical rank-one mobCount")
@@ -104,7 +99,6 @@ func test_arrow_bomb_flys_before_blast_caps_at_six_uses_x_and_stuns_except_bosse
 	for dx in [80, 100, 120, 140, 160, 180, 200, 400]:
 		slots.append(_mob(w, dx))
 	w.runner.step(DT, w)
-	assert_eq(w.player_state.mp, w.player_state.max_mp - 28)
 	assert_eq(w.projectiles.active_count(), 1)
 	assert_eq(w.swarm.hp[slots[0]], w.swarm.max_hp[slots[0]], "no blast until projectile impact")
 	assert_near(w.loadout.stats("arrow_bomb").damage_pct, 1.3)
@@ -121,30 +115,18 @@ func test_arrow_bomb_flys_before_blast_caps_at_six_uses_x_and_stuns_except_bosse
 		w.hit_mob(boss, w.loadout.stats("arrow_bomb"), -1)
 	assert_eq(w.swarm.status_time(boss, MobSwarm.STUN), 0.0)
 	assert_near(w.swarm.x[boss], w.player.pos.x - 80)
-	var poor := _hunter("arrow_bomb")
-	_mob(poor, 80)
-	poor.spend_mp(int(poor.player_state.mp))
-	poor.runner.step(DT, poor)
-	assert_eq(poor.projectiles.active_count(), 0)
-	assert_eq(poor.runner.casts, 0)
 
 
-func test_booster_refuses_lethal_hp_or_insufficient_mp_then_pays_both_and_recasts() -> void:
+func test_booster_refuses_lethal_hp_then_pays_hp_and_recasts() -> void:
 	var w := _hunter("bow_booster")
 	assert_true(w.spend_hp(int(w.player_state.hp) - 29))
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 0)
 	assert_eq(w.player_state.hp, 29)
-	assert_eq(w.player_state.mp, w.player_state.max_mp)
 	w.restore_player("hp", 71, "fixture")
-	w.spend_mp(int(w.player_state.mp))
-	w.runner.step(DT, w)
 	assert_eq(w.player_state.hp, 100)
-	assert_eq(w.runner.casts, 0)
-	w.heal_fraction("mp", 1.0)
 	w.runner.step(DT, w)
 	assert_eq(w.player_state.hp, 71)
-	assert_eq(w.player_state.mp, w.player_state.max_mp - 29)
 	assert_eq(w.attack_speed_boost(), 2)
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 1, "no recast while active")
@@ -260,19 +242,16 @@ func test_real_hunter_levels_costs_effects_icons_art_sounds_and_ryden() -> void:
 				assert_true(lib.sound(sound) != null)
 	for rank_value in [1,20]:
 		var st := lo.stats("power_knockback_bow", rank_value)
-		assert_eq(st.mp_cost, 8 if rank_value == 1 else 15)
 		assert_eq(st.mob_count, 2 if rank_value == 1 else 6)
 		assert_eq(st.range, 130.0 if rank_value == 1 else 150.0)
 		assert_near(st.damage_pct, 1.05 if rank_value == 1 else 2.0)
 		assert_eq(st.knockback_chance, 13.0 if rank_value == 1 else 70.0)
 		var booster := lo.stats("bow_booster", rank_value)
 		assert_eq(booster.hp_cost, 29 if rank_value == 1 else 10)
-		assert_eq(booster.mp_cost, booster.hp_cost)
 		assert_eq(booster.duration, 10.0 if rank_value == 1 else 200.0)
 		assert_eq(booster.buff_effects, {"attack_speed": 2.0})
 	for rank_value in [1,30]:
 		var st := lo.stats("arrow_bomb", rank_value)
-		assert_eq(st.mp_cost, 14 if rank_value == 1 else 28)
 		assert_eq(st.blast_targets, 6)
 		assert_eq(st.count, 1)
 		assert_near(st.damage_pct, 0.72 if rank_value == 1 else 1.30)

@@ -116,10 +116,10 @@ extends Node
 const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
 const StageSelectScene := preload("res://scenes/ui/stage_select.gd")
 const MAIN := "res://scenes/main.tscn"
-## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q / End potions; E is
-## the Equip window).
+## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q potion; E is the
+## Equip window).
 const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_C,
-	"drink_hp": KEY_Q, "drink_mp": KEY_END}
+	"drink_hp": KEY_Q}
 
 var args := {}
 var shots_dir := ""
@@ -2518,7 +2518,6 @@ func _steer_run() -> void:
 	_set_key("down", mi.down)
 	_set_key("jump", mi.jump_pressed)
 	_set_key("drink_hp", mi.drink_hp)
-	_set_key("drink_mp", mi.drink_mp)
 
 
 func _set_key(action: String, down: bool) -> void:

@@ -73,7 +73,7 @@ func test_equipping_and_unequipping_changes_every_derived_stat() -> void:
 	assert_near(float(ps.avoid) - float(before.avoid), 6.0 + 2 * RunWorld.AVOID_DEX_FACTOR + 5 * RunWorld.AVOID_LUK_FACTOR,
 		1e-6, "avoid gains incEVA and the DEX/LUK it adds")
 	assert_eq(int(ps.max_hp) - int(before.max_hp), 40)
-	assert_eq(int(ps.max_mp) - int(before.max_mp), 25)
+	assert_false(ps.has("max_mp"), "the cap's incMMP does nothing: there is no MP (#285)")
 	assert_eq(float(ps.mdd) - float(before.mdd), 9.0)
 	assert_near(world.player_speed_stat() - speed, 20.0, 1e-6)
 	assert_eq(world.player.jump_stat, 115)
@@ -99,57 +99,38 @@ func test_weapon_attack_and_magic_attack_come_from_every_worn_item() -> void:
 	assert_near(world.loadout.matk - matk, 28.0, 1e-6)
 
 
-func test_max_mp_equipment_swaps_only_clamp_current_mp_with_a_passive() -> void:
+func test_max_hp_equipment_swaps_only_clamp_current_hp() -> void:
 	var world := _world([1002001])
-	RF.as_job(world, 200)
-	world.learn_skill("improved_max_mp")
 	assert_eq(world.equip_item(0), "")
-	world.spend_mp(int(world.player_state.max_mp) - 10)
-	var before := world._mp
+	world._hp = 10.0
+	world._write_player_state(0.0)
 	for swap in 5:
 		assert_eq(world.unequip_item("hat"), "")
-		assert_near(world._mp, before, 1e-6, "taking off gear preserves MP below the smaller pool")
+		assert_eq(int(world.player_state.hp), 10, "taking off gear preserves HP below the smaller pool")
 		assert_eq(world.equip_item(world.equipment.inventory.size() - 1), "")
-		assert_near(world._mp, before, 1e-6, "putting it back grants no MP")
+		assert_eq(int(world.player_state.hp), 10, "putting it back grants no HP")
 	assert_eq(world.time, 0.0, "equipment windows hold simulation time")
-	world.restore_player("mp", int(world.player_state.max_mp), "test")
+	var full := int(world.player_state.max_hp)
+	world.restore_player("hp", full, "test")
 	assert_eq(world.unequip_item("hat"), "")
-	assert_near(world._mp, world._max_mp, 1e-6, "taking off gear clamps MP above the smaller pool")
-	var clamped := world._mp
+	assert_eq(int(world.player_state.hp), full - 40, "taking off the +40 HP cap clamps HP to the smaller pool")
 	assert_eq(world.equip_item(world.equipment.inventory.size() - 1), "")
-	assert_near(world._mp, clamped, 1e-6, "the clamped MP is not refunded")
+	assert_eq(int(world.player_state.hp), full - 40, "the clamped HP is not refunded")
 
 
-func test_max_mp_passive_rank_growth_still_preserves_current_mp_ratio() -> void:
-	# The removed Magician grant's +120 MP, in the base pool (#284).
-	var world := _world([1002001], func(c: Dictionary) -> void: c.base_mp = 125.0)
-	RF.as_job(world, 200)
-	world.learn_skill("improved_max_mp")
-	assert_eq(world.equip_item(0), "")
-	world.spend_mp(int(world.player_state.max_mp) - 10)
-	var before := world._mp / world._max_mp
-	var old_max := world._max_mp
-	world.loadout.set_rank("improved_max_mp", 2)
-	world.refresh_player_stats()
-	assert_true(world._max_mp > old_max)
-	assert_near(world._mp / world._max_mp, before, 1e-6, "#41 passive growth keeps the fraction")
-
-
-func test_max_mp_equipment_and_passive_restore_full_pools_at_a_round_boundary() -> void:
+func test_max_hp_equipment_restores_a_full_pool_at_a_round_boundary() -> void:
 	var source := _world([1002001])
-	RF.as_job(source, 200)
-	source.learn_skill("improved_max_mp")
 	assert_eq(source.equip_item(0), "")
-	source.spend_mp(int(source.player_state.max_mp) - 10)
+	source._hp = 10.0
 	var character: Dictionary = JSON.parse_string(JSON.stringify(source.character_snapshot()))
-	assert_false(character.has("mp"), "spec #32 snapshots carry growth, not current pools")
+	assert_false(character.has("hp"), "spec #32 snapshots carry growth, not current pools")
 	var restored := RunWorld.new(_setup(character))
 	assert_eq(restored.character_snapshot(), source.character_snapshot())
-	assert_eq(restored._max_mp, source._max_mp, "the worn gear and passive still count on restore")
-	assert_near(restored._mp, restored._max_mp, 1e-6, "Continue refills the computed pool under spec #32")
-	restored.spend_mp(int(restored.player_state.max_mp) - 10)
+	assert_eq(int(restored.player_state.max_hp), int(source.player_state.max_hp), "the worn gear still counts on restore")
+	assert_eq(int(restored.player_state.hp), int(restored.player_state.max_hp), "Continue refills the computed pool")
+	restored._hp = 10.0
 	restored.refresh_player_stats(false)
-	assert_near(restored._mp, 10.0, 1e-6, "refreshing restored equipment grants no MP")
+	assert_eq(int(restored.player_state.hp), 10, "refreshing restored equipment grants no HP")
 
 
 func test_speed_and_jump_are_capped_at_the_v83_limits() -> void:

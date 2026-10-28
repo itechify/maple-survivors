@@ -170,7 +170,7 @@ func _world(items: Array, level: int, job: int, held: int, p_seed := 31, chance 
 	var data := RF.quiet_data()
 	data.equipment_drops.items = items
 	data.equipment_drops.chance = chance
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	var w := RunWorld.new(_fit(RF.setup("quiet", p_seed, data)))
 	RF.place_player(w, 400)
 	w.god = true
@@ -274,7 +274,7 @@ func test_a_boss_drops_a_weapon_of_the_held_family_only() -> void:
 		var data := RF.quiet_data()
 		data.equipment_drops.items = _ids()
 		data.equipment_drops.chance = 0.0
-		data.balance.player.skills = []
+		data.jobs_survivor.jobs["212"]["start_skills"] = []
 		RF.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
 			"rewards": {"exp_mult": 5, "exp_drops": 2, "spread": 100, "potions": {"hp": 1, "mp": 1}, "bonus_choices": 1}}])
 		var w := RunWorld.new(_fit(RF.setup("quiet", p_seed, data)))

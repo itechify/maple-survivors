@@ -12,7 +12,7 @@ const THREATENED := "threatened"
 
 
 ## Twenty small Page levels in Skill.wz 120.img's shape (they replace the fixture's v83 endpoints so the tests stay short):
-## x = -10 L, y = -5 L, time = 3 L s, MP 7, two targets, a 200 x 80 px box.
+## x = -10 L, y = -5 L, time = 3 L s, two targets, a 200 x 80 px box.
 func _levels() -> Dictionary:
 	var levels := {}
 	for lv in range(1, 21):
@@ -25,9 +25,7 @@ func _world(p_seed := 183) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.player.hp = 100000
-	data.balance.player.mp = 300
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	data.balance.mob_attacks = {"default_interval": 5.0}
 	data.balance.player.stats.dex = 0
 	data.balance.player.stats.luk = 0
@@ -311,21 +309,18 @@ func test_bosses_never_take_it() -> void:
 
 # --- the cast --------------------------------------------------------------------------------------------------------
 
-func test_a_crowd_near_casts_threatens_up_to_mob_count_nearest_never_a_boss_and_pays_once() -> void:
+func test_a_crowd_near_casts_threatens_up_to_mob_count_nearest_never_a_boss_and_casts_once() -> void:
 	var w := _world()
 	var a := _put(w, 380)
 	var b := _put(w, 360)
 	var boss := _put(w, 370)
 	w.swarm.steady[boss] = 1
 	_put(w, 700)
-	var mp := int(w.player_state.mp)
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 0, "two eligible mobs are not a crowd (bosses and far mobs do not count)")
-	assert_eq(w.player_state.mp, mp)
 	var c := _put(w, 340)
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 1)
-	assert_eq(w.player_state.mp, mp - 7, "canonical MP, once")
 	assert_near(w.swarm.status_time(a, MobSwarm.THREATENED), 3.0)
 	assert_near(w.swarm.status_time(b, MobSwarm.THREATENED), 3.0)
 	assert_near(w.swarm.status_time(c, MobSwarm.THREATENED), 0.0, 1e-6, "mobCount 2 caps it to the nearest two")
@@ -415,8 +410,8 @@ func test_the_level_line_and_description_use_the_survivor_text_with_no_party() -
 	var text := SkillText.new(w.book, {"1201006": {"name": "Threaten",
 		"desc": "[Master Level : 20]\\nUse MP to temporarily threaten a monster.", "h2": "wz line"}})
 	assert_eq(text.level_line("threaten", 2, w.loadout.stats("threaten", 2)),
-		"MP -7; enemy weapon attack -20, weapon def. -10 for 6 sec., up to 2 monsters")
-	assert_eq(text.desc("threaten"), "Use MP to threaten the monsters around you, lowering their weapon attack and weapon defence.")
+		"Enemy weapon attack -20, weapon def. -10 for 6 sec., up to 2 monsters")
+	assert_eq(text.desc("threaten"), "Threaten the monsters around you, lowering their weapon attack and weapon defence.")
 	assert_false("party" in text.desc("threaten").to_lower())
 
 
@@ -430,7 +425,6 @@ func test_real_cache_cast_threatens_a_crowd_with_the_v83_level() -> void:
 	if not require_cache():
 		return
 	var data := DataRepo.load_all()
-	data.balance.player.mp = 300
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	var setup := DataRepo.build_setup(data, "henesys", 183, Vector2(800, 600), _img,
 		func(id: int) -> Dictionary: return _img("Mob.wz/%07d.img" % id))
@@ -447,11 +441,9 @@ func test_real_cache_cast_threatens_a_crowd_with_the_v83_level() -> void:
 	for dx in [-40.0, -80.0, -120.0, 50.0, 90.0, 130.0, 170.0]:
 		mobs.append(RF.put_mob(w, id, w.player.pos.x + dx, w.player.pos.y))
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-	var mp := int(w.player_state.mp)
 	w.drain_events()
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 1, "seven monsters in the 250 x 150 box: a crowd")
-	assert_eq(int(w.player_state.mp), mp - 12, "canonical mpCon of level 5")
 	var threatened := mobs.filter(func(m: int) -> bool: return w.swarm.status_time(m, MobSwarm.THREATENED) > 0.0)
 	assert_eq(threatened.size(), 6, "mobCount 6 of the seven")
 	assert_near(w.swarm.status_time(threatened[0], MobSwarm.THREATENED), 60.0)

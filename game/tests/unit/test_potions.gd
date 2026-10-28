@@ -8,9 +8,8 @@ const DT := 1.0 / 60.0
 func _world(seed_value := 10) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 300
-	data.balance.player.mp = 300
 	var setup := RF.setup("quiet", seed_value, data)
-	setup.item_info = {2000000: {"spec": {"hp": 50}}, 2000003: {"spec": {"mp": 100}}}
+	setup.item_info = {2000000: {"spec": {"hp": 50}}}
 	return RunWorld.new(setup)
 
 
@@ -49,7 +48,7 @@ func test_drink_press_works_while_climbing_and_cooldown_press_does_nothing() -> 
 	assert_false(w.drink_potion("hp"))
 	assert_eq(w.player_state, unchanged)
 	assert_true(w.drain_events().is_empty())
-	assert_true(w.drink_potion("mp"), "MP has an independent cooldown and needs no stock")
+	assert_false(w.drink_potion("mp"), "there is no MP potion (#285)")
 
 
 func test_bot_drinks_only_when_ready_and_most_of_a_potion_lands() -> void:
@@ -73,7 +72,6 @@ func test_bot_waste_guard_caps_the_restore_at_the_pool() -> void:
 	var w := _world()
 	w.potions.item_info[2022003] = {"spec": {"hp": 1000}}
 	w.potions.item_info[2001001] = {"spec": {"hp": 2000}}
-	w.potions.item_info[2001002] = {"spec": {"mp": 2000}}
 	var pool := float(w.player_state.max_hp)
 	assert_eq(pool, 300.0, "the fixture pool")
 	assert_true(w.potions.upgrade("hp", 2022003), "Unagi restores 1000 HP: more than the pool, its floor 250 is below it")
@@ -93,52 +91,3 @@ func test_bot_waste_guard_caps_the_restore_at_the_pool() -> void:
 	w.drink_potion("hp")
 	assert_eq(int(w.player_state.hp), int(pool), "the overheal is capped by the pool")
 	assert_false(BotInput.decide(w, {}).drink_hp, "full HP drinks nothing")
-	assert_true(w.potions.upgrade("mp", 2001002))
-	w.spend_mp(int(w.player_state.mp))
-	assert_true(BotInput.decide(w, {}).drink_mp, "an empty MP pool is worth a Red Bean Sundae")
-
-
-func test_mp_potion_restores_canonical_amount_before_the_waiting_skill_casts() -> void:
-	var data := RF.quiet_data()
-	data.balance.player.mp = 300
-	data.balance.regen.mp = 0
-	data.balance.player.skills = []
-	var w := RunWorld.new(RF.setup("quiet", 10, data))
-	RF.change_job_bare(w, 200)
-	RF.place_player(w, 400)
-	w.learn_skill("energy_bolt")
-	RF.put_mob(w, 1110100, 550, 190, 100)
-	w.mob_kinds[int(w.kind_of_id[1110100])].move_speed = 0
-	w.spend_mp(int(w.player_state.mp) - 5)
-	w.step(DT, MoveInput.new())
-	assert_true(w.player_state.mp_short)
-	assert_true(BotInput.decide(w, {}).drink_mp, "a near-empty large pool takes a whole Blue Potion")
-	w.drain_events()
-	assert_true(w.drink_potion("mp"))
-	assert_eq(w.player_state.mp, 105, "Blue Potion restores exactly canonical 100 MP immediately")
-	w.step(DT, MoveInput.new())
-	var events := w.drain_events()
-	var casts := events.filter(func(e: Dictionary) -> bool: return e.type == "cast")
-	assert_eq(casts.size(), 1, "the waiting skill fires on the first tick after the drink")
-	assert_eq(casts[0].skill, "energy_bolt")
-	assert_eq(w.player_state.mp, 99, "100 restored, then canonical 6 spent")
-	assert_false(w.player_state.mp_short)
-	var missing := float(w.player_state.max_mp) - float(w.player_state.mp)
-	w.balance.potions.bot.min_restore_fraction = missing / 100.0 + 0.1
-	assert_false(BotInput.decide(w, {}).drink_mp, "a guard above the missing share holds the sip")
-	w.balance.potions.bot.min_restore_fraction = 0.5
-	assert_false(BotInput.decide(w, {}).drink_mp, "the shared cooldown blocks even a useful drink")
-	assert_eq(w.potions.used.mp, 1)
-	assert_eq(events[0].type, "potion_used")
-	assert_eq(events[0].restored, 100)
-	# Input presses share the same restoration-before-casting ordering (instant even during a multi-tick frame).
-	w.spend_mp(99)
-	for i in 601:
-		w.step(DT, MoveInput.new())
-	w.drain_events()
-	var input := MoveInput.new()
-	input.drink_mp = true
-	w.step(DT, input)
-	assert_eq(w.player_state.mp, 94)
-	assert_eq(w.potions.used.mp, 2)
-	assert_eq(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 1)

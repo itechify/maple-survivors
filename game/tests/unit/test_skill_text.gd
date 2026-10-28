@@ -48,11 +48,11 @@ func test_wz_text_is_used_without_an_override() -> void:
 	var lo := Loadout.new(book)
 	assert_eq(text.desc("energy_bolt"), "Use MP to attack one enemy.",
 		"the WZ desc, without the [Master Level] line the level text already shows")
-	assert_eq(text.level_line("energy_bolt", 2, lo.stats("energy_bolt", 2)), "MP -6, basic attack 21, mastery 15%",
-		"the WZ line named by the level node's hs")
+	assert_eq(text.level_line("energy_bolt", 2, lo.stats("energy_bolt", 2)), "Basic attack 21, mastery 15%",
+		"the WZ line named by the level node's hs, without its MP cost (no MP, #285)")
 	assert_eq(text.desc("magic_armor"), "Boosts the weapon def.",
 		"Required Skill lines go: WZ prerequisites are ignored in this game")
-	assert_eq(text.level_line("magic_armor", 1, lo.stats("magic_armor")), "MP -8; weapon def. +2,\nfor 54 sec.",
+	assert_eq(text.level_line("magic_armor", 1, lo.stats("magic_armor")), "Weapon def. +2,\nfor 54 sec.",
 		"literal \\r\\n escapes become one line break")
 	assert_eq(text.desc("recovery"), "Recovers HP.\n#cTerms between skills : 10 min.#",
 		"markup stays for the renderer; the space before a break goes")
@@ -63,41 +63,50 @@ func test_wz_text_is_used_without_an_override() -> void:
 
 func test_an_override_replaces_the_wz_text_and_fills_effective_stats() -> void:
 	var book := _book({"thunder_bolt": {"desc": "Strikes nearby monsters with a thunder bolt.",
-		"h": "MP -{mp_cost}; Basic attack {mad}, mastery {mastery_pct}%, up to {mob_count|monster|monsters}"}})
+		"h": "Basic attack {mad}, mastery {mastery_pct}%, up to {mob_count|monster|monsters}"}})
 	var text := SkillText.new(book, STRINGS)
 	var lo := Loadout.new(book)
 	lo.add_skill("thunder_bolt")
 	assert_eq(text.desc("thunder_bolt"), "Strikes nearby monsters with a thunder bolt.", "the override desc wins")
 	assert_eq(text.level_line("thunder_bolt", 1, lo.stats("thunder_bolt")),
-		"MP -20; Basic attack 2, mastery 15%, up to 6 monsters", "canonical mobCount 6 before any card")
+		"Basic attack 2, mastery 15%, up to 6 monsters", "canonical mobCount 6 before any card")
 	lo.add_skill_mod("thunder_bolt", "count", "add", 2.0)
 	assert_eq(text.level_line("thunder_bolt", 1, lo.stats("thunder_bolt")),
-		"MP -20; Basic attack 2, mastery 15%, up to 8 monsters", "a +2 targets card shows as 8")
+		"Basic attack 2, mastery 15%, up to 8 monsters", "a +2 targets card shows as 8")
 	assert_eq(text.desc("energy_bolt"), "Use MP to attack one enemy.", "skills without an override keep WZ text")
 
 
 func test_level_up_cards_show_the_skill_text_at_the_offered_level() -> void:
 	var w := RF.quiet_world()
 	RF.change_job_bare(w, 200)
-	var text := SkillText.new(w.book, {"2001002": {"desc": "[Master Level : 20]\\nPays damage with MP.",
-		"h1": "MP -6; replace 11%", "h2": "MP -6; replace 14%"}})
-	var learn := w.upgrades.choice_card("magic_guard_new", w)
+	var text := SkillText.new(w.book, {"2001003": {"desc": "[Master Level : 20]\\nBoosts the weapon def.",
+		"h1": "MP -8; weapon def. +2", "h2": "MP -8; weapon def. +4"}})
+	var learn := w.upgrades.choice_card("magic_armor_new", w)
 	var mod := w.upgrades.choice_card("energy_bolt_count", w) # the 212 start skill (#284; the Beginner cards are gone)
 	var magnet := w.upgrades.choice_card("elixir", w)
 	var cards := text.dress([learn, mod, magnet], w.loadout)
-	assert_eq([cards[0].desc, cards[0].detail], ["Pays damage with MP.", "MP -6; replace 11%"],
+	assert_eq([cards[0].desc, cards[0].detail], ["Boosts the weapon def.", "Weapon def. +2"],
 		"a learn card: the skill's desc and its level-1 line")
-	assert_eq(text.dress([w.upgrades.choice_card("magic_guard_new", w, "rare")], w.loadout)[0].detail,
-		"MP -6; replace 14%", "a Rare learn starts at level 2 and shows that line")
+	assert_eq(text.dress([w.upgrades.choice_card("magic_armor_new", w, "rare")], w.loadout)[0].detail,
+		"Weapon def. +4", "a Rare learn starts at level 2 and shows that line")
 	assert_eq(cards[1].desc, mod.desc, "a mod card keeps its own effect text")
 	assert_has(LevelUpWindow.change_lines(cards[1]), "Shots: 1 → 2", "with the number it changes")
 	assert_eq(cards[2], magnet, "cards without a skill are left alone")
-	w.upgrades.apply("magic_guard_new", w)
-	var rank: Dictionary = text.dress([w.upgrades.choice_card("magic_guard_rank", w)], w.loadout)[0]
-	assert_eq(rank.desc, "MP -6; replace 14%", "a rank card: the next level's line")
+	w.upgrades.apply("magic_armor_new", w)
+	var rank: Dictionary = text.dress([w.upgrades.choice_card("magic_armor_rank", w)], w.loadout)[0]
+	assert_eq(rank.desc, "Weapon def. +4", "a rank card: the next level's line")
 	assert_false(LevelUpWindow.change_lines(rank).is_empty(), "above its before -> after values")
 	var bare: Dictionary = SkillText.new(w.book, {}).dress([learn], w.loadout)[0]
 	assert_eq([bare.desc, String(bare.get("detail", ""))], [learn.desc, ""], "without strings the card data text stays")
+
+
+func test_strip_mp_cost_drops_the_v83_mp_cost_wordings() -> void:
+	assert_eq(SkillText.strip_mp_cost("MP -10, Damage 120%"), "Damage 120%")
+	assert_eq(SkillText.strip_mp_cost("MP - 10 , damage 120%"), "Damage 120%", "spaced wording, first letter capitalised")
+	assert_eq(SkillText.strip_mp_cost("HP -12, MP -8; increase"), "HP -12; increase", "the HP cost stays")
+	assert_eq(SkillText.strip_mp_cost("Use 20 MP, Damage 150%"), "Damage 150%")
+	assert_eq(SkillText.strip_mp_cost("Max HP +10%, Max MP +10%"), "Max HP +10%, Max MP +10%", "not a cost: unchanged")
+	assert_eq(SkillText.strip_mp_cost("Damage 120%"), "Damage 120%", "no cost: unchanged")
 
 
 func test_markup_draws_orange_runs_and_never_a_raw_hash() -> void:

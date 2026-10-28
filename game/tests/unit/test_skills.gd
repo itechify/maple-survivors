@@ -6,12 +6,11 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
-## A world on the quiet stage whose character is job `job` (setup.job) owning only `skill` (none for ""), with `mp`
-## starting MP; #284 made a fresh character a 212 that starts with Energy Bolt and Teleport.
-func _world(job: int, skill: String, x := 400.0, mp := 5) -> RunWorld:
+## A world on the quiet stage whose character is job `job` (setup.job) owning only `skill` (none for ""; `_mp` is
+## unused: there is no MP, #285); #284 made a fresh character a 212 that starts with Energy Bolt and Teleport.
+func _world(job: int, skill: String, x := 400.0, _mp := 5) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
-	data.balance.player.mp = mp
 	var setup := RF.setup("quiet", 7, data)
 	setup["job"] = job
 	var w := RunWorld.new(setup)
@@ -42,7 +41,7 @@ func test_skill_book_levels_and_paths() -> void:
 	for r in range(1, 21):
 		assert_eq(b.canonical_level("energy_bolt", r), r, "Energy Bolt rank %d" % r)
 	assert_eq(b.canonical_level("energy_bolt", 21), 20, "clamped to the last rank")
-	assert_eq(b.canonical_level("magic_guard", 20), 20)
+	assert_eq(b.canonical_level("magic_armor", 20), 20)
 	assert_eq(b.max_level("energy_bolt"), 20, "levels in the img")
 	assert_near(b.canonical("three_snails", 2, "fixdamage"), 25.0, 1e-9, "read from skill_imgs")
 	assert_near(b.canonical("energy_bolt", 20, "mad"), 55.0, 1e-9)
@@ -52,7 +51,7 @@ func test_skill_book_levels_and_paths() -> void:
 	assert_eq(b.visual("magic_claw", "hit", 1, 12), "Skill.wz/200.img/skill/2001005/CharLevel/10/hit/0")
 	assert_eq(b.visual("magic_claw", "effect", 1, 27), "Skill.wz/200.img/skill/2001005/CharLevel/25/effect")
 	assert_true(b.is_active("magic_claw"))
-	assert_true(b.is_active("magic_guard"), "timed buff participates in auto-casting")
+	assert_true(b.is_active("magic_armor"), "timed buff participates in auto-casting")
 
 
 func test_three_snails_base_stats() -> void:
@@ -94,7 +93,6 @@ func test_magic_skills_resolve_from_canonical_levels() -> void:
 	RF.as_job(w, 200) # wears the Wooden Wand (23 M.ATT) the removed advancement granted
 	w.learn_skill("energy_bolt")
 	w.learn_skill("magic_claw")
-	w.learn_skill("magic_guard")
 	w.learn_skill("magic_armor")
 	var int_stat := float(w.player_state.int)
 	var eb := w.loadout.stats("energy_bolt")
@@ -115,13 +113,11 @@ func test_magic_skills_resolve_from_canonical_levels() -> void:
 	assert_eq(mc.kind, "instant")
 	assert_eq(mc.attack_count, 2, "canonical attackCount")
 	assert_near(mc.range, 260.0, 1e-6)
-	var mg := w.loadout.stats("magic_guard")
-	assert_eq(mg.buff_stat, "mp_guard")
-	assert_near(mg.buff_value, 11.0, 1e-6, "Magic Guard L1 x = 11")
-	assert_near(w.loadout.passive_total("mp_guard"), 0.0, 1e-6, "no permanent split")
-	w.loadout.set_rank("magic_guard", 20)
-	assert_near(w.loadout.stats("magic_guard").buff_value, 80.0, 1e-6, "rank 20 = level 20: x = 80")
-	assert_near(w.loadout.stats("magic_armor").buff_value, 2.0, 1e-6, "Magic Armor L1 pdd = 2")
+	var ma := w.loadout.stats("magic_armor")
+	assert_eq(ma.buff_stat, "pdd")
+	assert_near(ma.buff_value, 2.0, 1e-6, "Magic Armor L1 pdd = 2")
+	w.loadout.set_rank("magic_armor", 20)
+	assert_near(w.loadout.stats("magic_armor").buff_value, 40.0, 1e-6, "rank 20 = level 20: pdd = 40")
 	assert_near(w.player_pdd, 0.0, 1e-6, "no permanent defence")
 
 
@@ -130,12 +126,10 @@ func test_runner_fires_only_with_target_in_range() -> void:
 	for i in 60:
 		w.step(DT, MoveInput.new())
 	assert_eq(_casts(w).size(), 0, "no mob, no cast")
-	assert_eq(w.player_state.mp, 20, "no target, no MP spent")
 	var far := RF.put_mob(w, 1110100, 700.0, 190.0, 20.0)
 	for i in 60:
 		w.step(DT, MoveInput.new())
 	assert_eq(_casts(w).size(), 0, "a mob ~500 px away is out of the 420 px range")
-	assert_eq(w.player_state.mp, 20, "an out-of-range target costs no MP")
 	w.swarm.despawn(far)
 	RF.put_mob(w, 1110100, 500.0, 190.0, 20.0)
 	w.drain_events()
@@ -149,7 +143,6 @@ func test_runner_fires_only_with_target_in_range() -> void:
 			assert_eq(c.level, 1)
 			assert_eq(c.action, "swingO1")
 	assert_eq(times.size(), 3, "casts at once, then every 1.1 s: %s" % [times])
-	assert_eq(w.player_state.mp, 11, "three level-1 casts spend 9 MP")
 	if times.size() == 3:
 		assert_near(times[1] - times[0], 1.1, DT + 1e-6, "cooldown respected")
 		assert_near(times[2] - times[1], 1.1, DT + 1e-6)

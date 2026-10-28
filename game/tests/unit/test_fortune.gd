@@ -254,27 +254,6 @@ func test_boss_floor_filters_nearly_maxed_rank_cards_and_keeps_normal_exceptions
 		assert_eq(String(c.get("tier", "")), "normal", "the Elixir never scales, even at bosses")
 
 
-func test_max_mp_passive_text_and_before_after_use_the_full_tier_gain() -> void:
-	var w := _tier_world("unique", "improved_max_mp_rank")
-	RF.change_job_bare(w, 200)
-	w.learn_skill("improved_max_mp")
-	w.loadout.set_rank("improved_max_mp", 4)
-	w.refresh_player_stats()
-	_open_level(w)
-	var c: Dictionary = w.pending_cards[0]
-	assert_eq(c.skill_changes, {"max_mp_percent": {"before": 8, "after": 18}})
-	assert_true(String(c.desc).contains("+5 skill level"))
-	assert_true(String(c.desc).contains("10%"), "five levels add ten percentage points, not two")
-	assert_true(w.apply_choice("improved_max_mp_rank"))
-	assert_eq(w.loadout.level("improved_max_mp"), 9)
-	var learning := _tier_world("legendary", "improved_max_mp")
-	RF.change_job_bare(learning, 200)
-	_open_level(learning)
-	assert_true(String(learning.pending_cards[0].desc).contains("+10%"), "learning at rank five grants ten percent")
-	assert_true(learning.apply_choice("improved_max_mp"))
-	assert_eq(learning.loadout.level("improved_max_mp"), 5)
-
-
 func test_same_seed_produces_same_tiers_and_per_card_magnitudes_override_defaults() -> void:
 	var first := _world()
 	var second := _world()

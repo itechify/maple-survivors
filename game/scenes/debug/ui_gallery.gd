@@ -6,13 +6,13 @@ extends Node2D
 ##
 ## --window=<name>:
 ##   levelup         level-up choice (3 cards)          levelup_missing  cards with "" / missing icons, long texts
-##   levelup_rank    rank previews: Energy Bolt 4 -> 5, Magic Claw 1 -> 2, Improved MaxMP Increase 1 -> 2 (Max MP %)
+##   levelup_rank    rank previews: Energy Bolt 4 -> 5, Magic Claw 1 -> 2, Magic Armor 1 -> 2 (Weapon DEF)
 ##   levelup_tiers   Normal / Rare / Epic previews from the real upgrade pool
 ##   levelup_high    Unique / Legendary rank and new-skill previews; --bonus shows the boss-reward heading
 ##   levelup_dense   the longest current rank previews (description prose compacts to fit; values stay visible)
 ##   levelup_text    v83 skill text on a learn (Fire Arrow), a rank (Poison Breath) and a mod card (Energy Bolt)
-##   levelup_text_mage  the same for Magic Guard (learn), Energy Bolt 4 -> 5 (rank) and Twin Claw 2 -> 3 (mod)
-##   options         the Options window (BGM, SOUND, FRAME CAP, MOVE KEYS, HP / MP ALERT) with default settings
+##   levelup_text_mage  the same for Magic Armor (learn), Energy Bolt 4 -> 5 (rank) and Twin Claw 2 -> 3 (mod)
+##   options         the Options window (BGM, SOUND, FRAME CAP, MOVE KEYS, HP ALERT) with default settings
 ##   title | stage_select | results | results_dead | import            the menu screens (sample data)
 ##   flow            the real scene flow end to end (Flow autoload, this node as its host): title -> stage select ->
 ##                   run (autoplay, windows answered after 1 s) -> results (from the round's own summary) -> character select; a
@@ -39,12 +39,12 @@ const SAMPLE_CARDS := [
 		"skill_name": "Magic Claw", "skill_level": 1, "skill_level_next": 0},
 ]
 const MISSING_CARDS := [
-	{"id": "improved_max_mp", "kind": "passive", "skill": "", "name": "Improved MaxMP Increase",
-		"desc": "Max MP +25.", "icon": "Skill.wz/200.img/skill/2000001/icon", "rank": 5, "max_rank": 5},
+	{"id": "magic_armor", "kind": "passive", "skill": "", "name": "Magic Armor",
+		"desc": "Weapon defence +20.", "icon": "Skill.wz/200.img/skill/2001003/icon", "rank": 5, "max_rank": 5},
 	{"id": "no_icon", "kind": "stat", "skill": "", "name": "Card Without Icon",
 		"desc": "This card has an empty icon path, so the neutral icon base is drawn instead of a skill icon.",
 		"icon": "", "rank": 3, "max_rank": 5},
-	{"id": "elixir", "kind": "filler", "skill": "", "name": "Elixir", "desc": "Recover 50% of max HP and MP.",
+	{"id": "elixir", "kind": "filler", "skill": "", "name": "Elixir", "desc": "Recover 50% of max HP.",
 		"icon": "Item.wz/Consume/0200.img/02000004/info/icon", "rank": 1, "max_rank": 0},
 ]
 const SCREENS := {
@@ -116,7 +116,7 @@ func _show_screen(which: String) -> void:
 						"rank": 4},
 					{"key": "magic_claw", "name": "Magic Claw", "icon": "Skill.wz/200.img/skill/2001005/icon",
 						"rank": 2},
-					{"key": "magic_guard", "name": "Magic Guard", "icon": "Skill.wz/200.img/skill/2001002/icon",
+					{"key": "magic_armor", "name": "Magic Armor", "icon": "Skill.wz/200.img/skill/2001003/icon",
 						"rank": 1},
 				]}
 			if args.has("full-loadout"):
@@ -157,7 +157,7 @@ func _show_window(which: String) -> void:
 	avatar.set_look({})
 	var hud := Hud.new()
 	add_child(hud)
-	hud.update({"hp": 37, "max_hp": 50, "mp": 12, "max_mp": 25, "exp": 0, "level": 8, "job_id": 0},
+	hud.update({"hp": 37, "max_hp": 50, "exp": 0, "level": 8, "job_id": 0},
 		{"time": 183.0, "kills": 87, "name": "MapleHero", "job_name": "Beginner", "exp_next": 79,
 			"skills": [{"icon": "Skill.wz/000.img/skill/0001000/icon", "rank": 2}]})
 	var layer := CanvasLayer.new()
@@ -249,11 +249,11 @@ func _rank_cards() -> Array:
 				imgs[book] = img.root
 	# The real choice-card boundary supplies the preview; no hard-coded WZ values in the gallery.
 	var world := RunWorld.new({"data": DataRepo.load_all(), "skill_imgs": imgs, "seed": 14})
-	for skill: String in ["energy_bolt", "magic_claw", "improved_max_mp"]:
+	for skill: String in ["energy_bolt", "magic_claw", "magic_armor"]:
 		world.loadout.add_skill(skill)
 		world.loadout.set_rank(skill, 4 if skill == "energy_bolt" else 1)
 	return [world.upgrades.choice_card("energy_bolt_rank", world),
-		world.upgrades.choice_card("magic_claw_rank", world), world.upgrades.choice_card("improved_max_mp_rank", world)]
+		world.upgrades.choice_card("magic_claw_rank", world), world.upgrades.choice_card("magic_armor_rank", world)]
 
 
 ## A learn, a rank and a mod card from the real upgrade pool, dressed with the real v83 skill text exactly as RunScene
@@ -274,7 +274,7 @@ func _text_cards(mage: bool) -> Array:
 			world.loadout.add_skill(skill)
 		world.loadout.set_rank("energy_bolt", 4)
 		world.loadout.add_skill_mod("magic_claw", "count", "add", 1.0)
-		offers = [["magic_guard_new", "normal"], ["energy_bolt_rank", "normal"], ["magic_claw_targets", "normal"]]
+		offers = [["magic_armor_new", "normal"], ["energy_bolt_rank", "normal"], ["magic_claw_targets", "normal"]]
 	var cards: Array = []
 	for offer: Array in offers:
 		cards.append(world.upgrades.choice_card(String(offer[0]), world, String(offer[1])))
@@ -293,11 +293,11 @@ func _tier_cards(which: String) -> Array:
 			if img != null:
 				imgs[book] = img.root
 	var world := RunWorld.new({"data": DataRepo.load_all(), "skill_imgs": imgs, "seed": 14})
-	var owned := {"energy_bolt": 4, "improved_max_mp": 1}
-	var offers := [["energy_bolt_rank", "normal"], ["improved_max_mp_rank", "rare"], ["energy_bolt_count", "epic"]]
+	var owned := {"energy_bolt": 4, "magic_armor": 1}
+	var offers := [["energy_bolt_rank", "normal"], ["magic_armor_rank", "rare"], ["energy_bolt_count", "epic"]]
 	if which == "levelup_high":
-		owned = {"energy_bolt": 4, "magic_guard": 1}
-		offers = [["energy_bolt_rank", "unique"], ["magic_guard_rank", "legendary"], ["magic_claw_new", "legendary"]]
+		owned = {"energy_bolt": 4, "magic_armor": 1}
+		offers = [["energy_bolt_rank", "unique"], ["magic_armor_rank", "legendary"], ["magic_claw_new", "legendary"]]
 	elif which == "levelup_dense":
 		owned = {"energy_bolt": 4, "magic_claw": 1, "fire_arrow": 1}
 		offers = [["energy_bolt_rank", "normal"], ["magic_claw_rank", "rare"], ["fire_arrow_rank", "rare"]]

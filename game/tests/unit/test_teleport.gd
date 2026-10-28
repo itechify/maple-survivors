@@ -7,7 +7,6 @@ const DT := 1.0 / 60.0
 
 func _world(key := "teleport_fp", job := 210, upper_y := -120) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 200
 	# #284: a fresh 212 starts with Teleport (FP); the job-line variant under test is learned directly instead.
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	var setup := RF.setup("quiet", 60, data)
@@ -20,21 +19,18 @@ func _world(key := "teleport_fp", job := 210, upper_y := -120) -> RunWorld:
 		"20": {"mpCon": 13, "range": 150}}}}}
 	var w := RunWorld.new(setup)
 	RF.as_job(w, job)
-	w.heal_fraction("mp", 1.0)
 	w.loadout.add_skill(key)
 	w.player.place(Vector2(400, 0), w.fhm)
 	w.drain_events()
 	return w
 
 
-func test_manual_horizontal_cast_pays_once_and_emits_both_positions() -> void:
+func test_manual_horizontal_cast_emits_both_positions() -> void:
 	var w := _world()
-	var before := int(w.player_state.mp)
 	var input := MoveInput.new()
 	input.press_skill("teleport")
 	w.step(DT, input)
 	assert_eq(w.player.pos, Vector2(530, 0))
-	assert_eq(int(w.player_state.mp), before - 60)
 	var phases: Array = []
 	for event: Dictionary in w.drain_events():
 		if event.type == "teleport":
@@ -42,7 +38,7 @@ func test_manual_horizontal_cast_pays_once_and_emits_both_positions() -> void:
 	assert_eq(phases, [["departure", Vector2(400, 0)], ["arrival", Vector2(530, 0)]])
 
 
-func test_key_binding_and_hud_mp_wait_and_cooldown_follow_the_world() -> void:
+func test_key_binding_and_hud_cooldown_follow_the_world() -> void:
 	var key := InputEventKey.new()
 	key.physical_keycode = KEY_X
 	key.pressed = true
@@ -51,13 +47,8 @@ func test_key_binding_and_hud_mp_wait_and_cooldown_follow_the_world() -> void:
 	scene.world = _world()
 	var row: Dictionary = scene.run_info().skills.back()
 	assert_eq(row.key_label, "X")
-	assert_false(row.mp_short)
+	assert_false(row.has("mp_short"), "no MP wait (no MP, #285)")
 	assert_eq(row.cooldown_left, 0.0)
-	scene.world.spend_mp(int(scene.world.player_state.mp))
-	row = scene.run_info().skills.back()
-	assert_true(row.mp_short, "ready but unaffordable: the HUD's blue waiting-for-MP tint")
-	scene.world.heal_fraction("mp", 1)
-	assert_false(scene.run_info().skills.back().mp_short)
 	var input := MoveInput.new()
 	input.press_skill("teleport")
 	scene.world.step(DT, input)
@@ -118,17 +109,14 @@ func test_airborne_left_blink_and_out_of_range_vertical_are_atomic() -> void:
 	var input := MoveInput.new()
 	input.press_skill("teleport")
 	input.up = true
-	var mp := int(w.player_state.mp)
 	w.step(DT, input)
 	assert_eq(w.player.pos, Vector2(400, 0))
-	assert_eq(int(w.player_state.mp), mp, "nearest higher platform is 160 px away, beyond canonical 130")
 	w.player.place(Vector2(400, -40), w.fhm)
 	input.up = false
 	input.left = true
 	w.step(DT, input)
 	assert_eq(w.player.pos, Vector2(270, 0), "airborne left blink lands on the floor")
 	assert_eq(w.player.facing, -1)
-	assert_eq(int(w.player_state.mp), mp - 60)
 
 
 func test_horizontal_destination_uses_range_and_lands_on_slope() -> void:
@@ -141,17 +129,15 @@ func test_horizontal_destination_uses_range_and_lands_on_slope() -> void:
 	assert_eq(p.pos, Vector2(100, 10), "query does not move the player")
 
 
-func test_cost_direction_restrictions_and_repeat_delay() -> void:
+func test_direction_restrictions_and_repeat_delay() -> void:
 	for pair: Array in [["teleport_fp", 210], ["teleport_il", 220], ["teleport_cleric", 230]]:
 		var w := _world(pair[0], pair[1])
 		w.loadout.set_rank(pair[0], 20)
-		var mp := int(w.player_state.mp)
 		var input := MoveInput.new()
 		input.press_skill("teleport")
 		input.up = true
 		w.step(DT, input)
 		assert_eq(w.player.pos, Vector2(400, -120))
-		assert_eq(int(w.player_state.mp), mp - 13)
 		input.skills_pressed.erase("teleport")
 		input.hold_skill("teleport")
 		input.up = false
@@ -160,26 +146,21 @@ func test_cost_direction_restrictions_and_repeat_delay() -> void:
 		assert_eq(w.player.pos, Vector2(400, -120), "held repeat waits 0.3 seconds")
 		w.step(DT, input)
 		assert_eq(w.player.pos, Vector2(550, -120))
-		assert_eq(int(w.player_state.mp), mp - 26)
 	var w := _world()
 	var input := MoveInput.new()
 	input.press_skill("teleport")
 	input.up = true
 	w.player.place(Vector2(400, -120), w.fhm)
-	var mp := int(w.player_state.mp)
 	w.step(DT, input)
-	assert_eq(int(w.player_state.mp), mp, "no higher platform: no payment")
 	input.up = false
-	w.spend_mp(int(w.player_state.mp))
-	w.step(DT, input)
-	assert_eq(w.player.pos, Vector2(400, -120), "short MP")
-	w.heal_fraction("mp", 1)
+	for tick in 30: # past the repeat delay
+		w.step(DT, MoveInput.new())
 	w.player.ladder = 0
 	w.player.state = PlayerMotion.ST_LADDER
 	w.ladders = LadderSet.from_list([{"x": 400, "y1": -200, "y2": 0}])
-	mp = int(w.player_state.mp)
+	var on_ladder := w.player.pos
 	w.step(DT, input)
-	assert_eq(int(w.player_state.mp), mp, "climbing does not spend MP")
+	assert_eq(w.player.pos.x, on_ladder.x, "climbing does not teleport")
 	var bare := RF.quiet_data()
 	bare.jobs_survivor.jobs["212"]["start_skills"] = []
 	var unlearned := RunWorld.new(RF.setup("quiet", 60, bare))

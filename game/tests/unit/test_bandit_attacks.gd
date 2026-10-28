@@ -11,15 +11,13 @@ const INFO := {
 }
 
 
-## A Lv30 Bandit (420) set directly (#284: no advancement) wearing the Reef Claw dagger, with the HP/MP the removed
-## first- and second-job grants used to add (+125/+37, +325/+175) folded into the base pools.
+## A Lv30 Bandit (420) set directly (#284: no advancement) wearing the Reef Claw dagger, with the HP the removed
+## first- and second-job grants used to add (+125, +325) folded into the base pool (no MP, #285).
 func _bandit() -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.player.hp = 50 + 125 + 325
-	data.balance.player.mp = 5 + 37 + 175
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", 212, data))
 	setup.equipment_info.merge(INFO, true)
 	var w := RunWorld.new(setup)
@@ -43,7 +41,6 @@ func _world() -> RunWorld:
 	var w := _bandit()
 	# Synthetic afterimage permits a real dagger weapon_reach cast.
 	w.setup.equipment_info[1332012] = w.setup.equipment_info[1332012].merged({"afterImage": "swordOS"})
-	w.heal_fraction("mp", 1)
 	return w
 
 
@@ -71,8 +68,8 @@ func test_bandit_without_steal_preserves_event_and_player_bytes() -> void:
 	assert_eq(w.thief_rng.state, thief_state)
 	# Captured before #214 on #212 c30848d; re-captured for #238 (cooldown snapshot replaces stock).
 	# This fixture learns neither new attack; stream 15 remains untouched. Re-captured for #284 (no basic attack, the
-	# Bandit set directly).
-	assert_eq(digest.finish().hex_encode(), "f3df19508d5ac4dbd26619269e62cce9fd75ba573098f1d3b27b5c148a8df0f8")
+	# Bandit set directly) with #285 (no MP: player_state has no mp/max_mp/mp_short and casts pay no MP).
+	assert_eq(digest.finish().hex_encode(), "a1ab34c5cd8709e9a7546996f1c3813a98a3a3b5cbc13e6c416a46f90794124d")
 
 
 func test_savage_blow_casts_four_five_or_six_lines_with_any_weapon() -> void:
@@ -81,10 +78,8 @@ func test_savage_blow_casts_four_five_or_six_lines_with_any_weapon() -> void:
 		assert_true(w.learn_skill("savage_blow"))
 		w.loadout.set_rank("savage_blow", pair[0])
 		_target(w)
-		var mp: int = w.player_state.mp
 		w.runner.step(DT, w)
 		assert_eq(_hits(w, "savage_blow").size(), pair[1])
-		assert_eq(w.player_state.mp, mp - int(pair[2]))
 	# #284: weapons gate no skill, so a claw casts it too.
 	var claw := _world()
 	claw.learn_skill("savage_blow")
@@ -146,7 +141,6 @@ func test_steal_autocasts_in_melee_with_any_weapon_and_never_throws_a_star() -> 
 		assert_eq(_hits(w, "steal").size(), 1)
 		assert_eq(w.projectiles.active_count(), 0)
 		assert_eq(w.runner.casts, 1)
-		assert_eq(w.player_state.mp, int(w.player_state.max_mp) - 12)
 	var far := _world()
 	far.learn_skill("steal")
 	RF.put_mob(far, 1110100, 650)

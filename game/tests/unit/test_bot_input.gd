@@ -17,15 +17,15 @@ func _cards(w: RunWorld, ids: Array) -> Array:
 func test_pick_card_for_prefers_attack_skills() -> void:
 	var w := RF.quiet_world()
 	RF.change_job_bare(w, 200)
-	var cards := _cards(w, ["improved_max_mp", "recovery", "energy_bolt_new"])
+	var cards := _cards(w, ["magic_armor_new", "recovery", "energy_bolt_new"])
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_new", "a new attack skill first")
-	assert_eq(BotInput.pick_card(cards), "improved_max_mp", "the first-card policy takes the first")
+	assert_eq(BotInput.pick_card(cards), "magic_armor_new", "the first-card policy takes the first")
 	w.upgrades.apply("energy_bolt_new", w)
 	assert_eq(BotInput.pick_card_for(w, _cards(w, ["energy_bolt_pierce", "recovery", "energy_bolt_count"])),
 		"energy_bolt_count", "more bolts before pierce")
 	assert_eq(BotInput.pick_card_for(w, _cards(w, ["three_snails_count", "energy_bolt_count"])), "energy_bolt_count",
 		"the current job's skill before the Beginner's")
-	assert_eq(BotInput.pick_card_for(w, _cards(w, ["three_snails_speed", "improved_max_mp"])), "improved_max_mp",
+	assert_eq(BotInput.pick_card_for(w, _cards(w, ["three_snails_speed", "magic_armor_new"])), "magic_armor_new",
 		"an owned passive skill before a Beginner utility skill")
 	assert_eq(BotInput.pick_card_for(w, []), "", "nothing to pick")
 
@@ -34,19 +34,19 @@ func test_optional_card_scores_replace_the_base_without_job_bonus_and_missing_ca
 	var w := RF.quiet_world()
 	w.balance.erase("bot")
 	RF.as_job(w, 200)
-	var cards := _cards(w, ["magic_guard_new", "energy_bolt_rank"])
+	var cards := _cards(w, ["magic_armor_new", "energy_bolt_rank"])
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "without overrides the existing offense preference remains")
-	w.balance["bot"] = {"card_scores": {"magic_guard_new": 70.0}}
+	w.balance["bot"] = {"card_scores": {"magic_armor_new": 70.0}}
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "70 replaces the base score: no additional current-job bonus")
-	w.balance.bot.card_scores.magic_guard_new = 90.0
-	assert_eq(BotInput.pick_card_for(w, cards), "magic_guard_new", "survivor data can prioritize a useful defense card")
-	w.learn_skill("magic_guard")
-	cards = _cards(w, ["magic_guard_rank", "energy_bolt_rank"])
-	w.balance.bot.card_scores.magic_guard_rank = 70.0
+	w.balance.bot.card_scores.magic_armor_new = 90.0
+	assert_eq(BotInput.pick_card_for(w, cards), "magic_armor_new", "survivor data can prioritize a useful defense card")
+	w.learn_skill("magic_armor")
+	cards = _cards(w, ["magic_armor_rank", "energy_bolt_rank"])
+	w.balance.bot.card_scores.magic_armor_rank = 70.0
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "a rank override also receives no job bonus")
-	w.balance.bot.card_scores.magic_guard_rank = 90.0
-	assert_eq(BotInput.pick_card_for(w, cards), "magic_guard_rank")
-	w.balance.bot.card_scores.erase("magic_guard_rank")
+	w.balance.bot.card_scores.magic_armor_rank = 90.0
+	assert_eq(BotInput.pick_card_for(w, cards), "magic_armor_rank")
+	w.balance.bot.card_scores.erase("magic_armor_rank")
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "a missing individual card uses its original score")
 
 
@@ -106,8 +106,8 @@ func test_a_large_enough_gain_outranks_the_card_that_wins_at_normal_tier() -> vo
 	assert_eq(BotInput.pick_card_for(w, [normal[0], big_rank]), "energy_bolt_rank", "a Unique rank offer outweighs one more shot")
 	assert_eq(BotInput.pick_card_for(w, [big_rank, normal[0]]), "energy_bolt_rank", "regardless of the order")
 	# A real Rare +2 passive rank offer must not beat a Normal new attack skill.
-	w.learn_skill("magic_guard")
-	var rare_passive := w.upgrades.choice_card("magic_guard_rank", w, "rare")
+	w.learn_skill("magic_armor")
+	var rare_passive := w.upgrades.choice_card("magic_armor_rank", w, "rare")
 	assert_eq(_magnitude(rare_passive), 2, "a Rare passive rank offer grants two ranks")
 	assert_true(BotInput.card_score(w, rare_passive) < BotInput.card_score(w, {"id": "energy_bolt_new"}))
 
@@ -115,13 +115,13 @@ func test_a_large_enough_gain_outranks_the_card_that_wins_at_normal_tier() -> vo
 func test_a_card_score_override_is_the_base_and_the_gain_is_added_without_a_job_bonus() -> void:
 	var w := RF.quiet_world()
 	RF.as_job(w, 200)
-	w.learn_skill("magic_guard")
-	w.balance["bot"] = {"card_scores": {"magic_guard_rank": 70.0, "magic_guard_new": 90.0}}
+	w.learn_skill("magic_armor")
+	w.balance["bot"] = {"card_scores": {"magic_armor_rank": 70.0, "magic_armor_new": 90.0}}
 	var step := BotInput.SCORE_GAIN_STEP
-	assert_eq(BotInput.card_score(w, {"id": "magic_guard_rank"}), 70.0, "no gain, no job bonus: the override itself")
-	assert_eq(BotInput.card_score(w, {"id": "magic_guard_rank", "magnitude": 3}), 70.0 + 2.0 * step)
-	assert_eq(BotInput.card_score(w, {"id": "magic_guard_new", "magnitude": 5}), 90.0 + 4.0 * step)
-	var cards := [w.upgrades.choice_card("magic_guard_rank", w, "rare"), w.upgrades.choice_card("energy_bolt_rank", w, "normal")]
+	assert_eq(BotInput.card_score(w, {"id": "magic_armor_rank"}), 70.0, "no gain, no job bonus: the override itself")
+	assert_eq(BotInput.card_score(w, {"id": "magic_armor_rank", "magnitude": 3}), 70.0 + 2.0 * step)
+	assert_eq(BotInput.card_score(w, {"id": "magic_armor_new", "magnitude": 5}), 90.0 + 4.0 * step)
+	var cards := [w.upgrades.choice_card("magic_armor_rank", w, "rare"), w.upgrades.choice_card("energy_bolt_rank", w, "normal")]
 	assert_true(_magnitude(cards[0]) > 1)
 	assert_eq(BotInput.card_score(w, cards[0]), 70.0 + step * float(_magnitude(cards[0]) - 1))
 
@@ -135,28 +135,12 @@ func test_elixir_score_ignores_tier_and_magnitude() -> void:
 		assert_eq(BotInput.card_score(w, {"id": "orange_potion", "magnitude": m}), 0.0, "a removed potion card scores 0")
 
 
-func test_a_tiny_pool_never_wastes_a_blue_potion_on_a_shortage() -> void:
-	var data := RF.quiet_data()
-	# A 5-MP character whose only skill is Three Snails (3 MP at L1), set up directly (#284: no Beginner start).
-	data.jobs_survivor.jobs["0"]["start_skills"] = ["three_snails"]
-	var setup := RF.setup("quiet", 26, data)
-	setup["job"] = 0
-	var w := RunWorld.new(setup)
-	w.god = true
-	RF.place_player(w, 400)
-	RF.put_mob(w, 1110100, 600, 190, 100.0)
-	w.step(DT, MoveInput.new())
-	assert_eq(w.player_state.mp, 2, "opening canonical L1 cast spends three of the five MP")
-	for tick in 67:
-		w.step(DT, MoveInput.new())
-	assert_true(w.player_state.mp_short, "a ready targeted shell cannot afford its canonical cost")
-	assert_false(BotInput.decide(w, {}).drink_mp, "three missing MP would waste 97 of a canonical 100-MP Blue")
 
 
 func test_flees_two_mobs_instead_of_dueling() -> void:
 	var w := RF.quiet_world(400, 9)
 	w.god = true
-	w.spend_mp(int(w.player_state.mp))
+	w.runner.cooldowns["three_snails"] = 1000.0
 	RF.put_mob(w, 100100, 470, 190, 100.0)
 	RF.put_mob(w, 100100, 500, 190, 100.0)
 	var mi := BotInput.decide(w, {})

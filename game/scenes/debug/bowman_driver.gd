@@ -69,7 +69,6 @@ func _scenario(family: String, key: String) -> void:
 	w.learn_skill(key)
 	w.loadout.set_rank(key, 10)
 	w.refresh_player_stats()
-	w.heal_fraction("mp", 1.0)
 	for kind: MobKind in w.mob_kinds:
 		kind.move_speed = 0.0
 	# Fixed flat ground clear of the west portal's looping beam, with both targets inside the camera.

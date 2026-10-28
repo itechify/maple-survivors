@@ -72,7 +72,6 @@ func _run(label: String, imgs: Dictionary, n: int) -> void:
 	var alive := 0
 	var shots := 0
 	var drops := 0
-	var mp_short := 0
 	for t in WARMUP + TICKS:
 		RF.auto_choose(w)
 		if _statuses:
@@ -89,12 +88,10 @@ func _run(label: String, imgs: Dictionary, n: int) -> void:
 			alive += w.swarm.alive_count()
 			shots += w.projectiles.active_count()
 			drops += w.pickups.active_count()
-			if w.runner.waiting_mp:
-				mp_short += 1
 	var per := float(TICKS)
-	print("%-10s %5d target%s: alive %6.1f  shots %5.1f  drops %5.1f  kills %5d  mp-short %3.0f%%  ->  %8.1f us/tick (%.2f us/mob)" % [
+	print("%-10s %5d target%s: alive %6.1f  shots %5.1f  drops %5.1f  kills %5d  ->  %8.1f us/tick (%.2f us/mob)" % [
 		label, n, " +statuses" if _statuses else "", alive / per, shots / per, drops / per, w.kills,
-		100.0 * mp_short / per, total / per, total / per / maxf(1.0, alive / per)])
+		total / per, total / per / maxf(1.0, alive / per)])
 
 
 ## Keeps every live mob slowed (canonical level-20 x -40) and poisoned (level 20), and every third slot frozen,

@@ -63,6 +63,7 @@ func test_ready_skills_wait_for_hp_gate_then_fire_on_the_first_eligible_tick() -
 	for id in [126, 112, 113]:
 		var setup := MF.setup([id])
 		setup.mob_skill_img[str(id)].level[str(MF.LEVELS[id])].hp = 50.0 # Synthetic gate case; Mano's real slow omits hp => 100%.
+		setup.data.jobs_survivor.jobs["212"]["start_skills"] = [] # no auto-cast may touch the boss's HP (#284 + #285)
 		var w := RunWorld.new(setup)
 		w.god = true
 		RF.place_player(w, 400)
@@ -110,6 +111,9 @@ func test_summon_interval_hp_gate_and_exact_two_of_each_canonical_snail() -> voi
 
 func test_summon_limit_survives_relocation_and_ordinary_slot_reuse() -> void:
 	var w := MF.world([200])
+	# The 212 start skills cast freely without MP (#284 + #285) and would kill the summons: this test is about the cap.
+	w.loadout.order.clear()
+	w.loadout.version += 1
 	_hurt_to_summon_gate(w)
 	var summoned: Array = []
 	for wave in 5:
@@ -216,7 +220,8 @@ func test_weapon_defense_reduces_physical_hits_without_mutating_weapon_or_mob_st
 	if before.is_empty() or after.is_empty():
 		return
 	assert_true(before.max() > 40, "known STR112 Sword can hit above 40 before PDD buff")
-	assert_true(after.max() <= 10, "active PDD105 lowers the known physical maximum to under ten")
+	# Sword max (4 x 112 STR + 5 DEX) x 17 W.Att / 100 = 77.0, minus 0.5 x 105 PDD = 24.5. No level-gap factor (#285).
+	assert_true(after.max() <= 25, "active PDD105 lowers the known physical maximum to 24.5 (got %d)" % after.max())
 	assert_eq(w.weapon_info().incPAD, 17.0)
 	assert_eq(w.mob_kinds[int(w.kind_of_id[2220000])].pdd, 20)
 

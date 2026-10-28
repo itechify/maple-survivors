@@ -17,7 +17,6 @@ const FLYER := 9300063
 func _world(p_seed := 194) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
-	data.balance.player.mp = 100
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.regen.hp = 0
 	data.balance.regen.mp = 0
@@ -283,7 +282,6 @@ func test_heal_still_heals_but_never_strikes_undead_while_hidden() -> void:
 	var make := func() -> RunWorld:
 		var data := RF.quiet_data()
 		data.balance.player.hp = 1000
-		data.balance.player.mp = 1000
 		data.balance.regen.hp = 0
 		var setup := RF.setup("quiet", 57, data)
 		setup.skill_imgs["230"] = {"skill": {"2301002": {"level": {

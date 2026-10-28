@@ -1,6 +1,6 @@
 {
 	"format": 1,
-	"_doc": "Shared weapon afterimages, hit sparks and Weapon.img sounds. Bowman bows/crossbows and arrows belong to bowman.json (#199); Thief claws/daggers and throwing stars belong to thief.json (#207); Pirate knuckles/guns and bullets belong to pirate.json (#186). Afterimages stay shared. Potion steps beyond the three card gates (#229, spec #225, potions.schedule): Unagi 2022003, Pure Water 2022000, Ice Cream Pop 2001001 and Red Bean Sundae 2001002, each with its Item.wz/Consume entry (icon, recovery spec) and Sound.wz/Item.img Use sound; their names are in String.wz/Consume.img, which asset_manifest.json imports whole. Orange, White and Mana Elixir and their sounds stay in asset_manifest.json.",
+	"_doc": "Shared weapon afterimages, hit sparks and Weapon.img sounds. Bowman bows/crossbows and arrows belong to bowman.json (#199); Thief claws/daggers and throwing stars belong to thief.json (#207); Pirate knuckles/guns and bullets belong to pirate.json (#186). Afterimages stay shared. Potion steps beyond the three card gates (#229, spec #225, potions.schedule): Unagi 2022003, Pure Water 2022000, Ice Cream Pop 2001001 and Red Bean Sundae 2001002, each with its Item.wz/Consume entry (icon, recovery spec) and Sound.wz/Item.img Use sound; their names are in String.wz/Consume.img, which asset_manifest.json imports whole. Orange, White and Mana Elixir and their sounds stay in asset_manifest.json. Common-passive icons (spec #282 #283; icon, iconMouseOver, iconDisabled only) come from books no Adventurer line fragment imports, each pixel-identical to the Adventurer skill that names the passive (tier A, compared on v83 data): GM 910.img Haste 9101001 (= 4101004), Holy Symbol 9101002 (= 2311003), Super Dragon Roar 9101006 (= Dragon Roar 1311006; the Area icon) and Hyper Body 9101008 (= 1301007); Noblesse Recovery 10001001 (= 0001001); Dawn Warrior Iron Body 11001001 (= 1001003); Blaze Wizard Spell Booster 12101004 (= 2111005); Aran Maple Warrior 21121000 (= 2121000 and every Adventurer Maple Warrior). Sharp Eyes 3121002 has no copy outside Bowmaster 312.img: the spec that imports 312.img whole moves that entry into its fragment.",
 	"imgs": [
 		{"img": "Character.wz/Afterimage/swordOL.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/mace.img", "paths": ["0"]},
@@ -10,7 +10,13 @@
 		{"img": "Character.wz/Afterimage/knuckle.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/hit.img", "paths": ["sword1", "sword2", "mace1", "mace2"]},
 		{"img": "Sound.wz/Weapon.img"},
-		{"img": "Sound.wz/Item.img", "paths": ["02001001/Use", "02001002/Use", "02022000/Use", "02022003/Use"]}
+		{"img": "Sound.wz/Item.img", "paths": ["02001001/Use", "02001002/Use", "02022000/Use", "02022003/Use"]},
+		{"img": "Skill.wz/910.img", "paths": ["skill/9101001/icon", "skill/9101001/iconMouseOver", "skill/9101001/iconDisabled", "skill/9101002/icon", "skill/9101002/iconMouseOver", "skill/9101002/iconDisabled", "skill/9101006/icon", "skill/9101006/iconMouseOver", "skill/9101006/iconDisabled", "skill/9101008/icon", "skill/9101008/iconMouseOver", "skill/9101008/iconDisabled"]},
+		{"img": "Skill.wz/1000.img", "paths": ["skill/10001001/icon", "skill/10001001/iconMouseOver", "skill/10001001/iconDisabled"]},
+		{"img": "Skill.wz/1100.img", "paths": ["skill/11001001/icon", "skill/11001001/iconMouseOver", "skill/11001001/iconDisabled"]},
+		{"img": "Skill.wz/1210.img", "paths": ["skill/12101004/icon", "skill/12101004/iconMouseOver", "skill/12101004/iconDisabled"]},
+		{"img": "Skill.wz/2112.img", "paths": ["skill/21121000/icon", "skill/21121000/iconMouseOver", "skill/21121000/iconDisabled"]},
+		{"img": "Skill.wz/312.img", "paths": ["skill/3121002/icon", "skill/3121002/iconMouseOver", "skill/3121002/iconDisabled"]}
 	],
 	"character": [],
 	"items": [2022003, 2022000, 2001001, 2001002]

@@ -9,9 +9,7 @@ func _world(rank_value: int, threshold: float = 0.5) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.player.hp = 1000
-	data.balance.player.mp = 100
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	data.skills.skills.recovery.buff.hp_threshold = threshold
 	var w := RunWorld.new(RF.setup("quiet", 13, data))
 	RF.place_player(w, 400)
@@ -21,14 +19,13 @@ func _world(rank_value: int, threshold: float = 0.5) -> RunWorld:
 	return w
 
 
-func test_each_recovery_level_pays_canonical_mp_and_heals_six_pulses_including_the_expiry_tick() -> void:
-	for example: Array in [[1, 5, 4], [2, 10, 8], [3, 15, 12]]:
+func test_each_recovery_level_heals_six_pulses_including_the_expiry_tick() -> void:
+	for example: Array in [[1, 4], [2, 8], [3, 12]]:
 		var w := _world(example[0])
 		w.take_hit(800, false, "", w.player.pos + Vector2(10, 0))
 		w.god = true
 		var hp := int(w.player_state.hp)
 		w.step(DT, MoveInput.new())
-		assert_eq(w.player_state.mp, 100 - int(example[1]))
 		assert_eq(w.player_state.get("buffs", []).size(), 1, "low HP starts Recovery")
 		if w.player_state.get("buffs", []).is_empty():
 			continue
@@ -36,9 +33,9 @@ func test_each_recovery_level_pays_canonical_mp_and_heals_six_pulses_including_t
 		for pulse in range(1, 7):
 			for i in 299:
 				w.step(DT, MoveInput.new())
-			assert_eq(w.player_state.hp, hp + (pulse - 1) * int(example[2]), "no healing before pulse %d" % pulse)
+			assert_eq(w.player_state.hp, hp + (pulse - 1) * int(example[1]), "no healing before pulse %d" % pulse)
 			w.step(DT, MoveInput.new())
-			assert_eq(w.player_state.hp, hp + pulse * int(example[2]))
+			assert_eq(w.player_state.hp, hp + pulse * int(example[1]))
 		assert_true(w.player_state.buffs.is_empty())
 		var events := w.drain_events()
 		assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "buff_pulse").size(), 6)
@@ -59,10 +56,8 @@ func test_recovery_threshold_is_data_driven_and_cooldown_is_120_seconds_from_cas
 	for i in 7200 - 1:
 		w.step(DT, MoveInput.new())
 	assert_true(w.player_state.buffs.is_empty(), "30 s HoT does not recast during the remaining cooldown")
-	assert_eq(w.player_state.mp, 95)
 	w.step(DT, MoveInput.new())
 	assert_eq(w.player_state.buffs.size(), 1, "recasts at canonical 120 s when still below threshold")
-	assert_eq(w.player_state.mp, 90)
 
 
 func test_recovery_does_not_cast_on_a_rope_but_existing_healing_continues() -> void:
@@ -73,7 +68,6 @@ func test_recovery_does_not_cast_on_a_rope_but_existing_healing_continues() -> v
 	w.step(DT, MoveInput.new())
 	assert_eq(w.player.state, PlayerMotion.ST_LADDER)
 	assert_true(w.player_state.buffs.is_empty())
-	assert_eq(w.player_state.mp, 100)
 	var hp := int(w.player_state.hp)
 	# Cast first in a fresh run, then hold still on the rope for the full HoT.
 	w = _world(3)

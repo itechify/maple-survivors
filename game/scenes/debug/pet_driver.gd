@@ -47,7 +47,7 @@ func _round(species: int) -> void:
 	print("pet_driver: round ", species)
 	var run: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	run.configure("henesys", 60, {"use_flow": false, "autopick": true,
-		"account": {"owned": [species], "pet": species, "alert": {"hp": 0.0, "mp": 0.0}}})
+		"account": {"owned": [species], "pet": species, "alert": {"hp": 0.0}}})
 	add_child(run)
 	run.set_process(false)
 	var w := run.world

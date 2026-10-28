@@ -1,16 +1,15 @@
 extends TestCase
-## Canonical timed Guard/Armor lifecycle and hit effects through seeded RunWorld ticks and take_hit.
+## Canonical timed buff lifecycle (Nimble Feet, Magic Armor) and hit effects through seeded RunWorld ticks and take_hit.
+## There is no MP or Magic Guard (#285): a buff is gated by its cooldown only.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
-func test_nimble_feet_uses_canonical_speed_duration_mp_and_cast_cooldown() -> void:
-	for example: Array in [[1, 10, 4, 4], [2, 15, 8, 7], [3, 20, 12, 10]]:
+func test_nimble_feet_uses_canonical_speed_duration_and_cast_cooldown() -> void:
+	for example: Array in [[1, 10, 4], [2, 15, 8], [3, 20, 12]]:
 		var data := RF.quiet_data()
 		data.jobs_survivor.jobs["212"]["start_skills"] = []
-		data.balance.player.mp = 100
-		data.balance.regen.mp = 0
 		var w := RunWorld.new(RF.setup("quiet", 41, data))
 		RF.place_player(w, 400)
 		# The skill is set up directly: its Beginner cards are gone (#284), its skill data stays.
@@ -20,7 +19,6 @@ func test_nimble_feet_uses_canonical_speed_duration_mp_and_cast_cooldown() -> vo
 		var buff := _buff(w, "nimble_feet")
 		assert_false(buff.is_empty(), "Nimble Feet casts without a mob target")
 		assert_eq(w.player.speed_stat, 100 + int(example[1]), "canonical speed bonus")
-		assert_eq(w.player_state.mp, 100 - int(example[3]), "canonical cast MP")
 		if buff.is_empty():
 			continue
 		assert_eq(buff.icon, "Skill.wz/000.img/skill/0001002/icon")
@@ -36,13 +34,8 @@ func test_nimble_feet_uses_canonical_speed_duration_mp_and_cast_cooldown() -> vo
 		for tick in (60 - int(example[2])) * 60 - 1:
 			w.step(DT, MoveInput.new())
 		assert_eq(w.runner.casts, 1, "not yet ready before 60 seconds from cast")
-		w.spend_mp(int(w.player_state.mp))
 		w.step(DT, MoveInput.new())
-		assert_true(_buff(w, "nimble_feet").is_empty(), "ready but unaffordable waits")
-		assert_has(w.drain_events().map(func(e: Dictionary) -> String: return e.type), "mp_short")
-		w.heal_fraction("mp", 1.0)
-		w.step(DT, MoveInput.new())
-		assert_eq(w.runner.casts, 2, "recasts as soon as cooldown and MP allow")
+		assert_eq(w.runner.casts, 2, "recasts as soon as the cooldown allows")
 		assert_eq(w.player.speed_stat, 100 + int(example[1]))
 
 
@@ -50,8 +43,6 @@ func _mage(skill: String) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.player.hp = 1000
-	data.balance.player.mp = 300
-	data.balance.regen.mp = 0
 	data.balance.regen.hp = 0
 	var w := RunWorld.new(RF.setup("quiet", 12, data))
 	RF.change_job_bare(w, 200)
@@ -64,11 +55,9 @@ func _mage(skill: String) -> RunWorld:
 func test_nimble_feet_waits_while_climbing_and_its_active_speed_expires_there() -> void:
 	var w := _mage("nimble_feet")
 	RF.place_player(w, -100)
-	var mp: int = w.player_state.mp
 	w.step(DT, MoveInput.make(false, false, true))
 	assert_eq(w.player.state, PlayerMotion.ST_LADDER)
-	assert_true(_buff(w, "nimble_feet").is_empty())
-	assert_eq(w.player_state.mp, mp, "hanging spends no MP")
+	assert_true(_buff(w, "nimble_feet").is_empty(), "no cast while hanging")
 	var jump := MoveInput.new()
 	jump.jump_pressed = true
 	jump.left = true
@@ -100,48 +89,29 @@ func _buff(w: RunWorld, skill: String) -> Dictionary:
 	return {}
 
 
-func test_guard_and_armor_cast_without_a_target_pay_mp_and_expire_then_wait_and_recast() -> void:
-	for example: Array in [["magic_guard", 6, 111], ["magic_armor", 8, 54]]:
+func test_armor_casts_without_a_target_and_expires_then_recasts() -> void:
+	for example: Array in [["magic_armor", 54]]:
 		var key: String = example[0]
 		var w := _mage(key)
-		var before: int = w.player_state.mp
 		w.step(DT, MoveInput.new())
 		var buff := _buff(w, key)
 		assert_false(buff.is_empty(), "%s auto-casts when learned, without a mob target" % key)
-		assert_eq(w.player_state.mp, before - int(example[1]))
 		if buff.is_empty():
 			continue
-		assert_near(buff.remaining, example[2], DT)
+		assert_near(buff.remaining, example[1], DT)
 		assert_true(w.runner.fired_this_tick, "buff casts reserve this tick from basic attacks")
-		w.spend_mp(int(w.player_state.mp))
 		w.drain_events()
-		for i in int(example[2]) * 60 - 1:
+		for i in int(example[1]) * 60 - 1:
 			w.step(DT, MoveInput.new())
 		assert_false(_buff(w, key).is_empty(), "active until its canonical duration")
+		var expired := 0
 		w.step(DT, MoveInput.new())
-		assert_true(_buff(w, key).is_empty(), "expires exactly on duration")
-		assert_eq(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "buff_expired").size(), 1)
-		w.heal_fraction("mp", 1.0)
-		before = int(w.player_state.mp)
+		for e: Dictionary in w.drain_events():
+			expired += 1 if e.type == "buff_expired" else 0
+		assert_eq(expired, 1, "expires exactly on duration")
 		w.step(DT, MoveInput.new())
-		assert_false(_buff(w, key).is_empty(), "recasts as soon as affordable")
-		assert_eq(w.player_state.mp, before - int(example[1]))
+		assert_false(_buff(w, key).is_empty(), "recasts at once: nothing but its cooldown gates it")
 
-
-
-func test_magic_guard_splits_damage_only_while_cast_buff_is_active() -> void:
-	for active: bool in [false, true]:
-		var w := _mage("magic_guard")
-		if active:
-			w.step(DT, MoveInput.new())
-		var mp := int(w.player_state.mp)
-		w.drain_events()
-		w.take_hit(100, false, "", w.player.pos + Vector2(10, 0), {"accuracy": 1000000})
-		var hits := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "player_hit")
-		assert_eq(hits.size(), 1)
-		if not hits.is_empty():
-			assert_eq(hits[0].mp_absorbed, floori(float(hits[0].damage) * 0.11) if active else 0)
-			assert_eq(w.player_state.mp, mp - int(hits[0].mp_absorbed))
 
 
 func test_magic_armor_changes_the_hit_defense_only_while_cast_buff_is_active() -> void:
@@ -162,15 +132,13 @@ func test_magic_armor_changes_the_hit_defense_only_while_cast_buff_is_active() -
 
 
 func test_climbing_blocks_buff_casts_but_active_effects_expire_on_time_and_recast_after_exit() -> void:
-	for example: Array in [["magic_guard", 111, "mp_guard", 11.0], ["magic_armor", 54, "pdd", 2.0]]:
+	for example: Array in [["magic_armor", 54, "pdd", 2.0]]:
 		var key: String = example[0]
 		var w := _mage(key)
 		RF.place_player(w, -100)
-		var before: int = w.player_state.mp
 		w.step(DT, MoveInput.make(false, false, true))
 		assert_eq(w.player.state, PlayerMotion.ST_LADDER)
-		assert_true(_buff(w, key).is_empty())
-		assert_eq(w.player_state.mp, before, "no MP spent while hanging")
+		assert_true(_buff(w, key).is_empty(), "no cast while hanging")
 		var jump := MoveInput.new()
 		jump.jump_pressed = true
 		jump.left = true
@@ -195,11 +163,11 @@ func test_climbing_blocks_buff_casts_but_active_effects_expire_on_time_and_recas
 
 
 func test_buffs_share_the_one_cast_per_tick_learned_order_with_attack_skills() -> void:
-	var w := _mage("magic_guard")
+	var w := _mage("nimble_feet")
 	w.learn_skill("magic_armor")
 	w.learn_skill("energy_bolt")
 	RF.put_mob(w, 1110100, 550, 190, 100)
-	for expected: String in ["magic_guard", "magic_armor", "energy_bolt"]:
+	for expected: String in ["nimble_feet", "magic_armor", "energy_bolt"]:
 		w.step(DT, MoveInput.new())
 		var casts := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "cast")
 		assert_eq(casts.size(), 1)

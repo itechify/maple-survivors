@@ -57,7 +57,6 @@ func _scenario(key: String, rank: int) -> void:
 	w.learn_skill(key)
 	w.loadout.set_rank(key, rank)
 	w.refresh_player_stats()
-	w.heal_fraction("mp", 1.0)
 	for mk: MobKind in w.mob_kinds:
 		mk.move_speed = 0.0
 	w.player.facing = 1
@@ -89,7 +88,7 @@ func _scenario(key: String, rank: int) -> void:
 		if w.swarm.status_time(s, MobSwarm.STUN) > 0.0:
 			stunned += 1
 	summary[key] = {"rank": rank, "mobs_hurt": hurt, "mobs_stunned": stunned, "player_dx": w.player.pos.x - start_x,
-		"casts": w.runner.casts, "state": w.state, "can_cast": w.can_cast(), "mp": int(w.player_state.mp), "mob_xs": slots.map(
+		"casts": w.runner.casts, "state": w.state, "can_cast": w.can_cast(), "mob_xs": slots.map(
 			func(s: int) -> float: return w.swarm.x[s] - start_x)}
 
 

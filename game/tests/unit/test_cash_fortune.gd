@@ -115,9 +115,9 @@ func test_a_pet_out_is_the_owned_species_and_alert_levels_reach_the_world() -> v
 	setup.alert = {"hp": 0.5, "mp": 0.25}
 	var w := RunWorld.new(setup)
 	assert_eq(w.pet, 5000001)
-	assert_eq(w.alert, {"hp": 0.5, "mp": 0.25})
+	assert_eq(w.alert, {"hp": 0.5}, "an old MP ALERT is dropped (no MP, #285)")
 	assert_eq(w.warnings.size(), 0)
-	assert_eq(RunWorld.new(RF.setup("quiet", 1, data)).alert, {"hp": 0.0, "mp": 0.0}, "absent = do not alert")
+	assert_eq(RunWorld.new(RF.setup("quiet", 1, data)).alert, {"hp": 0.0}, "absent = do not alert")
 
 
 func test_three_rounds_with_every_slot_filled_do_not_compound_base_fortune() -> void:

@@ -31,7 +31,6 @@ func test_camper_activates_only_on_its_own_first_map_then_uses_sensible_bot() ->
 	assert_eq(actual.down, sensible.down)
 	assert_eq(actual.jump_pressed, sensible.jump_pressed)
 	assert_eq(actual.drink_hp, sensible.drink_hp)
-	assert_eq(actual.drink_mp, sensible.drink_mp)
 	assert_eq(w.player.pos, before, "no second-map camper placement")
 	assert_eq(float(memo.get("reached_time", -1.0)), arrived, "arrival remains a first-map measurement")
 
@@ -135,31 +134,25 @@ func test_report_reader_normalizes_only_legacy_nonfinite_boss_diagnostics() -> v
 	assert_eq(current.record.bosses[0].best_distance, 42.25)
 
 
-func test_record_counts_waiting_seconds_and_whole_boss_hit_fraction() -> void:
+func test_record_counts_the_whole_boss_hit_fraction() -> void:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.run_time_cap = 1.0
-	data.balance.player.mp = 125 # the pool the removed Magician grant (+120) gave (#284)
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	RF.place_player(w, 400)
-	RF.change_job_bare(w, 200)
-	w.learn_skill("magic_guard")
-	w.loadout.set_rank("magic_guard", 5)
 	w.step(DT, MoveInput.new())
 	w.drain_events()
-	w.drink_potion("mp") # Hold the shared cooldown so this test observes a full second of MP wait.
-	w.spend_mp(int(w.player_state.mp)-5)
 	var whole := w.take_hit(40, false, "", w.player.pos+Vector2(10, 0), {"boss": true, "mob_id": 2220000, "source_kind": "attack"})
 	w.learn_skill("energy_bolt")
 	RF.put_mob(w, 1110100, 500, 190, 100)
 	w.mob_kinds[int(w.kind_of_id[1110100])].move_speed = 0
 	w.god = true
 	var r: Dictionary = BR.run_one(w, "bot", 26)
-	assert_near(r.mp_short_seconds, 1.0 - DT, 0.001, "fixed ticks count eligible waiting through the absolute cap")
+	assert_false(r.has("mp_short_seconds"), "no MP, so no MP-wait field (#285)")
 	assert_eq(r.boss_hits.size(), 1)
 	assert_eq(r.boss_hits[0].source_kind, "attack")
-	assert_true(int(r.boss_hits[0].mp_absorbed)>0, "Magic Guard absorbed part of this hit")
-	assert_near(r.boss_hits[0].fraction, float(whole)/50.0, 0.000001, "fraction uses whole hit before Guard and HP pool at hit time")
+	assert_false(r.boss_hits[0].has("mp_absorbed"), "no MP absorbed field (#285)")
+	assert_near(r.boss_hits[0].fraction, float(whole)/50.0, 0.000001, "fraction uses the whole hit and the HP pool at hit time")
 	assert_eq(r.boss_hit_fraction.count, 1)
 	assert_eq(r.state, "TIMEOUT")
 
@@ -170,25 +163,24 @@ func test_buff_cast_timeline_records_seeded_canonical_snapshots() -> void:
 		var data := RF.quiet_data()
 		data.jobs_survivor.jobs["212"]["start_skills"] = []
 		data.balance.run_time_cap = 1.0
-		data.balance.player.mp = 125 # the pool the removed Magician grant (+120) gave (#284)
 		var w := RunWorld.new(RF.setup("quiet", 27, data))
 		RF.place_player(w, 400)
 		RF.change_job_bare(w, 200)
-		w.learn_skill("magic_guard")
-		w.loadout.set_rank("magic_guard", rank)
+		w.learn_skill("magic_armor")
+		w.loadout.set_rank("magic_armor", rank)
 		var r: Dictionary = BR.run_one(w, "bot", 27)
 		assert_true(r.has("buff_casts"), "cast timeline is part of the public record")
 		if not r.has("buff_casts"):
 			continue
-		assert_eq(r.buff_casts.size(), 1, "one inactive Guard cast in the one-second run")
+		assert_eq(r.buff_casts.size(), 1, "one inactive Armor cast in the one-second run")
 		var cast: Dictionary = r.buff_casts[0]
 		assert_near(cast.time, DT, 0.000001, "cast observed on the first fixed tick")
-		assert_eq(cast.skill, "magic_guard")
-		assert_eq(cast.skill_id, 2001002)
+		assert_eq(cast.skill, "magic_armor")
+		assert_eq(cast.skill_id, 2001003)
 		assert_eq(cast.level, 1 if rank == 1 else 20)
-		assert_eq(cast.duration, 111.0 if rank == 1 else 600.0, "canonical endpoint duration")
-		assert_eq(cast.effect_stat, "mp_guard")
-		assert_eq(cast.value, 11.0 if rank == 1 else 80.0, "cast-time canonical effect from the public snapshot")
+		assert_eq(cast.duration, 54.0 if rank == 1 else 400.0, "canonical endpoint duration")
+		assert_eq(cast.effect_stat, "pdd")
+		assert_eq(cast.value, 2.0 if rank == 1 else 40.0, "cast-time canonical effect from the public snapshot")
 
 
 func test_ordinary_kill_hits_follow_relocation_and_reset_on_same_kind_slot_reuse() -> void:
@@ -236,7 +228,6 @@ func test_kill_hit_means_pool_lifetime_hits_over_kills_instead_of_averaging_run_
 
 func test_hits_before_a_minute_boundary_belong_to_the_minute_of_death() -> void:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 100
 	data.jobs_survivor.jobs["212"]["start_skills"] = ["three_snails"] # the old fixed-damage shot this oracle uses
 	data.balance.run_time_cap = 60.8
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
@@ -253,7 +244,6 @@ func test_hits_before_a_minute_boundary_belong_to_the_minute_of_death() -> void:
 
 func test_magic_claw_counts_each_landed_line_but_a_scheduled_boss_is_excluded() -> void:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 100
 	data.jobs_survivor.jobs["212"]["start_skills"] = ["magic_claw"]
 	data.skills.skills.magic_claw.damage = "fixed"
 	data.balance.run_time_cap = 0.1
@@ -273,33 +263,6 @@ func test_magic_claw_counts_each_landed_line_but_a_scheduled_boss_is_excluded() 
 	r = BR.run_one(w, "bot", 26, 0.0)
 	assert_eq(r.boss_fights[0].status, "dead", "the excluded boss really receives a killing cast")
 	assert_eq(r.ordinary_kill_hits_by_min[0].kills, 0, "scheduled bosses do not require canonical info/boss")
-
-
-func test_late_waits_have_observation_time_without_stock_metrics() -> void:
-	var data := RF.quiet_data()
-	data.balance.player.mp = 0
-	data.balance.run_time_cap = 480.5
-	var w := RunWorld.new(RF.setup("quiet", 26, data))
-	w.god = true
-	RF.place_player(w, 400)
-	RF.put_mob(w, 1110100, 500, 190, 100.0)
-	w.time = 479.5
-	var r := BR.run_one(w, "bot", 26, 0.0)
-	assert_true(r.has("late_mp_short_seconds"), "late shortages are measured separately")
-	if not r.has("late_mp_short_seconds"):
-		return
-	assert_near(r.late_mp_short_seconds, 0.5, DT)
-	assert_near(r.late_observed_seconds, 0.5, DT)
-	assert_false(r.has("potions_left"))
-	assert_false(r.has("potions_collected"))
-	assert_false(r.has("potions_start"))
-	var early := r.duplicate(true)
-	early.late_mp_short_seconds = 0.0
-	early.late_observed_seconds = 0.0
-	var summary := BR.aggregate([r, early])
-	assert_eq(summary.late_mp_observed_runs, 1)
-	assert_eq(summary.late_mp_short_runs, 1)
-	assert_eq(summary.late_mp_short_seconds.count, 1, "unobserved late time is excluded from shortage samples")
 
 
 func test_summary_counts_clears_deaths_and_timeouts_separately() -> void:
@@ -389,10 +352,11 @@ func test_tree_camper_reaches_top_via_the_original_portal_chain() -> void:
 	assert_true(bool(memo.get("reached", false)))
 
 
-func test_summary_aggregates_potions_waits_and_only_completed_fights() -> void:
+func test_summary_aggregates_potions_and_only_completed_fights() -> void:
 	var common := {"bosses": [], "camper": {"reached": false, "started_time": -1.0},
 		"potions_start": {"hp": 5, "mp": 0}, "potions_left": {"hp": 20, "mp": 30},
 		"pet": {"potions_used": {"hp": 7, "mp": 8}}}
+	# Legacy records still carry MP fields; the summary ignores them (no MP, #285).
 	var first := common.merged({"potions_collected": {"hp": 2, "mp": 3}, "potions_used": {"hp": 1, "mp": 1}, "mp_short_seconds": 10.0,
 		"boss_hits": [{"mob_id": 2220000, "fraction": 0.4, "source_kind": "touch"}],
 		"boss_fights": [{"mob_id": 2220000, "duration": 30.0, "elapsed": 30.0, "status": "dead"}]})
@@ -400,15 +364,16 @@ func test_summary_aggregates_potions_waits_and_only_completed_fights() -> void:
 		"boss_hits": [{"mob_id": 2220000, "fraction": 0.5, "source_kind": "attack"}],
 		"boss_fights": [{"mob_id": 2220000, "duration": -1.0, "elapsed": 80.0, "status": "alive"}]})
 	var summary: Dictionary = BR.aggregate([first, second])
-	assert_eq(summary.potions_used, {"hp": 1, "mp": 3})
-	for removed: String in ["potions_collected", "potions_start", "potions_left", "mp_collected_used_ratio"]:
+	assert_eq(summary.potions_used, {"hp": 1})
+	for removed: String in ["potions_collected", "potions_start", "potions_left", "mp_collected_used_ratio",
+			"mp_short_seconds", "late_mp_short_seconds", "late_mp_short_runs", "late_mp_observed_runs"]:
 		assert_false(summary.has(removed), "legacy input does not revive removed potion metrics: " + removed)
 	var report := BR.describe_metrics(summary)
-	assert_true(report.contains("potions used HP 1 MP 3; MP-short seconds"))
+	assert_true(report.contains("potions used HP 1"), report)
+	assert_false(report.contains("MP"), "no MP in the report")
 	assert_false(report.contains("potions collected"))
 	assert_false(report.contains("MP collected/used"))
 	assert_false(report.contains("final stock"))
-	assert_eq(summary.mp_short_seconds.median, 15.0)
 	assert_eq(summary.boss_fights["2220000"].completed.count, 1)
 	assert_eq(summary.boss_fights["2220000"].completed.median, 30.0, "unfinished eighty seconds is not a completed fight sample")
 	assert_eq(summary.boss_fights["2220000"].alive, 1)
@@ -427,9 +392,9 @@ func test_summary_aggregates_potions_waits_and_only_completed_fights() -> void:
 func test_summary_reports_zero_drinks_without_collection_or_stock_metrics() -> void:
 	for records: Array in [[], [{"potions_collected": {"mp": 7}, "potions_used": {"mp": 0}}]]:
 		var summary: Dictionary = BR.aggregate(records)
-		assert_eq(summary.potions_used, {"hp": 0, "mp": 0})
+		assert_eq(summary.potions_used, {"hp": 0})
 		assert_false(summary.has("mp_collected_used_ratio"))
-		assert_true(BR.describe_metrics(summary).contains("potions used HP 0 MP 0"))
+		assert_true(BR.describe_metrics(summary).contains("potions used HP 0"))
 
 
 func test_run_records_unlimited_potion_drinks_and_restore_amounts() -> void:
@@ -440,33 +405,33 @@ func test_run_records_unlimited_potion_drinks_and_restore_amounts() -> void:
 	data.balance.potions.bot.min_restore_fraction = 0.01
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	RF.place_player(w, 400)
-	w.spend_mp(int(w.player_state.mp))
-	w.drink_potion("hp")
+	var whole := w.take_hit(40, false, "", w.player.pos + Vector2(10, 0))
+	assert_true(whole > 0)
 	var r: Dictionary = BR.run_one(w, "bot", 26)
-	assert_eq(r.potions_used, {"hp": 1, "mp": 1})
+	assert_eq(r.potions_used, {"hp": 1}, "the bot drinks one Red Potion; there is no MP potion")
 	for removed: String in ["potions_collected", "potions_start", "potions_left", "mp_collected_used_ratio"]:
 		assert_false(r.has(removed), "unlimited drinks have no collection/stock metric: " + removed)
 	assert_false(BR.describe(r.merged({"seed": 26})).contains("potions collected"))
 	assert_true(r.has("potion_uses"), "actual restored amounts expose early potion clipping")
 	if r.has("potion_uses"):
-		var mp_uses: Array = r.potion_uses.filter(func(use: Dictionary) -> bool: return use.kind == "mp")
-		assert_eq(mp_uses.size(), 1)
-		assert_eq(mp_uses[0].restored, 5, "a Blue Potion restores only the five-MP opening pool")
-		assert_eq(mp_uses[0].capacity_waste, 95, "canonical restoration beyond the pool capacity is explicit")
+		var hp_uses: Array = r.potion_uses.filter(func(use: Dictionary) -> bool: return use.kind == "hp")
+		assert_eq(hp_uses.size(), 1)
+		if hp_uses.size() == 1:
+			assert_eq(hp_uses[0].restored, whole, "a Red Potion restores only the HP the hit took")
+			assert_eq(hp_uses[0].capacity_waste, 50 - whole, "the rest of its canonical 50 HP is explicit waste")
 
 
 func test_pet_drinks_stay_separate_from_player_use_totals_and_timeline() -> void:
 	var data := PF.data()
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.run_time_cap = 1.0
-	var world := PF.world([PF.KITTY, PF.AUTO_HP, PF.AUTO_MP], {"hp": 0.5, "mp": 0.5}, data)
+	var world := PF.world([PF.KITTY, PF.AUTO_HP], {"hp": 0.5}, data)
 	world.take_hit(40, false, "", world.player.pos + Vector2(10, 0))
-	world.spend_mp(int(world.player_state.mp))
 	var record := BR.run_one(world, "bot", 5, 0.0) # Hands off; only the pet can drink.
-	assert_eq(record.pet.potions_used, {"hp": 1, "mp": 1})
-	assert_eq(record.potions_used, {"hp": 0, "mp": 0})
+	assert_eq(record.pet.potions_used, {"hp": 1})
+	assert_eq(record.potions_used, {"hp": 0})
 	assert_eq(record.potion_uses, [], "the player's restore/waste timeline excludes pet events")
-	assert_eq(BR.aggregate([record]).potions_used, {"hp": 0, "mp": 0})
+	assert_eq(BR.aggregate([record]).potions_used, {"hp": 0})
 
 
 func test_censored_fight_median_is_exact_only_when_no_unfinished_fight_lies_below_it() -> void:

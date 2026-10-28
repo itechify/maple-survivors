@@ -9,9 +9,7 @@ func _world(skill: String, seed: int = 58) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.player.hp = 100000
-	data.balance.player.mp = 300
 	data.balance.regen.hp = 0
-	data.balance.regen.mp = 0
 	data.skills.skills["support"] = {"skill_id": 9991000, "book": "999", "kind": "buff",
 		"damage": "none", "ranks": [1, 2], "buff": {"duration_field": "time", "effects": [
 			{"stat": "matk", "field": "mad"}, {"stat": "pdd", "field": "pdd"},
@@ -78,7 +76,7 @@ func _crowd() -> RunWorld:
 	return w
 
 
-func test_crowd_waits_for_eligible_unslowed_threshold_caps_targets_and_pays_once() -> void:
+func test_crowd_waits_for_eligible_unslowed_threshold_caps_targets_and_casts_once() -> void:
 	var w := _crowd()
 	var a := RF.put_mob(w, 1110100, 380)
 	var b := RF.put_mob(w, 1110100, 360)
@@ -86,15 +84,12 @@ func test_crowd_waits_for_eligible_unslowed_threshold_caps_targets_and_pays_once
 	w.swarm.steady[boss] = 1
 	RF.put_mob(w, 1110100, 700)
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-	var mp := int(w.player_state.mp)
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 0, "bosses and out-of-box mobs cannot satisfy crowd admission")
-	assert_eq(w.player_state.mp, mp)
 	var c := RF.put_mob(w, 1110100, 340)
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 1)
-	assert_eq(w.player_state.mp, mp - 7)
 	assert_near(w.swarm.status_time(a, MobSwarm.SLOW), 2.0)
 	assert_near(w.swarm.status_time(b, MobSwarm.SLOW), 2.0)
 	assert_near(w.swarm.slow_factor[a], 0.6)
@@ -118,10 +113,8 @@ func test_slow_allows_two_consecutive_casts_then_requires_a_cast_on_other_monste
 	# Relocation must retain consecutive-use history even though it clears the active status.
 	a = w.relocate_mob(a, Vector2(380, 190), w.player.fh)
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-	var mp := int(w.player_state.mp)
 	w.runner.step(2.0, w)
-	assert_eq(w.runner.casts, 2, "a third consecutive Slow is ineligible before MP payment")
-	assert_eq(w.player_state.mp, mp)
+	assert_eq(w.runner.casts, 2, "a third consecutive Slow is ineligible")
 	w.swarm.x[a] = 700
 	var b := RF.put_mob(w, 1110100, 380)
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
@@ -141,31 +134,17 @@ func test_slow_allows_two_consecutive_casts_then_requires_a_cast_on_other_monste
 	assert_near(w.swarm.status_time(fresh, MobSwarm.SLOW), 2.0)
 
 
-func test_crowd_keeps_climbing_mp_short_and_later_affordable_cast_rules() -> void:
+func test_crowd_waits_while_climbing_and_casts_on_the_ground() -> void:
 	var w := _crowd()
 	w.book.defs.support.cast.min_targets = 1
 	RF.put_mob(w, 1110100, 380)
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-	w.spend_mp(int(w.player_state.mp))
 	w.player.state = PlayerMotion.ST_LADDER
 	w.runner.step(DT, w)
-	assert_false(w.runner.waiting_mp, "climbing never enters crowd admission")
+	assert_eq(w.runner.casts, 0, "climbing never enters crowd admission")
 	w.player.state = PlayerMotion.ST_STAND
 	w.runner.step(DT, w)
-	assert_true(w.runner.waiting_mp)
-	assert_eq(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mp_short").size(), 1)
-	w.runner.step(DT, w)
-	assert_eq(w.drain_events().size(), 0, "one shortage event per waiting episode")
-	w.learn_skill("magic_guard")
-	w.restore_player("mp", 6, "")
-	w.runner.step(DT, w)
-	assert_true(w.buffs.has("magic_guard"), "a later affordable skill still casts")
-	assert_true(w.runner.waiting_mp, "earlier eligible Slow still contributes MP-short time")
 	assert_eq(w.runner.casts, 1)
-	assert_near(w.swarm.status_time(0, MobSwarm.SLOW), 0.0)
-	w.restore_player("mp", 7, "")
-	w.runner.step(DT, w)
-	assert_eq(w.runner.casts, 2)
 	assert_near(w.swarm.status_time(0, MobSwarm.SLOW), 2.0)
 
 
@@ -173,9 +152,7 @@ func test_multi_effect_buff_snapshots_one_timer_and_refreshes_magic_damage_on_st
 	var w := _world("support")
 	w.learn_skill("energy_bolt")
 	var before := w.runner.stats_of(w, "energy_bolt")
-	var mp := int(w.player_state.mp)
 	w.step(DT, MoveInput.new())
-	assert_eq(w.player_state.mp, mp - 7)
 	assert_eq(w.player_state.buffs.size(), 1, "all effects share one icon and timer")
 	assert_eq(w.buffs.effect_total("matk"), 20.0)
 	assert_eq(w.buffs.effect_total("acc"), 8.0)
@@ -186,26 +163,25 @@ func test_multi_effect_buff_snapshots_one_timer_and_refreshes_magic_damage_on_st
 	assert_true(float(active.damage_max) > float(before.damage_max))
 	w.loadout.set_rank("support", 2)
 	assert_eq(w.buffs.effect_total("matk"), 20.0, "rank changes do not alter an active snapshot")
-	w.spend_mp(int(w.player_state.mp))
+	w.runner.cooldowns["support"] = 1000.0 # hold the recast to observe the expiry (no MP to run out of, #285)
 	for tick in 120:
 		w.step(DT, MoveInput.new())
 	assert_false(w.buffs.has("support"))
 	assert_eq(w.buffs.effect_total("acc"), 0.0)
 	assert_near(w.runner.stats_of(w, "energy_bolt").damage_max, before.damage_max)
-	w.restore_player("mp", 100, "")
+	w.runner.cooldowns["support"] = 0.0
 	w.step(DT, MoveInput.new())
 	assert_eq(w.buffs.effect_total("matk"), 30.0)
 	assert_eq(w.player_state.buffs[0].duration, 4.0)
 
 
-func test_invincible_reduces_only_weapon_damage_before_magic_guard() -> void:
+func test_invincible_reduces_only_weapon_damage() -> void:
 	for magic: bool in [false, true]:
 		var damage := []
 		for active: bool in [false, true]:
 			var w := _world("support")
 			w.book.defs.support.buff.effects = [{"stat": "weapon_damage_reduction", "field": "x"}]
 			w.book.level_node("support", 1)["x"] = 25
-			w.learn_skill("magic_guard")
 			if active:
 				w.step(DT, MoveInput.new())
 			w.runner.cooldowns.support = 100.0
@@ -214,11 +190,10 @@ func test_invincible_reduces_only_weapon_damage_before_magic_guard() -> void:
 			damage.append(w.take_hit(100, magic, "", w.player.pos))
 			var hits := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "player_hit")
 			assert_eq(hits.size(), 1)
-			assert_eq(hits[0].mp_absorbed, floori(float(hits[0].damage) * 0.11), "Guard splits the reduced damage")
 		assert_eq(damage[1], damage[0] if magic else roundi(float(damage[0]) * 0.75))
 
 
-func test_real_support_buffs_use_canonical_values_lifetimes_and_affordable_recasts() -> void:
+func test_real_support_buffs_use_canonical_values_lifetimes_and_recasts() -> void:
 	if not require_cache():
 		return
 	var lib := AssetLibrary.new()
@@ -235,27 +210,24 @@ func test_real_support_buffs_use_canonical_values_lifetimes_and_affordable_recas
 				continue
 			w.book.skill_imgs[sample[1]] = lib.img("Skill.wz/%s.img" % sample[1]).root
 			w.loadout.set_rank(key, 1 if rank_index == 0 else 20)
-			var mp := int(w.player_state.mp)
 			var duration := int(sample[6 + rank_index])
 			w.step(DT, MoveInput.new())
 			assert_eq(w.buffs.effect_total(sample[3]), float(sample[4 + rank_index]))
 			assert_eq(w.player_state.buffs.size(), 1)
 			assert_eq(w.player_state.buffs[0].duration, float(duration))
-			assert_eq(w.player_state.mp, mp - int(sample[8 + rank_index]))
 			if key == "bless":
 				for stat: String in ["acc", "pdd", "mdd"]:
 					assert_eq(w.buffs.effect_total(stat), float(sample[4 + rank_index]))
-			w.spend_mp(int(w.player_state.mp))
+			w.runner.cooldowns[key] = 1000.0 # hold the recast to observe the exact expiry
 			for tick in duration * 60 - 1:
 				w.step(DT, MoveInput.new())
 			assert_true(w.buffs.has(key), "active until exact expiry")
 			w.step(DT, MoveInput.new())
-			assert_false(w.buffs.has(key), "expires even when MP is short")
-			assert_true(w.runner.waiting_mp)
+			assert_false(w.buffs.has(key), "expires at its canonical time")
 			assert_eq(w.buffs.effect_total(sample[3]), 0.0)
-			w.restore_player("mp", 100, "")
+			w.runner.cooldowns[key] = 0.0
 			w.step(DT, MoveInput.new())
-			assert_true(w.buffs.has(key), "recasts when affordable")
+			assert_true(w.buffs.has(key), "recasts when ready")
 			assert_eq(w.runner.casts, 2)
 	lib.free()
 
@@ -299,9 +271,7 @@ func test_real_slow_copies_use_canonical_box_count_time_signed_x_and_cast_assets
 		for index in 8:
 			RF.put_mob(w, 1110100, 420 + index * 10)
 		w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
-		var mp := int(w.player_state.mp)
 		w.runner.step(DT, w)
-		assert_eq(w.player_state.mp, mp - 16)
 		assert_eq(w.events.filter(func(e: Dictionary) -> bool: return e.type == "mob_status_applied").size(), 6)
 		assert_near(w.swarm.status_time(0, MobSwarm.SLOW), 40.0)
 		assert_near(w.swarm.slow_factor[0], 0.6)

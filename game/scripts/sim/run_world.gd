@@ -19,16 +19,16 @@ extends RefCounted
 ## advancement, no weapon path and no basic attack; weapons gate no skill.
 ##
 ## Events: every emitted Dictionary has `type` plus exactly the fields of EVENT_FIELDS[type]. `player_hit.damage` is the
-## whole hit (the number shown), `mp_absorbed` the part Magic Guard paid with MP; `miss` hits spend neither and
+## whole hit (the number shown); `miss` hits do no damage and
 ## cause no knockback or invincibility. `choice_pending` card `rank` is the
 ## rank the card gives when taken. Swarm/projectile/pickup visuals are read from state (4.4.3).
 ##
-## Player stats live in `player_state` (hp, mp, max_hp, max_mp, exp, level, job_id, str, dex, int, luk, pdd, mdd,
+## Player stats live in `player_state` (hp, max_hp, exp, level, job_id, str, dex, int, luk, pdd, mdd,
 ## avoid, acc, fortune (survivor card-tier stat, separate from LUK), invincible_t, action,
 ## action_t, action_scale, dead, plus exp_next = EXP needed for the next level); `action` is the body stance to draw
 ## ("dead", the cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started,
 ## `action_scale` the fraction of the canonical frame time an attack stance plays in (attack speed). Main stats, W.DEF,
-## M.DEF, acc, avoid and max HP/MP are totals: worn equipment's `inc*` adds on top of the base (equipment_bonus()).
+## M.DEF, acc, avoid and max HP are totals: worn equipment's `inc*` adds on top of the base (equipment_bonus()).
 ##
 ## Live character state (docs/ARCHITECTURE.md 4.4): RunWorld owns the character's worn equipment and inventory
 ## (`equipment`, the Equipment state shape), `scrolls` and `mesos`. UI and bots change them only through these
@@ -75,16 +75,12 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_UPGRADE", "DEAD", "CLEARED"]
 ## Production stage names for the optional clock-free instrumentation callback, in execution order.
 const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "touch", "gain_exp",
 	"player_state", "end_tick"]
-## read_skill_cooldowns state of a skill icon waiting for MP (0 = normal).
-const SKILL_STATE_MP_WAIT := 1
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
-	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
 	"player_restored": ["stat", "amount", "skill", "pos"],
-	"mp_eater_absorbed": ["mob", "amount", "skill", "pos"],
 	"final_attack": ["skill", "skill_id", "level", "mob", "pos", "facing", "action", "effect"],
 	"skill_impact": ["skill", "pos", "effect"],
 	# tier C: a presentation-only ammo flight; Final Attack damage still lands immediately on stream 12.
@@ -104,7 +100,7 @@ const EVENT_FIELDS := {
 	"mob_status_expired": ["mob", "mob_id", "status"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
 	"mob_revives_spawned": ["boss_index", "mob", "mob_id", "pos", "revives", "time"],
-	"player_hit": ["damage", "mp_absorbed", "miss", "dir", "pos", "mob", "mob_id", "boss", "max_hp", "source_kind"],
+	"player_hit": ["damage", "miss", "dir", "pos", "mob", "mob_id", "boss", "max_hp", "source_kind"],
 	"player_jump": ["pos"],
 	"portal_used": ["portal", "target", "pos"],
 	"player_died": ["pos"],
@@ -160,9 +156,9 @@ const DEFAULT_REGEN := PlayerUpkeep.DEFAULT_REGEN
 const DEFAULT_HIT_WINDOW := PlayerUpkeep.DEFAULT_HIT_WINDOW
 ## tier C: the survivor starter attributes; balance.player.stats overrides each one.
 const DEFAULT_STATS := {"str": 12, "dex": 5, "int": 4, "luk": 4}
-## balance.level_up_refill fallback: fraction of the new maximum restored per level-up. MP tier B (v83 servers refill
-## it: Cosmic Character.levelUp calls changeHpMp(maxhp, maxmp)); HP tier C (owner choice: no heal on level-up).
-const DEFAULT_LEVEL_UP_REFILL := {"hp": 0.0, "mp": 1.0}
+## balance.level_up_refill fallback: fraction of the new maximum HP restored per level-up. Tier C (owner choice: no
+## heal on level-up).
+const DEFAULT_LEVEL_UP_REFILL := {"hp": 0.0}
 ## tier C: px between MobSkill 200 summons and revive offspring when balance.mob_skills has no summon_spacing.
 const DEFAULT_SUMMON_SPACING := 24.0
 ## balance.player.inventory_slots fallback. tier A: a new v83 character's Equip tab has 24 slots.
@@ -170,10 +166,8 @@ const DEFAULT_INVENTORY_SLOTS := 24
 ## Grid candidates skill_box_count checks before it reads the whole query. Performance only, not behaviour (no
 ## tier): the count is the same for any value.
 const BOX_PROBE := 16
-## Buff effect stats of Hyper Body (percent of the whole Max HP / Max MP). Not the max_mp_percent passive: that one
-## rescales current MP on growth, a buff leaves current HP/MP alone (spec #165 ticket #184).
+## Buff effect stat of Hyper Body (percent of the whole Max HP); a buff leaves current HP alone (spec #165 ticket #184).
 const MAX_HP_PCT := "max_hp_pct" # tier B: percent of the whole maximum (GAME_DESIGN 11, Hyper Body); the values are tier A.
-const MAX_MP_PCT := "max_mp_pct" # tier B: percent of the whole maximum (GAME_DESIGN 11, Hyper Body); the values are tier A.
 ## The buff stat both Power Guard skills feed (percent of contact damage). tier B: the String desc of the skill, a
 ## third-party v83 reimplementation.
 const POWER_GUARD_STAT := "power_guard"
@@ -302,9 +296,8 @@ var warnings := PackedStringArray()
 ## Largest feet-to-body-box-corner distance over all mob kinds (pads feet-point hash queries).
 var body_pad := 64.0
 var magnet_r := 90.0
-## Additional HP/MP per regeneration pulse; Recovery's separate PlayerBuffs timeline heals independently.
+## Additional HP per regeneration pulse; Recovery's separate PlayerBuffs timeline heals independently.
 var hp_regen := 0.0
-var mp_regen := 0.0
 var player_pdd := 0.0
 var player_mdd := 0.0
 var player_avoid := 0.0
@@ -323,28 +316,24 @@ var _final_queue: Array[Dictionary] = []
 ## Owned Final Attack skill keys, rebuilt when the loadout's version changes.
 var _final_keys: Array[String] = []
 var _final_keys_version := -1
-var _mp := 0.0
 var _max_hp := 1
-var _max_mp := 0
-## The Hyper Body percentages (x = Max HP, y = Max MP) already inside _max_hp/_max_mp; a change refreshes the maxima.
-var _max_buff_applied := Vector2.ZERO
+## The Hyper Body Max HP percentage already inside _max_hp; a change refreshes the maximum.
+var _max_buff_applied := 0.0
 var _base_hp := 50.0
-var _base_mp := 5.0
-var _job_mp := 0.0
 var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
 var _earned_ap := 0
 var _base_fortune := 0.0
 ## Spec #34 cash items. `setup.account` ({owned: [item ids]}, absent = an empty account) decides which of the
-## character's worn cash equipment and pet count; `setup.alert` ({hp, mp}: fractions of max, 0 = do not alert).
+## character's worn cash equipment and pet count; `setup.alert` ({hp}: a fraction of max HP, 0 = do not alert).
 ## worn_cash: {slot: id} of the cash slots actually filled by owned items; pet: the owned pet species out (0 = none);
 ## cash_fortune: the Fortune those slots add, computed live and added to player_state.fortune, never stored in the
-## character; account_owned: the owned item ids; alert: {hp, mp}.
+## character; account_owned: the owned item ids; alert: {hp}.
 var account_owned: Array = []
 var worn_cash := {}
 var pet := 0
 var cash_fortune := 0.0
-var alert := {"hp": 0.0, "mp": 0.0}
+var alert := {"hp": 0.0}
 ## The pet simulation (PetSystem), null when no owned pet is out. See pet_state() and pet_has().
 var pet_system: PetSystem
 var _cash_carried := {}
@@ -391,7 +380,6 @@ func _init(p_setup: Dictionary = {}) -> void:
 	_init_player_motion()
 	_init_player()
 	start_level = progression.level
-	add_hit_listener(_mp_eater_hit)
 	add_hit_listener(_final_attack_hit)
 	add_hit_listener(_damage_heal_hit)
 	add_hit_listener(_steal_hit)
@@ -614,7 +602,7 @@ func character_snapshot() -> Dictionary:
 	var snapshot := {"format": CharacterSnapshot.FORMAT, "level": progression.level, "exp": progression.exp,
 		"job_id": progression.job_id, "attributes": _attributes.duplicate(),
 		"base_attributes": _base_stats.duplicate(), "earned_ap": _earned_ap,
-		"base_hp": _base_hp, "base_mp": _base_mp, "job_mp": _job_mp,
+		"base_hp": _base_hp,
 		"skills": skills, "skill_order": loadout.order.duplicate(),
 		"player_mods": CharacterSnapshot.encode_mods(loadout.player_mods),
 		"card_ranks": loadout.card_ranks.duplicate(),
@@ -658,7 +646,7 @@ func can_clear() -> bool:
 		and pending_cards.is_empty()
 
 
-## Drinks one HP or MP potion instantly while playing, including on ropes; false during cooldown or without a restore spec.
+## Drinks one HP potion instantly while playing, including on ropes; false during cooldown or without a restore spec.
 func drink_potion(kind: String) -> bool:
 	return _drink(kind, false)
 
@@ -670,14 +658,11 @@ func _drink(kind: String, by_pet: bool) -> bool:
 	var sip := potions.consume(kind, by_pet)
 	if sip.is_empty():
 		return false
-	var before := int(player_state[kind])
-	if kind == "hp":
-		_hp = minf(_max_hp, _hp + int(sip.amount))
-	else:
-		_mp = minf(_max_mp, _mp + int(sip.amount))
+	var before := int(player_state.hp)
+	_hp = minf(_max_hp, _hp + int(sip.amount))
 	_write_player_state(0.0)
 	emit("pet_potion_used" if by_pet else "potion_used", {"kind": kind, "item_id": int(sip.item_id),
-		"restored": int(player_state[kind]) - before})
+		"restored": int(player_state.hp) - before})
 	return true
 
 
@@ -711,35 +696,6 @@ func can_start_buff(skill: String, stats: Dictionary) -> bool:
 	return not buffs.has(skill) and (threshold <= 0 or _hp < float(_max_hp) * threshold)
 
 
-## The whole HP paid by one HP-to-MP conversion of resolved stats `st`: its `pay` share of MaxHP rounded to whole points,
-## at least 1 (tier C: the rounding; the shares are canonical, docs/GAME_DESIGN.md 7.16).
-func conversion_hp(st: Dictionary) -> int:
-	return maxi(1, roundi(float(_max_hp) * float(st.conversion.get("pay", 0.0))))
-
-
-## Whether a `self` cast (SkillRunner) of resolved stats `st` is admitted now: the cast block's survivor conditions hold
-## (`mp_below`: MP under that fraction of MaxMP; `hp_at_least`: HP at least that fraction of MaxHP, both before paying;
-## an absent or zero key is not checked) and a conversion's HP payment would leave the character alive.
-func self_cast_ready(st: Dictionary) -> bool:
-	var params: Dictionary = st.cast_params
-	var mp_below := float(params.get("mp_below", 0.0))
-	if mp_below > 0.0 and not _mp < float(_max_mp) * mp_below:
-		return false
-	var hp_at_least := float(params.get("hp_at_least", 0.0))
-	if hp_at_least > 0.0 and _hp < float(_max_hp) * hp_at_least - 1e-6:
-		return false
-	return (st.conversion as Dictionary).is_empty() or can_pay_hp(conversion_hp(st))
-
-
-## Pays a conversion's HP and returns the MP it gives (`gain` of the HP paid, whole points down), as player_restored
-## reports it; the MP is clamped to MaxMP. Returns 0 and changes nothing when the payment would leave 0 HP.
-func convert_hp_to_mp(key: String, st: Dictionary) -> int:
-	var paid := conversion_hp(st)
-	if not spend_hp(paid):
-		return 0
-	return restore_player("mp", floori(float(paid) * float(st.conversion.get("gain", 0.0)) + 1e-6), key)
-
-
 ## Whether the character is Hidden (docs/GAME_DESIGN.md 7.18): an active buff makes monsters, bosses included, ignore
 ## the character and stops its attacks. Oak Barrel (#194) and Thief Dark Sight (#167) use it.
 func is_hidden() -> bool:
@@ -769,7 +725,7 @@ func morph_id() -> int:
 	return buffs.morph()
 
 
-## Starts a resolved timed buff; SkillRunner pays MP and applies the shared casting gate before this call. A buff with a
+## Starts a resolved timed buff; SkillRunner applies the shared casting gate before this call. A buff with a
 ## `fail_chance` (Oak Barrel: Skill.wz `prop`, tier A) rolls it once on the Pirate stream 16 first (every `fail_field`
 ## buff draws it, so a future non-Pirate failure chance needs its own stream) and, when the cast fails, starts nothing and
 ## emits `buff_failed`. Returns whether the buff started.
@@ -853,8 +809,6 @@ func _step_player(dt: float, input: MoveInput) -> void:
 	_teleport_left = maxf(0.0, _teleport_left - dt)
 	if input.drink_hp:
 		drink_potion("hp")
-	if input.drink_mp:
-		drink_potion("mp")
 	_try_manual_buffs(input)
 	if not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
@@ -902,35 +856,27 @@ func teleport_skill() -> String:
 	return ""
 
 
-## Whether an owned Teleport can currently be paid for (also used by the HUD and autoplay).
-func teleport_affordable() -> bool:
-	var key := teleport_skill()
-	return key != "" and _mp >= int(runner.stats_of(self, key).mp_cost)
-
-
 ## HUD readiness of an owned skill: `left` seconds until ready (>= 0), the cooldown `total` set at its last cast
-## (0 before any) and `mp_short` (ready and would cast, but MP is below its cost). Teleport reports its repeat timer.
+## (0 before any). Teleport reports its repeat timer.
 func skill_readiness(key: String) -> Dictionary:
-	return {"left": _cooldown_left(key), "total": _cooldown_total(key), "mp_short": _mp_short(key)}
+	return {"left": _cooldown_left(key), "total": _cooldown_total(key)}
 
 
 ## The HUD's per-frame readiness of every owned skill, in loadout.order, written into the caller's reused buffers
 ## (resized in place; nothing is allocated once they have the right size): left and total as skill_readiness reports
-## them, and `state` per skill (SKILL_STATE_*): 0 normal, 1 waiting for MP.
-func read_skill_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array, state: PackedByteArray) -> void:
+## them.
+func read_skill_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array) -> void:
 	var n := loadout.order.size()
 	left.resize(n)
 	total.resize(n)
-	state.resize(n)
 	for i in n:
 		var key: String = loadout.order[i]
 		left[i] = _cooldown_left(key)
 		total[i] = _cooldown_total(key)
-		state[i] = SKILL_STATE_MP_WAIT if _mp_short(key) else 0
 
 
 ## Pressing (or holding) the skill key of a manual buff such as Dash casts it: it needs no cooldown left, no active
-## copy, a free casting state and the MP; otherwise the press does nothing (no event, no MP spent). Teleport has
+## copy and a free casting state; otherwise the press does nothing (no event). Teleport has
 ## its own handler (_try_teleport).
 func _try_manual_buffs(input: MoveInput) -> void:
 	if input.skills_pressed.is_empty() and input.skills_held.is_empty():
@@ -958,16 +904,6 @@ func _cooldown_total(key: String) -> float:
 	return float(runner.cooldown_totals.get(key, 0.0))
 
 
-func _mp_short(key: String) -> bool:
-	if _is_teleport(key):
-		return _teleport_left <= 1e-6 and key == teleport_skill() and not teleport_affordable()
-	if String(book.def(key).get("skill_key", "")) != "":
-		# A manual buff waits for MP whenever its key could be pressed but could not pay.
-		return _cooldown_left(key) <= 1e-6 and not buffs.has(key) and _mp < float(runner.stats_of(self, key).mp_cost)
-	return _cooldown_left(key) <= 1e-6 and runner.is_waiting_mp(key) \
-		and _mp < float(runner.stats_of(self, key).mp_cost)
-
-
 func _try_teleport(input: MoveInput) -> bool:
 	if not input.skill_requested("teleport") or _teleport_left > 1e-6 or not can_cast():
 		return false
@@ -981,7 +917,7 @@ func _try_teleport(input: MoveInput) -> bool:
 	if direction == Vector2.ZERO:
 		direction.x = player.facing
 	var dest := player.teleport_destination(direction, float(stats.teleport_range), fhm, bounds)
-	if dest.is_empty() or not spend_mp(int(stats.mp_cost)):
+	if dest.is_empty():
 		return false
 	var departure := player.pos
 	player.place(dest.pos, fhm)
@@ -1094,11 +1030,8 @@ func _credit_pickups() -> void:
 ## The pet's tick: movement, then its auto-potion drinks (below the ALERT level, using the shared cooldown).
 func _step_pet(dt: float) -> void:
 	pet_system.step(dt, player, fhm, bounds, pickups, events, maxi(0, inventory_slots() - equipment.inventory.size()))
-	for kind: String in ["hp", "mp"]:
-		var current := _hp if kind == "hp" else _mp
-		var maximum := _max_hp if kind == "hp" else _max_mp
-		if pet_system.should_drink(kind, current, maximum, float(alert[kind]), potions.is_ready(kind)) and _drink(kind, true):
-			pet_system.drank(kind)
+	if pet_system.should_drink("hp", _hp, _max_hp, float(alert.hp), potions.is_ready("hp")) and _drink("hp", true):
+		pet_system.drank("hp")
 
 
 ## What the pet looks like right now ({} without a pet): species, pos (feet), facing (-1/1), action (stand, move, jump,
@@ -1107,7 +1040,7 @@ func pet_state() -> Dictionary:
 	return pet_system.view() if pet_system != null else {}
 
 
-## Whether a pet with `ability` (auto_hp, auto_mp, wing_boots, binocular, vac) is out.
+## Whether a pet with `ability` (auto_hp, wing_boots, binocular, vac) is out.
 func pet_has(ability: String) -> bool:
 	return pet_system != null and bool(pet_system.abilities.get(ability, false))
 
@@ -1227,28 +1160,11 @@ func learn_skill(key: String) -> bool:
 	return true
 
 
-## Restores `fraction` of max HP (stat "hp") or MP (stat "mp").
+## Restores `fraction` of max HP (stat "hp"); any other stat restores nothing.
 func heal_fraction(stat: String, fraction: float) -> void:
 	if stat == "hp":
 		_hp = minf(_max_hp, _hp + fraction * _max_hp)
-	elif stat == "mp":
-		_mp = minf(_max_mp, _mp + fraction * _max_mp)
 	_write_player_state(0.0)
-
-
-## Whether spend_mp(amount) would succeed now (nothing is paid).
-func mp_affordable(amount: int) -> bool:
-	return not (_mp < maxi(0, amount))
-
-
-## Pays an action's MP cost; unaffordable actions leave the pool unchanged.
-func spend_mp(amount: int) -> bool:
-	var cost := maxi(0, amount)
-	if not mp_affordable(cost):
-		return false
-	_mp -= cost
-	_write_player_state(0.0)
-	return true
 
 
 ## Whether paying `amount` HP would leave the player alive (HP above the cost); a zero cost is always payable.
@@ -1267,15 +1183,12 @@ func spend_hp(amount: int) -> bool:
 	return true
 
 
-## Restores HP or MP, clamped to its maximum; returns and emits the actual integer pool gain (no event at zero).
+## Restores HP (stat "hp"), clamped to its maximum; returns and emits the actual integer gain (no event at zero).
 func restore_player(stat: String, amount: int, skill: String) -> int:
-	if stat not in ["hp", "mp"] or amount <= 0:
+	if stat != "hp" or amount <= 0:
 		return 0
-	var before := ceili(_hp) if stat == "hp" else floori(_mp)
-	if stat == "hp":
-		_hp = minf(_max_hp, _hp + amount)
-	else:
-		_mp = minf(_max_mp, _mp + amount)
+	var before := ceili(_hp)
+	_hp = minf(_max_hp, _hp + amount)
 	_write_player_state(0.0)
 	var gain := int(player_state[stat]) - before
 	if gain > 0:
@@ -1283,12 +1196,11 @@ func restore_player(stat: String, amount: int, skill: String) -> int:
 	return gain
 
 
-## Recomputes max HP/MP, speed, magnet, regen, defence and the caster inputs from the base stats, job and upgrade
-## modifiers. Granted MaxMP passive growth preserves the MP ratio; other explicit pool modifiers grant the
-## difference. Equipment refreshes pass grant_growth=false and only clamp pools. Level growth suppresses flat grants
-## too, but preserves the passive's MP fraction before the separate level-up refill (#41).
+## Recomputes max HP, speed, magnet, regen, defence and the caster inputs from the base stats, job and upgrade
+## modifiers. Explicit max HP modifiers grant the difference. Equipment refreshes pass grant_growth=false and only
+## clamp HP; level growth suppresses flat grants too, before the separate level-up refill (#41).
 ## `attribute_level` lets a batch EXP gain allocate AP for each intermediate level; -1 uses the current level.
-func refresh_player_stats(grant_growth: bool = true, attribute_level: int = -1, preserve_mp_ratio: bool = false) -> void:
+func refresh_player_stats(grant_growth: bool = true, attribute_level: int = -1) -> void:
 	# Earned AP splits between the job's secondary stat (AutoAp, ticket #106) and its primary stat: the job's one
 	# balance.player.ap row (#284), else its nearest ancestor's.
 	var row: Dictionary = _job_value(balance.get("player", {}).get("ap", {}), {})
@@ -1311,23 +1223,14 @@ func refresh_player_stats(grant_growth: bool = true, attribute_level: int = -1, 
 	for stat: String in _attributes:
 		_attributes[stat] += roundi(equipment_bonus("inc" + stat.to_upper()))
 	var old_hp := _max_hp
-	var old_mp := _max_mp
-	# tier C: equipment max HP/MP adds flat after card modifiers and the MaxMP passive. The Hyper Body buff then scales
-	# that whole total (base, growth, passives, equipment; tier B, v83), unlike the passive, which leaves equipment out.
-	_max_buff_applied = _max_buff_percents()
+	# tier C: equipment max HP adds flat after card modifiers. The Hyper Body buff then scales that whole total (base,
+	# growth, passives, equipment; tier B, v83).
+	_max_buff_applied = _max_buff_percent()
 	_max_hp = maxi(1, roundi((loadout.player_stat("max_hp", _base_hp) + equipment_bonus("incMHP"))
-		* (1.0 + _max_buff_applied.x / 100.0)))
-	var mp_percent := loadout.passive_total(Loadout.MAX_MP_PERCENT)
-	_max_mp = maxi(0, roundi((loadout.player_stat("max_mp", _base_mp + _job_mp) * (1.0 + mp_percent)
-		+ equipment_bonus("incMMP")) * (1.0 + _max_buff_applied.y / 100.0)))
+		* (1.0 + _max_buff_applied / 100.0)))
 	if grant_growth and _max_hp > old_hp:
 		_hp += _max_hp - old_hp
-	if (grant_growth or preserve_mp_ratio) and mp_percent > 0.0 and old_mp > 0 and _max_mp > old_mp:
-		_mp = (_mp / old_mp) * _max_mp
-	elif grant_growth and _max_mp > old_mp:
-		_mp += _max_mp - old_mp
 	_hp = minf(_hp, _max_hp)
-	_mp = minf(_mp, _max_mp)
 	_equipment_speed = equipment_bonus("incSpeed")
 	_equipment_jump = equipment_bonus("incJump")
 	player_acc = CombatMath.base_accuracy(float(_attributes.dex), float(_attributes.luk), jobs.lineage(progression.job_id)) \
@@ -1335,7 +1238,6 @@ func refresh_player_stats(grant_growth: bool = true, attribute_level: int = -1, 
 	refresh_player_speed()
 	magnet_r = loadout.player_stat("magnet", float(balance.get("magnet_radius", 90.0)))
 	hp_regen = loadout.player_stat("hp_regen", float(balance.get("hp_regen", 0.0)))
-	mp_regen = loadout.player_stat("mp_regen", float(balance.get("mp_regen", 0.0)))
 	player_pdd = loadout.player_stat("pdd", equipment_bonus("incPDD")) + loadout.passive_total("pdd")
 	player_mdd = loadout.player_stat("mdd", equipment_bonus("incMDD")) + loadout.passive_total("mdd")
 	player_avoid = loadout.player_stat("avoid", float(_attributes.dex) * AVOID_DEX_FACTOR
@@ -1871,7 +1773,7 @@ func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> in
 
 
 ## Moves live mob i to pos on foothold fh like a new spawn (SpawnDirector relocation): the slot is freed and the same
-## kind spawned there with its logical identity, HP, max HP, remaining MP and elite flag, fading in; emits mob_spawned with relocated_from =
+## kind spawned there with its logical identity, HP, max HP and elite flag, fading in; emits mob_spawned with relocated_from =
 ## i (new spawns have -1). Returns the new slot (-1 when i is not a live mob).
 func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	if i < 0 or i >= swarm.capacity() or swarm.active[i] == 0:
@@ -1909,8 +1811,7 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	var roll := ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
 		mob_defense(m, magic), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult),
 		hit_rng if hit_rng != null else rng, mk.element_multiplier(String(st.get("element", ""))), dtype,
-		float(st.get("damage_pct", 1.0)), int(st.get("player_level", progression.level)), mk.level,
-		float(st.get("crit_damage_bonus", 0.0)))
+		float(st.get("damage_pct", 1.0)), float(st.get("crit_damage_bonus", 0.0)))
 	var dir := 1 if swarm.x[m] >= player.pos.x else -1
 	emit("mob_hit", {
 		"mob": m, "mob_id": mk.id, "damage": roll.x, "crit": roll.y != 0,
@@ -1955,31 +1856,6 @@ func _steal_hit(slot: int, hit: Dictionary) -> void:
 		return
 	drop_mob_loot(slot, true)
 	swarm.stolen[slot] = 1
-
-
-func _mp_eater_hit(slot: int, hit: Dictionary) -> void:
-	if not bool(hit.magic) or int(hit.damage) <= 0 or swarm.mp[slot] <= 0:
-		return
-	# Branch-exclusive learn cards allow only one MP Eater per normal run, preserving the old proc order.
-	for key: String in loadout.order:
-		var absorb: Dictionary = book.def(key).get("absorb_mp", {})
-		if absorb.is_empty():
-			continue
-		var level := loadout.level(key)
-		if level <= 0:
-			continue
-		var chance := book.canonical(key, level, String(absorb.chance_field))
-		var percent := book.canonical(key, level, String(absorb.percent_field))
-		# tier C: truncate fractional MP to whole points (integer interpretation).
-		var amount := mini(swarm.mp[slot], int(swarm.mob_kind(slot).max_mp * percent / 100.0))
-		if chance <= 0.0 or amount <= 0:
-			continue
-		if chance < 100.0 and rng.randf() * 100.0 >= chance:
-			continue
-		swarm.mp[slot] -= amount
-		restore_player("mp", amount, key)
-		# tier C: absorb art also plays at full player MP; gain numbers use player_restored's actual capped gain.
-		emit("mp_eater_absorbed", {"mob": slot, "amount": amount, "skill": key, "pos": player.pos})
 
 
 ## Final Attack (#161): after a damaging physical line of a held matching family, an owned Final Attack skill
@@ -2140,7 +2016,6 @@ func _build_mob_kinds() -> void:
 func _init_player() -> void:
 	var pb: Dictionary = balance.get("player", {})
 	_base_hp = float(pb.get("hp", 50.0))
-	_base_mp = float(pb.get("mp", 5.0))
 	_base_fortune = float(pb.get("fortune", 0.0))
 	var starting: Dictionary = pb.get("stats", {})
 	for stat: String in _base_stats:
@@ -2160,7 +2035,6 @@ func _init_player() -> void:
 	_init_cash()
 	refresh_player_stats()
 	_hp = _max_hp
-	_mp = _max_mp
 	# Every round of the job has its start skills (Teleport on its key from Lv1, #284); a carried character keeps its rank.
 	for key in jobs.start_skills(progression.job_id):
 		if book.has(key) and not loadout.has(key):
@@ -2177,8 +2051,6 @@ func _restore_character(source: Dictionary) -> void:
 	_base_stats = CharacterSnapshot.integers(character.base_attributes)
 	_earned_ap = int(character.earned_ap)
 	_base_hp = float(character.base_hp)
-	_base_mp = float(character.base_mp)
-	_job_mp = float(character.job_mp)
 	_base_fortune = float(character.base_fortune)
 	CharacterSnapshot.restore_loadout(character, loadout)
 	apply_potion_schedule(progression.level, false) # tier C: silent catch-up to the schedule of the loaded level
@@ -2193,10 +2065,10 @@ func _restore_character(source: Dictionary) -> void:
 	_pet_carried = int(character.get("pet", 0))
 
 
-## Sets the ALERT levels from {hp, mp} (fractions of max, clamped; 0 = do not alert). The pet reads them every tick, so
-## a change takes effect at once (a live round follows the Options window, spec #34 #121).
+## Sets the HP ALERT level from {hp} (a fraction of max HP, clamped; 0 = do not alert; an old `mp` key is ignored).
+## The pet reads it every tick, so a change takes effect at once (a live round follows the Options window, spec #34 #121).
 func set_alert(levels: Dictionary) -> void:
-	alert = {"hp": clampf(float(levels.get("hp", 0.0)), 0.0, 1.0), "mp": clampf(float(levels.get("mp", 0.0)), 0.0, 1.0)}
+	alert = {"hp": clampf(float(levels.get("hp", 0.0)), 0.0, 1.0)}
 
 
 ## The cash catalog of this round's data, built once.
@@ -2308,15 +2180,15 @@ func _caster_buff_totals() -> Vector4:
 		buffs.effect_total("attack_speed"))
 
 
-## Active Hyper Body percentages: Vector2(Max HP %, Max MP %), integers like 2..60 straight from the buff snapshots.
-func _max_buff_percents() -> Vector2:
-	return Vector2(buffs.effect_total(MAX_HP_PCT), buffs.effect_total(MAX_MP_PCT))
+## Active Hyper Body Max HP percentage, integers like 2..60 straight from the buff snapshots.
+func _max_buff_percent() -> float:
+	return buffs.effect_total(MAX_HP_PCT)
 
 
-## Recomputes the maxima when the Hyper Body percentages changed (cast or expiry). Current HP/MP keep their values
-## except that the new maximum clamps them (refresh_player_stats; nothing is granted).
+## Recomputes max HP when the Hyper Body percentage changed (cast or expiry). Current HP keeps its value except that
+## the new maximum clamps it (refresh_player_stats; nothing is granted).
 func _refresh_max_buffs() -> void:
-	if _max_buff_percents() != _max_buff_applied:
+	if _max_buff_percent() != _max_buff_applied:
 		refresh_player_stats(false)
 
 
@@ -2330,11 +2202,8 @@ func _tick_timers(dt: float) -> void:
 	if _dead:
 		return
 	for _pulse in upkeep.regen_pulses(dt):
-		_hp = minf(_max_hp, _hp + upkeep.pulse_hp() + hp_regen + loadout.regen_bonus("hp", progression.level))
-		_mp = minf(_max_mp, _mp + upkeep.pulse_mp() + mp_regen + loadout.regen_bonus("mp", progression.level))
-	var recovery := upkeep.periodic_recovery(dt, loadout)
-	_hp = minf(_max_hp, _hp + recovery.x)
-	_mp = minf(_max_mp, _mp + recovery.y)
+		_hp = minf(_max_hp, _hp + upkeep.pulse_hp() + hp_regen + loadout.regen_bonus())
+	_hp = minf(_max_hp, _hp + upkeep.periodic_recovery(dt, loadout))
 	_end_buffs_above_hp()
 
 
@@ -2543,11 +2412,6 @@ func hit_defense() -> Dictionary:
 	return {"pdd": player_pdd + buffs.effect_total("pdd"), "mdd": player_mdd + buffs.effect_total("mdd"), "resistance": {}}
 
 
-## Magic Guard's current percentage; overridable by the timed-buff rules.
-func magic_guard_ratio() -> float:
-	return buffs.effect_total("mp_guard")
-
-
 ## Only explicit source scaling: elites use stage.elites.damage_mult; boss sources may pass dmg_mult.
 func hit_source_multiplier(source: Dictionary) -> float:
 	var mult := float(source.get("dmg_mult", 1.0))
@@ -2568,7 +2432,7 @@ func _window_blocks(bypass: bool) -> bool:
 	return upkeep.invincible_t > 0.0 and not bypass
 
 
-## Applies one monster hit through avoid, defense, Magic Guard and hit reaction; returns whole damage (0 on miss).
+## Applies one monster hit through avoid, defense and hit reaction; returns whole damage (0 on miss).
 ## Source fields: accuracy (canonical acc), elite, dmg_mult, mob, mob_id, boss. Events snapshot max_hp at hit time.
 func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:
 	var bypass := PlayerUpkeep.bypasses_window(source)
@@ -2577,20 +2441,18 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
 	if CombatMath.roll_miss(player_avoid + buffs.effect_total("avoid"), float(source.get("accuracy", 0.0)), rng):
-		_emit_player_hit(0, 0, true, dir, source)
+		_emit_player_hit(0, true, dir, source)
 		return 0
 	var dmg := CombatMath.monster_hit(attack, magic, element, hit_defense(), rng,
 		hit_source_multiplier(source))
 	if not magic:
-		# tier C: apply canonical Invincible percent to the whole weapon hit, before Magic Guard; minimum 1.
+		# tier C: apply canonical Invincible percent to the whole weapon hit; minimum 1.
 		dmg = maxi(1, roundi(dmg * (1.0 - clampf(buffs.effect_total("weapon_damage_reduction"), 0.0, 100.0) / 100.0)))
 	# Power Guard (#182): a no-op, with no RNG and no event, unless the buff is active and this is contact damage.
 	var reflect := _power_guard_reflect(dmg, magic, source)
 	dmg -= reflect
-	var split := CombatMath.magic_guard_split(dmg, magic_guard_ratio(), floori(_mp))
-	_hp -= split.x
-	_mp -= split.y
-	_emit_player_hit(dmg, split.y, false, dir, source)
+	_hp -= dmg
+	_emit_player_hit(dmg, false, dir, source)
 	upkeep.land_hit(bypass)
 	if reflect > 0:
 		_apply_reflect(int(source.mob), reflect)
@@ -2608,7 +2470,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	return dmg
 
 
-## Power Guard (#182, spec #165): the part of `damage` (the hit after defence and Invincible, before Magic Guard's split)
+## Power Guard (#182, spec #165): the part of `damage` (the hit after defence and Invincible)
 ## that goes back to the touching monster. Contact damage only (`source_kind` "touch"; mob attacks, boss attacks,
 ## projectiles and magic are never reflected). Amount = damage x the buff's x%, halved against a boss, at most 10% of
 ## that monster's Max HP; 0 when no Power Guard is active. Tier B: the rule (third-party v83 reimplementation).
@@ -2637,8 +2499,8 @@ func _apply_reflect(m: int, amount: int) -> void:
 		_on_kill(m)
 
 
-func _emit_player_hit(damage: int, mp_absorbed: int, miss: bool, dir: int, source: Dictionary) -> void:
-	emit("player_hit", {"damage": damage, "mp_absorbed": mp_absorbed, "miss": miss, "dir": dir,
+func _emit_player_hit(damage: int, miss: bool, dir: int, source: Dictionary) -> void:
+	emit("player_hit", {"damage": damage, "miss": miss, "dir": dir,
 		"pos": player.pos, "mob": int(source.get("mob", -1)), "mob_id": int(source.get("mob_id", 0)),
 		"boss": bool(source.get("boss", false)), "max_hp": _max_hp, "source_kind": String(source.get("source_kind", "other"))})
 
@@ -2660,17 +2522,12 @@ func _on_level_up(level: int) -> void:
 	_base_hp += float(g.get("hp", 0.0))
 	# Improved MaxHP Increase: the skill's HP per level-up at its rank now, never retroactive (tier B, v83 Cosmic).
 	_base_hp += loadout.passive_total(Loadout.MAX_HP_PER_LEVEL)
-	_base_mp += float(g.get("mp", 0.0))
-	var divisor := float(g.get("int_mp_divisor", 0.0))
-	if divisor > 0.0:
-		_base_mp += floorf(float(_attributes.int) / divisor)
 	_earned_ap += int(balance.get("player", {}).get("ap_per_level", 5))
 	_level_ranks(level)
 	apply_potion_schedule(level, true)
-	refresh_player_stats(false, level, true)
+	refresh_player_stats(false, level)
 	var refill: Dictionary = balance.get("level_up_refill", DEFAULT_LEVEL_UP_REFILL)
 	_hp = minf(_max_hp, _hp + float(refill.get("hp", DEFAULT_LEVEL_UP_REFILL.hp)) * _max_hp)
-	_mp = minf(_max_mp, _mp + float(refill.get("mp", DEFAULT_LEVEL_UP_REFILL.mp)) * _max_mp)
 	emit("level_up", {"level": level})
 
 
@@ -2737,13 +2594,10 @@ func _write_player_state(dt: float) -> void:
 	else:
 		_action_t += dt
 	player_state["hp"] = ceili(_hp) if _hp > 0.0 else 0
-	player_state["mp"] = floori(_mp)
-	player_state["mp_short"] = _waiting_for_mp()
 	player_state["buffs"] = buffs.snapshot()
 	player_state["hidden"] = is_hidden()
 	player_state["morph"] = 0 if _dead else morph_id()
 	player_state["max_hp"] = _max_hp
-	player_state["max_mp"] = _max_mp
 	player_state["exp"] = progression.exp
 	player_state["exp_next"] = progression.exp_to_next()
 	player_state["slow"] = mob_skills.slow_state(time)
@@ -2763,13 +2617,3 @@ func _write_player_state(dt: float) -> void:
 	player_state["action_scale"] = upkeep.action_scale
 	player_state["dead"] = _dead
 	player_state["potions"] = potions.snapshot()
-
-
-## The latest cast scan's shortages, checked against current MP after pickups, refills or held-window changes.
-func _waiting_for_mp() -> bool:
-	if _dead or state in [DEAD, CLEARED] or not runner.waiting_mp:
-		return false
-	for key: String in loadout.order:
-		if runner.is_waiting_mp(key) and _mp_short(key):
-			return true
-	return false

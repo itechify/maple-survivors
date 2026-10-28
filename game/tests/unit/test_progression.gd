@@ -145,7 +145,7 @@ func test_touch_damage_invincibility_knockback_and_death() -> void:
 				hits.append([w.time, e])
 				assert_eq(typeof(e.damage), TYPE_INT)
 				assert_between(e.damage, 70, 82, "Green Mushroom PAD 82 x [0.85, 1], synthetic player has no gear")
-				assert_eq(e.mp_absorbed, 0, "no Magic Guard")
+				assert_false(e.has("mp_absorbed"), "no MP (#285)")
 				assert_eq(e.dir, -1, "pushed away from the mob on the right")
 			elif e.type == "player_died":
 				died = true
@@ -162,19 +162,12 @@ func test_touch_damage_invincibility_knockback_and_death() -> void:
 	assert_eq(w.time, t, "DEAD: step is a no-op")
 
 
-func test_knockback_and_magic_guard_split() -> void:
-	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = [] # no Energy Bolt spending the MP Magic Guard needs
-	data.balance.player.mp = 125 # the pool the removed Magician grant (+120) gave (#284)
-	var w := RunWorld.new(RF.setup("quiet", 7, data))
-	RF.place_player(w, 400.0)
+func test_knockback_and_whole_damage_to_hp() -> void:
+	var w := RF.quiet_world(400.0)
 	RF.change_job_bare(w, 200)
-	w.learn_skill("magic_guard")
-	w.heal_fraction("mp", 1.0)
 	w.drain_events()
 	RF.put_mob(w, 130101, 375.0)
 	var hit: Dictionary = {}
-	var mp0: int = w.player_state.mp
 	var hp0: int = w.player_state.hp
 	for t in 120:
 		w.step(DT, MoveInput.new())
@@ -187,11 +180,9 @@ func test_knockback_and_magic_guard_split() -> void:
 	if hit.is_empty():
 		return
 	assert_eq(hit.dir, 1, "pushed right, away from the mob on the left")
-	assert_eq(hit.mp_absorbed, floori(int(hit.damage) * 11 / 100.0), "Magic Guard L1: 11% to MP")
-	assert_eq(w.player_state.hp, hp0 - int(hit.damage) + int(hit.mp_absorbed))
+	assert_eq(w.player_state.hp, hp0 - int(hit.damage), "the whole hit comes off HP: no Magic Guard (#285)")
 	assert_true(w.player.vel.x > 0.0, "knocked back")
 	assert_true(w.player_state.invincible_t > 1.4)
-	assert_true(int(w.player_state.mp) <= mp0)
 
 
 func test_stage_clear() -> void:

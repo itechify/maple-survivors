@@ -1,12 +1,14 @@
 {
 	"format": 1,
-	"_doc": "Asset manifest fragment for the Magician line (merged into asset_manifest.json by tools/wzimport and AssetManifest; docs/ASSET_PIPELINE.md 4.1). Skill books 200 (Magician) and 210/220/230 (F/P, I/L, Cleric), their sounds in Sound.wz/Skill.img, the Magician instructor Grendel (NPC 1032001), the Teleport effect (Effect.wz/BasicEff.img/Teleport, #60) and every equipment img whose canonical reqJob is the Magician bit (wands 137xxxx, staves 138xxxx, robes and Magician hats, gloves, shoes: all in survivor/equipment_drops.json). Entries are moved unchanged from the single-file manifest.",
+	"_doc": "Asset manifest fragment for the Magician line (merged into asset_manifest.json by tools/wzimport and AssetManifest; docs/ASSET_PIPELINE.md 4.1). Skill books 200 (Magician) and 210/220/230 (F/P, I/L, Cleric), the F/P Mage 211 and Arch Mage 212 books whole (spec #282 #283: the F/P skill pool), their sounds in Sound.wz/Skill.img (for 211/212 only the pool skills 2111002/2111003/2111006 and 2121001/2121003/2121005/2121006/2121007), the Magician instructor Grendel (NPC 1032001), the Teleport effect (Effect.wz/BasicEff.img/Teleport, #60) and every equipment img whose canonical reqJob is the Magician bit (wands 137xxxx, staves 138xxxx, robes and Magician hats, gloves, shoes: all in survivor/equipment_drops.json). Entries are moved unchanged from the single-file manifest.",
 	"imgs": [
 		{"img": "Skill.wz/200.img"},
 		{"img": "Skill.wz/210.img"},
 		{"img": "Skill.wz/220.img"},
 		{"img": "Skill.wz/230.img"},
-		{"img": "Sound.wz/Skill.img", "paths": ["2001002", "2001003", "2001004", "2001005", "2101001", "2101002", "2101003", "2101004", "2101005", "2201001", "2201002", "2201003", "2201004", "2201005", "2301001", "2301002", "2301003", "2301004", "2301005"]},
+		{"img": "Skill.wz/211.img"},
+		{"img": "Skill.wz/212.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["2001002", "2001003", "2001004", "2001005", "2101001", "2101002", "2101003", "2101004", "2101005", "2201001", "2201002", "2201003", "2201004", "2201005", "2301001", "2301002", "2301003", "2301004", "2301005", "2111002", "2111003", "2111006", "2121001", "2121003", "2121005", "2121006", "2121007"]},
 		{"img": "String.wz/Npc.img", "paths": ["1032001"]},
 		{"img": "Npc.wz/1032001.img"},
 		{"img": "Effect.wz/BasicEff.img", "paths": ["Teleport"]}

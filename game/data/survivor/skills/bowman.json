@@ -232,7 +232,7 @@
 			"kind": "buff",
 			"slot": "passive",
 			"name": "Bow Booster",
-			"desc": "Uses HP and MP to temporarily increase bow attack speed.",
+			"desc": "Uses HP to temporarily increase bow attack speed.",
 			"icon": "Skill.wz/310.img/skill/3101002/icon",
 			"damage": "none",
 			"weapon_families": ["bow"],
@@ -298,7 +298,7 @@
 			},
 			"_tier": "Tier A: weapon45, canonical range130..150, damage105..200%, mobCount2..6, prop13..70%, mpCon8..15, hit and afterimage art and Use sound. Tier B: (DEX*3.4+STR)*W.Att/150, fixed mastery0.1. Tier C: shared range_around nearest-facing auto-cast, 120px push on stream1 (bosses resist), 1s cooldown/0.6s hold; swingT1 selected from canonical afterimage actions because no WZ action exists. The canonical afterimage is a 1x1 frame; no replacement trail is invented. Untuned.",
 			"text": {
-				"h": "MP -{mp_cost}; damage {damage}%, up to {mob_count|monster|monsters} within {range} px"
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters} within {range} px"
 			}
 		},
 		"arrow_bomb": {
@@ -341,7 +341,7 @@
 				"duration_field": "time"
 			},
 			"text": {
-				"h": "MP -{mp_cost}; damage {x}%; {prop}% chance to stun for {time} sec."
+				"h": "Damage {x}%; {prop}% chance to stun for {time} sec."
 			},
 			"_tier": "Tier A: weapon45, x72..130% (no damage field), mpCon14..28, canonical lt/rb blast box, mobCount6, prop31..60%, time2..6s, ball/hit art, Use/Hit sounds and 30 levels. Tier C: nearest auto-cast, 1s cooldown/300px base reach/600px per second/8px radius/no base pierce/0.6s held weapon stance, same defaults as first-job arrows; first impact consumes the shot and blasts around the primary, on-hit stun on stream1 (bosses resist). Untuned."
 		},
@@ -469,7 +469,7 @@
 			"kind": "buff",
 			"slot": "passive",
 			"name": "Crossbow Booster",
-			"desc": "Uses HP and MP to temporarily boost the attack speed of your crossbow.",
+			"desc": "Uses HP to temporarily boost the attack speed of your crossbow.",
 			"icon": "Skill.wz/320.img/skill/3201002/icon",
 			"weapon_families": [
 				"crossbow"

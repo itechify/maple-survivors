@@ -21,11 +21,10 @@ const GUN_ONLY := ["invisible_shot", "blank_shot", "recoil_shot"]
 
 
 ## A Gunslinger (job 520 set directly with its old Lv 30 gun, RF.as_job; #284 removed advancement) on a flat floor at x = 400, a spare knuckle in the Equip tab,
-## mob bodies shrunk to 4 x 10 px and standing still, MP full, `key` learned at `rank_value`.
+## mob bodies shrunk to 4 x 10 px and standing still, `key` learned at `rank_value`.
 func _gunslinger(key: String, rank_value := 1, segments: Array = [GROUND], x := 400.0, p_seed := 192) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
-	data.balance.player.mp = 217 # the base 5 plus the +37 / +175 MP the removed Pirate advancements granted (#284)
 	data.balance.magnet_radius = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge(INFO, true)
@@ -49,7 +48,6 @@ func _gunslinger(key: String, rank_value := 1, segments: Array = [GROUND], x := 
 		assert_true(w.learn_skill(key), "learn " + key)
 		w.loadout.set_rank(key, rank_value)
 	w.refresh_player_stats()
-	w.heal_fraction("mp", 1.0)
 	w.drain_events()
 	return w
 
@@ -83,21 +81,20 @@ func _wear(w: RunWorld, id: int) -> void:
 
 # --- numbers by rank ----------------------------------------------------------------------------------------------------
 
-func test_cast_rule_cost_count_and_damage_by_rank() -> void:
-	# [mp, damage fraction, mob count] at rank 1 and 20 (Skill.wz/520.img).
+func test_cast_rule_count_and_damage_by_rank() -> void:
+	# [damage fraction, mob count] at rank 1 and 20 (Skill.wz/520.img).
 	var want := {
-		"invisible_shot": [[10, 0.75, 3], [25, 1.70, 3]],
-		"blank_shot": [[10, 0.63, 3], [25, 1.20, 3]],
-		"grenade": [[15, 0.45, 3], [27, 1.40, 6]],
-		"recoil_shot": [[14, 0.70, 1], [26, 2.60, 1]],
+		"invisible_shot": [[0.75, 3], [1.70, 3]],
+		"blank_shot": [[0.63, 3], [1.20, 3]],
+		"grenade": [[0.45, 3], [1.40, 6]],
+		"recoil_shot": [[0.70, 1], [2.60, 1]],
 	}
 	for key: String in ATTACKS:
 		var w := _gunslinger(key)
 		for i in 2:
 			var st := w.loadout.stats(key, 1 if i == 0 else 20)
-			assert_eq(st.mp_cost, want[key][i][0], "%s MP at rank %d" % [key, 1 if i == 0 else 20])
-			assert_near(st.damage_pct, want[key][i][1], 1e-6, key + " damage")
-			assert_eq(st.mob_count, want[key][i][2], key + " mobs")
+			assert_near(st.damage_pct, want[key][i][0], 1e-6, key + " damage")
+			assert_eq(st.mob_count, want[key][i][1], key + " mobs")
 			assert_eq(st.damage_type, "physical")
 		assert_eq(w.loadout.stats(key).cast_rule, {"invisible_shot": "box", "blank_shot": "box", "grenade": "cluster",
 			"recoil_shot": "nearest"}[key])
@@ -105,21 +102,12 @@ func test_cast_rule_cost_count_and_damage_by_rank() -> void:
 		assert_eq(w.book.max_level(key), 20)
 
 
-func test_each_attack_pays_its_mp_once_per_cast_and_waits_when_short() -> void:
+func test_each_attack_casts_once_with_a_target() -> void:
 	for key: String in ATTACKS:
 		var w := _gunslinger(key)
-		var mp: int = w.player_state.mp
 		_mob(w, 100.0)
 		var events := _tick(w)
 		assert_eq(_of(events, "cast").size(), 1, key + " cast")
-		assert_eq(w.player_state.mp, mp - w.loadout.stats(key).mp_cost, key + " paid its cost")
-		var short := _gunslinger(key)
-		assert_true(short.spend_mp(int(short.player_state.mp)))
-		_mob(short, 100.0)
-		events = _tick(short)
-		assert_eq(_of(events, "cast").size(), 0, key + " does not cast without MP")
-		assert_eq(_of(events, "mp_short").size(), 1)
-		assert_eq(short.player_state.mp, 0)
 
 
 # --- Invisible Shot -----------------------------------------------------------------------------------------------------
@@ -147,8 +135,7 @@ func test_invisible_shot_hits_in_front_and_behind_up_to_three_mobs_inside_the_bo
 	var far := _gunslinger("invisible_shot")
 	_mob(far, 300.0)
 	_mob(far, -300.0)
-	assert_eq(_of(_tick(far), "cast").size(), 0, "nothing inside the box: no cast, no cost")
-	assert_eq(far.player_state.mp, far.player_state.max_mp)
+	assert_eq(_of(_tick(far), "cast").size(), 0, "nothing inside the box: no cast")
 
 
 func test_invisible_shot_mob_count_grows_with_its_card_and_stays_inside_one_cast() -> void:
@@ -202,7 +189,6 @@ func test_blank_shot_rank_one_stun_chance_is_forty_three_percent_for_one_second(
 	var slots: Array = [_mob(w, 80.0), _mob(w, 120.0), _mob(w, 160.0)]
 	for cast in 120:
 		w.runner.cooldowns["blank_shot"] = 0.0
-		w.heal_fraction("mp", 1.0)
 		for slot in slots:
 			w.swarm.hp[slot] = w.swarm.max_hp[slot]
 		var events := _tick(w)
@@ -222,7 +208,6 @@ func test_blank_shot_rank_one_stun_chance_is_forty_three_percent_for_one_second(
 	var stunned2 := 0
 	for cast in 120:
 		again.runner.cooldowns["blank_shot"] = 0.0
-		again.heal_fraction("mp", 1.0)
 		for slot in slots2:
 			again.swarm.hp[slot] = again.swarm.max_hp[slot]
 		stunned2 += _of(_tick(again), "mob_status_applied").filter(
@@ -387,7 +372,6 @@ func test_grenade_strikes_up_to_its_mob_count_by_rank_inside_the_canonical_blast
 			hits.append_array(_hit_slots(_tick(w), "grenade"))
 		assert_eq(hits.size(), case[1], "rank %d strikes %d mobs" % case)
 		assert_false(outside in hits)
-		assert_eq(w.player_state.mp, w.player_state.max_mp - w.loadout.stats("grenade", case[0]).mp_cost)
 
 
 func test_grenade_casts_with_a_knuckle_and_with_any_weapon() -> void:
@@ -425,12 +409,10 @@ func test_the_gun_skills_cast_with_a_knuckle_too() -> void:
 	for key: String in GUN_ONLY:
 		var w := _gunslinger(key)
 		_wear(w, STEEL_KNUCKLER)
-		var mp: int = w.player_state.mp
 		_mob(w, 100.0)
 		_mob(w, -100.0)
 		var events := _tick(w)
 		assert_eq(_of(events, "cast").size(), 1, key + " casts with a knuckle")
-		assert_true(int(w.player_state.mp) < mp, key + " pays its MP")
 	for key: String in GUN_ONLY:
 		assert_eq(_gunslinger(key).book.weapon_families(key), PackedStringArray(["gun"]), key)
 
@@ -508,16 +490,15 @@ func test_original_v83_tables_boxes_art_and_sounds_resolve_in_the_private_cache(
 	var book := SkillBook.from_data(DataRepo.load_all().skills, {"520": img.root})
 	var loadout := Loadout.new(book)
 	var facts := {
-		"invisible_shot": {"mp": [10, 25], "damage": [0.75, 1.70], "mobs": [3, 3], "lt": Vector2(-250, -80), "rb": Vector2(-10, 40)},
-		"blank_shot": {"mp": [10, 25], "damage": [0.63, 1.20], "mobs": [3, 3], "lt": Vector2(-250, -80), "rb": Vector2(-20, 30)},
-		"grenade": {"mp": [15, 27], "damage": [0.45, 1.40], "mobs": [3, 6], "lt": Vector2(-50, -50), "rb": Vector2(50, 20)},
-		"recoil_shot": {"mp": [14, 26], "damage": [0.70, 2.60], "mobs": [1, 1]},
+		"invisible_shot": {"damage": [0.75, 1.70], "mobs": [3, 3], "lt": Vector2(-250, -80), "rb": Vector2(-10, 40)},
+		"blank_shot": {"damage": [0.63, 1.20], "mobs": [3, 3], "lt": Vector2(-250, -80), "rb": Vector2(-20, 30)},
+		"grenade": {"damage": [0.45, 1.40], "mobs": [3, 6], "lt": Vector2(-50, -50), "rb": Vector2(50, 20)},
+		"recoil_shot": {"damage": [0.70, 2.60], "mobs": [1, 1]},
 	}
 	for key: String in facts:
 		assert_eq(book.max_level(key), 20, key)
 		for i in 2:
 			var st := loadout.stats(key, 1 if i == 0 else 20)
-			assert_eq(st.mp_cost, facts[key].mp[i], key + " mpCon")
 			assert_near(st.damage_pct, facts[key].damage[i], 1e-6, key)
 			assert_eq(st.mob_count, facts[key].mobs[i], key)
 			if facts[key].has("lt") and key != "invisible_shot":

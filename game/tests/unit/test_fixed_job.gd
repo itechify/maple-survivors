@@ -9,7 +9,6 @@ const DT := 1.0 / 60.0
 
 func _world(p_seed := 7) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 200 # enough MP for Teleport whatever MP rules apply (#285 owns MP)
 	var w := RunWorld.new(RF.setup("quiet", p_seed, data))
 	RF.place_player(w, 400)
 	return w

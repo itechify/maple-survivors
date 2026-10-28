@@ -7,7 +7,6 @@ const DT := 1.0 / 60.0
 
 func _world(element_attr: String = "") -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 1000
 	var setup := RF.setup("quiet", 55, data)
 	# Synthetic boundary levels exercise changing MP, mastery, poison chance and duration without shared fixtures.
 	setup.skill_imgs["210"].skill["2101005"] = {"elemAttr": "s", "level": {
@@ -43,7 +42,7 @@ func _one_cast(w: RunWorld) -> Array:
 	return w.drain_events()
 
 
-func test_poison_breath_rank_resolves_canonical_damage_and_cost_at_projectile_impact() -> void:
+func test_poison_breath_rank_resolves_canonical_damage_at_projectile_impact() -> void:
 	# Independently worked magic ranges with INT=100, MATK=0, at canonical boundary levels.
 	for example: Array in [[1, 10, 15.4, 50.0], [16, 20, 85.4, 175.0],
 			[29, 20, 179.0666667, 283.3333333], [30, 20, 184.3333333, 291.6666667]]:
@@ -55,14 +54,11 @@ func test_poison_breath_rank_resolves_canonical_damage_and_cost_at_projectile_im
 		w.loadout.set_caster(100.0, 0.0, 30)
 		var st := w.loadout.stats("poison_breath")
 		assert_eq(st.level, example[0])
-		assert_eq(st.mp_cost, example[1])
 		assert_eq(st.element, "s", "element comes from canonical skill node")
 		assert_near(st.damage_min, example[2], 1e-4)
 		assert_near(st.damage_max, example[3], 1e-4)
 		var m := _target(w)
-		var before := int(w.player_state.mp)
 		var events := _one_cast(w)
-		assert_eq(before - int(w.player_state.mp), example[1], "one canonical MP payment")
 		var hits := events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit")
 		assert_eq(hits.size(), 1, "one projectile line")
 		if hits.size() == 1:
@@ -189,7 +185,6 @@ func test_cached_fire_poison_levels_visuals_and_sounds() -> void:
 			lo.set_rank(key, rank)
 			var st := lo.stats(key)
 			assert_eq(st.level, rank)
-			assert_eq(st.mp_cost, int(book.level_node(key, rank).mpCon))
 		for field: String in ["ball", "hit", "effect"]:
 			assert_true(lib.anim(String(lo.stats(key)[field])).frames.size() > 0, key + " " + field)
 		for path: String in book.def(key).sounds.values():

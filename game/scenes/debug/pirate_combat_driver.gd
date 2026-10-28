@@ -77,7 +77,6 @@ func _scenario(key: String, rank: int) -> void:
 	w.learn_skill(String(spec.skill))
 	w.loadout.set_rank(String(spec.skill), rank)
 	w.refresh_player_stats()
-	w.heal_fraction("mp", 1.0)
 	for mk: MobKind in w.mob_kinds:
 		mk.move_speed = 0.0
 	w.player.facing = 1
@@ -110,7 +109,7 @@ func _scenario(key: String, rank: int) -> void:
 			stunned += 1
 	summary[key] = {"job": w.progression.job_id, "level": w.progression.level, "weapon": w.weapon_id(), "ammo": w.ammo_id(),
 		"rank": rank, "mobs_hurt": hurt, "mobs_stunned": stunned, "player_dx": w.player.pos.x - start_x,
-		"casts": w.runner.casts, "state": w.state, "mp": int(w.player_state.mp)}
+		"casts": w.runner.casts, "state": w.state}
 
 
 ## Moves the player to the lowest ground (the start platform's y or below) with the flattest 800 px around it, so the

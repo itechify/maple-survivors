@@ -16,9 +16,7 @@ func _cast_events(world: RunWorld) -> Array:
 func test_rope_and_ladder_block_casts_without_pausing_cooldowns() -> void:
 	for is_ladder in [0, 1]:
 		var data := RF.quiet_data()
-		data.balance.player.mp = 6
-		# One auto-cast skill set up directly (#284: a fresh 212 starts with Energy Bolt and Teleport); Three Snails'
-		# canonical 3 MP keeps the numbers below.
+		# One auto-cast skill set up directly (#284: a fresh 212 starts with Energy Bolt and Teleport).
 		data.jobs_survivor.jobs["212"]["start_skills"] = ["three_snails"]
 		var world := RunWorld.new(RF.setup("quiet", 8, data))
 		RF.place_player(world, 400)
@@ -34,7 +32,6 @@ func test_rope_and_ladder_block_casts_without_pausing_cooldowns() -> void:
 		world.mob_kinds[int(world.kind_of_id[1110100])].move_speed = 0.0
 		world.step(DT, MoveInput.new())
 		assert_eq(_cast_events(world).size(), 1, "a ground cast starts the normal cooldown")
-		assert_eq(world.player_state.mp, 3, "the ground cast pays its canonical MP cost")
 		var up := MoveInput.new()
 		up.up = true
 		world.step(DT, up)
@@ -45,7 +42,6 @@ func test_rope_and_ladder_block_casts_without_pausing_cooldowns() -> void:
 			world.step(DT, MoveInput.new())
 			blocked += _cast_events(world).size()
 		assert_eq(blocked, 0, "no new cast during 1.5 seconds of hanging")
-		assert_eq(world.player_state.mp, 3, "hanging spends no MP")
 		var jump := MoveInput.new()
 		jump.left = true
 		jump.jump_pressed = true
@@ -55,7 +51,6 @@ func test_rope_and_ladder_block_casts_without_pausing_cooldowns() -> void:
 		assert_true(world.can_cast(), "airborne casting is allowed")
 		var resumed := _cast_events(world)
 		assert_eq(resumed.size(), 1, "the cooldown became ready while hanging and fires on the first eligible tick")
-		assert_eq(world.player_state.mp, 0, "the resumed cast pays its canonical MP cost")
 		if not resumed.is_empty():
 			assert_eq(resumed[0].skill, "three_snails", "the ready skill resumes")
 

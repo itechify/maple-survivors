@@ -2,7 +2,7 @@ class_name SkillTooltip
 extends Control
 ## The v83-style tooltip of the Skill window (#86): a dark translucent box with a light frame (v83's
 ## UI.wz/UIToolTip.img frame is not in the asset cache, so it is drawn), the name in bold, the icon beside the
-## description, then "[Current Level : N]" / "[Next Level : N]" with their lines, cooldown and MP cost, the weapon the
+## description, then "[Current Level : N]" / "[Next Level : N]" with their lines, cooldown and HP cost, the weapon the
 ## skill needs ("Weapon : Claw", red with "(not held)" when the held weapon cannot use it), and an orange
 ## "Upgrades" section with one line per behaviour card.
 ##
@@ -78,8 +78,6 @@ static func layout(d: Dictionary) -> Array:
 		facts.append("Cooldown %s sec." % SkillText.number(float(d.cooldown)))
 	if int(d.get("hp_cost", 0)) > 0:
 		facts.append("HP cost %d" % int(d.hp_cost))
-	if int(d.get("mp_cost", -1)) >= 0:
-		facts.append("MP cost %d" % int(d.mp_cost))
 	if not facts.is_empty():
 		out.append(["text", "   ".join(facts), DIM, float(MapleText.LINE_SMALL) + 2.0])
 	var ups: Array = d.get("upgrades", [])

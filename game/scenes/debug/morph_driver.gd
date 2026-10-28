@@ -45,11 +45,9 @@ func _drive() -> void:
 	else:
 		w.learn_skill("oak_barrel")
 	w.loadout.set_rank("oak_barrel", int(args.get("rank", 10)))
-	# A level-1 Beginner has 50 HP and 5 MP; give it a Brawler-sized pool so the cast is affordable and survivable.
+	# A level-1 Beginner has 50 HP; give it a Brawler-sized pool so the cast is survivable.
 	w.loadout.add_player_mod("max_hp", "add", 950.0)
-	w.loadout.add_player_mod("max_mp", "add", 200.0)
 	w.refresh_player_stats()
-	w.heal_fraction("mp", 1.0)
 	w.heal_fraction("hp", -1.0)
 	w.heal_fraction("hp", 0.2)
 	var spots := [-160.0, -90.0, 70.0, 130.0, 210.0]
@@ -65,7 +63,6 @@ func _drive() -> void:
 	var guard := 0
 	while not w.is_hidden() and guard < 40:
 		w.runner.cooldowns["oak_barrel"] = 0.0
-		w.heal_fraction("mp", 1.0)
 		await _frames(0.1)
 		guard += 1
 	summary.steps.append(_state("cast"))

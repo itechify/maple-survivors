@@ -1,7 +1,7 @@
 class_name PotionSchedule
 extends RefCounted
 ## The level schedule of automatic potion upgrades (spec #225): balance.potions.schedule is an array of
-## {level, kind ("hp"|"mp"), item} sorted by level. Pure functions over plain data; RunWorld applies the result through
+## {level, kind ("hp"), item} sorted by level. Pure functions over plain data; RunWorld applies the result through
 ## PotionInventory.upgrade (cooldown kept). It keeps no applied-step state: every level-up and every load re-scans the
 ## steps up to the character's level, so the result depends only on the level and the items held. Tier C (ours); the
 ## steps are listed in docs/GAME_DESIGN.md "Constants and provenance".
@@ -55,7 +55,7 @@ static func items(balance: Dictionary) -> Array:
 
 ## The level-up notice, from the v83 String.wz item names ("Red Potion" -> "Orange Potion"). The plural of a name is
 ## name + "s" unless `plurals` (balance.potions.plural_names, {"<item id>": plural display name}) names it, for items
-## whose name is its own plural ("Unagi", "Pure Water"; tier C, ours).
+## whose name is its own plural ("Unagi"; tier C, ours).
 static func notice_text(from_id: int, from_name: String, to_id: int, to_name: String, plurals: Dictionary = {}) -> String:
 	return "Your %s are now %s." % [_plural(from_id, from_name, plurals), _plural(to_id, to_name, plurals)]
 

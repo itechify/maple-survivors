@@ -15,7 +15,6 @@ const INFO := {
 func _world(free := 24) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
-	data.balance.player.mp = 42 # the base 5 plus the +37 the removed Thief advancement granted (#284)
 	var setup := RF.with_basic_attack(RF.setup("quiet", 207, data))
 	setup.equipment_info.merge(INFO, true)
 	if free < 24:
@@ -55,10 +54,8 @@ func test_seeded_bot_has_luk_eighty_and_dex_twenty_five_by_thirty_on_both_branch
 		assert_true(int(w.player_state.luk) >= 80, "LUK first, no stat reset")
 		assert_true(int(w.player_state.dex) >= 25, "v83 first-job DEX minimum")
 		var hp: int = w.player_state.max_hp
-		var mp: int = w.player_state.max_mp
 		_level(w, 31)
 		assert_eq(w.player_state.max_hp - hp, 22)
-		assert_eq(w.player_state.max_mp - mp, 15)
 		var weights := BotShop.weights_for(w.balance, 400, w.jobs)
 		assert_true(float(weights.get("incLUK", 0)) > float(weights.get("incDEX", 0)), "LUK equipment first")
 
@@ -105,7 +102,6 @@ func test_nimble_body_adds_canonical_accuracy_crit_and_avoid_with_either_weapon(
 func _combat(path: String, key: String, rank_value := 1) -> RunWorld:
 	var w := _world()
 	RF.as_job(w, 400, path)
-	w.heal_fraction("mp", 1.0)
 	for mk: MobKind in w.mob_kinds:
 		mk.hitbox = Rect2(-2, -10, 4, 10)
 		mk.move_speed = 0
@@ -142,11 +138,9 @@ func test_lucky_seven_fires_two_stars_at_nearest_with_luk_formula_and_any_weapon
 			var bounds := w.loadout.stats("lucky_seven")
 			assert_eq(bounds.damage_min, 125.0)
 			assert_eq(bounds.damage_max, 250.0)
-			var mp: int = w.player_state.mp
 			var events := _cast(w, [100.0])
 			# Weapons gate no skill (#284): a dagger throws the stars too.
 			assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 1, path)
-			assert_eq(w.player_state.mp, mp - (8 if rank_value == 1 else 16))
 			assert_eq(w.projectiles.active_count(), 2)
 			for tick in 30:
 				w.step(DT, MoveInput.new())
@@ -155,7 +149,7 @@ func test_lucky_seven_fires_two_stars_at_nearest_with_luk_formula_and_any_weapon
 	var too_far := _combat("claw", "lucky_seven")
 	assert_true(_cast(too_far, [260.0]).is_empty(), "outside base claw reach waits")
 
-func test_double_stab_hits_twice_in_the_dagger_reach_with_canonical_cost() -> void:
+func test_double_stab_hits_twice_in_the_dagger_reach() -> void:
 	for path: String in ["dagger"]:
 		for rank_value in [1, 20]:
 			var w := _combat(path, "double_stab", rank_value)
@@ -163,11 +157,9 @@ func test_double_stab_hits_twice_in_the_dagger_reach_with_canonical_cost() -> vo
 			assert_eq(st.cast_rule, "weapon_reach")
 			assert_eq(st.attack_count, 2)
 			assert_near(st.damage_pct, 0.98 if rank_value == 1 else 1.40)
-			var mp: int = w.player_state.mp
 			var events := _cast(w, [35.0, 45.0, 300.0])
 			var hits := events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "double_stab")
 			assert_eq(hits.size(), 2)
-			assert_eq(w.player_state.mp, mp - (8 if rank_value == 1 else 14))
 			for hit: Dictionary in hits:
 				assert_near(hit.pos.x, w.player.pos.x + 35)
 	var too_far := _combat("dagger", "double_stab")
@@ -221,14 +213,6 @@ func test_lucky_seven_uses_the_current_star_sprite_when_the_ammo_tier_changes() 
 			if w.projectiles.active[i] != 0:
 				assert_eq(w.projectiles.paths[w.projectiles.visual[i]], Ammo.bullet_path(expected))
 
-func test_attacks_wait_without_cost_when_mp_is_short() -> void:
-	for key: String in ["lucky_seven", "double_stab"]:
-		var w := _combat("claw" if key == "lucky_seven" else "dagger", key)
-		w.spend_mp(int(w.player_state.mp))
-		var events := _cast(w, [40.0])
-		assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 0)
-		assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "mp_short").size(), 1)
-		assert_eq(w.player_state.mp, 0)
 
 func test_drop_scroll_and_shop_rosters_follow_the_held_family() -> void:
 	var data := DataRepo.load_all()
@@ -268,7 +252,6 @@ func test_original_thief_values_art_sounds_and_equipment_resolve_in_the_private_
 		assert_eq(book.max_level(key), 20)
 		for rank_value in [1, 20]:
 			var st := loadout.stats(key, rank_value)
-			assert_eq(st.mp_cost, (8 if rank_value == 1 else 16) if key == "lucky_seven" else (8 if rank_value == 1 else 14))
 			assert_near(st.damage_pct, (0.58 if rank_value == 1 else 1.50) if key == "lucky_seven" else (0.98 if rank_value == 1 else 1.40))
 			assert_eq(st.count if key == "lucky_seven" else st.attack_count, 2)
 		for level in [1, 10, 15, 20, 25]:

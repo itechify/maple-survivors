@@ -7,7 +7,6 @@ const DT := 1.0 / 60.0
 
 func _reward_world(p_seed := 71) -> RunWorld:
 	var w := RF.quiet_world(400.0, p_seed)
-	w.balance.player.skills = []
 	w.loadout.order.clear()
 	w.bosses = BossDirector.new([{"mob_id": 2220000, "time": 0.0}])
 	w.bosses.records[0].dead = true
@@ -24,6 +23,13 @@ func _answer(w: RunWorld) -> void:
 		assert_true(w.apply_choice(String(w.pending_cards[0].id)))
 
 
+## Keeps every owned skill on its cooldown, so no auto-cast kills the lethal source first (an empty MP pool did this
+## before MP was removed, #285).
+func _hold_skills(w: RunWorld) -> void:
+	for key: String in w.loadout.order:
+		w.runner.cooldowns[key] = 1.0e9
+
+
 func _lethal_contact(w: RunWorld) -> void:
 	var slot := RF.put_mob(w, 100100, 400.0)
 	w.swarm.alpha[slot] = 1.0
@@ -32,13 +38,13 @@ func _lethal_contact(w: RunWorld) -> void:
 	w.mob_kinds[w.swarm.kind[slot]].pad = 100000.0
 	w.mob_kinds[w.swarm.kind[slot]].acc = 100000.0
 	w._hp = 1.0
-	w._mp = 0.0
+	_hold_skills(w)
 	w.refresh_player_stats(false)
 
 
 func _lethal_ball(w: RunWorld) -> int:
 	w._hp = 1.0
-	w._mp = 0.0
+	_hold_skills(w)
 	w.refresh_player_stats(false)
 	return w.mob_projectiles.spawn({"pos": w.player_body_center(), "velocity": Vector2(60, 0),
 		"visual": 0, "range": 500.0, "mob": -1, "mob_id": 100100, "damage": 100000.0,
@@ -180,7 +186,7 @@ func test_sweep_reuses_room_freed_by_ordinary_equipment_auto_wear() -> void:
 
 func test_distant_final_boss_shower_and_ordinary_drops_are_paid_together() -> void:
 	var data := RF.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000,
 		"rewards": {"bonus_choices": 1, "exp_mult": 0.05, "exp_drops": 2, "potions": {"hp": 2, "mp": 3}}}])
 	var w := RunWorld.new(RF.setup("quiet", 73, data))
@@ -231,4 +237,4 @@ func test_balance_harness_observes_choice_only_settlement_without_counting_a_tic
 	assert_eq(report.state, "CLEARED")
 	assert_eq(report.time, 0.0)
 	assert_eq(report.reach.get("10"), 0.0, "the sweep's level event is observed")
-	assert_eq(report.mp_short_seconds, 0.0, "a frozen choice is not an MP-wait tick")
+	assert_false(report.has("mp_short_seconds"), "no MP-wait field (#285)")

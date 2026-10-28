@@ -19,8 +19,8 @@ const REQ_ROWS := [["reqLEV", "reqLevel", "level"], ["reqSTR", "reqSTR", "str"],
 	["reqINT", "reqINT", "int"], ["reqLUK", "reqLUK", "luk"]]
 ## Job lines in the tooltip's row, with their reqJob bits (tier A: v83 reqJob masks).
 const JOB_ROW := [["beginner", 0], ["warrior", 1], ["magician", 2], ["bowman", 4], ["thief", 8], ["pirate", 16]]
-## Stat lines in v83 tooltip order (every `inc*` key an instance may carry).
-const STAT_ORDER := ["incSTR", "incDEX", "incINT", "incLUK", "incMHP", "incMMP", "incPAD", "incMAD", "incPDD",
+## Stat lines in v83 tooltip order (every `inc*` key an instance may carry, except incMMP: there is no MP, ADR 0006).
+const STAT_ORDER := ["incSTR", "incDEX", "incINT", "incLUK", "incMHP", "incPAD", "incMAD", "incPDD",
 	"incMDD", "incACC", "incEVA", "incSpeed", "incJump"]
 ## tier B (v83 weapon speed words, emulator RE): attackSpeed 2 FASTEST, 3 FASTER, 4-5 FAST, 6 NORMAL, 7 SLOW,
 ## 8 SLOWER, 9 SLOWEST -> ToolTip/Equip/Speed/0..6.

@@ -36,10 +36,9 @@ func _info() -> Dictionary:
 
 
 ## A job 110 / 120 / 130 Warrior wearing `weapon`, the other four weapons in the Equip tab, nothing learned, standing at
-## x 400 with 1000 MP. Mobs never move, so the tests are about hits, not contact.
+## x 400. Mobs never move, so the tests are about hits, not contact.
 func _world(job := 110, weapon := SWORD, p_seed := 181) -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 1000
 	data.balance.player.hp = 600 # the base 50 plus the +225 / +325 HP the removed Warrior advancements granted (#284)
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	data.balance.magnet_radius = 0
@@ -89,7 +88,7 @@ func _dummy(w: RunWorld, dx := 60.0, dy := 0.0) -> int:
 ## A physical trigger line such as a basic attack or skill hit reports.
 func _trigger(w: RunWorld, mob: int) -> void:
 	w.hit_mob(mob, {"skill": "fixture", "damage_type": "physical", "magic": false, "damage_min": 100.0,
-		"damage_max": 100.0, "damage_pct": 1.0, "player_level": 1, "crit": 0.0, "crit_mult": 1.5}, -1)
+		"damage_max": 100.0, "damage_pct": 1.0, "crit": 0.0, "crit_mult": 1.5}, -1)
 
 
 ## mob_hit events of skill `key` among the world's pending events (drains them).
@@ -134,20 +133,18 @@ func test_every_mastery_raises_min_damage_and_acc_whatever_weapon_is_held() -> v
 
 # --- Boosters ------------------------------------------------------------------------------------------------------
 
-func test_every_booster_pays_hp_and_mp_speeds_any_weapon_and_recasts_on_expiry() -> void:
+func test_every_booster_pays_hp_speeds_any_weapon_and_recasts_on_expiry() -> void:
 	for row: Array in ROWS:
 		var key := String(row[4])
 		var w := _world(int(row[0]), int(row[5]))
 		assert_true(w.learn_skill("power_strike"), "an attack skill whose timing the Booster shortens")
 		var before := w.loadout.stats("power_strike")
 		var hp := int(w.player_state.hp)
-		var mp := int(w.player_state.mp)
 		assert_true(w.learn_skill(key))
 		w.step(DT, MoveInput.new())
 		assert_true(w.buffs.has(key), "%s was cast" % key)
-		# Skill.wz level 1: HP -29, MP -29, x -2 (v83 speed steps, negative = faster).
+		# Skill.wz level 1: HP -29, x -2 (v83 speed steps, negative = faster).
 		assert_eq(int(w.player_state.hp), hp - 29, "%s pays its canonical HP" % key)
-		assert_eq(int(w.player_state.mp), mp - 29, "%s pays its canonical MP" % key)
 		assert_eq(w.loadout.speed_steps, 2, "%s: two speed steps" % key)
 		var after := w.loadout.stats("power_strike")
 		assert_true(float(after.action_time) < float(before.action_time), "%s shortens the attack stance" % key)
@@ -185,7 +182,6 @@ func test_the_booster_levels_follow_the_canonical_table() -> void:
 	w.loadout.set_rank("sword_booster_fighter", 20)
 	var st := w.loadout.stats("sword_booster_fighter")
 	assert_eq(st.hp_cost, 10, "level 20: HP -10")
-	assert_eq(st.mp_cost, 10, "and MP -10")
 	assert_eq(float(st.duration), 200.0, "for 200 s")
 
 

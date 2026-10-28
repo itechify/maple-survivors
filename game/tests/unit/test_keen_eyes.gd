@@ -8,7 +8,6 @@ const DT := 1.0 / 60.0
 
 func _world(path := "claw") -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 1000 # the removed advancement granted MP (#284)
 	var setup := RF.with_basic_attack(RF.setup("quiet", 209, data))
 	setup["job"] = 400 # no start skills
 	setup.equipment_info.merge({

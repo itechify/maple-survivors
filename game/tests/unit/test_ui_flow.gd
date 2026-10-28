@@ -426,7 +426,6 @@ func test_clear_carries_character_to_next_tier_and_refills_pools() -> void:
 	setup.character = boundary.character
 	var next := RunWorld.new(setup)
 	assert_eq(next.player_state.hp, next.player_state.max_hp)
-	assert_eq(next.player_state.mp, next.player_state.max_mp)
 	assert_eq(next.progression.exp, 17)
 	assert_true(next.potions.is_ready("hp"))
 	assert_eq(flow.save.runs_for("henesys"), 1)
@@ -593,7 +592,7 @@ func test_finale_sweep_quit_replays_start_then_carries_settled_rewards_once() ->
 func test_same_tick_boss_projectile_kill_and_contact_death_ends_run_with_last_valid_character() -> void:
 	var rf := preload("res://tests/fixtures/run_fixtures.gd")
 	var data := rf.quiet_data()
-	data.balance.player.skills = []
+	data.jobs_survivor.jobs["212"]["start_skills"] = []
 	STAGE_FIXTURES.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000,
 		"rewards": {"bonus_choices": 1, "exp_mult": 0}}])
 	var world := RunWorld.new(rf.setup("quiet", 32, data))

@@ -11,7 +11,6 @@ const TOUGH := 1000.0
 ## A world with one synthetic skill (nearest rule unless `cast` names another), player at x=200 facing left.
 func _world(cast: Dictionary = {}, kind: String = "instant") -> RunWorld:
 	var data := RF.quiet_data()
-	data.balance.player.mp = 100
 	data.skills.skills["synthetic"] = {"skill_id": 9991000, "book": "999", "kind": kind,
 		"damage": "fixed", "ranks": [1], "cooldown": 1.0, "range": 400.0, "speed": 400.0, "cast": cast}
 	var setup := RF.setup("quiet", 83, data)

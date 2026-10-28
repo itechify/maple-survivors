@@ -6,7 +6,7 @@ extends Control
 ## INT / LUK, the `Cannot` red set for an unmet one), the job row (`beginner` .. `pirate`, lit for the lines the item
 ## allows), then one line per fact with the v83 label art (`Property`: CATEGORY, ATTACK SPEED, WEAPON ATTACK ..
 ## JUMP, NUMBER OF UPGRADES AVAILABLE) and the `ItemCategory` / `WeaponCategory` / `Speed` word art for its value;
-## STR / DEX / INT / LUK / MaxHP / MaxMP have no v83 label art and are drawn as text. A Use item (scroll)
+## STR / DEX / INT / LUK / MaxHP have no v83 label art and are drawn as text (MaxMP is never shown: no MP, ADR 0006). A Use item (scroll)
 ## shows its name, icon and String.wz description. v83 has no tooltip frame art (UI.wz holds no UIToolTip.img), so
 ## the box is drawn, like the Skill window's.
 ##
@@ -40,7 +40,7 @@ const REQ_TEXT := {"reqLEV": "REQ LEV", "reqSTR": "REQ STR", "reqDEX": "REQ DEX"
 const PROPERTY := {"category": 3, "attack_speed": 4, "incPAD": 6, "incMAD": 7, "incPDD": 8, "incMDD": 9,
 	"incACC": 10, "incEVA": 11, "incSpeed": 13, "incJump": 14, "slots": 16}
 const TEXT_LABELS := {"category": "CATEGORY", "attack_speed": "ATTACK SPEED", "ammo": "AMMO", "incSTR": "STR", "incDEX": "DEX",
-	"incINT": "INT", "incLUK": "LUK", "incMHP": "MaxHP", "incMMP": "MaxMP", "incPAD": "WEAPON ATTACK",
+	"incINT": "INT", "incLUK": "LUK", "incMHP": "MaxHP", "incPAD": "WEAPON ATTACK",
 	"incMAD": "MAGIC ATTACK", "incPDD": "WEAPON DEF.", "incMDD": "MAGIC DEF.", "incACC": "ACCURACY",
 	"incEVA": "AVOIDABILITY", "incSpeed": "SPEED", "incJump": "JUMP", "slots": "NUMBER OF UPGRADES AVAILABLE"}
 const SPEED_NAMES := ["FASTEST", "FASTER", "FAST", "NORMAL", "SLOW", "SLOWER", "SLOWEST"]

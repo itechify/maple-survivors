@@ -1,6 +1,6 @@
 extends TestCase
 ## Bowman first-job contract (#199): seeded combat, card and growth boundaries. The line is unplayable since #284 (no
-## advancement): its character is set up directly (RF.as_job), with the Lv10 advancement's HP/MP in the base pools.
+## advancement): its character is set up directly (RF.as_job), with the Lv10 advancement's HP in the base pool.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -10,9 +10,8 @@ const WEAPONS := {"bow": 1452051, "crossbow": 1462001}
 func _world(free := 24) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["start_skills"] = []
-	# The removed first-job advancement's +125 HP / +37 MP (v83-facts 4), so the canonical costs stay payable.
+	# The removed first-job advancement's +125 HP (v83-facts 4).
 	data.balance.player.hp = 175
-	data.balance.player.mp = 42
 	var setup := RF.with_basic_attack(RF.setup("quiet", 199, data))
 	setup.equipment_info.merge({1452051: {"incPAD": 28, "attackSpeed": 6, "tuc": 7},
 		1462001: {"incPAD": 29, "attackSpeed": 6, "tuc": 7}}, true)
@@ -32,13 +31,12 @@ func _inventory(w: RunWorld) -> Array:
 	return w.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
 
 
-func test_a_bowman_grows_22_15_and_meets_the_lv30_bows_by_auto_ap() -> void:
+func test_a_bowman_grows_22_hp_and_meets_the_lv30_bows_by_auto_ap() -> void:
 	var w := _world()
 	RF.as_job(w, 300, "bow")
 	w.god = true
 	for level in range(2, 32):
 		var hp: int = w.player_state.max_hp
-		var mp: int = w.player_state.max_mp
 		w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
 		for tick in 120:
 			w.step(DT, MoveInput.new())
@@ -46,8 +44,7 @@ func test_a_bowman_grows_22_15_and_meets_the_lv30_bows_by_auto_ap() -> void:
 			if w.progression.level == level:
 				break
 		assert_eq(w.progression.level, level)
-		assert_eq(w.player_state.max_hp - hp, 22, "Bowman HP growth")
-		assert_eq(w.player_state.max_mp - mp, 15, "Bowman MP growth")
+		assert_eq(w.player_state.max_hp - hp, 22, "Bowman HP growth (no MP, #285)")
 		if level == 30:
 			for req: Dictionary in [{"reqLevel": 30, "reqJob": 4, "reqSTR": 35, "reqDEX": 95},
 					{"reqLevel": 28, "reqJob": 4, "reqSTR": 28, "reqDEX": 80}]:
@@ -117,7 +114,6 @@ func _combat(family: String, key := "", rank_value := 1) -> RunWorld:
 		assert_eq(w.equip_item(_inventory(w).find(1462001)), "")
 	elif family == "sword":
 		assert_eq(w.equip_item(_inventory(w).find(1302000)), "")
-	w.heal_fraction("mp", 1.0)
 	for mk: MobKind in w.mob_kinds:
 		mk.hitbox = Rect2(-2, -10, 4, 10)
 		mk.move_speed = 0
@@ -146,14 +142,12 @@ func test_arrow_attacks_use_canonical_cost_damage_count_and_current_ammo() -> vo
 				var double := key == "bow_double_shot"
 				assert_eq(st.count, 2 if double else 1)
 				assert_near(st.damage_pct, (0.92 if rank_value == 1 else 1.30) if double else (1.90 if rank_value == 1 else 2.60))
-				var mp: int = w.player_state.mp
 				_targets(w, [80.0, 140.0])
 				# Separate shot lines: collinear arrows can both collide with the nearer monster.
 				w.swarm.y[1] -= 65.0
 				w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 				w.runner.step(DT, w)
 				assert_eq(w.projectiles.active_count(), 2 if double else 1)
-				assert_eq(w.player_state.mp, mp - ((10 if rank_value == 1 else 16) if double else (7 if rank_value == 1 else 14)))
 				for i in w.projectiles.capacity():
 					if w.projectiles.active[i] != 0:
 						assert_eq(w.projectiles.visual[i], w.visual_index(Ammo.bullet_path(w.ammo_id())))
@@ -163,13 +157,6 @@ func test_arrow_attacks_use_canonical_cost_damage_count_and_current_ammo() -> vo
 				assert_eq(hits.size(), 2 if double else 1)
 				if double:
 					assert_true(hits[0].pos.x != hits[1].pos.x, "two arrows split over two targets")
-	for key: String in ["arrow_blow", "bow_double_shot"]:
-		var w := _combat("bow", key)
-		_targets(w, [80.0])
-		w.spend_mp(int(w.player_state.mp))
-		w.runner.step(DT, w)
-		assert_eq(w.projectiles.active_count(), 0, "unaffordable attack waits")
-		assert_eq(w.player_state.mp, 0)
 
 
 func test_eye_extends_weapon_and_bow_skill_reach_and_projectile_lifetime() -> void:
@@ -220,14 +207,13 @@ func test_blessing_accuracy_and_focus_recast_with_string_acc_and_canonical_cost(
 	assert_true(w.learn_skill("focus"))
 	w.loadout.set_rank("focus", 20)
 	w.refresh_player_stats()
-	var mp: int = w.player_state.mp
 	w.runner.step(DT, w)
-	assert_eq(w.player_state.mp, mp - 16)
 	assert_near(w.player_state.acc, acc + 20)
 	assert_near(w.player_state.avoid, avoid + 20)
 	assert_true(w.buffs.has("focus"))
+	var casts := w.runner.casts
 	w.runner.step(DT, w)
-	assert_eq(w.player_state.mp, mp - 16, "no recast while active")
+	assert_eq(w.runner.casts, casts, "no recast while active")
 	# Fixed tick expiration with no targets or incoming damage.
 	w.god = true
 	for tick in 18002:
@@ -279,12 +265,9 @@ func test_original_bowman_levels_stats_art_and_sounds_resolve_in_private_cache()
 			assert_true(lib.sound(sound) != null)
 	for rank_value in [1,20]:
 		assert_near(lo.stats("arrow_blow", rank_value).damage_pct, 1.90 if rank_value == 1 else 2.60)
-		assert_eq(lo.stats("arrow_blow", rank_value).mp_cost, 7 if rank_value == 1 else 14)
 		assert_near(lo.stats("bow_double_shot", rank_value).damage_pct, 0.92 if rank_value == 1 else 1.30)
-		assert_eq(lo.stats("bow_double_shot", rank_value).mp_cost, 10 if rank_value == 1 else 16)
 		assert_eq(lo.stats("bow_double_shot", rank_value).count, 2)
 		var focus := lo.stats("focus", rank_value)
-		assert_eq(focus.mp_cost, 8 if rank_value == 1 else 16)
 		assert_eq(focus.duration, 70.0 if rank_value == 1 else 300.0)
 		assert_eq(focus.buff_effects, {"acc": 1.0 if rank_value == 1 else 20.0, "avoid": 1.0 if rank_value == 1 else 20.0})
 	for key: String in ["blessing_of_amazon", "critical_shot", "eye_of_amazon"]:

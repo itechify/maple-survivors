@@ -98,7 +98,7 @@ func test_real_hub_draws_all_npcs_refills_pools_and_keeps_rooms_inert() -> void:
 	setup.character = character
 	var round_world := RunWorld.new(setup)
 	assert_eq(hub.status.player_state.hp, round_world.player_state.max_hp)
-	assert_eq(hub.status.player_state.mp, round_world.player_state.max_mp)
+	assert_false(hub.status.player_state.has("mp"), "no MP on the hub status bar (#285)")
 	var before := JSON.stringify(hub.snapshot)
 	var count := 0
 	for portal: Dictionary in hub.map.map_root.portal.values():
@@ -281,7 +281,7 @@ func test_hub_boundary_of_an_old_save_has_no_magnet_and_shows_the_caught_up_poti
 	assert_false(loadout.player_mods.has("magnet"), "no magnet radius modifier in the hub")
 	assert_false(hub.snapshot.character.card_ranks.has("magnet"))
 	assert_eq(hub.inventory.potions.item_id("hp"), 2022003, "Lv 45 selects Unagi")
-	assert_eq(hub.inventory.potions.item_id("mp"), 2022000, "and Pure Water")
+	assert_eq(hub.inventory.potions.item_id("mp"), 0, "and no MP potion (#285)")
 	var iw := ItemWindow.new(hub.inventory)
 	iw.select_tab(1)
 	assert_eq(iw.cells(), InventoryModel.use_cells(hub.inventory.scrolls), "legacy potion stocks take no Use slots")
