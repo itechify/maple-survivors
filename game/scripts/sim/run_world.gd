@@ -2420,6 +2420,9 @@ func hit_defense() -> Dictionary:
 ## Tier C (#307): survivor opening multiplier on the whole round clock; absent ramps preserve existing strength.
 func opening_multiplier(stat: String) -> float:
 	var ramp: Dictionary = stage.get("opening_ramp", {})
+	var maps: Array = stage.get("maps", [])
+	if map_index >= 0 and map_index < maps.size():
+		ramp = maps[map_index].get("opening_ramp", ramp)
 	var values: Dictionary = ramp.get(stat, {})
 	var seconds := float(ramp.get("seconds", 0.0))
 	var progress := clampf(time / seconds, 0.0, 1.0) if seconds > 0.0 else 1.0

@@ -115,3 +115,14 @@ func test_backloaded_ramp_still_reaches_full_strength_by_its_end() -> void:
 	assert_near(w.opening_multiplier("hp"), 0.3, 0.00001, "cubic progress is 1/8 at halfway")
 	w.time = 120.0
 	assert_near(w.opening_multiplier("hp"), 1.0, 0.00001)
+
+
+func test_map_override_uses_round_clock_and_scales_spawn_hp() -> void:
+	var w := _world()
+	w.stage.maps.append({"map_id": 1, "boss": {}, "opening_ramp": {
+		"seconds": 120, "hp": {"start": 0.6, "end": 1.0}, "damage": {"start": 0.4, "end": 1.0}}})
+	w.map_index = 1
+	w.time = 60.0
+	var slot := w.spawn_mob(int(w.kind_of_id[MF.TAURO]), Vector2(750, 200), 0, 1.0, false)
+	assert_eq(w.swarm.max_hp[slot], 800000, "map override uses round midpoint, not time since entry")
+	assert_near(w.hit_source_multiplier({}), 0.7, 0.00001)
