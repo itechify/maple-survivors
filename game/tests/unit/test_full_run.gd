@@ -168,7 +168,7 @@ func test_full_run_real_map() -> void:
 		for pacing_seed: int in PACING_SEEDS:
 			var missing := PackedStringArray()
 			var character: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(
-				"res://tests/fixtures/characters/tier1_fp.json")) if stage == "henesys" else {}
+				"res://tests/fixtures/characters/fp_arch_mage.json")) if stage == "henesys" else {}
 			var setup := DataRepo.build_setup(data, stage, pacing_seed, Vector2(800, 600), _img, _mob, missing, character)
 			assert_true(missing.is_empty(), "%s seed%d: cache has every required img (%s)" % [stage, pacing_seed, missing])
 			if not missing.is_empty():

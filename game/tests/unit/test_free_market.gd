@@ -165,14 +165,14 @@ func test_autoplay_runs_the_sensible_shop_visit_once_on_entering_the_hub() -> vo
 
 
 func test_the_hub_seeds_scrolls_from_the_saved_state_so_reloading_cannot_reroll() -> void:
-	var base := {"name": "A", "created": "2026-10-16", "rounds_played": 77, "character": {"mesos": 10, "scrolls": {"2043700": 2},
+	var base := {"name": "A", "created": "2026-10-16", "rounds_played": 77, "character": {"mesos": 10, "scrolls": {"2043800": 2},
 		"equipment": {"worn": {"hat": {"id": 1002001, "stats": {"incPDD": 4}, "slots": 7, "scrolls": 0}}, "inventory": []}}}
 	var seed_a := FreeMarket.scroll_seed(base)
 	assert_eq(seed_a, FreeMarket.scroll_seed(base.duplicate(true)), "the same save always gives the same seed")
 	assert_eq(seed_a, FreeMarket.scroll_seed(JSON.parse_string(JSON.stringify(base))),
 		"JSON's float-valued numbers represent the same saved state")
 	var read := base.duplicate(true)
-	read.character.scrolls["2043700"] = 1
+	read.character.scrolls["2043800"] = 1
 	read.character.equipment.worn.hat.slots = 6
 	read.character.equipment.worn.hat.scrolls = 1
 	assert_ne(FreeMarket.scroll_seed(read), seed_a, "every scroll changes the next seed")
@@ -193,10 +193,10 @@ func test_two_hubs_from_the_same_save_read_the_same_scroll_results() -> void:
 	var outcomes := []
 	for _i in 2:
 		var hub := _bot_hub(0)
-		hub.inventory.scrolls["2043700"] = 3
+		hub.inventory.scrolls["2043800"] = 3
 		var results := []
 		for _s in 3:
-			assert_eq(hub.inventory.use_scroll(2043700, "weapon"), "")
+			assert_eq(hub.inventory.use_scroll(2043800, "weapon"), "")
 			results.append(hub.inventory.equipment.worn.weapon.duplicate(true))
 		outcomes.append(results)
 		hub.free()
@@ -209,7 +209,7 @@ func test_live_scroll_rolls_after_an_inventory_action_match_a_rebuilt_saved_hub(
 	var live := _bot_hub(0, {}, 1)
 	# Equipment requirements (reqLevel) are #292's: a Lv1 hub world would refuse the Lv8 wand, so play at Lv20 here.
 	live.inventory.progression.level = 20
-	live.inventory.grant_scrolls(2043701, 3)
+	live.inventory.grant_scrolls(2043801, 3)
 	# A real inventory action saves/reseeds through the handler used by Equip, Item and shops.
 	assert_eq(live.inventory.unequip_item("weapon"), "")
 	live._on_item_action("unequip")
@@ -232,8 +232,8 @@ func test_live_scroll_rolls_after_an_inventory_action_match_a_rebuilt_saved_hub(
 		assert_eq(live_rolls, rebuilt_rolls, "actual next rolls after saved action %d" % attempt)
 		live.inventory.scroll_rng.state = live_state
 		rebuilt.inventory.scroll_rng.state = rebuilt_state
-		assert_eq(live.inventory.use_scroll(2043701, "weapon"), "")
-		assert_eq(rebuilt.inventory.use_scroll(2043701, "weapon"), "")
+		assert_eq(live.inventory.use_scroll(2043801, "weapon"), "")
+		assert_eq(rebuilt.inventory.use_scroll(2043801, "weapon"), "")
 		assert_eq(live.inventory.character_snapshot(), rebuilt.inventory.character_snapshot(),
 			"the next 60% scroll has the same outcome live or after Continue/Cash Shop reconstruction")
 		live._on_item_action("scroll")

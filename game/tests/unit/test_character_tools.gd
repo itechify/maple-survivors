@@ -4,7 +4,7 @@ extends TestCase
 const FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 
 
-func test_fixture_is_a_format_three_arch_mage_with_its_gear() -> void:
+func test_fixture_is_a_format_three_arch_mage_with_the_tier_one_kit() -> void:
 	var errors := PackedStringArray()
 	var character := DataRepo.load_character(FIXTURE, errors)
 	assert_eq(errors, PackedStringArray())
@@ -12,16 +12,19 @@ func test_fixture_is_a_format_three_arch_mage_with_its_gear() -> void:
 		return
 	assert_eq(int(character.format), 3)
 	assert_eq(int(character.job_id), 212)
-	assert_eq(int(character.tiers_unlocked), 1)
+	assert_eq(int(character.tiers_unlocked), 2, "tier 2 is unlocked")
 	for gone: String in ["level", "exp", "skills", "skill_order", "card_ranks", "player_mods", "earned_ap", "attributes", "base_hp"]:
 		assert_false(character.has(gone), "a format-3 character keeps no " + gone)
-	assert_eq(character._doc.seed, 1)
-	assert_eq(character._doc.policy, "bot")
 	assert_eq(String(character._doc.revision).length(), 40)
-	assert_eq(int(character._doc.migration_286.to_format), 3)
-	assert_eq(Equipment.worn_ids(character.equipment.worn), [1040002, 1060002, 1072001, 1372005],
-		"the outfit and the Arch Mage's wand are worn")
+	assert_eq(character._doc.kit.map(func(id: Variant) -> int: return int(id)),
+		[1382002, 1002013, 1072019, 1082019, 1040002, 1060002], "_doc names the kit ids the tool reproduces it from")
+	assert_eq(Equipment.worn_ids(character.equipment.worn), [1002013, 1040002, 1060002, 1072019, 1082019, 1382002],
+		"the starter top and bottom and the tier-1 staff, hat, shoes and gloves are worn")
+	assert_eq(character.equipment.inventory, [], "nothing spare")
+	for slot: String in ["weapon", "hat", "shoes", "gloves"]:
+		assert_eq(int(character.equipment.worn[slot].scrolls), 0, slot + " is unscrolled")
 	assert_eq(int(character.mesos), 0)
+	assert_eq(character.scrolls, {})
 
 
 func test_balance_character_flag_uses_fixture_in_one_off_round() -> void:
@@ -48,7 +51,7 @@ func test_balance_character_flag_uses_fixture_in_one_off_round() -> void:
 	assert_eq(int(start.format), 3)
 	assert_eq(int(start.job_id), int(character.job_id), "report captures the actual starting boundary")
 	assert_eq(start.equipment, JSON.parse_string(JSON.stringify(character.equipment)), "the same gear")
-	assert_eq(int(start.tiers_unlocked), 1)
+	assert_eq(int(start.tiers_unlocked), 2)
 	assert_eq(record.missing, [])
 	assert_eq(int(record.job), int(character.job_id))
 	assert_eq(int(record.start_character.mesos), 0)

@@ -121,9 +121,9 @@ bash scripts/playtest.sh --speed=1 --minutes=3                 # 3 minutes in re
 bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-forward to 10:00 without drawing,
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
 bash scripts/playtest.sh --stage=ellinia --seed=7 --window-autopick=1   # windows open and answer themselves
-bash scripts/playtest.sh --job=210 --minutes=20 --speed=8                      # force Fire/Poison: Magician at Lv10, 210 at Lv30
-bash scripts/playtest.sh --job=100:spear                                       # Warrior, then Spear on the weapon page
-bash scripts/playtest.sh --job=120:blunt                                       # Warrior, then Page with Blunt Weapon at Lv30
+bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the one playable job; the default)
+bash scripts/playtest.sh --stage=sleepywood --character=$PWD/game/tests/fixtures/characters/fp_arch_mage.json
+                                                               # tier 2 with the tier-1 kit (omit --character: the starter wand only)
 ```
 
 The frame rate is capped at the display's refresh rate (vsync on, `Engine.max_fps`; `GameSettings.apply_frame_cap`),
@@ -134,7 +134,7 @@ so without `--vsync=off` the `frame_ms` numbers show the cap (16.7 ms on a 60 Hz
 (frames drawn with at least that many mobs), `frame_work_us` (RunScene's own work per frame), `sim_us_per_tick`,
 `max_alive`, `level_by_minute`, `map_times` (entry seconds, first = 0), `ended_map` (`{index, id}`, zero-based),
 `counters` and `missing` (asset lookups that failed; should be empty). Screenshots:
-`t<s>.png`, `levelup_N`, `job_N`, `cast_<skill>` (each skill's first cast), `<fa key>_followup` (each Final Attack's first follow-up), `reflect_first` (the first Power Guard reflect), `hit_first`, `death_*`, `clear`, `final.png`, `map_<N>_cleared` (including map 3), `map_<N>_enter`
+`t<s>.png`, `levelup_N`, `cast_<skill>` (each skill's first cast), `hit_first`, `death_*`, `clear`, `final.png`, `map_<N>_cleared` (including map 3), `map_<N>_enter`
 (arrivals on maps 2/3), and transfer diagnostics `map_<N>_fade` / `map_<N>_black` (all PNGs, one-based N). An occluded or minimized window draws
 no frames, so screenshots are not saved; the run still quits at `--quit-after` (or its end), logging
 `final.png skipped` after 5 real seconds without a drawn frame. F3 toggles the perf overlay in any run. Look at the
@@ -147,78 +147,72 @@ one density check, and at least one must stay positive. This verifies coverage; 
 playtests retain their existing behavior on a valid early-death summary.
 
 `bash scripts/run.sh -- --hub [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`) skips
-the title and opens the real Free Market to hand-test the scroll shops with the Lv38 F/P fixture (or `--character`) plus
-a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants) in a throwaway `user://tool_hub_save.json`
-recreated at every launch, standing on the floor between Barun and Tulcus; the real save, slots, bests and history are never touched. `--shot`/`--shot-at` work with it.
+the title and opens the real Free Market to hand-test the scroll shops with the F/P fixture (or `--character`) plus
+a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants, every tier unlocked) in a throwaway
+`user://tool_hub_save.json` recreated at every launch, standing on the floor between Barun and Tulcus; the real save,
+slots, bests and history are never touched. `--shot`/`--shot-at` work with it.
 
-`game/scenes/debug/round_loop_driver.tscn` (#286) is a small evidence driver for the new loop: the real creation screens
-(name, look, Job page), the Free Market home, map select with tier 2 locked and unlocked, results, character select and
-history (`ISOLATE=<name> bash scripts/run.sh res://scenes/debug/round_loop_driver.tscn -- --shots=<abs dir under evidence/>`).
-The flow-driver scenarios below still describe the old flow (job windows, saved rounds, Continue replay) and are T12's to
-rewrite (#282); do not trust them until then.
+### Flow driver (`game/scenes/debug/flow_driver.tscn`)
 
-The menu flow with injected keyboard/mouse input (v83 character signboard and creation, map select, arrow-key
-movement, level-up / job / pause windows, death, results, saved-round replay and history) is `game/scenes/debug/flow_driver.tscn`:
-`bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=<abs dir>`
-Use `--scenario=rounds` for creation -> Warrior job/weapon pages -> diagnostic tier-1 clear -> Free Market out00 -> tier-2 map select ->
-Save & quit -> Continue -> Quit round -> same-seed Continue -> death -> deletion/history. All controls use injected
-input; fixed-tick bot warps skip combat time. Tier 1 uses invulnerability, EXP drops to Lv10 and diagnostic boss hits
-after its stage timer for flow QA (#232). `--diagnostic-victory=1` makes tier 2 invulnerable and ends remaining
-boss fights with diagnostic hits after 15:00 to check victory presentation only. Use a fresh output directory
-under `evidence/`; saves go to its `driver_save.json`.
-Use `--scenario=maps` (#248) for an invulnerable Henesys EXP-drop climb through the Warrior/Sword pages, diagnostic
-boss hits after each map's 300 s timer, the real map 1 -> 2 -> 3 transitions and Free Market. On the first map-2
-arrival it uses Save & quit (the existing Quit round control/warning), reloads disk and Continues from map 1 with
-the same seed and boundary character. Shots cover every CLEAR, fade, arrival, replay and hub; summary.json records
-map entries and ending map. This verifies flow, not natural survival. Run through `ISOLATE=<name> bash scripts/run.sh
-res://scenes/debug/flow_driver.tscn -- --scenario=maps --shots=<fresh abs dir under evidence/>`. `--stage=<tier-1 key>`
-(#257, default `henesys`) picks that region's card with Down on the real map select (`maps_stage_select` shot) and
-checks the run and its replay start on that region's own map 1.
-Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
-`keys` (#87); see the script header. Spec #151 (physical combat, the Warrior) adds `skill_weapon` (#156: a weapon-gated skill
-greyed in the Skill window), `skill_warrior` (#163: the Warrior's Skill window and Iron Body) and `warrior` (QA #164: Lv10
-through the job and Sword/Spear/Blunt Weapon pages, only the chosen gift, a shield worn, Save & quit -> Continue keeps
-job, path, weapon and shield). Spec #165 (second job) adds `warrior2` (QA #185, `--job=110|120|130`: an invulnerable
-Lv10 -> Lv30 climb through the real job and weapon pages, only the chosen advancement weapon, the Skill window
-with the unheld family greyed, Save & quit -> Continue); its branch fixtures
-`lv34_{fighter,page,spearman}_2nd.json` come from `tools/character_fixture.gd --job=<id> --god --seconds=600`. Spec #168 (the Pirate line) adds
-`pirate` (QA #195, `--path=knuckle|gun [--branch=510|520]`: Lv10 job then Knuckle/Gun weapon page, only the chosen
-weapon, an invulnerable EXP-drop warp to the
-Lv30 window, Dash on its key, Save & quit -> Continue keeps job, path, weapons and skills; the second-job fixtures
-`lv37_brawler_2nd.json` / `lv36_gunslinger_2nd.json` come from `tools/character_fixture.gd --god [--exp-mult=<k>]`, see
-GAME_DESIGN 4.2). Spec #166 (the Bowman line) adds `bowman` (QA #204, `--branch=310|320`): invulnerable EXP-drop
-climb through the real Lv10/Lv30 windows, Bowman then Bow/Crossbow weapon page, only the chosen weapon, branch advancement
-weapon and Bronze arrow notice, Save & quit -> Continue keeps job, weapons, skills and derived arrow tier. Its
-`hunter_2nd.json` / `crossbowman_2nd.json` fixtures come from `tools/character_fixture.gd --job=<id> --god --seconds=600`
-(seed 1, bot; exact revision and aids in `_doc`, GAME_DESIGN 4.2). Spec #167 (the Thief line) adds `thief`
-(QA #215, `--path=claw|dagger [--branch=410|420]`): invulnerable EXP-drop climb through the real Lv10/Lv30 windows,
-the Claw/Dagger weapon page, only the chosen gift through Equip/Item, branch weapon, Save & quit -> Continue keeps
-job, path, equipment, skills and mesos.
-Historical fixtures retain old spare weapons and generation provenance; snapshot migration keeps them valid
-(`game/tests/fixtures/characters/README.md`). The `assassin_2nd.json` / `bandit_2nd.json` fixtures use
-`tools/character_fixture.gd --job=410:claw|420:dagger --god
---exp-mult=3 --seconds=600` (diagnostic aids and exact revision in `_doc`, GAME_DESIGN 4.2).
-Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
-windows), `scrolls` (#110: scrolls onto worn equipment), `shops` (#111: the Free Market scroll NPCs and shop window),
-`botshop` (#112: the bot's shop plan in the hub) and `economy` (#113: the whole loop, below). `economy` first checks
-the Warrior job/weapon pages, then its slot becomes the Lv38 F/P fixture for a Henesys round (meso and item drops picked up, Item window,
-a drop worn), a diagnostic invulnerable warp with boss hits after the timer into the Free Market, a walk past the four
-scroll NPCs, Space at El Moth (buy a scroll, sell a spare item), Space at Tulcus (10% scrolls), the scrolls dragged
-onto the worn hat (success, then failure), and Save & quit -> Continue, which must restore mesos, worn equipment,
-inventory and scrolls from the saved snapshot:
-`bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=economy --shots=<abs dir under evidence/>`.
-Space is the NPC Chat key and jump is Alt / C (v83 defaults): an existing `user://settings.cfg` that bound Space to
-another action keeps it and leaves NPC Chat unbound until rebound in Key Config, so the shop scenarios put NPC Chat on
-its default in the InputMap before pressing Space. Use `ISOLATE=<name>` with
-`scripts/run.sh res://scenes/debug/flow_driver.tscn -- ...` to prepare and run a private project mirror.
-NX and the Cash Shop (spec #34): `--scenario=cash_shop` (#118), `cash_equip` (#122) and `account` (#126, the whole loop:
-prepared NX -> buy a hat and a pet at map select -> wear/bring them out in round 1 through the Equip window -> warp clear ->
-"+N NX" notice -> buy a pet upgrade in the Free Market -> Save & quit/Continue -> tier 2 -> death -> the account keeps NX and
-items -> a new character uses them; round 1 checks the Warrior weapon page, uses EXP drops, and is invulnerable with
-diagnostic boss hits after the timer unless `--natural-clear=1`). They write a prepared
-account into the evidence-only `driver_save.json`; delete it (or use a fresh shots dir) before repeating.
-`scenes/debug/cash_gallery.tscn` (every curated cash item on the avatar), `shield_gallery.tscn` (the Equip window and avatar with a shield / a two-handed weapon), `weapon_gallery.tscn` (every weapon family: stand, walk and each basic-attack action on a dummy; `-- --mode=cash` a cash weapon cover over a two-handed sword and a claw; `-- --mode=ammo [--branch=410 --level=37]` real ammo projectiles per tier) and `hair_cap_probe.tscn` (cap vs hair layers)
-are the avatar contact-sheet tools.
+The menu flow with injected keyboard and mouse input (v83 character signboard and creation with its Job page, the Free
+Market and its arrow-key walk to out00, map select, level-up and pause windows, death, results, deletion and history) is
+the flow driver. Every control is a real injected event; fixed-tick bot warps skip combat time and are marked diagnostic
+(invulnerable, with lethal boss hits after each map timer). The driver runs uncapped (vsync off): an unfocused or occluded
+window is otherwise throttled to about 1 frame per second and starves its timeouts. Shots are `NN_<step>.png` in the
+fresh `--shots` directory and the character slots, history and account go to its `driver_save.json`, never the player's save
+(delete the folder before repeating a scenario). It exits 1 when a step times out or a check fails.
+
+```bash
+ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scenario=<name> --shots=<abs dir under evidence/>
+```
+
+- `redesign` (#294, the slice's QA; about 6 minutes): title -> create an Arch Mage (name, look, Job page) -> Free Market ->
+  map select with Sleepywood locked and its Start refused -> an invulnerable Henesys round (`--seed`, default 1; the bot
+  steers, the first level-up, the first offer with every active slot filled, the first Mastery offer and the first boss
+  bonus draw open the real window and are answered with a number key; the real CLEAR, fade and arrival presentation) ->
+  results -> Free Market with tier 2 unlocked and the loot kept -> the round's highest-`reqLevel` drop worn at Lv1 by a
+  double-click in the Item window (a diagnostic Lv45 staff is added when none dropped; `summary.json` names which) ->
+  Sleepywood round (mesos on the ground picked up, then a diagnostic lethal boss hit) -> results -> Free Market with the
+  mesos, the worn item and tier 2 kept -> Save & quit -> delete the character -> history (cleared, died, deleted). The
+  scenario plays its own card policy once the slots are full (it ranks the highest-ranked owned active so a Mastery card
+  appears; the bot rarely gets there, GAME_DESIGN section 0); `summary.json` holds the offers, picks, rarities and the
+  showcased windows. This is flow evidence, not survival or balance evidence.
+- `title` (the title screen only; for checking an exported build: `MapleSurvivors.exe res://scenes/debug/flow_driver.tscn
+  -- --scenario=title --shots=<dir>`), `import` (a cache-less start, or the title's Re-import link: the import screen,
+  `--wz=<folder>` typed into the path field; without `--wz` it checks the screen and never writes the cache) and `clear`
+  (tool one-off: `--run=<stage> --seed=<n> --autoplay --autopick --speed=<k>` waits for the clear -> results -> character
+  select, and checks the save file did not change).
+- In-run windows: `windows` (#85: Stat opened, dragged and closed, the sim holds, Stat over a level-up choice, the Menu
+  popup, pause), `skill` (#86: the Skill window on the job's tab, the Common tab of the nine passives, tab keys and clicks,
+  the window over a level-up choice) and `keys` (#87: Key Config and Options; `user://settings.cfg` is backed up and restored).
+- Mesos, equipment, scrolls and shops (spec #33): `inventory` (#108: Equip and Item windows, a refused Warrior shield, wear
+  by double-click and drag; the F/P fixture plus spare items), `scrolls` (#110: scrolls dragged onto worn equipment in a
+  round and in the hub), `shops` (#111: the four scroll NPCs and the shop window) and `botshop` (#112: the bot's shop plan
+  in the hub). Space is the NPC Chat key and jump is Alt / C (v83 defaults): an existing `user://settings.cfg` that bound
+  Space to another action keeps it and leaves NPC Chat unbound until rebound in Key Config, so the shop scenarios put NPC Chat
+  on its default in the InputMap before pressing Space.
+- NX and the Cash Shop (spec #34): `cash_shop` (#118), `cash_equip` (#122) and `account` (#126, the whole loop: prepared
+  NX -> buy a hat and a pet at map select -> wear them in round 1 -> warp clear -> results -> "+N NX" notice -> buy a pet
+  upgrade -> Save & quit/Continue -> Sleepywood -> death -> the character and the account keep everything -> a new
+  character uses the account's items; round 1 is invulnerable with diagnostic boss hits unless `--natural-clear=1`). They
+  write a prepared account into `driver_save.json`.
+
+The scenarios of removed systems (`maps`, `rounds`, `full`, `economy` and the Warrior, Pirate, Bowman and Thief job and weapon
+pages) were deleted with job advancement, saved rounds and the old creation flow (#284, #286, #294); `redesign` and
+`account` cover the loop, `shops` and `scrolls` the economy.
+
+Other debug scenes are tool-only drivers and contact sheets (`ISOLATE=<name> bash scripts/run.sh res://scenes/debug/<scene>.tscn
+-- --shots=<abs dir>`): `cash_gallery.tscn` (every curated cash item on the avatar), `weapon_gallery.tscn` (every weapon family:
+stand, walk and each stance on a dummy; `-- --mode=cash` a cash weapon cover; `-- --mode=ammo [--branch=410 --level=37]` ammo
+projectiles per tier), `hair_cap_probe.tscn` (cap vs hair layers), `ui_gallery.tscn` (`--window=<name>`: the level-up, Skill,
+Stat and other windows), `equipment_requirements_driver.tscn` (the hub kit, Equip and Item windows with no requirement rows,
+an item above Lv1 worn), `equipment_drop_driver.tscn` (drops on the ground and the full-Equip-tab notice),
+`pet_driver.tscn` (each pet species in a round and in the Free Market), `player_summon_probe.tscn` (Elquines with 200 mobs: art
+and frame cost), `stun_driver.tscn` and `teleport_driver.tscn` (status and Teleport visuals), `dark_cave_boss_driver.tscn`
+(every Sleepywood boss attack on the fixture) and `map_viewer.tscn` (a map's layers). They are not in the unit suite
+(`test_tool_scripts` only parses them): run one after changing what it draws. The drivers of the unported job lines (Bowman,
+Thief, Pirate and Warrior combat, Dash, Oak Barrel, Dark Sight, the shield gallery, the old creation, hub and map-select
+probes) were deleted with their lines' playable code paths (#294); their evidence is in `docs/GAME_DESIGN.md` 4.2 and git history.
 
 Normal play (save format 3, ADR 0006, #286) keeps three character slots. Character select opens the character's Free
 Market (home); Up at out00 opens map select, listing every stage of every unlocked tier (a clear of any tier-N stage
@@ -228,26 +222,32 @@ scrolls, mesos, cash, pet and unlocked tiers, plus what a round picked up even w
 and when a round ends; there is no saved round, so closing the game mid-round loses it and Continue only opens the
 hub. Only confirmed deletion frees a slot; every round (and each deletion) adds a history entry. A save file of
 format 1 or 2 moves its characters to the history on load. `--run=<stage> [--character=<absolute JSON>]` stays
-tool-only and never writes saves/bests.
+tool-only and never writes saves/bests. The design is `docs/GAME_DESIGN.md` section 0 and 1.
 
 ### Balance (`scripts/balance.sh`)
 
-`--character="C:/absolute path/character.json"` starts a tool-only one-off round from a format-2
-`CharacterSnapshot` (schema in `game/scripts/sim/character_snapshot.gd`; format 1 files still load and migrate); omitted means a fresh Beginner.
-The same flag works with `--run=<stage>` and `scripts/playtest.sh`. It never writes character saves.
+`--character="C:/absolute path/character.json"` starts a tool-only one-off round from a format-3
+`CharacterSnapshot` (schema in `game/scripts/sim/character_snapshot.gd`; format 1 and 2 files still load and migrate); omitted
+means a fresh Arch Mage with the starter wand. Every round starts at Lv1; the file carries only job, look, equipment, scrolls,
+mesos, cash, pet and unlocked tiers. The same flag works with `--run=<stage>` and `scripts/playtest.sh`. It never writes
+character saves.
 `--account=<absolute JSON>` (balance.sh, playtest.sh, `--run`, tier chains) gives the round an account: owned cash items,
-the character's worn cash equipment and pet, and the HP/MP ALERT levels (`game/scripts/core/account_file.gd`); without it
+the character's worn cash equipment and pet, and the HP ALERT level (`game/scripts/core/account_file.gd`); without it
 the round has an empty account and records are byte-identical to before. The record and output names carry the file name.
 The committed fixtures are `game/tests/fixtures/accounts/full_pet.json` (pet and every upgrade; the smoke's "full account")
 and `full_cash_pet.json` (the same plus a cash item in all 11 slots; for dressed playtest screenshots).
-The committed `game/tests/fixtures/characters/fp_arch_mage.json` is a real headless Henesys bot character;
-its `_doc` records seed, branch, policy and generation revision. `game/tools/character_fixture.gd` reproduces it.
+The committed `game/tests/fixtures/characters/fp_arch_mage.json` is the one character fixture: a format-3 Arch Mage (F/P)
+with tier 2 unlocked and the tier-1 equipment kit worn (a reqLevel-25 staff, reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15
+gloves, unscrolled); its `_doc` records the kit ids, label and revision, and `game/tools/character_fixture.gd --kit=<ids>
+--tiers=2` reproduces it (`game/tests/fixtures/characters/README.md`). The same tool can also write the character a real bot
+round leaves behind, and converts old files.
 
 **Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
 or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on every tier-1 stage, both `bot` and
-`random` policies, plus the full test suite. Check for no crashes and no world warnings, that Henesys runs still reach
-Magician and bosses (The Tree That Grew dies early until the owner reworks it: record only), and compare with the
-previous smoke recorded in 4.2. Record the outcomes and any new metrics (a few lines and one small table) in
+`random` policies, and `--stage=sleepywood` with and without `--character=<fp_arch_mage.json>` (the tier-1 kit against the
+starter wand), plus the full test suite. Check for no crashes and no world warnings, that Henesys runs still fill the six
+active slots and reach bosses (The Tree That Grew dies early until the owner reworks it: record only), and compare with
+the previous smoke recorded in 4.2. Record the outcomes and any new metrics (a few lines and one small table) in
 `docs/GAME_DESIGN.md` 4.2. Don't change balance data, run tuning candidates, or spend held-out seeds. Don't commit
 long tuning logs. If the smoke shows a feature clearly breaking the game (e.g. every run dies before the first boss,
 or every run clears with no deaths), stop and ask the owner. Even if a ticket's text asks for the full tuning
@@ -268,21 +268,12 @@ assessment; never tune on it. Full-run regressions use fixed training seeds 1/2/
 Use focused filters excluding `full_run` while tuning; freeze data and pacing windows before the full suite and
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
-`--job=<id>[:<family>]` (any first or second job id of the canonical tree; `--job=100:spear` and `--job=120:blunt`
-name the chosen advancement family, `JobTree.parse_forced`; `--branch=<id>` is the deprecated alias) forces the bot's
-job choice in `balance.sh`, `playtest.sh`, `--run` and `balance_run.gd`: a first job is taken at the first advancement, a
-second job takes its first job there and itself at the second. A job (or path) this build cannot offer (not playable, or a path the line lacks) fails at
-startup. A multi-family forced job validates against its own families; a single-family branch validates against its
-first job (e.g. `410:claw`). At each advancement the bot uses the forced family only if that job offers it; otherwise
-it draws uniformly among multiple families on job stream 8, including at Lv30. Thus `110:axe` draws a Warrior family
-at Lv10 and forces Axe at Lv30, while a single-family branch such as `--job=410` takes its own family (claw) without a
-draw. Unforced jobs also draw on stream 8. An unforced second job (no `--job`, or a forced first job such as
-`500:knuckle` at Lv30) keeps the held weapon's family (#261): the bot draws only among the branches that offer it (no
-draw when one does, so a Knuckle Pirate always becomes a Brawler and a Sword Warrior a Fighter or Page) and keeps that
-family on the weapon page; when no branch offers it, every branch is drawn as before. BotShop upgrades the recorded
-family while the job can use it.
-Records keep `branch` / `forced_branch` / `job_t` and add `job_times` (`{"<job id>": first advancement time}`);
-the summary reports seconds per job id.
+`--job=<id>` names the character's job in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd` and the fixture tool (ADR 0006:
+a character has one job, chosen at creation, and it never changes). Only a playable job (212 today) is accepted; anything
+else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`, `SceneFlow.forced_job_error`), and a
+`--character` whose job disagrees fails. `--branch=<id>` is the deprecated alias. There is no advancement, so records have no
+`branch`, `forced_branch`, `job_t` or `job_times`; they carry the job id (`jobs` in the summary) and, from #293, `picks`
+(cards taken) and `six_actives_at` (the second the sixth active slot filled, or null).
 
 The movement policies also include `camper_henesys_top`, `camper_henesys_rope`, and `camper_tree_top`;
 all use the sensible bot's cards, jobs and potion decisions. They warm up normally until 1:00 (override with
@@ -328,11 +319,9 @@ Lv70 reach and the tier-1 feed count; unstarted rounds contribute no death/boss 
 `scripts/balance.sh` header for the seed formula and record/report contract.
 
 `--character=<absolute JSON path>` starts one one-off round from a CharacterSnapshot; use it with
-`--stage=sleepywood` for fixture checks. `game/tests/fixtures/characters/fp_arch_mage.json` is actually Lv38
-F/P (job210), from a real seed-1 forced-F/P Henesys bot clear; `_doc` records provenance and
-`tools/character_fixture.gd` reproduces it. `--tier` requires a fresh character and bot/random/first policies;
-use `--character` and campers only for one-off rounds. Spec #32 smokes also cover chain and Dark Cave fixture
-modes on seeds 1/2/2026, bot/random. Record first-pass Dark Cave deaths; tuning belongs to #77.
+`--stage=sleepywood` for fixture checks (the fixture has tier 2 open and the tier-1 kit). `--tier` requires a fresh
+character and bot/random/first policies; use `--character` and campers only for one-off rounds. A `--tier` chain carries the
+format-3 character (its pickups and tier unlocks) from a CLEARED round to the next; every round still starts at Lv1.
 
 ## Git
 
