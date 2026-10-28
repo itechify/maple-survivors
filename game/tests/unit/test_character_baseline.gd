@@ -14,7 +14,8 @@ const DT := 1.0 / 60.0
 ## fixed 212 with Energy Bolt and Teleport at Lv1, with no job advancement, no basic attack, no stream-8 draw, no MP
 ## and no level-gap factor, so every byte after the setup events changes. The #259 hash was 8114bff3...
 ## Re-captured for #287: pool-only offers, eight mapped ranks and +1 rank at every rarity.
-const GOLDEN := "6bcaa33a0c012c1e5327f3997231f2170d348f21ed2ccb0c2fb34a0743ce01cc"
+## Re-captured for #290: seven newly implemented pool skills enter draws and cast with synthetic high-job tables.
+const GOLDEN := "8eda4bb9cf53db1222269d8665e191cb7366de7a52d3d2551ac75b979c512fb1"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

@@ -361,6 +361,21 @@ static func skill_imgs() -> Dictionary:
 	for lv in range(1, 31):
 		steal[str(lv)] = {"mpCon": 12 if lv <= 15 else 24, "damage": 40 + 2 * lv, "prop": 10 + lv}
 	imgs["420"].skill["4201004"] = {"action": "swingO2", "level": steal}
+	# #290: synthetic interpolation of verified T1 endpoint facts; no decoded WZ art.
+	for spec: Array in [[2111002, 60, 120, 6, "f"], [2111003, 32, 90, 0, "s"],
+			[2111006, 80, 150, 1, ""], [2121001, 160, 450, 6, ""],
+			[2121003, 62, 120, 6, "f"], [2121006, 133, 210, 1, "s"], [2121007, 330, 570, 15, "f"]]:
+		var book := str(int(spec[0]) / 10000)
+		if not imgs.has(book):
+			imgs[book] = {"skill": {}}
+		var levels := _levels(30, {"mad": [float(spec[1]), float(spec[2])], "mastery": [1.0, 10.0],
+			"time": [4.0, 40.0], "prop": [41.0, 70.0]})
+		if int(spec[3]) > 1:
+			for node: Dictionary in levels.values():
+				node.mobCount = int(spec[3])
+				node.lt = {"$v": [-200.0, -150.0]}
+				node.rb = {"$v": [200.0, 150.0]}
+		imgs[book].skill[str(spec[0])] = {"elemAttr": spec[4], "level": levels}
 	return imgs
 
 

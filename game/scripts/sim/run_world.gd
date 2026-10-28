@@ -1809,7 +1809,7 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	var roll := ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
 		mob_defense(m, magic), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult),
-		hit_rng if hit_rng != null else rng, mk.element_multiplier(String(st.get("element", ""))), dtype,
+		hit_rng if hit_rng != null else rng, swarm.element_multiplier(m, String(st.get("element", ""))), dtype,
 		float(st.get("damage_pct", 1.0)), float(st.get("crit_damage_bonus", 0.0)))
 	var dir := 1 if swarm.x[m] >= player.pos.x else -1
 	emit("mob_hit", {
@@ -1962,6 +1962,8 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 				"level": level, "skill": key, "x": book.canonical(key, level, "x")}
 			if String(hit.element) != "":
 				params["element"] = String(hit.element)
+			if status.has("element"):
+				params["element"] = String(status.element)
 			swarm.apply_status(slot, String(status.get("status", "")), params, events)
 	var knockback: Dictionary = book.def(key).get("knockback", {})
 	if not knockback.is_empty() and not swarm.mob_kind(slot).boss and swarm.steady[slot] == 0:

@@ -493,6 +493,274 @@
 			"action": "", "action_time": 0.0, "ball": "", "hit": "",
 			"effect": "Effect.wz/BasicEff.img/Teleport", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2301001/Use", "hit": ""}
+		},
+		"explosion": {
+			"skill_id": 2111002,
+			"book": "211",
+			"job": 211,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Explosion",
+			"desc": "Explosion",
+			"icon": "Skill.wz/211.img/skill/2111002/icon",
+			"damage": "magic",
+			"element": "f",
+			"cooldown": 4,
+			"range": 450,
+			"count": 1,
+			"action": "magic3",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/211.img/skill/2111002/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "box"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2111002/Use"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31."
+		},
+		"poison_mist": {
+			"skill_id": 2111003,
+			"book": "211",
+			"job": 211,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Poison Mist",
+			"desc": "Poison Mist",
+			"icon": "Skill.wz/211.img/skill/2111003/icon",
+			"damage": "none",
+			"element": "s",
+			"cooldown": 8,
+			"range": 450,
+			"count": 1,
+			"action": "alert3",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/211.img/skill/2111003/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "box"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2111003/Use"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
+			"ground": {
+				"interval": 1.0,
+				"tile": "Skill.wz/211.img/skill/2111003/tile/0"
+			}
+		},
+		"element_composition": {
+			"skill_id": 2111006,
+			"book": "211",
+			"job": 211,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Element Composition",
+			"desc": "Element Composition",
+			"icon": "Skill.wz/211.img/skill/2111006/icon",
+			"damage": "magic",
+			"element": "fs",
+			"cooldown": 2,
+			"range": 450,
+			"count": 1,
+			"action": "shoot6",
+			"action_time": 0.8,
+			"ball": "Skill.wz/211.img/skill/2111006/ball",
+			"hit": "Skill.wz/211.img/skill/2111006/hit/0",
+			"effect": "Skill.wz/211.img/skill/2111006/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "nearest"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2111006/Use"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
+			"speed": 500,
+			"radius": 10,
+			"on_hit": {
+				"status": "poison",
+				"chance_field": "prop",
+				"element": "s"
+			}
+		},
+		"fire_demon": {
+			"skill_id": 2121003,
+			"book": "212",
+			"job": 212,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Fire Demon",
+			"desc": "Fire Demon",
+			"icon": "Skill.wz/212.img/skill/2121003/icon",
+			"damage": "magic",
+			"element": "f",
+			"cooldown": 5,
+			"range": 450,
+			"count": 1,
+			"action": "magic3",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/212.img/skill/2121003/hit/0",
+			"effect": "Skill.wz/212.img/skill/2121003/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "box"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2121003/Use",
+				"hit": "Sound.wz/Skill.img/2121003/Hit"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
+			"on_hit": {
+				"status": "ice_weak",
+				"element": ""
+			}
+		},
+		"paralyze": {
+			"skill_id": 2121006,
+			"book": "212",
+			"job": 212,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Paralyze",
+			"desc": "Paralyze",
+			"icon": "Skill.wz/212.img/skill/2121006/icon",
+			"damage": "magic",
+			"element": "s",
+			"cooldown": 3,
+			"range": 450,
+			"count": 1,
+			"action": "paralyze",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/212.img/skill/2121006/hit/0",
+			"effect": "Skill.wz/212.img/skill/2121006/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "nearest"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2121006/Use",
+				"hit": "Sound.wz/Skill.img/2121006/Hit"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop"
+			}
+		},
+		"meteor_shower": {
+			"skill_id": 2121007,
+			"book": "212",
+			"job": 212,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Meteor Shower",
+			"desc": "Meteor Shower",
+			"icon": "Skill.wz/212.img/skill/2121007/icon",
+			"damage": "magic",
+			"element": "f",
+			"cooldown": 12,
+			"range": 450,
+			"count": 1,
+			"action": "meteor",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/212.img/skill/2121007/hit/0",
+			"effect": "Skill.wz/212.img/skill/2121007/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "box"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2121007/Use",
+				"hit": "Sound.wz/Skill.img/2121007/Hit"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
+			"pending": {
+				"delay": 1.8,
+				"effect": ""
+			},
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/212.img/skill/2121007/tile/0",
+					"x": -360
+				},
+				{
+					"path": "Skill.wz/212.img/skill/2121007/tile/1",
+					"x": -180
+				},
+				{
+					"path": "Skill.wz/212.img/skill/2121007/tile/2",
+					"x": 0
+				},
+				{
+					"path": "Skill.wz/212.img/skill/2121007/tile/3",
+					"x": 180
+				},
+				{
+					"path": "Skill.wz/212.img/skill/2121007/tile/4",
+					"x": 360
+				},
+				{
+					"path": "Skill.wz/212.img/skill/2121007/effect0",
+					"x": 0
+				}
+			]
+		},
+		"big_bang": {
+			"skill_id": 2121001,
+			"book": "212",
+			"job": 212,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Big Bang",
+			"desc": "Big Bang",
+			"icon": "Skill.wz/212.img/skill/2121001/icon",
+			"damage": "magic",
+			"element": "",
+			"cooldown": 7,
+			"range": 450,
+			"count": 1,
+			"action": "dash",
+			"action_time": 1.08,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/212.img/skill/2121001/keydown",
+			"rotate": false,
+			"cast": {
+				"rule": "box",
+				"box": {
+					"lt": {
+						"$v": [
+							-250,
+							-180
+						]
+					},
+					"rb": {
+						"$v": [
+							250,
+							100
+						]
+					}
+				}
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2121001/Use",
+				"loop": "Sound.wz/Skill.img/2121001/Loop"
+			},
+			"_provenance": "Tier A: WZ damage/count/status/time/box/art. Tier C: survivor cooldown, targeting, range and timing; GAME_DESIGN 7.31.",
+			"pending": {
+				"delay": 1.08,
+				"effect": "Skill.wz/212.img/skill/2121001/effect",
+				"follow_player": true
+			}
 		}
 	}
 }
