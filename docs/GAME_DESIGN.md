@@ -5565,6 +5565,46 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. No rarity lists ship until #288 lands; proposed lists are in T9-291.md.
 
+### 7.34 Combo meter (#299, Hero H3)
+
+`PlayerMeter` is the round-owned, deterministic M1 counter. Hero's data (H2) supplies:
+
+```json
+{"meter":{"id":"combo","max":10,"gain":{"event":"cast_landed","amount":1,"exclude":"finisher"},
+ "per_unit":{"stat":"damage","value":0.02},"art":"Skill.wz/111.img/skill/1111002/state"}}
+```
+
+A round starts at zero; map transfers preserve it. Each non-finisher pool cast earns one orb on its first
+positive damage line, including a delayed impact. Multi-target, multi-line and multi-projectile casts share a receipt;
+a missed cast earns nothing. Mobility is outside the pool, so Rush neither earns orbs nor receives their bonus.
+The held-unit bonus multiplies the cast's resolved damage bounds and status damage multiplier, preserving its
+snapshot through delayed impacts. There is no expiry, timer or RNG. Jobs without a meter keep their old stats/events.
+
+Finisher definitions (H8) add:
+
+```json
+{"meter":{"role":"finisher","min":5,"spend":"all","damage_per_unit":0.10}}
+```
+
+Admission requires the minimum, normal cooldown, prepared targets and payable HP. At admission, snapshot the held-orb
+bonus, retain `round(meter_keep)` units (clamped to 0..held), and multiply damage by `1 + spent * damage_per_unit`.
+Finishers cannot earn Combo. Their repeat cooldown has a 1 s floor, even with cooldown modifiers.
+When multiple finishers are ready, compare their ordinary target plans: a single-target scheduled-boss attack wins,
+otherwise the larger eligible target count wins (capped to strike count); cooldown/learned order breaks ties.
+H8 supplies Coma's three-target threshold and Panic's range/target rules. No job or skill IDs enter the meter runtime.
+Other auto-skills keep their oldest-ready order.
+
+`meter_keep` is an ordinary skill modifier, available to rarity bonuses and Mastery; previews say “Keeps N orbs”.
+SkillText appends “Needs N orbs” and the retained count to card/Skill-window descriptions.
+Each actual value change appends `meter_changed {id, value, max}`. HudMeter receives those events, draws max pips
+beside the skill icons, and lights value pips. Combo uses the verified orb art at `state/1` (43x42 in v83);
+unavailable art uses drawn pips. Jobs without a meter display nothing.
+
+Later jobs can configure `gain.event` to `hit_taken` or `meso_picked` and call `gain(event, events)` at their
+event source; H3 wires landed casts only. M23 owns meso pickup coupling; energy/form rules belong to Buccaneer's spec.
+The current `per_unit.stat` contract is `damage`; additional stat semantics need an explicit extension.
+Paladin uses M2 forms, not M1. Meter state is absent from CharacterSnapshot: a new round always starts empty.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -6767,3 +6807,13 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 #291 tier C provenance: summon auto-admission, replacement groups, nearest/boss-first two-sided acquisition,
 current-body impact selection, follow/snap model and the numeric first-pass Elquines settings are in 7.32.
 Missing/zero summon frame delays use the existing 100 ms presentation default (tier C); WZ delays are otherwise unchanged.
+
+### Hero H3 meter constants (#299)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Combo capacity, gain | 10; +1 per landed non-finisher pool cast | tier C survivor adaptation; tier A source: Combo Attack/Advanced Combo counter descriptions |
+| Held-unit damage bonus | +2% per orb | tier C, #296; H2 job data |
+| Finisher gate / spend multiplier | 5; all minus meter_keep; +10% per spent orb | tier C, #296; H8 skill data |
+| Finisher repeat floor / arbitration | 1 s; single-target scheduled boss, else most targets | tier C, #296; shared admission |
+| Meter HUD geometry | 12 px pitch, 4 px radius, 10 px orb image | tier C presentation layout; original orb pixels tier A |

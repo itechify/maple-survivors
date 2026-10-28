@@ -689,3 +689,26 @@ func test_stage_keyframe_parser_ignores_retired_potion_curve() -> void:
 	var director := SpawnDirector.create(stage, {})
 	assert_false(director.keyframes[0].has("normal_hp_drop_chance"), "retired potion curves are not parsed")
 	assert_near(director.rate_at(0.0), 1.0, 1e-6, "supported pacing fields are still parsed")
+
+func test_meter_catalog_schema() -> void:
+	for job: Dictionary in data.jobs_survivor.jobs.values():
+		if not job.has("meter"):
+			continue
+		var meter: Dictionary = job.meter
+		assert_true(meter.id is String and not String(meter.id).is_empty())
+		assert_true(float(meter.max) > 0 and float(meter.max) == floorf(float(meter.max)))
+		assert_true(String(meter.gain.event) in ["cast_landed", "hit_taken", "meso_picked"])
+		assert_true(float(meter.gain.amount) > 0 and float(meter.gain.amount) == floorf(float(meter.gain.amount)))
+		assert_true(String(meter.gain.get("exclude", "")) in ["", "finisher"])
+		assert_eq(String(meter.per_unit.stat), "damage")
+		assert_true(float(meter.per_unit.value) >= 0.0)
+		assert_true(meter.get("art", "") is String)
+	for skill: Dictionary in data.skills.skills.values():
+		if not skill.has("meter"):
+			continue
+		var meter: Dictionary = skill.meter
+		assert_eq(String(meter.role), "finisher")
+		assert_true(float(meter.min) > 0 and float(meter.min) == floorf(float(meter.min)))
+		assert_eq(String(meter.spend), "all")
+		assert_true(float(meter.damage_per_unit) >= 0.0)
+		assert_eq(String(skill.slot), "active")

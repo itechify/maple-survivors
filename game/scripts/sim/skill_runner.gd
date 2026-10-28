@@ -96,7 +96,8 @@ static func restart_cooldown(st: Dictionary) -> float:
 		if bool(st.get("cooldown_from_cast", false)):
 			return float(st.buff_cooldown)
 		return maxf(float(st.duration), float(st.buff_cooldown))
-	return float(st.cooldown)
+	# tier C: finisher repeat floor (Hero spec #296); the meter controls its cadence.
+	return maxf(1.0, float(st.cooldown)) if st.has("meter") else float(st.cooldown)
 
 
 ## Horizontal reach in px from the player of a resolved skill `st` (Loadout.stats), the one number the bot reads to
@@ -105,7 +106,7 @@ static func restart_cooldown(st: Dictionary) -> float:
 ## casts). One switch on the cast rule: weapon_reach is the held weapon's swing reach scaled by this skill's area
 ## modifier, range_around the level's `range` around the body.
 static func reach_of(st: Dictionary, world: RunWorld) -> float:
-	if String(st.kind) == "buff" or String(st.damage_type) == "none":
+	if st.has("meter") or String(st.kind) == "buff" or String(st.damage_type) == "none":
 		return 0.0
 	match String(st.cast_rule):
 		"", "nearest", "range_around", "cluster":
@@ -185,7 +186,11 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		var ca := float(cooldowns.get(a, 0.0))
 		var cb := float(cooldowns.get(b, 0.0))
 		return ca < cb if ca != cb else lo.order.find(a) < lo.order.find(b))
+	var finisher := world.meter.preferred(world, ready) if not world.meter.config.is_empty() else ""
 	for key: String in ready:
+		var meter_rule: Dictionary = world.book.def(key).get("meter", {})
+		if not world.meter.admits(world.book.def(key)) or (not meter_rule.is_empty() and key != finisher):
+			continue
 		var cd := float(cooldowns.get(key, 0.0))
 		var st := stats_of(world, key)
 		var origin := world.cast_origin()
@@ -197,7 +202,8 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		if not world.can_pay_hp(int(st.hp_cost)):
 			# Slash Blast pays HP and never casts when that would leave 0 HP; nothing is spent.
 			continue
-		var plan := _admit_cast(world, key, st, origin)  # has_target said yes, so admission does too
+		var plan := prepare_cast(world, key, st, origin)  # has_target said yes, so admission does too
+		st = world.meter.begin_cast(world, key, st)
 		world.spend_hp(int(st.hp_cost))
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		cooldown_totals[key] = cooldowns[key]
@@ -223,7 +229,7 @@ func cast_manual_buff(world: RunWorld, key: String) -> bool:
 
 
 ## Whether ready skill `key` (resolved stats `st`) would be admitted from `origin` now: exactly
-## `not _admit_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
+## `not prepare_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
 ## ordering them, so a ready skill without a target costs no target list.
 func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> bool:
 	if String(st.kind) == "summon":
@@ -269,6 +275,11 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 				any = any or _undead[k] != 0
 			return any and world.skill_box_count(st.box, 1, Callable(), _undead) >= 1
 	return false
+
+
+## Full target plan used by cast admission and shared meter arbitration; does not spend resources.
+func prepare_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
+	return _admit_cast(world, key, st, origin)
 
 
 func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
@@ -670,6 +681,7 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 				"pierce": int(st.pierce), "skill": key, "level": int(st.level), "element": String(st.element),
 				"pierce_falloff": float(st.pierce_falloff),
 				"impact_blast": st.impact_blast,
+				"meter_receipt": st.get("meter_receipt", {}),
 			})
 	else:
 		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), hv)
@@ -681,7 +693,7 @@ func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
 	var pending: Dictionary = d.get("pending", {})
 	var duration := world.book.canonical(key, int(st.level), "time") if not ground.is_empty() else 0.0
 	var interval := float(ground.get("interval", 0.0))
-	_areas.append({"st": st.duplicate(true), "anchor": world.player.pos, "age": 0.0,
+	_areas.append({"st": st.duplicate(), "anchor": world.player.pos, "age": 0.0,
 		"next": interval if interval > 0.0 else float(pending.get("delay", 0.0)),
 		"duration": duration, "interval": interval, "follow": bool(pending.get("follow_player", false)),
 		"effect": String(pending.get("effect", ""))})

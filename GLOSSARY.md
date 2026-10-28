@@ -404,3 +404,17 @@ _Avoid_: mirror (the project never names one), WZ root (that is the desktop fold
 A timed player-owned ally cast by an active skill. It follows or waits at its own position and attacks monsters;
 its map-local lifetime ends on expiry or map transfer. It occupies its skill’s active slot, uses the original skill
 id and WZ animations, and is separate from a cash pet or a monster summoned by a boss.
+
+**Meter**:
+A round-owned integer counter, filled by configured events and spent by finishers. It survives map transfers,
+starts at zero each round, and is shown as HUD pips. M1 is shared by Hero, Buccaneer and Shadower.
+_Avoid_: mana, buff, form
+
+**Combo orb**:
+One unit of Hero's Combo meter. A landed non-finisher pool cast earns one; each held orb adds damage.
+_Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)
+
+**Finisher**:
+A pool active whose meter block gates admission and spends units for extra damage. Panic and Coma are Hero's
+finishers; their meter_keep rarity modifier leaves units unspent.
+_Avoid_: ultimate, proc
