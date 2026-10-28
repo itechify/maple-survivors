@@ -6005,6 +6005,17 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Frame timing fallback | WeaponInfo.frame_times uses 100 ms for missing or zero frame delay | C |
 
 
+### I/L Arch Mage (spec #319, I2 #321)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| I/L auto-AP row | `balance.player.ap["222"]`: INT primary, LUK secondary, keyframes Lv1 -> 3, Lv200 -> 202 (the 212 curve, copied) | C |
+| I/L creation weapon | 1372005, the Wooden Wand F/P starts with (reqJob Magician; no level requirement) | C |
+| I/L weapon families | `weapon_families` wand and staff; armour drops by the Magician class bit, no shields or Warrior weapons | C |
+| I/L skill pool | `skill_pool` of 222: the twelve actives of the 200/220/221/222 books; undefined keys stay out of draws until I6-I10 define them | C |
+| I/L playable | `playable: false` until I12 (job 212 stays `default_job` either way: 212 precedes 222) | C |
+
+
 ### #307 opening ramp (tier C)
 
 Whole-round interpolation, clamped progress raised to optional `power` (default 1), HP at spawn,
