@@ -3,8 +3,8 @@ extends TestCase
 ## Mage 221, Arch Mage 222, after the Common tab), each listing the pool skills of its book the game implements, and Teleport sits on
 ## the 220 tab where Skill.wz keeps it. The model tests use the I6 tests' synthetic books and the canonical job names (no cache);
 ## the RunScene test (a `test_run_windows`-style world, SKIP without the cache) drives the real window through its hotkeys.
-## Skills of a book whose ticket has not merged (Element Composition, Ice Demon, Ifrit, Chain Lightning, Blizzard, Big Bang) are
-## inert, so the 222 tab is empty today; the tests list a tab's rows from the defined pool and widen with it.
+## Skills of a book whose ticket has not merged (Chain Lightning, Blizzard, Big Bang) are inert, so the 222 tab holds only Ifrit
+## today; the tests list a tab's rows from the defined pool and widen with it.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BOLTS := preload("res://tests/unit/test_il_bolts.gd")
@@ -57,12 +57,28 @@ func test_tabs_follow_the_lineage_200_220_221_222_after_common() -> void:
 		assert_eq(t.book_icon, "Skill.wz/%d.img/info/icon" % int(t.job_id))
 
 
+## The rows of `tab` that are among `keys` (the skills of the I6 tickets, whatever later tickets add to the tab).
+static func _among(tab: Dictionary, keys: Array) -> Array:
+	return _row_keys(tab).filter(func(k: String) -> bool: return k in keys)
+
+
 func test_each_tab_lists_the_pool_skills_of_its_book_with_teleport_first_on_220() -> void:
 	var m := _model()
-	assert_eq(_row_keys(m.tabs[1]), ["energy_bolt", "magic_claw"], "the shared 200 bolts, in v83 skill id order")
-	assert_eq(_row_keys(m.tabs[2]), ["teleport_il", "cold_beam", "thunder_bolt"],
+	var w: RunWorld = BOLTS.new()._round({}, 330)
+	assert_eq(_among(m.tabs[1], ["energy_bolt", "magic_claw"]), ["energy_bolt", "magic_claw"], "the shared 200 bolts, in v83 skill id order")
+	var l220 := _row_keys(m.tabs[2])
+	assert_eq(l220.slice(0, 3), ["teleport_il", "cold_beam", "thunder_bolt"],
 		"Teleport (2201002) sorts before Cold Beam (2201004) and Thunder Bolt (2201005): it is a learned row of the 220 tab")
-	assert_eq(_row_keys(m.tabs[3]), ["ice_strike", "thunder_spear"], "the 221 tab: Ice Strike 2211002, Thunder Spear 2211003")
+	var l221 := _among(m.tabs[3], ["ice_strike", "thunder_spear"])
+	assert_eq(l221, ["ice_strike", "thunder_spear"], "the 221 tab: Ice Strike 2211002, then Thunder Spear 2211003")
+	# Every defined pool skill of a book is on its tab, in skill id order, and nothing else is (Teleport aside).
+	for t: Dictionary in m.tabs.slice(1):
+		var want: Array = []
+		for key: String in w.jobs.skill_pool(222) + ["teleport_il"]:
+			if w.book.has(key) and int(w.book.def(key).job) == int(t.job_id):
+				want.append(key)
+		want.sort_custom(func(a: String, b: String) -> bool: return w.book.skill_id(a) < w.book.skill_id(b))
+		assert_eq(_row_keys(t), want, "the %s tab lists its book's implemented pool skills" % t.name)
 	var teleport: Dictionary = m.tabs[2].rows[0]
 	assert_true(teleport.learned and int(teleport.level) >= 1, "Teleport is learned from Lv1")
 	assert_eq(teleport.skill_id, 2201002)

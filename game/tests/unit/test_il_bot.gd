@@ -1,11 +1,12 @@
 extends TestCase
 ## The autoplay bot's I/L scoring and reach (spec #319, I11 #330; the I/L copy of H9 #305's test_hero_bot). The data-level checks run
-## on the shipped files; the card and reach checks loop the I/L pool and skip a key whose skill is not defined yet (I4 and I7-I10
-## were still in flight when this ticket landed), so they cover Element Composition, Ice Demon, Ifrit, Chain Lightning, Blizzard
-## and Big Bang automatically once those merge. Worlds are the I6 tests' synthetic books on the quiet stage.
+## on the shipped files; the card and reach checks loop the I/L pool and skip a key whose skill is not defined yet (Chain Lightning,
+## Blizzard and Big Bang, I8 #327 and I10 #329, were still in flight when this ticket landed), so they cover those automatically
+## once they merge. Worlds are the I6 tests' synthetic books on the quiet stage.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BOLTS := preload("res://tests/unit/test_il_bolts.gd")
+const CHAIN := preload("res://tests/unit/test_chain_cast.gd")
 ## The ten pool keys ticket I11 owns scores for (the pool minus Energy Bolt and Magic Claw, which F/P's block already scores).
 const IL_KEYS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "element_composition_il", "ice_demon", "ifrit",
 	"chain_lightning", "blizzard", "big_bang_il"]
@@ -57,11 +58,13 @@ func test_a_learn_card_of_every_defined_il_pool_skill_scores_100_and_a_rank_card
 		seen += 1
 		var learn := w.upgrades.choice_card(key + "_new", w, "normal")
 		var rank := w.upgrades.choice_card(key + "_rank", w, "normal")
+		assert_false(learn.is_empty(), key + " has a learn card (a defined pool skill is offered)")
 		if not learn.is_empty():
 			assert_eq(BotInput.card_score(w, learn), 100.0, key + " learn card")
 		if not rank.is_empty():
 			assert_eq(BotInput.card_score(w, rank), 74.0, key + " rank card")
-	assert_true(seen >= 4, "the core bolts are defined (%d of the pool)" % seen)
+	assert_true(seen >= 7, "the bolts, Ice Demon, Element Composition and Ifrit are defined (%d of the pool)" % seen)
+	assert_true(w.book.has("ifrit"), "Ifrit, a summon the default scorer would file with the passives, is checked")
 
 
 func test_the_bot_prefers_a_new_il_attack_card_to_a_global_passive() -> void:
@@ -97,3 +100,26 @@ func test_an_il_with_the_bolts_kites_like_f_p_because_every_attack_reaches_past_
 	assert_true(profile.x >= kite_reach, "longest reach %.0f is a ranged reach (>= %.0f): no melee engage mode" % [profile.x, kite_reach])
 	RF.put_mob(w, 100100, 470, 190, 100000.0)
 	assert_true(BotInput.decide(w, {}).left, "a mob 70 px ahead: back away (kite), as the F/P bot does")
+
+
+func test_a_chain_skill_reads_as_a_ranged_attack_and_the_bot_kites_with_it() -> void:
+	# Chain Lightning (I8) is not defined yet: I4's synthetic chain skill stands in (acquire 450 px, the cast block's reach).
+	var w: RunWorld = CHAIN.new()._world()
+	w.god = true
+	w.player.facing = 1
+	var kite_reach := float(w.balance.bot.engage.kite_reach)
+	var profile := BotInput._reach_profile(w)
+	assert_eq(profile.x, CHAIN.ACQUIRE, "the bot reads the chain's acquire range as its reach")
+	assert_true(profile.x >= kite_reach)
+	RF.put_mob(w, 100100, w.player.pos.x + 70.0, 190, 100000.0)
+	assert_true(BotInput.decide(w, {}).left, "a mob 70 px ahead: back away (kite)")
+
+
+func test_without_its_entry_ifrit_would_be_scored_below_an_attack() -> void:
+	# Why the entries exist: Ifrit is a `summon`, which the default scorer files with the passives.
+	var w := _il_world()
+	var card := w.upgrades.choice_card("ifrit_new", w, "normal")
+	assert_false(card.is_empty())
+	assert_eq(BotInput.card_score(w, card), 100.0)
+	w.balance.bot.card_scores.erase("ifrit_new")
+	assert_true(BotInput.card_score(w, card) < 100.0, "the default scorer would not take it like an attack")
