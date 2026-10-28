@@ -10,13 +10,14 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BOLTS := preload("res://tests/unit/test_il_bolts.gd")
+const CHAIN := preload("res://tests/unit/test_il_chain_lightning.gd")
 const DT := 1.0 / 60.0
 const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range"]
-const SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear"]
+const SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "chain_lightning"]
 
 
 func _world(key: String) -> RunWorld:
@@ -27,6 +28,7 @@ func _world(key: String) -> RunWorld:
 	setup.skill_imgs["220"].skill["2201004"] = books.cold
 	setup.skill_imgs["220"].skill["2201005"] = books.thunder
 	setup.skill_imgs["221"] = {"skill": {"2211002": books.strike, "2211003": books.spear}}
+	setup.skill_imgs["222"] = {"skill": {"2221006": CHAIN.book_node()}}
 	var w := RunWorld.new(setup)
 	w.bounds = Rect2(0, -500, 4000, 1000)
 	w.fhm = FootholdMap.from_segments(FLAT)
@@ -131,7 +133,7 @@ func test_each_bonus_effect_changes_the_resolved_cast() -> void:
 				for effect: Dictionary in bonus.effects:
 					_assert_effect_changes_the_cast(key, tier, String(bonus.id), effect)
 					checked += 1
-	assert_eq(checked, 20, "four skills x (1 + 1 + 1 + 2) effects")
+	assert_eq(checked, SKILLS.size() * 5, "each skill: 1 + 1 + 1 + 2 effects")
 
 
 func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effect: Dictionary) -> void:

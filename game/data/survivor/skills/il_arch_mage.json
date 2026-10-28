@@ -91,6 +91,26 @@
 			"hit": "Skill.wz/221.img/skill/2211003/hit/0",
 			"effect": "Skill.wz/221.img/skill/2211003/effect", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2211003/Use", "hit": ""}
+		},
+		"chain_lightning": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.62.",
+			"rarity_bonuses": {
+				"rare": [{"id": "amplify", "text": "Element Amplification", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "conduct", "text": "Conductor", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "fork", "text": "Longer Chain", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "fork", "text": "Longer Chain and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2221006, "book": "222", "job": 222, "kind": "instant", "slot": "active",
+			"name": "Chain Lightning", "desc": "Strikes a monster with lightning that jumps to its neighbours.",
+			"text": {"desc": "Strikes a monster with a bolt of lightning that jumps from one monster to the next. Ice-based monsters take 1.5 times the damage, lightning-based monsters half.", "h": "Basic attack {mad}, mastery {mastery_pct}%, up to {mob_count|monster|monsters}"},
+			"icon": "Skill.wz/222.img/skill/2221006/icon", "damage": "magic",
+			"_survivor": "Tier C: chain cast rule (GAME_DESIGN 7.62), acquire 450 px, hop 200 px, 1.6 s cooldown (4 s x0.4), chainlightning stance held 0.8 s, no range field (the rule's acquire is the range). Tier A: mad/mastery, mobCount (the chain length), elemAttr l and the chainlightning action from Skill.wz; the WZ node has no lt/rb, range or prop. Art: effect at the caster, ball/0..2 along each segment, hit/0 on every link; Use sound at the cast, Hit sound per link.",
+			"cast": {"rule": "chain", "acquire": 450, "hop": 200, "min_targets": 1}, "cooldown": 1.6,
+			"action": "chainlightning", "action_time": 0.8, "ball": "",
+			"chain": {"ball": ["Skill.wz/222.img/skill/2221006/ball/0", "Skill.wz/222.img/skill/2221006/ball/1", "Skill.wz/222.img/skill/2221006/ball/2"]},
+			"hit": "Skill.wz/222.img/skill/2221006/hit/0",
+			"effect": "Skill.wz/222.img/skill/2221006/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2221006/Use", "hit": "Sound.wz/Skill.img/2221006/Hit"}
 		}
 	}
 }
