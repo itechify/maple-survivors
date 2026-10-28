@@ -3,6 +3,7 @@ extends TestCase
 ## exactly the documented fields, with the documented value types; every type shows up. Also checks seeded replays
 ## are identical.
 
+const SSF := preload("res://tests/fixtures/support_summon_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
@@ -386,6 +387,14 @@ func test_every_event_matches_the_schema() -> void:
 				blaster.step(DT, MoveInput.new())
 			for event: Dictionary in blaster.drain_events():
 				_check(event, seen)
+		if type == "support_pulse":
+			var beholder := SSF.world()
+			for tick in 200: # the synthetic Hex pulse lands at 3 s
+				beholder.step(DT, MoveInput.new())
+			# summon_spawn / summon_attack (T9) were never registered in EVENT_FIELDS: check only this ticket's event.
+			for event: Dictionary in beholder.drain_events():
+				if event.type in ["support_pulse", "buff_cast", "player_restored"]:
+					_check(event, seen)
 		if type == "player_banished":
 			var shaded := SF.world()
 			for tick in 15 * 60:

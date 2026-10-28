@@ -84,6 +84,8 @@ const EVENT_FIELDS := {
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"player_restored": ["stat", "amount", "skill", "pos"],
+	# #352: a support summon's pulse fired (`skill` is the pulse's sub-skill, `slot` the summon's PlayerSummons slot).
+	"support_pulse": ["skill", "skill_id", "kind", "slot"],
 	"final_attack": ["skill", "skill_id", "level", "mob", "pos", "facing", "action", "effect"],
 	"skill_impact": ["skill", "pos", "effect"],
 	# tier C: a presentation-only ammo flight; Final Attack damage still lands immediately on stream 12.

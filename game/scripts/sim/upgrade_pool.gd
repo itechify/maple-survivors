@@ -27,7 +27,8 @@ const PASSIVE_PREVIEW_KEYS := [PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep"]
 ## Active rarity-bonus stats a card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
-const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep"]
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep",
+	"support_heal", "support_rate"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -392,6 +393,8 @@ static func _bonus_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictio
 
 static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: String) -> Variant:
 	match stat:
+		"support_heal", "support_rate":
+			return SupportSummons.preview(st, stat)
 		"meter_keep":
 			return maxi(0, roundi(lo.skill_stat(skill, "meter_keep", 0.0)))
 		"pierce_falloff":

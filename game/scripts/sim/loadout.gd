@@ -164,7 +164,8 @@ func clone() -> Loadout:
 
 ## Learns `key` at rank 1. False when unknown or already owned.
 func add_skill(key: String) -> bool:
-	if not book.has(key) or ranks.has(key) or not has_free_slot(book.slot(key)):
+	# A summon sub-skill (a support summon's pulse) is read through its parent and never owned.
+	if not book.has(key) or ranks.has(key) or book.slot(key) == "summon_sub" or not has_free_slot(book.slot(key)):
 		return false
 	ranks[key] = 1
 	order.append(key)
@@ -281,7 +282,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
 ## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance, pull_chance (percent)/pull_gap (px; docs/GAME_DESIGN.md 7.35) and pierce_falloff,
-## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
+## `support` (a support summon only, docs/GAME_DESIGN.md 7.72: SupportSummons.resolve's pulses), and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
 func stats(key: String, at_rank: int = 0) -> Dictionary:
@@ -423,6 +424,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"cooldown_from_cast": bool(buff.get("cooldown_from_cast", false)),
 		"displacement": _displacement(key, d, r, lv),
 	}
+	if d.get("summon", {}).has("support"):
+		resolved["support"] = SupportSummons.resolve(self, key, r)
 	if d.has("meter"):
 		resolved["meter"] = d.meter
 		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
