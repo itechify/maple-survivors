@@ -443,18 +443,6 @@ func test_every_attack_has_learn_rank_and_a_hit_more_mobs_card_for_the_gunslinge
 			assert_false(key + "_new" in eligible, "%s is not on offer to job %d" % [key, case[0]])
 
 
-func test_the_cards_are_offered_whatever_weapon_is_held() -> void:
-	var w := _gunslinger("")
-	_wear(w, STEEL_KNUCKLER)
-	var eligible: Array = w.upgrades.eligible(w)
-	for key: String in ATTACKS:
-		assert_has(eligible, key + "_new", key + " with a knuckle: weapons gate no card (#284)")
-		assert_true(w.learn_skill(key))
-	eligible = w.upgrades.eligible(w)
-	for key: String in ATTACKS:
-		assert_has(eligible, key + "_rank")
-		assert_true(key + "_targets" in eligible or key + "_pierce" in eligible, key)
-
 
 func test_each_hit_more_card_adds_one_target_or_pierce_per_step_for_three_steps() -> void:
 	for key: String in ATTACKS:

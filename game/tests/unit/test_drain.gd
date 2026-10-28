@@ -78,13 +78,13 @@ func test_other_skills_do_not_heal() -> void:
 
 func test_assassin_cards_learn_rank_and_add_three_pierce_steps() -> void:
 	var w := _world()
-	assert_has(w.upgrades.eligible(w), "drain_new")
+	assert_false("drain_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	w.upgrades.apply("drain_new", w)
 	assert_eq(w.loadout.rank("drain"), 1)
 	w.upgrades.apply("drain_rank", w)
 	assert_eq(w.loadout.level("drain"), 2)
 	for step in range(1, 4):
-		assert_has(w.upgrades.eligible(w), "drain_pierce")
+		assert_false("drain_pierce" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 		w.upgrades.apply("drain_pierce", w)
 		assert_eq(w.loadout.stats("drain").pierce, step)
 	assert_false("drain_pierce" in w.upgrades.eligible(w))

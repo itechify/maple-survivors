@@ -23,8 +23,6 @@ const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "r
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
 var cards: Array = []
-## Draws in a row without a power card after which a power card is guaranteed (0 = no pity).
-var pity_draws := 0
 var _rarity := {}
 var _magnitudes := {}
 var _by_id := {}
@@ -131,13 +129,10 @@ func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Ar
 	if picked.size() < n and _fallback_id != "":
 		picked.append(_fallback_id)
 	var out: Array = []
-	var power := false
 	for id: String in picked:
 		var offered := choice_card(id, state, "normal" if _always_normal(card(id)) else _roll_tier(state, rng))
 		out.append(offered)
 		state.card_tiers_offered[String(offered.tier)] += 1
-		power = power or is_power(card(id))
-	state.power_dry = 0 if power else state.power_dry + 1
 	return out
 
 

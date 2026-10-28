@@ -83,9 +83,10 @@ func test_rarity_report_counts_offers_and_picks_including_queued_boss_rewards() 
 	var data := RF.quiet_data()
 	data.balance.run_time_cap = DT
 	data.upgrades.rarity.weights = {"normal": 1.0}
-	data.upgrades.cards = [{"id": "count", "kind": "skill_mod", "skill": "energy_bolt", "max_rank": 4,
+	data.upgrades.cards = [{"id": "count", "kind": "skill_rank", "skill": "energy_bolt", "max_rank": 4,
 		"effects": [{"stat": "count", "op": "add", "value": 1}]}]
 	var w := RunWorld.new(RF.setup("quiet", 43, data))
+	w.upgrades = UpgradePool.from_data(data.upgrades) # one explicit rank card, no generated catalog
 	w.pending_bonus_choices = 2
 	var r := BR.run_one(w, "first", 43)
 	var offered := {"normal": 2, "rare": 2, "epic": 0, "unique": 0, "legendary": 0}
@@ -248,7 +249,7 @@ func test_magic_claw_counts_each_landed_line_but_a_scheduled_boss_is_excluded() 
 	data.skills.skills.magic_claw.damage = "fixed"
 	data.balance.run_time_cap = 0.1
 	var setup := RF.setup("quiet", 26, data)
-	setup.skill_imgs["200"].skill["2001005"].level["1"]["fixdamage"] = 10.0
+	setup.skill_imgs["200"].skill["2001005"].level["3"]["fixdamage"] = 10.0
 	var w := RunWorld.new(setup)
 	w.god = true
 	RF.place_player(w, 400)
@@ -257,7 +258,7 @@ func test_magic_claw_counts_each_landed_line_but_a_scheduled_boss_is_excluded() 
 	assert_eq(r.ordinary_kill_hits_by_min[0], {"hits": 2, "kills": 1, "mean": 2.0})
 	RF.set_bosses(data.stages.stages.quiet, [{"time": DT, "mob_id": 100101}])
 	w = RunWorld.new(RF.setup("quiet", 26, data))
-	w.setup.skill_imgs["200"].skill["2001005"].level["1"]["fixdamage"] = 10.0
+	w.setup.skill_imgs["200"].skill["2001005"].level["3"]["fixdamage"] = 10.0
 	w.god = true
 	RF.place_player(w, 400)
 	r = BR.run_one(w, "bot", 26, 0.0)

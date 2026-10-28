@@ -286,8 +286,6 @@ var _ammo_id := 0
 var _ammo_family := ""
 ## Cards of the open window.
 var pending_cards: Array = []
-## Card draws in a row that offered no power card (UpgradePool pity).
-var power_dry := 0
 ## Offered cards / selected cards per displayed tier, counting cards once rather than the steps they grant.
 var card_tiers_offered := UpgradePool.empty_tier_counts()
 var card_tiers_picked := UpgradePool.empty_tier_counts()

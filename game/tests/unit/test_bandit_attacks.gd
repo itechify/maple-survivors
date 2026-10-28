@@ -267,7 +267,7 @@ func test_learning_steal_does_not_add_steal_rolls_to_other_attacks() -> void:
 func test_bandit_attack_cards_are_branch_only_power_cards_with_three_target_steps() -> void:
 	for key in ["savage_blow", "steal"]:
 		var w := _world()
-		assert_has(w.upgrades.eligible(w), key + "_new")
+		assert_false(key + "_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 		assert_true(w.upgrades.card(key + "_new").power)
 		assert_true(w.upgrades.apply(key + "_new", w) > 0)
 		assert_eq(w.upgrades.card(key + "_rank").max_rank, 30)

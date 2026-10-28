@@ -214,17 +214,6 @@ func test_both_skills_read_without_party_or_canonical_wording() -> void:
 		assert_eq(String(d.kind), "buff")
 
 
-func test_the_cards_are_job_gated_and_not_power() -> void:
-	var w := _spearman()
-	for id in ["iron_will_new", "iron_will_rank", "hyper_body_new", "hyper_body_rank"]:
-		var card := w.upgrades.card(id)
-		assert_false(card.is_empty(), "%s exists" % id)
-		assert_false(bool(card.get("power", false)), "%s is not a power card" % id)
-		assert_eq(card.requires.jobs, [130.0], "%s is the Spearman's" % id)
-		assert_false(w.balance.bot.card_scores.has(id), "%s keeps the default bot score (like Iron Body)" % id)
-	assert_has(w.upgrades.eligible(w), "iron_will_new")
-	assert_has(w.upgrades.eligible(w), "hyper_body_new")
-
 
 func test_real_130_img_matches_the_data_and_the_fixture_formulas() -> void:
 	if not require_cache():

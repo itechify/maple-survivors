@@ -88,7 +88,7 @@ const BLANK_X := 14.0
 ## Choice rows inside the panel's inner fill (x 12..202). tier C: use the blanked notice sentence for compactness.
 const ROWS_TOP := 140.0
 ## tier C: reward title plus instruction above the same canonical card rows.
-const BONUS_ROWS_TOP := 52.0
+const BONUS_ROWS_TOP := 64.0
 const ROW_X := 12.0
 const ROW_W := 191.0
 const ROW_H := 35.0

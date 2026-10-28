@@ -108,8 +108,11 @@ static func mod_effect(c: Dictionary, steps: int, skill_kind: String) -> String:
 ## The rows of job `id`: every skills.json skill of that job that a card offers or the run owns, by skill id.
 func _skill_rows(id: int) -> Array[Dictionary]:
 	var offered := {}
+	var curated := jobs.skill_pool(job_id)
 	for c: Dictionary in pool.cards:
-		offered[String(c.get("skill", ""))] = true
+		var key := String(c.get("skill", ""))
+		if curated.is_empty() or key in curated:
+			offered[key] = true
 	var keys: Array = []
 	for key: String in book.defs:
 		if int(book.def(key).get("job", -1)) == id and (offered.has(key) or loadout.has(key)):

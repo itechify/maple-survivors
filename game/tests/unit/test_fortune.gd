@@ -70,21 +70,3 @@ func test_seeded_fortune_distribution_and_base_run_stat() -> void:
 	assert_true(int(higher.normal) < int(counts.normal) - 3500, "Fortune 100 measurably raises non-Normal offers")
 	for tier: String in ["rare", "epic", "unique", "legendary"]:
 		assert_true(int(higher[tier]) > int(counts[tier]), "%s grows with Fortune" % tier)
-
-
-func _tier_world(tier: String, id: String) -> RunWorld:
-	var data := RF.quiet_data()
-	data.upgrades.rarity.weights = {tier: 1.0}
-	if id == "energy_bolt_new":
-		data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = "" # learning it needs a character without it
-	data.upgrades.cards = [LEGACY_CARDS[id]] if LEGACY_CARDS.has(id) \
-		else data.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.id == id)
-	var w := RunWorld.new(RF.setup("quiet", 43, data))
-	RF.place_player(w, 400)
-	return w
-
-
-func _open_level(w: RunWorld) -> void:
-	w.pickups.spawn(w.player.pos - Vector2(0, 25), w.progression.exp_to_next(), 4000019)
-	w.step(1.0 / 60.0, MoveInput.new())
-	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE)

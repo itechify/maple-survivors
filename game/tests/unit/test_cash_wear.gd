@@ -133,7 +133,7 @@ func test_take_off_cash_clears_the_item_from_every_slot_it_fills() -> void:
 
 func test_fortune_changes_at_once_in_the_state_and_from_the_next_card_draw() -> void:
 	var data := _data()
-	data.upgrades.cards = [{"id": "roomy", "kind": "skill_mod", "skill": "three_snails", "max_rank": 100,
+	data.upgrades.cards = [{"id": "roomy", "kind": "skill_rank", "skill": "energy_bolt", "max_rank": 100,
 		"effects": [{"stat": "count", "op": "add", "value": 1}]}]
 	var setup := RF.setup("quiet", 7, data)
 	setup.account = {"owned": OWNED}

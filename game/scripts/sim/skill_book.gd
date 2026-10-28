@@ -73,7 +73,10 @@ func slot(key: String) -> String:
 
 ## Survivor rank mapping: explicit per-skill override, else the table for the WZ maximum level.
 func rank_table(key: String) -> Array:
-	return def(key).get("ranks", rank_levels.get(str(max_level(key)), [1]))
+	var d := def(key)
+	if d.has("ranks"):
+		return d.ranks
+	return rank_levels.get(str(max_level(key)), [1])
 
 
 ## Highest survivor rank (the length of `ranks`, at least 1).

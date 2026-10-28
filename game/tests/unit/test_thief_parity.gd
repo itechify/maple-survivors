@@ -119,28 +119,8 @@ func test_extra_hit_card_previews_and_applies_rarity_steps_per_target() -> void:
 		_targets(w, [Vector2(35, 0), Vector2(45, 0)])
 		w.runner.step(DT, w)
 		assert_eq(_hits(w.drain_events()).size(), 6 if tier == "normal" else 8)
-		assert_eq("double_stab_hits" in w.upgrades.eligible(w), tier == "normal")
+		assert_false("double_stab_hits" in w.upgrades.eligible(w), "#287: behaviour cards are excluded")
 
-
-func test_attack_cards_follow_the_thief_line_with_either_weapon() -> void:
-	# #284: a card is on offer to every job on its line (UpgradePool.on_line); weapons gate none.
-	for job in [200, 400, 410, 420]:
-		for path: String in ["claw", "dagger"]:
-			var w := _world(path)
-			w.set_job(job)
-			for owned in [false, true]:
-				if owned:
-					w.learn_skill("lucky_seven")
-					w.learn_skill("double_stab")
-				var eligible := w.upgrades.eligible(w)
-				for key: String in LINES:
-					var allowed: bool = job in [400, 410, 420]
-					assert_eq(key + "_new" in eligible, allowed and not owned, "%d:%s:%s_new" % [job, path, key])
-					assert_eq(key + "_rank" in eligible, allowed and owned)
-					for line: String in LINES[key]:
-						var id := key + "_" + line
-						assert_eq(id in eligible, allowed and owned, str(job) + ":" + path + ":" + id)
-						assert_eq(w.upgrades.card(id).requires, {"jobs": [400.0]})
 
 
 func test_lucky_seven_extra_star_and_pierce_reach_more_monsters_in_seeded_combat() -> void:

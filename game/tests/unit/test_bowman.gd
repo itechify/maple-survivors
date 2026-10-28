@@ -226,11 +226,11 @@ func test_bowman_cards_are_offered_with_any_weapon_and_each_attack_can_hit_more_
 	for family: String in ["bow", "crossbow", "sword"]:
 		var combat := _combat(family)
 		for key: String in ["arrow_blow", "bow_double_shot", "blessing_of_amazon", "critical_shot", "eye_of_amazon", "focus"]:
-			assert_has(combat.upgrades.eligible(combat), key + "_new", "weapons gate no card (#284)")
+			assert_false(key + "_new" in combat.upgrades.eligible(combat), "#287: unported skills have no pool offers")
 			combat.learn_skill(key)
 		for key: String in ["arrow_blow", "bow_double_shot"]:
-			assert_has(combat.upgrades.eligible(combat), key + "_rank")
-			assert_has(combat.upgrades.eligible(combat), key + "_shots")
+			assert_false(key + "_rank" in combat.upgrades.eligible(combat), "#287: unported skills have no pool offers")
+			assert_false(key + "_shots" in combat.upgrades.eligible(combat), "#287: unported skills have no pool offers")
 			var before: int = combat.loadout.stats(key).count
 			assert_true(combat.upgrades.apply(key + "_shots", combat))
 			assert_eq(combat.loadout.stats(key).count, before + 1)

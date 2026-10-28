@@ -36,5 +36,17 @@
 		"new_passive": 0.5,
 		"mastery": 1.2
 	},
-	"_draw_provenance": "tier C: ADR 0006 #282 per-card draw weights. Every active/common-passive card gives exactly one rank; rarity applies only to actives."
+	"_draw_provenance": "tier C: ADR 0006 #282 per-card draw weights. Every active/common-passive card gives exactly one rank; rarity applies only to actives.",
+	"magnitudes": {
+		"stacking": {
+			"normal": 1,
+			"rare": 2,
+			"epic": 3,
+			"unique": 4,
+			"legendary": 5
+		},
+		"clamp": [
+			"legendary"
+		]
+	}
 }

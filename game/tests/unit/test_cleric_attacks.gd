@@ -95,7 +95,7 @@ func test_heal_holy_arrow_cards_are_cleric_only_and_behaviour_steps_match_first_
 	for id: String in ["holy_arrow_count", "holy_arrow_pierce", "holy_arrow_cooldown"]:
 		var max_steps := 2 if id == "holy_arrow_pierce" else 3
 		for pick in max_steps:
-			assert_true(id in w.upgrades.eligible(w), id)
+			assert_false(id in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 			w.upgrades.apply(id, w)
 		assert_false(id in w.upgrades.eligible(w), "modifier cap: " + id)
 	assert_eq(w.loadout.stats("holy_arrow").count, 4)
@@ -181,6 +181,8 @@ func test_heal_researched_damage_bounds_and_seeded_recovery() -> void:
 func test_heal_rank_preview_names_the_canonical_power_percentage() -> void:
 	var w := _world("heal")
 	# Only endpoints exist in this synthetic book: six rank steps reach its second fixture node.
+	w.loadout.set_rank("heal", 6) # +1 rank reaches canonical fixture level 7
+	w.book.skill_node("heal").level["6"] = w.book.skill_node("heal").level["1"].duplicate(true)
 	var card := w.upgrades.choice_card("heal_rank", w, "legendary")
 	assert_eq(card.skill_changes.get("hp"), {"before": 10, "after": 70})
 	assert_true("Recovery power: 10% → 70%" in LevelUpWindow.change_lines(card))

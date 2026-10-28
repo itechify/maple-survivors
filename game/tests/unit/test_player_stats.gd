@@ -51,8 +51,8 @@ func test_magician_levels_raise_int_for_magic_damage() -> void:
 	assert_false(w.player_state.has("max_mp"), "no MP growth (#285)")
 	var bolt := w.loadout.stats("energy_bolt")
 	# Hand-computed from combat_math: INT 49 + 23 magic attack, spell attack 20 (mastery 15% for the minimum).
-	assert_near(float(bolt.damage_max), 56.356, 0.0001, "Energy Bolt L1 at 49 INT and 23 magic attack")
-	assert_near(float(bolt.damage_min), 14.836, 0.0001, "canonical 15% mastery")
+	assert_near(float(bolt.damage_max), 67.6272, 0.0001, "Energy Bolt rank 1 / WZ level 3 at 49 INT and 23 magic attack")
+	assert_near(float(bolt.damage_min), 20.3952, 0.0001, "canonical level-3 20% mastery")
 
 
 func test_real_starter_outfit_defense() -> void:

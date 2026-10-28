@@ -117,17 +117,17 @@ func test_pirate_cards_are_offered_with_either_weapon_and_attacks_can_hit_more_m
 		RF.as_job(w, 500, path)
 		var eligible := w.upgrades.eligible(w)
 		for key: String in ["bullet_time", "somersault_kick", "flash_fist", "double_shot"]:
-			assert_has(eligible, key + "_new", "%s with a %s (#284: no weapon gate)" % [key, path])
+			assert_false(key + "_new" in eligible, "#287: unported skills have no pool offers")
 		for key: String in ["bullet_time", "flash_fist", "somersault_kick", "double_shot"]:
 			w.learn_skill(key)
 		eligible = w.upgrades.eligible(w)
 		for key: String in ["bullet_time", "flash_fist", "somersault_kick", "double_shot"]:
-			assert_has(eligible, key + "_rank")
+			assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
 			assert_eq(int(w.upgrades.card(key + "_rank").get("max_rank", 0)), 20)
 			if key == "bullet_time":
 				continue
 			var id := key + ("_pierce" if key == "double_shot" else "_targets")
-			assert_has(eligible, id)
+			assert_false(id in eligible, "#287: unported skills have no pool offers")
 			var before := w.loadout.stats(key)
 			assert_true(w.upgrades.apply(id, w))
 			var after := w.loadout.stats(key)

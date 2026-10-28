@@ -221,11 +221,11 @@ func test_final_attack_spread_card_strikes_one_more_mob_and_draws_both_arrows() 
 func test_crossbowman_cards_casts_with_any_weapon_skill_window_and_no_soul_arrow() -> void:
 	var w := _combat()
 	for key: String in SKILLS:
-		assert_has(w.upgrades.eligible(w), key + "_new")
+		assert_false(key + "_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 		assert_true(w.upgrades.apply(key + "_new", w))
-		assert_has(w.upgrades.eligible(w), key + "_rank")
+		assert_false(key + "_rank" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	for key: String in ["power_knockback_crossbow_targets", "iron_arrow_pierce", "iron_arrow_shots"]:
-		assert_has(w.upgrades.eligible(w), key)
+		assert_false(key in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 		assert_true(w.upgrades.apply(key, w))
 	assert_eq(w.loadout.stats("power_knockback_crossbow").mob_count, 3)
 	assert_eq(w.loadout.stats("iron_arrow").pierce, 6)
@@ -236,7 +236,7 @@ func test_crossbowman_cards_casts_with_any_weapon_skill_window_and_no_soul_arrow
 	var rows: Array = model.tabs[1].rows
 	assert_eq(rows.size(), 5)
 	for key: String in SKILLS:
-		assert_has(w.upgrades.eligible(w), key + "_rank", "on offer with a bow")
+		assert_false(key + "_rank" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	assert_eq(w.loadout.passive_total("acc"), 1.0, "Crossbow Mastery counts with a bow")
 	RF.put_mob(w, 1110100, 470, 190, 10000)
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)

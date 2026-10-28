@@ -67,3 +67,41 @@ func test_seeded_draw_weights_by_kind_and_distinct_offers() -> void:
 		for c in w.upgrades.roll_choices(w, rng):
 			ids[c.id] = true
 		assert_eq(ids.size(), 3)
+
+func test_default_rank_table_is_used_when_skill_has_no_override() -> void:
+	var data := DataRepo.load_all()
+	data.skills.skills.fire_arrow.erase("ranks")
+	var book := SkillBook.from_data(data.skills, RF.skill_imgs())
+	assert_eq(book.max_rank("fire_arrow"), 8)
+	assert_eq(book.canonical_level("fire_arrow", 1), 4)
+	assert_eq(book.canonical_level("fire_arrow", 7), 27)
+	assert_eq(book.canonical_level("fire_arrow", 8), 30)
+
+func test_passive_extension_uses_its_own_six_slots_and_normal_one_rank_cards() -> void:
+	var data := RF.quiet_data()
+	for i in 7:
+		var key := "passive%d" % i
+		data.skills.skills[key] = {"kind": "passive", "slot": "passive", "common_passive": true,
+			"ranks": [1,2,3,4,5]}
+		data.upgrades.cards.append({"id": key + "_new", "kind": "skill_new", "skill": key, "max_rank": 1})
+		data.upgrades.cards.append({"id": key + "_rank", "kind": "skill_rank", "skill": key, "max_rank": 0})
+	var w := RunWorld.new(RF.setup("quiet", 287, data))
+	for i in 6:
+		var key := "passive%d" % i
+		assert_eq(w.upgrades.card_kind(w.upgrades.card(key + "_new"), w), "new_passive")
+		assert_eq(w.upgrades.draw_weight(w.upgrades.card(key + "_new"), w), 0.5)
+		w.upgrades.apply(key + "_new", w, "legendary")
+		assert_eq(w.loadout.rank(key), 1)
+		var c := w.upgrades.choice_card(key + "_rank", w, "legendary")
+		assert_eq(c.tier, "normal")
+		assert_eq(c.magnitude, 1)
+		assert_eq(c.card_kind, "passive_rank")
+		assert_eq(w.upgrades.draw_weight(w.upgrades.card(key + "_rank"), w), 0.8)
+	assert_eq(w.loadout.slot_count("passive"), 6)
+	assert_eq(w.loadout.slot_count("active"), 1)
+	assert_false("passive6_new" in w.upgrades.eligible(w))
+	assert_has(w.upgrades.eligible(w), "passive0_rank")
+	for i in 4:
+		w.upgrades.apply("passive0_rank", w)
+	assert_eq(w.loadout.rank("passive0"), 5)
+	assert_false("passive0_rank" in w.upgrades.eligible(w))

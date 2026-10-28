@@ -239,7 +239,7 @@ func test_support_cards_are_branch_gated_rank_only_and_score_below_attacks() -> 
 		var eligible := w.upgrades.eligible(w)
 		for key: String in ["meditation_fp", "meditation_il", "bless", "invincible", "slow_fp", "slow_il"]:
 			var own := int(w.book.def(key).get("job", -1)) == branch
-			assert_eq(eligible.has(key + "_new"), own)
+			assert_false(eligible.has(key + "_new"), "#287: support skills are outside the pool")
 			assert_eq(w.book.max_rank(key), 20)
 			assert_eq(BotInput.card_score(w, {"id": key + "_new"}), 50.0)
 			assert_eq(w.upgrades.cards.filter(func(c: Dictionary) -> bool:
