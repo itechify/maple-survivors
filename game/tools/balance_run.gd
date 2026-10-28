@@ -602,19 +602,7 @@ static func _engaged(w: RunWorld, seen: PackedFloat32Array) -> Vector2i:
 ## same length element by element (null elements keep the original), so a keyframe patch may list only the fields it
 ## changes; any other value replaces.
 static func deep_merge(into: Dictionary, patch: Dictionary) -> void:
-	for k: Variant in patch:
-		var pv: Variant = patch[k]
-		var iv: Variant = into.get(k)
-		if pv is Dictionary and iv is Dictionary:
-			deep_merge(iv, pv)
-		elif pv is Array and iv is Array and (pv as Array).size() == (iv as Array).size():
-			for i in (pv as Array).size():
-				if pv[i] is Dictionary and iv[i] is Dictionary:
-					deep_merge(iv[i], pv[i])
-				elif pv[i] != null:
-					iv[i] = pv[i]
-		else:
-			into[k] = pv
+	DataRepo.merge_patch(into, patch, true)
 
 
 ## A readable multi-line summary of one record.

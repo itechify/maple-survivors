@@ -823,7 +823,7 @@ fetch/merge was already up to date (5cd40ea); no gameplay changes after validati
 training seeds 1/2/2026, bot/random on every tier-1 region and bot Sleepywood with/without the tier-1 kit.
 No tuning or held-out seeds. All 30 records have empty warnings/missing lists, no crashes or timeouts.
 All 30 records after merging H1/H2/H4 are byte-identical to the preserved pre-merge meter-runtime records.
-The results reproduce the preceding #294 smoke; Hero stays unplayable (H9/H10), so Combo is exercised by
+Historical H7 results reproduce the preceding #294 smoke; Hero was then unplayable (before H9/H10), so Combo is exercised by
 seeded synthetic tests and the diagnostic HUD probe rather than claimed as Hero survival evidence.
 
 | Stage / kit | Bot clear / dead; time range; end level | Random clear / dead; time range; end level |
@@ -5819,7 +5819,7 @@ first swing stance of the held weapon, held 0.6 s). A cast spends every held orb
   for an axe and the skill's own id otherwise, `art_path` re-points a Skill.wz/Sound.wz path at it. Loadout applies it to the
   skill's `effect` and `hit`, the finisher block below to its finish art, and the presentation to the Use sound. Sim numbers are
   shared (the twins are identical in the WZ; only the icon differs).
-- **Finish art by orbs spent (tier B reading, no source states it).** A `finish` block `{effect "…/finish/{n}", at, max_n 10,
+- **Finish art by orbs spent (tier C reading, no source states it).** A `finish` block `{effect "…/finish/{n}", at, max_n 10,
   advanced_above 5, hit_advanced "…/hit/1"}`: the cast plays `finish/N` for N orbs spent (1..10, so 5..10 for a plain cast and
   fewer with Advanced Combo keeping orbs) and the hit art is `hit/1` above 5 orbs spent, else `hit/0`. Coma's finish plays on the
   caster (the cast event's effect); Panic's plays on its target (a `skill_mob_effect`). Coma's `mob` stun stars are the same art
@@ -6372,7 +6372,7 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | Hero AP row (#298, spec #296) | `balance.player.ap["112"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204 (the secondary DEX target tracks the level plus about 4, the v83 Warrior gear pattern). HP growth is not re-listed: 112 inherits the Warrior row (100: 26 per level) through the lineage | C | Spec #296 |
 | Hero creation weapon (#298, spec #296) | `survivor/jobs/hero.json` `creation_weapon` 1302000, the plain Sword (reqJob 0, so wearing it checks no class); `weapon_families` `["sword", "axe"]` filters the existing Warrior drop list (one- and two-handed), armour and shields drop by the Warrior class bit; the weapon item id and stats are tier A | C | Spec #296 |
 | `default_job` pin (#298, spec #296) | `survivor/jobs.json` `default_job` 212: the job of a fresh character and of every tool run, test and oracle that names none, so Hero never changes it by becoming playable; Hero is always chosen explicitly (`--job=112`, the creation Job page). The owner can flip it with this one line | C | Spec #296, risk found while checking the slice |
-| Hero bot card scores (#305, spec #296) | `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for each of the seven Hero pool skills (power_strike, slash_blast, brandish, shout, monster_magnet, panic, coma), the same numbers every F/P pool skill has (the default attack scoring, 100 and 62 + 12 job bonus), set explicitly so the meter-gated finishers and the pull, which the default scorer would not take for attacks, are taken whatever their cast rule | C | Spec #296 |
+| Hero bot card scores (#305, spec #296) | `jobs/hero.json` balance.bot.card_scores: `<key>_new` 100 and `<key>_rank` 74 for each of the seven Hero pool skills (power_strike, slash_blast, brandish, shout, monster_magnet, panic, coma), the same numbers every F/P pool skill has (the default attack scoring, 100 and 62 + 12 job bonus), set explicitly so the meter-gated finishers and the pull, which the default scorer would not take for attacks, are taken whatever their cast rule | C | Spec #296 |
 | Hero hub kit (#305, spec #296) | `HubTestKit.HERO_KIT_SCROLLS` (every rate of the ATT scrolls of the sword, two-handed sword, axe and two-handed axe, 20 stacks of 10) and `HERO_KIT_EQUIPMENT` (1002001 hat, 1402000 two-handed sword, 1082002 gloves, 1040010 top), used for a character of job 112; `--hub --job=112` opens `hero_t2.json`; 500,000 mesos as for F/P | C | Ours, a test aid |
 | Job page rows (#305) | rows are left-aligned, and the chosen row keeps its plate in every Button state (hover and pressed too), so it stays highlighted under the mouse; the Job blurb repeats the weapon box (creation weapon name, WATK, swing time) | C | Ours, layout |
 | Rush 2.0 s cooldown, always-on 80 px knock-back along the dash, hold-to-repeat, refused while climbing, airborne dash keeps its height (#302, spec #296) | `skills/hero.json` `rush_hero` (`cooldown`, `knockback`); damage 78%, `mobCount` 15, box reach 170 px (the dash distance) and `rush2` are Skill.wz level 4 (tier A) | C | Spec #296 D1; v83 Rush is a dash with a hit box |
@@ -6504,7 +6504,7 @@ Bowman (#166), generic mechanics (#200):
 | Hero finishers (#304) | Panic nearest within 250 px, 2.0 s cooldown; Coma range_around, `min_targets` 3, 1.0 s; both `meter` min 5 / spend all / +10% per orb spent, first swing stance held 0.6 s | C | ours, spec #296 |
 | Panic Threaten cut (#304) | Flat `min(level, 20)` weapon attack and defence while threatened; bosses refuse the status | C | ours, spec #296 |
 | Hero finisher WZ fields (#304) | 1111003/1111005 mapped level `damage`, `prop`, `time`, Coma `range`/`mobCount`/`hpCon`; finish/1..10, hit/0|1, Use sounds; axe twins 1111004/1111006 identical | A | original v83 Skill.wz |
-| Finish art by orbs spent (#304) | `finish/N` for N orbs spent, `hit/1` above 5 orbs, axe twin for an axe | B (layout reading), C (keying) | H1 notes |
+| Finish art by orbs spent (#304) | `finish/N` for N orbs spent, `hit/1` above 5 orbs, axe twin for an axe | C (layout reading and keying) | H1 notes |
 | Pull selection (#300) | Up to `mobCount` candidates, farthest first (horizontal; slot breaks ties), only live grounded non-boss mobs at least 120 px from the caster (block key `min_distance` overrides) and within `range`; bosses and flyers never candidates (7.35) | C | ours, spec #296 |
 | Pull gap and slide (#300) | Per-skill `pull.min_gap` px (Monster Magnet ships 60, H7); the mob slides `max(0, dx - gap)` px toward the caster along its foothold chain, stopping at platform edges, walls and map bounds; never crosses the caster | C | ours, spec #296; shared slide |
 | Pull chance rolls (#300) | One main-stream draw per taken candidate, none at 100% or without a chance field; a 0% chance still draws; selection before rolls | C | ours (mirrors the knockback roll rule) |
@@ -7155,3 +7155,10 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 | Finisher gate / spend multiplier | 5; all minus meter_keep; +10% per spent orb | tier C, #296; H8 skill data |
 | Finisher repeat floor / arbitration | 1 s; single-target scheduled boss, else most targets | tier C, #296; shared admission |
 | Meter HUD geometry | origin (244,20), 12 px pitch, 4 px radius, 10 px orb image, 1 px border | tier C presentation layout; original orb pixels tier A |
+
+Review #296 clarification: finisher cooldowns have a strict 1.0-second floor after tick overshoot (tier C,
+spec #296); ordinary meter gates use normal cooldown and cast order. `meter.spend` accepts `"all"` or an integer,
+and gain exclusion compares the skill’s declared role. Rush explicitly presents its action while walking or airborne
+without changing movement physics. Pull admission counts only grounded non-boss targets outside its configured floor.
+Warrior bot equipment weights now explicitly name ancestor 100 with the same values formerly inherited from 0
+(tier C: existing physical baseline, unchanged). Hero AP and bot score values live in jobs/hero.json’s balance block.

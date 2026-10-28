@@ -459,3 +459,17 @@ func test_real_cache_mapped_levels_for_all_eight_ranks_and_both_twins_have_their
 	for id in [1111005, 1111006]:
 		assert_true(root.skill[str(id)].has("mob"), "%d stun stars" % id)
 	library.free()
+
+
+func test_hero_skill_window_tabs_and_rank_one_finisher_tooltips() -> void:
+	var w := _world()
+	var model := SkillWindowModel.new(w.book, w.upgrades, w.loadout, w.jobs, 112, SkillText.new(w.book))
+	var window := SkillWindow.new(model)
+	assert_eq(model.tabs.map(func(t: Dictionary) -> String: return t.name),
+		["Common", "Warrior", "Fighter", "Crusader", "Hero"])
+	for key: String in KEYS:
+		var tip := model.skill_tooltip(key)
+		assert_true("Needs 5 orbs" in String(tip.next), str(tip))
+		assert_true("Spends all orbs" in String(tip.next), str(tip))
+		assert_true(("171" if key == "panic" else "96") in String(tip.next), str(tip))
+	window.free()

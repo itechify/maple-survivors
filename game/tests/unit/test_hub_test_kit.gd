@@ -122,7 +122,7 @@ func test_the_hero_kit_scrolls_are_the_four_sword_and_axe_families_within_the_us
 	var character := HubTestKit.apply(_hero(), 500000, _loader())
 	var held: Array = character.scrolls.keys().map(func(k: String) -> int: return int(k))
 	held.sort()
-	var want := HubTestKit.HERO_KIT_SCROLLS.duplicate()
+	var want := [2043000, 2043001, 2043002, 2043004, 2043005, 2044000, 2044001, 2044002, 2044004, 2044005, 2043100, 2043101, 2043102, 2043104, 2043105, 2044100, 2044101, 2044102, 2044104, 2044105].duplicate()
 	want.sort()
 	assert_eq(held, want)
 	assert_true(character.scrolls.size() <= Shop.use_stack_limit(), "the stacks fit the Use tab")
@@ -139,23 +139,23 @@ func test_the_hero_kit_scrolls_are_the_four_sword_and_axe_families_within_the_us
 
 func test_the_hero_kit_equipment_is_what_a_hero_can_wear() -> void:
 	var character := HubTestKit.apply(_hero(), 500000, _loader())
-	assert_eq(character.equipment.inventory.map(func(e: Dictionary) -> int: return int(e.id)), HubTestKit.HERO_KIT_EQUIPMENT)
+	assert_eq(character.equipment.inventory.map(func(e: Dictionary) -> int: return int(e.id)), [1002001, 1402000, 1082002, 1040010])
 	if not require_cache():
 		return
 	var lib := AssetLibrary.get_default()
-	for id: int in HubTestKit.HERO_KIT_EQUIPMENT:
+	for id: int in [1002001, 1402000, 1082002, 1040010]:
 		var img := lib.img(AvatarRenderer.part_img_path(id))
 		assert_true(img != null, "%d is in the cache" % id)
 		if img != null:
 			assert_eq(Equipment.requirement_error(img.root.get("info", {}), {"job_id": 112}), "", "a Hero can wear %d" % id)
-	assert_eq(WeaponInfo.family(HubTestKit.HERO_KIT_EQUIPMENT[1]), "sword", "the spare weapon (1402000, two-handed) is a Hero family")
-	assert_true(WeaponInfo.family(HubTestKit.HERO_KIT_EQUIPMENT[1]) in DataRepo.load_all().jobs_survivor.jobs["112"].weapon_families)
+	assert_eq(WeaponInfo.family([1002001, 1402000, 1082002, 1040010][1]), "sword", "the spare weapon (1402000, two-handed) is a Hero family")
+	assert_true(WeaponInfo.family([1002001, 1402000, 1082002, 1040010][1]) in DataRepo.load_all().jobs_survivor.jobs["112"].weapon_families)
 
 
 func test_the_f_p_kit_is_unchanged_for_other_jobs() -> void:
-	assert_eq(HubTestKit.kit_scrolls(212), HubTestKit.KIT_SCROLLS)
-	assert_eq(HubTestKit.kit_equipment(212), HubTestKit.KIT_EQUIPMENT)
-	assert_eq(HubTestKit.kit_scrolls(0), HubTestKit.KIT_SCROLLS, "any job without its own kit gets the F/P one")
+	assert_eq(HubTestKit.kit_scrolls(212), [2043700, 2043701, 2043702, 2043704, 2043705, 2040024, 2040025, 2040026, 2040012, 2040013, 2040400, 2040401, 2040402, 2040404, 2040405, 2040818, 2040817, 2040816, 2040814, 2040815])
+	assert_eq(HubTestKit.kit_equipment(212), [1002001, 1382001, 1082002, 1040004])
+	assert_eq(HubTestKit.kit_scrolls(0), [2043700, 2043701, 2043702, 2043704, 2043705, 2040024, 2040025, 2040026, 2040012, 2040013, 2040400, 2040401, 2040402, 2040404, 2040405, 2040818, 2040817, 2040816, 2040814, 2040815], "any job without its own kit gets the F/P one")
 
 
 func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
