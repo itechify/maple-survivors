@@ -108,6 +108,7 @@ func test_212_keeps_its_entry_unchanged() -> void:
 
 
 func test_pool_keys_not_yet_defined_stay_inert() -> void:
+	assert_eq(_jobs(_data()).skill_pool(222).size(), 12, "the pool is the twelve spec keys whoever has defined them")
 	var defined: Dictionary = _data().skills.skills
 	# I6 (#325) defined ice_strike and thunder_spear; I7-I10 own the rest. A key is either defined or one of theirs.
 	for key: String in ["energy_bolt", "magic_claw", "cold_beam", "thunder_bolt", "ice_strike", "thunder_spear"]:

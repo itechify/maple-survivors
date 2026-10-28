@@ -91,6 +91,296 @@
 			"hit": "Skill.wz/221.img/skill/2211003/hit/0",
 			"effect": "Skill.wz/221.img/skill/2211003/effect", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2211003/Use", "hit": ""}
+		},
+		"ice_demon": {
+			"_rarity": "Tier C: first-pass #326 bonuses named after the lineage's passives (spec #319); repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "amplify",
+						"text": "Element Amplification",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "reach",
+						"text": "Wide Chill",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "crowd",
+						"text": "Cold Crowd",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "crowd",
+						"text": "Cold Crowd and damage",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"skill_id": 2221003,
+			"book": "222",
+			"job": 222,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Ice Demon",
+			"desc": "Strikes monsters in front of you with ice and temporarily makes them weak against fire. Bosses resist the weakness.",
+			"text": {
+				"desc": "Strikes monsters in front of you with ice and temporarily makes them weak against fire. Bosses resist the weakness."
+			},
+			"icon": "Skill.wz/222.img/skill/2221003/icon",
+			"damage": "magic",
+			"element": "i",
+			"cooldown": 2.0,
+			"range": 450,
+			"count": 1,
+			"action": "magic3",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/222.img/skill/2221003/hit/0",
+			"effect": "Skill.wz/222.img/skill/2221003/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "box"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2221003/Use",
+				"hit": "Sound.wz/Skill.img/2221003/Hit"
+			},
+			"_provenance": "Tier A: WZ damage/mobCount/time/box/art/elemAttr i (the undocumented x is not read). Tier C: survivor cooldown 2.0 s, the fallback magic3 stance (the WZ node has no action) held 0.8 s, one instant hit plus the mark; GAME_DESIGN 7.60.",
+			"on_hit": {
+				"status": "fire_weak",
+				"element": ""
+			}
+		},
+		"element_composition_il": {
+			"_rarity": "Tier C: first-pass #326 bonuses named after the lineage's passives (spec #319); repeat scale 0.8. See GAME_DESIGN 8.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "amplify",
+						"text": "Element Amplification",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "pierce",
+						"text": "Pierce",
+						"effects": [
+							{
+								"stat": "pierce",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "twin",
+						"text": "Twin Bolt",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "twin",
+						"text": "Twin Bolt and damage",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"skill_id": 2211006,
+			"book": "221",
+			"job": 221,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Element Composition",
+			"desc": "Fires a combined ice and lightning projectile that can freeze its target.",
+			"text": {
+				"desc": "Fires a combined ice and lightning projectile that can freeze its target."
+			},
+			"icon": "Skill.wz/221.img/skill/2211006/icon",
+			"damage": "magic",
+			"element": "il",
+			"cooldown": 0.8,
+			"range": 450,
+			"count": 1,
+			"action": "shoot6",
+			"action_time": 0.8,
+			"ball": "Skill.wz/221.img/skill/2211006/ball",
+			"hit": "Skill.wz/221.img/skill/2211006/hit/0",
+			"effect": "Skill.wz/221.img/skill/2211006/effect",
+			"rotate": false,
+			"cast": {
+				"rule": "nearest"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2211006/Use"
+			},
+			"_provenance": "Tier A: WZ mad/time/art; the Use sound is a UOL to Sound.wz/Skill.img/2111006/Use. Tier C: element il (the mean of the live ice and lightning multipliers; the WZ node has no elemAttr), survivor cooldown 0.8 s, 450 px range, 500 px/s, one shot, and a freeze with no chance (the WZ node has no prop), which checks ice resistance only; GAME_DESIGN 7.61.",
+			"speed": 500,
+			"radius": 10,
+			"on_hit": {
+				"status": "freeze",
+				"duration_field": "time",
+				"element": "i"
+			}
+		},
+		"ifrit": {
+			"_rarity": "Tier C: first-pass I9 (#328) bonuses, the Elquines lists (damage, area, one extra ally); repeat scale 0.8. See GAME_DESIGN 8 and 7.64.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "power",
+						"text": "Damage",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "reach",
+						"text": "Area",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "twin",
+						"text": "Extra ally",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "twin",
+						"text": "Extra ally and damage",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"skill_id": 2221005,
+			"book": "222",
+			"job": 222,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Ifrit",
+			"desc": "Calls a fire ally that follows you and attacks nearby monsters, striking the ones Ice Demon marked first.",
+			"icon": "Skill.wz/222.img/skill/2221005/icon",
+			"damage": "magic",
+			"element": "f",
+			"cooldown": 12.0,
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/222.img/skill/2221005/hit/0",
+			"effect": "",
+			"rotate": false,
+			"cast": {
+				"rule": "summon"
+			},
+			"summon": {
+				"ordinal_spread": 36.0,
+				"path": "Skill.wz/222.img/skill/2221005/summon",
+				"attack": "attack1",
+				"follow_speed": 180.0,
+				"follow_distance": 60.0,
+				"teleport_distance": 600.0,
+				"attack_interval": 2.4,
+				"priority_status": "fire_weak"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2221005/Use"
+			},
+			"_provenance": "Tier A: fire (WZ elemAttr f), WZ time/mad/mastery, summon attack info (identical to Elquines') and art, priority 2221003 (Ice Demon). Tier C: 12 s recast, follow settings, 2.4 s attack cycle, priority_status reading of the WZ priority; GAME_DESIGN 7.64."
 		}
 	}
 }

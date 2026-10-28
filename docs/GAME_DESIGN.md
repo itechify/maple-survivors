@@ -5592,6 +5592,11 @@ and seek on both sides of their own position. Attacks face the scheduled boss fi
 Attack timing pauses follow motion. Hits use `RunWorld.hit_mob`, including defence, crit, damage modifiers, element
 immunity and Fire Demon's per-mob ice weakness. No additional freeze is inferred from ice damage.
 
+Opt-in `summon.priority_status` (a `MobSwarm` status name, #328): when the definition carries it, an ally's target order
+is scheduled bosses, then monsters running that status, then distance, then slot, for both the choice of who to attack and
+the impact's targets. A definition without the key sorts exactly as before, so Elquines and every F/P oracle are unchanged
+(7.64 has Ifrit, the first user; Elquines is not given `ice_weak`, that is a balance-pass lever).
+
 Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 12 s recast,
 180 px/s follow, 60 px trailing offset, 1 px stand/move deadzone, 600 px snap distance and 2.4 s minimum attack cycle (never shorter than the
 WZ animation or hit delay). A zero follow speed stops incremental following (distance snapping still applies); future stationary, taunt, projectile,
@@ -5657,6 +5662,31 @@ Reserved, not built: a `"*"` table entry for an all-element mark (Corsair's Homi
 the same `element_multiplier`, so Ifrit's fire meets Ice Demon's mark there with no special case. The renderer has no
 per-status tint for `ice_weak`, so `fire_weak` adds none.
 
+### 7.62 Chain cast rule (#323, spec #319 I4)
+
+`cast: {"rule": "chain", "acquire": 450, "hop": 200, "min_targets": 1}`, implemented in `chain_cast.gd` (`ChainCast`), a
+generic rule: a skill that strikes one monster and jumps to its neighbours. No cast rule hit "the nearest, then the
+nearest to that" before. Chain Lightning (I8) is its first user; Corsair or any other hopping skill can reuse it.
+
+- **Admission.** The head is a live monster whose body centre is within `acquire` px of the caster's body; a scheduled
+  boss first, then nearest, then slot (`RunWorld.targets_before`). `acquire` is the skill's `range` (Loadout.stats
+  falls back to the block's `acquire` when neither the definition nor the WZ level names a `range`), so the `range`
+  modifier widens it and the bot's `reach_of` reads it.
+- **Selection.** Deterministic, no RNG. Until `mob_count` monsters are chosen (canonical `mobCount` plus `count`
+  modifiers, via `strike_count`), the next link is the nearest unhit live monster to the **previous link's body
+  centre** within `hop` px times the `area` modifier (distance, then slot; bosses get no priority on a hop). A distance
+  exactly equal to `acquire` or `hop` is in range. A chain shorter than `mob_count` is fine; one shorter than
+  `min_targets` is not admitted.
+- **Resolution.** One `RunWorld.hit_mob` per chosen monster, `attack_count` lines each, in chain order, damage unchanged
+  along the chain, all on the cast tick; a monster that is gone by its turn is skipped. The caster faces the head.
+- **Events and art.** `cast`, then `skill_chain {skill, skill_id, points}` (the caster's hand, then each struck link's
+  body centre), then the `mob_hit` events. `RunScene` draws, per segment, one animation of the definition's
+  `"chain": {"ball": [<WZ path>, ...]}` (three variants for Chain Lightning, cycled along the chain), stretched along
+  the segment and rotated to its angle by `ChainBoltRenderer`; each link gets the skill's `hit` burst through its
+  `mob_hit`, the caster the `effect` through `cast`, the Use sound plays at the cast and the Hit sound once per link.
+- **Text.** `SkillText` adds "Jumps to up to N monsters within R px" (`mob_count`, `hop` x `area`).
+- Probe: `scenes/debug/chain_bolt_probe.tscn` draws a synthetic arrangement (evidence only).
+
 ### 7.63 Skill templates: `extends` (spec #319 I5, M19)
 
 Big Bang exists three times in v83 (F/P 2121001, I/L 2221001, Bishop 2321001) with the same numbers (`mad` 160 -> 450,
@@ -5696,6 +5726,62 @@ a skill definition may say "I am that skill, in my book" instead of copying 40 l
   `test_skill_template` runs it for every `extends` pair of the shipped data (`SkillTemplate.pairs`) against the real
   cache (a SKIP without it), on a synthetic pair so it is not vacuous, and on synthetic books for each failure. If a book
   ever differs, the guard fails and the child must override the difference.
+
+### 7.64 Ifrit (spec #319, I9 #328)
+
+Ifrit (2221005, book 222, job 222, `ifrit`) is Elquines' fire mirror: `kind: summon`, `slot: active`,
+`cast: {"rule": "summon"}`, `damage: magic`, **`element: "f"`**, one definition in `skills/il_arch_mage.json` and no code
+beside the target order. Everything the seam reads is canonical (tier A): WZ `summon/attack1/info` is identical to Elquines'
+(type 0, box (-200,-150)..(0,30), `mobCount` 3, `attackAfter` 1080 ms), `mad` 183 -> 300 (192 / 230 / 300 at ranks 1 / 4 / 8),
+`mastery` 10, lifetime `time` 15 -> 160 s (30 / 85 / 160 s), the five animations `summoned` 15, `stand` 6, `move` 6, `attack1`
+19, `die` 12 frames and `hit/0` 8 frames, caster stance `alert2`, Use sound only. The recast (12 s), follow speed (180 px/s),
+trail (60 px), snap (600 px), 2.4 s minimum cycle and 36 px ordinal spread are the Elquines values (tier C).
+
+**Priority.** WZ `attack1/info/priority` is 2221003, Ice Demon (Elquines' names Fire Demon). The tier C reading is
+`summon.priority_status: "fire_weak"` (7.32): scheduled bosses first (they take no statuses), then monsters whose `fire_weak`
+timer (Ice Demon's mark, 7.61) runs, then nearer, then lower slot. Ifrit's fire goes through `RunWorld.hit_mob` and
+`MobSwarm.element_multiplier`, so a marked monster takes x1.5 (even a fire-immune one); that is the whole Ice Demon synergy.
+
+**Rarity** (tier C, first pass, the Elquines lists): Rare "Power" damage x1.2; Epic "Reach" area x1.2 (the attack box, through
+`stats.area`); Unique "Twin Ifrit" +1 ally (`summon_count`, 36 px apart); Legendary the Unique's id plus damage x1.2 (shared repeat
+counter, repeats x0.8, as every pool skill). `test_ifrit` casts each effect with and without it and checks the damage dealt,
+the monster just beyond the base box and the ally count; a `range` modifier (which a summon never reads) is the negative control.
+
+Evidence (I9, tool-only `player_summon_probe.tscn --skill=ifrit`, real Henesys, Lv1 invulnerable, rank 8, damage x0.01, 200
+stationary high-HP monsters, half of them `fire_weak`, 20 s, vsync off): Ifrit's `attack1` and `hit/0` art appear beside the
+avatar, `missing: []`. Frame ms p50 / p95 and sim: Ifrit 1.71 / 2.76 (work 720 / 1790 us, sim 1154 us per tick), Elquines
+matched run 1.71 / 2.76 (sim 1154 us), no-summon control 1.70 / 2.69 (sim 1101 us). The two summons cost the same; this is
+art and cost evidence, not survival evidence.
+
+### 7.65 I/L Ice Demon and Element Composition (spec #319, I7 #326)
+
+Both skills are I/L pool actives (`skills/il_arch_mage.json`), auto-cast, on the default eight-rank mapping to WZ levels
+(rank 1 / 4 / 8 = level 4 / 15 / 30). No MP. They mirror F/P's Fire Demon and Element Composition (7.31) with the
+elements swapped.
+
+| Skill / key | Behavior | First-pass cooldown (tier C) |
+|---|---|---|
+| Ice Demon 2221003 / `ice_demon` | Ice damage in the canonical forward box (-300,-100)..(-15,0), mirrored to the side the caster faces, up to the canonical `mobCount` (2 / 4 / 6 at ranks 1 / 4 / 8); every survivor hit gets the `fire_weak` mark (7.61) for canonical `time` (10 s, 15 s at level 30); bosses take the damage and reject the mark | 2.0 s |
+| Element Composition 2211006 / `element_composition_il` | One 500 px/s projectile at the nearest monster within 450 px, element `il` (the mean of the live ice and lightning multipliers); `mad` 90 -> 140; a hit freezes for canonical `time` (1 s, 2 s at level 30) with **no chance roll** (the WZ node has no `prop`), checking only ice resistance (`on_hit.element: "i"`) | 0.8 s |
+
+Ice Demon's stance is the fallback `magic3` held 0.8 s (the WZ node has no `action`, as Fire Demon). Its WZ text speaks
+of consistent damage; as Fire Demon it is one instant hit plus the mark. The undocumented WZ `x` of both skills (Ice
+Demon 1 -> 3, Element Composition 1) is not read. The mark is applied by `on_hit`, which runs only for a damaging hit:
+a monster immune to ice (damage 0) is not marked either. Ice Demon's `effect` (the snowflake circle) plays on the caster
+as Fire Demon's does, its `hit/0` on each struck monster, with the Use and Hit sounds. Element Composition's `ball`
+(3 frames), `effect` (13) and `hit/0` are the F/P twin's layout, and its Use sound is the UOL to F/P's mp3.
+
+Rarity bonuses (tier C, first pass; Legendary shares the Unique's id and adds damage x1.2, so its repeats are shared;
+repeats shrink x0.8; Rare is `amplify` "Element Amplification", damage x1.2, for both):
+
+| Skill | Epic | Unique / Legendary signature |
+|---|---|---|
+| Ice Demon | `reach` "Wide Chill": area x1.2 (the box grows) | `crowd` "Cold Crowd": +1 target (`count` through `mob_count`) |
+| Element Composition (I/L) | `pierce` "Pierce": +1 pierce | `twin` "Twin Bolt": +1 projectile (`count`) |
+
+`test_il_rarity_bonus_effects` (with the other I/L skills; the card, counter and Mastery rules are in `test_il_ice_demon_rarity`) casts each effect with and without it in the same seeded world and asserts damage dealt, mobs
+affected (count, pierce) or a monster just beyond the base box (area). A projectile's extra shot goes to the second
+nearest monster, so a monster on the same line behind the first is shielded: Twin Bolt's extra target stands elsewhere.
 
 ## 8. Upgrades
 
@@ -5759,6 +5845,8 @@ damage x1.2, so their repeats are shared; Rare is `power`, damage x1.2, for all)
 | Meteor Shower | area x1.2 (`area`) | +1 hit (`echo`) |
 | Big Bang | area x1.2 (`area`) | +1 hit (`echo`) |
 | Elquines (#291) | area x1.2 (`reach`) | +1 ally (`twin`, stat `summon_count`) |
+| Ice Demon (I/L, #326) | area x1.2 (`reach`) | +1 target (`crowd`) |
+| Element Composition (I/L, #326) | +1 pierce (`pierce`) | +1 projectile (`twin`) |
 
 
 **Cards and the draw (current rules).** `data/survivor/upgrades.json` (base: draw weights, the rarity weights and magnitudes,
@@ -6093,6 +6181,16 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Frame timing fallback | WeaponInfo.frame_times uses 100 ms for missing or zero frame delay | C |
 
 
+### #323 chain cast rule (spec #319 I4)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Chain length and damage | WZ `mobCount` per level (Chain Lightning 2 -> 6) and its `mad`, unchanged along the chain (the WZ gives one `mad`); one hit per link | A |
+| Chain acquisition | `cast.acquire` 450 px from the caster's body centre (the WZ has no `lt/rb` or `range` for 2221006) | C |
+| Chain hop | `cast.hop` 200 px from the previous link's body centre | C |
+| Chain selection | head = scheduled boss, then nearest, then slot; hops = nearest unhit by distance then slot; distances inclusive; no RNG | C |
+| Chain bolt art | the skill's `chain.ball` animations stretched on their own x axis from segment start to end, centred on the line (WZ origin ignored), variants cycling per segment | C |
+
 ### I/L Arch Mage (spec #319, I2 #321)
 
 | Rule | Value / source | Tier |
@@ -6111,7 +6209,6 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | I/L core-bolt WZ facts (I6) | `mad`/`mastery`, `time`, `mobCount`, `lt`/`rb`, `elemAttr` of 2201004, 2201005, 2211002, 2211003 at the mapped levels; Thunder Spear has no `mobCount` or box | A |
 | I/L core-bolt rarity bonuses (I6) | Rare damage x1.2 (all four); Epic Cold Beam / Thunder Spear cooldown x0.88, Thunder Bolt / Ice Strike area x1.2; Unique Cold Beam +1 target, Thunder Bolt +2 targets, Ice Strike and Thunder Spear +1 hit; Legendary = Unique + damage x1.2 | C |
 | I/L Teleport (I6) | `teleport_il`: `slot: mobility`, same numbers as `teleport_fp`; rank from the shared `balance.mobility_rank_levels` | C (range/cost A) |
-
 
 ### #307 opening ramp (tier C)
 
@@ -6929,10 +7026,24 @@ items) reaches a round as the setup key `account`, never inside the character.
 |---|---|---|
 | Vulnerability table (#322) | `MobSwarm.VULNERABLE` {`ice_weak` 5 -> `i`, `fire_weak` 6 -> `f`}; x1.5 (`VULNERABLE_MULT`) while the timer runs, overriding that element's resistance and immunity; refreshes without stacking; bosses and `steady` slots reject; no per-status tint | A: Fire Demon / Ice Demon descriptions ("weak against" the element for `time` seconds), x1.5 as the canonical weakness; C: the table shape, `fire_weak` as a second timer, no stacking, boss exclusion |
 | Element composition mean (#322) | `MobSwarm.COMPOSITIONS` `fs` -> f,s and `il` -> i,l: the mean of the constituents' live multipliers (equal split) | C: equal split (the WZ nodes carry no `elemAttr`); `fs` numerically identical to #290 |
+| Ifrit (#328) | `ifrit` 2221005: fire summon on the 7.32 seam; WZ `mad` 183 -> 300, `mastery` 10, `time` 15 -> 160 s, `attack1/info` (box (-200,-150)..(0,30), `mobCount` 3, `attackAfter` 1080 ms, the same as Elquines'), animations and hit art as read from the cache; recast 12 s, follow 180 px/s, trail 60 px, snap 600 px, minimum cycle 2.4 s, spread 36 px | A: element `f`, `info`, `priority` 2221003, levels, art; C: recast, follow settings, cycle (the Elquines values) |
+| `summon.priority_status` (#328) | Opt-in key on a summon definition: bosses, then monsters carrying the named status, then distance, then slot; absent = the shared order, byte-identical for Elquines | C: our reading of the WZ `priority` (Ifrit -> Ice Demon's fire_weak mark) |
+| Ifrit rarity bonuses (#328) | Rare damage x1.2, Epic area x1.2, Unique +1 ally, Legendary +1 ally and damage x1.2; repeats x0.8 | C: the Elquines lists |
 | I/L bot card scores (I11 #330) | `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for the ten I/L pool skills F/P's block lacks (cold_beam, thunder_bolt, ice_strike, thunder_spear, element_composition_il, ice_demon, ifrit, chain_lightning, blizzard, big_bang_il), appended as one block; the same numbers as every F/P pool skill. Explicit so Ifrit (a `summon`) and Blizzard, which the default scorer files with the passives, are taken; an entry for a skill not defined yet is inert | C |
 | I/L hub kit and fixture (I11) | `--hub --job=222` opens `il_arch_mage_t2.json` (job 222, tier 2, the F/P tier-1 kit 1382002/1002013/1072019/1082019 + starter top and bottom); the hub test kit is the F/P one (wand and staff scrolls, hat, staff, gloves, top): both Arch Mages wear the same families | C (test aid) |
 | I/L baseline oracle (I11) | `test_il_baseline`: seed 1, 72000 ticks, bot, god, synthetic assets, the 212 oracle's recipe, its own golden; the pool is frozen to Energy Bolt, Magic Claw, Cold Beam, Thunder Bolt, Ice Strike and Thunder Spear (what was defined at I11) so later I/L skills do not move it; I12 widens `POOL` to the twelve and re-captures once | C |
 | I/L Job page row (I11) | no UI change: the page lists `playable_jobs()`, "Arch Mage (Ice, Lightning)" is the canonical name, one row below "Arch Mage (Fire, Poison)" (H9's row style: left-aligned names, the chosen row's plate in every Button state) | C |
+
+### I/L Arch Mage (spec #319, I7 #326)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Ice Demon cooldown, stance and hit | 2.0 s; fallback stance `magic3` held 0.8 s (the WZ node has no `action`); one instant hit plus the `fire_weak` mark, not a damage-over-time | C: Fire Demon's values; A: box, `mobCount`, `mad`, `time`, `elemAttr i`, art |
+| Ice Demon mark | `on_hit {"status": "fire_weak", "element": ""}`: canonical `time` seconds; skipped by a zero-damage hit (an ice-immune monster) and by bosses | A: description and `time`; C: boss/zero-damage behaviour (existing `on_hit` rules) |
+| Element Composition (I/L) | cooldown 0.8 s, 450 px acquisition, 500 px/s, radius 10, one shot, stance `shoot6` | C: the F/P twin's values; A: `mad`, `time`, art |
+| Element Composition element | `il`, the mean of the live ice and lightning multipliers (equal split) | C: the WZ node has no `elemAttr` |
+| Element Composition freeze | `time` 1 -> 2 s, no chance field (the WZ node has no `prop`), element `i`: bosses and ice-resistant monsters reject it, lightning resistance does not | C |
+| Ice Demon / Element Composition rarity bonuses | the two tables in 7.65 (Element Amplification x1.2, Wide Chill area x1.2, Cold Crowd +1 target, Pierce +1, Twin Bolt +1 shot; Legendary = Unique + x1.2) | C |
 
 ## 12. Later phases
 

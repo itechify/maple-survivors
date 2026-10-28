@@ -5,8 +5,10 @@ extends TestCase
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count
 ## and pierce (mobs affected), summon_count (allies), and area / range (a mob just beyond the base reach is only affected with
 ## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
-## SKILLS lists the I/L skills covered; I7-I10 append theirs, with a fixture level table in the test's `_books()` if the
-## skill needs one. Skill.wz tables are synthetic (test_il_bolts.gd `_books()`).
+## SKILLS lists the I/L skills covered; I8-I10 append theirs, with a fixture level table in the test's `_books()` if the
+## skill needs one. Skill.wz tables are synthetic (test_il_bolts.gd `_books()`; Ice Demon and Element Composition use the
+## small tables `_demon_levels` builds). Ifrit (I9) is a summon: its audit needs allies settled behind the player, so it
+## stays in test_ifrit.gd.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BOLTS := preload("res://tests/unit/test_il_bolts.gd")
@@ -16,7 +18,18 @@ const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range"]
-const SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear"]
+const SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "ice_demon", "element_composition_il"]
+
+
+## Synthetic Skill.wz levels 1..30 for Ice Demon (`box`: the canonical forward box) and Element Composition (I7 #326).
+func _demon_levels(box: bool) -> Dictionary:
+	var levels := {}
+	for lv in range(1, 31):
+		levels[str(lv)] = {"mad": 60.0 + lv, "mobCount": 6.0, "time": 4.0}
+		if box:
+			levels[str(lv)]["lt"] = {"$v": [-300, -100]}
+			levels[str(lv)]["rb"] = {"$v": [-15, 0]}
+	return levels
 
 
 func _world(key: String) -> RunWorld:
@@ -26,7 +39,9 @@ func _world(key: String) -> RunWorld:
 	setup.job = 222
 	setup.skill_imgs["220"].skill["2201004"] = books.cold
 	setup.skill_imgs["220"].skill["2201005"] = books.thunder
-	setup.skill_imgs["221"] = {"skill": {"2211002": books.strike, "2211003": books.spear}}
+	setup.skill_imgs["221"] = {"skill": {"2211002": books.strike, "2211003": books.spear,
+		"2211006": {"level": _demon_levels(false)}}}
+	setup.skill_imgs["222"] = {"skill": {"2221003": {"level": _demon_levels(true)}}}
 	var w := RunWorld.new(setup)
 	w.bounds = Rect2(0, -500, 4000, 1000)
 	w.fhm = FootholdMap.from_segments(FLAT)
@@ -131,7 +146,7 @@ func test_each_bonus_effect_changes_the_resolved_cast() -> void:
 				for effect: Dictionary in bonus.effects:
 					_assert_effect_changes_the_cast(key, tier, String(bonus.id), effect)
 					checked += 1
-	assert_eq(checked, 20, "four skills x (1 + 1 + 1 + 2) effects")
+	assert_eq(checked, 30, "six skills x (1 + 1 + 1 + 2) effects")
 
 
 func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effect: Dictionary) -> void:
@@ -163,6 +178,9 @@ func test_the_probe_catches_a_modifier_the_cast_rule_never_reads() -> void:
 	assert_false(bool(_probe("thunder_spear", [area], "area").edge), "an area modifier does not lengthen a nearest cast")
 	var pierce := {"stat": "pierce", "op": "add", "value": 1.0}
 	assert_eq(_probe("cold_beam", [pierce], "pierce").affected, _probe("cold_beam", [], "pierce").affected)
+	assert_eq(_probe("ice_demon", [pierce], "pierce").affected, _probe("ice_demon", [], "pierce").affected)
+	assert_false(bool(_probe("ice_demon", [reach], "range").edge), "a range modifier does not widen Ice Demon's box")
 	# And the modifiers the shipped bonuses rely on do widen.
 	assert_true(bool(_probe("thunder_bolt", [area], "area").edge))
 	assert_true(bool(_probe("ice_strike", [area], "area").edge))
+	assert_true(bool(_probe("ice_demon", [area], "area").edge))
