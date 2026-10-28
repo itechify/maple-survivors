@@ -2581,6 +2581,11 @@ func _on_level_up(level: int) -> void:
 ## SP a v83 Beginner spends on Three Snails); cards may get there sooner.
 func _level_ranks(level: int) -> void:
 	for key: String in loadout.order:
+		if key == jobs.mobility_skill(job_id()):
+			var rank := mobility_rank(level)
+			if rank > loadout.rank(key):
+				loadout.set_rank(key, rank)
+			continue
 		var lr: Variant = book.def(key).get("level_ranks")
 		if not (lr is Dictionary):
 			continue
@@ -2590,6 +2595,12 @@ func _level_ranks(level: int) -> void:
 				want = maxi(want, int(lr[k]))
 		if want > loadout.rank(key):
 			loadout.set_rank(key, want)
+
+
+## The rank the job's mobility skill (Teleport, Rush) holds at character level `level`: always 1 (tier C, #296: mobility
+## skills do not rank, Rush stays at WZ level 4). The one place a shared level-to-rank rule for mobility skills replaces.
+func mobility_rank(_level: int) -> int:
+	return 1
 
 
 ## The current job's table entry, else its nearest ancestor's (balance.json per-job rows).

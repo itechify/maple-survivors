@@ -227,3 +227,58 @@ func test_bosses_are_damaged_but_not_shoved() -> void:
 	_press(w, false, true)
 	assert_eq(_hits(w).get(boss, 0), 1)
 	assert_near(w.swarm.x[boss], 450.0, 0.02)
+
+
+# --- Cooldown, hold-to-repeat, no ranks -------------------------------------------------------------------------------
+
+func _count_casts(w: RunWorld) -> int:
+	var n := 0
+	for event: Dictionary in w.drain_events():
+		if event.type == "cast" and event.skill == KEY:
+			n += 1
+	return n
+
+
+func test_a_held_key_repeats_only_after_the_two_second_cooldown() -> void:
+	var w := _world(100.0, [{"x1": -1000, "y1": 0, "x2": 5000, "y2": 0}])
+	var casts := 0
+	w.player.facing = 1
+	var held := MoveInput.new()
+	held.hold_skill("rush")
+	for tick in int(1.9 / DT):
+		w.step(DT, held)
+		casts += _count_casts(w)
+	assert_eq(casts, 1, "one dash in the first 1.9 s")
+	assert_near(w.player.pos.x, 270.0, 1.5, "100 + one 170 px dash")
+	for tick in int(0.3 / DT):
+		w.step(DT, held)
+		casts += _count_casts(w)
+	assert_eq(casts, 2, "the held key dashes again once 2.0 s have passed")
+
+
+func test_a_press_inside_the_cooldown_does_nothing() -> void:
+	var w := _world()
+	_press(w, false, true)
+	w.drain_events()
+	var x := w.player.pos.x
+	for tick in 30:
+		_press(w, false, true)
+	assert_eq(_count_casts(w), 0)
+	assert_true(w.player.pos.x - x < 200.0, "only ordinary walking moved the character")
+
+
+func test_rush_stays_rank_one_for_the_whole_round() -> void:
+	var w := _world()
+	for i in 45:
+		w._gain_exp(w.progression.exp_to_next())
+	assert_true(int(w.player_state.level) >= 40, "level %d" % int(w.player_state.level))
+	assert_eq(w.loadout.rank(KEY), 1)
+	assert_eq(int(w.runner.stats_of(w, KEY).level), 4, "still WZ level 4: 78%")
+	assert_eq(w.mobility_rank(int(w.player_state.level)), 1, "the one seam a shared rank rule replaces")
+
+
+func test_the_card_draw_never_offers_rush() -> void:
+	var w := _world()
+	for i in 60:
+		for card: Dictionary in w.upgrades.roll_choices(w, w.card_rng, 3):
+			assert_ne(String(card.get("skill", "")), KEY)
