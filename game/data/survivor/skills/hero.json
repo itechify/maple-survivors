@@ -547,6 +547,235 @@
 				"use": "Sound.wz/Skill.img/1121006/Use",
 				"hit": ""
 			}
+		},
+		"panic": {
+			"_rarity": "Tier C: first-pass #304 bonuses named after the lineage (spec #296): Rare Sword Mastery damage x1.2, Epic Booster cooldown x0.88 (the 2 s base keeps it above the 1 s meter floor, so it shows), Unique Advanced Combo keeps 2 orbs, Legendary Advanced Combo plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.33.",
+			"_provenance": "Tier A: Skill.wz 1111003 damage 150 to 350 %, prop (38 to 90 %), time (5 to 9 s), the finish/1..10 and hit/0|1 art, the Use sound, req Combo Attack; the axe twin 1111004 has identical nodes. Tier C: the nearest-target auto-cast within 250 px with scheduled bosses first, a 2.0 s cooldown (the 1.0 s meter floor would hide a Booster), the Threaten cut of min(level, 20) on the threatened status, finish art keyed by orbs spent (tier B reading), first swing stance of the held weapon. Bosses take the damage but never the status. Docs: GAME_DESIGN 7.33.",
+			"skill_id": 1111003,
+			"book": "111",
+			"job": 111,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Panic : Sword",
+			"desc": "Smashes one monster with every Combo orb, weakening it.",
+			"text": {
+				"desc": "Spend all Combo orbs on one monster within 250 px; a boss comes first. The more orbs, the harder the blow. Weakens the target's attack and defence.",
+				"h": "Damage {damage}%; {prop}% chance to weaken for {time} sec."
+			},
+			"icon": "Skill.wz/111.img/skill/1111003/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "nearest"
+			},
+			"range": 250,
+			"count": 1,
+			"cooldown": 2.0,
+			"meter": {
+				"role": "finisher",
+				"min": 5,
+				"spend": "all",
+				"damage_per_unit": 0.1
+			},
+			"art_by_family": {
+				"axe": 1111004
+			},
+			"finish": {
+				"effect": "Skill.wz/111.img/skill/1111003/finish/{n}",
+				"at": "target",
+				"max_n": 10,
+				"advanced_above": 5,
+				"hit_advanced": "Skill.wz/111.img/skill/1111003/hit/1"
+			},
+			"on_hit": {
+				"status": "threatened",
+				"chance_field": "prop",
+				"duration_field": "time",
+				"cut": {
+					"stat": "level",
+					"cap": 20
+				}
+			},
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/111.img/skill/1111003/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1111003/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Sword Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "advanced_combo",
+						"text": "Advanced Combo",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "advanced_combo",
+						"text": "Advanced Combo",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"coma": {
+			"_rarity": "Tier C: first-pass #304 bonuses named after the lineage (spec #296): Rare Sword Mastery damage x1.2, Epic Wide Reach area x1.2 (range_around scales its radius by area), Unique Advanced Combo keeps 2 orbs, Legendary Advanced Combo plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.33.",
+			"_provenance": "Tier A: Skill.wz 1111005 damage 84 to 200 % (rank 1 = level 4: 96 %), range 130 to 150, mobCount 6, hpCon 15 to 25, prop (38 to 90 %), time (2 to 4 s), the finish/1..10, hit/0|1 and mob (stun stars) art, the Use sound, req Combo Attack; the axe twin 1111006 has identical nodes. Tier C: the around-the-body auto-cast at three or more mobs in range, a 1.0 s cooldown (the meter floor), finish art keyed by orbs spent (tier B reading), first swing stance of the held weapon. Docs: GAME_DESIGN 7.33.",
+			"skill_id": 1111005,
+			"book": "111",
+			"job": 111,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Coma : Sword",
+			"desc": "Slams the monsters around you with every Combo orb, stunning them.",
+			"text": {
+				"desc": "Spend all Combo orbs on the crowd around you (needs 3 monsters in range). The more orbs, the harder the blow. Costs HP, never the last point.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters}; {prop}% chance each to stun for {time} sec."
+			},
+			"icon": "Skill.wz/111.img/skill/1111005/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "range_around",
+				"min_targets": 3
+			},
+			"cooldown": 1.0,
+			"meter": {
+				"role": "finisher",
+				"min": 5,
+				"spend": "all",
+				"damage_per_unit": 0.1
+			},
+			"art_by_family": {
+				"axe": 1111006
+			},
+			"finish": {
+				"effect": "Skill.wz/111.img/skill/1111005/finish/{n}",
+				"at": "caster",
+				"max_n": 10,
+				"advanced_above": 5,
+				"hit_advanced": "Skill.wz/111.img/skill/1111005/hit/1"
+			},
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop",
+				"duration_field": "time"
+			},
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/111.img/skill/1111005/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1111005/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Sword Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "reach",
+						"text": "Wide Reach",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "advanced_combo",
+						"text": "Advanced Combo",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "advanced_combo",
+						"text": "Advanced Combo",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
 		}
 	}
 }

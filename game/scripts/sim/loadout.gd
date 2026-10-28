@@ -297,6 +297,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var handedness := "two" if WeaponInfo.is_two_handed(weapon_id) else "one"
 	action = String(d.get("action_by_handedness", {}).get(handedness, action))
 	var effect := String(d.get("effect_by_handedness", {}).get(handedness, book.visual(key, "effect", lv, char_level)))
+	effect = book.art_path(key, effect, weapon_family) # tier C: art_by_family twin, art only (Panic/Coma : Axe)
 	var attack_kind := WeaponInfo.attack_kind(action)
 	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0) * (1.0 + passive_total(DAMAGE_PCT) / 100.0)
 	var lo := 0.0
@@ -396,7 +397,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 			if d.has("impact_blast") and has_box else {},
 		"radius": float(d.get("radius", 10.0)),
 		"ball": book.visual(key, "ball", lv, char_level),
-		"hit": book.visual(key, "hit", lv, char_level),
+		"hit": book.art_path(key, book.visual(key, "hit", lv, char_level), weapon_family),
 		"effect": effect,
 		"action": action,
 		"action_time": float(d.get("action_time", 0.0)) * speed_factor,

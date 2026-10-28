@@ -5743,6 +5743,42 @@ is never offered as a card (`UpgradePool` only draws pool skills).
   the crowd the other way if that lane is free; no lane either way, no press. At most once per 3 s
   (`BotInput.RUSH_MIN_INTERVAL`). It never presses Rush with no mob within 60 px, so it never uses it to approach.
 
+#### Combo finishers: Panic and Coma (H8, #304)
+
+Both are meter finishers (7.34: `meter {role finisher, min 5, spend all, damage_per_unit 0.10}`), auto-cast pool actives in
+`skills/hero.json` (book 111), eight ranks mapped to levels 4/8/12/15/19/23/27/30, no weapon gate, action `weapon` (the
+first swing stance of the held weapon, held 0.6 s). A cast spends every held orb except `meter_keep` and multiplies damage by
+`(1 + 0.02 * held) * (1 + 0.10 * spent)` (x1.5 at 5 orbs, x2.0 at 10, before the held bonus); finishers never earn an orb.
+
+| Skill | Cast (tier C) | Canonical behaviour (tier A) |
+|---|---|---|
+| Panic : Sword 1111003 | `nearest` rule, one target within 250 px, scheduled bosses first (the shared target order), 2.0 s cooldown | 194% (rank 1) to 350%, `prop` 38 to 90%, `time` 5 to 9 s |
+| Coma : Sword 1111005 | `range_around`, needs 3 mobs in range, 1.0 s cooldown (the meter floor), HP cost never lethal (can_pay_hp) | 96% (rank 1) to 200%, six mobs, range 130 to 150, `hpCon` 15 to 25, stun `prop` 38 to 90%, `time` 2 to 4 s |
+
+- **Threaten cut (Panic).** `on_hit` `threatened` carries `cut {stat level, cap 20}`: the mob loses `min(skill level, 20)` weapon
+  attack and weapon defence (flat, tier C; Panic's node has no such field). Like every status it is refused by bosses
+  (MobSwarm.accepts_status), so Panic on a boss deals the damage but never weakens it.
+- **Which finisher.** Admission goes through `PlayerMeter.preferred` (7.34): Coma wins with the larger crowd, Panic when a
+  scheduled boss is in its range; one owned finisher casts alone.
+- **Cooldown (decision).** The spec gives both a "1.0 s floor". Panic's Epic is Booster (cooldown x0.88), which a 1.0 s base would
+  hide completely under the 1.0 s meter floor (`SkillRunner.restart_cooldown`), so Panic's base cooldown is 2.0 s and the
+  Booster takes it to 1.76 s. Coma keeps 1.0 s: it has no cooldown bonus. The meter, not the clock, paces both in normal play.
+- **Weapon-variant art.** `art_by_family {"axe": 1111004 | 1111006}`; `SkillBook.art_skill_id(key, family)` returns the twin id
+  for an axe and the skill's own id otherwise, `art_path` re-points a Skill.wz/Sound.wz path at it. Loadout applies it to the
+  skill's `effect` and `hit`, the finisher block below to its finish art, and the presentation to the Use sound. Sim numbers are
+  shared (the twins are identical in the WZ; only the icon differs).
+- **Finish art by orbs spent (tier B reading, no source states it).** A `finish` block `{effect "…/finish/{n}", at, max_n 10,
+  advanced_above 5, hit_advanced "…/hit/1"}`: the cast plays `finish/N` for N orbs spent (1..10, so 5..10 for a plain cast and
+  fewer with Advanced Combo keeping orbs) and the hit art is `hit/1` above 5 orbs spent, else `hit/0`. Coma's finish plays on the
+  caster (the cast event's effect); Panic's plays on its target (a `skill_mob_effect`). Coma's `mob` stun stars are the same art
+  the mob renderer already draws for Shout.
+- **Rarity (tier C, section 8; repeat scale 0.8).** Panic: Rare Sword Mastery damage x1.2, Epic Booster cooldown x0.88, Unique
+  Advanced Combo `meter_keep` +2, Legendary Advanced Combo plus damage x1.2. Coma: Rare Sword Mastery, Epic Wide Reach area x1.2
+  (`range_around` scales its radius by `area`), Unique and Legendary as Panic's. Legendary shares the Unique's id and repeat
+  counter. Each bonus changes the resolved cast and has its own test (`test_hero_finishers`): damage, cooldown, reach and kept orbs.
+  The shared audit (`test_rarity_bonus_effects`) also covers both: its probe tops the meter up for a finisher and adds `meter_keep`
+  (orbs left after one cast) to the stats it checks.
+
 ### 7.34 Combo meter (#299, Hero H3)
 
 `PlayerMeter` is the round-owned, deterministic M1 counter. Hero's data (H2) supplies:
@@ -6412,6 +6448,10 @@ Bowman (#166), generic mechanics (#200):
 | Hero core melee (#301) | Power Strike 1.0 s, Slash Blast 1.6 s, both weapon action held 0.6 s; Brandish 1.4 s, forward admission at one target; eight survivor ranks; rarity values in 7.33 | C | ours, spec #296 |
 | Hero core WZ fields (#301) | 1001004/1001005/1121008 mapped level fields, Brandish box, two hits, 1–3 targets, Use/Hit, body action 7 x 120 ms = 0.84 s | A | original v83 Skill.wz, Character.wz |
 | Brandish handedness (#301) | One action per cast: brandish1 + effect/0 for one-handed, brandish2 + effect/1 for two-handed | C (selection), A (aliases/art) | orchestrator ruling; H1 weapon visibility findings |
+| Hero finishers (#304) | Panic nearest within 250 px, 2.0 s cooldown; Coma range_around, `min_targets` 3, 1.0 s; both `meter` min 5 / spend all / +10% per orb spent, first swing stance held 0.6 s | C | ours, spec #296 |
+| Panic Threaten cut (#304) | Flat `min(level, 20)` weapon attack and defence while threatened; bosses refuse the status | C | ours, spec #296 |
+| Hero finisher WZ fields (#304) | 1111003/1111005 mapped level `damage`, `prop`, `time`, Coma `range`/`mobCount`/`hpCon`; finish/1..10, hit/0|1, Use sounds; axe twins 1111004/1111006 identical | A | original v83 Skill.wz |
+| Finish art by orbs spent (#304) | `finish/N` for N orbs spent, `hit/1` above 5 orbs, axe twin for an axe | B (layout reading), C (keying) | H1 notes |
 | Pull selection (#300) | Up to `mobCount` candidates, farthest first (horizontal; slot breaks ties), only live grounded non-boss mobs at least 120 px from the caster (block key `min_distance` overrides) and within `range`; bosses and flyers never candidates (7.35) | C | ours, spec #296 |
 | Pull gap and slide (#300) | Per-skill `pull.min_gap` px (Monster Magnet ships 60, H7); the mob slides `max(0, dx - gap)` px toward the caster along its foothold chain, stopping at platform edges, walls and map bounds; never crosses the caster | C | ours, spec #296; shared slide |
 | Pull chance rolls (#300) | One main-stream draw per taken candidate, none at 100% or without a chance field; a 0% chance still draws; selection before rolls | C | ours (mirrors the knockback roll rule) |

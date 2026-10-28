@@ -1297,7 +1297,8 @@ func _on_cast(e: Dictionary) -> void:
 	var capture_delay := float(world.book.def(key).get("pending", {}).get("delay", 0.0)) + 0.05
 	capture_delay = float(world.book.def(key).get("capture_delay", capture_delay))
 	_first_event_shot(key, "cast_%s.png" % key, capture_delay)
-	var use := String(world.book.def(key).get("sounds", {}).get("use", ""))
+	var use := world.book.art_path(key, String(world.book.def(key).get("sounds", {}).get("use", "")),
+		world.loadout.weapon_family) # art_by_family twin (Panic/Coma : Axe)
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
