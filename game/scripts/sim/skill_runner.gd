@@ -418,8 +418,8 @@ func _admit_weapon_reach(world: RunWorld, st: Dictionary) -> Dictionary:
 ## for at least N of them (tier C: Monster Magnet admits at 3, #303); the default 1 keeps every existing skill unchanged.
 func _admit_range_around(world: RunWorld, st: Dictionary, origin: Vector2) -> Dictionary:
 	var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
-	if world.book.def(String(st.skill)).has("pull"):
-		return {"go": true} if _pull_count(world, st, origin, need) >= need else {}
+	if world.book.def(String(st.skill)).has("pull") and _pull_count(world, st, origin, need) < need:
+		return {}
 	var found := _find_targets(world, origin, float(st.range), maxi(strike_count(st), need))
 	if found == 0 or found < need:
 		return {}
