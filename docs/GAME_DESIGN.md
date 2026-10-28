@@ -745,6 +745,27 @@ Final validation: `ISOLATE=307 bash scripts/test.sh` with the real cache: **1992
 recovery diagnostics and two dummy TextureStorage RID shutdown diagnostics remain. The final integration
 fetch/merge was already up to date (5cd40ea); no gameplay changes after validation. Final focused rerun: 7/7 passed.
 
+**#299 / H3 meter infrastructure regression smoke (2026-10-28).** Job 212, real v83 cache,
+training seeds 1/2/2026, bot/random on every tier-1 region and bot Sleepywood with/without the tier-1 kit.
+No tuning or held-out seeds. All 30 records have empty warnings/missing lists, no crashes or timeouts.
+All 30 records after merging H1/H2/H4 are byte-identical to the preserved pre-merge meter-runtime records.
+The results reproduce the preceding #294 smoke; Hero stays unplayable (H9/H10), so Combo is exercised by
+seeded synthetic tests and the diagnostic HUD probe rather than claimed as Hero survival evidence.
+
+| Stage / kit | Bot clear / dead; time range; end level | Random clear / dead; time range; end level |
+|---|---|---|
+| Henesys | 1 / 2; 449.9–909.5 s; Lv22–56 | 0 / 3; 308.0–615.4 s; Lv10–31 |
+| Ellinia | 0 / 3; 625.4–650.9 s; Lv22–23 | 0 / 3; 321.8–688.0 s; Lv12–23 |
+| Perion | 0 / 3; 430.6–668.6 s; Lv25–42 | 0 / 3; 277.3–574.8 s; Lv10–32 |
+| Kerning | 0 / 3; 306.2–749.1 s; Lv12–42 | 0 / 3; 308.3–442.2 s; Lv13–23 |
+| Sleepywood, tier-1 kit | 2 / 1; 792.2–931.6 s; Lv71–78 | not sampled |
+| Sleepywood, no character file (default sword) | 0 / 3; 10.6–12.0 s; Lv1 | not sampled |
+
+Henesys bot fills six actives at 137.5/183.6/139.2 s and all three runs defeat Mano; the no-character
+Sleepywood command still uses the tool's default sword, not the creation wand (same distinction as #294).
+The tier-1 kit reaches map 3 on all seeds; seeds 2/2026 clear. Ellinia remains record-only, unchanged.
+Raw records and exact configuration logs are retained under ignored _scratch/299-smoke and /tmp/299-*.log.
+
 **#294 / T12, slice QA (2026-10-28).** The F/P slice after #307 (merged into the QA branch), real v83 cache, training seeds
 1/2/2026 and no held-out seeds; nothing was tuned and no balance data changed. Raw records, consoles and screenshots live in the
 ignored `_scratch/balance294/` and `evidence/` of the QA worktree.
@@ -5658,6 +5679,48 @@ is never offered as a card (`UpgradePool` only draws pool skills).
   the crowd the other way if that lane is free; no lane either way, no press. At most once per 3 s
   (`BotInput.RUSH_MIN_INTERVAL`). It never presses Rush with no mob within 60 px, so it never uses it to approach.
 
+### 7.34 Combo meter (#299, Hero H3)
+
+`PlayerMeter` is the round-owned, deterministic M1 counter. Hero's data (H2) supplies:
+
+```json
+{"meter":{"id":"combo","max":10,"gain":{"event":"cast_landed","amount":1,"exclude":"finisher"},
+ "per_unit":{"stat":"damage","value":0.02},"art":"Skill.wz/111.img/skill/1111002/state"}}
+```
+
+A round starts at zero; map transfers preserve it. Each non-finisher pool cast earns one orb on its first
+positive damage line, including a delayed impact. Multi-target, multi-line and multi-projectile casts share a receipt;
+a missed cast earns nothing. Mobility is outside the pool, so Rush neither earns orbs nor receives their bonus.
+The held-unit bonus multiplies the cast's resolved damage bounds and status damage multiplier, preserving its
+snapshot through delayed impacts. There is no expiry, timer or RNG. Jobs without a meter keep their old stats/events.
+
+Finisher definitions (H8) add:
+
+```json
+{"meter":{"role":"finisher","min":5,"spend":"all","damage_per_unit":0.10}}
+```
+
+Admission requires the minimum, normal cooldown, prepared targets and payable HP. At admission, snapshot the held-orb
+bonus, retain `round(meter_keep)` units (clamped to 0..held), and multiply damage by `1 + spent * damage_per_unit`.
+Finishers cannot earn Combo. Their repeat cooldown has a 1 s floor, even with cooldown modifiers.
+When multiple finishers are ready, compare their ordinary target plans: a single-target scheduled-boss attack wins,
+otherwise the larger eligible target count wins (capped to strike count); cooldown/learned order breaks ties.
+Finisher admission enforces the prepared plan's min_targets, including range_around casts.
+H8 supplies Coma's three-target threshold and Panic's range/target rules. No job or skill IDs enter the meter runtime.
+The cast snapshot carries meter_spent for H8's finish-art selection; no-meter cast events stay unchanged.
+Other auto-skills keep their oldest-ready order.
+
+`meter_keep` is an ordinary skill modifier, available to rarity bonuses and Mastery; previews say “Keeps N orbs”.
+SkillText appends “Needs N orbs” and the retained count to card/Skill-window descriptions.
+Each actual value change appends `meter_changed {id, value, max}`. HudMeter receives those events, draws max pips
+beside the skill icons, and lights value pips. Combo uses the verified orb art at `state/1` (43x42 in v83);
+unavailable art uses drawn pips. Jobs without a meter display nothing.
+
+Later jobs can configure `gain.event` to `hit_taken` or `meso_picked` and call `gain(event, events)` at their
+event source; H3 wires landed casts only. M23 owns meso pickup coupling; energy/form rules belong to Buccaneer's spec.
+The current `per_unit.stat` contract is `damage`; additional stat semantics need an explicit extension.
+Paladin uses M2 forms, not M1. Meter state is absent from CharacterSnapshot: a new round always starts empty.
+
 ### 7.35 Pull (#300, spec #296)
 
 The mirror of `knockback` (7.27): a generic skill block that drags mobs toward the caster along their foothold chain.
@@ -6906,3 +6969,13 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 #291 tier C provenance: summon auto-admission, replacement groups, nearest/boss-first two-sided acquisition,
 current-body impact selection, follow/snap model and the numeric first-pass Elquines settings are in 7.32.
 Missing/zero summon frame delays use the existing 100 ms presentation default (tier C); WZ delays are otherwise unchanged.
+
+### Hero H3 meter constants (#299)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Combo capacity, gain | 10; +1 per landed non-finisher pool cast | tier C survivor adaptation; tier A source: Combo Attack/Advanced Combo counter descriptions |
+| Held-unit damage bonus | +2% per orb | tier C, #296; H2 job data |
+| Finisher gate / spend multiplier | 5; all minus meter_keep; +10% per spent orb | tier C, #296; H8 skill data |
+| Finisher repeat floor / arbitration | 1 s; single-target scheduled boss, else most targets | tier C, #296; shared admission |
+| Meter HUD geometry | origin (244,20), 12 px pitch, 4 px radius, 10 px orb image, 1 px border | tier C presentation layout; original orb pixels tier A |

@@ -563,6 +563,8 @@ static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var d := w.upgrades.card(String(c.get("id", "")))
 	if d.is_empty():
 		return 0.0
+	if w.book.def(String(d.get("skill", ""))).has("meter"):
+		return 0.0 # H3 admission hook only; H8/H9 supply finisher-specific card policy.
 	var kind := String(d.get("kind", ""))
 	if kind == "filler":
 		return _base_score(w, d) # the Elixir fallback ignores magnitude even if a table ever gave it one

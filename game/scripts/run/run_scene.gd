@@ -709,6 +709,7 @@ func _build_overlays() -> void:
 	hud = Hud.new()
 	hud.library = library
 	add_child(hud)
+	hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
 	# Below notices/windows so pause and inventory remain usable over a partly faded world.
 	var fade_layer := CanvasLayer.new()
 	fade_layer.name = "MapTransfer"
@@ -1050,6 +1051,8 @@ func _after_tick() -> void:
 func handle_events(events: Array) -> void:
 	for e: Dictionary in events:
 		match String(e.type):
+			"meter_changed":
+				hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
 			"map_cleared":
 				_on_map_cleared(int(e.map_index))
 			"boss_warning":

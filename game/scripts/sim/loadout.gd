@@ -341,7 +341,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 			# tier C: surround attacks retain canonical reach/height on both sides of the player (Pirate kick).
 			var extent := maxf(absf(box.position.x), absf(box.end.x))
 			box = Rect2(-extent, box.position.y, extent * 2.0, box.size.y)
-	return {
+	var resolved := {
 		"skill": key,
 		"skill_id": book.skill_id(key),
 		"kind": book.kind(key),
@@ -422,6 +422,10 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"cooldown_from_cast": bool(buff.get("cooldown_from_cast", false)),
 		"displacement": _displacement(key, d, r, lv),
 	}
+	if d.has("meter"):
+		resolved["meter"] = d.meter
+		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
+	return resolved
 
 
 ## Seconds between casts: the skill's own cooldown with its cards, then the cast speed passives (an active skill's cooldown

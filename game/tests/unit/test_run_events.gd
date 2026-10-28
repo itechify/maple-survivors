@@ -355,6 +355,12 @@ func test_every_event_matches_the_schema() -> void:
 	transfer.advance_map()
 	for event: Dictionary in transfer.drain_events():
 		_check(event, seen)
+	# H3: the no-meter F/P probe cannot emit this job-specific event. Exercise the generic counter.
+	var meter := PlayerMeter.new({"id": "fixture", "max": 10, "gain": {"event": "cast_landed", "amount": 1}})
+	var meter_events: Array = []
+	meter.gain("cast_landed", meter_events)
+	for event: Dictionary in meter_events:
+		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "ammo_shot":
 			var archer := CF.ranged_final(1452000, 310)
