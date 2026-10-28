@@ -171,7 +171,6 @@ func test_card_rarity_weights_follow_the_existing_formula_with_cash_fortune() ->
 	# The same seeded draws as a character whose own Fortune is 100: cash Fortune IS Fortune.
 	var cash_data := _data()
 	cash_data.upgrades.cards = data.upgrades.cards
-	cash_data.upgrades.pity.draws = 0
 	data.balance.player["fortune"] = 100.0
 	var own := RunWorld.new(_setup(data))
 	var fresh_cash := RunWorld.new(_setup(cash_data, character, EVERY_SLOT.values()))
