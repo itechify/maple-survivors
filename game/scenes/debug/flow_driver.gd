@@ -591,7 +591,8 @@ func _answer_choices(run: RunScene) -> bool:
 			run._close_window()
 		run.handle_events([{"type": "choice_pending", "cards": cards, "bonus": bonus}])
 		run.set_process(true)
-		if not await _until(func() -> bool: return run.window is LevelUpWindow and (run.window as MapleWindow).is_open(),
+		if not await _until(func() -> bool: return run.window is LevelUpWindow and (run.window as MapleWindow).is_open() \
+				and run.window._since_open >= run.window.input_delay,
 				10.0, "the %s window" % show):
 			return false
 		await _shot("redesign_offer_" + show, 0.9)

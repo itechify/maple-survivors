@@ -134,8 +134,8 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
 3. **Map select** lists every stage of every unlocked tier: Henesys, Ellinia, Perion and Kerning City (tier 1, always
    open) and Sleepywood (tier 2). A locked card is greyed, its details say "Locked. Clear any stage of Tier 1 to unlock
    Tier 2." and Start does nothing. Each stage contains three ordered maps (4.1). Back returns to the Free Market.
-4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt,
-   active slot 1) and Teleport on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
+4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt for F/P, Power Strike for Hero,
+   active slot 1) and its mobility skill (Teleport or Rush) on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
 5. **Survive** the growing swarms. Each map's boss arrives 300 seconds after entering it. Defeat it, collect all
    drops and finish every pending choice with combat frozen, then transfer automatically to the next map. HP, Hidden,
    cooldowns, kills and damage carry; map entities and boss-inflicted statuses clear. Only map 3 clears the round. Slow
@@ -687,6 +687,51 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 101–130/201–212/301–330/401–430/501–530/601–630 are never reused for tuning or fresh evidence.
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
+
+**#306 / H10 Hero enablement and H9 completion (2026-10-28).** No balance tuning. Read-only real cache,
+`ISOLATE=306`, `JOBS=3`, training seeds 1/2/2026 only. All four tier-1 stages, bot/random, both jobs;
+Sleepywood bot with starter equipment and each job's fixture (`hero_t2.json`, `fp_arch_mage.json`).
+All **60 records** finished without crashes, world warnings or missing assets; no TIMEOUTs.
+Records, complete console reports and machine summaries remain under `_scratch/306-smoke/<job>/<stage>/<policy-or-kit>/`.
+Cells are **clears / 3; death-second range (deaths only); end-level range**.
+
+| Stage / equipment | Hero bot | Hero random | F/P bot | F/P random |
+|---|---|---|---|---|
+| Henesys | 0/3; 259.2–322.3; 8–11 | 0/3; 302.8–326.8; 10–11 | 0/3; 305.0–651.7; 11–36 | 0/3; 308.3–309.9; 10–11 |
+| Ellinia | 0/3; 144.5–156.3; 5–6 | 0/3; 155.5–163.6; 5–6 | 0/3; 629.1–644.2; 21–23 | 0/3; 328.4–660.2; 12–23 |
+| Perion | 0/3; 229.8–251.1; 8–8 | 0/3; 201.8–256.4; 7–8 | 0/3; 305.7–456.3; 10–19 | 0/3; 308.7–421.5; 13–19 |
+| Kerning | 0/3; 221.1–267.0; 8–10 | 0/3; 232.1–252.1; 9–10 | 0/3; 307.9–315.0; 12–13 | 0/3; 306.0–317.3; 12–13 |
+| Sleepywood starter | 0/3; 7.2–7.6; 1–1 | — | 0/3; 10.6–12.0; 1–1 | — |
+| Sleepywood kit | 0/3; 7.8–10.1; 1–3 | — | 1/3; 23.8–826.2; 8–72 | — |
+
+**Melee survivability remains unresolved.** Hero cleared 0/30, defeated no scheduled boss, and reached the first
+Henesys boss in 2/3 bot and 3/3 random runs; every other Hero run died before its first boss. Hero Henesys bot filled
+six active slots at 134.1–253.2 s (3/3). Sleepywood's diagnostic equipment fixture did not make the opening survivable.
+Per the owner's H10 instruction, QA continues and reports this to the orchestrator rather than tuning or stopping.
+The later balance pass owns Rush cooldown/rank/knock-back, Slash Blast/Coma HP costs, Shout stun and the orb bonus.
+
+F/P Henesys bot still fills six slots (136.7–205.3 s, 3/3) and reaches the first boss (3/3). The older H5 smoke above
+had 1/3 Henesys and 2/3 kit Sleepywood clears, compared with 0/3 and 1/3 here; do not call those outcomes unchanged.
+A paired seed-1 Henesys F/P control with Hero disabled produces a **byte-identical full record** to Hero enabled
+(`_scratch/306-fp-disabled-control/henesys_bot_1.json`); this observed difference from H5 is already present on the
+integration tree, not introduced by Hero's playability flip. Ellinia is recorded only, pending the owner's rework.
+
+Both real `redesign --job=112` and `--job=212` scenarios pass: creation, full-slot/Mastery/boss windows, three real
+clear/fade/arrival transitions, kept equipment/mesos and unlocked tier, Sleepywood death, save/quit, deletion and history.
+These are diagnostic invulnerable flows with post-timer boss hits, not survival evidence. The driver now drains stale
+choice requests and waits for the window's input delay before injecting a number key (under load a visible window
+could still reject that key). Screenshots in `evidence/h10/redesign_112/` and `redesign_212/` were inspected.
+Ordinary Hero playtests (`--job=112 --speed=8 --vsync=off`) ended DEAD on Henesys seed 2026 at 304.9 s, Lv11,
+and Sleepywood seed 1 with `hero_t2.json` at 8.3 s, Lv1; both `missing: []`. Art-only probes supply stationary,
+durable targets and injected orbs for sword/axe finishers; no diagnostic probe code or art is committed.
+The Mastery screenshot also exposes a pre-existing design gap: Monster Magnet's Normal Mastery advertises +5% damage
+although the skill deals none. Its rarity bonuses work; the Normal Mastery policy is left for owner review, with no tuning.
+
+Hero's separate synthetic replay oracle hashes 7,200 fixed ticks twice (seed 1, explicit job 112, bot, invulnerable):
+`9adb0cee8138e1bf1aa6f91a2656e1cd4ad29f8552913269dbe08ec0cb841661`. The two F/P oracle expectations are untouched.
+Rust tests: 70 passed; web shell: 62 passed. Web export and artifact gate were **not run**: the pinned web templates
+are absent (`godot_templates.sh dir`); merge readiness therefore carries this explicit unverified gate.
+
 
 **#301 / H5 core melee regression smoke (training seeds 1/2/2026).** No balance tuning.
 Shared real cache, `ISOLATE=301`; four tier-1 stages with bot/random, Sleepywood with bot,
@@ -6318,6 +6363,7 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 |---|---|---|---|
 | Playable jobs and start skills (#284) | `survivor/jobs.json`: 112 and 212 are playable (spec #296); 212 is the default (`default_job`) for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
 | Auto-AP rows (#284) | `balance.player.ap`: one `{primary, secondary, keyframes}` row per job, nearest ancestor's row otherwise, all AP to STR without a row. 212: INT primary, LUK secondary at the old Magician keyframes (Lv1 3 -> Lv200 202); the 200/100/300/400/510/520 rows keep the unported lines' old single rows | C | Owner, spec #282 (212); the rest the earlier tier C rows without weapon paths |
+| Hero playability and QA fixture (#306) | Playable 112 and 212; default 212. `hero_t2.json`: seed 1, bot, invulnerable Henesys clear, tier 2 unlocked; all equipment from the tier-1 drop band. Diagnostic equipment fixture, never survival evidence | C | Spec #296; fixture `_doc` |
 | Hero AP row (#298, spec #296) | `balance.player.ap["112"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204 (the secondary DEX target tracks the level plus about 4, the v83 Warrior gear pattern). HP growth is not re-listed: 112 inherits the Warrior row (100: 26 per level) through the lineage | C | Spec #296 |
 | Hero creation weapon (#298, spec #296) | `survivor/jobs/hero.json` `creation_weapon` 1302000, the plain Sword (reqJob 0, so wearing it checks no class); `weapon_families` `["sword", "axe"]` filters the existing Warrior drop list (one- and two-handed), armour and shields drop by the Warrior class bit; the weapon item id and stats are tier A | C | Spec #296 |
 | `default_job` pin (#298, spec #296) | `survivor/jobs.json` `default_job` 212: the job of a fresh character and of every tool run, test and oracle that names none, so Hero never changes it by becoming playable; Hero is always chosen explicitly (`--job=112`, the creation Job page). The owner can flip it with this one line | C | Spec #296, risk found while checking the slice |
