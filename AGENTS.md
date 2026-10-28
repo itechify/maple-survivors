@@ -102,7 +102,7 @@ cache: point it at your own v83 folder or zip (nothing is uploaded). Serve the e
 `node --test web/dev/test/*.test.mjs`. The game's debug scenes (`flow_driver.tscn`) cannot run on web; `?arg=<value>`
 query parameters become game user args (`?arg=--run=henesys&arg=--autoplay`).
 
-Stage keys are `henesys`, `ellinia`, `perion`, `kerning` (tier 1), and `sleepywood` (tier 2). Each round plays the
+Stage keys are `henesys`, `ellinia`, `perion`, `kerning`, `nautilus` (tier 1), and `sleepywood` (tier 2). Each round plays the
 region's three maps in order, with one boss 300 s after each entry; intermediate clears transfer automatically.
 `--stage=` and `--run=` also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. Continue always
 replays from map 1 with the boundary character and seed, including after quitting on a later map; map transfers never

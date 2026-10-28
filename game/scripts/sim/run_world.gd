@@ -2544,6 +2544,9 @@ func spawn_meso(pos: Vector2, amount: int) -> int:
 ## A scheduled boss died: boss_died, mob_died with the boss reward EXP (canonical EXP x rewards.exp_mult; no ordinary
 ## ordinary EXP rolls), its canonical revive list, then the reward shower and bonus choices.
 func _on_boss_kill(m: int, mk: MobKind, pos: Vector2, elite: bool) -> void:
+	if bosses.continue_final_form(mob_boss[m], m, pos, self):
+		emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": 0, "elite": elite})
+		return
 	var rewards := bosses.reward_config(mob_boss[m])
 	var e := maxi(0, roundi(mk.exp * float(rewards.get("exp_mult", 1.0))))
 	bosses.mark_dead(mob_boss[m], m, pos, self)

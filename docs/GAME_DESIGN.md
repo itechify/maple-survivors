@@ -330,7 +330,7 @@ implementations remain sibling work.
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
 labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
 aliases; living slots, bests, history and run snapshots migrate on load. The tier list is
-`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253).
+`[[henesys, ellinia, perion, kerning, nautilus], [sleepywood]]` (Nautilus added by spec #264; Perion and Kerning City added by spec #253).
 
 | Stage key | Map 1 | Map 2 | Map 3 | Boss order |
 |---|---|---|---|---|
@@ -338,6 +338,7 @@ aliases; living slots, bests, history and run snapshots migrate on load. The tie
 | `ellinia` | The Tree That Grew I (101010100) | The Forest of Wisdom (100040100) | The Forest of Evil I (100040105) | Stumpy / King Slime / Dyle |
 | `perion` | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) | Mano / Stumpy / Iron Hook |
 | `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
+| `nautilus` | Pirate Training Center (912030000) | The Forest East of Henesys (100030000) | Pirate Test Room (108000500) | Mano / Mushmom / King Clang |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `tiers` order; its objective is
@@ -551,6 +552,37 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Nautilus data and final-form chain (#265, 2026-10-27)
+
+Regression smoke on private `caches/s264`, fixed training seeds **1 / 2 / 2026**, both card policies, the four
+pre-existing tier-1 regions plus Nautilus (all five). No tuning or held-out seeds. All 30 runs completed without a crash or world warning;
+Henesys reached Magician and Mano in 6/6. The four existing regions match the preceding #263 smoke (including Ellinia bot seed 1
+at 630.8 s and the six Kerning outcomes below). Existing five stage entries are unchanged. The synthetic King Slime
+revive test explicitly verifies its encounter still ends on the scheduled boss's death; only `final_form` opts in.
+Death seconds @ one-based ending map, seeds 1 / 2 / 2026:
+
+| Region | bot | random |
+|---|---|---|
+| Henesys | 308.3@1 / 435.4@2 / 310.0@1 | 432.2@2 / 375.7@2 / 436.2@2 |
+| Ellinia | 630.8@2 / 39.1@1 / 34.7@1 | 697.5@2 / 39.1@1 / 34.7@1 |
+| Perion | 423.7@2 / 382.4@2 / 306.8@1 | 383.5@2 / 460.2@2 / 389.5@2 |
+| Kerning | 307.7@1 / 307.8@1 / 318.6@1 | 306.6@1 / 314.5@1 / 308.7@1 |
+| Nautilus | 689.1@3 / 723.0@3 / 596.7@2 | 309.9@1 / 320.8@1 / 308.4@1 |
+
+Nautilus reaches Mano in all six runs; bot seeds 1/2 defeat Mushmom and enter the Test Room, but die before
+King Clang arrives. No natural-clear claim or tuning follows from this smoke.
+
+Private-cache import: 0 errors. Real `flow_driver --scenario=maps --stage=nautilus` passed with `missing: []`,
+no failures, and all three bosses defeated before the Free Market (diagnostic invulnerability/hits, not natural
+survival evidence). Entries at 0 / 300.000 / 600.017 s; final map 108000500, clear at 900.067 s. Save & quit on map 2
+and Continue replayed the same seed from map 1. All three arrival screenshots were inspected. Synthetic checks
+cover shell/final scaling, one encounter clock, final-form canonical summons, final death only, and ordinary revive
+semantics. Affected checks after merging T2 and updating the stale region/transfer/meso contracts: **128 tests, 0 failed, 0 skipped**.
+The full suite on that merged implementation and s264 passes **2,220 tests, 0 failed, 0 skipped** (214 files,
+833.343 s), with the two pre-existing dummy-renderer texture RID allocations reported at shutdown. T2/T3/T4 own card layout, Stun mechanics and
+arena/natural-play QA respectively; these results do not establish arena fitness or balance.
+
 
 #### Walls stop only their own structure: Kerning's invisible walls (2026-10-24)
 
@@ -6558,6 +6590,10 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
+
+| Nautilus region and pools (#264, #265) | Map order 912030000 / 100030000 / 108000500; original life Pig 25 / Green Mushroom 9. Henesys numeric curve unchanged; Blue Snail only until 120 s, then Snail 2 / Pig 3, from 210 s Snail 1 / Pig 3 / Green Mushroom 2. Forest life excludes Strange 9400617/9400655/9400656 (no other timed/hidden mobs); Test Room uses OctoPirate life | C choices/weights; A IDs/life | Owner spec #264; original v83 WZ |
+| Nautilus bosses and opt-in final_form (#265) | Mano/Mushmom entries copied from Henesys. King Clang shell 5220001 has real stand/die art, no link; final_form 5220000 preserves one encounter through canonical revive, both forms use hp_mult 7000/29000 (966 + 6034 = 7000 HP), touch 1.34 (181..214) and attack 1.21 (179..212) at PDD7/HP448; matches Blue Mushmom 7000 HP, touch 181..214, attack 180..212 with nearest 0.01 endpoint error; attack cadence 8 s. Existing non-opt-in revives end their encounter on scheduled death | C encounter/multipliers; A canonical stats/art/revive | Starting values, untuned; same-slot method #254. 85-100% rolls, floor(.75 x 7)=5 defense |
+| Nautilus mob metadata and stun art (#265) | OctoPirate borrows Octopus Leg EXP icon; Lorang uses Lorang Claw 4000043, Clang/King Clang use Clang Claw 4000044 (signature associations, not drop-table claims); explicit empty mesos uses level fallback. Shell boss bar borrows final crab icon. Skill.wz/MobSkill.img/123/level/8/affected has frames 0/1/2, pos/repeat; it is the character above-head stun art, with no separate effect node; full MobSkill image already imported | C metadata associations/fallback; A art paths | Original v83 WZ; no drop-table claims |
 
 ## 12. Later phases
 
