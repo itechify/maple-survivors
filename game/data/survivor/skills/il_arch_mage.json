@@ -1,4 +1,96 @@
 {
-	"_doc": "I/L Arch Mage line (spec #319, I2 #321), books 220/221/222. An empty skeleton: each of I6-I10 owns one contiguous region and appends its entries there, so the parallel tickets never collide. I6 (#325): Cold Beam, Thunder Bolt, Teleport (moves from magician.json), Ice Strike, Thunder Spear. I7 (#326): Ice Demon, Element Composition (il). I8 (#327): Chain Lightning. I9 (#328): Ifrit. I10 (#329): Blizzard, Big Bang (il). Energy Bolt and Magic Claw stay in magician.json (F/P's pool entries too).",
-	"skills": {}
+	"_doc": "I/L Arch Mage line (spec #319, I2 #321), books 220/221/222. Each of I6-I10 owns one contiguous region and appends its entries there, so the parallel tickets never collide. I6 (#325): Cold Beam, Thunder Bolt, Teleport (moved from magician.json), Ice Strike, Thunder Spear. I7 (#326): Ice Demon, Element Composition (il). I8 (#327): Chain Lightning. I9 (#328): Ifrit. I10 (#329): Blizzard, Big Bang (il). Energy Bolt and Magic Claw stay in magician.json (F/P's pool entries too). Tier C cooldowns are the F/P base values x0.4 (GAME_DESIGN 7.60).",
+	"skills": {
+		"cold_beam": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.60.",
+			"rarity_bonuses": {
+				"rare": [{"id": "amplify", "text": "Element Amplification", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "booster", "text": "Spell Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"unique": [{"id": "spread", "text": "Spreading Frost", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "spread", "text": "Spreading Frost and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2201004, "book": "220", "job": 220, "kind": "instant", "slot": "active",
+			"name": "Cold Beam", "desc": "Freezes the nearest monster with an icy beam.",
+			"text": {"desc": "Attacks the nearest monster with a sharp piece of ice. The monster will freeze if hit. Fire-based monsters take 1.5 times the damage, ice-based monsters half.", "h": "Basic attack {mad}, mastery {mastery_pct}%, up to {count|monster|monsters}, freeze for {time} sec."},
+			"icon": "Skill.wz/220.img/skill/2201004/icon", "damage": "magic",
+			"_survivor": "Tier C: nearest-target auto-cast, 0.5 s cooldown (1.25 s x0.4), 300 px range, one target, swingO1 stance held 0.8 s. Tier A: hit/effect only (no ball), elemAttr i, mad/mastery and freeze time from the canonical level; no prop field, so every damaging hit attempts freeze through on_hit.",
+			"cooldown": 0.5, "range": 300, "count": 1,
+			"on_hit": {"status": "freeze", "duration_field": "time"},
+			"action": "swingO1", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/220.img/skill/2201004/hit/0",
+			"effect": "Skill.wz/220.img/skill/2201004/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2201004/Use", "hit": ""}
+		},
+		"thunder_bolt": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.60.",
+			"rarity_bonuses": {
+				"rare": [{"id": "amplify", "text": "Element Amplification", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "storm", "text": "Wider Storm", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "fork", "text": "Forking Storm", "effects": [{"stat": "count", "op": "add", "value": 2}]}],
+				"legendary": [{"id": "fork", "text": "Forking Storm and damage", "effects": [{"stat": "count", "op": "add", "value": 2}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2201005, "book": "220", "job": 220, "kind": "instant", "slot": "active",
+			"name": "Thunder Bolt", "desc": "Strikes nearby monsters with lightning.",
+			"text": {"desc": "Attacks surrounding monsters with a thunder bolt.", "h": "Basic attack {mad}, mastery {mastery_pct}%, up to {mob_count|monster|monsters}"},
+			"icon": "Skill.wz/220.img/skill/2201005/icon", "damage": "magic",
+			"_survivor": "Tier C: auto-cast with at least one monster in the canonical box, 0.6 s cooldown (1.5 s x0.4), swingO1 stance held 0.8 s. Tier A: lt/rb/mobCount, mad/mastery and elemAttr l from Skill.wz; hit/effect only (no ball).",
+			"cast": {"rule": "box"}, "cooldown": 0.6,
+			"action": "swingO1", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/220.img/skill/2201005/hit/0",
+			"effect": "Skill.wz/220.img/skill/2201005/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2201005/Use", "hit": ""}
+		},
+		"teleport_il": {
+			"skill_id": 2201002, "book": "220", "job": 220, "kind": "instant", "slot": "mobility",
+			"name": "Teleport", "desc": "Press X and a direction to blink to a platform. Hold X to repeat.",
+			"text": {"desc": "Press the Teleport key with an arrow key to teleport a set distance to another platform in the same map. Hold the key to keep teleporting."},
+			"icon": "Skill.wz/220.img/skill/2201002/icon", "damage": "none",
+			"cast": {"rule": "manual"}, "skill_key": "teleport",
+			"teleport": {"repeat_delay": 0.3, "bot_threat_distance": 60.0},
+			"_teleport": "Tier C: 0.3 s survivor repeat delay; bot blinks from threats within 60 px. Canonical mpCon and range from Skill.wz. Same numbers as teleport_fp; the rank follows balance.mobility_rank_levels (the job's mobility_skill), so it has no cards.",
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "", "action_time": 0.0, "ball": "", "hit": "",
+			"effect": "Effect.wz/BasicEff.img/Teleport", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2201002/Use", "hit": ""}
+		},
+		"ice_strike": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.60.",
+			"rarity_bonuses": {
+				"rare": [{"id": "amplify", "text": "Element Amplification", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "storm", "text": "Wider Frost", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "shatter", "text": "Shatter", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "shatter", "text": "Shatter and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2211002, "book": "221", "job": 221, "kind": "instant", "slot": "active",
+			"name": "Ice Strike", "desc": "Freezes the monsters around you with a burst of ice.",
+			"text": {"desc": "Strikes nearby monsters with a burst of ice. The monsters will freeze if hit. Fire-based monsters take 1.5 times the damage, ice-based monsters half.", "h": "Basic attack {mad}, mastery {mastery_pct}%, up to {mob_count|monster|monsters}, freeze for {time} sec."},
+			"icon": "Skill.wz/221.img/skill/2211002/icon", "damage": "magic",
+			"_survivor": "Tier C: auto-cast with at least one monster in the canonical box, 1.6 s cooldown (4 s x0.4), magic2 stance held 0.8 s. Tier A: lt/rb/mobCount 6, mad/mastery, freeze time and elemAttr i from Skill.wz, action magic2; no prop field, so every damaging hit attempts freeze through on_hit; effect and hit/0 only (no ball), Use sound only.",
+			"cast": {"rule": "box", "min_targets": 1}, "cooldown": 1.6,
+			"on_hit": {"status": "freeze", "duration_field": "time"},
+			"action": "magic2", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/221.img/skill/2211002/hit/0",
+			"effect": "Skill.wz/221.img/skill/2211002/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2211002/Use", "hit": ""}
+		},
+		"thunder_spear": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.60.",
+			"rarity_bonuses": {
+				"rare": [{"id": "amplify", "text": "Element Amplification", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "booster", "text": "Spell Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"unique": [{"id": "echo", "text": "Echo", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Echo and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2211003, "book": "221", "job": 221, "kind": "instant", "slot": "active",
+			"name": "Thunder Spear", "desc": "Spears the nearest monster with a heavy bolt of lightning.",
+			"text": {"desc": "Attacks the nearest monster with a heavy spear of lightning. Ice-based monsters take 1.5 times the damage, lightning-based monsters half.", "h": "Basic attack {mad}, mastery {mastery_pct}%, up to {count|monster|monsters}"},
+			"icon": "Skill.wz/221.img/skill/2211003/icon", "damage": "magic",
+			"_survivor": "Tier C: nearest-target auto-cast, 0.8 s cooldown (2 s x0.4), 400 px range, one target (the WZ node has no mobCount and no box), magic1 stance held 0.8 s. Tier A: mad/mastery and elemAttr l from Skill.wz, action magic1; effect and hit/0 only (no ball), Use sound only.",
+			"cast": {"rule": "nearest"}, "cooldown": 0.8, "range": 400, "count": 1,
+			"action": "magic1", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/221.img/skill/2211003/hit/0",
+			"effect": "Skill.wz/221.img/skill/2211003/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2211003/Use", "hit": ""}
+		}
+	}
 }
