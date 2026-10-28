@@ -31,7 +31,7 @@ const WEAPON_BOX := Rect2(120, 380, 195, 45)
 const MESSAGE_BOX := Rect2(475, 365, 215, 45)
 ## tier C: the Job step lists one job per row inside the same charSet panel, from the first Look row down.
 const JOB_ROW_SIZE := Vector2(190, 19)
-const JOB_SELECTED := Color8(255, 170, 68, 90)
+const JOB_SELECTED := Color8(255, 170, 68, 170)
 
 var flow: SceneFlow
 var model: CharacterCreation
@@ -131,7 +131,7 @@ func _ready() -> void:
 	_build_job_surface()
 	message = _label_on(self, "", MESSAGE_BOX.position, MESSAGE_BOX.size)
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	for surface: Control in [_name_surface, _look_surface]:
+	for surface: Control in [_name_surface, _look_surface, _job_surface]:
 		var advisory := MapleText.new("", MapleText.SIZE, MapleText.BLACK)
 		advisory.name = "CreationAdvisory"
 		advisory.position = ADVISORY.position
@@ -185,12 +185,10 @@ func _build_job_surface() -> void:
 	_job_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_job_surface)
 	_image_on(_job_surface, "NewChar/charSet", SETTINGS_AT)
-	var heading := _label_on(_job_surface, "Job", Vector2(VALUE_X - 70, ROW_AT.y - 22), Vector2(JOB_ROW_SIZE.x, 18))
-	heading.add_theme_font_size_override("font_size", MapleText.SIZE)
 	for i in job_ids.size():
 		var row := Button.new()
 		row.name = "Job_%d" % job_ids[i]
-		row.flat = true
+		row.flat = false # a flat button draws no stylebox, and the chosen row is a plate
 		row.focus_mode = Control.FOCUS_NONE
 		row.text = _jobs.name_of(job_ids[i])
 		row.position = Vector2(ROW_AT.x - 4.0, ROW_AT.y + i * (JOB_ROW_SIZE.y + 2.0))

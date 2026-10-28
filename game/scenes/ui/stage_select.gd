@@ -189,8 +189,9 @@ func select(i: int) -> void:
 	i = clampi(i, 0, stages.size() - 1)
 	if i != selected:
 		selected = i
+		top = clampi(top, maxi(0, selected - MAX_CARDS + 1), selected)
 		UiArt.play_sound(UiArt.SND_OVER)
-		scroll.queue_redraw()
+		_refresh()
 
 
 func _on_shop() -> void:
@@ -227,21 +228,21 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _on_scroll_input(event: InputEvent) -> void:
-	if not scroll.is_open():
+	if not scroll.is_open() or not event is InputEventMouseButton:
 		return
-	var p := (event as InputEventMouse).position if event is InputEventMouse else Vector2(-1, -1)
-	var hit := _entry_at(p)
-	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
-		hit = selected
-	if hit < 0:
+	var mb := event as InputEventMouseButton
+	if not mb.pressed:
 		return
-	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			if mb.double_click and hit == selected:
-				start_selected()
-			else:
-				select(hit)
+	if mb.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		select(selected + (1 if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1))
+		return
+	var hit := _entry_at(mb.position)
+	if hit < 0 or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if mb.double_click and hit == selected:
+		start_selected()
+	else:
+		select(hit)
 
 
 func _entry_at(p: Vector2) -> int:

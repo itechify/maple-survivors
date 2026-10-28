@@ -286,7 +286,7 @@ func _history() -> void:
 	parchment.position = Vector2(144, 67)
 	_surface.add_child(parchment)
 	parchment.unroll(true)
-	_label(parchment.content, "Run history", Vector2(40, 148), Vector2(432, 24), 18, true)
+	_label(parchment.content, "Round history", Vector2(40, 148), Vector2(432, 24), 18, true)
 	var scroll := ScrollContainer.new()
 	scroll.position = Vector2(43, 178)
 	scroll.size = Vector2(428, 198)
