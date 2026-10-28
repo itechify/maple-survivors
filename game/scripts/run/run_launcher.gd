@@ -7,7 +7,7 @@ extends Node
 ##
 ## Flags: --run=<stage key> (default henesys), --seed=<n> (default random), --autoplay (BotInput plays),
 ## --autopick (BotInput's choices, no windows: BotInput.pick_card_for's card), --job=<id> (a fresh character's job; only
-## a playable one, 212, #284),
+## a playable job from JobTree.playable_jobs()),
 ## --speed=<ticks per frame>, --shots=<abs dir> with --shot-every=<run s> (t<s>.png + final.png),
 ## --quit-after=<run s> (writes <shots>/summary.json and quits), --perf (perf overlay on at start with --autoplay; F3
 ## toggles it any time), --name=<character name>, --window-autopick=<s> (level-up windows open and answer

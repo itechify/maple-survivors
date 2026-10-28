@@ -62,6 +62,11 @@ func art_skill_id(key: String, family: String) -> int:
 	return int(def(key).get("art_by_family", {}).get(family, skill_id(key)))
 
 
+## The optional meter gate, spending and role policy for a skill.
+func meter_rule(key: String) -> Dictionary:
+	return def(key).get("meter", {})
+
+
 ## `path` (a Skill.wz or Sound.wz path naming this skill's id) re-pointed at the art twin for `family`; unchanged when
 ## there is no twin, no path, or the path does not name the skill.
 func art_path(key: String, path: String, family: String) -> String:

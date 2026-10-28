@@ -63,7 +63,7 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 		y[i] = world.player.pos.y
 		facing[i] = world.player.facing
 		left[i] = maxf(0.0, world.loadout.skill_stat(st.skill, "duration", float(st.duration)))
-		stats[i] = st.duplicate()
+		stats[i] = SkillRunner.cast_snapshot(st)
 		definitions[i] = d
 		action[i] = ""
 		_set_action(i, "summoned")

@@ -443,3 +443,35 @@ func test_real_cache_rush_numbers_art_and_sound() -> void:
 	assert_true(lib.sound(String(book.def(KEY).sounds.use)) != null)
 	assert_true(lib.missing.is_empty(), str(lib.missing))
 	lib.free()
+
+
+func test_manual_dash_owns_the_tick_and_presented_action() -> void:
+	var w := _world()
+	w.learn_skill("slash_blast")
+	_mob(w, 480)
+	_press(w, false, true)
+	var casts := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "cast")
+	assert_eq(casts.size(), 1, "manual Rush prevents another cast this tick")
+	assert_eq(w.player_state.action, "rush2")
+
+
+func test_rush_action_is_presented_while_walking_and_airborne() -> void:
+	for state: int in [PlayerMotion.ST_WALK, PlayerMotion.ST_AIR]:
+		var w := _world()
+		w.player.state = state
+		if state == PlayerMotion.ST_AIR:
+			w.player.fh = -1
+			w.player.pos.y = -60
+		_press(w, false, true)
+		assert_eq(w.player_state.action, "rush2", "state %d" % state)
+
+
+func test_input_directed_dash_dispatches_on_its_declared_skill_key() -> void:
+	var w := _world()
+	w.book.defs[KEY].skill_key = "teleport"
+	var input := MoveInput.new()
+	input.press_skill("teleport")
+	input.right = true
+	w.step(DT, input)
+	assert_eq(w.player.pos.x, 570.0)
+	assert_eq(w.player_state.action, "rush2")
