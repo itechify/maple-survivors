@@ -1517,7 +1517,6 @@ func _reload_map() -> void:
 	mob_layers.clear()
 	_slot_layers.clear()
 	_throws.clear()
-	chain_bolts.clear()
 	_immunity_fx.clear()
 	_slow_fx = -1
 	_shown_action = ""
