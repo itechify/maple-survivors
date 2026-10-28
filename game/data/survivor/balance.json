@@ -88,11 +88,7 @@
 		"cooldown": {"hp": 20},
 		"hp": {"item_id": 2000000},
 		"_bot": "Tier C: drink only when the missing HP is at least min_restore_fraction of one current potion's canonical restore, with the restore capped at the max HP pool but counted as at least pool_floor of the potion (owner: waste guard for small pools; the cap keeps the 1000-2000 point steps of #229 drinkable, tier C).",
-		"mobility_rank_levels": {"1": 1, "4": 2, "6": 3, "8": 4, "10": 5, "12": 6, "14": 7, "16": 8, "18": 9, "20": 10, "22": 11, "24": 12, "26": 13, "28": 14, "30": 15, "32": 16, "34": 17, "36": 18, "38": 19, "40": 20},
-	"bot": {
-		"passive_active_threshold": 3,
-		"passive_score_bonus": 20.0,
-		"mastery_bonus_score": 100.0,"min_restore_fraction": 0.5, "pool_floor": 0.25},
+		"bot": {"min_restore_fraction": 0.5, "pool_floor": 0.25},
 		"_schedule": "Tier C (ours): automatic potion upgrades by character level (spec #225, replacing the potion-tier cards). Each step {level, kind hp, item} makes the kind's current potion that item once the character reaches the level (sim, at level-up with a notice, and silently on snapshot load); the cooldown is kept, a step never downgrades, and an item without a canonical restore spec is skipped. Sorted by level. The first two are the old card gates (Orange @10, White @25; the MP steps went with MP, ADR 0006). The next two are researched steps, each tier C (docs/research/v83-potion-progression.md section 6, ticket #229): Unagi 2022003 (1000 HP) @40, Ice Cream Pop 2001001 (2000 HP) @60. The levels are our own reading of thin sources (no source names when players moved to the Lv 60 foods), and the step is job-agnostic, so a small pool wastes the overheal. Restore amounts are never typed here: they come from each item's canonical spec in Item.wz (Consume/0200.img, 0202.img); an old asset cache without these items simply stops at the last tier it holds.",
 		"schedule": [
 			{"level": 10, "kind": "hp", "item": 2000001},
