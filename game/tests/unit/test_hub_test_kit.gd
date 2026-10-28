@@ -104,6 +104,69 @@ func test_the_kit_adds_spare_equipment_with_plain_wz_stats() -> void:
 	assert_eq(inventory[1], {"id": 1382001, "stats": {"incMAD": 17}, "slots": 7, "scrolls": 0})
 
 
+## A fresh Lv1 I/L Arch Mage (222, the Wooden Wand) as the creation screen makes it; the kit only reads its job.
+func _il() -> Dictionary:
+	return SceneFlow.new_character({}, 222, _loader())
+
+
+func test_hub_job_flag_picks_that_jobs_fixture_and_an_explicit_character_wins() -> void:
+	assert_eq(HubTestKit.parse_args(PackedStringArray(["--hub", "--job=222"])),
+		{"job": 222, "character": "res://tests/fixtures/characters/il_arch_mage_t2.json", "mesos": 500000})
+	assert_eq(HubTestKit.parse_args(PackedStringArray(["--hub", "--job=212"])).character, FIXTURE)
+	assert_eq(HubTestKit.parse_args(PackedStringArray(["--hub", "--job=222", "--character=/x/y.json"])).character, "/x/y.json")
+	assert_eq(HubTestKit.parse_args(PackedStringArray(["--hub", "--job=wizard"])).job, -1)
+	assert_false(HubTestKit.parse_args(PackedStringArray(["--hub"])).has("job"), "no --job, no job key: the F/P default is unchanged")
+
+
+func test_every_default_fixture_exists_and_is_of_its_job() -> void:
+	for job: int in HubTestKit.DEFAULT_CHARACTER_BY_JOB:
+		var path: String = HubTestKit.DEFAULT_CHARACTER_BY_JOB[job]
+		var loaded := HubTestKit.load_character(path, _loader())
+		assert_eq(loaded.error, "", "%s loads" % path)
+		if loaded.error == "":
+			assert_eq(int(loaded.character.job_id), job, "%s is a job %d character" % [path, job])
+
+
+func test_the_i_l_kit_is_the_arch_mage_kit_and_every_scroll_fits_a_wand_or_staff() -> void:
+	var character := HubTestKit.apply(_il(), 500000, _loader())
+	var held: Array = character.scrolls.keys().map(func(k: String) -> int: return int(k))
+	held.sort()
+	var want := KIT_SCROLL_IDS.duplicate()
+	want.sort()
+	assert_eq(held, want, "I/L wears wands and staves from the same scroll line as F/P: one kit for both Arch Mages")
+	assert_eq(character.job_id, 222, "the rest of the character is untouched")
+	assert_eq(character.equipment.inventory.map(func(e: Dictionary) -> int: return int(e.id)), HubTestKit.KIT_EQUIPMENT)
+	assert_eq(CharacterSnapshot.validation_error(character), "")
+	if not require_cache():
+		return
+	var data := DataRepo.load_all()
+	var families: Array = data.jobs_survivor.jobs["222"].weapon_families
+	assert_true(WeaponInfo.family(1382001) in families, "the spare staff is an I/L weapon family")
+	var lib := AssetLibrary.get_default()
+	for id: int in HubTestKit.KIT_EQUIPMENT:
+		var img := lib.img(AvatarRenderer.part_img_path(id))
+		assert_true(img != null, "%d is in the cache" % id)
+		if img != null:
+			assert_eq(Equipment.requirement_error(img.root.get("info", {}), {"job_id": 222}), "", "an I/L can wear %d" % id)
+
+
+func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
+	var data := DataRepo.load_all()
+	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
+	var fp := _fixture()
+	assert_eq(HubTestKit.job_error({}, fp, jobs), "", "no --job is fine")
+	assert_eq(HubTestKit.job_error({"job": 212}, fp, jobs), "")
+	assert_true(HubTestKit.job_error({"job": -1}, fp, jobs).contains("not a job id"))
+	assert_true(HubTestKit.job_error({"job": 222}, _il(), jobs).contains("not playable"), "shipped I/L is unplayable until I12")
+	DataRepo.patch = {"jobs_survivor": {"jobs": {"222": {"playable": true}}}}
+	var mirrored := DataRepo.load_all()
+	var both := JobTree.from_data(mirrored.jobs, mirrored.jobs_survivor)
+	DataRepo.patch = {}
+	assert_eq(HubTestKit.job_error({"job": 222}, _il(), both), "")
+	assert_true(HubTestKit.job_error({"job": 222}, fp, both).contains("does not match"), "an I/L request with an F/P character")
+	assert_true(HubTestKit.job_error({"job": 212}, _il(), both).contains("does not match"), "and the other way round")
+
+
 func test_a_format_1_character_file_migrates_before_the_kit() -> void:
 	var v1 := {"format": 1, "job_id": 210, "level": 38, "exp": 3389, "beginner_weapon": 0,
 		"look": {"equips": [1040002, 1060002, 1072001]}}

@@ -3,20 +3,28 @@ extends RefCounted
 ## The tool-only `--hub` flag: open the real Free Market (910000000) with a test character, so the spec #33 scroll shops
 ## can be tried by hand without playing a round:
 ##
-##   bash scripts/run.sh -- --hub [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]
+##   bash scripts/run.sh -- --hub [--job=<id>] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]
 ##
 ## Nothing here touches the player's real save (user://save.json): SceneFlow.start_hub puts the character into a slot of
 ## a throwaway save file (SAVE_PATH, recreated on every launch) and continues it, so the hub behaves exactly as in real
 ## play. Pure static helpers: flag parsing, character loading (format 1 migrates), the test kit and the throwaway save.
 ##
-## The test kit (all of it is the constants below): mesos, a stack of every rate of the scroll families the F/P
-## fixture's gear and spare equipment take, and a few spare equipment items with their plain WZ stats.
+## The test kit (all of it is the constants below): mesos, a stack of every rate of the scroll families the character's gear
+## and spare equipment take, and a few spare equipment items with their plain WZ stats. Both Arch Mages (F/P and I/L) wear wands
+## and staves from the same scroll line, so they share this kit; `--job=<id>` without `--character` opens that job's fixture
+## (DEFAULT_CHARACTER_BY_JOB, spec #296 H9 / #319 I11) and `--job` with a character of another job is an error.
 
 ## The throwaway save (tool-only name, deleted and recreated by every `--hub` launch).
 const SAVE_PATH := "user://tool_hub_save.json"
 ## The character used when `--character` is not given: the gear of a real F/P bot character (format 3, job 212).
 ## Tool-only fixture; tests are excluded from exported builds.
 const DEFAULT_CHARACTER := "res://tests/fixtures/characters/fp_arch_mage.json"
+## The fixture `--hub --job=<id>` opens when `--character` is not given (the job's committed character; a job without one
+## falls back to DEFAULT_CHARACTER and the hub reports the mismatch).
+const DEFAULT_CHARACTER_BY_JOB := {
+	212: DEFAULT_CHARACTER,
+	222: "res://tests/fixtures/characters/il_arch_mage_t2.json",
+}
 ## Mesos the kit gives (`--mesos=N` overrides).
 const DEFAULT_MESOS := 500000 # tier C: ours (owner brief)
 ## Scrolls per stack in the kit.
@@ -36,16 +44,41 @@ const KIT_EQUIPMENT := [1002001, 1382001, 1082002, 1040004]
 const CHARACTER_NAME := "HubTester"
 
 
-## {} unless the args hold `--hub`; else {"character": res:// or absolute JSON path, "mesos": int >= 0}.
+## {} unless the args hold `--hub`; else {"character": res:// or absolute JSON path, "mesos": int >= 0}, plus "job" (the id of
+## `--job=<id>`, -1 when it is not a whole number) when the flag is given. Without `--character` the character is the fixture
+## of `--job` (DEFAULT_CHARACTER_BY_JOB), else the F/P one.
 static func parse_args(list: PackedStringArray) -> Dictionary:
 	var flags := SceneFlow.parse_flags(list)
 	if not flags.has("hub") or String(flags.hub) == "0":
 		return {}
+	var out := {}
+	var job := -2
+	if flags.has("job"):
+		job = JobTree.parse_job(String(flags.job))
+		out["job"] = job
 	var path := String(flags.get("character", ""))
 	var mesos := DEFAULT_MESOS
 	if flags.has("mesos") and String(flags.mesos).is_valid_int():
 		mesos = maxi(0, int(flags.mesos))
-	return {"character": path if path != "" and path != "1" else DEFAULT_CHARACTER, "mesos": mesos}
+	out["character"] = path if path != "" and path != "1" else String(DEFAULT_CHARACTER_BY_JOB.get(job, DEFAULT_CHARACTER))
+	out["mesos"] = mesos
+	return out
+
+
+## Why a `--hub --job=<id>` request cannot open ("" when it can): the job is not a whole playable job id, or the character
+## (`character`, format 3) is of another job.
+static func job_error(request: Dictionary, character: Dictionary, jobs: JobTree) -> String:
+	if not request.has("job"):
+		return ""
+	var job := int(request.job)
+	if job < 0:
+		return "--job is not a job id"
+	var error := jobs.job_error(job)
+	if error != "":
+		return error
+	if int(character.get("job_id", -1)) != job:
+		return "--job=%d does not match the character's job %d" % [job, int(character.get("job_id", -1))]
+	return ""
 
 
 ## {"character": format-3 CharacterSnapshot (the "_doc" note dropped; formats 1 and 2 migrated), "error": ""} from a JSON file,
