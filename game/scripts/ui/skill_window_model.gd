@@ -2,8 +2,9 @@ class_name SkillWindowModel
 extends RefCounted
 ## What the v83 Skill window (SkillWindow, #86) shows, built from plain run data so it can be tested without nodes or
 ## the cache: one tab per job on the character's line below the Beginner (1st job up to the character's own job; #284:
-## the Beginner is no longer playable), each listing every skill of that job the game implements (spec #225: there are no job-neutral cards, so no star tab). Read-only:
-## it never changes the loadout.
+## the Beginner is no longer playable), each listing every skill of that job the game implements. The first tab, when the
+## book has any, is Common: the nine job-neutral passives (spec #289), learned or not. Read-only: it never changes the
+## loadout.
 ##
 ##   var m := SkillWindowModel.new(world.book, world.upgrades, world.loadout, world.jobs, job_id, run.skill_text)
 ##   m.tabs        # [{name, job_id, tier, book_name, book_icon, rows: [...]}]
@@ -29,6 +30,11 @@ func _init(p_book: SkillBook, p_pool: UpgradePool, p_loadout: Loadout, p_jobs: J
 	jobs = p_jobs
 	job_id = p_job_id
 	text = p_text
+	var common := _common_rows()
+	if not common.is_empty():
+		# Spec #289: the job-neutral passives sit on the first tab, wearing the Beginner glyph (nobody is a Beginner now).
+		tabs.append({"name": "Common", "job_id": 0, "tier": 0, "book_name": "Common Passives",
+			"book_icon": String(common[0].icon), "rows": common})
 	var path := jobs.lineage(job_id)
 	path.reverse()
 	for id in path:
@@ -103,6 +109,21 @@ static func mod_effect(c: Dictionary, steps: int, skill_kind: String) -> String:
 			_:
 				parts.append("%s%s %s" % [sign, SkillText.number(absf(total)), stat])
 	return ", ".join(parts)
+
+
+## The rows of the common passives (skills.json `common_passive`), in definition order: every one, learned or not.
+func _common_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for key: String in book.defs:
+		var d := book.def(key)
+		if not bool(d.get("common_passive", false)):
+			continue
+		var icon := String(d.get("icon", ""))
+		rows.append({"key": key, "skill_id": book.skill_id(key), "name": String(d.get("name", key)), "icon": icon,
+			"icon_disabled": icon.trim_suffix("icon") + "iconDisabled" if icon.ends_with("/icon") else "",
+			"level": loadout.level(key), "max_level": book.canonical_level(key, book.max_rank(key)),
+			"learned": loadout.has(key)})
+	return rows
 
 
 ## The rows of job `id`: every skills.json skill of that job that a card offers or the run owns, by skill id.

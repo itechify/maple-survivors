@@ -18,7 +18,9 @@ const DT := 1.0 / 60.0
 ## Re-captured for #291 and #292 on the merge (merge/292): Elquines adds summon casts/attacks to the event stream (#291 alone
 ## 2093303d...), and equipment drops follow the tier band and the job's weapon families, not the level and the held weapon,
 ## so the Lv1 character wears what it picks up (#292 alone ecb90f67...). The merged stream differs from both.
-const GOLDEN := "ccd64094380fe8f70e66b7299b963108225f3ffe1596bad881478b7fecaa235d"
+const GOLDEN := "439fae923a4c12a8e67cc182e4e769a631bd6ae1c1b470309d2cde3cfb475047"
+## Re-captured for #289 (common passives): with the nine passive cards removed from the pool the merged hash ccd64094... is
+## reproduced exactly (checked), so the only new bytes are the passive offers and the bot's picks of them.
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

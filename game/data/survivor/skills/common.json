@@ -1,0 +1,338 @@
+{
+	"_doc": "Job-neutral common passives (spec #282 ticket #289): one entry per passive, slot passive, five ranks (rank r = level r), common_passive true so they join every job's draw as Normal +1-rank cards while the six passive slots allow. passive.stat/per_level: the effect per rank in the unit its stat names (tier C: the spec's per-rank table; ticket #293 adjusts). The icon is the Skill.wz art of the Adventurer skill that names the passive, from the book that holds a pixel-identical copy (asset_manifest.d/common.json); skill_id is that icon skill's id, so wz_path() resolves it. Stats consumed: damage_pct (Loadout.stats), max_hp_pct, speed_pct, regen_pct and exp_pct (RunWorld), cast_speed_pct (cooldown factor, floor 0.35) and area_pct (Loadout.stats), armor_flat (RunWorld.take_hit), crit_chance (existing, percent).",
+	"skills": {
+		"passive_might": {
+			"skill_id": 21121000,
+			"book": "2112",
+			"job": 0,
+			"kind": "passive",
+			"slot": "passive",
+			"common_passive": true,
+			"name": "Maple Warrior",
+			"desc": "Raises the damage of all your skills.",
+			"text": {
+				"desc": "Raises the damage of all your skills.",
+				"h": "Damage +{passive_value}%"
+			},
+			"icon": "Skill.wz/2112.img/skill/21121000/icon",
+			"damage": "none",
+			"passive": {
+				"stat": "damage_pct",
+				"per_level": 10
+			},
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5
+			],
+			"action": "",
+			"action_time": 0.0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			}
+		},
+		"passive_max_hp": {
+			"skill_id": 9101008,
+			"book": "910",
+			"job": 0,
+			"kind": "passive",
+			"slot": "passive",
+			"common_passive": true,
+			"name": "Hyper Body",
+			"desc": "Raises your Max HP.",
+			"text": {
+				"desc": "Raises your Max HP.",
+				"h": "Max HP +{passive_value}%"
+			},
+			"icon": "Skill.wz/910.img/skill/9101008/icon",
+			"damage": "none",
+			"passive": {
+				"stat": "max_hp_pct",
+				"per_level": 20
+			},
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5
+			],
+			"action": "",
+			"action_time": 0.0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			}
+		},
+		"passive_speed": {
+			"skill_id": 9101001,
+			"book": "910",
+			"job": 0,
+			"kind": "passive",
+			"slot": "passive",
+			"common_passive": true,
+			"name": "Haste",
+			"desc": "Raises your movement speed.",
+			"text": {
+				"desc": "Raises your movement speed.",
+				"h": "Move speed +{passive_value}%"
+			},
+			"icon": "Skill.wz/910.img/skill/9101001/icon",
+			"damage": "none",
+			"passive": {
+				"stat": "speed_pct",
+				"per_level": 10
+			},
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5
+			],
+			"action": "",
+			"action_time": 0.0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			}
+		},
+		"passive_regen": {
+			"skill_id": 10001001,
+			"book": "1000",
+			"job": 0,
+			"kind": "passive",
+			"slot": "passive",
+			"common_passive": true,
+			"name": "Recovery",
+			"desc": "Recovers HP every second.",
+			"text": {
+				"desc": "Recovers HP every second.",
+				"h": "Recover {passive_value}% of Max HP per second"
+			},
+			"icon": "Skill.wz/1000.img/skill/10001001/icon",
+			"damage": "none",
+			"passive": {
+				"stat": "regen_pct",
+				"per_level": 1
+			},
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5
+			],
+			"action": "",
+			"action_time": 0.0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			}
+		},
+		"passive_cooldown": {
+			"skill_id": 12101004,
+			"book": "1210",
+			"job": 0,
+			"kind": "passive",
+			"slot": "passive",
+			"common_passive": true,
+			"name": "Spell Booster",
+			"desc": "Your skills cast faster.",
+			"text": {
+				"desc": "Your skills cast faster.",
+				"h": "Cast speed +{passive_value}%"
+			},
+			"icon": "Skill.wz/1210.img/skill/12101004/icon",
+			"damage": "none",
+			"passive": {
+				"stat": "cast_speed_pct",
+				"per_level": 8
+			},
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5
+			],
+			"action": "",
+			"action_time": 0.0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			}
+		},
+		"passive_area": {
+			"skill_id": 9101006,
+			"book": "910",
+			"job": 0,
+			"kind": "passive",
+			"slot": "passive",
+			"common_passive": true,
+			"name": "Dragon Roar",
+			"desc": "Widens the reach of your skills.",
+			"text": {
+				"desc": "Widens the reach of your skills.",
+				"h": "Skill area +{passive_value}%"
+			},
+			"icon": "Skill.wz/910.img/skill/9101006/icon",
+			"damage": "none",
+			"passive": {
+				"stat": "area_pct",
+				"per_level": 10
+			},
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5
+			],
+			"action": "",
+			"action_time": 0.0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			}
+		},
+		"passive_exp": {
+			"skill_id": 9101002,
+			"book": "910",
+			"job": 0,
+			"kind": "passive",
+			"slot": "passive",
+			"common_passive": true,
+			"name": "Holy Symbol",
+			"desc": "Raises the EXP you gain.",
+			"text": {
+				"desc": "Raises the EXP you gain.",
+				"h": "EXP +{passive_value}%"
+			},
+			"icon": "Skill.wz/910.img/skill/9101002/icon",
+			"damage": "none",
+			"passive": {
+				"stat": "exp_pct",
+				"per_level": 8
+			},
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5
+			],
+			"action": "",
+			"action_time": 0.0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			}
+		},
+		"passive_armor": {
+			"skill_id": 11001001,
+			"book": "1100",
+			"job": 0,
+			"kind": "passive",
+			"slot": "passive",
+			"common_passive": true,
+			"name": "Iron Body",
+			"desc": "Takes a flat amount off every hit you suffer.",
+			"text": {
+				"desc": "Takes a flat amount off every hit you suffer.",
+				"h": "Damage taken -{passive_value} per hit"
+			},
+			"icon": "Skill.wz/1100.img/skill/11001001/icon",
+			"damage": "none",
+			"passive": {
+				"stat": "armor_flat",
+				"per_level": 2
+			},
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5
+			],
+			"action": "",
+			"action_time": 0.0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			}
+		},
+		"passive_crit": {
+			"skill_id": 3121002,
+			"book": "312",
+			"job": 0,
+			"kind": "passive",
+			"slot": "passive",
+			"common_passive": true,
+			"name": "Sharp Eyes",
+			"desc": "Raises your critical hit chance.",
+			"text": {
+				"desc": "Raises your critical hit chance.",
+				"h": "Critical chance +{passive_value}%"
+			},
+			"icon": "Skill.wz/312.img/skill/3121002/icon",
+			"damage": "none",
+			"passive": {
+				"stat": "crit_chance",
+				"per_level": 5
+			},
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5
+			],
+			"action": "",
+			"action_time": 0.0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			}
+		}
+	}
+}

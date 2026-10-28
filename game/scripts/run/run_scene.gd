@@ -515,7 +515,8 @@ func stat_info() -> Dictionary:
 		"exp_next": int(ps.exp_next), "attack": roundi(world.weapon_attack()),
 		"magic": int(world.loadout.int_stat + world.loadout.matk), "weapon_def": int(ps.pdd), "magic_def": int(ps.mdd),
 		"accuracy": int(ps.get("acc", 0)), "avoid": int(ps.avoid), "speed": roundi(world.player_speed_stat()),
-		"jump": world.player.jump_stat}
+		"jump": world.player.jump_stat, "passives": world.loadout.held_common_passives(),
+		"passive_slots": world.loadout.slot_limit("passive")}
 	for key: String in ["level", "exp", "hp", "max_hp", "str", "dex", "int", "luk"]:
 		out[key] = int(ps.get(key, 0))
 	for stat: String in ["str", "dex", "int", "luk"]:

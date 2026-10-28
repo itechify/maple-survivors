@@ -39,6 +39,10 @@ const DETAIL_ROWS := [["attack", "ATTACK", 7], ["weapon_def", "WEAPON DEF.", 25]
 	["magic_def", "MAGIC DEF.", 61], ["accuracy", "ACCURACY", 79], ["avoid", "AVOIDABILITY", 97],
 	["hands", "HANDS", 115], ["speed", "SPEED", 133], ["jump", "JUMP", 151]]
 const FIELD_H := 16.0
+## tier C (ours, #289): the common passives panel fills the free corner above the detail panel (the v83 art has nothing
+## there): the header line, then one line per passive held (at most the six passive slots).
+const PASSIVES_RECT := Rect2(175, 0, 177, 140)
+const PASSIVES_ROW_H := 16.0
 
 ## The stats shown (RunScene.stat_info()).
 var info: Dictionary = {}
@@ -106,6 +110,15 @@ func value_text(key: String) -> String:
 	return str(int(v))
 
 
+## The lines of the common passives held, "Maple Warrior  2/5" (info `passives`: Loadout.held_common_passives).
+func passive_texts() -> PackedStringArray:
+	var out := PackedStringArray()
+	for p: Variant in info.get("passives", []):
+		if p is Dictionary:
+			out.append("%s  %d/%d" % [String(p.name), int(p.rank), int(p.max_rank)])
+	return out
+
+
 ## The +AP buttons are never shown (AP is spent automatically).
 func ap_buttons_visible() -> bool:
 	return false
@@ -118,7 +131,7 @@ func title_rect() -> Rect2:
 func _has_point(p: Vector2) -> bool:
 	if Rect2(Vector2.ZERO, MAIN_SIZE).has_point(p):
 		return true
-	return show_detail and Rect2(DETAIL_POS, DETAIL_SIZE).has_point(p)
+	return show_detail and (Rect2(DETAIL_POS, DETAIL_SIZE).has_point(p) or PASSIVES_RECT.has_point(p))
 
 
 func _resize() -> void:
@@ -136,10 +149,25 @@ func _draw() -> void:
 		MapleText.SMALL)
 	if not show_detail:
 		return
+	_draw_passives()
 	_draw_panel(ART + "backgrnd2", DETAIL_POS, DETAIL_SIZE, DETAIL_ROWS, DETAIL_VALUE_X - 4.0)
 	for row: Array in DETAIL_ROWS:
 		MapleText.draw(self, DETAIL_POS + Vector2(DETAIL_VALUE_X, float(row[2]) + 2.0), value_text(String(row[0])),
 			black, MapleText.SMALL)
+
+
+## The common passives held: a plain panel in the corner above the detail panel (one line per passive, name and rank).
+func _draw_passives() -> void:
+	var lines := passive_texts()
+	draw_rect(PASSIVES_RECT, Color8(220, 228, 240))
+	PixelDraw.outline(self, PASSIVES_RECT, Color8(99, 147, 183))
+	MapleText.draw(self, PASSIVES_RECT.position + Vector2(8, 4), "PASSIVES  %d/%d" % [lines.size(),
+		int(info.get("passive_slots", 6))], MapleText.BLACK, MapleText.SMALL, true)
+	for i in lines.size():
+		MapleText.draw(self, PASSIVES_RECT.position + Vector2(8, 24.0 + PASSIVES_ROW_H * i),
+			MapleText.ellipsize(lines[i], PASSIVES_RECT.size.x - 16.0, MapleText.SMALL), MapleText.BLACK, MapleText.SMALL)
+	if lines.is_empty():
+		MapleText.draw(self, PASSIVES_RECT.position + Vector2(8, 24), "None yet", MapleText.GREY, MapleText.SMALL)
 
 
 ## The panel art, or (without the cache) a plain panel with the row labels.

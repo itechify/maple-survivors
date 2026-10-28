@@ -4192,6 +4192,11 @@ weaker before the successor features. No balance data was tuned. The complete re
 | Seed / policy | End | Level | Kills | Boss observation |
 |---|---|---|---|---|
 | 1 / bot | DEAD map 1, 309.90 s | 12 | 239 | Mano spawned at 300 s, alive at death; 0/1 completed, censored fight >=9.87 s |
+| 1 / bot, #289 (common passives landed) | DEAD map 1, 328.20 s | 13 | 259 | Mano spawned at 300 s, alive at death; 0/1 completed, censored fight >=28.17 s |
+
+#289 smoke (`ISOLATE=289 bash scripts/balance.sh 1 --stage=henesys`, seed 1 only): no crash, no warnings, no missing assets. The
+bot took no passive in this run (a pool attack was on offer at every level-up, and passives score below attacks), so the
+run differs from #287 only through the extra offers the seeded draw spends on passive cards. No balance data tuned.
 
 ### Spec #282 / #290 interim regression smoke (2026-10-28)
 
@@ -5462,7 +5467,7 @@ cards and job-specific buffs/passives are excluded from draws. `UpgradePool.card
 new_active, passive_rank, new_passive; #288 adds mastery here. The per-card weights in `upgrades.json.draw_weights`
 are 1.2/1.0/0.8/0.5 respectively (mastery reserves 1.2). Slots stop new skills of their kind at six; owned rank
 cards remain eligible until the skill's cap. Common passive definitions opt in with `common_passive: true`, use
-`slot: passive`, carry their own rank table, and get Normal-only cards. No common passives ship until #289.
+`slot: passive`, carry their own rank table, and get Normal-only cards. The nine common passives ship in #289 (8.5).
 Draws sample three distinct cards without replacement. Sparse draws add one Power Elixir alternative. Pity is gone.
 Each boss retains its separate bonus draw; random/first policies still choose from the same offers. The sensible
 bot scores every declared pool skill (new 100, rank 74); these are existing attack priorities, not balance tuning.
@@ -5770,6 +5775,34 @@ worn cash equipment, a pet and ALERT levels (`game/tests/fixtures/accounts/full_
 record gains `nx_awarded`, which is never credited. With an empty account every record is byte-identical to a build
 without this feature (regression smoke, section 4.2).
 
+### 8.5 Common passives (#289, spec #282)
+
+Nine job-neutral passives fill the six passive slots. Each is a skill definition in `skills/common.json`
+(`common_passive: true`, `slot: passive`, `ranks: [1..5]`, so rank r is level r and the cap is five) with a `skill_new`
+and a `skill_rank` card in `upgrades/common.json`. They never roll rarity and always give +1 rank; they join the draw at
+the passive weights (0.5 new, 0.8 rank), and `new` cards stop being offered once six passives are held. The effect per
+rank is `passive.per_level` in the unit of its stat; the totals add across ranks (rank 5 is five times rank 1).
+
+| Passive (display name, icon art) | Stat | Per rank | Where it applies |
+|---|---|---|---|
+| Might (Maple Warrior) | `damage_pct` | +10% damage | `Loadout.stats`: every damaging skill's damage range, with cards |
+| Max HP (Hyper Body) | `max_hp_pct` | +20% Max HP | `RunWorld.refresh_player_stats`: scales base+growth+equipment, then the Hyper Body buff; the new HP is granted |
+| Speed (Haste) | `speed_pct` | +10% move speed | `RunWorld.player_speed_stat`, after the v83 140 cap (rank 5 = 150%); the Stat window shows it |
+| Regen (Recovery) | `regen_pct` | +1% of Max HP per second | continuous, every tick, beside the 10 s pulse and Recovery-type skills |
+| Cooldown (Spell Booster) | `cast_speed_pct` | +8% cast speed | active skills' cooldown x (1 - cast speed), the whole cooldown factor floored at x0.35 of the base; Teleport is untouched |
+| Area (Dragon Roar art) | `area_pct` | +10% skill area | `Loadout.stats().area`: box skills' box and every reach that reads it |
+| EXP (Holy Symbol) | `exp_pct` | +8% EXP | `RunWorld._gain_exp`: every EXP gained (orbs, boss EXP); the fraction below one point carries over |
+| Armor (Iron Body) | `armor_flat` | -2 damage per hit | `RunWorld.take_hit`: after defence and Invincible, physical and magic, never below 1 |
+| Crit (Sharp Eyes) | `crit_chance` | +5% crit chance | the existing passive crit stat (`Loadout.CRIT_CHANCE`, percent) |
+
+Pickup radius is not a passive, so the pet's Binocular and VAC keep that job. The Skill window has a first **Common**
+tab (the Beginner tab glyph, nobody is a Beginner now) listing all nine with `level / 5`, unlearned ones greyed; its
+tooltip shows the effect line at the current and next rank. The Stat window shows a **PASSIVES n/6** panel in its free
+top-right corner. The level-up card shows the effect line at the offered rank ("Damage +30%"), the rank
+("Skill Lv. 2 → 3") and `MAX` at rank 5. The sensible bot scores new passives 66 Might, 64 Booster, 62 Sharp Eyes,
+60 Max HP, 58 Area, 56 Armor, 54 Regen, 52 Haste, 50 EXP and each rank card 4 less, all below any pool attack
+(`balance.bot.card_scores`). Every number above is tier C; ticket #293 (first-pass pacing) adjusts them.
+
 ## 9. Jobs
 
 `data/canonical/jobs.json` holds the Explorer tree with canonical ids (Beginner 0; Warrior 100, Magician 200,
@@ -5991,6 +6024,13 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | Eight ranks; ceil(r × WZ maxLevel / 8), per-skill table overrides | C: owner #282/#287; WZ levels themselves unchanged (A) |
 | Per-card draw weights 1.2 owned / 1 new / 0.8 passive rank / 0.5 new passive; reserved mastery 1.2 | C: owner #282 |
 | Bot pool new/rank scores 100/74 | C: existing attack priorities applied to declared pool, #287 |
+| Common passive per-rank values (#289): Might +10% damage, Max HP +20%, Haste +10% speed, Cooldown +8% cast speed, Area +10%, EXP +8%, Crit +5% | spec #282 table; the reference survivor loop; ticket #293 adjusts | C | Owner #282 / #289 |
+| Regen +1% of Max HP per second per rank (the reference's +0.5 HP/s on its 100 HP, here on our 50 HP start) | `skills/common.json` `regen_pct` | C | #289 |
+| Armor -2 flat damage per hit per rank, minimum hit 1 (the reference's 1 per rank scaled to our damage: Henesys mobs hit for tens) | `armor_flat` | C | #289 |
+| Cooldown factor floor x0.35 of the base cooldown (`Loadout.COOLDOWN_FLOOR`), applied to the product of cards and cast speed | the reference | C | #289 |
+| Haste applies after the v83 140 speed cap; Max HP passive scales before the Hyper Body buff; EXP bonus carries the sub-point fraction | design choice, parity untouched | C | #289 |
+| Common passive icons: the identical-art Adventurer skill's book (Maple Warrior 2112, Hyper Body/Haste/Holy Symbol/Dragon Roar art 910, Recovery 1000, Iron Body 1100, Spell Booster 1210, Sharp Eyes 312) | `asset_manifest.d/common.json` | A | #283 |
+| Common passive bot scores 66/64/62/60/58/56/54/52/50 new, 4 less per rank card, below pool attacks | `balance.bot.card_scores` | C | #289 |
 
 
 | Constant / choice | Value | Tier | Source |
