@@ -49,6 +49,58 @@
 				"use": "Sound.wz/Skill.img/1221007/Use",
 				"hit": ""
 			}
+		},
+		"charged_blow": {
+			"_provenance": "Tier A: Skill.wz 1211002 (book 121) damage 162 to 250 %, prop (stun chance 32 to 90 %), time (stun seconds 2 to 4), range 130 to 150, mobCount 6, hpCon 15 to 25, the effect/{1,2,3,5} and hit/0/{1,2,3,5} art keyed by element (P1 #309: 1 ice, 2 fire, 3 lightning, 5 holy), the mob stun stars and the Use sound; rank 1 reads level 4 (38 %, 2 s). Tier C: it is a Form sub-skill (spec #308, P-3: it stuns in every element and has no freeze variant), the three-mob admission gate, the interval and first_after in each Charge's `subs` entry, the weapon's first swing stance and its 0.6 s display, and `form_sub_of` naming the four Charges. Docs: GAME_DESIGN 7.62.",
+			"skill_id": 1211002,
+			"book": "121",
+			"job": 121,
+			"kind": "instant",
+			"slot": "form_sub",
+			"form_sub_of": [
+				"fire_charge",
+				"ice_charge",
+				"thunder_charge",
+				"holy_charge"
+			],
+			"name": "Charged Blow",
+			"desc": "Slams the monsters around you with the Charge's element, stunning them.",
+			"text": {
+				"desc": "While charged, blow away the crowd around you (needs 3 monsters in range) with the Charge's element, stunning them. Costs HP, never the last point.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters}; {prop}% chance each to stun for {time} sec."
+			},
+			"icon": "Skill.wz/121.img/skill/1211002/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "range_around",
+				"min_targets": 3
+			},
+			"cooldown": 3.0,
+			"ranks": [
+				4,
+				8,
+				12,
+				15,
+				19,
+				23,
+				27,
+				30
+			],
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop",
+				"duration_field": "time"
+			},
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/121.img/skill/1211002/hit/0/{art}",
+			"effect": "Skill.wz/121.img/skill/1211002/effect/{art}",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1211002/Use",
+				"hit": ""
+			}
 		}
 	}
 }
