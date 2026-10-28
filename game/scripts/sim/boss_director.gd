@@ -156,6 +156,10 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 		if slot < 0:
 			_postpone(index, world)
 			continue
+		# Tier C (#307): freeze the round opening damage at arrival, preserving encounter-specific scales.
+		var ramp_damage := world.opening_multiplier("damage")
+		entry["attack_dmg_mult"] = float(entry.get("attack_dmg_mult", entry.get("dmg_mult", 1.0))) * ramp_damage
+		entry["dmg_mult"] = float(entry.get("dmg_mult", 1.0)) * ramp_damage
 		world.mob_boss[slot] = index
 		# Scheduled bosses never flinch or get pushed, whatever their WZ info/boss flag (spec; tier C rule).
 		world.swarm.steady[slot] = 1
