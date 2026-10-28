@@ -285,6 +285,102 @@
 				"duration_field": "time",
 				"element": "i"
 			}
+		},
+		"ifrit": {
+			"_rarity": "Tier C: first-pass I9 (#328) bonuses, the Elquines lists (damage, area, one extra ally); repeat scale 0.8. See GAME_DESIGN 8 and 7.64.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "power",
+						"text": "Damage",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "reach",
+						"text": "Area",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "twin",
+						"text": "Extra ally",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "twin",
+						"text": "Extra ally and damage",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"skill_id": 2221005,
+			"book": "222",
+			"job": 222,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Ifrit",
+			"desc": "Calls a fire ally that follows you and attacks nearby monsters, striking the ones Ice Demon marked first.",
+			"icon": "Skill.wz/222.img/skill/2221005/icon",
+			"damage": "magic",
+			"element": "f",
+			"cooldown": 12.0,
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/222.img/skill/2221005/hit/0",
+			"effect": "",
+			"rotate": false,
+			"cast": {
+				"rule": "summon"
+			},
+			"summon": {
+				"ordinal_spread": 36.0,
+				"path": "Skill.wz/222.img/skill/2221005/summon",
+				"attack": "attack1",
+				"follow_speed": 180.0,
+				"follow_distance": 60.0,
+				"teleport_distance": 600.0,
+				"attack_interval": 2.4,
+				"priority_status": "fire_weak"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2221005/Use"
+			},
+			"_provenance": "Tier A: fire (WZ elemAttr f), WZ time/mad/mastery, summon attack info (identical to Elquines') and art, priority 2221003 (Ice Demon). Tier C: 12 s recast, follow settings, 2.4 s attack cycle, priority_status reading of the WZ priority; GAME_DESIGN 7.64."
 		}
 	}
 }

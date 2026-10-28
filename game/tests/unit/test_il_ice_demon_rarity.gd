@@ -1,12 +1,9 @@
 extends TestCase
 ## The rarity bonuses of the I/L Ice Demon and Element Composition (spec #319, ticket I7 #326): the catalog has the four
-## lists, each effect changes the resolved cast (the audit `test_rarity_bonus_effects` runs for Hero and F/P: the same
-## seeded world cast with and without the effect against a field laid out to expose that one stat), a Rare+ card adds one
-## rank plus its bonus, the Legendary shares the Unique's counter, and Mastery repeats shrink x0.8.
+## lists, a Rare+ card adds one rank plus its bonus, the Legendary shares the Unique's counter, and Mastery repeats shrink
+## x0.8. That each effect changes the resolved cast is audited with the other I/L skills in test_il_rarity_bonus_effects.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const DT := 1.0 / 60.0
-const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
@@ -60,78 +57,6 @@ func _world(key: String, own_skill := true) -> RunWorld:
 	return w
 
 
-## The base horizontal reach in px: the box's far edge, or the projectile range.
-func _reach(w: RunWorld, key: String) -> float:
-	var st := w.loadout.stats(key)
-	if String(st.cast_rule) == "box":
-		return maxf(absf((st.box as Rect2).position.x), absf((st.box as Rect2).end.x))
-	return float(st.range)
-
-
-## Mob offsets in front of the caster (the box is forward-only) for the probe of `stat`.
-func _layout(stat: String, reach: float, two_sided: bool) -> Dictionary:
-	var xs := []
-	var edge := []
-	match stat:
-		"count":
-			# A box only reaches forward. A projectile shot at the second-nearest mob on the same line is stopped by the
-			# nearest one, so the extra shot's mob stands on the other side of the caster.
-			for k in 16:
-				xs.append(reach * (0.2 + 0.7 * k / 15.0) * (-1.0 if two_sided and k % 2 == 1 else 1.0))
-		"pierce":
-			for k in 10:
-				xs.append(reach * (0.15 + 0.7 * k / 9.0))
-		"area":
-			xs.append_array([reach * 0.5, reach * 0.6])
-			edge = [reach * 1.1]
-			xs.append_array(edge)
-		_:
-			xs.append_array([reach * 0.5, reach * 0.6, reach * 0.8])
-	return {"xs": xs, "edge": edge}
-
-
-func _probe(key: String, effects: Array, stat: String) -> Dictionary:
-	var w := _world(key)
-	var layout := _layout(stat, _reach(w, key), String(w.loadout.stats(key).cast_rule) != "box")
-	var slots := []
-	var edge_slots := []
-	for off: float in layout.xs:
-		var slot := RF.put_mob(w, MOB, CASTER_X - off, 190.0, 100000.0)
-		slots.append(slot)
-		if off in layout.edge:
-			edge_slots.append(slot)
-	var x0 := {}
-	for s: int in slots:
-		x0[s] = w.swarm.x[s]
-	for e: Dictionary in effects:
-		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
-	var repeating := stat == "damage"
-	var window := 12.0 if repeating else 3.5
-	var affected := {}
-	var lines := 0
-	for tick in int(window / DT):
-		w.step(DT, MoveInput.new())
-		if not repeating and w.runner.casts >= 1:
-			w.runner.cooldowns[key] = 1.0e9
-		for e: Dictionary in w.drain_events():
-			if e.type == "mob_hit":
-				lines += 1
-				affected[int(e.mob)] = true
-		for s: int in slots:
-			if repeating:
-				w.swarm.x[s] = x0[s]
-			if w.swarm.hp[s] < w.swarm.max_hp[s]:
-				affected[s] = true
-				w.swarm.hp[s] = w.swarm.max_hp[s]
-	for s: int in slots:
-		if absf(w.swarm.x[s] - float(x0[s])) > 1.0:
-			affected[s] = true
-	var edge_hit := false
-	for s: int in edge_slots:
-		edge_hit = edge_hit or affected.has(s)
-	return {"dealt": w.damage_dealt, "lines": lines, "affected": affected.size(), "edge": edge_hit}
-
-
 func test_each_skill_has_four_lists_with_the_named_effects() -> void:
 	var skills: Dictionary = DataRepo.load_all().skills.skills
 	for key: String in KEYS:
@@ -157,38 +82,6 @@ func test_each_skill_has_four_lists_with_the_named_effects() -> void:
 	assert_eq(shape.call("ice_demon", "unique"), [["count", "add", 1.0]])
 	assert_eq(shape.call("element_composition_il", "epic"), [["pierce", "add", 1.0]])
 	assert_eq(shape.call("element_composition_il", "unique"), [["count", "add", 1.0]])
-
-
-func test_each_bonus_effect_changes_the_resolved_cast() -> void:
-	var skills: Dictionary = DataRepo.load_all().skills.skills
-	for key: String in KEYS:
-		for tier: String in TIERS:
-			for bonus: Dictionary in skills[key].rarity_bonuses[tier]:
-				for effect: Dictionary in bonus.effects:
-					var stat := String(effect.stat)
-					var label := "%s %s %s (%s)" % [key, tier, bonus.id, stat]
-					var base := _probe(key, [], stat)
-					var with := _probe(key, [effect], stat)
-					match stat:
-						"damage":
-							assert_true(int(with.dealt) > int(base.dealt), "%s: damage dealt %d -> %d" % [label, base.dealt, with.dealt])
-						"count", "pierce":
-							assert_true(int(with.affected) > int(base.affected), "%s: mobs affected %d -> %d" % [label, base.affected, with.affected])
-						"area":
-							assert_false(bool(base.edge), "%s: the mob beyond the base reach is outside it" % label)
-							assert_true(bool(with.edge), "%s: the mob beyond the base reach is inside the wider box" % label)
-						_:
-							fail("%s: a stat this audit does not know" % label)
-
-
-func test_the_probe_catches_a_modifier_the_cast_rule_never_reads() -> void:
-	# Ice Demon is a box rule: neither `pierce` nor `range` is read.
-	var pierce := {"stat": "pierce", "op": "add", "value": 1.0}
-	assert_eq(_probe("ice_demon", [pierce], "pierce").affected, _probe("ice_demon", [], "pierce").affected)
-	var reach := {"stat": "range", "op": "mul", "value": 1.2}
-	assert_false(bool(_probe("ice_demon", [reach], "area").edge), "range does not widen a box")
-	var area := {"stat": "area", "op": "mul", "value": 1.2}
-	assert_true(bool(_probe("ice_demon", [area], "area").edge), "area does")
 
 
 func test_a_rare_or_better_card_adds_one_rank_and_its_bonus() -> void:
