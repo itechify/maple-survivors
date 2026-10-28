@@ -5708,6 +5708,36 @@ a skill definition may say "I am that skill, in my book" instead of copying 40 l
   cache (a SKIP without it), on a synthetic pair so it is not vacuous, and on synthetic books for each failure. If a book
   ever differs, the guard fails and the child must override the difference.
 
+### 7.65 I/L Ice Demon and Element Composition (spec #319, I7 #326)
+
+Both skills are I/L pool actives (`skills/il_arch_mage.json`), auto-cast, on the default eight-rank mapping to WZ levels
+(rank 1 / 4 / 8 = level 4 / 15 / 30). No MP. They mirror F/P's Fire Demon and Element Composition (7.31) with the
+elements swapped.
+
+| Skill / key | Behavior | First-pass cooldown (tier C) |
+|---|---|---|
+| Ice Demon 2221003 / `ice_demon` | Ice damage in the canonical forward box (-300,-100)..(-15,0), mirrored to the side the caster faces, up to the canonical `mobCount` (2 / 4 / 6 at ranks 1 / 4 / 8); every survivor hit gets the `fire_weak` mark (7.61) for canonical `time` (10 s, 15 s at level 30); bosses take the damage and reject the mark | 2.0 s |
+| Element Composition 2211006 / `element_composition_il` | One 500 px/s projectile at the nearest monster within 450 px, element `il` (the mean of the live ice and lightning multipliers); `mad` 90 -> 140; a hit freezes for canonical `time` (1 s, 2 s at level 30) with **no chance roll** (the WZ node has no `prop`), checking only ice resistance (`on_hit.element: "i"`) | 0.8 s |
+
+Ice Demon's stance is the fallback `magic3` held 0.8 s (the WZ node has no `action`, as Fire Demon). Its WZ text speaks
+of consistent damage; as Fire Demon it is one instant hit plus the mark. The undocumented WZ `x` of both skills (Ice
+Demon 1 -> 3, Element Composition 1) is not read. The mark is applied by `on_hit`, which runs only for a damaging hit:
+a monster immune to ice (damage 0) is not marked either. Ice Demon's `effect` (the snowflake circle) plays on the caster
+as Fire Demon's does, its `hit/0` on each struck monster, with the Use and Hit sounds. Element Composition's `ball`
+(3 frames), `effect` (13) and `hit/0` are the F/P twin's layout, and its Use sound is the UOL to F/P's mp3.
+
+Rarity bonuses (tier C, first pass; Legendary shares the Unique's id and adds damage x1.2, so its repeats are shared;
+repeats shrink x0.8; Rare is `amplify` "Element Amplification", damage x1.2, for both):
+
+| Skill | Epic | Unique / Legendary signature |
+|---|---|---|
+| Ice Demon | `reach` "Wide Chill": area x1.2 (the box grows) | `crowd` "Cold Crowd": +1 target (`count` through `mob_count`) |
+| Element Composition (I/L) | `pierce` "Pierce": +1 pierce | `twin` "Twin Bolt": +1 projectile (`count`) |
+
+`test_il_rarity_effects` casts each effect with and without it in the same seeded world and asserts damage dealt, mobs
+affected (count, pierce) or a monster just beyond the base box (area). A projectile's extra shot goes to the second
+nearest monster, so a monster on the same line behind the first is shielded: Twin Bolt's extra target stands elsewhere.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -5770,6 +5800,8 @@ damage x1.2, so their repeats are shared; Rare is `power`, damage x1.2, for all)
 | Meteor Shower | area x1.2 (`area`) | +1 hit (`echo`) |
 | Big Bang | area x1.2 (`area`) | +1 hit (`echo`) |
 | Elquines (#291) | area x1.2 (`reach`) | +1 ally (`twin`, stat `summon_count`) |
+| Ice Demon (I/L, #326) | area x1.2 (`reach`) | +1 target (`crowd`) |
+| Element Composition (I/L, #326) | +1 pierce (`pierce`) | +1 projectile (`twin`) |
 
 
 **Cards and the draw (current rules).** `data/survivor/upgrades.json` (base: draw weights, the rarity weights and magnitudes,
@@ -6949,6 +6981,17 @@ items) reaches a round as the setup key `account`, never inside the character.
 |---|---|---|
 | Vulnerability table (#322) | `MobSwarm.VULNERABLE` {`ice_weak` 5 -> `i`, `fire_weak` 6 -> `f`}; x1.5 (`VULNERABLE_MULT`) while the timer runs, overriding that element's resistance and immunity; refreshes without stacking; bosses and `steady` slots reject; no per-status tint | A: Fire Demon / Ice Demon descriptions ("weak against" the element for `time` seconds), x1.5 as the canonical weakness; C: the table shape, `fire_weak` as a second timer, no stacking, boss exclusion |
 | Element composition mean (#322) | `MobSwarm.COMPOSITIONS` `fs` -> f,s and `il` -> i,l: the mean of the constituents' live multipliers (equal split) | C: equal split (the WZ nodes carry no `elemAttr`); `fs` numerically identical to #290 |
+
+### I/L Arch Mage (spec #319, I7 #326)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Ice Demon cooldown, stance and hit | 2.0 s; fallback stance `magic3` held 0.8 s (the WZ node has no `action`); one instant hit plus the `fire_weak` mark, not a damage-over-time | C: Fire Demon's values; A: box, `mobCount`, `mad`, `time`, `elemAttr i`, art |
+| Ice Demon mark | `on_hit {"status": "fire_weak", "element": ""}`: canonical `time` seconds; skipped by a zero-damage hit (an ice-immune monster) and by bosses | A: description and `time`; C: boss/zero-damage behaviour (existing `on_hit` rules) |
+| Element Composition (I/L) | cooldown 0.8 s, 450 px acquisition, 500 px/s, radius 10, one shot, stance `shoot6` | C: the F/P twin's values; A: `mad`, `time`, art |
+| Element Composition element | `il`, the mean of the live ice and lightning multipliers (equal split) | C: the WZ node has no `elemAttr` |
+| Element Composition freeze | `time` 1 -> 2 s, no chance field (the WZ node has no `prop`), element `i`: bosses and ice-resistant monsters reject it, lightning resistance does not | C |
+| Ice Demon / Element Composition rarity bonuses | the two tables in 7.65 (Element Amplification x1.2, Wide Chill area x1.2, Cold Crowd +1 target, Pierce +1, Twin Bolt +1 shot; Legendary = Unique + x1.2) | C |
 
 ## 12. Later phases
 
