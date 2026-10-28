@@ -94,12 +94,12 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 	for key: String in book.defs:
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
-		if key in ["energy_bolt", "magic_claw", "fire_arrow", "poison_breath"]:
+		if key in data.jobs_survivor.jobs["212"].skill_pool:
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
 		assert_eq(book.max_rank(key), top, "%s: one rank per canonical level" % key)
-		var ranks: Array = book.def(key).ranks
+		var ranks: Array = book.rank_table(key)
 		for level in range(1, top + 1):
 			if level <= ranks.size():
 				assert_eq(int(ranks[level - 1]), level, "%s rank %d is canonical level %d" % [key, level, level])
@@ -647,6 +647,8 @@ func test_every_attack_skill_has_a_hit_more_mobs_card() -> void:
 			assert_true(String(s.slot) in ["active", "mobility"], "exempt %s is active or manual mobility" % key)
 			assert_false(covered.has(key), "%s has a hit-more-mobs card: remove its exemption" % key)
 			continue
+		if key in data.jobs_survivor.jobs["212"].skill_pool:
+			continue # #287/#288: pool actives get rarity bonuses, not standalone behaviour cards.
 		if int(s.get("job", -1)) == 0:
 			continue # #284: the Beginner is gone and its skills have no cards
 		if String(s.damage) != "none" or String(s.slot) == "active":

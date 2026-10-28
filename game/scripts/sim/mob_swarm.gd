@@ -56,12 +56,13 @@ const POISON := 1
 const FREEZE := 2
 const THREATENED := 3
 const STUN := 4
-const STATUS_COUNT := 5
+const ICE_WEAK := 5
+const STATUS_COUNT := 6
 ## Status names used by apply_status and the mob_status_* events, in table order.
-const STATUS_NAMES := ["slow", "poison", "freeze", "threatened", "stun"]
+const STATUS_NAMES := ["slow", "poison", "freeze", "threatened", "stun", "ice_weak"]
 ## tier A: the element a status shares with its applying v83 skill (Slow none, Poison Breath elemAttr s, Cold Beam i).
 ## Stun has none and never reads an element, not even one passed in `params` (tier C, #187).
-const STATUS_ELEMENTS := ["", "S", "I", "", ""]
+const STATUS_ELEMENTS := ["", "S", "I", "", "", ""]
 
 ## Tunables (keys of the `tuning` Dictionary given to _init).
 const TUNING_DEFAULTS := {
@@ -379,6 +380,8 @@ func apply_status(i: int, status: String, params: Dictionary, events: Array) -> 
 			return false
 		_poison_pulse[i] = POISON_INTERVAL
 		_poison_damage[i] = mini(POISON_DAMAGE_CAP, ceili(float(max_hp[i]) / (POISON_LEVEL_BASE - level)))
+		# tier C: survivor ground-skill damage bonuses scale canonical poison after its cap, still nonlethal.
+		_poison_damage[i] = roundi(float(_poison_damage[i]) * maxf(0.0, float(params.get("damage_mult", 1.0))))
 		_poison_skill[i] = String(params.get("skill", STATUS_NAMES[POISON]))
 	elif s == SLOW:
 		# tier C: a canonical positive x would speed the monster up; only slowing is applied.
@@ -1010,3 +1013,15 @@ func _grow(n: int) -> void:
 		platform[i] = -1
 		facing[i] = -1
 		_free.append(i)
+
+
+## Live element attributes including Fire Demon's timed ice weakness; mixed fire/poison averages both attributes.
+func element_multiplier(i: int, element: String) -> float:
+	var mk := mob_kind(i)
+	if element.to_lower() == "fs":
+		# tier C: equal fire/poison composition, preserving either element's resistance and immunity.
+		return (mk.element_multiplier("f") + mk.element_multiplier("s")) * 0.5
+	if element.to_lower() == "i" and status_time(i, ICE_WEAK) > 0.0:
+		# tier A: Fire Demon description makes monsters weak against ice for level/time seconds.
+		return 1.5
+	return mk.element_multiplier(element)

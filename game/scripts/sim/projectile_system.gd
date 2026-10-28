@@ -358,7 +358,7 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 	var defense := (float(live_pdd[m]) if m < live_pdd.size() else float(mk.pdd)) \
 		if kind == CombatMath.DAMAGE_PHYSICAL else (float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd))
 	var roll := roll_damage(dmg_min[i], dmg_max[i], is_magic, defense, magic_defense_k, crit[i],
-		crit_mult[i], rng, mk.element_multiplier(element[i]),
+		crit_mult[i], rng, swarm.element_multiplier(m, element[i]),
 		CombatMath.DAMAGE_TYPE_NAMES[kind], damage_pct[i], crit_damage_bonus[i],
 		multiplier)
 	var dir := 1 if vx[i] >= 0.0 else -1
