@@ -48,7 +48,6 @@ func _drive() -> void:
 	w.swarm.alpha[m] = 1.0
 	w.upgrades.apply("savage_blow_new", w)
 	w.loadout.set_rank("savage_blow", 30)
-	w.heal_fraction("mp", 1)
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 	run.handle_events(w.drain_events())
 	await _present(1.5)
@@ -70,7 +69,6 @@ func _drive() -> void:
 		attempts += 1
 		w.start_action("", 0.0)
 		w.runner.cooldowns["steal"] = 0.0
-		w.heal_fraction("mp", 1)
 		w.runner.step(DT, w)
 		steal_events = w.drain_events()
 	w._write_player_state(0.0)

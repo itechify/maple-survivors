@@ -29,7 +29,6 @@ func _drive() -> void:
 	w.pending_cards = []
 	w.state = RunWorld.PLAYING
 	w.upgrades.apply("dark_sight_new", w)
-	w.heal_fraction("mp", 1.0)
 	w.heal_fraction("hp", 1.0)
 	w.heal_fraction("hp", -1.0)
 	w.heal_fraction("hp", 0.2)

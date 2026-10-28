@@ -77,10 +77,10 @@
 		"_equipment_weights": "Tier C (spec #33, #112): how much a bot values each inc* stat of an equipment instance (an item scores the sum of weight x value; stats not listed are worth 0). Keyed by job id (\"0\" Beginner, \"200\" Magician; a job uses its own entry, else its nearest ancestor's through the job lineage, so second jobs inherit their first job's); a job line without an entry falls back to the Beginner's. A Magician wants M.ATT, then INT (LUK a little), then defences (M.DEF over W.DEF), then pools and movement. The bot wears the best wearable item per slot at each equipment pickup and level-up (BotInput.auto_equip); BotShop also reads the weights to pick scrolls and to keep or sell spare equipment.",
 		"_equipment_bowman": "Tier C (#199): PAD first, DEX primary and STR secondary; defence/pool/movement weights follow the existing physical baseline, untuned.",
 		"equipment_weights": {
-			"0": {"incPAD": 10, "incSTR": 6, "incDEX": 3, "incPDD": 1.5, "incMDD": 1, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incMMP": 0.03, "incSpeed": 0.5, "incJump": 0.3},
-			"300": {"incPAD":10,"incDEX":6,"incSTR":3,"incPDD":1.5,"incMDD":1,"incACC":0.3,"incEVA":0.3,"incMHP":0.03,"incMMP":0.03,"incSpeed":0.5,"incJump":0.3},
-			"400": {"incPAD": 10, "incLUK": 6, "incDEX": 3, "incPDD": 1.5, "incMDD": 1, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incMMP": 0.03, "incSpeed": 0.5, "incJump": 0.3},
-			"200": {"incMAD": 10, "incINT": 6, "incLUK": 1, "incMDD": 2, "incPDD": 1.5, "incDEX": 0.2, "incPAD": 0.2, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incMMP": 0.05, "incSpeed": 0.5, "incJump": 0.3}
+			"0": {"incPAD": 10, "incSTR": 6, "incDEX": 3, "incPDD": 1.5, "incMDD": 1, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incSpeed": 0.5, "incJump": 0.3},
+			"300": {"incPAD":10,"incDEX":6,"incSTR":3,"incPDD":1.5,"incMDD":1,"incACC":0.3,"incEVA":0.3,"incMHP":0.03,"incSpeed":0.5,"incJump":0.3},
+			"400": {"incPAD": 10, "incLUK": 6, "incDEX": 3, "incPDD": 1.5, "incMDD": 1, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incSpeed": 0.5, "incJump": 0.3},
+			"200": {"incMAD": 10, "incINT": 6, "incLUK": 1, "incMDD": 2, "incPDD": 1.5, "incDEX": 0.2, "incPAD": 0.2, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incSpeed": 0.5, "incJump": 0.3}
 		}},
 	"_potions": "Tier C (spec #237): unlimited potions, separate shared cooldowns, level-driven items and bot drink thresholds. No stock or drops. Restore amounts come from each current item's canonical spec.",
 	"potions": {

@@ -549,7 +549,7 @@ func _demo_events(delta: float) -> void:
 
 
 func _sample_player() -> Dictionary:
-	return {"hp": 37, "max_hp": 50, "mp": 12, "max_mp": 25, "exp": 9, "level": 7, "job_id": 0}
+	return {"hp": 37, "max_hp": 50, "exp": 9, "level": 7, "job_id": 0}
 
 
 func _sample_run() -> Dictionary:

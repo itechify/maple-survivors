@@ -112,7 +112,6 @@ func _new_run(level := 40) -> void:
 	w.change_job(300, "bow")
 	w.change_job(320)
 	w.loadout.order.clear()
-	w.heal_fraction("mp", 1.0)
 	w.basic.cooldown = 1000.0
 	for kind: MobKind in w.mob_kinds:
 		kind.move_speed = 0

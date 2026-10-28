@@ -64,7 +64,6 @@ func _scenario(key: String) -> Dictionary:
 	w.learn_skill(String(spec.skill))
 	w.loadout.set_rank(String(spec.skill), 10)
 	w.refresh_player_stats()
-	w.heal_fraction("mp", 1.0)
 	w.heal_fraction("hp", 1.0)
 	# Keep the equipment update, but omit the large diagnostic job/learn effects covering the avatar.
 	run.handle_events(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "equipment_changed"))

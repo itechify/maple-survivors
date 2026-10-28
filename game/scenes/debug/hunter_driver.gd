@@ -116,7 +116,6 @@ func _new_run(level := 30) -> void:
 	w.change_job(310)
 	w.loadout.order.clear()
 	w.basic = BasicAttack.new({}, {})
-	w.heal_fraction("mp", 1.0)
 	for kind: MobKind in w.mob_kinds:
 		kind.move_speed = 0
 	var f := w.fhm.find_below(-150.0, 100.0)

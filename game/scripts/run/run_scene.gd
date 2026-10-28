@@ -192,7 +192,6 @@ var _speed := 1
 var _acc := 0.0
 var _jump_latch := false
 var _drink_hp_latch := false
-var _drink_mp_latch := false
 ## Skill key id ("teleport", "dash") -> true once its key went down since the last tick (consumed by _read_input).
 var _skill_latches := {}
 var _bot_memo := {}
@@ -232,9 +231,9 @@ var _skill_labels := {}
 var _cd_left := PackedFloat32Array()
 var _cd_total := PackedFloat32Array()
 var _cd_short := PackedByteArray()
-## Reused HP / MP buffers in HudQuickSlot.COOLDOWN_KINDS order; potion timers bypass the HUD snapshot signature.
-var _potion_cd_left := PackedFloat32Array([0.0, 0.0])
-var _potion_cd_total := PackedFloat32Array([0.0, 0.0])
+## Reused potion buffers in HudQuickSlot.COOLDOWN_KINDS order; potion timers bypass the HUD snapshot signature.
+var _potion_cd_left := PackedFloat32Array([0.0])
+var _potion_cd_total := PackedFloat32Array([0.0])
 ## "" while playing, "dead" or "cleared" once the end sequence started.
 var _end_kind := ""
 var _end_left := 0.0
@@ -426,9 +425,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.is_action_pressed("drink_hp"):
 			_drink_hp_latch = true
 			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("drink_mp"):
-			_drink_mp_latch = true
-			get_viewport().set_input_as_handled()
 	var key := event as InputEventKey
 	if key != null and key.pressed and not key.echo and key.keycode == KEY_F3:
 		_perf_on = not _perf_on
@@ -519,7 +515,7 @@ func stat_info() -> Dictionary:
 		"magic": int(world.loadout.int_stat + world.loadout.matk), "weapon_def": int(ps.pdd), "magic_def": int(ps.mdd),
 		"accuracy": int(ps.get("acc", 0)), "avoid": int(ps.avoid), "speed": roundi(world.player_speed_stat()),
 		"jump": world.player.jump_stat}
-	for key: String in ["level", "exp", "hp", "max_hp", "mp", "max_mp", "str", "dex", "int", "luk"]:
+	for key: String in ["level", "exp", "hp", "max_hp", "str", "dex", "int", "luk"]:
 		out[key] = int(ps.get(key, 0))
 	for stat: String in ["str", "dex", "int", "luk"]:
 		out[stat + "_bonus"] = roundi(world.equipment_bonus("inc" + stat.to_upper()))
@@ -568,7 +564,6 @@ func advance_frame(delta: float) -> void:
 		_acc = 0.0
 		_jump_latch = false
 		_drink_hp_latch = false
-		_drink_mp_latch = false
 		_skill_latches.clear()
 	if _window_delay > 0.0:
 		_window_delay = maxf(0.0, _window_delay - delta)
@@ -1053,9 +1048,7 @@ func _read_input(first_tick: bool) -> MoveInput:
 			mi.press_skill(skill_id)
 		_skill_latches.clear()
 		mi.drink_hp = _drink_hp_latch
-		mi.drink_mp = _drink_mp_latch
 		_drink_hp_latch = false
-		_drink_mp_latch = false
 	return mi
 
 
@@ -1144,17 +1137,8 @@ func handle_events(events: Array) -> void:
 				_on_player_hit(e)
 			"player_restored":
 				var head: Vector2 = e.pos + Vector2(0.0, world.body.position.y)
-				numbers.spawn(int(e.amount), head, DamageNumbers.HP_GAIN if e.stat == "hp" else DamageNumbers.MP_GAIN, PLAYER_KEY)
+				numbers.spawn(int(e.amount), head, DamageNumbers.HP_GAIN, PLAYER_KEY)
 				counters.numbers += 1
-			"mp_eater_absorbed":
-				var key := String(e.skill)
-				fx.play(world.book.visual(key, "effect", world.loadout.level(key), int(world.player_state.level)),
-					Vector2.ZERO, world.player.facing > 0, avatar)
-				# tier A: v83 has no MP Eater Sound.wz entry; quietly probe any optional cached use sound.
-				var sound := SND_SKILL_USE % world.book.skill_id(key)
-				if library.find(sound) is Dictionary:
-					_sound(sound)
-				_event_shot("mp_eater.png", 0.12) # tier C: capture the 700 ms canonical absorb effect early.
 			"final_attack":
 				# The follow-up's own player effect where Skill.wz has one (finalAttack dirs); its hit is a mob_hit.
 				if world.player.state == PlayerMotion.ST_STAND and not bool(world.player_state.dead) \
@@ -1942,26 +1926,22 @@ func _update_potion_cooldowns() -> void:
 func _hud_snapshot_changed(ps: Dictionary) -> bool:
 	var buffs: Array = ps.buffs
 	var sig := _hud_sig_scratch
-	sig.resize(16 + buffs.size() * 2)
+	sig.resize(12 + buffs.size() * 2)
 	sig[0] = int(ps.hp)
-	sig[1] = int(ps.mp)
-	sig[2] = int(ps.max_hp)
-	sig[3] = int(ps.max_mp)
-	sig[4] = int(ps.exp)
-	sig[5] = int(ps.exp_next)
-	sig[6] = int(ps.level)
-	sig[7] = int(ps.job_id)
-	sig[8] = int(run_time())
-	sig[9] = world.kills
-	sig[10] = world.loadout.version
-	sig[11] = int(ps.potions.hp.item_id)
-	sig[12] = int(ps.potions.mp.item_id)
-	sig[13] = int(bool(ps.get("mp_short", false)))
-	sig[14] = world.state
-	sig[15] = int(_end_kind != "")
+	sig[1] = int(ps.max_hp)
+	sig[2] = int(ps.exp)
+	sig[3] = int(ps.exp_next)
+	sig[4] = int(ps.level)
+	sig[5] = int(ps.job_id)
+	sig[6] = int(run_time())
+	sig[7] = world.kills
+	sig[8] = world.loadout.version
+	sig[9] = int(ps.potions.hp.item_id)
+	sig[10] = world.state
+	sig[11] = int(_end_kind != "")
 	for i in buffs.size():
-		sig[16 + i * 2] = int(buffs[i].skill_id)
-		sig[17 + i * 2] = ceili(float(buffs[i].remaining))
+		sig[12 + i * 2] = int(buffs[i].skill_id)
+		sig[13 + i * 2] = ceili(float(buffs[i].remaining))
 	if sig == _hud_sig:
 		return false
 	_hud_sig = sig.duplicate()
@@ -1993,7 +1973,7 @@ func run_time() -> float:
 
 
 ## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with icon, rank, key_label
-## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether each is waiting for MP, and
+## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether the held weapon blocks each, and
 ## the learned movement skill (Teleport or Dash, HudQuickSlot.movement_skill_of; {} before it is learned).
 func run_info() -> Dictionary:
 	var skills: Array = []
@@ -2002,7 +1982,7 @@ func run_info() -> Dictionary:
 		var ready := world.skill_readiness(key)
 		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
 			"key_label": label, "cooldown_left": float(ready.left), "cooldown_total": float(ready.total),
-			"mp_short": bool(ready.mp_short), "blocked": bool(ready.blocked)})
+			"blocked": bool(ready.blocked)})
 	return {"time": run_time(), "kills": world.kills, "name": _player_name(), "state": world.state, "ending": _end_kind != "",
 		"job_name": world.jobs.name_of(int(world.player_state.job_id)),
 		"exp_next": int(world.player_state.exp_next), "skills": skills,

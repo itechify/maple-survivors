@@ -62,7 +62,7 @@ var current_name := ""
 var deferred_swaps := true
 ## Local saves; created on first persistent/menu use (tests may assign their own).
 var save: SaveData
-## The Settings that persistent rounds take their HP / MP ALERT levels from and follow live (spec #34, #121); null =
+## The Settings that persistent rounds take their HP ALERT level from and follow live (spec #34, #121); null =
 ## the Settings autoload when this node is in the tree (tests may assign their own).
 var settings: GameSettings
 ## Living character slot, or -1 for tools and ended runs.
