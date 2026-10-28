@@ -203,7 +203,7 @@ func test_level_ranks_raise_a_skill_with_the_character_level() -> void:
 	# skills.json: Three Snails reaches skill level 2 at Lv 3 and 3 at Lv 6 (the v83 Beginner SP).
 	assert_eq(DataRepo.load_all().skills.skills.three_snails.level_ranks, {"3": 2.0, "6": 3.0})
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = ["three_snails"] # the Beginner skill's level_ranks rule
+	data.jobs_survivor.jobs["212"]["starting_skill"] = "three_snails" # the Beginner skill's level_ranks rule
 	var w := RunWorld.new(RF.setup("quiet", 7, data))
 	RF.place_player(w, 400.0)
 	assert_eq(w.loadout.rank("three_snails"), 1, "rank 1 at level 1")

@@ -31,7 +31,7 @@ func _spearman(seed_value := 11, god := true) -> RunWorld:
 	# #284: no advancement grants HP; give the 50 + 225 + 325 the Warrior and Spearman advancements added, and no start
 	# skills (a fresh character is a 212).
 	data.balance.player.hp = 600
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.magnet_radius = 0
 	data.balance.regen.hp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", seed_value, data))

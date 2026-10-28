@@ -11,7 +11,7 @@ const LINES := {
 
 func _world(path := "dagger") -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 50 + 125 # the removed first-job grant (+125/+37), folded into the base pools (#284)
 	var setup := RF.with_basic_attack(RF.setup("quiet", 208, data))
 	setup.equipment_info.merge({

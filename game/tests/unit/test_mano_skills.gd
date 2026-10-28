@@ -63,7 +63,7 @@ func test_ready_skills_wait_for_hp_gate_then_fire_on_the_first_eligible_tick() -
 	for id in [126, 112, 113]:
 		var setup := MF.setup([id])
 		setup.mob_skill_img[str(id)].level[str(MF.LEVELS[id])].hp = 50.0 # Synthetic gate case; Mano's real slow omits hp => 100%.
-		setup.data.jobs_survivor.jobs["212"]["start_skills"] = [] # no auto-cast may touch the boss's HP (#284 + #285)
+		setup.data.jobs_survivor.jobs["212"]["starting_skill"] = ""; setup.data.jobs_survivor.jobs["212"]["mobility_skill"] = "" # no auto-cast may touch the boss's HP (#284 + #285)
 		var w := RunWorld.new(setup)
 		w.god = true
 		RF.place_player(w, 400)

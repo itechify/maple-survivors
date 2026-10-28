@@ -24,7 +24,7 @@ const GUN_ONLY := ["invisible_shot", "blank_shot", "recoil_shot"]
 ## mob bodies shrunk to 4 x 10 px and standing still, `key` learned at `rank_value`.
 func _gunslinger(key: String, rank_value := 1, segments: Array = [GROUND], x := 400.0, p_seed := 192) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.magnet_radius = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge(INFO, true)

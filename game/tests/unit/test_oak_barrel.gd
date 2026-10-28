@@ -19,7 +19,7 @@ const COOLTIME := [35, 35, 30, 30, 25, 25, 20, 20, 15, 15]
 func _world(p_seed := 194, rank := 1, hp_fraction := 0.25, mob_dx := 100.0) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.regen.hp = 0
 	data.balance.magnet_radius = 0
 	data.balance.mob_motion.push_px = 0
@@ -294,7 +294,7 @@ func test_cards_are_offered_to_brawlers_only() -> void:
 func _brawler(p_seed := 194) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.regen.hp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({1482000: {"incPAD": 18, "attackSpeed": 5, "tuc": 7},

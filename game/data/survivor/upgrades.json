@@ -1,15 +1,40 @@
 {
-	"_doc": "Upgrade cards (docs/GAME_DESIGN.md section 8), drawn by UpgradePool. power: true marks a card that raises an attack skill's damage output (a new attack skill, its rank, more shots/targets, damage, cooldown); pity.draws = N: after N draws in a row without a power card the next draw starts with one (0 = off). kind: skill_new (learn `skill` at the tier starting rank), skill_rank (tier canonical-level gain of `skill`), skill_mod (modifies `skill`), passive / stat (player modifiers). requires (all optional): jobs (the player's current job equals one of these), carry_jobs (spec #165: further jobs that keep offering the card; the advancement draw reads jobs only), skills (owned skill keys), min_rank ({skill: rank}), min_level. skill_rank and skill_mod cards also require owning `skill`; skill_new requires not owning it; there are no skill slot caps. max_rank 0 = unlimited; skill_rank cards use the canonical skill cap, with the owned skill level also gating offers (a Normal learn starts at level 1, so N-1 Normal rank-card picks reach N). effects: {stat, op, value} applied once per rank taken; op add sums, op mul multiplies (compounds per rank). fallback is a separate filler card, excluded from weighted draws and offered once when fewer than 3 cards remain (alone when none do) and the only job-neutral card (spec #225); its heal effects restore a fraction of the relevant maximum. Skill stats: count, cooldown, pierce, speed, range, damage (multiplier), crit (chance, additive). Player stat cards: none today (removed Max HP, flat Max MP and flat speed cards are replaced by owned skills, and the Magnet card is gone: pet VAC/Binocular are the only pickup-range upgrades). rarity: seeded Potential tier weights and Fortune scaling. magnitudes: per-kind tier tables (stacking covers skill_mod/stat/passive), overridden per tier by each card magnitudes table; clamp lists tiers whose fixed request is capped by remaining headroom (unlimited cards keep the fixed request); other tiers drop to the highest fitting tier. desc: {magnitude} is the actual rank/step/starting-rank gain; {value} scales additive values or displays a compounded multiplicative percentage (two decimal places). Canonical skill caps are tier A; WZ skill prerequisites are ignored (tier C owner choice #31); card weights, modifiers and offer rules are tier C (ours). Icons are WZ paths, all imported by the asset manifest: skill cards use their own canonical Skill.wz icon and the Power Elixir fallback Item.wz/Consume 2000005. The cards live in the per-line fragments upgrades/<line>.json (common, beginner, warrior, magician, bowman, thief, pirate), concatenated in that order by DataRepo.load_all (a duplicate card id is an error); the fallback card stays here (docs/ARCHITECTURE.md 4.4.4).",
-	"pity": {"draws": 1},
-	"rarity": {"_tier": "Tier C: spec #30 survivor card odds (owner restored the spec weights over C46 on 2026-10-15; tuning waits for the dedicated balance pass); non-Normal weights multiply by 1 + max(0, Fortune) * fortune_scale, then all weights normalize.",
-		"weights": {"normal": 75, "rare": 18, "epic": 5, "unique": 1.7, "legendary": 0.3}, "fortune_scale": 0.02},
-	"magnitudes": {"_tier": "Tier C: rank increments, modifier steps and new-skill starting ranks; each tier gives more than the one below (owner, 2026-10-15). Fixed Legendary rank +8 and stacking +5, clamped to remaining headroom; equal gains retain the lowest label (owner decision #173, 2026-10-18).",
-		"clamp": ["legendary"],
-		"skill_rank": {"normal": 1, "rare": 2, "epic": 3, "unique": 5, "legendary": 8},
-		"stacking": {"normal": 1, "rare": 2, "epic": 3, "unique": 4, "legendary": 5},
-		"skill_new": {"normal": 1, "rare": 2, "epic": 3, "unique": 4, "legendary": 5}},
-	"fallback": {"id": "elixir", "kind": "filler", "skill": "", "name": "Power Elixir",
-		"desc": "Fully restores HP.", "icon": "Item.wz/Consume/0200.img/02000005/info/icon",
-		"max_rank": 0, "weight": 0, "requires": {},
-		"effects": [{"stat": "hp", "op": "heal", "value": 1}]}
+	"_doc": "ADR 0006 #287: pool-filtered new/rank cards; three distinct per-card weighted offers. Exactly +1 rank at every rarity. Active rarity rolls with Fortune; common passive definitions (common_passive: true) stay Normal. Behaviour cards remain stored for #288 to rework into bonuses, but are excluded from draws. No pity. Sparse draws add the separate Power Elixir fallback. Weights and all survivor rules are tier C; WZ data is unchanged.",
+	"rarity": {
+		"_tier": "Tier C: spec #30 survivor card odds (owner restored the spec weights over C46 on 2026-10-15; tuning waits for the dedicated balance pass); non-Normal weights multiply by 1 + max(0, Fortune) * fortune_scale, then all weights normalize.",
+		"weights": {
+			"normal": 75,
+			"rare": 18,
+			"epic": 5,
+			"unique": 1.7,
+			"legendary": 0.3
+		},
+		"fortune_scale": 0.02
+	},
+	"fallback": {
+		"id": "elixir",
+		"kind": "filler",
+		"skill": "",
+		"name": "Power Elixir",
+		"desc": "Fully restores HP.",
+		"icon": "Item.wz/Consume/0200.img/02000005/info/icon",
+		"max_rank": 0,
+		"weight": 0,
+		"requires": {},
+		"effects": [
+			{
+				"stat": "hp",
+				"op": "heal",
+				"value": 1
+			}
+		]
+	},
+	"draw_weights": {
+		"owned_active": 1.2,
+		"new_active": 1.0,
+		"passive_rank": 0.8,
+		"new_passive": 0.5,
+		"mastery": 1.2
+	},
+	"_draw_provenance": "tier C: ADR 0006 #282 per-card draw weights. Every active/common-passive card gives exactly one rank; rarity applies only to actives."
 }

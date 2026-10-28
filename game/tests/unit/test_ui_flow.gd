@@ -592,7 +592,7 @@ func test_finale_sweep_quit_replays_start_then_carries_settled_rewards_once() ->
 func test_same_tick_boss_projectile_kill_and_contact_death_ends_run_with_last_valid_character() -> void:
 	var rf := preload("res://tests/fixtures/run_fixtures.gd")
 	var data := rf.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	STAGE_FIXTURES.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000,
 		"rewards": {"bonus_choices": 1, "exp_mult": 0}}])
 	var world := RunWorld.new(rf.setup("quiet", 32, data))

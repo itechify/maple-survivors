@@ -9,7 +9,7 @@ const DT := 1.0 / 60.0
 func test_nimble_feet_uses_canonical_speed_duration_and_cast_cooldown() -> void:
 	for example: Array in [[1, 10, 4], [2, 15, 8], [3, 20, 12]]:
 		var data := RF.quiet_data()
-		data.jobs_survivor.jobs["212"]["start_skills"] = []
+		data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 		var w := RunWorld.new(RF.setup("quiet", 41, data))
 		RF.place_player(w, 400)
 		# The skill is set up directly: its Beginner cards are gone (#284), its skill data stays.
@@ -41,7 +41,7 @@ func test_nimble_feet_uses_canonical_speed_duration_and_cast_cooldown() -> void:
 
 func _mage(skill: String) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 1000
 	data.balance.regen.hp = 0
 	var w := RunWorld.new(RF.setup("quiet", 12, data))

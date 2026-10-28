@@ -9,7 +9,7 @@ const SKILLS := ["crossbow_mastery", "final_attack_crossbow", "crossbow_booster"
 
 func _bowman(crossbow := false, fixed_damage := false) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 50 + 125 + 325
 	if fixed_damage:
 		data.skills.skills.iron_arrow.damage = "fixed"

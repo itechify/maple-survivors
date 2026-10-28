@@ -9,7 +9,7 @@ const KEYS := ["bow_mastery", "final_attack_bow", "bow_booster", "power_knockbac
 
 func _world() -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 50 + 125 + 325
 	var setup := RF.with_basic_attack(RF.setup("quiet", 202, data))
 	setup.equipment_info.merge({1452051: {"incPAD": 28, "attackSpeed": 6, "tuc": 7},

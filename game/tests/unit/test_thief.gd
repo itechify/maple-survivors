@@ -14,7 +14,7 @@ const INFO := {
 
 func _world(free := 24) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var setup := RF.with_basic_attack(RF.setup("quiet", 207, data))
 	setup.equipment_info.merge(INFO, true)
 	if free < 24:

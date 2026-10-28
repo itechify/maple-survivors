@@ -51,6 +51,7 @@ const LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "
 ##   values:    Array of unique values, concatenated in line order (shop weapon slots)
 ##   families:  Dictionary slot -> Dictionary family -> rates, merged per slot (scrolls)
 const SPLIT := {
+	"jobs_survivor": {"entries": "jobs", "merge": "keys"},
 	"skills": {"entries": "skills", "merge": "keys"},
 	"upgrades": {"entries": "cards", "merge": "ids"},
 	"equipment_drops": {"entries": "items", "merge": "sorted"},

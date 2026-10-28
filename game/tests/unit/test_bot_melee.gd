@@ -52,7 +52,7 @@ func test_magician_inputs_are_identical_to_main() -> void:
 
 func test_beginner_inputs_are_identical_to_main() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["0"]["start_skills"] = ["three_snails"]
+	data.jobs_survivor.jobs["0"]["starting_skill"] = "three_snails"
 	var setup := RF.setup("quiet", 9, data)
 	setup["job"] = 0
 	var w := RunWorld.new(setup)

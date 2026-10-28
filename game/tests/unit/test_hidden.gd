@@ -17,7 +17,7 @@ const FLYER := 9300063
 func _world(p_seed := 194) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.regen.hp = 0
 	data.balance.regen.mp = 0
 	data.balance.magnet_radius = 0

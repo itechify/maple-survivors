@@ -183,7 +183,7 @@ func test_passive_crit_adds_skill_percent_and_default_crit_multiplies_on_all_dam
 func test_skill_runner_resolves_physical_lines_and_projectiles_from_canonical_damage() -> void:
 	for kind: String in ["instant", "projectile"]:
 		var data := RF.quiet_data()
-		data.jobs_survivor.jobs["212"]["start_skills"] = ["fixture"]
+		data.jobs_survivor.jobs["212"]["starting_skill"] = "fixture"
 		data.balance.crit.per_acc = 0.0
 		data.balance.player.stats = {"str": 100, "dex": 50, "int": 4, "luk": 200}
 		data.skills.skills.fixture = {"skill_id": 1001004, "book": "100", "kind": kind,

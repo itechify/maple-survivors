@@ -463,6 +463,7 @@ func _init_skills_and_progression() -> void:
 		int(balance.get("max_level", 200)))
 	jobs = JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
 	upgrades = UpgradePool.from_data(data.get("upgrades", {}))
+	upgrades.add_pool_skills(book, jobs)
 
 
 ## Ordinary spawning, the boss schedule and the bosses' canonical skills.

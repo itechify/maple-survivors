@@ -9,7 +9,7 @@ const DT := 1.0 / 60.0
 ## A quiet world with only Energy Bolt learned (no job MP grants) and one stationary, unkillable target.
 func _bolt_world() -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var world := RunWorld.new(RF.setup("quiet", 9, data))
 	RF.place_player(world, 1200)
 	world.learn_skill("energy_bolt")

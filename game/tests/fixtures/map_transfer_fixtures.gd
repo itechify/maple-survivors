@@ -5,7 +5,7 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 ## Aligned stage/maps and setup/map_imgs; seconds overrides boss waits for focused boundary tests.
 static func setup(seconds := 300.0) -> Dictionary:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.mesos.boss_drops = 0
 	var stage: Dictionary = data.stages.stages.quiet
 	stage.erase("map_id")

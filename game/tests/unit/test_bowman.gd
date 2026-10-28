@@ -9,7 +9,7 @@ const WEAPONS := {"bow": 1452051, "crossbow": 1462001}
 
 func _world(free := 24) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	# The removed first-job advancement's +125 HP (v83-facts 4).
 	data.balance.player.hp = 175
 	var setup := RF.with_basic_attack(RF.setup("quiet", 199, data))
@@ -295,7 +295,7 @@ func test_original_bowman_levels_stats_art_and_sounds_resolve_in_private_cache()
 
 func test_range_passive_is_reusable_by_a_gun_line() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.skills.skills["reach_training"] = data.skills.skills.eye_of_amazon.duplicate(true)
 	data.skills.skills.reach_training.weapon_families = ["gun"]
 	var setup := RF.with_basic_attack(RF.setup("quiet", 199, data))

@@ -15,7 +15,7 @@ const INFO := {
 ## first- and second-job grants used to add (+125, +325) folded into the base pool (no MP, #285).
 func _bandit() -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.player.hp = 50 + 125 + 325
 	data.balance.regen.hp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", 212, data))

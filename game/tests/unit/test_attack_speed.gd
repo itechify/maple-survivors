@@ -17,7 +17,7 @@ const WAND := 1372005
 func _world(p_seed := 160) -> RunWorld:
 	var data := RF.quiet_data()
 	data.upgrades.cards = []
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.magnet_radius = 0
 	data.skills.skills["sword_booster"] = {"skill_id": 9991100, "book": "999", "kind": "buff", "slot": "passive",
 		"name": "Booster", "damage": "none", "ranks": [1], "action": "", "action_time": 0.0,

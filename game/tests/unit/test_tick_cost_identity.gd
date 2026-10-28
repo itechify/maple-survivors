@@ -163,7 +163,7 @@ static func _data() -> Dictionary:
 		"bursts": {}, "elites": {},
 	}
 	data.equipment_drops.chance = 0.05
-	data.jobs_survivor.jobs["212"]["start_skills"] = [] # the loadout is exactly SKILLS
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = "" # the loadout is exactly SKILLS
 	return data
 
 

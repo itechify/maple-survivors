@@ -136,7 +136,7 @@ func test_report_reader_normalizes_only_legacy_nonfinite_boss_diagnostics() -> v
 
 func test_record_counts_the_whole_boss_hit_fraction() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.run_time_cap = 1.0
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	RF.place_player(w, 400)
@@ -161,7 +161,7 @@ func test_record_counts_the_whole_boss_hit_fraction() -> void:
 func test_buff_cast_timeline_records_seeded_canonical_snapshots() -> void:
 	for rank: int in [1, 20]:
 		var data := RF.quiet_data()
-		data.jobs_survivor.jobs["212"]["start_skills"] = []
+		data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 		data.balance.run_time_cap = 1.0
 		var w := RunWorld.new(RF.setup("quiet", 27, data))
 		RF.place_player(w, 400)
@@ -185,7 +185,7 @@ func test_buff_cast_timeline_records_seeded_canonical_snapshots() -> void:
 
 func test_ordinary_kill_hits_follow_relocation_and_reset_on_same_kind_slot_reuse() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.run_time_cap = DT
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	w.god = true
@@ -228,7 +228,7 @@ func test_kill_hit_means_pool_lifetime_hits_over_kills_instead_of_averaging_run_
 
 func test_hits_before_a_minute_boundary_belong_to_the_minute_of_death() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = ["three_snails"] # the old fixed-damage shot this oracle uses
+	data.jobs_survivor.jobs["212"]["starting_skill"] = "three_snails" # the old fixed-damage shot this oracle uses
 	data.balance.run_time_cap = 60.8
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	RF.place_player(w, 400)
@@ -244,7 +244,7 @@ func test_hits_before_a_minute_boundary_belong_to_the_minute_of_death() -> void:
 
 func test_magic_claw_counts_each_landed_line_but_a_scheduled_boss_is_excluded() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = ["magic_claw"]
+	data.jobs_survivor.jobs["212"]["starting_skill"] = "magic_claw"
 	data.skills.skills.magic_claw.damage = "fixed"
 	data.balance.run_time_cap = 0.1
 	var setup := RF.setup("quiet", 26, data)
@@ -276,7 +276,7 @@ func test_summary_counts_clears_deaths_and_timeouts_separately() -> void:
 func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 	var data := RF.quiet_data()
 	data.balance.run_time_cap = 4.0
-	data.jobs_survivor.jobs["212"]["start_skills"] = ["three_snails"] # a quick 0.5 s boss kill within the 5 MP pool
+	data.jobs_survivor.jobs["212"]["starting_skill"] = "three_snails" # a quick 0.5 s boss kill within the 5 MP pool
 	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.5, "mob_id": 100100}])
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	w.god = true
@@ -289,7 +289,7 @@ func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 	assert_between(fight.duration, 0.0, 3.5)
 	assert_near(fight.duration, float(fight.death_time)-float(fight.spawn_time), 0.000001)
 	data = RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.run_time_cap = 901.0
 	data.stages.stages.quiet.duration = 900.0
 	RF.set_bosses(data.stages.stages.quiet, [{"time": 900.0, "mob_id": 100100, "hp_mult": 1000.0}])
@@ -304,7 +304,7 @@ func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 
 func _real_map_world(map_id: int) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.stages.stages.quiet.maps[0].map_id = map_id
 	var setup := RF.setup("quiet", 26, data)
 	setup.map_img = AssetLibrary.get_default().img(DataRepo.map_img_path(map_id)).root
@@ -399,7 +399,7 @@ func test_summary_reports_zero_drinks_without_collection_or_stock_metrics() -> v
 
 func test_run_records_unlimited_potion_drinks_and_restore_amounts() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.run_time_cap = 1.0
 	# Harness recording, not drinking policy: let the bot sip as soon as one point is missing.
 	data.balance.potions.bot.min_restore_fraction = 0.01
@@ -423,7 +423,7 @@ func test_run_records_unlimited_potion_drinks_and_restore_amounts() -> void:
 
 func test_pet_drinks_stay_separate_from_player_use_totals_and_timeline() -> void:
 	var data := PF.data()
-	data.jobs_survivor.jobs["212"]["start_skills"] = []
+	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.run_time_cap = 1.0
 	var world := PF.world([PF.KITTY, PF.AUTO_HP], {"hp": 0.5}, data)
 	world.take_hit(40, false, "", world.player.pos + Vector2(10, 0))

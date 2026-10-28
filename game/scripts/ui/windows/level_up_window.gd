@@ -293,6 +293,9 @@ func _draw_panel(ci: Control) -> void:
 	else:
 		_draw_art_without_sentence(ci, UiArt.frame(ART))
 		_draw_level(ci)
+	if not cards.is_empty():
+		MapleText.draw_centered(ci, 8, 128 if not bonus else 48, panel_size.x - 16,
+			String(cards[0].get("slots", "")), MapleText.BLACK, MapleText.SMALL)
 	var row0 := UiArt.frame(ROW)
 	var row1 := UiArt.frame(ROW_FOCUS)
 	for i in mini(cards.size(), _blocks.size()):

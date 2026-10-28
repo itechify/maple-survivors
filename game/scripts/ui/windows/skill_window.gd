@@ -238,6 +238,8 @@ func _draw() -> void:
 	_draw_book()
 	_draw_rows()
 	_draw_scrollbar()
+	if model != null:
+		MapleText.draw_centered(self, 4, 250, size.x - 8, model.loadout.slot_summary(), MapleText.BLACK, MapleText.SMALL)
 	MapleText.draw_centered(self, SP_BOX.position.x, SP_BOX.position.y + 1.0, SP_BOX.size.x, "0", MapleText.BLACK,
 		MapleText.SMALL)
 
