@@ -688,6 +688,7 @@ func test_opt_in_king_clang_chain_defers_boss_death_until_final_form() -> void:
 	var tf = preload("res://tests/fixtures/tree_boss_fixtures.gd")
 	var setup: Dictionary = tf.setup(5220001, [], ["attack1"])
 	setup.data.stages.stages.quiet.maps[0].boss.final_form = 5220000
+	setup.mob_imgs[5220001].info.maxHP = 4000
 	setup.mob_imgs[5220001].info.revive = {"0": 5220000}
 	setup.mob_imgs[5220000] = setup.mob_imgs[5220001].duplicate(true)
 	setup.mob_imgs[5220000].info.erase("revive")
@@ -702,6 +703,7 @@ func test_opt_in_king_clang_chain_defers_boss_death_until_final_form() -> void:
 	for i in 60:
 		w.step(1.0 / 60.0, MoveInput.new())
 	var shell := int(w.bosses.records[0].slot)
+	assert_eq(w.swarm.max_hp[shell], 6000, "shell also inherits fixture hp_mult 1.5")
 	w.drain_events()
 	w.hit_mob(shell, {"damage_min": 1000000, "damage_max": 1000000, "magic": true, "crit": 0.0, "crit_mult": 1.5, "skill": "energy_bolt"}, -1)
 	assert_false(w.bosses.all_dead(), "shell death does not end opt-in encounter")
