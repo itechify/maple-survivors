@@ -4592,6 +4592,24 @@ damage/count/attack-count/area/cooldown modifiers at cast time. #288 owns rarity
 309.90 s, Lv12, no warnings, no missing assets); 11,788 mesos, no equipment drop in that short run (0.2% x 239 kills).
 Same pool-only interim build, no balance data touched.
 
+### Spec #348 / #350 Dark Knight data regression smoke (2026-10-28)
+
+Data only: job 132 is `playable: false`, its skills are undefined, so nothing about 212 or 112 can change. Training seeds
+1/2/2026, Henesys, bot, `balance.sh`, on D2 (`676bd05`, on the base `b3c57df`, before D1 merged). Identical, row for row,
+to that base for F/P (212) and Hero (112); D1 adds no data the smoke reads. No tuning, no held-out seeds. 0 clears is the existing state of both.
+
+| Job / seed | End (run time) | Level at end | Kills at end |
+|---|---|---|---|
+| 212 / 1 | DEAD 10:51 | 36 | 2706 |
+| 212 / 2 | DEAD 5:05 | 11 | 236 |
+| 212 / 2026 | DEAD 7:34 | 21 | 767 |
+| 112 / 1 | DEAD 5:27 | 11 | 269 |
+| 112 / 2 | DEAD 5:36 | 11 | 279 |
+| 112 / 2026 | DEAD 11:28 | 36 | 2693 |
+
+Diagnostic (never committed): `--job=132 --stage=henesys --speed=8 --minutes=3` with a temporary `playable: true`, reverted.
+The knight spawns with 600 HP, `missing: []`, no crash; no skills are defined yet, so 0 kills and 0 damage. Flow evidence only.
+
 ## 7. Skills (auto-cast and manual)
 
 **Which of this section is live.** The F/P slice plays the skills of 7.31 and 7.32 and the common passives of 8.5, through
