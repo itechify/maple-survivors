@@ -1,0 +1,4 @@
+{
+	"_doc": "Paladin skill definitions (spec #308, one region per ticket): P4 #312 appends rush_paladin, P5 #313 blast and monster_magnet_paladin, P6 #314 charged_blow, P7 #315 and P8 #316 the four Charges and heavens_hammer. Power Strike and Slash Blast are defined by skills/hero.json and are never repeated here (a duplicate key across files is a load error, docs/ARCHITECTURE.md 4.4.4). Until a key is defined here it is inert: never offered or learned.",
+	"skills": {}
+}
