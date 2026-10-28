@@ -2860,7 +2860,12 @@ func _write_player_state(dt: float) -> void:
 	player_state["exp"] = progression.exp
 	player_state["exp_next"] = progression.exp_to_next()
 	player_state["slow"] = mob_skills.slow_state(time)
-	player_state["stun"] = mob_skills.stun_state(time)
+	# Preserve legacy snapshot bytes in runs without Stun (#267).
+	var stun := mob_skills.stun_state(time)
+	if stun.is_empty():
+		player_state.erase("stun")
+	else:
+		player_state["stun"] = stun
 	player_state["level"] = progression.level
 	player_state["job_id"] = progression.job_id
 	for stat: String in _attributes:

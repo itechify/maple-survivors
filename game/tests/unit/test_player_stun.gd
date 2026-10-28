@@ -58,15 +58,15 @@ func test_area_hidden_and_zero_chance_never_stun() -> void:
 		_ticks(w, 899)
 		w.player.place(Vector2(600, 200) + offset, w.fhm)
 		_ticks(w, 1)
-		assert_true(w.player_state.stun.is_empty(), "outside canonical box: %s" % offset)
+		assert_true(w.player_state.get("stun", {}).is_empty(), "outside canonical box: %s" % offset)
 	var zero := _world(0.0)
 	_ticks(zero, 900)
-	assert_true(zero.player_state.stun.is_empty(), "zero chance fails")
+	assert_true(zero.player_state.get("stun", {}).is_empty(), "zero chance fails")
 	var hidden := _world()
 	hidden.start_buff("synthetic_hide", {"skill_id": 9991001, "level": 1, "icon": "", "duration": 40.0,
 		"buff_stat": "", "buff_value": 0.0, "pulse_interval": 0.0, "hidden": true, "buff_effects": {}})
 	_ticks(hidden, 1800)
-	assert_true(hidden.player_state.stun.is_empty(), "Hidden skips Stun")
+	assert_true(hidden.player_state.get("stun", {}).is_empty(), "Hidden skips Stun")
 	assert_true(hidden.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "boss_skill").is_empty())
 
 func test_stunned_input_cannot_move_jump_or_use_portals_but_gravity_runs() -> void:
@@ -108,7 +108,7 @@ func test_sixty_percent_rolls_repeat_for_same_seed_and_do_not_shift_combat_rng()
 		var successes: Array = []
 		for cast in 20:
 			_ticks(w, 900)
-			successes.append(not w.player_state.stun.is_empty())
+			successes.append(not w.player_state.get("stun", {}).is_empty())
 		assert_eq(w.rng.state, rng_state, "status rolls use their own stream")
 		assert_true(true in successes and false in successes, "canonical prop admits successes and failures")
 		results.append(successes)
@@ -122,7 +122,7 @@ func test_three_hundred_thirty_mobs_cannot_increase_the_boss_stun_rate() -> void
 	var casts := 0
 	for tick in 62 * 60:
 		w.step(DT, MoveInput.new())
-		if not w.player_state.stun.is_empty():
+		if not w.player_state.get("stun", {}).is_empty():
 			stunned_ticks += 1
 		for event: Dictionary in w.drain_events():
 			if event.type == "boss_skill" and int(event.skill_id) == 123:
