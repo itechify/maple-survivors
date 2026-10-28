@@ -555,9 +555,9 @@ guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the han
 
 #### Nautilus data and final-form chain (#265, 2026-10-27)
 
-Regression smoke on private `caches/s264`, fixed training seeds **1 / 2 / 2026**, both card policies, all four
-pre-existing tier-1 regions. No tuning or held-out seeds. All 24 runs completed without a crash or world warning;
-Henesys reached Magician and Mano in 6/6. Outcomes match the preceding #263 smoke (including Ellinia bot seed 1
+Regression smoke on private `caches/s264`, fixed training seeds **1 / 2 / 2026**, both card policies, the four
+pre-existing tier-1 regions plus Nautilus (all five). No tuning or held-out seeds. All 30 runs completed without a crash or world warning;
+Henesys reached Magician and Mano in 6/6. The four existing regions match the preceding #263 smoke (including Ellinia bot seed 1
 at 630.8 s and the six Kerning outcomes below). Existing five stage entries are unchanged. The synthetic King Slime
 revive test explicitly verifies its encounter still ends on the scheduled boss's death; only `final_form` opts in.
 Death seconds @ one-based ending map, seeds 1 / 2 / 2026:
@@ -568,13 +568,19 @@ Death seconds @ one-based ending map, seeds 1 / 2 / 2026:
 | Ellinia | 630.8@2 / 39.1@1 / 34.7@1 | 697.5@2 / 39.1@1 / 34.7@1 |
 | Perion | 423.7@2 / 382.4@2 / 306.8@1 | 383.5@2 / 460.2@2 / 389.5@2 |
 | Kerning | 307.7@1 / 307.8@1 / 318.6@1 | 306.6@1 / 314.5@1 / 308.7@1 |
+| Nautilus | 689.1@3 / 723.0@3 / 596.7@2 | 309.9@1 / 320.8@1 / 308.4@1 |
+
+Nautilus reaches Mano in all six runs; bot seeds 1/2 defeat Mushmom and enter the Test Room, but die before
+King Clang arrives. No natural-clear claim or tuning follows from this smoke.
 
 Private-cache import: 0 errors. Real `flow_driver --scenario=maps --stage=nautilus` passed with `missing: []`,
 no failures, and all three bosses defeated before the Free Market (diagnostic invulnerability/hits, not natural
 survival evidence). Entries at 0 / 300.000 / 600.017 s; final map 108000500, clear at 900.067 s. Save & quit on map 2
 and Continue replayed the same seed from map 1. All three arrival screenshots were inspected. Synthetic checks
 cover shell/final scaling, one encounter clock, final-form canonical summons, final death only, and ordinary revive
-semantics. Final affected checks: **43 tests, 0 failed, 0 skipped**. T2/T3/T4 own card layout, Stun mechanics and
+semantics. Affected checks after merging T2 and updating the stale region/transfer/meso contracts: **128 tests, 0 failed, 0 skipped**.
+The full suite on that merged implementation and s264 passes **2,220 tests, 0 failed, 0 skipped** (214 files,
+833.343 s), with the two pre-existing dummy-renderer texture RID allocations reported at shutdown. T2/T3/T4 own card layout, Stun mechanics and
 arena/natural-play QA respectively; these results do not establish arena fitness or balance.
 
 
