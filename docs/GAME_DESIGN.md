@@ -5994,6 +5994,7 @@ Pirate tracer (#186) additions:
 | Wand/staff and bare formula | Retain 4.4 swing / 3.2 stab, STR/DEX, equipment-only PAD for bare hands | C | Existing game behavior; no verified wand/staff physical row in §5 |
 | Physical mastery | Default 0.10; canonical N → (10+5N)% | B | SouthPerry compilation, WZ mastery/String corroboration |
 | Physical defence | max−0.5PDD/min−0.6PDD, each at least 1; no level-gap factor (ADR 0006, #285: the monster's level never changes damage or hit chance) | B | AGF/Stereo formula, refs §5; the level gap removed by the owner, ADR 0006 |
+| Skill text MP cost (#285) | `SkillText.strip_mp_cost` drops the v83 MP-cost wordings (`MP -10, `, `HP -12, MP -8;` keeps the HP part, `Use 20 MP, `, `Consumes 10 MP, `, ...) from WZ level lines; a rarer wording stays as written | C | ours (`SkillText.MP_COST_PATTERNS`, measured on the v83 `String.wz/Skill.img` h lines); no MP, ADR 0006 |
 | Lucky Seven override | LUK×5 max / LUK×2.5 min, no secondary/mastery | B | SouthPerry compilation; WZ String says independent of Claw Mastery |
 | Job base accuracy | `CombatMath.ACCURACY_FACTORS`: DEX/LUK .8/.5, .6/.3, Brawler .9/.3, nearest ancestor | B | SouthPerry/HS.net, refs §5 |
 | Accuracy → crit | Base 0, +0.0005 per ACC, default ×1.5; all jobs and damage types including basic | C | Owner spec #151 / ADR 0005; small placeholder, no tuning |
