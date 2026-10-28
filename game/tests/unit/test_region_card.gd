@@ -54,6 +54,7 @@ func test_five_region_cards_fit_in_order_without_overlapping_start() -> void:
 	screen.free()
 
 
+## Verifies six cards fit and shipped tiers never overflow.
 func test_six_cards_fit_and_shipped_tiers_never_overflow() -> void:
 	assert_eq(SELECT.MAX_CARDS, 6, "six regions fit without scrolling")
 	var screen: Node2D = SELECT.new()
@@ -67,6 +68,7 @@ func test_six_cards_fit_and_shipped_tiers_never_overflow() -> void:
 	screen.free()
 
 
+## Verifies keyboard and mouse reach every region and confirm starts selection.
 func test_keyboard_and_mouse_reach_every_region_and_confirm_starts_selection() -> void:
 	var screen: Node2D = SELECT.new()
 	Engine.get_main_loop().root.get_child(-1).add_child(screen)

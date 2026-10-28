@@ -25,6 +25,7 @@ func _ticks(w: RunWorld, n: int, input: MoveInput = null) -> void:
 	for tick in n:
 		w.step(DT, input if input != null else MoveInput.new())
 
+## Verifies canonical interval and two second expiry.
 func test_canonical_interval_and_two_second_expiry() -> void:
 	var w := _world()
 	_ticks(w, 899)
@@ -39,6 +40,7 @@ func test_canonical_interval_and_two_second_expiry() -> void:
 	assert_true(w.can_cast(), "casting resumes exactly two seconds after cast")
 	assert_true(w.player_state.get("stun", {}).is_empty())
 
+## Verifies stun cancels a basic swing already in windup.
 func test_stun_cancels_a_basic_swing_already_in_windup() -> void:
 	var w := _world(100.0, 0.4, 22, true)
 	w.basic.clear_pending()
@@ -52,6 +54,7 @@ func test_stun_cancels_a_basic_swing_already_in_windup() -> void:
 	var impacts := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "basic_attack" and e.phase == "impact")
 	assert_true(impacts.is_empty(), "stun cancels the pending impact")
 
+## Verifies area hidden and zero chance never stun.
 func test_area_hidden_and_zero_chance_never_stun() -> void:
 	for offset in [Vector2(-201, 0), Vector2(201, 0), Vector2(0, -121), Vector2(0, 21)]:
 		var w := _world()
@@ -69,6 +72,7 @@ func test_area_hidden_and_zero_chance_never_stun() -> void:
 	assert_true(hidden.player_state.get("stun", {}).is_empty(), "Hidden skips Stun")
 	assert_true(hidden.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "boss_skill").is_empty())
 
+## Verifies stunned input cannot move jump or use portals but gravity runs.
 func test_stunned_input_cannot_move_jump_or_use_portals_but_gravity_runs() -> void:
 	var w := _world()
 	_ticks(w, 900)
@@ -84,6 +88,7 @@ func test_stunned_input_cannot_move_jump_or_use_portals_but_gravity_runs() -> vo
 	assert_near(w.player.pos.x, 450.0, 0.001, "no air steering")
 	assert_true(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type in ["player_jump", "skill_cast"]).is_empty())
 
+## Verifies damage knockback and potions remain usable.
 func test_damage_knockback_and_potions_remain_usable() -> void:
 	var w := _world()
 	_ticks(w, 900)
@@ -100,6 +105,7 @@ func test_damage_knockback_and_potions_remain_usable() -> void:
 	assert_true(w.drink_potion("mp"), "tier C fallback: MP potion usable")
 	assert_false(w.can_cast(), "drinking does not cure stun")
 
+## Verifies sixty percent rolls repeat for same seed and do not shift combat rng.
 func test_sixty_percent_rolls_repeat_for_same_seed_and_do_not_shift_combat_rng() -> void:
 	var results: Array = []
 	for run in 2:
@@ -114,6 +120,7 @@ func test_sixty_percent_rolls_repeat_for_same_seed_and_do_not_shift_combat_rng()
 		results.append(successes)
 	assert_eq(results[0], results[1], "same seed, same status outcomes")
 
+## Verifies three hundred thirty mobs cannot increase the boss stun rate.
 func test_three_hundred_thirty_mobs_cannot_increase_the_boss_stun_rate() -> void:
 	var w := _world()
 	for mob in 330:
@@ -130,6 +137,7 @@ func test_three_hundred_thirty_mobs_cannot_increase_the_boss_stun_rate() -> void
 	assert_eq(casts, 4, "15, 30, 45 and 60 seconds despite 330 ordinary mobs")
 	assert_eq(stunned_ticks, 480, "four successes occupy eight seconds; every pair has a 13 s actionable gap")
 
+## Verifies projectile hits cannot trigger new final attacks while stunned.
 func test_projectile_hits_cannot_trigger_new_final_attacks_while_stunned() -> void:
 	for stunned in [false, true]:
 		var w := _world()

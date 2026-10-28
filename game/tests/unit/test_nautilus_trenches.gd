@@ -3,14 +3,16 @@ extends TestCase
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0/60.0
 const RAMPS := [[13,64,66,67],[21,57,59,60],[30,38,40,41]]
-func _world() -> RunWorld:
+func _world(width := 192.0) -> RunWorld:
 	var data := RF.quiet_data()
 	data.stages.stages.quiet.maps = []
 	data.stages.stages.quiet.map_id = 108000500
 	data.stages.stages.quiet.trench_ramps = RAMPS
+	data.stages.stages.quiet.trench_ramp_width = width
 	var setup := RF.setup("quiet",1,data)
 	setup.map_img = JSON.parse_string(FileAccess.get_file_as_string(AssetCachePaths.resolve_cache_root().path_join("Map.wz/Map/Map1/108000500.img.json")))
 	return RunWorld.new(setup)
+## Verifies player crosses each crate in both directions.
 func test_player_crosses_each_crate_in_both_directions() -> void:
 	if not require_cache(): return
 	for x: float in [265,1538,2926]:
@@ -34,6 +36,7 @@ func _place(w: RunWorld, x: float) -> void:
 			y = maxf(y,w.fhm.y_at(f,x))
 	w.player.place(Vector2(x,y),w.fhm)
 	w.update_view()
+## Verifies bot collects drops across all three crates.
 func test_bot_collects_drops_across_all_three_crates() -> void:
 	if not require_cache(): return
 	for x: float in [265,1538,2926]:
@@ -47,6 +50,7 @@ func test_bot_collects_drops_across_all_three_crates() -> void:
 				w.step(DT,BotInput.decide(w,memo))
 				w.drain_events()
 			assert_eq(w.pickups.collected_exp,1,"bot crosses crate %s direction %s (%s)"%[x,dir,w.player.pos])
+## Verifies walking mobs pursue across each crate.
 func test_walking_mobs_pursue_across_each_crate() -> void:
 	if not require_cache(): return
 	for x: float in [265,1538,2926]:
@@ -61,6 +65,7 @@ func test_walking_mobs_pursue_across_each_crate() -> void:
 				w.step(DT,MoveInput.new())
 				w.drain_events()
 			assert_true(w.swarm.x[slot] > x+72 if dir>0 else w.swarm.x[slot] < x,"walking mob crossed %s direction %s (x%s)"%[x,dir,w.swarm.x[slot]])
+## Verifies override is inert on other shipped maps.
 func test_override_is_inert_on_other_shipped_maps() -> void:
 	if not require_cache(): return
 	var data := DataRepo.load_all()
@@ -83,3 +88,20 @@ func test_override_is_inert_on_other_shipped_maps() -> void:
 			assert_eq(w.fhm.y2,original.y2,"%s y2"%id)
 			assert_eq(w.fhm.prev,original.prev,"%s prev"%id)
 			assert_eq(w.fhm.next,original.next,"%s next"%id)
+
+
+## The survivor override controls the approach slope without changing cached map geometry.
+func test_ramp_width_controls_the_collision_approach() -> void:
+	if not require_cache(): return
+	var narrow := _world(96.0)
+	var wide := _world(384.0)
+	var x := 165.0 # 100 px left of the first crate: outside the narrow approach, inside the wide one.
+	var narrow_y := -INF
+	var wide_y := -INF
+	for f in narrow.fhm.count():
+		if narrow.fhm.x1[f] <= x and x <= narrow.fhm.x2[f] and narrow.fhm.x1[f] < narrow.fhm.x2[f]:
+			narrow_y = maxf(narrow_y, narrow.fhm.y_at(f, x))
+	for f in wide.fhm.count():
+		if wide.fhm.x1[f] <= x and x <= wide.fhm.x2[f] and wide.fhm.x1[f] < wide.fhm.x2[f]:
+			wide_y = maxf(wide_y, wide.fhm.y_at(f, x))
+	assert_true(wide_y < narrow_y, "a wider approach raises the collision floor farther from the crate")

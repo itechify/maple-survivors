@@ -327,7 +327,7 @@ implementations remain sibling work.
 
 ### 4.1 Pacing (`stages.json`)
 
-Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
+Stages use region keys `henesys`, `ellinia`, `perion`, `kerning`, `nautilus` and `sleepywood`, with `region` and `continent`
 labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
 aliases; living slots, bests, history and run snapshots migrate on load. The tier list is
 `[[henesys, ellinia, perion, kerning, nautilus], [sleepywood]]` (Nautilus added by spec #264; Perion and Kerning City added by spec #253).
@@ -561,21 +561,37 @@ bot and random, all five tier-1 regions, Nautilus tier-2 chains and Sleepywood L
 tuning or held-out seeds. Detailed map entries, boss durations/censoring, Lv10/job times and warnings/missing
 are retained per run in `evidence/s264-t268/smoke-final/`.
 
-| Region | bot death s @ map (1 / 2 / 2026) | random death s @ map |
-|---|---|---|
-| henesys | 308.3@1 / 435.4@2 / 310.0@1 | 432.2@2 / 375.7@2 / 436.2@2 |
-| ellinia | 630.8@2 / 39.1@1 / 34.7@1 | 697.5@2 / 39.1@1 / 34.7@1 |
-| perion | 423.7@2 / 382.4@2 / 306.8@1 | 383.5@2 / 460.2@2 / 389.5@2 |
-| kerning | 307.7@1 / 307.8@1 / 318.6@1 | 306.6@1 / 314.5@1 / 308.7@1 |
-| nautilus | 692.2@3 / 712.2@3 / 596.7@2 | 309.9@1 / 320.8@1 / 308.4@1 |
+All cells list seeds **1 / 2 / 2026**, in seconds rounded to one decimal. Entry groups are map 2; map 3;
+boss groups are map 1; map 2; map 3. `>=` marks an unfinished spawned fight (censored elapsed time);
+`n/a` means the milestone or boss was not reached, or the field is absent. Job cells include every observed advancement.
 
-Nautilus bot map-2 entries: 323.183 / 316.867 / 316.583 s; map-3 entries: 660.933 / 631.167 / absent.
-Lv10: 213.2 / 216.5 / 211.5 s; first jobs: 200 at 213.3 / 200 at 216.5 / 100 at 211.5 s;
-second jobs: 210 at 486.0 / 230 at 570.0 / 130 at 496.3 s. Mano completes 3/3 spawned in
-23.183 / 16.867 / 16.583 s; Mushmom completes 2/2 spawned in 37.750 / 14.300 s (seed2026 not spawned).
-King Clang never spawns in these natural smoke runs. Random Lv10/first-job times are 212.1 (200) /
-220.7 (200) / 216.8 (100) s; no map-2/3 entry or second job. Mano completes 0/3 spawned, censored at
-9.867 / 20.833 / 8.367 s; every later boss is not spawned. These are observations, not tuning targets.
+| Region / policy | Death s @ map | Map 2 / map 3 entry s | Boss fight s by map (1; 2; 3) | Lv10 s | Job ID @ s |
+|---|---|---|---|---|---|
+| henesys bot | 308.3@1 / 435.4@2 / 310.0@1 | n/a / 324.6 / n/a; n/a / n/a / n/a | >=8.2 / 24.6 / >=10.0; n/a / n/a / n/a; n/a / n/a / n/a | 255.4 / 260.6 / 258.5 | 200@255.4 / 200@260.6 / 100@258.5 |
+| henesys random | 432.2@2 / 375.7@2 / 436.2@2 | 344.9 / 320.8 / 323.8; n/a / n/a / n/a | 44.9 / 20.7 / 23.8; n/a / n/a / n/a; n/a / n/a / n/a | 260.7 / 260.2 / 256.8 | 200@260.7 / 200@260.2 / 100@256.8 |
+| ellinia bot | 630.8@2 / 39.1@1 / 34.7@1 | 321.6 / n/a / n/a; n/a / n/a / n/a | 21.6 / n/a / n/a; >=9.2 / n/a / n/a; n/a / n/a / n/a | 209.2 / n/a / n/a | 200@209.2 / n/a / n/a |
+| ellinia random | 697.5@2 / 39.1@1 / 34.7@1 | 364.1 / n/a / n/a; n/a / n/a / n/a | 64.1 / n/a / n/a; >=33.3 / n/a / n/a; n/a / n/a / n/a | 208.0 / n/a / n/a | 200@208.0 / n/a / n/a |
+| perion bot | 423.7@2 / 382.4@2 / 306.8@1 | 342.0 / 318.3 / n/a; n/a / n/a / n/a | 42.0 / 18.2 / >=6.8; n/a / n/a / n/a; n/a / n/a / n/a | 248.6 / 260.3 / 255.5 | 200@248.6 / 200@260.3 / 100@255.5 |
+| perion random | 383.5@2 / 460.2@2 / 389.5@2 | 318.4 / 438.0 / 342.8; n/a / n/a / n/a | 18.3 / 138.0 / 42.8; n/a / n/a / n/a; n/a / n/a / n/a | 240.5 / 295.5 / 241.4 | 200@240.5 / 200@295.5 / 100@241.4 |
+| kerning bot | 307.7@1 / 307.8@1 / 318.6@1 | n/a / n/a / n/a; n/a / n/a / n/a | >=7.6 / >=7.8 / >=18.6; n/a / n/a / n/a; n/a / n/a / n/a | 222.0 / 228.7 / 227.8 | 200@222.1 / 200@228.7 / 100@227.8 |
+| kerning random | 306.6@1 / 314.5@1 / 308.7@1 | n/a / n/a / n/a; n/a / n/a / n/a | >=6.6 / >=14.5 / >=8.7; n/a / n/a / n/a; n/a / n/a / n/a | 227.6 / 226.1 / 221.5 | 200@227.6 / 200@226.1 / 100@221.6 |
+| nautilus bot | 692.2@3 / 712.2@3 / 596.7@2 | 323.2 / 316.9 / 316.6; 660.9 / 631.2 / n/a | 23.2 / 16.9 / 16.6; 37.7 / 14.3 / n/a; n/a / n/a / n/a | 213.2 / 216.5 / 211.5 | 200@213.3, 210@486.0 / 200@216.5, 230@570.0 / 100@211.5, 130@496.3 |
+| nautilus random | 309.9@1 / 320.8@1 / 308.4@1 | n/a / n/a / n/a; n/a / n/a / n/a | >=9.9 / >=20.8 / >=8.4; n/a / n/a / n/a; n/a / n/a / n/a | 212.1 / 220.7 / 216.8 | 200@212.1 / 200@220.7 / 100@216.8 |
+
+These are observations, not tuning targets.
+
+**Review fixes (#264).** The collision approach width now lives beside the Test Room ramps as
+`trench_ramp_width: 192` (tier C); boss slot registration and parchment frame dispatch are shared operations.
+Training seed-1 bot records captured on integration `0f4be21` and after the refactor are **byte-identical**
+for Henesys, Kerning and Nautilus (SHA-256 prefixes `f01deaa1e8c5`, `0981dc93ac1d`, `a87c6d6037e8`).
+The configurable-width test failed before implementation; the focused trench/boss/revive/data/card checks
+then passed **102 tests, 0 failures, 0 skips**. Fresh evidence lives under `_scratch/t264fix/`;
+`evidence/t264-review-fixes/04_maps_stage_select.png` was checked by eye for the five marks, details and Start.
+The fresh five-region smoke (seeds 1/2/2026, bot/random) completed **30 rounds, 0 warnings, 0 missing**;
+all 30 records are byte-identical to the preceding #268 QA smoke, including Henesys jobs/bosses and Ellinia's
+recorded early deaths. The Nautilus diagnostic maps flow also passed all three maps, replay and Free Market.
+Full cache-backed suite (`ISOLATE=t264fix`, private `caches/s264`): **2,234 tests, 0 failed, 0 skipped**
+(217 files, 747.273 s); the existing two dummy texture RID allocations are reported at shutdown.
 
 Comparison with #257: Henesys and Perion retain those outcomes. Ellinia bot seed 1's 630.8 s rather than
 632.7 s and the six Kerning deaths reflect the already-recorded #263 wall-scope correction. Compare with

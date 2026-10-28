@@ -4,9 +4,11 @@ const STAGE_FIXTURES := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 var lib: AssetLibrary
 var scene: RunScene
+## Resets presentation state before each test.
 func before_each() -> void:
 	lib = AssetLibrary.new()
 	lib.open()
+## Frees presentation nodes and restores shared state after each test.
 func after_each() -> void:
 	if scene != null:
 		scene.free()
@@ -24,6 +26,7 @@ func _frames(n: int) -> void:
 		scene.advance_frame(DT)
 
 
+## Verifies player stun uses repeating art until sim expiry.
 func test_player_stun_uses_repeating_art_until_sim_expiry() -> void:
 	if not require_cache():
 		return
