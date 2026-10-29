@@ -342,7 +342,7 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 			var kept := before * float(effect.value) if op == "mul" else before + float(effect.value)
 			labels.append("Keeps %d orbs" % maxi(0, roundi(kept)))
 			continue
-		labels.append(_effect_label(String(effect.stat), op, float(effect.value)))
+		labels.append(effect_label(String(effect.stat), op, float(effect.value)))
 	bonus.text = String(bonus.get("text", bonus.id)) + ": " + ", ".join(labels)
 	bonus.counter = counter
 	return bonus
@@ -350,7 +350,7 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 
 ## A bonus effect's card text, "<stat> x1.2" for a multiplier and "<stat> +3" for an addition. The healing and revive stats
 ## read in the player's words (CARD_STAT_TEXT: "recovery x1.2", "guard +1.5 s"); the others are their capitalized key.
-static func _effect_label(stat: String, op: String, value: float) -> String:
+static func effect_label(stat: String, op: String, value: float) -> String:
 	var text: Array = CARD_STAT_TEXT.get(stat, [])
 	if text.is_empty():
 		return String(STAT_LABELS.get(stat, stat)).capitalize() + (" x" if op == "mul" else " +") + _fmt(snappedf(value, 0.001))

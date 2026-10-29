@@ -21,7 +21,7 @@
 			}
 		},
 		"blast": {
-			"_provenance": "Tier A: Skill.wz 1221009 (a single `damage` field, 170 to 550%, so one line and one target; the `blast` body action and its 840 ms (540 + 300 ms) timing; the 14-frame cast effect and the 3-frame hit, both keyed by the element art index 0/1/2/3/5; the five Use sounds). Tier C: 2.0 s cooldown (the balance pass owns it), weapon_reach targeting (the nearest mob in the held weapon's swing, as Power Strike), 0.84 s action hold, element-keyed art (0 without a Charge; 1 ice, 2 fire, 3 lightning, 5 holy), the five sounds played in order by cast number (SkillBook.use_sound, no RNG), the rarity bonuses (Mastery, Booster, Final Attack). Docs: GAME_DESIGN 7.66. The screenshot `capture_delay` 0.72 s samples the thrust frame and the slash.",
+			"_provenance": "Tier A: Skill.wz 1221009 (a single `damage` field, 170 to 550%, so one line and one target; the `blast` body action and its 840 ms (540 + 300 ms) timing; the 14-frame cast effect and the 3-frame hit, both keyed by the element art index 0/1/2/3/5; the five Use sounds). Tier C: 2.0 s cooldown (the balance pass owns it), weapon_reach targeting (the nearest mob in the held weapon's swing, as Power Strike), 0.84 s action hold, element-keyed art (0 without a Charge; 1 ice, 2 fire, 3 lightning, 5 holy), the five sounds played in order by cast number (SkillBook.use_sound, no RNG), the rarity bonuses (Mastery, Booster, Final Attack). Docs: GAME_DESIGN 7.86. The screenshot `capture_delay` 0.72 s samples the thrust frame and the slash.",
 			"skill_id": 1221009,
 			"book": "122",
 			"job": 122,
@@ -179,7 +179,7 @@
 					}
 				]
 			},
-			"_provenance": "Tier A: Skill.wz 1221001 range 200 to 400 px, prop (pull chance 48 to 95 %), mobCount 6, the 18-frame effect and the Use sound (a UOL to Hero's 1121001); identical to Hero's 1121001 level by level (P1 #309). Tier C: a copy of Hero's `monster_magnet` under its own key (a skill key is unique across files): no damage, the shared `pull` block (7.35), the alert2 action (the node names none), the three-mob admission gate (`cast.min_targets`), the 0.6 s action hold, the 10 s cooldown (spec #308; Hero's own 4 s is tuned on Hero's runs by #346 and is not inherited), and the rarity bonuses. Docs: GAME_DESIGN 7.66. The screenshot `capture_delay` 0.35 s samples the horseshoe.",
+			"_provenance": "Tier A: Skill.wz 1221001 range 200 to 400 px, prop (pull chance 48 to 95 %), mobCount 6, the 18-frame effect and the Use sound (a UOL to Hero's 1121001); identical to Hero's 1121001 level by level (P1 #309). Tier C: a copy of Hero's `monster_magnet` under its own key (a skill key is unique across files): no damage, the shared `pull` block (7.35), the alert2 action (the node names none), the three-mob admission gate (`cast.min_targets`), the 0.6 s action hold, the 10 s cooldown (spec #308; Hero's own 4 s is tuned on Hero's runs by #346 and is not inherited), and the rarity bonuses. Docs: GAME_DESIGN 7.86. The screenshot `capture_delay` 0.35 s samples the horseshoe.",
 			"skill_id": 1221001,
 			"book": "122",
 			"job": 122,
@@ -216,7 +216,7 @@
 			}
 		},
 		"charged_blow": {
-			"_provenance": "Tier A: Skill.wz 1211002 (book 121) damage 162 to 250 %, prop (stun chance 32 to 90 %), time (stun seconds 2 to 4), range 130 to 150, mobCount 6, hpCon 15 to 25, the effect/{1,2,3,5} and hit/0/{1,2,3,5} art keyed by element (P1 #309: 1 ice, 2 fire, 3 lightning, 5 holy), the mob stun stars and the Use sound; rank 1 reads level 4 (38 %, 2 s). Tier C: it is a Form sub-skill (spec #308, P-3: it stuns in every element and has no freeze variant), the three-mob admission gate, the interval and first_after in each Charge's `subs` entry, the weapon's first swing stance and its 0.6 s display, and `form_sub_of` naming the four Charges. Docs: GAME_DESIGN 7.68.",
+			"_provenance": "Tier A: Skill.wz 1211002 (book 121) damage 162 to 250 %, prop (stun chance 32 to 90 %), time (stun seconds 2 to 4), range 130 to 150, mobCount 6, hpCon 15 to 25, the effect/{1,2,3,5} and hit/0/{1,2,3,5} art keyed by element (P1 #309: 1 ice, 2 fire, 3 lightning, 5 holy), the mob stun stars and the Use sound; rank 1 reads level 4 (38 %, 2 s). Tier C: it is a Form sub-skill (spec #308, P-3: it stuns in every element and has no freeze variant), the three-mob admission gate, the interval and first_after in each Charge's `subs` entry, the weapon's first swing stance and its 0.6 s display, and `form_sub_of` naming the four Charges. Docs: GAME_DESIGN 7.88.",
 			"skill_id": 1211002,
 			"book": "121",
 			"job": 121,
@@ -268,8 +268,8 @@
 			}
 		},
 		"fire_charge": {
-			"_provenance": "Tier A: Skill.wz 1211003 (book 121, twin 1211004 identical in every field) damage 102 to 120 % (rank 1 reads level 4), alert4, the 15-frame effect and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, the fire element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.68.",
-			"_rarity": "Tier C: first-pass #315 bonuses named after the lineage (spec #308): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge Charged Blow damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.68.",
+			"_provenance": "Tier A: Skill.wz 1211003 (book 121, twin 1211004 identical in every field) damage 102 to 120 % (rank 1 reads level 4), alert4, the 15-frame effect and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, the fire element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.88.",
+			"_rarity": "Tier C: first-pass #315 bonuses named after the lineage (spec #308): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge Charged Blow damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.88.",
 			"skill_id": 1211003,
 			"book": "121",
 			"job": 121,
@@ -389,8 +389,8 @@
 			}
 		},
 		"ice_charge": {
-			"_provenance": "Tier A: Skill.wz 1211005 (book 121, twin 1211006 identical in every field) damage 100 to 110 % (rank 1 reads level 4), alert4, the 15-frame effect and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, the ice element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.68.",
-			"_rarity": "Tier C: first-pass #315 bonuses named after the lineage (spec #308): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge Charged Blow damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.68.",
+			"_provenance": "Tier A: Skill.wz 1211005 (book 121, twin 1211006 identical in every field) damage 100 to 110 % (rank 1 reads level 4), alert4, the 15-frame effect and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, the ice element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.88.",
+			"_rarity": "Tier C: first-pass #315 bonuses named after the lineage (spec #308): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge Charged Blow damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.88.",
 			"skill_id": 1211005,
 			"book": "121",
 			"job": 121,
@@ -510,8 +510,8 @@
 			}
 		},
 		"thunder_charge": {
-			"_provenance": "Tier A: Skill.wz 1211007 (book 121, twin 1211008 identical in every field) damage 102 to 125 % (rank 1 reads level 4), alert4, the 15-frame effect and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, the lightning element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.68.",
-			"_rarity": "Tier C: first-pass #315 bonuses named after the lineage (spec #308): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge Charged Blow damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.68.",
+			"_provenance": "Tier A: Skill.wz 1211007 (book 121, twin 1211008 identical in every field) damage 102 to 125 % (rank 1 reads level 4), alert4, the 15-frame effect and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, the lightning element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.88.",
+			"_rarity": "Tier C: first-pass #315 bonuses named after the lineage (spec #308): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge Charged Blow damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.88.",
 			"skill_id": 1211007,
 			"book": "121",
 			"job": 121,
@@ -631,8 +631,8 @@
 			}
 		},
 		"holy_charge": {
-			"_provenance": "Tier A: Skill.wz 1221003 (book 122, twin 1221004 identical in every field) damage 102 to 140 % over its 20 levels (rank 1 reads level 3 = 106 %, rank 8 level 20 = 140 %, the level-20 rank table ceil(r x 20 / 8)), alert4, the 17-frame holy effect (a light column with a winged cross, 60 ms) and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-5, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, Heaven's Hammer once, 0.5 s in, the holy element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.68.",
-			"_rarity": "Tier C: first-pass #316 bonuses, the same as the other Charges (#315): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge sub-skill damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills, Charged Blow and Heaven's Hammer alike) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.68.",
+			"_provenance": "Tier A: Skill.wz 1221003 (book 122, twin 1221004 identical in every field) damage 102 to 140 % over its 20 levels (rank 1 reads level 3 = 106 %, rank 8 level 20 = 140 %, the level-20 rank table ceil(r x 20 / 8)), alert4, the 17-frame holy effect (a light column with a winged cross, 60 ms) and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-5, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, Heaven's Hammer once, 0.5 s in, the holy element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.88.",
+			"_rarity": "Tier C: first-pass #316 bonuses, the same as the other Charges (#315): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge sub-skill damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills, Charged Blow and Heaven's Hammer alike) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.88.",
 			"skill_id": 1221003,
 			"book": "122",
 			"job": 122,
@@ -757,7 +757,7 @@
 			}
 		},
 		"heavens_hammer": {
-			"_provenance": "Tier A: Skill.wz 1221011 (book 122) damage 420 to 900 % over its 30 levels (rank 1 reads level 4 = 480 %, rank 8 level 30 = 900 %, the sub's own level-30 table at the Charge's rank, P-5), box lt (-400,-350) rb (400,250), mobCount 15, elemAttr h, action sanctuary (seven body frames, 3.3 s), the 22-frame 120 ms effect whose slam frame 13 starts at 1.56 s, and the Use and Hit sounds; WZ `cooltime` (310 to 20 s) is session-scale and not read. Tier C: it is a Form sub-skill that holy_charge fires once per window (P1 #309 confirmed the 1.56 s delay twice, from the art's frame 13 and the body's stabOF frame 2), the delayed `pending` strike that follows the player as Meteor Shower's does, the 3.3 s stance display and `hit` left empty (hit/0 is a 15-frame red HP-bar graphic, not a hit burst). Docs: GAME_DESIGN 7.68.",
+			"_provenance": "Tier A: Skill.wz 1221011 (book 122) damage 420 to 900 % over its 30 levels (rank 1 reads level 4 = 480 %, rank 8 level 30 = 900 %, the sub's own level-30 table at the Charge's rank, P-5), box lt (-400,-350) rb (400,250), mobCount 15, elemAttr h, action sanctuary (seven body frames, 3.3 s), the 22-frame 120 ms effect whose slam frame 13 starts at 1.56 s, and the Use and Hit sounds; WZ `cooltime` (310 to 20 s) is session-scale and not read. Tier C: it is a Form sub-skill that holy_charge fires once per window (P1 #309 confirmed the 1.56 s delay twice, from the art's frame 13 and the body's stabOF frame 2), the delayed `pending` strike that follows the player as Meteor Shower's does, the 3.3 s stance display and `hit` left empty (hit/0 is a 15-frame red HP-bar graphic, not a hit burst). Docs: GAME_DESIGN 7.88.",
 			"skill_id": 1221011,
 			"book": "122",
 			"job": 122,

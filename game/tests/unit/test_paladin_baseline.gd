@@ -12,7 +12,8 @@ extends TestCase
 const PF := preload("res://tests/fixtures/paladin_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-## Six minutes: past the first boss's arrival (300 s) so the run exercises every Form, Charged Blow and the Hammer.
+## Six minutes: past the first boss arrival; the bot exercises three Charges and Charged Blow.
+## The scripted replay below covers Holy Charge, Blast and the Hammer.
 const TICKS := 21600
 ## Captured by P9, seed 1, 21600 ticks, the eight-skill pool, Godot 4.7.2.
 const GOLDEN := "cd1a60103b801ed70de7039badb0e92860b5714e41d0c5c2fa00cc6a298cd5b4"
@@ -72,6 +73,7 @@ func test_paladin_event_stream_is_reproducible_and_matches_golden() -> void:
 	assert_true(charges.size() >= 1, "the bot took at least one Charge among its six actives: %s" % [facts.loadout])
 	assert_true(int(facts.counts.get("form_started", 0)) > 0, "a Form window opened")
 
+## New scripted golden captured after two independent identical runs on the merged #308/#441 tree.
 ## Scripted Holy/Blast replay complements the bot seed, which never learns these skills.
 func _holy_digest(facts: Dictionary) -> String:
 	var w := PF.round_world(308)
@@ -84,7 +86,8 @@ func _holy_digest(facts: Dictionary) -> String:
 	var digest := HashingContext.new()
 	digest.start(HashingContext.HASH_SHA256)
 	for tick in 240:
-		w.step(DT, MoveInput.new())
+		w.restore_player("hp", 100, "test")
+		w.runner.step(DT, w)
 		var events := w.drain_events()
 		for event: Dictionary in events:
 			if event.type == "mob_hit":
@@ -96,6 +99,6 @@ func test_scripted_holy_blast_and_hammer_replay() -> void:
 	var facts := {}
 	var first := _holy_digest(facts)
 	assert_eq(first, _holy_digest({}), "independent fixed-tick Holy runs")
-	assert_eq(first, "CAPTURE", "scripted Holy replay")
+	assert_eq(first, "68e6db2d1eb5b59eb1e1a7d20d508627b432b6f65e79515601d7e0592e88ca79", "scripted Holy replay")
 	assert_true(facts.has("blast"), str(facts))
 	assert_true(facts.has("heavens_hammer"), str(facts))

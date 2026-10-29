@@ -26,7 +26,7 @@ func _skill_id() -> int:
 static func _shape(def: Dictionary) -> Dictionary:
 	var out := {}
 	for field: String in def:
-		if not field.begins_with("_") and not field in PER_BOOK_FIELDS:
+		if not field.begins_with("_") and not field in PER_BOOK_FIELDS and field != "extends":
 			out[field] = def[field]
 	return out
 

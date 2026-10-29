@@ -181,7 +181,7 @@ func dress(cards: Array, lo: Loadout) -> Array:
 				elif String(effect.op) == "mul" and stat == "form_time":
 					labels.append("charge lasts " + number((float(effect.value) - 1.0) * 100.0) + "% longer")
 				else:
-					labels.append(UpgradePool._effect_label(stat, String(effect.op), float(effect.value)))
+					labels.append(UpgradePool.effect_label(stat, String(effect.op), float(effect.value)))
 			if not labels.is_empty():
 				var text := String(bonus.get("name", bonus.id)) + ": " + ", ".join(labels)
 				card.desc = String(card.desc).replace(String(bonus.text), text)
