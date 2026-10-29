@@ -390,6 +390,109 @@
 				]
 			},
 			"_tier": "Tier A: WZ damage 71..100% per arrow, bulletCount 4, weapon45 (bow), hit/0 art (3 frames; the spec called it empty, B1 found it) and Use sound. Tier C (#339, GAME_DESIGN 7.45): the eight survivor ranks, `cast.focus` (admission wants one target, so every arrow reuses it, aimed a few px apart), 2.5s cooldown, 350px range, 700px/s, 6px radius, no pierce, 0.6s held weapon stance, rarity bonuses. Untuned."
+		},
+		"inferno": {
+			"skill_id": 3111003,
+			"book": "311",
+			"job": 311,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Inferno",
+			"desc": "Fires a flaming arrow that explodes on a group of monsters and sets each one on fire.",
+			"icon": "Skill.wz/311.img/skill/3111003/icon",
+			"damage": "physical",
+			"element": "f",
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "Skill.wz/311.img/skill/3111003/ball",
+			"hit": "Skill.wz/311.img/skill/3111003/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3111003/Use",
+				"hit": "Sound.wz/Skill.img/3111003/Hit"
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 3.0,
+			"range": 350,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 0,
+			"impact_blast": {
+				"damage_field": "damage",
+				"visual": "hit"
+			},
+			"on_hit": {
+				"status": "burn",
+				"duration_field": "time",
+				"pulse_field": "x",
+				"cue": "Skill.wz/311.img/skill/3111003/tile/2"
+			},
+			"text": {
+				"h": "Damage {damage}%."
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "bow_mastery",
+						"text": "Bow Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "hellfire",
+						"text": "Hellfire",
+						"effects": [
+							{
+								"stat": "burn_damage",
+								"op": "mul",
+								"value": 1.5
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "spreading_fire",
+						"text": "Spreading Fire",
+						"effects": [
+							{
+								"stat": "blast_targets",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "spreading_fire",
+						"text": "Spreading Fire",
+						"effects": [
+							{
+								"stat": "blast_targets",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: weapon45, elemAttr f, damage 65..150% (levels 4/15/30 at ranks 1/4/8), burn x 24..50 (percent of base damage per second) for time 5/5/10 s, canonical lt/rb blast box (+-130 -> +-150 by +-100), mobCount6, no prop (the burn always applies), ball/hit/tile art and Use/Hit sounds. Tier C (#341, GAME_DESIGN 7.46): the eight survivor ranks, nearest auto-cast, 3s cooldown, 350px base reach, 600px/s, 8px radius, no base pierce, 0.6s held weapon stance, its own fire ball instead of the ammo; the first impact consumes the shot and blasts around the primary, then each struck monster burns (GAME_DESIGN 7.43; the pulse reads x as a share of the cast's base damage); the burning cue is the tall flame tile/2; rarity bonuses. Untuned."
 		}
 	}
 }

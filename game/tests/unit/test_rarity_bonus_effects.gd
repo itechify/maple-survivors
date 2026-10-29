@@ -7,7 +7,8 @@ extends TestCase
 ## Hero books (111/112) are synthetic generic tables; the F/P and Bowman books come from the shared run fixtures. The Bowmaster
 ## core arrows (B7 #339) are probed as a Bowmaster holding a bow: an arrow stops at the first monster on its line, so the
 ## `count` probe counts hit lines, a `range` probe leaves only monsters beyond the base reach, and an
-## `impact_blast` skill (Arrow Bomb) shows `area` and `blast_targets` in a cluster around the first monster it reaches.
+## `impact_blast` skill (Arrow Bomb, Inferno) shows `area` and `blast_targets` in a cluster around the first monster it reaches.
+## Inferno (B9 #341) adds `burn_damage`: the fire a single cast leaves behind (`MobSwarm.burn_dealt` over 3.5 s) must grow.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -16,10 +17,10 @@ const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep",
-	"blast_targets"]
+	"blast_targets", "burn_damage"]
 const BOW := 1452051
 ## The Bowmaster skills this audit knows how to probe (tickets B7-B11 add theirs).
-const BOWMASTER_KEYS := ["arrow_blow", "bow_double_shot", "arrow_bomb", "strafe"]
+const BOWMASTER_KEYS := ["arrow_blow", "bow_double_shot", "arrow_bomb", "strafe", "inferno"]
 
 
 ## Generic Skill.wz levels: a centred box, six mobs, one line, a 300 px range, a certain proc (the shape test_fp_high_actives uses).
@@ -182,7 +183,7 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 		edge_hit = edge_hit or affected.has(s)
 	var direct_damage: bool = String(w.loadout.stats(key).damage_type) != "none"
 	return {"casts": w.runner.casts, "dealt": w.damage_dealt - w.swarm.poison_dealt if direct_damage else w.swarm.poison_dealt, "lines": lines, "affected": affected.size(), "edge": edge_hit,
-		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left}
+		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left, "burn": w.swarm.burn_dealt}
 
 
 func test_every_pool_skill_with_bonuses_was_found() -> void:
@@ -192,7 +193,7 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 		assert_true(key in keys, key)
 	for key in BOWMASTER_KEYS:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 23, "seven Hero, twelve F/P and four Bowmaster skills: %d" % keys.size())
+	assert_true(keys.size() >= 24, "seven Hero, twelve F/P and five Bowmaster skills: %d" % keys.size())
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
@@ -225,6 +226,9 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 				assert_true(int(with.lines) > int(base.lines), "%s: hit lines %d -> %d" % [label, base.lines, with.lines])
 			else:
 				assert_true(int(with.affected) > int(base.affected), "%s: mobs affected %d -> %d" % [label, base.affected, with.affected])
+		"burn_damage":
+			assert_true(int(base.burn) > 0, "%s: the unmodified cast burns" % label)
+			assert_true(int(with.burn) > int(base.burn), "%s: burn dealt %d -> %d" % [label, base.burn, with.burn])
 		"summon_count":
 			assert_true(int(with.summons) > int(base.summons), "%s: allies %d -> %d" % [label, base.summons, with.summons])
 		"meter_keep":
@@ -263,3 +267,10 @@ func test_the_probe_tells_the_bow_skills_stats_apart() -> void:
 	var area := {"stat": "area", "op": "mul", "value": 1.2}
 	assert_false(bool(_probe("arrow_bomb", [], "area").edge))
 	assert_true(bool(_probe("arrow_bomb", [area], "area").edge))
+
+
+func test_the_probe_tells_burn_damage_apart() -> void:
+	# Only Inferno burns: the same modifier on Arrow Bomb (which stuns) changes nothing, and on Inferno it changes the fire.
+	var hellfire := {"stat": "burn_damage", "op": "mul", "value": 1.5}
+	assert_eq(_probe("arrow_bomb", [hellfire], "burn_damage").burn, 0)
+	assert_true(int(_probe("inferno", [hellfire], "burn_damage").burn) > int(_probe("inferno", [], "burn_damage").burn))
