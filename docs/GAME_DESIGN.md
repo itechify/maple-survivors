@@ -711,6 +711,59 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+### Dark Knight QA (#359, D11; 2026-10-29, no tuning)
+
+Training seeds 1/2/2026, `cache-rd348`, `ISOLATE=359`, `JOBS=3`: all four tier-1 regions with bot/random,
+plus Sleepywood bot with/without each job's kit. Dark Knight uses `dark_knight_t2.json` as its fresh-start baseline
+on tier 1 and for Sleepywood kit runs (Pole Arm 1442004, WATK47); other tier-1 controls use their unchanged bare-tool
+start. A bare tool round still wears Sword 1302000, including Dark Knight's Sleepywood starter control. Kits differ:
+this is regression evidence, not a gear-matched class comparison. C = clears; D/C seconds are observed ranges.
+
+| Stage / policy | Dark Knight 132 | Hero 112 | F/P 212 | I/L 222 |
+|---|---|---|---|---|
+| henesys / bot | 0/3 C; D 406.7–874.0 | 0/3 C; D 327.7–688.2 | 0/3 C; D 305.0–651.7 | 0/3 C; D 309.5–505.0 |
+| henesys / random | 0/3 C; D 304.9–356.9 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 308.3–309.9 | 0/3 C; D 309.1–672.6 |
+| ellinia / bot | 0/3 C; D 147.8–475.0 | 0/3 C; D 221.0–646.5 | 0/3 C; D 629.1–644.2 | 0/3 C; D 624.1–654.6 |
+| ellinia / random | 0/3 C; D 163.8–683.5 | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 328.4–660.2 | 0/3 C; D 627.6–658.2 |
+| perion / bot | 0/3 C; D 240.8–599.0 | 0/3 C; D 288.9–493.0 | 0/3 C; D 305.7–456.3 | 0/3 C; D 308.3–669.7 |
+| perion / random | 2/3 C; D 318.9; C 939.3–972.9 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 308.7–421.5 | 0/3 C; D 389.6–425.7 |
+| kerning / bot | 0/3 C; D 195.9–638.4 | 0/3 C; D 326.8–568.7 | 0/3 C; D 307.9–315.0 | 0/3 C; D 309.6–537.7 |
+| kerning / random | 1/3 C; D 243.8–307.6; C 924.0 | 0/3 C; D 339.0–372.7 | 0/3 C; D 306.0–317.3 | 0/3 C; D 307.0–316.4 |
+| Sleepywood / starter | 0/3 C; D 15.9–23.1 | 0/3 C; D 16.4–20.2 | 0/3 C; D 10.6–12.0 | 0/3 C; D 11.4–11.8 |
+| Sleepywood / kit | 0/3 C; D 11.7–30.5 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 23.8–826.2; C 936.2 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+| DK sample | Runs | Cost HP/min | Recoil HP/min | Aura HP restored | Roar casts | Gate-refused opportunities |
+|---|---|---|---|---|---|---|
+| bot | 12 | 1796.5 | 295.6 | 82426 | 33 | 85519 |
+| random | 12 | 3709.3 | 702.8 | 55124 | 158 | 16101 |
+| starter | 3 | 0.0 | 0.0 | 0 | 0 | 0 |
+| kit | 3 | 502.7 | 10.1 | 0 | 1 | 800 |
+
+All 120 final records / 40 configurations completed with exit0, no crash, world warning, TIMEOUT or missing asset.
+The separate final-data DK pass adds a gate-only counter: all30 records otherwise compare equal as complete JSON to
+the initial pass (Fury's afterimage is presentation only). Raw records, exact console output and observer source remain
+under `_scratch/359-smoke/` and `_scratch/359-dk-final/`; minute buckets of cost/recoil are retained there.
+HP/min above is pooled HP divided by observed run minutes, including partial final minutes; Aura is actual HP gained,
+not nominal healing. Gate counts are ready, targeted cast opportunities refused by the strict HP gate, potentially
+once per fixed tick, not unique casts or seconds; HP-cost-only refusals are counted separately in the raw records.
+
+DK tier1 clears3/24, first boss18/24; Hero3/24 and20/24; F/P and I/L0/24 and24/24. Henesys bot fills six active
+slots3/3 for every job (DK141.4–181.6s). DK's earlier Ellinia/Kerning deaths and Sleepywood kit0/3 are recorded
+weaknesses; no tuning. Hero/F/P/I/L reproduce every per-configuration range in BS10's newer QA table (and F/P/I/L
+I12); D10's Henesys bot controls also reproduce. H10 is older evidence, not a new control.
+
+D10's bot-slot observation reproduced in Henesys seed1 (neither Beholder nor Power Strike), but is not universal:
+DK tier1 bot takes Beholder4/12 and Power Strike8/12; random6/12 and4/12. Six-slot competition and the offered cards
+explain the omissions; bot scores/policy unchanged. Individual rank8 diagnostic captures cover every pool skill with
+both weapons, all three Crusher thrusts, Fury's repaired afterimage, Roar's red180 cost (600→420HP), Beholder's500HP
+Aura and Hex. Both requested flows passed; ordinary Henesys spear/polearm clears942.55/919.63s, Sleepywood spear/
+polearm/starter deaths47.98/690.20/17.15s, all missing[]. Screenshots inspected under `evidence/d11/` (gitignored).
+Ordinary frame/input-driven runs and invulnerable diagnostic flows are not paired headless survival evidence.
+
+Rust70 and node62 pass. Pinned web templates are absent; no download or local export/artifact check. CI owns that
+unverified gate. No tests deleted, oracle hashes recaptured, held-out seeds spent, or balance data changed.
+
+
 **#296 review fixes / H12, after integrating #346 (2026-10-28).** No balance values changed by the
 review fixes: incoming AP HP 600, growth 65, orb 0.05, cooldowns and finisher coefficients are preserved exactly;
 Hero AP/growth/score rows now live in `jobs/hero.json`'s `balance` block. Read-only cache, `ISOLATE=296fix`,

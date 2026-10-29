@@ -610,6 +610,11 @@ The generic meter emits `meter_changed {id, value, max}` on actual counter chang
 `mob_pulled {mob, from, pos}`, where `from` is the previous horizontal coordinate and `pos` is the resulting Vector2.
 Both are declared in `RunWorld.EVENT_FIELDS` and covered by the event schema test.
 
+Dark Knight QA (#359): extra `cast_visuals` may select `path_by_family` before the usual art-twin rewrite, and carry an
+optional presentation `delay`. `FxRenderer.play_delayed` keeps a hidden pooled slot until that delay elapses, then plays
+the complete WZ animation while following its anchor. Dragon Fury uses this for its frame-two afterimage; simulation
+hits and cooldowns are unchanged.
+
 **HP-risk boundary (`HpRisk`, #351, GAME_DESIGN 7.66).** `game/scripts/sim/hp_risk.gd` is the one stateless file for the
 percentage HP cost, the HP gate, recoil and the low-HP damage bonus; it draws no random number and owns no state.
 `Loadout.stats` calls `HpRisk.cost` and `HpRisk.resolve` (`hp_cost`, `hp_gate`, `self_damage`, `self_damage_cap`,
@@ -1471,8 +1476,3 @@ Everything below is behind `WebProfile.is_web()` (`scripts/core/web_profile.gd`:
   the Alt menu is left to a manual check in the QA ticket (#136). Keys a page cannot reliably take: F11 (browser fullscreen) and F12 (developer tools) are tinted "Web" and not
   bindable in the Key Config window (`KeyBindings.WEB_RESERVED`), and the window's strip notes that Ctrl+W / Ctrl+T /
   Ctrl+N always reach the browser. Esc leaves browser fullscreen before the game sees it (accepted).
-
-Dark Knight QA (#359): extra `cast_visuals` may select `path_by_family` before the usual art-twin rewrite, and carry an
-optional presentation `delay`. `FxRenderer.play_delayed` keeps a hidden pooled slot until that delay elapses, then plays
-the complete WZ animation while following its anchor. Dragon Fury uses this for its frame-two afterimage; simulation
-hits and cooldowns are unchanged.
