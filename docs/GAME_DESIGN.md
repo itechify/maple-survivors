@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212), the default, and Arch Mage (Ice, Lightning, 222); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112), Paladin (122), Arch Mage (Fire, Poison, 212), the default, and Arch Mage (Ice, Lightning, 222); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -57,7 +57,7 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   `tiers_unlocked` (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
   every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
   Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
-  jobs (Hero 112, Arch Mage 212 and Arch Mage 222), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
+  jobs (Hero 112, Paladin 122 and Arch Mages 212/222), whose `creation_weapon` is the weapon worn; the look page's weapon row is no longer chosen.
   Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
   tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
   `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
@@ -104,6 +104,13 @@ and freeze, and Big Bang through the shared skill-template seam. Ranks, rarity b
 menus reuse the F/P systems. Tooling includes `--job=222`, the I/L tier-2 fixture and job-aware creation/redesign flows.
 The deterministic I/L oracle now covers the full pool; F/P oracles remain unchanged. QA results are in section 4.2.
 
+**Landed in the Paladin spec (#308, P1–P10 #309–#318):** job 122 is playable with a Mace, Power Strike and manual
+Rush from Lv1. Its eight-skill pool shares Hero's Power Strike/Slash Blast and adds Blast, Monster Magnet and four
+exclusive elemental Charges. `PlayerForms` supplies timed windows, element/damage effects and parent-ranked
+Charged Blow; Holy also carries Heaven's Hammer. The Job page, hub kit, `paladin_t2.json` and independent replay
+oracle ship in P9. Sections 7.66–7.68 own the mechanics (7.60–7.65 belong to I/L); section 4.2 records QA without
+tuning. F/P remains default. Hammer's stance can be interrupted by other casts; this remains a visual limitation.
+
 ### Known design gaps (open after the slice)
 
 These are findings of the QA pass, #293 and #307, recorded as gaps, not as met targets. Nothing here was tuned in #294.
@@ -131,7 +138,7 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
 ## 1. The run
 
 1. **Create or continue.** Character select shows three slots. Creating a character is name, look (the v83 Explorer
-   face, hair and outfit options) and a Job page listing the playable jobs (Hero, Arch Mage (Fire, Poison) and Arch Mage (Ice, Lightning), with Arch Mage (Fire, Poison) selected by default);
+   face, hair and outfit options) and a Job page listing the playable jobs (Hero, Paladin, Arch Mage (Fire, Poison) and Arch Mage (Ice, Lightning), with Arch Mage (Fire, Poison) selected by default);
    the character is that 4th job from Lv1 and keeps it for good. Selecting a living character opens its **Free Market**.
 2. **Free Market (home).** The v83 Entrance 910000000 with Bgm00/FloralLife. Walking, jumping, its two ladders and the
    existing same-map portal links work; no combat, spawning, drops or round timer run there. The Equip (E) and Item (I)
@@ -6097,8 +6104,8 @@ No shipped skill carries the block yet, so no existing record changes.
 The Paladin (122) fights with Hero's Power Strike and Slash Blast (`skills/hero.json`, never repeated or edited for the
 Paladin: its pool lists the same keys, `SkillBook.def` returns one definition for both jobs, and the Combo meter is a
 Hero job entry that a Paladin does not have, so the Paladin's casts carry no meter state, no `meter_changed` event and no
-per-orb damage), plus the skills of its own below. Each ticket of the spec appends its subsection to `skills/paladin.json`
-and here.
+per-orb damage), plus Blast, Monster Magnet and four Charges in `skills/paladin.json`. Manual `rush_paladin` is
+outside the eight-key pool and follows Hero's shared mobility rank rule (7.33).
 
 #### Blast and Monster Magnet (P5, #313)
 
@@ -6109,8 +6116,8 @@ and here.
   Final Attack plus damage x1.2 (shares the Unique's repeat counter). It is the biggest single hit of the lineage and pays
   off against defence and bosses; the balance pass owns its cooldown.
 - **Art.** The cast `effect` and the `hit` are both keyed by the element art index (P1: 0 none, 1 ice, 2 fire, 3 lightning,
-  5 holy). Blast reads index 0 (`effect/0`, `hit/0/0`) until a Charge is running; P7 adds the Charge-aware pick, presentation
-  only.
+  5 holy). Both paths use `{art}`: index 0 without a Charge, otherwise the running Charge's element, resolved
+  by `PlayerForms.begin_cast`.
 - **Five sounds.** `sounds.use_cycle` lists `Use` .. `Use5`; `SkillBook.use_sound(key, nth, family)` returns entry
   `nth mod 5` and `RunScene` counts the casts of each key it has seen, so the sounds play in order with no RNG draw. A
   skill without a cycle plays its `sounds.use` as before.
@@ -7007,7 +7014,7 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | Hero hub kit (#305, spec #296) | `HubTestKit.HERO_KIT_SCROLLS` (every rate of the ATT scrolls of the sword, two-handed sword, axe and two-handed axe, 20 stacks of 10) and `HERO_KIT_EQUIPMENT` (1002001 hat, 1402000 two-handed sword, 1082002 gloves, 1040010 top), used for a character of job 112; `--hub --job=112` opens `hero_t2.json`; 500,000 mesos as for F/P | C | Ours, a test aid |
 | Paladin AP row (#310, spec #308) | `jobs/paladin.json` `balance.player.ap["122"]`: the Hero 112 row's shape, STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204. The starting-HP and HP-growth rows were added by P9 #317 (next rows) | C | Spec #308 (Job data) |
 | Paladin creation weapon and families (#310, spec #308) | `jobs/paladin.json` `creation_weapon` 1322000, the Mace (Item.wz, reqJob 3, which includes the Warrior bit, so `requirement_error` accepts it for 122); `weapon_families` `["sword", "blunt"]` filters the shipped Warrior drop list (one- and two-handed), so axes, spears and polearms never drop for a Paladin; armour and shields drop by the Warrior class bit. The item id and stats are tier A | C | Spec #308 |
-| Paladin skill pool and start (#310, spec #308) | `jobs/paladin.json`: `starting_skill` power_strike (slot 1), `mobility_skill` rush_paladin, eight-key `skill_pool` (power_strike, slash_blast, blast, monster_magnet_paladin, fire_charge, ice_charge, thunder_charge, holy_charge). Power Strike and Slash Blast are Hero's definitions; the rest are inert until their tickets define them. The pool and the start are design choices; the WZ ids are tier A | C | Spec #308 (Skill pool table) |
+| Paladin skill pool and start (#310, spec #308) | `jobs/paladin.json`: `starting_skill` power_strike (slot 1), `mobility_skill` rush_paladin, eight-key `skill_pool` (power_strike, slash_blast, blast, monster_magnet_paladin, fire_charge, ice_charge, thunder_charge, holy_charge). Power Strike and Slash Blast are Hero's definitions; all eight entries now resolve. The pool and the start are design choices; the WZ ids are tier A | C | Spec #308 (Skill pool table) |
 | Paladin playable (#310, #317, spec #308) | `jobs/paladin.json` `playable` true since P9 #317 (P2 shipped it false while the job had no skills, Forms or bot); the Job page lists Hero, Paladin, then the Arch Mages (canonical order); `default_job` stays 212 | C | Spec #308 (Making Paladin selectable) |
 | Paladin starting HP and HP growth are Hero's (#317, orchestrator ruling) | `jobs/paladin.json` `balance.player.ap["122"].hp` 600 and `balance.growth["122"].hp` 65, copied from `jobs/hero.json` (Hero's #346 melee survivability baseline), as Dark Knight did. P2 #310 had argued for the shared default (Warrior line 26 per level); the balance pass owns the number | C | Orchestrator ruling for melee jobs, #346 |
 | Paladin hub kit and fixture (#317, spec #308) | `jobs/paladin.json` `hub_kit`: fixture `paladin_t2.json` (a Lv25 Mace 1322004, Warrior-bit armour, tier 2, kit mode), 20 scroll stacks (every rate of the ATT scrolls of the sword, blunt, two-handed sword and two-handed blunt families; `SCROLL_COUNT` 10 each), spare 1002001 / Sword 1302008 / blunt 1322014 / 1082002 / 1040010, `fallback_item` 1302009 (Lv40 Sword) | C | Spec #308, as Hero's kit (#305) |

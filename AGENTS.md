@@ -169,7 +169,7 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
 ```
 
 - `redesign` (#294, the slice's QA; about 6 minutes; `--job=<id>`, default 212, `--job=112` for Hero, `--job=122` for the Paladin, `--job=222` for the I/L Arch Mage: its Job page row is
-  clicked, the checks name its start skills and its fallback item is a sword (Hero, #305) or a staff (I/L, #330)): title -> create an Arch Mage (name, look, Job page) -> Free Market ->
+  clicked, the checks name its start skills and its fallback item is a sword (Hero/Paladin) or a staff (I/L, #330)): title -> create the chosen job (name, look, Job page) -> Free Market ->
   map select with Sleepywood locked and its Start refused -> an invulnerable Henesys round (`--seed`, default 1; the bot
   steers, the first level-up, the first offer with every active slot filled, the first Mastery offer and the first boss
   bonus draw open the real window and are answered with a number key; the real CLEAR, fade and arrival presentation) ->
