@@ -8056,7 +8056,7 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Hub kit | unchanged from BS2: F/P's scroll stacks and spare equipment, fixture path now exists | tier C: ours (#381) |
 | Baseline oracle pool (`test_bishop_baseline.POOL`) | all ten shipped pool skills since BS10 #382; the two dragons and Resurrection expand the card/event workload, requiring one recapture | tier C: ours (#381) |
 | Baseline recipe | seed 1, 72,000 ticks, god, bot (`auto_choose` + `decide`), legacy Henesys curve and opening freeze as the 212 oracle, synthetic books (`bishop_bolt_fixtures`, `heal_fixtures`, Genesis and Big Bang of `bishop_genesis_fixtures`, dragons of `bishop_dragon_fixtures`, `resurrection_fixtures`) | tier C: ours (#381) |
-| Bot scores | no `card_scores` block (BS2's explicit block was removed in the review fixes: the pool default gives the same scores); the ten pool keys keep BS2's new 100 / rank 74; Heal and Resurrection have reach 0; the bot presses a key only for Teleport | tier C: ours (#381) |
+| Bot scores | BS2's explicit `card_scores` block stays (the spec said none, but the block is pinned by `test_bishop_bot` and removing it changes the Bishop oracle bytes, so it is a documented deviation); the ten pool keys keep BS2's new 100 / rank 74; Heal and Resurrection have reach 0; the bot presses a key only for Teleport | tier C: ours (#381) |
 | Skill window | no code change: tabs 200, 230, 231, 232 after Common, Teleport (2301001) first on the 230 tab | tier C: ours (#381) |
 
 **Bishop BS8 constants (#380)**

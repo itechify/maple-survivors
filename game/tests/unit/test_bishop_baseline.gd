@@ -18,8 +18,10 @@ const DT := 1.0 / 60.0
 const TICKS := 72000
 ## tier C: the full BS10 pool, frozen in the shipped pool order.
 const POOL := ["holy_arrow", "magic_claw", "shining_ray", "angel_ray", "heal", "summon_dragon", "bahamut", "genesis", "big_bang_bishop", "resurrection"]
-## Recaptured by BS10 on integration e5f7b50 with the full ten-skill pool, seed 1, 72000 ticks, Godot 4.7.2.
-const GOLDEN := "f0766314b053946c76ed64147d50efa7fa50b553a2b0fc7ac03ada21171ba643"
+## Recaptured by BS10 on integration e5f7b50 with the full ten-skill pool, seed 1, 72000 ticks, Godot 4.7.2; recaptured once more by the
+## #372 review fixes, which reword the Heal and Resurrection bonus cards ("recovery x1.2", "guard +1.5 s": the card text is part of the
+## choice events). Nothing else changed: with the old wording the previous digest (f0766314...) still reproduced.
+const GOLDEN := "35b8cde5d422c2cdf7f39f78a6901610d15008be2bad24bf4091eddb8c761af1"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick Bishop bot run, seed 1, synthetic assets only (see the 212 baseline).
