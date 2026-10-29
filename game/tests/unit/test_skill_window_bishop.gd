@@ -105,7 +105,6 @@ func test_the_tooltip_of_a_bishop_skill_reads_the_numbers_of_its_rank() -> void:
 func test_a_232_run_opens_the_skill_window_on_the_bishop_tab_and_teleport_is_on_230() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = {"jobs_survivor": {"jobs": {"232": {"playable": true}}}}
 	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	s.library = lib
 	s.configure("henesys", 13, {"use_flow": false, "autoplay": true, "autopick": true, "job": 232})

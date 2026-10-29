@@ -121,8 +121,8 @@ bash scripts/playtest.sh --speed=1 --minutes=3                 # 3 minutes in re
 bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-forward to 10:00 without drawing,
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
 bash scripts/playtest.sh --stage=ellinia --seed=7 --window-autopick=1   # windows open and answer themselves
-bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the default job; --job=112 is Hero, --job=222 the I/L Arch Mage; `--job=232` the Bishop once BS10 flips it, until then with `--patch`/`PATCH=` making it playable)
-bash scripts/playtest.sh --stage=sleepywood --character=$PWD/game/tests/fixtures/characters/fp_arch_mage.json
+bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the default job; --job=112 is Hero, --job=222 the I/L Arch Mage; --job=232 the Bishop)
+bash scripts/playtest.sh --job=232 --stage=sleepywood --character=$PWD/game/tests/fixtures/characters/bishop_t2.json
                                                                # tier 2 with the tier-1 kit (omit --character: the starter wand only)
 ```
 
@@ -147,7 +147,7 @@ one density check, and at least one must stay positive. This verifies coverage; 
 playtests retain their existing behavior on a valid early-death summary.
 
 `bash scripts/run.sh -- --hub [--job=<id>] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`; `--job=112`
-opens the Hero fixture `hero_t2.json` with the Hero kit of sword and axe ATT scrolls and Warrior spare gear; `--job=222` the I/L fixture `il_arch_mage_t2.json` with the F/P kit (both Arch Mages wear wands and staves from the same scroll line); `--job=232` the Bishop fixture `bishop_t2.json` with the same kit (spec #372 BS9; the job's `hub_kit` in `jobs/bishop.json`; it needs `PATCH`-style playability until BS10: a `--hub --job=232` on shipped data shows the "not playable" error screen); a `--job` the
+opens the Hero fixture `hero_t2.json` with the Hero kit of sword and axe ATT scrolls and Warrior spare gear; `--job=222` the I/L fixture `il_arch_mage_t2.json` with the F/P kit (both Arch Mages wear wands and staves from the same scroll line); `--job=232` the Bishop fixture `bishop_t2.json` with the same kit (spec #372 BS9; the job's `hub_kit` in `jobs/bishop.json`; playable on shipped data since BS10 #382); a `--job` the
 character is not of is an error screen) skips
 the title and opens the real Free Market to hand-test the scroll shops with the F/P fixture (or `--character`) plus
 a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants, every tier unlocked) in a throwaway
@@ -168,7 +168,7 @@ fresh `--shots` directory and the character slots, history and account go to its
 ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scenario=<name> --shots=<abs dir under evidence/>
 ```
 
-- `redesign` (#294, the slice's QA; about 6 minutes; `--job=<id>`, default 212, `--job=112` for Hero, `--job=222` for the I/L Arch Mage: its Job page row is
+- `redesign` (#294, the slice's QA; about 6 minutes; `--job=<id>`, default 212, `--job=112` for Hero, `--job=222` for the I/L Arch Mage, `--job=232` for Bishop: its Job page row is
   clicked, the checks name its start skills and its fallback item is a sword (Hero, #305) or a staff (I/L, #330)): title -> create an Arch Mage (name, look, Job page) -> Free Market ->
   map select with Sleepywood locked and its Start refused -> an invulnerable Henesys round (`--seed`, default 1; the bot
   steers, the first level-up, the first offer with every active slot filled, the first Mastery offer and the first boss
@@ -180,7 +180,7 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
   scenario plays its own card policy once the slots are full (it ranks the highest-ranked owned active so a Mastery card
   appears; the bot rarely gets there, GAME_DESIGN section 0); `summary.json` holds the offers, picks, rarities and the
   showcased windows. This is flow evidence, not survival or balance evidence.
-- `creation` (#305, #330: the Job page and creation of every playable job, or of `--jobs=<id,id>` such as `--jobs=212,222`, in separate slots (there are three, so at most three jobs per run): the page lists
+- `creation` (#305, #330: the Job page and creation of every playable job, or of `--jobs=<id,id>` such as `--jobs=212,232`, in separate slots (there are three, so at most three jobs per run): the page lists
   them in canonical order, the chosen row is highlighted, each slot holds its job with its creation weapon; about 30 s).
 - `title` (the title screen only; for checking an exported build: `MapleSurvivors.exe res://scenes/debug/flow_driver.tscn
   -- --scenario=title --shots=<dir>`), `import` (a cache-less start, or the title's Re-import link: the import screen,
@@ -245,7 +245,7 @@ The committed `game/tests/fixtures/characters/fp_arch_mage.json` is the F/P char
 with tier 2 unlocked and the tier-1 equipment kit worn (a reqLevel-25 staff, reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15
 gloves, unscrolled); its `_doc` records the kit ids, label and revision, and `game/tools/character_fixture.gd --kit=<ids>
 --tiers=2` reproduces it (`game/tests/fixtures/characters/README.md`). `hero_t2.json` is the Hero (112) fixture: the equipment and loot from a seed-1 invulnerable Henesys bot clear,
-with tier 2 unlocked; its `_doc` records this diagnostic origin. Reproduce it with `--job=112 --god`. Its I/L twin `il_arch_mage_t2.json` (job 222, spec #319 I11: the same kit as F/P's and tier 2) was made with `--job=222 --patch=<playable patch>` before I12 enabled I/L, and its `_doc.patch` names the patch file (history; new generation needs no patch); its Bishop twin `bishop_t2.json` (job 232, spec #372 BS9: the same kit and tier 2) was made with `--job=232 --kit=1382002,1002013,1072019,1082019,1040002,1060002 --tiers=2 --label=spec372/ticket-381 --patch=<playable patch>` while Bishop is `playable: false` (`_doc.patch` names the patch; `--character=<it>` runs a Bishop and `--job=212` with it fails; `--job=232 --character=<F/P fixture>` fails too); `--hub --job=222` opens it, `--character=<it>` runs an I/L (a `--job=212` with it fails).
+with tier 2 unlocked; its `_doc` records this diagnostic origin. Reproduce it with `--job=112 --god`. Its I/L twin `il_arch_mage_t2.json` (job 222, spec #319 I11: the same kit as F/P's and tier 2) was made with `--job=222 --patch=<playable patch>` before I12 enabled I/L, and its `_doc.patch` names the patch file (history; new generation needs no patch); its Bishop twin `bishop_t2.json` (job 232, spec #372 BS9: the same kit and tier 2) was made with `--job=232 --kit=1382002,1002013,1072019,1082019,1040002,1060002 --tiers=2 --label=spec372/ticket-381 --patch=<playable patch>` before BS10 enabled Bishop; new generation needs no patch (`_doc.patch` names the patch; `--character=<it>` runs a Bishop and `--job=212` with it fails; `--job=232 --character=<F/P fixture>` fails too); `--hub --job=222` opens it, `--character=<it>` runs an I/L (a `--job=212` with it fails).
 The same tool can also write the character a real bot
 round leaves behind, and converts old files.
 
@@ -276,7 +276,7 @@ Use focused filters excluding `full_run` while tuning; freeze data and pacing wi
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
 `--job=<id>` names the character's job in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd` and the fixture tool (ADR 0006:
-a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Arch Mage (Fire, Poison, 212) and Arch Mage (Ice, Lightning, 222; spec #319, I12 flipped `playable`); `--job=112` selects Hero and `--job=222` the I/L Arch Mage; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
+a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Arch Mage (Fire, Poison, 212, the default), Arch Mage (Ice, Lightning, 222) and Bishop (232, spec #372 BS10); `--job=112` selects Hero, `--job=222` the I/L Arch Mage and `--job=232` Bishop; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
 `SceneFlow.forced_job_error`), and a `--character` whose job disagrees fails. A tool that names no job gets
 `JobTree.default_job()`, pinned to 212 by `survivor/jobs.json` whatever else is playable. `--branch=<id>` is the deprecated alias. There is no advancement, so records have no
 `branch`, `forced_branch`, `job_t` or `job_times`; they carry the job id (`jobs` in the summary) and, from #293, `picks`

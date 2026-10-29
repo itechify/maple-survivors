@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212), the default, and Arch Mage (Ice, Lightning, 222); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212), the default, Arch Mage (Ice, Lightning, 222), and Bishop (232); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -13,10 +13,9 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
 On the `redesign` branch, **ADR 0006** replaced v83 progression with survivor-genre progression. The F/P Arch Mage slice
 (spec #282, tickets #283-#294) built it end to end for one job; this section is the summary and the owner of any
 conflict: where a later section still describes a removed system, this section wins. The slice rewrote sections 1, 5,
-6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 describe mechanics of the other job lines (Warrior, Bowman, Thief, Pirate,
-Cleric): their data and tests stay on `redesign` and are unplayable until each line is ported, so read them as the
-specification for that port, not as the live game; advancement, weapon paths, weapon-gated skills and standalone
-behaviour cards mentioned in them are gone. Target design:
+6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 preserve behaviour references for the other lines; the remaining Warrior,
+Bowman, Thief and Pirate ports are still unplayable. The live Hero, I/L and Bishop ports are documented below.
+Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in historical sections are gone. Target design:
 
 | Area | Target | Replaces |
 |---|---|---|
@@ -103,6 +102,14 @@ Ifrit with marked-target priority, Chain Lightning with visible hops and a staff
 and freeze, and Big Bang through the shared skill-template seam. Ranks, rarity bonuses, Mastery, equipment, saves and
 menus reuse the F/P systems. Tooling includes `--job=222`, the I/L tier-2 fixture and job-aware creation/redesign flows.
 The deterministic I/L oracle now covers the full pool; F/P oracles remain unchanged. QA results are in section 4.2.
+
+**Landed in the Bishop spec (#372, BS1–BS10 #373–#382):** Bishop (232) is the fourth playable job;
+F/P (212) remains the default. Holy Arrow starts each round, manual Cleric Teleport sits outside the slots, and the ten-skill
+pool includes Heal, the two dragons, Genesis, Bishop Big Bang and the automatic Resurrection reaction. BS1 verified
+assets; BS2 supplied the class data; BS3 added ordered hit hooks and second life; BS4–BS8 supplied the skills and rarity
+bonuses; BS9 supplied creation/tooling, the tier-2 fixture and independent oracle; BS10 enabled the job and widened that
+oracle to all ten skills. Sections 7.80–7.85 and the Bishop provenance rows own the mechanics. QA below records survival
+without tuning; the orchestrator decides merge readiness.
 
 ### Known design gaps (open after the slice)
 
@@ -873,11 +880,55 @@ Thunder Spear until I4 and I7-I10 land, so six actives fill with no Ifrit, Blizz
 No crash, warning or missing asset in either; both oracle goldens (`test_character_baseline`, `test_tick_cost_identity`) are unchanged. The tick-cost oracle explicitly pins Cold Beam and Thunder Bolt to their legacy cooldowns, ranks and bonuses; it tests the historical definitions, not today’s shipped I/L definitions. The I/L
 numbers are a first look at an incomplete pool, not a baseline (I12 owns the pass).
 
-**Bishop selection and tooling smoke (spec #372, BS9 #381).** Placeholder: BS9 adds tooling, a fixture and oracles only, no
-sim or balance data change, so no `balance.sh` smoke was run (the 212, Hero and I/L oracles, `test_character_baseline`,
-`test_tick_cost_identity`, `test_hero_baseline` and `test_il_baseline`, reproduce their goldens untouched). The Bishop
-oracle `test_bishop_baseline` is pinned to the seven skills that exist at capture (seed 1, 72,000 ticks, 13 skills learned,
-46 level-ups, 3 bosses dead, `stage_cleared`); BS10 owns the real Bishop smoke and widens the pool.
+**Bishop QA smoke (spec #372, BS10 #382, 2026-10-29).** Training seeds 1, 2, 2026, `JOBS=3`, read-only
+`cache-373`, shipped data: all four tier-1 stages, bot and random, for jobs 232/212/112/222; Sleepywood bot
+with starter equipment and each job's tier-1 kit fixture. No tuning or held-out seeds. A disposable copy of the
+measurement tool observes Heal `cast` and `player_restored` events to count casts and actual HP gained; it changes
+neither world state nor RNG. Raw records, exact reports and configuration are in `_scratch/382-smoke/<job>/`.
+
+Bishop cleared 6/24 tier-1 runs, 0/3 Sleepywood starter runs and 3/3 kit runs. All 24 tier-1 runs reached the
+first boss. Henesys bot filled all six active slots in 3/3 (134.7–180.6 s) and reached the first boss in 3/3.
+Across its 30 runs, seven triggered Resurrection once each; Heal cast 766 times and restored 157,121 HP.
+This is mixed survival, with a strong kit sample; it is neither a tuning pass nor balance acceptance. The orchestrator
+decides readiness. No Bishop balance data changed. Ellinia is recorded only, pending the owner's rework.
+
+All 120 records completed, all 40 batch commands exited 0, no TIMEOUT/crash/world warning/missing asset.
+Cells give clears/3, then death (D) and clear (C) time ranges in seconds.
+
+| Stage / policy | Bishop 232 | F/P 212 | Hero 112 | I/L 222 |
+|---|---|---|---|---|
+| henesys / bot | 2/3 C; D 306.4; C 913.1–921.1 | 0/3 C; D 305.0–651.7 | 0/3 C; D 327.7–688.2 | 0/3 C; D 309.5–505.0 |
+| henesys / random | 2/3 C; D 310.6; C 940.9–980.2 | 0/3 C; D 308.3–309.9 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 309.1–672.6 |
+| ellinia / bot | 0/3 C; D 629.6–655.5 | 0/3 C; D 629.1–644.2 | 0/3 C; D 221.0–646.5 | 0/3 C; D 624.1–654.6 |
+| ellinia / random | 0/3 C; D 398.7–844.2 | 0/3 C; D 328.4–660.2 | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 627.6–658.2 |
+| perion / bot | 1/3 C; D 305.5–334.9; C 911.4 | 0/3 C; D 305.7–456.3 | 0/3 C; D 288.9–493.0 | 0/3 C; D 308.3–669.7 |
+| perion / random | 0/3 C; D 387.9–439.1 | 0/3 C; D 308.7–421.5 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 389.6–425.7 |
+| kerning / bot | 1/3 C; D 308.6–313.3; C 928.0 | 0/3 C; D 307.9–315.0 | 0/3 C; D 326.8–568.7 | 0/3 C; D 309.6–537.7 |
+| kerning / random | 0/3 C; D 305.5–376.2 | 0/3 C; D 306.0–317.3 | 0/3 C; D 339.0–372.7 | 0/3 C; D 307.0–316.4 |
+| Sleepywood / starter | 0/3 C; D 10.8–11.8 | 0/3 C; D 10.6–12.0 | 0/3 C; D 16.4–20.2 | 0/3 C; D 11.4–11.8 |
+| Sleepywood / kit | 3/3 C; C 912.7–921.3 | 1/3 C; D 23.8–826.2; C 936.2 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+F/P and I/L reproduce I12's smoke totals and recorded timings: tier 1 0/24, Sleepywood starter 0/3 and kit 1/3 each.
+Hero cleared 3/24 tier 1 and 2/3 kit runs (starter 0/3); its Henesys bot filled six slots 3/3 at 139.9–249.2s and
+reached the first boss 3/3. The earlier H10 smoke used an older integration revision/fixture; differences are not
+causally attributed. A paired Hero Henesys random seed 1 control with only Bishop `playable:false` produces a
+byte-identical complete record to the enabled-Bishop run (CLEAR 1010.6 s). F/P Henesys bot filled six slots 3/3 at
+136.7–205.3s; I/L 3/3 at 137.0–228.3s; both reached the first boss 3/3. Other jobs' golden oracles pass unchanged.
+
+Full cached suite: **2,569 tests, 0 failed, 0 skipped**, 256 files, 1765.365 s. Full without cache (`/nonexistent`): **2,569 total, 2,274 executed passes, 0 failed, 295 SKIPs**, 256 files, 897.937 s. Each skipped test is named with SKIP in `_scratch/382-qa/no-cache-skips.log`; a SKIP proves no asset behaviour. Final cached bot/Skill-window check: 13 passed, 0 failed, 0 skipped. No tests deleted.
+
+The BS9 oracle covered seven skills only; BS10 widens it to all ten with synthetic dragon and Resurrection books,
+so new card choices/casts/event bytes require one golden recapture. Its seed 1, 72,000 fixed ticks, bot/god and historical
+opening/legacy director recipe remain fixed. F/P, Hero and I/L golden constants are untouched. God mode keeps HP full,
+so the independent Heal/Resurrection suites and the real-cache revive probe cover those triggers.
+
+Visual QA: `redesign --job=232` and `creation --jobs=212,232` passed; all screenshots inspected. Ordinary seed2026 x8
+playtests: Henesys CLEAR916.15 Lv50; Sleepywood kit DEAD16.7 and starter DEAD12.5, all `missing: []`. These frame-driven
+visual runs differ from the headless smoke and are not paired balance observations. Diagnostic single-skill captures
+show all nine cast skills, Teleport, Heal, Genesis's tiles, both dragons, Big Bang charge/release with wand and staff,
+and Resurrection's pillar/beams/guard/recharge and repeat trigger. Every diagnostic summary has no missing assets.
+Screenshots remain under `evidence/bs10/`, uncommitted. The local web export/artifact gate is unverified because the
+pinned web templates are absent; CI runs export. Rust and web-shell suites passed (70 and 62 tests).
 
 **#282 review fixes (2026-10-28).** Targeted regression requested for this review task:
 Henesys, bot, training seed 1, real cache, no balance tuning or held-out seeds. Correct passive rarity RNG,
@@ -6288,8 +6339,7 @@ nearest monster, so a monster on the same line behind the first is shielded: Twi
 ### 7.80 Bishop pool and job data (spec #372, BS2 #374)
 
 Bishop (232) gets its own data line, `bishop` (`skills/bishop.json`, `jobs/bishop.json`), discovered from its files like
-Hero and I/L. BS2 is the data seam only: the job is **not playable** (BS10 flips it after its skills, bot and QA), so no
-player can reach it and every F/P and I/L number is unchanged. Skill keys stay inert until their tickets define them.
+Hero and I/L. BS10 #382 enables the complete ten-skill line; 212 stays the default and the other jobs’ tuning is unchanged.
 
 | Pool key | WZ id and name | State after BS2 | Owner of the definition |
 |---|---|---|---|
@@ -7882,7 +7932,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | AP row | INT primary, LUK secondary, keyframes Lv1 -> 3, Lv200 -> 202 (the 212 curve) | C |
 | Bot card scores | new 100 / rank 74 for each pool key (the pool default, spelled out) | C |
 | Hub kit | F/P's scroll list, equipment list [1002001, 1382001, 1082002, 1040004], fallback 1382001; fixture `bishop_t2.json` (BS9) | C |
-| Playable | `false` until BS10; `default_job` stays 212 | C |
+| Playable | `true` since BS10 #382; `default_job` stays 212 | C |
 | Holy Symbol | the common `passive_exp` (9101002), offered to a 232 like any job; no Bishop card | C |
 
 ### Bishop BS5 constants (spec #372, BS5 #377)
@@ -7989,10 +8039,10 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
-| Bishop fixture `bishop_t2.json` | job 232, tier 2, the F/P tier-1 kit (1382002, 1002013, 1072019, 1082019, 1040002, 1060002), made with `--patch` while 232 is unplayable | tier C: ours (#381) |
+| Bishop fixture `bishop_t2.json` | job 232, tier 2, the F/P tier-1 kit (1382002, 1002013, 1072019, 1082019, 1040002, 1060002), made with `--patch` before BS10 enabled 232 (historical provenance; new generation needs no patch) | tier C: ours (#381) |
 | Hub kit | unchanged from BS2: F/P's scroll stacks and spare equipment, fixture path now exists | tier C: ours (#381) |
-| Baseline oracle pool (`test_bishop_baseline.POOL`) | frozen to holy_arrow, magic_claw, shining_ray, angel_ray, heal, genesis, big_bang_bishop; BS10 widens to the ten and re-captures once | tier C: ours (#381) |
-| Baseline recipe | seed 1, 72,000 ticks, god, bot (`auto_choose` + `decide`), legacy Henesys curve and opening freeze as the 212 oracle, synthetic books (`bishop_bolt_fixtures`, `heal_fixtures`, Genesis and Big Bang of `test_bishop_genesis`) | tier C: ours (#381) |
+| Baseline oracle pool (`test_bishop_baseline.POOL`) | all ten shipped pool skills since BS10 #382; the two dragons and Resurrection expand the card/event workload, requiring one recapture | tier C: ours (#381) |
+| Baseline recipe | seed 1, 72,000 ticks, god, bot (`auto_choose` + `decide`), legacy Henesys curve and opening freeze as the 212 oracle, synthetic books (`bishop_bolt_fixtures`, `heal_fixtures`, Genesis and Big Bang of `test_bishop_genesis`, dragons of `test_bishop_dragons`, `resurrection_fixtures`) | tier C: ours (#381) |
 | Bot scores | no `card_scores` block added; the ten pool keys keep BS2's new 100 / rank 74; Heal and Resurrection have reach 0; the bot presses a key only for Teleport | tier C: ours (#381) |
 | Skill window | no code change: tabs 200, 230, 231, 232 after Common, Teleport (2301001) first on the 230 tab | tier C: ours (#381) |
 
