@@ -10,6 +10,9 @@ extends TestCase
 ## small tables `_demon_levels` builds) and are cast at their top rank, so the probes below are the same and only `_world` differs.
 ## Ifrit (I9) is a summon that needs allies settled behind the player: it stays in test_ifrit.gd (IL_AUDITED_ELSEWHERE).
 ## Paladin's skills (Blast, Monster Magnet) run as job 122 (P5 #313).
+## A Form (Paladin's Charges, spec #308) has its own probe: its bonuses change the Charge's multiplier (`form_power`: the hits of a
+## Paladin skill inside the window), duration (`form_time`: ticks the window lasts), cooldown (windows started in 66 s) and its
+## sub-skill's damage (`damage`: Charged Blow's hits inside the window).
 
 const IL := preload("res://tests/fixtures/il_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -20,7 +23,8 @@ const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
-const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep"]
+const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep",
+	"form_power", "form_time"]
 ## The I/L skills this audit casts (books 220/221/222); I8-I10 appended theirs.
 const IL_SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "ice_demon", "element_composition_il",
 	"chain_lightning", "blizzard", "big_bang_il"]
@@ -90,7 +94,7 @@ func _world(key: String) -> RunWorld:
 		return _finish_world(RunWorld.new(_il_setup()), key, true)
 	var data := RF.quiet_data()
 	var skill_job := int(data.skills.skills[key].job)
-	var job := 122 if skill_job in [121, 122] else 112 if skill_job in [100, 110, 111, 112] else 212
+	var job := 122 if skill_job in [120, 121, 122] else 112 if skill_job in [100, 110, 111, 112] else 212
 	data.jobs_survivor.jobs["112"]["playable"] = true
 	data.jobs_survivor.jobs["122"]["playable"] = true
 	var setup := RF.with_basic_attack(RF.setup("quiet", 296, data))
@@ -228,9 +232,9 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 func test_every_pool_skill_with_bonuses_was_found() -> void:
 	var keys := _skills_with_bonuses()
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
-			"elquines", "blast", "monster_magnet_paladin"]:
+			"elquines", "blast", "monster_magnet_paladin", "fire_charge", "ice_charge", "thunder_charge"]:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 21 + IL_SKILLS.size(), "seven Hero, two Paladin, twelve F/P and %d I/L skills: %d" % [IL_SKILLS.size(), keys.size()])
+	assert_true(keys.size() >= 24 + IL_SKILLS.size(), "seven Hero, five Paladin, twelve F/P and %d I/L skills: %d" % [IL_SKILLS.size(), keys.size()])
 	for key in IL_SKILLS:
 		assert_true(key in keys, "%s (I/L) is audited" % key)
 
@@ -280,6 +284,9 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 	var stat := String(effect.stat)
 	var label := "%s %s %s (%s)" % [key, tier, id, stat]
 	assert_true(stat in CORE_STATS, "%s: a stat this audit knows" % label)
+	if String(DataRepo.load_all().skills.skills[key].kind) == "form":
+		_assert_form_effect_changes_the_cast(key, label, stat, effect)
+		return
 	var base := _probe(key, [], stat)
 	var with := _probe(key, [effect], stat)
 	match stat:
@@ -299,6 +306,65 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 		"area", "range":
 			assert_false(bool(base.edge), "%s: the mob beyond the base reach is outside it" % label)
 			assert_true(bool(with.edge), "%s: the mob beyond the base reach is inside the widened one" % label)
+
+
+## Runs a Form `key` with Power Strike beside it against four still mobs inside its 400 px admission, with `effects` applied.
+## `seconds` bounds the run: the first window's hits, length and the windows started in it are measured.
+func _probe_form(key: String, effects: Array, seconds: float) -> Dictionary:
+	var w := _world(key)
+	w.learn_skill("power_strike")
+	w.loadout.add_skill_mod("power_strike", "damage", "mul", 100.0) # big hits: whole-number rounding cannot hide a +10 %
+	var slots := []
+	for off: float in [80.0, -80.0, 140.0, -140.0]:
+		slots.append(RF.put_mob(w, MOB, CASTER_X + off, 190.0, 1000000.0))
+	var x0 := {}
+	for s: int in slots:
+		x0[s] = w.swarm.x[s]
+	for e: Dictionary in effects:
+		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
+	var starts := 0
+	var start_tick := -1
+	var length := -1
+	var strikes := 0.0
+	var blows := 0.0
+	for tick in int(seconds / DT):
+		w.restore_player("hp", 100, "test") # Charged Blow pays HP and waits when it cannot
+		w.step(DT, MoveInput.new())
+		var inside := start_tick >= 0 and length < 0
+		for s: int in slots:
+			w.swarm.x[s] = x0[s] # knockback must not walk the mobs out of Charged Blow's reach
+		for e: Dictionary in w.drain_events():
+			match String(e.type):
+				"form_started":
+					starts += 1
+					start_tick = tick if start_tick < 0 else start_tick
+				"form_ended":
+					length = tick - start_tick if length < 0 else length
+				"mob_hit":
+					if inside and String(e.skill) == "power_strike":
+						strikes += float(e.damage)
+					elif inside and String(e.skill) == "charged_blow":
+						blows += float(e.damage)
+	return {"starts": starts, "length": length, "strikes": strikes, "blows": blows}
+
+
+func _assert_form_effect_changes_the_cast(key: String, label: String, stat: String, effect: Dictionary) -> void:
+	var seconds := 66.0 if stat == "cooldown" else 16.0
+	var base := _probe_form(key, [], seconds)
+	var with := _probe_form(key, [effect], seconds)
+	assert_true(int(base.length) > 0 and float(base.strikes) > 0.0 and float(base.blows) > 0.0, "%s: the baseline Charge runs" % label)
+	match stat:
+		"form_power":
+			assert_true(float(with.strikes) > float(base.strikes), "%s: Power Strike inside the window %s -> %s" % [label, base.strikes, with.strikes])
+		"form_time":
+			assert_true(int(with.length) > int(base.length), "%s: window ticks %d -> %d" % [label, base.length, with.length])
+		"cooldown":
+			assert_true(int(with.starts) > int(base.starts), "%s: windows in 66 s %d -> %d" % [label, base.starts, with.starts])
+		"damage":
+			assert_true(float(with.blows) > float(base.blows), "%s: Charged Blow inside the window %s -> %s" % [label, base.blows, with.blows])
+			assert_near(float(with.strikes), float(base.strikes), 0.0001, "%s: the Charge's own multiplier is not the damage modifier" % label)
+		_:
+			assert_true(false, "%s: a Form's bonus reads form_power, form_time, cooldown or damage" % label)
 
 
 func test_the_probe_catches_a_modifier_the_cast_rule_never_reads() -> void:
@@ -331,3 +397,13 @@ func test_the_probe_catches_an_il_modifier_the_cast_rule_never_reads() -> void:
 	assert_true(bool(_probe("thunder_bolt", [area], "area").edge))
 	assert_true(bool(_probe("ice_strike", [area], "area").edge))
 	assert_true(bool(_probe("ice_demon", [area], "area").edge))
+
+
+func test_the_form_probe_catches_a_modifier_a_charge_never_reads() -> void:
+	# A Charge reads form_power, form_time, cooldown and (through its subs) damage and area: not pierce, not summon_count.
+	var base := _probe_form("fire_charge", [], 16.0)
+	for stat in ["pierce", "summon_count"]:
+		assert_eq(_probe_form("fire_charge", [{"stat": stat, "op": "add", "value": 2.0}], 16.0), base, stat)
+	# And each stat the shipped bonuses use does move its own measure.
+	assert_true(int(_probe_form("fire_charge", [{"stat": "form_time", "op": "mul", "value": 1.25}], 16.0).length) > int(base.length))
+	assert_true(float(_probe_form("fire_charge", [{"stat": "form_power", "op": "add", "value": 0.1}], 16.0).strikes) > float(base.strikes))
