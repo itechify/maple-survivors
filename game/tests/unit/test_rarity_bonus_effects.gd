@@ -344,7 +344,7 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 	var stat := String(effect.stat)
 	var label := "%s %s %s (%s)" % [key, tier, id, stat]
 	assert_true(stat in CORE_STATS, "%s: a stat this audit knows" % label)
-	if String(DataRepo.load_all().skills.skills[key].kind) == "form":
+	if String(_resolved()[key].get("kind", "")) == "form":
 		_assert_form_effect_changes_the_cast(key, label, stat, effect)
 		return
 	var base := _probe(key, [], stat)
