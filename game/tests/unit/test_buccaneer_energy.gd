@@ -349,3 +349,203 @@ func test_meter_keep_retains_energy_after_a_cast_and_the_card_text_says_energy()
 	assert_eq(cast.meter_spent, 8)
 	assert_eq(w.meter.value, 2, "two energy kept")
 	assert_near(float(cast.damage_max) / float(base.damage_max), 1.3 * (1.0 + 8 * 0.12), 0.001, "only the spent energy counts for the finisher bonus")
+
+
+# --- the full-bar cue --------------------------------------------------------------------------------------------
+
+const CUE := {"effect": "Skill.wz/511.img/skill/5110001/affected", "sound": "Sound.wz/Skill.img/5110001/Use"}
+
+
+func _changed(value: int, max_value := 10) -> Dictionary:
+	return {"type": "meter_changed", "id": "energy", "value": value, "max": max_value}
+
+
+func test_the_cue_plays_once_when_the_bar_fills_and_not_again_until_it_has_dropped_and_refilled() -> void:
+	var played: Array = []
+	var cue := MeterCue.new(CUE, func(effect: String, sound: String) -> void: played.append([effect, sound]))
+	for v in range(1, 10):
+		cue.on_event(_changed(v))
+	assert_eq(played.size(), 0, "nothing below full")
+	cue.on_event(_changed(10))
+	assert_eq(played, [[CUE.effect, CUE.sound]], "the affected art and the Use sound")
+	cue.on_event(_changed(10))
+	assert_eq(played.size(), 1, "still full: not again")
+	cue.on_event(_changed(2))
+	cue.on_event(_changed(3))
+	assert_eq(played.size(), 1, "dropped but not refilled")
+	for v in range(4, 11):
+		cue.on_event(_changed(v))
+	assert_eq(played.size(), 2, "refilled: once more")
+
+
+func test_a_finisher_that_keeps_energy_rearms_the_cue() -> void:
+	var played: Array = []
+	var cue := MeterCue.new(CUE, func(effect: String, sound: String) -> void: played.append(effect))
+	cue.on_event(_changed(10))
+	cue.on_event(_changed(2)) # Drain spent eight and kept two
+	cue.on_event(_changed(10))
+	assert_eq(played.size(), 2)
+
+
+func test_the_cue_ignores_other_events_other_meters_and_a_job_without_a_cue() -> void:
+	var played: Array = []
+	var sink := func(effect: String, sound: String) -> void: played.append([effect, sound])
+	var cue := MeterCue.new(CUE, sink)
+	cue.on_event({"type": "mob_hit", "value": 10, "max": 10})
+	assert_eq(played.size(), 0, "not a meter_changed")
+	var none := MeterCue.new({}, sink)
+	none.on_event(_changed(10))
+	assert_eq(played.size(), 0, "Hero's meter has no cue")
+	var sound_only := MeterCue.new({"sound": "s"}, sink)
+	sound_only.on_event(_changed(10))
+	assert_eq(played, [["", "s"]], "either half may be omitted")
+
+
+func test_a_real_round_fills_the_bar_with_landed_casts_and_the_cue_plays_exactly_once() -> void:
+	var w := _meter_world()
+	w.learn_skill("flash_fist")
+	var played: Array = []
+	var cue := MeterCue.new(w.jobs.lineage_value(512, "meter", {}).get("cue", {}),
+		func(effect: String, sound: String) -> void: played.append([effect, sound]))
+	var m := _mob(w, 40, 100000000)
+	var x0: float = w.swarm.x[m]
+	w.god = true
+	for tick in 60 * 60:
+		w.swarm.x[m] = x0 # the hit's knock-back must not walk the mob out of the box between casts
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			cue.on_event(e)
+		if w.meter.value >= 10:
+			break
+	assert_eq(w.meter.value, 10)
+	assert_eq(played, [["Skill.wz/511.img/skill/5110001/affected", "Sound.wz/Skill.img/5110001/Use"]])
+
+
+# --- real cache --------------------------------------------------------------------------------------------------
+
+func test_real_cache_drain_numbers_at_all_eight_ranks_and_its_art_nodes() -> void:
+	if not require_cache():
+		return
+	var library := AssetLibrary.get_default()
+	var img := library.img("Skill.wz/511.img")
+	assert_true(img != null, "book 511 imported (cache-413 or any cache built after the Buccaneer fragment)")
+	if img == null:
+		return
+	var root: Dictionary = img.root
+	var b := SkillBook.from_data(DataRepo.load_all().skills, {"511": root})
+	var lo := Loadout.new(b)
+	lo.add_skill("energy_drain")
+	assert_eq(b.rank_table("energy_drain").map(func(v: Variant) -> int: return int(v)), LEVELS)
+	for rank in range(1, 9):
+		var row: Dictionary = root.skill["5111004"].level[str(LEVELS[rank - 1])]
+		var st := lo.stats("energy_drain", rank)
+		assert_near(st.damage_pct, DAMAGE[rank - 1] / 100.0, 0.0001, "rank %d damage" % rank)
+		assert_eq(int(row.x), HEAL[rank - 1], "rank %d heal percent in the WZ node" % rank)
+		assert_near(b.canonical("energy_drain", LEVELS[rank - 1], "x"), float(HEAL[rank - 1]), 0.0001)
+		assert_eq(st.mob_count, 1)
+		assert_eq(st.box, Rect2(-200, -100, 200, 100), "the canonical box at every rank")
+	var node: Dictionary = root.skill["5111004"]
+	assert_eq((node.action as Dictionary)["0"], "edrain")
+	assert_eq((node.effect as Dictionary).keys().size() - (1 if (node.effect as Dictionary).has("z") else 0) >= 15, true, "effect: 15 frames")
+	assert_true((node.hit as Dictionary).has("0"), "hit/0")
+	assert_true(library.find_anim("Skill.wz/511.img/skill/5111004/effect") != null)
+	assert_true(library.find_anim("Skill.wz/511.img/skill/5111004/hit/0") != null)
+	# The cue's art: Energy Charge `affected` is a 180 ms blank and ten 90 ms frames (1.08 s), and its Use sound loads.
+	var affected: SpriteAnim = library.find_anim("Skill.wz/511.img/skill/5110001/affected")
+	assert_true(affected != null)
+	assert_eq(affected.frame_count(), 11)
+	assert_near(affected.duration(), 0.18 + 10 * 0.09, 0.001)
+	assert_true(library.sound("Sound.wz/Skill.img/5110001/Use") != null, "Energy Charge Use")
+	assert_true(library.sound("Sound.wz/Skill.img/5111004/Use") != null, "Energy Drain Use")
+	assert_true(library.sound("Sound.wz/Skill.img/5111004/Hit") != null, "Energy Drain Hit")
+	assert_true(library.missing.is_empty(), str(library.missing))
+
+
+# --- rarity bonuses: every one changes the resolved cast ---------------------------------------------------------
+
+## Casts Drain in a world with a full bar every tick (so the cooldown is the only pacing) at a mob that is put back in the box
+## after every tick; returns the casts over `seconds`, the damage dealt, the bar left by the first cast and its resolved stats.
+func _probe(effects: Array, seconds: float) -> Dictionary:
+	var w := _world("energy_drain", 0, 400)
+	w.god = true
+	var mob := _mob(w, 100, 1000000000)
+	var x0: float = w.swarm.x[mob]
+	for e: Dictionary in effects:
+		w.loadout.add_skill_mod("energy_drain", String(e.stat), String(e.op), float(e.value))
+	var dealt := 0
+	var left := -1
+	for tick in int(seconds / DT):
+		if w.runner.casts == 0 or left >= 0:
+			w.meter.value = 10
+		w.swarm.x[mob] = x0
+		w.swarm.hp[mob] = w.swarm.max_hp[mob]
+		w.step(DT, MoveInput.new())
+		for ev: Dictionary in w.drain_events():
+			if ev.type == "mob_hit":
+				dealt += int(ev.damage)
+		if left < 0 and w.runner.casts >= 1:
+			left = w.meter.value
+	return {"casts": w.runner.casts, "dealt": dealt, "left": left, "stats": w.loadout.stats("energy_drain")}
+
+
+func test_each_rarity_bonus_changes_the_resolved_cast() -> void:
+	var bonuses: Dictionary = _world().book.def("energy_drain").rarity_bonuses
+	assert_eq(bonuses.keys(), TIERS)
+	var base_damage := _probe([], 12.0)
+	var base_casts := _probe([], 66.0)
+	var checked := 0
+	for tier: String in TIERS:
+		for bonus: Dictionary in bonuses[tier]:
+			for effect: Dictionary in bonus.effects:
+				var label := "%s %s (%s)" % [tier, bonus.id, effect.stat]
+				match String(effect.stat):
+					"damage":
+						var with := _probe([effect], 12.0)
+						assert_true(int(with.dealt) > int(base_damage.dealt), "%s: dealt %d -> %d" % [label, base_damage.dealt, with.dealt])
+						assert_true(float(with.stats.damage_max) > float(base_damage.stats.damage_max), label)
+					"cooldown":
+						var with := _probe([effect], 66.0)
+						assert_true(float(with.stats.cooldown) < float(base_casts.stats.cooldown), "%s: resolved cooldown" % label)
+						assert_true(int(with.casts) > int(base_casts.casts), "%s: casts %d -> %d" % [label, base_casts.casts, with.casts])
+					"meter_keep":
+						var with := _probe([effect], 3.0)
+						assert_eq(int(base_damage.left), 0, "control: a plain Drain empties the bar")
+						assert_eq(int(with.left), int(effect.value), "%s: energy left after the cast" % label)
+					_:
+						fail("%s: a stat this audit does not know" % label)
+				checked += 1
+	assert_eq(checked, 5, "1 + 1 + 1 + 2 effects")
+
+
+func test_the_legendary_card_keeps_energy_and_hits_harder_and_the_unique_only_keeps() -> void:
+	var unique := _probe(_effects("unique"), 3.0)
+	var legendary := _probe(_effects("legendary"), 3.0)
+	var plain := _probe([], 3.0)
+	assert_eq([int(plain.left), int(unique.left), int(legendary.left)], [0, 2, 2])
+	assert_true(float(legendary.stats.damage_max) > float(unique.stats.damage_max))
+	assert_eq(float(unique.stats.damage_max), float(plain.stats.damage_max), "Unique has no damage effect")
+
+
+func _effects(tier: String) -> Array:
+	var out := []
+	for bonus: Dictionary in _world().book.def("energy_drain").rarity_bonuses[tier]:
+		out.append_array(bonus.effects)
+	return out
+
+
+func test_the_cards_apply_the_bonuses_and_say_energy() -> void:
+	for tier: String in TIERS:
+		var w := _world()
+		var card := w.upgrades.choice_card("energy_drain_rank", w, tier)
+		var before := w.loadout.stats("energy_drain")
+		w.upgrades.apply(card.id, w, tier)
+		var after := w.loadout.stats("energy_drain")
+		match tier:
+			"rare":
+				assert_true(float(after.damage_max) > float(before.damage_max))
+			"epic":
+				assert_true(float(after.cooldown) < float(before.cooldown))
+			_:
+				assert_eq(int(after.meter_keep), 2)
+				assert_true("Keeps 2 energy" in String(card.desc), String(card.desc))
+				assert_false("orbs" in String(card.desc), String(card.desc))
