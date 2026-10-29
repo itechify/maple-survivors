@@ -5,7 +5,7 @@
 			"starting_skill": "flash_fist",
 			"_starting_skill": "tier C: spec #412 (BU-14): the Flash Fist, slot 1; defined by skills/pirate.json until B4 ports it to skills/buccaneer.json.",
 			"mobility_skill": "dash",
-			"_mobility_skill": "tier C: spec #412 (BU-1): Dash (WZ 5001005) is Buccaneer's manual mobility skill on the skill key, outside both slot tracks; defined by skills/pirate.json until B5 makes it a mobility slot.",
+			"_mobility_skill": "tier C: spec #412 (BU-1): Dash (WZ 5001005) is Buccaneer's manual mobility skill on the skill key, outside both slot tracks; defined by skills/pirate.json on slot mobility (B5 #417; Corsair reuses it).",
 			"skill_pool": [
 				"flash_fist",
 				"somersault_kick",

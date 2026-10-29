@@ -2,7 +2,7 @@ extends TestCase
 ## Buccaneer's data seam (spec #412, ticket B2 #414): the `buccaneer` line is discovered from its files, its job entry
 ## `survivor/jobs/buccaneer.json` (512, not playable yet) names the pool and the Energy Charge meter, its AP and growth rows
 ## copy Hero's (tier C, #346), and its drops are knuckles only (Pirate-bit gear). Undefined pool keys stay inert; the five
-## ported keys and Dash are defined in pirate.json until B4/B5. Seeded RNG; item info is synthetic unless a test says
+## ported keys are defined in pirate.json until B4 moves them; Dash stays there for Corsair (B5 #417 made it mobility). Seeded RNG; item info is synthetic unless a test says
 ## "real cache".
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -156,7 +156,7 @@ func test_the_ported_keys_are_defined_by_pirate_until_b4_and_nothing_else_is_def
 			assert_eq(_defining_lines(key), ["pirate"], "%s stays in pirate.json until B4 moves it" % key)
 		else:
 			assert_false(defined.has(key), "%s is undefined: an inert key" % key)
-	assert_eq(_defining_lines("dash"), ["pirate"], "Dash stays in pirate.json until B5")
+	assert_eq(_defining_lines("dash"), ["pirate"], "Dash stays in pirate.json (Corsair reuses it, BU-13)")
 
 
 func test_an_undefined_pool_key_is_never_offered_as_a_card() -> void:
