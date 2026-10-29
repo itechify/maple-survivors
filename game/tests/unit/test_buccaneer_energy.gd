@@ -84,6 +84,20 @@ func test_drain_text_says_energy_and_hero_finishers_still_say_orbs() -> void:
 	assert_true("Needs 10 energy" in line, line)
 	assert_true("Keeps 2 energy" in line, line)
 	assert_false("orbs" in line, line)
+	# Hero's real Panic carries no `unit`: its text is still "orbs".
+	var imgs := RF.skill_imgs()
+	var levels := {}
+	for lv in range(1, 31):
+		levels[str(lv)] = {"damage": 150 + lv, "prop": 100, "time": 3}
+	imgs["111"] = {"skill": {"1111003": {"level": levels}}}
+	var hero_book := SkillBook.from_data(DataRepo.load_all().skills, imgs)
+	assert_false(hero_book.def("panic").meter.has("unit"))
+	var hero_lo := Loadout.new(hero_book)
+	hero_lo.add_skill("panic")
+	hero_lo.add_skill_mod("panic", "meter_keep", "add", 2)
+	var hero_line := SkillText.new(hero_book).level_line("panic", 1, hero_lo.stats("panic"))
+	assert_true("Needs 5 orbs" in hero_line and "Keeps 2 orbs" in hero_line, hero_line)
+	assert_false("energy" in hero_line, hero_line)
 
 # --- Energy Drain: the catalog entry -----------------------------------------------------------------------------
 
