@@ -1,6 +1,6 @@
 extends TestCase
 ## The Bishop's data seam (spec #372, ticket BS2 #374): the `bishop` data line loads and is discovered after the registered
-## class lines, the job entry `survivor/jobs/bishop.json` (232, not playable), its AP row and hub kit, the pool keys that are
+## class lines, the job entry `survivor/jobs/bishop.json` (232, playable since BS10), its AP row and hub kit, the pool keys that are
 ## defined belonging to the 200/230/231/232 books, the weapon families of its equipment drops (wands and staves only;
 ## armour by the Magician class bit), and the Holy Symbol decision (the common EXP passive is offered to a 232 like any job).
 ## Seeded RNG; item info is synthetic unless a test says "real cache".
@@ -85,7 +85,7 @@ func test_the_line_loads_without_errors_and_adds_a_job_and_only_pool_skills_or_t
 
 # --- the job entry ----------------------------------------------------------------------------------------------------
 
-func test_job_232_has_the_spec_fields_and_is_not_playable() -> void:
+func test_job_232_has_the_spec_fields_and_is_playable() -> void:
 	var jobs := _jobs(_data())
 	var rec := jobs.job(232)
 	assert_eq(String(rec.name), "Bishop")
@@ -97,9 +97,9 @@ func test_job_232_has_the_spec_fields_and_is_not_playable() -> void:
 	assert_false("teleport_cleric" in jobs.skill_pool(232), "Teleport is the mobility skill, not a pool entry")
 	assert_eq(jobs.weapon_families(232), ["wand", "staff"])
 	assert_eq(jobs.creation_weapon(232), 1372005)
-	assert_false(bool(rec.playable), "BS10 flips Bishop to playable; until then it is unreachable")
-	assert_true(jobs.job_error(232).contains("not playable"), jobs.job_error(232))
-	assert_false(232 in jobs.playable_jobs())
+	assert_true(bool(rec.playable), "BS10 ships Bishop")
+	assert_eq(jobs.job_error(232), "")
+	assert_true(232 in jobs.playable_jobs())
 
 
 func test_212_keeps_its_entry_unchanged() -> void:

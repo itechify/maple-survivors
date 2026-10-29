@@ -5,27 +5,26 @@ extends TestCase
 ## platform independent, #142), and a golden of its own so the other oracles stay pinned to their jobs. Synthetic assets only: no
 ## cache needed.
 ##
-## The pool is FROZEN to the seven skills that existed on the integration branch when this was captured (Holy Arrow, Magic Claw,
-## Shining Ray, Angel Ray, Heal, Genesis, Big Bang). Summon Dragon and Bahamut (BS7 #379) merged while this was being written and
-## Resurrection (BS8 #380) later: neither is in POOL, so they do not move it (the golden was unchanged by the BS7 merge). The QA ticket (BS10) widens POOL to the ten, adds the synthetic books of the three new skills
-## and re-captures GOLDEN once, documenting the cause. F/P, Hero and I/L oracle constants stay untouched.
+## BS10 widens BS9's seven-skill pool to all ten: dragons and Resurrection change card choices and event bytes.
+## The golden is recaptured once for this workload expansion; F/P, Hero and I/L oracles stay untouched.
 
 const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")
 const G := preload("res://tests/unit/test_bishop_genesis.gd")
 const HF := preload("res://tests/fixtures/heal_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const DR := preload("res://tests/unit/test_bishop_dragons.gd")
+const REV := preload("res://tests/fixtures/resurrection_fixtures.gd")
 const DT := 1.0 / 60.0
 const TICKS := 72000
-## tier C: the frozen BS9 pool (the skills that exist at capture), in the pool's own order.
-const POOL := ["holy_arrow", "magic_claw", "shining_ray", "angel_ray", "heal", "genesis", "big_bang_bishop"]
-## Captured by BS9 on spec/372-bishop tip a420111 plus this ticket (no sim change), seed 1, 72000 ticks, Godot 4.7.2.
-const GOLDEN := "22ce31d79a882a2ae94c17a927e10089bb64544c34240a0945a76591e2b46b78"
+## tier C: the full BS10 pool, frozen in the shipped pool order.
+const POOL := ["holy_arrow", "magic_claw", "shining_ray", "angel_ray", "heal", "summon_dragon", "bahamut", "genesis", "big_bang_bishop", "resurrection"]
+## Recaptured by BS10 on integration e5f7b50 with the full ten-skill pool, seed 1, 72000 ticks, Godot 4.7.2.
+const GOLDEN := "f0766314b053946c76ed64147d50efa7fa50b553a2b0fc7ac03ada21171ba643"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick Bishop bot run, seed 1, synthetic assets only (see the 212 baseline).
 func _event_digest(ticks: int, counts := {}) -> String:
 	var data := DataRepo.load_all()
-	data.jobs_survivor.jobs["232"]["playable"] = true
 	data.jobs_survivor.jobs["232"]["skill_pool"] = POOL.duplicate()
 	# Tier C: the same pre-#241 opening freeze as the 212 oracle.
 	for opening: Array in [[0, 0.15, 3], [1, 0.4, 8], [2, 0.6, 12]]:
@@ -40,6 +39,10 @@ func _event_digest(ticks: int, counts := {}) -> String:
 	setup.skill_imgs["231"] = {"skill": {"2311004": books.ray}}
 	setup.skill_imgs["232"] = {"skill": {"2321007": books.angel}}
 	G.add_books(setup)
+	var dragons := DR.books()
+	setup.skill_imgs["231"].skill["2311006"] = dragons.dragon
+	setup.skill_imgs["232"].skill["2321003"] = dragons.bahamut
+	setup.skill_imgs["232"].skill["2321006"] = REV.img().skill["2321006"]
 	var w := RunWorld.new(setup)
 	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)
 	legacy_curve.erase("maps")
@@ -79,5 +82,6 @@ func test_the_frozen_pool_is_what_the_run_offers() -> void:
 	var tree := JobTree.from_data(data.jobs, data.jobs_survivor)
 	assert_eq(tree.skill_pool(232), POOL)
 	var shipped: Array = DataRepo.load_all().jobs_survivor.jobs["232"].skill_pool
+	assert_eq(POOL, shipped, "oracle covers all ten shipped skills")
 	for key: String in POOL:
 		assert_true(key in shipped, "%s is still a shipped pool key" % key)

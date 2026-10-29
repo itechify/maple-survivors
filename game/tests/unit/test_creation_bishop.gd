@@ -1,10 +1,9 @@
 extends TestCase
 ## The creation page with Bishop (232) among the playable jobs (spec #372, BS9 #381; the Bishop copy of the I/L page test). Bishop
-## is `playable: false` until BS10, so every test mirrors it playable with `DataRepo.patch` (the page lists `playable_jobs()`).
+## is shipped playable since BS10 (the page lists `playable_jobs()`).
 ## Job-page tests need the cache because Look OK requires the hair/face columns; the data-level tests run without it.
 
 const CREATE := preload("res://scenes/ui/character_create.gd")
-const MIRROR := {"jobs_survivor": {"jobs": {"232": {"playable": true}}}}
 
 var save_path := TestCase.test_dir("creation_bishop/save.json")
 var _nodes: Array[Node] = []
@@ -13,7 +12,7 @@ var _nodes: Array[Node] = []
 func before_each() -> void:
 	TestCase.remove_tree(save_path.get_base_dir())
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(save_path.get_base_dir()))
-	DataRepo.patch = MIRROR.duplicate(true)
+	DataRepo.patch = {}
 
 
 func after_each() -> void:
@@ -66,18 +65,10 @@ func _row(creation: Control, id: int) -> Button:
 	return creation.find_child("Job_%d" % id, true, false) as Button
 
 
-func test_shipped_bishop_is_not_playable_and_the_mirror_adds_it_last_in_canonical_order() -> void:
-	DataRepo.patch = {}
-	var shipped := _tree()
-	assert_false(shipped.job(232).playable, "Bishop stays unplayable until BS10")
-	assert_false(232 in shipped.playable_jobs())
-	DataRepo.patch = MIRROR.duplicate(true)
+func test_shipped_bishop_is_playable_last_in_canonical_order() -> void:
 	var mirrored := _tree()
 	assert_true(mirrored.job(232).playable)
-	var playable := mirrored.playable_jobs()
-	assert_eq(playable.back(), 232, "Bishop follows the other jobs in canonical order")
-	for job: int in [112, 212, 222]:
-		assert_true(job in playable, "%d stays playable beside Bishop" % job)
+	assert_eq(mirrored.playable_jobs(), [112, 212, 222, 232] as Array[int])
 	assert_eq(mirrored.name_of(232), "Bishop", "the name is the canonical job list's")
 	assert_eq(mirrored.default_job(), 212, "F/P stays the default")
 	assert_eq(mirrored.creation_weapon(232), 1372005, "the Wooden Wand")
@@ -187,7 +178,7 @@ func test_bishop_is_refused_when_the_mirror_goes_away_after_selection() -> void:
 	var flow := _flow()
 	var creation := _job_page(flow, "Refused01")
 	creation.select_job(232)
-	DataRepo.patch = {}
+	DataRepo.patch = {"jobs_survivor": {"jobs": {"232": {"playable": false}}}}
 	creation.create_button.pressed.emit()
 	assert_eq(creation.phase, "job", "still on the page")
 	assert_ne(String(creation.message.text), "", "the refusal is shown")

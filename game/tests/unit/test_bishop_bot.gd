@@ -2,7 +2,7 @@ extends TestCase
 ## The autoplay bot's Bishop scoring and reach (spec #372, BS9 #381; the Bishop copy of test_il_bot). The data-level checks run on
 ## the shipped files; the card and reach checks loop the Bishop pool and skip a key whose skill is not defined yet (Resurrection,
 ## BS8 #380, was in flight when this ticket landed; Summon Dragon and Bahamut, BS7 #379, merged just before), so they cover it
-## automatically once it merges. Worlds are the BS5/BS4/BS6 tests' synthetic books on the quiet stage, Bishop made playable in the test's own data.
+## automatically once it merges. Worlds are the BS5/BS4/BS6 tests' synthetic books on the quiet stage, using shipped Bishop playability.
 ## No `card_scores` block is added by this ticket: the ten pool keys already score new 100 / rank 74 (BS2).
 
 const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")
@@ -39,11 +39,9 @@ func test_the_bishop_keys_are_exactly_the_ten_pool_skills_and_no_card_scores_blo
 	assert_eq(keys.size(), 2 * POOL.size(), "the line file spells out only the pool's new/rank pairs (BS2); BS9 adds none")
 
 
-## A Bishop round on the quiet stage: the bolts, Heal, Genesis and Big Bang as synthetic books (Bishop playable in this copy of
-## the data), the player at x = 400 facing right, god mode.
+## A Bishop round on the quiet stage: synthetic books with shipped playability, player at x = 400 facing right, god mode.
 func _world(seed_value := 381) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["232"]["playable"] = true
 	var setup := G.add_books(BF.setup(data, seed_value))
 	setup.skill_imgs["230"].skill["2301002"] = {"level": HF.levels()}
 	var w := RunWorld.new(setup)

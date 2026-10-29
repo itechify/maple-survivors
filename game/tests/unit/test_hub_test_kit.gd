@@ -246,14 +246,14 @@ func test_the_bishop_kit_is_the_arch_mage_kit_and_every_scroll_fits_a_wand_or_st
 func test_the_bishop_hub_errors_name_the_unplayable_job_the_mirror_and_the_mismatch() -> void:
 	var data := DataRepo.load_all()
 	var shipped := JobTree.from_data(data.jobs, data.jobs_survivor)
-	assert_true(HubTestKit.job_error({"job": 232}, _bishop(), shipped).contains("not playable"), "shipped Bishop is unplayable until BS10")
-	DataRepo.patch = {"jobs_survivor": {"jobs": {"232": {"playable": true}}}}
+	assert_eq(HubTestKit.job_error({"job": 232}, _bishop(), shipped), "")
+	DataRepo.patch = {"jobs_survivor": {"jobs": {"232": {"playable": false}}}}
 	var mirrored_data := DataRepo.load_all()
 	var mirrored := JobTree.from_data(mirrored_data.jobs, mirrored_data.jobs_survivor)
 	DataRepo.patch = {}
-	assert_eq(HubTestKit.job_error({"job": 232}, _bishop(), mirrored), "")
-	assert_true(HubTestKit.job_error({"job": 232}, _fixture(), mirrored).contains("does not match"), "a Bishop request with an F/P character")
-	assert_true(HubTestKit.job_error({"job": 212}, _bishop(), mirrored).contains("does not match"), "and the other way round")
+	assert_true(HubTestKit.job_error({"job": 232}, _bishop(), mirrored).contains("not playable"))
+	assert_true(HubTestKit.job_error({"job": 232}, _fixture(), shipped).contains("does not match"), "a Bishop request with an F/P character")
+	assert_true(HubTestKit.job_error({"job": 212}, _bishop(), shipped).contains("does not match"), "and the other way round")
 
 
 func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
