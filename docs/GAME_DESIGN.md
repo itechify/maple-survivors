@@ -6062,6 +6062,31 @@ Dark Knight's start skill, **Spear Crusher** (1311001; the pole arm twin 1311002
   in `mob_kind.gd` (sim) still treats a text delay as 100 ms; it was left alone because changing it shifts the pig mobs'
   attack timing, which is a balance-visible change.
 
+#### Rush and Monster Magnet (1321003, 1321001; #356, spec #348 D8)
+
+Dark Knight's mobility skill **Rush** (`rush_dark_knight`, 1321003) and the **Monster Magnet** (`monster_magnet_dark_knight`,
+1321001) are data copies of Hero's `rush_hero` and `monster_magnet` in `skills/dark_knight.json`; no engine code changed.
+
+- **Rush.** The same definition field for field as `rush_hero` (rank rule, 2.0 s cooldown, `displacement` on `lt.x`, 80 px
+  dash knock-back, `rush` block, manual cast, `skill_key rush`), with the book's own ids, art (effect, `effect0` dust) and
+  the Use sound through its UOL. The one data difference is the body action **`rush`** (the node says `rush`; Hero's says
+  `rush2`); its 0.6 s duration equals `rush2`'s (100 + 500 ms). The weapon stays in hand: `rush` resolves to the spear's and
+  the pole arm's `stabT1` frames (D1). Learned at start on the mobility slot, never in the pool, never a card, no rarity list.
+  It ranks with the round level through `balance.mobility_rank_levels`: rank 1 = WZ level 4 (78 %, 170 px) at Lv1, rank 8 =
+  level 30 (130 %, 250 px, box (-250, -50)) from Lv16, `mobCount` 15 throughout.
+- **Monster Magnet.** Hero's Magnet field for field (`range_around` with `min_targets 3`, the shared `pull` block with
+  `chance_field prop`, `range_field range`, `min_gap 60`, `damage none`, `alert2`, 0.6 s hold), with its own ids, the 18-frame
+  effect and the Use sound through its UOL. **Cooldown 4 s**, Hero's tuned value, copied. The four rarity lists are Hero's:
+  Rare Reach (`range` x1.2), Epic Bigger Grab (+2 targets), Unique Booster (cooldown x0.75), Legendary Booster plus +2 targets
+  (sharing the Unique's id). Normal Mastery (no damage) is the cooldown x0.95.
+- **Real numbers** (tier A, `cache-349`): Rush levels 4 and 30 and the Magnet's ranks 1..8 (range 200 -> 400 px, prop 48 -> 95 %,
+  mobCount 6) equal Hero's in every level row (D1); Magnet's level 1 prop is 42.
+- **Tests.** `test_rush.gd` is job-agnostic (`_job`, `_book`, `_key`, `_skill_id`, `_action`); `test_rush_dark_knight.gd` extends it so
+  the whole Hero Rush set re-runs for Dark Knight with the body action `rush`, plus the data-copy test, the Lv1..40 rank-alike test
+  and the real-cache level 30 check. `test_monster_magnet_dark_knight.gd` pins the Magnet (definition, 3-mob admission, range /
+  chance / cap by rank, no damage, cooldown, pull identical to Hero's key over seeds 1, 2, 313, each rarity bonus changing a
+  resolved stat, the mastery cooldown, real-cache ranks, art and sound).
+
 ### 7.71 HP-risk skills (#351, spec #348, roster M17)
 
 Four small data-driven behaviours in one stateless file, `game/scripts/sim/hp_risk.gd` (`HpRisk`): a percentage HP cost, an
@@ -7444,6 +7469,17 @@ Warrior bot equipment weights now explicitly name ancestor 100 with the same val
 | Extra hit also shows its thrust | `min_attack_count` compares the resolved `attack_count` | tier C |
 | Rarity bonuses | Mastery damage x1.2, Booster cooldown x0.88, Final Attack +1 hit, Legendary + damage x1.2 | tier C: spec #348 |
 | Numeric-string frame delay | read as milliseconds | tier A: the value is the WZ's; reading it is ours |
+
+### Dark Knight Rush and Monster Magnet constants (#356)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Rush damage, `mobCount`, box, rank table, art, Use sound | Skill.wz 1321003 (1121006's table, equal in every level row) | tier A: D1 |
+| Rush body action | `rush` (0.6 s, 100 + 500 ms) | tier A: the node's `action`; the stance draws the weapon (D1) |
+| Rush cooldown 2.0 s, knock-back 80 px, bot dash rule (60 px, every 3 s) | copied from `rush_hero` | tier C: Hero's H6 values, DK-14 |
+| Magnet range, chance, mobCount, rank table, art, Use sound | Skill.wz 1321001 | tier A: D1 |
+| Magnet cooldown | 4 s | tier C: Hero's tuned value (#346), copied (DK-14) |
+| Magnet rarity lists | Hero's: Reach x1.2, +2 targets, Booster x0.75, Legendary Booster + 2 | tier C: Hero's #303 bonuses, copied |
 
 ### HP-risk constants (#351)
 

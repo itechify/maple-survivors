@@ -129,6 +129,151 @@
 					}
 				]
 			}
+		},
+		"rush_dark_knight": {
+			"_provenance": "Tier A: Skill.wz 1321003 (Dark Knight's Rush, D1 #349): the same level table as Hero's 1121006 at every level (rank 1 = WZ level 4: damage 78 %, mobCount 15, box lt (-170,-50) rb (0,0); rank 8 = level 30: 130 %, (-250,-50)); the body action `rush` (the node's own `action`; Hero's node says rush2); effect/1..6 and effect0 dust, the Use sound through the UOL. Tier C: the 2.0 s cooldown, the always-on 80 px knock-back in the dash direction, hold-to-repeat, no start while climbing, no orb, the bot dashes away from a mob within 60 px at most every 3 s: copied from Hero's Rush (#356, spec #348 DK-14).",
+			"skill_id": 1321003,
+			"book": "132",
+			"job": 132,
+			"kind": "instant",
+			"slot": "mobility",
+			"name": "Rush",
+			"desc": "Press the skill key with an arrow key to charge that way, damaging and shoving every monster in your path. Hold to repeat.",
+			"text": {
+				"desc": "Press the Rush key with an arrow key to charge that way, damaging and knocking back the monsters in your path. Hold the key to keep charging.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters}, charges forward."
+			},
+			"icon": "Skill.wz/132.img/skill/1321003/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "manual"
+			},
+			"skill_key": "rush",
+			"cooldown": 2.0,
+			"displacement": {
+				"direction": "input",
+				"when": "during",
+				"field": "lt.x"
+			},
+			"knockback": {
+				"distance": 80.0,
+				"direction": "dash"
+			},
+			"rush": {
+				"bot_threat_distance": 60.0
+			},
+			"action": "rush",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/132.img/skill/1321003/effect",
+			"rotate": false,
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/132.img/skill/1321003/effect0",
+					"x": 0
+				}
+			],
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1321003/Use",
+				"hit": ""
+			}
+		},
+		"monster_magnet_dark_knight": {
+			"_rarity": "tier C: Hero's Magnet bonuses copied (#356, spec #348 DK-14): Rare reach x1.2 (the `range` modifier), Epic Bigger Grab +2 targets, Unique Booster cooldown x0.75, Legendary Booster plus +2 targets (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 7.70.",
+			"_provenance": "Tier A: Skill.wz 1321001 (D1 #349): range 200 to 400 px, prop (pull chance 48 to 95 %), mobCount 6 (equal to Hero's 1121001 in every level row), the 18-frame effect (the same horseshoe art as Hero's Magnet) and the Use sound through the UOL. Tier C: no damage (the node has none); pulling is the shared `pull` block (7.35); the alert2 action (the node names none), the 4 s cooldown (Hero's tuned value, #346), the three-mob admission gate (`cast.min_targets`) and the 0.6 s action hold. Docs: GAME_DESIGN 7.70.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "reach",
+						"text": "Reach",
+						"effects": [
+							{
+								"stat": "range",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "grab",
+						"text": "Bigger Grab: targets",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "booster",
+						"text": "Booster: cooldown",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.75
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "booster",
+						"text": "Booster: cooldown and targets",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.75
+							},
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				]
+			},
+			"skill_id": 1321001,
+			"book": "132",
+			"job": 132,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Monster Magnet",
+			"desc": "Drags the monsters around you toward you.",
+			"text": {
+				"desc": "Drag distant monsters toward you, into reach of your other skills. Needs 3 monsters in range.",
+				"h": "{prop}% chance for each monster pulled."
+			},
+			"icon": "Skill.wz/132.img/skill/1321001/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "range_around",
+				"min_targets": 3
+			},
+			"pull": {
+				"chance_field": "prop",
+				"range_field": "range",
+				"min_gap": 60
+			},
+			"cooldown": 4,
+			"action": "alert2",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/132.img/skill/1321001/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1321001/Use",
+				"hit": ""
+			}
 		}
 	}
 }

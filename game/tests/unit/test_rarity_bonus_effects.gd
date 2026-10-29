@@ -162,7 +162,7 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 func test_every_pool_skill_with_bonuses_was_found() -> void:
 	var keys := _skills_with_bonuses()
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
-			"elquines", "spear_crusher"]:
+			"elquines", "spear_crusher", "monster_magnet_dark_knight"]:
 		assert_true(key in keys, key)
 	assert_true(keys.size() >= 20, "seven Hero, twelve F/P and the Dark Knight skills: %d" % keys.size())
 
