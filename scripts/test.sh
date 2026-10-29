@@ -30,11 +30,14 @@ trap 'rm -f "$LOG" "$IMPORT_LOG"' EXIT
 IMPORT_STATUS=0
 "${GODOT_CMD[@]}" --headless --path "$PROJECT" --import >"$IMPORT_LOG" 2>&1 || IMPORT_STATUS=$?
 # Never suppress the runner's diagnostics before checking the completion contract.
-RUN_STATUS=0
+# Stream filtered output live (a full run takes ~30 min) while the raw log feeds the checks below.
+set +e
 timeout --kill-after=10 "${TEST_TIMEOUT_S:-1800}" "${GODOT_CMD[@]}" --headless --path "$PROJECT" \
-  res://tests/test_runner.tscn -- "$@" >"$LOG" 2>&1 || RUN_STATUS=$?
+  res://tests/test_runner.tscn -- "$@" 2>&1 | tee "$LOG" \
+  | sed -uE '/^(Godot Engine v|WARNING: .*leaked|   at: |Leaked instance|ERROR: .*ObjectDB instances leaked|ERROR: .* resources still in use|TESTS_(PASS|FAIL)ED$)/d'
+RUN_STATUS=${PIPESTATUS[0]}
+set -e
 # The shell owns the public verdict. Only publish PASSED after all guards agree.
-sed -E '/^(Godot Engine v|WARNING: .*leaked|   at: |Leaked instance|ERROR: .*ObjectDB instances leaked|ERROR: .* resources still in use|TESTS_PASSED$|TESTS_FAILED$)/d' "$LOG"
 if [[ "$IMPORT_STATUS" != 0 ]] || grep -qE '(^FAIL([ :]|$)|SCRIPT ERROR|^ERROR:)' "$IMPORT_LOG"; then
   cat "$IMPORT_LOG"
   echo "FAIL test harness: project import failed"
