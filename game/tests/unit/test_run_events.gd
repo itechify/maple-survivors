@@ -5,12 +5,13 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
+const RV := preload("res://tests/fixtures/revive_fixtures.gd")
 const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
 const SF := preload("res://tests/fixtures/shade_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage",
-	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id"]
+	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id", "hp", "pushed"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
 const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message"]
@@ -50,7 +51,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			fail("%s.%s is %s, not bool" % [type, k, type_string(typeof(v))])
 		elif k in STRING_FIELDS and typeof(v) != TYPE_STRING:
 			fail("%s.%s is %s, not String" % [type, k, type_string(typeof(v))])
-		elif k in ["time", "cast_time", "hit_after", "interval", "impact_time", "duration", "range", "speed"] and typeof(v) != TYPE_FLOAT:
+		elif k in ["time", "cast_time", "hit_after", "interval", "impact_time", "duration", "range", "speed", "guard", "recharge"] and typeof(v) != TYPE_FLOAT:
 
 
 			fail("%s.time is not float" % type)
@@ -139,6 +140,13 @@ func test_every_event_matches_the_schema() -> void:
 	var d := RF.quiet_world(400.0)
 	d.take_hit(1000.0, false, "", d.player.pos + Vector2(20, 0)) # Guaranteed lethal schema probe.
 	for e: Dictionary in d.drain_events():
+		_check(e, seen)
+	# A second life for player_revived: a test-only reaction skill (no Bishop data) catches a lethal hit beside a monster.
+	var revived := RV.world(375)
+	RF.put_mob(revived, 100100, 900.0)
+	revived.mob_grid.rebuild(revived.swarm.x, revived.swarm.y, revived.swarm.active)
+	RV.hit(revived, {"boss": false, "source_kind": "touch"})
+	for e: Dictionary in revived.drain_events():
 		_check(e, seen)
 	# Both player-hit variants obey the same documented event schema.
 	var m := RF.quiet_world(400.0, 617)

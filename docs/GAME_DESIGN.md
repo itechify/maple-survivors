@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212), the default, and Arch Mage (Ice, Lightning, 222); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212), the default, Arch Mage (Ice, Lightning, 222), and Bishop (232); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -13,10 +13,9 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
 On the `redesign` branch, **ADR 0006** replaced v83 progression with survivor-genre progression. The F/P Arch Mage slice
 (spec #282, tickets #283-#294) built it end to end for one job; this section is the summary and the owner of any
 conflict: where a later section still describes a removed system, this section wins. The slice rewrote sections 1, 5,
-6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 describe mechanics of the other job lines (Warrior, Bowman, Thief, Pirate,
-Cleric): their data and tests stay on `redesign` and are unplayable until each line is ported, so read them as the
-specification for that port, not as the live game; advancement, weapon paths, weapon-gated skills and standalone
-behaviour cards mentioned in them are gone. Target design:
+6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 preserve behaviour references for the other lines; the remaining Warrior,
+Bowman, Thief and Pirate ports are still unplayable. The live Hero, I/L and Bishop ports are documented below.
+Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in historical sections are gone. Target design:
 
 | Area | Target | Replaces |
 |---|---|---|
@@ -118,6 +117,13 @@ oracles retain their constants. Rust and web-shell tests pass; pinned web templa
 export/artifact validation is unverified and left to CI. Redesign and three-job creation flows pass; all ten skill
 cast captures, ammo notices, Hurricane stream, Inferno burn, Arrow Rain strike and follower hover were inspected.
 No balance tuning. Section 4.2 records the smoke and its weak-survival finding.
+**Landed in the Bishop spec (#372, BS1–BS10 #373–#382):** Bishop (232) is the fourth playable job;
+F/P (212) remains the default. Holy Arrow starts each round, manual Cleric Teleport sits outside the slots, and the ten-skill
+pool includes Heal, the two dragons, Genesis, Bishop Big Bang and the automatic Resurrection reaction. BS1 verified
+assets; BS2 supplied the class data; BS3 added ordered hit hooks and second life; BS4–BS8 supplied the skills and rarity
+bonuses; BS9 supplied creation/tooling, the tier-2 fixture and independent oracle; BS10 enabled the job and widened that
+oracle to all ten skills. Sections 7.80–7.85 and the Bishop provenance rows own the mechanics. QA below records survival
+without tuning; the orchestrator decides merge readiness.
 
 ### Known design gaps (open after the slice)
 
@@ -913,6 +919,56 @@ Thunder Spear until I4 and I7-I10 land, so six actives fill with no Ifrit, Blizz
 
 No crash, warning or missing asset in either; both oracle goldens (`test_character_baseline`, `test_tick_cost_identity`) are unchanged. The tick-cost oracle explicitly pins Cold Beam and Thunder Bolt to their legacy cooldowns, ranks and bonuses; it tests the historical definitions, not today’s shipped I/L definitions. The I/L
 numbers are a first look at an incomplete pool, not a baseline (I12 owns the pass).
+
+**Bishop QA smoke (spec #372, BS10 #382, 2026-10-29).** Training seeds 1, 2, 2026, `JOBS=3`, read-only
+`cache-373`, shipped data: all four tier-1 stages, bot and random, for jobs 232/212/112/222; Sleepywood bot
+with starter equipment and each job's tier-1 kit fixture. No tuning or held-out seeds. A disposable copy of the
+measurement tool observes Heal `cast` and `player_restored` events to count casts and actual HP gained; it changes
+neither world state nor RNG. Raw records, exact reports and configuration are in `_scratch/382-smoke/<job>/`.
+
+Bishop cleared 6/24 tier-1 runs, 0/3 Sleepywood starter runs and 3/3 kit runs. All 24 tier-1 runs reached the
+first boss. Henesys bot filled all six active slots in 3/3 (134.7–180.6 s) and reached the first boss in 3/3.
+Across its 30 runs, seven triggered Resurrection once each; Heal cast 766 times and restored 157,121 HP.
+This is mixed survival, with a strong kit sample; it is neither a tuning pass nor balance acceptance. The orchestrator
+decides readiness. No Bishop balance data changed. Ellinia is recorded only, pending the owner's rework.
+
+All 120 records completed, all 40 batch commands exited 0, no TIMEOUT/crash/world warning/missing asset.
+Cells give clears/3, then death (D) and clear (C) time ranges in seconds.
+
+| Stage / policy | Bishop 232 | F/P 212 | Hero 112 | I/L 222 |
+|---|---|---|---|---|
+| henesys / bot | 2/3 C; D 306.4; C 913.1–921.1 | 0/3 C; D 305.0–651.7 | 0/3 C; D 327.7–688.2 | 0/3 C; D 309.5–505.0 |
+| henesys / random | 2/3 C; D 310.6; C 940.9–980.2 | 0/3 C; D 308.3–309.9 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 309.1–672.6 |
+| ellinia / bot | 0/3 C; D 629.6–655.5 | 0/3 C; D 629.1–644.2 | 0/3 C; D 221.0–646.5 | 0/3 C; D 624.1–654.6 |
+| ellinia / random | 0/3 C; D 398.7–844.2 | 0/3 C; D 328.4–660.2 | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 627.6–658.2 |
+| perion / bot | 1/3 C; D 305.5–334.9; C 911.4 | 0/3 C; D 305.7–456.3 | 0/3 C; D 288.9–493.0 | 0/3 C; D 308.3–669.7 |
+| perion / random | 0/3 C; D 387.9–439.1 | 0/3 C; D 308.7–421.5 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 389.6–425.7 |
+| kerning / bot | 1/3 C; D 308.6–313.3; C 928.0 | 0/3 C; D 307.9–315.0 | 0/3 C; D 326.8–568.7 | 0/3 C; D 309.6–537.7 |
+| kerning / random | 0/3 C; D 305.5–376.2 | 0/3 C; D 306.0–317.3 | 0/3 C; D 339.0–372.7 | 0/3 C; D 307.0–316.4 |
+| Sleepywood / starter | 0/3 C; D 10.8–11.8 | 0/3 C; D 10.6–12.0 | 0/3 C; D 16.4–20.2 | 0/3 C; D 11.4–11.8 |
+| Sleepywood / kit | 3/3 C; C 912.7–921.3 | 1/3 C; D 23.8–826.2; C 936.2 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+F/P and I/L reproduce I12's smoke totals and recorded timings: tier 1 0/24, Sleepywood starter 0/3 and kit 1/3 each.
+Hero cleared 3/24 tier 1 and 2/3 kit runs (starter 0/3); its Henesys bot filled six slots 3/3 at 139.9–249.2s and
+reached the first boss 3/3. The earlier H10 smoke used an older integration revision/fixture; differences are not
+causally attributed. A paired Hero Henesys random seed 1 control with only Bishop `playable:false` produces a
+byte-identical complete record to the enabled-Bishop run (CLEAR 1010.6 s). F/P Henesys bot filled six slots 3/3 at
+136.7–205.3s; I/L 3/3 at 137.0–228.3s; both reached the first boss 3/3. Other jobs' golden oracles pass unchanged.
+
+Full cached suite: **2,569 tests, 0 failed, 0 skipped**, 256 files, 1765.365 s. Full without cache (`/nonexistent`): **2,569 total, 2,274 executed passes, 0 failed, 295 SKIPs**, 256 files, 897.937 s. Each skipped test is named with SKIP in `_scratch/382-qa/no-cache-skips.log`; a SKIP proves no asset behaviour. Final cached bot/Skill-window check: 13 passed, 0 failed, 0 skipped. No tests deleted.
+
+The BS9 oracle covered seven skills only; BS10 widens it to all ten with synthetic dragon and Resurrection books,
+so new card choices/casts/event bytes require one golden recapture. Its seed 1, 72,000 fixed ticks, bot/god and historical
+opening/legacy director recipe remain fixed. F/P, Hero and I/L golden constants are untouched. God mode keeps HP full,
+so the independent Heal/Resurrection suites and the real-cache revive probe cover those triggers.
+
+Visual QA: `redesign --job=232` and `creation --jobs=212,232` passed; all screenshots inspected. Ordinary seed2026 x8
+playtests: Henesys CLEAR916.15 Lv50; Sleepywood kit DEAD16.7 and starter DEAD12.5, all `missing: []`. These frame-driven
+visual runs differ from the headless smoke and are not paired balance observations. Diagnostic single-skill captures
+show all nine cast skills, Teleport, Heal, Genesis's tiles, both dragons, Big Bang charge/release with wand and staff,
+and Resurrection's pillar/beams/guard/recharge and repeat trigger. Every diagnostic summary has no missing assets.
+Screenshots remain under `evidence/bs10/`, uncommitted. The local web export/artifact gate is unverified because the
+pinned web templates are absent; CI runs export. Rust and web-shell suites passed (70 and 62 tests).
 
 **#282 review fixes (2026-10-28).** Targeted regression requested for this review task:
 Henesys, bot, training seed 1, real cache, no balance tuning or held-out seeds. Correct passive rarity RNG,
@@ -4835,7 +4891,7 @@ existing shots finish separately from carry-over projectile kills.
 | Magic Claw (2001005) | Magician | Instant 2-hit claw (`attackCount` 2) on the nearest mob within 260 px every 1.25 s; `effect` on caster, `hit/0` on target (`CharLevel` variant by level) | ranks 1–20 = levels 1–20 | learn/rank; Twin Claw (+1 target, ×2), Quick Claw (-12% cooldown, ×3) |
 | Magic Armor (2001003) | Magician | Timed PDD (`pdd`) | ranks 1–20 = levels 1–20 | learn/rank |
 | Holy Arrow (2301005) | Cleric | Holy projectile at nearest mob: canonical mad/mastery/mpCon and element h; 1 s recast, 480 px reach, 520 px/s, radius 12 | ranks 1–30 = levels 1–30 | learn/rank; +1 projectile (3 steps), +1 pierce (2), cooldown ×0.88 (3); job 230 only |
-| Heal (2301002) | Cleric | Instant self recovery below 50% HP OR holy damage to every undead intersecting canonical lt/rb; 2 s recast, canonical mpCon/hp; provisional historical stat-based recovery fit, exact v83 amount unresolved ([evidence](research/cleric-heal.md)) | ranks 1–30 = levels 1–30 | learn/rank only; job 230 only |
+| Heal (2301002) | Cleric | Instant self recovery below 50% HP OR holy damage to every undead intersecting canonical lt/rb; 2 s recast, canonical mpCon/hp; provisional historical stat-based recovery fit, exact v83 amount unresolved ([evidence](research/cleric-heal.md)) | ranks 1–30 = levels 1–30 (eight ranks and rarity bonuses since the Bishop port, 7.83) | learn/rank only; job 230 only (generated pool cards for a Bishop since 7.82) |
 | Fire Arrow (2101004) | F/P Wizard | Nearest-target fire (`elemAttr f`) projectile every 0.4 s within 480 px, 520 px/s, radius 12 px, `shoot1` stance 0.8 s; canonical `mad`/`mastery`, ball/hit/effect and Use sound | ranks 1–8 map to WZ levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and post-cap Mastery with per-rarity bonuses (8.2); no standalone modifier cards |
 | Poison Breath (2101005) | F/P Wizard | Nearest-target poison (`elemAttr s`) projectile every 0.5 s within 450 px, 400 px/s, radius 14 px, `swingO3` stance 0.8 s; canonical `mad`/`mastery`; `on_hit` applies poison with canonical `prop`% for `time`; cached ball/hit/effect and Use/Hit sounds | ranks 1–8 map to WZ levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and post-cap Mastery with per-rarity bonuses (8.2); no standalone modifier cards |
 | Meditation (2101001 / 2201001) | F/P / I/L Wizard | Self-only timed canonical `mad` -> magic attack; invalidates cached attack ranges on start/expiry | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
@@ -5927,6 +5983,13 @@ is scheduled bosses, then monsters running that status, then distance, then slot
 the impact's targets. A definition without the key sorts exactly as before, so Elquines and every F/P oracle are unchanged
 (7.64 has Ifrit, the first user; Elquines is not given `ice_weak`, that is a balance-pass lever).
 
+Opt-in `summon.count_field` (a level field name, BS7 #379): the strike's target count is that field of the cast's mapped
+level (plus the `count` modifiers) instead of the attack node's `info.mobCount`. A definition without the key reads
+`info.mobCount` exactly as before, so Elquines, Ifrit and every F/P oracle are unchanged (7.84, Bahamut: the level node's
+`mobCount` is 3 at levels 1-29 and 6 at level 30, the attack node's a constant 3). `summon.move` (default `move`) names the
+animation node played while following and whose frames give the stored duration; the dragons' books have `fly`, not `move`
+(7.84). Bowmaster's physical followers (7.44) use the same key: one definition, whichever spec merges second.
+
 Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 12 s recast,
 180 px/s follow, 60 px trailing offset, 1 px stand/move deadzone, 600 px snap distance and 2.4 s minimum attack cycle (never shorter than the
 WZ animation or hit delay). A zero follow speed stops incremental following (distance snapping still applies); future stationary, taunt, projectile,
@@ -6721,6 +6784,294 @@ repeats shrink x0.8; Rare is `amplify` "Element Amplification", damage x1.2, for
 affected (count, pierce) or a monster just beyond the base box (area). A projectile's extra shot goes to the second
 nearest monster, so a monster on the same line behind the first is shielded: Twin Bolt's extra target stands elsewhere.
 
+### 7.80 Bishop pool and job data (spec #372, BS2 #374)
+
+Bishop (232) gets its own data line, `bishop` (`skills/bishop.json`, `jobs/bishop.json`), discovered from its files like
+Hero and I/L. BS10 #382 enables the complete ten-skill line; 212 stays the default and the other jobs’ tuning is unchanged.
+
+| Pool key | WZ id and name | State after BS2 | Owner of the definition |
+|---|---|---|---|
+| `holy_arrow` | 2301005 Holy Arrow (book 230) | legacy definition in `magician.json`, shared with the lineage | BS5 moves it into `bishop` (done, #377, 7.82) |
+| `magic_claw` | 2001005 Magic Claw (book 200) | F/P's own definition | stays in `magician.json` |
+| `shining_ray` | 2311004 Shining Ray (book 231) | not defined: inert | BS5 (done, #377, 7.82) |
+| `angel_ray` | 2321007 Angel Ray (book 232) | not defined: inert | BS5 (done, #377, 7.82) |
+| `heal` | 2301002 Heal (book 230) | moved into `bishop` by BS4 (done, #376, 7.83) | BS4 |
+| `summon_dragon` | 2311006 Summon Dragon (book 231) | defined in `bishop` by BS7 (done, #379, 7.84) | BS7 |
+| `bahamut` | 2321003 Bahamut (book 232) | defined in `bishop` by BS7 (done, #379, 7.84) | BS7 |
+| `genesis` | 2321008 Genesis (book 232) | not defined: inert | BS6 (done, #378, 7.85) |
+| `big_bang_bishop` | 2321001 Big Bang (book 232), `extends: big_bang` | not defined: inert | BS6 (done, #378, 7.85) |
+| `resurrection` | 2321006 Resurrection (book 232), reaction | not defined: inert | BS8 |
+
+Decisions (spec #372, recorded here so they are not re-argued):
+
+- **Start and mobility (D2, D1).** Every round starts with Holy Arrow in active slot 1 (`starting_skill`). Teleport
+  (2301001, `teleport_cleric`) is the `mobility_skill` on the skill key, outside both slot tracks and outside the pool.
+  Energy Bolt is not in the pool (it stays F/P's and I/L's).
+- **Holy Symbol is the common EXP passive, not a pool entry.** The Bishop's 2311003 is the party EXP buff the survivor
+  game already has as `passive_exp` (9101002, `common.json`). `test_bishop_data` pins that the common card
+  `passive_exp_new` is offered to a 232 exactly as to a 212, and that no card carries 2311003 or a Bishop-book buff.
+  The legacy Cleric buffs Bless and Invincible keep their unported cards; no pool offers them, so they are never eligible.
+- **Equipment.** Weapon families `wand` and `staff`; creation weapon 1372005 (the Wooden Wand of F/P and I/L). Drops need
+  no new data: the Magician roster filtered by `weapon_families`, with armour by the Magician class bit. A Magician-bit
+  weapon of another family is kept out by the families filter, and a Warrior, Bowman, Thief or Pirate weapon by
+  `requirement_error`.
+- **AP row.** INT primary, LUK secondary, the 212 keyframes (3 at Lv1 to 202 at Lv200). HP growth falls back to the 200 row.
+- **Bot scores.** The ten pool keys are spelled out in the line's `balance.bot.card_scores` at new 100 / rank 74, the
+  values every pool skill already scores; the spec's "no block" would give the same decisions. Hero's and I/L's lines do the same.
+- **Hub kit.** F/P's scroll and equipment lists and fallback item (the same wands, staves and Magician gear), with the
+  fixture `res://tests/fixtures/characters/bishop_t2.json`, which BS9 creates. The kit is read whole, never merged.
+- **Line placement.** `bishop` is discovered after the registered classes (hero, il_arch_mage) in sorted order; no
+  shared list names it (ARCHITECTURE 4.4.4). Skill merge order follows that line order, so BS4-BS8 append in the
+  ticket order, and a duplicate key across lines stays an error.
+
+### 7.81 Second life: the revive seam (spec #372 BS3, ruling D6)
+
+A reaction skill turns a lethal hit into a survived one, once per recharge. The seam is `PlayerRevive`
+(`scripts/sim/player_revive.gd`, owned by `RunWorld` as `revive`) plus one ordered hook point in `RunWorld.take_hit`.
+Ticket BS3 builds and tests it on a test-only synthetic skill (`tests/fixtures/revive_fixtures.gd`); the Resurrection
+definition, art and cards are BS8.
+
+**The hook point (generic).** `take_hit` consults `HitHook`s (`scripts/sim/hit_hook.gd`) registered with
+`RunWorld.add_hit_hook(hook, order)`: ascending `order`, equal orders in registration order, `PlayerRevive` at order 100.
+A hook overrides only the phases it needs: `guarding()` (before the miss roll; true while `guard_left()` is above zero),
+`absorb(world, amount, source)` (after defence, armour and Power Guard, right before HP is reduced: returns the damage left,
+so a hull returns `amount` less what it soaked; every hook is asked in order and the damage number shows what got through),
+`intercept_lethal(world, source)` (after the hit was processed in full and left HP at zero or below; the first hook to claim
+it wins) and `step(dt)` (once per world tick, before everything else in the tick). `RunWorld.hit_guard_left()` is the longest
+`guard_left()` of any hook (the avatar blink reads it). The Corsair ship's hull (#384) is another `HitHook` registered at an
+order below `PlayerRevive.HIT_ORDER`, so what it soaks never reaches HP or the lethal check, and the revive sees only what
+the hull let through; a further phase is a new method with a pass-through default where that phase belongs. Nothing in
+`take_hit` names Resurrection.
+
+**Order of events in `take_hit`.**
+
+1. Early-outs: `_dead`, `_map_clearing`, `god`, the hit window (boss skill attacks and balls bypass it), Hidden, then the
+   hooks' `guarding()`. A guarded hit returns 0 before the miss roll: no RNG, no event, window-bypassing sources included.
+   `RunWorld.hit_window_blocks(source)`, which the callers ask before `take_hit`, is also true while a hook guards, so a
+   guarded boss attack or ball draws no hit art and the ball is not used up (it flies on, like an ordinary ball in the
+   hit window).
+2. The hit is processed in full (miss roll, defence, damage, Power Guard, `player_hit`, `upkeep.land_hit`), so the damage
+   number and the flinch still show.
+3. If HP is zero or below, the hooks' `intercept_lethal` run. `PlayerRevive` admits when: the source is not marked
+   `unrevivable`, the character is not already dead, and an owned skill with a `revive` block and cast rule `reaction`
+   has `cooldowns[key] <= 0` (the first one in learned order). `can_cast()` does not matter (a stance never blocks it).
+4. The plan (no RNG): HP = `clamp(ceil(max_hp x (revive.hp + revive_hp)), 1, max_hp)`; guard = `revive.guard +
+   revive_guard` seconds; shove = `revive.push.distance` px over the skill's WZ `lt`/`rb` box x `area`.
+5. Effect: `RunWorld.grant_second_life(hp)` sets HP (the only HP setter hooks may use; `_hp` stays private); the guard
+   timer starts; `cooldowns[key]` and `cooldown_totals[key]` are set to the skill's resolved cooldown; every non-boss,
+   non-`steady` monster meeting the box on a foothold is shoved away from the character by `MobSwarm.knockback`, in slot
+   order, with no damage and no status; the run's `revives` list gets `{t, level, rank, source_kind, hp}`; then
+   `player_revived {skill, hp, max_hp, pos, guard, recharge, pushed}` is emitted (`pushed` = monsters shoved).
+6. `take_hit` falls through to its non-lethal branch: the lethal hit's knockback and knockback guard still apply, so the
+   revived character is pushed clear of its killer. No `player_died` is emitted.
+
+**Edge cases.** Two lethal hits in one tick: the first revives, the second returns 0 at the guard check. A lethal hit
+while the recharge runs, from an `unrevivable` source or with the skill not owned kills exactly as before. The guard ends
+on time (the next lethal hit after it and before the recharge kills). The recharge restarts only on use: a rank card
+taken mid-recharge refunds nothing and shortens the next one. `god` and Hidden are unchanged (neither takes a hit). The
+cooldown, the guard and `revives` are round state: map transfers keep them, nothing is saved (save format and history
+entries are unchanged). A skill is ready at round start (its cooldown starts at zero).
+
+**Diagnostics still kill.** The flow driver's diagnostic lethal boss hit (`take_hit(1.0e9, ...)`) carries
+`"unrevivable": true`, so `redesign --job=232` still reaches its death steps with Resurrection owned. Any tool that kills
+the character on purpose through `take_hit` must set the flag (grep `take_hit(` outside `scripts/sim`; today only that
+hit); `test_player_revive` pins that the flag beats a ready owned skill and that the driver's source carries it.
+
+**The `reaction` cast rule.** `SkillRunner.is_triggered(st)` (`manual` or `reaction`; `is_triggered_rule(rule)` for a bare
+rule name) replaces the bare `manual` checks in `cast_ready`, `is_attack` and `BotInput`'s attack classification:
+a reaction skill is never auto-cast, never an attack (Hidden does not pause it), never given a reach (`reach_of` is 0 for
+`damage: none`), `has_target` is false and `_admit_cast` returns nothing for it, and the bot never presses anything for it.
+
+**`cooldown_by_rank`.** A generic skill field: seconds per rank (an array indexed by rank - 1, the last value repeating),
+read by `Loadout._base_cooldown` ahead of `cooldown_field`; the result still goes through the cooldown modifiers (rarity
+`cooldown` factors, Mastery x0.95 on a `damage: none` skill), the Booster passive and the `COOLDOWN_FLOOR` of the base.
+
+**New modifier stats** (skill modifiers, read only by `PlayerRevive` through `Loadout.stats().revive`): `revive_hp` (add
+to the share of max HP) and `revive_guard` (add to the guard seconds).
+
+**Records.** `RunWorld.revives` is in the run summary (`revives`); `tools/balance_run.gd` writes `revives` and
+`revive_count` to every record (`[]` / 0 without a reaction skill), `balance.sh` prints a `revives` column per seed and
+`revived n/runs` in its SUMMARY, and the metrics aggregate has `revived_runs`.
+
+**Resurrection (2321006, ticket BS8 #380).** The pool skill on this seam, `resurrection` in `skills/bishop.json` (book 232,
+job 232): `kind instant`, `slot active`, `damage none`, `cast.rule reaction`, `ranks [2, 3, 4, 5, 7, 8, 9, 10]` (only ten WZ
+levels), `cooldown_by_rank [600, 540, 480, 420, 300, 240, 180, 120]` and no `cooldown_field`, `revive {hp 0.5, guard 2.0,
+push {distance 140}}`. The table is the WZ `cooltime` curve rescaled, `recharge = cooltime / 3 - 480`; a real-cache test
+(`test_bishop_resurrection`) asserts that identity for the eight shipped ranks. Rarity entries (every one changes the
+resolved plan; `test_rarity_bonus_effects` has a revive probe next to the cast probes): Rare `booster` "Faster Prayer"
+recharge x0.88; Epic `vigor` "Holy Vigor" `revive_hp` +0.15; Unique `shield` "Holy Shield" `revive_guard` +1.5 s; Legendary
+`shield` = Holy Shield plus Holy Vigor (one repeat counter with the Unique, repeats x0.8). Normal Mastery is cooldown x0.95
+through the `damage: none` rule (x0.96 for the second card).
+
+*Presentation.* `PlayerRevive` holds the skill's own stance (`resurrection`, 2.52 s, the body's three 840 ms frames) through
+`start_action`: a display hold only, drawn while the character stands, so walking and casting are never locked (nothing reads
+`cast_left` to block them; a test walks during the hold). `RunScene` maps `player_revived` to: the `effect` (the angel
+pillar, 21 frames) at the feet and the `affected` beams (15 frames, frame 0 a 1 x 1 canvas held 1320 ms, then 60 ms beams) on
+the body centre, both on the avatar; the skill's Use sound; the notice "<skill name>! Ready again in M:SS" (the skill's own name; "Resurrection! ..." for the Bishop) from the event's
+`recharge` (6 s); and one evidence shot. The avatar blinks (the hit-window blink) for as long as the longer of the hit window
+and `hit_guard_left()` runs. The HUD slot shows the recharge as the ordinary cooldown sweep. Level-up cards preview `revive_hp` (percent)
+and `revive_guard` (seconds) like the other modifier stats (`UpgradePool.MOD_PREVIEW`, `LevelUpWindow.MOD_LABELS`), and
+`SkillText.level_line` ends with "When a hit would kill you: return at N% HP, S s guard; recharge M:SS".
+
+*Probe.* `scenes/debug/revive_driver.tscn` (tool-only; `ISOLATE=<name> bash scripts/run.sh res://scenes/debug/revive_driver.tscn
+-- --shots=<abs dir>`): a Bishop with Resurrection at rank 8 on real Henesys with six snails around it takes a lethal hit (HP
+back at 50%, six snails shoved, the pillar, the beams, the guard blink, the notice, the slot sweep), a second lethal hit inside
+the recharge (dies), and in a second round a lethal hit after the recharge has run out (revives again). It writes
+`revive_*.png` and `summary.json` and exits 1 when an outcome differs.
+
+### 7.82 Bishop core bolts and Teleport (spec #372, BS5 #377)
+
+Holy Arrow (2301005), Shining Ray (2311004), Angel Ray (2321007) and Teleport (`teleport_cleric`, 2301001) live in
+`skills/bishop.json`. Holy Arrow and Teleport moved there from `skills/magician.json` (a key in two files is a load
+error); the five legacy `holy_arrow_*` cards in `upgrades/magician.json` are deleted (the generated `_new` / `_rank`
+cards come from the pool, and shots, pierce and cooldown are rarity bonuses, section 8). Every pool skill uses the default
+eight-rank table (WZ levels 4, 8, 12, 15, 19, 23, 27, 30), no `ranks` override and no MP.
+
+| Skill / key | Behaviour | Cooldown (tier C) |
+|---|---|---|
+| Holy Arrow / `holy_arrow` (the start skill) | `nearest` projectile, range 480, 520 px/s, radius 12, one shot (the Fire Arrow flight), `shoot1`; canonical `mad` 28 -> 80 and `mastery` 2 -> 10 at ranks 1..8; holy element (tier A) | 0.4 s (1.0 x0.4) |
+| Shining Ray / `shining_ray` | `box` instant, `min_targets` 1: the canonical `lt`/`rb` centred on the player, half-width 150 (levels 1-10, ranks 1-2), 160 (11-20, ranks 3-5), 170 (21+, ranks 6-8), half-height 50, up to canonical `mobCount` 6, nearest first; `mad` 66 -> 105; `magic2` | 1.2 s (3 x0.4) |
+| Angel Ray / `angel_ray` | `nearest` projectile with its own one-frame `ball/0`, range 480, 520 px/s, radius 14, one shot; `mad` 132 -> 240 (the boss answer); `shoot1` | 1.0 s (2.5 x0.4) |
+| Teleport / `teleport_cleric` | `slot: mobility`, manual X with an arrow direction, canonical `range` 130 up to level 10 then +2 a level to 150 at level 20; numbers identical to `teleport_fp` and `teleport_il`; learned at round start, outside both slot tracks, never a card. Its rank follows `balance.mobility_rank_levels` (rank N at character level 2N, cap 20) | 0.3 s repeat |
+
+Rarity bonuses (tier C; Legendary = the Unique's effect with the same id plus damage x1.2, repeats shrink x0.8). Each
+entry changes the resolved cast (`test_rarity_bonus_effects`, the Bishop skills' fixtures in `bishop_bolt_fixtures.gd`):
+
+| Skill | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Holy Arrow | `power` Holy Power: damage x1.2 | `pierce` Piercing Light: +1 pierce | `twin` Twin Arrow: +1 arrow | Twin Arrow + damage x1.2 |
+| Shining Ray | `power` damage x1.2 | `radiance` Wider Ray: area x1.2 | `fork` Splitting Ray: +2 targets (`count` through `mob_count`) | Splitting Ray + damage x1.2 |
+| Angel Ray | `power` damage x1.2 | `booster` Spell Booster: cooldown x0.88 | `twin` Twin Angel: +1 shot | Twin Angel + damage x1.2 |
+| Summon Dragon | `power` Holy Power: damage x1.2 | `reach` Wide Wings: area x1.2 | `twin` Twin Dragons: +1 ally (`summon_count`) | Twin Dragons + damage x1.2 |
+| Bahamut | `power` Holy Power: damage x1.2 | `reach` Wide Wings: area x1.2 | `crowd` Holy Crowd: +2 targets (`count`) | Holy Crowd + damage x1.2 |
+
+The oracle `test_tick_cost_identity` keeps the pre-port Holy Arrow (cooldown 1.0, 30 ranks, no bonuses) in its `_data()`,
+next to the Cold Beam and Thunder Bolt pins; its golden and totals are byte-identical (no recapture). Its Magician loadout
+is full at six actives before Holy Arrow, so the pin guards a future reorder rather than a present cast.
+
+### 7.83 Heal (spec #372, BS4 #376)
+
+Heal is the Bishop's identity and a real pool skill. `heal` (2301002, book 230, job 230) left `skills/magician.json` for
+`skills/bishop.json` (a key in two files is a load error), lost its explicit 30-entry `ranks` for the default 30-level
+table (eight ranks = WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30), and gained `rarity_bonuses`. The legacy cards
+`heal_new` and `heal_rank` (`upgrades/magician.json`) are deleted: the new and rank cards are generated from the pool of a
+playable job, and Rare or better ranks carry the skill's bonus. The rule (`hp_or_undead`), the recovery and strike formulas
+(7: `CombatMath.heal_recovery_range` / `heal_damage_range`, [evidence](research/cleric-heal.md)), the 2.0 s recast, the
+half-HP trigger, the every-undead-in-the-box strike (bosses first) and the Hidden rule (only the healing admits a cast) are
+unchanged.
+
+Three gaps would have made the rarity cards dead; they are closed here.
+
+- **`heal_power`** (skill modifier stat, `mul`, default 1.0): scales both bounds of the recovery range before the roll.
+  `Loadout.stats().heal_power`.
+- **`heal_threshold`** (skill modifier stat, `add`, default 0): added to the data's `heal.hp_threshold` (0.5), capped at 0.95
+  and rounded to 1e-4 (modifier values are float32, so 0.5 + 0.15 would otherwise read 0.65000001).
+  `Loadout.stats().heal_threshold` is the resolved fraction (0 for a skill without a `heal` block). **Exclusive:** the
+  character is injured when HP is strictly below `max_hp x heal_threshold`, so a hit that leaves HP exactly at the
+  threshold does not cast (the shipped behaviour, "exactly half HP waits"). `SkillRunner.heal_injured(world, st)` is the one
+  test; `has_target`, `_admit_hp_or_undead` and `_resolve_hp_or_undead` all call it, and a test pins that the three agree on
+  both sides of the line, with and without Mending Touch. Resolution now restores only an injured character: an undead
+  strike cast at 60% HP strikes and does not heal (the roll is still drawn, so the RNG stream is the same as before).
+- **`damage`**: the undead strike multiplies its bounds by the skill's resolved damage multiplier
+  (`Loadout.stats().status_damage_mult`: the skill's `damage` modifier x the player-wide `damage` x the damage passives, 1.0
+  with none), so a damage card is not dead on Heal. The multiplier is applied to the formula's bounds, then the existing
+  defence, element and crit path runs. **Normal Mastery on Heal is cooldown x0.95** (`damage: none`, #346), not damage;
+  `area` widens the undead box (the box is the WZ `lt`/`rb` x `area`); `count` is not read (no cap).
+
+Rarity bonuses (tier C; ids and text are the lineage's passives; Legendary = the Unique's effects plus one more, same id so
+it shares the repeat counter; repeats shrink x0.8):
+
+| Tier | Id, name | Effects | What the cast does differently |
+|---|---|---|---|
+| Rare | `restore` Greater Heal | `heal_power` x1.2 | recovery x1.2 |
+| Epic | `mending` Mending Touch | `heal_threshold` +0.15 | heals below 65% HP (and so casts there) |
+| Unique | `smite` Holy Smite | `damage` x1.5, `area` x1.2 | undead strike x1.5, undead box x1.2 |
+| Legendary | `smite` | Holy Smite + `heal_power` x1.2 | both |
+
+`test_bishop_heal` casts each effect with and without it in the same seeded world and asserts the symptom (HP restored,
+whether a 60% HP character casts, the strike's rolled damage, an undead just past the base box), plus the cooldown through
+Normal Mastery (casts in 66 s). The card preview names the changes (Recovery 100% -> 120%, Heals below 50% -> 65% HP); the
+Skill window line reads "Restores HP below N% health; strikes undead in the area" from the resolved threshold.
+
+Hazards recorded, not solved here (balance-pass questions): the recovery is stat-driven (`INT x (INT + matk)`), so at Lv1-10
+it restores almost nothing; only three undead exist in the stage data (Zombie Mushroom 2230101 in Sleepywood's first map;
+the bosses Shade 5090000 on Kerning map 2 and Zombie Mushmom 6300005 on Sleepywood map 1; bosses are targets like any
+monster), so the strike is a late bonus. The BS10 smoke reports Heal's casts and restored HP.
+
+### 7.84 Summon Dragon and Bahamut (spec #372, BS7 #379)
+
+Two holy followers on the 7.32 seam, one definition each in `skills/bishop.json`: `kind: summon`, `slot: active`,
+`cast: {"rule": "summon"}`, `damage: magic`, **`element: "h"`**, 12 s recast, caster stance `alert2`, the Use sound. They differ
+in role, not in code: the same `PlayerSummons`, the follow settings of Elquines (180 px/s, 60 px trail, 600 px snap, 36 px ordinal
+spread), and two data knobs.
+
+| | Summon Dragon `summon_dragon` | Bahamut `bahamut` |
+|---|---|---|
+| WZ | 2311006, book 231, job 231 | 2321003, book 232, job 232 |
+| `mad` at ranks 1 / 4 / 8 (levels 4 / 15 / 30) | 76 / 120 / 150 | 122 / 160 / 230 |
+| `time` (lifetime, s) | 25 / 80 / 140 | 30 / 85 / 160 |
+| Targets per strike | 1 (no `mobCount` anywhere) | `count_field: "mobCount"`: 3 at ranks 1-7, 6 at rank 8 |
+| Strike cycle (`attack_interval`) | 1.2 s (the fast one) | 2.4 s (Elquines' value; the heavy one) |
+| `attackAfter` (the impact) | 500 ms | 990 ms |
+| Attack box (feet-relative, facing side) | (-200,-150)..(200,150), symmetric | (-200,-150)..(0,30), mirrored by facing |
+| Element | `h` (tier C: the WZ node has no `elemAttr`; the String text calls it a holy dragon) | `h` (A: `elemAttr h`) |
+| Animations | `summoned` 5, `fly` 5, `stand` 5, `attack1` 8, `die` 6; `hit/0` 1 frame | `summoned` 6, `fly` 6, `stand` 12, `attack1` 18, `die` 6; `hit/0` 7 frames |
+
+**`summon.count_field`** (7.32): `PlayerSummons._base_count` reads the named field of the cast's mapped level
+(`SkillBook.canonical(skill, level, field, info.mobCount)`) as the base, then `skill_stat("count", base)` adds the modifiers.
+Bahamut's attack node says `mobCount 3` at every level; only the level node reaches 6, at level 30 (rank 8), so without the key
+rank 8 would strike three monsters like rank 1. Without the key nothing is read differently (the Elquines and Ifrit data, the
+F/P oracles and `test_tick_cost_identity` did not move).
+
+**`fly`** is `summon.move: "fly"` (7.32): the node named by `move` (default `move`) is the animation played while following; its
+frames give the stored duration, and `PlayerSummonRenderer` loops it. Compatibility with Bowmaster (7.44): that branch adds the
+same key with the same name, default and meaning for its flyers, so whichever merges second is the same text (the merge conflict
+is textual, not semantic). **Orthogonal, not a new concept:** no hover, no `settle`, no `watk_field`; the dragons trail on the
+ground like Elquines. `info.type` (Summon Dragon `1`, Bahamut `0`) changes nothing in the sim (the sim never branches on it).
+The Summon Dragon's `Summon` sound (`Sound.wz/Skill.img/2311006/Summon`, 1827 ms) plays at each cast through the Bowmaster's
+`sounds.summon` spawn cue (7.44; merge of #332 and #372): the dragon's `sounds` lists `"summon": "Sound.wz/Skill.img/2311006/Summon"`
+(Bahamut lists none). Summon Dragon's WZ Summoning Rock cost and Bahamut's `req` of Summon Dragon level 15 are not read (no
+items, ADR 0006; both dragons are independent pool entries and coexist, one recast group each).
+
+**Rarity** (tier C; the Elquines lists, Bahamut's third entry widened to the crowd; repeats x0.8, Legendary = the Unique's effect and
+id plus damage x1.2): Rare `power` damage x1.2; Epic `reach` "Wide Wings" area x1.2 (the attack box through `stats.area`);
+Unique `twin` "Twin Dragons" +1 ally (`summon_count`) for Summon Dragon, `crowd` "Holy Crowd" +2 targets (`count`) for Bahamut.
+`test_bishop_dragons` casts each effect with and without it: damage dealt, the monster just beyond the base box, the ally
+count and the monsters struck (a `range` and a `pierce` modifier, which a summon never reads, are the negative controls).
+
+Evidence (BS7, tool-only `player_summon_probe.tscn --skill=summon_dragon|bahamut [--life=<s>]`, real Henesys, Lv1 invulnerable,
+job 232, rank 8, damage x0.01, 200 stationary high-HP monsters, vsync off): recorded in `BS7-379.md` with the frame costs.
+
+### 7.85 Genesis and Big Bang (spec #372, BS6 #378)
+
+Both live in `skills/bishop.json` and change no code: Genesis is Meteor Shower's data mirror (the pending-area path of
+7.31, shared with I/L's Blizzard, 7.60) and `big_bang_bishop` is the second user of the skill-template seam (7.63).
+
+| Skill / key | Behaviour | Cooldown (tier C) |
+|---|---|---|
+| Genesis 2321008 / `genesis` | `box` instant, `min_targets` 1: the WZ box (-400,-350)..(400,250) at every level, up to canonical `mobCount` 15 (nearest first), damage after the WZ `hitAfter` 1800 ms with targets queried at impact (a mob that arrived is hit, one that left or died is not, a map transfer clears it); holy (`elemAttr h`, so the existing multiplier applies); `mad` 460 -> 670 over ranks 1..8 (WZ levels 4 .. 30), `genesis` stance held 0.8 s | 6.0 s (Meteor Shower 4.8 s, with 670% against 570% at the top rank) |
+| Big Bang 2321001 / `big_bang_bishop` | exactly `{"extends": "big_bang", "skill_id": 2321001, "book": "232", "job": 232}`: F/P's charge and release (1.08 s charge, box (-250,-180)..(250,100), up to 6 targets, `dash` stance) with the I5 path rewrite onto book 232 (`Skill.wz/232.img/skill/2321001/...`, `Sound.wz/Skill.img/2321001/...`); `mad` 190 -> 450, canonical numbers identical to book 212 node for node | 2.8 s (inherited) |
+
+- **It extends the parent.** `big_bang_bishop` names the plain `big_bang` (F/P's), never `big_bang_il`; `test_bishop_big_bang`
+  resolves the data without the I/L child to prove the two jobs share no dependency. The I5 drift guard
+  (`SkillTemplate.drift_problems`) runs on the pair in `test_bishop_genesis_cache` against the real 232 book: it passes, and
+  `SkillTemplate.pairs` lists `big_bang_bishop` next to `big_bang_il`. If a v83 book number ever differs, the child overrides.
+- **Cast visuals.** `effect` (22 frames) plays on the caster at the cast, `effect0` (22 frames, behind) is the first
+  `cast_visuals` entry at x = 0, and the nine `tile/0..8` (24, 24, 24, then 23 frames each) sit at the WZ `effectDistance`
+  150 px, x = (k - 4) x 150, falling over the delay; `hit/0` (23 frames) plays on each struck monster. The tiles come in
+  three depth rows of three (WZ origins y 376 / 283 / 195 for k = 0..2 / 3..5 / 6..8). **Placement check (tier C, kept):** a
+  `--job=232` Henesys playtest (temporary uncommitted edit making Bishop playable with Genesis as the start skill, staff
+  1382002) shows the halos opening at the top of the screen, the pillars falling over the 1.8 s delay and standing as separate
+  columns 150 px apart across the whole screen (x = -600..600 around the caster) by the impact, with the angel `effect`/`effect0` on the caster and `hit/0` bursts with damage numbers on the
+  struck monsters. The curtain is wider than the +-400 px damage box (as I/L's Blizzard tiles are) and does not
+  under-cover it, so the spec's x = (k - 4) x 150 stays and no `cast_visuals` value was adjusted. Big Bang Bishop charges (the vortex on the
+  caster) and releases the blast identically with the wand 1372005 and the staff 1382002; the blast hides the weapon, as F/P's
+  and I/L's do.
+- **Rarity bonuses** (tier C; Rare `power` Holy Power damage x1.2, Epic `area` Wider Genesis area x1.2, Unique `echo` +1 hit,
+  Legendary `echo` plus damage x1.2; repeat scale 0.8, the Legendary shares the Unique's counter). Big Bang's lists are
+  inherited from `big_bang`. `test_bishop_genesis` probes every entry of both skills (damage dealt, a mob just beyond the
+  base box, hit lines) and `test_rarity_bonus_effects` carries both in its resolved-cast audit.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -6790,6 +7141,8 @@ damage x1.2, so their repeats are shared; Rare is `power`, damage x1.2, for all)
 | Element Composition (I/L, #326) | +1 pierce (`pierce`) | +1 projectile (`twin`) |
 | Blizzard (I/L, #329; Rare `amplify`, Epic `storm`) | area x1.2 (`storm`) | +1 hit (`echo`) |
 | Big Bang I/L (`big_bang_il`) | inherited from `big_bang` (7.63) | inherited |
+| Genesis (Bishop, #378; Rare `power`, Epic `area` Wider Genesis) | area x1.2 (`area`) | +1 hit (`echo`) |
+| Big Bang Bishop (`big_bang_bishop`) | inherited from `big_bang` (7.63) | inherited |
 
 
 **Cards and the draw (current rules).** `data/survivor/upgrades.json` (base: draw weights, the rarity weights and magnitudes,
@@ -7917,7 +8270,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Boss target priority (#83) | every targeting rule (nearest, box, crowd, Heal undead, basic attack) orders qualifying targets scheduled boss first, then distance, then slot; elites get no priority | C | ours; spec #79 owner decision (`RunWorld.targets_before`) |
 | Skill box admission / area scoring | minimum 1 target unless `cast.min_targets` overrides; base area 1.0, future area-card multiplier ×1.2; bot `area` score 58 plus existing job bonus | C | spec #31 binding foundations decisions; no skill/card entries added |
 | Holy Arrow flight / cards (#57) | 1 s recast, 480 px range, 520 px/s, 12 px radius, count 1, pierce 0, 0.8 s stance; count +1 ×3, pierce +1 ×2, cooldown ×0.88 ×3; learn/rank weights 4/3, modifiers 2; standard attack bot scores | C (tuning), A (skill fields/art/sound/action) | copied existing Fire Arrow/first-job survivor steps; [Cleric evidence](research/cleric-heal.md) |
-| Heal trigger / recast / targets (#57) | strictly below half HP OR one boxed undead; 2 s recast in heal block; 0.8 s stance; every boxed undead once, overriding canonical mobCount=6; target multiplier counts undead plus caster | C (trigger/delay/cap override), A (box/cost/hp/action/art/sound) | ticket #57; [Cleric evidence](research/cleric-heal.md) |
+| Heal trigger / recast / targets (#57) | (Bishop port: resolved threshold, 7.83; Bishop BS4 constants) strictly below half HP OR one boxed undead; 2 s recast in heal block; 0.8 s stance; every boxed undead once, overriding canonical mobCount=6; target multiplier counts undead plus caster | C (trigger/delay/cap override), A (box/cost/hp/action/art/sound) | ticket #57; [Cleric evidence](research/cleric-heal.md) |
 | Heal undead formula (#57) | bounds `(0.3×INT+LUK)` / `(1.2×INT+LUK)` × `(INT+matk)/1000` × `hp/100` × `(1.5+5/N)`; holy h; existing hit/defense/element path | B (pre-BB client RE, not directly v83) | Southperry #1033 posts 685–692; [derivation and worked example](research/cleric-heal.md) |
 | Heal recovery approximation (#57; unresolved verification) | historical LUK polynomial × `(INT+matk)` × INT × `hp/10`, lower bound ×0.8; single-target multiplier 1, uniform seeded roll truncated to HP, capped by restore_player; learn/rank weights 4/3 | B weak (historical coefficients); C (selecting this unverified fit, multiplier, RNG/rounding, weights) | [evidence gap and original observations](research/cleric-heal.md); exact v83 recovery acceptance criterion remains open |
 | Fire/Poison attacks (#55) | Fire Arrow: cooldown 1 s, range 480 px, speed 520 px/s, count 1, pierce 0, radius 12 px, stance 0.8 s, rotates; Poison Breath: 1.25 s, 450 px, 400 px/s, count 1, pierce 0, radius 14 px, stance 0.8 s, no rotation; both target nearest | C | survivor skills.fire_arrow / poison_breath; untuned; canonical elements, level numbers, actions and assets remain tier A |
@@ -8021,6 +8374,67 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
 
+
+### Bishop (spec #372) constants
+
+One heading for the whole spec; each ticket's table below carries its own bold label (BS2 pool and data, BS5 core bolts, BS4 Heal, BS6 Genesis and Big Bang, BS3 revive seam, BS7 dragons, BS9 tooling, BS8 Resurrection). Section numbers 7.80-7.85 follow the order the tickets landed: 7.82 is the core bolts (BS5), 7.83 Heal (BS4), 7.84 the dragons (BS7), 7.85 Genesis and Big Bang (BS6).
+
+**Bishop BS2 constants (spec #372, BS2 #374)**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Line discovery | `bishop` discovered from `jobs/bishop.json` and `skills/bishop.json` after the registered classes; no `CLASS_LINES` edit | C |
+| Starting skill | `holy_arrow` in active slot 1 every round (D2) | C |
+| Mobility skill | `teleport_cleric` (2301001) on the skill key, outside the slots (D1) | C |
+| Pool | ten keys of the 200/230/231/232 books, Energy Bolt out, Holy Symbol out (7.80) | C |
+| Weapon families | `wand`, `staff` | C |
+| Creation weapon | 1372005, the Wooden Wand (F/P and I/L's) | C |
+| AP row | INT primary, LUK secondary, keyframes Lv1 -> 3, Lv200 -> 202 (the 212 curve) | C |
+| Bot card scores | new 100 / rank 74 for each pool key (the pool default, spelled out) | C |
+| Hub kit | F/P's scroll list, equipment list [1002001, 1382001, 1082002, 1040004], fallback 1382001; fixture `bishop_t2.json` (BS9) | C |
+| Playable | `true` since BS10 #382; `default_job` stays 212 | C |
+| Holy Symbol | the common `passive_exp` (9101002), offered to a 232 like any job; no Bishop card | C |
+
+**Bishop BS5 constants (spec #372, BS5 #377)**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Holy Arrow cooldown | 0.4 s (the legacy 1.0 s x0.4, the Fire Arrow pace); default eight-rank table instead of the legacy 30 ranks | C |
+| Holy Arrow flight | range 480, speed 520, radius 12, one shot, no pierce, `shoot1` held 0.8 s (unchanged from the legacy definition) | C |
+| Shining Ray cooldown / stance | 1.2 s (3 x0.4); `magic2` held 0.8 s | C |
+| Shining Ray targeting | `box` with `min_targets` 1; WZ `lt`/`rb` and `mobCount` 6 read as written | A (box, mobCount, mad, mastery, element h, action), C (cast rule) |
+| Angel Ray cooldown / flight | 1.0 s (2.5 x0.4); range 480, speed 520, radius 14, one shot, `shoot1` held 0.8 s; its own `ball/0` | C (numbers), A (mad, mastery, element h, ball) |
+| Teleport | `teleport_cleric` moved unchanged except `slot: mobility`: 0.3 s repeat, bot threat distance 60 px, 20 ranks | C (repeat, threat), A (range 130 to 150) |
+| Rarity bonuses | the three tables in 7.82 (damage x1.2, +1 pierce, +1 arrow, area x1.2, +2 targets, cooldown x0.88, +1 shot; Legendary = Unique + damage x1.2) | C |
+| Bonus names | Holy Power, Piercing Light, Twin Arrow, Wider Ray, Splitting Ray, Spell Booster, Twin Angel | C |
+| Card text | Shining Ray and Angel Ray descriptions and level lines are survivor-written (the WZ strings are not in the repo) | C |
+
+**Bishop BS4 constants (spec #372, BS4 #376)**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Heal port | `heal` in `skills/bishop.json`, default eight-rank table (levels 4/8/12/15/19/23/27/30); `heal_new` / `heal_rank` deleted | C (rank mapping, the default pool rule), A (`hp` 10 x level, box, art, sound) |
+| Heal rarity bonuses | Rare `restore` `heal_power` x1.2; Epic `mending` `heal_threshold` +0.15; Unique `smite` `damage` x1.5 and `area` x1.2; Legendary `smite` plus `heal_power` x1.2 (7.83) | C |
+| `heal_power` | modifier stat, `mul`, default 1.0, scales both recovery bounds | C |
+| `heal_threshold` | modifier stat, `add`, default 0, added to the data's 0.5; resolved value rounded to 1e-4 | C |
+| `Loadout.HEAL_THRESHOLD_CAP` | 0.95 | C |
+| Threshold comparison | exclusive: HP strictly below `max_hp x threshold` (a hit exactly at the threshold does not cast); one test shared by `has_target`, admission and resolution | C (the shipped behaviour, now pinned) |
+| Recovery only when injured | an undead strike cast above the threshold does not heal; the recovery roll is drawn regardless (same RNG stream) | C |
+| Strike `damage` | the strike's bounds x the skill's resolved damage multiplier (`status_damage_mult`; 1.0 with no card or passive) | C |
+| Normal Mastery on Heal | cooldown x0.95 (`damage: none`, #346) | C |
+| Heal's data | `heal {field hp, hp_threshold 0.5, recast_delay 2.0}`, `alert2` 0.8 s, every undead in the box, holy strike: unchanged from #57 | see the #57 rows |
+
+**Bishop BS6 constants (spec #372, BS6 #378)**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Genesis box, count, delay, art | box (-400,-350)..(400,250) at every level, `mobCount` 15, `hitAfter` 1800 ms (the pending delay), `tile` spacing 150 px, `effect` 22 and `effect0` 22 frames, `hit/0` 23 frames, `elemAttr h`, `action/0` `genesis`, Use/Hit sounds, `mad` 460 -> 670 | A |
+| Genesis cooldown | 6.0 s (Meteor Shower's 4.8 s, the higher damage ceiling) | C |
+| Genesis targeting and stance | auto-cast with at least one monster in the box (`min_targets` 1); `genesis` stance held 0.8 s (the body's three held frames last 2.7 s and are not played in full) | C |
+| Genesis tile columns | nine tiles at x = (k - 4) x 150 px around the caster and `effect0` at the caster (the spec's placement, kept after the screenshot check) | C |
+| Genesis `range` / `count` | 450 / 1, copies of Meteor Shower's (only the bot's reach reads them) | C |
+| Genesis rarity bonuses | Rare damage x1.2, Epic area x1.2, Unique +1 hit, Legendary Unique plus damage x1.2; repeat scale 0.8; names Holy Power, Wider Genesis, Echo | C |
+| Big Bang Bishop | the three-line template over `big_bang`; identity of the three Big Bangs in v83 data is tier A, the template mechanism tier C (7.63); every number inherited | A / C |
 
 ### Hero H3 meter constants (#299)
 
@@ -8208,3 +8622,57 @@ fitted wind-up playback and inspection; `SpritePool.tint_of` exposes the rendere
 Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.
 The Tree That Grew I and the six stage bosses are already playable. Phase 3: other Explorer paths, 3rd/4th job,
 additional bosses, elite waves with modifiers, passive items, skill evolutions, run modifiers, persistent unlocks.
+
+**Bishop BS3 constants (#375)**
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Revive HP share (`PlayerRevive.DEFAULT_HP`; the Resurrection `revive.hp` of BS8 repeats it) | 50% of max HP, rounded up, clamped 1..max | tier C, spec #372 D6 |
+| Guard after a revive (`DEFAULT_GUARD`) | 2.0 s, blocking every hit including window-bypassing boss attacks and balls | tier C, spec #372 D6 |
+| Holy shove (`DEFAULT_PUSH`) | 140 px away from the character over the skill's WZ box x `area`; non-boss, non-`steady`, grounded monsters; no damage | tier C, spec #372 D6 |
+| Hook order of `PlayerRevive` (`HIT_ORDER`) | 100 (hooks of lower order claim a lethal hit first and absorb damage first; a hull registers below it) | tier C, ours (#375) |
+| Revive HP share rounding | the resolved share is rounded to 1e-4 (modifiers are float32: 0.5 + 0.15 is 0.65000000596, which would return 66 HP at 100 max HP instead of 65) | tier C, ours (review fix #372) |
+| Recharge count as run out | `cooldowns[key] <= SkillRunner.READY_EPS` (1e-6), the one epsilon of every cast path and of `PlayerRevive`; `SkillRunner.start_recharge` starts the recharge pair | tier C, ours (#375) |
+| Skill ready at round start | cooldown starts at 0 | tier C, ours (#375) |
+| Resurrection WZ box (-400,-350)..(400,250) at every level | read as is; the recharge table (600 s down to 120 s) is BS8's `cooldown_by_rank` | tier A shape, tier C scale (BS1 identity `cooltime / 3 - 480`) |
+
+**Bishop BS7 constants (spec #372, BS7 #379)**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Summon Dragon element | `h` (the WZ node has no `elemAttr`; String text: "a holy dragon") | C |
+| Dragons' recast | 12 s each (Elquines' and Ifrit's value) | C |
+| Summon Dragon strike cycle | `attack_interval` 1.2 s (never shorter than the 500 ms impact or the 8-frame `attack1` animation, 0.6 s) | C |
+| Bahamut strike cycle | `attack_interval` 2.4 s (Elquines' value; the 18-frame `attack1` is 1.62 s, the impact 990 ms) | C |
+| Follow settings | 180 px/s, 60 px trail, 600 px snap, 36 px ordinal spread: Elquines' | C |
+| Targets | Summon Dragon: no `mobCount` in the WZ, so one; Bahamut: the level node's `mobCount` (3, 6 at level 30) through `summon.count_field` | A (the numbers), C (reading the level field instead of `info.mobCount`) |
+| `summon.move` | `fly` for both dragons (the books have no `move`); default `move` | A (the books), C (the key, shared with Bowmaster) |
+| Rarity bonuses | the two rows in 8 (damage x1.2, area x1.2, +1 ally or +2 targets; Legendary = Unique + damage x1.2; repeats x0.8); names Holy Power, Wide Wings, Twin Dragons, Holy Crowd | C |
+| Not read | Summon Dragon's Summoning Rock (`itemCon 4006001`), Bahamut's `req` of Summon Dragon 15, `info.type`, `sp`/`r` under the range node | dropped by decision (ADR 0006, spec #372) |
+
+**Bishop BS9 constants (spec #372, BS9 #381)**
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Bishop fixture `bishop_t2.json` | job 232, tier 2, the F/P tier-1 kit (1382002, 1002013, 1072019, 1082019, 1040002, 1060002), made with `--patch` before BS10 enabled 232 (historical provenance; new generation needs no patch) | tier C: ours (#381) |
+| Hub kit | unchanged from BS2: F/P's scroll stacks and spare equipment, fixture path now exists | tier C: ours (#381) |
+| Baseline oracle pool (`test_bishop_baseline.POOL`) | all ten shipped pool skills since BS10 #382; the two dragons and Resurrection expand the card/event workload, requiring one recapture | tier C: ours (#381) |
+| Baseline recipe | seed 1, 72,000 ticks, god, bot (`auto_choose` + `decide`), legacy Henesys curve and opening freeze as the 212 oracle, synthetic books (`bishop_bolt_fixtures`, `heal_fixtures`, Genesis and Big Bang of `bishop_genesis_fixtures`, dragons of `bishop_dragon_fixtures`, `resurrection_fixtures`) | tier C: ours (#381) |
+| Bot scores | BS2's explicit `card_scores` block stays (the spec said none, but the block is pinned by `test_bishop_bot` and removing it changes the Bishop oracle bytes, so it is a documented deviation); the ten pool keys keep BS2's new 100 / rank 74; Heal and Resurrection have reach 0; the bot presses a key only for Teleport | tier C: ours (#381) |
+| Skill window | no code change: tabs 200, 230, 231, 232 after Common, Teleport (2301001) first on the 230 tab | tier C: ours (#381) |
+
+**Bishop BS8 constants (#380)**
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Resurrection ranks to WZ levels | `ranks [2, 3, 4, 5, 7, 8, 9, 10]` | tier A (10 levels), tier C mapping (spec #372) |
+| Recharge by rank (`cooldown_by_rank`) | 600, 540, 480, 420, 300, 240, 180, 120 s | tier A shape (`cooltime`), tier C scale (`cooltime / 3 - 480`, real-cache test) |
+| `revive` block | hp 0.5, guard 2.0 s, push 140 px (repeats the BS3 defaults, spelled out in the definition) | tier C, spec #372 D6 |
+| Rare Faster Prayer / Epic Holy Vigor / Unique Holy Shield / Legendary | recharge x0.88 / revive HP +0.15 / guard +1.5 s / Shield + Vigor; repeat scale 0.8 | tier C, spec #372 |
+| Stance hold (`action_time`) | 2.52 s, three 840 ms body frames; display only, never locks movement or casting | tier A frames, tier C hold (ours, #380) |
+| `affected` anchor | the canonical body-box centre (frame 1's origin is mid-body); frame 0's 1320 ms lead-in is the WZ delay | tier C placement, tier A art |
+| Notice | "<skill name>! Ready again in M:SS" (Resurrection's name for the Bishop), 6 s (`RunScene.REVIVE_NOTICE_TIME`) | tier C, ours (#380) |
+| Card wording | "Holy Vigor: revive HP +15%", "Holy Shield: guard +1.5 s", "Greater Heal: recovery x1.2", "Mending Touch: heals below +15% HP" (`UpgradePool.CARD_STAT_TEXT`) | tier C, spec #372 story 11 |
+| Evidence shot delay (`REVIVE_SHOT_DELAY`) | 1.45 s after the revive (first beam frames) | tier C, ours (#380) |
+| Guard blink | the hit-window blink (alpha 0.4, 0.16 s period), driven by the longer of the hit window and `RunWorld.hit_guard_left()` | tier C, ours (existing blink constants) |
+| Level-up preview units | `revive_hp` in percent, `revive_guard` in seconds | tier C, ours (#380) |

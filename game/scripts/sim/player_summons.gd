@@ -179,10 +179,18 @@ func _targets(i: int, world: RunWorld, both_sides: bool) -> PackedInt32Array:
 	return PackedInt32Array(matches)
 
 
+## The strike's target count before `count` modifiers: the attack node's `info.mobCount`, or, with the opt-in `summon.count_field`,
+## that field of the cast's mapped level (Bahamut: 3, 6 at level 30).
+func _base_count(i: int, world: RunWorld) -> float:
+	var field := String(definitions[i].get("count_field", ""))
+	var fallback := float(definitions[i].info.get("mobCount", 1))
+	return world.book.canonical(String(stats[i].skill), int(stats[i].level), field, fallback) if field != "" else fallback
+
+
 func _hit(i: int, world: RunWorld) -> void:
 	var st := stats[i]
 	var targets := _targets(i, world, false)
-	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "count", float(definitions[i].info.get("mobCount", 1)))))
+	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "count", _base_count(i, world))))
 	var strike := String(definitions[i].strike_effect)
 	for t in mini(count, targets.size()):
 		if strike != "":

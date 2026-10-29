@@ -107,15 +107,34 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		var links := int(stats.get("mob_count", 1))
 		mechanics.append("Jumps to up to %d %s within %s px" % [links, "monster" if links == 1 else "monsters",
 			number(ChainCast.hop_of(stats))])
+	if String(stats.get("cast_rule", "")) == "hp_or_undead":
+		# Heal (#376): the resolved threshold, so a Mending Touch card shows in the window.
+		mechanics.append("Restores HP below %s%% health; strikes undead in the area" % number(float(stats.get("heal_threshold", 0.0)) * 100.0))
 	if def.has("pierce_falloff"):
 		mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
 			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
 	if stats.has("burn_pulse"):
 		mechanics.append("Burns for %s s, %s%% of base damage per second" % [number(float(stats.get("burn_time", 0.0))),
 			number(float(stats.get("burn_share", 0.0)))])
+	if stats.get("revive") is Dictionary:
+		var revive: Dictionary = stats.revive
+		# tier C (ours, BS8): the second-life line, the numbers of the plan PlayerRevive resolves.
+		mechanics.append("When a hit would kill you: return at %s%% HP, %s s guard; recharge %s" % [
+			number(float(revive.hp) * 100.0), number(float(revive.guard)), clock(SkillRunner.restart_cooldown(stats))])
 	if not mechanics.is_empty():
 		line += ("\n" if line != "" else "") + "; ".join(mechanics)
 	return line
+
+
+## `seconds` as M:SS (rounded to the whole second).
+static func clock(seconds: float) -> String:
+	var whole := maxi(0, roundi(seconds))
+	return "%d:%02d" % [whole / 60, whole % 60]
+
+
+## The notice a second life shows: the skill's name and when it works again.
+static func revive_notice(skill_name: String, recharge: float) -> String:
+	return "%s! Ready again in %s" % [skill_name, clock(recharge)]
 
 
 ## Copies of the cards of a choice_pending event with this skill text at the offered level, using the effective

@@ -1,0 +1,188 @@
+{
+	"_doc": "Bishop line skill definitions (spec #372, ticket BS2 #374). Each skill ticket appends its own region of `skills` (separate tickets, separate regions): BS4 (#376) Heal (2301002, moved from magician.json); BS5 (#377) Holy Arrow (2301005, moved from magician.json), Shining Ray (2311004), Angel Ray (2321007) and Teleport (2301001, moved from magician.json as teleport_cleric); BS6 Genesis (2321008) and Big Bang (2321001, via extends big_bang); BS7 Summon Dragon (2311006) and Bahamut (2321003); BS8 Resurrection (2321006, #380). A pool key with no entry here stays inert: it is never offered or learned. Tier C cooldowns are the F/P base values x0.4 (GAME_DESIGN 7.80).",
+	"skills": {
+		"holy_arrow": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.80.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Holy Power", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "pierce", "text": "Piercing Light", "effects": [{"stat": "pierce", "op": "add", "value": 1}]}],
+				"unique": [{"id": "twin", "text": "Twin Arrow", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "twin", "text": "Twin Arrow and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2301005, "book": "230", "job": 230, "kind": "projectile", "slot": "active",
+			"name": "Holy Arrow", "desc": "Cleric. Shoots a holy arrow at the nearest monster.",
+			"text": {"desc": "Attacks the nearest monster by firing Holy Arrows. Very effective against undead and devil-based monsters.", "h": "Basic attack {mad}, mastery {mastery_pct}%, {count|arrow|arrows} per cast"},
+			"icon": "Skill.wz/230.img/skill/2301005/icon", "damage": "magic",
+			"_tuning": "Tier C: same flight, reach, radius and recast as Fire Arrow, cooldown 0.4 s (1.0 s x0.4), default eight-rank table; canonical mad/mastery and the holy element are tier A.",
+			"cooldown": 0.4, "range": 480, "speed": 520, "count": 1, "pierce": 0, "radius": 12,
+			"action": "shoot1", "action_time": 0.8,
+			"ball": "Skill.wz/230.img/skill/2301005/ball",
+			"hit": "Skill.wz/230.img/skill/2301005/hit/0",
+			"effect": "Skill.wz/230.img/skill/2301005/effect", "rotate": true,
+			"sounds": {"use": "Sound.wz/Skill.img/2301005/Use", "hit": ""}
+		},
+		"shining_ray": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.80.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Holy Power", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "radiance", "text": "Wider Ray", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "fork", "text": "Splitting Ray", "effects": [{"stat": "count", "op": "add", "value": 2}]}],
+				"legendary": [{"id": "fork", "text": "Splitting Ray and damage", "effects": [{"stat": "count", "op": "add", "value": 2}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2311004, "book": "231", "job": 231, "kind": "instant", "slot": "active",
+			"name": "Shining Ray", "desc": "Strikes nearby monsters with a burst of holy light.",
+			"text": {"desc": "Attacks surrounding monsters with a ray of holy light. Very effective against undead and devil-based monsters.", "h": "Basic attack {mad}, mastery {mastery_pct}%, up to {mob_count|monster|monsters}"},
+			"icon": "Skill.wz/231.img/skill/2311004/icon", "damage": "magic",
+			"_survivor": "Tier C: auto-cast with at least one monster in the canonical box, 1.2 s cooldown (3 s x0.4), magic2 stance held 0.8 s. Tier A: lt/rb (half-width 150 to level 10, 160 at 11-20, 170 from 21), mobCount 6, mad/mastery and elemAttr h from Skill.wz, action magic2; effect and hit/0 only (no ball), Use sound only.",
+			"cast": {"rule": "box", "min_targets": 1}, "cooldown": 1.2,
+			"action": "magic2", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/231.img/skill/2311004/hit/0",
+			"effect": "Skill.wz/231.img/skill/2311004/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2311004/Use", "hit": ""}
+		},
+		"summon_dragon": {
+			"_rarity": "Tier C: first-pass BS7 (#379) bonuses, the Elquines lists (damage, area) with one extra dragon (`summon_count`); repeat scale 0.8. See GAME_DESIGN 8 and 7.84.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Holy Power", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "reach", "text": "Wide Wings", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "twin", "text": "Twin Dragons", "effects": [{"stat": "summon_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "twin", "text": "Twin Dragons and damage", "effects": [{"stat": "summon_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2311006, "book": "231", "job": 231, "kind": "summon", "slot": "active",
+			"name": "Summon Dragon", "desc": "Calls a holy dragon that follows you and strikes one nearby monster at a time.",
+			"text": {"desc": "Calls a holy dragon that follows you and strikes one nearby monster at a time.", "h": "Basic attack {mad}, mastery {mastery_pct}%, lasts {time} sec, strikes {mob_count|monster|monsters} at a time"},
+			"icon": "Skill.wz/231.img/skill/2311006/icon", "damage": "magic", "element": "h",
+			"cast": {"rule": "summon"}, "cooldown": 12.0,
+			"action": "alert2", "action_time": 0.8, "ball": "",
+			"effect": "", "hit": "Skill.wz/231.img/skill/2311006/hit/0", "rotate": false,
+			"summon": {"ordinal_spread": 36.0, "path": "Skill.wz/231.img/skill/2311006/summon", "attack": "attack1", "move": "fly", "follow_speed": 180.0,
+				"follow_distance": 60.0, "teleport_distance": 600.0, "attack_interval": 1.2},
+			"sounds": {"use": "Sound.wz/Skill.img/2311006/Use", "hit": "", "summon": "Sound.wz/Skill.img/2311006/Summon"},
+			"_provenance": "Tier A: WZ time/mad/mastery, the summon attack info (box -200,-150..200,150, attackAfter 500, no mobCount: one target) and art; the book has fly and no move. Tier C: element h (no elemAttr in the WZ; the String text calls it a holy dragon), 12 s recast, 1.2 s attack cycle, follow settings; GAME_DESIGN 7.84."
+		},
+		"bahamut": {
+			"_rarity": "Tier C: first-pass BS7 (#379) bonuses, the Elquines lists (damage, area) with +2 targets (`count`); repeat scale 0.8. See GAME_DESIGN 8 and 7.84.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Holy Power", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "reach", "text": "Wide Wings", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "crowd", "text": "Holy Crowd", "effects": [{"stat": "count", "op": "add", "value": 2}]}],
+				"legendary": [{"id": "crowd", "text": "Holy Crowd and damage", "effects": [{"stat": "count", "op": "add", "value": 2}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2321003, "book": "232", "job": 232, "kind": "summon", "slot": "active",
+			"name": "Bahamut", "desc": "Calls Bahamut, a holy dragon that follows you and strikes a group of nearby monsters.",
+			"text": {"desc": "Calls Bahamut, a holy dragon that follows you and strikes a group of nearby monsters.", "h": "Basic attack {mad}, mastery {mastery_pct}%, lasts {time} sec, strikes up to {mob_count|monster|monsters}"},
+			"icon": "Skill.wz/232.img/skill/2321003/icon", "damage": "magic", "element": "h",
+			"cast": {"rule": "summon"}, "cooldown": 12.0,
+			"action": "alert2", "action_time": 0.8, "ball": "",
+			"effect": "", "hit": "Skill.wz/232.img/skill/2321003/hit/0", "rotate": false,
+			"summon": {"ordinal_spread": 36.0, "path": "Skill.wz/232.img/skill/2321003/summon", "attack": "attack1", "move": "fly", "follow_speed": 180.0,
+				"follow_distance": 60.0, "teleport_distance": 600.0, "attack_interval": 2.4,
+				"count_field": "mobCount"},
+			"sounds": {"use": "Sound.wz/Skill.img/2321003/Use", "hit": ""},
+			"_provenance": "Tier A: holy (WZ elemAttr h), WZ time/mad/mastery, mobCount 3 (6 at level 30) and the summon attack info (box -200,-150..0,30, attackAfter 990) and art; the book has fly and no move; its Summon Dragon prerequisite is dropped. Tier C: 12 s recast, 2.4 s attack cycle (Elquines'), follow settings; GAME_DESIGN 7.84."
+		},
+		"angel_ray": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.80.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Holy Power", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "booster", "text": "Spell Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"unique": [{"id": "twin", "text": "Twin Angel", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "twin", "text": "Twin Angel and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2321007, "book": "232", "job": 232, "kind": "projectile", "slot": "active",
+			"name": "Angel Ray", "desc": "Fires a heavy holy ray at the nearest monster.",
+			"text": {"desc": "Attacks the nearest monster with a heavy ray of holy light. Very effective against undead and devil-based monsters.", "h": "Basic attack {mad}, mastery {mastery_pct}%, {count|shot|shots} per cast"},
+			"icon": "Skill.wz/232.img/skill/2321007/icon", "damage": "magic",
+			"_tuning": "Tier C: nearest auto-cast, the Fire Arrow flight (range 480, 520 px/s) with radius 14, cooldown 1.0 s (2.5 s x0.4), one shot, shoot1 stance held 0.8 s. Tier A: mad/mastery and elemAttr h from Skill.wz, its own single-frame ball/0, action shoot1.",
+			"cooldown": 1.0, "range": 480, "speed": 520, "count": 1, "pierce": 0, "radius": 14,
+			"action": "shoot1", "action_time": 0.8,
+			"ball": "Skill.wz/232.img/skill/2321007/ball/0",
+			"hit": "Skill.wz/232.img/skill/2321007/hit/0",
+			"effect": "Skill.wz/232.img/skill/2321007/effect", "rotate": true,
+			"sounds": {"use": "Sound.wz/Skill.img/2321007/Use", "hit": ""}
+		},
+		"genesis": {
+			"_rarity": "Tier C: first-pass bonuses (Meteor Shower's shape under the lineage's names); repeat scale 0.8. See GAME_DESIGN 8 and 7.85.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Holy Power", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "area", "text": "Wider Genesis", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "echo", "text": "Echo", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "echo", "text": "Echo and damage", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2321008, "book": "232", "job": 232, "kind": "instant", "slot": "active",
+			"name": "Genesis", "desc": "A holy ray of light falls from the sky and burns up to 15 monsters. The light lands after a short delay.",
+			"text": {"desc": "A holy ray of light shines down from the sky, burning up to 15 monsters at one time. Incurs tremendous holy damage to the targets.", "h": "Basic attack {mad}, mastery {mastery_pct}%, up to {mob_count|monster|monsters}"},
+			"icon": "Skill.wz/232.img/skill/2321008/icon", "damage": "magic", "element": "h",
+			"cast": {"rule": "box", "min_targets": 1}, "cooldown": 6.0, "range": 450, "count": 1,
+			"action": "genesis", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/232.img/skill/2321008/hit/0",
+			"effect": "Skill.wz/232.img/skill/2321008/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2321008/Use", "hit": "Sound.wz/Skill.img/2321008/Hit"},
+			"_provenance": "Tier A: WZ mad, box (-400,-350)..(400,250), mobCount 15, mastery, hitAfter 1800 (the pending delay), tile/0..8 and effectDistance 150, effect and effect0 art, elemAttr h, action genesis, Use/Hit sounds. Tier C: it stays its own definition rather than extending meteor_shower (SkillTemplate is for skills identical in WZ; Genesis has its own mad, so the drift guard would fail: the keys it shares with Meteor Shower are shape, not identity); the 6.0 s cooldown (Meteor Shower's 4.8 s with the 670% vs 570% top rank), auto-cast with at least one monster in the box, the genesis stance held 0.8 s (the body's 2.7 s three held frames are not played), range/count (only the bot's reach) and effect0 at the caster; GAME_DESIGN 7.85.",
+			"pending": {"delay": 1.8, "effect": ""},
+			"cast_visuals": [
+				{"path": "Skill.wz/232.img/skill/2321008/tile/0", "x": -600},
+				{"path": "Skill.wz/232.img/skill/2321008/tile/1", "x": -450},
+				{"path": "Skill.wz/232.img/skill/2321008/tile/2", "x": -300},
+				{"path": "Skill.wz/232.img/skill/2321008/tile/3", "x": -150},
+				{"path": "Skill.wz/232.img/skill/2321008/tile/4", "x": 0},
+				{"path": "Skill.wz/232.img/skill/2321008/tile/5", "x": 150},
+				{"path": "Skill.wz/232.img/skill/2321008/tile/6", "x": 300},
+				{"path": "Skill.wz/232.img/skill/2321008/tile/7", "x": 450},
+				{"path": "Skill.wz/232.img/skill/2321008/tile/8", "x": 600},
+				{"path": "Skill.wz/232.img/skill/2321008/effect0", "x": 0}
+			]
+		},
+		"big_bang_bishop": {
+			"_provenance": "Tier A: the identity of the three Big Bangs (2121001, 2221001, 2321001) in v83 data, re-checked by the drift guard. Tier C: the template mechanism (GAME_DESIGN 7.63). Everything else is inherited from big_bang (GAME_DESIGN 7.31, 7.85); it extends the parent, never big_bang_il.",
+			"extends": "big_bang", "skill_id": 2321001, "book": "232", "job": 232
+		},
+		"teleport_cleric": {
+			"_teleport": "Tier A: Teleport (2301001) is the F/P and I/L Teleport in v83 data (range 130 to level 10, then +2 a level to 150 at level 20), re-checked by the drift guard (SkillTemplate.drift_problems). Tier C: the template mechanism (GAME_DESIGN 7.63); the survivor policy (0.3 s repeat delay, bot blinks from threats within 60 px) is inherited from teleport_fp.",
+			"extends": "teleport_fp", "skill_id": 2301001, "book": "230", "job": 230
+		},
+		"heal": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.83. Every effect names a stat Heal's rule reads: heal_power and heal_threshold (BS4), area (the undead box) and damage (the undead strike, resolved).",
+			"rarity_bonuses": {
+				"rare": [{"id": "restore", "text": "Greater Heal", "effects": [{"stat": "heal_power", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "mending", "text": "Mending Touch", "effects": [{"stat": "heal_threshold", "op": "add", "value": 0.15}]}],
+				"unique": [{"id": "smite", "text": "Holy Smite", "effects": [{"stat": "damage", "op": "mul", "value": 1.5}, {"stat": "area", "op": "mul", "value": 1.2}]}],
+				"legendary": [{"id": "smite", "text": "Holy Smite and Greater Heal", "effects": [{"stat": "damage", "op": "mul", "value": 1.5}, {"stat": "area", "op": "mul", "value": 1.2}, {"stat": "heal_power", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2301002, "book": "230", "job": 230, "kind": "instant", "slot": "active",
+			"name": "Heal", "desc": "Restores HP below half health, or strikes undead inside its holy box.",
+			"text": {"desc": "Recovers your HP when it falls below half, and damages every undead monster in the area."},
+			"icon": "Skill.wz/230.img/skill/2301002/icon", "damage": "none",
+			"cast": {"rule": "hp_or_undead"}, "heal": {"field": "hp", "hp_threshold": 0.5, "recast_delay": 2.0},
+			"_heal": "Tier A: mpCon/hp/lt/rb from v83. Tier B: undead formula; weak historical recovery coefficients. Tier C: provisional choice of the unverified single-target recovery fit (docs/research/cleric-heal.md), below-half trigger (strictly below: a hit exactly at the threshold waits), 2 s recast, every undead in the box, 0.8 s stance, the recovery only for a character below the resolved threshold. BS4 (#376): the undead strike multiplies its bounds by the resolved damage; the default 30-level table gives eight ranks.",
+			"action": "alert2", "action_time": 0.8, "ball": "",
+			"effect": "Skill.wz/230.img/skill/2301002/effect",
+			"hit": "Skill.wz/230.img/skill/2301002/hit/0", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2301002/Use", "hit": ""}
+		},
+		"resurrection": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives (spec #372 BS8): Rare Faster Prayer shortens the recharge, Epic Holy Vigor raises the revive HP share (revive_hp), Unique Holy Shield lengthens the guard (revive_guard) and Legendary is the Unique's id (one repeat counter) plus Holy Vigor; repeat scale 0.8. Normal Mastery is cooldown x0.95 (damage:none rule, #346). See GAME_DESIGN 7.81 and the Bishop BS8 constants.",
+			"rarity_bonuses": {
+				"rare": [{"id": "booster", "text": "Faster Prayer", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"epic": [{"id": "vigor", "text": "Holy Vigor", "effects": [{"stat": "revive_hp", "op": "add", "value": 0.15}]}],
+				"unique": [{"id": "shield", "text": "Holy Shield", "effects": [{"stat": "revive_guard", "op": "add", "value": 1.5}]}],
+				"legendary": [{"id": "shield", "text": "Holy Shield and Holy Vigor", "effects": [{"stat": "revive_guard", "op": "add", "value": 1.5}, {"stat": "revive_hp", "op": "add", "value": 0.15}]}]
+			},
+			"skill_id": 2321006, "book": "232", "job": 232, "kind": "instant", "slot": "active",
+			"name": "Resurrection", "desc": "When a hit would kill you, you come back instead.",
+			"text": {"desc": "When a hit would have killed you, you do not die: you come back with part of your HP, nothing can hurt you for a moment and the monsters around you are shoved away. It recharges before it works again.", "h": ""},
+			"icon": "Skill.wz/232.img/skill/2321006/icon", "damage": "none",
+			"cast": {"rule": "reaction"},
+			"ranks": [2, 3, 4, 5, 7, 8, 9, 10],
+			"cooldown_by_rank": [600, 540, 480, 420, 300, 240, 180, 120],
+			"revive": {"hp": 0.5, "guard": 2.0, "push": {"distance": 140.0}},
+			"_survivor": "Tier A: the 10 levels, the lt/rb box (-400,-350)..(400,250) at every level, the resurrection action, the effect (21 frames) and affected (15 frames, a 1320 ms lead-in first) art and the Use sound. Tier C: the whole reaction (a lethal hit that is not unrevivable does not kill while the skill is ready), the ranks mapped to levels 2, 3, 4, 5, 7, 8, 9, 10, and the recharge table in seconds, the WZ cooltime curve rescaled as cooltime / 3 - 480 (600 s at rank 1 down to 120 s at rank 8; the real-cache test asserts it); no cooldown_field. The stance is held for the body's 3 x 840 ms and is only drawn while standing: it never locks movement or casting.",
+			"_revive": "Tier A: the box is the WZ lt/rb. Tier C: back at 50% max HP, a 2.0 s guard (every hit returns 0, boss attacks included), the monsters in the box shoved 140 px away (no damage, no status, bosses and steady monsters stay); GAME_DESIGN 7.81 and the Bishop BS3 and BS8 constants.",
+			"action": "resurrection", "action_time": 2.52, "ball": "",
+			"effect": "Skill.wz/232.img/skill/2321006/effect",
+			"affected": "Skill.wz/232.img/skill/2321006/affected",
+			"hit": "", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2321006/Use", "hit": ""}
+		}
+	}
+}
