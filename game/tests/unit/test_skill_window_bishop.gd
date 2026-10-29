@@ -3,8 +3,8 @@ extends TestCase
 ## lineage (Magician 200, Cleric 230, Priest 231, Bishop 232, after the Common tab), each listing the pool skills of its book the
 ## game implements, and Teleport sits first on the 230 tab where Skill.wz keeps it (2301001, ahead of Heal 2301002 and Holy Arrow
 ## 2301005). The model tests use the synthetic books of the Bishop bot test and the canonical job names (no cache); the RunScene
-## test (SKIP without the cache) drives the real window through its hotkeys. Skills of a book whose ticket has not merged (Summon
-## Dragon, Bahamut, Resurrection) are inert, so the tests list a tab's rows from the defined pool and widen with it.
+## test (SKIP without the cache) drives the real window through its hotkeys. Skills of a book whose ticket has not merged
+## (Resurrection, BS8) are inert, so the tests list a tab's rows from the defined pool and widen with it.
 
 const BOT := preload("res://tests/unit/test_bishop_bot.gd")
 const DT := 1.0 / 60.0
@@ -63,7 +63,7 @@ func test_each_tab_lists_the_pool_skills_of_its_book_with_teleport_first_on_230(
 	var l230 := _row_keys(m.tabs[2])
 	assert_eq(l230.slice(0, 3), ["teleport_cleric", "heal", "holy_arrow"],
 		"Teleport (2301001) sorts before Heal (2301002) and Holy Arrow (2301005): it is a learned row of the 230 tab")
-	assert_eq(_row_keys(m.tabs[3]), ["shining_ray"], "the 231 tab: Shining Ray (Holy Symbol is the Common tab's EXP passive)")
+	assert_eq(_row_keys(m.tabs[3]).slice(0, 1), ["shining_ray"], "the 231 tab starts with Shining Ray 2311004 (Holy Symbol is the Common tab's EXP passive; Summon Dragon follows from BS7)")
 	for t: Dictionary in m.tabs.slice(1):
 		var want: Array = []
 		for key: String in w.jobs.skill_pool(232) + ["teleport_cleric"]:

@@ -6,8 +6,8 @@ extends TestCase
 ## cache needed.
 ##
 ## The pool is FROZEN to the seven skills that existed on the integration branch when this was captured (Holy Arrow, Magic Claw,
-## Shining Ray, Angel Ray, Heal, Genesis, Big Bang; Summon Dragon, Bahamut and Resurrection, BS7 #379 and BS8 #380, landed later), so
-## later Bishop skills do not move it. The QA ticket (BS10) widens POOL to the ten, adds the synthetic books of the three new skills
+## Shining Ray, Angel Ray, Heal, Genesis, Big Bang). Summon Dragon and Bahamut (BS7 #379) merged while this was being written and
+## Resurrection (BS8 #380) later: neither is in POOL, so they do not move it (the golden was unchanged by the BS7 merge). The QA ticket (BS10) widens POOL to the ten, adds the synthetic books of the three new skills
 ## and re-captures GOLDEN once, documenting the cause. F/P, Hero and I/L oracle constants stay untouched.
 
 const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")

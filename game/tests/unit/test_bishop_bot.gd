@@ -1,8 +1,8 @@
 extends TestCase
 ## The autoplay bot's Bishop scoring and reach (spec #372, BS9 #381; the Bishop copy of test_il_bot). The data-level checks run on
-## the shipped files; the card and reach checks loop the Bishop pool and skip a key whose skill is not defined yet (Summon Dragon,
-## Bahamut and Resurrection, BS7 #379 and BS8 #380, were in flight when this ticket landed), so they cover those automatically once
-## they merge. Worlds are the BS5/BS4/BS6 tests' synthetic books on the quiet stage, Bishop made playable in the test's own data.
+## the shipped files; the card and reach checks loop the Bishop pool and skip a key whose skill is not defined yet (Resurrection,
+## BS8 #380, was in flight when this ticket landed; Summon Dragon and Bahamut, BS7 #379, merged just before), so they cover it
+## automatically once it merges. Worlds are the BS5/BS4/BS6 tests' synthetic books on the quiet stage, Bishop made playable in the test's own data.
 ## No `card_scores` block is added by this ticket: the ten pool keys already score new 100 / rank 74 (BS2).
 
 const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")
