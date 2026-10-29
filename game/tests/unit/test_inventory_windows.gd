@@ -37,6 +37,7 @@ func after_each() -> void:
 func _setup(character: Dictionary = {}) -> Dictionary:
 	var setup := RF.setup("quiet", 7, RF.quiet_data())
 	setup.equipment_info = INFO.duplicate(true)
+	setup.data.jobs_survivor.jobs["212"]["creation_weapon"] = 1302000 # The window interactions below explicitly use a Sword.
 	if not character.is_empty():
 		setup.character = character
 	return setup
