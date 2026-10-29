@@ -276,6 +276,8 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 	assert_true(keys.size() >= 20 + IL_SKILLS.size(), "seven Hero, twelve F/P, the Dark Knight skills and %d I/L skills: %d" % [IL_SKILLS.size(), keys.size()])
 	for key in IL_SKILLS:
 		assert_true(key in keys, "%s (I/L) is audited" % key)
+	for key in HP_RISK_SKILLS:
+		assert_true(key in keys, key)
 
 
 func test_every_il_skill_with_bonuses_is_audited_here_or_named_as_audited_elsewhere() -> void:
@@ -304,8 +306,6 @@ func test_the_audits_cover_the_whole_shipped_il_pool() -> void:
 	pool.sort()
 	covered.sort()
 	assert_eq(covered, pool, "a new I/L pool skill needs a resolved-cast audit")
-	for key in HP_RISK_SKILLS:
-		assert_true(key in keys, key)
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
