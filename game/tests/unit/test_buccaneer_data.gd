@@ -11,6 +11,8 @@ const POOL := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercu
 	"dragon_strike", "energy_drain", "energy_orb", "transformation", "super_transformation"]
 ## Defined today in skills/pirate.json (ported to skills/buccaneer.json by B4); every other pool key is undefined.
 const DEFINED_IN_PIRATE := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow"]
+## Defined in skills/buccaneer.json by their own tickets so far (B6 #418: Energy Drain).
+const DEFINED_IN_BUCCANEER := ["energy_drain"]
 const KNUCKLE := 1482000
 ## Synthetic item info (reqJob bits as in the v83 Item.wz): knuckles and guns carry the Pirate bit (16), the rest
 ## belong to other lines, so the family filter alone decides which Pirate-bit weapons drop.
@@ -76,7 +78,8 @@ func test_the_buccaneer_line_loads_without_errors_and_adds_only_its_job_and_an_e
 	assert_true(keys.find("512") > keys.find("212"), "then the class lines in discovered (sorted) line order")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "buccaneer"))
 	assert_true(frag.has("_doc"), "the skill file names its owning tickets")
-	assert_true(frag.skills.is_empty(), "B4-B10 append their own definitions; B2 defines none")
+	for key: String in frag.skills:
+		assert_true(key in POOL and key in DEFINED_IN_BUCCANEER, "%s: a key this line file may define so far (B4-B10 append theirs)" % key)
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
 
@@ -152,7 +155,9 @@ func test_each_pool_key_is_defined_in_at_most_one_file() -> void:
 func test_the_ported_keys_are_defined_by_pirate_until_b4_and_nothing_else_is_defined() -> void:
 	var defined: Dictionary = _data().skills.skills
 	for key: String in POOL:
-		if key in DEFINED_IN_PIRATE:
+		if key in DEFINED_IN_BUCCANEER:
+			assert_eq(_defining_lines(key), ["buccaneer"], "%s is defined by its own ticket" % key)
+		elif key in DEFINED_IN_PIRATE:
 			assert_eq(_defining_lines(key), ["pirate"], "%s stays in pirate.json until B4 moves it" % key)
 		else:
 			assert_false(defined.has(key), "%s is undefined: an inert key" % key)

@@ -1251,6 +1251,7 @@ func _play_meter_cue(effect: String, sound: String) -> void:
 	if effect != "":
 		fx.play(effect, Vector2.ZERO, world.player.facing > 0, avatar)
 	_sound(sound)
+	_first_event_shot("meter_cue", "meter_cue.png", 0.45) # tier C: playtest evidence of the first full-bar cue, mid-bloom.
 
 
 ## An ordinary mob's attack phase (#76): its Sound.wz attack sound at the windup, the canonical effect/hit art, and
