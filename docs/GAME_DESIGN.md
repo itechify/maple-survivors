@@ -4183,6 +4183,16 @@ oracles are in the full suite and reproduce their hashes with no recapture. A di
 expected; `playable` and a learned Transformation set locally, reverted) showed the morph walking and casting Corkscrew Blow in its own pose, and the Shockwave
 spikes rolling out along the ground (`cast_shockwave.png`, `cast_corkscrew_blow.png`; `missing: []`, no warnings). Flow and visual evidence only.
 
+### Buccaneer B10 smoke (#422, 2026)
+
+Super Transformation, Demolition and Snatch (data on the Form seam, Hero's `pull` block and the stun; a morph blank-frame hold in the renderer and a bounds guard in
+`FootholdMap.slide_along`; job 512 still not playable, no balance data touched). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache `cache-413`: F/P (212) died at
+10:51 / 5:05 / 7:34 (Lv 36 / 11 / 21) and Hero (112) at 5:27 / 5:36 / 11:28, byte-for-byte the B2 and B9 rows above (no clears, no warnings). Oracles `character_baseline`,
+`tick_cost_identity` and `hero_baseline` are in the full suite and reproduce with no recapture. A diagnostic `--job=512` playtest (Henesys seed 3, speed 1, `playable` true and Super
+Transformation learned locally, reverted) cast Super Transformation, Snatch, Shockwave and Demolition (`cast_*.png`: the morph in its own pose, the earth spikes, the stacked eight-line
+Demolition numbers); the throttled window ran at 1 frame per second, so the run was stopped by hand after 14 s of play and wrote no `summary.json` (`missing` unchecked there, no `missing` or
+warning line in `game.log`). Flow and visual evidence only.
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
@@ -6580,7 +6590,7 @@ counted from the cast, admitted when a living mob is within 400 px, `alert2` hel
 `pdd`, `mdd`, `speed` and `jump` and the morph id (1000); no `damage` effect (BU-8: the power is the stat package and Shockwave). Rank 1 / 4 / 8 read
 levels 3 / 10 / 20: defence +6 / +20 / +40, speed +40 (the 140 cap), jump +20 (120 under the 123 cap). Rarity: Rare Transformation Mastery (`damage`
 x1.2, which multiplies the subs), Epic Booster (cooldown x0.88), Unique Lasting Transformation (`form_time` x1.25), Legendary Lasting plus damage x1.2.
-`shockwave` (5111006, slot `form_sub`, `form_sub_of ["transformation"]`; B10 adds Super Transformation to that list): fires 1.0 s into the window
+`shockwave` (5111006, slot `form_sub`, `form_sub_of ["transformation", "super_transformation"]` since B10): fires 1.0 s into the window
 and every 3.0 s while a living mob stands in the 330 x 160 px strip in front (`lt (-330,-140)` `rb (0,20)`, `min_targets 1`); no card and no rarity
 list; it ranks with its parent through the level-30 table (rank 1 / 4 / 8 = levels 4 / 15 / 30: 310 / 475 / 700%, 4 / 5 / 6 mobs; rank 8 reads level 30),
 takes the parent's `damage` and `area` modifiers, and neither earns nor receives energy (BU-6; `PlayerMeter.begin_cast` only touches pool skills). It
@@ -6597,6 +6607,37 @@ strike frames are the figure's idle). A mob that leaves the strip in the 1.38 s 
 Evidence: `test_buccaneer_transformation.gd` (22 tests: catalog, eight ranks, lifecycle, stat package and caps, timings, box sides and fixed side,
 no catch-up burst, parent modifier, energy untouched, the five ripples, text, rarity table, and one real-cache test), the rarity audit
 (`test_rarity_bonus_effects`: all five bonus effects of Transformation, with a new `form_time` probe) and a diagnostic `--job=512` playtest.
+
+**Super Transformation, Demolition and Snatch (B10 #422, spec #412 BU-2, BU-3, BU-7, BU-8, BU-11, BU-12).** The strong morph form and its two own subs
+(`skills/buccaneer.json`, book 512), data on the same seams. `super_transformation` (5121003, pool, same exclusive group as Transformation): window 15 s,
+cooldown 24 s counted from the cast, admitted with a living mob within 400 px, `alert2` held 0.6 s, morph 1001, `pdd` = `mdd` 43 / 50 / 60 at rank 1 / 4 / 8
+(levels 3 / 10 / 20; the String text says "att." but the node holds `pdd`/`mdd`, the node wins), speed +40, jump +20, no attack bonus. Its `subs`: Snatch 0.5 s /
+every 6.0 s, Shockwave 1.0 s / 3.0 s, Demolition 2.0 s / 5.0 s; rarity Rare Mastery (`damage` x1.2 on the subs), Epic Booster (cooldown x0.88), Unique **Time
+Leap** (`form_time` x1.25), Legendary Time Leap plus `damage` x1.2. With both forms owned they alternate: Transformation 0 to 10 s, Super from the next tick to
+25 s, Transformation 25 to 35 s, Super 35 to 50 s ... with no gap and no overlap (the cooldowns, 14 s and 24 s, are always over when the other window ends).
+`shockwave` now lists `["transformation", "super_transformation"]` as parents and resolves identically under either (same level table, same box, same line).
+- **Demolition (5121004, `form_sub`).** `box lt (-300,-150) rb (-20,15)`: a 280 x 165 px strip in front whose first 20 px are a dead zone; one monster (`mobCount`
+  1, the nearest) takes `attackCount` 8 lines of 120 / 240 / 400% (rank 1 / 4 / 8, levels 4 / 15 / 30) at the cast, and every landed line stuns it for `time` 1 s
+  (`on_hit stun`, `duration_field time`, no chance field and no roll; bosses resist). Hold `demolition` 1.0 s (the stance is 3.12 s). The 23-frame `hit/0`
+  (the spec said 24) is one detonation: it plays once, on the first line (`hit_lines`), the other seven lines show no art; the `effect` node is a 1 x 1 stub and
+  is not drawn. Interval 5 s.
+- **Snatch (5121005, `form_sub`).** `box lt (-300,-100) rb (-50,15)` (a 50 px dead zone), `mobCount` 2 / 4 / 6, damage 240 / 400 / 600% (ranks 1 / 4 / 8), the stun of
+  Demolition; the pull is Hero's `pull` block (7.35) with `range` 300 (the node has none: the box's far edge), `min_gap` 60 and **no chance field**: it always applies
+  and draws nothing from the RNG; it runs before the damage, so a mob dragged to 60 px lands past the dead zone and is struck. Bosses, scheduled mobs and airborne
+  mobs are never pulled; mobs nearer than 120 px are not pulled either (the shared floor) but are struck when they are inside the strip. `mob_pulled` events as for
+  Monster Magnet. `effect` (10 frames, 270 ms blank first) at the caster, `hit/0` (3 frames) per target. Interval 6 s.
+- **The pull and the damage choose their own sets (BU-12, accepted).** The pull takes the farthest grounded non-boss mobs within 300 px on **either side** (up to
+  `mobCount`); the damage takes the nearest inside the **forward** strip. Measured on 120 seeded crowds of 3 to 10 mobs at rank 4 (4 mobs), `test_buccaneer_super_transformation`:
+  the two sets differ in **110 of 120** crowds spread on both sides (187 mobs were dragged in from behind, where the strip never strikes) and in **48 of 120** when
+  every mob stands in front (the dragged mobs land nearest, so the sets agree whenever four or more were pulled; they differ when a nearer mob inside the 120 px floor is
+  struck without being pulled).
+- **The figure no longer vanishes in Demolition (tier C).** Morph 1001's `demolition` frame 3 is a 1 x 1 empty canvas held for 1.62 s (the whole action is 3.12 s). A morph
+  frame whose canvas is 1 x 1 now holds the last drawn frame of the action (`AvatarRenderer._compose_morph`, every morph, timing unchanged; a blank first frame draws
+  nothing). The alternative, falling back to the avatar's stance, was rejected: it would pop the weapon and the whole body in for 1.62 s. With the 1.0 s stance hold the player sees
+  the three wind-up frames and then the held pose.
+- **Text.** Super reads "Transforms you for 15 s: defence +43, speed +40, jump +20." then the three sub lines; Snatch's line carries its "Pulls up to N monsters from
+  300 px" mechanics inline (a sub's line is one line). Evidence: `test_buccaneer_super_transformation.gd` (28 tests), the rarity audit (Super's five bonus effects), `test_morph_render`
+  (blank-frame hold, real 1001), and a diagnostic `--job=512` playtest (`cast_super_transformation`, `cast_snatch`, `cast_shockwave`, `cast_demolition`).
 
 ### 7.93 Buccaneer: Barrage and Dragon Strike (spec #412 BU-17, BU-18, BU-21, B8 #420)
 
@@ -8034,6 +8075,24 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 | Shockwave numbers (#421) | damage 310 to 700%, `mobCount` 4 to 6 at the mapped levels of the level-30 table, box `lt (-330,-140)` `rb (0,20)`, effect art `effect`, `effect0` to `effect3` (5 x 8 frames), `hit/0` 5 frames, Use and Hit sounds | A (Skill.wz 5111006, Sound.wz) |
 | Shockwave strike timing (#421, orchestrator ruling) | `pending.delay` 1.38 s = the first eruption of the art's blank lead-in; one wave, one impact; `pending.oriented` fixes the strip's side at the cast | C (delay chosen to meet the art), A (the 1380 ms blank) |
 | Shockwave art placement (#421) | five `cast_visuals` at x 0 with `facing` (flipped for a right-facing caster), played at the cast position; each ripple's own origin spreads the wave 89 to 319 px | C (placement), A (origins, delays) |
+
+### Buccaneer B10 constants (#422)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Super Transformation window and cooldown (#422, spec #412 BU-7) | `form.duration` 15 s, `cooldown` 24 s from the cast (the WZ `time` 120 s and `cooltime` 240 to 410 s are session-scale and unused); exclusive group `buccaneer_transformation` | C |
+| Super admission and stance (#422) | `cast {rule form, mob_within 400}`; `alert2` held 0.6 s; no cast art; Use sound path `5121003/Use` (a UOL to Transformation's) | C |
+| Super stat package (#422, BU-8) | morph 1001, `pdd` = `mdd` 43 / 50 / 60 at rank 1 / 4 / 8, `speed` 40, `jump` 20, no attack bonus (String text says att., the node holds pdd/mdd) | A (Skill.wz 5121003) / C (which stats the buff feeds) |
+| Super sub schedule (#422, BU-7) | Snatch `first_after` 0.5 s / interval 6.0 s; Shockwave 1.0 / 3.0; Demolition 2.0 / 5.0 | C |
+| Super rarity bonuses (#422) | Mastery `damage` x1.2 (on the subs), Booster cooldown x0.88, Time Leap `form_time` x1.25, Legendary Time Leap plus `damage` x1.2; repeat scale 0.8 | C |
+| Demolition numbers (#422) | damage 90 to 400%, `attackCount` 8, `mobCount` 1, `time` 1 (stun), box `lt (-300,-150)` `rb (-20,15)`, `demolition` action, 23-frame `hit/0`, Use and Hit sounds | A (Skill.wz 5121004, Sound.wz) |
+| Demolition schedule, stance and art (#422) | interval 5.0 s (above), `demolition` held 1.0 s of 3.12 s, `hit/0` shown once on line 1 (`hit_lines`), `effect` stub not drawn, no pending delay | C |
+| Stun on Demolition and Snatch (#422, BU-11) | `on_hit stun`, `duration_field time` (1 s), no chance field, no RNG draw, bosses resist | C (reading), A (no `prop` in the node) |
+| Snatch numbers (#422) | damage 210 to 600%, `mobCount` 2 to 6, `time` 1, box `lt (-300,-100)` `rb (-50,15)`, `snatch` action, 10-frame `effect`, 3-frame `hit/0`, Use and Hit sounds | A (Skill.wz 5121005, Sound.wz) |
+| Snatch pull (#422, BU-12) | `pull {range_field range, min_gap 60}`, no chance field (always), `range` 300 = the box's far edge (the node has no range); before the damage; the pull and the damage choose their own sets | C (A for the 300 px edge) |
+| Snatch schedule and stance (#422) | interval 6.0 s (above), `snatch` held 0.8 s of 0.99 s | C |
+| Morph blank-frame hold (#422) | a 1 x 1 morph frame holds the last drawn frame of its action (Demolition frame 3, 1.62 s); a blank first frame draws nothing; timing unchanged | C |
+| `FootholdMap.slide_along` guard (#422) | a foothold index the map lacks returns the start unchanged (no sim effect on a valid map; the rarity audit swaps the map under live mobs) | C |
 
 ## 12. Later phases
 
