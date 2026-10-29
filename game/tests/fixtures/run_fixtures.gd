@@ -184,6 +184,15 @@ static func skill_imgs() -> Dictionary:
 	# #339: Strafe's v83 endpoints (Skill.wz/311.img 3111006: damage 71..100, bulletCount 4, weapon 45 = bow), linear between.
 	imgs["311"] = {"skill": {"3111006": {"weapon": 45, "level": _levels(30, {"mpCon": [26.0, 32.0],
 		"damage": [71.0, 100.0], "bulletCount": [4.0, 4.0]})}}}
+	# #341: Inferno's v83 endpoints (Skill.wz/311.img 3111003: damage 50..150, burn share x 21..50, time 5 s until level 29 and
+	# 10 s at 30, box +-130..150 x +-100, mobCount 6, weapon 45 = bow, elemAttr f), linear between; no art.
+	var inferno_levels := _levels(30, {"mpCon": [20.0, 30.0], "damage": [50.0, 150.0], "x": [21.0, 50.0], "mobCount": [6.0, 6.0]})
+	for level: String in inferno_levels:
+		var inferno_extent := lerpf(130.0, 150.0, float(int(level) - 1) / 29.0)
+		inferno_levels[level].time = 10.0 if int(level) == 30 else 5.0
+		inferno_levels[level].lt = {"$v": [-inferno_extent, -100.0]}
+		inferno_levels[level].rb = {"$v": [inferno_extent, 100.0]}
+	imgs["311"].skill["3111003"] = {"weapon": 45, "elemAttr": "f", "level": inferno_levels}
 	# #203: Iron Arrow's independently recorded v83 endpoints, synthetic intermediate rows and art.
 	imgs["320"] = {"skill": {"3201005": {"weapon": 46, "ball": _anim(3, 90.0, 61, 24),
 		"level": _levels(30, {"mpCon": [23.0, 28.0], "damage": [122.0, 180.0], "mobCount": [6.0, 6.0]})}}}
