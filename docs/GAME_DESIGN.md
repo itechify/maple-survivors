@@ -726,6 +726,28 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+### Dark Knight review merge regression (#348, 2026-10-29)
+
+Review fixes plus redesign (Bishop #441, Paladin #442), private `cache-rd348b`, seeds 1/2/2026,
+`JOBS=3`, F/P default job 212, bot/random on every tier-1 stage, Sleepywood bot with starter and
+`fp_arch_mage.json` kit. No balance changes or held-out seeds. All 30 runs completed without crashes,
+world warnings or TIMEOUT. Outcomes and death ranges reproduce the F/P controls in D11 above.
+Henesys bot still fills six active slots in all three runs; tier-1 runs reach the first boss.
+Logs and records: `_scratch/348-review/`; screenshots: `evidence/348-review-support/` (pulse and owner art inspected).
+
+| Stage / policy | Clears | Death seconds (range) |
+|---|---|---|
+| sleepywood_bot / kit | 1/3 | 23.8–826.2 |
+| sleepywood_bot / starter | 0/3 | 10.6–12.0 |
+| ellinia_bot | 0/3 | 629.1–644.2 |
+| ellinia_random | 0/3 | 328.4–660.2 |
+| henesys_bot | 0/3 | 305.0–651.7 |
+| henesys_random | 0/3 | 308.3–309.9 |
+| kerning_bot | 0/3 | 307.9–315.0 |
+| kerning_random | 0/3 | 306.0–317.3 |
+| perion_bot | 0/3 | 305.7–456.3 |
+| perion_random | 0/3 | 308.7–421.5 |
+
 ### Dark Knight QA (#359, D11; 2026-10-29, no tuning)
 
 Training seeds 1/2/2026, `cache-rd348`, `ISOLATE=359`, `JOBS=3`: all four tier-1 regions with bot/random,

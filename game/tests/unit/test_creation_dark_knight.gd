@@ -111,9 +111,9 @@ func test_up_and_down_step_through_the_dark_knight_row() -> void:
 		creation._input(_key(KEY_UP))
 	assert_eq(creation.job_id, 132, "Up from the Arch Mage reaches the Dark Knight")
 	creation._input(_key(KEY_UP))
-	assert_eq(creation.job_id, 112, "Up from the Dark Knight is Hero")
+	assert_eq(creation.job_id, ids[ids.find(132) - 1], "Up from Dark Knight reaches the preceding playable row")
 	creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 132, "Down from Hero is the Dark Knight")
+	assert_eq(creation.job_id, 132, "Down from the preceding row reaches Dark Knight")
 	creation._input(_key(KEY_DOWN))
 	assert_eq(creation.job_id, ids[ids.find(132) + 1], "Down from the Dark Knight is the next row")
 
