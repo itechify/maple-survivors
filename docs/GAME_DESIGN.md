@@ -4694,6 +4694,20 @@ to that base for F/P (212) and Hero (112); D1 adds no data the smoke reads. No t
 Diagnostic (never committed): `--job=132 --stage=henesys --speed=8 --minutes=3` with a temporary `playable: true`, reverted.
 The knight spawns with 600 HP, `missing: []`, no crash; no skills are defined yet, so 0 kills and 0 damage. Flow evidence only.
 
+### Spec #348 / #358 Dark Knight selection regression smoke (D10, 2026-10-29)
+
+D10 flips job 132 to `playable: true` and adds tooling; no balance data changed. Training seeds 1/2/2026, Henesys, bot,
+`balance.sh` (JOBS=3) on the final D10 tree: F/P (212) and Hero (112) are identical, row for row, to the D2 smoke above
+(212: 10:51 / 5:05 / 7:34, Lv 36 / 11 / 21; 112: 5:27 / 5:36 / 11:28, Lv 11 / 11 / 36). `test_character_baseline`,
+`test_tick_cost_identity` and Hero's baseline pass with their goldens untouched. No tuning, no held-out seeds.
+
+Diagnostics for the Dark Knight (flow and visual evidence, never survival evidence; screenshots looked at, `missing: []`):
+`playtest.sh --job=132 --stage=henesys --speed=4 --minutes=6` (Spear, Spear Crusher, Power Strike, Dragon Fury, Monster Magnet,
+Rush and the Beholder cast; Lv 12, 318 kills, alive at 6:00) and `--stage=sleepywood --character=dark_knight_t2.json` (DEAD at
+14 s, Lv 5, as Hero's fixture does there). `flow_driver redesign --job=132 --seed=1` PASSED end to end (title -> create -> Free
+Market -> locked tier 2 -> an invulnerable Henesys round with the real windows, six actives full at 3:04, Mastery and boss draws,
+three map transfers, results, tier 2, worn item, Sleepywood, death, delete, history); `creation --jobs=132,212` PASSED.
+
 ## 7. Skills (auto-cast and manual)
 
 **Which of this section is live.** The F/P slice plays the skills of 7.31 and 7.32 and the common passives of 8.5, through
