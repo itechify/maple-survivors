@@ -6206,6 +6206,38 @@ from `upgrades/bowman.json`; a playable Bowmaster's new / rank cards come from `
   `test_rarity_bonus_effects.gd` (every bonus), and the old weapon-gate / 20-rank / standalone-card cases rewritten in
   `test_bowman`, `test_hunter` and `test_bowmaster_data` (see the B7 notes).
 
+### 7.46 Inferno (#341, spec #332 B9)
+
+Inferno (3111003, book 311) is the first skill on the burn status (7.43) and joins `skills/bowmaster.json` beside the four
+core arrows. `slot: "active"`, the default eight ranks (WZ levels 4/8/12/15/19/23/27/30), no `weapon_families`, `element: "f"`
+(WZ `elemAttr f`, so a fire-weak monster takes the 1.5 element multiplier on the blast, a fire-immune one nothing), physical.
+
+- **The shot.** `cast: {"rule": "nearest"}`, cooldown 3.0 s, range 350 px, 600 px/s, radius 8, no pierce, 0.6 s held
+  weapon stance. It flies as its **own** three-frame `ball` (a fire arrow), not the ammo's sprite, and explodes on the
+  first monster it meets (`impact_blast {damage_field damage, visual hit}`): box +-130 to +-150 x +-100 and `mobCount` 6 (all
+  tier A), `damage` 65% (rank 1) / 112% (rank 4) / 150% (rank 8). Hit art `hit/0` (five frames) at each struck monster; `Use` and
+  `Hit` sounds.
+- **The fire.** `on_hit {status burn, duration_field time, pulse_field x, cue <tile/2>}`: every struck monster burns, always
+  (the WZ level has no `prop`; no RNG is drawn), for `time` 5 s (ranks 1-7) or 10 s (rank 8) at `x` 24% (rank 1) / 35% (rank 4)
+  / 50% (rank 8) of the cast's base damage per second (`burn_pulse`, 7.43). Bosses and fire-immune, -strong and -neutral
+  monsters do not burn; a burning monster hit again by the next Inferno refreshes its timer and pulse without resetting the
+  running pulse clock.
+- **Burning art.** The burning monster wears **`tile/2`** (six frames of tall flame, 95 ms each), `on_hit.cue`. I compared
+  it by eye with the orange tint alone and with `tile/0` (`burn_driver.tscn` on Henesys Blue Snails, and a `--job=312`
+  playtest where a burning snail shows the flame and its pulse number): the tint alone is subtle on green monsters, `tile/0` is a
+  small flame above the head, `tile/2` a tall flame over the whole body. All three read; `tile/2` is the most visible, so it
+  stays the spec's pick (art choice, tier C). `special/0` (a three-frame burst with a falling-number table) is **not** drawn at
+  the impact point: no seam draws a skill's `special` at a blast, and `hit/0` already marks each struck monster.
+- **Rarity bonuses** (tier C, names from the lineage's passives; every one changes the resolved cast, `test_rarity_bonus_effects`).
+  Rare `bow_mastery` damage x1.2; Epic `hellfire` ("Hellfire") `burn_damage` x1.5 (the pulse, not the arrow: the card preview
+  reads "Burn: 100% -> 150%"); Unique `spreading_fire` ("Spreading Fire") `blast_targets` +2 (eight monsters burn); Legendary the
+  Unique's effect and id plus damage x1.2. The Skill window and level-up text state "Burns for T s, N% of base damage per
+  second" from the resolved cast.
+- Tests: `test_bowmaster_inferno.gd` (the definition, the burn by rank, every blast target burning with its pulse and time,
+  boss / fire-immune / fire-strong monsters, the element multiplier, `burn_damage`, the four bonuses, the text and cue, the
+  real-cache eight-rank check against `Skill.wz`), and `test_rarity_bonus_effects.gd` (Inferno is in `BOWMASTER_KEYS`; the
+  probe gained a `burn_damage` stat that reads the fire a single cast leaves behind).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7544,4 +7576,16 @@ Warrior bot equipment weights now explicitly name ancestor 100 with the same val
 | Rare `bow_mastery` (all four) | damage x1.2 | tier C |
 | Epic | Arrow Blow / Strafe cooldown x0.88; Double Shot range x1.25; Arrow Bomb area x1.2 | tier C |
 | Unique | Arrow Blow / Double Shot count +1; Strafe count +2; Arrow Bomb `blast_targets` +2 | tier C |
+| Legendary | the Unique's effect and id plus damage x1.2 | tier C |
+
+### Bowmaster B9 constants (#341)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Inferno shot | cooldown 3.0 s, range 350 px, 600 px/s, radius 8, no pierce, 0.6 s hold, nearest target, its own `ball` (no ammo sprite) | tier C |
+| Inferno blast | `mobCount` 6, box +-130..150 x +-100, damage 65-150% (levels 4/15/30), element `f` | tier A |
+| Inferno burn | `x` 24-50% of base damage per second for `time` 5 s (10 s at rank 8), always applied (no `prop`), cue `tile/2` | A fields, tier C reading (7.43); the cue is an art choice, tier C |
+| Rare `bow_mastery` | damage x1.2 | tier C |
+| Epic `hellfire` | `burn_damage` x1.5 | tier C |
+| Unique `spreading_fire` | `blast_targets` +2 | tier C |
 | Legendary | the Unique's effect and id plus damage x1.2 | tier C |
