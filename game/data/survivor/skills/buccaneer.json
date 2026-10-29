@@ -129,6 +129,107 @@
 					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}, {"stat": "damage", "op": "mul", "value": 1.2}]}
 				]
 			}
+		},
+		"energy_drain": {
+			"skill_id": 5111004,
+			"book": "511",
+			"job": 511,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Energy Drain",
+			"desc": "Spends all your energy to strike one monster in front of you and absorb part of the damage as HP.",
+			"text": {
+				"desc": "Needs a full Energy Charge. Spends all your energy on one monster in front of you; the more energy, the harder the blow. You absorb part of the damage as HP, capped at half your MaxHP and the monster's MaxHP.",
+				"h": "Damage {damage}%, absorb {x}% of damage as HP."
+			},
+			"icon": "Skill.wz/511.img/skill/5111004/icon",
+			"damage": "physical",
+			"_provenance": "Tier A: Skill.wz 5111004 damage 275 to 360 % and x (the heal percent, 12 to 20 %) at the eight mapped levels, the canonical box lt (-200,-100) rb (0,0), mobCount 1, the edrain action, req Energy Charge, the effect (15 frames) and hit/0 (15 frames) art, the Use and Hit sounds. Tier C (spec #412 BU-4, BU-5, BU-15, B6 #418): a finisher on the Energy Charge meter (min 10, spends all, +12 % damage per energy spent), the cast rule box on one target, a 2.0 s cooldown (the 1.0 s meter floor would hide a Booster), the 0.6 s stance hold, and damage_heal reuses Drain's (7.25) listener with the cap of half MaxHP and the target's MaxHP. Rarity names are the lineage's (Energy Mastery is ours). GAME_DESIGN 7.91.",
+			"cast": {
+				"rule": "box"
+			},
+			"cooldown": 2.0,
+			"meter": {
+				"role": "finisher",
+				"min": 10,
+				"spend": "all",
+				"damage_per_unit": 0.12,
+				"unit": "energy"
+			},
+			"damage_heal": {
+				"percent_field": "x",
+				"max_hp_fraction": 0.5,
+				"target_max_hp": true
+			},
+			"action": "edrain",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/511.img/skill/5111004/hit/0",
+			"effect": "Skill.wz/511.img/skill/5111004/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5111004/Use",
+				"hit": "Sound.wz/Skill.img/5111004/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Energy Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "energy_charge",
+						"text": "Energy Charge",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "energy_charge",
+						"text": "Energy Charge",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
 		}
 	}
 }

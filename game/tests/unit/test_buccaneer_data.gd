@@ -10,7 +10,8 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const POOL := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow", "barrage",
 	"dragon_strike", "energy_drain", "energy_orb", "transformation", "super_transformation"]
 ## Defined in skills/buccaneer.json since B4 #416 (moved from pirate.json); every other pool key is undefined until its ticket.
-const DEFINED_IN_BUCCANEER := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow"]
+const DEFINED_IN_BUCCANEER := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow",
+	"energy_drain"] # B6 #418 appended energy_drain
 const KNUCKLE := 1482000
 ## Synthetic item info (reqJob bits as in the v83 Item.wz): knuckles and guns carry the Pirate bit (16), the rest
 ## belong to other lines, so the family filter alone decides which Pirate-bit weapons drop.

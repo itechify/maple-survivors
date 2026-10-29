@@ -450,6 +450,11 @@ _Avoid_: mana, buff, form
 One unit of Hero's Combo meter. A landed non-finisher pool cast earns one; each held orb adds damage.
 _Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)
 
+**Energy Charge**:
+Buccaneer's meter (id `energy`, ten units). A landed non-finisher pool cast earns one energy; each held energy adds 3% damage to
+every pool skill. Energy Drain spends all of it. A full bar plays a one-shot cue (the `affected` ring and sound).
+_Avoid_: the v83 Energy Charge stat window and Body Attack (not implemented); mana
+
 **Finisher**:
 A pool active whose meter block gates admission and spends units for extra damage. Panic and Coma are Hero's
 finishers; their meter_keep rarity modifier leaves units unspent.

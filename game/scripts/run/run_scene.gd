@@ -166,6 +166,8 @@ var fx_back: FxRenderer
 var numbers: DamageNumbers
 var tags: NameTags
 var hud: Hud
+## The full-bar cue of the job's meter (Energy Charge); a job without a `cue` never fires it.
+var meter_cue: MeterCue
 var notice_layer: CanvasLayer
 var notice_fx: FxRenderer
 var windows_layer: CanvasLayer
@@ -717,6 +719,7 @@ func _build_overlays() -> void:
 	hud.library = library
 	add_child(hud)
 	hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
+	meter_cue = MeterCue.new(world.meter.config.get("cue", {}), _play_meter_cue)
 	# Below notices/windows so pause and inventory remain usable over a partly faded world.
 	var fade_layer := CanvasLayer.new()
 	fade_layer.name = "MapTransfer"
@@ -891,8 +894,8 @@ func _warm_ui() -> void:
 			LevelUpWindow.KEY_DIGITS + "1", PauseMenu.BOX + "t",
 			EquipWindow.ART + "backgrnd", EquipWindow.ART + "pet", ItemWindow.ART + "backgrnd", DropConfirm.ART, ItemTooltip.TT + "Can/reqLEV"]:
 		UiArt.frame(path)
-	for path: String in [FX_LEVEL_UP, FX_CLEAR]:
-		if library != null:
+	for path: String in [FX_LEVEL_UP, FX_CLEAR, String(world.meter.config.get("cue", {}).get("effect", ""))]:
+		if library != null and path != "":
 			library.find_anim(path)
 	MapleText.width("Lv.", MapleText.SMALL, true)
 	MapleText.width("Lv.", MapleText.SIZE, false)
@@ -1066,6 +1069,7 @@ func handle_events(events: Array) -> void:
 				_refresh_form_tint()
 			"meter_changed":
 				hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
+				meter_cue.on_event(e)
 			"map_cleared":
 				_on_map_cleared(int(e.map_index))
 			"boss_warning":
@@ -1240,6 +1244,14 @@ func _on_player_banished(e: Dictionary) -> void:
 		# tier C: affected pos0 is anchored at the character's feet (the avatar origin), like heal mob0 pos0.
 		fx.play(String(e.effect), Vector2.ZERO, false, avatar)
 	_first_event_shot("banish", "banish.png", 0.36) # tier C: the first Banish, at its fourth 120 ms affected frame.
+
+
+## The meter's full-bar cue (MeterCue): its art over the character, flipped with the facing, and its sound.
+func _play_meter_cue(effect: String, sound: String) -> void:
+	if effect != "":
+		fx.play(effect, Vector2.ZERO, world.player.facing > 0, avatar)
+	_sound(sound)
+	_first_event_shot("meter_cue", "meter_cue.png", 0.45) # tier C: playtest evidence of the first full-bar cue, mid-bloom.
 
 
 ## An ordinary mob's attack phase (#76): its Sound.wz attack sound at the windup, the canonical effect/hit art, and
