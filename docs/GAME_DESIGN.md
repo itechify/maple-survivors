@@ -5327,9 +5327,10 @@ It auto-casts when HP is below 30% of Max HP (`buff.hp_threshold` 0.3, tier C), 
 tier C). Cards (`upgrades/pirate.json`, `requires.jobs: [510]`, so only Brawlers are offered them): `oak_barrel_new`
 (weight 3) and `oak_barrel_rank` (max rank 10, weight 2), neither a power card (tier C, untuned).
 
-**The morph.** While `player_state.morph` is set, `AvatarRenderer` draws `Morph.wz/<id>.img` instead of the avatar: the
-`stand` action for standing and for any attack or cast stance, `walk`, `jump`, `prone`, `ladder`, `rope`, `sit` and `fly` for
-their stances, one canvas on the feet, mirrored for facing. Morph 1002 is the v83 oak barrel. A morph missing from the cache
+**The morph.** While `player_state.morph` is set, `AvatarRenderer` draws `Morph.wz/<id>.img` instead of the avatar: an action
+named like the stance when the img has a node of that name (7.92), else the `stand` action for standing and for any attack
+or cast stance, `walk`, `jump`, `prone`, `ladder`, `rope`, `sit` and `fly` for their stances, one canvas on the feet,
+mirrored for facing. Morph 1002 is the v83 oak barrel. A morph missing from the cache
 keeps the avatar and lists the path in `missing`. The morph's `info` speed and jump (100) are not applied (the character
 keeps its own movement). Tests: `tests/unit/test_hidden.gd` (the generic state with a synthetic buff),
 `test_oak_barrel.gd` (the shipped definition: conditions, stream-16 failure, duration, early end, cards),
@@ -6135,7 +6136,8 @@ Durations and trigger times are survivor data, never rewritten WZ values. `form_
 start; `form_power` adds to the canonical field percent multiplier (120% plus 0.1 becomes 1.3). A running window
 snapshots rank and effects. `element` affects only empty-element damaging casts; existing elements stay.
 `damage` scales min/max and status damage for every damaging cast, including manual mobility and sub-skills.
-The effects registry is the only dispatch boundary; future hidden/morph/hull keys belong to later specs.
+The effects registry is the only dispatch boundary; future hidden/hull keys belong to later specs (a morph needs no key:
+it rides the form's `buff` block, 7.92).
 
 Sub definitions use `slot: form_sub`, `form_sub_of: [parent keys]` (a single string is also accepted), ordinary
 cast rules and their own rank tables. They are never learned into Loadout.order or offered as cards. At each due
@@ -6397,6 +6399,44 @@ repeats shrink x0.8; Rare is `amplify` "Element Amplification", damage x1.2, for
 `test_rarity_bonus_effects` (with the other I/L skills; the card, counter and Mastery rules are in `test_il_ice_demon_rarity`) casts each effect with and without it in the same seeded world and asserts damage dealt, mobs
 affected (count, pierce) or a monster just beyond the base box (area). A projectile's extra shot goes to the second
 nearest monster, so a monster on the same line behind the first is shielded: Twin Bolt's extra target stands elsewhere.
+
+### 7.92 Buccaneer: morph forms (spec #412, B3 #415)
+
+Transformation and Super Transformation are Forms that wear a `Morph.wz` figure. Spec #308's table said a later job adds a
+`morph` effect key; the seam already carries it (BU-9): a form is a skill, a skill with a `buff` block resolves `morph` from
+`buff.morph_field`, and `PlayerForms.start` starts that buff. So the whole capability is data and presentation, and
+`player_forms.gd`, `test_player_forms.gd` and the `SkillRunner` form call sites are unchanged:
+
+```json
+{"kind":"form", "slot":"active", "damage":"none", "cast":{"rule":"form", "mob_within":400},
+ "buff":{"morph_field":"morph", "stat":"pdd", "field":"pdd", "duration_field":"time",
+         "effects":[{"stat":"mdd","field":"mdd"}, {"stat":"speed","field":"speed"}, {"stat":"jump","field":"jump"}]},
+ "form":{"duration":120, "exclusive_group":"transformation", "effects":{}, "subs":[...]}}
+```
+
+While the form lives: the morph id is `RunWorld.morph_id()` and `player_state.morph`, cleared at `form_ended` for every
+reason (expired, replaced, died), kept across a map transfer, shown in the buff row; the caster is not Hidden, still casts and
+still takes hits; `pdd`/`mdd` feed `hit_defense`, `speed` and `jump` feed the movement stats under their v83 caps (140 and
+123) and return when it ends; with two morph buffs the first started is drawn; the form's `damage` effect still multiplies its
+sub-skills. All of it is pinned by `test_morph_form.gd` on a made-up job 999 form.
+
+**Morph stances.** Both Buccaneer morphs carry the Brawler's skill actions by name (`straight`, `somersault`, `backspin`,
+`doubleupper`, `screw`, `fist`, `dragonstrike`, `edrain`, `eorb`, `shockwave`, and `demolition` and `snatch` in 1001 only,
+plus `eburster`, `alert`, `stabO1`, `proneStab`, ...). While morphed, a stance whose name is a node of the morph img draws
+that node with its own delays and feet origin; any other stance keeps the old mapping (7.18), so the Oak Barrel still
+stands through attacks. A skill's action hold (`action_time`) cuts the morph exactly as it cuts the avatar: the morph's
+timings equal the avatar's stance for 12 of 15 actions and differ for `edrain` (1.14 s against 0.6 s), `somersault`
+(1.22 against 1.04) and `snatch` (0.99). Morph 1001's `demolition` shows an empty 1 x 1 frame 3 for 1.62 s (the figure
+leaves the screen mid-skill, 3.12 s in all). `test_morph_render.gd` pins frame counts and seconds of all thirteen actions
+on the real 1001 and 1000 (SKIPs without the Buccaneer cache; 1000 stands for `demolition` and `snatch`).
+
+**Card text.** A form with no element reads "Transforms you for N s: defence +X, speed +Y, jump +Z." (a stat the `buff` block
+does not feed is left out; unequal `pdd` and `mdd` read "weapon defence +X, magic defence +Y"; a `damage` effect adds "attacks
++N%" first), then the same per-sub lines. A form with an element reads exactly as before ("Charges your weapon with <element>
+for N s: attacks +X%", Paladin's Charges).
+
+Evidence: `scenes/debug/morph_driver.tscn` (a contact sheet per morph and page of every Buccaneer stance, the basics and two
+fallbacks, with the feet hairline), looked at for 1001, 1000 and 1002 in `evidence/`.
 
 ## 8. Upgrades
 
@@ -7729,6 +7769,14 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 | Energy Charge meter (#414, spec #412 BU-5) | `jobs/buccaneer.json` `meter`: id energy, max 10, one per landed non-finisher pool cast, `per_unit` damage 0.03 (+3% per held energy) | C | Spec #412 BU-5 |
 | Energy Charge full-bar cue (#414, spec #412 BU-4) | `meter.cue`: `Skill.wz/511.img/skill/5110001/affected` and `Sound.wz/Skill.img/5110001/Use` (WZ paths, presentation only; B6 reads them) | A | Spec #412 BU-4 |
 | Buccaneer not playable (#414) | `jobs/buccaneer.json` `playable` false until B11 flips it; `default_job` stays 212 | C | Spec #412 |
+
+### Buccaneer B3 constants (#415)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Morph stance rule (#415, spec #412 BU-10) | while morphed, a stance named like a node of the morph img draws that node (`AvatarRenderer.morph_stance`); `info` is never a stance; any other stance keeps `MORPH_ACTIONS`, which shows the morph standing for an attack | C (rule), A (the node names, frames, delays and origins are Morph.wz's own) |
+| Morph on the form's `buff` block (#415, spec #412 BU-9) | no `morph` key in `PlayerForms.EFFECTS`: `buff.morph_field` already resolves the id; no new constant | C (design) |
+| Transform card text (#415) | "Transforms you for N s: defence +X, speed +Y, jump +Z." for a form with no element; equal `pdd` and `mdd` read as one "defence" number, unequal read as weapon and magic defence; zero stats are omitted | C (wording, presentation only) |
 
 ## 12. Later phases
 

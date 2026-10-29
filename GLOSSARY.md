@@ -165,8 +165,13 @@ _Avoid_: stealth, invisible, cloaked
 
 **Morph**:
 A buff that draws the character as a `Morph.wz` figure instead of its avatar for as long as it lasts, such as Oak
-Barrel's barrel (Morph 1002); the game's movement and stats are unchanged.
+Barrel's barrel (Morph 1002); the game's movement and stats are unchanged unless the buff itself says so. A morph
+draws its own action for a stance when the figure has one (the Buccaneer morphs attack), else it stands.
 _Avoid_: transformation, disguise
+
+**Morph form**:
+A Form whose `buff` block carries a `morph_field`, so it also draws the character as a Morph and gives the buff's defence,
+speed and jump while it lasts (Buccaneer's Transformation and Super Transformation). It needs no Form effect key.
 
 **Skill key**:
 The Key Config binding of one manual skill the character has learned.
