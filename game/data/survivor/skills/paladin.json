@@ -51,7 +51,7 @@
 			}
 		},
 		"blast": {
-			"_provenance": "Tier A: Skill.wz 1221009 (a single `damage` field, 170 to 550%, so one line and one target; the `blast` body action and its 840 ms (540 + 300 ms) timing; the 14-frame cast effect and the 3-frame hit, both keyed by the element art index 0/1/2/3/5; the five Use sounds). Tier C: 2.0 s cooldown (the balance pass owns it), weapon_reach targeting (the nearest mob in the held weapon's swing, as Power Strike), 0.84 s action hold, art index 0 (no Charge) until P7 picks the running Charge's node, the five sounds played in order by cast number (SkillBook.use_sound, no RNG), the rarity bonuses (Mastery, Booster, Final Attack). Docs: GAME_DESIGN 7.66. The screenshot `capture_delay` 0.72 s samples the thrust frame and the slash.",
+			"_provenance": "Tier A: Skill.wz 1221009 (a single `damage` field, 170 to 550%, so one line and one target; the `blast` body action and its 840 ms (540 + 300 ms) timing; the 14-frame cast effect and the 3-frame hit, both keyed by the element art index 0/1/2/3/5; the five Use sounds). Tier C: 2.0 s cooldown (the balance pass owns it), weapon_reach targeting (the nearest mob in the held weapon's swing, as Power Strike), 0.84 s action hold, element-keyed art (0 without a Charge; 1 ice, 2 fire, 3 lightning, 5 holy), the five sounds played in order by cast number (SkillBook.use_sound, no RNG), the rarity bonuses (Mastery, Booster, Final Attack). Docs: GAME_DESIGN 7.66. The screenshot `capture_delay` 0.72 s samples the thrust frame and the slash.",
 			"skill_id": 1221009,
 			"book": "122",
 			"job": 122,
@@ -74,8 +74,8 @@
 			"action_time": 0.84,
 			"capture_delay": 0.72,
 			"ball": "",
-			"hit": "Skill.wz/122.img/skill/1221009/hit/0/0",
-			"effect": "Skill.wz/122.img/skill/1221009/effect/0",
+			"hit": "Skill.wz/122.img/skill/1221009/hit/0/{art}",
+			"effect": "Skill.wz/122.img/skill/1221009/effect/{art}",
 			"rotate": false,
 			"sounds": {
 				"use": "Sound.wz/Skill.img/1221009/Use",
