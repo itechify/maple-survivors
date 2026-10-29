@@ -127,7 +127,6 @@ static func skill_imgs() -> Dictionary:
 static func setup(stage := "henesys", p_seed := 1, data: Dictionary = {}) -> Dictionary:
 	if data.is_empty():
 		data = DataRepo.load_all()
-	data.jobs_survivor.jobs["132"]["playable"] = true
 	var s := RF.with_basic_attack(RF.setup(stage, p_seed, data))
 	s.equipment_info[POLE_ARM] = {"reqJob": 13, "reqLevel": 10, "incPAD": 34.0, "attackSpeed": 6.0, "afterImage": "spear",
 		"sfx": "spear"}
