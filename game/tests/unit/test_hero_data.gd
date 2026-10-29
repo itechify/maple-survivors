@@ -63,7 +63,9 @@ func test_the_hero_line_loads_without_errors_and_adds_its_job_and_core_skills() 
 	assert_true(FileAccess.file_exists(DataRepo.fragment_path("jobs_survivor", "hero")))
 	assert_true(FileAccess.file_exists(DataRepo.fragment_path("skills", "hero")))
 	assert_true(d.jobs_survivor.jobs.has("112"), "jobs/hero.json is merged into the survivor job data")
-	assert_eq(d.jobs_survivor.jobs.keys(), ["0", "200", "212", "112"], "base entries, then lines in discovered line order")
+	var keys: Array = d.jobs_survivor.jobs.keys()
+	assert_eq(keys.slice(0, 3), ["0", "200", "212"], "base entries and the Magician line first")
+	assert_true(keys.find("112") > keys.find("212"), "then the class lines in discovered (sorted) line order")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "hero"))
 	for key: String in ["power_strike", "slash_blast", "brandish"]:
 		assert_true(frag.skills.has(key), "H5 ports " + key)
@@ -88,7 +90,8 @@ func test_job_112_has_the_spec_fields_and_is_playable() -> void:
 	assert_eq(jobs.creation_weapon(112), 1302000)
 	assert_true(bool(rec.playable))
 	assert_eq(jobs.job_error(112), "")
-	assert_eq(jobs.playable_jobs(), [112, 212] as Array[int])
+	var playable := jobs.playable_jobs()
+	assert_true(playable.find(112) >= 0 and playable.find(112) < playable.find(212), "Hero is listed above F/P (other class lines may be too)")
 	var meter: Dictionary = data.jobs_survivor.jobs["112"].meter
 	assert_eq(String(meter.id), "combo")
 	assert_eq(int(meter.max), 10)
@@ -156,7 +159,8 @@ func test_default_job_stays_212_after_hero_becomes_playable() -> void:
 	var data := _data()
 	data.jobs_survivor.jobs["112"]["playable"] = true
 	var jobs := _jobs(data)
-	assert_eq(jobs.playable_jobs(), [112, 212] as Array[int], "Hero is listed first in canonical order")
+	var playable := jobs.playable_jobs()
+	assert_true(playable.find(112) >= 0 and playable.find(112) < playable.find(212), "Hero is listed before F/P in canonical order")
 	assert_eq(jobs.default_job(), 212, "the pin, not the first playable job")
 	assert_eq(jobs.job_error(112), "")
 	data.jobs_survivor["default_job"] = 112
@@ -172,8 +176,8 @@ func test_without_a_pin_or_with_an_unplayable_pin_the_first_playable_job_is_the_
 	assert_eq(_jobs(data).default_job(), 112)
 	data.jobs_survivor["default_job"] = 100
 	assert_eq(_jobs(data).default_job(), 112, "a pin on an unplayable job is ignored")
-	data.jobs_survivor.jobs["112"]["playable"] = false
-	data.jobs_survivor.jobs["212"]["playable"] = false
+	for id: int in _jobs(data).playable_jobs():
+		data.jobs_survivor.jobs[str(id)]["playable"] = false
 	assert_eq(_jobs(data).default_job(), 0, "nothing playable")
 
 

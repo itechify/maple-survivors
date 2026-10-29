@@ -27,7 +27,7 @@ static func from_data(skills_root: Dictionary, p_skill_imgs: Dictionary) -> Skil
 	var b := SkillBook.new()
 	var d: Variant = skills_root.get("skills", {})
 	if d is Dictionary:
-		b.defs = d
+		b.defs = SkillTemplate.resolve(d)
 	b.rank_levels = skills_root.get("rank_levels", {})
 	b.slot_limits = skills_root.get("slot_limits", {})
 	b.skill_imgs = p_skill_imgs

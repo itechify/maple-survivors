@@ -86,6 +86,10 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if int(stats.get("blast_targets", 0)) > 0:
 		var targets := int(stats.blast_targets)
 		mechanics.append("Blast: %d %s" % [targets, "target" if targets == 1 else "targets"])
+	if String(stats.get("cast_rule", "")) == "chain":
+		var links := int(stats.get("mob_count", 1))
+		mechanics.append("Jumps to up to %d %s within %s px" % [links, "monster" if links == 1 else "monsters",
+			number(ChainCast.hop_of(stats))])
 	if def.has("pierce_falloff"):
 		mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
 			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
