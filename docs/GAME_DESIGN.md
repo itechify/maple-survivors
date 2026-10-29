@@ -704,6 +704,25 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+**P9 #317 Paladin selection smoke (spec #308, 2026-10-29).** Record only, no tuning; training seeds 1 and 2, `JOBS=3`,
+private cache `cache-rd308`, `playable` flipped in the shipped data (the first Paladin runs without a patch). A first look, not
+the P10 regression smoke (all four tier-1 stages, bot and random, Hero and F/P unchanged).
+
+| Run | Outcomes | Death seconds | End level | Six actives at | Warnings / missing |
+|---|---|---|---|---|---|
+| Paladin, Henesys, bot, seeds 1, 2 | 0 clears / 2 deaths | 435.7, 318.6 (the first boss alive) | Lv14, Lv10 | 129.2 s, 137.2 s | none / none |
+| Paladin, Sleepywood, bot, `paladin_t2.json`, seeds 1, 2 | 0 clears / 2 deaths | 17.1, 19.7 | Lv5, Lv1 | never | none / none |
+| F/P, Sleepywood, bot, `fp_arch_mage.json` (same seeds, for scale) | 1 clear / 1 death | 23.8 | | | |
+| Hero, Sleepywood, bot, `hero_t2.json` (same seeds, for scale) | 2 clears / 0 deaths | | | | |
+
+The Paladin takes Fire, Ice and Thunder Charge among its six actives in the Henesys runs and Charged Blow fires (the oracle's
+digest agrees); Blast and Holy Charge (hence the Hammer) stay out of the six slots there, which fill first. The Sleepywood kit
+is an unscrolled Lv25 Mace at Lv1 and dies in the first 20 s, like F/P's unscrolled kit in one of its two seeds; Hero's fixture
+(a real god-mode clear with scrolled gear) is a stronger kit. Henesys deaths at the first boss match Hero's and the old F/P
+pattern. This is a smoke finding for P10 and the balance pass, not tuning evidence. `test_character_baseline`,
+`test_tick_cost_identity`, `test_hero_baseline` and `test_il_baseline` pass with their goldens untouched. Records:
+`_scratch/317-smoke/` (gitignored).
+
 **#311 / P3 Form seam regression smoke (2026-10-28).** No balance tuning; training seeds 1/2/2026,
 job 212, bot/random on every tier-1 stage and bot Sleepywood with starter/`fp_arch_mage.json` equipment.
 `ISOLATE=311`, `JOBS=3` set, one seed submitted at a time to limit memory; shared cache read-only.
