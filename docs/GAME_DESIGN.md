@@ -719,6 +719,13 @@ These combined casting/admission changes need a later balance follow-up; no tuni
 Ellinia remains recorded rather than tuned. Hero bot death ranges: Henesys 327.7–688.2, Ellinia 221.0–646.5,
 Perion 288.9–493.0, Kerning 326.8–568.7 seconds.
 
+**Dragon Fury and Sacrifice smoke (#354, spec #348 D6; no tuning).** Two Dark Knight skill definitions and one hit-art lookup (only a
+definition with `hit_from_weapon` takes it), so F/P and Hero runs are unchanged: the three oracles reproduce their hashes unrecaptured, and
+Henesys `balance.sh 1 2 2026 --policy=bot` gives F/P (212) 0/3, deaths 305.0 / 454.5 / 651.7 s (Lv 11 / 21 / 36), Hero (112) 0/3, deaths
+327.7 / 336.9 / 688.2 s (Lv 11 / 11 / 36): the recorded numbers exactly, no crashes, no world warnings. Job 132 is not selectable yet (D10), so
+the Dark Knight itself is flow evidence only (diagnostic playtests, Henesys and Sleepywood, `missing: []`). Full suite: 2269 passed / 0 failed /
+0 skipped with the Dark Knight cache; 2269 passed / 0 failed / 238 skipped without any cache.
+
 **HP-risk seam smoke (#351, spec #348 D3; no tuning).** `HpRisk` adds data blocks that no shipped skill carries, so a run of a
 job without them is unchanged: F/P, Hero and tick-cost oracles reproduce their hashes unrecaptured (Slash Blast and Coma now
 also emit `hp_spent`, which the oracle runs do not exercise). Henesys `balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3,
