@@ -129,7 +129,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	if not memo.has("engage"): # built once per run: balance.json does not change under a bot
 		memo["engage"] = _engage_config(w)
 	var engage: Dictionary = memo.engage
-	var profile := _reach_profile(w)
+	var profile := _reach_profile(w, float(engage.kite_reach))
 	var melee: bool = profile.x > 0.0 and profile.x < float(engage.kite_reach)
 	var engage_target := -1
 	var engage_gap := INF
@@ -328,16 +328,23 @@ static func _backing_off(w: RunWorld, engage: Dictionary) -> bool:
 
 ## (longest attack reach the build owns, longest reach that is ready now), px. Counts the active damaging skills
 ## (SkillRunner.reach_of); ready = off cooldown with enough HP. Beginner (job 0) skills such as Three Snails only count while the build has no attack of its own job
-## line, so a Warrior's long starter shot does not make it kite. (0, 0) = nothing can attack.
-static func _reach_profile(w: RunWorld) -> Vector2:
+## line, so a Warrior's long starter shot does not make it kite. (0, 0) = nothing can attack. A skill that pays HP (`hp_cost` > 0)
+## or waits on an HP gate (`hp_gate` > 0) never counts with a reach of `kite_reach` or more (`kite_reach` < 0 reads the engage
+## config): tier C, spec #348 DK-9, so Dragon Fury (241 px) and Dragon Roar (400 px) do not make a melee knight kite like an
+## archer, while a short HP-paying skill such as Slash Blast keeps counting.
+static func _reach_profile(w: RunWorld, kite_reach := -1.0) -> Vector2:
 	var line := Vector2.ZERO
 	var base := Vector2.ZERO
+	if kite_reach < 0.0:
+		kite_reach = float(_engage_config(w).kite_reach)
 	for key: String in w.loadout.order:
 		if not w.loadout.book.is_active(key):
 			continue
 		var st := w.runner.stats_of(w, key)
 		var r := SkillRunner.reach_of(st, w)
 		if r <= 0.0:
+			continue
+		if r >= kite_reach and (int(st.get("hp_cost", 0)) > 0 or float(st.get("hp_gate", 0.0)) > 0.0):
 			continue
 		var ready := float(w.runner.cooldowns.get(key, 0.0)) <= 1e-6 and HpRisk.admits(w, st)
 		var own := Vector2(r, r if ready else 0.0)

@@ -1,5 +1,5 @@
 {
-	"_doc": "Dark Knight line (spec #348, ticket D2 #350). A class spec adds jobs/dark_knight.json, skills/dark_knight.json and (later) asset_manifest.d/dark_knight.json, discovered automatically by DataRepo.lines() (docs/ARCHITECTURE.md 4.4.4). Job 132 stays playable: false until D10 flips it; skill keys stay inert until their skills are defined in skills/dark_knight.json (or the shared line for Power Strike and Slash Blast, which Hero owns). AP and HP growth rows live in this file's balance block.",
+	"_doc": "Dark Knight line (spec #348, ticket D2 #350). A class spec adds jobs/dark_knight.json, skills/dark_knight.json and (later) asset_manifest.d/dark_knight.json, discovered automatically by DataRepo.lines() (docs/ARCHITECTURE.md 4.4.4). Job 132 is playable since D10 (#358); skill keys stay inert until their skills are defined in skills/dark_knight.json (or the shared line for Power Strike and Slash Blast, which Hero owns). AP and HP growth rows live in this file's balance block.",
 	"jobs": {
 		"132": {
 			"starting_skill": "spear_crusher",
@@ -23,8 +23,34 @@
 			"_weapon_families": "tier C: spec #348 DK-10: one-handed and two-handed spears and pole arms (WeaponInfo.family); both are two-handed, so a Dark Knight never wears a shield. Swords, axes and blunt weapons never drop for it; armour and shields drop by the Warrior class bit.",
 			"creation_weapon": 1432000,
 			"_creation_weapon": "tier C: spec #348 DK-10: the plain Spear (reqJob 13, which includes the Warrior bit, so wearing it needs no class); the level requirement is gone (#292).",
-			"playable": false,
-			"_provenance": "tier C: spec #348 D2 #350: Dark Knight is data-only until D10; 212 remains the default."
+			"playable": true,
+			"_provenance": "tier C: spec #348 D10 #358: Dark Knight is playable alongside the other jobs; 212 remains the default.",
+			"hub_kit": {
+				"fixture": "res://tests/fixtures/characters/dark_knight_t2.json",
+				"_fixture": "tier C: spec #348 D10: the Dark Knight test character the Free Market kit opens (--hub --job=132).",
+				"scrolls": [
+					2044300,
+					2044301,
+					2044302,
+					2044304,
+					2044305,
+					2044400,
+					2044401,
+					2044402,
+					2044404,
+					2044405
+				],
+				"_scrolls": "tier C: spec #348 D10: spear (2044300-05) and pole arm (2044400-05) ATT scrolls (100%, 60%, 10% and the two dark scrolls), ids read from scrolls/warrior.json.",
+				"equipment": [
+					1002001,
+					1442000,
+					1082002,
+					1040010
+				],
+				"_equipment": "tier C: spec #348 D10: spare hat, a spare pole arm to swap to, gloves and a top, all wearable at Lv1 by a Dark Knight.",
+				"fallback_item": 1432005,
+				"_fallback_item": "tier C: spec #348 D10: the Lv40 Spear the flow driver wears when no round drop is high enough (reqJob Warrior)."
+			}
 		}
 	},
 	"balance": {
@@ -47,6 +73,27 @@
 					]
 				}
 			}
+		},
+		"bot": {
+			"card_scores": {
+				"spear_crusher_new": 100,
+				"spear_crusher_rank": 74,
+				"power_strike_new": 100,
+				"power_strike_rank": 74,
+				"slash_blast_new": 100,
+				"slash_blast_rank": 74,
+				"dragon_fury_new": 100,
+				"dragon_fury_rank": 74,
+				"sacrifice_new": 100,
+				"sacrifice_rank": 74,
+				"dragon_roar_new": 100,
+				"dragon_roar_rank": 74,
+				"monster_magnet_dark_knight_new": 100,
+				"monster_magnet_dark_knight_rank": 74,
+				"beholder_new": 100,
+				"beholder_rank": 74
+			},
+			"_card_scores": "tier C: spec #348 D10 #358 (DK-9): the autoplay bot scores every Dark Knight pool key like an attack (learn card 100, rank card 74); explicit so the Beholder (a summon the default support scoring would undervalue) and the HP-paying Dragon Fury / Dragon Roar are taken. Power Strike and Slash Blast repeat Hero's entries."
 		},
 		"growth": {
 			"132": {

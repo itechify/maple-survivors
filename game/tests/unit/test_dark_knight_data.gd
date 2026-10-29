@@ -1,6 +1,6 @@
 extends TestCase
 ## Dark Knight's data seam (spec #348, ticket D2 #350): the `dark_knight` data line loads and is discovered in sorted class
-## order, the job entry `survivor/jobs/dark_knight.json` (132, not playable, so `default_job` stays 212), its AP and growth
+## order, the job entry `survivor/jobs/dark_knight.json` (132, playable since D10 #358, and `default_job` stays 212), its AP and growth
 ## rows (copied from Hero's tier C survivability baseline, #346), and the weapon families of its equipment drops (spear and
 ## pole arm, both two-handed; armour by the Warrior class bit). Seeded RNG; item info is synthetic unless a test says
 ## "real cache". The Hero and F/P oracles are not touched by this data.
@@ -107,7 +107,7 @@ func test_the_skills_fragment_holds_only_dark_knights_own_skills_with_its_doc() 
 
 # --- the job entry ----------------------------------------------------------------------------------------------------
 
-func test_job_132_has_the_spec_fields_and_is_not_playable() -> void:
+func test_job_132_has_the_spec_fields_and_is_playable() -> void:
 	var data := _data()
 	var jobs := _jobs(data)
 	var rec := jobs.job(132)
@@ -120,15 +120,18 @@ func test_job_132_has_the_spec_fields_and_is_not_playable() -> void:
 	assert_false("rush_dark_knight" in jobs.skill_pool(132), "Rush is not a pool entry")
 	assert_eq(jobs.weapon_families(132), ["spear", "polearm"])
 	assert_eq(jobs.creation_weapon(132), 1432000)
-	assert_false(bool(rec.playable), "playable flips in D10, not here")
-	assert_true(jobs.job_error(132) != "", "--job=132 is refused while the job is not playable")
-	assert_false(132 in jobs.playable_jobs(), "the creation page does not list the Dark Knight yet")
+	assert_true(bool(rec.playable), "D10 #358 flipped playable")
+	assert_eq(jobs.job_error(132), "", "--job=132 is accepted")
+	assert_true(132 in jobs.playable_jobs(), "the creation page lists the Dark Knight")
 	assert_true(112 in jobs.playable_jobs() and 212 in jobs.playable_jobs(), "Hero and the Arch Mage stay listed")
+	DataRepo.patch = {"jobs_survivor": {"jobs": {"132": {"playable": false}}}}
+	var disabled := _jobs(DataRepo.load_all())
+	DataRepo.patch = {}
+	assert_true(disabled.job_error(132).contains("not playable"), "a disabling patch still refuses it")
 
 
 func test_default_job_stays_212_with_dark_knight_playable() -> void:
 	var data := _data()
-	data.jobs_survivor.jobs["132"]["playable"] = true
 	var jobs := _jobs(data)
 	var playable := jobs.playable_jobs()
 	assert_true(132 in playable, "the Dark Knight is listed once playable")
@@ -159,10 +162,10 @@ func test_each_shared_key_lives_in_hero_only() -> void:
 		assert_false(frag.skills.has(key), "%s is not redefined by the Dark Knight line" % key)
 
 
-func test_a_dark_knight_has_no_hub_kit_or_meter_yet() -> void:
-	# hub_kit is D10's; the meter is Hero's Combo. Neither belongs to this data ticket.
+func test_a_dark_knight_has_a_hub_kit_and_no_meter() -> void:
+	# hub_kit is D10's (#358); the meter is Hero's Combo and does nothing for a Dark Knight.
 	var rec: Dictionary = _data().jobs_survivor.jobs["132"]
-	assert_false(rec.has("hub_kit"))
+	assert_true(rec.has("hub_kit"))
 	assert_false(rec.has("meter"))
 
 
