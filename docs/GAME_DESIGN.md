@@ -4155,6 +4155,15 @@ changed and the `character_baseline`, `tick_cost_identity` and Hero baseline ora
 the job is not selectable before B11 and nothing of Buccaneer's is castable yet; the visual evidence is the
 `morph_driver.tscn` sheet (1001, 1000, 1002; `missing: []`).
 
+### Buccaneer B6 smoke (#418, 2026)
+
+Energy Drain, the `unit` word and the full-bar cue (`MeterCue`, one `RunScene` call site, a `SkillText` and an `UpgradePool` label
+line; no sim file changed). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212) 3 deaths at 10:51 / 5:05 / 7:34 and Hero (112) 3 deaths at 5:27 / 5:36 / 11:28, both byte-for-byte the B2 rows above (no clears, no warnings).
+Oracles `character_baseline`, `tick_cost_identity` and `hero_baseline` are in the full suite below.
+A diagnostic `--job=512` playtest (Henesys seed 3 speed 4 for 4 minutes; Sleepywood with the starter weapon, which dies at Lv1 as
+expected without the kit; Buccaneer playable and started with Drain locally, reverted) showed the pips, the cue and the Drain cast
+(`meter_cue.png`, `cast_energy_drain.png`; `missing: []`, no game.log warnings). Not survival evidence.
+
 ### Buccaneer B8 smoke (#420, 2026)
 
 Barrage, Dragon Strike, `bot.reach` and the `swingTF` fallback (job 512 still not playable, no balance data touched). Training seeds
@@ -6470,6 +6479,53 @@ The legacy cards (`<key>_new`, `_rank`, `_targets` of the five: 15 cards) are de
 `+1 target` behaviour card is replaced by the Whirling Kick and Boring Screw bonuses. Tests: `test_buccaneer_brawler` (placement,
 ranks, caps, weapons, art, cards, bonuses, the original tables), `test_brawler_attacks` and `test_pirate` (the seeded behaviour,
 rewritten to eight ranks), `test_rarity_bonus_effects`.
+### 7.91 Buccaneer: Energy Charge and Energy Drain (spec #412, B6 #418)
+
+Energy Charge is Buccaneer's meter on Hero's `PlayerMeter` (7.34), by data only: `PlayerMeter`, `HudMeter` and `meter_changed`
+are unchanged. The job block in `jobs/buccaneer.json` (B2) holds `id energy`, `max 10`, one energy per landed non-finisher pool
+cast (`cast_landed`, `exclude finisher`), `per_unit damage 0.03` (a full bar is +30% on every pool skill; Hero's Combo is +5% per
+orb) and the optional `cue`. A round starts at zero energy, a landed cast of any pool skill earns one (a multi-target or
+multi-line cast earns one; a cast needs a target, and an instant line always deals at least 1, so a miss is no cast), the bar
+never passes 10, survives a map transfer and is absent from a CharacterSnapshot. Dash is outside the pool and the form sub-skills
+(Shockwave, Demolition, Snatch) are not pool skills, so they neither earn energy nor receive the held bonus (BU-6; no code, the
+seam already works so, tests pin it). The HUD shows ten drawn pips (book 511 has no `state` node, so the job omits `art`).
+
+**Two optional presentation keys** (the sim ignores both; the catalog validator accepts them):
+
+| Key | On | Meaning |
+|---|---|---|
+| `meter.unit` | a finisher's `meter` block | the word for one unit in `SkillText` and the Keeps line of a rarity card; default "orbs", so Hero's text is byte-identical. Drain says "Needs 10 energy", "Keeps 2 energy". |
+| `meter.cue` | the job's `meter` block | `{effect, sound}` WZ paths played once when the bar reaches `max`. |
+
+**The cue (`MeterCue`, `scripts/render/meter_cue.gd`).** A RefCounted helper fed every `meter_changed`: when `value` reaches `max`
+it calls a sink with the cue's `effect` and `sound`, then stays quiet until `value` has dropped below `max` (a finisher spent
+the bar, or kept some) and filled again. Either half may be omitted, a job without `cue` never fires, other events are ignored.
+`RunScene` owns one (`meter_cue`) and one call site in `handle_events`; its sink plays the `affected` art over the character
+(`FxRenderer.play` following the avatar, flipped with the facing) and the sound. Energy Charge's `affected` node is a 1x1 blank of
+180 ms and then ten 90 ms frames (a ring of blue sparks around the body, 1.08 s in all); it plays whole, so the cue blooms 0.18 s
+after the bar fills (tier C), and `Sound.wz/Skill.img/5110001/Use` plays with it. The cue art is warmed with the level-up art.
+The first cue of a playtest writes `meter_cue.png` 0.45 s later. No sim change, no RNG, nothing saved.
+
+**Energy Drain (`energy_drain`, 5111004, book 511).** The first finisher: `cast {rule box}` on the canonical box `lt (-200,-100)`
+`rb (0,0)` (the facing side: 200 px in front of the caster and 100 px up, nothing behind or beyond it), one target (`mobCount` 1),
+`meter {role finisher, min 10, spend all, damage_per_unit 0.12, unit energy}`: it waits for a full bar, spends it all and earns
+none; a full bar multiplies by 1.3 (held) x 2.2 (spent), x2.86. Damage is 275 / 285 / 300 / 310 / 325 / 335 / 350 / 360% at ranks 1-8
+(WZ levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20, the default 20-level rank table) and the stance is `edrain` held 0.6 s. The heal is
+Thief Drain's listener (7.25): `damage_heal {percent_field x, max_hp_fraction 0.5, target_max_hp true}`, 12 / 13 / 14 / 15 / 17 / 18 / 19 / 20% of the
+resolved damage line (crit and defence included, truncated to whole HP), capped at half the caster's Max HP and at the target's
+Max HP, and never above Max HP. The cooldown is 2.0 s (BU-19), above the meter's 1.0 s floor (`restart_cooldown`), so a Booster x0.88 shows (1.76 s); the bar paces
+Drain, and the clock only binds when Energy Charge keeps energy and the player refills quickly. Arbitration with
+Energy Orb (B7) is the existing `PlayerMeter.preferred`: a single scheduled boss as the only eligible target picks Drain, two or
+more targets pick Orb, a lone ordinary monster picks Drain.
+
+Rarity bonuses (tier C, the lineage's names; Normal Mastery is #288's): Rare Energy Mastery damage x1.2; Epic Booster cooldown x0.88
+(2.0 s -> 1.76 s); Unique Energy Charge keeps 2 energy (`meter_keep` +2: an eight-energy spend, the bar left at 2, finisher bonus x1.96
+instead of x2.2); Legendary the same plus damage x1.2 (shares the Unique's id and repeat counter, repeat scale 0.8). Each is audited in
+`test_buccaneer_energy.gd` against the resolved stats and a seeded 12 s (damage) or 66 s (cooldown) probe with a full bar fed every tick.
+
+Evidence: a diagnostic `--job=512` playtest (Buccaneer made playable and started with Drain locally, reverted) showed the pips
+filling to five of ten, the full-bar ring of blue sparks around the avatar with ten lit pips, and the Drain cast emptying the bar with the
+green heal number over the player; `missing: []`.
 
 ### 7.92 Buccaneer: morph forms (spec #412, B3 #415)
 
@@ -7904,6 +7960,18 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 | Morph stance rule (#415, spec #412 BU-10) | while morphed, a stance named like a node of the morph img draws that node (`AvatarRenderer.morph_stance`); `info` is never a stance; any other stance keeps `MORPH_ACTIONS`, which shows the morph standing for an attack | C (rule), A (the node names, frames, delays and origins are Morph.wz's own) |
 | Morph on the form's `buff` block (#415, spec #412 BU-9) | no `morph` key in `PlayerForms.EFFECTS`: `buff.morph_field` already resolves the id; no new constant | C (design) |
 | Transform card text (#415) | "Transforms you for N s: defence +X, speed +Y, jump +Z." for a form with no element; equal `pdd` and `mdd` read as one "defence" number, unequal read as weapon and magic defence; zero stats are omitted | C (wording, presentation only) |
+
+### Buccaneer B6 constants (#418)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Energy Drain finisher block (#418, spec #412 BU-4, BU-5) | `skills/buccaneer.json` `energy_drain.meter`: min 10 (a full bar), spend all, `damage_per_unit` 0.12 (a full spend is x2.2 on top of the held +30%), unit "energy" | C |
+| Energy Drain cast and cadence (#418, spec #412 BU-19) | cast rule `box` on one target, 2.0 s cooldown (above the meter's 1.0 s floor so a Booster shows), `edrain` held 0.6 s; no weapon gate (the job's drops are knuckles already) | C |
+| Energy Drain numbers (#418) | damage 275 to 360%, heal `x` 12 to 20%, `mobCount` 1, box `lt (-200,-100)` `rb (0,0)`, `edrain` action, effect and `hit/0` art, Use and Hit sounds | A (Skill.wz 5111004, Sound.wz) |
+| Energy Drain heal rule (#418, spec #412 BU-15) | `damage_heal {x, half Max HP, target Max HP}` = 7.25's listener, whole HP truncated | C (the cap is the v83 text of Drain) |
+| Energy Drain rarity bonuses (#418, spec #412) | Rare damage x1.2, Epic cooldown x0.88, Unique `meter_keep` +2, Legendary both; repeat scale 0.8 | C |
+| Meter `unit` word (#418, spec #412 BU-5) | optional `meter.unit` on a finisher replaces "orbs" in `SkillText` and the Keeps card line; default "orbs" | C (presentation) |
+| Full-bar cue (#418, spec #412 BU-4) | `MeterCue`: fire once when `meter_changed` reaches `max`, re-arm when it drops below; the whole `affected` node (180 ms blank, ten 90 ms frames) and the Use sound; flipped with the facing; `meter_cue.png` playtest shot 0.45 s after | C (behaviour), A (the art and sound paths) |
 
 ### Buccaneer B8 constants (#420)
 
