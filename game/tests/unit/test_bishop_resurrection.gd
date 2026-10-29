@@ -221,3 +221,77 @@ func test_the_level_up_window_words_the_revive_changes() -> void:
 	var lines := LevelUpWindow.change_lines(legendary)
 	assert_true("Revive HP: 50% → 65%" in lines, str(lines))
 	assert_true("Guard: 2 s → 3.5 s" in lines, str(lines))
+
+
+# --- the real cache (SKIPs without it) -----------------------------------------------------------------------------
+
+func _library() -> AssetLibrary:
+	var lib := AssetLibrary.new()
+	lib.open()
+	return lib
+
+
+func _cache_ready(lib: AssetLibrary) -> bool:
+	if not require_cache():
+		return false
+	if lib.img("Skill.wz/232.img") == null:
+		skip("the cache has no Skill.wz/232.img (import with the Bishop manifest fragment)")
+		return false
+	return true
+
+
+func test_the_shipped_recharge_is_the_wz_cooltime_over_three_minus_480_at_every_rank() -> void:
+	var lib := _library()
+	if not _cache_ready(lib):
+		lib.free()
+		return
+	var d := _raw()
+	var levels: Array = d.ranks
+	var table: Array = d.cooldown_by_rank
+	assert_eq(levels.size(), 8)
+	assert_eq(table.size(), 8)
+	for i in 8:
+		var cooltime := float(lib.node("Skill.wz/232.img/skill/2321006/level/%d/cooltime" % int(levels[i])))
+		assert_eq(float(table[i]), cooltime / 3.0 - 480.0, "rank %d (WZ level %d): cooltime %s" % [i + 1, int(levels[i]), cooltime])
+	lib.free()
+
+
+func test_the_skill_has_ten_levels_with_the_800_by_600_box() -> void:
+	var lib := _library()
+	if not _cache_ready(lib):
+		lib.free()
+		return
+	var level_node: Dictionary = lib.node("Skill.wz/232.img/skill/2321006/level")
+	var count := 0
+	while level_node.has(str(count + 1)):
+		count += 1
+	assert_eq(count, 10, "only 10 levels")
+	for lv in range(1, 11):
+		var n: Dictionary = level_node[str(lv)]
+		assert_eq(n.lt["$v"], [-400.0, -350.0], "level %d lt" % lv)
+		assert_eq(n.rb["$v"], [400.0, 250.0], "level %d rb" % lv)
+		assert_false(n.has("mad") or n.has("time") or n.has("mobCount"), "level %d has no damage fields" % lv)
+	lib.free()
+
+
+func test_every_art_node_and_the_use_sound_resolve_through_the_library() -> void:
+	var lib := _library()
+	if not _cache_ready(lib):
+		lib.free()
+		return
+	var d := _raw()
+	var effect := lib.anim(String(d.effect))
+	var affected := lib.anim(String(d.affected))
+	assert_false(effect.is_empty(), "effect")
+	assert_false(affected.is_empty(), "affected")
+	assert_eq(effect.frames.size(), 21)
+	assert_eq(affected.frames.size(), 15)
+	# The affected lead-in: frame 0 is the 1 x 1 canvas held for 1320 ms, the beams follow at 60 ms.
+	assert_true(absf(affected.frames[0].delay_s - 1.32) < 1e-6)
+	assert_eq(affected.frames[0].size(), Vector2(1, 1))
+	assert_true(absf(affected.frames[1].delay_s - 0.06) < 1e-6)
+	assert_true(lib.find_anim(String(d.icon)) != null, "icon")
+	assert_true(lib.sound(String(d.sounds.use)) != null, "the Use sound")
+	assert_eq(String(lib.node("Skill.wz/232.img/skill/2321006/action/0")), "resurrection")
+	assert_eq(lib.missing.size(), 0, "no lookup missed: %s" % str(lib.missing))
+	lib.free()
