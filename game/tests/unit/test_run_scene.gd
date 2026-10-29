@@ -170,6 +170,7 @@ func test_summary_reports_round_levels_bosses_and_nx() -> void:
 	assert_eq(int(summary.bosses_killed), 0)
 	assert_eq(int(summary.nx_awarded), int(w.balance.nx_award.per_level), "alive at the end of an unfinished round: levels only, no clear bonus")
 	assert_eq(int(summary.nx_awarded), w.nx_awarded())
+	assert_eq(summary.revives, [], "second lives taken (#375): none without a reaction skill")
 
 
 func test_summary_identifies_the_death_map_after_a_transfer() -> void:

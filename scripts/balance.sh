@@ -156,9 +156,9 @@ done
 # Tabulate with awk on the JSON fields that matter (no Python/Node needed).
 echo "stage $STAGE, policy $POLICY${PATCH:+, patch $PATCH}"
 if [[ -z "$EXTRA_TIER" ]]; then
-printf '%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-14s %-9s %-11s %-11s %s\n' seed Lv8 Lv10 Lv20 \
+printf '%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-14s %-9s %-11s %-11s %-6s %s\n' seed Lv8 Lv10 Lv20 \
   Lv30 "lv@4/8/12" "alive4/8/12" "near4/8/12" "hit<6" "hit8+" "drop8" kills level end "eng6/9/12" "stale6/9/12" \
-  "recyc/reloc" NX
+  "recyc/reloc" NX revives
 for s in "${SEEDS[@]}"; do
   f="$OUT/${RUN_KEY}_${s}.json"
   [[ -s "$f" ]] || continue
@@ -195,11 +195,11 @@ for s in "${SEEDS[@]}"; do
       sp = field("spawned") + 0; rc = field("recycled") + 0; rl = field("relocated") + 0
       h = 0; for (i = 9; i <= k; i++) h += H[i]
       e = 0; for (i = 1; i <= 6 && i <= k; i++) e += H[i]
-      printf "%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-8s %-5s %-9s %-11s %-11s %s\n", seed, reach(8),
+      printf "%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-8s %-5s %-9s %-11s %-11s %-6s %s\n", seed, reach(8),
         reach(10), reach(20), reach(30), L[4] "/" L[8] "/" L[12], A[4] "/" A[8] "/" A[12],
         r0(N[4]) "/" r0(N[8]) "/" r0(N[12]), e, h, v(D[8]), field("kills"), field("level"), field("state"),
         mmss(field("time")), pc(G[6]) "/" pc(G[9]) "/" pc(G[12]), pc(S[6]) "/" pc(S[9]) "/" pc(S[12]),
-        (sp > 0 ? pc(rc / sp) "/" pc(rl / sp) : "-/-"), v(field("nx_awarded"))
+        (sp > 0 ? pc(rc / sp) "/" pc(rl / sp) : "-/-"), v(field("nx_awarded")), v(field("revive_count"))
     }' "$f"
 done | tee "$OUT/.table"
 # Summary: runs, clears, deaths (times), and min / median / max of the milestone times and the final level.
@@ -225,6 +225,7 @@ awk '
     for (k = 1; k <= 3; k++) { if (g[k] != "-") eg[k, ++neg[k]] = g[k] + 0; if (q[k] != "-") sg[k, ++nsg[k]] = q[k] + 0 }
     if (rr[1] != "-") { rcy[++nrc] = rr[1] + 0; rlc[nrc] = rr[2] + 0 }
     if ($19 != "-") nxv[++nnx] = $19 + 0
+    if ($20 != "-" && $20 + 0 > 0) revived++
   }
   function med(v, n,   i, j, t) {
     if (n == 0) return "-"
@@ -250,6 +251,7 @@ awk '
     for (i = 1; i <= nrc; i++) { r1[i] = rcy[i]; r2[i] = rlc[i] }
     printf "  recycled %% of spawns %s; relocated per spawn %% %s\n", med(r1, nrc), med(r2, nrc)
     printf "  NX awarded per run (recorded, never credited) %s\n", med(nxv, nnx)
+    printf "  revived %d/%d runs (a ready reaction skill turned a lethal hit into a survived one)\n", revived, runs
   }' "$OUT/.table"
 else
   # A chain envelope has no single outcome/time. Keep each round visible, then summarize separately by tier.

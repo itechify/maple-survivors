@@ -6313,6 +6313,67 @@ Decisions (spec #372, recorded here so they are not re-argued):
   shared list names it (ARCHITECTURE 4.4.4). Skill merge order follows that line order, so BS4-BS8 append in the
   ticket order, and a duplicate key across lines stays an error.
 
+### 7.81 Second life: the revive seam (spec #372 BS3, ruling D6)
+
+A reaction skill turns a lethal hit into a survived one, once per recharge. The seam is `PlayerRevive`
+(`scripts/sim/player_revive.gd`, owned by `RunWorld` as `revive`) plus one ordered hook point in `RunWorld.take_hit`.
+Ticket BS3 builds and tests it on a test-only synthetic skill (`tests/fixtures/revive_fixtures.gd`); the Resurrection
+definition, art and cards are BS8.
+
+**The hook point (generic).** `take_hit` consults `HitHook`s (`scripts/sim/hit_hook.gd`) registered with
+`RunWorld.add_hit_hook(hook, order)`: ascending `order`, equal orders in registration order, `PlayerRevive` at order 100.
+A hook overrides only the phases it needs: `guarding()` (before the miss roll), `intercept_lethal(world, source)` (after
+the hit was processed in full and left HP at zero or below; the first hook to claim it wins) and `step(dt)` (once per
+world tick, before everything else in the tick). A later feature (the Corsair ship's hull, #384) is another `HitHook` and
+adds its own phase method with a pass-through default where that phase belongs; nothing in `take_hit` names Resurrection.
+
+**Order of events in `take_hit`.**
+
+1. Early-outs: `_dead`, `_map_clearing`, `god`, the hit window (boss skill attacks and balls bypass it), Hidden, then the
+   hooks' `guarding()`. A guarded hit returns 0 before the miss roll: no RNG, no event, window-bypassing sources included.
+2. The hit is processed in full (miss roll, defence, damage, Power Guard, `player_hit`, `upkeep.land_hit`), so the damage
+   number and the flinch still show.
+3. If HP is zero or below, the hooks' `intercept_lethal` run. `PlayerRevive` admits when: the source is not marked
+   `unrevivable`, the character is not already dead, and an owned skill with a `revive` block and cast rule `reaction`
+   has `cooldowns[key] <= 0` (the first one in learned order). `can_cast()` does not matter (a stance never blocks it).
+4. The plan (no RNG): HP = `clamp(ceil(max_hp x (revive.hp + revive_hp)), 1, max_hp)`; guard = `revive.guard +
+   revive_guard` seconds; shove = `revive.push.distance` px over the skill's WZ `lt`/`rb` box x `area`.
+5. Effect: `RunWorld.grant_second_life(hp)` sets HP (the only HP setter hooks may use; `_hp` stays private); the guard
+   timer starts; `cooldowns[key]` and `cooldown_totals[key]` are set to the skill's resolved cooldown; every non-boss,
+   non-`steady` monster meeting the box on a foothold is shoved away from the character by `MobSwarm.knockback`, in slot
+   order, with no damage and no status; the run's `revives` list gets `{t, level, rank, source_kind, hp}`; then
+   `player_revived {skill, hp, max_hp, pos, guard, recharge, pushed}` is emitted (`pushed` = monsters shoved).
+6. `take_hit` falls through to its non-lethal branch: the lethal hit's knockback and knockback guard still apply, so the
+   revived character is pushed clear of its killer. No `player_died` is emitted.
+
+**Edge cases.** Two lethal hits in one tick: the first revives, the second returns 0 at the guard check. A lethal hit
+while the recharge runs, from an `unrevivable` source or with the skill not owned kills exactly as before. The guard ends
+on time (the next lethal hit after it and before the recharge kills). The recharge restarts only on use: a rank card
+taken mid-recharge refunds nothing and shortens the next one. `god` and Hidden are unchanged (neither takes a hit). The
+cooldown, the guard and `revives` are round state: map transfers keep them, nothing is saved (save format and history
+entries are unchanged). A skill is ready at round start (its cooldown starts at zero).
+
+**Diagnostics still kill.** The flow driver's diagnostic lethal boss hit (`take_hit(1.0e9, ...)`) carries
+`"unrevivable": true`, so `redesign --job=232` still reaches its death steps with Resurrection owned. Any tool that kills
+the character on purpose through `take_hit` must set the flag (grep `take_hit(` outside `scripts/sim`; today only that
+hit); `test_player_revive` pins that the flag beats a ready owned skill and that the driver's source carries it.
+
+**The `reaction` cast rule.** `SkillRunner.is_triggered(st)` (`manual` or `reaction`; `is_triggered_rule(rule)` for a bare
+rule name) replaces the bare `manual` checks in `cast_ready`, `is_attack` and `BotInput`'s attack classification:
+a reaction skill is never auto-cast, never an attack (Hidden does not pause it), never given a reach (`reach_of` is 0 for
+`damage: none`), `has_target` is false and `_admit_cast` returns nothing for it, and the bot never presses anything for it.
+
+**`cooldown_by_rank`.** A generic skill field: seconds per rank (an array indexed by rank - 1, the last value repeating),
+read by `Loadout._base_cooldown` ahead of `cooldown_field`; the result still goes through the cooldown modifiers (rarity
+`cooldown` factors, Mastery x0.95 on a `damage: none` skill), the Booster passive and the `COOLDOWN_FLOOR` of the base.
+
+**New modifier stats** (skill modifiers, read only by `PlayerRevive` through `Loadout.stats().revive`): `revive_hp` (add
+to the share of max HP) and `revive_guard` (add to the guard seconds).
+
+**Records.** `RunWorld.revives` is in the run summary (`revives`); `tools/balance_run.gd` writes `revives` and
+`revive_count` to every record (`[]` / 0 without a reaction skill), `balance.sh` prints a `revives` column per seed and
+`revived n/runs` in its SUMMARY, and the metrics aggregate has `revived_runs`.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7661,3 +7722,16 @@ The summon art probe accepts `--skill`, `--job` and `--status` to reuse the same
 Ice Demon intentionally leaves its `ball` empty: four imported ball nodes remain unused (I7); the forward-box hit/effect
 presentation is the shipped design. The weapon-only `stabO2` fallback leaves Hero and F/P art unchanged whenever
 `stabO2` exists, covered by `test_a_weapon_with_stabO2_keeps_its_own_art`.
+
+
+### Bishop BS3 constants (#375)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Revive HP share (`PlayerRevive.DEFAULT_HP`; the Resurrection `revive.hp` of BS8 repeats it) | 50% of max HP, rounded up, clamped 1..max | tier C, spec #372 D6 |
+| Guard after a revive (`DEFAULT_GUARD`) | 2.0 s, blocking every hit including window-bypassing boss attacks and balls | tier C, spec #372 D6 |
+| Holy shove (`DEFAULT_PUSH`) | 140 px away from the character over the skill's WZ box x `area`; non-boss, non-`steady`, grounded monsters; no damage | tier C, spec #372 D6 |
+| Hook order of `PlayerRevive` (`HIT_ORDER`) | 100 (hooks of lower order claim a lethal hit first) | tier C, ours (#375) |
+| Recharge count as run out | `cooldowns[key] <= 1e-6`, as `SkillRunner.cast_ready` | tier C, ours (#375) |
+| Skill ready at round start | cooldown starts at 0 | tier C, ours (#375) |
+| Resurrection WZ box (-400,-350)..(400,250) at every level | read as is; the recharge table (600 s down to 120 s) is BS8's `cooldown_by_rank` | tier A shape, tier C scale (BS1 identity `cooltime / 3 - 480`) |
