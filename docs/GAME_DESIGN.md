@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212), the default, and Arch Mage (Ice, Lightning, 222); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212; default), Arch Mage (Ice, Lightning, 222), and Buccaneer (512); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -14,7 +14,7 @@ On the `redesign` branch, **ADR 0006** replaced v83 progression with survivor-ge
 (spec #282, tickets #283-#294) built it end to end for one job; this section is the summary and the owner of any
 conflict: where a later section still describes a removed system, this section wins. The slice rewrote sections 1, 5,
 6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 describe mechanics of the other job lines (Warrior, Bowman, Thief, Pirate,
-Cleric): their data and tests stay on `redesign` and are unplayable until each line is ported, so read them as the
+Cleric): unported data and tests stay on `redesign`; the landed blocks below identify the playable ports. Read the older sections as the
 specification for that port, not as the live game; advancement, weapon paths, weapon-gated skills and standalone
 behaviour cards mentioned in them are gone. Target design:
 
@@ -103,6 +103,16 @@ Ifrit with marked-target priority, Chain Lightning with visible hops and a staff
 and freeze, and Big Bang through the shared skill-template seam. Ranks, rarity bonuses, Mastery, equipment, saves and
 menus reuse the F/P systems. Tooling includes `--job=222`, the I/L tier-2 fixture and job-aware creation/redesign flows.
 The deterministic I/L oracle now covers the full pool; F/P oracles remain unchanged. QA results are in section 4.2.
+
+**Landed in the Buccaneer spec (#412, BC1–BC12 #413–#424):** job 512 is playable beside Hero and both Arch Mages;
+F/P (212) remains the default. Its eleven-skill lineage pool starts with Flash Fist and manual Dash outside the slots.
+The five Brawler attacks, Barrage and Dragon Strike build Energy Charge; Drain and Orb share its ten-energy bar.
+Transformation and Super Transformation use the shared Form's buff block for morphs 1000/1001; Shockwave belongs to
+both, Demolition and Snatch to Super. The renderer plays the morph's own actions, holds the previous image through
+Demolition's blank, and keeps knuckles visible through the weapon-only swingTF fallback. Dragon Strike uses a
+0.84 s first impact and 0.12 s target stagger; Shockwave's single impact meets the first eruption at 1.38 s.
+BC11 enabled selection, tooling, the tier-2 fixture and the independent replay oracle. BC12 supplies the QA record
+in 4.2. Sections 7.90–7.93 and the B2–B11 provenance tables own all constants; no balance tuning in this QA.
 
 ### Known design gaps (open after the slice)
 
@@ -4413,6 +4423,57 @@ The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and rec
 - **Playtest default length 30:00** (tier C tooling): `scripts/playtest.sh` allows time for the three entry-relative
   boss waits and their fights, ending at death, clear or the cap; documented in AGENTS.md and the script header.
 
+### Buccaneer BC12 QA and regression smoke (#424, 2026-10-29)
+
+Seeds **1, 2, 2026**, every tier-1 stage, bot/random, all four playable jobs on this branch; Sleepywood bot with
+starter equipment and each job's committed tier-2 fixture. `JOBS=3`, `ISOLATE=424`, read-only `cache-413`. All 120
+records completed and all 40 batch exits were 0; no crash, world warning or missing asset. C = CLEARED, D = DEAD, T
+= TIMEOUT at the 1800 s cap; values are seconds, with unreached maps and bosses retained as absent observations. A
+timeout is never a clear. The fixtures differ (Hero's includes scrolls); this is a regression comparison, not a
+gear-matched class ranking.
+
+| Stage / policy | Buccaneer 512 | Hero 112 | F/P 212 | I/L 222 |
+|---|---|---|---|---|
+| henesys / bot | 1/3 C; D 319.6–626.9; C 1036.8 | 0/3 C; D 327.7–688.2 | 0/3 C; D 305.0–651.7 | 0/3 C; D 309.5–505.0 |
+| henesys / random | 3/3 C; C 1032.1–1067.4 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 308.3–309.9 | 0/3 C; D 309.1–672.6 |
+| ellinia / bot | 0/3 C; D 895.0–1030.5; T 1800.0 (n=1) | 0/3 C; D 221.0–646.5 | 0/3 C; D 629.1–644.2 | 0/3 C; D 624.1–654.6 |
+| ellinia / random | 0/3 C; D 989.5; T 1800.0 (n=2) | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 328.4–660.2 | 0/3 C; D 627.6–658.2 |
+| perion / bot | 1/3 C; D 401.9–503.5; C 1048.2 | 0/3 C; D 288.9–493.0 | 0/3 C; D 305.7–456.3 | 0/3 C; D 308.3–669.7 |
+| perion / random | 1/3 C; D 332.1–359.5; C 1103.3 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 308.7–421.5 | 0/3 C; D 389.6–425.7 |
+| kerning / bot | 1/3 C; D 338.7–361.1; C 991.9 | 0/3 C; D 326.8–568.7 | 0/3 C; D 307.9–315.0 | 0/3 C; D 309.6–537.7 |
+| kerning / random | 1/3 C; D 280.4–382.2; C 998.6 | 0/3 C; D 339.0–372.7 | 0/3 C; D 306.0–317.3 | 0/3 C; D 307.0–316.4 |
+| sleepywood / starter | 0/3 C; D 13.8–15.4 | 0/3 C; D 16.4–20.2 | 0/3 C; D 10.6–12.0 | 0/3 C; D 11.4–11.8 |
+| sleepywood / kit | 0/3 C; D 23.1–28.7 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 23.8–826.2; C 936.2 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+Job 512: tier-1 clears 8/24; first boss reached 23/24. Job 112: tier-1 clears 3/24; first boss reached 20/24. Job
+212: tier-1 clears 0/24; first boss reached 24/24. Job 222: tier-1 clears 0/24; first boss reached 24/24.
+
+Buccaneer Henesys bot filled six actives in 3/3 runs at 130.4–205.1 s; its deaths 319.6/626.9 and clear 1036.8
+reproduce BC11 (rounded there). Sleepywood early deaths are recorded without tuning or stopping, as explicitly
+requested by the owner. F/P and Hero Henesys bot outcomes reproduce the BC2–BC11 smoke; the full other-job matrix
+is compared with the I/L QA record and equivalent Bishop/Paladin QA notes.
+
+Across all 30 Buccaneer records: energy_drain 3569 casts, energy_orb 2010 casts, shockwave 778 casts, snatch 0
+casts, demolition 0 casts. Measured post-tick occupancy: morph 1000 3291.05 s, morph 1001 0.00 s. No smoke loadout
+selected Super Transformation, so its natural occupancy and Snatch/Demolition counts are zero; those paths have
+diagnostic visual coverage only. Per-run counters and occupancy are retained in `BC12-424.md` in the implementation
+notes and the raw local JSON, not inferred from nominal durations. The observer only reads cast events and morph
+snapshots; it changes no RNG or world state.
+
+Both flow scenarios passed (`redesign --job=512`, `creation --jobs=212,512`); screenshots inspected. Ordinary seed
+2026 x8 playtests: Henesys DEAD 680.75 s at Lv29, Sleepywood kit CLEARED 904.433 s at Lv82, starter DEAD 15.333 s
+at Lv1, all `missing: []`. Windowed autoplay is frame/input-driven, so those outcomes are visual evidence, not
+paired headless regressions. Disposable rank-8 invulnerable stationary-crowd probes capture every pool skill and
+sub, the pips/full-bar cue, Drain/Orb, Dragon Strike pillars, Snatch's pull and both morphs. Morph contact sheets
+cover walk/jump/attacks, Demolition's blank-frame hold, and both knuckles' full fist/dragonstrike sequences.
+Screenshots inspected under `evidence/424/` (gitignored). Shockwave damage is within one 60 Hz tick of the 1.38 s
+art lead-in; the documented 0.8 s stance still returns to idle before eruption. No tuning or stance-priority change
+was made.
+
+Rust 70 and web-shell 62 tests pass. Pinned web templates are absent: local export/artifact gate unverified, no
+download; CI exports. No import-screen/source changes. The final commit's sequential cache/no-cache suite logs and
+counts are in the BC12 implementation note; SKIPs prove no asset behavior. No tests deleted or hashes recaptured.
+
 ## 5. Experience and levels
 
 **There is no MP (ADR 0006, #285).** Skills are gated by their cooldown only: no MP pool, costs, MP-short state, MP
@@ -6523,6 +6584,25 @@ The legacy cards (`<key>_new`, `_rank`, `_targets` of the five: 15 cards) are de
 `+1 target` behaviour card is replaced by the Whirling Kick and Boring Screw bonuses. Tests: `test_buccaneer_brawler` (placement,
 ranks, caps, weapons, art, cards, bonuses, the original tables), `test_brawler_attacks` and `test_pirate` (the seeded behaviour,
 rewritten to eight ranks), `test_rarity_bonus_effects`.
+**Dash as Buccaneer's mobility skill (spec #412 BU-13, #417).**
+
+Dash (5001005) is `slot: "mobility"` in `skills/pirate.json` (tier C, BU-13). Like Teleport and Rush it sits outside both
+slot tracks: `JobTree.start_skills` learns it at round start from the job's `mobility_skill` (Buccaneer 512), it takes no
+active or passive slot, and it is never offered as a card (`dash_new` and `dash_rank` are deleted from
+`upgrades/pirate.json`). Its definition is otherwise unchanged from 7.15: the explicit ten ranks (rank = WZ level, no
+`rank_levels` table), the `manual` bot block, art and Use sound, the cast on its skill key through `_try_manual_buffs`,
+and the recast once the buff ends. Corsair (#384) names the same definition and reuses it unchanged.
+
+- **Rank.** `RunWorld._level_ranks` applies the shared `balance.mobility_rank_levels` rule to the job's mobility skill:
+  rank 1 at Lv1, rank N at about Lv 2N, clamped to the ten ranks. No card ever raises it.
+- **Values** (real Skill.wz 500.img, tier A): rank 1 (Lv1) speed +12, jump +1, 4 s; rank 4 (Lv8) +18, +4, 8 s; rank 8
+  (Lv16) +26, +8, 16 s; rank 10 (Lv20) +30, +10, 20 s. Speed and jump stay under the 140 / 123 caps (7.15).
+- **Cooldown.** The buff's running duration (7.15), so a rank 1 Dash is ready again 4 s after it started.
+- **Out of scope.** Damage on Dash (that is Rush, 7.33) and ranking Dash through cards.
+
+Tests: `test_dash.gd` (the Buccaneer section and the real-cache rank test), `test_buccaneer_data.gd`, `test_data_files.gd`.
+
+
 ### 7.91 Buccaneer: Energy Charge and Energy Drain (spec #412, B6 #418)
 
 Energy Charge is Buccaneer's meter on Hero's `PlayerMeter` (7.34), by data only: `PlayerMeter`, `HudMeter` and `meter_changed`
@@ -6606,24 +6686,6 @@ target is a scheduled boss beats any crowd. A finisher below its `min_targets` i
 
 Both finishers read and spend the one bar: a cast of either leaves 0 (or the Energy Charge keep), so the other waits for ten
 fresh energy.
-
-### 7.90 Dash as Buccaneer's mobility skill (spec #412 BU-13, #417)
-
-Dash (5001005) is `slot: "mobility"` in `skills/pirate.json` (tier C, BU-13). Like Teleport and Rush it sits outside both
-slot tracks: `JobTree.start_skills` learns it at round start from the job's `mobility_skill` (Buccaneer 512), it takes no
-active or passive slot, and it is never offered as a card (`dash_new` and `dash_rank` are deleted from
-`upgrades/pirate.json`). Its definition is otherwise unchanged from 7.15: the explicit ten ranks (rank = WZ level, no
-`rank_levels` table), the `manual` bot block, art and Use sound, the cast on its skill key through `_try_manual_buffs`,
-and the recast once the buff ends. Corsair (#384) names the same definition and reuses it unchanged.
-
-- **Rank.** `RunWorld._level_ranks` applies the shared `balance.mobility_rank_levels` rule to the job's mobility skill:
-  rank 1 at Lv1, rank N at about Lv 2N, clamped to the ten ranks. No card ever raises it.
-- **Values** (real Skill.wz 500.img, tier A): rank 1 (Lv1) speed +12, jump +1, 4 s; rank 4 (Lv8) +18, +4, 8 s; rank 8
-  (Lv16) +26, +8, 16 s; rank 10 (Lv20) +30, +10, 20 s. Speed and jump stay under the 140 / 123 caps (7.15).
-- **Cooldown.** The buff's running duration (7.15), so a rank 1 Dash is ready again 4 s after it started.
-- **Out of scope.** Damage on Dash (that is Rush, 7.33) and ranking Dash through cards.
-
-Tests: `test_dash.gd` (the Buccaneer section and the real-cache rank test), `test_buccaneer_data.gd`, `test_data_files.gd`.
 
 ### 7.92 Buccaneer: morph forms (spec #412, B3 #415)
 
@@ -8086,16 +8148,16 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 
 ### Buccaneer B5 constants (#417)
 
-| Rule | Value / source | Tier |
-|---|---|---|
+| Rule | Value | Tier | Source |
+|---|---|---|---|
 | Dash on the mobility slot (#417, spec #412 BU-13) | `skills/pirate.json` `dash.slot` "mobility": outside both slot tracks, learned at start, never a card (`dash_new` / `dash_rank` deleted) | C | Spec #412 BU-13; Corsair #384 reuses it |
 | Dash rank rule (#417, spec #412 BU-13) | the shared `balance.mobility_rank_levels` (rank 1 at Lv1, rank N at about Lv 2N, clamped to the ten ranks); no `rank_levels["10"]` | C | Spec #412 BU-13; #296 H6 |
 | Dash cooldown (#417) | a manual buff's cooldown is its running duration (4 -> 20 s by rank), the existing manual-buff rule | C | 7.15 (#188); 7.90 |
 
 ### Buccaneer B2 constants (#414)
 
-| Rule | Value / source | Tier |
-|---|---|---|
+| Rule | Value | Tier | Source |
+|---|---|---|---|
 | Buccaneer starting HP and HP growth (#414, spec #412 BU-20) | `jobs/buccaneer.json` `balance.player.ap["512"].hp` 600 and `balance.growth["512"].hp` 65: copied from Hero's 112 rows (orchestrator ruling, the melee survivability baseline of #346); the balance pass owns them | C | Spec #412 BU-20; #346 |
 | Buccaneer AP row (#414, spec #412 BU-20) | `balance.player.ap["512"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204, the Hero 112 row's shape | C | Spec #412 BU-20 |
 | Buccaneer pool and start (#414, spec #412 BU-1, BU-4, BU-14) | `jobs/buccaneer.json`: `starting_skill` flash_fist (slot 1), `mobility_skill` dash (outside the slots), eleven-key `skill_pool` (Flash Fist to Super Transformation, Energy Blast left out) | C | Spec #412 BU-1, BU-4 |
@@ -8204,6 +8266,13 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 | Hub kit (#423) | `jobs/buccaneer.json` `hub_kit`: fixture `buccaneer_t2.json`; scrolls 2044800-04 (knuckle ATT 100/60/10, dark 70, dark 30) and 2044805, 07, 09, 06, 08 (ACC, same rates), read from `scrolls/pirate.json`, 10 per stack; spare 1002001, 1482001, 1082002, 1040010 (the cache holds no armour with the Pirate bit, so the hat, gloves and top are the generic ones); `fallback_item` 1482006 (the Lv40 knuckle the flow driver's `redesign` wears when no drop fits) | C (test aid) |
 | Buccaneer fixture (#423) | `game/tests/fixtures/characters/buccaneer_t2.json`: job 512, tier 2, from a seed-1 invulnerable bot Henesys clear (`character_fixture.gd --job=512 --god`); it wears a knuckle (1482003). The `_doc` records seed, policy, revision and invulnerability | C (test aid) |
 | Buccaneer baseline oracle (#423) | `test_buccaneer_baseline`: seed 1, 14400 ticks, bot, god, synthetic books (every pool skill defined) plus a synthetic knuckle afterimage; digest over the initial player state and the event bytes; asserts casts > 0, at least three distinct skills and an Energy Drain cast | C (test aid) |
+
+### Buccaneer B12 QA provenance (#424)
+
+No gameplay constant changed. The BC2–BC11 tables above remain authoritative; canonical WZ values stay unmodified.
+The QA observer counts `cast` events by skill and sums fixed post-tick `morph_id()` occupancy at 1/60 s per advancing
+tick (tier C measurement convention, including truncated windows). These are measurements, not nominal-duration
+estimates. Durable stationary crowds and invulnerability in disposable visual probes are diagnostic only.
 
 ## 12. Later phases
 

@@ -1,5 +1,5 @@
 {
-	"_doc": "Buccaneer line (spec #412, ticket B2 #414). The fourth Brawler job (Pirate 500 -> Brawler 510 -> Marauder 511 -> Buccaneer 512), the first to carry a class's own AP row and HP growth beside its meter. A class spec adds jobs/<line>.json, skills/<line>.json (empty skeleton until its tickets define skills), automatically discovered by DataRepo.lines() (docs/ARCHITECTURE.md 4.4.4): nothing shared is edited. Skill keys stay inert until their definitions exist: skills/buccaneer.json defines the five ported knuckle skills (B4 #416); Dash stays in skills/pirate.json until B5 changes its slot; the rest are undefined and never offered. playable stays false until B11 flips it; default_job stays 212.",
+	"_doc": "Buccaneer line (spec #412, BC1–BC12 #413–#424). Job 512 is playable: eleven lineage pool skills, Flash Fist at start, Dash on mobility, Energy Charge, Drain/Orb finishers and two mutually exclusive morph forms. Shockwave, Demolition and Snatch are form subs. DataRepo discovers this per-line file automatically; default_job stays 212. All gameplay tuning belongs to the balance pass.",
 	"jobs": {
 		"512": {
 			"starting_skill": "flash_fist",
