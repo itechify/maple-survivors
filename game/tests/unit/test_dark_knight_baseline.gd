@@ -9,8 +9,9 @@ extends TestCase
 const DKF := preload("res://tests/fixtures/dark_knight_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-const GOLDEN := "6ca5b3f99b1ba5a3ba319dbd0ef7995c9f059011230fa95ff4b92cb85dd0690b"
-## Capture: 14400 ticks, 107 casts, 8 skills held (4 minutes, seed 1).
+const GOLDEN := "71dec8ff1b9fc799f0b3321c92f40d9935c33f03194105fe9a396ee9cde0c158"
+## Capture: 14400 ticks, seed 1, with the reach rule of D10 (an HP-paying skill past kite_reach stays out of the bot's reach profile). First captured with that rule
+## in SkillRunner.reach_of (6ca5b3f9...), moved once when the rule went into BotInput._reach_profile so Slash Blast keeps counting; this file is new in D10.
 const TICKS := 14400
 
 
