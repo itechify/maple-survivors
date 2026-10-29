@@ -725,6 +725,13 @@ These combined casting/admission changes need a later balance follow-up; no tuni
 Ellinia remains recorded rather than tuned. Hero bot death ranges: Henesys 327.7–688.2, Ellinia 221.0–646.5,
 Perion 288.9–493.0, Kerning 326.8–568.7 seconds.
 
+**Dragon Fury and Sacrifice smoke (#354, spec #348 D6; no tuning).** Two Dark Knight skill definitions and one hit-art lookup (only a
+definition with `hit_from_weapon` takes it), so F/P and Hero runs are unchanged: the three oracles reproduce their hashes unrecaptured, and
+Henesys `balance.sh 1 2 2026 --policy=bot` gives F/P (212) 0/3, deaths 305.0 / 454.5 / 651.7 s (Lv 11 / 21 / 36), Hero (112) 0/3, deaths
+327.7 / 336.9 / 688.2 s (Lv 11 / 11 / 36): the recorded numbers exactly, no crashes, no world warnings. Job 132 is not selectable yet (D10), so
+the Dark Knight itself is flow evidence only (diagnostic playtests, Henesys and Sleepywood, `missing: []`). Full suite: 2269 passed / 0 failed /
+0 skipped with the Dark Knight cache; 2269 passed / 0 failed / 238 skipped without any cache.
+
 **HP-risk seam smoke (#351, spec #348 D3; no tuning).** `HpRisk` adds data blocks that no shipped skill carries, so a run of a
 job without them is unchanged: F/P, Hero and tick-cost oracles reproduce their hashes unrecaptured (Slash Blast and Coma now
 also emit `hp_spent`, which the oracle runs do not exercise). Henesys `balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3,
@@ -6427,6 +6434,33 @@ repeats shrink x0.8; Rare is `amplify` "Element Amplification", damage x1.2, for
 affected (count, pierce) or a monster just beyond the base box (area). A projectile's extra shot goes to the second
 nearest monster, so a monster on the same line behind the first is shielded: Twin Bolt's extra target stands elsewhere.
 
+### 7.73 Dragon Fury and Sacrifice (#354, spec #348 D6)
+
+The Dark Knight's two HP-paying hits, both in `skills/dark_knight.json` (`dragon_fury`, `sacrifice`), built on the HP-risk
+seam (7.71). No new simulation code beyond one art lookup.
+
+- **Dragon Fury** (1311003; twin 1311004 for a pole arm via `art_by_family`, art only). A literal `box` cast of the skill's own
+  `afterimage` rectangle `lt (-241,-81) rb (-16,31)` (tier A; the node has no `lt`/`rb`; the spear and pole arm boxes are
+  identical), written as `cast.box`, `min_targets` 1, `mobCount` 6 at every level. Physical, `damage` 110 -> 250% over the eight
+  ranks, flat `hpCon` 20 -> 30 (the existing rule: it waits when paying would kill, spending nothing). Stance `swingP1` (0.8 s
+  hold), cooldown 1.2 s. Art: `effect` (rune circle) rides the cast event, `effect0` is a `cast_visuals` entry, `hit/0` lands on
+  each target. A mob whose body ends 240 px away is hit, at 250 it is not.
+- **Sacrifice** (1311005). `weapon_reach` (the held weapon's swing envelope), `count` 1, one line, physical, `damage` 220 -> 350%,
+  cooldown 2.0 s, stance `weapon` (the held weapon's first swing: stabT1 for a spear, swingP1 for a pole arm).
+  `self_damage {field x, of damage_dealt, cap_max_hp 0.10}` with `x` 18 -> 5: the recoil is `floor(x% of the damage dealt)`, at
+  most 10% of max HP, never the last HP (the cast still happens at 1 HP). The WZ node has no `hit` art, so the definition carries
+  `hit_from_weapon`: the hit spark is the held weapon's (`WeaponReach.hit_spark`, `Character.wz/Afterimage/hit.img/mace1|2`). The
+  defence-disable half of the WZ text is dropped (no mob debuff exists; the Armor Crash call).
+- **Rarity bonuses** (tier C, #288 schema; Mastery repeats shrink x0.8): Fury Rare `mastery` damage x1.2, Epic `fury` "Wide Fury"
+  `count` +2 (8 targets), Unique `booster` cooldown x0.8, Legendary `booster` + damage x1.2. Sacrifice Rare `mastery` damage
+  x1.2, Epic `achilles` "Achilles" `self_damage` x0.6 (rank 1: 18% -> 10.8%; the cap does not move), Unique `berserk` "Berserk"
+  `low_hp_damage` +0.5 (damage x1.5 at or below half HP, read at the cast), Legendary `berserk` (same id and counter) + damage
+  x1.2. The recoil is computed on the boosted damage, so Berserk makes Sacrifice hurt more.
+- **Card text.** Sacrifice's line carries the HP-risk mechanic line "Recoil: 18% of damage dealt (at most 10% of max HP)" (7.71).
+- **Audit.** `test_rarity_bonus_effects` learned the HP stats: `self_damage` (recoil paid per damage dealt), `low_hp_damage`
+  (damage from 40% HP) and `hp_cost` (HP paid per cast; Dragon Roar's Dragon Blood, D7), in a Dark Knight world with a huge HP
+  pool and a heavy weapon.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7801,3 +7835,17 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | `self_damage` modifier | multiplies the recoil percentage, never the cap | tier C |
 | `hp_spent` | emitted for every paid cost (flat too) and recoil, never at 0 | tier C: presentation event |
 | Red `hp_spent` number | NoRed digit set tinted (HP_SPENT) | tier C: presentation assignment |
+
+### Dragon Fury and Sacrifice constants (#354)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Fury reach box | `lt (-241,-81) rb (-16,31)` (the skill's `afterimage/spear/swingP1`; the pole arm's is identical) | tier A: Skill.wz 1311003/1311004 (the node has no `lt`/`rb`); using it as the cast box is DK-8, tier C |
+| Fury targets, damage, HP cost | `mobCount` 6; 110 -> 250%; flat `hpCon` 20 -> 30 at the eight mapped levels | tier A: Skill.wz 1311003, levels 4 8 12 15 19 23 27 30 |
+| Fury cooldown, stance hold | 1.2 s, 0.8 s (`swingP1` body delays 300 + 150 + 350 ms) | tier C: DK-9 first-pass cadence; the hold is the body action's own time |
+| Sacrifice damage, recoil percent | 220 -> 350%; `x` 18 -> 5 (% of the damage dealt) | tier A: Skill.wz 1311005 (String.wz agrees) |
+| Sacrifice recoil cap, rounding | 10% of max HP, `floor`, never the last HP | tier C: DK-1 |
+| Sacrifice reach, stance, cooldown | the held weapon's envelope, its first swing stance, 2.0 s | tier C: DK-9; the node names no `action` |
+| Sacrifice hit spark | the held weapon's (`hit_from_weapon`) | tier C: the node has no `hit` art |
+| Sacrifice defence-disable | dropped | tier C: no mob debuff exists (Armor Crash) |
+| Rarity bonuses | Mastery x1.2, Wide Fury +2 targets, Booster cooldown x0.8, Achilles recoil x0.6, Berserk +50% at or below half HP | tier C: spec #348 "Rarity bonuses"; Berserk's threshold is tier A (`HpRisk.BERSERK_BELOW`) |

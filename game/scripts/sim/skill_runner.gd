@@ -520,7 +520,7 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 				# A pull-only cast (damage "none" with a `pull` block, Monster Magnet) has no damage lines: apply_pull moved the mobs.
 				if not (definition.has("pull") and String(st.damage_type) == "none"):
 					_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
-						world.visual_index(String(st.hit)))
+						world.visual_index(_hit_path(world, definition, st)))
 			"crowd":
 				_resolve_crowd(world, key, st, targets)
 			"cluster":
@@ -534,6 +534,14 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 					_resolve_nearest(world, key, st, origin, targets)
 	if when == "after":
 		world.displace_player(side, float(disp.distance))
+
+
+## The hit art of a cast: the skill's own `hit` node, else (a definition with `hit_from_weapon` whose WZ node has no hit
+## art, Sacrifice) the spark of the held weapon's stance. tier C: the weapon swing's spark, as for any weapon attack.
+func _hit_path(world: RunWorld, definition: Dictionary, st: Dictionary) -> String:
+	if String(st.hit) != "" or not bool(definition.get("hit_from_weapon", false)):
+		return String(st.hit)
+	return world.weapon_reach.hit_spark(world, String(st.action))
 
 
 ## True for the same grounded, non-boss, outside-floor candidates that a pull can move.

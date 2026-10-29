@@ -129,6 +129,214 @@
 					}
 				]
 			}
+		},
+		"dragon_fury": {
+			"_provenance": "Tier A: Skill.wz 1311003 damage 80 to 250 % (rank 1 = level 4: 110 %), mobCount 6, hpCon 20 to 30, action swingP1, the reach box = the skill's own afterimage rectangle spear/swingP1 lt (-241,-81) rb (-16,31) (the pole arm twin 1311004 is identical), effect, effect0, hit/0 and the Use sound. Tier C: the 1.2 s cooldown, the box cast needing one mob, the 0.8 s stance hold (the body action's own delays), rarity bonuses. Docs: GAME_DESIGN 7.73.",
+			"skill_id": 1311003,
+			"book": "131",
+			"job": 131,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Dragon Fury",
+			"desc": "Swings the spear in a long sweep across six monsters, for a few HP.",
+			"text": {
+				"desc": "Sweep your spear or pole arm across a long reach in front of you. Costs HP, never the last point.",
+				"h": "HP -{hp_cost}; damage {damage}%, up to {mob_count|monster|monsters}"
+			},
+			"icon": "Skill.wz/131.img/skill/1311003/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1,
+				"box": {
+					"lt": {
+						"$v": [
+							-241.0,
+							-81.0
+						]
+					},
+					"rb": {
+						"$v": [
+							-16.0,
+							31.0
+						]
+					}
+				}
+			},
+			"cooldown": 1.2,
+			"action": "swingP1",
+			"action_time": 0.8,
+			"art_by_family": {
+				"polearm": 1311004
+			},
+			"ball": "",
+			"hit": "Skill.wz/131.img/skill/1311003/hit/0",
+			"effect": "Skill.wz/131.img/skill/1311003/effect",
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/131.img/skill/1311003/effect0",
+					"follow": true
+				}
+			],
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1311003/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "fury",
+						"text": "Wide Fury",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.8
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.8
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"sacrifice": {
+			"_provenance": "Tier A: Skill.wz 1311005 damage 205 to 350 % (rank 1 = level 4: 220 %), x 20 to 5 (% of the damage dealt, String.wz agrees; rank 1 = 18 %), the effect (2 frames, z -1), the Use sound; no action, no hit, no mobCount, no attackCount in the node. Tier C: the single hit at the held weapon's reach (weapon_reach), the weapon's own first-swing stance and hit spark, the 2.0 s cooldown, the recoil rules (10 % of max HP cap, never the last HP; HpRisk), the dropped defence-disable half (no mob debuff exists), rarity bonuses (Achilles, Berserk). Docs: GAME_DESIGN 7.73.",
+			"skill_id": 1311005,
+			"book": "131",
+			"job": 131,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Sacrifice",
+			"desc": "Deals a heavy blow to one monster within your weapon's reach, hurting you for a share of the damage.",
+			"text": {
+				"desc": "Strike one monster within your weapon's reach for a heavy blow. The blow hurts you, but never takes your last HP.",
+				"h": "Damage {damage}%, {mob_count|monster|monsters}"
+			},
+			"icon": "Skill.wz/131.img/skill/1311005/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "weapon_reach"
+			},
+			"cooldown": 2.0,
+			"action": "weapon",
+			"action_time": 0.6,
+			"self_damage": {
+				"field": "x",
+				"of": "damage_dealt",
+				"cap_max_hp": 0.1
+			},
+			"ball": "",
+			"hit": "",
+			"hit_from_weapon": true,
+			"effect": "Skill.wz/131.img/skill/1311005/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1311005/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "achilles",
+						"text": "Achilles",
+						"effects": [
+							{
+								"stat": "self_damage",
+								"op": "mul",
+								"value": 0.6
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "berserk",
+						"text": "Berserk",
+						"effects": [
+							{
+								"stat": "low_hp_damage",
+								"op": "add",
+								"value": 0.5
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "berserk",
+						"text": "Berserk",
+						"effects": [
+							{
+								"stat": "low_hp_damage",
+								"op": "add",
+								"value": 0.5
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
 		}
 	}
 }
