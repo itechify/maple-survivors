@@ -138,7 +138,7 @@ func test_the_legacy_cards_of_the_five_skills_are_gone_and_corsair_cards_stay() 
 		for suffix in ["_new", "_rank", "_targets"]:
 			assert_false(ids.has(key + suffix), key + suffix + " is deleted from upgrades/pirate.json")
 	for id in ["dash_new", "dash_rank"]:
-		assert_true(ids.has(id), id + " is B5's: untouched here")
+		assert_false(ids.has(id), id + " is deleted: B5 (#417) made Dash a mobility skill with no cards")
 	var legacy := 0
 	for id: String in ids:
 		for key: String in KEYS:
