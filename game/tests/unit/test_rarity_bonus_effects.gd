@@ -1,6 +1,6 @@
 extends TestCase
-## Every rarity bonus of every Hero, F/P and I/L Arch Mage skill changes the resolved cast, not just a stat number (spec #296, H7
-## audit; the I/L skills joined it in spec #319, I6 #325 / the merge of redesign).
+## Every rarity bonus of every Hero, F/P, I/L Arch Mage and Bishop skill changes the resolved cast, not just a stat number (spec
+## #296, H7 audit; the I/L skills joined it in spec #319, I6 #325 / the merge of redesign; the Bishop's core bolts in spec #372, BS5 #377).
 ## For each effect of each tier the same seeded world is cast twice, with and without the effect, against a field of mobs
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
@@ -10,6 +10,7 @@ extends TestCase
 ## small tables `_demon_levels` builds) and are cast at their top rank, so the probes below are the same and only `_world` differs.
 ## Ifrit (I9) is a summon that needs allies settled behind the player: it stays in test_ifrit.gd (IL_AUDITED_ELSEWHERE).
 
+const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")
 const IL := preload("res://tests/fixtures/il_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BLIZZARD := preload("res://tests/unit/test_il_blizzard.gd")
@@ -26,6 +27,9 @@ const IL_SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", 
 ## The I/L skills with bonuses that another test audits: Ifrit is a summon (test_ifrit.gd).
 const IL_AUDITED_ELSEWHERE := ["ifrit"]
 const IL_BOOKS := [220, 221, 222]
+## The Bishop skills this audit casts (books 230/231/232, BS5 #377): Holy Arrow, Shining Ray, Angel Ray. They have their own synthetic
+## Skill.wz tables (`bishop_bolt_fixtures.gd`) and are cast at their top rank, like the I/L ones.
+const BISHOP_SKILLS := ["holy_arrow", "shining_ray", "angel_ray"]
 
 var _resolved_skills := {}
 
@@ -87,6 +91,8 @@ func _world(key: String) -> RunWorld:
 	var il: bool = int(_resolved()[key].job) in IL_BOOKS
 	if il:
 		return _finish_world(RunWorld.new(_il_setup()), key, true)
+	if key in BISHOP_SKILLS:
+		return _finish_world(RunWorld.new(BF.setup(RF.quiet_data(), 377)), key, true)
 	var data := RF.quiet_data()
 	var job := 112 if int(data.skills.skills[key].job) in [100, 110, 111, 112] else 212
 	data.jobs_survivor.jobs["112"]["playable"] = true
@@ -168,7 +174,7 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	var w := _world(key)
 	# Poison pulses (hp lost) and knock-back (x moved) count as "affected" for the poison skills; an I/L skill only counts the
 	# mobs its own hit events name (its audit before the fold, and a chain's neighbours are shoved by soft collision).
-	var il: bool = int(_resolved()[key].job) in IL_BOOKS
+	var il: bool = int(_resolved()[key].job) in IL_BOOKS or key in BISHOP_SKILLS
 	var reach := _reach(w, key)
 	var layout := _layout(stat, reach)
 	var slots := []
@@ -230,6 +236,8 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 	assert_true(keys.size() >= 19 + IL_SKILLS.size(), "seven Hero, twelve F/P and %d I/L skills: %d" % [IL_SKILLS.size(), keys.size()])
 	for key in IL_SKILLS:
 		assert_true(key in keys, "%s (I/L) is audited" % key)
+	for key in BISHOP_SKILLS:
+		assert_true(key in keys, "%s (Bishop) is audited" % key)
 
 
 func test_every_il_skill_with_bonuses_is_audited_here_or_named_as_audited_elsewhere() -> void:
@@ -263,6 +271,7 @@ func test_the_audits_cover_the_whole_shipped_il_pool() -> void:
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
 	var skills := _resolved()
 	var il_checked := 0
+	var bishop_checked := 0
 	for key: String in _skills_with_bonuses():
 		var bonuses: Dictionary = skills[key].rarity_bonuses
 		for tier: String in TIERS:
@@ -270,7 +279,9 @@ func test_each_bonus_effect_changes_the_resolved_cast() -> void:
 				for effect: Dictionary in bonus.effects:
 					_assert_effect_changes_the_cast(key, tier, String(bonus.id), effect)
 					il_checked += 1 if key in IL_SKILLS else 0
+					bishop_checked += 1 if key in BISHOP_SKILLS else 0
 	assert_eq(il_checked, IL_SKILLS.size() * 5, "each I/L skill: 1 + 1 + 1 + 2 effects")
+	assert_eq(bishop_checked, BISHOP_SKILLS.size() * 5, "each Bishop bolt: 1 + 1 + 1 + 2 effects")
 
 
 func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effect: Dictionary) -> void:
@@ -328,3 +339,17 @@ func test_the_probe_catches_an_il_modifier_the_cast_rule_never_reads() -> void:
 	assert_true(bool(_probe("thunder_bolt", [area], "area").edge))
 	assert_true(bool(_probe("ice_strike", [area], "area").edge))
 	assert_true(bool(_probe("ice_demon", [area], "area").edge))
+
+
+func test_the_probe_catches_a_bishop_modifier_the_cast_rule_never_reads() -> void:
+	# A box rule never reads `range`; a nearest projectile reads neither `area` nor a shining box's pierce.
+	var reach := {"stat": "range", "op": "mul", "value": 1.2}
+	assert_false(bool(_probe("shining_ray", [reach], "range").edge), "a range modifier does not widen Shining Ray's box")
+	var area := {"stat": "area", "op": "mul", "value": 1.2}
+	assert_false(bool(_probe("angel_ray", [area], "area").edge), "an area modifier does not lengthen an Angel Ray shot")
+	assert_false(bool(_probe("holy_arrow", [area], "area").edge))
+	var pierce := {"stat": "pierce", "op": "add", "value": 1.0}
+	assert_eq(_probe("shining_ray", [pierce], "pierce").affected, _probe("shining_ray", [], "pierce").affected)
+	# And the modifiers the shipped bonuses rely on do widen.
+	assert_true(bool(_probe("shining_ray", [area], "area").edge))
+	assert_true(int(_probe("holy_arrow", [pierce], "pierce").affected) > int(_probe("holy_arrow", [], "pierce").affected))

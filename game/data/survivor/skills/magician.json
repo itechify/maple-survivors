@@ -63,20 +63,6 @@
 			"rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2001003/Use", "hit": ""}
 		},
-		"holy_arrow": {
-			"skill_id": 2301005, "book": "230", "job": 230, "kind": "projectile", "slot": "active",
-			"name": "Holy Arrow", "desc": "Cleric. Shoots a holy arrow at the nearest monster.",
-			"text": {"desc": "Attacks the nearest monster by firing Holy Arrows. Very effective against undead and devil-based monsters.", "h": "Basic attack {mad}, mastery {mastery_pct}%, {count|arrow|arrows} per cast"},
-			"icon": "Skill.wz/230.img/skill/2301005/icon", "damage": "magic",
-			"_tuning": "Tier C: same flight, reach, radius and recast as Fire Arrow; canonical mad/mastery/mpCon and holy element are tier A.",
-			"cooldown": 1.0, "range": 480, "speed": 520, "count": 1, "pierce": 0, "radius": 12,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-			"action": "shoot1", "action_time": 0.8,
-			"ball": "Skill.wz/230.img/skill/2301005/ball",
-			"hit": "Skill.wz/230.img/skill/2301005/hit/0",
-			"effect": "Skill.wz/230.img/skill/2301005/effect", "rotate": true,
-			"sounds": {"use": "Sound.wz/Skill.img/2301005/Use", "hit": ""}
-		},
 		"heal": {
 			"skill_id": 2301002, "book": "230", "job": 230, "kind": "instant", "slot": "active",
 			"name": "Heal", "desc": "Restores HP below half health, or strikes undead inside its holy box.",
@@ -471,18 +457,6 @@
 			"action": "", "action_time": 0.0, "ball": "", "hit": "",
 			"effect": "Effect.wz/BasicEff.img/Teleport", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2101002/Use", "hit": ""}
-		},
-		"teleport_cleric": {
-			"skill_id": 2301001, "book": "230", "job": 230, "kind": "instant", "slot": "active",
-			"name": "Teleport", "desc": "Press X and a direction to blink to a platform. Hold X to repeat.",
-			"text": {"desc": "Press the Teleport key with an arrow key to teleport a set distance to another platform in the same map. Hold the key to keep teleporting."},
-			"icon": "Skill.wz/230.img/skill/2301001/icon", "damage": "none",
-			"cast": {"rule": "manual"}, "skill_key": "teleport", "teleport": {"repeat_delay": 0.3, "bot_threat_distance": 60.0},
-			"_teleport": "Tier C: 0.3 s survivor repeat delay; bot blinks from threats within 60 px. Canonical mpCon and range from Skill.wz.",
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "", "action_time": 0.0, "ball": "", "hit": "",
-			"effect": "Effect.wz/BasicEff.img/Teleport", "rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/2301001/Use", "hit": ""}
 		},
 		"explosion": {
 			"_rarity": "Tier C: first-pass #290 bonuses; repeat scale 0.8. See GAME_DESIGN 8.",

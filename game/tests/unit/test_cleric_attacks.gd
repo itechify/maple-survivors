@@ -5,14 +5,21 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
+## A 30-level table whose rows are all the worked example's (mad 34, mastery 3): the test reads rank 7 (level 27).
+func _holy_arrow_levels() -> Dictionary:
+	var levels := {}
+	for level in range(1, 31):
+		levels[str(level)] = {"mad": 34.0, "mastery": 3.0, "mpCon": 14.0}
+	return levels
+
+
 func _world(key: String) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.hp = 1000
 	var setup := RF.setup("quiet", 57, data)
 	setup.skill_imgs["230"] = {"skill": {
-		"2301005": {"elemAttr": "h", "level": {
-			"1": {"mad": 22.0, "mastery": 1.0, "mpCon": 12.0},
-			"7": {"mad": 34.0, "mastery": 3.0, "mpCon": 14.0}}},
+		# Holy Arrow is a Bishop pool skill (BS5 #377, default eight-rank table): rank 1 is WZ level 4 and rank 7 level 27.
+		"2301005": {"elemAttr": "h", "level": _holy_arrow_levels()},
 		"2301002": {"level": {
 			"1": {"hp": 10.0, "mpCon": 12.0, "mobCount": 6.0,
 				"lt": {"$v": [-250.0, -150.0]}, "rb": {"$v": [250.0, 150.0]}},
@@ -37,7 +44,7 @@ func test_holy_arrow_canonical_rank_damage_and_holy_weakness() -> void:
 		assert_true(w.loadout.has("holy_arrow"))
 		w.loadout.set_rank("holy_arrow", 7)
 		var st := w.loadout.stats("holy_arrow")
-		assert_eq(st.level, 7)
+		assert_eq(st.level, 27, "rank 7 of the eight-rank table")
 		assert_eq(st.element, "h")
 		# Worked standard magic formula: INT 100 + wand 23, mad 34, mastery 25%.
 		assert_near(st.damage_min, 65.5112, 0.001)
@@ -86,23 +93,15 @@ func test_heal_admission_restoration_and_recast_delay() -> void:
 	assert_eq(w.runner.casts, 2, "still injured: recasts at two seconds")
 
 
-func test_heal_holy_arrow_cards_are_cleric_only_and_behaviour_steps_match_first_job() -> void:
-	var w := _world("holy_arrow")
-	for id: String in ["holy_arrow_new", "holy_arrow_rank", "holy_arrow_count", "holy_arrow_pierce", "holy_arrow_cooldown", "heal_new", "heal_rank"]:
+func test_heal_cards_are_cleric_only_and_holy_arrow_has_no_standalone_card() -> void:
+	var w := _world("heal")
+	for id: String in ["heal_new", "heal_rank"]:
 		var card := w.upgrades.card(id)
 		assert_false(card.is_empty(), id)
 		assert_eq(card.get("requires", {}).get("jobs"), [230.0], id)
-	for id: String in ["holy_arrow_count", "holy_arrow_pierce", "holy_arrow_cooldown"]:
-		var max_steps := 2 if id == "holy_arrow_pierce" else 3
-		for pick in max_steps:
-			assert_false(id in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
-			RF.add_modifier_effects(w, w.upgrades.card(id))
-		assert_false(id in w.upgrades.eligible(w), "modifier cap: " + id)
-	assert_eq(w.loadout.stats("holy_arrow").count, 4)
-	assert_eq(w.loadout.stats("holy_arrow").pierce, 2)
-	assert_near(w.loadout.stats("holy_arrow").cooldown, 0.681472, 0.00001)
-	assert_near(BotInput.card_score(w, {"id": "holy_arrow_rank"}), 74.0)
-	assert_near(BotInput.card_score(w, {"id": "holy_arrow_count"}), 87.0)
+	# BS5 #377: Holy Arrow is a Bishop pool skill; its five legacy cards are gone (its shots, pierce and cooldown are rarity bonuses).
+	for card: Dictionary in DataRepo.load_all().upgrades.cards:
+		assert_false(String(card.id).begins_with("holy_arrow"), "no legacy Holy Arrow card: %s" % card.id)
 	w.progression.job_id = 220
 	for id: String in w.upgrades.eligible(w):
 		assert_false(id.begins_with("holy_arrow") or id.begins_with("heal_"), id)
@@ -209,10 +208,12 @@ func test_cleric_cache_levels_visuals_and_sounds() -> void:
 	assert_eq(int(root.skill["2301002"].level["30"].hp), 300)
 	var arrow := _world("holy_arrow")
 	arrow.book.skill_imgs["230"] = root
-	for example: Array in [[1, 12, 34.2716, 112.2946], [30, 24, 257.464, 408.344]]:
+	# Rank 1 is WZ level 4 (mad 28, mastery 2) and rank 8 level 30: max = 5.1043 x mad, and the min share is linear in mastery
+	# (the original v83 level-1 and level-30 endpoints 34.2716 / 112.2946 and 257.464 / 408.344, INT 100 / wand 23).
+	for example: Array in [[1, 4, 48.7844, 142.9204], [8, 30, 257.464, 408.344]]:
 		arrow.loadout.set_rank("holy_arrow", int(example[0]))
 		var st := arrow.loadout.stats("holy_arrow")
-		assert_eq(st.level, int(example[0]))
+		assert_eq(st.level, int(example[1]))
 		assert_near(st.damage_min, float(example[2]), 0.001, "original v83 endpoint with INT 100 / wand 23")
 		assert_near(st.damage_max, float(example[3]), 0.001)
 	assert_true(lib.missing.is_empty(), str(lib.missing))
