@@ -2,7 +2,7 @@
 	"_doc": "Bowmaster line (spec #332, ticket B2 #334): an empty skeleton. Each Bowmaster skill ticket (B7-B11) appends its own definitions in its own marked region; until a key is defined, the job's pool entry for it is inert (never offered, never learned). Shared keys with Bowman (arrow_blow, bow_double_shot, arrow_bomb) stay in skills/bowman.json until B7 moves them here.",
 	"skills": {
 		"hurricane": {
-			"_b10_342": "Bowmaster B10 #342 (Hurricane). Tier A: WZ damage 51 -> 100, own 10-frame ball, hit/0, Use and Hit sounds, one monster per arrow (no mobCount/attackCount). Tier C (GAME_DESIGN 7.45): burst rule, 12 arrows at 0.1 s after a 0.4 s wind-up, 6 s cooldown, range 450, 900 px/s, radius 6, eight survivor ranks on levels 4/8/12/15/19/23/27/30, the held bow's shooting stance for the whole stream, rarity bonuses.",
+			"_b10_342": "Bowmaster B10 #342 (Hurricane). Tier A: WZ damage 51 -> 100, own 10-frame ball, hit/0, Use and Hit sounds, one monster per arrow (no mobCount/attackCount). Tier C (GAME_DESIGN 7.45): burst rule, 12 arrows at 0.1 s after a 0.4 s wind-up, 6 s cooldown, range 450, 900 px/s, radius 6, eight survivor ranks on levels 4/8/12/15/19/23/27/30, the held bow's shooting stance for the whole stream, rarity bonuses; `capture_delay` 0.9 makes the playtest's first-cast screenshot sample the stream in flight (art only).",
 			"skill_id": 3121004,
 			"book": "312",
 			"job": 312,
@@ -33,6 +33,7 @@
 			"pierce": 0,
 			"action": "weapon",
 			"action_time": 0.6,
+			"capture_delay": 0.9,
 			"ball": "Skill.wz/312.img/skill/3121004/ball",
 			"hit": "Skill.wz/312.img/skill/3121004/hit/0",
 			"effect": "",

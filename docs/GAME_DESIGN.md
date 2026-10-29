@@ -6173,6 +6173,30 @@ skill carries the block yet (the tests use a synthetic skill), so no existing re
 - **Not modelled.** The meter's finisher scaling (`PlayerMeter.begin_cast`) does not scale `burn_pulse`: no burning skill
   is a meter skill yet.
 
+### 7.45 Hurricane (#342, Bowmaster B10, spec #332)
+
+Hurricane (3121004, `skills/bowmaster.json`) is the first skill on the burst rule (7.42): `kind projectile`,
+`cast {rule burst}`, `burst {interval 0.1, wind_up 0.4, retarget true}`, `count 12`, `cooldown 6.0`, `range 450`,
+`speed 900`, `radius 6`, no pierce, `bow` only. Damage is the level's `damage` (tier A, no `mobCount`/`attackCount`: one
+monster) as a percent per arrow, eight ranks on levels 4/8/12/15/19/23/27/30 (the mapping of every 30-level skill):
+rank 1 / 4 / 8 = 54 / 75 / 100% per arrow, so 12 x 54% to 12 x 100% a cast. Each arrow is the skill's own 10-frame `ball`
+(not the ammo's sprite: `ammo_shot` is off, the ammo still adds its W.Att to the shot's damage) with `hit/0` on impact and
+the `Use` / `Hit` sounds read from `Sound.wz/Skill.img/3121004`. The first arrow leaves 0.4 s after admission and the
+twelfth at 1.5 s; every arrow aims from the hand at the retained target and the character keeps walking.
+
+The cast stance is the held bow's shooting stance (`action: weapon`), held for the whole stream: `SkillRunner._resolve_cast`
+raises a burst cast's hold to `BurstCast.span` (wind-up plus the gaps between arrows; 1.5 s, 1.9 s with sixteen arrows).
+Art (`burst_art`): the 14-frame `prepare` plays on the caster fitted to the wind-up (`FxRenderer.fit`: 0.98 s of frames in
+0.4 s), `keydown` loops from the first arrow, `keydownend` plays when the stream is over or dropped. The sim reports this as
+`burst_start` (`skill`, `wind_up`, `span`, `facing`) and `burst_end` (`skill`; also for a stream dropped by death, Hidden
+or a map change, `clear_pending(world)`); the scene turns them into the three animations. The first-cast screenshot is taken
+0.9 s after the cast (`capture_delay`) so it shows arrows in flight.
+
+Rarity (the Bowmaster lineage names, repeat scale 0.8): Rare **Bow Expert** damage x1.2; Epic **Bow Booster** cooldown x0.88;
+Unique **Final Attack** `count` +4 (sixteen arrows, a 1.9 s stream); Legendary Final Attack plus damage x1.2 (sharing the
+Unique's id and repeat counter). Every bonus changes the resolved cast: `test_rarity_bonus_effects` probes Hurricane (on the
+burst rule `count` shows as arrows landed on the one target, not as extra monsters affected).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7498,3 +7522,17 @@ Warrior bot equipment weights now explicitly name ancestor 100 with the same val
 | Attack box anchor of a flyer | feet-relative (the trailing point on the ground), not the flyer | tier C |
 | `info/effect` strike art | played at the damage impact (`attackAfter`) on each struck monster; `effectAfter` not modelled | tier C; the nodes are tier A |
 | `Summon` sound | plays at each follower spawn when `sounds.summon` is listed | tier C (no sound in the v83 client was verified to play at spawn) |
+
+### Bowmaster B10 constants (#342)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Hurricane damage per arrow | the level's `damage` 51 -> 100%, ranks 54 / 75 / 100% at 1 / 4 / 8; one monster per arrow | tier A (Skill.wz 312.img) |
+| Hurricane stream | 12 arrows, 0.4 s wind-up, 0.1 s apart | tier C: spec #332 (the WZ `prepare` is 0.96 s of a held key; halved because nothing is held) |
+| Hurricane cooldown, range, speed, radius | 6.0 s, 450 px, 900 px/s, 6 px | tier C: spec #332 |
+| Ranks | levels 4/8/12/15/19/23/27/30 | tier C: the 30-level mapping shared with Hero |
+| Own `ball`, not the ammo sprite | `ammo_shot` off; ammo W.Att still counts | tier C: spec #332 row (own 10-frame ball) |
+| Stance held for the stream | `max(action_time, BurstCast.span)` for every burst cast | tier C |
+| Art | `prepare` fitted to the wind-up, `keydown` loop, `keydownend` at the end; `burst_start` / `burst_end` events | tier C: our reading of the nodes |
+| `capture_delay` | 0.9 s (first-cast screenshot sample) | tier C, art only |
+| Rarity | Bow Expert damage x1.2, Bow Booster cooldown x0.88, Final Attack count +4, Legendary adds damage x1.2 | tier C: spec #332 |
