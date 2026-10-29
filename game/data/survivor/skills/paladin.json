@@ -50,6 +50,201 @@
 				"hit": ""
 			}
 		},
+		"blast": {
+			"_provenance": "Tier A: Skill.wz 1221009 (a single `damage` field, 170 to 550%, so one line and one target; the `blast` body action and its 840 ms (540 + 300 ms) timing; the 14-frame cast effect and the 3-frame hit, both keyed by the element art index 0/1/2/3/5; the five Use sounds). Tier C: 2.0 s cooldown (the balance pass owns it), weapon_reach targeting (the nearest mob in the held weapon's swing, as Power Strike), 0.84 s action hold, art index 0 (no Charge) until P7 picks the running Charge's node, the five sounds played in order by cast number (SkillBook.use_sound, no RNG), the rarity bonuses (Mastery, Booster, Final Attack). Docs: GAME_DESIGN 7.60. The screenshot `capture_delay` 0.72 s samples the thrust frame and the slash.",
+			"skill_id": 1221009,
+			"book": "122",
+			"job": 122,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Blast",
+			"desc": "A single devastating blow to the nearest monster within your weapon's reach.",
+			"text": {
+				"desc": "Deliver one huge blow to the nearest monster within your weapon's reach.",
+				"h": "Damage {damage}%, {attack_count|hit|hits}"
+			},
+			"icon": "Skill.wz/122.img/skill/1221009/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "weapon_reach",
+				"min_targets": 1
+			},
+			"cooldown": 2.0,
+			"action": "blast",
+			"action_time": 0.84,
+			"capture_delay": 0.72,
+			"ball": "",
+			"hit": "Skill.wz/122.img/skill/1221009/hit/0/0",
+			"effect": "Skill.wz/122.img/skill/1221009/effect/0",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1221009/Use",
+				"use_cycle": [
+					"Sound.wz/Skill.img/1221009/Use",
+					"Sound.wz/Skill.img/1221009/Use2",
+					"Sound.wz/Skill.img/1221009/Use3",
+					"Sound.wz/Skill.img/1221009/Use4",
+					"Sound.wz/Skill.img/1221009/Use5"
+				],
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"monster_magnet_paladin": {
+			"_rarity": "Tier C: as Hero's Magnet (#303): Rare reach x1.2 (the `range` modifier: a range_around cast reads `range`), Epic Bigger Grab +2 targets, Unique Booster cooldown x0.75, Legendary Booster plus +2 targets (sharing the Unique's id and repeat counter).",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "reach",
+						"text": "Reach",
+						"effects": [
+							{
+								"stat": "range",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "grab",
+						"text": "Bigger Grab: targets",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "booster",
+						"text": "Booster: cooldown",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.75
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "booster",
+						"text": "Booster: cooldown and targets",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.75
+							},
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				]
+			},
+			"_provenance": "Tier A: Skill.wz 1221001 range 200 to 400 px, prop (pull chance 48 to 95 %), mobCount 6, the 18-frame effect and the Use sound (a UOL to Hero's 1121001); identical to Hero's 1121001 level by level (P1 #309). Tier C: a copy of Hero's `monster_magnet` under its own key (a skill key is unique across files): no damage, the shared `pull` block (7.35), the alert2 action (the node names none), the three-mob admission gate (`cast.min_targets`), the 0.6 s action hold, the 10 s cooldown (spec #308; Hero's own 4 s is tuned on Hero's runs by #346 and is not inherited), and the rarity bonuses. Docs: GAME_DESIGN 7.60. The screenshot `capture_delay` 0.35 s samples the horseshoe.",
+			"skill_id": 1221001,
+			"book": "122",
+			"job": 122,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Monster Magnet",
+			"desc": "Drags the monsters around you toward you.",
+			"text": {
+				"desc": "Drag distant monsters toward you, into reach of your other skills. Needs 3 monsters in range.",
+				"h": "{prop}% chance for each monster pulled."
+			},
+			"icon": "Skill.wz/122.img/skill/1221001/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "range_around",
+				"min_targets": 3
+			},
+			"pull": {
+				"chance_field": "prop",
+				"range_field": "range",
+				"min_gap": 60
+			},
+			"cooldown": 10,
+			"action": "alert2",
+			"action_time": 0.6,
+			"capture_delay": 0.35,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/122.img/skill/1221001/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1221001/Use",
+				"hit": ""
+			}
+		},
 		"charged_blow": {
 			"_provenance": "Tier A: Skill.wz 1211002 (book 121) damage 162 to 250 %, prop (stun chance 32 to 90 %), time (stun seconds 2 to 4), range 130 to 150, mobCount 6, hpCon 15 to 25, the effect/{1,2,3,5} and hit/0/{1,2,3,5} art keyed by element (P1 #309: 1 ice, 2 fire, 3 lightning, 5 holy), the mob stun stars and the Use sound; rank 1 reads level 4 (38 %, 2 s). Tier C: it is a Form sub-skill (spec #308, P-3: it stuns in every element and has no freeze variant), the three-mob admission gate, the interval and first_after in each Charge's `subs` entry, the weapon's first swing stance and its 0.6 s display, and `form_sub_of` naming the four Charges. Docs: GAME_DESIGN 7.62.",
 			"skill_id": 1211002,

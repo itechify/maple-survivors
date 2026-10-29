@@ -6018,6 +6018,37 @@ No shipped skill carries the block yet, so no existing record changes.
 - **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
   and Skill-window text (H7).
 
+### 7.60 Paladin pool (spec #308)
+
+The Paladin (122) fights with Hero's Power Strike and Slash Blast (`skills/hero.json`, never repeated or edited for the
+Paladin: its pool lists the same keys, `SkillBook.def` returns one definition for both jobs, and the Combo meter is a
+Hero job entry that a Paladin does not have, so the Paladin's casts carry no meter state, no `meter_changed` event and no
+per-orb damage), plus the skills of its own below. Each ticket of the spec appends its subsection to `skills/paladin.json`
+and here.
+
+#### Blast and Monster Magnet (P5, #313)
+
+- **`blast`** (1221009, book 122): `weapon_reach` (the nearest mob in the held weapon's swing, as Power Strike), `min_targets`
+  1, one physical line on one target, cooldown 2.0 s, `blast` body action held 0.84 s. WZ `damage` 170 -> 550% is its only
+  field (no `mobCount`, no `attackCount`); the eight ranks read levels 4, 8, 12, 15, 19, 23, 27, 30 (230, 310, 370, 400, 440,
+  480, 520, 550%). Rarity: Mastery damage x1.2, Booster cooldown x0.88, Final Attack +1 hit (`attack_count`), Legendary
+  Final Attack plus damage x1.2 (shares the Unique's repeat counter). It is the biggest single hit of the lineage and pays
+  off against defence and bosses; the balance pass owns its cooldown.
+- **Art.** The cast `effect` and the `hit` are both keyed by the element art index (P1: 0 none, 1 ice, 2 fire, 3 lightning,
+  5 holy). Blast reads index 0 (`effect/0`, `hit/0/0`) until a Charge is running; P7 adds the Charge-aware pick, presentation
+  only.
+- **Five sounds.** `sounds.use_cycle` lists `Use` .. `Use5`; `SkillBook.use_sound(key, nth, family)` returns entry
+  `nth mod 5` and `RunScene` counts the casts of each key it has seen, so the sounds play in order with no RNG draw. A
+  skill without a cycle plays its `sounds.use` as before.
+- **`monster_magnet_paladin`** (1221001, book 122): a copy of Hero's `monster_magnet` under its own key (a skill key is unique
+  across files): `range_around`, admitted at 3 mobs in range, `pull {chance_field prop, range_field range, min_gap 60}`,
+  `damage: none`, `alert2`, effect art (18 frames) and the Use sound (a UOL to Hero's `1121001/Use`). The WZ node equals
+  Hero's level by level (range 200/200/300/300/300/400/400/400 px and prop 48 -> 95% over the eight ranks, `mobCount` 6), so
+  the two keys pull identically. Cooldown **10 s** (spec #308; Hero's own 4 s comes from its tuning pass, #346, and is not
+  inherited). Rarity as Hero's Magnet: Reach `range` x1.2 (the pull reads `range`, not `area`), Bigger Grab +2 targets
+  (`count`), Booster cooldown x0.75, Legendary Booster plus +2 targets. Normal Mastery on this `damage: none` skill is
+  cooldown x0.95 (#346).
+
 ### 7.61 Form / M2 (#311)
 
 A Form is a timed active stance. It does no damage itself, occupies one active slot, and starts its ordinary
@@ -6561,6 +6592,11 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | Paladin creation weapon and families (#310, spec #308) | `jobs/paladin.json` `creation_weapon` 1322000, the Mace (Item.wz, reqJob 3, which includes the Warrior bit, so `requirement_error` accepts it for 122); `weapon_families` `["sword", "blunt"]` filters the shipped Warrior drop list (one- and two-handed), so axes, spears and polearms never drop for a Paladin; armour and shields drop by the Warrior class bit. The item id and stats are tier A | C | Spec #308 |
 | Paladin skill pool and start (#310, spec #308) | `jobs/paladin.json`: `starting_skill` power_strike (slot 1), `mobility_skill` rush_paladin, eight-key `skill_pool` (power_strike, slash_blast, blast, monster_magnet_paladin, fire_charge, ice_charge, thunder_charge, holy_charge). Power Strike and Slash Blast are Hero's definitions; the rest are inert until their tickets define them. The pool and the start are design choices; the WZ ids are tier A | C | Spec #308 (Skill pool table) |
 | Paladin not playable (#310, spec #308) | `jobs/paladin.json` `playable` false: no tool, creation page or test can choose job 122 until P9 (#317) flips it; `default_job` stays 212 | C | Spec #308 |
+| Blast (#313, spec #308) | `skills/paladin.json` `blast`: damage 170 -> 550% (the only WZ field: one line, one target), the `blast` action and its 840 ms, the 14-frame effect and 3-frame hit keyed by the element art index, the five Use sounds | A | WZ 122.img/1221009 |
+| Blast cooldown and targeting (#313) | 2.0 s cooldown (the balance pass owns it), `weapon_reach` with `min_targets` 1 (nearest mob in the weapon's swing), 0.84 s action hold, art index 0 until P7, the five sounds played in cast order (`use_cycle`, no RNG) | C | Spec #308 |
+| Blast rarity bonuses (#313) | Rare Mastery damage x1.2, Epic Booster cooldown x0.88, Unique Final Attack +1 hit, Legendary Final Attack plus damage x1.2 (shares the Unique's counter); repeats x0.8 | C | Spec #308 |
+| Paladin Monster Magnet (#313) | `monster_magnet_paladin`: range 200 -> 400 px, prop 48 -> 95%, `mobCount` 6, 18-frame effect, Use sound (UOL to Hero's); equal to Hero's 1121001 level by level | A | WZ 122.img/1221001 |
+| Paladin Magnet cooldown, targeting and bonuses (#313) | 10 s cooldown, the three-mob admission gate (any mob in range counts), `alert2`, 0.6 s hold, no damage, the `pull` block of 7.35; Reach `range` x1.2, Bigger Grab +2 targets, Booster cooldown x0.75, Legendary Booster plus +2 targets | C | Spec #308, Hero H7 #303 |
 | Charged Blow form sub-skill (#314, spec #308) | `skills/paladin.json` `charged_blow`: `slot form_sub`, `form_sub_of` the four Charges (until P7/P8 define them `test_data_files` allows those parents to be undefined), `cast {range_around, min_targets 3}`, `cooldown` 3.0 (not consulted: the Charge's `subs` interval sets the pace), `ranks` 4, 8, 12, 15, 19, 23, 27, 30 (the standard table written out), `action weapon` with `action_time` 0.6, no rarity list. The WZ numbers (damage, prop, time, range, mobCount, hpCon) are tier A | C | Spec #308 (Skill definitions) |
 | Element art index table (#314, spec #308) | `PlayerForms.ART_INDEX` and the `{art}` path token: none 0, ice 1, fire 2, lightning 3, holy 5 (tier A, P1 #309, read from the pixels; the spec's order was wrong); the token fill is ours | C | Spec #308 (Element art) |
 | Job page rows (#305) | rows are left-aligned, and the chosen row keeps its plate in every Button state (hover and pressed too), so it stays highlighted under the mouse; the Job blurb repeats the weapon box (creation weapon name, WATK, swing time) | C | Ours, layout |

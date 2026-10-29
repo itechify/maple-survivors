@@ -180,6 +180,8 @@ var perf_layer: CanvasLayer
 var window: Node
 ## True while the pause menu (or the fallback pause) holds the run.
 var paused := false
+## Casts seen per skill key, for `sounds.use_cycle` (SkillBook.use_sound).
+var _use_counts := {}
 ## Visual counters (tests and the perf summary): damage numbers, hit effects and sounds started.
 var counters := {"numbers": 0, "hit_fx": 0, "sounds": 0, "exp_messages": 0, "windows": 0, "autopicks": 0}
 
@@ -1301,8 +1303,8 @@ func _on_cast(e: Dictionary) -> void:
 	var capture_delay := float(world.book.def(key).get("pending", {}).get("delay", 0.0)) + 0.05
 	capture_delay = float(world.book.def(key).get("capture_delay", capture_delay))
 	_first_event_shot(key, "cast_%s.png" % key, capture_delay)
-	var use := world.book.art_path(key, String(world.book.def(key).get("sounds", {}).get("use", "")),
-		world.loadout.weapon_family) # art_by_family twin (Panic/Coma : Axe)
+	var use := world.book.use_sound(key, int(_use_counts.get(key, 0)), world.loadout.weapon_family) # art_by_family twin (Panic/Coma : Axe)
+	_use_counts[key] = int(_use_counts.get(key, 0)) + 1 # tier C: a use_cycle skill (Blast) plays its sounds in cast order
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
