@@ -322,14 +322,15 @@ func test_every_attack_casts_with_a_knuckle_or_a_gun_in_hand() -> void:
 
 # --- cards and rarity bonuses (B4 #416: the legacy _new/_rank/_targets cards are deleted) -------------------------------------
 
-func test_the_legacy_cards_are_gone_and_an_unplayable_brawler_job_is_offered_no_attack_card() -> void:
+func test_the_legacy_cards_are_gone_and_the_new_cards_come_only_from_a_playable_pool() -> void:
 	var w := _brawler()
 	var eligible := w.upgrades.eligible(w)
 	for key: String in SKILLS:
 		for suffix in ["_new", "_rank", "_targets"]:
 			assert_false(key + suffix in eligible, key + suffix)
 		assert_true(w.upgrades.card(key + "_targets").is_empty(), key + "_targets no longer exists")
-		assert_true(w.upgrades.card(key + "_new").is_empty(), key + "_new comes from the pool of a playable job (test_buccaneer_brawler)")
+		# `<key>_new` exists exactly when a playable job's pool names the key (Buccaneer since B11 #423; test_buccaneer_brawler).
+		assert_eq(not w.upgrades.card(key + "_new").is_empty(), key in w.jobs.skill_pool(512), key + "_new follows the pool of 512")
 
 
 func test_a_third_fist_bonus_makes_double_uppercut_land_three_hits_on_one_mob() -> void:

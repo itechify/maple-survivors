@@ -4203,6 +4203,20 @@ Transformation learned locally, reverted) cast Super Transformation, Snatch, Sho
 Demolition numbers); the throttled window ran at 1 frame per second, so the run was stopped by hand after 14 s of play and wrote no `summary.json` (`missing` unchecked there, no `missing` or
 warning line in `game.log`). Flow and visual evidence only.
 
+### Buccaneer B11 smoke (#423, 2026)
+
+Selection and tooling: `jobs/buccaneer.json` `playable` true, `hub_kit`, explicit bot card scores, the `buccaneer_t2.json` fixture and the baseline oracle (no engine or balance data touched). Training seeds, Henesys, `JOBS=3`, private cache `cache-413`, record only (no tuning):
+
+| Run | Seeds | Result |
+|---|---|---|
+| F/P (212), bot | 1/2/2026 | died 10:51 / 5:05 / 7:34 (Lv 36 / 11 / 21), byte-for-byte the B2 to B10 rows |
+| Hero (112), bot | 1/2/2026 | died 5:27 / 5:36 / 11:28 (Lv 11 / 11 / 36), byte-for-byte the same rows |
+| Buccaneer (512), bot | 1/2/2026 | died 5:19 (Lv 11, first boss) / **cleared 17:16 (Lv 44)** / died 10:26 (Lv 26); `missing: []`, no warnings |
+| Buccaneer (512), random | 1/2 | cleared 17:45 and 17:47 (Lv 41 both) |
+| Buccaneer (512), Sleepywood, bot | 1/2, fixture and starter knuckles | died at Lv1 after 0:23 / 0:28 (fixture) and 0:13 / 0:15 (starter): the tier-2 round at Lv1 needs the balance pass (every round starts at Lv1), not a crash |
+
+The Buccaneer clears in two of five Henesys runs and dies at the first boss at Lv11 in two (the same shape as Hero; the balance pass owns it). Oracles `character_baseline`, `tick_cost_identity`, `hero_baseline` and `il_baseline` reproduce unchanged; the new `test_buccaneer_baseline` golden is `247fabb2...ac8a` (14400 ticks, 118 casts of eight skills). `flow_driver --scenario=redesign --job=512 --seed=1` PASSED end to end (three maps, 38 picks, the level-up, boss-draw and Mastery windows, Sleepywood, results, deletion; `missing: []`, no ERROR line) and `--scenario=creation --jobs=212,512` PASSED (the Job page shows four rows with Buccaneer highlighted and "Steel Knuckler · WATK 18 · 0.75s"). A diagnostic playtest (`playtest.sh --job=512`, Henesys and Sleepywood with the fixture) ran with `missing: []`; flow and visual evidence only.
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
@@ -7280,7 +7294,7 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
-| Playable jobs and start skills (#284) | `survivor/jobs.json`: 112, 212 and 222 are playable (specs #296, #319); 212 is the default (`default_job`) for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
+| Playable jobs and start skills (#284) | `survivor/jobs.json`: 112, 212, 222 and 512 are playable (specs #296, #319, #412); 212 is the default (`default_job`) for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
 | Auto-AP rows (#284) | `balance.player.ap`: one `{primary, secondary, keyframes}` row per job, nearest ancestor's row otherwise, all AP to STR without a row. 212: INT primary, LUK secondary at the old Magician keyframes (Lv1 3 -> Lv200 202); the 200/100/300/400/510/520 rows keep the unported lines' old single rows | C | Owner, spec #282 (212); the rest the earlier tier C rows without weapon paths |
 | Hero playability and QA fixture (#306) | Playable 112 and 212; default 212. `hero_t2.json`: seed 1, bot, invulnerable Henesys clear, tier 2 unlocked; all equipment from the tier-1 drop band. Diagnostic equipment fixture, never survival evidence | C | Spec #296; fixture `_doc` |
 | Hero AP row (#298, spec #296) | `balance.player.ap["112"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204 (the secondary DEX target tracks the level plus about 4, the v83 Warrior gear pattern). HP growth is not re-listed: 112 inherits the Warrior row (100: 26 per level) through the lineage | C | Spec #296 |
@@ -8178,6 +8192,18 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 | Snatch schedule and stance (#422) | interval 6.0 s (above), `snatch` held 0.8 s of 0.99 s | C |
 | Morph blank-frame hold (#422) | a 1 x 1 morph frame holds the last drawn frame of its action (Demolition frame 3, 1.62 s); a blank first frame draws nothing; timing unchanged | C |
 | `FootholdMap.slide_along` guard (#422) | a foothold index the map lacks returns the start unchanged (no sim effect on a valid map; the rarity audit swaps the map under live mobs) | C |
+
+### Buccaneer B11 constants (#423)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Buccaneer is playable (#423, spec #412 BU-20, BU-21) | `jobs/buccaneer.json` `playable` true; `default_job` stays 212 (the pin in `survivor/jobs.json`); the Job page lists it last (canonical order 112, 212, 222, 512) with the Steel Knuckler box ("Steel Knuckler · WATK 18 · 0.75s") | C |
+| 512 Job page row (#423) | the I/L layout unchanged: left-aligned row, plate in every Button state, the blurb repeats the weapon box; Up/Down clamp at the first and last rows | C |
+| Bot card scores (#423) | `jobs/buccaneer.json` `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for the eleven pool keys (the numbers the default pool scorer gives; written out so Energy Drain, Energy Orb, both forms and Dragon Strike are named, not defaulted). H9 #305 had already stopped `BotInput.card_score` scoring a meter-gated skill 0; no engine change | C |
+| Bot engagement (#423) | no change: finishers, forms and buffs count no reach and Dragon Strike carries `bot.reach 0` (B8), so a Buccaneer with the whole pool in its loadout walks toward a mob (the longest counted reach is under `engage.kite_reach` 220); Dash is pressed by its `manual` rule (low HP with a mob close, or surrounded) and potions are drunk as before | C |
+| Hub kit (#423) | `jobs/buccaneer.json` `hub_kit`: fixture `buccaneer_t2.json`; scrolls 2044800-04 (knuckle ATT 100/60/10, dark 70, dark 30) and 2044805, 07, 09, 06, 08 (ACC, same rates), read from `scrolls/pirate.json`, 10 per stack; spare 1002001, 1482001, 1082002, 1040010 (the cache holds no armour with the Pirate bit, so the hat, gloves and top are the generic ones); `fallback_item` 1482006 (the Lv40 knuckle the flow driver's `redesign` wears when no drop fits) | C (test aid) |
+| Buccaneer fixture (#423) | `game/tests/fixtures/characters/buccaneer_t2.json`: job 512, tier 2, from a seed-1 invulnerable bot Henesys clear (`character_fixture.gd --job=512 --god`); it wears a knuckle (1482003). The `_doc` records seed, policy, revision and invulnerability | C (test aid) |
+| Buccaneer baseline oracle (#423) | `test_buccaneer_baseline`: seed 1, 14400 ticks, bot, god, synthetic books (every pool skill defined) plus a synthetic knuckle afterimage; digest over the initial player state and the event bytes; asserts casts > 0, at least three distinct skills and an Energy Drain cast | C (test aid) |
 
 ## 12. Later phases
 
