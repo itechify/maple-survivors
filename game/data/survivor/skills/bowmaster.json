@@ -803,6 +803,210 @@
 					}
 				]
 			}
+		},
+		"silver_hawk": {
+			"_rarity": "Tier C: first-pass #332 bonuses (Bow Expert damage, Hawk Eyes area, Second Hawk +1 follower); repeat scale 0.8. See GAME_DESIGN 7.49.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "bow_expert",
+						"text": "Bow Expert",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "hawk_eyes",
+						"text": "Hawk Eyes",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "second_hawk",
+						"text": "Second Hawk",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "second_hawk",
+						"text": "Second Hawk and damage",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"skill_id": 3111005,
+			"book": "311",
+			"job": 311,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Silver Hawk",
+			"desc": "Calls a hawk that follows you and strikes a monster, which it may stun.",
+			"icon": "Skill.wz/311.img/skill/3111005/icon",
+			"damage": "physical",
+			"cooldown": 30.0,
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/311.img/skill/3111005/hit/0",
+			"effect": "",
+			"rotate": false,
+			"cast": {
+				"rule": "summon"
+			},
+			"summon": {
+				"ordinal_spread": 36.0,
+				"path": "Skill.wz/311.img/skill/3111005/summon",
+				"attack": "attack1",
+				"move": "fly",
+				"hover": 20.0,
+				"follow_speed": 220.0,
+				"follow_distance": 70.0,
+				"teleport_distance": 600.0,
+				"attack_interval": 1.6,
+				"watk_field": "pad",
+				"settle": true
+			},
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop",
+				"duration": 1.5
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3111005/Use",
+				"summon": "Sound.wz/Skill.img/3111005/Summon"
+			},
+			"_provenance": "Tier A: pad 32..100, prop 59..99%, time 112..180 s, one monster in a +-200 x +-150 box, attackAfter 100 ms, summon/hit art and the Use/Summon sounds (UOLs into 3211005). Tier C: 30 s recast, fly follow settings, hover 20, 1.6 s attack cycle, 1.5 s stun, settle; GAME_DESIGN 7.49."
+		},
+		"phoenix": {
+			"_rarity": "Tier C: first-pass #332 bonuses (Bow Expert damage, Flame Wings a fifth target, Second Phoenix +1 follower); repeat scale 0.8. See GAME_DESIGN 7.49.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "bow_expert",
+						"text": "Bow Expert",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "flame_wings",
+						"text": "Flame Wings",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "second_phoenix",
+						"text": "Second Phoenix",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "second_phoenix",
+						"text": "Second Phoenix and damage",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"skill_id": 3121006,
+			"book": "312",
+			"job": 312,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Phoenix",
+			"desc": "Calls a phoenix that follows you and burns up to four monsters at a time.",
+			"icon": "Skill.wz/312.img/skill/3121006/icon",
+			"damage": "physical",
+			"element": "f",
+			"cooldown": 40.0,
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/312.img/skill/3121006/hit/0",
+			"effect": "",
+			"rotate": false,
+			"cast": {
+				"rule": "summon"
+			},
+			"summon": {
+				"ordinal_spread": 36.0,
+				"path": "Skill.wz/312.img/skill/3121006/summon",
+				"attack": "attack1",
+				"move": "fly",
+				"hover": 20.0,
+				"follow_speed": 200.0,
+				"follow_distance": 60.0,
+				"teleport_distance": 600.0,
+				"attack_interval": 3.0,
+				"watk_field": "pad",
+				"settle": true
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3121006/Use",
+				"summon": "Sound.wz/Skill.img/3121006/Summon"
+			},
+			"_provenance": "Tier A: elemAttr f, pad 320..550, time 122..200 s, up to 4 monsters in a +-100 x +-60 box, attackAfter 360 ms, hit art and the Use/Summon sounds. Tier C: 40 s recast, fly follow settings, hover 20, 3.0 s attack cycle, settle. Balance flag: pad is 3-6 times an arrow's W.Att; GAME_DESIGN 7.49."
 		}
 	}
 }

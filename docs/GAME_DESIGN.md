@@ -6301,6 +6301,33 @@ Unique **Final Attack** `count` +4 (sixteen arrows, a 1.9 s stream); Legendary F
 Unique's id and repeat counter). Every bonus changes the resolved cast: `test_rarity_bonus_effects` probes Hurricane (on the
 burst rule `count` shows as arrows landed on the one target, not as extra monsters affected).
 
+### 7.49 Silver Hawk and Phoenix (#343, spec #332 B11)
+
+The two physical followers (7.44) as data in `skills/bowmaster.json`, no new code.
+Both are `kind summon`, `cast.rule summon`, `damage physical`, no `weapon_families` (as B7), cast stance `alert2` (the WZ
+`action/0`), `summon {move fly, watk_field pad, settle true, hover 20}`, the `hit/0` art of the skill (the Hawk's `info/effect`
+bolt is the 7.44 strike art; its `mob` stun stars are already drawn by the stun status) and `Use` / `Summon` sounds that read
+through `Sound.wz/Skill.img/<id>/...`: the Hawk's `Use` / `Summon` and Phoenix's `Summon` are UOLs the importer expands into
+`3211005/*.mp3` (B1), so the path is the id's own and the file is found through the JSON node.
+
+- **Silver Hawk** (3111005, book 311): 30 s recast (the WZ lifetime 112 -> 180 s is longer, so a recast replaces the group),
+  neutral, one monster in a +-200 x +-150 box (no `mobCount`) every 1.6 s, `pad` 32 -> 100 as W.Att, `on_hit {stun, chance_field
+  prop, duration 1.5}` (`prop` 59 -> 99%, bosses resist). Follow 220 px/s at 70 px behind.
+- **Phoenix** (3121006, book 312): 40 s recast, element `f`, up to four monsters (`mobCount 4`) in a +-100 x +-60 box every
+  3.0 s, `pad` 320 -> 550, no status (the node has none). Follow 200 px/s at 60 px behind.
+- **Hover 20 px** for both: the art already floats 40-110 px above its anchor (B6 finding: 80 drew a hawk ~190 px over the
+  character); checked by eye with `player_summon_probe.tscn --skill=hawk|phoenix` (the hawk and the phoenix sit just above
+  and beside the character and dive onto monsters).
+- **Rarity** (`rarity_bonuses`, tier C, repeat scale 0.8, Legendary = the Unique's effect plus damage x1.2 under the same
+  id): Rare Bow Expert damage x1.2; Epic Hawk Eyes `area` x1.2 (Hawk) / Flame Wings `count` +1, a fifth target (Phoenix);
+  Unique Second Hawk / Second Phoenix `summon_count` +1. `test_rarity_bonus_effects` checks that each changes the resolved
+  cast (damage dealt, a monster just outside the base box, monsters struck in one strike, allies).
+- **Balance flag (not a change):** Phoenix's `pad` (305 -> 550 in the WZ text, 320 -> 550 at the mapped levels) is 3-6 times an arrow's
+  W.Att in the same formula, so one Phoenix hit at rank 1 is roughly three times a plain arrow's base damage before skill
+  percentage. Its 3.0 s attack cycle, 40 s recast and four-monster box are the first levers; the Hawk's stun (99% at rank 8,
+  1.5 s, cycle 1.6 s) is the second. Neither is tuned here.
+- The Summoning Rock cost (`itemCon 4006001`) is not modelled (no item economy).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7680,3 +7707,21 @@ Warrior bot equipment weights now explicitly name ancestor 100 with the same val
 | Art | `prepare` fitted to the wind-up, `keydown` loop, `keydownend` at the end; `burst_start` / `burst_end` events | tier C: our reading of the nodes |
 | `capture_delay` | 0.9 s (first-cast screenshot sample) | tier C, art only |
 | Rarity | Bow Expert damage x1.2, Bow Booster cooldown x0.88, Final Attack count +4, Legendary adds damage x1.2 | tier C: spec #332 |
+
+### Bowmaster B11 constants (#343)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Silver Hawk recast | 30 s | tier C (WZ lifetime 112 -> 180 s) |
+| Silver Hawk attack cycle / stun | 1.6 s; 1.5 s literal stun at the level's `prop` | tier C; `prop` 59 -> 99% tier A |
+| Silver Hawk follow | 220 px/s, 70 px behind, teleport at 600 px, ally spacing 36 px | tier C |
+| Silver Hawk box and reach | +-200 x +-150, one monster, `attackAfter` 100 ms | tier A (`summon/attack1/info`) |
+| Phoenix recast | 40 s | tier C (WZ lifetime 122 -> 200 s) |
+| Phoenix attack cycle | 3.0 s | tier C |
+| Phoenix follow | 200 px/s, 60 px behind, teleport at 600 px, ally spacing 36 px | tier C |
+| Phoenix box and targets | +-100 x +-60, `mobCount` 4, `attackAfter` 360 ms, element `f` | tier A |
+| `pad` as W.Att | 32 -> 100 (Hawk), 320 -> 550 (Phoenix) at the mapped levels 4/8/12/15/19/23/27/30 | tier A values, tier C reading (B6); balance flag on Phoenix (7.45) |
+| `hover` | 20 px (both) | tier C: checked by eye, B6 started at 80 which drew a hawk too high |
+| `settle` | true (both) | tier C (B6: the hawk's `attack1` ends in a 1 x 1 placeholder) |
+| Cast stance / duration | `alert2` (tier A `action/0`), `action_time` 0.8 s | tier A / tier C |
+| Rarity bonuses | Bow Expert damage x1.2; Hawk Eyes `area` x1.2; Flame Wings `count` +1; Second Hawk / Second Phoenix `summon_count` +1; Legendary adds damage x1.2 | tier C, spec #332 |
