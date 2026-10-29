@@ -386,6 +386,14 @@ func test_every_event_matches_the_schema() -> void:
 				blaster.step(DT, MoveInput.new())
 			for event: Dictionary in blaster.drain_events():
 				_check(event, seen)
+		if type == "burst_start" or type == "burst_end":
+			var archer := CF.world({"kind": "projectile", "cast": {"rule": "burst"},
+				"burst": {"interval": 0.1, "wind_up": 0.1, "retarget": true}, "count": 3})
+			RF.put_mob(archer, 1110100, 350, 190, 100000)
+			for tick in 40:
+				archer.step(DT, MoveInput.new())
+			for event: Dictionary in archer.drain_events():
+				_check(event, seen)
 		if type == "player_banished":
 			var shaded := SF.world()
 			for tick in 15 * 60:
