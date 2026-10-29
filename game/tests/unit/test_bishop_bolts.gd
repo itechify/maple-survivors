@@ -67,11 +67,11 @@ func _mob_at(w: RunWorld, dx: float, dy := 0.0) -> int:
 func test_the_four_skills_live_in_the_bishop_line_and_not_in_magician_json() -> void:
 	var bishop := IL.skill_file("bishop")
 	var magician := IL.skill_file("magician")
-	for key: String in KEYS + ["teleport_cleric"]:
+	for key: String in KEYS + ["teleport_cleric", "heal"]:
 		assert_true(bishop.has(key), "%s is in skills/bishop.json" % key)
 		assert_false(magician.has(key), "%s left skills/magician.json (a key in two files is a load error)" % key)
-	for key: String in ["energy_bolt", "magic_claw", "heal", "bless", "invincible"]:
-		assert_true(magician.has(key), "%s stays in magician.json (Heal is BS4's)" % key)
+	for key: String in ["energy_bolt", "magic_claw", "bless", "invincible"]:
+		assert_true(magician.has(key), "%s stays in magician.json" % key)
 	var skills: Dictionary = DataRepo.load_all().skills.skills
 	assert_eq([int(skills.holy_arrow.skill_id), int(skills.shining_ray.skill_id), int(skills.angel_ray.skill_id),
 		int(skills.teleport_cleric.skill_id)], [2301005, 2311004, 2321007, 2301001])

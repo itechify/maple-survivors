@@ -27,6 +27,8 @@ const IL_SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", 
 	"chain_lightning", "blizzard", "big_bang_il"]
 ## The I/L skills with bonuses that another test audits: Ifrit is a summon (test_ifrit.gd).
 const IL_AUDITED_ELSEWHERE := ["ifrit"]
+## The Bishop skills whose bonuses another test audits (book 230+; Heal's `heal_power` / `heal_threshold` are test_bishop_heal's).
+const BISHOP_AUDITED_ELSEWHERE := ["heal"]
 const IL_BOOKS := [220, 221, 222]
 ## The Bishop's reaction skills (BS8 #380): audited by the revive probe below, not by a cast (they never auto-cast).
 const REVIVE_SKILLS := ["resurrection"]
@@ -53,7 +55,8 @@ func _skills_with_bonuses() -> Array:
 	var skills: Dictionary = _resolved()
 	var keys := []
 	for key: String in skills:
-		if (skills[key] as Dictionary).has("rarity_bonuses") and int(skills[key].job) < 300 and key not in IL_AUDITED_ELSEWHERE:
+		if (skills[key] as Dictionary).has("rarity_bonuses") and int(skills[key].job) < 300 and key not in IL_AUDITED_ELSEWHERE \
+				and key not in BISHOP_AUDITED_ELSEWHERE:
 			keys.append(key)
 	return keys
 

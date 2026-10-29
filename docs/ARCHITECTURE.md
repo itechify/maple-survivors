@@ -835,6 +835,12 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   `revive_hp` / `revive_guard` skill modifiers are read only through `Loadout.stats().revive`. BS8 (#380): `PlayerRevive` also
   holds the skill's `action` for `action_time` (display only, no movement lock); a skill def may carry `affected` (a second
   art path played on the body); `RunScene._on_player_revived` is the presentation of `player_revived`.
+- **Heal's stats (#376).** `Loadout.stats()` adds `heal_power` (the skill modifier `heal_power`, default 1.0; scales both
+  bounds of the recovery range) and `heal_threshold` (the data's `heal.hp_threshold` plus the `heal_threshold` modifier,
+  capped at `Loadout.HEAL_THRESHOLD_CAP` 0.95, rounded to 1e-4; 0 for a skill without a `heal` block). The `hp_or_undead` rule
+  asks `SkillRunner.heal_injured(world, st)` (HP strictly below max x `heal_threshold`) in `has_target`,
+  `_admit_hp_or_undead` and `_resolve_hp_or_undead`; the undead strike multiplies its bounds by the resolved
+  `status_damage_mult`. Both modifier stats are previewed on cards (`UpgradePool.MOD_PREVIEW`).
 - **Melee behaviour cards (#208).** `Loadout.stats().attack_count` applies skill modifiers to canonical `attackCount`;
   target count remains separate. `SkillRunner.weapon_envelope(stats, world)` scales a copy of
   `WeaponReach.envelope(world)` by the skill's existing `area` modifier on both axes. Admission uses that box; `reach_of` scales the weapon reach by the same area for the bot. The cached
