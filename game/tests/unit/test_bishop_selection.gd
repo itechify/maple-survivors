@@ -1,9 +1,8 @@
 extends TestCase
 ## Bishop (232) through the tools (spec #372, BS9 #381; the Bishop copy of test_il_selection): run flags, balance_run, fixture
-## generation, mismatched characters and the committed fixture. Bishop is `playable: false` until BS10, so a patch that makes it
-## playable (the one the fixture was made with) is passed wherever the job must be accepted, and the refusals run on the shipped data.
+## generation, mismatched characters and the committed fixture. Shipped data accepts Bishop; an explicit disabling patch tests refusals.
 
-const PATCH := {"jobs_survivor": {"jobs": {"232": {"playable": true}}}}
+const PATCH := {"jobs_survivor": {"jobs": {"232": {"playable": false}}}}
 const FP_FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 const BISHOP_FIXTURE := "res://tests/fixtures/characters/bishop_t2.json"
 
@@ -29,7 +28,7 @@ func _file(file_name: String, text: String) -> String:
 
 
 func _patch_file() -> String:
-	return _file("bishop_playable.json", JSON.stringify(PATCH))
+	return _file("bishop_disabled.json", JSON.stringify(PATCH))
 
 
 ## A Bishop (232) character file in the creation outfit with synthetic item stats.
@@ -59,26 +58,26 @@ func test_run_flags_carry_job_232_and_the_error_names_the_unplayable_job() -> vo
 	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=232", "--seed=3"]))
 	assert_eq(int(parsed.options.job), 232)
 	assert_eq(RunLauncher.options_from_args({"job": "232"}).job, 232)
-	assert_true(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()).contains("not playable"), "shipped Bishop is unplayable until BS10")
+	assert_eq(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()), "", "shipped Bishop is playable")
 	DataRepo.patch = PATCH.duplicate(true)
-	assert_eq(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()), "", "playable through the data alone")
+	assert_true(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()).contains("not playable"))
 	DataRepo.patch = {}
 	for job: int in [212, 112, 222]:
 		assert_eq(SceneFlow.forced_job_error({"job": job}, DataRepo.load_all()), "", "%d stays playable" % job)
 
 
-func test_balance_run_accepts_job_232_with_the_playable_patch_and_refuses_it_without() -> void:
+func test_balance_run_accepts_shipped_job_232_and_refuses_an_explicitly_disabled_job() -> void:
 	if not require_cache():
 		return
 	var patch := _patch_file()
-	var ok := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--seed=1", "--cap=0.016666667", "--job=232", "--patch=" + patch]))
+	var ok := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--seed=1", "--cap=0.016666667", "--job=232"]))
 	assert_eq(ok.status, 0, ok.text)
 	var record := _record(ok.text)
 	assert_false(record.is_empty(), "a record was printed")
 	if not record.is_empty():
 		assert_eq(int(record.job), 232)
 		assert_eq(record.missing, [])
-	var refused := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--cap=0.016666667", "--job=232"]))
+	var refused := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--cap=0.016666667", "--job=232", "--patch=" + patch]))
 	assert_eq(refused.status, 2)
 	assert_true(refused.text.contains("not playable"), refused.text)
 	assert_true(_record(refused.text).is_empty())
@@ -88,7 +87,7 @@ func test_job_212_with_a_bishop_character_and_job_232_with_an_fp_character_are_e
 	if not require_cache():
 		return
 	var bishop := _bishop_file()
-	var base := PackedStringArray(["--stage=henesys", "--cap=0.016666667", "--patch=" + _patch_file()])
+	var base := PackedStringArray(["--stage=henesys", "--cap=0.016666667"])
 	var a := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--job=212", "--character=" + bishop]))
 	assert_eq(a.status, 2, a.text)
 	assert_true(a.text.contains("does not match the character's job 232"), a.text)
@@ -105,22 +104,22 @@ func test_a_bishop_character_file_needs_no_job_flag() -> void:
 	if not require_cache():
 		return
 	var run := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--cap=0.016666667",
-		"--patch=" + _patch_file(), "--character=" + _bishop_file()]))
+		"--character=" + _bishop_file()]))
 	assert_eq(run.status, 0, run.text)
 	assert_eq(int(_record(run.text).job), 232, "the job comes from the character")
 
 
-func test_the_fixture_tool_makes_a_bishop_with_the_patch_and_refuses_without_it() -> void:
+func test_the_fixture_tool_makes_a_shipped_bishop_and_refuses_a_disabled_job() -> void:
 	if not require_cache():
 		return
 	var out := ProjectSettings.globalize_path(work_dir.path_join("bishop_kit.json"))
 	var args := PackedStringArray(["--out=" + out, "--revision=0123456789012345678901234567890123456789", "--job=232",
 		"--kit=1382002,1002013,1072019,1082019", "--tiers=2", "--label=test"])
-	var refused := _tool("res://tools/character_fixture.gd", args)
+	var refused := _tool("res://tools/character_fixture.gd", args + PackedStringArray(["--patch=" + _patch_file()]))
 	assert_eq(refused.status, 2, refused.text)
 	assert_true(refused.text.contains("not playable"), refused.text)
 	assert_false(FileAccess.file_exists(out))
-	var made := _tool("res://tools/character_fixture.gd", args + PackedStringArray(["--patch=" + _patch_file()]))
+	var made := _tool("res://tools/character_fixture.gd", args)
 	assert_eq(made.status, 0, made.text)
 	var errors := PackedStringArray()
 	var character := DataRepo.load_character(out, errors)
@@ -133,7 +132,7 @@ func test_the_fixture_tool_makes_a_bishop_with_the_patch_and_refuses_without_it(
 	for id: int in [1382002, 1002013, 1072019, 1082019]:
 		assert_true(id in worn, "%d is worn" % id)
 	assert_eq(int(character.equipment.worn.weapon.id), 1382002)
-	assert_eq(String(character._doc.patch), "bishop_playable.json", "the playable patch is recorded")
+	assert_false(character._doc.has("patch"), "shipped data needs no patch")
 
 
 func test_the_committed_fixture_is_a_format_three_bishop_with_the_tier_one_kit() -> void:
@@ -150,7 +149,7 @@ func test_the_committed_fixture_is_a_format_three_bishop_with_the_tier_one_kit()
 	var kit: Array = character._doc.kit.map(func(id: Variant) -> int: return int(id))
 	assert_eq(kit, [1382002, 1002013, 1072019, 1082019, 1040002, 1060002], "the same tier-1 kit as the F/P fixture")
 	assert_eq(int(character._doc.job), 232)
-	assert_eq(String(character._doc.patch), "bishop_playable.json", "made while Bishop is unplayable: the patch is recorded")
+	assert_eq(String(character._doc.patch), "bishop_playable.json", "historical BS9 fixture generation patch")
 	assert_eq(Equipment.worn_ids(character.equipment.worn), [1002013, 1040002, 1060002, 1072019, 1082019, 1382002])
 	var fp: Dictionary = DataRepo.load_json(FP_FIXTURE)
 	assert_eq(character.equipment, fp.equipment, "the gear is F/P's (a Bishop wears the same wands and staves)")
@@ -162,7 +161,7 @@ func test_the_fixture_starts_a_bishop_round_without_a_job_flag() -> void:
 	if not require_cache():
 		return
 	var run := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=sleepywood", "--seed=2", "--cap=0.016666667",
-		"--patch=" + _patch_file(), "--character=" + ProjectSettings.globalize_path(BISHOP_FIXTURE)]))
+		"--character=" + ProjectSettings.globalize_path(BISHOP_FIXTURE)]))
 	assert_eq(run.status, 0, run.text)
 	var record := _record(run.text)
 	assert_false(record.is_empty(), "a record was printed")

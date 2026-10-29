@@ -1,5 +1,5 @@
 {
-	"_doc": "Bishop line (spec #372, ticket BS2 #374). The job entry (232, not playable until BS10), its AP row, its bot scores and its tool hub kit. Discovered by DataRepo.lines() from this file alone (docs/ARCHITECTURE.md 4.4.4); no shared list names it. Skill keys stay inert until their tickets define them in skills/bishop.json (BS4-BS8); holy_arrow, heal and teleport_cleric live in skills/bishop.json (moved out of skills/magician.json by BS5 #377 and BS4 #376); magic_claw stays F/P's own definition in skills/magician.json. The Holy Symbol (2311003) is the common EXP passive every job takes, not a Bishop entry.",
+	"_doc": "Bishop line (spec #372, ticket BS2 #374). The job entry (232, playable since BS10 #382), its AP row, its bot scores and its tool hub kit. Discovered by DataRepo.lines() from this file alone (docs/ARCHITECTURE.md 4.4.4); no shared list names it. Skill keys stay inert until their tickets define them in skills/bishop.json (BS4-BS8); holy_arrow, heal and teleport_cleric live in skills/bishop.json (moved out of skills/magician.json by BS5 #377 and BS4 #376); magic_claw stays F/P's own definition in skills/magician.json. The Holy Symbol (2311003) is the common EXP passive every job takes, not a Bishop entry.",
 	"jobs": {
 		"232": {
 			"starting_skill": "holy_arrow",
@@ -26,8 +26,8 @@
 			"_weapon_families": "tier C: spec #372: the wand and staff families, as F/P and I/L; the Magician armour drops by the class bit.",
 			"creation_weapon": 1372005,
 			"_creation_weapon": "tier C: spec #372: the same Wooden Wand as F/P and I/L; wearing it needs only the Magician class bit (reqJob, no level requirement).",
-			"playable": false,
-			"_provenance": "tier C: spec #372 BS2 #374: not playable until BS10 flips it after the skills, bot and QA are in; F/P (212) stays the default.",
+			"playable": true,
+			"_provenance": "tier C: spec #372 BS2 #374: playable since BS10 #382 after BS4-BS9 supplied the skills, bot and tooling; F/P (212) stays the default.",
 			"hub_kit": {
 				"fixture": "res://tests/fixtures/characters/bishop_t2.json",
 				"_fixture": "tier C: spec #372 BS9: the Bishop fixture (tier 2, the F/P kit worn); created by BS9, tool-only.",
