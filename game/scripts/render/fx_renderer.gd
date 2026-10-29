@@ -52,6 +52,20 @@ func play(path: String, pos: Vector2, flip: bool = false, follow: Node2D = null,
 	return play_anim(a, pos, flip, follow, offset, hold)
 
 
+## Plays cast art after a presentation delay; the hidden pooled slot still follows its owner during the wait.
+func play_delayed(path: String, delay: float, pos: Vector2, flip: bool = false, follow: Node2D = null,
+		offset: Vector2 = Vector2.ZERO) -> int:
+	var lib := _lib()
+	var a := lib.anim(path) if lib != null else null
+	if a == null or a.is_empty():
+		return -1
+	var target := behind if behind != null and behind != self and a.z != null and int(a.z) < 0 else self
+	var slot := target.play_anim(a, pos, flip, follow, offset)
+	target._t[slot] = -maxf(0.0, delay)
+	target._draw_slot(slot)
+	return slot
+
+
 ## Plays an already resolved animation (see play()).
 func play_anim(a: SpriteAnim, pos: Vector2, flip: bool = false, follow: Node2D = null, offset: Vector2 = Vector2.ZERO,
 		hold: bool = false) -> int:
@@ -175,6 +189,9 @@ func slot_position(i: int) -> Vector2:
 func _draw_slot(i: int) -> void:
 	_ensure_pool()
 	_pool.ensure(i + 1)
+	if _t[i] < 0.0:
+		_pool.hide(i)
+		return
 	var a: SpriteAnim = _anim[i]
 	var loop := _mode[i] in [1,3]
 	var f := a.frame_at(_t[i], loop)

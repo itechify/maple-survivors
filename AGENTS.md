@@ -348,3 +348,8 @@ The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready
 ### Domain docs
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+Dark Knight QA: use `--job=132 --character=$PWD/game/tests/fixtures/characters/dark_knight_t2.json` for the
+fresh-start equipment baseline (pole arm kit); a bare `--job=132` tool run still wears the default Sword. For flow QA,
+run `redesign --job=132` and `creation --jobs=132,212,222` (at most three jobs). The bot's six-slot policy may leave
+Beholder and Power Strike out; diagnostic individual-skill captures cover those visuals, not survival.

@@ -424,7 +424,7 @@ player pastes.
 _Avoid_: mirror (the project never names one), WZ root (that is the desktop folder setting)
 
 **Summon**:
-A timed player-owned ally cast by an active skill. It follows or waits at its own position and attacks monsters;
+A timed player-owned ally cast by an active skill. It follows or waits at its own position and attacks monsters or pulses support effects;
 its map-local lifetime ends on expiry or map transfer. It occupies its skill’s active slot, uses the original skill
 id and WZ animations, and is separate from a cash pet or a monster summoned by a boss.
 

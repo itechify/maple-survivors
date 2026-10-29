@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212), the default, and Arch Mage (Ice, Lightning, 222); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112), Dark Knight (132), Arch Mage (Fire, Poison, 212), the default, and Arch Mage (Ice, Lightning, 222); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -57,7 +57,7 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   `tiers_unlocked` (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
   every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
   Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
-  jobs (Hero 112, Arch Mage 212 and Arch Mage 222), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
+  jobs (Hero 112, Dark Knight 132, Arch Mage 212 and Arch Mage 222), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
   Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
   tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
   `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
@@ -103,6 +103,13 @@ Ifrit with marked-target priority, Chain Lightning with visible hops and a staff
 and freeze, and Big Bang through the shared skill-template seam. Ranks, rarity bonuses, Mastery, equipment, saves and
 menus reuse the F/P systems. Tooling includes `--job=222`, the I/L tier-2 fixture and job-aware creation/redesign flows.
 The deterministic I/L oracle now covers the full pool; F/P oracles remain unchanged. QA results are in section 4.2.
+
+**Landed in the Dark Knight spec (#348, D1–D11 #349–#359):** job 132 is selectable with a Spear (1432000),
+Spear Crusher in slot one and manual Rush. Its eight-skill pool reuses Power Strike and Slash Blast; Dragon Fury,
+Sacrifice and Dragon Roar spend HP through the shared `HpRisk` boundary (M17). The Beholder follows and pulses Aura
+heals and Hex buffs through `SupportSummons` (M10); its sub-skills rank with it. Spear/pole arm art twins, rarity and
+Mastery, equipment, hub kits and the format-3 tier-2 fixture use the existing class-line systems. Sections 7.66–7.71
+and the provenance tables own the mechanics; section 4.2 records QA without tuning. F/P remains the default.
 
 ### Known design gaps (open after the slice)
 
@@ -703,6 +710,59 @@ No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening mu
 Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
+
+### Dark Knight QA (#359, D11; 2026-10-29, no tuning)
+
+Training seeds 1/2/2026, `cache-rd348`, `ISOLATE=359`, `JOBS=3`: all four tier-1 regions with bot/random,
+plus Sleepywood bot with/without each job's kit. Dark Knight uses `dark_knight_t2.json` as its fresh-start baseline
+on tier 1 and for Sleepywood kit runs (Pole Arm 1442004, WATK47); other tier-1 controls use their unchanged bare-tool
+start. A bare tool round still wears Sword 1302000, including Dark Knight's Sleepywood starter control. Kits differ:
+this is regression evidence, not a gear-matched class comparison. C = clears; D/C seconds are observed ranges.
+
+| Stage / policy | Dark Knight 132 | Hero 112 | F/P 212 | I/L 222 |
+|---|---|---|---|---|
+| henesys / bot | 0/3 C; D 406.7–874.0 | 0/3 C; D 327.7–688.2 | 0/3 C; D 305.0–651.7 | 0/3 C; D 309.5–505.0 |
+| henesys / random | 0/3 C; D 304.9–356.9 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 308.3–309.9 | 0/3 C; D 309.1–672.6 |
+| ellinia / bot | 0/3 C; D 147.8–475.0 | 0/3 C; D 221.0–646.5 | 0/3 C; D 629.1–644.2 | 0/3 C; D 624.1–654.6 |
+| ellinia / random | 0/3 C; D 163.8–683.5 | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 328.4–660.2 | 0/3 C; D 627.6–658.2 |
+| perion / bot | 0/3 C; D 240.8–599.0 | 0/3 C; D 288.9–493.0 | 0/3 C; D 305.7–456.3 | 0/3 C; D 308.3–669.7 |
+| perion / random | 2/3 C; D 318.9; C 939.3–972.9 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 308.7–421.5 | 0/3 C; D 389.6–425.7 |
+| kerning / bot | 0/3 C; D 195.9–638.4 | 0/3 C; D 326.8–568.7 | 0/3 C; D 307.9–315.0 | 0/3 C; D 309.6–537.7 |
+| kerning / random | 1/3 C; D 243.8–307.6; C 924.0 | 0/3 C; D 339.0–372.7 | 0/3 C; D 306.0–317.3 | 0/3 C; D 307.0–316.4 |
+| Sleepywood / starter | 0/3 C; D 15.9–23.1 | 0/3 C; D 16.4–20.2 | 0/3 C; D 10.6–12.0 | 0/3 C; D 11.4–11.8 |
+| Sleepywood / kit | 0/3 C; D 11.7–30.5 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 23.8–826.2; C 936.2 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+| DK sample | Runs | Cost HP/min | Recoil HP/min | Aura HP restored | Roar casts | Gate-refused opportunities |
+|---|---|---|---|---|---|---|
+| bot | 12 | 1796.5 | 295.6 | 82426 | 33 | 85519 |
+| random | 12 | 3709.3 | 702.8 | 55124 | 158 | 16101 |
+| starter | 3 | 0.0 | 0.0 | 0 | 0 | 0 |
+| kit | 3 | 502.7 | 10.1 | 0 | 1 | 800 |
+
+All 120 final records / 40 configurations completed with exit0, no crash, world warning, TIMEOUT or missing asset.
+The separate final-data DK pass adds a gate-only counter: all30 records otherwise compare equal as complete JSON to
+the initial pass (Fury's afterimage is presentation only). Raw records, exact console output and observer source remain
+under `_scratch/359-smoke/` and `_scratch/359-dk-final/`; minute buckets of cost/recoil are retained there.
+HP/min above is pooled HP divided by observed run minutes, including partial final minutes; Aura is actual HP gained,
+not nominal healing. Gate counts are ready, targeted cast opportunities refused by the strict HP gate, potentially
+once per fixed tick, not unique casts or seconds; HP-cost-only refusals are counted separately in the raw records.
+
+DK tier1 clears3/24, first boss18/24; Hero3/24 and20/24; F/P and I/L0/24 and24/24. Henesys bot fills six active
+slots3/3 for every job (DK141.4–181.6s). DK's earlier Ellinia/Kerning deaths and Sleepywood kit0/3 are recorded
+weaknesses; no tuning. Hero/F/P/I/L reproduce every per-configuration range in BS10's newer QA table (and F/P/I/L
+I12); D10's Henesys bot controls also reproduce. H10 is older evidence, not a new control.
+
+D10's bot-slot observation reproduced in Henesys seed1 (neither Beholder nor Power Strike), but is not universal:
+DK tier1 bot takes Beholder4/12 and Power Strike8/12; random6/12 and4/12. Six-slot competition and the offered cards
+explain the omissions; bot scores/policy unchanged. Individual rank8 diagnostic captures cover every pool skill with
+both weapons, all three Crusher thrusts, Fury's repaired afterimage, Roar's red180 cost (600→420HP), Beholder's500HP
+Aura and Hex. Both requested flows passed; ordinary Henesys spear/polearm clears942.55/919.63s, Sleepywood spear/
+polearm/starter deaths47.98/690.20/17.15s, all missing[]. Screenshots inspected under `evidence/d11/` (gitignored).
+Ordinary frame/input-driven runs and invulnerable diagnostic flows are not paired headless survival evidence.
+
+Rust70 and node62 pass. Pinned web templates are absent; no download or local export/artifact check. CI owns that
+unverified gate. No tests deleted, oracle hashes recaptured, held-out seeds spent, or balance data changed.
+
 
 **#296 review fixes / H12, after integrating #346 (2026-10-28).** No balance values changed by the
 review fixes: incoming AP HP 600, growth 65, orb 0.05, cooldowns and finisher coefficients are preserved exactly;
@@ -6342,8 +6402,8 @@ nearest monster, so a monster on the same line behind the first is shielded: Twi
 
 Four small data-driven behaviours in one stateless file, `game/scripts/sim/hp_risk.gd` (`HpRisk`): a percentage HP cost, an
 HP gate, recoil as a share of the damage a cast dealt, and a low-HP damage bonus. Dark Knight (Dragon Roar, Sacrifice,
-Berserk) is the first user; Bishop, Buccaneer and any later job reuse the blocks unchanged. No skill ships a block yet, so no
-existing record changes. No RNG is drawn.
+Berserk) is the first user; Bishop, Buccaneer and any later job reuse the blocks unchanged. Dragon Roar ships the
+percentage cost and gate; Sacrifice ships recoil and its Berserk rarity bonus. No RNG is drawn.
 
 ```json
 "hp_cost":     {"field": "x", "of": "max_hp"}
@@ -6493,8 +6553,7 @@ seam (7.66). No new simulation code beyond one art lookup.
   (damage from 40% HP) and `hp_cost` (HP paid per cast; Dragon Roar's Dragon Blood, D7), in a Dark Knight world with a huge HP
   pool and a heavy weapon.
 
-**The Beholder (#357, spec #348 D9).** Dark Knight's level-10 pool skill (1321007, `skills/dark_knight.json`; job 132 is not
-playable until D10) and its two sub-skills, Aura of the Beholder (1320008) and Hex of the Beholder (1320009, DK-4, DK-5).
+**The Beholder (#357, spec #348 D9).** Dark Knight's level-10 pool skill (1321007, `skills/dark_knight.json`; job 132 is playable since D10) and its two sub-skills, Aura of the Beholder (1320008) and Hex of the Beholder (1320009, DK-4, DK-5).
 `damage: none`, `kind summon`, stance `alert2` (0.6 s), a 45 s cooldown counted from the cast (a recast replaces the old
 Beholder) and a **60 s life**. The life is `buff.duration`, a new generic lever in `Loadout.stats`: a literal number of
 seconds that wins over the canonical `duration_field` (default `time`); no other skill defines it, and a `duration`
@@ -7950,6 +8009,13 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Extra hit also shows its thrust | `min_attack_count` compares the resolved `attack_count` | tier C |
 | Rarity bonuses | Mastery damage x1.2, Booster cooldown x0.88, Final Attack +1 hit, Legendary + damage x1.2 | tier C: spec #348 |
 | Numeric-string frame delay | read as milliseconds | tier A: the value is the WZ's; reading it is ours |
+
+### Dark Knight QA presentation correction (#359)
+
+| Constant / rule | Value | Tier | Source |
+|---|---|---|---|
+| Dragon Fury trail timing | `swingP1` frame 2 begins after 300 + 150 ms = 0.45 s; play `afterimage/spear/swingP1/2` or `afterimage/poleArm/swingP1/2` from the art twin | A | Character.wz body and Skill.wz 1311003/1311004, D1 |
+| Trail anchoring and fallback | Follows the caster, mirrored with facing; unsupported weapon families use the spear trail | C | Existing cast-visual convention; skills remain weapon-independent |
 
 ### Dark Knight Rush and Monster Magnet constants (#356)
 

@@ -179,3 +179,20 @@ func test_one_renderer_per_foothold_layer() -> void:
 	assert_eq(r3.visible_count(), 0)
 	r0.update_from(s, ids)
 	assert_eq(r0.visible_count(), 3, "no filter: every live slot")
+
+
+func test_delayed_fx_waits_then_plays_for_its_full_duration() -> void:
+	var fx := FxRenderer.new()
+	fx.library = lib
+	root.add_child(fx)
+	fx.set_process(false)
+	var slot := fx.play_delayed("Mob.wz/0100100.img/move", 0.45, Vector2.ZERO)
+	assert_true(slot >= 0)
+	assert_eq(fx.get("_pool").get("_shown")[slot], 0, "hidden before body frame two")
+	fx.advance(0.46)
+	assert_eq(fx.get("_pool").get("_shown")[slot], 1, "visible after delay")
+	fx.advance(0.34)
+	assert_eq(fx.active_count(), 1, "delay does not consume animation time")
+	fx.advance(0.02)
+	assert_eq(fx.active_count(), 0)
+	fx.queue_free()

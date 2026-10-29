@@ -1306,9 +1306,9 @@ func _on_cast(e: Dictionary) -> void:
 	var key := String(e.skill)
 	for visual: Dictionary in world.loadout.stats(key).cast_visuals:
 		if bool(visual.follow):
-			fx.play(String(visual.path), Vector2.ZERO, int(e.facing) > 0, avatar, Vector2(float(visual.x), 0))
+			fx.play_delayed(String(visual.path), float(visual.get("delay", 0.0)), Vector2.ZERO, int(e.facing) > 0, avatar, Vector2(float(visual.x), 0))
 		else:
-			fx.play(String(visual.path), e.pos + Vector2(float(visual.x), 0))
+			fx.play_delayed(String(visual.path), float(visual.get("delay", 0.0)), e.pos + Vector2(float(visual.x), 0))
 	var loop := String(world.book.def(key).get("sounds", {}).get("loop", ""))
 	if loop != "":
 		_sound(loop)
