@@ -10,7 +10,8 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const POOL := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow", "barrage",
 	"dragon_strike", "energy_drain", "energy_orb", "transformation", "super_transformation"]
 ## Defined in skills/buccaneer.json since B4 #416 (moved from pirate.json); every other pool key is undefined until its ticket.
-const DEFINED_IN_BUCCANEER := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow"]
+const DEFINED_IN_BUCCANEER := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow",
+	"barrage", "dragon_strike"] # B4 #416 the five ported skills, B8 #420 Barrage and Dragon Strike; B6, B7, B9, B10 append theirs
 const KNUCKLE := 1482000
 ## Synthetic item info (reqJob bits as in the v83 Item.wz): knuckles and guns carry the Pirate bit (16), the rest
 ## belong to other lines, so the family filter alone decides which Pirate-bit weapons drop.
@@ -76,7 +77,11 @@ func test_the_buccaneer_line_loads_without_errors_and_adds_its_job_and_the_porte
 	assert_true(keys.find("512") > keys.find("212"), "then the class lines in discovered (sorted) line order")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "buccaneer"))
 	assert_true(frag.has("_doc"), "the skill file names its owning tickets")
-	assert_eq(frag.skills.keys(), DEFINED_IN_BUCCANEER, "B4 defines the five ported skills; B6-B10 append their own definitions")
+	var defined := Array(frag.skills.keys())
+	defined.sort()
+	var expected := DEFINED_IN_BUCCANEER.duplicate()
+	expected.sort()
+	assert_eq(defined, expected, "B4 defines the five ported skills, B8 Barrage and Dragon Strike; B6, B7, B9, B10 append their own")
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
 

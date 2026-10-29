@@ -865,8 +865,7 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   Shower and the others are unchanged: `oriented` (mirror the left-facing box for a right-facing caster, fixed at the cast)
   and `stagger` (target k lands `delay + k * stagger`, `SkillRunner._drain_staggered`). A definition may also carry
   `hit_targets` (hit art by target index, cycling) and `hit_lines` (hit art by line, none past the list), resolved in
-  `SkillRunner._resolve_target`; the presentation keys `hit_at_feet`, `hit_skip` (RunScene's `mob_hit` art, `FxRenderer.play`'s
-  `start`) and `cast_visuals[].facing` (`SkillBook.visual_placement`: mirrored x and flip for a right-facing caster).
+  `SkillRunner._resolve_target`; the presentation keys `hit_at_feet`, `hit_skip` (RunScene's `mob_hit` art, `FxRenderer.play_from`) and `cast_visuals[].facing` (`SkillBook.visual_placement`: mirrored x and flip for a right-facing caster).
 - **Self casts:** the generic self-cast rule requires no monster; MP conversion was removed by ADR 0006.
 
 - **Weapon paths and grants** (#226) are gone (#284): no job grants or records a weapon; drops still follow the

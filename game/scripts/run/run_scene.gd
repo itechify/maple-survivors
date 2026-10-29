@@ -1398,7 +1398,11 @@ func _on_mob_hit(e: Dictionary) -> void:
 		var hit_def := world.book.def(String(e.get("skill", "")))
 		if bool(hit_def.get("hit_at_feet", false)) and m >= 0 and m < world.swarm.capacity():
 			at = Vector2(world.swarm.x[m], world.swarm.y[m]) # tier C: a ground pillar's origin is its base (Dragon Strike)
-		fx.play(hv, at.round(), at.x > world.player.pos.x, null, Vector2.ZERO, false, float(hit_def.get("hit_skip", 0.0)))
+		var skipped := float(hit_def.get("hit_skip", 0.0))
+		if skipped > 0.0:
+			fx.play_from(hv, at.round(), at.x > world.player.pos.x, skipped)
+		else:
+			fx.play(hv, at.round(), at.x > world.player.pos.x)
 		counters.hit_fx += 1
 	_mob_sound(int(e.mob_id), "Damage")
 

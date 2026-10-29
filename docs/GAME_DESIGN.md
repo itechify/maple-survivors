@@ -6528,7 +6528,7 @@ and the `bot.reach` data key.
   hit). Art: `effect` (the 16-frame dragon, z -1) plays behind the caster; `tile/0..2` are cast visuals at x = 0, -200, -400 from the
   caster, mirrored and flipped with the facing (`cast_visuals[].facing`, `SkillBook.visual_placement`; `tile/3` at -600 lies
   outside the box and is not drawn); `hit/0..2` are the pillars on the targets, picked by target index mod 3 (`hit_targets`),
-  with the base on the monster's feet (`hit_at_feet`) and started 0.84 s in (`hit_skip`, `FxRenderer.play(start)`) because the WZ plays
+  with the base on the monster's feet (`hit_at_feet`) and started 0.84 s in (`hit_skip`, `FxRenderer.play_from`) because the WZ plays
   them from the cast and the pillar is at full height when the number shows.
 - **`bot.reach` (BU-21).** `BotInput` closes in on a build whose longest attack reach is under `engage.kite_reach` (220 px). Dragon
   Strike's far edge is 400 px, so one copy would make a melee brawler kite. A definition may carry `"bot": {"reach": N}`:
