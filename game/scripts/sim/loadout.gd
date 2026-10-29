@@ -428,6 +428,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		resolved["meter"] = d.meter
 		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
 	_add_burn(resolved, key, d, lv)
+	_add_pierce_field(resolved, key, d, lv)
 	return resolved
 
 
@@ -444,6 +445,17 @@ func _add_burn(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> voi
 	resolved["burn_pulse"] = BurnStatus.pulse(float(resolved.damage_min), float(resolved.damage_max), share, mult)
 	resolved["burn_time"] = book.canonical(key, lv, String(on_hit.get("duration_field", "time")), 0.0)
 	resolved["burn_share"] = share * maxf(0.0, mult)
+
+
+## A definition with `pierce_field` (a level field, Dragon's Breath "mobCount") pierces one monster fewer than the field says:
+## the arrow strikes `field` monsters in all, so `pierce` is the field minus one, plus the definition's literal `pierce` and any
+## `pierce` card (spec #332 B8, tier C reading of the WZ monster count). Other skills keep their `pierce` unchanged.
+func _add_pierce_field(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> void:
+	var field := String(d.get("pierce_field", ""))
+	if field == "":
+		return
+	var base := float(d.get("pierce", 0)) + maxf(0.0, book.canonical(key, lv, field, 1.0) - 1.0)
+	resolved["pierce"] = maxi(0, roundi(skill_stat(key, "pierce", base)))
 
 
 ## The W.Att a physical hit of `key` resolves with: the level field named by the definition's `summon.watk_field` (a

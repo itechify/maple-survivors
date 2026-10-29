@@ -6206,6 +6206,44 @@ from `upgrades/bowman.json`; a playable Bowmaster's new / rank cards come from `
   `test_rarity_bonus_effects.gd` (every bonus), and the old weapon-gate / 20-rank / standalone-card cases rewritten in
   `test_bowman`, `test_hunter` and `test_bowmaster_data` (see the B7 notes).
 
+#### 7.45 (continued): Bowmaster area and piercing (#340, spec #332 B8)
+
+Arrow Rain (3111004, book 311) and Dragon's Breath (3121003, book 312) are the two Bowmaster entries that need no new
+sim rule beyond one data key. Both are `slot: "active"` with the default eight ranks (WZ levels 4/8/12/15/19/23/27/30),
+no `weapon_families` and four-tier `rarity_bonuses`; they sit together in `skills/bowmaster.json`.
+
+- **Arrow Rain** (5.0 s): `cast: {"rule": "box", "min_targets": 1}` with the WZ box, which is symmetric (+-170 at rank 1,
+  +-190 at rank 4, +-210 at rank 8, -100 to +100 vertically), so it strikes **around the caster** and not in front of it.
+  `pending: {"delay": 0.5}` is the delayed-strike seam Meteor Shower uses: the cast queues the area anchored at the spot the
+  caster stood on, and 0.5 s later `SkillRunner._step_areas` hits up to `mobCount` (6) monsters in that box, nearest to the
+  anchor first, whether or not the caster has walked away. WZ damage 75% (rank 1) to 160% per line, `Use` / `Hit`
+  sounds, the `effect` flourish on the caster and `hit/0` on each struck monster. Nothing is cast while no monster is in the
+  box (`min_targets 1`).
+- **Falling arrows** (art only, tier C). The `special` node (`x 85, y 230, fall 150, start 0, interval 90, count 8,
+  duration 500`) is undocumented; it is read as eight arrows, one every 90 ms across the box, each dropping 230 px onto the
+  ground. A `cast_visuals` entry may now carry `across` (a count), `interval` (s between copies), `fall` (px dropped) and
+  `fall_time` (s of the drop): `CastVisualPlan.expand(visuals, box)` spreads the copies evenly over the resolved box (so a
+  Wide Rain `area` card spreads them wider) and `RunScene._update_falls` draws them. An entry with a literal `x` and no
+  delay plays at the cast exactly as before (Meteor Shower is unchanged). The drop takes 0.25 s, longer than the WZ `fall`
+  150, so that two or three arrows read at once; the strike itself lands at 0.5 s whatever the art is doing.
+- **Dragon's Breath** (3.5 s): the `nearest` rule with its own four-frame `ball` (204x81, no ammo sprite), range 440 (read
+  from the level: it is canonical), 700 px/s, radius 16. New optional key **`pierce_field`** (`"mobCount"`): the arrow
+  pierces `field - 1` monsters (WZ `mobCount` 4 / 5 / 6 means 4 / 5 / 6 monsters struck, so 3 / 4 / 5 beyond the first), on
+  top of the literal `pierce` and any `pierce` card; `Loadout._add_pierce_field` resolves it at the end of `stats`, and
+  skills without the key resolve exactly as before. `knockback {chance_field prop, distance 180}`: `prop` is 100 at every
+  level, so every struck non-boss rolls once on stream 1 (the existing rule, 0/100% endpoints included) and slides 180 px
+  away from the caster; a boss is damaged and not moved. WZ damage 48% to 100%.
+- **Rarity bonuses** (tier C; the lineage's passive names). Arrow Rain: Rare `bow_mastery` damage x1.2, Epic `wide_rain`
+  `area` x1.2 (a wider box), Unique `final_attack` `attack_count` +1 (a second volley line on each struck monster). Dragon's
+  Breath: Rare `bow_expert` damage x1.2, Epic `eye` `range` x1.25 (550 px), Unique `dragons_spirit` `pierce` +2.
+  Legendary is the Unique's effect and id (so it shares the repeat counter) plus damage x1.2. Every bonus changes the
+  resolved cast (`test_rarity_bonus_effects`; Arrow Rain probes `area` and `attack_count` against its box, Dragon's Breath
+  `range` and `pierce` against a row of monsters; a bow `range` probe runs 1.5 s so the spawn director does not relocate the
+  far monster).
+- **Skill window.** `SkillText` appends "Pierces up to N more monsters" to a skill with `pierce_field`, next to the
+  existing knock-back line ("Knock-back: 100% / 180 px").
+- Tests: `test_bowmaster_area_piercing.gd` (behaviour per skill, the rarity tables, the cast-visual plan, the Skill window
+  line, and a real-cache check of the eight mapped levels of both skills against Skill.wz), `test_rarity_bonus_effects.gd`.
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7532,6 +7570,20 @@ Warrior bot equipment weights now explicitly name ancestor 100 with the same val
 | `info/effect` strike art | played at the damage impact (`attackAfter`) on each struck monster; `effectAfter` not modelled | tier C; the nodes are tier A |
 | `Summon` sound | plays at each follower spawn when `sounds.summon` is listed | tier C (no sound in the v83 client was verified to play at spawn) |
 
+### Bowmaster B8 constants (#340)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Arrow Rain cooldown / cast rule | 5.0 s; `box` with the WZ symmetric box anchored where the caster stood, `min_targets 1` | tier C (the box and `mobCount` 6 are tier A) |
+| Arrow Rain strike delay | `pending.delay` 0.5 s (the Meteor Shower delayed strike) | tier C |
+| Arrow Rain action | the held weapon's shooting stance, 0.6 s | tier C |
+| Falling arrows | eight copies of `special/0`, one every 90 ms, 230 px drop over 0.25 s, resting 30 px above the ground (`RunScene.FALL_REST`), spread over the resolved box | tier C reading of the undocumented `special` node (`interval 90`, `count 8`, `y 230` are tier A numbers); art only |
+| Dragon's Breath cooldown / speed / radius | 3.5 s / 700 px/s / 16 px | tier C |
+| Dragon's Breath range | 440 px, read from the level | tier A (`range` 440 at every level) |
+| `pierce_field` | pierce = `field` - 1 (+ literal `pierce`, + cards): `mobCount` 4 / 5 / 6 strikes 4 / 5 / 6 monsters | tier C reading of the WZ monster count |
+| Dragon's Breath knock-back | `prop` 100 (always rolls, one stream-1 draw per struck non-boss) and a 180 px slide away from the caster; bosses are not moved | prop tier A; the distance tier C ("a long distance"; Power Knock-Back used 120) |
+| Rarity values | Arrow Rain: damage x1.2, `area` x1.2, `attack_count` +1; Dragon's Breath: damage x1.2, `range` x1.25, `pierce` +2; Legendary adds damage x1.2 to the Unique | tier C |
+| Bow `range` probe window | 1.5 s (`test_rarity_bonus_effects`) | tier C test setting |
 ### Bowmaster B7 constants (#339)
 
 | Constant / rule | Value | Provenance |

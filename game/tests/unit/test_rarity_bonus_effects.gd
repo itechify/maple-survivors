@@ -18,8 +18,8 @@ const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep",
 	"blast_targets"]
 const BOW := 1452051
-## The Bowmaster skills this audit knows how to probe (tickets B7-B11 add theirs).
-const BOWMASTER_KEYS := ["arrow_blow", "bow_double_shot", "arrow_bomb", "strafe"]
+## The Bowmaster skills this audit knows how to probe (tickets B7-B11 add theirs; B8 added Arrow Rain and Dragon's Breath).
+const BOWMASTER_KEYS := ["arrow_blow", "bow_double_shot", "arrow_bomb", "strafe", "arrow_rain", "dragons_breath"]
 
 
 ## Generic Skill.wz levels: a centred box, six mobs, one line, a 300 px range, a certain proc (the shape test_fp_high_actives uses).
@@ -68,6 +68,9 @@ func _world(key: String) -> RunWorld:
 	w.bounds = Rect2(0, -500, 4000, 1000)
 	w.fhm = FootholdMap.from_segments(FLAT)
 	w.swarm.fhm = w.fhm
+	if key in BOWMASTER_KEYS:
+		# A knock-back (Dragon's Breath) slides the mob along its foothold, and the swarm steps on the context's map.
+		w._ctx["fhm"] = w.fhm
 	RF.place_player(w, CASTER_X)
 	if key in BOWMASTER_KEYS:
 		w.wear_new_item(BOW)
@@ -149,7 +152,10 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
 	# Cooldown counts casts over 66 s (Shout: 6 at 12 s, 7 at 10.56 s); damage sums many casts so that rounding cannot hide a x1.2.
 	var repeating := stat in ["cooldown", "damage"]
-	var window := 66.0 if stat == "cooldown" else 12.0 if stat == "damage" else 3.5
+	# A bow's `range` probe stops before the spawn director relocates a monster that sits off screen (about 3.3 s): a shot at
+	# 550 px lands within a second.
+	var window := 66.0 if stat == "cooldown" else 12.0 if stat == "damage" \
+		else 1.5 if stat == "range" and key in BOWMASTER_KEYS else 3.5
 	var affected := {}
 	var lines := 0
 	# A Combo finisher (Panic, Coma) needs orbs: ten every tick when counting casts or damage, five once otherwise, so
@@ -192,7 +198,7 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 		assert_true(key in keys, key)
 	for key in BOWMASTER_KEYS:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 23, "seven Hero, twelve F/P and four Bowmaster skills: %d" % keys.size())
+	assert_true(keys.size() >= 25, "seven Hero, twelve F/P and six Bowmaster skills: %d" % keys.size())
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
@@ -263,3 +269,16 @@ func test_the_probe_tells_the_bow_skills_stats_apart() -> void:
 	var area := {"stat": "area", "op": "mul", "value": 1.2}
 	assert_false(bool(_probe("arrow_bomb", [], "area").edge))
 	assert_true(bool(_probe("arrow_bomb", [area], "area").edge))
+
+
+func test_the_probe_tells_arrow_rain_and_dragons_breath_stats_apart() -> void:
+	# Arrow Rain strikes a box, so `range` and `pierce` change nothing for it; Dragon's Breath has no box for `area` to widen.
+	var range_mod := {"stat": "range", "op": "mul", "value": 1.25}
+	assert_false(bool(_probe("arrow_rain", [range_mod], "range").edge))
+	var area := {"stat": "area", "op": "mul", "value": 1.2}
+	assert_false(bool(_world("dragons_breath").loadout.stats("dragons_breath").has_box), "no box for `area` to widen")
+	var pierce := {"stat": "pierce", "op": "add", "value": 2}
+	assert_eq(_probe("arrow_rain", [pierce], "pierce").affected, _probe("arrow_rain", [], "pierce").affected)
+	assert_true(bool(_probe("arrow_rain", [area], "area").edge))
+	assert_true(bool(_probe("dragons_breath", [range_mod], "range").edge))
+	assert_true(int(_probe("dragons_breath", [pierce], "pierce").affected) > int(_probe("dragons_breath", [], "pierce").affected))

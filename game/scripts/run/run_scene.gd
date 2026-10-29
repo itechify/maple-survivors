@@ -66,6 +66,8 @@ const DT := 1.0 / 60.0
 const MAX_TICKS_PER_FRAME := 4
 ## Height in px of the arc a thrown grenade draws at mid-flight. tier C: ours (#192), presentation only.
 const THROW_ARC := 40.0
+## Height in px above the cast position where a falling cast visual (Arrow Rain) comes to rest. tier C: ours (#340), art only.
+const FALL_REST := 30.0
 const SCENE_PATH := "res://scenes/run/run_scene.tscn"
 
 const FX_LEVEL_UP := "Effect.wz/BasicEff.img/LevelUp"
@@ -259,6 +261,8 @@ var _timed_shots: Array = []
 var _first_shots := {}
 ## Flight FX: Grenades carry skill + cast_time and wait for skill_landed; Final Attack ammo is visual-only.
 var _throws: Array = []
+## Falling cast visuals (Arrow Rain's arrows): {path, to, delay, fall, fall_time, t, slot}; presentation only.
+var _falls: Array = []
 var _last_delta := 0.0
 var _last_frame_us := 0
 var _frames := RunFrameRecorder.new()
@@ -1302,8 +1306,16 @@ func _on_cast(e: Dictionary) -> void:
 	if effect != "":
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
-	for visual: Dictionary in world.book.def(key).get("cast_visuals", []):
-		fx.play(world.book.art_path(key, String(visual.path), world.loadout.weapon_family), e.pos + Vector2(float(visual.x), 0))
+	var visuals: Array = world.book.def(key).get("cast_visuals", [])
+	if not visuals.is_empty():
+		for visual: Dictionary in CastVisualPlan.expand(visuals, world.loadout.stats(key).box):
+			var path := world.book.art_path(key, String(visual.path), world.loadout.weapon_family)
+			var at: Vector2 = e.pos + Vector2(float(visual.x), 0)
+			if float(visual.delay) <= 0.0 and float(visual.fall) <= 0.0:
+				fx.play(path, at)
+			else:
+				_falls.append({"path": path, "to": at - Vector2(0.0, FALL_REST), "delay": float(visual.delay),
+					"fall": float(visual.fall), "fall_time": float(visual.fall_time), "t": 0.0, "slot": -1})
 	var loop := String(world.book.def(key).get("sounds", {}).get("loop", ""))
 	if loop != "":
 		_sound(loop)
@@ -1366,6 +1378,29 @@ func _update_throws(delta: float) -> void:
 			continue
 		fx.stop(int(t.slot))
 		_throws.remove_at(i)
+
+
+## Advances the falling cast visuals: each appears after its delay, drops `fall` px over `fall_time` seconds onto its rest
+## point and is freed there (cosmetic: the damage landed in the sim at the skill's own pending delay).
+func _update_falls(delta: float) -> void:
+	var i := 0
+	while i < _falls.size():
+		var f: Dictionary = _falls[i]
+		f.t = float(f.t) + delta
+		var age := float(f.t) - float(f.delay)
+		if age >= 0.0:
+			var progress := minf(age / maxf(float(f.fall_time), 0.001), 1.0)
+			var at: Vector2 = (f.to as Vector2) - Vector2(0.0, float(f.fall) * (1.0 - progress))
+			if int(f.slot) < 0:
+				f.slot = fx.play_repeating(String(f.path), at.round(), INF)
+			if int(f.slot) >= 0:
+				fx.place(int(f.slot), at.round())
+			if progress >= 1.0:
+				if int(f.slot) >= 0:
+					fx.stop(int(f.slot))
+				_falls.remove_at(i)
+				continue
+		i += 1
 
 
 func _on_mob_hit(e: Dictionary) -> void:
@@ -1511,6 +1546,7 @@ func _reload_map() -> void:
 	mob_layers.clear()
 	_slot_layers.clear()
 	_throws.clear()
+	_falls.clear()
 	_immunity_fx.clear()
 	_slow_fx = -1
 	_shown_action = ""
@@ -1706,6 +1742,7 @@ func _present(delta: float) -> void:
 		_slow_fx = -1
 	_update_mob_status_effects()
 	_update_throws(delta)
+	_update_falls(delta)
 	_update_player(delta)
 	_update_pet(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)

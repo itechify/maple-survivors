@@ -85,6 +85,9 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("knockback"):
 		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
 			number(float(stats.get("knockback_distance", 0.0)))])
+	if def.has("pierce_field"):
+		var through := int(stats.get("pierce", 0))
+		mechanics.append("Pierces up to %d more %s" % [through, "monster" if through == 1 else "monsters"])
 	if def.has("pull"):
 		var pulled := int(stats.get("mob_count", 1))
 		mechanics.append("Pulls up to %d %s from %s px" % [pulled, "monster" if pulled == 1 else "monsters",

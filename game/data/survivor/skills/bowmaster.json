@@ -1,5 +1,5 @@
 {
-	"_doc": "Bowmaster line (spec #332). B7 #339: Arrow Blow, Double Shot, Arrow Bomb (moved here from skills/bowman.json, same keys) and Strafe. Tier A: WZ levels, art and sounds. Tier C: ranks, cooldowns, targeting, rarity bonuses; see GAME_DESIGN 7.45. Later Bowmaster tickets (B8-B11) append their own definitions.",
+	"_doc": "Bowmaster line (spec #332). B7 #339: Arrow Blow, Double Shot, Arrow Bomb (moved here from skills/bowman.json, same keys) and Strafe. Tier A: WZ levels, art and sounds. Tier C: ranks, cooldowns, targeting, rarity bonuses; see GAME_DESIGN 7.45. Later Bowmaster tickets (B8-B11) append their own definitions. B8 #340 appends arrow_rain and dragons_breath (kept together after the earlier tickets' entries).",
 	"skills": {
 		"arrow_blow": {
 			"skill_id": 3001004,
@@ -390,6 +390,198 @@
 				]
 			},
 			"_tier": "Tier A: WZ damage 71..100% per arrow, bulletCount 4, weapon45 (bow), hit/0 art (3 frames; the spec called it empty, B1 found it) and Use sound. Tier C (#339, GAME_DESIGN 7.45): the eight survivor ranks, `cast.focus` (admission wants one target, so every arrow reuses it, aimed a few px apart), 2.5s cooldown, 350px range, 700px/s, 6px radius, no pierce, 0.6s held weapon stance, rarity bonuses. Untuned."
+		},
+		"arrow_rain": {
+			"skill_id": 3111004,
+			"book": "311",
+			"job": 311,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Arrow Rain",
+			"desc": "Calls a rain of arrows down around you. The damage lands a moment after the cast.",
+			"icon": "Skill.wz/311.img/skill/3111004/icon",
+			"damage": "physical",
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/311.img/skill/3111004/hit/0",
+			"effect": "Skill.wz/311.img/skill/3111004/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3111004/Use",
+				"hit": "Sound.wz/Skill.img/3111004/Hit"
+			},
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 5.0,
+			"pending": {
+				"delay": 0.5,
+				"effect": ""
+			},
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/311.img/skill/3111004/special/0",
+					"across": 8,
+					"interval": 0.09,
+					"fall": 230,
+					"fall_time": 0.25
+				}
+			],
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "bow_mastery",
+						"text": "Bow Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_rain",
+						"text": "Wide Rain",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: WZ damage 60..160%, the symmetric box (+-170 -> +-210 by +-100), mobCount 6, weapon 45 (bow), effect/hit/special art and Use/Hit sounds. Tier C (#340, GAME_DESIGN 7.45): the eight survivor ranks, a box cast anchored where the caster stood that strikes 0.5s later (the delayed-strike seam of Meteor Shower), min_targets 1, 5s cooldown, 0.6s held weapon stance, the special node read as eight arrows falling 230px over 0.25s, one every 90ms across the box (art only), rarity bonuses. Untuned."
+		},
+		"dragons_breath": {
+			"skill_id": 3121003,
+			"book": "312",
+			"job": 312,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Dragon's Breath",
+			"desc": "Looses a dragon-fire arrow that pierces a line of monsters and knocks each one back.",
+			"icon": "Skill.wz/312.img/skill/3121003/icon",
+			"damage": "physical",
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "Skill.wz/312.img/skill/3121003/ball",
+			"hit": "Skill.wz/312.img/skill/3121003/hit/0",
+			"effect": "Skill.wz/312.img/skill/3121003/effect",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3121003/Use",
+				"hit": "Sound.wz/Skill.img/3121003/Hit"
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 3.5,
+			"speed": 700,
+			"radius": 16,
+			"pierce": 0,
+			"pierce_field": "mobCount",
+			"knockback": {
+				"chance_field": "prop",
+				"distance": 180
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "bow_expert",
+						"text": "Bow Expert",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "eye",
+						"text": "Eye of Amazon",
+						"effects": [
+							{
+								"stat": "range",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "dragons_spirit",
+						"text": "Dragon's Spirit",
+						"effects": [
+							{
+								"stat": "pierce",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "dragons_spirit",
+						"text": "Dragon's Spirit",
+						"effects": [
+							{
+								"stat": "pierce",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: WZ damage 42..100%, mobCount 4..6, range 440 (read from the level), prop 100, weapon 45 (bow), ball/hit/effect art and Use/Hit sounds. Tier C (#340, GAME_DESIGN 7.45): the eight survivor ranks, nearest auto-cast with its own ball (no ammo sprite), 3.5s cooldown, 700px/s, 16px radius, `pierce_field` mobCount (the arrow strikes mobCount monsters, so it pierces mobCount - 1), a 180px knock-back that always rolls (prop 100; bosses are damaged and not moved), 0.6s held weapon stance, rarity bonuses. Untuned."
 		}
 	}
 }

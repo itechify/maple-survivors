@@ -86,7 +86,8 @@ func test_the_bowmaster_line_loads_without_errors_and_adds_its_job_and_its_skill
 	assert_true(d.jobs_survivor.jobs.has("312"), "jobs/bowmaster.json is merged into the survivor job data")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "bowmaster"))
 	# B7 (#339) fills the skeleton with the core arrows; B8-B11 append the other six pool skills.
-	for key: String in ["arrow_blow", "bow_double_shot", "arrow_bomb", "strafe"]:
+	# B8 (#340) adds Arrow Rain and Dragon's Breath.
+	for key: String in ["arrow_blow", "bow_double_shot", "arrow_bomb", "strafe", "arrow_rain", "dragons_breath"]:
 		assert_true(frag.skills.has(key), key)
 	assert_true(frag.has("_doc"))
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
