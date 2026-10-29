@@ -725,6 +725,12 @@ also emit `hp_spent`, which the oracle runs do not exercise). Henesys `balance.s
 deaths 305.0 / 454.5 / 651.7 s (Lv 11 / 21 / 36), Hero (112) 0/3, deaths 327.7 / 336.9 / 688.2 s (Lv 11 / 11 / 36). Both
 match the recorded numbers above exactly. No crashes, no world warnings.
 
+**Spear Crusher smoke (#353, spec #348 D5; no tuning).** The ticket adds a Dark Knight definition (job 132 is not playable) and a
+presentation-only change to how a numeric-string frame delay is read, so shipped jobs cannot change. Henesys
+`balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3 with deaths at 10:51 / 5:05 / 7:34 (Lv 11 / 21 / 36; deaths by map 1:1 2:1 3:1),
+Hero (112) 0/3 at 5:27 / 5:36 / 11:28 (Lv 11 / 11 / 36), identical to the D1 (#349) smoke on the same seeds; no warnings.
+`test_character_baseline`, `test_tick_cost_identity` and `test_hero_baseline` reproduce their goldens unrecaptured.
+
 Merged-source full suites: **2151 passed / 0 failed / 0 skipped** cached; **1926 passed / 0 failed /
 225 skipped** without cache (skips prove no asset behavior). Both F/P goldens and the repaired Hero golden
 `409dba0d1bdffc32ba72644e326f99561e6ed9c0270feda39ace2573b0727cb3` match integration 3e37ec1 unchanged.
