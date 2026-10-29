@@ -23,7 +23,9 @@ extends Node2D
 ## weapon stays when the cover has none (or the look has no weapon). Items hide the layers their `vslot` occupies
 ## through Base.wz/smap.img (hat over hair, full-head hats over head and accessories).
 ## A morph (set_morph, Oak Barrel 5101007 -> Morph.wz/1002.img, #194) replaces all of that: the character is drawn as the
-## morph's own frame for the matching action (MORPH_ACTIONS), origin at the feet, and the avatar returns when it ends.
+## morph's own frame for the matching action, origin at the feet, and the avatar returns when it ends. A stance whose name
+## is a node of the morph img draws that node (the Buccaneer morphs carry the skills' action names, #415); any other
+## stance keeps the MORPH_ACTIONS mapping, which shows the morph standing for an attack the morph has no art for.
 ## WZ art faces left; facing = 1 mirrors around the character origin.
 
 ## tier C: random interval between blinks, seconds.
@@ -154,9 +156,17 @@ func set_morph(id: int) -> void:
 	play(_requested, true, looping)
 
 
-## The Morph.wz action played for avatar stance `s`.
+## The Morph.wz action played for avatar stance `s` when the morph has no node of that name.
 static func morph_action(s: String) -> String:
 	return String(MORPH_ACTIONS.get(s, "stand"))
+
+
+## The action of the current morph played for avatar stance `s`: the morph's own node of that name (`info` is metadata,
+## never a stance), else morph_action(s).
+func morph_stance(s: String) -> String:
+	if s != "info" and _morph != null and _morph.root.get(s) is Dictionary:
+		return s
+	return morph_action(s)
 
 
 ## Plays a stance ("stand1", "walk1", "jump", "alert", "prone", "ladder", "rope", "swingO1", "shoot1", "dead", ...).
@@ -238,7 +248,7 @@ func advance(dt: float) -> void:
 ## The stance to play for `s`: the held weapon's stand / walk variant for the generic "stand1" / "walk1", else `s`.
 func weapon_stance(s: String) -> String:
 	if _morph != null:
-		return morph_action(s)
+		return morph_stance(s)
 	if s == "stand1":
 		return WeaponInfo.stand_stance(_weapon_info)
 	if s == "walk1":
