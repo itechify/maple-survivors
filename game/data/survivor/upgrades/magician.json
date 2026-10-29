@@ -47,12 +47,6 @@
 		{"id": "holy_arrow_cooldown", "power": true, "kind": "skill_mod", "skill": "holy_arrow", "name": "Quick Holy Arrow",
 			"desc": "Holy Arrow cooldown -{value}%.", "value": 12, "icon": "Skill.wz/230.img/skill/2301005/icon",
 			"max_rank": 3, "weight": 2, "requires": {"jobs": [230]}, "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]},
-		{"id": "heal_new", "power": true, "kind": "skill_new", "skill": "heal", "name": "Heal",
-			"desc": "Learn Heal: restore HP below half health, or strike nearby undead.", "icon": "Skill.wz/230.img/skill/2301002/icon",
-			"max_rank": 1, "weight": 4, "requires": {"jobs": [230]}, "effects": []},
-		{"id": "heal_rank", "power": true, "kind": "skill_rank", "skill": "heal", "name": "Heal",
-			"desc": "Heal +{magnitude} rank: stronger recovery and undead damage.", "icon": "Skill.wz/230.img/skill/2301002/icon",
-			"max_rank": 30, "weight": 3, "requires": {"jobs": [230]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
 		{
 			"id": "meditation_fp_new",
 			"kind": "skill_new",

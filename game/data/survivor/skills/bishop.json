@@ -1,4 +1,24 @@
 {
-	"_doc": "Bishop line skill definitions (spec #372, ticket BS2 #374): an empty skeleton. Each skill ticket appends its own region of `skills` (separate tickets, separate regions): BS4 Heal (2301002); BS5 Holy Arrow (2301005, moved from magician.json), Shining Ray (2311004), Angel Ray (2321007) and Teleport (2301001, moved from magician.json as teleport_cleric); BS6 Genesis (2321008) and Big Bang (2321001, via extends big_bang); BS7 Summon Dragon (2311006) and Bahamut (2321003); BS8 Resurrection (2321006). A pool key with no entry here stays inert: it is never offered or learned.",
-	"skills": {}
+	"_doc": "Bishop line skill definitions (spec #372). Each skill ticket appends its own region of `skills` (separate tickets, separate regions): BS4 Heal (2301002, moved from magician.json); BS5 Holy Arrow (2301005, moved from magician.json), Shining Ray (2311004), Angel Ray (2321007) and Teleport (2301001, moved from magician.json as teleport_cleric); BS6 Genesis (2321008) and Big Bang (2321001, via extends big_bang); BS7 Summon Dragon (2311006) and Bahamut (2321003); BS8 Resurrection (2321006). A pool key with no entry here stays inert: it is never offered or learned.",
+	"skills": {
+		"heal": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.82. Every effect names a stat Heal's rule reads: heal_power and heal_threshold (BS4), area (the undead box) and damage (the undead strike, resolved).",
+			"rarity_bonuses": {
+				"rare": [{"id": "restore", "text": "Greater Heal", "effects": [{"stat": "heal_power", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "mending", "text": "Mending Touch", "effects": [{"stat": "heal_threshold", "op": "add", "value": 0.15}]}],
+				"unique": [{"id": "smite", "text": "Holy Smite", "effects": [{"stat": "damage", "op": "mul", "value": 1.5}, {"stat": "area", "op": "mul", "value": 1.2}]}],
+				"legendary": [{"id": "smite", "text": "Holy Smite and Greater Heal", "effects": [{"stat": "damage", "op": "mul", "value": 1.5}, {"stat": "area", "op": "mul", "value": 1.2}, {"stat": "heal_power", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2301002, "book": "230", "job": 230, "kind": "instant", "slot": "active",
+			"name": "Heal", "desc": "Restores HP below half health, or strikes undead inside its holy box.",
+			"text": {"desc": "Recovers your HP when it falls below half, and damages every undead monster in the area."},
+			"icon": "Skill.wz/230.img/skill/2301002/icon", "damage": "none",
+			"cast": {"rule": "hp_or_undead"}, "heal": {"field": "hp", "hp_threshold": 0.5, "recast_delay": 2.0},
+			"_heal": "Tier A: mpCon/hp/lt/rb from v83. Tier B: undead formula; weak historical recovery coefficients. Tier C: provisional choice of the unverified single-target recovery fit (docs/research/cleric-heal.md), below-half trigger (strictly below: a hit exactly at the threshold waits), 2 s recast, every undead in the box, 0.8 s stance, the recovery only for a character below the resolved threshold. BS4 (#376): the undead strike multiplies its bounds by the resolved damage; the default 30-level table gives eight ranks.",
+			"action": "alert2", "action_time": 0.8, "ball": "",
+			"effect": "Skill.wz/230.img/skill/2301002/effect",
+			"hit": "Skill.wz/230.img/skill/2301002/hit/0", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2301002/Use", "hit": ""}
+		}
+	}
 }

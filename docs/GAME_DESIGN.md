@@ -4730,7 +4730,7 @@ existing shots finish separately from carry-over projectile kills.
 | Magic Claw (2001005) | Magician | Instant 2-hit claw (`attackCount` 2) on the nearest mob within 260 px every 1.25 s; `effect` on caster, `hit/0` on target (`CharLevel` variant by level) | ranks 1–20 = levels 1–20 | learn/rank; Twin Claw (+1 target, ×2), Quick Claw (-12% cooldown, ×3) |
 | Magic Armor (2001003) | Magician | Timed PDD (`pdd`) | ranks 1–20 = levels 1–20 | learn/rank |
 | Holy Arrow (2301005) | Cleric | Holy projectile at nearest mob: canonical mad/mastery/mpCon and element h; 1 s recast, 480 px reach, 520 px/s, radius 12 | ranks 1–30 = levels 1–30 | learn/rank; +1 projectile (3 steps), +1 pierce (2), cooldown ×0.88 (3); job 230 only |
-| Heal (2301002) | Cleric | Instant self recovery below 50% HP OR holy damage to every undead intersecting canonical lt/rb; 2 s recast, canonical mpCon/hp; provisional historical stat-based recovery fit, exact v83 amount unresolved ([evidence](research/cleric-heal.md)) | ranks 1–30 = levels 1–30 | learn/rank only; job 230 only |
+| Heal (2301002) | Cleric | Instant self recovery below 50% HP OR holy damage to every undead intersecting canonical lt/rb; 2 s recast, canonical mpCon/hp; provisional historical stat-based recovery fit, exact v83 amount unresolved ([evidence](research/cleric-heal.md)) | ranks 1–30 = levels 1–30 (eight ranks and rarity bonuses since the Bishop port, 7.82) | learn/rank only; job 230 only (generated pool cards for a Bishop since 7.82) |
 | Fire Arrow (2101004) | F/P Wizard | Nearest-target fire (`elemAttr f`) projectile every 0.4 s within 480 px, 520 px/s, radius 12 px, `shoot1` stance 0.8 s; canonical `mad`/`mastery`, ball/hit/effect and Use sound | ranks 1–8 map to WZ levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and post-cap Mastery with per-rarity bonuses (8.2); no standalone modifier cards |
 | Poison Breath (2101005) | F/P Wizard | Nearest-target poison (`elemAttr s`) projectile every 0.5 s within 450 px, 400 px/s, radius 14 px, `swingO3` stance 0.8 s; canonical `mad`/`mastery`; `on_hit` applies poison with canonical `prop`% for `time`; cached ball/hit/effect and Use/Hit sounds | ranks 1–8 map to WZ levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and post-cap Mastery with per-rarity bonuses (8.2); no standalone modifier cards |
 | Meditation (2101001 / 2201001) | F/P / I/L Wizard | Self-only timed canonical `mad` -> magic attack; invalidates cached attack ranges on start/expiry | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
@@ -6284,7 +6284,7 @@ player can reach it and every F/P and I/L number is unchanged. Skill keys stay i
 | `magic_claw` | 2001005 Magic Claw (book 200) | F/P's own definition | stays in `magician.json` |
 | `shining_ray` | 2311004 Shining Ray (book 231) | not defined: inert | BS5 |
 | `angel_ray` | 2321007 Angel Ray (book 232) | not defined: inert | BS5 |
-| `heal` | 2301002 Heal (book 230) | legacy definition in `magician.json` | BS4 moves it into `bishop` |
+| `heal` | 2301002 Heal (book 230) | moved into `bishop` by BS4 (7.82) | BS4 |
 | `summon_dragon` | 2311006 Summon Dragon (book 231) | not defined: inert | BS7 |
 | `bahamut` | 2321003 Bahamut (book 232) | not defined: inert | BS7 |
 | `genesis` | 2321008 Genesis (book 232) | not defined: inert | BS6 |
@@ -6312,6 +6312,55 @@ Decisions (spec #372, recorded here so they are not re-argued):
 - **Line placement.** `bishop` is discovered after the registered classes (hero, il_arch_mage) in sorted order; no
   shared list names it (ARCHITECTURE 4.4.4). Skill merge order follows that line order, so BS4-BS8 append in the
   ticket order, and a duplicate key across lines stays an error.
+
+### 7.82 Heal (spec #372, BS4 #376)
+
+Heal is the Bishop's identity and a real pool skill. `heal` (2301002, book 230, job 230) left `skills/magician.json` for
+`skills/bishop.json` (a key in two files is a load error), lost its explicit 30-entry `ranks` for the default 30-level
+table (eight ranks = WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30), and gained `rarity_bonuses`. The legacy cards
+`heal_new` and `heal_rank` (`upgrades/magician.json`) are deleted: the new and rank cards are generated from the pool of a
+playable job, and Rare or better ranks carry the skill's bonus. The rule (`hp_or_undead`), the recovery and strike formulas
+(7: `CombatMath.heal_recovery_range` / `heal_damage_range`, [evidence](research/cleric-heal.md)), the 2.0 s recast, the
+half-HP trigger, the every-undead-in-the-box strike (bosses first) and the Hidden rule (only the healing admits a cast) are
+unchanged.
+
+Three gaps would have made the rarity cards dead; they are closed here.
+
+- **`heal_power`** (skill modifier stat, `mul`, default 1.0): scales both bounds of the recovery range before the roll.
+  `Loadout.stats().heal_power`.
+- **`heal_threshold`** (skill modifier stat, `add`, default 0): added to the data's `heal.hp_threshold` (0.5), capped at 0.95
+  and rounded to 1e-4 (modifier values are float32, so 0.5 + 0.15 would otherwise read 0.65000001).
+  `Loadout.stats().heal_threshold` is the resolved fraction (0 for a skill without a `heal` block). **Exclusive:** the
+  character is injured when HP is strictly below `max_hp x heal_threshold`, so a hit that leaves HP exactly at the
+  threshold does not cast (the shipped behaviour, "exactly half HP waits"). `SkillRunner.heal_injured(world, st)` is the one
+  test; `has_target`, `_admit_hp_or_undead` and `_resolve_hp_or_undead` all call it, and a test pins that the three agree on
+  both sides of the line, with and without Mending Touch. Resolution now restores only an injured character: an undead
+  strike cast at 60% HP strikes and does not heal (the roll is still drawn, so the RNG stream is the same as before).
+- **`damage`**: the undead strike multiplies its bounds by the skill's resolved damage multiplier
+  (`Loadout.stats().status_damage_mult`: the skill's `damage` modifier x the player-wide `damage` x the damage passives, 1.0
+  with none), so a damage card is not dead on Heal. The multiplier is applied to the formula's bounds, then the existing
+  defence, element and crit path runs. **Normal Mastery on Heal is cooldown x0.95** (`damage: none`, #346), not damage;
+  `area` widens the undead box (the box is the WZ `lt`/`rb` x `area`); `count` is not read (no cap).
+
+Rarity bonuses (tier C; ids and text are the lineage's passives; Legendary = the Unique's effects plus one more, same id so
+it shares the repeat counter; repeats shrink x0.8):
+
+| Tier | Id, name | Effects | What the cast does differently |
+|---|---|---|---|
+| Rare | `restore` Greater Heal | `heal_power` x1.2 | recovery x1.2 |
+| Epic | `mending` Mending Touch | `heal_threshold` +0.15 | heals below 65% HP (and so casts there) |
+| Unique | `smite` Holy Smite | `damage` x1.5, `area` x1.2 | undead strike x1.5, undead box x1.2 |
+| Legendary | `smite` | Holy Smite + `heal_power` x1.2 | both |
+
+`test_bishop_heal` casts each effect with and without it in the same seeded world and asserts the symptom (HP restored,
+whether a 60% HP character casts, the strike's rolled damage, an undead just past the base box), plus the cooldown through
+Normal Mastery (casts in 66 s). The card preview names the changes (Recovery 100% -> 120%, Heals below 50% -> 65% HP); the
+Skill window line reads "Restores HP below N% health; strikes undead in the area" from the resolved threshold.
+
+Hazards recorded, not solved here (balance-pass questions): the recovery is stat-driven (`INT x (INT + matk)`), so at Lv1-10
+it restores almost nothing; only three undead exist in the stage data (Zombie Mushroom 2230101 in Sleepywood's first map;
+the bosses Shade 5090000 on Kerning map 2 and Zombie Mushmom 6300005 on Sleepywood map 1; bosses are targets like any
+monster), so the strike is a late bonus. The BS10 smoke reports Heal's casts and restored HP.
 
 ## 8. Upgrades
 
@@ -7509,7 +7558,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Boss target priority (#83) | every targeting rule (nearest, box, crowd, Heal undead, basic attack) orders qualifying targets scheduled boss first, then distance, then slot; elites get no priority | C | ours; spec #79 owner decision (`RunWorld.targets_before`) |
 | Skill box admission / area scoring | minimum 1 target unless `cast.min_targets` overrides; base area 1.0, future area-card multiplier ×1.2; bot `area` score 58 plus existing job bonus | C | spec #31 binding foundations decisions; no skill/card entries added |
 | Holy Arrow flight / cards (#57) | 1 s recast, 480 px range, 520 px/s, 12 px radius, count 1, pierce 0, 0.8 s stance; count +1 ×3, pierce +1 ×2, cooldown ×0.88 ×3; learn/rank weights 4/3, modifiers 2; standard attack bot scores | C (tuning), A (skill fields/art/sound/action) | copied existing Fire Arrow/first-job survivor steps; [Cleric evidence](research/cleric-heal.md) |
-| Heal trigger / recast / targets (#57) | strictly below half HP OR one boxed undead; 2 s recast in heal block; 0.8 s stance; every boxed undead once, overriding canonical mobCount=6; target multiplier counts undead plus caster | C (trigger/delay/cap override), A (box/cost/hp/action/art/sound) | ticket #57; [Cleric evidence](research/cleric-heal.md) |
+| Heal trigger / recast / targets (#57) | (Bishop port: resolved threshold, 7.82; Bishop BS4 constants) strictly below half HP OR one boxed undead; 2 s recast in heal block; 0.8 s stance; every boxed undead once, overriding canonical mobCount=6; target multiplier counts undead plus caster | C (trigger/delay/cap override), A (box/cost/hp/action/art/sound) | ticket #57; [Cleric evidence](research/cleric-heal.md) |
 | Heal undead formula (#57) | bounds `(0.3×INT+LUK)` / `(1.2×INT+LUK)` × `(INT+matk)/1000` × `hp/100` × `(1.5+5/N)`; holy h; existing hit/defense/element path | B (pre-BB client RE, not directly v83) | Southperry #1033 posts 685–692; [derivation and worked example](research/cleric-heal.md) |
 | Heal recovery approximation (#57; unresolved verification) | historical LUK polynomial × `(INT+matk)` × INT × `hp/10`, lower bound ×0.8; single-target multiplier 1, uniform seeded roll truncated to HP, capped by restore_player; learn/rank weights 4/3 | B weak (historical coefficients); C (selecting this unverified fit, multiplier, RNG/rounding, weights) | [evidence gap and original observations](research/cleric-heal.md); exact v83 recovery acceptance criterion remains open |
 | Fire/Poison attacks (#55) | Fire Arrow: cooldown 1 s, range 480 px, speed 520 px/s, count 1, pierce 0, radius 12 px, stance 0.8 s, rotates; Poison Breath: 1.25 s, 450 px, 400 px/s, count 1, pierce 0, radius 14 px, stance 0.8 s, no rotation; both target nearest | C | survivor skills.fire_arrow / poison_breath; untuned; canonical elements, level numbers, actions and assets remain tier A |
@@ -7629,6 +7678,21 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Hub kit | F/P's scroll list, equipment list [1002001, 1382001, 1082002, 1040004], fallback 1382001; fixture `bishop_t2.json` (BS9) | C |
 | Playable | `false` until BS10; `default_job` stays 212 | C |
 | Holy Symbol | the common `passive_exp` (9101002), offered to a 232 like any job; no Bishop card | C |
+
+### Bishop BS4 constants (spec #372, BS4 #376)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Heal port | `heal` in `skills/bishop.json`, default eight-rank table (levels 4/8/12/15/19/23/27/30); `heal_new` / `heal_rank` deleted | C (rank mapping, the default pool rule), A (`hp` 10 x level, box, art, sound) |
+| Heal rarity bonuses | Rare `restore` `heal_power` x1.2; Epic `mending` `heal_threshold` +0.15; Unique `smite` `damage` x1.5 and `area` x1.2; Legendary `smite` plus `heal_power` x1.2 (7.82) | C |
+| `heal_power` | modifier stat, `mul`, default 1.0, scales both recovery bounds | C |
+| `heal_threshold` | modifier stat, `add`, default 0, added to the data's 0.5; resolved value rounded to 1e-4 | C |
+| `Loadout.HEAL_THRESHOLD_CAP` | 0.95 | C |
+| Threshold comparison | exclusive: HP strictly below `max_hp x threshold` (a hit exactly at the threshold does not cast); one test shared by `has_target`, admission and resolution | C (the shipped behaviour, now pinned) |
+| Recovery only when injured | an undead strike cast above the threshold does not heal; the recovery roll is drawn regardless (same RNG stream) | C |
+| Strike `damage` | the strike's bounds x the skill's resolved damage multiplier (`status_damage_mult`; 1.0 with no card or passive) | C |
+| Normal Mastery on Heal | cooldown x0.95 (`damage: none`, #346) | C |
+| Heal's data | `heal {field hp, hp_threshold 0.5, recast_delay 2.0}`, `alert2` 0.8 s, every undead in the box, holy strike: unchanged from #57 | see the #57 rows |
 
 ## 12. Later phases
 

@@ -189,6 +189,12 @@ static func _data() -> Dictionary:
 	bolt.cooldown = 1.5
 	bolt.ranks = legacy_ranks
 	bolt.erase("rarity_bonuses")
+	# #376 ported Heal into the Bishop line (default eight-rank table, rarity bonuses, `heal_power` / `heal_threshold`, the strike
+	# honouring `damage`). The oracle keeps the pre-port definition: thirty explicit ranks and no bonuses. The new stats default to
+	# 1.0 / the data's 0.5 and the damage multiplier to 1.0, so the bytes are the same (test_bishop_heal proves the defaults).
+	var heal: Dictionary = data.skills.skills.heal
+	heal.ranks = legacy_ranks
+	heal.erase("rarity_bonuses")
 	return data
 
 

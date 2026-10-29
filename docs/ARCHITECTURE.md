@@ -823,6 +823,12 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   with real logic lives in its own file and the runner only dispatches to it: `chain` -> `ChainCast` (`admit` /
   `has_target` must agree, `resolve` strikes and emits `skill_chain`), `summon` -> `PlayerSummons`. A new rule adds its
   name to those four hooks and its count/facing policy to `RULE_POLICY`, its own events to `RunWorld.EVENT_FIELDS` and its art to a renderer.
+- **Heal's stats (#376).** `Loadout.stats()` adds `heal_power` (the skill modifier `heal_power`, default 1.0; scales both
+  bounds of the recovery range) and `heal_threshold` (the data's `heal.hp_threshold` plus the `heal_threshold` modifier,
+  capped at `Loadout.HEAL_THRESHOLD_CAP` 0.95, rounded to 1e-4; 0 for a skill without a `heal` block). The `hp_or_undead` rule
+  asks `SkillRunner.heal_injured(world, st)` (HP strictly below max x `heal_threshold`) in `has_target`,
+  `_admit_hp_or_undead` and `_resolve_hp_or_undead`; the undead strike multiplies its bounds by the resolved
+  `status_damage_mult`. Both modifier stats are previewed on cards (`UpgradePool.MOD_PREVIEW`).
 - **Melee behaviour cards (#208).** `Loadout.stats().attack_count` applies skill modifiers to canonical `attackCount`;
   target count remains separate. `SkillRunner.weapon_envelope(stats, world)` scales a copy of
   `WeaponReach.envelope(world)` by the skill's existing `area` modifier on both axes. Admission uses that box; `reach_of` scales the weapon reach by the same area for the bot. The cached

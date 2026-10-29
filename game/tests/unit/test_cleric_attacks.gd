@@ -2,6 +2,7 @@ extends TestCase
 ## Cleric attack contracts through seeded RunWorld casts and the real upgrade pool; level nodes are synthetic.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const HF := preload("res://tests/fixtures/heal_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
@@ -13,11 +14,7 @@ func _world(key: String) -> RunWorld:
 		"2301005": {"elemAttr": "h", "level": {
 			"1": {"mad": 22.0, "mastery": 1.0, "mpCon": 12.0},
 			"7": {"mad": 34.0, "mastery": 3.0, "mpCon": 14.0}}},
-		"2301002": {"level": {
-			"1": {"hp": 10.0, "mpCon": 12.0, "mobCount": 6.0,
-				"lt": {"$v": [-250.0, -150.0]}, "rb": {"$v": [250.0, 150.0]}},
-			"7": {"hp": 70.0, "mpCon": 14.0, "mobCount": 6.0,
-				"lt": {"$v": [-250.0, -150.0]}, "rb": {"$v": [250.0, 150.0]}}}},
+		"2301002": {"level": HF.levels()},
 	}}
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
@@ -74,8 +71,8 @@ func test_heal_admission_restoration_and_recast_delay() -> void:
 	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 1)
 	var gains := events.filter(func(e: Dictionary) -> bool: return e.type == "player_restored")
 	assert_eq(gains.size(), 1)
-	# The historical single-target recovery fit: INT 100, LUK 4, Magic 123, Heal L1 => 19..24 HP.
-	assert_between(int(w.player_state.hp) - before, 19, 24)
+	# The historical single-target recovery fit: INT 100, LUK 4, Magic 123, Heal rank 1 (level 4, hp 40) => 78..98 HP.
+	assert_between(int(w.player_state.hp) - before, 78, 98)
 	if not gains.is_empty():
 		assert_eq(gains[0].amount, int(w.player_state.hp) - before)
 		assert_eq(gains[0].skill, "heal")
@@ -88,7 +85,7 @@ func test_heal_admission_restoration_and_recast_delay() -> void:
 
 func test_heal_holy_arrow_cards_are_cleric_only_and_behaviour_steps_match_first_job() -> void:
 	var w := _world("holy_arrow")
-	for id: String in ["holy_arrow_new", "holy_arrow_rank", "holy_arrow_count", "holy_arrow_pierce", "holy_arrow_cooldown", "heal_new", "heal_rank"]:
+	for id: String in ["holy_arrow_new", "holy_arrow_rank", "holy_arrow_count", "holy_arrow_pierce", "holy_arrow_cooldown"]:
 		var card := w.upgrades.card(id)
 		assert_false(card.is_empty(), id)
 		assert_eq(card.get("requires", {}).get("jobs"), [230.0], id)
@@ -110,7 +107,7 @@ func test_heal_holy_arrow_cards_are_cleric_only_and_behaviour_steps_match_first_
 
 func test_heal_at_full_hp_hits_every_boxed_undead_once_through_hit_hook() -> void:
 	var w := _world("heal")
-	w.loadout.set_rank("heal", 7)
+	w.loadout.set_rank("heal", 7) # level 27: the large box
 	var normal := RF.put_mob(w, 100100, 430)
 	var undead: Array[int] = []
 	for i in 7:
@@ -131,10 +128,12 @@ func test_heal_at_full_hp_hits_every_boxed_undead_once_through_hit_hook() -> voi
 	for observed: Dictionary in hooks:
 		assert_true(observed.slot in undead)
 		assert_eq(observed.hit.skill, "heal")
-		assert_eq(observed.hit.level, 7)
+		assert_eq(observed.hit.level, 27)
 		assert_eq(observed.hit.magic, true)
 		assert_eq(observed.hit.element, "h")
-		assert_between(int(observed.hit.damage), 6, 23)
+		# INT 100, LUK 4, Magic 123, hp 270, eight targets including the caster; the line may crit.
+		var bounds := CombatMath.heal_damage_range(100.0, float(w.player_state.luk), 23.0, 270.0, 8)
+		assert_between(float(observed.hit.damage), floorf(bounds.x) - 1.0, ceilf(bounds.y * w.loadout.stats("heal").crit_mult) + 1.0)
 	assert_eq(w.swarm.hp[normal], normal_hp)
 	assert_eq(w.swarm.hp[outside], outside_hp)
 	assert_eq(w.projectiles.active_count(), 0)
@@ -179,13 +178,11 @@ func test_heal_researched_damage_bounds_and_seeded_recovery() -> void:
 
 
 func test_heal_rank_preview_names_the_canonical_power_percentage() -> void:
-	var w := _world("heal")
-	# Only endpoints exist in this synthetic book: six rank steps reach its second fixture node.
-	w.loadout.set_rank("heal", 6) # +1 rank reaches canonical fixture level 7
-	w.book.skill_node("heal").level["6"] = w.book.skill_node("heal").level["1"].duplicate(true)
+	# Heal is a pool skill (#376): its rank card is generated for the Bishop, so the preview comes from the 232 world.
+	var w := HF.world(1)
 	var card := w.upgrades.choice_card("heal_rank", w, "legendary")
-	assert_eq(card.skill_changes.get("hp"), {"before": 10, "after": 70})
-	assert_true("Recovery power: 10% → 70%" in LevelUpWindow.change_lines(card))
+	assert_eq(card.skill_changes.get("hp"), {"before": 40, "after": 80}, "rank 1 -> 2 is level 4 -> 8")
+	assert_true("Recovery power: 40% → 80%" in LevelUpWindow.change_lines(card))
 
 
 func test_cleric_cache_levels_visuals_and_sounds() -> void:

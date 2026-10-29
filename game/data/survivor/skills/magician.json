@@ -77,19 +77,6 @@
 			"effect": "Skill.wz/230.img/skill/2301005/effect", "rotate": true,
 			"sounds": {"use": "Sound.wz/Skill.img/2301005/Use", "hit": ""}
 		},
-		"heal": {
-			"skill_id": 2301002, "book": "230", "job": 230, "kind": "instant", "slot": "active",
-			"name": "Heal", "desc": "Restores HP below half health, or strikes undead inside its holy box.",
-			"text": {"desc": "Recovers your HP when it falls below half, and damages every undead monster in the area."},
-			"icon": "Skill.wz/230.img/skill/2301002/icon", "damage": "none",
-			"cast": {"rule": "hp_or_undead"}, "heal": {"field": "hp", "hp_threshold": 0.5, "recast_delay": 2.0},
-			"_heal": "Tier A: mpCon/hp/lt/rb from v83. Tier B: undead formula; weak historical recovery coefficients. Tier C: provisional choice of the unverified single-target recovery fit (docs/research/cleric-heal.md), below-half trigger, 2 s recast, every undead in the box, 0.8 s stance.",
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-			"action": "alert2", "action_time": 0.8, "ball": "",
-			"effect": "Skill.wz/230.img/skill/2301002/effect",
-			"hit": "Skill.wz/230.img/skill/2301002/hit/0", "rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/2301002/Use", "hit": ""}
-		},
 		"fire_arrow": {
 			"_rarity": "Tier C: first-pass bonuses from legacy behaviour cards; repeat scale 0.8. See GAME_DESIGN 8.",
 			"rarity_bonuses": {

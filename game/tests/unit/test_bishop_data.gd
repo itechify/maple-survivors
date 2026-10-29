@@ -67,7 +67,7 @@ func test_bishop_is_a_class_line_discovered_from_its_files_after_the_registered_
 	assert_eq(DataRepo.fragment_path("skills", "bishop", "res://data"), "res://data/survivor/skills/bishop.json")
 
 
-func test_the_line_loads_without_errors_and_adds_a_job_and_no_skills_yet() -> void:
+func test_the_line_loads_without_errors_and_adds_a_job_and_only_bishop_skills() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
@@ -77,7 +77,9 @@ func test_the_line_loads_without_errors_and_adds_a_job_and_no_skills_yet() -> vo
 	assert_true(d.jobs_survivor.jobs.keys().find("232") > d.jobs_survivor.jobs.keys().find("212"),
 		"base, then lines in discovered line order: 232 after 212")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "bishop"))
-	assert_eq(frag.skills, {}, "BS4-BS8 define the skills; BS2 is the empty skeleton")
+	# BS4-BS8 each fill their region (ticket-order independent): whatever is defined is a pool key or the Cleric Teleport.
+	for key: String in frag.skills:
+		assert_true(key in POOL or key == "teleport_cleric", "%s is a Bishop pool skill or Teleport" % key)
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
 
