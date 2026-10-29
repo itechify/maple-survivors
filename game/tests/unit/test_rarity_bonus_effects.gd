@@ -1,15 +1,16 @@
 extends TestCase
 ## Every rarity bonus of every Hero, F/P and I/L Arch Mage skill changes the resolved cast, not just a stat number (spec #296, H7
-## audit; the I/L skills joined it in spec #319, I6 #325 / the merge of redesign).
+## audit; the I/L skills joined it in spec #319, I6 #325 / the merge of redesign; the five Buccaneer Brawler skills in spec #412, B4 #416).
 ## For each effect of each tier the same seeded world is cast twice, with and without the effect, against a field of mobs
-## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
+## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), crit (critical hit events in 66 s), attack_count (hit events), count and
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
 ## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
 ## Hero and Paladin books (111/112, 121/122) are synthetic generic tables; the F/P books come from the shared run fixtures. The I/L skills (books
 ## 220/221/222) have their own synthetic Skill.wz tables (`il_fixtures.books()`, Ice Demon and Element Composition use the
 ## small tables `_demon_levels` builds) and are cast at their top rank, so the probes below are the same and only `_world` differs.
 ## Ifrit (I9) is a summon that needs allies settled behind the player: it stays in test_ifrit.gd (IL_AUDITED_ELSEWHERE).
-## Paladin's skills (Blast, Monster Magnet) run as job 122 (P5 #313).
+## Paladin's skills (Blast, Monster Magnet) run as job 122 (P5 #313). The Buccaneer's five (books 500/510, synthetic fixture tables, a
+## knuckler in hand) run as job 512 at their top rank.
 
 const IL := preload("res://tests/fixtures/il_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -20,7 +21,10 @@ const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
-const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep"]
+const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep", "crit"]
+## The Buccaneer Brawler skills this audit casts (B4 #416; B6-B10 append theirs).
+const BUCCANEER_SKILLS := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow"]
+const KNUCKLE := 1482000
 ## The I/L skills this audit casts (books 220/221/222); I8-I10 appended theirs.
 const IL_SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "ice_demon", "element_composition_il",
 	"chain_lightning", "blizzard", "big_bang_il"]
@@ -46,7 +50,8 @@ func _skills_with_bonuses() -> Array:
 	var skills: Dictionary = _resolved()
 	var keys := []
 	for key: String in skills:
-		if (skills[key] as Dictionary).has("rarity_bonuses") and int(skills[key].job) < 300 and key not in IL_AUDITED_ELSEWHERE:
+		if (skills[key] as Dictionary).has("rarity_bonuses") and (int(skills[key].job) < 300 or key in BUCCANEER_SKILLS) \
+				and key not in IL_AUDITED_ELSEWHERE:
 			keys.append(key)
 	return keys
 
@@ -84,7 +89,23 @@ func _il_setup() -> Dictionary:
 	return setup
 
 
+## A Buccaneer (512, made playable in the data copy) holding a knuckler on the flat field, the five Brawler skills read from the
+## synthetic books 500/510 of the run fixtures.
+func _buccaneer_world(key: String) -> RunWorld:
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["512"]["playable"] = true
+	var setup := RF.with_basic_attack(RF.setup("quiet", 416, data))
+	setup.equipment_info[KNUCKLE] = {"incPAD": 18, "attackSpeed": 5, "tuc": 7, "afterImage": "mace", "sfx": "mace"}
+	var w := RunWorld.new(setup)
+	w.set_job(512)
+	if w.weapon_id() != KNUCKLE:
+		w.wear_new_item(KNUCKLE)
+	return _finish_world(w, key, true)
+
+
 func _world(key: String) -> RunWorld:
+	if key in BUCCANEER_SKILLS:
+		return _buccaneer_world(key)
 	var il: bool = int(_resolved()[key].job) in IL_BOOKS
 	if il:
 		return _finish_world(RunWorld.new(_il_setup()), key, true)
@@ -187,10 +208,11 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	for e: Dictionary in effects:
 		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
 	# Cooldown counts casts over 66 s (Shout: 6 at 12 s, 7 at 10.56 s); damage sums many casts so that rounding cannot hide a x1.2.
-	var repeating := stat in ["cooldown", "damage"]
-	var window := 66.0 if stat == "cooldown" else 12.0 if stat == "damage" else 3.5
+	var repeating := stat in ["cooldown", "damage", "crit"]
+	var window := 66.0 if stat in ["cooldown", "crit"] else 12.0 if stat == "damage" else 3.5
 	var affected := {}
 	var lines := 0
+	var crits := 0
 	# A Combo finisher (Panic, Coma) needs orbs: ten every tick when counting casts or damage, five once otherwise, so
 	# that `meter_keep` shows in what a single cast leaves behind.
 	var finisher: bool = w.book.def(key).has("meter")
@@ -206,7 +228,10 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 		for e: Dictionary in w.drain_events():
 			if e.type == "mob_hit":
 				lines += 1
+				crits += 1 if bool(e.crit) else 0
 				affected[int(e.mob)] = true
+		if repeating and not (w.loadout.stats(key).displacement as Dictionary).is_empty():
+			w.player.place(Vector2(CASTER_X, w.player.pos.y), w.fhm) # a charge or a back-off must not walk the caster away between casts
 		for s: int in slots:
 			if repeating:
 				w.swarm.x[s] = x0[s] # knockback must not walk the mobs out of the skill's reach between casts
@@ -221,7 +246,7 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	for s: int in edge_slots:
 		edge_hit = edge_hit or affected.has(s)
 	var direct_damage: bool = String(w.loadout.stats(key).damage_type) != "none"
-	return {"casts": w.runner.casts, "dealt": w.damage_dealt - w.swarm.poison_dealt if direct_damage else w.swarm.poison_dealt, "lines": lines, "affected": affected.size(), "edge": edge_hit,
+	return {"casts": w.runner.casts, "dealt": w.damage_dealt - w.swarm.poison_dealt if direct_damage else w.swarm.poison_dealt, "lines": lines, "crits": crits, "affected": affected.size(), "edge": edge_hit,
 		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left}
 
 
@@ -230,6 +255,8 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
 			"elquines", "blast", "monster_magnet_paladin"]:
 		assert_true(key in keys, key)
+	for key in BUCCANEER_SKILLS:
+		assert_true(key in keys, "%s (Buccaneer) is audited" % key)
 	assert_true(keys.size() >= 21 + IL_SKILLS.size(), "seven Hero, two Paladin, twelve F/P and %d I/L skills: %d" % [IL_SKILLS.size(), keys.size()])
 	for key in IL_SKILLS:
 		assert_true(key in keys, "%s (I/L) is audited" % key)
@@ -287,6 +314,8 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 			assert_true(int(with.casts) > int(base.casts), "%s: casts %d -> %d" % [label, base.casts, with.casts])
 		"damage":
 			assert_true(int(with.dealt) > int(base.dealt), "%s: damage dealt %d -> %d" % [label, base.dealt, with.dealt])
+		"crit":
+			assert_true(int(with.crits) > int(base.crits), "%s: critical hits %d -> %d" % [label, base.crits, with.crits])
 		"attack_count":
 			assert_true(int(with.lines) > int(base.lines), "%s: hit lines %d -> %d" % [label, base.lines, with.lines])
 		"count", "pierce":
@@ -331,3 +360,25 @@ func test_the_probe_catches_an_il_modifier_the_cast_rule_never_reads() -> void:
 	assert_true(bool(_probe("thunder_bolt", [area], "area").edge))
 	assert_true(bool(_probe("ice_strike", [area], "area").edge))
 	assert_true(bool(_probe("ice_demon", [area], "area").edge))
+
+
+func test_every_buccaneer_bonus_changes_the_resolved_cast_and_all_five_are_counted() -> void:
+	# The file-wide audit above walks the five too; this one names the counts so a dropped skill or effect fails here.
+	var skills := _resolved()
+	var effects := 0
+	for key: String in BUCCANEER_SKILLS:
+		assert_true((skills[key] as Dictionary).has("rarity_bonuses"), key)
+		for tier: String in TIERS:
+			for bonus: Dictionary in skills[key].rarity_bonuses[tier]:
+				effects += (bonus.effects as Array).size()
+	assert_eq(effects, BUCCANEER_SKILLS.size() * 5, "each skill: 1 + 1 + 1 + 2 effects")
+
+
+func test_the_probe_catches_a_buccaneer_modifier_the_cast_rule_never_reads() -> void:
+	# A box cast never reads `pierce` or `summon_count`; `crit` shows only in the hit events' critical flag.
+	var pierce := {"stat": "pierce", "op": "add", "value": 1.0}
+	assert_eq(_probe("flash_fist", [pierce], "pierce").affected, _probe("flash_fist", [], "pierce").affected, "pierce does nothing on a box")
+	var allies := {"stat": "summon_count", "op": "add", "value": 1.0}
+	assert_eq(_probe("corkscrew_blow", [allies], "summon_count").summons, 0)
+	var crit := {"stat": "crit", "op": "add", "value": 0.15}
+	assert_true(int(_probe("backspin_blow", [crit], "crit").crits) > int(_probe("backspin_blow", [], "crit").crits), "crit shows in the hit events")

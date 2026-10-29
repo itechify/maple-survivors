@@ -5338,6 +5338,8 @@ keeps its own movement). Tests: `tests/unit/test_hidden.gd` (the generic state w
 
 ### 7.19 Brawler attacks: Backspin Blow, Double Uppercut, Corkscrew Blow (#191, spec #168)
 
+> **Moved (B4 #416, spec #412):** these three skills, with Flash Fist and Somersault Kick, now live in `skills/buccaneer.json` with eight ranks, no weapon gate, new cooldowns and rarity bonuses, and their legacy cards below are deleted. The text that follows is the history of the original port; the current rules are 7.90.
+
 Three knuckle attacks in `skills/pirate.json` (book 510, job 510, between the Knuckler Booster and the Gun Booster), each
 with a learn card, a rank card (20 ranks, canonical level = rank) and a "hits +1 more monster" card (`count`, at most 3
 steps) in `upgrades/pirate.json`: `<skill>_new`, `<skill>_rank`, `<skill>_targets`. The cards are `"power": true`
@@ -6397,6 +6399,46 @@ repeats shrink x0.8; Rare is `amplify` "Element Amplification", damage x1.2, for
 `test_rarity_bonus_effects` (with the other I/L skills; the card, counter and Mastery rules are in `test_il_ice_demon_rarity`) casts each effect with and without it in the same seeded world and asserts damage dealt, mobs
 affected (count, pierce) or a monster just beyond the base box (area). A projectile's extra shot goes to the second
 nearest monster, so a monster on the same line behind the first is shielded: Twin Bolt's extra target stands elsewhere.
+
+### 7.90 Buccaneer ported skills: Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut, Corkscrew Blow (spec #412 BU-14, B4 #416)
+
+The five Brawler attacks moved from `skills/pirate.json` to `skills/buccaneer.json` (a key may be defined in one file only; Corsair's
+definitions stay in `pirate.json`). They are pool skills of job 512 (`slot: active`, no cards of their own: the pool generates
+`<key>_new` and `<key>_rank` once the job is playable, B11). The port:
+
+- **No weapon gate** (`weapon_families` removed, ADR 0006): each casts with a sword, a wand or a knuckle in hand. Double Uppercut's
+  `weapon_reach` reads the held weapon's swing envelope.
+- **Eight ranks**: the explicit 20-entry `ranks` table is gone, so the default level-20 table applies: rank 1..8 reads WZ levels
+  3, 5, 8, 10, 13, 15, 18, 20. Damage, `mobCount`, `attackCount`, box and stun time all read the mapped level.
+- **Cooldowns (tier C, BU-19)**: Flash Fist 0.45 s, Somersault Kick 1.0 s, Backspin Blow 1.4 s, Double Uppercut 1.0 s, Corkscrew
+  Blow 1.8 s (were 0.9, 1.6, 1.5, 1.2, 2.0). Action holds are unchanged (0.6, 0.6, 0.8, 1.0, 0.8 s).
+- **Unchanged**: the tier A boxes, `cast.around` on Somersault Kick and Backspin Blow, Backspin's 100 px back-off after the hits,
+  the stuns (`time` 1 s, no `prop`; bosses resist), the actions, sounds and effect/hit art, the `char_level` art of Flash Fist and
+  Somersault Kick (thresholds 10/15/20/25, selected by the round level, which is the character level of a Lv1-start round).
+- **Corkscrew Blow's charge** now reads `displacement.field: "lt.x"` (the same source the box uses): the distance is `-lt.x` of the
+  mapped WZ level at every rank, so it cannot drift from the box. The old per-rank `distances` list was indexed by rank, which is
+  wrong once rank no longer equals level. WZ reach at ranks 1..8: 110, 120, 130, 140, 160, 170, 180, 200 px.
+- **WZ quirk**: Double Uppercut stores `attackCount` and `time` as strings (`"2"`, `"1"`) at every level; both read as 2 and 1.
+
+Rank values (rank 1 / 4 / 8, WZ levels 3 / 10 / 20): Flash Fist 168 / 210 / 270%; Somersault Kick 122 / 150 / 190% on 3 / 4 / 6
+mobs; Backspin Blow 104 / 160 / 240% on 3; Double Uppercut 120 / 190 / 290% x2; Corkscrew Blow 165 / 270 / 420% on 3, charge
+110 / 140 / 200 px.
+
+Rarity bonuses (tier C, first pass; Legendary shares the Unique's id and adds damage x1.2; repeats shrink x0.8; every bonus changes a
+resolved cast, audited by `test_rarity_bonus_effects`):
+
+| Skill | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Flash Fist | `mastery` "Knuckler Mastery": damage x1.2 | `booster` "Knuckler Booster": cooldown x0.88 | `flurry` "Fist Flurry": +1 hit | Flurry + damage x1.2 |
+| Somersault Kick | `mastery` | `wide_kick` "Wide Kick": area x1.2 | `whirl` "Whirling Kick": +2 targets | Whirl + damage x1.2 |
+| Backspin Blow | `mastery` | `stun_mastery` "Stun Mastery": critical chance +0.15 | `booster` cooldown x0.8 | Booster + damage x1.2 |
+| Double Uppercut | `mastery` | `stun_mastery` crit +0.15 | `third_fist` "Third Fist": +1 hit | Third Fist + damage x1.2 |
+| Corkscrew Blow | `mastery` | `boring` "Boring Screw": +2 targets | `booster` cooldown x0.8 | Booster + damage x1.2 |
+
+The legacy cards (`<key>_new`, `_rank`, `_targets` of the five: 15 cards) are deleted from `upgrades/pirate.json`; the
+`+1 target` behaviour card is replaced by the Whirling Kick and Boring Screw bonuses. Tests: `test_buccaneer_brawler` (placement,
+ranks, caps, weapons, art, cards, bonuses, the original tables), `test_brawler_attacks` and `test_pirate` (the seeded behaviour,
+rewritten to eight ranks), `test_rarity_bonus_effects`.
 
 ## 8. Upgrades
 
@@ -7729,6 +7771,16 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 | Energy Charge meter (#414, spec #412 BU-5) | `jobs/buccaneer.json` `meter`: id energy, max 10, one per landed non-finisher pool cast, `per_unit` damage 0.03 (+3% per held energy) | C | Spec #412 BU-5 |
 | Energy Charge full-bar cue (#414, spec #412 BU-4) | `meter.cue`: `Skill.wz/511.img/skill/5110001/affected` and `Sound.wz/Skill.img/5110001/Use` (WZ paths, presentation only; B6 reads them) | A | Spec #412 BU-4 |
 | Buccaneer not playable (#414) | `jobs/buccaneer.json` `playable` false until B11 flips it; `default_job` stays 212 | C | Spec #412 |
+
+### Buccaneer B4 constants (#416)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Ported Brawler cooldowns (#416, spec #412 BU-14, BU-19) | `skills/buccaneer.json`: Flash Fist 0.45 s, Somersault Kick 1.0 s, Backspin Blow 1.4 s, Double Uppercut 1.0 s, Corkscrew Blow 1.8 s | C |
+| Ported Brawler rank mapping (#416) | default level-20 table: ranks 1..8 read WZ levels 3, 5, 8, 10, 13, 15, 18, 20; no weapon gate | C |
+| Ported Brawler rarity bonuses (#416, spec #412) | Knuckler Mastery damage x1.2 (Rare, all five); Knuckler Booster cooldown x0.88 (Flash Fist Epic) / x0.8 (Backspin Blow, Corkscrew Blow Unique); Wide Kick area x1.2; Whirling Kick and Boring Screw +2 targets; Fist Flurry and Third Fist +1 hit; Stun Mastery critical chance +0.15; Legendary = the Unique plus damage x1.2 | C |
+| Corkscrew Blow charge (#416) | `displacement.field` `lt.x`: the charge equals the WZ box reach of the mapped level (110 .. 200 px) | A (WZ reach) / C (charges the full reach) |
+| Boxes, damage, `mobCount`, `attackCount`, stun `time` of the five (#416) | read from Skill.wz at the mapped level; unchanged from the first port | A |
 
 ## 12. Later phases
 
