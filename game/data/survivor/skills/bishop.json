@@ -1,6 +1,77 @@
 {
-	"_doc": "Bishop line skill definitions (spec #372, ticket BS2 #374): an empty skeleton. Each skill ticket appends its own region of `skills` (separate tickets, separate regions): BS4 Heal (2301002); BS5 Holy Arrow (2301005, moved from magician.json), Shining Ray (2311004), Angel Ray (2321007) and Teleport (2301001, moved from magician.json as teleport_cleric); BS6 Genesis (2321008) and Big Bang (2321001, via extends big_bang); BS7 Summon Dragon (2311006) and Bahamut (2321003); BS8 Resurrection (2321006). A pool key with no entry here stays inert: it is never offered or learned.",
+	"_doc": "Bishop line skill definitions (spec #372, ticket BS2 #374). Each skill ticket appends its own region of `skills` (separate tickets, separate regions): BS4 Heal (2301002); BS5 (#377) Holy Arrow (2301005), Shining Ray (2311004), Angel Ray (2321007) and Teleport (2301001, moved from magician.json as teleport_cleric); BS6 Genesis (2321008) and Big Bang (2321001, via extends big_bang); BS7 Summon Dragon (2311006) and Bahamut (2321003); BS8 Resurrection (2321006, #380). A pool key with no entry here stays inert: it is never offered or learned. Tier C cooldowns are the F/P base values x0.4 (GAME_DESIGN 7.80).",
 	"skills": {
+		"holy_arrow": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.80.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Holy Power", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "pierce", "text": "Piercing Light", "effects": [{"stat": "pierce", "op": "add", "value": 1}]}],
+				"unique": [{"id": "twin", "text": "Twin Arrow", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "twin", "text": "Twin Arrow and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2301005, "book": "230", "job": 230, "kind": "projectile", "slot": "active",
+			"name": "Holy Arrow", "desc": "Cleric. Shoots a holy arrow at the nearest monster.",
+			"text": {"desc": "Attacks the nearest monster by firing Holy Arrows. Very effective against undead and devil-based monsters.", "h": "Basic attack {mad}, mastery {mastery_pct}%, {count|arrow|arrows} per cast"},
+			"icon": "Skill.wz/230.img/skill/2301005/icon", "damage": "magic",
+			"_tuning": "Tier C: same flight, reach, radius and recast as Fire Arrow, cooldown 0.4 s (1.0 s x0.4), default eight-rank table; canonical mad/mastery and the holy element are tier A.",
+			"cooldown": 0.4, "range": 480, "speed": 520, "count": 1, "pierce": 0, "radius": 12,
+			"action": "shoot1", "action_time": 0.8,
+			"ball": "Skill.wz/230.img/skill/2301005/ball",
+			"hit": "Skill.wz/230.img/skill/2301005/hit/0",
+			"effect": "Skill.wz/230.img/skill/2301005/effect", "rotate": true,
+			"sounds": {"use": "Sound.wz/Skill.img/2301005/Use", "hit": ""}
+		},
+		"shining_ray": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.80.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Holy Power", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "radiance", "text": "Wider Ray", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "fork", "text": "Splitting Ray", "effects": [{"stat": "count", "op": "add", "value": 2}]}],
+				"legendary": [{"id": "fork", "text": "Splitting Ray and damage", "effects": [{"stat": "count", "op": "add", "value": 2}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2311004, "book": "231", "job": 231, "kind": "instant", "slot": "active",
+			"name": "Shining Ray", "desc": "Strikes nearby monsters with a burst of holy light.",
+			"text": {"desc": "Attacks surrounding monsters with a ray of holy light. Very effective against undead and devil-based monsters.", "h": "Basic attack {mad}, mastery {mastery_pct}%, up to {mob_count|monster|monsters}"},
+			"icon": "Skill.wz/231.img/skill/2311004/icon", "damage": "magic",
+			"_survivor": "Tier C: auto-cast with at least one monster in the canonical box, 1.2 s cooldown (3 s x0.4), magic2 stance held 0.8 s. Tier A: lt/rb (half-width 150 to level 10, 160 at 11-20, 170 from 21), mobCount 6, mad/mastery and elemAttr h from Skill.wz, action magic2; effect and hit/0 only (no ball), Use sound only.",
+			"cast": {"rule": "box", "min_targets": 1}, "cooldown": 1.2,
+			"action": "magic2", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/231.img/skill/2311004/hit/0",
+			"effect": "Skill.wz/231.img/skill/2311004/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2311004/Use", "hit": ""}
+		},
+		"angel_ray": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.80.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Holy Power", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "booster", "text": "Spell Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"unique": [{"id": "twin", "text": "Twin Angel", "effects": [{"stat": "count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "twin", "text": "Twin Angel and damage", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2321007, "book": "232", "job": 232, "kind": "projectile", "slot": "active",
+			"name": "Angel Ray", "desc": "Fires a heavy holy ray at the nearest monster.",
+			"text": {"desc": "Attacks the nearest monster with a heavy ray of holy light. Very effective against undead and devil-based monsters.", "h": "Basic attack {mad}, mastery {mastery_pct}%, {count|shot|shots} per cast"},
+			"icon": "Skill.wz/232.img/skill/2321007/icon", "damage": "magic",
+			"_tuning": "Tier C: nearest auto-cast, the Fire Arrow flight (range 480, 520 px/s) with radius 14, cooldown 1.0 s (2.5 s x0.4), one shot, shoot1 stance held 0.8 s. Tier A: mad/mastery and elemAttr h from Skill.wz, its own single-frame ball/0, action shoot1.",
+			"cooldown": 1.0, "range": 480, "speed": 520, "count": 1, "pierce": 0, "radius": 14,
+			"action": "shoot1", "action_time": 0.8,
+			"ball": "Skill.wz/232.img/skill/2321007/ball/0",
+			"hit": "Skill.wz/232.img/skill/2321007/hit/0",
+			"effect": "Skill.wz/232.img/skill/2321007/effect", "rotate": true,
+			"sounds": {"use": "Sound.wz/Skill.img/2321007/Use", "hit": ""}
+		},
+		"teleport_cleric": {
+			"skill_id": 2301001, "book": "230", "job": 230, "kind": "instant", "slot": "mobility",
+			"name": "Teleport", "desc": "Press X and a direction to blink to a platform. Hold X to repeat.",
+			"text": {"desc": "Press the Teleport key with an arrow key to teleport a set distance to another platform in the same map. Hold the key to keep teleporting."},
+			"icon": "Skill.wz/230.img/skill/2301001/icon", "damage": "none",
+			"cast": {"rule": "manual"}, "skill_key": "teleport", "teleport": {"repeat_delay": 0.3, "bot_threat_distance": 60.0},
+			"_teleport": "Tier C: 0.3 s survivor repeat delay; bot blinks from threats within 60 px. Canonical mpCon and range from Skill.wz (130 to level 10, then +2 a level to 150 at level 20).",
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "", "action_time": 0.0, "ball": "", "hit": "",
+			"effect": "Effect.wz/BasicEff.img/Teleport", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2301001/Use", "hit": ""}
+		},
 		"resurrection": {
 			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives (spec #372 BS8): Rare Faster Prayer shortens the recharge, Epic Holy Vigor raises the revive HP share (revive_hp), Unique Holy Shield lengthens the guard (revive_guard) and Legendary is the Unique's id (one repeat counter) plus Holy Vigor; repeat scale 0.8. Normal Mastery is cooldown x0.95 (damage:none rule, #346). See GAME_DESIGN 7.81 and the Bishop BS8 constants.",
 			"rarity_bonuses": {

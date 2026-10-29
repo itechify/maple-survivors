@@ -189,6 +189,12 @@ static func _data() -> Dictionary:
 	bolt.cooldown = 1.5
 	bolt.ranks = legacy_ranks
 	bolt.erase("rarity_bonuses")
+	# #377 ported Holy Arrow into the Bishop line (0.4 s, the default eight ranks, rarity bonuses); the same pin keeps the
+	# pre-port definition (cooldown 1.0, 30 ranks, no bonuses) so the golden and totals stay byte-identical.
+	var arrow: Dictionary = data.skills.skills.holy_arrow
+	arrow.cooldown = 1.0
+	arrow.ranks = legacy_ranks
+	arrow.erase("rarity_bonuses")
 	return data
 
 
