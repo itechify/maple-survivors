@@ -3,8 +3,12 @@ extends RefCounted
 ## Fixed-tick channelled projectile casts. Owns only cold cast snapshots and logical target identities.
 var _entries: Array[Dictionary] = []
 
-## Drops unfinished bursts at a map boundary, without touching cooldowns or launched projectiles.
-func clear() -> void:
+## Drops unfinished bursts at a map boundary, without touching cooldowns or launched projectiles. With a `world`, each
+## dropped burst announces its end so the presentation can stop the stream art.
+func clear(world: RunWorld = null) -> void:
+	if world != null:
+		for entry in _entries:
+			world.emit("burst_end", {"skill": String(entry.key)})
 	_entries.clear()
 
 ## Whether this skill still has shots scheduled, independently of its cooldown.
@@ -27,14 +31,18 @@ func start(world: RunWorld, key: String, st: Dictionary, target: int) -> void:
 		"left": int(st.count), "age": 0.0, "next": maxf(0.0, float(params.get("wind_up", 0.0))),
 		"target": target, "identity": world.swarm.identity[target]}
 	_entries.append(entry)
+	# Presentation only: the wind-up art (`prepare`), then the loop until burst_end.
+	world.emit("burst_start", {"skill": key, "wind_up": float(entry.next), "span": span(st, params),
+		"facing": world.player.facing})
 	_release(world, entry)
 	if int(entry.left) <= 0:
 		_entries.erase(entry)
+		world.emit("burst_end", {"skill": key})
 
 ## Advances existing bursts before admitting new casts. Hidden and death cancel remaining shots (tier C).
 func step(dt: float, world: RunWorld) -> void:
 	if world.is_hidden() or bool(world.player_state.dead):
-		clear()
+		clear(world)
 		return
 	var i := 0
 	while i < _entries.size():
@@ -43,6 +51,7 @@ func step(dt: float, world: RunWorld) -> void:
 		_release(world, entry)
 		if int(entry.left) <= 0:
 			_entries.remove_at(i)
+			world.emit("burst_end", {"skill": String(entry.key)})
 		else:
 			i += 1
 

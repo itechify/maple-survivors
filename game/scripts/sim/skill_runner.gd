@@ -75,9 +75,9 @@ func _init() -> void:
 
 
 ## Drops queued map-space attacks, preserving cooldowns, auto-cast timers and round counters.
-func clear_pending() -> void:
+func clear_pending(world: RunWorld = null) -> void:
 	summons.clear()
-	bursts.clear()
+	bursts.clear(world)
 	_flights.clear()
 	_areas.clear()
 

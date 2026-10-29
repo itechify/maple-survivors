@@ -299,3 +299,44 @@ func test_real_cache_has_the_art_and_sounds_the_definition_names() -> void:
 	for sound: String in [String(d.sounds.use), String(d.sounds.hit)]:
 		assert_true(library.find(sound) != null, sound)
 	library.free()
+
+
+# --- presentation events -------------------------------------------------------------------------------------------
+
+func _stream_events(w: RunWorld) -> Array:
+	return w.drain_events().filter(func(e: Dictionary) -> bool: return String(e.type).begins_with("burst_"))
+
+
+func test_the_stream_announces_its_start_and_its_end() -> void:
+	var w := _world()
+	_mob(w, 700)
+	_ticks(w, 1)
+	var started := _stream_events(w)
+	assert_eq(started.size(), 1)
+	assert_eq(started[0].type, "burst_start")
+	assert_eq(started[0].skill, KEY)
+	assert_near(float(started[0].wind_up), 0.4)
+	assert_near(float(started[0].span), 1.5)
+	assert_eq(int(started[0].facing), 1)
+	_ticks(w, 89)
+	assert_eq(_stream_events(w).size(), 0, "no end while arrows are still to come")
+	_ticks(w, 1)
+	var ended := _stream_events(w)
+	assert_eq(ended.size(), 1)
+	assert_eq(ended[0].type, "burst_end")
+	assert_eq(ended[0].skill, KEY)
+
+
+func test_a_cancelled_stream_still_ends_once() -> void:
+	for mode in ["dead", "clear"]:
+		var w := _world()
+		_mob(w, 700)
+		_ticks(w, 10)
+		w.drain_events()
+		if mode == "dead":
+			w.player_state.dead = true
+		else:
+			w.runner.clear_pending(w)
+		_ticks(w, 3)
+		var ended := _stream_events(w).filter(func(e: Dictionary) -> bool: return e.type == "burst_end")
+		assert_eq(ended.size(), 1, mode)
