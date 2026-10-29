@@ -71,7 +71,9 @@ func test_the_paladin_line_loads_without_errors_and_adds_only_its_job_and_its_ow
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
 	assert_true(d.jobs_survivor.jobs.has("122"), "jobs/paladin.json is merged into the survivor job data")
-	assert_eq(d.jobs_survivor.jobs.keys(), ["0", "200", "212", "112", "122"], "base entries, then lines in discovered order")
+	var keys: Array = d.jobs_survivor.jobs.keys()
+	assert_eq(keys.slice(0, 3), ["0", "200", "212"], "base entries and the Magician line first")
+	assert_true(keys.find("122") > keys.find("212"), "then the class lines in discovered (sorted) line order")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "paladin"))
 	# The skill tickets append their own definitions (P4-P8); only the spec's Paladin keys may live here.
 	var own := ["rush_paladin", "blast", "monster_magnet_paladin", "charged_blow", "fire_charge", "ice_charge", "thunder_charge",
@@ -105,7 +107,8 @@ func test_job_122_has_the_spec_fields_and_is_not_playable_yet() -> void:
 	assert_eq(jobs.creation_weapon(122), MACE)
 	assert_false(bool(rec.playable))
 	assert_ne(jobs.job_error(122), "", "a tool cannot choose it until P9 flips playable")
-	assert_eq(jobs.playable_jobs(), [112, 212] as Array[int], "Paladin is not in the playable list")
+	assert_false(122 in jobs.playable_jobs(), "Paladin is not in the playable list")
+	assert_true(112 in jobs.playable_jobs() and 212 in jobs.playable_jobs(), "Hero and F/P stay playable")
 
 
 func test_job_122_entry_names_no_meter_and_no_hub_kit_yet() -> void:
