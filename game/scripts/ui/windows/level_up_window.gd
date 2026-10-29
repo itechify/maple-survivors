@@ -43,7 +43,8 @@ const PERCENT_FIELDS := ["mastery", "hp", "damage", "prop", "knockback_chance", 
 const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Targets", ""], "attack_count": ["Hits", ""], "pierce": ["Pierce", ""],
 	"blast_targets": ["Blast targets", ""], "pierce_falloff": ["Pierce fall-off", "%"],
 	"damage": ["Damage", "%"], "cooldown": ["Cooldown", " s"], "area": ["Reach", "%"], "range": ["Range", " px"],
-	"speed": ["Shot speed", ""], "crit": ["Critical rate", "%"]}
+	"heal_power": ["Recovery", "%"], "heal_threshold": ["Heals below", "% HP"],
+	"speed": ["Shot speed", ""], "crit": ["Critical rate", "%"], "revive_hp": ["Revive HP", "%"], "revive_guard": ["Guard", " s"]}
 
 ## Emitted with the picked card's id.
 signal card_chosen(card_id: String)

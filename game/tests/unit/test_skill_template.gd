@@ -366,3 +366,14 @@ func test_il_teleport_inherits_fp_policy_with_its_own_identity() -> void:
 	assert_eq(book.def("teleport_il").teleport, book.def("teleport_fp").teleport)
 	assert_eq(book.rank_table("teleport_il"), book.rank_table("teleport_fp"))
 	assert_eq(book.def("teleport_il").icon, "Skill.wz/220.img/skill/2201002/icon")
+
+
+func test_cleric_teleport_inherits_fp_policy_with_its_own_identity() -> void:
+	var data := DataRepo.load_all()
+	assert_eq(data.skills.skills.teleport_cleric.get("extends", ""), "teleport_fp")
+	var book := SkillBook.from_data(data.skills, {})
+	assert_eq(book.def("teleport_cleric").teleport, book.def("teleport_fp").teleport)
+	assert_eq(book.rank_table("teleport_cleric"), book.rank_table("teleport_fp"))
+	assert_eq(book.def("teleport_cleric").icon, "Skill.wz/230.img/skill/2301001/icon")
+	assert_eq(book.def("teleport_cleric").sounds.use, "Sound.wz/Skill.img/2301001/Use")
+	assert_eq(book.def("teleport_cleric").effect, "Effect.wz/BasicEff.img/Teleport", "the shared effect is not rewritten")

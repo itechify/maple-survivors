@@ -25,7 +25,8 @@ extends Node
 ## options.character also accepts the existing --character=<absolute JSON path>. The CLI parser passes other
 ## --key[=value] flags to RunScene unchanged. finish_run shows one-off results without bests or history.
 ## Summary: {stage, map_id, region, continent (the display names, #221; older saves lack them), map_name, street_name, time, duration, cleared, level, job_id, job_name, kills,
-## damage_dealt, skills: [{key, name, icon, rank}], seed, bosses_killed, levels_gained, nx_awarded}; persistent rounds
+## damage_dealt, skills: [{key, name, icon, rank}], seed, bosses_killed, levels_gained, nx_awarded, revives: [{t, level,
+## rank, source_kind, hp}] (second lives taken, #375; never saved or put in the history)}; persistent rounds
 ## add ending. nx_awarded (NxAward, tier C) is credited to the save's account only for persistent rounds, in the
 ## finish_round write. One-off rounds and deletion never credit it.
 ## Cash Shop (#118 seam for #122/#126): goto_cash_shop(origin) opens the v83 shop as the active character from the

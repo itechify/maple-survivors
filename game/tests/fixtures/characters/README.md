@@ -26,3 +26,10 @@ from a seed-1 Henesys bot clear. Reproduce with `tools/character_fixture.gd --jo
 seed, policy, revision and invulnerability: this is a diagnostic clear to obtain equipment, not evidence that the bot
 survives Henesys. The worn weapon is a two-handed axe (1412006); the equipment retains canonical stats. Use it for
 `--stage=sleepywood --job=112 --character=<absolute hero_t2.json>` or `--hub --job=112`.
+
+`bishop_t2.json` is the Bishop (job 232) twin (spec #372, BS9 #381): the same tier-1 kit as F/P's and tier 2, made by
+`tools/character_fixture.gd --job=232 --kit=1382002,1002013,1072019,1082019,1040002,1060002 --tiers=2 --label=spec372/ticket-381
+--patch=<json making 232 playable>` before BS10 enabled Bishop (its `_doc.patch` names the patch file, and its
+`_doc.revision` is the integration tip it was made on; new generation uses shipped data without `--patch`). The worn equipment is identical
+to `fp_arch_mage.json`'s (a Bishop wears the same wands and staves). `--hub --job=232` opens it through the job's `hub_kit`.
+A `--character` of this file runs as a Bishop without a `--job` flag; an explicit different job (e.g. `--job=212`) is an error.

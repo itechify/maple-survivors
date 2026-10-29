@@ -2,6 +2,7 @@ extends TestCase
 ## Deterministic balance records and aggregation through seeded worlds and the public harness seam.
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
+const RV := preload("res://tests/fixtures/revive_fixtures.gd")
 const BR := preload("res://tools/balance_run.gd")
 const REPORT := preload("res://tools/balance_report.gd")
 const DT := 1.0/60.0
@@ -491,3 +492,25 @@ func test_records_carry_the_nx_a_round_would_pay_and_the_summary_reports_it() ->
 	assert_true(BR.describe_metrics(summary).contains("NX awarded per run"))
 	r["seed"] = 71
 	assert_true(BR.describe(r).contains("NX awarded 5 (bosses killed 0, levels gained 1)"))
+
+
+func test_records_carry_the_second_lives_and_the_summary_counts_the_runs_that_took_one() -> void:
+	var setup := RV.setup(376)
+	setup.data.balance.run_time_cap = DT
+	var w := RunWorld.new(setup)
+	RF.place_player(w, 400)
+	var r := BR.run_one(w, "bot", 376)
+	r["seed"] = 376 # main() adds the seed; describe prints it
+	assert_eq(r.get("revives"), [], "a round that never needed it records an empty list")
+	assert_eq(r.get("revive_count"), 0)
+	assert_true(BR.describe(r).contains("second lives 0 []"))
+	var taken := r.duplicate(true)
+	taken["revives"] = [{"t": 61.5, "level": 7, "rank": 2, "source_kind": "attack", "hp": 120}]
+	taken["revive_count"] = 1
+	assert_true(BR.describe(taken).contains("second lives 1"))
+	var legacy := r.duplicate(true)
+	legacy.erase("revives")
+	legacy.erase("revive_count")
+	var summary := BR.aggregate([r, taken, legacy])
+	assert_eq(summary.revived_runs, 1, "legacy records without the field count as none")
+	assert_true(BR.describe_metrics(summary).contains("SUMMARY revived 1/3 runs"))
