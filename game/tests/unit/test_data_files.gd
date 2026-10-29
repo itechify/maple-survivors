@@ -110,14 +110,19 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) ->
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
 			assert_eq(book.canonical_level(key, 5), 5)
 			continue
-		if key in ["rush_hero", "rush_paladin"] and book.skill_node(key).is_empty():
+		if key in ["rush_hero", "rush_dark_knight", "rush_paladin"] and book.skill_node(key).is_empty():
 			continue # the synthetic fixtures carry no Rush node; the real-cache run covers it
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
 		# A pool skill (rarity bonuses, listed in a job's skill_pool) has eight ranks; any other skill keeps one rank per level.
-		# Hero's Rush (#302) and Paladin's (#312) are no pool skills but take the same level-30 table, eight ranks that the shared mobility rule grows.
-		# A Form sub-skill (Charged Blow, #314) ranks with its parent Charge (spec P-5): eight ranks through its own table.
-		if key in ["rush_hero", "rush_paladin"] or String(book.def(key).get("slot", "")) == "form_sub" or book.def(key).has("rarity_bonuses") and _in_any_job_pool(key, false):
+		# Hero's Rush (#302) and Dark Knight's (#356) are no pool skills but take the same level-30 table, eight ranks that the shared
+		# mobility rule grows.
+		# A support summon's sub-skill (the Beholder's Aura and Hex, #357) ranks with its parent: eight ranks into its own table.
+		if String(book.def(key).get("slot", "")) == "summon_sub":
+			assert_eq(book.max_rank(key), 8, "%s: ranks with its parent" % key)
+			assert_eq(book.canonical_level(key, 8), top)
+			continue
+		if key in ["rush_hero", "rush_dark_knight", "rush_paladin"] or String(book.def(key).get("slot", "")) == "form_sub" or book.def(key).has("rarity_bonuses") and _in_any_job_pool(key, false):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
@@ -668,6 +673,10 @@ func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> 
 				covered[String(c.skill)] = true
 	for key: String in skills:
 		var s: Dictionary = skills[key]
+		if String(s.get("slot", "")) == "summon_sub":
+			assert_true(skills.has(String(s.get("summon_sub_of", ""))), "%s: a support sub names its parent skill (#357)" % key)
+			assert_false(covered.has(key) or s.has("rarity_bonuses"), "%s: a sub is no card" % key)
+			continue # read through its parent's cast; never offered, never an attack
 		if HIT_MORE_EXEMPT.has(key):
 			assert_eq(String(s.damage), "none", "exempt %s must not be an attack skill" % key)
 			assert_true(String(s.slot) in ["active", "mobility"], "exempt %s is active or manual mobility" % key)
@@ -740,6 +749,25 @@ func test_meter_catalog_schema() -> void:
 		assert_true(float(meter.damage_per_unit) >= 0.0)
 		assert_true(meter.get("unit", "") is String, "%s: unit is a word" % skill.get("skill_key", ""))
 		assert_eq(String(skill.slot), "active")
+
+
+func test_manual_skills_do_not_carry_auto_cast_hp_damage_mechanics() -> void:
+	for key: String in data.skills.skills:
+		var d: Dictionary = data.skills.skills[key]
+		if String(d.get("cast", {}).get("rule", "")) != "manual":
+			continue
+		assert_false(d.has("self_damage") or d.has("low_hp_damage"), key)
+		for bonuses: Array in d.get("rarity_bonuses", {}).values():
+			for bonus: Dictionary in bonuses:
+				for effect: Dictionary in bonus.get("effects", []):
+					assert_false(String(effect.get("stat", "")) in ["self_damage", "low_hp_damage"], key)
+
+
+func test_support_pulses_name_registered_kinds() -> void:
+	for key: String in data.skills.skills:
+		for pulse: Dictionary in data.skills.skills[key].get("summon", {}).get("support", {}).get("pulses", []):
+			assert_true(SupportSummons.KINDS.has(String(pulse.kind)), key)
+
 
 func test_form_catalog_schema_and_subs_excluded_from_pools_and_cards() -> void:
 	var errors := Array(PlayerForms.validation_errors(data.skills.skills))

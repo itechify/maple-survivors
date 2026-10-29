@@ -27,6 +27,14 @@ seed, policy, revision and invulnerability: this is a diagnostic clear to obtain
 survives Henesys. The worn weapon is a two-handed axe (1412006); the equipment retains canonical stats. Use it for
 `--stage=sleepywood --job=112 --character=<absolute hero_t2.json>` or `--hub --job=112`.
 
+`dark_knight_t2.json` is the Dark Knight (132) fixture (spec #348, D10 #358): tier 2 unlocked and the equipment, inventory,
+scrolls and mesos from a seed-1 Henesys bot clear. Reproduce with `tools/character_fixture.gd --job=132 --god --seed=1
+--label=spec348/ticket-358 --revision=<SHA> --out=<absolute path>`; no playable patch is needed (D10 flipped `playable`). The
+`_doc` records seed, policy, revision and invulnerability: this is a diagnostic clear to obtain equipment, not evidence that
+the bot survives Henesys. The worn weapon is a Pole Arm (1442004), the equipment retains canonical stats. Use it for
+`--stage=sleepywood --job=132 --character=<absolute dark_knight_t2.json>` or `--hub --job=132`.
+
+
 `paladin_t2.json` is the Paladin (job 122) fixture (spec #308, P9 #317): a kit fixture like `fp_arch_mage.json`, a fresh Lv1
 character with tier 2 unlocked wearing a Lv25 Mace (1322004, a blunt weapon), the all-job hat 1002001, gloves 1082002 and top
 1040010 (the Warrior-bit pieces Hero's hub kit also uses) and the starter bottom and shoes, unscrolled. Reproduce with

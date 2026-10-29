@@ -47,7 +47,7 @@ func begin_cast(world: RunWorld, key: String, stats: Dictionary) -> Dictionary:
 		factor *= 1.0 + spent * float(rule.get("damage_per_unit", 0.0))
 		out["meter_spent"] = spent
 		_set_value(value - spent, world.events)
-	for field: String in ["damage_min", "damage_max", "status_damage_mult"]:
+	for field: String in SkillRunner.DAMAGE_FIELDS:
 		out[field] = float(out.get(field, 0.0)) * factor
 	if role == "" or String(config.get("gain", {}).get("exclude", "")) != role:
 		out["meter_receipt"] = {"landed": false}
@@ -72,7 +72,7 @@ func preferred(world: RunWorld, ready: Array[String]) -> String:
 		if String(world.book.meter_rule(key).get("role", "")) != "finisher" or not admits(definition):
 			continue
 		var st := world.runner.stats_of(world, key)
-		if not world.can_pay_hp(int(st.hp_cost)) or not world.runner.has_target(world, key, st, world.cast_origin()):
+		if not HpRisk.admits(world, st) or not world.runner.has_target(world, key, st, world.cast_origin()):
 			continue
 		var plan := world.runner.prepare_cast(world, key, st, world.cast_origin())
 		var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())

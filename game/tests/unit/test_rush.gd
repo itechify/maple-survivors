@@ -25,15 +25,20 @@ func _skill_id() -> int:
 	return 1121006
 
 
+## The body action the Rush stance plays (`rush2` for Hero, the stabOF dash; Dark Knight's node says `rush`, #356).
+func _action() -> String:
+	return "rush2"
+
+
 ## Skill.wz/<book>.img/skill/<id> in the shape the book reads, with the real node's level 1 / 4 / 30 numbers so a wrong
 ## level shows; the img tops out at level 30 (the survivor rank table follows the WZ maximum level).
-static func _rush_img() -> Dictionary:
+func _rush_img() -> Dictionary:
 	var levels := {}
 	for lv in range(1, 31):
 		var reach := 160.0 if lv < 4 else 170.0 if lv == 4 else 250.0
 		levels[str(lv)] = {"damage": 72.0 if lv < 4 else 78.0 if lv == 4 else 130.0, "mobCount": 15.0,
 			"lt": {"$v": [-reach, -50.0]}, "rb": {"$v": [0.0, 0.0]}}
-	return {"icon": RF._canvas(32, 32), "action": {"0": "rush2"}, "effect": RF._anim(7, 120.0, 86, 98),
+	return {"icon": RF._canvas(32, 32), "action": {"0": _action()}, "effect": RF._anim(7, 120.0, 86, 98),
 		"level": levels}
 
 
@@ -45,7 +50,7 @@ static func _data_for(job: int) -> Dictionary:
 
 
 ## A world for `job` with its Rush (`skill_id` in `book`) on a flat map 0..1000, or `segments` when given; the player stands at x.
-static func _world_for(job: int, book: String, skill_id: int, x := 400.0, segments: Array = []) -> RunWorld:
+func _world_for(job: int, book: String, skill_id: int, x := 400.0, segments: Array = []) -> RunWorld:
 	var setup := RF.setup("quiet", 60, _data_for(job))
 	setup.map_img = RF.map_from_segments(segments if not segments.is_empty()
 		else [{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
@@ -130,7 +135,7 @@ func test_the_cast_event_and_cooldown() -> void:
 	assert_eq(casts.size(), 1)
 	assert_eq(casts[0].skill, _key())
 	assert_eq(casts[0].pos, Vector2(400, 0), "the cast begins where the dash starts")
-	assert_eq(casts[0].action, "rush2")
+	assert_eq(casts[0].action, _action())
 	assert_eq(int(casts[0].level), 4)
 	var ready := w.skill_readiness(_key())
 	assert_near(float(ready.total), 2.0, 1e-6)
@@ -450,7 +455,7 @@ func test_real_cache_rush_numbers_art_and_sound() -> void:
 	var lt: Array = book.level_node(_key(), 4).lt["$v"]
 	var rb: Array = book.level_node(_key(), 4).rb["$v"]
 	assert_eq([lt[0], lt[1], rb[0], rb[1]], [-170.0, -50.0, 0.0, 0.0])
-	assert_eq(book.def(_key()).action, "rush2")
+	assert_eq(book.def(_key()).action, _action())
 	# Through a world: the numbers the cast really uses.
 	var setup := RF.setup("quiet", 60, _data_for(_job()))
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
@@ -478,7 +483,7 @@ func test_manual_dash_owns_the_tick_and_presented_action() -> void:
 	_press(w, false, true)
 	var casts := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "cast")
 	assert_eq(casts.size(), 1, "manual Rush prevents another cast this tick")
-	assert_eq(w.player_state.action, "rush2")
+	assert_eq(w.player_state.action, _action())
 
 
 func test_rush_action_is_presented_while_walking_and_airborne() -> void:
@@ -489,7 +494,7 @@ func test_rush_action_is_presented_while_walking_and_airborne() -> void:
 			w.player.fh = -1
 			w.player.pos.y = -60
 		_press(w, false, true)
-		assert_eq(w.player_state.action, "rush2", "state %d" % state)
+		assert_eq(w.player_state.action, _action(), "state %d" % state)
 
 
 func test_input_directed_dash_dispatches_on_its_declared_skill_key() -> void:
@@ -500,4 +505,4 @@ func test_input_directed_dash_dispatches_on_its_declared_skill_key() -> void:
 	input.right = true
 	w.step(DT, input)
 	assert_eq(w.player.pos.x, 570.0)
-	assert_eq(w.player_state.action, "rush2")
+	assert_eq(w.player_state.action, _action())

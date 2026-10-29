@@ -16,9 +16,12 @@ const DEALT := 0
 const CRIT := 1
 const TAKEN := 2
 const HP_GAIN := 3
+## HP a skill paid (HpRisk's `hp_spent`: cost or recoil), shown at the player in the red damage digits. tier C: presentation
+## assignment (NoRed is the v83 set for damage dealt, NoViolet is damage taken).
+const HP_SPENT := 4
 ## tier A: complete NoBlue recovery-shaped digit sets in v83 BasicEff; tier C: HP presentation assignment.
 const SETS := {DEALT: ["NoRed1", "NoRed0"], CRIT: ["NoCri1", "NoCri0"], TAKEN: ["NoViolet1", "NoViolet0"],
-	HP_GAIN: ["NoBlue1", "NoBlue0"]}
+	HP_GAIN: ["NoBlue1", "NoBlue0"], HP_SPENT: ["NoRed1", "NoRed0"]}
 ## tier C: missing recovery art falls back to green-tinted Violet digits.
 const GAIN_FALLBACK_TINT := Color(0.55, 1.0, 0.55)
 const BASE := "Effect.wz/BasicEff.img/"
@@ -129,7 +132,7 @@ static func fade_at(age: float) -> Vector2:
 	return Vector2(1.0 - k, RISE * k)
 
 
-## Shows a number at `pos` (mob head / player head). `kind` DEALT, CRIT, TAKEN or HP_GAIN; same `key` >= 0
+## Shows a number at `pos` (mob head / player head). `kind` DEALT, CRIT, TAKEN, HP_GAIN or HP_SPENT; same `key` >= 0
 ## spawned within STACK_WINDOW stack upward. Returns the slot, or -1 when the digit art is missing.
 func spawn(value: int, pos: Vector2, kind: int = DEALT, key: int = -1) -> int:
 	return _spawn(str(maxi(value, 0)), pos, kind, key)

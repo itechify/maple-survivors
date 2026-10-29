@@ -377,15 +377,15 @@ func test_reach_of_reads_the_weapon_swing_and_the_slash_blast_range() -> void:
 func test_the_bot_counts_slash_blast_ready_only_while_its_hp_cost_can_be_paid() -> void:
 	var w := _world(82)
 	w.learn_skill("slash_blast")
-	assert_near(BotInput._reach_profile(w).x, 132.0, 1e-6, "with a sword Slash Blast is the longest attack")
-	assert_near(BotInput._reach_profile(w).y, 132.0, 1e-6, "and it is ready")
+	assert_near(BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach)).x, 132.0, 1e-6, "with a sword Slash Blast is the longest attack")
+	assert_near(BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach)).y, 132.0, 1e-6, "and it is ready")
 	w.god = false
 	_pools(w, 9.0)
-	assert_eq(BotInput._reach_profile(w).y, 0.0, "it cannot be paid in HP: nothing is ready (no basic attack, #284)")
+	assert_eq(BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach)).y, 0.0, "it cannot be paid in HP: nothing is ready (no basic attack, #284)")
 	_pools(w, 200.0)
 	w.equipment.worn["weapon"] = {"id": 1372005}
 	w.loadout.weapon_family = w.held_weapon_family()
-	assert_near(BotInput._reach_profile(w).x, 132.0, 1e-6, "a wand does not block Slash Blast (#284)")
+	assert_near(BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach)).x, 132.0, 1e-6, "a wand does not block Slash Blast (#284)")
 
 
 func test_the_forced_warrior_bot_closes_to_melee_range() -> void:

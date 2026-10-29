@@ -1101,6 +1101,8 @@ func handle_events(events: Array) -> void:
 				_on_mob_attack(e)
 			"cast":
 				_on_cast(e)
+			"support_pulse":
+				_on_support_pulse(e)
 			"skill_thrown":
 				_on_skill_thrown(e)
 			"skill_landed":
@@ -1150,6 +1152,11 @@ func handle_events(events: Array) -> void:
 				_mob_sound(int(e.mob_id), "Die")
 			"player_hit":
 				_on_player_hit(e)
+			"hp_spent":
+				var paid_at: Vector2 = world.player.pos + Vector2(0.0, world.body.position.y)
+				numbers.spawn(int(e.amount), paid_at, DamageNumbers.HP_SPENT, PLAYER_KEY)
+				counters.numbers += 1
+				_first_event_shot("hp_spent_" + String(e.kind), "hp_spent_%s.png" % String(e.kind), 0.1)
 			"player_restored":
 				var head: Vector2 = e.pos + Vector2(0.0, world.body.position.y)
 				numbers.spawn(int(e.amount), head, DamageNumbers.HP_GAIN, PLAYER_KEY)
@@ -1321,10 +1328,12 @@ func _on_cast(e: Dictionary) -> void:
 	if effect != "":
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
-	for visual: Dictionary in world.book.def(key).get("cast_visuals", []):
+	for visual: Dictionary in world.loadout.stats(key).cast_visuals:
 		var placed := SkillBook.visual_placement(visual, int(e.facing))
-		fx.play(world.book.art_path(key, String(visual.path), world.loadout.weapon_family),
-			e.pos + Vector2(float(placed.x), 0), bool(placed.flip))
+		if bool(visual.follow):
+			fx.play_delayed(String(visual.path), float(visual.get("delay", 0.0)), Vector2.ZERO, int(e.facing) > 0, avatar, Vector2(float(visual.x), 0))
+		else:
+			fx.play_delayed(String(visual.path), float(visual.get("delay", 0.0)), e.pos + Vector2(float(placed.x), 0), bool(placed.flip))
 	var loop := String(world.book.def(key).get("sounds", {}).get("loop", ""))
 	if loop != "":
 		_sound(loop)
@@ -1337,6 +1346,16 @@ func _on_cast(e: Dictionary) -> void:
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
+
+
+## A support summon's pulse (#352): the parent skill's owner-side `affected` art on the character (tier B: its use is
+## not documented); the summon's own pulse animation is drawn from the sim state by PlayerSummonRenderer.
+func _on_support_pulse(e: Dictionary) -> void:
+	var summons := world.runner.summons
+	if int(e.slot) < summons.stats.size():
+		var parent := String(summons.stats[int(e.slot)].skill)
+		fx.play(world.book.wz_path(parent) + "/affected", Vector2.ZERO, world.player.facing > 0, avatar)
+	_first_event_shot("support_pulse_" + String(e.kind), "support_pulse_%s.png" % e.kind, 0.25)
 
 
 ## A second life (BS8, GAME_DESIGN 7.81): the skill's pillar at the character's feet and its beams on the body (the

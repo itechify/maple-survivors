@@ -1,5 +1,7 @@
 class_name SkillRunner
 extends RefCounted
+## Damage fields shared by cast-local damage modifiers.
+const DAMAGE_FIELDS := ["damage_min", "damage_max", "status_damage_mult"]
 ## Auto-casting (docs/GAME_DESIGN.md section 7). Every owned active skill counts its cooldown down; when it is ready
 ## and a living mob is within its range of the cast origin (the player's body, `RunWorld.cast_origin()`), it fires:
 ## a `cast` event, the player's cast stance, then
@@ -249,17 +251,19 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		# without a target never needs the list. Only a skill about to cast is admitted in full.
 		if not has_target(world, key, st, origin):
 			continue
-		if not world.can_pay_hp(int(st.hp_cost)):
-			# Slash Blast pays HP and never casts when that would leave 0 HP; nothing is spent.
+		if not HpRisk.admits(world, st):
+			# An HP cost never casts when paying it would leave 0 HP, and an HP gate waits for more HP; nothing is spent.
 			continue
 		var plan := prepare_cast(world, key, st, origin)  # has_target said yes, so admission does too
-		st = forms.begin_cast(world, key, _with_finish_art(world, key, world.meter.begin_cast(world, key, st)))
-		world.spend_hp(int(st.hp_cost))
+		st = forms.begin_cast(world, key, _with_finish_art(world, key, HpRisk.begin_cast(world, world.meter.begin_cast(world, key, st))))
+		HpRisk.pay_cost(world, st)
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		if String(meter_rule.get("role", "")) == "finisher":
 			cooldowns[key] = maxf(1.0, cooldowns[key])
 		cooldown_totals[key] = cooldowns[key]
+		var dealt_before := world.damage_dealt
 		resolve_cast(world, key, st, origin, plan)
+		HpRisk.settle(world, st, dealt_before)
 		break
 
 
@@ -289,9 +293,9 @@ func cast_manual_buff(world: RunWorld, key: String) -> bool:
 		return false
 	var st := stats_of(world, key)
 	if String(st.kind) != "buff" or float(cooldowns.get(key, 0.0)) > READY_EPS or not world.can_start_buff(key, st) \
-			or not world.can_pay_hp(int(st.hp_cost)):
+			or not HpRisk.admits(world, st):
 		return false
-	world.spend_hp(int(st.hp_cost))
+	HpRisk.pay_cost(world, st)
 	start_recharge(key, st)
 	resolve_cast(world, key, st, world.cast_origin(), {})
 	return true
@@ -306,12 +310,12 @@ func cast_dash(world: RunWorld, key: String, side: int) -> bool:
 	if side == 0 or not world.can_cast() or not world.loadout.book.is_active(key):
 		return false
 	var st := stats_of(world, key)
-	if float(cooldowns.get(key, 0.0)) > READY_EPS or not world.can_pay_hp(int(st.hp_cost)):
+	if float(cooldowns.get(key, 0.0)) > READY_EPS or not HpRisk.admits(world, st):
 		return false
 	var move := world.player.dash_destination(side, float(st.displacement.get("distance", 0.0)), world.fhm, world.bounds)
 	if move.is_empty():
 		return false
-	world.spend_hp(int(st.hp_cost))
+	HpRisk.pay_cost(world, st)
 	start_recharge(key, st)
 	casts += 1
 	fired_this_tick = true
@@ -561,7 +565,7 @@ func resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2,
 				# A pull-only cast (damage "none" with a `pull` block, Monster Magnet) has no damage lines: apply_pull moved the mobs.
 				if not (definition.has("pull") and String(st.damage_type) == "none"):
 					_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
-						world.visual_index(String(st.hit)))
+						world.visual_index(_hit_path(world, definition, st)))
 			"crowd":
 				_resolve_crowd(world, key, st, targets)
 			"cluster":
@@ -575,6 +579,14 @@ func resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2,
 					_resolve_nearest(world, key, st, origin, targets)
 	if when == "after":
 		world.displace_player(side, float(disp.distance))
+
+
+## The hit art of a cast: the skill's own `hit` node, else (a definition with `hit_from_weapon` whose WZ node has no hit
+## art, Sacrifice) the spark of the held weapon's stance. tier C: the weapon swing's spark, as for any weapon attack.
+func _hit_path(world: RunWorld, definition: Dictionary, st: Dictionary) -> String:
+	if String(st.hit) != "" or not bool(definition.get("hit_from_weapon", false)):
+		return String(st.hit)
+	return world.weapon_reach.hit_spark(world, String(st.action))
 
 
 ## True for the same grounded, non-boss, outside-floor candidates that a pull can move.

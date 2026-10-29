@@ -103,7 +103,7 @@ func test_a_buccaneer_with_the_whole_pool_in_its_loadout_walks_toward_a_mob() ->
 		w.learn_skill(key)
 	var learned := POOL.filter(func(key: String) -> bool: return w.loadout.has(key))
 	assert_true(learned.size() >= 6, "the six active slots are full (%d learned)" % learned.size())
-	var profile := BotInput._reach_profile(w)
+	var profile := BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach))
 	var kite_reach := float(w.balance.bot.engage.kite_reach)
 	assert_true(profile.x > 0.0 and profile.x < kite_reach, "longest reach %.0f is a melee reach (< %.0f)" % [profile.x, kite_reach])
 	var mob := RF.put_mob(w, 100100, 650, 190, 10000)

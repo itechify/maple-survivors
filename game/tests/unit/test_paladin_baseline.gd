@@ -43,7 +43,10 @@ func _event_digest(ticks: int, facts := {}) -> String:
 	for tick in ticks:
 		BotInput.auto_choose(w)
 		w.step(DT, BotInput.decide(w, memo))
-		var events := w.drain_events()
+		# #348 adds hp_spent telemetry to existing flat-cost casts (Slash Blast). Exclude only
+		# that additive event to keep the pre-merge simulation oracle and its golden unchanged;
+		# test_hp_risk independently verifies the event and HP accounting.
+		var events := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type != "hp_spent")
 		for event: Dictionary in events:
 			event.erase("collector")
 			counts[event.type] = int(counts.get(event.type, 0)) + 1

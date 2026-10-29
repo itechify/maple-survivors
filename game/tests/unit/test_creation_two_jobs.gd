@@ -137,9 +137,16 @@ func test_up_and_down_step_the_selection_and_clamp_at_the_ends() -> void:
 	creation.select_job(212)
 	creation._input(_key(KEY_DOWN))
 	assert_eq(creation.job_id, ids[at + 1], "Down from 212 is the row below it")
-	for i in creation.job_ids.size():
+	for i in ids.size():
+		creation._input(_key(KEY_UP))
+	for i in at:
 		creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, creation.job_ids.back(), "Down at the last row stays")
+	assert_eq(creation.job_id, 212, "Down steps back to 212")
+	creation._input(_key(KEY_DOWN))
+	assert_eq(creation.job_id, ids[at + 1], "Down from 212 is the next row (I/L Arch Mage, spec #319)")
+	for i in ids.size():
+		creation._input(_key(KEY_DOWN))
+	assert_eq(creation.job_id, ids.back(), "Down at the last row stays")
 
 
 func test_arrow_keys_do_nothing_off_the_job_page() -> void:

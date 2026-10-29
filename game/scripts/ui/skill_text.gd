@@ -28,6 +28,10 @@ extends RefCounted
 ## The returned text keeps the v83 markup `#c...#` (orange) and "\n" breaks: draw it with MapleText.draw_markup /
 ## MapleText.wrap (MapleText.plain strips it). Presentation only: the sim never sees these strings.
 
+## Names of the player stats a support-summon buff pulse carries (PlayerBuffs effect names); tier C: our wording.
+const BUFF_STAT_LABELS := {"pdd": "Weapon DEF", "mdd": "Magic DEF", "acc": "Accuracy", "avoid": "Avoid",
+	"watk": "Weapon ATT", "matk": "Magic ATT", "speed": "Speed", "jump": "Jump"}
+
 var book: SkillBook
 var strings: Dictionary
 
@@ -110,6 +114,7 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 			mechanics.append("Spends all %s" % unit if keep <= 0 else "Spends all but %d %s; Keeps %d %s" % [keep, unit, keep, unit])
 		elif def.meter.has("spend"):
 			mechanics.append("Spends %d %s" % [int(def.meter.spend), unit])
+	mechanics.append_array(HpRisk.mechanic_lines(stats))
 	if def.has("knockback"):
 		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
 			number(float(stats.get("knockback_distance", 0.0)))])
@@ -130,6 +135,10 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("pierce_falloff"):
 		mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
 			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
+	for pulse: Dictionary in stats.get("support", []):
+		mechanics.append(pulse_text(pulse))
+
+
 	if stats.get("revive") is Dictionary:
 		var revive: Dictionary = stats.revive
 		# tier C (ours, BS8): the second-life line, the numbers of the plan PlayerRevive resolves.
@@ -165,6 +174,20 @@ func _transform_line(seconds: String, bonus: float, has_damage: bool, effects: D
 	if parts.is_empty():
 		return "Transforms you for %s s." % seconds
 	return "Transforms you for %s s: %s." % [seconds, ", ".join(parts)]
+
+
+## One line for a resolved support-summon pulse (SupportSummons.resolve): its sub-skill name, the effect and the interval.
+func pulse_text(pulse: Dictionary) -> String:
+	var every := "every %s s" % number(float(pulse.interval))
+	match String(pulse.kind):
+		"heal":
+			return "%s: heals %s HP %s" % [pulse.name, number(float(pulse.amount)), every]
+		"buff":
+			var parts := PackedStringArray()
+			for stat: String in pulse.effects:
+				parts.append("%s +%s" % [BUFF_STAT_LABELS.get(stat, stat.capitalize()), number(float(pulse.effects[stat]))])
+			return "%s: %s for %s s %s" % [pulse.name, ", ".join(parts), number(float(pulse.duration)), every]
+	return "%s: %s %s" % [pulse.name, pulse.kind, every]
 
 
 ## `seconds` as M:SS (rounded to the whole second).
