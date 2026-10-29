@@ -358,7 +358,7 @@ func test_autoplay_two_minutes_draws_the_sim() -> void:
 		return
 	scene = _make("henesys", 7, {"autoplay": true, "autopick": true})
 	assert_eq(scene.error, "", "scene started")
-	assert_true(1302000 in scene.avatar.look.equips, "the first frame includes the creation Sword")
+	assert_true(1372005 in scene.avatar.look.equips, "the first frame includes the F/P creation Wand")
 	var w := scene.world
 	assert_true(w != null, "world built")
 	# Include every map's life pool and canonical boss summons/revives, as build_setup does when preloading.
