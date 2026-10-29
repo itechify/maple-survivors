@@ -2004,7 +2004,7 @@ func build_summary() -> Dictionary:
 		"job_name": world.jobs.name_of(job_id), "kills": world.kills, "damage_dealt": world.damage_dealt,
 		"skills": skills, "seed": run_seed,
 		"bosses_killed": world.bosses_killed(), "levels_gained": world.levels_gained(),
-		"nx_awarded": world.nx_awarded(),
+		"nx_awarded": world.nx_awarded(), "revives": world.revives.duplicate(true),
 	}
 
 

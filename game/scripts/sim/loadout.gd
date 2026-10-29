@@ -378,7 +378,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
 		"speed_factor": speed_factor,
-		"cooldown": _cooldown(key, d, heal, lv, speed_factor),
+		"cooldown": _cooldown(key, d, heal, lv, r, speed_factor),
 		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range",
 			ChainCast.base_range(cast)))))
 			* (area if String(cast.get("rule", "")) == "range_around" else 1.0)
@@ -434,6 +434,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	if d.has("meter"):
 		resolved["meter"] = d.meter
 		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
+	if d.has("revive"):
+		resolved["revive"] = _revive(key, d.revive)
 	return resolved
 
 
@@ -448,17 +450,21 @@ func _heal_threshold(key: String, heal: Dictionary) -> float:
 
 ## Seconds between casts: the skill's own cooldown with its cards, then the cast speed passives (an active skill's cooldown
 ## x (1 - cast speed)), the product of every factor floored at COOLDOWN_FLOOR of the base, then attack speed.
-func _cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int, speed_factor: float) -> float:
-	var base := _base_cooldown(key, d, heal, lv)
+func _cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int, rank: int, speed_factor: float) -> float:
+	var base := _base_cooldown(key, d, heal, lv, rank)
 	var cooldown := skill_stat(key, "cooldown", base)
 	if book.slot(key) == "active" and base > 0.0:
 		cooldown = maxf(cooldown * (1.0 - passive_total(CAST_SPEED_PCT) / 100.0), base * COOLDOWN_FLOOR)
 	return maxf(0.05, cooldown * speed_factor)
 
 
-## The seconds between casts before cards and attack speed: the definition's `cooldown_field` (a canonical level number,
-## e.g. `cooltime`) when it names one, else the Heal `recast_delay`, else the survivor `cooldown`, else 1.
-func _base_cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int) -> float:
+## The seconds between casts before cards and attack speed: the definition's `cooldown_by_rank` (survivor seconds per
+## rank, indexed by rank - 1, the last value repeating) when it has one, else its `cooldown_field` (a canonical level
+## number, e.g. `cooltime`) when it names one, else the Heal `recast_delay`, else the survivor `cooldown`, else 1.
+func _base_cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int, rank: int) -> float:
+	var by_rank: Variant = d.get("cooldown_by_rank")
+	if by_rank is Array and not (by_rank as Array).is_empty():
+		return float(by_rank[clampi(rank - 1, 0, by_rank.size() - 1)])
 	var fallback := float(heal.get("recast_delay", d.get("cooldown", 1.0)))
 	if d.has("cooldown_field"):
 		return book.canonical(key, lv, String(d.cooldown_field), fallback)
@@ -489,6 +495,15 @@ func _displacement(key: String, d: Dictionary, rank: int, lv: int) -> Dictionary
 		distance = float(block.get("distance", 0.0))
 	return {"direction": String(block.get("direction", "away")), "when": String(block.get("when", "after")),
 		"distance": maxf(0.0, distance)}
+
+
+## The second-life plan inputs of `key` (PlayerRevive reads them; nothing else does): the `revive` block with the
+## `revive_hp` and `revive_guard` skill modifiers (add, then mul) applied. {hp: share of max HP, guard: s, push: px}.
+## tier C: the block's own defaults are PlayerRevive.DEFAULT_HP / DEFAULT_GUARD / DEFAULT_PUSH.
+func _revive(key: String, block: Dictionary) -> Dictionary:
+	return {"hp": skill_stat(key, "revive_hp", float(block.get("hp", PlayerRevive.DEFAULT_HP))),
+		"guard": skill_stat(key, "revive_guard", float(block.get("guard", PlayerRevive.DEFAULT_GUARD))),
+		"push": float(block.get("push", {}).get("distance", PlayerRevive.DEFAULT_PUSH))}
 
 
 func _buff_effects(key: String, lv: int, buff: Dictionary) -> Dictionary:

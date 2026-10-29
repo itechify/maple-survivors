@@ -596,7 +596,7 @@ static func _base_score(w: RunWorld, d: Dictionary) -> float:
 		return 100.0 if kind == "skill_new" else 74.0
 	var sd := w.book.def(key)
 	var rule := String(sd.get("cast", {}).get("rule", ""))
-	var attack := rule != "manual" and (String(sd.get("kind", "")) in ["projectile", "instant"] or rule == "box")
+	var attack := not SkillRunner.is_triggered_rule(rule) and (String(sd.get("kind", "")) in ["projectile", "instant"] or rule == "box")
 	if String(sd.get("cast", {}).get("rule", "")) == "crowd":
 		attack = false # Slow uses existing support scores (tier C), below damaging attacks.
 	var sj := int(sd.get("job", -1))
