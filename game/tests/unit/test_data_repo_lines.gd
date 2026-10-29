@@ -264,6 +264,14 @@ func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:
 	var il_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "il_arch_mage", root))
 	for key: String in il_frag.skills:
 		assert_true(String(il_frag.skills[key].book) in ["220", "221", "222"], "%s in il_arch_mage" % key)
+	# Pirate tree (B2 #414): the 510/511/512 books may live in buccaneer.json, 500 stays valid in pirate.json (and 520, the
+	# gun book, which is not a Buccaneer skill); a 511 or 512 skill is never in pirate.json.
+	var bucc_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "buccaneer", root))
+	for key: String in bucc_frag.skills:
+		assert_true(String(bucc_frag.skills[key].book) in ["500", "510", "511", "512"], "%s in buccaneer" % key)
+	var pirate_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "pirate", root))
+	for key: String in pirate_frag.skills:
+		assert_true(String(pirate_frag.skills[key].book) in ["500", "510", "520"], "%s in pirate" % key)
 	# cards: no skill or a common passive's -> common, otherwise magician; #284 deleted the Beginner cards (no
 	# upgrades/beginner.json)
 	assert_false(FileAccess.file_exists(DataRepo.fragment_path("upgrades", "beginner", root)))

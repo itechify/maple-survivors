@@ -1,0 +1,4 @@
+{
+	"_doc": "Buccaneer skill definitions (spec #412, one region per ticket): B4 #416 moves the five ported knuckle skills (Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut, Corkscrew Blow) here from skills/pirate.json; B5 #417 changes Dash's slot (Dash stays in pirate.json); B6 Energy Drain; B7 Energy Orb; B8 Barrage, Dragon Strike; B9 Transformation, Shockwave; B10 Super Transformation, Demolition, Snatch. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). B2 #414 defines none.",
+	"skills": {}
+}
