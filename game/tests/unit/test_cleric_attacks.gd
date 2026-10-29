@@ -90,15 +90,12 @@ func test_heal_admission_restoration_and_recast_delay() -> void:
 	assert_eq(w.runner.casts, 2, "still injured: recasts at two seconds")
 
 
-func test_heal_cards_are_cleric_only_and_holy_arrow_has_no_standalone_card() -> void:
+func test_heal_and_holy_arrow_have_no_standalone_cards() -> void:
 	var w := _world("heal")
-	for id: String in ["heal_new", "heal_rank"]:
-		var card := w.upgrades.card(id)
-		assert_false(card.is_empty(), id)
-		assert_eq(card.get("requires", {}).get("jobs"), [230.0], id)
-	# BS5 #377: Holy Arrow is a Bishop pool skill; its five legacy cards are gone (its shots, pierce and cooldown are rarity bonuses).
+	# BS4 #376 / BS5 #377: Heal and Holy Arrow are Bishop pool skills; their legacy cards are gone (the generated new/rank cards
+	# come from the pool, and shots, pierce, cooldown, recovery are rarity bonuses).
 	for card: Dictionary in DataRepo.load_all().upgrades.cards:
-		assert_false(String(card.id).begins_with("holy_arrow"), "no legacy Holy Arrow card: %s" % card.id)
+		assert_false(String(card.id).begins_with("holy_arrow") or String(card.id).begins_with("heal_"), "no legacy card: %s" % card.id)
 	w.progression.job_id = 220
 	for id: String in w.upgrades.eligible(w):
 		assert_false(id.begins_with("holy_arrow") or id.begins_with("heal_"), id)
