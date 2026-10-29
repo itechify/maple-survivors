@@ -6214,158 +6214,6 @@ No shipped skill carries the block yet, so no existing record changes.
 - **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
   and Skill-window text (H7).
 
-### 7.86 Paladin pool (spec #308)
-
-The Paladin (122) fights with Hero's Power Strike and Slash Blast (`skills/hero.json`, never repeated or edited for the
-Paladin: its pool lists the same keys, `SkillBook.def` returns one definition for both jobs, and the Combo meter is a
-Hero job entry that a Paladin does not have, so the Paladin's casts carry no meter state, no `meter_changed` event and no
-per-orb damage), plus Blast, Monster Magnet and four Charges in `skills/paladin.json`. Manual `rush_paladin` is
-outside the eight-key pool and follows Hero's shared mobility rank rule (7.33).
-
-#### Blast and Monster Magnet (P5, #313)
-
-- **`blast`** (1221009, book 122): `weapon_reach` (the nearest mob in the held weapon's swing, as Power Strike), `min_targets`
-  1, one physical line on one target, cooldown 2.0 s, `blast` body action held 0.84 s. WZ `damage` 170 -> 550% is its only
-  field (no `mobCount`, no `attackCount`); the eight ranks read levels 4, 8, 12, 15, 19, 23, 27, 30 (230, 310, 370, 400, 440,
-  480, 520, 550%). Rarity: Mastery damage x1.2, Booster cooldown x0.88, Final Attack +1 hit (`attack_count`), Legendary
-  Final Attack plus damage x1.2 (shares the Unique's repeat counter). It is the biggest single hit of the lineage and pays
-  off against defence and bosses; the balance pass owns its cooldown.
-- **Art.** The cast `effect` and the `hit` are both keyed by the element art index (P1: 0 none, 1 ice, 2 fire, 3 lightning,
-  5 holy). Both paths use `{art}`: index 0 without a Charge, otherwise the running Charge's element, resolved
-  by `PlayerForms.begin_cast`.
-- **Five sounds.** `sounds.use_cycle` lists `Use` .. `Use5`; `SkillBook.use_sound(key, nth, family)` returns entry
-  `nth mod 5` and `RunScene` counts the casts of each key it has seen, so the sounds play in order with no RNG draw. A
-  skill without a cycle plays its `sounds.use` as before.
-- **`monster_magnet_paladin`** (1221001, book 122): a copy of Hero's `monster_magnet` under its own key (a skill key is unique
-  across files): `range_around`, admitted at 3 mobs in range, `pull {chance_field prop, range_field range, min_gap 60}`,
-  `damage: none`, `alert2`, effect art (18 frames) and the Use sound (a UOL to Hero's `1121001/Use`). The WZ node equals
-  Hero's level by level (range 200/200/300/300/300/400/400/400 px and prop 48 -> 95% over the eight ranks, `mobCount` 6), so
-  the two keys pull identically. Cooldown **10 s** (spec #308; Hero's own 4 s comes from its tuning pass, #346, and is not
-  inherited). Rarity as Hero's Magnet: Reach `range` x1.2 (the pull reads `range`, not `area`), Bigger Grab +2 targets
-  (`count`), Booster cooldown x0.75, Legendary Booster plus +2 targets. Normal Mastery on this `damage: none` skill is
-  cooldown x0.95 (#346).
-
-### 7.87 Form / M2 (#311)
-
-A Form is a timed active stance. It does no damage itself, occupies one active slot, and starts its ordinary
-cooldown at cast time. Admission requires a living monster in `cast.mob_within`; a running form blocks every
-ready form in the same `exclusive_group`. Different groups coexist. Among ready forms per group, the largest
-sum of live monster element multipliers within 400 px of the cast origin wins; ready order breaks ties.
-No extra random draw occurs. Manual starts replace an occupied group.
-
-```json
-{"kind":"form", "slot":"active", "damage":"none", "cooldown":18,
- "cast":{"rule":"form", "mob_within":400},
- "form":{"duration":12, "exclusive_group":"example",
-   "effects":{"element":"f", "damage":{"field":"damage"}},
-   "subs":[{"skill":"example_sub", "first_after":1, "interval":3},
-           {"skill":"example_once", "first_after":0.5, "once":true}]}}
-```
-
-Durations and trigger times are survivor data, never rewritten WZ values. `form_time` multiplies duration at
-start; `form_power` adds to the canonical field percent multiplier (120% plus 0.1 becomes 1.3). A running window
-snapshots rank and effects. `element` affects only empty-element damaging casts; existing elements stay.
-`damage` scales min/max and status damage for every damaging cast, including manual mobility and sub-skills.
-The effects registry is the only dispatch boundary; later effects use resolve/apply/validate and optional start/end/absorb hooks. Hidden and morph use `buff.hidden` / `buff.morph_field`, not effect keys (Buccaneer template: `spec/412`, `test_morph_form.gd`). Corsair adds hull state and its absorb hook. Sub flags `ignores_hidden` and `ends_form` allow an admitted attack to consume just its parent (`consumed`); spent pools may end with `depleted`.
-
-Sub definitions use `slot: form_sub`, `form_sub_of: [parent keys]` (a single string is also accepted), ordinary
-cast rules and their own rank tables. They are never learned into Loadout.order or offered as cards. At each due
-time they wait for their own range, minimum targets, casting gate and HP payment. A successful cast consumes
-`once` or restarts `interval` from that cast (no catch-up burst). Stats use the parent's snapshotted rank through
-the sub's own table, current parent skill-local damage and area modifiers, and no parent cooldown modifier.
-The usual cast/hit/stance/sound path handles their output. Map transfer keeps timers and consumed once state,
-but drops queued delayed strikes; death clears all windows. A new window resets sub clocks.
-
-The buff row shows the existing icon/countdown entry. The held weapon and cash weapon cover alone receive a
-code-drawn element tint; start/end events refresh it. SkillText lists duration, element, multiplier and each
-sub's trigger, mapped level, base skill power, target count and HP cost. Form rarity previews use seconds for time and percentage
-points for power. `player_form_probe.tscn` injects a synthetic fire form for visual QA without Paladin data.
-
-### 7.88 Charges, Charged Blow and Heaven's Hammer (spec #308)
-
-**Charged Blow (#314, WZ 1211002).** The stun nova every Charge carries: a `form_sub` of the Form seam, so it is in no
-pool, no `Loadout.order` and no card, and has no rarity list (its damage grows through the parent Charge's `damage`
-modifier, the "Advanced Charge" bonus of the spec). The Charges list it in their `subs` entry (`first_after` 1.0 s,
-`interval` 3.0 s, P7/P8); until a Charge runs it never casts, and `form_sub_of` names the four Charges.
-
-- **Cast.** `range_around` with `min_targets 3`: at least three mobs within the level's `range` of the body, then up to
-  `mobCount` 6 are struck, bosses first. Physical `damage` 162 -> 250 %, `range` 130 -> 150 px, `hpCon` 15 -> 25 (never lethal:
-  the due cast waits, the seam keeps it due), all tier A, read through the rank table 4, 8, 12, 15, 19, 23, 27, 30
-  (rank 1 = level 4: 168 %, 130 px, 38 % stun for 2 s, 15 HP; rank 8 = level 30: 250 %, 150 px, 90 %, 4 s, 25 HP).
-- **Stun in every element** (spec P-3): `on_hit stun {chance_field prop, duration_field time}`, prop 32 -> 90 %, time 2 -> 4 s.
-  The roll is the usual on-hit roll: one main-stream draw per struck mob, none when the chance is 100 %. There is no freeze
-  variant for Ice Charge.
-- **Element.** The nova takes the running Charge's element through `PlayerForms.begin_cast` (a fire-weak mob takes 1.5x).
-- **Element-keyed art.** The skill's `effect` and `hit` paths carry the token `{art}` (`.../effect/{art}`,
-  `.../hit/0/{art}`). `PlayerForms.begin_cast` fills it from the cast's element through one table, `PlayerForms.ART_INDEX`
-  (`""` 0, ice 1, fire 2, lightning 3, holy 5: tier A from the pixels, P1 #309; the spec's fire/ice order was wrong). A
-  later element (poison, 4) is one row. A skill that is not a Form sub can use the same token (Blast's `effect/{0,1,2,3,5}`
-  and `hit/0/{0,1,2,3,5}`), because the fill runs for every damaging cast, with key 0 when no Charge is running. The
-  round's art warm-up loads every key. The stun stars (`mob`) are the shared stars `MobRenderer` already draws for a stun.
-- **Presentation (tier C).** Stance: the held weapon's first swing (as Coma), shown 0.6 s; Use sound
-  `Sound.wz/Skill.img/1211002/Use`.
-
-**Fire, Ice and Thunder Charge (#315, WZ 1211003 / 1211005 / 1211007; blunt twins 1211004 / 1211006 / 1211008).** The first
-three Forms. Each is a pool skill (`kind form`, `slot active`, `damage none`, book 121, job 121) of the `paladin_charge`
-exclusion group.
-
-- **Window.** 12 s, cooldown 18 s counted from the cast, admitted only with a living mob within 400 px (`cast {rule form,
-  mob_within 400}`): tier C (spec P-9, WZ `time` is session-scale). One Charge covers 12 s of every 18 (67 %); two cover the whole
-  round. A Charge is not admitted while another of its group runs and its cooldown keeps counting, so it starts on the tick the first
-  ends (tested: no gap, never two running). Of several ready Charges the one whose element does the most damage to the mobs within
-  400 px of the player is chosen (`PlayerForms.preferred`, learned order on ties).
-- **Effects.** `effects {element f|i|l, damage {field damage}}`: every damaging cast of the owner takes the element (a mob weak to
-  it takes x1.5, resistant x0.5, immune nothing) and the WZ `damage` percent at the Charge's rank, rank 1 = level 4 through the
-  table 4, 8, 12, 15, 19, 23, 27, 30 (tier A, P1 #309): Fire 105 109 111 112 114 116 118 120 %, Ice 102 103 104 105 107 108 109
-  110 %, Thunder 107 111 115 117 119 121 123 125 % (level 1 would read 102 / 100 / 102). Power Strike, Slash Blast, Blast, the
-  Charged Blow it carries and Rush all take it (spec P-4); the rank and effects are fixed when the window starts.
-- **Subs.** `charged_blow` after 1.0 s, then every 3.0 s while the window lasts (so four blows in 12 s with enough HP and three
-  mobs); the blow's art follows the element (`{art}`: fire 2, ice 1, lightning 3).
-- **Presentation.** Stance `alert4` shown 0.9 s (tier A: the node's three 300 ms frames), the 15-frame `effect` (60 ms), the
-  Use sound (the twin's is a UOL to the sword's). `art_by_family {blunt: twin}` swaps only the effect and the Use sound (the icon
-  stays the sword's, as Panic's) for a blunt weapon through `SkillBook.art_skill_id` / `art_path`; the twins are identical to the sword versions in every
-  number. The weapon tint comes from the seam (7.87).
-- **Rarity (tier C, spec #308), same on all three.** Rare `mastery` "Mastery": `form_power` +0.10 (1.05 -> 1.15 at rank 1);
-  Epic `booster` "Booster": cooldown x0.88; Unique `advanced_charge` "Advanced Charge": `damage` x1.3 (a Charge's `damage`
-  modifier multiplies its subs, so Charged Blow) and `form_time` x1.25 (12 -> 15 s); Legendary `advanced_charge` plus `damage`
-  x1.2 (shares the Unique's id and repeat counter). Repeats scale x0.8 as for every skill; after rank 8 a Rare+ card is a
-  Mastery (no rank). `test_rarity_bonus_effects` measures each effect on the real definitions: `form_power` raises Power Strike's
-  hits inside the window, `form_time` the window's ticks, `cooldown` the windows started in 66 s and `damage` Charged Blow's hits.
-
-**Holy Charge and Heaven's Hammer (#316, WZ 1221003 / 1221004 and 1221011).** The last Charge and the Paladin's signature
-strike. `holy_charge` has the other Charges' shape (a Form of the `paladin_charge` group: 12 s window, 18 s cooldown,
-admitted by a mob within 400 px, the holy element on every damaging cast of its owner, Rush included, the same four
-rarity lists) with two differences: it has **20 levels**, so its rank table is the level-20 table 3, 5, 8, 10, 13, 15,
-18, 20 and its multiplier runs 106 % (rank 1, level 3) to 140 % (rank 8, level 20; level 1 would be 102 %, tier A), and its
-`subs` list **Heaven's Hammer** as well as Charged Blow.
-
-- **Window.** `subs`: `charged_blow` (first after 1.0 s, every 3.0 s) and `heavens_hammer` (`first_after` 0.5, `once true`).
-  Holy and another Charge never overlap (one running window per group); a Holy cast again after its window and cooldown
-  opens a new window and a new Hammer. Twin 1221004 ("Divine Charge : BW") carries identical numbers; `art_by_family {"blunt": 1221004}`.
-- **Hammer.** `heavens_hammer`: `slot form_sub`, `form_sub_of ["holy_charge"]`, `cast {rule box}` (the WZ box lt (-400,-350)
-  rb (400,250) around the player, `mobCount` 15, tier A), physical `damage` 420 -> 900 % (30 levels, tier A) read at the
-  Charge's rank through the **level-30 table** (rank 1 = level 4 = 480 %, rank 8 = level 30 = 900 %, spec P-5), `element h`
-  (WZ `elemAttr`), `ranks` written out. It is **cast 0.5 s into the window if a mob is in the box** (a Hammer due with an empty
-  box waits and goes the tick one enters, until the window ends) and then **lands 1.56 s later** through the existing
-  `pending` strike of Meteor Shower (7.31) with `follow_player`: the box is centred on the player where it lands, targets
-  are queried at impact, up to 15 are struck, bosses first. The cast is a committed map-space strike: it **lands even if the
-  window ended in between** and is **lost on a map transfer** (`clear_pending`), while the window itself, and the fact that its
-  once-per-window Hammer was spent, carry over. The Charge's `damage` modifier ("Advanced Charge" x1.3) multiplies it as it
-  does Charged Blow; `form_power` raises it with the Charge's multiplier. WZ `cooltime` (310 -> 20 s) is session-scale and not
-  read.
-- **Delay (tier C, P1 #309).** 1.56 s is the start of frame 13 of the 22-frame, 120 ms `effect` (where the big slam art begins;
-  frame 14 is the light pillar at its brightest), and the body's `sanctuary` stance independently starts its thrust
-  (`stabOF` frame 2) at 1.56 s, so an uninterrupted stance and the art land together. Other casts can
-  replace the stance before then (below).
-- **Presentation (tier C).** Stance `sanctuary` for 3.3 s (the stance's seven body frames) and the 22-frame `effect` played
-  on the caster at the cast (the cast display never holds the avatar). Charged Blow's swing (0.6 s) at 1.0 s replaces the
-  Hammer's stance display, as any later cast does, so the avatar's slam frame is seen only when no blow follows (tier C,
-  recorded, not changed). `hit` is left empty: `hit/0` is a 15-frame red HP-bar graphic (28..84 px wide), not a hit burst,
-  and played on 15 mobs it would read as damage bars, so only the number and the `Hit` sound mark a struck mob. Sounds:
-  `Use` (3.0 s) at the cast, `Hit` per struck mob; the Charge's own Use sound (1.3 s) is played as it is.
-- **Text.** The Charge's description names the Hammer; the Hammer's own line reads "Damage N %, up to 15 monsters, holy;
-  lands after a short delay", and the Form's mechanics line lists it as "once after 0.5 s".
-
 ### 7.60 I/L pool and Teleport (spec #319, I6 #325)
 
 The I/L Arch Mage's (222) simple instant skills: **Cold Beam** (2201004), **Thunder Bolt** (2201005), **Ice Strike**
@@ -6877,6 +6725,158 @@ Both live in `skills/bishop.json` and change no code: Genesis is Meteor Shower's
   Legendary `echo` plus damage x1.2; repeat scale 0.8, the Legendary shares the Unique's counter). Big Bang's lists are
   inherited from `big_bang`. `test_bishop_genesis` probes every entry of both skills (damage dealt, a mob just beyond the
   base box, hit lines) and `test_rarity_bonus_effects` carries both in its resolved-cast audit.
+
+### 7.86 Paladin pool (spec #308)
+
+The Paladin (122) fights with Hero's Power Strike and Slash Blast (`skills/hero.json`, never repeated or edited for the
+Paladin: its pool lists the same keys, `SkillBook.def` returns one definition for both jobs, and the Combo meter is a
+Hero job entry that a Paladin does not have, so the Paladin's casts carry no meter state, no `meter_changed` event and no
+per-orb damage), plus Blast, Monster Magnet and four Charges in `skills/paladin.json`. Manual `rush_paladin` is
+outside the eight-key pool and follows Hero's shared mobility rank rule (7.33).
+
+#### Blast and Monster Magnet (P5, #313)
+
+- **`blast`** (1221009, book 122): `weapon_reach` (the nearest mob in the held weapon's swing, as Power Strike), `min_targets`
+  1, one physical line on one target, cooldown 2.0 s, `blast` body action held 0.84 s. WZ `damage` 170 -> 550% is its only
+  field (no `mobCount`, no `attackCount`); the eight ranks read levels 4, 8, 12, 15, 19, 23, 27, 30 (230, 310, 370, 400, 440,
+  480, 520, 550%). Rarity: Mastery damage x1.2, Booster cooldown x0.88, Final Attack +1 hit (`attack_count`), Legendary
+  Final Attack plus damage x1.2 (shares the Unique's repeat counter). It is the biggest single hit of the lineage and pays
+  off against defence and bosses; the balance pass owns its cooldown.
+- **Art.** The cast `effect` and the `hit` are both keyed by the element art index (P1: 0 none, 1 ice, 2 fire, 3 lightning,
+  5 holy). Both paths use `{art}`: index 0 without a Charge, otherwise the running Charge's element, resolved
+  by `PlayerForms.begin_cast`.
+- **Five sounds.** `sounds.use_cycle` lists `Use` .. `Use5`; `SkillBook.use_sound(key, nth, family)` returns entry
+  `nth mod 5` and `RunScene` counts the casts of each key it has seen, so the sounds play in order with no RNG draw. A
+  skill without a cycle plays its `sounds.use` as before.
+- **`monster_magnet_paladin`** (1221001, book 122): a copy of Hero's `monster_magnet` under its own key (a skill key is unique
+  across files): `range_around`, admitted at 3 mobs in range, `pull {chance_field prop, range_field range, min_gap 60}`,
+  `damage: none`, `alert2`, effect art (18 frames) and the Use sound (a UOL to Hero's `1121001/Use`). The WZ node equals
+  Hero's level by level (range 200/200/300/300/300/400/400/400 px and prop 48 -> 95% over the eight ranks, `mobCount` 6), so
+  the two keys pull identically. Cooldown **10 s** (spec #308; Hero's own 4 s comes from its tuning pass, #346, and is not
+  inherited). Rarity as Hero's Magnet: Reach `range` x1.2 (the pull reads `range`, not `area`), Bigger Grab +2 targets
+  (`count`), Booster cooldown x0.75, Legendary Booster plus +2 targets. Normal Mastery on this `damage: none` skill is
+  cooldown x0.95 (#346).
+
+### 7.87 Form / M2 (#311)
+
+A Form is a timed active stance. It does no damage itself, occupies one active slot, and starts its ordinary
+cooldown at cast time. Admission requires a living monster in `cast.mob_within`; a running form blocks every
+ready form in the same `exclusive_group`. Different groups coexist. Among ready forms per group, the largest
+sum of live monster element multipliers within 400 px of the cast origin wins; ready order breaks ties.
+No extra random draw occurs. Manual starts replace an occupied group.
+
+```json
+{"kind":"form", "slot":"active", "damage":"none", "cooldown":18,
+ "cast":{"rule":"form", "mob_within":400},
+ "form":{"duration":12, "exclusive_group":"example",
+   "effects":{"element":"f", "damage":{"field":"damage"}},
+   "subs":[{"skill":"example_sub", "first_after":1, "interval":3},
+           {"skill":"example_once", "first_after":0.5, "once":true}]}}
+```
+
+Durations and trigger times are survivor data, never rewritten WZ values. `form_time` multiplies duration at
+start; `form_power` adds to the canonical field percent multiplier (120% plus 0.1 becomes 1.3). A running window
+snapshots rank and effects. `element` affects only empty-element damaging casts; existing elements stay.
+`damage` scales min/max and status damage for every damaging cast, including manual mobility and sub-skills.
+The effects registry is the only dispatch boundary; later effects use resolve/apply/validate and optional start/end/absorb hooks. Hidden and morph use `buff.hidden` / `buff.morph_field`, not effect keys (Buccaneer template: `spec/412`, `test_morph_form.gd`). Corsair adds hull state and its absorb hook. Sub flags `ignores_hidden` and `ends_form` allow an admitted attack to consume just its parent (`consumed`); spent pools may end with `depleted`.
+
+Sub definitions use `slot: form_sub`, `form_sub_of: [parent keys]` (a single string is also accepted), ordinary
+cast rules and their own rank tables. They are never learned into Loadout.order or offered as cards. At each due
+time they wait for their own range, minimum targets, casting gate and HP payment. A successful cast consumes
+`once` or restarts `interval` from that cast (no catch-up burst). Stats use the parent's snapshotted rank through
+the sub's own table, current parent skill-local damage and area modifiers, and no parent cooldown modifier.
+The usual cast/hit/stance/sound path handles their output. Map transfer keeps timers and consumed once state,
+but drops queued delayed strikes; death clears all windows. A new window resets sub clocks.
+
+The buff row shows the existing icon/countdown entry. The held weapon and cash weapon cover alone receive a
+code-drawn element tint; start/end events refresh it. SkillText lists duration, element, multiplier and each
+sub's trigger, mapped level, base skill power, target count and HP cost. Form rarity previews use seconds for time and percentage
+points for power. `player_form_probe.tscn` injects a synthetic fire form for visual QA without Paladin data.
+
+### 7.88 Charges, Charged Blow and Heaven's Hammer (spec #308)
+
+**Charged Blow (#314, WZ 1211002).** The stun nova every Charge carries: a `form_sub` of the Form seam, so it is in no
+pool, no `Loadout.order` and no card, and has no rarity list (its damage grows through the parent Charge's `damage`
+modifier, the "Advanced Charge" bonus of the spec). The Charges list it in their `subs` entry (`first_after` 1.0 s,
+`interval` 3.0 s, P7/P8); until a Charge runs it never casts, and `form_sub_of` names the four Charges.
+
+- **Cast.** `range_around` with `min_targets 3`: at least three mobs within the level's `range` of the body, then up to
+  `mobCount` 6 are struck, bosses first. Physical `damage` 162 -> 250 %, `range` 130 -> 150 px, `hpCon` 15 -> 25 (never lethal:
+  the due cast waits, the seam keeps it due), all tier A, read through the rank table 4, 8, 12, 15, 19, 23, 27, 30
+  (rank 1 = level 4: 168 %, 130 px, 38 % stun for 2 s, 15 HP; rank 8 = level 30: 250 %, 150 px, 90 %, 4 s, 25 HP).
+- **Stun in every element** (spec P-3): `on_hit stun {chance_field prop, duration_field time}`, prop 32 -> 90 %, time 2 -> 4 s.
+  The roll is the usual on-hit roll: one main-stream draw per struck mob, none when the chance is 100 %. There is no freeze
+  variant for Ice Charge.
+- **Element.** The nova takes the running Charge's element through `PlayerForms.begin_cast` (a fire-weak mob takes 1.5x).
+- **Element-keyed art.** The skill's `effect` and `hit` paths carry the token `{art}` (`.../effect/{art}`,
+  `.../hit/0/{art}`). `PlayerForms.begin_cast` fills it from the cast's element through one table, `PlayerForms.ART_INDEX`
+  (`""` 0, ice 1, fire 2, lightning 3, holy 5: tier A from the pixels, P1 #309; the spec's fire/ice order was wrong). A
+  later element (poison, 4) is one row. A skill that is not a Form sub can use the same token (Blast's `effect/{0,1,2,3,5}`
+  and `hit/0/{0,1,2,3,5}`), because the fill runs for every damaging cast, with key 0 when no Charge is running. The
+  round's art warm-up loads every key. The stun stars (`mob`) are the shared stars `MobRenderer` already draws for a stun.
+- **Presentation (tier C).** Stance: the held weapon's first swing (as Coma), shown 0.6 s; Use sound
+  `Sound.wz/Skill.img/1211002/Use`.
+
+**Fire, Ice and Thunder Charge (#315, WZ 1211003 / 1211005 / 1211007; blunt twins 1211004 / 1211006 / 1211008).** The first
+three Forms. Each is a pool skill (`kind form`, `slot active`, `damage none`, book 121, job 121) of the `paladin_charge`
+exclusion group.
+
+- **Window.** 12 s, cooldown 18 s counted from the cast, admitted only with a living mob within 400 px (`cast {rule form,
+  mob_within 400}`): tier C (spec P-9, WZ `time` is session-scale). One Charge covers 12 s of every 18 (67 %); two cover the whole
+  round. A Charge is not admitted while another of its group runs and its cooldown keeps counting, so it starts on the tick the first
+  ends (tested: no gap, never two running). Of several ready Charges the one whose element does the most damage to the mobs within
+  400 px of the player is chosen (`PlayerForms.preferred`, learned order on ties).
+- **Effects.** `effects {element f|i|l, damage {field damage}}`: every damaging cast of the owner takes the element (a mob weak to
+  it takes x1.5, resistant x0.5, immune nothing) and the WZ `damage` percent at the Charge's rank, rank 1 = level 4 through the
+  table 4, 8, 12, 15, 19, 23, 27, 30 (tier A, P1 #309): Fire 105 109 111 112 114 116 118 120 %, Ice 102 103 104 105 107 108 109
+  110 %, Thunder 107 111 115 117 119 121 123 125 % (level 1 would read 102 / 100 / 102). Power Strike, Slash Blast, Blast, the
+  Charged Blow it carries and Rush all take it (spec P-4); the rank and effects are fixed when the window starts.
+- **Subs.** `charged_blow` after 1.0 s, then every 3.0 s while the window lasts (so four blows in 12 s with enough HP and three
+  mobs); the blow's art follows the element (`{art}`: fire 2, ice 1, lightning 3).
+- **Presentation.** Stance `alert4` shown 0.9 s (tier A: the node's three 300 ms frames), the 15-frame `effect` (60 ms), the
+  Use sound (the twin's is a UOL to the sword's). `art_by_family {blunt: twin}` swaps only the effect and the Use sound (the icon
+  stays the sword's, as Panic's) for a blunt weapon through `SkillBook.art_skill_id` / `art_path`; the twins are identical to the sword versions in every
+  number. The weapon tint comes from the seam (7.87).
+- **Rarity (tier C, spec #308), same on all three.** Rare `mastery` "Mastery": `form_power` +0.10 (1.05 -> 1.15 at rank 1);
+  Epic `booster` "Booster": cooldown x0.88; Unique `advanced_charge` "Advanced Charge": `damage` x1.3 (a Charge's `damage`
+  modifier multiplies its subs, so Charged Blow) and `form_time` x1.25 (12 -> 15 s); Legendary `advanced_charge` plus `damage`
+  x1.2 (shares the Unique's id and repeat counter). Repeats scale x0.8 as for every skill; after rank 8 a Rare+ card is a
+  Mastery (no rank). `test_rarity_bonus_effects` measures each effect on the real definitions: `form_power` raises Power Strike's
+  hits inside the window, `form_time` the window's ticks, `cooldown` the windows started in 66 s and `damage` Charged Blow's hits.
+
+**Holy Charge and Heaven's Hammer (#316, WZ 1221003 / 1221004 and 1221011).** The last Charge and the Paladin's signature
+strike. `holy_charge` has the other Charges' shape (a Form of the `paladin_charge` group: 12 s window, 18 s cooldown,
+admitted by a mob within 400 px, the holy element on every damaging cast of its owner, Rush included, the same four
+rarity lists) with two differences: it has **20 levels**, so its rank table is the level-20 table 3, 5, 8, 10, 13, 15,
+18, 20 and its multiplier runs 106 % (rank 1, level 3) to 140 % (rank 8, level 20; level 1 would be 102 %, tier A), and its
+`subs` list **Heaven's Hammer** as well as Charged Blow.
+
+- **Window.** `subs`: `charged_blow` (first after 1.0 s, every 3.0 s) and `heavens_hammer` (`first_after` 0.5, `once true`).
+  Holy and another Charge never overlap (one running window per group); a Holy cast again after its window and cooldown
+  opens a new window and a new Hammer. Twin 1221004 ("Divine Charge : BW") carries identical numbers; `art_by_family {"blunt": 1221004}`.
+- **Hammer.** `heavens_hammer`: `slot form_sub`, `form_sub_of ["holy_charge"]`, `cast {rule box}` (the WZ box lt (-400,-350)
+  rb (400,250) around the player, `mobCount` 15, tier A), physical `damage` 420 -> 900 % (30 levels, tier A) read at the
+  Charge's rank through the **level-30 table** (rank 1 = level 4 = 480 %, rank 8 = level 30 = 900 %, spec P-5), `element h`
+  (WZ `elemAttr`), `ranks` written out. It is **cast 0.5 s into the window if a mob is in the box** (a Hammer due with an empty
+  box waits and goes the tick one enters, until the window ends) and then **lands 1.56 s later** through the existing
+  `pending` strike of Meteor Shower (7.31) with `follow_player`: the box is centred on the player where it lands, targets
+  are queried at impact, up to 15 are struck, bosses first. The cast is a committed map-space strike: it **lands even if the
+  window ended in between** and is **lost on a map transfer** (`clear_pending`), while the window itself, and the fact that its
+  once-per-window Hammer was spent, carry over. The Charge's `damage` modifier ("Advanced Charge" x1.3) multiplies it as it
+  does Charged Blow; `form_power` raises it with the Charge's multiplier. WZ `cooltime` (310 -> 20 s) is session-scale and not
+  read.
+- **Delay (tier C, P1 #309).** 1.56 s is the start of frame 13 of the 22-frame, 120 ms `effect` (where the big slam art begins;
+  frame 14 is the light pillar at its brightest), and the body's `sanctuary` stance independently starts its thrust
+  (`stabOF` frame 2) at 1.56 s, so an uninterrupted stance and the art land together. Other casts can
+  replace the stance before then (below).
+- **Presentation (tier C).** Stance `sanctuary` for 3.3 s (the stance's seven body frames) and the 22-frame `effect` played
+  on the caster at the cast (the cast display never holds the avatar). Charged Blow's swing (0.6 s) at 1.0 s replaces the
+  Hammer's stance display, as any later cast does, so the avatar's slam frame is seen only when no blow follows (tier C,
+  recorded, not changed). `hit` is left empty: `hit/0` is a 15-frame red HP-bar graphic (28..84 px wide), not a hit burst,
+  and played on 15 mobs it would read as damage bars, so only the number and the `Hit` sound mark a struck mob. Sounds:
+  `Use` (3.0 s) at the cast, `Hit` per struck mob; the Charge's own Use sound (1.3 s) is played as it is.
+- **Text.** The Charge's description names the Hammer; the Hammer's own line reads "Damage N %, up to 15 monsters, holy;
+  lands after a short delay", and the Form's mechanics line lists it as "once after 0.5 s".
 
 ## 8. Upgrades
 
