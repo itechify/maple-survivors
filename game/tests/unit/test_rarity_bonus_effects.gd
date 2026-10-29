@@ -1,9 +1,11 @@
 extends TestCase
-## Every rarity bonus of every Hero and F/P skill changes the resolved cast, not just a stat number (spec #296, H7 audit).
+## Every rarity bonus of every Hero, F/P and Dark Knight skill changes the resolved cast, not just a stat number (spec #296, H7 audit).
 ## For each effect of each tier the same seeded world is cast twice, with and without the effect, against a field of mobs
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
-## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
+## the effect). The HP-risk stats (spec #348, D3 seam) are read off HP: self_damage (recoil paid per damage dealt over 12 s),
+## low_hp_damage (damage dealt over 12 s from 40% HP) and hp_cost (HP paid per cast). A Dark Knight world has a huge HP pool,
+## so the 10% recoil cap and the "never the last HP" rule stay out of the way, and a heavy weapon so that floors cannot hide a x0.6. A bonus whose stat the skill's cast rule never reads fails here as a no-op.
 ## Hero books (111/112) are synthetic generic tables; the F/P books come from the shared run fixtures.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -12,7 +14,13 @@ const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
-const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep"]
+const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep",
+	"self_damage", "low_hp_damage", "hp_cost"]
+## The stats probed over a 12 s window of repeated casts (the others stop after the first cast).
+const HP_STATS := ["self_damage", "low_hp_damage", "hp_cost"]
+## Dark Knight skills (books 131/132) are probed in a job 132 world: a huge HP pool and a heavy weapon (see the file doc).
+const DK_HP := 1000000
+const DK_WEAPON := 1302000
 
 
 ## Generic Skill.wz levels: a centred box, six mobs, one line, a 300 px range, a certain proc (the shape test_fp_high_actives uses).
@@ -21,6 +29,19 @@ func _generic_levels() -> Dictionary:
 	for lv in range(1, 31):
 		levels[str(lv)] = {"damage": 100 + lv, "mad": 30.0, "mobCount": 6, "attackCount": 1, "range": 300, "prop": 100,
 			"time": 4, "lt": {"$v": [-200, -150]}, "rb": {"$v": [200, 150]}}
+	return levels
+
+
+## Dark Knight levels: no box (Dragon Fury's reach is its literal cast box, not a table), the HP-risk fields the skill reads
+## (Sacrifice `x`, Fury `hpCon`) and one line per cast.
+func _dark_knight_levels(key: String) -> Dictionary:
+	var levels := {}
+	for lv in range(1, 31):
+		levels[str(lv)] = {"damage": 200, "mobCount": 6 if key == "dragon_fury" else 1, "attackCount": 1}
+		if key == "sacrifice":
+			levels[str(lv)]["x"] = 18
+		elif key == "dragon_fury":
+			levels[str(lv)]["hpCon"] = 20
 	return levels
 
 
@@ -35,15 +56,25 @@ func _skills_with_bonuses() -> Array:
 
 func _world(key: String) -> RunWorld:
 	var data := RF.quiet_data()
-	var job := 112 if int(data.skills.skills[key].job) in [100, 110, 111, 112] else 212
+	var skill_job := int(data.skills.skills[key].job)
+	var dark_knight := skill_job in [130, 131, 132]
+	var job := 132 if dark_knight else 112 if skill_job in [100, 110, 111, 112] else 212
 	data.jobs_survivor.jobs["112"]["playable"] = true
+	data.jobs_survivor.jobs["132"]["playable"] = true
+	if dark_knight:
+		data.balance.player.hp = DK_HP
 	var setup := RF.with_basic_attack(RF.setup("quiet", 296, data))
 	var imgs: Dictionary = setup.skill_imgs
 	# Hero books are synthetic; the F/P box and crowd skills get the same generic table (their fixtures carry no box).
 	for k: String in data.skills.skills:
 		var d: Dictionary = data.skills.skills[k]
 		var id := int(d.skill_id)
-		if int(d.job) in [111, 112] or id in [2111002, 2111003, 2111006, 2121001, 2121003, 2121006, 2121007]:
+		if int(d.job) in [131, 132]:
+			var dk_book := String(d.book)
+			if not imgs.has(dk_book):
+				imgs[dk_book] = {"skill": {}}
+			imgs[dk_book].skill[str(id)] = {"level": _dark_knight_levels(k)}
+		elif int(d.job) in [111, 112] or id in [2111002, 2111003, 2111006, 2121001, 2121003, 2121006, 2121007]:
 			var book := String(d.book)
 			if not imgs.has(book):
 				imgs[book] = {"skill": {}}
@@ -58,6 +89,9 @@ func _world(key: String) -> RunWorld:
 	RF.place_player(w, CASTER_X)
 	w.loadout.ranks.clear()
 	w.loadout.order.clear()
+	if dark_knight:
+		w.equipment.worn.weapon = Equipment.create(DK_WEAPON, {"incPAD": 1500})
+		w.refresh_player_stats()
 	w.learn_skill(key)
 	w.god = true
 	for mk: MobKind in w.mob_kinds:
@@ -120,8 +154,13 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	for e: Dictionary in effects:
 		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
 	# Cooldown counts casts over 66 s (Shout: 6 at 12 s, 7 at 10.56 s); damage sums many casts so that rounding cannot hide a x1.2.
-	var repeating := stat in ["cooldown", "damage"]
-	var window := 66.0 if stat == "cooldown" else 12.0 if stat == "damage" else 3.5
+	var repeating := stat in ["cooldown", "damage"] or stat in HP_STATS
+	var window := 66.0 if stat == "cooldown" else 12.0 if stat == "damage" or stat in HP_STATS else 3.5
+	if stat == "low_hp_damage":
+		w._hp = 0.4 * float(w.player_state.max_hp) # at or below half HP (HpRisk.BERSERK_BELOW)
+		w._write_player_state(0.0)
+	var recoil := 0
+	var cost := 0
 	var affected := {}
 	var lines := 0
 	# A Combo finisher (Panic, Coma) needs orbs: ten every tick when counting casts or damage, five once otherwise, so
@@ -140,6 +179,11 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 			if e.type == "mob_hit":
 				lines += 1
 				affected[int(e.mob)] = true
+			elif e.type == "hp_spent":
+				if e.kind == "recoil":
+					recoil += int(e.amount)
+				else:
+					cost += int(e.amount)
 		for s: int in slots:
 			if repeating:
 				w.swarm.x[s] = x0[s] # knockback must not walk the mobs out of the skill's reach between casts
@@ -154,7 +198,7 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 		edge_hit = edge_hit or affected.has(s)
 	var direct_damage: bool = String(w.loadout.stats(key).damage_type) != "none"
 	return {"casts": w.runner.casts, "dealt": w.damage_dealt - w.swarm.poison_dealt if direct_damage else w.swarm.poison_dealt, "lines": lines, "affected": affected.size(), "edge": edge_hit,
-		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left}
+		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left, "recoil": recoil, "cost": cost}
 
 
 func test_every_pool_skill_with_bonuses_was_found() -> void:
@@ -162,7 +206,9 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
 			"elquines"]:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 19, "seven Hero and twelve F/P skills: %d" % keys.size())
+	assert_true(keys.size() >= 21, "seven Hero, twelve F/P and two Dark Knight skills: %d" % keys.size())
+	for key in ["dragon_fury", "sacrifice"]:
+		assert_true(key in keys, key)
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
@@ -195,6 +241,15 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 		"meter_keep":
 			assert_true(int(base.orbs_left) >= 0 and int(with.orbs_left) > int(base.orbs_left),
 				"%s: orbs left after the cast %d -> %d" % [label, base.orbs_left, with.orbs_left])
+		"self_damage":
+			assert_true(int(base.recoil) > 0 and int(base.dealt) > 0, "%s: the base cast pays a recoil (%d of %d)" % [label, base.recoil, base.dealt])
+			assert_true(float(with.recoil) / float(with.dealt) < float(base.recoil) / float(base.dealt),
+				"%s: recoil per damage dealt %d/%d -> %d/%d" % [label, base.recoil, base.dealt, with.recoil, with.dealt])
+		"low_hp_damage":
+			assert_true(int(with.dealt) > int(base.dealt), "%s: damage dealt at 40%% HP %d -> %d" % [label, base.dealt, with.dealt])
+		"hp_cost":
+			assert_true(int(base.cost) > 0 and int(with.cost) * int(base.casts) < int(base.cost) * int(with.casts),
+				"%s: HP paid per cast %d/%d -> %d/%d" % [label, base.cost, base.casts, with.cost, with.casts])
 		"area", "range":
 			assert_false(bool(base.edge), "%s: the mob beyond the base reach is outside it" % label)
 			assert_true(bool(with.edge), "%s: the mob beyond the base reach is inside the widened one" % label)
@@ -208,6 +263,11 @@ func test_the_probe_catches_a_modifier_the_cast_rule_never_reads() -> void:
 	assert_eq(_probe("brandish", [pierce], "pierce").affected, _probe("brandish", [], "pierce").affected)
 	var allies := {"stat": "summon_count", "op": "add", "value": 1.0}
 	assert_eq(_probe("power_strike", [allies], "summon_count").summons, 0)
+	# HP stats: Dragon Fury has no recoil to shrink and Sacrifice no HP cost to cut (the audit reports no change).
+	var achilles := {"stat": "self_damage", "op": "mul", "value": 0.6}
+	assert_eq(_probe("dragon_fury", [achilles], "self_damage").recoil, 0, "Fury pays no recoil, with or without Achilles")
+	var blood := {"stat": "hp_cost", "op": "mul", "value": 0.75}
+	assert_eq(_probe("sacrifice", [blood], "hp_cost").cost, 0, "Sacrifice pays no cost up front")
 	# And the modifiers the shipped bonuses rely on do widen: area on a box, area on a radial range, range on a pull.
 	var area := {"stat": "area", "op": "mul", "value": 1.2}
 	assert_true(bool(_probe("shout", [area], "area").edge))
