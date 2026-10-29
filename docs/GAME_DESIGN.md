@@ -6173,6 +6173,39 @@ skill carries the block yet (the tests use a synthetic skill), so no existing re
 - **Not modelled.** The meter's finisher scaling (`PlayerMeter.begin_cast`) does not scale `burn_pulse`: no burning skill
   is a meter skill yet.
 
+### 7.45 Bowmaster core arrows (#339, spec #332 B7)
+
+Arrow Blow, Double Shot and Arrow Bomb moved from `skills/bowman.json` to `skills/bowmaster.json` (same keys, same
+WZ ids; a repeated key is a load error) and Strafe (3111006, book 311) joined them. All four are `slot: "active"` with the
+default eight ranks (the 20-level skills read WZ levels 3/5/8/10/13/15/18/20, the 30-level ones 4/8/12/15/19/23/27/30),
+no `weapon_families` (the held weapon gates nothing) and four-tier `rarity_bonuses` (#288 schema). Their legacy standalone
+cards (`arrow_blow_new/_rank/_shots`, `bow_double_shot_new/_rank/_shots`, `arrow_bomb_new/_rank/_shots/_targets`) are gone
+from `upgrades/bowman.json`; a playable Bowmaster's new / rank cards come from `UpgradePool.add_pool_skills`.
+
+- **Arrow Blow** (start, 1.0 s): one arrow at the nearest monster, the current ammo's sprite, WZ damage 196% (rank 1) to
+  260%. **Double Shot** (1.0 s): `bulletCount` 2, one arrow per monster over the two nearest (both at the same monster
+  when only one is in reach), 96% to 130% per arrow, Arrow Blow's `Use` sound (Sound.wz has no 3001005 node).
+  **Arrow Bomb: Bow** (2.0 s, up from the old 1 s placeholder because it is a six-target blast now competing for a
+  slot): the arrow explodes on the first monster it meets (`mobCount` 6, box +-130 to +-150), `x` 78% to 130%, stuns each
+  struck non-boss with `prop` 34% to 60% for `time` 2 to 6 s.
+- **Strafe** (2.5 s): `cast: {"rule": "nearest", "focus": true}`. `focus` makes admission want one target
+  (`SkillRunner._admit_nearest`), so the four arrows (`bulletCount`) all reuse it, aimed `REUSE_SPREAD` px apart as the
+  nearest rule always does for a reused target; a scheduled boss in reach is still picked first. 74% to 100% per arrow,
+  range 350 px, 700 px/s, radius 6. The hit art is Strafe's **own** `hit/0` (three frames; the spec said the WZ hit was
+  empty, B1 found it). Strafe's `effect` (a six-frame caster flash that opens on a 1x1 frame) is not drawn.
+- **Rarity bonuses** (tier C; names are the lineage's passives). Rare: `bow_mastery` damage x1.2 (all four). Epic: Arrow Blow
+  and Strafe `booster` cooldown x0.88; Double Shot `eye` range x1.25; Arrow Bomb `bigger_bomb` area x1.2. Unique: Arrow
+  Blow and Double Shot `final_attack` count +1, Strafe `final_attack` count +2 (six arrows), Arrow Bomb `wide_blast`
+  `blast_targets` +2. Legendary: the Unique's effect and id (so it shares the repeat counter) plus damage x1.2.
+  Every bonus changes the resolved cast (`test_rarity_bonus_effects`: arrows count as hit lines because an arrow stops at
+  the first monster on its line; Arrow Bomb's `area` and `blast_targets` are probed in a cluster around the first monster).
+- **Consequence of dropping the weapon gate.** Arrow Blow and Double Shot have no WZ `weapon` code, so with their explicit
+  `weapon_families` gone the ranged passive range bonus (`Loadout.RANGE`, Eye of Amazon) no longer reaches them; no
+  Bowmaster pool skill grants that passive, and Strafe and Arrow Bomb (WZ `weapon 45`) still take it.
+- Tests: `test_bowmaster_core_arrows.gd` (behaviour per skill, the catalog lists, the real-cache eight-rank check),
+  `test_rarity_bonus_effects.gd` (every bonus), and the old weapon-gate / 20-rank / standalone-card cases rewritten in
+  `test_bowman`, `test_hunter` and `test_bowmaster_data` (see the B7 notes).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7498,3 +7531,17 @@ Warrior bot equipment weights now explicitly name ancestor 100 with the same val
 | Attack box anchor of a flyer | feet-relative (the trailing point on the ground), not the flyer | tier C |
 | `info/effect` strike art | played at the damage impact (`attackAfter`) on each struck monster; `effectAfter` not modelled | tier C; the nodes are tier A |
 | `Summon` sound | plays at each follower spawn when `sounds.summon` is listed | tier C (no sound in the v83 client was verified to play at spawn) |
+
+### Bowmaster B7 constants (#339)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `cast.focus` on the nearest rule | admission wants one target, so every arrow of the volley reuses it | tier C, spec #332 |
+| Arrow Blow | cooldown 1.0 s, range 300 px, 600 px/s, radius 8, no pierce, 0.6 s hold (damage 196-260% tier A) | tier C (the old first-job numbers, unchanged) |
+| Double Shot | cooldown 1.0 s, same shot numbers, `bulletCount` 2 (tier A), Arrow Blow's `Use` sound | tier C; the count and damage tier A |
+| Arrow Bomb | cooldown 2.0 s (was 1.0 s), range 300 px, 600 px/s, radius 8; box, `mobCount`, `prop`, `time`, `x` tier A | tier C |
+| Strafe | cooldown 2.5 s, range 350 px, 700 px/s, radius 6, no pierce, 0.6 s hold (damage 74-100%, `bulletCount` 4 tier A) | tier C |
+| Rare `bow_mastery` (all four) | damage x1.2 | tier C |
+| Epic | Arrow Blow / Strafe cooldown x0.88; Double Shot range x1.25; Arrow Bomb area x1.2 | tier C |
+| Unique | Arrow Blow / Double Shot count +1; Strafe count +2; Arrow Bomb `blast_targets` +2 | tier C |
+| Legendary | the Unique's effect and id plus damage x1.2 | tier C |

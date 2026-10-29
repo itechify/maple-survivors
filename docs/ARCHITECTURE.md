@@ -809,6 +809,8 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   sums the running buffs' `attack_speed` effect (`PlayerBuffs.effect_total_where`); `_refresh_caster` feeds `Loadout.weapon_speed` / `speed_steps`,
   `Loadout.stats()` multiplies a damaging skill's `action_time` and `cooldown` by `speed_factor`, and
   `WeaponReach.action_spec(..., boost)` plus `player_state.action_scale` shorten the swing and the avatar's frames.
+- **`cast.focus` (#339).** On the `nearest` rule, `"focus": true` makes admission look for one target instead of `count`
+  (`SkillRunner._admit_nearest`), so the extra arrows of a projectile skill all reuse it (Bowmaster Strafe).
 - **Weapon-bound casts and HP cost (#163).** `SkillRunner` has two more cast rules beside `nearest` / `box` / `crowd`:
   `weapon_reach` (the nearest mob inside `WeaponReach.envelope(world)`, the union of the held weapon's afterimage boxes)
   and `range_around` (up to `mob_count` mobs whose body centre is within the canonical `range`); `reach_of` and

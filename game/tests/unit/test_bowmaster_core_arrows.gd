@@ -270,3 +270,86 @@ func test_a_rare_or_better_card_adds_one_rank_plus_its_bonus_and_the_preview_is_
 			assert_eq(a.loadout.skill_mods.get(key, {}), b.loadout.skill_mods.get(key, {}), "%s %s: same bonus twice" % [key, tier])
 			assert_false(a.loadout.skill_mods.get(key, {}).is_empty(), "%s %s: the bonus is applied" % [key, tier])
 
+
+
+# --- real cache: all eight ranks against Skill.wz ----------------------------------------------------------------------
+
+## skill -> [book, WZ id, WZ max level, the eight mapped levels (ceil(rank x max / 8))]
+const MAPPED := {
+	"arrow_blow": ["300", 3001004, 20, [3, 5, 8, 10, 13, 15, 18, 20]],
+	"bow_double_shot": ["300", 3001005, 20, [3, 5, 8, 10, 13, 15, 18, 20]],
+	"arrow_bomb": ["310", 3101005, 30, [4, 8, 12, 15, 19, 23, 27, 30]],
+	"strafe": ["311", 3111006, 30, [4, 8, 12, 15, 19, 23, 27, 30]],
+}
+
+
+func test_real_cache_all_eight_ranks_map_to_the_skill_wz_levels() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	var imgs := {}
+	for book: String in ["300", "310", "311"]:
+		var img := lib.img("Skill.wz/%s.img" % book)
+		assert_true(img != null, "Skill.wz/%s.img is in the cache" % book)
+		if img == null:
+			lib.free()
+			return
+		imgs[book] = img.root
+	var book := SkillBook.from_data(DataRepo.load_all().skills, imgs)
+	var lo := Loadout.new(book)
+	lo.weapon_family = "bow"
+	for key: String in MAPPED:
+		var row: Array = MAPPED[key]
+		var node: Dictionary = imgs[row[0]].skill["%07d" % int(row[1])]
+		assert_eq(book.max_level(key), row[2], "%s: WZ max level" % key)
+		assert_eq(book.max_rank(key), 8, key)
+		for rank_value in range(1, 9):
+			var lv := int(row[3][rank_value - 1])
+			assert_eq(book.canonical_level(key, rank_value), lv, "%s rank %d" % [key, rank_value])
+			var level: Dictionary = node.level[str(lv)]
+			var st := lo.stats(key, rank_value)
+			var label := "%s rank %d (level %d)" % [key, rank_value, lv]
+			assert_eq(int(st.level), lv, label)
+			match key:
+				"arrow_blow":
+					assert_near(st.damage_pct, float(level.damage) / 100.0, 0.000001, label)
+					assert_eq(st.count, 1, label)
+				"bow_double_shot":
+					assert_near(st.damage_pct, float(level.damage) / 100.0, 0.000001, label)
+					assert_eq(st.count, int(level.bulletCount), label)
+					assert_eq(st.count, 2, label)
+				"strafe":
+					assert_near(st.damage_pct, float(level.damage) / 100.0, 0.000001, label)
+					assert_eq(st.count, int(level.bulletCount), label)
+					assert_eq(st.count, 4, label)
+				"arrow_bomb":
+					assert_near(st.damage_pct, float(level.x) / 100.0, 0.000001, label)
+					assert_eq(st.blast_targets, int(level.mobCount), label)
+					assert_eq(st.blast_targets, 6, label)
+					var lt: Array = level.lt["$v"]
+					var rb: Array = level.rb["$v"]
+					assert_eq(st.box, Rect2(float(lt[0]), float(lt[1]), float(rb[0]) - float(lt[0]), float(rb[1]) - float(lt[1])), label)
+					assert_eq(book.canonical(key, lv, "prop"), float(level.prop), label)
+					assert_eq(book.canonical(key, lv, "time"), float(level.time), label)
+	# The spec's worked rank values (rank 1 / 4 / 8), as literals.
+	for expectation: Array in [["arrow_blow", 1.96, 2.20, 2.60], ["bow_double_shot", 0.96, 1.10, 1.30], ["strafe", 0.74, 0.85, 1.00]]:
+		for i in 3:
+			assert_near(lo.stats(expectation[0], [1, 4, 8][i]).damage_pct, expectation[i + 1], 0.000001, "%s" % expectation[0])
+	for i in 3:
+		var st := lo.stats("arrow_bomb", [1, 4, 8][i])
+		assert_near(st.damage_pct, [0.78, 1.00, 1.30][i], 0.000001)
+		assert_eq(book.canonical("arrow_bomb", int(st.level), "prop"), [34.0, 45.0, 60.0][i])
+		assert_eq(book.canonical("arrow_bomb", int(st.level), "time"), [2.0, 4.0, 6.0][i])
+	# Art and sounds resolve (Strafe's own hit/0 has three frames; the three sounds are the JSON nodes').
+	for key: String in MAPPED:
+		for suffix: String in ["icon", "iconDisabled", "iconMouseOver"]:
+			assert_true(lib.frame(book.wz_path(key) + "/" + suffix) != null, "%s %s" % [key, suffix])
+		var hit := book.visual(key, "hit", 1, 1)
+		assert_false(lib.anim(hit).is_empty(), "%s hit art %s" % [key, hit])
+		for sound: String in book.def(key).sounds.values():
+			if sound != "":
+				assert_true(lib.sound(sound) != null, "%s sound %s" % [key, sound])
+	assert_eq(lib.anim("Skill.wz/311.img/skill/3111006/hit/0").frame_count(), 3, "Strafe's own hit has three frames")
+	assert_true(lib.anim(String(book.def("arrow_bomb").ball)).frame_count() > 0)
+	assert_eq(Array(lib.missing), [])
+	lib.free()
