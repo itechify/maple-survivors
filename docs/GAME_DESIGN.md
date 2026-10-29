@@ -5282,7 +5282,8 @@ Teleport behaves exactly as before.
   v83's double-tap (tier C, owner), works with any weapon, has no cast hold (the character keeps moving) and plays the
   canonical cast effect and Use sound. Speed is added to the speed stat before the existing cap (140); jump is added to
   the jump stat (`100 + incJump + buff`) before the existing cap (123), so Dash obeys the same movement limits as
-  equipment. Cards: `dash_new`, `dash_rank` (max rank 10), weight 2 each, Pirate line only, no modifier.
+  equipment. Cards (#188, removed by #417): `dash_new`, `dash_rank` (max rank 10), weight 2 each, Pirate line only, no modifier.
+  **Now mobility (#417, 7.90):** Dash is `slot: mobility` and never a card; a Buccaneer learns it at round start.
 - **Bot.** Dash's `manual` block holds the flee rule (survivor data, tier C): `bot_flee_hp` 0.5, `bot_surround_count` 3,
   `bot_surround_distance` 120 px. `BotInput` presses the key when HP is below that fraction of its maximum with a mob
   inside the existing 160 px flee distance, or when that many mobs on its level (the duel band, feet +/-40 px) are within
@@ -6582,6 +6583,24 @@ target is a scheduled boss beats any crowd. A finisher below its `min_targets` i
 Both finishers read and spend the one bar: a cast of either leaves 0 (or the Energy Charge keep), so the other waits for ten
 fresh energy.
 
+### 7.90 Dash as Buccaneer's mobility skill (spec #412 BU-13, #417)
+
+Dash (5001005) is `slot: "mobility"` in `skills/pirate.json` (tier C, BU-13). Like Teleport and Rush it sits outside both
+slot tracks: `JobTree.start_skills` learns it at round start from the job's `mobility_skill` (Buccaneer 512), it takes no
+active or passive slot, and it is never offered as a card (`dash_new` and `dash_rank` are deleted from
+`upgrades/pirate.json`). Its definition is otherwise unchanged from 7.15: the explicit ten ranks (rank = WZ level, no
+`rank_levels` table), the `manual` bot block, art and Use sound, the cast on its skill key through `_try_manual_buffs`,
+and the recast once the buff ends. Corsair (#384) names the same definition and reuses it unchanged.
+
+- **Rank.** `RunWorld._level_ranks` applies the shared `balance.mobility_rank_levels` rule to the job's mobility skill:
+  rank 1 at Lv1, rank N at about Lv 2N, clamped to the ten ranks. No card ever raises it.
+- **Values** (real Skill.wz 500.img, tier A): rank 1 (Lv1) speed +12, jump +1, 4 s; rank 4 (Lv8) +18, +4, 8 s; rank 8
+  (Lv16) +26, +8, 16 s; rank 10 (Lv20) +30, +10, 20 s. Speed and jump stay under the 140 / 123 caps (7.15).
+- **Cooldown.** The buff's running duration (7.15), so a rank 1 Dash is ready again 4 s after it started.
+- **Out of scope.** Damage on Dash (that is Rush, 7.33) and ranking Dash through cards.
+
+Tests: `test_dash.gd` (the Buccaneer section and the real-cache rank test), `test_buccaneer_data.gd`, `test_data_files.gd`.
+
 ### 7.92 Buccaneer: morph forms (spec #412, B3 #415)
 
 Transformation and Super Transformation are Forms that wear a `Morph.wz` figure. Spec #308's table said a later job adds a
@@ -7694,7 +7713,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Bot Teleport interval | at least 5 simulation seconds between valid-destination escape requests, recorded in bot memo | C | a priori policy: allow several auto-cast cycles and ordinary kiting before another emergency blink; independent of the player's 0.3 s repeat; `BotInput.TELEPORT_MIN_INTERVAL` |
 | Teleport card weights | new/rank weight 2, max rank 20; no behaviour modifiers | C | ours; upgrades.json |
 | Skill keys (#188) | a manual skill's `skill_key` is its input action; Key Config lists only learned ones after the fixed actions; Teleport and Dash both default to X (a character never learns both); the three Teleports share `teleport`, so a saved `teleport` binding is Teleport's skill key; a press that cannot pay (MP) does nothing | C | ours (owner); `KeyBindings.SKILL_KEYS`, `RunWorld.manual_skill_keys`, `project.godot` |
-| Dash (#188) | canonical mpCon 14-5, speed x 12-30, jump y 1-10, time 4-20 s over ranks 1-10 (tier A); manual on its skill key instead of the v83 double-tap, any weapon, no cast hold, no cooldown beyond the running buff, speed and jump under the existing 140 / 123 caps, card weights 2/2 | A (numbers), C (manual key, no hold, weights) | Skill.wz 500.img 5001005; owner decision on #168; `skills/pirate.json`, `upgrades/pirate.json` |
+| Dash (#188) | canonical mpCon 14-5, speed x 12-30, jump y 1-10, time 4-20 s over ranks 1-10 (tier A); manual on its skill key instead of the v83 double-tap, any weapon, no cast hold, no cooldown beyond the running buff, speed and jump under the existing 140 / 123 caps, card weights 2/2 (cards removed by #417, see the Buccaneer B5 rows) | A (numbers), C (manual key, no hold, weights) | Skill.wz 500.img 5001005; owner decision on #168; `skills/pirate.json`, `upgrades/pirate.json` |
 | Bot Dash flee rule (#188) | press when HP < 50% with a mob within 160 px, or when 3+ same-level mobs are within 120 px; requires ready, usable and an affordable HP cost | C | ours; `skills/pirate.json` `dash.manual` (`bot_flee_hp`, `bot_surround_count`, `bot_surround_distance`); `BotInput._flee_buff` |
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP | A | Item.wz/Consume/0200.img, unchanged spec/info |
@@ -8009,6 +8028,14 @@ Tier C sub cadence: wait until admitted, restart interval at successful cast, no
 on the window's final tick. Tier C weapon tint RGB: fire (1,.35,.2), ice (.3,.7,1), lightning (1,.85,.2),
 holy (1,.8,.55), poison (.6,.9,.35); white without an elemental form. Synthetic test/probe durations are diagnostic,
 not playable tuning. Canonical effect percentages remain tier A data read through each form's mapped level.
+
+### Buccaneer B5 constants (#417)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Dash on the mobility slot (#417, spec #412 BU-13) | `skills/pirate.json` `dash.slot` "mobility": outside both slot tracks, learned at start, never a card (`dash_new` / `dash_rank` deleted) | C | Spec #412 BU-13; Corsair #384 reuses it |
+| Dash rank rule (#417, spec #412 BU-13) | the shared `balance.mobility_rank_levels` (rank 1 at Lv1, rank N at about Lv 2N, clamped to the ten ranks); no `rank_levels["10"]` | C | Spec #412 BU-13; #296 H6 |
+| Dash cooldown (#417) | a manual buff's cooldown is its running duration (4 -> 20 s by rank), the existing manual-buff rule | C | 7.15 (#188); 7.90 |
 
 ### Buccaneer B2 constants (#414)
 

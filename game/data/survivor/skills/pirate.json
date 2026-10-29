@@ -128,7 +128,8 @@
 			"rotate": true, "sounds": {"use": "Sound.wz/Skill.img/5201006/Use", "hit": ""}
 		},
 		"dash": {
-			"skill_id": 5001005, "book": "500", "job": 500, "kind": "buff", "slot": "active",
+			"skill_id": 5001005, "book": "500", "job": 500, "kind": "buff", "slot": "mobility",
+			"_slot": "tier C: spec #412 (BU-13, Buccaneer D1, #417): Dash is the manual mobility skill, outside both slot tracks, learned at round start and ranked by balance.mobility_rank_levels; never a card. Corsair (#384) reuses this definition unchanged.",
 			"name": "Dash", "desc": "Press its skill key to run faster and jump higher for a while.",
 			"text": {"desc": "Press the Dash key to temporarily raise your movement speed and jump."},
 			"icon": "Skill.wz/500.img/skill/5001005/icon", "damage": "none",
