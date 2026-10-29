@@ -37,6 +37,8 @@ const ARMOR_FLAT := "armor_flat"
 ## tier C: the cooldown factor (cast speed passives, cooldown cards and every other cooldown source together) never goes
 ## below this share of the skill's own cooldown. The reference's x0.35 floor.
 const COOLDOWN_FLOOR := 0.35
+## tier C (#376): the most a Heal threshold card can raise the "heals below" fraction to; full HP never counts as injured.
+const HEAL_THRESHOLD_CAP := 0.95
 
 var book: SkillBook
 ## Owned skill key -> survivor rank (>= 1).
@@ -281,6 +283,9 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
 ## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance, pull_chance (percent)/pull_gap (px; docs/GAME_DESIGN.md 7.35) and pierce_falloff,
+## heal_power (Heal's recovery multiplier, 1.0 without the card; docs/GAME_DESIGN.md 7.83) and heal_threshold (the resolved
+## fraction of max HP below which Heal restores: the data's `hp_threshold` plus the card, capped at HEAL_THRESHOLD_CAP; 0 for
+## a skill without a `heal` block),
 ## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
@@ -415,6 +420,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 			else book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
 		"pulse_interval": float(buff.get("pulse_interval", 0.0)),
 		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
+		"heal_power": maxf(0.0, skill_stat(key, "heal_power", 1.0)) if d.has("heal") else 1.0,
+		"heal_threshold": _heal_threshold(key, heal),
 		"hidden": bool(buff.get("hidden", false)),
 		"morph": int(book.canonical(key, lv, String(buff.morph_field), 0.0)) if buff.has("morph_field") else 0,
 		# The roll draws the Pirate stream 16 (RunWorld.start_buff): a future non-Pirate failure chance needs its own stream.
@@ -430,6 +437,15 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	if d.has("revive"):
 		resolved["revive"] = _revive(key, d.revive)
 	return resolved
+
+
+## Heal's resolved HP threshold (a fraction of max HP): the data's `hp_threshold` plus the `heal_threshold` modifier, capped at
+## HEAL_THRESHOLD_CAP and rounded to 1e-4 (modifier values are stored as float32, so 0.5 + 0.15 would read 0.65000001). 0 for a
+## skill without a `heal` block.
+func _heal_threshold(key: String, heal: Dictionary) -> float:
+	if heal.is_empty():
+		return 0.0
+	return roundi(clampf(skill_stat(key, "heal_threshold", float(heal.get("hp_threshold", 0.0))), 0.0, HEAL_THRESHOLD_CAP) * 10000.0) / 10000.0
 
 
 ## Seconds between casts: the skill's own cooldown with its cards, then the cast speed passives (an active skill's cooldown

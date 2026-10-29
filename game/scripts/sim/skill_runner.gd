@@ -350,8 +350,7 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 		"manual", "reaction":
 			return false # a pressed key or the world's trigger casts it, never the target scan
 		"hp_or_undead":
-			var heal: Dictionary = world.book.def(key).get("heal", {})
-			if float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0)):
+			if heal_injured(world, st):
 				return true
 			# Hidden (#194): the undead strike is an attack, so only the healing admits the cast.
 			if not bool(st.has_box) or world.is_hidden():
@@ -469,9 +468,13 @@ func _admit_hp_or_undead(world: RunWorld, key: String, st: Dictionary) -> Dictio
 	var targets := PackedInt32Array()
 	if bool(st.has_box) and not world.is_hidden():
 		targets = world.skill_box_targets(st.box, func(slot: int) -> bool: return world.swarm.mob_kind(slot).undead)
-	var heal: Dictionary = world.book.def(key).get("heal", {})
-	var injured := float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0))
-	return {"targets": targets} if injured or not targets.is_empty() else {}
+	return {"targets": targets} if heal_injured(world, st) or not targets.is_empty() else {}
+
+
+## Whether the character is below Heal's resolved threshold (docs/GAME_DESIGN.md 7.83). Strictly below: HP exactly at
+## max x threshold is not injured. The one test has_target, _admit_hp_or_undead and _resolve_hp_or_undead share.
+func heal_injured(world: RunWorld, st: Dictionary) -> bool:
+	return float(world.player_state.hp) < float(world.player_state.max_hp) * float(st.heal_threshold)
 
 
 func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
@@ -755,11 +758,19 @@ func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets
 	var lo := world.loadout
 	var luk := float(world.player_state.luk)
 	var recovery := CombatMath.heal_recovery_range(lo.int_stat, luk, lo.matk, power)
-	world.restore_player("hp", floori(CombatMath.roll_range(recovery, world.rng)), key)
+	recovery *= float(st.heal_power)
+	# The roll is drawn whether or not the character is injured (the RNG stream does not depend on HP); only an injured
+	# character takes it, so "heals below N%" is true of a strike cast at 60% HP.
+	var roll := floori(CombatMath.roll_range(recovery, world.rng))
+	if heal_injured(world, st):
+		world.restore_player("hp", roll, key)
 	var damage := CombatMath.heal_damage_range(lo.int_stat, luk, lo.matk, power, targets.size() + 1)
 	var hit := st.duplicate()
-	hit.damage_min = damage.x
-	hit.damage_max = damage.y
+	# The strike keeps the formula's own bounds and takes the skill's resolved damage multiplier (damage cards, Might and
+	# the other player-wide damage; 1.0 without any), so a damage card is not dead on Heal (#376).
+	var strike_mult := float(st.status_damage_mult)
+	hit.damage_min = damage.x * strike_mult
+	hit.damage_max = damage.y * strike_mult
 	hit.magic = true
 	hit.damage_type = "magic"
 	hit.defense = "mdd"
