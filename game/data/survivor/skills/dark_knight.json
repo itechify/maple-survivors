@@ -1,4 +1,134 @@
 {
 	"_doc": "Dark Knight line (spec #348, ticket D2 #350). Skills are defined here by D5-D9 (spec #348). Skill keys a job names before they are defined stay inert: undefined skills are never offered or learned. Power Strike and Slash Blast stay in skills/hero.json (DK-13): never define them here.",
-	"skills": {}
+	"skills": {
+		"spear_crusher": {
+			"_provenance": "Tier A: Skill.wz 1311001 at its eight mapped levels (4 8 12 15 23 25 27 30): damage 70 to 170 %, attackCount 2 (levels 1-15) or 3 (16-30), mobCount 1 to 3, the box lt (-130,-50) growing to (-150,-70) with rb (-16,0) (a 16 px dead zone in front of the knight), the per-level body action (burster1 for two hits, burster2 for three), the wings (effect) and rune rings (effect0), the K-th dragon thrust (effect1..3), hit/0 and the Use sound; the pole arm twin 1311002 has identical numbers and nodes. Tier B: effectK is the K-th thrust (D1 contact sheet; the blank wait of effect1/2/3 is 600/750/900 ms, the body's thrusts land there). Tier C: the explicit ranks table (DK-7: the default level-30 table lands rank 5 on level 19, where mobCount falls back to 1, so the rank would deal less than rank 4), the 0.6 s cooldown, the nearest-target admission (min_targets 1), the bonuses, a Final Attack hit also showing its thrust. Docs: GAME_DESIGN 7.70.",
+			"skill_id": 1311001,
+			"book": "131",
+			"job": 131,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Spear Crusher",
+			"desc": "Thrust your spear into the monsters in front of you, two or three times.",
+			"text": {
+				"desc": "Thrust your weapon into the monsters in front of you.",
+				"h": "Damage {damage}%, {attack_count} hits, up to {mob_count|monster|monsters}"
+			},
+			"icon": "Skill.wz/131.img/skill/1311001/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 0.6,
+			"ranks": [
+				4,
+				8,
+				12,
+				15,
+				23,
+				25,
+				27,
+				30
+			],
+			"action": "burster1",
+			"action_field": "action",
+			"action_times": {
+				"burster1": 0.9,
+				"burster2": 1.05
+			},
+			"action_time": 0.9,
+			"ball": "",
+			"hit": "Skill.wz/131.img/skill/1311001/hit/0",
+			"effect": "Skill.wz/131.img/skill/1311001/effect",
+			"rotate": false,
+			"art_by_family": {
+				"polearm": 1311002
+			},
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/131.img/skill/1311001/effect0",
+					"follow": true
+				},
+				{
+					"path": "Skill.wz/131.img/skill/1311001/effect1",
+					"follow": true,
+					"min_attack_count": 1
+				},
+				{
+					"path": "Skill.wz/131.img/skill/1311001/effect2",
+					"follow": true,
+					"min_attack_count": 2
+				},
+				{
+					"path": "Skill.wz/131.img/skill/1311001/effect3",
+					"follow": true,
+					"min_attack_count": 3
+				}
+			],
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1311001/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		}
+	}
 }
