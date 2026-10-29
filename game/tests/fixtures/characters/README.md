@@ -26,3 +26,10 @@ from a seed-1 Henesys bot clear. Reproduce with `tools/character_fixture.gd --jo
 seed, policy, revision and invulnerability: this is a diagnostic clear to obtain equipment, not evidence that the bot
 survives Henesys. The worn weapon is a two-handed axe (1412006); the equipment retains canonical stats. Use it for
 `--stage=sleepywood --job=112 --character=<absolute hero_t2.json>` or `--hub --job=112`.
+
+`buccaneer_t2.json` is the Buccaneer (512) fixture (spec #412, B11 #423): tier 2 unlocked and the tier-1 knuckle gear, inventory
+and mesos from a seed-1 Henesys bot clear (the worn weapon is the Lv25 knuckle 1482003). Reproduce with `tools/character_fixture.gd --job=512 --god --seed=1 --label=spec412/ticket-423
+--revision=<SHA> --out=<absolute path>`. No playable patch is needed. The `_doc` records seed, policy, revision and
+invulnerability: this is a diagnostic clear to obtain equipment, not evidence that the bot survives Henesys. Use it for
+`--stage=sleepywood --job=512 --character=<absolute buccaneer_t2.json>` or `--hub --job=512`. **It must wear a knuckle:
+without one the weapon reach and `weapon_reach` skills have nothing to read.**

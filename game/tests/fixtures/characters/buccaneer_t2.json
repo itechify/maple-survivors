@@ -1,0 +1,149 @@
+{
+	"_doc": {
+		"branch": "spec412/ticket-423",
+		"diagnostic": "invulnerable (RunWorld.god = true; fixture tool --god): the bot plays with damage ignored to reach a level its play does not survive to, for diagnostic fixtures",
+		"invulnerable": true,
+		"job": 512,
+		"outcome": "CLEARED",
+		"policy": "bot",
+		"revision": "196b6485fc1c696e6b970ae6accb60063d833429",
+		"round_seconds": 1006.9,
+		"rounding": "floating character fields rounded to six decimal places",
+		"seed": 1,
+		"source": "real headless Henesys bot round with the character invulnerable (RunWorld.god), all bosses/reward choices completed",
+		"stage": "henesys"
+	},
+	"equipment": {
+		"inventory": [
+			{
+				"id": 1072001,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			{
+				"id": 1060002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			{
+				"id": 1302000,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 17
+				}
+			},
+			{
+				"id": 1040002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 3
+				}
+			},
+			{
+				"id": 1060005,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incMHP": 5,
+					"incPDD": 19
+				}
+			},
+			{
+				"id": 1002062,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 6
+				}
+			},
+			{
+				"id": 1041006,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 4
+				}
+			},
+			{
+				"id": 1002041,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incDEX": 2,
+					"incPDD": 13
+				}
+			},
+			{
+				"id": 1482003,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 28
+				}
+			},
+			{
+				"id": 1072063,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 10
+				}
+			}
+		],
+		"worn": {
+			"hat": {
+				"id": 1002096,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 20
+				}
+			},
+			"overall": {
+				"id": 1052166,
+				"scrolls": 0,
+				"slots": 9,
+				"stats": {
+					"incDEX": 3,
+					"incEVA": 10,
+					"incINT": 1,
+					"incLUK": 2,
+					"incMDD": 15,
+					"incMHP": 10,
+					"incPDD": 27,
+					"incSTR": 2
+				}
+			},
+			"shoes": {
+				"id": 1072063,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 11
+				}
+			},
+			"weapon": {
+				"id": 1482003,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 29
+				}
+			}
+		}
+	},
+	"format": 3,
+	"job_id": 512,
+	"look": {},
+	"mesos": 751618,
+	"scrolls": {},
+	"tiers_unlocked": 2
+}

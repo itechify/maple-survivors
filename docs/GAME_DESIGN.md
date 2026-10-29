@@ -7280,7 +7280,7 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
-| Playable jobs and start skills (#284) | `survivor/jobs.json`: 112, 212 and 222 are playable (specs #296, #319); 212 is the default (`default_job`) for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
+| Playable jobs and start skills (#284) | `survivor/jobs.json`: 112, 212, 222 and 512 are playable (specs #296, #319, #412); 212 is the default (`default_job`) for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
 | Auto-AP rows (#284) | `balance.player.ap`: one `{primary, secondary, keyframes}` row per job, nearest ancestor's row otherwise, all AP to STR without a row. 212: INT primary, LUK secondary at the old Magician keyframes (Lv1 3 -> Lv200 202); the 200/100/300/400/510/520 rows keep the unported lines' old single rows | C | Owner, spec #282 (212); the rest the earlier tier C rows without weapon paths |
 | Hero playability and QA fixture (#306) | Playable 112 and 212; default 212. `hero_t2.json`: seed 1, bot, invulnerable Henesys clear, tier 2 unlocked; all equipment from the tier-1 drop band. Diagnostic equipment fixture, never survival evidence | C | Spec #296; fixture `_doc` |
 | Hero AP row (#298, spec #296) | `balance.player.ap["112"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204 (the secondary DEX target tracks the level plus about 4, the v83 Warrior gear pattern). HP growth is not re-listed: 112 inherits the Warrior row (100: 26 per level) through the lineage | C | Spec #296 |
@@ -8178,6 +8178,18 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 | Snatch schedule and stance (#422) | interval 6.0 s (above), `snatch` held 0.8 s of 0.99 s | C |
 | Morph blank-frame hold (#422) | a 1 x 1 morph frame holds the last drawn frame of its action (Demolition frame 3, 1.62 s); a blank first frame draws nothing; timing unchanged | C |
 | `FootholdMap.slide_along` guard (#422) | a foothold index the map lacks returns the start unchanged (no sim effect on a valid map; the rarity audit swaps the map under live mobs) | C |
+
+### Buccaneer B11 constants (#423)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Buccaneer is playable (#423, spec #412 BU-20, BU-21) | `jobs/buccaneer.json` `playable` true; `default_job` stays 212 (the pin in `survivor/jobs.json`); the Job page lists it last (canonical order 112, 212, 222, 512) with the Steel Knuckler box ("Steel Knuckler · WATK 18 · 0.75s") | C |
+| 512 Job page row (#423) | the I/L layout unchanged: left-aligned row, plate in every Button state, the blurb repeats the weapon box; Up/Down clamp at the first and last rows | C |
+| Bot card scores (#423) | `jobs/buccaneer.json` `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for the eleven pool keys (the numbers the default pool scorer gives; written out so Energy Drain, Energy Orb, both forms and Dragon Strike are named, not defaulted). H9 #305 had already stopped `BotInput.card_score` scoring a meter-gated skill 0; no engine change | C |
+| Bot engagement (#423) | no change: finishers, forms and buffs count no reach and Dragon Strike carries `bot.reach 0` (B8), so a Buccaneer with the whole pool in its loadout walks toward a mob (the longest counted reach is under `engage.kite_reach` 220); Dash is pressed by its `manual` rule (low HP with a mob close, or surrounded) and potions are drunk as before | C |
+| Hub kit (#423) | `jobs/buccaneer.json` `hub_kit`: fixture `buccaneer_t2.json`; scrolls 2044800-04 (knuckle ATT 100/60/10, dark 70, dark 30) and 2044805, 07, 09, 06, 08 (ACC, same rates), read from `scrolls/pirate.json`, 10 per stack; spare 1002001, 1482001, 1082002, 1040010 (the cache holds no armour with the Pirate bit, so the hat, gloves and top are the generic ones); `fallback_item` 1482006 (the Lv40 knuckle the flow driver's `redesign` wears when no drop fits) | C (test aid) |
+| Buccaneer fixture (#423) | `game/tests/fixtures/characters/buccaneer_t2.json`: job 512, tier 2, from a seed-1 invulnerable bot Henesys clear (`character_fixture.gd --job=512 --god`); it wears a knuckle (1482003). The `_doc` records seed, policy, revision and invulnerability | C (test aid) |
+| Buccaneer baseline oracle (#423) | `test_buccaneer_baseline`: seed 1, 14400 ticks, bot, god, synthetic books (every pool skill defined) plus a synthetic knuckle afterimage; digest over the initial player state and the event bytes; asserts casts > 0, at least three distinct skills and an Energy Drain cast | C (test aid) |
 
 ## 12. Later phases
 

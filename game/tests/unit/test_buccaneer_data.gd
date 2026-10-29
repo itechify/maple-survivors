@@ -106,7 +106,7 @@ func test_no_other_line_file_names_buccaneer_rows() -> void:
 
 # --- the job entry ----------------------------------------------------------------------------------------------------
 
-func test_job_512_has_the_spec_fields_and_is_not_playable_yet() -> void:
+func test_job_512_has_the_spec_fields_and_is_playable() -> void:
 	var jobs := _jobs(_data())
 	var rec := jobs.job(512)
 	assert_eq(String(rec.name), "Buccaneer")
@@ -118,15 +118,15 @@ func test_job_512_has_the_spec_fields_and_is_not_playable_yet() -> void:
 	assert_false("dash" in jobs.skill_pool(512), "Dash is the mobility skill, not a pool entry")
 	assert_eq(jobs.weapon_families(512), ["knuckle"])
 	assert_eq(jobs.creation_weapon(512), KNUCKLE)
-	assert_false(bool(rec.playable))
-	assert_ne(jobs.job_error(512), "", "a tool cannot choose it until B11 flips playable")
-	assert_false(512 in jobs.playable_jobs(), "Buccaneer is not in the playable list")
-	assert_true(112 in jobs.playable_jobs() and 212 in jobs.playable_jobs(), "Hero and F/P stay playable")
+	assert_true(bool(rec.playable), "B11 (#423) flipped playable")
+	assert_eq(jobs.job_error(512), "", "a tool can choose it")
+	assert_true(512 in jobs.playable_jobs() and 112 in jobs.playable_jobs() and 212 in jobs.playable_jobs())
+	assert_eq(jobs.default_job(), 212, "212 stays the default")
 
 
-func test_the_job_entry_has_no_hub_kit_yet_and_declares_the_meter() -> void:
+func test_the_job_entry_carries_the_hub_kit_and_declares_the_meter() -> void:
 	var entry: Dictionary = _data().jobs_survivor.jobs["512"]
-	assert_false(entry.has("hub_kit"), "the Buccaneer hub kit is B11")
+	assert_true(entry.has("hub_kit"), "the Buccaneer hub kit is B11 (test_buccaneer_hub_kit)")
 	assert_true(entry.has("meter"), "the Energy Charge meter block is data here")
 
 
