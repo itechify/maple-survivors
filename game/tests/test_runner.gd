@@ -6,6 +6,7 @@ extends Node
 ##   bash scripts/test.sh combat footholds # only files whose name contains one of the filters
 ##
 ## Exit code 0 = all passed, 1 = failures. Output: one line per failing assertion, one per skipped test, a summary.
+## A failed file/discovery or empty selection counts as one failed check; failed + skipped never exceeds total.
 
 const UNIT_DIR := "res://tests/unit"
 
@@ -29,40 +30,55 @@ func run(filters: PackedStringArray) -> int:
 	if files.is_empty():
 		print("FAIL no test files selected in %s (filters: %s)" % [UNIT_DIR, filters])
 		failed += 1
+		total += 1
 	for path in files:
+		guard.clear()
 		var script: GDScript = load(path) if ResourceLoader.exists(path) else null
-		if script == null or not script.can_instantiate():
-			print("FAIL %s: script failed to load or compile" % path)
+		if script == null or not script.can_instantiate() or not guard.errors().is_empty():
+			print("FAIL %s: script failed to load or compile: %s" % [path, guard.errors()])
 			failed += 1
 			total += 1
 			continue
 		var methods := _discover_methods(script)
-		if methods.is_empty():
-			print("FAIL %s: no non-static test_* methods found" % path)
+		if methods.is_empty() or not guard.errors().is_empty():
+			print("FAIL %s: test discovery failed or no non-static test_* methods found" % path)
 			failed += 1
-		for m in methods:
-			var tc: TestCase = script.new()
-			tc.current_test = "%s::%s" % [path.get_file().get_basename(), m]
-			guard.clear()
-			tc.before_each()
-			tc.call(m)
-			tc.after_each()
 			total += 1
-			for e in guard.errors():
-				tc.fail("script error: " + e)
-			if not tc.failures.is_empty():
+			continue
+		for m in methods:
+			# Count before invoking user code. An aborted invocation must never erase its test.
+			total += 1
+			guard.clear()
+			var result := _run_test(script, m)
+			var errors := guard.errors()
+			if result.is_empty() or not errors.is_empty():
 				failed += 1
-				for f in tc.failures:
-					print("FAIL " + f)
-			elif tc.skipped != "":
+				print("FAIL %s::%s: aborted test or script error: %s" % [path, m, errors])
+			elif not result.failures.is_empty():
+				failed += 1
+			elif result.skipped != "":
 				skipped += 1
-				print("SKIP %s: %s" % [tc.current_test, tc.skipped])
+				print("SKIP %s::%s: %s" % [path.get_file().get_basename(), m, result.skipped])
+			for f in result.get("failures", []):
+				print("FAIL " + f)
 	guard.detach()
 	TestCase.remove_tree(TestCase.test_dir())
 	print("\n%d tests, %d failed, %d skipped, %d files (%d ms)" % [total, failed, skipped, files.size(),
 		Time.get_ticks_msec() - t0])
 	print("TESTS_PASSED" if failed == 0 else "TESTS_FAILED")
 	return 0 if failed == 0 else 1
+
+
+## Isolates construction and hooks too: a runtime error can abort this function, returning an empty result.
+func _run_test(script: GDScript, method: StringName) -> Dictionary:
+	var tc := script.new() as TestCase
+	if tc == null:
+		return {}
+	tc.current_test = "%s::%s" % [script.resource_path.get_file().get_basename(), method]
+	tc.before_each()
+	tc.call(method)
+	tc.after_each()
+	return {"failures": tc.failures, "skipped": tc.skipped}
 
 
 ## The test_* methods of `script` and of the scripts it extends (a file may run another file's set for a second job, #312).
