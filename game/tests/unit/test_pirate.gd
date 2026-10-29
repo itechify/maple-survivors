@@ -129,9 +129,11 @@ func test_pirate_cards_are_offered_with_either_weapon_and_attacks_can_hit_more_m
 		for key: String in ["bullet_time", "flash_fist", "somersault_kick", "double_shot"]:
 			assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
 			if key in PORTED:
-				# B4 #416: the legacy _new/_rank/_targets cards are deleted; the buccaneer pool generates the rank cards.
-				for suffix in ["_new", "_rank", "_targets"]:
-					assert_true(w.upgrades.card(key + suffix).is_empty(), key + suffix + " is gone")
+				# B4 #416: the legacy _targets card is deleted; `_new` and `_rank` exist only because the playable Buccaneer's pool
+				# generates them (B11 #423 made 512 playable).
+				assert_true(w.upgrades.card(key + "_targets").is_empty(), key + "_targets is gone")
+				for suffix in ["_new", "_rank"]:
+					assert_eq(not w.upgrades.card(key + suffix).is_empty(), key in w.jobs.skill_pool(512), key + suffix + " follows the pool of 512")
 				continue
 			assert_eq(int(w.upgrades.card(key + "_rank").get("max_rank", 0)), 20)
 			if key == "bullet_time":
