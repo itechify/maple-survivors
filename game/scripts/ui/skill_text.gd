@@ -117,12 +117,31 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		var links := int(stats.get("mob_count", 1))
 		mechanics.append("Jumps to up to %d %s within %s px" % [links, "monster" if links == 1 else "monsters",
 			number(ChainCast.hop_of(stats))])
+	if String(stats.get("cast_rule", "")) == "hp_or_undead":
+		# Heal (#376): the resolved threshold, so a Mending Touch card shows in the window.
+		mechanics.append("Restores HP below %s%% health; strikes undead in the area" % number(float(stats.get("heal_threshold", 0.0)) * 100.0))
 	if def.has("pierce_falloff"):
 		mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
 			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
+	if stats.get("revive") is Dictionary:
+		var revive: Dictionary = stats.revive
+		# tier C (ours, BS8): the second-life line, the numbers of the plan PlayerRevive resolves.
+		mechanics.append("When a hit would kill you: return at %s%% HP, %s s guard; recharge %s" % [
+			number(float(revive.hp) * 100.0), number(float(revive.guard)), clock(SkillRunner.restart_cooldown(stats))])
 	if not mechanics.is_empty():
 		line += ("\n" if line != "" else "") + "; ".join(mechanics)
 	return line
+
+
+## `seconds` as M:SS (rounded to the whole second).
+static func clock(seconds: float) -> String:
+	var whole := maxi(0, roundi(seconds))
+	return "%d:%02d" % [whole / 60, whole % 60]
+
+
+## The notice a second life shows: the skill's name and when it works again.
+static func revive_notice(skill_name: String, recharge: float) -> String:
+	return "%s! Ready again in %s" % [skill_name, clock(recharge)]
 
 
 ## Copies of the cards of a choice_pending event with this skill text at the offered level, using the effective
@@ -150,6 +169,23 @@ func dress(cards: Array, lo: Loadout) -> Array:
 					card["desc"] = line
 		if lo.book.def(skill).has("rarity_bonuses"):
 			card["desc"] = c.get("desc", "") # preserve rank/bonus wording after dressing the learn detail
+		if lo.book.def(skill).has("form"):
+			var sub_name := _form_sub_label(lo.book, skill)
+			card["skill_mod_labels"] = {"damage": sub_name + " damage"}
+			var labels := PackedStringArray()
+			var bonus: Dictionary = card.get("rarity_bonus", {})
+			for effect: Dictionary in bonus.get("effects", []):
+				var stat := String(effect.stat)
+				if String(effect.op) == "mul" and stat == "damage":
+					labels.append(sub_name + " +" + number((float(effect.value) - 1.0) * 100.0) + "%")
+				elif String(effect.op) == "mul" and stat == "form_time":
+					labels.append("charge lasts " + number((float(effect.value) - 1.0) * 100.0) + "% longer")
+				else:
+					labels.append(UpgradePool._effect_label(stat, String(effect.op), float(effect.value)))
+			if not labels.is_empty():
+				var text := String(bonus.get("name", bonus.id)) + ": " + ", ".join(labels)
+				card.desc = String(card.desc).replace(String(bonus.text), text)
+				card.rarity_bonus.text = text
 		out.append(card)
 	return out
 
@@ -244,3 +280,10 @@ func _wz(key: String) -> Dictionary:
 		return {}
 	var node: Variant = strings.get("%07d" % id)
 	return node if node is Dictionary else {}
+
+static func _form_sub_label(book: SkillBook, skill: String) -> String:
+	var names := PackedStringArray()
+	for sub: Dictionary in book.def(skill).get("form", {}).get("subs", []):
+		var key := String(sub.skill)
+		names.append(String(book.def(key).get("name", key.replace("_", " ").capitalize())))
+	return " / ".join(names) if not names.is_empty() else "Sub-skill"

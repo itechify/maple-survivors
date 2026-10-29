@@ -455,7 +455,8 @@ func _scenario_redesign() -> void:
 	await _shot("redesign_sleepywood_loot")
 	w.god = false
 	var round_two_mesos := w.mesos
-	var lethal := {"boss": true, "source_kind": "attack", "mob": -1}
+	# "unrevivable": a ready second-life skill (Resurrection) must not turn this diagnostic hit into a survived one (#375).
+	var lethal := {"boss": true, "source_kind": "attack", "mob": -1, "unrevivable": true}
 	t0 = Time.get_ticks_msec()
 	while w.state != RunWorld.DEAD:
 		w.take_hit(1.0e9, false, "", w.player.pos + Vector2(40.0, 0.0), lethal)

@@ -43,6 +43,8 @@ const MIN_FLIGHT := 0.1
 ## TARGETS (mobs struck). Card previews, Skill window tooltips and the level-up window name `count` effects by this.
 const SHOTS := "shots"
 const TARGETS := "targets"
+## A cooldown counts as run out at or below this many seconds (the ready test of every cast path and of PlayerRevive).
+const READY_EPS := 1e-6
 
 ## Cast-rule presentation/count policy; admission, reach and resolution remain their own dispatch hooks.
 ## tier C: survivor targeting policy. Missing keys retain the legacy count and facing behavior.
@@ -116,6 +118,15 @@ static func restart_cooldown(st: Dictionary) -> float:
 	return maxf(1.0, float(st.cooldown)) if String(st.get("meter", {}).get("role", "")) == "finisher" else float(st.cooldown)
 
 
+## Starts `key`'s recharge from the resolved stats `st` (restart_cooldown) as both the time left and the HUD's total;
+## returns it. The cast paths that add a tick's overshoot (cast_ready) set the pair themselves.
+func start_recharge(key: String, st: Dictionary) -> float:
+	var recharge := restart_cooldown(st)
+	cooldowns[key] = recharge
+	cooldown_totals[key] = recharge
+	return recharge
+
+
 ## Horizontal reach in px from the player of a resolved skill `st` (Loadout.stats), the one number the bot reads to
 ## decide how close an attack needs it: a projectile or nearest-rule skill its range, a box skill its far edge (area
 ## cards included, the facing side), 0 for anything that is not an attack (buffs, manual skills, status-only and heal
@@ -168,10 +179,21 @@ func step(dt: float, world: RunWorld, preserve_manual_cast: bool = false) -> voi
 		cast_ready(dt, world)
 
 
-## Whether resolved stats `st` are an attack the Hidden state pauses: an active skill that is not a buff, not manual and
-## deals damage.
+## Whether cast rule `rule` never auto-casts: `manual` (a pressed key) or `reaction` (PlayerRevive's second life, which
+## the world triggers on a lethal hit). Such skills are never ready for cast_ready, never an attack, never given a reach.
+static func is_triggered_rule(rule: String) -> bool:
+	return rule == "manual" or rule == "reaction"
+
+
+## Whether resolved stats `st` belong to a skill that something else triggers (is_triggered_rule of its cast rule).
+static func is_triggered(st: Dictionary) -> bool:
+	return is_triggered_rule(String(st.cast_rule))
+
+
+## Whether resolved stats `st` are an attack the Hidden state pauses: an active skill that is not a buff, not triggered
+## (manual or reaction) and deals damage.
 static func is_attack(st: Dictionary) -> bool:
-	return String(st.kind) != "buff" and String(st.cast_rule) != "manual" and String(st.damage_type) != "none"
+	return String(st.kind) != "buff" and not is_triggered(st) and String(st.damage_type) != "none"
 
 
 ## Counts down every active skill, including while casting is blocked.
@@ -199,8 +221,8 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		if hidden and is_attack(stats_of(world, key)):
 			# Hidden (#194): the character cannot attack; the skill keeps its cooldown and resumes when Hidden ends.
 			continue
-		if not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6 \
-				and String(stats_of(world, key).cast_rule) != "manual":
+		if not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= READY_EPS \
+				and not is_triggered(stats_of(world, key)):
 			ready.append(key)
 	ready.sort_custom(func(a: String, b: String) -> bool:
 		var ca := float(cooldowns.get(a, 0.0))
@@ -261,12 +283,11 @@ func cast_manual_buff(world: RunWorld, key: String) -> bool:
 	if not world.can_cast() or not world.loadout.book.is_active(key):
 		return false
 	var st := stats_of(world, key)
-	if String(st.kind) != "buff" or float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_start_buff(key, st) \
+	if String(st.kind) != "buff" or float(cooldowns.get(key, 0.0)) > READY_EPS or not world.can_start_buff(key, st) \
 			or not world.can_pay_hp(int(st.hp_cost)):
 		return false
 	world.spend_hp(int(st.hp_cost))
-	cooldowns[key] = restart_cooldown(st)
-	cooldown_totals[key] = cooldowns[key]
+	start_recharge(key, st)
 	resolve_cast(world, key, st, world.cast_origin(), {})
 	return true
 
@@ -280,14 +301,13 @@ func cast_dash(world: RunWorld, key: String, side: int) -> bool:
 	if side == 0 or not world.can_cast() or not world.loadout.book.is_active(key):
 		return false
 	var st := stats_of(world, key)
-	if float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_pay_hp(int(st.hp_cost)):
+	if float(cooldowns.get(key, 0.0)) > READY_EPS or not world.can_pay_hp(int(st.hp_cost)):
 		return false
 	var move := world.player.dash_destination(side, float(st.displacement.get("distance", 0.0)), world.fhm, world.bounds)
 	if move.is_empty():
 		return false
 	world.spend_hp(int(st.hp_cost))
-	cooldowns[key] = restart_cooldown(st)
-	cooldown_totals[key] = cooldowns[key]
+	start_recharge(key, st)
 	casts += 1
 	fired_this_tick = true
 	world.player.facing = side
@@ -343,9 +363,10 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			return bool(st.has_box) and _any_target(world, origin, float(st.range), 1)
 		"chain":
 			return ChainCast.has_target(world, st, origin)
+		"manual", "reaction":
+			return false # a pressed key or the world's trigger casts it, never the target scan
 		"hp_or_undead":
-			var heal: Dictionary = world.book.def(key).get("heal", {})
-			if float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0)):
+			if heal_injured(world, st):
 				return true
 			# Hidden (#194): the undead strike is an attack, so only the healing admits the cast.
 			if not bool(st.has_box) or world.is_hidden():
@@ -386,7 +407,7 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return ChainCast.admit(world, st, origin)
 		"hp_or_undead":
 			return _admit_hp_or_undead(world, key, st)
-		"manual":
+		"manual", "reaction":
 			return {}
 	return {}
 
@@ -465,9 +486,13 @@ func _admit_hp_or_undead(world: RunWorld, key: String, st: Dictionary) -> Dictio
 	var targets := PackedInt32Array()
 	if bool(st.has_box) and not world.is_hidden():
 		targets = world.skill_box_targets(st.box, func(slot: int) -> bool: return world.swarm.mob_kind(slot).undead)
-	var heal: Dictionary = world.book.def(key).get("heal", {})
-	var injured := float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0))
-	return {"targets": targets} if injured or not targets.is_empty() else {}
+	return {"targets": targets} if heal_injured(world, st) or not targets.is_empty() else {}
+
+
+## Whether the character is below Heal's resolved threshold (docs/GAME_DESIGN.md 7.83). Strictly below: HP exactly at
+## max x threshold is not injured. The one test has_target, _admit_hp_or_undead and _resolve_hp_or_undead share.
+func heal_injured(world: RunWorld, st: Dictionary) -> bool:
+	return float(world.player_state.hp) < float(world.player_state.max_hp) * float(st.heal_threshold)
 
 
 ## Resolves an admitted cast, including Form sub-skills, through the ordinary cast pipeline.
@@ -755,11 +780,19 @@ func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets
 	var lo := world.loadout
 	var luk := float(world.player_state.luk)
 	var recovery := CombatMath.heal_recovery_range(lo.int_stat, luk, lo.matk, power)
-	world.restore_player("hp", floori(CombatMath.roll_range(recovery, world.rng)), key)
+	recovery *= float(st.heal_power)
+	# The roll is drawn whether or not the character is injured (the RNG stream does not depend on HP); only an injured
+	# character takes it, so "heals below N%" is true of a strike cast at 60% HP.
+	var roll := floori(CombatMath.roll_range(recovery, world.rng))
+	if heal_injured(world, st):
+		world.restore_player("hp", roll, key)
 	var damage := CombatMath.heal_damage_range(lo.int_stat, luk, lo.matk, power, targets.size() + 1)
 	var hit := st.duplicate()
-	hit.damage_min = damage.x
-	hit.damage_max = damage.y
+	# The strike keeps the formula's own bounds and takes the skill's resolved damage multiplier (damage cards, Might and
+	# the other player-wide damage; 1.0 without any), so a damage card is not dead on Heal (#376).
+	var strike_mult := float(st.status_damage_mult)
+	hit.damage_min = damage.x * strike_mult
+	hit.damage_max = damage.y * strike_mult
 	hit.magic = true
 	hit.damage_type = "magic"
 	hit.defense = "mdd"

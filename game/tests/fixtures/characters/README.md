@@ -33,3 +33,10 @@ character with tier 2 unlocked wearing a Lv25 Mace (1322004, a blunt weapon), th
 `tools/character_fixture.gd --job=122 --kit=1322004,1002001,1082002,1040010,1060002 --tiers=2 --label=spec308/ticket-317
 --revision=<SHA> --out=<absolute path>`; no playable patch is needed. The `_doc` records the kit ids, label and revision. Use it
 for `--stage=sleepywood --job=122 --character=<absolute paladin_t2.json>` or `--hub --job=122`; `--job=212` with it is an error.
+
+`bishop_t2.json` is the Bishop (job 232) twin (spec #372, BS9 #381): the same tier-1 kit as F/P's and tier 2, made by
+`tools/character_fixture.gd --job=232 --kit=1382002,1002013,1072019,1082019,1040002,1060002 --tiers=2 --label=spec372/ticket-381
+--patch=<json making 232 playable>` before BS10 enabled Bishop (its `_doc.patch` names the patch file, and its
+`_doc.revision` is the integration tip it was made on; new generation uses shipped data without `--patch`). The worn equipment is identical
+to `fp_arch_mage.json`'s (a Bishop wears the same wands and staves). `--hub --job=232` opens it through the job's `hub_kit`.
+A `--character` of this file runs as a Bishop without a `--job` flag; an explicit different job (e.g. `--job=212`) is an error.

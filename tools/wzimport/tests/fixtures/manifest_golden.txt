@@ -1058,6 +1058,8 @@ img Skill.wz/220.img *
 img Skill.wz/221.img *
 img Skill.wz/222.img *
 img Skill.wz/230.img *
+img Skill.wz/231.img *
+img Skill.wz/232.img *
 img Skill.wz/300.img *
 img Skill.wz/310.img *
 img Skill.wz/312.img skill/3121002/icon
@@ -1172,6 +1174,13 @@ img Sound.wz/Skill.img 2301002
 img Sound.wz/Skill.img 2301003
 img Sound.wz/Skill.img 2301004
 img Sound.wz/Skill.img 2301005
+img Sound.wz/Skill.img 2311004
+img Sound.wz/Skill.img 2311006
+img Sound.wz/Skill.img 2321001
+img Sound.wz/Skill.img 2321003
+img Sound.wz/Skill.img 2321006
+img Sound.wz/Skill.img 2321007
+img Sound.wz/Skill.img 2321008
 img Sound.wz/Skill.img 3001003
 img Sound.wz/Skill.img 3001004
 img Sound.wz/Skill.img 3101002

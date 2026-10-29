@@ -37,6 +37,8 @@ const ARMOR_FLAT := "armor_flat"
 ## tier C: the cooldown factor (cast speed passives, cooldown cards and every other cooldown source together) never goes
 ## below this share of the skill's own cooldown. The reference's x0.35 floor.
 const COOLDOWN_FLOOR := 0.35
+## tier C (#376): the most a Heal threshold card can raise the "heals below" fraction to; full HP never counts as injured.
+const HEAL_THRESHOLD_CAP := 0.95
 
 var book: SkillBook
 ## Owned skill key -> survivor rank (>= 1).
@@ -281,6 +283,10 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
 ## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance, pull_chance (percent)/pull_gap (px; docs/GAME_DESIGN.md 7.35) and pierce_falloff,
+## heal_power (Heal's recovery multiplier, 1.0 without the card; docs/GAME_DESIGN.md 7.83) and heal_threshold (the resolved
+## fraction of max HP below which Heal restores: the data's `hp_threshold` plus the card, capped at HEAL_THRESHOLD_CAP; 0 for
+## a skill without a `heal` block),
+## revive ({hp: share of max HP, guard: s, push: px} of a skill with a `revive` block, modifiers applied; PlayerRevive.resolve),
 ## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
@@ -373,7 +379,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
 		"speed_factor": speed_factor,
-		"cooldown": _cooldown(key, d, heal, lv, speed_factor),
+		"cooldown": _cooldown(key, d, heal, lv, r, speed_factor),
 		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range",
 			ChainCast.base_range(cast)))))
 			* (area if String(cast.get("rule", "")) == "range_around" else 1.0)
@@ -415,6 +421,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 			else book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
 		"pulse_interval": float(buff.get("pulse_interval", 0.0)),
 		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
+		"heal_power": maxf(0.0, skill_stat(key, "heal_power", 1.0)) if d.has("heal") else 1.0,
+		"heal_threshold": _heal_threshold(key, heal),
 		"hidden": bool(buff.get("hidden", false)),
 		"morph": int(book.canonical(key, lv, String(buff.morph_field), 0.0)) if buff.has("morph_field") else 0,
 		# The roll draws the Pirate stream 16 (RunWorld.start_buff): a future non-Pirate failure chance needs its own stream.
@@ -433,22 +441,38 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		resolved["form_sub_area"] = skill_stat(key, "area", 1.0)
 		resolved["form_time"] = skill_stat(key, "form_time", 1.0)
 		resolved["form_power"] = skill_stat(key, "form_power", 0.0)
+
+	if d.has("revive"):
+		resolved["revive"] = _revive(key, d.revive)
 	return resolved
+
+
+## Heal's resolved HP threshold (a fraction of max HP): the data's `hp_threshold` plus the `heal_threshold` modifier, capped at
+## HEAL_THRESHOLD_CAP and rounded to 1e-4 (modifier values are stored as float32, so 0.5 + 0.15 would read 0.65000001). 0 for a
+## skill without a `heal` block.
+func _heal_threshold(key: String, heal: Dictionary) -> float:
+	if heal.is_empty():
+		return 0.0
+	return roundi(clampf(skill_stat(key, "heal_threshold", float(heal.get("hp_threshold", 0.0))), 0.0, HEAL_THRESHOLD_CAP) * 10000.0) / 10000.0
 
 
 ## Seconds between casts: the skill's own cooldown with its cards, then the cast speed passives (an active skill's cooldown
 ## x (1 - cast speed)), the product of every factor floored at COOLDOWN_FLOOR of the base, then attack speed.
-func _cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int, speed_factor: float) -> float:
-	var base := _base_cooldown(key, d, heal, lv)
+func _cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int, rank: int, speed_factor: float) -> float:
+	var base := _base_cooldown(key, d, heal, lv, rank)
 	var cooldown := skill_stat(key, "cooldown", base)
 	if book.slot(key) == "active" and base > 0.0:
 		cooldown = maxf(cooldown * (1.0 - passive_total(CAST_SPEED_PCT) / 100.0), base * COOLDOWN_FLOOR)
 	return maxf(0.05, cooldown * speed_factor)
 
 
-## The seconds between casts before cards and attack speed: the definition's `cooldown_field` (a canonical level number,
-## e.g. `cooltime`) when it names one, else the Heal `recast_delay`, else the survivor `cooldown`, else 1.
-func _base_cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int) -> float:
+## The seconds between casts before cards and attack speed: the definition's `cooldown_by_rank` (survivor seconds per
+## rank, indexed by rank - 1, the last value repeating) when it has one, else its `cooldown_field` (a canonical level
+## number, e.g. `cooltime`) when it names one, else the Heal `recast_delay`, else the survivor `cooldown`, else 1.
+func _base_cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int, rank: int) -> float:
+	var by_rank: Variant = d.get("cooldown_by_rank")
+	if by_rank is Array and not (by_rank as Array).is_empty():
+		return float(by_rank[clampi(rank - 1, 0, by_rank.size() - 1)])
 	var fallback := float(heal.get("recast_delay", d.get("cooldown", 1.0)))
 	if d.has("cooldown_field"):
 		return book.canonical(key, lv, String(d.cooldown_field), fallback)
@@ -479,6 +503,12 @@ func _displacement(key: String, d: Dictionary, rank: int, lv: int) -> Dictionary
 		distance = float(block.get("distance", 0.0))
 	return {"direction": String(block.get("direction", "away")), "when": String(block.get("when", "after")),
 		"distance": maxf(0.0, distance)}
+
+
+## The second-life plan inputs of `key` (PlayerRevive reads them; nothing else does): see PlayerRevive.resolve.
+func _revive(key: String, block: Dictionary) -> Dictionary:
+	return PlayerRevive.resolve(block, skill_stat(key, "revive_hp", PlayerRevive.hp_base(block)),
+		skill_stat(key, "revive_guard", PlayerRevive.guard_base(block)))
 
 
 func _buff_effects(key: String, lv: int, buff: Dictionary) -> Dictionary:

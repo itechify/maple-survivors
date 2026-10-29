@@ -1,6 +1,6 @@
 extends TestCase
-## Every rarity bonus of every Hero, F/P and I/L Arch Mage skill changes the resolved cast, not just a stat number (spec #296, H7
-## audit; the I/L skills joined it in spec #319, I6 #325 / the merge of redesign).
+## Every rarity bonus of every Hero, F/P, I/L Arch Mage and Bishop skill changes the resolved cast, not just a stat number (spec
+## #296, H7 audit; the I/L skills joined it in spec #319, I6 #325 / the merge of redesign; the Bishop's core bolts in spec #372, BS5 #377).
 ## For each effect of each tier the same seeded world is cast twice, with and without the effect, against a field of mobs
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
@@ -14,7 +14,9 @@ extends TestCase
 ## Paladin skill inside the window), duration (`form_time`: ticks the window lasts), cooldown (windows started in 66 s) and its
 ## sub-skill's damage (`damage`: Charged Blow's hits inside the window).
 
+const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")
 const IL := preload("res://tests/fixtures/il_fixtures.gd")
+const RS := preload("res://tests/fixtures/resurrection_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BLIZZARD := preload("res://tests/unit/test_il_blizzard.gd")
 const BIG_BANG := preload("res://tests/unit/test_il_big_bang.gd")
@@ -30,7 +32,19 @@ const IL_SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", 
 	"chain_lightning", "blizzard", "big_bang_il"]
 ## The I/L skills with bonuses that another test audits: Ifrit is a summon (test_ifrit.gd).
 const IL_AUDITED_ELSEWHERE := ["ifrit"]
+## The Bishop skills whose bonuses another test audits (book 230+; Heal's `heal_power` / `heal_threshold` are test_bishop_heal's).  The dragons (BS7) are summons: test_bishop_dragons.
+const BISHOP_AUDITED_ELSEWHERE := ["heal", "summon_dragon", "bahamut"]
 const IL_BOOKS := [220, 221, 222]
+## The Bishop's reaction skills (BS8 #380): audited by the revive probe below, not by a cast (they never auto-cast).
+const REVIVE_SKILLS := ["resurrection"]
+const REVIVE_STATS := ["cooldown", "revive_hp", "revive_guard"]
+## The Bishop skills this audit casts (books 230/231/232, BS5 #377): Holy Arrow, Shining Ray, Angel Ray. They have their own synthetic
+## Skill.wz tables (`bishop_bolt_fixtures.gd`) and are cast at their top rank, like the I/L ones.
+const BISHOP_SKILLS := ["holy_arrow", "shining_ray", "angel_ray"]
+## The Bishop's Genesis and its Big Bang template child (BS6 #378): book 232 tables from test_bishop_genesis.gd (the Genesis box and
+## 15 mobs; Big Bang's no-box table), cast at their top rank like the other Bishop and I/L skills.
+const BISHOP_NOVAS := ["genesis", "big_bang_bishop"]
+const BISHOP_GENESIS := preload("res://tests/fixtures/bishop_genesis_fixtures.gd")
 
 var _resolved_skills := {}
 
@@ -50,7 +64,8 @@ func _skills_with_bonuses() -> Array:
 	var skills: Dictionary = _resolved()
 	var keys := []
 	for key: String in skills:
-		if (skills[key] as Dictionary).has("rarity_bonuses") and int(skills[key].job) < 300 and key not in IL_AUDITED_ELSEWHERE:
+		if (skills[key] as Dictionary).has("rarity_bonuses") and int(skills[key].job) < 300 and key not in IL_AUDITED_ELSEWHERE \
+				and key not in BISHOP_AUDITED_ELSEWHERE:
 			keys.append(key)
 	return keys
 
@@ -92,6 +107,10 @@ func _world(key: String) -> RunWorld:
 	var il: bool = int(_resolved()[key].job) in IL_BOOKS
 	if il:
 		return _finish_world(RunWorld.new(_il_setup()), key, true)
+	if key in BISHOP_SKILLS:
+		return _finish_world(RunWorld.new(BF.setup(RF.quiet_data(), 377)), key, true)
+	if key in BISHOP_NOVAS:
+		return _finish_world(RunWorld.new(BISHOP_GENESIS.add_books(BF.setup(RF.quiet_data(), 378))), key, true)
 	var data := RF.quiet_data()
 	var skill_job := int(data.skills.skills[key].job)
 	var job := 122 if skill_job in [120, 121, 122] else 112 if skill_job in [100, 110, 111, 112] else 212
@@ -175,7 +194,7 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	var w := _world(key)
 	# Poison pulses (hp lost) and knock-back (x moved) count as "affected" for the poison skills; an I/L skill only counts the
 	# mobs its own hit events name (its audit before the fold, and a chain's neighbours are shoved by soft collision).
-	var il: bool = int(_resolved()[key].job) in IL_BOOKS
+	var il: bool = int(_resolved()[key].job) in IL_BOOKS or key in BISHOP_SKILLS or key in BISHOP_NOVAS
 	var reach := _reach(w, key)
 	var layout := _layout(stat, reach)
 	var slots := []
@@ -237,6 +256,8 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 	assert_true(keys.size() >= 24 + IL_SKILLS.size(), "seven Hero, five Paladin, twelve F/P and %d I/L skills: %d" % [IL_SKILLS.size(), keys.size()])
 	for key in IL_SKILLS:
 		assert_true(key in keys, "%s (I/L) is audited" % key)
+	for key in BISHOP_SKILLS + BISHOP_NOVAS:
+		assert_true(key in keys, "%s (Bishop) is audited" % key)
 
 
 func test_every_il_skill_with_bonuses_is_audited_here_or_named_as_audited_elsewhere() -> void:
@@ -270,14 +291,26 @@ func test_the_audits_cover_the_whole_shipped_il_pool() -> void:
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
 	var skills := _resolved()
 	var il_checked := 0
+	var revive_checked := 0
+	var bishop_checked := 0
+	var nova_checked := 0
 	for key: String in _skills_with_bonuses():
 		var bonuses: Dictionary = skills[key].rarity_bonuses
 		for tier: String in TIERS:
 			for bonus: Dictionary in bonuses[tier]:
 				for effect: Dictionary in bonus.effects:
+					if key in REVIVE_SKILLS:
+						_assert_effect_changes_the_revive(key, tier, String(bonus.id), effect)
+						revive_checked += 1
+						continue
 					_assert_effect_changes_the_cast(key, tier, String(bonus.id), effect)
 					il_checked += 1 if key in IL_SKILLS else 0
+					bishop_checked += 1 if key in BISHOP_SKILLS else 0
+					nova_checked += 1 if key in BISHOP_NOVAS else 0
 	assert_eq(il_checked, IL_SKILLS.size() * 5, "each I/L skill: 1 + 1 + 1 + 2 effects")
+	assert_eq(revive_checked, REVIVE_SKILLS.size() * 5, "Resurrection: 1 + 1 + 1 + 2 effects")
+	assert_eq(bishop_checked, BISHOP_SKILLS.size() * 5, "each Bishop bolt: 1 + 1 + 1 + 2 effects")
+	assert_eq(nova_checked, BISHOP_NOVAS.size() * 5, "Genesis and Big Bang Bishop: 1 + 1 + 1 + 2 effects")
 
 
 func test_holy_charge_is_found_with_its_four_rarity_lists() -> void:
@@ -467,3 +500,80 @@ func test_the_form_probe_catches_a_modifier_a_charge_never_reads() -> void:
 	# And each stat the shipped bonuses use does move its own measure.
 	assert_true(int(_probe_form("fire_charge", [{"stat": "form_time", "op": "mul", "value": 1.25}], 16.0).length) > int(base.length))
 	assert_true(float(_probe_form("fire_charge", [{"stat": "form_power", "op": "add", "value": 0.1}], 16.0).strikes) > float(base.strikes))
+
+func test_the_probe_catches_a_genesis_modifier_the_cast_rule_never_reads() -> void:
+	# Genesis' pending box and Big Bang's charge box never read `range` or `pierce`; they do read `area`.
+	var reach := {"stat": "range", "op": "mul", "value": 1.5}
+	assert_false(bool(_probe("genesis", [reach], "range").edge), "a range modifier does not widen Genesis' box")
+	assert_false(bool(_probe("big_bang_bishop", [reach], "range").edge))
+	var pierce := {"stat": "pierce", "op": "add", "value": 1.0}
+	assert_eq(_probe("genesis", [pierce], "pierce").affected, _probe("genesis", [], "pierce").affected)
+	var area := {"stat": "area", "op": "mul", "value": 1.2}
+	assert_true(bool(_probe("genesis", [area], "area").edge))
+	assert_true(bool(_probe("big_bang_bishop", [area], "area").edge))
+
+
+func test_the_probe_catches_a_bishop_modifier_the_cast_rule_never_reads() -> void:
+	# A box rule never reads `range`; a nearest projectile reads neither `area` nor a shining box's pierce.
+	var reach := {"stat": "range", "op": "mul", "value": 1.2}
+	assert_false(bool(_probe("shining_ray", [reach], "range").edge), "a range modifier does not widen Shining Ray's box")
+	var area := {"stat": "area", "op": "mul", "value": 1.2}
+	assert_false(bool(_probe("angel_ray", [area], "area").edge), "an area modifier does not lengthen an Angel Ray shot")
+	assert_false(bool(_probe("holy_arrow", [area], "area").edge))
+	var pierce := {"stat": "pierce", "op": "add", "value": 1.0}
+	assert_eq(_probe("shining_ray", [pierce], "pierce").affected, _probe("shining_ray", [], "pierce").affected)
+	# And the modifiers the shipped bonuses rely on do widen.
+	assert_true(bool(_probe("shining_ray", [area], "area").edge))
+	assert_true(int(_probe("holy_arrow", [pierce], "pierce").affected) > int(_probe("holy_arrow", [], "pierce").affected))
+
+
+# --- the revive probe (Bishop BS8 #380): a reaction skill never casts, so its bonuses are audited on the revive itself ---
+
+## A Bishop world with `key` learned at rank 2, `effects` applied, hit by a lethal touch hit; returns what the revive did:
+## the event's HP, guard and recharge, and whether a second lethal hit 3 s later (past the base 2 s guard) gets through.
+func _revive_probe(key: String, effects: Array) -> Dictionary:
+	var w := RS.world()
+	w.loadout.set_rank(key, 2)
+	for e: Dictionary in effects:
+		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
+	RS.lethal_hit(w)
+	var revived := {}
+	for e: Dictionary in w.drain_events():
+		if e.type == "player_revived":
+			revived = e
+	# Walk 3.0 s: past the base 2.0 s guard, inside the Holy Shield's 3.5 s. A hit then lands only if the guard is over.
+	for i in 180:
+		w.step(DT, MoveInput.new())
+	var landed := RS.lethal_hit(w) != 0 or w.revives.size() > 1 or bool(w.player_state.dead)
+	return {"event": revived, "recharge": float(revived.get("recharge", -1.0)),
+		"revive_hp": int(revived.get("hp", -1)), "guard": float(revived.get("guard", -1.0)), "landed_after_3s": landed}
+
+
+func _assert_effect_changes_the_revive(key: String, tier: String, id: String, effect: Dictionary) -> void:
+	var stat := String(effect.stat)
+	var label := "%s %s %s (%s)" % [key, tier, id, stat]
+	assert_true(stat in REVIVE_STATS, "%s: a stat the revive probe knows" % label)
+	var base := _revive_probe(key, [])
+	var with := _revive_probe(key, [effect])
+	assert_false(base.event.is_empty() or with.event.is_empty(), "%s: the lethal hit revived" % label)
+	match stat:
+		"cooldown":
+			assert_true(float(with.recharge) < float(base.recharge) - 1.0, "%s: recharge %s -> %s" % [label, base.recharge, with.recharge])
+		"revive_hp":
+			assert_true(int(with.revive_hp) > int(base.revive_hp), "%s: HP back %d -> %d" % [label, base.revive_hp, with.revive_hp])
+		"revive_guard":
+			assert_true(float(with.guard) > float(base.guard), "%s: guard %s -> %s" % [label, base.guard, with.guard])
+			assert_true(bool(base.landed_after_3s), "%s: the base guard is over after 3 s" % label)
+			assert_false(bool(with.landed_after_3s), "%s: the longer guard still blocks at 3 s" % label)
+
+
+func test_the_revive_probe_catches_a_modifier_the_revive_never_reads() -> void:
+	# Damage, area and count are not read by PlayerRevive's plan: the recharge, HP share and guard stay as they were.
+	var base := _revive_probe("resurrection", [])
+	for effect: Dictionary in [{"stat": "damage", "op": "mul", "value": 1.2}, {"stat": "count", "op": "add", "value": 2.0}]:
+		var with := _revive_probe("resurrection", [effect])
+		assert_eq(with.revive_hp, base.revive_hp, str(effect))
+		assert_eq(with.guard, base.guard, str(effect))
+		assert_eq(with.recharge, base.recharge, str(effect))
+	# And the shipped modifiers do change it.
+	assert_true(float(_revive_probe("resurrection", [{"stat": "revive_guard", "op": "add", "value": 1.5}]).guard) > float(base.guard))

@@ -204,6 +204,59 @@ func test_the_i_l_kit_is_the_arch_mage_kit_and_every_scroll_fits_a_wand_or_staff
 			assert_eq(Equipment.requirement_error(img.root.get("info", {}), {"job_id": 222}), "", "an I/L can wear %d" % id)
 
 
+## A fresh Lv1 Bishop (232, the Wooden Wand) as the creation screen makes it; the kit only reads its job.
+func _bishop() -> Dictionary:
+	return SceneFlow.new_character({}, 232, _loader())
+
+
+func test_the_bishop_job_flag_picks_its_fixture_from_the_line_file() -> void:
+	assert_eq(HubTestKit.parse_args(PackedStringArray(["--hub", "--job=232"])),
+		{"job": 232, "character": "res://tests/fixtures/characters/bishop_t2.json", "mesos": 500000})
+	assert_eq(HubTestKit.parse_args(PackedStringArray(["--hub", "--job=232", "--character=/x/y.json"])).character, "/x/y.json")
+	var loaded := HubTestKit.load_character("res://tests/fixtures/characters/bishop_t2.json", _loader())
+	assert_eq(loaded.error, "", "the committed Bishop fixture loads through the hub's loader")
+	if loaded.error == "":
+		assert_eq(int(loaded.character.job_id), 232)
+
+
+func test_the_bishop_kit_is_the_arch_mage_kit_and_every_scroll_fits_a_wand_or_staff() -> void:
+	var character := HubTestKit.apply(_bishop(), 500000, _loader())
+	var held: Array = character.scrolls.keys().map(func(k: String) -> int: return int(k))
+	held.sort()
+	var want := KIT_SCROLL_IDS.duplicate()
+	want.sort()
+	assert_eq(held, want, "a Bishop wears wands and staves from the same scroll line as F/P: one kit for the Magician lines")
+	assert_eq(HubTestKit.kit_scrolls(232), HubTestKit.kit_scrolls(212))
+	assert_eq(HubTestKit.kit_equipment(232), HubTestKit.kit_equipment(212))
+	assert_eq(HubTestKit.fallback_item(232), 1382001)
+	assert_eq(character.job_id, 232, "the rest of the character is untouched")
+	assert_eq(CharacterSnapshot.validation_error(character), "")
+	if not require_cache():
+		return
+	var data := DataRepo.load_all()
+	var families: Array = data.jobs_survivor.jobs["232"].weapon_families
+	assert_true(WeaponInfo.family(1382001) in families, "the spare staff is a Bishop weapon family")
+	var lib := AssetLibrary.get_default()
+	for id: int in HubTestKit.kit_equipment(232):
+		var img := lib.img(AvatarRenderer.part_img_path(id))
+		assert_true(img != null, "%d is in the cache" % id)
+		if img != null:
+			assert_eq(Equipment.requirement_error(img.root.get("info", {}), {"job_id": 232}), "", "a Bishop can wear %d" % id)
+
+
+func test_the_bishop_hub_errors_name_the_unplayable_job_the_mirror_and_the_mismatch() -> void:
+	var data := DataRepo.load_all()
+	var shipped := JobTree.from_data(data.jobs, data.jobs_survivor)
+	assert_eq(HubTestKit.job_error({"job": 232}, _bishop(), shipped), "")
+	DataRepo.patch = {"jobs_survivor": {"jobs": {"232": {"playable": false}}}}
+	var mirrored_data := DataRepo.load_all()
+	var mirrored := JobTree.from_data(mirrored_data.jobs, mirrored_data.jobs_survivor)
+	DataRepo.patch = {}
+	assert_true(HubTestKit.job_error({"job": 232}, _bishop(), mirrored).contains("not playable"))
+	assert_true(HubTestKit.job_error({"job": 232}, _fixture(), shipped).contains("does not match"), "a Bishop request with an F/P character")
+	assert_true(HubTestKit.job_error({"job": 212}, _bishop(), shipped).contains("does not match"), "and the other way round")
+
+
 func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
 	var data := DataRepo.load_all()
 	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
