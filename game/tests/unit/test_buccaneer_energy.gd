@@ -3,6 +3,7 @@ extends TestCase
 ## first finisher (Drain's box, damage and heal by rank, the heal cap, admission at ten energy, what every rarity bonus changes), and
 ## the full-bar cue. Synthetic WZ-shaped book 511 (the eight mapped levels carry the real v83 numbers), seeded RNG, fixed 1/60 ticks.
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const TRANSFORMATION := preload("res://tests/unit/test_buccaneer_transformation.gd")
 const DT := 1.0 / 60.0
 const KNUCKLE := 1482000
 const MOB := 1110100
@@ -21,7 +22,8 @@ func _imgs() -> Dictionary:
 		var at := LEVELS.find(lv)
 		drain[str(lv)] = {"damage": DAMAGE[at] if at >= 0 else 265 + (lv - 1) * 5, "x": HEAL[at] if at >= 0 else 11 + lv / 3,
 			"mobCount": 1, "lt": {"$v": [-200, -100]}, "rb": {"$v": [0, 0]}}
-	imgs["511"] = {"skill": {"5111004": {"level": drain}}}
+	imgs["511"] = TRANSFORMATION.book_node() # B9 #421: Transformation and Shockwave (the real subs of the "subs neither earn nor receive" test)
+	imgs["511"].skill["5111004"] = {"level": drain}
 	return imgs
 
 
@@ -351,6 +353,12 @@ func test_the_held_bonus_is_three_percent_per_energy_on_pool_skills_and_nothing_
 	_mob(w, 40)
 	w.meter.value = 3
 	w.hit_mob(w.swarm.active.find(1), w.meter.begin_cast(w, "a_form_sub", sub_stats), -1)
+	assert_eq(w.meter.value, 3)
+	# Shockwave, the real sub (B9 #421; Demolition and Snatch join it in B10): no bonus, no receipt, no energy earned on a hit.
+	var shock := w.loadout.stats("shockwave", 4)
+	assert_eq(w.meter.begin_cast(w, "shockwave", shock), shock, "Shockwave neither gets the bonus nor earns energy")
+	w.meter.value = 3
+	w.hit_mob(w.swarm.active.find(1), w.meter.begin_cast(w, "shockwave", shock), -1)
 	assert_eq(w.meter.value, 3)
 
 

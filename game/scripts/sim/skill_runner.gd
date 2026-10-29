@@ -902,7 +902,7 @@ func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
 		"next": interval if interval > 0.0 else float(pending.get("delay", 0.0)),
 		"duration": duration, "interval": interval, "follow": bool(pending.get("follow_player", false)),
 		"effect": String(pending.get("effect", "")),
-		# tier C (Buccaneer #420): `oriented` fixes the left-facing box's side at the cast, `stagger` spaces the targets' hits.
+		# tier C (Buccaneer #420, #421): `oriented` fixes the left-facing box's side at the cast, `stagger` spaces the targets' hits.
 		"facing": world.player.facing if bool(pending.get("oriented", false)) else 0,
 		"stagger": float(pending.get("stagger", 0.0))})
 	if not ground.is_empty():

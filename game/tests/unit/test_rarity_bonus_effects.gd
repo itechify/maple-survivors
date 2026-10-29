@@ -16,15 +16,16 @@ const IL := preload("res://tests/fixtures/il_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BLIZZARD := preload("res://tests/unit/test_il_blizzard.gd")
 const BIG_BANG := preload("res://tests/unit/test_il_big_bang.gd")
+const TRANSFORMATION := preload("res://tests/unit/test_buccaneer_transformation.gd")
 const DT := 1.0 / 60.0
 const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
-const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep", "crit"]
-## The Buccaneer skills this audit casts (B4 #416 the five Brawler skills, B8 #420 Barrage and Dragon Strike; B6, B7, B9, B10 append theirs).
+const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep", "crit", "form_time"]
+## The Buccaneer skills this audit casts (B4 #416 the five Brawler skills, B8 #420 Barrage and Dragon Strike, B9 #421 Transformation; B6, B7, B10 append theirs).
 const BUCCANEER_SKILLS := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow",
-	"barrage", "dragon_strike"]
+	"barrage", "dragon_strike", "transformation"]
 const BARRAGE_DRAGON := preload("res://tests/unit/test_buccaneer_barrage_dragon.gd")
 const KNUCKLE := 1482000
 ## The I/L skills this audit casts (books 220/221/222); I8-I10 appended theirs.
@@ -97,6 +98,7 @@ func _buccaneer_world(key: String) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["512"]["playable"] = true
 	var setup := RF.with_basic_attack(RF.setup("quiet", 416, data))
+	setup.skill_imgs["511"] = TRANSFORMATION.book_node()
 	setup.equipment_info[KNUCKLE] = {"incPAD": 18, "attackSpeed": 5, "tuc": 7, "afterImage": "mace", "sfx": "mace"}
 	setup.skill_imgs["512"] = BARRAGE_DRAGON.book_node() # B8 #420: Barrage and Dragon Strike
 	var w := RunWorld.new(setup)
@@ -160,6 +162,8 @@ func _reach(w: RunWorld, key: String) -> float:
 	var st := w.loadout.stats(key)
 	if String(st.kind) == "summon":
 		return 200.0 # the fixture summon's attack box (run_fixtures.gd, #291)
+	if String(st.kind) == "form":
+		return 300.0 # a form has no reach of its own: the mobs stand inside its Shockwave strip (330 px) and its 400 px admission radius
 	match String(st.cast_rule):
 		"box":
 			return maxf(absf((st.box as Rect2).position.x), absf((st.box as Rect2).end.x))
@@ -212,7 +216,7 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
 	# Cooldown counts casts over 66 s (Shout: 6 at 12 s, 7 at 10.56 s); damage sums many casts so that rounding cannot hide a x1.2.
 	var repeating := stat in ["cooldown", "damage", "crit"]
-	var window := 66.0 if stat in ["cooldown", "crit"] else 12.0 if stat == "damage" else 3.5
+	var window := 66.0 if stat in ["cooldown", "crit"] else 12.0 if stat == "damage" else 14.0 if stat == "form_time" else 3.5
 	var affected := {}
 	var lines := 0
 	var crits := 0
@@ -220,6 +224,8 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	# that `meter_keep` shows in what a single cast leaves behind.
 	var finisher: bool = w.book.def(key).has("meter")
 	var orbs_left := -1
+	var form_from := -1
+	var form_ticks := 0
 	for tick in int(window / DT):
 		if finisher and (repeating or w.runner.casts == 0):
 			w.meter.value = 10 if repeating else 5
@@ -229,6 +235,10 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 		if not repeating and w.runner.casts >= 1:
 			w.runner.cooldowns[key] = 1.0e9
 		for e: Dictionary in w.drain_events():
+			if e.type == "form_started":
+				form_from = tick
+			elif e.type == "form_ended" and form_from >= 0 and form_ticks == 0:
+				form_ticks = tick - form_from
 			if e.type == "mob_hit":
 				lines += 1
 				crits += 1 if bool(e.crit) else 0
@@ -248,9 +258,10 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	var edge_hit := false
 	for s: int in edge_slots:
 		edge_hit = edge_hit or affected.has(s)
-	var direct_damage: bool = String(w.loadout.stats(key).damage_type) != "none"
+	# A form deals no damage itself; its Shockwave sub does (the form's `damage` modifier multiplies it).
+	var direct_damage: bool = String(w.loadout.stats(key).damage_type) != "none" or String(w.loadout.stats(key).kind) == "form"
 	return {"casts": w.runner.casts, "dealt": w.damage_dealt - w.swarm.poison_dealt if direct_damage else w.swarm.poison_dealt, "lines": lines, "crits": crits, "affected": affected.size(), "edge": edge_hit,
-		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left}
+		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left, "form_seconds": float(form_ticks) * DT}
 
 
 func test_every_pool_skill_with_bonuses_was_found() -> void:
@@ -323,6 +334,9 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 			assert_true(int(with.lines) > int(base.lines), "%s: hit lines %d -> %d" % [label, base.lines, with.lines])
 		"count", "pierce":
 			assert_true(int(with.affected) > int(base.affected), "%s: mobs affected %d -> %d" % [label, base.affected, with.affected])
+		"form_time":
+			assert_true(float(base.form_seconds) > 0.0 and float(with.form_seconds) > float(base.form_seconds),
+				"%s: form seconds %.2f -> %.2f" % [label, base.form_seconds, with.form_seconds])
 		"summon_count":
 			assert_true(int(with.summons) > int(base.summons), "%s: allies %d -> %d" % [label, base.summons, with.summons])
 		"meter_keep":

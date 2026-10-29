@@ -347,6 +347,192 @@
 					}
 				]
 			}
+		},
+		"transformation": {
+			"skill_id": 5111005,
+			"book": "511",
+			"job": 511,
+			"kind": "form",
+			"slot": "active",
+			"name": "Transformation",
+			"desc": "Turns you into a fierce morph for a short time: tougher, faster, with a Shockwave rolling out in front of you.",
+			"text": {
+				"desc": "Turns you into the Buccaneer's fierce morph for a few seconds: more defence, speed and jump. While transformed, a Shockwave erupts along the ground in front of you on its own."
+			},
+			"icon": "Skill.wz/511.img/skill/5111005/icon",
+			"damage": "none",
+			"_provenance": "Tier A: Skill.wz 5111005 morph 1000, pdd = mdd 6 to 40 at the eight mapped levels (rank 1 / 4 / 8 = levels 3 / 10 / 20: 6 / 20 / 40), speed 40, jump 20, and the Use sound; neither node has cast art. The WZ time (120 s) and cooltime (360 to 530 s) are session-scale and not used, `str` has no buff consumer. Tier C (spec #412 BU-2, BU-7, BU-8, BU-9, B9 #421): a pool Form of the exclusive group buccaneer_transformation beside Super Transformation, 10 s window, 14 s cooldown counted from the cast, admission when a living mob is within 400 px, no damage modifier (the power is the stat package and Shockwave), Shockwave 1.0 s after the start and every 3.0 s, the alert2 stance held 0.6 s, the rarity bonuses. Docs: GAME_DESIGN 7.92.",
+			"cast": {
+				"rule": "form",
+				"mob_within": 400
+			},
+			"cooldown": 14.0,
+			"form": {
+				"duration": 10.0,
+				"exclusive_group": "buccaneer_transformation",
+				"effects": {},
+				"subs": [
+					{
+						"skill": "shockwave",
+						"first_after": 1.0,
+						"interval": 3.0
+					}
+				]
+			},
+			"buff": {
+				"stat": "pdd",
+				"field": "pdd",
+				"morph_field": "morph",
+				"effects": [
+					{
+						"stat": "mdd",
+						"field": "mdd"
+					},
+					{
+						"stat": "speed",
+						"field": "speed"
+					},
+					{
+						"stat": "jump",
+						"field": "jump"
+					}
+				]
+			},
+			"action": "alert2",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5111005/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Transformation Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "lasting",
+						"text": "Lasting Transformation",
+						"effects": [
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "lasting",
+						"text": "Lasting Transformation",
+						"effects": [
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"shockwave": {
+			"skill_id": 5111006,
+			"book": "511",
+			"job": 511,
+			"kind": "instant",
+			"slot": "form_sub",
+			"form_sub_of": [
+				"transformation"
+			],
+			"name": "Shockwave",
+			"desc": "A wave of earth spikes erupts along the ground in front of you, striking several monsters.",
+			"text": {
+				"desc": "While transformed, an earthen shockwave rolls out in front of you every few seconds, erupting under up to six monsters.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters}."
+			},
+			"icon": "Skill.wz/511.img/skill/5111006/icon",
+			"damage": "physical",
+			"_provenance": "Tier A: Skill.wz 5111006 damage 310 to 700 % and mobCount 4 to 6 at the eight mapped levels (the 30-level table 4 8 12 15 19 23 27 30: rank 8 of the parent reads level 30), the canonical box lt (-330,-140) rb (0,20), the shockwave action, the effect and effect0 to effect3 art (five 8-frame ripples, each with a blank lead-in of 1380 to 1980 ms), the 5-frame hit/0, and the Use and Hit sounds. Tier C (spec #412 BU-3, B9 #421): a Form sub of Transformation (B10 adds Super Transformation to form_sub_of) with no slot and no card, one box cast on at least one target, 3.0 s interval, the 0.8 s stance hold, and a pending strike 1.38 s after the cast (orchestrator ruling: the damage lands with the art's first eruption) on the box side fixed at the cast. Docs: GAME_DESIGN 7.92.",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 3.0,
+			"pending": {
+				"delay": 1.38,
+				"oriented": true,
+				"effect": ""
+			},
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/511.img/skill/5111006/effect",
+					"x": 0,
+					"facing": true
+				},
+				{
+					"path": "Skill.wz/511.img/skill/5111006/effect0",
+					"x": 0,
+					"facing": true
+				},
+				{
+					"path": "Skill.wz/511.img/skill/5111006/effect1",
+					"x": 0,
+					"facing": true
+				},
+				{
+					"path": "Skill.wz/511.img/skill/5111006/effect2",
+					"x": 0,
+					"facing": true
+				},
+				{
+					"path": "Skill.wz/511.img/skill/5111006/effect3",
+					"x": 0,
+					"facing": true
+				}
+			],
+			"action": "shockwave",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/511.img/skill/5111006/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5111006/Use",
+				"hit": "Sound.wz/Skill.img/5111006/Hit"
+			}
 		}
 	}
 }
