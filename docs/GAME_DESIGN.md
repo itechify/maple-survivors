@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212), the default, Arch Mage (Ice, Lightning, 222), and Buccaneer (512); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212; default), Arch Mage (Ice, Lightning, 222), and Buccaneer (512); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -4422,6 +4422,57 @@ The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and rec
   the specced systems with no gameplay effect of their own (schema in ARCHITECTURE.md 4.4.3).
 - **Playtest default length 30:00** (tier C tooling): `scripts/playtest.sh` allows time for the three entry-relative
   boss waits and their fights, ending at death, clear or the cap; documented in AGENTS.md and the script header.
+
+### Buccaneer BC12 QA and regression smoke (#424, 2026-10-29)
+
+Seeds **1, 2, 2026**, every tier-1 stage, bot/random, all four playable jobs on this branch; Sleepywood bot with
+starter equipment and each job's committed tier-2 fixture. `JOBS=3`, `ISOLATE=424`, read-only `cache-413`. All 120
+records completed and all 40 batch exits were 0; no crash, world warning or missing asset. C = CLEARED, D = DEAD, T
+= TIMEOUT at the 1800 s cap; values are seconds, with unreached maps and bosses retained as absent observations. A
+timeout is never a clear. The fixtures differ (Hero's includes scrolls); this is a regression comparison, not a
+gear-matched class ranking.
+
+| Stage / policy | Buccaneer 512 | Hero 112 | F/P 212 | I/L 222 |
+|---|---|---|---|---|
+| henesys / bot | 1/3 C; D 319.6–626.9; C 1036.8 | 0/3 C; D 327.7–688.2 | 0/3 C; D 305.0–651.7 | 0/3 C; D 309.5–505.0 |
+| henesys / random | 3/3 C; C 1032.1–1067.4 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 308.3–309.9 | 0/3 C; D 309.1–672.6 |
+| ellinia / bot | 0/3 C; D 895.0–1030.5; T 1800.0 (n=1) | 0/3 C; D 221.0–646.5 | 0/3 C; D 629.1–644.2 | 0/3 C; D 624.1–654.6 |
+| ellinia / random | 0/3 C; D 989.5; T 1800.0 (n=2) | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 328.4–660.2 | 0/3 C; D 627.6–658.2 |
+| perion / bot | 1/3 C; D 401.9–503.5; C 1048.2 | 0/3 C; D 288.9–493.0 | 0/3 C; D 305.7–456.3 | 0/3 C; D 308.3–669.7 |
+| perion / random | 1/3 C; D 332.1–359.5; C 1103.3 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 308.7–421.5 | 0/3 C; D 389.6–425.7 |
+| kerning / bot | 1/3 C; D 338.7–361.1; C 991.9 | 0/3 C; D 326.8–568.7 | 0/3 C; D 307.9–315.0 | 0/3 C; D 309.6–537.7 |
+| kerning / random | 1/3 C; D 280.4–382.2; C 998.6 | 0/3 C; D 339.0–372.7 | 0/3 C; D 306.0–317.3 | 0/3 C; D 307.0–316.4 |
+| sleepywood / starter | 0/3 C; D 13.8–15.4 | 0/3 C; D 16.4–20.2 | 0/3 C; D 10.6–12.0 | 0/3 C; D 11.4–11.8 |
+| sleepywood / kit | 0/3 C; D 23.1–28.7 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 23.8–826.2; C 936.2 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+Job 512: tier-1 clears 8/24; first boss reached 23/24. Job 112: tier-1 clears 3/24; first boss reached 20/24. Job
+212: tier-1 clears 0/24; first boss reached 24/24. Job 222: tier-1 clears 0/24; first boss reached 24/24.
+
+Buccaneer Henesys bot filled six actives in 3/3 runs at 130.4–205.1 s; its deaths 319.6/626.9 and clear 1036.8
+reproduce BC11 (rounded there). Sleepywood early deaths are recorded without tuning or stopping, as explicitly
+requested by the owner. F/P and Hero Henesys bot outcomes reproduce the BC2–BC11 smoke; the full other-job matrix
+is compared with the I/L QA record and equivalent Bishop/Paladin QA notes.
+
+Across all 30 Buccaneer records: energy_drain 3569 casts, energy_orb 2010 casts, shockwave 778 casts, snatch 0
+casts, demolition 0 casts. Measured post-tick occupancy: morph 1000 3291.05 s, morph 1001 0.00 s. No smoke loadout
+selected Super Transformation, so its natural occupancy and Snatch/Demolition counts are zero; those paths have
+diagnostic visual coverage only. Per-run counters and occupancy are retained in `BC12-424.md` in the implementation
+notes and the raw local JSON, not inferred from nominal durations. The observer only reads cast events and morph
+snapshots; it changes no RNG or world state.
+
+Both flow scenarios passed (`redesign --job=512`, `creation --jobs=212,512`); screenshots inspected. Ordinary seed
+2026 x8 playtests: Henesys DEAD 680.75 s at Lv29, Sleepywood kit CLEARED 904.433 s at Lv82, starter DEAD 15.333 s
+at Lv1, all `missing: []`. Windowed autoplay is frame/input-driven, so those outcomes are visual evidence, not
+paired headless regressions. Disposable rank-8 invulnerable stationary-crowd probes capture every pool skill and
+sub, the pips/full-bar cue, Drain/Orb, Dragon Strike pillars, Snatch's pull and both morphs. Morph contact sheets
+cover walk/jump/attacks, Demolition's blank-frame hold, and both knuckles' full fist/dragonstrike sequences.
+Screenshots inspected under `evidence/424/` (gitignored). Shockwave damage is within one 60 Hz tick of the 1.38 s
+art lead-in; the documented 0.8 s stance still returns to idle before eruption. No tuning or stance-priority change
+was made.
+
+Rust 70 and web-shell 62 tests pass. Pinned web templates are absent: local export/artifact gate unverified, no
+download; CI exports. No import-screen/source changes. The final commit's sequential cache/no-cache suite logs and
+counts are in the BC12 implementation note; SKIPs prove no asset behavior. No tests deleted or hashes recaptured.
 
 ## 5. Experience and levels
 
