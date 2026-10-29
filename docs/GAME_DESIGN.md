@@ -29,7 +29,7 @@ behaviour cards mentioned in them are gone. Target design:
 | Passives | 9 common passives, Maple-named: Maple Warrior (Might), Hyper Body (Max HP), Haste (Speed), Recovery (Regen), Booster (Cooldown), Area, Holy Symbol (EXP), Iron Body (Armor), Sharp Eyes (Crit). Rank 1-5, no rarity. Starting values follow the reference (tier C). | 7.6, 8 |
 | Cards | 3 per draw, weights 1.2 owned active or Mastery / 1.0 new active / 0.8 passive rank / 0.5 new passive. Boss bonus draw kept. No reroll, banish or skip. Power Elixir fallback. | 8 |
 | Combat | Maple formula plus auto-AP in one stat row per job. No MP (cooldowns only). No level-gap penalties. No MISS (ADR 0005). | 5, 6, 7 |
-| Mobility | Teleport, Flash Jump, Dash or Rush on a skill key from Lv1, outside the slots. | 2, 7.15, 7.33 |
+| Mobility | Teleport, Flash Jump, Dash or Rush on a skill key from Lv1, outside the slots; Bowmaster has none (D1). | 2, 7.15, 7.33 |
 | Equipment | Job-class requirement only. `reqLevel` is the tier's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
 | Account | NX, Cash Shop, pets unchanged. Cash equipment adds Fortune. | 8.4 |
 
@@ -104,6 +104,21 @@ and freeze, and Big Bang through the shared skill-template seam. Ranks, rarity b
 menus reuse the F/P systems. Tooling includes `--job=222`, the I/L tier-2 fixture and job-aware creation/redesign flows.
 The deterministic I/L oracle now covers the full pool; F/P oracles remain unchanged. QA results are in section 4.2.
 
+**Landed in the Bowmaster spec (#332, B1–B13 #333–#345):** Bowmaster (312) is playable alongside Hero and the
+Arch Mages; F/P (212) remains the default. It starts with Arrow Blow and a War Bow, with no manual mobility skill.
+Its ten-skill pool supplies core arrows, Arrow Rain, Dragon's Breath, Inferno's burn, Hurricane's moving burst and the
+physical Silver Hawk/Phoenix followers. Shared seams are exact-job ammo schedules, BurstCast, burn and physical
+followers. The Bowmaster line owns its AP, skills, bonuses, bot scores and hub kit; `bowmaster_t2.json` supplies the
+Bowman tier-1 equipment kit with tier 2 unlocked. Section 4.2 records QA and the regression smoke; no balance tuning.
+
+**Bowmaster B13 verification (#345):** cached full suite 2563 executed passes, 0 failed, 0 skipped;
+cache-less suite 2563 total, 2281 executed passes, 0 failed, 282 cache-dependent SKIPs (each named in
+`_scratch/345-qa/no-cache-skips.log`; a SKIP proves no asset behaviour). F/P, Hero, I/L and Bowmaster replay
+oracles retain their constants. Rust and web-shell tests pass; pinned web templates are absent, so local web
+export/artifact validation is unverified and left to CI. Redesign and three-job creation flows pass; all ten skill
+cast captures, ammo notices, Hurricane stream, Inferno burn, Arrow Rain strike and follower hover were inspected.
+No balance tuning. Section 4.2 records the smoke and its weak-survival finding.
+
 ### Known design gaps (open after the slice)
 
 These are findings of the QA pass, #293 and #307, recorded as gaps, not as met targets. Nothing here was tuned in #294.
@@ -131,7 +146,7 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
 ## 1. The run
 
 1. **Create or continue.** Character select shows three slots. Creating a character is name, look (the v83 Explorer
-   face, hair and outfit options) and a Job page listing the playable jobs (Hero, Arch Mage (Fire, Poison) and Arch Mage (Ice, Lightning), with Arch Mage (Fire, Poison) selected by default);
+   face, hair and outfit options) and a Job page listing the playable jobs (Hero, Arch Mage (Fire, Poison), Arch Mage (Ice, Lightning) and Bowmaster, with Arch Mage (Fire, Poison) selected by default);
    the character is that 4th job from Lv1 and keeps it for good. Selecting a living character opens its **Free Market**.
 2. **Free Market (home).** The v83 Entrance 910000000 with Bgm00/FloralLife. Walking, jumping, its two ladders and the
    existing same-map portal links work; no combat, spawning, drops or round timer run there. The Equip (E) and Item (I)
@@ -4319,6 +4334,49 @@ The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and rec
 - **Playtest default length 30:00** (tier C tooling): `scripts/playtest.sh` allows time for the three entry-relative
   boss waits and their fights, ending at death, clear or the cap; documented in AGENTS.md and the script header.
 
+**Bowmaster QA smoke (spec #332, B13 #345, 2026-10-29).** Training seeds 1/2/2026, `JOBS=3`,
+`ISOLATE=345`, read-only `cache-rd332`, no tuning patches or held-out seeds. All four tier-1 stages, bot/random,
+for jobs 312/212/112/222, plus Sleepywood bot with starter gear and each job's existing kit fixture:
+**120/120 records, 40/40 batch exits 0; no crashes, world warnings, missing assets or TIMEOUTs.** Cells give
+clears/3, death (D) time range and clear (C) time(s), in seconds.
+
+| Stage / policy | Bowmaster 312 | F/P 212 | Hero 112 | I/L 222 |
+|---|---|---|---|---|
+| henesys-bot | 0/3 C; D 304.5–360.6 | 0/3 C; D 305.0–651.7 | 0/3 C; D 327.7–688.2 | 0/3 C; D 309.5–505.0 |
+| henesys-random | 0/3 C; D 306.5–456.9 | 0/3 C; D 308.3–309.9 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 309.1–672.6 |
+| ellinia-bot | 0/3 C; D 305.2–810.4 | 0/3 C; D 629.1–644.2 | 0/3 C; D 221.0–646.5 | 0/3 C; D 624.1–654.6 |
+| ellinia-random | 0/3 C; D 168.7–995.1 | 0/3 C; D 328.4–660.2 | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 627.6–658.2 |
+| perion-bot | 0/3 C; D 289.1–377.3 | 0/3 C; D 305.7–456.3 | 0/3 C; D 288.9–493.0 | 0/3 C; D 308.3–669.7 |
+| perion-random | 0/3 C; D 216.4–349.3 | 0/3 C; D 308.7–421.5 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 389.6–425.7 |
+| kerning-bot | 0/3 C; D 315.8–319.8 | 0/3 C; D 307.9–315.0 | 0/3 C; D 326.8–568.7 | 0/3 C; D 309.6–537.7 |
+| kerning-random | 0/3 C; D 303.6–313.1 | 0/3 C; D 306.0–317.3 | 0/3 C; D 339.0–372.7 | 0/3 C; D 307.0–316.4 |
+| sleepywood-starter | 0/3 C; D 10.4–12.3 | 0/3 C; D 10.6–12.0 | 0/3 C; D 16.4–20.2 | 0/3 C; D 11.4–11.8 |
+| sleepywood-kit | 0/3 C; D 11.5–12.9 | 1/3 C; D 23.8–826.2; C 936.2 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+**Weak Bowmaster survival, recorded without tuning:** 0/24 tier-1 clears; first boss reached in 20/24 runs.
+Henesys bot filled six actives 3/3 at 136.2–178.1 s and reached the boss 3/3. Both Sleepywood starter and
+`bowmaster_t2.json` kit died 3/3 before the boss (10.4–12.9 s). This sample is unviable for clears; it is a readiness
+concern for the owner, not balance acceptance. B13 continues and records it as instructed; no cooldown, damage,
+AP, gear, drop, EXP or other balance value changed. F/P and I/L reproduce the I12/BS10 smoke (0/24 tier-1,
+1/3 Sleepywood kit clears); Hero reproduces BS10 (3/24 tier-1, 2/3 kit). Every job filled six actives in all three
+Henesys bot runs; first bosses were reached in 24/24 F/P, 20/24 Hero and 24/24 I/L tier-1 runs.
+
+**Starter configuration:** the inherited bare `--job=312` tool starts with the generic outfit and no bow;
+that exploratory playtest's missing bullet is not valid asset evidence. Bowmaster starter smoke instead uses a
+`character_fixture.gd` creation-outfit snapshot with War Bow 1452002, top 1040002, bottom 1060002, shoes 1072001,
+unscrolled, Lv1 each round, alongside `--job=312`. The other jobs retain the earlier smoke's bare-tool configurations.
+This supplies a real Bowmaster starter, not a stronger kit; the production bare-tool limitation remains documented
+in AGENTS.md. Raw records, exact reports and configuration: `_scratch/345-smoke/` and `_scratch/345-qa/smoke.sh`.
+
+Visual QA: `redesign --job=312` and `creation --jobs=112,212,312` passed; all flow shots read by eye. Ordinary
+Bowmaster Henesys starter/kit and Sleepywood starter/kit playtests and disposable rank-8 skill probes have
+`missing: []`; all ten cast shots, Bronze/Steel notices, Hurricane stream, Inferno flames, Arrow Rain's mid-volley
+0.5 s strike and both followers were inspected. Hover remains 20 px. Evidence stays under `evidence/b13/`.
+Cached full suite: 2563 executed passes, 0 failed, 0 skipped. Cache-less: 2563 total, 2281 executed passes,
+0 failed, 282 named SKIPs (no asset-behaviour claim); logs and every skipped name in `_scratch/345-qa/`.
+All replay oracle constants unchanged. Rust 70 and node 62 passed. Pinned web templates absent: no local
+web export/artifact validation; CI runs export. No tests deleted.
+
 ## 5. Experience and levels
 
 **There is no MP (ADR 0006, #285).** Skills are gated by their cooldown only: no MP pool, costs, MP-short state, MP
@@ -5854,12 +5912,12 @@ new casts pick up rank changes. Rarity lists ship in the skill definition.
 ### 7.40 Bowmaster pool and job data (#334, spec #332 B2)
 
 Bowmaster (312) gets its own data line `bowmaster` (`survivor/jobs/bowmaster.json`, `survivor/skills/bowmaster.json`
-as an empty skeleton), discovered with the other class lines in sorted order: after the seven Adventurers and before
-`hero` (the spec said "last"; the discovery rule sorts class names, so it is not). The job entry carries the ten-skill pool
+with all ten skill definitions), registered after Hero and I/L in `DataRepo.CLASS_LINES`, following the seven
+Adventurer lines (ARCHITECTURE 4.4.4). The job entry carries the ten-skill pool
 (`arrow_blow` starting, then `bow_double_shot`, `arrow_bomb`, `strafe`, `inferno`, `arrow_rain`, `dragons_breath`,
 `hurricane`, `silver_hawk`, `phoenix`; the WZ ids are in spec #332's pool table), `weapon_families: ["bow"]`, the War Bow
-1452002 as creation weapon, and `playable: false`. Its AP row (DEX primary, STR secondary, the Bowman keyframes copied
-verbatim) lives in the line's own `balance` block. The pool keys that are not yet defined are inert.
+1452002 as creation weapon, and `playable: true` since B13 #345. Its AP row (DEX primary, STR secondary, the Bowman keyframes copied
+verbatim) lives in the line's own `balance` block. All pool keys are defined.
 
 **D1, no mobility skill.** The entry has no `mobility_skill` key. `JobTree.start_skills(312)` is `["arrow_blow"]`, and a
 round learns only Arrow Blow. Nothing else changes in the code: `HudQuickSlot.movement_skill_of` returns `{}`, the
@@ -7991,7 +8049,7 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Weapon families | `["bow"]` (145xxxx); crossbows are Marksman's | tier C, spec #332; WeaponInfo family tier A |
 | Creation weapon | War Bow 1452002 (reqJob 4, the Bowman bit), wearable at creation | tier A item fact (cache); the choice is tier C, spec #332 |
 | AP row `balance.player.ap["312"]` | DEX primary, STR secondary, keyframes Lv1 -> 6, Lv30 -> 35, Lv34 -> 35, Lv35 -> 40, Lv70 -> 75 (the Bowman 300 row verbatim) | tier C: Bowman gear pattern, spec #332; no new tuning |
-| `playable` | false until B12/B13; `default_job` stays 212 | tier C, spec #332 / #298 pin |
+| `playable` | true since B13 #345; `default_job` stays 212 | tier C, spec #332 / #298 pin |
 
 ### Bowmaster B3 constants (#335)
 
@@ -8093,9 +8151,18 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
-| Bowmaster Job page row | the third row (after Hero and the Arch Mage, canonical order), name "Bowmaster", weapon box "War Bow · WATK 25 · 0.81s"; row layout, Up/Down stepping and the highlight are the generic page's; `default_job()` stays 212 | tier C (ours); the page needed no change |
+| Bowmaster Job page row | the fourth row (after Hero, F/P and I/L, canonical order), name "Bowmaster", weapon box "War Bow · WATK 25 · 0.81s"; row layout, Up/Down stepping and the highlight are the generic page's; `default_job()` stays 212 | tier C (ours); the page needed no change |
 | `bowmaster_t2.json` fixture | job 312, tier 2 open, Battle Bow 1452000 (reqLevel 25, PAD 40), Bowman-bit hat 1002163 (Lv30), shoes 1072025 (Lv20), gloves 1082012 (Lv15), starter top 1040002 and bottom 1060002, unscrolled; kit mode (no seed or policy in its `_doc`) | tier C (ours): the F/P kit's `reqLevel`s with the Bowman class bit; item stats are canonical (tier A) |
 | Bowmaster hub kit | `jobs/bowmaster.json` `hub_kit`: 18 scroll stacks of 10 (every rate of bow ATT 2044500-05, gloves ATT, shoes ATT 2040758-60 and hat DEX), spare 1002001, a second bow 1452051, 1082002 and a Bowman-bit top 1040008, `fallback_item` 1452007 (the Lv40 Composite Bow the flow driver wears at Lv1 when a round dropped nothing wearable) | tier C (ours) |
 | Bowmaster bot card scores | `jobs/bowmaster.json` balance.bot.card_scores: `<key>_new` 100 and `<key>_rank` 74 for all ten pool skills. `BotInput._base_score` already gives every curated pool skill these numbers; the explicit pair keeps the two summons (kind `summon`, not an attack to the older scorer) and the rest independent of that fallback | tier C (the numbers are the F/P and Hero ones) |
 | Bowmaster baseline oracle | `test_bowmaster_baseline`: seed 1, 14400 ticks (4 min), bot, god, synthetic assets (`tests/fixtures/bowmaster_fixtures.gd`: all ten books, a Hunter's Bow 1452051), the Hero recipe (pre-#241 opening and whole-round curve, initial player stats in the digest); six skills land hits in it (Arrow Blow, Arrow Bomb, Inferno, Hurricane, Dragon's Breath, Silver Hawk) | tier C (ours); the golden is a regression pin, not balance evidence |
 
+
+### Bowmaster B13 provenance audit (#345)
+
+| Decision | Tier | Source |
+|---|---|---|
+| Job 312 enabled; job 212 remains default | C | Spec #332, QA #345; no stat or cooldown change |
+| Skill pool, AP, bow equipment, ammo milestones | C | B2/B3/B12 rows above; numeric WZ ids and item stats remain tier A |
+| Burst timings/art, Arrow Rain strike/fall, burn and follower behaviour | C | B4–B11 rows above; hover remains 20 px (B11; B13 visual check below) |
+| Tier-2 fixture generation patch | C | Historical B12 metadata retained; shipped selection and generation need no patch |
