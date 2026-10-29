@@ -107,6 +107,9 @@ const EVENT_FIELDS := {
 	"player_jump": ["pos"],
 	"portal_used": ["portal", "target", "pos"],
 	"player_died": ["pos"],
+	# #375: a lethal hit was turned into a survived one by a ready reaction skill (PlayerRevive): the HP returned with, the
+	# guard seconds, the skill's new recharge and how many monsters the holy shove moved.
+	"player_revived": ["skill", "hp", "max_hp", "pos", "guard", "recharge", "pushed"],
 	"pickup_spawned": ["pickup", "item_id", "pos", "kind", "potion_kind", "count"],
 	"pickup_collected": ["pickup", "item_id", "exp", "pos", "kind", "potion_kind", "count", "collector"],
 	"potion_used": ["kind", "item_id", "restored"],
@@ -249,6 +252,10 @@ var upkeep: PlayerUpkeep
 var book: SkillBook
 var loadout: Loadout
 var meter := PlayerMeter.new()
+## Second life (#375): the guard timer and the plan of a reaction skill's revive, a HitHook at PlayerRevive.HIT_ORDER.
+var revive := PlayerRevive.new()
+## One {t, level, rank, source_kind, hp} per second life taken this round (the run summary and balance record carry it).
+var revives: Array = []
 var runner: SkillRunner
 var _teleport_left := 0.0
 var _teleport_total := 0.0
@@ -263,6 +270,10 @@ var boss_attacks := BossAttacks.new()
 var mob_attacks: MobAttacks
 var mob_actions := MobActions.new()
 var mob_projectiles := MobProjectileSystem.new()
+
+## take_hit's ordered hooks (HitHook), ascending by `_hit_hook_orders`.
+var _hit_hooks: Array[HitHook] = []
+var _hit_hook_orders := PackedInt32Array()
 
 var events: Array = []
 var time := 0.0
@@ -396,6 +407,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	add_hit_listener(_final_attack_hit)
 	add_hit_listener(_damage_heal_hit)
 	add_hit_listener(_steal_hit)
+	add_hit_hook(revive, PlayerRevive.HIT_ORDER)
 	update_view()
 	_write_player_state(0.0)
 
@@ -774,6 +786,8 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 	if _settle_clear():
 		return
 	time += dt
+	for hook: HitHook in _hit_hooks:
+		hook.step(dt)
 	potions.tick(dt)
 	refresh_player_speed()
 	runner.fired_this_tick = false
@@ -2501,7 +2515,7 @@ func _window_blocks(bypass: bool) -> bool:
 func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:
 	var bypass := PlayerUpkeep.bypasses_window(source)
 	# Hidden (#194): nothing from a monster lands, whatever its source (the callers also skip the attack itself).
-	if _dead or _map_clearing or god or _window_blocks(bypass) or is_hidden():
+	if _dead or _map_clearing or god or _window_blocks(bypass) or is_hidden() or _hit_guarded():
 		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
 	if CombatMath.roll_miss(player_avoid + buffs.effect_total("avoid"), float(source.get("accuracy", 0.0)), rng):
@@ -2522,6 +2536,8 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	upkeep.land_hit(bypass)
 	if reflect > 0:
 		_apply_reflect(int(source.mob), reflect)
+	if _hp <= 0.0 and _hit_hook_saves(source):
+		_hp = maxf(_hp, 1.0) # a hook that claims the lethal hit restores HP (grant_second_life); this floor is a net
 	if _hp <= 0.0:
 		_hp = 0.0
 		_dead = true
@@ -2534,6 +2550,41 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		upkeep.start_knockback_guard()
 	_write_player_state(0.0)
 	return dmg
+
+
+## Registers `hook` in take_hit's ordered hook point (HitHook): ascending `order` first, equal orders in registration order.
+func add_hit_hook(hook: HitHook, order := 0) -> void:
+	var at := _hit_hooks.size()
+	for i in _hit_hooks.size():
+		if _hit_hook_orders[i] > order:
+			at = i
+			break
+	_hit_hooks.insert(at, hook)
+	_hit_hook_orders.insert(at, order)
+
+
+## Whether any hit hook refuses hits now (HitHook.guarding).
+func _hit_guarded() -> bool:
+	for hook: HitHook in _hit_hooks:
+		if hook.guarding():
+			return true
+	return false
+
+
+## Whether a hit hook turned the lethal hit from `source` into a survived one: the first to claim it wins.
+func _hit_hook_saves(source: Dictionary) -> bool:
+	for hook: HitHook in _hit_hooks:
+		if hook.intercept_lethal(self, source):
+			return true
+	return false
+
+
+## The one narrow way for a hit hook to set HP after a lethal hit (`_hp` stays private): HP becomes `hp`, clamped to
+## 1..max HP, and the player state follows. Returns the HP set.
+func grant_second_life(hp: float) -> float:
+	_hp = clampf(hp, 1.0, float(_max_hp))
+	_write_player_state(0.0)
+	return _hp
 
 
 ## Power Guard (#182, spec #165): the part of `damage` (the hit after defence and Invincible)

@@ -167,10 +167,21 @@ func step(dt: float, world: RunWorld, preserve_manual_cast: bool = false) -> voi
 		cast_ready(dt, world)
 
 
-## Whether resolved stats `st` are an attack the Hidden state pauses: an active skill that is not a buff, not manual and
-## deals damage.
+## Whether cast rule `rule` never auto-casts: `manual` (a pressed key) or `reaction` (PlayerRevive's second life, which
+## the world triggers on a lethal hit). Such skills are never ready for cast_ready, never an attack, never given a reach.
+static func is_triggered_rule(rule: String) -> bool:
+	return rule == "manual" or rule == "reaction"
+
+
+## Whether resolved stats `st` belong to a skill that something else triggers (is_triggered_rule of its cast rule).
+static func is_triggered(st: Dictionary) -> bool:
+	return is_triggered_rule(String(st.cast_rule))
+
+
+## Whether resolved stats `st` are an attack the Hidden state pauses: an active skill that is not a buff, not triggered
+## (manual or reaction) and deals damage.
 static func is_attack(st: Dictionary) -> bool:
-	return String(st.kind) != "buff" and String(st.cast_rule) != "manual" and String(st.damage_type) != "none"
+	return String(st.kind) != "buff" and not is_triggered(st) and String(st.damage_type) != "none"
 
 
 ## Counts down every active skill, including while casting is blocked.
@@ -198,7 +209,7 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 			# Hidden (#194): the character cannot attack; the skill keeps its cooldown and resumes when Hidden ends.
 			continue
 		if not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6 \
-				and String(stats_of(world, key).cast_rule) != "manual":
+				and not is_triggered(stats_of(world, key)):
 			ready.append(key)
 	ready.sort_custom(func(a: String, b: String) -> bool:
 		var ca := float(cooldowns.get(a, 0.0))
@@ -336,6 +347,8 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			return bool(st.has_box) and _any_target(world, origin, float(st.range), 1)
 		"chain":
 			return ChainCast.has_target(world, st, origin)
+		"manual", "reaction":
+			return false # a pressed key or the world's trigger casts it, never the target scan
 		"hp_or_undead":
 			var heal: Dictionary = world.book.def(key).get("heal", {})
 			if float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0)):
@@ -377,7 +390,7 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return ChainCast.admit(world, st, origin)
 		"hp_or_undead":
 			return _admit_hp_or_undead(world, key, st)
-		"manual":
+		"manual", "reaction":
 			return {}
 	return {}
 
