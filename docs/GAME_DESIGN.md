@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212), the default, and Arch Mage (Ice, Lightning, 222); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212), the default, Arch Mage (Ice, Lightning, 222), and Buccaneer (512); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -14,7 +14,7 @@ On the `redesign` branch, **ADR 0006** replaced v83 progression with survivor-ge
 (spec #282, tickets #283-#294) built it end to end for one job; this section is the summary and the owner of any
 conflict: where a later section still describes a removed system, this section wins. The slice rewrote sections 1, 5,
 6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 describe mechanics of the other job lines (Warrior, Bowman, Thief, Pirate,
-Cleric): their data and tests stay on `redesign` and are unplayable until each line is ported, so read them as the
+Cleric): unported data and tests stay on `redesign`; the landed blocks below identify the playable ports. Read the older sections as the
 specification for that port, not as the live game; advancement, weapon paths, weapon-gated skills and standalone
 behaviour cards mentioned in them are gone. Target design:
 
@@ -103,6 +103,16 @@ Ifrit with marked-target priority, Chain Lightning with visible hops and a staff
 and freeze, and Big Bang through the shared skill-template seam. Ranks, rarity bonuses, Mastery, equipment, saves and
 menus reuse the F/P systems. Tooling includes `--job=222`, the I/L tier-2 fixture and job-aware creation/redesign flows.
 The deterministic I/L oracle now covers the full pool; F/P oracles remain unchanged. QA results are in section 4.2.
+
+**Landed in the Buccaneer spec (#412, BC1–BC12 #413–#424):** job 512 is playable beside Hero and both Arch Mages;
+F/P (212) remains the default. Its eleven-skill lineage pool starts with Flash Fist and manual Dash outside the slots.
+The five Brawler attacks, Barrage and Dragon Strike build Energy Charge; Drain and Orb share its ten-energy bar.
+Transformation and Super Transformation use the shared Form's buff block for morphs 1000/1001; Shockwave belongs to
+both, Demolition and Snatch to Super. The renderer plays the morph's own actions, holds the previous image through
+Demolition's blank, and keeps knuckles visible through the weapon-only swingTF fallback. Dragon Strike uses a
+0.84 s first impact and 0.12 s target stagger; Shockwave's single impact meets the first eruption at 1.38 s.
+BC11 enabled selection, tooling, the tier-2 fixture and the independent replay oracle. BC12 supplies the QA record
+in 4.2. Sections 7.90–7.93 and the B2–B11 provenance tables own all constants; no balance tuning in this QA.
 
 ### Known design gaps (open after the slice)
 
@@ -6523,6 +6533,25 @@ The legacy cards (`<key>_new`, `_rank`, `_targets` of the five: 15 cards) are de
 `+1 target` behaviour card is replaced by the Whirling Kick and Boring Screw bonuses. Tests: `test_buccaneer_brawler` (placement,
 ranks, caps, weapons, art, cards, bonuses, the original tables), `test_brawler_attacks` and `test_pirate` (the seeded behaviour,
 rewritten to eight ranks), `test_rarity_bonus_effects`.
+**Dash as Buccaneer's mobility skill (spec #412 BU-13, #417).**
+
+Dash (5001005) is `slot: "mobility"` in `skills/pirate.json` (tier C, BU-13). Like Teleport and Rush it sits outside both
+slot tracks: `JobTree.start_skills` learns it at round start from the job's `mobility_skill` (Buccaneer 512), it takes no
+active or passive slot, and it is never offered as a card (`dash_new` and `dash_rank` are deleted from
+`upgrades/pirate.json`). Its definition is otherwise unchanged from 7.15: the explicit ten ranks (rank = WZ level, no
+`rank_levels` table), the `manual` bot block, art and Use sound, the cast on its skill key through `_try_manual_buffs`,
+and the recast once the buff ends. Corsair (#384) names the same definition and reuses it unchanged.
+
+- **Rank.** `RunWorld._level_ranks` applies the shared `balance.mobility_rank_levels` rule to the job's mobility skill:
+  rank 1 at Lv1, rank N at about Lv 2N, clamped to the ten ranks. No card ever raises it.
+- **Values** (real Skill.wz 500.img, tier A): rank 1 (Lv1) speed +12, jump +1, 4 s; rank 4 (Lv8) +18, +4, 8 s; rank 8
+  (Lv16) +26, +8, 16 s; rank 10 (Lv20) +30, +10, 20 s. Speed and jump stay under the 140 / 123 caps (7.15).
+- **Cooldown.** The buff's running duration (7.15), so a rank 1 Dash is ready again 4 s after it started.
+- **Out of scope.** Damage on Dash (that is Rush, 7.33) and ranking Dash through cards.
+
+Tests: `test_dash.gd` (the Buccaneer section and the real-cache rank test), `test_buccaneer_data.gd`, `test_data_files.gd`.
+
+
 ### 7.91 Buccaneer: Energy Charge and Energy Drain (spec #412, B6 #418)
 
 Energy Charge is Buccaneer's meter on Hero's `PlayerMeter` (7.34), by data only: `PlayerMeter`, `HudMeter` and `meter_changed`
@@ -6606,24 +6635,6 @@ target is a scheduled boss beats any crowd. A finisher below its `min_targets` i
 
 Both finishers read and spend the one bar: a cast of either leaves 0 (or the Energy Charge keep), so the other waits for ten
 fresh energy.
-
-### 7.90 Dash as Buccaneer's mobility skill (spec #412 BU-13, #417)
-
-Dash (5001005) is `slot: "mobility"` in `skills/pirate.json` (tier C, BU-13). Like Teleport and Rush it sits outside both
-slot tracks: `JobTree.start_skills` learns it at round start from the job's `mobility_skill` (Buccaneer 512), it takes no
-active or passive slot, and it is never offered as a card (`dash_new` and `dash_rank` are deleted from
-`upgrades/pirate.json`). Its definition is otherwise unchanged from 7.15: the explicit ten ranks (rank = WZ level, no
-`rank_levels` table), the `manual` bot block, art and Use sound, the cast on its skill key through `_try_manual_buffs`,
-and the recast once the buff ends. Corsair (#384) names the same definition and reuses it unchanged.
-
-- **Rank.** `RunWorld._level_ranks` applies the shared `balance.mobility_rank_levels` rule to the job's mobility skill:
-  rank 1 at Lv1, rank N at about Lv 2N, clamped to the ten ranks. No card ever raises it.
-- **Values** (real Skill.wz 500.img, tier A): rank 1 (Lv1) speed +12, jump +1, 4 s; rank 4 (Lv8) +18, +4, 8 s; rank 8
-  (Lv16) +26, +8, 16 s; rank 10 (Lv20) +30, +10, 20 s. Speed and jump stay under the 140 / 123 caps (7.15).
-- **Cooldown.** The buff's running duration (7.15), so a rank 1 Dash is ready again 4 s after it started.
-- **Out of scope.** Damage on Dash (that is Rush, 7.33) and ranking Dash through cards.
-
-Tests: `test_dash.gd` (the Buccaneer section and the real-cache rank test), `test_buccaneer_data.gd`, `test_data_files.gd`.
 
 ### 7.92 Buccaneer: morph forms (spec #412, B3 #415)
 
@@ -8086,16 +8097,16 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 
 ### Buccaneer B5 constants (#417)
 
-| Rule | Value / source | Tier |
-|---|---|---|
+| Rule | Value | Tier | Source |
+|---|---|---|---|
 | Dash on the mobility slot (#417, spec #412 BU-13) | `skills/pirate.json` `dash.slot` "mobility": outside both slot tracks, learned at start, never a card (`dash_new` / `dash_rank` deleted) | C | Spec #412 BU-13; Corsair #384 reuses it |
 | Dash rank rule (#417, spec #412 BU-13) | the shared `balance.mobility_rank_levels` (rank 1 at Lv1, rank N at about Lv 2N, clamped to the ten ranks); no `rank_levels["10"]` | C | Spec #412 BU-13; #296 H6 |
 | Dash cooldown (#417) | a manual buff's cooldown is its running duration (4 -> 20 s by rank), the existing manual-buff rule | C | 7.15 (#188); 7.90 |
 
 ### Buccaneer B2 constants (#414)
 
-| Rule | Value / source | Tier |
-|---|---|---|
+| Rule | Value | Tier | Source |
+|---|---|---|---|
 | Buccaneer starting HP and HP growth (#414, spec #412 BU-20) | `jobs/buccaneer.json` `balance.player.ap["512"].hp` 600 and `balance.growth["512"].hp` 65: copied from Hero's 112 rows (orchestrator ruling, the melee survivability baseline of #346); the balance pass owns them | C | Spec #412 BU-20; #346 |
 | Buccaneer AP row (#414, spec #412 BU-20) | `balance.player.ap["512"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204, the Hero 112 row's shape | C | Spec #412 BU-20 |
 | Buccaneer pool and start (#414, spec #412 BU-1, BU-4, BU-14) | `jobs/buccaneer.json`: `starting_skill` flash_fist (slot 1), `mobility_skill` dash (outside the slots), eleven-key `skill_pool` (Flash Fist to Super Transformation, Energy Blast left out) | C | Spec #412 BU-1, BU-4 |
@@ -8204,6 +8215,13 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 | Hub kit (#423) | `jobs/buccaneer.json` `hub_kit`: fixture `buccaneer_t2.json`; scrolls 2044800-04 (knuckle ATT 100/60/10, dark 70, dark 30) and 2044805, 07, 09, 06, 08 (ACC, same rates), read from `scrolls/pirate.json`, 10 per stack; spare 1002001, 1482001, 1082002, 1040010 (the cache holds no armour with the Pirate bit, so the hat, gloves and top are the generic ones); `fallback_item` 1482006 (the Lv40 knuckle the flow driver's `redesign` wears when no drop fits) | C (test aid) |
 | Buccaneer fixture (#423) | `game/tests/fixtures/characters/buccaneer_t2.json`: job 512, tier 2, from a seed-1 invulnerable bot Henesys clear (`character_fixture.gd --job=512 --god`); it wears a knuckle (1482003). The `_doc` records seed, policy, revision and invulnerability | C (test aid) |
 | Buccaneer baseline oracle (#423) | `test_buccaneer_baseline`: seed 1, 14400 ticks, bot, god, synthetic books (every pool skill defined) plus a synthetic knuckle afterimage; digest over the initial player state and the event bytes; asserts casts > 0, at least three distinct skills and an Energy Drain cast | C (test aid) |
+
+### Buccaneer B12 QA provenance (#424)
+
+No gameplay constant changed. The BC2–BC11 tables above remain authoritative; canonical WZ values stay unmodified.
+The QA observer counts `cast` events by skill and sums fixed post-tick `morph_id()` occupancy at 1/60 s per advancing
+tick (tier C measurement convention, including truncated windows). These are measurements, not nominal-duration
+estimates. Durable stationary crowds and invulnerability in disposable visual probes are diagnostic only.
 
 ## 12. Later phases
 

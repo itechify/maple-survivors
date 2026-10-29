@@ -202,6 +202,11 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
   character uses the account's items; round 1 is invulnerable with diagnostic boss hits unless `--natural-clear=1`). They
   write a prepared account into `driver_save.json`.
 
+Buccaneer QA (#424) uses `redesign --job=512` and `creation --jobs=212,512`. The regression smoke and
+visual limitations are recorded in `docs/GAME_DESIGN.md` 4.2; rerun with the Buccaneer asset cache (511/512 books
+and morphs 1000/1001), `JOBS=3` and an isolated project. Sleepywood's early deaths with the diagnostic
+`buccaneer_t2.json` kit are recorded balance-pass work, not a reason for feature-ticket tuning.
+
 The scenarios of removed systems (`maps`, `rounds`, `full`, `economy` and the Warrior, Pirate, Bowman and Thief job and weapon
 pages) were deleted with job advancement, saved rounds and the old creation flow (#284, #286, #294); `redesign` and
 `account` cover the loop, `shops` and `scrolls` the economy.
