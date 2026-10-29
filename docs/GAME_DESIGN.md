@@ -4598,6 +4598,24 @@ damage/count/attack-count/area/cooldown modifiers at cast time. #288 owns rarity
 309.90 s, Lv12, no warnings, no missing assets); 11,788 mesos, no equipment drop in that short run (0.2% x 239 kills).
 Same pool-only interim build, no balance data touched.
 
+### Spec #348 / #350 Dark Knight data regression smoke (2026-10-28)
+
+Data only: job 132 is `playable: false`, its skills are undefined, so nothing about 212 or 112 can change. Training seeds
+1/2/2026, Henesys, bot, `balance.sh`, on D2 (`676bd05`, on the base `b3c57df`, before D1 merged). Identical, row for row,
+to that base for F/P (212) and Hero (112); D1 adds no data the smoke reads. No tuning, no held-out seeds. 0 clears is the existing state of both.
+
+| Job / seed | End (run time) | Level at end | Kills at end |
+|---|---|---|---|
+| 212 / 1 | DEAD 10:51 | 36 | 2706 |
+| 212 / 2 | DEAD 5:05 | 11 | 236 |
+| 212 / 2026 | DEAD 7:34 | 21 | 767 |
+| 112 / 1 | DEAD 5:27 | 11 | 269 |
+| 112 / 2 | DEAD 5:36 | 11 | 279 |
+| 112 / 2026 | DEAD 11:28 | 36 | 2693 |
+
+Diagnostic (never committed): `--job=132 --stage=henesys --speed=8 --minutes=3` with a temporary `playable: true`, reverted.
+The knight spawns with 600 HP, `missing: []`, no crash; no skills are defined yet, so 0 kills and 0 damage. Flow evidence only.
+
 ## 7. Skills (auto-cast and manual)
 
 **Which of this section is live.** The F/P slice plays the skills of 7.31 and 7.32 and the common passives of 8.5, through
@@ -6576,6 +6594,9 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | `default_job` pin (#298, spec #296) | `survivor/jobs.json` `default_job` 212: the job of a fresh character and of every tool run, test and oracle that names none, so Hero never changes it by becoming playable; Hero is always chosen explicitly (`--job=112`, the creation Job page). The owner can flip it with this one line | C | Spec #296, risk found while checking the slice |
 | Hero bot card scores (#305, spec #296) | `jobs/hero.json` balance.bot.card_scores: `<key>_new` 100 and `<key>_rank` 74 for each of the seven Hero pool skills (power_strike, slash_blast, brandish, shout, monster_magnet, panic, coma), the same numbers every F/P pool skill has (the default attack scoring, 100 and 62 + 12 job bonus), set explicitly so the meter-gated finishers and the pull, which the default scorer would not take for attacks, are taken whatever their cast rule | C | Spec #296 |
 | Hero hub kit (#305, spec #296) | `HubTestKit.HERO_KIT_SCROLLS` (every rate of the ATT scrolls of the sword, two-handed sword, axe and two-handed axe, 20 stacks of 10) and `HERO_KIT_EQUIPMENT` (1002001 hat, 1402000 two-handed sword, 1082002 gloves, 1040010 top), used for a character of job 112; `--hub --job=112` opens `hero_t2.json`; 500,000 mesos as for F/P | C | Ours, a test aid |
+| Dark Knight job data (#350, spec #348 D2) | `survivor/jobs/dark_knight.json`: job 132, `playable: false` (D10 flips it), `starting_skill` spear_crusher, `mobility_skill` rush_dark_knight, eight-key pool, `weapon_families` [spear, polearm], `creation_weapon` 1432000 (the Spear). The line is discovered from its files; no shared list changes; `default_job` stays 212 | C | Spec #348 DK-10, D1/DK-14 |
+| Dark Knight AP and growth rows (#350, spec #348 DK-10) | `balance.player.ap.132` copies Hero's 112 row (STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204, starting HP 600), and `balance.growth.132.hp` 65 per level, both copied from `jobs/hero.json` (the #346 melee survivability baseline, orchestrator ruling). The balance pass owns them | C | Spec #348 DK-10; #346 |
+| Dark Knight drop families (#350, spec #348 DK-10) | spear (143xxxx) and pole arm (144xxxx) drop from the Warrior drop list by `weapon_families`; a sword, axe or blunt weapon never does; the Warrior shield drops by the class bit and is a wasted drop for a two-hander (accepted) | C | Spec #348 DK-10 |
 | Job page rows (#305) | rows are left-aligned, and the chosen row keeps its plate in every Button state (hover and pressed too), so it stays highlighted under the mouse; the Job blurb repeats the weapon box (creation weapon name, WATK, swing time) | C | Ours, layout |
 | Rush 2.0 s cooldown, always-on 80 px knock-back along the dash, hold-to-repeat, refused while climbing, airborne dash keeps its height (#302, spec #296) | `skills/hero.json` `rush_hero` (`cooldown`, `knockback`); damage 78%, `mobCount` 15, box reach 170 px (the dash distance) and `rush2` are Skill.wz level 4 (tier A) | C | Spec #296 D1; v83 Rush is a dash with a hit box |
 | Rush ranks with the round level through `balance.mobility_rank_levels` (rank 1 = WZ level 4 at Lv1, rank 8 = level 30 from Lv16) (#302) | the shared mobility rule; Rush has the level-30 rank table and no card | C | Spec #296, #282 review fixes |

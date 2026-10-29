@@ -1,0 +1,58 @@
+{
+	"_doc": "Dark Knight line (spec #348, ticket D2 #350). A class spec adds jobs/dark_knight.json, skills/dark_knight.json and (later) asset_manifest.d/dark_knight.json, discovered automatically by DataRepo.lines() (docs/ARCHITECTURE.md 4.4.4). Job 132 stays playable: false until D10 flips it; skill keys stay inert until their skills are defined in skills/dark_knight.json (or the shared line for Power Strike and Slash Blast, which Hero owns). AP and HP growth rows live in this file's balance block.",
+	"jobs": {
+		"132": {
+			"starting_skill": "spear_crusher",
+			"mobility_skill": "rush_dark_knight",
+			"_mobility_skill": "tier C: spec #348 D1/DK-14: Rush (1321003) is Dark Knight's manual mobility skill on its own key, outside both slot tracks; defined by D8.",
+			"skill_pool": [
+				"spear_crusher",
+				"power_strike",
+				"slash_blast",
+				"dragon_fury",
+				"sacrifice",
+				"dragon_roar",
+				"monster_magnet_dark_knight",
+				"beholder"
+			],
+			"_skill_pool": "tier C: spec #348: the eight hand-picked Dark Knight actives (Rush is the mobility skill, not a pool entry). Power Strike and Slash Blast are Hero's definitions (DK-13).",
+			"weapon_families": [
+				"spear",
+				"polearm"
+			],
+			"_weapon_families": "tier C: spec #348 DK-10: one-handed and two-handed spears and pole arms (WeaponInfo.family); both are two-handed, so a Dark Knight never wears a shield. Swords, axes and blunt weapons never drop for it; armour and shields drop by the Warrior class bit.",
+			"creation_weapon": 1432000,
+			"_creation_weapon": "tier C: spec #348 DK-10: the plain Spear (reqJob 13, which includes the Warrior bit, so wearing it needs no class); the level requirement is gone (#292).",
+			"playable": false,
+			"_provenance": "tier C: spec #348 D2 #350: Dark Knight is data-only until D10; 212 remains the default."
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"132": {
+					"hp": 600,
+					"_hp": "tier C #350 (orchestrator ruling, spec #348 DK-10): the same melee survivability baseline as Hero (#346), copied from jobs/hero.json balance.player.ap.112.hp; the balance pass owns it.",
+					"primary": "str",
+					"secondary": "dex",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 4
+						},
+						{
+							"level": 200,
+							"target": 204
+						}
+					]
+				}
+			}
+		},
+		"growth": {
+			"132": {
+				"hp": 65,
+				"_hp": "tier C #350 (orchestrator ruling, spec #348 DK-10): HP growth per level copied from Hero's 112 row (#346); GAME_DESIGN 4.2."
+			}
+		}
+	}
+}
