@@ -28,6 +28,10 @@ extends RefCounted
 ## The returned text keeps the v83 markup `#c...#` (orange) and "\n" breaks: draw it with MapleText.draw_markup /
 ## MapleText.wrap (MapleText.plain strips it). Presentation only: the sim never sees these strings.
 
+## Names of the player stats a support-summon buff pulse carries (PlayerBuffs effect names); tier C: our wording.
+const BUFF_STAT_LABELS := {"pdd": "Weapon DEF", "mdd": "Magic DEF", "acc": "Accuracy", "avoid": "Avoid",
+	"watk": "Weapon ATT", "matk": "Magic ATT", "speed": "Speed", "jump": "Jump"}
+
 var book: SkillBook
 var strings: Dictionary
 
@@ -90,9 +94,25 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("pierce_falloff"):
 		mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
 			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
+	for pulse: Dictionary in stats.get("support", []):
+		mechanics.append(pulse_text(pulse))
 	if not mechanics.is_empty():
 		line += ("\n" if line != "" else "") + "; ".join(mechanics)
 	return line
+
+
+## One line for a resolved support-summon pulse (SupportSummons.resolve): its sub-skill name, the effect and the interval.
+func pulse_text(pulse: Dictionary) -> String:
+	var every := "every %s s" % number(float(pulse.interval))
+	match String(pulse.kind):
+		"heal":
+			return "%s: heals %s HP %s" % [pulse.name, number(float(pulse.amount)), every]
+		"buff":
+			var parts := PackedStringArray()
+			for stat: String in pulse.effects:
+				parts.append("%s +%s" % [BUFF_STAT_LABELS.get(stat, stat.capitalize()), number(float(pulse.effects[stat]))])
+			return "%s: %s for %s s %s" % [pulse.name, ", ".join(parts), number(float(pulse.duration)), every]
+	return "%s: %s %s" % [pulse.name, pulse.kind, every]
 
 
 ## Copies of the cards of a choice_pending event with this skill text at the offered level, using the effective

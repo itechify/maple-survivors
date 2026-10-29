@@ -5797,7 +5797,8 @@ WZ animation or hit delay). A zero follow speed stops incremental following (dis
 ground-navigation or pet-like targeting behaviours must extend this seam with their own tests, not special-case IDs.
 `damage`, `area`, `count` (attack targets), `attack_count`, `cooldown` consume existing modifiers; `duration` and
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
-new casts pick up rank changes. Rarity lists ship in the skill definition.
+new casts pick up rank changes. Rarity lists ship in the skill definition. A summon with no attack that pulses on its
+owner instead is a support summon (7.72).
 
 ### 7.33 Hero pool and Rush (spec #296)
 
@@ -6055,6 +6056,54 @@ existing record changes. No RNG is drawn.
   recoil follows the cast's hits. `RunScene` shows it as a red number at the player through the damage-number pool (`HP_SPENT`).
 - **Text.** The Skill window and tooltips add "Needs more than 50% HP", "Recoil: 20% of damage dealt (at most 10% of max
   HP)" and "+50% damage at 50% HP or less" to a skill's line; the cost is the ordinary HP cost fact.
+
+### 7.72 Support summons and the Beholder (#352, spec #348)
+
+A **support summon** is a player summon (7.32) that pulses instead of attacking. `SupportSummons` (a `RefCounted`
+owned by `PlayerSummons.support`; no node, no clock but `dt`, no RNG) holds the pulse countdowns; `PlayerSummons` keeps the
+lifecycle (spawn, follow, expiry, replace on recast, map transfer, `summon_count`) and its only extra code is the
+attack-less spawn path and one hook per tick for a definition that carries `summon.support`. Dark Knight's Beholder (D9)
+is the first user; Bishop's and Corsair's summons are attack summons and reuse `PlayerSummons` unchanged. The seam is
+tested on a synthetic Beholder (made-up job 999, no Dark Knight data): `test_support_summons.gd` is the template.
+
+```json
+"summon": {"path": "Skill.wz/<book>.img/skill/<id>/summon", "attack": "",
+  "follow_speed": 180.0, "follow_distance": 60.0, "teleport_distance": 600.0,
+  "support": {"pulses": [
+    {"skill": "<heal sub>", "kind": "heal", "first_after": "interval", "anim": "skill1"},
+    {"skill": "<buff sub>", "kind": "buff", "first_after": 3.0, "anim": "skill2",
+     "anim_by_stat": {"pdd": "skill2", "mdd": "skill3"}}]}}
+```
+
+- **Pulses.** `skill` is a sub-skill; `kind` a key of `SupportSummons.KINDS`; `first_after` seconds, or `"interval"`
+  (the sub's first interval); `anim` the summon animation played at the pulse (`summon/<anim>` under `summon.path`).
+  Optional `anim_by_stat` ({stat: animation}, buff kind): the animation of the last listed stat the pulse carries (the
+  newest unlocked one), else `anim`. Each pulse has its own countdown per summon slot, started at spawn; after a pulse
+  it restarts at the interval. The effect applies on the tick the animation starts, never later. An animation
+  that is still playing when another pulse fires is replaced (both effects apply). A dead owner gets no pulse and the
+  countdowns hold. Hidden owners are pulsed as usual. A map transfer removes the summon like any other (a recast makes
+  a new one with fresh countdowns).
+- **Sub-skills.** Definitions with `slot: "summon_sub"` and `summon_sub_of: <parent key>`. They are never in a pool, never
+  a card, and `Loadout.add_skill` refuses them (so never in `Loadout.order`). `SkillBook` reads their canonical level
+  tables; the sub's level is the parent's rank through the **sub's own `ranks` table** (the Paladin P-5 rule), via
+  `Loadout.stats(sub, parent_rank)`. `Loadout.stats(parent)` carries the resolved pulses in `support` (cast snapshot):
+  `[{skill, skill_id, name, kind, interval, first_after, anim, ...}]`; a rank change reaches the next cast.
+- **Kinds.** `heal`: restores canonical `hp` (a flat amount) through `RunWorld.restore_player("hp", ...)`, interval
+  canonical `x`; a heal at full HP restores 0 and emits no `player_restored`. `buff`: starts one PlayerBuffs entry (key =
+  the sub's key, through `RunWorld.start_buff`, so `buff_cast` fires) carrying every stat the sub's level has, duration
+  canonical `time`, interval canonical `x`. The stats come from the sub's `buff.effects` (`{stat, field, scale?}`); an
+  effect whose `field` is absent from the sub's level node is not carried (a stat unlocks at its level). WZ names
+  map in the data (`eva` to `avoid`, `pad` to `watk`). A repeat pulse, or a second Beholder, replaces the same entry:
+  it refreshes and never stacks.
+- **Modifiers** (the parent skill's): `support_heal` (mul, on heal amounts), `support_rate` (mul, on every pulse interval,
+  including an `"interval"` `first_after`; a literal `first_after` is not an interval), `duration` (the summon's life),
+  `summon_count` (the number of summons, each on its own timers). Cards preview `support_heal` as the first heal pulse's
+  HP and `support_rate` as the first pulse's interval in seconds; the skill line lists every pulse ("Aura: heals 85 HP
+  every 10 s", "Hex: Weapon DEF +20 for 20 s every 42 s").
+- **Event.** `support_pulse {skill, skill_id, kind, slot}` (`skill` is the pulse's sub-skill, `slot` the summon's
+  PlayerSummons slot); the heal itself emits the ordinary `player_restored`. Presentation plays the parent skill's
+  owner-side `affected` node on the player at each pulse (tier B: its use is not documented).
+- **What a later job adds.** A pulse kind is one `KINDS` entry (`resolve` and `apply`) plus its tests; a new sub is data.
 
 ## 8. Upgrades
 
@@ -6441,6 +6490,17 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+### Support summons (spec #348 D4, #352; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Minimum pulse interval | SupportSummons.MIN_INTERVAL 0.1 s after `support_rate`, so rate cards cannot pulse every tick | C |
+| Pulse animation hold | a pulse animation replaces stand/move for its own frame length; a later pulse replaces an earlier one still playing | C |
+| Dead owner | no pulse, countdowns hold | C |
+| Sub-skill ranks | the sub's level is the parent's rank through the sub's own `ranks` table (the Paladin P-5 rule) | C |
+| `anim_by_stat` | the animation of the newest (last listed) unlocked stat | C |
+| Owner-side `affected` art | plays on the player at every pulse | B |
 
 
 ### Review #282: constants and provenance

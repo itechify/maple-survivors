@@ -44,7 +44,8 @@ const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Ta
 	"blast_targets": ["Blast targets", ""], "pierce_falloff": ["Pierce fall-off", "%"],
 	"damage": ["Damage", "%"], "cooldown": ["Cooldown", " s"], "area": ["Reach", "%"], "range": ["Range", " px"],
 	"speed": ["Shot speed", ""], "crit": ["Critical rate", "%"],
-	"hp_cost": ["HP cost", ""], "self_damage": ["Recoil", "%"], "low_hp_damage": ["Damage at low HP", "%"]}
+	"hp_cost": ["HP cost", ""], "self_damage": ["Recoil", "%"], "low_hp_damage": ["Damage at low HP", "%"],
+	"support_heal": ["Pulse heal", " HP"], "support_rate": ["Pulse interval", " s"]}
 
 ## Emitted with the picked card's id.
 signal card_chosen(card_id: String)
