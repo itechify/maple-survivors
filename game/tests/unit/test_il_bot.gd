@@ -4,8 +4,8 @@ extends TestCase
 ## Blizzard and Big Bang, I8 #327 and I10 #329, were still in flight when this ticket landed), so they cover those automatically
 ## once they merge. Worlds are the I6 tests' synthetic books on the quiet stage.
 
+const IL := preload("res://tests/fixtures/il_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const BOLTS := preload("res://tests/unit/test_il_bolts.gd")
 const CHAIN := preload("res://tests/unit/test_chain_cast.gd")
 ## The ten pool keys ticket I11 owns scores for (the pool minus Energy Bolt and Magic Claw, which F/P's block already scores).
 const IL_KEYS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "element_composition_il", "ice_demon", "ifrit",
@@ -42,7 +42,7 @@ func test_ifrit_and_blizzard_are_named_not_left_to_the_default_scorer() -> void:
 
 ## An I/L round on the quiet stage: I/L made playable in its own data, the bolts' synthetic books, the player at x=400.
 func _il_world(seed_value := 330) -> RunWorld:
-	var w: RunWorld = BOLTS.new()._round({}, seed_value)
+	var w: RunWorld = IL.round_world({}, seed_value)
 	RF.place_player(w, 400)
 	w.player.facing = 1
 	w.god = true

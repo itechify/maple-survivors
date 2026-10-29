@@ -9,7 +9,6 @@ const DT := 1.0 / 60.0
 ## needs few ticks, `mad` 100 and `time` 3 s at every level.
 func _setup(mob_count := 3.0) -> Dictionary:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["222"]["playable"] = true # the I/L job opens in I12; its cards exist only for a playable job
 	var setup := RF.setup("quiet", 328, data)
 	var levels := {}
 	for lv in range(1, 31):

@@ -4,6 +4,7 @@ extends TestCase
 ## mapped WZ levels, the art and the staff that has no stabO2. The rule itself is tested in test_chain_cast.gd. Seeded RNG,
 ## fixed 1/60 s ticks. Level tables are synthetic: the recorded v83 values at levels 1/4/8/12/15/19/23/27/30.
 
+const IL := preload("res://tests/fixtures/il_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BOLTS := preload("res://tests/unit/test_il_bolts.gd")
 const DT := 1.0 / 60.0
@@ -17,21 +18,11 @@ const MAD := [112, 124, 136, 145, 157, 166, 174, 180]
 
 # --- fixtures ---------------------------------------------------------------------------------------------------------
 
-## Skill.wz/222.img/skill/2221006 with the recorded levels.
-static func book_node() -> Dictionary:
-	return {"icon": {"$canvas": [0, 0, 0, 32, 32]}, "elemAttr": "l", "action": {"0": "chainlightning"},
-		"effect": BOLTS._anim(12), "hit": {"0": BOLTS._anim(7)},
-		"ball": {"0": BOLTS._anim(6), "1": BOLTS._anim(6), "2": BOLTS._anim(6)},
-		"level": BOLTS._levels({"mad": {1: 103, 4: 112, 8: 124, 12: 136, 15: 145, 19: 157, 23: 166, 27: 174, 30: 180},
-			"mastery": BOLTS._mastery()}, func(node: Dictionary, lv: int) -> void:
-				node["mobCount"] = 2.0 + float((lv - 1) / 6))}
-
-
 ## A fresh I/L round (Cold Beam and Teleport learned) with the synthetic 222 book.
 func _round() -> RunWorld:
-	var setup := RF.setup("quiet", 327, BOLTS.new()._data())
+	var setup := RF.setup("quiet", 327, IL.data())
 	setup.job = 222
-	setup.skill_imgs["222"] = {"skill": {"2221006": book_node()}}
+	setup.skill_imgs["222"] = {"skill": {"2221006": IL.chain_node()}}
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 200)
 	w.drain_events()
@@ -81,8 +72,8 @@ func _row(w: RunWorld, n: int, gap := 80.0) -> Array:
 # --- the definition ---------------------------------------------------------------------------------------------------
 
 func test_chain_lightning_lives_in_the_il_line_and_follows_the_pool_rules() -> void:
-	assert_true(BOLTS._skill_file("il_arch_mage").has(KEY), "skills/il_arch_mage.json")
-	assert_false(BOLTS._skill_file("magician").has(KEY))
+	assert_true(IL.skill_file("il_arch_mage").has(KEY), "skills/il_arch_mage.json")
+	assert_false(IL.skill_file("magician").has(KEY))
 	var d: Dictionary = DataRepo.load_all().skills.skills[KEY]
 	assert_eq([int(d.skill_id), d.book, int(d.job), d.kind, d.slot], [2221006, "222", 222, "instant", "active"])
 	assert_eq(d.damage, "magic")

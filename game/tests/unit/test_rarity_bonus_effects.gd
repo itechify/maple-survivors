@@ -6,13 +6,12 @@ extends TestCase
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
 ## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
 ## Hero books (111/112) are synthetic generic tables; the F/P books come from the shared run fixtures. The I/L skills (books
-## 220/221/222) have their own synthetic Skill.wz tables (test_il_bolts `_books()`, Ice Demon and Element Composition use the
+## 220/221/222) have their own synthetic Skill.wz tables (`il_fixtures.books()`, Ice Demon and Element Composition use the
 ## small tables `_demon_levels` builds) and are cast at their top rank, so the probes below are the same and only `_world` differs.
 ## Ifrit (I9) is a summon that needs allies settled behind the player: it stays in test_ifrit.gd (IL_AUDITED_ELSEWHERE).
 
+const IL := preload("res://tests/fixtures/il_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const BOLTS := preload("res://tests/unit/test_il_bolts.gd")
-const CHAIN := preload("res://tests/unit/test_il_chain_lightning.gd")
 const BLIZZARD := preload("res://tests/unit/test_il_blizzard.gd")
 const BIG_BANG := preload("res://tests/unit/test_il_big_bang.gd")
 const DT := 1.0 / 60.0
@@ -72,14 +71,14 @@ func _demon_levels(box: bool) -> Dictionary:
 ## the WZ: the survivor box applies).
 func _il_setup() -> Dictionary:
 	var setup := RF.setup("quiet", 325, RF.quiet_data())
-	var books := BOLTS._books()
+	var books := IL.books()
 	setup.job = 222
 	setup.skill_imgs["220"].skill["2201004"] = books.cold
 	setup.skill_imgs["220"].skill["2201005"] = books.thunder
 	setup.skill_imgs["221"] = {"skill": {"2211002": books.strike, "2211003": books.spear,
 		"2211006": {"level": _demon_levels(false)}}}
 	setup.skill_imgs["222"] = {"skill": {"2221003": {"level": _demon_levels(true)},
-		"2221006": CHAIN.book_node(),
+		"2221006": IL.chain_node(),
 		"2221007": {"level": BLIZZARD.levels(120.0, 1.0)}, "2221001": {"level": BIG_BANG.levels(120.0, 1.0)}}}
 	return setup
 
@@ -235,7 +234,7 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 
 func test_every_il_skill_with_bonuses_is_audited_here_or_named_as_audited_elsewhere() -> void:
 	# The job < 300 filter takes books 220/221/222 in; nothing of the I/L line may drop out of it unnoticed.
-	var il_line: Dictionary = BOLTS._skill_file("il_arch_mage")
+	var il_line: Dictionary = IL.skill_file("il_arch_mage")
 	var resolved := _resolved()
 	for key: String in il_line:
 		if not resolved[key].has("rarity_bonuses"):

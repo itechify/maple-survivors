@@ -170,7 +170,7 @@ func test_the_i_l_job_flag_picks_its_fixture_from_the_line_file() -> void:
 
 
 func test_every_job_fixture_exists_and_is_of_its_job() -> void:
-	for job: int in [112, 212, 222]:
+	for job: int in JobTree.from_data(DataRepo.load_all().jobs, DataRepo.load_all().jobs_survivor).playable_jobs():
 		var path: String = HubTestKit.parse_args(PackedStringArray(["--hub", "--job=%d" % job])).character
 		var loaded := HubTestKit.load_character(path, _loader())
 		assert_eq(loaded.error, "", "%s loads" % path)

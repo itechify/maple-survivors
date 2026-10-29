@@ -72,8 +72,8 @@ func _row(creation: Control, id: int) -> Button:
 func test_shipped_il_is_playable_in_canonical_order() -> void:
 	var tree := _tree()
 	assert_true(tree.job(222).playable)
-	var expected: Array[int] = [112, 212, 222]
-	assert_eq(tree.playable_jobs(), expected, "canonical order: Hero, then F/P, then I/L below it")
+	var playable := tree.playable_jobs()
+	assert_true(222 in playable and playable.find(212) < playable.find(222), "I/L follows F/P")
 	assert_eq(tree.name_of(222), "Arch Mage (Ice, Lightning)", "the name is the canonical job list's")
 	assert_eq(tree.default_job(), 212, "F/P stays the default (Hero's pin on a branch that has it, canonical order here)")
 

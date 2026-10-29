@@ -11,7 +11,6 @@
 			1060002
 		],
 		"note": "Synthetic format-3 kit (tools/character_fixture.gd --kit): unscrolled canonical equipment of the Lv0-30 tier-1 drop band and tier 2 unlocked, no cash, pet or carried build; a Lv1 character for the Sleepywood checks.",
-		"patch": "il_playable.json",
 		"revision": "e8e25a02c326c2d1ecda276a33df5d916d376ebc"
 	},
 	"equipment": {

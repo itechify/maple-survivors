@@ -181,7 +181,6 @@ const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 ## A job-222 world (playable flipped in the test copy of the data) with only `key` learned, god mode, a long flat floor.
 func _il_world(key: String) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["222"]["playable"] = true
 	var setup := RF.setup("quiet", 329, data)
 	setup.skill_imgs["222"] = {"skill": {str(BLIZZARD): {"level": levels(120.0, 1.0)},
 		"2221001": {"level": IlBigBang.levels(120.0, 1.0)}}}

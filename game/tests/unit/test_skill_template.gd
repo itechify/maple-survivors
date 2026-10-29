@@ -357,3 +357,12 @@ func test_shipped_templates_agree_with_their_parents_in_the_real_cache() -> void
 		"skill_id": 2121005, "book": "212", "job": 212}}}
 	var wrong_book := SkillBook.from_data(wrong, imgs)
 	assert_false(SkillTemplate.drift_problems(wrong_book, "big_bang_twin", "big_bang", exists).is_empty())
+
+
+func test_il_teleport_inherits_fp_policy_with_its_own_identity() -> void:
+	var data := DataRepo.load_all()
+	assert_eq(data.skills.skills.teleport_il.get("extends", ""), "teleport_fp")
+	var book := SkillBook.from_data(data.skills, {})
+	assert_eq(book.def("teleport_il").teleport, book.def("teleport_fp").teleport)
+	assert_eq(book.rank_table("teleport_il"), book.rank_table("teleport_fp"))
+	assert_eq(book.def("teleport_il").icon, "Skill.wz/220.img/skill/2201002/icon")

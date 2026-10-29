@@ -37,11 +37,15 @@ const FILES := {
 	"cash_items": "survivor/cash_items.json",
 	"ammo": "survivor/ammo.json",
 }
-## Adventurer lines retain their historical merge order; class lines are discovered and sorted after them.
+## Adventurer lines retain their historical merge order; class lines retain append-only registration order.
 const ADVENTURER_LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"]
 
 
-## All JSON fragment names present in any split directory, fixed Adventurers first then sorted class names.
+## Append each shipped class here; existing entries never move (tier C: deterministic fragment order).
+const CLASS_LINES: PackedStringArray = ["hero", "il_arch_mage"]
+
+
+## All present fragments: fixed Adventurers, registered classes, then unregistered names sorted for diagnostics.
 static func lines(root: String = DATA_ROOT) -> PackedStringArray:
 	var classes := PackedStringArray()
 	for key: String in SPLIT:
@@ -54,6 +58,10 @@ static func lines(root: String = DATA_ROOT) -> PackedStringArray:
 				classes.append(line)
 	classes.sort()
 	var out := ADVENTURER_LINES.duplicate()
+	for line in CLASS_LINES:
+		if line in classes:
+			out.append(line)
+			classes.remove_at(classes.find(line))
 	out.append_array(classes)
 	return out
 

@@ -84,7 +84,8 @@ func test_two_rows_in_canonical_order_names_from_the_job_data_and_212_chosen() -
 	if not require_cache():
 		return
 	var creation := _job_page(_flow(), "TwoJobs01")
-	assert_eq(creation.job_ids, [112, 212, 222], "Hero, F/P and (spec #319) I/L: this file checks the first two rows")
+	assert_true(112 in creation.job_ids and 212 in creation.job_ids)
+	assert_true(creation.job_ids.find(112) < creation.job_ids.find(212))
 	assert_eq(creation.job_id, 212, "the default job is chosen when the page opens")
 	var hero := creation.find_child("Job_112", true, false) as Button
 	var mage := creation.find_child("Job_212", true, false) as Button
@@ -131,8 +132,9 @@ func test_up_and_down_step_the_selection_and_clamp_at_the_ends() -> void:
 	assert_eq(creation.job_id, 212)
 	creation._input(_key(KEY_DOWN))
 	assert_eq(creation.job_id, 222, "Down from 212 is the I/L Arch Mage (spec #319)")
-	creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 222, "Down at the last row stays")
+	for i in creation.job_ids.size():
+		creation._input(_key(KEY_DOWN))
+	assert_eq(creation.job_id, creation.job_ids.back(), "Down at the last row stays")
 
 
 func test_arrow_keys_do_nothing_off_the_job_page() -> void:

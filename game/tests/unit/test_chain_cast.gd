@@ -262,3 +262,24 @@ func test_the_caster_faces_the_head() -> void:
 	w.player.facing = 1
 	w.runner.step(DT, w)
 	assert_eq(w.player.facing, -1)
+
+
+func test_map_transfer_preserves_chain_cooldown_and_allows_the_next_cast() -> void:
+	var w := _world()
+	_mob(w, 260)
+	w.runner.step(DT, w)
+	var cooldown := float(w.runner.cooldowns[KEY])
+	var maps: Array = w.setup.data.stages.stages.quiet.maps
+	maps.append(maps[0].duplicate(true))
+	w.transfer_pending = true
+	w.advance_map()
+	assert_eq(w.runner.cooldowns[KEY], cooldown)
+	assert_true(w.loadout.has(KEY))
+	_mob(w, w.player.pos.x + 60)
+	w.drain_events()
+	w.runner.step(DT, w)
+	assert_eq(_hits(w.drain_events()).size(), 0, "transfer grants no free recast")
+	for tick in 100:
+		w.runner.tick_cooldowns(DT, w)
+	w.runner.step(DT, w)
+	assert_true(_hits(w.drain_events()).size() > 0, "chain works on the next map after its cooldown")

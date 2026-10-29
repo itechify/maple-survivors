@@ -144,7 +144,7 @@ func test_the_committed_fixture_is_a_format_three_il_with_the_tier_one_kit() -> 
 	var kit: Array = character._doc.kit.map(func(id: Variant) -> int: return int(id))
 	assert_eq(kit, [1382002, 1002013, 1072019, 1082019, 1040002, 1060002], "the same tier-1 kit as the F/P fixture")
 	assert_eq(int(character._doc.job), 222)
-	assert_eq(character._doc.patch, "il_playable.json", "made before I12 flipped playable: the _doc records the patch")
+	assert_false(character._doc.has("patch"), "the shipped playable fixture needs no external patch")
 	assert_eq(Equipment.worn_ids(character.equipment.worn), [1002013, 1040002, 1060002, 1072019, 1082019, 1382002])
 	var fp: Dictionary = DataRepo.load_json(FP_FIXTURE)
 	assert_eq(character.equipment, fp.equipment, "the gear is F/P's (both Arch Mages wear the same wands and staves)")
