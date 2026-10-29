@@ -357,6 +357,16 @@ func test_dragons_breath_eye_of_amazon_extends_the_reach() -> void:
 	assert_eq(w.runner.casts, 1, "500 px is inside 550")
 
 
+func test_the_skill_window_line_names_the_pierce_and_the_knock_back() -> void:
+	var w := _world(BREATH)
+	var text := SkillText.new(w.book)
+	for row: Array in [[1, 4, 3], [4, 15, 4], [8, 30, 5]]:
+		var line := text.level_line(BREATH, int(row[1]), w.loadout.stats(BREATH, int(row[0])))
+		assert_true(line.contains("Pierces up to %d more monsters" % int(row[2])), line)
+		assert_true(line.contains("Knock-back: 100% / 180 px"), line)
+	assert_false(text.level_line(RAIN, 4, w.loadout.stats(RAIN, 1)).contains("Pierces"))
+
+
 # --- both skills: rarity tables ---------------------------------------------------------------------------------------
 
 func test_the_rarity_tables_follow_the_spec() -> void:

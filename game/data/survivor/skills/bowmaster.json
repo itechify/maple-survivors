@@ -36,7 +36,7 @@
 					"across": 8,
 					"interval": 0.09,
 					"fall": 230,
-					"fall_time": 0.15
+					"fall_time": 0.25
 				}
 			],
 			"rarity_bonuses": {
@@ -98,7 +98,7 @@
 					}
 				]
 			},
-			"_tier": "Tier A: WZ damage 60..160%, the symmetric box (+-170 -> +-210 by +-100), mobCount 6, weapon 45 (bow), effect/hit/special art and Use/Hit sounds. Tier C (#340, GAME_DESIGN 7.45): the eight survivor ranks, a box cast anchored where the caster stood that strikes 0.5s later (the delayed-strike seam of Meteor Shower), min_targets 1, 5s cooldown, 0.6s held weapon stance, the special node read as eight arrows falling 230px over 0.15s, one every 90ms across the box (art only), rarity bonuses. Untuned."
+			"_tier": "Tier A: WZ damage 60..160%, the symmetric box (+-170 -> +-210 by +-100), mobCount 6, weapon 45 (bow), effect/hit/special art and Use/Hit sounds. Tier C (#340, GAME_DESIGN 7.45): the eight survivor ranks, a box cast anchored where the caster stood that strikes 0.5s later (the delayed-strike seam of Meteor Shower), min_targets 1, 5s cooldown, 0.6s held weapon stance, the special node read as eight arrows falling 230px over 0.25s, one every 90ms across the box (art only), rarity bonuses. Untuned."
 		},
 		"dragons_breath": {
 			"skill_id": 3121003,
