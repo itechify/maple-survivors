@@ -2,7 +2,7 @@ extends TestCase
 ## Summon Dragon and Bahamut against the real v83 books (spec #372, BS7 #379): the mapped `mad`, `time` and `mobCount` of all eight
 ## ranks, the attack info and every animation node. Needs the asset cache with Skill.wz 231/232 (`require_cache()`; a SKIP proves nothing).
 const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")
-const D := preload("res://tests/unit/test_bishop_dragons.gd")
+const DF := preload("res://tests/fixtures/bishop_dragon_fixtures.gd")
 
 func _book(lib: AssetLibrary) -> SkillBook:
 	return SkillBook.from_data(DataRepo.load_all().skills,
@@ -21,8 +21,8 @@ func test_cached_dragons_map_all_eight_ranks_to_the_recorded_values() -> void:
 	assert_eq(book.skill_id("bahamut"), 2321003)
 	for key: String in ["summon_dragon", "bahamut"]:
 		assert_eq(book.max_rank(key), 8, key)
-		var mads: Array = D.DRAGON_MAD if key == "summon_dragon" else D.BAHAMUT_MAD
-		var times: Array = D.DRAGON_TIME if key == "summon_dragon" else D.BAHAMUT_TIME
+		var mads: Array = DF.DRAGON_MAD if key == "summon_dragon" else DF.BAHAMUT_MAD
+		var times: Array = DF.DRAGON_TIME if key == "summon_dragon" else DF.BAHAMUT_TIME
 		for rank in range(1, 9):
 			lo.set_rank(key, rank)
 			var st := lo.stats(key)
@@ -33,7 +33,7 @@ func test_cached_dragons_map_all_eight_ranks_to_the_recorded_values() -> void:
 			assert_near(book.canonical(key, int(st.level), "mastery", 0.0), float(BF.MASTERY[rank - 1]), 0.0001, label + " mastery")
 			var wz_count := book.canonical(key, int(st.level), "mobCount", -1.0)
 			if key == "bahamut":
-				assert_eq(int(wz_count), D.BAHAMUT_TARGETS[rank - 1], label + " mobCount")
+				assert_eq(int(wz_count), DF.BAHAMUT_TARGETS[rank - 1], label + " mobCount")
 			else:
 				assert_eq(wz_count, -1.0, label + ": Summon Dragon has no mobCount (one target)")
 			assert_eq(st.element, "h", label)

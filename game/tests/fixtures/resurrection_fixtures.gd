@@ -4,26 +4,23 @@ extends RefCounted
 ## cache is needed; the real-cache identity tests live in test_bishop_resurrection.gd.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const RV := preload("res://tests/fixtures/revive_fixtures.gd")
 const KEY := "resurrection"
 const SKILL_ID := 2321006
-## tier A: the recharge table of the spec (cooltime / 3 - 480 over the mapped WZ levels 2, 3, 4, 5, 7, 8, 9, 10).
-const TABLE := [600.0, 540.0, 480.0, 420.0, 300.0, 240.0, 180.0, 120.0]
+## tier A: the recharge table of the spec (cooltime / 3 - 480 over the mapped WZ levels 2, 3, 4, 5, 7, 8, 9, 10), the synthetic
+## revive skill's.
+const TABLE := RV.TABLE
 const LEVELS := [2, 3, 4, 5, 7, 8, 9, 10]
 
 
 ## Skill.wz-shaped img of the skill: levels 1..10, `cooltime` 3420 - 180 per level after the first, the 800 x 600 box.
 static func img() -> Dictionary:
-	var levels := {}
-	for lv in range(1, 11):
-		levels[str(lv)] = {"lt": {"$v": [-400.0, -350.0]}, "rb": {"$v": [400.0, 250.0]}, "cooltime": 3600.0 - 180.0 * lv}
-	return {"skill": {str(SKILL_ID): {"icon": RF._canvas(32, 32), "level": levels}}}
+	return RV.img_of(SKILL_ID, 10)
 
 
 ## The setup of the quiet stage for a Bishop with the synthetic book.
 static func setup(p_seed := 380) -> Dictionary:
-	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["232"]["playable"] = true # not playable until BS10; the pool cards need a playable job
-	var s := RF.setup("quiet", p_seed, data)
+	var s := RF.setup("quiet", p_seed, RF.quiet_data())
 	s.job = 232
 	s.skill_imgs["232"] = img()
 	return s

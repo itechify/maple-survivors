@@ -17,40 +17,38 @@ const MASTERY := [2, 3, 4, 5, 7, 8, 9, 10]
 const RAY_HALF_WIDTH := [150, 150, 160, 160, 160, 170, 170, 170]
 
 
-static func _points(values: Array, first: float) -> Dictionary:
+static func points(values: Array, first: float) -> Dictionary:
 	var out := {1: first}
 	for i in 8:
 		out[RANK_LEVELS[i]] = values[i]
 	return out
 
 
-static func _mastery() -> Dictionary:
-	return _points(MASTERY, 1)
+static func mastery() -> Dictionary:
+	return points(MASTERY, 1)
 
 
 ## Skill.wz-shaped books: Holy Arrow (230), Shining Ray (231), Angel Ray (232) and the Cleric Teleport (130 to level 10, then +2 a level).
 static func books() -> Dictionary:
 	var arrow := {"icon": {"$canvas": [0, 0, 0, 32, 32]}, "elemAttr": "h", "action": {"0": "shoot1"},
 		"ball": IL.anim(3), "effect": IL.anim(7), "hit": {"0": IL.anim(3)},
-		"level": IL.levels({"mad": _points(ARROW_MAD, 22), "mastery": _mastery()})}
+		"level": IL.levels({"mad": points(ARROW_MAD, 22), "mastery": mastery()})}
 	var ray := {"icon": {"$canvas": [0, 0, 0, 32, 32]}, "elemAttr": "h", "action": {"0": "magic2"},
 		"effect": IL.anim(11), "hit": {"0": IL.anim(2)},
-		"level": IL.levels({"mad": _points(RAY_MAD, 60), "mastery": _mastery(), "mobCount": {1: 6, 30: 6}},
+		"level": IL.levels({"mad": points(RAY_MAD, 60), "mastery": mastery(), "mobCount": {1: 6, 30: 6}},
 			func(node: Dictionary, lv: int) -> void:
 				IL.box(node, 150.0 if lv <= 10 else 160.0 if lv <= 20 else 170.0, 50.0, 50.0))}
 	var angel := {"icon": {"$canvas": [0, 0, 0, 32, 32]}, "elemAttr": "h", "action": {"0": "shoot1"},
 		"ball": {"0": {"$canvas": [0, 0, 0, 90, 19], "delay": 100.0}}, "effect": IL.anim(15), "hit": {"0": IL.anim(7)},
-		"level": IL.levels({"mad": _points(ANGEL_MAD, 123), "mastery": _mastery()})}
+		"level": IL.levels({"mad": points(ANGEL_MAD, 123), "mastery": mastery()})}
 	var teleport := {"icon": {"$canvas": [0, 0, 0, 32, 32]},
 		"level": IL.levels({"range": {1: 130, 10: 130, 20: 150}, "mpCon": {1: 60, 20: 13}})}
 	return {"arrow": arrow, "ray": ray, "angel": angel, "teleport": teleport}
 
 
-## Setup of a Bishop (232) round on the quiet stage with the synthetic books; `p_data` is the data (Bishop made playable here, as the
-## job is until BS10).
+## Setup of a Bishop (232) round on the quiet stage with the synthetic books; `p_data` is the data.
 static func setup(p_data: Dictionary = {}, p_seed := 377) -> Dictionary:
 	var data := RF.quiet_data() if p_data.is_empty() else p_data
-	data.jobs_survivor.jobs["232"]["playable"] = true
 	var setup := RF.setup("quiet", p_seed, data)
 	var books := books()
 	setup.job = 232

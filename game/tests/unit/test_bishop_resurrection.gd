@@ -134,6 +134,17 @@ func test_epic_holy_vigor_raises_the_revive_hp_share() -> void:
 	assert_eq(int(_revive(w).hp), ceili(max_hp * 0.65))
 
 
+func test_holy_vigor_at_a_max_hp_where_the_share_is_exact_returns_the_whole_hp_it_names() -> void:
+	# Skill modifiers are float32: 0.5 + 0.15 arrives as 0.65000000596, and 100 x that rounds up to 66, not 65.
+	for max_hp in [100, 120, 140, 200, 1000]:
+		var w := _carded("epic")
+		w.player_state["max_hp"] = max_hp
+		assert_eq(int(w.revive.plan_of(w, w.loadout.stats(KEY)).hp), roundi(max_hp * 0.65), "max HP %d" % max_hp)
+	var odd := _carded("epic")
+	odd.player_state["max_hp"] = 101
+	assert_eq(int(odd.revive.plan_of(odd, odd.loadout.stats(KEY)).hp), 66, "a genuinely fractional share still rounds up: ceil(101 x 0.65)")
+
+
 func test_unique_holy_shield_lengthens_the_guard() -> void:
 	assert_true(absf(float(_revive(_ranked()).guard) - 2.0) < 1e-3)
 	assert_true(absf(float(_revive(_carded("unique")).guard) - 3.5) < 1e-3)
@@ -199,7 +210,8 @@ func test_clock_and_notice() -> void:
 	assert_eq(SkillText.clock(475.2), "7:55")
 	assert_eq(SkillText.clock(59.6), "1:00", "seconds round up through the minute")
 	assert_eq(SkillText.clock(0.0), "0:00")
-	assert_eq(SkillText.revive_notice(120.0), "Resurrection! Ready again in 2:00")
+	assert_eq(SkillText.revive_notice("Resurrection", 120.0), "Resurrection! Ready again in 2:00")
+	assert_eq(SkillText.revive_notice("Second Wind", 59.6), "Second Wind! Ready again in 1:00", "any reaction skill's own name")
 
 
 func test_the_cards_preview_the_revive_numbers() -> void:
@@ -213,6 +225,16 @@ func test_the_cards_preview_the_revive_numbers() -> void:
 	var rare: Dictionary = w.upgrades.choice_card("resurrection_rank", w, "rare")
 	assert_eq(rare.skill_mod_changes.cooldown.before, 600.0)
 	assert_true(absf(float(rare.skill_mod_changes.cooldown.after) - 528.0) < 0.01)
+
+
+func test_the_cards_word_the_bonus_in_the_specs_terms() -> void:
+	var w := RS.world()
+	var epic: Dictionary = w.upgrades.choice_card("resurrection_rank", w, "epic")
+	assert_eq(epic.rarity_bonus.text, "Holy Vigor: revive HP +15%")
+	var unique: Dictionary = w.upgrades.choice_card("resurrection_rank", w, "unique")
+	assert_eq(unique.rarity_bonus.text, "Holy Shield: guard +1.5 s")
+	var legendary: Dictionary = w.upgrades.choice_card("resurrection_rank", w, "legendary")
+	assert_eq(legendary.rarity_bonus.text, "Holy Shield and Holy Vigor: guard +1.5 s, revive HP +15%")
 
 
 func test_the_level_up_window_words_the_revive_changes() -> void:

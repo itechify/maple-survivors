@@ -15,16 +15,13 @@ const DEFAULT_HP := 0.5
 const DEFAULT_GUARD := 2.0
 ## tier C: ours (spec #372 D6): px the monsters in the skill's box are shoved away from the character.
 const DEFAULT_PUSH := 140.0
-## The recharge counts as run out at or below this many seconds, like SkillRunner.cast_ready's ready test.
-const READY_EPS := 1e-6
-
 ## Seconds of guard left.
 var guard_t := 0.0
 
 
-## True while the guard runs.
-func guarding() -> bool:
-	return guard_t > READY_EPS
+## Seconds of guard left.
+func guard_left() -> float:
+	return guard_t
 
 
 ## Counts the guard down.
@@ -43,7 +40,7 @@ func intercept_lethal(world: RunWorld, source: Dictionary) -> bool:
 func ready_skill(world: RunWorld) -> String:
 	for key: String in world.loadout.order:
 		if world.book.def(key).has("revive") and world.runner.stats_of(world, key).cast_rule == "reaction" \
-				and float(world.runner.cooldowns.get(key, 0.0)) <= READY_EPS:
+				and float(world.runner.cooldowns.get(key, 0.0)) <= SkillRunner.READY_EPS:
 			return key
 	return ""
 
@@ -60,9 +57,7 @@ func try_revive(world: RunWorld, source: Dictionary) -> bool:
 	var plan := plan_of(world, st)
 	var hp := world.grant_second_life(float(plan.hp))
 	guard_t = float(plan.guard)
-	var recharge := SkillRunner.restart_cooldown(st)
-	world.runner.cooldowns[key] = recharge
-	world.runner.cooldown_totals[key] = recharge
+	var recharge := world.runner.start_recharge(key, st)
 	var pushed := _shove(world, st, float(plan.push))
 	world.revives.append({"t": world.time, "level": int(world.player_state.level), "rank": int(st.rank),
 		"source_kind": String(source.get("source_kind", "other")), "hp": int(hp)})
@@ -71,6 +66,24 @@ func try_revive(world: RunWorld, source: Dictionary) -> bool:
 	# The skill's own stance (BS8): a display hold only. Nothing reads cast_left to lock walking or casting.
 	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 	return true
+
+
+## The base HP share / guard seconds of a `revive` block (its own fields, else the defaults): Loadout.stats applies the
+## `revive_hp` and `revive_guard` skill modifiers (add, then mul) on top.
+static func hp_base(block: Dictionary) -> float:
+	return float(block.get("hp", DEFAULT_HP))
+
+
+static func guard_base(block: Dictionary) -> float:
+	return float(block.get("guard", DEFAULT_GUARD))
+
+
+## The `revive` entry of a skill's resolved stats: {hp: share of max HP, guard: s, push: px}, from the block and the
+## modifier-resolved `hp` and `guard`. The HP share is rounded to 1e-4: skill modifiers are stored as float32, so a
+## 0.5 + 0.15 card arrives as 0.65000000596 and would round 100 max HP up to 66 (65 intended), like Heal's threshold.
+static func resolve(block: Dictionary, hp: float, guard: float) -> Dictionary:
+	return {"hp": roundi(hp * 10000.0) / 10000.0, "guard": guard,
+		"push": float(block.get("push", {}).get("distance", DEFAULT_PUSH))}
 
 
 ## The resolved plan for the resolved stats `st` of a reaction skill: {hp (the HP to return with, whole), guard (s),
@@ -91,6 +104,7 @@ func _shove(world: RunWorld, st: Dictionary, distance: float) -> int:
 	slots.sort()
 	var pushed := 0
 	for m: int in slots:
+		# A monster with no foothold (fh < 0: airborne or off its platform) has nothing to slide along, so it stays put.
 		if world.swarm.mob_kind(m).boss or world.swarm.steady[m] != 0 or world.swarm.fh[m] < 0:
 			continue
 		world.swarm.knockback(m, world.player.pos.x, distance, world.fhm, world.bounds)

@@ -1,6 +1,6 @@
 extends RefCounted
 ## Heal (2301002) fixtures for the Bishop tests (spec #372, BS4 #376): a synthetic Skill.wz `230.img` Heal table, a Bishop
-## (job 232, made playable in the test's own data copy) world that knows only Heal, and the small helpers the Heal tests share.
+## (job 232) world that knows only Heal, and the small helpers the Heal tests share.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -22,11 +22,10 @@ static func levels() -> Dictionary:
 	return out
 
 
-## Quiet-stage data with Bishop playable (so its pool cards exist) and 1000 max HP.
+## Quiet-stage data with 1000 max HP.
 static func data() -> Dictionary:
 	var d := RF.quiet_data()
 	d.balance.player.hp = MAX_HP
-	d.jobs_survivor.jobs["232"]["playable"] = true
 	return d
 
 

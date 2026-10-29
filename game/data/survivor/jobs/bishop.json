@@ -83,31 +83,6 @@
 					]
 				}
 			}
-		},
-		"bot": {
-			"_card_scores": "tier C: spec #372 BS2: the ten Bishop pool skills score like every other pool skill, new 100 and rank 74. Spelled out so the line's scores live with its job, as Hero's and I/L's do; the values equal the pool default, so no decision changes.",
-			"card_scores": {
-				"holy_arrow_new": 100,
-				"holy_arrow_rank": 74,
-				"magic_claw_new": 100,
-				"magic_claw_rank": 74,
-				"shining_ray_new": 100,
-				"shining_ray_rank": 74,
-				"angel_ray_new": 100,
-				"angel_ray_rank": 74,
-				"heal_new": 100,
-				"heal_rank": 74,
-				"summon_dragon_new": 100,
-				"summon_dragon_rank": 74,
-				"bahamut_new": 100,
-				"bahamut_rank": 74,
-				"genesis_new": 100,
-				"genesis_rank": 74,
-				"big_bang_bishop_new": 100,
-				"big_bang_bishop_rank": 74,
-				"resurrection_new": 100,
-				"resurrection_rank": 74
-			}
 		}
 	}
 }

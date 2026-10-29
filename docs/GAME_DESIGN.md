@@ -6385,15 +6385,23 @@ definition, art and cards are BS8.
 
 **The hook point (generic).** `take_hit` consults `HitHook`s (`scripts/sim/hit_hook.gd`) registered with
 `RunWorld.add_hit_hook(hook, order)`: ascending `order`, equal orders in registration order, `PlayerRevive` at order 100.
-A hook overrides only the phases it needs: `guarding()` (before the miss roll), `intercept_lethal(world, source)` (after
-the hit was processed in full and left HP at zero or below; the first hook to claim it wins) and `step(dt)` (once per
-world tick, before everything else in the tick). A later feature (the Corsair ship's hull, #384) is another `HitHook` and
-adds its own phase method with a pass-through default where that phase belongs; nothing in `take_hit` names Resurrection.
+A hook overrides only the phases it needs: `guarding()` (before the miss roll; true while `guard_left()` is above zero),
+`absorb(world, amount, source)` (after defence, armour and Power Guard, right before HP is reduced: returns the damage left,
+so a hull returns `amount` less what it soaked; every hook is asked in order and the damage number shows what got through),
+`intercept_lethal(world, source)` (after the hit was processed in full and left HP at zero or below; the first hook to claim
+it wins) and `step(dt)` (once per world tick, before everything else in the tick). `RunWorld.hit_guard_left()` is the longest
+`guard_left()` of any hook (the avatar blink reads it). The Corsair ship's hull (#384) is another `HitHook` registered at an
+order below `PlayerRevive.HIT_ORDER`, so what it soaks never reaches HP or the lethal check, and the revive sees only what
+the hull let through; a further phase is a new method with a pass-through default where that phase belongs. Nothing in
+`take_hit` names Resurrection.
 
 **Order of events in `take_hit`.**
 
 1. Early-outs: `_dead`, `_map_clearing`, `god`, the hit window (boss skill attacks and balls bypass it), Hidden, then the
    hooks' `guarding()`. A guarded hit returns 0 before the miss roll: no RNG, no event, window-bypassing sources included.
+   `RunWorld.hit_window_blocks(source)`, which the callers ask before `take_hit`, is also true while a hook guards, so a
+   guarded boss attack or ball draws no hit art and the ball is not used up (it flies on, like an ordinary ball in the
+   hit window).
 2. The hit is processed in full (miss roll, defence, damage, Power Guard, `player_hit`, `upkeep.land_hit`), so the damage
    number and the flinch still show.
 3. If HP is zero or below, the hooks' `intercept_lethal` run. `PlayerRevive` admits when: the source is not marked
@@ -6451,9 +6459,9 @@ through the `damage: none` rule (x0.96 for the second card).
 `start_action`: a display hold only, drawn while the character stands, so walking and casting are never locked (nothing reads
 `cast_left` to block them; a test walks during the hold). `RunScene` maps `player_revived` to: the `effect` (the angel
 pillar, 21 frames) at the feet and the `affected` beams (15 frames, frame 0 a 1 x 1 canvas held 1320 ms, then 60 ms beams) on
-the body centre, both on the avatar; the skill's Use sound; the notice "Resurrection! Ready again in M:SS" from the event's
+the body centre, both on the avatar; the skill's Use sound; the notice "<skill name>! Ready again in M:SS" (the skill's own name; "Resurrection! ..." for the Bishop) from the event's
 `recharge` (6 s); and one evidence shot. The avatar blinks (the hit-window blink) for as long as the longer of the hit window
-and the guard runs. The HUD slot shows the recharge as the ordinary cooldown sweep. Level-up cards preview `revive_hp` (percent)
+and `hit_guard_left()` runs. The HUD slot shows the recharge as the ordinary cooldown sweep. Level-up cards preview `revive_hp` (percent)
 and `revive_guard` (seconds) like the other modifier stats (`UpgradePool.MOD_PREVIEW`, `LevelUpWindow.MOD_LABELS`), and
 `SkillText.level_line` ends with "When a hit would kill you: return at N% HP, S s guard; recharge M:SS".
 
@@ -7919,7 +7927,11 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
 
 
-### Bishop BS2 constants (spec #372, BS2 #374)
+### Bishop (spec #372) constants
+
+One heading for the whole spec; each ticket's table below carries its own bold label (BS2 pool and data, BS5 core bolts, BS4 Heal, BS6 Genesis and Big Bang, BS3 revive seam, BS7 dragons, BS9 tooling, BS8 Resurrection). Section numbers 7.80-7.85 follow the order the tickets landed: 7.82 is the core bolts (BS5), 7.83 Heal (BS4), 7.84 the dragons (BS7), 7.85 Genesis and Big Bang (BS6).
+
+**Bishop BS2 constants (spec #372, BS2 #374)**
 
 | Rule | Value / source | Tier |
 |---|---|---|
@@ -7935,7 +7947,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Playable | `true` since BS10 #382; `default_job` stays 212 | C |
 | Holy Symbol | the common `passive_exp` (9101002), offered to a 232 like any job; no Bishop card | C |
 
-### Bishop BS5 constants (spec #372, BS5 #377)
+**Bishop BS5 constants (spec #372, BS5 #377)**
 
 | Rule | Value / source | Tier |
 |---|---|---|
@@ -7949,7 +7961,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Bonus names | Holy Power, Piercing Light, Twin Arrow, Wider Ray, Splitting Ray, Spell Booster, Twin Angel | C |
 | Card text | Shining Ray and Angel Ray descriptions and level lines are survivor-written (the WZ strings are not in the repo) | C |
 
-### Bishop BS4 constants (spec #372, BS4 #376)
+**Bishop BS4 constants (spec #372, BS4 #376)**
 
 | Rule | Value / source | Tier |
 |---|---|---|
@@ -7964,7 +7976,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Normal Mastery on Heal | cooldown x0.95 (`damage: none`, #346) | C |
 | Heal's data | `heal {field hp, hp_threshold 0.5, recast_delay 2.0}`, `alert2` 0.8 s, every undead in the box, holy strike: unchanged from #57 | see the #57 rows |
 
-### Bishop BS6 constants (spec #372, BS6 #378)
+**Bishop BS6 constants (spec #372, BS6 #378)**
 
 | Rule | Value / source | Tier |
 |---|---|---|
@@ -8009,19 +8021,20 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 `stabO2` exists, covered by `test_a_weapon_with_stabO2_keeps_its_own_art`.
 
 
-### Bishop BS3 constants (#375)
+**Bishop BS3 constants (#375)**
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
 | Revive HP share (`PlayerRevive.DEFAULT_HP`; the Resurrection `revive.hp` of BS8 repeats it) | 50% of max HP, rounded up, clamped 1..max | tier C, spec #372 D6 |
 | Guard after a revive (`DEFAULT_GUARD`) | 2.0 s, blocking every hit including window-bypassing boss attacks and balls | tier C, spec #372 D6 |
 | Holy shove (`DEFAULT_PUSH`) | 140 px away from the character over the skill's WZ box x `area`; non-boss, non-`steady`, grounded monsters; no damage | tier C, spec #372 D6 |
-| Hook order of `PlayerRevive` (`HIT_ORDER`) | 100 (hooks of lower order claim a lethal hit first) | tier C, ours (#375) |
-| Recharge count as run out | `cooldowns[key] <= 1e-6`, as `SkillRunner.cast_ready` | tier C, ours (#375) |
+| Hook order of `PlayerRevive` (`HIT_ORDER`) | 100 (hooks of lower order claim a lethal hit first and absorb damage first; a hull registers below it) | tier C, ours (#375) |
+| Revive HP share rounding | the resolved share is rounded to 1e-4 (modifiers are float32: 0.5 + 0.15 is 0.65000000596, which would return 66 HP at 100 max HP instead of 65) | tier C, ours (review fix #372) |
+| Recharge count as run out | `cooldowns[key] <= SkillRunner.READY_EPS` (1e-6), the one epsilon of every cast path and of `PlayerRevive`; `SkillRunner.start_recharge` starts the recharge pair | tier C, ours (#375) |
 | Skill ready at round start | cooldown starts at 0 | tier C, ours (#375) |
 | Resurrection WZ box (-400,-350)..(400,250) at every level | read as is; the recharge table (600 s down to 120 s) is BS8's `cooldown_by_rank` | tier A shape, tier C scale (BS1 identity `cooltime / 3 - 480`) |
 
-### Bishop BS7 constants (spec #372, BS7 #379)
+**Bishop BS7 constants (spec #372, BS7 #379)**
 
 | Rule | Value / source | Tier |
 |---|---|---|
@@ -8035,18 +8048,18 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Rarity bonuses | the two rows in 8 (damage x1.2, area x1.2, +1 ally or +2 targets; Legendary = Unique + damage x1.2; repeats x0.8); names Holy Power, Wide Wings, Twin Dragons, Holy Crowd | C |
 | Not read | Summon Dragon's Summoning Rock (`itemCon 4006001`), Bahamut's `req` of Summon Dragon 15, `info.type`, `sp`/`r` under the range node | dropped by decision (ADR 0006, spec #372) |
 
-### Bishop BS9 constants (spec #372, BS9 #381)
+**Bishop BS9 constants (spec #372, BS9 #381)**
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
 | Bishop fixture `bishop_t2.json` | job 232, tier 2, the F/P tier-1 kit (1382002, 1002013, 1072019, 1082019, 1040002, 1060002), made with `--patch` before BS10 enabled 232 (historical provenance; new generation needs no patch) | tier C: ours (#381) |
 | Hub kit | unchanged from BS2: F/P's scroll stacks and spare equipment, fixture path now exists | tier C: ours (#381) |
 | Baseline oracle pool (`test_bishop_baseline.POOL`) | all ten shipped pool skills since BS10 #382; the two dragons and Resurrection expand the card/event workload, requiring one recapture | tier C: ours (#381) |
-| Baseline recipe | seed 1, 72,000 ticks, god, bot (`auto_choose` + `decide`), legacy Henesys curve and opening freeze as the 212 oracle, synthetic books (`bishop_bolt_fixtures`, `heal_fixtures`, Genesis and Big Bang of `test_bishop_genesis`, dragons of `test_bishop_dragons`, `resurrection_fixtures`) | tier C: ours (#381) |
-| Bot scores | no `card_scores` block added; the ten pool keys keep BS2's new 100 / rank 74; Heal and Resurrection have reach 0; the bot presses a key only for Teleport | tier C: ours (#381) |
+| Baseline recipe | seed 1, 72,000 ticks, god, bot (`auto_choose` + `decide`), legacy Henesys curve and opening freeze as the 212 oracle, synthetic books (`bishop_bolt_fixtures`, `heal_fixtures`, Genesis and Big Bang of `bishop_genesis_fixtures`, dragons of `bishop_dragon_fixtures`, `resurrection_fixtures`) | tier C: ours (#381) |
+| Bot scores | no `card_scores` block (BS2's explicit block was removed in the review fixes: the pool default gives the same scores); the ten pool keys keep BS2's new 100 / rank 74; Heal and Resurrection have reach 0; the bot presses a key only for Teleport | tier C: ours (#381) |
 | Skill window | no code change: tabs 200, 230, 231, 232 after Common, Teleport (2301001) first on the 230 tab | tier C: ours (#381) |
 
-### Bishop BS8 constants (#380)
+**Bishop BS8 constants (#380)**
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
@@ -8056,7 +8069,8 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Rare Faster Prayer / Epic Holy Vigor / Unique Holy Shield / Legendary | recharge x0.88 / revive HP +0.15 / guard +1.5 s / Shield + Vigor; repeat scale 0.8 | tier C, spec #372 |
 | Stance hold (`action_time`) | 2.52 s, three 840 ms body frames; display only, never locks movement or casting | tier A frames, tier C hold (ours, #380) |
 | `affected` anchor | the canonical body-box centre (frame 1's origin is mid-body); frame 0's 1320 ms lead-in is the WZ delay | tier C placement, tier A art |
-| Notice | "Resurrection! Ready again in M:SS", 6 s (`RunScene.REVIVE_NOTICE_TIME`) | tier C, ours (#380) |
+| Notice | "<skill name>! Ready again in M:SS" (Resurrection's name for the Bishop), 6 s (`RunScene.REVIVE_NOTICE_TIME`) | tier C, ours (#380) |
+| Card wording | "Holy Vigor: revive HP +15%", "Holy Shield: guard +1.5 s", "Greater Heal: recovery x1.2", "Mending Touch: heals below +15% HP" (`UpgradePool.CARD_STAT_TEXT`) | tier C, spec #372 story 11 |
 | Evidence shot delay (`REVIVE_SHOT_DELAY`) | 1.45 s after the revive (first beam frames) | tier C, ours (#380) |
-| Guard blink | the hit-window blink (alpha 0.4, 0.16 s period), driven by the longer of the hit window and the guard | tier C, ours (existing blink constants) |
+| Guard blink | the hit-window blink (alpha 0.4, 0.16 s period), driven by the longer of the hit window and `RunWorld.hit_guard_left()` | tier C, ours (existing blink constants) |
 | Level-up preview units | `revive_hp` in percent, `revive_guard` in seconds | tier C, ours (#380) |

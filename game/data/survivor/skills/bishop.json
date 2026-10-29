@@ -118,7 +118,7 @@
 			"hit": "Skill.wz/232.img/skill/2321008/hit/0",
 			"effect": "Skill.wz/232.img/skill/2321008/effect", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2321008/Use", "hit": "Sound.wz/Skill.img/2321008/Hit"},
-			"_provenance": "Tier A: WZ mad, box (-400,-350)..(400,250), mobCount 15, mastery, hitAfter 1800 (the pending delay), tile/0..8 and effectDistance 150, effect and effect0 art, elemAttr h, action genesis, Use/Hit sounds. Tier C: the 6.0 s cooldown (Meteor Shower's 4.8 s with the 670% vs 570% top rank), auto-cast with at least one monster in the box, the genesis stance held 0.8 s (the body's 2.7 s three held frames are not played), range/count (only the bot's reach) and effect0 at the caster; GAME_DESIGN 7.85.",
+			"_provenance": "Tier A: WZ mad, box (-400,-350)..(400,250), mobCount 15, mastery, hitAfter 1800 (the pending delay), tile/0..8 and effectDistance 150, effect and effect0 art, elemAttr h, action genesis, Use/Hit sounds. Tier C: it stays its own definition rather than extending meteor_shower (SkillTemplate is for skills identical in WZ; Genesis has its own mad, so the drift guard would fail: the keys it shares with Meteor Shower are shape, not identity); the 6.0 s cooldown (Meteor Shower's 4.8 s with the 670% vs 570% top rank), auto-cast with at least one monster in the box, the genesis stance held 0.8 s (the body's 2.7 s three held frames are not played), range/count (only the bot's reach) and effect0 at the caster; GAME_DESIGN 7.85.",
 			"pending": {"delay": 1.8, "effect": ""},
 			"cast_visuals": [
 				{"path": "Skill.wz/232.img/skill/2321008/tile/0", "x": -600},
@@ -138,16 +138,8 @@
 			"extends": "big_bang", "skill_id": 2321001, "book": "232", "job": 232
 		},
 		"teleport_cleric": {
-			"skill_id": 2301001, "book": "230", "job": 230, "kind": "instant", "slot": "mobility",
-			"name": "Teleport", "desc": "Press X and a direction to blink to a platform. Hold X to repeat.",
-			"text": {"desc": "Press the Teleport key with an arrow key to teleport a set distance to another platform in the same map. Hold the key to keep teleporting."},
-			"icon": "Skill.wz/230.img/skill/2301001/icon", "damage": "none",
-			"cast": {"rule": "manual"}, "skill_key": "teleport", "teleport": {"repeat_delay": 0.3, "bot_threat_distance": 60.0},
-			"_teleport": "Tier C: 0.3 s survivor repeat delay; bot blinks from threats within 60 px. Canonical mpCon and range from Skill.wz (130 to level 10, then +2 a level to 150 at level 20).",
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "", "action_time": 0.0, "ball": "", "hit": "",
-			"effect": "Effect.wz/BasicEff.img/Teleport", "rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/2301001/Use", "hit": ""}
+			"_teleport": "Tier A: Teleport (2301001) is the F/P and I/L Teleport in v83 data (range 130 to level 10, then +2 a level to 150 at level 20), re-checked by the drift guard (SkillTemplate.drift_problems). Tier C: the template mechanism (GAME_DESIGN 7.63); the survivor policy (0.3 s repeat delay, bot blinks from threats within 60 px) is inherited from teleport_fp.",
+			"extends": "teleport_fp", "skill_id": 2301001, "book": "230", "job": 230
 		},
 		"heal": {
 			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.83. Every effect names a stat Heal's rule reads: heal_power and heal_threshold (BS4), area (the undead box) and damage (the undead strike, resolved).",

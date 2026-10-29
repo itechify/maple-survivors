@@ -9,10 +9,10 @@ extends TestCase
 ## The golden is recaptured once for this workload expansion; F/P, Hero and I/L oracles stay untouched.
 
 const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")
-const G := preload("res://tests/unit/test_bishop_genesis.gd")
+const BG := preload("res://tests/fixtures/bishop_genesis_fixtures.gd")
 const HF := preload("res://tests/fixtures/heal_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const DR := preload("res://tests/unit/test_bishop_dragons.gd")
+const DF := preload("res://tests/fixtures/bishop_dragon_fixtures.gd")
 const REV := preload("res://tests/fixtures/resurrection_fixtures.gd")
 const DT := 1.0 / 60.0
 const TICKS := 72000
@@ -38,8 +38,8 @@ func _event_digest(ticks: int, counts := {}) -> String:
 	setup.skill_imgs["230"].skill["2301002"] = {"level": HF.levels()}
 	setup.skill_imgs["231"] = {"skill": {"2311004": books.ray}}
 	setup.skill_imgs["232"] = {"skill": {"2321007": books.angel}}
-	G.add_books(setup)
-	var dragons := DR.books()
+	BG.add_books(setup)
+	var dragons := DF.books()
 	setup.skill_imgs["231"].skill["2311006"] = dragons.dragon
 	setup.skill_imgs["232"].skill["2321003"] = dragons.bahamut
 	setup.skill_imgs["232"].skill["2321006"] = REV.img().skill["2321006"]

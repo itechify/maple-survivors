@@ -5,7 +5,7 @@ extends TestCase
 ## `big_bang_il`. Synthetic casts at the RunWorld boundary; the real-cache half is in test_bishop_genesis_cache.gd.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const G := preload("res://tests/unit/test_bishop_genesis.gd")
+const BG := preload("res://tests/fixtures/bishop_genesis_fixtures.gd")
 const IlBigBang := preload("res://tests/unit/test_il_big_bang.gd")
 const DT := 1.0 / 60.0
 
@@ -149,7 +149,7 @@ func test_its_numbers_come_from_book_232_not_from_the_parent_book() -> void:
 
 
 func test_the_inherited_rarity_lists_resolve_for_job_232() -> void:
-	var w := G.world("big_bang_bishop")
+	var w := BG.world("big_bang_bishop")
 	var bonuses: Dictionary = w.book.def("big_bang_bishop").rarity_bonuses
 	var wanted := {"rare": "power", "epic": "area", "unique": "echo", "legendary": "echo"}
 	for tier: String in wanted:

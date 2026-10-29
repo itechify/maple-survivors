@@ -286,6 +286,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## heal_power (Heal's recovery multiplier, 1.0 without the card; docs/GAME_DESIGN.md 7.83) and heal_threshold (the resolved
 ## fraction of max HP below which Heal restores: the data's `hp_threshold` plus the card, capped at HEAL_THRESHOLD_CAP; 0 for
 ## a skill without a `heal` block),
+## revive ({hp: share of max HP, guard: s, push: px} of a skill with a `revive` block, modifiers applied; PlayerRevive.resolve),
 ## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
@@ -497,13 +498,10 @@ func _displacement(key: String, d: Dictionary, rank: int, lv: int) -> Dictionary
 		"distance": maxf(0.0, distance)}
 
 
-## The second-life plan inputs of `key` (PlayerRevive reads them; nothing else does): the `revive` block with the
-## `revive_hp` and `revive_guard` skill modifiers (add, then mul) applied. {hp: share of max HP, guard: s, push: px}.
-## tier C: the block's own defaults are PlayerRevive.DEFAULT_HP / DEFAULT_GUARD / DEFAULT_PUSH.
+## The second-life plan inputs of `key` (PlayerRevive reads them; nothing else does): see PlayerRevive.resolve.
 func _revive(key: String, block: Dictionary) -> Dictionary:
-	return {"hp": skill_stat(key, "revive_hp", float(block.get("hp", PlayerRevive.DEFAULT_HP))),
-		"guard": skill_stat(key, "revive_guard", float(block.get("guard", PlayerRevive.DEFAULT_GUARD))),
-		"push": float(block.get("push", {}).get("distance", PlayerRevive.DEFAULT_PUSH))}
+	return PlayerRevive.resolve(block, skill_stat(key, "revive_hp", PlayerRevive.hp_base(block)),
+		skill_stat(key, "revive_guard", PlayerRevive.guard_base(block)))
 
 
 func _buff_effects(key: String, lv: int, buff: Dictionary) -> Dictionary:

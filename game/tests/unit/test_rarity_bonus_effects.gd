@@ -39,7 +39,7 @@ const BISHOP_SKILLS := ["holy_arrow", "shining_ray", "angel_ray"]
 ## The Bishop's Genesis and its Big Bang template child (BS6 #378): book 232 tables from test_bishop_genesis.gd (the Genesis box and
 ## 15 mobs; Big Bang's no-box table), cast at their top rank like the other Bishop and I/L skills.
 const BISHOP_NOVAS := ["genesis", "big_bang_bishop"]
-const BISHOP_GENESIS := preload("res://tests/unit/test_bishop_genesis.gd")
+const BISHOP_GENESIS := preload("res://tests/fixtures/bishop_genesis_fixtures.gd")
 
 var _resolved_skills := {}
 

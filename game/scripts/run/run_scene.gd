@@ -1333,7 +1333,7 @@ func _on_player_revived(e: Dictionary) -> void:
 		# tier C: the beams are anchored on the canonical body-box centre (frame 1's origin sits mid-body).
 		fx.play(affected, Vector2.ZERO, false, avatar, Vector2(0.0, world.body.position.y))
 	if hud != null:
-		hud.push_notice("second_life", SkillText.revive_notice(float(e.recharge)), REVIVE_NOTICE_TIME)
+		hud.push_notice("second_life", SkillText.revive_notice(String(def.get("name", key)), float(e.recharge)), REVIVE_NOTICE_TIME)
 	_sound(world.book.art_path(key, String(def.get("sounds", {}).get("use", "")), world.loadout.weapon_family))
 	_first_event_shot("second_life", "second_life.png", REVIVE_SHOT_DELAY)
 
@@ -1835,8 +1835,8 @@ func _update_player(delta: float) -> void:
 	if not (p.state == PlayerMotion.ST_LADDER and p.vel.y == 0.0):
 		# An attack stance plays at the attack speed (a Booster shortens its frame times); movement stances do not.
 		avatar.advance(delta / maxf(float(world.player_state.action_scale), 0.1) if action != motion else delta)
-	# The second-life guard blinks like the hit window does (BS8): the longer of the two timers drives it.
-	var inv := maxf(float(world.player_state.invincible_t), world.revive.guard_t)
+	# A hit hook's guard (the second life's) blinks like the hit window does (BS8): the longer of the two timers drives it.
+	var inv := maxf(float(world.player_state.invincible_t), world.hit_guard_left())
 	var hidden_alpha := HIDDEN_ALPHA if not dead and bool(world.player_state.get("hidden", false)) \
 		and int(world.player_state.get("morph", 0)) == 0 else 1.0
 	if inv > 0.0 and not dead:

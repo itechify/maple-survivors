@@ -113,8 +113,8 @@ static func clock(seconds: float) -> String:
 
 
 ## The notice a second life shows: the skill's name and when it works again.
-static func revive_notice(recharge: float) -> String:
-	return "Resurrection! Ready again in %s" % clock(recharge)
+static func revive_notice(skill_name: String, recharge: float) -> String:
+	return "%s! Ready again in %s" % [skill_name, clock(recharge)]
 
 
 ## Copies of the cards of a choice_pending event with this skill text at the offered level, using the effective
