@@ -26,3 +26,13 @@ from a seed-1 Henesys bot clear. Reproduce with `tools/character_fixture.gd --jo
 seed, policy, revision and invulnerability: this is a diagnostic clear to obtain equipment, not evidence that the bot
 survives Henesys. The worn weapon is a two-handed axe (1412006); the equipment retains canonical stats. Use it for
 `--stage=sleepywood --job=112 --character=<absolute hero_t2.json>` or `--hub --job=112`.
+
+`bowmaster_t2.json` is the Bowmaster (312) fixture (spec #332, B12 #344): a format-3 Bowmaster at the start of a round with tier 2
+unlocked and the tier-1 bow kit worn: a Battle Bow (1452000, reqLevel 25, PAD 40), a Bowman-bit reqLevel-30 hat (1002163),
+reqLevel-20 shoes (1072025), reqLevel-15 gloves (1082012) and the starter top and bottom, unscrolled. It is kit mode like
+`fp_arch_mage.json`, so its `_doc` records the kit ids, label and revision, no seed or policy. Reproduce with
+`tools/character_fixture.gd --job=312 --kit=1452000,1002163,1072025,1082012,1040002,1060002 --tiers=2 --label=spec332/ticket-344
+--revision=<SHA> --out=<absolute path> --patch=<playable patch>` (the patch is needed until B13 flips `playable`; `_doc.patch`
+records its file name). **The bow matters**: a Bowmaster with no bow in hand has no ammo and every run lists the arrow sprite
+(`Item.wz/Consume/0000.img/00000000/bullet`) in `missing`; use this file for `--job=312 --character=<absolute path>` runs, `--stage=sleepywood`
+checks and `--hub --job=312`.

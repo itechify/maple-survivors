@@ -1126,6 +1126,26 @@ recorded without tuning. Values below are death seconds min/median/max, three ob
 Raw records/summary logs stay in ignored `_scratch/balance288/`. Short graphical Henesys seed-1 x8 playtest
 ends PLAYING at 60.10 s, Lv3, 13 kills, missing []; screenshot inspected (no performance claim: about 1 FPS here).
 
+#### Spec #332 (#344, B12): Bowmaster selection and tooling: smoke (2026-10-28)
+
+A feature ticket: no balance data changed, no tuning, no held-out seeds. `playable` stays false (B13 flips it), so nothing a
+F/P or Hero run reads changed and no F/P or Hero record is expected to move: `test_character_baseline` (both F/P goldens),
+`test_tick_cost_identity` and `test_hero_baseline` pass with their hashes untouched. The Bowmaster is previewed with a patch
+(`PATCH=<312 playable patch>`) and its fixture (a bow in hand: without one the run has no ammo and `missing` lists the arrow sprite).
+
+| Run (Henesys, bot, `bowmaster_t2.json`, `JOBS=3`) | Outcome | Six actives at | Picks | `missing` |
+|---|---|---|---|---|
+| seed 1 | DEAD 465.5 s on map 2, Lv19, first boss killed at 346.7 s | 137.3 s | 19 | [] |
+| seed 2 | DEAD 307.8 s at the first boss, Lv10 | 137.8 s | 9 | [] |
+
+No crash and no world warnings. Both fill the six active slots at about 137 s and reach the first boss (record only; Henesys
+Bowmaster balance is B13's). `redesign --job=312 --seed=1` (the Job page with three rows, a Henesys clear with the real windows,
+three map transfers, results, Sleepywood, death, deletion, history) PASSED with 312 flipped locally, `missing: []`, no ERROR line:
+the bot took Arrow Blow, Arrow Bomb, Inferno, Hurricane, Dragon's Breath and Silver Hawk (rank 3) as its six actives, two
+Mastery offers and 33 picks. Screenshots were looked at (Job page: Hero, Arch Mage, Bowmaster, highlight on the third row, weapon box
+"War Bow · WATK 25 · 0.81s"; the level-up window with the hawk in flight). The Bowmaster baseline oracle's golden is
+`c1b3b654c469fde20e427d2eaa99b5afa99fb20a047c0302e5ea1ea7eb1c3e1b` (14,400 ticks, see "Bowmaster B12 constants (#344)").
+
 #### Spec #282 (#285): no MP and no level gap: regression smoke (2026-10-28)
 
 Branch `t/285-remove-mp` off `spec/282-fp-slice`, real v83 cache, isolate `285s`, seeds 1 / 2 / 2026, `bot` and
@@ -8068,3 +8088,14 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | `settle` | true (both) | tier C (B6: the hawk's `attack1` ends in a 1 x 1 placeholder) |
 | Cast stance / duration | `alert2` (tier A `action/0`), `action_time` 0.8 s | tier A / tier C |
 | Rarity bonuses | Bow Expert damage x1.2; Hawk Eyes `area` x1.2; Flame Wings `count` +1; Second Hawk / Second Phoenix `summon_count` +1; Legendary adds damage x1.2 | tier C, spec #332 |
+
+### Bowmaster B12 constants (#344)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Bowmaster Job page row | the third row (after Hero and the Arch Mage, canonical order), name "Bowmaster", weapon box "War Bow · WATK 25 · 0.81s"; row layout, Up/Down stepping and the highlight are the generic page's; `default_job()` stays 212 | tier C (ours); the page needed no change |
+| `bowmaster_t2.json` fixture | job 312, tier 2 open, Battle Bow 1452000 (reqLevel 25, PAD 40), Bowman-bit hat 1002163 (Lv30), shoes 1072025 (Lv20), gloves 1082012 (Lv15), starter top 1040002 and bottom 1060002, unscrolled; kit mode (no seed or policy in its `_doc`) | tier C (ours): the F/P kit's `reqLevel`s with the Bowman class bit; item stats are canonical (tier A) |
+| Bowmaster hub kit | `jobs/bowmaster.json` `hub_kit`: 18 scroll stacks of 10 (every rate of bow ATT 2044500-05, gloves ATT, shoes ATT 2040758-60 and hat DEX), spare 1002001, a second bow 1452051, 1082002 and a Bowman-bit top 1040008, `fallback_item` 1452007 (the Lv40 Composite Bow the flow driver wears at Lv1 when a round dropped nothing wearable) | tier C (ours) |
+| Bowmaster bot card scores | `jobs/bowmaster.json` balance.bot.card_scores: `<key>_new` 100 and `<key>_rank` 74 for all ten pool skills. `BotInput._base_score` already gives every curated pool skill these numbers; the explicit pair keeps the two summons (kind `summon`, not an attack to the older scorer) and the rest independent of that fallback | tier C (the numbers are the F/P and Hero ones) |
+| Bowmaster baseline oracle | `test_bowmaster_baseline`: seed 1, 14400 ticks (4 min), bot, god, synthetic assets (`tests/fixtures/bowmaster_fixtures.gd`: all ten books, a Hunter's Bow 1452051), the Hero recipe (pre-#241 opening and whole-round curve, initial player stats in the digest); six skills land hits in it (Arrow Blow, Arrow Bomb, Inferno, Hurricane, Dragon's Breath, Silver Hawk) | tier C (ours); the golden is a regression pin, not balance evidence |
+
