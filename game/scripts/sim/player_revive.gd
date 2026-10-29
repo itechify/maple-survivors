@@ -49,7 +49,7 @@ func ready_skill(world: RunWorld) -> String:
 
 
 ## Revives the character from a lethal hit of `source` when a skill is ready and the source allows it: sets HP, starts the
-## guard and the recharge, shoves the monsters in the box and records it. False, with nothing changed, otherwise.
+## guard and the recharge, shoves the monsters in the box, holds the skill's stance and records it. False, with nothing changed, otherwise.
 func try_revive(world: RunWorld, source: Dictionary) -> bool:
 	if bool(source.get("unrevivable", false)) or world.state == RunWorld.DEAD:
 		return false
@@ -68,6 +68,8 @@ func try_revive(world: RunWorld, source: Dictionary) -> bool:
 		"source_kind": String(source.get("source_kind", "other")), "hp": int(hp)})
 	world.emit("player_revived", {"skill": key, "hp": int(hp), "max_hp": int(world.player_state.max_hp),
 		"pos": world.player.pos, "guard": guard_t, "recharge": recharge, "pushed": pushed})
+	# The skill's own stance (BS8): a display hold only. Nothing reads cast_left to lock walking or casting.
+	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 	return true
 
 

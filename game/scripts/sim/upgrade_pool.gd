@@ -27,7 +27,7 @@ const PASSIVE_PREVIEW_KEYS := [PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep"]
 ## Active rarity-bonus stats a card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
-const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep"]
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "revive_hp", "revive_guard"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -195,7 +195,8 @@ static func is_power(c: Dictionary) -> bool:
 ## skills.json buff `stat`, e.g. "hp" for Recovery; "" for other skills),
 ## skill_mod_changes (rarity bonuses: effective value -> {before, after} once the bonus effects
 ## are taken, keys as MOD_PREVIEW names them: shots / targets / attack_count / pierce / speed / range (whole numbers), cooldown
-## (seconds between casts as SkillRunner.restart_cooldown counts them, two decimals), area / damage / crit (percent);
+## (seconds between casts as SkillRunner.restart_cooldown counts them, two decimals), area / damage / crit / revive_hp (percent),
+## revive_guard (seconds, two decimals);
 ## {} otherwise)}.
 func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictionary:
 	var c := card(id)
@@ -398,6 +399,10 @@ static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: Str
 			return snappedf(float(st.pierce_falloff) * 100.0, 0.01)
 		"cooldown":
 			return snappedf(SkillRunner.restart_cooldown(st), 0.01)
+		"revive_hp":
+			return roundi(float(st.revive.hp) * 100.0)
+		"revive_guard":
+			return snappedf(float(st.revive.guard), 0.01)
 		"area":
 			return roundi(float(st.area) * 100.0)
 		"damage":

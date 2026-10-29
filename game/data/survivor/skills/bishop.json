@@ -1,4 +1,29 @@
 {
 	"_doc": "Bishop line skill definitions (spec #372, ticket BS2 #374): an empty skeleton. Each skill ticket appends its own region of `skills` (separate tickets, separate regions): BS4 Heal (2301002); BS5 Holy Arrow (2301005, moved from magician.json), Shining Ray (2311004), Angel Ray (2321007) and Teleport (2301001, moved from magician.json as teleport_cleric); BS6 Genesis (2321008) and Big Bang (2321001, via extends big_bang); BS7 Summon Dragon (2311006) and Bahamut (2321003); BS8 Resurrection (2321006). A pool key with no entry here stays inert: it is never offered or learned.",
-	"skills": {}
+	"skills": {
+		"resurrection": {
+			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives (spec #372 BS8): Rare Faster Prayer shortens the recharge, Epic Holy Vigor raises the revive HP share (revive_hp), Unique Holy Shield lengthens the guard (revive_guard) and Legendary is the Unique's id (one repeat counter) plus Holy Vigor; repeat scale 0.8. Normal Mastery is cooldown x0.95 (damage:none rule, #346). See GAME_DESIGN 7.81 and the Bishop BS8 constants.",
+			"rarity_bonuses": {
+				"rare": [{"id": "booster", "text": "Faster Prayer", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}],
+				"epic": [{"id": "vigor", "text": "Holy Vigor", "effects": [{"stat": "revive_hp", "op": "add", "value": 0.15}]}],
+				"unique": [{"id": "shield", "text": "Holy Shield", "effects": [{"stat": "revive_guard", "op": "add", "value": 1.5}]}],
+				"legendary": [{"id": "shield", "text": "Holy Shield and Holy Vigor", "effects": [{"stat": "revive_guard", "op": "add", "value": 1.5}, {"stat": "revive_hp", "op": "add", "value": 0.15}]}]
+			},
+			"skill_id": 2321006, "book": "232", "job": 232, "kind": "instant", "slot": "active",
+			"name": "Resurrection", "desc": "When a hit would kill you, you come back instead.",
+			"text": {"desc": "When a hit would have killed you, you do not die: you come back with part of your HP, nothing can hurt you for a moment and the monsters around you are shoved away. It recharges before it works again.", "h": ""},
+			"icon": "Skill.wz/232.img/skill/2321006/icon", "damage": "none",
+			"cast": {"rule": "reaction"},
+			"ranks": [2, 3, 4, 5, 7, 8, 9, 10],
+			"cooldown_by_rank": [600, 540, 480, 420, 300, 240, 180, 120],
+			"revive": {"hp": 0.5, "guard": 2.0, "push": {"distance": 140.0}},
+			"_survivor": "Tier A: the 10 levels, the lt/rb box (-400,-350)..(400,250) at every level, the resurrection action, the effect (21 frames) and affected (15 frames, a 1320 ms lead-in first) art and the Use sound. Tier C: the whole reaction (a lethal hit that is not unrevivable does not kill while the skill is ready), the ranks mapped to levels 2, 3, 4, 5, 7, 8, 9, 10, and the recharge table in seconds, the WZ cooltime curve rescaled as cooltime / 3 - 480 (600 s at rank 1 down to 120 s at rank 8; the real-cache test asserts it); no cooldown_field. The stance is held for the body's 3 x 840 ms and is only drawn while standing: it never locks movement or casting.",
+			"_revive": "Tier A: the box is the WZ lt/rb. Tier C: back at 50% max HP, a 2.0 s guard (every hit returns 0, boss attacks included), the monsters in the box shoved 140 px away (no damage, no status, bosses and steady monsters stay); GAME_DESIGN 7.81 and the Bishop BS3 and BS8 constants.",
+			"action": "resurrection", "action_time": 2.52, "ball": "",
+			"effect": "Skill.wz/232.img/skill/2321006/effect",
+			"affected": "Skill.wz/232.img/skill/2321006/affected",
+			"hit": "", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2321006/Use", "hit": ""}
+		}
+	}
 }

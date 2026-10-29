@@ -93,9 +93,25 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("pierce_falloff"):
 		mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
 			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
+	if stats.get("revive") is Dictionary:
+		var revive: Dictionary = stats.revive
+		# tier C (ours, BS8): the second-life line, the numbers of the plan PlayerRevive resolves.
+		mechanics.append("When a hit would kill you: return at %s%% HP, %s s guard; recharge %s" % [
+			number(float(revive.hp) * 100.0), number(float(revive.guard)), clock(SkillRunner.restart_cooldown(stats))])
 	if not mechanics.is_empty():
 		line += ("\n" if line != "" else "") + "; ".join(mechanics)
 	return line
+
+
+## `seconds` as M:SS (rounded to the whole second).
+static func clock(seconds: float) -> String:
+	var whole := maxi(0, roundi(seconds))
+	return "%d:%02d" % [whole / 60, whole % 60]
+
+
+## The notice a second life shows: the skill's name and when it works again.
+static func revive_notice(recharge: float) -> String:
+	return "Resurrection! Ready again in %s" % clock(recharge)
 
 
 ## Copies of the cards of a choice_pending event with this skill text at the offered level, using the effective
