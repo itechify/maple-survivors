@@ -685,6 +685,124 @@
 				]
 			},
 			"_tier": "Tier A: WZ damage 42..100%, mobCount 4..6, range 440 (read from the level), prop 100, weapon 45 (bow), ball/hit/effect art and Use/Hit sounds. Tier C (#340, GAME_DESIGN 7.46): the eight survivor ranks, nearest auto-cast with its own ball (no ammo sprite), 3.5s cooldown, 700px/s, 16px radius, `pierce_field` mobCount (the arrow strikes mobCount monsters, so it pierces mobCount - 1), a 180px knock-back that always rolls (prop 100; bosses are damaged and not moved), 0.6s held weapon stance, rarity bonuses. Untuned."
+		},
+		"hurricane": {
+			"_b10_342": "Bowmaster B10 #342 (Hurricane). Tier A: WZ damage 51 -> 100, own 10-frame ball, hit/0, Use and Hit sounds, one monster per arrow (no mobCount/attackCount). Tier C (GAME_DESIGN 7.48): burst rule, 12 arrows at 0.1 s after a 0.4 s wind-up, 6 s cooldown, range 450, 900 px/s, radius 6, eight survivor ranks on levels 4/8/12/15/19/23/27/30, the held bow's shooting stance for the whole stream, rarity bonuses; `capture_delay` 0.9 makes the playtest's first-cast screenshot sample the stream in flight (art only).",
+			"skill_id": 3121004,
+			"book": "312",
+			"job": 312,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Hurricane",
+			"desc": "Looses a long stream of arrows at the nearest monster while you keep moving.",
+			"text": {
+				"desc": "Looses a stream of arrows at the nearest monster.",
+				"h": "Damage {damage}% per arrow"
+			},
+			"icon": "Skill.wz/312.img/skill/3121004/icon",
+			"damage": "physical",
+			"weapon_families": [
+				"bow"
+			],
+			"ranks": [
+				4,
+				8,
+				12,
+				15,
+				19,
+				23,
+				27,
+				30
+			],
+			"cast": {
+				"rule": "burst"
+			},
+			"burst": {
+				"interval": 0.1,
+				"wind_up": 0.4,
+				"retarget": true
+			},
+			"count": 12,
+			"burst_art": {
+				"prepare": "Skill.wz/312.img/skill/3121004/prepare",
+				"loop": "Skill.wz/312.img/skill/3121004/keydown",
+				"end": "Skill.wz/312.img/skill/3121004/keydownend"
+			},
+			"cooldown": 6.0,
+			"range": 450,
+			"speed": 900,
+			"radius": 6,
+			"pierce": 0,
+			"action": "weapon",
+			"action_time": 0.6,
+			"capture_delay": 0.9,
+			"ball": "Skill.wz/312.img/skill/3121004/ball",
+			"hit": "Skill.wz/312.img/skill/3121004/hit/0",
+			"effect": "",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3121004/Use",
+				"hit": "Sound.wz/Skill.img/3121004/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "bow_expert",
+						"text": "Bow Expert",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Bow Booster: cooldown",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack: +4 arrows",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 4
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack: +4 arrows and damage",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 4
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
 		}
 	}
 }

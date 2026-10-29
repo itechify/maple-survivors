@@ -141,6 +141,9 @@ const EVENT_FIELDS := {
 	# `burst` plays at `to` on arrival, when the sim strikes the mobs (the mob_hit events).
 	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
 	"skill_landed": ["skill", "cast_time", "pos", "effect"],
+	# #342: a burst cast (Hurricane) began (`wind_up` s until its first arrow, `span` s to its last) and ended (finished or dropped); art only.
+	"burst_start": ["skill", "wind_up", "span", "facing"],
+	"burst_end": ["skill"],
 
 }
 
@@ -580,7 +583,7 @@ func advance_map() -> void:
 	for slot in pickups.capacity():
 		pickups.despawn(slot)
 	_final_queue.clear()
-	runner.clear_pending()
+	runner.clear_pending(self)
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
 	mob_actions = MobActions.new()

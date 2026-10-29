@@ -9,6 +9,8 @@ extends TestCase
 ## `count` probe counts hit lines, a `range` probe leaves only monsters beyond the base reach, and an
 ## `impact_blast` skill (Arrow Bomb, Inferno) shows `area` and `blast_targets` in a cluster around the first monster it reaches.
 ## Inferno (B9 #341) adds `burn_damage`: the fire a single cast leaves behind (`MobSwarm.burn_dealt` over 3.5 s) must grow.
+## Hurricane (B10 #342) is a burst: its `count` is arrows, so it shows in the hit lines on the one target it stream-fires at, not
+## in the number of mobs affected.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -19,8 +21,8 @@ const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep",
 	"blast_targets", "burn_damage"]
 const BOW := 1452051
-## The Bowmaster skills this audit knows how to probe (tickets B7-B11 add theirs; B8 added Arrow Rain and Dragon's Breath, B9 Inferno).
-const BOWMASTER_KEYS := ["arrow_blow", "bow_double_shot", "arrow_bomb", "strafe", "arrow_rain", "dragons_breath", "inferno"]
+## The Bowmaster skills this audit knows how to probe (tickets B7-B11 add theirs; B8 added Arrow Rain and Dragon's Breath, B9 Inferno, B10 Hurricane).
+const BOWMASTER_KEYS := ["arrow_blow", "bow_double_shot", "arrow_bomb", "strafe", "arrow_rain", "dragons_breath", "inferno", "hurricane"]
 
 
 ## Generic Skill.wz levels: a centred box, six mobs, one line, a 300 px range, a certain proc (the shape test_fp_high_actives uses).
@@ -53,6 +55,12 @@ func _world(key: String) -> RunWorld:
 	for action: String in ["shoot1", "shoot2"]:
 		setup.body_img[action] = {"0": {"delay": 100.0}, "1": {"delay": 100.0}}
 	var imgs: Dictionary = setup.skill_imgs
+	if job == 312:
+		var levels := {}
+		for lv in range(1, 31):
+			levels[str(lv)] = {"hs": "h%d" % lv, "damage": float(51 + lv)}
+		imgs["312"] = {"skill": {"3121004": {"level": levels}}}
+		setup.equipment_info.merge({BOW: {"incPAD": 28, "attackSpeed": 6, "tuc": 7}}, true)
 	# Hero books are synthetic; the F/P box and crowd skills get the same generic table (their fixtures carry no box).
 	for k: String in data.skills.skills:
 		var d: Dictionary = data.skills.skills[k]
@@ -65,7 +73,11 @@ func _world(key: String) -> RunWorld:
 			node["level"] = _generic_levels()
 			imgs[book].skill[str(id) if id >= 1000000 else "%07d" % id] = node
 	var w := RunWorld.new(setup)
-	w.set_job(job)
+	if job == 312:
+		assert_eq(w.wear_new_item(BOW), "")
+		RF.change_job_bare(w, 312)
+	else:
+		w.set_job(job)
 	w.bounds = Rect2(0, -500, 4000, 1000)
 	w.fhm = FootholdMap.from_segments(FLAT)
 	w.swarm.fhm = w.fhm
@@ -199,7 +211,7 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 		assert_true(key in keys, key)
 	for key in BOWMASTER_KEYS:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 26, "seven Hero, twelve F/P and seven Bowmaster skills: %d" % keys.size())
+	assert_true(keys.size() >= 27, "seven Hero, twelve F/P and eight Bowmaster skills: %d" % keys.size())
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:

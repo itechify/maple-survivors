@@ -75,9 +75,9 @@ func _init() -> void:
 
 
 ## Drops queued map-space attacks, preserving cooldowns, auto-cast timers and round counters.
-func clear_pending() -> void:
+func clear_pending(world: RunWorld = null) -> void:
 	summons.clear()
-	bursts.clear()
+	bursts.clear(world)
 	_flights.clear()
 	_areas.clear()
 
@@ -481,8 +481,12 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	# The cast event's pos is where the cast begins, before any displacement.
 	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
 		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": effect})
-	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 	var definition := world.book.def(key)
+	var action_time := float(st.action_time)
+	if String(st.cast_rule) == "burst":
+		# tier C: the shooting stance is held until the last arrow of the stream has left the bow.
+		action_time = maxf(action_time, BurstCast.span(st, definition.get("burst", {})))
+	world.start_action(String(st.action), action_time, false, float(st.speed_factor))
 	if st.has("finish_effect") and not targets.is_empty():
 		world.emit("skill_mob_effect", {"skill": key, "mob": targets[0], "pos": world.mob_center(targets[0]),
 			"effect": String(st.finish_effect)})
