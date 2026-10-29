@@ -59,6 +59,10 @@ class RunnerContract(unittest.TestCase):
         self.write('unit/test_bad.gd', 'extends TestCase\nfunc test_bad( broken syntax\n')
         self.check_failure(self.run_suite(), '1 tests, 1 failed, 0 skipped')
 
+    def test_runtime_script_load_error(self):
+        self.write('unit/test_bad.gd', 'extends TestCase\nfunc test_bad() -> void:\n\tvar missing: Variant = load("res://missing.gd")\n\tassert_eq(missing, null)\n')
+        self.check_failure(self.run_suite())
+
     def test_runtime_error(self):
         self.write('unit/test_bad.gd', 'extends TestCase\nfunc test_bad() -> void:\n\tvar d: Dictionary = {}\n\tprint(d["missing"])\n')
         self.check_failure(self.run_suite(), '1 tests, 1 failed, 0 skipped')
