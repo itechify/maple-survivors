@@ -179,8 +179,11 @@ static func skill_imgs() -> Dictionary:
 			"time": [10.0, 200.0], "x": [-2.0, -2.0]})},
 		"3101003": {"level": _levels(20, {"range": [130.0, 150.0], "damage": [105.0, 200.0],
 			"mobCount": [2.0, 6.0], "prop": [13.0, 70.0], "mpCon": [8.0, 15.0]})},
-		"3101005": {"level": bomb_levels},
+		"3101005": {"weapon": 45, "level": bomb_levels}, # weapon 45 = bow (v83)
 	}}
+	# #339: Strafe's v83 endpoints (Skill.wz/311.img 3111006: damage 71..100, bulletCount 4, weapon 45 = bow), linear between.
+	imgs["311"] = {"skill": {"3111006": {"weapon": 45, "level": _levels(30, {"mpCon": [26.0, 32.0],
+		"damage": [71.0, 100.0], "bulletCount": [4.0, 4.0]})}}}
 	# #203: Iron Arrow's independently recorded v83 endpoints, synthetic intermediate rows and art.
 	imgs["320"] = {"skill": {"3201005": {"weapon": 46, "ball": _anim(3, 90.0, 61, 24),
 		"level": _levels(30, {"mpCon": [23.0, 28.0], "damage": [122.0, 180.0], "mobCount": [6.0, 6.0]})}}}

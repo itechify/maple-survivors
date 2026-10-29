@@ -385,7 +385,9 @@ func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector
 		var admitted := _buff_admission(world, st, origin)
 		if admitted != BUFF_FALLS_THROUGH:
 			return {"go": true} if admitted == BUFF_ADMITTED else {}
-	if _find_targets(world, origin, float(st.range), int(st.count)) == 0:
+	# tier C: `cast.focus` (Strafe, spec #332 B7) admits one target, so every arrow of the volley reuses it (_resolve_nearest).
+	var want := 1 if bool(st.cast_params.get("focus", false)) else int(st.count)
+	if _find_targets(world, origin, float(st.range), want) == 0:
 		return {}
 	return {"targets": _tgt.duplicate()}
 
