@@ -4,7 +4,8 @@ extends TestCase
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
 ## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
-## Hero books (111/112) and Paladin's (121/122) are synthetic generic tables; the F/P books come from the shared run fixtures.
+## Hero and Paladin books (111/112, 121/122) are synthetic generic tables; the F/P books come from the shared run fixtures.
+## Paladin's skills (Blast, Monster Magnet) run as job 122 (P5 #313).
 ## A Form (Paladin's Charges, spec #308) has its own probe: its bonuses change the Charge's multiplier (`form_power`: the hits of a
 ## Paladin skill inside the window), duration (`form_time`: ticks the window lasts), cooldown (windows started in 66 s) and its
 ## sub-skill's damage (`damage`: Charged Blow's hits inside the window).
@@ -39,7 +40,8 @@ func _skills_with_bonuses() -> Array:
 
 func _world(key: String) -> RunWorld:
 	var data := RF.quiet_data()
-	var job := 112 if int(data.skills.skills[key].job) in [100, 110, 111, 112] else 122 if int(data.skills.skills[key].job) in [120, 121, 122] else 212
+	var skill_job := int(data.skills.skills[key].job)
+	var job := 122 if skill_job in [121, 122] else 112 if skill_job in [100, 110, 111, 112] else 212
 	data.jobs_survivor.jobs["112"]["playable"] = true
 	data.jobs_survivor.jobs["122"]["playable"] = true
 	var setup := RF.with_basic_attack(RF.setup("quiet", 296, data))
@@ -165,9 +167,9 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 func test_every_pool_skill_with_bonuses_was_found() -> void:
 	var keys := _skills_with_bonuses()
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
-			"elquines"]:
+			"elquines", "blast", "monster_magnet_paladin"]:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 19, "seven Hero and twelve F/P skills: %d" % keys.size())
+	assert_true(keys.size() >= 21, "seven Hero, two Paladin and twelve F/P skills: %d" % keys.size())
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:

@@ -66,7 +66,7 @@ func test_paladin_line_is_discovered_after_hero_without_a_shared_registration() 
 	assert_eq(DataRepo.fragment_path("skills", "paladin", "res://data"), "res://data/survivor/skills/paladin.json")
 
 
-func test_the_paladin_line_loads_without_errors_and_adds_only_its_job_and_an_empty_skill_skeleton() -> void:
+func test_the_paladin_line_loads_without_errors_and_adds_only_its_job_and_its_own_skills() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
@@ -78,6 +78,7 @@ func test_the_paladin_line_loads_without_errors_and_adds_only_its_job_and_an_emp
 		"holy_charge", "heavens_hammer"]
 	for key: String in frag.skills:
 		assert_true(key in own, "%s is a Paladin key of the spec" % key)
+		assert_false(DEFINED_IN_HERO.has(key), "%s stays Hero's" % key)
 	assert_true(frag.has("_doc"))
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
@@ -136,18 +137,15 @@ func test_each_shared_pool_key_is_defined_in_exactly_one_file() -> void:
 		assert_eq(_defining_lines(key), ["hero"], "%s is defined by Hero's file only" % key)
 
 
-## The pool keys no skills file defines yet: P5 #313, P7 #315 and P8 #316 each define theirs, so this list shrinks to nothing.
-func _undefined() -> Array:
-	var defined: Dictionary = _data().skills.skills
-	return POOL.filter(func(key: String) -> bool: return not defined.has(key))
-
-
-func test_the_two_shared_pool_keys_are_defined_and_the_rest_wait_for_their_tickets() -> void:
+func test_the_two_shared_pool_keys_are_defined_and_every_defined_key_is_a_pool_key_of_book_12x() -> void:
 	var defined: Dictionary = _data().skills.skills
 	for key: String in DEFINED_IN_HERO:
-		assert_true(defined.has(key), "%s is Hero's definition" % key)
-	for key: String in _undefined():
-		assert_false(key in DEFINED_IN_HERO, key)
+		assert_true(defined.has(key), "%s resolves to Hero's definition" % key)
+	# Ticket-order independent: P4-P8 define the rest of the pool, each in skills/paladin.json, as their own keys.
+	var paladin: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "paladin")).get("skills", {})
+	for key: String in paladin:
+		assert_true(int(paladin[key].job) in [121, 122], "%s belongs to the 121/122 books" % key)
+		assert_false(DEFINED_IN_HERO.has(key), "%s is never redefined here" % key)
 
 
 func test_an_undefined_pool_key_is_never_offered_but_a_defined_one_is() -> void:
@@ -157,7 +155,7 @@ func test_an_undefined_pool_key_is_never_offered_but_a_defined_one_is() -> void:
 	setup["job"] = 122
 	var w := RunWorld.new(setup)
 	var ids := Array(w.upgrades.eligible(w))
-	for key: String in _undefined():
+	for key: String in POOL.filter(func(k: String) -> bool: return not data.skills.skills.has(k)):
 		assert_false(ids.has(key + "_new") or ids.has(key + "_rank"), "%s is not offered" % key)
 	assert_false(ids.has("rush_paladin_new"), "Rush is not a card")
 	assert_true(ids.has("power_strike_new") or w.loadout.has("power_strike"),
