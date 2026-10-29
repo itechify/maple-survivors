@@ -266,3 +266,79 @@ func test_manual_dash_takes_form_effects_without_changing_its_definition() -> vo
 	assert_true(w.runner.cast_dash(w, "test_dash", 1))
 	assert_near(before - w.swarm.hp[m], 180.0, 0.01, "100 fixed * 1.2 form * 1.5 weakness")
 	assert_eq(w.loadout.stats("test_dash").element, "")
+
+func test_hidden_sub_can_consume_only_its_own_form() -> void:
+	var w := _world()
+	_sub(w)
+	w.book.defs.test_form.buff = {"hidden": true}
+	w.book.defs.test_form.form.subs[0].ignores_hidden = true
+	w.book.defs.test_form.form.subs[0].ends_form = true
+	_twin(w, "other", "h", "other")
+	w.book.defs.other.form.subs = []
+	_start(w, "other")
+	_start(w)
+	_mob(w, 240)
+	_mob(w, 250)
+	for i in 6:
+		w.runner.tick_cooldowns(DT, w)
+	assert_eq(w.runner.casts, 1)
+	assert_eq(w.runner.forms.snapshot().size(), 1)
+	assert_eq(w.runner.forms.snapshot()[0].skill, "other")
+	assert_true(w.events.has({"type": "form_ended", "skill": "test_form", "skill_id": 9991001, "reason": "consumed"}))
+	w.book.defs.test_form.form.subs[0].ignores_hidden = "yes"
+	assert_true("ignores_hidden" in " ".join(PlayerForms.validation_errors(_synthetic(w))))
+
+func test_registered_absorber_owns_lifecycle_and_protects_hp() -> void:
+	var w := _world()
+	var ended: Array = []
+	PlayerForms.EFFECTS["test_pool"] = {
+		"resolve": func(_w, _key, _stats, value): return float(value) * 2.0,
+		"validate": func(value): return value is float or value is int,
+		"on_start": func(_w, state): state.pool = state.effects.test_pool,
+		"on_end": func(_w, state): ended.append(state.pool),
+		"absorb": func(world, state, amount):
+			var used := minf(float(state.pool), amount)
+			state.pool -= used
+			if state.pool <= 0:
+				world.runner.forms.end(world, String(state.skill), "depleted")
+			return amount - used,
+	}
+	w.book.defs.test_form.form.effects = {"test_pool": 100000}
+	assert_true(PlayerForms.validation_errors(_synthetic(w)).is_empty())
+	_start(w)
+	var hp := float(w.player_state.hp)
+	assert_eq(w.take_hit(100, false, "", Vector2.ZERO, {"accuracy": 100000}), 0)
+	assert_eq(float(w.player_state.hp), hp)
+	var pool := float(w.runner.forms.snapshot()[0].pool)
+	assert_near(w.runner.forms.absorb(w, 300000), 300000 - pool, 0.01)
+	assert_eq(ended.size(), 1)
+	assert_true(w.runner.forms.snapshot().is_empty())
+	PlayerForms.EFFECTS.erase("test_pool")
+
+func test_forms_reject_elements_without_verified_art() -> void:
+	var w := _world()
+	for code: String in ["s", "fs"]:
+		w.book.defs.test_form.form.effects.element = code
+		assert_false(PlayerForms.validation_errors(_synthetic(w)).is_empty(), code)
+
+func test_cast_paths_never_leave_art_tokens_and_preserve_input() -> void:
+	var w := _world()
+	var st := {"damage_type": "physical", "element": "", "hit": "hit/{art}", "effect": "effect/{art}"}
+	assert_eq(w.runner.forms.begin_cast(w, "plain", st).hit, "hit/0")
+	_start(w)
+	assert_eq(w.runner.forms.begin_cast(w, "charged", st).effect, "effect/2")
+	assert_eq(st.hit, "hit/{art}")
+
+func test_waiting_sub_observes_new_parent_modifiers() -> void:
+	var w := _world()
+	_sub(w)
+	_start(w)
+	for i in 8:
+		w.runner.tick_cooldowns(DT, w)
+	w.loadout.add_skill_mod("test_form", "damage", "mul", 2.0)
+	w.loadout.add_skill_mod("test_form", "area", "mul", 2.0)
+	var m := _mob(w, 430)
+	_mob(w, 440)
+	var before := w.swarm.hp[m]
+	w.runner.tick_cooldowns(DT, w)
+	assert_near(before - w.swarm.hp[m], 24.0, 0.01, "waiting cache invalidates on parent damage and area changes")

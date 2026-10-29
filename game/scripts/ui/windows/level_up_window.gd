@@ -209,7 +209,7 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 	for key: String in MOD_LABELS:
 		if mods.has(key) and mods[key].before != mods[key].after:
 			var unit: String = MOD_LABELS[key][1]
-			lines.append("%s: %s%s → %s%s" % [MOD_LABELS[key][0], SkillText.number(float(mods[key].before)), unit,
+			lines.append("%s: %s%s → %s%s" % [card.get("skill_mod_labels", {}).get(key, MOD_LABELS[key][0]), SkillText.number(float(mods[key].before)), unit,
 				SkillText.number(float(mods[key].after)), unit])
 	var changes: Dictionary = card.get("skill_changes", {})
 	var x_label: Array = X_LABELS.get(String(card.get("skill_effect_stat", "")), X_LABEL_DEFAULT)

@@ -6202,7 +6202,7 @@ Durations and trigger times are survivor data, never rewritten WZ values. `form_
 start; `form_power` adds to the canonical field percent multiplier (120% plus 0.1 becomes 1.3). A running window
 snapshots rank and effects. `element` affects only empty-element damaging casts; existing elements stay.
 `damage` scales min/max and status damage for every damaging cast, including manual mobility and sub-skills.
-The effects registry is the only dispatch boundary; future hidden/morph/hull keys belong to later specs.
+The effects registry is the only dispatch boundary; later effects use resolve/apply/validate and optional start/end/absorb hooks. Hidden and morph use `buff.hidden` / `buff.morph_field`, not effect keys (Buccaneer template: `spec/412`, `test_morph_form.gd`). Corsair adds hull state and its absorb hook. Sub flags `ignores_hidden` and `ends_form` allow an admitted attack to consume just its parent (`consumed`); spent pools may end with `depleted`.
 
 Sub definitions use `slot: form_sub`, `form_sub_of: [parent keys]` (a single string is also accepted), ordinary
 cast rules and their own rank tables. They are never learned into Loadout.order or offered as cards. At each due
@@ -6925,7 +6925,8 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Mobility rank progression | balance.mobility_rank_levels: rank 1 at Lv1, then rank N at Lv2N through rank 20 at Lv40, clamped to each mobility skill cap; shared across jobs | C |
 | Summon ordinal spread | summon.ordinal_spread: 36 px on x for each additional ally, at spawn and follow destination | C |
 | Ground status RNG / refresh | stream 18; ground data names status, element and chance field; refresh preserves pending poison pulse while updating duration and damage, direct hits retain restart policy | C |
-| Capture delay | skill.capture_delay: Paralyze 0.3 s, Big Bang 1.38 s | C |
+| Form weapon tint | `Elements.TABLE` RGB: fire (1,.35,.2), ice (.3,.7,1), lightning (1,.85,.2), holy (1,.8,.55), poison (.6,.9,.35); poison has no verified Form art and is rejected there | C |
+| Capture delay | skill.capture_delay: Paralyze 0.3 s, Big Bang 1.38 s, Blast 0.72 s, Monster Magnet 0.35 s; presentation-only screenshot sample times | C |
 | Frame timing fallback | WeaponInfo.frame_times uses 100 ms for missing or zero frame delay | C |
 
 
@@ -6945,7 +6946,7 @@ diminishing; preview and bot use the resolved bonus. Shared default/F/P values a
 | Chain acquisition | `cast.acquire` 450 px from the caster's body centre (the WZ has no `lt/rb` or `range` for 2221006) | C |
 | Chain hop | `cast.hop` 200 px from the previous link's body centre | C |
 | Chain query probe | `ANY_PROBE` 8 candidates before a full query; optimization only | C |
-| Class fragment registration | `DataRepo.CLASS_LINES` append-only Hero, I/L order after the seven Adventurer lines; new classes append | C |
+| Class fragment registration | `DataRepo.CLASS_LINES` append-only Hero, I/L, Paladin order after the seven Adventurer lines; new classes append | C |
 | Skill-window diagnostic build | first three unlearned pool actives, each new + rank, plus Might and Speed common passives | C: automation only |
 | Status registry and cast policy | Append-only status table preserves packed IDs; rule policy owns target-facing/count behavior | C |
 | Chain selection | head = scheduled boss, then nearest, then slot; hops = nearest unhit by distance then slot; distances inclusive; no RNG | C |

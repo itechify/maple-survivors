@@ -1,15 +1,18 @@
 class_name PlayerForms
 extends RefCounted
-## Timed caster stances and their admitted sub-skills. Owns no clock, RNG, assets or class-specific rules.
+## Timed caster stances and their admitted sub-skills. Owns window lifecycle, effect dispatch and sub admission; no clock, RNG or assets.
 
-## Effect key -> static handler. Later class tickets add handlers here, never in SkillRunner.
-static var EFFECTS := {"element": _element, "damage": _damage}
+## Effect records: optional resolve(world,key,stats,value), apply(stats,value), validate(value),
+## on_start(world,state), on_end(world,state), absorb(world,state,amount). Missing hooks are no-ops.
+## absorb returns remaining damage and may end its window through end(world,key,reason).
+static var EFFECTS := {
+	"element": {"apply": _element, "validate": _valid_element},
+	"damage": {"resolve": _resolve_damage, "apply": _damage, "validate": _valid_damage},
+}
 ## tier C: nearby elemental arbitration radius, independent of a form's admission radius.
 const PREFERRED_RADIUS := 400.0
-## tier A (P1 #309, read from the pixels): the art key of an element in element-keyed Skill.wz nodes (`effect/<n>`,
-## `hit/0/<n>`): 0 none, 1 ice, 2 fire, 3 lightning, 5 holy. Poison would be 4 (no node uses it). One row per element.
-const ART_INDEX := {"": 0, "i": 1, "f": 2, "l": 3, "h": 5}
 ## The path token a skill definition writes where the element's art key goes (`hit/0/{art}`).
+static var ART_INDEX := Elements.art_indices()
 const ART_TOKEN := "{art}"
 var _active: Array[Dictionary] = []
 
@@ -28,16 +31,18 @@ func start(world: RunWorld, key: String, stats: Dictionary) -> void:
 		if String(state.group) == String(block.exclusive_group):
 			_end(world, state, "replaced")
 	var st := stats.duplicate(true)
-	st.duration = float(block.duration) * world.loadout.skill_stat(key, "form_time", 1.0)
 	var effects: Dictionary = block.get("effects", {}).duplicate(true)
-	if effects.has("damage"):
-		effects.damage = world.book.canonical(key, int(st.level), String(effects.damage.field), 100.0) / 100.0 \
-			+ world.loadout.skill_stat(key, "form_power", 0.0)
+	for effect: String in effects:
+		var resolve: Callable = EFFECTS.get(effect, {}).get("resolve", Callable())
+		if resolve.is_valid():
+			effects[effect] = resolve.call(world, key, st, effects[effect])
 	var subs: Array[Dictionary] = []
 	for sub: Dictionary in block.get("subs", []):
-		subs.append({"rule": sub.duplicate(true), "next": float(sub.first_after), "done": false})
-	_active.append({"skill": key, "skill_id": int(st.skill_id), "group": String(block.exclusive_group),
-		"remaining": float(st.duration), "age": 0.0, "rank": int(st.rank), "effects": effects, "subs": subs})
+		subs.append({"rule": sub.duplicate(true), "next": float(sub.first_after), "done": false, "version": -1, "stats": {}})
+	var state := {"skill": key, "skill_id": int(st.skill_id), "group": String(block.exclusive_group),
+		"remaining": float(st.duration), "age": 0.0, "rank": int(st.rank), "effects": effects, "subs": subs}
+	_active.append(state)
+	_hooks("on_start", world, state)
 	world.buffs.start(key, st)
 	world.emit("form_started", {"skill": key, "skill_id": int(st.skill_id),
 		"element": String(effects.get("element", "")), "duration": float(st.duration)})
@@ -59,13 +64,12 @@ func step(dt: float, world: RunWorld) -> void:
 			if bool(sub.done) or float(state.age) + 1e-6 < float(sub.next):
 				continue
 			var key := String(sub.rule.skill)
-			# Inherit just the parent's skill-local damage and area. Resolve geometry through Loadout itself.
-			var lo := world.loadout.clone()
-			for stat: String in ["damage", "area"]:
-				lo.add_skill_mod(key, stat, "mul", world.loadout.skill_stat(String(state.skill), stat, 1.0))
-			var st := lo.stats(key, int(state.rank))
+			if int(sub.version) != world.loadout.version:
+				sub.stats = world.loadout.sub_stats(key, world.loadout.stats(String(state.skill)), int(state.rank))
+				sub.version = world.loadout.version
+			var st: Dictionary = sub.stats
 			var origin := world.cast_origin()
-			if (world.is_hidden() and SkillRunner.is_attack(st)) or not world.can_pay_hp(int(st.hp_cost)) \
+			if (world.is_hidden() and not bool(sub.rule.get("ignores_hidden", false)) and SkillRunner.is_attack(st)) or not world.can_pay_hp(int(st.hp_cost)) \
 					or not world.runner.has_target(world, key, st, origin):
 				continue
 			var plan := world.runner.prepare_cast(world, key, st, origin)
@@ -73,12 +77,15 @@ func step(dt: float, world: RunWorld) -> void:
 				continue
 			st = begin_cast(world, key, world.meter.begin_cast(world, key, st))
 			world.spend_hp(int(st.hp_cost))
-			world.runner._resolve_cast(world, key, st, origin, plan)
+			world.runner.resolve_cast(world, key, st, origin, plan)
+			if bool(sub.rule.get("ends_form", false)):
+				end(world, String(state.skill), "consumed")
+				break
 			sub.done = bool(sub.rule.get("once", false))
 			# No catch-up burst after a wait: the interval starts at the successful cast.
 			sub.next = float(state.age) + float(sub.rule.get("interval", 0.0))
 
-## Applies every active effect to a cast-local copy, then fills the `{art}` token of its hit and effect paths with the
+## Passes unmodified casts through; otherwise applies effects to a cast-local copy, then fills the `{art}` token of its hit and effect paths with the
 ## cast's element. Non-damaging casts remain untouched.
 func begin_cast(_world: RunWorld, _key: String, stats: Dictionary) -> Dictionary:
 	if String(stats.damage_type) == "none":
@@ -89,7 +96,9 @@ func begin_cast(_world: RunWorld, _key: String, stats: Dictionary) -> Dictionary
 		for state in _active:
 			for effect: String in state.effects:
 				if EFFECTS.has(effect):
-					(EFFECTS[effect] as Callable).call(out, state.effects[effect])
+					var apply: Callable = EFFECTS[effect].get("apply", Callable())
+					if apply.is_valid():
+						apply.call(out, state.effects[effect])
 	for field: String in ["hit", "effect"]:
 		if String(out.get(field, "")).contains(ART_TOKEN):
 			if is_same(out, stats):
@@ -99,7 +108,7 @@ func begin_cast(_world: RunWorld, _key: String, stats: Dictionary) -> Dictionary
 
 ## The art key of `element` (0 for none or an element with no art row).
 static func art_index(element: String) -> int:
-	return int(ART_INDEX.get(element, 0))
+	return Elements.art_index(element)
 
 ## `path` with its `{art}` token replaced by the art key of `element`.
 static func fill_art(path: String, element: String) -> String:
@@ -142,6 +151,7 @@ func clear(world: RunWorld, reason: String = "died") -> void:
 
 func _end(world: RunWorld, state: Dictionary, reason: String) -> void:
 	_active.erase(state)
+	_hooks("on_end", world, state)
 	world.buffs.end(String(state.skill), world.events)
 	world.emit("form_ended", {"skill": String(state.skill), "skill_id": int(state.skill_id), "reason": reason})
 
@@ -190,10 +200,10 @@ static func validation_errors(defs: Dictionary) -> PackedStringArray:
 			for effect: String in effects:
 				if not EFFECTS.has(effect):
 					errors.append("%s.form.effects.%s is unknown" % [key, effect])
-				elif effect == "element" and (not effects[effect] is String or String(effects[effect]) not in ["f", "i", "l", "h", "s", "fs"]):
-					errors.append("%s.form.effects.element needs an element code" % key)
-				elif effect == "damage" and (not effects[effect] is Dictionary or not effects[effect].get("field") is String or String(effects[effect].get("field", "")).is_empty()):
-					errors.append("%s.form.effects.damage needs a canonical field" % key)
+				else:
+					var validate: Callable = EFFECTS[effect].get("validate", Callable())
+					if validate.is_valid() and not bool(validate.call(effects[effect])):
+						errors.append("%s.form.effects.%s has an invalid value" % [key, effect])
 		var subs: Variant = block.get("subs")
 		if not subs is Array:
 			errors.append("%s.form.subs needs an array" % key)
@@ -211,6 +221,9 @@ static func validation_errors(defs: Dictionary) -> PackedStringArray:
 				errors.append("%s.form.subs: %s needs slot form_sub and form_sub_of parent" % [key, skill])
 			if _seconds(sub.get("first_after")) < 0:
 				errors.append("%s.form.subs.%s.first_after must be nonnegative seconds" % [key, skill])
+			for flag: String in ["ignores_hidden", "ends_form"]:
+				if not sub.get(flag, false) is bool:
+					errors.append("%s.form.subs.%s.%s must be boolean" % [key, skill, flag])
 			var once: Variant = sub.get("once", false)
 			if not once is bool:
 				errors.append("%s.form.subs.%s.once must be boolean" % [key, skill])
@@ -224,3 +237,33 @@ static func _seconds(value: Variant) -> float:
 		return -1.0
 	var seconds := float(value)
 	return seconds if is_finite(seconds) else -1.0
+
+## Ends one window, leaving independent groups running. Missing keys are harmless.
+func end(world: RunWorld, key: String, reason: String) -> void:
+	for state in _active.duplicate():
+		if String(state.skill) == key:
+			_end(world, state, reason)
+
+## Folds incoming post-defence damage through the active effect pools in start order.
+func absorb(world: RunWorld, amount: float) -> float:
+	for state in _active.duplicate():
+		for effect: String in state.effects:
+			var hook: Callable = EFFECTS.get(effect, {}).get("absorb", Callable())
+			if hook.is_valid():
+				amount = clampf(float(hook.call(world, state, amount)), 0.0, amount)
+	return amount
+
+func _hooks(name: String, world: RunWorld, state: Dictionary) -> void:
+	for effect: String in state.effects:
+		var hook: Callable = EFFECTS.get(effect, {}).get(name, Callable())
+		if hook.is_valid():
+			hook.call(world, state)
+
+static func _resolve_damage(world: RunWorld, key: String, stats: Dictionary, value: Variant) -> float:
+	return world.book.canonical(key, int(stats.level), String(value.field), 100.0) / 100.0 + world.loadout.skill_stat(key, "form_power", 0.0)
+
+static func _valid_element(value: Variant) -> bool:
+	return value is String and not String(value).is_empty() and Elements.has_art(String(value))
+
+static func _valid_damage(value: Variant) -> bool:
+	return value is Dictionary and value.get("field") is String and not String(value.field).is_empty()

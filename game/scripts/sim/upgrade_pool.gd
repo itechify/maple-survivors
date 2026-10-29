@@ -29,6 +29,7 @@ const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_fal
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
 const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "form_time", "form_power"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
+const STAT_LABELS := {"form_time": "Form duration", "form_power": "Form power", "attack_count": "Hits"}
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
 var cards: Array = []
@@ -296,6 +297,7 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		"skill_level_max": level_max,
 		"skill_changes": changes,
 		"skill_effect_stat": effect_stat,
+		"skill_mod_labels": {"damage": _form_sub_label(lo.book, skill) + " damage"} if lo.book.def(skill).has("form") else {},
 		"skill_mod_changes": _bonus_changes({"skill": skill, "effects": bonus.get("effects", [])}, lo, 1) if not bonus.is_empty() else {},
 	}
 
@@ -336,7 +338,14 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 			var kept := before * float(effect.value) if op == "mul" else before + float(effect.value)
 			labels.append("Keeps %d orbs" % maxi(0, roundi(kept)))
 			continue
-		labels.append(String(effect.stat).replace("form_time", "Form duration").replace("form_power", "Form power").replace("attack_count", "Hits").capitalize() + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
+		if state.book.def(skill).has("form") and op == "mul":
+			if String(effect.stat) == "damage":
+				labels.append(_form_sub_label(state.book, skill) + " +" + _fmt(snappedf((float(effect.value) - 1.0) * 100.0, 0.001)) + "%")
+				continue
+			if String(effect.stat) == "form_time":
+				labels.append("charge lasts " + _fmt(snappedf((float(effect.value) - 1.0) * 100.0, 0.001)) + "% longer")
+				continue
+		labels.append(String(STAT_LABELS.get(String(effect.stat), String(effect.stat).capitalize())) + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
 	bonus.text = String(bonus.get("text", bonus.id)) + ": " + ", ".join(labels)
 	bonus.counter = counter
 	return bonus
@@ -498,3 +507,10 @@ func _weighted_pick(ids: Array, rng: RandomNumberGenerator, state: RunWorld) -> 
 static func _fmt(v: Variant) -> String:
 	var f := float(v)
 	return str(int(f)) if f == floorf(f) else str(f)
+
+static func _form_sub_label(book: SkillBook, skill: String) -> String:
+	var names := PackedStringArray()
+	for sub: Dictionary in book.def(skill).get("form", {}).get("subs", []):
+		var key := String(sub.skill)
+		names.append(String(book.def(key).get("name", key.replace("_", " ").capitalize())))
+	return " / ".join(names) if not names.is_empty() else "Sub-skill"

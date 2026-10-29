@@ -496,9 +496,7 @@ func _draw() -> void:
 		var f: SpriteFrame = p.frame
 		if f.page == null:
 			continue
-		var owner := int(p.get("owner", 0))
-		var weapon := AvatarLayers.weapon_type(owner) > 0 or floori(float(owner) / 10000.0) == CashCatalog.WEAPON_COVER_CATEGORY
-		draw_texture_rect_region(f.page, Rect2(p.pos - f.origin, f.region.size), f.region, weapon_tint if weapon else Color.WHITE)
+		draw_texture_rect_region(f.page, Rect2(p.pos - f.origin, f.region.size), f.region, weapon_tint if bool(p.get("weapon", false)) else Color.WHITE)
 	if facing > 0:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -600,7 +598,7 @@ func _collect(parts: Array, frame_node: Variant, w: WzImg, skipped: PackedString
 		if mv is Dictionary:
 			for mk: Variant in (mv as Dictionary).keys():
 				m[mk] = WzImg.vec(mv[mk])
-		parts.append({"name": String(k), "frame": f, "map": m, "z": f.z, "pos": Vector2.ZERO, "owner": part_owner})
+		parts.append({"name": String(k), "frame": f, "map": m, "z": f.z, "pos": Vector2.ZERO, "owner": part_owner, "weapon": AvatarLayers.weapon_type(part_owner) > 0 or floori(float(part_owner) / 10000.0) == CashCatalog.WEAPON_COVER_CATEGORY})
 
 
 func _load(path: String) -> WzImg:

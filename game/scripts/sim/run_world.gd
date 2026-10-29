@@ -2519,6 +2519,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	# Power Guard (#182): a no-op, with no RNG and no event, unless the buff is active and this is contact damage.
 	var reflect := _power_guard_reflect(dmg, magic, source)
 	dmg -= reflect
+	dmg = ceili(runner.forms.absorb(self, float(dmg)))
 	_hp -= dmg
 	_emit_player_hit(dmg, false, dir, source)
 	upkeep.land_hit(bypass)

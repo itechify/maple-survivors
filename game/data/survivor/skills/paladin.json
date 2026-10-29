@@ -2,43 +2,13 @@
 	"_doc": "Paladin skill definitions (spec #308, one region per ticket): P4 #312 appends rush_paladin, P5 #313 blast and monster_magnet_paladin, P6 #314 charged_blow, P7 #315 and P8 #316 the four Charges and heavens_hammer. Power Strike and Slash Blast are defined by skills/hero.json and are never repeated here (a duplicate key across files is a load error, docs/ARCHITECTURE.md 4.4.4). Until a key is defined here it is inert: never offered or learned.",
 	"skills": {
 		"rush_paladin": {
+			"extends": "rush_hero",
 			"skill_id": 1221007,
 			"book": "122",
 			"job": 122,
-			"kind": "instant",
-			"slot": "mobility",
-			"name": "Rush",
-			"desc": "Press the skill key with an arrow key to charge that way, damaging and shoving every monster in your path. Hold to repeat.",
-			"text": {
-				"desc": "Press the Rush key with an arrow key to charge that way, damaging and knocking back the monsters in your path. Hold the key to keep charging.",
-				"h": "Damage {damage}%, up to {mob_count|monster|monsters}, charges forward."
-			},
 			"icon": "Skill.wz/122.img/skill/1221007/icon",
-			"damage": "physical",
-			"cast": {
-				"rule": "manual"
-			},
-			"skill_key": "rush",
-			"cooldown": 2.0,
-			"displacement": {
-				"direction": "input",
-				"when": "during",
-				"field": "lt.x"
-			},
-			"knockback": {
-				"distance": 80.0,
-				"direction": "dash"
-			},
-			"rush": {
-				"bot_threat_distance": 60.0
-			},
 			"_rush": "tier C #312: a copy of rush_hero (H6 #302), the same definition on Paladin's book. Tier A: WZ 1221007 (P1 #309 checked every level row equals 1121006's): rank 1 = WZ level 4 at Lv1, rank 8 = level 30 from Lv16 by the shared balance.mobility_rank_levels rule; damage 78% to 130%, mobCount 15, box lt (-170,-50) to (-250,-50) rb (0,0), action rush2, effect/1..6 and effect0 dust, the Use sound (a UOL to Hero's). Tier C: the same cooldown, knock-back, hold-to-repeat and bot rules as Hero's (GAME_DESIGN 7.33).",
-			"action": "rush2",
-			"action_time": 0.6,
-			"ball": "",
-			"hit": "",
 			"effect": "Skill.wz/122.img/skill/1221007/effect",
-			"rotate": false,
 			"cast_visuals": [
 				{
 					"path": "Skill.wz/122.img/skill/1221007/effect0",

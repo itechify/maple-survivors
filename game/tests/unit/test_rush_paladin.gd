@@ -35,7 +35,7 @@ static func _shape(def: Dictionary) -> Dictionary:
 
 ## Paladin's Rush is `rush_hero` with its own book, ids, art and sound: every other field is the same value (#312 "copy").
 func test_rush_paladin_is_a_data_copy_of_rush_hero() -> void:
-	var defs: Dictionary = DataRepo.load_all().skills.skills
+	var defs: Dictionary = SkillBook.from_data(DataRepo.load_all().skills, {}).defs
 	assert_true(defs.has("rush_paladin"), "P4 defines it in skills/paladin.json")
 	assert_eq(_shape(defs.rush_paladin), _shape(defs.rush_hero), "the same shape, ranks and numbers")
 	var paladin: Dictionary = defs.rush_paladin

@@ -73,20 +73,16 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		var form: Dictionary = def.form
 		var effects: Dictionary = form.get("effects", {})
 		var element := String(effects.get("element", ""))
-		var names := {"f": "fire", "i": "ice", "l": "lightning", "h": "holy", "s": "poison"}
 		var power := 1.0
 		if effects.has("damage"):
 			power = book.canonical(key, level, String(effects.damage.field), 100.0) / 100.0 + float(stats.get("form_power", 0.0))
-		mechanics.append("Charges your weapon with %s for %s s: attacks +%s%%" % [
-			String(names.get(element, element)), number(float(stats.get("duration", form.duration))), number((power - 1.0) * 100.0)])
+		mechanics.append("Charges your weapon for %s s: your attacks deal %s damage (+%s%%)" % [
+			number(float(stats.get("duration", form.duration))), Elements.display_name(element), number((power - 1.0) * 100.0)])
 		for sub: Dictionary in form.get("subs", []):
 			var sub_key := String(sub.skill)
 			var trigger := "once after %s s" % number(float(sub.first_after)) if bool(sub.get("once", false)) else "after %s s, every %s s" % [number(float(sub.first_after)), number(float(sub.interval))]
 			var sub_level := book.canonical_level(sub_key, int(stats.get("rank", 1)))
-			var sub_lo := Loadout.new(book)
-			sub_lo.add_skill_mod(sub_key, "damage", "mul", float(stats.get("form_sub_damage", 1.0)))
-			sub_lo.add_skill_mod(sub_key, "area", "mul", float(stats.get("form_sub_area", 1.0)))
-			var sub_stats := sub_lo.stats(sub_key, int(stats.get("rank", 1)))
+			var sub_stats := Loadout.new(book).sub_stats(sub_key, stats, int(stats.get("rank", 1)))
 			var details := level_line(sub_key, sub_level, sub_stats)
 			var base := ""
 			match String(sub_stats.damage_type):

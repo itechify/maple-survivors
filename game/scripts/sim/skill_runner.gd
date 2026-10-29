@@ -11,7 +11,7 @@ extends RefCounted
 ##   `range` around the body, Slash Blast) rules strike `mob_count` targets instead, and the last two turn a standing
 ##   character toward the target first. A skill with an HP cost (`hp_cost`) never casts when paying it would leave 0 HP.
 ## A skill with a `displacement` block (a moving attack, docs/GAME_DESIGN.md 7.13) also moves the grounded character away
-## from or toward its first target before, after or during the hits (`_resolve_cast`, `_resolve_charge`).
+## from or toward its first target before, after or during the hits (`resolve_cast`, `_resolve_charge`).
 ## A `cluster` skill (Gunslinger Grenade, docs/GAME_DESIGN.md 7.20) throws at once at the nearest cluster of mobs within its throw range; the blast
 ## strikes its canonical box around the landing point when the ball arrives (`_throw`, `_land_flights`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
@@ -232,7 +232,7 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		if String(meter_rule.get("role", "")) == "finisher":
 			cooldowns[key] = maxf(1.0, cooldowns[key])
 		cooldown_totals[key] = cooldowns[key]
-		_resolve_cast(world, key, st, origin, plan)
+		resolve_cast(world, key, st, origin, plan)
 		break
 
 
@@ -267,7 +267,7 @@ func cast_manual_buff(world: RunWorld, key: String) -> bool:
 	world.spend_hp(int(st.hp_cost))
 	cooldowns[key] = restart_cooldown(st)
 	cooldown_totals[key] = cooldowns[key]
-	_resolve_cast(world, key, st, world.cast_origin(), {})
+	resolve_cast(world, key, st, world.cast_origin(), {})
 	return true
 
 
@@ -470,7 +470,8 @@ func _admit_hp_or_undead(world: RunWorld, key: String, st: Dictionary) -> Dictio
 	return {"targets": targets} if injured or not targets.is_empty() else {}
 
 
-func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
+## Resolves an admitted cast, including Form sub-skills, through the ordinary cast pipeline.
+func resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
 	var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
 	var first_x := world.mob_center(targets[0]).x if not targets.is_empty() else 0.0
 	if bool(RULE_POLICY.get(String(st.cast_rule), {}).get("faces_target", false)) and not targets.is_empty() and String(st.kind) != "buff":

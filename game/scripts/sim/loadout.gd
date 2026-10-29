@@ -550,3 +550,10 @@ static func _stack(m: Vector2, op: String, value: float) -> Vector2:
 	if op == "mul":
 		return Vector2(m.x, m.y * value)
 	return Vector2(m.x + value, m.y)
+
+## Resolves a sub at the parent's rank with only its damage and area inheritance.
+func sub_stats(sub: String, parent: Dictionary, rank: int) -> Dictionary:
+	var lo := clone()
+	lo.add_skill_mod(sub, "damage", "mul", float(parent.get("form_sub_damage", 1.0)))
+	lo.add_skill_mod(sub, "area", "mul", float(parent.get("form_sub_area", 1.0)))
+	return lo.stats(sub, rank)

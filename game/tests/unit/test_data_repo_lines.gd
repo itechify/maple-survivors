@@ -24,10 +24,12 @@ func _put(rel: String, value: Dictionary) -> String:
 
 func test_lines_are_fixed_adventurers_then_registered_classes() -> void:
 	var root := _put("survivor/jobs/paladin.json", {"jobs": {}})
+	assert_true("paladin" in DataRepo.CLASS_LINES)
+	_put("survivor/jobs/aaa_future.json", {"jobs": {}})
 	_put("survivor/skills/hero.json", {"skills": {}})
 	_put("survivor/jobs/il_arch_mage.json", {"jobs": {}})
 	assert_eq(Array(DataRepo.lines(root)), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate",
-		"hero", "il_arch_mage", "paladin"])
+		"hero", "il_arch_mage", "paladin", "aaa_future"])
 	assert_eq(DataRepo.fragment_path("skills", "magician", "res://data"), "res://data/survivor/skills/magician.json")
 
 

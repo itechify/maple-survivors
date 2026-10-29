@@ -462,3 +462,11 @@ func test_blast_art_follows_every_charge_and_uses_gold_without_one() -> void:
 		var index: int = {"": 0, "ice_charge": 1, "fire_charge": 2, "thunder_charge": 3, "holy_charge": 5}[charge]
 		assert_eq(String(stats.effect), "Skill.wz/122.img/skill/1221009/effect/%d" % index, charge)
 		assert_eq(String(stats.hit), "Skill.wz/122.img/skill/1221009/hit/0/%d" % index, charge)
+
+func test_form_bonus_text_names_the_sub_damage_and_duration() -> void:
+	var w := _world(["fire_charge"])
+	var card: Dictionary = w.upgrades.choice_card("fire_charge_rank", w, "unique")
+	assert_true("Charged Blow +30%" in String(card.rarity_bonus.text), String(card.rarity_bonus.text))
+	assert_true("charge lasts 25% longer" in String(card.rarity_bonus.text), String(card.rarity_bonus.text))
+	var lines := " ".join(LevelUpWindow.change_lines(card))
+	assert_true("Charged Blow damage" in lines, lines)

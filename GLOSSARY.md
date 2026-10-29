@@ -199,7 +199,7 @@ A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here i
 
 **Form**:
 A timed active stance that changes the character's attacks and carries sub-skills. A running form survives
-map transfer and ends on death.
+map transfer and ends on death. Its buff block carries Hidden or morph state; effect keys are for cast-stat or lifecycle behaviour (Buccaneer template: `spec/412`, `test_morph_form.gd`).
 
 **Charge**:
 A Paladin Form that temporarily gives its attacks an element and carries Charged Blow. Holy Charge also

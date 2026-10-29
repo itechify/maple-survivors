@@ -2210,11 +2210,9 @@ func _sfx_service() -> AudioService:
 
 ## Refreshes the held weapon only when a form starts or ends (tier C element palette).
 func _refresh_form_tint() -> void:
-	var colours := {"f": Color(1.0, 0.35, 0.2), "i": Color(0.3, 0.7, 1.0),
-		"l": Color(1.0, 0.85, 0.2), "h": Color(1.0, 0.8, 0.55), "s": Color(0.6, 0.9, 0.35)}
 	avatar.weapon_tint = Color.WHITE
 	for form: Dictionary in world.runner.forms.snapshot():
 		var element := String(form.effects.get("element", ""))
-		if colours.has(element):
-			avatar.weapon_tint = colours[element]
+		if not element.is_empty():
+			avatar.weapon_tint = Elements.tint(element)
 			break

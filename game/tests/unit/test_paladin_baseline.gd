@@ -71,3 +71,31 @@ func test_paladin_event_stream_is_reproducible_and_matches_golden() -> void:
 	var charges := Array(facts.loadout).filter(func(k: Variant) -> bool: return String(k) in CHARGES)
 	assert_true(charges.size() >= 1, "the bot took at least one Charge among its six actives: %s" % [facts.loadout])
 	assert_true(int(facts.counts.get("form_started", 0)) > 0, "a Form window opened")
+
+## Scripted Holy/Blast replay complements the bot seed, which never learns these skills.
+func _holy_digest(facts: Dictionary) -> String:
+	var w := PF.round_world(308)
+	w.loadout.order.clear()
+	for key: String in ["holy_charge", "blast"]:
+		w.loadout.add_skill(key)
+	for x: int in [430, 450, 470]:
+		RF.put_mob(w, 1110100, x, 195, 10000000.0)
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+	var digest := HashingContext.new()
+	digest.start(HashingContext.HASH_SHA256)
+	for tick in 240:
+		w.step(DT, MoveInput.new())
+		var events := w.drain_events()
+		for event: Dictionary in events:
+			if event.type == "mob_hit":
+				facts[String(event.get("skill", ""))] = true
+		digest.update(var_to_bytes(events))
+	return digest.finish().hex_encode()
+
+func test_scripted_holy_blast_and_hammer_replay() -> void:
+	var facts := {}
+	var first := _holy_digest(facts)
+	assert_eq(first, _holy_digest({}), "independent fixed-tick Holy runs")
+	assert_eq(first, "CAPTURE", "scripted Holy replay")
+	assert_true(facts.has("blast"), str(facts))
+	assert_true(facts.has("heavens_hammer"), str(facts))
