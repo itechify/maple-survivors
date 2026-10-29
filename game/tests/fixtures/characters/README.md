@@ -31,5 +31,5 @@ survives Henesys. The worn weapon is a two-handed axe (1412006); the equipment r
 scrolls and mesos from a seed-1 Henesys bot clear. Reproduce with `tools/character_fixture.gd --job=132 --god --seed=1
 --label=spec348/ticket-358 --revision=<SHA> --out=<absolute path>`; no playable patch is needed (D10 flipped `playable`). The
 `_doc` records seed, policy, revision and invulnerability: this is a diagnostic clear to obtain equipment, not evidence that
-the bot survives Henesys. The worn weapon is a Spear (1432002), the equipment retains canonical stats. Use it for
+the bot survives Henesys. The worn weapon is a Pole Arm (1442004), the equipment retains canonical stats. Use it for
 `--stage=sleepywood --job=132 --character=<absolute dark_knight_t2.json>` or `--hub --job=132`.
