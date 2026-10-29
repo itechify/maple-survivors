@@ -57,6 +57,23 @@
 				}
 			}
 		},
+		"bot": {
+			"card_scores": {
+				"blast_new": 100,
+				"blast_rank": 74,
+				"monster_magnet_paladin_new": 100,
+				"monster_magnet_paladin_rank": 74,
+				"fire_charge_new": 100,
+				"fire_charge_rank": 74,
+				"ice_charge_new": 100,
+				"ice_charge_rank": 74,
+				"thunder_charge_new": 100,
+				"thunder_charge_rank": 74,
+				"holy_charge_new": 100,
+				"holy_charge_rank": 74
+			},
+			"_card_scores": "tier C: spec #308 P9 #317: the Paladin's own pool skills (Blast, Monster Magnet and the four Charges) score like every pool skill, learn card 100 and rank card 74, so the bot takes them. Power Strike and Slash Blast keep Hero's pairs. BotInput already scores any pool skill 100/74 without an entry; these are the same numbers written out, a guard against a default change and a test that a pool change comes with its scores."
+		},
 		"growth": {
 			"122": {
 				"hp": 65,
