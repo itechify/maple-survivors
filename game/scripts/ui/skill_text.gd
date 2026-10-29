@@ -105,12 +105,14 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 				book.def(sub_key).get("name", sub_key.replace("_", " ").capitalize()))), trigger, sub_level,
 				details, base, SkillRunner.strike_count(sub_stats), cost])
 	if def.has("meter"):
-		mechanics.append("Needs %d orbs" % int(def.meter.get("min", 0)))
+		# The meter's unit word: a finisher may name it ("energy"); Hero's finishers keep "orbs".
+		var unit := str(def.meter.get("unit", "orbs"))
+		mechanics.append("Needs %d %s" % [int(def.meter.get("min", 0)), unit])
 		var keep := int(stats.get("meter_keep", 0))
 		if str(def.meter.get("spend", "")) == "all":
-			mechanics.append("Spends all orbs" if keep <= 0 else "Spends all but %d orbs; Keeps %d orbs" % [keep, keep])
+			mechanics.append("Spends all %s" % unit if keep <= 0 else "Spends all but %d %s; Keeps %d %s" % [keep, unit, keep, unit])
 		elif def.meter.has("spend"):
-			mechanics.append("Spends %d orbs" % int(def.meter.spend))
+			mechanics.append("Spends %d %s" % [int(def.meter.spend), unit])
 	if def.has("knockback"):
 		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
 			number(float(stats.get("knockback_distance", 0.0)))])
