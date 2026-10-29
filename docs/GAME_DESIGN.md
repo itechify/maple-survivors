@@ -4126,6 +4126,16 @@ Raw: ignored `evidence/t76/perf3/`, `_scratch/t76/perf_probe_runs*.txt`, probe `
 `missing` empty; no tuning, no held-out seeds. Bot: 3 DEAD on map 2 at 6:39 / 6:17 / 6:18, Lv 22 / 17 / 19. Random: 3 DEAD on map 1
 at 5:07 / 5:10 / 5:08, Lv 11 / 11 / 12. No clears or timeouts.
 
+### Buccaneer B2 data smoke (#414, 2026)
+
+Data-only ticket (`jobs/buccaneer.json`, not playable, no balance data touched). Training seeds 1/2/2026, Henesys bot,
+`JOBS=3`, real private cache: F/P (212) and Hero (112) rows are byte-identical to the base commit `f15b68f`
+(3 deaths each: 212 at 10:51 / 5:05 / 7:34, 112 at 5:27 / 5:36 / 11:28; no clears, no warnings). Oracles
+`character_baseline`, `tick_cost_identity` and `hero_baseline` reproduce their hashes. A diagnostic `--job=512`
+playtest (Henesys, speed 8, 3 minutes, `playable: true` temporarily and reverted) reached Lv5 with `missing: []`, HP
+860/860 (600 base plus 65 per level), the Flash Fist and the Pirate-book skills cast; screenshots are in gitignored
+`evidence/414/`. Not survival evidence; the pool's new skills are B4-B10.
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
