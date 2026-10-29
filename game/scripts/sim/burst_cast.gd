@@ -14,6 +14,11 @@ func has_skill(key: String) -> bool:
 			return true
 	return false
 
+## Seconds from admission to the last shot of a burst of resolved stats `st` (wind-up plus the gaps between its shots).
+static func span(st: Dictionary, params: Dictionary) -> float:
+	return maxf(0.0, float(params.get("wind_up", 0.0))) \
+		+ maxi(0, int(st.get("count", 1)) - 1) * maxf(0.0, float(params.get("interval", 0.0)))
+
 ## Starts one burst and releases a zero-wind-up first shot on the admission tick.
 func start(world: RunWorld, key: String, st: Dictionary, target: int) -> void:
 	var params: Dictionary = world.book.def(key).get("burst", {})

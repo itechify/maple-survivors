@@ -1,4 +1,55 @@
 {
 	"_doc": "Bowmaster line (spec #332, ticket B2 #334): an empty skeleton. Each Bowmaster skill ticket (B7-B11) appends its own definitions in its own marked region; until a key is defined, the job's pool entry for it is inert (never offered, never learned). Shared keys with Bowman (arrow_blow, bow_double_shot, arrow_bomb) stay in skills/bowman.json until B7 moves them here.",
-	"skills": {}
+	"skills": {
+		"hurricane": {
+			"_b10_342": "Bowmaster B10 #342 (Hurricane). Tier A: WZ damage 51 -> 100, own 10-frame ball, hit/0, Use and Hit sounds, one monster per arrow (no mobCount/attackCount). Tier C (GAME_DESIGN 7.45): burst rule, 12 arrows at 0.1 s after a 0.4 s wind-up, 6 s cooldown, range 450, 900 px/s, radius 6, eight survivor ranks on levels 4/8/12/15/19/23/27/30, the held bow's shooting stance for the whole stream, rarity bonuses.",
+			"skill_id": 3121004,
+			"book": "312",
+			"job": 312,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Hurricane",
+			"desc": "Looses a long stream of arrows at the nearest monster while you keep moving.",
+			"text": {
+				"desc": "Looses a stream of arrows at the nearest monster.",
+				"h": "Damage {damage}% per arrow"
+			},
+			"icon": "Skill.wz/312.img/skill/3121004/icon",
+			"damage": "physical",
+			"weapon_families": ["bow"],
+			"ranks": [4, 8, 12, 15, 19, 23, 27, 30],
+			"cast": {"rule": "burst"},
+			"burst": {"interval": 0.1, "wind_up": 0.4, "retarget": true},
+			"count": 12,
+			"cooldown": 6.0,
+			"range": 450,
+			"speed": 900,
+			"radius": 6,
+			"pierce": 0,
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "Skill.wz/312.img/skill/3121004/ball",
+			"hit": "Skill.wz/312.img/skill/3121004/hit/0",
+			"effect": "",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3121004/Use",
+				"hit": "Sound.wz/Skill.img/3121004/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "bow_expert", "text": "Bow Expert", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "booster", "text": "Bow Booster: cooldown", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}
+				],
+				"unique": [
+					{"id": "final_attack", "text": "Final Attack: +4 arrows", "effects": [{"stat": "count", "op": "add", "value": 4}]}
+				],
+				"legendary": [
+					{"id": "final_attack", "text": "Final Attack: +4 arrows and damage", "effects": [{"stat": "count", "op": "add", "value": 4}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		}
+	}
 }
