@@ -12,6 +12,7 @@ extends TestCase
 
 const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")
 const IL := preload("res://tests/fixtures/il_fixtures.gd")
+const RS := preload("res://tests/fixtures/resurrection_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BLIZZARD := preload("res://tests/unit/test_il_blizzard.gd")
 const BIG_BANG := preload("res://tests/unit/test_il_big_bang.gd")
@@ -29,6 +30,9 @@ const IL_AUDITED_ELSEWHERE := ["ifrit"]
 ## The Bishop skills whose bonuses another test audits (book 230+; Heal's `heal_power` / `heal_threshold` are test_bishop_heal's).  The dragons (BS7) are summons: test_bishop_dragons.
 const BISHOP_AUDITED_ELSEWHERE := ["heal", "summon_dragon", "bahamut"]
 const IL_BOOKS := [220, 221, 222]
+## The Bishop's reaction skills (BS8 #380): audited by the revive probe below, not by a cast (they never auto-cast).
+const REVIVE_SKILLS := ["resurrection"]
+const REVIVE_STATS := ["cooldown", "revive_hp", "revive_guard"]
 ## The Bishop skills this audit casts (books 230/231/232, BS5 #377): Holy Arrow, Shining Ray, Angel Ray. They have their own synthetic
 ## Skill.wz tables (`bishop_bolt_fixtures.gd`) and are cast at their top rank, like the I/L ones.
 const BISHOP_SKILLS := ["holy_arrow", "shining_ray", "angel_ray"]
@@ -280,6 +284,7 @@ func test_the_audits_cover_the_whole_shipped_il_pool() -> void:
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
 	var skills := _resolved()
 	var il_checked := 0
+	var revive_checked := 0
 	var bishop_checked := 0
 	var nova_checked := 0
 	for key: String in _skills_with_bonuses():
@@ -287,11 +292,16 @@ func test_each_bonus_effect_changes_the_resolved_cast() -> void:
 		for tier: String in TIERS:
 			for bonus: Dictionary in bonuses[tier]:
 				for effect: Dictionary in bonus.effects:
+					if key in REVIVE_SKILLS:
+						_assert_effect_changes_the_revive(key, tier, String(bonus.id), effect)
+						revive_checked += 1
+						continue
 					_assert_effect_changes_the_cast(key, tier, String(bonus.id), effect)
 					il_checked += 1 if key in IL_SKILLS else 0
 					bishop_checked += 1 if key in BISHOP_SKILLS else 0
 					nova_checked += 1 if key in BISHOP_NOVAS else 0
 	assert_eq(il_checked, IL_SKILLS.size() * 5, "each I/L skill: 1 + 1 + 1 + 2 effects")
+	assert_eq(revive_checked, REVIVE_SKILLS.size() * 5, "Resurrection: 1 + 1 + 1 + 2 effects")
 	assert_eq(bishop_checked, BISHOP_SKILLS.size() * 5, "each Bishop bolt: 1 + 1 + 1 + 2 effects")
 	assert_eq(nova_checked, BISHOP_NOVAS.size() * 5, "Genesis and Big Bang Bishop: 1 + 1 + 1 + 2 effects")
 
@@ -377,3 +387,55 @@ func test_the_probe_catches_a_bishop_modifier_the_cast_rule_never_reads() -> voi
 	# And the modifiers the shipped bonuses rely on do widen.
 	assert_true(bool(_probe("shining_ray", [area], "area").edge))
 	assert_true(int(_probe("holy_arrow", [pierce], "pierce").affected) > int(_probe("holy_arrow", [], "pierce").affected))
+
+
+# --- the revive probe (Bishop BS8 #380): a reaction skill never casts, so its bonuses are audited on the revive itself ---
+
+## A Bishop world with `key` learned at rank 2, `effects` applied, hit by a lethal touch hit; returns what the revive did:
+## the event's HP, guard and recharge, and whether a second lethal hit 3 s later (past the base 2 s guard) gets through.
+func _revive_probe(key: String, effects: Array) -> Dictionary:
+	var w := RS.world()
+	w.loadout.set_rank(key, 2)
+	for e: Dictionary in effects:
+		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
+	RS.lethal_hit(w)
+	var revived := {}
+	for e: Dictionary in w.drain_events():
+		if e.type == "player_revived":
+			revived = e
+	# Walk 3.0 s: past the base 2.0 s guard, inside the Holy Shield's 3.5 s. A hit then lands only if the guard is over.
+	for i in 180:
+		w.step(DT, MoveInput.new())
+	var landed := RS.lethal_hit(w) != 0 or w.revives.size() > 1 or bool(w.player_state.dead)
+	return {"event": revived, "recharge": float(revived.get("recharge", -1.0)),
+		"revive_hp": int(revived.get("hp", -1)), "guard": float(revived.get("guard", -1.0)), "landed_after_3s": landed}
+
+
+func _assert_effect_changes_the_revive(key: String, tier: String, id: String, effect: Dictionary) -> void:
+	var stat := String(effect.stat)
+	var label := "%s %s %s (%s)" % [key, tier, id, stat]
+	assert_true(stat in REVIVE_STATS, "%s: a stat the revive probe knows" % label)
+	var base := _revive_probe(key, [])
+	var with := _revive_probe(key, [effect])
+	assert_false(base.event.is_empty() or with.event.is_empty(), "%s: the lethal hit revived" % label)
+	match stat:
+		"cooldown":
+			assert_true(float(with.recharge) < float(base.recharge) - 1.0, "%s: recharge %s -> %s" % [label, base.recharge, with.recharge])
+		"revive_hp":
+			assert_true(int(with.revive_hp) > int(base.revive_hp), "%s: HP back %d -> %d" % [label, base.revive_hp, with.revive_hp])
+		"revive_guard":
+			assert_true(float(with.guard) > float(base.guard), "%s: guard %s -> %s" % [label, base.guard, with.guard])
+			assert_true(bool(base.landed_after_3s), "%s: the base guard is over after 3 s" % label)
+			assert_false(bool(with.landed_after_3s), "%s: the longer guard still blocks at 3 s" % label)
+
+
+func test_the_revive_probe_catches_a_modifier_the_revive_never_reads() -> void:
+	# Damage, area and count are not read by PlayerRevive's plan: the recharge, HP share and guard stay as they were.
+	var base := _revive_probe("resurrection", [])
+	for effect: Dictionary in [{"stat": "damage", "op": "mul", "value": 1.2}, {"stat": "count", "op": "add", "value": 2.0}]:
+		var with := _revive_probe("resurrection", [effect])
+		assert_eq(with.revive_hp, base.revive_hp, str(effect))
+		assert_eq(with.guard, base.guard, str(effect))
+		assert_eq(with.recharge, base.recharge, str(effect))
+	# And the shipped modifiers do change it.
+	assert_true(float(_revive_probe("resurrection", [{"stat": "revive_guard", "op": "add", "value": 1.5}]).guard) > float(base.guard))

@@ -108,6 +108,10 @@ const HIT_FACE_TIME := 1.0
 ## tier C (ours): invincibility blink, alpha of the dim phase and the period (s) of one bright + dim cycle.
 const BLINK_ALPHA := 0.4
 const BLINK_PERIOD := 0.16
+## tier C (ours, BS8): seconds the "Resurrection! Ready again in M:SS" notice shows, and the delay of its evidence shot
+## (the first beam frames, after the 1320 ms lead-in of the `affected` art).
+const REVIVE_NOTICE_TIME := 6.0
+const REVIVE_SHOT_DELAY := 1.45
 ## tier C (ours, #211): a Hidden avatar is drawn at half opacity; morph artwork keeps its own appearance.
 const HIDDEN_ALPHA := 0.5
 ## tier C (ours): continent + region notice at run start (#221): seconds shown (the last FADE of them fading).
@@ -1197,6 +1201,8 @@ func handle_events(events: Array) -> void:
 				_on_ammo_upgraded(e)
 			"choice_pending":
 				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus)}
+			"player_revived":
+				_on_player_revived(e)
 			"player_died":
 				_on_player_died(e.pos)
 			"stage_cleared":
@@ -1311,6 +1317,25 @@ func _on_cast(e: Dictionary) -> void:
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
+
+
+## A second life (BS8, GAME_DESIGN 7.81): the skill's pillar at the character's feet and its beams on the body (the
+## `affected` art keeps its own 1320 ms lead-in), the Use sound, the "Ready again in M:SS" notice and an evidence shot. The
+## stance is the sim's (a held action, drawn only while standing) and the guard blink is _update_player's.
+func _on_player_revived(e: Dictionary) -> void:
+	var key := String(e.skill)
+	var def := world.book.def(key)
+	var effect := String(def.get("effect", ""))
+	if effect != "":
+		fx.play(effect, Vector2.ZERO, int(world.player.facing) > 0, avatar)
+	var affected := String(def.get("affected", ""))
+	if affected != "":
+		# tier C: the beams are anchored on the canonical body-box centre (frame 1's origin sits mid-body).
+		fx.play(affected, Vector2.ZERO, false, avatar, Vector2(0.0, world.body.position.y))
+	if hud != null:
+		hud.push_notice("second_life", SkillText.revive_notice(float(e.recharge)), REVIVE_NOTICE_TIME)
+	_sound(world.book.art_path(key, String(def.get("sounds", {}).get("use", "")), world.loadout.weapon_family))
+	_first_event_shot("second_life", "second_life.png", REVIVE_SHOT_DELAY)
 
 
 ## A thrown grenade (#192): the ball follows consumed sim time; only skill_landed starts its blast.
@@ -1810,7 +1835,8 @@ func _update_player(delta: float) -> void:
 	if not (p.state == PlayerMotion.ST_LADDER and p.vel.y == 0.0):
 		# An attack stance plays at the attack speed (a Booster shortens its frame times); movement stances do not.
 		avatar.advance(delta / maxf(float(world.player_state.action_scale), 0.1) if action != motion else delta)
-	var inv := float(world.player_state.invincible_t)
+	# The second-life guard blinks like the hit window does (BS8): the longer of the two timers drives it.
+	var inv := maxf(float(world.player_state.invincible_t), world.revive.guard_t)
 	var hidden_alpha := HIDDEN_ALPHA if not dead and bool(world.player_state.get("hidden", false)) \
 		and int(world.player_state.get("morph", 0)) == 0 else 1.0
 	if inv > 0.0 and not dead:

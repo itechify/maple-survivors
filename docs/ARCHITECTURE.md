@@ -832,7 +832,9 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   skill is cast by the world, not the runner: `PlayerRevive` (a `HitHook`, see above) spends it. `cooldown_by_rank` (a
   generic skill field: seconds per rank, indexed by rank - 1, the last repeating) is read by `Loadout._base_cooldown`
   before `cooldown_field`, and the result still goes through the cooldown modifiers, the Booster passive and the floor.
-  `revive_hp` / `revive_guard` skill modifiers are read only through `Loadout.stats().revive`.
+  `revive_hp` / `revive_guard` skill modifiers are read only through `Loadout.stats().revive`. BS8 (#380): `PlayerRevive` also
+  holds the skill's `action` for `action_time` (display only, no movement lock); a skill def may carry `affected` (a second
+  art path played on the body); `RunScene._on_player_revived` is the presentation of `player_revived`.
 - **Heal's stats (#376).** `Loadout.stats()` adds `heal_power` (the skill modifier `heal_power`, default 1.0; scales both
   bounds of the recovery range) and `heal_threshold` (the data's `heal.hp_threshold` plus the `heal_threshold` modifier,
   capped at `Loadout.HEAL_THRESHOLD_CAP` 0.95, rounded to 1e-4; 0 for a skill without a `heal` block). The `hp_or_undead` rule

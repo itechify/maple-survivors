@@ -6387,6 +6387,32 @@ to the share of max HP) and `revive_guard` (add to the guard seconds).
 `revive_count` to every record (`[]` / 0 without a reaction skill), `balance.sh` prints a `revives` column per seed and
 `revived n/runs` in its SUMMARY, and the metrics aggregate has `revived_runs`.
 
+**Resurrection (2321006, ticket BS8 #380).** The pool skill on this seam, `resurrection` in `skills/bishop.json` (book 232,
+job 232): `kind instant`, `slot active`, `damage none`, `cast.rule reaction`, `ranks [2, 3, 4, 5, 7, 8, 9, 10]` (only ten WZ
+levels), `cooldown_by_rank [600, 540, 480, 420, 300, 240, 180, 120]` and no `cooldown_field`, `revive {hp 0.5, guard 2.0,
+push {distance 140}}`. The table is the WZ `cooltime` curve rescaled, `recharge = cooltime / 3 - 480`; a real-cache test
+(`test_bishop_resurrection`) asserts that identity for the eight shipped ranks. Rarity entries (every one changes the
+resolved plan; `test_rarity_bonus_effects` has a revive probe next to the cast probes): Rare `booster` "Faster Prayer"
+recharge x0.88; Epic `vigor` "Holy Vigor" `revive_hp` +0.15; Unique `shield` "Holy Shield" `revive_guard` +1.5 s; Legendary
+`shield` = Holy Shield plus Holy Vigor (one repeat counter with the Unique, repeats x0.8). Normal Mastery is cooldown x0.95
+through the `damage: none` rule (x0.96 for the second card).
+
+*Presentation.* `PlayerRevive` holds the skill's own stance (`resurrection`, 2.52 s, the body's three 840 ms frames) through
+`start_action`: a display hold only, drawn while the character stands, so walking and casting are never locked (nothing reads
+`cast_left` to block them; a test walks during the hold). `RunScene` maps `player_revived` to: the `effect` (the angel
+pillar, 21 frames) at the feet and the `affected` beams (15 frames, frame 0 a 1 x 1 canvas held 1320 ms, then 60 ms beams) on
+the body centre, both on the avatar; the skill's Use sound; the notice "Resurrection! Ready again in M:SS" from the event's
+`recharge` (6 s); and one evidence shot. The avatar blinks (the hit-window blink) for as long as the longer of the hit window
+and the guard runs. The HUD slot shows the recharge as the ordinary cooldown sweep. Level-up cards preview `revive_hp` (percent)
+and `revive_guard` (seconds) like the other modifier stats (`UpgradePool.MOD_PREVIEW`, `LevelUpWindow.MOD_LABELS`), and
+`SkillText.level_line` ends with "When a hit would kill you: return at N% HP, S s guard; recharge M:SS".
+
+*Probe.* `scenes/debug/revive_driver.tscn` (tool-only; `ISOLATE=<name> bash scripts/run.sh res://scenes/debug/revive_driver.tscn
+-- --shots=<abs dir>`): a Bishop with Resurrection at rank 8 on real Henesys with six snails around it takes a lethal hit (HP
+back at 50%, six snails shoved, the pillar, the beams, the guard blink, the notice, the slot sweep), a second lethal hit inside
+the recharge (dies), and in a second round a lethal hit after the recharge has run out (revives again). It writes
+`revive_*.png` and `summary.json` and exits 1 when an outcome differs.
+
 ### 7.82 Bishop core bolts and Teleport (spec #372, BS5 #377)
 
 Holy Arrow (2301005), Shining Ray (2311004), Angel Ray (2321007) and Teleport (`teleport_cleric`, 2301001) live in
@@ -7969,3 +7995,18 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Baseline recipe | seed 1, 72,000 ticks, god, bot (`auto_choose` + `decide`), legacy Henesys curve and opening freeze as the 212 oracle, synthetic books (`bishop_bolt_fixtures`, `heal_fixtures`, Genesis and Big Bang of `test_bishop_genesis`) | tier C: ours (#381) |
 | Bot scores | no `card_scores` block added; the ten pool keys keep BS2's new 100 / rank 74; Heal and Resurrection have reach 0; the bot presses a key only for Teleport | tier C: ours (#381) |
 | Skill window | no code change: tabs 200, 230, 231, 232 after Common, Teleport (2301001) first on the 230 tab | tier C: ours (#381) |
+
+### Bishop BS8 constants (#380)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Resurrection ranks to WZ levels | `ranks [2, 3, 4, 5, 7, 8, 9, 10]` | tier A (10 levels), tier C mapping (spec #372) |
+| Recharge by rank (`cooldown_by_rank`) | 600, 540, 480, 420, 300, 240, 180, 120 s | tier A shape (`cooltime`), tier C scale (`cooltime / 3 - 480`, real-cache test) |
+| `revive` block | hp 0.5, guard 2.0 s, push 140 px (repeats the BS3 defaults, spelled out in the definition) | tier C, spec #372 D6 |
+| Rare Faster Prayer / Epic Holy Vigor / Unique Holy Shield / Legendary | recharge x0.88 / revive HP +0.15 / guard +1.5 s / Shield + Vigor; repeat scale 0.8 | tier C, spec #372 |
+| Stance hold (`action_time`) | 2.52 s, three 840 ms body frames; display only, never locks movement or casting | tier A frames, tier C hold (ours, #380) |
+| `affected` anchor | the canonical body-box centre (frame 1's origin is mid-body); frame 0's 1320 ms lead-in is the WZ delay | tier C placement, tier A art |
+| Notice | "Resurrection! Ready again in M:SS", 6 s (`RunScene.REVIVE_NOTICE_TIME`) | tier C, ours (#380) |
+| Evidence shot delay (`REVIVE_SHOT_DELAY`) | 1.45 s after the revive (first beam frames) | tier C, ours (#380) |
+| Guard blink | the hit-window blink (alpha 0.4, 0.16 s period), driven by the longer of the hit window and the guard | tier C, ours (existing blink constants) |
+| Level-up preview units | `revive_hp` in percent, `revive_guard` in seconds | tier C, ours (#380) |

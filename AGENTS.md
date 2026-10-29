@@ -213,7 +213,7 @@ projectiles per tier), `hair_cap_probe.tscn` (cap vs hair layers), `ui_gallery.t
 Stat and other windows), `equipment_requirements_driver.tscn` (the hub kit, Equip and Item windows with no requirement rows,
 an item above Lv1 worn), `equipment_drop_driver.tscn` (drops on the ground and the full-Equip-tab notice),
 `pet_driver.tscn` (each pet species in a round and in the Free Market), `player_summon_probe.tscn` (Elquines with 200 mobs: art
-and frame cost), `stun_driver.tscn` and `teleport_driver.tscn` (status and Teleport visuals), `dark_cave_boss_driver.tscn`
+and frame cost), `stun_driver.tscn` and `teleport_driver.tscn` (status and Teleport visuals), `revive_driver.tscn` (the Bishop's Resurrection: a lethal hit revives with its pillar, guard blink and notice, a second inside the recharge dies, one after it revives again; `-- --shots=<abs dir>`), `dark_cave_boss_driver.tscn`
 (every Sleepywood boss attack on the fixture) and `map_viewer.tscn` (a map's layers). They are not in the unit suite
 (`test_tool_scripts` only parses them): run one after changing what it draws. The drivers of the unported job lines (Bowman,
 Thief, Pirate and Warrior combat, Dash, Oak Barrel, Dark Sight, the shield gallery, the old creation, hub and map-select
