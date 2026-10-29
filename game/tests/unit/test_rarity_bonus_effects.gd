@@ -26,8 +26,8 @@ const IL_SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", 
 	"chain_lightning", "blizzard", "big_bang_il"]
 ## The I/L skills with bonuses that another test audits: Ifrit is a summon (test_ifrit.gd).
 const IL_AUDITED_ELSEWHERE := ["ifrit"]
-## The Bishop skills whose bonuses another test audits (book 230+; Heal's `heal_power` / `heal_threshold` are test_bishop_heal's).
-const BISHOP_AUDITED_ELSEWHERE := ["heal"]
+## The Bishop skills whose bonuses another test audits (book 230+; Heal's `heal_power` / `heal_threshold` are test_bishop_heal's).  The dragons (BS7) are summons: test_bishop_dragons.
+const BISHOP_AUDITED_ELSEWHERE := ["heal", "summon_dragon", "bahamut"]
 const IL_BOOKS := [220, 221, 222]
 ## The Bishop skills this audit casts (books 230/231/232, BS5 #377): Holy Arrow, Shining Ray, Angel Ray. They have their own synthetic
 ## Skill.wz tables (`bishop_bolt_fixtures.gd`) and are cast at their top rank, like the I/L ones.
