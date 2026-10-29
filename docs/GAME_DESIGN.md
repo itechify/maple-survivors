@@ -725,6 +725,12 @@ also emit `hp_spent`, which the oracle runs do not exercise). Henesys `balance.s
 deaths 305.0 / 454.5 / 651.7 s (Lv 11 / 21 / 36), Hero (112) 0/3, deaths 327.7 / 336.9 / 688.2 s (Lv 11 / 11 / 36). Both
 match the recorded numbers above exactly. No crashes, no world warnings.
 
+**Dragon Roar smoke (#355, spec #348 D7; no tuning).** Data, tests and text only (job 132 is not playable), so shipped jobs cannot
+change. Henesys `balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3, deaths 5:05 / 7:34 / 10:51 (305.0 / 454.5 / 651.7 s), Hero (112)
+0/3, deaths 327.7 / 336.9 / 688.2 s: identical to the D3 and D5 smokes. The three oracles reproduce unrecaptured. A diagnostic
+`--job=132` Henesys run (temporary `playable`, starting skill Dragon Roar, reverted) with a Spear and a Pole Arm cast the Roar
+(rune circle, hit bursts, "336" HP cost number, HP 600 -> 264) with `missing: []`; flow and visual evidence only.
+
 **Spear Crusher smoke (#353, spec #348 D5; no tuning).** The ticket adds a Dark Knight definition (job 132 is not playable) and a
 presentation-only change to how a numeric-string frame delay is read, so shipped jobs cannot change. Henesys
 `balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3 with deaths at 10:51 / 5:05 / 7:34 (Lv 11 / 21 / 36; deaths by map 1:1 2:1 3:1),
