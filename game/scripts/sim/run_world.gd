@@ -144,6 +144,8 @@ const EVENT_FIELDS := {
 	# #342: a burst cast (Hurricane) began (`wind_up` s until its first arrow, `span` s to its last) and ended (finished or dropped); art only.
 	"burst_start": ["skill", "wind_up", "span", "facing"],
 	"burst_end": ["skill"],
+	# #323 (chain cast rule): the bolt's polyline, caster hand then each struck link's body centre; the hits are mob_hit events.
+	"skill_chain": ["skill", "skill_id", "points"],
 
 }
 

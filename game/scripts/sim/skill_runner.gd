@@ -44,6 +44,17 @@ const MIN_FLIGHT := 0.1
 const SHOTS := "shots"
 const TARGETS := "targets"
 
+## Cast-rule presentation/count policy; admission, reach and resolution remain their own dispatch hooks.
+## tier C: survivor targeting policy. Missing keys retain the legacy count and facing behavior.
+const RULE_POLICY := {
+	"": {"faces_target": true}, "nearest": {"faces_target": true},
+	"box": {"mob_count": true}, "crowd": {"mob_count": true},
+	"weapon_reach": {"mob_count": true}, "range_around": {"mob_count": true},
+	"cluster": {"mob_count": true, "faces_target": true},
+	"chain": {"mob_count": true, "faces_target": true},
+	"burst": {"faces_target": true},
+}
+
 ## skill key -> seconds until ready (<= 0 = ready).
 var cooldowns := {}
 ## skill key -> the cooldown set at its last cast (absent before the first cast); the HUD sweep's denominator.
@@ -90,7 +101,7 @@ static func count_meaning(kind: String) -> String:
 ## How many shots or targets one cast of resolved stats `st` (Loadout.stats) reaches: box and crowd skills strike
 ## their mob_count (canonical mobCount plus count cards), the others `count`.
 static func strike_count(st: Dictionary) -> int:
-	return int(st.mob_count) if String(st.cast_rule) in ["box", "crowd", "weapon_reach", "range_around", "cluster"] \
+	return int(st.mob_count) if bool(RULE_POLICY.get(String(st.cast_rule), {}).get("mob_count", false)) \
 		else int(st.count)
 
 
@@ -118,6 +129,8 @@ static func reach_of(st: Dictionary, world: RunWorld) -> float:
 	match String(st.cast_rule):
 		"", "nearest", "burst", "range_around", "cluster":
 			return maxf(float(st.range), 0.0)
+		"chain":
+			return ChainCast.acquire_of(st)
 		"weapon_reach":
 			return maxf(world.weapon_reach.reach(world) * float(st.area), 0.0)
 		"box":
@@ -325,6 +338,8 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			return _any_target(world, origin, float(st.range), strike_count(st))
 		"cluster":
 			return bool(st.has_box) and _any_target(world, origin, float(st.range), 1)
+		"chain":
+			return ChainCast.has_target(world, st, origin)
 		"hp_or_undead":
 			var heal: Dictionary = world.book.def(key).get("heal", {})
 			if float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0)):
@@ -362,6 +377,8 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return _admit_range_around(world, st, origin)
 		"cluster":
 			return _admit_cluster(world, st, origin)
+		"chain":
+			return ChainCast.admit(world, st, origin)
 		"hp_or_undead":
 			return _admit_hp_or_undead(world, key, st)
 		"manual":
@@ -453,7 +470,7 @@ func _admit_hp_or_undead(world: RunWorld, key: String, st: Dictionary) -> Dictio
 func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
 	var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
 	var first_x := world.mob_center(targets[0]).x if not targets.is_empty() else 0.0
-	if String(st.cast_rule) in ["", "nearest", "burst", "cluster"] and not targets.is_empty() and String(st.kind) != "buff":
+	if bool(RULE_POLICY.get(String(st.cast_rule), {}).get("faces_target", false)) and not targets.is_empty() and String(st.kind) != "buff":
 		world.face_toward(first_x)
 	elif String(st.cast_rule) == "weapon_reach":
 		world.player.facing = int(plan.facing) # admitted on that side, so it is the nearest mob's side
@@ -516,6 +533,8 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 				_resolve_crowd(world, key, st, targets)
 			"cluster":
 				_throw(world, key, st, plan)
+			"chain":
+				ChainCast.resolve(world, key, st, plan, world.visual_index(String(st.hit)))
 			"hp_or_undead":
 				_resolve_hp_or_undead(world, key, st, targets)
 			"burst":

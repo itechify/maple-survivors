@@ -23,6 +23,7 @@ const SELF_TEST_FILES := [
 	"res://tests/unit/test_character_snapshot.gd", "res://tests/unit/test_character_tools.gd",
 	"res://tests/unit/test_hero_selection.gd",
 	"res://tests/unit/test_warrior2_fixtures.gd",
+	"res://tests/unit/test_il_selection.gd",
 ]
 
 

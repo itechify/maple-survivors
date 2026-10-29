@@ -59,7 +59,7 @@ func test_stage_labels_fall_back_to_the_old_name() -> void:
 
 
 func test_skills_reference_canonical_ids() -> void:
-	var skills: Dictionary = data.skills.skills
+	var skills: Dictionary = SkillTemplate.resolve(data.skills.skills)  # a templated child is only whole once resolved
 	var want := {"three_snails": 1000, "energy_bolt": 2001004, "magic_claw": 2001005,
 		"magic_armor": 2001003, "recovery": 1001, "nimble_feet": 1002}
 	for gone: String in ["magic_guard", "improved_max_mp", "improved_mp_recovery", "mp_eater_fp", "mp_eater_il",
@@ -82,7 +82,7 @@ func test_skills_reference_canonical_ids() -> void:
 
 
 func test_skill_ranks_cover_every_canonical_level_in_the_fixtures() -> void:
-	_assert_ranks_cover_canonical_levels(SkillBook.from_data(data.skills, RF.skill_imgs()))
+	_assert_ranks_cover_canonical_levels(SkillBook.from_data(data.skills, RF.skill_imgs()), true)
 
 
 func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
@@ -99,11 +99,19 @@ func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
 	lib.free()
 
 
-func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
+## Whether `key` is in the skill pool of any job (212, Hero's 112 and I/L's 222).
+func _in_any_job_pool(key: String) -> bool:
+	for job: Dictionary in data.jobs_survivor.jobs.values():
+		if key in job.get("skill_pool", []):
+			return true
+	return false
+
+
+## `fixtures`: the synthetic books lack some skills (the I/L 221 book, #325); those are checked by the real-cache run only.
+func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) -> void:
 	for key: String in book.defs:
-		var img: Dictionary = book.skill_imgs.get(String(book.def(key).get("book", "")), {})
-		if not img.get("skill", {}).has("%07d" % int(book.def(key).skill_id)):
-			continue # the synthetic fixtures hold only part of the Hero books (#296); the real-cache test covers them
+		if fixtures and book.skill_node(key).is_empty() and not bool(book.def(key).get("common_passive", false)):
+			continue
 		if bool(book.def(key).get("common_passive", false)):
 			# #289: a common passive is survivor-made: its icon skill's WZ node has no level table, rank r is level r.
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
@@ -115,8 +123,7 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 		assert_true(top > 0, "%s has a canonical level table" % key)
 		# A pool skill (rarity bonuses, listed in a job's skill_pool) has eight ranks; any other skill keeps one rank per level.
 		# Hero's Rush (#302) is no pool skill but takes the same level-30 table, eight ranks that the shared mobility rule grows.
-		if key == "rush_hero" or book.def(key).has("rarity_bonuses") \
-				and data.jobs_survivor.jobs.values().any(func(j: Dictionary) -> bool: return key in j.get("skill_pool", [])):
+		if key == "rush_hero" or book.def(key).has("rarity_bonuses") and _in_any_job_pool(key):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
@@ -375,7 +382,8 @@ func test_jobs_and_balance() -> void:
 	var tree := JobTree.from_data(data.jobs, data.jobs_survivor)
 	for k: String in data.jobs_survivor.jobs:
 		assert_false(tree.job(int(k)).is_empty(), "survivor job %s exists in the canonical tree" % k)
-	# #284 (ADR 0006): one fixed job per character; Hero and F/P are playable (#306).
+	# #284 (ADR 0006): one fixed job per character; Hero and F/P are playable (#306); 222 is deliberately not asserted either way
+	# (I/L flips in its last ticket, #319 I12).
 	assert_true(tree.job(212).playable, "212 is playable")
 	assert_true(tree.job(112).playable, "112 is playable")
 	assert_eq(tree.default_job(), 212)
@@ -656,7 +664,7 @@ func test_manual_skills_name_a_skill_key_with_an_input_action() -> void:
 
 
 func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> void:
-	var skills: Dictionary = data.skills.skills
+	var skills: Dictionary = SkillTemplate.resolve(data.skills.skills)
 	var covered := {}
 	for c: Dictionary in data.upgrades.cards:
 		if String(c.kind) != "skill_mod":
@@ -679,7 +687,7 @@ func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> 
 					assert_false(entry.get("effects", []).is_empty(), "%s bonus has effects" % key)
 			assert_false(covered.has(key), "%s uses rarity bonuses instead of standalone cards" % key)
 			continue
-		assert_false(key in data.jobs_survivor.jobs["212"].skill_pool, "%s is a pool skill and needs rarity_bonuses (#288)" % key)
+		assert_false(_in_any_job_pool(key), "%s is a pool skill and needs rarity_bonuses (#288)" % key)
 		if int(s.get("job", -1)) == 0:
 			continue # #284: the Beginner is gone and its skills have no cards
 		if String(s.slot) == "mobility":

@@ -160,8 +160,9 @@ func test_no_skill_or_card_text_says_canonical_or_leaves_markup_or_placeholders(
 	var data := DataRepo.load_all()
 	var imgs := {}
 	var strings := {}
-	for key: String in data.skills.skills:
-		var d: Dictionary = data.skills.skills[key]
+	var resolved: Dictionary = SkillTemplate.resolve(data.skills.skills)
+	for key: String in resolved:
+		var d: Dictionary = resolved[key]
 		var id := "%07d" % int(d.skill_id)
 		var levels := {}
 		var s := {"name": String(d.name), "desc": "[Master Level : 20]\\nSynthetic %s. \\n#cTerms between skills : 1 min.#\\nRequired Skill : #cAt least Level 1 on X#" % key}
@@ -240,3 +241,20 @@ func _check_text(s: String, where: String, required: bool) -> void:
 	var unmarked := RegEx.create_from_string("#c[^#\\n]*#").sub(s, "", true)
 	assert_false("#" in unmarked, "%s: raw # markup: %s" % [where, s])
 	assert_true(RegEx.create_from_string("\\{[^}]*\\}").search(s) == null, "%s: unfilled placeholder: %s" % [where, s])
+
+
+func test_a_chain_skill_states_how_far_and_how_many_it_jumps() -> void:
+	var skills := {"chain_test": {"skill_id": 2221006, "book": "222", "kind": "instant", "damage": "magic",
+		"cast": {"rule": "chain", "acquire": 450, "hop": 200, "min_targets": 1}, "ranks": [1]}}
+	var imgs := {"222": {"skill": {"2221006": {"level": {"1": {"hs": "h1", "mad": 103.0, "mastery": 1.0,
+		"mobCount": 2.0}}}}}}
+	var book := SkillBook.from_data({"skills": skills}, imgs)
+	var lo := Loadout.new(book)
+	lo.add_skill("chain_test")
+	var text := SkillText.new(book, {"2221006": {"name": "Chain Lightning", "h1": "Basic attack 103"}})
+	assert_eq(text.level_line("chain_test", 1, lo.stats("chain_test")),
+		"Basic attack 103\nJumps to up to 2 monsters within 200 px")
+	lo.add_skill_mod("chain_test", "count", "add", 1.0)
+	lo.add_skill_mod("chain_test", "area", "mul", 1.5)
+	assert_eq(text.level_line("chain_test", 1, lo.stats("chain_test")),
+		"Basic attack 103\nJumps to up to 3 monsters within 300 px", "count and area change the numbers")

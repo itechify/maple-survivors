@@ -1,18 +1,28 @@
 extends Node
-## Tool-only Elquines art/performance probe: --shots=<absolute evidence dir> [--without-summon] [--skill=hawk|phoenix].
-## `--skill=hawk|phoenix` (spec #332 B6/B11, needs Skill.wz/311.img and 312.img in the cache) runs the shipped Silver Hawk or
-## Phoenix on a Bowmaster stand-in (job 312, held bow).
-## Never saves a character.
+## Tool-only summon art/performance probe: --shots=<absolute evidence dir> [--skill=elquines|ifrit|hawk|phoenix] [--without-summon].
+## --job=<id> and --status=<name> override the skill job and summon priority status. `--skill=hawk|phoenix` (spec #332 B6/B11,
+## needs Skill.wz/311.img and 312.img in the cache) runs the shipped Silver Hawk or Phoenix on a Bowmaster stand-in (job 312,
+## held bow). Never saves a character.
 
 func _ready() -> void:
 	var shots := ""
 	var enabled := true
+	var skill := "elquines"
 	var follower := ""
+	var job := 0
+	var status := ""
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--shots="):
 			shots = arg.trim_prefix("--shots=")
 		if arg.begins_with("--skill="):
-			follower = arg.trim_prefix("--skill=")
+			skill = arg.trim_prefix("--skill=")
+			if skill in ["hawk", "phoenix"]:
+				follower = skill
+				skill = _key_of(follower)
+		if arg.begins_with("--job="):
+			job = int(arg.trim_prefix("--job="))
+		if arg.begins_with("--status="):
+			status = arg.trim_prefix("--status=")
 		if arg == "--without-summon":
 			enabled = false
 	if shots.is_empty():
@@ -26,15 +36,18 @@ func _ready() -> void:
 		"shots_dir": shots, "shot_every": 1.0, "quit_after": 20.0,
 		"world_prepared": func(w: RunWorld) -> void:
 			w.god = true
+			if follower == "":
+				w.set_job(job if job > 0 else int(w.book.def(skill).job))
+			var mark := status if status != "" else String(w.book.def(skill).get("summon", {}).get("priority_status", ""))
 			w.loadout.order.clear()
 			if enabled and follower != "":
 				_learn_follower(w, follower)
 			elif enabled:
-				w.learn_skill("elquines")
-				w.loadout.set_rank("elquines", 8)
-				w.loadout.add_skill_mod("elquines", "damage", "mul", 0.01)
-			if follower != "":
-				w.loadout.add_skill_mod(_key_of(follower), "damage", "mul", 0.01)
+				w.learn_skill(skill)
+				w.loadout.set_rank(skill, 8)
+				w.loadout.add_skill_mod(skill, "damage", "mul", 0.01)
+			if enabled and follower != "":
+				w.loadout.add_skill_mod(skill, "damage", "mul", 0.01)
 			# Diagnostic targets: real mob art, still standing, high HP; this is not survival/balance evidence.
 			for kind: MobKind in w.mob_kinds:
 				kind.move_speed = 0.0
@@ -43,6 +56,8 @@ func _ready() -> void:
 				if slot >= 0:
 					w.swarm.hp[slot] = 100000
 					w.swarm.max_hp[slot] = 100000
+					if mark != "" and i % 2 == 0:
+						w.swarm.apply_status(slot, mark, {"time": 1000.0}, w.events)
 	})
 	add_child(run)
 

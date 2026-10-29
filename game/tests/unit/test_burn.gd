@@ -41,8 +41,9 @@ func _hits(w: RunWorld) -> Array:
 
 func test_burn_is_appended_after_ice_weak_and_the_tables_match() -> void:
 	assert_eq(MobSwarm.ICE_WEAK, 5, "never renumber an existing status")
-	assert_eq(MobSwarm.BURN, 6)
-	assert_eq(MobSwarm.STATUS_COUNT, 7)
+	assert_eq(MobSwarm.FIRE_WEAK, 6, "never renumber an existing status")
+	assert_eq(MobSwarm.BURN, 7, "appended after the Ice/Lightning fire_weak")
+	assert_eq(MobSwarm.STATUS_COUNT, 8)
 	assert_eq(MobSwarm.STATUS_NAMES[MobSwarm.BURN], "burn")
 	assert_eq(MobSwarm.STATUS_NAMES[MobSwarm.ICE_WEAK], "ice_weak")
 	assert_eq(MobSwarm.STATUS_ELEMENTS[MobSwarm.BURN], "F")

@@ -104,7 +104,7 @@ func test_job_312_has_the_spec_fields_and_is_not_playable() -> void:
 	assert_eq(jobs.creation_weapon(312), 1452002)
 	assert_false(bool(rec.playable), "Bowmaster stays unselectable until B12/B13")
 	assert_true(jobs.job_error(312) != "", "a tool cannot make one yet")
-	assert_eq(jobs.playable_jobs(), [112, 212] as Array[int])
+	assert_eq(jobs.playable_jobs(), [112, 212, 222] as Array[int], "Hero, F/P and I/L; not Bowmaster")
 
 
 func test_job_312_declares_no_mobility_skill_key() -> void:
@@ -160,7 +160,7 @@ func test_default_job_stays_212_even_if_bowmaster_became_playable() -> void:
 	var data := _data()
 	data.jobs_survivor.jobs["312"]["playable"] = true
 	var jobs := _jobs(data)
-	assert_eq(jobs.playable_jobs(), [112, 212, 312] as Array[int], "canonical order: Hero, F/P, then Bowmaster")
+	assert_eq(jobs.playable_jobs(), [112, 212, 222, 312] as Array[int], "canonical order: Hero, F/P, I/L, then Bowmaster")
 	assert_eq(jobs.default_job(), 212, "the pin, not the first playable job")
 	assert_eq(jobs.job_error(312), "")
 

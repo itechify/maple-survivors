@@ -1,0 +1,114 @@
+{
+	"_doc": "I/L Arch Mage line (spec #319, I2 #321 / I12 #331). All twelve pool skills are defined in skills/il_arch_mage.json; I/L is playable and F/P (212) remains the default because 212 precedes 222 in canonical order. The line's shape is the one Hero's line set (docs/ARCHITECTURE.md 4.4.4): jobs/il_arch_mage.json, skills/il_arch_mage.json. Class-owned balance rows (the AP row and the bot card scores) live in this file's top-level `balance` (merged by DataRepo.load_all), as Hero's do; the tool hub kit is `hub_kit` on the job.",
+	"jobs": {
+		"222": {
+			"starting_skill": "cold_beam",
+			"_starting_skill": "tier C: spec #319 D2: every round starts with Cold Beam in active slot 1.",
+			"mobility_skill": "teleport_il",
+			"_mobility_skill": "tier C: spec #319 R4: Teleport (2201002) is I/L's manual mobility skill on the skill key, outside both slot tracks; its data moves into this line with I6.",
+			"skill_pool": [
+				"energy_bolt",
+				"magic_claw",
+				"cold_beam",
+				"thunder_bolt",
+				"ice_strike",
+				"thunder_spear",
+				"element_composition_il",
+				"ice_demon",
+				"ifrit",
+				"chain_lightning",
+				"blizzard",
+				"big_bang_il"
+			],
+			"_skill_pool": "tier C: spec #319: the twelve auto-cast actives of the 200/220/221/222 books. Energy Bolt and Magic Claw are F/P's own definitions (one set of data, no copies).",
+			"weapon_families": [
+				"wand",
+				"staff"
+			],
+			"_weapon_families": "tier C: spec #319: the wand and staff families, as F/P; the Magician armour drops by the class bit.",
+			"creation_weapon": 1372005,
+			"_creation_weapon": "tier C: spec #319: the same Wooden Wand as F/P; wearing it needs only the Magician class bit (reqJob, no level requirement).",
+			"playable": true,
+			"_provenance": "tier C: spec #319 (I2 #321): I12 #331 enables I/L after the skill and tooling tickets; F/P stays the default.",
+			"hub_kit": {
+				"fixture": "res://tests/fixtures/characters/il_arch_mage_t2.json",
+				"_fixture": "tier C: spec #319 I11: the I/L fixture (tier 2, the F/P kit worn); tool-only.",
+				"scrolls": [
+					2043700,
+					2043701,
+					2043702,
+					2043704,
+					2043705,
+					2040024,
+					2040025,
+					2040026,
+					2040012,
+					2040013,
+					2040400,
+					2040401,
+					2040402,
+					2040404,
+					2040405,
+					2040818,
+					2040817,
+					2040816,
+					2040814,
+					2040815
+				],
+				"equipment": [
+					1002001,
+					1382001,
+					1082002,
+					1040004
+				],
+				"fallback_item": 1382001,
+				"_kit": "tier C: spec #319 I11: both Arch Mages wear wands and staves from the same scroll line, so I/L's spare equipment and scroll stacks are F/P's (values duplicated: a kit is read whole, never merged with another job's)."
+			}
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"222": {
+					"primary": "int",
+					"secondary": "luk",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 3
+						},
+						{
+							"level": 200,
+							"target": 202
+						}
+					]
+				}
+			}
+		},
+		"bot": {
+			"_card_scores": "Tier C (spec #319, I11 #330): the ten I/L pool skills beyond Energy Bolt and Magic Claw (cold_beam, thunder_bolt, ice_strike, thunder_spear, element_composition_il, ice_demon, ifrit, chain_lightning, blizzard, big_bang_il) score like every other pool skill, new 100 and rank 74, appended to card_scores as one block. Ifrit (a summon) and Blizzard (a ground field) would otherwise fall to the passive score; all twelve pool skills now ship.",
+			"card_scores": {
+				"cold_beam_new": 100,
+				"cold_beam_rank": 74,
+				"thunder_bolt_new": 100,
+				"thunder_bolt_rank": 74,
+				"ice_strike_new": 100,
+				"ice_strike_rank": 74,
+				"thunder_spear_new": 100,
+				"thunder_spear_rank": 74,
+				"element_composition_il_new": 100,
+				"element_composition_il_rank": 74,
+				"ice_demon_new": 100,
+				"ice_demon_rank": 74,
+				"ifrit_new": 100,
+				"ifrit_rank": 74,
+				"chain_lightning_new": 100,
+				"chain_lightning_rank": 74,
+				"blizzard_new": 100,
+				"blizzard_rank": 74,
+				"big_bang_il_new": 100,
+				"big_bang_il_rank": 74
+			}
+		}
+	}
+}
