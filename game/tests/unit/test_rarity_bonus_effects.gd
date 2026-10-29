@@ -3,7 +3,8 @@ extends TestCase
 ## For each effect of each tier the same seeded world is cast twice, with and without the effect, against a field of mobs
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
-## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
+## the effect), and for a support summon (the Beholder) support_heal (HP restored over 30 s) and support_rate (pulses in 30 s).
+## A bonus whose stat the skill's cast rule never reads fails here as a no-op.
 ## Hero books (111/112) and the Dark Knight books (131/132) are synthetic generic tables; the F/P books come from the shared run fixtures.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -12,7 +13,8 @@ const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
-const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep"]
+const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep",
+	"support_heal", "support_rate"]
 
 
 ## Generic Skill.wz levels: a centred box, six mobs, one line, a 300 px range, a certain proc (the shape test_fp_high_actives uses).
@@ -22,6 +24,22 @@ func _generic_levels() -> Dictionary:
 		levels[str(lv)] = {"damage": 100 + lv, "mad": 30.0, "mobCount": 6, "attackCount": 1, "range": 300, "prop": 100,
 			"time": 4, "lt": {"$v": [-200, -150]}, "rb": {"$v": [200, 150]}}
 	return levels
+
+
+## A support summon's sub-skill (Aura, Hex) levels: 50 HP every 10 s, a 20 s defence buff every 10 s (the Beholder's own tables
+## are covered by test_beholder; here only the cast differs with and without the bonus).
+func _sub_levels() -> Dictionary:
+	var levels := {}
+	for lv in range(1, 31):
+		levels[str(lv)] = {"hp": 50.0, "x": 10.0, "time": 20.0, "pdd": 10.0}
+	return levels
+
+
+func _anim(frames: int) -> Dictionary:
+	var out := {}
+	for i in frames:
+		out[str(i)] = {"delay": 100.0}
+	return out
 
 
 func _skills_with_bonuses() -> Array:
@@ -50,7 +68,10 @@ func _world(key: String) -> RunWorld:
 			if not imgs.has(book):
 				imgs[book] = {"skill": {}}
 			var node: Dictionary = imgs[book].skill.get("%07d" % id, imgs[book].skill.get(str(id), {}))
-			node["level"] = _generic_levels()
+			node["level"] = _sub_levels() if String(d.get("slot", "")) == "summon_sub" else _generic_levels()
+			if d.get("summon", {}).has("support"):
+				node["summon"] = {"summoned": _anim(3), "stand": _anim(4), "move": _anim(2), "die": _anim(2),
+					"skill1": _anim(3), "skill2": _anim(3), "skill3": _anim(3), "skill4": _anim(3), "skill5": _anim(3), "skill6": _anim(3)}
 			imgs[book].skill[str(id) if id >= 1000000 else "%07d" % id] = node
 	var w := RunWorld.new(setup)
 	w.set_job(job)
@@ -123,7 +144,14 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
 	# Cooldown counts casts over 66 s (Shout: 6 at 12 s, 7 at 10.56 s); damage sums many casts so that rounding cannot hide a x1.2.
 	var repeating := stat in ["cooldown", "damage"]
-	var window := 66.0 if stat == "cooldown" else 12.0 if stat == "damage" else 3.5
+	var support := stat in ["support_heal", "support_rate"]
+	var window := 66.0 if stat == "cooldown" else 12.0 if stat == "damage" else 30.0 if support else 3.5
+	if stat == "support_heal":
+		w.loadout.add_player_mod("max_hp", "add", 1000.0) # room for the flat heal (a Lv1 knight has 50 HP)
+		w.refresh_player_stats()
+		w.spend_hp(int(w.player_state.hp) - 50) # a hurt knight: a 50 HP Aura pulse restores in full
+	var restored := 0
+	var pulses := 0
 	var affected := {}
 	var lines := 0
 	# A Combo finisher (Panic, Coma) needs orbs: ten every tick when counting casts or damage, five once otherwise, so
@@ -142,6 +170,10 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 			if e.type == "mob_hit":
 				lines += 1
 				affected[int(e.mob)] = true
+			elif e.type == "player_restored":
+				restored += int(e.amount)
+			elif e.type == "support_pulse":
+				pulses += 1
 		for s: int in slots:
 			if repeating:
 				w.swarm.x[s] = x0[s] # knockback must not walk the mobs out of the skill's reach between casts
@@ -156,13 +188,13 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 		edge_hit = edge_hit or affected.has(s)
 	var direct_damage: bool = String(w.loadout.stats(key).damage_type) != "none"
 	return {"casts": w.runner.casts, "dealt": w.damage_dealt - w.swarm.poison_dealt if direct_damage else w.swarm.poison_dealt, "lines": lines, "affected": affected.size(), "edge": edge_hit,
-		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left}
+		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left, "restored": restored, "pulses": pulses}
 
 
 func test_every_pool_skill_with_bonuses_was_found() -> void:
 	var keys := _skills_with_bonuses()
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
-			"elquines", "spear_crusher"]:
+			"elquines", "spear_crusher", "beholder"]:
 		assert_true(key in keys, key)
 	assert_true(keys.size() >= 20, "seven Hero, twelve F/P and the Dark Knight skills: %d" % keys.size())
 
@@ -194,6 +226,12 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 			assert_true(int(with.affected) > int(base.affected), "%s: mobs affected %d -> %d" % [label, base.affected, with.affected])
 		"summon_count":
 			assert_true(int(with.summons) > int(base.summons), "%s: allies %d -> %d" % [label, base.summons, with.summons])
+		"support_heal":
+			assert_true(int(base.restored) > 0 and int(with.restored) > int(base.restored),
+				"%s: HP restored in 30 s %d -> %d" % [label, base.restored, with.restored])
+		"support_rate":
+			assert_true(int(base.pulses) > 0 and int(with.pulses) > int(base.pulses),
+				"%s: pulses in 30 s %d -> %d" % [label, base.pulses, with.pulses])
 		"meter_keep":
 			assert_true(int(base.orbs_left) >= 0 and int(with.orbs_left) > int(base.orbs_left),
 				"%s: orbs left after the cast %d -> %d" % [label, base.orbs_left, with.orbs_left])
@@ -211,6 +249,9 @@ func test_the_probe_catches_a_modifier_the_cast_rule_never_reads() -> void:
 	var allies := {"stat": "summon_count", "op": "add", "value": 1.0}
 	assert_eq(_probe("power_strike", [allies], "summon_count").summons, 0)
 	# And the modifiers the shipped bonuses rely on do widen: area on a box, area on a radial range, range on a pull.
+	# A support modifier on a skill with no support pulses changes nothing.
+	assert_eq(_probe("spear_crusher", [{"stat": "support_rate", "op": "mul", "value": 0.5}], "support_rate").pulses, 0)
+	assert_eq(_probe("spear_crusher", [{"stat": "support_heal", "op": "mul", "value": 2.0}], "support_heal").restored, 0)
 	var area := {"stat": "area", "op": "mul", "value": 1.2}
 	assert_true(bool(_probe("shout", [area], "area").edge))
 	assert_true(bool(_probe("slash_blast", [area], "area").edge))

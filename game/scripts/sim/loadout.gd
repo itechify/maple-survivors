@@ -429,7 +429,10 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"passive_stat": String(passive.get("stat", "")),
 		"passive_value": passive_value(key, lv, passive),
 		"icon": String(d.get("icon", "")),
-		"duration": book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
+		# A literal survivor duration (the Beholder's 60 s life, tier C) overrides the canonical field, whose WZ time is
+		# session-scale; every other buff and summon keeps reading its `duration_field` (default `time`).
+		"duration": float(buff.duration) if buff.has("duration") \
+			else book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
 		"buff_stat": String(buff.get("stat", "")),
 		"buff_value": book.canonical(key, lv, String(buff.get("field", "")), 0.0) if not buff.is_empty() else 0.0,
 		"buff_effects": _buff_effects(key, lv, buff),
