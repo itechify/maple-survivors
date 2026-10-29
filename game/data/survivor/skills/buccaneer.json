@@ -347,6 +347,110 @@
 					}
 				]
 			}
+		},
+		"energy_orb": {
+			"skill_id": 5121002,
+			"book": "512",
+			"job": 512,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Energy Orb",
+			"desc": "Spends all your energy to blast the monsters around you at once.",
+			"text": {
+				"desc": "Needs a full Energy Charge and at least two monsters around you. Spends all your energy on the crowd around you; the more energy, the harder the blow.",
+				"h": "Damage {damage}% on up to {mob_count} monsters."
+			},
+			"icon": "Skill.wz/512.img/skill/5121002/icon",
+			"damage": "physical",
+			"_provenance": "Tier A: Skill.wz 5121002 damage 360 to 900 % and mobCount 2 to 6 at the eight mapped levels, range 200 (no lt/rb box: the node reads 'strikes a monster; monsters around it are also affected'), the eorb action, req Energy Charge, the effect (13 frames: the charge ball, then a forward streak), effect0 (6 frames, z -1: a glow behind the avatar) and hit/0 (7 frames, one burst per target) art, the Use and Hit sounds. Tier C (spec #412 BU-4, BU-5, BU-16, BU-19, B7 #419): the crowd finisher on the Energy Charge meter (min 10, spends all, +12 % damage per energy spent), cast rule range_around with min_targets 2 (a lone monster is Drain's), a nova not a projectile (the single-frame ball is not drawn), a 1.0 s cooldown (the meter's floor) and a 0.8 s eorb stance hold, effect at the caster and effect0 behind it (BC1 contact sheet), rarity bonuses (GAME_DESIGN 7.91). Arbitration with Energy Drain is the existing PlayerMeter.preferred: untuned.",
+			"cast": {
+				"rule": "range_around",
+				"min_targets": 2
+			},
+			"cooldown": 1.0,
+			"meter": {
+				"role": "finisher",
+				"min": 10,
+				"spend": "all",
+				"damage_per_unit": 0.12,
+				"unit": "energy"
+			},
+			"action": "eorb",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/512.img/skill/5121002/hit/0",
+			"effect": "Skill.wz/512.img/skill/5121002/effect",
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/512.img/skill/5121002/effect0",
+					"x": 0,
+					"facing": true
+				}
+			],
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5121002/Use",
+				"hit": "Sound.wz/Skill.img/5121002/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Energy Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_orb",
+						"text": "Wide Orb",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "energy_charge",
+						"text": "Energy Charge",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "energy_charge",
+						"text": "Energy Charge",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
 		}
 	}
 }
