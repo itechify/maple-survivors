@@ -114,94 +114,6 @@
 			]
 		},
 		{
-			"id": "arrow_blow_new",
-			"power": true,
-			"kind": "skill_new",
-			"skill": "arrow_blow",
-			"name": "Arrow Blow",
-			"desc": "Learn Arrow Blow: Fires a powerful arrow at the nearest monster.",
-			"icon": "Skill.wz/300.img/skill/3001004/icon",
-			"max_rank": 1,
-			"weight": 4,
-			"requires": {"jobs": [300]},
-			"effects": []
-		},
-		{
-			"id": "arrow_blow_rank",
-			"power": true,
-			"kind": "skill_rank",
-			"skill": "arrow_blow",
-			"name": "Arrow Blow",
-			"desc": "Arrow Blow +{magnitude} skill level.",
-			"icon": "Skill.wz/300.img/skill/3001004/icon",
-			"max_rank": 20,
-			"weight": 3,
-			"requires": {"jobs": [300]},
-			"effects": [
-				{"stat": "rank", "op": "add", "value": 1}
-			]
-		},
-		{
-			"id": "arrow_blow_shots",
-			"power": true,
-			"kind": "skill_mod",
-			"skill": "arrow_blow",
-			"name": "Arrow Blow",
-			"desc": "Arrow Blow fires +{value} more arrow.",
-			"value": 1,
-			"icon": "Skill.wz/300.img/skill/3001004/icon",
-			"max_rank": 3,
-			"weight": 2,
-			"requires": {"jobs": [300]},
-			"effects": [
-				{"stat": "count", "op": "add", "value": 1}
-			]
-		},
-		{
-			"id": "bow_double_shot_new",
-			"power": true,
-			"kind": "skill_new",
-			"skill": "bow_double_shot",
-			"name": "Double Shot",
-			"desc": "Learn Double Shot: Fires two arrows at nearby monsters.",
-			"icon": "Skill.wz/300.img/skill/3001005/icon",
-			"max_rank": 1,
-			"weight": 4,
-			"requires": {"jobs": [300]},
-			"effects": []
-		},
-		{
-			"id": "bow_double_shot_rank",
-			"power": true,
-			"kind": "skill_rank",
-			"skill": "bow_double_shot",
-			"name": "Double Shot",
-			"desc": "Double Shot +{magnitude} skill level.",
-			"icon": "Skill.wz/300.img/skill/3001005/icon",
-			"max_rank": 20,
-			"weight": 3,
-			"requires": {"jobs": [300]},
-			"effects": [
-				{"stat": "rank", "op": "add", "value": 1}
-			]
-		},
-		{
-			"id": "bow_double_shot_shots",
-			"power": true,
-			"kind": "skill_mod",
-			"skill": "bow_double_shot",
-			"name": "Double Shot",
-			"desc": "Double Shot fires +{value} more arrow.",
-			"value": 1,
-			"icon": "Skill.wz/300.img/skill/3001005/icon",
-			"max_rank": 3,
-			"weight": 2,
-			"requires": {"jobs": [300]},
-			"effects": [
-				{"stat": "count", "op": "add", "value": 1}
-			]
-		},
-		{
 			"id": "bow_mastery_new",
 			"power": false,
 			"kind": "skill_new",
@@ -361,42 +273,6 @@
 			]
 		},
 		{
-			"id": "arrow_bomb_new",
-			"power": true,
-			"kind": "skill_new",
-			"skill": "arrow_bomb",
-			"name": "Arrow Bomb: Bow",
-			"desc": "Learn Arrow Bomb: Bow: Fires an explosive arrow that damages a group and may stun each monster.",
-			"icon": "Skill.wz/310.img/skill/3101005/icon",
-			"max_rank": 1,
-			"weight": 4,
-			"requires": {
-				"jobs": [310]
-			},
-			"effects": []
-		},
-		{
-			"id": "arrow_bomb_rank",
-			"power": true,
-			"kind": "skill_rank",
-			"skill": "arrow_bomb",
-			"name": "Arrow Bomb: Bow",
-			"desc": "Arrow Bomb: Bow +{magnitude} skill level.",
-			"icon": "Skill.wz/310.img/skill/3101005/icon",
-			"max_rank": 30,
-			"weight": 3,
-			"requires": {
-				"jobs": [310]
-			},
-			"effects": [
-				{
-					"stat": "rank",
-					"op": "add",
-					"value": 1
-				}
-			]
-		},
-		{
 			"id": "power_knockback_bow_targets",
 			"power": true,
 			"kind": "skill_mod",
@@ -413,50 +289,6 @@
 			"effects": [
 				{
 					"stat": "count",
-					"op": "add",
-					"value": 1
-				}
-			]
-		},
-		{
-			"id": "arrow_bomb_shots",
-			"power": true,
-			"kind": "skill_mod",
-			"skill": "arrow_bomb",
-			"name": "Arrow Bomb: Bow",
-			"desc": "Arrow Bomb: Bow fires +{value} more arrow.",
-			"value": 1,
-			"icon": "Skill.wz/310.img/skill/3101005/icon",
-			"max_rank": 3,
-			"weight": 2,
-			"requires": {
-				"jobs": [310]
-			},
-			"effects": [
-				{
-					"stat": "count",
-					"op": "add",
-					"value": 1
-				}
-			]
-		},
-		{
-			"id": "arrow_bomb_targets",
-			"power": true,
-			"kind": "skill_mod",
-			"skill": "arrow_bomb",
-			"name": "Arrow Bomb: Bow",
-			"desc": "Arrow Bomb: Bow blasts +{value} more monster.",
-			"value": 1,
-			"icon": "Skill.wz/310.img/skill/3101005/icon",
-			"max_rank": 3,
-			"weight": 2,
-			"requires": {
-				"jobs": [310]
-			},
-			"effects": [
-				{
-					"stat": "blast_targets",
 					"op": "add",
 					"value": 1
 				}
