@@ -4155,6 +4155,10 @@ changed and the `character_baseline`, `tick_cost_identity` and Hero baseline ora
 the job is not selectable before B11 and nothing of Buccaneer's is castable yet; the visual evidence is the
 `morph_driver.tscn` sheet (1001, 1000, 1002; `missing: []`).
 
+### Buccaneer B8 smoke (#420, 2026)
+
+SMOKE_PLACEHOLDER
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
@@ -6499,6 +6503,52 @@ for N s: attacks +X%", Paladin's Charges).
 Evidence: `scenes/debug/morph_driver.tscn` (a contact sheet per morph and page of every Buccaneer stance, the basics and two
 fallbacks, with the feet hairline), looked at for 1001, 1000 and 1002 in `evidence/`.
 
+### 7.93 Buccaneer: Barrage and Dragon Strike (spec #412 BU-17, BU-18, BU-21, B8 #420)
+
+Two more pool skills of job 512 (`skills/buccaneer.json`, book 512, `slot: active`, no weapon gate, the default level-30 rank
+table: rank 1..8 reads WZ levels 4, 8, 12, 15, 19, 23, 27, 30). No new mechanic: a `weapon_reach` flurry, a pending box strike,
+and the `bot.reach` data key.
+
+- **Barrage (5121007).** `cast.rule weapon_reach` like Double Uppercut: the node has no box or `mobCount`, so one monster inside the
+  held weapon's swing envelope takes `attackCount` 6 lines (damage 106 / 160 / 230% at ranks 1 / 4 / 8). Stance `fist`
+  held 0.9 s of its 2.4 s, cooldown 1.2 s. All six lines land at the cast (the flurry is 0.45-0.9 s of the stance, so a spread over
+  the hold would be a few frames). The hit art follows the WZ node: `hit/0` already holds four jabs (four 3-frame bursts) and plays
+  once on the first line, `hit0/0` and `hit1/0` are the fifth and sixth lines' finishers (`hit_lines`; lines beyond six, from Endless
+  Barrage, draw none). Body: the knuckle has no `swingTF` (frame 8 of `fist`), see the stance fallback below.
+- **Dragon Strike (5121001).** `cast.rule box` with the canonical box `lt (-400,-100)`, `rb (25,20)` (a 400 px strip ahead and a
+  25 px dead zone behind, a mob 26 px behind is not hit), `min_targets 1`, `mobCount` 4 / 5 / 6 at ranks 1 / 4 / 8, damage 320 / 535 /
+  810%. It is a `pending` strike like Meteor Shower (`_queue_area`): the box is fixed where and which way the caster stood at the
+  cast (`pending.oriented`: Meteor Shower's box is symmetric and is not mirrored, this one is mirrored for a right-facing caster
+  exactly as the instant box rule does), and the targets are queried at the impact, so a mob that walks into the strip after the
+  cast is hit and one that leaves it is not. **Timing:** the first target lands 0.84 s after the cast and each later one 0.12 s
+  after the one before (`pending.stagger`): the WZ `hit/N/hitAfter` is 840 + 120 N ms (orchestrator ruling; the spec's 0.72 s
+  was frame 6, 0.12 s early). The targets are fixed at the first impact; a target that died in between simply takes no line.
+  Cooldown 4.8 s (Meteor Shower's), stance `dragonstrike` held 0.8 s of 1.44 s. A map transfer drops the pending strike
+  (`clear_pending`). The whole cast grants one energy (the meter receipt is shared by the snapshot and pays on the first landed
+  hit). Art: `effect` (the 16-frame dragon, z -1) plays behind the caster; `tile/0..2` are cast visuals at x = 0, -200, -400 from the
+  caster, mirrored and flipped with the facing (`cast_visuals[].facing`, `SkillBook.visual_placement`; `tile/3` at -600 lies
+  outside the box and is not drawn); `hit/0..2` are the pillars on the targets, picked by target index mod 3 (`hit_targets`),
+  with the base on the monster's feet (`hit_at_feet`) and started 0.84 s in (`hit_skip`, `FxRenderer.play(start)`) because the WZ plays
+  them from the cast and the pillar is at full height when the number shows.
+- **`bot.reach` (BU-21).** `BotInput` closes in on a build whose longest attack reach is under `engage.kite_reach` (220 px). Dragon
+  Strike's far edge is 400 px, so one copy would make a melee brawler kite. A definition may carry `"bot": {"reach": N}`:
+  `SkillRunner.reach_of` returns N instead of the geometric reach (area cards do not scale it). Dragon Strike carries `reach 0`;
+  no other definition has the key, so every other bot is unchanged.
+- **Knuckle stance fallback.** `AvatarLayers.STANCE_FALLBACKS` gains `swingTF` -> `swingT3` (weapons only, same frame index): no
+  knuckle has `swingTF`, so the weapon vanished on `fist` frame 8 and `dragonstrike` frames 4-7.
+
+Rank values (rank 1 / 4 / 8, WZ levels 4 / 15 / 30): Barrage 106 / 160 / 230% x6; Dragon Strike 320 / 535 / 810% on 4 / 5 / 6 mobs.
+
+| Skill | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Barrage | `mastery` "Knuckler Mastery": damage x1.2 | `booster` "Knuckler Booster": cooldown x0.88 | `endless` "Endless Barrage": +2 hits | Endless + damage x1.2 |
+| Dragon Strike | `mastery` | `wide_dragon` "Wide Dragon": area x1.2 (the strip becomes 480 px ahead, 30 px behind) | `roaring` "Roaring Dragon": +1 hit | Roaring + damage x1.2 |
+
+Tests: `test_buccaneer_barrage_dragon` (data, ranks, the six lines, the box and dead zone, the 0.84 s + 0.12 s timing, targets chosen
+at the impact, the cap, hit art by target and by line, transfer, the energy receipt, every bonus, `bot.reach`, the real cache and the
+knuckle on every `fist` / `dragonstrike` frame), `test_bot_melee` (`bot.reach`, a melee bot with the 400 px strip still closes in,
+and the control that kites without the key), `test_avatar_cash_layers` (the `swingTF` fallback), `test_rarity_bonus_effects`.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7848,6 +7898,22 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 | Morph stance rule (#415, spec #412 BU-10) | while morphed, a stance named like a node of the morph img draws that node (`AvatarRenderer.morph_stance`); `info` is never a stance; any other stance keeps `MORPH_ACTIONS`, which shows the morph standing for an attack | C (rule), A (the node names, frames, delays and origins are Morph.wz's own) |
 | Morph on the form's `buff` block (#415, spec #412 BU-9) | no `morph` key in `PlayerForms.EFFECTS`: `buff.morph_field` already resolves the id; no new constant | C (design) |
 | Transform card text (#415) | "Transforms you for N s: defence +X, speed +Y, jump +Z." for a form with no element; equal `pdd` and `mdd` read as one "defence" number, unequal read as weapon and magic defence; zero stats are omitted | C (wording, presentation only) |
+
+### Buccaneer B8 constants (#420)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Barrage damage, `attackCount` 6, no box / `mobCount` (#420, BU-18) | read from Skill.wz levels 4, 8, 12, 15, 19, 23, 27, 30 (106 .. 230%) | A |
+| Barrage rule, cooldown, hold (#420, BU-18, BU-19) | `weapon_reach` (one monster in the knuckle's reach), cooldown 1.2 s, `fist` held 0.9 s, all six lines at the cast | C |
+| Barrage hit art (#420) | `hit/0` (four jabs) on line 1, `hit0/0` on line 5, `hit1/0` on line 6, none on the rest | B reading of the WZ sets (BC1) |
+| Dragon Strike damage, `mobCount`, box (#420, BU-17) | Skill.wz levels 4 .. 30: 320 .. 810%, 4 .. 6 mobs, `lt (-400,-100)` `rb (25,20)` | A |
+| Dragon Strike impact (#420, orchestrator ruling) | first target 0.84 s after the cast, each later target +0.12 s (`pending.delay`, `pending.stagger`); WZ `hit/N/hitAfter` 840 + 120 N ms | A (timing) / C (applying it as a per-target delay) |
+| Dragon Strike box fixed at the cast, mirrored with the facing (#420) | `pending.oriented`; targets queried at the first impact | C |
+| Dragon Strike cooldown, hold, `min_targets` (#420, BU-19) | 4.8 s (Meteor Shower's), `dragonstrike` held 0.8 s, one monster in the strip | C |
+| Dragon Strike art placement (#420) | `tile/0..2` at x = 0, -200, -400 mirrored with the facing; `hit/N` by target index mod 3, base on the feet, started 0.84 s in; `tile/3` not drawn | C (placement, BC1 contact sheets) |
+| `bot.reach` (#420, BU-21) | `"bot": {"reach": N}` replaces the geometric reach in `SkillRunner.reach_of`; Dragon Strike 0 | C |
+| Rarity bonuses (#420) | Barrage: Knuckler Mastery damage x1.2, Knuckler Booster cooldown x0.88, Endless Barrage +2 hits, Legendary + damage x1.2; Dragon Strike: Knuckler Mastery damage x1.2, Wide Dragon area x1.2, Roaring Dragon +1 hit, Legendary + damage x1.2 | C |
+| Weapon stance fallback `swingTF` -> `swingT3` (#420) | `AvatarLayers.STANCE_FALLBACKS`, weapons only, same frame index; no knuckle has `swingTF` | C |
 
 ## 12. Later phases
 

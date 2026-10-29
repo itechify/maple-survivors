@@ -22,8 +22,10 @@ const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep", "crit"]
-## The Buccaneer Brawler skills this audit casts (B4 #416; B6-B10 append theirs).
-const BUCCANEER_SKILLS := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow"]
+## The Buccaneer skills this audit casts (B4 #416 the five Brawler skills, B8 #420 Barrage and Dragon Strike; B6, B7, B9, B10 append theirs).
+const BUCCANEER_SKILLS := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow",
+	"barrage", "dragon_strike"]
+const BARRAGE_DRAGON := preload("res://tests/unit/test_buccaneer_barrage_dragon.gd")
 const KNUCKLE := 1482000
 ## The I/L skills this audit casts (books 220/221/222); I8-I10 appended theirs.
 const IL_SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "ice_demon", "element_composition_il",
@@ -90,12 +92,13 @@ func _il_setup() -> Dictionary:
 
 
 ## A Buccaneer (512, made playable in the data copy) holding a knuckler on the flat field, the five Brawler skills read from the
-## synthetic books 500/510 of the run fixtures.
+## synthetic books 500/510 of the run fixtures, Barrage and Dragon Strike from book 512 of test_buccaneer_barrage_dragon.
 func _buccaneer_world(key: String) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["512"]["playable"] = true
 	var setup := RF.with_basic_attack(RF.setup("quiet", 416, data))
 	setup.equipment_info[KNUCKLE] = {"incPAD": 18, "attackSpeed": 5, "tuc": 7, "afterImage": "mace", "sfx": "mace"}
+	setup.skill_imgs["512"] = BARRAGE_DRAGON.book_node() # B8 #420: Barrage and Dragon Strike
 	var w := RunWorld.new(setup)
 	w.set_job(512)
 	if w.weapon_id() != KNUCKLE:
@@ -362,8 +365,8 @@ func test_the_probe_catches_an_il_modifier_the_cast_rule_never_reads() -> void:
 	assert_true(bool(_probe("ice_demon", [area], "area").edge))
 
 
-func test_every_buccaneer_bonus_changes_the_resolved_cast_and_all_five_are_counted() -> void:
-	# The file-wide audit above walks the five too; this one names the counts so a dropped skill or effect fails here.
+func test_every_buccaneer_bonus_changes_the_resolved_cast_and_all_are_counted() -> void:
+	# The file-wide audit above walks them too; this one names the counts so a dropped skill or effect fails here.
 	var skills := _resolved()
 	var effects := 0
 	for key: String in BUCCANEER_SKILLS:

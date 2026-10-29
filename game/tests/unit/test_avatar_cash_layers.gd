@@ -413,3 +413,35 @@ func test_worn_cash_filters_the_snapshot_by_account_ownership() -> void:
 	var worn := DataRepo.worn_cash(character, data, [1002279, 1052001])
 	assert_eq(worn, {"hat": 1002279, "top": 1052001, "bottom": 1052001}, "the unowned shoes are not drawn")
 	assert_eq(DataRepo.worn_cash({}, data, [1002279]), {}, "a character without cash wears none")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# A knuckle without swingTF (Buccaneer #420: Barrage's fist frame 8 and Dragon Strike's frames 4-7 draw it, no knuckle has it)
+
+func _swing_body() -> void:
+	lib.images[_path(BODY)] = _wz({"stand1": {"0": {"body": _c("body", 1)}},
+		"swingTF": {"0": {"body": _c("body", 1)}, "1": {"body": _c("body", 1)}}})
+
+
+func test_a_weapon_without_swingTF_draws_swingT3_at_the_same_frame_index() -> void:
+	_swing_body()
+	lib.images[_path(WAND)] = _wz({"swingT3": _two_frame_stance(40, 41)}, "Wp")
+	var look := _look([WAND])
+	assert_true(40 in _markers(_compose_at(look, "swingTF", 0)), "frame 0 falls back to swingT3 frame 0")
+	assert_true(41 in _markers(_compose_at(look, "swingTF", 1)), "frame 1 falls back to swingT3 frame 1")
+
+
+func test_a_weapon_with_swingTF_keeps_its_own_art() -> void:
+	_swing_body()
+	lib.images[_path(WAND)] = _wz({"swingT3": _two_frame_stance(40, 41), "swingTF": _two_frame_stance(50, 51)}, "Wp")
+	var parts := _compose_at(_look([WAND]), "swingTF", 1)
+	assert_true(51 in _markers(parts), "its own swingTF frame")
+	assert_false(41 in _markers(parts), "no fallback when the stance exists")
+
+
+func test_the_swingTF_fallback_is_for_weapons_only_and_only_to_swingT3() -> void:
+	_swing_body()
+	lib.images[_path(WAND)] = _wz({"swingO1": _two_frame_stance(40, 41)}, "Wp")
+	assert_eq(_owned_by(_compose_at(_look([WAND]), "swingTF", 1), WAND).size(), 0, "swingTF borrows swingT3 and nothing else")
+	lib.images[_path(COAT)] = _wz({"swingT3": {"0": {"mailChest": _c("mailChest", 7)}}}, "Ma")
+	assert_eq(_owned_by(_compose_at(_look([COAT]), "swingTF", 0), COAT).size(), 0, "a coat is not borrowed from another stance")

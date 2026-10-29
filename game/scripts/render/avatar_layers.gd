@@ -21,7 +21,9 @@ const WEAPON_CATEGORY_LAST := 169
 const WEAPON_TYPE_OFFSET := 100
 ## Body stance -> the stance a weapon draws when it has no art for it, at the same frame index. tier C (#327): a one-handed
 ## stab pair; every imported staff has stabO1, 9 of the 14 lack stabO2 (Skill.wz/222.img chainlightning plays stabO2.1).
-const STANCE_FALLBACKS := {"stabO2": "stabO1"}
+## tier C (#420): a knuckle has no swingTF (Barrage's `fist` frame 8 and Dragon Strike's `dragonstrike` frames 4-7 draw it)
+## and would vanish; its two-handed swingT3 is the nearest hand pose.
+const STANCE_FALLBACKS := {"stabO2": "stabO1", "swingTF": "swingT3"}
 
 
 ## The two-letter slot codes of a smap/vslot string ("CpH1H5" -> Cp, H1, H5).

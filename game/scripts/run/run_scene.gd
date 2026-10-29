@@ -1304,7 +1304,9 @@ func _on_cast(e: Dictionary) -> void:
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
 	for visual: Dictionary in world.book.def(key).get("cast_visuals", []):
-		fx.play(world.book.art_path(key, String(visual.path), world.loadout.weapon_family), e.pos + Vector2(float(visual.x), 0))
+		var placed := SkillBook.visual_placement(visual, int(e.facing))
+		fx.play(world.book.art_path(key, String(visual.path), world.loadout.weapon_family),
+			e.pos + Vector2(float(placed.x), 0), bool(placed.flip))
 	var loop := String(world.book.def(key).get("sounds", {}).get("loop", ""))
 	if loop != "":
 		_sound(loop)
@@ -1393,7 +1395,10 @@ func _on_mob_hit(e: Dictionary) -> void:
 	var hv := String(e.hit_visual)
 	if hv != "":
 		var at: Vector2 = world.mob_center(m) if m >= 0 and m < world.swarm.capacity() else e.pos
-		fx.play(hv, at.round(), at.x > world.player.pos.x)
+		var hit_def := world.book.def(String(e.get("skill", "")))
+		if bool(hit_def.get("hit_at_feet", false)) and m >= 0 and m < world.swarm.capacity():
+			at = Vector2(world.swarm.x[m], world.swarm.y[m]) # tier C: a ground pillar's origin is its base (Dragon Strike)
+		fx.play(hv, at.round(), at.x > world.player.pos.x, null, Vector2.ZERO, false, float(hit_def.get("hit_skip", 0.0)))
 		counters.hit_fx += 1
 	_mob_sound(int(e.mob_id), "Damage")
 
