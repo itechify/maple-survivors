@@ -23,10 +23,11 @@ const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep", "crit", "form_time"]
-## The Buccaneer skills this audit casts (B4 #416 the five Brawler skills, B8 #420 Barrage and Dragon Strike, B9 #421 Transformation; B6, B7, B10 append theirs).
+## The Buccaneer skills this audit casts (B4 #416 the five Brawler skills, B7 #419 Energy Orb, B8 #420 Barrage and Dragon Strike, B9 #421 Transformation; B6, B10 append theirs).
 const BUCCANEER_SKILLS := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow",
-	"barrage", "dragon_strike", "transformation"]
+	"barrage", "dragon_strike", "energy_orb", "transformation"]
 const BARRAGE_DRAGON := preload("res://tests/unit/test_buccaneer_barrage_dragon.gd")
+const ORB := preload("res://tests/unit/test_buccaneer_orb.gd")
 const KNUCKLE := 1482000
 ## The I/L skills this audit casts (books 220/221/222); I8-I10 appended theirs.
 const IL_SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "ice_demon", "element_composition_il",
@@ -101,6 +102,7 @@ func _buccaneer_world(key: String) -> RunWorld:
 	setup.skill_imgs["511"] = TRANSFORMATION.book_node()
 	setup.equipment_info[KNUCKLE] = {"incPAD": 18, "attackSpeed": 5, "tuc": 7, "afterImage": "mace", "sfx": "mace"}
 	setup.skill_imgs["512"] = BARRAGE_DRAGON.book_node() # B8 #420: Barrage and Dragon Strike
+	(setup.skill_imgs["512"].skill as Dictionary).merge(ORB.book_node().skill) # B7 #419: Energy Orb (one book 512 with every key)
 	var w := RunWorld.new(setup)
 	w.set_job(512)
 	if w.weapon_id() != KNUCKLE:
@@ -220,15 +222,16 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	var affected := {}
 	var lines := 0
 	var crits := 0
-	# A Combo finisher (Panic, Coma) needs orbs: ten every tick when counting casts or damage, five once otherwise, so
-	# that `meter_keep` shows in what a single cast leaves behind.
+	# A Combo finisher (Panic, Coma) needs orbs: ten every tick when counting casts or damage, its own minimum once otherwise
+	# (5 for Hero, 10 for the Energy Orb), so that `meter_keep` shows in what a single cast leaves behind.
 	var finisher: bool = w.book.def(key).has("meter")
+	var needed := int(w.book.def(key).get("meter", {}).get("min", 5))
 	var orbs_left := -1
 	var form_from := -1
 	var form_ticks := 0
 	for tick in int(window / DT):
 		if finisher and (repeating or w.runner.casts == 0):
-			w.meter.value = 10 if repeating else 5
+			w.meter.value = 10 if repeating else needed
 		w.step(DT, MoveInput.new())
 		if finisher and orbs_left < 0 and w.runner.casts >= 1:
 			orbs_left = w.meter.value

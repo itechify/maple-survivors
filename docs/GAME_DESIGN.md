@@ -4174,6 +4174,16 @@ hashes (no recapture). Full suite 2587 tests, 0 failed, 0 skipped with the cache
 nothing) without it. A diagnostic `--job=512` playtest (Henesys, seed 5, x4, `playable` true and the starting skill swapped locally,
 reverted) cast Barrage and Dragon Strike with `missing: []`; flow and visual evidence only.
 
+### Buccaneer B7 smoke (#419, 2026)
+
+Energy Orb and the arbitration tests (data and tests only; no sim, engine or oracle file changed). Training seeds 1/2/2026, Henesys bot,
+`JOBS=3`, private cache `cache-413`: F/P (212) died at 10:51 / 5:05 / 7:34 (Lv 11 / 21 / 36) and Hero (112) at 5:27 / 5:36 / 11:28, both
+identical to the B4, B6 and B8 smokes above (no clears, no warnings). `character_baseline`, `tick_cost_identity` and the Hero baseline
+reproduce their hashes. Full suite 2633 tests, 0 failed, 0 skipped with the cache; 0 failed, 287 skipped (cache tests; a SKIP proves
+nothing) without it. A diagnostic `--job=512` playtest (`playable` true and Orb as the second learned skill locally, reverted; Henesys
+seed 3 x4, then seed 5 warped to 7:00 with 60+ mobs) cast Orb with the forward streak and a hit burst on each target, `missing: []`;
+flow and visual evidence only.
+
 ### Buccaneer B9 smoke (#421, 2026)
 
 Transformation and Shockwave (data on the Form seam, plus two small additions to the pending-strike machinery: `pending.oriented` and a `facing`
@@ -6536,6 +6546,42 @@ Evidence: a diagnostic `--job=512` playtest (Buccaneer made playable and started
 filling to five of ten, the full-bar ring of blue sparks around the avatar with ten lit pips, and the Drain cast emptying the bar with the
 green heal number over the player; `missing: []`.
 
+**Energy Orb (`energy_orb`, 5121002, book 512; B7 #419).** The crowd finisher on the same bar. The WZ node has `damage`, `mobCount` and
+`range` 200 and no box ("strikes a monster; monsters around it are also affected"), so it reads as Slash Blast's and Coma's rule:
+`cast {rule range_around, min_targets 2}`, the nearest live mobs whose body centre is within 200 px of the caster's body, on both sides,
+up to `mobCount` (bosses first). `meter` is Drain's block (`min 10`, `spend all`, `damage_per_unit 0.12`, `unit energy`), so a full
+bar spends all ten, earns none and multiplies by 1.3 (held) x 2.2 (spent). Damage is 360 / 440 / 530 / 590 / 670 / 760 / 840 / 900% on
+2 / 3 / 3 / 4 / 5 / 5 / 6 / 6 mobs at ranks 1-8 (WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30, the default level-30 rank table), one line
+on each. The cooldown is 1.0 s (the meter's floor; Orb has no Booster) and the stance is `eorb` held 0.8 s. A lone monster does not
+admit Orb (a cast needs two in range), which is what leaves it to Drain.
+It is a nova, not a projectile: `ball` is empty (the single-frame pellet is not drawn). Art as the BC1 contact sheet read it (tier C):
+`effect` (13 frames: the charge ball in the hand, then a forward streak) plays at the caster and follows the avatar, `effect0` (6
+frames, z -1: a blue-white glow of the body) is a `cast_visuals` entry at x 0 flagged `facing` (flipped for a right-facing caster; it is
+played in the world at the cast position, so it stays where the cast began), `hit/0` (7 frames) is a burst on each target; the Use and Hit sounds are the skill's own.
+
+Rarity bonuses (tier C, the lineage's names): Rare Energy Mastery damage x1.2; Epic Wide Orb area x1.2 (the range 200 -> 240 px, because
+`range_around` scales its radius by area: a mob 225 px away is struck only with it); Unique Energy Charge keeps 2 energy (`meter_keep`
++2); Legendary the same plus damage x1.2 (shares the Unique's id and repeat counter; repeat scale 0.8). All are audited in
+`test_buccaneer_orb.gd` and the file-wide `test_rarity_bonus_effects` (Orb joined `BUCCANEER_SKILLS`; the audit's finisher fill now
+uses the skill's own `meter.min`, 5 for Hero, 10 here).
+
+**Arbitration (existing `PlayerMeter.preferred`, no engine change, tested here with the real definitions).** With a full bar and both
+finishers ready, each is scored by the targets its plan would strike (capped at its strike count), and a single-target finisher whose
+target is a scheduled boss beats any crowd. A finisher below its `min_targets` is not a candidate; ties fall to the ordinary order.
+
+| Both owned, full bar, in reach | Drain plan | Orb plan | Cast |
+|---|---|---|---|
+| One scheduled boss alone | 1 (boss) | 1 < min 2, not a candidate | **Drain** |
+| A scheduled boss in Drain's box plus a crowd | 1 (boss) | up to `mobCount` | **Drain** (the boss strike wins) |
+| Two or more ordinary monsters in range | 1 | 2 .. `mobCount` | **Orb** |
+| One ordinary monster | 1 | not a candidate | **Drain** |
+| Nothing in either reach | none | none | neither (the bar waits) |
+| Only Orb owned, one monster | | not admitted | nothing; a second monster casts it |
+| Only Drain owned, any monsters | strikes the nearest in front | | **Drain** |
+
+Both finishers read and spend the one bar: a cast of either leaves 0 (or the Energy Charge keep), so the other waits for ten
+fresh energy.
+
 ### 7.92 Buccaneer: morph forms (spec #412, B3 #415)
 
 Transformation and Super Transformation are Forms that wear a `Morph.wz` figure. Spec #308's table said a later job adds a
@@ -8005,6 +8051,18 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 | Energy Drain rarity bonuses (#418, spec #412) | Rare damage x1.2, Epic cooldown x0.88, Unique `meter_keep` +2, Legendary both; repeat scale 0.8 | C |
 | Meter `unit` word (#418, spec #412 BU-5) | optional `meter.unit` on a finisher replaces "orbs" in `SkillText` and the Keeps card line; default "orbs" | C (presentation) |
 | Full-bar cue (#418, spec #412 BU-4) | `MeterCue`: fire once when `meter_changed` reaches `max`, re-arm when it drops below; the whole `affected` node (180 ms blank, ten 90 ms frames) and the Use sound; flipped with the facing; `meter_cue.png` playtest shot 0.45 s after | C (behaviour), A (the art and sound paths) |
+
+### Buccaneer B7 constants (#419)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Energy Orb damage, `mobCount`, `range` (#419, BU-16) | Skill.wz 5121002 at levels 4 .. 30: 360 .. 900%, 2 .. 6 mobs, `range` 200, no box | A |
+| Energy Orb cast rule (#419, BU-16) | `range_around` with `min_targets 2`: a nova around the body, a lone monster does not admit it | C (reading of "monsters around it are also affected") |
+| Energy Orb finisher block (#419, BU-4, BU-5) | `meter {role finisher, min 10, spend all, damage_per_unit 0.12, unit energy}`: Drain's block | C |
+| Energy Orb cadence (#419, BU-19) | cooldown 1.0 s (the finisher floor), `eorb` held 0.8 s; no weapon gate | C |
+| Energy Orb art placement (#419, BU-16, BC1) | `effect` at the caster following the avatar, `effect0` at the cast position behind it (`cast_visuals`, `facing`), `hit/0` on each target, `ball` not drawn | C (placement; A for the nodes and sounds) |
+| Arbitration with Drain (#419, BU-4) | the existing `PlayerMeter.preferred`: scheduled single-target boss, else the larger eligible target count, no new constant | C (H3 rule) |
+| Energy Orb rarity bonuses (#419) | Rare damage x1.2, Epic Wide Orb area x1.2 (200 -> 240 px), Unique `meter_keep` +2, Legendary both with damage x1.2; repeat scale 0.8 | C |
 
 ### Buccaneer B8 constants (#420)
 

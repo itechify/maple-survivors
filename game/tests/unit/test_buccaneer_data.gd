@@ -11,7 +11,7 @@ const POOL := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercu
 	"dragon_strike", "energy_drain", "energy_orb", "transformation", "super_transformation"]
 ## Defined in skills/buccaneer.json since B4 #416 (moved from pirate.json); every other pool key is undefined until its ticket.
 const DEFINED_IN_BUCCANEER := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow",
-	"barrage", "dragon_strike", "energy_drain", "transformation", "shockwave"] # B4 #416 the five ported skills, B6 #418 energy_drain, B8 #420 barrage and dragon_strike, B9 #421 the form and its sub; B7, B10 append theirs
+	"barrage", "dragon_strike", "energy_drain", "energy_orb", "transformation", "shockwave"] # B4 #416 the five ported skills, B6 #418 energy_drain, B7 #419 energy_orb, B8 #420 barrage and dragon_strike, B9 #421 the form and its sub; B10 appends theirs
 const KNUCKLE := 1482000
 ## Synthetic item info (reqJob bits as in the v83 Item.wz): knuckles and guns carry the Pirate bit (16), the rest
 ## belong to other lines, so the family filter alone decides which Pirate-bit weapons drop.
