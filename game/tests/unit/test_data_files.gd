@@ -91,9 +91,10 @@ func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
 
 
 ## Whether `key` is in the skill pool of any job (212, Hero's 112 and I/L's 222).
+## True when a playable job's pool holds `key`: an unplayable line's pool (Bishop until BS10, #374) is not shipped yet.
 func _in_any_job_pool(key: String) -> bool:
 	for job: Dictionary in data.jobs_survivor.jobs.values():
-		if key in job.get("skill_pool", []):
+		if bool(job.get("playable", false)) and key in job.get("skill_pool", []):
 			return true
 	return false
 
