@@ -4136,6 +4136,15 @@ playtest (Henesys, speed 8, 3 minutes, `playable: true` temporarily and reverted
 860/860 (600 base plus 65 per level), the Flash Fist and the Pirate-book skills cast; screenshots are in gitignored
 `evidence/414/`. Not survival evidence; the pool's new skills are B4-B10.
 
+### Buccaneer B3 smoke (#415, 2026)
+
+Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
+died at 10:51 Lv36 and Hero (112) at 5:27 Lv11, both exactly the B2 rows above (seeds 2 and 2026 not rerun: no sim file
+changed and the `character_baseline`, `tick_cost_identity` and Hero baseline oracles reproduce their hashes). Full suite
+2533 tests, 0 failed, 0 skipped with the cache; 0 failed, 282 skipped (cache tests) without it. No `--job=512` playtest:
+the job is not selectable before B11 and nothing of Buccaneer's is castable yet; the visual evidence is the
+`morph_driver.tscn` sheet (1001, 1000, 1002; `missing: []`).
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
