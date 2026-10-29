@@ -873,6 +873,12 @@ Thunder Spear until I4 and I7-I10 land, so six actives fill with no Ifrit, Blizz
 No crash, warning or missing asset in either; both oracle goldens (`test_character_baseline`, `test_tick_cost_identity`) are unchanged. The tick-cost oracle explicitly pins Cold Beam and Thunder Bolt to their legacy cooldowns, ranks and bonuses; it tests the historical definitions, not today’s shipped I/L definitions. The I/L
 numbers are a first look at an incomplete pool, not a baseline (I12 owns the pass).
 
+**Bishop selection and tooling smoke (spec #372, BS9 #381).** Placeholder: BS9 adds tooling, a fixture and oracles only, no
+sim or balance data change, so no `balance.sh` smoke was run (the 212, Hero and I/L oracles, `test_character_baseline`,
+`test_tick_cost_identity`, `test_hero_baseline` and `test_il_baseline`, reproduce their goldens untouched). The Bishop
+oracle `test_bishop_baseline` is pinned to the seven skills that exist at capture (seed 1, 72,000 ticks, 13 skills learned,
+46 level-ups, 3 bosses dead, `stage_cleared`); BS10 owns the real Bishop smoke and widens the pool.
+
 **#282 review fixes (2026-10-28).** Targeted regression requested for this review task:
 Henesys, bot, training seed 1, real cache, no balance tuning or held-out seeds. Correct passive rarity RNG,
 independent ground procs, poison refresh and mobility progression deliberately change seeded trajectories.
@@ -7885,3 +7891,14 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Recharge count as run out | `cooldowns[key] <= 1e-6`, as `SkillRunner.cast_ready` | tier C, ours (#375) |
 | Skill ready at round start | cooldown starts at 0 | tier C, ours (#375) |
 | Resurrection WZ box (-400,-350)..(400,250) at every level | read as is; the recharge table (600 s down to 120 s) is BS8's `cooldown_by_rank` | tier A shape, tier C scale (BS1 identity `cooltime / 3 - 480`) |
+
+### Bishop BS9 constants (spec #372, BS9 #381)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Bishop fixture `bishop_t2.json` | job 232, tier 2, the F/P tier-1 kit (1382002, 1002013, 1072019, 1082019, 1040002, 1060002), made with `--patch` while 232 is unplayable | tier C: ours (#381) |
+| Hub kit | unchanged from BS2: F/P's scroll stacks and spare equipment, fixture path now exists | tier C: ours (#381) |
+| Baseline oracle pool (`test_bishop_baseline.POOL`) | frozen to holy_arrow, magic_claw, shining_ray, angel_ray, heal, genesis, big_bang_bishop; BS10 widens to the ten and re-captures once | tier C: ours (#381) |
+| Baseline recipe | seed 1, 72,000 ticks, god, bot (`auto_choose` + `decide`), legacy Henesys curve and opening freeze as the 212 oracle, synthetic books (`bishop_bolt_fixtures`, `heal_fixtures`, Genesis and Big Bang of `test_bishop_genesis`) | tier C: ours (#381) |
+| Bot scores | no `card_scores` block added; the ten pool keys keep BS2's new 100 / rank 74; Heal and Resurrection have reach 0; the bot presses a key only for Teleport | tier C: ours (#381) |
+| Skill window | no code change: tabs 200, 230, 231, 232 after Common, Teleport (2301001) first on the 230 tab | tier C: ours (#381) |
