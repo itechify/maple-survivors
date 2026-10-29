@@ -90,6 +90,9 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		var links := int(stats.get("mob_count", 1))
 		mechanics.append("Jumps to up to %d %s within %s px" % [links, "monster" if links == 1 else "monsters",
 			number(ChainCast.hop_of(stats))])
+	if String(stats.get("cast_rule", "")) == "hp_or_undead":
+		# Heal (#376): the resolved threshold, so a Mending Touch card shows in the window.
+		mechanics.append("Restores HP below %s%% health; strikes undead in the area" % number(float(stats.get("heal_threshold", 0.0)) * 100.0))
 	if def.has("pierce_falloff"):
 		mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
 			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])

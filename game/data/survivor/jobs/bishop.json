@@ -1,5 +1,5 @@
 {
-	"_doc": "Bishop line (spec #372, ticket BS2 #374). The job entry (232, not playable until BS10), its AP row, its bot scores and its tool hub kit. Discovered by DataRepo.lines() from this file alone (docs/ARCHITECTURE.md 4.4.4); no shared list names it. Skill keys stay inert until their tickets define them in skills/bishop.json (BS4-BS8); holy_arrow, magic_claw and heal are already defined in skills/magician.json (the F/P line's Cleric skills, moved by BS4/BS5). The Holy Symbol (2311003) is the common EXP passive every job takes, not a Bishop entry.",
+	"_doc": "Bishop line (spec #372, ticket BS2 #374). The job entry (232, not playable until BS10), its AP row, its bot scores and its tool hub kit. Discovered by DataRepo.lines() from this file alone (docs/ARCHITECTURE.md 4.4.4); no shared list names it. Skill keys stay inert until their tickets define them in skills/bishop.json (BS4-BS8); holy_arrow, heal and teleport_cleric live in skills/bishop.json (moved out of skills/magician.json by BS5 #377 and BS4 #376); magic_claw stays F/P's own definition in skills/magician.json. The Holy Symbol (2311003) is the common EXP passive every job takes, not a Bishop entry.",
 	"jobs": {
 		"232": {
 			"starting_skill": "holy_arrow",
