@@ -13,7 +13,7 @@ class FxSink extends FxRenderer:
 		anchor = pos
 		return 0
 	func play(_path: String, _pos: Vector2, _flip: bool = false, _follow: Node2D = null,
-			_offset: Vector2 = Vector2.ZERO, _hold: bool = false) -> int:
+			_offset: Vector2 = Vector2.ZERO, _hold: bool = false, _delay: float = 0.0) -> int:
 		bursts += 1
 		return 1
 	func place(_slot: int, pos: Vector2, _angle: float = 0.0) -> void:
