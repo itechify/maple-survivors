@@ -114,8 +114,8 @@ func test_blast_cools_down_two_seconds_and_holds_the_blast_stance() -> void:
 func test_blast_art_is_the_no_charge_element_node() -> void:
 	# tier A (P1 element art index): key 0 = no Charge. The Charge-aware pick arrives with P7.
 	var d := _world("blast").book.def("blast")
-	assert_eq(String(d.hit), "Skill.wz/122.img/skill/1221009/hit/0/0")
-	assert_eq(String(d.effect), "Skill.wz/122.img/skill/1221009/effect/0")
+	assert_eq(String(d.hit), "Skill.wz/122.img/skill/1221009/hit/0/{art}")
+	assert_eq(String(d.effect), "Skill.wz/122.img/skill/1221009/effect/{art}")
 	assert_eq(String(d.icon), "Skill.wz/122.img/skill/1221009/icon")
 
 
@@ -522,9 +522,9 @@ func test_real_cache_art_and_all_five_blast_sounds_resolve() -> void:
 	var w := _real_world("blast", lib)
 	var d := w.book.def("blast")
 	assert_true(lib.frame(String(d.icon)) != null, "icon")
-	assert_true(lib.anim(String(d.effect)) != null, "effect/0")
-	assert_eq(lib.anim(String(d.effect)).frames.size(), 14, "Blast's cast effect: 14 frames")
-	assert_eq(lib.anim(String(d.hit)).frames.size(), 3, "hit/0/0: 3 frames")
+	assert_true(lib.anim(PlayerForms.fill_art(String(d.effect), "")) != null, "effect/0")
+	assert_eq(lib.anim(PlayerForms.fill_art(String(d.effect), "")).frames.size(), 14, "Blast's cast effect: 14 frames")
+	assert_eq(lib.anim(PlayerForms.fill_art(String(d.hit), "")).frames.size(), 3, "hit/0/0: 3 frames")
 	for path: String in BLAST_USE:
 		assert_true(lib.sound(path) != null, path)
 	var m := w.book.def("monster_magnet_paladin")

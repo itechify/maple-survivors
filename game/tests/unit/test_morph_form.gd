@@ -266,10 +266,10 @@ func test_card_text_of_an_element_form_is_unchanged() -> void:
 	var w := _world()
 	w.book.defs[KEY].form.effects = {"element": "f", "damage": {"field": "damage"}}
 	var line := SkillText.new(w.book).level_line(KEY, 1, w.loadout.stats(KEY))
-	assert_eq(line.split("\n")[-1], "Charges your weapon with fire for 2 s: attacks +50%")
+	assert_eq(line.split("\n")[-1], "Charges your weapon for 2 s: your attacks deal fire damage (+50%)")
 	w.book.defs[KEY].form.effects = {"element": "i"}
 	line = SkillText.new(w.book).level_line(KEY, 1, w.loadout.stats(KEY))
-	assert_eq(line.split("\n")[-1], "Charges your weapon with ice for 2 s: attacks +0%")
+	assert_eq(line.split("\n")[-1], "Charges your weapon for 2 s: your attacks deal ice damage (+0%)")
 
 
 func test_card_text_of_a_form_with_damage_but_no_element_does_not_name_an_element() -> void:

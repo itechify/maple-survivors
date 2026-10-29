@@ -24,10 +24,12 @@ func _put(rel: String, value: Dictionary) -> String:
 
 func test_lines_are_fixed_adventurers_then_registered_classes() -> void:
 	var root := _put("survivor/jobs/paladin.json", {"jobs": {}})
+	assert_true("paladin" in DataRepo.CLASS_LINES and "buccaneer" in DataRepo.CLASS_LINES)
+	_put("survivor/jobs/aaa_future.json", {"jobs": {}})
 	_put("survivor/skills/hero.json", {"skills": {}})
 	_put("survivor/jobs/il_arch_mage.json", {"jobs": {}})
 	assert_eq(Array(DataRepo.lines(root)), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate",
-		"hero", "il_arch_mage", "paladin"])
+		"hero", "il_arch_mage", "paladin", "aaa_future"])
 	assert_eq(DataRepo.fragment_path("skills", "magician", "res://data"), "res://data/survivor/skills/magician.json")
 
 
@@ -35,7 +37,8 @@ func test_the_shipped_class_lines_are_discovered_from_their_files() -> void:
 	var lines := Array(DataRepo.lines())
 	assert_eq(lines.slice(0, 7), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
 	var classes: Array = lines.slice(7)
-	assert_true("hero" in classes and "il_arch_mage" in classes, "both shipped class lines are found by their files")
+	assert_true("hero" in classes and "il_arch_mage" in classes and "bishop" in classes,
+		"the shipped class lines are found by their files (bishop registers by file alone, #374)")
 	assert_true(classes.find("hero") < classes.find("il_arch_mage"), "existing class order stays stable")
 
 
@@ -272,6 +275,10 @@ func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:
 	var pirate_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "pirate", root))
 	for key: String in pirate_frag.skills:
 		assert_true(String(pirate_frag.skills[key].book) in ["500", "510", "520"], "%s in pirate" % key)
+	# 230/231/232-book skills may live in bishop (#374: the Bishop line; Heal and Teleport move in with BS4/BS5)
+	var bishop_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "bishop", root))
+	for key: String in bishop_frag.skills:
+		assert_true(String(bishop_frag.skills[key].book) in ["230", "231", "232"], "%s in bishop" % key)
 	# cards: no skill or a common passive's -> common, otherwise magician; #284 deleted the Beginner cards (no
 	# upgrades/beginner.json)
 	assert_false(FileAccess.file_exists(DataRepo.fragment_path("upgrades", "beginner", root)))

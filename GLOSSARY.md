@@ -173,6 +173,21 @@ _Avoid_: transformation, disguise
 A Form whose `buff` block carries a `morph_field`, so it also draws the character as a Morph and gives the buff's defence,
 speed and jump while it lasts (Buccaneer's Transformation and Super Transformation). It needs no Form effect key.
 
+**Reaction skill**:
+A skill that nothing casts on a timer or a key: the world triggers it when something happens to the character. Resurrection
+is the first: it catches a lethal hit (its cast rule is `reaction`, so the auto-caster and the bot never use it).
+_Avoid_: trigger skill, passive (it takes an active slot)
+
+**Second life**:
+The save a reaction skill makes when a hit would kill the character: it returns at part of its max HP, guarded for a
+moment, the monsters around it shoved away, then the skill recharges (its cooldown) before it can happen again.
+_Avoid_: revive (which also names reviving a party member in v83), extra life (a stock)
+
+**Guard**:
+The short span after a second life in which no hit lands at all, including boss attacks and balls that ignore the hit
+window.
+_Avoid_: invincibility (the hit window and Invincible are other things), shield
+
 **Skill key**:
 The Key Config binding of one manual skill the character has learned.
 _Avoid_: hotkey, quickslot
@@ -204,7 +219,11 @@ A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here i
 
 **Form**:
 A timed active stance that changes the character's attacks and carries sub-skills. A running form survives
-map transfer and ends on death.
+map transfer and ends on death. Its buff block carries Hidden or morph state; effect keys are for cast-stat or lifecycle behaviour (Buccaneer template: `spec/412`, `test_morph_form.gd`).
+
+**Charge**:
+A Paladin Form that temporarily gives its attacks an element and carries Charged Blow. Holy Charge also
+carries Heaven's Hammer. Only one Charge runs at a time.
 
 **Sub-skill**:
 An attack carried by a Form, used automatically while the form lasts. It grows with its parent, occupies no

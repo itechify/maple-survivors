@@ -30,7 +30,8 @@ func _loader() -> Callable:
 	for spec: Array in [[1002001, {"tuc": 5, "incPDD": 3, "price": 1000}], [1382001, {"tuc": 7, "incMAD": 17, "price": 2000}],
 			[1082002, {"tuc": 5, "incPDD": 1, "price": 500}], [1040004, {"tuc": 7, "incPDD": 4, "price": 300}],
 			[1040002, {"tuc": 7, "incPDD": 3}], [1060002, {"tuc": 7, "incPDD": 2}], [1072001, {"tuc": 5, "incPDD": 2}],
-			[1372005, {"tuc": 7, "incMAD": 23, "incPAD": 15}], [1302000, {"tuc": 7, "incPAD": 17}]]:
+			[1372005, {"tuc": 7, "incMAD": 23, "incPAD": 15}], [1302000, {"tuc": 7, "incPAD": 17}],
+			[1322000, {"tuc": 7, "incPAD": 34}]]:
 		imgs[AvatarRenderer.part_img_path(spec[0])] = {"info": spec[1]}
 	return func(path: String) -> Dictionary: return imgs.get(path, {})
 
@@ -203,6 +204,59 @@ func test_the_i_l_kit_is_the_arch_mage_kit_and_every_scroll_fits_a_wand_or_staff
 			assert_eq(Equipment.requirement_error(img.root.get("info", {}), {"job_id": 222}), "", "an I/L can wear %d" % id)
 
 
+## A fresh Lv1 Bishop (232, the Wooden Wand) as the creation screen makes it; the kit only reads its job.
+func _bishop() -> Dictionary:
+	return SceneFlow.new_character({}, 232, _loader())
+
+
+func test_the_bishop_job_flag_picks_its_fixture_from_the_line_file() -> void:
+	assert_eq(HubTestKit.parse_args(PackedStringArray(["--hub", "--job=232"])),
+		{"job": 232, "character": "res://tests/fixtures/characters/bishop_t2.json", "mesos": 500000})
+	assert_eq(HubTestKit.parse_args(PackedStringArray(["--hub", "--job=232", "--character=/x/y.json"])).character, "/x/y.json")
+	var loaded := HubTestKit.load_character("res://tests/fixtures/characters/bishop_t2.json", _loader())
+	assert_eq(loaded.error, "", "the committed Bishop fixture loads through the hub's loader")
+	if loaded.error == "":
+		assert_eq(int(loaded.character.job_id), 232)
+
+
+func test_the_bishop_kit_is_the_arch_mage_kit_and_every_scroll_fits_a_wand_or_staff() -> void:
+	var character := HubTestKit.apply(_bishop(), 500000, _loader())
+	var held: Array = character.scrolls.keys().map(func(k: String) -> int: return int(k))
+	held.sort()
+	var want := KIT_SCROLL_IDS.duplicate()
+	want.sort()
+	assert_eq(held, want, "a Bishop wears wands and staves from the same scroll line as F/P: one kit for the Magician lines")
+	assert_eq(HubTestKit.kit_scrolls(232), HubTestKit.kit_scrolls(212))
+	assert_eq(HubTestKit.kit_equipment(232), HubTestKit.kit_equipment(212))
+	assert_eq(HubTestKit.fallback_item(232), 1382001)
+	assert_eq(character.job_id, 232, "the rest of the character is untouched")
+	assert_eq(CharacterSnapshot.validation_error(character), "")
+	if not require_cache():
+		return
+	var data := DataRepo.load_all()
+	var families: Array = data.jobs_survivor.jobs["232"].weapon_families
+	assert_true(WeaponInfo.family(1382001) in families, "the spare staff is a Bishop weapon family")
+	var lib := AssetLibrary.get_default()
+	for id: int in HubTestKit.kit_equipment(232):
+		var img := lib.img(AvatarRenderer.part_img_path(id))
+		assert_true(img != null, "%d is in the cache" % id)
+		if img != null:
+			assert_eq(Equipment.requirement_error(img.root.get("info", {}), {"job_id": 232}), "", "a Bishop can wear %d" % id)
+
+
+func test_the_bishop_hub_errors_name_the_unplayable_job_the_mirror_and_the_mismatch() -> void:
+	var data := DataRepo.load_all()
+	var shipped := JobTree.from_data(data.jobs, data.jobs_survivor)
+	assert_eq(HubTestKit.job_error({"job": 232}, _bishop(), shipped), "")
+	DataRepo.patch = {"jobs_survivor": {"jobs": {"232": {"playable": false}}}}
+	var mirrored_data := DataRepo.load_all()
+	var mirrored := JobTree.from_data(mirrored_data.jobs, mirrored_data.jobs_survivor)
+	DataRepo.patch = {}
+	assert_true(HubTestKit.job_error({"job": 232}, _bishop(), mirrored).contains("not playable"))
+	assert_true(HubTestKit.job_error({"job": 232}, _fixture(), shipped).contains("does not match"), "a Bishop request with an F/P character")
+	assert_true(HubTestKit.job_error({"job": 212}, _bishop(), shipped).contains("does not match"), "and the other way round")
+
+
 func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
 	var data := DataRepo.load_all()
 	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
@@ -221,6 +275,67 @@ func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
 	assert_true(HubTestKit.job_error({"job": 222}, _il(), with_il).contains("not playable"))
 	assert_true(HubTestKit.job_error({"job": 222}, fp, jobs).contains("does not match"), "an I/L request with an F/P character")
 	assert_true(HubTestKit.job_error({"job": 212}, _il(), jobs).contains("does not match"), "and the other way round")
+
+
+## A fresh Lv1 Paladin (122, the Mace) as the creation screen makes it; the kit only reads its job.
+func _paladin() -> Dictionary:
+	return SceneFlow.new_character({}, 122, _loader())
+
+
+func test_the_paladin_job_flag_picks_its_fixture_from_the_line_file() -> void:
+	assert_eq(HubTestKit.parse_args(PackedStringArray(["--hub", "--job=122"])),
+		{"job": 122, "character": "res://tests/fixtures/characters/paladin_t2.json", "mesos": 500000})
+	assert_eq(HubTestKit.parse_args(PackedStringArray(["--hub", "--job=122", "--character=/x/y.json"])).character, "/x/y.json")
+
+
+func test_the_paladin_kit_scrolls_the_four_weapon_kinds_and_carries_a_mace_and_a_sword() -> void:
+	var character := HubTestKit.apply(_paladin(), 500000, _loader())
+	var scrolls := HubTestKit.kit_scrolls(122)
+	assert_eq(scrolls.size(), 20)
+	var warrior: Dictionary = DataRepo.load_json("res://data/survivor/scrolls/warrior.json").families
+	var want := []
+	for family: String in ["sword", "blunt", "two_handed_sword", "two_handed_blunt"]:
+		for id: Variant in warrior[family].ATT.values():
+			want.append(int(id))
+	want.sort()
+	var held: Array = character.scrolls.keys().map(func(k: String) -> int: return int(k))
+	held.sort()
+	assert_eq(held, want, "ATT scrolls of the sword, blunt, two-handed sword and two-handed blunt families: the Paladin's four weapon kinds")
+	var spare: Array = character.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
+	assert_eq(spare, HubTestKit.kit_equipment(122))
+	var families := spare.filter(func(id: int) -> bool: return Equipment.slot_of(id) == "weapon").map(WeaponInfo.family)
+	assert_true("sword" in families and "blunt" in families, "a sword and a blunt weapon among the spares: %s" % [families])
+	assert_eq(HubTestKit.fallback_item(122), 1302009)
+	assert_true(WeaponInfo.family(1302009) in DataRepo.load_all().jobs_survivor.jobs["122"].weapon_families)
+	assert_eq(character.job_id, 122, "the rest of the character is untouched")
+	assert_eq(CharacterSnapshot.validation_error(character), "")
+	if not require_cache():
+		return
+	var lib := AssetLibrary.get_default()
+	for id: int in spare + [1302009]:
+		var img := lib.img(AvatarRenderer.part_img_path(id))
+		assert_true(img != null, "%d is in the cache" % id)
+		if img != null:
+			assert_eq(Equipment.requirement_error(img.root.get("info", {}), {"job_id": 122}), "", "a Paladin can wear %d" % id)
+
+
+func test_other_jobs_kits_are_unchanged_by_the_paladin_kit() -> void:
+	assert_eq(HubTestKit.kit_equipment(112), [1002001, 1402000, 1082002, 1040010])
+	assert_eq(HubTestKit.kit_equipment(212), [1002001, 1382001, 1082002, 1040004])
+	assert_ne(HubTestKit.kit_equipment(122), HubTestKit.kit_equipment(112))
+
+
+func test_paladin_hub_job_errors_name_the_mismatch_or_the_disabled_job() -> void:
+	var data := DataRepo.load_all()
+	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
+	assert_eq(HubTestKit.job_error({"job": 122}, _paladin(), jobs), "", "shipped Paladin is playable")
+	assert_true(HubTestKit.job_error({"job": 122}, _fixture(), jobs).contains("does not match"), "a Paladin request with an F/P character")
+	assert_true(HubTestKit.job_error({"job": 212}, _paladin(), jobs).contains("does not match"), "and the other way round")
+	DataRepo.patch = {"jobs_survivor": {"jobs": {"122": {"playable": false}}}}
+	var disabled := DataRepo.load_all()
+	var without := JobTree.from_data(disabled.jobs, disabled.jobs_survivor)
+	DataRepo.patch = {}
+	assert_true(HubTestKit.job_error({"job": 122}, _paladin(), without).contains("not playable"))
 
 
 func test_a_format_1_character_file_migrates_before_the_kit() -> void:
