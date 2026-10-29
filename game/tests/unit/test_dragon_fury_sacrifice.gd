@@ -161,7 +161,7 @@ func test_the_fury_cast_plays_the_rune_circle_art_at_the_caster() -> void:
 	var cast: Dictionary = _of(_cast(w), "cast")[0]
 	assert_eq(String(cast.effect), "Skill.wz/131.img/skill/1311004/effect")
 	var extra: Array = w.book.def("dragon_fury").get("cast_visuals", [])
-	assert_eq(extra.size(), 1, "effect0, the flower burst, is the second cast visual")
+	assert_eq(extra.size(), 2, "flower burst and delayed swing trail")
 	assert_eq(w.book.art_path("dragon_fury", String(extra[0].path), "polearm"), "Skill.wz/131.img/skill/1311004/effect0")
 
 
@@ -453,3 +453,14 @@ func test_real_cache_the_art_nodes_the_two_skills_name_exist_for_both_weapons() 
 		assert_true(skill["1311005"].has("effect"), "Sacrifice's ring")
 		assert_false(skill["1311005"].has("hit"), "Sacrifice has no hit art: the weapon's spark")
 	library.free()
+
+
+func test_fury_resolves_the_weapon_trail_and_its_body_frame_delay() -> void:
+	for row in [[SPEAR, "1311003/afterimage/spear/swingP1/2"], [POLE_ARM, "1311004/afterimage/poleArm/swingP1/2"]]:
+		var w := _world("dragon_fury", int(row[0]))
+		var visuals: Array = w.loadout.stats("dragon_fury").cast_visuals
+		assert_eq(visuals.size(), 2, "rune burst and swing trail")
+		if visuals.size() < 2: continue
+		assert_eq(visuals[1].path, "Skill.wz/131.img/skill/" + String(row[1]))
+		assert_near(visuals[1].delay, 0.45)
+		assert_true(visuals[1].follow)

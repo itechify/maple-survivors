@@ -176,6 +176,13 @@
 				{
 					"path": "Skill.wz/131.img/skill/1311003/effect0",
 					"follow": true
+				},
+				{
+					"_provenance": "Tier A: afterimage at swingP1 frame 2, after 300 + 150 ms body frames. Tier C: follow the caster and use the spear trail for other weapon families.",
+					"path": "Skill.wz/131.img/skill/1311003/afterimage/spear/swingP1/2",
+					"path_by_family": {"polearm": "Skill.wz/131.img/skill/1311003/afterimage/poleArm/swingP1/2"},
+					"follow": true,
+					"delay": 0.45
 				}
 			],
 			"rotate": false,

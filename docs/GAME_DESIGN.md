@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212), the default, and Arch Mage (Ice, Lightning, 222); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112), Dark Knight (132), Arch Mage (Fire, Poison, 212), the default, and Arch Mage (Ice, Lightning, 222); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -57,7 +57,7 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   `tiers_unlocked` (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
   every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
   Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
-  jobs (Hero 112, Arch Mage 212 and Arch Mage 222), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
+  jobs (Hero 112, Dark Knight 132, Arch Mage 212 and Arch Mage 222), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
   Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
   tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
   `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
@@ -103,6 +103,13 @@ Ifrit with marked-target priority, Chain Lightning with visible hops and a staff
 and freeze, and Big Bang through the shared skill-template seam. Ranks, rarity bonuses, Mastery, equipment, saves and
 menus reuse the F/P systems. Tooling includes `--job=222`, the I/L tier-2 fixture and job-aware creation/redesign flows.
 The deterministic I/L oracle now covers the full pool; F/P oracles remain unchanged. QA results are in section 4.2.
+
+**Landed in the Dark Knight spec (#348, D1–D11 #349–#359):** job 132 is selectable with a Spear (1432000),
+Spear Crusher in slot one and manual Rush. Its eight-skill pool reuses Power Strike and Slash Blast; Dragon Fury,
+Sacrifice and Dragon Roar spend HP through the shared `HpRisk` boundary (M17). The Beholder follows and pulses Aura
+heals and Hex buffs through `SupportSummons` (M10); its sub-skills rank with it. Spear/pole arm art twins, rarity and
+Mastery, equipment, hub kits and the format-3 tier-2 fixture use the existing class-line systems. Sections 7.66–7.71
+and the provenance tables own the mechanics; section 4.2 records QA without tuning. F/P remains the default.
 
 ### Known design gaps (open after the slice)
 
@@ -6342,8 +6349,8 @@ nearest monster, so a monster on the same line behind the first is shielded: Twi
 
 Four small data-driven behaviours in one stateless file, `game/scripts/sim/hp_risk.gd` (`HpRisk`): a percentage HP cost, an
 HP gate, recoil as a share of the damage a cast dealt, and a low-HP damage bonus. Dark Knight (Dragon Roar, Sacrifice,
-Berserk) is the first user; Bishop, Buccaneer and any later job reuse the blocks unchanged. No skill ships a block yet, so no
-existing record changes. No RNG is drawn.
+Berserk) is the first user; Bishop, Buccaneer and any later job reuse the blocks unchanged. Dragon Roar ships the
+percentage cost and gate; Sacrifice ships recoil and its Berserk rarity bonus. No RNG is drawn.
 
 ```json
 "hp_cost":     {"field": "x", "of": "max_hp"}
@@ -6493,8 +6500,7 @@ seam (7.66). No new simulation code beyond one art lookup.
   (damage from 40% HP) and `hp_cost` (HP paid per cast; Dragon Roar's Dragon Blood, D7), in a Dark Knight world with a huge HP
   pool and a heavy weapon.
 
-**The Beholder (#357, spec #348 D9).** Dark Knight's level-10 pool skill (1321007, `skills/dark_knight.json`; job 132 is not
-playable until D10) and its two sub-skills, Aura of the Beholder (1320008) and Hex of the Beholder (1320009, DK-4, DK-5).
+**The Beholder (#357, spec #348 D9).** Dark Knight's level-10 pool skill (1321007, `skills/dark_knight.json`; job 132 is playable since D10) and its two sub-skills, Aura of the Beholder (1320008) and Hex of the Beholder (1320009, DK-4, DK-5).
 `damage: none`, `kind summon`, stance `alert2` (0.6 s), a 45 s cooldown counted from the cast (a recast replaces the old
 Beholder) and a **60 s life**. The life is `buff.duration`, a new generic lever in `Loadout.stats`: a literal number of
 seconds that wins over the canonical `duration_field` (default `time`); no other skill defines it, and a `duration`
@@ -7950,6 +7956,13 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Extra hit also shows its thrust | `min_attack_count` compares the resolved `attack_count` | tier C |
 | Rarity bonuses | Mastery damage x1.2, Booster cooldown x0.88, Final Attack +1 hit, Legendary + damage x1.2 | tier C: spec #348 |
 | Numeric-string frame delay | read as milliseconds | tier A: the value is the WZ's; reading it is ours |
+
+### Dark Knight QA presentation correction (#359)
+
+| Constant / rule | Value | Tier | Source |
+|---|---|---|---|
+| Dragon Fury trail timing | `swingP1` frame 2 begins after 300 + 150 ms = 0.45 s; play `afterimage/spear/swingP1/2` or `afterimage/poleArm/swingP1/2` from the art twin | A | Character.wz body and Skill.wz 1311003/1311004, D1 |
+| Trail anchoring and fallback | Follows the caster, mirrored with facing; unsupported weapon families use the spear trail | C | Existing cast-visual convention; skills remain weapon-independent |
 
 ### Dark Knight Rush and Monster Magnet constants (#356)
 
