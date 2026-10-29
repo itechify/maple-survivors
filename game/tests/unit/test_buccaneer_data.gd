@@ -2,15 +2,15 @@ extends TestCase
 ## Buccaneer's data seam (spec #412, ticket B2 #414): the `buccaneer` line is discovered from its files, its job entry
 ## `survivor/jobs/buccaneer.json` (512, not playable yet) names the pool and the Energy Charge meter, its AP and growth rows
 ## copy Hero's (tier C, #346), and its drops are knuckles only (Pirate-bit gear). Undefined pool keys stay inert; the five
-## ported keys and Dash are defined in pirate.json until B4/B5. Seeded RNG; item info is synthetic unless a test says
+## ported keys are defined in buccaneer.json (B4 #416); Dash stays in pirate.json until B5. Seeded RNG; item info is synthetic unless a test says
 ## "real cache".
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
 const POOL := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow", "barrage",
 	"dragon_strike", "energy_drain", "energy_orb", "transformation", "super_transformation"]
-## Defined today in skills/pirate.json (ported to skills/buccaneer.json by B4); every other pool key is undefined.
-const DEFINED_IN_PIRATE := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow"]
+## Defined in skills/buccaneer.json since B4 #416 (moved from pirate.json); every other pool key is undefined until its ticket.
+const DEFINED_IN_BUCCANEER := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow"]
 const KNUCKLE := 1482000
 ## Synthetic item info (reqJob bits as in the v83 Item.wz): knuckles and guns carry the Pirate bit (16), the rest
 ## belong to other lines, so the family filter alone decides which Pirate-bit weapons drop.
@@ -66,7 +66,7 @@ func test_buccaneer_line_is_discovered_from_its_files_without_a_shared_registrat
 	assert_eq(DataRepo.fragment_path("skills", "buccaneer", "res://data"), "res://data/survivor/skills/buccaneer.json")
 
 
-func test_the_buccaneer_line_loads_without_errors_and_adds_only_its_job_and_an_empty_skill_file() -> void:
+func test_the_buccaneer_line_loads_without_errors_and_adds_its_job_and_the_ported_skill_region() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
@@ -76,7 +76,7 @@ func test_the_buccaneer_line_loads_without_errors_and_adds_only_its_job_and_an_e
 	assert_true(keys.find("512") > keys.find("212"), "then the class lines in discovered (sorted) line order")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "buccaneer"))
 	assert_true(frag.has("_doc"), "the skill file names its owning tickets")
-	assert_true(frag.skills.is_empty(), "B4-B10 append their own definitions; B2 defines none")
+	assert_eq(frag.skills.keys(), DEFINED_IN_BUCCANEER, "B4 defines the five ported skills; B6-B10 append their own definitions")
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
 
@@ -149,11 +149,11 @@ func test_each_pool_key_is_defined_in_at_most_one_file() -> void:
 		assert_true(lines.size() <= 1, "%s is defined once at most (%s)" % [key, lines])
 
 
-func test_the_ported_keys_are_defined_by_pirate_until_b4_and_nothing_else_is_defined() -> void:
+func test_the_ported_keys_are_defined_by_buccaneer_and_nothing_else_is_defined() -> void:
 	var defined: Dictionary = _data().skills.skills
 	for key: String in POOL:
-		if key in DEFINED_IN_PIRATE:
-			assert_eq(_defining_lines(key), ["pirate"], "%s stays in pirate.json until B4 moves it" % key)
+		if key in DEFINED_IN_BUCCANEER:
+			assert_eq(_defining_lines(key), ["buccaneer"], "%s moved to buccaneer.json (B4)" % key)
 		else:
 			assert_false(defined.has(key), "%s is undefined: an inert key" % key)
 	assert_eq(_defining_lines("dash"), ["pirate"], "Dash stays in pirate.json until B5")
