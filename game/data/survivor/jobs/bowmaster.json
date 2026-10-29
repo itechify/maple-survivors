@@ -24,7 +24,38 @@
 			"creation_weapon": 1452002,
 			"_creation_weapon": "tier C: spec #332: the War Bow (reqJob 4, the Bowman bit), wearable at creation.",
 			"playable": false,
-			"_provenance": "tier C: spec #332 B2 #334: the Bowmaster data line; not selectable until B12/B13."
+			"_provenance": "tier C: spec #332 B2 #334: the Bowmaster data line; not selectable until B12/B13.",
+			"hub_kit": {
+				"fixture": "res://tests/fixtures/characters/bowmaster_t2.json",
+				"scrolls": [
+					2044500,
+					2044501,
+					2044502,
+					2044504,
+					2044505,
+					2040803,
+					2040804,
+					2040805,
+					2040810,
+					2040811,
+					2040758,
+					2040759,
+					2040760,
+					2040027,
+					2040029,
+					2040031,
+					2040028,
+					2040030
+				],
+				"equipment": [
+					1002001,
+					1452051,
+					1082002,
+					1040008
+				],
+				"fallback_item": 1452007
+			},
+			"_hub_kit": "tier C: spec #332 B12 #344: the --hub / flow-driver test kit of a Bowmaster. Fixture = bowmaster_t2.json (the tier-1 bow kit); scrolls = every rate of bow ATT, gloves ATT, shoes ATT and hat DEX (scrolls.json families, 18 stacks of 10 within the Use tab); spare equipment = a hat, a second bow (1452051), gloves and a Bowman-bit top, all wearable by job 312; fallback_item = the Lv40 Composite Bow the flow driver wears at Lv1 when a round dropped no equipment."
 		}
 	},
 	"balance": {
@@ -58,6 +89,31 @@
 					"_ap": "tier C: spec #332: the Bowman (300) row copied verbatim (the Bowman gear pattern, no new tuning); explicit so 312 no longer falls back through 310/300."
 				}
 			}
+		},
+		"bot": {
+			"card_scores": {
+				"arrow_blow_new": 100,
+				"arrow_blow_rank": 74,
+				"bow_double_shot_new": 100,
+				"bow_double_shot_rank": 74,
+				"arrow_bomb_new": 100,
+				"arrow_bomb_rank": 74,
+				"strafe_new": 100,
+				"strafe_rank": 74,
+				"inferno_new": 100,
+				"inferno_rank": 74,
+				"arrow_rain_new": 100,
+				"arrow_rain_rank": 74,
+				"dragons_breath_new": 100,
+				"dragons_breath_rank": 74,
+				"hurricane_new": 100,
+				"hurricane_rank": 74,
+				"silver_hawk_new": 100,
+				"silver_hawk_rank": 74,
+				"phoenix_new": 100,
+				"phoenix_rank": 74
+			},
+			"_card_scores": "tier C: spec #332 B12 #344: explicit learn (100) and rank (74) card scores for all ten Bowmaster pool skills, the numbers BotInput's pool default gives every curated skill. Explicit so the two summons (Silver Hawk, Phoenix: kind summon, not an `attack` to the default scorer) and the nine other actives never depend on that fallback."
 		}
 	}
 }
