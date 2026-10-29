@@ -16,7 +16,7 @@ extends Node
 ##           offers (kinds, rarities, picks), the showcased windows and the history. `--seed` (default 1).
 ##   creation the Job page and character creation (spec #296, H9): title -> create a character of each job in `--jobs=<id,id>`
 ##           (default: every playable job, in separate slots, then the Job page is checked to list them in order and to show the
-##           chosen row) -> Free Market each time -> character select with both slots. Shots creation_*.png, job_<id>_*.png.
+##           chosen row) -> Free Market each time -> character select with all character slots. Shots creation_*.png, job_<id>_*.png.
 ##   title   the title screen only: waits for it, saves the shot, quits (e.g. to check an exported build:
 ##           MapleSurvivors.exe res://scenes/debug/flow_driver.tscn -- --scenario=title --shots=<dir>).
 ##   clear   --run tool one-off (`--run=<stage> --seed=<n> --autoplay --autopick --speed=<k>`): waits for the clear -> results ->
@@ -72,6 +72,7 @@ extends Node
 ##           changes the prepared balance; `--seed` defaults to 4; `--natural-clear=1` plays round 1 without invulnerability.
 ## The scenarios of the removed systems (maps, rounds, full, economy and the Warrior, Pirate, Bowman and Thief job/weapon pages)
 ## were deleted with job advancement, saved rounds and the old creation flow (#284, #286, #294).
+## The skill scenario accepts --job=<playable id> (default 212).
 ## Other flags: --shots=<abs dir> (required), --seed=<n>, --wz=<folder> (import). The driver runs uncapped (vsync off).
 ##
 ## Screenshots are named NN_<step>.png; the driver prints one "flow_driver:" line per step and quits with exit code 1
@@ -83,8 +84,22 @@ extends Node
 const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
 const StageSelectScene := preload("res://scenes/ui/stage_select.gd")
 const MAIN := "res://scenes/main.tscn"
-## The redesign scenario's diagnostic fallback when a round dropped nothing the job can wear above Lv1: a staff for the Arch Mage
-## (Lv45), a sword for Hero (1302009, Lv40; reqJob Warrior). tier C: automation, not tuning.
+## Diagnostic build from the selected job's first three unlearned pool actives, plus common passives.
+## tier C: automation policy, not tuning. No job-specific card list.
+static func skill_build(w: RunWorld) -> Array:
+	var cards := []
+	var added := 0
+	for key: String in w.jobs.skill_pool(w.job_id()):
+		if not w.book.has(key) or w.loadout.has(key):
+			continue
+		cards.append(key + "_new")
+		cards.append(key + "_rank")
+		added += 1
+		if added == 3:
+			break
+	cards.append_array(["passive_might_new", "passive_speed_new", "passive_speed_rank"])
+	return cards
+
 
 ## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q potion; E is the
 ## Equip window).
@@ -510,7 +525,7 @@ func _scenario_redesign() -> void:
 
 
 ## Wears, with a double-click in the Item window's Equip tab, the carried item with the highest reqLevel this job can wear
-## (the round's own drop). When the round dropped none, the job's FALLBACK_ITEM (a Lv40-45 weapon) is added to the Equip tab
+## (the round's own drop). When the round dropped none, the job's hub_kit fallback_item (a Lv40-45 weapon) is added to the Equip tab
 ## (diagnostic) and the report says so. Returns {id, slot, req_level, source}, empty after a failure.
 func _equip_high_req_item(hub: FreeMarket, character: Dictionary, job: int = 212) -> Dictionary:
 	var lib := AssetLibrary.get_default()
@@ -787,12 +802,12 @@ func _select_stage(key: String) -> bool:
 
 
 ## Title (Enter) -> a new character -> Free Market -> map select -> Start: the way into a round for the in-run scenarios.
-func _enter_round(character_name: String) -> bool:
+func _enter_round(character_name: String, job: int = 212) -> bool:
 	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
 		return false
 	await _sleep(2.0)
 	await _key(KEY_ENTER)
-	if not await _create_character(character_name):
+	if not await _create_character(character_name, job):
 		return false
 	if not await _open_map_select():
 		return false
@@ -1310,15 +1325,17 @@ func _shot_zoom(step: String, around: Node2D, also: Node2D = null) -> void:
 
 
 func _scenario_skill() -> void:
-	if not await _enter_round("Skill86"):
+	var job := _job_arg() # `--job=<id>` (default 212; 222 is the I/L Arch Mage, #330)
+	if job < 0:
+		return
+	if not await _enter_round("Skill86", job):
 		return
 	var run := flow.current as RunScene
 	await _sleep(3.0)
 	# A build to show (debug setup, like the windows scenario's EXP drop): three more pool actives with ranks, and two
 	# common passives (cards applied directly; the Teleport key skill and the starting Energy Bolt are already known).
 	var w := run.world
-	for id: String in ["magic_claw_new", "magic_claw_rank", "fire_arrow_new", "explosion_new", "explosion_rank",
-			"passive_might_new", "passive_speed_new", "passive_speed_rank"]:
+	for id: String in skill_build(w):
 		w.upgrades.apply(id, w)
 	await _sleep(0.5)
 	# K opens the Skill window on the job's tab (the last) and holds the sim.
@@ -1338,9 +1355,10 @@ func _scenario_skill() -> void:
 	for i in sw.rows().size():
 		await _key(KEY_DOWN)
 	await _sleep(0.3)
-	var last := sw.tooltip()
-	_check(String(last.get("key", "")) == String(sw.rows()[sw.rows().size() - 1].key), "Down selected the last row (%s)" % [last.get("key", "")])
-	await _shot("skill_keyboard_tooltip")
+	if not sw.rows().is_empty(): # a sparse synthetic book may have no rows
+		var last := sw.tooltip()
+		_check(String(last.get("key", "")) == String(sw.rows()[sw.rows().size() - 1].key), "Down selected the last row (%s)" % [last.get("key", "")])
+		await _shot("skill_keyboard_tooltip")
 	await _key(KEY_LEFT)
 	await _sleep(0.3)
 	_check(sw.tab == last_tab - 1, "Left switched to the previous job tab")
@@ -1367,7 +1385,7 @@ func _scenario_skill() -> void:
 	await _click_at(origin + sw.tab_rect(last_tab + 1).get_center())
 	await _sleep(0.3)
 	_check(sw.tab == last_tab, "no tab past the job's own to click")
-	for tab_index in [0, last_tab]:
+	for tab_index in range(last_tab + 1): # every tab: Common, then each book of the lineage (220 holds Teleport for the I/L)
 		await _click_at(origin + sw.tab_rect(tab_index).get_center())
 		await _sleep(0.2)
 		_check(sw.tab == tab_index, "skill tab %d shown" % tab_index)

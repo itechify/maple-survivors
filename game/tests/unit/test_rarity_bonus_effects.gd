@@ -1,19 +1,34 @@
 extends TestCase
-## Every rarity bonus of every Hero and F/P skill changes the resolved cast, not just a stat number (spec #296, H7 audit).
+## Every rarity bonus of every Hero, F/P and I/L Arch Mage skill changes the resolved cast, not just a stat number (spec #296, H7
+## audit; the I/L skills joined it in spec #319, I6 #325 / the merge of redesign).
 ## For each effect of each tier the same seeded world is cast twice, with and without the effect, against a field of mobs
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
 ## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
-## Hero and Paladin books (111/112, 121/122) are synthetic generic tables; the F/P books come from the shared run fixtures.
+## Hero and Paladin books (111/112, 121/122) are synthetic generic tables; the F/P books come from the shared run fixtures. The I/L skills (books
+## 220/221/222) have their own synthetic Skill.wz tables (`il_fixtures.books()`, Ice Demon and Element Composition use the
+## small tables `_demon_levels` builds) and are cast at their top rank, so the probes below are the same and only `_world` differs.
+## Ifrit (I9) is a summon that needs allies settled behind the player: it stays in test_ifrit.gd (IL_AUDITED_ELSEWHERE).
 ## Paladin's skills (Blast, Monster Magnet) run as job 122 (P5 #313).
 
+const IL := preload("res://tests/fixtures/il_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const BLIZZARD := preload("res://tests/unit/test_il_blizzard.gd")
+const BIG_BANG := preload("res://tests/unit/test_il_big_bang.gd")
 const DT := 1.0 / 60.0
 const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep"]
+## The I/L skills this audit casts (books 220/221/222); I8-I10 appended theirs.
+const IL_SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "ice_demon", "element_composition_il",
+	"chain_lightning", "blizzard", "big_bang_il"]
+## The I/L skills with bonuses that another test audits: Ifrit is a summon (test_ifrit.gd).
+const IL_AUDITED_ELSEWHERE := ["ifrit"]
+const IL_BOOKS := [220, 221, 222]
+
+var _resolved_skills := {}
 
 
 ## Generic Skill.wz levels: a centred box, six mobs, one line, a 300 px range, a certain proc (the shape test_fp_high_actives uses).
@@ -25,16 +40,54 @@ func _generic_levels() -> Dictionary:
 	return levels
 
 
+## The skills with rarity bonuses of the Magician, Warrior and I/L lines (job < 300), templates resolved: a skill that `extends`
+## another inherits its lists, and the raw data would silently leave it out.
 func _skills_with_bonuses() -> Array:
-	var skills: Dictionary = DataRepo.load_all().skills.skills
+	var skills: Dictionary = _resolved()
 	var keys := []
 	for key: String in skills:
-		if (skills[key] as Dictionary).has("rarity_bonuses") and int(skills[key].job) < 300:
+		if (skills[key] as Dictionary).has("rarity_bonuses") and int(skills[key].job) < 300 and key not in IL_AUDITED_ELSEWHERE:
 			keys.append(key)
 	return keys
 
 
+func _resolved() -> Dictionary:
+	if _resolved_skills.is_empty():
+		_resolved_skills = SkillTemplate.resolve(DataRepo.load_all().skills.skills)
+	return _resolved_skills
+
+
+## Synthetic Skill.wz levels 1..30 for Ice Demon (`box`: the canonical forward box) and Element Composition (I7 #326).
+func _demon_levels(box: bool) -> Dictionary:
+	var levels := {}
+	for lv in range(1, 31):
+		levels[str(lv)] = {"mad": 60.0 + lv, "mobCount": 6.0, "time": 4.0}
+		if box:
+			levels[str(lv)]["lt"] = {"$v": [-300, -100]}
+			levels[str(lv)]["rb"] = {"$v": [-15, 0]}
+	return levels
+
+
+## An I/L world: job 222 with the I/L synthetic books, Blizzard (I10 #329: the WZ box, 15 mobs) and Big Bang I/L (no lt/rb, as in
+## the WZ: the survivor box applies).
+func _il_setup() -> Dictionary:
+	var setup := RF.setup("quiet", 325, RF.quiet_data())
+	var books := IL.books()
+	setup.job = 222
+	setup.skill_imgs["220"].skill["2201004"] = books.cold
+	setup.skill_imgs["220"].skill["2201005"] = books.thunder
+	setup.skill_imgs["221"] = {"skill": {"2211002": books.strike, "2211003": books.spear,
+		"2211006": {"level": _demon_levels(false)}}}
+	setup.skill_imgs["222"] = {"skill": {"2221003": {"level": _demon_levels(true)},
+		"2221006": IL.chain_node(),
+		"2221007": {"level": BLIZZARD.levels(120.0, 1.0)}, "2221001": {"level": BIG_BANG.levels(120.0, 1.0)}}}
+	return setup
+
+
 func _world(key: String) -> RunWorld:
+	var il: bool = int(_resolved()[key].job) in IL_BOOKS
+	if il:
+		return _finish_world(RunWorld.new(_il_setup()), key, true)
 	var data := RF.quiet_data()
 	var skill_job := int(data.skills.skills[key].job)
 	var job := 122 if skill_job in [121, 122] else 112 if skill_job in [100, 110, 111, 112] else 212
@@ -55,6 +108,12 @@ func _world(key: String) -> RunWorld:
 			imgs[book].skill[str(id) if id >= 1000000 else "%07d" % id] = node
 	var w := RunWorld.new(setup)
 	w.set_job(job)
+	return _finish_world(w, key, false)
+
+
+## The flat 4000 px field with the caster in the middle and only `key` learned; an I/L skill is taken to its top rank (low-rank
+## hits are so small that a x1.2 rounds away).
+func _finish_world(w: RunWorld, key: String, top_rank: bool) -> RunWorld:
 	w.bounds = Rect2(0, -500, 4000, 1000)
 	w.fhm = FootholdMap.from_segments(FLAT)
 	w.swarm.fhm = w.fhm
@@ -62,6 +121,8 @@ func _world(key: String) -> RunWorld:
 	w.loadout.ranks.clear()
 	w.loadout.order.clear()
 	w.learn_skill(key)
+	if top_rank:
+		w.loadout.set_rank(key, w.book.max_rank(key))
 	w.god = true
 	for mk: MobKind in w.mob_kinds:
 		mk.hitbox = Rect2(-5, -10, 10, 10)
@@ -108,6 +169,9 @@ func _layout(stat: String, reach: float) -> Dictionary:
 ## Casts `key` with `effects` applied for the stat probe `stat`; returns what the cast did.
 func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	var w := _world(key)
+	# Poison pulses (hp lost) and knock-back (x moved) count as "affected" for the poison skills; an I/L skill only counts the
+	# mobs its own hit events name (its audit before the fold, and a chain's neighbours are shoved by soft collision).
+	var il: bool = int(_resolved()[key].job) in IL_BOOKS
 	var reach := _reach(w, key)
 	var layout := _layout(stat, reach)
 	var slots := []
@@ -147,10 +211,11 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 			if repeating:
 				w.swarm.x[s] = x0[s] # knockback must not walk the mobs out of the skill's reach between casts
 			if w.swarm.hp[s] < w.swarm.max_hp[s]:
-				affected[s] = true # a poison pulse
+				if not il:
+					affected[s] = true # a poison pulse
 				w.swarm.hp[s] = w.swarm.max_hp[s]
 	for s: int in slots:
-		if absf(w.swarm.x[s] - float(x0[s])) > 1.0:
+		if not il and absf(w.swarm.x[s] - float(x0[s])) > 1.0:
 			affected[s] = true
 	var edge_hit := false
 	for s: int in edge_slots:
@@ -165,17 +230,50 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
 			"elquines", "blast", "monster_magnet_paladin"]:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 21, "seven Hero, two Paladin and twelve F/P skills: %d" % keys.size())
+	assert_true(keys.size() >= 21 + IL_SKILLS.size(), "seven Hero, two Paladin, twelve F/P and %d I/L skills: %d" % [IL_SKILLS.size(), keys.size()])
+	for key in IL_SKILLS:
+		assert_true(key in keys, "%s (I/L) is audited" % key)
+
+
+func test_every_il_skill_with_bonuses_is_audited_here_or_named_as_audited_elsewhere() -> void:
+	# The job < 300 filter takes books 220/221/222 in; nothing of the I/L line may drop out of it unnoticed.
+	var il_line: Dictionary = IL.skill_file("il_arch_mage")
+	var resolved := _resolved()
+	for key: String in il_line:
+		if not resolved[key].has("rarity_bonuses"):
+			continue
+		assert_true(int(resolved[key].job) in IL_BOOKS, "%s is a book 220/221/222 skill" % key)
+		assert_true(key in IL_SKILLS or key in IL_AUDITED_ELSEWHERE, "%s: audited here or named in IL_AUDITED_ELSEWHERE" % key)
+	for key: String in IL_SKILLS:
+		assert_true(il_line.has(key), "%s is in the I/L line file" % key)
+		assert_true(resolved[key].has("rarity_bonuses"), key)
+
+
+func test_the_audits_cover_the_whole_shipped_il_pool() -> void:
+	# I12 #331: Energy Bolt and Magic Claw are the F/P audit's (shared skills, found by _skills_with_bonuses); Ifrit is audited by test_ifrit.
+	var pool: Array = DataRepo.load_all().jobs_survivor.jobs["222"].skill_pool.duplicate()
+	var keys := _skills_with_bonuses()
+	var covered: Array = IL_SKILLS.duplicate()
+	for key: String in ["energy_bolt", "magic_claw"]:
+		assert_true(key in keys, "%s (shared with F/P) is audited" % key)
+		covered.append(key)
+	covered.append_array(IL_AUDITED_ELSEWHERE)
+	pool.sort()
+	covered.sort()
+	assert_eq(covered, pool, "a new I/L pool skill needs a resolved-cast audit")
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
-	var skills: Dictionary = DataRepo.load_all().skills.skills
+	var skills := _resolved()
+	var il_checked := 0
 	for key: String in _skills_with_bonuses():
 		var bonuses: Dictionary = skills[key].rarity_bonuses
 		for tier: String in TIERS:
 			for bonus: Dictionary in bonuses[tier]:
 				for effect: Dictionary in bonus.effects:
 					_assert_effect_changes_the_cast(key, tier, String(bonus.id), effect)
+					il_checked += 1 if key in IL_SKILLS else 0
+	assert_eq(il_checked, IL_SKILLS.size() * 5, "each I/L skill: 1 + 1 + 1 + 2 effects")
 
 
 func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effect: Dictionary) -> void:
@@ -216,3 +314,20 @@ func test_the_probe_catches_a_modifier_the_cast_rule_never_reads() -> void:
 	assert_true(bool(_probe("shout", [area], "area").edge))
 	assert_true(bool(_probe("slash_blast", [area], "area").edge))
 	assert_true(bool(_probe("monster_magnet", [reach], "range").edge))
+
+
+func test_the_probe_catches_an_il_modifier_the_cast_rule_never_reads() -> void:
+	# A box rule never reads `range`; a nearest rule reads neither `area` nor `pierce`.
+	var reach := {"stat": "range", "op": "mul", "value": 1.2}
+	assert_false(bool(_probe("thunder_bolt", [reach], "range").edge), "a range modifier does not widen a box")
+	assert_false(bool(_probe("ice_strike", [reach], "range").edge))
+	var area := {"stat": "area", "op": "mul", "value": 1.2}
+	assert_false(bool(_probe("thunder_spear", [area], "area").edge), "an area modifier does not lengthen a nearest cast")
+	var pierce := {"stat": "pierce", "op": "add", "value": 1.0}
+	assert_eq(_probe("cold_beam", [pierce], "pierce").affected, _probe("cold_beam", [], "pierce").affected)
+	assert_eq(_probe("ice_demon", [pierce], "pierce").affected, _probe("ice_demon", [], "pierce").affected)
+	assert_false(bool(_probe("ice_demon", [reach], "range").edge), "a range modifier does not widen Ice Demon's box")
+	# And the modifiers the shipped bonuses rely on do widen.
+	assert_true(bool(_probe("thunder_bolt", [area], "area").edge))
+	assert_true(bool(_probe("ice_strike", [area], "area").edge))
+	assert_true(bool(_probe("ice_demon", [area], "area").edge))

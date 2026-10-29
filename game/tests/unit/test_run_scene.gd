@@ -1484,3 +1484,16 @@ func test_setup_preloads_boss_art_and_sounds() -> void:
 		assert_eq(lib.missing.size(), 0, "%s: warming records nothing missing %s" % [stage, lib.missing])
 		scene.free()
 		scene = null
+
+
+func test_chain_links_and_successive_casts_each_start_their_hit_sound() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys", 319, {"autopick": true, "job": 222})
+	var points := PackedVector2Array([Vector2(100, 100), Vector2(150, 100), Vector2(200, 100), Vector2(250, 100)])
+	var before := int(scene.counters.sounds)
+	var event := {"type": "skill_chain", "skill": "chain_lightning", "points": points}
+	scene.handle_events([event])
+	assert_eq(int(scene.counters.sounds) - before, 3, "three links start three sounds")
+	scene.handle_events([event])
+	assert_eq(int(scene.counters.sounds) - before, 6, "another cast in the same frame also sounds")

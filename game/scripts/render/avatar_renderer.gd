@@ -369,6 +369,8 @@ func compose(s: String, index: int, expression: String = "default", expr_t: floa
 			fr = cover
 		elif cover[0] != null and AvatarLayers.weapon_type(id) > 0:
 			continue # the cover replaces the real weapon only where it has art
+		elif AvatarLayers.weapon_type(id) > 0:
+			fr = AvatarLayers.weapon_stance_frame(src.img, st, fi, back)
 		else:
 			fr = AvatarLayers.stance_frame(src.img, st, fi, back)
 		if fr[0] == null:
