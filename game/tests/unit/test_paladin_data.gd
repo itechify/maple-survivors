@@ -1,6 +1,6 @@
 extends TestCase
 ## Paladin's data seam (spec #308, ticket P2 #310): the `paladin` line is discovered after `hero`, its job entry
-## `survivor/jobs/paladin.json` (122, not playable yet), its skill pool (defined keys resolve, undefined keys stay inert),
+## `survivor/jobs/paladin.json` (122, playable since P9 #317), its skill pool (defined keys resolve, undefined keys stay inert),
 ## its AP row, and the weapon families of its drops (sword and blunt, one- and two-handed; never an axe, spear or polearm)
 ## with the Warrior-bit requirement (Mace). Seeded RNG; item info is synthetic unless a test says "real cache".
 
@@ -93,7 +93,7 @@ func test_the_shared_defaults_hold_no_paladin_rows() -> void:
 
 # --- the job entry ----------------------------------------------------------------------------------------------------
 
-func test_job_122_has_the_spec_fields_and_is_not_playable_yet() -> void:
+func test_job_122_has_the_spec_fields_and_is_playable_from_p9() -> void:
 	var jobs := _jobs(_data())
 	var rec := jobs.job(122)
 	assert_eq(String(rec.name), "Paladin")
@@ -105,16 +105,18 @@ func test_job_122_has_the_spec_fields_and_is_not_playable_yet() -> void:
 	assert_false("rush_paladin" in jobs.skill_pool(122), "Rush is the mobility skill, not a pool entry")
 	assert_eq(jobs.weapon_families(122), ["sword", "blunt"])
 	assert_eq(jobs.creation_weapon(122), MACE)
-	assert_false(bool(rec.playable))
-	assert_ne(jobs.job_error(122), "", "a tool cannot choose it until P9 flips playable")
-	assert_false(122 in jobs.playable_jobs(), "Paladin is not in the playable list")
-	assert_true(112 in jobs.playable_jobs() and 212 in jobs.playable_jobs(), "Hero and F/P stay playable")
+	assert_true(bool(rec.playable), "P9 #317 flips it")
+	assert_eq(jobs.job_error(122), "", "a tool can choose it")
+	var playable := jobs.playable_jobs()
+	assert_true(112 in playable and 122 in playable and 212 in playable, "Hero, Paladin and F/P are playable")
+	assert_true(playable.find(112) < playable.find(122) and playable.find(122) < playable.find(212),
+		"canonical order: Hero, Paladin, then the Arch Mages")
 
 
-func test_job_122_entry_names_no_meter_and_no_hub_kit_yet() -> void:
+func test_job_122_entry_names_no_meter_and_carries_its_hub_kit() -> void:
 	var entry: Dictionary = _data().jobs_survivor.jobs["122"]
 	assert_false(entry.has("meter"), "Paladin's Forms (P3) are its own seam, not a Combo meter")
-	assert_false(entry.has("hub_kit"), "the Paladin hub kit is P9")
+	assert_true(entry.has("hub_kit"), "the Paladin hub kit is P9's")
 
 
 func test_212_and_112_keep_their_entries_unchanged() -> void:
@@ -184,16 +186,19 @@ func test_the_122_ap_row_is_str_primary_dex_secondary_like_hero() -> void:
 	var data := _data()
 	var row: Dictionary = data.balance.player.ap["122"]
 	var hero: Dictionary = data.balance.player.ap["112"]
+	assert_eq(int(row.hp), int(hero.hp), "starting HP is Hero's #346 survivability baseline (orchestrator ruling, tier C)")
 	assert_eq([String(row.primary), String(row.secondary)], ["str", "dex"])
 	assert_eq(row.keyframes, [{"level": 1.0, "target": 4.0}, {"level": 200.0, "target": 204.0}])
 	assert_eq(row.keyframes, hero.keyframes, "the Hero shape (tier C)")
 
 
-func test_paladin_has_no_growth_row_so_it_inherits_the_warrior_line() -> void:
+func test_paladin_hp_growth_is_heros_not_the_warrior_lines() -> void:
 	var data := _data()
-	assert_false(data.balance.growth.has("122"), "HP growth is inherited")
+	assert_true(data.balance.growth.has("122"), "the Paladin carries its own growth row")
+	assert_eq(int(data.balance.growth["122"].hp), int(data.balance.growth["112"].hp), "Hero's melee HP growth (#346)")
+	assert_eq(int(data.balance.growth["122"].hp), 65)
+	assert_eq(int(data.balance.growth["100"].hp), 26, "the Warrior line's own value is untouched")
 	assert_eq(_jobs(data).lineage(122), [122, 121, 120, 100, 0] as PackedInt32Array, "the canonical line up to the root")
-	assert_eq(int(data.balance.growth["100"].hp), 26)
 
 
 func test_a_paladin_spends_its_auto_ap_on_str_and_dex() -> void:

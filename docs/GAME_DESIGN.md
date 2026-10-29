@@ -704,6 +704,25 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+**P9 #317 Paladin selection smoke (spec #308, 2026-10-29).** Record only, no tuning; training seeds 1 and 2, `JOBS=3`,
+private cache `cache-rd308`, `playable` flipped in the shipped data (the first Paladin runs without a patch). A first look, not
+the P10 regression smoke (all four tier-1 stages, bot and random, Hero and F/P unchanged).
+
+| Run | Outcomes | Death seconds | End level | Six actives at | Warnings / missing |
+|---|---|---|---|---|---|
+| Paladin, Henesys, bot, seeds 1, 2 | 0 clears / 2 deaths | 435.7, 318.6 (the first boss alive) | Lv14, Lv10 | 129.2 s, 137.2 s | none / none |
+| Paladin, Sleepywood, bot, `paladin_t2.json`, seeds 1, 2 | 0 clears / 2 deaths | 17.1, 19.7 | Lv5, Lv1 | never | none / none |
+| F/P, Sleepywood, bot, `fp_arch_mage.json` (same seeds, for scale) | 1 clear / 1 death | 23.8 | | | |
+| Hero, Sleepywood, bot, `hero_t2.json` (same seeds, for scale) | 2 clears / 0 deaths | | | | |
+
+The Paladin takes Fire, Ice and Thunder Charge among its six actives in the Henesys runs and Charged Blow fires (the oracle's
+digest agrees); Blast and Holy Charge (hence the Hammer) stay out of the six slots there, which fill first. The Sleepywood kit
+is an unscrolled Lv25 Mace at Lv1 and dies in the first 20 s, like F/P's unscrolled kit in one of its two seeds; Hero's fixture
+(a real god-mode clear with scrolled gear) is a stronger kit. Henesys deaths at the first boss match Hero's and the old F/P
+pattern. This is a smoke finding for P10 and the balance pass, not tuning evidence. `test_character_baseline`,
+`test_tick_cost_identity`, `test_hero_baseline` and `test_il_baseline` pass with their goldens untouched. Records:
+`_scratch/317-smoke/` (gitignored).
+
 **#311 / P3 Form seam regression smoke (2026-10-28).** No balance tuning; training seeds 1/2/2026,
 job 212, bot/random on every tier-1 stage and bot Sleepywood with starter/`fp_arch_mage.json` equipment.
 `ISOLATE=311`, `JOBS=3` set, one seed submitted at a time to limit memory; shared cache read-only.
@@ -6986,10 +7005,14 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | `default_job` pin (#298, spec #296) | `survivor/jobs.json` `default_job` 212: the job of a fresh character and of every tool run, test and oracle that names none, so Hero never changes it by becoming playable; Hero is always chosen explicitly (`--job=112`, the creation Job page). The owner can flip it with this one line | C | Spec #296, risk found while checking the slice |
 | Hero bot card scores (#305, spec #296) | `jobs/hero.json` balance.bot.card_scores: `<key>_new` 100 and `<key>_rank` 74 for each of the seven Hero pool skills (power_strike, slash_blast, brandish, shout, monster_magnet, panic, coma), the same numbers every F/P pool skill has (the default attack scoring, 100 and 62 + 12 job bonus), set explicitly so the meter-gated finishers and the pull, which the default scorer would not take for attacks, are taken whatever their cast rule | C | Spec #296 |
 | Hero hub kit (#305, spec #296) | `HubTestKit.HERO_KIT_SCROLLS` (every rate of the ATT scrolls of the sword, two-handed sword, axe and two-handed axe, 20 stacks of 10) and `HERO_KIT_EQUIPMENT` (1002001 hat, 1402000 two-handed sword, 1082002 gloves, 1040010 top), used for a character of job 112; `--hub --job=112` opens `hero_t2.json`; 500,000 mesos as for F/P | C | Ours, a test aid |
-| Paladin AP row (#310, spec #308) | `jobs/paladin.json` `balance.player.ap["122"]`: the Hero 112 row's shape, STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204. No starting-HP row (Paladin starts at the shared default, not Hero's #346 600); HP growth is inherited from the 100 row (26 per level) | C | Spec #308 (Job data) |
+| Paladin AP row (#310, spec #308) | `jobs/paladin.json` `balance.player.ap["122"]`: the Hero 112 row's shape, STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204. The starting-HP and HP-growth rows were added by P9 #317 (next rows) | C | Spec #308 (Job data) |
 | Paladin creation weapon and families (#310, spec #308) | `jobs/paladin.json` `creation_weapon` 1322000, the Mace (Item.wz, reqJob 3, which includes the Warrior bit, so `requirement_error` accepts it for 122); `weapon_families` `["sword", "blunt"]` filters the shipped Warrior drop list (one- and two-handed), so axes, spears and polearms never drop for a Paladin; armour and shields drop by the Warrior class bit. The item id and stats are tier A | C | Spec #308 |
 | Paladin skill pool and start (#310, spec #308) | `jobs/paladin.json`: `starting_skill` power_strike (slot 1), `mobility_skill` rush_paladin, eight-key `skill_pool` (power_strike, slash_blast, blast, monster_magnet_paladin, fire_charge, ice_charge, thunder_charge, holy_charge). Power Strike and Slash Blast are Hero's definitions; the rest are inert until their tickets define them. The pool and the start are design choices; the WZ ids are tier A | C | Spec #308 (Skill pool table) |
-| Paladin not playable (#310, spec #308) | `jobs/paladin.json` `playable` false: no tool, creation page or test can choose job 122 until P9 (#317) flips it; `default_job` stays 212 | C | Spec #308 |
+| Paladin playable (#310, #317, spec #308) | `jobs/paladin.json` `playable` true since P9 #317 (P2 shipped it false while the job had no skills, Forms or bot); the Job page lists Hero, Paladin, then the Arch Mages (canonical order); `default_job` stays 212 | C | Spec #308 (Making Paladin selectable) |
+| Paladin starting HP and HP growth are Hero's (#317, orchestrator ruling) | `jobs/paladin.json` `balance.player.ap["122"].hp` 600 and `balance.growth["122"].hp` 65, copied from `jobs/hero.json` (Hero's #346 melee survivability baseline), as Dark Knight did. P2 #310 had argued for the shared default (Warrior line 26 per level); the balance pass owns the number | C | Orchestrator ruling for melee jobs, #346 |
+| Paladin hub kit and fixture (#317, spec #308) | `jobs/paladin.json` `hub_kit`: fixture `paladin_t2.json` (a Lv25 Mace 1322004, Warrior-bit armour, tier 2, kit mode), 20 scroll stacks (every rate of the ATT scrolls of the sword, blunt, two-handed sword and two-handed blunt families; `SCROLL_COUNT` 10 each), spare 1002001 / Sword 1302008 / blunt 1322014 / 1082002 / 1040010, `fallback_item` 1302009 (Lv40 Sword) | C | Spec #308, as Hero's kit (#305) |
+| Paladin bot card scores (#317, spec #308) | `jobs/paladin.json` `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for blast, monster_magnet_paladin and the four Charges (power_strike and slash_blast keep Hero's pairs), the numbers every pool skill gets by default, written out so a Charge or Blast is taken whatever its cast rule; `SkillRunner.reach_of` needed no change (Blast is a `weapon_reach` cast, Forms, Magnet and Rush read 0), the Rush escape is Hero's (`BotInput` rule, `rush.bot_threat_distance` 60) | C | Spec #308, as H9 #305 |
+| Paladin baseline oracle (#317, spec #308) | `test_paladin_baseline`: seed 1, 21600 ticks (6 minutes, past the first boss's arrival), bot, god, synthetic assets (`tests/fixtures/paladin_fixtures.gd`), the 212 recipe plus the initial player state in the digest (Hero's), the eight-key pool frozen; its own golden, `test_character_baseline`, `test_tick_cost_identity` and `test_hero_baseline` stay pinned to 212 and 112 | C | Spec #308 (P9), T7 method |
 | Blast (#313, spec #308) | `skills/paladin.json` `blast`: damage 170 -> 550% (the only WZ field: one line, one target), the `blast` action and its 840 ms, the 14-frame effect and 3-frame hit keyed by the element art index, the five Use sounds | A | WZ 122.img/1221009 |
 | Blast cooldown and targeting (#313) | 2.0 s cooldown (the balance pass owns it), `weapon_reach` with `min_targets` 1 (nearest mob in the weapon's swing), 0.84 s action hold, art index 0 until P7, the five sounds played in cast order (`use_cycle`, no RNG) | C | Spec #308 |
 | Blast rarity bonuses (#313) | Rare Mastery damage x1.2, Epic Booster cooldown x0.88, Unique Final Attack +1 hit, Legendary Final Attack plus damage x1.2 (shares the Unique's counter); repeats x0.8 | C | Spec #308 |
