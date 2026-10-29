@@ -858,6 +858,14 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   `WeaponReach.envelope(world)` by the skill's existing `area` modifier on both axes. Admission uses that box; `reach_of` scales the weapon reach by the same area for the bot. The cached
   envelope is never mutated. `UpgradePool` previews `attack_count` as whole hits alongside the existing percent
   `area` preview; the level-up window labels them Hits and Reach. No snapshot schema or RNG stream changes.
+- **`bot.reach` and the pending-strike keys (Buccaneer B8 #420, GAME_DESIGN 7.93).** A definition may carry `"bot": {"reach": N}`
+  (tier C data key): `SkillRunner.reach_of` returns N in place of the geometric reach, so a long box (Dragon Strike's 400 px)
+  does not make the melee bot kite; it is read from the definition (`world.book.def(st.skill)`), not copied into the resolved
+  stats, and no other definition has it. The pending strike (`pending`) gained optional keys, all default-off so Meteor
+  Shower and the others are unchanged: `oriented` (mirror the left-facing box for a right-facing caster, fixed at the cast)
+  and `stagger` (target k lands `delay + k * stagger`, `SkillRunner._drain_staggered`). A definition may also carry
+  `hit_targets` (hit art by target index, cycling) and `hit_lines` (hit art by line, none past the list), resolved in
+  `SkillRunner._resolve_target`; the presentation keys `hit_at_feet`, `hit_skip` (RunScene's `mob_hit` art, `FxRenderer.play_from`) and `cast_visuals[].facing` (`SkillBook.visual_placement`: mirrored x and flip for a right-facing caster).
 - **Self casts:** the generic self-cast rule requires no monster; MP conversion was removed by ADR 0006.
 
 - **Weapon paths and grants** (#226) are gone (#284): no job grants or records a weapon; drops still follow the
@@ -966,7 +974,7 @@ among offered cards with its own seeded RNG and never reads the score setting. T
 | Piece | Approach |
 |---|---|
 | `MapRenderer` | Backgrounds (types 0-7, parallax `x + cam_cx*rx/100`, tiling by `cx/cy`, auto-scroll `rx*5 px/s`, `a`, `f`, front backs) redrawn per frame; static tiles/objs per layer recorded once in a `_draw()` command list; animated objs as canvas items. Draw order: non-front backs -> layers 0..7 (objs by `z`, then tiles by canvas `z`, then actors standing on that layer) -> front backs. |
-| `AvatarRenderer` | Composites body/arm/head/face/hair/coat/pants/shoes(/weapon) per frame using `map` anchors (navel, neck, hand, brow) and `Base.wz/zmap.img` order. Mirrors for facing. A morph (`set_morph`, #194) replaces every part with one frame of `Morph.wz/<id>.img`: the action named like the stance when the img has one, else the mapped basic action (4.4 Form table, "Morph stance rule"). Draws `look.cash` over the outfit (face accessories by expression, weapon covers by weapon type, `vslot` hiding through `smap.img`, an overall replacing top and bottom) through the pure helpers in `AvatarLayers`. A weapon with no art for a stance borrows its fallback (`AvatarLayers.STANCE_FALLBACKS`: `stabO2` draws `stabO1` at the same frame index, #327). |
+| `AvatarRenderer` | Composites body/arm/head/face/hair/coat/pants/shoes(/weapon) per frame using `map` anchors (navel, neck, hand, brow) and `Base.wz/zmap.img` order. Mirrors for facing. A morph (`set_morph`, #194) replaces every part with one frame of `Morph.wz/<id>.img`: the action named like the stance when the img has one, else the mapped basic action (4.4 Form table, "Morph stance rule"). Draws `look.cash` over the outfit (face accessories by expression, weapon covers by weapon type, `vslot` hiding through `smap.img`, an overall replacing top and bottom) through the pure helpers in `AvatarLayers`. A weapon with no art for a stance borrows its fallback (`AvatarLayers.STANCE_FALLBACKS`: `stabO2` draws `stabO1` at the same frame index, #327; `swingTF` draws `swingT3`, a knuckle has no `swingTF`, #420). |
 | `MobRenderer` | One RenderingServer canvas item per live mob slot (no Nodes), region-of-atlas per frame, alpha for `a0/a1` fades. One renderer per foothold layer (`only_layer` + `update_slot_layers`) to draw mobs inside `actor_layer(L)`. |
 | `NameTags` | Elite name tags under mobs (`RunWorld.mob_elite`), drawn like v83's code-drawn default name tag. |
 | `FxRenderer` | Pooled one-shot WZ animations and repeating slow/immunity icons; `play_repeating`, `stop` and `place` follow sim status/expiration without per-entity Nodes. |

@@ -1,6 +1,123 @@
 {
-	"_doc": "Buccaneer skill definitions (spec #412, one region per ticket): B4 #416 moved the five ported knuckle skills (Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut, Corkscrew Blow) here from skills/pirate.json; B5 #417 changes Dash's slot (Dash stays in pirate.json); B6 Energy Drain; B7 Energy Orb; B8 Barrage, Dragon Strike; B9 Transformation, Shockwave; B10 Super Transformation, Demolition, Snatch. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). B2 #414 defined none; B4 #416 defines the first region: the five ported knuckle skills (default eight-rank table, no weapon gate, rarity bonuses).",
+	"_doc": "Buccaneer skill definitions (spec #412, one region per ticket): B4 #416 moved the five ported knuckle skills (Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut, Corkscrew Blow) here from skills/pirate.json; B5 #417 changes Dash's slot (Dash stays in pirate.json); B6 Energy Drain; B7 Energy Orb; B8 Barrage, Dragon Strike (#420, listed first); B9 Transformation, Shockwave; B10 Super Transformation, Demolition, Snatch. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). B2 #414 defined none; B4 #416 defines the first region: the five ported knuckle skills (default eight-rank table, no weapon gate, rarity bonuses).",
 	"skills": {
+		"barrage": {
+			"skill_id": 5121007,
+			"book": "512",
+			"job": 512,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Barrage",
+			"desc": "Punches one monster six times in a row.",
+			"text": {
+				"desc": "Six fast punches at a single monster within your knuckler's reach.",
+				"h": "Damage {damage}% x {attack_count}, 1 monster."
+			},
+			"icon": "Skill.wz/512.img/skill/5121007/icon",
+			"damage": "physical",
+			"_tier": "Tier A: canonical damage 94 to 230% (levels 4 to 30 read), attackCount 6, the fist action, effect and hit art, Use and Hit sounds. Tier C (BU-18, BU-19): no weapon gate (ADR 0006), the WZ level has no box or mobCount, so it follows the Double Uppercut rule: one monster inside the held weapon's swing envelope, more only from rarity bonuses; default level-30 rank table (levels 4, 8, 12, 15, 19, 23, 27, 30); cooldown 1.2 s and action hold 0.9 s; all six lines land at the cast (the fist stance's flurry is 0.45 s to 0.9 s of its 2.4 s); hit art tier B reading: hit/0 already holds four jabs and plays once on the first line, hit0/0 and hit1/0 are the fifth and sixth lines, lines beyond six draw no art; rarity bonuses (GAME_DESIGN 7.93); untuned.",
+			"cast": {
+				"rule": "weapon_reach"
+			},
+			"cooldown": 1.2,
+			"action": "fist",
+			"action_time": 0.9,
+			"ball": "",
+			"hit": "Skill.wz/512.img/skill/5121007/hit/0",
+			"hit_lines": [
+				"Skill.wz/512.img/skill/5121007/hit/0",
+				"",
+				"",
+				"",
+				"Skill.wz/512.img/skill/5121007/hit0/0",
+				"Skill.wz/512.img/skill/5121007/hit1/0"
+			],
+			"effect": "Skill.wz/512.img/skill/5121007/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5121007/Use",
+				"hit": "Sound.wz/Skill.img/5121007/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}
+				],
+				"unique": [
+					{"id": "endless", "text": "Endless Barrage", "effects": [{"stat": "attack_count", "op": "add", "value": 2}]}
+				],
+				"legendary": [
+					{"id": "endless", "text": "Endless Barrage", "effects": [{"stat": "attack_count", "op": "add", "value": 2}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
+		"dragon_strike": {
+			"skill_id": 5121001,
+			"book": "512",
+			"job": 512,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Dragon Strike",
+			"desc": "Raises a dragon that strikes a long line of monsters a moment later.",
+			"text": {
+				"desc": "Raises a dragon in front of you; a moment later light pillars strike the monsters along a 400 px line."
+			},
+			"icon": "Skill.wz/512.img/skill/5121001/icon",
+			"damage": "physical",
+			"_tier": "Tier A: canonical damage 275 to 810% (levels 4 to 30 read), mobCount 4 to 6, the box lt (-400,-100) rb (25,20), the dragonstrike action, effect, hit/0..2 and tile art, the hitAfter timing (840 ms plus 120 ms per hit variant), Use and Hit sounds. Tier C (BU-17, BU-19, BU-21): no weapon gate (ADR 0006), default level-30 rank table; the strip is fixed where and which way the dragon was raised and its targets are queried at the impact (a pending strike, like Meteor Shower, but mirrored with the facing: pending.oriented); the impact is 0.84 s after the cast (hitAfter of the first target) and each later target lands pending.stagger 0.12 s after the one before (hitAfter of hit/1 and hit/2); the cast needs one monster in the strip; cooldown 4.8 s (Meteor Shower's) and action hold 0.8 s; hit/0..2 are picked by target index (index mod 3) and start mid-animation (hit_skip 0.84 s: the WZ plays them from the cast, so the pillar is at full height when the number appears) with the pillar's base on the monster's feet (hit_at_feet); tile/0..2 are cast visuals at -200 px steps behind the caster's facing (tile/3 lies outside the box); bot.reach 0 so a melee bot does not kite; rarity bonuses (GAME_DESIGN 7.93); untuned.",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"bot": {
+				"reach": 0
+			},
+			"pending": {
+				"delay": 0.84,
+				"stagger": 0.12,
+				"oriented": true,
+				"effect": ""
+			},
+			"cooldown": 4.8,
+			"action": "dragonstrike",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/512.img/skill/5121001/hit/0",
+			"hit_targets": [
+				"Skill.wz/512.img/skill/5121001/hit/0",
+				"Skill.wz/512.img/skill/5121001/hit/1",
+				"Skill.wz/512.img/skill/5121001/hit/2"
+			],
+			"hit_at_feet": true,
+			"hit_skip": 0.84,
+			"effect": "Skill.wz/512.img/skill/5121001/effect",
+			"cast_visuals": [
+				{"path": "Skill.wz/512.img/skill/5121001/tile/0", "x": 0, "facing": true},
+				{"path": "Skill.wz/512.img/skill/5121001/tile/1", "x": -200, "facing": true},
+				{"path": "Skill.wz/512.img/skill/5121001/tile/2", "x": -400, "facing": true}
+			],
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5121001/Use",
+				"hit": "Sound.wz/Skill.img/5121001/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "wide_dragon", "text": "Wide Dragon", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}
+				],
+				"unique": [
+					{"id": "roaring", "text": "Roaring Dragon", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}
+				],
+				"legendary": [
+					{"id": "roaring", "text": "Roaring Dragon", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
 		"flash_fist": {
 			"skill_id": 5001001, "book": "500", "job": 500, "kind": "instant", "slot": "active",
 			"name": "Flash Fist", "desc": "Punches one monster in front of you.",

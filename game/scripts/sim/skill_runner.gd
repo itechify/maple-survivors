@@ -120,10 +120,15 @@ static func restart_cooldown(st: Dictionary) -> float:
 ## decide how close an attack needs it: a projectile or nearest-rule skill its range, a box skill its far edge (area
 ## cards included, the facing side), 0 for anything that is not an attack (buffs, manual skills, status-only and heal
 ## casts). One switch on the cast rule: weapon_reach is the held weapon's swing reach scaled by this skill's area
-## modifier, range_around the level's `range` around the body.
+## modifier, range_around the level's `range` around the body. A definition's `"bot": {"reach": N}` replaces the geometric
+## reach with N (tier C data key, Buccaneer BU-21: Dragon Strike's 400 px strip must not make a melee brawler kite); no
+## other definition has it.
 static func reach_of(st: Dictionary, world: RunWorld) -> float:
 	if String(st.get("meter", {}).get("role", "")) == "finisher" or String(st.kind) == "buff" or String(st.damage_type) == "none":
 		return 0.0
+	var declared: Dictionary = world.book.def(String(st.skill)).get("bot", {})
+	if declared.has("reach"):
+		return maxf(float(declared.reach), 0.0)
 	match String(st.cast_rule):
 		"", "nearest", "range_around", "cluster":
 			return maxf(float(st.range), 0.0)
@@ -666,6 +671,15 @@ static func blast_rect(st: Dictionary, at: Vector2) -> Rect2:
 	return Rect2(box.position + at, box.size)
 
 
+## The pending strike's box of resolved stats `st` around `at` for a caster that faced `facing`: the left-facing canonical box
+## mirrored across `at` for a right-facing caster (the box rule's own mirroring, fixed at the cast).
+static func oriented_rect(st: Dictionary, at: Vector2, facing: int) -> Rect2:
+	var box: Rect2 = st.box
+	if facing > 0:
+		box.position.x = -box.end.x
+	return Rect2(box.position + at, box.size)
+
+
 static func _feet(world: RunWorld, m: int) -> Vector2:
 	return Vector2(world.swarm.x[m], world.swarm.y[m])
 
@@ -740,12 +754,25 @@ func _resolve_crowd(world: RunWorld, key: String, st: Dictionary, targets: Packe
 func _resolve_instant_targets(world: RunWorld, st: Dictionary, targets: PackedInt32Array,
 		limit: int, lines: int, hv: int) -> void:
 	for i in mini(limit, targets.size()):
-		var slot := targets[i]
-		for line in lines:
-			# Both queries return valid slots. Keep nearest's active-mask check; is_live adds only bounds checks.
-			if world.swarm.active[slot] == 0:
-				break
-			world.hit_mob(slot, st, hv)
+		_resolve_target(world, st, targets[i], i, lines, hv)
+
+
+## The `lines` damage lines on `slot`, the `index`-th target of its cast. The definition's `hit_targets` (art by target index,
+## cycling: Dragon Strike's hit/0..2) and `hit_lines` (art by line, none past the list: Barrage's jab/finisher sets) replace
+## the single hit visual `hv`; a definition with neither keeps it for every line.
+func _resolve_target(world: RunWorld, st: Dictionary, slot: int, index: int, lines: int, hv: int) -> void:
+	var d := world.book.def(String(st.skill))
+	var by_target: Array = d.get("hit_targets", [])
+	var by_line: Array = d.get("hit_lines", [])
+	var target_hv := world.visual_index(String(by_target[index % by_target.size()])) if not by_target.is_empty() else hv
+	for line in lines:
+		# Both queries return valid slots. Keep nearest's active-mask check; is_live adds only bounds checks.
+		if world.swarm.active[slot] == 0:
+			break
+		var line_hv := target_hv
+		if not by_line.is_empty():
+			line_hv = world.visual_index(String(by_line[line])) if line < by_line.size() else -1
+		world.hit_mob(slot, st, line_hv)
 
 
 func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets: PackedInt32Array) -> void:
@@ -874,7 +901,10 @@ func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
 	_areas.append({"st": cast_snapshot(st), "anchor": world.player.pos, "age": 0.0,
 		"next": interval if interval > 0.0 else float(pending.get("delay", 0.0)),
 		"duration": duration, "interval": interval, "follow": bool(pending.get("follow_player", false)),
-		"effect": String(pending.get("effect", ""))})
+		"effect": String(pending.get("effect", "")),
+		# tier C (Buccaneer #420): `oriented` fixes the left-facing box's side at the cast, `stagger` spaces the targets' hits.
+		"facing": world.player.facing if bool(pending.get("oriented", false)) else 0,
+		"stagger": float(pending.get("stagger", 0.0))})
 	if not ground.is_empty():
 		world.emit("skill_ground", {"skill": key, "pos": world.player.pos, "box": st.box,
 			"effect": String(ground.get("tile", "")), "duration": duration})
@@ -886,12 +916,17 @@ func _step_areas(dt: float, world: RunWorld) -> void:
 		a.age = float(a.age) + dt
 		var st: Dictionary = a.st
 		var key := String(st.skill)
+		if a.has("queue"):
+			if _drain_staggered(world, a):
+				_areas.remove_at(i)
+			continue
 		while float(a.age) + 1e-9 >= float(a.next):
 			if float(a.interval) > 0.0 and float(a.next) > float(a.duration) + 1e-9:
 				break
 			var anchor: Vector2 = world.player.pos if bool(a.follow) else a.anchor
 			var limit := world.swarm.capacity() if float(a.interval) > 0.0 else int(st.mob_count)
-			var targets := world.skill_rect_targets(blast_rect(st, anchor), anchor, limit)
+			var rect := oriented_rect(st, anchor, int(a.facing)) if int(a.facing) != 0 else blast_rect(st, anchor)
+			var targets := world.skill_rect_targets(rect, anchor, limit)
 			if float(a.interval) > 0.0:
 				for m in targets:
 					var ground: Dictionary = world.book.def(key).get("ground", {})
@@ -902,9 +937,29 @@ func _step_areas(dt: float, world: RunWorld) -> void:
 				a.next = float(a.next) + float(a.interval)
 			else:
 				world.emit("skill_impact", {"skill": key, "pos": anchor, "effect": String(a.effect)})
-				_resolve_instant_targets(world, st, targets, limit, int(st.attack_count),
-					world.visual_index(String(st.hit)))
+				if float(a.stagger) > 0.0:
+					# The targets are fixed at the impact; target k lands k * stagger later (WZ hitAfter 840 + 120 k ms).
+					a["queue"] = targets
+					a["done"] = 0
+				else:
+					_resolve_instant_targets(world, st, targets, limit, int(st.attack_count),
+						world.visual_index(String(st.hit)))
 				break
-		if (float(a.interval) <= 0.0 and float(a.age) + 1e-9 >= float(a.next)) \
+		if a.has("queue"):
+			if _drain_staggered(world, a):
+				_areas.remove_at(i)
+		elif (float(a.interval) <= 0.0 and float(a.age) + 1e-9 >= float(a.next)) \
 				or (float(a.interval) > 0.0 and float(a.age) + 1e-9 >= float(a.duration)):
 			_areas.remove_at(i)
+
+
+## Resolves the queued targets of staggered strike `a` that are due (target k at delay + k * stagger); true once all landed.
+func _drain_staggered(world: RunWorld, a: Dictionary) -> bool:
+	var st: Dictionary = a.st
+	var queue: PackedInt32Array = a.queue
+	var done := int(a.done)
+	while done < queue.size() and float(a.age) + 1e-9 >= float(a.next) + float(a.stagger) * done:
+		_resolve_target(world, st, queue[done], done, int(st.attack_count), world.visual_index(String(st.hit)))
+		done += 1
+	a.done = done
+	return done >= queue.size()

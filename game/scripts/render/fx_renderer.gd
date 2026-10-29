@@ -52,6 +52,20 @@ func play(path: String, pos: Vector2, flip: bool = false, follow: Node2D = null,
 	return play_anim(a, pos, flip, follow, offset, hold)
 
 
+## Plays the animation at a WZ path as if it had started `start` seconds ago (Dragon Strike's pillars, whose WZ timing counts from
+## the cast). Returns the slot id (of the `behind` renderer for a negative-z animation), or -1 when the animation is missing.
+func play_from(path: String, pos: Vector2, flip: bool, start: float) -> int:
+	var lib := _lib()
+	var a := lib.anim(path) if lib != null else null
+	if a == null or a.is_empty():
+		return -1
+	var owner: FxRenderer = behind if behind != null and behind != self and a.z != null and int(a.z) < 0 else self
+	var i := owner.play_anim(a, pos, flip)
+	owner._t[i] = start
+	owner._draw_slot(i)
+	return i
+
+
 ## Plays an already resolved animation (see play()).
 func play_anim(a: SpriteAnim, pos: Vector2, flip: bool = false, follow: Node2D = null, offset: Vector2 = Vector2.ZERO,
 		hold: bool = false) -> int:
