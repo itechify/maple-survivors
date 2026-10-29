@@ -221,7 +221,7 @@ func test_the_shipping_data_defines_dash_and_its_cards() -> void:
 	assert_eq((def.ranks as Array).size(), 10)
 	assert_true(KeyBindings.SKILL_KEYS.has("dash"))
 	for teleport: String in ["teleport_fp", "teleport_il", "teleport_cleric"]:
-		assert_eq(data.skills.skills[teleport].skill_key, "teleport", teleport)
+		assert_eq(SkillBook.from_data(data.skills, {}).def(teleport).skill_key, "teleport", teleport)
 	assert_true(KeyBindings.SKILL_KEYS.has("teleport"))
 	var cards: Array = data.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.get("skill", "") == "dash")
 	assert_eq(cards.map(func(c: Dictionary) -> String: return c.id), ["dash_new", "dash_rank"])

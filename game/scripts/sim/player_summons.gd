@@ -157,10 +157,21 @@ func _targets(i: int, world: RunWorld, both_sides: bool) -> PackedInt32Array:
 		var body := world.swarm.mob_kind(m).hitbox_at(world.swarm.x[m], world.swarm.y[m], world.swarm.facing[m])
 		if query.intersects(body, true):
 			matches.append(m)
+	# Opt-in `summon.priority_status` (tier C reading of the WZ attack `priority`): after scheduled bosses (they take no
+	# statuses), monsters running that status come before the rest. Without the key the sort is the shared one, untouched.
+	var priority := MobSwarm.STATUS_NAMES.find(String(definitions[i].get("priority_status", "")))
 	matches.sort_custom(func(a: int, b: int) -> bool:
+		if priority >= 0:
+			var boss := world.is_scheduled_boss(a)
+			if boss != world.is_scheduled_boss(b):
+				return boss
+			var marked := world.swarm.status_time(a, priority) > 0.0
+			if marked != (world.swarm.status_time(b, priority) > 0.0):
+				return marked
 		return world.targets_before(a, world.mob_center(a).distance_squared_to(pos),
 			b, world.mob_center(b).distance_squared_to(pos)))
 	return PackedInt32Array(matches)
+
 
 func _hit(i: int, world: RunWorld) -> void:
 	var st := stats[i]

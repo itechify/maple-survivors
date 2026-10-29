@@ -37,11 +37,15 @@ const FILES := {
 	"cash_items": "survivor/cash_items.json",
 	"ammo": "survivor/ammo.json",
 }
-## Adventurer lines retain their historical merge order; class lines are discovered and sorted after them.
+## Adventurer lines retain their historical merge order; class lines retain append-only registration order.
 const ADVENTURER_LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"]
 
 
-## All JSON fragment names present in any split directory, fixed Adventurers first then sorted class names.
+## Append each shipped class here; existing entries never move (tier C: deterministic fragment order).
+const CLASS_LINES: PackedStringArray = ["hero", "il_arch_mage"]
+
+
+## All present fragments: fixed Adventurers, registered classes, then unregistered names sorted for diagnostics.
 static func lines(root: String = DATA_ROOT) -> PackedStringArray:
 	var classes := PackedStringArray()
 	for key: String in SPLIT:
@@ -54,6 +58,10 @@ static func lines(root: String = DATA_ROOT) -> PackedStringArray:
 				classes.append(line)
 	classes.sort()
 	var out := ADVENTURER_LINES.duplicate()
+	for line in CLASS_LINES:
+		if line in classes:
+			out.append(line)
+			classes.remove_at(classes.find(line))
 	out.append_array(classes)
 	return out
 
@@ -122,6 +130,7 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 		else:
 			out[key] = {}
 			errors.append("cannot read %s" % path)
+	errors.append_array(skill_template_errors(out.get("skills", {})))
 	# Class-owned balance rows enter through this single reader, after the shared defaults.
 	for line in lines(root):
 		var fragment: Variant = load_json(fragment_path("jobs_survivor", line, root))
@@ -130,6 +139,16 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 	errors.append_array(stage_label_errors(out.get("stages", {})))
 	errors.append_array(stage_map_errors(out.get("stages", {})))
 	return out
+
+
+## The errors of the skill templates (`extends`, spec #319 M19, SkillTemplate) in the merged skills data. The data is
+## left raw: SkillBook resolves it.
+static func skill_template_errors(skills_file: Dictionary) -> PackedStringArray:
+	var errors := PackedStringArray()
+	var skills: Variant = skills_file.get("skills")
+	if skills is Dictionary:
+		SkillTemplate.resolve(skills, errors)
+	return errors
 
 
 ## The data of a SPLIT key: its base file (`_doc` and the job-neutral config) with the entries of every existing line

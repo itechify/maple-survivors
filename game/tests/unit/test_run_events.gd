@@ -322,6 +322,25 @@ func test_every_event_matches_the_schema() -> void:
 		grenadier.step(DT, MoveInput.new())
 	for event: Dictionary in grenadier.drain_events():
 		_check(event, seen)
+	# A chain cast (#323): skill_chain, schema-checked like every event. The skill is synthetic.
+	var chain_setup := RF.setup("quiet", 323, RF.quiet_data())
+	var chain_levels := {}
+	for lv in range(1, 31):
+		chain_levels[str(lv)] = {"mad": 100.0, "mastery": 10.0, "mobCount": 3.0}
+	chain_setup.skill_imgs["212"] = {"skill": {"9992000": {"level": chain_levels}}}
+	var chainer := RunWorld.new(chain_setup)
+	RF.place_player(chainer, 200)
+	chainer.loadout.order.clear()
+	chainer.book.defs["chain_test"] = {"skill_id": 9992000, "book": "212", "job": 212, "kind": "instant",
+		"slot": "active", "damage": "magic", "cooldown": 1.6, "ranks": [1], "action": "swingO1", "action_time": 0.5,
+		"ball": "", "hit": "", "effect": "", "cast": {"rule": "chain", "acquire": 450, "hop": 200, "min_targets": 1}}
+	assert_true(chainer.learn_skill("chain_test"))
+	RF.put_mob(chainer, 1110100, 260, 195, 1000)
+	RF.put_mob(chainer, 1110100, 330, 195, 1000)
+	chainer.mob_grid.rebuild(chainer.swarm.x, chainer.swarm.y, chainer.swarm.active)
+	chainer.runner.step(DT, chainer)
+	for event: Dictionary in chainer.drain_events():
+		_check(event, seen)
 	# Spec #34 pet events: the pet's own drink and its teleport to a player who left it behind.
 	var pet_world := PF.world([PF.KITTY, PF.AUTO_HP], {"hp": 0.5})
 	pet_world._hp = 1.0

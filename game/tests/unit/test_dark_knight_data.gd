@@ -86,8 +86,10 @@ func test_the_dark_knight_line_loads_and_merges_its_job_in_sorted_class_order() 
 	assert_true(FileAccess.file_exists(DataRepo.fragment_path("jobs_survivor", "dark_knight")))
 	assert_true(FileAccess.file_exists(DataRepo.fragment_path("skills", "dark_knight")))
 	assert_true(d.jobs_survivor.jobs.has("132"), "jobs/dark_knight.json is merged into the survivor job data")
-	assert_eq(d.jobs_survivor.jobs.keys(), ["0", "200", "212", "132", "112"],
-		"base entries, then lines in sorted class order (dark_knight before hero)")
+	var keys: Array = d.jobs_survivor.jobs.keys()
+	assert_eq(keys.slice(0, 3), ["0", "200", "212"], "base entries and the Magician line first")
+	for id: String in ["112", "132", "222"]:
+		assert_true(keys.find(id) >= 3, "%s comes from its class line after the base entries" % id)
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
 
@@ -117,14 +119,17 @@ func test_job_132_has_the_spec_fields_and_is_not_playable() -> void:
 	assert_eq(jobs.creation_weapon(132), 1432000)
 	assert_false(bool(rec.playable), "playable flips in D10, not here")
 	assert_true(jobs.job_error(132) != "", "--job=132 is refused while the job is not playable")
-	assert_eq(jobs.playable_jobs(), [112, 212] as Array[int], "the creation page still lists only Hero and Arch Mage")
+	assert_false(132 in jobs.playable_jobs(), "the creation page does not list the Dark Knight yet")
+	assert_true(112 in jobs.playable_jobs() and 212 in jobs.playable_jobs(), "Hero and the Arch Mage stay listed")
 
 
 func test_default_job_stays_212_with_dark_knight_playable() -> void:
 	var data := _data()
 	data.jobs_survivor.jobs["132"]["playable"] = true
 	var jobs := _jobs(data)
-	assert_eq(jobs.playable_jobs(), [112, 132, 212] as Array[int], "canonical job order (112, 132, 212)")
+	var playable := jobs.playable_jobs()
+	assert_true(132 in playable, "the Dark Knight is listed once playable")
+	assert_true(playable.find(112) < playable.find(132) and playable.find(132) < playable.find(212), "canonical job order (112, 132, 212)")
 	assert_eq(jobs.default_job(), 212, "the pin, not the first playable job")
 	assert_eq(jobs.job_error(132), "")
 

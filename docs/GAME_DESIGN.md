@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships Hero (112) and Arch Mage (Fire, Poison, 212); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112), Arch Mage (Fire, Poison, 212), the default, and Arch Mage (Ice, Lightning, 222); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -14,7 +14,7 @@ On the `redesign` branch, **ADR 0006** replaced v83 progression with survivor-ge
 (spec #282, tickets #283-#294) built it end to end for one job; this section is the summary and the owner of any
 conflict: where a later section still describes a removed system, this section wins. The slice rewrote sections 1, 5,
 6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 describe mechanics of the other job lines (Warrior, Bowman, Thief, Pirate,
-I/L, Cleric): their data and tests stay on `redesign` and are unplayable until each line is ported, so read them as the
+Cleric): their data and tests stay on `redesign` and are unplayable until each line is ported, so read them as the
 specification for that port, not as the live game; advancement, weapon paths, weapon-gated skills and standalone
 behaviour cards mentioned in them are gone. Target design:
 
@@ -57,7 +57,7 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   `tiers_unlocked` (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
   every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
   Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
-  jobs (Hero 112 and Arch Mage 212), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
+  jobs (Hero 112, Arch Mage 212 and Arch Mage 222), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
   Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
   tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
   `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
@@ -97,6 +97,13 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
 
 **Landed in the Hero spec (#296, H1–H10 #297–#306):** Hero (112) is selectable alongside F/P, which remains the default (212). Hero starts with Power Strike and manual Rush, seven pool actives, a ten-orb Combo meter, Panic/Coma finishers and Monster Magnet's shared pull. H1 verified the books, sounds and weapon actions; H2 added the class line/AP/drop families; H3/H4 built the deterministic meter/pull boundaries; H5–H8 supplied skills and rarity effects; H9/H10 supplied two-job creation/tooling, the diagnostic `hero_t2.json`, the independent Hero replay oracle and QA. Sections 7.33–7.35 and the provenance rows own the mechanics. No balance tuning was done; melee survivability remains a balance-pass concern.
 
+**Landed in the I/L Arch Mage spec (#319, #320–#331):** job 222 is playable beside the default 212, with Cold Beam
+and manual Teleport from Lv1. The twelve-skill pool adds the core ice/lightning bolts, Ice Demon and fire vulnerability,
+Ifrit with marked-target priority, Chain Lightning with visible hops and a staff stance fallback, Blizzard's delayed tiles
+and freeze, and Big Bang through the shared skill-template seam. Ranks, rarity bonuses, Mastery, equipment, saves and
+menus reuse the F/P systems. Tooling includes `--job=222`, the I/L tier-2 fixture and job-aware creation/redesign flows.
+The deterministic I/L oracle now covers the full pool; F/P oracles remain unchanged. QA results are in section 4.2.
+
 ### Known design gaps (open after the slice)
 
 These are findings of the QA pass, #293 and #307, recorded as gaps, not as met targets. Nothing here was tuned in #294.
@@ -124,7 +131,7 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
 ## 1. The run
 
 1. **Create or continue.** Character select shows three slots. Creating a character is name, look (the v83 Explorer
-   face, hair and outfit options) and a Job page listing the playable jobs (Hero and Arch Mage (Fire, Poison), with the latter selected by default);
+   face, hair and outfit options) and a Job page listing the playable jobs (Hero, Arch Mage (Fire, Poison) and Arch Mage (Ice, Lightning), with Arch Mage (Fire, Poison) selected by default);
    the character is that 4th job from Lv1 and keeps it for good. Selecting a living character opens its **Free Market**.
 2. **Free Market (home).** The v83 Entrance 910000000 with Bgm00/FloralLife. Walking, jumping, its two ladders and the
    existing same-map portal links work; no combat, spawning, drops or round timer run there. The Equip (E) and Item (I)
@@ -134,7 +141,7 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
 3. **Map select** lists every stage of every unlocked tier: Henesys, Ellinia, Perion and Kerning City (tier 1, always
    open) and Sleepywood (tier 2). A locked card is greyed, its details say "Locked. Clear any stage of Tier 1 to unlock
    Tier 2." and Start does nothing. Each stage contains three ordered maps (4.1). Back returns to the Free Market.
-4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt for F/P, Power Strike for Hero,
+4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt for F/P, Cold Beam for I/L, Power Strike for Hero,
    active slot 1) and its mobility skill (Teleport or Rush) on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
 5. **Survive** the growing swarms. Each map's boss arrives 300 seconds after entering it. Defeat it, collect all
    drops and finish every pending choice with combat frozen, then transfer automatically to the next map. HP, Hidden,
@@ -470,7 +477,6 @@ with power 3. All use 1,200 s of whole-round time. At 600 s the map2/3 added sca
 HP 0.1425 / damage 0.195; at 1,200 s all scales reach 1, on top of existing stage scales. This deliberately
 allows a typical three-map round to end before the full ramp; longer rounds reach full strength at 20:00.
 Paired kit/starter measurements are recorded below. All ramp choices are tier C first-pass tuning.
-
 
 
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
@@ -833,6 +839,52 @@ seven-frame Brandish sheet were inspected in `evidence/h5-301/`. Full suite: **2
 0 skipped**, 210 files, 1598.1 s; F/P oracle expectations unchanged. The live shots draw at about 1 FPS;
 they are cast/hit evidence, not performance evidence. The paused sheet verifies the body/weapon poses.
 
+**I/L QA smoke (spec #319, I12 #331, 2026-10-28).** Training seeds 1, 2, 2026, `JOBS=3`, private
+`cache-320`, no patch: every tier-1 stage with bot and random for both 222 and 212, plus Sleepywood bot with
+starter gear and each job's tier-1 kit fixture. All 60 records completed without crashes, warnings, missing assets
+or TIMEOUTs. No balance tuning or held-out seeds. Cells are clears/3 and death-time range in seconds; Sleepywood
+lists each seed's D(eath)/C(lear) time in seed order 1/2/2026.
+
+| Stage | I/L bot | I/L random | F/P bot | F/P random |
+|---|---|---|---|---|
+| Henesys | 0/3; 309.5–505.0 | 0/3; 309.1–672.6 | 0/3; 305.0–651.7 | 0/3; 308.3–309.9 |
+| Ellinia | 0/3; 624.1–654.6 | 0/3; 627.6–658.2 | 0/3; 629.1–644.2 | 0/3; 328.4–660.2 |
+| Perion | 0/3; 308.3–669.7 | 0/3; 389.6–425.7 | 0/3; 305.7–456.3 | 0/3; 308.7–421.5 |
+| Kerning | 0/3; 309.6–537.7 | 0/3; 307.0–316.4 | 0/3; 307.9–315.0 | 0/3; 306.0–317.3 |
+| Sleepywood starter | 0/3; D11.4, D11.8, D11.6 | — | 0/3; D11.4, D10.6, D12.0 | — |
+| Sleepywood kit | 1/3; D683.6, C918.6, D14.7 | — | 1/3; D23.8, C936.2, D826.2 | — |
+
+**Weak survival, for the orchestrator:** both jobs cleared 0/24 tier-1 runs. Every I/L tier-1 run reached the first
+boss (some defeated one or two); this is neither "every run dies before the first boss" nor "every run clears".
+Henesys bot filled six actives 3/3 for I/L (137.0–228.3 s) and F/P (136.7–205.3 s), and reached the first boss 3/3
+each. I/L Sleepywood kit seed 2 cleared all three bosses at Lv80; seed 1 died at Lv64 after two bosses and seed
+2026 died at Lv4. Starter Sleepywood died before the first boss for both jobs. These are smoke findings, not balance
+acceptance; the orchestrator decides readiness. Compared with I11's incomplete-pool first look, I/L Henesys seed 2
+now dies, rather than clears; F/P Henesys bot seeds 1/2 reproduce I11's 651.7/305.0 s. I/L's complete pool changes
+card trajectories, so the old six-skill sample is not a full-pool baseline. Other differences from older smokes are
+not causally attributed. Raw per-seed JSON, exact reports and configuration logs: `_scratch/331-smoke/` (gitignored).
+
+I12 verification: cached full suite **2205 executed passes, 0 failed, 0 skipped**; cache-less full suite
+**1967 executed passes, 0 failed, 238 SKIPs** (2205 total). SKIPs prove no asset behaviour; each is named in the
+preserved QA log. Both F/P oracles pass unchanged, and the complete-pool I/L oracle reproduces. Both redesign flows,
+the I/L Skill-window flow, ordinary Henesys/Sleepywood playtests and diagnostic casts of all twelve skills with wand
+and staff were checked by eye (`evidence/i12/`, gitignored), all final playtest summaries `missing: []`. Rust70 and
+web-shell62 passed. Pinned web templates are absent locally: export/artifact verification remains a CI gate.
+
+**I/L selection and tooling smoke (spec #319, I11 #330, 2026-10-28).** Feature smoke only, no tuning: Henesys, bot, training seeds
+1 and 2, real cache (`cache-320`, the I/L books), JOBS=3. F/P (212): both records are byte-identical to the spec #319 tip's
+(`spec/319-il-arch-mage` at c058729, same seeds; every record key equal), seed 1 DEAD 651.7 s Lv36, seed 2 DEAD 305.0 s Lv11. I/L
+(`--job=222`, with `PATCH=` making it playable; the pool is Energy Bolt, Magic Claw, Cold Beam, Thunder Bolt, Ice Strike and
+Thunder Spear until I4 and I7-I10 land, so six actives fill with no Ifrit, Blizzard or Big Bang):
+
+| Henesys, bot | Outcome / time / level | Six actives | Map 2 / 3 entry |
+|---|---|---|---|
+| I/L seed 1 | DEAD / 378.0 s / Lv15; 15 picks, 388 kills (map 2 boss) | 177.0 s | 312.0 s / - |
+| I/L seed 2 | CLEARED / 916.3 s / Lv50; 52 picks, 4,522 kills | 211.8 s | 311.1 / 613.5 s |
+
+No crash, warning or missing asset in either; both oracle goldens (`test_character_baseline`, `test_tick_cost_identity`) are unchanged. The tick-cost oracle explicitly pins Cold Beam and Thunder Bolt to their legacy cooldowns, ranks and bonuses; it tests the historical definitions, not today’s shipped I/L definitions. The I/L
+numbers are a first look at an incomplete pool, not a baseline (I12 owns the pass).
+
 **#282 review fixes (2026-10-28).** Targeted regression requested for this review task:
 Henesys, bot, training seed 1, real cache, no balance tuning or held-out seeds. Correct passive rarity RNG,
 independent ground procs, poison refresh and mobility progression deliberately change seeded trajectories.
@@ -1011,7 +1063,6 @@ recorded within the documented 40–60 regression envelope, not claimed to meet 
 Final validation (#293): `ISOLATE=293 bash scripts/test.sh` with the real cache: **1985 tests, 0 failed,
 0 skipped**, 206 files, 1002.5 s. No tests deleted; contact/relocation/schema fixtures isolate the mechanic
 from faster starting spells, and the EXP/cooldown-dependent replay baselines were refreshed.
-
 
 
 **#291 summon regression smoke (2026-10-28).** Seeds 1/2/2026, every tier-1 stage, bot/random,
@@ -4718,15 +4769,14 @@ existing shots finish separately from carry-over projectile kills.
 | Slow (2101003 / 2201003) | F/P / I/L Wizard | At least 3 eligible unslowed mobs in canonical `lt`/`rb`; nearest-first up to `mobCount`, signed canonical `x` for `time`, 1 s recast delay | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
 
 | Teleport (2101002 / 2201002 / 2301001; `teleport_fp` / `teleport_il` / `teleport_cleric`) | F/P / I/L / Cleric | Manual X: arrow direction, otherwise facing. Horizontal blink lands on a floor up to canonical range, stopped by walls/map limits; vertical blink needs a floor strictly above/below within range. Ground/air allowed; climbing blocks it. Successful blinks pay canonical MP and emit fixed departure/arrival effects and Use sound. Hold repeats every 0.3 s (tier C); invalid destinations and short MP spend nothing. HUD shows X and dims when unaffordable. | ranks 1-20 = levels 1-20; `mpCon` 60 to 13, `range` 130 to 150 px (tier A, all three books) | branch-specific learn and rank cards only; no grant or slot cap |
-| Cold Beam (2201004) | I/L Wizard | Instant ice hit on the nearest target within 300 px every 1.25 s; canonical `mad`/`mastery`/`mpCon`; guaranteed freeze attempt for canonical `time` (1–2 s), rejected by bosses and ice-status immunity; real `effect` and `hit/0`, no `ball` | ranks 1–30 = levels 1–30 | learn/rank; Spreading Frost (+1 target, 3 steps), Quick Frost (cooldown ×0.88, 3 steps) |
-| Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Forking Storm (+2 targets, 3 steps; tier C), Quick Storm (cooldown ×0.88, 3 steps) |
+| Cold Beam (2201004) | I/L Arch Mage | Moved to the I/L pool, section 7.60 (I6, #325): nearest-target ice hit every 0.5 s, freeze for canonical `time`; eight mapped ranks, rarity bonuses | ranks 1–8 = levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and Mastery with rarity bonuses (section 8); no standalone modifier cards |
+| Thunder Bolt (2201005) | I/L Arch Mage | Moved to the I/L pool, section 7.60 (I6, #325): box lightning every 0.6 s up to canonical `mobCount` (6); eight mapped ranks, rarity bonuses | ranks 1–8 = levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and Mastery with rarity bonuses (section 8); no standalone modifier cards |
 
-Ice/Lightning attack cards require exactly job 220 and all eight learn/rank/behaviour cards are power cards.
-Behaviour steps share the first-job Potential magnitudes and remaining-headroom clamp. Cold Beam uses the existing
-`count` modifier (up to four distinct targets); Thunder Bolt uses `cast: {"rule": "box"}` and the shared `area`
-modifier (up to ×1.728 on both canonical offsets). Cold Beam's `on_hit` block omits `chance_field`: every v83 level
-has `x = -100` and `time`, with no `prop`. Freeze duration is canonical, and no separate proc or box path is added.
-Both cached skills have no `action` node; selecting `swingO1` for a 0.8 s cast stance is tier C.
+Cold Beam and Thunder Bolt were the Ice/Lightning Wizard's (job 220) pre-redesign attacks, with 30 ranks and standalone
+Spreading Frost / Quick Frost / Wider Storm / Forking Storm / Quick Storm cards. #325 moved them into the `il_arch_mage`
+line and deleted the cards; the same names live on as rarity bonuses (7.60). Cold Beam's `on_hit` block omits
+`chance_field`: every v83 level has `x = -100` and `time`, with no `prop`. Freeze duration is canonical, and no separate
+proc or box path is added. Both cached skills have no `action` node; selecting `swingO1` for a 0.8 s cast stance is tier C.
 
 Fire/Poison attack cards require current job 210. Both learn/rank cards and all five behaviour cards are power
 cards. Behaviour caps count modifier steps, so three Extra Fire Arrow steps produce four shots. Poison Breath
@@ -5755,7 +5805,7 @@ No MP is spent. Bosses take damage but reject every status. Elquines belongs to 
 | Explosion 2111002 / `explosion` | Fire damage in the canonical box around the character, canonical mob count | 1.6 s |
 | Poison Mist 2111003 / `poison_mist` | Fixed ground box lasting canonical `time`; checks occupants each second with canonical `prop`, applies existing nonlethal poison, including later arrivals; no direct damage | 3.2 s |
 | Element Composition 2111006 / `element_composition` | 500 px/s projectile, 450 px acquisition, one target; fire/poison attributes averaged equally; canonical `prop`/`time` poison uses poison resistance | 0.8 s |
-| Fire Demon 2121003 / `fire_demon` | Fire in its canonical forward box; survivors become ice-weak (x1.5) for canonical `time`; other attributes unchanged | 2.0 s |
+| Fire Demon 2121003 / `fire_demon` | Fire in its canonical forward box; survivors become ice-weak (x1.5) for canonical `time` (vulnerability, 7.61); other attributes unchanged | 2.0 s |
 | Paralyze 2121006 / `paralyze` | Nearest target within 450 px, poison-element damage and existing stun for canonical `time`/`prop` | 1.2 s |
 | Meteor Shower 2121007 / `meteor_shower` | Fixed canonical 800×600 box; falling WZ tiles at canonical 180 px spacing; damage after canonical `hitAfter` 1800 ms, targets queried at impact | 4.8 s |
 | Big Bang 2121001 / `big_bang` | WZ keydown charge for one 18×60 ms loop, then full `mad` damage with canonical mob count around the current character position | 2.8 s |
@@ -5763,7 +5813,7 @@ No MP is spent. Bosses take damage but reject every status. Elquines belongs to 
 Pending areas/releases snapshot cast stats, query live targets, and clear on map transfer. Mist pieces are anchored
 to cast feet and expire with the area. Big Bang's survivor box is (-250,-180)..(250,100); its charge is automatic,
 without a manual key or partial-charge damage. Element Composition's equal elemental split is tier C (the WZ node
-has no `elemAttr`); Fire Demon's ice vulnerability follows its WZ description (tier A). Other targeting/timings
+has no `elemAttr`); Fire Demon's ice vulnerability follows its WZ description (tier A; the generalised contract is 7.61). Other targeting/timings
 are first-pass survivor interpretations, not balance tuning. Recasts refresh the existing status without stacking.
 
 ### 7.32 Player summons (#291)
@@ -5796,6 +5846,11 @@ and seek on both sides of their own position. Attacks face the scheduled boss fi
 (slot breaks ties). Impact queries current bodies in the facing box; it never remembers recyclable target slots.
 Attack timing pauses follow motion. Hits use `RunWorld.hit_mob`, including defence, crit, damage modifiers, element
 immunity and Fire Demon's per-mob ice weakness. No additional freeze is inferred from ice damage.
+
+Opt-in `summon.priority_status` (a `MobSwarm` status name, #328): when the definition carries it, an ally's target order
+is scheduled bosses, then monsters running that status, then distance, then slot, for both the choice of who to attack and
+the impact's targets. A definition without the key sorts exactly as before, so Elquines and every F/P oracle are unchanged
+(7.64 has Ifrit, the first user; Elquines is not given `ice_weak`, that is a balance-pass lever).
 
 Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 12 s recast,
 180 px/s follow, 60 px trailing offset, 1 px stand/move deadzone, 600 px snap distance and 2.4 s minimum attack cycle (never shorter than the
@@ -6148,6 +6203,229 @@ tested on a synthetic Beholder (made-up job 999, no Dark Knight data): `test_sup
   PlayerSummons slot); the heal itself emits the ordinary `player_restored`. Presentation plays the parent skill's
   owner-side `affected` node on the player at each pulse (tier B: its use is not documented).
 - **What a later job adds.** A pulse kind is one `KINDS` entry (`resolve` and `apply`) plus its tests; a new sub is data.
+### 7.60 I/L pool and Teleport (spec #319, I6 #325)
+
+The I/L Arch Mage's (222) simple instant skills: **Cold Beam** (2201004), **Thunder Bolt** (2201005), **Ice Strike**
+(2211002) and **Thunder Spear** (2211003), plus **Teleport** (`teleport_il`, 2201002) as its mobility skill. All five
+live in `skills/il_arch_mage.json`; Cold Beam, Thunder Bolt and Teleport moved there from `skills/magician.json`
+(a key in two files is a load error). Every pool skill uses the default eight-rank table (WZ levels 4, 8, 12, 15, 19,
+23, 27, 30), no MP, no `ranks` override, and rarity bonuses instead of standalone cards (section 8).
+
+| Skill / key | Behaviour | Cooldown (tier C) |
+|---|---|---|
+| Cold Beam / `cold_beam` (the start skill) | `nearest` instant, 300 px, one target (`count` adds targets, nearest first); every damaging line attempts a freeze for canonical `time` (1 s, 2 s from WZ level 19); bosses and ice-immune monsters take the damage and refuse the freeze; `swingO1` 0.8 s | 0.5 s |
+| Thunder Bolt / `thunder_bolt` | `box` instant: canonical `lt`/`rb` around the player (±150×±50, ±170×±70 from WZ level 19, i.e. rank 5), up to canonical `mobCount` 6, nearest first; `swingO1` 0.8 s | 0.6 s |
+| Ice Strike / `ice_strike` | `box` instant, `min_targets` 1: canonical box (half-width 120 / 150 / 200 px, half-height 90 / 112 / 150 at ranks 1 / 4 / 8), `mobCount` 6, freeze on every hit line for canonical `time` (1, then 2 s); `magic2` 0.8 s | 1.6 s |
+| Thunder Spear / `thunder_spear` | `nearest` instant, 400 px, exactly one target (the WZ node has no `mobCount` and no box); `magic1` 0.8 s | 0.8 s |
+| Teleport / `teleport_il` | `slot: mobility`, manual X with an arrow direction, `range` 130 to 150 px (tier A); numbers identical to `teleport_fp`; learned at round start through `JobTree.start_skills`, outside both slot tracks, never offered as a card. Its rank follows `balance.mobility_rank_levels` (rank N at character level 2N, cap 20) | 0.3 s repeat |
+
+Cooldowns are the legacy or F/P-mirror base values x0.4 (Cold Beam 1.25, Thunder Bolt 1.5, Ice Strike 4, Thunder
+Spear 2), so the two Arch Mages run at one pace until the balance pass. Cold Beam is the lever to watch: 0.5 s against
+a 1-2 s freeze keeps the nearest monster frozen. Elements are tier A (`elemAttr` i, l, i, l); Ice Strike and Thunder
+Spear have a `Use` sound and no `Hit` sound; none of the four has a `ball`. Cold Beam's and Thunder Bolt's `Hit` sounds
+are empty strings (no sound in the WZ).
+
+Rarity bonuses (tier C, named after the lineage's passives; Legendary = the Unique's effect with the same id plus
+damage x1.2, repeats shrink x0.8, section 8). Each entry changes the resolved cast (`test_rarity_bonus_effects`):
+
+| Skill | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Cold Beam | `amplify` damage x1.2 | `booster` cooldown x0.88 | `spread` Spreading Frost: +1 target | Spreading Frost + damage x1.2 |
+| Thunder Bolt | `amplify` damage x1.2 | `storm` Wider Storm: area x1.2 | `fork` Forking Storm: +2 targets | Forking Storm + damage x1.2 |
+| Ice Strike | `amplify` damage x1.2 | `storm` Wider Frost: area x1.2 | `shatter` Shatter: +1 hit | Shatter + damage x1.2 |
+| Thunder Spear | `amplify` damage x1.2 | `booster` Spell Booster: cooldown x0.88 | `echo` Echo: +1 hit | Echo + damage x1.2 |
+
+The Normal Mastery of these skills is the shared +5% damage (x0.8 per repeat). Thunder Bolt's `count` raises its
+`mob_count` (a nearest-target skill adds targets with `count`, a box skill with `count` through `mob_count`).
+
+**Blizzard and Big Bang (I10, #329).**
+
+| Skill / key | Behavior | Cooldown (tier C) |
+|---|---|---|
+| Blizzard 2221007 / `blizzard` | Meteor Shower's mirror (7.31): the WZ box (-400,-350)..(400,250), canonical `mobCount` 15, damage after the WZ `hitAfter` 1600 ms with targets queried at impact (never saved), ice (`elemAttr i`); every damaging line attempts a freeze for the canonical `time` (1 -> 3 s) | 4.8 s |
+| Big Bang 2221001 / `big_bang_il` | `{"extends": "big_bang", "skill_id": 2221001, "book": "222", "job": 222}` (7.63): F/P's charge, release, box (-250,-180)..(250,100), 2.8 s cooldown and rarity lists, with art and sounds under `Skill.wz/222.img/skill/2221001/...` and `Sound.wz/Skill.img/2221001/...` and its numbers read from book 222 | 2.8 s |
+
+- **Freeze reading (tier C).** Blizzard's WZ level nodes carry `time` 1 -> 3 and no `prop`; its description does not
+  mention freezing, and nothing else reads the field, so it is the freeze length, like Ice Strike's. The `on_hit` is
+  `{"status": "freeze", "duration_field": "time"}` with no chance field: every damaging line attempts it, and the
+  existing rules reject bosses, scheduled-boss slots and ice-immune or ice-strong monsters (`MobSwarm.accepts_status`).
+  The pending impact already goes through `RunWorld.hit_mob`, which applies `on_hit`, so no code changed. If the
+  smoke shows Blizzard and Ice Strike freeze-locking tier 1, the levers are a freeze `chance` or Blizzard's cooldown,
+  never the canonical `time`.
+- **Presentation.** `cast_visuals` plays `tile/0..8` at x = (k - 4) x 180 px, the WZ `tile/effectDistance`
+  (nine columns, -720..720; the WZ box that decides damage is +-400), and the top-level `effect` (25 frames, not
+  the 26 the spec draft says) plays on the caster as Meteor Shower's does. `hit/0` (21 frames) is the hit art; Use and
+  Hit sounds. Stance `blizzard` (0.8 s, the same body frames as Meteor Shower's `meteor`).
+- **Pending rules** (as 7.31): the cast snapshots its stats, the map transfer clears it (`SkillRunner.clear_pending`),
+  a monster that arrives during the delay is struck and one that leaves or dies is not.
+- **Rarity** (tier C, schema as 7.31/8): Rare `amplify` damage x1.2, Epic `storm` ("Area") area x1.2 (the box),
+  Unique `echo` +1 hit (`attack_count`), Legendary Echo plus damage x1.2 sharing Echo's repeat counter (so a Legendary
+  after a Unique is x1.16 on damage, the shared x0.8). Every effect changes the resolved cast (`test_il_blizzard`).
+  Big Bang inherits F/P's lists (power / area / echo / echo + power).
+
+### 7.61 Vulnerability (spec #319 M4, #322)
+
+A vulnerability is a timed status that makes one element hit x1.5 on a monster. `MobSwarm.VULNERABLE` is the table
+`{status index: element letter}`: `ice_weak` (index 5, Fire Demon) -> `i`, `fire_weak` (index 6, Ice Demon, skill in
+ticket I7) -> `f`. A monster may carry both timers. The statuses are ordinary `MobSwarm` timers (`STATUS_COUNT` 7), so
+they follow the status rules unchanged: reapplying refreshes to the new `time` without stacking, bosses and `steady`
+(scheduled boss) slots reject them, a skill applies one with `on_hit: {"status": "fire_weak", "element": ""}`
+(the empty element means kind resistance and immunity never block the mark), and `mob_status_applied` /
+`mob_status_expired` carry the status name. The mark overrides the element's resistance and immunity: a fire-immune
+monster under `fire_weak` takes x1.5 from fire. It never stacks with the kind's own weakness (x1.5, not x2.25).
+
+`MobSwarm.element_multiplier(slot, element)` resolves a hit's element: a composition (`COMPOSITIONS`: `fs` -> `f`,`s`
+for Element Composition; `il` -> `i`,`l` for its I/L twin) is the **mean of its constituents' live multipliers**,
+where a live multiplier is 1.5 while that element's vulnerability timer runs, else the kind's own value. A single
+element is its own live multiplier. With no vulnerability running the result is numerically identical to before (`fs`
+is `(f + s) * 0.5`; a table test compares every mob-attribute combination to the old formula), so F/P is unchanged.
+Ice-weak raises `il` and `i` (not `fs`); fire-weak raises `fs` and `f` (not `il`).
+
+Reserved, not built: a `"*"` table entry for an all-element mark (Corsair's Homing Beacon). Summons and projectiles use
+the same `element_multiplier`, so Ifrit's fire meets Ice Demon's mark there with no special case. The renderer has no
+per-status tint for `ice_weak`, so `fire_weak` adds none.
+
+### 7.62 Chain cast rule (#323, spec #319 I4)
+
+`cast: {"rule": "chain", "acquire": 450, "hop": 200, "min_targets": 1}`, implemented in `chain_cast.gd` (`ChainCast`), a
+generic rule: a skill that strikes one monster and jumps to its neighbours. No cast rule hit "the nearest, then the
+nearest to that" before. Chain Lightning (I8) is its first user; Corsair or any other hopping skill can reuse it.
+
+- **Admission.** The head is a live monster whose body centre is within `acquire` px of the caster's body; a scheduled
+  boss first, then nearest, then slot (`RunWorld.targets_before`). `acquire` is the skill's `range` (Loadout.stats
+  falls back to the block's `acquire` when neither the definition nor the WZ level names a `range`), so the `range`
+  modifier widens it and the bot's `reach_of` reads it.
+- **Selection.** Deterministic, no RNG. Until `mob_count` monsters are chosen (canonical `mobCount` plus `count`
+  modifiers, via `strike_count`), the next link is the nearest unhit live monster to the **previous link's body
+  centre** within `hop` px times the `area` modifier (distance, then slot; bosses get no priority on a hop). A distance
+  exactly equal to `acquire` or `hop` is in range. A chain shorter than `mob_count` is fine; one shorter than
+  `min_targets` is not admitted.
+- **Resolution.** One `RunWorld.hit_mob` per chosen monster, `attack_count` lines each, in chain order, damage unchanged
+  along the chain, all on the cast tick; a monster that is gone by its turn is skipped. The caster faces the head.
+- **Events and art.** `cast`, then `skill_chain {skill, skill_id, points}` (the caster's hand, then each struck link's
+  body centre), then the `mob_hit` events. `RunScene` draws, per segment, one animation of the definition's
+  `"chain": {"ball": [<WZ path>, ...]}` (three variants for Chain Lightning, cycled along the chain), stretched along
+  the segment and rotated to its angle by `ChainBoltRenderer`; each link gets the skill's `hit` burst through its
+  `mob_hit`, the caster the `effect` through `cast`, the Use sound plays at the cast and the Hit sound once per link.
+- **Text.** `SkillText` adds "Jumps to up to N monsters within R px" (`mob_count`, `hop` x `area`).
+- Probe: `scenes/debug/chain_bolt_probe.tscn` draws a synthetic arrangement (evidence only).
+
+**Chain Lightning (2221006, I8 #327)** is the rule's first user, `chain_lightning` in `skills/il_arch_mage.json`:
+`cast: {"rule": "chain", "acquire": 450, "hop": 200, "min_targets": 1}`, no `range` field (acquire is the range), 1.6 s
+cooldown (the legacy base 4 s x0.4), `chainlightning` stance (the WZ `action`) held 0.8 s, `damage: magic`, `elemAttr l`.
+Canonical `mad` (112 / 145 / 180 % at ranks 1 / 4 / 8) and `mobCount` give the chain length: **2, 3, 3, 4, 5, 5, 6, 6
+links at ranks 1..8** (WZ levels 4, 8, 12, 15, 19, 23, 27, 30), one line per link, damage unchanged along the chain. Art is
+v83's: `effect` (12 frames) at the caster, `ball/0..2` (6 frames each) stretched along the segments through
+`"chain": {"ball": [...]}`, `hit/0` on every link, the Use sound at the cast and the Hit sound per link. No status.
+
+| Rank card | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Chain Lightning | `amplify` Element Amplification: damage x1.2 | `conduct` Conductor: area x1.2 (hop 200 -> 240 px) | `fork` Longer Chain: +1 link (`count`) | Longer Chain + damage x1.2 |
+
+Rules: Rare+ cards add one rank plus the bonus, Legendary shares the Unique's counter, Mastery is +5 % damage (x0.8 per
+repeat). `test_il_chain_lightning` checks the definition, the link counts, the hop, the boss-first head, the bolt event
+and the bonuses; `test_rarity_bonus_effects` checks that each effect changes the resolved cast.
+
+**Weapon fallback for `stabO2` (I8).** Chain Lightning's body action is `swingO3.0, stabO2.1`, and 9 of the 14 imported
+staves (1382000-1382006, 1382018, 1382019) have no `stabO2` art, so their second frame lost the weapon. Any weapon that
+lacks `stabO2` now draws `stabO1` at the same frame index (`AvatarLayers.weapon_stance_frame`, `STANCE_FALLBACKS`);
+armour and other equipment are not borrowed from another stance. Tier C, one pair only.
+
+### 7.63 Skill templates: `extends` (spec #319 I5, M19)
+
+Big Bang exists three times in v83 (F/P 2121001, I/L 2221001, Bishop 2321001) with the same numbers (`mad` 160 -> 450,
+`mastery`, `mobCount` 6), the same image sizes under `keydown`, `effect`, `special` and `prepare`, and the same sounds
+(the I/L and Bishop `Use`/`Loop` are UOLs to 2121001's); none has an `elemAttr`. There is no element to parametrise, so
+a skill definition may say "I am that skill, in my book" instead of copying 40 lines that would drift apart.
+
+- **Syntax.** `"extends": "<parent key>"`. The child states its own `skill_id`, `book` and `job` (all three required) and
+  anything it overrides. Bishop's is three lines:
+  `{"extends": "big_bang", "skill_id": 2321001, "book": "232", "job": 232}`. **A child extends the plain parent**
+  (`big_bang`, F/P's, in `skills/magician.json`), never another child: `big_bang_il` is not a parent, so the I/L and
+  Bishop versions share no dependency on each other.
+- **Where.** `SkillTemplate.resolve(skills, errors)` (pure, `scripts/sim/skill_template.gd`) runs in `SkillBook.from_data`
+  once every line fragment has merged, so the result does not depend on `DataRepo.lines()` order or on which line file holds
+  the parent. `SkillBook.def(key)` and `defs` hold only resolved definitions; raw JSON from `DataRepo.load_all` still
+  carries the `extends` line, so a test or tool that needs a templated skill's fields goes through `SkillBook`.
+- **Merge.** Resolved child = a deep copy of the parent, then the child's own keys on top: dictionaries merge key by key,
+  arrays and scalars are replaced. `_`-prefixed documentation keys of the parent (`_provenance`, `_rarity`, at any depth)
+  are not inherited; the child's own are kept. `rarity_bonuses`, `ranks`, `cast`, `pending`, `cooldown`, `sounds` and the
+  rest are inherited unless the child states them (a child's `ranks` replaces the parent's eight-entry table, a child's
+  `rarity_bonuses.epic` list replaces only the Epic list).
+- **Path rewrite.** In every *inherited* string, `Skill.wz/<parent book>.img/skill/<parent id>` becomes
+  `Skill.wz/<child book>.img/skill/<child id>` and `Sound.wz/Skill.img/<parent id>` becomes
+  `Sound.wz/Skill.img/<child id>`, matched at a path boundary: the id must be followed by `/` or the end of the string,
+  and must not continue a longer word. A string that merely contains the id, and every string the child states, is left
+  alone. The icon, `effect`, `release_visuals`, `pending.effect` and the sound paths therefore point at the child's own
+  nodes. WZ numbers always come from the child's own book at the mapped level (`SkillBook.canonical` reads `book` +
+  `skill_id`), so a book that ever differs gets its own numbers.
+- **Errors** (`DataRepo.load_all` lists them, `resolve` drops the child): `extends` is not a key name; `skill_id`, `book`
+  or `job` missing on the child; the parent is not defined; the parent itself `extends` (one level only, which also rules
+  out cycles and a self-parent); the child key is defined by two files (the existing duplicate rule).
+- **F/P is unchanged.** `big_bang` has no `extends`: data without any `extends` resolves to the same dictionary, and a
+  test pins that `big_bang` resolves equal to its raw definition.
+- **Drift guard.** `SkillTemplate.drift_problems(book, child, parent, exists)`: the child's and the parent's level node
+  agree at each of the eight mapped levels (every number and vector), the art nodes under every top-level key of the
+  skill node (`level` aside) have the same counts, and every Skill.wz/Sound.wz path of the child resolves in the cache.
+  `test_skill_template` runs it for every `extends` pair of the shipped data (`SkillTemplate.pairs`) against the real
+  cache (a SKIP without it), on a synthetic pair so it is not vacuous, and on synthetic books for each failure. If a book
+  ever differs, the guard fails and the child must override the difference.
+
+### 7.64 Ifrit (spec #319, I9 #328)
+
+Ifrit (2221005, book 222, job 222, `ifrit`) is Elquines' fire mirror: `kind: summon`, `slot: active`,
+`cast: {"rule": "summon"}`, `damage: magic`, **`element: "f"`**, one definition in `skills/il_arch_mage.json` and no code
+beside the target order. Everything the seam reads is canonical (tier A): WZ `summon/attack1/info` is identical to Elquines'
+(type 0, box (-200,-150)..(0,30), `mobCount` 3, `attackAfter` 1080 ms), `mad` 183 -> 300 (192 / 230 / 300 at ranks 1 / 4 / 8),
+`mastery` 10, lifetime `time` 15 -> 160 s (30 / 85 / 160 s), the five animations `summoned` 15, `stand` 6, `move` 6, `attack1`
+19, `die` 12 frames and `hit/0` 8 frames, caster stance `alert2`, Use sound only. The recast (12 s), follow speed (180 px/s),
+trail (60 px), snap (600 px), 2.4 s minimum cycle and 36 px ordinal spread are the Elquines values (tier C).
+
+**Priority.** WZ `attack1/info/priority` is 2221003, Ice Demon (Elquines' names Fire Demon). The tier C reading is
+`summon.priority_status: "fire_weak"` (7.32): scheduled bosses first (they take no statuses), then monsters whose `fire_weak`
+timer (Ice Demon's mark, 7.61) runs, then nearer, then lower slot. Ifrit's fire goes through `RunWorld.hit_mob` and
+`MobSwarm.element_multiplier`, so a marked monster takes x1.5 (even a fire-immune one); that is the whole Ice Demon synergy.
+
+**Rarity** (tier C, first pass, the Elquines lists): Rare "Power" damage x1.2; Epic "Reach" area x1.2 (the attack box, through
+`stats.area`); Unique "Twin Ifrit" +1 ally (`summon_count`, 36 px apart); Legendary the Unique's id plus damage x1.2 (shared repeat
+counter, repeats x0.8, as every pool skill). `test_ifrit` casts each effect with and without it and checks the damage dealt,
+the monster just beyond the base box and the ally count; a `range` modifier (which a summon never reads) is the negative control.
+
+Evidence (I9, tool-only `player_summon_probe.tscn --skill=ifrit`, real Henesys, Lv1 invulnerable, rank 8, damage x0.01, 200
+stationary high-HP monsters, half of them `fire_weak`, 20 s, vsync off): Ifrit's `attack1` and `hit/0` art appear beside the
+avatar, `missing: []`. Frame ms p50 / p95 and sim: Ifrit 1.71 / 2.76 (work 720 / 1790 us, sim 1154 us per tick), Elquines
+matched run 1.71 / 2.76 (sim 1154 us), no-summon control 1.70 / 2.69 (sim 1101 us). The two summons cost the same; this is
+art and cost evidence, not survival evidence.
+
+### 7.65 I/L Ice Demon and Element Composition (spec #319, I7 #326)
+
+Both skills are I/L pool actives (`skills/il_arch_mage.json`), auto-cast, on the default eight-rank mapping to WZ levels
+(rank 1 / 4 / 8 = level 4 / 15 / 30). No MP. They mirror F/P's Fire Demon and Element Composition (7.31) with the
+elements swapped.
+
+| Skill / key | Behavior | First-pass cooldown (tier C) |
+|---|---|---|
+| Ice Demon 2221003 / `ice_demon` | Ice damage in the canonical forward box (-300,-100)..(-15,0), mirrored to the side the caster faces, up to the canonical `mobCount` (2 / 4 / 6 at ranks 1 / 4 / 8); every survivor hit gets the `fire_weak` mark (7.61) for canonical `time` (10 s, 15 s at level 30); bosses take the damage and reject the mark | 2.0 s |
+| Element Composition 2211006 / `element_composition_il` | One 500 px/s projectile at the nearest monster within 450 px, element `il` (the mean of the live ice and lightning multipliers); `mad` 90 -> 140; a hit freezes for canonical `time` (1 s, 2 s at level 30) with **no chance roll** (the WZ node has no `prop`), checking only ice resistance (`on_hit.element: "i"`) | 0.8 s |
+
+Ice Demon's stance is the fallback `magic3` held 0.8 s (the WZ node has no `action`, as Fire Demon). Its WZ text speaks
+of consistent damage; as Fire Demon it is one instant hit plus the mark. The undocumented WZ `x` of both skills (Ice
+Demon 1 -> 3, Element Composition 1) is not read. The mark is applied by `on_hit`, which runs only for a damaging hit:
+a monster immune to ice (damage 0) is not marked either. Ice Demon's `effect` (the snowflake circle) plays on the caster
+as Fire Demon's does, its `hit/0` on each struck monster, with the Use and Hit sounds. Element Composition's `ball`
+(3 frames), `effect` (13) and `hit/0` are the F/P twin's layout, and its Use sound is the UOL to F/P's mp3.
+
+Rarity bonuses (tier C, first pass; Legendary shares the Unique's id and adds damage x1.2, so its repeats are shared;
+repeats shrink x0.8; Rare is `amplify` "Element Amplification", damage x1.2, for both):
+
+| Skill | Epic | Unique / Legendary signature |
+|---|---|---|
+| Ice Demon | `reach` "Wide Chill": area x1.2 (the box grows) | `crowd` "Cold Crowd": +1 target (`count` through `mob_count`) |
+| Element Composition (I/L) | `pierce` "Pierce": +1 pierce | `twin` "Twin Bolt": +1 projectile (`count`) |
+
+`test_rarity_bonus_effects` (with the other I/L skills; the card, counter and Mastery rules are in `test_il_ice_demon_rarity`) casts each effect with and without it in the same seeded world and asserts damage dealt, mobs
+affected (count, pierce) or a monster just beyond the base box (area). A projectile's extra shot goes to the second
+nearest monster, so a monster on the same line behind the first is shielded: Twin Bolt's extra target stands elsewhere.
 
 ## 8. Upgrades
 
@@ -6214,6 +6492,10 @@ damage x1.2, so their repeats are shared; Rare is `power`, damage x1.2, for all)
 | Meteor Shower | area x1.2 (`area`) | +1 hit (`echo`) |
 | Big Bang | area x1.2 (`area`) | +1 hit (`echo`) |
 | Elquines (#291) | area x1.2 (`reach`) | +1 ally (`twin`, stat `summon_count`) |
+| Ice Demon (I/L, #326) | area x1.2 (`reach`) | +1 target (`crowd`) |
+| Element Composition (I/L, #326) | +1 pierce (`pierce`) | +1 projectile (`twin`) |
+| Blizzard (I/L, #329; Rare `amplify`, Epic `storm`) | area x1.2 (`storm`) | +1 hit (`echo`) |
+| Big Bang I/L (`big_bang_il`) | inherited from `big_bang` (7.63) | inherited |
 
 
 **Cards and the draw (current rules).** `data/survivor/upgrades.json` (base: draw weights, the rarity weights and magnitudes,
@@ -6337,7 +6619,7 @@ MP Eaters, Invincible and both Slows):
 | Magic Claw (2001005) | desc, h | Twin Claw cards strike more monsters |
 | Fire Arrow (2101004), Holy Arrow (2301005) | desc, h | "a single monster": extra-arrow and pierce cards |
 | Poison Breath (2101005) | desc | "a single monster": pierce cards |
-| Cold Beam (2201004) | desc, h | Spreading Frost cards freeze more monsters |
+| Cold Beam (2201004) | desc, h | the Spreading Frost bonus freezes more monsters |
 | Thunder Bolt (2201005) | desc, h | "all monsters in the range": it hits up to its mob count (canonical 6 plus cards) |
 | Heal (2301002) | desc | party healing: here it heals you below half HP and strikes every undead in its box |
 | Meditation (2101001, 2201001) | desc, h | "party members": self-only |
@@ -6567,6 +6849,62 @@ training under #346 (section4.2), superseding original Hero values in sections7.
 Normal Mastery for `damage:none`: cooldown x.95 with the same mastery_damage counter and .8^n
 diminishing; preview and bot use the resolved bonus. Shared default/F/P values are unchanged.
 
+### I/L Arch Mage (spec #319)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Chain length and damage | WZ `mobCount` per level (Chain Lightning 2 -> 6) and its `mad`, unchanged along the chain (the WZ gives one `mad`); one hit per link | A |
+| Chain acquisition | `cast.acquire` 450 px from the caster's body centre (the WZ has no `lt/rb` or `range` for 2221006) | C |
+| Chain hop | `cast.hop` 200 px from the previous link's body centre | C |
+| Chain query probe | `ANY_PROBE` 8 candidates before a full query; optimization only | C |
+| Class fragment registration | `DataRepo.CLASS_LINES` append-only Hero, I/L order after the seven Adventurer lines; new classes append | C |
+| Skill-window diagnostic build | first three unlearned pool actives, each new + rank, plus Might and Speed common passives | C: automation only |
+| Status registry and cast policy | Append-only status table preserves packed IDs; rule policy owns target-facing/count behavior | C |
+| Chain selection | head = scheduled boss, then nearest, then slot; hops = nearest unhit by distance then slot; distances inclusive; no RNG | C |
+| Chain bolt art | the skill's `chain.ball` animations stretched on their own x axis from segment start to end, centred on the line (WZ origin ignored), variants cycling per segment | C |
+| Chain Lightning cooldown | 1.6 s (the legacy base 4 s x0.4, as every I/L skill) | C |
+| Chain Lightning acquire and hop | 450 px and 200 px, as the cast block of 7.62 (the WZ has no `lt/rb` or `range`) | C |
+| Chain Lightning stance | `chainlightning` (the WZ `action`, tier A) held 0.8 s | C (name A) |
+| Chain Lightning rank values | `mad` and `mobCount` of the mapped level (rank 1 / 4 / 8: 112 / 145 / 180 %, 2 / 4 / 6 links) | A |
+| Chain Lightning rarity bonuses | Element Amplification damage x1.2 (Rare), Conductor area x1.2 = hop 240 px (Epic), Longer Chain +1 link (Unique), Longer Chain + damage x1.2 (Legendary, shared counter); repeats x0.8 | C |
+| Weapon stance fallback | a weapon with no `stabO2` draws `stabO1` at the same frame index (`AvatarLayers.STANCE_FALLBACKS`); 9 of 14 staves lack `stabO2`, no wand does | C |
+| I/L auto-AP row | `balance.player.ap["222"]`: INT primary, LUK secondary, keyframes Lv1 -> 3, Lv200 -> 202 (the 212 curve, copied) | C |
+| I/L creation weapon | 1372005, the Wooden Wand F/P starts with (reqJob Magician; no level requirement) | C |
+| I/L weapon families | `weapon_families` wand and staff; armour drops by the Magician class bit, no shields or Warrior weapons | C |
+| I/L skill pool | `skill_pool` of 222: the twelve actives of the 200/220/221/222 books; all twelve shipped definitions participate in draws | C |
+| Skill templates | `extends` resolved in `SkillBook` by `SkillTemplate` (7.63): deep copy of the parent, child keys on top, inherited Skill.wz/Sound.wz paths rewritten to the child's book and id | C |
+| Big Bang in the three books | 2121001, 2221001 and 2321001 are identical in every level number, art node count and sound (Use/Loop UOL to 2121001's); the drift guard re-checks it per `extends` pair | A |
+| Blizzard freeze | WZ `time` 1 -> 3 read as the freeze length (no `prop`; bosses and ice-immune monsters refuse it); every damaging line attempts it | C: the reading; A: the field |
+| Blizzard box, count, delay, art | box (-400,-350)..(400,250), `mobCount` 15, `hitAfter` 1600 ms, `tile` spacing 180 px, `effect` 25 frames, `elemAttr i`, Use/Hit sounds, `mad` 330 -> 570 | A |
+| Blizzard cooldown and stance | 4.8 s recast (Meteor Shower's); 0.8 s `blizzard` stance (the body's frames equal `meteor`'s) | C |
+| Blizzard tile columns | nine tiles at x = (k - 4) x 180 px around the caster, wider than the +-400 damage box | C |
+| Blizzard rarity bonuses | Rare damage x1.2, Epic area x1.2, Unique +1 hit, Legendary Unique plus damage x1.2; repeat scale 0.8 | C |
+| Big Bang I/L | `big_bang_il` is the three-line `extends: big_bang` (7.63); cooldown, charge, box and rarity lists inherited (7.31) | A: identity of the three books; C: the rest |
+| I/L playable | `playable: true` since I12 #331 (job 212 stays the default: 212 precedes 222) | C |
+| I/L core-bolt cooldowns (I6) | Cold Beam 0.5 s, Thunder Bolt 0.6 s, Ice Strike 1.6 s, Thunder Spear 0.8 s: the legacy / F/P-mirror base value (1.25, 1.5, 4, 2) x0.4 | C |
+| I/L core-bolt targeting (I6) | Cold Beam `nearest` 300 px one target; Thunder Spear `nearest` 400 px one target; Thunder Bolt and Ice Strike `box` (`min_targets` 1) | C |
+| I/L core-bolt stances (I6) | Cold Beam and Thunder Bolt `swingO1` 0.8 s (no WZ `action`); Ice Strike `magic2` and Thunder Spear `magic1` (tier A actions) held 0.8 s | C (stance names A) |
+| I/L core-bolt freeze (I6) | Cold Beam and Ice Strike `on_hit freeze`, duration from the level's `time` (A), no `chance_field` (no `prop` in WZ, A): every damaging line attempts it | A |
+| I/L core-bolt WZ facts (I6) | `mad`/`mastery`, `time`, `mobCount`, `lt`/`rb`, `elemAttr` of 2201004, 2201005, 2211002, 2211003 at the mapped levels; Thunder Spear has no `mobCount` or box | A |
+| I/L core-bolt rarity bonuses (I6) | Rare damage x1.2 (all four); Epic Cold Beam / Thunder Spear cooldown x0.88, Thunder Bolt / Ice Strike area x1.2; Unique Cold Beam +1 target, Thunder Bolt +2 targets, Ice Strike and Thunder Spear +1 hit; Legendary = Unique + damage x1.2 | C |
+| I/L Teleport (I6) | `teleport_il`: `slot: mobility`, same numbers as `teleport_fp`; rank from the shared `balance.mobility_rank_levels` | C (range/cost A) |
+| Vulnerability table (#322) | `MobSwarm.VULNERABLE` {`ice_weak` 5 -> `i`, `fire_weak` 6 -> `f`}; x1.5 (`VULNERABLE_MULT`) while the timer runs, overriding that element's resistance and immunity; refreshes without stacking; bosses and `steady` slots reject; no per-status tint | A: Fire Demon / Ice Demon descriptions ("weak against" the element for `time` seconds), x1.5 as the canonical weakness; C: the table shape, `fire_weak` as a second timer, no stacking, boss exclusion |
+| Element composition mean (#322) | `MobSwarm.COMPOSITIONS` `fs` -> f,s and `il` -> i,l: the mean of the constituents' live multipliers (equal split) | C: equal split (the WZ nodes carry no `elemAttr`); `fs` numerically identical to #290 |
+| Ifrit (#328) | `ifrit` 2221005: fire summon on the 7.32 seam; WZ `mad` 183 -> 300, `mastery` 10, `time` 15 -> 160 s, `attack1/info` (box (-200,-150)..(0,30), `mobCount` 3, `attackAfter` 1080 ms, the same as Elquines'), animations and hit art as read from the cache; recast 12 s, follow 180 px/s, trail 60 px, snap 600 px, minimum cycle 2.4 s, spread 36 px | A: element `f`, `info`, `priority` 2221003, levels, art; C: recast, follow settings, cycle (the Elquines values) |
+| `summon.priority_status` (#328) | Opt-in key on a summon definition: bosses, then monsters carrying the named status, then distance, then slot; absent = the shared order, byte-identical for Elquines | C: our reading of the WZ `priority` (Ifrit -> Ice Demon's fire_weak mark) |
+| Ifrit rarity bonuses (#328) | Rare damage x1.2, Epic area x1.2, Unique +1 ally, Legendary +1 ally and damage x1.2; repeats x0.8 | C: the Elquines lists |
+| I/L bot card scores (I11 #330) | `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for the ten I/L pool skills F/P's block lacks (cold_beam, thunder_bolt, ice_strike, thunder_spear, element_composition_il, ice_demon, ifrit, chain_lightning, blizzard, big_bang_il), appended as one block; the same numbers as every F/P pool skill. Explicit so Ifrit (a `summon`) and Blizzard, which the default scorer files with the passives, are taken; all twelve pool skills now ship | C |
+| I/L hub kit and fixture (I11) | `--hub --job=222` opens `il_arch_mage_t2.json` (job 222, tier 2, the F/P tier-1 kit 1382002/1002013/1072019/1082019 + starter top and bottom); the hub test kit is the F/P one (wand and staff scrolls, hat, staff, gloves, top): both Arch Mages wear the same families | C (test aid) |
+| I/L baseline oracle (I11/I12) | `test_il_baseline`: seed 1, 72000 fixed 1/60 ticks, bot, god, synthetic assets; I12 widens the historical six-skill pool to all twelve with frozen synthetic level tables. The changed card pool and new cast/event bytes require one recapture; F/P goldens are unchanged | C |
+| I/L Job page row (I11) | no UI change: the page lists `playable_jobs()`, "Arch Mage (Ice, Lightning)" is the canonical name, one row below "Arch Mage (Fire, Poison)" (H9's row style: left-aligned names, the chosen row's plate in every Button state) | C |
+| Ice Demon cooldown, stance and hit | 2.0 s; fallback stance `magic3` held 0.8 s (the WZ node has no `action`); one instant hit plus the `fire_weak` mark, not a damage-over-time | C: Fire Demon's values; A: box, `mobCount`, `mad`, `time`, `elemAttr i`, art |
+| Ice Demon mark | `on_hit {"status": "fire_weak", "element": ""}`: canonical `time` seconds; skipped by a zero-damage hit (an ice-immune monster) and by bosses | A: description and `time`; C: boss/zero-damage behaviour (existing `on_hit` rules) |
+| Element Composition (I/L) | cooldown 0.8 s, 450 px acquisition, 500 px/s, radius 10, one shot, stance `shoot6` | C: the F/P twin's values; A: `mad`, `time`, art |
+| Element Composition element | `il`, the mean of the live ice and lightning multipliers (equal split) | C: the WZ node has no `elemAttr` |
+| Element Composition freeze | `time` 1 -> 2 s, no chance field (the WZ node has no `prop`), element `i`: bosses and ice-resistant monsters reject it, lightning resistance does not | C |
+| Ice Demon / Element Composition rarity bonuses | the two tables in 7.65 (Element Amplification x1.2, Wide Chill area x1.2, Cold Crowd +1 target, Pierce +1, Twin Bolt +1 shot; Legendary = Unique + x1.2) | C |
+
+
 ### #307 opening ramp (tier C)
 
 Whole-round interpolation, clamped progress raised to optional `power` (default 1), HP at spawn,
@@ -6593,7 +6931,7 @@ These replace older first-pass/inherited pacing statements where they conflict. 
 | High-job cooldowns, targeting | Table 7.31; 450 px nearest acquisition; projectile speed 500 px/s, radius 10; cast stance 0.8 s | C: first-pass survivor data, #282/#290 |
 | Mist ground occupancy | 1 s checks, no direct hit; canonical poison chance/time; all occupants; tile strips 80 px apart | C: survivor ground-area interpretation; A: WZ box, prop/time, existing poison formula |
 | Composition elements | Mean of fire and poison multipliers; poison status checks poison alone | C: equal fire/poison interpretation of the skill's description; no WZ elemAttr |
-| Fire Demon ice weakness | Timed x1.5 ice, replaces ice resistance/immunity; bosses reject it | A: WZ description/time; C: existing boss status exclusion |
+| Fire Demon ice weakness | Timed x1.5 ice, replaces ice resistance/immunity; bosses reject it (generalised: 7.61) | A: WZ description/time; C: existing boss status exclusion |
 | Meteor delay / tile spacing | 1.8 s / 180 px | A: WZ hit/0/hitAfter and tile/effectDistance |
 | Big Bang full-charge release | 1.08 s; box (-250,-180)..(250,100), follows caster until release | A: 18 keydown frames × 60 ms, full-charge mad; C: one-loop automatic release and box |
 
@@ -6630,7 +6968,7 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
-| Playable jobs and start skills (#284) | `survivor/jobs.json`: 112 and 212 are playable (spec #296); 212 is the default (`default_job`) for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
+| Playable jobs and start skills (#284) | `survivor/jobs.json`: 112, 212 and 222 are playable (specs #296, #319); 212 is the default (`default_job`) for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
 | Auto-AP rows (#284) | `balance.player.ap`: one `{primary, secondary, keyframes}` row per job, nearest ancestor's row otherwise, all AP to STR without a row. 212: INT primary, LUK secondary at the old Magician keyframes (Lv1 3 -> Lv200 202); the 200/100/300/400/510/520 rows keep the unported lines' old single rows | C | Owner, spec #282 (212); the rest the earlier tier C rows without weapon paths |
 | Hero playability and QA fixture (#306) | Playable 112 and 212; default 212. `hero_t2.json`: seed 1, bot, invulnerable Henesys clear, tier 2 unlocked; all equipment from the tier-1 drop band. Diagnostic equipment fixture, never survival evidence | C | Spec #296; fixture `_doc` |
 | Hero AP row (#298, spec #296) | `balance.player.ap["112"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204 (the secondary DEX target tracks the level plus about 4, the v83 Warrior gear pattern). HP growth is not re-listed: 112 inherits the Warrior row (100: 26 per level) through the lineage | C | Spec #296 |
@@ -7201,10 +7539,10 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Flyer speed / bob / arrivals | (`flySpeed` + 100) × `mob_speed_factor` × stage speed; bob 2 px / 1.2 s (`balance.mob_motion`); Henesys arrival keyframes 180 / 300 / 480 / 660 s, weights 1 | C (conversion and tuning); A (stats and frames) | ours; original v83 WZ |
 | Goblin Fire EXP icon | Firebomb Flame 4000081 stands in for a signature EXP drop | C | ours (item art A) |
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
-| I/L attacks (#56) | Cold Beam nearest-target auto-cast: 300 px, 1 target, 1.25 s cooldown; Thunder Bolt box auto-cast: at least 1 target, 1.5 s cooldown; both use swingO1 for 0.8 s | C | survivor skill definitions; v83 has no action node for either skill |
-| I/L canonical attack facts (#56) | ranks 1–30, elements i/l, mad/mastery/mpCon; Cold Beam x=-100/time=1–2 with no prop; Thunder Bolt mobCount=6 and lt/rb; effect/hit art and Use sounds, no ball | A | original v83 Skill.wz/220.img and Sound.wz/Skill.img/2201004–2201005, real-cache tests |
-| I/L cards (#56) | Cold Beam +1 target; Thunder Bolt box offsets ×1.2; both cooldown ×0.88; 3 modifier steps each; learn/rank/modifier weights 4/3/2, all power, exact job 220; shared rarity magnitudes | C | owner #31/#56 behaviour choices; existing count/area/cooldown and Potential seams |
-| Thunder Bolt target card (#84) | Forking Storm: `count` +2 per step, max 3 steps (canonical `mobCount` 6 → 12), weight 2, power, exact job 220; bot scores it as a `count` mod (75 + job bonus 12) | C (placeholder until the balance pass) | #84 hit-more-mobs rule; upgrades.json `thunder_bolt_targets` |
+| I/L attacks (#56; cooldowns now x0.4 and bonuses, #325, section 7.60) | Cold Beam nearest-target auto-cast: 300 px, 1 target, 1.25 s base cooldown; Thunder Bolt box auto-cast: at least 1 target, 1.5 s cooldown; both use swingO1 for 0.8 s | C | survivor skill definitions; v83 has no action node for either skill |
+| I/L canonical attack facts (#56) | WZ levels 1–30 (eight mapped ranks, #325), elements i/l, mad/mastery/mpCon; Cold Beam x=-100/time=1–2 with no prop; Thunder Bolt mobCount=6 and lt/rb; effect/hit art and Use sounds, no ball | A | original v83 Skill.wz/220.img and Sound.wz/Skill.img/2201004–2201005, real-cache tests |
+| I/L cards (#56; deleted by #325, now rarity bonuses) | Cold Beam +1 target; Thunder Bolt box offsets ×1.2; both cooldown ×0.88; 3 modifier steps each; learn/rank/modifier weights 4/3/2, all power, exact job 220; shared rarity magnitudes | C | owner #31/#56 behaviour choices; existing count/area/cooldown and Potential seams |
+| Thunder Bolt target card (#84; deleted by #325, now the Unique `fork` bonus) | Forking Storm: `count` +2 per step, max 3 steps (canonical `mobCount` 6 → 12), weight 2, power, exact job 220; bot scores it as a `count` mod (75 + job bonus 12) | C (placeholder until the balance pass) | #84 hit-more-mobs rule; upgrades.json `thunder_bolt_targets` |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
 | Potion schedule (#225, #228) | `balance.potions.schedule`: HP Orange @ Lv 10, HP White @ Lv 25 (the MP step removed, #285); applied at level-up with a notice and silently on snapshot load, cooldown kept, never downgrades; replaces the potion-tier cards | C | owner choice (the old card gates); balance.json |
@@ -7403,6 +7741,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
 
+
 ## 12. Later phases
 
 Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.
@@ -7412,7 +7751,6 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 #291 tier C provenance: summon auto-admission, replacement groups, nearest/boss-first two-sided acquisition,
 current-body impact selection, follow/snap model and the numeric first-pass Elquines settings are in 7.32.
 Missing/zero summon frame delays use the existing 100 ms presentation default (tier C); WZ delays are otherwise unchanged.
-
 ### Hero H3 meter constants (#299)
 
 | Constant / rule | Value | Provenance |
@@ -7430,6 +7768,11 @@ without changing movement physics. Pull admission counts only grounded non-boss 
 Warrior bot equipment weights now explicitly name ancestor 100 with the same values formerly inherited from 0
 (tier C: existing physical baseline, unchanged). Hero AP and bot score values live in jobs/hero.json’s balance block.
 
+
+The summon art probe accepts `--skill`, `--job` and `--status` to reuse the same diagnostic for later summons.
+Ice Demon intentionally leaves its `ball` empty: four imported ball nodes remain unused (I7); the forward-box hit/effect
+presentation is the shipped design. The weapon-only `stabO2` fallback leaves Hero and F/P art unchanged whenever
+`stabO2` exists, covered by `test_a_weapon_with_stabO2_keeps_its_own_art`.
 ### Spear Crusher constants (#353)
 
 | Constant / rule | Value | Provenance |
