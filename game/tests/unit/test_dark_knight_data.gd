@@ -91,9 +91,10 @@ func test_the_dark_knight_line_loads_and_merges_its_job_in_sorted_class_order() 
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
 
-func test_the_skills_fragment_is_an_empty_skeleton_with_its_doc() -> void:
+func test_the_skills_fragment_holds_only_dark_knight_books_and_its_doc() -> void:
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "dark_knight"))
-	assert_eq(frag.skills, {}, "D5-D9 append their own skills")
+	for key: String in frag.skills:
+		assert_true(int(frag.skills[key].job) in [131, 132], "%s is a Dark Knight skill (D5-D9 append their own)" % key)
 	assert_true(String(frag._doc).contains("#348"), "the _doc names the spec")
 
 

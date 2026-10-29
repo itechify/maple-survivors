@@ -2,7 +2,8 @@ extends TestCase
 ## Every rarity bonus of every Hero and F/P skill changes the resolved cast, not just a stat number (spec #296, H7 audit).
 ## For each effect of each tier the same seeded world is cast twice, with and without the effect, against a field of mobs
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
-## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
+## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), hp_cost (HP the first cast pays;
+## Dragon Roar, spec #348 D7), and area / range (a mob just beyond the base reach is only affected with
 ## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
 ## Hero books (111/112) are synthetic generic tables; the F/P books come from the shared run fixtures.
 
@@ -12,15 +13,17 @@ const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
-const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep"]
+const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep", "hp_cost"]
 
 
 ## Generic Skill.wz levels: a centred box, six mobs, one line, a 300 px range, a certain proc (the shape test_fp_high_actives uses).
-func _generic_levels() -> Dictionary:
+## `extra` is merged into every level (Dragon Roar's `x` = 40 % of max HP and `y` stun seconds).
+func _generic_levels(extra: Dictionary = {}) -> Dictionary:
 	var levels := {}
 	for lv in range(1, 31):
 		levels[str(lv)] = {"damage": 100 + lv, "mad": 30.0, "mobCount": 6, "attackCount": 1, "range": 300, "prop": 100,
 			"time": 4, "lt": {"$v": [-200, -150]}, "rb": {"$v": [200, 150]}}
+		levels[str(lv)].merge(extra, true)
 	return levels
 
 
@@ -35,20 +38,21 @@ func _skills_with_bonuses() -> Array:
 
 func _world(key: String) -> RunWorld:
 	var data := RF.quiet_data()
-	var job := 112 if int(data.skills.skills[key].job) in [100, 110, 111, 112] else 212
+	var job := 112 if int(data.skills.skills[key].job) in [100, 110, 111, 112] else 132 if int(data.skills.skills[key].job) in [131, 132] else 212
 	data.jobs_survivor.jobs["112"]["playable"] = true
+	data.jobs_survivor.jobs["132"]["playable"] = true
 	var setup := RF.with_basic_attack(RF.setup("quiet", 296, data))
 	var imgs: Dictionary = setup.skill_imgs
 	# Hero books are synthetic; the F/P box and crowd skills get the same generic table (their fixtures carry no box).
 	for k: String in data.skills.skills:
 		var d: Dictionary = data.skills.skills[k]
 		var id := int(d.skill_id)
-		if int(d.job) in [111, 112] or id in [2111002, 2111003, 2111006, 2121001, 2121003, 2121006, 2121007]:
+		if int(d.job) in [111, 112] or id in [2111002, 2111003, 2111006, 2121001, 2121003, 2121006, 2121007, 1311006]:
 			var book := String(d.book)
 			if not imgs.has(book):
 				imgs[book] = {"skill": {}}
 			var node: Dictionary = imgs[book].skill.get("%07d" % id, imgs[book].skill.get(str(id), {}))
-			node["level"] = _generic_levels()
+			node["level"] = _generic_levels({"x": 40, "y": 4} if id == 1311006 else {})
 			imgs[book].skill[str(id) if id >= 1000000 else "%07d" % id] = node
 	var w := RunWorld.new(setup)
 	w.set_job(job)
@@ -128,6 +132,7 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	# that `meter_keep` shows in what a single cast leaves behind.
 	var finisher: bool = w.book.def(key).has("meter")
 	var orbs_left := -1
+	var hp_paid := 0
 	for tick in int(window / DT):
 		if finisher and (repeating or w.runner.casts == 0):
 			w.meter.value = 10 if repeating else 5
@@ -140,6 +145,8 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 			if e.type == "mob_hit":
 				lines += 1
 				affected[int(e.mob)] = true
+			elif e.type == "hp_spent" and e.kind == HpRisk.KIND_COST:
+				hp_paid += int(e.amount)
 		for s: int in slots:
 			if repeating:
 				w.swarm.x[s] = x0[s] # knockback must not walk the mobs out of the skill's reach between casts
@@ -154,15 +161,15 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 		edge_hit = edge_hit or affected.has(s)
 	var direct_damage: bool = String(w.loadout.stats(key).damage_type) != "none"
 	return {"casts": w.runner.casts, "dealt": w.damage_dealt - w.swarm.poison_dealt if direct_damage else w.swarm.poison_dealt, "lines": lines, "affected": affected.size(), "edge": edge_hit,
-		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left}
+		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left, "hp_paid": hp_paid}
 
 
 func test_every_pool_skill_with_bonuses_was_found() -> void:
 	var keys := _skills_with_bonuses()
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
-			"elquines"]:
+			"elquines", "dragon_roar"]:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 19, "seven Hero and twelve F/P skills: %d" % keys.size())
+	assert_true(keys.size() >= 19, "seven Hero, twelve F/P and Dark Knight skills: %d" % keys.size())
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
@@ -195,6 +202,9 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 		"meter_keep":
 			assert_true(int(base.orbs_left) >= 0 and int(with.orbs_left) > int(base.orbs_left),
 				"%s: orbs left after the cast %d -> %d" % [label, base.orbs_left, with.orbs_left])
+		"hp_cost":
+			assert_true(int(base.hp_paid) > 0 and int(with.hp_paid) < int(base.hp_paid),
+				"%s: HP paid by the first cast %d -> %d" % [label, base.hp_paid, with.hp_paid])
 		"area", "range":
 			assert_false(bool(base.edge), "%s: the mob beyond the base reach is outside it" % label)
 			assert_true(bool(with.edge), "%s: the mob beyond the base reach is inside the widened one" % label)
