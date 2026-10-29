@@ -666,6 +666,15 @@ static func blast_rect(st: Dictionary, at: Vector2) -> Rect2:
 	return Rect2(box.position + at, box.size)
 
 
+## The pending strike's box of resolved stats `st` around `at` for a caster that faced `facing`: the left-facing canonical box
+## mirrored across `at` for a right-facing caster (the box rule's own mirroring, fixed at the cast).
+static func oriented_rect(st: Dictionary, at: Vector2, facing: int) -> Rect2:
+	var box: Rect2 = st.box
+	if facing > 0:
+		box.position.x = -box.end.x
+	return Rect2(box.position + at, box.size)
+
+
 static func _feet(world: RunWorld, m: int) -> Vector2:
 	return Vector2(world.swarm.x[m], world.swarm.y[m])
 
@@ -874,7 +883,9 @@ func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
 	_areas.append({"st": cast_snapshot(st), "anchor": world.player.pos, "age": 0.0,
 		"next": interval if interval > 0.0 else float(pending.get("delay", 0.0)),
 		"duration": duration, "interval": interval, "follow": bool(pending.get("follow_player", false)),
-		"effect": String(pending.get("effect", ""))})
+		"effect": String(pending.get("effect", "")),
+		# tier C (Buccaneer #420, #421): `oriented` fixes the left-facing box's side at the cast.
+		"facing": world.player.facing if bool(pending.get("oriented", false)) else 0})
 	if not ground.is_empty():
 		world.emit("skill_ground", {"skill": key, "pos": world.player.pos, "box": st.box,
 			"effect": String(ground.get("tile", "")), "duration": duration})
@@ -891,7 +902,8 @@ func _step_areas(dt: float, world: RunWorld) -> void:
 				break
 			var anchor: Vector2 = world.player.pos if bool(a.follow) else a.anchor
 			var limit := world.swarm.capacity() if float(a.interval) > 0.0 else int(st.mob_count)
-			var targets := world.skill_rect_targets(blast_rect(st, anchor), anchor, limit)
+			var rect := oriented_rect(st, anchor, int(a.facing)) if int(a.facing) != 0 else blast_rect(st, anchor)
+			var targets := world.skill_rect_targets(rect, anchor, limit)
 			if float(a.interval) > 0.0:
 				for m in targets:
 					var ground: Dictionary = world.book.def(key).get("ground", {})

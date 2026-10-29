@@ -1316,7 +1316,9 @@ func _on_cast(e: Dictionary) -> void:
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
 	for visual: Dictionary in world.book.def(key).get("cast_visuals", []):
-		fx.play(world.book.art_path(key, String(visual.path), world.loadout.weapon_family), e.pos + Vector2(float(visual.x), 0))
+		var placed := SkillBook.visual_placement(visual, int(e.facing))
+		fx.play(world.book.art_path(key, String(visual.path), world.loadout.weapon_family),
+			e.pos + Vector2(float(placed.x), 0), bool(placed.flip))
 	var loop := String(world.book.def(key).get("sounds", {}).get("loop", ""))
 	if loop != "":
 		_sound(loop)
