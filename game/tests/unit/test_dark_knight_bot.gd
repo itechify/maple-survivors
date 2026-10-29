@@ -1,6 +1,6 @@
 extends TestCase
 ## The autoplay bot with a Dark Knight (spec #348 DK-9, D10 #358): explicit card scores for the pool, the Beholder taken like
-## any other pool skill, and a melee reach that ignores the skills that pay HP (Dragon Fury 241 px and Dragon Roar 400 px are
+## any other pool skill, and a melee reach profile that ignores the long skills that pay HP (Dragon Fury 241 px and Dragon Roar 400 px are
 ## longer than `engage.kite_reach`, 220 px, yet the knight must walk toward a mob like Hero). Synthetic assets, no cache.
 
 const DKF := preload("res://tests/fixtures/dark_knight_fixtures.gd")
@@ -81,26 +81,50 @@ func test_dragon_fury_and_roar_carry_an_hp_cost_and_reach_past_the_kite_threshol
 		assert_true(-box.position.x > kite_reach, "%s box edge %.0f is past %.0f" % [key, -box.position.x, kite_reach])
 
 
-func test_reach_of_is_zero_for_a_skill_that_pays_hp_and_not_for_one_that_does_not() -> void:
-	var w := _world()
-	for key: String in ["spear_crusher", "dragon_fury", "dragon_roar", "sacrifice"]:
-		w.learn_skill(key)
-	assert_eq(SkillRunner.reach_of(w.loadout.stats("dragon_fury"), w), 0.0, "hp_cost")
-	assert_eq(SkillRunner.reach_of(w.loadout.stats("dragon_roar"), w), 0.0, "hp_cost and hp_gate")
-	assert_true(SkillRunner.reach_of(w.loadout.stats("spear_crusher"), w) > 0.0, "Spear Crusher keeps its reach")
-	assert_true(SkillRunner.reach_of(w.loadout.stats("sacrifice"), w) > 0.0, "Sacrifice pays recoil, not an HP cost up front")
-
-
-func test_a_gate_alone_is_enough_to_ignore_the_reach() -> void:
+func test_the_reach_profile_skips_an_hp_paying_skill_past_the_kite_threshold() -> void:
 	var w := _world()
 	w.learn_skill("spear_crusher")
-	var st := w.loadout.stats("spear_crusher").duplicate(true)
-	assert_true(SkillRunner.reach_of(st, w) > 0.0)
-	st["hp_gate"] = 0.5
-	assert_eq(SkillRunner.reach_of(st, w), 0.0, "an hp_gate skill")
-	st["hp_gate"] = 0.0
-	st["hp_cost"] = 12
-	assert_eq(SkillRunner.reach_of(st, w), 0.0, "an hp_cost skill")
+	var crusher := BotInput._reach_profile(w)
+	assert_true(crusher.x > 0.0 and crusher.x < float(w.balance.bot.engage.kite_reach))
+	w.learn_skill("dragon_fury")
+	assert_eq(BotInput._reach_profile(w).x, crusher.x, "Dragon Fury (241 px, an HP cost) does not lengthen the reach")
+	w.learn_skill("dragon_roar")
+	w.loadout.set_rank("dragon_roar", 8)
+	assert_eq(BotInput._reach_profile(w).x, crusher.x, "nor does Dragon Roar at rank 8 (400 px, a cost and a gate)")
+
+
+func test_a_knight_whose_only_attacks_pay_hp_and_reach_far_has_no_profile() -> void:
+	var w := _world()
+	w.loadout.order.clear()
+	w.loadout.ranks.clear()
+	w.learn_skill("dragon_fury")
+	assert_eq(BotInput._reach_profile(w), Vector2.ZERO, "nothing the bot positions for")
+
+
+func test_an_hp_gate_alone_is_enough_to_skip_the_reach() -> void:
+	var data := RF.quiet_data()
+	data.skills.skills.dragon_roar.erase("hp_cost")
+	var w := RunWorld.new(DKF.setup("quiet", 358, data))
+	RF.place_player(w, 400)
+	w.learn_skill("spear_crusher")
+	var crusher := BotInput._reach_profile(w)
+	w.learn_skill("dragon_roar")
+	w.loadout.set_rank("dragon_roar", 8)
+	var st := w.loadout.stats("dragon_roar")
+	assert_eq(int(st.hp_cost), 0, "no cost left")
+	assert_true(float(st.hp_gate) > 0.0, "the gate stays")
+	assert_true(SkillRunner.reach_of(st, w) >= float(w.balance.bot.engage.kite_reach), "and the box is long")
+	assert_eq(BotInput._reach_profile(w).x, crusher.x, "the gate alone keeps it out of the profile")
+
+
+func test_a_short_hp_paying_skill_still_counts() -> void:
+	# Hero's Slash Blast (a flat HP cost, 132 px) is a melee attack the bot positions for: the rule only skips long ones.
+	var w := _world()
+	w.learn_skill("slash_blast")
+	assert_true(int(w.loadout.stats("slash_blast").hp_cost) > 0)
+	var profile := BotInput._reach_profile(w)
+	assert_eq(profile.x, SkillRunner.reach_of(w.loadout.stats("slash_blast"), w))
+	assert_true(profile.x > 0.0)
 
 
 func test_a_knight_with_the_whole_pool_is_a_melee_bot_and_walks_toward_a_mob() -> void:
@@ -127,13 +151,20 @@ func test_without_the_rule_the_same_knight_would_kite() -> void:
 	assert_true(longest > float(w.balance.bot.engage.kite_reach))
 
 
-func test_every_defined_pool_skill_has_a_known_reach_below_the_kite_threshold() -> void:
+func test_every_pool_skill_has_a_known_reach_and_only_hp_payers_reach_past_the_kite_threshold() -> void:
 	var w := _world()
 	var kite_reach := float(w.balance.bot.engage.kite_reach)
+	var long_ones := []
 	for key: String in w.jobs.skill_pool(132):
 		w.learn_skill(key)
-		var reach := SkillRunner.reach_of(w.loadout.stats(key), w)
-		assert_true(reach >= 0.0 and reach < kite_reach, "%s reach %.0f" % [key, reach])
+		w.loadout.set_rank(key, 8)
+		var st := w.loadout.stats(key)
+		var reach := SkillRunner.reach_of(st, w)
+		assert_true(reach >= 0.0, "%s reach %.0f" % [key, reach])
+		if reach >= kite_reach:
+			long_ones.append(key)
+			assert_true(int(st.hp_cost) > 0 or float(st.hp_gate) > 0.0, "%s reaches %.0f px and pays HP" % [key, reach])
+	assert_true("dragon_fury" in long_ones and "dragon_roar" in long_ones, "the two long ones the rule exists for: %s" % str(long_ones))
 
 
 func test_the_bot_keeps_drinking_potions_as_a_dark_knight() -> void:

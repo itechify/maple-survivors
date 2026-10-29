@@ -170,6 +170,7 @@ func test_default_job_stays_212_after_hero_becomes_playable() -> void:
 func test_without_a_pin_or_with_an_unplayable_pin_the_first_playable_job_is_the_default() -> void:
 	var data := _data()
 	data.jobs_survivor.jobs["112"]["playable"] = false
+	data.jobs_survivor.jobs["132"]["playable"] = false # the Dark Knight (D10 #358) sorts before the Arch Mage too
 	data.jobs_survivor.erase("default_job")
 	assert_eq(_jobs(data).default_job(), 212, "data without the pin behaves as before")
 	data.jobs_survivor.jobs["112"]["playable"] = true
