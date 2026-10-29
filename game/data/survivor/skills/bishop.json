@@ -40,6 +40,47 @@
 			"effect": "Skill.wz/231.img/skill/2311004/effect", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2311004/Use", "hit": ""}
 		},
+		"summon_dragon": {
+			"_rarity": "Tier C: first-pass BS7 (#379) bonuses, the Elquines lists (damage, area) with one extra dragon (`summon_count`); repeat scale 0.8. See GAME_DESIGN 8 and 7.84.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Holy Power", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "reach", "text": "Wide Wings", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "twin", "text": "Twin Dragons", "effects": [{"stat": "summon_count", "op": "add", "value": 1}]}],
+				"legendary": [{"id": "twin", "text": "Twin Dragons and damage", "effects": [{"stat": "summon_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2311006, "book": "231", "job": 231, "kind": "summon", "slot": "active",
+			"name": "Summon Dragon", "desc": "Calls a holy dragon that follows you and strikes one nearby monster at a time.",
+			"text": {"desc": "Calls a holy dragon that follows you and strikes one nearby monster at a time.", "h": "Basic attack {mad}, mastery {mastery_pct}%, lasts {time} sec, strikes {mob_count|monster|monsters} at a time"},
+			"icon": "Skill.wz/231.img/skill/2311006/icon", "damage": "magic", "element": "h",
+			"cast": {"rule": "summon"}, "cooldown": 12.0,
+			"action": "alert2", "action_time": 0.8, "ball": "",
+			"effect": "", "hit": "Skill.wz/231.img/skill/2311006/hit/0", "rotate": false,
+			"summon": {"ordinal_spread": 36.0, "path": "Skill.wz/231.img/skill/2311006/summon", "attack": "attack1", "move": "fly", "follow_speed": 180.0,
+				"follow_distance": 60.0, "teleport_distance": 600.0, "attack_interval": 1.2},
+			"sounds": {"use": "Sound.wz/Skill.img/2311006/Use", "hit": ""},
+			"_provenance": "Tier A: WZ time/mad/mastery, the summon attack info (box -200,-150..200,150, attackAfter 500, no mobCount: one target) and art; the book has fly and no move. Tier C: element h (no elemAttr in the WZ; the String text calls it a holy dragon), 12 s recast, 1.2 s attack cycle, follow settings; GAME_DESIGN 7.84."
+		},
+		"bahamut": {
+			"_rarity": "Tier C: first-pass BS7 (#379) bonuses, the Elquines lists (damage, area) with +2 targets (`count`); repeat scale 0.8. See GAME_DESIGN 8 and 7.84.",
+			"rarity_bonuses": {
+				"rare": [{"id": "power", "text": "Holy Power", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}],
+				"epic": [{"id": "reach", "text": "Wide Wings", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}],
+				"unique": [{"id": "crowd", "text": "Holy Crowd", "effects": [{"stat": "count", "op": "add", "value": 2}]}],
+				"legendary": [{"id": "crowd", "text": "Holy Crowd and damage", "effects": [{"stat": "count", "op": "add", "value": 2}, {"stat": "damage", "op": "mul", "value": 1.2}]}]
+			},
+			"skill_id": 2321003, "book": "232", "job": 232, "kind": "summon", "slot": "active",
+			"name": "Bahamut", "desc": "Calls Bahamut, a holy dragon that follows you and strikes a group of nearby monsters.",
+			"text": {"desc": "Calls Bahamut, a holy dragon that follows you and strikes a group of nearby monsters.", "h": "Basic attack {mad}, mastery {mastery_pct}%, lasts {time} sec, strikes up to {mob_count|monster|monsters}"},
+			"icon": "Skill.wz/232.img/skill/2321003/icon", "damage": "magic", "element": "h",
+			"cast": {"rule": "summon"}, "cooldown": 12.0,
+			"action": "alert2", "action_time": 0.8, "ball": "",
+			"effect": "", "hit": "Skill.wz/232.img/skill/2321003/hit/0", "rotate": false,
+			"summon": {"ordinal_spread": 36.0, "path": "Skill.wz/232.img/skill/2321003/summon", "attack": "attack1", "move": "fly", "follow_speed": 180.0,
+				"follow_distance": 60.0, "teleport_distance": 600.0, "attack_interval": 2.4,
+				"count_field": "mobCount"},
+			"sounds": {"use": "Sound.wz/Skill.img/2321003/Use", "hit": ""},
+			"_provenance": "Tier A: holy (WZ elemAttr h), WZ time/mad/mastery, mobCount 3 (6 at level 30) and the summon attack info (box -200,-150..0,30, attackAfter 990) and art; the book has fly and no move; its Summon Dragon prerequisite is dropped. Tier C: 12 s recast, 2.4 s attack cycle (Elquines'), follow settings; GAME_DESIGN 7.84."
+		},
 		"angel_ray": {
 			"_rarity": "Tier C: first-pass bonuses named after the lineage's passives; repeat scale 0.8. See GAME_DESIGN 8 and 7.80.",
 			"rarity_bonuses": {
