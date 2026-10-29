@@ -725,6 +725,14 @@ also emit `hp_spent`, which the oracle runs do not exercise). Henesys `balance.s
 deaths 305.0 / 454.5 / 651.7 s (Lv 11 / 21 / 36), Hero (112) 0/3, deaths 327.7 / 336.9 / 688.2 s (Lv 11 / 11 / 36). Both
 match the recorded numbers above exactly. No crashes, no world warnings.
 
+**Rush and Monster Magnet smoke (#356, spec #348 D8; no tuning).** Data copies only, with job 132 still not playable in the
+shipped data. `ISOLATE=356 JOBS=3 bash scripts/balance.sh 1 2 2026`, bot policy: F/P (212) 0/3 with deaths at 5:05 / 7:34 / 10:51,
+Hero (112) 0/3 at 5:27 / 5:36 / 11:28, both identical to the D5 (#353) smoke on the same seeds; no crashes or world warnings.
+Diagnostic `--job=132` playtests (local `playable` flip, reverted): Henesys seed 2 at x2 for 6 minutes with a Spear and with a
+Pole Arm, and Sleepywood with the tier-1 kit (died on its first map, no balance claim); `cast_rush_dark_knight` and
+`cast_monster_magnet_dark_knight` written and checked by eye, `missing: []` in every summary. Evidence in `evidence/356/` (gitignored).
+Full suites: **2289 passed / 0 failed / 0 skipped** with cache-349; **2289 passed / 0 failed / 239 skipped** without cache.
+
 **Spear Crusher smoke (#353, spec #348 D5; no tuning).** The ticket adds a Dark Knight definition (job 132 is not playable) and a
 presentation-only change to how a numeric-string frame delay is read, so shipped jobs cannot change. Henesys
 `balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3 with deaths at 10:51 / 5:05 / 7:34 (Lv 11 / 21 / 36; deaths by map 1:1 2:1 3:1),
