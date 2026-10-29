@@ -109,7 +109,6 @@ func test_the_two_followers_are_defined_physical_summons_of_the_312_pool() -> vo
 		assert_eq(String(d.summon.watk_field), "pad", key)
 		assert_true(bool(d.summon.settle), "%s: the 1x1 placeholder frame must not hide the follower (B6)" % key)
 		assert_true(float(d.summon.hover) > 0.0 and float(d.summon.hover) <= 30.0, "%s: small hover (B6 finding)" % key)
-		assert_true("bow" in d.weapon_families, key)
 	assert_eq(int(skills.silver_hawk.skill_id), 3111005)
 	assert_eq(int(skills.phoenix.skill_id), 3121006)
 	assert_eq(float(skills.silver_hawk.cooldown), 30.0)

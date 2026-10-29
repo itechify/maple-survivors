@@ -79,14 +79,15 @@ func test_class_lines_follow_the_adventurers_in_sorted_order() -> void:
 	assert_eq(Array(lines.slice(7)), ["bowmaster", "hero"])
 
 
-func test_the_bowmaster_line_loads_without_errors_and_adds_its_job_and_an_empty_skill_skeleton() -> void:
+func test_the_bowmaster_line_loads_without_errors_and_adds_its_job_and_its_skills() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
 	assert_true(d.jobs_survivor.jobs.has("312"), "jobs/bowmaster.json is merged into the survivor job data")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "bowmaster"))
-	for key: String in frag.skills:
-		assert_true(key in POOL, "%s: each ticket appends its own pool skill to the fragment" % key)
+	# B7 (#339) fills the skeleton with the core arrows; B8-B11 append the other six pool skills.
+	for key: String in ["arrow_blow", "bow_double_shot", "arrow_bomb", "strafe"]:
+		assert_true(frag.skills.has(key), key)
 	assert_true(frag.has("_doc"))
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 

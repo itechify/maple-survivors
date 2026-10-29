@@ -5848,35 +5848,6 @@ skill's `hit/0` the existing hit visual already draws, `info/effect` is drawn at
 (tier C: `effectAfter` is not modelled as a separate delay; the bolt art simply plays on the impact tick). Silver Hawk
 and Phoenix `Use` / `Summon` sounds are UOLs into 3211005 (Golden Eagle).
 
-### 7.45 Bowmaster skill entries (spec #332, B7-B11)
-
-One paragraph per ticket, appended.
-
-**Silver Hawk and Phoenix (#343, B11).** The two physical followers (7.44) as data in `skills/bowmaster.json`, no new code.
-Both are `kind summon`, `cast.rule summon`, `damage physical`, `weapon_families ["bow"]`, cast stance `alert2` (the WZ
-`action/0`), `summon {move fly, watk_field pad, settle true, hover 20}`, the `hit/0` art of the skill (the Hawk's `info/effect`
-bolt is the 7.44 strike art; its `mob` stun stars are already drawn by the stun status) and `Use` / `Summon` sounds that read
-through `Sound.wz/Skill.img/<id>/...`: the Hawk's `Use` / `Summon` and Phoenix's `Summon` are UOLs the importer expands into
-`3211005/*.mp3` (B1), so the path is the id's own and the file is found through the JSON node.
-
-- **Silver Hawk** (3111005, book 311): 30 s recast (the WZ lifetime 112 -> 180 s is longer, so a recast replaces the group),
-  neutral, one monster in a +-200 x +-150 box (no `mobCount`) every 1.6 s, `pad` 32 -> 100 as W.Att, `on_hit {stun, chance_field
-  prop, duration 1.5}` (`prop` 59 -> 99%, bosses resist). Follow 220 px/s at 70 px behind.
-- **Phoenix** (3121006, book 312): 40 s recast, element `f`, up to four monsters (`mobCount 4`) in a +-100 x +-60 box every
-  3.0 s, `pad` 320 -> 550, no status (the node has none). Follow 200 px/s at 60 px behind.
-- **Hover 20 px** for both: the art already floats 40-110 px above its anchor (B6 finding: 80 drew a hawk ~190 px over the
-  character); checked by eye with `player_summon_probe.tscn --skill=hawk|phoenix` (the hawk and the phoenix sit just above
-  and beside the character and dive onto monsters).
-- **Rarity** (`rarity_bonuses`, tier C, repeat scale 0.8, Legendary = the Unique's effect plus damage x1.2 under the same
-  id): Rare Bow Expert damage x1.2; Epic Hawk Eyes `area` x1.2 (Hawk) / Flame Wings `count` +1, a fifth target (Phoenix);
-  Unique Second Hawk / Second Phoenix `summon_count` +1. `test_rarity_bonus_effects` checks that each changes the resolved
-  cast (damage dealt, a monster just outside the base box, monsters struck in one strike, allies).
-- **Balance flag (not a change):** Phoenix's `pad` (305 -> 550 in the WZ text, 320 -> 550 at the mapped levels) is 3-6 times an arrow's
-  W.Att in the same formula, so one Phoenix hit at rank 1 is roughly three times a plain arrow's base damage before skill
-  percentage. Its 3.0 s attack cycle, 40 s recast and four-monster box are the first levers; the Hawk's stun (99% at rank 8,
-  1.5 s, cycle 1.6 s) is the second. Neither is tuned here.
-- The Summoning Rock cost (`itemCon 4006001`) is not modelled (no item economy).
-
 ### 7.33 Hero pool and Rush (spec #296)
 
 #### Core melee: Power Strike, Slash Blast, Brandish (H5, #301)
@@ -6201,6 +6172,64 @@ skill carries the block yet (the tests use a synthetic skill), so no existing re
   (`UpgradePool.MOD_PREVIEW`, `LevelUpWindow.MOD_LABELS`).
 - **Not modelled.** The meter's finisher scaling (`PlayerMeter.begin_cast`) does not scale `burn_pulse`: no burning skill
   is a meter skill yet.
+
+### 7.45 Bowmaster core arrows (#339, spec #332 B7)
+
+Arrow Blow, Double Shot and Arrow Bomb moved from `skills/bowman.json` to `skills/bowmaster.json` (same keys, same
+WZ ids; a repeated key is a load error) and Strafe (3111006, book 311) joined them. All four are `slot: "active"` with the
+default eight ranks (the 20-level skills read WZ levels 3/5/8/10/13/15/18/20, the 30-level ones 4/8/12/15/19/23/27/30),
+no `weapon_families` (the held weapon gates nothing) and four-tier `rarity_bonuses` (#288 schema). Their legacy standalone
+cards (`arrow_blow_new/_rank/_shots`, `bow_double_shot_new/_rank/_shots`, `arrow_bomb_new/_rank/_shots/_targets`) are gone
+from `upgrades/bowman.json`; a playable Bowmaster's new / rank cards come from `UpgradePool.add_pool_skills`.
+
+- **Arrow Blow** (start, 1.0 s): one arrow at the nearest monster, the current ammo's sprite, WZ damage 196% (rank 1) to
+  260%. **Double Shot** (1.0 s): `bulletCount` 2, one arrow per monster over the two nearest (both at the same monster
+  when only one is in reach), 96% to 130% per arrow, Arrow Blow's `Use` sound (Sound.wz has no 3001005 node).
+  **Arrow Bomb: Bow** (2.0 s, up from the old 1 s placeholder because it is a six-target blast now competing for a
+  slot): the arrow explodes on the first monster it meets (`mobCount` 6, box +-130 to +-150), `x` 78% to 130%, stuns each
+  struck non-boss with `prop` 34% to 60% for `time` 2 to 6 s.
+- **Strafe** (2.5 s): `cast: {"rule": "nearest", "focus": true}`. `focus` makes admission want one target
+  (`SkillRunner._admit_nearest`), so the four arrows (`bulletCount`) all reuse it, aimed `REUSE_SPREAD` px apart as the
+  nearest rule always does for a reused target; a scheduled boss in reach is still picked first. 74% to 100% per arrow,
+  range 350 px, 700 px/s, radius 6. The hit art is Strafe's **own** `hit/0` (three frames; the spec said the WZ hit was
+  empty, B1 found it). Strafe's `effect` (a six-frame caster flash that opens on a 1x1 frame) is not drawn.
+- **Rarity bonuses** (tier C; names are the lineage's passives). Rare: `bow_mastery` damage x1.2 (all four). Epic: Arrow Blow
+  and Strafe `booster` cooldown x0.88; Double Shot `eye` range x1.25; Arrow Bomb `bigger_bomb` area x1.2. Unique: Arrow
+  Blow and Double Shot `final_attack` count +1, Strafe `final_attack` count +2 (six arrows), Arrow Bomb `wide_blast`
+  `blast_targets` +2. Legendary: the Unique's effect and id (so it shares the repeat counter) plus damage x1.2.
+  Every bonus changes the resolved cast (`test_rarity_bonus_effects`: arrows count as hit lines because an arrow stops at
+  the first monster on its line; Arrow Bomb's `area` and `blast_targets` are probed in a cluster around the first monster).
+- **Consequence of dropping the weapon gate.** Arrow Blow and Double Shot have no WZ `weapon` code, so with their explicit
+  `weapon_families` gone the ranged passive range bonus (`Loadout.RANGE`, Eye of Amazon) no longer reaches them; no
+  Bowmaster pool skill grants that passive, and Strafe and Arrow Bomb (WZ `weapon 45`) still take it.
+- Tests: `test_bowmaster_core_arrows.gd` (behaviour per skill, the catalog lists, the real-cache eight-rank check),
+  `test_rarity_bonus_effects.gd` (every bonus), and the old weapon-gate / 20-rank / standalone-card cases rewritten in
+  `test_bowman`, `test_hunter` and `test_bowmaster_data` (see the B7 notes).
+
+**Silver Hawk and Phoenix (#343, B11).** The two physical followers (7.44) as data in `skills/bowmaster.json`, no new code.
+Both are `kind summon`, `cast.rule summon`, `damage physical`, no `weapon_families` (as B7), cast stance `alert2` (the WZ
+`action/0`), `summon {move fly, watk_field pad, settle true, hover 20}`, the `hit/0` art of the skill (the Hawk's `info/effect`
+bolt is the 7.44 strike art; its `mob` stun stars are already drawn by the stun status) and `Use` / `Summon` sounds that read
+through `Sound.wz/Skill.img/<id>/...`: the Hawk's `Use` / `Summon` and Phoenix's `Summon` are UOLs the importer expands into
+`3211005/*.mp3` (B1), so the path is the id's own and the file is found through the JSON node.
+
+- **Silver Hawk** (3111005, book 311): 30 s recast (the WZ lifetime 112 -> 180 s is longer, so a recast replaces the group),
+  neutral, one monster in a +-200 x +-150 box (no `mobCount`) every 1.6 s, `pad` 32 -> 100 as W.Att, `on_hit {stun, chance_field
+  prop, duration 1.5}` (`prop` 59 -> 99%, bosses resist). Follow 220 px/s at 70 px behind.
+- **Phoenix** (3121006, book 312): 40 s recast, element `f`, up to four monsters (`mobCount 4`) in a +-100 x +-60 box every
+  3.0 s, `pad` 320 -> 550, no status (the node has none). Follow 200 px/s at 60 px behind.
+- **Hover 20 px** for both: the art already floats 40-110 px above its anchor (B6 finding: 80 drew a hawk ~190 px over the
+  character); checked by eye with `player_summon_probe.tscn --skill=hawk|phoenix` (the hawk and the phoenix sit just above
+  and beside the character and dive onto monsters).
+- **Rarity** (`rarity_bonuses`, tier C, repeat scale 0.8, Legendary = the Unique's effect plus damage x1.2 under the same
+  id): Rare Bow Expert damage x1.2; Epic Hawk Eyes `area` x1.2 (Hawk) / Flame Wings `count` +1, a fifth target (Phoenix);
+  Unique Second Hawk / Second Phoenix `summon_count` +1. `test_rarity_bonus_effects` checks that each changes the resolved
+  cast (damage dealt, a monster just outside the base box, monsters struck in one strike, allies).
+- **Balance flag (not a change):** Phoenix's `pad` (305 -> 550 in the WZ text, 320 -> 550 at the mapped levels) is 3-6 times an arrow's
+  W.Att in the same formula, so one Phoenix hit at rank 1 is roughly three times a plain arrow's base damage before skill
+  percentage. Its 3.0 s attack cycle, 40 s recast and four-monster box are the first levers; the Hawk's stun (99% at rank 8,
+  1.5 s, cycle 1.6 s) is the second. Neither is tuned here.
+- The Summoning Rock cost (`itemCon 4006001`) is not modelled (no item economy).
 
 ## 8. Upgrades
 
@@ -7527,6 +7556,20 @@ Warrior bot equipment weights now explicitly name ancestor 100 with the same val
 | Attack box anchor of a flyer | feet-relative (the trailing point on the ground), not the flyer | tier C |
 | `info/effect` strike art | played at the damage impact (`attackAfter`) on each struck monster; `effectAfter` not modelled | tier C; the nodes are tier A |
 | `Summon` sound | plays at each follower spawn when `sounds.summon` is listed | tier C (no sound in the v83 client was verified to play at spawn) |
+
+### Bowmaster B7 constants (#339)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `cast.focus` on the nearest rule | admission wants one target, so every arrow of the volley reuses it | tier C, spec #332 |
+| Arrow Blow | cooldown 1.0 s, range 300 px, 600 px/s, radius 8, no pierce, 0.6 s hold (damage 196-260% tier A) | tier C (the old first-job numbers, unchanged) |
+| Double Shot | cooldown 1.0 s, same shot numbers, `bulletCount` 2 (tier A), Arrow Blow's `Use` sound | tier C; the count and damage tier A |
+| Arrow Bomb | cooldown 2.0 s (was 1.0 s), range 300 px, 600 px/s, radius 8; box, `mobCount`, `prop`, `time`, `x` tier A | tier C |
+| Strafe | cooldown 2.5 s, range 350 px, 700 px/s, radius 6, no pierce, 0.6 s hold (damage 74-100%, `bulletCount` 4 tier A) | tier C |
+| Rare `bow_mastery` (all four) | damage x1.2 | tier C |
+| Epic | Arrow Blow / Strafe cooldown x0.88; Double Shot range x1.25; Arrow Bomb area x1.2 | tier C |
+| Unique | Arrow Blow / Double Shot count +1; Strafe count +2; Arrow Bomb `blast_targets` +2 | tier C |
+| Legendary | the Unique's effect and id plus damage x1.2 | tier C |
 
 ### Bowmaster B11 constants (#343)
 
