@@ -201,6 +201,10 @@ A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here i
 A timed active stance that changes the character's attacks and carries sub-skills. A running form survives
 map transfer and ends on death.
 
+**Charge**:
+A Paladin Form that temporarily gives its attacks an element and carries Charged Blow. Holy Charge also
+carries Heaven's Hammer. Only one Charge runs at a time.
+
 **Sub-skill**:
 An attack carried by a Form, used automatically while the form lasts. It grows with its parent, occupies no
 skill slot and is never offered as a card.

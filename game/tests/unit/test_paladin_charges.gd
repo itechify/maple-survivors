@@ -450,3 +450,15 @@ func test_real_cache_both_twins_nodes_sounds_and_the_cast_effect_exist() -> void
 		var twin_effect := String(w.book.art_path(key, String(w.book.def(key).effect), "blunt"))
 		assert_true(twin_effect.ends_with("%d/effect" % TWIN_ID[key]), twin_effect)
 	lib.free()
+
+
+func test_blast_art_follows_every_charge_and_uses_gold_without_one() -> void:
+	for charge in ["", "ice_charge", "fire_charge", "thunder_charge", "holy_charge"]:
+		var w := _world(["blast"])
+		if charge != "":
+			_start(w, charge)
+		var stats := w.loadout.stats("blast").duplicate(true)
+		stats = w.runner.forms.begin_cast(w, "blast", stats)
+		var index: int = {"": 0, "ice_charge": 1, "fire_charge": 2, "thunder_charge": 3, "holy_charge": 5}[charge]
+		assert_eq(String(stats.effect), "Skill.wz/122.img/skill/1221009/effect/%d" % index, charge)
+		assert_eq(String(stats.hit), "Skill.wz/122.img/skill/1221009/hit/0/%d" % index, charge)
