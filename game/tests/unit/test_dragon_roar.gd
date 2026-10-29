@@ -343,13 +343,13 @@ func test_the_skill_window_line_states_the_cost_the_gate_and_the_stun() -> void:
 	var w := _world()
 	var text := SkillText.new(w.book, {})
 	var line := text.level_line(KEY, 4, w.loadout.stats(KEY))
-	assert_true(line.contains("Costs 56% of your max HP"), line)
+	assert_true(line.contains("Costs %d HP" % w.loadout.stats(KEY).hp_cost), line)
 	assert_true(line.contains("Needs more than 50% HP"), line)
 	assert_true(line.contains("up to 15 monsters"), line)
 	assert_true(line.contains("stun for 4 sec"), line)
 	w.loadout.set_rank(KEY, 8)
 	var top := text.level_line(KEY, 30, w.loadout.stats(KEY))
-	assert_true(top.contains("Costs 30% of your max HP") and top.contains("stun for 2 sec"), top)
+	assert_true(top.contains("Costs %d HP" % w.loadout.stats(KEY).hp_cost) and top.contains("stun for 2 sec"), top)
 
 
 # --- Real cache (SKIPs without it: a SKIP proves nothing) --------------------------------------------------------------
@@ -406,3 +406,11 @@ func test_real_cache_art_and_sounds_resolve() -> void:
 	assert_true(hit != null, "hit burst")
 	assert_eq(hit.frames.size(), 3, "hit frames")
 	lib.free()
+
+
+func test_skill_text_shows_the_modified_cost() -> void:
+	var w := _world()
+	w.loadout.add_skill_mod(KEY, "hp_cost", "mul", 0.75)
+	var st := w.loadout.stats(KEY)
+	var line := SkillText.new(w.book).level_line(KEY, int(st.level), st)
+	assert_true(line.contains("Costs %d HP" % int(st.hp_cost)), line)

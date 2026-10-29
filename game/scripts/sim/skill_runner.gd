@@ -1,5 +1,7 @@
 class_name SkillRunner
 extends RefCounted
+## Damage fields shared by cast-local damage modifiers.
+const DAMAGE_FIELDS := ["damage_min", "damage_max", "status_damage_mult"]
 ## Auto-casting (docs/GAME_DESIGN.md section 7). Every owned active skill counts its cooldown down; when it is ready
 ## and a living mob is within its range of the cast origin (the player's body, `RunWorld.cast_origin()`), it fires:
 ## a `cast` event, the player's cast stance, then

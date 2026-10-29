@@ -8,73 +8,18 @@ const DT := 1.0 / 60.0
 const KEY := "beholder"
 const AURA := "aura_of_the_beholder"
 const HEX := "hex_of_the_beholder"
-## Rank -> the WZ level each skill reads (spec DK-4, DK-11).
-const BEHOLDER_LEVELS := [2, 3, 4, 5, 7, 8, 9, 10]
-const SUB_LEVELS := [4, 7, 10, 13, 16, 19, 22, 25]
-## Aura at the eight sub levels (D1): canonical `hp` (flat) and `x` (seconds between pulses).
-const AURA_HP := [85, 170, 200, 280, 360, 390, 470, 500]
-const AURA_X := [10, 9, 8, 7, 7, 6, 5, 4]
-## Hex at the eight sub levels (D1): the stats the level has (WZ names), `time` and `x`.
-const HEX_ROWS := [
-	{"pdd": 20, "time": 20, "x": 42},
-	{"pdd": 40, "mdd": 25, "time": 40, "x": 36},
-	{"pdd": 40, "mdd": 25, "time": 40, "x": 30},
-	{"pdd": 60, "mdd": 50, "acc": 10, "time": 60, "x": 24},
-	{"pdd": 80, "mdd": 75, "acc": 20, "eva": 30, "time": 80, "x": 18},
-	{"pdd": 80, "mdd": 75, "acc": 20, "eva": 30, "time": 80, "x": 12},
-	{"pdd": 100, "mdd": 100, "acc": 25, "eva": 50, "pad": 6, "time": 100, "x": 7},
-	{"pdd": 100, "mdd": 100, "acc": 25, "eva": 50, "pad": 15, "time": 99, "x": 4},
-]
-## The WZ level at which a Hex stat first appears (D1; DK-5).
-const UNLOCK := {"pdd": 1, "mdd": 6, "acc": 11, "eva": 16, "pad": 21}
-const TIME_WZ := [720, 780, 840, 900, 1020, 1080, 1140, 1200]
-
-
-func _anim(frames: int, ms := 100.0) -> Dictionary:
-	var out := {}
-	for i in frames:
-		out[str(i)] = {"delay": ms}
-	return out
-
-
-## 25 levels of a sub-skill from its eight mapped rows: a level takes the row of the next mapped level at or above it,
-## keeping only the fields it has unlocked (`unlock` maps WZ field -> first level).
-func _sub_levels(rows: Array, unlock: Dictionary) -> Dictionary:
-	var levels := {}
-	for lv in range(1, 26):
-		var row: Dictionary = rows[SUB_LEVELS.size() - 1]
-		for i in SUB_LEVELS.size():
-			if SUB_LEVELS[i] >= lv:
-				row = rows[i]
-				break
-		var out := {}
-		for field: String in row:
-			if lv >= int(unlock.get(field, 1)):
-				out[field] = float(row[field])
-		levels[str(lv)] = out
-	return levels
+const DK := preload("res://tests/fixtures/dark_knight_fixtures.gd")
+const BEHOLDER_LEVELS = DK.BEHOLDER_LEVELS
+const SUB_LEVELS = DK.SUB_LEVELS
+const AURA_HP = DK.AURA_HP
+const AURA_X = DK.AURA_X
+const HEX_ROWS = DK.HEX_ROWS
+const UNLOCK = DK.UNLOCK
+const TIME_WZ = DK.TIME_WZ
 
 
 func _imgs() -> Dictionary:
-	var imgs := RF.skill_imgs()
-	var beholder_levels := {"1": {"time": 660.0}}
-	for i in BEHOLDER_LEVELS.size():
-		beholder_levels[str(BEHOLDER_LEVELS[i])] = {"time": float(TIME_WZ[i]), "mastery": 1.0}
-	for lv in range(1, 11):
-		if not beholder_levels.has(str(lv)):
-			beholder_levels[str(lv)] = {"time": 700.0}
-	var summon := {"summoned": _anim(16), "stand": _anim(16), "move": _anim(8), "die": _anim(8), "skill1": _anim(24)}
-	for n in range(2, 7):
-		summon["skill%d" % n] = _anim(16)
-	var aura_rows := []
-	for i in 8:
-		aura_rows.append({"hp": AURA_HP[i], "x": AURA_X[i]})
-	imgs["132"] = {"skill": {
-		"1321007": {"level": beholder_levels, "summon": summon, "affected": _anim(9, 90.0)},
-		"1320008": {"level": _sub_levels(aura_rows, {})},
-		"1320009": {"level": _sub_levels(HEX_ROWS, UNLOCK)},
-	}}
-	return imgs
+	return DK.skill_imgs()
 
 
 func _book() -> SkillBook:

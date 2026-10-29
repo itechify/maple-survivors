@@ -8,17 +8,17 @@ extends RefCounted
 ##                  max_hp pays floor(field / 100 x max HP). Resolved into the `hp_cost` stat, the same number every
 ##                  consumer (admission, RunWorld.can_pay_hp, the bot, the Skill window) already reads.
 ##   "hp_gate":     {"above": 0.5}      the cast waits while current HP is not strictly above 50% of max HP.
-##   "self_damage": {"field": "x", "of": "damage_dealt", "cap_max_hp": 0.10}
+##   "self_damage": {"field": "x", "cap_max_hp": 0.10}
 ##                  after the cast the caster loses floor(field / 100 x damage applied), at most cap_max_hp x max HP,
 ##                  never the last HP.
 ##
+##   "low_hp_damage": {"at_or_below": 0.5} sets this skill's low-HP threshold.
+##
 ## Rarity-bonus / card modifier stats (Loadout skill mods): `hp_cost` (mul), `self_damage` (mul), `low_hp_damage` (add,
-## a fraction of damage, applied while HP is at or below BERSERK_BELOW of max HP at the moment of the cast).
+## a fraction of damage, applied while HP is at or below low_hp_threshold of max HP at the moment of the cast).
 ## RunWorld.can_pay_hp / spend_hp stay the one place HP is paid (it never pays the last HP); this file only decides how
 ## much, whether the cast is admitted and what the recoil is. Events: `hp_spent` (see RunWorld.EVENT_FIELDS).
 
-## HP fraction at or below which `low_hp_damage` applies. tier A: Berserk (1320006) level 30 `x` is 50 (% of HP).
-const BERSERK_BELOW := 0.5
 ## Card-text names of the modifier stats (UpgradePool.rarity_bonus labels).
 const LABELS := {"hp_cost": "HP cost", "self_damage": "Recoil", "low_hp_damage": "Low-HP damage"}
 ## `hp_spent.kind` values.
@@ -40,7 +40,7 @@ static func cost(lo: Loadout, key: String, lv: int) -> int:
 ## The HP-risk numbers of skill `key` at canonical level `lv`, merged into Loadout.stats: `hp_gate` (fraction of max HP,
 ## 0 = none), `self_damage` (percent of the damage dealt lost as recoil, after the `self_damage` modifier; 0 = none) and
 ## `self_damage_cap` (fraction of max HP one cast's recoil may take) and `low_hp_damage` (the Berserk bonus, a fraction of
-## damage added while HP is at or below BERSERK_BELOW; 0 = none).
+## damage added while HP is at or below low_hp_threshold; 0 = none).
 static func resolve(lo: Loadout, key: String, lv: int) -> Dictionary:
 	var d := lo.book.def(key)
 	var gate: Dictionary = d.get("hp_gate", {})
@@ -49,7 +49,8 @@ static func resolve(lo: Loadout, key: String, lv: int) -> Dictionary:
 	if not recoil.is_empty():
 		percent = maxf(0.0, lo.skill_stat(key, "self_damage", lo.book.canonical(key, lv, String(recoil.get("field", "x")), 0.0)))
 	return {"hp_gate": float(gate.get("above", 0.0)), "self_damage": percent,
-		"self_damage_cap": float(recoil.get("cap_max_hp", 1.0)), "low_hp_damage": lo.skill_stat(key, "low_hp_damage", 0.0)}
+		"self_damage_cap": float(recoil.get("cap_max_hp", 1.0)), "low_hp_damage": lo.skill_stat(key, "low_hp_damage", 0.0),
+		"low_hp_threshold": float(d.get("low_hp_damage", {}).get("at_or_below", 0.5))}
 
 
 ## The Skill window / tooltip lines of resolved stats `st` (empty for a skill with no HP-risk block): the gate, the recoil
@@ -62,7 +63,7 @@ static func mechanic_lines(st: Dictionary) -> PackedStringArray:
 		lines.append("Recoil: %s%% of damage dealt (at most %s%% of max HP)" % [_percent(float(st.self_damage)),
 			_percent(float(st.get("self_damage_cap", 1.0)) * 100.0)])
 	if float(st.get("low_hp_damage", 0.0)) > 0.0:
-		lines.append("+%s%% damage at %s%% HP or less" % [_percent(float(st.low_hp_damage) * 100.0), _percent(BERSERK_BELOW * 100.0)])
+		lines.append("+%s%% damage at %s%% HP or less" % [_percent(float(st.low_hp_damage) * 100.0), _percent(float(st.get("low_hp_threshold", 0.5)) * 100.0)])
 	return lines
 
 
@@ -91,14 +92,14 @@ static func pay_cost(world: RunWorld, st: Dictionary) -> void:
 
 
 ## The cast-local stats of a cast that starts now: a copy whose damage carries the `low_hp_damage` bonus (x(1 + bonus), the
-## fields PlayerMeter.begin_cast also scales) while HP is at or below BERSERK_BELOW of max HP, read before the cost is
+## fields PlayerMeter.begin_cast also scales) while HP is at or below low_hp_threshold of max HP, read before the cost is
 ## paid. Any other cast gets `st` itself (never mutated: stats are cached).
 static func begin_cast(world: RunWorld, st: Dictionary) -> Dictionary:
 	var bonus := float(st.get("low_hp_damage", 0.0))
-	if bonus == 0.0 or world.hp_exact() > BERSERK_BELOW * float(world.player_state.max_hp):
+	if bonus == 0.0 or world.hp_exact() > float(st.get("low_hp_threshold", 0.5)) * float(world.player_state.max_hp):
 		return st
 	var out := st.duplicate()
-	for field: String in ["damage_min", "damage_max", "status_damage_mult"]:
+	for field: String in SkillRunner.DAMAGE_FIELDS:
 		out[field] = float(out.get(field, 0.0)) * (1.0 + bonus)
 	return out
 
@@ -128,3 +129,8 @@ static func settle(world: RunWorld, st: Dictionary, dealt_before: int) -> void:
 
 static func _report(world: RunWorld, st: Dictionary, amount: int, kind: String) -> void:
 	world.emit("hp_spent", {"skill": String(st.skill), "skill_id": int(st.skill_id), "amount": amount, "kind": kind})
+
+
+## Whether resolved stats pay HP or require an HP gate.
+static func pays_hp(st: Dictionary) -> bool:
+	return int(st.get("hp_cost", 0)) > 0 or float(st.get("hp_gate", 0.0)) > 0.0

@@ -8085,3 +8085,8 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | `min_targets` | 3 | tier C: Shout's admission rule |
 | Cast time | `action_time` 0.6 s (the body action alert3 runs 1.5 s) | tier C: Shout's hold |
 | Rarity bonuses | Mastery damage x1.2, Super Dragon Roar area x1.2, Dragon Blood `hp_cost` x0.75, Legendary Dragon Blood + damage x1.2 | tier C: spec #348 table; Dragon Blood is the name of the lineage's buff 1311008 |
+
+Review #348 clarification: the bot ignores HP-paying skills whose reach is at least `kite_reach`;
+shorter HP-paying melee attacks remain in its reach profile (preserving Hero). Low-HP damage thresholds
+are definition data (`low_hp_damage.at_or_below`, Dark Knight 0.5, tier A: Berserk level-30 x).
+Numeric-string delay parsing also affects Pig/Ribbon Pig and seven `dungeon.img` map objects; this is shared rendering behavior.

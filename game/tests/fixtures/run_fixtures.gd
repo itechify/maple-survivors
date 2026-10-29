@@ -745,3 +745,13 @@ static func add_modifier_effects(w: RunWorld, definition: Dictionary, repeats: i
 			w.loadout.add_skill_mod(String(definition.skill), String(effect.stat),
 				String(effect.get("op", "add")), float(effect.value))
 	w.refresh_player_stats()
+
+
+## Synthetic animation frames with optional canvas stubs.
+static func anim(frames: int, ms: float = 100.0, canvas: bool = false) -> Dictionary:
+	var out := {}
+	for i in frames:
+		out[str(i)] = {"delay": ms}
+		if canvas:
+			out[str(i)]["$canvas"] = [0, 0, 0, 40, 40]
+	return out

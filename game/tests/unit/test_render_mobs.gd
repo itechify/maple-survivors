@@ -196,3 +196,15 @@ func test_delayed_fx_waits_then_plays_for_its_full_duration() -> void:
 	fx.advance(0.02)
 	assert_eq(fx.active_count(), 0)
 	fx.queue_free()
+
+
+func test_mob_numeric_string_delay_keeps_its_millisecond_timing() -> void:
+	var img := lib.img("Mob.wz/0100100.img")
+	img.root.move["0"].delay = "180"
+	var r := MobRenderer.new()
+	r.library = lib
+	root.add_child(r)
+	var anim := r.anim_for(100100, MobRenderer.MOVE)
+	assert_eq(anim.index_at(0.179, true), 0)
+	assert_eq(anim.index_at(0.181, true), 1)
+	assert_near(anim.duration(), 0.36, 1e-6)

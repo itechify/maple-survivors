@@ -332,11 +332,9 @@ static func _backing_off(w: RunWorld, engage: Dictionary) -> bool:
 ## or waits on an HP gate (`hp_gate` > 0) never counts with a reach of `kite_reach` or more (`kite_reach` < 0 reads the engage
 ## config): tier C, spec #348 DK-9, so Dragon Fury (241 px) and Dragon Roar (400 px) do not make a melee knight kite like an
 ## archer, while a short HP-paying skill such as Slash Blast keeps counting.
-static func _reach_profile(w: RunWorld, kite_reach := -1.0) -> Vector2:
+static func _reach_profile(w: RunWorld, kite_reach: float) -> Vector2:
 	var line := Vector2.ZERO
 	var base := Vector2.ZERO
-	if kite_reach < 0.0:
-		kite_reach = float(_engage_config(w).kite_reach)
 	for key: String in w.loadout.order:
 		if not w.loadout.book.is_active(key):
 			continue
@@ -344,7 +342,7 @@ static func _reach_profile(w: RunWorld, kite_reach := -1.0) -> Vector2:
 		var r := SkillRunner.reach_of(st, w)
 		if r <= 0.0:
 			continue
-		if r >= kite_reach and (int(st.get("hp_cost", 0)) > 0 or float(st.get("hp_gate", 0.0)) > 0.0):
+		if r >= kite_reach and HpRisk.pays_hp(st):
 			continue
 		var ready := float(w.runner.cooldowns.get(key, 0.0)) <= 1e-6 and HpRisk.admits(w, st)
 		var own := Vector2(r, r if ready else 0.0)

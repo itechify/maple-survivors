@@ -9,10 +9,7 @@ const HEX := "synth_hex"
 
 ## Animation node of `frames` frames of `ms` milliseconds (the sim reads only the delays).
 static func anim(frames: int, ms: float = 100.0) -> Dictionary:
-	var out := {}
-	for i in frames:
-		out[str(i)] = {"delay": ms}
-	return out
+	return RF.anim(frames, ms)
 
 
 ## Sub-skill level tables. Parent levels 1..8 (explicit ranks [1..8]); sub levels 1..16 reached through the sub's OWN

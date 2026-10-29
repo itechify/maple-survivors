@@ -742,3 +742,21 @@ func test_meter_catalog_schema() -> void:
 		assert_eq(String(meter.spend), "all")
 		assert_true(float(meter.damage_per_unit) >= 0.0)
 		assert_eq(String(skill.slot), "active")
+
+
+func test_manual_skills_do_not_carry_auto_cast_hp_damage_mechanics() -> void:
+	for key: String in data.skills.skills:
+		var d: Dictionary = data.skills.skills[key]
+		if String(d.get("cast", {}).get("rule", "")) != "manual":
+			continue
+		assert_false(d.has("self_damage") or d.has("low_hp_damage"), key)
+		for bonuses: Array in d.get("rarity_bonuses", {}).values():
+			for bonus: Dictionary in bonuses:
+				for effect: Dictionary in bonus.get("effects", []):
+					assert_false(String(effect.get("stat", "")) in ["self_damage", "low_hp_damage"], key)
+
+
+func test_support_pulses_name_registered_kinds() -> void:
+	for key: String in data.skills.skills:
+		for pulse: Dictionary in data.skills.skills[key].get("summon", {}).get("support", {}).get("pulses", []):
+			assert_true(SupportSummons.KINDS.has(String(pulse.kind)), key)

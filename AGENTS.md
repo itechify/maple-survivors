@@ -212,7 +212,7 @@ stand, walk and each stance on a dummy; `-- --mode=cash` a cash weapon cover; `-
 projectiles per tier), `hair_cap_probe.tscn` (cap vs hair layers), `ui_gallery.tscn` (`--window=<name>`: the level-up, Skill,
 Stat and other windows), `equipment_requirements_driver.tscn` (the hub kit, Equip and Item windows with no requirement rows,
 an item above Lv1 worn), `equipment_drop_driver.tscn` (drops on the ground and the full-Equip-tab notice),
-`pet_driver.tscn` (each pet species in a round and in the Free Market), `player_summon_probe.tscn` (Elquines with 200 mobs: art
+`pet_driver.tscn` (each pet species in a round and in the Free Market), `support_summon_probe.tscn` (support summon pulse animations), `player_summon_probe.tscn` (Elquines with 200 mobs: art
 and frame cost), `stun_driver.tscn` and `teleport_driver.tscn` (status and Teleport visuals), `dark_cave_boss_driver.tscn`
 (every Sleepywood boss attack on the fixture) and `map_viewer.tscn` (a map's layers). They are not in the unit suite
 (`test_tool_scripts` only parses them): run one after changing what it draws. The drivers of the unported job lines (Bowman,

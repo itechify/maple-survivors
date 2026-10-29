@@ -42,10 +42,7 @@ static func mastery() -> Dictionary:
 
 ## Synthetic anim fixture.
 static func anim(frames: int) -> Dictionary:
-	var out := {}
-	for i in frames:
-		out[str(i)] = {"$canvas": [0, 0, 0, 40, 40], "delay": 100.0}
-	return out
+	return RF.anim(frames, 100.0, true)
 
 
 ## Skill.wz-shaped books 220 (Cold Beam, Thunder Bolt) and 221 (Ice Strike, Thunder Spear) with the recorded levels.

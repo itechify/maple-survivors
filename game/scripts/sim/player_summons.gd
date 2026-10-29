@@ -36,6 +36,9 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 		if active[i] != 0 and stats[i].skill == st.skill:
 			active[i] = 0
 	var d: Dictionary = world.book.def(st.skill).summon.duplicate(true)
+	if d.has("support"):
+		d["support_definition"] = d["support"]
+		d.erase("support")
 	var node: Dictionary = world.book.skill_node(st.skill).get("summon", {})
 	var attack_node: Dictionary = node.get(String(d.attack), {})
 	d["info"] = attack_node.get("info", {})
@@ -76,7 +79,7 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 		_set_action(i, "summoned")
 		wait[i] = float(d.durations.summoned)
 		impact[i] = -1.0
-		if d.has("support"):
+		if d.has("support_definition"):
 			support.begin(i, st.get("support", []), d.durations)
 		world.emit("summon_spawn", {"skill": st.skill, "slot": i})
 
@@ -95,7 +98,7 @@ func step(dt: float, world: RunWorld) -> void:
 			if age[i] >= float(d.durations.die):
 				active[i] = 0
 			continue
-		var pulse_anim := support.step(i, dt, world) if d.has("support") else ""
+		var pulse_anim := support.step(i, dt, world) if d.has("support_definition") else ""
 		wait[i] -= dt
 		if impact[i] >= 0.0:
 			impact[i] -= dt
@@ -116,7 +119,7 @@ func step(dt: float, world: RunWorld) -> void:
 		x[i] = pos.x
 		y[i] = pos.y
 		_set_action(i, pulse_anim if pulse_anim != "" else "move" if moved else "stand")
-		if d.has("support"):
+		if d.has("support_definition"):
 			continue
 		if world.is_hidden() or bool(world.player_state.dead):
 			continue

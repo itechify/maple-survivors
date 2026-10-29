@@ -84,13 +84,13 @@ func test_dragon_fury_and_roar_carry_an_hp_cost_and_reach_past_the_kite_threshol
 func test_the_reach_profile_skips_an_hp_paying_skill_past_the_kite_threshold() -> void:
 	var w := _world()
 	w.learn_skill("spear_crusher")
-	var crusher := BotInput._reach_profile(w)
+	var crusher := BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach))
 	assert_true(crusher.x > 0.0 and crusher.x < float(w.balance.bot.engage.kite_reach))
 	w.learn_skill("dragon_fury")
-	assert_eq(BotInput._reach_profile(w).x, crusher.x, "Dragon Fury (241 px, an HP cost) does not lengthen the reach")
+	assert_eq(BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach)).x, crusher.x, "Dragon Fury (241 px, an HP cost) does not lengthen the reach")
 	w.learn_skill("dragon_roar")
 	w.loadout.set_rank("dragon_roar", 8)
-	assert_eq(BotInput._reach_profile(w).x, crusher.x, "nor does Dragon Roar at rank 8 (400 px, a cost and a gate)")
+	assert_eq(BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach)).x, crusher.x, "nor does Dragon Roar at rank 8 (400 px, a cost and a gate)")
 
 
 func test_a_knight_whose_only_attacks_pay_hp_and_reach_far_has_no_profile() -> void:
@@ -98,7 +98,7 @@ func test_a_knight_whose_only_attacks_pay_hp_and_reach_far_has_no_profile() -> v
 	w.loadout.order.clear()
 	w.loadout.ranks.clear()
 	w.learn_skill("dragon_fury")
-	assert_eq(BotInput._reach_profile(w), Vector2.ZERO, "nothing the bot positions for")
+	assert_eq(BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach)), Vector2.ZERO, "nothing the bot positions for")
 
 
 func test_an_hp_gate_alone_is_enough_to_skip_the_reach() -> void:
@@ -107,14 +107,14 @@ func test_an_hp_gate_alone_is_enough_to_skip_the_reach() -> void:
 	var w := RunWorld.new(DKF.setup("quiet", 358, data))
 	RF.place_player(w, 400)
 	w.learn_skill("spear_crusher")
-	var crusher := BotInput._reach_profile(w)
+	var crusher := BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach))
 	w.learn_skill("dragon_roar")
 	w.loadout.set_rank("dragon_roar", 8)
 	var st := w.loadout.stats("dragon_roar")
 	assert_eq(int(st.hp_cost), 0, "no cost left")
 	assert_true(float(st.hp_gate) > 0.0, "the gate stays")
 	assert_true(SkillRunner.reach_of(st, w) >= float(w.balance.bot.engage.kite_reach), "and the box is long")
-	assert_eq(BotInput._reach_profile(w).x, crusher.x, "the gate alone keeps it out of the profile")
+	assert_eq(BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach)).x, crusher.x, "the gate alone keeps it out of the profile")
 
 
 func test_a_short_hp_paying_skill_still_counts() -> void:
@@ -122,7 +122,7 @@ func test_a_short_hp_paying_skill_still_counts() -> void:
 	var w := _world()
 	w.learn_skill("slash_blast")
 	assert_true(int(w.loadout.stats("slash_blast").hp_cost) > 0)
-	var profile := BotInput._reach_profile(w)
+	var profile := BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach))
 	assert_eq(profile.x, SkillRunner.reach_of(w.loadout.stats("slash_blast"), w))
 	assert_true(profile.x > 0.0)
 
@@ -131,7 +131,7 @@ func test_a_knight_with_the_whole_pool_is_a_melee_bot_and_walks_toward_a_mob() -
 	var w := _world()
 	_learn_whole_pool(w)
 	var kite_reach := float(w.balance.bot.engage.kite_reach)
-	var profile := BotInput._reach_profile(w)
+	var profile := BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach))
 	assert_true(profile.x > 0.0 and profile.x < kite_reach, "longest reach %.0f is a melee reach (< %.0f)" % [profile.x, kite_reach])
 	var mob := RF.put_mob(w, 100100, 650, 190, 10000.0)
 	var mi := BotInput.decide(w, {})

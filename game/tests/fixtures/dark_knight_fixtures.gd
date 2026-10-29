@@ -33,10 +33,7 @@ const ROAR_BOTTOM := [55, 85, 115, 138, 168, 198, 228, 250]
 
 
 static func _anim(frames: int, ms := 100.0) -> Dictionary:
-	var out := {}
-	for i in frames:
-		out[str(i)] = {"delay": ms}
-	return out
+	return RF.anim(frames, ms)
 
 
 static func _sub_levels(rows: Array, unlock: Dictionary) -> Dictionary:

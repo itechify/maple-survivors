@@ -95,7 +95,7 @@ func test_an_il_with_the_bolts_kites_like_f_p_because_every_attack_reaches_past_
 	var w := _il_world()
 	for key: String in ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear"]:
 		w.learn_skill(key)
-	var profile := BotInput._reach_profile(w)
+	var profile := BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach))
 	var kite_reach := float(w.balance.bot.engage.kite_reach)
 	assert_true(profile.x >= kite_reach, "longest reach %.0f is a ranged reach (>= %.0f): no melee engage mode" % [profile.x, kite_reach])
 	RF.put_mob(w, 100100, 470, 190, 100000.0)
@@ -108,7 +108,7 @@ func test_a_chain_skill_reads_as_a_ranged_attack_and_the_bot_kites_with_it() -> 
 	w.god = true
 	w.player.facing = 1
 	var kite_reach := float(w.balance.bot.engage.kite_reach)
-	var profile := BotInput._reach_profile(w)
+	var profile := BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach))
 	assert_eq(profile.x, CHAIN.ACQUIRE, "the bot reads the chain's acquire range as its reach")
 	assert_true(profile.x >= kite_reach)
 	RF.put_mob(w, 100100, w.player.pos.x + 70.0, 190, 100000.0)

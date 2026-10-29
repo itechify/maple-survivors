@@ -615,3 +615,7 @@ Teleport (#60) also selects `Effect.wz/BasicEff.img/Teleport`. A direct dump of 
 (tier A). `Skill.wz/210.img/skill/2101002` contains only the three icons and `level`, so the runtime
 uses this shared BasicEff animation at both endpoints. The authorized incremental import wrote only
 BasicEff (83 other imgs up to date), adding four canvases without removing existing selections.
+
+Numeric-string animation delays are parsed as milliseconds by `SpriteAnim.delay_seconds` for all art,
+including Pig/Ribbon Pig mobs and seven `dungeon.img` map objects, as well as Dark Knight effects.
+`test_render_mobs` pins the renderer timing with a numeric-string delay.

@@ -251,6 +251,7 @@
 			}
 		},
 		"sacrifice": {
+			"low_hp_damage": {"at_or_below": 0.5},
 			"_provenance": "Tier A: Skill.wz 1311005 damage 205 to 350 % (rank 1 = level 4: 220 %), x 20 to 5 (% of the damage dealt, String.wz agrees; rank 1 = 18 %), the effect (2 frames, z -1), the Use sound; no action, no hit, no mobCount, no attackCount in the node. Tier C: the single hit at the held weapon's reach (weapon_reach), the weapon's own first-swing stance and hit spark, the 2.0 s cooldown, the recoil rules (10 % of max HP cap, never the last HP; HpRisk), the dropped defence-disable half (no mob debuff exists), rarity bonuses (Achilles, Berserk). Docs: GAME_DESIGN 7.69.",
 			"skill_id": 1311005,
 			"book": "131",
@@ -273,7 +274,6 @@
 			"action_time": 0.6,
 			"self_damage": {
 				"field": "x",
-				"of": "damage_dealt",
 				"cap_max_hp": 0.1
 			},
 			"ball": "",
@@ -357,7 +357,7 @@
 			"desc": "Roars at the whole screen, hurting and stunning every monster, at a great cost in HP.",
 			"text": {
 				"desc": "Roar to damage and stun up to 15 monsters on the screen. Costs a share of your max HP and needs more than half of it left. Needs 3 monsters in the roar's box.",
-				"h": "Costs {x}% of your max HP. Damage {damage}%, up to {mob_count|monster|monsters}; stun for {y} sec."
+				"h": "Costs {hp_cost} HP. Damage {damage}%, up to {mob_count|monster|monsters}; stun for {y} sec."
 			},
 			"icon": "Skill.wz/131.img/skill/1311006/icon",
 			"damage": "physical",

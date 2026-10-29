@@ -47,7 +47,7 @@ func begin_cast(world: RunWorld, key: String, stats: Dictionary) -> Dictionary:
 		factor *= 1.0 + spent * float(rule.get("damage_per_unit", 0.0))
 		out["meter_spent"] = spent
 		_set_value(value - spent, world.events)
-	for field: String in ["damage_min", "damage_max", "status_damage_mult"]:
+	for field: String in SkillRunner.DAMAGE_FIELDS:
 		out[field] = float(out.get(field, 0.0)) * factor
 	if role == "" or String(config.get("gain", {}).get("exclude", "")) != role:
 		out["meter_receipt"] = {"landed": false}

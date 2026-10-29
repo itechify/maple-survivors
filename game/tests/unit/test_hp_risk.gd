@@ -347,10 +347,10 @@ func test_the_skill_text_names_the_gate_the_recoil_and_the_low_hp_bonus() -> voi
 
 func test_the_bot_counts_a_gated_skill_ready_only_while_its_gate_is_open() -> void:
 	var w := _world({"hp_gate": {"above": 0.5}})
-	assert_true(BotInput._reach_profile(w).x > 0.0, "the skill has a reach the bot knows")
-	assert_eq(BotInput._reach_profile(w).y, BotInput._reach_profile(w).x, "ready at full HP")
+	assert_true(BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach)).x > 0.0, "the skill has a reach the bot knows")
+	assert_eq(BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach)).y, BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach)).x, "ready at full HP")
 	_hp(w, 137.5)
-	assert_eq(BotInput._reach_profile(w).y, 0.0, "not ready at exactly the gate")
+	assert_eq(BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach)).y, 0.0, "not ready at exactly the gate")
 
 
 func test_admission_asks_the_gate_and_the_cost_together() -> void:
@@ -374,3 +374,18 @@ func test_hp_risk_draws_no_random_numbers() -> void:
 	_cast(risky)
 	assert_eq(risky.rng.state, plain.rng.state, "same stream state after the same cast")
 	assert_eq(int(risky.player_state.hp), 200 - 90 - 19, "while the risk itself happened")
+
+
+func test_low_hp_threshold_comes_from_each_skill_definition() -> void:
+	var w := _world({"low_hp_damage": {"at_or_below": 0.25}})
+	w.loadout.add_skill_mod("risky", "low_hp_damage", "add", 0.5)
+	_mob(w, -50.0)
+	_hp(w, 100.0)
+	assert_eq(_hit_damages(w), [10, 10], "above this skill's quarter-HP threshold")
+	w = _world({"low_hp_damage": {"at_or_below": 0.25}})
+	w.loadout.add_skill_mod("risky", "low_hp_damage", "add", 0.5)
+	_mob(w, -50.0)
+	_hp(w, 68.75)
+	assert_eq(_hit_damages(w), [15, 15], "exactly a quarter of 275 HP")
+	var line := SkillText.new(w.book).level_line("risky", 1, w.loadout.stats("risky"))
+	assert_true("25% HP or less" in line, line)
