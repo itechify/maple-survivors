@@ -99,6 +99,15 @@ func _in_any_job_pool(key: String) -> bool:
 	return false
 
 
+## True when any job's pool holds `key`, playable or not: a ported Bishop skill has its eight-rank table and bonuses before the line
+## is playable (BS5 #377), where `_in_any_job_pool` only gates the rules that apply once a skill ships.
+func _in_any_listed_pool(key: String) -> bool:
+	for job: Dictionary in data.jobs_survivor.jobs.values():
+		if key in job.get("skill_pool", []):
+			return true
+	return false
+
+
 ## `fixtures`: the synthetic books lack some skills (the I/L 221 book, #325); those are checked by the real-cache run only.
 func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) -> void:
 	for key: String in book.defs:
@@ -115,7 +124,7 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) ->
 		assert_true(top > 0, "%s has a canonical level table" % key)
 		# A pool skill (rarity bonuses, listed in a job's skill_pool) has eight ranks; any other skill keeps one rank per level.
 		# Hero's Rush (#302) is no pool skill but takes the same level-30 table, eight ranks that the shared mobility rule grows.
-		if key == "rush_hero" or book.def(key).has("rarity_bonuses") and _in_any_job_pool(key):
+		if key == "rush_hero" or book.def(key).has("rarity_bonuses") and _in_any_listed_pool(key):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue

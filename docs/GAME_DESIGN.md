@@ -6280,10 +6280,10 @@ player can reach it and every F/P and I/L number is unchanged. Skill keys stay i
 
 | Pool key | WZ id and name | State after BS2 | Owner of the definition |
 |---|---|---|---|
-| `holy_arrow` | 2301005 Holy Arrow (book 230) | legacy definition in `magician.json`, shared with the lineage | BS5 moves it into `bishop` |
+| `holy_arrow` | 2301005 Holy Arrow (book 230) | legacy definition in `magician.json`, shared with the lineage | BS5 moves it into `bishop` (done, #377, 7.82) |
 | `magic_claw` | 2001005 Magic Claw (book 200) | F/P's own definition | stays in `magician.json` |
-| `shining_ray` | 2311004 Shining Ray (book 231) | not defined: inert | BS5 |
-| `angel_ray` | 2321007 Angel Ray (book 232) | not defined: inert | BS5 |
+| `shining_ray` | 2311004 Shining Ray (book 231) | not defined: inert | BS5 (done, #377, 7.82) |
+| `angel_ray` | 2321007 Angel Ray (book 232) | not defined: inert | BS5 (done, #377, 7.82) |
 | `heal` | 2301002 Heal (book 230) | legacy definition in `magician.json` | BS4 moves it into `bishop` |
 | `summon_dragon` | 2311006 Summon Dragon (book 231) | not defined: inert | BS7 |
 | `bahamut` | 2321003 Bahamut (book 232) | not defined: inert | BS7 |
@@ -6373,6 +6373,34 @@ to the share of max HP) and `revive_guard` (add to the guard seconds).
 **Records.** `RunWorld.revives` is in the run summary (`revives`); `tools/balance_run.gd` writes `revives` and
 `revive_count` to every record (`[]` / 0 without a reaction skill), `balance.sh` prints a `revives` column per seed and
 `revived n/runs` in its SUMMARY, and the metrics aggregate has `revived_runs`.
+
+### 7.82 Bishop core bolts and Teleport (spec #372, BS5 #377)
+
+Holy Arrow (2301005), Shining Ray (2311004), Angel Ray (2321007) and Teleport (`teleport_cleric`, 2301001) live in
+`skills/bishop.json`. Holy Arrow and Teleport moved there from `skills/magician.json` (a key in two files is a load
+error); the five legacy `holy_arrow_*` cards in `upgrades/magician.json` are deleted (the generated `_new` / `_rank`
+cards come from the pool, and shots, pierce and cooldown are rarity bonuses, section 8). Every pool skill uses the default
+eight-rank table (WZ levels 4, 8, 12, 15, 19, 23, 27, 30), no `ranks` override and no MP.
+
+| Skill / key | Behaviour | Cooldown (tier C) |
+|---|---|---|
+| Holy Arrow / `holy_arrow` (the start skill) | `nearest` projectile, range 480, 520 px/s, radius 12, one shot (the Fire Arrow flight), `shoot1`; canonical `mad` 28 -> 80 and `mastery` 2 -> 10 at ranks 1..8; holy element (tier A) | 0.4 s (1.0 x0.4) |
+| Shining Ray / `shining_ray` | `box` instant, `min_targets` 1: the canonical `lt`/`rb` centred on the player, half-width 150 (levels 1-10, ranks 1-2), 160 (11-20, ranks 3-5), 170 (21+, ranks 6-8), half-height 50, up to canonical `mobCount` 6, nearest first; `mad` 66 -> 105; `magic2` | 1.2 s (3 x0.4) |
+| Angel Ray / `angel_ray` | `nearest` projectile with its own one-frame `ball/0`, range 480, 520 px/s, radius 14, one shot; `mad` 132 -> 240 (the boss answer); `shoot1` | 1.0 s (2.5 x0.4) |
+| Teleport / `teleport_cleric` | `slot: mobility`, manual X with an arrow direction, canonical `range` 130 up to level 10 then +2 a level to 150 at level 20; numbers identical to `teleport_fp` and `teleport_il`; learned at round start, outside both slot tracks, never a card. Its rank follows `balance.mobility_rank_levels` (rank N at character level 2N, cap 20) | 0.3 s repeat |
+
+Rarity bonuses (tier C; Legendary = the Unique's effect with the same id plus damage x1.2, repeats shrink x0.8). Each
+entry changes the resolved cast (`test_rarity_bonus_effects`, the Bishop skills' fixtures in `bishop_bolt_fixtures.gd`):
+
+| Skill | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Holy Arrow | `power` Holy Power: damage x1.2 | `pierce` Piercing Light: +1 pierce | `twin` Twin Arrow: +1 arrow | Twin Arrow + damage x1.2 |
+| Shining Ray | `power` damage x1.2 | `radiance` Wider Ray: area x1.2 | `fork` Splitting Ray: +2 targets (`count` through `mob_count`) | Splitting Ray + damage x1.2 |
+| Angel Ray | `power` damage x1.2 | `booster` Spell Booster: cooldown x0.88 | `twin` Twin Angel: +1 shot | Twin Angel + damage x1.2 |
+
+The oracle `test_tick_cost_identity` keeps the pre-port Holy Arrow (cooldown 1.0, 30 ranks, no bonuses) in its `_data()`,
+next to the Cold Beam and Thunder Bolt pins; its golden and totals are byte-identical (no recapture). Its Magician loadout
+is full at six actives before Holy Arrow, so the pin guards a future reorder rather than a present cast.
 
 ## 8. Upgrades
 
@@ -7690,6 +7718,20 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Hub kit | F/P's scroll list, equipment list [1002001, 1382001, 1082002, 1040004], fallback 1382001; fixture `bishop_t2.json` (BS9) | C |
 | Playable | `false` until BS10; `default_job` stays 212 | C |
 | Holy Symbol | the common `passive_exp` (9101002), offered to a 232 like any job; no Bishop card | C |
+
+### Bishop BS5 constants (spec #372, BS5 #377)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Holy Arrow cooldown | 0.4 s (the legacy 1.0 s x0.4, the Fire Arrow pace); default eight-rank table instead of the legacy 30 ranks | C |
+| Holy Arrow flight | range 480, speed 520, radius 12, one shot, no pierce, `shoot1` held 0.8 s (unchanged from the legacy definition) | C |
+| Shining Ray cooldown / stance | 1.2 s (3 x0.4); `magic2` held 0.8 s | C |
+| Shining Ray targeting | `box` with `min_targets` 1; WZ `lt`/`rb` and `mobCount` 6 read as written | A (box, mobCount, mad, mastery, element h, action), C (cast rule) |
+| Angel Ray cooldown / flight | 1.0 s (2.5 x0.4); range 480, speed 520, radius 14, one shot, `shoot1` held 0.8 s; its own `ball/0` | C (numbers), A (mad, mastery, element h, ball) |
+| Teleport | `teleport_cleric` moved unchanged except `slot: mobility`: 0.3 s repeat, bot threat distance 60 px, 20 ranks | C (repeat, threat), A (range 130 to 150) |
+| Rarity bonuses | the three tables in 7.82 (damage x1.2, +1 pierce, +1 arrow, area x1.2, +2 targets, cooldown x0.88, +1 shot; Legendary = Unique + damage x1.2) | C |
+| Bonus names | Holy Power, Piercing Light, Twin Arrow, Wider Ray, Splitting Ray, Spell Booster, Twin Angel | C |
+| Card text | Shining Ray and Angel Ray descriptions and level lines are survivor-written (the WZ strings are not in the repo) | C |
 
 ## 12. Later phases
 
