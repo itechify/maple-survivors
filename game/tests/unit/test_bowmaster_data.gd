@@ -72,11 +72,11 @@ func test_bowmaster_line_is_discovered_without_a_shared_registration() -> void:
 	assert_eq(DataRepo.fragment_path("skills", "bowmaster", "res://data"), "res://data/survivor/skills/bowmaster.json")
 
 
-func test_class_lines_follow_the_adventurers_in_sorted_order() -> void:
-	# Discovery sorts class names (ARCHITECTURE 4.4.4), so bowmaster precedes hero; both come after the seven Adventurers.
+func test_class_lines_follow_the_adventurers_in_registration_order() -> void:
+	# CLASS_LINES is append-only (ARCHITECTURE 4.4.4): Hero, I/L, then Bowmaster, all after the seven Adventurers.
 	var lines := DataRepo.lines()
 	assert_eq(Array(lines.slice(0, 7)), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
-	assert_eq(Array(lines.slice(7)), ["bowmaster", "hero"])
+	assert_eq(Array(lines.slice(7)), ["hero", "il_arch_mage", "bowmaster"])
 
 
 func test_the_bowmaster_line_loads_without_errors_and_adds_its_job_and_its_skills() -> void:
