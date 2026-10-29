@@ -55,6 +55,9 @@ func before_each() -> void:
 		"alert": {"0": _m(150, 200)},
 		"proneStab": {"0": _m(160, 200)},
 		"prone": {"0": _m(170, 3000)},
+		# Demolition's shape (Morph 1001, B10 #422): a figure, a 1 x 1 empty canvas held long, the figure again.
+		"demolition": {"0": _m(180, 150), "1": _m(181, 150), "2": _blank(1620), "3": _blank(150), "4": _m(182, 150)},
+		"snatch": {"0": _blank(150), "1": _m(190, 150)},
 	})
 	avatar = AvatarRenderer.new()
 	avatar.library = lib
@@ -76,6 +79,11 @@ func _m(marker: int, delay: int) -> Dictionary:
 	if delay >= 0:
 		frame["delay"] = delay
 	return frame
+
+
+## A 1 x 1 canvas the WZ uses as a pure delay (Morph 1001's demolition frame 3 holds one for 1.62 s).
+func _blank(delay: int) -> Dictionary:
+	return {"$canvas": [0, 999, 0, 1, 1], "origin": {"$v": [0, 0]}, "delay": delay}
 
 
 func _markers(parts: Array) -> Array:
@@ -138,6 +146,31 @@ func test_a_stance_the_morph_has_as_a_node_draws_that_node() -> void:
 	assert_eq(_markers(avatar.current_parts()), [150])
 	assert_eq(avatar.current_parts().size(), 1, "the weapon and hair stay undrawn")
 	assert_true(avatar.missing.is_empty(), str(avatar.missing))
+
+
+## B10 #422, tier C: a morph frame that is a 1 x 1 empty canvas holds the last drawn frame of the action, so the figure
+## does not vanish while the skill's own art plays (Demolition's frame 3 is blank for 1.62 s).
+func test_a_blank_morph_frame_holds_the_previous_figure() -> void:
+	avatar.set_morph(7001)
+	avatar.play("demolition", true)
+	assert_eq(_markers(avatar.current_parts()), [180])
+	avatar.advance(0.2)
+	assert_eq(_markers(avatar.current_parts()), [181])
+	avatar.advance(0.2)
+	assert_eq(_markers(avatar.current_parts()), [181], "the 1.62 s blank frame holds frame 1")
+	avatar.advance(1.6)
+	assert_eq(_markers(avatar.current_parts()), [181], "a second blank in a row holds it too (frame 3)")
+	avatar.advance(0.2)
+	assert_eq(_markers(avatar.current_parts()), [182], "the figure returns with its own frame")
+	assert_eq(avatar.compose("demolition", 2).size(), 1)
+	assert_eq(avatar.stance_delays("demolition"), PackedFloat32Array([0.15, 0.15, 1.62, 0.15, 0.15]), "the timing is unchanged")
+
+
+func test_a_blank_first_frame_draws_nothing_and_a_normal_morph_is_untouched() -> void:
+	avatar.set_morph(7001)
+	assert_eq(avatar.compose("snatch", 0), [], "nothing earlier to hold")
+	assert_eq(_markers(avatar.compose("snatch", 1)), [190])
+	assert_eq(_markers(avatar.compose("eburster", 1)), [141])
 
 
 func test_a_stance_the_morph_lacks_keeps_todays_mapping() -> void:

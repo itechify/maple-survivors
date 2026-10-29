@@ -23,11 +23,12 @@ const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep", "crit", "form_time"]
-## The Buccaneer skills this audit casts (B4 #416 the five Brawler skills, B7 #419 Energy Orb, B8 #420 Barrage and Dragon Strike, B9 #421 Transformation; B6, B10 append theirs).
+## The Buccaneer skills this audit casts (B4 #416 the five Brawler skills, B7 #419 Energy Orb, B8 #420 Barrage and Dragon Strike, B9 #421 Transformation, B10 #422 Super Transformation; B6 appends its own).
 const BUCCANEER_SKILLS := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow",
-	"barrage", "dragon_strike", "energy_orb", "transformation"]
+		"barrage", "dragon_strike", "energy_orb", "transformation", "super_transformation"]
 const BARRAGE_DRAGON := preload("res://tests/unit/test_buccaneer_barrage_dragon.gd")
 const ORB := preload("res://tests/unit/test_buccaneer_orb.gd")
+const SUPER := preload("res://tests/unit/test_buccaneer_super_transformation.gd")
 const KNUCKLE := 1482000
 ## The I/L skills this audit casts (books 220/221/222); I8-I10 appended theirs.
 const IL_SKILLS := ["cold_beam", "thunder_bolt", "ice_strike", "thunder_spear", "ice_demon", "element_composition_il",
@@ -101,8 +102,11 @@ func _buccaneer_world(key: String) -> RunWorld:
 	var setup := RF.with_basic_attack(RF.setup("quiet", 416, data))
 	setup.skill_imgs["511"] = TRANSFORMATION.book_node()
 	setup.equipment_info[KNUCKLE] = {"incPAD": 18, "attackSpeed": 5, "tuc": 7, "afterImage": "mace", "sfx": "mace"}
-	setup.skill_imgs["512"] = BARRAGE_DRAGON.book_node() # B8 #420: Barrage and Dragon Strike
-	(setup.skill_imgs["512"].skill as Dictionary).merge(ORB.book_node().skill) # B7 #419: Energy Orb (one book 512 with every key)
+		# One book-512 dictionary with every key: B8 #420 Barrage and Dragon Strike, B7 #419 Energy Orb, B10 #422 Super Transformation, Demolition and Snatch.
+		var book512 := BARRAGE_DRAGON.book_node()
+		book512.skill.merge(ORB.book_node().skill)
+		book512.skill.merge(SUPER.book_node().skill)
+		setup.skill_imgs["512"] = book512
 	var w := RunWorld.new(setup)
 	w.set_job(512)
 	if w.weapon_id() != KNUCKLE:
@@ -218,7 +222,7 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
 	# Cooldown counts casts over 66 s (Shout: 6 at 12 s, 7 at 10.56 s); damage sums many casts so that rounding cannot hide a x1.2.
 	var repeating := stat in ["cooldown", "damage", "crit"]
-	var window := 66.0 if stat in ["cooldown", "crit"] else 12.0 if stat == "damage" else 14.0 if stat == "form_time" else 3.5
+	var window := 66.0 if stat in ["cooldown", "crit"] else 12.0 if stat == "damage" else (22.0 if key == "super_transformation" else 14.0) if stat == "form_time" else 3.5
 	var affected := {}
 	var lines := 0
 	var crits := 0

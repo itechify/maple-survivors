@@ -110,11 +110,11 @@ func test_transformation_is_a_morph_form_with_the_spec_block() -> void:
 	assert_eq(book.max_rank("transformation"), 8)
 
 
-func test_shockwave_is_a_form_sub_of_transformation_with_the_canonical_box() -> void:
+func test_shockwave_is_a_form_sub_of_both_forms_with_the_canonical_box() -> void:
 	var book := _world().book
 	var d: Dictionary = book.def("shockwave")
 	assert_eq([book.skill_id("shockwave"), d.kind, d.slot, int(d.job), d.book], [5111006, "instant", "form_sub", 511, "511"])
-	assert_eq(d.form_sub_of, ["transformation"], "B10 adds super_transformation to this one list")
+	assert_eq(d.form_sub_of, ["transformation", "super_transformation"], "B10 #422 added Super as its second parent")
 	assert_eq(d.cast.rule, "box")
 	assert_eq(int(d.cast.min_targets), 1)
 	assert_eq([d.action, d.action_time], ["shockwave", 0.8])
@@ -127,7 +127,8 @@ func test_shockwave_is_a_form_sub_of_transformation_with_the_canonical_box() -> 
 
 func test_the_form_catalog_validates_with_both_new_definitions() -> void:
 	var defs: Dictionary = _world().book.defs
-	var mine := {"transformation": defs.transformation, "shockwave": defs.shockwave}
+	var mine := {"transformation": defs.transformation, "super_transformation": defs.super_transformation,
+		"shockwave": defs.shockwave, "demolition": defs.demolition, "snatch": defs.snatch}
 	assert_eq(Array(PlayerForms.validation_errors(mine)), [])
 	for error in PlayerForms.validation_errors(defs):
 		assert_false("transformation" in error or "shockwave" in error, "the shipped catalog: %s" % error)
