@@ -4203,6 +4203,20 @@ Transformation learned locally, reverted) cast Super Transformation, Snatch, Sho
 Demolition numbers); the throttled window ran at 1 frame per second, so the run was stopped by hand after 14 s of play and wrote no `summary.json` (`missing` unchecked there, no `missing` or
 warning line in `game.log`). Flow and visual evidence only.
 
+### Buccaneer B11 smoke (#423, 2026)
+
+Selection and tooling: `jobs/buccaneer.json` `playable` true, `hub_kit`, explicit bot card scores, the `buccaneer_t2.json` fixture and the baseline oracle (no engine or balance data touched). Training seeds, Henesys, `JOBS=3`, private cache `cache-413`, record only (no tuning):
+
+| Run | Seeds | Result |
+|---|---|---|
+| F/P (212), bot | 1/2/2026 | died 10:51 / 5:05 / 7:34 (Lv 36 / 11 / 21), byte-for-byte the B2 to B10 rows |
+| Hero (112), bot | 1/2/2026 | died 5:27 / 5:36 / 11:28 (Lv 11 / 11 / 36), byte-for-byte the same rows |
+| Buccaneer (512), bot | 1/2/2026 | died 5:19 (Lv 11, first boss) / **cleared 17:16 (Lv 44)** / died 10:26 (Lv 26); `missing: []`, no warnings |
+| Buccaneer (512), random | 1/2 | cleared 17:45 and 17:47 (Lv 41 both) |
+| Buccaneer (512), Sleepywood, bot | 1/2, fixture and starter knuckles | died at Lv1 after 0:23 / 0:28 (fixture) and 0:13 / 0:15 (starter): the tier-2 round at Lv1 needs the balance pass (every round starts at Lv1), not a crash |
+
+The Buccaneer clears in two of five Henesys runs and dies at the first boss at Lv11 in two (the same shape as Hero; the balance pass owns it). Oracles `character_baseline`, `tick_cost_identity`, `hero_baseline` and `il_baseline` reproduce unchanged; the new `test_buccaneer_baseline` golden is `247fabb2...ac8a` (14400 ticks, 118 casts of eight skills). `flow_driver --scenario=redesign --job=512 --seed=1` PASSED end to end (three maps, 38 picks, the level-up, boss-draw and Mastery windows, Sleepywood, results, deletion; `missing: []`, no ERROR line) and `--scenario=creation --jobs=212,512` PASSED (the Job page shows four rows with Buccaneer highlighted and "Steel Knuckler · WATK 18 · 0.75s"). A diagnostic playtest (`playtest.sh --job=512`, Henesys and Sleepywood with the fixture) ran with `missing: []`; flow and visual evidence only.
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
