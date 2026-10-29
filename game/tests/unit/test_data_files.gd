@@ -655,6 +655,10 @@ func test_manual_skills_name_a_skill_key_with_an_input_action() -> void:
 			"skill key %s belongs to a skill" % id)
 
 
+## Brawler skills that job 512's pool names (B2 #414) while they still live in pirate.json with their legacy cards; B4 #416
+## ports them with rarity bonuses, and that ticket deletes this list.
+const PENDING_BRAWLER_PORT := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow"]
+
 func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> void:
 	var skills: Dictionary = SkillTemplate.resolve(data.skills.skills)
 	var covered := {}
@@ -679,7 +683,8 @@ func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> 
 					assert_false(entry.get("effects", []).is_empty(), "%s bonus has effects" % key)
 			assert_false(covered.has(key), "%s uses rarity bonuses instead of standalone cards" % key)
 			continue
-		assert_false(_in_any_job_pool(key), "%s is a pool skill and needs rarity_bonuses (#288)" % key)
+		if not key in PENDING_BRAWLER_PORT:
+			assert_false(_in_any_job_pool(key), "%s is a pool skill and needs rarity_bonuses (#288)" % key)
 		if int(s.get("job", -1)) == 0:
 			continue # #284: the Beginner is gone and its skills have no cards
 		if String(s.slot) in ["mobility", "form_sub"]:
@@ -724,6 +729,10 @@ func test_meter_catalog_schema() -> void:
 		assert_eq(String(meter.per_unit.stat), "damage")
 		assert_true(float(meter.per_unit.value) >= 0.0)
 		assert_true(meter.get("art", "") is String)
+		# Presentation only (B2 #414): the optional cue object names the full-bar art and sound; the sim ignores it.
+		assert_true(meter.get("cue", {}) is Dictionary, "%s: cue is an object" % meter.id)
+		if meter.has("cue"):
+			assert_true(String(meter.cue.get("effect", "")) != "" and String(meter.cue.get("sound", "")) != "")
 	for skill: Dictionary in data.skills.skills.values():
 		if not skill.has("meter"):
 			continue
@@ -732,6 +741,7 @@ func test_meter_catalog_schema() -> void:
 		assert_true(float(meter.min) > 0 and float(meter.min) == floorf(float(meter.min)))
 		assert_eq(String(meter.spend), "all")
 		assert_true(float(meter.damage_per_unit) >= 0.0)
+		assert_true(meter.get("unit", "") is String, "%s: unit is a word" % skill.get("skill_key", ""))
 		assert_eq(String(skill.slot), "active")
 
 ## Charges that Charged Blow (P6 #314) already names in `form_sub_of` before P7 #315 and P8 #316 define them; the "unknown form"

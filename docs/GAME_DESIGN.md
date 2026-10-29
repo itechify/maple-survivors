@@ -7708,6 +7708,18 @@ on the window's final tick. Tier C weapon tint RGB: fire (1,.35,.2), ice (.3,.7,
 holy (1,.8,.55), poison (.6,.9,.35); white without an elemental form. Synthetic test/probe durations are diagnostic,
 not playable tuning. Canonical effect percentages remain tier A data read through each form's mapped level.
 
+### Buccaneer B2 constants (#414)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Buccaneer starting HP and HP growth (#414, spec #412 BU-20) | `jobs/buccaneer.json` `balance.player.ap["512"].hp` 600 and `balance.growth["512"].hp` 65: copied from Hero's 112 rows (orchestrator ruling, the melee survivability baseline of #346); the balance pass owns them | C | Spec #412 BU-20; #346 |
+| Buccaneer AP row (#414, spec #412 BU-20) | `balance.player.ap["512"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204, the Hero 112 row's shape | C | Spec #412 BU-20 |
+| Buccaneer pool and start (#414, spec #412 BU-1, BU-4, BU-14) | `jobs/buccaneer.json`: `starting_skill` flash_fist (slot 1), `mobility_skill` dash (outside the slots), eleven-key `skill_pool` (Flash Fist to Super Transformation, Energy Blast left out) | C | Spec #412 BU-1, BU-4 |
+| Buccaneer creation weapon and drop families (#414, spec #412 BU-20) | `creation_weapon` 1482000, the Steel Knuckler (Item.wz, reqJob 16, the Pirate bit; no level requirement, #292); `weapon_families` [knuckle], so guns, swords, axes, bows, wands and claws never drop; the Warrior shield drops by its class bit and never for a Buccaneer | A (item facts), C (families) | Spec #412 BU-20 |
+| Energy Charge meter (#414, spec #412 BU-5) | `jobs/buccaneer.json` `meter`: id energy, max 10, one per landed non-finisher pool cast, `per_unit` damage 0.03 (+3% per held energy) | C | Spec #412 BU-5 |
+| Energy Charge full-bar cue (#414, spec #412 BU-4) | `meter.cue`: `Skill.wz/511.img/skill/5110001/affected` and `Sound.wz/Skill.img/5110001/Use` (WZ paths, presentation only; B6 reads them) | A | Spec #412 BU-4 |
+| Buccaneer not playable (#414) | `jobs/buccaneer.json` `playable` false until B11 flips it; `default_job` stays 212 | C | Spec #412 |
+
 ## 12. Later phases
 
 Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.

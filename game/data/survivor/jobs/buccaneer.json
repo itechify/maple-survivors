@@ -1,0 +1,80 @@
+{
+	"_doc": "Buccaneer line (spec #412, ticket B2 #414). The fourth Brawler job (Pirate 500 -> Brawler 510 -> Marauder 511 -> Buccaneer 512), the first to carry a class's own AP row and HP growth beside its meter. A class spec adds jobs/<line>.json, skills/<line>.json (empty skeleton until its tickets define skills), automatically discovered by DataRepo.lines() (docs/ARCHITECTURE.md 4.4.4): nothing shared is edited. Skill keys stay inert until their definitions exist: skills/pirate.json defines the five ported knuckle skills and Dash until B4/B5 move them; the rest are undefined and never offered. playable stays false until B11 flips it; default_job stays 212.",
+	"jobs": {
+		"512": {
+			"starting_skill": "flash_fist",
+			"_starting_skill": "tier C: spec #412 (BU-14): the Flash Fist, slot 1; defined by skills/pirate.json until B4 ports it to skills/buccaneer.json.",
+			"mobility_skill": "dash",
+			"_mobility_skill": "tier C: spec #412 (BU-1): Dash (WZ 5001005) is Buccaneer's manual mobility skill on the skill key, outside both slot tracks; defined by skills/pirate.json until B5 makes it a mobility slot.",
+			"skill_pool": [
+				"flash_fist",
+				"somersault_kick",
+				"backspin_blow",
+				"double_uppercut",
+				"corkscrew_blow",
+				"barrage",
+				"dragon_strike",
+				"energy_drain",
+				"energy_orb",
+				"transformation",
+				"super_transformation"
+			],
+			"_skill_pool": "tier C: spec #412 (BU-1, BU-4): eleven entries for the Brawler's skills. Shockwave is a sub-skill of Transformation, Demolition and Snatch of Super Transformation, and Energy Blast is dropped (BU-4), so none of them is a pool entry.",
+			"weapon_families": [
+				"knuckle"
+			],
+			"_weapon_families": "tier C: spec #412 (BU-20): the knuckles (WeaponInfo.family 148, 1482xxx); guns, swords, axes, bows, wands and claws never drop for a Buccaneer. Armour and shields drop by the class bit (Pirate for armour, Warrior for shields, which a Buccaneer does not admit).",
+			"creation_weapon": 1482000,
+			"_creation_weapon": "tier A: the Steel Knuckler (Item.wz 1482000, reqJob 16 = the Pirate bit; its level requirement is gone with #292). Already in the Pirate manifest fragment.",
+			"meter": {
+				"id": "energy",
+				"max": 10,
+				"gain": {
+					"event": "cast_landed",
+					"amount": 1,
+					"exclude": "finisher"
+				},
+				"per_unit": {
+					"stat": "damage",
+					"value": 0.03
+				},
+				"cue": {
+					"effect": "Skill.wz/511.img/skill/5110001/affected",
+					"sound": "Sound.wz/Skill.img/5110001/Use"
+				}
+			},
+			"_meter": "tier C: spec #412 (BU-5): Energy Charge, max 10, one energy per landed cast of a non-finisher pool skill, +3% damage per held energy on every pool skill. The cue (tier A: WZ paths of the Energy Charge affected art and Use sound) is presentation only (B6 reads it); the sim ignores it. No art: book 511 has no state node, so the HUD draws the pip fallback.",
+			"playable": false,
+			"_provenance": "tier C: spec #412 B2 #414: Buccaneer is data-only until B11 flips playable; nothing offers it before then."
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"512": {
+					"hp": 600,
+					"_hp": "tier C #346 (orchestrator ruling, spec #412 BU-20): the melee starting HP, copied from Hero's 112 row (jobs/hero.json); the balance pass owns it.",
+					"primary": "str",
+					"secondary": "dex",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 4
+						},
+						{
+							"level": 200,
+							"target": 204
+						}
+					],
+					"_ap": "tier C: spec #412 (BU-20): the Hero 112 row copied: STR primary, DEX secondary, keyframes Lv1 -> 4 and Lv200 -> 204 (AutoAp interpolates between them)."
+				}
+			}
+		},
+		"growth": {
+			"512": {
+				"hp": 65,
+				"_hp": "tier C #346 (orchestrator ruling, spec #412 BU-20): melee HP growth per level, copied from Hero's 112 growth row; GAME_DESIGN 4.2."
+			}
+		}
+	}
+}
