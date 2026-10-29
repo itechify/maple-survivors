@@ -183,7 +183,7 @@ func dress(cards: Array, lo: Loadout) -> Array:
 				else:
 					labels.append(UpgradePool.effect_label(stat, String(effect.op), float(effect.value)))
 			if not labels.is_empty():
-				var text := String(bonus.get("name", bonus.id)) + ": " + ", ".join(labels)
+				var text := String(bonus.text).get_slice(": ", 0) + ": " + ", ".join(labels)
 				card.desc = String(card.desc).replace(String(bonus.text), text)
 				card.rarity_bonus.text = text
 		out.append(card)

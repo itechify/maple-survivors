@@ -466,7 +466,17 @@ func test_blast_art_follows_every_charge_and_uses_gold_without_one() -> void:
 func test_form_bonus_text_names_the_sub_damage_and_duration() -> void:
 	var w := _world(["fire_charge"])
 	var card: Dictionary = SkillText.new(w.book).dress([w.upgrades.choice_card("fire_charge_rank", w, "unique")], w.loadout)[0]
-	assert_true("Charged Blow +30%" in String(card.rarity_bonus.text), String(card.rarity_bonus.text))
+	assert_true("Advanced Charge: Charged Blow +30%" in String(card.rarity_bonus.text), String(card.rarity_bonus.text))
 	assert_true("charge lasts 25% longer" in String(card.rarity_bonus.text), String(card.rarity_bonus.text))
 	var lines := " ".join(LevelUpWindow.change_lines(card))
 	assert_true("Charged Blow damage" in lines, lines)
+	assert_true("Form duration: 12 s → 15 s" in lines, lines)
+
+func test_holy_form_preview_keeps_both_attack_names_inside_the_card() -> void:
+	var w := _world(["holy_charge"])
+	var card: Dictionary = SkillText.new(w.book).dress([w.upgrades.choice_card("holy_charge_rank", w, "legendary")], w.loadout)[0]
+	var lines := LevelUpWindow.change_lines(card)
+	assert_true("Heaven's Hammer" in " ".join(lines), str(lines))
+	assert_true("Charged Blow" in " ".join(lines), str(lines))
+	for line: String in lines:
+		assert_true(MapleText.width(MapleText.plain(line), MapleText.SMALL) <= LevelUpWindow.ROW_W - 8.0, line)
