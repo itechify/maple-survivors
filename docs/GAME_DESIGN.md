@@ -738,6 +738,12 @@ also emit `hp_spent`, which the oracle runs do not exercise). Henesys `balance.s
 deaths 305.0 / 454.5 / 651.7 s (Lv 11 / 21 / 36), Hero (112) 0/3, deaths 327.7 / 336.9 / 688.2 s (Lv 11 / 11 / 36). Both
 match the recorded numbers above exactly. No crashes, no world warnings.
 
+**Dragon Roar smoke (#355, spec #348 D7; no tuning).** Data, tests and text only (job 132 is not playable), so shipped jobs cannot
+change. Henesys `balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3, deaths 5:05 / 7:34 / 10:51 (305.0 / 454.5 / 651.7 s), Hero (112)
+0/3, deaths 327.7 / 336.9 / 688.2 s: identical to the D3 and D5 smokes. The three oracles reproduce unrecaptured. A diagnostic
+`--job=132` Henesys run (temporary `playable`, starting skill Dragon Roar, reverted) with a Spear and a Pole Arm cast the Roar
+(rune circle, hit bursts, "336" HP cost number, HP 600 -> 264) with `missing: []`; flow and visual evidence only.
+
 **Spear Crusher smoke (#353, spec #348 D5; no tuning).** The ticket adds a Dark Knight definition (job 132 is not playable) and a
 presentation-only change to how a numeric-string frame delay is read, so shipped jobs cannot change. Henesys
 `balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3 with deaths at 10:51 / 5:05 / 7:34 (Lv 11 / 21 / 36; deaths by map 1:1 2:1 3:1),
@@ -6124,6 +6130,45 @@ Dark Knight's start skill, **Spear Crusher** (1311001; the pole arm twin 1311002
   in `mob_kind.gd` (sim) still treats a text delay as 100 ms; it was left alone because changing it shifts the pig mobs'
   attack timing, which is a balance-visible change.
 
+### 7.73 Dragon Roar (#355, spec #348 D7)
+
+The Dark Knight's crowd-control panic button (`dragon_roar`, 1311006, book 131, in `skills/dark_knight.json`). It is Shout's
+box-and-stun shape with the HP-risk blocks of 7.71 on top, and it needs no new code: only data, tests and text.
+
+```json
+"cast": {"rule": "box", "min_targets": 3}, "cooldown": 10.0, "damage": "physical", "action": "alert3",
+"hp_cost": {"field": "x", "of": "max_hp"}, "hp_gate": {"above": 0.5},
+"on_hit": {"status": "stun", "duration_field": "y"}
+```
+
+- **Box and cap.** The WZ `lt`/`rb` are symmetric: half-width 140, 180, 220, 250, 290, 330, 370, 400 px at the eight ranks
+  (levels 4 8 12 15 19 23 27 30, the default 30-level table), from -155 to 55 px at rank 1 up to -350 to 250 px at rank 8;
+  `mobCount` 15. It admits at three mobs in the box (`min_targets 3`, Shout's rule). `damage` 114, 138, 160, 175, 195, 212,
+  228, 240 %.
+- **Stun.** `on_hit stun` has **no `chance_field`**, so it always lands and draws no random number
+  (`RunWorld._on_player_hit`: no field means 100 %), for `y` seconds: 4 4 3 3 3 2 2 2. Bosses are damaged and never stunned
+  (`MobSwarm.accepts_status`, the existing rule). The node has no `prop`, which is why the chance is absent.
+- **Cost and gate.** `x` is a share of max HP (DK-2): 56, 52, 48, 45, 41, 37, 33, 30 %. The cost is `floor(x / 100 x max HP)` taken
+  from current HP; the cast needs HP strictly above 50 % of max **and** HP to spare after the cost (7.71), otherwise it
+  waits, spends nothing and starts no cooldown. At rank 1 it fires only above 56 % HP and leaves 44 % or less, at rank 8
+  it fires above 50 % and leaves at least 20 %. After a cast the knight is usually below the gate, which blocks a second Roar
+  until Aura, potions or regeneration refill HP.
+- **Rarity bonuses** (repeat scale 0.8): Rare **Mastery** damage x1.2, Epic **Super Dragon Roar** area x1.2 (the box grows
+  from 140 to 168 px at rank 1), Unique **Dragon Blood** `hp_cost` x0.75 (336 -> 252 HP at 600 max HP: it can fire at
+  lower HP and leaves more), Legendary Dragon Blood plus damage x1.2 (sharing the Unique's id and repeat counter). Each
+  changes a resolved stat and is asserted on a cast in `test_dragon_roar.gd` and `test_rarity_bonus_effects.gd`
+  (`CORE_STATS` gained `hp_cost`: the HP the first cast pays).
+- **Text.** The Skill window line reads "Costs 56% of your max HP. Damage 114%, up to 15 monsters; stun for 4 sec." and the
+  mechanics line "Needs more than 50% HP" (7.71). A rank card previews `x` (the percentage) as its usual "Effect" and a
+  Dragon Blood card previews the effective HP cost.
+- **Art and sound.** `effect` 18 frames at 80 ms (1.44 s) at the caster, `hit/0` 3 frames on every struck mob, the stance
+  `alert3`, `Sound.wz/Skill.img/1311006/Use` (3.1 s: it overlaps the next cast, left as is).
+- **Tests.** `test_dragon_roar.gd` (20): the rank table and box, the 15 cap and `min_targets 3`, the stun seconds by rank,
+  the boss exemption, an unchanged main RNG stream against a twin without the stun, the cost by rank, the
+  cast-at-full-HP-then-blocked sequence, the exact 50 % boundary, Dragon Blood changing when it can fire, Super Dragon Roar
+  widening the box, the card ranks and bonuses, the text, and (real cache, SKIP without it) all eight ranks and the art.
+
+
 ### 7.71 HP-risk skills (#351, spec #348, roster M17)
 
 Four small data-driven behaviours in one stateless file, `game/scripts/sim/hp_risk.gd` (`HpRisk`): a percentage HP cost, an
@@ -7849,3 +7894,16 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Sacrifice hit spark | the held weapon's (`hit_from_weapon`) | tier C: the node has no `hit` art |
 | Sacrifice defence-disable | dropped | tier C: no mob debuff exists (Armor Crash) |
 | Rarity bonuses | Mastery x1.2, Wide Fury +2 targets, Booster cooldown x0.8, Achilles recoil x0.6, Berserk +50% at or below half HP | tier C: spec #348 "Rarity bonuses"; Berserk's threshold is tier A (`HpRisk.BERSERK_BELOW`) |
+
+### Dragon Roar constants (#355)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Damage, `mobCount`, `lt`/`rb` box, `x`, `y`, `alert3`, effect (18 x 80 ms), hit (3 frames) | Skill.wz 1311006 as read at levels 4 8 12 15 19 23 27 30 | tier A: verified in v83 data (D1 #349) |
+| HP gate | current HP strictly above 50 % of max | tier A: the String.wz text "works only when more than 50% of HP is left"; the strict comparison is tier C (7.71) |
+| `x` read as the cost in percent of max HP, `y` as the stun seconds | 56 -> 30 %, 4 -> 2 s | tier A reading: String.wz level 1 "59% HP ... Stun for 4 Seconds" matches `x` 59 and `y` 4 exactly (DK-2) |
+| Stun always lands on non-bosses | no `chance_field`, no RNG draw | tier A (the node has no `prop`); bosses never stunned: the existing rule |
+| Cooldown | 10 s | tier C: spec DK-9 first-pass cadence |
+| `min_targets` | 3 | tier C: Shout's admission rule |
+| Cast time | `action_time` 0.6 s (the body action alert3 runs 1.5 s) | tier C: Shout's hold |
+| Rarity bonuses | Mastery damage x1.2, Super Dragon Roar area x1.2, Dragon Blood `hp_cost` x0.75, Legendary Dragon Blood + damage x1.2 | tier C: spec #348 table; Dragon Blood is the name of the lineage's buff 1311008 |

@@ -42,11 +42,13 @@ var _resolved_skills := {}
 
 
 ## Generic Skill.wz levels: a centred box, six mobs, one line, a 300 px range, a certain proc (the shape test_fp_high_actives uses).
-func _generic_levels() -> Dictionary:
+## `extra` is merged into every level (Dragon Roar's `x` = 40 % of max HP and `y` stun seconds).
+func _generic_levels(extra: Dictionary = {}) -> Dictionary:
 	var levels := {}
 	for lv in range(1, 31):
 		levels[str(lv)] = {"damage": 100 + lv, "mad": 30.0, "mobCount": 6, "attackCount": 1, "range": 300, "prop": 100,
 			"time": 4, "lt": {"$v": [-200, -150]}, "rb": {"$v": [200, 150]}}
+		levels[str(lv)].merge(extra, true)
 	return levels
 
 
@@ -134,7 +136,7 @@ func _world(key: String) -> RunWorld:
 			if not imgs.has(book):
 				imgs[book] = {"skill": {}}
 			var node: Dictionary = imgs[book].skill.get("%07d" % id, imgs[book].skill.get(str(id), {}))
-			node["level"] = _generic_levels()
+			node["level"] = _generic_levels({"x": 40, "y": 4} if id == 1311006 else {})
 			imgs[book].skill[str(id) if id >= 1000000 else "%07d" % id] = node
 	var w := RunWorld.new(setup)
 	w.set_job(job)
@@ -271,7 +273,7 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 func test_every_pool_skill_with_bonuses_was_found() -> void:
 	var keys := _skills_with_bonuses()
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
-			"elquines", "spear_crusher"]:
+			"elquines", "spear_crusher", "dragon_roar"]:
 		assert_true(key in keys, key)
 	assert_true(keys.size() >= 20 + IL_SKILLS.size(), "seven Hero, twelve F/P, the Dark Knight skills and %d I/L skills: %d" % [IL_SKILLS.size(), keys.size()])
 	for key in IL_SKILLS:

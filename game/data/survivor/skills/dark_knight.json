@@ -337,6 +337,108 @@
 					}
 				]
 			}
+		},
+		"dragon_roar": {
+			"_provenance": "Tier A: Skill.wz 1311006 damage 96 to 240 % (rank 1 = level 4: 114 %), mobCount 15, the symmetric lt/rb box ((-140,-155)..(140,55) at rank 1 up to (-400,-350)..(400,250)), x (HP cost, % of max HP: 56 to 30 at the ranks, DK-2 verified against the String.wz level-1 line), y (stun seconds: 4 to 2), the alert3 action, the 18-frame effect, the 3-frame hit art and the Use sound; the String.wz line 'works only when more than 50% of HP is left' is the hp_gate. The node has no prop, so the stun has no chance_field and always lands (bosses take no statuses). Tier C: the 10 s cooldown (DK-9), min_targets 3, reading x as a share of max HP (the cost is floor(x/100 x max HP) from current HP, never lethal), the 0.6 s action hold, the default 30-level rank table. Docs: GAME_DESIGN 7.70.",
+			"_rarity": "Tier C: first-pass #355 bonuses named after the lineage (spec #348): Rare Mastery damage x1.2, Epic Super Dragon Roar area x1.2 (the box scales), Unique Dragon Blood HP cost x0.75, Legendary Dragon Blood plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 7.70.",
+			"skill_id": 1311006,
+			"book": "131",
+			"job": 131,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Dragon Roar",
+			"desc": "Roars at the whole screen, hurting and stunning every monster, at a great cost in HP.",
+			"text": {
+				"desc": "Roar to damage and stun up to 15 monsters on the screen. Costs a share of your max HP and needs more than half of it left. Needs 3 monsters in the roar's box.",
+				"h": "Costs {x}% of your max HP. Damage {damage}%, up to {mob_count|monster|monsters}; stun for {y} sec."
+			},
+			"icon": "Skill.wz/131.img/skill/1311006/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "box",
+				"min_targets": 3
+			},
+			"cooldown": 10.0,
+			"hp_cost": {
+				"field": "x",
+				"of": "max_hp"
+			},
+			"hp_gate": {
+				"above": 0.5
+			},
+			"action": "alert3",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/131.img/skill/1311006/hit/0",
+			"effect": "Skill.wz/131.img/skill/1311006/effect",
+			"rotate": false,
+			"on_hit": {
+				"status": "stun",
+				"duration_field": "y"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1311006/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "super_roar",
+						"text": "Super Dragon Roar",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "dragon_blood",
+						"text": "Dragon Blood: HP cost",
+						"effects": [
+							{
+								"stat": "hp_cost",
+								"op": "mul",
+								"value": 0.75
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "dragon_blood",
+						"text": "Dragon Blood: HP cost and damage",
+						"effects": [
+							{
+								"stat": "hp_cost",
+								"op": "mul",
+								"value": 0.75
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
 		}
 	}
 }
