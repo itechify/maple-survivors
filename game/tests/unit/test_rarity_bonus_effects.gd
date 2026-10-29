@@ -60,7 +60,10 @@ func _world(key: String) -> RunWorld:
 		var levels := {}
 		for lv in range(1, 31):
 			levels[str(lv)] = {"hs": "h%d" % lv, "damage": float(51 + lv)}
-		imgs["312"] = {"skill": {"3121004": {"level": levels}}}
+		# Hurricane's synthetic damage table joins book 312; Dragon's Breath keeps the fixture's table beside it.
+		if not imgs.has("312"):
+			imgs["312"] = {"skill": {}}
+		imgs["312"].skill["3121004"] = {"level": levels}
 		setup.equipment_info.merge({BOW: {"incPAD": 28, "attackSpeed": 6, "tuc": 7}}, true)
 	# Hero books are synthetic; the F/P box and crowd skills get the same generic table (their fixtures carry no box).
 	for k: String in data.skills.skills:
