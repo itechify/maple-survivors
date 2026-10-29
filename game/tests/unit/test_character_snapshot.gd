@@ -19,7 +19,7 @@ func test_json_character_and_same_seed_replay_identically_for_three_minutes() ->
 	b.god = true
 	assert_eq(a.character_snapshot(), b.character_snapshot())
 	assert_eq(a.player_state, b.player_state)
-	assert_eq(b.weapon_id(), 1302000)
+	assert_eq(b.weapon_id(), 1372005)
 	var memo_a := {}
 	var memo_b := {}
 	for tick in 10800:
@@ -42,7 +42,7 @@ func test_json_character_and_same_seed_replay_identically_for_three_minutes() ->
 	copy.equipment.worn.clear()
 	copy.look.clear()
 	assert_eq(b.character_snapshot().look, {"skin": 0, "face": 20000, "hair": 30030})
-	assert_eq(Equipment.worn_ids(b.character_snapshot().equipment.worn), [1040002, 1060002, 1072001, 1302000])
+	assert_eq(Equipment.worn_ids(b.character_snapshot().equipment.worn), [1040002, 1060002, 1072001, 1372005])
 
 
 func test_round_start_resets_buffs_slow_timers_and_every_map_pool() -> void:

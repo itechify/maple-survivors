@@ -23,8 +23,10 @@ const INFO := {
 func _setup(character: Dictionary = {}) -> Dictionary:
 	var setup := RF.setup("quiet", 7, RF.quiet_data())
 	setup.equipment_info = INFO.duplicate(true)
-	if not character.is_empty():
-		setup.character = character
+	# This equipment fixture deliberately starts with a sword; bare tools use each job's creation weapon.
+	setup.character = character if not character.is_empty() else {"format": 3, "job_id": 212, "look": {},
+		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
+		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
 	return setup
 
 
@@ -44,7 +46,7 @@ func _ids(list: Array) -> Array:
 	return list.map(func(i: Dictionary) -> int: return int(i.id))
 
 
-func test_a_new_character_wears_the_first_creation_outfit_with_plain_wz_stats() -> void:
+func test_an_explicit_character_wears_its_outfit_with_plain_wz_stats() -> void:
 	var world := RunWorld.new(_setup())
 	assert_eq(Equipment.worn_ids(world.equipment.worn), [1040002, 1060002, 1072001, 1302000])
 	assert_eq(world.equipment.worn.top, {"id": 1040002, "stats": {"incPDD": 3}, "slots": 7, "scrolls": 0})

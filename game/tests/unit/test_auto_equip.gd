@@ -135,7 +135,7 @@ func test_a_weapon_never_replaces_the_held_one_and_only_fills_an_empty_slot() ->
 	var world := _world()
 	_pick_up(world, 1372005)
 	assert_eq(_ids(world.equipment.inventory), [1372005], "the creation sword is held, so the wand waits")
-	assert_eq(world.equipment.worn.weapon.id, 1302000)
+	assert_eq(world.equipment.worn.weapon.id, 1372005)
 	var bare := _world(func(c: Dictionary) -> void:
 		c.level = 10
 		c.equipment.worn.erase("weapon"))

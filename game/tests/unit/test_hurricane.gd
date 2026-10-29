@@ -436,8 +436,12 @@ func test_real_lethal_damage_ends_the_stream_once_and_stops_scene_art() -> void:
 	s.fx = log
 	s.world = _world()
 	_mob(s.world, 700)
-	s.world.runner.step(DT, s.world)
+	s.world.step(DT, MoveInput.new())
 	s.handle_events(s.world.drain_events())
+	for tick in 25:
+		s.world.step(DT, MoveInput.new())
+		s._after_tick()
+	s.world.drain_events()
 	s.world.god = false
 	s.world.take_hit(1e9, true, "", s.world.player.pos - Vector2(100, 0), {"accuracy": 1e9})
 	for tick in 120:
@@ -447,7 +451,7 @@ func test_real_lethal_damage_ends_the_stream_once_and_stops_scene_art() -> void:
 	assert_false(s.world.runner.bursts.has_skill(KEY))
 	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "burst_end").size(), 1)
 	s.handle_events(events)
-	assert_eq(log.calls.slice(2), [["stop", 11], ["play", "keydownend", 12, true]])
+	assert_eq(log.calls.slice(4), [["stop", 12], ["play", "keydownend", 13, true]])
 	log.free()
 	s.free()
 

@@ -286,7 +286,7 @@ held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN
 `--job=<id>` names the character's job in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd` and the fixture tool (ADR 0006:
 a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Arch Mage (Fire, Poison, 212), Arch Mage (Ice, Lightning, 222) and Bowmaster (312, enabled by B13 #345). `--job=112` selects Hero, `--job=222` the I/L Arch Mage, `--job=312` the Bowmaster; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
 `SceneFlow.forced_job_error`), and a `--character` whose job disagrees fails. A tool that names no job gets
-`JobTree.default_job()`, pinned to 212 by `survivor/jobs.json` whatever else is playable. `--branch=<id>` is the deprecated alias. There is no advancement, so records have no
+`JobTree.default_job()`, pinned to 212 by `survivor/jobs.json` whatever else is playable. Without `--character`, tools wear the job's `creation_weapon` and the default clothing. `--branch=<id>` is the deprecated alias. There is no advancement, so records have no
 `branch`, `forced_branch`, `job_t` or `job_times`; they carry the job id (`jobs` in the summary) and, from #293, `picks`
 (cards taken) and `six_actives_at` (the second the sixth active slot filled, or null).
 
