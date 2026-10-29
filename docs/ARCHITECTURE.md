@@ -832,7 +832,9 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   skill is cast by the world, not the runner: `PlayerRevive` (a `HitHook`, see above) spends it. `cooldown_by_rank` (a
   generic skill field: seconds per rank, indexed by rank - 1, the last repeating) is read by `Loadout._base_cooldown`
   before `cooldown_field`, and the result still goes through the cooldown modifiers, the Booster passive and the floor.
-  `revive_hp` / `revive_guard` skill modifiers are read only through `Loadout.stats().revive`.
+  `revive_hp` / `revive_guard` skill modifiers are read only through `Loadout.stats().revive`. BS8 (#380): `PlayerRevive` also
+  holds the skill's `action` for `action_time` (display only, no movement lock); a skill def may carry `affected` (a second
+  art path played on the body); `RunScene._on_player_revived` is the presentation of `player_revived`.
 - **Melee behaviour cards (#208).** `Loadout.stats().attack_count` applies skill modifiers to canonical `attackCount`;
   target count remains separate. `SkillRunner.weapon_envelope(stats, world)` scales a copy of
   `WeaponReach.envelope(world)` by the skill's existing `area` modifier on both axes. Admission uses that box; `reach_of` scales the weapon reach by the same area for the bot. The cached
