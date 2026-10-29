@@ -33,6 +33,22 @@ class LogHook extends HitHook:
 		calls.append("step:" + tag)
 
 
+## A synthetic hull (the Corsair Battleship's shape): soaks up to `left` damage of each hit before HP, and logs what it saw.
+class HullHook extends HitHook:
+	var left := 0
+	var seen: Array = []
+	var guard_for := 0.0
+
+	func absorb(_world: RunWorld, amount: int, source: Dictionary) -> int:
+		seen.append([amount, String(source.get("source_kind", ""))])
+		var soaked := mini(left, amount)
+		left -= soaked
+		return amount - soaked
+
+	func guard_left() -> float:
+		return guard_for
+
+
 func _of(events: Array, type: String) -> Array:
 	return events.filter(func(e: Dictionary) -> bool: return e.type == type)
 
@@ -100,6 +116,102 @@ func test_any_guarding_hook_returns_before_the_miss_roll_and_hooks_step_with_the
 	assert_eq(calls, [], "a guarded hit never reaches the lethal walk")
 	w.step(DT, MoveInput.new())
 	assert_eq(calls, ["step:g"], "hooks step once per world tick")
+
+
+func test_an_absorbing_hook_takes_damage_before_hp_and_the_base_hook_passes_it_through() -> void:
+	var w := RV.world(4, RV.TABLE, {}, false)
+	var hull := HullHook.new()
+	hull.left = 30
+	w.add_hit_hook(hull, 10)
+	w.add_hit_hook(HitHook.new(), 20) # the base class passes the amount through untouched
+	var hp0 := _hp(w)
+	var dealt := RV.hit(w, TOUCH, 1.0)
+	assert_eq(hull.seen.size(), 1)
+	var full: int = hull.seen[0][0]
+	assert_eq(hull.seen[0][1], "touch", "the hook is told the source")
+	assert_eq(dealt, maxi(0, full - 30), "the damage left after the hull is what is dealt")
+	assert_eq(_hp(w), hp0 - dealt, "and what HP loses")
+	var hits := _of(w.drain_events(), "player_hit")
+	assert_eq(hits.size(), 1)
+	assert_eq(int(hits[0].damage), dealt, "the damage number shows the damage that got through")
+	assert_eq(hull.left, maxi(0, 30 - full), "the hull is used up by what it soaked")
+
+
+func test_a_fully_absorbed_hit_costs_no_hp_and_a_lower_order_absorbs_first() -> void:
+	var w := RV.world(5, RV.TABLE, {}, false)
+	var inner := HullHook.new()
+	inner.left = 1000000
+	var outer := HullHook.new()
+	outer.left = 0
+	w.add_hit_hook(inner, 20)
+	w.add_hit_hook(outer, 5)
+	var hp0 := _hp(w)
+	assert_eq(RV.hit(w, TOUCH, 1.0), 0)
+	assert_eq(_hp(w), hp0, "a hit soaked in full leaves HP alone")
+	assert_eq(outer.seen.size(), 1)
+	assert_eq(inner.seen[0][0], outer.seen[0][0], "the outer hull (order 5) passed everything on to the inner one (order 20)")
+	assert_eq(w.state, RunWorld.PLAYING)
+
+
+func test_a_hull_before_the_revive_spares_the_second_life_and_an_exhausted_hull_does_not() -> void:
+	var w := RV.world(6)
+	var hull := HullHook.new()
+	hull.left = 1000000
+	w.add_hit_hook(hull, PlayerRevive.HIT_ORDER - 50)
+	var hp0 := _hp(w)
+	RV.hit(w, TOUCH, 1.0e6)
+	assert_eq(_hp(w), hp0, "the hull soaked the whole hit: no HP lost, so no revive was needed")
+	assert_eq(_of(w.drain_events(), "player_revived").size(), 0)
+	assert_true(float(w.runner.cooldowns.get(RV.KEY, 0.0)) <= 0.0, "the skill is still ready")
+	hull.left = 0
+	RV.hit(w, BOSS_ATTACK, 1.0e6) # a boss attack bypasses the hit window the first hit started
+	assert_eq(_of(w.drain_events(), "player_revived").size(), 1, "with the hull gone the lethal hit revives as ever")
+
+
+func test_the_longest_guard_of_any_hook_is_what_the_world_reports() -> void:
+	var w := RV.world(7, RV.TABLE, {}, false)
+	assert_eq(w.hit_guard_left(), 0.0)
+	var a := HullHook.new()
+	a.guard_for = 0.7
+	var b := HullHook.new()
+	b.guard_for = 1.9
+	w.add_hit_hook(a)
+	w.add_hit_hook(b)
+	assert_near(w.hit_guard_left(), 1.9)
+	assert_true(a.guarding(), "the base guarding() follows guard_left() > 0")
+
+
+func test_the_second_life_guard_is_reported_through_the_same_accessor() -> void:
+	var w := RV.world(8)
+	RV.hit(w, TOUCH)
+	assert_near(w.hit_guard_left(), 2.0)
+	assert_eq(w.hit_guard_left(), w.revive.guard_left())
+	_idle(w, 2.5)
+	assert_eq(w.hit_guard_left(), 0.0)
+
+
+func test_a_guarded_hit_draws_no_hit_art_and_a_ball_is_not_used_up() -> void:
+	var w := RF.quiet_world(400.0, 12)
+	var g := LogHook.new()
+	w.add_hit_hook(g)
+	assert_false(w.hit_window_blocks(BOSS_BALL), "no guard: a boss source ignores the hit window")
+	g.guard = true
+	for src: Dictionary in SOURCES:
+		assert_true(w.hit_window_blocks(src), "guarded: %s" % src.source_kind)
+	w.drain_events()
+	var start := Vector2(w.player.pos.x - 14.0 - 8.0 - 6.0, w.player.pos.y - 30.0)
+	for boss in [true, false]:
+		w.mob_projectiles.spawn({"pos": start, "velocity": Vector2(300.0, 0), "visual": 0, "range": 500.0,
+			"mob": 1, "mob_id": 8130100, "damage": 1.0, "multiplier": 1.0, "accuracy": 0.0, "magic": false,
+			"element": "", "hit": "", "source_pos": start, "radius": 8.0, "ordinary": not boss, "elite": false})
+	var hp := int(w.player_state.hp)
+	for tick in 20:
+		w.step(DT, MoveInput.new())
+	var events := w.drain_events()
+	assert_true(events.filter(func(e: Dictionary) -> bool: return e.type in ["player_hit", "mob_projectile_hit"]).is_empty(),
+		"no hit and no hit art under the guard")
+	assert_eq(int(w.player_state.hp), hp)
+	assert_eq(w.mob_projectiles.active_count(), 2, "neither ball is eaten")
 
 
 # ---------------------------------------------------------------- admission

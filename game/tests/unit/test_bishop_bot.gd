@@ -6,7 +6,7 @@ extends TestCase
 ## No `card_scores` block is added by this ticket: the ten pool keys already score new 100 / rank 74 (BS2).
 
 const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")
-const G := preload("res://tests/unit/test_bishop_genesis.gd")
+const BG := preload("res://tests/fixtures/bishop_genesis_fixtures.gd")
 const HF := preload("res://tests/fixtures/heal_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const POOL := ["holy_arrow", "magic_claw", "shining_ray", "angel_ray", "heal", "summon_dragon", "bahamut", "genesis",
@@ -42,7 +42,7 @@ func test_the_bishop_keys_are_exactly_the_ten_pool_skills_and_no_card_scores_blo
 ## A Bishop round on the quiet stage: synthetic books with shipped playability, player at x = 400 facing right, god mode.
 func _world(seed_value := 381) -> RunWorld:
 	var data := RF.quiet_data()
-	var setup := G.add_books(BF.setup(data, seed_value))
+	var setup := BG.add_books(BF.setup(data, seed_value))
 	setup.skill_imgs["230"].skill["2301002"] = {"level": HF.levels()}
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)

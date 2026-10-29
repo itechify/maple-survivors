@@ -3,60 +3,14 @@ extends TestCase
 ## PlayerSummons seam plus its two opt-in knobs, `summon.count_field` (the strike count is a level field) and `summon.move`
 ## (the node played while following: the dragons `fly`). Seeded RunWorld casts and fixed ticks on synthetic Skill.wz-shaped
 ## books (the recorded v83 values at the eight ranks, BS1 note); test_bishop_dragons_cache.gd reads the real cache.
-const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")
-const IL := preload("res://tests/fixtures/il_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const DF := preload("res://tests/fixtures/bishop_dragon_fixtures.gd")
 const DT := 1.0 / 60.0
-## WZ levels of ranks 1..8 are BF.RANK_LEVELS; the recorded values at those levels (BS1-373.md "Rank values").
-const DRAGON_MAD := [76, 92, 108, 120, 128, 136, 144, 150]
-const DRAGON_TIME := [25, 45, 65, 80, 96, 112, 128, 140]
-const BAHAMUT_MAD := [122, 134, 148, 160, 176, 195, 215, 230]
-const BAHAMUT_TIME := [30, 50, 70, 85, 105, 125, 145, 160]
-const BAHAMUT_TARGETS := [3, 3, 3, 3, 3, 3, 3, 6]
 
-static func _points(values: Array, first: float) -> Dictionary:
-	var out := {1: first}
-	for i in 8:
-		out[BF.RANK_LEVELS[i]] = values[i]
-	return out
-
-## An animation node of `frames` frames, each `delay_ms` long.
-static func _anim(frames: int, delay_ms: float) -> Dictionary:
-	var out := {}
-	for i in frames:
-		out[str(i)] = {"$canvas": [0, 0, 0, 40, 40], "delay": delay_ms}
-	return out
-
-static func _range(lt: Array, rb: Array) -> Dictionary:
-	return {"lt": {"$v": lt}, "rb": {"$v": rb}}
-
-## Skill.wz/231.img Summon Dragon: five animations and NO `move` (it flies), one-target attack (no `mobCount`), box (-200,-150)..(200,150),
-## attackAfter 500, no `elemAttr`. Skill.wz/232.img Bahamut: `elemAttr h`, attack box (-200,-150)..(0,30), attackAfter 990, constant
-## `info.mobCount` 3 and the level `mobCount` 3 up to level 29 and 6 at level 30.
-static func books() -> Dictionary:
-	var dragon := {"icon": {"$canvas": [0, 0, 0, 32, 32]}, "action": {"0": "alert2"}, "hit": {"0": _anim(1, 250)},
-		"level": IL.levels({"mad": _points(DRAGON_MAD, 70), "mastery": BF._mastery(), "time": _points(DRAGON_TIME, 20)}),
-		"summon": {"summoned": _anim(5, 100), "fly": _anim(5, 90), "stand": _anim(5, 90), "attack1": _anim(8, 75),
-			"die": _anim(6, 100)}}
-	dragon.summon.attack1["info"] = {"range": _range([-200, -150], [200, 150]), "type": 1.0, "attackAfter": 500.0}
-	var bahamut := {"icon": {"$canvas": [0, 0, 0, 32, 32]}, "elemAttr": "h", "action": {"0": "alert2"}, "hit": {"0": _anim(7, 100)},
-		"level": IL.levels({"mad": _points(BAHAMUT_MAD, 110), "mastery": BF._mastery(), "time": _points(BAHAMUT_TIME, 25),
-			"mobCount": {1: 3, 29: 3, 30: 6}}),
-		"summon": {"summoned": _anim(6, 120), "fly": _anim(6, 150), "stand": _anim(12, 150), "attack1": _anim(18, 90),
-			"die": _anim(6, 100)}}
-	bahamut.summon.attack1["info"] = {"range": _range([-200, -150], [0, 30]), "type": 0.0, "attackAfter": 990.0, "mobCount": 3.0}
-	return {"dragon": dragon, "bahamut": bahamut}
-
-static func setup() -> Dictionary:
-	var setup := BF.setup()
-	var b := books()
-	setup.skill_imgs["231"]["skill"]["2311006"] = b.dragon
-	setup.skill_imgs["232"]["skill"]["2321003"] = b.bahamut
-	return setup
 
 ## A Bishop world with `keys` learned and nothing else in the active slots, the caster strong enough that a hit never kills.
 func _world(keys: Array = ["bahamut"]) -> RunWorld:
-	var w := RunWorld.new(setup())
+	var w := RunWorld.new(DF.setup())
 	RF.place_player(w, 200)
 	w.loadout.order.clear()
 	for key: String in keys:
@@ -98,7 +52,7 @@ func _struck(key: String, rank: int, mob_count: int, effects: Array = []) -> int
 
 func test_bahamut_strikes_three_monsters_until_rank_eight_and_six_at_rank_eight() -> void:
 	for rank in range(1, 9):
-		assert_eq(_struck("bahamut", rank, 8), BAHAMUT_TARGETS[rank - 1], "rank %d" % rank)
+		assert_eq(_struck("bahamut", rank, 8), DF.BAHAMUT_TARGETS[rank - 1], "rank %d" % rank)
 
 func test_a_dragon_follows_the_character_playing_fly_and_stands_when_it_arrives() -> void:
 	for key: String in ["summon_dragon", "bahamut"]:
@@ -175,7 +129,7 @@ func test_the_dragons_strike_on_their_attack_intervals() -> void:
 
 func test_a_dragon_lives_for_the_mapped_wz_time_then_dies() -> void:
 	for key: String in ["summon_dragon", "bahamut"]:
-		var times: Array = DRAGON_TIME if key == "summon_dragon" else BAHAMUT_TIME
+		var times: Array = DF.DRAGON_TIME if key == "summon_dragon" else DF.BAHAMUT_TIME
 		for rank in [1, 4, 8]:
 			var w := _world([key])
 			w.loadout.set_rank(key, rank)

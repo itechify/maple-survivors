@@ -169,6 +169,7 @@ func _base_count(i: int, world: RunWorld) -> float:
 	var fallback := float(definitions[i].info.get("mobCount", 1))
 	return world.book.canonical(String(stats[i].skill), int(stats[i].level), field, fallback) if field != "" else fallback
 
+
 func _hit(i: int, world: RunWorld) -> void:
 	var st := stats[i]
 	var targets := _targets(i, world, false)

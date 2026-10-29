@@ -43,6 +43,8 @@ const MIN_FLIGHT := 0.1
 ## TARGETS (mobs struck). Card previews, Skill window tooltips and the level-up window name `count` effects by this.
 const SHOTS := "shots"
 const TARGETS := "targets"
+## A cooldown counts as run out at or below this many seconds (the ready test of every cast path and of PlayerRevive).
+const READY_EPS := 1e-6
 
 ## Cast-rule presentation/count policy; admission, reach and resolution remain their own dispatch hooks.
 ## tier C: survivor targeting policy. Missing keys retain the legacy count and facing behavior.
@@ -113,6 +115,15 @@ static func restart_cooldown(st: Dictionary) -> float:
 		return maxf(float(st.duration), float(st.buff_cooldown))
 	# tier C: finisher repeat floor (Hero spec #296); the meter controls its cadence.
 	return maxf(1.0, float(st.cooldown)) if String(st.get("meter", {}).get("role", "")) == "finisher" else float(st.cooldown)
+
+
+## Starts `key`'s recharge from the resolved stats `st` (restart_cooldown) as both the time left and the HUD's total;
+## returns it. The cast paths that add a tick's overshoot (cast_ready) set the pair themselves.
+func start_recharge(key: String, st: Dictionary) -> float:
+	var recharge := restart_cooldown(st)
+	cooldowns[key] = recharge
+	cooldown_totals[key] = recharge
+	return recharge
 
 
 ## Horizontal reach in px from the player of a resolved skill `st` (Loadout.stats), the one number the bot reads to
@@ -208,7 +219,7 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		if hidden and is_attack(stats_of(world, key)):
 			# Hidden (#194): the character cannot attack; the skill keeps its cooldown and resumes when Hidden ends.
 			continue
-		if not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6 \
+		if not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= READY_EPS \
 				and not is_triggered(stats_of(world, key)):
 			ready.append(key)
 	ready.sort_custom(func(a: String, b: String) -> bool:
@@ -267,12 +278,11 @@ func cast_manual_buff(world: RunWorld, key: String) -> bool:
 	if not world.can_cast() or not world.loadout.book.is_active(key):
 		return false
 	var st := stats_of(world, key)
-	if String(st.kind) != "buff" or float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_start_buff(key, st) \
+	if String(st.kind) != "buff" or float(cooldowns.get(key, 0.0)) > READY_EPS or not world.can_start_buff(key, st) \
 			or not world.can_pay_hp(int(st.hp_cost)):
 		return false
 	world.spend_hp(int(st.hp_cost))
-	cooldowns[key] = restart_cooldown(st)
-	cooldown_totals[key] = cooldowns[key]
+	start_recharge(key, st)
 	_resolve_cast(world, key, st, world.cast_origin(), {})
 	return true
 
@@ -286,14 +296,13 @@ func cast_dash(world: RunWorld, key: String, side: int) -> bool:
 	if side == 0 or not world.can_cast() or not world.loadout.book.is_active(key):
 		return false
 	var st := stats_of(world, key)
-	if float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_pay_hp(int(st.hp_cost)):
+	if float(cooldowns.get(key, 0.0)) > READY_EPS or not world.can_pay_hp(int(st.hp_cost)):
 		return false
 	var move := world.player.dash_destination(side, float(st.displacement.get("distance", 0.0)), world.fhm, world.bounds)
 	if move.is_empty():
 		return false
 	world.spend_hp(int(st.hp_cost))
-	cooldowns[key] = restart_cooldown(st)
-	cooldown_totals[key] = cooldowns[key]
+	start_recharge(key, st)
 	casts += 1
 	fired_this_tick = true
 	world.player.facing = side

@@ -112,7 +112,7 @@ func _round_one() -> void:
 	_expect(pushed > 0, "the revive shoved monsters")
 	_expect(not w.revives.is_empty() and w.state != RunWorld.DEAD, "the first lethal hit revived")
 	summary["revive_1"] = {"revives": w.revives.duplicate(true), "hp": int(w.player_state.hp), "max_hp": int(w.player_state.max_hp),
-		"pushed": pushed, "mob_offsets_before": before, "guard": w.revive.guard_t,
+		"pushed": pushed, "mob_offsets_before": before, "guard": w.hit_guard_left(),
 		"recharge_left": w.runner.cooldowns.get(KEY, 0.0), "notices": run.hud.messages().map(func(m: Dictionary) -> String: return m.text)}
 	await _frames(30)
 	summary["revive_1"]["mob_offsets_after_0_5s"] = _mob_xs(w)

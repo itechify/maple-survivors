@@ -4,55 +4,14 @@ extends TestCase
 ## 150 px effect distance, the transfer clear, and every rarity entry changing the resolved cast (the H7 lesson). The real-cache
 ## half is in test_bishop_genesis_cache.gd.
 
-const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const IlBigBang := preload("res://tests/unit/test_il_big_bang.gd")
+const BG := preload("res://tests/fixtures/bishop_genesis_fixtures.gd")
 const DT := 1.0 / 60.0
-const GENESIS := 2321008
-const BIG_BANG := 2321001
 const TIERS := ["rare", "epic", "unique", "legendary"]
-const CASTER_X := 2000.0
-const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
-
-
-## A synthetic 232 level table in the WZ shape of Genesis: the (-400,-350)..(400,250) box at every level, 15 mobs.
-static func levels(mad: float, attack_count: float) -> Dictionary:
-	var out := {}
-	for lv in range(1, 31):
-		out[str(lv)] = {"mad": mad, "mobCount": 15.0, "attackCount": attack_count, "mastery": 10.0,
-			"lt": {"$v": [-400, -350]}, "rb": {"$v": [400, 250]}}
-	return out
-
-
-## The Genesis and Big Bang nodes added to the Bishop bolt fixture's book 232 (and Big Bang's parent book 212).
-static func add_books(setup: Dictionary, mad: float = 120.0, attack_count: float = 1.0) -> Dictionary:
-	setup.skill_imgs["232"].skill[str(GENESIS)] = {"elemAttr": "h", "level": levels(mad, attack_count)}
-	setup.skill_imgs["232"].skill[str(BIG_BANG)] = {"level": IlBigBang.levels(mad, attack_count)}
-	setup.skill_imgs["212"] = {"skill": {"2121001": {"level": IlBigBang.levels(mad, attack_count)}}}
-	return setup
-
-
-## A Bishop world with only `key` learned, the player at CASTER_X on a flat floor, god mode, motionless pin-size mobs.
-static func world(key: String, mad: float = 120.0, attack_count: float = 1.0, p_seed: int = 378) -> RunWorld:
-	var w := RunWorld.new(add_books(BF.setup(RF.quiet_data(), p_seed), mad, attack_count))
-	w.bounds = Rect2(0, -500, 4000, 1000)
-	w.fhm = FootholdMap.from_segments(FLAT)
-	w.swarm.fhm = w.fhm
-	RF.place_player(w, CASTER_X)
-	w.loadout.ranks.clear()
-	w.loadout.order.clear()
-	w.learn_skill(key)
-	w.loadout.set_caster(100.0, 0.0, 30)
-	w.god = true
-	for mk: MobKind in w.mob_kinds:
-		mk.hitbox = Rect2(-5, -10, 10, 10)
-		mk.move_speed = 0.0
-	w.drain_events()
-	return w
 
 
 func _mob(w: RunWorld, off: float, hp: int = 100000) -> int:
-	var m := RF.put_mob(w, 1110100, CASTER_X + off, 190.0, 100000.0)
+	var m := RF.put_mob(w, 1110100, BG.CASTER_X + off, 190.0, 100000.0)
 	w.swarm.hp[m] = hp
 	w.swarm.max_hp[m] = hp
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
@@ -71,8 +30,8 @@ func _hit_events(events: Array) -> Array:
 
 
 func test_genesis_is_defined_as_the_232_book_skill() -> void:
-	var d := world("genesis").book.def("genesis")
-	assert_eq(int(d.skill_id), GENESIS)
+	var d := BG.world("genesis").book.def("genesis")
+	assert_eq(int(d.skill_id), BG.GENESIS)
 	assert_eq(String(d.book), "232")
 	assert_eq(int(d.job), 232)
 	assert_eq(String(d.slot), "active")
@@ -89,7 +48,7 @@ func test_genesis_is_defined_as_the_232_book_skill() -> void:
 
 
 func test_it_reads_the_wz_box_the_15_mob_cap_and_the_element_through_the_loadout() -> void:
-	var w := world("genesis")
+	var w := BG.world("genesis")
 	var st := w.loadout.stats("genesis")
 	assert_eq(st.box, Rect2(-400, -350, 800, 600))
 	assert_eq(int(st.mob_count), 15)
@@ -98,7 +57,7 @@ func test_it_reads_the_wz_box_the_15_mob_cap_and_the_element_through_the_loadout
 
 
 func test_the_skill_is_only_cast_with_a_monster_in_the_box() -> void:
-	var w := world("genesis")
+	var w := BG.world("genesis")
 	_mob(w, 600.0)  # beyond the 400 px half-width
 	w.runner.step(DT, w)
 	assert_eq(w.runner.casts, 0, "min_targets 1 and nobody in the box")
@@ -108,7 +67,7 @@ func test_the_skill_is_only_cast_with_a_monster_in_the_box() -> void:
 
 
 func test_no_damage_before_1_8_seconds_then_the_impact_lands() -> void:
-	var w := world("genesis")
+	var w := BG.world("genesis")
 	var m := _mob(w, 150.0)
 	w.runner.step(DT, w)
 	assert_eq(w.swarm.hp[m], 100000, "nothing on the cast tick")
@@ -120,13 +79,13 @@ func test_no_damage_before_1_8_seconds_then_the_impact_lands() -> void:
 
 
 func test_targets_are_queried_at_impact_a_late_arrival_is_hit_and_a_departed_mob_is_not() -> void:
-	var w := world("genesis")
+	var w := BG.world("genesis")
 	var leaves := _mob(w, 250.0)
 	var arrives := _mob(w, 1500.0)  # outside the box at the cast
 	w.runner.step(DT, w)
 	_advance(w, 1.0)
-	w.swarm.x[leaves] = CASTER_X + 1500.0
-	w.swarm.x[arrives] = CASTER_X + 300.0
+	w.swarm.x[leaves] = BG.CASTER_X + 1500.0
+	w.swarm.x[arrives] = BG.CASTER_X + 300.0
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 	_advance(w, 0.9)
 	assert_eq(w.swarm.hp[leaves], 100000, "it left the box before the impact")
@@ -134,7 +93,7 @@ func test_targets_are_queried_at_impact_a_late_arrival_is_hit_and_a_departed_mob
 
 
 func test_a_mob_that_dies_during_the_delay_is_skipped_without_error() -> void:
-	var w := world("genesis")
+	var w := BG.world("genesis")
 	var dies := _mob(w, 250.0)
 	var lives := _mob(w, 300.0)
 	w.runner.step(DT, w)
@@ -147,7 +106,7 @@ func test_a_mob_that_dies_during_the_delay_is_skipped_without_error() -> void:
 
 
 func test_the_impact_strikes_at_most_fifteen_mobs() -> void:
-	var w := world("genesis")
+	var w := BG.world("genesis")
 	var mobs := []
 	for k in 20:
 		mobs.append(_mob(w, 20.0 * k - 100.0))
@@ -168,7 +127,7 @@ func test_the_impact_strikes_at_most_fifteen_mobs() -> void:
 func test_the_damage_is_holy_a_holy_weak_mob_takes_more_and_a_holy_immune_one_none() -> void:
 	var dealt := {}
 	for label: String in ["neutral", "weak", "immune"]:
-		var w := world("genesis")
+		var w := BG.world("genesis")
 		var m := _mob(w, 150.0)
 		if label != "neutral":
 			w.swarm.mob_kind(m).elements = {"H": 1.5 if label == "weak" else 0.0}
@@ -181,7 +140,7 @@ func test_the_damage_is_holy_a_holy_weak_mob_takes_more_and_a_holy_immune_one_no
 
 
 func test_every_attack_count_line_lands_at_the_impact() -> void:
-	var w := world("genesis", 120.0, 3.0)
+	var w := BG.world("genesis", 120.0, 3.0)
 	var m := _mob(w, 150.0)
 	w.runner.step(DT, w)
 	var lines := _hit_events(_advance(w, 2.0)).filter(func(e: Dictionary) -> bool: return int(e.mob) == m)
@@ -189,7 +148,7 @@ func test_every_attack_count_line_lands_at_the_impact() -> void:
 
 
 func test_tiles_sit_at_the_150_px_effect_distance_across_nine_slots() -> void:
-	var d := world("genesis").book.def("genesis")
+	var d := BG.world("genesis").book.def("genesis")
 	var visuals: Array = d.cast_visuals
 	assert_eq(visuals.size(), 10, "nine tiles and effect0")
 	for k in 9:
@@ -202,7 +161,7 @@ func test_tiles_sit_at_the_150_px_effect_distance_across_nine_slots() -> void:
 
 
 func test_a_map_transfer_clears_the_pending_genesis() -> void:
-	var w := world("genesis")
+	var w := BG.world("genesis")
 	var m := _mob(w, 150.0)
 	w.runner.step(DT, w)
 	w.runner.clear_pending()
@@ -215,10 +174,10 @@ func test_a_map_transfer_clears_the_pending_genesis() -> void:
 ## What one probe cast of `key` with `effects` did: hit lines, mobs struck, damage dealt, and whether the edge mob was struck.
 ## Mobs stand inside the box; the edge mob stands just beyond the base half-width (400 px Genesis, 250 px Big Bang).
 func _probe(key: String, effects: Array, edge_offset: float) -> Dictionary:
-	var w := world(key)
+	var w := BG.world(key)
 	for off: float in [60.0, -90.0, 120.0, -150.0]:
-		RF.put_mob(w, 1110100, CASTER_X + off, 190.0, 100000.0)
-	var edge := RF.put_mob(w, 1110100, CASTER_X + edge_offset, 190.0, 100000.0)
+		RF.put_mob(w, 1110100, BG.CASTER_X + off, 190.0, 100000.0)
+	var edge := RF.put_mob(w, 1110100, BG.CASTER_X + edge_offset, 190.0, 100000.0)
 	for e: Dictionary in effects:
 		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
 	var lines := 0
@@ -235,7 +194,7 @@ func _probe(key: String, effects: Array, edge_offset: float) -> Dictionary:
 
 
 func _audit(key: String, edge_offset: float) -> int:
-	var bonuses: Dictionary = world(key).book.def(key).rarity_bonuses
+	var bonuses: Dictionary = BG.world(key).book.def(key).rarity_bonuses
 	var base := _probe(key, [], edge_offset)
 	assert_false(bool(base.edge), "%s: the edge mob is outside the base box" % key)
 	assert_true(int(base.lines) > 0, "%s: the probe casts" % key)
@@ -255,7 +214,7 @@ func _audit(key: String, edge_offset: float) -> int:
 
 
 func test_the_genesis_rarity_ids_and_effects_are_the_specs() -> void:
-	var b: Dictionary = world("genesis").book.def("genesis").rarity_bonuses
+	var b: Dictionary = BG.world("genesis").book.def("genesis").rarity_bonuses
 	var wanted := {"rare": "power", "epic": "area", "unique": "echo", "legendary": "echo"}
 	for tier: String in wanted:
 		assert_eq(b[tier].size(), 1, tier)
@@ -288,8 +247,8 @@ func test_the_probe_catches_a_modifier_genesis_never_reads() -> void:
 
 func test_genesis_cards_follow_the_rare_plus_rank_rule_the_shared_legendary_counter_and_mastery() -> void:
 	for tier: String in TIERS:
-		var a := world("genesis")
-		var b := world("genesis")
+		var a := BG.world("genesis")
+		var b := BG.world("genesis")
 		var c := a.upgrades.choice_card("genesis_rank", a, tier)
 		assert_false(c.get("rarity_bonus", {}).is_empty(), "%s offers a bonus" % tier)
 		assert_eq(c, a.upgrades.choice_card("genesis_rank", a, tier), "preview is stable")
@@ -297,18 +256,18 @@ func test_genesis_cards_follow_the_rare_plus_rank_rule_the_shared_legendary_coun
 		b.upgrades.apply("genesis_rank", b, tier)
 		assert_eq(a.loadout.rank("genesis"), 2, "%s: exactly one rank" % tier)
 		assert_eq(a.loadout.skill_mods.get("genesis", {}), b.loadout.skill_mods.get("genesis", {}), "same bonus both runs")
-	var w := world("genesis")
+	var w := BG.world("genesis")
 	w.upgrades.apply("genesis_rank", w, "epic")
 	w.upgrades.apply("genesis_rank", w, "epic")
 	assert_near(w.loadout.stats("genesis").area, 1.2 * 1.16, 0.00001, "the second Epic is x1.16")
-	var hits := world("genesis")
+	var hits := BG.world("genesis")
 	hits.upgrades.apply("genesis_rank", hits, "unique")
 	hits.upgrades.apply("genesis_rank", hits, "legendary")
 	assert_near(hits.loadout.skill_stat("genesis", "attack_count", 1.0), 1.0 + 1.0 + 0.8, 0.00001,
 		"Unique and Legendary share the echo counter")
 	assert_near(hits.loadout.skill_stat("genesis", "damage", 1.0), 1.0 + 0.2 * 0.8, 0.00001,
 		"the Legendary's damage x1.2 shrinks with the repeat of the shared echo counter")
-	var m := world("genesis")
+	var m := BG.world("genesis")
 	m.loadout.set_rank("genesis", 8)
 	var normal := m.upgrades.choice_card("genesis_rank", m, "normal")
 	assert_eq(normal.card_kind, "mastery")

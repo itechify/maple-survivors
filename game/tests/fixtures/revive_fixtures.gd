@@ -26,12 +26,18 @@ static func data(table: Array = TABLE, revive: Dictionary = {}) -> Dictionary:
 	return d
 
 
+## The Skill.wz-shaped img of a revive skill `skill_id` with `count` levels: the 800 x 600 box and the v83 `cooltime` line
+## (3600 less 180 a level) at every one. The made-up book has eight levels, the Bishop's Resurrection ten.
+static func img_of(skill_id: int, count: int) -> Dictionary:
+	var levels := {}
+	for lv in range(1, count + 1):
+		levels[str(lv)] = {"lt": {"$v": [-400.0, -350.0]}, "rb": {"$v": [400.0, 250.0]}, "cooltime": 3600.0 - 180.0 * lv}
+	return {"skill": {str(skill_id): {"icon": RF._canvas(32, 32), "level": levels}}}
+
+
 ## The Skill.wz-shaped img of the made-up book.
 static func img() -> Dictionary:
-	var levels := {}
-	for lv in range(1, 9):
-		levels[str(lv)] = {"lt": {"$v": [-400.0, -350.0]}, "rb": {"$v": [400.0, 250.0]}, "cooltime": 3600.0 - 180.0 * lv}
-	return {"skill": {str(SKILL_ID): {"icon": RF._canvas(32, 32), "level": levels}}}
+	return img_of(SKILL_ID, 8)
 
 
 ## A setup of the quiet stage with the skill's img.

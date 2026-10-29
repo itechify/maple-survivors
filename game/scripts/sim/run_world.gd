@@ -2498,11 +2498,12 @@ func hit_source_multiplier(source: Dictionary) -> float:
 	return mult
 
 
-## Whether the hit window (hit invincibility) turns this source's hit away right now. Boss skill attacks and balls
-## ignore it (spec #88, tier C); this is the window only: god and death are take_hit's own guards. Balls ask this before
-## take_hit, since take_hit returns 0 for a blocked hit and a miss alike.
+## Whether the hit window (hit invincibility) or a guarding hit hook turns this source's hit away right now. Boss skill
+## attacks and balls ignore the window (spec #88, tier C) but not a guard, which refuses every hit (HitHook.guarding), so
+## a guarded hit draws no hit art and uses up no ball. god and death are take_hit's own guards. Balls and pending
+## attacks ask this before take_hit, since take_hit returns 0 for a blocked hit and a miss alike.
 func hit_window_blocks(source: Dictionary) -> bool:
-	return _window_blocks(PlayerUpkeep.bypasses_window(source))
+	return _hit_guarded() or _window_blocks(PlayerUpkeep.bypasses_window(source))
 
 
 ## The window check for a source already classified by PlayerUpkeep.bypasses_window (take_hit classifies once).
@@ -2531,6 +2532,8 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	# Power Guard (#182): a no-op, with no RNG and no event, unless the buff is active and this is contact damage.
 	var reflect := _power_guard_reflect(dmg, magic, source)
 	dmg -= reflect
+	# The hit hooks' absorb phase (a hull): what they soak never reaches HP, in order, and the damage number shows the rest.
+	dmg = _hit_hooks_absorb(dmg, source)
 	_hp -= dmg
 	_emit_player_hit(dmg, false, dir, source)
 	upkeep.land_hit(bypass)
@@ -2561,6 +2564,21 @@ func add_hit_hook(hook: HitHook, order := 0) -> void:
 			break
 	_hit_hooks.insert(at, hook)
 	_hit_hook_orders.insert(at, order)
+
+
+## The damage left from `dmg` once every hit hook has taken its share (HitHook.absorb), in hook order, never below 0.
+func _hit_hooks_absorb(dmg: int, source: Dictionary) -> int:
+	for hook: HitHook in _hit_hooks:
+		dmg = maxi(0, hook.absorb(self, dmg, source))
+	return dmg
+
+
+## The longest guard any hit hook has left, in seconds (HitHook.guard_left; 0 when none guards).
+func hit_guard_left() -> float:
+	var left := 0.0
+	for hook: HitHook in _hit_hooks:
+		left = maxf(left, hook.guard_left())
+	return left
 
 
 ## Whether any hit hook refuses hits now (HitHook.guarding).

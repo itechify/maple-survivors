@@ -85,7 +85,7 @@
 			}
 		},
 		"bot": {
-			"_card_scores": "tier C: spec #372 BS2: the ten Bishop pool skills score like every other pool skill, new 100 and rank 74. Spelled out so the line's scores live with its job, as Hero's and I/L's do; the values equal the pool default, so no decision changes.",
+			"_card_scores": "tier C: spec #372 BS2: the ten Bishop pool skills score like every other pool skill, new 100 and rank 74. Spelled out so the line's scores live with its job, as Hero's and I/L's do; the values equal the pool default, but the block is kept: removing it changes the Bishop event-stream oracle (test_bishop_baseline) and test_bishop_bot pins it. Deviates from the spec's \"no card_scores block\" on purpose (review fix, finding 14).",
 			"card_scores": {
 				"holy_arrow_new": 100,
 				"holy_arrow_rank": 74,

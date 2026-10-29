@@ -27,6 +27,10 @@ const PASSIVE_PREVIEW_KEYS := [PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep"]
 ## Active rarity-bonus stats a card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
+## How a bonus effect on a healing or revive stat reads on its card: [name, scale of an added value, unit of an added
+## value]. tier C: wording from spec #372 story 11 ("Greater Heal: recovery x1.2", "Holy Shield: guard +1.5 s").
+const CARD_STAT_TEXT := {"heal_power": ["recovery", 1.0, ""], "heal_threshold": ["heals below", 100.0, "% HP"],
+	"revive_hp": ["revive HP", 100.0, "%"], "revive_guard": ["guard", 1.0, " s"]}
 const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "heal_power", "heal_threshold", "revive_hp", "revive_guard"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
@@ -337,10 +341,21 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 			var kept := before * float(effect.value) if op == "mul" else before + float(effect.value)
 			labels.append("Keeps %d orbs" % maxi(0, roundi(kept)))
 			continue
-		labels.append(String(effect.stat).replace("attack_count", "Hits").capitalize() + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
+		labels.append(_effect_label(String(effect.stat), op, float(effect.value)))
 	bonus.text = String(bonus.get("text", bonus.id)) + ": " + ", ".join(labels)
 	bonus.counter = counter
 	return bonus
+
+
+## A bonus effect's card text, "<stat> x1.2" for a multiplier and "<stat> +3" for an addition. The healing and revive stats
+## read in the player's words (CARD_STAT_TEXT: "recovery x1.2", "guard +1.5 s"); the others are their capitalized key.
+static func _effect_label(stat: String, op: String, value: float) -> String:
+	var text: Array = CARD_STAT_TEXT.get(stat, [])
+	if text.is_empty():
+		return stat.replace("attack_count", "Hits").capitalize() + (" x" if op == "mul" else " +") + _fmt(snappedf(value, 0.001))
+	# A modifier stored as a share of a bar (0.15 of max HP) reads as percent when it adds; a multiplier reads as a factor.
+	var shown := value * float(text[1]) if op == "add" else value
+	return "%s%s%s%s" % [text[0], " x" if op == "mul" else " +", _fmt(snappedf(shown, 0.001)), "" if op == "mul" else text[2]]
 
 
 ## [canonical field, preview key] for a Warrior passive whose number a rank card shows under another name (see
