@@ -280,6 +280,66 @@ func test_each_bonus_effect_changes_the_resolved_cast() -> void:
 	assert_eq(il_checked, IL_SKILLS.size() * 5, "each I/L skill: 1 + 1 + 1 + 2 effects")
 
 
+func test_holy_charge_is_found_with_its_four_rarity_lists() -> void:
+	assert_true("holy_charge" in _skills_with_bonuses())
+	var bonuses: Dictionary = DataRepo.load_all().skills.skills.holy_charge.rarity_bonuses
+	for tier: String in TIERS:
+		assert_eq(bonuses[tier].size(), 1, tier)
+	assert_false(DataRepo.load_all().skills.skills.heavens_hammer.has("rarity_bonuses"), "a sub-skill has no list of its own")
+
+
+## Heaven's Hammer is Holy Charge's second sub-skill: every bonus of Holy that reaches a sub changes it. Runs Holy against four
+## still mobs inside the generic Hammer box and measures the Hammers cast and the damage they dealt in `seconds`.
+func _probe_hammer(effects: Array, seconds: float) -> Dictionary:
+	var w := _world("holy_charge")
+	var slots := []
+	for off: float in [80.0, -80.0, 140.0, -140.0]:
+		slots.append(RF.put_mob(w, MOB, CASTER_X + off, 190.0, 1000000.0))
+	var x0 := {}
+	for s: int in slots:
+		x0[s] = w.swarm.x[s]
+	for e: Dictionary in effects:
+		w.loadout.add_skill_mod("holy_charge", String(e.stat), String(e.op), float(e.value))
+	var hammers := 0
+	var dealt := 0.0
+	for tick in int(seconds / DT):
+		w.restore_player("hp", 100, "test")
+		w.step(DT, MoveInput.new())
+		for s: int in slots:
+			w.swarm.x[s] = x0[s]
+		for e: Dictionary in w.drain_events():
+			if String(e.type) == "cast" and String(e.skill) == "heavens_hammer":
+				hammers += 1
+			elif String(e.type) == "mob_hit" and String(e.skill) == "heavens_hammer":
+				dealt += float(e.damage)
+	return {"hammers": hammers, "dealt": dealt}
+
+
+func test_each_holy_bonus_that_reaches_a_sub_changes_the_hammer() -> void:
+	var bonuses: Dictionary = DataRepo.load_all().skills.skills.holy_charge.rarity_bonuses
+	var base_short := _probe_hammer([], 16.0)
+	var base_long := _probe_hammer([], 66.0)
+	assert_eq(base_short.hammers, 1, "one Hammer in the first window")
+	assert_true(float(base_short.dealt) > 0.0, "and it lands")
+	for tier: String in TIERS:
+		for bonus: Dictionary in bonuses[tier]:
+			for effect: Dictionary in bonus.effects:
+				var label := "holy_charge %s %s (%s)" % [tier, bonus.id, effect.stat]
+				match String(effect.stat):
+					"damage", "form_power":
+						# Advanced Charge's damage multiplies the sub; Mastery's form_power raises every attack of the window.
+						var with := _probe_hammer([effect], 16.0)
+						assert_true(float(with.dealt) > float(base_short.dealt), "%s: the Hammer %s -> %s" % [label, base_short.dealt, with.dealt])
+					"cooldown":
+						var with := _probe_hammer([effect], 66.0)
+						assert_true(int(with.hammers) > int(base_long.hammers), "%s: Hammers in 66 s %d -> %d" % [label, base_long.hammers, with.hammers])
+					"form_time":
+						# The window's length is measured by the Form probe above; the Hammer fires once whatever it lasts.
+						assert_eq(_probe_hammer([effect], 16.0).hammers, 1, "%s: still one Hammer per window" % label)
+					_:
+						assert_true(false, "%s: a stat this audit knows" % label)
+
+
 func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effect: Dictionary) -> void:
 	var stat := String(effect.stat)
 	var label := "%s %s %s (%s)" % [key, tier, id, stat]

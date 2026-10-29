@@ -6191,6 +6191,39 @@ exclusion group.
   Mastery (no rank). `test_rarity_bonus_effects` measures each effect on the real definitions: `form_power` raises Power Strike's
   hits inside the window, `form_time` the window's ticks, `cooldown` the windows started in 66 s and `damage` Charged Blow's hits.
 
+**Holy Charge and Heaven's Hammer (#316, WZ 1221003 / 1221004 and 1221011).** The last Charge and the Paladin's signature
+strike. `holy_charge` has the other Charges' shape (a Form of the `paladin_charge` group: 12 s window, 18 s cooldown,
+admitted by a mob within 400 px, the holy element on every damaging cast of its owner, Rush included, the same four
+rarity lists) with two differences: it has **20 levels**, so its rank table is the level-20 table 3, 5, 8, 10, 13, 15,
+18, 20 and its multiplier runs 106 % (rank 1, level 3) to 140 % (rank 8, level 20; level 1 would be 102 %, tier A), and its
+`subs` list **Heaven's Hammer** as well as Charged Blow.
+
+- **Window.** `subs`: `charged_blow` (first after 1.0 s, every 3.0 s) and `heavens_hammer` (`first_after` 0.5, `once true`).
+  Holy and another Charge never overlap (one running window per group); a Holy cast again after its window and cooldown
+  opens a new window and a new Hammer. Twin 1221004 ("Divine Charge : BW") carries identical numbers; `art_by_family {"blunt": 1221004}`.
+- **Hammer.** `heavens_hammer`: `slot form_sub`, `form_sub_of ["holy_charge"]`, `cast {rule box}` (the WZ box lt (-400,-350)
+  rb (400,250) around the player, `mobCount` 15, tier A), physical `damage` 420 -> 900 % (30 levels, tier A) read at the
+  Charge's rank through the **level-30 table** (rank 1 = level 4 = 480 %, rank 8 = level 30 = 900 %, spec P-5), `element h`
+  (WZ `elemAttr`), `ranks` written out. It is **cast 0.5 s into the window if a mob is in the box** (a Hammer due with an empty
+  box waits and goes the tick one enters, until the window ends) and then **lands 1.56 s later** through the existing
+  `pending` strike of Meteor Shower (7.31) with `follow_player`: the box is centred on the player where it lands, targets
+  are queried at impact, up to 15 are struck, bosses first. The cast is a committed map-space strike: it **lands even if the
+  window ended in between** and is **lost on a map transfer** (`clear_pending`), while the window itself, and the fact that its
+  once-per-window Hammer was spent, carry over. The Charge's `damage` modifier ("Advanced Charge" x1.3) multiplies it as it
+  does Charged Blow; `form_power` raises it with the Charge's multiplier. WZ `cooltime` (310 -> 20 s) is session-scale and not
+  read.
+- **Delay (tier C, P1 #309).** 1.56 s is the start of frame 13 of the 22-frame, 120 ms `effect` (where the big slam art begins;
+  frame 14 is the light pillar at its brightest), and the body's `sanctuary` stance independently starts its thrust
+  (`stabOF` frame 2) at 1.56 s, so avatar and art land together.
+- **Presentation (tier C).** Stance `sanctuary` for 3.3 s (the stance's seven body frames) and the 22-frame `effect` played
+  on the caster at the cast (the cast display never holds the avatar). Charged Blow's swing (0.6 s) at 1.0 s replaces the
+  Hammer's stance display, as any later cast does, so the avatar's slam frame is seen only when no blow follows (tier C,
+  recorded, not changed). `hit` is left empty: `hit/0` is a 15-frame red HP-bar graphic (28..84 px wide), not a hit burst,
+  and played on 15 mobs it would read as damage bars, so only the number and the `Hit` sound mark a struck mob. Sounds:
+  `Use` (3.0 s) at the cast, `Hit` per struck mob; the Charge's own Use sound (1.3 s) is played as it is.
+- **Text.** The Charge's description names the Hammer; the Hammer's own line reads "Damage N %, up to 15 monsters, holy;
+  lands after a short delay", and the Form's mechanics line lists it as "once after 0.5 s".
+
 ### 7.60 I/L pool and Teleport (spec #319, I6 #325)
 
 The I/L Arch Mage's (222) simple instant skills: **Cold Beam** (2201004), **Thunder Bolt** (2201005), **Ice Strike**
@@ -6965,6 +6998,8 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 | Charged Blow form sub-skill (#314, spec #308) | `skills/paladin.json` `charged_blow`: `slot form_sub`, `form_sub_of` the four Charges (until P7/P8 define them `test_data_files` allows those parents to be undefined), `cast {range_around, min_targets 3}`, `cooldown` 3.0 (not consulted: the Charge's `subs` interval sets the pace), `ranks` 4, 8, 12, 15, 19, 23, 27, 30 (the standard table written out), `action weapon` with `action_time` 0.6, no rarity list. The WZ numbers (damage, prop, time, range, mobCount, hpCon) are tier A | C | Spec #308 (Skill definitions) |
 | Fire, Ice and Thunder Charge numbers (#315, spec #308) | `skills/paladin.json` `fire_charge` / `ice_charge` / `thunder_charge`: `form.duration` 12.0, `cooldown` 18.0, `cast.mob_within` 400, `exclusive_group paladin_charge`, `subs` charged_blow `first_after` 1.0 / `interval` 3.0, `action_time` 0.9; rarity Mastery `form_power` +0.10, Booster cooldown x0.88, Advanced Charge `damage` x1.3 and `form_time` x1.25, Legendary + `damage` x1.2 (WZ `damage` per rank, `alert4`, the 15-frame effect and the twin ids are tier A) | C | Spec #308 (P-1, P-2, P-4, P-9) |
 | Element art index table (#314, spec #308) | `PlayerForms.ART_INDEX` and the `{art}` path token: none 0, ice 1, fire 2, lightning 3, holy 5 (tier A, P1 #309, read from the pixels; the spec's order was wrong); the token fill is ours | C | Spec #308 (Element art) |
+| Holy Charge Form (#316, spec #308) | `skills/paladin.json` `holy_charge`: the shape of the other Charges (group `paladin_charge`, 12 s, 18 s cooldown, `mob_within` 400, element `h`, Charged Blow after 1.0 s then every 3.0 s, `alert4` for 0.9 s, the Rare/Epic/Unique/Legendary lists of #315: `form_power` +0.10, cooldown x0.88, `damage` x1.3 and `form_time` x1.25, the same plus `damage` x1.2); WZ damage 106 -> 140 % at the level-20 table (rank 1 = level 3) is tier A, the 17-frame effect and the Use sound are tier A | C | Spec #308 (P-1, P-2, P-4, P-9) |
+| Heaven's Hammer sub-skill (#316, spec #308) | `skills/paladin.json` `heavens_hammer`: `slot form_sub`, `form_sub_of ["holy_charge"]`, listed in Holy's `subs` with `first_after` 0.5 and `once true`, `cast box`, `ranks` 4, 8, 12, 15, 19, 23, 27, 30 (P-5), `pending {delay 1.56, follow_player true}`, `action sanctuary` for 3.3 s, `hit` empty (its `hit/0` is a red HP-bar graphic), `cooldown` 18 (not consulted). Box, `mobCount` 15, damage 420 -> 900 %, `elemAttr h` and the sounds are tier A; 1.56 s = frame 13 of the 22-frame 120 ms effect and body frame `stabOF` 2, both read by P1 #309 | C | Spec #308 (Skill definitions), P1 #309 |
 | Job page rows (#305) | rows are left-aligned, and the chosen row keeps its plate in every Button state (hover and pressed too), so it stays highlighted under the mouse; the Job blurb repeats the weapon box (creation weapon name, WATK, swing time) | C | Ours, layout |
 | Rush 2.0 s cooldown, always-on 80 px knock-back along the dash, hold-to-repeat, refused while climbing, airborne dash keeps its height (#302, spec #296) | `skills/hero.json` `rush_hero` (`cooldown`, `knockback`); damage 78%, `mobCount` 15, box reach 170 px (the dash distance) and `rush2` are Skill.wz level 4 (tier A) | C | Spec #296 D1; v83 Rush is a dash with a hit box |
 | Rush ranks with the round level through `balance.mobility_rank_levels` (rank 1 = WZ level 4 at Lv1, rank 8 = level 30 from Lv16) (#302) | the shared mobility rule; Rush has the level-30 rank table and no card | C | Spec #296, #282 review fixes |

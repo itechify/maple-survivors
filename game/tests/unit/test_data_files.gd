@@ -734,13 +734,8 @@ func test_meter_catalog_schema() -> void:
 		assert_true(float(meter.damage_per_unit) >= 0.0)
 		assert_eq(String(skill.slot), "active")
 
-## Charges that Charged Blow (P6 #314) already names in `form_sub_of` before P7 #315 and P8 #316 define them; the "unknown form"
-## error for these keys is expected until then, and the ticket that defines the last one deletes this list.
-const PENDING_CHARGES := ["fire_charge", "ice_charge", "thunder_charge", "holy_charge"]
-
 func test_form_catalog_schema_and_subs_excluded_from_pools_and_cards() -> void:
-	var errors := Array(PlayerForms.validation_errors(data.skills.skills)).filter(func(e: String) -> bool:
-		return not PENDING_CHARGES.any(func(k: String) -> bool: return not data.skills.skills.has(k) and e.ends_with("unknown form " + k)))
+	var errors := Array(PlayerForms.validation_errors(data.skills.skills))
 	assert_true(errors.is_empty(), " ".join(errors))
 	for key: String in data.skills.skills:
 		if String(data.skills.skills[key].get("slot", "")) != "form_sub":
