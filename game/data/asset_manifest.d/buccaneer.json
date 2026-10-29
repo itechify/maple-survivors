@@ -1,0 +1,11 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Buccaneer line (spec #412 #413). The 3rd and 4th job Pirate skill books Skill.wz/511.img (Marauder) and 512.img (Buccaneer) whole, the two Buccaneer morphs Morph.wz/1000.img (Transformation) and 1001.img (Super Transformation), and the Sound.wz/Skill.img nodes of the Buccaneer pool, meter and sub-skills: Energy Charge 5110001, Energy Drain 5111004, Transformation 5111005, Shockwave 5111006, Dragon Strike 5121001, Energy Orb 5121002, Super Transformation 5121003 (its Use is a UOL to ../5111005/Use, in this same list), Demolition 5121004, Snatch 5121005 and Barrage 5121007. Energy Blast 5111002 is not in the pool and is not imported. The first and second job Pirate books 500 and 510, the sounds of their skills, the knuckles and Oak Barrel's morph 1002 are in pirate.json. No proprietary data is stored in the repo.",
+	"imgs": [
+		{"img": "Skill.wz/511.img"},
+		{"img": "Skill.wz/512.img"},
+		{"img": "Morph.wz/1000.img"},
+		{"img": "Morph.wz/1001.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["5110001", "5111004", "5111005", "5111006", "5121001", "5121002", "5121003", "5121004", "5121005", "5121007"]}
+	]
+}

@@ -295,10 +295,27 @@ The Form effect registry is the extension boundary; later class tickets add thei
 | Later class | Its own ticket adds |
 |---|---|
 | Shadower | `hidden` effect, sub flags `ignores_hidden` and `ends_form` |
-| Buccaneer | `morph` effect and Morph.wz presentation |
+| Buccaneer | no effect key: a morph is the form's `buff` block (`morph_field`), see below; Morph.wz stances (B3 #415) |
 | Corsair | `hull` absorption effect and mount art |
 
-These are future extensions, not effects implemented by #311.
+The Shadower `hidden` and Corsair `hull` rows are future extensions, not effects implemented by #311.
+
+**A morph form is not an effect key (spec #412 BU-9, B3 #415).** `PlayerForms.start` hands the form's resolved stats to
+`PlayerBuffs.start`, and `Loadout.stats` already fills `morph` from `buff.morph_field` (and `pdd`, `mdd`, `speed`, `jump`
+from `buff.stat`/`field` and `buff.effects`) for any skill with a `buff` block, form or not. So a morphing form is a `kind:
+form` skill that also carries a `buff {morph_field, stat, field, effects}` block; `form.effects` stays `{}` (or the
+element/damage keys) and `PlayerForms.EFFECTS` keeps exactly `element` and `damage`. The morph id reaches `RunWorld.morph_id()`
+and `player_state.morph` through the buff and clears on every `form_ended` reason; a map transfer keeps it. A morph
+without `hidden` is not Hidden. `test_morph_form.gd` pins all of this on a synthetic form and is the template for any later
+morph or buff-carrying form. `SkillText` words a form with no element "Transforms you for N s: defence +X, speed +Y,
+jump +Z." from the same `buff_effects`.
+
+**Morph stance rule (`AvatarRenderer.morph_stance`).** While morphed, a requested stance whose name is a node of the morph
+img (never `info`) draws that node: its frames, delays and feet origin. Any other stance keeps the `MORPH_ACTIONS` mapping
+(`walk1`/`walk2` -> `walk`, `ladder2` -> `ladder`, `proneStab` -> `prone`, ... and `stand` for everything else), so the
+Oak Barrel (1002, which has no attack nodes) keeps standing through an attack while the Buccaneer morphs (1000, 1001, whose
+nodes carry the Brawler's skill action names) play `fist`, `dragonstrike`, `somersault` and the rest. The weapon and hair
+stay undrawn. `scenes/debug/morph_driver.tscn` draws a contact sheet of a morph in a list of stances.
 
 ### 4.4.1 Run setup (what `RunWorld` is built from)
 
@@ -949,7 +966,7 @@ among offered cards with its own seeded RNG and never reads the score setting. T
 | Piece | Approach |
 |---|---|
 | `MapRenderer` | Backgrounds (types 0-7, parallax `x + cam_cx*rx/100`, tiling by `cx/cy`, auto-scroll `rx*5 px/s`, `a`, `f`, front backs) redrawn per frame; static tiles/objs per layer recorded once in a `_draw()` command list; animated objs as canvas items. Draw order: non-front backs -> layers 0..7 (objs by `z`, then tiles by canvas `z`, then actors standing on that layer) -> front backs. |
-| `AvatarRenderer` | Composites body/arm/head/face/hair/coat/pants/shoes(/weapon) per frame using `map` anchors (navel, neck, hand, brow) and `Base.wz/zmap.img` order. Mirrors for facing. A morph (`set_morph`, #194) replaces every part with one frame of `Morph.wz/<id>.img` for the matching action. Draws `look.cash` over the outfit (face accessories by expression, weapon covers by weapon type, `vslot` hiding through `smap.img`, an overall replacing top and bottom) through the pure helpers in `AvatarLayers`. A weapon with no art for a stance borrows its fallback (`AvatarLayers.STANCE_FALLBACKS`: `stabO2` draws `stabO1` at the same frame index, #327). |
+| `AvatarRenderer` | Composites body/arm/head/face/hair/coat/pants/shoes(/weapon) per frame using `map` anchors (navel, neck, hand, brow) and `Base.wz/zmap.img` order. Mirrors for facing. A morph (`set_morph`, #194) replaces every part with one frame of `Morph.wz/<id>.img`: the action named like the stance when the img has one, else the mapped basic action (4.4 Form table, "Morph stance rule"). Draws `look.cash` over the outfit (face accessories by expression, weapon covers by weapon type, `vslot` hiding through `smap.img`, an overall replacing top and bottom) through the pure helpers in `AvatarLayers`. A weapon with no art for a stance borrows its fallback (`AvatarLayers.STANCE_FALLBACKS`: `stabO2` draws `stabO1` at the same frame index, #327). |
 | `MobRenderer` | One RenderingServer canvas item per live mob slot (no Nodes), region-of-atlas per frame, alpha for `a0/a1` fades. One renderer per foothold layer (`only_layer` + `update_slot_layers`) to draw mobs inside `actor_layer(L)`. |
 | `NameTags` | Elite name tags under mobs (`RunWorld.mob_elite`), drawn like v83's code-drawn default name tag. |
 | `FxRenderer` | Pooled one-shot WZ animations and repeating slow/immunity icons; `play_repeating`, `stop` and `place` follow sim status/expiration without per-entity Nodes. |
