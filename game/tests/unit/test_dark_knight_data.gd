@@ -95,7 +95,9 @@ func test_the_skills_fragment_holds_only_dark_knights_own_skills_with_its_doc() 
 	# D2 shipped it empty; D5-D9 append their own skills. Whatever it holds is in the pool and never a shared key.
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "dark_knight"))
 	for key: String in frag.skills:
-		assert_true(key in POOL, "%s is a pool skill" % key)
+		var sub_of := String(frag.skills[key].get("summon_sub_of", ""))
+		assert_true(key in POOL or (frag.skills[key].get("slot", "") == "summon_sub" and sub_of in POOL),
+			"%s is a pool skill, or a support sub of one (the Beholder's Aura and Hex)" % key)
 		assert_false(key in SHARED_KEYS, "%s is Hero's, never defined here (DK-13)" % key)
 	assert_true(String(frag._doc).contains("#348"), "the _doc names the spec")
 

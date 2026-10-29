@@ -106,6 +106,11 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 		assert_true(top > 0, "%s has a canonical level table" % key)
 		# A pool skill (rarity bonuses, listed in a job's skill_pool) has eight ranks; any other skill keeps one rank per level.
 		# Hero's Rush (#302) is no pool skill but takes the same level-30 table, eight ranks that the shared mobility rule grows.
+		# A support summon's sub-skill (the Beholder's Aura and Hex, #357) ranks with its parent: eight ranks into its own table.
+		if String(book.def(key).get("slot", "")) == "summon_sub":
+			assert_eq(book.max_rank(key), 8, "%s: ranks with its parent" % key)
+			assert_eq(book.canonical_level(key, 8), top)
+			continue
 		if key == "rush_hero" or book.def(key).has("rarity_bonuses") \
 				and data.jobs_survivor.jobs.values().any(func(j: Dictionary) -> bool: return key in j.get("skill_pool", [])):
 			assert_eq(book.max_rank(key), 8)
@@ -657,6 +662,10 @@ func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> 
 				covered[String(c.skill)] = true
 	for key: String in skills:
 		var s: Dictionary = skills[key]
+		if String(s.get("slot", "")) == "summon_sub":
+			assert_true(skills.has(String(s.get("summon_sub_of", ""))), "%s: a support sub names its parent skill (#357)" % key)
+			assert_false(covered.has(key) or s.has("rarity_bonuses"), "%s: a sub is no card" % key)
+			continue # read through its parent's cast; never offered, never an attack
 		if HIT_MORE_EXEMPT.has(key):
 			assert_eq(String(s.damage), "none", "exempt %s must not be an attack skill" % key)
 			assert_true(String(s.slot) in ["active", "mobility"], "exempt %s is active or manual mobility" % key)
