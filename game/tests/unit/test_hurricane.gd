@@ -186,3 +186,116 @@ func test_the_stream_follows_a_walking_character() -> void:
 	_ticks(w, 6)
 	assert_eq(_shots(w), 7)
 	assert_true(w.projectiles.x[6] > first + 100.0, "the later arrows leave from where the character walked to")
+
+
+func test_rarity_cards_apply_the_bonus_of_their_tier() -> void:
+	for tier: String in TIERS:
+		var w := _world()
+		w.loadout.ranks.clear()
+		w.loadout.order.clear()
+		var before_cd := float(w.loadout.stats(KEY).cooldown)
+		w.upgrades.apply(KEY + "_new", w, tier)
+		var card := w.upgrades.choice_card(KEY + "_rank", w, tier)
+		assert_false(card.get("rarity_bonus", {}).is_empty(), tier + " carries a bonus")
+		var st := w.loadout.stats(KEY)
+		match tier:
+			"rare":
+				assert_near(w.loadout.skill_stat(KEY, "damage", 1.0), 1.2)
+				assert_eq(int(st.count), 12)
+			"epic":
+				assert_near(float(st.cooldown), before_cd * 0.88, 1e-6)
+				assert_eq(int(st.count), 12)
+			"unique":
+				assert_eq(int(st.count), 16, "Final Attack: sixteen arrows")
+				assert_near(w.loadout.skill_stat(KEY, "damage", 1.0), 1.0)
+			"legendary":
+				assert_eq(int(st.count), 16)
+				assert_near(w.loadout.skill_stat(KEY, "damage", 1.0), 1.2)
+
+
+func test_each_tier_changes_the_arrows_that_land() -> void:
+	var base := _land(_world())
+	var rare := _world()
+	rare.loadout.add_skill_mod(KEY, "damage", "mul", 1.2)
+	assert_true(_land(rare).damage > base.damage, "Bow Expert hits harder")
+	var epic := _world()
+	epic.loadout.add_skill_mod(KEY, "cooldown", "mul", 0.88)
+	assert_near(float(epic.loadout.stats(KEY).cooldown), 6.0 * 0.88, 1e-6)
+	var unique := _world()
+	unique.loadout.add_skill_mod(KEY, "count", "add", 4)
+	assert_eq(_land(unique).arrows, base.arrows + 4)
+	var legendary := _world()
+	legendary.loadout.add_skill_mod(KEY, "count", "add", 4)
+	legendary.loadout.add_skill_mod(KEY, "damage", "mul", 1.2)
+	var l := _land(legendary)
+	assert_eq(l.arrows, base.arrows + 4)
+	assert_true(l.damage > _land(unique).damage)
+
+
+## One cast against a high-HP monster in reach: arrows landed and damage dealt after the stream has flown.
+func _land(w: RunWorld) -> Dictionary:
+	var m := _mob(w, 380)
+	for tick in 210:
+		w.step(DT, MoveInput.new())
+		if w.runner.casts >= 1:
+			w.runner.cooldowns[KEY] = 1.0e9
+	var arrows := 0
+	for e: Dictionary in w.drain_events():
+		if e.type == "mob_hit" and String(e.get("skill", "")) == KEY:
+			arrows += 1
+	return {"arrows": arrows, "damage": int(w.swarm.max_hp[m]) - int(w.swarm.hp[m])}
+
+
+# --- the real cache ------------------------------------------------------------------------------------------------
+
+func test_real_cache_ranks_read_the_mapped_wz_levels_for_all_eight_ranks() -> void:
+	if not require_cache():
+		return
+	var library := AssetLibrary.new()
+	library.open()
+	var img := library.img("Skill.wz/312.img")
+	assert_true(img != null, "the 312 book is imported")
+	if img == null:
+		library.free()
+		return
+	var imgs := {"312": img.root}
+	var b := SkillBook.from_data(DataRepo.load_all().skills, imgs)
+	var node: Dictionary = img.root.skill["3121004"]
+	# The v83 values the spec quotes: 54 / 75 / 100 at ranks 1 / 4 / 8, endpoints 51 and 100 on levels 1 and 30.
+	assert_eq(int(node.level["1"].damage), 51)
+	assert_eq(int(node.level["30"].damage), 100)
+	assert_eq(b.rank_table(KEY).map(func(v: Variant) -> int: return int(v)), RANK_LEVELS)
+	var lo := Loadout.new(b)
+	lo.add_skill(KEY)
+	var previous := 0.0
+	for rank in range(1, 9):
+		var lv: int = RANK_LEVELS[rank - 1]
+		assert_eq(b.canonical_level(KEY, rank), lv)
+		var row: Dictionary = node.level[str(lv)]
+		var st := lo.stats(KEY, rank)
+		assert_near(float(st.damage_pct), float(row.damage) / 100.0, 1e-6, "rank %d" % rank)
+		assert_true(float(st.damage_pct) > previous)
+		previous = float(st.damage_pct)
+		assert_eq(int(st.mob_count), 1, "one monster per arrow (the node has no mobCount)")
+		assert_eq(int(st.attack_count), 1, "no attackCount")
+		assert_eq(int(st.count), 12)
+	assert_near(float(lo.stats(KEY, 1).damage_pct), 0.54, 1e-6)
+	assert_near(float(lo.stats(KEY, 4).damage_pct), 0.75, 1e-6)
+	assert_near(float(lo.stats(KEY, 8).damage_pct), 1.00, 1e-6)
+	library.free()
+
+
+func test_real_cache_has_the_art_and_sounds_the_definition_names() -> void:
+	if not require_cache():
+		return
+	var library := AssetLibrary.new()
+	library.open()
+	var d: Dictionary = DataRepo.load_all().skills.skills[KEY]
+	for path: String in [String(d.ball), String(d.hit), String(d.icon), "Skill.wz/312.img/skill/3121004/prepare",
+			"Skill.wz/312.img/skill/3121004/keydown", "Skill.wz/312.img/skill/3121004/keydownend"]:
+		var anim := library.anim(path)
+		assert_true(anim != null and not anim.is_empty(), path)
+	assert_eq(library.anim(String(d.ball)).frame_count(), 10, "the ten-frame ball")
+	for sound: String in [String(d.sounds.use), String(d.sounds.hit)]:
+		assert_true(library.find(sound) != null, sound)
+	library.free()

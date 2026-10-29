@@ -4,12 +4,15 @@ extends TestCase
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
 ## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
-## Hero books (111/112) are synthetic generic tables; the F/P books come from the shared run fixtures.
+## Hero books (111/112) are synthetic generic tables; the F/P books come from the shared run fixtures. Bowmaster's Hurricane
+## (B10 #342) runs as a Bowmaster holding a bow with a synthetic damage table; on the burst rule `count` is arrows, so it shows
+## in the hit lines on the one target it stream-fires at, not in the number of mobs affected.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const MOB := 1110100
 const CASTER_X := 2000.0
+const BOW := 1452051
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep"]
@@ -28,7 +31,7 @@ func _skills_with_bonuses() -> Array:
 	var skills: Dictionary = DataRepo.load_all().skills.skills
 	var keys := []
 	for key: String in skills:
-		if (skills[key] as Dictionary).has("rarity_bonuses") and int(skills[key].job) < 300:
+		if (skills[key] as Dictionary).has("rarity_bonuses") and (int(skills[key].job) < 300 or int(skills[key].job) == 312):
 			keys.append(key)
 	return keys
 
@@ -36,9 +39,17 @@ func _skills_with_bonuses() -> Array:
 func _world(key: String) -> RunWorld:
 	var data := RF.quiet_data()
 	var job := 112 if int(data.skills.skills[key].job) in [100, 110, 111, 112] else 212
+	if int(data.skills.skills[key].job) == 312:
+		job = 312
 	data.jobs_survivor.jobs["112"]["playable"] = true
 	var setup := RF.with_basic_attack(RF.setup("quiet", 296, data))
 	var imgs: Dictionary = setup.skill_imgs
+	if job == 312:
+		var levels := {}
+		for lv in range(1, 31):
+			levels[str(lv)] = {"hs": "h%d" % lv, "damage": float(51 + lv)}
+		imgs["312"] = {"skill": {"3121004": {"level": levels}}}
+		setup.equipment_info.merge({BOW: {"incPAD": 28, "attackSpeed": 6, "tuc": 7}}, true)
 	# Hero books are synthetic; the F/P box and crowd skills get the same generic table (their fixtures carry no box).
 	for k: String in data.skills.skills:
 		var d: Dictionary = data.skills.skills[k]
@@ -51,7 +62,11 @@ func _world(key: String) -> RunWorld:
 			node["level"] = _generic_levels()
 			imgs[book].skill[str(id) if id >= 1000000 else "%07d" % id] = node
 	var w := RunWorld.new(setup)
-	w.set_job(job)
+	if job == 312:
+		assert_eq(w.wear_new_item(BOW), "")
+		RF.change_job_bare(w, 312)
+	else:
+		w.set_job(job)
 	w.bounds = Rect2(0, -500, 4000, 1000)
 	w.fhm = FootholdMap.from_segments(FLAT)
 	w.swarm.fhm = w.fhm
@@ -160,9 +175,9 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 func test_every_pool_skill_with_bonuses_was_found() -> void:
 	var keys := _skills_with_bonuses()
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
-			"elquines"]:
+			"elquines", "hurricane"]:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 19, "seven Hero and twelve F/P skills: %d" % keys.size())
+	assert_true(keys.size() >= 19, "seven Hero, twelve F/P and one Bowmaster skills: %d" % keys.size())
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
@@ -189,7 +204,10 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 		"attack_count":
 			assert_true(int(with.lines) > int(base.lines), "%s: hit lines %d -> %d" % [label, base.lines, with.lines])
 		"count", "pierce":
-			assert_true(int(with.affected) > int(base.affected), "%s: mobs affected %d -> %d" % [label, base.affected, with.affected])
+			if stat == "count" and String(DataRepo.load_all().skills.skills[key].get("cast", {}).get("rule", "")) == "burst":
+				assert_true(int(with.lines) > int(base.lines), "%s: arrows landed %d -> %d" % [label, base.lines, with.lines])
+			else:
+				assert_true(int(with.affected) > int(base.affected), "%s: mobs affected %d -> %d" % [label, base.affected, with.affected])
 		"summon_count":
 			assert_true(int(with.summons) > int(base.summons), "%s: allies %d -> %d" % [label, base.summons, with.summons])
 		"meter_keep":
