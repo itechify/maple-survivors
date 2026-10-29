@@ -725,6 +725,12 @@ also emit `hp_spent`, which the oracle runs do not exercise). Henesys `balance.s
 deaths 305.0 / 454.5 / 651.7 s (Lv 11 / 21 / 36), Hero (112) 0/3, deaths 327.7 / 336.9 / 688.2 s (Lv 11 / 11 / 36). Both
 match the recorded numbers above exactly. No crashes, no world warnings.
 
+**Spear Crusher smoke (#353, spec #348 D5; no tuning).** The ticket adds a Dark Knight definition (job 132 is not playable) and a
+presentation-only change to how a numeric-string frame delay is read, so shipped jobs cannot change. Henesys
+`balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3 with deaths at 10:51 / 5:05 / 7:34 (Lv 11 / 21 / 36; deaths by map 1:1 2:1 3:1),
+Hero (112) 0/3 at 5:27 / 5:36 / 11:28 (Lv 11 / 11 / 36), identical to the D1 (#349) smoke on the same seeds; no warnings.
+`test_character_baseline`, `test_tick_cost_identity` and `test_hero_baseline` reproduce their goldens unrecaptured.
+
 Merged-source full suites: **2151 passed / 0 failed / 0 skipped** cached; **1926 passed / 0 failed /
 225 skipped** without cache (skips prove no asset behavior). Both F/P goldens and the repaired Hero golden
 `409dba0d1bdffc32ba72644e326f99561e6ed9c0270feda39ace2573b0727cb3` match integration 3e37ec1 unchanged.
@@ -6018,6 +6024,44 @@ No shipped skill carries the block yet, so no existing record changes.
 - **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
   and Skill-window text (H7).
 
+### 7.70 Spear Crusher and the shared warrior skills (#353, spec #348 D5)
+
+Dark Knight's start skill, **Spear Crusher** (1311001; the pole arm twin 1311002 is art only), in `skills/dark_knight.json`.
+
+- **Cast.** `box` of the WZ level's `lt` and `rb` ((-130,-50) growing to (-150,-70), `rb` (-16, 0): a 16 px dead zone in front
+  of the knight), `min_targets 1`, physical, 0.6 s cooldown. `damage` 70 -> 170 %, `attackCount` 2 (levels 1-15) or 3
+  (16-30) and `mobCount` 1 -> 3 are read from the WZ level. The cast takes the nearest `mobCount` mobs in the box and deals
+  `attackCount` lines to each.
+- **Ranks.** `ranks: [4, 8, 12, 15, 23, 25, 27, 30]` (DK-7). The default level-30 table would put rank 5 on level 19, where
+  `mobCount` falls back to 1 (136 % x 3 hits on one mob is less than rank 4's 720 % total). Total damage per cast against a
+  full box is 140, 360, 648, 720, 894, 930, 1449, 1530 %: it rises at every rank.
+- **Stance.** `action_field: "action"` on the definition makes `Loadout.stats` read the WZ level's own `action` string:
+  `burster1` (levels 1-15, ranks 1-4) for two hits, `burster2` (16-30, ranks 5-8) for three. `action_times {"burster1": 0.9,
+  "burster2": 1.05}` holds the stance for the body action's own delays (Character.wz 00002000.img, tier A, D1). No
+  definition without `action_field` / `action_times` changes.
+- **Art.** `effect` (the dragon wings, 2 frames) rides the `cast` event; `cast_visuals` plays `effect0` (the rune rings) and
+  `effect1`..`effect3`, each `follow`ing the knight (mirrored with its facing). `effectK` is the K-th dragon thrust (tier B
+  reading, D1: each starts with a blank wait of 600 / 750 / 900 ms where the body thrusts), so an entry carries
+  `min_attack_count: K` and a cast with two damage lines plays `effect1` and `effect2`, one with three also `effect3`.
+  Final Attack's extra line therefore also adds its thrust (tier C). `hit/0` (4 frames) lands on each target; the Use sound
+  is `Sound.wz/Skill.img/1311001/Use`. `art_by_family {"polearm": 1311002}` re-points every path (effect, `cast_visuals`,
+  `hit`, the Use sound) to the pole arm twin through `SkillBook.art_skill_id`; the numbers are identical in the WZ.
+- **Loadout.** `stats()` carries `cast_visuals` ([{path, x, follow}], filtered by `min_attack_count`, paths re-pointed to
+  the held weapon's twin); `RunScene._on_cast` plays them (an entry without `follow` keeps the old world-position
+  behaviour of Rush's dust).
+- **Rarity bonuses.** Rare "Mastery" damage x1.2; Epic "Booster" cooldown x0.88; Unique "Final Attack" +1 hit line
+  (`attack_count`); Legendary the same id and effect plus damage x1.2 (sharing the Unique's repeat counter); repeat scale
+  0.8. Each changes the resolved cast (`test_rarity_bonus_effects`).
+- **Power Strike and Slash Blast stay Hero's** (DK-13): Dark Knight lists the keys in its pool and defines nothing. With a
+  held Spear they stab (`stabT1`, reach 150 px in the test's boxes), with a Pole Arm they swing (`swingP1`); Slash Blast
+  does not depend on the weapon. Hero's Combo meter does nothing for job 132 (no `meter` config, no `meter_changed` event, no
+  damage factor): pinned by `test_dark_knight_core_melee`.
+- **Frame delays stored as text.** Some canvases (`effect1`..`3` frame 2, the Dragon Fury afterimage, the pig mobs, a few map
+  objects) store `delay` as a string (`"200"`). `SpriteAnim.delay_seconds` now reads a numeric string like a number (it
+  used to treat it as the 100 ms default). Presentation only: the sim never reads `SpriteAnim`. The mob stance-duration reader
+  in `mob_kind.gd` (sim) still treats a text delay as 100 ms; it was left alone because changing it shifts the pig mobs'
+  attack timing, which is a balance-visible change.
+
 ### 7.71 HP-risk skills (#351, spec #348, roster M17)
 
 Four small data-driven behaviours in one stateless file, `game/scripts/sim/hp_risk.gd` (`HpRisk`): a percentage HP cost, an
@@ -7412,6 +7456,21 @@ and gain exclusion compares the skill’s declared role. Rush explicitly present
 without changing movement physics. Pull admission counts only grounded non-boss targets outside its configured floor.
 Warrior bot equipment weights now explicitly name ancestor 100 with the same values formerly inherited from 0
 (tier C: existing physical baseline, unchanged). Hero AP and bot score values live in jobs/hero.json’s balance block.
+
+### Spear Crusher constants (#353)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Damage, attackCount, mobCount, box (`lt`, `rb` (-16, 0)) | WZ level of the rank | tier A: Skill.wz 1311001 (twin 1311002 equal) |
+| Rank table | `[4, 8, 12, 15, 23, 25, 27, 30]` | tier C: DK-7, skips the level-16-20 mobCount dip |
+| Stance, per level | WZ `action`: burster1 (levels 1-15), burster2 (16-30) | tier A: the level node |
+| Stance hold | 0.9 s (burster1), 1.05 s (burster2) | tier A: the body action's frame delays (D1) |
+| Cooldown | 0.6 s | tier C: DK-9 first-pass cadence |
+| Admission | one mob in the box (`min_targets 1`), nearest first | tier C |
+| `effectK` = K-th dragon thrust, wings and rings always | `cast_visuals` with `min_attack_count` K | tier B: D1 contact sheet and timings |
+| Extra hit also shows its thrust | `min_attack_count` compares the resolved `attack_count` | tier C |
+| Rarity bonuses | Mastery damage x1.2, Booster cooldown x0.88, Final Attack +1 hit, Legendary + damage x1.2 | tier C: spec #348 |
+| Numeric-string frame delay | read as milliseconds | tier A: the value is the WZ's; reading it is ours |
 
 ### HP-risk constants (#351)
 

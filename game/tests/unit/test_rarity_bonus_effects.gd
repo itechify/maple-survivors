@@ -1,12 +1,13 @@
 extends TestCase
-## Every rarity bonus of every Hero, F/P and Dark Knight skill changes the resolved cast, not just a stat number (spec #296, H7 audit).
+## Every rarity bonus of every Hero and F/P skill changes the resolved cast, not just a stat number (spec #296, H7 audit).
 ## For each effect of each tier the same seeded world is cast twice, with and without the effect, against a field of mobs
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
 ## the effect). The HP-risk stats (spec #348, D3 seam) are read off HP: self_damage (recoil paid per damage dealt over 12 s),
-## low_hp_damage (damage dealt over 12 s from 40% HP) and hp_cost (HP paid per cast). A Dark Knight world has a huge HP pool,
-## so the 10% recoil cap and the "never the last HP" rule stay out of the way, and a heavy weapon so that floors cannot hide a x0.6. A bonus whose stat the skill's cast rule never reads fails here as a no-op.
-## Hero books (111/112) are synthetic generic tables; the F/P books come from the shared run fixtures.
+## low_hp_damage (damage dealt over 12 s from 40% HP) and hp_cost (HP paid per cast). Dragon Fury and Sacrifice are probed in a
+## job 132 world with a huge HP pool (the 10% recoil cap and the "never the last HP" rule stay out of the way) and a heavy weapon
+## (floors cannot hide a x0.6). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
+## Hero books (111/112) and the Dark Knight books (131/132) are synthetic generic tables; the F/P books come from the shared run fixtures.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -18,7 +19,8 @@ const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "s
 	"self_damage", "low_hp_damage", "hp_cost"]
 ## The stats probed over a 12 s window of repeated casts (the others stop after the first cast).
 const HP_STATS := ["self_damage", "low_hp_damage", "hp_cost"]
-## Dark Knight skills (books 131/132) are probed in a job 132 world: a huge HP pool and a heavy weapon (see the file doc).
+## Skills with their own synthetic levels (Skill.wz fields they read, no table box), the HP pool and the weapon of their world.
+const HP_RISK_SKILLS := ["dragon_fury", "sacrifice"]
 const DK_HP := 1000000
 const DK_WEAPON := 1302000
 
@@ -32,9 +34,9 @@ func _generic_levels() -> Dictionary:
 	return levels
 
 
-## Dark Knight levels: no box (Dragon Fury's reach is its literal cast box, not a table), the HP-risk fields the skill reads
+## Levels of an HP-risk skill: no box (Dragon Fury's reach is its literal cast box, not a table), the HP fields it reads
 ## (Sacrifice `x`, Fury `hpCon`) and one line per cast.
-func _dark_knight_levels(key: String) -> Dictionary:
+func _hp_risk_levels(key: String) -> Dictionary:
 	var levels := {}
 	for lv in range(1, 31):
 		levels[str(lv)] = {"damage": 200, "mobCount": 6 if key == "dragon_fury" else 1, "attackCount": 1}
@@ -57,11 +59,10 @@ func _skills_with_bonuses() -> Array:
 func _world(key: String) -> RunWorld:
 	var data := RF.quiet_data()
 	var skill_job := int(data.skills.skills[key].job)
-	var dark_knight := skill_job in [130, 131, 132]
-	var job := 132 if dark_knight else 112 if skill_job in [100, 110, 111, 112] else 212
+	var job := 112 if skill_job in [100, 110, 111, 112] else 132 if skill_job in [130, 131, 132] else 212
 	data.jobs_survivor.jobs["112"]["playable"] = true
 	data.jobs_survivor.jobs["132"]["playable"] = true
-	if dark_knight:
+	if key in HP_RISK_SKILLS:
 		data.balance.player.hp = DK_HP
 	var setup := RF.with_basic_attack(RF.setup("quiet", 296, data))
 	var imgs: Dictionary = setup.skill_imgs
@@ -69,12 +70,12 @@ func _world(key: String) -> RunWorld:
 	for k: String in data.skills.skills:
 		var d: Dictionary = data.skills.skills[k]
 		var id := int(d.skill_id)
-		if int(d.job) in [131, 132]:
-			var dk_book := String(d.book)
-			if not imgs.has(dk_book):
-				imgs[dk_book] = {"skill": {}}
-			imgs[dk_book].skill[str(id)] = {"level": _dark_knight_levels(k)}
-		elif int(d.job) in [111, 112] or id in [2111002, 2111003, 2111006, 2121001, 2121003, 2121006, 2121007]:
+		if k in HP_RISK_SKILLS:
+			var risk_book := String(d.book)
+			if not imgs.has(risk_book):
+				imgs[risk_book] = {"skill": {}}
+			imgs[risk_book].skill[str(id)] = {"level": _hp_risk_levels(k)}
+		elif int(d.job) in [111, 112, 131, 132] or id in [2111002, 2111003, 2111006, 2121001, 2121003, 2121006, 2121007]:
 			var book := String(d.book)
 			if not imgs.has(book):
 				imgs[book] = {"skill": {}}
@@ -89,7 +90,7 @@ func _world(key: String) -> RunWorld:
 	RF.place_player(w, CASTER_X)
 	w.loadout.ranks.clear()
 	w.loadout.order.clear()
-	if dark_knight:
+	if key in HP_RISK_SKILLS:
 		w.equipment.worn.weapon = Equipment.create(DK_WEAPON, {"incPAD": 1500})
 		w.refresh_player_stats()
 	w.learn_skill(key)
@@ -204,10 +205,10 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 func test_every_pool_skill_with_bonuses_was_found() -> void:
 	var keys := _skills_with_bonuses()
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
-			"elquines"]:
+			"elquines", "spear_crusher"]:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 21, "seven Hero, twelve F/P and two Dark Knight skills: %d" % keys.size())
-	for key in ["dragon_fury", "sacrifice"]:
+	assert_true(keys.size() >= 22, "seven Hero, twelve F/P and the Dark Knight skills: %d" % keys.size())
+	for key in HP_RISK_SKILLS:
 		assert_true(key in keys, key)
 
 
