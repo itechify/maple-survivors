@@ -102,11 +102,11 @@ func _buccaneer_world(key: String) -> RunWorld:
 	var setup := RF.with_basic_attack(RF.setup("quiet", 416, data))
 	setup.skill_imgs["511"] = TRANSFORMATION.book_node()
 	setup.equipment_info[KNUCKLE] = {"incPAD": 18, "attackSpeed": 5, "tuc": 7, "afterImage": "mace", "sfx": "mace"}
-		# One book-512 dictionary with every key: B8 #420 Barrage and Dragon Strike, B7 #419 Energy Orb, B10 #422 Super Transformation, Demolition and Snatch.
-		var book512 := BARRAGE_DRAGON.book_node()
-		book512.skill.merge(ORB.book_node().skill)
-		book512.skill.merge(SUPER.book_node().skill)
-		setup.skill_imgs["512"] = book512
+	# One book-512 dictionary with every key: B8 #420 Barrage and Dragon Strike, B7 #419 Energy Orb, B10 #422 Super Transformation, Demolition and Snatch.
+	var book512 := BARRAGE_DRAGON.book_node()
+	book512.skill.merge(ORB.book_node().skill)
+	book512.skill.merge(SUPER.book_node().skill)
+	setup.skill_imgs["512"] = book512
 	var w := RunWorld.new(setup)
 	w.set_job(512)
 	if w.weapon_id() != KNUCKLE:
