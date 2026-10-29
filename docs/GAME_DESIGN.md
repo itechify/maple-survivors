@@ -4136,6 +4136,16 @@ playtest (Henesys, speed 8, 3 minutes, `playable: true` temporarily and reverted
 860/860 (600 base plus 65 per level), the Flash Fist and the Pirate-book skills cast; screenshots are in gitignored
 `evidence/414/`. Not survival evidence; the pool's new skills are B4-B10.
 
+### Buccaneer B4 port smoke (#416, 2026)
+
+Ported-skills ticket (`skills/buccaneer.json`, job 512 still not playable, no balance data touched). Training seeds 1/2/2026,
+Henesys bot, `JOBS=3`, private cache `cache-rd308`: the F/P (212) and Hero (112) rows are identical to the B2 smoke (212 died at
+10:51 / 5:05 / 7:34, 112 at 5:27 / 5:36 / 11:28; no clears, no warnings), as expected: none of the five skills is in either pool.
+Oracles `character_baseline`, `tick_cost_identity` and `hero_baseline` reproduce their hashes with no recapture. A diagnostic
+`--job=512` playtest (Henesys, seed 5, speed 8, `playable: true` temporarily, reverted) reached Lv11 and died at 5:18 with
+`missing: []`; Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut and Corkscrew Blow all cast (`cast_*.png`); flow
+evidence only, not survival evidence.
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
