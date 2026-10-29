@@ -30,6 +30,10 @@ const IL_BOOKS := [220, 221, 222]
 ## The Bishop skills this audit casts (books 230/231/232, BS5 #377): Holy Arrow, Shining Ray, Angel Ray. They have their own synthetic
 ## Skill.wz tables (`bishop_bolt_fixtures.gd`) and are cast at their top rank, like the I/L ones.
 const BISHOP_SKILLS := ["holy_arrow", "shining_ray", "angel_ray"]
+## The Bishop's Genesis and its Big Bang template child (BS6 #378): book 232 tables from test_bishop_genesis.gd (the Genesis box and
+## 15 mobs; Big Bang's no-box table), cast at their top rank like the other Bishop and I/L skills.
+const BISHOP_NOVAS := ["genesis", "big_bang_bishop"]
+const BISHOP_GENESIS := preload("res://tests/unit/test_bishop_genesis.gd")
 
 var _resolved_skills := {}
 
@@ -93,6 +97,8 @@ func _world(key: String) -> RunWorld:
 		return _finish_world(RunWorld.new(_il_setup()), key, true)
 	if key in BISHOP_SKILLS:
 		return _finish_world(RunWorld.new(BF.setup(RF.quiet_data(), 377)), key, true)
+	if key in BISHOP_NOVAS:
+		return _finish_world(RunWorld.new(BISHOP_GENESIS.add_books(BF.setup(RF.quiet_data(), 378))), key, true)
 	var data := RF.quiet_data()
 	var job := 112 if int(data.skills.skills[key].job) in [100, 110, 111, 112] else 212
 	data.jobs_survivor.jobs["112"]["playable"] = true
@@ -174,7 +180,7 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	var w := _world(key)
 	# Poison pulses (hp lost) and knock-back (x moved) count as "affected" for the poison skills; an I/L skill only counts the
 	# mobs its own hit events name (its audit before the fold, and a chain's neighbours are shoved by soft collision).
-	var il: bool = int(_resolved()[key].job) in IL_BOOKS or key in BISHOP_SKILLS
+	var il: bool = int(_resolved()[key].job) in IL_BOOKS or key in BISHOP_SKILLS or key in BISHOP_NOVAS
 	var reach := _reach(w, key)
 	var layout := _layout(stat, reach)
 	var slots := []
@@ -236,7 +242,7 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 	assert_true(keys.size() >= 19 + IL_SKILLS.size(), "seven Hero, twelve F/P and %d I/L skills: %d" % [IL_SKILLS.size(), keys.size()])
 	for key in IL_SKILLS:
 		assert_true(key in keys, "%s (I/L) is audited" % key)
-	for key in BISHOP_SKILLS:
+	for key in BISHOP_SKILLS + BISHOP_NOVAS:
 		assert_true(key in keys, "%s (Bishop) is audited" % key)
 
 
@@ -272,6 +278,7 @@ func test_each_bonus_effect_changes_the_resolved_cast() -> void:
 	var skills := _resolved()
 	var il_checked := 0
 	var bishop_checked := 0
+	var nova_checked := 0
 	for key: String in _skills_with_bonuses():
 		var bonuses: Dictionary = skills[key].rarity_bonuses
 		for tier: String in TIERS:
@@ -280,8 +287,10 @@ func test_each_bonus_effect_changes_the_resolved_cast() -> void:
 					_assert_effect_changes_the_cast(key, tier, String(bonus.id), effect)
 					il_checked += 1 if key in IL_SKILLS else 0
 					bishop_checked += 1 if key in BISHOP_SKILLS else 0
+					nova_checked += 1 if key in BISHOP_NOVAS else 0
 	assert_eq(il_checked, IL_SKILLS.size() * 5, "each I/L skill: 1 + 1 + 1 + 2 effects")
 	assert_eq(bishop_checked, BISHOP_SKILLS.size() * 5, "each Bishop bolt: 1 + 1 + 1 + 2 effects")
+	assert_eq(nova_checked, BISHOP_NOVAS.size() * 5, "Genesis and Big Bang Bishop: 1 + 1 + 1 + 2 effects")
 
 
 func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effect: Dictionary) -> void:
@@ -339,6 +348,18 @@ func test_the_probe_catches_an_il_modifier_the_cast_rule_never_reads() -> void:
 	assert_true(bool(_probe("thunder_bolt", [area], "area").edge))
 	assert_true(bool(_probe("ice_strike", [area], "area").edge))
 	assert_true(bool(_probe("ice_demon", [area], "area").edge))
+
+
+func test_the_probe_catches_a_genesis_modifier_the_cast_rule_never_reads() -> void:
+	# Genesis' pending box and Big Bang's charge box never read `range` or `pierce`; they do read `area`.
+	var reach := {"stat": "range", "op": "mul", "value": 1.5}
+	assert_false(bool(_probe("genesis", [reach], "range").edge), "a range modifier does not widen Genesis' box")
+	assert_false(bool(_probe("big_bang_bishop", [reach], "range").edge))
+	var pierce := {"stat": "pierce", "op": "add", "value": 1.0}
+	assert_eq(_probe("genesis", [pierce], "pierce").affected, _probe("genesis", [], "pierce").affected)
+	var area := {"stat": "area", "op": "mul", "value": 1.2}
+	assert_true(bool(_probe("genesis", [area], "area").edge))
+	assert_true(bool(_probe("big_bang_bishop", [area], "area").edge))
 
 
 func test_the_probe_catches_a_bishop_modifier_the_cast_rule_never_reads() -> void:

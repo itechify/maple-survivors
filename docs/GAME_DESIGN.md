@@ -6287,8 +6287,8 @@ player can reach it and every F/P and I/L number is unchanged. Skill keys stay i
 | `heal` | 2301002 Heal (book 230) | legacy definition in `magician.json` | BS4 moves it into `bishop` |
 | `summon_dragon` | 2311006 Summon Dragon (book 231) | not defined: inert | BS7 |
 | `bahamut` | 2321003 Bahamut (book 232) | not defined: inert | BS7 |
-| `genesis` | 2321008 Genesis (book 232) | not defined: inert | BS6 |
-| `big_bang_bishop` | 2321001 Big Bang (book 232), `extends: big_bang` | not defined: inert | BS6 |
+| `genesis` | 2321008 Genesis (book 232) | not defined: inert | BS6 (done, #378, 7.83) |
+| `big_bang_bishop` | 2321001 Big Bang (book 232), `extends: big_bang` | not defined: inert | BS6 (done, #378, 7.83) |
 | `resurrection` | 2321006 Resurrection (book 232), reaction | not defined: inert | BS8 |
 
 Decisions (spec #372, recorded here so they are not re-argued):
@@ -6402,6 +6402,36 @@ The oracle `test_tick_cost_identity` keeps the pre-port Holy Arrow (cooldown 1.0
 next to the Cold Beam and Thunder Bolt pins; its golden and totals are byte-identical (no recapture). Its Magician loadout
 is full at six actives before Holy Arrow, so the pin guards a future reorder rather than a present cast.
 
+### 7.83 Genesis and Big Bang (spec #372, BS6 #378)
+
+Both live in `skills/bishop.json` and change no code: Genesis is Meteor Shower's data mirror (the pending-area path of
+7.31, shared with I/L's Blizzard, 7.60) and `big_bang_bishop` is the second user of the skill-template seam (7.63).
+
+| Skill / key | Behaviour | Cooldown (tier C) |
+|---|---|---|
+| Genesis 2321008 / `genesis` | `box` instant, `min_targets` 1: the WZ box (-400,-350)..(400,250) at every level, up to canonical `mobCount` 15 (nearest first), damage after the WZ `hitAfter` 1800 ms with targets queried at impact (a mob that arrived is hit, one that left or died is not, a map transfer clears it); holy (`elemAttr h`, so the existing multiplier applies); `mad` 460 -> 670 over ranks 1..8 (WZ levels 4 .. 30), `genesis` stance held 0.8 s | 6.0 s (Meteor Shower 4.8 s, with 670% against 570% at the top rank) |
+| Big Bang 2321001 / `big_bang_bishop` | exactly `{"extends": "big_bang", "skill_id": 2321001, "book": "232", "job": 232}`: F/P's charge and release (1.08 s charge, box (-250,-180)..(250,100), up to 6 targets, `dash` stance) with the I5 path rewrite onto book 232 (`Skill.wz/232.img/skill/2321001/...`, `Sound.wz/Skill.img/2321001/...`); `mad` 190 -> 450, canonical numbers identical to book 212 node for node | 2.8 s (inherited) |
+
+- **It extends the parent.** `big_bang_bishop` names the plain `big_bang` (F/P's), never `big_bang_il`; `test_bishop_big_bang`
+  resolves the data without the I/L child to prove the two jobs share no dependency. The I5 drift guard
+  (`SkillTemplate.drift_problems`) runs on the pair in `test_bishop_genesis_cache` against the real 232 book: it passes, and
+  `SkillTemplate.pairs` lists `big_bang_bishop` next to `big_bang_il`. If a v83 book number ever differs, the child overrides.
+- **Cast visuals.** `effect` (22 frames) plays on the caster at the cast, `effect0` (22 frames, behind) is the first
+  `cast_visuals` entry at x = 0, and the nine `tile/0..8` (24, 24, 24, then 23 frames each) sit at the WZ `effectDistance`
+  150 px, x = (k - 4) x 150, falling over the delay; `hit/0` (23 frames) plays on each struck monster. The tiles come in
+  three depth rows of three (WZ origins y 376 / 283 / 195 for k = 0..2 / 3..5 / 6..8). **Placement check (tier C, kept):** a
+  `--job=232` Henesys playtest (temporary uncommitted edit making Bishop playable with Genesis as the start skill, staff
+  1382002) shows the halos opening at the top of the screen, the pillars falling over the 1.8 s delay and standing as separate
+  columns 150 px apart across the whole screen (x = -600..600 around the caster) by the impact, with the angel `effect`/`effect0` on the caster and `hit/0` bursts with damage numbers on the
+  struck monsters. The curtain is wider than the +-400 px damage box (as I/L's Blizzard tiles are) and does not
+  under-cover it, so the spec's x = (k - 4) x 150 stays and no `cast_visuals` value was adjusted. Big Bang Bishop charges (the vortex on the
+  caster) and releases the blast identically with the wand 1372005 and the staff 1382002; the blast hides the weapon, as F/P's
+  and I/L's do.
+- **Rarity bonuses** (tier C; Rare `power` Holy Power damage x1.2, Epic `area` Wider Genesis area x1.2, Unique `echo` +1 hit,
+  Legendary `echo` plus damage x1.2; repeat scale 0.8, the Legendary shares the Unique's counter). Big Bang's lists are
+  inherited from `big_bang`. `test_bishop_genesis` probes every entry of both skills (damage dealt, a mob just beyond the
+  base box, hit lines) and `test_rarity_bonus_effects` carries both in its resolved-cast audit.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -6471,6 +6501,8 @@ damage x1.2, so their repeats are shared; Rare is `power`, damage x1.2, for all)
 | Element Composition (I/L, #326) | +1 pierce (`pierce`) | +1 projectile (`twin`) |
 | Blizzard (I/L, #329; Rare `amplify`, Epic `storm`) | area x1.2 (`storm`) | +1 hit (`echo`) |
 | Big Bang I/L (`big_bang_il`) | inherited from `big_bang` (7.63) | inherited |
+| Genesis (Bishop, #378; Rare `power`, Epic `area` Wider Genesis) | area x1.2 (`area`) | +1 hit (`echo`) |
+| Big Bang Bishop (`big_bang_bishop`) | inherited from `big_bang` (7.63) | inherited |
 
 
 **Cards and the draw (current rules).** `data/survivor/upgrades.json` (base: draw weights, the rarity weights and magnitudes,
@@ -7732,6 +7764,18 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Rarity bonuses | the three tables in 7.82 (damage x1.2, +1 pierce, +1 arrow, area x1.2, +2 targets, cooldown x0.88, +1 shot; Legendary = Unique + damage x1.2) | C |
 | Bonus names | Holy Power, Piercing Light, Twin Arrow, Wider Ray, Splitting Ray, Spell Booster, Twin Angel | C |
 | Card text | Shining Ray and Angel Ray descriptions and level lines are survivor-written (the WZ strings are not in the repo) | C |
+
+### Bishop BS6 constants (spec #372, BS6 #378)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Genesis box, count, delay, art | box (-400,-350)..(400,250) at every level, `mobCount` 15, `hitAfter` 1800 ms (the pending delay), `tile` spacing 150 px, `effect` 22 and `effect0` 22 frames, `hit/0` 23 frames, `elemAttr h`, `action/0` `genesis`, Use/Hit sounds, `mad` 460 -> 670 | A |
+| Genesis cooldown | 6.0 s (Meteor Shower's 4.8 s, the higher damage ceiling) | C |
+| Genesis targeting and stance | auto-cast with at least one monster in the box (`min_targets` 1); `genesis` stance held 0.8 s (the body's three held frames last 2.7 s and are not played in full) | C |
+| Genesis tile columns | nine tiles at x = (k - 4) x 150 px around the caster and `effect0` at the caster (the spec's placement, kept after the screenshot check) | C |
+| Genesis `range` / `count` | 450 / 1, copies of Meteor Shower's (only the bot's reach reads them) | C |
+| Genesis rarity bonuses | Rare damage x1.2, Epic area x1.2, Unique +1 hit, Legendary Unique plus damage x1.2; repeat scale 0.8; names Holy Power, Wider Genesis, Echo | C |
+| Big Bang Bishop | the three-line template over `big_bang`; identity of the three Big Bangs in v83 data is tier A, the template mechanism tier C (7.63); every number inherited | A / C |
 
 ## 12. Later phases
 
