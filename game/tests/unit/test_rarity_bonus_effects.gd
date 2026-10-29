@@ -12,6 +12,7 @@ const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
+const FOLLOWERS := preload("res://tests/unit/test_bowmaster_followers.gd")
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep"]
 
 
@@ -213,3 +214,98 @@ func test_the_probe_catches_a_modifier_the_cast_rule_never_reads() -> void:
 	assert_true(bool(_probe("shout", [area], "area").edge))
 	assert_true(bool(_probe("slash_blast", [area], "area").edge))
 	assert_true(bool(_probe("monster_magnet", [reach], "range").edge))
+
+
+# --- Bowmaster physical followers (spec #332, B11 #343) -------------------------------------------------------------------
+# Silver Hawk and Phoenix are job 311/312 skills, so the generic audit above (job < 300) does not see them. Each effect of
+# each tier is cast with and without it in a world with the shipped definitions on generic books: damage (damage dealt),
+# area (a monster just beyond the base attack box is only struck with the widened one), count (monsters struck in one
+# strike) and summon_count (allies).
+
+const FOLLOWER_KEYS := ["silver_hawk", "phoenix"]
+
+
+func _follower_probe(key: String, effects: Array, stat: String) -> Dictionary:
+	var w: RunWorld = FOLLOWERS.new()._world(key)
+	for e: Dictionary in effects:
+		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
+	w.runner.step(DT, w)
+	w.loadout.order.clear()
+	for t in 120: # past the summoned animation: the follower stands at its trailing point
+		w.runner.tick_cooldowns(DT, w)
+	var fx: float = w.runner.summons.x[0]
+	var reach := 200.0 if key == "silver_hawk" else 100.0
+	var mobs := []
+	var edge := []
+	match stat:
+		"area":
+			edge.append(RF.put_mob(w, MOB, fx + reach * 1.1, 195, 100000.0))
+			mobs.append(edge[0])
+		"count":
+			for k in 8:
+				mobs.append(RF.put_mob(w, MOB, fx - reach * (0.2 + 0.1 * k), 195, 100000.0))
+		_:
+			mobs.append(RF.put_mob(w, MOB, fx + reach * 0.5, 195, 100000.0))
+	for m: int in mobs:
+		w.swarm.hp[m] = 1000000
+		w.swarm.max_hp[m] = 1000000
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+	var window := 12.0 if stat == "damage" else 4.0 # damage sums several strikes; the others read one strike
+	var struck := 0
+	for t in int(window / DT):
+		w.runner.tick_cooldowns(DT, w)
+		w.drain_events()
+		if stat == "count" and w.runner.summons.impact[0] < 0.0 and struck == 0:
+			for m: int in mobs:
+				if w.swarm.hp[m] < w.swarm.max_hp[m]:
+					struck += 1
+			if struck > 0:
+				break
+	var hit_edge := false
+	for m: int in edge:
+		hit_edge = hit_edge or w.swarm.hp[m] < w.swarm.max_hp[m]
+	var dealt := 0
+	for m: int in mobs:
+		dealt += w.swarm.max_hp[m] - w.swarm.hp[m]
+	return {"dealt": dealt, "struck": struck, "edge": hit_edge, "summons": w.runner.summons.living_count()}
+
+
+func test_follower_bonuses_were_found_with_all_four_tiers() -> void:
+	var skills: Dictionary = DataRepo.load_all().skills.skills
+	for key: String in FOLLOWER_KEYS:
+		assert_true(skills[key].has("rarity_bonuses"), key)
+		for tier: String in TIERS:
+			assert_true(not (skills[key].rarity_bonuses[tier] as Array).is_empty(), "%s %s" % [key, tier])
+
+
+func test_each_follower_bonus_effect_changes_the_resolved_cast() -> void:
+	var skills: Dictionary = DataRepo.load_all().skills.skills
+	for key: String in FOLLOWER_KEYS:
+		for tier: String in TIERS:
+			for bonus: Dictionary in skills[key].rarity_bonuses[tier]:
+				for effect: Dictionary in bonus.effects:
+					var stat := String(effect.stat)
+					var label := "%s %s %s (%s)" % [key, tier, String(bonus.id), stat]
+					assert_true(stat in ["damage", "area", "count", "summon_count"], "%s: a stat this audit knows" % label)
+					var base := _follower_probe(key, [], stat)
+					var with := _follower_probe(key, [effect], stat)
+					match stat:
+						"damage":
+							assert_true(int(base.dealt) > 0 and int(with.dealt) > int(base.dealt),
+								"%s: damage dealt %d -> %d" % [label, base.dealt, with.dealt])
+						"area":
+							assert_false(bool(base.edge), "%s: the monster beyond the base box is outside it" % label)
+							assert_true(bool(with.edge), "%s: ... and inside the widened one" % label)
+						"count":
+							assert_true(int(with.struck) == int(base.struck) + 1,
+								"%s: monsters struck in one strike %d -> %d" % [label, base.struck, with.struck])
+						"summon_count":
+							assert_eq(int(base.summons), 1, label)
+							assert_eq(int(with.summons), 2, label)
+
+
+func test_the_follower_probe_catches_a_modifier_the_cast_never_reads() -> void:
+	# The hawk strikes one monster: a `count` modifier on it would be read, but `pierce` is not a summon stat.
+	var pierce := {"stat": "pierce", "op": "add", "value": 2.0}
+	assert_eq(_follower_probe("phoenix", [pierce], "count").struck, _follower_probe("phoenix", [], "count").struck)
+	assert_eq(_follower_probe("phoenix", [], "count").struck, 4, "the base Phoenix strikes four monsters")

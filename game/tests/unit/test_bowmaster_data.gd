@@ -85,7 +85,8 @@ func test_the_bowmaster_line_loads_without_errors_and_adds_its_job_and_an_empty_
 	assert_true(errors.is_empty(), "%s" % [errors])
 	assert_true(d.jobs_survivor.jobs.has("312"), "jobs/bowmaster.json is merged into the survivor job data")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "bowmaster"))
-	assert_eq(frag.skills, {}, "an empty skeleton: each ticket appends its own skill")
+	for key: String in frag.skills:
+		assert_true(key in POOL, "%s: each ticket appends its own pool skill to the fragment" % key)
 	assert_true(frag.has("_doc"))
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
