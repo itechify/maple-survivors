@@ -91,9 +91,12 @@ func test_the_dark_knight_line_loads_and_merges_its_job_in_sorted_class_order() 
 	assert_eq(Array(DataRepo.unknown_line_files()), [])
 
 
-func test_the_skills_fragment_is_an_empty_skeleton_with_its_doc() -> void:
+func test_the_skills_fragment_holds_only_pool_skills_never_a_shared_key() -> void:
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "dark_knight"))
-	assert_eq(frag.skills, {}, "D5-D9 append their own skills")
+	var pool: Array = _jobs(_data()).job(132).skill_pool
+	for key: String in frag.skills:
+		assert_true(key in pool, "%s is a Dark Knight pool skill" % key)
+		assert_false(key in ["power_strike", "slash_blast"], "%s stays in hero.json (DK-13)" % key)
 	assert_true(String(frag._doc).contains("#348"), "the _doc names the spec")
 
 
