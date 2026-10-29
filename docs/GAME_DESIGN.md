@@ -719,6 +719,32 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+**#332 review fixes (2026-10-29).** Read-only `cache-rd332`, isolates `332fix*`, `JOBS=3`,
+training seeds 1/2/2026, both bot/random; no tuning or held-out seeds. **72 records: no crashes, world warnings,
+missing assets or TIMEOUTs.** Bare tools now wear the job's creation weapon (resolving the B13 limitation below).
+Cells show clears/6 and death-only seconds (both policies); the kit is each job's existing tier-1 fixture.
+
+| Stage / gear | F/P 212 | Bowmaster 312 |
+|---|---|---|
+| Henesys starter | 1/6; 433.4–751.9 | 0/6; 304.5–456.9 |
+| Ellinia starter | 0/6; 617.4–654.4 | 0/6; 168.7–995.1 |
+| Perion starter | 0/6; 310.5–461.8 | 0/6; 216.4–377.3 |
+| Kerning starter | 0/6; 306.5–517.9 | 0/6; 303.6–319.8 |
+| Sleepywood starter | 0/6; 11.4–15.1 | 0/6; 10.4–12.3 |
+| Sleepywood kit | 2/6; 14.3–826.5 | 0/6; 11.5–12.9 |
+
+Henesys bot fills six active slots 3/3 for both jobs (F/P 128.7–219.7 s; Bowmaster 136.2–178.1 s).
+All six Henesys runs per job reach the first boss. Across tier 1, F/P reaches the first boss 24/24,
+Bowmaster 20/24. Compared with B13, Bowmaster's bare creation-bow outcomes reproduce the previous explicit
+creation-outfit smoke; its weak survival remains recorded without tuning. F/P gains one tier-1 clear after the
+bare-tool Sword is corrected to its Wooden Wand; the carried kit is unchanged. The Tree remains observation only.
+Raw records/reports: `_scratch/332fix-smoke/`; exact console logs: `console-fp.log` and
+`console-bowmaster.log` there. Sleepywood starter and kit records have separate directories (the wrapper's names
+otherwise collide); the six starter records were repeated to preserve them. Bare `--job=312` visual evidence is
+`evidence/332fix/`, inspected by eye, `missing: []`. The original replay equipment is explicit in the oracle
+recipes; no golden hash was recaptured.
+
+
 **#296 review fixes / H12, after integrating #346 (2026-10-28).** No balance values changed by the
 review fixes: incoming AP HP 600, growth 65, orb 0.05, cooldowns and finisher coefficients are preserved exactly;
 Hero AP/growth/score rows now live in `jobs/hero.json`'s `balance` block. Read-only cache, `ISOLATE=296fix`,
@@ -8175,7 +8201,7 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 Physical followers add `summon_strike` (per-target strike art) and derived `strike_effect`, plus `summon.settle`
 (follow between strikes); Marksman and Corsair can opt in through data. `FxRenderer.fit` and `rate_of` support
 fitted wind-up playback and inspection; `SpritePool.tint_of` exposes the rendered tint for tests. The tool-only
-`burst_probe` captures stream phases. These small extensions preserve the existing default paths.
+`burst_probe` captures a synthetic moving-caster burst. These small extensions preserve the existing default paths.
 
 ## 12. Later phases
 
