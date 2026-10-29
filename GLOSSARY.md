@@ -212,6 +212,18 @@ _Avoid_: follow-up skill, proc
 **Party buff**:
 A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here it affects the character only.
 
+**Form**:
+A timed active stance that changes the character's attacks and carries sub-skills. A running form survives
+map transfer and ends on death. Its buff block carries Hidden or morph state; effect keys are for cast-stat or lifecycle behaviour (Buccaneer template: `spec/412`, `test_morph_form.gd`).
+
+**Charge**:
+A Paladin Form that temporarily gives its attacks an element and carries Charged Blow. Holy Charge also
+carries Heaven's Hammer. Only one Charge runs at a time.
+
+**Sub-skill**:
+An attack carried by a Form, used automatically while the form lasts. It grows with its parent, occupies no
+skill slot and is never offered as a card.
+
 ## Cards and rarity
 
 **Rank**:

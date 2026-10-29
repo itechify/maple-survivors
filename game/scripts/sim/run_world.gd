@@ -79,6 +79,8 @@ const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
+	"form_started": ["skill", "skill_id", "element", "duration"],
+	"form_ended": ["skill", "skill_id", "reason"],
 	"mob_pulled": ["mob", "from", "pos"],
 	"meter_changed": ["id", "value", "max"],
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
@@ -2532,6 +2534,8 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	# Power Guard (#182): a no-op, with no RNG and no event, unless the buff is active and this is contact damage.
 	var reflect := _power_guard_reflect(dmg, magic, source)
 	dmg -= reflect
+	dmg = ceili(runner.forms.absorb(self, float(dmg)))
+
 	# The hit hooks' absorb phase (a hull): what they soak never reaches HP, in order, and the damage number shows the rest.
 	dmg = _hit_hooks_absorb(dmg, source)
 	_hp -= dmg
@@ -2545,6 +2549,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		_hp = 0.0
 		_dead = true
 		state = DEAD
+		runner.forms.clear(self)
 		emit("player_died", {"pos": player.pos})
 	elif bypass or upkeep.may_knock_back():
 		# tier C (owner, #223): a hit inside the knockback guard does its damage without pushing the player; a boss

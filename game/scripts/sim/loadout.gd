@@ -166,7 +166,7 @@ func clone() -> Loadout:
 
 ## Learns `key` at rank 1. False when unknown or already owned.
 func add_skill(key: String) -> bool:
-	if not book.has(key) or ranks.has(key) or not has_free_slot(book.slot(key)):
+	if book.slot(key) == "form_sub" or not book.has(key) or ranks.has(key) or not has_free_slot(book.slot(key)):
 		return false
 	ranks[key] = 1
 	order.append(key)
@@ -435,6 +435,13 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	if d.has("meter"):
 		resolved["meter"] = d.meter
 		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
+	if d.has("form"):
+		resolved["duration"] = float(d.form.duration) * skill_stat(key, "form_time", 1.0)
+		resolved["form_sub_damage"] = skill_stat(key, "damage", 1.0)
+		resolved["form_sub_area"] = skill_stat(key, "area", 1.0)
+		resolved["form_time"] = skill_stat(key, "form_time", 1.0)
+		resolved["form_power"] = skill_stat(key, "form_power", 0.0)
+
 	if d.has("revive"):
 		resolved["revive"] = _revive(key, d.revive)
 	return resolved
@@ -573,3 +580,10 @@ static func _stack(m: Vector2, op: String, value: float) -> Vector2:
 	if op == "mul":
 		return Vector2(m.x, m.y * value)
 	return Vector2(m.x + value, m.y)
+
+## Resolves a sub at the parent's rank with only its damage and area inheritance.
+func sub_stats(sub: String, parent: Dictionary, rank: int) -> Dictionary:
+	var lo := clone()
+	lo.add_skill_mod(sub, "damage", "mul", float(parent.get("form_sub_damage", 1.0)))
+	lo.add_skill_mod(sub, "area", "mul", float(parent.get("form_sub_area", 1.0)))
+	return lo.stats(sub, rank)

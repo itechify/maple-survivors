@@ -68,6 +68,12 @@ var _face: WzImg
 var _hair: WzImg
 ## Worn items in draw order: {"id": int, "img": WzImg, "vslot": {code: true}, "cash": bool}.
 var _sources: Array[Dictionary] = []
+## Presentation-only element tint, applied to held weapon layers (tier C).
+var weapon_tint := Color.WHITE:
+	set(value):
+		if weapon_tint != value:
+			weapon_tint = value
+			queue_redraw()
 var _weapon_type := 0
 ## The worn real weapon's info node ({} bare-handed): its stand/walk numbers pick the generic stances.
 var _weapon_info: Dictionary = {}
@@ -490,7 +496,7 @@ func _draw() -> void:
 		var f: SpriteFrame = p.frame
 		if f.page == null:
 			continue
-		draw_texture_rect_region(f.page, Rect2(p.pos - f.origin, f.region.size), f.region)
+		draw_texture_rect_region(f.page, Rect2(p.pos - f.origin, f.region.size), f.region, weapon_tint if bool(p.get("weapon", false)) else Color.WHITE)
 	if facing > 0:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -592,7 +598,7 @@ func _collect(parts: Array, frame_node: Variant, w: WzImg, skipped: PackedString
 		if mv is Dictionary:
 			for mk: Variant in (mv as Dictionary).keys():
 				m[mk] = WzImg.vec(mv[mk])
-		parts.append({"name": String(k), "frame": f, "map": m, "z": f.z, "pos": Vector2.ZERO, "owner": part_owner})
+		parts.append({"name": String(k), "frame": f, "map": m, "z": f.z, "pos": Vector2.ZERO, "owner": part_owner, "weapon": AvatarLayers.weapon_type(part_owner) > 0 or floori(float(part_owner) / 10000.0) == CashCatalog.WEAPON_COVER_CATEGORY})
 
 
 func _load(path: String) -> WzImg:

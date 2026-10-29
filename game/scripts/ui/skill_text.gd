@@ -69,6 +69,33 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		line = strip_mp_cost(clean(String(_wz(key).get(hs, ""))))
 	var mechanics := PackedStringArray()
 	var def := book.def(key)
+	if def.has("form"):
+		var form: Dictionary = def.form
+		var effects: Dictionary = form.get("effects", {})
+		var element := String(effects.get("element", ""))
+		var power := 1.0
+		if effects.has("damage"):
+			power = book.canonical(key, level, String(effects.damage.field), 100.0) / 100.0 + float(stats.get("form_power", 0.0))
+		mechanics.append("Charges your weapon for %s s: your attacks deal %s damage (+%s%%)" % [
+			number(float(stats.get("duration", form.duration))), Elements.display_name(element), number((power - 1.0) * 100.0)])
+		for sub: Dictionary in form.get("subs", []):
+			var sub_key := String(sub.skill)
+			var trigger := "once after %s s" % number(float(sub.first_after)) if bool(sub.get("once", false)) else "after %s s, every %s s" % [number(float(sub.first_after)), number(float(sub.interval))]
+			var sub_level := book.canonical_level(sub_key, int(stats.get("rank", 1)))
+			var sub_stats := Loadout.new(book).sub_stats(sub_key, stats, int(stats.get("rank", 1)))
+			var details := level_line(sub_key, sub_level, sub_stats)
+			var base := ""
+			match String(sub_stats.damage_type):
+				"fixed":
+					base = "Base %s fixed damage" % number(book.canonical(sub_key, sub_level, "fixdamage"))
+				"physical":
+					base = "Base %s%% weapon damage" % number(book.canonical(sub_key, sub_level, "damage", 100.0))
+				"magic":
+					base = "Base %s magic power" % number(book.canonical(sub_key, sub_level, "mad"))
+			var cost := ", %d HP" % int(sub_stats.hp_cost) if int(sub_stats.hp_cost) > 0 else ""
+			mechanics.append("%s %s (Lv%d): %s %s, %d targets%s" % [String(_wz(sub_key).get("name",
+				book.def(sub_key).get("name", sub_key.replace("_", " ").capitalize()))), trigger, sub_level,
+				details, base, SkillRunner.strike_count(sub_stats), cost])
 	if def.has("meter"):
 		mechanics.append("Needs %d orbs" % int(def.meter.get("min", 0)))
 		var keep := int(stats.get("meter_keep", 0))
@@ -142,6 +169,23 @@ func dress(cards: Array, lo: Loadout) -> Array:
 					card["desc"] = line
 		if lo.book.def(skill).has("rarity_bonuses"):
 			card["desc"] = c.get("desc", "") # preserve rank/bonus wording after dressing the learn detail
+		if lo.book.def(skill).has("form"):
+			var sub_name := _form_sub_label(lo.book, skill)
+			card["skill_mod_labels"] = {"damage": sub_name + " damage"}
+			var labels := PackedStringArray()
+			var bonus: Dictionary = card.get("rarity_bonus", {})
+			for effect: Dictionary in bonus.get("effects", []):
+				var stat := String(effect.stat)
+				if String(effect.op) == "mul" and stat == "damage":
+					labels.append(sub_name + " +" + number((float(effect.value) - 1.0) * 100.0) + "%")
+				elif String(effect.op) == "mul" and stat == "form_time":
+					labels.append("charge lasts " + number((float(effect.value) - 1.0) * 100.0) + "% longer")
+				else:
+					labels.append(UpgradePool.effect_label(stat, String(effect.op), float(effect.value)))
+			if not labels.is_empty():
+				var text := String(bonus.text).get_slice(": ", 0) + ": " + ", ".join(labels)
+				card.desc = String(card.desc).replace(String(bonus.text), text)
+				card.rarity_bonus.text = text
 		out.append(card)
 	return out
 
@@ -236,3 +280,10 @@ func _wz(key: String) -> Dictionary:
 		return {}
 	var node: Variant = strings.get("%07d" % id)
 	return node if node is Dictionary else {}
+
+static func _form_sub_label(book: SkillBook, skill: String) -> String:
+	var names := PackedStringArray()
+	for sub: Dictionary in book.def(skill).get("form", {}).get("subs", []):
+		var key := String(sub.skill)
+		names.append(String(book.def(key).get("name", key.replace("_", " ").capitalize())))
+	return " / ".join(names) if not names.is_empty() else "Sub-skill"

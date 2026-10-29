@@ -14,7 +14,7 @@ const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id", "hp", "pushed"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
-const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message"]
+const STRING_FIELDS := ["element", "reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message"]
 
 
 
@@ -381,6 +381,17 @@ func test_every_event_matches_the_schema() -> void:
 	transfer.step(DT, MoveInput.new())
 	transfer.advance_map()
 	for event: Dictionary in transfer.drain_events():
+		_check(event, seen)
+	# P3: no playable job owns a form yet. Exercise the new events with synthetic stance data.
+	var former := RunWorld.new(RF.setup("quiet", 311, RF.quiet_data()))
+	former.progression.job_id = 999
+	former.book.defs["fixture_form"] = {"skill_id": 9991001, "book": "999", "kind": "form", "slot": "active", "damage": "none",
+		"ranks": [1], "cooldown": 3.0, "cast": {"rule": "form", "mob_within": 400},
+		"form": {"duration": 1.0, "exclusive_group": "fixture", "effects": {"element": "f"}, "subs": []}}
+	former.drain_events()
+	former.runner.forms.start(former, "fixture_form", former.loadout.stats("fixture_form"))
+	former.runner.forms.step(1.0, former)
+	for event: Dictionary in former.drain_events():
 		_check(event, seen)
 	# H3: the no-meter F/P probe cannot emit this job-specific event. Exercise the generic counter.
 	var meter := PlayerMeter.new({"id": "fixture", "max": 10, "gain": {"event": "cast_landed", "amount": 1}})

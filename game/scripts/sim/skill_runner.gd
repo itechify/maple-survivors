@@ -11,7 +11,7 @@ extends RefCounted
 ##   `range` around the body, Slash Blast) rules strike `mob_count` targets instead, and the last two turn a standing
 ##   character toward the target first. A skill with an HP cost (`hp_cost`) never casts when paying it would leave 0 HP.
 ## A skill with a `displacement` block (a moving attack, docs/GAME_DESIGN.md 7.13) also moves the grounded character away
-## from or toward its first target before, after or during the hits (`_resolve_cast`, `_resolve_charge`).
+## from or toward its first target before, after or during the hits (`resolve_cast`, `_resolve_charge`).
 ## A `cluster` skill (Gunslinger Grenade, docs/GAME_DESIGN.md 7.20) throws at once at the nearest cluster of mobs within its throw range; the blast
 ## strikes its canonical box around the landing point when the ball arrives (`_throw`, `_land_flights`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
@@ -65,6 +65,7 @@ var casts := 0
 var fired_this_tick := false
 
 var summons := PlayerSummons.new()
+var forms := PlayerForms.new()
 
 var _stats := {}
 var _version := -1
@@ -200,6 +201,7 @@ func tick_cooldowns(dt: float, world: RunWorld, preserve_manual_cast: bool = fal
 	if not preserve_manual_cast:
 		fired_this_tick = false
 	summons.step(dt, world)
+	forms.step(dt, world)
 	_step_areas(dt, world)
 	if not _flights.is_empty():
 		_land_flights(dt, world)
@@ -227,7 +229,10 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		var cb := float(cooldowns.get(b, 0.0))
 		return ca < cb if ca != cb else lo.order.find(a) < lo.order.find(b))
 	var finisher := world.meter.preferred(world, ready) if not world.meter.config.is_empty() else ""
+	var preferred_forms := forms.preferred(world, ready)
 	for key: String in ready:
+		if world.book.kind(key) == "form" and (not forms.admits(world, key) or key not in preferred_forms):
+			continue
 		var meter_rule: Dictionary = world.book.meter_rule(key)
 		if not world.meter.admits(world.book.def(key)) or (String(meter_rule.get("role", "")) == "finisher" and key != finisher):
 			continue
@@ -243,13 +248,13 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 			# Slash Blast pays HP and never casts when that would leave 0 HP; nothing is spent.
 			continue
 		var plan := prepare_cast(world, key, st, origin)  # has_target said yes, so admission does too
-		st = _with_finish_art(world, key, world.meter.begin_cast(world, key, st))
+		st = forms.begin_cast(world, key, _with_finish_art(world, key, world.meter.begin_cast(world, key, st)))
 		world.spend_hp(int(st.hp_cost))
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		if String(meter_rule.get("role", "")) == "finisher":
 			cooldowns[key] = maxf(1.0, cooldowns[key])
 		cooldown_totals[key] = cooldowns[key]
-		_resolve_cast(world, key, st, origin, plan)
+		resolve_cast(world, key, st, origin, plan)
 		break
 
 
@@ -283,7 +288,7 @@ func cast_manual_buff(world: RunWorld, key: String) -> bool:
 		return false
 	world.spend_hp(int(st.hp_cost))
 	start_recharge(key, st)
-	_resolve_cast(world, key, st, world.cast_origin(), {})
+	resolve_cast(world, key, st, world.cast_origin(), {})
 	return true
 
 
@@ -312,7 +317,7 @@ func cast_dash(world: RunWorld, key: String, side: int) -> bool:
 	world.upkeep.action_walking = true
 	var start := world.player.pos
 	world.player.dash_to(move)
-	var cast_stats := st.duplicate()
+	var cast_stats := forms.begin_cast(world, key, st).duplicate()
 	cast_stats["push_side"] = side
 	_resolve_charge(world, cast_stats, start, side)
 	return true
@@ -322,6 +327,8 @@ func cast_dash(world: RunWorld, key: String, side: int) -> bool:
 ## `not prepare_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
 ## ordering them, so a ready skill without a target costs no target list.
 func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> bool:
+	if String(st.kind) == "form":
+		return forms.admits(world, key) and _buff_admission(world, st, origin) != BUFF_REFUSED
 	if String(st.kind) == "summon":
 		return true
 	match String(st.cast_rule):
@@ -381,6 +388,8 @@ func prepare_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2)
 
 
 func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
+	if String(st.kind) == "form":
+		return {"go": true} if has_target(world, key, st, origin) else {}
 	match String(st.cast_rule):
 		"", "nearest":
 			return _admit_nearest(world, key, st, origin)
@@ -486,7 +495,8 @@ func heal_injured(world: RunWorld, st: Dictionary) -> bool:
 	return float(world.player_state.hp) < float(world.player_state.max_hp) * float(st.heal_threshold)
 
 
-func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
+## Resolves an admitted cast, including Form sub-skills, through the ordinary cast pipeline.
+func resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
 	var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
 	var first_x := world.mob_center(targets[0]).x if not targets.is_empty() else 0.0
 	if bool(RULE_POLICY.get(String(st.cast_rule), {}).get("faces_target", false)) and not targets.is_empty() and String(st.kind) != "buff":
@@ -524,6 +534,9 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 			"effect": String(st.finish_effect)})
 	if definition.has("pull") and String(st.kind) != "buff":
 		apply_pull(world, key, st, origin)
+	if String(st.kind) == "form":
+		forms.start(world, key, st)
+		return
 	if String(st.kind) == "summon":
 		summons.spawn(world, st)
 		return

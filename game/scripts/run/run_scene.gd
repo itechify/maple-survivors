@@ -186,6 +186,8 @@ var perf_layer: CanvasLayer
 var window: Node
 ## True while the pause menu (or the fallback pause) holds the run.
 var paused := false
+## Casts seen per skill key, for `sounds.use_cycle` (SkillBook.use_sound).
+var _use_counts := {}
 ## Visual counters (tests and the perf summary): damage numbers, hit effects and sounds started.
 var counters := {"numbers": 0, "hit_fx": 0, "sounds": 0, "exp_messages": 0, "windows": 0, "autopicks": 0}
 
@@ -922,8 +924,10 @@ func _warm_ui() -> void:
 			for field: String in ["ball", "hit", "effect"]:
 				for char_level: Variant in char_levels:
 					var path := world.book.visual(key, field, level, int(char_level))
-					if path != "":
-						library.find_anim(path)
+					# An element-keyed path (`{art}`, PlayerForms.ART_INDEX) loads at every element's key.
+					for element: String in (PlayerForms.ART_INDEX.keys() if path.contains(PlayerForms.ART_TOKEN) else [""]):
+						if path != "":
+							library.find_anim(PlayerForms.fill_art(path, element))
 
 
 ## Loads what the scheduled bosses first show or play, so their first appearance does not
@@ -1062,6 +1066,8 @@ func _after_tick() -> void:
 func handle_events(events: Array) -> void:
 	for e: Dictionary in events:
 		match String(e.type):
+			"form_started", "form_ended":
+				_refresh_form_tint()
 			"meter_changed":
 				hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
 			"map_cleared":
@@ -1312,8 +1318,8 @@ func _on_cast(e: Dictionary) -> void:
 	var capture_delay := float(world.book.def(key).get("pending", {}).get("delay", 0.0)) + 0.05
 	capture_delay = float(world.book.def(key).get("capture_delay", capture_delay))
 	_first_event_shot(key, "cast_%s.png" % key, capture_delay)
-	var use := world.book.art_path(key, String(world.book.def(key).get("sounds", {}).get("use", "")),
-		world.loadout.weapon_family) # art_by_family twin (Panic/Coma : Axe)
+	var use := world.book.use_sound(key, int(_use_counts.get(key, 0)), world.loadout.weapon_family) # art_by_family twin (Panic/Coma : Axe)
+	_use_counts[key] = int(_use_counts.get(key, 0)) + 1 # tier C: a use_cycle skill (Blast) plays its sounds in cast order
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
@@ -2226,3 +2232,13 @@ func _layer_at(p: Vector2) -> int:
 
 func _sfx_service() -> AudioService:
 	return get_node_or_null("/root/Sfx") as AudioService
+
+
+## Refreshes the held weapon only when a form starts or ends (tier C element palette).
+func _refresh_form_tint() -> void:
+	avatar.weapon_tint = Color.WHITE
+	for form: Dictionary in world.runner.forms.snapshot():
+		var element := String(form.effects.get("element", ""))
+		if not element.is_empty():
+			avatar.weapon_tint = Elements.tint(element)
+			break

@@ -27,6 +27,13 @@ seed, policy, revision and invulnerability: this is a diagnostic clear to obtain
 survives Henesys. The worn weapon is a two-handed axe (1412006); the equipment retains canonical stats. Use it for
 `--stage=sleepywood --job=112 --character=<absolute hero_t2.json>` or `--hub --job=112`.
 
+`paladin_t2.json` is the Paladin (job 122) fixture (spec #308, P9 #317): a kit fixture like `fp_arch_mage.json`, a fresh Lv1
+character with tier 2 unlocked wearing a Lv25 Mace (1322004, a blunt weapon), the all-job hat 1002001, gloves 1082002 and top
+1040010 (the Warrior-bit pieces Hero's hub kit also uses) and the starter bottom and shoes, unscrolled. Reproduce with
+`tools/character_fixture.gd --job=122 --kit=1322004,1002001,1082002,1040010,1060002 --tiers=2 --label=spec308/ticket-317
+--revision=<SHA> --out=<absolute path>`; no playable patch is needed. The `_doc` records the kit ids, label and revision. Use it
+for `--stage=sleepywood --job=122 --character=<absolute paladin_t2.json>` or `--hub --job=122`; `--job=212` with it is an error.
+
 `bishop_t2.json` is the Bishop (job 232) twin (spec #372, BS9 #381): the same tier-1 kit as F/P's and tier 2, made by
 `tools/character_fixture.gd --job=232 --kit=1382002,1002013,1072019,1082019,1040002,1060002 --tiers=2 --label=spec372/ticket-381
 --patch=<json making 232 playable>` before BS10 enabled Bishop (its `_doc.patch` names the patch file, and its
