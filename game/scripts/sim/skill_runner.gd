@@ -118,10 +118,14 @@ static func restart_cooldown(st: Dictionary) -> float:
 ## Horizontal reach in px from the player of a resolved skill `st` (Loadout.stats), the one number the bot reads to
 ## decide how close an attack needs it: a projectile or nearest-rule skill its range, a box skill its far edge (area
 ## cards included, the facing side), 0 for anything that is not an attack (buffs, manual skills, status-only and heal
-## casts). One switch on the cast rule: weapon_reach is the held weapon's swing reach scaled by this skill's area
+## casts) and for a skill that pays HP or waits on an HP gate (DK-9). One switch on the cast rule: weapon_reach is the held weapon's swing reach scaled by this skill's area
 ## modifier, range_around the level's `range` around the body.
 static func reach_of(st: Dictionary, world: RunWorld) -> float:
 	if String(st.get("meter", {}).get("role", "")) == "finisher" or String(st.kind) == "buff" or String(st.damage_type) == "none":
+		return 0.0
+	# tier C (spec #348 DK-9): a skill that pays HP up front or waits on an HP gate is a spend, not the attack the bot positions
+	# for; Dragon Fury (241 px) and Dragon Roar (400 px) must not make a melee knight kite like an archer.
+	if int(st.get("hp_cost", 0)) > 0 or float(st.get("hp_gate", 0.0)) > 0.0:
 		return 0.0
 	match String(st.cast_rule):
 		"", "nearest", "range_around", "cluster":
