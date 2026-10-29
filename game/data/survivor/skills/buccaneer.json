@@ -1,6 +1,135 @@
 {
-	"_doc": "Buccaneer skill definitions (spec #412, one region per ticket): B4 #416 moves the five ported knuckle skills (Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut, Corkscrew Blow) here from skills/pirate.json; B5 #417 changes Dash's slot (Dash stays in pirate.json); B6 Energy Drain; B7 Energy Orb; B8 Barrage, Dragon Strike; B9 Transformation, Shockwave; B10 Super Transformation, Demolition, Snatch. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). B2 #414 defines none.",
+	"_doc": "Buccaneer skill definitions (spec #412, one region per ticket): B4 #416 moved the five ported knuckle skills (Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut, Corkscrew Blow) here from skills/pirate.json; B5 #417 changes Dash's slot (Dash stays in pirate.json); B6 Energy Drain; B7 Energy Orb; B8 Barrage, Dragon Strike; B9 Transformation, Shockwave; B10 Super Transformation, Demolition, Snatch. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). B2 #414 defined none; B4 #416 defines the first region: the five ported knuckle skills (default eight-rank table, no weapon gate, rarity bonuses).",
 	"skills": {
+		"flash_fist": {
+			"skill_id": 5001001, "book": "500", "job": 500, "kind": "instant", "slot": "active",
+			"name": "Flash Fist", "desc": "Punches one monster in front of you.",
+			"icon": "Skill.wz/500.img/skill/5001001/icon", "damage": "physical",
+			"_tier": "Tier A: canonical box, damage, mobCount, straight action and CharLevel art (selected by the round level, thresholds 10/15/20/25). Tier C: no weapon gate (ADR 0006), eight ranks on WZ levels 3, 5, 8, 10, 13, 15, 18, 20 (the default table), auto-cast at one front target, cooldown 0.45 s (BU-19) and action hold 0.6 s, rarity bonuses (GAME_DESIGN 7.90); untuned.",
+			"cast": {"rule": "box"}, "cooldown": 0.45,
+			"action": "straight", "action_time": 0.6, "ball": "",
+			"hit": "Skill.wz/500.img/skill/5001001/hit/0", "effect": "Skill.wz/500.img/skill/5001001/effect",
+			"char_level": {"thresholds": [10, 15, 20, 25], "hit": "Skill.wz/500.img/skill/5001001/CharLevel/{cl}/hit/0", "effect": "Skill.wz/500.img/skill/5001001/CharLevel/{cl}/effect"},
+			"rotate": false, "sounds": {"use": "Sound.wz/Skill.img/5001001/Use", "hit": ""},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}
+				],
+				"unique": [
+					{"id": "flurry", "text": "Fist Flurry", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}
+				],
+				"legendary": [
+					{"id": "flurry", "text": "Fist Flurry", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
+		"somersault_kick": {
+			"skill_id": 5001002, "book": "500", "job": 500, "kind": "instant", "slot": "active",
+			"name": "Somersault Kick", "desc": "Kicks several monsters around you.",
+			"icon": "Skill.wz/500.img/skill/5001002/icon", "damage": "physical",
+			"_tier": "Tier A: canonical box reach and height, damage, mobCount (3 to 6), somersault action and CharLevel art (selected by the round level, thresholds 10/15/20/25). Tier C: no weapon gate (ADR 0006), eight ranks on WZ levels 3, 5, 8, 10, 13, 15, 18, 20, auto-cast on one target, cast.around mirrors the box's far edge across the player to strike around, cooldown 1.0 s (BU-19) and action hold 0.6 s, rarity bonuses (GAME_DESIGN 7.90); untuned.",
+			"cast": {"rule": "box", "around": true}, "cooldown": 1.0,
+			"action": "somersault", "action_time": 0.6, "ball": "",
+			"hit": "Skill.wz/500.img/skill/5001002/hit/0", "effect": "Skill.wz/500.img/skill/5001002/effect",
+			"char_level": {"thresholds": [10, 15, 20, 25], "hit": "Skill.wz/500.img/skill/5001002/CharLevel/{cl}/hit/0", "effect": "Skill.wz/500.img/skill/5001002/CharLevel/{cl}/effect"},
+			"rotate": false, "sounds": {"use": "Sound.wz/Skill.img/5001002/Use", "hit": ""},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "wide_kick", "text": "Wide Kick", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}
+				],
+				"unique": [
+					{"id": "whirl", "text": "Whirling Kick", "effects": [{"stat": "count", "op": "add", "value": 2}]}
+				],
+				"legendary": [
+					{"id": "whirl", "text": "Whirling Kick", "effects": [{"stat": "count", "op": "add", "value": 2}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
+		"backspin_blow": {
+			"skill_id": 5101002, "book": "510", "job": 510, "kind": "instant", "slot": "active",
+			"name": "Backspin Blow", "desc": "Slides back and elbows up to 3 monsters, stunning them.",
+			"text": {"desc": "Slide back and elbow the monsters around you to damage and briefly stun them.", "h": "Damage {damage}%, up to {mob_count|monster|monsters}, stun for 1 sec."},
+			"icon": "Skill.wz/510.img/skill/5101002/icon", "damage": "physical",
+			"_tier": "Tier A: canonical damage 88 to 240%, mobCount 3, time 1 (the stun), the backspin action, effect/hit art, Use and Hit sounds, and the box height and 140 px reach. Skill.wz has no prop, so every landed hit stuns (bosses resist, see Monster statuses and elements in GAME_DESIGN). Tier C: no weapon gate (ADR 0006), eight ranks on WZ levels 3, 5, 8, 10, 13, 15, 18, 20; the canonical box lies behind the facing, so cast.around mirrors it to both sides and the attack strikes the nearest mobs on either side, then the character turns to the nearest one and slides 100 px away from it after the hits (7.13), stopping at platform edges and walls; cooldown 1.4 s (BU-19) and action hold 0.8 s, rarity bonuses (GAME_DESIGN 7.90); untuned.",
+			"cast": {"rule": "box", "around": true}, "cooldown": 1.4,
+			"displacement": {"direction": "away", "when": "after", "distance": 100},
+			"on_hit": {"status": "stun", "duration_field": "time"},
+			"action": "backspin", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/510.img/skill/5101002/hit/0", "effect": "Skill.wz/510.img/skill/5101002/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101002/Use", "hit": "Sound.wz/Skill.img/5101002/Hit"},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "stun_mastery", "text": "Stun Mastery", "effects": [{"stat": "crit", "op": "add", "value": 0.15}]}
+				],
+				"unique": [
+					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}]}
+				],
+				"legendary": [
+					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
+		"double_uppercut": {
+			"skill_id": 5101003, "book": "510", "job": 510, "kind": "instant", "slot": "active",
+			"name": "Double Uppercut", "desc": "Two quick punches that damage and stun the monster in front of you.",
+			"text": {"desc": "Two quick punches to damage and briefly stun a monster within your knuckler's reach.", "h": "Damage {damage}% x {attack_count}, up to {mob_count|monster|monsters}, stun for 1 sec."},
+			"icon": "Skill.wz/510.img/skill/5101003/icon", "damage": "physical",
+			"_tier": "Tier A: canonical damage 100 to 290%, attackCount 2 and time 1 (both stored as strings in the WZ and read as numbers), the doubleupper action, effect/hit art, Use and Hit sounds. Skill.wz has no prop, so every landed hit stuns (bosses resist). Tier C: no weapon gate (ADR 0006), eight ranks on WZ levels 3, 5, 8, 10, 13, 15, 18, 20; the level has no box or mobCount, so it follows the Power Strike rule: it strikes one monster inside the held weapon's swing envelope (the basic attack's reach), more only from rarity bonuses; cooldown 1.0 s (BU-19) and action hold 1.0 s, rarity bonuses (GAME_DESIGN 7.90); untuned.",
+			"cast": {"rule": "weapon_reach"}, "cooldown": 1.0,
+			"on_hit": {"status": "stun", "duration_field": "time"},
+			"action": "doubleupper", "action_time": 1.0, "ball": "",
+			"hit": "Skill.wz/510.img/skill/5101003/hit/0", "effect": "Skill.wz/510.img/skill/5101003/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101003/Use", "hit": "Sound.wz/Skill.img/5101003/Hit"},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "stun_mastery", "text": "Stun Mastery", "effects": [{"stat": "crit", "op": "add", "value": 0.15}]}
+				],
+				"unique": [
+					{"id": "third_fist", "text": "Third Fist", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}
+				],
+				"legendary": [
+					{"id": "third_fist", "text": "Third Fist", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
+		"corkscrew_blow": {
+			"skill_id": 5101004, "book": "510", "job": 510, "kind": "instant", "slot": "active",
+			"name": "Corkscrew Blow", "desc": "Charges forward and punches up to 3 monsters on the way.",
+			"text": {"desc": "Run forward and punch the monsters in your path.", "h": "Damage {damage}%, up to {mob_count|monster|monsters}, charges forward."},
+			"icon": "Skill.wz/510.img/skill/5101004/icon", "damage": "physical",
+			"_tier": "Tier A: canonical damage 135 to 420%, mobCount 3, the box reach 100 to 200 px (also the charge distance: displacement.field lt.x reads -lt.x of the mapped WZ level at every rank, checked against Skill.wz by a test) and height, the screw action, effect/hit art, Use and Hit sounds. Tier C: no weapon gate (ADR 0006), eight ranks on WZ levels 3, 5, 8, 10, 13, 15, 18, 20; a mob in the box starts a full charge toward it (no prepare/keydown wind-up, the Loop sound is not played) that strikes up to mobCount mobs along the swept path (7.13) and stops at platform edges and walls; cooldown 1.8 s (BU-19) and action hold 0.8 s, rarity bonuses (GAME_DESIGN 7.90); untuned.",
+			"cast": {"rule": "box"}, "cooldown": 1.8,
+			"displacement": {"direction": "toward", "when": "during", "field": "lt.x"},
+			"action": "screw", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/510.img/skill/5101004/hit/0", "effect": "Skill.wz/510.img/skill/5101004/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101004/Use", "hit": "Sound.wz/Skill.img/5101004/Hit"},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "boring", "text": "Boring Screw", "effects": [{"stat": "count", "op": "add", "value": 2}]}
+				],
+				"unique": [
+					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}]}
+				],
+				"legendary": [
+					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
 		"energy_drain": {
 			"skill_id": 5111004,
 			"book": "511",
