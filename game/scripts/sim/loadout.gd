@@ -301,7 +301,7 @@ func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 ## (WZ paths), cast_visuals (the extra cast art, `_cast_visuals`), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
 ## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance, pull_chance (percent)/pull_gap (px; docs/GAME_DESIGN.md 7.35) and pierce_falloff,
-## `support` (a support summon only, docs/GAME_DESIGN.md 7.72: SupportSummons.resolve's pulses), and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
+## `support` (a support summon only, docs/GAME_DESIGN.md 7.67: SupportSummons.resolve's pulses), and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
 func stats(key: String, at_rank: int = 0) -> Dictionary:
@@ -430,7 +430,10 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"passive_stat": String(passive.get("stat", "")),
 		"passive_value": passive_value(key, lv, passive),
 		"icon": String(d.get("icon", "")),
-		"duration": book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
+		# A literal survivor duration (the Beholder's 60 s life, tier C) overrides the canonical field, whose WZ time is
+		# session-scale; every other buff and summon keeps reading its `duration_field` (default `time`).
+		"duration": float(buff.duration) if buff.has("duration") \
+			else book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
 		"buff_stat": String(buff.get("stat", "")),
 		"buff_value": book.canonical(key, lv, String(buff.get("field", "")), 0.0) if not buff.is_empty() else 0.0,
 		"buff_effects": _buff_effects(key, lv, buff),

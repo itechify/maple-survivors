@@ -14,7 +14,7 @@ var impact := PackedFloat64Array()
 var stats: Array[Dictionary] = []
 var definitions: Array[Dictionary] = []
 var offsets := PackedFloat32Array()
-## Pulse countdowns of the summons whose definition carries `summon.support` (docs/GAME_DESIGN.md 7.72).
+## Pulse countdowns of the summons whose definition carries `summon.support` (docs/GAME_DESIGN.md 7.67).
 var support := SupportSummons.new()
 var _buf := PackedInt32Array()
 

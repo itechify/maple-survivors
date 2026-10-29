@@ -13,7 +13,7 @@ extends RefCounted
 ## `support_rate` (mul, on every pulse interval), `duration` (the summon's life), `summon_count`.
 ##
 ## A later job adds a pulse kind as one entry in KINDS (resolve + apply) plus its own tests; PlayerSummons is never
-## edited for it. docs/GAME_DESIGN.md 7.72, docs/ARCHITECTURE.md 4.4.4.
+## edited for it. docs/GAME_DESIGN.md 7.67, docs/ARCHITECTURE.md 4.4.4.
 
 ## tier C: shortest pulse interval after `support_rate`, so a stack of rate cards can never pulse every tick.
 const MIN_INTERVAL := 0.1

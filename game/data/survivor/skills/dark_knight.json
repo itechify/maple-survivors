@@ -2,7 +2,7 @@
 	"_doc": "Dark Knight line (spec #348, ticket D2 #350). Skills are defined here by D5-D9 (spec #348). Skill keys a job names before they are defined stay inert: undefined skills are never offered or learned. Power Strike and Slash Blast stay in skills/hero.json (DK-13): never define them here.",
 	"skills": {
 		"spear_crusher": {
-			"_provenance": "Tier A: Skill.wz 1311001 at its eight mapped levels (4 8 12 15 23 25 27 30): damage 70 to 170 %, attackCount 2 (levels 1-15) or 3 (16-30), mobCount 1 to 3, the box lt (-130,-50) growing to (-150,-70) with rb (-16,0) (a 16 px dead zone in front of the knight), the per-level body action (burster1 for two hits, burster2 for three), the wings (effect) and rune rings (effect0), the K-th dragon thrust (effect1..3), hit/0 and the Use sound; the pole arm twin 1311002 has identical numbers and nodes. Tier B: effectK is the K-th thrust (D1 contact sheet; the blank wait of effect1/2/3 is 600/750/900 ms, the body's thrusts land there). Tier C: the explicit ranks table (DK-7: the default level-30 table lands rank 5 on level 19, where mobCount falls back to 1, so the rank would deal less than rank 4), the 0.6 s cooldown, the nearest-target admission (min_targets 1), the bonuses, a Final Attack hit also showing its thrust. Docs: GAME_DESIGN 7.70.",
+			"_provenance": "Tier A: Skill.wz 1311001 at its eight mapped levels (4 8 12 15 23 25 27 30): damage 70 to 170 %, attackCount 2 (levels 1-15) or 3 (16-30), mobCount 1 to 3, the box lt (-130,-50) growing to (-150,-70) with rb (-16,0) (a 16 px dead zone in front of the knight), the per-level body action (burster1 for two hits, burster2 for three), the wings (effect) and rune rings (effect0), the K-th dragon thrust (effect1..3), hit/0 and the Use sound; the pole arm twin 1311002 has identical numbers and nodes. Tier B: effectK is the K-th thrust (D1 contact sheet; the blank wait of effect1/2/3 is 600/750/900 ms, the body's thrusts land there). Tier C: the explicit ranks table (DK-7: the default level-30 table lands rank 5 on level 19, where mobCount falls back to 1, so the rank would deal less than rank 4), the 0.6 s cooldown, the nearest-target admission (min_targets 1), the bonuses, a Final Attack hit also showing its thrust. Docs: GAME_DESIGN 7.68.",
 			"skill_id": 1311001,
 			"book": "131",
 			"job": 131,
@@ -131,7 +131,7 @@
 			}
 		},
 		"dragon_fury": {
-			"_provenance": "Tier A: Skill.wz 1311003 damage 80 to 250 % (rank 1 = level 4: 110 %), mobCount 6, hpCon 20 to 30, action swingP1, the reach box = the skill's own afterimage rectangle spear/swingP1 lt (-241,-81) rb (-16,31) (the pole arm twin 1311004 is identical), effect, effect0, hit/0 and the Use sound. Tier C: the 1.2 s cooldown, the box cast needing one mob, the 0.8 s stance hold (the body action's own delays), rarity bonuses. Docs: GAME_DESIGN 7.73.",
+			"_provenance": "Tier A: Skill.wz 1311003 damage 80 to 250 % (rank 1 = level 4: 110 %), mobCount 6, hpCon 20 to 30, action swingP1, the reach box = the skill's own afterimage rectangle spear/swingP1 lt (-241,-81) rb (-16,31) (the pole arm twin 1311004 is identical), effect, effect0, hit/0 and the Use sound. Tier C: the 1.2 s cooldown, the box cast needing one mob, the 0.8 s stance hold (the body action's own delays), rarity bonuses. Docs: GAME_DESIGN 7.69.",
 			"skill_id": 1311003,
 			"book": "131",
 			"job": 131,
@@ -244,7 +244,7 @@
 			}
 		},
 		"sacrifice": {
-			"_provenance": "Tier A: Skill.wz 1311005 damage 205 to 350 % (rank 1 = level 4: 220 %), x 20 to 5 (% of the damage dealt, String.wz agrees; rank 1 = 18 %), the effect (2 frames, z -1), the Use sound; no action, no hit, no mobCount, no attackCount in the node. Tier C: the single hit at the held weapon's reach (weapon_reach), the weapon's own first-swing stance and hit spark, the 2.0 s cooldown, the recoil rules (10 % of max HP cap, never the last HP; HpRisk), the dropped defence-disable half (no mob debuff exists), rarity bonuses (Achilles, Berserk). Docs: GAME_DESIGN 7.73.",
+			"_provenance": "Tier A: Skill.wz 1311005 damage 205 to 350 % (rank 1 = level 4: 220 %), x 20 to 5 (% of the damage dealt, String.wz agrees; rank 1 = 18 %), the effect (2 frames, z -1), the Use sound; no action, no hit, no mobCount, no attackCount in the node. Tier C: the single hit at the held weapon's reach (weapon_reach), the weapon's own first-swing stance and hit spark, the 2.0 s cooldown, the recoil rules (10 % of max HP cap, never the last HP; HpRisk), the dropped defence-disable half (no mob debuff exists), rarity bonuses (Achilles, Berserk). Docs: GAME_DESIGN 7.69.",
 			"skill_id": 1311005,
 			"book": "131",
 			"job": 131,
@@ -490,8 +490,8 @@
 			}
 		},
 		"monster_magnet_dark_knight": {
-			"_rarity": "tier C: Hero's Magnet bonuses copied (#356, spec #348 DK-14): Rare reach x1.2 (the `range` modifier), Epic Bigger Grab +2 targets, Unique Booster cooldown x0.75, Legendary Booster plus +2 targets (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 7.70.",
-			"_provenance": "Tier A: Skill.wz 1321001 (D1 #349): range 200 to 400 px, prop (pull chance 48 to 95 %), mobCount 6 (equal to Hero's 1121001 in every level row), the 18-frame effect (the same horseshoe art as Hero's Magnet) and the Use sound through the UOL. Tier C: no damage (the node has none); pulling is the shared `pull` block (7.35); the alert2 action (the node names none), the 4 s cooldown (Hero's tuned value, #346), the three-mob admission gate (`cast.min_targets`) and the 0.6 s action hold. Docs: GAME_DESIGN 7.70.",
+			"_rarity": "tier C: Hero's Magnet bonuses copied (#356, spec #348 DK-14): Rare reach x1.2 (the `range` modifier), Epic Bigger Grab +2 targets, Unique Booster cooldown x0.75, Legendary Booster plus +2 targets (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 7.71.",
+			"_provenance": "Tier A: Skill.wz 1321001 (D1 #349): range 200 to 400 px, prop (pull chance 48 to 95 %), mobCount 6 (equal to Hero's 1121001 in every level row), the 18-frame effect (the same horseshoe art as Hero's Magnet) and the Use sound through the UOL. Tier C: no damage (the node has none); pulling is the shared `pull` block (7.35); the alert2 action (the node names none), the 4 s cooldown (Hero's tuned value, #346), the three-mob admission gate (`cast.min_targets`) and the 0.6 s action hold. Docs: GAME_DESIGN 7.71.",
 			"rarity_bonuses": {
 				"rare": [
 					{
@@ -583,6 +583,196 @@
 			"sounds": {
 				"use": "Sound.wz/Skill.img/1321001/Use",
 				"hit": ""
+			}
+		},
+		"beholder": {
+			"_provenance": "Tier A: Skill.wz 1321007 art (summon summoned/stand/move/die/skill1-6, the owner-side affected column), the alert2 stance, the Use sound, ranks reading Beholder levels 2 3 4 5 7 8 9 10 through rank_levels[\"10\"]. Tier B: skill1 is the Aura animation and skill2-6 the five Hex runes (D1 contact sheet); affected plays on the knight at each pulse (D4). Tier C: the 60 s life (buff.duration, the WZ time is 720-1200 s, DK-6), the 45 s cooldown counted from the cast, the 3 s first Hex pulse, the follow settings (Elquines'), the bonuses. WZ mpCon and mastery are not used. Aura and Hex are the sub-skills below. Docs: GAME_DESIGN 7.67.",
+			"_rarity": "Tier C: first-pass #357 bonuses (spec #348): Rare Aura of the Beholder heal x1.3 (support_heal), Epic Hex of the Beholder pulses 25% sooner (support_rate x0.75), Unique Twin Beholder +1 Beholder (summon_count), Legendary Twin plus heal x1.3 (the Beholder has no damage; Twin shares one id and repeat counter). Repeat scale 0.8. GAME_DESIGN 7.67 and 8.",
+			"skill_id": 1321007,
+			"book": "132",
+			"job": 132,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Beholder",
+			"desc": "Summon a Beholder who floats beside you, heals you and buffs your defence, accuracy, avoidability and attack.",
+			"text": {
+				"desc": "Summons a Beholder that follows you. It heals you with Aura of the Beholder and buffs you with Hex of the Beholder.",
+				"h": "Beholder lasts {duration} s"
+			},
+			"icon": "Skill.wz/132.img/skill/1321007/icon",
+			"damage": "none",
+			"cooldown": 45.0,
+			"action": "alert2",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"cast": {
+				"rule": "summon"
+			},
+			"buff": {
+				"duration": 60.0
+			},
+			"summon": {
+				"path": "Skill.wz/132.img/skill/1321007/summon",
+				"attack": "",
+				"follow_speed": 180.0,
+				"follow_distance": 60.0,
+				"teleport_distance": 600.0,
+				"support": {
+					"pulses": [
+						{
+							"skill": "aura_of_the_beholder",
+							"kind": "heal",
+							"first_after": "interval",
+							"anim": "skill1"
+						},
+						{
+							"skill": "hex_of_the_beholder",
+							"kind": "buff",
+							"first_after": 3.0,
+							"anim": "skill2",
+							"anim_by_stat": {
+								"pdd": "skill2",
+								"mdd": "skill3",
+								"acc": "skill4",
+								"avoid": "skill5",
+								"watk": "skill6"
+							}
+						}
+					]
+				}
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1321007/Use"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "aura",
+						"text": "Aura of the Beholder",
+						"effects": [
+							{
+								"stat": "support_heal",
+								"op": "mul",
+								"value": 1.3
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "hex",
+						"text": "Hex of the Beholder",
+						"effects": [
+							{
+								"stat": "support_rate",
+								"op": "mul",
+								"value": 0.75
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "twin",
+						"text": "Twin Beholder",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "twin",
+						"text": "Twin Beholder",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "support_heal",
+								"op": "mul",
+								"value": 1.3
+							}
+						]
+					}
+				]
+			}
+		},
+		"aura_of_the_beholder": {
+			"_provenance": "Tier A: Skill.wz 1320008 canonical hp (85 to 500, flat) and x (10 to 4 s) at the eight sub levels. A summon_sub of the Beholder (DK-4): never owned, never in a pool, no card; it ranks with its parent through this explicit table (a level-25 skill has no default table). Docs: GAME_DESIGN 7.67.",
+			"skill_id": 1320008,
+			"book": "132",
+			"job": 132,
+			"kind": "support",
+			"slot": "summon_sub",
+			"summon_sub_of": "beholder",
+			"ranks": [
+				4,
+				7,
+				10,
+				13,
+				16,
+				19,
+				22,
+				25
+			],
+			"name": "Aura of the Beholder",
+			"desc": "The Beholder heals you every few seconds.",
+			"icon": "Skill.wz/132.img/skill/1320008/icon"
+		},
+		"hex_of_the_beholder": {
+			"_provenance": "Tier A: Skill.wz 1320009 canonical pdd mdd acc eva pad (each from its unlock level 1 6 11 16 21), time and x at the eight sub levels; a stat absent from the level is not carried. WZ eva is the avoid total and pad the weapon attack (tier C mapping). A summon_sub of the Beholder (DK-4, DK-5): every unlocked stat applies together, a pulse refreshes the one buff entry. Docs: GAME_DESIGN 7.67.",
+			"skill_id": 1320009,
+			"book": "132",
+			"job": 132,
+			"kind": "support",
+			"slot": "summon_sub",
+			"summon_sub_of": "beholder",
+			"ranks": [
+				4,
+				7,
+				10,
+				13,
+				16,
+				19,
+				22,
+				25
+			],
+			"name": "Hex of the Beholder",
+			"desc": "The Beholder buffs your defence, accuracy, avoidability and attack every few seconds.",
+			"icon": "Skill.wz/132.img/skill/1320009/icon",
+			"buff": {
+				"effects": [
+					{
+						"stat": "pdd",
+						"field": "pdd"
+					},
+					{
+						"stat": "mdd",
+						"field": "mdd"
+					},
+					{
+						"stat": "acc",
+						"field": "acc"
+					},
+					{
+						"stat": "avoid",
+						"field": "eva"
+					},
+					{
+						"stat": "watk",
+						"field": "pad"
+					}
+				]
 			}
 		}
 	}

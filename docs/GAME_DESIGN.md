@@ -4711,7 +4711,7 @@ get standard new/rank cards automatically (explicit upgrade data can supply thei
 `Loadout` owns slot occupancy, capacity checks and display text; capacities are `skills.json.slot_limits` (6/6).
 `SkillBook.rank_table` owns rank limits and WZ mapping: per-skill `ranks` overrides `skills.json.rank_levels`, keyed
 by WZ maxLevel. Eight active ranks map by ceil(r × maxLevel / 8): 20 -> [3,5,8,10,13,15,18,20],
-30 -> [4,8,12,15,19,23,27,30]. WZ numbers and visual levels are read at the mapped level.
+30 -> [4,8,12,15,19,23,27,30], and (for the level-10 skills, #357) 10 -> [2,3,4,5,7,8,9,10]. WZ numbers and visual levels are read at the mapped level.
 
 
 **No MP (ADR 0006, #285).** Skills are gated by their cooldown (and an HP cost, Slash Blast and the Boosters) only.
@@ -5880,7 +5880,7 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `damage`, `area`, `count` (attack targets), `attack_count`, `cooldown` consume existing modifiers; `duration` and
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. Rarity lists ship in the skill definition. A summon with no attack that pulses on its
-owner instead is a support summon (7.72).
+owner instead is a support summon (7.67).
 
 ### 7.33 Hero pool and Rush (spec #296)
 
@@ -6100,194 +6100,6 @@ No shipped skill carries the block yet, so no existing record changes.
 - **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
   and Skill-window text (H7).
 
-### 7.70 Spear Crusher and the shared warrior skills (#353, spec #348 D5)
-
-Dark Knight's start skill, **Spear Crusher** (1311001; the pole arm twin 1311002 is art only), in `skills/dark_knight.json`.
-
-- **Cast.** `box` of the WZ level's `lt` and `rb` ((-130,-50) growing to (-150,-70), `rb` (-16, 0): a 16 px dead zone in front
-  of the knight), `min_targets 1`, physical, 0.6 s cooldown. `damage` 70 -> 170 %, `attackCount` 2 (levels 1-15) or 3
-  (16-30) and `mobCount` 1 -> 3 are read from the WZ level. The cast takes the nearest `mobCount` mobs in the box and deals
-  `attackCount` lines to each.
-- **Ranks.** `ranks: [4, 8, 12, 15, 23, 25, 27, 30]` (DK-7). The default level-30 table would put rank 5 on level 19, where
-  `mobCount` falls back to 1 (136 % x 3 hits on one mob is less than rank 4's 720 % total). Total damage per cast against a
-  full box is 140, 360, 648, 720, 894, 930, 1449, 1530 %: it rises at every rank.
-- **Stance.** `action_field: "action"` on the definition makes `Loadout.stats` read the WZ level's own `action` string:
-  `burster1` (levels 1-15, ranks 1-4) for two hits, `burster2` (16-30, ranks 5-8) for three. `action_times {"burster1": 0.9,
-  "burster2": 1.05}` holds the stance for the body action's own delays (Character.wz 00002000.img, tier A, D1). No
-  definition without `action_field` / `action_times` changes.
-- **Art.** `effect` (the dragon wings, 2 frames) rides the `cast` event; `cast_visuals` plays `effect0` (the rune rings) and
-  `effect1`..`effect3`, each `follow`ing the knight (mirrored with its facing). `effectK` is the K-th dragon thrust (tier B
-  reading, D1: each starts with a blank wait of 600 / 750 / 900 ms where the body thrusts), so an entry carries
-  `min_attack_count: K` and a cast with two damage lines plays `effect1` and `effect2`, one with three also `effect3`.
-  Final Attack's extra line therefore also adds its thrust (tier C). `hit/0` (4 frames) lands on each target; the Use sound
-  is `Sound.wz/Skill.img/1311001/Use`. `art_by_family {"polearm": 1311002}` re-points every path (effect, `cast_visuals`,
-  `hit`, the Use sound) to the pole arm twin through `SkillBook.art_skill_id`; the numbers are identical in the WZ.
-- **Loadout.** `stats()` carries `cast_visuals` ([{path, x, follow}], filtered by `min_attack_count`, paths re-pointed to
-  the held weapon's twin); `RunScene._on_cast` plays them (an entry without `follow` keeps the old world-position
-  behaviour of Rush's dust).
-- **Rarity bonuses.** Rare "Mastery" damage x1.2; Epic "Booster" cooldown x0.88; Unique "Final Attack" +1 hit line
-  (`attack_count`); Legendary the same id and effect plus damage x1.2 (sharing the Unique's repeat counter); repeat scale
-  0.8. Each changes the resolved cast (`test_rarity_bonus_effects`).
-- **Power Strike and Slash Blast stay Hero's** (DK-13): Dark Knight lists the keys in its pool and defines nothing. With a
-  held Spear they stab (`stabT1`, reach 150 px in the test's boxes), with a Pole Arm they swing (`swingP1`); Slash Blast
-  does not depend on the weapon. Hero's Combo meter does nothing for job 132 (no `meter` config, no `meter_changed` event, no
-  damage factor): pinned by `test_dark_knight_core_melee`.
-- **Frame delays stored as text.** Some canvases (`effect1`..`3` frame 2, the Dragon Fury afterimage, the pig mobs, a few map
-  objects) store `delay` as a string (`"200"`). `SpriteAnim.delay_seconds` now reads a numeric string like a number (it
-  used to treat it as the 100 ms default). Presentation only: the sim never reads `SpriteAnim`. The mob stance-duration reader
-  in `mob_kind.gd` (sim) still treats a text delay as 100 ms; it was left alone because changing it shifts the pig mobs'
-  attack timing, which is a balance-visible change.
-
-### 7.73 Dragon Roar (#355, spec #348 D7)
-
-The Dark Knight's crowd-control panic button (`dragon_roar`, 1311006, book 131, in `skills/dark_knight.json`). It is Shout's
-box-and-stun shape with the HP-risk blocks of 7.71 on top, and it needs no new code: only data, tests and text.
-
-```json
-"cast": {"rule": "box", "min_targets": 3}, "cooldown": 10.0, "damage": "physical", "action": "alert3",
-"hp_cost": {"field": "x", "of": "max_hp"}, "hp_gate": {"above": 0.5},
-"on_hit": {"status": "stun", "duration_field": "y"}
-```
-
-- **Box and cap.** The WZ `lt`/`rb` are symmetric: half-width 140, 180, 220, 250, 290, 330, 370, 400 px at the eight ranks
-  (levels 4 8 12 15 19 23 27 30, the default 30-level table), from -155 to 55 px at rank 1 up to -350 to 250 px at rank 8;
-  `mobCount` 15. It admits at three mobs in the box (`min_targets 3`, Shout's rule). `damage` 114, 138, 160, 175, 195, 212,
-  228, 240 %.
-- **Stun.** `on_hit stun` has **no `chance_field`**, so it always lands and draws no random number
-  (`RunWorld._on_player_hit`: no field means 100 %), for `y` seconds: 4 4 3 3 3 2 2 2. Bosses are damaged and never stunned
-  (`MobSwarm.accepts_status`, the existing rule). The node has no `prop`, which is why the chance is absent.
-- **Cost and gate.** `x` is a share of max HP (DK-2): 56, 52, 48, 45, 41, 37, 33, 30 %. The cost is `floor(x / 100 x max HP)` taken
-  from current HP; the cast needs HP strictly above 50 % of max **and** HP to spare after the cost (7.71), otherwise it
-  waits, spends nothing and starts no cooldown. At rank 1 it fires only above 56 % HP and leaves 44 % or less, at rank 8
-  it fires above 50 % and leaves at least 20 %. After a cast the knight is usually below the gate, which blocks a second Roar
-  until Aura, potions or regeneration refill HP.
-- **Rarity bonuses** (repeat scale 0.8): Rare **Mastery** damage x1.2, Epic **Super Dragon Roar** area x1.2 (the box grows
-  from 140 to 168 px at rank 1), Unique **Dragon Blood** `hp_cost` x0.75 (336 -> 252 HP at 600 max HP: it can fire at
-  lower HP and leaves more), Legendary Dragon Blood plus damage x1.2 (sharing the Unique's id and repeat counter). Each
-  changes a resolved stat and is asserted on a cast in `test_dragon_roar.gd` and `test_rarity_bonus_effects.gd`
-  (`CORE_STATS` gained `hp_cost`: the HP the first cast pays).
-- **Text.** The Skill window line reads "Costs 56% of your max HP. Damage 114%, up to 15 monsters; stun for 4 sec." and the
-  mechanics line "Needs more than 50% HP" (7.71). A rank card previews `x` (the percentage) as its usual "Effect" and a
-  Dragon Blood card previews the effective HP cost.
-- **Art and sound.** `effect` 18 frames at 80 ms (1.44 s) at the caster, `hit/0` 3 frames on every struck mob, the stance
-  `alert3`, `Sound.wz/Skill.img/1311006/Use` (3.1 s: it overlaps the next cast, left as is).
-- **Tests.** `test_dragon_roar.gd` (20): the rank table and box, the 15 cap and `min_targets 3`, the stun seconds by rank,
-  the boss exemption, an unchanged main RNG stream against a twin without the stun, the cost by rank, the
-  cast-at-full-HP-then-blocked sequence, the exact 50 % boundary, Dragon Blood changing when it can fire, Super Dragon Roar
-  widening the box, the card ranks and bonuses, the text, and (real cache, SKIP without it) all eight ranks and the art.
-
-
-#### Rush and Monster Magnet (1321003, 1321001; #356, spec #348 D8)
-
-Dark Knight's mobility skill **Rush** (`rush_dark_knight`, 1321003) and the **Monster Magnet** (`monster_magnet_dark_knight`,
-1321001) are data copies of Hero's `rush_hero` and `monster_magnet` in `skills/dark_knight.json`; no engine code changed.
-
-- **Rush.** The same definition field for field as `rush_hero` (rank rule, 2.0 s cooldown, `displacement` on `lt.x`, 80 px
-  dash knock-back, `rush` block, manual cast, `skill_key rush`), with the book's own ids, art (effect, `effect0` dust) and
-  the Use sound through its UOL. The one data difference is the body action **`rush`** (the node says `rush`; Hero's says
-  `rush2`); its 0.6 s duration equals `rush2`'s (100 + 500 ms). The weapon stays in hand: `rush` resolves to the spear's and
-  the pole arm's `stabT1` frames (D1). Learned at start on the mobility slot, never in the pool, never a card, no rarity list.
-  It ranks with the round level through `balance.mobility_rank_levels`: rank 1 = WZ level 4 (78 %, 170 px) at Lv1, rank 8 =
-  level 30 (130 %, 250 px, box (-250, -50)) from Lv16, `mobCount` 15 throughout.
-- **Monster Magnet.** Hero's Magnet field for field (`range_around` with `min_targets 3`, the shared `pull` block with
-  `chance_field prop`, `range_field range`, `min_gap 60`, `damage none`, `alert2`, 0.6 s hold), with its own ids, the 18-frame
-  effect and the Use sound through its UOL. **Cooldown 4 s**, Hero's tuned value, copied. The four rarity lists are Hero's:
-  Rare Reach (`range` x1.2), Epic Bigger Grab (+2 targets), Unique Booster (cooldown x0.75), Legendary Booster plus +2 targets
-  (sharing the Unique's id). Normal Mastery (no damage) is the cooldown x0.95.
-- **Real numbers** (tier A, `cache-349`): Rush levels 4 and 30 and the Magnet's ranks 1..8 (range 200 -> 400 px, prop 48 -> 95 %,
-  mobCount 6) equal Hero's in every level row (D1); Magnet's level 1 prop is 42.
-- **Tests.** `test_rush.gd` is job-agnostic (`_job`, `_book`, `_key`, `_skill_id`, `_action`); `test_rush_dark_knight.gd` extends it so
-  the whole Hero Rush set re-runs for Dark Knight with the body action `rush`, plus the data-copy test, the Lv1..40 rank-alike test
-  and the real-cache level 30 check. `test_monster_magnet_dark_knight.gd` pins the Magnet (definition, 3-mob admission, range /
-  chance / cap by rank, no damage, cooldown, pull identical to Hero's key over seeds 1, 2, 313, each rarity bonus changing a
-  resolved stat, the mastery cooldown, real-cache ranks, art and sound).
-
-### 7.71 HP-risk skills (#351, spec #348, roster M17)
-
-Four small data-driven behaviours in one stateless file, `game/scripts/sim/hp_risk.gd` (`HpRisk`): a percentage HP cost, an
-HP gate, recoil as a share of the damage a cast dealt, and a low-HP damage bonus. Dark Knight (Dragon Roar, Sacrifice,
-Berserk) is the first user; Bishop, Buccaneer and any later job reuse the blocks unchanged. No skill ships a block yet, so no
-existing record changes. No RNG is drawn.
-
-```json
-"hp_cost":     {"field": "x", "of": "max_hp"}
-"hp_gate":     {"above": 0.5}
-"self_damage": {"field": "x", "of": "damage_dealt", "cap_max_hp": 0.10}
-```
-
-- **`hp_cost`** (`of`: `"flat"` is the default and today's `hpCon` rule, `"max_hp"` is a percentage). The cost is
-  `floor(field / 100 x max HP)` for a percentage, the canonical field as it is for flat (`field` defaults to `hpCon`), then
-  scaled by the `hp_cost` modifier and floored. It resolves into the same `hp_cost` stat every consumer already reads
-  (admission, `RunWorld.can_pay_hp`/`spend_hp`, the bot, `PlayerMeter.preferred`, the Skill window), against the max HP
-  `RunWorld` keeps in `Loadout.max_hp`; the stat is resolved again when max HP changes. A cast never pays the last HP
-  (`can_pay_hp`): it waits, spends nothing and takes no cooldown.
-- **`hp_gate`.** Admission also needs current HP strictly above `above` x max HP, read at the moment of the cast from the
-  exact (fractional) HP. A refused cast waits like an unpayable one. After a costly cast the gate usually closes, which
-  blocks the next cast until potions, Aura or regeneration refill HP: that loop is the identity of Dragon Roar.
-- **`self_damage`.** After the cast's instant lines resolve, the caster loses `floor(field / 100 x damage applied)`, where
-  damage applied is the growth of `RunWorld.damage_dealt` over the cast (every line on every target, after Berserk), at most
-  `floor(cap_max_hp x max HP)` and never the last HP (`floor(HP - 1)` at most). 0 when the cast dealt nothing. It pays
-  through `RunWorld.spend_hp`; there is no admission, the cast already happened. Shots and ground areas that land after
-  `_resolve_cast` returns are not counted (tier C; no shipped HP-risk skill uses one).
-- **`low_hp_damage`** (a modifier stat, a rarity bonus): `HpRisk.begin_cast`, after `PlayerMeter.begin_cast`, scales the
-  cast's `damage_min`, `damage_max` and `status_damage_mult` by `1 + bonus` while HP is at or below `HpRisk.BERSERK_BELOW`
-  (0.5) of max HP, read before the cost is paid. The bonus adds (`+0.5` is x1.5).
-- **Modifier stats** (rarity bonuses, `Loadout` skill mods, card previews, `SkillText`): `hp_cost` (mul: scales a flat or a
-  percentage cost), `self_damage` (mul: scales the recoil percentage; the cap does not move) and `low_hp_damage` (add). The
-  card text names them "HP cost", "Recoil" and "Low-HP damage"; `LevelUpWindow` shows before -> after for each.
-- **Event.** `hp_spent {skill, skill_id, amount, kind}`, `kind` `cost` or `recoil`, only when `amount > 0` and `amount` is what
-  was actually paid. A flat `hpCon` skill (Slash Blast, Coma) emits it too, with `kind: cost`, before its `cast` event; a
-  recoil follows the cast's hits. `RunScene` shows it as a red number at the player through the damage-number pool (`HP_SPENT`).
-- **Text.** The Skill window and tooltips add "Needs more than 50% HP", "Recoil: 20% of damage dealt (at most 10% of max
-  HP)" and "+50% damage at 50% HP or less" to a skill's line; the cost is the ordinary HP cost fact.
-
-### 7.72 Support summons and the Beholder (#352, spec #348)
-
-A **support summon** is a player summon (7.32) that pulses instead of attacking. `SupportSummons` (a `RefCounted`
-owned by `PlayerSummons.support`; no node, no clock but `dt`, no RNG) holds the pulse countdowns; `PlayerSummons` keeps the
-lifecycle (spawn, follow, expiry, replace on recast, map transfer, `summon_count`) and its only extra code is the
-attack-less spawn path and one hook per tick for a definition that carries `summon.support`. Dark Knight's Beholder (D9)
-is the first user; Bishop's and Corsair's summons are attack summons and reuse `PlayerSummons` unchanged. The seam is
-tested on a synthetic Beholder (made-up job 999, no Dark Knight data): `test_support_summons.gd` is the template.
-
-```json
-"summon": {"path": "Skill.wz/<book>.img/skill/<id>/summon", "attack": "",
-  "follow_speed": 180.0, "follow_distance": 60.0, "teleport_distance": 600.0,
-  "support": {"pulses": [
-    {"skill": "<heal sub>", "kind": "heal", "first_after": "interval", "anim": "skill1"},
-    {"skill": "<buff sub>", "kind": "buff", "first_after": 3.0, "anim": "skill2",
-     "anim_by_stat": {"pdd": "skill2", "mdd": "skill3"}}]}}
-```
-
-- **Pulses.** `skill` is a sub-skill; `kind` a key of `SupportSummons.KINDS`; `first_after` seconds, or `"interval"`
-  (the sub's first interval); `anim` the summon animation played at the pulse (`summon/<anim>` under `summon.path`).
-  Optional `anim_by_stat` ({stat: animation}, buff kind): the animation of the last listed stat the pulse carries (the
-  newest unlocked one), else `anim`. Each pulse has its own countdown per summon slot, started at spawn; after a pulse
-  it restarts at the interval. The effect applies on the tick the animation starts, never later. An animation
-  that is still playing when another pulse fires is replaced (both effects apply). A dead owner gets no pulse and the
-  countdowns hold. Hidden owners are pulsed as usual. A map transfer removes the summon like any other (a recast makes
-  a new one with fresh countdowns).
-- **Sub-skills.** Definitions with `slot: "summon_sub"` and `summon_sub_of: <parent key>`. They are never in a pool, never
-  a card, and `Loadout.add_skill` refuses them (so never in `Loadout.order`). `SkillBook` reads their canonical level
-  tables; the sub's level is the parent's rank through the **sub's own `ranks` table** (the Paladin P-5 rule), via
-  `Loadout.stats(sub, parent_rank)`. `Loadout.stats(parent)` carries the resolved pulses in `support` (cast snapshot):
-  `[{skill, skill_id, name, kind, interval, first_after, anim, ...}]`; a rank change reaches the next cast.
-- **Kinds.** `heal`: restores canonical `hp` (a flat amount) through `RunWorld.restore_player("hp", ...)`, interval
-  canonical `x`; a heal at full HP restores 0 and emits no `player_restored`. `buff`: starts one PlayerBuffs entry (key =
-  the sub's key, through `RunWorld.start_buff`, so `buff_cast` fires) carrying every stat the sub's level has, duration
-  canonical `time`, interval canonical `x`. The stats come from the sub's `buff.effects` (`{stat, field, scale?}`); an
-  effect whose `field` is absent from the sub's level node is not carried (a stat unlocks at its level). WZ names
-  map in the data (`eva` to `avoid`, `pad` to `watk`). A repeat pulse, or a second Beholder, replaces the same entry:
-  it refreshes and never stacks.
-- **Modifiers** (the parent skill's): `support_heal` (mul, on heal amounts), `support_rate` (mul, on every pulse interval,
-  including an `"interval"` `first_after`; a literal `first_after` is not an interval), `duration` (the summon's life),
-  `summon_count` (the number of summons, each on its own timers). Cards preview `support_heal` as the first heal pulse's
-  HP and `support_rate` as the first pulse's interval in seconds; the skill line lists every pulse ("Aura: heals 85 HP
-  every 10 s", "Hex: Weapon DEF +20 for 20 s every 42 s").
-- **Event.** `support_pulse {skill, skill_id, kind, slot}` (`skill` is the pulse's sub-skill, `slot` the summon's
-  PlayerSummons slot); the heal itself emits the ordinary `player_restored`. Presentation plays the parent skill's
-  owner-side `affected` node on the player at each pulse (tier B: its use is not documented).
-- **What a later job adds.** A pulse kind is one `KINDS` entry (`resolve` and `apply`) plus its tests; a new sub is data.
 ### 7.60 I/L pool and Teleport (spec #319, I6 #325)
 
 The I/L Arch Mage's (222) simple instant skills: **Cold Beam** (2201004), **Thunder Bolt** (2201005), **Ice Strike**
@@ -6512,10 +6324,138 @@ repeats shrink x0.8; Rare is `amplify` "Element Amplification", damage x1.2, for
 affected (count, pierce) or a monster just beyond the base box (area). A projectile's extra shot goes to the second
 nearest monster, so a monster on the same line behind the first is shielded: Twin Bolt's extra target stands elsewhere.
 
-### 7.73 Dragon Fury and Sacrifice (#354, spec #348 D6)
+### 7.66 HP-risk skills (#351, spec #348, roster M17)
+
+Four small data-driven behaviours in one stateless file, `game/scripts/sim/hp_risk.gd` (`HpRisk`): a percentage HP cost, an
+HP gate, recoil as a share of the damage a cast dealt, and a low-HP damage bonus. Dark Knight (Dragon Roar, Sacrifice,
+Berserk) is the first user; Bishop, Buccaneer and any later job reuse the blocks unchanged. No skill ships a block yet, so no
+existing record changes. No RNG is drawn.
+
+```json
+"hp_cost":     {"field": "x", "of": "max_hp"}
+"hp_gate":     {"above": 0.5}
+"self_damage": {"field": "x", "of": "damage_dealt", "cap_max_hp": 0.10}
+```
+
+- **`hp_cost`** (`of`: `"flat"` is the default and today's `hpCon` rule, `"max_hp"` is a percentage). The cost is
+  `floor(field / 100 x max HP)` for a percentage, the canonical field as it is for flat (`field` defaults to `hpCon`), then
+  scaled by the `hp_cost` modifier and floored. It resolves into the same `hp_cost` stat every consumer already reads
+  (admission, `RunWorld.can_pay_hp`/`spend_hp`, the bot, `PlayerMeter.preferred`, the Skill window), against the max HP
+  `RunWorld` keeps in `Loadout.max_hp`; the stat is resolved again when max HP changes. A cast never pays the last HP
+  (`can_pay_hp`): it waits, spends nothing and takes no cooldown.
+- **`hp_gate`.** Admission also needs current HP strictly above `above` x max HP, read at the moment of the cast from the
+  exact (fractional) HP. A refused cast waits like an unpayable one. After a costly cast the gate usually closes, which
+  blocks the next cast until potions, Aura or regeneration refill HP: that loop is the identity of Dragon Roar.
+- **`self_damage`.** After the cast's instant lines resolve, the caster loses `floor(field / 100 x damage applied)`, where
+  damage applied is the growth of `RunWorld.damage_dealt` over the cast (every line on every target, after Berserk), at most
+  `floor(cap_max_hp x max HP)` and never the last HP (`floor(HP - 1)` at most). 0 when the cast dealt nothing. It pays
+  through `RunWorld.spend_hp`; there is no admission, the cast already happened. Shots and ground areas that land after
+  `_resolve_cast` returns are not counted (tier C; no shipped HP-risk skill uses one).
+- **`low_hp_damage`** (a modifier stat, a rarity bonus): `HpRisk.begin_cast`, after `PlayerMeter.begin_cast`, scales the
+  cast's `damage_min`, `damage_max` and `status_damage_mult` by `1 + bonus` while HP is at or below `HpRisk.BERSERK_BELOW`
+  (0.5) of max HP, read before the cost is paid. The bonus adds (`+0.5` is x1.5).
+- **Modifier stats** (rarity bonuses, `Loadout` skill mods, card previews, `SkillText`): `hp_cost` (mul: scales a flat or a
+  percentage cost), `self_damage` (mul: scales the recoil percentage; the cap does not move) and `low_hp_damage` (add). The
+  card text names them "HP cost", "Recoil" and "Low-HP damage"; `LevelUpWindow` shows before -> after for each.
+- **Event.** `hp_spent {skill, skill_id, amount, kind}`, `kind` `cost` or `recoil`, only when `amount > 0` and `amount` is what
+  was actually paid. A flat `hpCon` skill (Slash Blast, Coma) emits it too, with `kind: cost`, before its `cast` event; a
+  recoil follows the cast's hits. `RunScene` shows it as a red number at the player through the damage-number pool (`HP_SPENT`).
+- **Text.** The Skill window and tooltips add "Needs more than 50% HP", "Recoil: 20% of damage dealt (at most 10% of max
+  HP)" and "+50% damage at 50% HP or less" to a skill's line; the cost is the ordinary HP cost fact.
+
+
+### 7.67 Support summons and the Beholder (#352, spec #348)
+
+A **support summon** is a player summon (7.32) that pulses instead of attacking. `SupportSummons` (a `RefCounted`
+owned by `PlayerSummons.support`; no node, no clock but `dt`, no RNG) holds the pulse countdowns; `PlayerSummons` keeps the
+lifecycle (spawn, follow, expiry, replace on recast, map transfer, `summon_count`) and its only extra code is the
+attack-less spawn path and one hook per tick for a definition that carries `summon.support`. Dark Knight's Beholder (D9)
+is the first user; Bishop's and Corsair's summons are attack summons and reuse `PlayerSummons` unchanged. The seam is
+tested on a synthetic Beholder (made-up job 999, no Dark Knight data): `test_support_summons.gd` is the template.
+
+```json
+"summon": {"path": "Skill.wz/<book>.img/skill/<id>/summon", "attack": "",
+  "follow_speed": 180.0, "follow_distance": 60.0, "teleport_distance": 600.0,
+  "support": {"pulses": [
+    {"skill": "<heal sub>", "kind": "heal", "first_after": "interval", "anim": "skill1"},
+    {"skill": "<buff sub>", "kind": "buff", "first_after": 3.0, "anim": "skill2",
+     "anim_by_stat": {"pdd": "skill2", "mdd": "skill3"}}]}}
+```
+
+- **Pulses.** `skill` is a sub-skill; `kind` a key of `SupportSummons.KINDS`; `first_after` seconds, or `"interval"`
+  (the sub's first interval); `anim` the summon animation played at the pulse (`summon/<anim>` under `summon.path`).
+  Optional `anim_by_stat` ({stat: animation}, buff kind): the animation of the last listed stat the pulse carries (the
+  newest unlocked one), else `anim`. Each pulse has its own countdown per summon slot, started at spawn; after a pulse
+  it restarts at the interval. The effect applies on the tick the animation starts, never later. An animation
+  that is still playing when another pulse fires is replaced (both effects apply). A dead owner gets no pulse and the
+  countdowns hold. Hidden owners are pulsed as usual. A map transfer removes the summon like any other (a recast makes
+  a new one with fresh countdowns).
+- **Sub-skills.** Definitions with `slot: "summon_sub"` and `summon_sub_of: <parent key>`. They are never in a pool, never
+  a card, and `Loadout.add_skill` refuses them (so never in `Loadout.order`). `SkillBook` reads their canonical level
+  tables; the sub's level is the parent's rank through the **sub's own `ranks` table** (the Paladin P-5 rule), via
+  `Loadout.stats(sub, parent_rank)`. `Loadout.stats(parent)` carries the resolved pulses in `support` (cast snapshot):
+  `[{skill, skill_id, name, kind, interval, first_after, anim, ...}]`; a rank change reaches the next cast.
+- **Kinds.** `heal`: restores canonical `hp` (a flat amount) through `RunWorld.restore_player("hp", ...)`, interval
+  canonical `x`; a heal at full HP restores 0 and emits no `player_restored`. `buff`: starts one PlayerBuffs entry (key =
+  the sub's key, through `RunWorld.start_buff`, so `buff_cast` fires) carrying every stat the sub's level has, duration
+  canonical `time`, interval canonical `x`. The stats come from the sub's `buff.effects` (`{stat, field, scale?}`); an
+  effect whose `field` is absent from the sub's level node is not carried (a stat unlocks at its level). WZ names
+  map in the data (`eva` to `avoid`, `pad` to `watk`). A repeat pulse, or a second Beholder, replaces the same entry:
+  it refreshes and never stacks.
+- **Modifiers** (the parent skill's): `support_heal` (mul, on heal amounts), `support_rate` (mul, on every pulse interval,
+  including an `"interval"` `first_after`; a literal `first_after` is not an interval), `duration` (the summon's life),
+  `summon_count` (the number of summons, each on its own timers). Cards preview `support_heal` as the first heal pulse's
+  HP and `support_rate` as the first pulse's interval in seconds; the skill line lists every pulse ("Aura: heals 85 HP
+  every 10 s", "Hex: Weapon DEF +20 for 20 s every 42 s").
+- **Event.** `support_pulse {skill, skill_id, kind, slot}` (`skill` is the pulse's sub-skill, `slot` the summon's
+  PlayerSummons slot); the heal itself emits the ordinary `player_restored`. Presentation plays the parent skill's
+  owner-side `affected` node on the player at each pulse (tier B: its use is not documented).
+- **What a later job adds.** A pulse kind is one `KINDS` entry (`resolve` and `apply`) plus its tests; a new sub is data.
+
+
+### 7.68 Spear Crusher and the shared warrior skills (#353, spec #348 D5)
+
+Dark Knight's start skill, **Spear Crusher** (1311001; the pole arm twin 1311002 is art only), in `skills/dark_knight.json`.
+
+- **Cast.** `box` of the WZ level's `lt` and `rb` ((-130,-50) growing to (-150,-70), `rb` (-16, 0): a 16 px dead zone in front
+  of the knight), `min_targets 1`, physical, 0.6 s cooldown. `damage` 70 -> 170 %, `attackCount` 2 (levels 1-15) or 3
+  (16-30) and `mobCount` 1 -> 3 are read from the WZ level. The cast takes the nearest `mobCount` mobs in the box and deals
+  `attackCount` lines to each.
+- **Ranks.** `ranks: [4, 8, 12, 15, 23, 25, 27, 30]` (DK-7). The default level-30 table would put rank 5 on level 19, where
+  `mobCount` falls back to 1 (136 % x 3 hits on one mob is less than rank 4's 720 % total). Total damage per cast against a
+  full box is 140, 360, 648, 720, 894, 930, 1449, 1530 %: it rises at every rank.
+- **Stance.** `action_field: "action"` on the definition makes `Loadout.stats` read the WZ level's own `action` string:
+  `burster1` (levels 1-15, ranks 1-4) for two hits, `burster2` (16-30, ranks 5-8) for three. `action_times {"burster1": 0.9,
+  "burster2": 1.05}` holds the stance for the body action's own delays (Character.wz 00002000.img, tier A, D1). No
+  definition without `action_field` / `action_times` changes.
+- **Art.** `effect` (the dragon wings, 2 frames) rides the `cast` event; `cast_visuals` plays `effect0` (the rune rings) and
+  `effect1`..`effect3`, each `follow`ing the knight (mirrored with its facing). `effectK` is the K-th dragon thrust (tier B
+  reading, D1: each starts with a blank wait of 600 / 750 / 900 ms where the body thrusts), so an entry carries
+  `min_attack_count: K` and a cast with two damage lines plays `effect1` and `effect2`, one with three also `effect3`.
+  Final Attack's extra line therefore also adds its thrust (tier C). `hit/0` (4 frames) lands on each target; the Use sound
+  is `Sound.wz/Skill.img/1311001/Use`. `art_by_family {"polearm": 1311002}` re-points every path (effect, `cast_visuals`,
+  `hit`, the Use sound) to the pole arm twin through `SkillBook.art_skill_id`; the numbers are identical in the WZ.
+- **Loadout.** `stats()` carries `cast_visuals` ([{path, x, follow}], filtered by `min_attack_count`, paths re-pointed to
+  the held weapon's twin); `RunScene._on_cast` plays them (an entry without `follow` keeps the old world-position
+  behaviour of Rush's dust).
+- **Rarity bonuses.** Rare "Mastery" damage x1.2; Epic "Booster" cooldown x0.88; Unique "Final Attack" +1 hit line
+  (`attack_count`); Legendary the same id and effect plus damage x1.2 (sharing the Unique's repeat counter); repeat scale
+  0.8. Each changes the resolved cast (`test_rarity_bonus_effects`).
+- **Power Strike and Slash Blast stay Hero's** (DK-13): Dark Knight lists the keys in its pool and defines nothing. With a
+  held Spear they stab (`stabT1`, reach 150 px in the test's boxes), with a Pole Arm they swing (`swingP1`); Slash Blast
+  does not depend on the weapon. Hero's Combo meter does nothing for job 132 (no `meter` config, no `meter_changed` event, no
+  damage factor): pinned by `test_dark_knight_core_melee`.
+- **Frame delays stored as text.** Some canvases (`effect1`..`3` frame 2, the Dragon Fury afterimage, the pig mobs, a few map
+  objects) store `delay` as a string (`"200"`). `SpriteAnim.delay_seconds` now reads a numeric string like a number (it
+  used to treat it as the 100 ms default). Presentation only: the sim never reads `SpriteAnim`. The mob stance-duration reader
+  in `mob_kind.gd` (sim) still treats a text delay as 100 ms; it was left alone because changing it shifts the pig mobs'
+  attack timing, which is a balance-visible change.
+
+
+### 7.69 Dragon Fury and Sacrifice (#354, spec #348 D6)
 
 The Dark Knight's two HP-paying hits, both in `skills/dark_knight.json` (`dragon_fury`, `sacrifice`), built on the HP-risk
-seam (7.71). No new simulation code beyond one art lookup.
+seam (7.66). No new simulation code beyond one art lookup.
 
 - **Dragon Fury** (1311003; twin 1311004 for a pole arm via `art_by_family`, art only). A literal `box` cast of the skill's own
   `afterimage` rectangle `lt (-241,-81) rb (-16,31)` (tier A; the node has no `lt`/`rb`; the spear and pole arm boxes are
@@ -6534,10 +6474,101 @@ seam (7.71). No new simulation code beyond one art lookup.
   x1.2, Epic `achilles` "Achilles" `self_damage` x0.6 (rank 1: 18% -> 10.8%; the cap does not move), Unique `berserk` "Berserk"
   `low_hp_damage` +0.5 (damage x1.5 at or below half HP, read at the cast), Legendary `berserk` (same id and counter) + damage
   x1.2. The recoil is computed on the boosted damage, so Berserk makes Sacrifice hurt more.
-- **Card text.** Sacrifice's line carries the HP-risk mechanic line "Recoil: 18% of damage dealt (at most 10% of max HP)" (7.71).
+- **Card text.** Sacrifice's line carries the HP-risk mechanic line "Recoil: 18% of damage dealt (at most 10% of max HP)" (7.66).
 - **Audit.** `test_rarity_bonus_effects` learned the HP stats: `self_damage` (recoil paid per damage dealt), `low_hp_damage`
   (damage from 40% HP) and `hp_cost` (HP paid per cast; Dragon Roar's Dragon Blood, D7), in a Dark Knight world with a huge HP
   pool and a heavy weapon.
+
+**The Beholder (#357, spec #348 D9).** Dark Knight's level-10 pool skill (1321007, `skills/dark_knight.json`; job 132 is not
+playable until D10) and its two sub-skills, Aura of the Beholder (1320008) and Hex of the Beholder (1320009, DK-4, DK-5).
+`damage: none`, `kind summon`, stance `alert2` (0.6 s), a 45 s cooldown counted from the cast (a recast replaces the old
+Beholder) and a **60 s life**. The life is `buff.duration`, a new generic lever in `Loadout.stats`: a literal number of
+seconds that wins over the canonical `duration_field` (default `time`); no other skill defines it, and a `duration`
+modifier still scales it. The WZ `time` (720-1200 s) is session-scale and unused, as are `mpCon` and `mastery`.
+- **Ranks.** The Beholder's eight ranks read WZ levels 2 3 4 5 7 8 9 10 through the new shared default `rank_levels["10"]`
+  (`ceil(rank x 10 / 8)` with rank 1 = 2; the first spec to merge adds the row, the others reuse it unchanged). Aura and Hex
+  rank with the Beholder through their own explicit `ranks` table `[4, 7, 10, 13, 16, 19, 22, 25]`: Aura heals 85 / 170 / 200 /
+  280 / 360 / 390 / 470 / 500 HP every 10 / 9 / 8 / 7 / 7 / 6 / 5 / 4 s; Hex applies exactly the stats its level has (`pdd`
+  from level 1, `mdd` from 6, `acc` from 11, `eva` from 16, `pad` from 21: rank 1 `pdd` only, rank 8 all five, WZ `eva` ->
+  `avoid`, `pad` -> `watk`) for `time` 20 / 40 / 40 / 60 / 80 / 80 / 100 / 99 s every `x` 42 / 36 / 30 / 24 / 18 / 12 / 7 / 4 s.
+  Level 25's `time` is 99, not 100 (the WZ node, kept).
+- **Pulses.** The first Aura pulse is one interval after the cast, the first Hex pulse 3 s after it (tier C). The Hex
+  animation follows the newest unlocked stat (`skill2` pdd, `skill3` mdd, `skill4` acc, `skill5` avoid, `skill6` watk; the Aura
+  is `skill1`), and the owner-side `affected` column plays on the knight at each pulse.
+- **Rarity bonuses (tier C).** Rare "Aura of the Beholder" heal x1.3 (`support_heal`), Epic "Hex of the Beholder" every pulse
+  25% sooner (`support_rate` x0.75; the 3 s first Hex is not an interval and stays), Unique "Twin Beholder" +1 Beholder
+  (`summon_count`; each pulses on its own timers, the same stat refreshes and never stacks), Legendary Twin plus heal x1.3
+  (the Beholder has no damage; Twin shares one id, hence one repeat counter). A Normal Mastery is the cooldown bonus of every
+  `damage: none` skill (#346). `test_rarity_bonus_effects` probes the two support stats: HP restored in 30 s and pulses in 30 s,
+  with and without the bonus, plus a negative control.
+- **Flat heal.** Aura heals a flat HP amount (DK-5); the 500 HP of rank 8 is large against a Lv1 character with 600 max HP
+  and, with the Hex defence, is the balance pass's lever (the Beholder's cooldown and life are the others).
+
+
+### 7.70 Dragon Roar (#355, spec #348 D7)
+
+The Dark Knight's crowd-control panic button (`dragon_roar`, 1311006, book 131, in `skills/dark_knight.json`). It is Shout's
+box-and-stun shape with the HP-risk blocks of 7.66 on top, and it needs no new code: only data, tests and text.
+
+```json
+"cast": {"rule": "box", "min_targets": 3}, "cooldown": 10.0, "damage": "physical", "action": "alert3",
+"hp_cost": {"field": "x", "of": "max_hp"}, "hp_gate": {"above": 0.5},
+"on_hit": {"status": "stun", "duration_field": "y"}
+```
+
+- **Box and cap.** The WZ `lt`/`rb` are symmetric: half-width 140, 180, 220, 250, 290, 330, 370, 400 px at the eight ranks
+  (levels 4 8 12 15 19 23 27 30, the default 30-level table), from -155 to 55 px at rank 1 up to -350 to 250 px at rank 8;
+  `mobCount` 15. It admits at three mobs in the box (`min_targets 3`, Shout's rule). `damage` 114, 138, 160, 175, 195, 212,
+  228, 240 %.
+- **Stun.** `on_hit stun` has **no `chance_field`**, so it always lands and draws no random number
+  (`RunWorld._on_player_hit`: no field means 100 %), for `y` seconds: 4 4 3 3 3 2 2 2. Bosses are damaged and never stunned
+  (`MobSwarm.accepts_status`, the existing rule). The node has no `prop`, which is why the chance is absent.
+- **Cost and gate.** `x` is a share of max HP (DK-2): 56, 52, 48, 45, 41, 37, 33, 30 %. The cost is `floor(x / 100 x max HP)` taken
+  from current HP; the cast needs HP strictly above 50 % of max **and** HP to spare after the cost (7.66), otherwise it
+  waits, spends nothing and starts no cooldown. At rank 1 it fires only above 56 % HP and leaves 44 % or less, at rank 8
+  it fires above 50 % and leaves at least 20 %. After a cast the knight is usually below the gate, which blocks a second Roar
+  until Aura, potions or regeneration refill HP.
+- **Rarity bonuses** (repeat scale 0.8): Rare **Mastery** damage x1.2, Epic **Super Dragon Roar** area x1.2 (the box grows
+  from 140 to 168 px at rank 1), Unique **Dragon Blood** `hp_cost` x0.75 (336 -> 252 HP at 600 max HP: it can fire at
+  lower HP and leaves more), Legendary Dragon Blood plus damage x1.2 (sharing the Unique's id and repeat counter). Each
+  changes a resolved stat and is asserted on a cast in `test_dragon_roar.gd` and `test_rarity_bonus_effects.gd`
+  (`CORE_STATS` gained `hp_cost`: the HP the first cast pays).
+- **Text.** The Skill window line reads "Costs 56% of your max HP. Damage 114%, up to 15 monsters; stun for 4 sec." and the
+  mechanics line "Needs more than 50% HP" (7.66). A rank card previews `x` (the percentage) as its usual "Effect" and a
+  Dragon Blood card previews the effective HP cost.
+- **Art and sound.** `effect` 18 frames at 80 ms (1.44 s) at the caster, `hit/0` 3 frames on every struck mob, the stance
+  `alert3`, `Sound.wz/Skill.img/1311006/Use` (3.1 s: it overlaps the next cast, left as is).
+- **Tests.** `test_dragon_roar.gd` (20): the rank table and box, the 15 cap and `min_targets 3`, the stun seconds by rank,
+  the boss exemption, an unchanged main RNG stream against a twin without the stun, the cost by rank, the
+  cast-at-full-HP-then-blocked sequence, the exact 50 % boundary, Dragon Blood changing when it can fire, Super Dragon Roar
+  widening the box, the card ranks and bonuses, the text, and (real cache, SKIP without it) all eight ranks and the art.
+
+
+### 7.71 Rush and Monster Magnet (1321003, 1321001; #356, spec #348 D8)
+
+Dark Knight's mobility skill **Rush** (`rush_dark_knight`, 1321003) and the **Monster Magnet** (`monster_magnet_dark_knight`,
+1321001) are data copies of Hero's `rush_hero` and `monster_magnet` in `skills/dark_knight.json`; no engine code changed.
+
+- **Rush.** The same definition field for field as `rush_hero` (rank rule, 2.0 s cooldown, `displacement` on `lt.x`, 80 px
+  dash knock-back, `rush` block, manual cast, `skill_key rush`), with the book's own ids, art (effect, `effect0` dust) and
+  the Use sound through its UOL. The one data difference is the body action **`rush`** (the node says `rush`; Hero's says
+  `rush2`); its 0.6 s duration equals `rush2`'s (100 + 500 ms). The weapon stays in hand: `rush` resolves to the spear's and
+  the pole arm's `stabT1` frames (D1). Learned at start on the mobility slot, never in the pool, never a card, no rarity list.
+  It ranks with the round level through `balance.mobility_rank_levels`: rank 1 = WZ level 4 (78 %, 170 px) at Lv1, rank 8 =
+  level 30 (130 %, 250 px, box (-250, -50)) from Lv16, `mobCount` 15 throughout.
+- **Monster Magnet.** Hero's Magnet field for field (`range_around` with `min_targets 3`, the shared `pull` block with
+  `chance_field prop`, `range_field range`, `min_gap 60`, `damage none`, `alert2`, 0.6 s hold), with its own ids, the 18-frame
+  effect and the Use sound through its UOL. **Cooldown 4 s**, Hero's tuned value, copied. The four rarity lists are Hero's:
+  Rare Reach (`range` x1.2), Epic Bigger Grab (+2 targets), Unique Booster (cooldown x0.75), Legendary Booster plus +2 targets
+  (sharing the Unique's id). Normal Mastery (no damage) is the cooldown x0.95.
+- **Real numbers** (tier A, `cache-349`): Rush levels 4 and 30 and the Magnet's ranks 1..8 (range 200 -> 400 px, prop 48 -> 95 %,
+  mobCount 6) equal Hero's in every level row (D1); Magnet's level 1 prop is 42.
+- **Tests.** `test_rush.gd` is job-agnostic (`_job`, `_book`, `_key`, `_skill_id`, `_action`); `test_rush_dark_knight.gd` extends it so
+  the whole Hero Rush set re-runs for Dark Knight with the body action `rush`, plus the data-copy test, the Lv1..40 rank-alike test
+  and the real-cache level 30 check. `test_monster_magnet_dark_knight.gd` pins the Magnet (definition, 3-mob admission, range /
+  chance / cap by rank, no damage, cooldown, pull identical to Hero's key over seeds 1, 2, 313, each rarity bonus changing a
+  resolved stat, the mastery cooldown, real-cache ranks, art and sound).
+
 
 ## 8. Upgrades
 
@@ -7911,6 +7942,23 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Magnet cooldown | 4 s | tier C: Hero's tuned value (#346), copied (DK-14) |
 | Magnet rarity lists | Hero's: Reach x1.2, +2 targets, Booster x0.75, Legendary Booster + 2 | tier C: Hero's #303 bonuses, copied |
 
+### Beholder constants (#357)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Aura `hp` and `x`, Hex `pdd`/`mdd`/`acc`/`eva`/`pad`/`time`/`x` at the eight sub levels | canonical, as is | tier A: Skill.wz 1320008 / 1320009 (D1) |
+| Hex stat unlock levels | pdd 1, mdd 6, acc 11, eva 16, pad 21: a stat absent from the level is not carried | tier A: the level nodes |
+| `rank_levels["10"]` | `[2, 3, 4, 5, 7, 8, 9, 10]`, ceil(rank x 10 / 8) with rank 1 = 2 | tier C: ADR 0006 #287, DK-11 |
+| Sub-skill `ranks` | `[4, 7, 10, 13, 16, 19, 22, 25]` | tier C: DK-4 |
+| Life | 60 s (`buff.duration`) instead of the WZ `time` (720-1200 s) | tier C: DK-6 |
+| Cooldown | 45 s, counted from the cast | tier C: DK-6 |
+| First pulses | Aura one interval after the cast, Hex 3 s after it | tier C: DK-6 |
+| Cast stance | `alert2`, held 0.6 s | tier A: the body action's frames (D1) |
+| Follow settings | speed 180, distance 60, teleport at 600 (Elquines') | tier C |
+| WZ stat names onto the player | `eva` -> `avoid`, `pad` -> `watk` | tier C: ours |
+| Animations | `skill1` Aura, `skill2`-`skill6` the Hex runes in unlock order, `affected` on the knight | tier B: D1 contact sheet |
+| Rarity bonuses | Rare heal x1.3, Epic pulses x0.75 sooner, Unique +1 Beholder, Legendary + heal x1.3 | tier C: spec #348 |
+
 ### HP-risk constants (#351)
 
 | Constant / rule | Value | Provenance |
@@ -7944,7 +7992,7 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Constant / rule | Value | Provenance |
 |---|---|---|
 | Damage, `mobCount`, `lt`/`rb` box, `x`, `y`, `alert3`, effect (18 x 80 ms), hit (3 frames) | Skill.wz 1311006 as read at levels 4 8 12 15 19 23 27 30 | tier A: verified in v83 data (D1 #349) |
-| HP gate | current HP strictly above 50 % of max | tier A: the String.wz text "works only when more than 50% of HP is left"; the strict comparison is tier C (7.71) |
+| HP gate | current HP strictly above 50 % of max | tier A: the String.wz text "works only when more than 50% of HP is left"; the strict comparison is tier C (7.66) |
 | `x` read as the cost in percent of max HP, `y` as the stun seconds | 56 -> 30 %, 4 -> 2 s | tier A reading: String.wz level 1 "59% HP ... Stun for 4 Seconds" matches `x` 59 and `y` 4 exactly (DK-2) |
 | Stun always lands on non-bosses | no `chance_field`, no RNG draw | tier A (the node has no `prop`); bosses never stunned: the existing rule |
 | Cooldown | 10 s | tier C: spec DK-9 first-pass cadence |
