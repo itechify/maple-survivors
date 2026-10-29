@@ -412,6 +412,16 @@ A timed player-owned ally cast by an active skill. It follows or waits at its ow
 its map-local lifetime ends on expiry or map transfer. It occupies its skill’s active slot, uses the original skill
 id and WZ animations, and is separate from a cash pet or a monster summoned by a boss.
 
+**Support summon**:
+A summon whose definition carries `summon.support`: it follows its owner and pulses instead of attacking. Its pulses'
+numbers come from sub-skills read through the summon's rank; the Beholder is the first.
+_Avoid_: pet, attack summon (the ordinary summon), buff skill
+
+**Pulse**:
+One timed effect of a support summon (a heal or a buff on the owner), with its own countdown per summon, its own
+animation and a `support_pulse` event. A pulse kind is an entry of `SupportSummons.KINDS`.
+_Avoid_: tick, proc (a pulse is on a timer, never a chance)
+
 **Meter**:
 A round-owned integer counter, filled by configured events and spent by finishers. It survives map transfers,
 starts at zero each round, and is shown as HUD pips. M1 is shared by Hero, Buccaneer and Shadower.

@@ -1080,6 +1080,8 @@ func handle_events(events: Array) -> void:
 				_on_mob_attack(e)
 			"cast":
 				_on_cast(e)
+			"support_pulse":
+				_on_support_pulse(e)
 			"skill_thrown":
 				_on_skill_thrown(e)
 			"skill_landed":
@@ -1310,6 +1312,16 @@ func _on_cast(e: Dictionary) -> void:
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
+
+
+## A support summon's pulse (#352): the parent skill's owner-side `affected` art on the character (tier B: its use is
+## not documented); the summon's own pulse animation is drawn from the sim state by PlayerSummonRenderer.
+func _on_support_pulse(e: Dictionary) -> void:
+	var summons := world.runner.summons
+	if int(e.slot) < summons.stats.size():
+		var parent := String(summons.stats[int(e.slot)].skill)
+		fx.play(world.book.wz_path(parent) + "/affected", Vector2.ZERO, world.player.facing > 0, avatar)
+	_first_event_shot("support_pulse_" + String(e.kind), "support_pulse_%s.png" % e.kind, 0.25)
 
 
 ## A thrown grenade (#192): the ball follows consumed sim time; only skill_landed starts its blast.

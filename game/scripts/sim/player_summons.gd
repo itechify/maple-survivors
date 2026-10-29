@@ -14,6 +14,8 @@ var impact := PackedFloat64Array()
 var stats: Array[Dictionary] = []
 var definitions: Array[Dictionary] = []
 var offsets := PackedFloat32Array()
+## Pulse countdowns of the summons whose definition carries `summon.support` (docs/GAME_DESIGN.md 7.72).
+var support := SupportSummons.new()
 var _buf := PackedInt32Array()
 
 ## Test hook: number of allies still able to attack.
@@ -38,7 +40,12 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 	var attack_node: Dictionary = node.get(String(d.attack), {})
 	d["info"] = attack_node.get("info", {})
 	d["durations"] = {}
-	for a: String in ["summoned", "stand", "move", String(d.attack), "die"]:
+	var anims: Array[String] = ["summoned", "stand", "move", "die"]
+	if String(d.attack) != "": # a support summon has no attack animation, only the pulses' own
+		anims.append(String(d.attack))
+	for pulse: Dictionary in st.get("support", []):
+		anims.append(String(pulse.anim))
+	for a: String in anims:
 		d.durations[a] = WeaponInfo.frame_times(node.get(a, {})).total
 	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "summon_count", 1.0)))
 	for ordinal in count:
@@ -69,6 +76,8 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 		_set_action(i, "summoned")
 		wait[i] = float(d.durations.summoned)
 		impact[i] = -1.0
+		if d.has("support"):
+			support.begin(i, st.get("support", []), d.durations)
 		world.emit("summon_spawn", {"skill": st.skill, "slot": i})
 
 ## Advances follow, windup, impact and expiry with fixed simulation ticks.
@@ -86,6 +95,7 @@ func step(dt: float, world: RunWorld) -> void:
 			if age[i] >= float(d.durations.die):
 				active[i] = 0
 			continue
+		var pulse_anim := support.step(i, dt, world) if d.has("support") else ""
 		wait[i] -= dt
 		if impact[i] >= 0.0:
 			impact[i] -= dt
@@ -105,7 +115,9 @@ func step(dt: float, world: RunWorld) -> void:
 			pos = pos.move_toward(destination, float(d.follow_speed) * dt)
 		x[i] = pos.x
 		y[i] = pos.y
-		_set_action(i, "move" if moved else "stand")
+		_set_action(i, pulse_anim if pulse_anim != "" else "move" if moved else "stand")
+		if d.has("support"):
+			continue
 		if world.is_hidden() or bool(world.player_state.dead):
 			continue
 		var targets := _targets(i, world, true)
