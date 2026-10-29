@@ -1,6 +1,6 @@
 extends TestCase
 ## Bowmaster's data seam (spec #332, ticket B2 #334): the `bowmaster` data line is discovered from its files, the job entry
-## `survivor/jobs/bowmaster.json` (312, not playable, NO mobility skill: ruling D1), its AP row, the `default_job` pin, the
+## `survivor/jobs/bowmaster.json` (312, playable, NO mobility skill: ruling D1), its AP row, the `default_job` pin, the
 ## weapon families of its equipment drops (bows only; armour by the Bowman class bit) and the code paths that have never met
 ## a job without a mobility skill (start skills, the learned skills, the quick slot, Key Config and the bot).
 ## Seeded RNG and fixed dt; item info is synthetic unless a test says "real cache".
@@ -93,7 +93,7 @@ func test_the_bowmaster_line_loads_without_errors_and_adds_its_job_and_its_skill
 
 # --- the job entry ----------------------------------------------------------------------------------------------------
 
-func test_job_312_has_the_spec_fields_and_is_not_playable() -> void:
+func test_job_312_has_the_spec_fields_and_is_playable() -> void:
 	var jobs := _jobs(_data())
 	var rec := jobs.job(312)
 	assert_eq(String(rec.name), "Bowmaster")
@@ -102,9 +102,9 @@ func test_job_312_has_the_spec_fields_and_is_not_playable() -> void:
 	assert_eq(jobs.skill_pool(312).size(), 10)
 	assert_eq(jobs.weapon_families(312), ["bow"])
 	assert_eq(jobs.creation_weapon(312), 1452002)
-	assert_false(bool(rec.playable), "Bowmaster stays unselectable until B12/B13")
-	assert_true(jobs.job_error(312) != "", "a tool cannot make one yet")
-	assert_eq(jobs.playable_jobs(), [112, 212, 222] as Array[int], "Hero, F/P and I/L; not Bowmaster")
+	assert_true(bool(rec.playable), "Bowmaster is selectable")
+	assert_eq(jobs.job_error(312), "")
+	assert_eq(jobs.playable_jobs(), [112, 212, 222, 312] as Array[int], "Hero, F/P, I/L and Bowmaster")
 
 
 func test_job_312_declares_no_mobility_skill_key() -> void:

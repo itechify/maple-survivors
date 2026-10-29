@@ -1,10 +1,10 @@
 extends TestCase
 ## `--job=312` through the tools (spec #332, B12 #344): the run flags, balance_run, the fixture tool, the committed Bowmaster
-## fixture and a `--character` of another job. Bowmaster ships `playable: false` until B13, so these mirror the flip with a
-## patch file (`DataRepo.patch` in process, `--patch=` in a subprocess). Subprocess tests that play a round need the cache
+## fixture and a `--character` of another job. Acceptance uses shipped data; explicit disabling patches test refusal.
+## Subprocess tests that play a round need the cache
 ## (`require_cache()`); the data-level checks run in CI.
 
-const PLAYABLE := {"jobs_survivor": {"jobs": {"312": {"playable": true}}}}
+const DISABLED := {"jobs_survivor": {"jobs": {"312": {"playable": false}}}}
 const FP_FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 const BOW_FIXTURE := "res://tests/fixtures/characters/bowmaster_t2.json"
 ## The tier-1 bow kit: Battle Bow (reqLevel 25) and the Bowman-bit hat (30), shoes (20) and gloves (15), the starter top and bottom.
@@ -54,27 +54,27 @@ func _record(text: String) -> Dictionary:
 	return {}
 
 
-func test_run_flags_name_312_and_refuse_it_until_it_is_playable() -> void:
+func test_run_flags_accept_shipped_312_and_refuse_it_when_disabled() -> void:
 	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=312", "--seed=3"]))
 	assert_eq(int(parsed.options.job), 312)
 	assert_eq(RunLauncher.options_from_args({"job": "312"}).job, 312)
-	assert_true(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()).contains("not playable"), "shipped Bowmaster is not playable until B13")
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	assert_eq(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()), "")
-	assert_eq(SceneFlow.forced_job_error({"job": 212}, DataRepo.load_all()), "", "and --job=212 still is")
-	assert_eq(DataRepo.jobs(DataRepo.load_all()).default_job(), 212, "three playable jobs, the default stays 212")
+	assert_eq(SceneFlow.forced_job_error({"job": 212}, DataRepo.load_all()), "")
+	assert_eq(DataRepo.jobs(DataRepo.load_all()).default_job(), 212)
+	DataRepo.patch = DISABLED.duplicate(true)
+	assert_true(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()).contains("not playable"))
 
 
-func test_balance_run_accepts_312_with_a_patch_and_refuses_it_without() -> void:
+func test_balance_run_accepts_shipped_312_and_refuses_a_disabled_patch() -> void:
 	if not require_cache():
 		return
-	var patch := _file("bow_playable.json", JSON.stringify(PLAYABLE))
+	var patch := _file("bow_disabled.json", JSON.stringify(DISABLED))
 	var base := PackedStringArray(["--stage=henesys", "--seed=1", "--cap=0.016666667", "--job=312"])
-	var refused := _tool("res://tools/balance_run.gd", base)
+	var refused := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--patch=" + patch]))
 	assert_eq(refused.status, 2, refused.text)
 	assert_true(refused.text.contains("not playable"), refused.text)
 	assert_true(_record(refused.text).is_empty())
-	var ok := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--patch=" + patch]))
+	var ok := _tool("res://tools/balance_run.gd", base)
 	assert_eq(ok.status, 0, ok.text)
 	var record := _record(ok.text)
 	assert_false(record.is_empty(), "a record was printed")
@@ -85,9 +85,8 @@ func test_balance_run_accepts_312_with_a_patch_and_refuses_it_without() -> void:
 func test_job_212_with_a_bowmaster_character_and_job_312_with_an_arch_mage_character_are_errors() -> void:
 	if not require_cache():
 		return
-	var patch := PackedStringArray(["--patch=" + _file("bow_playable.json", JSON.stringify(PLAYABLE))])
 	var bow := _bowmaster_file()
-	var base := PackedStringArray(["--stage=henesys", "--cap=0.016666667"]) + patch
+	var base := PackedStringArray(["--stage=henesys", "--cap=0.016666667"])
 	var a := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--job=212", "--character=" + bow]))
 	assert_eq(a.status, 2, a.text)
 	assert_true(a.text.contains("does not match the character's job 312"), a.text)
@@ -103,25 +102,24 @@ func test_job_212_with_a_bowmaster_character_and_job_312_with_an_arch_mage_chara
 func test_a_bowmaster_character_file_needs_no_job_flag() -> void:
 	if not require_cache():
 		return
-	var patch := _file("bow_playable.json", JSON.stringify(PLAYABLE))
 	var run := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--cap=0.016666667",
-		"--patch=" + patch, "--character=" + _bowmaster_file()]))
+		"--character=" + _bowmaster_file()]))
 	assert_eq(run.status, 0, run.text)
 	assert_eq(int(_record(run.text).job), 312, "the job comes from the character")
 
 
-func test_the_fixture_tool_makes_a_bowmaster_with_a_patch_and_refuses_without() -> void:
+func test_the_fixture_tool_makes_a_shipped_bowmaster_and_refuses_a_disabled_patch() -> void:
 	if not require_cache():
 		return
-	var patch := _file("bow_playable.json", JSON.stringify(PLAYABLE))
+	var patch := _file("bow_disabled.json", JSON.stringify(DISABLED))
 	var out := ProjectSettings.globalize_path(work_dir.path_join("bow_kit.json"))
 	var args := PackedStringArray(["--out=" + out, "--revision=0123456789012345678901234567890123456789", "--job=312",
 		"--kit=" + ",".join(KIT.map(func(id: int) -> String: return str(id))), "--tiers=2", "--label=test"])
-	var refused := _tool("res://tools/character_fixture.gd", args)
+	var refused := _tool("res://tools/character_fixture.gd", args + PackedStringArray(["--patch=" + patch]))
 	assert_eq(refused.status, 2, refused.text)
 	assert_true(refused.text.contains("not playable"), refused.text)
 	assert_false(FileAccess.file_exists(out))
-	var made := _tool("res://tools/character_fixture.gd", args + PackedStringArray(["--patch=" + patch]))
+	var made := _tool("res://tools/character_fixture.gd", args)
 	assert_eq(made.status, 0, made.text)
 	var errors := PackedStringArray()
 	var character := DataRepo.load_character(out, errors)
@@ -131,7 +129,7 @@ func test_the_fixture_tool_makes_a_bowmaster_with_a_patch_and_refuses_without() 
 	assert_eq(int(character.job_id), 312)
 	assert_eq(int(character.tiers_unlocked), 2)
 	assert_eq(int(character.equipment.worn.weapon.id), 1452000)
-	assert_eq(String(character._doc.patch), "bow_playable.json", "the patch that was needed is recorded")
+	assert_eq(String(character._doc.get("patch", "")), "", "shipped data needs no patch")
 
 
 func test_the_committed_fixture_is_a_format_three_bowmaster_with_the_tier_one_bow_kit() -> void:
@@ -173,9 +171,8 @@ func test_the_fixture_gear_is_wearable_by_a_bowmaster_and_its_bow_fires_ammo() -
 func test_a_one_off_round_from_the_fixture_has_arrows_and_no_missing_assets() -> void:
 	if not require_cache():
 		return
-	var patch := _file("bow_playable.json", JSON.stringify(PLAYABLE))
 	var run := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--seed=1", "--cap=20",
-		"--patch=" + patch, "--character=" + ProjectSettings.globalize_path(BOW_FIXTURE)]))
+		"--character=" + ProjectSettings.globalize_path(BOW_FIXTURE)]))
 	assert_eq(run.status, 0, run.text)
 	var record := _record(run.text)
 	assert_false(record.is_empty())

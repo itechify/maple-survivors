@@ -185,7 +185,7 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
   scenario plays its own card policy once the slots are full (it ranks the highest-ranked owned active so a Mastery card
   appears; the bot rarely gets there, GAME_DESIGN section 0); `summary.json` holds the offers, picks, rarities and the
   showcased windows. This is flow evidence, not survival or balance evidence.
-- `creation` (#305, #330: the Job page and creation of every playable job, or of `--jobs=<id,id>` such as `--jobs=212,222`, in separate slots: the page lists
+- `creation` (#305, #330: the Job page and creation of every playable job, or of `--jobs=<id,id>` such as `--jobs=112,212,312` (at most three jobs, matching the three character slots), in separate slots: the page lists
   them in canonical order, the chosen row is highlighted, each slot holds its job with its creation weapon; about 30 s).
 - `title` (the title screen only; for checking an exported build: `MapleSurvivors.exe res://scenes/debug/flow_driver.tscn
   -- --scenario=title --shots=<dir>`), `import` (a cache-less start, or the title's Re-import link: the import screen,
@@ -253,7 +253,7 @@ gloves, unscrolled); its `_doc` records the kit ids, label and revision, and `ga
 with tier 2 unlocked; its `_doc` records this diagnostic origin. Reproduce it with `--job=112 --god`. Its I/L twin `il_arch_mage_t2.json` (job 222, spec #319 I11: the same kit as F/P's and tier 2) was made with `--job=222 --patch=<playable patch>` before I12 enabled I/L, and its `_doc.patch` names the patch file (history; new generation needs no patch); `--hub --job=222` opens it, `--character=<it>` runs an I/L (a `--job=212` with it fails).
 `bowmaster_t2.json` is the Bowmaster (312) fixture (B12 #344): kit mode like F/P's (`--job=312 --kit=1452000,1002163,1072025,1082012,1040002,1060002
 --tiers=2`: a Battle Bow, a Bowman-bit reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15 gloves and the starter top and bottom, unscrolled, tier 2
-open). **Every Bowmaster run needs a bow in hand**: without one `Ammo` gives 0 and the arrow sprite lookup fails (`missing`).
+open). Its historical `_doc.patch` records B12's generation before enablement; new generation needs no patch. **Every Bowmaster run needs a bow in hand**: without one `Ammo` gives 0 and the arrow sprite lookup fails (`missing`).
 The same tool can also write the character a real bot
 round leaves behind, and converts old files.
 
@@ -284,7 +284,7 @@ Use focused filters excluding `full_run` while tuning; freeze data and pacing wi
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
 `--job=<id>` names the character's job in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd` and the fixture tool (ADR 0006:
-a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Arch Mage (Fire, Poison, 212) and Arch Mage (Ice, Lightning, 222; spec #319, I12 flipped `playable`); the Bowmaster (312) ships `playable: false` until B13 and is previewed with `PATCH=/abs/bowmaster_playable.json` (`{"jobs_survivor":{"jobs":{"312":{"playable":true}}}}`; `character_fixture.gd --patch=`, `balance_run.gd --patch=`) and, in tests, `DataRepo.patch`. `--job=112` selects Hero, `--job=222` the I/L Arch Mage, `--job=312` the Bowmaster; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
+a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Arch Mage (Fire, Poison, 212), Arch Mage (Ice, Lightning, 222) and Bowmaster (312, enabled by B13 #345). `--job=112` selects Hero, `--job=222` the I/L Arch Mage, `--job=312` the Bowmaster; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
 `SceneFlow.forced_job_error`), and a `--character` whose job disagrees fails. A tool that names no job gets
 `JobTree.default_job()`, pinned to 212 by `survivor/jobs.json` whatever else is playable. `--branch=<id>` is the deprecated alias. There is no advancement, so records have no
 `branch`, `forced_branch`, `job_t` or `job_times`; they carry the job id (`jobs` in the summary) and, from #293, `picks`

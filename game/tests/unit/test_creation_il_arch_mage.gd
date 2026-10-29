@@ -121,17 +121,17 @@ func test_up_and_down_step_through_every_row_and_clamp_at_the_ends() -> void:
 	var creation := _job_page(_flow(), "IlKeys01")
 	var ids := _expected()
 	creation.select_job(ids[ids.size() - 1])
-	assert_eq(creation.job_id, 222, "I/L is the last row")
+	assert_eq(creation.job_id, ids[-1], "the last playable row")
 	creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 222, "Down at the last row stays")
+	assert_eq(creation.job_id, ids[-1], "Down at the last row stays")
 	creation._input(_key(KEY_UP))
-	assert_eq(creation.job_id, ids[ids.size() - 2], "Up from I/L is the row above")
+	assert_eq(creation.job_id, ids[ids.size() - 2], "Up from the last row")
 	for i in ids.size():
 		creation._input(_key(KEY_UP))
 	assert_eq(creation.job_id, ids[0], "Up clamps at the first row")
 	for i in ids.size():
 		creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 222)
+	assert_eq(creation.job_id, ids[-1])
 
 
 func test_arrow_keys_do_nothing_off_the_job_page() -> void:

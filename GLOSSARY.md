@@ -365,9 +365,13 @@ _Avoid_: weapon type (in docs; that is the v83 item-id prefix), weapon class
 
 **Ammo tier**:
 The throwing stars, arrows or bullets a ranged character fires: one real v83 ammo item at a time, endless and never
-an item stack. The class starts on its basic ammo, and the specialist branch moves up the tiers by itself at fixed
-levels, changing the projectile you see.
+an item stack. The weapon family starts on basic ammo; the exact job and round level select later tiers, changing
+the projectile you see (each round starts at Lv1).
 _Avoid_: ammo card, ammo stack, projectile (that is the shot on screen)
+
+**Ammo schedule**:
+The ammo milestones for one exact job and weapon family, reached at fixed levels within a round. A different
+job or weapon family starts with its own basic ammo; milestones are not inherited from ancestor jobs.
 
 **Worn equipment**:
 The equipment currently in a character's equip slots; only worn equipment adds stats.
