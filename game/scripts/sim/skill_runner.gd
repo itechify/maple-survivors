@@ -821,7 +821,6 @@ func _any_target(world: RunWorld, origin: Vector2, rng_px: float, want: int) -> 
 
 func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector2, targets: PackedInt32Array) -> void:
 	var n := targets.size()
-	var hv := world.visual_index(String(st.hit))
 	if String(st.kind) == "projectile":
 		for k in int(st.count):
 			var m := targets[k % n]
@@ -829,20 +828,20 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 			var aim := world.mob_center(m) + Vector2(0.0, REUSE_SPREAD * reuse * (1.0 if k % 2 == 0 else -1.0))
 			fire_shot(world, key, st, origin, aim)
 	else:
-		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), hv)
+		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), world.visual_index(String(st.hit)))
 
 
 ## Launches one nearest-rule projectile at a body-centre point, preserving the cast's shared meter receipt.
-func fire_shot(world: RunWorld, key: String, st: Dictionary, origin: Vector2, target: Vector2) -> void:
+func fire_shot(world: RunWorld, key: String, st: Dictionary, origin: Vector2, target: Vector2, hand: Variant = null) -> void:
 	var aim := target
 	var speed := float(st.speed)
 	var hv := world.visual_index(String(st.hit))
 	var vis := world.visual_index(String(st.ball))
 	if bool(world.book.def(key).get("ammo_shot", false)):
 		vis = world.visual_index(Ammo.bullet_path(world.ammo_id()))
-	var start := world.shot_origin(aim)
+	var start: Vector2 = world.shot_origin(aim) if hand == null else hand
 	var dir := (aim - start).normalized()
-	if dir == Vector2.ZERO or signf(aim.x - start.x) != signf(aim.x - origin.x):
+	if hand == null and (dir == Vector2.ZERO or signf(aim.x - start.x) != signf(aim.x - origin.x)):
 		# A target inside the reach of the hand: fly straight at it from the body instead.
 		start = origin
 		dir = (aim - origin).normalized()
@@ -869,7 +868,6 @@ static func cast_snapshot(st: Dictionary) -> Dictionary:
 	if st.has("meter_receipt"):
 		out["meter_receipt"] = st.meter_receipt
 	return out
-
 
 
 func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:

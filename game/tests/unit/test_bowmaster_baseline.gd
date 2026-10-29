@@ -21,7 +21,12 @@ func _replay(ticks: int) -> Dictionary:
 	for opening: Array in [[0, 0.15, 3], [1, 0.4, 8], [2, 0.6, 12]]:
 		data.stages.stages.henesys.keyframes[int(opening[0])].rate = float(opening[1])
 		data.stages.stages.henesys.keyframes[int(opening[0])].max_alive = int(opening[2])
-	var w := RunWorld.new(BF.setup("henesys", 1, data))
+	var setup := BF.setup("henesys", 1, data)
+	# Review #332: freeze the original replay's sword outfit explicitly; bare tools now wear creation weapons.
+	setup.character = {"format": 3, "job_id": 312, "look": {},
+		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
+		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
+	var w := RunWorld.new(setup)
 	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)
 	legacy_curve.erase("maps")
 	w.director = SpawnDirector.create(legacy_curve, w.kind_of_id, data.balance.get("spawn", {}))

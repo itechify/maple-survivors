@@ -42,7 +42,7 @@ const PERCENT_FIELDS := ["mastery", "hp", "damage", "prop", "knockback_chance", 
 ## TARGETS), in display order. tier C: our wording.
 const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Targets", ""], "attack_count": ["Hits", ""], "pierce": ["Pierce", ""],
 	"blast_targets": ["Blast targets", ""], "pierce_falloff": ["Pierce fall-off", "%"],
-	"damage": ["Damage", "%"], "burn_damage": ["Burn", "%"], "cooldown": ["Cooldown", " s"], "area": ["Reach", "%"], "range": ["Range", " px"],
+	"damage": ["Damage", "%"], "cooldown": ["Cooldown", " s"], "area": ["Reach", "%"], "range": ["Range", " px"],
 	"speed": ["Shot speed", ""], "crit": ["Critical rate", "%"]}
 
 ## Emitted with the picked card's id.
@@ -206,10 +206,12 @@ static func rank_text(card: Dictionary) -> String:
 static func change_lines(card: Dictionary) -> PackedStringArray:
 	var lines := PackedStringArray()
 	var mods: Dictionary = card.get("skill_mod_changes", {})
-	for key: String in MOD_LABELS:
+	var labels := MOD_LABELS.duplicate()
+	labels.merge(UpgradePool.MODIFIER_PREVIEW)
+	for key: String in labels:
 		if mods.has(key) and mods[key].before != mods[key].after:
-			var unit: String = MOD_LABELS[key][1]
-			lines.append("%s: %s%s → %s%s" % [MOD_LABELS[key][0], SkillText.number(float(mods[key].before)), unit,
+			var unit: String = labels[key][1]
+			lines.append("%s: %s%s → %s%s" % [labels[key][0], SkillText.number(float(mods[key].before)), unit,
 				SkillText.number(float(mods[key].after)), unit])
 	var changes: Dictionary = card.get("skill_changes", {})
 	var x_label: Array = X_LABELS.get(String(card.get("skill_effect_stat", "")), X_LABEL_DEFAULT)

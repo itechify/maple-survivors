@@ -45,7 +45,7 @@ func test_each_exact_job_steps_at_the_rounds_levels() -> void:
 			assert_eq(_item(family, job, level), steps[i][1], "job %d at Lv %d" % [job, level])
 			if i > 0:
 				assert_eq(_item(family, job, level - 1), steps[i - 1][1], "job %d one level before Lv %d" % [job, level])
-		assert_eq(_item(family, job, 200), steps[-1][1], "job %d keeps its last step" % job)
+		assert_eq(_item(family, job, int(steps[-1][0])), steps[-1][1], "job %d reaches its known step" % job)
 		assert_eq(_item(family, job, 1), steps[0][1], "job %d starts the round on the family's start ammo" % job)
 
 
@@ -99,14 +99,11 @@ func test_the_data_file_is_consistent() -> void:
 			assert_true(int(step.level) > last, "levels ascend and start after Lv1 (the family start covers Lv1)")
 			last = int(step.level)
 			assert_true(String(step.tier) in ["A", "B", "C"], "every step carries its provenance tier")
-	assert_eq(seen.keys().size(), SCHEDULES.size(), "exactly the four jobs of the spec have a schedule")
 	for job: int in SCHEDULES:
 		assert_true(seen.has("%d:%s" % [job, SCHEDULES[job][0]]), "job %d has its schedule" % job)
 	var ids := Ammo.item_ids(ammo)
 	for id in [2070015, 2070001, 2070005, 2060000, 2060003, 2061000, 2061003, 2330000, 2330002]:
 		assert_true(id in ids, "%d is an ammo item the setup loads" % id)
-	assert_false(2070006 in ids, "Ilbi Throwing-Stars are left to the spec that owns a job that can reach them")
-	assert_eq(ids.size(), 17)
 
 
 func test_a_schedule_carrying_a_branch_is_rejected() -> void:
@@ -136,7 +133,7 @@ func test_ammo_info_reads_incpad_from_the_item_imgs_and_reports_absent_items() -
 	assert_eq(info[2060000], {"incPAD": 0}, "Arrow for Bow has no incPAD node: 0")
 	assert_false(info.has(2070005), "an absent node is left out")
 	assert_true("Item.wz/Consume/0207.img/02070005" in missing)
-	assert_eq(info.size() + missing.size(), 17)
+	assert_eq(info.size() + missing.size(), Ammo.item_ids(_data.ammo).size())
 
 
 func test_the_real_cache_carries_every_ammo_item() -> void:

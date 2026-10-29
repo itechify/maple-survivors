@@ -142,6 +142,9 @@ const EVENT_FIELDS := {
 	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
 	"skill_landed": ["skill", "cast_time", "pos", "effect"],
 	# #342: a burst cast (Hurricane) began (`wind_up` s until its first arrow, `span` s to its last) and ended (finished or dropped); art only.
+	"summon_spawn": ["skill", "slot"], # optional sound: listed only by skills with a summon sound
+	"summon_attack": ["skill", "slot", "pos"],
+	"summon_strike": ["skill", "slot", "mob", "pos", "effect"],
 	"burst_start": ["skill", "wind_up", "span", "facing"],
 	"burst_end": ["skill"],
 	# #323 (chain cast rule): the bolt's polyline, caster hand then each struck link's body centre; the hits are mob_hit events.
@@ -1099,6 +1102,7 @@ func _settle_clear() -> bool:
 		_advance_queue() # normal job/card flow; step stays frozen until every answer is in
 	else:
 		state = CLEARED
+		runner.clear_pending(self)
 		emit("stage_cleared", {"time": time})
 	return true
 
@@ -2086,7 +2090,7 @@ func _init_player() -> void:
 		_restore_character(setup.character)
 	else:
 		progression.job_id = int(setup.get("job", jobs.default_job()))
-		equipment.worn = Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.get("equipment_info", {}))
+		equipment.worn = Equipment.worn_from_ids(CharacterSnapshot.held_item_ids({"job_id": progression.job_id}, jobs), setup.get("equipment_info", {}))
 	set_job(progression.job_id)
 	# tier C (#346): an optional job AP-row HP baseline; absent rows keep the shared starter HP.
 	_base_hp = float(_job_value(pb.get("ap", {}), {}).get("hp", _base_hp))
@@ -2537,6 +2541,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		_hp = 0.0
 		_dead = true
 		state = DEAD
+		runner.clear_pending(self)
 		emit("player_died", {"pos": player.pos})
 	elif bypass or upkeep.may_knock_back():
 		# tier C (owner, #223): a hit inside the knockback guard does its damage without pushing the player; a boss

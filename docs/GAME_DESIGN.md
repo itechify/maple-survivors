@@ -408,7 +408,7 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
 ### Monster statuses and elements (#54)
 
 `MobSwarm.apply_status(slot, status, params, events)` is the shared sim entry point for sibling skills. `status`
-is `slow`, `poison`, `freeze`, `threatened` or `stun` (`MobSwarm.STATUS_NAMES`, indices 0-4; `STATUS_COUNT = 5`); parameters contain the canonical `time` in seconds, signed
+is `slow`, `poison`, `freeze`, `threatened` or `stun` (`MobSwarm.STATUS_NAMES`, indices 0-4; `STATUS_COUNT = 5 (now 8)`); parameters contain the canonical `time` in seconds, signed
 `x` for Slow, or the applying canonical skill `level` for poison (plus an optional survivor `skill` key for damage
 events), and optionally the applying skill's canonical `element`. Each status is a row of one packed per-slot status
 table, refreshes without stacking, and clears on death, release or relocation. Application and natural expiry emit
@@ -5909,78 +5909,6 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. Rarity lists ship in the skill definition.
 
-### 7.40 Bowmaster pool and job data (#334, spec #332 B2)
-
-Bowmaster (312) gets its own data line `bowmaster` (`survivor/jobs/bowmaster.json`, `survivor/skills/bowmaster.json`
-with all ten skill definitions), registered after Hero and I/L in `DataRepo.CLASS_LINES`, following the seven
-Adventurer lines (ARCHITECTURE 4.4.4). The job entry carries the ten-skill pool
-(`arrow_blow` starting, then `bow_double_shot`, `arrow_bomb`, `strafe`, `inferno`, `arrow_rain`, `dragons_breath`,
-`hurricane`, `silver_hawk`, `phoenix`; the WZ ids are in spec #332's pool table), `weapon_families: ["bow"]`, the War Bow
-1452002 as creation weapon, and `playable: true` since B13 #345. Its AP row (DEX primary, STR secondary, the Bowman keyframes copied
-verbatim) lives in the line's own `balance` block. All pool keys are defined.
-
-**D1, no mobility skill.** The entry has no `mobility_skill` key. `JobTree.start_skills(312)` is `["arrow_blow"]`, and a
-round learns only Arrow Blow. Nothing else changes in the code: `HudQuickSlot.movement_skill_of` returns `{}`, the
-quick slot's movement cell is blank with no icon, Key Config lists no skill row, the run scene reports one owned skill, and the
-bot never presses a skill key (it presses Teleport or Rush only when it owns them). `test_bowmaster_data` proves each of these;
-the paths had only ever met jobs that own a mobility skill, and needed no fix. If playtests ever ask for one, it follows
-`balance.mobility_rank_levels` like Teleport and Rush (spec #332 D1).
-
-**Drops.** `weapon_families: ["bow"]` filters the Bowman list down to bows (145xxxx): crossbows (146xxxx), swords, axes,
-blunt weapons, spears, claws and guns never drop for a Bowmaster, in the synthetic or the shipped pool. Armour and shields
-drop by the Bowman class bit (reqJob 4), and `requirement_error` refuses other classes' gear. The War Bow is wearable at
-creation (cache-backed test).
-
-### 7.44 Physical followers (#338, spec #332 M8)
-
-The Elquines seam (7.32) with four data-driven extensions, shared by Silver Hawk, Phoenix, Golden Eagle and Frostprey (and
-any later follower). None is an ID switch; a definition without the keys behaves exactly as before (Elquines is
-byte-identical: same state, same RNG stream, `test_character_baseline` and `test_tick_cost_identity` unchanged).
-
-- **Physical damage source.** `damage: "physical"` with `summon.watk_field: "pad"`: `Loadout.stats` resolves the damage
-  with that level field as the W.Att in the ordinary physical formula (`CombatMath.physical_damage_range`: the held
-  weapon's multiplier row, so a bow gives 3.4 x DEX + STR, then x pad / 100, the character's mastery for the minimum) instead of the character's `watk`
-  (worn weapon, buffs and ammo). `Loadout._summon_watk` is the only place that reads the key. The level is the skill's mapped
-  rank level, so `pad` plays the role `mad` plays for Elquines; `damage_pct` stays 1 (the nodes have no `damage` field). The
-  mob's PDD applies (`defense: pdd`), crit and survivor multipliers as for any physical hit. Tier C reading of v83's
-  "attack +23" (Silver Hawk) and "basic attack 305" (Phoenix) text.
-- **Stun from the hit, literal duration.** The strike goes through `RunWorld.hit_mob`, so the skill's `on_hit` applies.
-  `on_hit` gains an optional literal `duration` (seconds), beside `duration_field`, which wins when present: a status whose
-  WZ `time` is something else (Silver Hawk's `time` is the lifetime, 103-180 s) can still use `chance_field` (`prop`) for
-  the chance. One stream-1 draw per hit when `prop` is under 100, none at 100; bosses and steady mobs reject stun as always.
-- **Flyers.** `summon.hover` (px, default 0) lifts the follower above its trailing point: it enters, follows and snaps at
-  that height. The attack box stays feet-relative (anchored at the trailing point on the ground, not at the flyer), so a
-  hovering Phoenix's +-60 px box still reaches ground monsters (tier C). `summon.move` (default `"move"`) names the animation
-  node played while following (`fly` for the hawk and the phoenix); the sim stores that resolved node name as the ally's
-  action and takes its duration from that node, so `PlayerSummonRenderer` draws it unchanged (it loops `stand` and the
-  definition's move node).
-- **Settling between strikes.** `summon.settle` (default false: Elquines holds its attack pose for the whole
-  `attack_interval` and does not follow meanwhile, 7.32): a settling follower leaves the attack pose when the attack animation
-  has finished (and the hit has landed), plays its move / stand node and keeps following the caster until the interval ends,
-  then strikes again. The hawk needs it: its `attack1` body animation is a 100 ms frame followed by a 600 ms **1 x 1 px
-  placeholder** (the hawk is out of sight while its bolt strikes), so holding the last frame would hide the hawk for the rest
-  of its 1.6 s interval.
-- **Sounds and strike art.** `sounds.summon` (a `Sound.wz` path) rides the `summon_spawn` event as `sound` (the key is absent when the
-  definition lists none, so Elquines' events are byte-identical) and the presentation plays it at each spawn, one per frame per path. When the attack node's
-  `info` has an `effect` node, each struck monster gets one `summon_strike` event ({skill, slot, mob, pos, effect}) and the
-  presentation plays that animation on it. (Both events are emitted without being listed in `RunWorld.EVENT_FIELDS`, like `summon_attack`.)
-
-**Hover and the WZ origins.** The v83 follower frames already float above their anchor (Silver Hawk `fly` / `stand`: origin y
-137-221 on 63-113 px tall frames, i.e. 40-110 px above the anchor), so `hover` stacks on top of art that is already high: a
-hawk at `hover 80` was drawn about 190 px over the character in the #338 probe. The B11 definitions should start from a small
-`hover` (0-30) and look at a screenshot.
-
-**What the WZ `type 1` attack changes (verified on v83 Skill.wz 311.img / 312.img).** Silver Hawk (3111005) `attack1`:
-`info/type 1`, `attackAfter 100`, `effectAfter 600`, no `mobCount` (one target), box +-200 x +-150, a two-frame body
-animation (100 ms then 600 ms), `info/hit` (6 frames, 90 ms, the same frames as the skill's own `hit/0`) and `info/effect`
-(4 frames, 80 ms, origin 140-200 px above the frame: a bolt that lands on the target). Phoenix (3121006) `attack1`: `type 1`,
-`attackAfter 360`, `mobCount 4`, box +-100 x +-60, eleven body frames, **no** `info/hit` and **no** `info/effect` (its fire
-art is the skill's `hit` / `tile` nodes). So `type 1` marks an attack whose impact art hangs off `info` instead of the
-body frames. The sim never branches on `type`. Damage lands at `attackAfter` for both (T9 timing); `info/hit` is the
-skill's `hit/0` the existing hit visual already draws, `info/effect` is drawn at the same impact on each struck monster
-(tier C: `effectAfter` is not modelled as a separate delay; the bolt art simply plays on the impact tick). Silver Hawk
-and Phoenix `Use` / `Summon` sounds are UOLs into 3211005 (Golden Eagle).
-
 ### 7.33 Hero pool and Rush (spec #296)
 
 #### Core melee: Power Strike, Slash Blast, Brandish (H5, #301)
@@ -6199,6 +6127,28 @@ No shipped skill carries the block yet, so no existing record changes.
 - **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
   and Skill-window text (H7).
 
+### 7.40 Bowmaster pool and job data (#334, spec #332 B2)
+
+Bowmaster (312) gets its own data line `bowmaster` (`survivor/jobs/bowmaster.json`, `survivor/skills/bowmaster.json`
+with all ten skill definitions), registered after Hero and I/L in `DataRepo.CLASS_LINES`, following the seven
+Adventurer lines (ARCHITECTURE 4.4.4). The job entry carries the ten-skill pool
+(`arrow_blow` starting, then `bow_double_shot`, `arrow_bomb`, `strafe`, `inferno`, `arrow_rain`, `dragons_breath`,
+`hurricane`, `silver_hawk`, `phoenix`; the WZ ids are in spec #332's pool table), `weapon_families: ["bow"]`, the War Bow
+1452002 as creation weapon, and `playable: true` since B13 #345. Its AP row (DEX primary, STR secondary, the Bowman keyframes copied
+verbatim) lives in the line's own `balance` block. All pool keys are defined.
+
+**D1, no mobility skill.** The entry has no `mobility_skill` key. `JobTree.start_skills(312)` is `["arrow_blow"]`, and a
+round learns only Arrow Blow. Nothing else changes in the code: `HudQuickSlot.movement_skill_of` returns `{}`, the
+quick slot's movement cell is blank with no icon, Key Config lists no skill row, the run scene reports one owned skill, and the
+bot never presses a skill key (it presses Teleport or Rush only when it owns them). `test_bowmaster_data` proves each of these;
+the paths had only ever met jobs that own a mobility skill, and needed no fix. If playtests ever ask for one, it follows
+`balance.mobility_rank_levels` like Teleport and Rush (spec #332 D1).
+
+**Drops.** `weapon_families: ["bow"]` filters the Bowman list down to bows (145xxxx): crossbows (146xxxx), swords, axes,
+blunt weapons, spears, claws and guns never drop for a Bowmaster, in the synthetic or the shipped pool. Armour and shields
+drop by the Bowman class bit (reqJob 4), and `requirement_error` refuses other classes' gear. The War Bow is wearable at
+creation (cache-backed test).
+
 ### 7.41 Ammo by exact job and round level (D9, #335, spec #332)
 
 ADR 0006 removed advancement and every round starts at Lv1, so the format-1 schedules (keyed by `branch` 310/320/410/520, steps
@@ -6237,6 +6187,11 @@ elsewhere were moved onto the exact jobs 312 / 322 / 412 / 522 at the new levels
 
 ### 7.42 Channelled burst (#336, Bowmaster B4)
 
+Review #332: `burst_art.loop` is optional. A prepare-only burst finishes its wind-up without starting a loop.
+Marksman supplies its release-time effect hook with Piercing Arrow. `fire_shot` accepts an optional final
+`hand` point for echo callers; omitted, it retains the player's current hand and body fallback.
+Death and final clear synchronously cancel unfinished bursts, once per admitted cast, before the world freezes.
+
 `kind: "projectile"`, `cast: {"rule": "burst"}` dispatches to `BurstCast`, owned and ticked by SkillRunner.
 The definition's `burst: {"interval": 0.1, "wind_up": 0.4, "retarget": true}` schedules resolved `count` shots:
 first at wind-up seconds after admission, then every interval (on the first fixed tick at/after each deadline).
@@ -6256,6 +6211,9 @@ no RNG; impact damage rolls retain the existing main stream. Bot reach is resolv
 "Fires N arrows over T s", where T includes wind-up and the final shot's deadline.
 
 ### 7.43 Burn (#337, spec #332)
+
+Review #332: `on_hit.pulse_field` resolves a canonical percent when present; otherwise `on_hit.pulse` is a literal
+percent of the mean resolved bounds (tier C, default zero). The same resolved share feeds skill text.
 
 A fire damage-over-time status beside poison in `MobSwarm`, whose pulse is sized by the cast that applied it. Inferno
 (3111003) is the first user (Bowmaster B9); Corsair's Flamethrower reuses it with its own `pulse_field`. No shipped
@@ -6306,6 +6264,56 @@ skill carries the block yet (the tests use a synthetic skill), so no existing re
 - **Not modelled.** The meter's finisher scaling (`PlayerMeter.begin_cast`) does not scale `burn_pulse`: no burning skill
   is a meter skill yet.
 
+### 7.44 Physical followers (#338, spec #332 M8)
+
+The Elquines seam (7.32) with four data-driven extensions, shared by Silver Hawk, Phoenix, Golden Eagle and Frostprey (and
+any later follower). None is an ID switch; a definition without the keys behaves exactly as before (Elquines is
+byte-identical: same state, same RNG stream, `test_character_baseline` and `test_tick_cost_identity` unchanged).
+
+- **Physical damage source.** `damage: "physical"` with `summon.watk_field: "pad"`: `Loadout.stats` resolves the damage
+  with that level field as the W.Att in the ordinary physical formula (`CombatMath.physical_damage_range`: the held
+  weapon's multiplier row, so a bow gives 3.4 x DEX + STR, then x pad / 100, the character's mastery for the minimum) instead of the character's `watk`
+  (worn weapon, buffs and ammo). `Loadout._summon_watk` is the only place that reads the key. The level is the skill's mapped
+  rank level, so `pad` plays the role `mad` plays for Elquines; `damage_pct` stays 1 (the nodes have no `damage` field). The
+  mob's PDD applies (`defense: pdd`), crit and survivor multipliers as for any physical hit. Tier C reading of v83's
+  "attack +23" (Silver Hawk) and "basic attack 305" (Phoenix) text.
+- **Stun from the hit, literal duration.** The strike goes through `RunWorld.hit_mob`, so the skill's `on_hit` applies.
+  `on_hit` gains an optional literal `duration` (seconds), beside `duration_field`, which wins when present: a status whose
+  WZ `time` is something else (Silver Hawk's `time` is the lifetime, 103-180 s) can still use `chance_field` (`prop`) for
+  the chance. One stream-1 draw per hit when `prop` is under 100, none at 100; bosses and steady mobs reject stun as always.
+- **Flyers.** `summon.hover` (px, default 0) lifts the follower above its trailing point: it enters, follows and snaps at
+  that height. The attack box stays feet-relative (anchored at the trailing point on the ground, not at the flyer), so a
+  hovering Phoenix's +-60 px box still reaches ground monsters (tier C). `summon.move` (default `"move"`) names the animation
+  node played while following (`fly` for the hawk and the phoenix); the sim stores that resolved node name as the ally's
+  action and takes its duration from that node, so `PlayerSummonRenderer` draws it unchanged (it loops `stand` and the
+  definition's move node).
+- **Settling between strikes.** `summon.settle` (default false: Elquines holds its attack pose for the whole
+  `attack_interval` and does not follow meanwhile, 7.32): a settling follower leaves the attack pose when the attack animation
+  has finished (and the hit has landed), plays its move / stand node and keeps following the caster until the interval ends,
+  then strikes again. The hawk needs it: its `attack1` body animation is a 100 ms frame followed by a 600 ms **1 x 1 px
+  placeholder** (the hawk is out of sight while its bolt strikes), so holding the last frame would hide the hawk for the rest
+  of its 1.6 s interval.
+- **Sounds and strike art.** `sounds.summon` (a `Sound.wz` path) rides the `summon_spawn` event as `sound` (the key is absent when the
+  definition lists none, so Elquines' events are byte-identical) and the presentation plays it at each spawn, one per frame per path. When the attack node's
+  `info` has an `effect` node, each struck monster gets one `summon_strike` event ({skill, slot, mob, pos, effect}) and the
+  presentation plays that animation on it. (Both events are emitted without being listed in `RunWorld.EVENT_FIELDS`, like `summon_attack`.)
+
+**Hover and the WZ origins.** The v83 follower frames already float above their anchor (Silver Hawk `fly` / `stand`: origin y
+137-221 on 63-113 px tall frames, i.e. 40-110 px above the anchor), so `hover` stacks on top of art that is already high: a
+hawk at `hover 80` was drawn about 190 px over the character in the #338 probe. The B11 definitions should start from a small
+`hover` (0-30) and look at a screenshot.
+
+**What the WZ `type 1` attack changes (verified on v83 Skill.wz 311.img / 312.img).** Silver Hawk (3111005) `attack1`:
+`info/type 1`, `attackAfter 100`, `effectAfter 600`, no `mobCount` (one target), box +-200 x +-150, a two-frame body
+animation (100 ms then 600 ms), `info/hit` (6 frames, 90 ms, the same frames as the skill's own `hit/0`) and `info/effect`
+(4 frames, 80 ms, origin 140-200 px above the frame: a bolt that lands on the target). Phoenix (3121006) `attack1`: `type 1`,
+`attackAfter 360`, `mobCount 4`, box +-100 x +-60, eleven body frames, **no** `info/hit` and **no** `info/effect` (its fire
+art is the skill's `hit` / `tile` nodes). So `type 1` marks an attack whose impact art hangs off `info` instead of the
+body frames. The sim never branches on `type`. Damage lands at `attackAfter` for both (T9 timing); `info/hit` is the
+skill's `hit/0` the existing hit visual already draws, `info/effect` is drawn at the same impact on each struck monster
+(tier C: `effectAfter` is not modelled as a separate delay; the bolt art simply plays on the impact tick). Silver Hawk
+and Phoenix `Use` / `Summon` sounds are UOLs into 3211005 (Golden Eagle).
+
 ### 7.45 Bowmaster core arrows (#339, spec #332 B7)
 
 Arrow Blow, Double Shot and Arrow Bomb moved from `skills/bowman.json` to `skills/bowmaster.json` (same keys, same
@@ -6339,7 +6347,7 @@ from `upgrades/bowman.json`; a playable Bowmaster's new / rank cards come from `
   `test_rarity_bonus_effects.gd` (every bonus), and the old weapon-gate / 20-rank / standalone-card cases rewritten in
   `test_bowman`, `test_hunter` and `test_bowmaster_data` (see the B7 notes).
 
-### 7.46 Bowmaster area and piercing (#340, spec #332 B8)
+### 7.50 Bowmaster area and piercing (#340, spec #332 B8)
 
 Arrow Rain (3111004, book 311) and Dragon's Breath (3121003, book 312) are the two Bowmaster entries that need no new
 sim rule beyond one data key. Both are `slot: "active"` with the default eight ranks (WZ levels 4/8/12/15/19/23/27/30),
@@ -6378,7 +6386,7 @@ no `weapon_families` and four-tier `rarity_bonuses`; they sit together in `skill
 - Tests: `test_bowmaster_area_piercing.gd` (behaviour per skill, the rarity tables, the cast-visual plan, the Skill window
   line, and a real-cache check of the eight mapped levels of both skills against Skill.wz), `test_rarity_bonus_effects.gd`.
 
-### 7.47 Inferno (#341, spec #332 B9)
+### 7.51 Inferno (#341, spec #332 B9)
 
 Inferno (3111003, book 311) is the first skill on the burn status (7.43) and joins `skills/bowmaster.json` beside the four
 core arrows. `slot: "active"`, the default eight ranks (WZ levels 4/8/12/15/19/23/27/30), no `weapon_families`, `element: "f"`
@@ -6410,7 +6418,10 @@ core arrows. `slot: "active"`, the default eight ranks (WZ levels 4/8/12/15/19/2
   real-cache eight-rank check against `Skill.wz`), and `test_rarity_bonus_effects.gd` (Inferno is in `BOWMASTER_KEYS`; the
   probe gained a `burn_damage` stat that reads the fire a single cast leaves behind).
 
-### 7.48 Hurricane (#342, Bowmaster B10, spec #332)
+### 7.52 Hurricane (#342, Bowmaster B10, spec #332)
+
+Cards show the complete 1.5 s admission-to-last-arrow span (including the 0.4 s wind-up), using `BurstCast.span`;
+the spec's 1.1 s example measures only the gaps between arrows.
 
 Hurricane (3121004, `skills/bowmaster.json`) is the first skill on the burst rule (7.42): `kind projectile`,
 `cast {rule burst}`, `burst {interval 0.1, wind_up 0.4, retarget true}`, `count 12`, `cooldown 6.0`, `range 450`,
@@ -6426,15 +6437,14 @@ raises a burst cast's hold to `BurstCast.span` (wind-up plus the gaps between ar
 Art (`burst_art`): the 14-frame `prepare` plays on the caster fitted to the wind-up (`FxRenderer.fit`: 0.98 s of frames in
 0.4 s), `keydown` loops from the first arrow, `keydownend` plays when the stream is over or dropped. The sim reports this as
 `burst_start` (`skill`, `wind_up`, `span`, `facing`) and `burst_end` (`skill`; also for a stream dropped by death, Hidden
-or a map change, `clear_pending(world)`); the scene turns them into the three animations. The first-cast screenshot is taken
-0.9 s after the cast (`capture_delay`) so it shows arrows in flight.
+or a map change, `clear_pending(world)`); the scene turns them into the three animations. First-cast screenshots use the shared default timing.
 
 Rarity (the Bowmaster lineage names, repeat scale 0.8): Rare **Bow Expert** damage x1.2; Epic **Bow Booster** cooldown x0.88;
 Unique **Final Attack** `count` +4 (sixteen arrows, a 1.9 s stream); Legendary Final Attack plus damage x1.2 (sharing the
 Unique's id and repeat counter). Every bonus changes the resolved cast: `test_rarity_bonus_effects` probes Hurricane (on the
 burst rule `count` shows as arrows landed on the one target, not as extra monsters affected).
 
-### 7.49 Silver Hawk and Phoenix (#343, spec #332 B11)
+### 7.53 Silver Hawk and Phoenix (#343, spec #332 B11)
 
 The two physical followers (7.44) as data in `skills/bowmaster.json`, no new code.
 Both are `kind summon`, `cast.rule summon`, `damage physical`, no `weapon_families` (as B7), cast stance `alert2` (the WZ
@@ -7074,15 +7084,6 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
-
-### Bowmaster #336 constants
-
-| Constant / rule | Tier | Source |
-|---|---|---|
-| Burst defaults: wind-up 0 s, retention overshoot 0 px, retarget true; negative timing/overshoot clamp to 0; zero interval releases all due arrows in order | C | #332 automatic held-key adaptation; optional overshoot makes retention explicit without adding reach to acquisition |
-| Invalid target without replacement drops remaining shots, no cooldown refund; Hidden/death cancel; no reused-target spread on burst shots | C | #332 / #336 survivor burst policy |
-
-
 
 
 ### Review #282: constants and provenance
@@ -7994,29 +7995,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
 
-### Bowmaster B5 constants (#337, burn)
 
-| Rule | Value / source | Tier |
-|---|---|---|
-| Burn status index | `MobSwarm.BURN` = 7, appended after `FIRE_WEAK` (6, Ice/Lightning #322; the orchestrator's merge ruling, burn moved from 6); `STATUS_COUNT` 8 | C |
-| Burn element | `F`: fire-immune, strong and neutral kinds (Mob.wz digit 1, 2, 4) reject it; bosses reject it | C (the v83 server reference rule for statuses) |
-| Burn pulse interval | `POISON_INTERVAL`, 1.0 s, shared with poison; first pulse one full interval after the first application, the pulse due at expiry lands | C |
-| Burn pulse size | `round(mean(damage_min, damage_max) x x/100 x burn_damage)`, the cast's resolved bounds before skill%; `x` is Inferno's undocumented burn share (21 -> 50) | C |
-| Burn is non-lethal | each pulse leaves at least 1 HP, never stuns, pushes or flinches; no RNG | C |
-| Burn refresh | replaces timer and snapshot, keeps the running pulse clock, never stacks | C |
-| Burn modifier | `burn_damage` (mul, default 1.0) | C |
-| Burn tint | `MobRenderer.BURN_TINT` Color(1.0, 0.62, 0.30) when no cue art is configured | C |
-| Burn cue | repeating animation on the body top, art path set by the skill (`on_hit.cue`) | C |
-
-## 12. Later phases
-
-Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.
-The Tree That Grew I and the six stage bosses are already playable. Phase 3: other Explorer paths, 3rd/4th job,
-additional bosses, elite waves with modifiers, passive items, skill evolutions, run modifiers, persistent unlocks.
-
-#291 tier C provenance: summon auto-admission, replacement groups, nearest/boss-first two-sided acquisition,
-current-body impact selection, follow/snap model and the numeric first-pass Elquines settings are in 7.32.
-Missing/zero summon frame delays use the existing 100 ms presentation default (tier C); WZ delays are otherwise unchanged.
 ### Hero H3 meter constants (#299)
 
 | Constant / rule | Value | Provenance |
@@ -8039,7 +8018,7 @@ Ice Demon intentionally leaves its `ball` empty: four imported ball nodes remain
 presentation is the shipped design. The weapon-only `stabO2` fallback leaves Hero and F/P art unchanged whenever
 `stabO2` exists, covered by `test_a_weapon_with_stabO2_keeps_its_own_art`.
 
-### Bowmaster B2 constants (#334)
+### Bowmaster constants (#334)
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
@@ -8051,7 +8030,7 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | AP row `balance.player.ap["312"]` | DEX primary, STR secondary, keyframes Lv1 -> 6, Lv30 -> 35, Lv34 -> 35, Lv35 -> 40, Lv70 -> 75 (the Bowman 300 row verbatim) | tier C: Bowman gear pattern, spec #332; no new tuning |
 | `playable` | true since B13 #345; `default_job` stays 212 | tier C, spec #332 / #298 pin |
 
-### Bowmaster B3 constants (#335)
+### Bowmaster constants (#335)
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
@@ -8063,7 +8042,32 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Corsair bullets (522, gun) | Lv18 Split 2330001, Lv35 Mighty 2330002 (`incPAD` +12, +14) | tier C levels; tier A ids and `incPAD` |
 | Ilbi Throwing-Stars 2070006, Vital Bullet 2330003 | not scheduled | tier C: left to the specs that own those jobs |
 
-### Bowmaster B6 constants (#338)
+### Bowmaster constants (#336)
+
+| Constant / rule | Tier | Source |
+|---|---|---|
+| Burst defaults: wind-up 0 s, retention overshoot 0 px, retarget true; negative timing/overshoot clamp to 0; zero interval releases all due arrows in order | C | #332 automatic held-key adaptation; optional overshoot makes retention explicit without adding reach to acquisition |
+| Invalid target without replacement drops remaining shots, no cooldown refund; Hidden/death cancel; no reused-target spread on burst shots | C | #332 / #336 survivor burst policy |
+
+### Bowmaster constants (#337)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Burn status index | `MobSwarm.BURN` = 7, appended after `FIRE_WEAK` (6, Ice/Lightning #322; the orchestrator's merge ruling, burn moved from 6); `STATUS_COUNT` 8 | C |
+| Burn element | `F`: fire-immune, strong and neutral kinds (Mob.wz digit 1, 2, 4) reject it; bosses reject it | C (the v83 server reference rule for statuses) |
+| Burn pulse interval | `POISON_INTERVAL`, 1.0 s, shared with poison; first pulse one full interval after the first application, the pulse due at expiry lands | C |
+| Burn pulse size | `round(mean(damage_min, damage_max) x x/100 x burn_damage)`, the cast's resolved bounds before skill%; `x` is Inferno's undocumented burn share (21 -> 50) | C |
+| Burn is non-lethal | each pulse leaves at least 1 HP, never stuns, pushes or flinches; no RNG | C |
+| Burn refresh | replaces timer and snapshot, keeps the running pulse clock, never stacks | C |
+| Burn modifier | `burn_damage` (mul, default 1.0) | C |
+| Burn tint | `MobRenderer.BURN_TINT` Color(1.0, 0.62, 0.30) when no cue art is configured | C |
+| Burn cue | repeating animation on the body top, art path set by the skill (`on_hit.cue`) | C |
+
+#291 tier C provenance: summon auto-admission, replacement groups, nearest/boss-first two-sided acquisition,
+current-body impact selection, follow/snap model and the numeric first-pass Elquines settings are in 7.32.
+Missing/zero summon frame delays use the existing 100 ms presentation default (tier C); WZ delays are otherwise unchanged.
+
+### Bowmaster constants (#338)
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
@@ -8075,21 +8079,7 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | `info/effect` strike art | played at the damage impact (`attackAfter`) on each struck monster; `effectAfter` not modelled | tier C; the nodes are tier A |
 | `Summon` sound | plays at each follower spawn when `sounds.summon` is listed | tier C (no sound in the v83 client was verified to play at spawn) |
 
-### Bowmaster B8 constants (#340)
-
-| Constant / rule | Value | Provenance |
-|---|---|---|
-| Arrow Rain cooldown / cast rule | 5.0 s; `box` with the WZ symmetric box anchored where the caster stood, `min_targets 1` | tier C (the box and `mobCount` 6 are tier A) |
-| Arrow Rain strike delay | `pending.delay` 0.5 s (the Meteor Shower delayed strike) | tier C |
-| Arrow Rain action | the held weapon's shooting stance, 0.6 s | tier C |
-| Falling arrows | eight copies of `special/0`, one every 90 ms, 230 px drop over 0.25 s, resting 30 px above the ground (`RunScene.FALL_REST`), spread over the resolved box | tier C reading of the undocumented `special` node (`interval 90`, `count 8`, `y 230` are tier A numbers); art only |
-| Dragon's Breath cooldown / speed / radius | 3.5 s / 700 px/s / 16 px | tier C |
-| Dragon's Breath range | 440 px, read from the level | tier A (`range` 440 at every level) |
-| `pierce_field` | pierce = `field` - 1 (+ literal `pierce`, + cards): `mobCount` 4 / 5 / 6 strikes 4 / 5 / 6 monsters | tier C reading of the WZ monster count |
-| Dragon's Breath knock-back | `prop` 100 (always rolls, one stream-1 draw per struck non-boss) and a 180 px slide away from the caster; bosses are not moved | prop tier A; the distance tier C ("a long distance"; Power Knock-Back used 120) |
-| Rarity values | Arrow Rain: damage x1.2, `area` x1.2, `attack_count` +1; Dragon's Breath: damage x1.2, `range` x1.25, `pierce` +2; Legendary adds damage x1.2 to the Unique | tier C |
-| Bow `range` probe window | 1.5 s (`test_rarity_bonus_effects`) | tier C test setting |
-### Bowmaster B7 constants (#339)
+### Bowmaster constants (#339)
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
@@ -8103,7 +8093,22 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Unique | Arrow Blow / Double Shot count +1; Strafe count +2; Arrow Bomb `blast_targets` +2 | tier C |
 | Legendary | the Unique's effect and id plus damage x1.2 | tier C |
 
-### Bowmaster B9 constants (#341)
+### Bowmaster constants (#340)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Arrow Rain cooldown / cast rule | 5.0 s; `box` with the WZ symmetric box anchored where the caster stood, `min_targets 1` | tier C (the box and `mobCount` 6 are tier A) |
+| Arrow Rain strike delay | `pending.delay` 0.5 s (the Meteor Shower delayed strike) | tier C |
+| Arrow Rain action | the held weapon's shooting stance, 0.6 s | tier C |
+| Falling arrows | eight copies of `special/0`, one every 90 ms, 230 px drop over 0.25 s, resting 30 px above the ground (`RunScene.FALL_REST`), spread over the resolved box | tier C reading of the undocumented `special` node (`interval 90`, `count 8`, `y 230` are tier A numbers); art only |
+| Dragon's Breath cooldown / speed / radius | 3.5 s / 700 px/s / 16 px | tier C |
+| Dragon's Breath range | 440 px, read from the level | tier A (`range` 440 at every level) |
+| `pierce_field` | pierce = `field` - 1 (+ literal `pierce`, + cards): `mobCount` 4 / 5 / 6 strikes 4 / 5 / 6 monsters | tier C reading of the WZ monster count |
+| Dragon's Breath knock-back | `prop` 100 (always rolls, one stream-1 draw per struck non-boss) and a 180 px slide away from the caster; bosses are not moved | prop tier A; the distance tier C ("a long distance"; Power Knock-Back used 120) |
+| Rarity values | Arrow Rain: damage x1.2, `area` x1.2, `attack_count` +1; Dragon's Breath: damage x1.2, `range` x1.25, `pierce` +2; Legendary adds damage x1.2 to the Unique | tier C |
+| Bow `range` probe window | 1.5 s (`test_rarity_bonus_effects`) | tier C test setting |
+
+### Bowmaster constants (#341)
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
@@ -8115,7 +8120,7 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Unique `spreading_fire` | `blast_targets` +2 | tier C |
 | Legendary | the Unique's effect and id plus damage x1.2 | tier C |
 
-### Bowmaster B10 constants (#342)
+### Bowmaster constants (#342)
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
@@ -8126,10 +8131,9 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Own `ball`, not the ammo sprite | `ammo_shot` off; ammo W.Att still counts | tier C: spec #332 row (own 10-frame ball) |
 | Stance held for the stream | `max(action_time, BurstCast.span)` for every burst cast | tier C |
 | Art | `prepare` fitted to the wind-up, `keydown` loop, `keydownend` at the end; `burst_start` / `burst_end` events | tier C: our reading of the nodes |
-| `capture_delay` | 0.9 s (first-cast screenshot sample) | tier C, art only |
 | Rarity | Bow Expert damage x1.2, Bow Booster cooldown x0.88, Final Attack count +4, Legendary adds damage x1.2 | tier C: spec #332 |
 
-### Bowmaster B11 constants (#343)
+### Bowmaster constants (#343)
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
@@ -8147,7 +8151,7 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Cast stance / duration | `alert2` (tier A `action/0`), `action_time` 0.8 s | tier A / tier C |
 | Rarity bonuses | Bow Expert damage x1.2; Hawk Eyes `area` x1.2; Flame Wings `count` +1; Second Hawk / Second Phoenix `summon_count` +1; Legendary adds damage x1.2 | tier C, spec #332 |
 
-### Bowmaster B12 constants (#344)
+### Bowmaster constants (#344)
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
@@ -8157,8 +8161,7 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Bowmaster bot card scores | `jobs/bowmaster.json` balance.bot.card_scores: `<key>_new` 100 and `<key>_rank` 74 for all ten pool skills. `BotInput._base_score` already gives every curated pool skill these numbers; the explicit pair keeps the two summons (kind `summon`, not an attack to the older scorer) and the rest independent of that fallback | tier C (the numbers are the F/P and Hero ones) |
 | Bowmaster baseline oracle | `test_bowmaster_baseline`: seed 1, 14400 ticks (4 min), bot, god, synthetic assets (`tests/fixtures/bowmaster_fixtures.gd`: all ten books, a Hunter's Bow 1452051), the Hero recipe (pre-#241 opening and whole-round curve, initial player stats in the digest); six skills land hits in it (Arrow Blow, Arrow Bomb, Inferno, Hurricane, Dragon's Breath, Silver Hawk) | tier C (ours); the golden is a regression pin, not balance evidence |
 
-
-### Bowmaster B13 provenance audit (#345)
+### Bowmaster constants (#345)
 
 | Decision | Tier | Source |
 |---|---|---|
@@ -8166,3 +8169,16 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Skill pool, AP, bow equipment, ammo milestones | C | B2/B3/B12 rows above; numeric WZ ids and item stats remain tier A |
 | Burst timings/art, Arrow Rain strike/fall, burn and follower behaviour | C | B4–B11 rows above; hover remains 20 px (B11; B13 visual check below) |
 | Tier-2 fixture generation patch | C | Historical B12 metadata retained; shipped selection and generation need no patch |
+
+### Review #332 presentation extensions
+
+Physical followers add `summon_strike` (per-target strike art) and derived `strike_effect`, plus `summon.settle`
+(follow between strikes); Marksman and Corsair can opt in through data. `FxRenderer.fit` and `rate_of` support
+fitted wind-up playback and inspection; `SpritePool.tint_of` exposes the rendered tint for tests. The tool-only
+`burst_probe` captures stream phases. These small extensions preserve the existing default paths.
+
+## 12. Later phases
+
+Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.
+The Tree That Grew I and the six stage bosses are already playable. Phase 3: other Explorer paths, 3rd/4th job,
+additional bosses, elite waves with modifiers, passive items, skill evolutions, run modifiers, persistent unlocks.

@@ -77,7 +77,7 @@ func test_definition_follows_the_spec_row() -> void:
 	assert_eq(String(d.kind), "projectile")
 	assert_eq(String(d.slot), "active")
 	assert_eq(String(d.damage), "physical")
-	assert_eq(d.weapon_families, ["bow"])
+	assert_false(d.has("weapon_families"), "skills have no weapon gate")
 	assert_eq(d.cast, {"rule": "burst"})
 	assert_eq(d.burst, {"interval": 0.1, "wind_up": 0.4, "retarget": true})
 	assert_eq(int(d.count), 12)
@@ -428,3 +428,41 @@ func test_real_cache_prepare_art_is_fitted_to_the_wind_up() -> void:
 	assert_eq(fx.active_count(), 0, "one pass takes 0.4 s")
 	fx.free()
 	library.free()
+
+
+func test_real_lethal_damage_ends_the_stream_once_and_stops_scene_art() -> void:
+	var s := ArtScene.new()
+	var log := FxLog.new()
+	s.fx = log
+	s.world = _world()
+	_mob(s.world, 700)
+	s.world.runner.step(DT, s.world)
+	s.handle_events(s.world.drain_events())
+	s.world.god = false
+	s.world.take_hit(1e9, true, "", s.world.player.pos - Vector2(100, 0), {"accuracy": 1e9})
+	for tick in 120:
+		s.world.step(DT, MoveInput.new())
+	var events := s.world.drain_events()
+	assert_eq(s.world.state, RunWorld.DEAD)
+	assert_false(s.world.runner.bursts.has_skill(KEY))
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "burst_end").size(), 1)
+	s.handle_events(events)
+	assert_eq(log.calls.slice(2), [["stop", 11], ["play", "keydownend", 12, true]])
+	log.free()
+	s.free()
+
+func test_wind_up_art_without_a_loop_finishes_safely() -> void:
+	var s := ArtScene.new()
+	var log := FxLog.new()
+	s.fx = log
+	s.world = _world()
+	s.world.book.defs[KEY].burst_art.erase("loop")
+	_mob(s.world, 700)
+	s.world.step(DT, MoveInput.new())
+	s.handle_events(s.world.drain_events())
+	for tick in 30:
+		s.world.step(DT, MoveInput.new())
+		s._after_tick()
+	assert_eq(log.calls.size(), 3, "only prepare, fit and stop; no absent loop")
+	log.free()
+	s.free()

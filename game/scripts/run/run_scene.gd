@@ -1374,8 +1374,12 @@ func _step_burst_art() -> void:
 		var state: Dictionary = _burst_art[key]
 		if String(state.phase) == "prepare" and world.time + 1e-9 >= float(state.due):
 			fx.stop(int(state.slot))
-			state.slot = fx.play_repeating(String(world.book.def(key).burst_art.loop), Vector2.ZERO, INF, bool(state.flip), avatar)
-			state.phase = "loop"
+			state.slot = -1
+			state.phase = "released"
+			var loop := String(world.book.def(key).get("burst_art", {}).get("loop", ""))
+			if loop != "":
+				state.slot = fx.play_repeating(loop, Vector2.ZERO, INF, bool(state.flip), avatar)
+				state.phase = "loop"
 
 
 func _on_burst_end(e: Dictionary) -> void:

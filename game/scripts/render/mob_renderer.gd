@@ -222,6 +222,7 @@ func _load_status_anims() -> void:
 		return
 	for path: String in STATUS_PATHS:
 		_status_anims.append(_lib().find_anim(path))
+	assert(_status_anims.size() == BURN_CUE, "Burn cue follows the canonical status animations")
 	_status_anims.append(_lib().find_anim(burn_cue_path) if burn_cue_path != "" else null)
 
 

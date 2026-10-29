@@ -166,3 +166,12 @@ func test_bowmaster_is_refused_when_disabled_after_selection() -> void:
 	assert_eq(creation.phase, "job", "still on the page")
 	assert_ne(String(creation.message.text), "", "the refusal is shown")
 	assert_true(flow.save.slot(0).is_empty(), "nothing was saved")
+
+func test_bare_job_tool_run_uses_creation_weapon_and_ammo() -> void:
+	var rf := preload("res://tests/fixtures/run_fixtures.gd")
+	var setup := rf.setup("quiet", 332, rf.quiet_data())
+	setup.job = 312
+	var w := RunWorld.new(setup)
+	assert_eq(int(w.equipment.worn.weapon.id), 1452002)
+	assert_eq(w.ammo_id(), 2060000)
+	assert_true(1452002 in CharacterSnapshot.held_item_ids({"job_id": 312}, w.jobs))

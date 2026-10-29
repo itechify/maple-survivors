@@ -46,6 +46,10 @@ func _event_digest(ticks: int, counts := {}) -> String:
 		"2221007": {"level": IL.levels({"mad": {1: 330, 30: 570}, "mobCount": {1: 15, 30: 15}, "time": {1: 1, 30: 3}},
 			func(n: Dictionary, _lv: int) -> void: IL.box(n, 400, 350, 250))},
 		"2221001": {"level": IL.levels({"mad": {1: 160, 30: 450}, "mobCount": {1: 6, 30: 6}, "mastery": IL.mastery()})}}}
+	# Review #332: freeze the original replay's sword outfit explicitly; bare tools now wear creation weapons.
+	setup.character = {"format": 3, "job_id": 222, "look": {},
+		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
+		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
 	var w := RunWorld.new(setup)
 	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)
 	legacy_curve.erase("maps")

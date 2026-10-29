@@ -72,9 +72,17 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if String(def.get("cast", {}).get("rule", "")) == "burst":
 		var burst: Dictionary = def.get("burst", {})
 		var shots := int(stats.get("count", 1))
-		var seconds := maxf(0.0, float(burst.get("wind_up", 0.0))) \
-			+ maxi(0, shots - 1) * maxf(0.0, float(burst.get("interval", 0.0)))
+		var seconds := BurstCast.span(stats, burst)
 		mechanics.append("Fires %d arrows over %s s" % [shots, number(seconds)])
+	if def.has("summon"):
+		var summon: Dictionary = def.summon
+		mechanics.append("Calls %s for %s s" % [String(def.get("name", key)), number(float(stats.get("duration", 0.0)))])
+		var status: Dictionary = def.get("on_hit", {})
+		if String(status.get("status", "")) == "stun":
+			var chance := book.canonical(key, level, String(status.chance_field)) if status.has("chance_field") else 100.0
+			mechanics.append("%s%% to stun" % number(chance))
+		if summon.has("watk_field"):
+			mechanics.append("%s W.Att" % number(book.canonical(key, level, String(summon.watk_field))))
 	if def.has("meter"):
 		mechanics.append("Needs %d orbs" % int(def.meter.get("min", 0)))
 		var keep := int(stats.get("meter_keep", 0))

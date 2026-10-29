@@ -189,3 +189,24 @@ func test_admission_prefers_scheduled_boss_and_overshoot_only_retains() -> void:
 	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
 	_ticks(w, 6)
 	assert_eq(_shots(w), 2, "retarget never acquires in the overshoot margin")
+
+func test_explicit_hand_launches_from_the_callers_current_origin() -> void:
+	var w := _world()
+	var st := w.loadout.stats("stream")
+	w.runner.fire_shot(w, "stream", st, Vector2(300, 100), Vector2(400, 100), Vector2(310, 100))
+	assert_near(w.projectiles.x[0], 310.0)
+	assert_near(w.projectiles.y[0], 100.0)
+
+func test_final_clear_cancels_unfinished_burst_without_another_runner_tick() -> void:
+	var w := _world()
+	_ticks(w, 1)
+	w.drain_events()
+	w.duration = 0.0
+	w.bosses = BossDirector.new()
+	for tick in 120:
+		w.step(DT, MoveInput.new())
+		RF.auto_choose(w)
+	var ended := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "burst_end")
+	assert_eq(w.state, RunWorld.CLEARED)
+	assert_false(w.runner.bursts.has_skill("stream"))
+	assert_eq(ended.size(), 1)

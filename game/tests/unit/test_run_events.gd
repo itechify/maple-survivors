@@ -26,6 +26,8 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 		return
 	seen[type] = int(seen.get(type, 0)) + 1
 	var want: Array = ["type"] + RunWorld.EVENT_FIELDS[type]
+	if type == "summon_spawn" and e.has("sound"):
+		want.append("sound")
 	want.sort()
 	var got: Array = e.keys()
 	got.sort()
@@ -40,6 +42,8 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			fail("%s.velocity is not Vector2" % type)
 		elif k == "area" and not (v is Rect2):
 			fail("%s.area is not Rect2" % type)
+		elif (k == "slot" and type.begins_with("summon_")) and typeof(v) != TYPE_INT:
+			fail("%s.slot is not int" % type)
 		elif k in INT_FIELDS and typeof(v) != TYPE_INT:
 			fail("%s.%s is %s, not int" % [type, k, type_string(typeof(v))])
 		elif k in BOOL_FIELDS and typeof(v) != TYPE_BOOL:
@@ -388,6 +392,15 @@ func test_every_event_matches_the_schema() -> void:
 	assert_eq(pulls.size(), 1)
 	for event: Dictionary in pulls:
 		assert_eq(event.size(), 4)
+		_check(event, seen)
+	# Real follower events, including the optional summon sound and per-target strike effect.
+	var followers := preload("res://tests/unit/test_bowmaster_followers.gd").new()
+	var hawk: RunWorld = followers._world("silver_hawk")
+	followers._mob(hawk, 1110100, 300)
+	hawk.book.skill_imgs["311"].skill["3111005"].summon.attack1.info["effect"] = {"0": {"delay": 100.0}}
+	for tick in 240:
+		hawk.step(DT, MoveInput.new())
+	for event: Dictionary in hawk.drain_events():
 		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "ammo_shot":

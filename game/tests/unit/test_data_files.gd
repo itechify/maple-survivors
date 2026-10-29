@@ -503,7 +503,8 @@ func test_build_setup_and_paths() -> void:
 	assert_has(s.skill_imgs, "230", "Cleric attacks and Teleport book")
 	assert_eq(s.mob_imgs.size(), mob_ids.size() - 1, "all stage kinds except the loader's missing Green Mushroom")
 	assert_eq(missing, PackedStringArray(["Mob.wz/1110100.img"]))
-	assert_eq(s.ammo_info.size(), 17, "the ammo items' canonical facts are in the setup (#155)")
+	for id: int in Ammo.item_ids(DataRepo.load_all().ammo):
+		assert_true(s.ammo_info.has(id), "ammo %d canonical facts are loaded" % id)
 	assert_eq(s.ammo_info[2070001], {"incPAD": 7})
 	assert_eq(s.scroll_info.size(), Scrolls.ids(data.scrolls).size(), "every roster scroll's canonical info is loaded")
 	assert_eq(s.scroll_info[2043700], {"success": 60, "incMAD": 2})
@@ -741,3 +742,13 @@ func test_meter_catalog_schema() -> void:
 		assert_eq(String(meter.spend), "all")
 		assert_true(float(meter.damage_per_unit) >= 0.0)
 		assert_eq(String(skill.slot), "active")
+
+func test_burst_cast_and_thrown_art_keep_distinct_typed_contracts() -> void:
+	var skills: Dictionary = DataRepo.load_all().skills.skills
+	for key: String in skills:
+		var d: Dictionary = skills[key]
+		var rule := String(d.get("cast", {}).get("rule", ""))
+		if rule == "burst":
+			assert_true(d.get("burst") is Dictionary, key + " uses burst scheduling parameters")
+		elif rule == "cluster":
+			assert_true(d.get("burst", "") is String, key + " uses a thrown impact art path")

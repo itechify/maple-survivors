@@ -27,7 +27,9 @@ const PASSIVE_PREVIEW_KEYS := [PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep"]
 ## Active rarity-bonus stats a card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
-const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "burn_damage"]
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep"]
+## Modifier previews: label, unit and base multiplier. Add another multiplier here only (tier C: UI wording).
+const MODIFIER_PREVIEW := {"burn_damage": ["Burn", "%", 1.0]}
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -372,7 +374,7 @@ static func _bonus_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictio
 	for e: Dictionary in c.get("effects", []):
 		var stat := String(e.get("stat", ""))
 		var op := String(e.get("op", "add"))
-		if not stat in MOD_PREVIEW:
+		if not stat in MOD_PREVIEW and not stat in MODIFIER_PREVIEW:
 			continue
 		var value := float(e.get("value", 0.0))
 		preview.add_skill_mod(skill, stat, op, pow(value, magnitude) if op == "mul" else value * magnitude)
@@ -391,6 +393,8 @@ static func _bonus_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictio
 
 
 static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: String) -> Variant:
+	if MODIFIER_PREVIEW.has(stat):
+		return roundi(lo.skill_stat(skill, stat, float(MODIFIER_PREVIEW[stat][2])) * 100.0)
 	match stat:
 		"meter_keep":
 			return maxi(0, roundi(lo.skill_stat(skill, "meter_keep", 0.0)))
@@ -402,8 +406,6 @@ static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: Str
 			return roundi(float(st.area) * 100.0)
 		"damage":
 			return roundi(lo.skill_stat(skill, "damage", 1.0) * 100.0)
-		"burn_damage":
-			return roundi(lo.skill_stat(skill, "burn_damage", 1.0) * 100.0)
 		"crit":
 			return roundi(float(st.crit) * 100.0)
 	return roundi(float(st[stat]))

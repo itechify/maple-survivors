@@ -520,3 +520,23 @@ func test_fire_shot_launches_with_the_cast_pulse_for_the_nearest_and_burst_paths
 			launched = i
 	assert_true(launched >= 0, "fixture: a shot is in flight")
 	assert_eq(w.projectiles.burn_pulse[launched], 72)
+
+func test_literal_pulse_share_without_a_wz_field_is_resolved_and_shown() -> void:
+	var w := RF.quiet_world()
+	w.book.defs.energy_bolt.on_hit = {"status": "burn", "pulse": 25.0, "duration_field": "time"}
+	var st := w.loadout.stats("energy_bolt")
+	assert_near(float(st.burn_share), 25.0)
+	assert_eq(int(st.burn_pulse), BurnStatus.pulse(float(st.damage_min), float(st.damage_max), 25.0, 1.0))
+	var text := SkillText.new(w.book)
+	assert_true(text.level_line("energy_bolt", 1, st).contains("25%"))
+
+func test_summon_level_text_shows_lifetime_stun_and_own_weapon_attack() -> void:
+	var w := RF.quiet_world()
+	w.book.defs.energy_bolt.summon = {"watk_field": "pad"}
+	w.book.defs.energy_bolt.on_hit = {"status": "stun", "chance_field": "prop"}
+	w.book.skill_imgs["200"].skill["2001004"].level = {"1": {"time": 112.0, "prop": 59.0, "pad": 32.0}}
+	var text := SkillText.new(w.book)
+	var line := text.level_line("energy_bolt", 1, {"duration": 112.0})
+	assert_true(line.contains("112 s"))
+	assert_true(line.contains("59% to stun"))
+	assert_true(line.contains("32 W.Att"))

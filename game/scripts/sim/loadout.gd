@@ -441,7 +441,8 @@ func _add_burn(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> voi
 	var on_hit: Dictionary = d.get("on_hit", {})
 	if String(on_hit.get("status", "")) != "burn":
 		return
-	var share := book.canonical(key, lv, String(on_hit.get("pulse_field", "x")), 0.0)
+	var share := book.canonical(key, lv, String(on_hit.pulse_field), 0.0) if on_hit.has("pulse_field") \
+		else float(on_hit.get("pulse", 0.0)) # tier C: literal percent for skills without a WZ burn field
 	var mult := skill_stat(key, "burn_damage", 1.0)
 	resolved["burn_pulse"] = BurnStatus.pulse(float(resolved.damage_min), float(resolved.damage_max), share, mult)
 	resolved["burn_time"] = book.canonical(key, lv, String(on_hit.get("duration_field", "time")), 0.0)
