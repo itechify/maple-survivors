@@ -711,6 +711,57 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+**P10 #318 Paladin QA (spec #308, 2026-10-29).** Record only: training seeds 1/2/2026, all four tier-1
+stages with bot/random for jobs 122/212/112/222, plus bot Sleepywood starter and each job's committed kit.
+`ISOLATE=318`, `JOBS=3`, read-only `cache-rd308`. All **120 records / 40 batches** completed with no crash,
+TIMEOUT, world warning or missing asset. No tuning or held-out seeds. Cells give clears/3 (C), death seconds (D),
+and clear seconds when observed; single observations stay single values.
+
+| Stage / policy | Paladin 122 | F/P 212 | Hero 112 | I/L 222 |
+|---|---|---|---|---|
+| henesys / bot | 0/3 C; D 318.6–883.0 | 0/3 C; D 305.0–651.7 | 0/3 C; D 327.7–688.2 | 0/3 C; D 309.5–505.0 |
+| henesys / random | 2/3 C; D 675.8; C 1185.6–1320.4 | 0/3 C; D 308.3–309.9 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 309.1–672.6 |
+| ellinia / bot | 0/3 C; D 197.0–509.6 | 0/3 C; D 629.1–644.2 | 0/3 C; D 221.0–646.5 | 0/3 C; D 624.1–654.6 |
+| ellinia / random | 0/3 C; D 207.6–611.5 | 0/3 C; D 328.4–660.2 | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 627.6–658.2 |
+| perion / bot | 0/3 C; D 267.7–354.9 | 0/3 C; D 305.7–456.3 | 0/3 C; D 288.9–493.0 | 0/3 C; D 308.3–669.7 |
+| perion / random | 0/3 C; D 257.8–343.9 | 0/3 C; D 308.7–421.5 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 389.6–425.7 |
+| kerning / bot | 0/3 C; D 260.8–357.0 | 0/3 C; D 307.9–315.0 | 0/3 C; D 326.8–568.7 | 0/3 C; D 309.6–537.7 |
+| kerning / random | 1/3 C; D 300.3–367.5; C 1381.9 | 0/3 C; D 306.0–317.3 | 0/3 C; D 339.0–372.7 | 0/3 C; D 307.0–316.4 |
+| Sleepywood / starter | 0/3 C; D 14.8–17.2 | 0/3 C; D 10.6–12.0 | 0/3 C; D 16.4–20.2 | 0/3 C; D 11.4–11.8 |
+| Sleepywood / kit | 0/3 C; D 17.1–19.7 | 1/3 C; D 23.8–826.2; C 936.2 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+Paladin's Henesys bot fills six actives in 3/3 at **129.2–246.5 s** and reaches the first boss in 3/3;
+across tier 1, first boss reached **16/24**, clears **3/24** (all random policy). P9's seed-1/2 first-boss deaths
+**435.7/318.6 s** reproduce; seed 2026 reaches map 3 before dying at 883.0 s. The unscrolled `paladin_t2.json`
+kit still dies in **17.1–19.7 s (0/3 clears)**. Hero also clears 3/24 tier 1 but its stronger, scrolled diagnostic-clear
+fixture clears 2/3 Sleepywood; these unequal kits are not a controlled class comparison. F/P and I/L reproduce the
+I12/BS10 ranges, and Hero reproduces BS10's post-Hero-review handover record; H10's all-death Hero sample predates
+upstream survivability/review changes. None of those historical records is rewritten. The orchestrator decides
+whether Paladin needs a survivability ticket like #346; weak survival did not stop QA and was not tuned.
+
+Read-only post-tick Form observations over Paladin's 24 tier-1 runs (11674.9 run-seconds) measured fire 3096.15 s
+(**26.5%**), ice 2408.63 s (**20.6%**), lightning 2256.00 s (**19.3%**), holy 1441.40 s (**12.3%**).
+Their cast counts were 264/203/192/119 respectively; **Charged Blow 1840, Hammer 119**. Occupancy includes truncated
+windows at death/transfer and is sampled after each fixed tick, not inferred from nominal duration. The observer
+copies Form snapshots and counts `cast` events without changing world/RNG state. Raw JSON, reports, console output,
+configuration and observer diff stay in `_scratch/318-smoke/`. The matrix predates P10's presentation-only Blast
+`{art}` fix; a final-data Henesys bot seed2 control (42 Blast casts) has a **byte-identical entire record**.
+
+Visual QA: `redesign --job=122` and `creation --jobs=122,212` passed; screenshots inspected through creation,
+choices/Mastery, three clears/transfers, Lv1 equipment wear, tier unlock/loot/death/hub and deletion/history.
+Seed2026 ordinary kit playtests at x8: Henesys mace DEAD 708.2 s Lv36, sword DEAD 726.8 s Lv37 (both map 3);
+Sleepywood mace DEAD 25.1 s, sword DEAD 25.0 s, starter DEAD 18.5 s. All `missing: []`. These frame/input-driven runs are
+visual evidence, separate from the headless table. Disposable stationary-target probes cover every pool skill,
+Charged Blow, charged Rush and Hammer with sword/blunt weapons, all Charge art/tints/buff rows and Blast indices
+0/1/2/3/5. P10 fixes Blast's previously literal gold paths; no balance values change. Hammer's effect lands on its
+verified slam timing, but Charged Blow can still replace `sanctuary` before the avatar's slam frame (7.68).
+Evidence stays in `evidence/p10/`, never committed. Rust 70 / node 62 pass. Pinned web templates are absent: local
+web export/artifact checks remain unverified; CI runs export. No new download/import-source UI was added.
+
+Final full suites on the Blast-fix source: **2558 executed passes / 0 failed / 0 skipped with cache**;
+**2558 total / 2269 executed passes / 0 failed / 289 skipped without cache**, 252 files each. Cache-gated
+SKIPs prove no asset behavior. All F/P, Hero, I/L and Paladin goldens pass unchanged. No tests deleted.
+
 **P9 #317 Paladin selection smoke (spec #308, 2026-10-29).** Record only, no tuning; training seeds 1 and 2, `JOBS=3`,
 private cache `cache-rd308`, `playable` flipped in the shipped data (the first Paladin runs without a patch). A first look, not
 the P10 regression smoke (all four tier-1 stages, bot and random, Hero and F/P unchanged).
@@ -6240,7 +6291,8 @@ rarity lists) with two differences: it has **20 levels**, so its rank table is t
   read.
 - **Delay (tier C, P1 #309).** 1.56 s is the start of frame 13 of the 22-frame, 120 ms `effect` (where the big slam art begins;
   frame 14 is the light pillar at its brightest), and the body's `sanctuary` stance independently starts its thrust
-  (`stabOF` frame 2) at 1.56 s, so avatar and art land together.
+  (`stabOF` frame 2) at 1.56 s, so an uninterrupted stance and the art land together. Other casts can
+  replace the stance before then (below).
 - **Presentation (tier C).** Stance `sanctuary` for 3.3 s (the stance's seven body frames) and the 22-frame `effect` played
   on the caster at the cast (the cast display never holds the avatar). Charged Blow's swing (0.6 s) at 1.0 s replaces the
   Hammer's stance display, as any later cast does, so the avatar's slam frame is seen only when no blow follows (tier C,
@@ -7782,6 +7834,31 @@ on the window's final tick. Tier C weapon tint RGB: fire (1,.35,.2), ice (.3,.7,
 holy (1,.8,.55), poison (.6,.9,.35); white without an elemental form. Synthetic test/probe durations are diagnostic,
 not playable tuning. Canonical effect percentages remain tier A data read through each form's mapped level.
 
+### Paladin and Form constants and provenance (spec #308)
+
+| Constant / choice | Value | Tier | Source |
+|---|---|---|---|
+| Paladin AP row (#310, spec #308) | `jobs/paladin.json` `balance.player.ap["122"]`: the Hero 112 row's shape, STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204. The starting-HP and HP-growth rows were added by P9 #317 (next rows) | C | Spec #308 (Job data) |
+| Paladin creation weapon and families (#310, spec #308) | `jobs/paladin.json` `creation_weapon` 1322000, the Mace (Item.wz, reqJob 3, which includes the Warrior bit, so `requirement_error` accepts it for 122); `weapon_families` `["sword", "blunt"]` filters the shipped Warrior drop list (one- and two-handed), so axes, spears and polearms never drop for a Paladin; armour and shields drop by the Warrior class bit. The item id and stats are tier A | C | Spec #308 |
+| Paladin skill pool and start (#310, spec #308) | `jobs/paladin.json`: `starting_skill` power_strike (slot 1), `mobility_skill` rush_paladin, eight-key `skill_pool` (power_strike, slash_blast, blast, monster_magnet_paladin, fire_charge, ice_charge, thunder_charge, holy_charge). Power Strike and Slash Blast are Hero's definitions; all eight entries now resolve. The pool and the start are design choices; the WZ ids are tier A | C | Spec #308 (Skill pool table) |
+| Paladin playable (#310, #317, spec #308) | `jobs/paladin.json` `playable` true since P9 #317 (P2 shipped it false while the job had no skills, Forms or bot); the Job page lists Hero, Paladin, then the Arch Mages (canonical order); `default_job` stays 212 | C | Spec #308 (Making Paladin selectable) |
+| Paladin starting HP and HP growth are Hero's (#317, orchestrator ruling) | `jobs/paladin.json` `balance.player.ap["122"].hp` 600 and `balance.growth["122"].hp` 65, copied from `jobs/hero.json` (Hero's #346 melee survivability baseline), as Dark Knight did. P2 #310 had argued for the shared default (Warrior line 26 per level); the balance pass owns the number | C | Orchestrator ruling for melee jobs, #346 |
+| Paladin hub kit and fixture (#317, spec #308) | `jobs/paladin.json` `hub_kit`: fixture `paladin_t2.json` (a Lv25 Mace 1322004, Warrior-bit armour, tier 2, kit mode), 20 scroll stacks (every rate of the ATT scrolls of the sword, blunt, two-handed sword and two-handed blunt families; `SCROLL_COUNT` 10 each), spare 1002001 / Sword 1302008 / blunt 1322014 / 1082002 / 1040010, `fallback_item` 1302009 (Lv40 Sword) | C | Spec #308, as Hero's kit (#305) |
+| Paladin bot card scores (#317, spec #308) | `jobs/paladin.json` `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for blast, monster_magnet_paladin and the four Charges (power_strike and slash_blast keep Hero's pairs), the numbers every pool skill gets by default, written out so a Charge or Blast is taken whatever its cast rule; `SkillRunner.reach_of` needed no change (Blast is a `weapon_reach` cast, Forms, Magnet and Rush read 0), the Rush escape is Hero's (`BotInput` rule, `rush.bot_threat_distance` 60) | C | Spec #308, as H9 #305 |
+| Paladin baseline oracle (#317, spec #308) | `test_paladin_baseline`: seed 1, 21600 ticks (6 minutes, past the first boss's arrival), bot, god, synthetic assets (`tests/fixtures/paladin_fixtures.gd`), the 212 recipe plus the initial player state in the digest (Hero's), the eight-key pool frozen; its own golden, `test_character_baseline`, `test_tick_cost_identity` and `test_hero_baseline` stay pinned to 212 and 112 | C | Spec #308 (P9), T7 method |
+| Blast (#313, spec #308) | `skills/paladin.json` `blast`: damage 170 -> 550% (the only WZ field: one line, one target), the `blast` action and its 840 ms, the 14-frame effect and 3-frame hit keyed by the element art index, the five Use sounds | A | WZ 122.img/1221009 |
+| Blast cooldown and targeting (#313) | 2.0 s cooldown (the balance pass owns it), `weapon_reach` with `min_targets` 1 (nearest mob in the weapon's swing), 0.84 s action hold, element-keyed art, index 0 without a Charge, the five sounds played in cast order (`use_cycle`, no RNG) | C | Spec #308 |
+| Blast rarity bonuses (#313) | Rare Mastery damage x1.2, Epic Booster cooldown x0.88, Unique Final Attack +1 hit, Legendary Final Attack plus damage x1.2 (shares the Unique's counter); repeats x0.8 | C | Spec #308 |
+| Paladin Monster Magnet (#313) | `monster_magnet_paladin`: range 200 -> 400 px, prop 48 -> 95%, `mobCount` 6, 18-frame effect, Use sound (UOL to Hero's); equal to Hero's 1121001 level by level | A | WZ 122.img/1221001 |
+| Paladin Magnet cooldown, targeting and bonuses (#313) | 10 s cooldown, the three-mob admission gate (any mob in range counts), `alert2`, 0.6 s hold, no damage, the `pull` block of 7.35; Reach `range` x1.2, Bigger Grab +2 targets, Booster cooldown x0.75, Legendary Booster plus +2 targets | C | Spec #308, Hero H7 #303 |
+| Charged Blow form sub-skill (#314, spec #308) | `skills/paladin.json` `charged_blow`: `slot form_sub`, `form_sub_of` the four Charges (all four parents are defined), `cast {range_around, min_targets 3}`, `cooldown` 3.0 (not consulted: the Charge's `subs` interval sets the pace), `ranks` 4, 8, 12, 15, 19, 23, 27, 30 (the standard table written out), `action weapon` with `action_time` 0.6, no rarity list. The WZ numbers (damage, prop, time, range, mobCount, hpCon) are tier A | C | Spec #308 (Skill definitions) |
+| Fire, Ice and Thunder Charge numbers (#315, spec #308) | `skills/paladin.json` `fire_charge` / `ice_charge` / `thunder_charge`: `form.duration` 12.0, `cooldown` 18.0, `cast.mob_within` 400, `exclusive_group paladin_charge`, `subs` charged_blow `first_after` 1.0 / `interval` 3.0, `action_time` 0.9; rarity Mastery `form_power` +0.10, Booster cooldown x0.88, Advanced Charge `damage` x1.3 and `form_time` x1.25, Legendary + `damage` x1.2 (WZ `damage` per rank, `alert4`, the 15-frame effect and the twin ids are tier A) | C | Spec #308 (P-1, P-2, P-4, P-9) |
+| Element art index table (#314, spec #308) | `PlayerForms.ART_INDEX` and the `{art}` path token: none 0, ice 1, fire 2, lightning 3, holy 5 (tier A, P1 #309, read from the pixels; the spec's order was wrong); the token fill is ours | C | Spec #308 (Element art) |
+| Holy Charge Form (#316, spec #308) | `skills/paladin.json` `holy_charge`: the shape of the other Charges (group `paladin_charge`, 12 s, 18 s cooldown, `mob_within` 400, element `h`, Charged Blow after 1.0 s then every 3.0 s, `alert4` for 0.9 s, the Rare/Epic/Unique/Legendary lists of #315: `form_power` +0.10, cooldown x0.88, `damage` x1.3 and `form_time` x1.25, the same plus `damage` x1.2); WZ damage 106 -> 140 % at the level-20 table (rank 1 = level 3) is tier A, the 17-frame effect and the Use sound are tier A | C | Spec #308 (P-1, P-2, P-4, P-9) |
+| Heaven's Hammer sub-skill (#316, spec #308) | `skills/paladin.json` `heavens_hammer`: `slot form_sub`, `form_sub_of ["holy_charge"]`, listed in Holy's `subs` with `first_after` 0.5 and `once true`, `cast box`, `ranks` 4, 8, 12, 15, 19, 23, 27, 30 (P-5), `pending {delay 1.56, follow_player true}`, `action sanctuary` for 3.3 s, `hit` empty (its `hit/0` is a red HP-bar graphic), `cooldown` 18 (not consulted). Box, `mobCount` 15, damage 420 -> 900 %, `elemAttr h` and the sounds are tier A; 1.56 s = frame 13 of the 22-frame 120 ms effect and body frame `stabOF` 2, both read by P1 #309 | C | Spec #308 (Skill definitions), P1 #309 |
+| Paladin Rush copies Hero's (#312, spec #308 D1): cooldown, knock-back, hold-to-repeat, bot rule and the shared rank rule | `skills/paladin.json` `rush_paladin` equals `rush_hero` in every field but ids, art and sound (tested); WZ 1221007 equals 1121006 at every level (tier A, P1 #309) | C | Spec #308 D1 |
+| Form arbitration (#311) | `PlayerForms.PREFERRED_RADIUS` 400 px; sum nearby element multipliers, ready-order tie break; independent of per-form admission radius | C | Spec #308 M2 |
+
 ## 12. Later phases
 
 Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.
@@ -7813,28 +7890,3 @@ The summon art probe accepts `--skill`, `--job` and `--status` to reuse the same
 Ice Demon intentionally leaves its `ball` empty: four imported ball nodes remain unused (I7); the forward-box hit/effect
 presentation is the shipped design. The weapon-only `stabO2` fallback leaves Hero and F/P art unchanged whenever
 `stabO2` exists, covered by `test_a_weapon_with_stabO2_keeps_its_own_art`.
-
-### Paladin and Form constants and provenance (spec #308)
-
-| Constant / choice | Value | Tier | Source |
-|---|---|---|---|
-| Paladin AP row (#310, spec #308) | `jobs/paladin.json` `balance.player.ap["122"]`: the Hero 112 row's shape, STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204. The starting-HP and HP-growth rows were added by P9 #317 (next rows) | C | Spec #308 (Job data) |
-| Paladin creation weapon and families (#310, spec #308) | `jobs/paladin.json` `creation_weapon` 1322000, the Mace (Item.wz, reqJob 3, which includes the Warrior bit, so `requirement_error` accepts it for 122); `weapon_families` `["sword", "blunt"]` filters the shipped Warrior drop list (one- and two-handed), so axes, spears and polearms never drop for a Paladin; armour and shields drop by the Warrior class bit. The item id and stats are tier A | C | Spec #308 |
-| Paladin skill pool and start (#310, spec #308) | `jobs/paladin.json`: `starting_skill` power_strike (slot 1), `mobility_skill` rush_paladin, eight-key `skill_pool` (power_strike, slash_blast, blast, monster_magnet_paladin, fire_charge, ice_charge, thunder_charge, holy_charge). Power Strike and Slash Blast are Hero's definitions; all eight entries now resolve. The pool and the start are design choices; the WZ ids are tier A | C | Spec #308 (Skill pool table) |
-| Paladin playable (#310, #317, spec #308) | `jobs/paladin.json` `playable` true since P9 #317 (P2 shipped it false while the job had no skills, Forms or bot); the Job page lists Hero, Paladin, then the Arch Mages (canonical order); `default_job` stays 212 | C | Spec #308 (Making Paladin selectable) |
-| Paladin starting HP and HP growth are Hero's (#317, orchestrator ruling) | `jobs/paladin.json` `balance.player.ap["122"].hp` 600 and `balance.growth["122"].hp` 65, copied from `jobs/hero.json` (Hero's #346 melee survivability baseline), as Dark Knight did. P2 #310 had argued for the shared default (Warrior line 26 per level); the balance pass owns the number | C | Orchestrator ruling for melee jobs, #346 |
-| Paladin hub kit and fixture (#317, spec #308) | `jobs/paladin.json` `hub_kit`: fixture `paladin_t2.json` (a Lv25 Mace 1322004, Warrior-bit armour, tier 2, kit mode), 20 scroll stacks (every rate of the ATT scrolls of the sword, blunt, two-handed sword and two-handed blunt families; `SCROLL_COUNT` 10 each), spare 1002001 / Sword 1302008 / blunt 1322014 / 1082002 / 1040010, `fallback_item` 1302009 (Lv40 Sword) | C | Spec #308, as Hero's kit (#305) |
-| Paladin bot card scores (#317, spec #308) | `jobs/paladin.json` `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for blast, monster_magnet_paladin and the four Charges (power_strike and slash_blast keep Hero's pairs), the numbers every pool skill gets by default, written out so a Charge or Blast is taken whatever its cast rule; `SkillRunner.reach_of` needed no change (Blast is a `weapon_reach` cast, Forms, Magnet and Rush read 0), the Rush escape is Hero's (`BotInput` rule, `rush.bot_threat_distance` 60) | C | Spec #308, as H9 #305 |
-| Paladin baseline oracle (#317, spec #308) | `test_paladin_baseline`: seed 1, 21600 ticks (6 minutes, past the first boss's arrival), bot, god, synthetic assets (`tests/fixtures/paladin_fixtures.gd`), the 212 recipe plus the initial player state in the digest (Hero's), the eight-key pool frozen; its own golden, `test_character_baseline`, `test_tick_cost_identity` and `test_hero_baseline` stay pinned to 212 and 112 | C | Spec #308 (P9), T7 method |
-| Blast (#313, spec #308) | `skills/paladin.json` `blast`: damage 170 -> 550% (the only WZ field: one line, one target), the `blast` action and its 840 ms, the 14-frame effect and 3-frame hit keyed by the element art index, the five Use sounds | A | WZ 122.img/1221009 |
-| Blast cooldown and targeting (#313) | 2.0 s cooldown (the balance pass owns it), `weapon_reach` with `min_targets` 1 (nearest mob in the weapon's swing), 0.84 s action hold, element-keyed art, index 0 without a Charge, the five sounds played in cast order (`use_cycle`, no RNG) | C | Spec #308 |
-| Blast rarity bonuses (#313) | Rare Mastery damage x1.2, Epic Booster cooldown x0.88, Unique Final Attack +1 hit, Legendary Final Attack plus damage x1.2 (shares the Unique's counter); repeats x0.8 | C | Spec #308 |
-| Paladin Monster Magnet (#313) | `monster_magnet_paladin`: range 200 -> 400 px, prop 48 -> 95%, `mobCount` 6, 18-frame effect, Use sound (UOL to Hero's); equal to Hero's 1121001 level by level | A | WZ 122.img/1221001 |
-| Paladin Magnet cooldown, targeting and bonuses (#313) | 10 s cooldown, the three-mob admission gate (any mob in range counts), `alert2`, 0.6 s hold, no damage, the `pull` block of 7.35; Reach `range` x1.2, Bigger Grab +2 targets, Booster cooldown x0.75, Legendary Booster plus +2 targets | C | Spec #308, Hero H7 #303 |
-| Charged Blow form sub-skill (#314, spec #308) | `skills/paladin.json` `charged_blow`: `slot form_sub`, `form_sub_of` the four Charges (all four parents are defined), `cast {range_around, min_targets 3}`, `cooldown` 3.0 (not consulted: the Charge's `subs` interval sets the pace), `ranks` 4, 8, 12, 15, 19, 23, 27, 30 (the standard table written out), `action weapon` with `action_time` 0.6, no rarity list. The WZ numbers (damage, prop, time, range, mobCount, hpCon) are tier A | C | Spec #308 (Skill definitions) |
-| Fire, Ice and Thunder Charge numbers (#315, spec #308) | `skills/paladin.json` `fire_charge` / `ice_charge` / `thunder_charge`: `form.duration` 12.0, `cooldown` 18.0, `cast.mob_within` 400, `exclusive_group paladin_charge`, `subs` charged_blow `first_after` 1.0 / `interval` 3.0, `action_time` 0.9; rarity Mastery `form_power` +0.10, Booster cooldown x0.88, Advanced Charge `damage` x1.3 and `form_time` x1.25, Legendary + `damage` x1.2 (WZ `damage` per rank, `alert4`, the 15-frame effect and the twin ids are tier A) | C | Spec #308 (P-1, P-2, P-4, P-9) |
-| Element art index table (#314, spec #308) | `PlayerForms.ART_INDEX` and the `{art}` path token: none 0, ice 1, fire 2, lightning 3, holy 5 (tier A, P1 #309, read from the pixels; the spec's order was wrong); the token fill is ours | C | Spec #308 (Element art) |
-| Holy Charge Form (#316, spec #308) | `skills/paladin.json` `holy_charge`: the shape of the other Charges (group `paladin_charge`, 12 s, 18 s cooldown, `mob_within` 400, element `h`, Charged Blow after 1.0 s then every 3.0 s, `alert4` for 0.9 s, the Rare/Epic/Unique/Legendary lists of #315: `form_power` +0.10, cooldown x0.88, `damage` x1.3 and `form_time` x1.25, the same plus `damage` x1.2); WZ damage 106 -> 140 % at the level-20 table (rank 1 = level 3) is tier A, the 17-frame effect and the Use sound are tier A | C | Spec #308 (P-1, P-2, P-4, P-9) |
-| Heaven's Hammer sub-skill (#316, spec #308) | `skills/paladin.json` `heavens_hammer`: `slot form_sub`, `form_sub_of ["holy_charge"]`, listed in Holy's `subs` with `first_after` 0.5 and `once true`, `cast box`, `ranks` 4, 8, 12, 15, 19, 23, 27, 30 (P-5), `pending {delay 1.56, follow_player true}`, `action sanctuary` for 3.3 s, `hit` empty (its `hit/0` is a red HP-bar graphic), `cooldown` 18 (not consulted). Box, `mobCount` 15, damage 420 -> 900 %, `elemAttr h` and the sounds are tier A; 1.56 s = frame 13 of the 22-frame 120 ms effect and body frame `stabOF` 2, both read by P1 #309 | C | Spec #308 (Skill definitions), P1 #309 |
-| Paladin Rush copies Hero's (#312, spec #308 D1): cooldown, knock-back, hold-to-repeat, bot rule and the shared rank rule | `skills/paladin.json` `rush_paladin` equals `rush_hero` in every field but ids, art and sound (tested); WZ 1221007 equals 1121006 at every level (tier A, P1 #309) | C | Spec #308 D1 |
-| Form arbitration (#311) | `PlayerForms.PREFERRED_RADIUS` 400 px; sum nearby element multipliers, ready-order tie break; independent of per-form admission radius | C | Spec #308 M2 |
