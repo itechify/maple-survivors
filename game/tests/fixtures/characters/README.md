@@ -26,3 +26,10 @@ from a seed-1 Henesys bot clear. Reproduce with `tools/character_fixture.gd --jo
 seed, policy, revision and invulnerability: this is a diagnostic clear to obtain equipment, not evidence that the bot
 survives Henesys. The worn weapon is a two-handed axe (1412006); the equipment retains canonical stats. Use it for
 `--stage=sleepywood --job=112 --character=<absolute hero_t2.json>` or `--hub --job=112`.
+
+`dark_knight_t2.json` is the Dark Knight (132) fixture (spec #348, D10 #358): tier 2 unlocked and the equipment, inventory,
+scrolls and mesos from a seed-1 Henesys bot clear. Reproduce with `tools/character_fixture.gd --job=132 --god --seed=1
+--label=spec348/ticket-358 --revision=<SHA> --out=<absolute path>`; no playable patch is needed (D10 flipped `playable`). The
+`_doc` records seed, policy, revision and invulnerability: this is a diagnostic clear to obtain equipment, not evidence that
+the bot survives Henesys. The worn weapon is a Spear (1432002), the equipment retains canonical stats. Use it for
+`--stage=sleepywood --job=132 --character=<absolute dark_knight_t2.json>` or `--hub --job=132`.
