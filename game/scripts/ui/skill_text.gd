@@ -103,7 +103,7 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 				details, base, SkillRunner.strike_count(sub_stats), cost])
 	if def.has("meter"):
 		# The meter's unit word: a finisher may name it ("energy"); Hero's finishers keep "orbs".
-		var unit := str(def.meter.get("unit", "orbs"))
+		var unit := book.meter_unit(key)
 		mechanics.append("Needs %d %s" % [int(def.meter.get("min", 0)), unit])
 		var keep := int(stats.get("meter_keep", 0))
 		if str(def.meter.get("spend", "")) == "all":

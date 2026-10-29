@@ -59,22 +59,18 @@ func play_from(path: String, pos: Vector2, flip: bool, start: float) -> int:
 	var a := lib.anim(path) if lib != null else null
 	if a == null or a.is_empty():
 		return -1
-	var owner: FxRenderer = behind if behind != null and behind != self and a.z != null and int(a.z) < 0 else self
-	var i := owner.play_anim(a, pos, flip)
-	owner._t[i] = start
-	owner._draw_slot(i)
-	return i
+	return play_anim(a, pos, flip, null, Vector2.ZERO, false, start)
 
 
 ## Plays an already resolved animation (see play()).
 func play_anim(a: SpriteAnim, pos: Vector2, flip: bool = false, follow: Node2D = null, offset: Vector2 = Vector2.ZERO,
-		hold: bool = false) -> int:
+		hold: bool = false, start: float = 0.0) -> int:
 	if behind != null and behind != self and a.z != null and int(a.z) < 0:
-		return behind.play_anim(a, pos, flip, follow, offset, hold)
+		return behind.play_anim(a, pos, flip, follow, offset, hold, start)
 	_ensure_pool()
 	var i := _alloc()
 	_anim[i] = a
-	_t[i] = 0.0
+	_t[i] = start
 	_pos[i] = pos
 	_offset[i] = offset
 	_flip[i] = 1 if flip else 0

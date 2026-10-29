@@ -340,7 +340,7 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 		if String(effect.stat) == "meter_keep":
 			var before := state.loadout.skill_stat(skill, "meter_keep", 0.0)
 			var kept := before * float(effect.value) if op == "mul" else before + float(effect.value)
-			labels.append("Keeps %d %s" % [maxi(0, roundi(kept)), String(state.book.def(skill).get("meter", {}).get("unit", "orbs"))])
+			labels.append("Keeps %d %s" % [maxi(0, roundi(kept)), state.book.meter_unit(skill)])
 			continue
 		labels.append(effect_label(String(effect.stat), op, float(effect.value)))
 	bonus.text = String(bonus.get("text", bonus.id)) + ": " + ", ".join(labels)

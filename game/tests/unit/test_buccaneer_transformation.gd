@@ -26,18 +26,7 @@ func _imgs() -> Dictionary:
 
 ## The synthetic `skill_imgs["511"]` node of the two skills (the rarity audit, test_rarity_bonus_effects, builds its world from it).
 static func book_node() -> Dictionary:
-	var trans := {}
-	for lv in range(1, 21):
-		var at := T_LEVELS.find(lv)
-		var defence: int = T_DEFENCE[at] if at >= 0 else 2 * lv
-		trans[str(lv)] = {"morph": 1000, "time": 120, "speed": 40, "jump": 20, "pdd": defence, "mdd": defence,
-			"cooltime": 530 - 8 * lv, "str": lv}
-	var shock := {}
-	for lv in range(1, 31):
-		var at := S_LEVELS.find(lv)
-		shock[str(lv)] = {"damage": S_DAMAGE[at] if at >= 0 else 265 + (lv - 1) * 15,
-			"mobCount": S_TARGETS[at] if at >= 0 else 4, "lt": {"$v": [-330, -140]}, "rb": {"$v": [0, 20]}}
-	return {"skill": {"5111005": {"level": trans}, "5111006": {"level": shock}}}
+	return preload("res://tests/fixtures/buccaneer_transformation_book.gd").book_node()
 
 
 ## A Buccaneer (job 512 flipped playable for the test) on the flat quiet map at x = 400 with only Transformation learned.

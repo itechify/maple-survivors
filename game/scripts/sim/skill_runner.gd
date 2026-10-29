@@ -650,8 +650,8 @@ func apply_pull(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 ## direction it moved in) also ends the path: nothing on its far side is struck, however far the box reaches (tier C).
 func _resolve_charge(world: RunWorld, st: Dictionary, start: Vector2, side: int) -> void:
 	var local: Rect2 = st.box if bool(st.has_box) else world.body
-	if bool(st.has_box) and world.player.facing > 0:
-		local.position.x = -local.end.x  # canonical boxes face left
+	if bool(st.has_box):
+		local = facing_box(local, world.player.facing)
 	var at_start := Rect2(local.position + start, local.size)
 	var at_end := Rect2(local.position + world.player.pos, local.size)
 	var path := at_start.merge(at_end)
@@ -701,9 +701,15 @@ static func blast_rect(st: Dictionary, at: Vector2) -> Rect2:
 ## mirrored across `at` for a right-facing caster (the box rule's own mirroring, fixed at the cast).
 static func oriented_rect(st: Dictionary, at: Vector2, facing: int) -> Rect2:
 	var box: Rect2 = st.box
+	box = facing_box(box, facing)
+	return Rect2(box.position + at, box.size)
+
+
+## Mirrors a left-authored local box for a right-facing caster.
+static func facing_box(box: Rect2, facing: int) -> Rect2:
 	if facing > 0:
 		box.position.x = -box.end.x
-	return Rect2(box.position + at, box.size)
+	return box
 
 
 static func _feet(world: RunWorld, m: int) -> Vector2:
@@ -779,17 +785,17 @@ func _resolve_crowd(world: RunWorld, key: String, st: Dictionary, targets: Packe
 
 func _resolve_instant_targets(world: RunWorld, st: Dictionary, targets: PackedInt32Array,
 		limit: int, lines: int, hv: int) -> void:
+	var d := world.book.def(String(st.skill))
+	var by_target: Array = d.get("hit_targets", [])
+	var by_line: Array = d.get("hit_lines", [])
 	for i in mini(limit, targets.size()):
-		_resolve_target(world, st, targets[i], i, lines, hv)
+		_resolve_target(world, st, targets[i], i, lines, hv, by_target, by_line)
 
 
 ## The `lines` damage lines on `slot`, the `index`-th target of its cast. The definition's `hit_targets` (art by target index,
 ## cycling: Dragon Strike's hit/0..2) and `hit_lines` (art by line, none past the list: Barrage's jab/finisher sets) replace
 ## the single hit visual `hv`; a definition with neither keeps it for every line.
-func _resolve_target(world: RunWorld, st: Dictionary, slot: int, index: int, lines: int, hv: int) -> void:
-	var d := world.book.def(String(st.skill))
-	var by_target: Array = d.get("hit_targets", [])
-	var by_line: Array = d.get("hit_lines", [])
+func _resolve_target(world: RunWorld, st: Dictionary, slot: int, index: int, lines: int, hv: int, by_target: Array, by_line: Array) -> void:
 	var target_hv := world.visual_index(String(by_target[index % by_target.size()])) if not by_target.is_empty() else hv
 	for line in lines:
 		# Both queries return valid slots. Keep nearest's active-mask check; is_live adds only bounds checks.
@@ -974,6 +980,9 @@ func _step_areas(dt: float, world: RunWorld) -> void:
 				if float(a.stagger) > 0.0:
 					# The targets are fixed at the impact; target k lands k * stagger later (WZ hitAfter 840 + 120 k ms).
 					a["queue"] = targets
+					a["identities"] = PackedInt64Array() # tier C: target lifetime, as in Final Attack; slot reuse must not redirect a strike.
+					for slot in targets:
+						a.identities.append(world.swarm.identity[slot])
 					a["done"] = 0
 				else:
 					_resolve_instant_targets(world, st, targets, limit, int(st.attack_count),
@@ -992,8 +1001,14 @@ func _drain_staggered(world: RunWorld, a: Dictionary) -> bool:
 	var st: Dictionary = a.st
 	var queue: PackedInt32Array = a.queue
 	var done := int(a.done)
+	var d := world.book.def(String(st.skill))
+	var by_target: Array = d.get("hit_targets", [])
+	var by_line: Array = d.get("hit_lines", [])
+	var hv := world.visual_index(String(st.hit))
 	while done < queue.size() and float(a.age) + 1e-9 >= float(a.next) + float(a.stagger) * done:
-		_resolve_target(world, st, queue[done], done, int(st.attack_count), world.visual_index(String(st.hit)))
+		var slot := queue[done]
+		if world.swarm.is_live(slot) and world.swarm.identity[slot] == a.identities[done]:
+			_resolve_target(world, st, slot, done, int(st.attack_count), hv, by_target, by_line)
 		done += 1
 	a.done = done
 	return done >= queue.size()

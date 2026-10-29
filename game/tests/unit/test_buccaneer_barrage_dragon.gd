@@ -18,20 +18,7 @@ const BASE := "Skill.wz/512.img/skill/"
 
 ## The 512 fixture book: the real damage (and Dragon Strike's mobCount) at the eight mapped levels, a filler row elsewhere.
 static func book_node() -> Dictionary:
-	var barrage := {}
-	var dragon := {}
-	for lv in range(1, 31):
-		var i := LEVELS.find(lv)
-		barrage[str(lv)] = {"damage": BARRAGE_DAMAGE[i] if i >= 0 else 100 + lv, "attackCount": 6, "mpCon": 10}
-		dragon[str(lv)] = {"damage": DRAGON_DAMAGE[i] if i >= 0 else 300 + lv, "mobCount": DRAGON_MOBS[i] if i >= 0 else 4,
-			"lt": {"$v": [-400, -100]}, "rb": {"$v": [25, 20]}, "mpCon": 50}
-	var anim := func(n: int) -> Dictionary: return RF._anim(n, 60.0, 16, 16)
-	return {"skill": {
-		"5121007": {"icon": RF._canvas(32, 32), "action": {"0": "fist"}, "effect": anim.call(5),
-			"hit": {"0": anim.call(12)}, "hit0": {"0": anim.call(9)}, "hit1": {"0": anim.call(17)}, "level": barrage},
-		"5121001": {"icon": RF._canvas(32, 32), "action": {"0": "dragonstrike"}, "effect": anim.call(16),
-			"hit": {"0": anim.call(13), "1": anim.call(13), "2": anim.call(13)},
-			"tile": {"0": anim.call(13), "1": anim.call(13), "2": anim.call(13), "3": anim.call(13)}, "level": dragon}}}
+	return preload("res://tests/fixtures/buccaneer_barrage_dragon_book.gd").book_node()
 
 
 func _data() -> Dictionary:
@@ -507,3 +494,22 @@ func test_real_cache_a_knuckle_keeps_its_weapon_on_every_frame_of_fist_and_drago
 					func(p: Dictionary) -> bool: return int(p.get("owner", 0)) == weapon)
 				assert_false(owned.is_empty(), "%d is drawn at %s frame %d" % [weapon, stance, index])
 	avatar.free()
+
+func test_staggered_targets_keep_identity_and_original_timing_after_slot_reuse() -> void:
+	var w := _world("dragon_strike", 8)
+	_mob(w, 50.0)
+	var second := _mob(w, 120.0)
+	var third := _mob(w, 180.0)
+	for t in 52:
+		_tick(w)
+	var old_identity: int = w.swarm.identity[second]
+	w.swarm.despawn(second)
+	var replacement := _mob(w, 1500.0)
+	assert_eq(replacement, second, "fixture reuses the selected slot")
+	assert_true(w.swarm.identity[replacement] != old_identity)
+	var hits := _run(w, 0.3)
+	assert_eq(hits.size(), 1, "only the surviving third target lands")
+	if hits.size() == 1:
+		assert_eq(int(hits[0][1].mob), third)
+		assert_eq(int(hits[0][0]), 13, "invalid target keeps its original stagger interval")
+	assert_eq(w.swarm.hp[replacement], w.swarm.max_hp[replacement])

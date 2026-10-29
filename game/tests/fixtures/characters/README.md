@@ -47,3 +47,5 @@ and mesos from a seed-1 Henesys bot clear (the worn weapon is the Lv25 knuckle 1
 invulnerability: this is a diagnostic clear to obtain equipment, not evidence that the bot survives Henesys. Use it for
 `--stage=sleepywood --job=512 --character=<absolute buccaneer_t2.json>` or `--hub --job=512`. **It must wear a knuckle:
 without one the weapon reach and `weapon_reach` skills have nothing to read.**
+
+Buccaneer review cleanup (#412): the diagnostic tier-2 fixture excludes the default sword 1302000 and displaced default outfit 1072001/1060002/1040002; its worn knuckle kit and round loot are unchanged.

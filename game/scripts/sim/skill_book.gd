@@ -244,3 +244,8 @@ func visual(key: String, field: String, level: int, char_level: int) -> String:
 		if best > 0:
 			return fill_path(String(cl[field]), level, best)
 	return fill_path(String(d.get(field, "")), level)
+
+
+## The display unit for a skill’s meter gate and retention cards.
+func meter_unit(key: String) -> String:
+	return String(meter_rule(key).get("unit", "orbs"))

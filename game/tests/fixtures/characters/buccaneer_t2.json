@@ -16,38 +16,6 @@
 	"equipment": {
 		"inventory": [
 			{
-				"id": 1072001,
-				"scrolls": 0,
-				"slots": 5,
-				"stats": {
-					"incPDD": 2
-				}
-			},
-			{
-				"id": 1060002,
-				"scrolls": 0,
-				"slots": 7,
-				"stats": {
-					"incPDD": 2
-				}
-			},
-			{
-				"id": 1302000,
-				"scrolls": 0,
-				"slots": 7,
-				"stats": {
-					"incPAD": 17
-				}
-			},
-			{
-				"id": 1040002,
-				"scrolls": 0,
-				"slots": 7,
-				"stats": {
-					"incPDD": 3
-				}
-			},
-			{
 				"id": 1060005,
 				"scrolls": 0,
 				"slots": 7,

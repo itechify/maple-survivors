@@ -20,22 +20,12 @@ const SKILL := "energy_orb"
 ## The 512 fixture book: Orb's real damage and mobCount at the eight mapped levels, `range` 200 (and no box) everywhere, a filler row
 ## elsewhere. Static so the rarity audit can merge it into its own book 512.
 static func book_node() -> Dictionary:
-	var rows := {}
-	for lv in range(1, 31):
-		var i := LEVELS.find(lv)
-		rows[str(lv)] = {"damage": DAMAGE[i] if i >= 0 else 300 + lv * 20, "mobCount": MOBS[i] if i >= 0 else 2 + lv / 8,
-			"range": 200, "mpCon": 50}
-	var anim := func(n: int) -> Dictionary: return RF._anim(n, 60.0, 16, 16)
-	return {"skill": {"5121002": {"icon": RF._canvas(32, 32), "action": {"0": "eorb"}, "effect": anim.call(13),
-		"effect0": anim.call(6), "hit": {"0": anim.call(7)}, "ball": RF._anim(1, 60.0, 60, 30), "level": rows}}}
+	return preload("res://tests/fixtures/buccaneer_orb_book.gd").book_node()
 
 
 ## Book 511 with just enough Energy Drain (the canonical box, one mob, the real rank-1 numbers) for the arbitration tests.
 static func _drain_book() -> Dictionary:
-	var rows := {}
-	for lv in range(1, 21):
-		rows[str(lv)] = {"damage": 270 + lv, "x": 12, "mobCount": 1, "lt": {"$v": [-200, -100]}, "rb": {"$v": [0, 0]}}
-	return {"skill": {"5111004": {"level": rows}}}
+	return preload("res://tests/fixtures/buccaneer_orb_book.gd")._drain_book()
 
 
 ## A Buccaneer (job 512 flipped playable) at x = 400 on the flat quiet map, facing right, with `keys` learned (Orb by default).

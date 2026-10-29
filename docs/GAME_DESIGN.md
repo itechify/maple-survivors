@@ -4590,7 +4590,7 @@ is compared with the I/L QA record and equivalent Bishop/Paladin QA notes.
 Across all 30 Buccaneer records: energy_drain 3569 casts, energy_orb 2010 casts, shockwave 778 casts, snatch 0
 casts, demolition 0 casts. Measured post-tick occupancy: morph 1000 3291.05 s, morph 1001 0.00 s. No smoke loadout
 selected Super Transformation, so its natural occupancy and Snatch/Demolition counts are zero; those paths have
-diagnostic visual coverage only. Per-run counters and occupancy are retained in `BC12-424.md` in the implementation
+deterministic unit-test coverage plus diagnostic playtest coverage only; the natural smoke does not establish coverage of Super Transformation, Snatch or Demolition. Per-run counters and occupancy are retained in `BC12-424.md` in the implementation
 notes and the raw local JSON, not inferred from nominal durations. The observer only reads cast events and morph
 snapshots; it changes no RNG or world state.
 
@@ -7034,7 +7034,7 @@ rarity lists) with two differences: it has **20 levels**, so its rank table is t
 - **Text.** The Charge's description names the Hammer; the Hammer's own line reads "Damage N %, up to 15 monsters, holy;
   lands after a short delay", and the Form's mechanics line lists it as "once after 0.5 s".
 
-### 7.90 Buccaneer ported skills: Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut, Corkscrew Blow (spec #412 BU-14, B4 #416)
+### 7.90 Buccaneer pool, Dash and ported skills: Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut, Corkscrew Blow (spec #412 BU-14, B4 #416)
 
 The five Brawler attacks moved from `skills/pirate.json` to `skills/buccaneer.json` (a key may be defined in one file only; Corsair's
 definitions stay in `pirate.json`). They are pool skills of job 512 (`slot: active`, no cards of their own: the pool generates
@@ -8712,25 +8712,26 @@ One heading for the whole spec; each ticket's table below carries its own bold l
 | Genesis rarity bonuses | Rare damage x1.2, Epic area x1.2, Unique +1 hit, Legendary Unique plus damage x1.2; repeat scale 0.8; names Holy Power, Wider Genesis, Echo | C |
 | Big Bang Bishop | the three-line template over `big_bang`; identity of the three Big Bangs in v83 data is tier A, the template mechanism tier C (7.63); every number inherited | A / C |
 
-### Buccaneer B5 constants (#417)
-
-| Rule | Value | Tier | Source |
-|---|---|---|---|
-| Dash on the mobility slot (#417, spec #412 BU-13) | `skills/pirate.json` `dash.slot` "mobility": outside both slot tracks, learned at start, never a card (`dash_new` / `dash_rank` deleted) | C | Spec #412 BU-13; Corsair #384 reuses it |
-| Dash rank rule (#417, spec #412 BU-13) | the shared `balance.mobility_rank_levels` (rank 1 at Lv1, rank N at about Lv 2N, clamped to the ten ranks); no `rank_levels["10"]` | C | Spec #412 BU-13; #296 H6 |
-| Dash cooldown (#417) | a manual buff's cooldown is its running duration (4 -> 20 s by rank), the existing manual-buff rule | C | 7.15 (#188); 7.90 |
-
 ### Buccaneer B2 constants (#414)
 
-| Rule | Value | Tier | Source |
-|---|---|---|---|
-| Buccaneer starting HP and HP growth (#414, spec #412 BU-20) | `jobs/buccaneer.json` `balance.player.ap["512"].hp` 600 and `balance.growth["512"].hp` 65: copied from Hero's 112 rows (orchestrator ruling, the melee survivability baseline of #346); the balance pass owns them | C | Spec #412 BU-20; #346 |
-| Buccaneer AP row (#414, spec #412 BU-20) | `balance.player.ap["512"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204, the Hero 112 row's shape | C | Spec #412 BU-20 |
-| Buccaneer pool and start (#414, spec #412 BU-1, BU-4, BU-14) | `jobs/buccaneer.json`: `starting_skill` flash_fist (slot 1), `mobility_skill` dash (outside the slots), eleven-key `skill_pool` (Flash Fist to Super Transformation, Energy Blast left out) | C | Spec #412 BU-1, BU-4 |
-| Buccaneer creation weapon and drop families (#414, spec #412 BU-20) | `creation_weapon` 1482000, the Steel Knuckler (Item.wz, reqJob 16, the Pirate bit; no level requirement, #292); `weapon_families` [knuckle], so guns, swords, axes, bows, wands and claws never drop; the Warrior shield drops by its class bit and never for a Buccaneer | A (item facts), C (families) | Spec #412 BU-20 |
-| Energy Charge meter (#414, spec #412 BU-5) | `jobs/buccaneer.json` `meter`: id energy, max 10, one per landed non-finisher pool cast, `per_unit` damage 0.03 (+3% per held energy) | C | Spec #412 BU-5 |
-| Energy Charge full-bar cue (#414, spec #412 BU-4) | `meter.cue`: `Skill.wz/511.img/skill/5110001/affected` and `Sound.wz/Skill.img/5110001/Use` (WZ paths, presentation only; B6 reads them) | A | Spec #412 BU-4 |
-| Buccaneer not playable (#414) | `jobs/buccaneer.json` `playable` false until B11 flips it; `default_job` stays 212 | C | Spec #412 |
+| Rule | Value / source | Tier |
+|---|---|---|
+| Buccaneer starting HP and HP growth (#414, spec #412 BU-20) | `jobs/buccaneer.json` `balance.player.ap["512"].hp` 600 and `balance.growth["512"].hp` 65: copied from Hero's 112 rows (orchestrator ruling, the melee survivability baseline of #346); the balance pass owns them; Spec #412 BU-20; #346 | C |
+| Buccaneer AP row (#414, spec #412 BU-20) | `balance.player.ap["512"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204, the Hero 112 row's shape; Spec #412 BU-20 | C |
+| Buccaneer pool and start (#414, spec #412 BU-1, BU-4, BU-14) | `jobs/buccaneer.json`: `starting_skill` flash_fist (slot 1), `mobility_skill` dash (outside the slots), eleven-key `skill_pool` (Flash Fist to Super Transformation, Energy Blast left out); Spec #412 BU-1, BU-4 | C |
+| Buccaneer creation weapon and drop families (#414, spec #412 BU-20) | `creation_weapon` 1482000, the Steel Knuckler (Item.wz, reqJob 16, the Pirate bit; no level requirement, #292); `weapon_families` [knuckle], so guns, swords, axes, bows, wands and claws never drop; the Warrior shield drops by its class bit and never for a Buccaneer; Spec #412 BU-20 | A (item facts), C (families) |
+| Energy Charge meter (#414, spec #412 BU-5) | `jobs/buccaneer.json` `meter`: id energy, max 10, one per landed non-finisher pool cast, `per_unit` damage 0.03 (+3% per held energy); Spec #412 BU-5 | C |
+| Energy Charge full-bar cue (#414, spec #412 BU-4) | `meter.cue`: `Skill.wz/511.img/skill/5110001/affected` and `Sound.wz/Skill.img/5110001/Use` (WZ paths, presentation only; B6 reads them); Spec #412 BU-4 | A |
+| Buccaneer not playable (#414) | `jobs/buccaneer.json` `playable` false until B11 flips it; `default_job` stays 212; Spec #412 | C |
+
+
+### Buccaneer B3 constants (#415)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Morph stance rule (#415, spec #412 BU-10) | while morphed, a stance named like a node of the morph img draws that node (`AvatarRenderer.morph_stance`); `info` is never a stance; any other stance keeps `MORPH_ACTIONS`, which shows the morph standing for an attack | C (rule), A (the node names, frames, delays and origins are Morph.wz's own) |
+| Morph on the form's `buff` block (#415, spec #412 BU-9) | no `morph` key in `PlayerForms.EFFECTS`: `buff.morph_field` already resolves the id; no new constant | C (design) |
+| Transform card text (#415) | "Transforms you for N s: defence +X, speed +Y, jump +Z." for a form with no element; equal `pdd` and `mdd` read as one "defence" number, unequal read as weapon and magic defence; zero stats are omitted | C (wording, presentation only) |
 
 ### Buccaneer B4 constants (#416)
 
@@ -8742,13 +8743,14 @@ One heading for the whole spec; each ticket's table below carries its own bold l
 | Corkscrew Blow charge (#416) | `displacement.field` `lt.x`: the charge equals the WZ box reach of the mapped level (110 .. 200 px) | A (WZ reach) / C (charges the full reach) |
 | Boxes, damage, `mobCount`, `attackCount`, stun `time` of the five (#416) | read from Skill.wz at the mapped level; unchanged from the first port | A |
 
-### Buccaneer B3 constants (#415)
+### Buccaneer B5 constants (#417)
 
 | Rule | Value / source | Tier |
 |---|---|---|
-| Morph stance rule (#415, spec #412 BU-10) | while morphed, a stance named like a node of the morph img draws that node (`AvatarRenderer.morph_stance`); `info` is never a stance; any other stance keeps `MORPH_ACTIONS`, which shows the morph standing for an attack | C (rule), A (the node names, frames, delays and origins are Morph.wz's own) |
-| Morph on the form's `buff` block (#415, spec #412 BU-9) | no `morph` key in `PlayerForms.EFFECTS`: `buff.morph_field` already resolves the id; no new constant | C (design) |
-| Transform card text (#415) | "Transforms you for N s: defence +X, speed +Y, jump +Z." for a form with no element; equal `pdd` and `mdd` read as one "defence" number, unequal read as weapon and magic defence; zero stats are omitted | C (wording, presentation only) |
+| Dash on the mobility slot (#417, spec #412 BU-13) | `skills/pirate.json` `dash.slot` "mobility": outside both slot tracks, learned at start, never a card (`dash_new` / `dash_rank` deleted); Spec #412 BU-13; Corsair #384 is intended to reuse it | C |
+| Dash rank rule (#417, spec #412 BU-13) | the shared `balance.mobility_rank_levels` (rank 1 at Lv1, rank N at about Lv 2N, clamped to the ten ranks); no `rank_levels["10"]`; Spec #412 BU-13; #296 H6 | C |
+| Dash cooldown (#417) | a manual buff's cooldown is its running duration (4 -> 20 s by rank), the existing manual-buff rule; 7.15 (#188); 7.90 | C |
+
 
 ### Buccaneer B6 constants (#418)
 
@@ -8819,7 +8821,7 @@ One heading for the whole spec; each ticket's table below carries its own bold l
 | Snatch pull (#422, BU-12) | `pull {range_field range, min_gap 60}`, no chance field (always), `range` 300 = the box's far edge (the node has no range); before the damage; the pull and the damage choose their own sets | C (A for the 300 px edge) |
 | Snatch schedule and stance (#422) | interval 6.0 s (above), `snatch` held 0.8 s of 0.99 s | C |
 | Morph blank-frame hold (#422) | a 1 x 1 morph frame holds the last drawn frame of its action (Demolition frame 3, 1.62 s); a blank first frame draws nothing; timing unchanged | C |
-| `FootholdMap.slide_along` guard (#422) | a foothold index the map lacks returns the start unchanged (no sim effect on a valid map; the rarity audit swaps the map under live mobs) | C |
+| `FootholdMap.slide_along` guard (#422) | a foothold index the map lacks returns zero horizontal movement; MobSwarm pull/knockback reject stale supporting footholds before applying any coordinates (no sim effect on a valid map; the rarity audit swaps the map under live mobs) | C |
 
 ### Buccaneer B11 constants (#423)
 
@@ -8926,3 +8928,7 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Evidence shot delay (`REVIVE_SHOT_DELAY`) | 1.45 s after the revive (first beam frames) | tier C, ours (#380) |
 | Guard blink | the hit-window blink (alpha 0.4, 0.16 s period), driven by the longer of the hit window and `RunWorld.hit_guard_left()` | tier C, ours (existing blink constants) |
 | Level-up preview units | `revive_hp` in percent, `revive_guard` in seconds | tier C, ours (#380) |
+
+### Buccaneer review corrections (#412)
+
+Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.

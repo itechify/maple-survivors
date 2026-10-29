@@ -1446,8 +1446,7 @@ func _skill_box_matches(box: Rect2, filter: Callable, limit: int, probe: int = 0
 	if not box.has_area():
 		_box_candidates = 0
 		return []
-	if (facing if facing != 0 else player.facing) > 0:
-		box.position.x = -box.end.x
+	box = SkillRunner.facing_box(box, facing if facing != 0 else player.facing)
 	box.position += player.pos
 	return _world_rect_matches(box, filter, limit, probe, kinds_ok)
 

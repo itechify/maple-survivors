@@ -495,10 +495,10 @@ static func part_img_path(id: int) -> String:
 ## action instead, so the figure does not vanish while the skill's own art plays. tier C: ours (B10 #422).
 func _compose_morph(s: String, index: int) -> Array:
 	var node: Variant = _morph.root.get(s)
-	var frame: Variant = _frame_node(node, index)
+	var keys: Array = SpriteAnim.frame_keys(node) if node is Dictionary else []
+	var frame: Variant = _frame_node(node, index, keys)
 	if not WzImg.is_canvas(frame):
 		return []
-	var keys: Array = SpriteAnim.frame_keys(node)
 	var at: int = index % keys.size()
 	while at > 0 and _is_blank_canvas(frame):
 		at -= 1
@@ -537,10 +537,11 @@ func _resolve(s: String, index: int) -> Array:
 	return [s, index]
 
 
-static func _frame_node(stance_node: Variant, index: int) -> Variant:
+static func _frame_node(stance_node: Variant, index: int, keys: Array = []) -> Variant:
 	if not (stance_node is Dictionary):
 		return null
-	var keys := SpriteAnim.frame_keys(stance_node)
+	if keys.is_empty():
+		keys = SpriteAnim.frame_keys(stance_node)
 	if keys.is_empty():
 		return null
 	return stance_node[keys[index % keys.size()]]

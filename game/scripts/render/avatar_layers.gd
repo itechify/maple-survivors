@@ -167,8 +167,8 @@ static func stance_frame(w: WzImg, stance: String, index: int, back: bool = fals
 
 
 ## A weapon's frame for the body's stance: the stance itself, else the stance it borrows from (STANCE_FALLBACKS) at the
-## same frame index, else what any stance-keyed equip does (stance_frame). Staves are the case: 9 of the 14 have no
-## stabO2, and a skill whose body action reaches it (Chain Lightning's chainlightning) would lose the weapon.
+## same frame index, else what any stance-keyed equip does (stance_frame). Staves borrow stabO1 for missing stabO2;
+## knuckles borrow swingT3 for missing swingTF, including frames reached by fist and dragonstrike.
 static func weapon_stance_frame(w: WzImg, stance: String, index: int, back: bool = false) -> Array:
 	if not has_art(w, stance) and STANCE_FALLBACKS.has(stance) and has_art(w, STANCE_FALLBACKS[stance]):
 		return frame(w, STANCE_FALLBACKS[stance], index)

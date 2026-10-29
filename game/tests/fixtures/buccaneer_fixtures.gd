@@ -4,10 +4,10 @@ extends RefCounted
 ## B7 Orb, B8 Barrage and Dragon Strike, B9 Transformation and Shockwave, B10 Super Transformation, Demolition and Snatch).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const TRANSFORMATION := preload("res://tests/unit/test_buccaneer_transformation.gd")
-const ORB := preload("res://tests/unit/test_buccaneer_orb.gd")
-const BARRAGE_DRAGON := preload("res://tests/unit/test_buccaneer_barrage_dragon.gd")
-const SUPER := preload("res://tests/unit/test_buccaneer_super_transformation.gd")
+const TRANSFORMATION := preload("res://tests/fixtures/buccaneer_transformation_book.gd")
+const ORB := preload("res://tests/fixtures/buccaneer_orb_book.gd")
+const BARRAGE_DRAGON := preload("res://tests/fixtures/buccaneer_barrage_dragon_book.gd")
+const SUPER := preload("res://tests/fixtures/buccaneer_super_transformation_book.gd")
 ## The creation weapon, the Steel Knuckler (v83 Item.wz 1482000).
 const KNUCKLE := 1482000
 

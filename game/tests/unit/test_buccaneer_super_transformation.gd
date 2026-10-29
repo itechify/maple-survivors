@@ -23,26 +23,7 @@ const SHOCK_DAMAGE := [310, 370, 430, 475, 535, 595, 655, 700]
 
 ## The synthetic `skill_imgs["512"]` node of the three skills (the rarity audit builds its world from it too).
 static func book_node() -> Dictionary:
-	var sup := {}
-	for lv in range(1, 21):
-		var at := S_LEVELS.find(lv)
-		var defence: int = S_DEFENCE[at] if at >= 0 else 40 + lv
-		sup[str(lv)] = {"morph": 1001, "time": 120, "speed": 40, "jump": 20, "pdd": defence, "mdd": defence,
-			"cooltime": 430 - 10 * lv, "str": lv + 10}
-	var demo := {}
-	var snatch := {}
-	for lv in range(1, 31):
-		var at := SUB_LEVELS.find(lv)
-		demo[str(lv)] = {"damage": D_DAMAGE[at] if at >= 0 else 90 + lv * 10, "attackCount": 8, "time": 1, "mobCount": 1,
-			"lt": {"$v": [-300, -150]}, "rb": {"$v": [-20, 15]}}
-		snatch[str(lv)] = {"damage": N_DAMAGE[at] if at >= 0 else 210 + lv * 12, "mobCount": N_TARGETS[at] if at >= 0 else 2,
-			"time": 1, "lt": {"$v": [-300, -100]}, "rb": {"$v": [-50, 15]}}
-	var anim := func(n: int) -> Dictionary: return RF._anim(n, 90.0, 16, 16)
-	return {"skill": {
-		"5121003": {"icon": RF._canvas(32, 32), "level": sup},
-		"5121004": {"icon": RF._canvas(32, 32), "action": {"0": "demolition"}, "hit": {"0": anim.call(23)}, "level": demo},
-		"5121005": {"icon": RF._canvas(32, 32), "action": {"0": "snatch"}, "effect": anim.call(10), "hit": {"0": anim.call(3)},
-			"level": snatch}}}
+	return preload("res://tests/fixtures/buccaneer_super_transformation_book.gd").book_node()
 
 
 ## A Buccaneer (job 512 flipped playable for the test) on the flat quiet map at x = 400 knowing `learned`.
@@ -460,6 +441,15 @@ func test_a_pull_or_knockback_of_a_mob_on_a_foothold_the_map_lacks_is_a_no_op() 
 	var map := FootholdMap.from_segments([{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}])
 	var stop := map.slide_along(1, 100.0, 1, 50.0, 0.0, 4000.0)
 	assert_eq([stop.x, stop.fh, stop.moved], [100.0, 1, 0.0])
+	var w := _world(["super_transformation"], 600)
+	var slot := _mob(w, 250.0)
+	w.swarm.fh[slot] = map.count()
+	var before := [w.swarm.x[slot], w.swarm.y[slot], w.swarm.fh[slot]]
+	assert_eq(w.swarm.pull(slot, 2000.0, 10.0, map, w.bounds), 0.0)
+	assert_eq([w.swarm.x[slot], w.swarm.y[slot], w.swarm.fh[slot]], before, "pull leaves all coordinates unchanged")
+	w.swarm.knockback(slot, 2000.0, 50.0, map, w.bounds)
+	assert_eq([w.swarm.x[slot], w.swarm.y[slot], w.swarm.fh[slot]], before, "knockback leaves all coordinates unchanged")
+
 
 
 func test_snatch_damage_and_targets_follow_the_rank() -> void:
