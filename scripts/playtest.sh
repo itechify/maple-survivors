@@ -13,7 +13,7 @@
 # Options (all optional): --stage=<key> (stages.json, default henesys), --seed=<n> (2026), --speed=<k> sim ticks
 # per 60 Hz frame (4), --minutes=<m> absolute run time to stop at (30; a death or clear ends earlier), --shot-every=<s> run
 # seconds between screenshots (60), --out=<dir> (default evidence/playtest/<stage>_s<seed>_x<speed>_<time>), --warp=<s>,
-# --job=<id> (the character's job, e.g. 212, 112 for Hero or 222 for the I/L Arch Mage, all playable; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
+# --job=<id> (the character's job, e.g. 212, 112 for Hero or 222 for the I/L Arch Mage, 232 for the Bishop once playable (BS10), all playable; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
 # --account=<abs JSON> (an account for the round, spec #34: owned cash items, worn cash equipment, pet, ALERT levels; see
 # scripts/balance.sh and game/scripts/core/account_file.gd; summary.json names the file).
 # Map fields: summary.json root and nested summary carry map_times (reached-map entry seconds, starting [0]) and
