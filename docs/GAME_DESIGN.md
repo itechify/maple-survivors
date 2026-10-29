@@ -6272,6 +6272,47 @@ repeats shrink x0.8; Rare is `amplify` "Element Amplification", damage x1.2, for
 affected (count, pierce) or a monster just beyond the base box (area). A projectile's extra shot goes to the second
 nearest monster, so a monster on the same line behind the first is shielded: Twin Bolt's extra target stands elsewhere.
 
+### 7.80 Bishop pool and job data (spec #372, BS2 #374)
+
+Bishop (232) gets its own data line, `bishop` (`skills/bishop.json`, `jobs/bishop.json`), discovered from its files like
+Hero and I/L. BS2 is the data seam only: the job is **not playable** (BS10 flips it after its skills, bot and QA), so no
+player can reach it and every F/P and I/L number is unchanged. Skill keys stay inert until their tickets define them.
+
+| Pool key | WZ id and name | State after BS2 | Owner of the definition |
+|---|---|---|---|
+| `holy_arrow` | 2301005 Holy Arrow (book 230) | legacy definition in `magician.json`, shared with the lineage | BS5 moves it into `bishop` |
+| `magic_claw` | 2001005 Magic Claw (book 200) | F/P's own definition | stays in `magician.json` |
+| `shining_ray` | 2311004 Shining Ray (book 231) | not defined: inert | BS5 |
+| `angel_ray` | 2321007 Angel Ray (book 232) | not defined: inert | BS5 |
+| `heal` | 2301002 Heal (book 230) | legacy definition in `magician.json` | BS4 moves it into `bishop` |
+| `summon_dragon` | 2311006 Summon Dragon (book 231) | not defined: inert | BS7 |
+| `bahamut` | 2321003 Bahamut (book 232) | not defined: inert | BS7 |
+| `genesis` | 2321008 Genesis (book 232) | not defined: inert | BS6 |
+| `big_bang_bishop` | 2321001 Big Bang (book 232), `extends: big_bang` | not defined: inert | BS6 |
+| `resurrection` | 2321006 Resurrection (book 232), reaction | not defined: inert | BS8 |
+
+Decisions (spec #372, recorded here so they are not re-argued):
+
+- **Start and mobility (D2, D1).** Every round starts with Holy Arrow in active slot 1 (`starting_skill`). Teleport
+  (2301001, `teleport_cleric`) is the `mobility_skill` on the skill key, outside both slot tracks and outside the pool.
+  Energy Bolt is not in the pool (it stays F/P's and I/L's).
+- **Holy Symbol is the common EXP passive, not a pool entry.** The Bishop's 2311003 is the party EXP buff the survivor
+  game already has as `passive_exp` (9101002, `common.json`). `test_bishop_data` pins that the common card
+  `passive_exp_new` is offered to a 232 exactly as to a 212, and that no card carries 2311003 or a Bishop-book buff.
+  The legacy Cleric buffs Bless and Invincible keep their unported cards; no pool offers them, so they are never eligible.
+- **Equipment.** Weapon families `wand` and `staff`; creation weapon 1372005 (the Wooden Wand of F/P and I/L). Drops need
+  no new data: the Magician roster filtered by `weapon_families`, with armour by the Magician class bit. A Magician-bit
+  weapon of another family is kept out by the families filter, and a Warrior, Bowman, Thief or Pirate weapon by
+  `requirement_error`.
+- **AP row.** INT primary, LUK secondary, the 212 keyframes (3 at Lv1 to 202 at Lv200). HP growth falls back to the 200 row.
+- **Bot scores.** The ten pool keys are spelled out in the line's `balance.bot.card_scores` at new 100 / rank 74, the
+  values every pool skill already scores; the spec's "no block" would give the same decisions. Hero's and I/L's lines do the same.
+- **Hub kit.** F/P's scroll and equipment lists and fallback item (the same wands, staves and Magician gear), with the
+  fixture `res://tests/fixtures/characters/bishop_t2.json`, which BS9 creates. The kit is read whole, never merged.
+- **Line placement.** `bishop` is discovered after the registered classes (hero, il_arch_mage) in sorted order; no
+  shared list names it (ARCHITECTURE 4.4.4). Skill merge order follows that line order, so BS4-BS8 append in the
+  ticket order, and a duplicate key across lines stays an error.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7572,6 +7613,22 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
 
+
+### Bishop BS2 constants (spec #372, BS2 #374)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Line discovery | `bishop` discovered from `jobs/bishop.json` and `skills/bishop.json` after the registered classes; no `CLASS_LINES` edit | C |
+| Starting skill | `holy_arrow` in active slot 1 every round (D2) | C |
+| Mobility skill | `teleport_cleric` (2301001) on the skill key, outside the slots (D1) | C |
+| Pool | ten keys of the 200/230/231/232 books, Energy Bolt out, Holy Symbol out (7.80) | C |
+| Weapon families | `wand`, `staff` | C |
+| Creation weapon | 1372005, the Wooden Wand (F/P and I/L's) | C |
+| AP row | INT primary, LUK secondary, keyframes Lv1 -> 3, Lv200 -> 202 (the 212 curve) | C |
+| Bot card scores | new 100 / rank 74 for each pool key (the pool default, spelled out) | C |
+| Hub kit | F/P's scroll list, equipment list [1002001, 1382001, 1082002, 1040004], fallback 1382001; fixture `bishop_t2.json` (BS9) | C |
+| Playable | `false` until BS10; `default_job` stays 212 | C |
+| Holy Symbol | the common `passive_exp` (9101002), offered to a 232 like any job; no Bishop card | C |
 
 ## 12. Later phases
 

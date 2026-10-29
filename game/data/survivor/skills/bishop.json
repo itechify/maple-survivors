@@ -1,0 +1,4 @@
+{
+	"_doc": "Bishop line skill definitions (spec #372, ticket BS2 #374): an empty skeleton. Each skill ticket appends its own region of `skills` (separate tickets, separate regions): BS4 Heal (2301002); BS5 Holy Arrow (2301005, moved from magician.json), Shining Ray (2311004), Angel Ray (2321007) and Teleport (2301001, moved from magician.json as teleport_cleric); BS6 Genesis (2321008) and Big Bang (2321001, via extends big_bang); BS7 Summon Dragon (2311006) and Bahamut (2321003); BS8 Resurrection (2321006). A pool key with no entry here stays inert: it is never offered or learned.",
+	"skills": {}
+}
