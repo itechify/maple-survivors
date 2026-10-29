@@ -21,6 +21,11 @@
 			"cast": {"rule": "burst"},
 			"burst": {"interval": 0.1, "wind_up": 0.4, "retarget": true},
 			"count": 12,
+			"burst_art": {
+				"prepare": "Skill.wz/312.img/skill/3121004/prepare",
+				"loop": "Skill.wz/312.img/skill/3121004/keydown",
+				"end": "Skill.wz/312.img/skill/3121004/keydownend"
+			},
 			"cooldown": 6.0,
 			"range": 450,
 			"speed": 900,

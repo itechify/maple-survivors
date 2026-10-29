@@ -259,6 +259,8 @@ var _timed_shots: Array = []
 var _first_shots := {}
 ## Flight FX: Grenades carry skill + cast_time and wait for skill_landed; Final Attack ammo is visual-only.
 var _throws: Array = []
+## Burst skills' stream art by skill key: {"phase": "prepare" | "loop", "slot": fx slot, "due": sim time of the first arrow}.
+var _burst_art: Dictionary = {}
 var _last_delta := 0.0
 var _last_frame_us := 0
 var _frames := RunFrameRecorder.new()
@@ -913,9 +915,11 @@ func _warm_ui() -> void:
 		var cl: Variant = world.book.def(key).get("char_level")
 		if cl is Dictionary:
 			char_levels.append_array(cl.get("thresholds", []))
-		var burst := String(world.book.def(key).get("burst", ""))
-		if burst != "":
-			library.find_anim(burst)
+		var burst: Variant = world.book.def(key).get("burst", "")
+		if burst is String and String(burst) != "":
+			library.find_anim(String(burst))
+		for path: Variant in world.book.def(key).get("burst_art", {}).values():
+			library.find_anim(String(path))
 		for rank in range(1, world.book.max_rank(key) + 1):
 			var level := world.book.canonical_level(key, rank)
 			for field: String in ["ball", "hit", "effect"]:
@@ -1050,6 +1054,7 @@ func _read_input(first_tick: bool) -> MoveInput:
 
 
 func _after_tick() -> void:
+	_step_burst_art()
 	_max_alive = maxi(_max_alive, world.swarm.alive_count())
 	var minute := int(world.time / 60.0)
 	while _level_by_minute.size() <= minute:
@@ -1094,6 +1099,10 @@ func handle_events(events: Array) -> void:
 				fx.play(String(e.effect), e.pos)
 			"cast":
 				_on_cast(e)
+			"burst_start":
+				_on_burst_start(e)
+			"burst_end":
+				_on_burst_end(e)
 			"skill_thrown":
 				_on_skill_thrown(e)
 			"skill_landed":
@@ -1316,6 +1325,53 @@ func _on_cast(e: Dictionary) -> void:
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
+
+
+## A burst skill's stream (Hurricane, #342): `prepare` plays fitted to the wind-up, `keydown` loops from the first arrow, and
+## `keydownend` plays when the stream ends or is dropped. All three follow the avatar. tier C: the 14-frame `prepare`
+## (0.96 s) is sped up to the 0.4 s wind-up; the loop keeps the facing of the cast.
+func _on_burst_start(e: Dictionary) -> void:
+	var key := String(e.skill)
+	var art: Dictionary = world.book.def(key).get("burst_art", {})
+	if art.is_empty():
+		return
+	_stop_burst_art(key)
+	var flip := int(e.facing) > 0
+	var wind_up := float(e.wind_up)
+	if wind_up > 0.0 and String(art.get("prepare", "")) != "":
+		var slot := fx.play(String(art.prepare), Vector2.ZERO, flip, avatar)
+		fx.fit(slot, wind_up)
+		_burst_art[key] = {"phase": "prepare", "slot": slot, "due": world.time + wind_up, "flip": flip}
+	else:
+		_burst_art[key] = {"phase": "loop", "slot": fx.play_repeating(String(art.get("loop", "")), Vector2.ZERO, INF, flip, avatar),
+			"due": world.time, "flip": flip}
+
+
+## Starts the keydown loop once the wind-up has passed.
+func _step_burst_art() -> void:
+	for key: String in _burst_art:
+		var state: Dictionary = _burst_art[key]
+		if String(state.phase) == "prepare" and world.time + 1e-9 >= float(state.due):
+			fx.stop(int(state.slot))
+			state.slot = fx.play_repeating(String(world.book.def(key).burst_art.loop), Vector2.ZERO, INF, bool(state.flip), avatar)
+			state.phase = "loop"
+
+
+func _on_burst_end(e: Dictionary) -> void:
+	var key := String(e.skill)
+	var art: Dictionary = world.book.def(key).get("burst_art", {})
+	if art.is_empty():
+		return
+	var flip := bool(_burst_art.get(key, {}).get("flip", world.player.facing > 0))
+	_stop_burst_art(key)
+	if String(art.get("end", "")) != "":
+		fx.play(String(art.end), Vector2.ZERO, flip, avatar)
+
+
+func _stop_burst_art(key: String) -> void:
+	if _burst_art.has(key):
+		fx.stop(int(_burst_art[key].slot))
+		_burst_art.erase(key)
 
 
 ## A thrown grenade (#192): the ball follows consumed sim time; only skill_landed starts its blast.

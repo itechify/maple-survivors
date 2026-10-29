@@ -340,3 +340,91 @@ func test_a_cancelled_stream_still_ends_once() -> void:
 		_ticks(w, 3)
 		var ended := _stream_events(w).filter(func(e: Dictionary) -> bool: return e.type == "burst_end")
 		assert_eq(ended.size(), 1, mode)
+
+
+class FxLog extends FxRenderer:
+	var calls: Array = []
+	var _next := 10
+	func play(path: String, _pos: Vector2, flip: bool = false, _follow: Node2D = null,
+			_offset: Vector2 = Vector2.ZERO, _hold: bool = false) -> int:
+		_next += 1
+		calls.append(["play", path.get_file(), _next, flip])
+		return _next
+	func play_repeating(path: String, _pos: Vector2, seconds: float, flip: bool = false,
+			_follow: Node2D = null, _offset: Vector2 = Vector2.ZERO) -> int:
+		_next += 1
+		calls.append(["repeat", path.get_file(), _next, flip, is_inf(seconds)])
+		return _next
+	func fit(i: int, seconds: float) -> void:
+		calls.append(["fit", i, seconds])
+	func stop(i: int) -> void:
+		calls.append(["stop", i])
+
+
+class ArtScene extends RunScene:
+	func handle_events(batch: Array) -> void:
+		super.handle_events(batch.filter(func(e: Dictionary) -> bool: return String(e.type).begins_with("burst_")))
+
+
+func test_the_scene_plays_prepare_then_keydown_then_keydownend() -> void:
+	var s := ArtScene.new()
+	var log := FxLog.new()
+	s.fx = log
+	s.world = _world()
+	_mob(s.world, 700)
+	for tick in 1:
+		s.world.step(DT, MoveInput.new())
+	s.handle_events(s.world.drain_events())
+	assert_eq(log.calls, [["play", "prepare", 11, true], ["fit", 11, 0.4]], "the wind-up art, fitted to 0.4 s")
+	for tick in 22:
+		s.world.step(DT, MoveInput.new())
+		s._after_tick()
+	assert_eq(log.calls.size(), 2, "still preparing before the first arrow")
+	for tick in 3:
+		s.world.step(DT, MoveInput.new())
+		s._after_tick()
+	assert_eq(log.calls.slice(2), [["stop", 11], ["repeat", "keydown", 12, true, true]], "the loop starts with the first arrow")
+	for tick in 90:
+		s.world.step(DT, MoveInput.new())
+		s._after_tick()
+		s.handle_events(s.world.drain_events())
+	assert_eq(log.calls.slice(4), [["stop", 12], ["play", "keydownend", 13, true]], "the end art when the stream is over")
+	log.free()
+	s.free()
+
+
+func test_a_dropped_stream_stops_its_art() -> void:
+	var s := ArtScene.new()
+	var log := FxLog.new()
+	s.fx = log
+	s.world = _world()
+	_mob(s.world, 700)
+	s.world.step(DT, MoveInput.new())
+	s.handle_events(s.world.drain_events())
+	s.world.runner.step(DT, s.world) # the hidden / death / clear path drops the unfinished stream
+	s.world.runner.clear_pending(s.world)
+	s.handle_events(s.world.drain_events())
+	assert_eq(log.calls.slice(2), [["stop", 11], ["play", "keydownend", 12, true]])
+	log.free()
+	s.free()
+
+
+func test_real_cache_prepare_art_is_fitted_to_the_wind_up() -> void:
+	if not require_cache():
+		return
+	var library := AssetLibrary.new()
+	library.open()
+	var fx := FxRenderer.new()
+	fx.library = library
+	var path := "Skill.wz/312.img/skill/3121004/prepare"
+	var anim := library.anim(path)
+	assert_near(anim.total, 0.98, 0.001, "14 frames at 70 ms")
+	var slot := fx.play(path, Vector2.ZERO)
+	fx.fit(slot, 0.4)
+	assert_near(fx.rate_of(slot), anim.total / 0.4, 1e-4)
+	fx.advance(0.39)
+	assert_eq(fx.active_count(), 1, "still playing just before 0.4 s")
+	fx.advance(0.02)
+	assert_eq(fx.active_count(), 0, "one pass takes 0.4 s")
+	fx.free()
+	library.free()
