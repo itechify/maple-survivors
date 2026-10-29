@@ -4639,7 +4639,7 @@ get standard new/rank cards automatically (explicit upgrade data can supply thei
 `Loadout` owns slot occupancy, capacity checks and display text; capacities are `skills.json.slot_limits` (6/6).
 `SkillBook.rank_table` owns rank limits and WZ mapping: per-skill `ranks` overrides `skills.json.rank_levels`, keyed
 by WZ maxLevel. Eight active ranks map by ceil(r × maxLevel / 8): 20 -> [3,5,8,10,13,15,18,20],
-30 -> [4,8,12,15,19,23,27,30]. WZ numbers and visual levels are read at the mapped level.
+30 -> [4,8,12,15,19,23,27,30], and (for the level-10 skills, #357) 10 -> [2,3,4,5,7,8,9,10]. WZ numbers and visual levels are read at the mapped level.
 
 
 **No MP (ADR 0006, #285).** Skills are gated by their cooldown (and an HP cost, Slash Blast and the Boosters) only.
@@ -6149,6 +6149,31 @@ tested on a synthetic Beholder (made-up job 999, no Dark Knight data): `test_sup
   owner-side `affected` node on the player at each pulse (tier B: its use is not documented).
 - **What a later job adds.** A pulse kind is one `KINDS` entry (`resolve` and `apply`) plus its tests; a new sub is data.
 
+**The Beholder (#357, spec #348 D9).** Dark Knight's level-10 pool skill (1321007, `skills/dark_knight.json`; job 132 is not
+playable until D10) and its two sub-skills, Aura of the Beholder (1320008) and Hex of the Beholder (1320009, DK-4, DK-5).
+`damage: none`, `kind summon`, stance `alert2` (0.6 s), a 45 s cooldown counted from the cast (a recast replaces the old
+Beholder) and a **60 s life**. The life is `buff.duration`, a new generic lever in `Loadout.stats`: a literal number of
+seconds that wins over the canonical `duration_field` (default `time`); no other skill defines it, and a `duration`
+modifier still scales it. The WZ `time` (720-1200 s) is session-scale and unused, as are `mpCon` and `mastery`.
+- **Ranks.** The Beholder's eight ranks read WZ levels 2 3 4 5 7 8 9 10 through the new shared default `rank_levels["10"]`
+  (`ceil(rank x 10 / 8)` with rank 1 = 2; the first spec to merge adds the row, the others reuse it unchanged). Aura and Hex
+  rank with the Beholder through their own explicit `ranks` table `[4, 7, 10, 13, 16, 19, 22, 25]`: Aura heals 85 / 170 / 200 /
+  280 / 360 / 390 / 470 / 500 HP every 10 / 9 / 8 / 7 / 7 / 6 / 5 / 4 s; Hex applies exactly the stats its level has (`pdd`
+  from level 1, `mdd` from 6, `acc` from 11, `eva` from 16, `pad` from 21: rank 1 `pdd` only, rank 8 all five, WZ `eva` ->
+  `avoid`, `pad` -> `watk`) for `time` 20 / 40 / 40 / 60 / 80 / 80 / 100 / 99 s every `x` 42 / 36 / 30 / 24 / 18 / 12 / 7 / 4 s.
+  Level 25's `time` is 99, not 100 (the WZ node, kept).
+- **Pulses.** The first Aura pulse is one interval after the cast, the first Hex pulse 3 s after it (tier C). The Hex
+  animation follows the newest unlocked stat (`skill2` pdd, `skill3` mdd, `skill4` acc, `skill5` avoid, `skill6` watk; the Aura
+  is `skill1`), and the owner-side `affected` column plays on the knight at each pulse.
+- **Rarity bonuses (tier C).** Rare "Aura of the Beholder" heal x1.3 (`support_heal`), Epic "Hex of the Beholder" every pulse
+  25% sooner (`support_rate` x0.75; the 3 s first Hex is not an interval and stays), Unique "Twin Beholder" +1 Beholder
+  (`summon_count`; each pulses on its own timers, the same stat refreshes and never stacks), Legendary Twin plus heal x1.3
+  (the Beholder has no damage; Twin shares one id, hence one repeat counter). A Normal Mastery is the cooldown bonus of every
+  `damage: none` skill (#346). `test_rarity_bonus_effects` probes the two support stats: HP restored in 30 s and pulses in 30 s,
+  with and without the bonus, plus a negative control.
+- **Flat heal.** Aura heals a flat HP amount (DK-5); the 500 HP of rank 8 is large against a Lv1 character with 600 max HP
+  and, with the Hex defence, is the balance pass's lever (the Beholder's cooldown and life are the others).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7444,6 +7469,23 @@ Warrior bot equipment weights now explicitly name ancestor 100 with the same val
 | Extra hit also shows its thrust | `min_attack_count` compares the resolved `attack_count` | tier C |
 | Rarity bonuses | Mastery damage x1.2, Booster cooldown x0.88, Final Attack +1 hit, Legendary + damage x1.2 | tier C: spec #348 |
 | Numeric-string frame delay | read as milliseconds | tier A: the value is the WZ's; reading it is ours |
+
+### Beholder constants (#357)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Aura `hp` and `x`, Hex `pdd`/`mdd`/`acc`/`eva`/`pad`/`time`/`x` at the eight sub levels | canonical, as is | tier A: Skill.wz 1320008 / 1320009 (D1) |
+| Hex stat unlock levels | pdd 1, mdd 6, acc 11, eva 16, pad 21: a stat absent from the level is not carried | tier A: the level nodes |
+| `rank_levels["10"]` | `[2, 3, 4, 5, 7, 8, 9, 10]`, ceil(rank x 10 / 8) with rank 1 = 2 | tier C: ADR 0006 #287, DK-11 |
+| Sub-skill `ranks` | `[4, 7, 10, 13, 16, 19, 22, 25]` | tier C: DK-4 |
+| Life | 60 s (`buff.duration`) instead of the WZ `time` (720-1200 s) | tier C: DK-6 |
+| Cooldown | 45 s, counted from the cast | tier C: DK-6 |
+| First pulses | Aura one interval after the cast, Hex 3 s after it | tier C: DK-6 |
+| Cast stance | `alert2`, held 0.6 s | tier A: the body action's frames (D1) |
+| Follow settings | speed 180, distance 60, teleport at 600 (Elquines') | tier C |
+| WZ stat names onto the player | `eva` -> `avoid`, `pad` -> `watk` | tier C: ours |
+| Animations | `skill1` Aura, `skill2`-`skill6` the Hex runes in unlock order, `affected` on the knight | tier B: D1 contact sheet |
+| Rarity bonuses | Rare heal x1.3, Epic pulses x0.75 sooner, Unique +1 Beholder, Legendary + heal x1.3 | tier C: spec #348 |
 
 ### HP-risk constants (#351)
 
