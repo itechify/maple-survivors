@@ -4157,7 +4157,13 @@ the job is not selectable before B11 and nothing of Buccaneer's is castable yet;
 
 ### Buccaneer B8 smoke (#420, 2026)
 
-SMOKE_PLACEHOLDER
+Barrage, Dragon Strike, `bot.reach` and the `swingTF` fallback (job 512 still not playable, no balance data touched). Training seeds
+1/2/2026, Henesys bot, `JOBS=3`, private cache `cache-413`: F/P (212) died at 10:51 / 5:05 / 7:34 (Lv 11 / 21 / 36) and Hero (112)
+at 5:27 / 5:36 / 11:28, both identical to the B4 smoke above (no clears, no warnings): neither pool holds the new skills, and the
+pending-strike and hit-art changes are default-off. `character_baseline`, `tick_cost_identity` and the Hero baseline reproduce their
+hashes (no recapture). Full suite 2587 tests, 0 failed, 0 skipped with the cache; 0 failed, 285 skipped (cache tests; a SKIP proves
+nothing) without it. A diagnostic `--job=512` playtest (Henesys, seed 5, x4, `playable` true and the starting skill swapped locally,
+reverted) cast Barrage and Dragon Strike with `missing: []`; flow and visual evidence only.
 
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
