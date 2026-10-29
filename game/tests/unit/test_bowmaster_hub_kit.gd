@@ -1,9 +1,9 @@
 extends TestCase
 ## The `--hub --job=312` test kit (spec #332, B12 #344): the Bowmaster's fixture, its bow ATT / DEX scroll stacks and the spare
-## equipment it can wear. Bowmaster ships `playable: false` until B13; the job-error tests mirror the flip with `DataRepo.patch`.
+## equipment it can wear. Acceptance uses shipped data; the job-error test explicitly disables Bowmaster.
 
 const BOW_FIXTURE := "res://tests/fixtures/characters/bowmaster_t2.json"
-const PLAYABLE := {"jobs_survivor": {"jobs": {"312": {"playable": true}}}}
+const DISABLED := {"jobs_survivor": {"jobs": {"312": {"playable": false}}}}
 const SPARE := [1002001, 1452051, 1082002, 1040008]
 
 
@@ -96,10 +96,9 @@ func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
 	fp.erase("_doc")
 	var data := DataRepo.load_all()
 	var shipped := JobTree.from_data(data.jobs, data.jobs_survivor)
-	assert_true(HubTestKit.job_error({"job": 312}, fixture, shipped).contains("not playable"), "shipped Bowmaster is unplayable until B13")
-	DataRepo.patch = PLAYABLE.duplicate(true)
-	var data2 := DataRepo.load_all()
-	var mirrored := JobTree.from_data(data2.jobs, data2.jobs_survivor)
-	assert_eq(HubTestKit.job_error({"job": 312}, fixture, mirrored), "")
-	assert_true(HubTestKit.job_error({"job": 312}, fp, mirrored).contains("does not match"), "a Bowmaster request with an F/P character")
-	assert_true(HubTestKit.job_error({"job": 212}, fixture, mirrored).contains("does not match"), "and the other way round")
+	assert_eq(HubTestKit.job_error({"job": 312}, fixture, shipped), "")
+	assert_true(HubTestKit.job_error({"job": 312}, fp, shipped).contains("does not match"))
+	assert_true(HubTestKit.job_error({"job": 212}, fixture, shipped).contains("does not match"))
+	DataRepo.patch = DISABLED.duplicate(true)
+	var disabled := DataRepo.jobs(DataRepo.load_all())
+	assert_true(HubTestKit.job_error({"job": 312}, fixture, disabled).contains("not playable"))

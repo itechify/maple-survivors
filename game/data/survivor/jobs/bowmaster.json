@@ -1,9 +1,9 @@
 {
-	"_doc": "Bowmaster line (spec #332, ticket B2 #334). The second class line after Hero: its job entry, its AP row and its weapon families. Skill definitions are in skills/bowmaster.json; each Bowmaster skill ticket (B7-B11) appends its own. Bowmaster has NO mobility_skill (ruling D1, spec #332): a Bowmaster owns no skill key and no quick-slot movement cell. playable stays false until B12/B13 flip it; JobTree.default_job() stays 212 (survivor/jobs.json default_job).",
+	"_doc": "Bowmaster line (spec #332, ticket B2 #334). The second class line after Hero: its job entry, its AP row and its weapon families. Skill definitions are in skills/bowmaster.json; each Bowmaster skill ticket (B7-B11) appends its own. Bowmaster has NO mobility_skill (ruling D1, spec #332): a Bowmaster owns no skill key and no quick-slot movement cell. B13 #345 enables playable; JobTree.default_job() stays 212 (survivor/jobs.json default_job).",
 	"jobs": {
 		"312": {
 			"starting_skill": "arrow_blow",
-			"_starting_skill": "tier C: spec #332: Arrow Blow is the starting active (slot 1) and the first skill a round learns; its WZ source is skills/bowman.json (book 300 -> 310 Arrow Bomb).",
+			"_starting_skill": "tier C: spec #332: Arrow Blow is the starting active (slot 1) and the first skill a round learns; its WZ source is skills/bowmaster.json (book 300 -> 310 Arrow Bomb).",
 			"skill_pool": [
 				"arrow_blow",
 				"bow_double_shot",
@@ -23,8 +23,8 @@
 			"_weapon_families": "tier C: spec #332: bows only (WeaponInfo family bow, 145xxxx); crossbows (146xxxx) belong to Marksman. Armour and shields drop by the Bowman class bit.",
 			"creation_weapon": 1452002,
 			"_creation_weapon": "tier C: spec #332: the War Bow (reqJob 4, the Bowman bit), wearable at creation.",
-			"playable": false,
-			"_provenance": "tier C: spec #332 B2 #334: the Bowmaster data line; not selectable until B12/B13.",
+			"playable": true,
+			"_provenance": "tier C: spec #332 B2 #334: the Bowmaster data line; selectable since B13 #345.",
 			"hub_kit": {
 				"fixture": "res://tests/fixtures/characters/bowmaster_t2.json",
 				"scrolls": [

@@ -1,11 +1,11 @@
 extends TestCase
 ## The creation Job page with four playable jobs (spec #332, B12 #344): Hero (112), the Arch Mages (F/P 212, I/L 222) and the
-## Bowmaster (312). Bowmaster ships `playable: false` until B13, so the tests mirror the flip with `DataRepo.patch`.
+## Bowmaster (312). Shipped data is used for acceptance; an explicit disabling patch tests refusal.
 ## The Job page needs the cache (Look OK stays disabled until the hair/face columns exist), so every test that opens it
 ## calls `require_cache()`; the data-level tests run in CI.
 
 const CREATE := preload("res://scenes/ui/character_create.gd")
-const PATCH := {"jobs_survivor": {"jobs": {"312": {"playable": true}}}}
+const DISABLED := {"jobs_survivor": {"jobs": {"312": {"playable": false}}}}
 
 var save_path := TestCase.test_dir("creation_bowmaster/save.json")
 var _nodes: Array[Node] = []
@@ -14,7 +14,7 @@ var _nodes: Array[Node] = []
 func before_each() -> void:
 	TestCase.remove_tree(save_path.get_base_dir())
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(save_path.get_base_dir()))
-	DataRepo.patch = PATCH.duplicate(true)
+	DataRepo.patch = {}
 
 
 func after_each() -> void:
@@ -58,13 +58,13 @@ func _key(keycode: Key) -> InputEventKey:
 	return e
 
 
-func test_the_mirror_makes_bowmaster_the_last_playable_job_and_212_stays_the_default() -> void:
+func test_shipped_bowmaster_is_the_last_playable_job_and_212_stays_the_default() -> void:
 	var tree := DataRepo.jobs(DataRepo.load_all())
 	assert_eq(tree.playable_jobs(), [112, 212, 222, 312] as Array[int], "canonical order: Hero, F/P, I/L, Bowmaster")
 	assert_eq(tree.default_job(), 212, "the pin keeps 212 the default with four playable jobs")
 	assert_eq(tree.creation_weapon(312), 1452002, "the War Bow")
-	DataRepo.patch = {}
-	assert_false(DataRepo.jobs(DataRepo.load_all()).job(312).playable, "shipped Bowmaster is not selectable until B13")
+	DataRepo.patch = DISABLED.duplicate(true)
+	assert_false(DataRepo.jobs(DataRepo.load_all()).job(312).playable, "disabled Bowmaster is not selectable")
 	assert_eq(DataRepo.jobs(DataRepo.load_all()).playable_jobs(), [112, 212, 222] as Array[int])
 
 
@@ -155,13 +155,13 @@ func test_create_makes_a_bowmaster_with_its_war_bow_and_separate_ladders() -> vo
 	assert_eq(flow.save.slot(0).character.job_id, 312, "the first slot is unchanged")
 
 
-func test_bowmaster_is_refused_when_the_mirror_is_removed_after_selection() -> void:
+func test_bowmaster_is_refused_when_disabled_after_selection() -> void:
 	if not require_cache():
 		return
 	var flow := _flow()
 	var creation := _job_page(flow, "Refused03")
 	creation.select_job(312)
-	DataRepo.patch = {}
+	DataRepo.patch = DISABLED.duplicate(true)
 	creation.create_button.pressed.emit()
 	assert_eq(creation.phase, "job", "still on the page")
 	assert_ne(String(creation.message.text), "", "the refusal is shown")
