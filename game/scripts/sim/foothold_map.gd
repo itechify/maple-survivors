@@ -280,7 +280,7 @@ func walk_blocked(p: int, xa: float, xb: float) -> bool:
 func slide_along(fh: int, x: float, side: int, distance: float, lo: float, hi: float) -> Dictionary:
 	var f := fh
 	var cur := x
-	var start := {"x": x, "y": y_at(fh, x) if fh >= 0 else 0.0, "fh": fh, "moved": 0.0}
+	var start := {"x": x, "y": y_at(fh, x) if fh >= 0 and fh < count() else 0.0, "fh": fh, "moved": 0.0}
 	if fh < 0 or fh >= count() or not is_floor(fh) or side == 0 or distance <= 0.0:
 		return start
 	var dir := 1.0 if side > 0 else -1.0

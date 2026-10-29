@@ -91,7 +91,8 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 			sub_lo.add_skill_mod(sub_key, "damage", "mul", float(stats.get("form_sub_damage", 1.0)))
 			sub_lo.add_skill_mod(sub_key, "area", "mul", float(stats.get("form_sub_area", 1.0)))
 			var sub_stats := sub_lo.stats(sub_key, int(stats.get("rank", 1)))
-			var details := level_line(sub_key, sub_level, sub_stats)
+			# One line per sub: a pull sub (Snatch) carries its own mechanics line, which joins its text here.
+			var details := level_line(sub_key, sub_level, sub_stats).replace("\n", " ")
 			var base := ""
 			match String(sub_stats.damage_type):
 				"fixed":

@@ -491,11 +491,29 @@ static func part_img_path(id: int) -> String:
 
 
 ## The one part of a morph frame: its canvas with the origin on the feet (Morph.wz frames carry no map anchors).
+## A 1 x 1 canvas is the WZ's pure delay (Demolition's frame 3 holds one for 1.62 s): it holds the last drawn frame of the
+## action instead, so the figure does not vanish while the skill's own art plays. tier C: ours (B10 #422).
 func _compose_morph(s: String, index: int) -> Array:
-	var frame: Variant = _frame_node(_morph.root.get(s), index)
+	var node: Variant = _morph.root.get(s)
+	var frame: Variant = _frame_node(node, index)
 	if not WzImg.is_canvas(frame):
 		return []
+	var keys: Array = SpriteAnim.frame_keys(node)
+	var at: int = index % keys.size()
+	while at > 0 and _is_blank_canvas(frame):
+		at -= 1
+		frame = node[keys[at]]
+	if _is_blank_canvas(frame):
+		return []
 	return [{"name": s, "frame": SpriteAnim.make_frame(frame, _morph), "map": {}, "z": "", "pos": Vector2.ZERO, "owner": 0}]
+
+
+## True for the 1 x 1 placeholder canvas of a frame that only waits.
+static func _is_blank_canvas(frame: Variant) -> bool:
+	if not WzImg.is_canvas(frame):
+		return false
+	var region := WzImg.region(frame)
+	return region.size.x <= 1.0 and region.size.y <= 1.0
 
 
 func _draw() -> void:
