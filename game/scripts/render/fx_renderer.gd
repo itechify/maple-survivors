@@ -58,15 +58,25 @@ func play_delayed(path: String, delay: float, pos: Vector2, flip: bool = false, 
 	return play(path, pos, flip, follow, offset, false, delay)
 
 
+## Plays the animation at a WZ path as if it had started `start` seconds ago (Dragon Strike's pillars, whose WZ timing counts from
+## the cast). Returns the slot id (of the `behind` renderer for a negative-z animation), or -1 when the animation is missing.
+func play_from(path: String, pos: Vector2, flip: bool, start: float) -> int:
+	var lib := _lib()
+	var a := lib.anim(path) if lib != null else null
+	if a == null or a.is_empty():
+		return -1
+	return play_anim(a, pos, flip, null, Vector2.ZERO, false, 0.0, start)
+
+
 ## Plays an already resolved animation (see play()).
 func play_anim(a: SpriteAnim, pos: Vector2, flip: bool = false, follow: Node2D = null, offset: Vector2 = Vector2.ZERO,
-		hold: bool = false, delay: float = 0.0) -> int:
+		hold: bool = false, delay: float = 0.0, start: float = 0.0) -> int:
 	if behind != null and behind != self and a.z != null and int(a.z) < 0:
-		return behind.play_anim(a, pos, flip, follow, offset, hold, delay)
+		return behind.play_anim(a, pos, flip, follow, offset, hold, delay, start)
 	_ensure_pool()
 	var i := _alloc()
 	_anim[i] = a
-	_t[i] = -maxf(0.0, delay)
+	_t[i] = start - maxf(0.0, delay)
 	_pos[i] = pos
 	_offset[i] = offset
 	_flip[i] = 1 if flip else 0

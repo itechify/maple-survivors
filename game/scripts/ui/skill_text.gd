@@ -80,14 +80,19 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		var power := 1.0
 		if effects.has("damage"):
 			power = book.canonical(key, level, String(effects.damage.field), 100.0) / 100.0 + float(stats.get("form_power", 0.0))
-		mechanics.append("Charges your weapon for %s s: your attacks deal %s damage (+%s%%)" % [
-			number(float(stats.get("duration", form.duration))), Elements.display_name(element), number((power - 1.0) * 100.0)])
+		var seconds := number(float(stats.get("duration", form.duration)))
+		if element.is_empty():
+			mechanics.append(_transform_line(seconds, power - 1.0, effects.has("damage"), stats.get("buff_effects", {})))
+		else:
+			mechanics.append("Charges your weapon for %s s: your attacks deal %s damage (+%s%%)" % [
+				seconds, Elements.display_name(element), number((power - 1.0) * 100.0)])
 		for sub: Dictionary in form.get("subs", []):
 			var sub_key := String(sub.skill)
 			var trigger := "once after %s s" % number(float(sub.first_after)) if bool(sub.get("once", false)) else "after %s s, every %s s" % [number(float(sub.first_after)), number(float(sub.interval))]
 			var sub_level := book.canonical_level(sub_key, int(stats.get("rank", 1)))
 			var sub_stats := Loadout.new(book).sub_stats(sub_key, stats, int(stats.get("rank", 1)))
-			var details := level_line(sub_key, sub_level, sub_stats)
+			# One line per sub: a pull sub (Snatch) carries its own mechanics line, which joins its text here.
+			var details := level_line(sub_key, sub_level, sub_stats).replace("\n", " ")
 			var base := ""
 			match String(sub_stats.damage_type):
 				"fixed":
@@ -101,12 +106,14 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 				book.def(sub_key).get("name", sub_key.replace("_", " ").capitalize()))), trigger, sub_level,
 				details, base, SkillRunner.strike_count(sub_stats), cost])
 	if def.has("meter"):
-		mechanics.append("Needs %d orbs" % int(def.meter.get("min", 0)))
+		# The meter's unit word: a finisher may name it ("energy"); Hero's finishers keep "orbs".
+		var unit := book.meter_unit(key)
+		mechanics.append("Needs %d %s" % [int(def.meter.get("min", 0)), unit])
 		var keep := int(stats.get("meter_keep", 0))
 		if str(def.meter.get("spend", "")) == "all":
-			mechanics.append("Spends all orbs" if keep <= 0 else "Spends all but %d orbs; Keeps %d orbs" % [keep, keep])
+			mechanics.append("Spends all %s" % unit if keep <= 0 else "Spends all but %d %s; Keeps %d %s" % [keep, unit, keep, unit])
 		elif def.meter.has("spend"):
-			mechanics.append("Spends %d orbs" % int(def.meter.spend))
+			mechanics.append("Spends %d %s" % [int(def.meter.spend), unit])
 	mechanics.append_array(HpRisk.mechanic_lines(stats))
 	if def.has("knockback"):
 		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
@@ -138,8 +145,35 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		mechanics.append("When a hit would kill you: return at %s%% HP, %s s guard; recharge %s" % [
 			number(float(revive.hp) * 100.0), number(float(revive.guard)), clock(SkillRunner.restart_cooldown(stats))])
 	if not mechanics.is_empty():
-		line += ("\n" if line != "" else "") + "; ".join(mechanics)
+		# Parts are joined with "; ", except after the sentence that ends a Transform line.
+		var joined := ""
+		for part in mechanics:
+			joined += part if joined == "" else (" " if joined.ends_with(".") else "; ") + part
+		line += ("\n" if line != "" else "") + joined
 	return line
+
+
+## The line of a form with no element (a morph such as Buccaneer's Transformation, spec #412 BU-9): its duration, the attack
+## bonus of a `damage` effect, then the stats the form's `buff` block feeds (`effects`: stat -> value, zero ones left out).
+func _transform_line(seconds: String, bonus: float, has_damage: bool, effects: Dictionary) -> String:
+	var parts := PackedStringArray()
+	if has_damage:
+		parts.append("attacks +%s%%" % number(bonus * 100.0))
+	var pdd := float(effects.get("pdd", 0.0))
+	var mdd := float(effects.get("mdd", 0.0))
+	if pdd > 0.0 and is_equal_approx(pdd, mdd):
+		parts.append("defence +%s" % number(pdd))
+	else:
+		if pdd > 0.0:
+			parts.append("weapon defence +%s" % number(pdd))
+		if mdd > 0.0:
+			parts.append("magic defence +%s" % number(mdd))
+	for stat: String in ["speed", "jump"]:
+		if float(effects.get(stat, 0.0)) > 0.0:
+			parts.append("%s +%s" % [stat, number(float(effects[stat]))])
+	if parts.is_empty():
+		return "Transforms you for %s s." % seconds
+	return "Transforms you for %s s: %s." % [seconds, ", ".join(parts)]
 
 
 ## One line for a resolved support-summon pulse (SupportSummons.resolve): its sub-skill name, the effect and the interval.

@@ -11,8 +11,8 @@
 #   # the spear: a fresh --job=132 round wears the default outfit sword).
 #   # --job=222 selects the playable I/L Arch Mage (spec #319); 212 remains the default.
 #   # --job=122 selects the Paladin (spec #308, P9 #317 flipped playable); --character=game/tests/fixtures/characters/paladin_t2.json is its tier-1 kit.
-
 #   # --job=232 selects the Bishop (spec #372) on shipped data since BS10; 212 stays the default.
+#   # --job=512 selects the playable Buccaneer (spec #412); --character=<buccaneer_t2.json> is its tier-1 kit.
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
 #   bash scripts/balance.sh 1 --account="C:/abs/account.json"  # a round with an account (spec #34): {"owned": [item ids],
 #   # "cash": {slot: id}, "pet": id, "alert": {"hp": f}} (all optional; nx and an old alert.mp ignored). owned = the account's

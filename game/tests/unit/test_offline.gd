@@ -18,15 +18,15 @@ const ALLOWED := ["res://tests/unit/test_offline.gd"]
 const PROCESS_TOKENS := ["OS.execute", "OS.create_process", "OS.create_instance"]
 const IMPORTER_CALL := "var info := OS.execute_with_pipe(exe, args, false)"
 const SELF_TEST_CALL := "var status := OS.execute(OS.get_executable_path(), [\"--headless\", \"--path\","
+
 const SELF_TEST_FILES := [
 	"res://tests/unit/test_account_flag.gd", "res://tests/unit/test_balance_chain.gd",
 	"res://tests/unit/test_character_snapshot.gd", "res://tests/unit/test_character_tools.gd",
 	"res://tests/unit/test_hero_selection.gd",
 	"res://tests/unit/test_dark_knight_selection.gd",
 	"res://tests/unit/test_warrior2_fixtures.gd",
-	"res://tests/unit/test_il_selection.gd",
+	"res://tests/unit/test_il_selection.gd", "res://tests/unit/test_buccaneer_selection.gd",
 	"res://tests/unit/test_paladin_selection.gd",
-
 	"res://tests/unit/test_bishop_selection.gd",
 ]
 

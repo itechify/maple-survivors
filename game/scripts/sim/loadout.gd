@@ -285,7 +285,7 @@ func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 	for v: Dictionary in d.get("cast_visuals", []):
 		if attack_count >= int(v.get("min_attack_count", 0)):
 			out.append({"path": book.art_path(key, String(v.get("path_by_family", {}).get(weapon_family, v.path)), weapon_family), "x": float(v.get("x", 0.0)),
-				"follow": bool(v.get("follow", false))})
+				"follow": bool(v.get("follow", false)), "facing": bool(v.get("facing", false))})
 			if v.has("delay"):
 				out.back()["delay"] = maxf(0.0, float(v.delay))
 	return out

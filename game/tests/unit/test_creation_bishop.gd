@@ -65,10 +65,10 @@ func _row(creation: Control, id: int) -> Button:
 	return creation.find_child("Job_%d" % id, true, false) as Button
 
 
-func test_shipped_bishop_is_playable_last_in_canonical_order() -> void:
+func test_shipped_bishop_is_playable_in_canonical_order() -> void:
 	var mirrored := _tree()
 	assert_true(mirrored.job(232).playable)
-	assert_eq(mirrored.playable_jobs(), [112, 122, 132, 212, 222, 232] as Array[int])
+	assert_eq(mirrored.playable_jobs(), [112, 122, 132, 212, 222, 232, 512] as Array[int])
 	assert_eq(mirrored.name_of(232), "Bishop", "the name is the canonical job list's")
 	assert_eq(mirrored.default_job(), 212, "F/P stays the default")
 	assert_eq(mirrored.creation_weapon(232), 1372005, "the Wooden Wand")
@@ -89,7 +89,7 @@ func test_rows_follow_the_playable_jobs_and_212_is_chosen() -> void:
 	assert_eq(bishop.position.x, mage.position.x, "rows share a column")
 	assert_eq(_row(creation, expected[0]).position.y, CREATE.ROW_AT.y, "the first row starts at the first Look row")
 	var pitch: float = CREATE.JOB_ROW_SIZE.y + 2.0
-	assert_eq(bishop.position.y - _row(creation, expected[0]).position.y, pitch * (expected.size() - 1), "Bishop is the last row")
+	assert_eq(bishop.position.y - _row(creation, expected[0]).position.y, pitch * expected.find(232), "rows are one pitch apart in canonical order")
 	assert_eq(bishop.alignment, HORIZONTAL_ALIGNMENT_LEFT)
 	assert_true(bishop.get_theme_stylebox("normal") is StyleBoxEmpty, "Bishop is not highlighted until chosen")
 
@@ -115,17 +115,20 @@ func test_up_and_down_step_through_every_row_and_clamp_at_the_ends() -> void:
 	var creation := _job_page(_flow(), "BsKeys01")
 	var ids: Array = _tree().playable_jobs()
 	creation.select_job(ids[ids.size() - 1])
-	assert_eq(creation.job_id, 232, "Bishop is the last row")
+	assert_eq(creation.job_id, ids.back(), "last playable row")
 	creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 232, "Down at the last row stays")
+	assert_eq(creation.job_id, ids.back(), "Down at the last row stays")
 	creation._input(_key(KEY_UP))
-	assert_eq(creation.job_id, ids[ids.size() - 2], "Up from Bishop is the row above")
+	assert_eq(creation.job_id, ids[ids.size() - 2], "Up from the last row is the row above")
+	creation.select_job(222)
+	creation._input(_key(KEY_DOWN))
+	assert_eq(creation.job_id, 232, "Down from I/L is Bishop")
 	for i in ids.size():
 		creation._input(_key(KEY_UP))
 	assert_eq(creation.job_id, ids[0], "Up clamps at the first row")
 	for i in ids.size():
 		creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 232)
+	assert_eq(creation.job_id, ids.back())
 
 
 func test_arrow_keys_do_nothing_off_the_job_page() -> void:

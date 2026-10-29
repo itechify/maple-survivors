@@ -48,3 +48,12 @@ for `--stage=sleepywood --job=122 --character=<absolute paladin_t2.json>` or `--
 `_doc.revision` is the integration tip it was made on; new generation uses shipped data without `--patch`). The worn equipment is identical
 to `fp_arch_mage.json`'s (a Bishop wears the same wands and staves). `--hub --job=232` opens it through the job's `hub_kit`.
 A `--character` of this file runs as a Bishop without a `--job` flag; an explicit different job (e.g. `--job=212`) is an error.
+
+`buccaneer_t2.json` is the Buccaneer (512) fixture (spec #412, B11 #423): tier 2 unlocked and the tier-1 knuckle gear, inventory
+and mesos from a seed-1 Henesys bot clear (the worn weapon is the Lv25 knuckle 1482003). Reproduce with `tools/character_fixture.gd --job=512 --god --seed=1 --label=spec412/ticket-423
+--revision=<SHA> --out=<absolute path>`. No playable patch is needed. The `_doc` records seed, policy, revision and
+invulnerability: this is a diagnostic clear to obtain equipment, not evidence that the bot survives Henesys. Use it for
+`--stage=sleepywood --job=512 --character=<absolute buccaneer_t2.json>` or `--hub --job=512`. **It must wear a knuckle:
+without one the weapon reach and `weapon_reach` skills have nothing to read.**
+
+Buccaneer review cleanup (#412): the diagnostic tier-2 fixture excludes the default sword 1302000 and displaced default outfit 1072001/1060002/1040002; its worn knuckle kit and round loot are unchanged.

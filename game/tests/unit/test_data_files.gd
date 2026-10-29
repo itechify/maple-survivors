@@ -735,6 +735,10 @@ func test_meter_catalog_schema() -> void:
 		assert_eq(String(meter.per_unit.stat), "damage")
 		assert_true(float(meter.per_unit.value) >= 0.0)
 		assert_true(meter.get("art", "") is String)
+		# Presentation only (B2 #414): the optional cue object names the full-bar art and sound; the sim ignores it.
+		assert_true(meter.get("cue", {}) is Dictionary, "%s: cue is an object" % meter.id)
+		if meter.has("cue"):
+			assert_true(String(meter.cue.get("effect", "")) != "" and String(meter.cue.get("sound", "")) != "")
 	for skill: Dictionary in data.skills.skills.values():
 		if not skill.has("meter"):
 			continue
@@ -743,6 +747,7 @@ func test_meter_catalog_schema() -> void:
 		assert_true(float(meter.min) > 0 and float(meter.min) == floorf(float(meter.min)))
 		assert_eq(String(meter.spend), "all")
 		assert_true(float(meter.damage_per_unit) >= 0.0)
+		assert_true(meter.get("unit", "") is String, "%s: unit is a word" % skill.get("skill_key", ""))
 		assert_eq(String(skill.slot), "active")
 
 

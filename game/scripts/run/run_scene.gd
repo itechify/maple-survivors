@@ -170,6 +170,8 @@ var fx_back: FxRenderer
 var numbers: DamageNumbers
 var tags: NameTags
 var hud: Hud
+## The full-bar cue of the job's meter (Energy Charge); a job without a `cue` never fires it.
+var meter_cue: MeterCue
 var notice_layer: CanvasLayer
 var notice_fx: FxRenderer
 var windows_layer: CanvasLayer
@@ -721,6 +723,7 @@ func _build_overlays() -> void:
 	hud.library = library
 	add_child(hud)
 	hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
+	meter_cue = MeterCue.new(world.meter.config.get("cue", {}), _play_meter_cue)
 	# Below notices/windows so pause and inventory remain usable over a partly faded world.
 	var fade_layer := CanvasLayer.new()
 	fade_layer.name = "MapTransfer"
@@ -895,8 +898,8 @@ func _warm_ui() -> void:
 			LevelUpWindow.KEY_DIGITS + "1", PauseMenu.BOX + "t",
 			EquipWindow.ART + "backgrnd", EquipWindow.ART + "pet", ItemWindow.ART + "backgrnd", DropConfirm.ART, ItemTooltip.TT + "Can/reqLEV"]:
 		UiArt.frame(path)
-	for path: String in [FX_LEVEL_UP, FX_CLEAR]:
-		if library != null:
+	for path: String in [FX_LEVEL_UP, FX_CLEAR, String(world.meter.config.get("cue", {}).get("effect", ""))]:
+		if library != null and path != "":
 			library.find_anim(path)
 	MapleText.width("Lv.", MapleText.SMALL, true)
 	MapleText.width("Lv.", MapleText.SIZE, false)
@@ -1070,6 +1073,7 @@ func handle_events(events: Array) -> void:
 				_refresh_form_tint()
 			"meter_changed":
 				hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
+				meter_cue.on_event(e)
 			"map_cleared":
 				_on_map_cleared(int(e.map_index))
 			"boss_warning":
@@ -1255,6 +1259,14 @@ func _on_player_banished(e: Dictionary) -> void:
 	_first_event_shot("banish", "banish.png", 0.36) # tier C: the first Banish, at its fourth 120 ms affected frame.
 
 
+## The meter's full-bar cue (MeterCue): its art over the character, flipped with the facing, and its sound.
+func _play_meter_cue(effect: String, sound: String) -> void:
+	if effect != "":
+		fx.play(effect, Vector2.ZERO, world.player.facing > 0, avatar)
+	_sound(sound)
+	_first_event_shot("meter_cue", "meter_cue.png", 0.45) # tier C: playtest evidence of the first full-bar cue, mid-bloom.
+
+
 ## An ordinary mob's attack phase (#76): its Sound.wz attack sound at the windup, the canonical effect/hit art, and
 ## playtest evidence of the first windup and the first hit.
 func _on_mob_attack(e: Dictionary) -> void:
@@ -1317,10 +1329,11 @@ func _on_cast(e: Dictionary) -> void:
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
 	for visual: Dictionary in world.loadout.stats(key).cast_visuals:
+		var placed := SkillBook.visual_placement(visual, int(e.facing))
 		if bool(visual.follow):
 			fx.play_delayed(String(visual.path), float(visual.get("delay", 0.0)), Vector2.ZERO, int(e.facing) > 0, avatar, Vector2(float(visual.x), 0))
 		else:
-			fx.play_delayed(String(visual.path), float(visual.get("delay", 0.0)), e.pos + Vector2(float(visual.x), 0))
+			fx.play_delayed(String(visual.path), float(visual.get("delay", 0.0)), e.pos + Vector2(float(placed.x), 0), bool(placed.flip))
 	var loop := String(world.book.def(key).get("sounds", {}).get("loop", ""))
 	if loop != "":
 		_sound(loop)
@@ -1438,7 +1451,14 @@ func _on_mob_hit(e: Dictionary) -> void:
 	var hv := String(e.hit_visual)
 	if hv != "":
 		var at: Vector2 = world.mob_center(m) if m >= 0 and m < world.swarm.capacity() else e.pos
-		fx.play(hv, at.round(), at.x > world.player.pos.x)
+		var hit_def := world.book.def(String(e.get("skill", "")))
+		if bool(hit_def.get("hit_at_feet", false)) and m >= 0 and m < world.swarm.capacity():
+			at = Vector2(world.swarm.x[m], world.swarm.y[m]) # tier C: a ground pillar's origin is its base (Dragon Strike)
+		var skipped := float(hit_def.get("hit_skip", 0.0))
+		if skipped > 0.0:
+			fx.play_from(hv, at.round(), at.x > world.player.pos.x, skipped)
+		else:
+			fx.play(hv, at.round(), at.x > world.player.pos.x)
 		counters.hit_fx += 1
 	_mob_sound(int(e.mob_id), "Damage")
 

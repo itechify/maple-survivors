@@ -1,0 +1,864 @@
+{
+	"_doc": "Buccaneer skill definitions (spec #412, one region per ticket): B4 #416 moved the five ported knuckle skills (Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut, Corkscrew Blow) here from skills/pirate.json; B5 #417 changes Dash's slot (Dash stays in pirate.json); B6 Energy Drain; B7 Energy Orb; B8 Barrage, Dragon Strike (#420, listed first); B9 Transformation, Shockwave; B10 Super Transformation, Demolition, Snatch. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). B2 #414 defined none; B4 #416 defines the first region: the five ported knuckle skills (default eight-rank table, no weapon gate, rarity bonuses).",
+	"skills": {
+		"barrage": {
+			"skill_id": 5121007,
+			"book": "512",
+			"job": 512,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Barrage",
+			"desc": "Punches one monster six times in a row.",
+			"text": {
+				"desc": "Six fast punches at a single monster within your knuckler's reach.",
+				"h": "Damage {damage}% x {attack_count}, 1 monster."
+			},
+			"icon": "Skill.wz/512.img/skill/5121007/icon",
+			"damage": "physical",
+			"_tier": "Tier A: canonical damage 106 to 230% (levels 4 to 30 read), attackCount 6, the fist action, effect and hit art, Use and Hit sounds. Tier C (BU-18, BU-19): no weapon gate (ADR 0006), the WZ level has no box or mobCount, so it follows the Double Uppercut rule: one monster inside the held weapon's swing envelope, more only from rarity bonuses; default level-30 rank table (levels 4, 8, 12, 15, 19, 23, 27, 30); cooldown 1.2 s and action hold 0.9 s; all six lines land at the cast (the fist stance's flurry is 0.45 s to 0.9 s of its 2.4 s); hit art tier B reading: hit/0 already holds four jabs and plays once on the first line, hit0/0 and hit1/0 are the fifth and sixth lines, lines beyond six draw no art; rarity bonuses (GAME_DESIGN 7.93); untuned.",
+			"cast": {
+				"rule": "weapon_reach"
+			},
+			"cooldown": 1.2,
+			"action": "fist",
+			"action_time": 0.9,
+			"ball": "",
+			"hit": "Skill.wz/512.img/skill/5121007/hit/0",
+			"hit_lines": [
+				"Skill.wz/512.img/skill/5121007/hit/0",
+				"",
+				"",
+				"",
+				"Skill.wz/512.img/skill/5121007/hit0/0",
+				"Skill.wz/512.img/skill/5121007/hit1/0"
+			],
+			"effect": "Skill.wz/512.img/skill/5121007/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5121007/Use",
+				"hit": "Sound.wz/Skill.img/5121007/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}
+				],
+				"unique": [
+					{"id": "endless", "text": "Endless Barrage", "effects": [{"stat": "attack_count", "op": "add", "value": 2}]}
+				],
+				"legendary": [
+					{"id": "endless", "text": "Endless Barrage", "effects": [{"stat": "attack_count", "op": "add", "value": 2}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
+		"dragon_strike": {
+			"skill_id": 5121001,
+			"book": "512",
+			"job": 512,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Dragon Strike",
+			"desc": "Raises a dragon that strikes a long line of monsters a moment later.",
+			"text": {
+				"desc": "Raises a dragon in front of you; a moment later light pillars strike the monsters along a 400 px line."
+			},
+			"icon": "Skill.wz/512.img/skill/5121001/icon",
+			"damage": "physical",
+			"_tier": "Tier A: canonical damage 320 to 810% (levels 4 to 30 read), mobCount 4 to 6, the box lt (-400,-100) rb (25,20), the dragonstrike action, effect, hit/0..2 and tile art, the hitAfter timing (840 ms plus 120 ms per hit variant), Use and Hit sounds. Tier C (BU-17, BU-19, BU-21): no weapon gate (ADR 0006), default level-30 rank table; the strip is fixed where and which way the dragon was raised and its targets are queried at the impact (a pending strike, like Meteor Shower, but mirrored with the facing: pending.oriented); the impact is 0.84 s after the cast (hitAfter of the first target) and each later target lands pending.stagger 0.12 s after the one before (hitAfter of hit/1 and hit/2); the cast needs one monster in the strip; cooldown 4.8 s (Meteor Shower's) and action hold 0.8 s; hit/0..2 are picked by target index (index mod 3) and start mid-animation (hit_skip 0.84 s: the WZ plays them from the cast, so the pillar is at full height when the number appears) with the pillar's base on the monster's feet (hit_at_feet); tile/0..2 are cast visuals at -200 px steps behind the caster's facing (tile/3 lies outside the box); bot.reach 0 so a melee bot does not kite; rarity bonuses (GAME_DESIGN 7.93); untuned.",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"bot": {
+				"reach": 0
+			},
+			"pending": {
+				"delay": 0.84,
+				"stagger": 0.12,
+				"oriented": true,
+				"effect": ""
+			},
+			"cooldown": 4.8,
+			"action": "dragonstrike",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/512.img/skill/5121001/hit/0",
+			"hit_targets": [
+				"Skill.wz/512.img/skill/5121001/hit/0",
+				"Skill.wz/512.img/skill/5121001/hit/1",
+				"Skill.wz/512.img/skill/5121001/hit/2"
+			],
+			"hit_at_feet": true,
+			"hit_skip": 0.84,
+			"effect": "Skill.wz/512.img/skill/5121001/effect",
+			"cast_visuals": [
+				{"path": "Skill.wz/512.img/skill/5121001/tile/0", "x": 0, "facing": true},
+				{"path": "Skill.wz/512.img/skill/5121001/tile/1", "x": -200, "facing": true},
+				{"path": "Skill.wz/512.img/skill/5121001/tile/2", "x": -400, "facing": true}
+			],
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5121001/Use",
+				"hit": "Sound.wz/Skill.img/5121001/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "wide_dragon", "text": "Wide Dragon", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}
+				],
+				"unique": [
+					{"id": "roaring", "text": "Roaring Dragon", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}
+				],
+				"legendary": [
+					{"id": "roaring", "text": "Roaring Dragon", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
+		"flash_fist": {
+			"skill_id": 5001001, "book": "500", "job": 500, "kind": "instant", "slot": "active",
+			"name": "Flash Fist", "desc": "Punches one monster in front of you.",
+			"icon": "Skill.wz/500.img/skill/5001001/icon", "damage": "physical",
+			"_tier": "Tier A: canonical box, damage, mobCount, straight action and CharLevel art (selected by the round level, thresholds 10/15/20/25). Tier C: no weapon gate (ADR 0006), eight ranks on WZ levels 3, 5, 8, 10, 13, 15, 18, 20 (the default table), auto-cast at one front target, cooldown 0.45 s (BU-19) and action hold 0.6 s, rarity bonuses (GAME_DESIGN 7.90); untuned.",
+			"cast": {"rule": "box"}, "cooldown": 0.45,
+			"action": "straight", "action_time": 0.6, "ball": "",
+			"hit": "Skill.wz/500.img/skill/5001001/hit/0", "effect": "Skill.wz/500.img/skill/5001001/effect",
+			"char_level": {"thresholds": [10, 15, 20, 25], "hit": "Skill.wz/500.img/skill/5001001/CharLevel/{cl}/hit/0", "effect": "Skill.wz/500.img/skill/5001001/CharLevel/{cl}/effect"},
+			"rotate": false, "sounds": {"use": "Sound.wz/Skill.img/5001001/Use", "hit": ""},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}
+				],
+				"unique": [
+					{"id": "flurry", "text": "Fist Flurry", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}
+				],
+				"legendary": [
+					{"id": "flurry", "text": "Fist Flurry", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
+		"somersault_kick": {
+			"skill_id": 5001002, "book": "500", "job": 500, "kind": "instant", "slot": "active",
+			"name": "Somersault Kick", "desc": "Kicks several monsters around you.",
+			"icon": "Skill.wz/500.img/skill/5001002/icon", "damage": "physical",
+			"_tier": "Tier A: canonical box reach and height, damage, mobCount (3 to 6), somersault action and CharLevel art (selected by the round level, thresholds 10/15/20/25). Tier C: no weapon gate (ADR 0006), eight ranks on WZ levels 3, 5, 8, 10, 13, 15, 18, 20, auto-cast on one target, cast.around mirrors the box's far edge across the player to strike around, cooldown 1.0 s (BU-19) and action hold 0.6 s, rarity bonuses (GAME_DESIGN 7.90); untuned.",
+			"cast": {"rule": "box", "around": true}, "cooldown": 1.0,
+			"action": "somersault", "action_time": 0.6, "ball": "",
+			"hit": "Skill.wz/500.img/skill/5001002/hit/0", "effect": "Skill.wz/500.img/skill/5001002/effect",
+			"char_level": {"thresholds": [10, 15, 20, 25], "hit": "Skill.wz/500.img/skill/5001002/CharLevel/{cl}/hit/0", "effect": "Skill.wz/500.img/skill/5001002/CharLevel/{cl}/effect"},
+			"rotate": false, "sounds": {"use": "Sound.wz/Skill.img/5001002/Use", "hit": ""},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "wide_kick", "text": "Wide Kick", "effects": [{"stat": "area", "op": "mul", "value": 1.2}]}
+				],
+				"unique": [
+					{"id": "whirl", "text": "Whirling Kick", "effects": [{"stat": "count", "op": "add", "value": 2}]}
+				],
+				"legendary": [
+					{"id": "whirl", "text": "Whirling Kick", "effects": [{"stat": "count", "op": "add", "value": 2}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
+		"backspin_blow": {
+			"skill_id": 5101002, "book": "510", "job": 510, "kind": "instant", "slot": "active",
+			"name": "Backspin Blow", "desc": "Slides back and elbows up to 3 monsters, stunning them.",
+			"text": {"desc": "Slide back and elbow the monsters around you to damage and briefly stun them.", "h": "Damage {damage}%, up to {mob_count|monster|monsters}, stun for 1 sec."},
+			"icon": "Skill.wz/510.img/skill/5101002/icon", "damage": "physical",
+			"_tier": "Tier A: canonical damage 88 to 240%, mobCount 3, time 1 (the stun), the backspin action, effect/hit art, Use and Hit sounds, and the box height and 140 px reach. Skill.wz has no prop, so every landed hit stuns (bosses resist, see Monster statuses and elements in GAME_DESIGN). Tier C: no weapon gate (ADR 0006), eight ranks on WZ levels 3, 5, 8, 10, 13, 15, 18, 20; the canonical box lies behind the facing, so cast.around mirrors it to both sides and the attack strikes the nearest mobs on either side, then the character turns to the nearest one and slides 100 px away from it after the hits (7.13), stopping at platform edges and walls; cooldown 1.4 s (BU-19) and action hold 0.8 s, rarity bonuses (GAME_DESIGN 7.90); untuned.",
+			"cast": {"rule": "box", "around": true}, "cooldown": 1.4,
+			"displacement": {"direction": "away", "when": "after", "distance": 100},
+			"on_hit": {"status": "stun", "duration_field": "time"},
+			"action": "backspin", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/510.img/skill/5101002/hit/0", "effect": "Skill.wz/510.img/skill/5101002/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101002/Use", "hit": "Sound.wz/Skill.img/5101002/Hit"},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "stun_mastery", "text": "Stun Mastery", "effects": [{"stat": "crit", "op": "add", "value": 0.15}]}
+				],
+				"unique": [
+					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}]}
+				],
+				"legendary": [
+					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
+		"double_uppercut": {
+			"skill_id": 5101003, "book": "510", "job": 510, "kind": "instant", "slot": "active",
+			"name": "Double Uppercut", "desc": "Two quick punches that damage and stun the monster in front of you.",
+			"text": {"desc": "Two quick punches to damage and briefly stun a monster within your knuckler's reach.", "h": "Damage {damage}% x {attack_count}, up to {mob_count|monster|monsters}, stun for 1 sec."},
+			"icon": "Skill.wz/510.img/skill/5101003/icon", "damage": "physical",
+			"_tier": "Tier A: canonical damage 100 to 290%, attackCount 2 and time 1 (both stored as strings in the WZ and read as numbers), the doubleupper action, effect/hit art, Use and Hit sounds. Skill.wz has no prop, so every landed hit stuns (bosses resist). Tier C: no weapon gate (ADR 0006), eight ranks on WZ levels 3, 5, 8, 10, 13, 15, 18, 20; the level has no box or mobCount, so it follows the Power Strike rule: it strikes one monster inside the held weapon's swing envelope (the basic attack's reach), more only from rarity bonuses; cooldown 1.0 s (BU-19) and action hold 1.0 s, rarity bonuses (GAME_DESIGN 7.90); untuned.",
+			"cast": {"rule": "weapon_reach"}, "cooldown": 1.0,
+			"on_hit": {"status": "stun", "duration_field": "time"},
+			"action": "doubleupper", "action_time": 1.0, "ball": "",
+			"hit": "Skill.wz/510.img/skill/5101003/hit/0", "effect": "Skill.wz/510.img/skill/5101003/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101003/Use", "hit": "Sound.wz/Skill.img/5101003/Hit"},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "stun_mastery", "text": "Stun Mastery", "effects": [{"stat": "crit", "op": "add", "value": 0.15}]}
+				],
+				"unique": [
+					{"id": "third_fist", "text": "Third Fist", "effects": [{"stat": "attack_count", "op": "add", "value": 1}]}
+				],
+				"legendary": [
+					{"id": "third_fist", "text": "Third Fist", "effects": [{"stat": "attack_count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
+		"corkscrew_blow": {
+			"skill_id": 5101004, "book": "510", "job": 510, "kind": "instant", "slot": "active",
+			"name": "Corkscrew Blow", "desc": "Charges forward and punches up to 3 monsters on the way.",
+			"text": {"desc": "Run forward and punch the monsters in your path.", "h": "Damage {damage}%, up to {mob_count|monster|monsters}, charges forward."},
+			"icon": "Skill.wz/510.img/skill/5101004/icon", "damage": "physical",
+			"_tier": "Tier A: canonical damage 135 to 420%, mobCount 3, the box reach 100 to 200 px (also the charge distance: displacement.field lt.x reads -lt.x of the mapped WZ level at every rank, checked against Skill.wz by a test) and height, the screw action, effect/hit art, Use and Hit sounds. Tier C: no weapon gate (ADR 0006), eight ranks on WZ levels 3, 5, 8, 10, 13, 15, 18, 20; a mob in the box starts a full charge toward it (no prepare/keydown wind-up, the Loop sound is not played) that strikes up to mobCount mobs along the swept path (7.13) and stops at platform edges and walls; cooldown 1.8 s (BU-19) and action hold 0.8 s, rarity bonuses (GAME_DESIGN 7.90); untuned.",
+			"cast": {"rule": "box"}, "cooldown": 1.8,
+			"displacement": {"direction": "toward", "when": "during", "field": "lt.x"},
+			"action": "screw", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/510.img/skill/5101004/hit/0", "effect": "Skill.wz/510.img/skill/5101004/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101004/Use", "hit": "Sound.wz/Skill.img/5101004/Hit"},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "mastery", "text": "Knuckler Mastery", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "boring", "text": "Boring Screw", "effects": [{"stat": "count", "op": "add", "value": 2}]}
+				],
+				"unique": [
+					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}]}
+				],
+				"legendary": [
+					{"id": "booster", "text": "Knuckler Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.8}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			}
+		},
+		"energy_drain": {
+			"skill_id": 5111004,
+			"book": "511",
+			"job": 511,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Energy Drain",
+			"desc": "Spends all your energy to strike one monster in front of you and absorb part of the damage as HP.",
+			"text": {
+				"desc": "Needs a full Energy Charge. Spends all your energy on one monster in front of you; the more energy, the harder the blow. You absorb part of the damage as HP, capped at half your MaxHP and the monster's MaxHP.",
+				"h": "Damage {damage}%, absorb {x}% of damage as HP."
+			},
+			"icon": "Skill.wz/511.img/skill/5111004/icon",
+			"damage": "physical",
+			"_provenance": "Tier A: Skill.wz 5111004 damage 275 to 360 % and x (the heal percent, 12 to 20 %) at the eight mapped levels, the canonical box lt (-200,-100) rb (0,0), mobCount 1, the edrain action, req Energy Charge, the effect (15 frames) and hit/0 (15 frames) art, the Use and Hit sounds. Tier C (spec #412 BU-4, BU-5, BU-15, B6 #418): a finisher on the Energy Charge meter (min 10, spends all, +12 % damage per energy spent), the cast rule box on one target, a 2.0 s cooldown (the 1.0 s meter floor would hide a Booster), the 0.6 s stance hold, and damage_heal reuses Drain's (7.25) listener with the cap of half MaxHP and the target's MaxHP. Rarity names are the lineage's (Energy Mastery is ours). GAME_DESIGN 7.91.",
+			"cast": {
+				"rule": "box"
+			},
+			"cooldown": 2.0,
+			"meter": {
+				"role": "finisher",
+				"min": 10,
+				"spend": "all",
+				"damage_per_unit": 0.12,
+				"unit": "energy"
+			},
+			"damage_heal": {
+				"percent_field": "x",
+				"max_hp_fraction": 0.5,
+				"target_max_hp": true
+			},
+			"action": "edrain",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/511.img/skill/5111004/hit/0",
+			"effect": "Skill.wz/511.img/skill/5111004/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5111004/Use",
+				"hit": "Sound.wz/Skill.img/5111004/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Energy Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "energy_charge",
+						"text": "Energy Charge",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "energy_charge",
+						"text": "Energy Charge",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"transformation": {
+			"skill_id": 5111005,
+			"book": "511",
+			"job": 511,
+			"kind": "form",
+			"slot": "active",
+			"name": "Transformation",
+			"desc": "Turns you into a fierce morph for a short time: tougher, faster, with a Shockwave rolling out in front of you.",
+			"text": {
+				"desc": "Turns you into the Buccaneer's fierce morph for a few seconds: more defence, speed and jump. While transformed, a Shockwave erupts along the ground in front of you on its own."
+			},
+			"icon": "Skill.wz/511.img/skill/5111005/icon",
+			"damage": "none",
+			"_provenance": "Tier A: Skill.wz 5111005 morph 1000, pdd = mdd 6 to 40 at the eight mapped levels (rank 1 / 4 / 8 = levels 3 / 10 / 20: 6 / 20 / 40), speed 40, jump 20, and the Use sound; neither node has cast art. The WZ time (120 s) and cooltime (360 to 530 s) are session-scale and not used, `str` has no buff consumer. Tier C (spec #412 BU-2, BU-7, BU-8, BU-9, B9 #421): a pool Form of the exclusive group buccaneer_transformation beside Super Transformation, 10 s window, 14 s cooldown counted from the cast, admission when a living mob is within 400 px, no damage modifier (the power is the stat package and Shockwave), Shockwave 1.0 s after the start and every 3.0 s, the alert2 stance held 0.6 s, the rarity bonuses. Docs: GAME_DESIGN 7.92.",
+			"cast": {
+				"rule": "form",
+				"mob_within": 400
+			},
+			"cooldown": 14.0,
+			"form": {
+				"duration": 10.0,
+				"exclusive_group": "buccaneer_transformation",
+				"effects": {},
+				"subs": [
+					{
+						"skill": "shockwave",
+						"first_after": 1.0,
+						"interval": 3.0
+					}
+				]
+			},
+			"buff": {
+				"stat": "pdd",
+				"field": "pdd",
+				"morph_field": "morph",
+				"effects": [
+					{
+						"stat": "mdd",
+						"field": "mdd"
+					},
+					{
+						"stat": "speed",
+						"field": "speed"
+					},
+					{
+						"stat": "jump",
+						"field": "jump"
+					}
+				]
+			},
+			"action": "alert2",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5111005/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Transformation Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "lasting",
+						"text": "Lasting Transformation",
+						"effects": [
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "lasting",
+						"text": "Lasting Transformation",
+						"effects": [
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"shockwave": {
+			"skill_id": 5111006,
+			"book": "511",
+			"job": 511,
+			"kind": "instant",
+			"slot": "form_sub",
+			"form_sub_of": [
+				"transformation",
+				"super_transformation"
+			],
+			"name": "Shockwave",
+			"desc": "A wave of earth spikes erupts along the ground in front of you, striking several monsters.",
+			"text": {
+				"desc": "While transformed, an earthen shockwave rolls out in front of you every few seconds, erupting under up to six monsters.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters}."
+			},
+			"icon": "Skill.wz/511.img/skill/5111006/icon",
+			"damage": "physical",
+			"_provenance": "Tier A: Skill.wz 5111006 damage 310 to 700 % and mobCount 4 to 6 at the eight mapped levels (the 30-level table 4 8 12 15 19 23 27 30: rank 8 of the parent reads level 30), the canonical box lt (-330,-140) rb (0,20), the shockwave action, the effect and effect0 to effect3 art (five 8-frame ripples, each with a blank lead-in of 1380 to 1980 ms), the 5-frame hit/0, and the Use and Hit sounds. Tier C (spec #412 BU-3, B9 #421): a Form sub of Transformation and (B10 #422) Super Transformation with no slot and no card, one box cast on at least one target, 3.0 s interval, the 0.8 s stance hold, and a pending strike 1.38 s after the cast (orchestrator ruling: the damage lands with the art's first eruption) on the box side fixed at the cast. Docs: GAME_DESIGN 7.92.",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 3.0,
+			"pending": {
+				"delay": 1.38,
+				"oriented": true,
+				"effect": ""
+			},
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/511.img/skill/5111006/effect",
+					"x": 0,
+					"facing": true
+				},
+				{
+					"path": "Skill.wz/511.img/skill/5111006/effect0",
+					"x": 0,
+					"facing": true
+				},
+				{
+					"path": "Skill.wz/511.img/skill/5111006/effect1",
+					"x": 0,
+					"facing": true
+				},
+				{
+					"path": "Skill.wz/511.img/skill/5111006/effect2",
+					"x": 0,
+					"facing": true
+				},
+				{
+					"path": "Skill.wz/511.img/skill/5111006/effect3",
+					"x": 0,
+					"facing": true
+				}
+			],
+			"action": "shockwave",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/511.img/skill/5111006/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5111006/Use",
+				"hit": "Sound.wz/Skill.img/5111006/Hit"
+			}
+		},
+		"energy_orb": {
+			"skill_id": 5121002,
+			"book": "512",
+			"job": 512,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Energy Orb",
+			"desc": "Spends all your energy to blast the monsters around you at once.",
+			"text": {
+				"desc": "Needs a full Energy Charge and at least two monsters around you. Spends all your energy on the crowd around you; the more energy, the harder the blow.",
+				"h": "Damage {damage}% on up to {mob_count} monsters."
+			},
+			"icon": "Skill.wz/512.img/skill/5121002/icon",
+			"damage": "physical",
+			"_provenance": "Tier A: Skill.wz 5121002 damage 360 to 900 % and mobCount 2 to 6 at the eight mapped levels, range 200 (no lt/rb box: the node reads 'strikes a monster; monsters around it are also affected'), the eorb action, req Energy Charge, the effect (13 frames: the charge ball, then a forward streak), effect0 (6 frames, z -1: a glow behind the avatar) and hit/0 (7 frames, one burst per target) art, the Use and Hit sounds. Tier C (spec #412 BU-4, BU-5, BU-16, BU-19, B7 #419): the crowd finisher on the Energy Charge meter (min 10, spends all, +12 % damage per energy spent), cast rule range_around with min_targets 2 (a lone monster is Drain's), a nova not a projectile (the single-frame ball is not drawn), a 1.0 s cooldown (the meter's floor) and a 0.8 s eorb stance hold, effect at the caster and effect0 behind it (BC1 contact sheet), rarity bonuses (GAME_DESIGN 7.91). Arbitration with Energy Drain is the existing PlayerMeter.preferred: untuned.",
+			"cast": {
+				"rule": "range_around",
+				"min_targets": 2
+			},
+			"cooldown": 1.0,
+			"meter": {
+				"role": "finisher",
+				"min": 10,
+				"spend": "all",
+				"damage_per_unit": 0.12,
+				"unit": "energy"
+			},
+			"action": "eorb",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/512.img/skill/5121002/hit/0",
+			"effect": "Skill.wz/512.img/skill/5121002/effect",
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/512.img/skill/5121002/effect0",
+					"x": 0,
+					"facing": true
+				}
+			],
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5121002/Use",
+				"hit": "Sound.wz/Skill.img/5121002/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Energy Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_orb",
+						"text": "Wide Orb",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "energy_charge",
+						"text": "Energy Charge",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "energy_charge",
+						"text": "Energy Charge",
+						"effects": [
+							{
+								"stat": "meter_keep",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"super_transformation": {
+			"skill_id": 5121003,
+			"book": "512",
+			"job": 512,
+			"kind": "form",
+			"slot": "active",
+			"name": "Super Transformation",
+			"desc": "Turns you into a stronger morph for a while: much tougher and faster, with Snatch, Shockwave and Demolition going off on their own.",
+			"text": {
+				"desc": "Turns you into the Buccaneer's strongest morph for a few seconds: more defence, speed and jump. While transformed, Snatch drags a far crowd in, a Shockwave erupts along the ground, and Demolition hammers one monster, all on their own."
+			},
+			"icon": "Skill.wz/512.img/skill/5121003/icon",
+			"damage": "none",
+			"_provenance": "Tier A: Skill.wz 5121003 morph 1001, pdd = mdd 43 to 60 at the eight mapped levels (rank 1 / 4 / 8 = levels 3 / 10 / 20: 43 / 50 / 60; the String text says att., the node holds pdd and mdd and no pad or mad, BU-8), speed 40, jump 20, and the Use sound (a UOL to Transformation's); the node has no cast art. The WZ time (120 s) and cooltime (240 to 410 s) are session-scale and not used, `str` has no buff consumer. Tier C (spec #412 BU-2, BU-7, BU-8, BU-9, B10 #422): a pool Form of the exclusive group buccaneer_transformation beside Transformation, 15 s window, 24 s cooldown counted from the cast, admission when a living mob is within 400 px, no damage modifier (the power is the three subs and the stat package), Snatch 0.5 s after the start and every 6 s, Shockwave 1.0 s and every 3 s, Demolition 2.0 s and every 5 s, the alert2 stance held 0.6 s, the rarity bonuses. Docs: GAME_DESIGN 7.92.",
+			"cast": {
+				"rule": "form",
+				"mob_within": 400
+			},
+			"cooldown": 24.0,
+			"form": {
+				"duration": 15.0,
+				"exclusive_group": "buccaneer_transformation",
+				"effects": {},
+				"subs": [
+					{
+						"skill": "snatch",
+						"first_after": 0.5,
+						"interval": 6.0
+					},
+					{
+						"skill": "shockwave",
+						"first_after": 1.0,
+						"interval": 3.0
+					},
+					{
+						"skill": "demolition",
+						"first_after": 2.0,
+						"interval": 5.0
+					}
+				]
+			},
+			"buff": {
+				"stat": "pdd",
+				"field": "pdd",
+				"morph_field": "morph",
+				"effects": [
+					{
+						"stat": "mdd",
+						"field": "mdd"
+					},
+					{
+						"stat": "speed",
+						"field": "speed"
+					},
+					{
+						"stat": "jump",
+						"field": "jump"
+					}
+				]
+			},
+			"action": "alert2",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5121003/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Super Transformation Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "time_leap",
+						"text": "Time Leap",
+						"effects": [
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "time_leap",
+						"text": "Time Leap",
+						"effects": [
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"demolition": {
+			"skill_id": 5121004,
+			"book": "512",
+			"job": 512,
+			"kind": "instant",
+			"slot": "form_sub",
+			"form_sub_of": [
+				"super_transformation"
+			],
+			"name": "Demolition",
+			"desc": "Hammers one monster in front of you eight times in a row and stuns it.",
+			"text": {
+				"desc": "While in Super Transformation, hammer one monster in front of you eight times and stun it.",
+				"h": "Damage {damage}% x {attack_count}, {mob_count|monster|monsters}, stun for 1 sec."
+			},
+			"icon": "Skill.wz/512.img/skill/5121004/icon",
+			"damage": "physical",
+			"_provenance": "Tier A: Skill.wz 5121004 damage 90 to 400 % (rank 1 / 4 / 8 = levels 4 / 15 / 30: 120 / 240 / 400 %), attackCount 8, mobCount 1, time 1 (the stun; no prop, so every landed line stuns and bosses resist, BU-11), the canonical box lt (-300,-150) rb (-20,15) (the 20 px dead zone), the demolition action (3.12 s), the 23-frame hit/0 (the spec said 24) and the Use and Hit sounds; the effect node is a 1x1 stub and is not drawn. Tier C (spec #412 BU-3, B10 #422): a Form sub of Super Transformation with no slot and no card, one box cast on at least one target, 5.0 s interval, the 1.0 s stance hold (the Morph 1001 action holds its figure through the blank frame, 7.92), the 23-frame detonation shown once, on the first line (the other seven lines show no art). Docs: GAME_DESIGN 7.92.",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 5.0,
+			"on_hit": {
+				"status": "stun",
+				"duration_field": "time"
+			},
+			"action": "demolition",
+			"action_time": 1.0,
+			"ball": "",
+			"hit": "Skill.wz/512.img/skill/5121004/hit/0",
+			"hit_lines": [
+				"Skill.wz/512.img/skill/5121004/hit/0",
+				"",
+				"",
+				"",
+				"",
+				"",
+				"",
+				""
+			],
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5121004/Use",
+				"hit": "Sound.wz/Skill.img/5121004/Hit"
+			}
+		},
+		"snatch": {
+			"skill_id": 5121005,
+			"book": "512",
+			"job": 512,
+			"kind": "instant",
+			"slot": "form_sub",
+			"form_sub_of": [
+				"super_transformation"
+			],
+			"name": "Snatch",
+			"desc": "Damages monsters far in front of you, drags them right to you and stuns them.",
+			"text": {
+				"desc": "While in Super Transformation, drag the monsters far around you to your feet, damage the ones in front of you and stun them.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters}, stun for 1 sec."
+			},
+			"icon": "Skill.wz/512.img/skill/5121005/icon",
+			"damage": "physical",
+			"_provenance": "Tier A: Skill.wz 5121005 damage 210 to 600 % (rank 1 / 4 / 8 = levels 4 / 15 / 30: 240 / 400 / 600 %), mobCount 2 to 6, time 1 (the stun; no prop, BU-11), the canonical box lt (-300,-100) rb (-50,15), the snatch action, the 10-frame effect (a blank lead-in of 270 ms, up to 407x67), the 3-frame hit/0 and the Use and Hit sounds; the node has no range, so `range` 300 is the box's far edge (BU-12). Tier C (spec #412 BU-3, BU-11, BU-12, B10 #422): a Form sub of Super Transformation with no slot and no card, one box cast on at least one target, 6.0 s interval, the 0.8 s stance hold, the shared `pull` block (7.35) with no chance field (it always applies) and a 60 px gap, run before the damage: the pull takes the farthest grounded non-boss mobs within 300 px on either side, the damage takes the box's nearest, and the two sets may differ (measured in GAME_DESIGN 7.92). Docs: GAME_DESIGN 7.92.",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"range": 300,
+			"pull": {
+				"range_field": "range",
+				"min_gap": 60
+			},
+			"cooldown": 6.0,
+			"on_hit": {
+				"status": "stun",
+				"duration_field": "time"
+			},
+			"action": "snatch",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/512.img/skill/5121005/hit/0",
+			"effect": "Skill.wz/512.img/skill/5121005/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5121005/Use",
+				"hit": "Sound.wz/Skill.img/5121005/Hit"
+			}
+		}
+	}
+}
