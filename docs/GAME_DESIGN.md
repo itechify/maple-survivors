@@ -5822,6 +5822,13 @@ is scheduled bosses, then monsters running that status, then distance, then slot
 the impact's targets. A definition without the key sorts exactly as before, so Elquines and every F/P oracle are unchanged
 (7.64 has Ifrit, the first user; Elquines is not given `ice_weak`, that is a balance-pass lever).
 
+Opt-in `summon.count_field` (a level field name, BS7 #379): the strike's target count is that field of the cast's mapped
+level (plus the `count` modifiers) instead of the attack node's `info.mobCount`. A definition without the key reads
+`info.mobCount` exactly as before, so Elquines, Ifrit and every F/P oracle are unchanged (7.84, Bahamut: the level node's
+`mobCount` is 3 at levels 1-29 and 6 at level 30, the attack node's a constant 3). `summon.move` (default `move`) names the
+animation node played while following and whose frames give the stored duration; the dragons' books have `fly`, not `move`
+(7.84). Bowmaster's physical followers (7.44) use the same key: one definition, whichever spec merges second.
+
 Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 12 s recast,
 180 px/s follow, 60 px trailing offset, 1 px stand/move deadzone, 600 px snap distance and 2.4 s minimum attack cycle (never shorter than the
 WZ animation or hit delay). A zero follow speed stops incremental following (distance snapping still applies); future stationary, taunt, projectile,
@@ -6285,8 +6292,8 @@ player can reach it and every F/P and I/L number is unchanged. Skill keys stay i
 | `shining_ray` | 2311004 Shining Ray (book 231) | not defined: inert | BS5 (done, #377, 7.82) |
 | `angel_ray` | 2321007 Angel Ray (book 232) | not defined: inert | BS5 (done, #377, 7.82) |
 | `heal` | 2301002 Heal (book 230) | moved into `bishop` by BS4 (done, #376, 7.83) | BS4 |
-| `summon_dragon` | 2311006 Summon Dragon (book 231) | not defined: inert | BS7 |
-| `bahamut` | 2321003 Bahamut (book 232) | not defined: inert | BS7 |
+| `summon_dragon` | 2311006 Summon Dragon (book 231) | defined in `bishop` by BS7 (done, #379, 7.84) | BS7 |
+| `bahamut` | 2321003 Bahamut (book 232) | defined in `bishop` by BS7 (done, #379, 7.84) | BS7 |
 | `genesis` | 2321008 Genesis (book 232) | not defined: inert | BS6 (done, #378, 7.85) |
 | `big_bang_bishop` | 2321001 Big Bang (book 232), `extends: big_bang` | not defined: inert | BS6 (done, #378, 7.85) |
 | `resurrection` | 2321006 Resurrection (book 232), reaction | not defined: inert | BS8 |
@@ -6397,6 +6404,8 @@ entry changes the resolved cast (`test_rarity_bonus_effects`, the Bishop skills'
 | Holy Arrow | `power` Holy Power: damage x1.2 | `pierce` Piercing Light: +1 pierce | `twin` Twin Arrow: +1 arrow | Twin Arrow + damage x1.2 |
 | Shining Ray | `power` damage x1.2 | `radiance` Wider Ray: area x1.2 | `fork` Splitting Ray: +2 targets (`count` through `mob_count`) | Splitting Ray + damage x1.2 |
 | Angel Ray | `power` damage x1.2 | `booster` Spell Booster: cooldown x0.88 | `twin` Twin Angel: +1 shot | Twin Angel + damage x1.2 |
+| Summon Dragon | `power` Holy Power: damage x1.2 | `reach` Wide Wings: area x1.2 | `twin` Twin Dragons: +1 ally (`summon_count`) | Twin Dragons + damage x1.2 |
+| Bahamut | `power` Holy Power: damage x1.2 | `reach` Wide Wings: area x1.2 | `crowd` Holy Crowd: +2 targets (`count`) | Holy Crowd + damage x1.2 |
 
 The oracle `test_tick_cost_identity` keeps the pre-port Holy Arrow (cooldown 1.0, 30 ranks, no bonuses) in its `_data()`,
 next to the Cold Beam and Thunder Bolt pins; its golden and totals are byte-identical (no recapture). Its Magician loadout
@@ -6450,6 +6459,50 @@ Hazards recorded, not solved here (balance-pass questions): the recovery is stat
 it restores almost nothing; only three undead exist in the stage data (Zombie Mushroom 2230101 in Sleepywood's first map;
 the bosses Shade 5090000 on Kerning map 2 and Zombie Mushmom 6300005 on Sleepywood map 1; bosses are targets like any
 monster), so the strike is a late bonus. The BS10 smoke reports Heal's casts and restored HP.
+
+### 7.84 Summon Dragon and Bahamut (spec #372, BS7 #379)
+
+Two holy followers on the 7.32 seam, one definition each in `skills/bishop.json`: `kind: summon`, `slot: active`,
+`cast: {"rule": "summon"}`, `damage: magic`, **`element: "h"`**, 12 s recast, caster stance `alert2`, the Use sound. They differ
+in role, not in code: the same `PlayerSummons`, the follow settings of Elquines (180 px/s, 60 px trail, 600 px snap, 36 px ordinal
+spread), and two data knobs.
+
+| | Summon Dragon `summon_dragon` | Bahamut `bahamut` |
+|---|---|---|
+| WZ | 2311006, book 231, job 231 | 2321003, book 232, job 232 |
+| `mad` at ranks 1 / 4 / 8 (levels 4 / 15 / 30) | 76 / 120 / 150 | 122 / 160 / 230 |
+| `time` (lifetime, s) | 25 / 80 / 140 | 30 / 85 / 160 |
+| Targets per strike | 1 (no `mobCount` anywhere) | `count_field: "mobCount"`: 3 at ranks 1-7, 6 at rank 8 |
+| Strike cycle (`attack_interval`) | 1.2 s (the fast one) | 2.4 s (Elquines' value; the heavy one) |
+| `attackAfter` (the impact) | 500 ms | 990 ms |
+| Attack box (feet-relative, facing side) | (-200,-150)..(200,150), symmetric | (-200,-150)..(0,30), mirrored by facing |
+| Element | `h` (tier C: the WZ node has no `elemAttr`; the String text calls it a holy dragon) | `h` (A: `elemAttr h`) |
+| Animations | `summoned` 5, `fly` 5, `stand` 5, `attack1` 8, `die` 6; `hit/0` 1 frame | `summoned` 6, `fly` 6, `stand` 12, `attack1` 18, `die` 6; `hit/0` 7 frames |
+
+**`summon.count_field`** (7.32): `PlayerSummons._base_count` reads the named field of the cast's mapped level
+(`SkillBook.canonical(skill, level, field, info.mobCount)`) as the base, then `skill_stat("count", base)` adds the modifiers.
+Bahamut's attack node says `mobCount 3` at every level; only the level node reaches 6, at level 30 (rank 8), so without the key
+rank 8 would strike three monsters like rank 1. Without the key nothing is read differently (the Elquines and Ifrit data, the
+F/P oracles and `test_tick_cost_identity` did not move).
+
+**`fly`** is `summon.move: "fly"` (7.32): the node named by `move` (default `move`) is the animation played while following; its
+frames give the stored duration, and `PlayerSummonRenderer` loops it. Compatibility with Bowmaster (7.44): that branch adds the
+same key with the same name, default and meaning for its flyers, so whichever merges second is the same text (the merge conflict
+is textual, not semantic). **Orthogonal, not a new concept:** no hover, no `settle`, no `watk_field`; the dragons trail on the
+ground like Elquines. `info.type` (Summon Dragon `1`, Bahamut `0`) changes nothing in the sim (the sim never branches on it).
+The Summon Dragon's `Summon` sound (`Sound.wz/Skill.img/2311006/Summon`, 1827 ms) is not played: the `sounds.summon` spawn cue
+is Bowmaster's seam and is not on this branch; once it merges it is one data line (`"summon": "Sound.wz/Skill.img/2311006/Summon"`
+in the dragon's `sounds`). Summon Dragon's WZ Summoning Rock cost and Bahamut's `req` of Summon Dragon level 15 are not read (no
+items, ADR 0006; both dragons are independent pool entries and coexist, one recast group each).
+
+**Rarity** (tier C; the Elquines lists, Bahamut's third entry widened to the crowd; repeats x0.8, Legendary = the Unique's effect and
+id plus damage x1.2): Rare `power` damage x1.2; Epic `reach` "Wide Wings" area x1.2 (the attack box through `stats.area`);
+Unique `twin` "Twin Dragons" +1 ally (`summon_count`) for Summon Dragon, `crowd` "Holy Crowd" +2 targets (`count`) for Bahamut.
+`test_bishop_dragons` casts each effect with and without it: damage dealt, the monster just beyond the base box, the ally
+count and the monsters struck (a `range` and a `pierce` modifier, which a summon never reads, are the negative controls).
+
+Evidence (BS7, tool-only `player_summon_probe.tscn --skill=summon_dragon|bahamut [--life=<s>]`, real Henesys, Lv1 invulnerable,
+job 232, rank 8, damage x0.01, 200 stationary high-HP monsters, vsync off): recorded in `BS7-379.md` with the frame costs.
 
 ### 7.85 Genesis and Big Bang (spec #372, BS6 #378)
 
@@ -7885,3 +7938,17 @@ presentation is the shipped design. The weapon-only `stabO2` fallback leaves Her
 | Recharge count as run out | `cooldowns[key] <= 1e-6`, as `SkillRunner.cast_ready` | tier C, ours (#375) |
 | Skill ready at round start | cooldown starts at 0 | tier C, ours (#375) |
 | Resurrection WZ box (-400,-350)..(400,250) at every level | read as is; the recharge table (600 s down to 120 s) is BS8's `cooldown_by_rank` | tier A shape, tier C scale (BS1 identity `cooltime / 3 - 480`) |
+
+### Bishop BS7 constants (spec #372, BS7 #379)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Summon Dragon element | `h` (the WZ node has no `elemAttr`; String text: "a holy dragon") | C |
+| Dragons' recast | 12 s each (Elquines' and Ifrit's value) | C |
+| Summon Dragon strike cycle | `attack_interval` 1.2 s (never shorter than the 500 ms impact or the 8-frame `attack1` animation, 0.6 s) | C |
+| Bahamut strike cycle | `attack_interval` 2.4 s (Elquines' value; the 18-frame `attack1` is 1.62 s, the impact 990 ms) | C |
+| Follow settings | 180 px/s, 60 px trail, 600 px snap, 36 px ordinal spread: Elquines' | C |
+| Targets | Summon Dragon: no `mobCount` in the WZ, so one; Bahamut: the level node's `mobCount` (3, 6 at level 30) through `summon.count_field` | A (the numbers), C (reading the level field instead of `info.mobCount`) |
+| `summon.move` | `fly` for both dragons (the books have no `move`); default `move` | A (the books), C (the key, shared with Bowmaster) |
+| Rarity bonuses | the two rows in 8 (damage x1.2, area x1.2, +1 ally or +2 targets; Legendary = Unique + damage x1.2; repeats x0.8); names Holy Power, Wide Wings, Twin Dragons, Holy Crowd | C |
+| Not read | Summon Dragon's Summoning Rock (`itemCon 4006001`), Bahamut's `req` of Summon Dragon 15, `info.type`, `sp`/`r` under the range node | dropped by decision (ADR 0006, spec #372) |

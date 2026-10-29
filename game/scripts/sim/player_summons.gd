@@ -38,7 +38,8 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 	var attack_node: Dictionary = node.get(String(d.attack), {})
 	d["info"] = attack_node.get("info", {})
 	d["durations"] = {}
-	for a: String in ["summoned", "stand", "move", String(d.attack), "die"]:
+	d["move"] = String(d.get("move", "move"))
+	for a: String in ["summoned", "stand", String(d.move), String(d.attack), "die"]:
 		d.durations[a] = WeaponInfo.frame_times(node.get(a, {})).total
 	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "summon_count", 1.0)))
 	for ordinal in count:
@@ -105,7 +106,7 @@ func step(dt: float, world: RunWorld) -> void:
 			pos = pos.move_toward(destination, float(d.follow_speed) * dt)
 		x[i] = pos.x
 		y[i] = pos.y
-		_set_action(i, "move" if moved else "stand")
+		_set_action(i, String(d.move) if moved else "stand")
 		if world.is_hidden() or bool(world.player_state.dead):
 			continue
 		var targets := _targets(i, world, true)
@@ -161,10 +162,17 @@ func _targets(i: int, world: RunWorld, both_sides: bool) -> PackedInt32Array:
 	return PackedInt32Array(matches)
 
 
+## The strike's target count before `count` modifiers: the attack node's `info.mobCount`, or, with the opt-in `summon.count_field`,
+## that field of the cast's mapped level (Bahamut: 3, 6 at level 30).
+func _base_count(i: int, world: RunWorld) -> float:
+	var field := String(definitions[i].get("count_field", ""))
+	var fallback := float(definitions[i].info.get("mobCount", 1))
+	return world.book.canonical(String(stats[i].skill), int(stats[i].level), field, fallback) if field != "" else fallback
+
 func _hit(i: int, world: RunWorld) -> void:
 	var st := stats[i]
 	var targets := _targets(i, world, false)
-	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "count", float(definitions[i].info.get("mobCount", 1)))))
+	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "count", _base_count(i, world))))
 	for t in mini(count, targets.size()):
 		for line in int(st.attack_count):
 			if world.swarm.active[targets[t]] == 0:

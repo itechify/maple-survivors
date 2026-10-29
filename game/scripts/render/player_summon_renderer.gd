@@ -21,7 +21,7 @@ func update_from(summons: PlayerSummons) -> void:
 		if anim == null or anim.is_empty():
 			_pool.hide(i)
 			continue
-		var loops := summons.action[i] in ["stand", "move"]
+		var loops := summons.action[i] == "stand" or summons.action[i] == String(summons.definitions[i].move)
 		var age := summons.age[i]
 		_pool.show(i, anim.frame_at(age, loops), Vector2(roundf(summons.x[i]), roundf(summons.y[i])),
 			summons.facing[i] > 0, anim.alpha_at(age, loops))
