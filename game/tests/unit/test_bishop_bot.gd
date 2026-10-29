@@ -112,7 +112,7 @@ func test_every_defined_bishop_skill_has_a_known_reach_and_heal_and_resurrection
 func test_a_bishop_with_holy_arrow_kites_because_its_reach_is_past_the_kite_threshold() -> void:
 	var w := _world()
 	w.learn_skill("heal")
-	var profile := BotInput._reach_profile(w)
+	var profile := BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach))
 	var kite_reach := float(w.balance.bot.engage.kite_reach)
 	assert_true(profile.x >= kite_reach, "longest reach %.0f is a ranged reach (>= %.0f): no melee engage mode" % [profile.x, kite_reach])
 	assert_eq(profile.x, 480.0, "Holy Arrow's 480 px; Heal (reach 0) does not change the profile")

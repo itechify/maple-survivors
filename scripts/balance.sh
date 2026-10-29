@@ -7,6 +7,8 @@
 #   bash scripts/balance.sh 1 2 --job=212     # the character's job (ADR 0006: chosen at creation, never changes); only a playable
 #   # job is accepted, anything else fails at startup (see the seed log). --branch=<id> is the deprecated alias.
 #   # --job=112 is Hero (spec #296, playable).
+#   # --job=132 is the Dark Knight (spec #348, playable; pass --character=game/tests/fixtures/characters/dark_knight_t2.json for
+#   # the spear: a fresh --job=132 round wears the default outfit sword).
 #   # --job=222 selects the playable I/L Arch Mage (spec #319); 212 remains the default.
 #   # --job=122 selects the Paladin (spec #308, P9 #317 flipped playable); --character=game/tests/fixtures/characters/paladin_t2.json is its tier-1 kit.
 

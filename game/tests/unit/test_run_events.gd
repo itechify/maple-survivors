@@ -3,6 +3,7 @@ extends TestCase
 ## exactly the documented fields, with the documented value types; every type shows up. Also checks seeded replays
 ## are identical.
 
+const SSF := preload("res://tests/fixtures/support_summon_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const RV := preload("res://tests/fixtures/revive_fixtures.gd")
@@ -399,6 +400,18 @@ func test_every_event_matches_the_schema() -> void:
 	meter.gain("cast_landed", meter_events)
 	for event: Dictionary in meter_events:
 		_check(event, seen)
+	# D3 (#351): no shipped skill pays HP in this probe's runs. Exercise both kinds of hp_spent through HpRisk.
+	var risk := RF.quiet_world(400.0, 351)
+	risk.god = false
+	risk.drain_events()
+	var risk_stats := {"skill": "synthetic", "skill_id": 9991000, "hp_cost": 5, "self_damage": 50.0, "self_damage_cap": 1.0}
+	HpRisk.pay_cost(risk, risk_stats)
+	HpRisk.settle(risk, risk_stats, risk.damage_dealt - 40)
+	var spent := risk.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "hp_spent")
+	assert_eq(spent.map(func(e: Dictionary) -> String: return e.kind), ["cost", "recoil"])
+	for event: Dictionary in spent:
+		assert_eq(event.size(), 5)
+		_check(event, seen)
 	var pull := CF.world({"pull": {"min_gap": 60}, "range": 600.0})
 	RF.put_mob(pull, 1110100, pull.player.pos.x + 300)
 	pull.mob_grid.rebuild(pull.swarm.x, pull.swarm.y, pull.swarm.active)
@@ -424,6 +437,14 @@ func test_every_event_matches_the_schema() -> void:
 				blaster.step(DT, MoveInput.new())
 			for event: Dictionary in blaster.drain_events():
 				_check(event, seen)
+		if type == "support_pulse":
+			var beholder := SSF.world()
+			for tick in 200: # the synthetic Hex pulse lands at 3 s
+				beholder.step(DT, MoveInput.new())
+			# summon_spawn / summon_attack (T9) were never registered in EVENT_FIELDS: check only this ticket's event.
+			for event: Dictionary in beholder.drain_events():
+				if event.type in ["support_pulse", "buff_cast", "player_restored"]:
+					_check(event, seen)
 		if type == "player_banished":
 			var shaded := SF.world()
 			for tick in 15 * 60:

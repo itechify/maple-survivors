@@ -81,7 +81,7 @@ func test_a_paladin_with_only_short_attacks_engages_instead_of_kiting() -> void:
 	for key: String in ["power_strike", "slash_blast", "blast"] + CHARGES:
 		if w.book.has(key) and not w.loadout.has(key):
 			w.learn_skill(key)
-	var profile := BotInput._reach_profile(w)
+	var profile := BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach))
 	var kite_reach := float(w.balance.bot.engage.kite_reach)
 	assert_true(profile.x > 0.0 and profile.x < kite_reach, "longest reach %.0f is a melee reach (< %.0f)" % [profile.x, kite_reach])
 	var mob := RF.put_mob(w, 100100, 650, 190, 10000.0)

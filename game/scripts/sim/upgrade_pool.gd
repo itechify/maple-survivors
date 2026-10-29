@@ -31,7 +31,7 @@ const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_fal
 ## value]. tier C: wording from spec #372 story 11 ("Greater Heal: recovery x1.2", "Holy Shield: guard +1.5 s").
 const CARD_STAT_TEXT := {"heal_power": ["recovery", 1.0, ""], "heal_threshold": ["heals below", 100.0, "% HP"],
 	"revive_hp": ["revive HP", 100.0, "%"], "revive_guard": ["guard", 1.0, " s"]}
-const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "form_time", "form_power", "heal_power", "heal_threshold", "revive_hp", "revive_guard"]
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "hp_cost", "self_damage", "low_hp_damage", "support_heal", "support_rate", "form_time", "form_power", "heal_power", "heal_threshold", "revive_hp", "revive_guard"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const STAT_LABELS := {"form_time": "Form duration", "form_power": "Form power", "attack_count": "Hits"}
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
@@ -342,6 +342,9 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 			var kept := before * float(effect.value) if op == "mul" else before + float(effect.value)
 			labels.append("Keeps %d orbs" % maxi(0, roundi(kept)))
 			continue
+		if HpRisk.LABELS.has(String(effect.stat)):
+			labels.append(String(HpRisk.LABELS[String(effect.stat)]) + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
+			continue
 		labels.append(effect_label(String(effect.stat), op, float(effect.value)))
 	bonus.text = String(bonus.get("text", bonus.id)) + ": " + ", ".join(labels)
 	bonus.counter = counter
@@ -409,6 +412,8 @@ static func _bonus_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictio
 
 static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: String) -> Variant:
 	match stat:
+		"support_heal", "support_rate":
+			return SupportSummons.preview(st, stat)
 		"form_time":
 			return snappedf(float(st.get("duration", 0.0)), 0.01)
 		"form_power":
@@ -417,6 +422,10 @@ static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: Str
 			return maxi(0, roundi(lo.skill_stat(skill, "meter_keep", 0.0)))
 		"pierce_falloff":
 			return snappedf(float(st.pierce_falloff) * 100.0, 0.01)
+		"self_damage":
+			return snappedf(float(st.self_damage), 0.01) # percent of the damage dealt
+		"low_hp_damage":
+			return roundi(float(st.low_hp_damage) * 100.0)
 		"cooldown":
 			return snappedf(SkillRunner.restart_cooldown(st), 0.01)
 		"revive_hp":

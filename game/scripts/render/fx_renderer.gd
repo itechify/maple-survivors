@@ -44,23 +44,29 @@ func _ready() -> void:
 
 ## Plays the animation at a WZ path. Returns the slot id, or -1 when the animation is missing.
 func play(path: String, pos: Vector2, flip: bool = false, follow: Node2D = null, offset: Vector2 = Vector2.ZERO,
-		hold: bool = false) -> int:
+		hold: bool = false, delay: float = 0.0) -> int:
 	var lib := _lib()
 	var a := lib.anim(path) if lib != null else null
 	if a == null or a.is_empty():
 		return -1
-	return play_anim(a, pos, flip, follow, offset, hold)
+	return play_anim(a, pos, flip, follow, offset, hold, delay)
+
+
+## Plays cast art after a presentation delay; the hidden pooled slot still follows its owner during the wait.
+func play_delayed(path: String, delay: float, pos: Vector2, flip: bool = false, follow: Node2D = null,
+		offset: Vector2 = Vector2.ZERO) -> int:
+	return play(path, pos, flip, follow, offset, false, delay)
 
 
 ## Plays an already resolved animation (see play()).
 func play_anim(a: SpriteAnim, pos: Vector2, flip: bool = false, follow: Node2D = null, offset: Vector2 = Vector2.ZERO,
-		hold: bool = false) -> int:
+		hold: bool = false, delay: float = 0.0) -> int:
 	if behind != null and behind != self and a.z != null and int(a.z) < 0:
-		return behind.play_anim(a, pos, flip, follow, offset, hold)
+		return behind.play_anim(a, pos, flip, follow, offset, hold, delay)
 	_ensure_pool()
 	var i := _alloc()
 	_anim[i] = a
-	_t[i] = 0.0
+	_t[i] = -maxf(0.0, delay)
 	_pos[i] = pos
 	_offset[i] = offset
 	_flip[i] = 1 if flip else 0
@@ -175,6 +181,9 @@ func slot_position(i: int) -> Vector2:
 func _draw_slot(i: int) -> void:
 	_ensure_pool()
 	_pool.ensure(i + 1)
+	if _t[i] < 0.0:
+		_pool.hide(i)
+		return
 	var a: SpriteAnim = _anim[i]
 	var loop := _mode[i] in [1,3]
 	var f := a.frame_at(_t[i], loop)
