@@ -4164,6 +4164,15 @@ A diagnostic `--job=512` playtest (Henesys seed 3 speed 4 for 4 minutes; Sleepyw
 expected without the kit; Buccaneer playable and started with Drain locally, reverted) showed the pips, the cue and the Drain cast
 (`meter_cue.png`, `cast_energy_drain.png`; `missing: []`, no game.log warnings). Not survival evidence.
 
+### Buccaneer B9 smoke (#421, 2026)
+
+Transformation and Shockwave (data on the Form seam, plus two small additions to the pending-strike machinery: `pending.oriented` and a `facing`
+flag on `cast_visuals`; both default off and Meteor Shower, Big Bang and Blizzard are untouched). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache `cache-413`: F/P (212) died at 10:51 / 5:05 / 7:34 and Hero (112) at 5:27 / 5:36 / 11:28,
+byte-for-byte the B2 rows above (no clears, no warnings): neither pool holds a form. The `character_baseline`, `tick_cost_identity` and `hero_baseline`
+oracles are in the full suite and reproduce their hashes with no recapture. A diagnostic `--job=512` playtest (Henesys seed 3, speed 1; Sleepywood with the starter weapon, which dies at Lv1 as
+expected; `playable` and a learned Transformation set locally, reverted) showed the morph walking and casting Corkscrew Blow in its own pose, and the Shockwave
+spikes rolling out along the ground (`cast_shockwave.png`, `cast_corkscrew_blow.png`; `missing: []`, no warnings). Flow and visual evidence only.
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
@@ -6555,6 +6564,30 @@ for N s: attacks +X%", Paladin's Charges).
 Evidence: `scenes/debug/morph_driver.tscn` (a contact sheet per morph and page of every Buccaneer stance, the basics and two
 fallbacks, with the feet hairline), looked at for 1001, 1000 and 1002 in `evidence/`.
 
+**Transformation and Shockwave (B9 #421, spec #412 BU-2, BU-3, BU-6 to BU-8).** The first morph form and the sub both transformations carry
+(`skills/buccaneer.json`, book 511). `transformation` (5111005, pool, exclusive group `buccaneer_transformation`): window 10 s, cooldown 14 s
+counted from the cast, admitted when a living mob is within 400 px, `alert2` held 0.6 s, the Use sound, no cast art; its `buff` block feeds
+`pdd`, `mdd`, `speed` and `jump` and the morph id (1000); no `damage` effect (BU-8: the power is the stat package and Shockwave). Rank 1 / 4 / 8 read
+levels 3 / 10 / 20: defence +6 / +20 / +40, speed +40 (the 140 cap), jump +20 (120 under the 123 cap). Rarity: Rare Transformation Mastery (`damage`
+x1.2, which multiplies the subs), Epic Booster (cooldown x0.88), Unique Lasting Transformation (`form_time` x1.25), Legendary Lasting plus damage x1.2.
+`shockwave` (5111006, slot `form_sub`, `form_sub_of ["transformation"]`; B10 adds Super Transformation to that list): fires 1.0 s into the window
+and every 3.0 s while a living mob stands in the 330 x 160 px strip in front (`lt (-330,-140)` `rb (0,20)`, `min_targets 1`); no card and no rarity
+list; it ranks with its parent through the level-30 table (rank 1 / 4 / 8 = levels 4 / 15 / 30: 310 / 475 / 700%, 4 / 5 / 6 mobs; rank 8 reads level 30),
+takes the parent's `damage` and `area` modifiers, and neither earns nor receives energy (BU-6; `PlayerMeter.begin_cast` only touches pool skills). It
+is the final-tick rule's case: 1, 4 and 7 s fire, 10 s does not (the window ends first).
+
+**One five-ripple wave, damage with the first eruption (orchestrator ruling on BC1 #413).** `effect` and `effect0` to `effect3` are five 8-frame
+ripples of one earth-spike wave: each has the same frames and a 1380, 1530, 1680, 1830 and 1980 ms blank lead-in, with its origin 55 to 65 px further
+along the facing side. All five are played together at the cast position as `cast_visuals` flagged `facing` (mirrored and flipped for a right-facing
+caster; the same flag Dragon Strike's tiles use), and the strike is a `pending` one at 1.38 s, the first eruption: damage lands once, one line per
+mob, with the first spike. The wave does not follow the caster, and the strip's side is fixed at the cast (`pending.oriented`: turning or walking
+afterwards neither moves nor mirrors it). The stance hold stays 0.8 s (the morph's own `shockwave` action runs 1.98 s: the wind-up shows, the
+strike frames are the figure's idle). A mob that leaves the strip in the 1.38 s is missed; one that walks in is struck.
+
+Evidence: `test_buccaneer_transformation.gd` (22 tests: catalog, eight ranks, lifecycle, stat package and caps, timings, box sides and fixed side,
+no catch-up burst, parent modifier, energy untouched, the five ripples, text, rarity table, and one real-cache test), the rarity audit
+(`test_rarity_bonus_effects`: all five bonus effects of Transformation, with a new `form_time` probe) and a diagnostic `--job=512` playtest.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -7916,6 +7949,19 @@ not playable tuning. Canonical effect percentages remain tier A data read throug
 | Energy Drain rarity bonuses (#418, spec #412) | Rare damage x1.2, Epic cooldown x0.88, Unique `meter_keep` +2, Legendary both; repeat scale 0.8 | C |
 | Meter `unit` word (#418, spec #412 BU-5) | optional `meter.unit` on a finisher replaces "orbs" in `SkillText` and the Keeps card line; default "orbs" | C (presentation) |
 | Full-bar cue (#418, spec #412 BU-4) | `MeterCue`: fire once when `meter_changed` reaches `max`, re-arm when it drops below; the whole `affected` node (180 ms blank, ten 90 ms frames) and the Use sound; flipped with the facing; `meter_cue.png` playtest shot 0.45 s after | C (behaviour), A (the art and sound paths) |
+
+### Buccaneer B9 constants (#421)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Transformation window and cooldown (#421, spec #412 BU-7) | `form.duration` 10 s, `cooldown` 14 s from the cast (the WZ `time` 120 s and `cooltime` 360 to 530 s are session-scale and unused); exclusive group `buccaneer_transformation` | C |
+| Transformation admission and stance (#421) | `cast {rule form, mob_within 400}`; `alert2` held 0.6 s (no WZ action); no cast art | C |
+| Transformation stat package (#421, spec #412 BU-8) | morph 1000, `pdd` = `mdd` 6 / 20 / 40 at rank 1 / 4 / 8, `speed` 40, `jump` 20, no attack bonus; `str` unused | A (Skill.wz 5111005) / C (which stats the buff feeds) |
+| Transformation rarity bonuses (#421) | Transformation Mastery `damage` x1.2 (on the subs), Booster cooldown x0.88, Lasting Transformation `form_time` x1.25, Legendary Lasting plus `damage` x1.2; repeat scale 0.8 | C |
+| Shockwave schedule (#421, spec #412 BU-7) | `subs {first_after 1.0, interval 3.0}`, `min_targets 1`, 0.8 s `shockwave` hold, no cooldown use, no card | C |
+| Shockwave numbers (#421) | damage 310 to 700%, `mobCount` 4 to 6 at the mapped levels of the level-30 table, box `lt (-330,-140)` `rb (0,20)`, effect art `effect`, `effect0` to `effect3` (5 x 8 frames), `hit/0` 5 frames, Use and Hit sounds | A (Skill.wz 5111006, Sound.wz) |
+| Shockwave strike timing (#421, orchestrator ruling) | `pending.delay` 1.38 s = the first eruption of the art's blank lead-in; one wave, one impact; `pending.oriented` fixes the strip's side at the cast | C (delay chosen to meet the art), A (the 1380 ms blank) |
+| Shockwave art placement (#421) | five `cast_visuals` at x 0 with `facing` (flipped for a right-facing caster), played at the cast position; each ripple's own origin spreads the wave 89 to 319 px | C (placement), A (origins, delays) |
 
 ## 12. Later phases
 
