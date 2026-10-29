@@ -194,6 +194,21 @@ static func skill_imgs() -> Dictionary:
 	imgs["320"].skill["3200001"] = {"level": _levels(30, {"prop": [2.0, 60.0], "damage": [105.0, 250.0]})}
 	imgs["320"].skill["3201002"] = {"level": _levels(20, {"hpCon": [29.0, 10.0], "mpCon": [29.0, 10.0],
 		"time": [10.0, 200.0], "x": [-2.0, -2.0]})}
+	# #340: Arrow Rain (3111004) and Dragon's Breath (3121003): v83 endpoints; the symmetric box (+-170 / +-190 / +-210) and the
+	# mobCount (4 / 5 / 6) step at levels 11 and 21 as in the WZ; the damage between the endpoints is synthetic interpolation.
+	if not imgs.has("311"):
+		imgs["311"] = {"skill": {}}
+	var rain_levels := _levels(30, {"mpCon": [18.0, 28.0], "damage": [60.0, 160.0], "mobCount": [6.0, 6.0]})
+	var breath_levels := _levels(30, {"mpCon": [24.0, 36.0], "damage": [42.0, 100.0], "range": [440.0, 440.0], "prop": [100.0, 100.0]})
+	for lv in range(1, 31):
+		var extent := 170.0 if lv <= 10 else 190.0 if lv <= 20 else 210.0
+		rain_levels[str(lv)].lt = {"$v": [-extent, -100.0]}
+		rain_levels[str(lv)].rb = {"$v": [extent, 100.0]}
+		breath_levels[str(lv)].mobCount = 4.0 if lv <= 10 else 5.0 if lv <= 20 else 6.0
+	imgs["311"].skill["3111004"] = {"weapon": 45, "level": rain_levels, "effect": _anim(12, 65.0, 129, 138),
+		"special": {"0": _anim(1, 0.0, 42, 96)}, "hit": {"0": _anim(3, 120.0, 96, 133)}}
+	imgs["312"] = {"skill": {"3121003": {"weapon": 45, "level": breath_levels, "effect": _anim(14, 80.0, 117, 119),
+		"ball": _anim(4, 100.0, 204, 81), "hit": {"0": _anim(4, 100.0, 185, 104)}}}}
 	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
 	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
 		if not imgs.has(pair[0]):

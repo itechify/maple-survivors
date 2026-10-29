@@ -4,7 +4,10 @@ extends TestCase
 ## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
 ## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
-## Hero books (111/112) are synthetic generic tables; the F/P books come from the shared run fixtures.
+## Hero books (111/112) are synthetic generic tables; the F/P and Bowman books come from the shared run fixtures. The Bowmaster
+## core arrows (B7 #339) are probed as a Bowmaster holding a bow: an arrow stops at the first monster on its line, so the
+## `count` probe counts hit lines, a `range` probe leaves only monsters beyond the base reach, and an
+## `impact_blast` skill (Arrow Bomb) shows `area` and `blast_targets` in a cluster around the first monster it reaches.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -12,7 +15,11 @@ const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
-const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep"]
+const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep",
+	"blast_targets"]
+const BOW := 1452051
+## The Bowmaster skills this audit knows how to probe (tickets B7-B11 add theirs).
+const BOWMASTER_KEYS := ["arrow_rain", "dragons_breath"]
 
 
 ## Generic Skill.wz levels: a centred box, six mobs, one line, a 300 px range, a certain proc (the shape test_fp_high_actives uses).
@@ -28,7 +35,7 @@ func _skills_with_bonuses() -> Array:
 	var skills: Dictionary = DataRepo.load_all().skills.skills
 	var keys := []
 	for key: String in skills:
-		if (skills[key] as Dictionary).has("rarity_bonuses") and int(skills[key].job) < 300:
+		if (skills[key] as Dictionary).has("rarity_bonuses") and (int(skills[key].job) < 300 or key in BOWMASTER_KEYS):
 			keys.append(key)
 	return keys
 
@@ -36,8 +43,14 @@ func _skills_with_bonuses() -> Array:
 func _world(key: String) -> RunWorld:
 	var data := RF.quiet_data()
 	var job := 112 if int(data.skills.skills[key].job) in [100, 110, 111, 112] else 212
+	if key in BOWMASTER_KEYS:
+		job = 312
 	data.jobs_survivor.jobs["112"]["playable"] = true
+	data.jobs_survivor.jobs["312"]["playable"] = true
 	var setup := RF.with_basic_attack(RF.setup("quiet", 296, data))
+	setup.equipment_info.merge({BOW: {"incPAD": 28, "attackSpeed": 6, "tuc": 7}}, true)
+	for action: String in ["shoot1", "shoot2"]:
+		setup.body_img[action] = {"0": {"delay": 100.0}, "1": {"delay": 100.0}}
 	var imgs: Dictionary = setup.skill_imgs
 	# Hero books are synthetic; the F/P box and crowd skills get the same generic table (their fixtures carry no box).
 	for k: String in data.skills.skills:
@@ -55,13 +68,19 @@ func _world(key: String) -> RunWorld:
 	w.bounds = Rect2(0, -500, 4000, 1000)
 	w.fhm = FootholdMap.from_segments(FLAT)
 	w.swarm.fhm = w.fhm
+	if key in BOWMASTER_KEYS:
+		# A knock-back (Dragon's Breath) slides the mob along its foothold, and the swarm steps on the context's map.
+		w._ctx["fhm"] = w.fhm
 	RF.place_player(w, CASTER_X)
+	if key in BOWMASTER_KEYS:
+		w.wear_new_item(BOW)
 	w.loadout.ranks.clear()
 	w.loadout.order.clear()
 	w.learn_skill(key)
 	w.god = true
 	for mk: MobKind in w.mob_kinds:
-		mk.hitbox = Rect2(-5, -10, 10, 10)
+		# A volley is spread a few px vertically (Strafe), so the bow probes use a snail-tall body.
+		mk.hitbox = Rect2(-5, -50, 10, 50) if key in BOWMASTER_KEYS else Rect2(-5, -10, 10, 10)
 		mk.move_speed = 0.0
 	w.drain_events()
 	return w
@@ -82,9 +101,21 @@ func _reach(w: RunWorld, key: String) -> float:
 
 
 ## Mob x offsets from the caster for `stat`'s probe (see the file doc); `edge` marks the mob just beyond the base reach.
-func _layout(stat: String, reach: float) -> Dictionary:
+func _layout(stat: String, reach: float, blast := false, edge_only := false) -> Dictionary:
 	var xs := []
 	var edge := []
+	if blast and stat == "area":
+		# The arrow lands on the nearest monster (x 100); the blast box is +-130 around it (+-156 widened): 140 px away
+		# is inside only the widened box.
+		return {"xs": [100.0, 240.0], "edge": [240.0]}
+	if blast and stat == "blast_targets":
+		# Ten monsters 12 px apart, all inside the blast box around the first (nearest) one: the cap decides how many.
+		for k in 10:
+			xs.append(20.0 + 12.0 * k)
+		return {"xs": xs, "edge": edge}
+	if edge_only and stat == "range":
+		# A two-arrow skill shoots the nearest monsters, so the only monsters are the ones beyond the base reach.
+		return {"xs": [reach * 1.1, -reach * 1.1], "edge": [reach * 1.1, -reach * 1.1]}
 	match stat:
 		"count":
 			for k in 16:
@@ -106,7 +137,7 @@ func _layout(stat: String, reach: float) -> Dictionary:
 func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	var w := _world(key)
 	var reach := _reach(w, key)
-	var layout := _layout(stat, reach)
+	var layout := _layout(stat, reach, w.book.def(key).has("impact_blast"), key in BOWMASTER_KEYS)
 	var slots := []
 	var edge_slots := []
 	for off: float in layout.xs:
@@ -121,7 +152,10 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
 	# Cooldown counts casts over 66 s (Shout: 6 at 12 s, 7 at 10.56 s); damage sums many casts so that rounding cannot hide a x1.2.
 	var repeating := stat in ["cooldown", "damage"]
-	var window := 66.0 if stat == "cooldown" else 12.0 if stat == "damage" else 3.5
+	# A bow's `range` probe stops before the spawn director relocates a monster that sits off screen (about 3.3 s): a shot at
+	# 550 px lands within a second.
+	var window := 66.0 if stat == "cooldown" else 12.0 if stat == "damage" \
+		else 1.5 if stat == "range" and key in BOWMASTER_KEYS else 3.5
 	var affected := {}
 	var lines := 0
 	# A Combo finisher (Panic, Coma) needs orbs: ten every tick when counting casts or damage, five once otherwise, so
@@ -162,7 +196,9 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
 			"elquines"]:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 19, "seven Hero and twelve F/P skills: %d" % keys.size())
+	for key in BOWMASTER_KEYS:
+		assert_true(key in keys, key)
+	assert_true(keys.size() >= 21, "seven Hero, twelve F/P and two Bowmaster skills: %d" % keys.size())
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
@@ -188,8 +224,13 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 			assert_true(int(with.dealt) > int(base.dealt), "%s: damage dealt %d -> %d" % [label, base.dealt, with.dealt])
 		"attack_count":
 			assert_true(int(with.lines) > int(base.lines), "%s: hit lines %d -> %d" % [label, base.lines, with.lines])
-		"count", "pierce":
-			assert_true(int(with.affected) > int(base.affected), "%s: mobs affected %d -> %d" % [label, base.affected, with.affected])
+		"count", "pierce", "blast_targets":
+			# An arrow stops at the first monster on its line and a focus volley (Strafe) sends every arrow at one monster, so
+			# a bow skill's extra arrows are extra hit lines.
+			if key in BOWMASTER_KEYS and stat == "count":
+				assert_true(int(with.lines) > int(base.lines), "%s: hit lines %d -> %d" % [label, base.lines, with.lines])
+			else:
+				assert_true(int(with.affected) > int(base.affected), "%s: mobs affected %d -> %d" % [label, base.affected, with.affected])
 		"summon_count":
 			assert_true(int(with.summons) > int(base.summons), "%s: allies %d -> %d" % [label, base.summons, with.summons])
 		"meter_keep":
@@ -213,3 +254,16 @@ func test_the_probe_catches_a_modifier_the_cast_rule_never_reads() -> void:
 	assert_true(bool(_probe("shout", [area], "area").edge))
 	assert_true(bool(_probe("slash_blast", [area], "area").edge))
 	assert_true(bool(_probe("monster_magnet", [reach], "range").edge))
+
+
+func test_the_probe_tells_arrow_rain_and_dragons_breath_stats_apart() -> void:
+	# Arrow Rain strikes a box, so `range` and `pierce` change nothing for it; Dragon's Breath has no box for `area` to widen.
+	var range_mod := {"stat": "range", "op": "mul", "value": 1.25}
+	assert_false(bool(_probe("arrow_rain", [range_mod], "range").edge))
+	var area := {"stat": "area", "op": "mul", "value": 1.2}
+	assert_false(bool(_world("dragons_breath").loadout.stats("dragons_breath").has_box), "no box for `area` to widen")
+	var pierce := {"stat": "pierce", "op": "add", "value": 2}
+	assert_eq(_probe("arrow_rain", [pierce], "pierce").affected, _probe("arrow_rain", [], "pierce").affected)
+	assert_true(bool(_probe("arrow_rain", [area], "area").edge))
+	assert_true(bool(_probe("dragons_breath", [range_mod], "range").edge))
+	assert_true(int(_probe("dragons_breath", [pierce], "pierce").affected) > int(_probe("dragons_breath", [], "pierce").affected))
