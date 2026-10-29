@@ -50,7 +50,7 @@ static func _data_for(job: int) -> Dictionary:
 
 
 ## A world for `job` with its Rush (`skill_id` in `book`) on a flat map 0..1000, or `segments` when given; the player stands at x.
-func _world_for(job: int, book: String, skill_id: int, x := 400.0, segments: Array = []) -> RunWorld:
+static func _world_for(job: int, book: String, skill_id: int, x := 400.0, segments: Array = []) -> RunWorld:
 	var setup := RF.setup("quiet", 60, _data_for(job))
 	setup.map_img = RF.map_from_segments(segments if not segments.is_empty()
 		else [{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])

@@ -45,7 +45,9 @@ const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Ta
 	"damage": ["Damage", "%"], "cooldown": ["Cooldown", " s"], "area": ["Reach", "%"], "range": ["Range", " px"],
 	"speed": ["Shot speed", ""], "crit": ["Critical rate", "%"],
 	"hp_cost": [HpRisk.LABELS.hp_cost, ""], "self_damage": [HpRisk.LABELS.self_damage, "%"], "low_hp_damage": [HpRisk.LABELS.low_hp_damage, "%"],
-	"support_heal": ["Pulse heal", " HP"], "support_rate": ["Pulse interval", " s"]}
+	"support_heal": ["Pulse heal", " HP"], "support_rate": ["Pulse interval", " s"],
+	"heal_power": ["Recovery", "%"], "heal_threshold": ["Heals below", "% HP"],
+	"revive_hp": ["Revive HP", "%"], "revive_guard": ["Guard", " s"], "form_time": ["Form duration", " s"], "form_power": ["Form power", "%"]}
 
 ## Emitted with the picked card's id.
 signal card_chosen(card_id: String)
@@ -211,8 +213,9 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 	for key: String in MOD_LABELS:
 		if mods.has(key) and mods[key].before != mods[key].after:
 			var unit: String = MOD_LABELS[key][1]
-			lines.append("%s: %s%s → %s%s" % [MOD_LABELS[key][0], SkillText.number(float(mods[key].before)), unit,
-				SkillText.number(float(mods[key].after)), unit])
+			var line := "%s: %s%s → %s%s" % [card.get("skill_mod_labels", {}).get(key, MOD_LABELS[key][0]), SkillText.number(float(mods[key].before)), unit,
+				SkillText.number(float(mods[key].after)), unit]
+			lines.append_array(MapleText.wrap_markup(line, ROW_W - 8.0, MapleText.SMALL))
 	var changes: Dictionary = card.get("skill_changes", {})
 	var x_label: Array = X_LABELS.get(String(card.get("skill_effect_stat", "")), X_LABEL_DEFAULT)
 	for field: String in UpgradePool.PREVIEW_FIELDS + UpgradePool.PASSIVE_PREVIEW_KEYS + UpgradePool.MECHANIC_PREVIEW_KEYS:

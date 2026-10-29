@@ -91,9 +91,11 @@ func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
 
 
 ## Whether `key` is in the skill pool of any job (212, Hero's 112 and I/L's 222).
-func _in_any_job_pool(key: String) -> bool:
+## True when a playable job's pool holds `key`: an unplayable line's pool (Bishop until BS10, #374) is not shipped yet.
+## `playable_only` false also counts an unplayable line's pool (the eight-rank mapping applies as soon as a pool skill is ported, #376).
+func _in_any_job_pool(key: String, playable_only := true) -> bool:
 	for job: Dictionary in data.jobs_survivor.jobs.values():
-		if key in job.get("skill_pool", []):
+		if (bool(job.get("playable", false)) or not playable_only) and key in job.get("skill_pool", []):
 			return true
 	return false
 
@@ -108,7 +110,7 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) ->
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
 			assert_eq(book.canonical_level(key, 5), 5)
 			continue
-		if key in ["rush_hero", "rush_dark_knight"] and book.skill_node(key).is_empty():
+		if key in ["rush_hero", "rush_dark_knight", "rush_paladin"] and book.skill_node(key).is_empty():
 			continue # the synthetic fixtures carry no Rush node; the real-cache run covers it
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
@@ -120,7 +122,7 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) ->
 			assert_eq(book.max_rank(key), 8, "%s: ranks with its parent" % key)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
-		if key in ["rush_hero", "rush_dark_knight"] or book.def(key).has("rarity_bonuses") and _in_any_job_pool(key):
+		if key in ["rush_hero", "rush_dark_knight", "rush_paladin"] or String(book.def(key).get("slot", "")) == "form_sub" or book.def(key).has("rarity_bonuses") and _in_any_job_pool(key, false):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
@@ -691,8 +693,8 @@ func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> 
 		assert_false(_in_any_job_pool(key), "%s is a pool skill and needs rarity_bonuses (#288)" % key)
 		if int(s.get("job", -1)) == 0:
 			continue # #284: the Beginner is gone and its skills have no cards
-		if String(s.slot) == "mobility":
-			continue # a mobility skill is never offered as a card (Rush, #302)
+		if String(s.slot) in ["mobility", "form_sub"]:
+			continue # mobility and form sub-skills are never offered as cards
 		if String(s.damage) != "none" or String(s.slot) == "active":
 			assert_true(covered.has(key), "%s needs a skill_mod card with more shots, targets or pierce" % key)
 
@@ -760,3 +762,15 @@ func test_support_pulses_name_registered_kinds() -> void:
 	for key: String in data.skills.skills:
 		for pulse: Dictionary in data.skills.skills[key].get("summon", {}).get("support", {}).get("pulses", []):
 			assert_true(SupportSummons.KINDS.has(String(pulse.kind)), key)
+
+
+func test_form_catalog_schema_and_subs_excluded_from_pools_and_cards() -> void:
+	var errors := Array(PlayerForms.validation_errors(data.skills.skills))
+	assert_true(errors.is_empty(), " ".join(errors))
+	for key: String in data.skills.skills:
+		if String(data.skills.skills[key].get("slot", "")) != "form_sub":
+			continue
+		for job: Dictionary in data.jobs_survivor.jobs.values():
+			assert_false(key in job.get("skill_pool", []), "%s: sub never in pool" % key)
+		for card: Dictionary in data.upgrades.cards:
+			assert_false(String(card.get("skill", "")) == key, "%s: sub never a card" % key)

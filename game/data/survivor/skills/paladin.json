@@ -1,0 +1,809 @@
+{
+	"_doc": "Paladin skill definitions (spec #308, one region per ticket): P4 #312 appends rush_paladin, P5 #313 blast and monster_magnet_paladin, P6 #314 charged_blow, P7 #315 and P8 #316 the four Charges and heavens_hammer. Power Strike and Slash Blast are defined by skills/hero.json and are never repeated here (a duplicate key across files is a load error, docs/ARCHITECTURE.md 4.4.4). Until a key is defined here it is inert: never offered or learned.",
+	"skills": {
+		"rush_paladin": {
+			"extends": "rush_hero",
+			"skill_id": 1221007,
+			"book": "122",
+			"job": 122,
+			"icon": "Skill.wz/122.img/skill/1221007/icon",
+			"_rush": "tier C #312: a copy of rush_hero (H6 #302), the same definition on Paladin's book. Tier A: WZ 1221007 (P1 #309 checked every level row equals 1121006's): rank 1 = WZ level 4 at Lv1, rank 8 = level 30 from Lv16 by the shared balance.mobility_rank_levels rule; damage 78% to 130%, mobCount 15, box lt (-170,-50) to (-250,-50) rb (0,0), action rush2, effect/1..6 and effect0 dust, the Use sound (a UOL to Hero's). Tier C: the same cooldown, knock-back, hold-to-repeat and bot rules as Hero's (GAME_DESIGN 7.33).",
+			"effect": "Skill.wz/122.img/skill/1221007/effect",
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/122.img/skill/1221007/effect0",
+					"x": 0
+				}
+			],
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1221007/Use",
+				"hit": ""
+			}
+		},
+		"blast": {
+			"_provenance": "Tier A: Skill.wz 1221009 (a single `damage` field, 170 to 550%, so one line and one target; the `blast` body action and its 840 ms (540 + 300 ms) timing; the 14-frame cast effect and the 3-frame hit, both keyed by the element art index 0/1/2/3/5; the five Use sounds). Tier C: 2.0 s cooldown (the balance pass owns it), weapon_reach targeting (the nearest mob in the held weapon's swing, as Power Strike), 0.84 s action hold, element-keyed art (0 without a Charge; 1 ice, 2 fire, 3 lightning, 5 holy), the five sounds played in order by cast number (SkillBook.use_sound, no RNG), the rarity bonuses (Mastery, Booster, Final Attack). Docs: GAME_DESIGN 7.86. The screenshot `capture_delay` 0.72 s samples the thrust frame and the slash.",
+			"skill_id": 1221009,
+			"book": "122",
+			"job": 122,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Blast",
+			"desc": "A single devastating blow to the nearest monster within your weapon's reach.",
+			"text": {
+				"desc": "Deliver one huge blow to the nearest monster within your weapon's reach.",
+				"h": "Damage {damage}%, {attack_count|hit|hits}"
+			},
+			"icon": "Skill.wz/122.img/skill/1221009/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "weapon_reach",
+				"min_targets": 1
+			},
+			"cooldown": 2.0,
+			"action": "blast",
+			"action_time": 0.84,
+			"capture_delay": 0.72,
+			"ball": "",
+			"hit": "Skill.wz/122.img/skill/1221009/hit/0/{art}",
+			"effect": "Skill.wz/122.img/skill/1221009/effect/{art}",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1221009/Use",
+				"use_cycle": [
+					"Sound.wz/Skill.img/1221009/Use",
+					"Sound.wz/Skill.img/1221009/Use2",
+					"Sound.wz/Skill.img/1221009/Use3",
+					"Sound.wz/Skill.img/1221009/Use4",
+					"Sound.wz/Skill.img/1221009/Use5"
+				],
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"monster_magnet_paladin": {
+			"_rarity": "Tier C: as Hero's Magnet (#303): Rare reach x1.2 (the `range` modifier: a range_around cast reads `range`), Epic Bigger Grab +2 targets, Unique Booster cooldown x0.75, Legendary Booster plus +2 targets (sharing the Unique's id and repeat counter).",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "reach",
+						"text": "Reach",
+						"effects": [
+							{
+								"stat": "range",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "grab",
+						"text": "Bigger Grab: targets",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "booster",
+						"text": "Booster: cooldown",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.75
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "booster",
+						"text": "Booster: cooldown and targets",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.75
+							},
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				]
+			},
+			"_provenance": "Tier A: Skill.wz 1221001 range 200 to 400 px, prop (pull chance 48 to 95 %), mobCount 6, the 18-frame effect and the Use sound (a UOL to Hero's 1121001); identical to Hero's 1121001 level by level (P1 #309). Tier C: a copy of Hero's `monster_magnet` under its own key (a skill key is unique across files): no damage, the shared `pull` block (7.35), the alert2 action (the node names none), the three-mob admission gate (`cast.min_targets`), the 0.6 s action hold, the 10 s cooldown (spec #308; Hero's own 4 s is tuned on Hero's runs by #346 and is not inherited), and the rarity bonuses. Docs: GAME_DESIGN 7.86. The screenshot `capture_delay` 0.35 s samples the horseshoe.",
+			"skill_id": 1221001,
+			"book": "122",
+			"job": 122,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Monster Magnet",
+			"desc": "Drags the monsters around you toward you.",
+			"text": {
+				"desc": "Drag distant monsters toward you, into reach of your other skills. Needs 3 monsters in range.",
+				"h": "{prop}% chance for each monster pulled."
+			},
+			"icon": "Skill.wz/122.img/skill/1221001/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "range_around",
+				"min_targets": 3
+			},
+			"pull": {
+				"chance_field": "prop",
+				"range_field": "range",
+				"min_gap": 60
+			},
+			"cooldown": 10,
+			"action": "alert2",
+			"action_time": 0.6,
+			"capture_delay": 0.35,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/122.img/skill/1221001/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1221001/Use",
+				"hit": ""
+			}
+		},
+		"charged_blow": {
+			"_provenance": "Tier A: Skill.wz 1211002 (book 121) damage 162 to 250 %, prop (stun chance 32 to 90 %), time (stun seconds 2 to 4), range 130 to 150, mobCount 6, hpCon 15 to 25, the effect/{1,2,3,5} and hit/0/{1,2,3,5} art keyed by element (P1 #309: 1 ice, 2 fire, 3 lightning, 5 holy), the mob stun stars and the Use sound; rank 1 reads level 4 (38 %, 2 s). Tier C: it is a Form sub-skill (spec #308, P-3: it stuns in every element and has no freeze variant), the three-mob admission gate, the interval and first_after in each Charge's `subs` entry, the weapon's first swing stance and its 0.6 s display, and `form_sub_of` naming the four Charges. Docs: GAME_DESIGN 7.88.",
+			"skill_id": 1211002,
+			"book": "121",
+			"job": 121,
+			"kind": "instant",
+			"slot": "form_sub",
+			"form_sub_of": [
+				"fire_charge",
+				"ice_charge",
+				"thunder_charge",
+				"holy_charge"
+			],
+			"name": "Charged Blow",
+			"desc": "Slams the monsters around you with the Charge's element, stunning them.",
+			"text": {
+				"desc": "While charged, blow away the crowd around you (needs 3 monsters in range) with the Charge's element, stunning them. Costs HP, never the last point.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters}; {prop}% chance each to stun for {time} sec."
+			},
+			"icon": "Skill.wz/121.img/skill/1211002/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "range_around",
+				"min_targets": 3
+			},
+			"cooldown": 3.0,
+			"ranks": [
+				4,
+				8,
+				12,
+				15,
+				19,
+				23,
+				27,
+				30
+			],
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop",
+				"duration_field": "time"
+			},
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/121.img/skill/1211002/hit/0/{art}",
+			"effect": "Skill.wz/121.img/skill/1211002/effect/{art}",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1211002/Use",
+				"hit": ""
+			}
+		},
+		"fire_charge": {
+			"_provenance": "Tier A: Skill.wz 1211003 (book 121, twin 1211004 identical in every field) damage 102 to 120 % (rank 1 reads level 4), alert4, the 15-frame effect and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, the fire element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.88.",
+			"_rarity": "Tier C: first-pass #315 bonuses named after the lineage (spec #308): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge Charged Blow damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.88.",
+			"skill_id": 1211003,
+			"book": "121",
+			"job": 121,
+			"kind": "form",
+			"slot": "active",
+			"name": "Fire Charge: Sword",
+			"desc": "Coats your weapon with fire for a while: everything you swing takes that element.",
+			"text": {
+				"desc": "Coats your weapon with fire for a while: all your attacks, Rush included, deal fire damage and hit harder. Casts when a monster is near. Charged Blow fires while it lasts. Only one Charge runs at a time; the one the nearby monsters are weak to goes first.",
+				"h": ""
+			},
+			"icon": "Skill.wz/121.img/skill/1211003/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "form",
+				"mob_within": 400
+			},
+			"cooldown": 18.0,
+			"form": {
+				"duration": 12.0,
+				"exclusive_group": "paladin_charge",
+				"effects": {
+					"element": "f",
+					"damage": {
+						"field": "damage"
+					}
+				},
+				"subs": [
+					{
+						"skill": "charged_blow",
+						"first_after": 1.0,
+						"interval": 3.0
+					}
+				]
+			},
+			"art_by_family": {
+				"blunt": 1211004
+			},
+			"action": "alert4",
+			"action_time": 0.9,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/121.img/skill/1211003/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1211003/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "form_power",
+								"op": "add",
+								"value": 0.1
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"ice_charge": {
+			"_provenance": "Tier A: Skill.wz 1211005 (book 121, twin 1211006 identical in every field) damage 100 to 110 % (rank 1 reads level 4), alert4, the 15-frame effect and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, the ice element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.88.",
+			"_rarity": "Tier C: first-pass #315 bonuses named after the lineage (spec #308): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge Charged Blow damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.88.",
+			"skill_id": 1211005,
+			"book": "121",
+			"job": 121,
+			"kind": "form",
+			"slot": "active",
+			"name": "Ice Charge: Sword",
+			"desc": "Coats your weapon with ice for a while: everything you swing takes that element.",
+			"text": {
+				"desc": "Coats your weapon with ice for a while: all your attacks, Rush included, deal ice damage and hit harder. Casts when a monster is near. Charged Blow fires while it lasts. Only one Charge runs at a time; the one the nearby monsters are weak to goes first.",
+				"h": ""
+			},
+			"icon": "Skill.wz/121.img/skill/1211005/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "form",
+				"mob_within": 400
+			},
+			"cooldown": 18.0,
+			"form": {
+				"duration": 12.0,
+				"exclusive_group": "paladin_charge",
+				"effects": {
+					"element": "i",
+					"damage": {
+						"field": "damage"
+					}
+				},
+				"subs": [
+					{
+						"skill": "charged_blow",
+						"first_after": 1.0,
+						"interval": 3.0
+					}
+				]
+			},
+			"art_by_family": {
+				"blunt": 1211006
+			},
+			"action": "alert4",
+			"action_time": 0.9,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/121.img/skill/1211005/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1211005/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "form_power",
+								"op": "add",
+								"value": 0.1
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"thunder_charge": {
+			"_provenance": "Tier A: Skill.wz 1211007 (book 121, twin 1211008 identical in every field) damage 102 to 125 % (rank 1 reads level 4), alert4, the 15-frame effect and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, the lightning element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.88.",
+			"_rarity": "Tier C: first-pass #315 bonuses named after the lineage (spec #308): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge Charged Blow damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.88.",
+			"skill_id": 1211007,
+			"book": "121",
+			"job": 121,
+			"kind": "form",
+			"slot": "active",
+			"name": "Thunder Charge: Sword",
+			"desc": "Coats your weapon with lightning for a while: everything you swing takes that element.",
+			"text": {
+				"desc": "Coats your weapon with lightning for a while: all your attacks, Rush included, deal lightning damage and hit harder. Casts when a monster is near. Charged Blow fires while it lasts. Only one Charge runs at a time; the one the nearby monsters are weak to goes first.",
+				"h": ""
+			},
+			"icon": "Skill.wz/121.img/skill/1211007/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "form",
+				"mob_within": 400
+			},
+			"cooldown": 18.0,
+			"form": {
+				"duration": 12.0,
+				"exclusive_group": "paladin_charge",
+				"effects": {
+					"element": "l",
+					"damage": {
+						"field": "damage"
+					}
+				},
+				"subs": [
+					{
+						"skill": "charged_blow",
+						"first_after": 1.0,
+						"interval": 3.0
+					}
+				]
+			},
+			"art_by_family": {
+				"blunt": 1211008
+			},
+			"action": "alert4",
+			"action_time": 0.9,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/121.img/skill/1211007/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1211007/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "form_power",
+								"op": "add",
+								"value": 0.1
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"holy_charge": {
+			"_provenance": "Tier A: Skill.wz 1221003 (book 122, twin 1221004 identical in every field) damage 102 to 140 % over its 20 levels (rank 1 reads level 3 = 106 %, rank 8 level 20 = 140 %, the level-20 rank table ceil(r x 20 / 8)), alert4, the 17-frame holy effect (a light column with a winged cross, 60 ms) and the Use sound (the twin's is a UOL, P1 #309). Tier C (spec #308, P-1, P-2, P-4, P-5, P-9): a Form of the `paladin_charge` group, 12 s window, 18 s cooldown, the 400 px admission, Charged Blow after 1.0 s then every 3.0 s, Heaven's Hammer once, 0.5 s in, the holy element for every damaging cast of the owner (Rush included). Docs: GAME_DESIGN 7.88.",
+			"_rarity": "Tier C: first-pass #316 bonuses, the same as the other Charges (#315): Rare Mastery +0.10 Charge multiplier (`form_power`), Epic Booster cooldown x0.88, Unique Advanced Charge sub-skill damage x1.3 (the Charge's `damage` modifier multiplies its sub-skills, Charged Blow and Heaven's Hammer alike) and Charge duration x1.25, Legendary Advanced Charge plus damage x1.2 (sharing the Unique's id and repeat counter). Repeat scale 0.8. See GAME_DESIGN 8 and 7.88.",
+			"skill_id": 1221003,
+			"book": "122",
+			"job": 122,
+			"kind": "form",
+			"slot": "active",
+			"name": "Holy Charge : Sword",
+			"desc": "Coats your weapon with holy light for a while: everything you swing takes that element, and Heaven's Hammer falls once.",
+			"text": {
+				"desc": "Coats your weapon with holy light for a while: all your attacks, Rush included, deal holy damage and hit harder. Casts when a monster is near. Charged Blow fires while it lasts, and Heaven's Hammer brings a huge strike down on the screen once per charge. Only one Charge runs at a time; the one the nearby monsters are weak to goes first.",
+				"h": ""
+			},
+			"icon": "Skill.wz/122.img/skill/1221003/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "form",
+				"mob_within": 400
+			},
+			"cooldown": 18.0,
+			"form": {
+				"duration": 12.0,
+				"exclusive_group": "paladin_charge",
+				"effects": {
+					"element": "h",
+					"damage": {
+						"field": "damage"
+					}
+				},
+				"subs": [
+					{
+						"skill": "charged_blow",
+						"first_after": 1.0,
+						"interval": 3.0
+					},
+					{
+						"skill": "heavens_hammer",
+						"first_after": 0.5,
+						"once": true
+					}
+				]
+			},
+			"art_by_family": {
+				"blunt": 1221004
+			},
+			"action": "alert4",
+			"action_time": 0.9,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/122.img/skill/1221003/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1221003/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "mastery",
+						"text": "Mastery",
+						"effects": [
+							{
+								"stat": "form_power",
+								"op": "add",
+								"value": 0.1
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "advanced_charge",
+						"text": "Advanced Charge",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.3
+							},
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.25
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"heavens_hammer": {
+			"_provenance": "Tier A: Skill.wz 1221011 (book 122) damage 420 to 900 % over its 30 levels (rank 1 reads level 4 = 480 %, rank 8 level 30 = 900 %, the sub's own level-30 table at the Charge's rank, P-5), box lt (-400,-350) rb (400,250), mobCount 15, elemAttr h, action sanctuary (seven body frames, 3.3 s), the 22-frame 120 ms effect whose slam frame 13 starts at 1.56 s, and the Use and Hit sounds; WZ `cooltime` (310 to 20 s) is session-scale and not read. Tier C: it is a Form sub-skill that holy_charge fires once per window (P1 #309 confirmed the 1.56 s delay twice, from the art's frame 13 and the body's stabOF frame 2), the delayed `pending` strike that follows the player as Meteor Shower's does, the 3.3 s stance display and `hit` left empty (hit/0 is a 15-frame red HP-bar graphic, not a hit burst). Docs: GAME_DESIGN 7.88.",
+			"skill_id": 1221011,
+			"book": "122",
+			"job": 122,
+			"kind": "instant",
+			"slot": "form_sub",
+			"form_sub_of": [
+				"holy_charge"
+			],
+			"name": "Heaven's Hammer",
+			"desc": "Brings a huge hammer down on the monsters around you, a moment after the Holy Charge begins.",
+			"text": {
+				"desc": "Once per Holy Charge, a huge hammer falls on the monsters around you (up to 15 on the screen) a moment after it is called, with holy damage.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters}, holy; lands after a short delay."
+			},
+			"icon": "Skill.wz/122.img/skill/1221011/icon",
+			"damage": "physical",
+			"element": "h",
+			"cast": {
+				"rule": "box"
+			},
+			"cooldown": 18.0,
+			"ranks": [
+				4,
+				8,
+				12,
+				15,
+				19,
+				23,
+				27,
+				30
+			],
+			"pending": {
+				"delay": 1.56,
+				"effect": "",
+				"follow_player": true
+			},
+			"action": "sanctuary",
+			"action_time": 3.3,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/122.img/skill/1221011/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/1221011/Use",
+				"hit": "Sound.wz/Skill.img/1221011/Hit"
+			}
+		}
+	}
+}

@@ -36,6 +36,7 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 		if active[i] != 0 and stats[i].skill == st.skill:
 			active[i] = 0
 	var d: Dictionary = world.book.def(st.skill).summon.duplicate(true)
+	# Keep the definition block distinct from the resolved st.support pulse list.
 	if d.has("support"):
 		d["support_definition"] = d["support"]
 		d.erase("support")
@@ -43,7 +44,8 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 	var attack_node: Dictionary = node.get(String(d.attack), {})
 	d["info"] = attack_node.get("info", {})
 	d["durations"] = {}
-	var anims: Array[String] = ["summoned", "stand", "move", "die"]
+	d["move"] = String(d.get("move", "move"))
+	var anims: Array[String] = ["summoned", "stand", String(d.move), "die"]
 	if String(d.attack) != "": # a support summon has no attack animation, only the pulses' own
 		anims.append(String(d.attack))
 	for pulse: Dictionary in st.get("support", []):
@@ -118,7 +120,7 @@ func step(dt: float, world: RunWorld) -> void:
 			pos = pos.move_toward(destination, float(d.follow_speed) * dt)
 		x[i] = pos.x
 		y[i] = pos.y
-		_set_action(i, pulse_anim if pulse_anim != "" else "move" if moved else "stand")
+		_set_action(i, pulse_anim if pulse_anim != "" else String(d.move) if moved else "stand")
 		if d.has("support_definition"):
 			continue
 		if world.is_hidden() or bool(world.player_state.dead):
@@ -176,10 +178,18 @@ func _targets(i: int, world: RunWorld, both_sides: bool) -> PackedInt32Array:
 	return PackedInt32Array(matches)
 
 
+## The strike's target count before `count` modifiers: the attack node's `info.mobCount`, or, with the opt-in `summon.count_field`,
+## that field of the cast's mapped level (Bahamut: 3, 6 at level 30).
+func _base_count(i: int, world: RunWorld) -> float:
+	var field := String(definitions[i].get("count_field", ""))
+	var fallback := float(definitions[i].info.get("mobCount", 1))
+	return world.book.canonical(String(stats[i].skill), int(stats[i].level), field, fallback) if field != "" else fallback
+
+
 func _hit(i: int, world: RunWorld) -> void:
 	var st := stats[i]
 	var targets := _targets(i, world, false)
-	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "count", float(definitions[i].info.get("mobCount", 1)))))
+	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "count", _base_count(i, world))))
 	for t in mini(count, targets.size()):
 		for line in int(st.attack_count):
 			if world.swarm.active[targets[t]] == 0:

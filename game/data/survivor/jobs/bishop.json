@@ -1,0 +1,113 @@
+{
+	"_doc": "Bishop line (spec #372, ticket BS2 #374). The job entry (232, playable since BS10 #382), its AP row, its bot scores and its tool hub kit. Discovered by DataRepo.lines() from this file alone (docs/ARCHITECTURE.md 4.4.4); no shared list names it. Skill keys stay inert until their tickets define them in skills/bishop.json (BS4-BS8); holy_arrow, heal and teleport_cleric live in skills/bishop.json (moved out of skills/magician.json by BS5 #377 and BS4 #376); magic_claw stays F/P's own definition in skills/magician.json. The Holy Symbol (2311003) is the common EXP passive every job takes, not a Bishop entry.",
+	"jobs": {
+		"232": {
+			"starting_skill": "holy_arrow",
+			"_starting_skill": "tier C: spec #372 D2: every round starts with Holy Arrow in active slot 1.",
+			"mobility_skill": "teleport_cleric",
+			"_mobility_skill": "tier C: spec #372 D1 / R4: Teleport (2301001) is Bishop's manual mobility skill on the skill key, outside both slot tracks; its data moves into this line with BS5.",
+			"skill_pool": [
+				"holy_arrow",
+				"magic_claw",
+				"shining_ray",
+				"angel_ray",
+				"heal",
+				"summon_dragon",
+				"bahamut",
+				"genesis",
+				"big_bang_bishop",
+				"resurrection"
+			],
+			"_skill_pool": "tier C: spec #372: the ten pool actives of the 200/230/231/232 books (Energy Bolt is not in the pool, D2; Holy Symbol is the common passive; Resurrection is a reaction and takes an active slot, D6). Magic Claw is F/P's own definition (one set of data, no copies).",
+			"weapon_families": [
+				"wand",
+				"staff"
+			],
+			"_weapon_families": "tier C: spec #372: the wand and staff families, as F/P and I/L; the Magician armour drops by the class bit.",
+			"creation_weapon": 1372005,
+			"_creation_weapon": "tier C: spec #372: the same Wooden Wand as F/P and I/L; wearing it needs only the Magician class bit (reqJob, no level requirement).",
+			"playable": true,
+			"_provenance": "tier C: spec #372 BS2 #374: playable since BS10 #382 after BS4-BS9 supplied the skills, bot and tooling; F/P (212) stays the default.",
+			"hub_kit": {
+				"fixture": "res://tests/fixtures/characters/bishop_t2.json",
+				"_fixture": "tier C: spec #372 BS9: the Bishop fixture (tier 2, the F/P kit worn); created by BS9, tool-only.",
+				"scrolls": [
+					2043700,
+					2043701,
+					2043702,
+					2043704,
+					2043705,
+					2040024,
+					2040025,
+					2040026,
+					2040012,
+					2040013,
+					2040400,
+					2040401,
+					2040402,
+					2040404,
+					2040405,
+					2040818,
+					2040817,
+					2040816,
+					2040814,
+					2040815
+				],
+				"equipment": [
+					1002001,
+					1382001,
+					1082002,
+					1040004
+				],
+				"fallback_item": 1382001,
+				"_kit": "tier C: spec #372: Bishop wears the same wands and staves from the same scroll lines as F/P, so its spare equipment and scroll stacks are F/P's (values duplicated: a kit is read whole, never merged with another job's)."
+			}
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"232": {
+					"primary": "int",
+					"secondary": "luk",
+					"_ap": "tier C: spec #372: INT primary, LUK secondary, the 212 curve (the same as I/L's 222 row).",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 3
+						},
+						{
+							"level": 200,
+							"target": 202
+						}
+					]
+				}
+			}
+		},
+		"bot": {
+			"_card_scores": "tier C: spec #372 BS2: the ten Bishop pool skills score like every other pool skill, new 100 and rank 74. Spelled out so the line's scores live with its job, as Hero's and I/L's do; the values equal the pool default, but the block is kept: removing it changes the Bishop event-stream oracle (test_bishop_baseline) and test_bishop_bot pins it. Deviates from the spec's \"no card_scores block\" on purpose (review fix, finding 14).",
+			"card_scores": {
+				"holy_arrow_new": 100,
+				"holy_arrow_rank": 74,
+				"magic_claw_new": 100,
+				"magic_claw_rank": 74,
+				"shining_ray_new": 100,
+				"shining_ray_rank": 74,
+				"angel_ray_new": 100,
+				"angel_ray_rank": 74,
+				"heal_new": 100,
+				"heal_rank": 74,
+				"summon_dragon_new": 100,
+				"summon_dragon_rank": 74,
+				"bahamut_new": 100,
+				"bahamut_rank": 74,
+				"genesis_new": 100,
+				"genesis_rank": 74,
+				"big_bang_bishop_new": 100,
+				"big_bang_bishop_rank": 74,
+				"resurrection_new": 100,
+				"resurrection_rank": 74
+			}
+		}
+	}
+}

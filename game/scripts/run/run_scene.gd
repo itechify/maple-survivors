@@ -108,6 +108,10 @@ const HIT_FACE_TIME := 1.0
 ## tier C (ours): invincibility blink, alpha of the dim phase and the period (s) of one bright + dim cycle.
 const BLINK_ALPHA := 0.4
 const BLINK_PERIOD := 0.16
+## tier C (ours, BS8): seconds the "Resurrection! Ready again in M:SS" notice shows, and the delay of its evidence shot
+## (the first beam frames, after the 1320 ms lead-in of the `affected` art).
+const REVIVE_NOTICE_TIME := 6.0
+const REVIVE_SHOT_DELAY := 1.45
 ## tier C (ours, #211): a Hidden avatar is drawn at half opacity; morph artwork keeps its own appearance.
 const HIDDEN_ALPHA := 0.5
 ## tier C (ours): continent + region notice at run start (#221): seconds shown (the last FADE of them fading).
@@ -182,6 +186,8 @@ var perf_layer: CanvasLayer
 var window: Node
 ## True while the pause menu (or the fallback pause) holds the run.
 var paused := false
+## Casts seen per skill key, for `sounds.use_cycle` (SkillBook.use_sound).
+var _use_counts := {}
 ## Visual counters (tests and the perf summary): damage numbers, hit effects and sounds started.
 var counters := {"numbers": 0, "hit_fx": 0, "sounds": 0, "exp_messages": 0, "windows": 0, "autopicks": 0}
 
@@ -918,8 +924,10 @@ func _warm_ui() -> void:
 			for field: String in ["ball", "hit", "effect"]:
 				for char_level: Variant in char_levels:
 					var path := world.book.visual(key, field, level, int(char_level))
-					if path != "":
-						library.find_anim(path)
+					# An element-keyed path (`{art}`, PlayerForms.ART_INDEX) loads at every element's key.
+					for element: String in (PlayerForms.ART_INDEX.keys() if path.contains(PlayerForms.ART_TOKEN) else [""]):
+						if path != "":
+							library.find_anim(PlayerForms.fill_art(path, element))
 
 
 ## Loads what the scheduled bosses first show or play, so their first appearance does not
@@ -1058,6 +1066,8 @@ func _after_tick() -> void:
 func handle_events(events: Array) -> void:
 	for e: Dictionary in events:
 		match String(e.type):
+			"form_started", "form_ended":
+				_refresh_form_tint()
 			"meter_changed":
 				hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
 			"map_cleared":
@@ -1204,6 +1214,8 @@ func handle_events(events: Array) -> void:
 				_on_ammo_upgraded(e)
 			"choice_pending":
 				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus)}
+			"player_revived":
+				_on_player_revived(e)
 			"player_died":
 				_on_player_died(e.pos)
 			"stage_cleared":
@@ -1316,8 +1328,8 @@ func _on_cast(e: Dictionary) -> void:
 	var capture_delay := float(world.book.def(key).get("pending", {}).get("delay", 0.0)) + 0.05
 	capture_delay = float(world.book.def(key).get("capture_delay", capture_delay))
 	_first_event_shot(key, "cast_%s.png" % key, capture_delay)
-	var use := world.book.art_path(key, String(world.book.def(key).get("sounds", {}).get("use", "")),
-		world.loadout.weapon_family) # art_by_family twin (Panic/Coma : Axe)
+	var use := world.book.use_sound(key, int(_use_counts.get(key, 0)), world.loadout.weapon_family) # art_by_family twin (Panic/Coma : Axe)
+	_use_counts[key] = int(_use_counts.get(key, 0)) + 1 # tier C: a use_cycle skill (Blast) plays its sounds in cast order
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
@@ -1331,6 +1343,25 @@ func _on_support_pulse(e: Dictionary) -> void:
 		var parent := String(summons.stats[int(e.slot)].skill)
 		fx.play(world.book.wz_path(parent) + "/affected", Vector2.ZERO, world.player.facing > 0, avatar)
 	_first_event_shot("support_pulse_" + String(e.kind), "support_pulse_%s.png" % e.kind, 0.25)
+
+
+## A second life (BS8, GAME_DESIGN 7.81): the skill's pillar at the character's feet and its beams on the body (the
+## `affected` art keeps its own 1320 ms lead-in), the Use sound, the "Ready again in M:SS" notice and an evidence shot. The
+## stance is the sim's (a held action, drawn only while standing) and the guard blink is _update_player's.
+func _on_player_revived(e: Dictionary) -> void:
+	var key := String(e.skill)
+	var def := world.book.def(key)
+	var effect := String(def.get("effect", ""))
+	if effect != "":
+		fx.play(effect, Vector2.ZERO, int(world.player.facing) > 0, avatar)
+	var affected := String(def.get("affected", ""))
+	if affected != "":
+		# tier C: the beams are anchored on the canonical body-box centre (frame 1's origin sits mid-body).
+		fx.play(affected, Vector2.ZERO, false, avatar, Vector2(0.0, world.body.position.y))
+	if hud != null:
+		hud.push_notice("second_life", SkillText.revive_notice(String(def.get("name", key)), float(e.recharge)), REVIVE_NOTICE_TIME)
+	_sound(world.book.art_path(key, String(def.get("sounds", {}).get("use", "")), world.loadout.weapon_family))
+	_first_event_shot("second_life", "second_life.png", REVIVE_SHOT_DELAY)
 
 
 ## A thrown grenade (#192): the ball follows consumed sim time; only skill_landed starts its blast.
@@ -1830,7 +1861,8 @@ func _update_player(delta: float) -> void:
 	if not (p.state == PlayerMotion.ST_LADDER and p.vel.y == 0.0):
 		# An attack stance plays at the attack speed (a Booster shortens its frame times); movement stances do not.
 		avatar.advance(delta / maxf(float(world.player_state.action_scale), 0.1) if action != motion else delta)
-	var inv := float(world.player_state.invincible_t)
+	# A hit hook's guard (the second life's) blinks like the hit window does (BS8): the longer of the two timers drives it.
+	var inv := maxf(float(world.player_state.invincible_t), world.hit_guard_left())
 	var hidden_alpha := HIDDEN_ALPHA if not dead and bool(world.player_state.get("hidden", false)) \
 		and int(world.player_state.get("morph", 0)) == 0 else 1.0
 	if inv > 0.0 and not dead:
@@ -2024,7 +2056,7 @@ func build_summary() -> Dictionary:
 		"job_name": world.jobs.name_of(job_id), "kills": world.kills, "damage_dealt": world.damage_dealt,
 		"skills": skills, "seed": run_seed,
 		"bosses_killed": world.bosses_killed(), "levels_gained": world.levels_gained(),
-		"nx_awarded": world.nx_awarded(),
+		"nx_awarded": world.nx_awarded(), "revives": world.revives.duplicate(true),
 	}
 
 
@@ -2220,3 +2252,13 @@ func _layer_at(p: Vector2) -> int:
 
 func _sfx_service() -> AudioService:
 	return get_node_or_null("/root/Sfx") as AudioService
+
+
+## Refreshes the held weapon only when a form starts or ends (tier C element palette).
+func _refresh_form_tint() -> void:
+	avatar.weapon_tint = Color.WHITE
+	for form: Dictionary in world.runner.forms.snapshot():
+		var element := String(form.effects.get("element", ""))
+		if not element.is_empty():
+			avatar.weapon_tint = Elements.tint(element)
+			break
