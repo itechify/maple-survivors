@@ -1,6 +1,396 @@
 {
-	"_doc": "Bowmaster line (spec #332, ticket B2 #334): an empty skeleton. Each Bowmaster skill ticket (B7-B11) appends its own definitions in its own marked region; until a key is defined, the job's pool entry for it is inert (never offered, never learned). Shared keys with Bowman (arrow_blow, bow_double_shot, arrow_bomb) stay in skills/bowman.json until B7 moves them here. B8 #340 appends arrow_rain and dragons_breath (kept together after the earlier tickets' entries).",
+	"_doc": "Bowmaster line (spec #332). B7 #339: Arrow Blow, Double Shot, Arrow Bomb (moved here from skills/bowman.json, same keys) and Strafe. Tier A: WZ levels, art and sounds. Tier C: ranks, cooldowns, targeting, rarity bonuses; see GAME_DESIGN 7.45. Later Bowmaster tickets (B8-B11) append their own definitions. B8 #340 appends arrow_rain and dragons_breath (kept together after the earlier tickets' entries).",
 	"skills": {
+		"arrow_blow": {
+			"skill_id": 3001004,
+			"book": "300",
+			"job": 300,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Arrow Blow",
+			"desc": "Fires a powerful arrow at the nearest monster.",
+			"icon": "Skill.wz/300.img/skill/3001004/icon",
+			"damage": "physical",
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/300.img/skill/3001004/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3001004/Use",
+				"hit": ""
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 1,
+			"range": 300,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 0,
+			"ammo_shot": true,
+			"char_level": {
+				"thresholds": [
+					10,
+					15,
+					20,
+					25
+				],
+				"hit": "Skill.wz/300.img/skill/3001004/CharLevel/{cl}/hit/0"
+			},
+			"_tier": "Tier A: WZ damage 190..260% (levels 3/5/8/10/13/15/18/20 by rank), canonical hit art and Use sound. Tier C (#339, GAME_DESIGN 7.45): the eight survivor ranks, no weapon gate, nearest targeting, 1s cooldown, 300px base range (no WZ range), 600px/s speed, 8px radius, no base pierce, 0.6s hold and held weapon shooting stance, rarity bonuses. Current arrow sprite replaces the skill ball. Untuned.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "bow_mastery",
+						"text": "Bow Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Bow Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"bow_double_shot": {
+			"skill_id": 3001005,
+			"book": "300",
+			"job": 300,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Double Shot",
+			"desc": "Fires two arrows at nearby monsters.",
+			"icon": "Skill.wz/300.img/skill/3001005/icon",
+			"damage": "physical",
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/300.img/skill/3001005/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3001004/Use",
+				"hit": ""
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 1,
+			"range": 300,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 0,
+			"ammo_shot": true,
+			"char_level": {
+				"thresholds": [
+					10,
+					15,
+					20,
+					25
+				],
+				"hit": "Skill.wz/300.img/skill/3001005/CharLevel/{cl}/hit/0"
+			},
+			"_tier": "Tier A: WZ damage 92..130% per arrow, bulletCount 2, hit art (Sound.wz has no 3001005 node, so Arrow Blow's Use sound). Tier C (#339, GAME_DESIGN 7.45): the eight survivor ranks, no weapon gate, two arrows split over two monsters like Pirate Double Shot, 1s cooldown, 300px base range, 600px/s, 8px radius, no pierce, rarity bonuses. Untuned.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "bow_mastery",
+						"text": "Bow Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "eye",
+						"text": "Eye of Amazon",
+						"effects": [
+							{
+								"stat": "range",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"arrow_bomb": {
+			"skill_id": 3101005,
+			"book": "310",
+			"job": 310,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Arrow Bomb: Bow",
+			"desc": "Fires an explosive arrow that damages a group and may stun each monster.",
+			"icon": "Skill.wz/310.img/skill/3101005/icon",
+			"damage": "physical",
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "Skill.wz/310.img/skill/3101005/ball",
+			"hit": "Skill.wz/310.img/skill/3101005/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3101005/Use",
+				"hit": "Sound.wz/Skill.img/3101005/Hit"
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 2.0,
+			"range": 300,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 0,
+			"impact_blast": {
+				"damage_field": "x",
+				"visual": "hit"
+			},
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop",
+				"duration_field": "time"
+			},
+			"text": {
+				"h": "Damage {x}%; {prop}% chance to stun for {time} sec."
+			},
+			"_tier": "Tier A: weapon45, x72..130% (no damage field), canonical lt/rb blast box (+-130 -> +-150 by +-100), mobCount6, prop31..60%, time2..6s, ball/hit art and Use/Hit sounds. Tier C (#339, GAME_DESIGN 7.45): the eight survivor ranks, nearest auto-cast, 2s cooldown (raised from the old 1s placeholder: it is a six-target blast competing for a slot), 300px base reach, 600px/s, 8px radius, no base pierce, 0.6s held weapon stance; the first impact consumes the shot and blasts around the primary, on-hit stun on stream 1 (bosses resist); rarity bonuses. Untuned.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "bow_mastery",
+						"text": "Bow Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "bigger_bomb",
+						"text": "Bigger Bomb",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "wide_blast",
+						"text": "Wide Blast",
+						"effects": [
+							{
+								"stat": "blast_targets",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "wide_blast",
+						"text": "Wide Blast",
+						"effects": [
+							{
+								"stat": "blast_targets",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"strafe": {
+			"skill_id": 3111006,
+			"book": "311",
+			"job": 311,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Strafe",
+			"desc": "Fires a volley of arrows at one monster.",
+			"icon": "Skill.wz/311.img/skill/3111006/icon",
+			"damage": "physical",
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/311.img/skill/3111006/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3111006/Use",
+				"hit": ""
+			},
+			"cast": {
+				"rule": "nearest",
+				"focus": true
+			},
+			"cooldown": 2.5,
+			"range": 350,
+			"speed": 700,
+			"radius": 6,
+			"pierce": 0,
+			"ammo_shot": true,
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "bow_mastery",
+						"text": "Bow Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Bow Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: WZ damage 71..100% per arrow, bulletCount 4, weapon45 (bow), hit/0 art (3 frames; the spec called it empty, B1 found it) and Use sound. Tier C (#339, GAME_DESIGN 7.45): the eight survivor ranks, `cast.focus` (admission wants one target, so every arrow reuses it, aimed a few px apart), 2.5s cooldown, 350px range, 700px/s, 6px radius, no pierce, 0.6s held weapon stance, rarity bonuses. Untuned."
+		},
 		"arrow_rain": {
 			"skill_id": 3111004,
 			"book": "311",

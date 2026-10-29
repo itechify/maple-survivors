@@ -18,8 +18,8 @@ const TIERS := ["rare", "epic", "unique", "legendary"]
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep",
 	"blast_targets"]
 const BOW := 1452051
-## The Bowmaster skills this audit knows how to probe (tickets B7-B11 add theirs).
-const BOWMASTER_KEYS := ["arrow_rain", "dragons_breath"]
+## The Bowmaster skills this audit knows how to probe (tickets B7-B11 add theirs; B8 added Arrow Rain and Dragon's Breath).
+const BOWMASTER_KEYS := ["arrow_blow", "bow_double_shot", "arrow_bomb", "strafe", "arrow_rain", "dragons_breath"]
 
 
 ## Generic Skill.wz levels: a centred box, six mobs, one line, a 300 px range, a certain proc (the shape test_fp_high_actives uses).
@@ -198,7 +198,7 @@ func test_every_pool_skill_with_bonuses_was_found() -> void:
 		assert_true(key in keys, key)
 	for key in BOWMASTER_KEYS:
 		assert_true(key in keys, key)
-	assert_true(keys.size() >= 21, "seven Hero, twelve F/P and two Bowmaster skills: %d" % keys.size())
+	assert_true(keys.size() >= 25, "seven Hero, twelve F/P and six Bowmaster skills: %d" % keys.size())
 
 
 func test_each_bonus_effect_changes_the_resolved_cast() -> void:
@@ -254,6 +254,21 @@ func test_the_probe_catches_a_modifier_the_cast_rule_never_reads() -> void:
 	assert_true(bool(_probe("shout", [area], "area").edge))
 	assert_true(bool(_probe("slash_blast", [area], "area").edge))
 	assert_true(bool(_probe("monster_magnet", [reach], "range").edge))
+
+
+func test_the_probe_tells_the_bow_skills_stats_apart() -> void:
+	# Arrow Blow has no blast to widen, and Strafe's extra arrows stay on one monster (more hit lines, no more monsters).
+	var targets := {"stat": "blast_targets", "op": "add", "value": 2.0}
+	assert_eq(_probe("arrow_blow", [targets], "blast_targets").affected, _probe("arrow_blow", [], "blast_targets").affected)
+	var arrows := {"stat": "count", "op": "add", "value": 2.0}
+	var base := _probe("strafe", [], "count")
+	var more := _probe("strafe", [arrows], "count")
+	assert_eq(more.affected, base.affected, "a focus volley never reaches a second monster")
+	assert_true(int(more.lines) > int(base.lines))
+	# Arrow Bomb's blast box is what `area` widens: its arrow's own reach does not change.
+	var area := {"stat": "area", "op": "mul", "value": 1.2}
+	assert_false(bool(_probe("arrow_bomb", [], "area").edge))
+	assert_true(bool(_probe("arrow_bomb", [area], "area").edge))
 
 
 func test_the_probe_tells_arrow_rain_and_dragons_breath_stats_apart() -> void:

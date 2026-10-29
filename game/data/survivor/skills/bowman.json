@@ -100,70 +100,6 @@
 			},
 			"_tier": "Tier A: canonical mpCon, time, acc (including string values), eva, action, art and sound. Tier C: self-only auto-cast, recast on expiry, 0.8s hold."
 		},
-		"arrow_blow": {
-			"skill_id": 3001004,
-			"book": "300",
-			"job": 300,
-			"kind": "projectile",
-			"slot": "active",
-			"name": "Arrow Blow",
-			"desc": "Fires a powerful arrow at the nearest monster.",
-			"icon": "Skill.wz/300.img/skill/3001004/icon",
-			"damage": "physical",
-			"weapon_families": ["bow", "crossbow"],
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "weapon",
-			"action_time": 0.6,
-			"ball": "",
-			"hit": "Skill.wz/300.img/skill/3001004/hit/0",
-			"effect": "",
-			"rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/3001004/Use", "hit": ""},
-			"cast": {"rule": "nearest"},
-			"cooldown": 1,
-			"range": 300,
-			"speed": 600,
-			"radius": 8,
-			"pierce": 0,
-			"ammo_shot": true,
-			"char_level": {
-				"thresholds": [10, 15, 20, 25],
-				"hit": "Skill.wz/300.img/skill/3001004/CharLevel/{cl}/hit/0"
-			},
-			"_tier": "Tier A: canonical mpCon, damage, bulletCount (Double Shot), hit art and Arrow Blow Use sound. Tier C: bow/crossbow tag, nearest targeting, 1s cooldown, 300px base range (no WZ range), 600px/s speed, 8px radius, no base pierce, 0.6s hold and held weapon shooting stance. Current arrow sprite replaces skill ball. Double Shot splits over targets like Pirate Double Shot and reuses Arrow Blow Use sound because Sound.wz has no3001005 node; neither skill has a Hit sound. Untuned."
-		},
-		"bow_double_shot": {
-			"skill_id": 3001005,
-			"book": "300",
-			"job": 300,
-			"kind": "projectile",
-			"slot": "active",
-			"name": "Double Shot",
-			"desc": "Fires two arrows at nearby monsters.",
-			"icon": "Skill.wz/300.img/skill/3001005/icon",
-			"damage": "physical",
-			"weapon_families": ["bow", "crossbow"],
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "weapon",
-			"action_time": 0.6,
-			"ball": "",
-			"hit": "Skill.wz/300.img/skill/3001005/hit/0",
-			"effect": "",
-			"rotate": false,
-			"sounds": {"use": "Sound.wz/Skill.img/3001004/Use", "hit": ""},
-			"cast": {"rule": "nearest"},
-			"cooldown": 1,
-			"range": 300,
-			"speed": 600,
-			"radius": 8,
-			"pierce": 0,
-			"ammo_shot": true,
-			"char_level": {
-				"thresholds": [10, 15, 20, 25],
-				"hit": "Skill.wz/300.img/skill/3001005/CharLevel/{cl}/hit/0"
-			},
-			"_tier": "Tier A: canonical mpCon, damage, bulletCount (Double Shot), hit art and Arrow Blow Use sound. Tier C: bow/crossbow tag, nearest targeting, 1s cooldown, 300px base range (no WZ range), 600px/s speed, 8px radius, no base pierce, 0.6s hold and held weapon shooting stance. Current arrow sprite replaces skill ball. Double Shot splits over targets like Pirate Double Shot and reuses Arrow Blow Use sound because Sound.wz has no3001005 node; neither skill has a Hit sound. Untuned."
-		},
 		"bow_mastery": {
 			"skill_id": 3100000,
 			"book": "310",
@@ -300,50 +236,6 @@
 			"text": {
 				"h": "Damage {damage}%, up to {mob_count|monster|monsters} within {range} px"
 			}
-		},
-		"arrow_bomb": {
-			"skill_id": 3101005,
-			"book": "310",
-			"job": 310,
-			"kind": "projectile",
-			"slot": "active",
-			"name": "Arrow Bomb: Bow",
-			"desc": "Fires an explosive arrow that damages a group and may stun each monster.",
-			"icon": "Skill.wz/310.img/skill/3101005/icon",
-			"damage": "physical",
-			"weapon_families": ["bow"],
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
-			"action": "weapon",
-			"action_time": 0.6,
-			"ball": "Skill.wz/310.img/skill/3101005/ball",
-			"hit": "Skill.wz/310.img/skill/3101005/hit/0",
-			"effect": "",
-			"rotate": false,
-			"sounds": {
-				"use": "Sound.wz/Skill.img/3101005/Use",
-				"hit": "Sound.wz/Skill.img/3101005/Hit"
-			},
-			"cast": {
-				"rule": "nearest"
-			},
-			"cooldown": 1,
-			"range": 300,
-			"speed": 600,
-			"radius": 8,
-			"pierce": 0,
-			"impact_blast": {
-				"damage_field": "x",
-				"visual": "hit"
-			},
-			"on_hit": {
-				"status": "stun",
-				"chance_field": "prop",
-				"duration_field": "time"
-			},
-			"text": {
-				"h": "Damage {x}%; {prop}% chance to stun for {time} sec."
-			},
-			"_tier": "Tier A: weapon45, x72..130% (no damage field), mpCon14..28, canonical lt/rb blast box, mobCount6, prop31..60%, time2..6s, ball/hit art, Use/Hit sounds and 30 levels. Tier C: nearest auto-cast, 1s cooldown/300px base reach/600px per second/8px radius/no base pierce/0.6s held weapon stance, same defaults as first-job arrows; first impact consumes the shot and blasts around the primary, on-hit stun on stream1 (bosses resist). Untuned."
 		},
 		"crossbow_mastery": {
 			"skill_id": 3200000,
