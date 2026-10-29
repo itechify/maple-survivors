@@ -45,6 +45,17 @@ func before_each() -> void:
 		"ladder": {"0": _m(50, 250), "1": _m(51, 250)},
 		"rope": {"0": _m(60, 250)},
 	})
+	# A Buccaneer-shaped morph (BC3 #415): the stand/walk/jump set plus attack actions of its own, an `info` node.
+	lib.images["Morph.wz/7001.img"] = WzImg.new("synthetic", {
+		"info": {"morphEffect": 0, "superman": 1},
+		"stand": {"0": _m(110, 300)},
+		"walk": {"0": _m(120, 150)},
+		"jump": {"0": _m(130, -1)},
+		"eburster": {"0": _m(140, 360), "1": _m(141, 360)},
+		"alert": {"0": _m(150, 200)},
+		"proneStab": {"0": _m(160, 200)},
+		"prone": {"0": _m(170, 3000)},
+	})
 	avatar = AvatarRenderer.new()
 	avatar.library = lib
 	avatar.set_look({"skin": 0, "face": FACE, "hair": HAIR, "equips": []})
@@ -112,6 +123,41 @@ func test_the_morph_plays_its_own_actions_for_walking_jumping_and_climbing() -> 
 	assert_eq(avatar.stance, "stand", "an action the morph lacks falls back to standing")
 
 
+func test_a_stance_the_morph_has_as_a_node_draws_that_node() -> void:
+	avatar.set_morph(7001)
+	avatar.play("eburster", true)
+	assert_eq(avatar.stance, "eburster", "an attack action of the morph's own")
+	assert_eq(_markers(avatar.current_parts()), [140])
+	assert_eq(avatar.stance_delays("eburster"), PackedFloat32Array([0.36, 0.36]))
+	avatar.advance(0.4)
+	assert_eq(_markers(avatar.current_parts()), [141], "its frames advance on its own delays")
+	avatar.play("proneStab", true)
+	assert_eq(avatar.stance, "proneStab", "the node wins over the old proneStab -> prone mapping")
+	avatar.play("alert", true)
+	assert_eq(avatar.stance, "alert")
+	assert_eq(_markers(avatar.current_parts()), [150])
+	assert_eq(avatar.current_parts().size(), 1, "the weapon and hair stay undrawn")
+	assert_true(avatar.missing.is_empty(), str(avatar.missing))
+
+
+func test_a_stance_the_morph_lacks_keeps_todays_mapping() -> void:
+	avatar.set_morph(7001)
+	for pair: Array in [["dragonstrike", "stand"], ["swingO1", "stand"], ["shoot1", "stand"], ["stand1", "stand"],
+			["walk1", "walk"], ["jump", "jump"], ["prone", "prone"], ["sit", "stand"], ["ladder", "stand"]]:
+		avatar.play(pair[0], true)
+		assert_eq(avatar.stance, pair[1], "avatar %s" % pair[0])
+	avatar.play("info", true)
+	assert_eq(avatar.stance, "stand", "`info` is metadata, never a stance")
+
+
+func test_the_oak_barrel_keeps_drawing_stand_for_attack_stances() -> void:
+	avatar.set_morph(1002)
+	for s: String in ["swingO1", "stabO1", "shoot1", "dragonstrike", "eburster", "alert", "proneStab"]:
+		avatar.play(s, true)
+		assert_eq(avatar.stance, "stand" if s != "proneStab" else "prone", s)
+	assert_true(avatar.missing.is_empty(), str(avatar.missing))
+
+
 func test_the_avatar_returns_when_the_morph_ends() -> void:
 	avatar.play("walk1", true)
 	avatar.set_morph(1002)
@@ -168,6 +214,61 @@ func test_real_v83_barrel_draws_for_each_action() -> void:
 		if parts.size() == 1:
 			assert_true(parts[0].frame.page != null, "%s has its atlas page" % pair[0])
 			assert_true(parts[0].frame.origin.y > 60.0, "feet-anchored")
+	real_avatar.set_morph(0)
+	assert_eq(real_avatar.compose("stand1", 0).size(), plain)
+	assert_true(real_avatar.missing.is_empty(), str(real_avatar.missing))
+	real_avatar.free()
+	real.free()
+
+
+## Morph.wz/1000.img and 1001.img (Buccaneer BC1 #413, tier A): frame counts and play time of the actions the Buccaneer
+## skills name. Demolition and Snatch exist only in 1001. 12 of these 15 match the avatar's own stance timing.
+const BUCCANEER_STANCES := {
+	"eburster": [2, 0.72], "eorb": [7, 1.27], "edrain": [6, 1.14], "fist": [25, 2.43], "dragonstrike": [12, 1.44],
+	"shockwave": [16, 1.98], "demolition": [11, 3.12], "snatch": [11, 0.99], "straight": [2, 0.6],
+	"somersault": [9, 1.22], "backspin": [5, 0.96], "doubleupper": [8, 1.24], "screw": [2, 0.84]}
+
+
+## The real Buccaneer morphs (SKIP without the cache that has Morph 1000/1001): each skill action draws the morph's own
+## node on the feet, every frame composes, and the avatar returns afterwards.
+func test_real_buccaneer_morphs_draw_their_own_attack_stances() -> void:
+	if not require_cache():
+		return
+	var real := AssetLibrary.new()
+	assert_true(real.open(AssetCachePaths.resolve_cache_root()))
+	var real_avatar := AvatarRenderer.new()
+	real_avatar.library = real
+	real_avatar.set_look(AvatarRenderer.DEFAULT_LOOK)
+	var plain := real_avatar.compose("stand1", 0).size()
+	for id: int in [1001, 1000]:
+		real_avatar.set_morph(id)
+		if real_avatar.morph_id != id or not real.has_img("Morph.wz/%d.img" % id):
+			fail("Morph.wz/%d.img is not in the cache (use the Buccaneer cache, BC1)" % id)
+			continue
+		for action: String in BUCCANEER_STANCES:
+			var want: Array = BUCCANEER_STANCES[action]
+			if id == 1000 and action in ["demolition", "snatch"]:
+				real_avatar.play(action, true)
+				assert_eq(real_avatar.stance, "stand", "1000 has no %s: it stands" % action)
+				continue
+			real_avatar.play(action, true)
+			assert_eq(real_avatar.stance, action, "%d draws its own %s" % [id, action])
+			assert_eq(real_avatar.stance_delays(action).size(), want[0], "%d %s frames" % [id, action])
+			assert_near(real_avatar.stance_duration(action), float(want[1]), 0.001, "%d %s seconds" % [id, action])
+			for i in int(want[0]):
+				var parts := real_avatar.compose(action, i)
+				assert_eq(parts.size(), 1, "%d %s frame %d: the morph's canvas alone" % [id, action, i])
+				if parts.size() == 1:
+					assert_true(parts[0].frame.page != null, "%d %s frame %d has its atlas page" % [id, action, i])
+					# Demolition's frame 3 is the 1 x 1 empty canvas the figure vanishes behind for 1.62 s.
+					if parts[0].frame.region.size.x > 1.0:
+						assert_true(parts[0].frame.origin.y > 0.0, "%d %s frame %d: origin on the feet" % [id, action, i])
+					assert_eq(parts[0].pos, Vector2.ZERO)
+		# The basics map as before, and an action the morph lacks (it has stabO1, not swingO1) still stands.
+		for pair: Array in [["stand1", "stand"], ["walk1", "walk"], ["jump", "jump"], ["prone", "prone"],
+				["swingO1", "stand"], ["stabO1", "stabO1"], ["alert", "alert"]]:
+			real_avatar.play(pair[0], true)
+			assert_eq(real_avatar.stance, pair[1], "%d avatar %s" % [id, pair[0]])
 	real_avatar.set_morph(0)
 	assert_eq(real_avatar.compose("stand1", 0).size(), plain)
 	assert_true(real_avatar.missing.is_empty(), str(real_avatar.missing))
