@@ -88,11 +88,13 @@ func test_shipped_night_lord_is_not_playable_and_the_mirror_puts_it_between_bowm
 	assert_eq(mirrored.playable_jobs().find(412), NIGHT_LORD_ROW)
 
 
-func test_the_shipped_page_lists_eight_rows_without_night_lord() -> void:
+func test_the_shipped_page_lists_eight_rows_without_night_lord_at_the_original_pitch() -> void:
 	if not require_cache():
 		return
 	var creation := _job_page(_flow(), "NlShipped01")
 	assert_eq(creation.job_ids, _tree().playable_jobs())
+	assert_eq(creation.job_pitch, CREATE.JOB_ROW_SIZE.y + 2.0, "eight rows keep the 21 px pitch")
+	assert_true(_row(creation, 512).position.y + creation.job_pitch - 2.0 <= CREATE.JOB_LIST_BOTTOM)
 	assert_true(_row(creation, 412) == null, "no Night Lord row while it ships unplayable")
 	creation.select_job(412)
 	assert_eq(creation.job_id, 212, "an unlisted job changes nothing")
@@ -111,16 +113,19 @@ func test_nine_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> void
 		assert_true(row != null, "row for %d" % ids[i])
 		if row == null:
 			return
-		assert_eq(row.position.y, CREATE.ROW_AT.y + i * (CREATE.JOB_ROW_SIZE.y + 2.0), "row %d is one pitch below the one above" % i)
+		assert_eq(row.position.y, CREATE.ROW_AT.y + i * creation.job_pitch, "row %d is one pitch below the one above" % i)
 		assert_eq(row.position.x, _row(creation, 112).position.x, "rows share a column")
 		assert_true(row.size.x >= CREATE.JOB_ROW_SIZE.x, "row %d is at least the row width" % i)
 	var nl := _row(creation, 412)
 	assert_eq(nl.text, "Night Lord")
 	assert_true(nl.get_theme_stylebox("normal") is StyleBoxEmpty, "Night Lord is not highlighted until chosen")
 	assert_false(_row(creation, 212).get_theme_stylebox("normal") is StyleBoxEmpty, "212 is highlighted")
-	# The ninth row ends 20 px under the message strip's top edge: it must stay clear of the Create / Cancel buttons.
-	var bottom := nl.position.y + nl.size.y + (CREATE.JOB_ROW_SIZE.y + 2.0)
-	assert_true(bottom <= CREATE.LOOK_BUTTON_AT[0].y, "the last row (%s) ends above the buttons (%s)" % [bottom, CREATE.LOOK_BUTTON_AT[0].y])
+	# Nine rows at the eight-row pitch (21 px) would run past the sign's panel and under the "Choose your job." message: the
+	# pitch shrinks to 18 px so the last row ends above CREATE.JOB_LIST_BOTTOM.
+	assert_eq(creation.job_pitch, 18.0)
+	var end: float = _row(creation, 512).position.y + creation.job_pitch - 2.0 # the intended row height; a headless Button measures taller
+	assert_true(end <= CREATE.JOB_LIST_BOTTOM, "the last row ends at %s, above %s" % [end, CREATE.JOB_LIST_BOTTOM])
+	assert_true(end <= CREATE.MESSAGE_BOX.position.y, "and clear of the message strip")
 
 
 func test_clicking_night_lord_selects_it_and_moves_the_highlight() -> void:
@@ -167,7 +172,8 @@ func test_a_reduced_list_lays_out_two_rows_and_steps_between_them() -> void:
 	assert_eq(creation.job_ids, [212, 412] as Array[int])
 	assert_eq(creation.job_id, 212)
 	assert_eq(_row(creation, 212).position.y, CREATE.ROW_AT.y, "the first row starts at the first Look row")
-	assert_eq(_row(creation, 412).position.y - _row(creation, 212).position.y, CREATE.JOB_ROW_SIZE.y + 2.0)
+	assert_eq(creation.job_pitch, CREATE.JOB_ROW_SIZE.y + 2.0, "two rows keep the full pitch")
+	assert_eq(_row(creation, 412).position.y - _row(creation, 212).position.y, creation.job_pitch)
 	creation._input(_key(KEY_DOWN))
 	assert_eq(creation.job_id, 412)
 	creation._input(_key(KEY_DOWN))

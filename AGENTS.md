@@ -121,11 +121,15 @@ bash scripts/playtest.sh --speed=1 --minutes=3                 # 3 minutes in re
 bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-forward to 10:00 without drawing,
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
 bash scripts/playtest.sh --stage=ellinia --seed=7 --window-autopick=1   # windows open and answer themselves
-bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the default job; --job=112 is Hero, --job=122 the Paladin, --job=222 the I/L Arch Mage, --job=232 the Bishop, --job=132 the Dark Knight, --job=312 the Bowmaster, --job=512 the Buccaneer)
+bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the default job; --job=112 is Hero, --job=122 the Paladin, --job=222 the I/L Arch Mage, --job=232 the Bishop, --job=132 the Dark Knight, --job=312 the Bowmaster, --job=512 the Buccaneer, --job=412 the Night Lord once NL12 ships `playable`)
 bash scripts/playtest.sh --job=232 --stage=sleepywood --character=$PWD/game/tests/fixtures/characters/bishop_t2.json
 bash scripts/playtest.sh --job=312 --character=$PWD/game/tests/fixtures/characters/bowmaster_t2.json --minutes=5
                                                                # a Bowmaster needs a bow in hand (the fixture's Battle Bow): with none the
                                                                # run has no ammo and `missing` lists the arrow sprite (spec #332, B12 #344)
+bash scripts/playtest.sh --job=412 --character=$PWD/game/tests/fixtures/characters/night_lord_t2.json --minutes=5
+                                                               # a Night Lord needs a claw in hand (the fixture's Meba); Night Lord ships
+                                                               # `playable: false` until NL12 #411, so this needs the flip (a private mirror
+                                                               # edit, never committed): spec #383, NL11 #410
 bash scripts/playtest.sh --stage=sleepywood --character=$PWD/game/tests/fixtures/characters/fp_arch_mage.json
                                                                # tier 2 with the tier-1 kit (omit --character: the starter wand only)
 ```
@@ -151,7 +155,7 @@ one density check, and at least one must stay positive. This verifies coverage; 
 playtests retain their existing behavior on a valid early-death summary.
 
 `bash scripts/run.sh -- --hub [--job=<id>] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`; `--job=112`
-opens the Hero fixture `hero_t2.json` with the Hero kit of sword and axe ATT scrolls and Warrior spare gear; `--job=122` the Paladin fixture `paladin_t2.json` with 20 stacks of sword, blunt, two-handed sword and two-handed blunt ATT scrolls and spare Warrior gear (a Sword and a one-handed blunt weapon, `hub_kit` in `jobs/paladin.json`); `--job=222` the I/L fixture `il_arch_mage_t2.json` with the F/P kit (both Arch Mages wear wands and staves from the same scroll line); `--job=232` opens the Bishop fixture `bishop_t2.json` with the same Magician kit; `--job=512` the Buccaneer fixture `buccaneer_t2.json` with ten stacks of knuckle ATT and ACC scrolls (`scrolls/pirate.json`, every rate) and spare knuckler, hat, gloves and top (`jobs/buccaneer.json` `hub_kit`); `--job=312` the Bowmaster fixture `bowmaster_t2.json` with bow, gloves, shoes ATT and hat DEX scrolls and spare Bowman gear (`jobs/bowmaster.json` `hub_kit`); a `--job` the
+opens the Hero fixture `hero_t2.json` with the Hero kit of sword and axe ATT scrolls and Warrior spare gear; `--job=122` the Paladin fixture `paladin_t2.json` with 20 stacks of sword, blunt, two-handed sword and two-handed blunt ATT scrolls and spare Warrior gear (a Sword and a one-handed blunt weapon, `hub_kit` in `jobs/paladin.json`); `--job=222` the I/L fixture `il_arch_mage_t2.json` with the F/P kit (both Arch Mages wear wands and staves from the same scroll line); `--job=232` opens the Bishop fixture `bishop_t2.json` with the same Magician kit; `--job=512` the Buccaneer fixture `buccaneer_t2.json` with ten stacks of knuckle ATT and ACC scrolls (`scrolls/pirate.json`, every rate) and spare knuckler, hat, gloves and top (`jobs/buccaneer.json` `hub_kit`); `--job=312` the Bowmaster fixture `bowmaster_t2.json` with bow, gloves, shoes ATT and hat DEX scrolls and spare Bowman gear (`jobs/bowmaster.json` `hub_kit`); `--job=412` the Night Lord fixture `night_lord_t2.json` with five stacks of claw ATT scrolls (`scrolls/thief.json`) and spare claw, hat, gloves and a Thief-bit top (`jobs/night_lord.json` `hub_kit`; it needs 412 playable until NL12); a `--job` the
 character is not of is an error screen) skips
 the title and opens the real Free Market to hand-test the scroll shops with the F/P fixture (or `--character`) plus
 a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants, every tier unlocked) in a throwaway
@@ -265,6 +269,11 @@ Bishop uses `bishop_t2.json` (job 232), the same tier-1 kit as F/P, with tier 2 
 `bowmaster_t2.json` is the Bowmaster (312) fixture (B12 #344): kit mode like F/P's (`--job=312 --kit=1452000,1002163,1072025,1082012,1040002,1060002
 --tiers=2`: a Battle Bow, a Bowman-bit reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15 gloves and the starter top and bottom, unscrolled, tier 2
 open). Its historical `_doc.patch` records B12's generation before enablement; new generation needs no patch. **Every Bowmaster run needs a bow in hand**: without one `Ammo` gives 0 and the arrow sprite lookup fails (`missing`).
+
+`night_lord_t2.json` is the Night Lord (412) fixture (NL11 #410): kit mode like Bowmaster's (`--job=412 --kit=1472007,1002171,1072022,1082029,1040002,1060002
+--tiers=2 --patch=<json making 412 playable>`: a Meba, a Thief-bit reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15 gloves and the starter top and
+bottom, unscrolled, tier 2 open; `_doc.patch` records the patch until NL12 flips `playable`, after which new generation needs none).
+**Every Night Lord run needs a claw in hand**: without one the stars' ammo and the claw's 250 px reach are missing. `--job=212` with this file is an error.
 The same tool can also write the character a real bot
 round leaves behind, and converts old files.
 
@@ -295,7 +304,7 @@ Use focused filters excluding `full_run` while tuning; freeze data and pacing wi
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
 `--job=<id>` names the character's job in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd` and the fixture tool (ADR 0006:
-a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Dark Knight (132), Paladin (122; spec #308, P9 #317 flipped `playable`), Arch Mage (Fire, Poison, 212) Bishop (232), Arch Mage (Ice, Lightning, 222; spec #319, I12 flipped `playable`) Bowmaster (312) and Buccaneer (512; spec #412, B11 #423 flipped `playable`); `--job=112` selects Hero, `--job=122` the Paladin `--job=222` the I/L Arch Mage and `--job=512` the Buccaneer; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
+a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Dark Knight (132), Paladin (122; spec #308, P9 #317 flipped `playable`), Arch Mage (Fire, Poison, 212) Bishop (232), Arch Mage (Ice, Lightning, 222; spec #319, I12 flipped `playable`) Bowmaster (312) and Buccaneer (512; spec #412, B11 #423 flipped `playable`); Night Lord (412; spec #383) is wired for `--job=412`, the hub kit and the fixture but ships `playable: false` until NL12 #411 (the tools refuse it; a `--patch` / `PATCH` / `DataRepo.patch` of `{"jobs_survivor": {"jobs": {"412": {"playable": true}}}}` mirrors it); `--job=112` selects Hero, `--job=122` the Paladin `--job=222` the I/L Arch Mage and `--job=512` the Buccaneer; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
 `SceneFlow.forced_job_error`), and a `--character` whose job disagrees fails. A tool that names no job gets
 `JobTree.default_job()`, pinned to 212 by `survivor/jobs.json` whatever else is playable. Without `--character`, tools wear the job's `creation_weapon` and the default clothing. `--branch=<id>` is the deprecated alias. There is no advancement, so records have no
 `branch`, `forced_branch`, `job_t` or `job_times`; they carry the job id (`jobs` in the summary) and, from #293, `picks`
