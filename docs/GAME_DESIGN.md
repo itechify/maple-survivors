@@ -8421,7 +8421,7 @@ length and replaces the multiplier, never stacks; the nearest-rule skills, the b
 | Stance hold | `action_time` 0.6 s | C |
 | Rarity | Rare Gun Mastery x1.2 damage, Epic Gun Booster x0.88 cooldown, Unique Bullseye `mark_power` +0.25 and `mark_time` x1.5, Legendary the Unique plus x1.2 damage | C |
 
-#### 7.120.8 Corsair C10: Aerial Strike and Rapid Fire (#394, spec #384)
+#### 7.120.9 Corsair C10: Aerial Strike and Rapid Fire (#394, spec #384)
 
 Two 4th-job skills as data on seams that already exist, both in `skills/corsair.json` (book 522). **Aerial Strike** (5221003) is the
 delayed area strike of Meteor Shower / Genesis / Arrow Rain: a `box` cast with `min_targets 1` and `pending {delay 1.8}`, the box
@@ -8463,7 +8463,7 @@ constants.
 | Rapid Fire stream | `count` 10, `interval` 0.08 s, `wind_up` 0.3 s (the `prepare` art is 0.54 s, fitted to 0.3 s because nothing is held), retarget, `ammo_shot`, 1000 px/s, radius 6, no pierce | C |
 | Rapid Fire cooldown | 5.0 s | C |
 | Rapid Fire stance | `action` `rapidfire` held 0.6 s at least, and the whole stream (1.02 s): the spec read the missing WZ `action` as "the gun's own shooting stance"; the body does have `rapidfire` and it draws the gun | C |
-| Rarity bonuses | see 7.120.8 | C |
+| Rarity bonuses | see 7.120.9 | C |
 
 #### 7.120.12 Corsair C12: mount art (#396, spec #384 M20)
 
@@ -10556,7 +10556,7 @@ The constants of Homing Beacon and Bullseye (cast shape, cooldown, the 8 s mark 
 
 ### Corsair C10 constants (#394)
 
-The constants of Aerial Strike and Rapid Fire (cooldowns, the stream timing, the stance, the rarity bonuses) are in section 7.120.8.
+The constants of Aerial Strike and Rapid Fire (cooldowns, the stream timing, the stance, the rarity bonuses) are in section 7.120.9.
 
 ### Corsair C12 constants (#396)
 
