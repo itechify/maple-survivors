@@ -802,6 +802,7 @@
 					"attack_field": "x",
 					"skill_field": "y",
 					"delay": 0.25,
+					"overshoot": 55.0,
 					"path": "Skill.wz/411.img/skill/4111002/special"
 				},
 				"follow_speed": 200.0,
@@ -871,7 +872,7 @@
 					}
 				]
 			},
-			"_tier": "Tier A: Skill.wz 4111002 x 20..80 (the echo percent of an `attack` star: Lucky Seven, Drain), y 21..50 (a `skill` star), time 60..180 s, action alert, the 16-frame effect, the 11-frame effect0 behind the avatar, the Use sound, and the `special` shadow frames (34 action sets, 98 canvases with origins and no delay). Tier C (#409, GAME_DESIGN 7.94.7, spec #383 M11): the 50 s cooldown (the 60 s minimum lifetime covers it), the echo delay 0.25 s, follow speed 200 px/s, follow distance 55 px, teleport distance 600 px, clone spacing 40 px, the 0.8 s alert hold, no standalone item cost (the Summoning Rock is not modelled), damage \"none\" (a clone never strikes; the echo carries the owner's stars), the default 30-level rank table, rarity bonuses (Shadow Power scales the echo percent through the damage modifier; Twin Shadow is a second clone). Untuned."
+			"_tier": "Tier A: Skill.wz 4111002 x 20..80 (the echo percent of an `attack` star: Lucky Seven, Drain), y 21..50 (a `skill` star), time 60..180 s, action alert, the 16-frame effect, the 11-frame effect0 behind the avatar, the Use sound, and the `special` shadow frames (34 action sets, 98 canvases with origins and no delay). Tier C (#409, GAME_DESIGN 7.94.7, spec #383 M11): the 50 s cooldown (the 60 s minimum lifetime covers it), the echo delay 0.25 s, the echo overshoot 55 px (= the follow distance, ROSTER_PLAN D12, NL11 #410), follow speed 200 px/s, follow distance 55 px, teleport distance 600 px, clone spacing 40 px, the 0.8 s alert hold, no standalone item cost (the Summoning Rock is not modelled), damage \"none\" (a clone never strikes; the echo carries the owner's stars), the default 30-level rank table, rarity bonuses (Shadow Power scales the echo percent through the damage modifier; Twin Shadow is a second clone). Untuned."
 		}
 	}
 }

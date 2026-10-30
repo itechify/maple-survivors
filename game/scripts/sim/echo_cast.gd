@@ -95,5 +95,11 @@ func _throw(world: RunWorld, entry: Dictionary) -> void:
 	if signf(target.x - hand.x) != signf(target.x - body.x):
 		hand = body # a target inside the reach of the hand: throw straight from the body, as the owner does
 	summons.facing[c] = int(side)
-	world.runner.fire_shot(world, String(entry.key), st, body, target, hand)
+	var flight := st
+	if float(entry.overshoot) > 0.0:
+		# tier C (ROSTER_PLAN D12): the clone trails the owner by `overshoot`, so its star also flies that much farther and still
+		# lands on a monster at the end of the owner's reach. The caller's snapshot is shared, so the copy is shallow.
+		flight = st.duplicate()
+		flight["range"] = reach + float(entry.overshoot)
+	world.runner.fire_shot(world, String(entry.key), flight, body, target, hand)
 	world.emit("echo_cast", {"skill": String(entry.key), "clone": c, "pos": hand, "facing": int(side)})

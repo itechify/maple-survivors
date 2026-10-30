@@ -8507,8 +8507,10 @@ star skill again 0.25 s later. It is pure data on the echo seam of 7.94.3, plus 
   Meso (`skill`). Ninja Storm, Ninja Ambush, Flash Jump and the Shadow Partner itself carry none, so the zones, the nova and the
   summon never echo. A skill with several shots (Lucky Seven's two stars, Triple Throw's three) is echoed once per shot. The
   mechanics (recording, retargeting, no receipt, no heal, no echo of an echo) are 7.94.3; the clone's reach is its own: it trails
-  the owner by 55 px, so a monster in the last 55 px of the owner's reach in its facing direction is out of the clone's reach and
-  that echo is dropped (`overshoot` stays 0).
+  the owner by 55 px, so a monster in the last 55 px of the owner's reach in its facing direction would be out of the clone's reach.
+  Ruling D12 (NL11 #410, tier C): `summon.echo.overshoot` equals the clone's `follow_distance` (55 px), so the recorded target is kept
+  up to `range + 55` px from the clone and the echo's star also flies `range + 55` px, which lands it on a monster at the owner's
+  full reach (`test_shadow_partner::test_an_echo_reaches_a_target_at_the_owners_full_reach`). A monster beyond that still drops the echo.
 - **Damage and cards.** `damage "none"`: the clone never strikes. The echo percent is `x` or `y` at the clone's rank x
   `Loadout.skill_stat("shadow_partner", "damage", 1.0)`, so Shadow Power and Mastery scale it. Rarity (tier C, the spec's table):
   Rare `shadow_power` "Shadow Power" damage x1.2; Epic `shadow_booster` "Shadow Booster" cooldown x0.88; Unique `twin_shadow`

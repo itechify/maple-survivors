@@ -163,7 +163,7 @@ func test_the_definition_is_the_echo_summon_of_the_spec() -> void:
 	assert_eq(d.cast_visuals.size(), 1)
 	assert_eq(String(d.cast_visuals[0].path), "Skill.wz/411.img/skill/4111002/effect0")
 	var s: Dictionary = d.summon
-	assert_eq(s.echo, {"attack_field": "x", "skill_field": "y", "delay": 0.25,
+	assert_eq(s.echo, {"attack_field": "x", "skill_field": "y", "delay": 0.25, "overshoot": 55.0,
 		"path": "Skill.wz/411.img/skill/4111002/special"})
 	assert_near(float(s.follow_speed), 200.0, 0.0001)
 	assert_near(float(s.follow_distance), 55.0, 0.0001)
@@ -321,6 +321,44 @@ func test_the_echo_leaves_the_clones_hand_and_never_earns_a_receipt() -> void:
 	assert_eq(e.facing, 1)
 	assert_near(e.pos.x, s.x[e.clone] + w.cast_forward, 0.01)
 	assert_true(w.swarm.is_live(m))
+
+
+## mob_hit events of `key` on slot `m` after the owner's stars and the clone's echoes have all flown.
+func _hits_on(w: RunWorld, key: String, m: int) -> int:
+	return _events(w, "mob_hit", key).filter(func(e: Dictionary) -> bool: return int(e.mob) == m).size()
+
+
+func test_ruling_d12_the_echo_overshoot_equals_the_follow_distance() -> void:
+	var d: Dictionary = _world([]).book.def(KEY).summon
+	assert_near(float(d.echo.overshoot), float(d.follow_distance), 0.0001, "ROSTER_PLAN D12, tier C: 55 px")
+	assert_near(float(d.echo.overshoot), 55.0, 0.0001)
+
+
+func test_an_echo_reaches_a_target_at_the_owners_full_reach() -> void:
+	# D12: the clone trails the owner by 55 px, so a monster at the very end of Lucky Seven's 250 px reach is 305 px from it.
+	# Without the overshoot that echo was dropped silently; with it both stars of the echo land.
+	var w := _world(["lucky_seven"])
+	_ticks(w, 40)
+	var reach := float(w.loadout.stats("lucky_seven").range)
+	assert_near(reach, 250.0, 0.0001)
+	var m := _mob(w, reach)
+	_ticks(w, 1)
+	assert_eq(_flying(w).size(), 2, "the owner reaches the target at its full reach")
+	_ticks(w, 90)
+	assert_eq(_events(w, "echo_cast", "lucky_seven").size(), 2, "both echoes are thrown, none dropped")
+	assert_eq(_hits_on(w, "lucky_seven", m), 4, "two owner stars and two echo stars all land on the monster at the end of the reach")
+
+
+func test_a_target_beyond_the_owners_reach_plus_the_overshoot_is_still_dropped() -> void:
+	var w := _world(["lucky_seven"])
+	_ticks(w, 40)
+	var m := _mob(w, 250.0)
+	_ticks(w, 1)
+	w.swarm.x[m] += 40.0 # steps out of the clone's 305 px after the owner threw: retarget needs a monster within 250 px of the clone
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+	_drop_flying(w)
+	_ticks(w, 16)
+	assert_eq(_events(w, "echo_cast", "lucky_seven").size(), 0, "outside range + overshoot of the clone: the echo is dropped")
 
 
 # --- rarity bonuses ---------------------------------------------------------------------------------------------------
