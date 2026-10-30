@@ -77,7 +77,7 @@ func test_class_lines_follow_the_adventurers_in_registration_order() -> void:
 	# Bishop and the later classes retain their subsequent registration order.
 	var lines := DataRepo.lines()
 	assert_eq(Array(lines.slice(0, 7)), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
-	assert_eq(Array(lines.slice(7)), ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer"])
+	assert_eq(Array(lines.slice(7, 14)), ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer"])
 
 
 func test_the_bowmaster_line_loads_without_errors_and_adds_its_job_and_its_skills() -> void:

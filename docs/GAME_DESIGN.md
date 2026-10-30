@@ -4467,6 +4467,18 @@ Oracles `character_baseline`, `tick_cost_identity` and `hero_baseline` reproduce
 `missing: []`; Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut and Corkscrew Blow all cast (`cast_*.png`); flow
 evidence only, not survival evidence.
 
+### Corsair C2 data smoke (#386, 2026)
+
+Data-only ticket (`jobs/corsair.json`, not playable, no balance data of another job touched). Training seeds 1/2/2026, Henesys bot,
+`JOBS=3`, real private cache: F/P (212) and Hero (112) rows are byte-identical to the base commit `53652f78` (212 died at 12:31 /
+11:01 / 7:54 Lv44 / 37 / 24; 112 at 5:27 / 5:36 / 11:28; no clears, no warnings). Oracles `character_baseline`, `tick_cost_identity`
+and `hero_baseline` reproduce their hashes. Diagnostic `--job=522` playtests (`playable: true` temporarily, reverted, never committed):
+Henesys speed 8, 4 minutes reached Lv8 with `missing: []`, the title "Corsair" on the HUD, a Pistol in hand and the Double Shot, Invisible
+Shot, Grenade and Recoil Shot casts captured (the four ported skills, still defined in `pirate.json`); Sleepywood with a kit
+character (a Pistol-class gun, Pirate-bit gloves and the generic hat and top, tier 2) died at 0:07 at Lv1 on the shared 50 starting HP
+(the ranged default, like Bowmaster and I/L; Hero and Paladin copy 600), `missing: []`. Flow and visual evidence only, not survival
+evidence; screenshots in gitignored `evidence/386/`.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
@@ -8159,6 +8171,68 @@ at the impact, the cap, hit art by target and by line, transfer, the energy rece
 knuckle on every `fist` / `dragonstrike` frame), `test_bot_melee` (`bot.reach`, a melee bot with the 400 px strip still closes in,
 and the control that kites without the key), `test_avatar_cash_layers` (the `swingTF` fallback), `test_rarity_bonus_effects`.
 
+### 7.120 Corsair pool, job data and Dash (spec #384, C2 #386)
+
+Job 522 (Corsair, the gunslinging pirate) has its own data line: `survivor/jobs/corsair.json` (job entry, AP row, placeholder
+`hub_kit`) and an empty `survivor/skills/corsair.json` whose regions the skill tickets C3-C13 fill. `DataRepo.lines()` discovers
+the `corsair` line from those files; nothing is registered in a shared list and no other job's file changed. `playable` is `false`
+until the selection ticket (C14), so a Corsair cannot start a round yet; `default_job` stays 212. A pool key with no definition yet
+is inert (never offered, learned or cast), so the thirteen keys are named now and become live one ticket at a time.
+
+| key | WZ id | Shape | Where it is defined |
+|---|---|---|---|
+| `double_shot` (start) | 5001003 | two bullets over two monsters | `pirate.json` until C4 moves it |
+| `burst_fire` | 5210000 | three bullets on one target | new (C4) |
+| `invisible_shot` | 5201001 | both sides | `pirate.json` until C4 |
+| `recoil_shot` | 5201006 | shot plus a hop away | `pirate.json` until C4 |
+| `grenade` | 5201002 | cluster blast | `pirate.json` until C4 |
+| `flamethrower` | 5211004 | front cone, burn | new |
+| `ice_splitter` | 5211005 | front cone, freeze | new |
+| `octopus` | 5211001 | stationary turret | new |
+| `gaviota` | 5211002 | one-shot kamikaze bird | new |
+| `homing_beacon` | 5211006 | shot plus a mark | new |
+| `aerial_strike` | 5221003 | delayed area strike | new |
+| `rapid_fire` | 5221004 | channelled burst | new |
+| `battleship` | 5221006 | timed Form with a hull | new |
+| (mobility) `dash` | 5001005 | manual, skill key | `pirate.json`, shared with Buccaneer (CS-3) |
+
+- **Job entry:** `starting_skill double_shot`, `mobility_skill dash`, the thirteen-key `skill_pool`, `weapon_families ["gun"]`,
+  `creation_weapon 1492000` (the Pistol, `reqJob` 16 = the Pirate bit; tier A, already in the Pirate manifest fragment and the shipped
+  drop list), `playable false`. No `meter` (the ship is a Form, not a meter).
+- **Placement rule (`test_data_repo_lines`):** `corsair.json` holds books 500, 520, 521 and 522 (the ported gun skills and the
+  Corsair book); `pirate.json` never holds a 521 or 522 book. A key lives in one file only.
+- **AP row `balance.player.ap["522"]`** (in `jobs/corsair.json`): DEX primary, STR secondary, the shared `520` row's keyframes (Lv1 -> 1,
+  Lv200 -> 200) copied verbatim, so 522 does not depend on a lineage row another class may touch. There is no `hp` key and no growth
+  row: the starting HP is the shared default and HP growth inherits the `500` row (25).
+- **Drops:** nothing was added to the equipment data. `weapon_families ["gun"]` filters the Pirate drop list, so guns (149xxxx) drop
+  and knucklers (148xxxx), bows, crossbows, claws, swords and every other family never do; armour drops by the Pirate class bit
+  (`requirement_error` accepts the Pistol and Pirate-bit gear). `test_corsair_data` rolls 400 seeded drops on a synthetic table, filters
+  the shipped weapon list, and (real cache) every tier's pool with the cache's own `reqJob`.
+- **Ammo (re-verified, no change):** the 522 gun schedule of `ammo.json` (Bowmaster B3) is exact-job (no lineage walk: 520, 521, 500,
+  512 and 212 holding a gun keep the plain Bullet 2330000), steps at round Lv18 to Split Bullet 2330001 (incPAD +12) and Lv35 to Mighty
+  Bullet 2330002 (+14), emits `ammo_upgraded` once per step, and the notice reads "Your bullets are now Split Bullet" / "... Mighty
+  Bullet" with the String.wz names. Vital Bullet 2330003 stays unscheduled (its img is not imported). Both steps are reachable (the
+  level cap is far above 35), so nothing was retuned. `test_corsair_ammo` needs no Corsair skill (a Pistol, the real EXP path and the
+  ranged basic attack's incPAD; the real-cache half reads Item.wz and String.wz).
+- **Decisions CS-1 to CS-12** are the spec's (#384); this ticket records the ones its data carries: **CS-1** thirteen entries, one past the
+  usual cap; **CS-2/CS-3** Dash is the mobility skill and stays in `pirate.json`; **CS-4** Burst Fire is Double Shot's heavy twin;
+  **CS-5** the buffs and passives are not cards (their names return as rarity bonuses); **CS-6** item costs are not modelled. CS-7 to
+  CS-12 (Octopus, Gaviota and Aerial Strike, the mark on bosses, the ship's skill filter, the hull, movement unchanged) belong to
+  C5-C13 and are recorded in their own subsections.
+- **Nesting.** Later Corsair tickets record their constants as `7.120.N` subsections under this section; C2's are 7.120.1. (The spec
+  reserved 7.120-7.129; the integration branch holds no section 7 entry above 7.93, so 7.120 is the next free number in the range.)
+
+#### 7.120.1 Corsair C2 constants (#386)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Corsair pool and start (CS-1) | `jobs/corsair.json`: `starting_skill` double_shot (slot 1), `mobility_skill` dash (outside the slots), thirteen-key `skill_pool` (Double Shot to Battleship); Spec #384 CS-1, CS-2 | C |
+| Corsair creation weapon and drop families | `creation_weapon` 1492000, the Pistol (Item.wz, reqJob 16, the Pirate bit; no level requirement, #292); `weapon_families` [gun] | A (item) / C (filter) |
+| Corsair AP row (spec #384 "Job data") | `balance.player.ap["522"]`: DEX primary, STR secondary, keyframes Lv1 -> 1 and Lv200 -> 200, the shared `520` row copied verbatim; no `hp` override, growth inherits `500` (25) | C |
+| Corsair placeholder `hub_kit` | `fixture ""`, empty `scrolls` and `equipment`, `fallback_item` 1492000; C14 fills it and adds `corsair_t2.json` | C |
+| Corsair not playable | `playable` false until C14 flips it; `default_job` stays 212 | C |
+| 522 gun ammo schedule (re-verified from B3) | Lv18 Split Bullet 2330001 (+12), Lv35 Mighty Bullet 2330002 (+14), exact job 522, no retune | C (levels) / A (items, incPAD) |
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -10061,3 +10135,7 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 ### Buccaneer review corrections (#412)
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
+
+### Corsair C2 constants (#386)
+
+The constants of the Corsair data line are in section 7.120.1 (nested under the Corsair section so the later Corsair tickets append `7.120.N` beside them).
