@@ -350,6 +350,7 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 	# "Crossbow Mastery"); the text only, never a number.
 	var by_family: Dictionary = bonus.get("text_by_family", {})
 	var shown := String(by_family.get(state.loadout.weapon_family, bonus.get("text", bonus.id)))
+	bonus.erase("text_by_family") # resolved: the card dictionary (and the event stream that carries it) holds the one name only
 	bonus.text = shown + ": " + ", ".join(labels)
 	bonus.counter = counter
 	return bonus

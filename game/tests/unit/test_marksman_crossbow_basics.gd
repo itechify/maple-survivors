@@ -220,6 +220,20 @@ func test_arrow_blow_shows_the_crossbow_names_for_a_crossbow_and_the_bow_names_f
 		assert_eq(texts[tier].counter, bow_texts[tier].counter)
 
 
+func test_the_resolved_bonus_never_carries_the_text_table() -> void:
+	# The resolved bonus rides in card dictionaries and the event stream the oracles hash: it holds the one name only.
+	for family_weapon: int in [CROSSBOW, BOW]:
+		var w := _world(BLOW)
+		if w.weapon_id() != family_weapon:
+			assert_eq(w.wear_new_item(family_weapon), "")
+		for tier: String in ["rare", "epic"]:
+			var bonus := w.upgrades.rarity_bonus(w.upgrades.card(BLOW + "_rank"), w, tier)
+			assert_false(bonus.has("text_by_family"), "%s: resolved to one text" % tier)
+	var shared := _world(BLOW)
+	shared.upgrades.rarity_bonus(shared.upgrades.card(BLOW + "_rank"), shared, "rare")
+	assert_true(shared.book.def(BLOW).rarity_bonuses.rare[0].has("text_by_family"), "the shared definition is not modified by resolving it")
+
+
 func test_the_card_description_carries_the_crossbow_name() -> void:
 	var w := _world(BLOW)
 	var card := w.upgrades.choice_card(BLOW + "_rank", w, "rare")
