@@ -10,6 +10,8 @@ var slots: Array[int] = []
 
 
 func _ready() -> void:
+	get_window().content_scale_size = Vector2i(1000, 600)
+	get_window().content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 	var output := String(SceneFlow.parse_flags(OS.get_cmdline_user_args()).get("shots", ""))
 	if output.is_empty():
 		get_tree().quit(2)
