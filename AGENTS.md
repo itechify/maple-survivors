@@ -60,7 +60,7 @@ changing gameplay.
 - `cd tools/wzimport && cargo test` runs the importer tests. Fixtures are synthetic WZ files built by the test-only
   writer in `tools/wzimport/src/testutil.rs`. Tests against real data run only when `MAPLE_WZ_ROOT` is set.
 - Tests that need the real asset cache call `require_cache()` and SKIP without it. A SKIP proves nothing; say so when
-  reporting. CI (`.github/workflows/pages.yml`: `cargo test`, `node --test web/dev/test/*.test.mjs`,
+  reporting. CI (`.github/workflows/pages.yml`: `cargo test`, `node --test web/dev/test/*.test.mjs tools/level_curve/test/*.test.mjs`,
   `bash scripts/test.sh`) has no WZ data, so those tests SKIP there.
 - Gameplay changes need a deterministic test (seeded RNG, fixed dt). Visual changes need a screenshot checked by eye
   (`bash scripts/playtest.sh`), saved to `evidence/`.
