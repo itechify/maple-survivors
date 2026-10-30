@@ -336,6 +336,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0) * (1.0 + passive_total(DAMAGE_PCT) / 100.0)
 	var lo := 0.0
 	var hi := 0.0
+	var physical_bounds := Vector2.ZERO
 	if dtype == "fixed":
 		lo = book.canonical(key, lv, "fixdamage", 0.0) * dmg_mult
 		hi = lo
@@ -348,6 +349,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	elif dtype == "physical":
 		var bounds := CombatMath.physical_damage_range(str_stat, dex_stat, luk_stat, _summon_watk(key, lv, d), weapon_id,
 			attack_kind, job_id, mastery, d.get("physical_formula", {}))
+		physical_bounds = bounds
 		lo = bounds.x * dmg_mult
 		hi = bounds.y * dmg_mult
 	# Attack speed (#160): an attack skill's action time and cooldown shrink with the Booster steps in effect, relative
@@ -482,6 +484,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 
 	if d.has("revive"):
 		resolved["revive"] = _revive(key, d.revive)
+	if d.has("fixed_share"):
+		resolved["fixed_share"] = FixedShare.resolve(d.fixed_share, r, physical_bounds, dmg_mult)
 	return resolved
 
 
