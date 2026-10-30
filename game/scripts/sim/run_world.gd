@@ -292,6 +292,8 @@ var jobs: JobTree
 var upgrades: UpgradePool
 var director: SpawnDirector
 var mob_skills: MobSkillRunner
+## `_reflect_hit` as a Callable, built once for ProjectileSystem.reflect_hit.
+var _reflect_hit_callable: Callable = _reflect_hit
 var bosses: BossDirector
 var boss_attacks := BossAttacks.new()
 ## Ordinary mobs' canonical attacks and their per-slot stances (#76).
@@ -781,6 +783,38 @@ func banish_player(cast: Dictionary) -> void:
 	emit("player_banished", fields)
 
 
+## Whether the character has a Form or a timed self-buff a Dispel (MobSkill 127) could end (#461).
+func can_dispel() -> bool:
+	return not runner.forms.snapshot().is_empty() or not _dispellable_buffs().is_empty()
+
+
+## A boss's Dispel (MobSkill 127, #461) ends every active Form and every timed self-buff the character has, and returns the
+## skill keys it ended in the order it ended them. Summons (the support summons' pulse buffs included), passives, potions
+## and every cooldown stay. The stat refreshes of a buff's expiry run at once.
+func dispel_player() -> Array:
+	var ended: Array = []
+	for state: Dictionary in runner.forms.snapshot():
+		ended.append(String(state.skill))
+	runner.forms.clear(self, "dispelled")
+	for skill: String in _dispellable_buffs():
+		if buffs.end(skill, events):
+			ended.append(skill)
+	_refresh_caster()
+	refresh_player_speed()
+	_refresh_max_buffs()
+	_write_player_state(0.0)
+	return ended
+
+
+## The active buffs a Dispel ends: all but the pulse buffs of a support summon (those belong to the summon).
+func _dispellable_buffs() -> Array[String]:
+	var out: Array[String] = []
+	for skill: String in buffs.active:
+		if String(book.def(skill).get("slot", "")) != "summon_sub":
+			out.append(skill)
+	return out
+
+
 ## The Morph.wz id the character is drawn as while a morphing buff is active, 0 for the plain avatar.
 func morph_id() -> int:
 	return buffs.morph()
@@ -1056,6 +1090,8 @@ func _step_player_attacks(dt: float) -> void:
 		return
 	_fill_live_defense()
 	projectiles.magic_allowed = _live_magic_allowed
+	# Reflect (143/144/145, #461): the shots' damage rolls go through it only while some boss reflects.
+	projectiles.reflect_hit = _reflect_hit_callable if mob_skills.reflect_any(time) else Callable()
 	if map_sequence_enabled():
 		projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed,
 			_on_player_hit, _live_pdd, _projectile_kill)
@@ -1064,6 +1100,7 @@ func _step_player_attacks(dt: float) -> void:
 		for m in projectiles.kills:
 			_on_kill(m)
 	projectiles.magic_allowed = PackedByteArray() # no second reference, so the next fill writes in place
+	projectiles.reflect_hit = Callable()
 	if _map_clearing:
 		return
 	_play_final_attacks()
@@ -1872,7 +1909,9 @@ func magic_hit_allowed(m: int) -> bool:
 func spawn_boss(mob_id: int, boss_index: int, pos: Vector2, fh: int, hp_mult: float) -> int:
 	if not kind_of_id.has(mob_id):
 		return -1
-	var slot := spawn_mob(int(kind_of_id[mob_id]), pos, fh, hp_mult, false)
+	# A boss with a `fly` stance (Papulatus's final form, #461) has no foothold: it flies like the swarm's flyers.
+	var kind_index := int(kind_of_id[mob_id])
+	var slot := spawn_mob(kind_index, pos, -1 if (mob_kinds[kind_index] as MobKind).flies else fh, hp_mult, false)
 	if slot >= 0:
 		mob_boss[slot] = boss_index
 		swarm.steady[slot] = 1
@@ -1919,7 +1958,7 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	var elite := mob_elite[i] != 0
 	var boss_index := mob_boss[i]
 	var summon_owner := mob_summon_owner[i]
-	var j := swarm.relocate(i, pos, fh)
+	var j := swarm.relocate(i, pos, -1 if (mob_kinds[k] as MobKind).flies else fh)
 	_sync_slots()
 	mob_elite[j] = 1 if elite else 0
 	mob_boss[j] = boss_index
@@ -1955,6 +1994,8 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 		mob_defense(m, magic), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult),
 		hit_rng if hit_rng != null else rng, swarm.element_multiplier(m, String(st.get("element", ""))), dtype,
 		float(st.get("damage_pct", 1.0)), float(st.get("crit_damage_bonus", 0.0)))
+	if _reflect_hit(m, magic, roll.x):
+		return
 	var dir := 1 if swarm.x[m] >= player.pos.x else -1
 	emit("mob_hit", {
 		"mob": m, "mob_id": mk.id, "damage": roll.x, "crit": roll.y != 0,
@@ -2791,6 +2832,41 @@ func _power_guard_reflect(damage: int, magic: bool, source: Dictionary) -> int:
 	var boss: bool = mob_boss[m] >= 0 or (mob_kinds[swarm.kind[m]] as MobKind).boss
 	var amount := floori(float(damage) * percent * (0.5 if boss else 1.0) / 100.0)
 	return clampi(amount, 0, floori(float(swarm.max_hp[m]) * POWER_GUARD_CAP))
+
+
+## A hit of `damage` the character dealt to slot `m` (Reflect, MobSkill 143/144/145, #461): true when the boss reflects that
+## damage type, in which case the hit deals 0 to it and the character loses MobReflect.hit's amount instead.
+func _reflect_hit(m: int, magic: bool, damage: float) -> bool:
+	var amount := mob_skills.reflect_hit(m, magic, damage, time)
+	if amount < 0:
+		return false
+	var mk: MobKind = mob_kinds[swarm.kind[m]]
+	emit("boss_reflect", {"mob": m, "mob_id": mk.id, "boss_index": mob_boss[m], "magic": magic, "damage": int(damage),
+		"amount": amount, "pos": Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y), "time": time})
+	if amount > 0:
+		_hurt_by_reflect(m, amount)
+	return true
+
+
+## The character loses `amount` HP to the Reflect of boss slot `m`: no avoid, defence or knockback, and the hit window and
+## hit hooks apply as for a monster hit. The hit is a `player_hit` of source_kind "reflect"; it can kill.
+func _hurt_by_reflect(m: int, amount: int) -> void:
+	var source := {"mob": m, "mob_id": mob_kinds[swarm.kind[m]].id, "boss": true, "boss_index": mob_boss[m],
+		"source_kind": "reflect"}
+	if _dead or _map_clearing or god or hit_window_blocks(source):
+		return
+	_hp -= amount
+	_emit_player_hit(amount, false, 1 if player.pos.x >= swarm.x[m] else -1, source)
+	if _hp <= 0.0 and _hit_hook_saves(source):
+		_hp = maxf(_hp, 1.0)
+	if _hp <= 0.0:
+		_hp = 0.0
+		_dead = true
+		state = DEAD
+		runner.clear_pending(self)
+		runner.forms.clear(self)
+		emit("player_died", {"pos": player.pos})
+	_write_player_state(0.0)
 
 
 ## Hands a Power Guard reflect to monster `m` as the character's own damage (tier C): a damage number, and a kill gives

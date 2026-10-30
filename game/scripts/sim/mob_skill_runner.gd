@@ -1,6 +1,6 @@
 class_name MobSkillRunner
 extends RefCounted
-## Canonical scheduled-boss skills (MobSkill 100/101/102/103/110/111/112/113/114/123/126/129/140/141/200) and their timed status state
+## Canonical scheduled-boss skills (MobSkill 100/101/102/103/110/111/112/113/114/123/126/127/129/140/141/143/144/145/200) and their timed status state
 ## (docs/ARCHITECTURE.md 4.4.3, docs/GAME_DESIGN.md 4.3): no files, nodes or canonical-stat mutation.
 
 ## Original Skill.wz/MobSkill.img ids of the skills this runner casts.
@@ -15,14 +15,24 @@ const SKILL_MDD_UP_AREA := 113
 const SKILL_HEAL_AREA := 114
 const SKILL_STUN := 123
 const SKILL_SLOW := 126
+const SKILL_DISPEL := 127
 const SKILL_BANISH := 129
 const SKILL_WEAPON_IMMUNITY := 140
 const SKILL_MAGIC_IMMUNITY := 141
+const SKILL_REFLECT_PHYSICAL := 143
+const SKILL_REFLECT_MAGIC := 144
+const SKILL_REFLECT := 145
 const SKILL_SUMMON := StageRoster.SUMMON_SKILL
 ## Every MobSkill id `step` can cast; a boss's other listed skills are skipped.
 const SUPPORTED := [SKILL_SLOW, SKILL_SUMMON, SKILL_PDD_UP_AREA, SKILL_MDD_UP_AREA, SKILL_HEAL_AREA,
 	SKILL_WEAPON_IMMUNITY, SKILL_ATTACK_UP, SKILL_ATTACK_UP_AREA, SKILL_BANISH, SKILL_MAGIC_ATTACK_UP,
-	SKILL_MAGIC_ATTACK_UP_AREA, SKILL_PDD_UP, SKILL_MDD_UP, SKILL_MAGIC_IMMUNITY, SKILL_STUN]
+	SKILL_MAGIC_ATTACK_UP_AREA, SKILL_PDD_UP, SKILL_MDD_UP, SKILL_MAGIC_IMMUNITY, SKILL_STUN, SKILL_DISPEL,
+	SKILL_REFLECT_PHYSICAL, SKILL_REFLECT_MAGIC, SKILL_REFLECT]
+## The three reflect skills (#461): physical hits, magic hits, both.
+const REFLECT_IDS := [SKILL_REFLECT_PHYSICAL, SKILL_REFLECT_MAGIC, SKILL_REFLECT]
+## tier C (#461): the shortest time between two Dispels (balance.mob_skills.status_lockout["127"] overrides it); the WZ
+## interval (1 s on Papulatus's clock) would otherwise strip every buff the moment it is cast.
+const DISPEL_LOCKOUT := 20.0
 ## tier C: Attack Up (100/110) multiplies the weapon attack of the buffed mobs by this while it lasts (spec #253). The
 ## v83 x115 is not read: whether it is flat or a percentage is unverified. balance.mob_skills.attack_up_mult sets it.
 const DEFAULT_ATTACK_UP_MULT := 1.15
@@ -45,6 +55,7 @@ var _pending_heals: Array[Dictionary] = []
 var _attack_up_mult := DEFAULT_ATTACK_UP_MULT
 var _attack_until := PackedFloat64Array()
 var _buffs := MobBuffs.new() # 101/111 magic attack up, the 101/102/103/111 icons and the magic immunity 141 (#457)
+var _reflect: MobReflect # 143/144/145 (#461)
 
 
 func _init(setup: Dictionary, rules: Dictionary = {}) -> void:
@@ -53,7 +64,8 @@ func _init(setup: Dictionary, rules: Dictionary = {}) -> void:
 	for id: Variant in rules.get("enabled_ids", []):
 		_enabled.append(int(id))
 	_attack_up_mult = float(rules.get("attack_up_mult", DEFAULT_ATTACK_UP_MULT))
-	statuses = PlayerStatuses.new(rules.get("status_lockout", {}))
+	statuses = PlayerStatuses.new({str(SKILL_DISPEL): DISPEL_LOCKOUT}.merged(rules.get("status_lockout", {}), true))
+	_reflect = MobReflect.new(rules.get("reflect", {}))
 
 
 ## Current movement multiplier from the area's timed slow.
@@ -96,7 +108,7 @@ func step(world: RunWorld) -> void:
 			if spec.is_empty() or id not in SUPPORTED:
 				continue
 			# Hidden (#194): a skill aimed at the character (Slow, Banish, Stun) is not cast while it is Hidden.
-			if id in [SKILL_SLOW, SKILL_BANISH, SKILL_STUN] and world.is_hidden():
+			if id in [SKILL_SLOW, SKILL_BANISH, SKILL_STUN, SKILL_DISPEL] and world.is_hidden():
 				continue
 			var key := "%d/%d/%d" % [index, id, level]
 			var interval := world.bosses.skill_interval(index, id, float(spec.get("interval", 0.0)))
@@ -111,8 +123,11 @@ func step(world: RunWorld) -> void:
 				continue
 			# tier B (Cosmic): a boss never holds 140 and 141 together, so it is never immune to everything; the cast
 			# that would overlap is skipped and still spends its interval (spec #448 B2).
+			# The reflects (143/144/145, #461) follow the same rule against both immunities.
 			if (id == SKILL_MAGIC_IMMUNITY and not physical_hit_allowed(slot, now)) \
-					or (id == SKILL_WEAPON_IMMUNITY and not _buffs.magic_hit_allowed(slot, now)):
+					or (id == SKILL_WEAPON_IMMUNITY and not _buffs.magic_hit_allowed(slot, now)) \
+					or (id in REFLECT_IDS and not (physical_hit_allowed(slot, now) and _buffs.magic_hit_allowed(slot, now))) \
+					or (id in [SKILL_WEAPON_IMMUNITY, SKILL_MAGIC_IMMUNITY] and _reflect.active(slot, now)):
 				_ready[key] = now + interval
 				continue
 			var pos := swarm.pos(slot)
@@ -120,6 +135,11 @@ func step(world: RunWorld) -> void:
 			# tier C (#256): Banish is only cast with the character inside its canonical area (prop 100, so no roll; the
 			# one character is its only target whatever `count` says); a miss never spends its cooldown.
 			if id == SKILL_BANISH and not _area(spec, pos, facing).has_point(world.player.pos):
+				continue
+			# tier C (#461): Dispel is only cast with the character inside its area, outside its lockout and with a Form or
+			# timed self-buff to end; a cast with nothing to end would only spend the lockout, so it waits (as Banish does).
+			if id == SKILL_DISPEL and (not _area(spec, pos, facing).has_point(world.player.pos)
+					or statuses.is_locked(id, now) or not world.can_dispel()):
 				continue
 			var duration := float(spec.get("time", 0.0))
 			var path := "Skill.wz/MobSkill.img/%d/level/%d" % [id, level]
@@ -133,6 +153,12 @@ func step(world: RunWorld) -> void:
 			if id == SKILL_STUN and _area(spec, pos, facing).has_point(world.player.pos) \
 					and _roll_status(world, id, spec) and statuses.apply(id, now, duration, {"visual": path + "/affected"}):
 				affected = path + "/affected"
+			var dispelled: Array = []
+			if id == SKILL_DISPEL and _roll_status(world, id, spec):
+				# The floor runs from the cast (DISPEL_LOCKOUT or the configured seconds). The `affected` art plays once,
+				# through `player_dispelled`, not as a repeating status.
+				statuses.apply(id, now, duration, {"visual": path + "/affected"})
+				dispelled = world.dispel_player()
 			var targets: Array = []
 			if id == SKILL_SUMMON:
 				var available := maxi(0, int(spec.get("limit", 0)) - world.summoned_alive(index))
@@ -165,6 +191,12 @@ func step(world: RunWorld) -> void:
 				_weapon_until[slot] = now + duration
 				_weapon_visual[slot] = path + "/mob"
 				targets = [slot]
+			elif id in REFLECT_IDS:
+				# tier C: x is a share of the hit in basis points and y a cap per reflect (MobReflect); WZ verifies the
+				# numbers, not the original arithmetic.
+				_reflect.start(slot, id, float(spec.get("x", 0.0)), float(spec.get("y", 0.0)), now + duration,
+					path + "/mob" if spec.has("mob") else "")
+				targets = [slot]
 			elif id == SKILL_BANISH:
 				world.banish_player({"mob": slot, "mob_id": int(record.mob_id), "skill_id": id, "level": level,
 					"effect": path + "/affected" if spec.has("affected") else "",
@@ -178,6 +210,9 @@ func step(world: RunWorld) -> void:
 				"effect": path + ("/effect" if spec.has("effect") else "/mob0") if spec.has("effect") or (id == SKILL_HEAL_AREA and spec.has("mob0")) else "", "player_effect": affected, "targets": targets,
 				"recipient_effect": path + "/mob0" if spec.has("mob0") else "",
 				"summon_effect": "Effect.wz/Summon.img/%d" % int(spec.summonEffect) if id == SKILL_SUMMON and spec.has("summonEffect") else ""})
+			if not dispelled.is_empty():
+				world.emit("player_dispelled", {"mob": slot, "mob_id": int(record.mob_id), "skill_id": id, "level": level,
+					"skills": dispelled, "effect": path + "/affected" if spec.has("affected") else "", "time": now})
 			break
 	# Resolve newly queued effectAfter0 heals in the same tick, after the cast event; delayed entries remain queued.
 	_resolve_heals(world)
@@ -258,6 +293,7 @@ func resize(capacity: int) -> void:
 	_weapon_visual.resize(capacity)
 	_attack_until.resize(capacity)
 	_buffs.resize(capacity)
+	_reflect.resize(capacity)
 
 
 ## A new mob in a reused slot starts without the previous occupant's defense and attack statuses.
@@ -270,6 +306,7 @@ func reset_slot(slot: int) -> void:
 	_weapon_visual[slot] = ""
 	_attack_until[slot] = 0
 	_buffs.reset_slot(slot)
+	_reflect.reset_slot(slot)
 
 
 ## Transfers timed statuses with a relocation; a later reuse of the former slot gets no stale state.
@@ -284,6 +321,7 @@ func move_slot(from: int, to: int) -> void:
 	_weapon_visual[to] = _weapon_visual[from]
 	_attack_until[to] = _attack_until[from]
 	_buffs.move_slot(from, to)
+	_reflect.move_slot(from, to)
 	reset_slot(from)
 
 
@@ -338,7 +376,26 @@ func status_visuals(slot: int, now: float) -> Array[String]:
 	if not immunity.is_empty():
 		out.append(String(immunity.visual))
 	out.append_array(_buffs.icons(slot, now))
+	var reflect := _reflect.state(slot, now)
+	if not reflect.is_empty() and String(reflect.visual) != "":
+		out.append(String(reflect.visual))
 	return out
+
+
+## Whether any boss may be reflecting (143/144/145) at `now`; false lets a caller skip the per-hit reflect check.
+func reflect_any(now: float) -> bool:
+	return _reflect.any_active(now)
+
+
+## Resolves a player hit of `damage` on `slot` against its Reflect (#461): -1 when it does not reflect that type now
+## (the hit lands normally), else the whole HP the character loses (0 inside the rate limit). The hit deals 0 either way.
+func reflect_hit(slot: int, magic: bool, damage: float, now: float) -> int:
+	return _reflect.hit(slot, magic, damage, now)
+
+
+## Detached presentation state of the Reflect on `slot` ({skill_id, remaining, visual, physical, magic}), empty otherwise.
+func reflect_state(slot: int, now: float) -> Dictionary:
+	return _reflect.state(slot, now)
 
 
 ## Multiplier on the magic attack of the mob in `slot`: the cast's x/100 while MobSkill 101/111 lasts, else 1.

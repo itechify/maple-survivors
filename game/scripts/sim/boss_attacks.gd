@@ -11,7 +11,8 @@ var _pending: Dictionary = {}
 var _next: Dictionary = {}
 
 
-## Advances pending effects/impacts, then starts an in-range, fully visible grounded boss's next ready attack.
+## Advances pending effects/impacts, then starts an in-range, fully visible boss's next ready attack. A grounded boss
+## needs a foothold; a flying one (a `fly` stance, #461) attacks from wherever it hovers.
 func step(world: RunWorld) -> void:
 	var swarm := world.swarm
 	var bosses := world.bosses
@@ -29,7 +30,7 @@ func step(world: RunWorld) -> void:
 		var record: Dictionary = bosses.records[index]
 		var slot := int(record.slot)
 		if world.state != RunWorld.PLAYING or _pending.has(index) or not bosses.can_act(index, now) \
-				or not swarm.can_act(slot) or swarm.fh[slot] < 0:
+				or not swarm.can_act(slot) or (swarm.fh[slot] < 0 and not swarm.mob_kind(slot).flies):
 			continue
 		var entry: Dictionary = bosses.entries[index]
 		var img := world.mob_img(int(record.mob_id))
