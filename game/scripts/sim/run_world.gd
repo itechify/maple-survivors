@@ -66,7 +66,7 @@ extends RefCounted
 ## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194),
 ## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256),
 ## 18 ground-area status rolls (ground_rng),
-## 19 boss player-status chance rolls (mob_status_rng, Stun in #456).
+## 19 boss player-status chance rolls (mob_status_rng, Stun in #456),
 ## 20 area-warning attack column picks (area_rng, #460; 19 is mob_status_rng of #456).
 ## Each stream has exactly one owner.
 
