@@ -229,6 +229,8 @@ var _restart_action := false
 var _slow_fx := -1
 var _immunity_fx := {}
 var _shown_action := ""
+## The skill key of the running form whose `mount` the avatar rides ("" without one).
+var _mount_skill := ""
 var _blink_t := 0.0
 var _frame_exp := 0
 var _frame_mesos := 0
@@ -1105,6 +1107,7 @@ func handle_events(events: Array) -> void:
 		match String(e.type):
 			"form_started", "form_ended":
 				_refresh_form_tint()
+				_refresh_form_mount(e)
 			"meter_changed":
 				hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
 				meter_cue.on_event(e)
@@ -2409,6 +2412,29 @@ func _layer_at(p: Vector2) -> int:
 
 func _sfx_service() -> AudioService:
 	return get_node_or_null("/root/Sfx") as AudioService
+
+
+## The mount of the form that started (`mount` of form_started, the Corsair's Battleship) rides until that same form ends
+## (a form_ended of another skill leaves it), and never past the character's death.
+func _refresh_form_mount(e: Dictionary) -> void:
+	var next := mount_after_form_event(e, _mount_skill)
+	if int(next.mount) < 0:
+		return
+	_mount_skill = String(next.skill)
+	avatar.set_mount(int(next.mount))
+
+
+## The mount state after a form event: {"mount": id, "skill": the form that owns it}, or mount -1 when the event leaves it
+## as it is. A form_started that names a mount takes it over; one that names none (every form but the ship) leaves it;
+## a form_ended ends it only when it is the mount's own form (death ends every form, so it ends the ride).
+static func mount_after_form_event(e: Dictionary, owner_skill: String) -> Dictionary:
+	if String(e.get("type", "")) == "form_started":
+		var id := int(e.get("mount", 0))
+		if id > 0:
+			return {"mount": id, "skill": String(e.get("skill", ""))}
+	elif owner_skill != "" and String(e.get("skill", "")) == owner_skill:
+		return {"mount": 0, "skill": ""}
+	return {"mount": -1, "skill": owner_skill}
 
 
 ## Refreshes the held weapon only when a form starts or ends (tier C element palette).
