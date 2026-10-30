@@ -704,13 +704,20 @@ static func fight_records(world: RunWorld) -> Array:
 	for record: Dictionary in world.bosses.records:
 		var spawn := float(record.spawn_time)
 		var death := float(record.death_time)
-		fights.append({"boss_index": int(record.boss_index), "mob_id": int(record.mob_id), "spawn_time": spawn, "death_time": death,
+		# Keyed on the scheduled entry, so a final form's swap (record.mob_id becomes the form's) never changes the id.
+		var entry: Dictionary = world.bosses.entries[int(record.boss_index)]
+		var fight := {"boss_index": int(record.boss_index), "mob_id": int(entry.mob_id), "spawn_time": spawn, "death_time": death,
 			"map_index": int(record.get("map_index", 0)), "map_id": int(record.get("map_id", world.current_map_id())),
 			"duration": death-spawn if bool(record.dead) and spawn>=0.0 else -1.0,
 			"elapsed": maxf(0.0, (death if bool(record.dead) else world.time)-spawn) if spawn>=0.0 else 0.0,
-			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "skipped" if bool(record.get("skipped", false)) else "not_spawned"})
+			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "skipped" if bool(record.get("skipped", false)) else "not_spawned"}
+		if entry.has("final_form"):
+			# Only encounters with a final form carry these, so other runs' records keep their shape.
+			fight["final_form"] = int(entry.final_form)
+			fight["form_time"] = float(record.get("form_time", -1.0))
 		if record.has("level_scale_at"):
-			fights[fights.size() - 1]["level_scale_at"] = float(record.level_scale_at)
+			fight["level_scale_at"] = float(record.level_scale_at)
+		fights.append(fight)
 	return fights
 
 

@@ -407,6 +407,37 @@ static func stage_map_errors(stages_file: Dictionary) -> PackedStringArray:
 			if entry.boss.has("skill_intervals") and not _valid_skill_intervals(entry.boss.skill_intervals):
 				errors.append("stage '%s' maps[%d] boss skill_intervals needs {\"<mob skill id>\": seconds > 0}"
 					% [key, i])
+			if entry.boss.has("final_form") and (int(entry.boss.final_form) <= 0
+					or int(entry.boss.final_form) == int(entry.boss.get("mob_id", 0))):
+				errors.append("stage '%s' maps[%d] boss final_form needs a mob id other than the boss's own" % [key, i])
+			var weight: Variant = entry.boss.get("final_form_hp_mult", 1.0)
+			if entry.boss.has("final_form_hp_mult") and (not (weight is float or weight is int) or float(weight) <= 0.0):
+				errors.append("stage '%s' maps[%d] boss final_form_hp_mult needs a number > 0" % [key, i])
+	return errors
+
+
+## Cache-backed check of a stage's scheduled bosses: every `final_form` must be listed in its shell's canonical
+## `info/revive` (the form is a v83 fact, never invented by stages.json). `mob_imgs` is {id: Mob.wz img root}; a shell
+## whose img is absent is reported by the missing-asset list instead. `enabled_ids` (balance.mob_skills.enabled_ids)
+## also flags a form missing from it while its shell is listed. One message per violation.
+static func final_form_errors(stage: Dictionary, mob_imgs: Dictionary, enabled_ids: Array = []) -> PackedStringArray:
+	var errors := PackedStringArray()
+	var enabled := {}
+	for id: Variant in enabled_ids:
+		enabled[int(id)] = true
+	for boss: Dictionary in stage_bosses(stage):
+		if not boss.has("final_form"):
+			continue
+		var shell := int(boss.get("mob_id", 0))
+		var img: Variant = mob_imgs.get(shell, mob_imgs.get(str(shell), {}))
+		if not img is Dictionary or img.is_empty():
+			continue
+		var revive: Variant = img.get("info", {}).get("revive", {})
+		if not (revive is Dictionary and int(boss.final_form) in StageRoster.list_ids(revive)):
+			errors.append("boss %d final_form %d is not in its info/revive" % [shell, int(boss.final_form)])
+		elif enabled.has(shell) and not enabled.has(int(boss.final_form)):
+			# The form would never cast its kit while the shell's is enabled: almost surely a forgotten id.
+			errors.append("boss %d is in balance.mob_skills.enabled_ids but its final_form %d is not" % [shell, int(boss.final_form)])
 	return errors
 
 
@@ -663,6 +694,9 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 				mob_imgs[id] = m
 			else:
 				missing.append("Mob.wz/%07d.img" % id)
+	for problem in final_form_errors(data.get("stages", {}).get("stages", {}).get(stage_key, {}), mob_imgs,
+			data.get("balance", {}).get("mob_skills", {}).get("enabled_ids", [])):
+		missing.append("stage '%s': %s" % [stage_key, problem])
 	var skill_imgs := {}
 	for book in skill_books(data):
 		var s: Variant = img_loader.call(skill_img_path(book))

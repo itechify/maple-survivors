@@ -66,6 +66,7 @@ extends RefCounted
 ## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194),
 ## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256),
 ## 18 ground-area status rolls (ground_rng),
+## 19 boss player-status chance rolls (mob_status_rng, Stun in #456),
 ## 20 area-warning attack column picks (area_rng, #460; 19 is mob_status_rng of #456).
 ## Each stream has exactly one owner.
 
@@ -225,6 +226,8 @@ var pirate_rng: RandomNumberGenerator
 var banish_rng: RandomNumberGenerator
 ## Stream 18: ground-area status proc rolls, independent of combat.
 var ground_rng: RandomNumberGenerator
+## Stream 19: the `prop` roll of a boss skill that puts a status on the character (Stun 123, #456), isolated from combat.
+var mob_status_rng: RandomNumberGenerator
 ## Stream 20: which columns of a boss's area-warning attack (`info/type` 3 and 4) strike (MobAttacks.pick_columns).
 var area_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
@@ -453,6 +456,7 @@ func _init_rng_streams() -> void:
 	thief_rng = _stream(15) # tier C: independent Thief-only rolls; reserved for Steal success, #207/#214.
 	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14 reserved, #186.
 	ground_rng = _stream(18) # tier C: dedicated ground proc stream.
+	mob_status_rng = _stream(19) # tier C: boss player-status chance rolls (#456); stream 18 is ground_rng.
 	area_rng = _stream(MobAttacks.AREA_STREAM) # tier C: area-warning column picks never shift another stream, #460.
 	banish_rng = _stream(17) # tier C: Banish portal draws never shift another stream, #256.
 
@@ -868,6 +872,10 @@ func _step_player(dt: float, input: MoveInput) -> void:
 	_teleport_left = maxf(0.0, _teleport_left - dt)
 	if input.drink_hp:
 		drink_potion("hp")
+	# tier C (#456): potions stay usable while stunned (v83 does not say); everything else reads an empty input, so
+	# gravity, knockback and damage continue but nothing moves, jumps, dashes or casts a manual skill.
+	if mob_skills.is_stunned(time):
+		input = MoveInput.new()
 	_try_manual_buffs(input)
 	if not _try_input_dash(input) and not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
@@ -1848,6 +1856,19 @@ func physical_hit_allowed(m: int) -> bool:
 	return mob_skills.physical_hit_allowed(m, time)
 
 
+## Spawns scheduled boss `mob_id` as encounter `boss_index` (BossDirector arrival and final forms); returns its slot, -1 when
+## the kind is not loaded or the swarm is full. Scheduled bosses never flinch or get pushed, whatever their WZ
+## info/boss flag (tier C).
+func spawn_boss(mob_id: int, boss_index: int, pos: Vector2, fh: int, hp_mult: float) -> int:
+	if not kind_of_id.has(mob_id):
+		return -1
+	var slot := spawn_mob(int(kind_of_id[mob_id]), pos, fh, hp_mult, false)
+	if slot >= 0:
+		mob_boss[slot] = boss_index
+		swarm.steady[slot] = 1
+	return slot
+
+
 ## Spawns kind k with HP scaled by hp_mult and the round opening ramp; bosses capture it on arrival. Emits mob_spawned.
 func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> int:
 	if k < 0 or k >= mob_kinds.size():
@@ -1998,6 +2019,10 @@ func _final_attack_hit(slot: int, hit: Dictionary) -> void:
 
 ## Plays the queued follow-ups at their still-living original targets (tier C: a target the trigger killed gets none).
 func _play_final_attacks() -> void:
+	if mob_skills.is_stunned(time):
+		# tier C (#456): a stunned character plays no follow-up; the queued ones are lost.
+		_final_queue.clear()
+		return
 	if _final_queue.is_empty():
 		return
 	var queue := _final_queue
@@ -2378,13 +2403,18 @@ func _sync_slots() -> void:
 
 
 func _on_kill(m: int) -> void:
-	kills += 1
 	var mk := swarm.mob_kind(m)
 	var elite := mob_elite[m] != 0
 	var pos := swarm.pos(m)
 	if mob_boss[m] >= 0:
+		if bosses.continue_final_form(mob_boss[m], m, pos, self):
+			# The shell of a final-form encounter pays nothing, is not a kill and is not marked dead: the form carries on (#456).
+			emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": 0, "elite": elite})
+			return
+		kills += 1
 		_on_boss_kill(m, mk, pos, elite)
 		return
+	kills += 1
 	var mult := float(balance.get("exp_mult", 1.0)) * float(stage.get("exp_mult", 1.0))
 	if elite:
 		mult *= float(stage.get("elites", {}).get("exp_mult", 5.0))
@@ -2762,9 +2792,10 @@ func _emit_player_hit(damage: int, miss: bool, dir: int, source: Dictionary) -> 
 		"boss": bool(source.get("boss", false)), "max_hp": _max_hp, "source_kind": String(source.get("source_kind", "other"))})
 
 
-## Whether auto-actions may cast now: hanging on a rope/ladder blocks new casts, not their cooldowns or effects.
+## Whether auto-actions may cast now: hanging on a rope/ladder or Stun blocks new casts, not their cooldowns or effects.
 func can_cast() -> bool:
-	return state == PLAYING and not _dead and not _map_clearing and player.state != PlayerMotion.ST_LADDER
+	return state == PLAYING and not _dead and not _map_clearing and player.state != PlayerMotion.ST_LADDER \
+		and not mob_skills.is_stunned(time)
 
 
 func _gain_exp(n: int) -> void:
@@ -2867,6 +2898,12 @@ func _write_player_state(dt: float) -> void:
 	player_state["exp"] = progression.exp
 	player_state["exp_next"] = progression.exp_to_next()
 	player_state["slow"] = mob_skills.slow_state(time)
+	# Present only while stunned, so snapshots of runs without a Stun keep their bytes (#456).
+	var stun := mob_skills.stun_state(time)
+	if stun.is_empty():
+		player_state.erase("stun")
+	else:
+		player_state["stun"] = stun
 	player_state["level"] = progression.level
 	player_state["job_id"] = progression.job_id
 	for stat: String in _attributes:
