@@ -1143,9 +1143,11 @@ func handle_events(events: Array) -> void:
 				_on_skill_chain(e)
 			"skill_ground":
 				var box: Rect2 = e.box
-				# tier C: tile strips spaced 80 px, lasting exactly the simulation area's lifetime.
-				for offset in range(int(box.position.x), int(box.end.x), 80):
-					fx.play_repeating(String(e.effect), e.pos + Vector2(offset, 0), float(e.duration))
+				# tier C: tile strips spaced 80 px, lasting exactly the simulation area's lifetime. A damaging zone
+				# (ground.strike) may have no tile: its strikes bring their own art.
+				if String(e.effect) != "":
+					for offset in range(int(box.position.x), int(box.end.x), 80):
+						fx.play_repeating(String(e.effect), e.pos + Vector2(offset, 0), float(e.duration))
 			"skill_impact":
 				if String(e.effect) != "":
 					fx.play(String(e.effect), e.pos)

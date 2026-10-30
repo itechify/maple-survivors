@@ -2117,8 +2117,14 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 		var always: bool = not knockback.has("chance_field")
 		if always or rng.randf() * 100.0 < book.canonical(key, level, String(knockback.chance_field)):
 			# `direction: "dash"` shoves along the dash that hit it instead of away from the player's final position.
-			swarm.knockback(slot, player.pos.x, float(knockback.get("distance", 0.0)), fhm, bounds,
+			# `distance_by_rank` (Ninja Storm, spec #383 NL8) reads the owner's current rank; the scalar `distance` is unchanged.
+			var distance := Loadout.knockback_distance_at(knockback, loadout.rank(key)) if knockback.has("distance_by_rank") \
+				else float(knockback.get("distance", 0.0))
+			swarm.knockback(slot, player.pos.x, distance, fhm, bounds,
 				int(hit.get("push_side", 0)) if String(knockback.get("direction", "")) == "dash" else 0)
+			if knockback.has("effect"):
+				# tier C: ours (NL8), the pushed monster's status art (Ninja Storm's `mob`), played once where it landed.
+				emit("skill_mob_effect", {"skill": key, "mob": slot, "pos": mob_center(slot), "effect": String(knockback.effect)})
 	for listener: Callable in _hit_listeners:
 		listener.call(slot, hit)
 
