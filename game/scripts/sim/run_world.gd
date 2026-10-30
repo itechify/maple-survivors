@@ -77,6 +77,14 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_UPGRADE", "DEAD", "CLEARED"]
 const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "touch", "gain_exp",
 	"player_state", "end_tick"]
 
+## Event type -> the fields an event carries only when they apply, so an event without them keeps its exact old bytes
+## (docs/ARCHITECTURE.md 4.4.3): `player_hit.absorbed` (whole points a hull or hit hook soaked, only when positive) and
+## `form_started.mount` (the TamingMob id of a form that names one). `summon_spawn.sound` is the older case, listed beside its type.
+const OPTIONAL_EVENT_FIELDS := {
+	"player_hit": ["absorbed"],
+	"form_started": ["mount"],
+}
+
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
 	"form_started": ["skill", "skill_id", "element", "duration"],
@@ -2557,12 +2565,13 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	# Power Guard (#182): a no-op, with no RNG and no event, unless the buff is active and this is contact damage.
 	var reflect := _power_guard_reflect(dmg, magic, source)
 	dmg -= reflect
+	var soakable := dmg
+	# The running Forms' absorb phase (the ship's hull, spec #384 C11) and then the hit hooks' (below): what they soak never
+	# reaches HP, in order, and the damage number shows the rest; `player_hit.absorbed` carries the part they took.
 	dmg = ceili(runner.forms.absorb(self, float(dmg)))
-
-	# The hit hooks' absorb phase (a hull): what they soak never reaches HP, in order, and the damage number shows the rest.
 	dmg = _hit_hooks_absorb(dmg, source)
 	_hp -= dmg
-	_emit_player_hit(dmg, false, dir, source)
+	_emit_player_hit(dmg, false, dir, source, soakable - dmg)
 	upkeep.land_hit(bypass)
 	if reflect > 0:
 		_apply_reflect(int(source.mob), reflect)
@@ -2663,10 +2672,13 @@ func _apply_reflect(m: int, amount: int) -> void:
 		_on_kill(m)
 
 
-func _emit_player_hit(damage: int, miss: bool, dir: int, source: Dictionary) -> void:
-	emit("player_hit", {"damage": damage, "miss": miss, "dir": dir,
+func _emit_player_hit(damage: int, miss: bool, dir: int, source: Dictionary, absorbed := 0) -> void:
+	var fields := {"damage": damage, "miss": miss, "dir": dir,
 		"pos": player.pos, "mob": int(source.get("mob", -1)), "mob_id": int(source.get("mob_id", 0)),
-		"boss": bool(source.get("boss", false)), "max_hp": _max_hp, "source_kind": String(source.get("source_kind", "other"))})
+		"boss": bool(source.get("boss", false)), "max_hp": _max_hp, "source_kind": String(source.get("source_kind", "other"))}
+	if absorbed > 0:
+		fields["absorbed"] = absorbed # optional (OPTIONAL_EVENT_FIELDS): only a hit a hull or hook soaked part of carries it
+	emit("player_hit", fields)
 
 
 ## Whether auto-actions may cast now: hanging on a rope/ladder blocks new casts, not their cooldowns or effects.

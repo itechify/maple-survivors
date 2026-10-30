@@ -302,11 +302,21 @@ The Form effect registry is the extension boundary; later class tickets add thei
 |---|---|
 | Shadower | `buff.hidden`; the sub flags `ignores_hidden` and `ends_form` bypass Hidden and consume just the parent after a successful cast |
 | Buccaneer | `buff.morph_field` and Morph.wz presentation; template `test_morph_form.gd` (B3 #415; the morph paragraph below) |
-| Corsair | `hull` effect with start/end state, incoming `absorb` hook and mount art; return remaining damage and call `end(...,"depleted")` when spent |
+| Corsair | `hull`, `only_skills`, `art_variant` (C11 #395, the `STATE_EFFECTS` paragraph below) and mount art (C12); `hull` ends its form with `broken` when spent |
 
 Add an effect key only for cast-stat or lifecycle behaviour. Hidden and morph use the existing buff block.
 Form absorption runs after reflection, before the ordered hit-hook absorb phase and lethal interception.
 A Form-owned hull uses the Form hook; a separate hit feature uses HitHook, without registering the same pool twice.
+
+**State effects (spec #384 C11, GAME_DESIGN 7.120.2).** `PlayerForms.STATE_EFFECTS` is a second registry beside `EFFECTS`
+whose entries own state in the running window rather than editing a cast copy: optional `start(world, state, value)` (after the
+window is appended, so it may call `forms.end`), `end(world, state, reason)`, `absorb(world, state, amount)` (folded into
+`PlayerForms.absorb` in start order, like the `EFFECTS` hook) and `validate(value)`. Its entries: `hull` (`PlayerHull`,
+`scripts/sim/player_hull.gd`: the pool in `state.hull_hp` / `hull_max`, whole points, ends the form `broken`), `only_skills` and
+`art_variant` (`FormRules`, `scripts/sim/form_rules.gd`: a validator each, their values read by `PlayerForms.permits`, which
+`SkillRunner.cast_ready` asks once per candidate, and by `PlayerForms.begin_cast`). `PlayerForms.hull_fraction()` feeds the
+`HullBar` (`scripts/render/hull_bar.gd`, drawn by `RunScene`; presentation only). `form.presentation.mount` is validated here and
+only rides on `form_started`; the mount renderer is C12.
 Sub stats are cached per window/rank and invalidated by `Loadout.version`; current parent damage/area stays live.
 `SkillRunner.resolve_cast` is the public admitted-cast entry point.
 
@@ -437,8 +447,8 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `player_restored` | `stat` (`hp`/`mp`), `amount` (actual positive integer pool gain after capping), `skill` (key or empty), `pos` (player feet); emitted by `restore_player`, independent of legacy Recovery/potions |
 | `support_pulse` | `skill` (the pulse's sub-skill key), `skill_id`, `kind` (a `SupportSummons.KINDS` key), `slot` (the summon's `PlayerSummons` slot); emitted when a support summon's pulse fires, before its effect (`player_restored` / `buff_cast`). Presentation plays the parent's owner-side `affected` art |
 | `final_attack` | `skill`, `skill_id`, `level`, `mob` (the original target's slot), `pos`, `facing`, `action` (the skill's stance), `effect` (WZ path or `""`); emitted just before the follow-up's own `mob_hit` (skill = the Final Attack key; #161) |
-| `form_started` | `skill`, `skill_id`, `element`, `duration` (resolved seconds); existing buff row consumes the parallel PlayerBuffs entry |
-| `form_ended` | `skill`, `skill_id`, `reason` (`expired`, `died`, `replaced`, `consumed`, `depleted`); buff expiry accompanies removal |
+| `form_started` | `skill`, `skill_id`, `element`, `duration` (resolved seconds), optional `mount` (the form's `presentation.mount` TamingMob id, only when it names one; `RunWorld.OPTIONAL_EVENT_FIELDS`); existing buff row consumes the parallel PlayerBuffs entry |
+| `form_ended` | `skill`, `skill_id`, `reason` (`expired`, `died`, `replaced`, `consumed`, `depleted`, `broken` (a hull reached 0)); buff expiry accompanies removal |
 | `buff_cast` | `skill`, `skill_id`, `level`, `duration` (float canonical seconds); also emits ordinary `cast` for stance, effect and sound |
 | `buff_expired` | `skill`, `skill_id`; once when an active timer expires (or a buff ends early: Oak Barrel above its `end_hp_above`); a run ending first need not emit expiry |
 | `buff_failed` | `skill`, `skill_id`, `level` (#194); a buff cast with a `fail_chance` (Oak Barrel) whose roll failed: nothing started, cooldown was paid, the accompanying `cast` event has `effect` `""` |
@@ -448,7 +458,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `mob_status_applied` | `mob`, `mob_id`, `status` (`slow`, `poison`, `freeze`, `threatened`, `stun`, `ice_weak`, `burn`), `duration` (float canonical seconds); reapplication emits again and refreshes |
 | `mob_status_expired` | `mob`, `mob_id`, `status`; natural timer expiry only; death/release/relocation clears silently |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
-| `player_hit` | `damage` (int), `miss` (bool), `dir` (-1/1), `pos`, `mob` (source slot, -1 when unspecified), `mob_id` (source id, 0 when unspecified), `boss` (bool), `max_hp` (HP pool at hit time), `source_kind` (String: `touch`, `attack`, `projectile`, or `other` for a direct unspecified source). Whole damage/max_hp supports encounter metrics. A miss spends no HP and gives no knockback/invincibility. |
+| `player_hit` | `damage` (int), `miss` (bool), `dir` (-1/1), `pos`, `mob` (source slot, -1 when unspecified), `mob_id` (source id, 0 when unspecified), `boss` (bool), `max_hp` (HP pool at hit time), `source_kind` (String: `touch`, `attack`, `projectile`, or `other` for a direct unspecified source), optional `absorbed` (int, whole points a Form hull or hit hook soaked, present only when positive; `damage` is then the part that reached HP, 0 when fully absorbed; `RunWorld.OPTIONAL_EVENT_FIELDS`). Whole damage/max_hp supports encounter metrics. A miss spends no HP and gives no knockback/invincibility. |
 | `player_jump` | `pos` |
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
