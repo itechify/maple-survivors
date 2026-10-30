@@ -223,7 +223,7 @@ stand, walk and each stance on a dummy; `-- --mode=cash` a cash weapon cover; `-
 projectiles per tier), `hair_cap_probe.tscn` (cap vs hair layers), `ui_gallery.tscn` (`--window=<name>`: the level-up, Skill,
 Stat and other windows), `equipment_requirements_driver.tscn` (the hub kit, Equip and Item windows with no requirement rows,
 an item above Lv1 worn), `equipment_drop_driver.tscn` (drops on the ground and the full-Equip-tab notice),
-`support_summon_probe.tscn` (support summon pulse animations), `pet_driver.tscn` (each pet species in a round and in the Free Market), `player_summon_probe.tscn` (Elquines with 200 mobs: art
+`support_summon_probe.tscn` (support summon pulse animations), `pet_driver.tscn` (each pet species in a round and in the Free Market), `echo_clone_probe.tscn` (Shadow Partner's clone: stand, walk, jump and a throw, zoomed crops), `player_summon_probe.tscn` (Elquines with 200 mobs: art
 and frame cost), `burst_probe.tscn` (synthetic moving-caster burst), `burn_driver.tscn` (burning monsters), `stun_driver.tscn` and `teleport_driver.tscn` (status and Teleport visuals), `morph_driver.tscn` (a morph in a list of stances, `-- --morph=1001,1000,1002 --stances=a,b`), `revive_driver.tscn` (the Bishop's Resurrection: a lethal hit revives with its pillar, guard blink and notice, a second inside the recharge dies, one after it revives again; `-- --shots=<abs dir>`), `dark_cave_boss_driver.tscn`
 (every Sleepywood boss attack on the fixture) and `map_viewer.tscn` (a map's layers). They are not in the unit suite
 (`test_tool_scripts` only parses them): run one after changing what it draws. The drivers of the unported job lines (Bowman,

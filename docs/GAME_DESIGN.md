@@ -8484,6 +8484,62 @@ cast, Avenger's line by rank and the absence of falloff, Triple Throw's focus an
 bosses and the single stream-1 draw, the rarity table, every bonus changing the resolved cast, the card and Mastery rules and the
 real-cache all-eight-ranks check).
 
+#### 7.94.7 Shadow Partner (spec #383 NL10, #409, M11)
+
+(The spec calls this paragraph 7.96; that number is taken in this tree, so it is 7.94.7. Constants: "Night Lord NL10 constants".)
+
+`shadow_partner` (4111002, book 411, `skills/night_lord.json`) is Night Lord's summon slot: one shadow clone that throws every
+star skill again 0.25 s later. It is pure data on the echo seam of 7.94.3, plus one renderer:
+
+```json
+"kind": "summon", "cast": {"rule": "summon"}, "cooldown": 50.0, "action": "alert", "damage": "none",
+"summon": {"echo": {"attack_field": "x", "skill_field": "y", "delay": 0.25,
+                    "path": "Skill.wz/411.img/skill/4111002/special"},
+           "follow_speed": 200.0, "follow_distance": 55.0, "teleport_distance": 600.0, "ordinal_spread": 40.0}
+```
+
+- **Numbers (tier A, Skill.wz 4111002).** `x` (the echo percent of an `attack` star: Lucky Seven, Drain) 20 -> 80 and `y` (a
+  `skill` star: Avenger, Triple Throw, Shadow Meso) 21 -> 50 over the 30 levels; the eight survivor ranks read levels
+  4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 (the default 30-level table), so rank 1 / 4 / 8 echo 31 / 60 / 80% (attack) and
+  21 / 29 / 50% (skill), and the clone lives `time` 60 / 60 / 120 / 120 / 120 / 180 / 180 / 180 s. The 50 s cooldown is tier C
+  (at least the shortest lifetime, so the clone is up nearly always; a recast replaces it).
+- **What echoes.** Exactly the five skills carrying `echo`: Lucky Seven and Drain (`attack`), Avenger, Triple Throw and Shadow
+  Meso (`skill`). Ninja Storm, Ninja Ambush, Flash Jump and the Shadow Partner itself carry none, so the zones, the nova and the
+  summon never echo. A skill with several shots (Lucky Seven's two stars, Triple Throw's three) is echoed once per shot. The
+  mechanics (recording, retargeting, no receipt, no heal, no echo of an echo) are 7.94.3; the clone's reach is its own: it trails
+  the owner by 55 px, so a monster in the last 55 px of the owner's reach in its facing direction is out of the clone's reach and
+  that echo is dropped (`overshoot` stays 0).
+- **Damage and cards.** `damage "none"`: the clone never strikes. The echo percent is `x` or `y` at the clone's rank x
+  `Loadout.skill_stat("shadow_partner", "damage", 1.0)`, so Shadow Power and Mastery scale it. Rarity (tier C, the spec's table):
+  Rare `shadow_power` "Shadow Power" damage x1.2; Epic `shadow_booster` "Shadow Booster" cooldown x0.88; Unique `twin_shadow`
+  "Twin Shadow" `summon_count` +1 (two clones 40 px apart, each echoing every shot: the owner's stars come back twice); Legendary =
+  Twin Shadow plus damage x1.2 (the same id, so the repeat counter is shared). Mastery repeats shrink x0.8 as for every pool skill.
+  The bot's `shadow_partner_new` 100 / `_rank` 74 scores are NL2's.
+- **Cast art.** `action alert` (held 0.8 s), the 16-frame `effect` on the owner (the skill's `effect`), `effect0` (11 frames, behind the
+  avatar in the WZ) as a `cast_visuals` entry following the owner, and the `Use` sound.
+- **The clone renderer** (`EchoCloneRenderer`, `scripts/render/echo_clone_renderer.gd`, beside `PlayerSummonRenderer`, which now skips
+  clones). The WZ `special` node holds 34 action sets of 98 canvases with origins and **no `delay`**, so the clone takes its timing
+  from the owner's body stance. It is a batched `SpritePool` in the player's actor layer, just behind the avatar (placed with
+  `flash_trail`), drawn at the `PlayerSummons` position, flipped with its facing, faded with a Hidden avatar.
+  - *Mirroring the owner.* `special_action(special, stance)` maps the owner's avatar stance to a set: the stance itself when the
+    sets have it; the aliases `alert2` / `alert3` / `alert4` -> `alert`, `ladder2` -> `ladder`, `rope2` -> `rope`; else `stand1`
+    (the spec's fall-back). The frame is the owner's frame index spread over the set (`frame_for`: first to first, last to last,
+    so a set with another frame count than the body action still plays through). The owner's stances the sets lack fall back to
+    `stand1` (skill stances such as `avenger`, `ninjastorm`, the magic and Pirate actions; the real-cache test prints the list).
+  - *The throw.* On `echo_cast` the clone plays a throw of its own: the echoed skill's `action` when the sets have it (`swingO1`, the
+    claw's stance, for Lucky Seven, Drain, Triple Throw and Shadow Meso), else `shoot1` (Avenger's `avenger`), timed by that
+    action's body frame delays (`throw_frame`; 0.1 s a frame when the body lacks the action), facing the side thrown toward, then
+    back to mirroring the owner. The star leaves its hand at the event's `pos`. A replaced clone (new spawn serial) does not
+    inherit a throw.
+  - *Fall-back.* A cache without the `special` node draws the owner's own sprite parts at half alpha instead (tier C).
+
+Tests: `test_shadow_partner` (the definition, the pool and the echo flags, a clone per cast with its lifetime by rank, no strike,
+recast, map transfer / death / Hidden, every star skill at the right percent for its class and rank, the zones not echoing,
+Drain's echo not healing, Twin Shadow, the damage modifier, the hand, the rarity table, every bonus changing the resolved cast, the
+card and Mastery rules, the bot scores, the renderer's mapping, frame and throw-timing rules and its throw state, and the
+real-cache rank / `special` / owner-stance checks). Tool: `scenes/debug/echo_clone_probe.tscn` (stand, walk, jump and a throw, zoomed
+crops).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -10489,4 +10545,23 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 | Rarity ids | `claw_mastery` (x1.2), `venomous_star` (grant), `lucky_eight` (`count` +1), `claw_booster` (cooldown x0.88), `double_drain` (`count` +1), `stunning_avenger` (grant), `deep_avenger` (`pierce` +2), `critical_throw` (`crit` +0.15), `fourth_star` (`count` +1); Legendary = Unique + damage x1.2 | tier C: spec #383 |
 | Venomous Star on Lucky Seven's Epic | catalogue entry (NL2): chance 14 / 16 / 18 / 20 / 24 / 26 / 28 / 30%, time 2 / 2 / 3 / 3 / 3 / 4 / 4 / 4 s, poison level 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 | tier A (4120005 `prop`, `time`, level map) |
 | Stunning Avenger on Avenger's Epic | catalogue entry (NL2): chance 20 / 24 / 28 / 32 / 36 / 40 / 45 / 50%, 1.5 s | tier C: spec #383 |
+
+### Night Lord NL10 constants (#409)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Echo percent `x` / `y` | 20 -> 80 / 21 -> 50 over levels 1-30; rank 1 / 4 / 8 = 31 / 60 / 80% and 21 / 29 / 50% | tier A (Skill.wz 411.img 4111002) |
+| Clone lifetime `time` | 60 / 60 / 120 / 120 / 120 / 180 / 180 / 180 s at the eight ranks | tier A |
+| Shadow Partner ranks | the default 30-level table (levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30) | tier C (the shared survivor rank table) |
+| Cooldown | 50 s (a recast replaces the clone) | tier C: spec #383 |
+| Echo delay / follow speed / follow distance / teleport distance / spacing | 0.25 s / 200 px/s / 55 px / 600 px / 40 px (the 7.94.3 data, set here) | tier C: spec #383 |
+| `damage` | `"none"`: a clone never strikes; Shadow Power scales the echo percent through the `damage` modifier | tier C: spec #383 |
+| Cast stance | `alert` held 0.8 s; `effect` on the owner, `effect0` as a following `cast_visuals` entry; `Use` sound | tier A (art, action, sound) / tier C (hold) |
+| Echoing skills | Lucky Seven, Drain (`attack`); Avenger, Triple Throw, Shadow Meso (`skill`); no zone, nova or buff | tier C: spec #383 |
+| Rarity ids | `shadow_power` (damage x1.2), `shadow_booster` (cooldown x0.88), `twin_shadow` (`summon_count` +1); Legendary = Unique + damage x1.2 | tier C: spec #383 |
+| Clone art | `special/<action>/<frame>` with its origins, no delay in the WZ; actor layer behind the avatar; flipped with the facing; Hidden owner -> half alpha | tier A (frames, origins) / tier C (layer, alpha) |
+| Stance mapping | owner stance -> the same set; `alert2..4` -> `alert`, `ladder2` -> `ladder`, `rope2` -> `rope`; any other missing set -> `stand1` | tier C: spec #383 (the fall-back) and ours (the aliases) |
+| Frame choice | the owner's frame spread over the set (first to first, last to last) | tier C, ours (#409) |
+| Throw stance | the echoed skill's action when `special` has it, else `shoot1`; frame times from the owner's body action, 0.1 s a frame when absent | tier C, ours (#409) |
+| No-`special` fall-back | the owner's sprite parts at alpha 0.5 | tier C: spec #383 |
 

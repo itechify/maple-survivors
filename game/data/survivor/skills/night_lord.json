@@ -764,6 +764,114 @@
 				]
 			},
 			"_tier": "Tier A: WZ damage 102..150% per star, bulletCount 3, weapon 47, hit/0 and the 6-frame effect, Use and Hit sounds; the WZ node has no action. Tier C (#406, GAME_DESIGN 7.94.6): the eight survivor ranks (levels 4..30), `cast.focus` (all three stars at the nearest monster, a scheduled boss first), 2.5s cooldown, 300px range, 650px/s, 8px radius, no pierce, the claw's own swingO1 stance held 0.6s (shoot1 hides the claw, ROSTER_PLAN D10), echo class skill, rarity bonuses. Untuned."
+		},
+		"shadow_partner": {
+			"skill_id": 4111002,
+			"book": "411",
+			"job": 411,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Shadow Partner",
+			"desc": "Calls a shadow clone that follows you and throws every star skill again a moment later.",
+			"text": {
+				"desc": "Calls a shadow clone that follows you. A moment after you throw a star skill, the clone throws it again for part of its damage: more for Lucky Seven and Drain, less for the heavier star skills. Zones and the Ninja Storm do not echo.",
+				"h": "Echoes Lucky Seven and Drain at {x}% damage and Avenger, Triple Throw and Shadow Meso at {y}%, for {time} sec."
+			},
+			"icon": "Skill.wz/411.img/skill/4111002/icon",
+			"damage": "none",
+			"action": "alert",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/411.img/skill/4111002/effect",
+			"rotate": false,
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/411.img/skill/4111002/effect0",
+					"x": 0,
+					"follow": true,
+					"facing": true
+				}
+			],
+			"cast": {
+				"rule": "summon"
+			},
+			"cooldown": 50.0,
+			"summon": {
+				"echo": {
+					"attack_field": "x",
+					"skill_field": "y",
+					"delay": 0.25,
+					"path": "Skill.wz/411.img/skill/4111002/special"
+				},
+				"follow_speed": 200.0,
+				"follow_distance": 55.0,
+				"teleport_distance": 600.0,
+				"ordinal_spread": 40.0
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4111002/Use"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "shadow_power",
+						"text": "Shadow Power",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "shadow_booster",
+						"text": "Shadow Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "twin_shadow",
+						"text": "Twin Shadow",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "twin_shadow",
+						"text": "Twin Shadow",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: Skill.wz 4111002 x 20..80 (the echo percent of an `attack` star: Lucky Seven, Drain), y 21..50 (a `skill` star), time 60..180 s, action alert, the 16-frame effect, the 11-frame effect0 behind the avatar, the Use sound, and the `special` shadow frames (34 action sets, 98 canvases with origins and no delay). Tier C (#409, GAME_DESIGN 7.94.7, spec #383 M11): the 50 s cooldown (the 60 s minimum lifetime covers it), the echo delay 0.25 s, follow speed 200 px/s, follow distance 55 px, teleport distance 600 px, clone spacing 40 px, the 0.8 s alert hold, no standalone item cost (the Summoning Rock is not modelled), damage \"none\" (a clone never strikes; the echo carries the owner's stars), the default 30-level rank table, rarity bonuses (Shadow Power scales the echo percent through the damage modifier; Twin Shadow is a second clone). Untuned."
 		}
 	}
 }
