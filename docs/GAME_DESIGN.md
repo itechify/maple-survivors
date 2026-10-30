@@ -8660,7 +8660,7 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | "Lv lo-hi" | min and max canonical `level` (Mob.wz `info/level`, tier A) of the stage's ordinary pool ids over its maps: keyframe pools for a `"curve"` map, explicit pools, `pool_from_life` minus `exclude`; scheduled bosses and their `final_form` excluded; unknown levels skipped, the label omitted when none is known. A computed label, so it can differ from the table in spec #447 (Ellinia's map 3 life includes Malady, Henesys's map 3 includes Horny Mushroom) | C |
 | State marks | CLEAR (`INK_CLEAR`, parchment green), a drawn padlock plus the `INK_LOCKED` look, NEW (`INK_RED`) | C |
 | Unlock hint | "Locked. Defeat <boss> in <previous region> to unlock." with the previous region's map 3 boss (`final_form` first), String.wz name | C |
-| Header | "Regions cleared N/M" under the character line | C |
+| Header | "Regions cleared N/M" on the character line, `HEADING_GAP` 18 px after it (the grown scroll's rod covers a second row) | C |
 
 ### Review #282: constants and provenance
 

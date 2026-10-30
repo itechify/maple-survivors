@@ -36,6 +36,8 @@ const PAPER_EXTRA := 48.0
 const CARD_AREA := Rect2(40, 148, 432, 286)
 ## Regions kept above the frontier when the list opens (tier C, #451): the frontier stays in view with a little context.
 const FRONTIER_LEAD := 2
+## Gap between the character line and the "Regions cleared N/M" header (tier C, #451).
+const HEADING_GAP := 18.0
 const DETAIL_X := 234.0
 const DETAIL_W := 232.0
 const MAP_ROW_GAP := 6.0 # tier C: compact map/boss groups on the v83 parchment; wrapped lines stay together.
@@ -129,7 +131,7 @@ func _ready() -> void:
 		jobs.name_of(int(snapshot.get("character", {}).get("job_id", 0))), SaveData._group(int(save.account.nx))],
 		MapleText.SIZE, MapleText.WHITE, true)
 	_ui.add_child(character_label)
-	progress_label = MapleText.new(progress_text(stages), MapleText.SMALL, MapleText.WHITE, true)
+	progress_label = MapleText.new(progress_text(stages), MapleText.SIZE, MapleText.WHITE, true)
 	progress_label.name = "Progress"
 	_ui.add_child(progress_label)
 	get_viewport().size_changed.connect(_layout)
@@ -414,9 +416,10 @@ func _layout() -> void:
 	shop_button.position = back_button.position + Vector2(back_button.size.x + 8.0,
 		floorf((back_button.size.y - shop_button.size.y) * 0.5))
 	# tier C: #69 character/tier heading, above the existing parchment.
-	character_label.position = Vector2(floorf((view.x - character_label.get_minimum_size().x) * 0.5), 32)
-	progress_label.position = Vector2(floorf((view.x - progress_label.get_minimum_size().x) * 0.5),
-		character_label.position.y + 18.0)
+	# tier C: the "Regions cleared N/M" header shares the heading row (the grown scroll's rod covers a second row, #451).
+	var heading_w := character_label.get_minimum_size().x + HEADING_GAP + progress_label.get_minimum_size().x
+	character_label.position = Vector2(floorf((view.x - heading_w) * 0.5), 32)
+	progress_label.position = Vector2(character_label.position.x + character_label.get_minimum_size().x + HEADING_GAP, 32)
 
 
 func _draw_parchment(ci: Control) -> void:
