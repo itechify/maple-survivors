@@ -8357,6 +8357,39 @@ Tests: `test_echo_cast` (19: the seam, one echo per shot per clone at 15 ticks, 
 modifier, replaced / expired clones, the snapshot rules, no heal, kept statuses, retarget and drop, identity of a reused slot, a
 world without a clone byte-identical with and without the key, twin worlds), `test_run_events` (the `echo_cast` schema).
 
+#### 7.94.4 Shadow Meso (spec #383 NL9, #408)
+
+`shadow_meso` (4111004, book 411, `skills/night_lord.json`) is Night Lord's heavy single-target bag. The WZ gives the skill
+no damage: only `moneyCon` (the average mesos per throw, 135 at Lv1 to 570 at Lv30), `x` 50, `prop` 1 -> 10 and three art
+tiers. v83's own damage rule lives outside the WZ, so the survivor damage is built from the tier A weight:
+
+- **`damage_basis {field, scale}`** (a small generic `Loadout` key, owned by this ticket): for a physical skill whose level
+  node has no `damage` field, the skill percent is `canonical(field) x scale / 100`. Shadow Meso reads `moneyCon x 0.6`, so
+  ranks 1 to 8 (WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30) hit for 108 / 144 / 180 / 207 / 243 / 279 / 315 / 342%
+  through the ordinary physical formula (claw, LUK primary). A level that carries a `damage` field keeps it, and a skill
+  without the key resolves byte-identically (the oracles do not move). `x`, `prop` and `bulletCount` are not modelled
+  (the definition pins `count` 1); `Loadout.stats` also reports `damage_percent` (the percent x 100) for the Skill window.
+- **It costs nothing (ruling D7).** No mesos are spent, lost or required, at any rank; `moneyCon` stays only as the damage
+  basis (and so as the number a later balance pass could price a cost from). The meso charge is read, never spent.
+- **The held-pip bonus.** `meter {read_per_unit 0.10, unit "pip"}` (NL4's read-only block): each pip held multiplies the
+  bag's damage by another `1 + 0.10` on top of the meter's own +3% on every pool cast, so a full charge (10 pips) is
+  1.3 x 2.0 = x2.6. Nothing is spent and the cast never waits for a pip (an empty charge and an empty wallet cast).
+- **Cast.** `nearest` auto-cast every 3.0 s, one bag at the nearest monster (a scheduled boss before a nearer ordinary
+  monster), range 300 px, 650 px/s, radius 10 px, no pierce, 0.6 s hold in the claw's own `swingO1` (the node has no
+  `action`, and `shoot1` makes the claw vanish: roster ruling D10), `echo {class skill}` for Shadow Partner's clone (NL5/NL10
+  read it). `Use` and `Hit` sounds.
+- **Art by level.** `ball` and `hit` are the level nodes' own (`.../level/{level}/ball`, `.../level/{level}/hit/0`), which the
+  importer expanded from UOLs into three tiers: levels 1-10, 11-20 and 21-30 (the third is a larger 91 x 34 bag). The
+  existing `{level}` template follows them, so no `art_by_level` template was added; ranks 1-2 throw the first tier, 3-5
+  the second and 6-8 the third.
+- **Rarity** (tier C, spec table): Rare `meso_up` "Meso Up" damage x1.2; Epic `claw_booster` "Claw Booster" cooldown x0.88;
+  Unique `second_bag` "Second Bag" `count` +1 (a second bag at the next monster, not the same one); Legendary = Second Bag
+  plus damage x1.2 (the same id, so the repeat counter is shared). Mastery repeats shrink x0.8 as for every pool skill.
+
+Tests: `test_shadow_meso` (the percent by rank, the basis rule and its unused fields, the pip read, no pip and no meso spent,
+one bag / boss first / range / cooldown, the `count` card's second target, the art tiers, the catalog, every bonus changing
+the resolved cast, the card and Mastery rules, and the real-cache rank and art checks).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -10293,3 +10326,20 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 | Retarget / drop | dead, out-of-reach or reused-slot target -> nearest monster in range of the clone, else drop without refund | tier C, spec #383 (as bursts) |
 | Hidden / death | unthrown echoes are dropped | tier C, ours (#404, as bursts) |
 | Order of entries | per clone ascending slot, per shot in cast order | tier C, ours (#404) |
+
+### Night Lord NL9 constants (#408)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Shadow Meso `moneyCon` | 135 (Lv1) -> 570 (Lv30); 180 / 240 / 300 / 345 / 405 / 465 / 525 / 570 at the eight rank levels | tier A (Skill.wz 411.img 4111004) |
+| `damage_basis` scale | skill percent = `moneyCon` x 0.6 / 100: 108 / 144 / 180 / 207 / 243 / 279 / 315 / 342% | tier C: spec #383 (the WZ has no damage; balance lever: the scale) |
+| `damage_basis` rule | applies to a physical skill whose level node has no `damage` field; a WZ `damage` always wins; no key = byte-identical | tier C (ours) |
+| Unused WZ fields | `x` 50, `prop` 1 -> 10, `bulletCount` (absent): not modelled; `count` pinned to 1 | tier C: spec #383 (their meaning is undocumented beyond the String text) |
+| Mesos cost | none: nothing is spent, lost or required (`moneyCon` kept as data) | tier C: ruling D7 |
+| Held-pip read | `meter.read_per_unit` 0.10: x(1 + 0.10 x pips) on top of the meter's +3% per pip (x2.6 at 10 pips) | tier C: spec #383 |
+| Meter unit word | `pip` ("+10% damage per pip held") | tier C (presentation) |
+| Cooldown / range / speed / radius / pierce | 3.0 s / 300 px / 650 px/s / 10 px / 0 | tier C: spec #383 |
+| Cast hold and stance | 0.6 s, `swingO1` (the claw's own stance; the node has no `action`) | tier C: ruling D10 |
+| Art tiers | `level/{level}/ball` and `level/{level}/hit/0`: levels 1-10 / 11-20 / 21-30 | tier A (the level nodes' UOLs) |
+| Echo class | `skill` (Shadow Partner's `y`) | tier C: spec #383 |
+| Rarity | Rare Meso Up damage x1.2; Epic Claw Booster cooldown x0.88; Unique Second Bag `count` +1; Legendary Second Bag + damage x1.2 | tier C: spec #383 |
