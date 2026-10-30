@@ -8368,6 +8368,36 @@ form's canonical `level` in its state so an effect can read level fields.
 | Hull bar | 40 x 5 px, blue fill on a dark back, 10 px above the body box (`HullBar.WIDTH` / `HEIGHT`, `RunScene.HULL_BAR_GAP`) | C |
 | Absorbed number | blue (the HP-gain digit set) at the character's head, the violet number only when HP was hit | C |
 
+#### 7.120.6 Homing Beacon (spec #384 C8, #392)
+
+`homing_beacon` (WZ 5211006, book 521, in `skills/corsair.json`) is the Corsair's mark: the first definition to use the C7 `ALL_WEAK`
+status. The parrot (`ball`, 4 frames) flies at the nearest monster (a marked one first: `targets_before`) and the hit applies
+`on_hit {"status": "all_weak", "duration": 8.0, "cue": "Skill.wz/521.img/skill/5211006/mob"}`. Everything the mark does after that is
+C7's (x1.5 on every later damaging hit by any skill, x1.25 on a scheduled or canonical boss, one timer: a second Beacon refreshes the
+length and replaces the multiplier, never stacks; the nearest-rule skills, the burst re-target and the summons prefer the marked monster).
+
+- **Cast.** `nearest`, one target, 350 px reach (A, `range`), 500 px/s, 10 px radius, no pierce, 10 s cooldown, stance `homing` (A) held
+  0.6 s, physical, no ammo (the parrot is its own ball). The shot stops at the first monster on its line, so a nearer monster in front
+  takes the mark instead of a marked one behind it; the nearest rule only chooses the direction. `effect` (6 frames), `hit/0` (5 frames),
+  `Use` and `Hit` sounds, the 5-frame `mob` loop as the mark's cue over the monster.
+- **Damage.** WZ `damage` 148 -> 380 over 30 levels (A); ranks 1 / 4 / 8 are levels 4 / 15 / 30: 172 / 260 / 380 %. The WZ node has no `time` and no `x`: the
+  mark's length is ours.
+- **Rarity.** Rare Gun Mastery (`damage` x1.2), Epic Gun Booster (`cooldown` x0.88), Unique **Bullseye** (`mark_power` +0.25: x1.75 / x1.5 on a boss,
+  and `mark_time` x1.5: 12 s), Legendary Bullseye plus `damage` x1.2 (same card id, so Unique and Legendary share the repeat counter).
+  Names are the lineage's (Gun Mastery 5200000, Gun Booster 5201003, Bullseye 5220011). The text on the card and in the Skill window is C7's
+  `SkillText` line ("Marks a monster for 8 s: it takes 50% more damage; bosses 25%"), which already reads the resolved `mark_*` stats.
+
+#### 7.120.7 Corsair C8 constants (#392)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Damage, range, action, art, sounds | WZ 5211006: `damage` 148..380, `range` 350, `homing`, `ball` / `effect` / `hit/0` / `mob`, `Use` / `Hit` | A |
+| Mark length | 8 s literal `on_hit.duration` (the node has no `time`) | C |
+| Cast shape | `nearest`, one target, 500 px/s, radius 10, no pierce, own ball (no ammo) | C |
+| Cooldown | 10 s | C |
+| Stance hold | `action_time` 0.6 s | C |
+| Rarity | Rare Gun Mastery x1.2 damage, Epic Gun Booster x0.88 cooldown, Unique Bullseye `mark_power` +0.25 and `mark_time` x1.5, Legendary the Unique plus x1.2 damage | C |
+
 #### 7.120.12 Corsair C12: mount art (#396, spec #384 M20)
 
 The Battleship is drawn, not just listed: while a running form's `form_started` names a `mount` (C11 adds the key; the Battleship
@@ -10348,6 +10378,10 @@ The constants of the Corsair data line are in section 7.120.1 (nested under the 
 ### Corsair C11 constants (#395)
 
 The constants of the ship's Form effects (hull, `only_skills`, `art_variant`, the hull bar) are in section 7.120.3, described in 7.120.2.
+
+### Corsair C8 constants (#392)
+
+The constants of Homing Beacon and Bullseye (cast shape, cooldown, the 8 s mark length, the rarity bonuses) are in section 7.120.7, described in 7.120.6.
 
 ### Corsair C12 constants (#396)
 
