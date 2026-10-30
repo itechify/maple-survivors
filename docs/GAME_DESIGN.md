@@ -4467,6 +4467,18 @@ Oracles `character_baseline`, `tick_cost_identity` and `hero_baseline` reproduce
 `missing: []`; Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut and Corkscrew Blow all cast (`cast_*.png`); flow
 evidence only, not survival evidence.
 
+### Corsair C2 data smoke (#386, 2026)
+
+Data-only ticket (`jobs/corsair.json`, not playable, no balance data of another job touched). Training seeds 1/2/2026, Henesys bot,
+`JOBS=3`, real private cache: F/P (212) and Hero (112) rows are byte-identical to the base commit `53652f78` (212 died at 12:31 /
+11:01 / 7:54 Lv44 / 37 / 24; 112 at 5:27 / 5:36 / 11:28; no clears, no warnings). Oracles `character_baseline`, `tick_cost_identity`
+and `hero_baseline` reproduce their hashes. Diagnostic `--job=522` playtests (`playable: true` temporarily, reverted, never committed):
+Henesys speed 8, 4 minutes reached Lv8 with `missing: []`, the title "Corsair" on the HUD, a Pistol in hand and the Double Shot, Invisible
+Shot, Grenade and Recoil Shot casts captured (the four ported skills, still defined in `pirate.json`); Sleepywood with a kit
+character (a Pistol-class gun, Pirate-bit gloves and the generic hat and top, tier 2) died at 0:07 at Lv1 on the shared 50 starting HP
+(the ranged default, like Bowmaster and I/L; Hero and Paladin copy 600), `missing: []`. Flow and visual evidence only, not survival
+evidence; screenshots in gitignored `evidence/386/`.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
@@ -6811,6 +6823,52 @@ skill's `hit/0` the existing hit visual already draws, `info/effect` is drawn at
 (tier C: `effectAfter` is not modelled as a separate delay; the bolt art simply plays on the impact tick). Silver Hawk
 and Phoenix `Use` / `Summon` sounds are UOLs into 3211005 (Golden Eagle).
 
+### 7.121 Summon behaviours: turret and kamikaze (#389, spec #384 M9)
+
+`PlayerSummons` (7.32) owns the lifecycle of every player ally: spawn (`summon_count` spacing, a recast replaces the group),
+`time` expiry and the `die` animation, map-transfer clearing. A definition now may carry a `summon.behavior` string; each value
+names an object that owns what its allies do every tick (`spawn_slot`, `step_slot`). **No `behavior` key is Elquines' trailing
+ally exactly as before** (same state, same RNG stream; `test_player_summons`, `test_physical_followers`, `test_support_summons`
+and both F/P oracles are unchanged), and an unknown string also trails. The dispatch is one `_behavior(d)` match in
+`player_summons.gd`: a new behaviour adds one field and one `match` arm. Neither behaviour names a job, a skill or an id, and
+neither draws an RNG value beyond the damage rolls `RunWorld.hit_mob` already makes. Both read `watk_field pad`, `move`, `hover`
+and the other 7.44 keys through the shared spawn.
+
+- **`"turret"` (`SummonTurret`, the Corsair Octopus).** The ally is planted where it is called (the caster's feet,
+  `ordinal_spread` apart) and never follows or teleports. Its facing is the caster's at the cast and never turns. Targets are
+  the living monsters whose **body box touches** the circle of radius `info.range.r x area` around
+  `(x - sp.x x facing, y + sp.y)` (the WZ `sp` offset; left-facing art is the WZ native, so a right-facing turret mirrors the
+  x offset), nearest centre first (`RunWorld.targets_before`: scheduled bosses, and marked monsters once the mark lands, ahead
+  of the swarm), `mobCount` plus the `count` modifier of them. When one is in the circle the ally starts its attack animation;
+  `attackAfter` later the targets are chosen again and **one ball per target** leaves the circle centre at the target's body
+  centre at `info.bulletSpeed` px/s (a straight line, flight time = distance / speed; a ball launched on tick n first moves on
+  tick n + 1 and lands on tick n + ceil(flight / dt), `1e-6` s epsilon). The hit lands **on arrival** through `hit_mob` with the
+  stats of the cast that called the turret (a recast does not recall balls in the air); a target that died, or whose slot was
+  reused by another monster (`MobSwarm.identity`), in flight is skipped. Balls are pooled arrays on `PlayerSummons.turret` (`active
+  generation x y vx vy visual rotate`, cap 32, a launch past the cap is dropped); `run_scene` draws them with a second
+  `ProjectileRenderer` (art `<summon path>/<attack>/info/ball`, rotated to the heading), so there is no `turret_ball` event and
+  no per-ball Node. Balls are dropped with the allies on map transfer and while the caster is Hidden or dead (nothing is launched
+  and nothing in the air lands), then fire again when the caster is back.
+- **`"kamikaze"` (`SummonKamikaze`, the Corsair Gaviota).** Spawns beside the caster. Once its summon-in is over it picks the
+  **k-th nearest** living monster (k = its `summon_count` ordinal, 0-based; scheduled bosses, and marked monsters once the mark
+  lands, first, through `targets_before`) whose centre is within `info.range.r` of the **caster**, flies at `follow_speed` to
+  `hover` px above that monster's feet and, within the attack box's half-width (box x `area`) of that point, starts its attack
+  animation (it keeps flying after the same monster during the wind-up). At `attackAfter` it strikes exactly like the trailing
+  ally (`PlayerSummons.strike`: the feet-relative box on the facing side, `mobCount` or `count_field` plus `count` monsters, the
+  strike art), then `left` becomes 0: the usual `die` animation plays and the slot is freed (**single use**). It keeps the
+  monster it chose until that one dies or is recycled, then picks again; if none is in reach it trails the caster like a
+  follower, and the level `time` is the wait limit after which the ordinary expiry plays `die` with no hit (no refund). A
+  strike whose monster died during the wind-up lands where the bird hangs. Hidden or a dead caster pauses a wind-up and stops
+  new hunts. Cleared on map transfer with the other allies.
+- **Events and text.** Both reuse `summon_spawn` and `summon_attack` (the turret's `summon_attack` starts the attack, the
+  ball leaves `attackAfter` later) and `summon_strike` (a turret ball's `info/effect` art on the struck monster, `slot` -1).
+  `SkillText` adds one line for each behaviour ("Stays where it is called and fires a ball at monsters within N px";
+  "Dives once at a monster within N px of you, then is spent"), with the radius times the cast's `area`.
+- **Tests and probe.** `test_summon_behaviors.gd` (a synthetic Octopus and Gaviota with made-up skill ids 2129901 and 2129902 on
+  the F/P book, synthetic art; `both_world()` is also the probe's fixture) is the template later jobs copy. The tool probe
+  `scenes/debug/summon_behavior_probe.tscn -- --shots=<dir>` draws both with synthetic art through the real
+  `PlayerSummonRenderer` and `ProjectileRenderer` (no cache needed) and measures a ball's speed.
+
 ### 7.45 Bowmaster core arrows (#339, spec #332 B7)
 
 Arrow Blow, Double Shot and Arrow Bomb moved from `skills/bowman.json` to `skills/bowmaster.json` (same keys, same
@@ -8185,6 +8243,68 @@ Tests: `test_buccaneer_barrage_dragon` (data, ranks, the six lines, the box and 
 at the impact, the cap, hit art by target and by line, transfer, the energy receipt, every bonus, `bot.reach`, the real cache and the
 knuckle on every `fist` / `dragonstrike` frame), `test_bot_melee` (`bot.reach`, a melee bot with the 400 px strip still closes in,
 and the control that kites without the key), `test_avatar_cash_layers` (the `swingTF` fallback), `test_rarity_bonus_effects`.
+
+### 7.120 Corsair pool, job data and Dash (spec #384, C2 #386)
+
+Job 522 (Corsair, the gunslinging pirate) has its own data line: `survivor/jobs/corsair.json` (job entry, AP row, placeholder
+`hub_kit`) and an empty `survivor/skills/corsair.json` whose regions the skill tickets C3-C13 fill. `DataRepo.lines()` discovers
+the `corsair` line from those files; nothing is registered in a shared list and no other job's file changed. `playable` is `false`
+until the selection ticket (C14), so a Corsair cannot start a round yet; `default_job` stays 212. A pool key with no definition yet
+is inert (never offered, learned or cast), so the thirteen keys are named now and become live one ticket at a time.
+
+| key | WZ id | Shape | Where it is defined |
+|---|---|---|---|
+| `double_shot` (start) | 5001003 | two bullets over two monsters | `pirate.json` until C4 moves it |
+| `burst_fire` | 5210000 | three bullets on one target | new (C4) |
+| `invisible_shot` | 5201001 | both sides | `pirate.json` until C4 |
+| `recoil_shot` | 5201006 | shot plus a hop away | `pirate.json` until C4 |
+| `grenade` | 5201002 | cluster blast | `pirate.json` until C4 |
+| `flamethrower` | 5211004 | front cone, burn | new |
+| `ice_splitter` | 5211005 | front cone, freeze | new |
+| `octopus` | 5211001 | stationary turret | new |
+| `gaviota` | 5211002 | one-shot kamikaze bird | new |
+| `homing_beacon` | 5211006 | shot plus a mark | new |
+| `aerial_strike` | 5221003 | delayed area strike | new |
+| `rapid_fire` | 5221004 | channelled burst | new |
+| `battleship` | 5221006 | timed Form with a hull | new |
+| (mobility) `dash` | 5001005 | manual, skill key | `pirate.json`, shared with Buccaneer (CS-3) |
+
+- **Job entry:** `starting_skill double_shot`, `mobility_skill dash`, the thirteen-key `skill_pool`, `weapon_families ["gun"]`,
+  `creation_weapon 1492000` (the Pistol, `reqJob` 16 = the Pirate bit; tier A, already in the Pirate manifest fragment and the shipped
+  drop list), `playable false`. No `meter` (the ship is a Form, not a meter).
+- **Placement rule (`test_data_repo_lines`):** `corsair.json` holds books 500, 520, 521 and 522 (the ported gun skills and the
+  Corsair book); `pirate.json` never holds a 521 or 522 book. A key lives in one file only.
+- **AP row `balance.player.ap["522"]`** (in `jobs/corsair.json`): DEX primary, STR secondary, the shared `520` row's keyframes (Lv1 -> 1,
+  Lv200 -> 200) copied verbatim, so 522 does not depend on a lineage row another class may touch. There is no `hp` key and no growth
+  row: the starting HP is the shared default and HP growth inherits the `500` row (25).
+- **Drops:** nothing was added to the equipment data. `weapon_families ["gun"]` filters the Pirate drop list, so guns (149xxxx) drop
+  and knucklers (148xxxx), bows, crossbows, claws, swords and every other family never do; armour drops by the Pirate class bit
+  (`requirement_error` accepts the Pistol and Pirate-bit gear). `test_corsair_data` rolls 400 seeded drops on a synthetic table, filters
+  the shipped weapon list, and (real cache) every tier's pool with the cache's own `reqJob`.
+- **Ammo (re-verified, no change):** the 522 gun schedule of `ammo.json` (Bowmaster B3) is exact-job (no lineage walk: 520, 521, 500,
+  512 and 212 holding a gun keep the plain Bullet 2330000), steps at round Lv18 to Split Bullet 2330001 (incPAD +12) and Lv35 to Mighty
+  Bullet 2330002 (+14), emits `ammo_upgraded` once per step, and the notice reads "Your bullets are now Split Bullet" / "... Mighty
+  Bullet" with the String.wz names. Vital Bullet 2330003 stays unscheduled (its img is not imported). Both steps are reachable (the
+  level cap is far above 35), so nothing was retuned. `test_corsair_ammo` needs no Corsair skill (a Pistol, the real EXP path and the
+  ranged basic attack's incPAD; the real-cache half reads Item.wz and String.wz).
+- **Decisions CS-1 to CS-12** are the spec's (#384); this ticket records the ones its data carries: **CS-1** thirteen entries, one past the
+  usual cap; **CS-2/CS-3** Dash is the mobility skill and stays in `pirate.json`; **CS-4** Burst Fire is Double Shot's heavy twin;
+  **CS-5** the buffs and passives are not cards (their names return as rarity bonuses); **CS-6** item costs are not modelled. CS-7 to
+  CS-12 (Octopus, Gaviota and Aerial Strike, the mark on bosses, the ship's skill filter, the hull, movement unchanged) belong to
+  C5-C13 and are recorded in their own subsections.
+- **Nesting.** Later Corsair tickets record their constants as `7.120.N` subsections under this section; C2's are 7.120.1. (The spec
+  reserved 7.120-7.129; the integration branch holds no section 7 entry above 7.93, so 7.120 is the next free number in the range.)
+
+#### 7.120.1 Corsair C2 constants (#386)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Corsair pool and start (CS-1) | `jobs/corsair.json`: `starting_skill` double_shot (slot 1), `mobility_skill` dash (outside the slots), thirteen-key `skill_pool` (Double Shot to Battleship); Spec #384 CS-1, CS-2 | C |
+| Corsair creation weapon and drop families | `creation_weapon` 1492000, the Pistol (Item.wz, reqJob 16, the Pirate bit; no level requirement, #292); `weapon_families` [gun] | A (item) / C (filter) |
+| Corsair AP row (spec #384 "Job data") | `balance.player.ap["522"]`: DEX primary, STR secondary, keyframes Lv1 -> 1 and Lv200 -> 200, the shared `520` row copied verbatim; no `hp` override, growth inherits `500` (25) | C |
+| Corsair placeholder `hub_kit` | `fixture ""`, empty `scrolls` and `equipment`, `fallback_item` 1492000; C14 fills it and adds `corsair_t2.json` | C |
+| Corsair not playable | `playable` false until C14 flips it; `default_job` stays 212 | C |
+| 522 gun ammo schedule (re-verified from B3) | Lv18 Split Bullet 2330001 (+12), Lv35 Mighty Bullet 2330002 (+14), exact job 522, no retune | C (levels) / A (items, incPAD) |
 
 ## 8. Upgrades
 
@@ -10107,3 +10227,27 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 ### Buccaneer review corrections (#412)
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
+
+### Corsair C2 constants (#386)
+
+The constants of the Corsair data line are in section 7.120.1 (nested under the Corsair section so the later Corsair tickets append `7.120.N` beside them).
+
+### Corsair C5 constants (#389)
+
+Provisional heading: nested under C2's Corsair section once it exists. The section is 7.121.
+
+| Rule | Value | Tier |
+|---|---|---|
+| `summon.behavior` dispatch (#389) | a string naming a behaviour object (`turret`, `kamikaze`); absent or unknown is the trailing ally | C, ours (spec #384 M9) |
+| Turret circle centre (#389) | `(x - sp.x x facing, y + sp.y)`, `sp` read from the attack node's `info.range`; left-facing art is native (the spec's `x + sp.x x facing` taken with the WZ facing convention) | C |
+| Turret target test (#389) | a body box whose nearest point to the centre is within `r x area`; nearest body centre first; `mobCount` plus `count` targets, one ball each | C |
+| Turret facing (#389) | the caster's at the cast; it never turns | C |
+| Ball path (#389) | a straight line from the circle centre to the target's body centre at the moment of launch at `info.bulletSpeed` px/s; no hit test on the way; lands on that monster on arrival | C (WZ gives `ball` and `bulletSpeed`: A) |
+| Ball landing epsilon (#389) | flight time left <= 1e-6 s lands (the same epsilon the trailing ally's windup uses) | C |
+| Dead or recycled target in flight (#389) | skipped (compared by `MobSwarm.identity`) | C |
+| Ball cap (#389) | 32 in the air (`SummonTurret.MAX_BALLS`); a launch past it is dropped | C |
+| Hidden or dead caster (#389) | nothing launches and balls in the air are dropped | C |
+| Kamikaze reach (#389) | `info.range.r` px from the caster (not scaled by `area`); the k-th nearest for ordinal k, the farthest in reach when fewer monsters than k + 1 | C |
+| Kamikaze approach (#389) | straight line at `follow_speed` to `hover` px above the target's feet; the dive starts within the box's half-width (x `area`) of that point; the bird follows its monster during the wind-up | C |
+| Kamikaze target lock (#389) | keeps its monster until it dies or is recycled, then picks again | C |
+| Kamikaze single use (#389) | one strike at `attackAfter` (a miss is spent too), then `die` and the slot is freed; nothing in reach: waits like a follower until `time` and expires with no hit | C (spec #384) |

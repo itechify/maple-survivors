@@ -1,0 +1,4 @@
+{
+	"_doc": "Corsair line skill definitions (spec #384, ticket C2 #386). Each skill ticket appends its own region of `skills` (separate tickets, separate regions): C3 Dash's mobility rank rule (Dash stays in skills/pirate.json); C4 Double Shot, Invisible Shot, Recoil Shot and Grenade (moved from pirate.json, with Burst Fire); C5-C13 the rest of the pool (Flamethrower, Ice Splitter, Octopus, Gaviota, Homing Beacon, Aerial Strike, Rapid Fire, Battleship and its sub-skills). A pool key with no entry here stays inert: it is never offered, learned or cast. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). Books may be 500, 520, 521 or 522. C2 defined none.",
+	"skills": {}
+}

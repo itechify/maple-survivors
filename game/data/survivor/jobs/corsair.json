@@ -1,0 +1,63 @@
+{
+	"_doc": "Corsair line (spec #384, ticket C2 #386). A class spec adds jobs/corsair.json, skills/corsair.json and asset_manifest.d/corsair.json, discovered automatically by DataRepo.lines() (docs/ARCHITECTURE.md 4.4.4). Job 522 stays playable: false until C14 flips it; the thirteen pool keys are inert until the skill tickets (C3-C13) define them in skills/corsair.json (or, for Dash, skills/pirate.json), and until then they are never offered or learned. The AP row lives in this file's balance block. default_job stays 212.",
+	"jobs": {
+		"522": {
+			"starting_skill": "double_shot",
+			"_starting_skill": "tier C: spec #384 (CS-1): Double Shot (the old Gunslinger skill, 5201001) is the starting active in slot 1 and the first skill a round learns; defined by C4 in skills/corsair.json.",
+			"mobility_skill": "dash",
+			"_mobility_skill": "tier C: spec #384 (CS-2): Dash (WZ 5001005) is Corsair's manual mobility skill on the skill key, outside both slot tracks; defined once in skills/pirate.json on slot mobility (Buccaneer B5 #417), C3 gives it the shared mobility rank rule.",
+			"skill_pool": [
+				"double_shot",
+				"burst_fire",
+				"invisible_shot",
+				"recoil_shot",
+				"grenade",
+				"flamethrower",
+				"ice_splitter",
+				"octopus",
+				"gaviota",
+				"homing_beacon",
+				"aerial_strike",
+				"rapid_fire",
+				"battleship"
+			],
+			"_skill_pool": "tier C: spec #384 (CS-1 to CS-12): the thirteen hand-picked Corsair actives from the 500/520/521/522 books, all auto-cast; Dash is the mobility skill, not a pool entry. Undefined keys stay inert until their tickets define them.",
+			"weapon_families": [
+				"gun"
+			],
+			"_weapon_families": "tier C: spec #384: guns only (WeaponInfo family gun, 149xxxx); knucklers (148xxxx) belong to Buccaneer. Bows, crossbows, claws, swords and every other family never drop for a Corsair. Armour drops by the Pirate class bit.",
+			"creation_weapon": 1492000,
+			"_creation_weapon": "tier A: the Pistol (Item.wz 1492000, reqJob 16 = the Pirate bit; its level requirement is gone with #292). Already in the Pirate manifest fragment and the shipped drop list.",
+			"playable": false,
+			"_provenance": "tier C: spec #384 C2 #386: Corsair is data-only until C14 flips playable; 212 remains the default.",
+			"hub_kit": {
+				"fixture": "",
+				"scrolls": [],
+				"equipment": [],
+				"fallback_item": 1492000,
+				"_hub_kit": "tier C: spec #384 C2 #386: a placeholder (C14 fills it with the gun scrolls, spare Pirate-bit gear and the fixture corsair_t2.json). The empty fixture names no file until that fixture exists; the job is not selectable before C14, so nothing opens the hub with it. fallback_item is the creation Pistol."
+			}
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"522": {
+					"primary": "dex",
+					"secondary": "str",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 1
+						},
+						{
+							"level": 200,
+							"target": 200
+						}
+					],
+					"_ap": "tier C: spec #384 (CS-12): the shared 520 row copied verbatim (DEX primary, STR secondary, keyframes Lv1 -> 1 and Lv200 -> 200: the Gunslinger gear pattern, no new tuning), explicit so 522 does not depend on lineage rows the Buccaneer spec may touch. No hp key: the starting HP is the shared default and HP growth inherits the 500 row (25)."
+				}
+			}
+		}
+	}
+}
