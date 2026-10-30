@@ -435,6 +435,17 @@ func test_every_event_matches_the_schema() -> void:
 	for event: Dictionary in hawk.drain_events():
 		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
+		if type == "meso_picked":
+			var data := RF.quiet_data()
+			data.jobs_survivor.jobs["212"]["meter"] = {"id": "meso_charge", "max": 10,
+				"gain": {"event": "meso_picked", "amount": 1, "per_mesos": 1000}, "per_unit": {"stat": "damage", "value": 0.03}}
+			var looter := RunWorld.new(RF.setup("quiet", 403, data))
+			RF.place_player(looter, 200)
+			var drop := looter.pickups.spawn_meso(looter.player.pos, 1200)
+			looter.pickups.state[drop] = PickupSystem.REST
+			looter.step(DT, MoveInput.new())
+			for event: Dictionary in looter.drain_events():
+				_check(event, seen)
 		if type == "ammo_shot":
 			var archer := CF.ranged_final(1452000, 312)
 			var dummy := RF.put_mob(archer, 1110100, 350, 190, 100)

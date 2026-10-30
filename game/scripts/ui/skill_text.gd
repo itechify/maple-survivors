@@ -123,7 +123,10 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("meter"):
 		# The meter's unit word: a finisher may name it ("energy"); Hero's finishers keep "orbs".
 		var unit := book.meter_unit(key)
-		mechanics.append("Needs %d %s" % [int(def.meter.get("min", 0)), unit])
+		if def.meter.has("read_per_unit"):
+			mechanics.append("+%s%% damage per %s held" % [number(float(def.meter.read_per_unit) * 100.0), unit])
+		if def.meter.has("min"):
+			mechanics.append("Needs %d %s" % [int(def.meter.min), unit])
 		var keep := int(stats.get("meter_keep", 0))
 		if str(def.meter.get("spend", "")) == "all":
 			mechanics.append("Spends all %s" % unit if keep <= 0 else "Spends all but %d %s; Keeps %d %s" % [keep, unit, keep, unit])

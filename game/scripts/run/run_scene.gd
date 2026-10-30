@@ -2273,6 +2273,8 @@ func perf_summary(summary: Dictionary = {}) -> Dictionary:
 		"missing": Array(library.missing) if library != null else [], "warped_to": _warped,
 	}
 	out.merge(_frames.summary())
+	if not world.meter.config.is_empty():
+		out["meter"] = world.meter.stats() # #403: held units over the run (time-weighted mean, peak), for any meter
 	if _account_name != "":
 		out["account"] = _account_name # spec #34: the output names the tool account file; absent without --account.
 	if world.pet_system != null:
