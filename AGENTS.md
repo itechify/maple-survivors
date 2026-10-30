@@ -14,6 +14,7 @@ changing gameplay.
 | `game/data/survivor/` | Survivor-mode design data: skill behaviour, upgrades, stages, balance. All tuning lives here. Skills, upgrades, equipment drops, scrolls and shop weapon slots keep their entries in per-job-line files (`<name>/<line>.json`) that `DataRepo` merges; a class spec adds its own line files (`docs/ARCHITECTURE.md` 4.4.4). |
 | `game/data/asset_manifest.json` | Which WZ images the importer exports into the asset cache; line-specific entries live in the include fragments `asset_manifest.d/<line>.json` (`docs/ASSET_PIPELINE.md` 4.1). |
 | `tools/wzimport/` | Rust CLI that reads original v83 `.wz` files and writes the asset cache (PNG atlases, JSON trees, MP3/WAV). |
+| `tools/level_curve/` | Node generator of `game/data/survivor/level_curve.json` (the stage level scale's reference curves, from a `wzimport dump` of Mob.wz); `node --test tools/level_curve/test/*.test.mjs`. |
 | `scripts/` | Bash entry points: `godot.sh`, `test.sh`, `import.sh`, `run.sh`, `playtest.sh`, `balance.sh`, `bench.sh`, `export.sh` (`--web` too), `godot_templates.sh`, `build_wasm.sh`, `check_web_artifact.sh`. |
 | `web/` | The web shell (HTML/CSS/JS, import worker) of the web build; `web/dev/` holds dev-only localhost servers and tests, never shipped. |
 | `.github/workflows/` | `pages.yml`: tests, web export and GitHub Pages deploy. |
@@ -60,7 +61,7 @@ changing gameplay.
 - `cd tools/wzimport && cargo test` runs the importer tests. Fixtures are synthetic WZ files built by the test-only
   writer in `tools/wzimport/src/testutil.rs`. Tests against real data run only when `MAPLE_WZ_ROOT` is set.
 - Tests that need the real asset cache call `require_cache()` and SKIP without it. A SKIP proves nothing; say so when
-  reporting. CI (`.github/workflows/pages.yml`: `cargo test`, `node --test web/dev/test/*.test.mjs tools/level_curve/test/*.test.mjs`,
+  reporting. CI (`.github/workflows/pages.yml`: `cargo test`, `node --test web/dev/test/*.test.mjs`,
   `bash scripts/test.sh`) has no WZ data, so those tests SKIP there.
 - Gameplay changes need a deterministic test (seeded RNG, fixed dt). Visual changes need a screenshot checked by eye
   (`bash scripts/playtest.sh`), saved to `evidence/`.

@@ -25,3 +25,6 @@ The method is written in the output's `_doc` (also with the exclusion counts and
 5. Made non-decreasing by weighted isotonic regression on the log values, then smoothed 1-2-1 over neighbouring levels.
 
 Tier: the numbers are tier A-derived (v83 `Mob.wz` info), used for a tier C purpose (the survivor level scale).
+
+CI: the node tests are not wired into `.github/workflows/pages.yml` yet; add `tools/level_curve/test/*.test.mjs` to its
+`node --test` step.
