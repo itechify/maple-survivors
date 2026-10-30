@@ -96,6 +96,8 @@ const SCORE_PLAYER := {"max_hp": 46.0, "hp_regen": 36.0, "pdd": 34.0, "speed": 2
 ## 54+6 = 60. A higher-tier new attack skill (106-124) passes a Normal one, as it should. A Legendary clamped to the
 ## ranks left scores the gain it grants (+6 ranks: 104). Gains only add, so this never reorders Normal offers.
 const SCORE_GAIN_STEP := 6.0
+## tier C (#402): a status grant scores like a 20% improvement (the unit of the bonus score), times its repeat scale.
+const GRANT_BONUS_UNIT := 0.2
 
 
 ## The input for the next tick of `w`.
@@ -596,6 +598,9 @@ static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var bonus_score := 0.0
 	# tier C: score the actual diminished effect, not the rarity label or fictitious ranks.
 	for effect: Dictionary in c.get("rarity_bonus", {}).get("effects", []):
+		if String(effect.get("op", "")) == "grant":
+			bonus_score += GRANT_BONUS_UNIT * float(effect.get("scale", 1.0))
+			continue
 		var value := float(effect.get("value", 0.0))
 		bonus_score += absf(value - 1.0) if String(effect.get("op", "add")) == "mul" else absf(value)
 	var base := _base_score(w, d)

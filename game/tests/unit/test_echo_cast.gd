@@ -273,6 +273,24 @@ func test_the_echo_keeps_on_hit_statuses() -> void:
 	assert_true(w.swarm.hp[m] < 1000000, "the echo landed")
 	assert_true(w.swarm.status_time(m, MobSwarm.STUN) > 0.0, "and stunned")
 
+func test_the_echo_carries_the_casts_status_grants() -> void:
+	# M22 (#402): a granted status rides the snapshot of an echoed star like its native on_hit does.
+	var w := world()
+	w.loadout.status_bonuses = {"stop": {"kind": "stun", "chance": 100, "time": 1.5}}
+	w.loadout.add_status_grant("test_star", "stop")
+	var m := _cast_star(w, 330)
+	for i in w.projectiles.capacity():
+		w.projectiles.active[i] = 0 # lose the owner's star: only the echo can stun
+	_ticks(w, 15)
+	assert_eq(_events(w, "echo_cast").size(), 1)
+	assert_eq(w.swarm.status_time(m, MobSwarm.STUN), 0.0)
+	for t in 200:
+		_ticks(w, 1)
+		if w.swarm.hp[m] < 1000000:
+			break
+	assert_true(w.swarm.hp[m] < 1000000, "the echo landed")
+	assert_true(w.swarm.status_time(m, MobSwarm.STUN) > 0.0, "and its grant stunned")
+
 # --- retarget and drop ----------------------------------------------------------------------------------------------
 
 func test_a_dead_target_retargets_to_the_nearest_living_monster_in_reach_of_the_clone() -> void:

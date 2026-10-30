@@ -8437,6 +8437,18 @@ Tests: `test_shadow_meso` (the percent by rank, the basis rule and its unused fi
 one bag / boss first / range / cooldown, the `count` card's second target, the art tiers, the catalog, every bonus changing
 the resolved cast, the card and Mastery rules, and the real-cache rank and art checks).
 
+#### 7.94.5 Status bonus (M22) (spec #383 NL3, #402)
+
+(The spec calls this section 7.93; that number belongs to the Buccaneer pool in this tree, so the status bonus is 7.94.5. Constants: "Night Lord NL3 constants".)
+
+A class line's `balance.status_bonuses` catalogue supplies status ids, kinds, scalar/eight-rank chance, duration and
+poison level, plus scalar repeat chance points. Cards use `{stat: status, op: grant, status: <id>}`. First award fixes
+its position; repeats add scaled chance points without modifying `skill_mods`. The owning skill's rank resolves the
+grant, independently of the skill's canonical level. Cast snapshots preserve grants across delayed hits and projectiles.
+After native on-hit, every grant under 100% draws once on stream 1 (including zero); 100% draws nothing. Existing
+boss/element gates and refresh semantics apply. Cards and Skill window append rank-resolved chance/duration text.
+NL2 owns the shipping catalogue; NL7 owns its first skill users. This ticket adds no balance data or playable job.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -10409,3 +10421,17 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 | Art tiers | `level/{level}/ball` and `level/{level}/hit/0`: levels 1-10 / 11-20 / 21-30 | tier A (the level nodes' UOLs) |
 | Echo class | `skill` (Shadow Partner's `y`) | tier C: spec #383 |
 | Rarity | Rare Meso Up damage x1.2; Epic Claw Booster cooldown x0.88; Unique Second Bag `count` +1; Legendary Second Bag + damage x1.2 | tier C: spec #383 |
+
+### Night Lord NL3 constants
+
+- Tier C: grant repeats add `repeat_chance × 0.8^n` points, where n is the existing rarity bonus repeat counter;
+  the first grant adds no repeat points. Total chance caps at 100%. Unique/Legendary continue sharing their bonus id.
+- Tier C: grants apply in award order after native on-hit and before knockback/listeners, one stream-1 draw for every
+  sub-100% grant on every damaging line. Other skill dictionaries, RNG and events remain unchanged.
+- Diagnostic-only tier C: the status-bonus driver guarantees 10-second poison/stun and uses a patched job 412 with
+  Energy Bolt to exercise the seam before Night Lord skill data lands. These values never enter shipped balance.
+- Tier C: the bot scores a status-grant card as a 20% improvement times its repeat scale (`BotInput.GRANT_BONUS_UNIT` 0.2),
+  so a Mastery grant is not scored zero; rarity cards add it to the gain term as for any other bonus.
+- Tier C: the shipped `balance.status_bonuses` entries (`venomous_star`, `stunning_avenger`) are NL2's; NL3 only validates them
+  at load (`DataRepo.load_all`) and resolves them by the owning skill's rank. Echoed stars and ground-strike hits carry the
+  grants because they re-use the cast snapshot (tests in `test_echo_cast` and `test_night_lord_crowd`).

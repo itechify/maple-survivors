@@ -1563,3 +1563,13 @@ Everything below is behind `WebProfile.is_web()` (`scripts/core/web_profile.gd`:
   the Alt menu is left to a manual check in the QA ticket (#136). Keys a page cannot reliably take: F11 (browser fullscreen) and F12 (developer tools) are tinted "Web" and not
   bindable in the Key Config window (`KeyBindings.WEB_RESERVED`), and the window's strip notes that Ctrl+W / Ctrl+T /
   Ctrl+N always reach the browser. Esc leaves browser fullscreen before the game sees it (accepted).
+
+### Status bonuses (M22, Night Lord #402)
+
+`StatusBonus` validates the merged `balance.status_bonuses` catalogue and resolves scalar/eight-rank fields.
+`DataRepo.load_all` reports catalogue and missing grant references after merging class balance and diagnostic patches.
+`Loadout.grants` preserves per-skill id order separately from numeric `skill_mods`; `grant_chances` holds repeat points.
+Only granted skills append `status_grants` to resolved stats. Independent preview clones retain this state.
+Instant/delayed hits carry their cast dictionary; `SkillRunner.fire_shot` snapshots grants into a sparse per-projectile
+slot table, reset on spawn/despawn. The ordinary hit callback applies them after native on-hit status, before knockback
+and listeners. Later echo/zone implementations should preserve the resolved dictionary and use these same hit seams.

@@ -533,3 +533,6 @@ _Avoid_: life cost, blood magic
 HP a skill takes from its caster after it hit, as a share of the damage the cast dealt, capped at a share of max HP and
 never the last HP. Reported as `hp_spent` with kind `recoil`.
 _Avoid_: backlash, self-damage (the data block is named `self_damage`)
+
+**Status bonus** — A rarity or Mastery effect granting an ordered, rank-resolved status to one skill, independently of
+its numeric modifiers and native on-hit status. Repeating the grant adds diminishing chance points (M22, #402).

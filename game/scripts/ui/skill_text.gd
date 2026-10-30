@@ -174,6 +174,8 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		# tier C (ours, BS8): the second-life line, the numbers of the plan PlayerRevive resolves.
 		mechanics.append("When a hit would kill you: return at %s%% HP, %s s guard; recharge %s" % [
 			number(float(revive.hp) * 100.0), number(float(revive.guard)), clock(SkillRunner.restart_cooldown(stats))])
+	for grant: Dictionary in stats.get("status_grants", []):
+		mechanics.append(status_line(grant, book.status_bonuses))
 	if not mechanics.is_empty():
 		# Parts are joined with "; ", except after the sentence that ends a Transform line.
 		var joined := ""
@@ -374,3 +376,10 @@ static func _form_sub_label(book: SkillBook, skill: String) -> String:
 		var key := String(sub.skill)
 		names.append(String(book.def(key).get("name", key.replace("_", " ").capitalize())))
 	return " / ".join(names) if not names.is_empty() else "Sub-skill"
+
+
+## Rank-resolved status wording shared by rarity cards and the Skill window.
+static func status_line(grant: Dictionary, catalogue: Dictionary) -> String:
+	var id := String(grant.id)
+	var name := String(catalogue.get(id, {}).get("name", id.replace("_", " ").capitalize()))
+	return "%s: %s%% to %s for %s s" % [name, number(float(grant.chance)), String(grant.kind), number(float(grant.time))]

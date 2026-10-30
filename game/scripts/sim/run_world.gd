@@ -499,6 +499,8 @@ func _init_drops_and_shots() -> void:
 func _init_skills_and_progression() -> void:
 	book = SkillBook.from_data(data.get("skills", {}), setup.get("skill_imgs", {}))
 	loadout = Loadout.new(book)
+	loadout.status_bonuses = balance.get("status_bonuses", {})
+	book.status_bonuses = loadout.status_bonuses
 	loadout.pierce_floor = projectiles.pierce_floor
 	var crit: Dictionary = balance.get("crit", {})
 	loadout.crit_chance = float(crit.get("chance", 0.0))
@@ -1949,6 +1951,8 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 			hit["push_side"] = int(st.push_side) # a dash's direction (Rush): the knock-back shoves along it
 		if st.has("burn_pulse"):
 			hit["burn_pulse"] = int(st.burn_pulse)
+		if st.has("status_grants"):
+			hit["status_grants"] = st.status_grants
 		if bool(st.get("echo", false)):
 			hit["echo"] = true
 		_on_player_hit(m, hit)
@@ -2110,6 +2114,11 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 				params["x"] = -cut
 				params["y"] = -cut
 			swarm.apply_status(slot, String(status.get("status", "")), params, events)
+	# tier C (#402): grant order is cast order; sub-100 chances each consume one stream-1 draw, even at zero.
+	for grant: Dictionary in hit.get("status_grants", []):
+		if float(grant.chance) >= 100.0 or rng.randf() * 100.0 < float(grant.chance):
+			swarm.apply_status(slot, String(grant.kind), {"time": grant.time, "level": grant.level,
+				"skill": key, "element": grant.element}, events)
 	var knockback: Dictionary = book.def(key).get("knockback", {})
 	if not knockback.is_empty() and not swarm.mob_kind(slot).boss and swarm.steady[slot] == 0:
 		# tier C: one stream-1 roll per struck non-boss, including the 0/100% endpoints; a block without a chance field

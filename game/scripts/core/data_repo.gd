@@ -99,6 +99,7 @@ static func load_all(root: String = DATA_ROOT, errors: PackedStringArray = Packe
 	var out := _load_all(root, errors)
 	if root == DATA_ROOT and not patch.is_empty():
 		merge_patch(out, patch)
+	errors.append_array(StatusBonus.errors(out.get("balance", {}).get("status_bonuses", {}), out))
 	return out
 
 

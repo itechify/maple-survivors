@@ -47,6 +47,10 @@ var ranks := {}
 var order: Array = []
 ## skill key -> {stat: Vector2(add, mul)}.
 var skill_mods := {}
+## Catalogue shared by all job lines; ordered grant ids and additive repeat chance points are separate from numeric mods.
+var status_bonuses := {}
+var grants := {}
+var grant_chances := {}
 ## stat -> Vector2(add, mul) for player-wide stats (max_hp, speed, magnet, hp_regen, pdd, damage, crit).
 var player_mods := {}
 ## Upgrade card id -> consumed rank/modifier steps (one per learned skill card), respecting its maximum.
@@ -155,6 +159,9 @@ func clone() -> Loadout:
 	c.ranks = ranks.duplicate()
 	c.order = order.duplicate()
 	c.skill_mods = skill_mods.duplicate(true)
+	c.status_bonuses = status_bonuses
+	c.grants = grants.duplicate(true)
+	c.grant_chances = grant_chances.duplicate(true)
 	c.player_mods = player_mods.duplicate(true)
 	c.card_ranks = card_ranks.duplicate()
 	c.int_stat = int_stat
@@ -494,6 +501,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 
 	if d.has("revive"):
 		resolved["revive"] = _revive(key, d.revive)
+	_add_status_grants(resolved, key, r)
 	return resolved
 
 
@@ -685,3 +693,23 @@ func sub_stats(sub: String, parent: Dictionary, rank: int) -> Dictionary:
 	lo.add_skill_mod(sub, "damage", "mul", float(parent.get("form_sub_damage", 1.0)))
 	lo.add_skill_mod(sub, "area", "mul", float(parent.get("form_sub_area", 1.0)))
 	return lo.stats(sub, rank)
+
+
+## Awards a status once in learning order; later awards add scaled chance points without numeric skill modifiers.
+func add_status_grant(key: String, id: String, scale: float = 1.0) -> void:
+	if not status_bonuses.has(id):
+		return
+	if not grants.has(key):
+		grants[key] = []
+		grant_chances[key] = {}
+	if id in grants[key]:
+		grant_chances[key][id] = float(grant_chances[key].get(id, 0.0)) + StatusBonus.repeat_points(status_bonuses[id], scale)
+	else:
+		grants[key].append(id)
+	version += 1
+
+
+func _add_status_grants(resolved: Dictionary, key: String, r: int) -> void:
+	if grants.get(key, []).is_empty():
+		return
+	resolved["status_grants"] = StatusBonus.resolve(status_bonuses, grants[key], r, grant_chances[key])

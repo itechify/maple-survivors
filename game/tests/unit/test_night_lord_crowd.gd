@@ -340,6 +340,19 @@ func test_the_first_strike_lands_0_3_s_after_the_cast_then_every_second() -> voi
 		assert_eq(String(hits[k][1].hit_visual), "Skill.wz/412.img/skill/4121004/mob0", "the ninja art rides each hit")
 
 
+func test_a_strike_of_the_zone_carries_the_casts_status_grants() -> void:
+	# M22 (#402): the zone's strikes are ordinary hits of the cast snapshot, so a granted status lands on a strike.
+	var w := _world(AMBUSH)
+	w.loadout.status_bonuses = {"stop": {"kind": "stun", "chance": 100, "time": 1.5}}
+	w.loadout.add_status_grant(AMBUSH, "stop")
+	var m := _mob(w, 80)
+	w.step(DT, MoveInput.new()) # the cast
+	assert_near(w.swarm.status_time(m, MobSwarm.STUN), 0.0, 0.00001, "nothing is struck on the cast tick")
+	w.loadout.grants.clear() # the zone keeps its snapshot
+	assert_false(_timed(w, 24, AMBUSH).is_empty(), "the first strike landed")
+	assert_true(w.swarm.status_time(m, MobSwarm.STUN) > 1.0, "and stunned")
+
+
 func test_the_zone_lives_four_eight_and_twelve_seconds_by_rank() -> void:
 	for row: Array in [[1, 4], [4, 8], [8, 12]]:
 		var w := _world(AMBUSH, int(row[0]))
