@@ -23,19 +23,6 @@
 			"char_level": {"thresholds":[10,15,20,25],"hit":"Skill.wz/400.img/skill/4001334/CharLevel/{cl}/hit/0"},
 			"rotate": false, "sounds": {"use":"Sound.wz/Skill.img/4001334/Use","hit":""}
 		},
-		"lucky_seven": {
-			"skill_id": 4001344, "book": "400", "job": 400, "kind": "projectile", "slot": "active",
-			"name": "Lucky Seven", "desc": "Throws two stars at nearby monsters, using LUK regardless of Claw Mastery.",
-			"icon": "Skill.wz/400.img/skill/4001344/icon", "damage": "physical",
-			"_tier": "Tier A: WZ weapon 47, bulletCount 2, damage, mpCon, effect and CharLevel hit art; no ball node, so ammo_shot uses the current star. Tier B: LUK x5.0/x2.5 formula ignoring mastery (v83-facts 5). Tier C: nearest auto-cast, 250px base claw reach, cooldown 1s, shoot1 held 0.6s, speed 600px/s, radius 8px, no base pierce; untuned.",
-			"cast": {"rule":"nearest"}, "cooldown": 1, "range": 250, "speed": 600, "radius": 8, "pierce": 0, "ammo_shot": true,
-			"physical_formula": {"primary":"luk","max_mult":5,"min_mult":2.5,"secondary":"","ignore_mastery":true},
-			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
-			"action": "shoot1", "action_time": 0.6, "ball": "",
-			"hit": "Skill.wz/400.img/skill/4001344/hit/0", "effect": "Skill.wz/400.img/skill/4001344/effect",
-			"char_level": {"thresholds":[10,15,20,25],"hit":"Skill.wz/400.img/skill/4001344/CharLevel/{cl}/hit/0"},
-			"rotate": true, "sounds": {"use":"Sound.wz/Skill.img/4001344/Use","hit":""}
-		},
 		"keen_eyes": {
 			"skill_id": 4000001, "book": "400", "job": 400, "kind": "passive", "slot": "passive",
 			"name": "Keen Eyes", "desc": "Increases claw basic attack and skill range.",
@@ -175,19 +162,6 @@
 			"action": "", "action_time": 0, "ball": "",
 			"hit": "", "effect": "", "rotate": false,
 			"sounds": {"use":"","hit":""}
-		},
-		"drain": {
-			"skill_id": 4101005, "book": "410", "job": 410, "kind": "projectile", "slot": "active",
-			"name": "Drain", "desc": "Throws a star and absorbs part of its damage as HP, capped at half your MaxHP and the monster's MaxHP.",
-			"icon": "Skill.wz/410.img/skill/4101005/icon", "damage": "physical",
-			"_tier": "Tier A: weapon 47, damage, mpCon, x healing percent, effect, lowercase use sound; v83 text caps healing at character MaxHP/2 and target MaxHP. Tier C: nearest auto-cast, one star, 250px range, 1s cooldown, speed 600px/s, radius 8px, no base pierce, shoot1 held 0.6s; untuned. Whole healing points truncate.",
-			"cast": {"rule":"nearest"}, "cooldown": 1, "range": 250, "speed": 600, "radius": 8, "pierce": 0, "ammo_shot": true,
-			"damage_heal": {"percent_field":"x","max_hp_fraction":0.5,"target_max_hp":true},
-			"text": {"desc":"Throws a star and absorbs part of its damage as HP, capped at half your MaxHP and the monster's MaxHP.","h":"Damage {damage}%, absorb {x}% of damage as HP."},
-			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30],
-			"action": "shoot1", "action_time": 0.6, "ball": "",
-			"hit": "", "effect": "Skill.wz/410.img/skill/4101005/effect",
-			"rotate": true, "sounds": {"use":"Sound.wz/Skill.img/4101005/use","hit":""}
 		},
 		"savage_blow": {
 			"skill_id": 4201005,
