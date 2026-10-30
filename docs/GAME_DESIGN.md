@@ -150,6 +150,14 @@ Demolition's blank, and keeps knuckles visible through the weapon-only swingTF f
 BC11 enabled selection, tooling, the tier-2 fixture and the independent replay oracle. BC12 supplies the QA record
 in 4.2. Sections 7.90–7.93 and the B2–B11 provenance tables own all constants; no balance tuning in this QA.
 
+**Landed in the Corsair spec (#384, C1–C15 #385–#399):** job 522 is playable beside the other eight jobs (nine Job-page rows, Corsair last);
+F/P (212) remains the default. Its thirteen-skill pool starts with Double Shot and manual Dash outside the slots: five gun fillers
+(Double Shot, Burst Fire, Invisible Shot, Recoil Shot, Grenade), Flamethrower and Ice Splitter (front cones), the Octopus (a planted turret that
+fires visible balls, 7.121), the Gaviota (a one-strike kamikaze), Homing Beacon (the all-element mark, 7.122), Aerial Strike, Rapid Fire and the
+Battleship (a timed Form on a drawn mount with a hull that soaks hits, `only_skills`, and its own Cannon and Torpedo, 7.120.9–7.120.13). The guns
+step up their bullets at Lv18 and Lv35. C14 added the selection, fixture and bot scores; C15 flipped `playable` and recorded the QA in 7.120.15 and 4.2.
+Sections 7.120–7.122 and the Corsair constants block in section 11 own every number; no balance tuning in this QA.
+
 ### Known design gaps (open after the slice)
 
 These are findings of the QA pass, #293 and #307, recorded as gaps, not as met targets. Nothing here was tuned in #294.
@@ -4523,6 +4531,61 @@ reproduce their hashes in the full suite (3801 tests, 0 failed, 0 skipped with t
 Ice Splitter, Homing Beacon and Rapid Fire casts, Lv5, 42 kills, no `game.log` warning (no `summary.json`: not run to its end). Sleepywood not run (50 HP at Lv1,
 C2's note). Not tuned.
 
+### Corsair C15 QA and regression smoke (#399, 2026-10-30)
+
+Seeds **1, 2, 2026**, `JOBS=3`, `ISOLATE=399s`, private cache `cache-384`, no tuning, no patches, no held-out seeds. Every tier-1 stage with `bot` and
+`random`, then Sleepywood (bot) with the starter outfit and with each job's committed tier-2 fixture (`corsair_t2.json`, `fp_arch_mage.json`), for
+Corsair (`--job=522`) and the default job (F/P 212): **60 records, 20 batch exits all 0; no crash, no world warning, no missing asset.** Only the default job and Corsair were rerun here
+(the brief's scope); nothing in `scripts/sim/` changed, and every oracle reproduces in the suite. C = CLEARED, D = DEAD
+(seconds); "boss reached" counts runs in which the first boss (300 s) spawned.
+
+| Stage / policy | Corsair 522 | F/P 212 |
+|---|---|---|
+| henesys / bot | 0/3 C; D 308.9–820.6; boss reached 3/3 | 0/3 C; D 474.5–751.9; boss reached 3/3 |
+| henesys / random | 0/3 C; D 306.4–379.1; boss reached 3/3 | 1/3 C; D 433.4–503.7; C 914.3; boss reached 3/3 |
+| ellinia / bot | 0/3 C; D 238.8–374.8; boss reached 1/3 | 0/3 C; D 619.8–643.5; boss reached 3/3 |
+| ellinia / random | 0/3 C; D 205.2–277.5; boss reached 0/3 | 0/3 C; D 617.4–654.4; boss reached 3/3 |
+| perion / bot | 0/3 C; D 294.6–356.2; boss reached 2/3 | 0/3 C; D 310.5–461.8; boss reached 3/3 |
+| perion / random | 0/3 C; D 258.7–343.7; boss reached 2/3 | 0/3 C; D 420.6–428.0; boss reached 3/3 |
+| kerning / bot | 0/3 C; D 311.7–335.1; boss reached 3/3 | 0/3 C; D 311.0–517.9; boss reached 3/3 |
+| kerning / random | 0/3 C; D 280.3–305.8; boss reached 1/3 | 0/3 C; D 306.5–307.0; boss reached 3/3 |
+| sleepywood / starter | 0/3 C; D 9.4–15.3; boss reached 0/3 | 0/3 C; D 11.4–15.1; boss reached 0/3 |
+| sleepywood / kit | 0/3 C; D 10.0–17.1; boss reached 0/3 | 1/3 C; D 23.8–826.2; C 936.2; boss reached 2/3 |
+
+F/P Henesys bot reproduces the C13/C14 rows exactly (D 751.9 / 661.9 / 474.5 s = 12:31 / 11:01 / 7:54); the older BC12 table above was taken before other
+specs merged into this branch's base and differs for that reason, not because of this ticket.
+
+Corsair: tier-1 clears 0/24; the first boss spawned in 15/24 runs (all six Henesys runs), a boss was killed in 2/24 (Henesys bot seeds 2 and 2026, one
+each); Corsair dies before the first boss in 9/24 and in all three Ellinia-random runs. **No run ended in a crash and not every run died before the first
+boss, so nothing is stopped; but Corsair is clearly the weakest tier-1 job in this matrix** (the BC12 table above: Hero 3/24 clears and 20/24 first bosses, Buccaneer
+8/24 and 23/24, F/P here 0/24 clears but 24/24 first bosses). Balance-pass levers named by the spec (not touched here): the ship's duration, cooldown and hull share, the Octopus and Gaviota `pad`, the mark's
+length and multiplier, Aerial Strike's cooldown, Rapid Fire's bullet count. The six active slots filled in all six Henesys runs (at 134–256 s).
+
+Mechanic coverage across the 30 Corsair records (the `corsair` block `balance_run.gd` now writes for job 522 only, additive): ship boardings 10 (116.6 s aboard
+in total, 4 hulls broken, 308 damage absorbed); landed hits Double Shot 7517, Invisible Shot 4218, Grenade 3398, Flamethrower 3068, Ice Splitter 2745,
+Recoil Shot 2032, Gaviota 873 strikes, Aerial Strike 716, Rapid Fire 694, Octopus 387 balls, Battleship Cannon 220, Homing Beacon 208 (= marks applied), Torpedo
+109; marked monster-seconds 1664 (the union of each monster's mark timers, ignoring early death). Burst Fire was never taken. The ship was up in only three runs
+because the bot's six slots fill with other cards first (the same effect as C14's baseline note); the ship, Octopus and Aerial paths are covered by
+unit tests and the diagnostic playtests below.
+
+Sleepywood: with 50 HP at Lv1 (the shared default; the spec gives Corsair no HP row, so it inherits the 500 growth and the shared Lv1 value) the starter and the
+fixture die in 9–17 s, F/P's starter in 11–15 s: the same early-death pattern recorded for every job's Sleepywood starter run, not tuned here.
+
+Both `redesign --job=522` (31 shots, PASSED: Corsair on the Job page's last row, "Pistol · WATK 13 · 0.75s", an invulnerable Henesys clear at Lv30 with three
+bosses, results, Free Market with tier 2, a Sleepywood death through the `unrevivable` lethal source, deletion and history) and `creation --jobs=212,522`
+were looked at. Ordinary Corsair playtests, seed 2026, x4, vsync off: Henesys starter DEAD 339.3 s Lv11, Henesys with `corsair_t2.json` DEAD 332.0 s Lv11,
+Sleepywood starter DEAD 11.8 s, Sleepywood with the fixture DEAD 20.1 s, every `summary.json` `missing: []`, no warning in any `game.log`. Diagnostic
+playtests (the pool narrowed to the skills the bot had not taken, and for the second the ammo steps lowered to Lv4/Lv8; both edits reverted, never committed;
+Henesys seeds 3 and 5): pistol in hand, the Battleship drawn with the seated rider, the blue hull bar over the head, the Cannon's muzzle flash and the Torpedo
+flash, Gaviotas diving, Aerial Strike's explosions (with `capture_delay` 2.2 s the shot now shows the impact), Rapid Fire's wings, the planted Octopus, the mark
+cue by the monsters, "Your bullets are now Split Bullet" and `missing: []`. Not captured in a frame: a broken hull (covered by `test_corsair_battleship` and the
+C13 playtest), the Octopus's balls in flight and the cones aboard the ship (the cones aboard are unit-tested in `test_corsair_cones`). The Cannon / Torpedo `Hit`
+sound was not judged by ear (a headless agent cannot listen), so `sounds.hit` stays on both subs for the owner to listen to.
+
+Web gate: **skipped**: this machine has no `wasm32-unknown-unknown` target, no `wasm-bindgen-cli` and no pinned web export templates, so `bash scripts/export.sh --web`
+and `check_web_artifact.sh` were not run (CI runs them). `node --test web/dev/test/*.test.mjs` passed (62) and `cargo test` (no `MAPLE_WZ_ROOT`) passed (the importer's
+synthetic tests, 0 failed). No importer, manifest or import-screen change in this ticket, so the import screen lists no new download.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
@@ -8218,10 +8281,10 @@ and the control that kites without the key), `test_avatar_cash_layers` (the `swi
 ### 7.120 Corsair pool, job data and Dash (spec #384, C2 #386)
 
 Job 522 (Corsair, the gunslinging pirate) has its own data line: `survivor/jobs/corsair.json` (job entry, AP row, placeholder
-`hub_kit`) and an empty `survivor/skills/corsair.json` whose regions the skill tickets C3-C13 fill. `DataRepo.lines()` discovers
-the `corsair` line from those files; nothing is registered in a shared list and no other job's file changed. `playable` is `false`
-until the selection ticket (C14), so a Corsair cannot start a round yet; `default_job` stays 212. A pool key with no definition yet
-is inert (never offered, learned or cast), so the thirteen keys are named now and become live one ticket at a time.
+`hub_kit`) and `survivor/skills/corsair.json`, whose regions the skill tickets C3-C13 filled. `DataRepo.lines()` discovers
+the `corsair` line from those files; nothing is registered in a shared list and no other job's file changed. `playable` is `true`
+since the QA ticket (C15 #399, 7.120.15); `default_job` stays 212. (While the line was being built a pool key with no definition was
+inert: never offered, learned or cast.)
 
 | key | WZ id | Shape | Where it is defined |
 |---|---|---|---|
@@ -8242,7 +8305,7 @@ is inert (never offered, learned or cast), so the thirteen keys are named now an
 
 - **Job entry:** `starting_skill double_shot`, `mobility_skill dash`, the thirteen-key `skill_pool`, `weapon_families ["gun"]`,
   `creation_weapon 1492000` (the Pistol, `reqJob` 16 = the Pirate bit; tier A, already in the Pirate manifest fragment and the shipped
-  drop list), `playable false`. No `meter` (the ship is a Form, not a meter).
+  drop list), `playable true` (C15). No `meter` (the ship is a Form, not a meter).
 - **Placement rule (`test_data_repo_lines`):** `corsair.json` holds books 500, 520, 521 and 522 (the ported gun skills and the
   Corsair book); `pirate.json` never holds a 521 or 522 book. A key lives in one file only.
 - **AP row `balance.player.ap["522"]`** (in `jobs/corsair.json`): DEX primary, STR secondary, the shared `520` row's keyframes (Lv1 -> 1,
@@ -8587,7 +8650,7 @@ form carries `presentation.mount` 1932000), `AvatarRenderer` draws `Character.wz
 
 #### 7.120.14 Corsair C14: selection and tooling (#398, spec #384)
 
-Everything that lets Corsair be selected, run, hand-tested and regression-pinned while `playable` stays **false** until C15. No sim code
+Everything that lets Corsair be selected, run, hand-tested and regression-pinned (shipped with `playable` **false**; C15 flipped it). No sim code
 changed; the data edit is `jobs/corsair.json` (hub kit and bot scores).
 
 - **Job page.** With 522 mirrored playable the page has nine rows (Corsair last, after Buccaneer), which does not fit the 21 px pitch: the
@@ -8626,6 +8689,23 @@ changed; the data edit is `jobs/corsair.json` (hub kit and bot scores).
 | Bot card scores (#398) | the thirteen pool skills `_new` 100, `_rank` 74 (the pool default's numbers, explicit) | C |
 | Fixture kit (#398) | pistol 1492003, hat 1002096, shoes 1072017, gloves 1082002, starter top / bottom, tier 2 | C |
 | Hub kit (#398) | gun ATT scrolls 2044900-2044904 x10, spare 1002001 / 1492001 / 1082002 / 1040010, fallback item 1492006 | C |
+
+#### 7.120.15 Corsair C15: QA and merge readiness (#399, spec #384)
+
+`playable` is `true` in `jobs/corsair.json`; F/P (212) stays the default (`survivor/jobs.json`). Nothing else in the data changed except one playtest-only
+key: `capture_delay` 2.2 s on `aerial_strike` (C10 asked for it: the `cast_aerial_strike` shot now lands on the explosions, `pending.delay` 1.8 s plus
+the art's first frames; the sim never reads it). The pinned tests moved to the shipped data: the `--patch` / `DataRepo.patch` "playable" mirrors of the Corsair tests
+were removed (only an "unplayable" patch remains, for the refusal cases of `test_creation_corsair`, `test_corsair_selection`, `test_corsair_hub_kit`), the other
+jobs' Job-page tests (`test_creation_bishop`, `_bowmaster`, `_buccaneer`) and `test_bowmaster_data` list nine rows with Corsair last, `test_corsair_data` pins
+`playable true`. `test_corsair_battleship` gained the hull-versus-diagnostic-hit test: the flow driver's lethal source (`unrevivable: true`, 1e9 damage) kills a
+Corsair aboard a full rank-8 hull (the hull absorbs at most its points and the rest reaches HP), so `redesign --job=522` cannot be turned into a survived hit by the ship.
+`test_corsair_baseline` already held all thirteen skills (C14), so it was not widened or recaptured. HP: the shared default (50 at Lv1, the 500 growth), as the
+spec says nothing else.
+
+`balance_run.gd` writes a `corsair` block into a record only for job 522 (ship boardings and seconds, hulls broken, damage absorbed, landed hits per skill key, marks
+applied, marked monster-seconds); every other job's record is byte-identical. Tier C measurement, no RNG, no world change. The QA record (flow scenario, playtests,
+smoke, web gate) is in section 4.2 "Corsair C15 QA and regression smoke". Open for the owner: the smoke shows Corsair is the weakest tier-1 job (0/24 clears; first
+boss spawned in 15/24 runs) and the Cannon / Torpedo `Hit` sound is still to be listened to (C13).
 
 ### 7.121 Summon behaviours: turret and kamikaze (#389, spec #384 M9)
 

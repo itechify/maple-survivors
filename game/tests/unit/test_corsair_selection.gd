@@ -185,3 +185,5 @@ func test_a_one_off_round_from_the_fixture_has_bullets_and_no_missing_assets() -
 	if not record.is_empty():
 		assert_eq(int(record.job), 522)
 		assert_eq(record.missing, [], "the gun gives ammo: no bullet sprite lookup fails")
+		assert_true(record.has("corsair"), "a Corsair record carries the QA measurement block (C15)")
+		assert_eq(Array(record.corsair.keys()).size(), 7, "boardings, ship seconds, broken hulls, absorbed, marks, marked seconds, hits")
