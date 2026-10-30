@@ -1,10 +1,9 @@
 extends TestCase
 ## The `--hub --job=522` test kit (spec #384, C14 #398): the Corsair's fixture, its gun ATT scroll stacks and the spare
-## equipment it can wear. Corsair ships `playable: false` until C15, so the kit is built through the data seam
-## (`DataRepo.patch` making 522 playable), and the job-error test checks both the unplayable and the mirrored states.
+## equipment it can wear. Corsair ships `playable: true` (C15 #399); the job-error test also checks the state a patch turns off.
 
 const COR_FIXTURE := "res://tests/fixtures/characters/corsair_t2.json"
-const PLAYABLE := {"jobs_survivor": {"jobs": {"522": {"playable": true}}}}
+const UNPLAYABLE := {"jobs_survivor": {"jobs": {"522": {"playable": false}}}}
 const SPARE := [1002001, 1492001, 1082002, 1040010]
 const GUN_SCROLLS := [2044900, 2044901, 2044902, 2044903, 2044904]
 
@@ -37,7 +36,6 @@ func test_hub_job_522_picks_the_corsair_fixture_and_an_explicit_character_wins()
 
 
 func test_the_corsair_kit_scrolls_are_the_five_gun_att_scrolls_within_the_use_tab() -> void:
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	var character := HubTestKit.apply(_corsair(), 500000, _loader())
 	var held: Array = character.scrolls.keys().map(func(k: String) -> int: return int(k))
 	held.sort()
@@ -58,7 +56,6 @@ func test_the_corsair_kit_scrolls_are_the_five_gun_att_scrolls_within_the_use_ta
 
 
 func test_the_corsair_kit_equipment_holds_a_second_pistol_a_hat_gloves_and_a_top() -> void:
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	var character := HubTestKit.apply(_corsair(), 500000, _loader())
 	assert_eq(character.equipment.inventory.map(func(e: Dictionary) -> int: return int(e.id)), SPARE)
 	assert_eq(WeaponInfo.family(1492001), "gun", "the spare weapon is a gun, the family a Corsair wields")
@@ -102,9 +99,11 @@ func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
 	fp.erase("_doc")
 	var data := DataRepo.load_all()
 	var shipped := JobTree.from_data(data.jobs, data.jobs_survivor)
-	assert_true(HubTestKit.job_error({"job": 522}, fixture, shipped).contains("not playable"), "522 ships unplayable until C15")
-	DataRepo.patch = PLAYABLE.duplicate(true)
-	var mirrored := DataRepo.jobs(DataRepo.load_all())
+	DataRepo.patch = UNPLAYABLE.duplicate(true)
+	var off := DataRepo.jobs(DataRepo.load_all())
+	assert_true(HubTestKit.job_error({"job": 522}, fixture, off).contains("not playable"), "a patch can turn 522 off")
+	DataRepo.patch = {}
+	var mirrored := shipped
 	assert_eq(HubTestKit.job_error({"job": 522}, fixture, mirrored), "")
 	assert_true(HubTestKit.job_error({"job": 522}, fp, mirrored).contains("does not match"))
 	assert_true(HubTestKit.job_error({"job": 212}, fixture, mirrored).contains("does not match"))

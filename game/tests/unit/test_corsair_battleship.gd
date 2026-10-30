@@ -18,10 +18,9 @@ const TORPEDO_TARGETS := [4, 4, 5, 5, 5, 6, 6, 6]
 const SHIP_KEYS := ["battleship", "battleship_cannon", "battleship_torpedo"]
 
 
-## A Corsair (522, made playable in the data copy) with a gun on the flat quiet map at x = 400 and only the Battleship learned.
+## A Corsair (522) with a gun on the flat quiet map at x = 400 and only the Battleship learned.
 func _world(hp := 1000, pad := 40) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["522"]["playable"] = true
 	data.balance.player.hp = hp
 	data.balance.regen.hp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", 397, data))
@@ -286,6 +285,21 @@ func test_the_hull_absorbs_hits_and_its_break_ends_the_ride_with_the_cooldown_st
 	assert_true(cd > 40.0 and cd <= 45.0, "the 45 s cooldown is running (%f)" % cd)
 	w.runner.tick_cooldowns(1.0, w)
 	assert_near(float(w.runner.cooldowns.battleship), cd - 1.0, 0.001)
+
+
+func test_the_flow_drivers_diagnostic_lethal_hit_kills_a_corsair_aboard_a_full_hull() -> void:
+	var w := _world()
+	w.loadout.ranks["battleship"] = 8
+	w.refresh_player_stats()
+	_mob(w, 300)
+	_run(w, 0.1)
+	var s: Dictionary = w.runner.forms.snapshot()[0]
+	assert_eq(int(s.hull_hp), int(s.hull_max), "boarded with the whole hull")
+	# The exact source the flow driver (`redesign`, Sleepywood) uses: the hull takes at most its points, the rest reaches HP.
+	var lethal := {"boss": true, "source_kind": "attack", "mob": -1, "unrevivable": true}
+	w.take_hit(1.0e9, false, "", w.player.pos + Vector2(40.0, 0.0), lethal)
+	assert_eq(w.state, RunWorld.DEAD, "a hull cannot absorb the diagnostic hit into a survived one")
+	assert_true(w.runner.forms.snapshot().is_empty(), "the ride is over")
 
 
 # --- Cannon and Torpedo inside the ride ------------------------------------------------------------------------

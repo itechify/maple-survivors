@@ -1,6 +1,6 @@
 extends TestCase
 ## Corsair's data seam (spec #384, ticket C2 #386): the `corsair` line is discovered from its files, its job entry
-## `survivor/jobs/corsair.json` (522, not playable yet) names the thirteen-key pool, the Pistol and the guns-only families,
+## `survivor/jobs/corsair.json` (522, playable since C15 #399) names the thirteen-key pool, the Pistol and the guns-only families,
 ## its AP row copies the 520 row (tier C), and its drops are guns only (Pirate-bit gear). Undefined pool keys stay inert; no
 ## other job's file names job 522. Seeded RNG; item info is synthetic unless a test says "real cache".
 
@@ -104,7 +104,7 @@ func test_no_other_line_file_names_corsair_rows() -> void:
 
 # --- the job entry ----------------------------------------------------------------------------------------------------
 
-func test_job_522_has_the_spec_fields_and_is_not_playable() -> void:
+func test_job_522_has_the_spec_fields_and_is_playable() -> void:
 	var jobs := _jobs(_data())
 	var rec := jobs.job(522)
 	assert_eq(String(rec.name), "Corsair")
@@ -116,9 +116,9 @@ func test_job_522_has_the_spec_fields_and_is_not_playable() -> void:
 	assert_false("dash" in jobs.skill_pool(522), "Dash is the mobility skill, not a pool entry")
 	assert_eq(jobs.weapon_families(522), ["gun"])
 	assert_eq(jobs.creation_weapon(522), PISTOL)
-	assert_false(bool(rec.playable), "C14 flips playable")
-	assert_true(jobs.job_error(522).contains("not playable"), jobs.job_error(522))
-	assert_false(522 in jobs.playable_jobs())
+	assert_true(bool(rec.playable), "C15 flipped playable")
+	assert_eq(jobs.job_error(522), "")
+	assert_true(522 in jobs.playable_jobs())
 
 
 func test_the_job_entry_carries_a_placeholder_hub_kit_and_no_meter() -> void:
@@ -146,9 +146,8 @@ func test_earlier_jobs_keep_their_entries_unchanged() -> void:
 func test_default_job_stays_212_with_corsair_on_the_line() -> void:
 	var data := _data()
 	assert_eq(_jobs(data).default_job(), 212)
-	data.jobs_survivor.jobs["522"]["playable"] = true
+	assert_true(522 in _jobs(data).playable_jobs(), "shipped playable (C15)")
 	assert_eq(_jobs(data).default_job(), 212, "the pin, not the first playable job")
-	assert_true(522 in _jobs(data).playable_jobs(), "a playable flag alone makes it selectable (C14)")
 
 
 # --- the pool: defined keys resolve, undefined keys stay inert --------------------------------------------------------
@@ -178,7 +177,6 @@ func test_defined_pool_keys_live_in_a_gun_book_and_undefined_ones_are_inert() ->
 
 func test_an_undefined_pool_key_is_never_offered_as_a_card() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["522"]["playable"] = true
 	var setup := RF.setup("quiet", 7, data)
 	setup["job"] = 522
 	var w := RunWorld.new(setup)
@@ -192,7 +190,6 @@ func test_an_undefined_pool_key_is_never_offered_as_a_card() -> void:
 
 func test_a_corsair_round_starts_on_the_default_hp_and_inherits_the_pirate_growth() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["522"]["playable"] = true
 	var c_setup := RF.setup("quiet", 7, data)
 	c_setup["job"] = 522
 	var f_setup := RF.setup("quiet", 7, data)

@@ -1,6 +1,6 @@
 class_name PlayerHull
 extends RefCounted
-## The `hull` state effect of a Form (spec #384 C11, GAME_DESIGN 7.120.2): a durability pool, a share of max HP, that takes the
+## The `hull` state effect of a Form (spec #384 C11, GAME_DESIGN 7.120.9): a durability pool, a share of max HP, that takes the
 ## character's hits before HP does. A STATE_EFFECTS entry of PlayerForms: it sizes the pool at the form's start, soaks
 ## damage through `PlayerForms.absorb` (RunWorld.take_hit, after defence and armour and before HP) and ends the form with
 ## reason `broken` at 0. The pool lives in the form's state (`hull_hp` / `hull_max`, whole points), so a map transfer keeps it

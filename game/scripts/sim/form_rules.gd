@@ -1,7 +1,7 @@
 class_name FormRules
 extends RefCounted
 ## The two rule effects of a Form that change what the character casts rather than what it takes (spec #384 C11,
-## GAME_DESIGN 7.120.2). Both are STATE_EFFECTS entries of PlayerForms with only a validator; the running forms' state holds
+## GAME_DESIGN 7.120.9). Both are STATE_EFFECTS entries of PlayerForms with only a validator; the running forms' state holds
 ## the declared value and these functions read it.
 ##  - `only_skills [key...]`: while a running form carries it, a pool skill outside the list does not auto-cast
 ##    (SkillRunner.cast_ready asks `PlayerForms.permits` once per candidate). Its cooldown keeps counting and it casts the
