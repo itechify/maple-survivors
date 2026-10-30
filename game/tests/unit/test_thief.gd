@@ -276,6 +276,6 @@ func test_original_thief_values_art_sounds_and_equipment_resolve_in_the_private_
 	for raw in fragment.items:
 		var info: Dictionary = lib.img(AvatarRenderer.part_img_path(int(raw))).root.info
 		assert_true(int(info.get("reqJob", 0)) & 8 != 0, str(raw) + " has the Thief bit")
-		assert_between(int(info.get("reqLevel", -1)), 0, 70)
+		assert_between(int(info.get("reqLevel", -1)), 0, 120) # 70 before the late bands (#474)
 	assert_eq(Array(lib.missing), [])
 	lib.free()

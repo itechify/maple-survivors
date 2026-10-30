@@ -321,12 +321,12 @@ func test_the_warrior_drop_list_is_weapons_of_the_five_families_and_shields_no_d
 	for raw: Variant in ids:
 		var id := int(raw)
 		var slot := Equipment.slot_of(id)
-		assert_true(slot in ["weapon", "shield"], "%d is a weapon or a shield" % id)
+		assert_true(slot != "", "%d is worn in an equip slot (Warrior class armour joined the weapons and shields in #474)" % id)
 		if slot == "weapon":
 			var family := WeaponInfo.family(id)
 			assert_true(family in WARRIOR_FAMILIES, "%d is a %s" % [id, family])
 			families[family] = int(families.get(family, 0)) + 1
-		else:
+		elif slot == "shield":
 			shields += 1
 		assert_true(float(id) in data.equipment_drops.items, "%d reaches the merged list" % id)
 	assert_eq(families.keys().size(), 5, "every Warrior family has drops")
@@ -464,7 +464,7 @@ func test_every_listed_warrior_item_is_a_real_non_cash_warrior_item_with_an_icon
 		var info: Dictionary = infos[id]
 		assert_eq(int(info.get("cash", 0)), 0, "%d is not cash" % id)
 		assert_true(int(info.get("reqJob", 0)) > 0 and (int(info.get("reqJob", 0)) & 1) != 0, "%d carries the Warrior bit" % id)
-		assert_true(int(info.get("reqLevel", 0)) <= 70, "%d: level" % id)
+		assert_true(int(info.get("reqLevel", 0)) <= 120, "%d: level (70 before the late bands, #474)" % id)
 		assert_true(info.has("icon") or info.has("iconRaw"), "%d has an icon" % id)
 
 

@@ -16,7 +16,7 @@ extends SceneTree
 ## {index: zero-based map index, id: original v83 map id}. boss_fights[] retains map_index/map_id even for unspawned
 ## bosses. SUMMARY deaths_by_map uses one-based string keys; map_entry_seconds["2"/"3"] has count/min/median/max/mean
 ## over reached maps only (null stats when unobserved). Legacy records contribute no invented map observations.
-## Stage keys: henesys/ellinia/sleepywood; henesys_hg1/tree_that_grew_1/dark_cave remain aliases, including --tier
+## Stage keys: henesys/ellinia/sleepywood; henesys_hg1/tree_that_grew_1/dark_cave remain aliases, including --chain
 ## chains and --character one-offs. Camper activation/arrival/portals refer only to its own map 1; later maps use bot.
 ## Needs the asset cache (the real map and mob/skill imgs).
 ##
@@ -51,13 +51,16 @@ extends SceneTree
 ## One "BALANCE {json}" line per run (scripts/balance.sh tabulates them) plus a readable summary.
 ## --character=<abs JSON path>: start this one-off round from a CharacterSnapshot; never writes a save.
 ## --account=<abs JSON path>: give the round an account (AccountFile: owned cash items, worn cash equipment, pet, ALERT
-## levels; applied to the first round's character and carried through --tier chains). The record gets "account": <file
+## levels; applied to the first round's character and carried through --chain runs). The record gets "account": <file
 ## name>. Without the flag the round has an empty account and the record is byte-identical to before; NX is never credited.
-## --tier=N (N >= 2): chain from tier 1 (the first four progression regions) through tier 2 (the fifth); --stage selects
-## tier 1 (default first). --chain=N (A5, #454) will replace it.
-## Later tiers take their first listed stage; --character and camper policies cannot be combined with --tier.
-## Tier-1 round seed equals the run seed; later seeds are hash("balance-round-<run seed>-<zero-based tier>").
-## Chain BALANCE records contain rounds[]; only CLEARED (including all rewards) feeds the next tier.
+## --chain=N (1 <= N <= the progression size, #454; replaces --tier): plays N progression regions in order, starting at
+## --stage (default the first region). Each CLEARED round feeds the next with the carried character (equipment, mesos,
+## scrolls, cleared set) after a Free Market visit; the round seeds are run_seed for the first step and
+## hash("balance-round-<run seed>-<zero-based step>") after it. --retries=K (default 0, needs --chain): after a death or
+## TIMEOUT the same region is replayed up to K more times with the character as the failed round returned it (ADR 0006
+## keeps the loot), after the same Free Market visit; a replay's seed is hash("balance-round-<run seed>-<step>-<attempt>").
+## Chain BALANCE records hold rounds[] (each with stage, step, attempt, the round metrics); the summary groups by step.
+## --character and camper policies cannot be combined with --chain; --tier fails at startup naming --chain.
 
 const DT := 1.0 / 60.0
 const MILESTONES := [8, 10, 20, 30, 40, 50]
@@ -137,7 +140,10 @@ func _init() -> void:
 	var account_file := ""
 	var has_account := false
 	var chain := false
-	var target_tier := 1
+	var chain_steps := 0
+	var retries := 0
+	var retries_given := false
+	var tier_flag := false
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
 			stage = DataRepo.canonical_stage_key(a.substr(8))
@@ -155,9 +161,14 @@ func _init() -> void:
 		elif a.begins_with("--account="):
 			account_file = a.substr(10)
 			has_account = true
-		elif a.begins_with("--tier="):
+		elif a == "--tier" or a.begins_with("--tier="):
+			tier_flag = true
+		elif a.begins_with("--chain="):
 			chain = true
-			target_tier = int(a.substr(7)) if a.substr(7).is_valid_int() else -1
+			chain_steps = int(a.substr(8)) if a.substr(8).is_valid_int() else -1
+		elif a.begins_with("--retries="):
+			retries_given = true
+			retries = int(a.substr(10)) if a.substr(10).is_valid_int() else -1
 		elif a == "--first-card":
 			policy = "first"
 		elif a.begins_with("--policy="):
@@ -172,6 +183,10 @@ func _init() -> void:
 			seeds.append(int(a.substr(7)))
 		elif a.is_valid_int():
 			seeds.append(int(a))
+	if tier_flag:
+		print("balance_run: --tier was replaced by --chain=N (and --retries=K to replay a failed region)")
+		quit(2)
+		return
 	if not (policy in POLICIES):
 		print("balance_run: unknown --policy=%s (%s)" % [policy, POLICIES])
 		quit(2)
@@ -201,26 +216,25 @@ func _init() -> void:
 			return
 	if cap > 0.0:
 		data.balance["run_time_cap"] = cap
-	# `--tier=N` keeps its old meaning on the progression (A5, #454, replaces it with --chain): tier 1 is the first
-	# CharacterSnapshot.LEGACY_TIER1_REGIONS regions, tier 2 the fifth.
 	var progression: Array = data.stages.get("progression", [])
-	var tiers: Array = [progression.slice(0, CharacterSnapshot.LEGACY_TIER1_REGIONS),
-		progression.slice(CharacterSnapshot.LEGACY_TIER1_REGIONS, CharacterSnapshot.LEGACY_TIER1_REGIONS + 1)]
-	tiers = tiers.filter(func(tier: Array) -> bool: return not tier.is_empty())
-	if chain and (target_tier < 2 or target_tier > tiers.size() or has_character or CAMPER.STAGES.has(policy)):
-		print("balance_run: --tier must be 2..%d; cannot combine with --character or camper policies" % tiers.size())
+	if retries < 0 or (retries_given and not chain):
+		print("balance_run: --retries must be an integer >= 0 and needs --chain")
+		quit(2)
+		return
+	if chain and (chain_steps < 1 or chain_steps > progression.size() or has_character or CAMPER.STAGES.has(policy)):
+		print("balance_run: --chain must be 1..%d; cannot combine with --character or camper policies" % progression.size())
 		quit(2)
 		return
 	if chain and not stage_explicit:
-		stage = String(tiers[0][0])
-	if not data.stages.stages.has(stage) or (chain and stage not in tiers[0]):
-		print("balance_run: unknown stage or --tier requires a tier-1 --stage: " + stage)
+		stage = String(progression[0])
+	var first_step: int = progression.find(stage)
+	if not data.stages.stages.has(stage) or (chain and (first_step < 0 or first_step + chain_steps > progression.size())):
+		print("balance_run: unknown stage, or --chain=%d does not fit the progression from %s" % [chain_steps, stage])
 		quit(2)
 		return
 	var stages: Array = [stage]
 	if chain:
-		for tier_index in range(1, target_tier):
-			stages.append(String(tiers[tier_index][0]))
+		stages = progression.slice(first_step, first_step + chain_steps)
 	var character := {}
 	if has_character:
 		var errors := PackedStringArray()
@@ -262,7 +276,7 @@ func _init() -> void:
 	for s in seeds:
 		var r: Dictionary
 		if chain:
-			r = run_chain(setups, policy, s, idle_after, camp_after)
+			r = run_chain(setups, policy, s, idle_after, camp_after, retries)
 		else:
 			var setup: Dictionary = setups[0].duplicate()
 			setup.seed = s
@@ -270,9 +284,8 @@ func _init() -> void:
 			var start_character := world.character_snapshot()
 			r = run_one(world, policy, s, idle_after, camp_after)
 			r.merge({"seed": s, "stage": stage, "policy": policy, "start_character": start_character, "missing": []})
-			for tier_index in tiers.size():
-				if stage in tiers[tier_index]:
-					r["tier"] = tier_index + 1
+			if progression.has(stage):
+				r["step"] = progression.find(stage) + 1
 		if has_account:
 			r["account"] = account_file.get_file() # spec #34: the record names the account file; absent without the flag.
 		print("BALANCE " + JSON.stringify(r))
@@ -281,7 +294,7 @@ func _init() -> void:
 
 
 ## Puts a normalised tool account (AccountFile) on every prepared round setup. The worn cash equipment and pet go on
-## the first round's character only; later tiers carry the character from the clear, which keeps them.
+## the first round's character only; later steps carry the character from the clear, which keeps them.
 static func apply_account(setups: Array, account: Dictionary) -> void:
 	var later := account.duplicate()
 	later.erase("cash")
@@ -290,43 +303,64 @@ static func apply_account(setups: Array, account: Dictionary) -> void:
 		AccountFile.apply(setups[index], account if index == 0 else later)
 
 
-## Stable round stream by run seed and zero-based tier; tier 1 preserves existing regression seeds.
-static func round_seed(run_seed: int, tier_index: int) -> int:
+## Stable round stream by run seed and zero-based step; step 1 preserves existing regression seeds.
+static func round_seed(run_seed: int, step_index: int) -> int:
 	# tier C: harness stream namespace, independent of card/job/combat RNG consumption in earlier rounds.
-	return run_seed if tier_index == 0 else hash("balance-round-%d-%d" % [run_seed, tier_index])
+	return run_seed if step_index == 0 else hash("balance-round-%d-%d" % [run_seed, step_index])
 
 
-## Plays prepared tier setups in order, carrying a boundary snapshot only after CLEARED; no menu/save dependency.
+## The seed of a zero-based attempt at a step: the first attempt is round_seed, a replay gets its own stream.
+static func attempt_seed(run_seed: int, step_index: int, attempt_index: int) -> int:
+	# tier C: a replay with the same seed would repeat the failed fight move for move.
+	return round_seed(run_seed, step_index) if attempt_index == 0 \
+		else hash("balance-round-%d-%d-%d" % [run_seed, step_index, attempt_index])
+
+
+## Plays the prepared step setups in order, carrying a boundary snapshot between rounds; no menu/save dependency. A
+## CLEARED round advances to the next step. A death or TIMEOUT replays the same step, up to `retries` more times, with the
+## character as the failed round returned it (ADR 0006 keeps what a lost round picked up); the chain ends when the
+## replays run out. Every hand-over passes through a Free Market visit (BotShop) before the next round plays.
 static func run_chain(setups: Array, policy: String, run_seed: int, idle_after := -1.0,
-		camp_after := 60.0) -> Dictionary:
+		camp_after := 60.0, retries := 0) -> Dictionary:
 	var rounds: Array = []
 	var carried: RunWorld = null
-	for tier_index in setups.size():
-		var setup: Dictionary = setups[tier_index].duplicate()
-		setup.seed = round_seed(run_seed, tier_index)
+	var step := 0
+	var attempt := 0
+	while step < setups.size():
+		var setup: Dictionary = setups[step].duplicate()
+		setup.seed = attempt_seed(run_seed, step, attempt)
 		var world := carried if carried != null else RunWorld.new(setup)
+		carried = null
 		var start_character := world.character_snapshot()
 		var record := run_one(world, policy, int(setup.seed), idle_after, camp_after)
 		record["start_character"] = start_character
-		record.merge({"seed": setup.seed, "stage": setup.stage, "policy": policy, "tier": tier_index + 1, "missing": []})
+		record.merge({"seed": setup.seed, "stage": setup.stage, "policy": policy, "step": step + 1,
+			"attempt": attempt + 1, "missing": []})
 		rounds.append(record)
-		if record.state != "CLEARED":
+		var cleared: bool = record.state == "CLEARED"
+		var next_step := step + 1 if cleared else step
+		var next_attempt := 0 if cleared else attempt + 1
+		if next_step >= setups.size() or next_attempt > retries:
 			break
-		carried = null
-		if tier_index + 1 < setups.size():
-			# The Free Market between the tiers (spec #33, #112): the next round's world, built from the boundary snapshot,
-			# visits the shops before it plays. Its scroll rolls follow that round's seed; the careless plan draws from
-			# its own stream.
-			var next_setup: Dictionary = setups[tier_index + 1].duplicate()
-			next_setup.seed = round_seed(run_seed, tier_index + 1)
-			next_setup.character = record.character
-			carried = RunWorld.new(next_setup)
-			var shop_rng := RandomNumberGenerator.new()
-			shop_rng.seed = hash("careless-shop-%d-%d" % [run_seed, tier_index])
-			record["shop"] = BotShop.visit(carried, policy, shop_rng)
-			carried.drain_events()
-	return {"mode": "chain", "seed": run_seed, "stage": setups[0].stage, "policy": policy,
-		"target_tier": setups.size(), "rounds": rounds}
+		# The Free Market between the rounds (spec #33, #112): the next round's world, built from the boundary snapshot,
+		# visits the shops before it plays. Its scroll rolls follow that round's seed; the careless plan draws from
+		# its own stream.
+		var next_setup: Dictionary = setups[next_step].duplicate()
+		next_setup.seed = attempt_seed(run_seed, next_step, next_attempt)
+		next_setup.character = world.character_snapshot()
+		carried = RunWorld.new(next_setup)
+		var shop_rng := RandomNumberGenerator.new()
+		shop_rng.seed = hash("careless-shop-%d-%d" % [run_seed, step]) if attempt == 0 \
+			else hash("careless-shop-%d-%d-%d" % [run_seed, step, attempt])
+		record["shop"] = BotShop.visit(carried, policy, shop_rng)
+		carried.drain_events()
+		step = next_step
+		attempt = next_attempt
+	var stage_keys: Array = setups.map(func(s: Dictionary) -> String: return String(s.stage))
+	var last: Dictionary = rounds.back()
+	return {"mode": "chain", "seed": run_seed, "stage": setups[0].stage, "policy": policy, "chain": setups.size(),
+		"retries": retries, "stages": stage_keys, "rounds": rounds,
+		"chain_cleared": int(last.step) == setups.size() and last.state == "CLEARED"}
 
 
 ## Answers an open card window of `w` with `policy` (see the class doc); `rng` drives the random policy.
@@ -344,6 +378,11 @@ static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, card
 				id = BotInput.pick_card_for(w, w.pending_cards)
 		cards_taken.append("%d:%s" % [w.progression.front(), id])
 		w.apply_choice(id)
+
+
+## Whether a landed `player_hit` event counts in the hit metrics: every hit but the ticks of Poison (source_kind "poison").
+static func counts_as_hit(event: Dictionary) -> bool:
+	return String(event.get("source_kind", "")) != "poison"
 
 
 ## Plays `w` to its end/cap with movement/card policy `policy` and returns the pacing record.
@@ -455,10 +494,13 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 					buff_casts.append(cast)
 				"player_hit":
 					if not bool(e.miss):
-						hits += 1
-						taken += int(e.damage)
-						if String(e.get("source_kind", "")) == "mob_attack":
-							mob_attack_hits += 1
+						# #459: a poison tick is a damage over time, not a hit: it stays out of the hit metrics (hits, taken,
+						# hits_by_min and the before-6:00 / after-8:00 counts) and is kept in boss_hits.
+						if counts_as_hit(e):
+							hits += 1
+							taken += int(e.damage)
+							if String(e.get("source_kind", "")) == "mob_attack":
+								mob_attack_hits += 1
 						if bool(e.boss):
 							boss_hits.append({"mob_id": int(e.mob_id), "time": w.time, "damage": int(e.damage),
 								"max_hp": int(e.max_hp), "fraction": float(e.damage) / maxi(1, int(e.max_hp)),
@@ -528,6 +570,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			"reached":bool(memo.get("reached",false)),"reached_time":float(memo.get("reached_time",-1.0)),"portals":portal_names},
 		"time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
 		"job": int(w.player_state.job_id), "kills": w.kills, "reach": reach,
+		"hazards_cast": w.hazards.cast_count, "hazard_seconds": snappedf(w.hazards.seconds, 0.01),
 		"alive_by_min": alive_min, "level_by_min": level_min, "hits_by_min": hits_min, "taken_by_min": taken_min,
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,
 		"ordinary_kill_hits_by_min": kill_hits.buckets,
@@ -552,6 +595,10 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	if mob_attack_hits > 0:
 		# #76: only rounds where an ordinary mob's attack landed record this, so other rounds keep their exact bytes.
 		record["mob_attack_hits"] = mob_attack_hits
+	if w.level_scale != null:
+		# #453: only a stage with a level_scale records this, so other stages keep their exact bytes. The effective level at
+		# each scheduled boss's arrival, in schedule order (bosses that never arrived are absent).
+		record["level_scale_at"] = level_scale_arrivals(w)
 	if w.pet_system != null:
 		# #119: only a round with a pet out records one, so rounds without keep their exact bytes. Its drinks and pickups
 		# are counted apart from the player's (potions_used stays the player's).
@@ -618,10 +665,11 @@ static func deep_merge(into: Dictionary, patch: Dictionary) -> void:
 ## A readable multi-line summary of one record.
 static func describe(r: Dictionary) -> String:
 	if r.get("mode", "") == "chain":
-		var lines := PackedStringArray(["CHAIN seed %d (%s): %d/%d rounds started" % [
-			int(r.seed), String(r.policy), r.rounds.size(), int(r.target_tier)]])
+		var lines := PackedStringArray(["CHAIN seed %d (%s): %d rounds over %d steps (retries %d), %s" % [
+			int(r.seed), String(r.policy), r.rounds.size(), int(r.chain), int(r.retries),
+			"cleared" if bool(r.chain_cleared) else "not cleared"]])
 		for record: Dictionary in r.rounds:
-			lines.append("ROUND tier %d stage %s" % [int(record.tier), String(record.stage)])
+			lines.append("ROUND step %d attempt %d stage %s" % [int(record.step), int(record.attempt), String(record.stage)])
 			lines.append(describe(record))
 		return "\n".join(lines)
 	var reach: Dictionary = r.reach
@@ -684,6 +732,16 @@ static func _boss_snapshots(world: RunWorld) -> Array:
 	return snapshots
 
 
+## [{boss_index, mob_id, level}] of the bosses that arrived, `level` being the level scale's effective level then.
+static func level_scale_arrivals(world: RunWorld) -> Array:
+	var arrivals: Array = []
+	for record: Dictionary in world.bosses.records:
+		if record.has("level_scale_at"):
+			arrivals.append({"boss_index": int(record.boss_index), "mob_id": int(record.mob_id),
+				"level": float(record.level_scale_at)})
+	return arrivals
+
+
 ## Completed spawn-to-death durations; unfinished fights keep duration -1 and report elapsed/censor status.
 static func fight_records(world: RunWorld) -> Array:
 	var fights: Array = []
@@ -701,6 +759,8 @@ static func fight_records(world: RunWorld) -> Array:
 			# Only encounters with a final form carry these, so other runs' records keep their shape.
 			fight["final_form"] = int(entry.final_form)
 			fight["form_time"] = float(record.get("form_time", -1.0))
+		if record.has("level_scale_at"):
+			fight["level_scale_at"] = float(record.level_scale_at)
 		fights.append(fight)
 	return fights
 
@@ -756,7 +816,7 @@ static func aggregate(records: Array) -> Dictionary:
 	var end_levels: Array = []
 	var nx_samples: Array = []
 	result["lv70_reached"] = 0
-	result["tier"] = int(records[0].get("tier", 0)) if not records.is_empty() else 0
+	result["step"] = int(records[0].get("step", 0)) if not records.is_empty() else 0
 	for record: Dictionary in records:
 		if record.has("level"):
 			end_levels.append(int(record.level))
@@ -865,21 +925,51 @@ static func aggregate(records: Array) -> Dictionary:
 	return result
 
 
-## Aggregates each tier separately; unstarted rounds never enter outcome, death or boss denominators.
+## Aggregates each chain step separately; unstarted rounds never enter outcome, death or boss denominators. A step's
+## `runs` counts its attempts (retries included); it adds `clears`, `attempts_per_clear` (null without a clear) and the
+## chains that reached and cleared it.
 static func aggregate_chain(records: Array) -> Dictionary:
 	var groups := {}
-	var result := {"mode": "chain", "runs": records.size(), "tier1_clears": 0, "tiers": {}}
+	var stage_of := {}
+	var reached := {}
+	var cleared_in := {}
+	var result := {"mode": "chain", "runs": records.size(), "chain": 0, "retries": 0, "chain_clears": 0, "steps": {}}
 	for record: Dictionary in records:
-		for tier in range(1, int(record.target_tier) + 1):
-			if not groups.has(str(tier)):
-				groups[str(tier)] = []
+		result.chain = maxi(int(result.chain), int(record.chain))
+		result.retries = maxi(int(result.retries), int(record.get("retries", 0)))
+		var reached_here := {}
+		var cleared_here := {}
+		for step in range(1, int(record.chain) + 1):
+			var key := str(step)
+			if not groups.has(key):
+				groups[key] = []
+				reached[key] = 0
+				cleared_in[key] = 0
+			var stages: Array = record.get("stages", [])
+			if step <= stages.size():
+				stage_of[key] = String(stages[step - 1])
 		for round_record: Dictionary in record.rounds:
-			groups[str(int(round_record.tier))].append(round_record)
-			if int(round_record.tier) == 1 and round_record.state == "CLEARED":
-				result.tier1_clears += 1
-	for tier: String in groups:
-		result.tiers[tier] = aggregate(groups[tier])
-		result.tiers[tier].tier = int(tier)
+			var key := str(int(round_record.step))
+			groups[key].append(round_record)
+			stage_of[key] = String(round_record.get("stage", stage_of.get(key, "")))
+			reached_here[key] = true
+			if round_record.state == "CLEARED":
+				cleared_here[key] = true
+		for key: String in reached_here:
+			reached[key] += 1
+		for key: String in cleared_here:
+			cleared_in[key] += 1
+		if cleared_here.size() == int(record.chain):
+			result.chain_clears += 1
+	for key: String in groups:
+		var summary := aggregate(groups[key])
+		summary.step = int(key)
+		summary.stage = String(stage_of.get(key, ""))
+		summary.clears = int(summary.outcomes.CLEARED)
+		summary.attempts_per_clear = float(summary.runs) / summary.clears if summary.clears > 0 else null
+		summary.runs_reached = reached[key]
+		summary.runs_cleared = cleared_in[key]
+		result.steps[key] = summary
 	return result
 
 
@@ -910,20 +1000,24 @@ static func censored_median(samples: Array) -> Dictionary:
 ## alone cannot hide unfinished ones.
 static func describe_metrics(summary: Dictionary) -> String:
 	if summary.get("mode", "") == "chain":
-		var chain_lines := PackedStringArray(["SUMMARY chain %d runs; tier-1 clears feeding tier 2: %d/%d" % [
-			int(summary.runs), int(summary.tier1_clears), int(summary.runs)]])
-		for tier: String in summary.tiers:
-			chain_lines.append(describe_metrics(summary.tiers[tier]))
+		var chain_lines := PackedStringArray(["SUMMARY chain of %d steps (retries %d): %d/%d runs cleared every step" % [
+			int(summary.chain), int(summary.retries), int(summary.chain_clears), int(summary.runs)]])
+		for step: String in summary.steps:
+			chain_lines.append(describe_metrics(summary.steps[step]))
 		return "\n".join(chain_lines)
 	var lines := PackedStringArray()
 	lines.append("SUMMARY deaths by map: 1:%d 2:%d 3:%d" % [summary.deaths_by_map["1"],
 		summary.deaths_by_map["2"], summary.deaths_by_map["3"]])
 	for number: String in summary.map_entry_seconds:
 		lines.append("  map-%s entry seconds %s" % [number, _range(summary.map_entry_seconds[number])])
-	if int(summary.get("tier", 0)) > 0:
-		lines.append("SUMMARY tier %d: %d started, %d cleared; end level %s; Lv70 reached %d/%d" % [
-			int(summary.tier), int(summary.runs), int(summary.outcomes.CLEARED),
-			_range(summary.end_level), int(summary.lv70_reached), int(summary.runs)])
+	if int(summary.get("step", 0)) > 0:
+		lines.append("SUMMARY step %d%s: %d started, %d cleared; end level %s; Lv70 reached %d/%d" % [
+			int(summary.step), " (%s)" % summary.stage if summary.get("stage", "") != "" else "", int(summary.runs),
+			int(summary.outcomes.CLEARED), _range(summary.end_level), int(summary.lv70_reached), int(summary.runs)])
+		if summary.has("runs_reached"):
+			lines.append("  attempts per clear %s; chains reaching the step %d, clearing it %d" % [
+				"none" if summary.attempts_per_clear == null else "%.2f" % float(summary.attempts_per_clear),
+				int(summary.runs_reached), int(summary.runs_cleared)])
 	lines.append("SYSTEMS %d runs: potions used HP %d%s" % [int(summary.runs), int(summary.potions_used.hp),
 		_campers(summary)])
 	lines.append("  SUMMARY revived %d/%d runs" % [int(summary.get("revived_runs", 0)), int(summary.runs)])
@@ -938,7 +1032,7 @@ static func describe_metrics(summary: Dictionary) -> String:
 	if summary.has("equips_worn"):
 		lines.append("  equipment put on mid-round per round " + _range(summary.equips_worn))
 	if summary.has("shop"):
-		lines.append("  Free Market visits after this tier: %d" % int(summary.shop.visits))
+		lines.append("  Free Market visits after this step: %d" % int(summary.shop.visits))
 		for field: String in SHOP_FIELDS:
 			lines.append("    shop %s per visit %s" % [field, _range(summary.shop[field])])
 	lines.append("  card tiers (%d observed runs)" % int(summary.card_tier_runs))

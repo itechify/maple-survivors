@@ -259,3 +259,38 @@ func test_final_form_missing_from_enabled_ids_is_flagged() -> void:
 	assert_eq(errors.size(), 1)
 	assert_true(errors[0].contains("enabled_ids"), errors[0])
 	assert_eq(DataRepo.final_form_errors(stage, setup.mob_imgs, [9999]), PackedStringArray(), "an unlisted shell is not flagged")
+
+
+## With a level scale (#453), the form freezes its own damage ratios at the swap, from its own level and the curve time
+## then; `level_scale_at` keeps the encounter's first arrival.
+func test_form_freezes_its_own_level_scale_damage_at_the_swap() -> void:
+	var setup := _setup()
+	var curve := {"_doc": "synthetic", "levels": [], "hp": [], "pad": [], "mad": [], "pdd": [], "mdd": [], "exp": []}
+	for level in range(1, 201):
+		curve.levels.append(level)
+		curve.hp.append(100.0 * level * level)
+		curve.pad.append(10.0 * level)
+		curve.mad.append(20.0 * level + 100.0)
+		curve.pdd.append(5.0 * level)
+		curve.mdd.append(8.0 * level + 40.0)
+		curve.exp.append(3.0 * level * level)
+	setup.data["level_curve"] = curve
+	setup.data.stages.stages.quiet["level_scale"] = {"keyframes": [{"t": 0, "level": 10}, {"t": 600, "level": 70}]}
+	setup.mob_imgs[5220001].info.level = 20
+	setup.mob_imgs[5220000].info.level = 40
+	var w := RunWorld.new(setup)
+	w.god = true
+	for i in 60:
+		w.step(DT, MoveInput.new())
+	var record: Dictionary = w.bosses.records[0]
+	var arrival := float(record.level_scale_at)
+	for i in 600:
+		w.step(DT, MoveInput.new())
+	w.drain_events()
+	w.hit_mob(int(record.slot), KILL, -1)
+	var effective := w.level_scale.level_at(w.curve_time())
+	assert_true(effective > arrival, "the swap happens later on the curve than the arrival")
+	var frozen: Array = w._boss_level_damage[0]
+	assert_near(float(frozen[0]), w.level_scale.ratio("pad", effective, 40), 1e-9, "pad from the form's level at the swap")
+	assert_near(float(frozen[1]), w.level_scale.ratio("mad", effective, 40), 1e-9, "mad from the form's level at the swap")
+	assert_near(float(record.level_scale_at), arrival, 1e-9, "level_scale_at keeps the first arrival")

@@ -1467,6 +1467,37 @@ func test_setup_preloads_clear_art_and_sound_before_the_victory_event() -> void:
 	_assert_nothing_missing(scene, "clear warmup")
 
 
+## #452: v83 gives King Clang (5220000) a Sound.wz/Mob.img entry with Skill1 but no Attack1, so its attack start is
+## silent and reports nothing missing; the same lookup under a mob whose whole entry is absent from the cache (an
+## import gap) is still looked up and shows up in `missing`.
+func test_boss_attack_sound_is_silent_only_when_the_mobs_entry_lacks_that_sound() -> void:
+	if not require_cache():
+		return
+	if lib.find("Sound.wz/Mob.img/5220000") == null or lib.find("Sound.wz/Mob.img/5220002/Attack1") == null:
+		skip("King Clang and Faust sounds not imported (run scripts/import.sh with the current manifest)")
+		return
+	assert_true(lib.find("Sound.wz/Mob.img/5220000/Attack1") == null, "v83 has no King Clang Attack1")
+	scene = _make("perion", 1, {})
+	assert_eq(scene.error, "", "scene started")
+	var sfx := scene._sfx_service()
+	if sfx == null:
+		skip("no Sfx autoload")
+		return
+	var sfx_lib := sfx._lib()
+	assert_true(scene.attack_sound_absent_in_v83("Sound.wz/Mob.img/5220000/Attack1"), "entry present, node absent")
+	assert_false(scene.attack_sound_absent_in_v83("Sound.wz/Mob.img/5220002/Attack1"), "the sound exists")
+	assert_false(scene.attack_sound_absent_in_v83("Sound.wz/Mob.img/9999999/Attack1"), "no entry at all: not silenced")
+	var start := {"type": "boss_attack", "phase": "start", "boss_index": 0, "attack": "attack1", "time": 0.0,
+		"impact_time": 1.0, "pos": Vector2.ZERO, "facing": 1, "sound": "Sound.wz/Mob.img/5220000/Attack1"}
+	var before := sfx_lib.missing.size()
+	scene.handle_events([start])
+	assert_eq(sfx_lib.missing.size(), before, "King Clang's attack start records nothing missing: %s" % [sfx_lib.missing])
+	var gap := start.duplicate()
+	gap.sound = "Sound.wz/Mob.img/9999999/Attack1"
+	scene.handle_events([gap])
+	assert_eq(sfx_lib.missing.size(), before + 1, "an absent Mob.img entry still reports its sound missing")
+
+
 ## Spec #253: v83 Sound.wz/Mob.img has no entry for Iron Hook (4090000), so the client plays nothing for it; its hit,
 ## death and skill events stay silent without reporting a missing asset, while a mob with sounds still plays them.
 func test_a_mob_without_v83_sounds_is_silent_and_reports_nothing_missing() -> void:

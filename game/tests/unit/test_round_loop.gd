@@ -220,7 +220,7 @@ func test_deleting_a_character_frees_its_slot_and_keeps_the_history() -> void:
 	assert_eq(flow.create_character("Gone69"), 0, "the freed slot and name can be used again")
 
 
-func test_map_select_scrolls_to_the_selected_stage_and_a_locked_one_cannot_start() -> void:
+func test_map_select_selects_a_stage_and_a_locked_one_cannot_start() -> void:
 	var flow := _flow()
 	flow.create_character("Scroll69")
 	flow.goto_stage_select()
@@ -229,7 +229,7 @@ func test_map_select_scrolls_to_the_selected_stage_and_a_locked_one_cannot_start
 	assert_eq(screen.top, 0)
 	screen.select(4)
 	assert_eq(screen.selected, 4)
-	assert_eq(screen.top, 1, "the four-card window moves down to show Sleepywood")
+	assert_eq(screen.top, 0, "all five regions fit the six rows, so the list does not scroll")
 	assert_true(screen.stages[4].locked)
 	assert_true(screen.start_button.disabled, "Start is dimmed for a locked stage")
 	screen.start_selected()

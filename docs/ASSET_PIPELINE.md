@@ -349,6 +349,13 @@ The manifest says what to import. The importer expands convenience entries into 
 
 ### 4.1 Include fragments (`game/data/asset_manifest.d/<line>.json`)
 
+Late-band equipment (#474, spec #449 C12): `common.json`, `warrior.json`, `magician.json`, `bowman.json`, `thief.json` and
+`pirate.json` each add their new drop-list items (325 items, 321 new whole `character` imgs, reqLevel 35-120; `GAME_DESIGN.md` 8.3) beside
+the earlier ones. Item art is the only new asset: every weapon afterimage they name (`swordOL`, `swordOS`, `swordTL`, `axe`,
+`mace`, `spear`, `poleArm`, `bow`, `crossBow`, `knuckle`, `gun`) is already listed. A shield id the Warrior fragment listed
+before (1092023, 1092026, 1092036, 1092060) is not repeated, since the golden forbids a repeated selection. Refresh
+`manifest_golden.txt` with `UPDATE_MANIFEST_GOLDEN=1` and check `web/dev/test/manifest_merge.test.mjs` (bug #281).
+
 Bowman equipment (#201): `bowman.json` adds every drop-list item as a whole `character` img (including `info/icon`
 and `info/iconRaw`): regular bows/crossbows and reqJob-4 armour through Lv70. Its ten scrolls already use the shared
 whole `Item.wz/Consume/0204.img`, including UOL icon targets. No extra `items` selections are necessary for scrolls.
