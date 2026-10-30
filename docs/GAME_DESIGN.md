@@ -1470,6 +1470,23 @@ Mastery offers and 33 picks. Screenshots were looked at (Job page: Hero, Arch Ma
 "War Bow · WATK 25 · 0.81s"; the level-up window with the hawk in flight). The Bowmaster baseline oracle's golden is
 `c1b3b654c469fde20e427d2eaa99b5afa99fb20a047c0302e5ea1ea7eb1c3e1b` (14,400 ticks, see "Bowmaster B12 constants (#344)").
 
+#### Spec #360 (#370, MS10): Marksman selection and tooling: smoke (2026-10-30)
+
+A feature ticket: no balance data changed, no tuning, no held-out seeds, `playable` stays false (MS11 flips it). The Marksman is
+previewed with a patch (`PATCH=<322 playable patch>`) and its fixture (a crossbow in hand). F/P, Hero and Bowmaster files are untouched:
+`test_character_baseline` (both goldens), `test_tick_cost_identity`, `test_hero_baseline` and `test_bowmaster_baseline` pass with their hashes.
+
+| Run (Henesys, bot, `marksman_t2.json`, `JOBS=3`) | Outcome | Six actives at | Picks | `missing` |
+|---|---|---|---|---|
+| seed 1 | DEAD 354.5 s on map 1 at the first boss (alive), Lv12 | 134.9 s | 11 | [] |
+| seed 2 | DEAD 310.5 s at the first boss (alive after 10 s), Lv11 | 132.2 s | 10 | [] |
+
+No crash and no world warnings. Both fill the six active slots at about 133 s and die to the first boss (record only; Marksman balance is
+the balance pass's). The Marksman baseline oracle's golden is
+`fd8a41136aadef79e8afebc1a0a9c46038b814e46e6738dd81366f46cfd1fde1` (28,800 ticks, see "Marksman MS10 constants (#370)"). Screenshots looked at (private mirror
+with 322 flipped, never committed): the Job page with nine rows (18 px pitch, Marksman highlighted, "Crossbow · WATK 29 · 0.81s"), and the Skill window
+tabs Bowman / Crossbowman / Sniper's Scope / Marksman with no movement cell in the quick slot.
+
 #### Spec #282 (#285): no MP and no level gap: regression smoke (2026-10-28)
 
 Branch `t/285-remove-mp` off `spec/282-fp-slice`, real v83 cache, isolate `285s`, seeds 1 / 2 / 2026, `bot` and
@@ -10293,6 +10310,19 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 | Frostprey box / count / `attackAfter` | +-100 x +-60, 4 monsters, 1440 ms; element `i` | tier A |
 | `pad` / lifetime by rank | Eagle 32 -> 100 and 112 -> 180 s, Frostprey 270 -> 500 and 122 -> 200 s (ranks 1-8 = WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30) | tier A |
 | Rarity bonuses | Crossbow Mastery / Marksman Boost damage x1.2; Eagle Eyes `area` x1.2; Cold Wings `count` +1; Second Eagle / Second Frostprey `summon_count` +1; Legendary adds damage x1.2; repeats x0.8 | tier C, first pass |
+
+### Marksman MS10 constants (#370)
+
+Selection and tooling only: no skill, damage or balance value changes, `playable` stays false (MS11 #371).
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Fixture `marksman_t2.json` | job 322, tier 2, Balanche 1462003 (reqLevel 22, PAD 39), Bowman-bit hat 1002163 / shoes 1072025 / gloves 1082012 (Bowmaster's), starter top and bottom, unscrolled; `_doc.patch` records the playable mirror | tier C kit choice, spec #360 (item ids and stats tier A) |
+| Hub kit `jobs/marksman.json` `hub_kit` | crossbow ATT 2044600-02 / 04 / 05, Bowmaster's gloves ATT, shoes ATT and hat DEX stacks (18 stacks), spares 1002001 / 1462002 (Lv18 crossbow) / 1082002 / 1040008, flow-driver fallback item 1462006 (Lv42 crossbow) | tier C, spec #360; spare and fallback picks are ours |
+| Bot card scores | explicit `<key>_new` 100 / `<key>_rank` 74 for all ten pool skills (MS2 had the two followers) | tier C, spec #360; equal to the pool default, a guard |
+| Snipe and the bot | `has_target` counts monsters in reach whatever `cast.prefer` (prefer only orders targets), so the bot never holds fire; no `SkillRunner` change | tier C, spec #360 |
+| Job page pitch | rows keep 21 px up to eight, shrink to fit above `JOB_LIST_BOTTOM` 366 beyond (nine rows 18 px); the same change as NL11 #410 / Corsair | tier C |
+| Baseline oracle `test_marksman_baseline` | seed 1, 28,800 ticks (eight minutes, so the Lv15 crossbow ammo step falls inside), bot, god, synthetic books for all ten skills, creation outfit with the Crossbow; `GOLDEN = fd8a41136aad...fde1`; six skills land hits (Iron Arrow, Strafe, Blizzard, Snipe, Piercing Arrow, Golden Eagle), the bot's six actives; Dragon's Breath, Arrow Eruption, Arrow Blow and Frostprey are not taken before the slots fill | tier C |
 
 ### Review #332 presentation extensions
 

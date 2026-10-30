@@ -172,14 +172,17 @@ func test_the_ap_row_and_card_scores_live_in_the_line_file_and_not_in_the_shared
 		assert_false(shared.get("bot", {}).get("card_scores", {}).has(key), "%s is not in the shared balance" % key)
 
 
-func test_the_followers_score_explicitly_and_the_other_eight_use_the_default() -> void:
+func test_the_followers_score_explicitly_and_so_does_every_other_pool_skill_since_ms10() -> void:
 	var data := _data()
 	var scores: Dictionary = data.balance.bot.card_scores
 	for key in ["golden_eagle", "frostprey"]:
 		assert_eq(float(scores[key + "_new"]), 100.0, "%s learn card" % key)
 		assert_eq(float(scores[key + "_rank"]), 74.0, "%s rank card" % key)
 	var own: Dictionary = DataRepo.load_json(DataRepo.fragment_path("jobs_survivor", "marksman")).balance.bot.card_scores
-	assert_eq(own.keys().size(), 4, "only the two summons are listed")
+	assert_eq(own.keys().size(), 20, "MS10 #370 lists all ten pool skills, new and rank (MS2 listed only the two summons)")
+	for key: String in _jobs(data).skill_pool(322):
+		assert_eq(float(own[key + "_new"]), 100.0, key)
+		assert_eq(float(own[key + "_rank"]), 74.0, key)
 
 
 func test_default_job_is_still_212_with_marksman_loaded() -> void:
