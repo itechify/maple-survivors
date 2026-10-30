@@ -546,6 +546,10 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	if mob_attack_hits > 0:
 		# #76: only rounds where an ordinary mob's attack landed record this, so other rounds keep their exact bytes.
 		record["mob_attack_hits"] = mob_attack_hits
+	if w.level_scale != null:
+		# #453: only a stage with a level_scale records this, so other stages keep their exact bytes. The effective level at
+		# each scheduled boss's arrival, in schedule order (bosses that never arrived are absent).
+		record["level_scale_at"] = level_scale_arrivals(w)
 	if w.pet_system != null:
 		# #119: only a round with a pet out records one, so rounds without keep their exact bytes. Its drinks and pickups
 		# are counted apart from the player's (potions_used stays the player's).
@@ -678,6 +682,16 @@ static func _boss_snapshots(world: RunWorld) -> Array:
 	return snapshots
 
 
+## [{boss_index, mob_id, level}] of the bosses that arrived, `level` being the level scale's effective level then.
+static func level_scale_arrivals(world: RunWorld) -> Array:
+	var arrivals: Array = []
+	for record: Dictionary in world.bosses.records:
+		if record.has("level_scale_at"):
+			arrivals.append({"boss_index": int(record.boss_index), "mob_id": int(record.mob_id),
+				"level": float(record.level_scale_at)})
+	return arrivals
+
+
 ## Completed spawn-to-death durations; unfinished fights keep duration -1 and report elapsed/censor status.
 static func fight_records(world: RunWorld) -> Array:
 	var fights: Array = []
@@ -689,6 +703,8 @@ static func fight_records(world: RunWorld) -> Array:
 			"duration": death-spawn if bool(record.dead) and spawn>=0.0 else -1.0,
 			"elapsed": maxf(0.0, (death if bool(record.dead) else world.time)-spawn) if spawn>=0.0 else 0.0,
 			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "skipped" if bool(record.get("skipped", false)) else "not_spawned"})
+		if record.has("level_scale_at"):
+			fights[fights.size() - 1]["level_scale_at"] = float(record.level_scale_at)
 	return fights
 
 
