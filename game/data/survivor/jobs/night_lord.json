@@ -1,0 +1,98 @@
+{
+	"_doc": "Night Lord line (spec #383, ticket NL2 #401). The third class line after Bowmaster and Buccaneer to reuse the line convention: its job entry, its meso charge meter, its AP row, its bot card scores and its status-bonus catalogue. Skill definitions are in skills/night_lord.json; each Night Lord skill ticket (NL6-NL10) appends its own. Lucky Seven and Drain stay in skills/thief.json until NL7 #406 moves them. Every skill key here stays inert until its ticket defines it (an undefined key is never offered or learned); the meter block stays inert until NL4 #403 gives PlayerMeter the meso_picked rule. NL11 #410 adds hub_kit and NL12 #411 flips playable; JobTree.default_job() stays 212 (survivor/jobs.json default_job).",
+	"jobs": {
+		"412": {
+			"starting_skill": "lucky_seven",
+			"_starting_skill": "tier C: spec #383: Lucky Seven (4001344, book 400) is the starting active (slot 1) and the first skill a round learns; it lives in skills/thief.json until NL7.",
+			"mobility_skill": "flash_jump",
+			"_mobility_skill": "tier C: spec #383 D1: Flash Jump (4111006) is the mobility skill on the skill key, outside both slot tracks and never a card; it follows balance.mobility_rank_levels like Teleport and Rush. Defined by NL6 #405.",
+			"skill_pool": [
+				"lucky_seven",
+				"drain",
+				"avenger",
+				"triple_throw",
+				"ninja_storm",
+				"ninja_ambush",
+				"shadow_partner",
+				"shadow_meso"
+			],
+			"_skill_pool": "tier C: spec #383: the eight hand-picked Night Lord actives from the 400/410/411/412 books (Flash Jump is the mobility skill, not a pool entry). Undefined keys stay inert until NL7-NL10 define them.",
+			"weapon_families": [
+				"claw"
+			],
+			"_weapon_families": "tier C: spec #383: claws only (WeaponInfo family claw, 147xxxx); daggers (133xxxx) belong to Shadower. Armour drops by the Thief class bit.",
+			"creation_weapon": 1472000,
+			"_creation_weapon": "tier A item fact: the Garnier 1472000 (reqJob 8, the Thief bit, PAD 10, reqLevel 10 which is not enforced, #292); the choice is tier C, spec #383.",
+			"meter": {
+				"id": "meso_charge",
+				"max": 10,
+				"gain": {
+					"event": "meso_picked",
+					"amount": 1,
+					"per_mesos": 1000
+				},
+				"decay": {
+					"interval": 6.0,
+					"amount": 1
+				},
+				"per_unit": {
+					"stat": "damage",
+					"value": 0.03
+				},
+				"art": "Item.wz/Special/0900.img/09000002/iconRaw"
+			},
+			"_meter": "tier C: spec #383 M23: the meso charge, a counter filled by meso pickups and never a currency. 1 pip per 1000 mesos picked up, one pip decays every 6 s, +3% damage per held pip on every pool cast; NL4 #403 reads gain.per_mesos and decay, NL9 #408 adds the Shadow Meso read. Tier A fact: the art is the meso coin's animation frame, already imported for pickups. Inert until NL4.",
+			"playable": false,
+			"_provenance": "tier C: spec #383 NL2 #401: the Night Lord data line; NL12 #411 makes it selectable."
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"412": {
+					"primary": "luk",
+					"secondary": "dex",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 25
+						},
+						{
+							"level": 25,
+							"target": 25
+						},
+						{
+							"level": 200,
+							"target": 200
+						}
+					],
+					"_ap": "tier C: spec #383: the Thief (400) row copied verbatim (the Thief gear pattern, no new tuning); explicit so 412 no longer falls back through 410/400."
+				}
+			}
+		},
+		"bot": {
+			"card_scores": {
+				"shadow_partner_new": 100,
+				"shadow_partner_rank": 74
+			},
+			"_card_scores": "tier C: spec #383: Shadow Partner is scored explicitly (learn 100, rank 74, the numbers BotInput's pool default gives every curated attack) because BotInput._base_score only treats projectile / instant / box skills as attacks and the clone is a summon; the other seven pool skills score as attacks by default."
+		},
+		"status_bonuses": {
+			"venomous_star": {
+				"kind": "poison",
+				"element": "s",
+				"chance": [14, 16, 18, 20, 24, 26, 28, 30],
+				"time": [2, 2, 3, 3, 3, 4, 4, 4],
+				"level": [4, 8, 12, 15, 19, 23, 27, 30],
+				"repeat_chance": 3
+			},
+			"stunning_avenger": {
+				"kind": "stun",
+				"chance": [20, 24, 28, 32, 36, 40, 45, 50],
+				"time": 1.5,
+				"repeat_chance": 4
+			}
+		},
+		"_status_bonuses": "spec #383 M22: the rarity status-bonus catalogue (NL3 #402 parses and validates it, NL2 only stores it). Tier A: venomous_star's chance, time and level are Venomous Star's (4120005) prop, time and rank -> poison level map (mad is unused). Tier C: everything about stunning_avenger (chance, 1.5 s) and both repeat_chance values (points added per repeat of the same grant, scaled by the x0.8 repeat factor)."
+	}
+}
