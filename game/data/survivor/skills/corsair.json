@@ -482,6 +482,110 @@
 				]
 			}
 		},
+		"homing_beacon": {
+			"skill_id": 5211006,
+			"book": "521",
+			"job": 521,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Homing Beacon",
+			"desc": "Sends the parrot after the nearest monster and marks it: every hit on it deals more damage and your shots prefer it.",
+			"icon": "Skill.wz/521.img/skill/5211006/icon",
+			"damage": "physical",
+			"action": "homing",
+			"action_time": 0.6,
+			"ball": "Skill.wz/521.img/skill/5211006/ball",
+			"hit": "Skill.wz/521.img/skill/5211006/hit/0",
+			"effect": "Skill.wz/521.img/skill/5211006/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5211006/Use",
+				"hit": "Sound.wz/Skill.img/5211006/Hit"
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 10.0,
+			"range": 350,
+			"speed": 500,
+			"radius": 10,
+			"pierce": 0,
+			"on_hit": {
+				"status": "all_weak",
+				"duration": 8.0,
+				"cue": "Skill.wz/521.img/skill/5211006/mob"
+			},
+			"_tier": "Tier A (WZ 5211006, book 521): damage 148..380% by level (172 / 260 / 380% at rank 1 / 4 / 8, levels 4 / 15 / 30), range 350, no time and no x (the mark's length is not in the WZ), the 4-frame parrot ball, the 6-frame effect, hit/0, the 5-frame mob loop (the mark art), the homing stance and the Use / Hit sounds. Tier C (spec #384 C8 #392, GAME_DESIGN 7.120.6): auto-cast nearest, 10 s cooldown, 500 px/s, 10 px radius, one target, no pierce, 0.6 s stance hold, the 8 s mark (x1.5, x1.25 on a boss, MobSwarm ALL_WEAK) and the rarity bonuses. Untuned.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "gun_mastery",
+						"text": "Gun Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Gun Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "bullseye",
+						"text": "Bullseye",
+						"effects": [
+							{
+								"stat": "mark_power",
+								"op": "add",
+								"value": 0.25
+							},
+							{
+								"stat": "mark_time",
+								"op": "mul",
+								"value": 1.5
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "bullseye",
+						"text": "Bullseye",
+						"effects": [
+							{
+								"stat": "mark_power",
+								"op": "add",
+								"value": 0.25
+							},
+							{
+								"stat": "mark_time",
+								"op": "mul",
+								"value": 1.5
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
 		"battleship": {
 			"_provenance": "Tier A: Skill.wz 5221006 (book 522, 10 levels, no action node): pdd = mdd 10 x level, so the eight mapped levels 2 3 4 5 7 8 9 10 (rank_levels[\"10\"]) give a hull of 20 / 30 / 40 / 50 / 70 / 80 / 90 / 100 % of max HP (rank 1 / 4 / 8 = 20 / 50 / 100 %), the 11-frame effect and the 7-frame effect0 (z -1, behind the avatar; first frame 1x1 held 450 ms) cast art, and the Use sound; the WZ time (2,100,000 s) is 'until the hull is gone' and cooltime (90 s) is not used. Tier C (spec #384 CS-10, CS-11, C13 #397): a pool Form of the group corsair_ship, 15 s window, 45 s cooldown counted from the cast, admission when a living monster is within 400 px, no action node so the cast plays the gun's own shooting stance (weapon), the hull / only_skills / art_variant / presentation block, the Cannon at 0.8 s then every 1.4 s and the Torpedo at 1.6 s then every 3.0 s, the rarity bonuses. Docs: GAME_DESIGN 7.120.4.",
 			"skill_id": 5221006,
