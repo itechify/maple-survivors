@@ -1,4 +1,486 @@
 {
 	"_doc": "Corsair line skill definitions (spec #384, ticket C2 #386). Each skill ticket appends its own region of `skills` (separate tickets, separate regions): C3 Dash's mobility rank rule (Dash stays in skills/pirate.json); C4 Double Shot, Invisible Shot, Recoil Shot and Grenade (moved from pirate.json, with Burst Fire); C5-C13 the rest of the pool (Flamethrower, Ice Splitter, Octopus, Gaviota, Homing Beacon, Aerial Strike, Rapid Fire, Battleship and its sub-skills). A pool key with no entry here stays inert: it is never offered, learned or cast. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). Books may be 500, 520, 521 or 522. C2 defined none.",
-	"skills": {}
+	"skills": {
+		"double_shot": {
+			"skill_id": 5001003,
+			"book": "500",
+			"job": 500,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Double Shot",
+			"desc": "Fires two bullets at nearby monsters.",
+			"icon": "Skill.wz/500.img/skill/5001003/icon",
+			"damage": "physical",
+			"_tier": "Tier A: bulletCount 2, range, damage 63..80% per bullet, the doublefire action and the CharLevel art; the eight survivor ranks map to WZ levels 3/5/8/10/13/15/18/20. Tier C (#388, GAME_DESIGN 7.120.2): moved from skills/pirate.json (the gun requirement and the twenty explicit ranks are gone, a weapon gates nothing), the bullets are the current ammo's (`ammo_shot`), auto-cast at the nearest monsters with the two bullets split over two monsters, cooldown 1s, action hold 0.6s, speed 600 px/s, radius 8px, no base pierce, rarity bonuses; untuned.",
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 1.0,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 0,
+			"action": "doublefire",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/500.img/skill/5001003/hit/0",
+			"effect": "Skill.wz/500.img/skill/5001003/effect",
+			"char_level": {
+				"thresholds": [
+					10,
+					15,
+					20,
+					25
+				],
+				"hit": "Skill.wz/500.img/skill/5001003/CharLevel/{cl}/hit/0",
+				"effect": "Skill.wz/500.img/skill/5001003/CharLevel/{cl}/effect"
+			},
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5001003/Use",
+				"hit": ""
+			},
+			"ammo_shot": true,
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "gun_mastery",
+						"text": "Gun Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Gun Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "bullet_time",
+						"text": "Bullet Time",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "bullet_time",
+						"text": "Bullet Time",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"burst_fire": {
+			"skill_id": 5210000,
+			"book": "521",
+			"job": 521,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Burst Fire",
+			"desc": "Fires three bullets at one monster.",
+			"icon": "Skill.wz/521.img/skill/5210000/icon",
+			"damage": "physical",
+			"_tier": "Tier A (Skill.wz 521.img): damage 125..210% per bullet at the mapped levels, bulletCount 3, range 350, the triplefire action, effect (8 frames), hit/0 (4 frames) and the Use sound; its Hit sound is a UOL to Double Shot's. Tier C (#388, GAME_DESIGN 7.120.2): `cast.focus` (all three bullets go to the one monster admission picked, a scheduled boss first, like Bowmaster's Strafe), the current ammo's bullets, cooldown 2s, speed 700 px/s, radius 6px, no base pierce, action hold 0.6s, rarity bonuses; untuned.",
+			"cast": {
+				"rule": "nearest",
+				"focus": true
+			},
+			"cooldown": 2.0,
+			"range": 350,
+			"speed": 700,
+			"radius": 6,
+			"pierce": 0,
+			"action": "triplefire",
+			"action_time": 0.6,
+			"ball": "",
+			"ammo_shot": true,
+			"hit": "Skill.wz/521.img/skill/5210000/hit/0",
+			"effect": "Skill.wz/521.img/skill/5210000/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5210000/Use",
+				"hit": "Sound.wz/Skill.img/5210000/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "gun_mastery",
+						"text": "Gun Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Gun Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "bullet_time",
+						"text": "Bullet Time",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "bullet_time",
+						"text": "Bullet Time",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"invisible_shot": {
+			"skill_id": 5201001,
+			"book": "520",
+			"job": 520,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Invisible Shot",
+			"desc": "Shoots the monsters in front of you and behind you.",
+			"text": {
+				"desc": "Fires at the monsters in front of you and behind you.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters} in front of and behind you"
+			},
+			"icon": "Skill.wz/520.img/skill/5201001/icon",
+			"damage": "physical",
+			"_tier": "Tier A: canonical box reach 250 and height, damage 85..170%, mobCount 3, bulletConsume (ammo is endless here, 6.1.2) and hit art; its sound is the WZ Hit sound; the eight survivor ranks map to WZ levels 3/5/8/10/13/15/18/20. Tier C (owner #168, #388 GAME_DESIGN 7.120.2): cast.around mirrors the box's far reach to both sides, so it strikes in front and behind; moved from skills/pirate.json (no gun gate, no explicit ranks); auto-cast when a monster is inside the box, cooldown 1 s, the held gun's first basic-attack stance held 0.6 s, no visible bullet (the name; the WZ has no ball), rarity bonuses; untuned.",
+			"cast": {
+				"rule": "box",
+				"around": true
+			},
+			"cooldown": 1.0,
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/520.img/skill/5201001/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5201001/Hit",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "gun_mastery",
+						"text": "Gun Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "bullet_time",
+						"text": "Bullet Time",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "speed_infusion",
+						"text": "Speed Infusion",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.75
+							},
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "speed_infusion",
+						"text": "Speed Infusion",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.75
+							},
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"recoil_shot": {
+			"skill_id": 5201006,
+			"book": "520",
+			"job": 520,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Recoil Shot",
+			"desc": "Fires a shot at the nearest monster, then hops back away from it.",
+			"text": {
+				"h": "Damage {damage}%, then hop back away from the monster"
+			},
+			"icon": "Skill.wz/520.img/skill/5201006/icon",
+			"damage": "physical",
+			"_tier": "Tier A: damage 90..260%, the backstep action, effect art, the Use sound and the hop `range` (115 to 250 px, read as the displacement); the eight survivor ranks map to WZ levels 3/5/8/10/13/15/18/20. Tier C (owner #168, #388 GAME_DESIGN 7.120.2): moved from skills/pirate.json (no gun gate, no Wings prerequisite, no explicit ranks); the shot is the current ammo's bullet (`ammo_shot`: Ammo.bullet_path, so Split and Mighty Bullets show) at 1000 px/s, radius 6, rotating, reach 300 px, no base pierce; the hop is instant and away from the faced monster after the shot, cut short at platform edges and walls (7.13), none while airborne; cooldown 1.8 s, action hold 0.6 s; the WZ has no hit art; rarity bonuses; untuned.",
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 1.8,
+			"range": 300,
+			"speed": 1000,
+			"radius": 6,
+			"pierce": 0,
+			"count": 1,
+			"displacement": {
+				"direction": "away",
+				"when": "after",
+				"field": "range"
+			},
+			"action": "backstep",
+			"action_time": 0.6,
+			"ball": "",
+			"ammo_shot": true,
+			"hit": "",
+			"effect": "Skill.wz/520.img/skill/5201006/effect",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5201006/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "gun_mastery",
+						"text": "Gun Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Gun Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "bullet_time",
+						"text": "Bullet Time",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "bullet_time",
+						"text": "Bullet Time",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"grenade": {
+			"skill_id": 5201002,
+			"book": "520",
+			"job": 520,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Grenade",
+			"desc": "Throws a grenade at the nearest cluster of monsters.",
+			"text": {
+				"desc": "Throws a fully charged grenade at the nearest cluster of monsters; it explodes on the group.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters} around the blast"
+			},
+			"icon": "Skill.wz/520.img/skill/5201002/icon",
+			"damage": "physical",
+			"_tier": "Tier A: canonical blast box (-50,-50)..(50,20) around the landing point, damage 55..140%, mpCon (not read), mobCount 3 to 6, the ball, special (blast) and hit art, and the WZ Use2 and Hit sounds; the eight survivor ranks map to WZ levels 3/5/8/10/13/15/18/20. Tier C (owner #168, #388 GAME_DESIGN 7.120.2): moved from skills/pirate.json (no weapon gate, no explicit ranks); thrown as if fully charged with no wind-up (no prepare/keydown), auto-cast at the cluster (cast.rule cluster, GAME_DESIGN 7.20): the target is the nearest of the 12 nearest monsters within the throw range whose blast would strike the most monsters (a scheduled boss first), the ball flies there at `speed` px/s (never faster than 0.1 s) and the blast lands when it arrives; throw range 400 px, cooldown 2 s, the held weapon's first basic-attack stance held 0.6 s, rarity bonuses; untuned.",
+			"cast": {
+				"rule": "cluster"
+			},
+			"cooldown": 2.0,
+			"range": 400,
+			"speed": 600,
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "Skill.wz/520.img/skill/5201002/ball",
+			"burst": "Skill.wz/520.img/skill/5201002/special",
+			"hit": "Skill.wz/520.img/skill/5201002/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5201002/Use2",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "gun_mastery",
+						"text": "Gun Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "bigger_boom",
+						"text": "Bigger Boom",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "cluster",
+						"text": "Cluster Grenade",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "cluster",
+						"text": "Cluster Grenade",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		}
+	}
 }
