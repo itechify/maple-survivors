@@ -320,6 +320,12 @@ monster's own attribute): Fire Demon's ice-weak and Ice Demon's fire-weak. A mon
 none. A mixed-element hit (fire/poison, ice/lightning) is the mean of its parts, each counted with its live weakness.
 _Avoid_: debuff, curse
 
+**Mark**:
+A timed status (`all_weak`) that makes every hit on a monster deal x1.5 (x1.25 on a boss, which can be marked unlike the
+other statuses), elemental or not, on top of any element multiplier; the player's nearest-rule shots, bursts and summons
+also prefer a marked monster (after scheduled bosses). Corsair's Homing Beacon applies it; Bullseye raises it.
+_Avoid_: debuff, curse, vulnerability (a vulnerability is one element only)
+
 **Stolen**:
 A monster a successful Steal has already taken an extra drop from; Steal can't take from it again. It is not a
 status effect, so a boss can be stolen from.

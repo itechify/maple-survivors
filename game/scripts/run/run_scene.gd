@@ -668,17 +668,19 @@ func _build_mob_layers() -> void:
 		var mr := MobRenderer.new()
 		mr.name = "Mobs%d" % layer
 		mr.library = library
-		mr.burn_cue_path = _burn_cue_path()
+		mr.burn_cue_path = _status_cue_path("burn")
+		mr.mark_cue_path = _status_cue_path("all_weak")
 		map.actor_layer(layer).add_child(mr)
 		mob_renderers.append(mr)
 		mob_layers.append(layer if floor_layers.size() > 1 else -1)
 
 
-## The mob-cue art of the first pool skill that burns (`on_hit.cue`, a Skill.wz path), "" when none configures one.
-func _burn_cue_path() -> String:
+## The mob-cue art of the first pool skill whose `on_hit.status` is `status` (`on_hit.cue`, a Skill.wz path), "" when none
+## configures one.
+func _status_cue_path(status: String) -> String:
 	for key: String in world.jobs.skill_pool(world.job_id()):
 		var on_hit: Dictionary = world.book.def(key).get("on_hit", {})
-		if String(on_hit.get("status", "")) == "burn" and on_hit.has("cue"):
+		if String(on_hit.get("status", "")) == status and on_hit.has("cue"):
 			return String(on_hit.cue)
 	return ""
 
