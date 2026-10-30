@@ -4864,7 +4864,7 @@ run wears the creation Garnier (a claw), so "starter" is the real starter. C = C
 | sleepywood / kit | 0/3 C; D 11.5-17.5 | 1/3 C; D 23.8-826.2; C 936.2 |
 
 Night Lord: tier-1 clears 0/24; the first boss (spawned 300 s after entry) was reached in 15/24 runs (all six Henesys runs, 5/6
-Kerning, 1/6 Ellinia, 0/6 Perion, whose bot and random runs die at 157-282 s on the 3.8-5.5 min gear-less levels) and both
+Kerning, 1/6 Ellinia, 0/6 Perion, whose runs die at 157-282 s at Lv4-9) and both
 the careless Henesys runs that reached map 3 killed bosses. Henesys bot filled six actives in 3/3 runs (134.5, 141.2, 259.9 s),
 the Henesys runs reached Lv11-13 and died to the first boss (Mano) at 349-416 s. Both Sleepywood starter and kit runs die in
 10-18 s at Lv1, as the other jobs' starters do (Bowmaster 10-13 s); F/P's kit clears 1/3. **This is a readiness concern for the
@@ -4890,10 +4890,12 @@ runs; Drain and Ninja Storm were not taken in these two seeds. Looked at by eye 
 of Lucky Seven, Avenger (the giant star beside the character), Triple Throw, Ninja Ambush (the red slash and the ninjas
 dropping in from the top), Shadow Partner (the translucent clone beside the character) and Shadow Meso; `flash_jump.png`
 (ghost trail); the `ammo_2070001` notice "Your throwing stars are now Wolbi Throwing-Stars" and the Orange Potion notice;
-the ten-pip meso charge row beside the timer; damage numbers, boss HP bar and the death poses. **Not captured by a playtest
-shot**: a Ninja Storm ring with pushed monsters and a poisoned / stunned pack (the bot did not take Ninja Storm in these seeds;
-NL3, NL8 and NL5's diagnostic probes and tests cover them), and at the native 456 x 500 capture size the claw in the hand is
-too small to read, so the claw is evidenced by the Equip window shot of the flow scenario and the stars it throws.
+the ten-pip meso charge row beside the timer; damage numbers, boss HP bar and the death poses. A third playtest (seed 1, kit, 540 s, `missing: []`) learned Drain and Ninja Storm too and
+produced `cast_drain.png` and `cast_ninja_storm.png` (the spinning shadow with stacked hit numbers on a pack, a Drain heal
+with the echoed clone). **Not captured by a playtest shot**: a poisoned / stunned pack and a Ninja Storm ring with its pushed
+monsters distinguishable by eye (the Venomous Star and Stunning Avenger grants need the matching rarity card, which the bot
+rarely holds by 9 minutes; the NL3 status-bonus driver, NL8 and their tests cover them), and at the native 456 x 500 capture size the claw in the hand is
+too small to read; the stars it throws (the claw's `Ammo` entry) are the evidence that a claw is in hand.
 
 **Flow scenarios.** `redesign --job=412 --seed=1` PASSED (36 picks; creation Job page with nine rows and Night Lord
 highlighted, "Garnier - WATK 10 - 0.81s", Free Market, map select with Sleepywood locked, an invulnerable Henesys round with the
