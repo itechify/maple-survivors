@@ -103,6 +103,13 @@ func test_skill_and_card_previews_describe_rise_as_positive_points() -> void:
 		{"id": "rank", "kind": "skill_rank", "skill": "synthetic", "max_rank": 2}]})
 	var card := w.upgrades.choice_card("rank", w, "epic")
 	assert_eq(card.skill_mod_changes.pierce_falloff, {"before": -10.0, "after": -20.0})
-	var lines := "\n".join(LevelUpWindow.change_lines(card))
+	var lines := " ".join(LevelUpWindow.change_lines(card))
 	assert_true(lines.contains("+10 points per later monster"), lines)
 	assert_true(lines.contains("+20 points per later monster"), lines)
+
+
+func test_rise_transition_fits_the_card_preview_width() -> void:
+	var card := {"skill_mod_changes": {"pierce_falloff": {"before": -10.0, "after": -20.0}}}
+	for line: String in LevelUpWindow.change_lines(card):
+		assert_true(MapleText.wrap_markup(line, LevelUpWindow.ROW_W - 8.0, MapleText.SMALL).size() <= 1,
+			"each preview row must fit: " + line)
