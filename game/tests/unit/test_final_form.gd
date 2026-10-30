@@ -2,6 +2,7 @@ extends TestCase
 ## A boss's final form (stages.json `final_form`, #456) on synthetic data: the shell's death continues the same
 ## encounter, the form's death ends it.
 const TF := preload("res://tests/fixtures/tree_boss_fixtures.gd")
+const BR := preload("res://tools/balance_run.gd")
 const DT := 1.0 / 60.0
 const KILL := {"damage_min": 1000000, "damage_max": 1000000, "magic": true, "crit": 0.0, "crit_mult": 1.5,
 	"skill": "energy_bolt"}
@@ -174,3 +175,87 @@ func test_ordinary_revive_still_finishes_the_encounter() -> void:
 	var events := w.drain_events()
 	assert_eq(_types(events, "boss_died").size(), 1)
 	assert_eq(_types(events, "mob_revives_spawned").size(), 1)
+
+
+## The form's skills are ready one interval after the swap, never on its first tick and never from the shell's schedule,
+## even for a skill both forms share (the Summon 200 of this fixture: its shell cast at 1 s, 2 s, ...).
+func test_form_skills_first_cast_one_interval_after_the_swap() -> void:
+	var setup := _setup()
+	setup.mob_imgs[5220001].info.skill = {"0": {"skill": 200, "level": 82, "action": 1, "effectAfter": 0}}
+	setup.mob_skill_img["200"].level["82"].interval = 10
+	var w := RunWorld.new(setup)
+	w.god = true
+	for i in 60 + 10 * 60 + 30:
+		w.step(DT, MoveInput.new())
+	var shell_casts := _types(w.drain_events(), "boss_skill").filter(func(e: Dictionary) -> bool:
+		return int(e.mob_id) == 5220001)
+	assert_false(shell_casts.is_empty(), "control: the shell cast its summon before dying")
+	w.hit_mob(int(w.bosses.records[0].slot), KILL, -1)
+	var swapped := w.time
+	assert_near(float(w.bosses.records[0].form_time), swapped, 1e-9, "the record carries the swap time")
+	var first := -1.0
+	for i in 12 * 60:
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in _types(w.drain_events(), "boss_skill"):
+			if int(e.mob_id) == 5220000 and first < 0.0:
+				first = w.time
+	assert_near(first - swapped, 10.0, 1.0 / 60.0 + 1e-6, "the form's first cast lands one interval after the swap")
+	assert_true(first - swapped >= 10.0 - 1e-6, "and never earlier")
+
+
+## The kill counter skips a shell that continues into its form, and counts the form's death.
+func test_shell_death_is_not_a_kill() -> void:
+	var w := _world()
+	var before := w.kills
+	w.hit_mob(int(w.bosses.records[0].slot), KILL, -1)
+	assert_eq(w.kills, before, "the shell's death is not counted")
+	for i in 60:
+		w.step(DT, MoveInput.new())
+	w.hit_mob(int(w.bosses.records[0].slot), KILL, -1)
+	assert_eq(w.kills, before + 1, "the form's death is the boss kill")
+	var plain := RunWorld.new(TF.setup(9300003, []))
+	plain.god = true
+	for i in 60:
+		plain.step(DT, MoveInput.new())
+	var kills := plain.kills
+	plain.hit_mob(int(plain.bosses.records[0].slot), KILL, -1)
+	assert_eq(plain.kills, kills + 1, "an ordinary revive boss still counts")
+
+
+## boss_fights stays keyed on the scheduled entry across the swap, with the form and its swap time added.
+func test_boss_fight_records_are_keyed_on_the_entry() -> void:
+	var w := _world()
+	var before := BR.fight_records(w)
+	assert_eq(before.size(), 1)
+	assert_eq(int(before[0].mob_id), 5220001)
+	assert_eq(int(before[0].final_form), 5220000)
+	assert_eq(float(before[0].form_time), -1.0, "no swap yet")
+	w.hit_mob(int(w.bosses.records[0].slot), KILL, -1)
+	var mid: Dictionary = BR.fight_records(w)[0]
+	assert_eq(int(mid.mob_id), 5220001, "still the entry's id after the swap")
+	assert_near(float(mid.form_time), w.time, 1e-9)
+	assert_eq(mid.status, "alive")
+	for key: String in before[0]:
+		assert_true(mid.has(key), "existing field %s kept" % key)
+	for i in 60:
+		w.step(DT, MoveInput.new())
+	w.hit_mob(int(w.bosses.records[0].slot), KILL, -1)
+	var done: Dictionary = BR.fight_records(w)[0]
+	assert_eq(int(done.mob_id), 5220001)
+	assert_eq(done.status, "dead")
+	assert_near(float(done.duration), float(done.death_time) - float(done.spawn_time), 1e-9, "one fight from arrival")
+	var plain: Dictionary = BR.fight_records(RunWorld.new(TF.setup(9300003, [])))[0]
+	assert_false(plain.has("final_form"), "encounters without a form keep the old record shape")
+	assert_false(plain.has("form_time"))
+
+
+## A form missing from enabled_ids while its shell is listed is flagged.
+func test_final_form_missing_from_enabled_ids_is_flagged() -> void:
+	var setup := _setup()
+	var stage: Dictionary = setup.data.stages.stages.quiet
+	assert_eq(DataRepo.final_form_errors(stage, setup.mob_imgs, [5220001.0, 5220000.0]), PackedStringArray())
+	assert_eq(DataRepo.final_form_errors(stage, setup.mob_imgs, []), PackedStringArray(), "no list: nothing to compare")
+	var errors := DataRepo.final_form_errors(stage, setup.mob_imgs, [5220001.0])
+	assert_eq(errors.size(), 1)
+	assert_true(errors[0].contains("enabled_ids"), errors[0])
+	assert_eq(DataRepo.final_form_errors(stage, setup.mob_imgs, [9999]), PackedStringArray(), "an unlisted shell is not flagged")

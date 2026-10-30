@@ -12,7 +12,8 @@ var entries: Array = []
 ## back when no arrival point exists), spawn_time, death_time, dead, skipped (no mob img: never arrives, counts as done),
 ## and, only once they apply (so records of runs that never need them keep their shape), postponed_since /
 ## relocate_since (when arrivals / the faded pursuit relocation started failing for want of a point; -1 = no longer)
-## and fallback (true: arrived through the arrival_fallback rule).
+## and fallback (true: arrived through the arrival_fallback rule) / form_time (the sim time a final form took over;
+## `mob_id` is then the form's).
 var records: Array = []
 var rules: Dictionary = {}
 var _actions: Array[Dictionary] = []
@@ -360,6 +361,9 @@ func continue_final_form(index: int, source: int, pos: Vector2, world: RunWorld)
 	record.slot = slot
 	record.identity = world.swarm.identity[slot]
 	record.mob_id = final_id
+	# The swap time: skill schedules start from it (MobSkillRunner), and telemetry reports it as `form_time`.
+	record.form_time = world.time
+	world.mob_skills.reset_boss(index)
 	record.anchor = pos
 	record.stall = 0.0
 	record.best_distance = INF

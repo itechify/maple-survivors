@@ -93,7 +93,8 @@ func step(world: RunWorld) -> void:
 			var interval := world.bosses.skill_interval(index, id, float(spec.get("interval", 0.0)))
 			# tier C: a skill first becomes ready one interval after the boss arrives (never on the arrival tick), then
 			# one interval after each cast; WZ has the interval, not when the first use may happen.
-			var ready := float(_ready.get(key, float(record.spawn_time) + interval))
+			# A final form (#456) schedules from the swap (`form_time`), not from the shell's arrival.
+			var ready := float(_ready.get(key, float(record.get("form_time", record.spawn_time)) + interval))
 			if now < ready - 1e-9 or float(swarm.hp[slot]) * 100.0 > float(swarm.max_hp[slot]) * float(spec.get("hp", 100.0)):
 				# tier C: an omitted hp field permits casting at full health.
 				continue
@@ -160,6 +161,15 @@ func _roll_status(world: RunWorld, id: int, spec: Dictionary) -> bool:
 		return false
 	var prop := float(spec.get("prop", 100.0))
 	return prop >= 100.0 or (prop > 0.0 and world.mob_status_rng.randf() * 100.0 < prop)
+
+
+## Forgets the cast schedule of boss `index`, so each of its skills is ready one interval after the record's
+## `form_time` (or spawn_time): a final form starts its own cooldowns, whatever the shell had cast (#456).
+func reset_boss(index: int) -> void:
+	var prefix := "%d/" % index
+	for key: String in _ready.keys():
+		if key.begins_with(prefix):
+			_ready.erase(key)
 
 
 ## Banish (129) notice of boss `mob_id`: its survivor mobs.json `banish_message` (Shade's reworded v83 banMsg, #256),

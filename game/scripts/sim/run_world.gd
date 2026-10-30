@@ -2344,13 +2344,18 @@ func _sync_slots() -> void:
 
 
 func _on_kill(m: int) -> void:
-	kills += 1
 	var mk := swarm.mob_kind(m)
 	var elite := mob_elite[m] != 0
 	var pos := swarm.pos(m)
 	if mob_boss[m] >= 0:
+		if bosses.continue_final_form(mob_boss[m], m, pos, self):
+			# The shell of a final-form encounter pays nothing, is not a kill and is not marked dead: the form carries on (#456).
+			emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": 0, "elite": elite})
+			return
+		kills += 1
 		_on_boss_kill(m, mk, pos, elite)
 		return
+	kills += 1
 	var mult := float(balance.get("exp_mult", 1.0)) * float(stage.get("exp_mult", 1.0))
 	if elite:
 		mult *= float(stage.get("elites", {}).get("exp_mult", 5.0))
@@ -2434,10 +2439,6 @@ func spawn_meso(pos: Vector2, amount: int) -> int:
 ## A scheduled boss died: boss_died, mob_died with the boss reward EXP (canonical EXP x rewards.exp_mult; no ordinary
 ## ordinary EXP rolls), its canonical revive list, then the reward shower and bonus choices.
 func _on_boss_kill(m: int, mk: MobKind, pos: Vector2, elite: bool) -> void:
-	if bosses.continue_final_form(mob_boss[m], m, pos, self):
-		# The shell of a final-form encounter pays nothing and is not marked dead: the form carries on (#456).
-		emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": 0, "elite": elite})
-		return
 	var rewards := bosses.reward_config(mob_boss[m])
 	var e := maxi(0, roundi(mk.exp * float(rewards.get("exp_mult", 1.0))))
 	bosses.mark_dead(mob_boss[m], m, pos, self)

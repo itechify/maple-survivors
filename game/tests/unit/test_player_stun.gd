@@ -3,6 +3,7 @@ extends TestCase
 const MF := preload("res://tests/fixtures/mano_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
+const RUSH := preload("res://tests/unit/test_rush.gd")
 const DT := 1.0 / 60.0
 
 
@@ -261,3 +262,28 @@ func test_stun_and_slow_are_independent() -> void:
 	assert_true(_stunned(w))
 	assert_eq(w.player_state.slow.skill_id, 126)
 	assert_near(w.mob_skills.speed_multiplier(w.time), 0.8, 1e-6)
+
+
+## A displacement dash (Hero's Rush) is an instant move inside the cast tick, with no in-flight state: Stun ends nothing,
+## but while it lasts the key does nothing, and afterwards it works again.
+func test_stun_refuses_a_displacement_dash_and_leaves_nothing_in_flight() -> void:
+	var rush: Object = RUSH.new()
+	var w: RunWorld = rush._world()
+	var press := func(left_or_right: bool) -> void:
+		w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active, w.swarm.capacity())
+		var input := MoveInput.new()
+		input.press_skill("rush")
+		input.right = left_or_right
+		w.step(DT, input)
+	var start := w.player.pos
+	w.mob_skills.statuses.apply(MobSkillRunner.SKILL_STUN, w.time, 1.0, {"visual": ""})
+	press.call(true)
+	assert_eq(w.player.pos, start, "a stunned Rush press does not move the character")
+	assert_true(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "cast").is_empty(), "and casts nothing")
+	for i in 70:
+		w.step(DT, MoveInput.new())
+	assert_false(_stunned(w))
+	w.drain_events()
+	var before := w.player.pos
+	press.call(true)
+	assert_true(w.player.pos.x > before.x + 100.0, "after the stun the same press dashes")

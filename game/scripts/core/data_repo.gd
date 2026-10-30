@@ -383,9 +383,13 @@ static func stage_map_errors(stages_file: Dictionary) -> PackedStringArray:
 
 ## Cache-backed check of a stage's scheduled bosses: every `final_form` must be listed in its shell's canonical
 ## `info/revive` (the form is a v83 fact, never invented by stages.json). `mob_imgs` is {id: Mob.wz img root}; a shell
-## whose img is absent is reported by the missing-asset list instead. One message per violation.
-static func final_form_errors(stage: Dictionary, mob_imgs: Dictionary) -> PackedStringArray:
+## whose img is absent is reported by the missing-asset list instead. `enabled_ids` (balance.mob_skills.enabled_ids)
+## also flags a form missing from it while its shell is listed. One message per violation.
+static func final_form_errors(stage: Dictionary, mob_imgs: Dictionary, enabled_ids: Array = []) -> PackedStringArray:
 	var errors := PackedStringArray()
+	var enabled := {}
+	for id: Variant in enabled_ids:
+		enabled[int(id)] = true
 	for boss: Dictionary in stage_bosses(stage):
 		if not boss.has("final_form"):
 			continue
@@ -396,6 +400,9 @@ static func final_form_errors(stage: Dictionary, mob_imgs: Dictionary) -> Packed
 		var revive: Variant = img.get("info", {}).get("revive", {})
 		if not (revive is Dictionary and int(boss.final_form) in StageRoster.list_ids(revive)):
 			errors.append("boss %d final_form %d is not in its info/revive" % [shell, int(boss.final_form)])
+		elif enabled.has(shell) and not enabled.has(int(boss.final_form)):
+			# The form would never cast its kit while the shell's is enabled: almost surely a forgotten id.
+			errors.append("boss %d is in balance.mob_skills.enabled_ids but its final_form %d is not" % [shell, int(boss.final_form)])
 	return errors
 
 
@@ -652,7 +659,8 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 				mob_imgs[id] = m
 			else:
 				missing.append("Mob.wz/%07d.img" % id)
-	for problem in final_form_errors(data.get("stages", {}).get("stages", {}).get(stage_key, {}), mob_imgs):
+	for problem in final_form_errors(data.get("stages", {}).get("stages", {}).get(stage_key, {}), mob_imgs,
+			data.get("balance", {}).get("mob_skills", {}).get("enabled_ids", [])):
 		missing.append("stage '%s': %s" % [stage_key, problem])
 	var skill_imgs := {}
 	for book in skill_books(data):
