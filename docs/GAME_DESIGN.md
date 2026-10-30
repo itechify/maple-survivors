@@ -6586,7 +6586,8 @@ beside the skill icons, and lights value pips. Combo uses the verified orb art a
 unavailable art uses drawn pips. Jobs without a meter display nothing.
 
 Later jobs can configure `gain.event` to `hit_taken` or `meso_picked` and call `gain(event, events)` at their
-event source; H3 wires landed casts only. M23 owns meso pickup coupling; energy/form rules belong to Buccaneer's spec.
+event source; H3 wires landed casts only. M23 owns meso pickup coupling (built in 7.94: `meso_picked`, `per_mesos`, `decay`,
+`read_per_unit`); energy/form rules belong to Buccaneer's spec.
 The current `per_unit.stat` contract is `damage`; additional stat semantics need an explicit extension.
 Paladin uses M2 forms, not M1. Meter state is absent from CharacterSnapshot: a new round always starts empty.
 
@@ -6668,14 +6669,14 @@ at Lv30-55) belonged to jobs nobody can be and levels a round rarely reaches. Fo
 |---|---|
 | 312 Bowmaster (bow) | Lv1 Arrow for Bow 2060000 (+0) -> **15** Bronze 2060001 (+1) -> **30** Steel 2060002 (+2) -> **45** Red 2060003 (+4) |
 | 322 Marksman (crossbow) | Lv1 Arrow for Crossbow 2061000 (+0) -> **15** Bronze 2061001 (+1) -> **30** Steel 2061002 (+2) -> **45** Blue 2061003 (+4) |
-| 412 Night Lord (claw) | Lv1 Beginner Thief's Throwing Stars 2070015 (+15) -> **10** Wolbi 2070001 (+17) -> **20** Mokbi 2070002 (+19) -> **30** Kumbi 2070003 (+21) -> **40** Tobi 2070004 (+23) -> **50** Steely Throwing-Knives 2070005 (+25) |
+| 412 Night Lord (claw) | Lv1 Beginner Thief's Throwing Stars 2070015 (+15) -> **10** Wolbi 2070001 (+17) -> **20** Mokbi 2070002 (+19) -> **30** Kumbi 2070003 (+21) -> **40** Tobi 2070004 (+23) -> **50** Steely Throwing-Knives 2070005 (+25) -> **60** Ilbi Throwing-Stars 2070006 (+27, added by NL2 #401, 7.94) |
 | 522 Corsair (gun) | Lv1 Bullet 2330000 (+10) -> **18** Split Bullet 2330001 (+12) -> **35** Mighty Bullet 2330002 (+14) |
 
 This ticket writes all four schedules; only the Bowmaster is playable today, so the other three are inert data under a
 structural test (`test_ammo`: exact levels, no inheritance, one schedule per job and family) until their specs make the job
-playable and may retune their own entry. Left out on purpose: Ilbi Throwing-Stars 2070006 (+27) and Vital Bullet 2330003 (+16,
-its img is not imported), for the specs that own those jobs to add if a round can reach them (`Ammo.item_ids` no longer names
-2070006, so the setup loads 17 ammo items). Summons never use ammo W.Att (their damage is the WZ `pad`). Arrows are almost
+playable and may retune their own entry. Left out on purpose: Ilbi Throwing-Stars 2070006 (+27; **added by Night Lord NL2 #401
+at Lv60, so the setup loads 18 ammo items again**, 7.94) and Vital Bullet 2330003 (+16, its img is not imported), for the
+specs that own those jobs to add if a round can reach them. Summons never use ammo W.Att (their damage is the WZ `pad`). Arrows are almost
 cosmetic (+0..+4 W.Att, about 7% at Lv45); stars and bullets matter, hence their extra steps.
 Tests: `test_ammo` (rule, data file, real-cache `incPAD` strictly increasing along each schedule, real String.wz names in the
 notice), `test_ammo_world` (a Bowmaster levelled through 15/30/45 with real EXP: one `ammo_upgraded` each, none at the start
@@ -8158,6 +8159,92 @@ Tests: `test_buccaneer_barrage_dragon` (data, ranks, the six lines, the box and 
 at the impact, the cap, hit art by target and by line, transfer, the energy receipt, every bonus, `bot.reach`, the real cache and the
 knuckle on every `fist` / `dragonstrike` frame), `test_bot_melee` (`bot.reach`, a melee bot with the 400 px strip still closes in,
 and the control that kites without the key), `test_avatar_cash_layers` (the `swingTF` fallback), `test_rarity_bonus_effects`.
+
+### 7.94 Night Lord pool, job data and the claw ammo step (spec #383, NL2 #401)
+
+(The spec calls this section 7.90; that number belongs to the Buccaneer pool in this tree, so the Night Lord data section is 7.94.)
+
+Night Lord (412) gets its own data line, `night_lord`, discovered from its files (`DataRepo.lines()`; no shared list is edited, and
+it follows the registered classes in sorted order). It ships **not playable**: every skill key and Flash Jump stay inert until NL6-NL10
+define them, the `meter` block until NL4 gives `PlayerMeter` the `meso_picked` rule, and `playable` flips in NL12 #411.
+`JobTree.default_job()` stays 212.
+
+| Piece | Where | Value |
+|---|---|---|
+| Job entry | `jobs/night_lord.json` | `412`: `starting_skill lucky_seven`, `mobility_skill flash_jump`, `weapon_families ["claw"]`, `creation_weapon 1472000` (Garnier, reqJob 8, the Thief bit), `playable false` |
+| Skill pool (8) | `skill_pool` | `lucky_seven`, `drain`, `avenger`, `triple_throw`, `ninja_storm`, `ninja_ambush`, `shadow_partner`, `shadow_meso` |
+| Skill file | `skills/night_lord.json` | `{"skills": {}}` and a `_doc` naming the regions NL6-NL10 append to; Lucky Seven and Drain stay in `thief.json` until NL7 moves them (a repeated key is a load error) |
+| Meter | `jobs/night_lord.json` `meter` | meso charge: max 10, `gain {event meso_picked, amount 1, per_mesos 1000}`, `decay {interval 6.0, amount 1}`, `per_unit {damage, 0.03}`, art `Item.wz/Special/0900.img/09000002/iconRaw`; inert until NL4 |
+| AP row | `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` Thief keyframes copied verbatim (Lv1 25, Lv25 25, Lv200 200) |
+| Bot scores | `balance.bot.card_scores` | `shadow_partner_new` 100, `shadow_partner_rank` 74 (the summon is not an `attack` to `BotInput._base_score`; the other seven score as attacks by default) |
+| Status catalogue | `balance.status_bonuses` | `venomous_star` (poison, element `s`, chance 14..30, time 2..4, poison level 4..30, `repeat_chance` 3) and `stunning_avenger` (stun, chance 20..50, 1.5 s, `repeat_chance` 4); NL3 #402 parses it, NL2 only stores it |
+
+`JobTree.start_skills(412)` is `["lucky_seven", "flash_jump"]`; Flash Jump is not in the pool and never a card (it follows
+`balance.mobility_rank_levels` once NL6 defines it).
+
+**Drops.** The equipment data is unchanged. `weapon_families ["claw"]` filters the Thief drop list (claws 147xxxx, never daggers 133xxxx
+or any other family); armour drops by the Thief class bit, other classes' gear is refused by `Equipment.requirement_error`, and the
+Garnier is wearable at creation. A dagger job's `["dagger"]` filter symmetrically never receives a claw.
+
+**Ammo.** Item.wz and String.wz were read again: `incPAD` is +15 (2070015) and +17 / +19 / +21 / +23 / +25 / +27 for 2070001-2070006.
+`ammo.json` gains `{level 60, item 2070006, tier C}` on the 412 claw schedule (Ilbi Throwing-Stars, already in the thief manifest
+fragment, so `Ammo.item_ids` names it again: 18 ammo items). A Night Lord starts on 2070015 and gets exactly one `ammo_upgraded` at
+round levels 10 / 20 / 30 / 40 / 50 / 60 ("Your throwing stars are now Wolbi Throwing-Stars", ... Ilbi Throwing-Stars); a dagger in its
+hand never steps. No ammo code changed.
+
+Tests: `test_night_lord_data` (the line and its discovery, the job entry, `default_job`, the start skills, pool keys inert or well
+placed, the meter block and its inertness, the AP row, card scores and catalogue coming from the line file, claw-only drops
+synthetic / shipped / seeded / real cache, `requirement_error`, the Lv60 step through a real round, the incPAD and bullet sprite,
+and the real String.wz names), `test_data_repo_lines` (placement of the 400-412 books), `test_ammo` and `run_fixtures.ammo_info`
+(18 items).
+
+#### 7.94.1 Meso charge (spec #383 NL4, #403, M23)
+
+A **meso charge** is a `PlayerMeter` (7.34) whose gain event is `meso_picked`: a counter filled by mesos picked up, never
+money. Night Lord's meter (NL2's data) and Shadower's Meso Explosion meter use it; this ticket builds the seam on synthetic
+data only (Night Lord's block and Shadow Meso are NL2 and NL9). Four optional extensions; a meter without them (Combo,
+Energy Charge) behaves, and emits, exactly as before.
+
+```json
+"meter": {"id": "meso_charge", "max": 10,
+          "gain": {"event": "meso_picked", "amount": 1, "per_mesos": 1000},
+          "decay": {"interval": 6.0, "amount": 1},
+          "per_unit": {"stat": "damage", "value": 0.03},
+          "art": "Item.wz/Special/0900.img/09000002/iconRaw"}
+```
+
+- **The event.** `RunWorld._credit_pickups`, the one line where mesos reach the wallet (the magnet, the pet's pickups and its
+  vacuum, and the finale sweep all end there), emits `meso_picked {amount, count}` once per tick in which `pickups.step_mesos`
+  is positive: the total amount and the number of drops. It changes no wallet value, drop or save, and a shop sale is not a
+  pickup. **It is emitted only when the job's meter gain rule listens to `meso_picked`** (`PlayerMeter.listens`): the event
+  bytes of every other job are hashed by the baselines (F/P, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer, Bowmaster),
+  which must not move. Documented in `EVENT_FIELDS` and in `test_run_events` (which stands a mesos meter on a synthetic world).
+- **Amount-driven gain.** `gain.per_mesos` earns one `gain.amount` per `per_mesos` mesos. `MesoCharge.take(carry, mesos,
+  per_mesos) -> {units, carry}` keeps the remainder in `PlayerMeter.carry`, so no mesos are rounded away (999 then 1 is one
+  pip, 1999 then 1 is two). The carry survives map transfers and starts at 0 each round (a new meter). `gain_amount(event,
+  amount, events)` is the entry point; `gain(event, events)` stays the count-driven one and never reads mesos. A rule
+  without `per_mesos` fed an amount behaves like `gain`. The meter caps at `max` and emits `meter_changed` only on actual
+  changes.
+- **Decay.** `decay: {interval, amount}`: while at least one unit is held, `amount` leaves every `interval` seconds
+  (`PlayerMeter.step(dt, events)`, called once per tick by `RunWorld.step` right after the pickups stage, with no new stage
+  part). The clock runs only while the value is positive (it is cleared when the meter empties, so an empty meter banks no
+  time toward its next pip), the value never goes below zero, no RNG is drawn. Without a `decay` key `step` leaves the value
+  and the events alone.
+- **A read-only bonus.** A skill's `meter` block may be `{"read_per_unit": 0.10}`: at admission (`PlayerMeter.begin_cast`) the
+  cast's damage bounds and status damage multiplier are multiplied by `1 + value x read_per_unit`, on top of the meter's own
+  `per_unit`. It spends nothing and never gates (`admits` is true with or without a meter, at any charge); a block that also
+  has `min`, `spend` or `role` is a finisher as before. SkillText says "+N% damage per <unit> held" for it. Shadower's Meso
+  Explosion is a `role: finisher` (`min`, `spend: "all"`) on a `meso_charge` meter: no code.
+- **The run summary.** `summary.json` (`RunScene.perf_summary`) gains `meter: {mean, peak}` for any job with a meter: the
+  time-weighted mean of the held units over the ticks (`PlayerMeter.stats`, accumulated by `step`) and the most held, so
+  the QA ticket and the balance pass can see the charge. Jobs without a meter gain no key.
+- **HUD.** `HudMeter` is unchanged: it draws `max` pips and lights `value`. With the art path above it blits the meso coin's
+  `/1` frame (checked on the real map: six lit coins and four dark pips); without `art` it draws the purple pips. Both
+  checked by eye with `player_meter_probe.tscn -- --meso [--no-art]`.
+
+Tests: `test_meso_charge` (the arithmetic, the carry, the cap, decay, the event and its fields, the pet's pickups, shop
+sales, map transfer and a new round, `read_per_unit`, the summary), `test_run_events`, `test_run_telemetry`,
+`test_data_files` (the schema), and every baseline unchanged.
 
 ### 7.97 Echo summon (M11) (spec #383, NL5 #404)
 
@@ -9752,6 +9839,17 @@ The QA observer counts `cast` events by skill and sums fixed post-tick `morph_id
 tick (tier C measurement convention, including truncated windows). These are measurements, not nominal-duration
 estimates. Durable stationary crowds and invulnerability in disposable visual probes are diagnostic only.
 
+### Night Lord NL4 constants (#403)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `meso_picked` emitted only for a meter that listens to it | RunWorld announces the event when `PlayerMeter.listens("meso_picked")`; the wallet is credited regardless | tier C (ours): the baselines hash event bytes, so no other job may gain an event |
+| Meso charge gain / decay / bonus (the numbers NL2 puts in `jobs/night_lord.json`) | 1 pip per 1000 mesos picked up; 1 pip lost per 6 s while held; +3% damage per pip on every pool cast, +10% per pip on Shadow Meso | tier C, spec #383 (balance flag: untested against real pickup rates) |
+| Carry | the remainder under `per_mesos` stays in the meter across maps; reset at round start | tier C (ours) |
+| Decay clock | runs only while a unit is held, cleared when it empties; float slack `MesoCharge.CLOCK_EPSILON` 1e-6 s | tier C (ours; the slack only keeps 360 ticks of 1/60 s equal to six seconds) |
+| `read_per_unit` | multiplies the damage bounds and status damage by `1 + value x read`, stacking with `per_unit`; never spends, never gates | tier C, spec #383 |
+| Summary `meter.mean` / `meter.peak` | time-weighted mean of the held units per tick, and the most held, in `summary.json` for any meter | tier C (measurement convention) |
+
 ### Hero H3 meter constants (#299)
 
 | Constant / rule | Value | Provenance |
@@ -9893,7 +9991,8 @@ Numeric-string delay parsing also affects Pig/Ribbon Pig and seven `dungeon.img`
 | Marksman arrows (322, crossbow) | Lv15 Bronze 2061001, Lv30 Steel 2061002, Lv45 Blue 2061003 | tier C levels; tier A ids and `incPAD` +1/+2/+4 |
 | Night Lord stars (412, claw) | Lv10 Wolbi 2070001, Lv20 Mokbi 2070002, Lv30 Kumbi 2070003, Lv40 Tobi 2070004, Lv50 Steely 2070005 (`incPAD` +17..+25) | tier C levels; tier A ids and `incPAD` |
 | Corsair bullets (522, gun) | Lv18 Split 2330001, Lv35 Mighty 2330002 (`incPAD` +12, +14) | tier C levels; tier A ids and `incPAD` |
-| Ilbi Throwing-Stars 2070006, Vital Bullet 2330003 | not scheduled | tier C: left to the specs that own those jobs |
+| Ilbi Throwing-Stars 2070006 | scheduled at Lv60 for 412 by Night Lord NL2 #401 (see "Night Lord NL2 constants") | tier C |
+| Vital Bullet 2330003 | not scheduled | tier C: left to the spec that owns the Corsair |
 
 ### Bowmaster constants (#336)
 
@@ -10093,6 +10192,23 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 ### Buccaneer review corrections (#412)
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
+
+### Night Lord NL2 constants (#401)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Night Lord job entry (412): `starting_skill`, `mobility_skill`, the eight-key `skill_pool`, `weapon_families ["claw"]` | see 7.94 | tier C: spec #383 (skills' WZ ids are tier A) |
+| Creation weapon | Garnier 1472000 (reqJob 8 = the Thief bit) | tier A item fact (Item.wz); the choice is tier C, spec #383 |
+| `playable` | false until NL12 #411; `default_job` stays 212 | tier C, spec #383 / #298 pin |
+| Meso charge `meter` block: max 10, 1 pip per 1000 mesos, one pip decays every 6 s, +3% damage per pip | `jobs/night_lord.json` | tier C: spec #383 M23 (first pass, untested against real pickup rates; the pip rate and decay are balance-pass levers) |
+| Meter art | `Item.wz/Special/0900.img/09000002/iconRaw` (the meso coin frame) | tier A path (already imported for pickups) |
+| AP row `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` keyframes verbatim | tier C: the Thief gear pattern, no new tuning |
+| Bot scores `shadow_partner_new` / `_rank` | 100 / 74 | tier C: spec #383 (the number the pool default gives every curated attack) |
+| `balance.status_bonuses.venomous_star` | poison; chance 14 16 18 20 24 26 28 30; time 2 2 3 3 3 4 4 4; level 4 8 12 15 19 23 27 30; element `s` | tier A: Venomous Star 4120005 `prop`, `time` and the rank -> poison level map (`mad` unused) |
+| `balance.status_bonuses.stunning_avenger` | stun; chance 20 24 28 32 36 40 45 50; time 1.5 s | tier C: spec #383 |
+| `repeat_chance` | venomous_star 3 points, stunning_avenger 4 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #383 |
+| Night Lord ammo step | Lv60 Ilbi Throwing-Stars 2070006 (+27) on the 412 claw schedule (steps Lv10 / 20 / 30 / 40 / 50 / 60) | tier C level (spec #383); tier A item id, `incPAD` and name (Item.wz / String.wz, re-read) |
+| Ammo items | 18 (B3's 17 plus 2070006) | derived: `Ammo.item_ids` |
 
 ### Night Lord NL5 constants (#404)
 
