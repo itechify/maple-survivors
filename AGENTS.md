@@ -72,6 +72,7 @@ changing gameplay.
 bash scripts/import.sh "C:/path/to/MapleStory v83"   # once: builds the asset cache from your own v83 install
 bash scripts/run.sh                                   # title -> characters -> map select -> round -> hub/results
 bash scripts/run.sh -- --hub                          # tool-only: straight into the Free Market with a test character + kit
+bash scripts/run.sh -- --hub --job=112 --late            # the same with the Hero's band-15 late-progression fixture
 bash scripts/test.sh                                  # unit tests
 bash scripts/playtest.sh                              # scripted run with screenshots + frame-time stats -> evidence/
 bash scripts/balance.sh                               # headless pacing report over several seeds
@@ -152,7 +153,7 @@ the workload). Qualification exits non-zero with `UNQUALIFIED` unless `warped_to
 one density check, and at least one must stay positive. This verifies coverage; it makes no frame-time claim. Ordinary
 playtests retain their existing behavior on a valid early-death summary.
 
-`bash scripts/run.sh -- --hub [--job=<id>] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`; `--job=112`
+`bash scripts/run.sh -- --hub [--job=<id>] [--late] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`; `--late` opens the job's `hub_kit.late_fixture` instead of its tier-2 fixture, today only Hero's `late_progression.json` (spec #449 C12, #474: band-15 equipment, fifteen regions cleared), any other job is an error screen; `--job=112`
 opens the Hero fixture `hero_t2.json` with the Hero kit of sword and axe ATT scrolls and Warrior spare gear; `--job=122` the Paladin fixture `paladin_t2.json` with 20 stacks of sword, blunt, two-handed sword and two-handed blunt ATT scrolls and spare Warrior gear (a Sword and a one-handed blunt weapon, `hub_kit` in `jobs/paladin.json`); `--job=222` the I/L fixture `il_arch_mage_t2.json` with the F/P kit (both Arch Mages wear wands and staves from the same scroll line); `--job=232` opens the Bishop fixture `bishop_t2.json` with the same Magician kit; `--job=512` the Buccaneer fixture `buccaneer_t2.json` with ten stacks of knuckle ATT and ACC scrolls (`scrolls/pirate.json`, every rate) and spare knuckler, hat, gloves and top (`jobs/buccaneer.json` `hub_kit`); `--job=312` the Bowmaster fixture `bowmaster_t2.json` with bow, gloves, shoes ATT and hat DEX scrolls and spare Bowman gear (`jobs/bowmaster.json` `hub_kit`); a `--job` the
 character is not of is an error screen) skips
 the title and opens the real Free Market to hand-test the scroll shops with the F/P fixture (or `--character`) plus

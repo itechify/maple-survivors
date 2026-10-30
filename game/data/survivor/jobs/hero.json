@@ -41,6 +41,7 @@
 			"_provenance": "tier C: spec #296 H10 #306: Hero is playable alongside F/P; 212 remains the default.",
 			"hub_kit": {
 				"fixture": "res://tests/fixtures/characters/hero_t2.json",
+				"late_fixture": "res://tests/fixtures/characters/late_progression.json",
 				"scrolls": [
 					2043000,
 					2043001,

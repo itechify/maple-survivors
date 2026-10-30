@@ -4871,6 +4871,25 @@ gear-matched class ranking.
 Job 512: tier-1 clears 8/24; first boss reached 23/24. Job 112: tier-1 clears 3/24; first boss reached 20/24. Job
 212: tier-1 clears 0/24; first boss reached 24/24. Job 222: tier-1 clears 0/24; first boss reached 24/24.
 
+**Late-band equipment smoke (#474, 2026-10-30).** #474 lists more equipment, and its Lv35-40 Warrior and Pirate armour also
+enters Sleepywood's [30, 40] pool (the earlier lists had no Warrior or Pirate class armour; the Warrior had weapons and shields).
+`balance.sh 1 2 2026 --stage=sleepywood` (`JOBS=2`, private cache, no tuning, no held-out seeds), with a control of the same
+commands on the spec-branch tip without the new data. 15 records: **no crashes, world warnings or missing assets**.
+Henesys, Ellinia, Perion and Kerning were not rerun (their bands have no new items below Lv41, and their pools are unchanged).
+
+| Sleepywood (3 seeds) | Result | Control (spec tip) |
+|---|---|---|
+| F/P starter, bot | 0/3 C; D 11.4-15.1 | not run (no equipment dropped before the deaths) |
+| F/P starter, random | 0/3 C; D 11.4-13.0 | not run |
+| F/P `fp_arch_mage.json`, bot | 1/3 C; D 23.8, 767.0 | identical record |
+| F/P `fp_arch_mage.json`, random | 1/3 C; D 14.3, 810.6 | identical record |
+| Hero (112) `hero_t2.json`, bot | 2/3 C; D 685.2 | 1/3 C; D 877.1, 904.5 |
+
+The Magician pool is unchanged below Lv41, so F/P reproduces the control exactly. Hero's seeds differ because the shifted drop
+pool changes which items its seeded rolls give; that is three seeds of a diagnostic fixture, not a balance claim. Against the
+older smoke above (the F/P kit 2/3 C, Hero 1/3 C) the F/P shift comes from the spec branch's earlier changes, since the control
+reproduces it. The starter runs die within 15 s, before any equipment drops.
+
 Buccaneer Henesys bot filled six actives in 3/3 runs at 130.4–205.1 s; its deaths 319.6/626.9 and clear 1036.8
 reproduce BC11 (rounded there). Sleepywood early deaths are recorded without tuning or stopping, as explicitly
 requested by the owner. F/P and Hero Henesys bot outcomes reproduce the BC2–BC11 smoke; the full other-job matrix
@@ -8548,6 +8567,32 @@ top-right corner. The level-up card shows the effect line at the offered rank ("
 60 Max HP, 58 Area, 56 Armor, 54 Regen, 52 Haste, 50 EXP and each rank card 4 less, all below any pool attack
 (`balance.bot.card_scores`). Every number above is tier C; ticket #293 (first-pass pacing) adjusts them.
 
+#### Equipment for the late bands (#474, spec #449 C12)
+
+The drop bands of progression steps 6-16 ([35, 45] ... [110, 120], table in section 11) need equipment before their
+regions exist, so `equipment_drops/*.json` were extended up to reqLevel 120 for every job class and weapon family. A new
+ordinary item is an ordinary v83 shop or drop item by its Character.wz facts: not cash and none of the `only`, `notSale`,
+`quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`, `epic`, `epicItem`, `weekly` flags; sold for more
+than 1 mesos (price 1 marks boss, quest and PQ rewards); named in String.wz; no `GMS ...` item (tier C: those have no
+known v83 source). Armour keeps one piece per slot, reqJob, reqLevel and gender (colour variants collapse); weapons keep
+every item. Capes are not listed (the Equip window has no cape slot). The files are `common` (reqJob 0 armour), `warrior`,
+`magician`, `bowman`, `thief` and `pirate` (a weapon goes to the file of its family: daggers and claws Thief, bows and crossbows Bowman, knuckles and guns Pirate,
+wands and staves Magician, the rest Warrior, whatever its reqJob, so the four reqJob 9 daggers 1332022, 1332026, 1332049 and
+1332051 are in `thief.json` beside the reqJob 9 daggers it already held; an armour piece goes to the lowest class bit of its
+reqJob, and no new armour piece has more than one). New items start at reqLevel 41, so
+the Sleepywood pool (band [30, 40]) only changes where it was empty: Warrior and Pirate armour of reqLevel 35-40 was added
+because the step-6 band [35, 45] would otherwise have had none (the earlier lists named no Warrior or Pirate class armour at all).
+
+`test_late_equipment_bands` checks, for each of the sixteen bands and each class (Hero, Paladin, Dark Knight, Arch Mage,
+Bowmaster, Marksman, Night Lord, Buccaneer, Corsair), at least one eligible weapon per family it lists and one hat, shoes,
+gloves, body (an overall, or a top with a bottom) and, for a Hero and a Paladin, shield. Steps 6-15 pass as listed.
+**Step 16 widened**: v83 has no Magician wand and no Magician overall between reqLevel 109 and 130 (the Dragon Wand and
+the Blue Czar are Lv108), so #447's [110, 120] became [108, 120]; the mins and maxes still never fall along the
+progression (tier C). The shipped steps 1-5 keep the gaps they had (the earlier lists name no Warrior or Pirate class armour, only reqJob 0 pieces): gloves
+and body at step 3, gloves at step 4, for the Hero, Paladin, Dark Knight, Buccaneer and Corsair. #474 left those bands and
+lists alone; the test records the gaps, and fixing one makes it ask for its entry to be removed. `late_progression.json` is the Hero
+fixture for the band-15 gear (`--hub --job=112 --late`).
+
 ## 9. Jobs
 
 `data/canonical/jobs.json` holds the Explorer tree with canonical ids (Beginner 0; Warrior 100, Magician 200,
@@ -8637,7 +8682,8 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Rule | Value / source | Tier |
 |---|---|---|
 | Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood (v83 levelling order; owner request 2026-10-30) | C |
-| Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]) | C |
+| Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]). Steps 6-16, set by their region tickets (#449), are [35, 45], [40, 50], [45, 55], [50, 60], [55, 65], [60, 70], [70, 80], [80, 90], [90, 100], [100, 110] and **[108, 120]** for step 16 (#447 said [110, 120]; widened by #474, see "Equipment for the late bands" in 8.3) | C |
+| Late-band equipment (#474) | `equipment_drops/*.json` hold every ordinary v83 weapon of a listed family and one armour piece per slot, reqLevel and gender up to Lv120; chosen from Character.wz facts (not cash, `only`, `notSale`, `quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`; price above 1; a String.wz name; not a `GMS ...` item). No Cosmic drop data was available to this ticket, so unlike the Lv0-70 lists it is not B-checked against server drops | C |
 | NX clear bonus | `balance.nx_award.clear_bonus` by progression step: 100, 100, 100, 100, 250, the last repeating (the old amounts moved from tiers to steps) | C |
 | Unlock rule | region i is open iff i == 0 or `progression[i-1]` is in the character's `cleared_regions`; a CLEARED round adds its stage; death, Quit round and one-off rounds add nothing | C |
 | Save migration | `CharacterSnapshot.LEGACY_TIER1_REGIONS` 4: a stored `tiers_unlocked` >= 2 becomes the first four progression keys cleared, otherwise none | C |

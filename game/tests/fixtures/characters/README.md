@@ -71,7 +71,18 @@ Buccaneer review cleanup (#412): the diagnostic four-regions-cleared fixture exc
 
 The committed `*_t2.json` files and `fp_arch_mage.json` still carry `tiers_unlocked: 2` (ADR 0007, #450): every loader migrates it to
 `cleared_regions` (the first four progression regions: Henesys, Ellinia, Perion, Kerning City), so Sleepywood is unlocked. New
-files come from `tools/character_fixture.gd --cleared=4`.
+files come from `tools/character_fixture.gd --cleared=4` (`--tiers=2` is the compatibility alias).
+
+`late_progression.json` is the late-progression Hero (112) fixture (spec #449 C12, #474): a kit fixture like `fp_arch_mage.json`, a
+fresh Lv1 character wearing band-15 ([100, 110]) Warrior-line equipment, unscrolled, with 15 regions cleared. The gear is
+the Blue Dragon set (hat 1002551, overall 1052075, gloves 1082168, shoes 1072273, shield 1092060, all reqLevel 110) and a
+Dragon Carabella (1302059, a one-handed sword, reqLevel 110). `cleared_regions` holds the first fifteen progression keys; ten
+of them (`ludibrium` ... `clocktower`) do not exist until #449's regions ship, so `_doc.extra_cleared` lists them and
+`CharacterSnapshot.unlocked_keys` ignores them for now. Reproduce with
+`tools/character_fixture.gd --job=112 --cleared=15 --extra-cleared=ludibrium,omega_sector,korean_folk_town,mu_lung,el_nath,magatia,zipangu,leafre,phantom_forest,clocktower
+--kit=1302059,1092060,1002551,1052075,1072273,1082168 --label=spec449/ticket-474 --revision=<SHA> --out=<absolute path>
+--note=<text>` (once all fifteen regions ship, `--cleared=15` alone writes the same set and `--extra-cleared` is dropped). Use it for
+`--stage=<key> --job=112 --character=<absolute late_progression.json>` and `--hub --job=112 --late` (the Hero `hub_kit`'s `late_fixture`).
 
 ## Fixtures by cleared count
 
