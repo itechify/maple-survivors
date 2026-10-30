@@ -210,6 +210,210 @@
 				]
 			},
 			"_tier": "Tier A: weapon46 (crossbow), damage 60..160% (levels 4/15/30 at ranks 1/4/8 read 75/122/160), the symmetric box (+-170 until level 10, +-190 until 20, +-210 from 21, by +-100), mobCount6, effect/hit/special art and the Use sound (the node has no Hit sound and no prepare). Tier C (#366, GAME_DESIGN 7.46.6): the eight survivor ranks, a box cast anchored where the caster stood that strikes 0.5s later (the numbers and the delay of Arrow Rain), min_targets 1, 5s cooldown, 0.6s held weapon stance, the special node (x 0, y -150, fall 150, count 3) read as three arrows erupting around the caster, one every 90ms across the box and landing at the impact (art only); rarity bonuses. Untuned."
+		},
+		"golden_eagle": {
+			"_rarity": "Tier C: first-pass #360 bonuses (Crossbow Mastery damage, Eagle Eyes area, Second Eagle +1 follower); repeat scale 0.8. See GAME_DESIGN 7.46.9.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "crossbow_mastery",
+						"text": "Crossbow Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "eagle_eyes",
+						"text": "Eagle Eyes",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "second_eagle",
+						"text": "Second Eagle",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "second_eagle",
+						"text": "Second Eagle",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"skill_id": 3211005,
+			"book": "321",
+			"job": 321,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Golden Eagle",
+			"desc": "Calls an eagle that follows you and strikes a monster, which it may stun.",
+			"icon": "Skill.wz/321.img/skill/3211005/icon",
+			"damage": "physical",
+			"cooldown": 30.0,
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/321.img/skill/3211005/hit/0",
+			"effect": "",
+			"rotate": false,
+			"cast": {
+				"rule": "summon"
+			},
+			"summon": {
+				"ordinal_spread": 36.0,
+				"path": "Skill.wz/321.img/skill/3211005/summon",
+				"attack": "attack1",
+				"move": "fly",
+				"hover": 20.0,
+				"follow_speed": 220.0,
+				"follow_distance": 70.0,
+				"teleport_distance": 600.0,
+				"attack_interval": 1.6,
+				"watk_field": "pad",
+				"settle": true
+			},
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop",
+				"duration": 1.5
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3211005/Use",
+				"summon": "Sound.wz/Skill.img/3211005/Summon"
+			},
+			"_provenance": "Tier A: pad 32..100, prop 59..99%, time 112..180 s, one monster in a +-200 x +-150 box, attackAfter 100 ms, summon/hit art and the Use/Summon sounds. Tier C: 30 s recast, fly follow settings, hover 20, 1.6 s attack cycle, 1.5 s stun, settle (the Silver Hawk's values); GAME_DESIGN 7.46.9."
+		},
+		"frostprey": {
+			"_rarity": "Tier C: first-pass #360 bonuses (Marksman Boost damage, Cold Wings a fifth target, Second Frostprey +1 follower); repeat scale 0.8. See GAME_DESIGN 7.46.9.",
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "marksman_boost",
+						"text": "Marksman Boost",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "cold_wings",
+						"text": "Cold Wings",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "second_frostprey",
+						"text": "Second Frostprey",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "second_frostprey",
+						"text": "Second Frostprey",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"skill_id": 3221005,
+			"book": "322",
+			"job": 322,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Frostprey",
+			"desc": "Calls a frostprey that follows you and strikes up to four monsters at a time with ice.",
+			"icon": "Skill.wz/322.img/skill/3221005/icon",
+			"damage": "physical",
+			"element": "i",
+			"cooldown": 40.0,
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/322.img/skill/3221005/hit/0",
+			"effect": "",
+			"rotate": false,
+			"cast": {
+				"rule": "summon"
+			},
+			"summon": {
+				"ordinal_spread": 36.0,
+				"path": "Skill.wz/322.img/skill/3221005/summon",
+				"attack": "attack1",
+				"move": "fly",
+				"hover": 20.0,
+				"follow_speed": 200.0,
+				"follow_distance": 60.0,
+				"teleport_distance": 600.0,
+				"attack_interval": 3.0,
+				"watk_field": "pad",
+				"settle": true
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3221005/Use",
+				"summon": "Sound.wz/Skill.img/3221005/Summon"
+			},
+			"_provenance": "Tier A: elemAttr i, pad 270..500 at the mapped levels, time 122..200 s, up to 4 monsters in a +-100 x +-60 box, attackAfter 1440 ms, hit art and the Use/Summon sounds. Tier C: 40 s recast, fly follow settings, hover 20, 3.0 s attack cycle, settle (the Phoenix's values). Balance flag: pad is 3-6 times an arrow's W.Att; GAME_DESIGN 7.46.9."
 		}
 	}
 }

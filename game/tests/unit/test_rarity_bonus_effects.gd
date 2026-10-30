@@ -36,6 +36,7 @@ const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const FOLLOWERS := preload("res://tests/unit/test_bowmaster_followers.gd")
+const MARKSMAN_FOLLOWERS := preload("res://tests/unit/test_marksman_followers.gd")
 const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep", "crit",
 	"self_damage", "low_hp_damage", "hp_cost", "support_heal", "support_rate", "form_power", "form_time", "blast_targets", "burn_damage"]
 ## The Buccaneer skills this audit casts (B4 #416 the five Brawler skills, B7 #419 Energy Orb, B8 #420 Barrage and Dragon Strike, B9 #421 Transformation, B10 #422 Super Transformation; B6 appends its own).
@@ -727,11 +728,13 @@ func test_the_probe_tells_burn_damage_apart() -> void:
 # area (a monster just beyond the base attack box is only struck with the widened one), count (monsters struck in one
 # strike) and summon_count (allies).
 
-const FOLLOWER_KEYS := ["silver_hawk", "phoenix"]
+## The Marksman's Golden Eagle and Frostprey (spec #360, MS9 #369) run through the same probe on their own fixture world.
+const FOLLOWER_KEYS := ["silver_hawk", "phoenix", "golden_eagle", "frostprey"]
 
 
 func _follower_probe(key: String, effects: Array, stat: String) -> Dictionary:
-	var w: RunWorld = FOLLOWERS.new()._world(key)
+	var marksman: bool = key in ["golden_eagle", "frostprey"]
+	var w: RunWorld = MARKSMAN_FOLLOWERS.new()._world(key) if marksman else FOLLOWERS.new()._world(key)
 	for e: Dictionary in effects:
 		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
 	w.runner.step(DT, w)
@@ -739,7 +742,7 @@ func _follower_probe(key: String, effects: Array, stat: String) -> Dictionary:
 	for t in 120: # past the summoned animation: the follower stands at its trailing point
 		w.runner.tick_cooldowns(DT, w)
 	var fx: float = w.runner.summons.x[0]
-	var reach := 200.0 if key == "silver_hawk" else 100.0
+	var reach := 200.0 if key in ["silver_hawk", "golden_eagle"] else 100.0
 	var mobs := []
 	var edge := []
 	match stat:
