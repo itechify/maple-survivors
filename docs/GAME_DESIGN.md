@@ -6874,6 +6874,49 @@ one `ammo_upgraded` per step ("Your arrows are now Bronze Arrow for Crossbow"), 
 sprite the current arrow's `bullet`; a bow in a Marksman's hand never steps. `test_marksman_data` covers it in a running
 world (the lookup is `test_ammo`).
 
+#### 7.46.6 Marksman MS6 constants (#366): Blizzard and Arrow Eruption
+
+Blizzard (3211003, `blizzard_crossbow`) and Arrow Eruption (3211004, `arrow_eruption`), both of book 321, are data only: they
+copy Arrow Rain's entry (7.50: `cast.rule "box"`, `min_targets 1`, `pending {delay}`, `cast_visuals`) with their own numbers,
+art and sounds. A cast anchors a box where the caster stood and the strike lands that many seconds later, around the
+caster, on at most six monsters (the nearest to the caster first); `area` widens the box and `attack_count` +1 adds a second
+volley line to each. The Skill.wz levels read 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 at ranks 1-8.
+
+| Skill | Cooldown | Strike | Damage (rank 1 / 4 / 8) | Box (rank 1 / 4 / 8) | Extra |
+|---|---|---|---|---|---|
+| Blizzard | 4.0 s | 0.6 s after the cast | 106 / 128 / 140%, element `i` | +-130 / +-130 / +-150 by +-100 | freeze 24 / 35 / 50% for 1 / 2 / 3 s |
+| Arrow Eruption | 5.0 s | 0.5 s after the cast | 75 / 122 / 160% | +-170 / +-190 / +-210 by +-100 | none |
+
+**Blizzard's freeze.** The node has no `prop`; its `x` (21 -> 50) is read as the freeze chance in percent and its `time`
+(1 -> 3) as the seconds (`on_hit {status freeze, chance_field x, duration_field time}`). The chance is rolled once per damaging
+hit line on stream 1 (the same `rng` as every other on-hit roll; Cold Beam has no chance and draws nothing), for every struck
+monster including a boss, whose freeze the status layer then refuses together with every ice-immune kind (`I1`); both still
+take the damage. A second volley rolls again. The Skill window reads "Damage N%, X% chance to freeze for T sec." from a
+`text.h` override (the WZ line has the seconds but not the chance), and `text.desc` replaces the WZ text's "only works when
+equipped with a bow".
+
+**Art.** Blizzard: `effect` on the caster, `special/0` five ice arrows falling 400 px, one every 90 ms across the box (the
+last lands as the strike does), `hit/0` per struck monster, Use and Hit sounds; the frozen monsters use the existing freeze
+cue. Arrow Eruption: `effect`, `special/0` three arrows falling 150 px across the box, `hit/0`, Use sound only (the book has
+no Hit sound). A first-cast screenshot of each with a crossbow in hand (`shoot2`, the weapon's own stance) was checked by eye
+(`evidence/ms6*`, a `--job=322` run with `playable` flipped in a throwaway tree); `missing` is empty.
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Blizzard damage, box, `mobCount` 6 | 100 -> 140%, +-130 until level 15 and +-150 from 16 by +-100, 6 monsters | tier A: Skill.wz 321.img 3211003 |
+| Blizzard element | `i` (ice) | tier A: `elemAttr` |
+| Blizzard freeze chance | WZ `x` (21 -> 50) read as a percent per hit line | tier C: the node has no `prop` (spec #360) |
+| Blizzard freeze seconds | WZ `time` (1 / 2 / 3 s at levels 1-10 / 11-20 / 21-30) | tier C reading, as the I/L Blizzard (7.60) |
+| Bosses and ice-immune kinds reject the freeze | the status layer's existing rule; the chance draw is still taken | tier C, as Cold Beam and I/L Blizzard |
+| Blizzard strike delay | 0.6 s (`start 150 ms + 4 x interval 90 ms` of the `special` node, rounded up) | tier C |
+| Blizzard cooldown | 4.0 s, 0.6 s held weapon stance | tier C (spec #360) |
+| Blizzard ice arrows | `special/0` x5, 400 px fall over 0.25 s, 90 ms apart, spread across the box | tier C, art only |
+| Arrow Eruption damage, box, `mobCount` 6 | 60 -> 160%, +-170 / +-190 / +-210 (steps at levels 11 and 21) by +-100, 6 monsters | tier A: Skill.wz 321.img 3211004 (Arrow Rain's numbers) |
+| Arrow Eruption strike delay | 0.5 s | tier C: Arrow Rain's |
+| Arrow Eruption cooldown | 5.0 s, 0.6 s held weapon stance | tier C (spec #360) |
+| Arrow Eruption arrows | `special/0` x3, 150 px fall over 0.25 s, 90 ms apart, spread across the box | tier C, art only |
+| Rare / Epic / Unique / Legendary | Crossbow Mastery damage x1.2 / Wide Blizzard or Wide Eruption `area` x1.2 / Final Attack `attack_count` +1 / Final Attack + damage x1.2 (shares the Unique's counter; repeats shrink x0.8) | tier C (spec #360 rarity table) |
+
 ### 7.50 Bowmaster area and piercing (#340, spec #332 B8)
 
 Arrow Rain (3111004, book 311) and Dragon's Breath (3121003, book 312) are the two Bowmaster entries that need no new
