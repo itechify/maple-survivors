@@ -6844,6 +6844,36 @@ from `upgrades/bowman.json`; a playable Bowmaster's new / rank cards come from `
   `test_rarity_bonus_effects.gd` (every bonus), and the old weapon-gate / 20-rank / standalone-card cases rewritten in
   `test_bowman`, `test_hunter` and `test_bowmaster_data` (see the B7 notes).
 
+### 7.46 Marksman pool and job data (#362, spec #360 MS2)
+
+Marksman (322) gets its own data line `marksman` (`survivor/jobs/marksman.json`, `survivor/skills/marksman.json`), discovered
+from its files by `DataRepo.lines()` (it follows the registered class lines; no shared list was edited, ARCHITECTURE 4.4.4).
+The job entry carries the ten-skill pool (`iron_arrow` starting, then `arrow_blow`, `strafe_crossbow`,
+`dragons_breath_crossbow`, `blizzard_crossbow`, `arrow_eruption`, `piercing_arrow`, `snipe`, `golden_eagle`, `frostprey`, from
+the 300/320/321/322 books; the WZ ids are in spec #360's pool table), `weapon_families: ["crossbow"]`, the Crossbow 1462001 as
+creation weapon, and `playable: false` until MS11 #371. Its AP row (DEX primary, STR secondary, the Bowman keyframes copied
+verbatim) and the explicit bot card scores of the two summons live in the line's own `balance` block. `skills/marksman.json`
+starts empty: MS5-MS9 append their definitions, and `iron_arrow` moves in from `skills/bowman.json` in MS5. Until a key is
+defined it is inert (never offered or learned); `arrow_blow` is Bowmaster's shared definition (job 300) and is never
+redefined. **Strafe and Dragon's Breath are crossbow copies with their own keys** (`strafe_crossbow`,
+`dragons_breath_crossbow`): the Skill window lists a skill on the tab of its own job and a Marksman's tabs are 300 / 320 /
+321 / 322, so a shared Bowmaster key (job 311 / 312) would sit on no tab.
+
+**D1, no mobility skill.** As for Bowmaster (7.40) the entry has no `mobility_skill` key: `JobTree.start_skills(322)` is
+`["iron_arrow"]`, the quick slot's movement cell is blank, Key Config lists no skill row and the bot never presses a skill
+key. `test_marksman_data` runs the same cases for 322; no code needed a fix.
+
+**Drops.** `weapon_families: ["crossbow"]` filters the Bowman list down to crossbows (146xxxx); bows, swords, axes, blunt
+weapons, spears, claws and guns never drop for a Marksman, and a Bowmaster never drops a crossbow. Armour and shields drop by
+the Bowman class bit and `requirement_error` refuses other classes' gear. The Crossbow is wearable at Lv1 (its Item.wz
+`reqLevel` 12 is no longer enforced, #292; cache-backed test).
+
+**Ammo (D9), verified, not rewritten.** The 322 schedule written by Bowmaster's B3 (7.41) is unchanged: Arrow for Crossbow
+2061000 at Lv1, Bronze 2061001 at Lv15, Steel 2061002 at Lv30, Blue 2061003 at Lv45 (`incPAD` +0 / +1 / +2 / +4, tier A),
+one `ammo_upgraded` per step ("Your arrows are now Bronze Arrow for Crossbow"), added to ranged attacks only, with the shot
+sprite the current arrow's `bullet`; a bow in a Marksman's hand never steps. `test_marksman_data` covers it in a running
+world (the lookup is `test_ammo`).
+
 ### 7.47 Fixed-share damage (M15, Marksman MS3 #363)
 
 `FixedShare` is a pure arithmetic rule available through a skill's `fixed_share` block. No shipped skill uses it yet;
@@ -9992,6 +10022,20 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 | Skill pool, AP, bow equipment, ammo milestones | C | B2/B3/B12 rows above; numeric WZ ids and item stats remain tier A |
 | Burst timings/art, Arrow Rain strike/fall, burn and follower behaviour | C | B4–B11 rows above; hover remains 20 px (B11; B13 visual check below) |
 | Tier-2 fixture generation patch | C | Historical B12 metadata retained; shipped selection and generation need no patch |
+
+### Marksman MS2 constants (#362)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Marksman pool (ten actives) | `iron_arrow`, `arrow_blow`, `strafe_crossbow`, `dragons_breath_crossbow`, `blizzard_crossbow`, `arrow_eruption`, `piercing_arrow`, `snipe`, `golden_eagle`, `frostprey`, from the 300/320/321/322 books | tier C pool choice, spec #360 (WZ ids tier A) |
+| Starting active | `iron_arrow` (3201005), learned at Lv1 in slot 1 | tier C, spec #360 |
+| Mobility skill | none: the job entry has no `mobility_skill` key | tier C, spec #360 ruling D1 |
+| Weapon families | `["crossbow"]` (146xxxx); bows are Bowmaster's | tier C, spec #360; WeaponInfo family tier A |
+| Creation weapon | Crossbow 1462001 (reqJob 4, the Bowman bit; reqLevel 12 not enforced), wearable at creation | tier A item fact (cache); the choice is tier C, spec #360 |
+| AP row `balance.player.ap["322"]` | DEX primary, STR secondary, keyframes Lv1 -> 6, Lv30 -> 35, Lv34 -> 35, Lv35 -> 40, Lv70 -> 75 (the Bowman 300 row verbatim) | tier C: Bowman gear pattern, spec #360; no new tuning |
+| Bot card scores | `golden_eagle_new` / `frostprey_new` 100, `_rank` 74 (the pool default, explicit because summons are not `attack` skills to `BotInput._base_score`) | tier C, spec #360 |
+| `playable` | false until MS11 #371; `default_job` stays 212 | tier C, spec #360 / #298 pin |
+| Ammo schedule 322 | unchanged from Bowmaster B3 (Lv15 / 30 / 45; `incPAD` +1 / +2 / +4) | steps tier C, `incPAD` and ids tier A; verified, not changed |
 
 ### Review #332 presentation extensions
 

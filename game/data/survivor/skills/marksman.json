@@ -1,0 +1,4 @@
+{
+	"_doc": "Marksman line (spec #360, ticket MS2 #362): the skill definitions of the Marksman (322), empty until the skill tickets land. Each ticket appends its own region (a repeated key across files is a load error): MS5 #365 iron_arrow (moved here from skills/bowman.json), strafe_crossbow, dragons_breath_crossbow; MS6 #366 blizzard_crossbow, arrow_eruption; MS7 #367 piercing_arrow; MS8 #368 snipe; MS9 #369 golden_eagle, frostprey. arrow_blow is Bowmaster's shared definition in skills/bowmaster.json and is not redefined here.",
+	"skills": {}
+}
