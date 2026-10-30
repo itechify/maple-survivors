@@ -14,6 +14,9 @@ var impact := PackedFloat64Array()
 var stats: Array[Dictionary] = []
 var definitions: Array[Dictionary] = []
 var offsets := PackedFloat32Array()
+## Spawn serial of each slot: a delayed echo names the clone it belongs to, and a recast reuses the slot (EchoCast).
+var uid := PackedInt64Array()
+var _next_uid := 1
 ## Pulse countdowns of the summons whose definition carries `summon.support` (docs/GAME_DESIGN.md 7.67).
 var support := SupportSummons.new()
 var _buf := PackedInt32Array()
@@ -25,6 +28,14 @@ func living_count() -> int:
 		if active[i] != 0 and left[i] > 0.0:
 			count += 1
 	return count
+
+## Slots of the living clones (summons whose definition carries `summon.echo`, docs/GAME_DESIGN.md 7.91).
+func clones() -> PackedInt32Array:
+	var out := PackedInt32Array()
+	for i in active.size():
+		if active[i] != 0 and left[i] > 0.0 and definitions[i].has("echo"):
+			out.append(i)
+	return out
 
 ## Removes map-local allies while preserving the runner's cooldowns.
 func clear() -> void:
@@ -40,6 +51,8 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 	if d.has("support"):
 		d["support_definition"] = d["support"]
 		d.erase("support")
+	if d.has("echo") and not d.has("attack"):
+		d["attack"] = "" # a clone never strikes: no attack animation or cycle
 	var node: Dictionary = world.book.skill_node(st.skill).get("summon", {})
 	var attack_node: Dictionary = node.get(String(d.attack), {})
 	d["info"] = attack_node.get("info", {})
@@ -66,6 +79,7 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 			active.append(0)
 			x.append(0)
 			offsets.append(0)
+			uid.append(0)
 			y.append(0)
 			left.append(0)
 			facing.append(0)
@@ -76,6 +90,8 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 			stats.append({})
 			definitions.append({})
 		active[i] = 1
+		uid[i] = _next_uid
+		_next_uid += 1
 		offsets[i] = ordinal * float(d.get("ordinal_spread", 36.0)) # tier C: per-ally spacing.
 		x[i] = world.player.pos.x + offsets[i]
 		y[i] = world.player.pos.y - float(d.hover) # tier C: a flyer enters at its hover height.
@@ -136,6 +152,9 @@ func step(dt: float, world: RunWorld) -> void:
 		x[i] = pos.x
 		y[i] = pos.y
 		_set_action(i, pulse_anim if pulse_anim != "" else String(d.move) if moved else "stand")
+		if d.has("echo"):
+			facing[i] = world.player.facing # a clone mirrors its owner and never strikes (EchoCast throws its stars)
+			continue
 		if d.has("support_definition"):
 			continue
 		if world.is_hidden() or bool(world.player_state.dead):

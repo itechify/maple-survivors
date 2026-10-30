@@ -509,6 +509,12 @@ _Avoid_: ultimate, proc
 A player summon (Silver Hawk, Phoenix, Golden Eagle, Frostprey) whose damage is physical and takes its W.Att from the skill level's `pad` instead of the worn weapon, optionally stunning on hit and flying above its trailing point. It is the Elquines seam (`PlayerSummons`) with data keys, not a separate system.
 _Avoid_: pet (the Free Market pet is a cosmetic companion), minion
 
+**Echo**:
+A timed clone (Shadow Partner) that repeats the owner's star casts about 0.25 s later from its own hand at a percent of their damage
+(`x` for the basic throws, `y` for the heavier skills). It is a `PlayerSummons` entry with `summon.echo`, never strikes by itself, and
+its repeats earn no meter charge, heal nothing and are never echoed again (`EchoCast`, #404).
+_Avoid_: shadow clone attack, double cast
+
 **Burst**:
 One automatic cast that schedules its resolved shot count over time, following the moving character's hand and a
 live target. The cooldown begins on admission; unfinished shots belong to the current map (`BurstCast`, #336).

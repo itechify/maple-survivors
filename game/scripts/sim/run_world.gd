@@ -148,6 +148,8 @@ const EVENT_FIELDS := {
 	"scroll_used": ["result", "scroll_id", "slot", "item_id"],
 	# #155: the held ranged weapon's endless ammo moved to a higher tier (family, previous and new Item.wz id, character level).
 	"ammo_upgraded": ["family", "from_item_id", "item_id", "level"],
+	# Spec #383 M11: an echo clone threw one repeated star (the skill echoed, the clone's summon slot, its hand, its facing).
+	"echo_cast": ["skill", "clone", "pos", "facing"],
 	# #192: a Gunslinger Grenade thrown (a cluster skill): the ball flies from the hand `from` to `to` in `seconds`; the blast art
 	# `burst` plays at `to` on arrival, when the sim strikes the mobs (the mob_hit events).
 	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
@@ -1895,6 +1897,8 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 			hit["push_side"] = int(st.push_side) # a dash's direction (Rush): the knock-back shoves along it
 		if st.has("burn_pulse"):
 			hit["burn_pulse"] = int(st.burn_pulse)
+		if bool(st.get("echo", false)):
+			hit["echo"] = true
 		_on_player_hit(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
@@ -1906,6 +1910,8 @@ func add_hit_listener(listener: Callable) -> void:
 
 
 func _damage_heal_hit(slot: int, hit: Dictionary) -> void:
+	if hit.has("echo"):
+		return # an echo drains nothing: the clone is not the owner (docs/GAME_DESIGN.md 7.91)
 	var key := String(hit.skill)
 	var heal: Dictionary = book.def(key).get("damage_heal", {})
 	if heal.is_empty():
