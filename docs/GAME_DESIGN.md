@@ -533,6 +533,66 @@ HP 0.1425 / damage 0.195; at 1,200 s all scales reach 1, on top of existing stag
 allows a typical three-map round to end before the full ramp; longer rounds reach full strength at 20:00.
 Paired kit/starter measurements are recorded below. All ramp choices are tier C first-pass tuning.
 
+#### Level scale (#453, spec #447; mechanism only)
+
+A stage may declare `level_scale` instead of an `opening_ramp`: it rescales each monster's strength from its own v83
+level L to an **effective level** E that rises along the round, so a Lv1-55 character can face a Lv40-160 roster whose
+canonical stats are out of reach. No shipped stage uses it yet; #449 sets the numbers for the new regions, and Henesys,
+Ellinia, Perion, Kerning and Sleepywood stay byte-identical (`test_level_scale` runs a seeded run with and without the
+block and compares the event logs).
+
+- **Reference curves.** `game/data/survivor/level_curve.json` holds `hp`, `pad`, `mad`, `pdd`, `mdd` and `exp` for levels
+  1-200 (index = level - 1): the median of the v83 ordinary monsters of that level. Ordinary means a mainline field
+  monster (Mob.wz id below 9,000,000, which leaves out the party-quest, carnival, event, trial, GM and later-client
+  content of docs/research/v83-bosses.md "Excluded"), not `boss=1`, not an `info/link` mob without stances, not a Balrog
+  variant or a Zakum, Horntail or Pink Bean body, and with HP at most 5x its level's median. A zero stat is skipped for
+  that stat (monsters below Lv30 have no magic attack, so `mad` has no sample there and holds its first value). Levels
+  without samples interpolate log-linearly, and the span outside the sampled levels (Lv1-131) holds its end value. The
+  result is made non-decreasing by weighted isotonic regression, so one tough singleton does not lift every level above
+  it, and lightly smoothed (1-2-1 over neighbouring levels, in log space). The file's `_doc` records the method, the
+  date and the sample counts: 1564 Mob.wz imgs, 329 ordinary samples on 106 levels (461 bosses, 282 link copies without
+  stances, 488 ids outside the mainline range and 4 HP outliers left out). `tools/level_curve/` regenerates it from the
+  owner's v83 folder (`bash tools/level_curve/run.sh "<folder>" 2026-10-30`, byte-reproducible); the numbers are facts,
+  not assets.
+- **Stage block.** `level_scale: {"keyframes": [{"t": <curve seconds>, "level": E, "exp_level": X}, ...]}`. `t` is
+  `RunWorld.curve_time()` (`map_index * map_seconds + time since entry`, the pacing clock, so a slow boss kill never
+  delays the next map's level). E and X interpolate linearly between keyframes, hold before the first and after the
+  last, and `exp_level` defaults to `level`. Data validation rejects a stage that has both `level_scale` and
+  `opening_ramp`, or a map-level `opening_ramp` in a level-scale stage, and a malformed block (keyframes empty, `t` not
+  rising from 0 up, a level outside 1-200). A block that slips past validation (or a missing curve) makes the world warn
+  and run unscaled.
+- **Effect.** For a monster of canonical level L (its `info/level`) at curve time t:
+
+  | Stat | Multiplier | Captured |
+  |---|---|---|
+  | HP | `hp(E)/hp(L)` | at spawn |
+  | PDD, MDD | `pdd(E)/pdd(L)`, `mdd(E)/mdd(L)`, on the live defence `CombatMath` uses (after skill bonuses and Threaten) | at spawn |
+  | EXP (ordinary, elite and boss reward) | `exp(X)/exp(L)` | at spawn |
+  | contact and physical attack damage | `pad(E)/pad(L)` | at impact (ordinary); at arrival (scheduled boss) |
+  | magic attack damage | `mad(E)/mad(L)` | at impact (ordinary); at arrival (scheduled boss) |
+
+  A curve value of 0 at L gives ratio 1, a fractional E interpolates the curve linearly, and E = L is exactly 1 (no
+  rounding). It stacks with keyframe `hp`, elites, boss `hp_mult`, `dmg_mult` and `attack_dmg_mult`; potions are unchanged.
+  Scheduled bosses spawn at their arrival, so their HP, defence and EXP come from that moment and their damage ratios
+  (`pad` and `mad` both) freeze there, projectiles included. Summons and revives are ordinary monsters at their own
+  spawn time. Relocating a monster keeps its multipliers.
+- **Boss damage freeze.** A scheduled boss's pad and mad ratios are keyed by its schedule index, so two bosses of one
+  id never share a freeze; every boss hit source (touch, attacks, balls) carries `boss_index`. A final form that continues
+  the encounter (#456) calls `RunWorld.capture_boss_level_scale(boss_index, its_mob_id, record)` at its own spawn and
+  replaces the freeze with its own level and time; `level_scale_at` keeps the first arrival.
+- **Known limits.**
+  - The curve holds its Lv131 values above Lv131 (v83 has no stronger ordinary monster), so the effective levels #449
+    sets should stay at or below about 131; above that a stage gains no strength from a higher E.
+  - Lv108-131 rest on 0-1 samples per level (see `_doc.samples.per_level`), so the tail is coarse; the monotone fit and
+    smoothing carry it between the few sampled levels.
+  - `mad` holds 117.8 below Lv30: no mainline monster under Lv30 has a magic attack, so the curve has no earlier sample.
+  - Level-scale stages run a per-tick loop over the live slots in `RunWorld._fill_live_defense` to apply the captured
+    PDD/MDD multipliers. Check its cost in the first perf capture of a level-scale stage (`scripts/playtest.sh
+    --vsync=off`, `sim_us_per_tick`); stages without the block skip it.
+- **Determinism and telemetry.** No RNG is drawn. A balance record of a level-scale stage gains `level_scale_at`
+  (`[{boss_index, mob_id, level}]`, the effective level at each boss arrival) and each `boss_fights` entry its own
+  `level_scale_at`; other stages' records keep their bytes.
+
 
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
 labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
@@ -8670,6 +8730,19 @@ trained only on 1/2/2026. The 20:00 endpoint intentionally extends past the nomi
 No ordinary rate/cap/pool, boss encounter scale, canonical stat, EXP/cooldown/passive/drop value changed.
 Revised slice target: picks ≈ levels + boss draws (~50–60).
 
+### #453 level scale (tier C; reference curves tier A-derived)
+
+| Constant / rule | Value | Tier / source |
+|---|---|---|
+| Reference curves | `level_curve.json`: per-level median hp, pad, mad, pdd, mdd, exp of ordinary v83 monsters, levels 1-200 | A-derived (v83 `Mob.wz` info numbers), used for a tier C purpose |
+| Ordinary monster | Mob.wz id < 9,000,000, not `boss=1`, not a link copy without stances, not 6400005-6400009 or 88xxxxx; HP at most 5x the level median; zero stats skipped per stat | C: ours (ticket #453; the research "Excluded" table, widened to the whole 9,000,000+ range because its 94xxxxx/95xxxxx singletons skew a median) |
+| Curve shaping | log-linear gap interpolation, weighted isotonic regression (a level weighs its sample count, an interpolated level 0.25), 1-2-1 smoothing in log space, two decimals; values outside the sampled span (Lv1-131) hold | C: ours |
+| Keyframes | `{t, level, exp_level}` in curve seconds, linear, held before and after; `exp_level` defaults to `level` | C: spec #447 |
+| Ratio | `curve(E)/curve(L)` per stat (pad for contact and physical attacks, mad for magic); E = L is 1; a zero base is 1 | C: spec #447 |
+| Capture | HP, PDD, MDD and EXP at spawn; ordinary damage at impact; a scheduled boss captures all of them (damage included) at arrival | C: as #307's ramp |
+| Exclusivity | a stage with `level_scale` has no `opening_ramp` (stage or map) | C: validation |
+| Defence scaled after bonuses | the PDD/MDD ratio multiplies the live defence (MobSkill defence bonuses and Threaten included) | C: ours |
+
 ### #293 first-pass pacing (tier C)
 
 All new values are our survivor tuning, trained only on seeds 1/2/2026: EXP `(a,b,c)=(4,0,8)`;
@@ -9496,7 +9569,11 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Map-select card limit (#253) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list | C | Layout measurement, spec #253 |
 | Perion and Kerning City mob metadata (#253, #254) | Mesos: v83 server `drop_data` itemid 0 ranges; EXP pickup: the most likely Etc drop (Dark Axe Stump uses Axe 4000215 of the two equal ones; Shade Someone's Hat 4000413). Iron Hook has no server drops: level-fallback mesos and the Wild Boar Tooth icon. Boss bars borrow MobGage icons for Iron Hook (Zeno 6220001) and Shade (Riche 6090000) with hpTag 1/5; both are enabled boss kits (`mob_skills.enabled_ids`) | B mesos/items, C icons/associations | Cosmic drop data (facts only); owner #253 |
 | Mobs without v83 sounds (#253) | A mob with no `Sound.wz/Mob.img/<id>` entry (Iron Hook 4090000) plays no hit, death or skill sound and records nothing missing, as in the client | A (absence) | v83 Sound.wz |
-| Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks unchanged; the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
+| Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks are untouched by 100/110 (101/111 below multiply them); the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
+| Boss Magic Attack Up 101/111 (#457) | a timed multiplier `x/100` (Chimera 101/1 x115, 111/5 x140; Eliza's levels 115) on the `MADamage` of the buffed mobs' magic `attackN` impacts, in `RunWorld.mob_magic_attack`, before the boss/elite `dmg_mult` like Attack Up; touch and weapon attacks never read it; 101 buffs the caster, 111 every living mob in its facing-mirrored box (ordinary mobs included); a recast replaces the multiplier and refreshes the end, never stacks; per slot, resets on spawn, moves on relocation; the cast `effect` plays on the caster and its `mob` icon over a boss while it lasts (no icon over ordinary mobs yet) | C (x as a percentage, application), A (x, interval, time, area, art) | owner, spec #448 B2; original v83 MobSkill.img 101/1, 111/5 |
+| Boss self defense up 102/103 (#457) | the 112/113 flat-defense arithmetic (x added to PDD / MDD for `time`) on the caster only (Dodo 102/3 x85 20 s, Chimera 103/2 x60 30 s); the cast `effect` plays on the caster and its `mob` icon over a boss while it lasts | C (flat arithmetic, as 112/113), A (x, interval, time, art) | owner, spec #448 B2; original v83 MobSkill.img 102/3, 103/2 |
+| Boss magic immunity 141 (#457) | a timed self status that mirrors 140: for `time` a hit of damage type `magic` (the `CombatMath.damage_type_of` split 140 uses; instant hits and projectile contacts, which are consumed with no roll or event) does zero damage to the boss, physical and fixed still land; gated by the level's `hp`; its `mob` icon shows over the boss; per slot, resets on spawn, moves on relocation | C (mirror of 140), A (hp gate, interval, time, art: Timer 141/3 hp<=50, 30 s / 10 s) | owner, spec #448 B2; original v83 MobSkill.img 141/3 |
+| 140 / 141 exclusivity (#457) | a 141 cast while the boss has 140 active, or a 140 cast while it has 141, is skipped and still spends its interval, so a boss is never immune to everything | B | spec #448 B2; Cosmic (third-party emulator behaviour, read as fact) |
 | Floor/wall corner landing (#260) | An air sub-step whose path crosses a floor line inside the floor's span while its end x lies past the floor's end lands on that floor at the end x pulled EPS = 0.01 px inside (`FootholdMap.find_corner_landing`); player only, mobs/pickups/NavGraph keep `find_landing` | C | ours: the 1 px wall probe at the crossing x was already below a wall rising from the floor end, so neither landing nor wall caught it (Kerning 103000101, x 3185) |
 | Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |

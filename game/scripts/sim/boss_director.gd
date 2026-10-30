@@ -161,6 +161,8 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 		var ramp_damage := world.opening_multiplier("damage")
 		entry["attack_dmg_mult"] = float(entry.get("attack_dmg_mult", entry.get("dmg_mult", 1.0))) * ramp_damage
 		entry["dmg_mult"] = float(entry.get("dmg_mult", 1.0)) * ramp_damage
+		# Tier C (#453): the level scale's damage ratios freeze at arrival too (HP, defence and EXP did, in spawn_mob).
+		world.capture_boss_level_scale(index, int(entry.mob_id), record)
 		record.slot = slot
 		record.identity = world.swarm.identity[slot]
 		record.spawn_time = world.time
@@ -364,6 +366,9 @@ func continue_final_form(index: int, source: int, pos: Vector2, world: RunWorld)
 	# The swap time: skill schedules start from it (MobSkillRunner), and telemetry reports it as `form_time`.
 	record.form_time = world.time
 	world.mob_skills.reset_boss(index)
+	# Tier C (#453): the form freezes its own level-scale damage at its own arrival (its HP, defence and EXP were
+	# captured by spawn_boss); `level_scale_at` keeps the encounter's first arrival.
+	world.capture_boss_level_scale(index, final_id, record)
 	record.anchor = pos
 	record.stall = 0.0
 	record.best_distance = INF

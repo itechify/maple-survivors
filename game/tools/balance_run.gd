@@ -553,6 +553,10 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	if mob_attack_hits > 0:
 		# #76: only rounds where an ordinary mob's attack landed record this, so other rounds keep their exact bytes.
 		record["mob_attack_hits"] = mob_attack_hits
+	if w.level_scale != null:
+		# #453: only a stage with a level_scale records this, so other stages keep their exact bytes. The effective level at
+		# each scheduled boss's arrival, in schedule order (bosses that never arrived are absent).
+		record["level_scale_at"] = level_scale_arrivals(w)
 	if w.pet_system != null:
 		# #119: only a round with a pet out records one, so rounds without keep their exact bytes. Its drinks and pickups
 		# are counted apart from the player's (potions_used stays the player's).
@@ -685,6 +689,16 @@ static func _boss_snapshots(world: RunWorld) -> Array:
 	return snapshots
 
 
+## [{boss_index, mob_id, level}] of the bosses that arrived, `level` being the level scale's effective level then.
+static func level_scale_arrivals(world: RunWorld) -> Array:
+	var arrivals: Array = []
+	for record: Dictionary in world.bosses.records:
+		if record.has("level_scale_at"):
+			arrivals.append({"boss_index": int(record.boss_index), "mob_id": int(record.mob_id),
+				"level": float(record.level_scale_at)})
+	return arrivals
+
+
 ## Completed spawn-to-death durations; unfinished fights keep duration -1 and report elapsed/censor status.
 static func fight_records(world: RunWorld) -> Array:
 	var fights: Array = []
@@ -702,6 +716,8 @@ static func fight_records(world: RunWorld) -> Array:
 			# Only encounters with a final form carry these, so other runs' records keep their shape.
 			fight["final_form"] = int(entry.final_form)
 			fight["form_time"] = float(record.get("form_time", -1.0))
+		if record.has("level_scale_at"):
+			fight["level_scale_at"] = float(record.level_scale_at)
 		fights.append(fight)
 	return fights
 
