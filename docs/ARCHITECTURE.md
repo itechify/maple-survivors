@@ -888,7 +888,10 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   the roll with `FixedShare.amount`, retaining physical immunity, hit events, meter receipts, on-hit effects and kills.
   No damage RNG, crit, defence or element applies. On instant nearest-rule skills, `cast.prefer: "max_hp"` orders
   distinct targets by non-boss first, max HP descending, distance then slot. Admission and bot reach retain the same
-  range query. Optional `ball` emits an `ammo_shot` cosmetic flight at `speed`; damage lands at the cast.
+  range query. Optional `ball` emits an `ammo_shot` cosmetic flight at `speed`; damage lands at the cast. The block is
+  only meaningful with `damage: "physical"` (the cap base is the physical bounds): `FixedShare.definition_errors` makes
+  `DataRepo.load_all` report a `fixed_share` skill of any other type (Snipe, #368). Rank cards preview the share
+  (`fixed_share` in `UpgradePool.MECHANIC_PREVIEW_KEYS`) and skip the unread WZ `cooltime` line for such a skill.
 - **Weapon-bound casts and HP cost (#163).** `SkillRunner` has two more cast rules beside `nearest` / `box` / `crowd`:
   `weapon_reach` (the nearest mob inside `WeaponReach.envelope(world)`, the union of the held weapon's afterimage boxes)
   and `range_around` (up to `mob_count` mobs whose body centre is within the canonical `range`); `reach_of` and

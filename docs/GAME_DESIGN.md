@@ -6917,6 +6917,50 @@ no Hit sound). A first-cast screenshot of each with a crossbow in hand (`shoot2`
 | Arrow Eruption arrows | `special/0` x3, 150 px fall over 0.25 s, 90 ms apart, spread across the box | tier C, art only |
 | Rare / Epic / Unique / Legendary | Crossbow Mastery damage x1.2 / Wide Blizzard or Wide Eruption `area` x1.2 / Final Attack `attack_count` +1 / Final Attack + damage x1.2 (shares the Unique's counter; repeats shrink x0.8) | tier C (spec #360 rarity table) |
 
+#### 7.46.8 Marksman MS8 constants (#368): Snipe
+
+Snipe (3221007, `snipe`, book 322) is data only on the fixed-share mechanism of 7.47 (`FixedShare`, `cast.prefer "max_hp"`, the
+cosmetic `ammo_shot` flight): every 10 s it bites a share of the strongest non-boss monster's max HP within 450 px, capped at 20
+times the cast's mean physical damage, and only a sliver of a boss. The WZ node has no `damage`, `range`, `mobCount` or `weapon`
+(only `mpCon`, a session-scale `cooltime` of 250 down to 4 s, and the `effect` / `ball` / `hit/0` art), so every number below is
+survivor data; the cooltime is not read (no `cooldown_field`). The definition is `kind instant`, `damage "physical"` (the cap
+base is the resolved physical bounds, which any other type leaves at 0, so `DataRepo.load_all` reports a `fixed_share` skill
+that is not physical: `FixedShare.definition_errors`), `cast {rule nearest, prefer max_hp}`, `action "weapon"` (the crossbow's own
+`shoot2`, the stance the book has no `action` for, ROSTER_PLAN D11), `ball` flying at 1200 px/s while the damage lands on the cast
+tick, `effect` on the caster, `hit/0` and the `Hit` sound on the target.
+
+| Rank | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| Share of max HP, non-boss | 20% | 24% | 28% | 32% | 36% | 40% | 43% | 45% |
+| Share of max HP, boss (x0.1) | 2% | 2.4% | 2.8% | 3.2% | 3.6% | 4% | 4.3% | 4.5% |
+
+An amount is `min(floor(max_hp x share), cap)`, at least 1, times the resolved damage modifier (Marksman Boost, Legendary),
+truncated to whole HP. The cap is 20x (boss 6x) the mean of the resolved physical bounds before skill percent and modifiers,
+so it grows with the player's level and gear. `count` +1 (Final Attack) is a second bolt at the next strongest non-boss; a boss
+is only a target when nothing else is in reach.
+
+Rank cards and the Skill window state the share: the window line is "Deals 45% of a monster's max HP (up to 20x your damage);
+bosses 4.5% (up to 6x)", and a rank card shows "Max HP bite: 20% -> 24%" (`UpgradePool` previews `fixed_share`; it leaves out
+the canonical `cooltime` line a fixed-share skill never reads, which would show 218 -> 186 s).
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Snipe id, book, art (`effect`, `ball`, `hit/0`), `Use` and `Hit` sounds | 3221007, 322 | tier A: Skill.wz 322.img (the node has no damage, range, mobCount or weapon; real-cache test) |
+| Share table (ranks 1-8) | 20 / 24 / 28 / 32 / 36 / 40 / 43 / 45% of max HP | tier C: spec #360, roster ruling D5 (no WZ level data) |
+| Cap | 20x the mean physical damage before skill percent | tier C: spec #360 |
+| Boss share scale and cap | x0.1 (2% to 4.5%) and 6x | tier C: spec #360 |
+| Target rule | strongest non-boss in reach, a boss only as the fallback | tier C: spec #360 |
+| Reach | 450 px | tier C: spec #360 |
+| Cooldown | 10.0 s (the WZ `cooltime` is not used) | tier C: spec #360 |
+| Held stance | `action "weapon"` (the crossbow's `shoot2`), 0.6 s | tier C: spec #360, MS1 |
+| Bolt flight | `ball` at 1200 px/s, cosmetic, rotated to the target | tier C, art only |
+| Rare / Epic / Unique / Legendary | Marksman Boost damage x1.2 (after the cap) / Crossbow Booster cooldown x0.88 / Final Attack `count` +1 / Final Attack + damage x1.2 (shares the Unique's counter; repeats shrink x0.8) | tier C: spec #360 rarity table |
+
+Balance flag (not a change): the share table and both caps are untested against real monster HP (spec #360); the first levers
+for the balance pass are the table, `cap_mult` and the 10 s cooldown. Tests: `test_marksman_snipe.gd` (target rule, amounts
+below and above the cap at ranks 1 and 8, bosses, Hidden and dead casters, `count`, cooldown and Booster, rarity, text, the
+`fixed_share` load check, and the real-cache check that the WZ node still has no `damage`).
+
 #### 7.46.9 Marksman skill entries (spec #360)
 
 Each Marksman skill ticket appends one paragraph here; the skill entries sit in their own marked region of
@@ -6959,9 +7003,8 @@ with the id, book, job, name, art, sound paths and (Frostprey) element changed.
 
 ### 7.47 Fixed-share damage (M15, Marksman MS3 #363)
 
-`FixedShare` is a pure arithmetic rule available through a skill's `fixed_share` block. No shipped skill uses it yet;
-Snipe's definition belongs to MS8. `share` is a rank-indexed array; `cap_mult` and `boss {share_scale, cap_mult}`
-resolve against the mean physical damage bounds before skill percent and damage modifiers. A normal hit takes
+`FixedShare` is a pure arithmetic rule available through a skill's `fixed_share` block. Snipe (7.46.8) is its first user.
+`share` is a rank-indexed array; `cap_mult` and `boss {share_scale, cap_mult}` resolve against the mean physical damage bounds before skill percent and damage modifiers. A normal hit takes
 `min(floor(max_hp * share), cap)`. A canonical boss (`MobKind.boss`) or scheduled boss (`swarm.steady`) uses
 `share * boss.share_scale` and the boss cap, matching the boss predicate in status eligibility. The capped amount
 is multiplied by the resolved damage modifier, truncated to whole HP and floored at 1.

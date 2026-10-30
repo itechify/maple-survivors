@@ -131,6 +131,9 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 			out[key] = {}
 			errors.append("cannot read %s" % path)
 	errors.append_array(skill_template_errors(out.get("skills", {})))
+	var skill_defs: Variant = out.get("skills", {}).get("skills")
+	if skill_defs is Dictionary:
+		errors.append_array(FixedShare.definition_errors(skill_defs))
 	# Class-owned balance rows enter through this single reader, after the shared defaults.
 	for line in lines(root):
 		var fragment: Variant = load_json(fragment_path("jobs_survivor", line, root))
