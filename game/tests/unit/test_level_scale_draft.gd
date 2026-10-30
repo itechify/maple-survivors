@@ -200,7 +200,50 @@ func test_the_whole_draft_on_a_synthetic_reference_stage() -> void:
 	assert_true(result.bosses[0].hp_mult > 0.0 and result.bosses[0].dmg_mult > 0.0)
 	var text: String = D.describe(result, 6, "synthetic")
 	assert_true(text.contains("\"level_scale\": ") and text.contains("hp_mult") and text.contains("final_form"), text)
+	assert_true(text.contains("strongest scheduled attack only") and text.contains("nominal arrival level"), text)
+	assert_true(D.describe(result, 6, "synthetic", "newland").contains("step 6 of newland"))
 	assert_eq(result.warnings.size(), 0)
+
+
+func test_bosses_are_read_from_a_stage_file_and_overrides_replace_them() -> void:
+	var root := test_dir("level_scale_draft_stage")
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root.path_join("survivor/stages")))
+	var write := func(rel: String, value: Dictionary) -> void:
+		var file := FileAccess.open(root.path_join(rel), FileAccess.WRITE)
+		file.store_string(JSON.stringify(value))
+		file.close()
+	write.call("survivor/stages.json", {"progression": ["newland"], "stages": {}})
+	write.call("survivor/stages/newland.json", {"maps": [
+		{"map_id": 1, "boss": {"mob_id": 20, "attacks": ["attack1"]}},
+		{"map_id": 2, "boss": {"mob_id": 21, "attacks": ["attack2"], "final_form": 22}}]})
+	var stage: Dictionary = DataRepo.load_stages(root).stages.newland
+	var plan: Dictionary = D.bosses_of(stage)
+	assert_eq(plan, {"bosses": [20, 21], "attacks": [["attack1"], ["attack2"]], "finals": [0, 22]})
+	assert_eq(D.bosses_of(stage, [7, 8]).bosses, [7, 8], "an override replaces the ids")
+	assert_eq(D.bosses_of(stage, [7, 8]).finals, [0, 22], "and leaves the other lists")
+	assert_eq(D.bosses_of({}), {"bosses": [], "attacks": [], "finals": []}, "no stage file, no bosses")
+	# The draft from the file equals the draft from the same lists given by hand, and uses the scheduled attacks.
+	var from_file: Dictionary = D.draft(_stage(), _curve(), _map_imgs(), _root, 6, plan.bosses, plan.attacks, plan.finals)
+	assert_eq(Array(from_file.errors), [])
+	assert_eq(from_file.bosses[1].final_form, 22)
+	var magic: Dictionary = D.canonical_boss(_root(21), ["attack2"])
+	assert_false(magic.magic, "attack2 (physical) was scheduled, not the stronger magic attack1")
+	remove_tree(root)
+
+
+func test_the_reference_boss_reads_only_its_scheduled_attacks() -> void:
+	# Mob 10 gets an unscheduled attack2 far stronger than its scheduled attack1: the draft must not move.
+	var stronger := _mobs()
+	stronger[10].attack2 = {"info": {"PADamage": 99999}}
+	var roots := func(id: int) -> Dictionary: return stronger.get(id, {})
+	var plain: Dictionary = D.draft(_stage(), _curve(), _map_imgs(), _root, 6, [20, 21], [["attack1"], ["attack1"]])
+	var with_extra: Dictionary = D.draft(_stage(), _curve(), _map_imgs(), roots, 6, [20, 21], [["attack1"], ["attack1"]])
+	assert_eq(with_extra.bosses[0].attack_dmg_mult, plain.bosses[0].attack_dmg_mult)
+	# The new region's boss too: naming no attacks uses every stance (attack2 of 21 is weaker than its attack1 here, but
+	# naming attack2 alone changes the stat), naming one narrows it.
+	var narrow: Dictionary = D.draft(_stage(), _curve(), _map_imgs(), _root, 6, [20, 21], [["attack1"], ["attack2"]])
+	var wide: Dictionary = D.draft(_stage(), _curve(), _map_imgs(), _root, 6, [20, 21], [["attack1"], []])
+	assert_ne(narrow.bosses[1].attack_dmg_mult, wide.bosses[1].attack_dmg_mult)
 
 
 func test_the_draft_reports_a_wrong_boss_count_and_missing_hp() -> void:

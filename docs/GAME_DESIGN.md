@@ -589,7 +589,8 @@ block and compares the event logs).
   - Level-scale stages run a per-tick loop over the live slots in `RunWorld._fill_live_defense` to apply the captured
     PDD/MDD multipliers. Check its cost in the first perf capture of a level-scale stage (`scripts/playtest.sh
     --vsync=off`, `sim_us_per_tick`); stages without the block skip it.
-- **First draft of a region's numbers (spec #449 C0, #462; tier C).** `game/tools/level_scale_draft.gd` prints the
+- **First draft of a region's numbers (spec #449 C0, #462; tier C).** `game/tools/level_scale_draft.gd --step=<k>
+  --stage=<key>` prints (the bosses read from `stages/<key>.json`; Sleepywood is the default `--reference`) the
   `level_scale` keyframes and boss multipliers a new region starts from; the formulas are pure static functions
   (`test_level_scale_draft`). With E_sw(t) = Sleepywood's effective level at its keyframe curve times t, region step k
   (`progression` position, 1-based, Sleepywood = 5) gets `level(t) = E_sw(t) + 3·(k − 5)` and `exp_level(t) = E_sw(t)`
@@ -601,8 +602,11 @@ block and compares the event logs).
   its effective HP, contact damage and strongest scheduled attack at t_j (canonical × multiplier × the ramp at t_j, as
   `BossDirector` and `spawn_mob` capture them) are scaled by `hp(level)/hp(E_sw)` and `pad(level)/pad(E_sw)` (`mad` for a magic
   attack), and `hp_mult`, `dmg_mult`, `attack_dmg_mult` are what make the new boss's own level-scaled value equal that target
-  (the offset cancels, so the multipliers do not depend on it). A boss with a `final_form` splits the target HP by
-  `--final-share` (0.5): its `hp_mult` covers the rest and `final_form_hp_mult` the form's share. `attack_interval` is 8. The
+  (the offset cancels, so the multipliers do not depend on it). Both sides read only their scheduled `attacks` (the entry's
+  list; every `attackN` stance when it names none), and `attack_dmg_mult` is matched on the strongest of them alone. A boss
+  with a `final_form` splits the target HP by `--final-share` (0.5): its `hp_mult` covers the rest and `final_form_hp_mult`
+  the form's share. The form is matched at the shell's nominal arrival level, but at runtime it spawns when the shell dies,
+  later and at a higher level, so its HP lands above the target by `hp(level_later)/hp(level_arrival)` (no model change). `attack_interval` is 8. The
   tool warns when a keyframe `level` (or `exp_level`) is above 131, where the reference curves go flat (#453 review): the offset
   of 3 reaches only E_sw + 33 at step 16, but a later offset change in C13 would cross it.
 - **Determinism and telemetry.** No RNG is drawn. A balance record of a level-scale stage gains `level_scale_at`

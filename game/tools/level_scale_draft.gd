@@ -4,15 +4,17 @@ extends SceneTree
 ## writes nothing and runs no round.
 ##
 ##   ISOLATE=<name> bash scripts/godot.sh --headless --path _scratch/godot_runs/<name>/game \
-##     --script res://tools/level_scale_draft.gd -- --step=6 --bosses=4130103,9300012,5220003
+##     --script res://tools/level_scale_draft.gd -- --step=6 --stage=ludibrium
 ##
-## Flags: `--step=<k>` (the region's place in `progression`, 1-based; 6 for Ludibrium), `--bosses=<id,id,id>` (the mob
-## ids of its three scheduled bosses, one per map), `--attacks=<a,b|c|d>` (per boss, `|` between bosses: the scheduled
-## `attackN` stances; default every `attackN` stance the boss has), `--finals=<id,id,id>` (a final form per boss, 0 for
-## none), `--final-share=<0..1>` (the share of the encounter's effective HP the final form carries, default 0.5),
-## `--offset=<n>` (levels per step above Sleepywood, default 3) and `--stage=<key>` (the reference stage, default
-## sleepywood). Needs the asset cache (`MAPLE_SURVIVORS_CACHE`): canonical HP, damage and the reference maps' life lists
-## come from it.
+## Flags: `--step=<k>` (the region's place in `progression`, 1-based; 6 for Ludibrium) and `--stage=<key>` (the region
+## being drafted: its three scheduled bosses are read from `stages/<key>.json`, each map's `boss.mob_id`, `final_form` and
+## `attacks`, in slot order). `--reference=<key>` is the stage the numbers are carried from (default sleepywood). Optional
+## overrides for a stage file that does not exist yet (or to try other bosses): `--bosses=<id,id,id>` (one mob id per map),
+## `--attacks=<a,b|c|d>` (per boss, `|` between bosses: the scheduled `attackN` stances; a boss with none listed uses every
+## `attackN` stance it has) and `--finals=<id,id,id>` (a final form per boss, 0 for none); each replaces the same list read
+## from the stage file. `--final-share=<0..1>` is the share of the encounter's effective HP the final form carries
+## (default 0.5) and `--offset=<n>` the levels per step above Sleepywood (default 3). Needs the asset cache
+## (`MAPLE_SURVIVORS_CACHE`): canonical HP, damage and the reference maps' life lists come from it.
 ##
 ## The formulas (tier C, all of them: #449's first draft; the numbers are re-tuned by the calibration ticket, never by
 ## hand here):
@@ -28,8 +30,11 @@ extends SceneTree
 ##    t_j) is carried to the new boss by the level scale's own ratios, `hp(level)/hp(E_ref)` for HP and `pad(level)/pad(E_ref)`
 ##    (`mad` for a magic attack) for damage; `hp_mult`, `dmg_mult` and `attack_dmg_mult` are what make the new boss's
 ##    effective value (canonical x multiplier x `curve(level)/curve(its own level)`) equal that target. `level` cancels,
-##    so the multipliers do not move when the offset does. A boss with a final form splits the target HP by
-##    `--final-share`; the form's multiplier is `final_form_hp_mult`.
+##    so the multipliers do not move when the offset does. Both sides read only their scheduled `attacks` (the entry's
+##    list; every `attackN` stance when it names none), and `attack_dmg_mult` is matched on the strongest of them alone.
+##    A boss with a final form splits the target HP by `--final-share`; the form's multiplier is `final_form_hp_mult`.
+##    The form is matched at the shell's nominal arrival level, but at runtime it spawns later (when the shell dies), at a
+##    higher level, so its HP lands above the target by `hp(level_later)/hp(level_arrival)`. No model change (tier C).
 ##  * `attack_interval` is 8, as every boss today.
 ## A `level` above 131 is warned about: the reference curve holds its Lv131 values from there on (GAME_DESIGN "Level
 ## scale" known limits), so a higher effective level makes a stage no harder.
@@ -61,27 +66,33 @@ func _init() -> void:
 	var library := AssetLibrary.new()
 	library.open()
 	var data := DataRepo.load_all()
-	var stage: Dictionary = data.stages.stages.get(args.stage, {})
+	var stage: Dictionary = data.stages.stages.get(args.reference, {})
 	if stage.is_empty() or data.level_curve.is_empty() or not library.has_img(DataRepo.map_img_path(int(stage.maps[0].map_id))):
-		print("level_scale_draft: needs stage '%s', level_curve.json and the asset cache (MAPLE_SURVIVORS_CACHE)" % args.stage)
+		print("level_scale_draft: needs reference stage '%s', level_curve.json and the asset cache (MAPLE_SURVIVORS_CACHE)" % args.reference)
 		library.free()
 		quit(1)
+		return
+	var plan := bosses_of(data.stages.stages.get(args.stage, {}), args.bosses, args.attacks, args.finals)
+	if plan.bosses.is_empty():
+		print("level_scale_draft: stage '%s' has no stages/%s.json; give --bosses=<id,id,id>" % [args.stage, args.stage])
+		library.free()
+		quit(2)
 		return
 	var map_imgs: Array = []
 	for entry: Dictionary in stage.maps:
 		var img := library.img(DataRepo.map_img_path(int(entry.map_id)))
 		map_imgs.append(img.root if img != null else {})
 	var result := draft(stage, data.level_curve, map_imgs, func(id: int) -> Dictionary: return library.mob_root(id),
-			int(args.step), args.bosses, args.attacks, args.finals, float(args.final_share), float(args.offset))
-	print(describe(result, int(args.step), args.stage))
+			int(args.step), plan.bosses, plan.attacks, plan.finals, float(args.final_share), float(args.offset))
+	print(describe(result, int(args.step), args.reference, args.stage))
 	library.free()
 	quit(1 if not result.errors.is_empty() else 0)
 
 
-## The flags as {step, bosses, attacks, finals, final_share, offset, stage}, or {error}.
+## The flags as {step, bosses, attacks, finals, final_share, offset, stage, reference}, or {error}.
 static func _parse(argv: PackedStringArray) -> Dictionary:
 	var out := {"step": 0, "bosses": [], "attacks": [], "finals": [], "final_share": DEFAULT_FINAL_SHARE,
-		"offset": DEFAULT_OFFSET, "stage": "sleepywood"}
+		"offset": DEFAULT_OFFSET, "stage": "", "reference": "sleepywood"}
 	for arg in argv:
 		var parts := arg.trim_prefix("--").split("=", true, 1)
 		var value := parts[1] if parts.size() > 1 else ""
@@ -99,9 +110,26 @@ static func _parse(argv: PackedStringArray) -> Dictionary:
 			"final-share": out.final_share = float(value)
 			"offset": out.offset = float(value)
 			"stage": out.stage = value
+			"reference": out.reference = value
 			_: return {"error": "unknown flag '%s'" % arg}
-	if int(out.step) < 1 or out.bosses.is_empty():
-		return {"error": "give --step=<k> and --bosses=<id,id,id>"}
+	if int(out.step) < 1 or (String(out.stage).is_empty() and out.bosses.is_empty()):
+		return {"error": "give --step=<k> and --stage=<region key> (or --bosses=<id,id,id> for a stage without a file)"}
+	return out
+
+
+## The bosses to draft, {bosses, attacks, finals} (one entry per map): read from `stage`'s maps (`boss.mob_id`,
+## `boss.attacks`, `boss.final_form`, 0 and [] when absent), each list replaced by its non-empty override.
+static func bosses_of(stage: Dictionary, bosses: Array = [], attacks: Array = [], finals: Array = []) -> Dictionary:
+	var out := {"bosses": [], "attacks": [], "finals": []}
+	for entry: Dictionary in stage.get("maps", []):
+		var boss: Dictionary = entry.get("boss", {})
+		out.bosses.append(int(boss.get("mob_id", 0)))
+		out.attacks.append(Array(boss.get("attacks", [])))
+		out.finals.append(int(boss.get("final_form", 0)))
+	for key: String in ["bosses", "attacks", "finals"]:
+		var given: Array = {"bosses": bosses, "attacks": attacks, "finals": finals}[key]
+		if not given.is_empty():
+			out[key] = given.duplicate()
 	return out
 
 
@@ -138,7 +166,9 @@ static func draft(stage: Dictionary, curve: Dictionary, map_imgs: Array, mob_roo
 		var entry: Dictionary = stage.maps[j].boss
 		var t_j := arrival_time(stage, j)
 		var e_j: float = reference_level(stage, map_pools, curve.hp, hp_of, t_j).e_ref
-		var reference := boss_effective(entry, canonical_boss(mob_root.call(int(entry.mob_id)), []), ramp_of(stage, j), t_j)
+		# Both sides read only their scheduled attacks (the entry's `attacks`).
+		var ref_canon := canonical_boss(mob_root.call(int(entry.mob_id)), Array(entry.get("attacks", [])))
+		var reference := boss_effective(entry, ref_canon, ramp_of(stage, j), t_j)
 		var names: Array = attacks[j] if j < attacks.size() else []
 		var final_id := int(finals[j]) if j < finals.size() else 0
 		var canon := canonical_boss(mob_root.call(int(bosses[j])), names)
@@ -342,9 +372,10 @@ static func _snap_mult(m: float) -> float:
 
 ## The printed draft: the working (one line per reference keyframe), the `level_scale` block and each boss's multipliers
 ## as JSON a region file takes, and the warnings.
-static func describe(result: Dictionary, step: int, reference: String) -> String:
+static func describe(result: Dictionary, step: int, reference: String, stage_key: String = "") -> String:
 	var lines := PackedStringArray()
-	lines.append("level_scale_draft: step %d over %s (tier C draft; E_ref = the reference stage's effective level)" % [step, reference])
+	lines.append("level_scale_draft: step %d%s over %s (tier C draft; E_ref = the reference stage's effective level)" % [
+		step, " of %s" % stage_key if stage_key != "" else "", reference])
 	if not result.errors.is_empty():
 		for e: String in result.errors:
 			lines.append("ERROR: " + e)
@@ -362,7 +393,7 @@ static func describe(result: Dictionary, step: int, reference: String) -> String
 			fields.final_form_hp_mult = boss.final_form_hp_mult
 		lines.append("map %d boss (arrives t=%d, E_ref %.2f, level %.2f): %s" % [i + 1, int(boss.arrival), boss.e_ref,
 			boss.level, JSON.stringify(fields, "", false)])
-	lines.append("(tier C: all of the above is #449's first draft; mark `_tier` on each number you paste)")
+	lines.append("(tier C: #449's first draft, `_tier` C on every number you paste. attack_dmg_mult is matched on the strongest scheduled attack only; a final form is matched at the shell's nominal arrival level, so at runtime its HP lands above target.)")
 	for w: String in result.warnings:
 		lines.append("WARNING: " + w)
 	return "\n".join(lines)
