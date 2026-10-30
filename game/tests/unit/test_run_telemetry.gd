@@ -58,3 +58,24 @@ func test_explicit_recording_preserves_warmup_skip_and_summary_grouping() -> voi
 			s._record_frame(999.0, 9999)
 		assert_eq(s.perf_summary(), report, "screenshot exclusions preserve all retained statistics")
 		_free(s)
+
+
+func test_summary_reports_the_meters_held_units_only_when_the_job_has_a_meter() -> void:
+	var plain := _run()
+	assert_false(plain.perf_summary().has("meter"), "no meter, no entry (F/P's summary is as before)")
+	_free(plain)
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["meter"] = {"id": "meso_charge", "max": 10,
+		"gain": {"event": "meso_picked", "amount": 1, "per_mesos": 1000}, "per_unit": {"stat": "damage", "value": 0.03}}
+	var s := RunScene.new()
+	s.configure("quiet", 27, {})
+	s.world = RunWorld.new(RF.setup("quiet", 27, data))
+	RF.place_player(s.world, 400)
+	s._perf_canvas = Node2D.new()
+	s.world.meter.gain_amount("meso_picked", 4000, s.world.events)
+	for tick in 120:
+		s.world.step(1.0 / 60.0, MoveInput.new())
+	var stats: Dictionary = s.perf_summary().meter
+	assert_eq(stats.peak, 4)
+	assert_near(float(stats.mean), 4.0, 1e-6)
+	_free(s)
