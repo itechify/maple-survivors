@@ -443,7 +443,8 @@ func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector
 			return {"go": true} if admitted == BUFF_ADMITTED else {}
 	# tier C: `cast.focus` (Strafe, spec #332 B7) admits one target, so every arrow of the volley reuses it (_resolve_nearest).
 	var want := 1 if bool(st.cast_params.get("focus", false)) else int(st.count)
-	if _find_targets(world, origin, float(st.range), want) == 0:
+	var prefer := String(st.cast_params.get("prefer", "")) if String(st.kind) == "instant" else ""
+	if _find_targets(world, origin, float(st.range), want, prefer) == 0:
 		return {}
 	return {"targets": _tgt.duplicate()}
 
@@ -862,7 +863,7 @@ func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets
 
 ## Fills the target buffer with up to `want` distinct live mobs whose body centre is within `rng_px` of `origin`,
 ## scheduled bosses first, then nearest, then slot (RunWorld.targets_before). Returns how many.
-func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -> int:
+func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int, prefer := "") -> int:
 	var s := world.swarm
 	var n := world.mob_grid.query_radius(origin, rng_px + world.body_pad, _buf)
 	_tgt.resize(0)
@@ -877,7 +878,7 @@ func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -
 		if d2 > r2:
 			continue
 		var at := _tgt.size()
-		while at > 0 and world.targets_before(m, d2, _tgt[at - 1], _tgt_d[at - 1]):
+		while at > 0 and _target_before(world, m, d2, _tgt[at - 1], _tgt_d[at - 1], prefer):
 			at -= 1
 		if at >= want:
 			continue
@@ -887,6 +888,19 @@ func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -
 			_tgt.resize(want)
 			_tgt_d.resize(want)
 	return _tgt.size()
+
+
+func _target_before(world: RunWorld, a: int, da: float, b: int, db: float, prefer: String) -> bool:
+	if prefer != "max_hp":
+		return world.targets_before(a, da, b, db)
+	var swarm := world.swarm
+	var a_boss := swarm.mob_kind(a).boss or swarm.steady[a] != 0
+	var b_boss := swarm.mob_kind(b).boss or swarm.steady[b] != 0
+	if a_boss != b_boss:
+		return not a_boss
+	if swarm.max_hp[a] != swarm.max_hp[b]:
+		return swarm.max_hp[a] > swarm.max_hp[b]
+	return da < db if da != db else a < b
 
 
 ## Whether _find_targets(world, origin, rng_px, want) would find at least one target. It first looks at only the
@@ -919,6 +933,14 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 			var aim := world.mob_center(m) + Vector2(0.0, REUSE_SPREAD * reuse * (1.0 if k % 2 == 0 else -1.0))
 			fire_shot(world, key, st, origin, aim)
 	else:
+		if st.has("fixed_share") and String(st.ball) != "":
+			for i in mini(int(st.count), targets.size()):
+				var aim := world.mob_center(targets[i])
+				var start := world.shot_origin(aim)
+				# tier C: cosmetic straight flight at the definition's speed; damage lands immediately.
+				world.emit("ammo_shot", {"skill": key, "from": start, "to": aim,
+					"seconds": start.distance_to(aim) / maxf(1.0, float(st.speed)),
+					"ball": String(st.ball), "rotate": bool(st.rotate)})
 		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), world.visual_index(String(st.hit)))
 
 

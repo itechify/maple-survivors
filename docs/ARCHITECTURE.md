@@ -882,6 +882,13 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   `WeaponReach.action_spec(..., boost)` plus `player_state.action_scale` shorten the swing and the avatar's frames.
 - **`cast.focus` (#339).** On the `nearest` rule, `"focus": true` makes admission look for one target instead of `count`
   (`SkillRunner._admit_nearest`), so the extra arrows of a projectile skill all reuse it (Bowmaster Strafe).
+- **Fixed-share damage / `cast.prefer` (MS3 #363).** `FixedShare` resolves the rank's `fixed_share.share` and
+  normal/boss caps from the unmodified physical bounds before skill percent. `Loadout.stats` adds the resolved
+  `fixed_share` key only to opt-in skills; its `damage_mult` applies after capping. `RunWorld.hit_mob` replaces
+  the roll with `FixedShare.amount`, retaining physical immunity, hit events, meter receipts, on-hit effects and kills.
+  No damage RNG, crit, defence or element applies. On instant nearest-rule skills, `cast.prefer: "max_hp"` orders
+  distinct targets by non-boss first, max HP descending, distance then slot. Admission and bot reach retain the same
+  range query. Optional `ball` emits an `ammo_shot` cosmetic flight at `speed`; damage lands at the cast.
 - **Weapon-bound casts and HP cost (#163).** `SkillRunner` has two more cast rules beside `nearest` / `box` / `crowd`:
   `weapon_reach` (the nearest mob inside `WeaponReach.envelope(world)`, the union of the held weapon's afterimage boxes)
   and `range_around` (up to `mob_count` mobs whose body centre is within the canonical `range`); `reach_of` and

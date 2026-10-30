@@ -1869,10 +1869,14 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	if not magic and not physical_hit_allowed(m):
 		return
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
-	var roll := ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
-		mob_defense(m, magic), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult),
-		hit_rng if hit_rng != null else rng, swarm.element_multiplier(m, String(st.get("element", ""))), dtype,
-		float(st.get("damage_pct", 1.0)), float(st.get("crit_damage_bonus", 0.0)))
+	var roll: Vector2i
+	if st.has("fixed_share"):
+		roll = Vector2i(FixedShare.amount(swarm.max_hp[m], mk.boss or swarm.steady[m] != 0, st.fixed_share), 0)
+	else:
+		roll = ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
+			mob_defense(m, magic), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult),
+			hit_rng if hit_rng != null else rng, swarm.element_multiplier(m, String(st.get("element", ""))), dtype,
+			float(st.get("damage_pct", 1.0)), float(st.get("crit_damage_bonus", 0.0)))
 	var dir := 1 if swarm.x[m] >= player.pos.x else -1
 	emit("mob_hit", {
 		"mob": m, "mob_id": mk.id, "damage": roll.x, "crit": roll.y != 0,

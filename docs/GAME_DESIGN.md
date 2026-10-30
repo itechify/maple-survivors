@@ -6844,6 +6844,22 @@ from `upgrades/bowman.json`; a playable Bowmaster's new / rank cards come from `
   `test_rarity_bonus_effects.gd` (every bonus), and the old weapon-gate / 20-rank / standalone-card cases rewritten in
   `test_bowman`, `test_hunter` and `test_bowmaster_data` (see the B7 notes).
 
+### 7.47 Fixed-share damage (M15, Marksman MS3 #363)
+
+`FixedShare` is a pure arithmetic rule available through a skill's `fixed_share` block. No shipped skill uses it yet;
+Snipe's definition belongs to MS8. `share` is a rank-indexed array; `cap_mult` and `boss {share_scale, cap_mult}`
+resolve against the mean physical damage bounds before skill percent and damage modifiers. A normal hit takes
+`min(floor(max_hp * share), cap)`. A canonical boss (`MobKind.boss`) or scheduled boss (`swarm.steady`) uses
+`share * boss.share_scale` and the boss cap, matching the boss predicate in status eligibility. The capped amount
+is multiplied by the resolved damage modifier, truncated to whole HP and floored at 1.
+
+This replaces only the roll in `RunWorld.hit_mob`: no damage RNG, crit, defence or element. Physical immunity, the
+skill-keyed hit event, meter receipt, on-hit effects, damage credit, kills and loot use the ordinary hit path.
+For instant skills, `cast {rule: nearest, prefer: max_hp}` takes distinct non-bosses before bosses, then max HP
+descending, distance and slot. Range admission and bot reach stay the same. Optional `ball` emits the existing
+cosmetic `ammo_shot` flight at the skill's `speed`; damage lands immediately. Skill and rank-card text show both
+shares and cap multipliers. Synthetic tests and `fixed_share_probe.tscn` exercise the mechanic without Snipe or WZ.
+
 ### 7.50 Bowmaster area and piercing (#340, spec #332 B8)
 
 Arrow Rain (3111004, book 311) and Dragon's Breath (3121003, book 312) are the two Bowmaster entries that need no new
@@ -10047,3 +10063,14 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 ### Buccaneer review corrections (#412)
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
+
+### Marksman MS3 #363 constants
+
+| Decision | Value | Provenance |
+|---|---|---|
+| Fixed-share whole-HP conversion | truncate after cap and damage modifier; minimum 1 HP | tier C, spec #360 M15; final rounding chosen in MS3 |
+| Fixed-share target priority | non-boss, max HP descending, distance, slot | tier C, spec #360 M15 |
+| Cosmetic bolt timing | straight hand-to-body-centre flight at definition speed, minimum denominator 1 px/s | tier C, spec #360 M15; existing ammo-flight safety floor |
+
+MS3 adds no Snipe share/cap/cooldown tuning data. Those values belong to MS8. The test/probe example uses the spec's
+20% / 45% shares, 20x normal cap, 0.1 boss share scale and 6x boss cap as synthetic inputs only.
