@@ -73,6 +73,12 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		line = strip_mp_cost(clean(String(_wz(key).get(hs, ""))))
 	var mechanics := PackedStringArray()
 	var def := book.def(key)
+	if stats.has("fixed_share"):
+		var fixed: Dictionary = stats.fixed_share
+		mechanics.append("Deals %s%% of a monster's max HP (up to %sx your damage); bosses %s%% (up to %sx)" % [
+			number(float(fixed.share) * 100.0), number(float(fixed.cap_mult)),
+			number(float(fixed.share) * float(fixed.boss.share_scale) * 100.0), number(float(fixed.boss.cap_mult))])
+
 	if String(def.get("cast", {}).get("rule", "")) == "burst":
 		var burst: Dictionary = def.get("burst", {})
 		var shots := int(stats.get("count", 1))

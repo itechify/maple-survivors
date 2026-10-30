@@ -885,6 +885,16 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
 - **`text_by_family` (MS5 #365).** A `rarity_bonuses` entry may carry `"text_by_family": {"<weapon family>": "<name>"}`;
   `UpgradePool.rarity_bonus` shows that name instead of `text` when `Loadout.weapon_family` matches (Arrow Blow reads
   "Crossbow Mastery" in a Marksman's hand). Text only: ids, counters and effect numbers never depend on the family.
+- **Fixed-share damage / `cast.prefer` (MS3 #363).** `FixedShare` resolves the rank's `fixed_share.share` and
+  normal/boss caps from the unmodified physical bounds before skill percent. `Loadout.stats` adds the resolved
+  `fixed_share` key only to opt-in skills; its `damage_mult` applies after capping. `RunWorld.hit_mob` replaces
+  the roll with `FixedShare.amount`, retaining physical immunity, hit events, meter receipts, on-hit effects and kills.
+  No damage RNG, crit, defence or element applies. On instant nearest-rule skills, `cast.prefer: "max_hp"` orders
+  distinct targets by non-boss first, max HP descending, distance then slot. Admission and bot reach retain the same
+  range query. Optional `ball` emits an `ammo_shot` cosmetic flight at `speed`; damage lands at the cast. The block is
+  only meaningful with `damage: "physical"` (the cap base is the physical bounds): `FixedShare.definition_errors` makes
+  `DataRepo.load_all` report a `fixed_share` skill of any other type (Snipe, #368). Rank cards preview the share
+  (`fixed_share` in `UpgradePool.MECHANIC_PREVIEW_KEYS`) and skip the unread WZ `cooltime` line for such a skill.
 - **Weapon-bound casts and HP cost (#163).** `SkillRunner` has two more cast rules beside `nearest` / `box` / `crowd`:
   `weapon_reach` (the nearest mob inside `WeaponReach.envelope(world)`, the union of the held weapon's afterimage boxes)
   and `range_around` (up to `mob_count` mobs whose body centre is within the canonical `range`); `reach_of` and

@@ -35,9 +35,10 @@ const FIELD_LABELS := {"mad": SkillText.BUFF_STAT_LABELS.matk, "mastery": "Maste
 	"mobCount": "Targets", "cooltime": "Cooldown", "speed": SkillText.BUFF_STAT_LABELS.speed, "range": "Range", "hp": "Recovery power",
 	"damage": "Damage", "hpCon": "HP cost", "prop": "Success rate",
 	"knockback_chance": "Knock-back chance", "blast_targets": "Blast targets", "pierce_falloff": "Pierce fall-off",
+	"fixed_share": "Max HP bite",
 	UpgradePool.PASSIVE_MAX_HP: "Max HP per level-up", UpgradePool.PASSIVE_REGEN_HP: "HP per pulse"}
 ## Fields shown as a percent (canonical `damage` is the skill's percent of the weapon damage).
-const PERCENT_FIELDS := ["mastery", "hp", "damage", "prop", "knockback_chance", "pierce_falloff"]
+const PERCENT_FIELDS := ["mastery", "hp", "damage", "prop", "knockback_chance", "pierce_falloff", "fixed_share"]
 ## Label and unit of each mod-card value (UpgradePool skill_mod_changes keys: a `count` card is SkillRunner.SHOTS or
 ## TARGETS), in display order. tier C: our wording.
 const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Targets", ""], "attack_count": ["Hits", ""], "pierce": ["Pierce", ""],

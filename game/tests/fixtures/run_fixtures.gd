@@ -230,6 +230,25 @@ static func skill_imgs() -> Dictionary:
 		crossbow_breath_levels[str(lv)].mobCount = 4.0 if lv <= 10 else 5.0 if lv <= 20 else 6.0
 	imgs["322"] = {"skill": {"3221003": {"weapon": 46, "level": crossbow_breath_levels, "effect": _anim(14, 80.0, 117, 119),
 		"ball": _anim(4, 100.0, 204, 81), "hit": {"0": _anim(4, 100.0, 185, 104)}}}}
+	# #366: Blizzard (3211003) and Arrow Eruption (3211004) of the crossbow book 321: v83 endpoints, with the WZ steps of the box
+	# (Blizzard +-130 until level 15 and +-150 from 16; Eruption +-170 until 10, +-190 until 20, +-210 from 21) and of the freeze
+	# seconds (1 until level 10, 2 until 20, 3 from 21); x (the freeze chance) and the damage are linear between the endpoints.
+	if not imgs.has("321"):
+		imgs["321"] = {"skill": {}}
+	var blizzard_levels := _levels(30, {"mpCon": [20.0, 30.0], "damage": [100.0, 140.0], "x": [21.0, 50.0], "mobCount": [6.0, 6.0]})
+	var eruption_levels := _levels(30, {"mpCon": [18.0, 28.0], "damage": [60.0, 160.0], "mobCount": [6.0, 6.0]})
+	for lv in range(1, 31):
+		var blizzard_extent := 130.0 if lv <= 15 else 150.0
+		blizzard_levels[str(lv)].time = 1.0 if lv <= 10 else 2.0 if lv <= 20 else 3.0
+		blizzard_levels[str(lv)].lt = {"$v": [-blizzard_extent, -100.0]}
+		blizzard_levels[str(lv)].rb = {"$v": [blizzard_extent, 100.0]}
+		var eruption_extent := 170.0 if lv <= 10 else 190.0 if lv <= 20 else 210.0
+		eruption_levels[str(lv)].lt = {"$v": [-eruption_extent, -100.0]}
+		eruption_levels[str(lv)].rb = {"$v": [eruption_extent, 100.0]}
+	imgs["321"].skill["3211003"] = {"weapon": 46, "elemAttr": "i", "level": blizzard_levels, "effect": _anim(9, 110.0, 130, 157),
+		"special": {"0": _anim(3, 100.0, 94, 115)}, "hit": {"0": _anim(6, 120.0, 278, 165)}}
+	imgs["321"].skill["3211004"] = {"weapon": 46, "level": eruption_levels, "effect": _anim(12, 65.0, 129, 138),
+		"special": {"0": _anim(1, 0.0, 20, 101)}, "hit": {"0": _anim(3, 120.0, 115, 184)}}
 	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
 	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
 		if not imgs.has(pair[0]):
