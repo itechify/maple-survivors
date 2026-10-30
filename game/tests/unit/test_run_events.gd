@@ -3,17 +3,19 @@ extends TestCase
 ## exactly the documented fields, with the documented value types; every type shows up. Also checks seeded replays
 ## are identical.
 
+const SSF := preload("res://tests/fixtures/support_summon_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
+const RV := preload("res://tests/fixtures/revive_fixtures.gd")
 const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
 const SF := preload("res://tests/fixtures/shade_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage",
-	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id"]
+	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id", "hp", "pushed"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
-const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message"]
+const STRING_FIELDS := ["element", "reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message"]
 
 
 
@@ -26,6 +28,8 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 		return
 	seen[type] = int(seen.get(type, 0)) + 1
 	var want: Array = ["type"] + RunWorld.EVENT_FIELDS[type]
+	if type == "summon_spawn" and e.has("sound"):
+		want.append("sound")
 	want.sort()
 	var got: Array = e.keys()
 	got.sort()
@@ -40,13 +44,15 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			fail("%s.velocity is not Vector2" % type)
 		elif k == "area" and not (v is Rect2):
 			fail("%s.area is not Rect2" % type)
+		elif (k == "slot" and type.begins_with("summon_")) and typeof(v) != TYPE_INT:
+			fail("%s.slot is not int" % type)
 		elif k in INT_FIELDS and typeof(v) != TYPE_INT:
 			fail("%s.%s is %s, not int" % [type, k, type_string(typeof(v))])
 		elif k in BOOL_FIELDS and typeof(v) != TYPE_BOOL:
 			fail("%s.%s is %s, not bool" % [type, k, type_string(typeof(v))])
 		elif k in STRING_FIELDS and typeof(v) != TYPE_STRING:
 			fail("%s.%s is %s, not String" % [type, k, type_string(typeof(v))])
-		elif k in ["time", "cast_time", "hit_after", "interval", "impact_time", "duration", "range", "speed"] and typeof(v) != TYPE_FLOAT:
+		elif k in ["time", "cast_time", "hit_after", "interval", "impact_time", "duration", "range", "speed", "guard", "recharge"] and typeof(v) != TYPE_FLOAT:
 
 
 			fail("%s.time is not float" % type)
@@ -135,6 +141,13 @@ func test_every_event_matches_the_schema() -> void:
 	var d := RF.quiet_world(400.0)
 	d.take_hit(1000.0, false, "", d.player.pos + Vector2(20, 0)) # Guaranteed lethal schema probe.
 	for e: Dictionary in d.drain_events():
+		_check(e, seen)
+	# A second life for player_revived: a test-only reaction skill (no Bishop data) catches a lethal hit beside a monster.
+	var revived := RV.world(375)
+	RF.put_mob(revived, 100100, 900.0)
+	revived.mob_grid.rebuild(revived.swarm.x, revived.swarm.y, revived.swarm.active)
+	RV.hit(revived, {"boss": false, "source_kind": "touch"})
+	for e: Dictionary in revived.drain_events():
 		_check(e, seen)
 	# Both player-hit variants obey the same documented event schema.
 	var m := RF.quiet_world(400.0, 617)
@@ -302,13 +315,13 @@ func test_every_event_matches_the_schema() -> void:
 	assert_eq(scroller.use_scroll(2040400, "top"), "")
 	for event: Dictionary in scroller.drain_events():
 		_check(event, seen)
-	# An Assassin's throwing stars reach the next tier (#155): ammo_upgraded, schema-checked like every event.
+	# A Night Lord's throwing stars reach the next tier (#155, exact job 412): ammo_upgraded, schema-checked like every event.
 	var thrower := RF.quiet_world()
 	thrower.setup.equipment_info[1472000] = {"incPAD": 10.0, "attackSpeed": 6.0}
 	thrower.equipment.inventory.append(Equipment.create(1472000, {"incPAD": 10.0, "attackSpeed": 6.0}))
 	assert_eq(thrower.equip_item(thrower.equipment.inventory.size() - 1), "")
 	thrower.progression.level = 37
-	RF.as_job(thrower, 410)
+	RF.as_job(thrower, 412)
 	for event: Dictionary in thrower.drain_events():
 		_check(event, seen)
 	# A Gunslinger's Grenade is thrown (#192): skill_thrown, schema-checked like every event.
@@ -320,6 +333,25 @@ func test_every_event_matches_the_schema() -> void:
 	for tick in 90:
 		grenadier.step(DT, MoveInput.new())
 	for event: Dictionary in grenadier.drain_events():
+		_check(event, seen)
+	# A chain cast (#323): skill_chain, schema-checked like every event. The skill is synthetic.
+	var chain_setup := RF.setup("quiet", 323, RF.quiet_data())
+	var chain_levels := {}
+	for lv in range(1, 31):
+		chain_levels[str(lv)] = {"mad": 100.0, "mastery": 10.0, "mobCount": 3.0}
+	chain_setup.skill_imgs["212"] = {"skill": {"9992000": {"level": chain_levels}}}
+	var chainer := RunWorld.new(chain_setup)
+	RF.place_player(chainer, 200)
+	chainer.loadout.order.clear()
+	chainer.book.defs["chain_test"] = {"skill_id": 9992000, "book": "212", "job": 212, "kind": "instant",
+		"slot": "active", "damage": "magic", "cooldown": 1.6, "ranks": [1], "action": "swingO1", "action_time": 0.5,
+		"ball": "", "hit": "", "effect": "", "cast": {"rule": "chain", "acquire": 450, "hop": 200, "min_targets": 1}}
+	assert_true(chainer.learn_skill("chain_test"))
+	RF.put_mob(chainer, 1110100, 260, 195, 1000)
+	RF.put_mob(chainer, 1110100, 330, 195, 1000)
+	chainer.mob_grid.rebuild(chainer.swarm.x, chainer.swarm.y, chainer.swarm.active)
+	chainer.runner.step(DT, chainer)
+	for event: Dictionary in chainer.drain_events():
 		_check(event, seen)
 	# Spec #34 pet events: the pet's own drink and its teleport to a player who left it behind.
 	var pet_world := PF.world([PF.KITTY, PF.AUTO_HP], {"hp": 0.5})
@@ -355,9 +387,56 @@ func test_every_event_matches_the_schema() -> void:
 	transfer.advance_map()
 	for event: Dictionary in transfer.drain_events():
 		_check(event, seen)
+	# P3: no playable job owns a form yet. Exercise the new events with synthetic stance data.
+	var former := RunWorld.new(RF.setup("quiet", 311, RF.quiet_data()))
+	former.progression.job_id = 999
+	former.book.defs["fixture_form"] = {"skill_id": 9991001, "book": "999", "kind": "form", "slot": "active", "damage": "none",
+		"ranks": [1], "cooldown": 3.0, "cast": {"rule": "form", "mob_within": 400},
+		"form": {"duration": 1.0, "exclusive_group": "fixture", "effects": {"element": "f"}, "subs": []}}
+	former.drain_events()
+	former.runner.forms.start(former, "fixture_form", former.loadout.stats("fixture_form"))
+	former.runner.forms.step(1.0, former)
+	for event: Dictionary in former.drain_events():
+		_check(event, seen)
+	# H3: the no-meter F/P probe cannot emit this job-specific event. Exercise the generic counter.
+	var meter := PlayerMeter.new({"id": "fixture", "max": 10, "gain": {"event": "cast_landed", "amount": 1}})
+	var meter_events: Array = []
+	meter.gain("cast_landed", meter_events)
+	for event: Dictionary in meter_events:
+		_check(event, seen)
+	# D3 (#351): no shipped skill pays HP in this probe's runs. Exercise both kinds of hp_spent through HpRisk.
+	var risk := RF.quiet_world(400.0, 351)
+	risk.god = false
+	risk.drain_events()
+	var risk_stats := {"skill": "synthetic", "skill_id": 9991000, "hp_cost": 5, "self_damage": 50.0, "self_damage_cap": 1.0}
+	HpRisk.pay_cost(risk, risk_stats)
+	HpRisk.settle(risk, risk_stats, risk.damage_dealt - 40)
+	var spent := risk.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "hp_spent")
+	assert_eq(spent.map(func(e: Dictionary) -> String: return e.kind), ["cost", "recoil"])
+	for event: Dictionary in spent:
+		assert_eq(event.size(), 5)
+		_check(event, seen)
+	var pull := CF.world({"pull": {"min_gap": 60}, "range": 600.0})
+	RF.put_mob(pull, 1110100, pull.player.pos.x + 300)
+	pull.mob_grid.rebuild(pull.swarm.x, pull.swarm.y, pull.swarm.active)
+	pull.runner.apply_pull(pull, "synthetic", pull.loadout.stats("synthetic"), pull.cast_origin())
+	var pulls := pull.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mob_pulled")
+	assert_eq(pulls.size(), 1)
+	for event: Dictionary in pulls:
+		assert_eq(event.size(), 4)
+		_check(event, seen)
+	# Real follower events, including the optional summon sound and per-target strike effect.
+	var followers := preload("res://tests/unit/test_bowmaster_followers.gd").new()
+	var hawk: RunWorld = followers._world("silver_hawk")
+	followers._mob(hawk, 1110100, 300)
+	hawk.book.skill_imgs["311"].skill["3111005"].summon.attack1.info["effect"] = {"0": {"delay": 100.0}}
+	for tick in 240:
+		hawk.step(DT, MoveInput.new())
+	for event: Dictionary in hawk.drain_events():
+		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "ammo_shot":
-			var archer := CF.ranged_final(1452000, 310)
+			var archer := CF.ranged_final(1452000, 312)
 			var dummy := RF.put_mob(archer, 1110100, 350, 190, 100)
 			archer.hit_mob(dummy, {"skill": "fixture", "damage_type": "physical", "damage_min": 1,
 				"damage_max": 1, "crit": 0, "crit_mult": 1.5}, -1)
@@ -371,6 +450,23 @@ func test_every_event_matches_the_schema() -> void:
 				blaster.step(DT, MoveInput.new())
 			for event: Dictionary in blaster.drain_events():
 				_check(event, seen)
+		if type == "burst_start" or type == "burst_end":
+			var archer := CF.world({"kind": "projectile", "cast": {"rule": "burst"},
+				"burst": {"interval": 0.1, "wind_up": 0.1, "retarget": true}, "count": 3})
+			RF.put_mob(archer, 1110100, 350, 190, 100000)
+			for tick in 40:
+				archer.step(DT, MoveInput.new())
+			for event: Dictionary in archer.drain_events():
+				_check(event, seen)
+
+		if type == "support_pulse":
+			var beholder := SSF.world()
+			for tick in 200: # the synthetic Hex pulse lands at 3 s
+				beholder.step(DT, MoveInput.new())
+			# summon_spawn / summon_attack (T9) were never registered in EVENT_FIELDS: check only this ticket's event.
+			for event: Dictionary in beholder.drain_events():
+				if event.type in ["support_pulse", "buff_cast", "player_restored"]:
+					_check(event, seen)
 		if type == "player_banished":
 			var shaded := SF.world()
 			for tick in 15 * 60:

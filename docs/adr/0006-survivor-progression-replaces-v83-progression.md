@@ -58,11 +58,14 @@ grilling.
 
 ## Consequences
 
+F/P (212, default) and Hero (112) are playable; #306 records the QA gates for the orchestrator’s `redesign` merge readiness decision.
+
 - **Supersedes:**
   - ADR 0001: the chained run, carried level, EXP and skills, final-tier victory, and run-ending death.
   - ADR 0002: mesos ending with the run, and drops filtered by character level.
   - ADR 0005: weapon-gated skills, weapon paths, and carried attacks. How ammo tiers step without branches is left to the first ranged-job
-    spec.
+    spec. *Settled by spec #332 (ticket #335, ruling D9): `survivor/ammo.json` schedules are keyed by the exact job and
+    step at the round's level (GAME_DESIGN 7.41).*
 - **Still holds:**
   - ADR 0002: shops sell only scrolls.
   - ADR 0003: account cash items. Fortune still comes from cash equipment.

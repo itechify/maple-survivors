@@ -159,6 +159,12 @@ static func skill_imgs() -> Dictionary:
 	bowman["3001003"].level["20"].acc = "20"  # tier A: the original Focus max-level field is a string.
 	var imgs := {"000": b000, "100": b100, "200": b200, "210": b210, "220": b220, "230": b230,
 		"300": {"skill": bowman}}
+	# #301: synthetic Brandish endpoint interpolation; fixed canonical geometry and two lines.
+	var brandish_levels := _levels(30, {"damage": [135.0, 260.0], "attackCount": [2.0, 2.0], "mobCount": [1.0, 3.0]})
+	for row: Dictionary in brandish_levels.values():
+		row.lt = {"$v": [-150.0, -110.0]}
+		row.rb = {"$v": [-10.0, 0.0]}
+	imgs["112"] = {"skill": {"1121008": {"level": brandish_levels}}}
 	# #202: v83 Hunter endpoints; intermediate rows are synthetic linear interpolation, no proprietary art.
 	var bomb_levels := _levels(30, {"mpCon": [14.0, 28.0], "x": [72.0, 130.0], "prop": [31.0, 60.0],
 		"time": [2.0, 6.0], "mobCount": [6.0, 6.0]})
@@ -173,8 +179,20 @@ static func skill_imgs() -> Dictionary:
 			"time": [10.0, 200.0], "x": [-2.0, -2.0]})},
 		"3101003": {"level": _levels(20, {"range": [130.0, 150.0], "damage": [105.0, 200.0],
 			"mobCount": [2.0, 6.0], "prop": [13.0, 70.0], "mpCon": [8.0, 15.0]})},
-		"3101005": {"level": bomb_levels},
+		"3101005": {"weapon": 45, "level": bomb_levels}, # weapon 45 = bow (v83)
 	}}
+	# #339: Strafe's v83 endpoints (Skill.wz/311.img 3111006: damage 71..100, bulletCount 4, weapon 45 = bow), linear between.
+	imgs["311"] = {"skill": {"3111006": {"weapon": 45, "level": _levels(30, {"mpCon": [26.0, 32.0],
+		"damage": [71.0, 100.0], "bulletCount": [4.0, 4.0]})}}}
+	# #341: Inferno's v83 endpoints (Skill.wz/311.img 3111003: damage 50..150, burn share x 21..50, time 5 s until level 29 and
+	# 10 s at 30, box +-130..150 x +-100, mobCount 6, weapon 45 = bow, elemAttr f), linear between; no art.
+	var inferno_levels := _levels(30, {"mpCon": [20.0, 30.0], "damage": [50.0, 150.0], "x": [21.0, 50.0], "mobCount": [6.0, 6.0]})
+	for level: String in inferno_levels:
+		var inferno_extent := lerpf(130.0, 150.0, float(int(level) - 1) / 29.0)
+		inferno_levels[level].time = 10.0 if int(level) == 30 else 5.0
+		inferno_levels[level].lt = {"$v": [-inferno_extent, -100.0]}
+		inferno_levels[level].rb = {"$v": [inferno_extent, 100.0]}
+	imgs["311"].skill["3111003"] = {"weapon": 45, "elemAttr": "f", "level": inferno_levels}
 	# #203: Iron Arrow's independently recorded v83 endpoints, synthetic intermediate rows and art.
 	imgs["320"] = {"skill": {"3201005": {"weapon": 46, "ball": _anim(3, 90.0, 61, 24),
 		"level": _levels(30, {"mpCon": [23.0, 28.0], "damage": [122.0, 180.0], "mobCount": [6.0, 6.0]})}}}
@@ -188,6 +206,21 @@ static func skill_imgs() -> Dictionary:
 	imgs["320"].skill["3200001"] = {"level": _levels(30, {"prop": [2.0, 60.0], "damage": [105.0, 250.0]})}
 	imgs["320"].skill["3201002"] = {"level": _levels(20, {"hpCon": [29.0, 10.0], "mpCon": [29.0, 10.0],
 		"time": [10.0, 200.0], "x": [-2.0, -2.0]})}
+	# #340: Arrow Rain (3111004) and Dragon's Breath (3121003): v83 endpoints; the symmetric box (+-170 / +-190 / +-210) and the
+	# mobCount (4 / 5 / 6) step at levels 11 and 21 as in the WZ; the damage between the endpoints is synthetic interpolation.
+	if not imgs.has("311"):
+		imgs["311"] = {"skill": {}}
+	var rain_levels := _levels(30, {"mpCon": [18.0, 28.0], "damage": [60.0, 160.0], "mobCount": [6.0, 6.0]})
+	var breath_levels := _levels(30, {"mpCon": [24.0, 36.0], "damage": [42.0, 100.0], "range": [440.0, 440.0], "prop": [100.0, 100.0]})
+	for lv in range(1, 31):
+		var extent := 170.0 if lv <= 10 else 190.0 if lv <= 20 else 210.0
+		rain_levels[str(lv)].lt = {"$v": [-extent, -100.0]}
+		rain_levels[str(lv)].rb = {"$v": [extent, 100.0]}
+		breath_levels[str(lv)].mobCount = 4.0 if lv <= 10 else 5.0 if lv <= 20 else 6.0
+	imgs["311"].skill["3111004"] = {"weapon": 45, "level": rain_levels, "effect": _anim(12, 65.0, 129, 138),
+		"special": {"0": _anim(1, 0.0, 42, 96)}, "hit": {"0": _anim(3, 120.0, 96, 133)}}
+	imgs["312"] = {"skill": {"3121003": {"weapon": 45, "level": breath_levels, "effect": _anim(14, 80.0, 117, 119),
+		"ball": _anim(4, 100.0, 204, 81), "hit": {"0": _anim(4, 100.0, 185, 104)}}}}
 	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
 	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
 		if not imgs.has(pair[0]):
@@ -556,7 +589,7 @@ static func setup(stage := "henesys", p_seed := 12345, data: Dictionary = {}) ->
 ## The ammo items of survivor/ammo.json as setup.ammo_info carries them ({id: {incPAD}}): the v83 Item.wz values, written
 ## out so tests do not need the asset cache.
 static func ammo_info() -> Dictionary:
-	var pads := {2070015: 15, 2070001: 17, 2070002: 19, 2070003: 21, 2070004: 23, 2070005: 25, 2070006: 27,
+	var pads := {2070015: 15, 2070001: 17, 2070002: 19, 2070003: 21, 2070004: 23, 2070005: 25,
 		2060000: 0, 2060001: 1, 2060002: 2, 2060003: 4, 2061000: 0, 2061001: 1, 2061002: 2, 2061003: 4,
 		2330000: 10, 2330001: 12, 2330002: 14}
 	var out := {}
@@ -739,3 +772,13 @@ static func add_modifier_effects(w: RunWorld, definition: Dictionary, repeats: i
 			w.loadout.add_skill_mod(String(definition.skill), String(effect.stat),
 				String(effect.get("op", "add")), float(effect.value))
 	w.refresh_player_stats()
+
+
+## Synthetic animation frames with optional canvas stubs.
+static func anim(frames: int, ms: float = 100.0, canvas: bool = false) -> Dictionary:
+	var out := {}
+	for i in frames:
+		out[str(i)] = {"delay": ms}
+		if canvas:
+			out[str(i)]["$canvas"] = [0, 0, 0, 40, 40]
+	return out

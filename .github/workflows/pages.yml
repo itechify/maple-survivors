@@ -96,6 +96,8 @@ jobs:
       - name: Importer tests (cargo test)
         working-directory: tools/wzimport
         run: cargo test --locked
+      - name: Test runner failure-path self-tests
+        run: python3 scripts/tests/test_test_runner.py
       - name: Web shell tests (node)
         run: node --test web/dev/test/*.test.mjs
       - name: Game tests (headless Godot)

@@ -1,7 +1,6 @@
 extends Control
 ## v83 Explorer creation with live composited preview; every allowed value comes from MakeCharInfo. Three steps: Name,
-## Look, then the Job page (#286) listing the playable jobs (only the Arch Mage (F/P) in this slice); the character shows its
-## 4th-job title from Lv1. The Look step's weapon row is the chosen job's creation weapon and has no arrows.
+## Look, then the Job page (#286) listing JobTree.playable_jobs() in canonical order (Hero above the Arch Mage, #296); the character shows its 4th-job title from Lv1. The Look step's weapon row is the chosen job's creation weapon and has no arrows.
 
 signal cancelled()
 
@@ -32,6 +31,8 @@ const MESSAGE_BOX := Rect2(475, 365, 215, 45)
 ## tier C: the Job step lists one job per row inside the same charSet panel, from the first Look row down.
 const JOB_ROW_SIZE := Vector2(190, 19)
 const JOB_SELECTED := Color8(255, 170, 68, 170)
+## Every Button state a job row draws in: the chosen row keeps its plate under the mouse (hover/pressed) too.
+const JOB_ROW_STATES := ["normal", "hover", "pressed", "focus", "hover_pressed"]
 
 var flow: SceneFlow
 var model: CharacterCreation
@@ -191,16 +192,14 @@ func _build_job_surface() -> void:
 		row.flat = false # a flat button draws no stylebox, and the chosen row is a plate
 		row.focus_mode = Control.FOCUS_NONE
 		row.text = _jobs.name_of(job_ids[i])
+		row.alignment = HORIZONTAL_ALIGNMENT_LEFT # tier C: names share a left edge whatever their length
 		row.position = Vector2(ROW_AT.x - 4.0, ROW_AT.y + i * (JOB_ROW_SIZE.y + 2.0))
 		row.size = JOB_ROW_SIZE
 		row.add_theme_font_override("font", MapleText.font())
 		row.add_theme_font_size_override("font_size", MapleText.SMALL)
 		for color: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 			row.add_theme_color_override(color, INK)
-		var selected := StyleBoxFlat.new()
-		selected.bg_color = JOB_SELECTED
-		selected.set_corner_radius_all(3)
-		for state: String in ["normal", "hover", "pressed", "focus"]:
+		for state: String in JOB_ROW_STATES:
 			row.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 		var job := job_ids[i]
 		row.pressed.connect(func() -> void: select_job(job))
@@ -238,11 +237,15 @@ func select_job(id: int) -> void:
 	job_id = id
 	for i in _job_rows.size():
 		var on := job_ids[i] == id
-		_job_rows[i].add_theme_stylebox_override("normal", _row_plate(on))
-		_job_rows[i].add_theme_color_override("font_color", ERROR_INK if on else INK)
+		for state: String in JOB_ROW_STATES:
+			_job_rows[i].add_theme_stylebox_override(state, _row_plate(on))
+		for color: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			_job_rows[i].add_theme_color_override(color, ERROR_INK if on else INK)
 	_job_blurb.text = "%s   ·   Lv. 1" % _jobs.name_of(id)
 	if model.available():
 		_refresh()
+		if not _weapon_label.text.is_empty():
+			_job_blurb.text += "\n" + _weapon_label.text
 
 
 static func _row_plate(on: bool) -> StyleBox:

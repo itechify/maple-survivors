@@ -122,7 +122,8 @@ How many advancements a job is from Beginner: 0 Beginner, 1 first job, 2 second 
 
 **Job line**:
 A first job and every job below it, named after it (warrior, magician, bowman, thief, pirate), plus beginner for
-job 0 and common for job-neutral data. Survivor data and the asset manifest keep one file per line
+job 0 and common for job-neutral data. A class spec after the slice adds a *data line* named after the class
+(`hero`, #296), discovered by `DataRepo.lines()` after the fixed Adventurer lines, sorted by name, so jobs of the same Adventurer line no longer share one file. Survivor data and the asset manifest keep one file per line
 (`survivor/<name>/<line>.json`, `asset_manifest.d/<line>.json`), and a per-job table resolves a job through its
 lineage to the nearest listed ancestor.
 _Avoid_: class line, family (a weapon family is a kind of weapon)
@@ -164,12 +165,42 @@ _Avoid_: stealth, invisible, cloaked
 
 **Morph**:
 A buff that draws the character as a `Morph.wz` figure instead of its avatar for as long as it lasts, such as Oak
-Barrel's barrel (Morph 1002); the game's movement and stats are unchanged.
+Barrel's barrel (Morph 1002); the game's movement and stats are unchanged unless the buff itself says so. A morph
+draws its own action for a stance when the figure has one (the Buccaneer morphs attack), else it stands.
 _Avoid_: transformation, disguise
+
+**Morph form**:
+A Form whose `buff` block carries a `morph_field`, so it also draws the character as a Morph and gives the buff's defence,
+speed and jump while it lasts (Buccaneer's Transformation and Super Transformation). It needs no Form effect key.
+
+**Reaction skill**:
+A skill that nothing casts on a timer or a key: the world triggers it when something happens to the character. Resurrection
+is the first: it catches a lethal hit (its cast rule is `reaction`, so the auto-caster and the bot never use it).
+_Avoid_: trigger skill, passive (it takes an active slot)
+
+**Second life**:
+The save a reaction skill makes when a hit would kill the character: it returns at part of its max HP, guarded for a
+moment, the monsters around it shoved away, then the skill recharges (its cooldown) before it can happen again.
+_Avoid_: revive (which also names reviving a party member in v83), extra life (a stock)
+
+**Guard**:
+The short span after a second life in which no hit lands at all, including boss attacks and balls that ignore the hit
+window.
+_Avoid_: invincibility (the hit window and Invincible are other things), shield
 
 **Skill key**:
 The Key Config binding of one manual skill the character has learned.
 _Avoid_: hotkey, quickslot
+
+**Chain**:
+A cast that hits its first target, then jumps from the previous target to the nearest unhit monster within its hop
+radius, stopping at its target cap or when no neighbour is in reach. Chain Lightning draws a bolt along those links.
+_Avoid_: splash, bounce (which can imply repeat hits)
+
+**Skill template**:
+A skill definition with `"extends": "<key>"`: it inherits another definition and rewrites its art and sound paths to
+its own book and skill id (the I/L Big Bang extends F/P's; Bishop can reuse the same template). Resolved only by `SkillBook`.
+_Avoid_: copy, clone, alias
 
 **Passive skill**:
 A skill that is always in effect once learned and is never cast, such as MP Eater.
@@ -185,6 +216,18 @@ _Avoid_: follow-up skill, proc
 
 **Party buff**:
 A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here it affects the character only.
+
+**Form**:
+A timed active stance that changes the character's attacks and carries sub-skills. A running form survives
+map transfer and ends on death. Its buff block carries Hidden or morph state; effect keys are for cast-stat or lifecycle behaviour (Buccaneer template: `spec/412`, `test_morph_form.gd`).
+
+**Charge**:
+A Paladin Form that temporarily gives its attacks an element and carries Charged Blow. Holy Charge also
+carries Heaven's Hammer. Only one Charge runs at a time.
+
+**Sub-skill**:
+An attack carried by a Form, used automatically while the form lasts. It grows with its parent, occupies no
+skill slot and is never offered as a card.
 
 ## Cards and rarity
 
@@ -267,6 +310,12 @@ A timed condition a skill puts on a monster: slowed, poisoned, frozen, threatene
 stunned (neither moving nor attacking). Bosses take none.
 _Avoid_: debuff, ailment
 
+**Vulnerability**:
+A status effect that makes a monster weak to one element for a time (x1.5 damage of that element, whatever the
+monster's own attribute): Fire Demon's ice-weak and Ice Demon's fire-weak. A monster can carry several, and bosses take
+none. A mixed-element hit (fire/poison, ice/lightning) is the mean of its parts, each counted with its live weakness.
+_Avoid_: debuff, curse
+
 **Stolen**:
 A monster a successful Steal has already taken an extra drop from; Steal can't take from it again. It is not a
 status effect, so a boss can be stolen from.
@@ -296,6 +345,18 @@ status effects on the character only ever come from bosses.
 A skill effect that pushes a struck monster away from the character, by a chance per hit. Bosses are never knocked
 back. It is not the small push any hit gives a monster whose damage reaches its canonical `pushed` threshold.
 _Avoid_: push-back, knockdown
+
+**Pull**:
+A skill effect that drags monsters toward the character along their platform, by a chance per monster, until they stand
+a set gap away. It picks the farthest monsters first, up to the skill's monster count. Bosses and airborne monsters are
+never pulled. It is the mirror of knock-back (Monster Magnet, Snatch).
+_Avoid_: magnet, suck, vacuum
+
+**Burn**:
+A fire status that hurts a monster once a second for a few seconds, a little each time and never enough to kill it. The
+size of every pulse is decided by the cast that set the monster alight, and setting it alight again refreshes the burn
+without restarting or stacking it. Bosses and fire-proof monsters don't burn. It is the fire twin of poison (Inferno).
+_Avoid_: ignite, fire damage-over-time
 
 **Hit window**:
 The short time after the character is hit during which it can't be hit again. It shrinks with repeated hits, and
@@ -336,9 +397,13 @@ _Avoid_: weapon type (in docs; that is the v83 item-id prefix), weapon class
 
 **Ammo tier**:
 The throwing stars, arrows or bullets a ranged character fires: one real v83 ammo item at a time, endless and never
-an item stack. The class starts on its basic ammo, and the specialist branch moves up the tiers by itself at fixed
-levels, changing the projectile you see.
+an item stack. The weapon family starts on basic ammo; the exact job and round level select later tiers, changing
+the projectile you see (each round starts at Lv1).
 _Avoid_: ammo card, ammo stack, projectile (that is the shot on screen)
+
+**Ammo schedule**:
+The ammo milestones for one exact job and weapon family, reached at fixed levels within a round. A different
+job or weapon family starts with its own basic ammo; milestones are not inherited from ancestor jobs.
 
 **Worn equipment**:
 The equipment currently in a character's equip slots; only worn equipment adds stats.
@@ -401,7 +466,7 @@ player pastes.
 _Avoid_: mirror (the project never names one), WZ root (that is the desktop folder setting)
 
 **Summon**:
-A timed player-owned ally cast by an active skill. It follows or waits at its own position and attacks monsters;
+A timed player-owned ally cast by an active skill. It follows or waits at its own position and attacks monsters or pulses support effects;
 its map-local lifetime ends on expiry or map transfer. It occupies its skill’s active slot, uses the original skill
 id and WZ animations, and is separate from a cash pet or a monster summoned by a boss.
 
@@ -409,3 +474,50 @@ id and WZ animations, and is separate from a cash pet or a monster summoned by a
 A negative `pierce_falloff` that increases an arrow's damage by a fixed number of percentage points for each
 earlier monster contacted, up to the survivor combat ceiling. Immune contacts count; extra pierce contacts keep rising.
 _Avoid_: exponential scaling, multiplicative stacking
+
+**Support summon**:
+A summon whose definition carries `summon.support`: it follows its owner and pulses instead of attacking. Its pulses'
+numbers come from sub-skills read through the summon's rank; the Beholder is the first.
+_Avoid_: pet, attack summon (the ordinary summon), buff skill
+
+**Pulse**:
+One timed effect of a support summon (a heal or a buff on the owner), with its own countdown per summon, its own
+animation and a `support_pulse` event. A pulse kind is an entry of `SupportSummons.KINDS`.
+_Avoid_: tick, proc (a pulse is on a timer, never a chance)
+
+**Meter**:
+A round-owned integer counter, filled by configured events and spent by finishers. It survives map transfers,
+starts at zero each round, and is shown as HUD pips. M1 is shared by Hero, Buccaneer and Shadower.
+_Avoid_: mana, buff, form
+
+**Combo orb**:
+One unit of Hero's Combo meter. A landed non-finisher pool cast earns one; each held orb adds damage.
+_Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)
+
+**Energy Charge**:
+Buccaneer's meter (id `energy`, ten units). A landed non-finisher pool cast earns one energy; each held energy adds 3% damage to
+every pool skill. The finishers Energy Drain and Energy Orb spend all of it. A full bar plays a one-shot cue (the `affected` ring and sound).
+_Avoid_: the v83 Energy Charge stat window and Body Attack (not implemented); mana
+
+**Finisher**:
+A pool active whose meter block gates admission and spends units for extra damage. Panic and Coma are Hero's
+finishers; Energy Drain and Energy Orb are Buccaneer's. Their meter_keep rarity modifier leaves units unspent.
+_Avoid_: ultimate, proc
+
+**Physical follower**:
+A player summon (Silver Hawk, Phoenix, Golden Eagle, Frostprey) whose damage is physical and takes its W.Att from the skill level's `pad` instead of the worn weapon, optionally stunning on hit and flying above its trailing point. It is the Elquines seam (`PlayerSummons`) with data keys, not a separate system.
+_Avoid_: pet (the Free Market pet is a cosmetic companion), minion
+
+**Burst**:
+One automatic cast that schedules its resolved shot count over time, following the moving character's hand and a
+live target. The cooldown begins on admission; unfinished shots belong to the current map (`BurstCast`, #336).
+
+**HP risk**:
+A skill that pays HP: a percentage of max HP as its cost, a gate that needs HP above a share of max HP, and recoil. It
+never kills the caster. Dark Knight is the first user; Bishop and Buccaneer reuse the same blocks.
+_Avoid_: life cost, blood magic
+
+**Recoil**:
+HP a skill takes from its caster after it hit, as a share of the damage the cast dealt, capped at a share of max HP and
+never the last HP. Reported as `hp_spent` with kind `recoil`.
+_Avoid_: backlash, self-damage (the data block is named `self_damage`)

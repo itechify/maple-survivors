@@ -170,6 +170,7 @@ func test_summary_reports_round_levels_bosses_and_nx() -> void:
 	assert_eq(int(summary.bosses_killed), 0)
 	assert_eq(int(summary.nx_awarded), int(w.balance.nx_award.per_level), "alive at the end of an unfinished round: levels only, no clear bonus")
 	assert_eq(int(summary.nx_awarded), w.nx_awarded())
+	assert_eq(summary.revives, [], "second lives taken (#375): none without a reaction skill")
 
 
 func test_summary_identifies_the_death_map_after_a_transfer() -> void:
@@ -358,7 +359,7 @@ func test_autoplay_two_minutes_draws_the_sim() -> void:
 		return
 	scene = _make("henesys", 7, {"autoplay": true, "autopick": true})
 	assert_eq(scene.error, "", "scene started")
-	assert_true(1302000 in scene.avatar.look.equips, "the first frame includes the creation Sword")
+	assert_true(1372005 in scene.avatar.look.equips, "the first frame includes the F/P creation Wand")
 	var w := scene.world
 	assert_true(w != null, "world built")
 	# Include every map's life pool and canonical boss summons/revives, as build_setup does when preloading.
@@ -564,6 +565,39 @@ func test_cast_plays_the_action_stance_while_standing() -> void:
 	assert_true(cast_seen, "Energy Bolt's swingO1 shown while standing")
 	assert_eq(scene.avatar.facing, -1, "turned toward the mob on the left")
 	_assert_nothing_missing(scene, "cast")
+
+
+func test_a_second_life_plays_its_art_sound_notice_and_blinks_through_the_guard() -> void:
+	if not require_cache():
+		return
+	if lib.img("Skill.wz/232.img") == null:
+		skip("the cache has no Skill.wz/232.img (import with the Bishop manifest fragment)")
+		return
+	scene = _make("henesys", 380, {})
+	var w := scene.world
+	_frames(30)
+	w.learn_skill("resurrection")
+	w.drain_events()
+	var fx0 := scene.fx.active_count()
+	w.take_hit(1.0e9, false, "", w.player.pos + Vector2(10.0, 0.0), {"accuracy": 0.0, "mob": -1, "source_kind": "touch"})
+	var events := w.drain_events()
+	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "player_revived"), "the sim revived")
+	assert_false(events.any(func(e: Dictionary) -> bool: return e.type == "player_died"))
+	scene.handle_events(events)
+	assert_eq(scene.fx.active_count(), fx0 + 2, "the pillar (effect) and the beams (affected) play on the character")
+	var texts := scene.hud.messages().map(func(m: Dictionary) -> String: return m.text)
+	assert_true("Resurrection! Ready again in 10:00" in texts, str(texts))
+	# The character blinks through the 2 s guard (the hit window alone is shorter) and then stays solid.
+	var dimmed := false
+	for i in 90:
+		scene.advance_frame(DT)
+		dimmed = dimmed or scene.player_group.self_modulate.a < 1.0
+	assert_true(dimmed, "the avatar dims while the guard runs")
+	assert_true(w.revive.guarding(), "still guarded at 1.5 s")
+	_frames(60)
+	assert_false(w.revive.guarding())
+	assert_eq(scene.player_group.self_modulate.a, 1.0, "solid again once the guard is over")
+	_assert_nothing_missing(scene, "second life")
 
 
 func test_player_miss_uses_violet_art_without_hit_expression() -> void:
@@ -1484,3 +1518,16 @@ func test_setup_preloads_boss_art_and_sounds() -> void:
 		assert_eq(lib.missing.size(), 0, "%s: warming records nothing missing %s" % [stage, lib.missing])
 		scene.free()
 		scene = null
+
+
+func test_chain_links_and_successive_casts_each_start_their_hit_sound() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys", 319, {"autopick": true, "job": 222})
+	var points := PackedVector2Array([Vector2(100, 100), Vector2(150, 100), Vector2(200, 100), Vector2(250, 100)])
+	var before := int(scene.counters.sounds)
+	var event := {"type": "skill_chain", "skill": "chain_lightning", "points": points}
+	scene.handle_events([event])
+	assert_eq(int(scene.counters.sounds) - before, 3, "three links start three sounds")
+	scene.handle_events([event])
+	assert_eq(int(scene.counters.sounds) - before, 6, "another cast in the same frame also sounds")

@@ -66,6 +66,8 @@ const DT := 1.0 / 60.0
 const MAX_TICKS_PER_FRAME := 4
 ## Height in px of the arc a thrown grenade draws at mid-flight. tier C: ours (#192), presentation only.
 const THROW_ARC := 40.0
+## Height in px above the cast position where a falling cast visual (Arrow Rain) comes to rest. tier C: ours (#340), art only.
+const FALL_REST := 30.0
 const SCENE_PATH := "res://scenes/run/run_scene.tscn"
 
 const FX_LEVEL_UP := "Effect.wz/BasicEff.img/LevelUp"
@@ -108,6 +110,10 @@ const HIT_FACE_TIME := 1.0
 ## tier C (ours): invincibility blink, alpha of the dim phase and the period (s) of one bright + dim cycle.
 const BLINK_ALPHA := 0.4
 const BLINK_PERIOD := 0.16
+## tier C (ours, BS8): seconds the "Resurrection! Ready again in M:SS" notice shows, and the delay of its evidence shot
+## (the first beam frames, after the 1320 ms lead-in of the `affected` art).
+const REVIVE_NOTICE_TIME := 6.0
+const REVIVE_SHOT_DELAY := 1.45
 ## tier C (ours, #211): a Hidden avatar is drawn at half opacity; morph artwork keeps its own appearance.
 const HIDDEN_ALPHA := 0.5
 ## tier C (ours): continent + region notice at run start (#221): seconds shown (the last FADE of them fading).
@@ -156,6 +162,8 @@ var mob_layers := PackedInt32Array()
 var summon_renderer: PlayerSummonRenderer
 var shots: ProjectileRenderer
 var mob_shots: ProjectileRenderer
+## The bolt art of the chain cast rule (skill_chain events).
+var chain_bolts: ChainBoltRenderer
 var drops: PickupRenderer
 ## The pet out (spec #34, #120); null without one. Drawn in the actor layer it stands in, behind the avatar.
 var pet_renderer: PetRenderer
@@ -164,6 +172,8 @@ var fx_back: FxRenderer
 var numbers: DamageNumbers
 var tags: NameTags
 var hud: Hud
+## The full-bar cue of the job's meter (Energy Charge); a job without a `cue` never fires it.
+var meter_cue: MeterCue
 var notice_layer: CanvasLayer
 var notice_fx: FxRenderer
 var windows_layer: CanvasLayer
@@ -180,6 +190,8 @@ var perf_layer: CanvasLayer
 var window: Node
 ## True while the pause menu (or the fallback pause) holds the run.
 var paused := false
+## Casts seen per skill key, for `sounds.use_cycle` (SkillBook.use_sound).
+var _use_counts := {}
 ## Visual counters (tests and the perf summary): damage numbers, hit effects and sounds started.
 var counters := {"numbers": 0, "hit_fx": 0, "sounds": 0, "exp_messages": 0, "windows": 0, "autopicks": 0}
 
@@ -189,7 +201,7 @@ var _speed := 1
 var _acc := 0.0
 var _jump_latch := false
 var _drink_hp_latch := false
-## Skill key id ("teleport", "dash") -> true once its key went down since the last tick (consumed by _read_input).
+## Skill key id ("teleport", "dash", "rush") -> true once its key went down since the last tick (consumed by _read_input).
 var _skill_latches := {}
 var _bot_memo := {}
 var _kind_ids := PackedInt32Array()
@@ -259,6 +271,10 @@ var _timed_shots: Array = []
 var _first_shots := {}
 ## Flight FX: Grenades carry skill + cast_time and wait for skill_landed; Final Attack ammo is visual-only.
 var _throws: Array = []
+## Falling cast visuals (Arrow Rain's arrows): {path, to, delay, fall, fall_time, t, slot}; presentation only.
+var _falls: Array = []
+## Burst skills' stream art by skill key: {"phase": "prepare" | "loop", "slot": fx slot, "due": sim time of the first arrow}.
+var _burst_art: Dictionary = {}
 var _last_delta := 0.0
 var _last_frame_us := 0
 var _frames := RunFrameRecorder.new()
@@ -646,9 +662,19 @@ func _build_mob_layers() -> void:
 		var mr := MobRenderer.new()
 		mr.name = "Mobs%d" % layer
 		mr.library = library
+		mr.burn_cue_path = _burn_cue_path()
 		map.actor_layer(layer).add_child(mr)
 		mob_renderers.append(mr)
 		mob_layers.append(layer if floor_layers.size() > 1 else -1)
+
+
+## The mob-cue art of the first pool skill that burns (`on_hit.cue`, a Skill.wz path), "" when none configures one.
+func _burn_cue_path() -> String:
+	for key: String in world.jobs.skill_pool(world.job_id()):
+		var on_hit: Dictionary = world.book.def(key).get("on_hit", {})
+		if String(on_hit.get("status", "")) == "burn" and on_hit.has("cue"):
+			return String(on_hit.cue)
+	return ""
 
 
 ## Drops, the behind-the-player effects and the player's avatar (placed on its layer by _place_player_layer).
@@ -692,6 +718,9 @@ func _build_top_layer() -> void:
 	fx.library = library
 	fx.behind = fx_back
 	_top.add_child(fx)
+	chain_bolts = ChainBoltRenderer.new()
+	chain_bolts.name = "ChainBolts"
+	_top.add_child(chain_bolts)
 	numbers = DamageNumbers.new()
 	numbers.library = library
 	_top.add_child(numbers)
@@ -709,6 +738,8 @@ func _build_overlays() -> void:
 	hud = Hud.new()
 	hud.library = library
 	add_child(hud)
+	hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
+	meter_cue = MeterCue.new(world.meter.config.get("cue", {}), _play_meter_cue)
 	# Below notices/windows so pause and inventory remain usable over a partly faded world.
 	var fade_layer := CanvasLayer.new()
 	fade_layer.name = "MapTransfer"
@@ -883,8 +914,8 @@ func _warm_ui() -> void:
 			LevelUpWindow.KEY_DIGITS + "1", PauseMenu.BOX + "t",
 			EquipWindow.ART + "backgrnd", EquipWindow.ART + "pet", ItemWindow.ART + "backgrnd", DropConfirm.ART, ItemTooltip.TT + "Can/reqLEV"]:
 		UiArt.frame(path)
-	for path: String in [FX_LEVEL_UP, FX_CLEAR]:
-		if library != null:
+	for path: String in [FX_LEVEL_UP, FX_CLEAR, String(world.meter.config.get("cue", {}).get("effect", ""))]:
+		if library != null and path != "":
 			library.find_anim(path)
 	MapleText.width("Lv.", MapleText.SMALL, true)
 	MapleText.width("Lv.", MapleText.SIZE, false)
@@ -902,16 +933,22 @@ func _warm_ui() -> void:
 		var cl: Variant = world.book.def(key).get("char_level")
 		if cl is Dictionary:
 			char_levels.append_array(cl.get("thresholds", []))
-		var burst := String(world.book.def(key).get("burst", ""))
-		if burst != "":
-			library.find_anim(burst)
+		var burst: Variant = world.book.def(key).get("burst", "")
+		if burst is String and String(burst) != "":
+			library.find_anim(String(burst))
+		for path: Variant in world.book.def(key).get("burst_art", {}).values():
+			library.find_anim(String(path))
+		for path: String in ChainCast.ball_paths(world.book.def(key)):
+			library.find_anim(path)
 		for rank in range(1, world.book.max_rank(key) + 1):
 			var level := world.book.canonical_level(key, rank)
 			for field: String in ["ball", "hit", "effect"]:
 				for char_level: Variant in char_levels:
 					var path := world.book.visual(key, field, level, int(char_level))
-					if path != "":
-						library.find_anim(path)
+					# An element-keyed path (`{art}`, PlayerForms.ART_INDEX) loads at every element's key.
+					for element: String in (PlayerForms.ART_INDEX.keys() if path.contains(PlayerForms.ART_TOKEN) else [""]):
+						if path != "":
+							library.find_anim(PlayerForms.fill_art(path, element))
 
 
 ## Loads what the scheduled bosses first show or play, so their first appearance does not
@@ -1039,6 +1076,7 @@ func _read_input(first_tick: bool) -> MoveInput:
 
 
 func _after_tick() -> void:
+	_step_burst_art()
 	_max_alive = maxi(_max_alive, world.swarm.alive_count())
 	var minute := int(world.time / 60.0)
 	while _level_by_minute.size() <= minute:
@@ -1050,6 +1088,11 @@ func _after_tick() -> void:
 func handle_events(events: Array) -> void:
 	for e: Dictionary in events:
 		match String(e.type):
+			"form_started", "form_ended":
+				_refresh_form_tint()
+			"meter_changed":
+				hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
+				meter_cue.on_event(e)
 			"map_cleared":
 				_on_map_cleared(int(e.map_index))
 			"boss_warning":
@@ -1075,12 +1118,25 @@ func handle_events(events: Array) -> void:
 					_event_shot("boss_shockwave_%d_%s.png" % [int(e.boss_index), String(e.attack)], 0.12)
 			"mob_attack":
 				_on_mob_attack(e)
+			"summon_spawn":
+				_sound(String(e.get("sound", "")))
+			"summon_strike":
+				fx.play(String(e.effect), e.pos)
 			"cast":
 				_on_cast(e)
+			"burst_start":
+				_on_burst_start(e)
+			"burst_end":
+				_on_burst_end(e)
+
+			"support_pulse":
+				_on_support_pulse(e)
 			"skill_thrown":
 				_on_skill_thrown(e)
 			"skill_landed":
 				_on_skill_landed(e)
+			"skill_chain":
+				_on_skill_chain(e)
 			"skill_ground":
 				var box: Rect2 = e.box
 				# tier C: tile strips spaced 80 px, lasting exactly the simulation area's lifetime.
@@ -1092,7 +1148,7 @@ func handle_events(events: Array) -> void:
 				var d := world.book.def(String(e.skill))
 				for path: String in d.get("release_visuals", []):
 					fx.play(path, e.pos - Vector2(0, world.cast_height))
-				_sound(String(d.get("sounds", {}).get("hit", "")))
+				_sound(world.book.art_path(String(e.skill), String(d.get("sounds", {}).get("hit", "")), world.loadout.weapon_family))
 			"ammo_shot":
 				_on_ammo_shot(e)
 			"teleport":
@@ -1124,6 +1180,11 @@ func handle_events(events: Array) -> void:
 				_mob_sound(int(e.mob_id), "Die")
 			"player_hit":
 				_on_player_hit(e)
+			"hp_spent":
+				var paid_at: Vector2 = world.player.pos + Vector2(0.0, world.body.position.y)
+				numbers.spawn(int(e.amount), paid_at, DamageNumbers.HP_SPENT, PLAYER_KEY)
+				counters.numbers += 1
+				_first_event_shot("hp_spent_" + String(e.kind), "hp_spent_%s.png" % String(e.kind), 0.1)
 			"player_restored":
 				var head: Vector2 = e.pos + Vector2(0.0, world.body.position.y)
 				numbers.spawn(int(e.amount), head, DamageNumbers.HP_GAIN, PLAYER_KEY)
@@ -1185,6 +1246,8 @@ func handle_events(events: Array) -> void:
 				_on_ammo_upgraded(e)
 			"choice_pending":
 				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus)}
+			"player_revived":
+				_on_player_revived(e)
 			"player_died":
 				_on_player_died(e.pos)
 			"stage_cleared":
@@ -1222,6 +1285,14 @@ func _on_player_banished(e: Dictionary) -> void:
 		# tier C: affected pos0 is anchored at the character's feet (the avatar origin), like heal mob0 pos0.
 		fx.play(String(e.effect), Vector2.ZERO, false, avatar)
 	_first_event_shot("banish", "banish.png", 0.36) # tier C: the first Banish, at its fourth 120 ms affected frame.
+
+
+## The meter's full-bar cue (MeterCue): its art over the character, flipped with the facing, and its sound.
+func _play_meter_cue(effect: String, sound: String) -> void:
+	if effect != "":
+		fx.play(effect, Vector2.ZERO, world.player.facing > 0, avatar)
+	_sound(sound)
+	_first_event_shot("meter_cue", "meter_cue.png", 0.45) # tier C: playtest evidence of the first full-bar cue, mid-bloom.
 
 
 ## An ordinary mob's attack phase (#76): its Sound.wz attack sound at the windup, the canonical effect/hit art, and
@@ -1285,8 +1356,23 @@ func _on_cast(e: Dictionary) -> void:
 	if effect != "":
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
-	for visual: Dictionary in world.book.def(key).get("cast_visuals", []):
-		fx.play(String(visual.path), e.pos + Vector2(float(visual.x), 0))
+	var visuals: Array = world.book.def(key).get("cast_visuals", []).filter(func(v: Dictionary) -> bool: return v.has("across") or v.has("fall"))
+	if not visuals.is_empty():
+		for visual: Dictionary in CastVisualPlan.expand(visuals, world.loadout.stats(key).box):
+			var path := world.book.art_path(key, String(visual.path), world.loadout.weapon_family)
+			var at: Vector2 = e.pos + Vector2(float(visual.x), 0)
+			if float(visual.delay) <= 0.0 and float(visual.fall) <= 0.0:
+				fx.play(path, at)
+			else:
+				_falls.append({"path": path, "to": at - Vector2(0.0, FALL_REST), "delay": float(visual.delay),
+					"fall": float(visual.fall), "fall_time": float(visual.fall_time), "t": 0.0, "slot": -1})
+
+	for visual: Dictionary in world.loadout.stats(key).cast_visuals:
+		var placed := SkillBook.visual_placement(visual, int(e.facing))
+		if bool(visual.follow):
+			fx.play_delayed(String(visual.path), float(visual.get("delay", 0.0)), Vector2.ZERO, int(e.facing) > 0, avatar, Vector2(float(visual.x), 0))
+		else:
+			fx.play_delayed(String(visual.path), float(visual.get("delay", 0.0)), e.pos + Vector2(float(placed.x), 0), bool(placed.flip))
 	var loop := String(world.book.def(key).get("sounds", {}).get("loop", ""))
 	if loop != "":
 		_sound(loop)
@@ -1294,10 +1380,90 @@ func _on_cast(e: Dictionary) -> void:
 	var capture_delay := float(world.book.def(key).get("pending", {}).get("delay", 0.0)) + 0.05
 	capture_delay = float(world.book.def(key).get("capture_delay", capture_delay))
 	_first_event_shot(key, "cast_%s.png" % key, capture_delay)
-	var use := String(world.book.def(key).get("sounds", {}).get("use", ""))
+	var use := world.book.use_sound(key, int(_use_counts.get(key, 0)), world.loadout.weapon_family) # art_by_family twin (Panic/Coma : Axe)
+	_use_counts[key] = int(_use_counts.get(key, 0)) + 1 # tier C: a use_cycle skill (Blast) plays its sounds in cast order
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
+
+
+## A burst skill's stream (Hurricane, #342): `prepare` plays fitted to the wind-up, `keydown` loops from the first arrow, and
+## `keydownend` plays when the stream ends or is dropped. All three follow the avatar. tier C: the 14-frame `prepare`
+## (0.96 s) is sped up to the 0.4 s wind-up; the loop keeps the facing of the cast.
+func _on_burst_start(e: Dictionary) -> void:
+	var key := String(e.skill)
+	var art: Dictionary = world.book.def(key).get("burst_art", {})
+	if art.is_empty():
+		return
+	_stop_burst_art(key)
+	var flip := int(e.facing) > 0
+	var wind_up := float(e.wind_up)
+	if wind_up > 0.0 and String(art.get("prepare", "")) != "":
+		var slot := fx.play(String(art.prepare), Vector2.ZERO, flip, avatar)
+		fx.fit(slot, wind_up)
+		_burst_art[key] = {"phase": "prepare", "slot": slot, "due": world.time + wind_up, "flip": flip}
+	else:
+		_burst_art[key] = {"phase": "loop", "slot": fx.play_repeating(String(art.get("loop", "")), Vector2.ZERO, INF, flip, avatar),
+			"due": world.time, "flip": flip}
+
+
+## Starts the keydown loop once the wind-up has passed.
+func _step_burst_art() -> void:
+	for key: String in _burst_art:
+		var state: Dictionary = _burst_art[key]
+		if String(state.phase) == "prepare" and world.time + 1e-9 >= float(state.due):
+			fx.stop(int(state.slot))
+			state.slot = -1
+			state.phase = "released"
+			var loop := String(world.book.def(key).get("burst_art", {}).get("loop", ""))
+			if loop != "":
+				state.slot = fx.play_repeating(loop, Vector2.ZERO, INF, bool(state.flip), avatar)
+				state.phase = "loop"
+
+
+func _on_burst_end(e: Dictionary) -> void:
+	var key := String(e.skill)
+	var art: Dictionary = world.book.def(key).get("burst_art", {})
+	if art.is_empty():
+		return
+	var flip := bool(_burst_art.get(key, {}).get("flip", world.player.facing > 0))
+	_stop_burst_art(key)
+	if String(art.get("end", "")) != "":
+		fx.play(String(art.end), Vector2.ZERO, flip, avatar)
+
+
+func _stop_burst_art(key: String) -> void:
+	if _burst_art.has(key):
+		fx.stop(int(_burst_art[key].slot))
+		_burst_art.erase(key)
+
+## A support summon's pulse (#352): the parent skill's owner-side `affected` art on the character (tier B: its use is
+## not documented); the summon's own pulse animation is drawn from the sim state by PlayerSummonRenderer.
+func _on_support_pulse(e: Dictionary) -> void:
+	var summons := world.runner.summons
+	if int(e.slot) < summons.stats.size():
+		var parent := String(summons.stats[int(e.slot)].skill)
+		fx.play(world.book.wz_path(parent) + "/affected", Vector2.ZERO, world.player.facing > 0, avatar)
+	_first_event_shot("support_pulse_" + String(e.kind), "support_pulse_%s.png" % e.kind, 0.25)
+
+
+## A second life (BS8, GAME_DESIGN 7.81): the skill's pillar at the character's feet and its beams on the body (the
+## `affected` art keeps its own 1320 ms lead-in), the Use sound, the "Ready again in M:SS" notice and an evidence shot. The
+## stance is the sim's (a held action, drawn only while standing) and the guard blink is _update_player's.
+func _on_player_revived(e: Dictionary) -> void:
+	var key := String(e.skill)
+	var def := world.book.def(key)
+	var effect := String(def.get("effect", ""))
+	if effect != "":
+		fx.play(effect, Vector2.ZERO, int(world.player.facing) > 0, avatar)
+	var affected := String(def.get("affected", ""))
+	if affected != "":
+		# tier C: the beams are anchored on the canonical body-box centre (frame 1's origin sits mid-body).
+		fx.play(affected, Vector2.ZERO, false, avatar, Vector2(0.0, world.body.position.y))
+	if hud != null:
+		hud.push_notice("second_life", SkillText.revive_notice(String(def.get("name", key)), float(e.recharge)), REVIVE_NOTICE_TIME)
+	_sound(world.book.art_path(key, String(def.get("sounds", {}).get("use", "")), world.loadout.weapon_family))
+	_first_event_shot("second_life", "second_life.png", REVIVE_SHOT_DELAY)
 
 
 ## A thrown grenade (#192): the ball follows consumed sim time; only skill_landed starts its blast.
@@ -1306,6 +1472,21 @@ func _on_skill_thrown(e: Dictionary) -> void:
 	var slot := fx.play_repeating(String(e.ball), e.from, INF)
 	_throws.append({"slot": slot, "from": e.from, "to": e.to, "seconds": seconds, "t": 0.0,
 		"skill": String(e.skill), "cast_time": world.time})
+
+
+## A chain cast (ChainCast): the skill's ball art (its `chain.ball` paths, one variant per segment in turn) stretched along
+## every segment of the bolt, and its Hit sound once per struck link. The hit bursts come with each mob_hit.
+func _on_skill_chain(e: Dictionary) -> void:
+	var def := world.book.def(String(e.skill))
+	var anims: Array = []
+	for path: String in ChainCast.ball_paths(def):
+		var anim := library.anim(path)
+		if anim != null and not anim.is_empty():
+			anims.append(anim)
+	chain_bolts.play(e.points, anims)
+	var hit := String(def.get("sounds", {}).get("hit", ""))
+	for link in (e.points as PackedVector2Array).size() - 1:
+		_play_sound(hit)
 
 
 ## The authoritative impact tick stops the matching flight and plays the captured blast, even with no victims.
@@ -1350,6 +1531,29 @@ func _update_throws(delta: float) -> void:
 		_throws.remove_at(i)
 
 
+## Advances the falling cast visuals: each appears after its delay, drops `fall` px over `fall_time` seconds onto its rest
+## point and is freed there (cosmetic: the damage landed in the sim at the skill's own pending delay).
+func _update_falls(delta: float) -> void:
+	var i := 0
+	while i < _falls.size():
+		var f: Dictionary = _falls[i]
+		f.t = float(f.t) + delta
+		var age := float(f.t) - float(f.delay)
+		if age >= 0.0:
+			var progress := minf(age / maxf(float(f.fall_time), 0.001), 1.0)
+			var at: Vector2 = (f.to as Vector2) - Vector2(0.0, float(f.fall) * (1.0 - progress))
+			if int(f.slot) < 0:
+				f.slot = fx.play_repeating(String(f.path), at.round(), INF)
+			if int(f.slot) >= 0:
+				fx.place(int(f.slot), at.round())
+			if progress >= 1.0:
+				if int(f.slot) >= 0:
+					fx.stop(int(f.slot))
+				_falls.remove_at(i)
+				continue
+		i += 1
+
+
 func _on_mob_hit(e: Dictionary) -> void:
 	var m := int(e.mob)
 	numbers.spawn(int(e.damage), e.pos, DamageNumbers.CRIT if bool(e.crit) else DamageNumbers.DEALT, m)
@@ -1359,7 +1563,14 @@ func _on_mob_hit(e: Dictionary) -> void:
 	var hv := String(e.hit_visual)
 	if hv != "":
 		var at: Vector2 = world.mob_center(m) if m >= 0 and m < world.swarm.capacity() else e.pos
-		fx.play(hv, at.round(), at.x > world.player.pos.x)
+		var hit_def := world.book.def(String(e.get("skill", "")))
+		if bool(hit_def.get("hit_at_feet", false)) and m >= 0 and m < world.swarm.capacity():
+			at = Vector2(world.swarm.x[m], world.swarm.y[m]) # tier C: a ground pillar's origin is its base (Dragon Strike)
+		var skipped := float(hit_def.get("hit_skip", 0.0))
+		if skipped > 0.0:
+			fx.play_from(hv, at.round(), at.x > world.player.pos.x, skipped)
+		else:
+			fx.play(hv, at.round(), at.x > world.player.pos.x)
 		counters.hit_fx += 1
 	_mob_sound(int(e.mob_id), "Damage")
 
@@ -1493,6 +1704,7 @@ func _reload_map() -> void:
 	mob_layers.clear()
 	_slot_layers.clear()
 	_throws.clear()
+	_falls.clear()
 	_immunity_fx.clear()
 	_slow_fx = -1
 	_shown_action = ""
@@ -1537,6 +1749,13 @@ func _sound(path: String, phase: String = "") -> void:
 	if path == "" or _frame_sounds.has(key):
 		return
 	_frame_sounds[key] = true
+	_play_sound(path)
+
+
+## Starts one sound without frame coalescing; chain links are separate audible hits.
+func _play_sound(path: String) -> void:
+	if path == "":
+		return
 	var sfx := _sfx_service()
 	if sfx != null and sfx.play(path):
 		counters.sounds += 1
@@ -1688,6 +1907,7 @@ func _present(delta: float) -> void:
 		_slow_fx = -1
 	_update_mob_status_effects()
 	_update_throws(delta)
+	_update_falls(delta)
 	_update_player(delta)
 	_update_pet(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
@@ -1775,7 +1995,8 @@ func _update_player(delta: float) -> void:
 	if not (p.state == PlayerMotion.ST_LADDER and p.vel.y == 0.0):
 		# An attack stance plays at the attack speed (a Booster shortens its frame times); movement stances do not.
 		avatar.advance(delta / maxf(float(world.player_state.action_scale), 0.1) if action != motion else delta)
-	var inv := float(world.player_state.invincible_t)
+	# A hit hook's guard (the second life's) blinks like the hit window does (BS8): the longer of the two timers drives it.
+	var inv := maxf(float(world.player_state.invincible_t), world.hit_guard_left())
 	var hidden_alpha := HIDDEN_ALPHA if not dead and bool(world.player_state.get("hidden", false)) \
 		and int(world.player_state.get("morph", 0)) == 0 else 1.0
 	if inv > 0.0 and not dead:
@@ -1911,7 +2132,7 @@ func run_time() -> float:
 
 ## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with icon, rank, key_label
 ## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether the held weapon blocks each, and
-## the learned movement skill (Teleport or Dash, HudQuickSlot.movement_skill_of; {} before it is learned).
+## the learned movement skill (Teleport, Dash or Rush, HudQuickSlot.movement_skill_of; {} before it is learned).
 func run_info() -> Dictionary:
 	var skills: Array = []
 	for key: String in world.loadout.order:
@@ -1969,7 +2190,7 @@ func build_summary() -> Dictionary:
 		"job_name": world.jobs.name_of(job_id), "kills": world.kills, "damage_dealt": world.damage_dealt,
 		"skills": skills, "seed": run_seed,
 		"bosses_killed": world.bosses_killed(), "levels_gained": world.levels_gained(),
-		"nx_awarded": world.nx_awarded(),
+		"nx_awarded": world.nx_awarded(), "revives": world.revives.duplicate(true),
 	}
 
 
@@ -2165,3 +2386,13 @@ func _layer_at(p: Vector2) -> int:
 
 func _sfx_service() -> AudioService:
 	return get_node_or_null("/root/Sfx") as AudioService
+
+
+## Refreshes the held weapon only when a form starts or ends (tier C element palette).
+func _refresh_form_tint() -> void:
+	avatar.weapon_tint = Color.WHITE
+	for form: Dictionary in world.runner.forms.snapshot():
+		var element := String(form.effects.get("element", ""))
+		if not element.is_empty():
+			avatar.weapon_tint = Elements.tint(element)
+			break

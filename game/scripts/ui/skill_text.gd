@@ -28,6 +28,10 @@ extends RefCounted
 ## The returned text keeps the v83 markup `#c...#` (orange) and "\n" breaks: draw it with MapleText.draw_markup /
 ## MapleText.wrap (MapleText.plain strips it). Presentation only: the sim never sees these strings.
 
+## Names of the player stats a support-summon buff pulse carries (PlayerBuffs effect names); tier C: our wording.
+const BUFF_STAT_LABELS := {"pdd": "Weapon DEF", "mdd": "Magic DEF", "acc": "Accuracy", "avoid": "Avoid",
+	"watk": "Weapon ATT", "matk": "Magic ATT", "speed": "Speed", "jump": "Jump"}
+
 var book: SkillBook
 var strings: Dictionary
 
@@ -69,12 +73,83 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		line = strip_mp_cost(clean(String(_wz(key).get(hs, ""))))
 	var mechanics := PackedStringArray()
 	var def := book.def(key)
+	if String(def.get("cast", {}).get("rule", "")) == "burst":
+		var burst: Dictionary = def.get("burst", {})
+		var shots := int(stats.get("count", 1))
+		var seconds := BurstCast.span(stats, burst)
+		mechanics.append("Fires %d arrows over %s s" % [shots, number(seconds)])
+	if def.has("summon"):
+		var summon: Dictionary = def.summon
+		mechanics.append("Calls %s for %s s" % [String(def.get("name", key)), number(float(stats.get("duration", 0.0)))])
+		var status: Dictionary = def.get("on_hit", {})
+		if String(status.get("status", "")) == "stun":
+			var chance := book.canonical(key, level, String(status.chance_field)) if status.has("chance_field") else 100.0
+			mechanics.append("%s%% to stun" % number(chance))
+		if summon.has("watk_field"):
+			mechanics.append("%s W.Att" % number(book.canonical(key, level, String(summon.watk_field))))
+
+	if def.has("form"):
+		var form: Dictionary = def.form
+		var effects: Dictionary = form.get("effects", {})
+		var element := String(effects.get("element", ""))
+		var power := 1.0
+		if effects.has("damage"):
+			power = book.canonical(key, level, String(effects.damage.field), 100.0) / 100.0 + float(stats.get("form_power", 0.0))
+		var seconds := number(float(stats.get("duration", form.duration)))
+		if element.is_empty():
+			mechanics.append(_transform_line(seconds, power - 1.0, effects.has("damage"), stats.get("buff_effects", {})))
+		else:
+			mechanics.append("Charges your weapon for %s s: your attacks deal %s damage (+%s%%)" % [
+				seconds, Elements.display_name(element), number((power - 1.0) * 100.0)])
+		for sub: Dictionary in form.get("subs", []):
+			var sub_key := String(sub.skill)
+			var trigger := "once after %s s" % number(float(sub.first_after)) if bool(sub.get("once", false)) else "after %s s, every %s s" % [number(float(sub.first_after)), number(float(sub.interval))]
+			var sub_level := book.canonical_level(sub_key, int(stats.get("rank", 1)))
+			var sub_stats := Loadout.new(book).sub_stats(sub_key, stats, int(stats.get("rank", 1)))
+			# One line per sub: a pull sub (Snatch) carries its own mechanics line, which joins its text here.
+			var details := level_line(sub_key, sub_level, sub_stats).replace("\n", " ")
+			var base := ""
+			match String(sub_stats.damage_type):
+				"fixed":
+					base = "Base %s fixed damage" % number(book.canonical(sub_key, sub_level, "fixdamage"))
+				"physical":
+					base = "Base %s%% weapon damage" % number(book.canonical(sub_key, sub_level, "damage", 100.0))
+				"magic":
+					base = "Base %s magic power" % number(book.canonical(sub_key, sub_level, "mad"))
+			var cost := ", %d HP" % int(sub_stats.hp_cost) if int(sub_stats.hp_cost) > 0 else ""
+			mechanics.append("%s %s (Lv%d): %s %s, %d targets%s" % [String(_wz(sub_key).get("name",
+				book.def(sub_key).get("name", sub_key.replace("_", " ").capitalize()))), trigger, sub_level,
+				details, base, SkillRunner.strike_count(sub_stats), cost])
+	if def.has("meter"):
+		# The meter's unit word: a finisher may name it ("energy"); Hero's finishers keep "orbs".
+		var unit := book.meter_unit(key)
+		mechanics.append("Needs %d %s" % [int(def.meter.get("min", 0)), unit])
+		var keep := int(stats.get("meter_keep", 0))
+		if str(def.meter.get("spend", "")) == "all":
+			mechanics.append("Spends all %s" % unit if keep <= 0 else "Spends all but %d %s; Keeps %d %s" % [keep, unit, keep, unit])
+		elif def.meter.has("spend"):
+			mechanics.append("Spends %d %s" % [int(def.meter.spend), unit])
+	mechanics.append_array(HpRisk.mechanic_lines(stats))
 	if def.has("knockback"):
 		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
 			number(float(stats.get("knockback_distance", 0.0)))])
+	if def.has("pierce_field"):
+		var through := int(stats.get("pierce", 0))
+		mechanics.append("Pierces up to %d more %s" % [through, "monster" if through == 1 else "monsters"])
+	if def.has("pull"):
+		var pulled := int(stats.get("mob_count", 1))
+		mechanics.append("Pulls up to %d %s from %s px" % [pulled, "monster" if pulled == 1 else "monsters",
+			number(float(stats.get("range", 0.0)))])
 	if int(stats.get("blast_targets", 0)) > 0:
 		var targets := int(stats.blast_targets)
 		mechanics.append("Blast: %d %s" % [targets, "target" if targets == 1 else "targets"])
+	if String(stats.get("cast_rule", "")) == "chain":
+		var links := int(stats.get("mob_count", 1))
+		mechanics.append("Jumps to up to %d %s within %s px" % [links, "monster" if links == 1 else "monsters",
+			number(ChainCast.hop_of(stats))])
+	if String(stats.get("cast_rule", "")) == "hp_or_undead":
+		# Heal (#376): the resolved threshold, so a Mending Touch card shows in the window.
+		mechanics.append("Restores HP below %s%% health; strikes undead in the area" % number(float(stats.get("heal_threshold", 0.0)) * 100.0))
 	if def.has("pierce_falloff"):
 		var fraction := float(stats.get("pierce_falloff", 0.0))
 		if fraction < 0.0:
@@ -83,9 +158,74 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		else:
 			mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
 				number(fraction * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
+	if stats.has("burn_pulse"):
+		mechanics.append("Burns for %s s, %s%% of base damage per second" % [number(float(stats.get("burn_time", 0.0))),
+			number(float(stats.get("burn_share", 0.0)))])
+
+	for pulse: Dictionary in stats.get("support", []):
+		mechanics.append(pulse_text(pulse))
+
+
+	if stats.get("revive") is Dictionary:
+		var revive: Dictionary = stats.revive
+		# tier C (ours, BS8): the second-life line, the numbers of the plan PlayerRevive resolves.
+		mechanics.append("When a hit would kill you: return at %s%% HP, %s s guard; recharge %s" % [
+			number(float(revive.hp) * 100.0), number(float(revive.guard)), clock(SkillRunner.restart_cooldown(stats))])
 	if not mechanics.is_empty():
-		line += ("\n" if line != "" else "") + "; ".join(mechanics)
+		# Parts are joined with "; ", except after the sentence that ends a Transform line.
+		var joined := ""
+		for part in mechanics:
+			joined += part if joined == "" else (" " if joined.ends_with(".") else "; ") + part
+		line += ("\n" if line != "" else "") + joined
 	return line
+
+
+## The line of a form with no element (a morph such as Buccaneer's Transformation, spec #412 BU-9): its duration, the attack
+## bonus of a `damage` effect, then the stats the form's `buff` block feeds (`effects`: stat -> value, zero ones left out).
+func _transform_line(seconds: String, bonus: float, has_damage: bool, effects: Dictionary) -> String:
+	var parts := PackedStringArray()
+	if has_damage:
+		parts.append("attacks +%s%%" % number(bonus * 100.0))
+	var pdd := float(effects.get("pdd", 0.0))
+	var mdd := float(effects.get("mdd", 0.0))
+	if pdd > 0.0 and is_equal_approx(pdd, mdd):
+		parts.append("defence +%s" % number(pdd))
+	else:
+		if pdd > 0.0:
+			parts.append("weapon defence +%s" % number(pdd))
+		if mdd > 0.0:
+			parts.append("magic defence +%s" % number(mdd))
+	for stat: String in ["speed", "jump"]:
+		if float(effects.get(stat, 0.0)) > 0.0:
+			parts.append("%s +%s" % [stat, number(float(effects[stat]))])
+	if parts.is_empty():
+		return "Transforms you for %s s." % seconds
+	return "Transforms you for %s s: %s." % [seconds, ", ".join(parts)]
+
+
+## One line for a resolved support-summon pulse (SupportSummons.resolve): its sub-skill name, the effect and the interval.
+func pulse_text(pulse: Dictionary) -> String:
+	var every := "every %s s" % number(float(pulse.interval))
+	match String(pulse.kind):
+		"heal":
+			return "%s: heals %s HP %s" % [pulse.name, number(float(pulse.amount)), every]
+		"buff":
+			var parts := PackedStringArray()
+			for stat: String in pulse.effects:
+				parts.append("%s +%s" % [BUFF_STAT_LABELS.get(stat, stat.capitalize()), number(float(pulse.effects[stat]))])
+			return "%s: %s for %s s %s" % [pulse.name, ", ".join(parts), number(float(pulse.duration)), every]
+	return "%s: %s %s" % [pulse.name, pulse.kind, every]
+
+
+## `seconds` as M:SS (rounded to the whole second).
+static func clock(seconds: float) -> String:
+	var whole := maxi(0, roundi(seconds))
+	return "%d:%02d" % [whole / 60, whole % 60]
+
+
+## The notice a second life shows: the skill's name and when it works again.
+static func revive_notice(skill_name: String, recharge: float) -> String:
+	return "%s! Ready again in %s" % [skill_name, clock(recharge)]
 
 
 ## Copies of the cards of a choice_pending event with this skill text at the offered level, using the effective
@@ -113,6 +253,23 @@ func dress(cards: Array, lo: Loadout) -> Array:
 					card["desc"] = line
 		if lo.book.def(skill).has("rarity_bonuses"):
 			card["desc"] = c.get("desc", "") # preserve rank/bonus wording after dressing the learn detail
+		if lo.book.def(skill).has("form"):
+			var sub_name := _form_sub_label(lo.book, skill)
+			card["skill_mod_labels"] = {"damage": sub_name + " damage"}
+			var labels := PackedStringArray()
+			var bonus: Dictionary = card.get("rarity_bonus", {})
+			for effect: Dictionary in bonus.get("effects", []):
+				var stat := String(effect.stat)
+				if String(effect.op) == "mul" and stat == "damage":
+					labels.append(sub_name + " +" + number((float(effect.value) - 1.0) * 100.0) + "%")
+				elif String(effect.op) == "mul" and stat == "form_time":
+					labels.append("charge lasts " + number((float(effect.value) - 1.0) * 100.0) + "% longer")
+				else:
+					labels.append(UpgradePool.effect_label(stat, String(effect.op), float(effect.value)))
+			if not labels.is_empty():
+				var text := String(bonus.text).get_slice(": ", 0) + ": " + ", ".join(labels)
+				card.desc = String(card.desc).replace(String(bonus.text), text)
+				card.rarity_bonus.text = text
 		out.append(card)
 	return out
 
@@ -212,3 +369,11 @@ func _wz(key: String) -> Dictionary:
 ## Signed percentage-point preview: a negative falloff adds power on later contacts.
 static func pierce_points(percent: float) -> String:
 	return "%s%s points per later monster" % ["+" if percent <= 0.0 else "-", number(absf(percent))]
+
+
+static func _form_sub_label(book: SkillBook, skill: String) -> String:
+	var names := PackedStringArray()
+	for sub: Dictionary in book.def(skill).get("form", {}).get("subs", []):
+		var key := String(sub.skill)
+		names.append(String(book.def(key).get("name", key.replace("_", " ").capitalize())))
+	return " / ".join(names) if not names.is_empty() else "Sub-skill"

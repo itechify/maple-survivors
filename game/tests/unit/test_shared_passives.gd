@@ -29,6 +29,7 @@ func _passive(id: int, families: Array, passive: Dictionary, ranks := 2) -> Dict
 ## sword only), improved_hp (max_hp_per_level x, any weapon).
 func _world(p_seed := 161, mutate: Callable = Callable()) -> RunWorld:
 	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["creation_weapon"] = 1302000 # Explicit Sword for mastery and Final Attack examples.
 	data.skills.skills["sword_mastery"] = _passive(9991000, ["sword"], {"stat": "mastery", "field": "mastery",
 		"effects": [{"stat": "acc", "field": "x"}]})
 	data.skills.skills["crit_blade"] = _passive(9991001, ["sword"], {"stat": "crit_chance", "field": "prop",

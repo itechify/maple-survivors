@@ -65,16 +65,25 @@ func test_beginner_inputs_are_identical_to_main() -> void:
 
 ## The weapon-swing world with one synthetic short-reach box skill ("slash", job 100, fixed damage, box 90 px ahead) as the
 ## only skill, a sword (afterimage reach 88) and an invulnerable player on the first floor facing right.
-func _melee_world(seed_value := 9) -> RunWorld:
+func _melee_world(seed_value := 9, with_long_box := false, long_box_bot: Dictionary = {}) -> RunWorld:
 	var data := RF.quiet_data()
 	data.upgrades.cards = []
 	data.balance.magnet_radius = 0
 	data.skills.skills["slash"] = {"skill_id": 9991001, "book": "999", "job": 100, "kind": "instant",
 		"damage": "fixed", "ranks": [1], "cooldown": 1.0, "action": "swingO1", "action_time": 0.4,
 		"cast": {"rule": "box"}}
+	# A second, long box skill (a Dragon Strike's 400 px strip) that optionally carries the `bot` block under test.
+	data.skills.skills["strip"] = {"skill_id": 9991002, "book": "999", "job": 100, "kind": "instant",
+		"damage": "fixed", "ranks": [1], "cooldown": 4.8, "action": "swingO1", "action_time": 0.4,
+		"cast": {"rule": "box"}}
+	if not long_box_bot.is_empty():
+		data.skills.skills["strip"]["bot"] = long_box_bot
 	var setup := RF.with_basic_attack(RF.setup("quiet", seed_value, data))
 	setup.skill_imgs["999"] = {"skill": {"9991001": {"level": {"1": {
 		"lt": {"$v": [-90.0, -60.0]}, "rb": {"$v": [10.0, 0.0]}, "mobCount": 1.0, "attackCount": 1.0,
+		"fixdamage": 10.0, "mpCon": 1.0}}},
+		"9991002": {"level": {"1": {
+		"lt": {"$v": [-400.0, -100.0]}, "rb": {"$v": [25.0, 20.0]}, "mobCount": 4.0, "attackCount": 1.0,
 		"fixdamage": 10.0, "mpCon": 1.0}}}}}
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
@@ -82,6 +91,8 @@ func _melee_world(seed_value := 9) -> RunWorld:
 	w.god = true
 	w.loadout.order.clear()
 	w.learn_skill("slash")
+	if with_long_box:
+		w.learn_skill("strip")
 	w.drain_events()
 	return w
 
@@ -96,6 +107,35 @@ func test_reach_of_reads_projectile_range_box_extent_and_zero_for_non_attacks() 
 	assert_eq(SkillRunner.reach_of(w.loadout.stats("slow_fp"), w), 0.0, "a status-only crowd skill is not an attack")
 	w.loadout.add_skill_mod("slash", "area", "mul", 1.5)
 	assert_eq(SkillRunner.reach_of(w.loadout.stats("slash"), w), 135.0, "area cards widen the box")
+
+
+func test_reach_of_returns_the_bot_reach_key_in_place_of_the_geometric_reach() -> void:
+	# tier C data key (BU-21): a long box skill may declare how far the bot should think it reaches.
+	var plain := _melee_world(9, true)
+	assert_eq(SkillRunner.reach_of(plain.loadout.stats("strip"), plain), 400.0, "no key: the box's far edge")
+	var zero := _melee_world(9, true, {"reach": 0})
+	assert_eq(SkillRunner.reach_of(zero.loadout.stats("strip"), zero), 0.0, "reach 0 replaces 400")
+	var short := _melee_world(9, true, {"reach": 120.0})
+	assert_eq(SkillRunner.reach_of(short.loadout.stats("strip"), short), 120.0, "any number replaces the geometry")
+	short.loadout.add_skill_mod("strip", "area", "mul", 1.5)
+	assert_eq(SkillRunner.reach_of(short.loadout.stats("strip"), short), 120.0, "area cards do not scale the declared number")
+	assert_eq(SkillRunner.reach_of(zero.loadout.stats("slash"), zero), 90.0, "a sibling without the key is unchanged")
+
+
+func test_a_melee_build_holding_a_bot_reach_zero_strip_still_closes_in_on_a_mob() -> void:
+	var w := _melee_world(9, true, {"reach": 0})
+	_melee_swarm(w)
+	var r := _ready_ticks_in_reach(w, 60 * 40, 60 * 8)
+	assert_true(int(r[0]) > 20, "the slash is ready often enough to measure (%d)" % r[0])
+	assert_true(float(r[1]) >= 0.7 * float(r[0]), "ready ticks in reach with the strip in the loadout: %d of %d" % [r[1], r[0]])
+
+
+func test_the_same_strip_without_the_key_makes_the_melee_bot_kite() -> void:
+	# The control: the failure BU-21 fixes. A 400 px box is over kite_reach (220), so the bot holds its distance.
+	var w := _melee_world(9, true)
+	_melee_swarm(w)
+	var r := _ready_ticks_in_reach(w, 60 * 40, 60 * 8)
+	assert_true(float(r[1]) < 0.5 * float(r[0]), "kiting keeps mobs out of the slash's 90 px: %d of %d" % [r[1], r[0]])
 
 
 func test_weapon_reach_is_the_widest_afterimage_stance_or_the_punch() -> void:

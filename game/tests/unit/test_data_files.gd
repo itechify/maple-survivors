@@ -23,6 +23,15 @@ func test_load_all_has_every_file() -> void:
 	assert_eq(bad.size(), 13, "every missing file reported")
 
 
+func test_an_ammo_schedule_keyed_by_branch_is_a_load_error() -> void:
+	assert_true(Ammo.schedule_errors(data.ammo).is_empty(), "the shipped schedules are keyed by exact job (format 2)")
+	var old: Dictionary = data.ammo.duplicate(true)
+	old.schedules[0].erase("job")
+	old.schedules[0]["branch"] = 310
+	var errors := Ammo.schedule_errors(old)
+	assert_eq(errors.size(), 2, "the branch key and the missing job: %s" % [errors])
+
+
 func test_every_stage_names_its_region_and_continent() -> void:
 	var want := {"henesys": ["Henesys", "Victoria Island"], "ellinia": ["Ellinia", "Victoria Island"],
 		"perion": ["Perion", "Victoria Island"], "kerning": ["Kerning City", "Victoria Island"],
@@ -50,7 +59,7 @@ func test_stage_labels_fall_back_to_the_old_name() -> void:
 
 
 func test_skills_reference_canonical_ids() -> void:
-	var skills: Dictionary = data.skills.skills
+	var skills: Dictionary = SkillTemplate.resolve(data.skills.skills)  # a templated child is only whole once resolved
 	var want := {"three_snails": 1000, "energy_bolt": 2001004, "magic_claw": 2001005,
 		"magic_armor": 2001003, "recovery": 1001, "nimble_feet": 1002}
 	for gone: String in ["magic_guard", "improved_max_mp", "improved_mp_recovery", "mp_eater_fp", "mp_eater_il",
@@ -73,7 +82,7 @@ func test_skills_reference_canonical_ids() -> void:
 
 
 func test_skill_ranks_cover_every_canonical_level_in_the_fixtures() -> void:
-	_assert_ranks_cover_canonical_levels(SkillBook.from_data(data.skills, RF.skill_imgs()))
+	_assert_ranks_cover_canonical_levels(SkillBook.from_data(data.skills, RF.skill_imgs()), true)
 
 
 func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
@@ -90,16 +99,39 @@ func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
 	lib.free()
 
 
-func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
+## Whether `key` is in the skill pool of any job (212, Hero's 112 and I/L's 222).
+## True when a playable job's pool holds `key`: an unplayable line's pool (Bishop until BS10, #374) is not shipped yet.
+## `playable_only` false also counts an unplayable line's pool (the eight-rank mapping applies as soon as a pool skill is ported, #376).
+func _in_any_job_pool(key: String, playable_only := true) -> bool:
+	for job: Dictionary in data.jobs_survivor.jobs.values():
+		if (bool(job.get("playable", false)) or not playable_only) and key in job.get("skill_pool", []):
+			return true
+	return false
+
+
+## `fixtures`: the synthetic books lack some skills (the I/L 221 book, #325); those are checked by the real-cache run only.
+func _assert_ranks_cover_canonical_levels(book: SkillBook, fixtures := false) -> void:
 	for key: String in book.defs:
+		if fixtures and book.skill_node(key).is_empty() and not bool(book.def(key).get("common_passive", false)):
+			continue
 		if bool(book.def(key).get("common_passive", false)):
 			# #289: a common passive is survivor-made: its icon skill's WZ node has no level table, rank r is level r.
 			assert_eq(book.max_rank(key), 5, "%s: five ranks" % key)
 			assert_eq(book.canonical_level(key, 5), 5)
 			continue
+		if key in ["rush_hero", "rush_dark_knight", "rush_paladin"] and book.skill_node(key).is_empty():
+			continue # the synthetic fixtures carry no Rush node; the real-cache run covers it
 		var top := book.max_level(key)
 		assert_true(top > 0, "%s has a canonical level table" % key)
-		if key in data.jobs_survivor.jobs["212"].skill_pool:
+		# A pool skill (rarity bonuses, listed in a job's skill_pool) has eight ranks; any other skill keeps one rank per level.
+		# Hero's Rush (#302) and Dark Knight's (#356) are no pool skills but take the same level-30 table, eight ranks that the shared
+		# mobility rule grows.
+		# A support summon's sub-skill (the Beholder's Aura and Hex, #357) ranks with its parent: eight ranks into its own table.
+		if String(book.def(key).get("slot", "")) == "summon_sub":
+			assert_eq(book.max_rank(key), 8, "%s: ranks with its parent" % key)
+			assert_eq(book.canonical_level(key, 8), top)
+			continue
+		if key in ["rush_hero", "rush_dark_knight", "rush_paladin"] or String(book.def(key).get("slot", "")) == "form_sub" or book.def(key).has("rarity_bonuses") and _in_any_job_pool(key, false):
 			assert_eq(book.max_rank(key), 8)
 			assert_eq(book.canonical_level(key, 8), top)
 			continue
@@ -358,8 +390,11 @@ func test_jobs_and_balance() -> void:
 	var tree := JobTree.from_data(data.jobs, data.jobs_survivor)
 	for k: String in data.jobs_survivor.jobs:
 		assert_false(tree.job(int(k)).is_empty(), "survivor job %s exists in the canonical tree" % k)
-	# #284 (ADR 0006): one fixed job; F/P Arch Mage is the only playable job until the next line is ported.
-	assert_eq(tree.playable_jobs(), [212] as Array[int])
+	# #284 (ADR 0006): one fixed job per character; Hero and F/P are playable (#306); 222 is deliberately not asserted either way
+	# (I/L flips in its last ticket, #319 I12).
+	assert_true(tree.job(212).playable, "212 is playable")
+	assert_true(tree.job(112).playable, "112 is playable")
+	assert_eq(tree.default_job(), 212)
 	for id: int in [0, 100, 110, 200, 210, 220, 230, 300, 400, 500, 510, 520]:
 		assert_false(tree.job(id).playable, "%d is not playable" % id)
 	for k: String in data.jobs_survivor.jobs:
@@ -476,7 +511,8 @@ func test_build_setup_and_paths() -> void:
 	assert_has(s.skill_imgs, "230", "Cleric attacks and Teleport book")
 	assert_eq(s.mob_imgs.size(), mob_ids.size() - 1, "all stage kinds except the loader's missing Green Mushroom")
 	assert_eq(missing, PackedStringArray(["Mob.wz/1110100.img"]))
-	assert_eq(s.ammo_info.size(), 18, "the ammo items' canonical facts are in the setup (#155)")
+	for id: int in Ammo.item_ids(DataRepo.load_all().ammo):
+		assert_true(s.ammo_info.has(id), "ammo %d canonical facts are loaded" % id)
 	assert_eq(s.ammo_info[2070001], {"incPAD": 7})
 	assert_eq(s.scroll_info.size(), Scrolls.ids(data.scrolls).size(), "every roster scroll's canonical info is loaded")
 	assert_eq(s.scroll_info[2043700], {"success": 60, "incMAD": 2})
@@ -637,7 +673,7 @@ func test_manual_skills_name_a_skill_key_with_an_input_action() -> void:
 
 
 func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> void:
-	var skills: Dictionary = data.skills.skills
+	var skills: Dictionary = SkillTemplate.resolve(data.skills.skills)
 	var covered := {}
 	for c: Dictionary in data.upgrades.cards:
 		if String(c.kind) != "skill_mod":
@@ -647,6 +683,10 @@ func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> 
 				covered[String(c.skill)] = true
 	for key: String in skills:
 		var s: Dictionary = skills[key]
+		if String(s.get("slot", "")) == "summon_sub":
+			assert_true(skills.has(String(s.get("summon_sub_of", ""))), "%s: a support sub names its parent skill (#357)" % key)
+			assert_false(covered.has(key) or s.has("rarity_bonuses"), "%s: a sub is no card" % key)
+			continue # read through its parent's cast; never offered, never an attack
 		if HIT_MORE_EXEMPT.has(key):
 			assert_eq(String(s.damage), "none", "exempt %s must not be an attack skill" % key)
 			assert_true(String(s.slot) in ["active", "mobility"], "exempt %s is active or manual mobility" % key)
@@ -660,9 +700,11 @@ func test_every_attack_skill_has_a_signature_bonus_or_legacy_hit_more_card() -> 
 					assert_false(entry.get("effects", []).is_empty(), "%s bonus has effects" % key)
 			assert_false(covered.has(key), "%s uses rarity bonuses instead of standalone cards" % key)
 			continue
-		assert_false(key in data.jobs_survivor.jobs["212"].skill_pool, "%s is a pool skill and needs rarity_bonuses (#288)" % key)
+		assert_false(_in_any_job_pool(key), "%s is a pool skill and needs rarity_bonuses (#288)" % key)
 		if int(s.get("job", -1)) == 0:
 			continue # #284: the Beginner is gone and its skills have no cards
+		if String(s.slot) in ["mobility", "form_sub"]:
+			continue # mobility and form sub-skills are never offered as cards
 		if String(s.damage) != "none" or String(s.slot) == "active":
 			assert_true(covered.has(key), "%s needs a skill_mod card with more shots, targets or pierce" % key)
 
@@ -689,3 +731,71 @@ func test_stage_keyframe_parser_ignores_retired_potion_curve() -> void:
 	var director := SpawnDirector.create(stage, {})
 	assert_false(director.keyframes[0].has("normal_hp_drop_chance"), "retired potion curves are not parsed")
 	assert_near(director.rate_at(0.0), 1.0, 1e-6, "supported pacing fields are still parsed")
+
+func test_meter_catalog_schema() -> void:
+	for job: Dictionary in data.jobs_survivor.jobs.values():
+		if not job.has("meter"):
+			continue
+		var meter: Dictionary = job.meter
+		assert_true(meter.id is String and not String(meter.id).is_empty())
+		assert_true(float(meter.max) > 0 and float(meter.max) == floorf(float(meter.max)))
+		assert_true(String(meter.gain.event) in ["cast_landed", "hit_taken", "meso_picked"])
+		assert_true(float(meter.gain.amount) > 0 and float(meter.gain.amount) == floorf(float(meter.gain.amount)))
+		assert_true(String(meter.gain.get("exclude", "")) in ["", "finisher"])
+		assert_eq(String(meter.per_unit.stat), "damage")
+		assert_true(float(meter.per_unit.value) >= 0.0)
+		assert_true(meter.get("art", "") is String)
+		# Presentation only (B2 #414): the optional cue object names the full-bar art and sound; the sim ignores it.
+		assert_true(meter.get("cue", {}) is Dictionary, "%s: cue is an object" % meter.id)
+		if meter.has("cue"):
+			assert_true(String(meter.cue.get("effect", "")) != "" and String(meter.cue.get("sound", "")) != "")
+	for skill: Dictionary in data.skills.skills.values():
+		if not skill.has("meter"):
+			continue
+		var meter: Dictionary = skill.meter
+		assert_eq(String(meter.role), "finisher")
+		assert_true(float(meter.min) > 0 and float(meter.min) == floorf(float(meter.min)))
+		assert_eq(String(meter.spend), "all")
+		assert_true(float(meter.damage_per_unit) >= 0.0)
+		assert_true(meter.get("unit", "") is String, "%s: unit is a word" % skill.get("skill_key", ""))
+		assert_eq(String(skill.slot), "active")
+
+func test_burst_cast_and_thrown_art_keep_distinct_typed_contracts() -> void:
+	var skills: Dictionary = DataRepo.load_all().skills.skills
+	for key: String in skills:
+		var d: Dictionary = skills[key]
+		var rule := String(d.get("cast", {}).get("rule", ""))
+		if rule == "burst":
+			assert_true(d.get("burst") is Dictionary, key + " uses burst scheduling parameters")
+		elif rule == "cluster":
+			assert_true(d.get("burst", "") is String, key + " uses a thrown impact art path")
+
+
+func test_manual_skills_do_not_carry_auto_cast_hp_damage_mechanics() -> void:
+	for key: String in data.skills.skills:
+		var d: Dictionary = data.skills.skills[key]
+		if String(d.get("cast", {}).get("rule", "")) != "manual":
+			continue
+		assert_false(d.has("self_damage") or d.has("low_hp_damage"), key)
+		for bonuses: Array in d.get("rarity_bonuses", {}).values():
+			for bonus: Dictionary in bonuses:
+				for effect: Dictionary in bonus.get("effects", []):
+					assert_false(String(effect.get("stat", "")) in ["self_damage", "low_hp_damage"], key)
+
+
+func test_support_pulses_name_registered_kinds() -> void:
+	for key: String in data.skills.skills:
+		for pulse: Dictionary in data.skills.skills[key].get("summon", {}).get("support", {}).get("pulses", []):
+			assert_true(SupportSummons.KINDS.has(String(pulse.kind)), key)
+
+
+func test_form_catalog_schema_and_subs_excluded_from_pools_and_cards() -> void:
+	var errors := Array(PlayerForms.validation_errors(data.skills.skills))
+	assert_true(errors.is_empty(), " ".join(errors))
+	for key: String in data.skills.skills:
+		if String(data.skills.skills[key].get("slot", "")) != "form_sub":
+			continue
+		for job: Dictionary in data.jobs_survivor.jobs.values():
+			assert_false(key in job.get("skill_pool", []), "%s: sub never in pool" % key)
+		for card: Dictionary in data.upgrades.cards:
+			assert_false(String(card.get("skill", "")) == key, "%s: sub never a card" % key)

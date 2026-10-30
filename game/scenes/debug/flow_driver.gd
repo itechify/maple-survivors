@@ -14,6 +14,9 @@ extends Node
 ##           -> Sleepywood round (loot picked up, a lethal diagnostic hit) -> results -> Free Market (loot, worn item and the
 ##           unlock kept) -> Save & quit -> delete the character -> history. Shots redesign_*.png; summary.json holds the
 ##           offers (kinds, rarities, picks), the showcased windows and the history. `--seed` (default 1).
+##   creation the Job page and character creation (spec #296, H9): title -> create a character of each job in `--jobs=<id,id>` (at most three)
+##           (default: every playable job, in separate slots, then the Job page is checked to list them in order and to show the
+##           chosen row) -> Free Market each time -> character select with all character slots. Shots creation_*.png, job_<id>_*.png.
 ##   title   the title screen only: waits for it, saves the shot, quits (e.g. to check an exported build:
 ##           MapleSurvivors.exe res://scenes/debug/flow_driver.tscn -- --scenario=title --shots=<dir>).
 ##   clear   --run tool one-off (`--run=<stage> --seed=<n> --autoplay --autopick --speed=<k>`): waits for the clear -> results ->
@@ -69,6 +72,7 @@ extends Node
 ##           changes the prepared balance; `--seed` defaults to 4; `--natural-clear=1` plays round 1 without invulnerability.
 ## The scenarios of the removed systems (maps, rounds, full, economy and the Warrior, Pirate, Bowman and Thief job/weapon pages)
 ## were deleted with job advancement, saved rounds and the old creation flow (#284, #286, #294).
+## The skill scenario accepts --job=<playable id> (default 212).
 ## Other flags: --shots=<abs dir> (required), --seed=<n>, --wz=<folder> (import). The driver runs uncapped (vsync off).
 ##
 ## Screenshots are named NN_<step>.png; the driver prints one "flow_driver:" line per step and quits with exit code 1
@@ -80,6 +84,23 @@ extends Node
 const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
 const StageSelectScene := preload("res://scenes/ui/stage_select.gd")
 const MAIN := "res://scenes/main.tscn"
+## Diagnostic build from the selected job's first three unlearned pool actives, plus common passives.
+## tier C: automation policy, not tuning. No job-specific card list.
+static func skill_build(w: RunWorld) -> Array:
+	var cards := []
+	var added := 0
+	for key: String in w.jobs.skill_pool(w.job_id()):
+		if not w.book.has(key) or w.loadout.has(key):
+			continue
+		cards.append(key + "_new")
+		cards.append(key + "_rank")
+		added += 1
+		if added == 3:
+			break
+	cards.append_array(["passive_might_new", "passive_speed_new", "passive_speed_rank"])
+	return cards
+
+
 ## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q potion; E is the
 ## Equip window).
 const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_C,
@@ -125,6 +146,8 @@ func _ready() -> void:
 			_scenario_import()
 		"redesign":
 			_scenario_redesign()
+		"creation":
+			_scenario_creation()
 		"title":
 			_scenario_title()
 		"windows":
@@ -307,22 +330,29 @@ func _expect(ok: bool, message: String) -> bool:
 ## Sleepywood round (loot on the ground is picked up, then a diagnostic lethal boss hit) -> results -> Free Market (loot and
 ## the unlock kept, the item still worn) -> Save & quit -> delete the character -> round history -> the file is reloaded and
 ## checked. Shots: redesign_*.png, summary.json (offers, picks, slot counts, history); driver_save.json is the evidence-only
-## save. Uses --seed (default 1). tier C: automation choices, not survivor tuning or survival evidence.
+## save. Uses --seed (default 1) and --job=<id> (default 212, the Arch Mage; 112 is Hero, spec #296 H9: the Job page row of that
+## job is clicked and the checks name its start skills, and its diagnostic fallback item). tier C: automation choices, not survivor
+## tuning or survival evidence.
 func _scenario_redesign() -> void:
 	if not args.has("seed"):
 		args["seed"] = "1"
+	var job := _job_arg()
+	if job < 0:
+		return
+	var data := DataRepo.load_all()
+	var job_name := JobTree.from_data(data.jobs, data.jobs_survivor).name_of(job)
 	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
 		return
 	await _sleep(2.0)
 	await _key(KEY_ENTER)
 	# 1. Creation: name -> look -> Job page -> Create.
-	if not await _create_character("Redesign294"):
+	if not await _create_character("Redesign294", job):
 		return
 	var slot := flow.save.slot(flow.active_slot)
 	var fresh: Dictionary = slot.character
-	if not _expect(String(slot.name) == "Redesign294" and int(fresh.job_id) == 212 and int(fresh.tiers_unlocked) == 1
+	if not _expect(String(slot.name) == "Redesign294" and int(fresh.job_id) == job and int(fresh.tiers_unlocked) == 1
 			and int(slot.rounds_played) == 0 and not fresh.has("level") and not fresh.has("skills"),
-			"a new character is an Arch Mage (F/P) with tier 1 open and no build"):
+			"a new character is a %s with tier 1 open and no build" % job_name):
 		return
 	await _shot("redesign_free_market_home")
 	# 2. Map select: tier 2 is locked and cannot be started.
@@ -347,9 +377,10 @@ func _scenario_redesign() -> void:
 		return
 	var run := flow.current as RunScene
 	var w := run.world
-	if not _expect(w.job_id() == 212 and int(w.player_state.level) == 1
-			and w.loadout.has("energy_bolt") and w.loadout.has("teleport_fp"),
-			"the round starts at Lv1 with Energy Bolt and Teleport"):
+	var start_skills := w.jobs.start_skills(job)
+	if not _expect(w.job_id() == job and int(w.player_state.level) == 1
+			and start_skills.size() > 0 and start_skills.size() == Array(start_skills).filter(w.loadout.has).size(),
+			"the round starts at Lv1 with the %s start skills %s" % [job_name, start_skills]):
 		return
 	w.god = true # tier C: invulnerable flow staging, with diagnostic boss hits after each map timer
 	await _sleep(1.0)
@@ -389,7 +420,7 @@ func _scenario_redesign() -> void:
 			and Equipment.held_ids(kept.equipment).size() >= 4, "a clear unlocks tier 2 and keeps the loot"):
 		return
 	# 5. A drop whose reqLevel is far above Lv1 is worn from the Item window by a double-click.
-	var item := await _equip_high_req_item(flow.current as FreeMarket, kept)
+	var item := await _equip_high_req_item(flow.current as FreeMarket, kept, job)
 	if item.is_empty():
 		return
 	# 6. Sleepywood is open now: loot on the ground is picked up, then a lethal hit ends the round.
@@ -424,7 +455,8 @@ func _scenario_redesign() -> void:
 	await _shot("redesign_sleepywood_loot")
 	w.god = false
 	var round_two_mesos := w.mesos
-	var lethal := {"boss": true, "source_kind": "attack", "mob": -1}
+	# "unrevivable": a ready second-life skill (Resurrection) must not turn this diagnostic hit into a survived one (#375).
+	var lethal := {"boss": true, "source_kind": "attack", "mob": -1, "unrevivable": true}
 	t0 = Time.get_ticks_msec()
 	while w.state != RunWorld.DEAD:
 		w.take_hit(1.0e9, false, "", w.player.pos + Vector2(40.0, 0.0), lethal)
@@ -475,7 +507,7 @@ func _scenario_redesign() -> void:
 	var history: Array = flow.save.history
 	if not _expect(history.size() == 3 and history[0].ending == "cleared" and history[1].ending == "died"
 			and history[2].ending == "deleted" and history[0].stage == "henesys" and history[1].stage == "sleepywood"
-			and String(history[0].name) == "Redesign294" and int(history[0].job_id) == 212,
+			and String(history[0].name) == "Redesign294" and int(history[0].job_id) == job,
 			"the history lists the clear, the death and the deletion"):
 		return
 	var saved := FileAccess.open(shots_dir.path_join("driver_save.json"), FileAccess.READ)
@@ -484,7 +516,7 @@ func _scenario_redesign() -> void:
 	_collect_missing(flow.current)
 	if not _expect(_missing.is_empty() and not _failed, "missing assets or failed checks: %s" % [_missing]):
 		return
-	var report := {"scenario": "redesign", "seed": int(args.seed), "diagnostic": true, "henesys": round_one,
+	var report := {"scenario": "redesign", "seed": int(args.seed), "job": job, "diagnostic": true, "henesys": round_one,
 		"offers": _offers, "showcased": _showcased, "equipped": item, "mesos_after_death": int(after.mesos),
 		"history": history, "missing": Array(_missing), "failures": []}
 	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
@@ -494,24 +526,26 @@ func _scenario_redesign() -> void:
 
 
 ## Wears, with a double-click in the Item window's Equip tab, the carried item with the highest reqLevel this job can wear
-## (the round's own drop). When the round dropped none, a Lv45 staff is added to the Equip tab (diagnostic) and the report
-## says so. Returns {id, slot, req_level, source}, empty after a failure.
-func _equip_high_req_item(hub: FreeMarket, character: Dictionary) -> Dictionary:
+## (the round's own drop). When the round dropped none, the job's hub_kit fallback_item (a Lv40-45 weapon) is added to the Equip tab
+## (diagnostic) and the report says so. Returns {id, slot, req_level, source}, empty after a failure.
+func _equip_high_req_item(hub: FreeMarket, character: Dictionary, job: int = 212) -> Dictionary:
 	var lib := AssetLibrary.get_default()
 	var best := {}
 	for held: Dictionary in character.equipment.inventory:
 		var id := int(held.id)
 		var img := lib.img(AvatarRenderer.part_img_path(id))
 		var info: Dictionary = img.root.get("info", {}) if img != null else {}
-		if Equipment.requirement_error(info, {"job_id": 212}) == "" and int(info.get("reqLevel", 0)) > int(best.get("req_level", 1)) \
+		if Equipment.requirement_error(info, {"job_id": job}) == "" and int(info.get("reqLevel", 0)) > int(best.get("req_level", 1)) \
 				and Equipment.slot_of(id) != "":
 			best = {"id": id, "slot": Equipment.slot_of(id), "req_level": int(info.get("reqLevel", 0)), "source": "round drop"}
 	if best.is_empty():
-		var staff := 1382001
-		var img := lib.img(AvatarRenderer.part_img_path(staff))
+		var weapon: int = HubTestKit.fallback_item(job)
+		if not _expect(weapon != 0, "the scenario has no diagnostic fallback item for job %d" % job):
+			return {}
+		var img := lib.img(AvatarRenderer.part_img_path(weapon))
 		var info: Dictionary = img.root.get("info", {}) if img != null else {}
-		hub.inventory.equipment.inventory.append(Equipment.create(staff, info))
-		best = {"id": staff, "slot": "weapon", "req_level": int(info.get("reqLevel", 0)), "source": "diagnostic grant"}
+		hub.inventory.equipment.inventory.append(Equipment.create(weapon, info))
+		best = {"id": weapon, "slot": "weapon", "req_level": int(info.get("reqLevel", 0)), "source": "diagnostic grant"}
 	if not _expect(int(best.req_level) > 1, "an item with a reqLevel above Lv1 is available"):
 		return {}
 	await _key(KEY_E)
@@ -564,9 +598,17 @@ func _answer_choices(run: RunScene) -> bool:
 			if wanted:
 				index = i
 				break
+		# Direct warp picks can queue further choice_pending events. They describe older offers by the
+		# time we showcase this one; do not let RunScene._process reopen one over the live cards.
+		run.handle_events(w.drain_events().filter(func(e: Dictionary) -> bool:
+			return String(e.type) != "choice_pending"))
+		run._pending_window = {}
+		if run.window != null:
+			run._close_window()
 		run.handle_events([{"type": "choice_pending", "cards": cards, "bonus": bonus}])
 		run.set_process(true)
-		if not await _until(func() -> bool: return run.window is LevelUpWindow and (run.window as MapleWindow).is_open(),
+		if not await _until(func() -> bool: return run.window is LevelUpWindow and (run.window as MapleWindow).is_open() \
+				and run.window._since_open >= run.window.input_delay,
 				10.0, "the %s window" % show):
 			return false
 		await _shot("redesign_offer_" + show, 0.9)
@@ -679,26 +721,36 @@ func _start_selected(screen: Node) -> void:
 	await _click(button)
 
 
-## Character select -> name -> look -> Job page (the Arch Mage row clicked) -> Create: ends in the new character's Free Market.
-func _create_character(character_name: String) -> bool:
+## The scenario's `--job=<id>` (default 212): the id, or -1 after a failure when it is malformed.
+func _job_arg() -> int:
+	var text := String(args.get("job", "212"))
+	var job := JobTree.parse_job(text)
+	if job < 0:
+		_fail("--job=%s is not a job id" % text)
+	return job
+
+
+## Character select -> name -> look -> Job page (the `job` row clicked) -> Create: ends in the new character's Free Market.
+func _create_character(character_name: String, job: int = 212, shot_prefix := "") -> bool:
+	var prefix := shot_prefix + "_" if shot_prefix != "" else ""
 	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
 		return false
 	await _sleep(0.5)
-	await _shot("character_select")
+	await _shot(prefix + "character_select")
 	await _click(flow.current.get("create_button") as Control)
 	await _sleep(0.5)
 	var creation: Control = flow.current.get("creation")
-	await _shot("creation_name")
+	await _shot(prefix + "creation_name")
 	await _click(creation.get("name_edit") as Control)
 	await _type(character_name)
 	await _click(creation.get("create_button") as Control)
-	await _shot("creation_look")
+	await _shot(prefix + "creation_look")
 	await _click(creation.get("create_button") as Control)
-	var job_row := creation.find_child("Job_%d" % int(creation.get("job_ids")[0]), true, false) as Control
-	if not _expect(job_row != null, "the Job page lists no job row"):
+	var job_row := creation.find_child("Job_%d" % job, true, false) as Control
+	if not _expect(job_row != null, "the Job page lists no row for job %d (listed %s)" % [job, creation.get("job_ids")]):
 		return false
 	await _click(job_row)
-	await _shot("creation_job")
+	await _shot(prefix + "creation_job")
 	await _click(creation.get("create_button") as Control)
 	return await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market (home)")
 
@@ -751,12 +803,12 @@ func _select_stage(key: String) -> bool:
 
 
 ## Title (Enter) -> a new character -> Free Market -> map select -> Start: the way into a round for the in-run scenarios.
-func _enter_round(character_name: String) -> bool:
+func _enter_round(character_name: String, job: int = 212) -> bool:
 	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
 		return false
 	await _sleep(2.0)
 	await _key(KEY_ENTER)
-	if not await _create_character(character_name):
+	if not await _create_character(character_name, job):
 		return false
 	if not await _open_map_select():
 		return false
@@ -1274,15 +1326,17 @@ func _shot_zoom(step: String, around: Node2D, also: Node2D = null) -> void:
 
 
 func _scenario_skill() -> void:
-	if not await _enter_round("Skill86"):
+	var job := _job_arg() # `--job=<id>` (default 212; 222 is the I/L Arch Mage, #330)
+	if job < 0:
+		return
+	if not await _enter_round("Skill86", job):
 		return
 	var run := flow.current as RunScene
 	await _sleep(3.0)
 	# A build to show (debug setup, like the windows scenario's EXP drop): three more pool actives with ranks, and two
 	# common passives (cards applied directly; the Teleport key skill and the starting Energy Bolt are already known).
 	var w := run.world
-	for id: String in ["magic_claw_new", "magic_claw_rank", "fire_arrow_new", "explosion_new", "explosion_rank",
-			"passive_might_new", "passive_speed_new", "passive_speed_rank"]:
+	for id: String in skill_build(w):
 		w.upgrades.apply(id, w)
 	await _sleep(0.5)
 	# K opens the Skill window on the job's tab (the last) and holds the sim.
@@ -1302,9 +1356,10 @@ func _scenario_skill() -> void:
 	for i in sw.rows().size():
 		await _key(KEY_DOWN)
 	await _sleep(0.3)
-	var last := sw.tooltip()
-	_check(String(last.get("key", "")) == String(sw.rows()[sw.rows().size() - 1].key), "Down selected the last row (%s)" % [last.get("key", "")])
-	await _shot("skill_keyboard_tooltip")
+	if not sw.rows().is_empty(): # a sparse synthetic book may have no rows
+		var last := sw.tooltip()
+		_check(String(last.get("key", "")) == String(sw.rows()[sw.rows().size() - 1].key), "Down selected the last row (%s)" % [last.get("key", "")])
+		await _shot("skill_keyboard_tooltip")
 	await _key(KEY_LEFT)
 	await _sleep(0.3)
 	_check(sw.tab == last_tab - 1, "Left switched to the previous job tab")
@@ -1331,7 +1386,7 @@ func _scenario_skill() -> void:
 	await _click_at(origin + sw.tab_rect(last_tab + 1).get_center())
 	await _sleep(0.3)
 	_check(sw.tab == last_tab, "no tab past the job's own to click")
-	for tab_index in [0, last_tab]:
+	for tab_index in range(last_tab + 1): # every tab: Common, then each book of the lineage (220 holds Teleport for the I/L)
 		await _click_at(origin + sw.tab_rect(tab_index).get_center())
 		await _sleep(0.2)
 		_check(sw.tab == tab_index, "skill tab %d shown" % tab_index)
@@ -2094,6 +2149,48 @@ func _check(ok: bool, what: String) -> void:
 	if not ok:
 		_failed = true
 		push_error("flow_driver: " + what)
+
+
+## Creates one character per job (`--jobs=<id,id>`, at most the three save slots; default every playable job, which fails when more than three ship) through the real creation screens, looking at the
+## Job page each time, then checks each slot holds its job with its creation weapon and tier 1 open.
+func _scenario_creation() -> void:
+	var data := DataRepo.load_all()
+	var tree := JobTree.from_data(data.jobs, data.jobs_survivor)
+	var jobs: Array[int] = []
+	if args.has("jobs"):
+		for part: String in String(args.jobs).split(","):
+			jobs.append(JobTree.parse_job(part))
+	else:
+		jobs = tree.playable_jobs()
+	if not _expect(not jobs.is_empty() and not (-1 in jobs), "--jobs=%s names no job" % String(args.get("jobs", ""))):
+		return
+	if not _expect(jobs.size() <= SaveData.SLOT_COUNT, "creation makes one character per job in its own slot: %d jobs do not fit %d slots; pass --jobs=<id,id> with at most %d" \
+			% [jobs.size(), SaveData.SLOT_COUNT, SaveData.SLOT_COUNT]):
+		return
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	for i in jobs.size():
+		var job: int = jobs[i]
+		if not await _create_character("Create%d" % (3050 + job), job, "job_%d" % job):
+			return
+		var character: Dictionary = flow.save.slot(i).character
+		if not _expect(int(character.job_id) == job and int(character.tiers_unlocked) == 1
+				and int(character.equipment.worn.weapon.id) == tree.creation_weapon(job),
+				"slot %d holds a %s with its creation weapon %d" % [i, tree.name_of(job), tree.creation_weapon(job)]):
+			return
+		await _sleep(1.0)
+		await _shot("job_%d_free_market" % job)
+		await _save_and_quit_ui()
+		if _failed:
+			return
+	await _shot("creation_character_select")
+	_collect_missing(flow.current)
+	if not _expect(_missing.is_empty(), "missing assets: %s" % [_missing]):
+		return
+	print("flow_driver: creation PASSED ", jobs)
+	get_tree().quit()
 
 
 func _scenario_title() -> void:

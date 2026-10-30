@@ -9,6 +9,9 @@ extends SceneTree
 ## potions_used {hp} and potion_uses [{time, level, kind, item_id, restored, capacity_waste}]; a pet adds its own
 ## pet.potions_used {hp}. There is no MP (ADR 0006), so no MP-short or MP-absorbed fields. SYSTEMS sums player
 ## drinks only. Unlimited potions have no collection/stock metrics.
+## Second life (#375, docs/GAME_DESIGN.md 7.81): `revives` [{t, level, rank, source_kind, hp}] lists each time a lethal hit
+## was turned into a survived one and `revive_count` is its length; the report prints the count per run and SUMMARY
+## `revived n/runs` (runs with at least one). A world without a reaction skill records `[]` / 0.
 ## Three-map schema: map_times = reached-map entry seconds from round start, starting [0.0]; ended_map =
 ## {index: zero-based map index, id: original v83 map id}. boss_fights[] retains map_index/map_id even for unspawned
 ## bosses. SUMMARY deaths_by_map uses one-based string keys; map_entry_seconds["2"/"3"] has count/min/median/max/mean
@@ -529,6 +532,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"equips_worn": equips_worn, "equipment_worn": _worn_ids(w), "scrolls_on_worn": _scrolls_on_worn(w),
 		"potions_used": w.potions.used.duplicate(),
 		"potion_uses": potion_uses,
+		"revives": w.revives.duplicate(true), "revive_count": w.revives.size(),
 		"warnings": Array(w.warnings),
 		"spawned": w.director.spawned, "recycled": w.director.recycled, "relocated": w.director.relocated,
 		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,
@@ -602,19 +606,7 @@ static func _engaged(w: RunWorld, seen: PackedFloat32Array) -> Vector2i:
 ## same length element by element (null elements keep the original), so a keyframe patch may list only the fields it
 ## changes; any other value replaces.
 static func deep_merge(into: Dictionary, patch: Dictionary) -> void:
-	for k: Variant in patch:
-		var pv: Variant = patch[k]
-		var iv: Variant = into.get(k)
-		if pv is Dictionary and iv is Dictionary:
-			deep_merge(iv, pv)
-		elif pv is Array and iv is Array and (pv as Array).size() == (iv as Array).size():
-			for i in (pv as Array).size():
-				if pv[i] is Dictionary and iv[i] is Dictionary:
-					deep_merge(iv[i], pv[i])
-				elif pv[i] != null:
-					iv[i] = pv[i]
-		else:
-			into[k] = pv
+	DataRepo.merge_patch(into, patch, true)
 
 
 ## A readable multi-line summary of one record.
@@ -654,6 +646,7 @@ static func describe(r: Dictionary) -> String:
 		int(r.get("bosses_killed", 0)), int(r.get("levels_gained", 0))])
 	lines.append("  boss fights %s" % [r.get("boss_fights",[])])
 	lines.append("  potions used %s; boss-hit fractions %s" % [r.get("potions_used",{}),r.get("boss_hit_fraction",{})])
+	lines.append("  second lives %d %s" % [int(r.get("revive_count", 0)), r.get("revives", [])])
 	if r.has("pet"):
 		lines.append("  pet %s" % [r.pet])
 	lines.append("  camper %s" % [r.get("camper",{})])
@@ -728,6 +721,7 @@ static func aggregate(records: Array) -> Dictionary:
 		"boss_fights": {}, "boss_hits": {}, "camper_runs": 0, "camper_started": 0, "camper_reached": 0,
 		"ordinary_kill_hits_by_min": KillHits.empty_buckets()}
 	result["jobs"] = {}
+	result["revived_runs"] = 0
 	result["card_tier_runs"] = 0
 	result["card_tiers_offered"] = UpgradePool.empty_tier_counts()
 	result["card_tiers_picked"] = result.card_tiers_offered.duplicate()
@@ -797,6 +791,8 @@ static func aggregate(records: Array) -> Dictionary:
 		if record.has("mesos_earned"):
 			mesos_earned.append(int(record.mesos_earned))
 		result.potions_used.hp += int(record.get("potions_used", {}).get("hp", 0))
+		if int(record.get("revive_count", 0)) > 0:
+			result.revived_runs += 1
 		var camper: Dictionary = record.get("camper", {})
 		if String(camper.get("policy", "")) != "":
 			result.camper_runs += 1
@@ -917,6 +913,7 @@ static func describe_metrics(summary: Dictionary) -> String:
 			_range(summary.end_level), int(summary.lv70_reached), int(summary.runs)])
 	lines.append("SYSTEMS %d runs: potions used HP %d%s" % [int(summary.runs), int(summary.potions_used.hp),
 		_campers(summary)])
+	lines.append("  SUMMARY revived %d/%d runs" % [int(summary.get("revived_runs", 0)), int(summary.runs)])
 	for job_key: String in summary.get("jobs", {}):
 		lines.append("  SUMMARY job %s: %s" % [job_key, summary.jobs[job_key]])
 	if summary.has("nx_awarded"):

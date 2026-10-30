@@ -23,7 +23,9 @@ extends Node2D
 ## weapon stays when the cover has none (or the look has no weapon). Items hide the layers their `vslot` occupies
 ## through Base.wz/smap.img (hat over hair, full-head hats over head and accessories).
 ## A morph (set_morph, Oak Barrel 5101007 -> Morph.wz/1002.img, #194) replaces all of that: the character is drawn as the
-## morph's own frame for the matching action (MORPH_ACTIONS), origin at the feet, and the avatar returns when it ends.
+## morph's own frame for the matching action, origin at the feet, and the avatar returns when it ends. A stance whose name
+## is a node of the morph img draws that node (the Buccaneer morphs carry the skills' action names, #415); any other
+## stance keeps the MORPH_ACTIONS mapping, which shows the morph standing for an attack the morph has no art for.
 ## WZ art faces left; facing = 1 mirrors around the character origin.
 
 ## tier C: random interval between blinks, seconds.
@@ -68,6 +70,12 @@ var _face: WzImg
 var _hair: WzImg
 ## Worn items in draw order: {"id": int, "img": WzImg, "vslot": {code: true}, "cash": bool}.
 var _sources: Array[Dictionary] = []
+## Presentation-only element tint, applied to held weapon layers (tier C).
+var weapon_tint := Color.WHITE:
+	set(value):
+		if weapon_tint != value:
+			weapon_tint = value
+			queue_redraw()
 var _weapon_type := 0
 ## The worn real weapon's info node ({} bare-handed): its stand/walk numbers pick the generic stances.
 var _weapon_info: Dictionary = {}
@@ -148,9 +156,17 @@ func set_morph(id: int) -> void:
 	play(_requested, true, looping)
 
 
-## The Morph.wz action played for avatar stance `s`.
+## The Morph.wz action played for avatar stance `s` when the morph has no node of that name.
 static func morph_action(s: String) -> String:
 	return String(MORPH_ACTIONS.get(s, "stand"))
+
+
+## The action of the current morph played for avatar stance `s`: the morph's own node of that name (`info` is metadata,
+## never a stance), else morph_action(s).
+func morph_stance(s: String) -> String:
+	if s != "info" and _morph != null and _morph.root.get(s) is Dictionary:
+		return s
+	return morph_action(s)
 
 
 ## Plays a stance ("stand1", "walk1", "jump", "alert", "prone", "ladder", "rope", "swingO1", "shoot1", "dead", ...).
@@ -232,7 +248,7 @@ func advance(dt: float) -> void:
 ## The stance to play for `s`: the held weapon's stand / walk variant for the generic "stand1" / "walk1", else `s`.
 func weapon_stance(s: String) -> String:
 	if _morph != null:
-		return morph_action(s)
+		return morph_stance(s)
 	if s == "stand1":
 		return WeaponInfo.stand_stance(_weapon_info)
 	if s == "walk1":
@@ -363,6 +379,8 @@ func compose(s: String, index: int, expression: String = "default", expr_t: floa
 			fr = cover
 		elif cover[0] != null and AvatarLayers.weapon_type(id) > 0:
 			continue # the cover replaces the real weapon only where it has art
+		elif AvatarLayers.weapon_type(id) > 0:
+			fr = AvatarLayers.weapon_stance_frame(src.img, st, fi, back)
 		else:
 			fr = AvatarLayers.stance_frame(src.img, st, fi, back)
 		if fr[0] == null:
@@ -473,11 +491,29 @@ static func part_img_path(id: int) -> String:
 
 
 ## The one part of a morph frame: its canvas with the origin on the feet (Morph.wz frames carry no map anchors).
+## A 1 x 1 canvas is the WZ's pure delay (Demolition's frame 3 holds one for 1.62 s): it holds the last drawn frame of the
+## action instead, so the figure does not vanish while the skill's own art plays. tier C: ours (B10 #422).
 func _compose_morph(s: String, index: int) -> Array:
-	var frame: Variant = _frame_node(_morph.root.get(s), index)
+	var node: Variant = _morph.root.get(s)
+	var keys: Array = SpriteAnim.frame_keys(node) if node is Dictionary else []
+	var frame: Variant = _frame_node(node, index, keys)
 	if not WzImg.is_canvas(frame):
 		return []
+	var at: int = index % keys.size()
+	while at > 0 and _is_blank_canvas(frame):
+		at -= 1
+		frame = node[keys[at]]
+	if _is_blank_canvas(frame):
+		return []
 	return [{"name": s, "frame": SpriteAnim.make_frame(frame, _morph), "map": {}, "z": "", "pos": Vector2.ZERO, "owner": 0}]
+
+
+## True for the 1 x 1 placeholder canvas of a frame that only waits.
+static func _is_blank_canvas(frame: Variant) -> bool:
+	if not WzImg.is_canvas(frame):
+		return false
+	var region := WzImg.region(frame)
+	return region.size.x <= 1.0 and region.size.y <= 1.0
 
 
 func _draw() -> void:
@@ -488,7 +524,7 @@ func _draw() -> void:
 		var f: SpriteFrame = p.frame
 		if f.page == null:
 			continue
-		draw_texture_rect_region(f.page, Rect2(p.pos - f.origin, f.region.size), f.region)
+		draw_texture_rect_region(f.page, Rect2(p.pos - f.origin, f.region.size), f.region, weapon_tint if bool(p.get("weapon", false)) else Color.WHITE)
 	if facing > 0:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -501,10 +537,11 @@ func _resolve(s: String, index: int) -> Array:
 	return [s, index]
 
 
-static func _frame_node(stance_node: Variant, index: int) -> Variant:
+static func _frame_node(stance_node: Variant, index: int, keys: Array = []) -> Variant:
 	if not (stance_node is Dictionary):
 		return null
-	var keys := SpriteAnim.frame_keys(stance_node)
+	if keys.is_empty():
+		keys = SpriteAnim.frame_keys(stance_node)
 	if keys.is_empty():
 		return null
 	return stance_node[keys[index % keys.size()]]
@@ -590,7 +627,7 @@ func _collect(parts: Array, frame_node: Variant, w: WzImg, skipped: PackedString
 		if mv is Dictionary:
 			for mk: Variant in (mv as Dictionary).keys():
 				m[mk] = WzImg.vec(mv[mk])
-		parts.append({"name": String(k), "frame": f, "map": m, "z": f.z, "pos": Vector2.ZERO, "owner": part_owner})
+		parts.append({"name": String(k), "frame": f, "map": m, "z": f.z, "pos": Vector2.ZERO, "owner": part_owner, "weapon": AvatarLayers.weapon_type(part_owner) > 0 or floori(float(part_owner) / 10000.0) == CashCatalog.WEAPON_COVER_CATEGORY})
 
 
 func _load(path: String) -> WzImg:

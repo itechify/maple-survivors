@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships one job, Arch Mage (Fire, Poison); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112), Dark Knight (132), Paladin (122), Arch Mage (Fire, Poison, 212), the default, Arch Mage (Ice, Lightning, 222), Bishop (232), and Buccaneer (512); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -13,10 +13,9 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
 On the `redesign` branch, **ADR 0006** replaced v83 progression with survivor-genre progression. The F/P Arch Mage slice
 (spec #282, tickets #283-#294) built it end to end for one job; this section is the summary and the owner of any
 conflict: where a later section still describes a removed system, this section wins. The slice rewrote sections 1, 5,
-6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 describe mechanics of the other job lines (Warrior, Bowman, Thief, Pirate,
-I/L, Cleric): their data and tests stay on `redesign` and are unplayable until each line is ported, so read them as the
-specification for that port, not as the live game; advancement, weapon paths, weapon-gated skills and standalone
-behaviour cards mentioned in them are gone. Target design:
+6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 preserve behaviour references for the other lines; the remaining Warrior,
+Bowman, Thief and Corsair ports are still unplayable. The live Hero, Paladin, I/L, Bishop and Buccaneer ports are documented below.
+Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in historical sections are gone. Target design:
 
 | Area | Target | Replaces |
 |---|---|---|
@@ -29,7 +28,7 @@ behaviour cards mentioned in them are gone. Target design:
 | Passives | 9 common passives, Maple-named: Maple Warrior (Might), Hyper Body (Max HP), Haste (Speed), Recovery (Regen), Booster (Cooldown), Area, Holy Symbol (EXP), Iron Body (Armor), Sharp Eyes (Crit). Rank 1-5, no rarity. Starting values follow the reference (tier C). | 7.6, 8 |
 | Cards | 3 per draw, weights 1.2 owned active or Mastery / 1.0 new active / 0.8 passive rank / 0.5 new passive. Boss bonus draw kept. No reroll, banish or skip. Power Elixir fallback. | 8 |
 | Combat | Maple formula plus auto-AP in one stat row per job. No MP (cooldowns only). No level-gap penalties. No MISS (ADR 0005). | 5, 6, 7 |
-| Mobility | Teleport, Flash Jump or Dash on a skill key from Lv1, outside the slots. | 2, 7.15 |
+| Mobility | Teleport, Flash Jump, Dash or Rush on a skill key from Lv1, outside the slots; Bowmaster has none (D1). | 2, 7.15, 7.33 |
 | Equipment | Job-class requirement only. `reqLevel` is the tier's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
 | Account | NX, Cash Shop, pets unchanged. Cash equipment adds Fortune. | 8.4 |
 
@@ -57,7 +56,7 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   `tiers_unlocked` (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
   every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
   Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
-  jobs (only 212), whose `creation_weapon` (1372005) is the weapon worn; the look page's weapon row is no longer chosen.
+  jobs (Hero 112, Dark Knight 132, Bishop 232, Paladin 122 and Arch Mages 212/222), whose `creation_weapon` is the weapon worn; the look page's weapon row is no longer chosen.
   Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
   tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
   `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
@@ -95,6 +94,62 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   scenarios and debug drivers removed, the one F/P fixture, the playtests and the regression smoke of 4.2, and the rewrites
   of sections 1, 5, 6.1.1, 7.5, 8 and 9 and of AGENTS.md.
 
+**Landed in the Hero spec (#296, H1–H10 #297–#306):** Hero (112) is selectable alongside F/P, which remains the default (212). Hero starts with Power Strike and manual Rush, seven pool actives, a ten-orb Combo meter, Panic/Coma finishers and Monster Magnet's shared pull. H1 verified the books, sounds and weapon actions; H2 added the class line/AP/drop families; H3/H4 built the deterministic meter/pull boundaries; H5–H8 supplied skills and rarity effects; H9/H10 supplied two-job creation/tooling, the diagnostic `hero_t2.json`, the independent Hero replay oracle and QA. Sections 7.33–7.35 and the provenance rows own the mechanics. No balance tuning was done; melee survivability remains a balance-pass concern.
+
+**Landed in the I/L Arch Mage spec (#319, #320–#331):** job 222 is playable beside the default 212, with Cold Beam
+and manual Teleport from Lv1. The twelve-skill pool adds the core ice/lightning bolts, Ice Demon and fire vulnerability,
+Ifrit with marked-target priority, Chain Lightning with visible hops and a staff stance fallback, Blizzard's delayed tiles
+and freeze, and Big Bang through the shared skill-template seam. Ranks, rarity bonuses, Mastery, equipment, saves and
+menus reuse the F/P systems. Tooling includes `--job=222`, the I/L tier-2 fixture and job-aware creation/redesign flows.
+The deterministic I/L oracle now covers the full pool; F/P oracles remain unchanged. QA results are in section 4.2.
+
+**Landed in the Bowmaster spec (#332, B1–B13 #333–#345):** Bowmaster (312) is playable alongside Hero and the
+Arch Mages; F/P (212) remains the default. It starts with Arrow Blow and a War Bow, with no manual mobility skill.
+Its ten-skill pool supplies core arrows, Arrow Rain, Dragon's Breath, Inferno's burn, Hurricane's moving burst and the
+physical Silver Hawk/Phoenix followers. Shared seams are exact-job ammo schedules, BurstCast, burn and physical
+followers. The Bowmaster line owns its AP, skills, bonuses, bot scores and hub kit; `bowmaster_t2.json` supplies the
+Bowman tier-1 equipment kit with tier 2 unlocked. Section 4.2 records QA and the regression smoke; no balance tuning.
+
+**Bowmaster B13 verification (#345):** cached full suite 2563 executed passes, 0 failed, 0 skipped;
+cache-less suite 2563 total, 2281 executed passes, 0 failed, 282 cache-dependent SKIPs (each named in
+`_scratch/345-qa/no-cache-skips.log`; a SKIP proves no asset behaviour). F/P, Hero, I/L and Bowmaster replay
+oracles retain their constants. Rust and web-shell tests pass; pinned web templates are absent, so local web
+export/artifact validation is unverified and left to CI. Redesign and three-job creation flows pass; all ten skill
+cast captures, ammo notices, Hurricane stream, Inferno burn, Arrow Rain strike and follower hover were inspected.
+No balance tuning. Section 4.2 records the smoke and its weak-survival finding.
+**Landed in the Dark Knight spec (#348, D1–D11 #349–#359):** job 132 is selectable with a Spear (1432000),
+Spear Crusher in slot one and manual Rush. Its eight-skill pool reuses Power Strike and Slash Blast; Dragon Fury,
+Sacrifice and Dragon Roar spend HP through the shared `HpRisk` boundary (M17). The Beholder follows and pulses Aura
+heals and Hex buffs through `SupportSummons` (M10); its sub-skills rank with it. Spear/pole arm art twins, rarity and
+Mastery, equipment, hub kits and the format-3 tier-2 fixture use the existing class-line systems. Sections 7.66–7.71
+and the provenance tables own the mechanics; section 4.2 records QA without tuning. F/P remains the default.
+
+
+**Landed in the Paladin spec (#308, P1–P10 #309–#318):** job 122 is playable with a Mace, Power Strike and manual
+Rush from Lv1. Its eight-skill pool shares Hero's Power Strike/Slash Blast and adds Blast, Monster Magnet and four
+exclusive elemental Charges. `PlayerForms` supplies timed windows, element/damage effects and parent-ranked
+Charged Blow; Holy also carries Heaven's Hammer. The Job page, hub kit, `paladin_t2.json` and independent replay
+oracle ship in P9. Sections 7.86–7.88 own the mechanics (7.60–7.65 belong to I/L); section 4.2 records QA without
+tuning. F/P remains default. Hammer's stance can be interrupted by other casts; this remains a visual limitation.
+
+**Landed in the Bishop spec (#372, BS1–BS10 #373–#382):** Bishop (232) is playable alongside Paladin;
+F/P (212) remains the default. Holy Arrow starts each round, manual Cleric Teleport sits outside the slots, and the ten-skill
+pool includes Heal, the two dragons, Genesis, Bishop Big Bang and the automatic Resurrection reaction. BS1 verified
+assets; BS2 supplied the class data; BS3 added ordered hit hooks and second life; BS4–BS8 supplied the skills and rarity
+bonuses; BS9 supplied creation/tooling, the tier-2 fixture and independent oracle; BS10 enabled the job and widened that
+oracle to all ten skills. Sections 7.80–7.85 and the Bishop provenance rows own the mechanics. QA below records survival
+without tuning; the orchestrator decides merge readiness.
+
+**Landed in the Buccaneer spec (#412, BC1–BC12 #413–#424):** job 512 is playable beside Hero, Paladin, both Arch Mages and Bishop;
+F/P (212) remains the default. Its eleven-skill lineage pool starts with Flash Fist and manual Dash outside the slots.
+The five Brawler attacks, Barrage and Dragon Strike build Energy Charge; Drain and Orb share its ten-energy bar.
+Transformation and Super Transformation use the shared Form's buff block for morphs 1000/1001; Shockwave belongs to
+both, Demolition and Snatch to Super. The renderer plays the morph's own actions, holds the previous image through
+Demolition's blank, and keeps knuckles visible through the weapon-only swingTF fallback. Dragon Strike uses a
+0.84 s first impact and 0.12 s target stagger; Shockwave's single impact meets the first eruption at 1.38 s.
+BC11 enabled selection, tooling, the tier-2 fixture and the independent replay oracle. BC12 supplies the QA record
+in 4.2. Sections 7.90–7.93 and the B2–B11 provenance tables own all constants; no balance tuning in this QA.
+
 ### Known design gaps (open after the slice)
 
 These are findings of the QA pass, #293 and #307, recorded as gaps, not as met targets. Nothing here was tuned in #294.
@@ -122,7 +177,7 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
 ## 1. The run
 
 1. **Create or continue.** Character select shows three slots. Creating a character is name, look (the v83 Explorer
-   face, hair and outfit options) and a Job page listing the playable jobs (only Arch Mage (Fire, Poison) in this slice);
+   face, hair and outfit options) and a Job page listing all eight playable jobs (Hero, Paladin, Dark Knight, Arch Mage (Fire, Poison), Arch Mage (Ice, Lightning), Bishop, Bowmaster and Buccaneer), with Arch Mage (Fire, Poison) selected by default;
    the character is that 4th job from Lv1 and keeps it for good. Selecting a living character opens its **Free Market**.
 2. **Free Market (home).** The v83 Entrance 910000000 with Bgm00/FloralLife. Walking, jumping, its two ladders and the
    existing same-map portal links work; no combat, spawning, drops or round timer run there. The Equip (E) and Item (I)
@@ -132,8 +187,8 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
 3. **Map select** lists every stage of every unlocked tier: Henesys, Ellinia, Perion and Kerning City (tier 1, always
    open) and Sleepywood (tier 2). A locked card is greyed, its details say "Locked. Clear any stage of Tier 1 to unlock
    Tier 2." and Start does nothing. Each stage contains three ordered maps (4.1). Back returns to the Free Market.
-4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt,
-   active slot 1) and Teleport on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
+4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt for F/P, Cold Beam for I/L, Power Strike for Hero,
+   active slot 1) and its mobility skill (Teleport or Rush) on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
 5. **Survive** the growing swarms. Each map's boss arrives 300 seconds after entering it. Defeat it, collect all
    drops and finish every pending choice with combat frozen, then transfer automatically to the next map. HP, Hidden,
    cooldowns, kills and damage carry; map entities and boss-inflicted statuses clear. Only map 3 clears the round. Slow
@@ -167,7 +222,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
-| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Each manual skill has its own key in Key Config (see 7.15) |
+| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Rush (Hero): X + direction dashes that way, damaging and shoving mobs (7.33; hold X to repeat after its 2 s cooldown). Each manual skill has its own key in Key Config (see 7.15) |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
@@ -179,7 +234,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
-There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash) are cast on their own skill keys, both X by default.
+There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash, Rush) are cast on their own skill keys, all X by default.
 
 Movement keys are a setting (`Settings` `[controls] movement`: `arrows`, the default, or `wasd`). Only the chosen set
 drives `move_*`, so the other set is free to bind; switching to WASD takes W/A/S/D off every other action (S stops
@@ -384,7 +439,7 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
 ### Monster statuses and elements (#54)
 
 `MobSwarm.apply_status(slot, status, params, events)` is the shared sim entry point for sibling skills. `status`
-is `slow`, `poison`, `freeze`, `threatened` or `stun` (`MobSwarm.STATUS_NAMES`, indices 0-4; `STATUS_COUNT = 5`); parameters contain the canonical `time` in seconds, signed
+is `slow`, `poison`, `freeze`, `threatened` or `stun` (`MobSwarm.STATUS_NAMES`, indices 0-4; `STATUS_COUNT = 5 (now 8)`); parameters contain the canonical `time` in seconds, signed
 `x` for Slow, or the applying canonical skill `level` for poison (plus an optional survivor `skill` key for damage
 events), and optionally the applying skill's canonical `element`. Each status is a row of one packed per-slot status
 table, refreshes without stacking, and clears on death, release or relocation. Application and natural expiry emit
@@ -468,7 +523,6 @@ with power 3. All use 1,200 s of whole-round time. At 600 s the map2/3 added sca
 HP 0.1425 / damage 0.195; at 1,200 s all scales reach 1, on top of existing stage scales. This deliberately
 allows a typical three-map round to end before the full ramp; longer rounds reach full strength at 20:00.
 Paired kit/starter measurements are recorded below. All ramp choices are tier C first-pass tuning.
-
 
 
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
@@ -684,7 +738,464 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 **701–730** for the dedicated balance pass after its data and guards freeze. Spent or retired
 101–130/201–212/301–330/401–430/501–530/601–630 are never reused for tuning or fresh evidence.
 
-### 4.2 Tuning record (`scripts/balance.sh`)
+#### #346 Hero first-pass melee survivability
+
+Tier C, training only: Hero starts at 600 HP (`balance.player.ap.112.hp`) and gains 65 HP/level
+(`balance.growth.112.hp`). An absent AP-row `hp` preserves the shared baseline. Five pool cooldowns
+are x0.4: Power Strike .4, Slash Blast .64, Brandish .56, Shout 4.8, Monster Magnet 4 seconds.
+Panic stays 2 seconds and Coma 1 second with their shared one-second meter floor. Each held Combo
+orb adds 5% damage; finishers add 20% per orb spent. These supersede #296/H3/H8 first-pass values.
+No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening multiplier was needed.
+Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
+
+## 4.2 Tuning record (`scripts/balance.sh`)
+
+**#332 review fixes (2026-10-29).** Read-only `cache-rd332`, isolates `332fix*`, `JOBS=3`,
+training seeds 1/2/2026, both bot/random; no tuning or held-out seeds. **72 records: no crashes, world warnings,
+missing assets or TIMEOUTs.** Bare tools now wear the job's creation weapon (resolving the B13 limitation below).
+Cells show clears/6 and death-only seconds (both policies); the kit is each job's existing tier-1 fixture.
+
+| Stage / gear | F/P 212 | Bowmaster 312 |
+|---|---|---|
+| Henesys starter | 1/6; 433.4–751.9 | 0/6; 304.5–456.9 |
+| Ellinia starter | 0/6; 617.4–654.4 | 0/6; 168.7–995.1 |
+| Perion starter | 0/6; 310.5–461.8 | 0/6; 216.4–377.3 |
+| Kerning starter | 0/6; 306.5–517.9 | 0/6; 303.6–319.8 |
+| Sleepywood starter | 0/6; 11.4–15.1 | 0/6; 10.4–12.3 |
+| Sleepywood kit | 2/6; 14.3–826.5 | 0/6; 11.5–12.9 |
+
+Henesys bot fills six active slots 3/3 for both jobs (F/P 128.7–219.7 s; Bowmaster 136.2–178.1 s).
+All six Henesys runs per job reach the first boss. Across tier 1, F/P reaches the first boss 24/24,
+Bowmaster 20/24. Compared with B13, Bowmaster's bare creation-bow outcomes reproduce the previous explicit
+creation-outfit smoke; its weak survival remains recorded without tuning. F/P gains one tier-1 clear after the
+bare-tool Sword is corrected to its Wooden Wand; the carried kit is unchanged. The Tree remains observation only.
+Raw records/reports: `_scratch/332fix-smoke/`; exact console logs: `console-fp.log` and
+`console-bowmaster.log` there. Sleepywood starter and kit records have separate directories (the wrapper's names
+otherwise collide); the six starter records were repeated to preserve them. Bare `--job=312` visual evidence is
+`evidence/332fix/`, inspected by eye, `missing: []`. The original replay equipment is explicit in the oracle
+recipes; no golden hash was recaptured.
+
+
+### Dark Knight review merge regression (#348, 2026-10-29)
+
+Review fixes plus redesign (Bishop #441, Paladin #442), private `cache-rd348b`, seeds 1/2/2026,
+`JOBS=3`, F/P default job 212, bot/random on every tier-1 stage, Sleepywood bot with starter and
+`fp_arch_mage.json` kit. No balance changes or held-out seeds. All 30 runs completed without crashes,
+world warnings or TIMEOUT. Outcomes and death ranges reproduce the F/P controls in D11 above.
+Henesys bot still fills six active slots in all three runs; tier-1 runs reach the first boss.
+Logs and records: `_scratch/348-review/`; screenshots: `evidence/348-review-support/` (pulse and owner art inspected).
+
+| Stage / policy | Clears | Death seconds (range) |
+|---|---|---|
+| sleepywood_bot / kit | 1/3 | 23.8–826.2 |
+| sleepywood_bot / starter | 0/3 | 10.6–12.0 |
+| ellinia_bot | 0/3 | 629.1–644.2 |
+| ellinia_random | 0/3 | 328.4–660.2 |
+| henesys_bot | 0/3 | 305.0–651.7 |
+| henesys_random | 0/3 | 308.3–309.9 |
+| kerning_bot | 0/3 | 307.9–315.0 |
+| kerning_random | 0/3 | 306.0–317.3 |
+| perion_bot | 0/3 | 305.7–456.3 |
+| perion_random | 0/3 | 308.7–421.5 |
+
+### Dark Knight QA (#359, D11; 2026-10-29, no tuning)
+
+Training seeds 1/2/2026, `cache-rd348`, `ISOLATE=359`, `JOBS=3`: all four tier-1 regions with bot/random,
+plus Sleepywood bot with/without each job's kit. Dark Knight uses `dark_knight_t2.json` as its fresh-start baseline
+on tier 1 and for Sleepywood kit runs (Pole Arm 1442004, WATK47); other tier-1 controls use their unchanged bare-tool
+start. A bare tool round still wears Sword 1302000, including Dark Knight's Sleepywood starter control. Kits differ:
+this is regression evidence, not a gear-matched class comparison. C = clears; D/C seconds are observed ranges.
+
+| Stage / policy | Dark Knight 132 | Hero 112 | F/P 212 | I/L 222 |
+|---|---|---|---|---|
+| henesys / bot | 0/3 C; D 406.7–874.0 | 0/3 C; D 327.7–688.2 | 0/3 C; D 305.0–651.7 | 0/3 C; D 309.5–505.0 |
+| henesys / random | 0/3 C; D 304.9–356.9 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 308.3–309.9 | 0/3 C; D 309.1–672.6 |
+| ellinia / bot | 0/3 C; D 147.8–475.0 | 0/3 C; D 221.0–646.5 | 0/3 C; D 629.1–644.2 | 0/3 C; D 624.1–654.6 |
+| ellinia / random | 0/3 C; D 163.8–683.5 | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 328.4–660.2 | 0/3 C; D 627.6–658.2 |
+| perion / bot | 0/3 C; D 240.8–599.0 | 0/3 C; D 288.9–493.0 | 0/3 C; D 305.7–456.3 | 0/3 C; D 308.3–669.7 |
+| perion / random | 2/3 C; D 318.9; C 939.3–972.9 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 308.7–421.5 | 0/3 C; D 389.6–425.7 |
+| kerning / bot | 0/3 C; D 195.9–638.4 | 0/3 C; D 326.8–568.7 | 0/3 C; D 307.9–315.0 | 0/3 C; D 309.6–537.7 |
+| kerning / random | 1/3 C; D 243.8–307.6; C 924.0 | 0/3 C; D 339.0–372.7 | 0/3 C; D 306.0–317.3 | 0/3 C; D 307.0–316.4 |
+| Sleepywood / starter | 0/3 C; D 15.9–23.1 | 0/3 C; D 16.4–20.2 | 0/3 C; D 10.6–12.0 | 0/3 C; D 11.4–11.8 |
+| Sleepywood / kit | 0/3 C; D 11.7–30.5 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 23.8–826.2; C 936.2 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+| DK sample | Runs | Cost HP/min | Recoil HP/min | Aura HP restored | Roar casts | Gate-refused opportunities |
+|---|---|---|---|---|---|---|
+| bot | 12 | 1796.5 | 295.6 | 82426 | 33 | 85519 |
+| random | 12 | 3709.3 | 702.8 | 55124 | 158 | 16101 |
+| starter | 3 | 0.0 | 0.0 | 0 | 0 | 0 |
+| kit | 3 | 502.7 | 10.1 | 0 | 1 | 800 |
+
+All 120 final records / 40 configurations completed with exit0, no crash, world warning, TIMEOUT or missing asset.
+The separate final-data DK pass adds a gate-only counter: all30 records otherwise compare equal as complete JSON to
+the initial pass (Fury's afterimage is presentation only). Raw records, exact console output and observer source remain
+under `_scratch/359-smoke/` and `_scratch/359-dk-final/`; minute buckets of cost/recoil are retained there.
+HP/min above is pooled HP divided by observed run minutes, including partial final minutes; Aura is actual HP gained,
+not nominal healing. Gate counts are ready, targeted cast opportunities refused by the strict HP gate, potentially
+once per fixed tick, not unique casts or seconds; HP-cost-only refusals are counted separately in the raw records.
+
+DK tier1 clears3/24, first boss18/24; Hero3/24 and20/24; F/P and I/L0/24 and24/24. Henesys bot fills six active
+slots3/3 for every job (DK141.4–181.6s). DK's earlier Ellinia/Kerning deaths and Sleepywood kit0/3 are recorded
+weaknesses; no tuning. Hero/F/P/I/L reproduce every per-configuration range in BS10's newer QA table (and F/P/I/L
+I12); D10's Henesys bot controls also reproduce. H10 is older evidence, not a new control.
+
+D10's bot-slot observation reproduced in Henesys seed1 (neither Beholder nor Power Strike), but is not universal:
+DK tier1 bot takes Beholder4/12 and Power Strike8/12; random6/12 and4/12. Six-slot competition and the offered cards
+explain the omissions; bot scores/policy unchanged. Individual rank8 diagnostic captures cover every pool skill with
+both weapons, all three Crusher thrusts, Fury's repaired afterimage, Roar's red180 cost (600→420HP), Beholder's500HP
+Aura and Hex. Both requested flows passed; ordinary Henesys spear/polearm clears942.55/919.63s, Sleepywood spear/
+polearm/starter deaths47.98/690.20/17.15s, all missing[]. Screenshots inspected under `evidence/d11/` (gitignored).
+Ordinary frame/input-driven runs and invulnerable diagnostic flows are not paired headless survival evidence.
+
+Rust70 and node62 pass. Pinned web templates are absent; no download or local export/artifact check. CI owns that
+unverified gate. No tests deleted, oracle hashes recaptured, held-out seeds spent, or balance data changed.
+
+
+
+**P10 #318 Paladin QA (spec #308, 2026-10-29).** Record only: training seeds 1/2/2026, all four tier-1
+stages with bot/random for jobs 122/212/112/222, plus bot Sleepywood starter and each job's committed kit.
+`ISOLATE=318`, `JOBS=3`, read-only `cache-rd308`. All **120 records / 40 batches** completed with no crash,
+TIMEOUT, world warning or missing asset. No tuning or held-out seeds. Cells give clears/3 (C), death seconds (D),
+and clear seconds when observed; single observations stay single values.
+
+| Stage / policy | Paladin 122 | F/P 212 | Hero 112 | I/L 222 |
+|---|---|---|---|---|
+| henesys / bot | 0/3 C; D 318.6–883.0 | 0/3 C; D 305.0–651.7 | 0/3 C; D 327.7–688.2 | 0/3 C; D 309.5–505.0 |
+| henesys / random | 2/3 C; D 675.8; C 1185.6–1320.4 | 0/3 C; D 308.3–309.9 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 309.1–672.6 |
+| ellinia / bot | 0/3 C; D 197.0–509.6 | 0/3 C; D 629.1–644.2 | 0/3 C; D 221.0–646.5 | 0/3 C; D 624.1–654.6 |
+| ellinia / random | 0/3 C; D 207.6–611.5 | 0/3 C; D 328.4–660.2 | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 627.6–658.2 |
+| perion / bot | 0/3 C; D 267.7–354.9 | 0/3 C; D 305.7–456.3 | 0/3 C; D 288.9–493.0 | 0/3 C; D 308.3–669.7 |
+| perion / random | 0/3 C; D 257.8–343.9 | 0/3 C; D 308.7–421.5 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 389.6–425.7 |
+| kerning / bot | 0/3 C; D 260.8–357.0 | 0/3 C; D 307.9–315.0 | 0/3 C; D 326.8–568.7 | 0/3 C; D 309.6–537.7 |
+| kerning / random | 1/3 C; D 300.3–367.5; C 1381.9 | 0/3 C; D 306.0–317.3 | 0/3 C; D 339.0–372.7 | 0/3 C; D 307.0–316.4 |
+| Sleepywood / starter | 0/3 C; D 14.8–17.2 | 0/3 C; D 10.6–12.0 | 0/3 C; D 16.4–20.2 | 0/3 C; D 11.4–11.8 |
+| Sleepywood / kit | 0/3 C; D 17.1–19.7 | 1/3 C; D 23.8–826.2; C 936.2 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+Paladin's Henesys bot fills six actives in 3/3 at **129.2–246.5 s** and reaches the first boss in 3/3;
+across tier 1, first boss reached **16/24**, clears **3/24** (all random policy). P9's seed-1/2 first-boss deaths
+**435.7/318.6 s** reproduce; seed 2026 reaches map 3 before dying at 883.0 s. The unscrolled `paladin_t2.json`
+kit still dies in **17.1–19.7 s (0/3 clears)**. Hero also clears 3/24 tier 1 but its stronger, scrolled diagnostic-clear
+fixture clears 2/3 Sleepywood; these unequal kits are not a controlled class comparison. F/P and I/L reproduce the
+I12/BS10 ranges, and Hero reproduces BS10's post-Hero-review handover record; H10's all-death Hero sample predates
+upstream survivability/review changes. None of those historical records is rewritten. The orchestrator decides
+whether Paladin needs a survivability ticket like #346; weak survival did not stop QA and was not tuned.
+
+Read-only post-tick Form observations over Paladin's 24 tier-1 runs (11674.9 run-seconds) measured fire 3096.15 s
+(**26.5%**), ice 2408.63 s (**20.6%**), lightning 2256.00 s (**19.3%**), holy 1441.40 s (**12.3%**).
+Their cast counts were 264/203/192/119 respectively; **Charged Blow 1840, Hammer 119**. Occupancy includes truncated
+windows at death/transfer and is sampled after each fixed tick, not inferred from nominal duration. The observer
+copies Form snapshots and counts `cast` events without changing world/RNG state. Raw JSON, reports, console output,
+configuration and observer diff stay in `_scratch/318-smoke/`. The matrix predates P10's presentation-only Blast
+`{art}` fix; a final-data Henesys bot seed2 control (42 Blast casts) has a **byte-identical entire record**.
+
+Visual QA: `redesign --job=122` and `creation --jobs=122,212` passed; screenshots inspected through creation,
+choices/Mastery, three clears/transfers, Lv1 equipment wear, tier unlock/loot/death/hub and deletion/history.
+Seed2026 ordinary kit playtests at x8: Henesys mace DEAD 708.2 s Lv36, sword DEAD 726.8 s Lv37 (both map 3);
+Sleepywood mace DEAD 25.1 s, sword DEAD 25.0 s, starter DEAD 18.5 s. All `missing: []`. These frame/input-driven runs are
+visual evidence, separate from the headless table. Disposable stationary-target probes cover every pool skill,
+Charged Blow, charged Rush and Hammer with sword/blunt weapons, all Charge art/tints/buff rows and Blast indices
+0/1/2/3/5. P10 fixes Blast's previously literal gold paths; no balance values change. Hammer's effect lands on its
+verified slam timing, but Charged Blow can still replace `sanctuary` before the avatar's slam frame (7.88).
+Evidence stays in `evidence/p10/`, never committed. Rust 70 / node 62 pass. Pinned web templates are absent: local
+web export/artifact checks remain unverified; CI runs export. No new download/import-source UI was added.
+
+Final full suites on the Blast-fix source: **2558 executed passes / 0 failed / 0 skipped with cache**;
+**2558 total / 2269 executed passes / 0 failed / 289 skipped without cache**, 252 files each. Cache-gated
+SKIPs prove no asset behavior. All F/P, Hero, I/L and Paladin goldens pass unchanged. No tests deleted.
+
+**P9 #317 Paladin selection smoke (spec #308, 2026-10-29).** Record only, no tuning; training seeds 1 and 2, `JOBS=3`,
+private cache `cache-rd308`, `playable` flipped in the shipped data (the first Paladin runs without a patch). A first look, not
+the P10 regression smoke (all four tier-1 stages, bot and random, Hero and F/P unchanged).
+
+| Run | Outcomes | Death seconds | End level | Six actives at | Warnings / missing |
+|---|---|---|---|---|---|
+| Paladin, Henesys, bot, seeds 1, 2 | 0 clears / 2 deaths | 435.7, 318.6 (the first boss alive) | Lv14, Lv10 | 129.2 s, 137.2 s | none / none |
+| Paladin, Sleepywood, bot, `paladin_t2.json`, seeds 1, 2 | 0 clears / 2 deaths | 17.1, 19.7 | Lv5, Lv1 | never | none / none |
+| F/P, Sleepywood, bot, `fp_arch_mage.json` (same seeds, for scale) | 1 clear / 1 death | 23.8 | | | |
+| Hero, Sleepywood, bot, `hero_t2.json` (same seeds, for scale) | 2 clears / 0 deaths | | | | |
+
+The Paladin takes Fire, Ice and Thunder Charge among its six actives in the Henesys runs and Charged Blow fires (the oracle's
+digest agrees); Blast and Holy Charge (hence the Hammer) stay out of the six slots there, which fill first. The Sleepywood kit
+is an unscrolled Lv25 Mace at Lv1 and dies in the first 20 s, like F/P's unscrolled kit in one of its two seeds; Hero's fixture
+(a real god-mode clear with scrolled gear) is a stronger kit. Henesys deaths at the first boss match Hero's and the old F/P
+pattern. This is a smoke finding for P10 and the balance pass, not tuning evidence. `test_character_baseline`,
+`test_tick_cost_identity`, `test_hero_baseline` and `test_il_baseline` pass with their goldens untouched. Records:
+`_scratch/317-smoke/` (gitignored).
+
+**#311 / P3 Form seam regression smoke (2026-10-28).** No balance tuning; training seeds 1/2/2026,
+job 212, bot/random on every tier-1 stage and bot Sleepywood with starter/`fp_arch_mage.json` equipment.
+`ISOLATE=311`, `JOBS=3` set, one seed submitted at a time to limit memory; shared cache read-only.
+All **30 records** finished: **1 clear / 29 deaths / 0 timeouts**, no world warnings, missing assets or crashes.
+Cells are **clears / 3; death-second range (deaths only); end-level range**.
+
+| Stage / equipment | Bot | Random |
+|---|---|---|
+| Henesys | 0/3; 305.0–651.7; 11–36 | 0/3; 308.3–309.9; 10–11 |
+| Ellinia | 0/3; 629.1–644.2; 21–23 | 0/3; 328.4–660.2; 12–23 |
+| Perion | 0/3; 305.7–456.3; 10–19 | 0/3; 308.7–421.5; 13–19 |
+| Kerning | 0/3; 307.9–315.0; 12–13 | 0/3; 306.0–317.3; 12–13 |
+| Sleepywood starter | 0/3; 10.6–12.0; 1–1 | — |
+| Sleepywood kit | 1/3; 23.8–826.2; 8–72 | — |
+
+These ranges match H10's recorded F/P smoke. Henesys bot fills six slots in 3/3 at 136.7–205.3 s and
+reaches the first boss in 3/3; Ellinia remains record-only. The kit's sole clear is seed 2, 936.2 s, Lv72.
+The 30 worlds ran on the frozen pre-H12 mirror (P3 gameplay unchanged since 7c1a226); the final H12
+integration at b981f41 is checked separately by the merged full suites. The merged-tree seed-1 Henesys
+bot control is byte-identical to its pre-merge complete record (`_scratch/311/postmerge-control/`).
+Exact records and combined three-seed systems reports remain in `_scratch/311/smoke/`; final validation
+and source boundaries are recorded in the external `P3-311.md` handover. No held-out seeds were used.
+
+**#296 review fixes / H12, after integrating #346 (2026-10-28).** No balance values changed by the
+review fixes: incoming AP HP 600, growth 65, orb 0.05, cooldowns and finisher coefficients are preserved exactly;
+Hero AP/growth/score rows now live in `jobs/hero.json`'s `balance` block. Read-only cache, `ISOLATE=296fix`,
+`JOBS=3`, seeds 1/2/2026; all four tier-1 stages bot/random for both jobs, Sleepywood bot starter/own fixture.
+All **60 completed records** have no world warnings, missing assets or TIMEOUTs. A combined shell received
+SIGTERM during kit startup after 27 records; only unfinished batches were resumed, with no source/config changes.
+Complete records and console summaries: `_scratch/296-review/smoke/` and `_scratch/296-review/smoke.log`.
+
+| Job | Clears / 30 | Henesys bot six slots | Henesys bot map 2 / 3 | Sleepywood kit map 2 / 3; clears / 3 |
+|---|---|---|---|---|
+| F/P 212 | 1/30 | 3/3; 136.7–205.3 s | 2/3 | 2/3; 1/3 |
+| Hero 112 | 5/30 | 3/3; 139.9–249.2 s | 1/3 | 3/3; 2/3 |
+
+F/P's 30 records reproduce the earlier smoke outcomes and times.
+Hero's total matches H11's 5/30 clears, but its mix changes: random Henesys/Ellinia/Perion 1/3 each,
+Sleepywood kit 2/3, all other configurations 0/3. All three fresh Henesys bot runs reach boss 1, but
+**map 2 reach falls from H11's 3/3 to 1/3**, below #346's>=2/3 target. Sleepywood kit map 2 improves 2/3 -> 3/3.
+These combined casting/admission changes need a later balance follow-up; no tuning or extra/held-out seeds were run.
+Ellinia remains recorded rather than tuned. Hero bot death ranges: Henesys 327.7–688.2, Ellinia 221.0–646.5,
+Perion 288.9–493.0, Kerning 326.8–568.7 seconds.
+
+**Dragon Fury and Sacrifice smoke (#354, spec #348 D6; no tuning).** Two Dark Knight skill definitions and one hit-art lookup (only a
+definition with `hit_from_weapon` takes it), so F/P and Hero runs are unchanged: the three oracles reproduce their hashes unrecaptured, and
+Henesys `balance.sh 1 2 2026 --policy=bot` gives F/P (212) 0/3, deaths 305.0 / 454.5 / 651.7 s (Lv 11 / 21 / 36), Hero (112) 0/3, deaths
+327.7 / 336.9 / 688.2 s (Lv 11 / 11 / 36): the recorded numbers exactly, no crashes, no world warnings. Job 132 is not selectable yet (D10), so
+the Dark Knight itself is flow evidence only (diagnostic playtests, Henesys and Sleepywood, `missing: []`). Full suite: 2269 passed / 0 failed /
+0 skipped with the Dark Knight cache; 2269 passed / 0 failed / 238 skipped without any cache.
+
+**HP-risk seam smoke (#351, spec #348 D3; no tuning).** `HpRisk` adds data blocks that no shipped skill carries, so a run of a
+job without them is unchanged: F/P, Hero and tick-cost oracles reproduce their hashes unrecaptured (Slash Blast and Coma now
+also emit `hp_spent`, which the oracle runs do not exercise). Henesys `balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3,
+deaths 305.0 / 454.5 / 651.7 s (Lv 11 / 21 / 36), Hero (112) 0/3, deaths 327.7 / 336.9 / 688.2 s (Lv 11 / 11 / 36). Both
+match the recorded numbers above exactly. No crashes, no world warnings.
+
+**Dragon Roar smoke (#355, spec #348 D7; no tuning).** Data, tests and text only (job 132 is not playable), so shipped jobs cannot
+change. Henesys `balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3, deaths 5:05 / 7:34 / 10:51 (305.0 / 454.5 / 651.7 s), Hero (112)
+0/3, deaths 327.7 / 336.9 / 688.2 s: identical to the D3 and D5 smokes. The three oracles reproduce unrecaptured. A diagnostic
+`--job=132` Henesys run (temporary `playable`, starting skill Dragon Roar, reverted) with a Spear and a Pole Arm cast the Roar
+(rune circle, hit bursts, "336" HP cost number, HP 600 -> 264) with `missing: []`; flow and visual evidence only.
+
+**Rush and Monster Magnet smoke (#356, spec #348 D8; no tuning).** Data copies only, with job 132 still not playable in the
+shipped data. `ISOLATE=356 JOBS=3 bash scripts/balance.sh 1 2 2026`, bot policy: F/P (212) 0/3 with deaths at 5:05 / 7:34 / 10:51,
+Hero (112) 0/3 at 5:27 / 5:36 / 11:28, both identical to the D5 (#353) smoke on the same seeds; no crashes or world warnings.
+Diagnostic `--job=132` playtests (local `playable` flip, reverted): Henesys seed 2 at x2 for 6 minutes with a Spear and with a
+Pole Arm, and Sleepywood with the tier-1 kit (died on its first map, no balance claim); `cast_rush_dark_knight` and
+`cast_monster_magnet_dark_knight` written and checked by eye, `missing: []` in every summary. Evidence in `evidence/356/` (gitignored).
+Full suites: **2289 passed / 0 failed / 0 skipped** with cache-349; **2289 passed / 0 failed / 239 skipped** without cache.
+
+**Spear Crusher smoke (#353, spec #348 D5; no tuning).** The ticket adds a Dark Knight definition (job 132 is not playable) and a
+presentation-only change to how a numeric-string frame delay is read, so shipped jobs cannot change. Henesys
+`balance.sh 1 2 2026 --policy=bot`: F/P (212) 0/3 with deaths at 10:51 / 5:05 / 7:34 (Lv 11 / 21 / 36; deaths by map 1:1 2:1 3:1),
+Hero (112) 0/3 at 5:27 / 5:36 / 11:28 (Lv 11 / 11 / 36), identical to the D1 (#349) smoke on the same seeds; no warnings.
+`test_character_baseline`, `test_tick_cost_identity` and `test_hero_baseline` reproduce their goldens unrecaptured.
+
+Merged-source full suites: **2151 passed / 0 failed / 0 skipped** cached; **1926 passed / 0 failed /
+225 skipped** without cache (skips prove no asset behavior). Both F/P goldens and the repaired Hero golden
+`409dba0d1bdffc32ba72644e326f99561e6ed9c0270feda39ace2573b0727cb3` match integration 3e37ec1 unchanged.
+The change from the original H10 Hero hash came from #346's synthetic weapon-reach/cast assertion and
+initial-state coverage repair, not a review-fix rebaseline. No tests deleted. Rush visual evidence remains
+`evidence/296-review-uncapped/`; the 120-second, 7200-tick capture had missing assets `[]`.
+
+**#296 review fixes / H12, before merging #346 (2026-10-28).** Regression smoke only; no balance tuning. Read-only default
+cache, `ISOLATE=296fix`, `JOBS=3`, seeds 1/2/2026: every tier-1 stage with bot/random for 212 and 112,
+plus Sleepywood bot with starter equipment and each job’s fixture. All **60 records** finished without
+crashes, world warnings, missing assets or TIMEOUTs. Full reports remain in `_scratch/296-review/pre-346-smoke/`.
+Compared with H10 below, F/P’s outcomes and recorded stage ranges reproduce; Hero remains 0/30 clears
+with no scheduled boss defeated. Henesys boss-reach counts and bot six-slot coverage are unchanged;
+Hero bot now also reaches Kerning’s first boss in 1/3. Hero death seconds shift after the casting/admission
+fixes (Henesys bot 278.8–321.9, random 302.8–316.3); its known weak survival is left to #346.
+
+| Job | Tier-1 clears (bot + random) | Henesys bot six actives | Henesys first boss, bot / random | Sleepywood clears, starter / kit |
+|---|---|---|---|---|
+| F/P 212 | 0/24 | 3/3; 136.7–205.3 s | 3/3 / 3/3 | 0/3 / 1/3 |
+| Hero 112 | 0/24 | 3/3; 142.4–254.4 s | 2/3 / 3/3 | 0/3 / 0/3 |
+
+Full suites: cached **2148 passed / 0 failed / 0 skipped**; without cache **1923 passed / 0 failed /
+225 skipped** (skips prove no asset behavior). Both F/P goldens and the Hero golden remain unchanged.
+A 120-second Hero visual playtest (seed2026, x4, vsync off) completed 7200 ticks with missing assets `[]`;
+Rush’s streak/hit capture was inspected in `evidence/296-review-uncapped/`. No tests were deleted.
+
+**#306 / H10 Hero enablement and H9 completion (2026-10-28).** No balance tuning. Read-only real cache,
+`ISOLATE=306`, `JOBS=3`, training seeds 1/2/2026 only. All four tier-1 stages, bot/random, both jobs;
+Sleepywood bot with starter equipment and each job's fixture (`hero_t2.json`, `fp_arch_mage.json`).
+All **60 records** finished without crashes, world warnings or missing assets; no TIMEOUTs.
+Records, complete console reports and machine summaries remain under `_scratch/306-smoke/<job>/<stage>/<policy-or-kit>/`.
+Cells are **clears / 3; death-second range (deaths only); end-level range**.
+
+| Stage / equipment | Hero bot | Hero random | F/P bot | F/P random |
+|---|---|---|---|---|
+| Henesys | 0/3; 259.2–322.3; 8–11 | 0/3; 302.8–326.8; 10–11 | 0/3; 305.0–651.7; 11–36 | 0/3; 308.3–309.9; 10–11 |
+| Ellinia | 0/3; 144.5–156.3; 5–6 | 0/3; 155.5–163.6; 5–6 | 0/3; 629.1–644.2; 21–23 | 0/3; 328.4–660.2; 12–23 |
+| Perion | 0/3; 229.8–251.1; 8–8 | 0/3; 201.8–256.4; 7–8 | 0/3; 305.7–456.3; 10–19 | 0/3; 308.7–421.5; 13–19 |
+| Kerning | 0/3; 221.1–267.0; 8–10 | 0/3; 232.1–252.1; 9–10 | 0/3; 307.9–315.0; 12–13 | 0/3; 306.0–317.3; 12–13 |
+| Sleepywood starter | 0/3; 7.2–7.6; 1–1 | — | 0/3; 10.6–12.0; 1–1 | — |
+| Sleepywood kit | 0/3; 7.8–10.1; 1–3 | — | 1/3; 23.8–826.2; 8–72 | — |
+
+**Melee survivability remains unresolved.** Hero cleared 0/30, defeated no scheduled boss, and reached the first
+Henesys boss in 2/3 bot and 3/3 random runs; every other Hero run died before its first boss. Hero Henesys bot filled
+six active slots at 134.1–253.2 s (3/3). Sleepywood's diagnostic equipment fixture did not make the opening survivable.
+Per the owner's H10 instruction, QA continues and reports this to the orchestrator rather than tuning or stopping.
+The later balance pass owns Rush cooldown/rank/knock-back, Slash Blast/Coma HP costs, Shout stun and the orb bonus.
+
+F/P Henesys bot still fills six slots (136.7–205.3 s, 3/3) and reaches the first boss (3/3). The older H5 smoke above
+had 1/3 Henesys and 2/3 kit Sleepywood clears, compared with 0/3 and 1/3 here; do not call those outcomes unchanged.
+A paired seed-1 Henesys F/P control with Hero disabled produces a **byte-identical full record** to Hero enabled
+(`_scratch/306-fp-disabled-control/henesys_bot_1.json`); this Henesys seed-1 difference from H5 is already present on the
+integration tree, not introduced by Hero's playability flip. Other smoke differences are recorded without a cause
+attribution. Ellinia is recorded only, pending the owner's rework.
+
+Both real `redesign --job=112` and `--job=212` scenarios pass: creation, full-slot/Mastery/boss windows, three real
+clear/fade/arrival transitions, kept equipment/mesos and unlocked tier, Sleepywood death, save/quit, deletion and history.
+These are diagnostic invulnerable flows with post-timer boss hits, not survival evidence. The driver now drains stale
+choice requests and waits for the window's input delay before injecting a number key (under load a visible window
+could still reject that key). Screenshots in `evidence/h10/redesign_112/` and `redesign_212/` were inspected.
+Ordinary Hero playtests (`--job=112 --speed=8 --vsync=off`) ended DEAD on Henesys seed 2026 at 304.9 s, Lv11,
+and Sleepywood seed 1 with `hero_t2.json` at 8.3 s, Lv1; both `missing: []`. Art-only probes supply stationary,
+durable targets and injected orbs for sword/axe finishers; no diagnostic probe code or art is committed.
+The Mastery screenshot also exposes a pre-existing design gap: Monster Magnet's Normal Mastery advertises +5% damage
+although the skill deals none. Its rarity bonuses work; #346 resolves this with cooldown x0.95, the same repeat counter and diminishing returns.
+
+Hero's separate synthetic replay oracle hashes 7,200 fixed ticks twice (seed 1, explicit job 112, bot, invulnerable):
+`9adb0cee8138e1bf1aa6f91a2656e1cd4ad29f8552913269dbe08ec0cb841661`. The two F/P oracle expectations are untouched.
+Cached full suite: **2,137 tests, 0 failed, 0 skipped** (219 files); both existing F/P oracles and the Hero oracle pass.
+No-cache full suite: **2,137 total, 1,912 executed passes, 0 failed, 225 SKIPs**; SKIPs prove no art behavior.
+Every skipped test is named as `SKIP` in `_scratch/306-qa/no-cache-skips.log`. Final cached fixture/driver checks:
+21 tests, 0 failed, 0 skipped.
+Rust tests: 70 passed; web shell: 62 passed. Web export and artifact gate were **not run**: the pinned web templates
+are absent (`godot_templates.sh dir`); merge readiness therefore carries this explicit unverified gate.
+
+
+**#301 / H5 core melee regression smoke (training seeds 1/2/2026).** No balance tuning.
+Shared real cache, `ISOLATE=301`; four tier-1 stages with bot/random, Sleepywood with bot,
+with and without the tier-1 `fp_arch_mage.json` kit. All 30 runs finished without crashes,
+world warnings or missing assets. Records and summaries are `_scratch/balance301/` (Sleepywood
+in separate `starter/` and `kit/` folders because the script reuses its output names).
+
+| Stage / equipment | Bot: clears; death seconds; end levels | Random: clears; death seconds; end levels |
+|---|---|---|
+| Henesys | 1/3; 449.9–711.5; 22–56 | 0/3; 308.0–615.4; 10–31 |
+| Ellinia | 0/3; 625.4–650.9; 22–23 | 0/3; 321.8–688.0; 12–23 |
+| Perion | 0/3; 430.6–668.6; 25–42 | 0/3; 277.3–574.8; 10–32 |
+| Kerning | 0/3; 306.2–749.1; 12–42 | 0/3; 308.3–442.2; 13–23 |
+| Sleepywood starter | 0/3; 10.6–12.0; 1 | — |
+| Sleepywood tier-1 kit | 2/3; 792.2 (one death); 71–78 | — |
+
+Henesys bot fills six active slots at 137.5–183.6 s and reaches the first boss in all three runs;
+seed 2026 clears at 909.5 s. Henesys outcomes/times match the preceding #307 smoke.
+Kit Sleepywood outcomes/times also match #307. The starter seed-2026 death differs from that older
+record: running the unchanged integration code at 4419535 produces an **identical complete record**
+(DEAD 12.0 s, Lv1), so this is not an H5 regression. Ellinia is recorded only, with no tuning.
+The diagnostic Hero run (playable flipped, invulnerable, three core skills learned in a throwaway mirror)
+ends PLAYING at 60.13 s, job 112, 18 kills, missing []; each `cast_<skill>` shot and the four-weapon,
+seven-frame Brandish sheet were inspected in `evidence/h5-301/`. Full suite: **2028 tests, 0 failed,
+0 skipped**, 210 files, 1598.1 s; F/P oracle expectations unchanged. The live shots draw at about 1 FPS;
+they are cast/hit evidence, not performance evidence. The paused sheet verifies the body/weapon poses.
+
+**I/L QA smoke (spec #319, I12 #331, 2026-10-28).** Training seeds 1, 2, 2026, `JOBS=3`, private
+`cache-320`, no patch: every tier-1 stage with bot and random for both 222 and 212, plus Sleepywood bot with
+starter gear and each job's tier-1 kit fixture. All 60 records completed without crashes, warnings, missing assets
+or TIMEOUTs. No balance tuning or held-out seeds. Cells are clears/3 and death-time range in seconds; Sleepywood
+lists each seed's D(eath)/C(lear) time in seed order 1/2/2026.
+
+| Stage | I/L bot | I/L random | F/P bot | F/P random |
+|---|---|---|---|---|
+| Henesys | 0/3; 309.5–505.0 | 0/3; 309.1–672.6 | 0/3; 305.0–651.7 | 0/3; 308.3–309.9 |
+| Ellinia | 0/3; 624.1–654.6 | 0/3; 627.6–658.2 | 0/3; 629.1–644.2 | 0/3; 328.4–660.2 |
+| Perion | 0/3; 308.3–669.7 | 0/3; 389.6–425.7 | 0/3; 305.7–456.3 | 0/3; 308.7–421.5 |
+| Kerning | 0/3; 309.6–537.7 | 0/3; 307.0–316.4 | 0/3; 307.9–315.0 | 0/3; 306.0–317.3 |
+| Sleepywood starter | 0/3; D11.4, D11.8, D11.6 | — | 0/3; D11.4, D10.6, D12.0 | — |
+| Sleepywood kit | 1/3; D683.6, C918.6, D14.7 | — | 1/3; D23.8, C936.2, D826.2 | — |
+
+**Weak survival, for the orchestrator:** both jobs cleared 0/24 tier-1 runs. Every I/L tier-1 run reached the first
+boss (some defeated one or two); this is neither "every run dies before the first boss" nor "every run clears".
+Henesys bot filled six actives 3/3 for I/L (137.0–228.3 s) and F/P (136.7–205.3 s), and reached the first boss 3/3
+each. I/L Sleepywood kit seed 2 cleared all three bosses at Lv80; seed 1 died at Lv64 after two bosses and seed
+2026 died at Lv4. Starter Sleepywood died before the first boss for both jobs. These are smoke findings, not balance
+acceptance; the orchestrator decides readiness. Compared with I11's incomplete-pool first look, I/L Henesys seed 2
+now dies, rather than clears; F/P Henesys bot seeds 1/2 reproduce I11's 651.7/305.0 s. I/L's complete pool changes
+card trajectories, so the old six-skill sample is not a full-pool baseline. Other differences from older smokes are
+not causally attributed. Raw per-seed JSON, exact reports and configuration logs: `_scratch/331-smoke/` (gitignored).
+
+I12 verification: cached full suite **2205 executed passes, 0 failed, 0 skipped**; cache-less full suite
+**1967 executed passes, 0 failed, 238 SKIPs** (2205 total). SKIPs prove no asset behaviour; each is named in the
+preserved QA log. Both F/P oracles pass unchanged, and the complete-pool I/L oracle reproduces. Both redesign flows,
+the I/L Skill-window flow, ordinary Henesys/Sleepywood playtests and diagnostic casts of all twelve skills with wand
+and staff were checked by eye (`evidence/i12/`, gitignored), all final playtest summaries `missing: []`. Rust70 and
+web-shell62 passed. Pinned web templates are absent locally: export/artifact verification remains a CI gate.
+
+**I/L selection and tooling smoke (spec #319, I11 #330, 2026-10-28).** Feature smoke only, no tuning: Henesys, bot, training seeds
+1 and 2, real cache (`cache-320`, the I/L books), JOBS=3. F/P (212): both records are byte-identical to the spec #319 tip's
+(`spec/319-il-arch-mage` at c058729, same seeds; every record key equal), seed 1 DEAD 651.7 s Lv36, seed 2 DEAD 305.0 s Lv11. I/L
+(`--job=222`, with `PATCH=` making it playable; the pool is Energy Bolt, Magic Claw, Cold Beam, Thunder Bolt, Ice Strike and
+Thunder Spear until I4 and I7-I10 land, so six actives fill with no Ifrit, Blizzard or Big Bang):
+
+| Henesys, bot | Outcome / time / level | Six actives | Map 2 / 3 entry |
+|---|---|---|---|
+| I/L seed 1 | DEAD / 378.0 s / Lv15; 15 picks, 388 kills (map 2 boss) | 177.0 s | 312.0 s / - |
+| I/L seed 2 | CLEARED / 916.3 s / Lv50; 52 picks, 4,522 kills | 211.8 s | 311.1 / 613.5 s |
+
+No crash, warning or missing asset in either; both oracle goldens (`test_character_baseline`, `test_tick_cost_identity`) are unchanged. The tick-cost oracle explicitly pins Cold Beam and Thunder Bolt to their legacy cooldowns, ranks and bonuses; it tests the historical definitions, not today’s shipped I/L definitions. The I/L
+numbers are a first look at an incomplete pool, not a baseline (I12 owns the pass).
+
+**Bishop QA smoke (spec #372, BS10 #382, 2026-10-29).** Training seeds 1, 2, 2026, `JOBS=3`, read-only
+`cache-373`, shipped data: all four tier-1 stages, bot and random, for jobs 232/212/112/222; Sleepywood bot
+with starter equipment and each job's tier-1 kit fixture. No tuning or held-out seeds. A disposable copy of the
+measurement tool observes Heal `cast` and `player_restored` events to count casts and actual HP gained; it changes
+neither world state nor RNG. Raw records, exact reports and configuration are in `_scratch/382-smoke/<job>/`.
+
+Bishop cleared 6/24 tier-1 runs, 0/3 Sleepywood starter runs and 3/3 kit runs. All 24 tier-1 runs reached the
+first boss. Henesys bot filled all six active slots in 3/3 (134.7–180.6 s) and reached the first boss in 3/3.
+Across its 30 runs, seven triggered Resurrection once each; Heal cast 766 times and restored 157,121 HP.
+This is mixed survival, with a strong kit sample; it is neither a tuning pass nor balance acceptance. The orchestrator
+decides readiness. No Bishop balance data changed. Ellinia is recorded only, pending the owner's rework.
+
+All 120 records completed, all 40 batch commands exited 0, no TIMEOUT/crash/world warning/missing asset.
+Cells give clears/3, then death (D) and clear (C) time ranges in seconds.
+
+| Stage / policy | Bishop 232 | F/P 212 | Hero 112 | I/L 222 |
+|---|---|---|---|---|
+| henesys / bot | 2/3 C; D 306.4; C 913.1–921.1 | 0/3 C; D 305.0–651.7 | 0/3 C; D 327.7–688.2 | 0/3 C; D 309.5–505.0 |
+| henesys / random | 2/3 C; D 310.6; C 940.9–980.2 | 0/3 C; D 308.3–309.9 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 309.1–672.6 |
+| ellinia / bot | 0/3 C; D 629.6–655.5 | 0/3 C; D 629.1–644.2 | 0/3 C; D 221.0–646.5 | 0/3 C; D 624.1–654.6 |
+| ellinia / random | 0/3 C; D 398.7–844.2 | 0/3 C; D 328.4–660.2 | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 627.6–658.2 |
+| perion / bot | 1/3 C; D 305.5–334.9; C 911.4 | 0/3 C; D 305.7–456.3 | 0/3 C; D 288.9–493.0 | 0/3 C; D 308.3–669.7 |
+| perion / random | 0/3 C; D 387.9–439.1 | 0/3 C; D 308.7–421.5 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 389.6–425.7 |
+| kerning / bot | 1/3 C; D 308.6–313.3; C 928.0 | 0/3 C; D 307.9–315.0 | 0/3 C; D 326.8–568.7 | 0/3 C; D 309.6–537.7 |
+| kerning / random | 0/3 C; D 305.5–376.2 | 0/3 C; D 306.0–317.3 | 0/3 C; D 339.0–372.7 | 0/3 C; D 307.0–316.4 |
+| Sleepywood / starter | 0/3 C; D 10.8–11.8 | 0/3 C; D 10.6–12.0 | 0/3 C; D 16.4–20.2 | 0/3 C; D 11.4–11.8 |
+| Sleepywood / kit | 3/3 C; C 912.7–921.3 | 1/3 C; D 23.8–826.2; C 936.2 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+F/P and I/L reproduce I12's smoke totals and recorded timings: tier 1 0/24, Sleepywood starter 0/3 and kit 1/3 each.
+Hero cleared 3/24 tier 1 and 2/3 kit runs (starter 0/3); its Henesys bot filled six slots 3/3 at 139.9–249.2s and
+reached the first boss 3/3. The earlier H10 smoke used an older integration revision/fixture; differences are not
+causally attributed. A paired Hero Henesys random seed 1 control with only Bishop `playable:false` produces a
+byte-identical complete record to the enabled-Bishop run (CLEAR 1010.6 s). F/P Henesys bot filled six slots 3/3 at
+136.7–205.3s; I/L 3/3 at 137.0–228.3s; both reached the first boss 3/3. Other jobs' golden oracles pass unchanged.
+
+Full cached suite: **2,569 tests, 0 failed, 0 skipped**, 256 files, 1765.365 s. Full without cache (`/nonexistent`): **2,569 total, 2,274 executed passes, 0 failed, 295 SKIPs**, 256 files, 897.937 s. Each skipped test is named with SKIP in `_scratch/382-qa/no-cache-skips.log`; a SKIP proves no asset behaviour. Final cached bot/Skill-window check: 13 passed, 0 failed, 0 skipped. No tests deleted.
+
+The BS9 oracle covered seven skills only; BS10 widens it to all ten with synthetic dragon and Resurrection books,
+so new card choices/casts/event bytes require one golden recapture. Its seed 1, 72,000 fixed ticks, bot/god and historical
+opening/legacy director recipe remain fixed. F/P, Hero and I/L golden constants are untouched. God mode keeps HP full,
+so the independent Heal/Resurrection suites and the real-cache revive probe cover those triggers.
+
+Visual QA: `redesign --job=232` and `creation --jobs=212,232` passed; all screenshots inspected. Ordinary seed2026 x8
+playtests: Henesys CLEAR916.15 Lv50; Sleepywood kit DEAD16.7 and starter DEAD12.5, all `missing: []`. These frame-driven
+visual runs differ from the headless smoke and are not paired balance observations. Diagnostic single-skill captures
+show all nine cast skills, Teleport, Heal, Genesis's tiles, both dragons, Big Bang charge/release with wand and staff,
+and Resurrection's pillar/beams/guard/recharge and repeat trigger. Every diagnostic summary has no missing assets.
+Screenshots remain under `evidence/bs10/`, uncommitted. The local web export/artifact gate is unverified because the
+pinned web templates are absent; CI runs export. Rust and web-shell suites passed (70 and 62 tests).
 
 **#282 review fixes (2026-10-28).** Targeted regression requested for this review task:
 Henesys, bot, training seed 1, real cache, no balance tuning or held-out seeds. Correct passive rarity RNG,
@@ -740,6 +1251,27 @@ Final validation: `ISOLATE=307 bash scripts/test.sh` with the real cache: **1992
 0 skipped**, 207 files, 1038.6 s. Seven deterministic ramp tests added; none deleted. Existing corrupt-settings
 recovery diagnostics and two dummy TextureStorage RID shutdown diagnostics remain. The final integration
 fetch/merge was already up to date (5cd40ea); no gameplay changes after validation. Final focused rerun: 7/7 passed.
+
+**#299 / H3 meter infrastructure regression smoke (2026-10-28).** Job 212, real v83 cache,
+training seeds 1/2/2026, bot/random on every tier-1 region and bot Sleepywood with/without the tier-1 kit.
+No tuning or held-out seeds. All 30 records have empty warnings/missing lists, no crashes or timeouts.
+All 30 records after merging H1/H2/H4 are byte-identical to the preserved pre-merge meter-runtime records.
+Historical H7 results reproduce the preceding #294 smoke; Hero was then unplayable (before H9/H10), so Combo is exercised by
+seeded synthetic tests and the diagnostic HUD probe rather than claimed as Hero survival evidence.
+
+| Stage / kit | Bot clear / dead; time range; end level | Random clear / dead; time range; end level |
+|---|---|---|
+| Henesys | 1 / 2; 449.9–909.5 s; Lv22–56 | 0 / 3; 308.0–615.4 s; Lv10–31 |
+| Ellinia | 0 / 3; 625.4–650.9 s; Lv22–23 | 0 / 3; 321.8–688.0 s; Lv12–23 |
+| Perion | 0 / 3; 430.6–668.6 s; Lv25–42 | 0 / 3; 277.3–574.8 s; Lv10–32 |
+| Kerning | 0 / 3; 306.2–749.1 s; Lv12–42 | 0 / 3; 308.3–442.2 s; Lv13–23 |
+| Sleepywood, tier-1 kit | 2 / 1; 792.2–931.6 s; Lv71–78 | not sampled |
+| Sleepywood, no character file (default sword) | 0 / 3; 10.6–12.0 s; Lv1 | not sampled |
+
+Henesys bot fills six actives at 137.5/183.6/139.2 s and all three runs defeat Mano; the no-character
+Sleepywood command still uses the tool's default sword, not the creation wand (same distinction as #294).
+The tier-1 kit reaches map 3 on all seeds; seeds 2/2026 clear. Ellinia remains record-only, unchanged.
+Raw records and exact configuration logs are retained under ignored _scratch/299-smoke and /tmp/299-*.log.
 
 **#294 / T12, slice QA (2026-10-28).** The F/P slice after #307 (merged into the QA branch), real v83 cache, training seeds
 1/2/2026 and no held-out seeds; nothing was tuned and no balance data changed. Raw records, consoles and screenshots live in the
@@ -845,7 +1377,6 @@ Final validation (#293): `ISOLATE=293 bash scripts/test.sh` with the real cache:
 from faster starting spells, and the EXP/cooldown-dependent replay baselines were refreshed.
 
 
-
 **#291 summon regression smoke (2026-10-28).** Seeds 1/2/2026, every tier-1 stage, bot/random,
 read-only T1 cache, no patches or tuning. All 24 records ended DEAD, warnings=[] and missing=[]; no crashes.
 Ellinia's known early deaths remain. Henesys seed-1 bot now dies at 378.5 s, Lv16, map 2, compared with
@@ -871,7 +1402,36 @@ card of the three (the old `--first-card` policy is no longer a careless proxy: 
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00. Older records below
 quote the bot's former job draws, basic-attack duels and Guard scores: they describe the game of their date.
 
-#### Spec #282 / #288: rarity and Mastery regression smoke (2026-10-28)
+#### #346 candidate comparison
+
+Absolute `PATCH=` variants, `ISOLATE=346`, `JOBS=3`, training seeds 1/2/2026 (kit Henesys 1..12).
+A: growth65, five cooldowns x.4, orb .05 / finisher .20; B adds HP300; C adds HP1000;
+D selects HP600. A missed both three-seed targets. B met fresh Henesys but missed Sleepywood.
+C cleared kit Sleepywood3/3; reduced the baseline and stopped its unfinished batches before D.
+B's unfinished kit batch and C's unfinished fresh/kit batches are not target evidence.
+D's fresh Henesys: clear966.7 / dead674.0 / dead447.0, all map2; kit Sleepywood:
+dead656.5 / dead223.9 / clear906.9, two map3. No claim of frozen balance or F/P parity beyond these targets.
+Raw records and logs stay in `_scratch/346/`; no held-out seeds used.
+
+The complete 30-run Hero regression smoke (tier-1 bot/random seeds1/2/2026, Sleepywood starter/kit bot)
+has 5 clears / 25 deaths / 0 timeouts, warnings=[] and missing=[] throughout; no crashes. Compared with
+H10's 0/30 Hero clears, tier-1 clears are Henesys bot1/3, random1/3, Perion random1/3 and Kerning random1/3;
+all other tier-1 configurations remain0/3. Ellinia remains record-only (deaths224.2–935.8s).
+Sleepywood starter remains0/3 (deaths16.4–20.2s); kit1/3 with2/3map2. Henesys bot six slots fill at
+130.6–253.0s (all3), with first boss defeated3/3. These samples meet H11 targets without claiming all-stage viability.
+The paired seed1 Henesys F/P record is byte-identical before/after (SHA-256 `a5a9901ca32b43059550b9de45a731ebf5dc1959785a8a76374679fc8cb4c942`);
+both F/P oracle files are unchanged. Hero's old replay cast nothing because its synthetic weapon lacked afterimages;
+H11 adds existing synthetic swing reach, a cast-coverage assertion and initial-player-state digest, then recaptures
+`409dba0d1bdffc32ba72644e326f99561e6ed9c0270feda39ace2573b0727cb3` with independent repeat equality.
+
+
+| Configuration | Before | Chosen D |
+|---|---|---|
+| Henesys fresh bot, 1/2/2026 | boss1/map2 0/3; clears0/3 | boss1/map2 3/3; clears1/3 |
+| Henesys Hero kit bot, 1..12 | clears1/12 (seed3) | clears4/12 (seeds1/3/5/7) |
+| Sleepywood Hero kit bot, 1/2/2026 | map2 0/3; deaths7.8–10.1s | map2 2/3; clears1/3; deaths223.9/656.5s |
+
+### Spec #282 / #288: rarity and Mastery regression smoke (2026-10-28)
 
 `ISOLATE=288`, real cache, seeds 1/2/2026 on all tier-1 stages, bot and random, no PATCH or tuning/held-out seeds.
 All 24 records: no crashes, warnings or missing assets; all DEAD, no clears/timeouts. This remains the incomplete
@@ -889,6 +1449,26 @@ recorded without tuning. Values below are death seconds min/median/max, three ob
 
 Raw records/summary logs stay in ignored `_scratch/balance288/`. Short graphical Henesys seed-1 x8 playtest
 ends PLAYING at 60.10 s, Lv3, 13 kills, missing []; screenshot inspected (no performance claim: about 1 FPS here).
+
+#### Spec #332 (#344, B12): Bowmaster selection and tooling: smoke (2026-10-28)
+
+A feature ticket: no balance data changed, no tuning, no held-out seeds. `playable` stays false (B13 flips it), so nothing a
+F/P or Hero run reads changed and no F/P or Hero record is expected to move: `test_character_baseline` (both F/P goldens),
+`test_tick_cost_identity` and `test_hero_baseline` pass with their hashes untouched. The Bowmaster is previewed with a patch
+(`PATCH=<312 playable patch>`) and its fixture (a bow in hand: without one the run has no ammo and `missing` lists the arrow sprite).
+
+| Run (Henesys, bot, `bowmaster_t2.json`, `JOBS=3`) | Outcome | Six actives at | Picks | `missing` |
+|---|---|---|---|---|
+| seed 1 | DEAD 465.5 s on map 2, Lv19, first boss killed at 346.7 s | 137.3 s | 19 | [] |
+| seed 2 | DEAD 307.8 s at the first boss, Lv10 | 137.8 s | 9 | [] |
+
+No crash and no world warnings. Both fill the six active slots at about 137 s and reach the first boss (record only; Henesys
+Bowmaster balance is B13's). `redesign --job=312 --seed=1` (the Job page with three rows, a Henesys clear with the real windows,
+three map transfers, results, Sleepywood, death, deletion, history) PASSED with 312 flipped locally, `missing: []`, no ERROR line:
+the bot took Arrow Blow, Arrow Bomb, Inferno, Hurricane, Dragon's Breath and Silver Hawk (rank 3) as its six actives, two
+Mastery offers and 33 picks. Screenshots were looked at (Job page: Hero, Arch Mage, Bowmaster, highlight on the third row, weapon box
+"War Bow · WATK 25 · 0.81s"; the level-up window with the hawk in flight). The Bowmaster baseline oracle's golden is
+`c1b3b654c469fde20e427d2eaa99b5afa99fb20a047c0302e5ea1ea7eb1c3e1b` (14,400 ticks, see "Bowmaster B12 constants (#344)").
 
 #### Spec #282 (#285): no MP and no level gap: regression smoke (2026-10-28)
 
@@ -3867,6 +4447,97 @@ Raw: ignored `evidence/t76/perf3/`, `_scratch/t76/perf_probe_runs*.txt`, probe `
 `missing` empty; no tuning, no held-out seeds. Bot: 3 DEAD on map 2 at 6:39 / 6:17 / 6:18, Lv 22 / 17 / 19. Random: 3 DEAD on map 1
 at 5:07 / 5:10 / 5:08, Lv 11 / 11 / 12. No clears or timeouts.
 
+### Buccaneer B2 data smoke (#414, 2026)
+
+Data-only ticket (`jobs/buccaneer.json`, not playable, no balance data touched). Training seeds 1/2/2026, Henesys bot,
+`JOBS=3`, real private cache: F/P (212) and Hero (112) rows are byte-identical to the base commit `f15b68f`
+(3 deaths each: 212 at 10:51 / 5:05 / 7:34, 112 at 5:27 / 5:36 / 11:28; no clears, no warnings). Oracles
+`character_baseline`, `tick_cost_identity` and `hero_baseline` reproduce their hashes. A diagnostic `--job=512`
+playtest (Henesys, speed 8, 3 minutes, `playable: true` temporarily and reverted) reached Lv5 with `missing: []`, HP
+860/860 (600 base plus 65 per level), the Flash Fist and the Pirate-book skills cast; screenshots are in gitignored
+`evidence/414/`. Not survival evidence; the pool's new skills are B4-B10.
+
+### Buccaneer B4 port smoke (#416, 2026)
+
+Ported-skills ticket (`skills/buccaneer.json`, job 512 still not playable, no balance data touched). Training seeds 1/2/2026,
+Henesys bot, `JOBS=3`, private cache `cache-rd308`: the F/P (212) and Hero (112) rows are identical to the B2 smoke (212 died at
+10:51 / 5:05 / 7:34, 112 at 5:27 / 5:36 / 11:28; no clears, no warnings), as expected: none of the five skills is in either pool.
+Oracles `character_baseline`, `tick_cost_identity` and `hero_baseline` reproduce their hashes with no recapture. A diagnostic
+`--job=512` playtest (Henesys, seed 5, speed 8, `playable: true` temporarily, reverted) reached Lv11 and died at 5:18 with
+`missing: []`; Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut and Corkscrew Blow all cast (`cast_*.png`); flow
+evidence only, not survival evidence.
+
+### Buccaneer B3 smoke (#415, 2026)
+
+Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
+died at 10:51 Lv36 and Hero (112) at 5:27 Lv11, both exactly the B2 rows above (seeds 2 and 2026 not rerun: no sim file
+changed and the `character_baseline`, `tick_cost_identity` and Hero baseline oracles reproduce their hashes). Full suite
+2533 tests, 0 failed, 0 skipped with the cache; 0 failed, 282 skipped (cache tests) without it. No `--job=512` playtest:
+the job is not selectable before B11 and nothing of Buccaneer's is castable yet; the visual evidence is the
+`morph_driver.tscn` sheet (1001, 1000, 1002; `missing: []`).
+
+### Buccaneer B6 smoke (#418, 2026)
+
+Energy Drain, the `unit` word and the full-bar cue (`MeterCue`, one `RunScene` call site, a `SkillText` and an `UpgradePool` label
+line; no sim file changed). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212) 3 deaths at 10:51 / 5:05 / 7:34 and Hero (112) 3 deaths at 5:27 / 5:36 / 11:28, both byte-for-byte the B2 rows above (no clears, no warnings).
+Oracles `character_baseline`, `tick_cost_identity` and `hero_baseline` are in the full suite below.
+A diagnostic `--job=512` playtest (Henesys seed 3 speed 4 for 4 minutes; Sleepywood with the starter weapon, which dies at Lv1 as
+expected without the kit; Buccaneer playable and started with Drain locally, reverted) showed the pips, the cue and the Drain cast
+(`meter_cue.png`, `cast_energy_drain.png`; `missing: []`, no game.log warnings). Not survival evidence.
+
+### Buccaneer B8 smoke (#420, 2026)
+
+Barrage, Dragon Strike, `bot.reach` and the `swingTF` fallback (job 512 still not playable, no balance data touched). Training seeds
+1/2/2026, Henesys bot, `JOBS=3`, private cache `cache-413`: F/P (212) died at 10:51 / 5:05 / 7:34 (Lv 11 / 21 / 36) and Hero (112)
+at 5:27 / 5:36 / 11:28, both identical to the B4 smoke above (no clears, no warnings): neither pool holds the new skills, and the
+pending-strike and hit-art changes are default-off. `character_baseline`, `tick_cost_identity` and the Hero baseline reproduce their
+hashes (no recapture). Full suite 2587 tests, 0 failed, 0 skipped with the cache; 0 failed, 285 skipped (cache tests; a SKIP proves
+nothing) without it. A diagnostic `--job=512` playtest (Henesys, seed 5, x4, `playable` true and the starting skill swapped locally,
+reverted) cast Barrage and Dragon Strike with `missing: []`; flow and visual evidence only.
+
+### Buccaneer B7 smoke (#419, 2026)
+
+Energy Orb and the arbitration tests (data and tests only; no sim, engine or oracle file changed). Training seeds 1/2/2026, Henesys bot,
+`JOBS=3`, private cache `cache-413`: F/P (212) died at 10:51 / 5:05 / 7:34 (Lv 11 / 21 / 36) and Hero (112) at 5:27 / 5:36 / 11:28, both
+identical to the B4, B6 and B8 smokes above (no clears, no warnings). `character_baseline`, `tick_cost_identity` and the Hero baseline
+reproduce their hashes. Full suite 2633 tests, 0 failed, 0 skipped with the cache; 0 failed, 287 skipped (cache tests; a SKIP proves
+nothing) without it. A diagnostic `--job=512` playtest (`playable` true and Orb as the second learned skill locally, reverted; Henesys
+seed 3 x4, then seed 5 warped to 7:00 with 60+ mobs) cast Orb with the forward streak and a hit burst on each target, `missing: []`;
+flow and visual evidence only.
+
+### Buccaneer B9 smoke (#421, 2026)
+
+Transformation and Shockwave (data on the Form seam, plus two small additions to the pending-strike machinery: `pending.oriented` and a `facing`
+flag on `cast_visuals`; both default off and Meteor Shower, Big Bang and Blizzard are untouched). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache `cache-413`: F/P (212) died at 10:51 / 5:05 / 7:34 and Hero (112) at 5:27 / 5:36 / 11:28,
+byte-for-byte the B2 rows above (no clears, no warnings): neither pool holds a form. The `character_baseline`, `tick_cost_identity` and `hero_baseline`
+oracles are in the full suite and reproduce their hashes with no recapture. A diagnostic `--job=512` playtest (Henesys seed 3, speed 1; Sleepywood with the starter weapon, which dies at Lv1 as
+expected; `playable` and a learned Transformation set locally, reverted) showed the morph walking and casting Corkscrew Blow in its own pose, and the Shockwave
+spikes rolling out along the ground (`cast_shockwave.png`, `cast_corkscrew_blow.png`; `missing: []`, no warnings). Flow and visual evidence only.
+
+### Buccaneer B10 smoke (#422, 2026)
+
+Super Transformation, Demolition and Snatch (data on the Form seam, Hero's `pull` block and the stun; a morph blank-frame hold in the renderer and a bounds guard in
+`FootholdMap.slide_along`; job 512 still not playable, no balance data touched). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache `cache-413`: F/P (212) died at
+10:51 / 5:05 / 7:34 (Lv 36 / 11 / 21) and Hero (112) at 5:27 / 5:36 / 11:28, byte-for-byte the B2 and B9 rows above (no clears, no warnings). Oracles `character_baseline`,
+`tick_cost_identity` and `hero_baseline` are in the full suite and reproduce with no recapture. A diagnostic `--job=512` playtest (Henesys seed 3, speed 1, `playable` true and Super
+Transformation learned locally, reverted) cast Super Transformation, Snatch, Shockwave and Demolition (`cast_*.png`: the morph in its own pose, the earth spikes, the stacked eight-line
+Demolition numbers); the throttled window ran at 1 frame per second, so the run was stopped by hand after 14 s of play and wrote no `summary.json` (`missing` unchecked there, no `missing` or
+warning line in `game.log`). Flow and visual evidence only.
+
+### Buccaneer B11 smoke (#423, 2026)
+
+Selection and tooling: `jobs/buccaneer.json` `playable` true, `hub_kit`, explicit bot card scores, the `buccaneer_t2.json` fixture and the baseline oracle (no engine or balance data touched). Training seeds, Henesys, `JOBS=3`, private cache `cache-413`, record only (no tuning):
+
+| Run | Seeds | Result |
+|---|---|---|
+| F/P (212), bot | 1/2/2026 | died 10:51 / 5:05 / 7:34 (Lv 36 / 11 / 21), byte-for-byte the B2 to B10 rows |
+| Hero (112), bot | 1/2/2026 | died 5:27 / 5:36 / 11:28 (Lv 11 / 11 / 36), byte-for-byte the same rows |
+| Buccaneer (512), bot | 1/2/2026 | died 5:19 (Lv 11, first boss) / **cleared 17:16 (Lv 44)** / died 10:26 (Lv 26); `missing: []`, no warnings |
+| Buccaneer (512), random | 1/2 | cleared 17:45 and 17:47 (Lv 41 both) |
+| Buccaneer (512), Sleepywood, bot | 1/2, fixture and starter knuckles | died at Lv1 after 0:23 / 0:28 (fixture) and 0:13 / 0:15 (starter): the tier-2 round at Lv1 needs the balance pass (every round starts at Lv1), not a crash |
+
+The Buccaneer clears in two of five Henesys runs and dies at the first boss at Lv11 in two (the same shape as Hero; the balance pass owns it). Oracles `character_baseline`, `tick_cost_identity`, `hero_baseline` and `il_baseline` reproduce unchanged; the new `test_buccaneer_baseline` golden is `247fabb2...ac8a` (14400 ticks, 118 casts of eight skills). `flow_driver --scenario=redesign --job=512 --seed=1` PASSED end to end (three maps, 38 picks, the level-up, boss-draw and Mastery windows, Sleepywood, results, deletion; `missing: []`, no ERROR line) and `--scenario=creation --jobs=212,512` PASSED (the Job page shows four rows with Buccaneer highlighted and "Steel Knuckler · WATK 18 · 0.75s"). A diagnostic playtest (`playtest.sh --job=512`, Henesys and Sleepywood with the fixture) ran with `missing: []`; flow and visual evidence only.
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
@@ -4062,6 +4733,100 @@ The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and rec
   the specced systems with no gameplay effect of their own (schema in ARCHITECTURE.md 4.4.3).
 - **Playtest default length 30:00** (tier C tooling): `scripts/playtest.sh` allows time for the three entry-relative
   boss waits and their fights, ending at death, clear or the cap; documented in AGENTS.md and the script header.
+
+**Bowmaster QA smoke (spec #332, B13 #345, 2026-10-29).** Training seeds 1/2/2026, `JOBS=3`,
+`ISOLATE=345`, read-only `cache-rd332`, no tuning patches or held-out seeds. All four tier-1 stages, bot/random,
+for jobs 312/212/112/222, plus Sleepywood bot with starter gear and each job's existing kit fixture:
+**120/120 records, 40/40 batch exits 0; no crashes, world warnings, missing assets or TIMEOUTs.** Cells give
+clears/3, death (D) time range and clear (C) time(s), in seconds.
+
+| Stage / policy | Bowmaster 312 | F/P 212 | Hero 112 | I/L 222 |
+|---|---|---|---|---|
+| henesys-bot | 0/3 C; D 304.5–360.6 | 0/3 C; D 305.0–651.7 | 0/3 C; D 327.7–688.2 | 0/3 C; D 309.5–505.0 |
+| henesys-random | 0/3 C; D 306.5–456.9 | 0/3 C; D 308.3–309.9 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 309.1–672.6 |
+| ellinia-bot | 0/3 C; D 305.2–810.4 | 0/3 C; D 629.1–644.2 | 0/3 C; D 221.0–646.5 | 0/3 C; D 624.1–654.6 |
+| ellinia-random | 0/3 C; D 168.7–995.1 | 0/3 C; D 328.4–660.2 | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 627.6–658.2 |
+| perion-bot | 0/3 C; D 289.1–377.3 | 0/3 C; D 305.7–456.3 | 0/3 C; D 288.9–493.0 | 0/3 C; D 308.3–669.7 |
+| perion-random | 0/3 C; D 216.4–349.3 | 0/3 C; D 308.7–421.5 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 389.6–425.7 |
+| kerning-bot | 0/3 C; D 315.8–319.8 | 0/3 C; D 307.9–315.0 | 0/3 C; D 326.8–568.7 | 0/3 C; D 309.6–537.7 |
+| kerning-random | 0/3 C; D 303.6–313.1 | 0/3 C; D 306.0–317.3 | 0/3 C; D 339.0–372.7 | 0/3 C; D 307.0–316.4 |
+| sleepywood-starter | 0/3 C; D 10.4–12.3 | 0/3 C; D 10.6–12.0 | 0/3 C; D 16.4–20.2 | 0/3 C; D 11.4–11.8 |
+| sleepywood-kit | 0/3 C; D 11.5–12.9 | 1/3 C; D 23.8–826.2; C 936.2 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+**Weak Bowmaster survival, recorded without tuning:** 0/24 tier-1 clears; first boss reached in 20/24 runs.
+Henesys bot filled six actives 3/3 at 136.2–178.1 s and reached the boss 3/3. Both Sleepywood starter and
+`bowmaster_t2.json` kit died 3/3 before the boss (10.4–12.9 s). This sample is unviable for clears; it is a readiness
+concern for the owner, not balance acceptance. B13 continues and records it as instructed; no cooldown, damage,
+AP, gear, drop, EXP or other balance value changed. F/P and I/L reproduce the I12/BS10 smoke (0/24 tier-1,
+1/3 Sleepywood kit clears); Hero reproduces BS10 (3/24 tier-1, 2/3 kit). Every job filled six actives in all three
+Henesys bot runs; first bosses were reached in 24/24 F/P, 20/24 Hero and 24/24 I/L tier-1 runs.
+
+**Starter configuration:** the inherited bare `--job=312` tool starts with the generic outfit and no bow;
+that exploratory playtest's missing bullet is not valid asset evidence. Bowmaster starter smoke instead uses a
+`character_fixture.gd` creation-outfit snapshot with War Bow 1452002, top 1040002, bottom 1060002, shoes 1072001,
+unscrolled, Lv1 each round, alongside `--job=312`. The other jobs retain the earlier smoke's bare-tool configurations.
+This supplies a real Bowmaster starter, not a stronger kit; the production bare-tool limitation remains documented
+in AGENTS.md. Raw records, exact reports and configuration: `_scratch/345-smoke/` and `_scratch/345-qa/smoke.sh`.
+
+Visual QA: `redesign --job=312` and `creation --jobs=112,212,312` passed; all flow shots read by eye. Ordinary
+Bowmaster Henesys starter/kit and Sleepywood starter/kit playtests and disposable rank-8 skill probes have
+`missing: []`; all ten cast shots, Bronze/Steel notices, Hurricane stream, Inferno flames, Arrow Rain's mid-volley
+0.5 s strike and both followers were inspected. Hover remains 20 px. Evidence stays under `evidence/b13/`.
+Cached full suite: 2563 executed passes, 0 failed, 0 skipped. Cache-less: 2563 total, 2281 executed passes,
+0 failed, 282 named SKIPs (no asset-behaviour claim); logs and every skipped name in `_scratch/345-qa/`.
+All replay oracle constants unchanged. Rust 70 and node 62 passed. Pinned web templates absent: no local
+web export/artifact validation; CI runs export. No tests deleted.
+
+### Buccaneer BC12 QA and regression smoke (#424, 2026-10-29)
+
+Seeds **1, 2, 2026**, every tier-1 stage, bot/random, all four playable jobs on this branch; Sleepywood bot with
+starter equipment and each job's committed tier-2 fixture. `JOBS=3`, `ISOLATE=424`, read-only `cache-413`. All 120
+records completed and all 40 batch exits were 0; no crash, world warning or missing asset. C = CLEARED, D = DEAD, T
+= TIMEOUT at the 1800 s cap; values are seconds, with unreached maps and bosses retained as absent observations. A
+timeout is never a clear. The fixtures differ (Hero's includes scrolls); this is a regression comparison, not a
+gear-matched class ranking.
+
+| Stage / policy | Buccaneer 512 | Hero 112 | F/P 212 | I/L 222 |
+|---|---|---|---|---|
+| henesys / bot | 1/3 C; D 319.6–626.9; C 1036.8 | 0/3 C; D 327.7–688.2 | 0/3 C; D 305.0–651.7 | 0/3 C; D 309.5–505.0 |
+| henesys / random | 3/3 C; C 1032.1–1067.4 | 1/3 C; D 390.6–509.6; C 1010.6 | 0/3 C; D 308.3–309.9 | 0/3 C; D 309.1–672.6 |
+| ellinia / bot | 0/3 C; D 895.0–1030.5; T 1800.0 (n=1) | 0/3 C; D 221.0–646.5 | 0/3 C; D 629.1–644.2 | 0/3 C; D 624.1–654.6 |
+| ellinia / random | 0/3 C; D 989.5; T 1800.0 (n=2) | 1/3 C; D 280.5–653.0; C 1428.7 | 0/3 C; D 328.4–660.2 | 0/3 C; D 627.6–658.2 |
+| perion / bot | 1/3 C; D 401.9–503.5; C 1048.2 | 0/3 C; D 288.9–493.0 | 0/3 C; D 305.7–456.3 | 0/3 C; D 308.3–669.7 |
+| perion / random | 1/3 C; D 332.1–359.5; C 1103.3 | 1/3 C; D 348.3–407.3; C 1095.0 | 0/3 C; D 308.7–421.5 | 0/3 C; D 389.6–425.7 |
+| kerning / bot | 1/3 C; D 338.7–361.1; C 991.9 | 0/3 C; D 326.8–568.7 | 0/3 C; D 307.9–315.0 | 0/3 C; D 309.6–537.7 |
+| kerning / random | 1/3 C; D 280.4–382.2; C 998.6 | 0/3 C; D 339.0–372.7 | 0/3 C; D 306.0–317.3 | 0/3 C; D 307.0–316.4 |
+| sleepywood / starter | 0/3 C; D 13.8–15.4 | 0/3 C; D 16.4–20.2 | 0/3 C; D 10.6–12.0 | 0/3 C; D 11.4–11.8 |
+| sleepywood / kit | 0/3 C; D 23.1–28.7 | 2/3 C; D 714.6; C 905.5–906.7 | 1/3 C; D 23.8–826.2; C 936.2 | 1/3 C; D 14.7–683.6; C 918.6 |
+
+Job 512: tier-1 clears 8/24; first boss reached 23/24. Job 112: tier-1 clears 3/24; first boss reached 20/24. Job
+212: tier-1 clears 0/24; first boss reached 24/24. Job 222: tier-1 clears 0/24; first boss reached 24/24.
+
+Buccaneer Henesys bot filled six actives in 3/3 runs at 130.4–205.1 s; its deaths 319.6/626.9 and clear 1036.8
+reproduce BC11 (rounded there). Sleepywood early deaths are recorded without tuning or stopping, as explicitly
+requested by the owner. F/P and Hero Henesys bot outcomes reproduce the BC2–BC11 smoke; the full other-job matrix
+is compared with the I/L QA record and equivalent Bishop/Paladin QA notes.
+
+Across all 30 Buccaneer records: energy_drain 3569 casts, energy_orb 2010 casts, shockwave 778 casts, snatch 0
+casts, demolition 0 casts. Measured post-tick occupancy: morph 1000 3291.05 s, morph 1001 0.00 s. No smoke loadout
+selected Super Transformation, so its natural occupancy and Snatch/Demolition counts are zero; those paths have
+deterministic unit-test coverage plus diagnostic playtest coverage only; the natural smoke does not establish coverage of Super Transformation, Snatch or Demolition. Per-run counters and occupancy are retained in `BC12-424.md` in the implementation
+notes and the raw local JSON, not inferred from nominal durations. The observer only reads cast events and morph
+snapshots; it changes no RNG or world state.
+
+Both flow scenarios passed (`redesign --job=512`, `creation --jobs=212,512`); screenshots inspected. Ordinary seed
+2026 x8 playtests: Henesys DEAD 680.75 s at Lv29, Sleepywood kit CLEARED 904.433 s at Lv82, starter DEAD 15.333 s
+at Lv1, all `missing: []`. Windowed autoplay is frame/input-driven, so those outcomes are visual evidence, not
+paired headless regressions. Disposable rank-8 invulnerable stationary-crowd probes capture every pool skill and
+sub, the pips/full-bar cue, Drain/Orb, Dragon Strike pillars, Snatch's pull and both morphs. Morph contact sheets
+cover walk/jump/attacks, Demolition's blank-frame hold, and both knuckles' full fist/dragonstrike sequences.
+Screenshots inspected under `evidence/424/` (gitignored). Shockwave damage is within one 60 Hz tick of the 1.38 s
+art lead-in; the documented 0.8 s stance still returns to idle before eruption. No tuning or stance-priority change
+was made.
+
+Rust 70 and web-shell 62 tests pass. Pinned web templates are absent: local export/artifact gate unverified, no
+download; CI exports. No import-screen/source changes. The final commit's sequential cache/no-cache suite logs and
+counts are in the BC12 implementation note; SKIPs prove no asset behavior. No tests deleted or hashes recaptured.
 
 ## 5. Experience and levels
 
@@ -4292,17 +5057,18 @@ multiplier (6.1). No weapon is required to cast: a bare-handed Arch Mage casts t
 --shots=<abs dir>`, `--mode=cash` a cash weapon cover over a two-handed sword and a claw) draws one sheet per family: stand and
 walk facing both ways, and every stance frozen on its impact frame with the afterimage, spark and swing box.
 
-#### 6.1.2 Ranged ammo (unported lines)
+#### 6.1.2 Ranged ammo
 
-A bow, crossbow, claw or gun (`WeaponInfo.RANGED_FAMILIES`) fires ammo for the skills of the unported Bowman, Thief and
-Pirate lines through `ProjectileSystem`: the shot carries the skill's physical damage, ends after the family's reach plus
-`overshoot` (`survivor/ammo.json`), and **ammo is endless** (never consumed, stocked, carded, dropped or saved: the current
-ammo is derived from the held weapon family, the job and the character level, `Ammo.item_for`). The current ammo's Item.wz
-`incPAD` adds to W.Att for ranged attacks (`weapon_attack(true)`): Throwing Stars +15..+27, Bullet +10..+14, arrows +0..+4.
+A bow, crossbow, claw or gun (`WeaponInfo.RANGED_FAMILIES`) fires ammo for the ranged skills through `ProjectileSystem`: the
+shot carries the skill's physical damage, ends after the family's reach plus `overshoot` (`survivor/ammo.json`), and **ammo is
+endless** (never consumed, stocked, carded, dropped or saved: the current ammo is derived from the held weapon family, the
+character's exact job and the round's level, `Ammo.item_for`). The current ammo's Item.wz `incPAD` adds to W.Att for ranged
+attacks (`weapon_attack(true)`): Throwing Stars +15..+25, Bullet +10..+14, arrows +0..+4.
 Starting ammo (tier A ids): claw Throwing Stars 2070015 (+15), bow Arrow for Bow 2060000 (+0), crossbow Arrow for Crossbow
-2061000 (+0), gun Bullet 2330000 (+10). The upgrade schedules per branch (tier C levels, Gunslinger tier A) and how ammo
-steps without branches are open until the first ranged job is ported (out of scope of #282); `Ammo.item_for` and
-`weapon_gallery.tscn --mode=ammo [--branch=<id> --level=<n>]` keep working on the old tables.
+2061000 (+0), gun Bullet 2330000 (+10). **How ammo steps without branches is settled (ADR 0006 consequences, roster ruling
+D9, spec #332, ticket #335): see 7.41.** `ammo.json` format 2 keys each schedule by the exact `job` and its steps by the
+round's level; `Ammo.item_for(ammo, family, job_id, level)` takes no `JobTree`, and `weapon_gallery.tscn --mode=ammo
+[--job=<id> --level=<n>]` shows one job's ammo at a level (`--branch` is the deprecated alias of `--job`).
 
 ### 6.2 Damage to the player
 
@@ -4407,6 +5173,38 @@ damage/count/attack-count/area/cooldown modifiers at cast time. #288 owns rarity
 309.90 s, Lv12, no warnings, no missing assets); 11,788 mesos, no equipment drop in that short run (0.2% x 239 kills).
 Same pool-only interim build, no balance data touched.
 
+### Spec #348 / #350 Dark Knight data regression smoke (2026-10-28)
+
+Data only: job 132 is `playable: false`, its skills are undefined, so nothing about 212 or 112 can change. Training seeds
+1/2/2026, Henesys, bot, `balance.sh`, on D2 (`676bd05`, on the base `b3c57df`, before D1 merged). Identical, row for row,
+to that base for F/P (212) and Hero (112); D1 adds no data the smoke reads. No tuning, no held-out seeds. 0 clears is the existing state of both.
+
+| Job / seed | End (run time) | Level at end | Kills at end |
+|---|---|---|---|
+| 212 / 1 | DEAD 10:51 | 36 | 2706 |
+| 212 / 2 | DEAD 5:05 | 11 | 236 |
+| 212 / 2026 | DEAD 7:34 | 21 | 767 |
+| 112 / 1 | DEAD 5:27 | 11 | 269 |
+| 112 / 2 | DEAD 5:36 | 11 | 279 |
+| 112 / 2026 | DEAD 11:28 | 36 | 2693 |
+
+Diagnostic (never committed): `--job=132 --stage=henesys --speed=8 --minutes=3` with a temporary `playable: true`, reverted.
+The knight spawns with 600 HP, `missing: []`, no crash; no skills are defined yet, so 0 kills and 0 damage. Flow evidence only.
+
+### Spec #348 / #358 Dark Knight selection regression smoke (D10, 2026-10-29)
+
+D10 flips job 132 to `playable: true` and adds tooling; no balance data changed. Training seeds 1/2/2026, Henesys, bot,
+`balance.sh` (JOBS=3) on the final D10 tree: F/P (212) and Hero (112) are identical, row for row, to the D2 smoke above
+(212: 10:51 / 5:05 / 7:34, Lv 36 / 11 / 21; 112: 5:27 / 5:36 / 11:28, Lv 11 / 11 / 36). `test_character_baseline`,
+`test_tick_cost_identity` and Hero's baseline pass with their goldens untouched. No tuning, no held-out seeds.
+
+Diagnostics for the Dark Knight (flow and visual evidence, never survival evidence; screenshots looked at, `missing: []`):
+`playtest.sh --job=132 --stage=henesys --speed=4 --minutes=6` (Spear, Spear Crusher, Power Strike, Dragon Fury, Monster Magnet,
+Rush and the Beholder cast; Lv 12, 318 kills, alive at 6:00) and `--stage=sleepywood --character=dark_knight_t2.json` (DEAD at
+14 s, Lv 5, as Hero's fixture does there). `flow_driver redesign --job=132 --seed=1` PASSED end to end (title -> create -> Free
+Market -> locked tier 2 -> an invulnerable Henesys round with the real windows, six actives full at 3:04, Mastery and boss draws,
+three map transfers, results, tier 2, worn item, Sleepywood, death, delete, history); `creation --jobs=132,212` PASSED.
+
 ## 7. Skills (auto-cast and manual)
 
 **Which of this section is live.** The F/P slice plays the skills of 7.31 and 7.32 and the common passives of 8.5, through
@@ -4424,7 +5222,7 @@ get standard new/rank cards automatically (explicit upgrade data can supply thei
 `Loadout` owns slot occupancy, capacity checks and display text; capacities are `skills.json.slot_limits` (6/6).
 `SkillBook.rank_table` owns rank limits and WZ mapping: per-skill `ranks` overrides `skills.json.rank_levels`, keyed
 by WZ maxLevel. Eight active ranks map by ceil(r × maxLevel / 8): 20 -> [3,5,8,10,13,15,18,20],
-30 -> [4,8,12,15,19,23,27,30]. WZ numbers and visual levels are read at the mapped level.
+30 -> [4,8,12,15,19,23,27,30], and (for the level-10 skills, #357) 10 -> [2,3,4,5,7,8,9,10]. WZ numbers and visual levels are read at the mapped level.
 
 
 **No MP (ADR 0006, #285).** Skills are gated by their cooldown (and an HP cost, Slash Blast and the Boosters) only.
@@ -4438,9 +5236,10 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   `weapon_reach` and `range_around`, 7.8; the `self` rule of 7.16 is removed) resolves to
   `Loadout.stats().cast_rule` (empty when absent) and `cast_params` (the whole block). Absent/`nearest` keeps
   nearest-in-range attacks and `can_start_buff` admission. `manual` never auto-casts; unknown rules wait too.
-  `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line.
+  `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line;
+  `range_around` honours `min_targets` the same way (Monster Magnet, 7.33).
   Admission prepares targets before the cooldown/cast; later rules extend the same
-  `SkillRunner._admit_cast` / `_resolve_cast` dispatches with their own admission/resolution functions.
+  `SkillRunner._admit_cast` / `resolve_cast` dispatches with their own admission/resolution functions.
 - Optional `displacement: {"direction", "when", "field" | "distances" | "distance"}` makes an attack move the character
   (7.13); it resolves to `Loadout.stats().displacement` (`{}` when absent).
 - Canonical level `lt`/`rb` resolve to `has_box` and `box: Rect2`; `area` starts at 1.0 and scales both offsets.
@@ -4493,7 +5292,7 @@ existing shots finish separately from carry-over projectile kills.
 | Magic Claw (2001005) | Magician | Instant 2-hit claw (`attackCount` 2) on the nearest mob within 260 px every 1.25 s; `effect` on caster, `hit/0` on target (`CharLevel` variant by level) | ranks 1–20 = levels 1–20 | learn/rank; Twin Claw (+1 target, ×2), Quick Claw (-12% cooldown, ×3) |
 | Magic Armor (2001003) | Magician | Timed PDD (`pdd`) | ranks 1–20 = levels 1–20 | learn/rank |
 | Holy Arrow (2301005) | Cleric | Holy projectile at nearest mob: canonical mad/mastery/mpCon and element h; 1 s recast, 480 px reach, 520 px/s, radius 12 | ranks 1–30 = levels 1–30 | learn/rank; +1 projectile (3 steps), +1 pierce (2), cooldown ×0.88 (3); job 230 only |
-| Heal (2301002) | Cleric | Instant self recovery below 50% HP OR holy damage to every undead intersecting canonical lt/rb; 2 s recast, canonical mpCon/hp; provisional historical stat-based recovery fit, exact v83 amount unresolved ([evidence](research/cleric-heal.md)) | ranks 1–30 = levels 1–30 | learn/rank only; job 230 only |
+| Heal (2301002) | Cleric | Instant self recovery below 50% HP OR holy damage to every undead intersecting canonical lt/rb; 2 s recast, canonical mpCon/hp; provisional historical stat-based recovery fit, exact v83 amount unresolved ([evidence](research/cleric-heal.md)) | ranks 1–30 = levels 1–30 (eight ranks and rarity bonuses since the Bishop port, 7.83) | learn/rank only; job 230 only (generated pool cards for a Bishop since 7.82) |
 | Fire Arrow (2101004) | F/P Wizard | Nearest-target fire (`elemAttr f`) projectile every 0.4 s within 480 px, 520 px/s, radius 12 px, `shoot1` stance 0.8 s; canonical `mad`/`mastery`, ball/hit/effect and Use sound | ranks 1–8 map to WZ levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and post-cap Mastery with per-rarity bonuses (8.2); no standalone modifier cards |
 | Poison Breath (2101005) | F/P Wizard | Nearest-target poison (`elemAttr s`) projectile every 0.5 s within 450 px, 400 px/s, radius 14 px, `swingO3` stance 0.8 s; canonical `mad`/`mastery`; `on_hit` applies poison with canonical `prop`% for `time`; cached ball/hit/effect and Use/Hit sounds | ranks 1–8 map to WZ levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and post-cap Mastery with per-rarity bonuses (8.2); no standalone modifier cards |
 | Meditation (2101001 / 2201001) | F/P / I/L Wizard | Self-only timed canonical `mad` -> magic attack; invalidates cached attack ranges on start/expiry | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
@@ -4502,15 +5301,14 @@ existing shots finish separately from carry-over projectile kills.
 | Slow (2101003 / 2201003) | F/P / I/L Wizard | At least 3 eligible unslowed mobs in canonical `lt`/`rb`; nearest-first up to `mobCount`, signed canonical `x` for `time`, 1 s recast delay | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
 
 | Teleport (2101002 / 2201002 / 2301001; `teleport_fp` / `teleport_il` / `teleport_cleric`) | F/P / I/L / Cleric | Manual X: arrow direction, otherwise facing. Horizontal blink lands on a floor up to canonical range, stopped by walls/map limits; vertical blink needs a floor strictly above/below within range. Ground/air allowed; climbing blocks it. Successful blinks pay canonical MP and emit fixed departure/arrival effects and Use sound. Hold repeats every 0.3 s (tier C); invalid destinations and short MP spend nothing. HUD shows X and dims when unaffordable. | ranks 1-20 = levels 1-20; `mpCon` 60 to 13, `range` 130 to 150 px (tier A, all three books) | branch-specific learn and rank cards only; no grant or slot cap |
-| Cold Beam (2201004) | I/L Wizard | Instant ice hit on the nearest target within 300 px every 1.25 s; canonical `mad`/`mastery`/`mpCon`; guaranteed freeze attempt for canonical `time` (1–2 s), rejected by bosses and ice-status immunity; real `effect` and `hit/0`, no `ball` | ranks 1–30 = levels 1–30 | learn/rank; Spreading Frost (+1 target, 3 steps), Quick Frost (cooldown ×0.88, 3 steps) |
-| Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Forking Storm (+2 targets, 3 steps; tier C), Quick Storm (cooldown ×0.88, 3 steps) |
+| Cold Beam (2201004) | I/L Arch Mage | Moved to the I/L pool, section 7.60 (I6, #325): nearest-target ice hit every 0.5 s, freeze for canonical `time`; eight mapped ranks, rarity bonuses | ranks 1–8 = levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and Mastery with rarity bonuses (section 8); no standalone modifier cards |
+| Thunder Bolt (2201005) | I/L Arch Mage | Moved to the I/L pool, section 7.60 (I6, #325): box lightning every 0.6 s up to canonical `mobCount` (6); eight mapped ranks, rarity bonuses | ranks 1–8 = levels 4, 8, 12, 15, 19, 23, 27, 30 | new/rank and Mastery with rarity bonuses (section 8); no standalone modifier cards |
 
-Ice/Lightning attack cards require exactly job 220 and all eight learn/rank/behaviour cards are power cards.
-Behaviour steps share the first-job Potential magnitudes and remaining-headroom clamp. Cold Beam uses the existing
-`count` modifier (up to four distinct targets); Thunder Bolt uses `cast: {"rule": "box"}` and the shared `area`
-modifier (up to ×1.728 on both canonical offsets). Cold Beam's `on_hit` block omits `chance_field`: every v83 level
-has `x = -100` and `time`, with no `prop`. Freeze duration is canonical, and no separate proc or box path is added.
-Both cached skills have no `action` node; selecting `swingO1` for a 0.8 s cast stance is tier C.
+Cold Beam and Thunder Bolt were the Ice/Lightning Wizard's (job 220) pre-redesign attacks, with 30 ranks and standalone
+Spreading Frost / Quick Frost / Wider Storm / Forking Storm / Quick Storm cards. #325 moved them into the `il_arch_mage`
+line and deleted the cards; the same names live on as rarity bonuses (7.60). Cold Beam's `on_hit` block omits
+`chance_field`: every v83 level has `x = -100` and `time`, with no `prop`. Freeze duration is canonical, and no separate
+proc or box path is added. Both cached skills have no `action` node; selecting `swingO1` for a 0.8 s cast stance is tier C.
 
 Fire/Poison attack cards require current job 210. Both learn/rank cards and all five behaviour cards are power
 cards. Behaviour caps count modifier steps, so three Extra Fire Arrow steps produce four shots. Poison Breath
@@ -4860,9 +5658,11 @@ kind):
 
 ```json
 "displacement": {
-  "direction": "away" | "toward",      // default "away"; relative to the mob the cast faces
+  "direction": "away" | "toward" | "input",   // default "away"; relative to the mob the cast faces; "input" (a manual
+  // dash, 7.33 Rush) is chosen by the caster: the pressed arrow key, else the facing
   "when": "before" | "after" | "during",   // default "after"
-  "field": "x"                         // the distance in px: a canonical Skill.wz level field of this rank's level, or
+  "field": "x"                         // the distance in px: a canonical Skill.wz level field of this rank's level
+  // ("lt.x" is the box reach |lt.x|, Rush), or
   // "distances": [60, 90, 120]        // survivor px per rank (rank r uses entry r, the last one repeats), or
   // "distance": 80                    // one survivor px value. Precedence: field, distances, distance.
 }
@@ -4932,7 +5732,7 @@ pacing regressions retain their pre-Pirate job pool and unchanged goldens/bounds
 
 **Skill key** (GLOSSARY): the Key Config binding of one manual skill the character has learned. A manual skill
 (`cast.rule: "manual"`, never auto-cast) names its key in a `skill_key` field of its definition; the id is also the
-input action (`project.godot` has `teleport` and `dash`, both X) and is listed in `KeyBindings.SKILL_KEYS`. A new
+input action (`project.godot` has `teleport`, `dash` and `rush`, all X) and is listed in `KeyBindings.SKILL_KEYS`. A new
 manual skill adds its id there, an action in `project.godot` and a `skill_key` in its skill file. The three Teleports
 share `teleport`, so an existing `settings.cfg` `[input] teleport` binding is simply Teleport's skill key and
 Teleport behaves exactly as before.
@@ -4940,8 +5740,8 @@ Teleport behaves exactly as before.
 - **Key Config lists only learned manual skills.** `RunWorld.manual_skill_keys()` returns one
   `{action, name, icon, skill}` per learned skill key; `KeyConfigWindow` takes it when it opens and ends its tray with
   those icons (the skill's own icon and name, not the F/P Teleport icon for everyone). `KeyBindings` drafts the fixed
-  actions plus those ids; an unlearned skill key cannot be bound. Teleport and Dash both default to X; no character learns
-  both (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
+  actions plus those ids; an unlearned skill key cannot be bound. Teleport, Dash and Rush all default to X; no character
+  learns two of them (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
 - **Input.** `MoveInput.skills_pressed` / `skills_held` (id -> true; `press_skill`, `hold_skill`) replace the old
   `teleport_pressed` / `teleport_held`. `RunScene` latches presses of learned skill keys (a held key requests repeats).
   `RunWorld.manual_skill(id)` finds the learned skill (weapon-gated like any skill). Teleport keeps its handler
@@ -4954,7 +5754,8 @@ Teleport behaves exactly as before.
   v83's double-tap (tier C, owner), works with any weapon, has no cast hold (the character keeps moving) and plays the
   canonical cast effect and Use sound. Speed is added to the speed stat before the existing cap (140); jump is added to
   the jump stat (`100 + incJump + buff`) before the existing cap (123), so Dash obeys the same movement limits as
-  equipment. Cards: `dash_new`, `dash_rank` (max rank 10), weight 2 each, Pirate line only, no modifier.
+  equipment. Cards (#188, removed by #417): `dash_new`, `dash_rank` (max rank 10), weight 2 each, Pirate line only, no modifier.
+  **Now mobility (#417, 7.90):** Dash is `slot: mobility` and never a card; a Buccaneer learns it at round start.
 - **Bot.** Dash's `manual` block holds the flee rule (survivor data, tier C): `bot_flee_hp` 0.5, `bot_surround_count` 3,
   `bot_surround_distance` 120 px. `BotInput` presses the key when HP is below that fraction of its maximum with a mob
   inside the existing 160 px flee distance, or when that many mobs on its level (the duel band, feet +/-40 px) are within
@@ -4988,9 +5789,9 @@ primary, STR secondary at the level), and a branch row wins over a path row. The
 recorded path: a knuckle-path Gunslinger switches to DEX with an STR secondary when it advances (tier C; only earned
 AP move).
 
-**Ammo.** The Gunslinger's schedule (6.1.2: Split Bullet 2330001 at Lv 30, Mighty Bullet 2330002 at Lv 50) applies to job
-520 once it is playable: advancing at Lv 30 shows the one `ammo_upgraded` notice, advancing past Lv 50 goes straight to
-Mighty Bullet. A Brawler holding a gun keeps the basic Bullet 2330000.
+**Ammo.** (Superseded by 7.41, #335.) The Gunslinger's branch schedule no longer exists: a gun steps by the exact job and the
+round's level, which for the Corsair (522, once it is playable) is Split Bullet 2330001 from Lv18 and Mighty Bullet 2330002
+from Lv35. Every other job holding a gun keeps the basic Bullet 2330000.
 
 | Skill | Kind | Weapon | Canonical L1 → top | Survivor behaviour |
 |---|---|---|---|---|
@@ -5056,9 +5857,10 @@ It auto-casts when HP is below 30% of Max HP (`buff.hp_threshold` 0.3, tier C), 
 tier C). Cards (`upgrades/pirate.json`, `requires.jobs: [510]`, so only Brawlers are offered them): `oak_barrel_new`
 (weight 3) and `oak_barrel_rank` (max rank 10, weight 2), neither a power card (tier C, untuned).
 
-**The morph.** While `player_state.morph` is set, `AvatarRenderer` draws `Morph.wz/<id>.img` instead of the avatar: the
-`stand` action for standing and for any attack or cast stance, `walk`, `jump`, `prone`, `ladder`, `rope`, `sit` and `fly` for
-their stances, one canvas on the feet, mirrored for facing. Morph 1002 is the v83 oak barrel. A morph missing from the cache
+**The morph.** While `player_state.morph` is set, `AvatarRenderer` draws `Morph.wz/<id>.img` instead of the avatar: an action
+named like the stance when the img has a node of that name (7.92), else the `stand` action for standing and for any attack
+or cast stance, `walk`, `jump`, `prone`, `ladder`, `rope`, `sit` and `fly` for their stances, one canvas on the feet,
+mirrored for facing. Morph 1002 is the v83 oak barrel. A morph missing from the cache
 keeps the avatar and lists the path in `missing`. The morph's `info` speed and jump (100) are not applied (the character
 keeps its own movement). Tests: `tests/unit/test_hidden.gd` (the generic state with a synthetic buff),
 `test_oak_barrel.gd` (the shipped definition: conditions, stream-16 failure, duration, early end, cards),
@@ -5066,6 +5868,8 @@ keeps its own movement). Tests: `tests/unit/test_hidden.gd` (the generic state w
 `scenes/debug/morph_driver.tscn`.
 
 ### 7.19 Brawler attacks: Backspin Blow, Double Uppercut, Corkscrew Blow (#191, spec #168)
+
+> **Moved (B4 #416, spec #412):** these three skills, with Flash Fist and Somersault Kick, now live in `skills/buccaneer.json` with eight ranks, no weapon gate, new cooldowns and rarity bonuses, and their legacy cards below are deleted. The text that follows is the history of the original port; the current rules are 7.90.
 
 Three knuckle attacks in `skills/pirate.json` (book 510, job 510, between the Knuckler Booster and the Gun Booster), each
 with a learn card, a rank card (20 ranks, canonical level = rank) and a "hits +1 more monster" card (`count`, at most 3
@@ -5481,8 +6285,8 @@ cards remain eligible after advancement per binding #199/#180, outside the branc
 stop contributing, attacks stop casting and Hunter cards disappear. The existing running buff can survive the swap.
 Soul Arrow 3101004 is deliberately absent from skills and cards: endless ammo makes it redundant (owner #166).
 
-The existing Hunter ammo schedule supplies Bronze2060001 at 30, Steel 2060002 at 40 and Red 2060003 at 50, including
-the highest reached tier when advancing late. Each upgrade changes the current arrow sprite and emits its notice.
+(Superseded by 7.41, #335: the Hunter branch schedule is gone; the bow steps for the exact Bowmaster job 312 at round Lv15 /
+30 / 45, Bronze 2060001, Steel 2060002, Red 2060003, each upgrade changing the current arrow sprite and emitting its notice.)
 Tool `--job=310` follows Bowman at 10 and Hunter at 30. The combined untuned regression smoke is in 4.2 (#204).
 Deterministic tests: `test_hunter.gd`; real-cache diagnostic evidence: `scenes/debug/hunter_driver.tscn`.
 
@@ -5537,7 +6341,7 @@ No MP is spent. Bosses take damage but reject every status. Elquines belongs to 
 | Explosion 2111002 / `explosion` | Fire damage in the canonical box around the character, canonical mob count | 1.6 s |
 | Poison Mist 2111003 / `poison_mist` | Fixed ground box lasting canonical `time`; checks occupants each second with canonical `prop`, applies existing nonlethal poison, including later arrivals; no direct damage | 3.2 s |
 | Element Composition 2111006 / `element_composition` | 500 px/s projectile, 450 px acquisition, one target; fire/poison attributes averaged equally; canonical `prop`/`time` poison uses poison resistance | 0.8 s |
-| Fire Demon 2121003 / `fire_demon` | Fire in its canonical forward box; survivors become ice-weak (x1.5) for canonical `time`; other attributes unchanged | 2.0 s |
+| Fire Demon 2121003 / `fire_demon` | Fire in its canonical forward box; survivors become ice-weak (x1.5) for canonical `time` (vulnerability, 7.61); other attributes unchanged | 2.0 s |
 | Paralyze 2121006 / `paralyze` | Nearest target within 450 px, poison-element damage and existing stun for canonical `time`/`prop` | 1.2 s |
 | Meteor Shower 2121007 / `meteor_shower` | Fixed canonical 800×600 box; falling WZ tiles at canonical 180 px spacing; damage after canonical `hitAfter` 1800 ms, targets queried at impact | 4.8 s |
 | Big Bang 2121001 / `big_bang` | WZ keydown charge for one 18×60 ms loop, then full `mad` damage with canonical mob count around the current character position | 2.8 s |
@@ -5545,7 +6349,7 @@ No MP is spent. Bosses take damage but reject every status. Elquines belongs to 
 Pending areas/releases snapshot cast stats, query live targets, and clear on map transfer. Mist pieces are anchored
 to cast feet and expire with the area. Big Bang's survivor box is (-250,-180)..(250,100); its charge is automatic,
 without a manual key or partial-charge damage. Element Composition's equal elemental split is tier C (the WZ node
-has no `elemAttr`); Fire Demon's ice vulnerability follows its WZ description (tier A). Other targeting/timings
+has no `elemAttr`); Fire Demon's ice vulnerability follows its WZ description (tier A; the generalised contract is 7.61). Other targeting/timings
 are first-pass survivor interpretations, not balance tuning. Recasts refresh the existing status without stacking.
 
 ### 7.32 Player summons (#291)
@@ -5579,13 +6383,1781 @@ and seek on both sides of their own position. Attacks face the scheduled boss fi
 Attack timing pauses follow motion. Hits use `RunWorld.hit_mob`, including defence, crit, damage modifiers, element
 immunity and Fire Demon's per-mob ice weakness. No additional freeze is inferred from ice damage.
 
+Opt-in `summon.priority_status` (a `MobSwarm` status name, #328): when the definition carries it, an ally's target order
+is scheduled bosses, then monsters running that status, then distance, then slot, for both the choice of who to attack and
+the impact's targets. A definition without the key sorts exactly as before, so Elquines and every F/P oracle are unchanged
+(7.64 has Ifrit, the first user; Elquines is not given `ice_weak`, that is a balance-pass lever).
+
+Opt-in `summon.count_field` (a level field name, BS7 #379): the strike's target count is that field of the cast's mapped
+level (plus the `count` modifiers) instead of the attack node's `info.mobCount`. A definition without the key reads
+`info.mobCount` exactly as before, so Elquines, Ifrit and every F/P oracle are unchanged (7.84, Bahamut: the level node's
+`mobCount` is 3 at levels 1-29 and 6 at level 30, the attack node's a constant 3). `summon.move` (default `move`) names the
+animation node played while following and whose frames give the stored duration; the dragons' books have `fly`, not `move`
+(7.84). Bowmaster's physical followers (7.44) use the same key: one definition, whichever spec merges second.
+
 Elquines (2121005, F/P; Ifrit is 2221005) is the first instance. Tier C first-pass choices are its 12 s recast,
 180 px/s follow, 60 px trailing offset, 1 px stand/move deadzone, 600 px snap distance and 2.4 s minimum attack cycle (never shorter than the
 WZ animation or hit delay). A zero follow speed stops incremental following (distance snapping still applies); future stationary, taunt, projectile,
 ground-navigation or pet-like targeting behaviours must extend this seam with their own tests, not special-case IDs.
 `damage`, `area`, `count` (attack targets), `attack_count`, `cooldown` consume existing modifiers; `duration` and
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
-new casts pick up rank changes. Rarity lists ship in the skill definition.
+new casts pick up rank changes. Rarity lists ship in the skill definition. A summon with no attack that pulses on its
+owner instead is a support summon (7.67).
+
+### 7.33 Hero pool and Rush (spec #296)
+
+#### Core melee: Power Strike, Slash Blast, Brandish (H5, #301)
+
+
+Hero remains unselectable until the selection ticket. Its core attacks live in `skills/hero.json`;
+Power Strike and Slash Blast were moved from `warrior.json`, with no duplicate keys or weapon gates.
+All three use eight ranks: 20-level skills map to 3/5/8/10/13/15/18/20, Brandish to
+4/8/12/15/19/23/27/30. WZ damage, HP costs, target counts and boxes are unchanged (tier A).
+
+| Skill | Auto-cast and cooldown (tier C) | Canonical behavior (tier A) |
+|---|---|---|
+| Power Strike 1001004 | Nearest mob in the weapon swing envelope; 1.0 s, weapon action held 0.6 s | 175% at rank 1, 260% at rank 8; one target |
+| Slash Blast 1001005 | Nearest mobs around the caster; 1.6 s, weapon action held 0.6 s; refuses a lethal HP cost | 78% to 130%, six targets, range 130–150 px, hpCon from the mapped level |
+| Brandish 1121008 | Forward box, at least one target; 1.4 s | (-150,-110)..(-10,0), two lines, 150% to 260% per line, one to three targets |
+
+Brandish plays **one** body action per cast, `brandish1` for one-handed swords/axes and `brandish2`
+for two-handed swords/axes, with `effect/0` or `effect/1` respectively. This is the orchestrator's
+ruling over the spec's two-action sequence: the opposite-handed action loses the weapon (H1).
+The 0.84 s action hold is the sum of the seven absolute 120 ms body frame delays (tier A).
+Use and Hit sounds and hit/0 art come from 1121008. Loadout resolves optional
+`action_by_handedness` / `effect_by_handedness` maps; definitions without them behave as before.
+
+Rarity bonuses (tier C) follow the shared card schema: Rare Sword Mastery damage x1.2 for all three;
+Epic Power Strike Booster cooldown x0.88, Slash Blast Wide Slash area x1.2 (including radial reach),
+Brandish Sweep +1 target. Unique Final Attack adds one damage line; Legendary uses the same
+`final_attack` counter and adds damage x1.2. Cards grant exactly one rank; at rank 8 Mastery repeats
+shrink by x0.8, including repeats taken before the cap. No standalone behavior cards remain for these skills.
+
+#### Crowd control: Shout and Monster Magnet (H7, #303)
+
+Both are auto-cast pool actives in `skills/hero.json` (books 111 and 112), eight ranks, no MP, no weapon gate, with
+`rarity_bonuses` (section 8). Their cooldowns, admission thresholds and action holds are tier C; every number that is a
+Skill.wz level field is tier A.
+
+| Skill / key | Cast | Behaviour | Cooldown |
+|---|---|---|---|
+| Shout 1111008 / `shout` | `box`, `min_targets 3` | Physical damage 14 -> 30 % to the `mobCount` 6 nearest mobs inside the centred WZ box (+-110..200 x +-82..150, scaled by `area`); each struck mob rolls the level's `prop` for a stun of `time` seconds (5 -> 10) through the shared `on_hit` status (bosses and scheduled bosses reject it). Stance `alert3`, 0.6 s hold. | 12 s |
+| Monster Magnet 1121001 / `monster_magnet` | `range_around`, `min_targets 3` | No damage. The shared `pull` block (7.35): up to `mobCount` 6 mobs 120 px or more away and within `range` (200 -> 400 px, scaled by `range` modifiers) each roll `prop` (48 -> 95 %) and slide to 60 px from the caster. Stance `alert2` (WZ's `dash` makes a two-handed axe vanish, H1), 0.6 s hold. | 10 s |
+
+- **Shout's rank table (D4).** `ranks` is `[5, 8, 12, 15, 19, 23, 27, 30]`. WZ level 4 has no `prop`: the node stores
+  `"58": 38`, a corrupted `prop` (String.wz says 58 %, and the series runs 52, 54, 56, 58, 60), so the standard 30-level
+  table (rank 1 = level 4) would give a stun that never lands. Rank 1 reads level 5 (60 %) instead; the other seven ranks
+  equal the standard table. A real-cache test asserts that level 4 still lacks `prop`, so a fixed WZ is noticed.
+- **`min_targets` on `range_around`.** The cast block's `min_targets` N (default 1, so every existing skill is unchanged)
+  admits the cast only when N mobs are inside `range`; the target list is still the nearest `mobCount`. Magnet's admission
+  counts every mob in range, including those under the 120 px pull floor that cannot be moved (tier C: simple and readable;
+  a cast that moves nothing still starts its cooldown).
+- **Bot reach.** `SkillRunner.reach_of` returns 0 for damage "none", so Monster Magnet adds nothing to the melee bot's
+  engage reach: it never holds the bot back from walking up to a mob, and a pull never draws it away from one.
+- **Rarity** (section 8 schema; Legendary shares the Unique's id and repeat counter): Shout Rare Area x1.2, Epic Booster
+  cooldown x0.88, Unique Echo Shout cooldown x0.75, Legendary Echo Shout plus area x1.2. Monster Magnet Rare Reach range
+  x1.2 (the spec table says `area`; at H7 `range_around` read only `range`. H5 then made a radial range scale with `area` too, so
+  either modifier works; `range` stays), Epic Bigger Grab
+  +2 targets (`count`), Unique Booster cooldown x0.75, Legendary Booster plus +2 targets.
+- **Bonus audit (merge of #301 and #303).** `test_rarity_bonus_effects` casts every rarity effect of every Hero and F/P skill,
+  with and without it, in a seeded world and asserts that the resolved cast changes: damage dealt, casts per 66 s, hit events,
+  mobs affected (`count`, `pierce`), allies (`summon_count`), or a mob just beyond the base reach hit only with `area` / `range`.
+  Every shipped bonus passes; a negative test shows the probe fails a modifier the rule never reads (`range` on a box, `pierce`
+  on Brandish). No bonus was swapped: Slash Blast's Epic `area` works since H5 scales a `range_around` radius by `area`.
+- **Text.** `SkillText.level_line` adds "Pulls up to N monsters from R px" for any skill with a `pull` block (the effective
+  `mob_count` and `range`, so Bigger Grab and Reach show), after the data's own line ("P% chance for each monster pulled").
+
+#### Rush (1121006, `rush_hero`, #302 H6; 1221007, `rush_paladin`, #312 P4)
+
+Hero's `mobility_skill` (spec #296 D1): a manual directional dash on the skill key that damages and shoves mobs along its
+path. It is the first mobility skill that deals damage. Paladin's Rush (`rush_paladin`, #312) is a copy of Hero's on
+book 122: the same definition, shape, rank rule and tier C numbers (`test_rush_paladin.gd` runs the Hero set for it and
+compares the two ranks at every round level); only the ids, art and sound paths differ. Dark Knight gets its own the same way. Rush is
+learned at round start next to Power Strike (`JobTree.start_skills`), consumes neither slot track, is not in the pool and
+is never offered as a card (`UpgradePool` only draws pool skills).
+
+- **Definition.** `skills/hero.json`: `slot "mobility"`, `kind "instant"`, `damage "physical"`, `cast {"rule": "manual"}`,
+  `skill_key "rush"`, `displacement {direction "input", when "during", field "lt.x"}`, `knockback {distance 80, direction
+  "dash"}` (no chance field), `rush {bot_threat_distance 60}`, action `rush2` (0.6 s), effect `effect` (frame 0 is a blank
+  1x1 that delays the streak 100 ms), the dust `effect0` as a `cast_visuals` entry, the `Use` sound. No `ranks` override: the
+  level-30 table gives rank 1 = WZ level 4.
+- **Input.** `rush` is a skill key (`KeyBindings.SKILL_KEYS`, an action in `project.godot`, X by default like Teleport and
+  Dash; a Hero never owns two). Press it with Left or Right to dash that way, otherwise the facing (Up and Down are
+  ignored; opposing arrows cancel). Holding repeats once the cooldown is over. Key Config lists it and the HUD quick slot
+  shows it with its cooldown sweep (`HudQuickSlot.movement_skill_of`).
+- **Movement** (`SkillRunner.cast_dash`, `PlayerMotion.dash_destination` / `dash_to`). Instant, like every displacement
+  (7.13): the distance is the box reach `|lt.x|` of the owned level (170 px at rank 1). Grounded it slides along the
+  platform (slopes, platform edge, walls, map limits: never off a ledge). Airborne it keeps its height and stops at the
+  walls of the platform last stood on and the map limits. It cannot start while climbing. A dash that could not move
+  at all is refused with nothing spent: no event, no cooldown. `rush2` plays for its action time. The `cast` event's
+  `pos` is where the dash began.
+- **Hits.** The swept box of 7.13 (`lt (-170,-50) rb (0,0)`, mirrored by the facing) at the start and at the end of the
+  move, and everything between: each mob in it is hit once per dash (one physical line, 78%), up to `mobCount` 15,
+  scheduled bosses first. Bosses are damaged and never shoved.
+- **Knock-back.** A `knockback` block **without a `chance_field` always applies and draws no random number** (this
+  ticket; every earlier block names one). `direction "dash"` shoves each hit mob 80 px along the dash that hit it
+  (the `hit.push_side` of the cast), not away from where the character stopped, so mobs the character ran past are pushed on
+  ahead of it instead of back toward where it started. `MobSwarm.knockback` takes the optional `force_side`.
+- **Cooldown.** 2.0 s (tier C, the balance lever for melee survivability), started by the cast; the HUD reads
+  `runner.cooldowns`.
+- **Rank.** The job's mobility skill follows the shared `balance.mobility_rank_levels` rule (`RunWorld._level_ranks`, tier C):
+  rank 1 at Lv1, rank N at Lv 2N, clamped to the skill's rank cap. Rush has no `ranks` override, so it takes the level-30
+  table (eight ranks, WZ levels 4, 8, 12, 15, 19, 23, 27, 30): 78% damage and a 170 px dash at Lv1, 130% and 250 px
+  (the box reach) from Lv16. `mobCount` stays 15. No card ever raises it (it is outside the pool). To fix it at rank 1
+  instead, give it `"ranks": [4]`. (Spec #296 first said "fixed rank 1"; the shared rule landed while this was built and the
+  owner's instruction was to use it.)
+- **No orbs.** Rush gives no Combo orb and takes no orb bonus: both belong to pool skills only (the meter reads the pool).
+- **Bot** (`BotInput`). Like Teleport: when a mob within 60 px stands on its level (|dy| <= 40) and Rush is ready, it
+  dashes **away** from the more dangerous side if that lane lets the dash cover at least half its reach, else **through**
+  the crowd the other way if that lane is free; no lane either way, no press. At most once per 3 s
+  (`BotInput.RUSH_MIN_INTERVAL`). It never presses Rush with no mob within 60 px, so it never uses it to approach.
+
+#### Combo finishers: Panic and Coma (H8, #304)
+
+Both are meter finishers (7.34: `meter {role finisher, min 5, spend all, damage_per_unit 0.10}`), auto-cast pool actives in
+`skills/hero.json` (book 111), eight ranks mapped to levels 4/8/12/15/19/23/27/30, no weapon gate, action `weapon` (the
+first swing stance of the held weapon, held 0.6 s). A cast spends every held orb except `meter_keep` and multiplies damage by
+`(1 + 0.02 * held) * (1 + 0.10 * spent)` (x1.5 at 5 orbs, x2.0 at 10, before the held bonus); finishers never earn an orb.
+
+| Skill | Cast (tier C) | Canonical behaviour (tier A) |
+|---|---|---|
+| Panic : Sword 1111003 | `nearest` rule, one target within 250 px, scheduled bosses first (the shared target order), 2.0 s cooldown | 194% (rank 1) to 350%, `prop` 38 to 90%, `time` 5 to 9 s |
+| Coma : Sword 1111005 | `range_around`, needs 3 mobs in range, 1.0 s cooldown (the meter floor), HP cost never lethal (can_pay_hp) | 96% (rank 1) to 200%, six mobs, range 130 to 150, `hpCon` 15 to 25, stun `prop` 38 to 90%, `time` 2 to 4 s |
+
+- **Threaten cut (Panic).** `on_hit` `threatened` carries `cut {stat level, cap 20}`: the mob loses `min(skill level, 20)` weapon
+  attack and weapon defence (flat, tier C; Panic's node has no such field). Like every status it is refused by bosses
+  (MobSwarm.accepts_status), so Panic on a boss deals the damage but never weakens it.
+- **Which finisher.** Admission goes through `PlayerMeter.preferred` (7.34): Coma wins with the larger crowd, Panic when a
+  scheduled boss is in its range; one owned finisher casts alone.
+- **Cooldown (decision).** The spec gives both a "1.0 s floor". Panic's Epic is Booster (cooldown x0.88), which a 1.0 s base would
+  hide completely under the 1.0 s meter floor (`SkillRunner.restart_cooldown`), so Panic's base cooldown is 2.0 s and the
+  Booster takes it to 1.76 s. Coma keeps 1.0 s: it has no cooldown bonus. The meter, not the clock, paces both in normal play.
+- **Weapon-variant art.** `art_by_family {"axe": 1111004 | 1111006}`; `SkillBook.art_skill_id(key, family)` returns the twin id
+  for an axe and the skill's own id otherwise, `art_path` re-points a Skill.wz/Sound.wz path at it. Loadout applies it to the
+  skill's `effect` and `hit`, the finisher block below to its finish art, and the presentation to the Use sound. Sim numbers are
+  shared (the twins are identical in the WZ; only the icon differs).
+- **Finish art by orbs spent (tier C reading, no source states it).** A `finish` block `{effect "…/finish/{n}", at, max_n 10,
+  advanced_above 5, hit_advanced "…/hit/1"}`: the cast plays `finish/N` for N orbs spent (1..10, so 5..10 for a plain cast and
+  fewer with Advanced Combo keeping orbs) and the hit art is `hit/1` above 5 orbs spent, else `hit/0`. Coma's finish plays on the
+  caster (the cast event's effect); Panic's plays on its target (a `skill_mob_effect`). Coma's `mob` stun stars are the same art
+  the mob renderer already draws for Shout.
+- **Rarity (tier C, section 8; repeat scale 0.8).** Panic: Rare Sword Mastery damage x1.2, Epic Booster cooldown x0.88, Unique
+  Advanced Combo `meter_keep` +2, Legendary Advanced Combo plus damage x1.2. Coma: Rare Sword Mastery, Epic Wide Reach area x1.2
+  (`range_around` scales its radius by `area`), Unique and Legendary as Panic's. Legendary shares the Unique's id and repeat
+  counter. Each bonus changes the resolved cast and has its own test (`test_hero_finishers`): damage, cooldown, reach and kept orbs.
+  The shared audit (`test_rarity_bonus_effects`) also covers both: its probe tops the meter up for a finisher and adds `meter_keep`
+  (orbs left after one cast) to the stats it checks.
+
+### 7.34 Combo meter (#299, Hero H3)
+
+`PlayerMeter` is the round-owned, deterministic M1 counter. Hero's data (H2) supplies:
+
+```json
+{"meter":{"id":"combo","max":10,"gain":{"event":"cast_landed","amount":1,"exclude":"finisher"},
+ "per_unit":{"stat":"damage","value":0.02},"art":"Skill.wz/111.img/skill/1111002/state"}}
+```
+
+A round starts at zero; map transfers preserve it. Each non-finisher pool cast earns one orb on its first
+positive damage line, including a delayed impact. Multi-target, multi-line and multi-projectile casts share a receipt;
+a missed cast earns nothing. Mobility is outside the pool, so Rush neither earns orbs nor receives their bonus.
+The held-unit bonus multiplies the cast's resolved damage bounds and status damage multiplier, preserving its
+snapshot through delayed impacts. There is no expiry, timer or RNG. Jobs without a meter keep their old stats/events.
+
+Finisher definitions (H8) add:
+
+```json
+{"meter":{"role":"finisher","min":5,"spend":"all","damage_per_unit":0.10}}
+```
+
+Admission requires the minimum, normal cooldown, prepared targets and payable HP. At admission, snapshot the held-orb
+bonus, retain `round(meter_keep)` units (clamped to 0..held), and multiply damage by `1 + spent * damage_per_unit`.
+Finishers cannot earn Combo. Their repeat cooldown has a 1 s floor, even with cooldown modifiers.
+When multiple finishers are ready, compare their ordinary target plans: a single-target scheduled-boss attack wins,
+otherwise the larger eligible target count wins (capped to strike count); cooldown/learned order breaks ties.
+Finisher admission enforces the prepared plan's min_targets, including range_around casts.
+H8 supplies Coma's three-target threshold and Panic's range/target rules. No job or skill IDs enter the meter runtime.
+The cast snapshot carries meter_spent for H8's finish-art selection; no-meter cast events stay unchanged.
+Other auto-skills keep their oldest-ready order.
+
+`meter_keep` is an ordinary skill modifier, available to rarity bonuses and Mastery; previews say “Keeps N orbs”.
+SkillText appends “Needs N orbs” and the retained count to card/Skill-window descriptions.
+Each actual value change appends `meter_changed {id, value, max}`. HudMeter receives those events, draws max pips
+beside the skill icons, and lights value pips. Combo uses the verified orb art at `state/1` (43x42 in v83);
+unavailable art uses drawn pips. Jobs without a meter display nothing.
+
+Later jobs can configure `gain.event` to `hit_taken` or `meso_picked` and call `gain(event, events)` at their
+event source; H3 wires landed casts only. M23 owns meso pickup coupling; energy/form rules belong to Buccaneer's spec.
+The current `per_unit.stat` contract is `damage`; additional stat semantics need an explicit extension.
+Paladin uses M2 forms, not M1. Meter state is absent from CharacterSnapshot: a new round always starts empty.
+
+### 7.35 Pull (#300, spec #296)
+
+The mirror of `knockback` (7.27): a generic skill block that drags mobs toward the caster along their foothold chain.
+Monster Magnet (1121001, 1221001, 1321001) is the first user; Paladin, Dark Knight and Buccaneer (Snatch) reuse it.
+No shipped skill carries the block yet, so no existing record changes.
+
+```json
+"pull": {"chance_field": "prop", "range_field": "range", "min_gap": 60}
+```
+
+- **Keys.** `chance_field`: the canonical level field read as a percent (empty or absent means always). `range_field`:
+  the reach in px (`"range"` reads the resolved `range` stat, so area/reach modifiers apply; any other name reads that
+  canonical field). `min_gap`: the closest a pulled mob ends from the caster, in px. Optional `min_distance` overrides
+  the 120 px floor below. The cap is the resolved `mob_count` (canonical `mobCount` plus count modifiers).
+- **When.** `SkillRunner.apply_pull` runs once per cast of any non-buff skill with the block, right after the `cast`
+  event (before the damage lines of a skill that also hits, as Snatch will). It scans the live mobs itself; it does not use
+  the cast rule's target list.
+- **Selection (tier C).** Candidates are live, grounded, non-boss mobs whose body centre is within `range` of the cast
+  origin and whose feet are at least 120 px away horizontally. Scheduled bosses, canonical bosses, airborne mobs and
+  flyers are never candidates and never spend a slot. The `mob_count` farthest candidates are taken, farthest first
+  (horizontal distance; the lower slot breaks ties). Mobs under 120 px are left alone: they are already in the pile.
+- **Roll.** One draw per taken candidate, in that order, on the main stream (`world.rng`, stream 1): pulled when
+  `draw * 100 < chance`. No draw at a chance of 100 or without a `chance_field`. A 0% chance still draws (as knockback does).
+  A miss keeps its slot; selection happens before the rolls.
+- **Move.** `MobSwarm.pull` slides the mob toward the caster's x with `FootholdMap.slide_along` by
+  `max(0, |dx| - min_gap)` px, so it never crosses the caster. It follows slopes and linked footholds and stops at the
+  platform's end, at a wall (EPS short of it) and at the map bounds. A mob already inside the gap is rolled and not moved.
+  Statuses survive. Each mob that moved emits `mob_pulled {mob, from, pos}`.
+- **Pull-only skills.** A skill with `damage: "none"`, a `pull` block and a `box`, `weapon_reach` or `range_around` rule
+  deals no damage lines (`resolve_cast` skips the instant strike); casting admission stays the cast rule's
+  (`range_around` admits on one mob in range unless the cast block says `min_targets`: Magnet's 3, 7.33).
+- **Loadout.** `stats()` carries `pull_chance` (percent, 100 for no field, 0 without a block) and `pull_gap` (px) for card
+  and Skill-window text (H7).
+
+### 7.40 Bowmaster pool and job data (#334, spec #332 B2)
+
+Bowmaster (312) gets its own data line `bowmaster` (`survivor/jobs/bowmaster.json`, `survivor/skills/bowmaster.json`
+with all ten skill definitions), registered after Hero and I/L in `DataRepo.CLASS_LINES`, following the seven
+Adventurer lines (ARCHITECTURE 4.4.4). The job entry carries the ten-skill pool
+(`arrow_blow` starting, then `bow_double_shot`, `arrow_bomb`, `strafe`, `inferno`, `arrow_rain`, `dragons_breath`,
+`hurricane`, `silver_hawk`, `phoenix`; the WZ ids are in spec #332's pool table), `weapon_families: ["bow"]`, the War Bow
+1452002 as creation weapon, and `playable: true` since B13 #345. Its AP row (DEX primary, STR secondary, the Bowman keyframes copied
+verbatim) lives in the line's own `balance` block. All pool keys are defined.
+
+**D1, no mobility skill.** The entry has no `mobility_skill` key. `JobTree.start_skills(312)` is `["arrow_blow"]`, and a
+round learns only Arrow Blow. Nothing else changes in the code: `HudQuickSlot.movement_skill_of` returns `{}`, the
+quick slot's movement cell is blank with no icon, Key Config lists no skill row, the run scene reports one owned skill, and the
+bot never presses a skill key (it presses Teleport or Rush only when it owns them). `test_bowmaster_data` proves each of these;
+the paths had only ever met jobs that own a mobility skill, and needed no fix. If playtests ever ask for one, it follows
+`balance.mobility_rank_levels` like Teleport and Rush (spec #332 D1).
+
+**Drops.** `weapon_families: ["bow"]` filters the Bowman list down to bows (145xxxx): crossbows (146xxxx), swords, axes,
+blunt weapons, spears, claws and guns never drop for a Bowmaster, in the synthetic or the shipped pool. Armour and shields
+drop by the Bowman class bit (reqJob 4), and `requirement_error` refuses other classes' gear. The War Bow is wearable at
+creation (cache-backed test).
+
+### 7.41 Ammo by exact job and round level (D9, #335, spec #332)
+
+ADR 0006 removed advancement and every round starts at Lv1, so the format-1 schedules (keyed by `branch` 310/320/410/520, steps
+at Lv30-55) belonged to jobs nobody can be and levels a round rarely reaches. Format 2 settles the open ADR item:
+
+- **Data.** `survivor/ammo.json` `families` are unchanged. `schedules[]` is `{"job": 312, "family": "bow", "steps": [{"level":
+  15, "item": 2060001, "tier": "C"}, ...]}`. `level` is the **round's level** (`progression.level`, Lv1 at every round start,
+  kept across maps); the family's `start` covers Lv1, so a step's level is above 1. A schedule that still carries `branch`
+  or has no `job` is a data error (`Ammo.schedule_errors`, listed by `DataRepo.load_all` in its `errors` and asserted in
+  `test_data_files`).
+- **Lookup.** `Ammo.item_for(ammo, family, job_id, level) -> int`: a schedule applies only when its `job` **equals** the
+  character's job and its `family` equals the held weapon's family; the highest step whose level is reached wins, else the
+  family's start; 0 for a family without ammo. There is no lineage walk: a Bowmaster (312) holding a crossbow, a Hunter (310)
+  or an F/P Arch Mage (212) holding a bow fire the plain arrow. Callers: `RunWorld._sync_ammo`, `RunWorld.ammo_tooltip`.
+- **World.** Unchanged and already tested: `ammo_upgraded {family, from_item_id, item_id, level}` fires when a level-up moves the
+  held family to a higher step (never at round start, never on a weapon swap; `RunScene` shows "Your arrows are now Bronze
+  Arrow for Bow"), the shot is the current ammo's `bullet` art, its `incPAD` adds to W.Att for ranged attacks only.
+
+| Job (family) | Steps: round level -> ammo (`incPAD`) |
+|---|---|
+| 312 Bowmaster (bow) | Lv1 Arrow for Bow 2060000 (+0) -> **15** Bronze 2060001 (+1) -> **30** Steel 2060002 (+2) -> **45** Red 2060003 (+4) |
+| 322 Marksman (crossbow) | Lv1 Arrow for Crossbow 2061000 (+0) -> **15** Bronze 2061001 (+1) -> **30** Steel 2061002 (+2) -> **45** Blue 2061003 (+4) |
+| 412 Night Lord (claw) | Lv1 Beginner Thief's Throwing Stars 2070015 (+15) -> **10** Wolbi 2070001 (+17) -> **20** Mokbi 2070002 (+19) -> **30** Kumbi 2070003 (+21) -> **40** Tobi 2070004 (+23) -> **50** Steely Throwing-Knives 2070005 (+25) |
+| 522 Corsair (gun) | Lv1 Bullet 2330000 (+10) -> **18** Split Bullet 2330001 (+12) -> **35** Mighty Bullet 2330002 (+14) |
+
+This ticket writes all four schedules; only the Bowmaster is playable today, so the other three are inert data under a
+structural test (`test_ammo`: exact levels, no inheritance, one schedule per job and family) until their specs make the job
+playable and may retune their own entry. Left out on purpose: Ilbi Throwing-Stars 2070006 (+27) and Vital Bullet 2330003 (+16,
+its img is not imported), for the specs that own those jobs to add if a round can reach them (`Ammo.item_ids` no longer names
+2070006, so the setup loads 17 ammo items). Summons never use ammo W.Att (their damage is the WZ `pad`). Arrows are almost
+cosmetic (+0..+4 W.Att, about 7% at Lv45); stars and bullets matter, hence their extra steps.
+Tests: `test_ammo` (rule, data file, real-cache `incPAD` strictly increasing along each schedule, real String.wz names in the
+notice), `test_ammo_world` (a Bowmaster levelled through 15/30/45 with real EXP: one `ammo_upgraded` each, none at the start
+or on a weapon swap, the shot sprite follows the ammo). The old Hunter / Crossbowman / Assassin / Gunslinger ammo assertions
+elsewhere were moved onto the exact jobs 312 / 322 / 412 / 522 at the new levels.
+
+### 7.42 Channelled burst (#336, Bowmaster B4)
+
+Review #332: `burst_art.loop` is optional. A prepare-only burst finishes its wind-up without starting a loop.
+Marksman supplies its release-time effect hook with Piercing Arrow. `fire_shot` accepts an optional final
+`hand` point for echo callers; omitted, it retains the player's current hand and body fallback.
+Death and final clear synchronously cancel unfinished bursts, once per admitted cast, before the world freezes.
+
+`kind: "projectile"`, `cast: {"rule": "burst"}` dispatches to `BurstCast`, owned and ticked by SkillRunner.
+The definition's `burst: {"interval": 0.1, "wind_up": 0.4, "retarget": true}` schedules resolved `count` shots:
+first at wind-up seconds after admission, then every interval (on the first fixed tick at/after each deadline).
+Zero wind-up fires on admission. Admission uses nearest targeting, scheduled bosses first, inside resolved `range`.
+One ordinary cast event/stance and cooldown start at admission; the active burst blocks that skill's recast even
+when cooldown expires. Different skills can run concurrently. No skill uses this rule until its data ticket lands.
+
+Each shot uses the current hand and target centre, calling the same `SkillRunner.fire_shot` as nearest projectiles.
+Nearest's simultaneous reused-target spread is preserved; burst arrows have no spread. Stats are snapshotted at
+admission, including a shared meter receipt (at most one landed cast), while ammo art is resolved at each launch.
+The target remains until its logical mob identity dies or its centre leaves range. Optional `burst.overshoot`
+(default 0 px) extends retention only; replacements still require `range`. With `retarget: false`, invalidating the
+target drops all remaining shots; otherwise the nearest eligible replacement is acquired, bosses first. No eligible
+replacement also drops remaining shots without refund. Map transfer (`clear_pending`), death and Hidden cancel
+unfinished bursts; already launched projectiles keep their existing lifetime rules. Timing and targeting consume
+no RNG; impact damage rolls retain the existing main stream. Bot reach is resolved range; SkillText reports
+"Fires N arrows over T s", where T includes wind-up and the final shot's deadline.
+
+### 7.43 Burn (#337, spec #332)
+
+Review #332: `on_hit.pulse_field` resolves a canonical percent when present; otherwise `on_hit.pulse` is a literal
+percent of the mean resolved bounds (tier C, default zero). The same resolved share feeds skill text.
+
+A fire damage-over-time status beside poison in `MobSwarm`, whose pulse is sized by the cast that applied it. Inferno
+(3111003) is the first user (Bowmaster B9); Corsair's Flamethrower reuses it with its own `pulse_field`. No shipped
+skill carries the block yet (the tests use a synthetic skill), so no existing record changes.
+
+```json
+"on_hit": {"status": "burn", "duration_field": "time", "pulse_field": "x", "cue": "Skill.wz/312.img/skill/3111003/tile/2"}
+```
+
+- **Status.** `MobSwarm.BURN := 7`, appended after `FIRE_WEAK` (6, taken first by Ice/Lightning, #322); `STATUS_COUNT` 8, the
+  status table gains a `"burn"` / `"F"` row. Existing indices never move. Event names are unchanged: `mob_status_applied` / `mob_status_expired`
+  carry `status: "burn"`.
+- **Gate.** The common one (`accepts_status`): canonical and scheduled bosses reject it, and kinds whose Mob.wz fire digit
+  is 1, 2 or 4 (immune, strong, neutral) reject it; weak (3) takes it. The element is `F`; a skill's own `element` still
+  overrides it as for every status. Compatible with fire damage: the I/L `fire_weak` mark only changes the damage taken,
+  not this gate.
+- **Application.** `on_hit` with no `chance_field` always applies and draws no RNG. `duration_field` names the seconds
+  (default `time`); `pulse_field` the share (default `x`). A hit that deals no damage applies nothing (the existing
+  `on_hit` rule).
+- **Pulse size.** `Loadout.stats` adds `burn_pulse` for a skill whose `on_hit.status` is `burn`:
+  `BurnStatus.pulse(damage_min, damage_max, share, burn_damage)` = `round(mean(damage_min, damage_max) x share / 100 x
+  burn_damage)`, with the bounds the cast's resolved ones (before skill%, after `damage` modifiers, DEX/STR/W.Att), so a
+  `damage` card scales it and monster defence does not. The same call adds `burn_time` and `burn_share` (the percent of
+  base damage per second, `burn_damage` included) for the text. `burn_damage` is a new mul modifier (default 1.0) for
+  rarity bonuses (Inferno's Hellfire x1.5).
+- **Travel.** The pulse is part of the cast: the projectile pool stores it per shot (`ProjectileSystem.burn_pulse`, a
+  packed int array reset at every spawn) and the hit carries it, as `hit_mob` carries `st.burn_pulse` for instant skills.
+  `RunWorld._on_player_hit` passes it to `apply_status` as `params.pulse`, so a later rank change or a different cast does
+  not alter a burn already running, and impact blasts burn every target with the shooter's numbers.
+- **Pulses.** Every `POISON_INTERVAL` (1.0 s, shared) while the status lasts, the first one a full second after the first
+  application and the one due at expiry included. A pulse is `BurnStatus.tick_damage(pulse, hp)`: never below 1 HP, no stun,
+  no push, no flinch, nothing when it would deal 0. It is a `mob_hit` event (`crit` false, `hit_visual` "", `skill` the
+  applying skill's key), and the dealt amount is `MobSwarm.burn_dealt`; `RunWorld.damage_dealt` is shots + instant hits
+  + `poison_dealt` + `burn_dealt`. Poison's own arrays, counter and bytes are untouched.
+- **Refresh.** Re-applying while burning replaces the timer (not added) and the pulse size and skill key (the latest
+  snapshot) and **keeps the running pulse clock**: refreshing never restarts or stacks a pulse. This is the rule the #282
+  review fixed for overlapping Poison Mist clouds; two sources applying a burn half a second apart give exactly one pulse a
+  second, and a source that refreshed faster than the interval would otherwise starve the status of every pulse. Only a
+  burn that has ended starts a new clock.
+- **Clearing.** Death, release (including the map-transfer sweep) and relocation clear it silently, like every
+  player-inflicted status; it coexists with the other statuses and each keeps its own clock.
+- **Presentation.** `MobRenderer.BURN_CUE` (index 4, `CUES_PER_SLOT` 5) draws the animation at `MobRenderer.burn_cue_path`
+  on the body top, repeating while the status lasts, like the poison cue. `RunScene` sets the path from the first pool
+  skill whose `on_hit` names a `cue` (a Skill.wz path; Inferno's `tile/2`, B9's choice). With no cue configured the monster
+  takes the orange `BURN_TINT`; Freeze's tint still wins. `SkillText` appends "Burns for T s, N% of base damage per
+  second" to a burning skill's level line, and a `burn_damage` card previews as `Burn: 100% -> 150%`
+  (`UpgradePool.MOD_PREVIEW`, `LevelUpWindow.MOD_LABELS`).
+- **Not modelled.** The meter's finisher scaling (`PlayerMeter.begin_cast`) does not scale `burn_pulse`: no burning skill
+  is a meter skill yet.
+
+### 7.44 Physical followers (#338, spec #332 M8)
+
+The Elquines seam (7.32) with four data-driven extensions, shared by Silver Hawk, Phoenix, Golden Eagle and Frostprey (and
+any later follower). None is an ID switch; a definition without the keys behaves exactly as before (Elquines is
+byte-identical: same state, same RNG stream, `test_character_baseline` and `test_tick_cost_identity` unchanged).
+
+- **Physical damage source.** `damage: "physical"` with `summon.watk_field: "pad"`: `Loadout.stats` resolves the damage
+  with that level field as the W.Att in the ordinary physical formula (`CombatMath.physical_damage_range`: the held
+  weapon's multiplier row, so a bow gives 3.4 x DEX + STR, then x pad / 100, the character's mastery for the minimum) instead of the character's `watk`
+  (worn weapon, buffs and ammo). `Loadout._summon_watk` is the only place that reads the key. The level is the skill's mapped
+  rank level, so `pad` plays the role `mad` plays for Elquines; `damage_pct` stays 1 (the nodes have no `damage` field). The
+  mob's PDD applies (`defense: pdd`), crit and survivor multipliers as for any physical hit. Tier C reading of v83's
+  "attack +23" (Silver Hawk) and "basic attack 305" (Phoenix) text.
+- **Stun from the hit, literal duration.** The strike goes through `RunWorld.hit_mob`, so the skill's `on_hit` applies.
+  `on_hit` gains an optional literal `duration` (seconds), beside `duration_field`, which wins when present: a status whose
+  WZ `time` is something else (Silver Hawk's `time` is the lifetime, 103-180 s) can still use `chance_field` (`prop`) for
+  the chance. One stream-1 draw per hit when `prop` is under 100, none at 100; bosses and steady mobs reject stun as always.
+- **Flyers.** `summon.hover` (px, default 0) lifts the follower above its trailing point: it enters, follows and snaps at
+  that height. The attack box stays feet-relative (anchored at the trailing point on the ground, not at the flyer), so a
+  hovering Phoenix's +-60 px box still reaches ground monsters (tier C). `summon.move` (default `"move"`) names the animation
+  node played while following (`fly` for the hawk and the phoenix); the sim stores that resolved node name as the ally's
+  action and takes its duration from that node, so `PlayerSummonRenderer` draws it unchanged (it loops `stand` and the
+  definition's move node).
+- **Settling between strikes.** `summon.settle` (default false: Elquines holds its attack pose for the whole
+  `attack_interval` and does not follow meanwhile, 7.32): a settling follower leaves the attack pose when the attack animation
+  has finished (and the hit has landed), plays its move / stand node and keeps following the caster until the interval ends,
+  then strikes again. The hawk needs it: its `attack1` body animation is a 100 ms frame followed by a 600 ms **1 x 1 px
+  placeholder** (the hawk is out of sight while its bolt strikes), so holding the last frame would hide the hawk for the rest
+  of its 1.6 s interval.
+- **Sounds and strike art.** `sounds.summon` (a `Sound.wz` path) rides the `summon_spawn` event as `sound` (the key is absent when the
+  definition lists none, so Elquines' events are byte-identical) and the presentation plays it at each spawn, one per frame per path. When the attack node's
+  `info` has an `effect` node, each struck monster gets one `summon_strike` event ({skill, slot, mob, pos, effect}) and the
+  presentation plays that animation on it. (Both events are emitted without being listed in `RunWorld.EVENT_FIELDS`, like `summon_attack`.)
+
+**Hover and the WZ origins.** The v83 follower frames already float above their anchor (Silver Hawk `fly` / `stand`: origin y
+137-221 on 63-113 px tall frames, i.e. 40-110 px above the anchor), so `hover` stacks on top of art that is already high: a
+hawk at `hover 80` was drawn about 190 px over the character in the #338 probe. The B11 definitions should start from a small
+`hover` (0-30) and look at a screenshot.
+
+**What the WZ `type 1` attack changes (verified on v83 Skill.wz 311.img / 312.img).** Silver Hawk (3111005) `attack1`:
+`info/type 1`, `attackAfter 100`, `effectAfter 600`, no `mobCount` (one target), box +-200 x +-150, a two-frame body
+animation (100 ms then 600 ms), `info/hit` (6 frames, 90 ms, the same frames as the skill's own `hit/0`) and `info/effect`
+(4 frames, 80 ms, origin 140-200 px above the frame: a bolt that lands on the target). Phoenix (3121006) `attack1`: `type 1`,
+`attackAfter 360`, `mobCount 4`, box +-100 x +-60, eleven body frames, **no** `info/hit` and **no** `info/effect` (its fire
+art is the skill's `hit` / `tile` nodes). So `type 1` marks an attack whose impact art hangs off `info` instead of the
+body frames. The sim never branches on `type`. Damage lands at `attackAfter` for both (T9 timing); `info/hit` is the
+skill's `hit/0` the existing hit visual already draws, `info/effect` is drawn at the same impact on each struck monster
+(tier C: `effectAfter` is not modelled as a separate delay; the bolt art simply plays on the impact tick). Silver Hawk
+and Phoenix `Use` / `Summon` sounds are UOLs into 3211005 (Golden Eagle).
+
+### 7.45 Bowmaster core arrows (#339, spec #332 B7)
+
+Arrow Blow, Double Shot and Arrow Bomb moved from `skills/bowman.json` to `skills/bowmaster.json` (same keys, same
+WZ ids; a repeated key is a load error) and Strafe (3111006, book 311) joined them. All four are `slot: "active"` with the
+default eight ranks (the 20-level skills read WZ levels 3/5/8/10/13/15/18/20, the 30-level ones 4/8/12/15/19/23/27/30),
+no `weapon_families` (the held weapon gates nothing) and four-tier `rarity_bonuses` (#288 schema). Their legacy standalone
+cards (`arrow_blow_new/_rank/_shots`, `bow_double_shot_new/_rank/_shots`, `arrow_bomb_new/_rank/_shots/_targets`) are gone
+from `upgrades/bowman.json`; a playable Bowmaster's new / rank cards come from `UpgradePool.add_pool_skills`.
+
+- **Arrow Blow** (start, 1.0 s): one arrow at the nearest monster, the current ammo's sprite, WZ damage 196% (rank 1) to
+  260%. **Double Shot** (1.0 s): `bulletCount` 2, one arrow per monster over the two nearest (both at the same monster
+  when only one is in reach), 96% to 130% per arrow, Arrow Blow's `Use` sound (Sound.wz has no 3001005 node).
+  **Arrow Bomb: Bow** (2.0 s, up from the old 1 s placeholder because it is a six-target blast now competing for a
+  slot): the arrow explodes on the first monster it meets (`mobCount` 6, box +-130 to +-150), `x` 78% to 130%, stuns each
+  struck non-boss with `prop` 34% to 60% for `time` 2 to 6 s.
+- **Strafe** (2.5 s): `cast: {"rule": "nearest", "focus": true}`. `focus` makes admission want one target
+  (`SkillRunner._admit_nearest`), so the four arrows (`bulletCount`) all reuse it, aimed `REUSE_SPREAD` px apart as the
+  nearest rule always does for a reused target; a scheduled boss in reach is still picked first. 74% to 100% per arrow,
+  range 350 px, 700 px/s, radius 6. The hit art is Strafe's **own** `hit/0` (three frames; the spec said the WZ hit was
+  empty, B1 found it). Strafe's `effect` (a six-frame caster flash that opens on a 1x1 frame) is not drawn.
+- **Rarity bonuses** (tier C; names are the lineage's passives). Rare: `bow_mastery` damage x1.2 (all four). Epic: Arrow Blow
+  and Strafe `booster` cooldown x0.88; Double Shot `eye` range x1.25; Arrow Bomb `bigger_bomb` area x1.2. Unique: Arrow
+  Blow and Double Shot `final_attack` count +1, Strafe `final_attack` count +2 (six arrows), Arrow Bomb `wide_blast`
+  `blast_targets` +2. Legendary: the Unique's effect and id (so it shares the repeat counter) plus damage x1.2.
+  Every bonus changes the resolved cast (`test_rarity_bonus_effects`: arrows count as hit lines because an arrow stops at
+  the first monster on its line; Arrow Bomb's `area` and `blast_targets` are probed in a cluster around the first monster).
+- **Consequence of dropping the weapon gate.** Arrow Blow and Double Shot have no WZ `weapon` code, so with their explicit
+  `weapon_families` gone the ranged passive range bonus (`Loadout.RANGE`, Eye of Amazon) no longer reaches them; no
+  Bowmaster pool skill grants that passive, and Strafe and Arrow Bomb (WZ `weapon 45`) still take it.
+- Tests: `test_bowmaster_core_arrows.gd` (behaviour per skill, the catalog lists, the real-cache eight-rank check),
+  `test_rarity_bonus_effects.gd` (every bonus), and the old weapon-gate / 20-rank / standalone-card cases rewritten in
+  `test_bowman`, `test_hunter` and `test_bowmaster_data` (see the B7 notes).
+
+### 7.50 Bowmaster area and piercing (#340, spec #332 B8)
+
+Arrow Rain (3111004, book 311) and Dragon's Breath (3121003, book 312) are the two Bowmaster entries that need no new
+sim rule beyond one data key. Both are `slot: "active"` with the default eight ranks (WZ levels 4/8/12/15/19/23/27/30),
+no `weapon_families` and four-tier `rarity_bonuses`; they sit together in `skills/bowmaster.json`.
+
+- **Arrow Rain** (5.0 s): `cast: {"rule": "box", "min_targets": 1}` with the WZ box, which is symmetric (+-170 at rank 1,
+  +-190 at rank 4, +-210 at rank 8, -100 to +100 vertically), so it strikes **around the caster** and not in front of it.
+  `pending: {"delay": 0.5}` is the delayed-strike seam Meteor Shower uses: the cast queues the area anchored at the spot the
+  caster stood on, and 0.5 s later `SkillRunner._step_areas` hits up to `mobCount` (6) monsters in that box, nearest to the
+  anchor first, whether or not the caster has walked away. WZ damage 75% (rank 1) to 160% per line, `Use` / `Hit`
+  sounds, the `effect` flourish on the caster and `hit/0` on each struck monster. Nothing is cast while no monster is in the
+  box (`min_targets 1`).
+- **Falling arrows** (art only, tier C). The `special` node (`x 85, y 230, fall 150, start 0, interval 90, count 8,
+  duration 500`) is undocumented; it is read as eight arrows, one every 90 ms across the box, each dropping 230 px onto the
+  ground. A `cast_visuals` entry may now carry `across` (a count), `interval` (s between copies), `fall` (px dropped) and
+  `fall_time` (s of the drop): `CastVisualPlan.expand(visuals, box)` spreads the copies evenly over the resolved box (so a
+  Wide Rain `area` card spreads them wider) and `RunScene._update_falls` draws them. An entry with a literal `x` and no
+  delay plays at the cast exactly as before (Meteor Shower is unchanged). The drop takes 0.25 s, longer than the WZ `fall`
+  150, so that two or three arrows read at once; the strike itself lands at 0.5 s whatever the art is doing.
+- **Dragon's Breath** (3.5 s): the `nearest` rule with its own four-frame `ball` (204x81, no ammo sprite), range 440 (read
+  from the level: it is canonical), 700 px/s, radius 16. New optional key **`pierce_field`** (`"mobCount"`): the arrow
+  pierces `field - 1` monsters (WZ `mobCount` 4 / 5 / 6 means 4 / 5 / 6 monsters struck, so 3 / 4 / 5 beyond the first), on
+  top of the literal `pierce` and any `pierce` card; `Loadout._add_pierce_field` resolves it at the end of `stats`, and
+  skills without the key resolve exactly as before. `knockback {chance_field prop, distance 180}`: `prop` is 100 at every
+  level, so every struck non-boss rolls once on stream 1 (the existing rule, 0/100% endpoints included) and slides 180 px
+  away from the caster; a boss is damaged and not moved. WZ damage 48% to 100%.
+- **Rarity bonuses** (tier C; the lineage's passive names). Arrow Rain: Rare `bow_mastery` damage x1.2, Epic `wide_rain`
+  `area` x1.2 (a wider box), Unique `final_attack` `attack_count` +1 (a second volley line on each struck monster). Dragon's
+  Breath: Rare `bow_expert` damage x1.2, Epic `eye` `range` x1.25 (550 px), Unique `dragons_spirit` `pierce` +2.
+  Legendary is the Unique's effect and id (so it shares the repeat counter) plus damage x1.2. Every bonus changes the
+  resolved cast (`test_rarity_bonus_effects`; Arrow Rain probes `area` and `attack_count` against its box, Dragon's Breath
+  `range` and `pierce` against a row of monsters; a bow `range` probe runs 1.5 s so the spawn director does not relocate the
+  far monster).
+- **Skill window.** `SkillText` appends "Pierces up to N more monsters" to a skill with `pierce_field`, next to the
+  existing knock-back line ("Knock-back: 100% / 180 px").
+- Tests: `test_bowmaster_area_piercing.gd` (behaviour per skill, the rarity tables, the cast-visual plan, the Skill window
+  line, and a real-cache check of the eight mapped levels of both skills against Skill.wz), `test_rarity_bonus_effects.gd`.
+
+### 7.51 Inferno (#341, spec #332 B9)
+
+Inferno (3111003, book 311) is the first skill on the burn status (7.43) and joins `skills/bowmaster.json` beside the four
+core arrows. `slot: "active"`, the default eight ranks (WZ levels 4/8/12/15/19/23/27/30), no `weapon_families`, `element: "f"`
+(WZ `elemAttr f`, so a fire-weak monster takes the 1.5 element multiplier on the blast, a fire-immune one nothing), physical.
+
+- **The shot.** `cast: {"rule": "nearest"}`, cooldown 3.0 s, range 350 px, 600 px/s, radius 8, no pierce, 0.6 s held
+  weapon stance. It flies as its **own** three-frame `ball` (a fire arrow), not the ammo's sprite, and explodes on the
+  first monster it meets (`impact_blast {damage_field damage, visual hit}`): box +-130 to +-150 x +-100 and `mobCount` 6 (all
+  tier A), `damage` 65% (rank 1) / 112% (rank 4) / 150% (rank 8). Hit art `hit/0` (five frames) at each struck monster; `Use` and
+  `Hit` sounds.
+- **The fire.** `on_hit {status burn, duration_field time, pulse_field x, cue <tile/2>}`: every struck monster burns, always
+  (the WZ level has no `prop`; no RNG is drawn), for `time` 5 s (ranks 1-7) or 10 s (rank 8) at `x` 24% (rank 1) / 35% (rank 4)
+  / 50% (rank 8) of the cast's base damage per second (`burn_pulse`, 7.43). Bosses and fire-immune, -strong and -neutral
+  monsters do not burn; a burning monster hit again by the next Inferno refreshes its timer and pulse without resetting the
+  running pulse clock.
+- **Burning art.** The burning monster wears **`tile/2`** (six frames of tall flame, 95 ms each), `on_hit.cue`. I compared
+  it by eye with the orange tint alone and with `tile/0` (`burn_driver.tscn` on Henesys Blue Snails, and a `--job=312`
+  playtest where a burning snail shows the flame and its pulse number): the tint alone is subtle on green monsters, `tile/0` is a
+  small flame above the head, `tile/2` a tall flame over the whole body. All three read; `tile/2` is the most visible, so it
+  stays the spec's pick (art choice, tier C). `special/0` (a three-frame burst with a falling-number table) is **not** drawn at
+  the impact point: no seam draws a skill's `special` at a blast, and `hit/0` already marks each struck monster.
+- **Rarity bonuses** (tier C, names from the lineage's passives; every one changes the resolved cast, `test_rarity_bonus_effects`).
+  Rare `bow_mastery` damage x1.2; Epic `hellfire` ("Hellfire") `burn_damage` x1.5 (the pulse, not the arrow: the card preview
+  reads "Burn: 100% -> 150%"); Unique `spreading_fire` ("Spreading Fire") `blast_targets` +2 (eight monsters burn); Legendary the
+  Unique's effect and id plus damage x1.2. The Skill window and level-up text state "Burns for T s, N% of base damage per
+  second" from the resolved cast.
+- Tests: `test_bowmaster_inferno.gd` (the definition, the burn by rank, every blast target burning with its pulse and time,
+  boss / fire-immune / fire-strong monsters, the element multiplier, `burn_damage`, the four bonuses, the text and cue, the
+  real-cache eight-rank check against `Skill.wz`), and `test_rarity_bonus_effects.gd` (Inferno is in `BOWMASTER_KEYS`; the
+  probe gained a `burn_damage` stat that reads the fire a single cast leaves behind).
+
+### 7.52 Hurricane (#342, Bowmaster B10, spec #332)
+
+Cards show the complete 1.5 s admission-to-last-arrow span (including the 0.4 s wind-up), using `BurstCast.span`;
+the spec's 1.1 s example measures only the gaps between arrows.
+
+Hurricane (3121004, `skills/bowmaster.json`) is the first skill on the burst rule (7.42): `kind projectile`,
+`cast {rule burst}`, `burst {interval 0.1, wind_up 0.4, retarget true}`, `count 12`, `cooldown 6.0`, `range 450`,
+`speed 900`, `radius 6`, no pierce, `bow` only. Damage is the level's `damage` (tier A, no `mobCount`/`attackCount`: one
+monster) as a percent per arrow, eight ranks on levels 4/8/12/15/19/23/27/30 (the mapping of every 30-level skill):
+rank 1 / 4 / 8 = 54 / 75 / 100% per arrow, so 12 x 54% to 12 x 100% a cast. Each arrow is the skill's own 10-frame `ball`
+(not the ammo's sprite: `ammo_shot` is off, the ammo still adds its W.Att to the shot's damage) with `hit/0` on impact and
+the `Use` / `Hit` sounds read from `Sound.wz/Skill.img/3121004`. The first arrow leaves 0.4 s after admission and the
+twelfth at 1.5 s; every arrow aims from the hand at the retained target and the character keeps walking.
+
+The cast stance is the held bow's shooting stance (`action: weapon`), held for the whole stream: `SkillRunner._resolve_cast`
+raises a burst cast's hold to `BurstCast.span` (wind-up plus the gaps between arrows; 1.5 s, 1.9 s with sixteen arrows).
+Art (`burst_art`): the 14-frame `prepare` plays on the caster fitted to the wind-up (`FxRenderer.fit`: 0.98 s of frames in
+0.4 s), `keydown` loops from the first arrow, `keydownend` plays when the stream is over or dropped. The sim reports this as
+`burst_start` (`skill`, `wind_up`, `span`, `facing`) and `burst_end` (`skill`; also for a stream dropped by death, Hidden
+or a map change, `clear_pending(world)`); the scene turns them into the three animations. First-cast screenshots use the shared default timing.
+
+Rarity (the Bowmaster lineage names, repeat scale 0.8): Rare **Bow Expert** damage x1.2; Epic **Bow Booster** cooldown x0.88;
+Unique **Final Attack** `count` +4 (sixteen arrows, a 1.9 s stream); Legendary Final Attack plus damage x1.2 (sharing the
+Unique's id and repeat counter). Every bonus changes the resolved cast: `test_rarity_bonus_effects` probes Hurricane (on the
+burst rule `count` shows as arrows landed on the one target, not as extra monsters affected).
+
+### 7.53 Silver Hawk and Phoenix (#343, spec #332 B11)
+
+The two physical followers (7.44) as data in `skills/bowmaster.json`, no new code.
+Both are `kind summon`, `cast.rule summon`, `damage physical`, no `weapon_families` (as B7), cast stance `alert2` (the WZ
+`action/0`), `summon {move fly, watk_field pad, settle true, hover 20}`, the `hit/0` art of the skill (the Hawk's `info/effect`
+bolt is the 7.44 strike art; its `mob` stun stars are already drawn by the stun status) and `Use` / `Summon` sounds that read
+through `Sound.wz/Skill.img/<id>/...`: the Hawk's `Use` / `Summon` and Phoenix's `Summon` are UOLs the importer expands into
+`3211005/*.mp3` (B1), so the path is the id's own and the file is found through the JSON node.
+
+- **Silver Hawk** (3111005, book 311): 30 s recast (the WZ lifetime 112 -> 180 s is longer, so a recast replaces the group),
+  neutral, one monster in a +-200 x +-150 box (no `mobCount`) every 1.6 s, `pad` 32 -> 100 as W.Att, `on_hit {stun, chance_field
+  prop, duration 1.5}` (`prop` 59 -> 99%, bosses resist). Follow 220 px/s at 70 px behind.
+- **Phoenix** (3121006, book 312): 40 s recast, element `f`, up to four monsters (`mobCount 4`) in a +-100 x +-60 box every
+  3.0 s, `pad` 320 -> 550, no status (the node has none). Follow 200 px/s at 60 px behind.
+- **Hover 20 px** for both: the art already floats 40-110 px above its anchor (B6 finding: 80 drew a hawk ~190 px over the
+  character); checked by eye with `player_summon_probe.tscn --skill=hawk|phoenix` (the hawk and the phoenix sit just above
+  and beside the character and dive onto monsters).
+- **Rarity** (`rarity_bonuses`, tier C, repeat scale 0.8, Legendary = the Unique's effect plus damage x1.2 under the same
+  id): Rare Bow Expert damage x1.2; Epic Hawk Eyes `area` x1.2 (Hawk) / Flame Wings `count` +1, a fifth target (Phoenix);
+  Unique Second Hawk / Second Phoenix `summon_count` +1. `test_rarity_bonus_effects` checks that each changes the resolved
+  cast (damage dealt, a monster just outside the base box, monsters struck in one strike, allies).
+- **Balance flag (not a change):** Phoenix's `pad` (305 -> 550 in the WZ text, 320 -> 550 at the mapped levels) is 3-6 times an arrow's
+  W.Att in the same formula, so one Phoenix hit at rank 1 is roughly three times a plain arrow's base damage before skill
+  percentage. Its 3.0 s attack cycle, 40 s recast and four-monster box are the first levers; the Hawk's stun (99% at rank 8,
+  1.5 s, cycle 1.6 s) is the second. Neither is tuned here.
+- The Summoning Rock cost (`itemCon 4006001`) is not modelled (no item economy).
+
+### 7.60 I/L pool and Teleport (spec #319, I6 #325)
+
+The I/L Arch Mage's (222) simple instant skills: **Cold Beam** (2201004), **Thunder Bolt** (2201005), **Ice Strike**
+(2211002) and **Thunder Spear** (2211003), plus **Teleport** (`teleport_il`, 2201002) as its mobility skill. All five
+live in `skills/il_arch_mage.json`; Cold Beam, Thunder Bolt and Teleport moved there from `skills/magician.json`
+(a key in two files is a load error). Every pool skill uses the default eight-rank table (WZ levels 4, 8, 12, 15, 19,
+23, 27, 30), no MP, no `ranks` override, and rarity bonuses instead of standalone cards (section 8).
+
+| Skill / key | Behaviour | Cooldown (tier C) |
+|---|---|---|
+| Cold Beam / `cold_beam` (the start skill) | `nearest` instant, 300 px, one target (`count` adds targets, nearest first); every damaging line attempts a freeze for canonical `time` (1 s, 2 s from WZ level 19); bosses and ice-immune monsters take the damage and refuse the freeze; `swingO1` 0.8 s | 0.5 s |
+| Thunder Bolt / `thunder_bolt` | `box` instant: canonical `lt`/`rb` around the player (±150×±50, ±170×±70 from WZ level 19, i.e. rank 5), up to canonical `mobCount` 6, nearest first; `swingO1` 0.8 s | 0.6 s |
+| Ice Strike / `ice_strike` | `box` instant, `min_targets` 1: canonical box (half-width 120 / 150 / 200 px, half-height 90 / 112 / 150 at ranks 1 / 4 / 8), `mobCount` 6, freeze on every hit line for canonical `time` (1, then 2 s); `magic2` 0.8 s | 1.6 s |
+| Thunder Spear / `thunder_spear` | `nearest` instant, 400 px, exactly one target (the WZ node has no `mobCount` and no box); `magic1` 0.8 s | 0.8 s |
+| Teleport / `teleport_il` | `slot: mobility`, manual X with an arrow direction, `range` 130 to 150 px (tier A); numbers identical to `teleport_fp`; learned at round start through `JobTree.start_skills`, outside both slot tracks, never offered as a card. Its rank follows `balance.mobility_rank_levels` (rank N at character level 2N, cap 20) | 0.3 s repeat |
+
+Cooldowns are the legacy or F/P-mirror base values x0.4 (Cold Beam 1.25, Thunder Bolt 1.5, Ice Strike 4, Thunder
+Spear 2), so the two Arch Mages run at one pace until the balance pass. Cold Beam is the lever to watch: 0.5 s against
+a 1-2 s freeze keeps the nearest monster frozen. Elements are tier A (`elemAttr` i, l, i, l); Ice Strike and Thunder
+Spear have a `Use` sound and no `Hit` sound; none of the four has a `ball`. Cold Beam's and Thunder Bolt's `Hit` sounds
+are empty strings (no sound in the WZ).
+
+Rarity bonuses (tier C, named after the lineage's passives; Legendary = the Unique's effect with the same id plus
+damage x1.2, repeats shrink x0.8, section 8). Each entry changes the resolved cast (`test_rarity_bonus_effects`):
+
+| Skill | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Cold Beam | `amplify` damage x1.2 | `booster` cooldown x0.88 | `spread` Spreading Frost: +1 target | Spreading Frost + damage x1.2 |
+| Thunder Bolt | `amplify` damage x1.2 | `storm` Wider Storm: area x1.2 | `fork` Forking Storm: +2 targets | Forking Storm + damage x1.2 |
+| Ice Strike | `amplify` damage x1.2 | `storm` Wider Frost: area x1.2 | `shatter` Shatter: +1 hit | Shatter + damage x1.2 |
+| Thunder Spear | `amplify` damage x1.2 | `booster` Spell Booster: cooldown x0.88 | `echo` Echo: +1 hit | Echo + damage x1.2 |
+
+The Normal Mastery of these skills is the shared +5% damage (x0.8 per repeat). Thunder Bolt's `count` raises its
+`mob_count` (a nearest-target skill adds targets with `count`, a box skill with `count` through `mob_count`).
+
+**Blizzard and Big Bang (I10, #329).**
+
+| Skill / key | Behavior | Cooldown (tier C) |
+|---|---|---|
+| Blizzard 2221007 / `blizzard` | Meteor Shower's mirror (7.31): the WZ box (-400,-350)..(400,250), canonical `mobCount` 15, damage after the WZ `hitAfter` 1600 ms with targets queried at impact (never saved), ice (`elemAttr i`); every damaging line attempts a freeze for the canonical `time` (1 -> 3 s) | 4.8 s |
+| Big Bang 2221001 / `big_bang_il` | `{"extends": "big_bang", "skill_id": 2221001, "book": "222", "job": 222}` (7.63): F/P's charge, release, box (-250,-180)..(250,100), 2.8 s cooldown and rarity lists, with art and sounds under `Skill.wz/222.img/skill/2221001/...` and `Sound.wz/Skill.img/2221001/...` and its numbers read from book 222 | 2.8 s |
+
+- **Freeze reading (tier C).** Blizzard's WZ level nodes carry `time` 1 -> 3 and no `prop`; its description does not
+  mention freezing, and nothing else reads the field, so it is the freeze length, like Ice Strike's. The `on_hit` is
+  `{"status": "freeze", "duration_field": "time"}` with no chance field: every damaging line attempts it, and the
+  existing rules reject bosses, scheduled-boss slots and ice-immune or ice-strong monsters (`MobSwarm.accepts_status`).
+  The pending impact already goes through `RunWorld.hit_mob`, which applies `on_hit`, so no code changed. If the
+  smoke shows Blizzard and Ice Strike freeze-locking tier 1, the levers are a freeze `chance` or Blizzard's cooldown,
+  never the canonical `time`.
+- **Presentation.** `cast_visuals` plays `tile/0..8` at x = (k - 4) x 180 px, the WZ `tile/effectDistance`
+  (nine columns, -720..720; the WZ box that decides damage is +-400), and the top-level `effect` (25 frames, not
+  the 26 the spec draft says) plays on the caster as Meteor Shower's does. `hit/0` (21 frames) is the hit art; Use and
+  Hit sounds. Stance `blizzard` (0.8 s, the same body frames as Meteor Shower's `meteor`).
+- **Pending rules** (as 7.31): the cast snapshots its stats, the map transfer clears it (`SkillRunner.clear_pending`),
+  a monster that arrives during the delay is struck and one that leaves or dies is not.
+- **Rarity** (tier C, schema as 7.31/8): Rare `amplify` damage x1.2, Epic `storm` ("Area") area x1.2 (the box),
+  Unique `echo` +1 hit (`attack_count`), Legendary Echo plus damage x1.2 sharing Echo's repeat counter (so a Legendary
+  after a Unique is x1.16 on damage, the shared x0.8). Every effect changes the resolved cast (`test_il_blizzard`).
+  Big Bang inherits F/P's lists (power / area / echo / echo + power).
+
+### 7.61 Vulnerability (spec #319 M4, #322)
+
+A vulnerability is a timed status that makes one element hit x1.5 on a monster. `MobSwarm.VULNERABLE` is the table
+`{status index: element letter}`: `ice_weak` (index 5, Fire Demon) -> `i`, `fire_weak` (index 6, Ice Demon, skill in
+ticket I7) -> `f`. A monster may carry both timers. The statuses are ordinary `MobSwarm` timers (`STATUS_COUNT` 8 with Burn, #337), so
+they follow the status rules unchanged: reapplying refreshes to the new `time` without stacking, bosses and `steady`
+(scheduled boss) slots reject them, a skill applies one with `on_hit: {"status": "fire_weak", "element": ""}`
+(the empty element means kind resistance and immunity never block the mark), and `mob_status_applied` /
+`mob_status_expired` carry the status name. The mark overrides the element's resistance and immunity: a fire-immune
+monster under `fire_weak` takes x1.5 from fire. It never stacks with the kind's own weakness (x1.5, not x2.25).
+
+`MobSwarm.element_multiplier(slot, element)` resolves a hit's element: a composition (`COMPOSITIONS`: `fs` -> `f`,`s`
+for Element Composition; `il` -> `i`,`l` for its I/L twin) is the **mean of its constituents' live multipliers**,
+where a live multiplier is 1.5 while that element's vulnerability timer runs, else the kind's own value. A single
+element is its own live multiplier. With no vulnerability running the result is numerically identical to before (`fs`
+is `(f + s) * 0.5`; a table test compares every mob-attribute combination to the old formula), so F/P is unchanged.
+Ice-weak raises `il` and `i` (not `fs`); fire-weak raises `fs` and `f` (not `il`).
+
+Reserved, not built: a `"*"` table entry for an all-element mark (Corsair's Homing Beacon). Summons and projectiles use
+the same `element_multiplier`, so Ifrit's fire meets Ice Demon's mark there with no special case. The renderer has no
+per-status tint for `ice_weak`, so `fire_weak` adds none.
+
+### 7.62 Chain cast rule (#323, spec #319 I4)
+
+`cast: {"rule": "chain", "acquire": 450, "hop": 200, "min_targets": 1}`, implemented in `chain_cast.gd` (`ChainCast`), a
+generic rule: a skill that strikes one monster and jumps to its neighbours. No cast rule hit "the nearest, then the
+nearest to that" before. Chain Lightning (I8) is its first user; Corsair or any other hopping skill can reuse it.
+
+- **Admission.** The head is a live monster whose body centre is within `acquire` px of the caster's body; a scheduled
+  boss first, then nearest, then slot (`RunWorld.targets_before`). `acquire` is the skill's `range` (Loadout.stats
+  falls back to the block's `acquire` when neither the definition nor the WZ level names a `range`), so the `range`
+  modifier widens it and the bot's `reach_of` reads it.
+- **Selection.** Deterministic, no RNG. Until `mob_count` monsters are chosen (canonical `mobCount` plus `count`
+  modifiers, via `strike_count`), the next link is the nearest unhit live monster to the **previous link's body
+  centre** within `hop` px times the `area` modifier (distance, then slot; bosses get no priority on a hop). A distance
+  exactly equal to `acquire` or `hop` is in range. A chain shorter than `mob_count` is fine; one shorter than
+  `min_targets` is not admitted.
+- **Resolution.** One `RunWorld.hit_mob` per chosen monster, `attack_count` lines each, in chain order, damage unchanged
+  along the chain, all on the cast tick; a monster that is gone by its turn is skipped. The caster faces the head.
+- **Events and art.** `cast`, then `skill_chain {skill, skill_id, points}` (the caster's hand, then each struck link's
+  body centre), then the `mob_hit` events. `RunScene` draws, per segment, one animation of the definition's
+  `"chain": {"ball": [<WZ path>, ...]}` (three variants for Chain Lightning, cycled along the chain), stretched along
+  the segment and rotated to its angle by `ChainBoltRenderer`; each link gets the skill's `hit` burst through its
+  `mob_hit`, the caster the `effect` through `cast`, the Use sound plays at the cast and the Hit sound once per link.
+- **Text.** `SkillText` adds "Jumps to up to N monsters within R px" (`mob_count`, `hop` x `area`).
+- Probe: `scenes/debug/chain_bolt_probe.tscn` draws a synthetic arrangement (evidence only).
+
+**Chain Lightning (2221006, I8 #327)** is the rule's first user, `chain_lightning` in `skills/il_arch_mage.json`:
+`cast: {"rule": "chain", "acquire": 450, "hop": 200, "min_targets": 1}`, no `range` field (acquire is the range), 1.6 s
+cooldown (the legacy base 4 s x0.4), `chainlightning` stance (the WZ `action`) held 0.8 s, `damage: magic`, `elemAttr l`.
+Canonical `mad` (112 / 145 / 180 % at ranks 1 / 4 / 8) and `mobCount` give the chain length: **2, 3, 3, 4, 5, 5, 6, 6
+links at ranks 1..8** (WZ levels 4, 8, 12, 15, 19, 23, 27, 30), one line per link, damage unchanged along the chain. Art is
+v83's: `effect` (12 frames) at the caster, `ball/0..2` (6 frames each) stretched along the segments through
+`"chain": {"ball": [...]}`, `hit/0` on every link, the Use sound at the cast and the Hit sound per link. No status.
+
+| Rank card | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Chain Lightning | `amplify` Element Amplification: damage x1.2 | `conduct` Conductor: area x1.2 (hop 200 -> 240 px) | `fork` Longer Chain: +1 link (`count`) | Longer Chain + damage x1.2 |
+
+Rules: Rare+ cards add one rank plus the bonus, Legendary shares the Unique's counter, Mastery is +5 % damage (x0.8 per
+repeat). `test_il_chain_lightning` checks the definition, the link counts, the hop, the boss-first head, the bolt event
+and the bonuses; `test_rarity_bonus_effects` checks that each effect changes the resolved cast.
+
+**Weapon fallback for `stabO2` (I8).** Chain Lightning's body action is `swingO3.0, stabO2.1`, and 9 of the 14 imported
+staves (1382000-1382006, 1382018, 1382019) have no `stabO2` art, so their second frame lost the weapon. Any weapon that
+lacks `stabO2` now draws `stabO1` at the same frame index (`AvatarLayers.weapon_stance_frame`, `STANCE_FALLBACKS`);
+armour and other equipment are not borrowed from another stance. Tier C, one pair only.
+
+### 7.63 Skill templates: `extends` (spec #319 I5, M19)
+
+Big Bang exists three times in v83 (F/P 2121001, I/L 2221001, Bishop 2321001) with the same numbers (`mad` 160 -> 450,
+`mastery`, `mobCount` 6), the same image sizes under `keydown`, `effect`, `special` and `prepare`, and the same sounds
+(the I/L and Bishop `Use`/`Loop` are UOLs to 2121001's); none has an `elemAttr`. There is no element to parametrise, so
+a skill definition may say "I am that skill, in my book" instead of copying 40 lines that would drift apart.
+
+- **Syntax.** `"extends": "<parent key>"`. The child states its own `skill_id`, `book` and `job` (all three required) and
+  anything it overrides. Bishop's is three lines:
+  `{"extends": "big_bang", "skill_id": 2321001, "book": "232", "job": 232}`. **A child extends the plain parent**
+  (`big_bang`, F/P's, in `skills/magician.json`), never another child: `big_bang_il` is not a parent, so the I/L and
+  Bishop versions share no dependency on each other.
+- **Where.** `SkillTemplate.resolve(skills, errors)` (pure, `scripts/sim/skill_template.gd`) runs in `SkillBook.from_data`
+  once every line fragment has merged, so the result does not depend on `DataRepo.lines()` order or on which line file holds
+  the parent. `SkillBook.def(key)` and `defs` hold only resolved definitions; raw JSON from `DataRepo.load_all` still
+  carries the `extends` line, so a test or tool that needs a templated skill's fields goes through `SkillBook`.
+- **Merge.** Resolved child = a deep copy of the parent, then the child's own keys on top: dictionaries merge key by key,
+  arrays and scalars are replaced. `_`-prefixed documentation keys of the parent (`_provenance`, `_rarity`, at any depth)
+  are not inherited; the child's own are kept. `rarity_bonuses`, `ranks`, `cast`, `pending`, `cooldown`, `sounds` and the
+  rest are inherited unless the child states them (a child's `ranks` replaces the parent's eight-entry table, a child's
+  `rarity_bonuses.epic` list replaces only the Epic list).
+- **Path rewrite.** In every *inherited* string, `Skill.wz/<parent book>.img/skill/<parent id>` becomes
+  `Skill.wz/<child book>.img/skill/<child id>` and `Sound.wz/Skill.img/<parent id>` becomes
+  `Sound.wz/Skill.img/<child id>`, matched at a path boundary: the id must be followed by `/` or the end of the string,
+  and must not continue a longer word. A string that merely contains the id, and every string the child states, is left
+  alone. The icon, `effect`, `release_visuals`, `pending.effect` and the sound paths therefore point at the child's own
+  nodes. WZ numbers always come from the child's own book at the mapped level (`SkillBook.canonical` reads `book` +
+  `skill_id`), so a book that ever differs gets its own numbers.
+- **Errors** (`DataRepo.load_all` lists them, `resolve` drops the child): `extends` is not a key name; `skill_id`, `book`
+  or `job` missing on the child; the parent is not defined; the parent itself `extends` (one level only, which also rules
+  out cycles and a self-parent); the child key is defined by two files (the existing duplicate rule).
+- **F/P is unchanged.** `big_bang` has no `extends`: data without any `extends` resolves to the same dictionary, and a
+  test pins that `big_bang` resolves equal to its raw definition.
+- **Drift guard.** `SkillTemplate.drift_problems(book, child, parent, exists)`: the child's and the parent's level node
+  agree at each of the eight mapped levels (every number and vector), the art nodes under every top-level key of the
+  skill node (`level` aside) have the same counts, and every Skill.wz/Sound.wz path of the child resolves in the cache.
+  `test_skill_template` runs it for every `extends` pair of the shipped data (`SkillTemplate.pairs`) against the real
+  cache (a SKIP without it), on a synthetic pair so it is not vacuous, and on synthetic books for each failure. If a book
+  ever differs, the guard fails and the child must override the difference.
+
+### 7.64 Ifrit (spec #319, I9 #328)
+
+Ifrit (2221005, book 222, job 222, `ifrit`) is Elquines' fire mirror: `kind: summon`, `slot: active`,
+`cast: {"rule": "summon"}`, `damage: magic`, **`element: "f"`**, one definition in `skills/il_arch_mage.json` and no code
+beside the target order. Everything the seam reads is canonical (tier A): WZ `summon/attack1/info` is identical to Elquines'
+(type 0, box (-200,-150)..(0,30), `mobCount` 3, `attackAfter` 1080 ms), `mad` 183 -> 300 (192 / 230 / 300 at ranks 1 / 4 / 8),
+`mastery` 10, lifetime `time` 15 -> 160 s (30 / 85 / 160 s), the five animations `summoned` 15, `stand` 6, `move` 6, `attack1`
+19, `die` 12 frames and `hit/0` 8 frames, caster stance `alert2`, Use sound only. The recast (12 s), follow speed (180 px/s),
+trail (60 px), snap (600 px), 2.4 s minimum cycle and 36 px ordinal spread are the Elquines values (tier C).
+
+**Priority.** WZ `attack1/info/priority` is 2221003, Ice Demon (Elquines' names Fire Demon). The tier C reading is
+`summon.priority_status: "fire_weak"` (7.32): scheduled bosses first (they take no statuses), then monsters whose `fire_weak`
+timer (Ice Demon's mark, 7.61) runs, then nearer, then lower slot. Ifrit's fire goes through `RunWorld.hit_mob` and
+`MobSwarm.element_multiplier`, so a marked monster takes x1.5 (even a fire-immune one); that is the whole Ice Demon synergy.
+
+**Rarity** (tier C, first pass, the Elquines lists): Rare "Power" damage x1.2; Epic "Reach" area x1.2 (the attack box, through
+`stats.area`); Unique "Twin Ifrit" +1 ally (`summon_count`, 36 px apart); Legendary the Unique's id plus damage x1.2 (shared repeat
+counter, repeats x0.8, as every pool skill). `test_ifrit` casts each effect with and without it and checks the damage dealt,
+the monster just beyond the base box and the ally count; a `range` modifier (which a summon never reads) is the negative control.
+
+Evidence (I9, tool-only `player_summon_probe.tscn --skill=ifrit`, real Henesys, Lv1 invulnerable, rank 8, damage x0.01, 200
+stationary high-HP monsters, half of them `fire_weak`, 20 s, vsync off): Ifrit's `attack1` and `hit/0` art appear beside the
+avatar, `missing: []`. Frame ms p50 / p95 and sim: Ifrit 1.71 / 2.76 (work 720 / 1790 us, sim 1154 us per tick), Elquines
+matched run 1.71 / 2.76 (sim 1154 us), no-summon control 1.70 / 2.69 (sim 1101 us). The two summons cost the same; this is
+art and cost evidence, not survival evidence.
+
+### 7.65 I/L Ice Demon and Element Composition (spec #319, I7 #326)
+
+Both skills are I/L pool actives (`skills/il_arch_mage.json`), auto-cast, on the default eight-rank mapping to WZ levels
+(rank 1 / 4 / 8 = level 4 / 15 / 30). No MP. They mirror F/P's Fire Demon and Element Composition (7.31) with the
+elements swapped.
+
+| Skill / key | Behavior | First-pass cooldown (tier C) |
+|---|---|---|
+| Ice Demon 2221003 / `ice_demon` | Ice damage in the canonical forward box (-300,-100)..(-15,0), mirrored to the side the caster faces, up to the canonical `mobCount` (2 / 4 / 6 at ranks 1 / 4 / 8); every survivor hit gets the `fire_weak` mark (7.61) for canonical `time` (10 s, 15 s at level 30); bosses take the damage and reject the mark | 2.0 s |
+| Element Composition 2211006 / `element_composition_il` | One 500 px/s projectile at the nearest monster within 450 px, element `il` (the mean of the live ice and lightning multipliers); `mad` 90 -> 140; a hit freezes for canonical `time` (1 s, 2 s at level 30) with **no chance roll** (the WZ node has no `prop`), checking only ice resistance (`on_hit.element: "i"`) | 0.8 s |
+
+Ice Demon's stance is the fallback `magic3` held 0.8 s (the WZ node has no `action`, as Fire Demon). Its WZ text speaks
+of consistent damage; as Fire Demon it is one instant hit plus the mark. The undocumented WZ `x` of both skills (Ice
+Demon 1 -> 3, Element Composition 1) is not read. The mark is applied by `on_hit`, which runs only for a damaging hit:
+a monster immune to ice (damage 0) is not marked either. Ice Demon's `effect` (the snowflake circle) plays on the caster
+as Fire Demon's does, its `hit/0` on each struck monster, with the Use and Hit sounds. Element Composition's `ball`
+(3 frames), `effect` (13) and `hit/0` are the F/P twin's layout, and its Use sound is the UOL to F/P's mp3.
+
+Rarity bonuses (tier C, first pass; Legendary shares the Unique's id and adds damage x1.2, so its repeats are shared;
+repeats shrink x0.8; Rare is `amplify` "Element Amplification", damage x1.2, for both):
+
+| Skill | Epic | Unique / Legendary signature |
+|---|---|---|
+| Ice Demon | `reach` "Wide Chill": area x1.2 (the box grows) | `crowd` "Cold Crowd": +1 target (`count` through `mob_count`) |
+| Element Composition (I/L) | `pierce` "Pierce": +1 pierce | `twin` "Twin Bolt": +1 projectile (`count`) |
+
+`test_rarity_bonus_effects` (with the other I/L skills; the card, counter and Mastery rules are in `test_il_ice_demon_rarity`) casts each effect with and without it in the same seeded world and asserts damage dealt, mobs
+affected (count, pierce) or a monster just beyond the base box (area). A projectile's extra shot goes to the second
+nearest monster, so a monster on the same line behind the first is shielded: Twin Bolt's extra target stands elsewhere.
+
+### 7.66 HP-risk skills (#351, spec #348, roster M17)
+
+Four small data-driven behaviours in one stateless file, `game/scripts/sim/hp_risk.gd` (`HpRisk`): a percentage HP cost, an
+HP gate, recoil as a share of the damage a cast dealt, and a low-HP damage bonus. Dark Knight (Dragon Roar, Sacrifice,
+Berserk) is the first user; Bishop, Buccaneer and any later job reuse the blocks unchanged. Dragon Roar ships the
+percentage cost and gate; Sacrifice ships recoil and its Berserk rarity bonus. No RNG is drawn.
+
+```json
+"hp_cost":     {"field": "x", "of": "max_hp"}
+"hp_gate":     {"above": 0.5}
+"self_damage": {"field": "x", "cap_max_hp": 0.10}
+```
+
+- **`hp_cost`** (`of`: `"flat"` is the default and today's `hpCon` rule, `"max_hp"` is a percentage). The cost is
+  `floor(field / 100 x max HP)` for a percentage, the canonical field as it is for flat (`field` defaults to `hpCon`), then
+  scaled by the `hp_cost` modifier and floored. It resolves into the same `hp_cost` stat every consumer already reads
+  (admission, `RunWorld.can_pay_hp`/`spend_hp`, the bot, `PlayerMeter.preferred`, the Skill window), against the max HP
+  `RunWorld` keeps in `Loadout.max_hp`; the stat is resolved again when max HP changes. A cast never pays the last HP
+  (`can_pay_hp`): it waits, spends nothing and takes no cooldown.
+- **`hp_gate`.** Admission also needs current HP strictly above `above` x max HP, read at the moment of the cast from the
+  exact (fractional) HP. A refused cast waits like an unpayable one. After a costly cast the gate usually closes, which
+  blocks the next cast until potions, Aura or regeneration refill HP: that loop is the identity of Dragon Roar.
+- **`self_damage`.** After the cast's instant lines resolve, the caster loses `floor(field / 100 x damage applied)`, where
+  damage applied is the growth of `RunWorld.damage_dealt` over the cast (every line on every target, after Berserk), at most
+  `floor(cap_max_hp x max HP)` and never the last HP (`floor(HP - 1)` at most). 0 when the cast dealt nothing. It pays
+  through `RunWorld.spend_hp`; there is no admission, the cast already happened. Shots and ground areas that land after
+  `resolve_cast` returns are not counted (tier C; no shipped HP-risk skill uses one).
+- **`low_hp_damage`** (a modifier stat, a rarity bonus): `HpRisk.begin_cast`, after `PlayerMeter.begin_cast`, scales the
+  cast's `damage_min`, `damage_max` and `status_damage_mult` by `1 + bonus` while HP is at or below `low_hp_damage.at_or_below`
+  (0.5) of max HP, read before the cost is paid. The bonus adds (`+0.5` is x1.5).
+- **Modifier stats** (rarity bonuses, `Loadout` skill mods, card previews, `SkillText`): `hp_cost` (mul: scales a flat or a
+  percentage cost), `self_damage` (mul: scales the recoil percentage; the cap does not move) and `low_hp_damage` (add). The
+  card text names them "HP cost", "Recoil" and "Low-HP damage"; `LevelUpWindow` shows before -> after for each.
+- **Event.** `hp_spent {skill, skill_id, amount, kind}`, `kind` `cost` or `recoil`, only when `amount > 0` and `amount` is what
+  was actually paid. A flat `hpCon` skill (Slash Blast, Coma) emits it too, with `kind: cost`, before its `cast` event; a
+  recoil follows the cast's hits. `RunScene` shows it as a red number at the player through the damage-number pool (`HP_SPENT`).
+- **Text.** The Skill window and tooltips add "Needs more than 50% HP", "Recoil: 20% of damage dealt (at most 10% of max
+  HP)" and "+50% damage at 50% HP or less" to a skill's line; the cost is the ordinary HP cost fact.
+
+
+### 7.67 Support summons and the Beholder (#352, spec #348)
+
+A **support summon** is a player summon (7.32) that pulses instead of attacking. `SupportSummons` (a `RefCounted`
+owned by `PlayerSummons.support`; no node, no clock but `dt`, no RNG) holds the pulse countdowns; `PlayerSummons` keeps the
+lifecycle (spawn, follow, expiry, replace on recast, map transfer, `summon_count`) and its only extra code is the
+attack-less spawn path and one hook per tick for a definition that carries `summon.support`. Dark Knight's Beholder (D9)
+is the first user; Bishop's and Corsair's summons are attack summons and reuse `PlayerSummons` unchanged. The seam is
+tested on a synthetic Beholder (made-up job 999, no Dark Knight data): `test_support_summons.gd` is the template.
+
+```json
+"summon": {"path": "Skill.wz/<book>.img/skill/<id>/summon", "attack": "",
+  "follow_speed": 180.0, "follow_distance": 60.0, "teleport_distance": 600.0,
+  "support": {"pulses": [
+    {"skill": "<heal sub>", "kind": "heal", "first_after": "interval", "anim": "skill1"},
+    {"skill": "<buff sub>", "kind": "buff", "first_after": 3.0, "anim": "skill2",
+     "anim_by_stat": {"pdd": "skill2", "mdd": "skill3"}}]}}
+```
+
+- **Pulses.** `skill` is a sub-skill; `kind` a key of `SupportSummons.KINDS`; `first_after` seconds, or `"interval"`
+  (the sub's first interval); `anim` the summon animation played at the pulse (`summon/<anim>` under `summon.path`).
+  Optional `anim_by_stat` ({stat: animation}, buff kind): the animation of the last listed stat the pulse carries (the
+  newest unlocked one), else `anim`. Each pulse has its own countdown per summon slot, started at spawn; after a pulse
+  it restarts at the interval. The effect applies on the tick the animation starts, never later. An animation
+  that is still playing when another pulse fires is replaced (both effects apply). A dead owner gets no pulse and the
+  countdowns hold. Hidden owners are pulsed as usual. A map transfer removes the summon like any other (a recast makes
+  a new one with fresh countdowns).
+- **Sub-skills.** Definitions with `slot: "summon_sub"` and `summon_sub_of: <parent key>`. They are never in a pool, never
+  a card, and `Loadout.add_skill` refuses them (so never in `Loadout.order`). `SkillBook` reads their canonical level
+  tables; the sub's level is the parent's rank through the **sub's own `ranks` table** (the Paladin P-5 rule), via
+  `Loadout.stats(sub, parent_rank)`. `Loadout.stats(parent)` carries the resolved pulses in `support` (cast snapshot):
+  `[{skill, skill_id, name, kind, interval, first_after, anim, ...}]`; a rank change reaches the next cast.
+- **Kinds.** `heal`: restores canonical `hp` (a flat amount) through `RunWorld.restore_player("hp", ...)`, interval
+  canonical `x`; a heal at full HP restores 0 and emits no `player_restored`. `buff`: starts one PlayerBuffs entry (key =
+  the sub's key, through `RunWorld.start_buff`, so `buff_cast` fires) carrying every stat the sub's level has, duration
+  canonical `time`, interval canonical `x`. The stats come from the sub's `buff.effects` (`{stat, field, scale?}`); an
+  effect whose `field` is absent from the sub's level node is not carried (a stat unlocks at its level). WZ names
+  map in the data (`eva` to `avoid`, `pad` to `watk`). A repeat pulse, or a second Beholder, replaces the same entry:
+  it refreshes and never stacks.
+- **Modifiers** (the parent skill's): `support_heal` (mul, on heal amounts), `support_rate` (mul, on every pulse interval,
+  including an `"interval"` `first_after`; a literal `first_after` is not an interval), `duration` (the summon's life),
+  `summon_count` (the number of summons, each on its own timers). Cards preview `support_heal` as the first heal pulse's
+  HP and `support_rate` as the first pulse's interval in seconds; the skill line lists every pulse ("Aura: heals 85 HP
+  every 10 s", "Hex: Weapon DEF +20 for 20 s every 42 s").
+- **Event.** `support_pulse {skill, skill_id, kind, slot}` (`skill` is the pulse's sub-skill, `slot` the summon's
+  PlayerSummons slot); the heal itself emits the ordinary `player_restored`. Presentation plays the parent skill's
+  owner-side `affected` node on the player at each pulse (tier B: its use is not documented).
+- **What a later job adds.** A pulse kind is one `KINDS` entry (`resolve` and `apply`) plus its tests; a new sub is data.
+
+
+### 7.68 Spear Crusher and the shared warrior skills (#353, spec #348 D5)
+
+Dark Knight's start skill, **Spear Crusher** (1311001; the pole arm twin 1311002 is art only), in `skills/dark_knight.json`.
+
+- **Cast.** `box` of the WZ level's `lt` and `rb` ((-130,-50) growing to (-150,-70), `rb` (-16, 0): a 16 px dead zone in front
+  of the knight), `min_targets 1`, physical, 0.6 s cooldown. `damage` 70 -> 170 %, `attackCount` 2 (levels 1-15) or 3
+  (16-30) and `mobCount` 1 -> 3 are read from the WZ level. The cast takes the nearest `mobCount` mobs in the box and deals
+  `attackCount` lines to each.
+- **Ranks.** `ranks: [4, 8, 12, 15, 23, 25, 27, 30]` (DK-7). The default level-30 table would put rank 5 on level 19, where
+  `mobCount` falls back to 1 (136 % x 3 hits on one mob is less than rank 4's 720 % total). Total damage per cast against a
+  full box is 140, 360, 648, 720, 894, 930, 1449, 1530 %: it rises at every rank.
+- **Stance.** `action_field: "action"` on the definition makes `Loadout.stats` read the WZ level's own `action` string:
+  `burster1` (levels 1-15, ranks 1-4) for two hits, `burster2` (16-30, ranks 5-8) for three. `action_times {"burster1": 0.9,
+  "burster2": 1.05}` holds the stance for the body action's own delays (Character.wz 00002000.img, tier A, D1). No
+  definition without `action_field` / `action_times` changes.
+- **Art.** `effect` (the dragon wings, 2 frames) rides the `cast` event; `cast_visuals` plays `effect0` (the rune rings) and
+  `effect1`..`effect3`, each `follow`ing the knight (mirrored with its facing). `effectK` is the K-th dragon thrust (tier B
+  reading, D1: each starts with a blank wait of 600 / 750 / 900 ms where the body thrusts), so an entry carries
+  `min_attack_count: K` and a cast with two damage lines plays `effect1` and `effect2`, one with three also `effect3`.
+  Final Attack's extra line therefore also adds its thrust (tier C). `hit/0` (4 frames) lands on each target; the Use sound
+  is `Sound.wz/Skill.img/1311001/Use`. `art_by_family {"polearm": 1311002}` re-points every path (effect, `cast_visuals`,
+  `hit`, the Use sound) to the pole arm twin through `SkillBook.art_skill_id`; the numbers are identical in the WZ.
+- **Loadout.** `stats()` carries `cast_visuals` ([{path, x, follow}], filtered by `min_attack_count`, paths re-pointed to
+  the held weapon's twin); `RunScene._on_cast` plays them (an entry without `follow` keeps the old world-position
+  behaviour of Rush's dust).
+- **Rarity bonuses.** Rare "Mastery" damage x1.2; Epic "Booster" cooldown x0.88; Unique "Final Attack" +1 hit line
+  (`attack_count`); Legendary the same id and effect plus damage x1.2 (sharing the Unique's repeat counter); repeat scale
+  0.8. Each changes the resolved cast (`test_rarity_bonus_effects`).
+- **Power Strike and Slash Blast stay Hero's** (DK-13): Dark Knight lists the keys in its pool and defines nothing. With a
+  held Spear they stab (`stabT1`, reach 150 px in the test's boxes), with a Pole Arm they swing (`swingP1`); Slash Blast
+  does not depend on the weapon. Hero's Combo meter does nothing for job 132 (no `meter` config, no `meter_changed` event, no
+  damage factor): pinned by `test_dark_knight_core_melee`.
+- **Frame delays stored as text.** Some canvases (`effect1`..`3` frame 2, the Dragon Fury afterimage, the pig mobs, a few map
+  objects) store `delay` as a string (`"200"`). `SpriteAnim.delay_seconds` now reads a numeric string like a number (it
+  used to treat it as the 100 ms default). Presentation only: the sim never reads `SpriteAnim`. The mob stance-duration reader
+  in `mob_kind.gd` (sim) still treats a text delay as 100 ms; it was left alone because changing it shifts the pig mobs'
+  attack timing, which is a balance-visible change.
+
+
+### 7.69 Dragon Fury and Sacrifice (#354, spec #348 D6)
+
+The Dark Knight's two HP-paying hits, both in `skills/dark_knight.json` (`dragon_fury`, `sacrifice`), built on the HP-risk
+seam (7.66). No new simulation code beyond one art lookup.
+
+- **Dragon Fury** (1311003; twin 1311004 for a pole arm via `art_by_family`, art only). A literal `box` cast of the skill's own
+  `afterimage` rectangle `lt (-241,-81) rb (-16,31)` (tier A; the node has no `lt`/`rb`; the spear and pole arm boxes are
+  identical), written as `cast.box`, `min_targets` 1, `mobCount` 6 at every level. Physical, `damage` 110 -> 250% over the eight
+  ranks, flat `hpCon` 20 -> 30 (the existing rule: it waits when paying would kill, spending nothing). Stance `swingP1` (0.8 s
+  hold), cooldown 1.2 s. Art: `effect` (rune circle) rides the cast event, `effect0` is a `cast_visuals` entry, `hit/0` lands on
+  each target. A mob whose body ends 240 px away is hit, at 250 it is not.
+- **Sacrifice** (1311005). `weapon_reach` (the held weapon's swing envelope), `count` 1, one line, physical, `damage` 220 -> 350%,
+  cooldown 2.0 s, stance `weapon` (the held weapon's first swing: stabT1 for a spear, swingP1 for a pole arm).
+  `self_damage {field x, cap_max_hp 0.10}` with `x` 18 -> 5: the recoil is `floor(x% of the damage dealt)`, at
+  most 10% of max HP, never the last HP (the cast still happens at 1 HP). The WZ node has no `hit` art, so the definition carries
+  `hit_from_weapon`: the hit spark is the held weapon's (`WeaponReach.hit_spark`, `Character.wz/Afterimage/hit.img/mace1|2`). The
+  defence-disable half of the WZ text is dropped (no mob debuff exists; the Armor Crash call).
+- **Rarity bonuses** (tier C, #288 schema; Mastery repeats shrink x0.8): Fury Rare `mastery` damage x1.2, Epic `fury` "Wide Fury"
+  `count` +2 (8 targets), Unique `booster` cooldown x0.8, Legendary `booster` + damage x1.2. Sacrifice Rare `mastery` damage
+  x1.2, Epic `achilles` "Achilles" `self_damage` x0.6 (rank 1: 18% -> 10.8%; the cap does not move), Unique `berserk` "Berserk"
+  `low_hp_damage` +0.5 (damage x1.5 at or below half HP, read at the cast), Legendary `berserk` (same id and counter) + damage
+  x1.2. The recoil is computed on the boosted damage, so Berserk makes Sacrifice hurt more.
+- **Card text.** Sacrifice's line carries the HP-risk mechanic line "Recoil: 18% of damage dealt (at most 10% of max HP)" (7.66).
+- **Audit.** `test_rarity_bonus_effects` learned the HP stats: `self_damage` (recoil paid per damage dealt), `low_hp_damage`
+  (damage from 40% HP) and `hp_cost` (HP paid per cast; Dragon Roar's Dragon Blood, D7), in a Dark Knight world with a huge HP
+  pool and a heavy weapon.
+
+**The Beholder (#357, spec #348 D9).** Dark Knight's level-10 pool skill (1321007, `skills/dark_knight.json`; job 132 is playable since D10) and its two sub-skills, Aura of the Beholder (1320008) and Hex of the Beholder (1320009, DK-4, DK-5).
+`damage: none`, `kind summon`, stance `alert2` (0.6 s), a 45 s cooldown counted from the cast (a recast replaces the old
+Beholder) and a **60 s life**. The life is `buff.duration`, a new generic lever in `Loadout.stats`: a literal number of
+seconds that wins over the canonical `duration_field` (default `time`); no other skill defines it, and a `duration`
+modifier still scales it. The WZ `time` (720-1200 s) is session-scale and unused, as are `mpCon` and `mastery`.
+- **Ranks.** The Beholder's eight ranks read WZ levels 2 3 4 5 7 8 9 10 through the new shared default `rank_levels["10"]`
+  (`ceil(rank x 10 / 8)` with rank 1 = 2; the first spec to merge adds the row, the others reuse it unchanged). Aura and Hex
+  rank with the Beholder through their own explicit `ranks` table `[4, 7, 10, 13, 16, 19, 22, 25]`: Aura heals 85 / 170 / 200 /
+  280 / 360 / 390 / 470 / 500 HP every 10 / 9 / 8 / 7 / 7 / 6 / 5 / 4 s; Hex applies exactly the stats its level has (`pdd`
+  from level 1, `mdd` from 6, `acc` from 11, `eva` from 16, `pad` from 21: rank 1 `pdd` only, rank 8 all five, WZ `eva` ->
+  `avoid`, `pad` -> `watk`) for `time` 20 / 40 / 40 / 60 / 80 / 80 / 100 / 99 s every `x` 42 / 36 / 30 / 24 / 18 / 12 / 7 / 4 s.
+  Level 25's `time` is 99, not 100 (the WZ node, kept).
+- **Pulses.** The first Aura pulse is one interval after the cast, the first Hex pulse 3 s after it (tier C). The Hex
+  animation follows the newest unlocked stat (`skill2` pdd, `skill3` mdd, `skill4` acc, `skill5` avoid, `skill6` watk; the Aura
+  is `skill1`), and the owner-side `affected` column plays on the knight at each pulse.
+- **Rarity bonuses (tier C).** Rare "Aura of the Beholder" heal x1.3 (`support_heal`), Epic "Hex of the Beholder" every pulse
+  25% sooner (`support_rate` x0.75; the 3 s first Hex is not an interval and stays), Unique "Twin Beholder" +1 Beholder
+  (`summon_count`; each pulses on its own timers, the same stat refreshes and never stacks), Legendary Twin plus heal x1.3
+  (the Beholder has no damage; Twin shares one id, hence one repeat counter). A Normal Mastery is the cooldown bonus of every
+  `damage: none` skill (#346). `test_rarity_bonus_effects` probes the two support stats: HP restored in 30 s and pulses in 30 s,
+  with and without the bonus, plus a negative control.
+- **Flat heal.** Aura heals a flat HP amount (DK-5); the 500 HP of rank 8 is large against a Lv1 character with 600 max HP
+  and, with the Hex defence, is the balance pass's lever (the Beholder's cooldown and life are the others).
+
+
+### 7.70 Dragon Roar (#355, spec #348 D7)
+
+The Dark Knight's crowd-control panic button (`dragon_roar`, 1311006, book 131, in `skills/dark_knight.json`). It is Shout's
+box-and-stun shape with the HP-risk blocks of 7.66 on top, and it needs no new code: only data, tests and text.
+
+```json
+"cast": {"rule": "box", "min_targets": 3}, "cooldown": 10.0, "damage": "physical", "action": "alert3",
+"hp_cost": {"field": "x", "of": "max_hp"}, "hp_gate": {"above": 0.5},
+"on_hit": {"status": "stun", "duration_field": "y"}
+```
+
+- **Box and cap.** The WZ `lt`/`rb` are symmetric: half-width 140, 180, 220, 250, 290, 330, 370, 400 px at the eight ranks
+  (levels 4 8 12 15 19 23 27 30, the default 30-level table), from -155 to 55 px at rank 1 up to -350 to 250 px at rank 8;
+  `mobCount` 15. It admits at three mobs in the box (`min_targets 3`, Shout's rule). `damage` 114, 138, 160, 175, 195, 212,
+  228, 240 %.
+- **Stun.** `on_hit stun` has **no `chance_field`**, so it always lands and draws no random number
+  (`RunWorld._on_player_hit`: no field means 100 %), for `y` seconds: 4 4 3 3 3 2 2 2. Bosses are damaged and never stunned
+  (`MobSwarm.accepts_status`, the existing rule). The node has no `prop`, which is why the chance is absent.
+- **Cost and gate.** `x` is a share of max HP (DK-2): 56, 52, 48, 45, 41, 37, 33, 30 %. The cost is `floor(x / 100 x max HP)` taken
+  from current HP; the cast needs HP strictly above 50 % of max **and** HP to spare after the cost (7.66), otherwise it
+  waits, spends nothing and starts no cooldown. At rank 1 it fires only above 56 % HP and leaves 44 % or less, at rank 8
+  it fires above 50 % and leaves at least 20 %. After a cast the knight is usually below the gate, which blocks a second Roar
+  until Aura, potions or regeneration refill HP.
+- **Rarity bonuses** (repeat scale 0.8): Rare **Mastery** damage x1.2, Epic **Super Dragon Roar** area x1.2 (the box grows
+  from 140 to 168 px at rank 1), Unique **Dragon Blood** `hp_cost` x0.75 (336 -> 252 HP at 600 max HP: it can fire at
+  lower HP and leaves more), Legendary Dragon Blood plus damage x1.2 (sharing the Unique's id and repeat counter). Each
+  changes a resolved stat and is asserted on a cast in `test_dragon_roar.gd` and `test_rarity_bonus_effects.gd`
+  (`CORE_STATS` gained `hp_cost`: the HP the first cast pays).
+- **Text.** The Skill window line reads "Costs 56% of your max HP. Damage 114%, up to 15 monsters; stun for 4 sec." and the
+  mechanics line "Needs more than 50% HP" (7.66). A rank card previews `x` (the percentage) as its usual "Effect" and a
+  Dragon Blood card previews the effective HP cost.
+- **Art and sound.** `effect` 18 frames at 80 ms (1.44 s) at the caster, `hit/0` 3 frames on every struck mob, the stance
+  `alert3`, `Sound.wz/Skill.img/1311006/Use` (3.1 s: it overlaps the next cast, left as is).
+- **Tests.** `test_dragon_roar.gd` (20): the rank table and box, the 15 cap and `min_targets 3`, the stun seconds by rank,
+  the boss exemption, an unchanged main RNG stream against a twin without the stun, the cost by rank, the
+  cast-at-full-HP-then-blocked sequence, the exact 50 % boundary, Dragon Blood changing when it can fire, Super Dragon Roar
+  widening the box, the card ranks and bonuses, the text, and (real cache, SKIP without it) all eight ranks and the art.
+
+
+### 7.71 Rush and Monster Magnet (1321003, 1321001; #356, spec #348 D8)
+
+Dark Knight's mobility skill **Rush** (`rush_dark_knight`, 1321003) and the **Monster Magnet** (`monster_magnet_dark_knight`,
+1321001) are data copies of Hero's `rush_hero` and `monster_magnet` in `skills/dark_knight.json`; no engine code changed.
+
+- **Rush.** The same definition field for field as `rush_hero` (rank rule, 2.0 s cooldown, `displacement` on `lt.x`, 80 px
+  dash knock-back, `rush` block, manual cast, `skill_key rush`), with the book's own ids, art (effect, `effect0` dust) and
+  the Use sound through its UOL. The one data difference is the body action **`rush`** (the node says `rush`; Hero's says
+  `rush2`); its 0.6 s duration equals `rush2`'s (100 + 500 ms). The weapon stays in hand: `rush` resolves to the spear's and
+  the pole arm's `stabT1` frames (D1). Learned at start on the mobility slot, never in the pool, never a card, no rarity list.
+  It ranks with the round level through `balance.mobility_rank_levels`: rank 1 = WZ level 4 (78 %, 170 px) at Lv1, rank 8 =
+  level 30 (130 %, 250 px, box (-250, -50)) from Lv16, `mobCount` 15 throughout.
+- **Monster Magnet.** Hero's Magnet field for field (`range_around` with `min_targets 3`, the shared `pull` block with
+  `chance_field prop`, `range_field range`, `min_gap 60`, `damage none`, `alert2`, 0.6 s hold), with its own ids, the 18-frame
+  effect and the Use sound through its UOL. **Cooldown 4 s**, Hero's tuned value, copied. The four rarity lists are Hero's:
+  Rare Reach (`range` x1.2), Epic Bigger Grab (+2 targets), Unique Booster (cooldown x0.75), Legendary Booster plus +2 targets
+  (sharing the Unique's id). Normal Mastery (no damage) is the cooldown x0.95.
+- **Real numbers** (tier A, `cache-349`): Rush levels 4 and 30 and the Magnet's ranks 1..8 (range 200 -> 400 px, prop 48 -> 95 %,
+  mobCount 6) equal Hero's in every level row (D1); Magnet's level 1 prop is 42.
+- **Tests.** `test_rush.gd` is job-agnostic (`_job`, `_book`, `_key`, `_skill_id`, `_action`); `test_rush_dark_knight.gd` extends it so
+  the whole Hero Rush set re-runs for Dark Knight with the body action `rush`, plus the data-copy test, the Lv1..40 rank-alike test
+  and the real-cache level 30 check. `test_monster_magnet_dark_knight.gd` pins the Magnet (definition, 3-mob admission, range /
+  chance / cap by rank, no damage, cooldown, pull identical to Hero's key over seeds 1, 2, 313, each rarity bonus changing a
+  resolved stat, the mastery cooldown, real-cache ranks, art and sound).
+
+
+
+### 7.80 Bishop pool and job data (spec #372, BS2 #374)
+
+Bishop (232) gets its own data line, `bishop` (`skills/bishop.json`, `jobs/bishop.json`), discovered from its files like
+Hero and I/L. BS10 #382 enables the complete ten-skill line; 212 stays the default and the other jobs’ tuning is unchanged.
+
+| Pool key | WZ id and name | State after BS2 | Owner of the definition |
+|---|---|---|---|
+| `holy_arrow` | 2301005 Holy Arrow (book 230) | legacy definition in `magician.json`, shared with the lineage | BS5 moves it into `bishop` (done, #377, 7.82) |
+| `magic_claw` | 2001005 Magic Claw (book 200) | F/P's own definition | stays in `magician.json` |
+| `shining_ray` | 2311004 Shining Ray (book 231) | not defined: inert | BS5 (done, #377, 7.82) |
+| `angel_ray` | 2321007 Angel Ray (book 232) | not defined: inert | BS5 (done, #377, 7.82) |
+| `heal` | 2301002 Heal (book 230) | moved into `bishop` by BS4 (done, #376, 7.83) | BS4 |
+| `summon_dragon` | 2311006 Summon Dragon (book 231) | defined in `bishop` by BS7 (done, #379, 7.84) | BS7 |
+| `bahamut` | 2321003 Bahamut (book 232) | defined in `bishop` by BS7 (done, #379, 7.84) | BS7 |
+| `genesis` | 2321008 Genesis (book 232) | not defined: inert | BS6 (done, #378, 7.85) |
+| `big_bang_bishop` | 2321001 Big Bang (book 232), `extends: big_bang` | not defined: inert | BS6 (done, #378, 7.85) |
+| `resurrection` | 2321006 Resurrection (book 232), reaction | not defined: inert | BS8 |
+
+Decisions (spec #372, recorded here so they are not re-argued):
+
+- **Start and mobility (D2, D1).** Every round starts with Holy Arrow in active slot 1 (`starting_skill`). Teleport
+  (2301001, `teleport_cleric`) is the `mobility_skill` on the skill key, outside both slot tracks and outside the pool.
+  Energy Bolt is not in the pool (it stays F/P's and I/L's).
+- **Holy Symbol is the common EXP passive, not a pool entry.** The Bishop's 2311003 is the party EXP buff the survivor
+  game already has as `passive_exp` (9101002, `common.json`). `test_bishop_data` pins that the common card
+  `passive_exp_new` is offered to a 232 exactly as to a 212, and that no card carries 2311003 or a Bishop-book buff.
+  The legacy Cleric buffs Bless and Invincible keep their unported cards; no pool offers them, so they are never eligible.
+- **Equipment.** Weapon families `wand` and `staff`; creation weapon 1372005 (the Wooden Wand of F/P and I/L). Drops need
+  no new data: the Magician roster filtered by `weapon_families`, with armour by the Magician class bit. A Magician-bit
+  weapon of another family is kept out by the families filter, and a Warrior, Bowman, Thief or Pirate weapon by
+  `requirement_error`.
+- **AP row.** INT primary, LUK secondary, the 212 keyframes (3 at Lv1 to 202 at Lv200). HP growth falls back to the 200 row.
+- **Bot scores.** The ten pool keys are spelled out in the line's `balance.bot.card_scores` at new 100 / rank 74, the
+  values every pool skill already scores; the spec's "no block" would give the same decisions. Hero's and I/L's lines do the same.
+- **Hub kit.** F/P's scroll and equipment lists and fallback item (the same wands, staves and Magician gear), with the
+  fixture `res://tests/fixtures/characters/bishop_t2.json`, which BS9 creates. The kit is read whole, never merged.
+- **Line placement.** `bishop` is discovered after the registered classes (hero, il_arch_mage) in sorted order; no
+  shared list names it (ARCHITECTURE 4.4.4). Skill merge order follows that line order, so BS4-BS8 append in the
+  ticket order, and a duplicate key across lines stays an error.
+
+### 7.81 Second life: the revive seam (spec #372 BS3, ruling D6)
+
+A reaction skill turns a lethal hit into a survived one, once per recharge. The seam is `PlayerRevive`
+(`scripts/sim/player_revive.gd`, owned by `RunWorld` as `revive`) plus one ordered hook point in `RunWorld.take_hit`.
+Ticket BS3 builds and tests it on a test-only synthetic skill (`tests/fixtures/revive_fixtures.gd`); the Resurrection
+definition, art and cards are BS8.
+
+**The hook point (generic).** `take_hit` consults `HitHook`s (`scripts/sim/hit_hook.gd`) registered with
+`RunWorld.add_hit_hook(hook, order)`: ascending `order`, equal orders in registration order, `PlayerRevive` at order 100.
+A hook overrides only the phases it needs: `guarding()` (before the miss roll; true while `guard_left()` is above zero),
+`absorb(world, amount, source)` (after defence, armour and Power Guard, right before HP is reduced: returns the damage left,
+so a hull returns `amount` less what it soaked; every hook is asked in order and the damage number shows what got through),
+`intercept_lethal(world, source)` (after the hit was processed in full and left HP at zero or below; the first hook to claim
+it wins) and `step(dt)` (once per world tick, before everything else in the tick). `RunWorld.hit_guard_left()` is the longest
+`guard_left()` of any hook (the avatar blink reads it). The Corsair ship's hull (#384) is another `HitHook` registered at an
+order below `PlayerRevive.HIT_ORDER`, so what it soaks never reaches HP or the lethal check, and the revive sees only what
+the hull let through; a further phase is a new method with a pass-through default where that phase belongs. Nothing in
+`take_hit` names Resurrection.
+
+**Order of events in `take_hit`.**
+
+1. Early-outs: `_dead`, `_map_clearing`, `god`, the hit window (boss skill attacks and balls bypass it), Hidden, then the
+   hooks' `guarding()`. A guarded hit returns 0 before the miss roll: no RNG, no event, window-bypassing sources included.
+   `RunWorld.hit_window_blocks(source)`, which the callers ask before `take_hit`, is also true while a hook guards, so a
+   guarded boss attack or ball draws no hit art and the ball is not used up (it flies on, like an ordinary ball in the
+   hit window).
+2. The hit is processed in full (miss roll, defence, damage, Power Guard, `player_hit`, `upkeep.land_hit`), so the damage
+   number and the flinch still show.
+3. If HP is zero or below, the hooks' `intercept_lethal` run. `PlayerRevive` admits when: the source is not marked
+   `unrevivable`, the character is not already dead, and an owned skill with a `revive` block and cast rule `reaction`
+   has `cooldowns[key] <= 0` (the first one in learned order). `can_cast()` does not matter (a stance never blocks it).
+4. The plan (no RNG): HP = `clamp(ceil(max_hp x (revive.hp + revive_hp)), 1, max_hp)`; guard = `revive.guard +
+   revive_guard` seconds; shove = `revive.push.distance` px over the skill's WZ `lt`/`rb` box x `area`.
+5. Effect: `RunWorld.grant_second_life(hp)` sets HP (the only HP setter hooks may use; `_hp` stays private); the guard
+   timer starts; `cooldowns[key]` and `cooldown_totals[key]` are set to the skill's resolved cooldown; every non-boss,
+   non-`steady` monster meeting the box on a foothold is shoved away from the character by `MobSwarm.knockback`, in slot
+   order, with no damage and no status; the run's `revives` list gets `{t, level, rank, source_kind, hp}`; then
+   `player_revived {skill, hp, max_hp, pos, guard, recharge, pushed}` is emitted (`pushed` = monsters shoved).
+6. `take_hit` falls through to its non-lethal branch: the lethal hit's knockback and knockback guard still apply, so the
+   revived character is pushed clear of its killer. No `player_died` is emitted.
+
+**Edge cases.** Two lethal hits in one tick: the first revives, the second returns 0 at the guard check. A lethal hit
+while the recharge runs, from an `unrevivable` source or with the skill not owned kills exactly as before. The guard ends
+on time (the next lethal hit after it and before the recharge kills). The recharge restarts only on use: a rank card
+taken mid-recharge refunds nothing and shortens the next one. `god` and Hidden are unchanged (neither takes a hit). The
+cooldown, the guard and `revives` are round state: map transfers keep them, nothing is saved (save format and history
+entries are unchanged). A skill is ready at round start (its cooldown starts at zero).
+
+**Diagnostics still kill.** The flow driver's diagnostic lethal boss hit (`take_hit(1.0e9, ...)`) carries
+`"unrevivable": true`, so `redesign --job=232` still reaches its death steps with Resurrection owned. Any tool that kills
+the character on purpose through `take_hit` must set the flag (grep `take_hit(` outside `scripts/sim`; today only that
+hit); `test_player_revive` pins that the flag beats a ready owned skill and that the driver's source carries it.
+
+**The `reaction` cast rule.** `SkillRunner.is_triggered(st)` (`manual` or `reaction`; `is_triggered_rule(rule)` for a bare
+rule name) replaces the bare `manual` checks in `cast_ready`, `is_attack` and `BotInput`'s attack classification:
+a reaction skill is never auto-cast, never an attack (Hidden does not pause it), never given a reach (`reach_of` is 0 for
+`damage: none`), `has_target` is false and `_admit_cast` returns nothing for it, and the bot never presses anything for it.
+
+**`cooldown_by_rank`.** A generic skill field: seconds per rank (an array indexed by rank - 1, the last value repeating),
+read by `Loadout._base_cooldown` ahead of `cooldown_field`; the result still goes through the cooldown modifiers (rarity
+`cooldown` factors, Mastery x0.95 on a `damage: none` skill), the Booster passive and the `COOLDOWN_FLOOR` of the base.
+
+**New modifier stats** (skill modifiers, read only by `PlayerRevive` through `Loadout.stats().revive`): `revive_hp` (add
+to the share of max HP) and `revive_guard` (add to the guard seconds).
+
+**Records.** `RunWorld.revives` is in the run summary (`revives`); `tools/balance_run.gd` writes `revives` and
+`revive_count` to every record (`[]` / 0 without a reaction skill), `balance.sh` prints a `revives` column per seed and
+`revived n/runs` in its SUMMARY, and the metrics aggregate has `revived_runs`.
+
+**Resurrection (2321006, ticket BS8 #380).** The pool skill on this seam, `resurrection` in `skills/bishop.json` (book 232,
+job 232): `kind instant`, `slot active`, `damage none`, `cast.rule reaction`, `ranks [2, 3, 4, 5, 7, 8, 9, 10]` (only ten WZ
+levels), `cooldown_by_rank [600, 540, 480, 420, 300, 240, 180, 120]` and no `cooldown_field`, `revive {hp 0.5, guard 2.0,
+push {distance 140}}`. The table is the WZ `cooltime` curve rescaled, `recharge = cooltime / 3 - 480`; a real-cache test
+(`test_bishop_resurrection`) asserts that identity for the eight shipped ranks. Rarity entries (every one changes the
+resolved plan; `test_rarity_bonus_effects` has a revive probe next to the cast probes): Rare `booster` "Faster Prayer"
+recharge x0.88; Epic `vigor` "Holy Vigor" `revive_hp` +0.15; Unique `shield` "Holy Shield" `revive_guard` +1.5 s; Legendary
+`shield` = Holy Shield plus Holy Vigor (one repeat counter with the Unique, repeats x0.8). Normal Mastery is cooldown x0.95
+through the `damage: none` rule (x0.96 for the second card).
+
+*Presentation.* `PlayerRevive` holds the skill's own stance (`resurrection`, 2.52 s, the body's three 840 ms frames) through
+`start_action`: a display hold only, drawn while the character stands, so walking and casting are never locked (nothing reads
+`cast_left` to block them; a test walks during the hold). `RunScene` maps `player_revived` to: the `effect` (the angel
+pillar, 21 frames) at the feet and the `affected` beams (15 frames, frame 0 a 1 x 1 canvas held 1320 ms, then 60 ms beams) on
+the body centre, both on the avatar; the skill's Use sound; the notice "<skill name>! Ready again in M:SS" (the skill's own name; "Resurrection! ..." for the Bishop) from the event's
+`recharge` (6 s); and one evidence shot. The avatar blinks (the hit-window blink) for as long as the longer of the hit window
+and `hit_guard_left()` runs. The HUD slot shows the recharge as the ordinary cooldown sweep. Level-up cards preview `revive_hp` (percent)
+and `revive_guard` (seconds) like the other modifier stats (`UpgradePool.MOD_PREVIEW`, `LevelUpWindow.MOD_LABELS`), and
+`SkillText.level_line` ends with "When a hit would kill you: return at N% HP, S s guard; recharge M:SS".
+
+*Probe.* `scenes/debug/revive_driver.tscn` (tool-only; `ISOLATE=<name> bash scripts/run.sh res://scenes/debug/revive_driver.tscn
+-- --shots=<abs dir>`): a Bishop with Resurrection at rank 8 on real Henesys with six snails around it takes a lethal hit (HP
+back at 50%, six snails shoved, the pillar, the beams, the guard blink, the notice, the slot sweep), a second lethal hit inside
+the recharge (dies), and in a second round a lethal hit after the recharge has run out (revives again). It writes
+`revive_*.png` and `summary.json` and exits 1 when an outcome differs.
+
+### 7.82 Bishop core bolts and Teleport (spec #372, BS5 #377)
+
+Holy Arrow (2301005), Shining Ray (2311004), Angel Ray (2321007) and Teleport (`teleport_cleric`, 2301001) live in
+`skills/bishop.json`. Holy Arrow and Teleport moved there from `skills/magician.json` (a key in two files is a load
+error); the five legacy `holy_arrow_*` cards in `upgrades/magician.json` are deleted (the generated `_new` / `_rank`
+cards come from the pool, and shots, pierce and cooldown are rarity bonuses, section 8). Every pool skill uses the default
+eight-rank table (WZ levels 4, 8, 12, 15, 19, 23, 27, 30), no `ranks` override and no MP.
+
+| Skill / key | Behaviour | Cooldown (tier C) |
+|---|---|---|
+| Holy Arrow / `holy_arrow` (the start skill) | `nearest` projectile, range 480, 520 px/s, radius 12, one shot (the Fire Arrow flight), `shoot1`; canonical `mad` 28 -> 80 and `mastery` 2 -> 10 at ranks 1..8; holy element (tier A) | 0.4 s (1.0 x0.4) |
+| Shining Ray / `shining_ray` | `box` instant, `min_targets` 1: the canonical `lt`/`rb` centred on the player, half-width 150 (levels 1-10, ranks 1-2), 160 (11-20, ranks 3-5), 170 (21+, ranks 6-8), half-height 50, up to canonical `mobCount` 6, nearest first; `mad` 66 -> 105; `magic2` | 1.2 s (3 x0.4) |
+| Angel Ray / `angel_ray` | `nearest` projectile with its own one-frame `ball/0`, range 480, 520 px/s, radius 14, one shot; `mad` 132 -> 240 (the boss answer); `shoot1` | 1.0 s (2.5 x0.4) |
+| Teleport / `teleport_cleric` | `slot: mobility`, manual X with an arrow direction, canonical `range` 130 up to level 10 then +2 a level to 150 at level 20; numbers identical to `teleport_fp` and `teleport_il`; learned at round start, outside both slot tracks, never a card. Its rank follows `balance.mobility_rank_levels` (rank N at character level 2N, cap 20) | 0.3 s repeat |
+
+Rarity bonuses (tier C; Legendary = the Unique's effect with the same id plus damage x1.2, repeats shrink x0.8). Each
+entry changes the resolved cast (`test_rarity_bonus_effects`, the Bishop skills' fixtures in `bishop_bolt_fixtures.gd`):
+
+| Skill | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Holy Arrow | `power` Holy Power: damage x1.2 | `pierce` Piercing Light: +1 pierce | `twin` Twin Arrow: +1 arrow | Twin Arrow + damage x1.2 |
+| Shining Ray | `power` damage x1.2 | `radiance` Wider Ray: area x1.2 | `fork` Splitting Ray: +2 targets (`count` through `mob_count`) | Splitting Ray + damage x1.2 |
+| Angel Ray | `power` damage x1.2 | `booster` Spell Booster: cooldown x0.88 | `twin` Twin Angel: +1 shot | Twin Angel + damage x1.2 |
+| Summon Dragon | `power` Holy Power: damage x1.2 | `reach` Wide Wings: area x1.2 | `twin` Twin Dragons: +1 ally (`summon_count`) | Twin Dragons + damage x1.2 |
+| Bahamut | `power` Holy Power: damage x1.2 | `reach` Wide Wings: area x1.2 | `crowd` Holy Crowd: +2 targets (`count`) | Holy Crowd + damage x1.2 |
+
+The oracle `test_tick_cost_identity` keeps the pre-port Holy Arrow (cooldown 1.0, 30 ranks, no bonuses) in its `_data()`,
+next to the Cold Beam and Thunder Bolt pins; its golden and totals are byte-identical (no recapture). Its Magician loadout
+is full at six actives before Holy Arrow, so the pin guards a future reorder rather than a present cast.
+
+### 7.83 Heal (spec #372, BS4 #376)
+
+Heal is the Bishop's identity and a real pool skill. `heal` (2301002, book 230, job 230) left `skills/magician.json` for
+`skills/bishop.json` (a key in two files is a load error), lost its explicit 30-entry `ranks` for the default 30-level
+table (eight ranks = WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30), and gained `rarity_bonuses`. The legacy cards
+`heal_new` and `heal_rank` (`upgrades/magician.json`) are deleted: the new and rank cards are generated from the pool of a
+playable job, and Rare or better ranks carry the skill's bonus. The rule (`hp_or_undead`), the recovery and strike formulas
+(7: `CombatMath.heal_recovery_range` / `heal_damage_range`, [evidence](research/cleric-heal.md)), the 2.0 s recast, the
+half-HP trigger, the every-undead-in-the-box strike (bosses first) and the Hidden rule (only the healing admits a cast) are
+unchanged.
+
+Three gaps would have made the rarity cards dead; they are closed here.
+
+- **`heal_power`** (skill modifier stat, `mul`, default 1.0): scales both bounds of the recovery range before the roll.
+  `Loadout.stats().heal_power`.
+- **`heal_threshold`** (skill modifier stat, `add`, default 0): added to the data's `heal.hp_threshold` (0.5), capped at 0.95
+  and rounded to 1e-4 (modifier values are float32, so 0.5 + 0.15 would otherwise read 0.65000001).
+  `Loadout.stats().heal_threshold` is the resolved fraction (0 for a skill without a `heal` block). **Exclusive:** the
+  character is injured when HP is strictly below `max_hp x heal_threshold`, so a hit that leaves HP exactly at the
+  threshold does not cast (the shipped behaviour, "exactly half HP waits"). `SkillRunner.heal_injured(world, st)` is the one
+  test; `has_target`, `_admit_hp_or_undead` and `_resolve_hp_or_undead` all call it, and a test pins that the three agree on
+  both sides of the line, with and without Mending Touch. Resolution now restores only an injured character: an undead
+  strike cast at 60% HP strikes and does not heal (the roll is still drawn, so the RNG stream is the same as before).
+- **`damage`**: the undead strike multiplies its bounds by the skill's resolved damage multiplier
+  (`Loadout.stats().status_damage_mult`: the skill's `damage` modifier x the player-wide `damage` x the damage passives, 1.0
+  with none), so a damage card is not dead on Heal. The multiplier is applied to the formula's bounds, then the existing
+  defence, element and crit path runs. **Normal Mastery on Heal is cooldown x0.95** (`damage: none`, #346), not damage;
+  `area` widens the undead box (the box is the WZ `lt`/`rb` x `area`); `count` is not read (no cap).
+
+Rarity bonuses (tier C; ids and text are the lineage's passives; Legendary = the Unique's effects plus one more, same id so
+it shares the repeat counter; repeats shrink x0.8):
+
+| Tier | Id, name | Effects | What the cast does differently |
+|---|---|---|---|
+| Rare | `restore` Greater Heal | `heal_power` x1.2 | recovery x1.2 |
+| Epic | `mending` Mending Touch | `heal_threshold` +0.15 | heals below 65% HP (and so casts there) |
+| Unique | `smite` Holy Smite | `damage` x1.5, `area` x1.2 | undead strike x1.5, undead box x1.2 |
+| Legendary | `smite` | Holy Smite + `heal_power` x1.2 | both |
+
+`test_bishop_heal` casts each effect with and without it in the same seeded world and asserts the symptom (HP restored,
+whether a 60% HP character casts, the strike's rolled damage, an undead just past the base box), plus the cooldown through
+Normal Mastery (casts in 66 s). The card preview names the changes (Recovery 100% -> 120%, Heals below 50% -> 65% HP); the
+Skill window line reads "Restores HP below N% health; strikes undead in the area" from the resolved threshold.
+
+Hazards recorded, not solved here (balance-pass questions): the recovery is stat-driven (`INT x (INT + matk)`), so at Lv1-10
+it restores almost nothing; only three undead exist in the stage data (Zombie Mushroom 2230101 in Sleepywood's first map;
+the bosses Shade 5090000 on Kerning map 2 and Zombie Mushmom 6300005 on Sleepywood map 1; bosses are targets like any
+monster), so the strike is a late bonus. The BS10 smoke reports Heal's casts and restored HP.
+
+### 7.84 Summon Dragon and Bahamut (spec #372, BS7 #379)
+
+Two holy followers on the 7.32 seam, one definition each in `skills/bishop.json`: `kind: summon`, `slot: active`,
+`cast: {"rule": "summon"}`, `damage: magic`, **`element: "h"`**, 12 s recast, caster stance `alert2`, the Use sound. They differ
+in role, not in code: the same `PlayerSummons`, the follow settings of Elquines (180 px/s, 60 px trail, 600 px snap, 36 px ordinal
+spread), and two data knobs.
+
+| | Summon Dragon `summon_dragon` | Bahamut `bahamut` |
+|---|---|---|
+| WZ | 2311006, book 231, job 231 | 2321003, book 232, job 232 |
+| `mad` at ranks 1 / 4 / 8 (levels 4 / 15 / 30) | 76 / 120 / 150 | 122 / 160 / 230 |
+| `time` (lifetime, s) | 25 / 80 / 140 | 30 / 85 / 160 |
+| Targets per strike | 1 (no `mobCount` anywhere) | `count_field: "mobCount"`: 3 at ranks 1-7, 6 at rank 8 |
+| Strike cycle (`attack_interval`) | 1.2 s (the fast one) | 2.4 s (Elquines' value; the heavy one) |
+| `attackAfter` (the impact) | 500 ms | 990 ms |
+| Attack box (feet-relative, facing side) | (-200,-150)..(200,150), symmetric | (-200,-150)..(0,30), mirrored by facing |
+| Element | `h` (tier C: the WZ node has no `elemAttr`; the String text calls it a holy dragon) | `h` (A: `elemAttr h`) |
+| Animations | `summoned` 5, `fly` 5, `stand` 5, `attack1` 8, `die` 6; `hit/0` 1 frame | `summoned` 6, `fly` 6, `stand` 12, `attack1` 18, `die` 6; `hit/0` 7 frames |
+
+**`summon.count_field`** (7.32): `PlayerSummons._base_count` reads the named field of the cast's mapped level
+(`SkillBook.canonical(skill, level, field, info.mobCount)`) as the base, then `skill_stat("count", base)` adds the modifiers.
+Bahamut's attack node says `mobCount 3` at every level; only the level node reaches 6, at level 30 (rank 8), so without the key
+rank 8 would strike three monsters like rank 1. Without the key nothing is read differently (the Elquines and Ifrit data, the
+F/P oracles and `test_tick_cost_identity` did not move).
+
+**`fly`** is `summon.move: "fly"` (7.32): the node named by `move` (default `move`) is the animation played while following; its
+frames give the stored duration, and `PlayerSummonRenderer` loops it. Compatibility with Bowmaster (7.44): that branch adds the
+same key with the same name, default and meaning for its flyers, so whichever merges second is the same text (the merge conflict
+is textual, not semantic). **Orthogonal, not a new concept:** no hover, no `settle`, no `watk_field`; the dragons trail on the
+ground like Elquines. `info.type` (Summon Dragon `1`, Bahamut `0`) changes nothing in the sim (the sim never branches on it).
+The Summon Dragon's `Summon` sound (`Sound.wz/Skill.img/2311006/Summon`, 1827 ms) plays at each cast through the Bowmaster's
+`sounds.summon` spawn cue (7.44; merge of #332 and #372): the dragon's `sounds` lists `"summon": "Sound.wz/Skill.img/2311006/Summon"`
+(Bahamut lists none). Summon Dragon's WZ Summoning Rock cost and Bahamut's `req` of Summon Dragon level 15 are not read (no
+items, ADR 0006; both dragons are independent pool entries and coexist, one recast group each).
+
+**Rarity** (tier C; the Elquines lists, Bahamut's third entry widened to the crowd; repeats x0.8, Legendary = the Unique's effect and
+id plus damage x1.2): Rare `power` damage x1.2; Epic `reach` "Wide Wings" area x1.2 (the attack box through `stats.area`);
+Unique `twin` "Twin Dragons" +1 ally (`summon_count`) for Summon Dragon, `crowd` "Holy Crowd" +2 targets (`count`) for Bahamut.
+`test_bishop_dragons` casts each effect with and without it: damage dealt, the monster just beyond the base box, the ally
+count and the monsters struck (a `range` and a `pierce` modifier, which a summon never reads, are the negative controls).
+
+Evidence (BS7, tool-only `player_summon_probe.tscn --skill=summon_dragon|bahamut [--life=<s>]`, real Henesys, Lv1 invulnerable,
+job 232, rank 8, damage x0.01, 200 stationary high-HP monsters, vsync off): recorded in `BS7-379.md` with the frame costs.
+
+### 7.85 Genesis and Big Bang (spec #372, BS6 #378)
+
+Both live in `skills/bishop.json` and change no code: Genesis is Meteor Shower's data mirror (the pending-area path of
+7.31, shared with I/L's Blizzard, 7.60) and `big_bang_bishop` is the second user of the skill-template seam (7.63).
+
+| Skill / key | Behaviour | Cooldown (tier C) |
+|---|---|---|
+| Genesis 2321008 / `genesis` | `box` instant, `min_targets` 1: the WZ box (-400,-350)..(400,250) at every level, up to canonical `mobCount` 15 (nearest first), damage after the WZ `hitAfter` 1800 ms with targets queried at impact (a mob that arrived is hit, one that left or died is not, a map transfer clears it); holy (`elemAttr h`, so the existing multiplier applies); `mad` 460 -> 670 over ranks 1..8 (WZ levels 4 .. 30), `genesis` stance held 0.8 s | 6.0 s (Meteor Shower 4.8 s, with 670% against 570% at the top rank) |
+| Big Bang 2321001 / `big_bang_bishop` | exactly `{"extends": "big_bang", "skill_id": 2321001, "book": "232", "job": 232}`: F/P's charge and release (1.08 s charge, box (-250,-180)..(250,100), up to 6 targets, `dash` stance) with the I5 path rewrite onto book 232 (`Skill.wz/232.img/skill/2321001/...`, `Sound.wz/Skill.img/2321001/...`); `mad` 190 -> 450, canonical numbers identical to book 212 node for node | 2.8 s (inherited) |
+
+- **It extends the parent.** `big_bang_bishop` names the plain `big_bang` (F/P's), never `big_bang_il`; `test_bishop_big_bang`
+  resolves the data without the I/L child to prove the two jobs share no dependency. The I5 drift guard
+  (`SkillTemplate.drift_problems`) runs on the pair in `test_bishop_genesis_cache` against the real 232 book: it passes, and
+  `SkillTemplate.pairs` lists `big_bang_bishop` next to `big_bang_il`. If a v83 book number ever differs, the child overrides.
+- **Cast visuals.** `effect` (22 frames) plays on the caster at the cast, `effect0` (22 frames, behind) is the first
+  `cast_visuals` entry at x = 0, and the nine `tile/0..8` (24, 24, 24, then 23 frames each) sit at the WZ `effectDistance`
+  150 px, x = (k - 4) x 150, falling over the delay; `hit/0` (23 frames) plays on each struck monster. The tiles come in
+  three depth rows of three (WZ origins y 376 / 283 / 195 for k = 0..2 / 3..5 / 6..8). **Placement check (tier C, kept):** a
+  `--job=232` Henesys playtest (temporary uncommitted edit making Bishop playable with Genesis as the start skill, staff
+  1382002) shows the halos opening at the top of the screen, the pillars falling over the 1.8 s delay and standing as separate
+  columns 150 px apart across the whole screen (x = -600..600 around the caster) by the impact, with the angel `effect`/`effect0` on the caster and `hit/0` bursts with damage numbers on the
+  struck monsters. The curtain is wider than the +-400 px damage box (as I/L's Blizzard tiles are) and does not
+  under-cover it, so the spec's x = (k - 4) x 150 stays and no `cast_visuals` value was adjusted. Big Bang Bishop charges (the vortex on the
+  caster) and releases the blast identically with the wand 1372005 and the staff 1382002; the blast hides the weapon, as F/P's
+  and I/L's do.
+- **Rarity bonuses** (tier C; Rare `power` Holy Power damage x1.2, Epic `area` Wider Genesis area x1.2, Unique `echo` +1 hit,
+  Legendary `echo` plus damage x1.2; repeat scale 0.8, the Legendary shares the Unique's counter). Big Bang's lists are
+  inherited from `big_bang`. `test_bishop_genesis` probes every entry of both skills (damage dealt, a mob just beyond the
+  base box, hit lines) and `test_rarity_bonus_effects` carries both in its resolved-cast audit.
+
+### 7.86 Paladin pool (spec #308)
+
+The Paladin (122) fights with Hero's Power Strike and Slash Blast (`skills/hero.json`, never repeated or edited for the
+Paladin: its pool lists the same keys, `SkillBook.def` returns one definition for both jobs, and the Combo meter is a
+Hero job entry that a Paladin does not have, so the Paladin's casts carry no meter state, no `meter_changed` event and no
+per-orb damage), plus Blast, Monster Magnet and four Charges in `skills/paladin.json`. Manual `rush_paladin` is
+outside the eight-key pool and follows Hero's shared mobility rank rule (7.33).
+
+#### Blast and Monster Magnet (P5, #313)
+
+- **`blast`** (1221009, book 122): `weapon_reach` (the nearest mob in the held weapon's swing, as Power Strike), `min_targets`
+  1, one physical line on one target, cooldown 2.0 s, `blast` body action held 0.84 s. WZ `damage` 170 -> 550% is its only
+  field (no `mobCount`, no `attackCount`); the eight ranks read levels 4, 8, 12, 15, 19, 23, 27, 30 (230, 310, 370, 400, 440,
+  480, 520, 550%). Rarity: Mastery damage x1.2, Booster cooldown x0.88, Final Attack +1 hit (`attack_count`), Legendary
+  Final Attack plus damage x1.2 (shares the Unique's repeat counter). It is the biggest single hit of the lineage and pays
+  off against defence and bosses; the balance pass owns its cooldown.
+- **Art.** The cast `effect` and the `hit` are both keyed by the element art index (P1: 0 none, 1 ice, 2 fire, 3 lightning,
+  5 holy). Both paths use `{art}`: index 0 without a Charge, otherwise the running Charge's element, resolved
+  by `PlayerForms.begin_cast`.
+- **Five sounds.** `sounds.use_cycle` lists `Use` .. `Use5`; `SkillBook.use_sound(key, nth, family)` returns entry
+  `nth mod 5` and `RunScene` counts the casts of each key it has seen, so the sounds play in order with no RNG draw. A
+  skill without a cycle plays its `sounds.use` as before.
+- **`monster_magnet_paladin`** (1221001, book 122): a copy of Hero's `monster_magnet` under its own key (a skill key is unique
+  across files): `range_around`, admitted at 3 mobs in range, `pull {chance_field prop, range_field range, min_gap 60}`,
+  `damage: none`, `alert2`, effect art (18 frames) and the Use sound (a UOL to Hero's `1121001/Use`). The WZ node equals
+  Hero's level by level (range 200/200/300/300/300/400/400/400 px and prop 48 -> 95% over the eight ranks, `mobCount` 6), so
+  the two keys pull identically. Cooldown **10 s** (spec #308; Hero's own 4 s comes from its tuning pass, #346, and is not
+  inherited). Rarity as Hero's Magnet: Reach `range` x1.2 (the pull reads `range`, not `area`), Bigger Grab +2 targets
+  (`count`), Booster cooldown x0.75, Legendary Booster plus +2 targets. Normal Mastery on this `damage: none` skill is
+  cooldown x0.95 (#346).
+
+### 7.87 Form / M2 (#311)
+
+A Form is a timed active stance. It does no damage itself, occupies one active slot, and starts its ordinary
+cooldown at cast time. Admission requires a living monster in `cast.mob_within`; a running form blocks every
+ready form in the same `exclusive_group`. Different groups coexist. Among ready forms per group, the largest
+sum of live monster element multipliers within 400 px of the cast origin wins; ready order breaks ties.
+No extra random draw occurs. Manual starts replace an occupied group.
+
+```json
+{"kind":"form", "slot":"active", "damage":"none", "cooldown":18,
+ "cast":{"rule":"form", "mob_within":400},
+ "form":{"duration":12, "exclusive_group":"example",
+   "effects":{"element":"f", "damage":{"field":"damage"}},
+   "subs":[{"skill":"example_sub", "first_after":1, "interval":3},
+           {"skill":"example_once", "first_after":0.5, "once":true}]}}
+```
+
+Durations and trigger times are survivor data, never rewritten WZ values. `form_time` multiplies duration at
+start; `form_power` adds to the canonical field percent multiplier (120% plus 0.1 becomes 1.3). A running window
+snapshots rank and effects. `element` affects only empty-element damaging casts; existing elements stay.
+`damage` scales min/max and status damage for every damaging cast, including manual mobility and sub-skills.
+The effects registry is the only dispatch boundary; later effects use resolve/apply/validate and optional start/end/absorb hooks. Hidden and morph use `buff.hidden` / `buff.morph_field`, not effect keys (Buccaneer: 7.92, template `test_morph_form.gd`). Corsair adds hull state and its absorb hook. Sub flags `ignores_hidden` and `ends_form` allow an admitted attack to consume just its parent (`consumed`); spent pools may end with `depleted`.
+
+Sub definitions use `slot: form_sub`, `form_sub_of: [parent keys]` (a single string is also accepted), ordinary
+cast rules and their own rank tables. They are never learned into Loadout.order or offered as cards. At each due
+time they wait for their own range, minimum targets, casting gate and HP payment. A successful cast consumes
+`once` or restarts `interval` from that cast (no catch-up burst). Stats use the parent's snapshotted rank through
+the sub's own table, current parent skill-local damage and area modifiers, and no parent cooldown modifier.
+The usual cast/hit/stance/sound path handles their output. Map transfer keeps timers and consumed once state,
+but drops queued delayed strikes; death clears all windows. A new window resets sub clocks.
+
+The buff row shows the existing icon/countdown entry. The held weapon and cash weapon cover alone receive a
+code-drawn element tint; start/end events refresh it. SkillText lists duration, element, multiplier and each
+sub's trigger, mapped level, base skill power, target count and HP cost. Form rarity previews use seconds for time and percentage
+points for power. `player_form_probe.tscn` injects a synthetic fire form for visual QA without Paladin data.
+
+### 7.88 Charges, Charged Blow and Heaven's Hammer (spec #308)
+
+**Charged Blow (#314, WZ 1211002).** The stun nova every Charge carries: a `form_sub` of the Form seam, so it is in no
+pool, no `Loadout.order` and no card, and has no rarity list (its damage grows through the parent Charge's `damage`
+modifier, the "Advanced Charge" bonus of the spec). The Charges list it in their `subs` entry (`first_after` 1.0 s,
+`interval` 3.0 s, P7/P8); until a Charge runs it never casts, and `form_sub_of` names the four Charges.
+
+- **Cast.** `range_around` with `min_targets 3`: at least three mobs within the level's `range` of the body, then up to
+  `mobCount` 6 are struck, bosses first. Physical `damage` 162 -> 250 %, `range` 130 -> 150 px, `hpCon` 15 -> 25 (never lethal:
+  the due cast waits, the seam keeps it due), all tier A, read through the rank table 4, 8, 12, 15, 19, 23, 27, 30
+  (rank 1 = level 4: 168 %, 130 px, 38 % stun for 2 s, 15 HP; rank 8 = level 30: 250 %, 150 px, 90 %, 4 s, 25 HP).
+- **Stun in every element** (spec P-3): `on_hit stun {chance_field prop, duration_field time}`, prop 32 -> 90 %, time 2 -> 4 s.
+  The roll is the usual on-hit roll: one main-stream draw per struck mob, none when the chance is 100 %. There is no freeze
+  variant for Ice Charge.
+- **Element.** The nova takes the running Charge's element through `PlayerForms.begin_cast` (a fire-weak mob takes 1.5x).
+- **Element-keyed art.** The skill's `effect` and `hit` paths carry the token `{art}` (`.../effect/{art}`,
+  `.../hit/0/{art}`). `PlayerForms.begin_cast` fills it from the cast's element through one table, `PlayerForms.ART_INDEX`
+  (`""` 0, ice 1, fire 2, lightning 3, holy 5: tier A from the pixels, P1 #309; the spec's fire/ice order was wrong). A
+  later element (poison, 4) is one row. A skill that is not a Form sub can use the same token (Blast's `effect/{0,1,2,3,5}`
+  and `hit/0/{0,1,2,3,5}`), because the fill runs for every damaging cast, with key 0 when no Charge is running. The
+  round's art warm-up loads every key. The stun stars (`mob`) are the shared stars `MobRenderer` already draws for a stun.
+- **Presentation (tier C).** Stance: the held weapon's first swing (as Coma), shown 0.6 s; Use sound
+  `Sound.wz/Skill.img/1211002/Use`.
+
+**Fire, Ice and Thunder Charge (#315, WZ 1211003 / 1211005 / 1211007; blunt twins 1211004 / 1211006 / 1211008).** The first
+three Forms. Each is a pool skill (`kind form`, `slot active`, `damage none`, book 121, job 121) of the `paladin_charge`
+exclusion group.
+
+- **Window.** 12 s, cooldown 18 s counted from the cast, admitted only with a living mob within 400 px (`cast {rule form,
+  mob_within 400}`): tier C (spec P-9, WZ `time` is session-scale). One Charge covers 12 s of every 18 (67 %); two cover the whole
+  round. A Charge is not admitted while another of its group runs and its cooldown keeps counting, so it starts on the tick the first
+  ends (tested: no gap, never two running). Of several ready Charges the one whose element does the most damage to the mobs within
+  400 px of the player is chosen (`PlayerForms.preferred`, learned order on ties).
+- **Effects.** `effects {element f|i|l, damage {field damage}}`: every damaging cast of the owner takes the element (a mob weak to
+  it takes x1.5, resistant x0.5, immune nothing) and the WZ `damage` percent at the Charge's rank, rank 1 = level 4 through the
+  table 4, 8, 12, 15, 19, 23, 27, 30 (tier A, P1 #309): Fire 105 109 111 112 114 116 118 120 %, Ice 102 103 104 105 107 108 109
+  110 %, Thunder 107 111 115 117 119 121 123 125 % (level 1 would read 102 / 100 / 102). Power Strike, Slash Blast, Blast, the
+  Charged Blow it carries and Rush all take it (spec P-4); the rank and effects are fixed when the window starts.
+- **Subs.** `charged_blow` after 1.0 s, then every 3.0 s while the window lasts (so four blows in 12 s with enough HP and three
+  mobs); the blow's art follows the element (`{art}`: fire 2, ice 1, lightning 3).
+- **Presentation.** Stance `alert4` shown 0.9 s (tier A: the node's three 300 ms frames), the 15-frame `effect` (60 ms), the
+  Use sound (the twin's is a UOL to the sword's). `art_by_family {blunt: twin}` swaps only the effect and the Use sound (the icon
+  stays the sword's, as Panic's) for a blunt weapon through `SkillBook.art_skill_id` / `art_path`; the twins are identical to the sword versions in every
+  number. The weapon tint comes from the seam (7.87).
+- **Rarity (tier C, spec #308), same on all three.** Rare `mastery` "Mastery": `form_power` +0.10 (1.05 -> 1.15 at rank 1);
+  Epic `booster` "Booster": cooldown x0.88; Unique `advanced_charge` "Advanced Charge": `damage` x1.3 (a Charge's `damage`
+  modifier multiplies its subs, so Charged Blow) and `form_time` x1.25 (12 -> 15 s); Legendary `advanced_charge` plus `damage`
+  x1.2 (shares the Unique's id and repeat counter). Repeats scale x0.8 as for every skill; after rank 8 a Rare+ card is a
+  Mastery (no rank). `test_rarity_bonus_effects` measures each effect on the real definitions: `form_power` raises Power Strike's
+  hits inside the window, `form_time` the window's ticks, `cooldown` the windows started in 66 s and `damage` Charged Blow's hits.
+
+**Holy Charge and Heaven's Hammer (#316, WZ 1221003 / 1221004 and 1221011).** The last Charge and the Paladin's signature
+strike. `holy_charge` has the other Charges' shape (a Form of the `paladin_charge` group: 12 s window, 18 s cooldown,
+admitted by a mob within 400 px, the holy element on every damaging cast of its owner, Rush included, the same four
+rarity lists) with two differences: it has **20 levels**, so its rank table is the level-20 table 3, 5, 8, 10, 13, 15,
+18, 20 and its multiplier runs 106 % (rank 1, level 3) to 140 % (rank 8, level 20; level 1 would be 102 %, tier A), and its
+`subs` list **Heaven's Hammer** as well as Charged Blow.
+
+- **Window.** `subs`: `charged_blow` (first after 1.0 s, every 3.0 s) and `heavens_hammer` (`first_after` 0.5, `once true`).
+  Holy and another Charge never overlap (one running window per group); a Holy cast again after its window and cooldown
+  opens a new window and a new Hammer. Twin 1221004 ("Divine Charge : BW") carries identical numbers; `art_by_family {"blunt": 1221004}`.
+- **Hammer.** `heavens_hammer`: `slot form_sub`, `form_sub_of ["holy_charge"]`, `cast {rule box}` (the WZ box lt (-400,-350)
+  rb (400,250) around the player, `mobCount` 15, tier A), physical `damage` 420 -> 900 % (30 levels, tier A) read at the
+  Charge's rank through the **level-30 table** (rank 1 = level 4 = 480 %, rank 8 = level 30 = 900 %, spec P-5), `element h`
+  (WZ `elemAttr`), `ranks` written out. It is **cast 0.5 s into the window if a mob is in the box** (a Hammer due with an empty
+  box waits and goes the tick one enters, until the window ends) and then **lands 1.56 s later** through the existing
+  `pending` strike of Meteor Shower (7.31) with `follow_player`: the box is centred on the player where it lands, targets
+  are queried at impact, up to 15 are struck, bosses first. The cast is a committed map-space strike: it **lands even if the
+  window ended in between** and is **lost on a map transfer** (`clear_pending`), while the window itself, and the fact that its
+  once-per-window Hammer was spent, carry over. The Charge's `damage` modifier ("Advanced Charge" x1.3) multiplies it as it
+  does Charged Blow; `form_power` raises it with the Charge's multiplier. WZ `cooltime` (310 -> 20 s) is session-scale and not
+  read.
+- **Delay (tier C, P1 #309).** 1.56 s is the start of frame 13 of the 22-frame, 120 ms `effect` (where the big slam art begins;
+  frame 14 is the light pillar at its brightest), and the body's `sanctuary` stance independently starts its thrust
+  (`stabOF` frame 2) at 1.56 s, so an uninterrupted stance and the art land together. Other casts can
+  replace the stance before then (below).
+- **Presentation (tier C).** Stance `sanctuary` for 3.3 s (the stance's seven body frames) and the 22-frame `effect` played
+  on the caster at the cast (the cast display never holds the avatar). Charged Blow's swing (0.6 s) at 1.0 s replaces the
+  Hammer's stance display, as any later cast does, so the avatar's slam frame is seen only when no blow follows (tier C,
+  recorded, not changed). `hit` is left empty: `hit/0` is a 15-frame red HP-bar graphic (28..84 px wide), not a hit burst,
+  and played on 15 mobs it would read as damage bars, so only the number and the `Hit` sound mark a struck mob. Sounds:
+  `Use` (3.0 s) at the cast, `Hit` per struck mob; the Charge's own Use sound (1.3 s) is played as it is.
+- **Text.** The Charge's description names the Hammer; the Hammer's own line reads "Damage N %, up to 15 monsters, holy;
+  lands after a short delay", and the Form's mechanics line lists it as "once after 0.5 s".
+
+### 7.90 Buccaneer pool, Dash and ported skills: Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut, Corkscrew Blow (spec #412 BU-14, B4 #416)
+
+The five Brawler attacks moved from `skills/pirate.json` to `skills/buccaneer.json` (a key may be defined in one file only; Corsair's
+definitions stay in `pirate.json`). They are pool skills of job 512 (`slot: active`, no cards of their own: the pool generates
+`<key>_new` and `<key>_rank` once the job is playable, B11). The port:
+
+- **No weapon gate** (`weapon_families` removed, ADR 0006): each casts with a sword, a wand or a knuckle in hand. Double Uppercut's
+  `weapon_reach` reads the held weapon's swing envelope.
+- **Eight ranks**: the explicit 20-entry `ranks` table is gone, so the default level-20 table applies: rank 1..8 reads WZ levels
+  3, 5, 8, 10, 13, 15, 18, 20. Damage, `mobCount`, `attackCount`, box and stun time all read the mapped level.
+- **Cooldowns (tier C, BU-19)**: Flash Fist 0.45 s, Somersault Kick 1.0 s, Backspin Blow 1.4 s, Double Uppercut 1.0 s, Corkscrew
+  Blow 1.8 s (were 0.9, 1.6, 1.5, 1.2, 2.0). Action holds are unchanged (0.6, 0.6, 0.8, 1.0, 0.8 s).
+- **Unchanged**: the tier A boxes, `cast.around` on Somersault Kick and Backspin Blow, Backspin's 100 px back-off after the hits,
+  the stuns (`time` 1 s, no `prop`; bosses resist), the actions, sounds and effect/hit art, the `char_level` art of Flash Fist and
+  Somersault Kick (thresholds 10/15/20/25, selected by the round level, which is the character level of a Lv1-start round).
+- **Corkscrew Blow's charge** now reads `displacement.field: "lt.x"` (the same source the box uses): the distance is `-lt.x` of the
+  mapped WZ level at every rank, so it cannot drift from the box. The old per-rank `distances` list was indexed by rank, which is
+  wrong once rank no longer equals level. WZ reach at ranks 1..8: 110, 120, 130, 140, 160, 170, 180, 200 px.
+- **WZ quirk**: Double Uppercut stores `attackCount` and `time` as strings (`"2"`, `"1"`) at every level; both read as 2 and 1.
+
+Rank values (rank 1 / 4 / 8, WZ levels 3 / 10 / 20): Flash Fist 168 / 210 / 270%; Somersault Kick 122 / 150 / 190% on 3 / 4 / 6
+mobs; Backspin Blow 104 / 160 / 240% on 3; Double Uppercut 120 / 190 / 290% x2; Corkscrew Blow 165 / 270 / 420% on 3, charge
+110 / 140 / 200 px.
+
+Rarity bonuses (tier C, first pass; Legendary shares the Unique's id and adds damage x1.2; repeats shrink x0.8; every bonus changes a
+resolved cast, audited by `test_rarity_bonus_effects`):
+
+| Skill | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Flash Fist | `mastery` "Knuckler Mastery": damage x1.2 | `booster` "Knuckler Booster": cooldown x0.88 | `flurry` "Fist Flurry": +1 hit | Flurry + damage x1.2 |
+| Somersault Kick | `mastery` | `wide_kick` "Wide Kick": area x1.2 | `whirl` "Whirling Kick": +2 targets | Whirl + damage x1.2 |
+| Backspin Blow | `mastery` | `stun_mastery` "Stun Mastery": critical chance +0.15 | `booster` cooldown x0.8 | Booster + damage x1.2 |
+| Double Uppercut | `mastery` | `stun_mastery` crit +0.15 | `third_fist` "Third Fist": +1 hit | Third Fist + damage x1.2 |
+| Corkscrew Blow | `mastery` | `boring` "Boring Screw": +2 targets | `booster` cooldown x0.8 | Booster + damage x1.2 |
+
+The legacy cards (`<key>_new`, `_rank`, `_targets` of the five: 15 cards) are deleted from `upgrades/pirate.json`; the
+`+1 target` behaviour card is replaced by the Whirling Kick and Boring Screw bonuses. Tests: `test_buccaneer_brawler` (placement,
+ranks, caps, weapons, art, cards, bonuses, the original tables), `test_brawler_attacks` and `test_pirate` (the seeded behaviour,
+rewritten to eight ranks), `test_rarity_bonus_effects`.
+**Dash as Buccaneer's mobility skill (spec #412 BU-13, #417).**
+
+Dash (5001005) is `slot: "mobility"` in `skills/pirate.json` (tier C, BU-13). Like Teleport and Rush it sits outside both
+slot tracks: `JobTree.start_skills` learns it at round start from the job's `mobility_skill` (Buccaneer 512), it takes no
+active or passive slot, and it is never offered as a card (`dash_new` and `dash_rank` are deleted from
+`upgrades/pirate.json`). Its definition is otherwise unchanged from 7.15: the explicit ten ranks (rank = WZ level, no
+`rank_levels` table), the `manual` bot block, art and Use sound, the cast on its skill key through `_try_manual_buffs`,
+and the recast once the buff ends. Corsair (#384) names the same definition and reuses it unchanged.
+
+- **Rank.** `RunWorld._level_ranks` applies the shared `balance.mobility_rank_levels` rule to the job's mobility skill:
+  rank 1 at Lv1, rank N at about Lv 2N, clamped to the ten ranks. No card ever raises it.
+- **Values** (real Skill.wz 500.img, tier A): rank 1 (Lv1) speed +12, jump +1, 4 s; rank 4 (Lv8) +18, +4, 8 s; rank 8
+  (Lv16) +26, +8, 16 s; rank 10 (Lv20) +30, +10, 20 s. Speed and jump stay under the 140 / 123 caps (7.15).
+- **Cooldown.** The buff's running duration (7.15), so a rank 1 Dash is ready again 4 s after it started.
+- **Out of scope.** Damage on Dash (that is Rush, 7.33) and ranking Dash through cards.
+
+Tests: `test_dash.gd` (the Buccaneer section and the real-cache rank test), `test_buccaneer_data.gd`, `test_data_files.gd`.
+
+
+### 7.91 Buccaneer: Energy Charge and Energy Drain (spec #412, B6 #418)
+
+Energy Charge is Buccaneer's meter on Hero's `PlayerMeter` (7.34), by data only: `PlayerMeter`, `HudMeter` and `meter_changed`
+are unchanged. The job block in `jobs/buccaneer.json` (B2) holds `id energy`, `max 10`, one energy per landed non-finisher pool
+cast (`cast_landed`, `exclude finisher`), `per_unit damage 0.03` (a full bar is +30% on every pool skill; Hero's Combo is +5% per
+orb) and the optional `cue`. A round starts at zero energy, a landed cast of any pool skill earns one (a multi-target or
+multi-line cast earns one; a cast needs a target, and an instant line always deals at least 1, so a miss is no cast), the bar
+never passes 10, survives a map transfer and is absent from a CharacterSnapshot. Dash is outside the pool and the form sub-skills
+(Shockwave, Demolition, Snatch) are not pool skills, so they neither earn energy nor receive the held bonus (BU-6; no code, the
+seam already works so, tests pin it). The HUD shows ten drawn pips (book 511 has no `state` node, so the job omits `art`).
+
+**Two optional presentation keys** (the sim ignores both; the catalog validator accepts them):
+
+| Key | On | Meaning |
+|---|---|---|
+| `meter.unit` | a finisher's `meter` block | the word for one unit in `SkillText` and the Keeps line of a rarity card; default "orbs", so Hero's text is byte-identical. Drain says "Needs 10 energy", "Keeps 2 energy". |
+| `meter.cue` | the job's `meter` block | `{effect, sound}` WZ paths played once when the bar reaches `max`. |
+
+**The cue (`MeterCue`, `scripts/render/meter_cue.gd`).** A RefCounted helper fed every `meter_changed`: when `value` reaches `max`
+it calls a sink with the cue's `effect` and `sound`, then stays quiet until `value` has dropped below `max` (a finisher spent
+the bar, or kept some) and filled again. Either half may be omitted, a job without `cue` never fires, other events are ignored.
+`RunScene` owns one (`meter_cue`) and one call site in `handle_events`; its sink plays the `affected` art over the character
+(`FxRenderer.play` following the avatar, flipped with the facing) and the sound. Energy Charge's `affected` node is a 1x1 blank of
+180 ms and then ten 90 ms frames (a ring of blue sparks around the body, 1.08 s in all); it plays whole, so the cue blooms 0.18 s
+after the bar fills (tier C), and `Sound.wz/Skill.img/5110001/Use` plays with it. The cue art is warmed with the level-up art.
+The first cue of a playtest writes `meter_cue.png` 0.45 s later. No sim change, no RNG, nothing saved.
+
+**Energy Drain (`energy_drain`, 5111004, book 511).** The first finisher: `cast {rule box}` on the canonical box `lt (-200,-100)`
+`rb (0,0)` (the facing side: 200 px in front of the caster and 100 px up, nothing behind or beyond it), one target (`mobCount` 1),
+`meter {role finisher, min 10, spend all, damage_per_unit 0.12, unit energy}`: it waits for a full bar, spends it all and earns
+none; a full bar multiplies by 1.3 (held) x 2.2 (spent), x2.86. Damage is 275 / 285 / 300 / 310 / 325 / 335 / 350 / 360% at ranks 1-8
+(WZ levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20, the default 20-level rank table) and the stance is `edrain` held 0.6 s. The heal is
+Thief Drain's listener (7.25): `damage_heal {percent_field x, max_hp_fraction 0.5, target_max_hp true}`, 12 / 13 / 14 / 15 / 17 / 18 / 19 / 20% of the
+resolved damage line (crit and defence included, truncated to whole HP), capped at half the caster's Max HP and at the target's
+Max HP, and never above Max HP. The cooldown is 2.0 s (BU-19), above the meter's 1.0 s floor (`restart_cooldown`), so a Booster x0.88 shows (1.76 s); the bar paces
+Drain, and the clock only binds when Energy Charge keeps energy and the player refills quickly. Arbitration with
+Energy Orb (B7) is the existing `PlayerMeter.preferred`: a single scheduled boss as the only eligible target picks Drain, two or
+more targets pick Orb, a lone ordinary monster picks Drain.
+
+Rarity bonuses (tier C, the lineage's names; Normal Mastery is #288's): Rare Energy Mastery damage x1.2; Epic Booster cooldown x0.88
+(2.0 s -> 1.76 s); Unique Energy Charge keeps 2 energy (`meter_keep` +2: an eight-energy spend, the bar left at 2, finisher bonus x1.96
+instead of x2.2); Legendary the same plus damage x1.2 (shares the Unique's id and repeat counter, repeat scale 0.8). Each is audited in
+`test_buccaneer_energy.gd` against the resolved stats and a seeded 12 s (damage) or 66 s (cooldown) probe with a full bar fed every tick.
+
+Evidence: a diagnostic `--job=512` playtest (Buccaneer made playable and started with Drain locally, reverted) showed the pips
+filling to five of ten, the full-bar ring of blue sparks around the avatar with ten lit pips, and the Drain cast emptying the bar with the
+green heal number over the player; `missing: []`.
+
+**Energy Orb (`energy_orb`, 5121002, book 512; B7 #419).** The crowd finisher on the same bar. The WZ node has `damage`, `mobCount` and
+`range` 200 and no box ("strikes a monster; monsters around it are also affected"), so it reads as Slash Blast's and Coma's rule:
+`cast {rule range_around, min_targets 2}`, the nearest live mobs whose body centre is within 200 px of the caster's body, on both sides,
+up to `mobCount` (bosses first). `meter` is Drain's block (`min 10`, `spend all`, `damage_per_unit 0.12`, `unit energy`), so a full
+bar spends all ten, earns none and multiplies by 1.3 (held) x 2.2 (spent). Damage is 360 / 440 / 530 / 590 / 670 / 760 / 840 / 900% on
+2 / 3 / 3 / 4 / 5 / 5 / 6 / 6 mobs at ranks 1-8 (WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30, the default level-30 rank table), one line
+on each. The cooldown is 1.0 s (the meter's floor; Orb has no Booster) and the stance is `eorb` held 0.8 s. A lone monster does not
+admit Orb (a cast needs two in range), which is what leaves it to Drain.
+It is a nova, not a projectile: `ball` is empty (the single-frame pellet is not drawn). Art as the BC1 contact sheet read it (tier C):
+`effect` (13 frames: the charge ball in the hand, then a forward streak) plays at the caster and follows the avatar, `effect0` (6
+frames, z -1: a blue-white glow of the body) is a `cast_visuals` entry at x 0 flagged `facing` (flipped for a right-facing caster; it is
+played in the world at the cast position, so it stays where the cast began), `hit/0` (7 frames) is a burst on each target; the Use and Hit sounds are the skill's own.
+
+Rarity bonuses (tier C, the lineage's names): Rare Energy Mastery damage x1.2; Epic Wide Orb area x1.2 (the range 200 -> 240 px, because
+`range_around` scales its radius by area: a mob 225 px away is struck only with it); Unique Energy Charge keeps 2 energy (`meter_keep`
++2); Legendary the same plus damage x1.2 (shares the Unique's id and repeat counter; repeat scale 0.8). All are audited in
+`test_buccaneer_orb.gd` and the file-wide `test_rarity_bonus_effects` (Orb joined `BUCCANEER_SKILLS`; the audit's finisher fill now
+uses the skill's own `meter.min`, 5 for Hero, 10 here).
+
+**Arbitration (existing `PlayerMeter.preferred`, no engine change, tested here with the real definitions).** With a full bar and both
+finishers ready, each is scored by the targets its plan would strike (capped at its strike count), and a single-target finisher whose
+target is a scheduled boss beats any crowd. A finisher below its `min_targets` is not a candidate; ties fall to the ordinary order.
+
+| Both owned, full bar, in reach | Drain plan | Orb plan | Cast |
+|---|---|---|---|
+| One scheduled boss alone | 1 (boss) | 1 < min 2, not a candidate | **Drain** |
+| A scheduled boss in Drain's box plus a crowd | 1 (boss) | up to `mobCount` | **Drain** (the boss strike wins) |
+| Two or more ordinary monsters in range | 1 | 2 .. `mobCount` | **Orb** |
+| One ordinary monster | 1 | not a candidate | **Drain** |
+| Nothing in either reach | none | none | neither (the bar waits) |
+| Only Orb owned, one monster | | not admitted | nothing; a second monster casts it |
+| Only Drain owned, any monsters | strikes the nearest in front | | **Drain** |
+
+Both finishers read and spend the one bar: a cast of either leaves 0 (or the Energy Charge keep), so the other waits for ten
+fresh energy.
+
+### 7.92 Buccaneer: morph forms (spec #412, B3 #415)
+
+Transformation and Super Transformation are Forms that wear a `Morph.wz` figure. Spec #308's table said a later job adds a
+`morph` effect key; the seam already carries it (BU-9): a form is a skill, a skill with a `buff` block resolves `morph` from
+`buff.morph_field`, and `PlayerForms.start` starts that buff. So the whole capability is data and presentation, and
+`player_forms.gd`, `test_player_forms.gd` and the `SkillRunner` form call sites are unchanged:
+
+```json
+{"kind":"form", "slot":"active", "damage":"none", "cast":{"rule":"form", "mob_within":400},
+ "buff":{"morph_field":"morph", "stat":"pdd", "field":"pdd", "duration_field":"time",
+         "effects":[{"stat":"mdd","field":"mdd"}, {"stat":"speed","field":"speed"}, {"stat":"jump","field":"jump"}]},
+ "form":{"duration":120, "exclusive_group":"transformation", "effects":{}, "subs":[...]}}
+```
+
+While the form lives: the morph id is `RunWorld.morph_id()` and `player_state.morph`, cleared at `form_ended` for every
+reason (expired, replaced, died), kept across a map transfer, shown in the buff row; the caster is not Hidden, still casts and
+still takes hits; `pdd`/`mdd` feed `hit_defense`, `speed` and `jump` feed the movement stats under their v83 caps (140 and
+123) and return when it ends; with two morph buffs the first started is drawn; the form's `damage` effect still multiplies its
+sub-skills. All of it is pinned by `test_morph_form.gd` on a made-up job 999 form.
+
+**Morph stances.** Both Buccaneer morphs carry the Brawler's skill actions by name (`straight`, `somersault`, `backspin`,
+`doubleupper`, `screw`, `fist`, `dragonstrike`, `edrain`, `eorb`, `shockwave`, and `demolition` and `snatch` in 1001 only,
+plus `eburster`, `alert`, `stabO1`, `proneStab`, ...). While morphed, a stance whose name is a node of the morph img draws
+that node with its own delays and feet origin; any other stance keeps the old mapping (7.18), so the Oak Barrel still
+stands through attacks. A skill's action hold (`action_time`) cuts the morph exactly as it cuts the avatar: the morph's
+timings equal the avatar's stance for 12 of 15 actions and differ for `edrain` (1.14 s against 0.6 s), `somersault`
+(1.22 against 1.04) and `snatch` (0.99). Morph 1001's `demolition` shows an empty 1 x 1 frame 3 for 1.62 s (the figure
+leaves the screen mid-skill, 3.12 s in all). `test_morph_render.gd` pins frame counts and seconds of all thirteen actions
+on the real 1001 and 1000 (SKIPs without the Buccaneer cache; 1000 stands for `demolition` and `snatch`).
+
+**Card text.** A form with no element reads "Transforms you for N s: defence +X, speed +Y, jump +Z." (a stat the `buff` block
+does not feed is left out; unequal `pdd` and `mdd` read "weapon defence +X, magic defence +Y"; a `damage` effect adds "attacks
++N%" first), then the same per-sub lines. A form with an element reads as the Paladin's Charges do ("Charges your weapon for N s: your
+attacks deal <element> damage (+X%)").
+
+Evidence: `scenes/debug/morph_driver.tscn` (a contact sheet per morph and page of every Buccaneer stance, the basics and two
+fallbacks, with the feet hairline), looked at for 1001, 1000 and 1002 in `evidence/`.
+
+**Transformation and Shockwave (B9 #421, spec #412 BU-2, BU-3, BU-6 to BU-8).** The first morph form and the sub both transformations carry
+(`skills/buccaneer.json`, book 511). `transformation` (5111005, pool, exclusive group `buccaneer_transformation`): window 10 s, cooldown 14 s
+counted from the cast, admitted when a living mob is within 400 px, `alert2` held 0.6 s, the Use sound, no cast art; its `buff` block feeds
+`pdd`, `mdd`, `speed` and `jump` and the morph id (1000); no `damage` effect (BU-8: the power is the stat package and Shockwave). Rank 1 / 4 / 8 read
+levels 3 / 10 / 20: defence +6 / +20 / +40, speed +40 (the 140 cap), jump +20 (120 under the 123 cap). Rarity: Rare Transformation Mastery (`damage`
+x1.2, which multiplies the subs), Epic Booster (cooldown x0.88), Unique Lasting Transformation (`form_time` x1.25), Legendary Lasting plus damage x1.2.
+`shockwave` (5111006, slot `form_sub`, `form_sub_of ["transformation", "super_transformation"]` since B10): fires 1.0 s into the window
+and every 3.0 s while a living mob stands in the 330 x 160 px strip in front (`lt (-330,-140)` `rb (0,20)`, `min_targets 1`); no card and no rarity
+list; it ranks with its parent through the level-30 table (rank 1 / 4 / 8 = levels 4 / 15 / 30: 310 / 475 / 700%, 4 / 5 / 6 mobs; rank 8 reads level 30),
+takes the parent's `damage` and `area` modifiers, and neither earns nor receives energy (BU-6; `PlayerMeter.begin_cast` only touches pool skills). It
+is the final-tick rule's case: 1, 4 and 7 s fire, 10 s does not (the window ends first).
+
+**One five-ripple wave, damage with the first eruption (orchestrator ruling on BC1 #413).** `effect` and `effect0` to `effect3` are five 8-frame
+ripples of one earth-spike wave: each has the same frames and a 1380, 1530, 1680, 1830 and 1980 ms blank lead-in, with its origin 55 to 65 px further
+along the facing side. All five are played together at the cast position as `cast_visuals` flagged `facing` (mirrored and flipped for a right-facing
+caster; the same flag Dragon Strike's tiles use), and the strike is a `pending` one at 1.38 s, the first eruption: damage lands once, one line per
+mob, with the first spike. The wave does not follow the caster, and the strip's side is fixed at the cast (`pending.oriented`: turning or walking
+afterwards neither moves nor mirrors it). The stance hold stays 0.8 s (the morph's own `shockwave` action runs 1.98 s: the wind-up shows, the
+strike frames are the figure's idle). A mob that leaves the strip in the 1.38 s is missed; one that walks in is struck.
+
+Evidence: `test_buccaneer_transformation.gd` (22 tests: catalog, eight ranks, lifecycle, stat package and caps, timings, box sides and fixed side,
+no catch-up burst, parent modifier, energy untouched, the five ripples, text, rarity table, and one real-cache test), the rarity audit
+(`test_rarity_bonus_effects`: all five bonus effects of Transformation, with a new `form_time` probe) and a diagnostic `--job=512` playtest.
+
+**Super Transformation, Demolition and Snatch (B10 #422, spec #412 BU-2, BU-3, BU-7, BU-8, BU-11, BU-12).** The strong morph form and its two own subs
+(`skills/buccaneer.json`, book 512), data on the same seams. `super_transformation` (5121003, pool, same exclusive group as Transformation): window 15 s,
+cooldown 24 s counted from the cast, admitted with a living mob within 400 px, `alert2` held 0.6 s, morph 1001, `pdd` = `mdd` 43 / 50 / 60 at rank 1 / 4 / 8
+(levels 3 / 10 / 20; the String text says "att." but the node holds `pdd`/`mdd`, the node wins), speed +40, jump +20, no attack bonus. Its `subs`: Snatch 0.5 s /
+every 6.0 s, Shockwave 1.0 s / 3.0 s, Demolition 2.0 s / 5.0 s; rarity Rare Mastery (`damage` x1.2 on the subs), Epic Booster (cooldown x0.88), Unique **Time
+Leap** (`form_time` x1.25), Legendary Time Leap plus `damage` x1.2. With both forms owned they alternate: Transformation 0 to 10 s, Super from the next tick to
+25 s, Transformation 25 to 35 s, Super 35 to 50 s ... with no gap and no overlap (the cooldowns, 14 s and 24 s, are always over when the other window ends).
+`shockwave` now lists `["transformation", "super_transformation"]` as parents and resolves identically under either (same level table, same box, same line).
+- **Demolition (5121004, `form_sub`).** `box lt (-300,-150) rb (-20,15)`: a 280 x 165 px strip in front whose first 20 px are a dead zone; one monster (`mobCount`
+  1, the nearest) takes `attackCount` 8 lines of 120 / 240 / 400% (rank 1 / 4 / 8, levels 4 / 15 / 30) at the cast, and every landed line stuns it for `time` 1 s
+  (`on_hit stun`, `duration_field time`, no chance field and no roll; bosses resist). Hold `demolition` 1.0 s (the stance is 3.12 s). The 23-frame `hit/0`
+  (the spec said 24) is one detonation: it plays once, on the first line (`hit_lines`), the other seven lines show no art; the `effect` node is a 1 x 1 stub and
+  is not drawn. Interval 5 s.
+- **Snatch (5121005, `form_sub`).** `box lt (-300,-100) rb (-50,15)` (a 50 px dead zone), `mobCount` 2 / 4 / 6, damage 240 / 400 / 600% (ranks 1 / 4 / 8), the stun of
+  Demolition; the pull is Hero's `pull` block (7.35) with `range` 300 (the node has none: the box's far edge), `min_gap` 60 and **no chance field**: it always applies
+  and draws nothing from the RNG; it runs before the damage, so a mob dragged to 60 px lands past the dead zone and is struck. Bosses, scheduled mobs and airborne
+  mobs are never pulled; mobs nearer than 120 px are not pulled either (the shared floor) but are struck when they are inside the strip. `mob_pulled` events as for
+  Monster Magnet. `effect` (10 frames, 270 ms blank first) at the caster, `hit/0` (3 frames) per target. Interval 6 s.
+- **The pull and the damage choose their own sets (BU-12, accepted).** The pull takes the farthest grounded non-boss mobs within 300 px on **either side** (up to
+  `mobCount`); the damage takes the nearest inside the **forward** strip. Measured on 120 seeded crowds of 3 to 10 mobs at rank 4 (4 mobs), `test_buccaneer_super_transformation`:
+  the two sets differ in **110 of 120** crowds spread on both sides (187 mobs were dragged in from behind, where the strip never strikes) and in **48 of 120** when
+  every mob stands in front (the dragged mobs land nearest, so the sets agree whenever four or more were pulled; they differ when a nearer mob inside the 120 px floor is
+  struck without being pulled).
+- **The figure no longer vanishes in Demolition (tier C).** Morph 1001's `demolition` frame 3 is a 1 x 1 empty canvas held for 1.62 s (the whole action is 3.12 s). A morph
+  frame whose canvas is 1 x 1 now holds the last drawn frame of the action (`AvatarRenderer._compose_morph`, every morph, timing unchanged; a blank first frame draws
+  nothing). The alternative, falling back to the avatar's stance, was rejected: it would pop the weapon and the whole body in for 1.62 s. With the 1.0 s stance hold the player sees
+  the three wind-up frames and then the held pose.
+- **Text.** Super reads "Transforms you for 15 s: defence +43, speed +40, jump +20." then the three sub lines; Snatch's line carries its "Pulls up to N monsters from
+  300 px" mechanics inline (a sub's line is one line). Evidence: `test_buccaneer_super_transformation.gd` (28 tests), the rarity audit (Super's five bonus effects), `test_morph_render`
+  (blank-frame hold, real 1001), and a diagnostic `--job=512` playtest (`cast_super_transformation`, `cast_snatch`, `cast_shockwave`, `cast_demolition`).
+
+### 7.93 Buccaneer: Barrage and Dragon Strike (spec #412 BU-17, BU-18, BU-21, B8 #420)
+
+Two more pool skills of job 512 (`skills/buccaneer.json`, book 512, `slot: active`, no weapon gate, the default level-30 rank
+table: rank 1..8 reads WZ levels 4, 8, 12, 15, 19, 23, 27, 30). No new mechanic: a `weapon_reach` flurry, a pending box strike,
+and the `bot.reach` data key.
+
+- **Barrage (5121007).** `cast.rule weapon_reach` like Double Uppercut: the node has no box or `mobCount`, so one monster inside the
+  held weapon's swing envelope takes `attackCount` 6 lines (damage 106 / 160 / 230% at ranks 1 / 4 / 8). Stance `fist`
+  held 0.9 s of its 2.4 s, cooldown 1.2 s. All six lines land at the cast (the flurry is 0.45-0.9 s of the stance, so a spread over
+  the hold would be a few frames). The hit art follows the WZ node: `hit/0` already holds four jabs (four 3-frame bursts) and plays
+  once on the first line, `hit0/0` and `hit1/0` are the fifth and sixth lines' finishers (`hit_lines`; lines beyond six, from Endless
+  Barrage, draw none). Body: the knuckle has no `swingTF` (frame 8 of `fist`), see the stance fallback below.
+- **Dragon Strike (5121001).** `cast.rule box` with the canonical box `lt (-400,-100)`, `rb (25,20)` (a 400 px strip ahead and a
+  25 px dead zone behind, a mob 26 px behind is not hit), `min_targets 1`, `mobCount` 4 / 5 / 6 at ranks 1 / 4 / 8, damage 320 / 535 /
+  810%. It is a `pending` strike like Meteor Shower (`_queue_area`): the box is fixed where and which way the caster stood at the
+  cast (`pending.oriented`: Meteor Shower's box is symmetric and is not mirrored, this one is mirrored for a right-facing caster
+  exactly as the instant box rule does), and the targets are queried at the impact, so a mob that walks into the strip after the
+  cast is hit and one that leaves it is not. **Timing:** the first target lands 0.84 s after the cast and each later one 0.12 s
+  after the one before (`pending.stagger`): the WZ `hit/N/hitAfter` is 840 + 120 N ms (orchestrator ruling; the spec's 0.72 s
+  was frame 6, 0.12 s early). The targets are fixed at the first impact; a target that died in between simply takes no line.
+  Cooldown 4.8 s (Meteor Shower's), stance `dragonstrike` held 0.8 s of 1.44 s. A map transfer drops the pending strike
+  (`clear_pending`). The whole cast grants one energy (the meter receipt is shared by the snapshot and pays on the first landed
+  hit). Art: `effect` (the 16-frame dragon, z -1) plays behind the caster; `tile/0..2` are cast visuals at x = 0, -200, -400 from the
+  caster, mirrored and flipped with the facing (`cast_visuals[].facing`, `SkillBook.visual_placement`; `tile/3` at -600 lies
+  outside the box and is not drawn); `hit/0..2` are the pillars on the targets, picked by target index mod 3 (`hit_targets`),
+  with the base on the monster's feet (`hit_at_feet`) and started 0.84 s in (`hit_skip`, `FxRenderer.play_from`) because the WZ plays
+  them from the cast and the pillar is at full height when the number shows.
+- **`bot.reach` (BU-21).** `BotInput` closes in on a build whose longest attack reach is under `engage.kite_reach` (220 px). Dragon
+  Strike's far edge is 400 px, so one copy would make a melee brawler kite. A definition may carry `"bot": {"reach": N}`:
+  `SkillRunner.reach_of` returns N instead of the geometric reach (area cards do not scale it). Dragon Strike carries `reach 0`;
+  no other definition has the key, so every other bot is unchanged.
+- **Knuckle stance fallback.** `AvatarLayers.STANCE_FALLBACKS` gains `swingTF` -> `swingT3` (weapons only, same frame index): no
+  knuckle has `swingTF`, so the weapon vanished on `fist` frame 8 and `dragonstrike` frames 4-7.
+
+Rank values (rank 1 / 4 / 8, WZ levels 4 / 15 / 30): Barrage 106 / 160 / 230% x6; Dragon Strike 320 / 535 / 810% on 4 / 5 / 6 mobs.
+
+| Skill | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|
+| Barrage | `mastery` "Knuckler Mastery": damage x1.2 | `booster` "Knuckler Booster": cooldown x0.88 | `endless` "Endless Barrage": +2 hits | Endless + damage x1.2 |
+| Dragon Strike | `mastery` | `wide_dragon` "Wide Dragon": area x1.2 (the strip becomes 480 px ahead, 30 px behind) | `roaring` "Roaring Dragon": +1 hit | Roaring + damage x1.2 |
+
+Tests: `test_buccaneer_barrage_dragon` (data, ranks, the six lines, the box and dead zone, the 0.84 s + 0.12 s timing, targets chosen
+at the impact, the cap, hit art by target and by line, transfer, the energy receipt, every bonus, `bot.reach`, the real cache and the
+knuckle on every `fist` / `dragonstrike` frame), `test_bot_melee` (`bot.reach`, a melee bot with the 400 px strip still closes in,
+and the control that kites without the key), `test_avatar_cash_layers` (the `swingTF` fallback), `test_rarity_bonus_effects`.
 
 ### 7.48 Piercing rise (#364, Marksman MS4)
 
@@ -5614,9 +8186,12 @@ bot scores every declared pool skill (new 100, rank 74); these are existing atta
 
 **#288 rarity bonuses and Mastery (supersedes rarity multipliers below).** Each active card grants one rank,
 then its rarity bonus. At rank 8 the same `<skill>_rank` id becomes `card_kind: mastery`, grants zero ranks,
-and stays eligible at weight 1.2. A Normal Mastery grants +5% damage on that skill (`upgrades.json` `mastery_bonus`,
-repeat id `mastery_damage`, shared by every Normal Mastery of the skill, so the 0.8^n diminishing returns apply;
-tier C, owner decision on #288: Normal Mastery is never a dead pick); a Rare+ Mastery gives its rarity bonus instead.
+and stays eligible at weight 1.2. A Normal Mastery grants +5% damage on that skill, or cooldown x0.95
+when its `damage` is `none` (#346). Both use repeat id `mastery_damage`, shared by every Normal Mastery
+of the skill, so the 0.8^n diminishing returns apply. These are tier C owner decisions (#288/#346): Normal
+Mastery is never a dead pick. The damage default comes from `upgrades.json` `mastery_bonus`.
+A Rare+ Mastery gives its rarity bonus instead. The literal `damage:none` rule also applies to Poison Mist
+(its poison damage is secondary), as well as Monster Magnet; the paired F/P records do not exercise that post-cap choice.
 Boss draws retain their Rare floor. Common passives remain Normal and stop at their own cap. Standalone behaviour cards for
 the four ported skills are deleted; unported lines retain their inert legacy definitions for direct mechanics tests.
 
@@ -5660,6 +8235,12 @@ damage x1.2, so their repeats are shared; Rare is `power`, damage x1.2, for all)
 | Meteor Shower | area x1.2 (`area`) | +1 hit (`echo`) |
 | Big Bang | area x1.2 (`area`) | +1 hit (`echo`) |
 | Elquines (#291) | area x1.2 (`reach`) | +1 ally (`twin`, stat `summon_count`) |
+| Ice Demon (I/L, #326) | area x1.2 (`reach`) | +1 target (`crowd`) |
+| Element Composition (I/L, #326) | +1 pierce (`pierce`) | +1 projectile (`twin`) |
+| Blizzard (I/L, #329; Rare `amplify`, Epic `storm`) | area x1.2 (`storm`) | +1 hit (`echo`) |
+| Big Bang I/L (`big_bang_il`) | inherited from `big_bang` (7.63) | inherited |
+| Genesis (Bishop, #378; Rare `power`, Epic `area` Wider Genesis) | area x1.2 (`area`) | +1 hit (`echo`) |
+| Big Bang Bishop (`big_bang_bishop`) | inherited from `big_bang` (7.63) | inherited |
 
 
 **Cards and the draw (current rules).** `data/survivor/upgrades.json` (base: draw weights, the rarity weights and magnitudes,
@@ -5783,7 +8364,7 @@ MP Eaters, Invincible and both Slows):
 | Magic Claw (2001005) | desc, h | Twin Claw cards strike more monsters |
 | Fire Arrow (2101004), Holy Arrow (2301005) | desc, h | "a single monster": extra-arrow and pierce cards |
 | Poison Breath (2101005) | desc | "a single monster": pierce cards |
-| Cold Beam (2201004) | desc, h | Spreading Frost cards freeze more monsters |
+| Cold Beam (2201004) | desc, h | the Spreading Frost bonus freezes more monsters |
 | Thunder Bolt (2201005) | desc, h | "all monsters in the range": it hits up to its mob count (canonical 6 plus cards) |
 | Heal (2301002) | desc | party healing: here it heals you below half HP and strikes every undead in its box |
 | Meditation (2101001, 2201001) | desc, h | "party members": self-only |
@@ -5927,7 +8508,7 @@ Where a job's data lives (one seam per fact, all tier C unless noted):
 
 | What | Where | 212 today |
 |---|---|---|
-| Playable | `survivor/jobs.json` `jobs.<id>.playable`, set by the line file | true; `JobTree.playable_jobs()`, `default_job()` = the first playable job |
+| Playable | `survivor/jobs.json` `jobs.<id>.playable`, set by the line file | true; `JobTree.playable_jobs()`; `default_job()` = `survivor/jobs.json` `default_job` (212, tier C, #298) while that job is playable, else the first playable job |
 | Starting skill, key skill, pool | `survivor/jobs/<line>.json` `starting_skill`, `mobility_skill`, `skill_pool` | Energy Bolt; Teleport (F/P, outside the slots); twelve keys (section 8) |
 | Creation weapon | same file, `creation_weapon` | Wooden Wand 1372005 (the Magician line's v83 starting wand; wearing it checks only the job class) |
 | Weapon families of drops | same file, `weapon_families` | wand, staff (a job without a list drops no weapons) |
@@ -5981,6 +8562,17 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 
 ## 11. Constants and provenance
 
+### Support summons (spec #348 D4, #352; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Minimum pulse interval | SupportSummons.MIN_INTERVAL 0.1 s after `support_rate`, so rate cards cannot pulse every tick | C |
+| Pulse animation hold | a pulse animation replaces stand/move for its own frame length; a later pulse replaces an earlier one still playing | C |
+| Dead owner | no pulse, countdowns hold | C |
+| Sub-skill ranks | the sub's level is the parent's rank through the sub's own `ranks` table (the Paladin P-5 rule) | C |
+| `anim_by_stat` | the animation of the newest (last listed) unlocked stat | C |
+| Owner-side `affected` art | plays on the player at every pulse | B |
+
 
 ### Review #282: constants and provenance
 
@@ -5990,8 +8582,73 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Mobility rank progression | balance.mobility_rank_levels: rank 1 at Lv1, then rank N at Lv2N through rank 20 at Lv40, clamped to each mobility skill cap; shared across jobs | C |
 | Summon ordinal spread | summon.ordinal_spread: 36 px on x for each additional ally, at spawn and follow destination | C |
 | Ground status RNG / refresh | stream 18; ground data names status, element and chance field; refresh preserves pending poison pulse while updating duration and damage, direct hits retain restart policy | C |
-| Capture delay | skill.capture_delay: Paralyze 0.3 s, Big Bang 1.38 s | C |
+| Form weapon tint | `Elements.TABLE` RGB: fire (1,.35,.2), ice (.3,.7,1), lightning (1,.85,.2), holy (1,.8,.55), poison (.6,.9,.35); poison has no verified Form art and is rejected there | C |
+| Capture delay | skill.capture_delay: Paralyze 0.3 s, Big Bang 1.38 s, Blast 0.72 s, Monster Magnet 0.35 s; presentation-only screenshot sample times | C |
 | Frame timing fallback | WeaponInfo.frame_times uses 100 ms for missing or zero frame delay | C |
+
+
+### #346 Hero survivability (tier C)
+
+HP600 at round startup from job AP row, HP65/level; five ungated pool cooldowns x.4;
+Combo per-unit damage .05, both finishers damage_per_unit .20. Owner-authorized first-pass
+training under #346 (section4.2), superseding original Hero values in sections7.33/7.34.
+Normal Mastery for `damage:none`: cooldown x.95 with the same mastery_damage counter and .8^n
+diminishing; preview and bot use the resolved bonus. Shared default/F/P values are unchanged.
+
+### I/L Arch Mage (spec #319)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Chain length and damage | WZ `mobCount` per level (Chain Lightning 2 -> 6) and its `mad`, unchanged along the chain (the WZ gives one `mad`); one hit per link | A |
+| Chain acquisition | `cast.acquire` 450 px from the caster's body centre (the WZ has no `lt/rb` or `range` for 2221006) | C |
+| Chain hop | `cast.hop` 200 px from the previous link's body centre | C |
+| Chain query probe | `ANY_PROBE` 8 candidates before a full query; optimization only | C |
+| Class fragment registration | `DataRepo.CLASS_LINES` append-only Hero, I/L, Bowmaster, Bishop, Paladin, Dark Knight, Buccaneer order after the seven Adventurer lines; new classes append | C |
+| Skill-window diagnostic build | first three unlearned pool actives, each new + rank, plus Might and Speed common passives | C: automation only |
+| Status registry and cast policy | Append-only status table preserves packed IDs; rule policy owns target-facing/count behavior | C |
+| Chain selection | head = scheduled boss, then nearest, then slot; hops = nearest unhit by distance then slot; distances inclusive; no RNG | C |
+| Chain bolt art | the skill's `chain.ball` animations stretched on their own x axis from segment start to end, centred on the line (WZ origin ignored), variants cycling per segment | C |
+| Chain Lightning cooldown | 1.6 s (the legacy base 4 s x0.4, as every I/L skill) | C |
+| Chain Lightning acquire and hop | 450 px and 200 px, as the cast block of 7.62 (the WZ has no `lt/rb` or `range`) | C |
+| Chain Lightning stance | `chainlightning` (the WZ `action`, tier A) held 0.8 s | C (name A) |
+| Chain Lightning rank values | `mad` and `mobCount` of the mapped level (rank 1 / 4 / 8: 112 / 145 / 180 %, 2 / 4 / 6 links) | A |
+| Chain Lightning rarity bonuses | Element Amplification damage x1.2 (Rare), Conductor area x1.2 = hop 240 px (Epic), Longer Chain +1 link (Unique), Longer Chain + damage x1.2 (Legendary, shared counter); repeats x0.8 | C |
+| Weapon stance fallback | a weapon with no `stabO2` draws `stabO1` at the same frame index (`AvatarLayers.STANCE_FALLBACKS`); 9 of 14 staves lack `stabO2`, no wand does | C |
+| I/L auto-AP row | `balance.player.ap["222"]`: INT primary, LUK secondary, keyframes Lv1 -> 3, Lv200 -> 202 (the 212 curve, copied) | C |
+| I/L creation weapon | 1372005, the Wooden Wand F/P starts with (reqJob Magician; no level requirement) | C |
+| I/L weapon families | `weapon_families` wand and staff; armour drops by the Magician class bit, no shields or Warrior weapons | C |
+| I/L skill pool | `skill_pool` of 222: the twelve actives of the 200/220/221/222 books; all twelve shipped definitions participate in draws | C |
+| Skill templates | `extends` resolved in `SkillBook` by `SkillTemplate` (7.63): deep copy of the parent, child keys on top, inherited Skill.wz/Sound.wz paths rewritten to the child's book and id | C |
+| Big Bang in the three books | 2121001, 2221001 and 2321001 are identical in every level number, art node count and sound (Use/Loop UOL to 2121001's); the drift guard re-checks it per `extends` pair | A |
+| Blizzard freeze | WZ `time` 1 -> 3 read as the freeze length (no `prop`; bosses and ice-immune monsters refuse it); every damaging line attempts it | C: the reading; A: the field |
+| Blizzard box, count, delay, art | box (-400,-350)..(400,250), `mobCount` 15, `hitAfter` 1600 ms, `tile` spacing 180 px, `effect` 25 frames, `elemAttr i`, Use/Hit sounds, `mad` 330 -> 570 | A |
+| Blizzard cooldown and stance | 4.8 s recast (Meteor Shower's); 0.8 s `blizzard` stance (the body's frames equal `meteor`'s) | C |
+| Blizzard tile columns | nine tiles at x = (k - 4) x 180 px around the caster, wider than the +-400 damage box | C |
+| Blizzard rarity bonuses | Rare damage x1.2, Epic area x1.2, Unique +1 hit, Legendary Unique plus damage x1.2; repeat scale 0.8 | C |
+| Big Bang I/L | `big_bang_il` is the three-line `extends: big_bang` (7.63); cooldown, charge, box and rarity lists inherited (7.31) | A: identity of the three books; C: the rest |
+| I/L playable | `playable: true` since I12 #331 (job 212 stays the default: 212 precedes 222) | C |
+| I/L core-bolt cooldowns (I6) | Cold Beam 0.5 s, Thunder Bolt 0.6 s, Ice Strike 1.6 s, Thunder Spear 0.8 s: the legacy / F/P-mirror base value (1.25, 1.5, 4, 2) x0.4 | C |
+| I/L core-bolt targeting (I6) | Cold Beam `nearest` 300 px one target; Thunder Spear `nearest` 400 px one target; Thunder Bolt and Ice Strike `box` (`min_targets` 1) | C |
+| I/L core-bolt stances (I6) | Cold Beam and Thunder Bolt `swingO1` 0.8 s (no WZ `action`); Ice Strike `magic2` and Thunder Spear `magic1` (tier A actions) held 0.8 s | C (stance names A) |
+| I/L core-bolt freeze (I6) | Cold Beam and Ice Strike `on_hit freeze`, duration from the level's `time` (A), no `chance_field` (no `prop` in WZ, A): every damaging line attempts it | A |
+| I/L core-bolt WZ facts (I6) | `mad`/`mastery`, `time`, `mobCount`, `lt`/`rb`, `elemAttr` of 2201004, 2201005, 2211002, 2211003 at the mapped levels; Thunder Spear has no `mobCount` or box | A |
+| I/L core-bolt rarity bonuses (I6) | Rare damage x1.2 (all four); Epic Cold Beam / Thunder Spear cooldown x0.88, Thunder Bolt / Ice Strike area x1.2; Unique Cold Beam +1 target, Thunder Bolt +2 targets, Ice Strike and Thunder Spear +1 hit; Legendary = Unique + damage x1.2 | C |
+| I/L Teleport (I6) | `teleport_il`: `slot: mobility`, same numbers as `teleport_fp`; rank from the shared `balance.mobility_rank_levels` | C (range/cost A) |
+| Vulnerability table (#322) | `MobSwarm.VULNERABLE` {`ice_weak` 5 -> `i`, `fire_weak` 6 -> `f`}; x1.5 (`VULNERABLE_MULT`) while the timer runs, overriding that element's resistance and immunity; refreshes without stacking; bosses and `steady` slots reject; no per-status tint | A: Fire Demon / Ice Demon descriptions ("weak against" the element for `time` seconds), x1.5 as the canonical weakness; C: the table shape, `fire_weak` as a second timer, no stacking, boss exclusion |
+| Element composition mean (#322) | `MobSwarm.COMPOSITIONS` `fs` -> f,s and `il` -> i,l: the mean of the constituents' live multipliers (equal split) | C: equal split (the WZ nodes carry no `elemAttr`); `fs` numerically identical to #290 |
+| Ifrit (#328) | `ifrit` 2221005: fire summon on the 7.32 seam; WZ `mad` 183 -> 300, `mastery` 10, `time` 15 -> 160 s, `attack1/info` (box (-200,-150)..(0,30), `mobCount` 3, `attackAfter` 1080 ms, the same as Elquines'), animations and hit art as read from the cache; recast 12 s, follow 180 px/s, trail 60 px, snap 600 px, minimum cycle 2.4 s, spread 36 px | A: element `f`, `info`, `priority` 2221003, levels, art; C: recast, follow settings, cycle (the Elquines values) |
+| `summon.priority_status` (#328) | Opt-in key on a summon definition: bosses, then monsters carrying the named status, then distance, then slot; absent = the shared order, byte-identical for Elquines | C: our reading of the WZ `priority` (Ifrit -> Ice Demon's fire_weak mark) |
+| Ifrit rarity bonuses (#328) | Rare damage x1.2, Epic area x1.2, Unique +1 ally, Legendary +1 ally and damage x1.2; repeats x0.8 | C: the Elquines lists |
+| I/L bot card scores (I11 #330) | `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for the ten I/L pool skills F/P's block lacks (cold_beam, thunder_bolt, ice_strike, thunder_spear, element_composition_il, ice_demon, ifrit, chain_lightning, blizzard, big_bang_il), appended as one block; the same numbers as every F/P pool skill. Explicit so Ifrit (a `summon`) and Blizzard, which the default scorer files with the passives, are taken; all twelve pool skills now ship | C |
+| I/L hub kit and fixture (I11) | `--hub --job=222` opens `il_arch_mage_t2.json` (job 222, tier 2, the F/P tier-1 kit 1382002/1002013/1072019/1082019 + starter top and bottom); the hub test kit is the F/P one (wand and staff scrolls, hat, staff, gloves, top): both Arch Mages wear the same families | C (test aid) |
+| I/L baseline oracle (I11/I12) | `test_il_baseline`: seed 1, 72000 fixed 1/60 ticks, bot, god, synthetic assets; I12 widens the historical six-skill pool to all twelve with frozen synthetic level tables. The changed card pool and new cast/event bytes require one recapture; F/P goldens are unchanged | C |
+| I/L Job page row (I11) | no UI change: the page lists `playable_jobs()`, "Arch Mage (Ice, Lightning)" is the canonical name, one row below "Arch Mage (Fire, Poison)" (H9's row style: left-aligned names, the chosen row's plate in every Button state) | C |
+| Ice Demon cooldown, stance and hit | 2.0 s; fallback stance `magic3` held 0.8 s (the WZ node has no `action`); one instant hit plus the `fire_weak` mark, not a damage-over-time | C: Fire Demon's values; A: box, `mobCount`, `mad`, `time`, `elemAttr i`, art |
+| Ice Demon mark | `on_hit {"status": "fire_weak", "element": ""}`: canonical `time` seconds; skipped by a zero-damage hit (an ice-immune monster) and by bosses | A: description and `time`; C: boss/zero-damage behaviour (existing `on_hit` rules) |
+| Element Composition (I/L) | cooldown 0.8 s, 450 px acquisition, 500 px/s, radius 10, one shot, stance `shoot6` | C: the F/P twin's values; A: `mad`, `time`, art |
+| Element Composition element | `il`, the mean of the live ice and lightning multipliers (equal split) | C: the WZ node has no `elemAttr` |
+| Element Composition freeze | `time` 1 -> 2 s, no chance field (the WZ node has no `prop`), element `i`: bosses and ice-resistant monsters reject it, lightning resistance does not | C |
+| Ice Demon / Element Composition rarity bonuses | the two tables in 7.65 (Element Amplification x1.2, Wide Chill area x1.2, Cold Crowd +1 target, Pierce +1, Twin Bolt +1 shot; Legendary = Unique + x1.2) | C |
 
 
 ### #307 opening ramp (tier C)
@@ -6020,14 +8677,14 @@ These replace older first-pass/inherited pacing statements where they conflict. 
 | High-job cooldowns, targeting | Table 7.31; 450 px nearest acquisition; projectile speed 500 px/s, radius 10; cast stance 0.8 s | C: first-pass survivor data, #282/#290 |
 | Mist ground occupancy | 1 s checks, no direct hit; canonical poison chance/time; all occupants; tile strips 80 px apart | C: survivor ground-area interpretation; A: WZ box, prop/time, existing poison formula |
 | Composition elements | Mean of fire and poison multipliers; poison status checks poison alone | C: equal fire/poison interpretation of the skill's description; no WZ elemAttr |
-| Fire Demon ice weakness | Timed x1.5 ice, replaces ice resistance/immunity; bosses reject it | A: WZ description/time; C: existing boss status exclusion |
+| Fire Demon ice weakness | Timed x1.5 ice, replaces ice resistance/immunity; bosses reject it (generalised: 7.61) | A: WZ description/time; C: existing boss status exclusion |
 | Meteor delay / tile spacing | 1.8 s / 180 px | A: WZ hit/0/hitAfter and tile/effectDistance |
 | Big Bang full-charge release | 1.08 s; box (-250,-180)..(250,100), follows caster until release | A: 18 keydown frames × 60 ms, full-charge mad; C: one-loop automatic release and box |
 
 
 | Rule | Value | Tier | Source |
 |---|---|---|---|
-| Normal Mastery #288 | +5% damage on the skill (`mastery_bonus`, shared repeat id `mastery_damage`, x0.8^n repeats) | C | owner decision on #288 |
+| Normal Mastery #288/#346 | +5% damage, or cooldown x0.95 for `damage:none`; shared repeat id `mastery_damage`, x0.8^n repeats; bot scores the resolved effect (5, then 4 points) | C | owner decisions #288/#346 |
 | #290 rarity bonuses | Rare damage x1.2; Epic area x1.2 (Composition +1 pierce, Paralyze cooldown x0.88); Unique/Legendary +1 hit (Composition +1 projectile, Fire Demon +1 target, Poison Mist cooldown x0.8); Legendary adds damage x1.2; section 8 | C | ours; first pass, T11 tunes |
 | #291 Elquines rarity bonuses | Rare damage x1.2; Epic area x1.2; Unique +1 ally (`summon_count`); Legendary adds damage x1.2 and shares the Unique's repeats; every pool skill now has all four lists (`test_data_files`); common passives (#289) never roll rarity, get a bonus or Mastery; section 8 | C | ours; first pass, T11 tunes (T9 proposed haste for Unique and +1 ally for Legendary: changed to the Unique/Legendary convention above) |
 | Rarity/Mastery #288 | Rare damage x1.2; Epic +1 pierce or cooldown x0.88; Unique +1 projectile/hit; Legendary signature plus damage x1.2; repeats x0.8 (multiplier distance from 1), authored-list cycling and actual-effect bot scores | C | ours; ADR 0006, first pass, section 8 |
@@ -6057,8 +8714,27 @@ layout (one row per job inside the charSet panel) are ours (tier C).
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
-| Playable jobs and start skills (#284) | `survivor/jobs.json`: 212 is the only playable job and the default for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
+| Playable jobs and start skills (#284) | `survivor/jobs.json`: 112, 122, 212, 222, 232 and 512 are playable (specs #296, #308, #319, #372, #412); 212 is the default (`default_job`) for a fresh character and the tools; every round of 212 learns Energy Bolt and Teleport (2101002) at rank 1 (`start_skills`), Teleport on its key from Lv1 | C | Owner, ADR 0006 / spec #282 (Energy Bolt stands in until #287) |
 | Auto-AP rows (#284) | `balance.player.ap`: one `{primary, secondary, keyframes}` row per job, nearest ancestor's row otherwise, all AP to STR without a row. 212: INT primary, LUK secondary at the old Magician keyframes (Lv1 3 -> Lv200 202); the 200/100/300/400/510/520 rows keep the unported lines' old single rows | C | Owner, spec #282 (212); the rest the earlier tier C rows without weapon paths |
+| Hero playability and QA fixture (#306) | Playable 112 and 212; default 212. `hero_t2.json`: seed 1, bot, invulnerable Henesys clear, tier 2 unlocked; all equipment from the tier-1 drop band. Diagnostic equipment fixture, never survival evidence | C | Spec #296; fixture `_doc` |
+| Hero AP row (#298, spec #296) | `balance.player.ap["112"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204 (the secondary DEX target tracks the level plus about 4, the v83 Warrior gear pattern). HP growth is not re-listed: 112 inherits the Warrior row (100: 26 per level) through the lineage | C | Spec #296 |
+| Hero creation weapon (#298, spec #296) | `survivor/jobs/hero.json` `creation_weapon` 1302000, the plain Sword (reqJob 0, so wearing it checks no class); `weapon_families` `["sword", "axe"]` filters the existing Warrior drop list (one- and two-handed), armour and shields drop by the Warrior class bit; the weapon item id and stats are tier A | C | Spec #296 |
+| `default_job` pin (#298, spec #296) | `survivor/jobs.json` `default_job` 212: the job of a fresh character and of every tool run, test and oracle that names none, so Hero never changes it by becoming playable; Hero is always chosen explicitly (`--job=112`, the creation Job page). The owner can flip it with this one line | C | Spec #296, risk found while checking the slice |
+| Hero bot card scores (#305, spec #296) | `jobs/hero.json` balance.bot.card_scores: `<key>_new` 100 and `<key>_rank` 74 for each of the seven Hero pool skills (power_strike, slash_blast, brandish, shout, monster_magnet, panic, coma), the same numbers every F/P pool skill has (the default attack scoring, 100 and 62 + 12 job bonus), set explicitly so the meter-gated finishers and the pull, which the default scorer would not take for attacks, are taken whatever their cast rule | C | Spec #296 |
+| Hero hub kit (#305, spec #296) | `HubTestKit.HERO_KIT_SCROLLS` (every rate of the ATT scrolls of the sword, two-handed sword, axe and two-handed axe, 20 stacks of 10) and `HERO_KIT_EQUIPMENT` (1002001 hat, 1402000 two-handed sword, 1082002 gloves, 1040010 top), used for a character of job 112; `--hub --job=112` opens `hero_t2.json`; 500,000 mesos as for F/P | C | Ours, a test aid |
+| Dark Knight job data (#350, spec #348 D2) | `survivor/jobs/dark_knight.json`: job 132, `playable: true` (D10 #358 flipped it), `starting_skill` spear_crusher, `mobility_skill` rush_dark_knight, eight-key pool, `weapon_families` [spear, polearm], `creation_weapon` 1432000 (the Spear). The line is discovered from its files; no shared list changes; `default_job` stays 212 | C | Spec #348 DK-10, D1/DK-14 |
+| Dark Knight AP and growth rows (#350, spec #348 DK-10) | `balance.player.ap.132` copies Hero's 112 row (STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204, starting HP 600), and `balance.growth.132.hp` 65 per level, both copied from `jobs/hero.json` (the #346 melee survivability baseline, orchestrator ruling). The balance pass owns them | C | Spec #348 DK-10; #346 |
+| Dark Knight drop families (#350, spec #348 DK-10) | spear (143xxxx) and pole arm (144xxxx) drop from the Warrior drop list by `weapon_families`; a sword, axe or blunt weapon never does; the Warrior shield drops by the class bit and is a wasted drop for a two-hander (accepted) | C | Spec #348 DK-10 |
+| Dark Knight bot card scores (D10 #358, spec #348 DK-9) | `jobs/dark_knight.json` `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for each of the eight pool keys (spear_crusher, power_strike, slash_blast, dragon_fury, sacrifice, dragon_roar, monster_magnet_dark_knight, beholder), explicit; the Beholder has no `support_heal`/`support_rate` weight of its own to lean on | C | Ours; the default pool score is the same pair |
+| Bot reach ignores HP-paying skills (D10 #358, spec #348 DK-9) | `BotInput._reach_profile` skips a skill whose resolved stats carry `hp_cost` > 0 or `hp_gate` > 0 when its reach is `engage.kite_reach` (220 px) or more; Dragon Fury (241 px) and Dragon Roar (400 px at rank 8) therefore never make a knight with the whole pool kite, while Hero's Slash Blast (a flat `hpCon`, 132 px) keeps counting (`SkillRunner.reach_of` itself is unchanged) | C | Spec #348 DK-9 |
+| Dark Knight hub kit (D10 #358) | `jobs/dark_knight.json` `hub_kit`: `fixture` `dark_knight_t2.json`; `scrolls` the ATT scrolls of the spear (2044300-05) and pole arm (2044400-05) families of `scrolls/warrior.json` (every rate, 10 stacks); `equipment` 1002001 hat, 1442000 pole arm, 1082002 gloves, 1040010 top; `fallback_item` 1432005 (a Lv40 Spear, reqJob Warrior); 500,000 mesos as for the other jobs | C | Ours, a test aid |
+| Dark Knight fixture (D10 #358) | `tests/fixtures/characters/dark_knight_t2.json`: job 132, tier 2, from a seed-1 invulnerable (god) real Henesys bot clear (`character_fixture.gd --job=132 --god --seed=1`), Pole Arm 1442004 worn; diagnostic, not survival evidence | C | Ours |
+| Dark Knight baseline oracle (D10 #358) | `test_dark_knight_baseline`: seed 1, 14400 fixed 1/60 ticks (4 min), bot, god, synthetic assets (`dark_knight_fixtures.gd`: every pool skill, Rush and the Beholder, the spear's afterimage swing reach as Hero's repaired oracle, #346), pre-#241 opening and whole-round curve, the initial `player_state` hashed; asserts casts > 0 (107 at capture) and 8 skills held; its own golden | C | Ours |
+| Job page rows with the Dark Knight (D10 #358) | no UI change: the page lists `playable_jobs()`, "Dark Knight" is the canonical name, second row (112, 132, 212, 222), the weapon box reads "Spear - WATK 32 - 0.90s" and the Job blurb repeats it | C | H9's row style |
+| Job page rows (#305) | rows are left-aligned, and the chosen row keeps its plate in every Button state (hover and pressed too), so it stays highlighted under the mouse; the Job blurb repeats the weapon box (creation weapon name, WATK, swing time) | C | Ours, layout |
+| Rush 2.0 s cooldown, always-on 80 px knock-back along the dash, hold-to-repeat, refused while climbing, airborne dash keeps its height (#302, spec #296) | `skills/hero.json` `rush_hero` (`cooldown`, `knockback`); damage 78%, `mobCount` 15, box reach 170 px (the dash distance) and `rush2` are Skill.wz level 4 (tier A) | C | Spec #296 D1; v83 Rush is a dash with a hit box |
+| Rush ranks with the round level through `balance.mobility_rank_levels` (rank 1 = WZ level 4 at Lv1, rank 8 = level 30 from Lv16) (#302) | the shared mobility rule; Rush has the level-30 rank table and no card | C | Spec #296, #282 review fixes |
+| Rush bot rule: dash from a mob within 60 px (on the bot's level), away when the lane covers half the reach else through the crowd, at most every 3 s (#302) | `skills/hero.json` `rush.bot_threat_distance` 60; `BotInput.RUSH_MIN_INTERVAL` 3.0, `RUSH_LANE_FRACTION` 0.5 | C | Spec #296 |
 | Cards on the job line (#284) | A card is eligible when one of its `requires.jobs` is the character's job or an ancestor (`UpgradePool.on_line`); no `carry_jobs`, no advancement draw, no weapon check; Beginner and Teleport cards deleted | C | Stopgap until the skill pool (#287) |
 | Removed RNG streams (#284) | Streams 5 (the basic attack) and 8 (bot job draws) are reserved and never drawn; no other stream is renumbered | C | Keeps every other stream's seeded sequence |
 | Region cards and ending-map results (#241, #247) | Map 1's mapMark beside the region; three ordered `map name → boss name` rows in the existing v83 parchment, each wrapping as needed with a 6 px gap between rows. Objective: "Defeat 3 bosses across 3 maps". Results keep region/continent and add the ending map's WZ name and mapMark, with a 6 px gap before stats | C layout/text; A map/boss names and marks | Owner #241 / #247; String.wz and each map's `info/mapMark`. Summary identity comes from `RunWorld.current_map_id()` |
@@ -6179,6 +8855,19 @@ Bowman (#166), generic mechanics (#200):
 | Constant / rule | Value | Tier | Source |
 |---|---|---|---|
 | Skill knock-back distance | Per-skill `knockback.distance` in px; no shipped default in #200 (synthetic test: 120 px); follows the platform and clamps at walls/edges; airborne/flying mobs stay put, statuses stay | C | Survivor rule, owner #166; shared moving-attack slide |
+| Hero core melee (#301) | Power Strike 1.0 s, Slash Blast 1.6 s, both weapon action held 0.6 s; Brandish 1.4 s, forward admission at one target; eight survivor ranks; rarity values in 7.33 | C | ours, spec #296 |
+| Hero core WZ fields (#301) | 1001004/1001005/1121008 mapped level fields, Brandish box, two hits, 1–3 targets, Use/Hit, body action 7 x 120 ms = 0.84 s | A | original v83 Skill.wz, Character.wz |
+| Brandish handedness (#301) | One action per cast: brandish1 + effect/0 for one-handed, brandish2 + effect/1 for two-handed | C (selection), A (aliases/art) | orchestrator ruling; H1 weapon visibility findings |
+| Hero finishers (#304) | Panic nearest within 250 px, 2.0 s cooldown; Coma range_around, `min_targets` 3, 1.0 s; both `meter` min 5 / spend all / +10% per orb spent, first swing stance held 0.6 s | C | ours, spec #296 |
+| Panic Threaten cut (#304) | Flat `min(level, 20)` weapon attack and defence while threatened; bosses refuse the status | C | ours, spec #296 |
+| Hero finisher WZ fields (#304) | 1111003/1111005 mapped level `damage`, `prop`, `time`, Coma `range`/`mobCount`/`hpCon`; finish/1..10, hit/0|1, Use sounds; axe twins 1111004/1111006 identical | A | original v83 Skill.wz |
+| Finish art by orbs spent (#304) | `finish/N` for N orbs spent, `hit/1` above 5 orbs, axe twin for an axe | C (layout reading and keying) | H1 notes |
+| Pull selection (#300) | Up to `mobCount` candidates, farthest first (horizontal; slot breaks ties), only live grounded non-boss mobs at least 120 px from the caster (block key `min_distance` overrides) and within `range`; bosses and flyers never candidates (7.35) | C | ours, spec #296 |
+| Pull gap and slide (#300) | Per-skill `pull.min_gap` px (Monster Magnet ships 60, H7); the mob slides `max(0, dx - gap)` px toward the caster along its foothold chain, stopping at platform edges, walls and map bounds; never crosses the caster | C | ours, spec #296; shared slide |
+| Pull chance rolls (#300) | One main-stream draw per taken candidate, none at 100% or without a chance field; a 0% chance still draws; selection before rolls | C | ours (mirrors the knockback roll rule) |
+| Shout rank table (#303, spec #296 D4) | `ranks` `[5, 8, 12, 15, 19, 23, 27, 30]`: the standard 30-level table except rank 1 = level 5, because level 4 stores its `prop` under the stray key `58` (7.33) | A (levels, numbers), C (override) | Skill.wz 111.img, String.wz agrees with 58 % |
+| Shout and Monster Magnet timing (#303) | Cooldowns 12 s and 10 s, action holds 0.6 s, stances `alert3` / `alert2` (Magnet's node names none; WZ's `prepare` dash hides a two-handed axe), admission at 3 mobs (`cast.min_targets`) | C | ours, spec #296 |
+| Shout and Monster Magnet rarity bonuses (#303) | Shout: Area x1.2, Booster cooldown x0.88, Echo Shout cooldown x0.75, Legendary Echo Shout plus area x1.2. Magnet: Reach `range` x1.2, Bigger Grab +2 targets, Booster cooldown x0.75, Legendary Booster plus +2 targets; repeats shrink x0.8 | C | ours, spec #296 (first pass; the balance pass owns final sizes) |
 | Knock-back roll | One stream-1 roll per damaging line on a non-boss, even at 0/100%; canonical `chance_field` percent; canonical/scheduled bosses do not roll or move | A (canonical chance), C (stream, per-line rule, boss policy) | Skill.wz; #166 binding decisions |
 | Pierce fall-off schedule | Linear `max(floor, 1 - fraction * (n - 1))`; `balance.json/combat.pierce_floor` defaults to 0.1; 0.1 per mob means the sixth takes 50%; includes crit, rounded once | C | #166 binding decisions; WZ has no fall-off value; survivor data owns the floor |
 | Impact blast policy | First mob consumes shot; primary counts toward cap; box translated to primary feet, selected before hits; nearest body then slot; one `hit` animation at impact by default (`visual: "effect"` supported) | A (canonical box/cap/damage field), C (consumption, anchor/order/art choice) | Skill.wz; #200 |
@@ -6496,7 +9185,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Bot Teleport interval | at least 5 simulation seconds between valid-destination escape requests, recorded in bot memo | C | a priori policy: allow several auto-cast cycles and ordinary kiting before another emergency blink; independent of the player's 0.3 s repeat; `BotInput.TELEPORT_MIN_INTERVAL` |
 | Teleport card weights | new/rank weight 2, max rank 20; no behaviour modifiers | C | ours; upgrades.json |
 | Skill keys (#188) | a manual skill's `skill_key` is its input action; Key Config lists only learned ones after the fixed actions; Teleport and Dash both default to X (a character never learns both); the three Teleports share `teleport`, so a saved `teleport` binding is Teleport's skill key; a press that cannot pay (MP) does nothing | C | ours (owner); `KeyBindings.SKILL_KEYS`, `RunWorld.manual_skill_keys`, `project.godot` |
-| Dash (#188) | canonical mpCon 14-5, speed x 12-30, jump y 1-10, time 4-20 s over ranks 1-10 (tier A); manual on its skill key instead of the v83 double-tap, any weapon, no cast hold, no cooldown beyond the running buff, speed and jump under the existing 140 / 123 caps, card weights 2/2 | A (numbers), C (manual key, no hold, weights) | Skill.wz 500.img 5001005; owner decision on #168; `skills/pirate.json`, `upgrades/pirate.json` |
+| Dash (#188) | canonical mpCon 14-5, speed x 12-30, jump y 1-10, time 4-20 s over ranks 1-10 (tier A); manual on its skill key instead of the v83 double-tap, any weapon, no cast hold, no cooldown beyond the running buff, speed and jump under the existing 140 / 123 caps, card weights 2/2 (cards removed by #417, see the Buccaneer B5 rows) | A (numbers), C (manual key, no hold, weights) | Skill.wz 500.img 5001005; owner decision on #168; `skills/pirate.json`, `upgrades/pirate.json` |
 | Bot Dash flee rule (#188) | press when HP < 50% with a mob within 160 px, or when 3+ same-level mobs are within 120 px; requires ready, usable and an affordable HP cost | C | ours; `skills/pirate.json` `dash.manual` (`bot_flee_hp`, `bot_surround_count`, `bot_surround_distance`); `BotInput._flee_buff` |
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP | A | Item.wz/Consume/0200.img, unchanged spec/info |
@@ -6562,7 +9251,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Weapon stances / actions (#154) | `stand<info/stand>`, `walk<info/walk>`; `WeaponInfo.BASIC_ACTIONS` per weapon type; `basic_kind` (ranged families shoot) | A (stance numbers, stances in the items), C (which stances a family attacks with) | v83 `Character.wz/Weapon`; ours |
 | Ranged basic-attack reach (#154) | `WeaponInfo.RANGED_REACH` bow/crossbow 300, claw/gun 250 px, box 65 px tall: when the attack starts; the shot flies this plus `overshoot` | C | ours |
 | Ammo ids, incPAD and names (#155) | starting ammo per family (2070015, 2060000, 2061000, 2330000) and every scheduled item; incPAD from Item.wz, names from String.wz | A | v83 `Item.wz/Consume` 0206/0207/0233 (refs `class-specs/v83-facts.md` 1) |
-| Ammo upgrade levels (#155) | Assassin 30/35/40/45/50/55, Hunter 30/40/50, Crossbowman 30/40/50 (`survivor/ammo.json`) | C | ours; the Gunslinger's 30/50 are the items' v83 `reqLevel` (A) |
+| Ammo upgrade levels (#155, #335) | superseded: see "Bowmaster B3 constants (#335)" (exact job, round level) | C | ours; `survivor/ammo.json` |
 | Endless ammo (#155) | never consumed, never an item, derived from family/job/level; v83 consumes `bulletCount` per attack | C | owner spec #151 |
 | Ammo projectile numbers (#155) | speed 800 (claw), 900 (bow), 1000 (crossbow), 1200 (gun) px/s; radius 8/6/6/5 px; range = reach + 80 px; arrows and bullets rotate | C | ours; `survivor/ammo.json` |
 | Ammo W.Att on ranged attacks (#155) | the current ammo's incPAD adds to W.Att | B | Cosmic Character.recalcLocalStats / RangedAttackHandler (v83-facts 1) |
@@ -6602,10 +9291,10 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Flyer speed / bob / arrivals | (`flySpeed` + 100) × `mob_speed_factor` × stage speed; bob 2 px / 1.2 s (`balance.mob_motion`); Henesys arrival keyframes 180 / 300 / 480 / 660 s, weights 1 | C (conversion and tuning); A (stats and frames) | ours; original v83 WZ |
 | Goblin Fire EXP icon | Firebomb Flame 4000081 stands in for a signature EXP drop | C | ours (item art A) |
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
-| I/L attacks (#56) | Cold Beam nearest-target auto-cast: 300 px, 1 target, 1.25 s cooldown; Thunder Bolt box auto-cast: at least 1 target, 1.5 s cooldown; both use swingO1 for 0.8 s | C | survivor skill definitions; v83 has no action node for either skill |
-| I/L canonical attack facts (#56) | ranks 1–30, elements i/l, mad/mastery/mpCon; Cold Beam x=-100/time=1–2 with no prop; Thunder Bolt mobCount=6 and lt/rb; effect/hit art and Use sounds, no ball | A | original v83 Skill.wz/220.img and Sound.wz/Skill.img/2201004–2201005, real-cache tests |
-| I/L cards (#56) | Cold Beam +1 target; Thunder Bolt box offsets ×1.2; both cooldown ×0.88; 3 modifier steps each; learn/rank/modifier weights 4/3/2, all power, exact job 220; shared rarity magnitudes | C | owner #31/#56 behaviour choices; existing count/area/cooldown and Potential seams |
-| Thunder Bolt target card (#84) | Forking Storm: `count` +2 per step, max 3 steps (canonical `mobCount` 6 → 12), weight 2, power, exact job 220; bot scores it as a `count` mod (75 + job bonus 12) | C (placeholder until the balance pass) | #84 hit-more-mobs rule; upgrades.json `thunder_bolt_targets` |
+| I/L attacks (#56; cooldowns now x0.4 and bonuses, #325, section 7.60) | Cold Beam nearest-target auto-cast: 300 px, 1 target, 1.25 s base cooldown; Thunder Bolt box auto-cast: at least 1 target, 1.5 s cooldown; both use swingO1 for 0.8 s | C | survivor skill definitions; v83 has no action node for either skill |
+| I/L canonical attack facts (#56) | WZ levels 1–30 (eight mapped ranks, #325), elements i/l, mad/mastery/mpCon; Cold Beam x=-100/time=1–2 with no prop; Thunder Bolt mobCount=6 and lt/rb; effect/hit art and Use sounds, no ball | A | original v83 Skill.wz/220.img and Sound.wz/Skill.img/2201004–2201005, real-cache tests |
+| I/L cards (#56; deleted by #325, now rarity bonuses) | Cold Beam +1 target; Thunder Bolt box offsets ×1.2; both cooldown ×0.88; 3 modifier steps each; learn/rank/modifier weights 4/3/2, all power, exact job 220; shared rarity magnitudes | C | owner #31/#56 behaviour choices; existing count/area/cooldown and Potential seams |
+| Thunder Bolt target card (#84; deleted by #325, now the Unique `fork` bonus) | Forking Storm: `count` +2 per step, max 3 steps (canonical `mobCount` 6 → 12), weight 2, power, exact job 220; bot scores it as a `count` mod (75 + job bonus 12) | C (placeholder until the balance pass) | #84 hit-more-mobs rule; upgrades.json `thunder_bolt_targets` |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
 | Potion schedule (#225, #228) | `balance.potions.schedule`: HP Orange @ Lv 10, HP White @ Lv 25 (the MP step removed, #285); applied at level-up with a notice and silently on snapshot load, cooldown kept, never downgrades; replaces the potion-tier cards | C | owner choice (the old card gates); balance.json |
@@ -6700,7 +9389,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Boss target priority (#83) | every targeting rule (nearest, box, crowd, Heal undead, basic attack) orders qualifying targets scheduled boss first, then distance, then slot; elites get no priority | C | ours; spec #79 owner decision (`RunWorld.targets_before`) |
 | Skill box admission / area scoring | minimum 1 target unless `cast.min_targets` overrides; base area 1.0, future area-card multiplier ×1.2; bot `area` score 58 plus existing job bonus | C | spec #31 binding foundations decisions; no skill/card entries added |
 | Holy Arrow flight / cards (#57) | 1 s recast, 480 px range, 520 px/s, 12 px radius, count 1, pierce 0, 0.8 s stance; count +1 ×3, pierce +1 ×2, cooldown ×0.88 ×3; learn/rank weights 4/3, modifiers 2; standard attack bot scores | C (tuning), A (skill fields/art/sound/action) | copied existing Fire Arrow/first-job survivor steps; [Cleric evidence](research/cleric-heal.md) |
-| Heal trigger / recast / targets (#57) | strictly below half HP OR one boxed undead; 2 s recast in heal block; 0.8 s stance; every boxed undead once, overriding canonical mobCount=6; target multiplier counts undead plus caster | C (trigger/delay/cap override), A (box/cost/hp/action/art/sound) | ticket #57; [Cleric evidence](research/cleric-heal.md) |
+| Heal trigger / recast / targets (#57) | (Bishop port: resolved threshold, 7.83; Bishop BS4 constants) strictly below half HP OR one boxed undead; 2 s recast in heal block; 0.8 s stance; every boxed undead once, overriding canonical mobCount=6; target multiplier counts undead plus caster | C (trigger/delay/cap override), A (box/cost/hp/action/art/sound) | ticket #57; [Cleric evidence](research/cleric-heal.md) |
 | Heal undead formula (#57) | bounds `(0.3×INT+LUK)` / `(1.2×INT+LUK)` × `(INT+matk)/1000` × `hp/100` × `(1.5+5/N)`; holy h; existing hit/defense/element path | B (pre-BB client RE, not directly v83) | Southperry #1033 posts 685–692; [derivation and worked example](research/cleric-heal.md) |
 | Heal recovery approximation (#57; unresolved verification) | historical LUK polynomial × `(INT+matk)` × INT × `hp/10`, lower bound ×0.8; single-target multiplier 1, uniform seeded roll truncated to HP, capped by restore_player; learn/rank weights 4/3 | B weak (historical coefficients); C (selecting this unverified fit, multiplier, RNG/rounding, weights) | [evidence gap and original observations](research/cleric-heal.md); exact v83 recovery acceptance criterion remains open |
 | Fire/Poison attacks (#55) | Fire Arrow: cooldown 1 s, range 480 px, speed 520 px/s, count 1, pierce 0, radius 12 px, stance 0.8 s, rotates; Poison Breath: 1.25 s, 450 px, 400 px/s, count 1, pierce 0, radius 14 px, stance 0.8 s, no rotation; both target nearest | C | survivor skills.fire_arrow / poison_breath; untuned; canonical elements, level numbers, actions and assets remain tier A |
@@ -6810,12 +9499,568 @@ items) reaches a round as the setup key `account`, never inside the character.
 |---|---|---|
 | `balance.combat.pierce_ceiling` | 2.0 (200%) | tier C: survivor safety cap on rising contact damage; independent of the existing 10% falloff floor |
 
+<!-- #311 provenance additions -->
+
+Form constants and provenance (#311): tier C elemental arbitration radius **400 px**; ties preserve ready order.
+Tier C sub cadence: wait until admitted, restart interval at successful cast, no catch-up bursts; expiry wins
+on the window's final tick. Tier C weapon tint RGB: fire (1,.35,.2), ice (.3,.7,1), lightning (1,.85,.2),
+holy (1,.8,.55), poison (.6,.9,.35); white without an elemental form. Synthetic test/probe durations are diagnostic,
+not playable tuning. Canonical effect percentages remain tier A data read through each form's mapped level.
+
+### Paladin and Form constants and provenance (spec #308)
+
+| Constant / choice | Value | Tier | Source |
+|---|---|---|---|
+| Paladin AP row (#310, spec #308) | `jobs/paladin.json` `balance.player.ap["122"]`: the Hero 112 row's shape, STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204. The starting-HP and HP-growth rows were added by P9 #317 (next rows) | C | Spec #308 (Job data) |
+| Paladin creation weapon and families (#310, spec #308) | `jobs/paladin.json` `creation_weapon` 1322000, the Mace (Item.wz, reqJob 3, which includes the Warrior bit, so `requirement_error` accepts it for 122); `weapon_families` `["sword", "blunt"]` filters the shipped Warrior drop list (one- and two-handed), so axes, spears and polearms never drop for a Paladin; armour and shields drop by the Warrior class bit. The item id and stats are tier A | C | Spec #308 |
+| Paladin skill pool and start (#310, spec #308) | `jobs/paladin.json`: `starting_skill` power_strike (slot 1), `mobility_skill` rush_paladin, eight-key `skill_pool` (power_strike, slash_blast, blast, monster_magnet_paladin, fire_charge, ice_charge, thunder_charge, holy_charge). Power Strike and Slash Blast are Hero's definitions; all eight entries now resolve. The pool and the start are design choices; the WZ ids are tier A | C | Spec #308 (Skill pool table) |
+| Paladin playable (#310, #317, spec #308) | `jobs/paladin.json` `playable` true since P9 #317 (P2 shipped it false while the job had no skills, Forms or bot); the Job page lists Hero, Paladin, then the Arch Mages (canonical order); `default_job` stays 212 | C | Spec #308 (Making Paladin selectable) |
+| Paladin starting HP and HP growth are Hero's (#317, orchestrator ruling) | `jobs/paladin.json` `balance.player.ap["122"].hp` 600 and `balance.growth["122"].hp` 65, copied from `jobs/hero.json` (Hero's #346 melee survivability baseline), as Dark Knight did. P2 #310 had argued for the shared default (Warrior line 26 per level); the balance pass owns the number | C | Orchestrator ruling for melee jobs, #346 |
+| Paladin hub kit and fixture (#317, spec #308) | `jobs/paladin.json` `hub_kit`: fixture `paladin_t2.json` (a Lv25 Mace 1322004, Warrior-bit armour, tier 2, kit mode), 20 scroll stacks (every rate of the ATT scrolls of the sword, blunt, two-handed sword and two-handed blunt families; `SCROLL_COUNT` 10 each), spare 1002001 / Sword 1302008 / blunt 1322014 / 1082002 / 1040010, `fallback_item` 1302009 (Lv40 Sword) | C | Spec #308, as Hero's kit (#305) |
+| Paladin bot card scores (#317, spec #308) | `jobs/paladin.json` `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for blast, monster_magnet_paladin and the four Charges (power_strike and slash_blast keep Hero's pairs), the numbers every pool skill gets by default, written out so a Charge or Blast is taken whatever its cast rule; `SkillRunner.reach_of` needed no change (Blast is a `weapon_reach` cast, Forms, Magnet and Rush read 0), the Rush escape is Hero's (`BotInput` rule, `rush.bot_threat_distance` 60) | C | Spec #308, as H9 #305 |
+| Paladin baseline oracle (#317, spec #308) | `test_paladin_baseline`: seed 1, 21600 ticks (6 minutes, past the first boss's arrival), bot, god, synthetic assets (`tests/fixtures/paladin_fixtures.gd`), the 212 recipe plus the initial player state in the digest (Hero's), the eight-key pool frozen; its own golden, `test_character_baseline`, `test_tick_cost_identity` and `test_hero_baseline` stay pinned to 212 and 112 | C | Spec #308 (P9), T7 method |
+| Blast (#313, spec #308) | `skills/paladin.json` `blast`: damage 170 -> 550% (the only WZ field: one line, one target), the `blast` action and its 840 ms, the 14-frame effect and 3-frame hit keyed by the element art index, the five Use sounds | A | WZ 122.img/1221009 |
+| Blast cooldown and targeting (#313) | 2.0 s cooldown (the balance pass owns it), `weapon_reach` with `min_targets` 1 (nearest mob in the weapon's swing), 0.84 s action hold, element-keyed art, index 0 without a Charge, the five sounds played in cast order (`use_cycle`, no RNG) | C | Spec #308 |
+| Blast rarity bonuses (#313) | Rare Mastery damage x1.2, Epic Booster cooldown x0.88, Unique Final Attack +1 hit, Legendary Final Attack plus damage x1.2 (shares the Unique's counter); repeats x0.8 | C | Spec #308 |
+| Paladin Monster Magnet (#313) | `monster_magnet_paladin`: range 200 -> 400 px, prop 48 -> 95%, `mobCount` 6, 18-frame effect, Use sound (UOL to Hero's); equal to Hero's 1121001 level by level | A | WZ 122.img/1221001 |
+| Paladin Magnet cooldown, targeting and bonuses (#313) | 10 s cooldown, the three-mob admission gate (any mob in range counts), `alert2`, 0.6 s hold, no damage, the `pull` block of 7.35; Reach `range` x1.2, Bigger Grab +2 targets, Booster cooldown x0.75, Legendary Booster plus +2 targets | C | Spec #308, Hero H7 #303 |
+| Charged Blow form sub-skill (#314, spec #308) | `skills/paladin.json` `charged_blow`: `slot form_sub`, `form_sub_of` the four Charges (all four parents are defined), `cast {range_around, min_targets 3}`, `cooldown` 3.0 (not consulted: the Charge's `subs` interval sets the pace), `ranks` 4, 8, 12, 15, 19, 23, 27, 30 (the standard table written out), `action weapon` with `action_time` 0.6, no rarity list. The WZ numbers (damage, prop, time, range, mobCount, hpCon) are tier A | C | Spec #308 (Skill definitions) |
+| Fire, Ice and Thunder Charge numbers (#315, spec #308) | `skills/paladin.json` `fire_charge` / `ice_charge` / `thunder_charge`: `form.duration` 12.0, `cooldown` 18.0, `cast.mob_within` 400, `exclusive_group paladin_charge`, `subs` charged_blow `first_after` 1.0 / `interval` 3.0, `action_time` 0.9; rarity Mastery `form_power` +0.10, Booster cooldown x0.88, Advanced Charge `damage` x1.3 and `form_time` x1.25, Legendary + `damage` x1.2 (WZ `damage` per rank, `alert4`, the 15-frame effect and the twin ids are tier A) | C | Spec #308 (P-1, P-2, P-4, P-9) |
+| Element art index table (#314, spec #308) | `PlayerForms.ART_INDEX` and the `{art}` path token: none 0, ice 1, fire 2, lightning 3, holy 5 (tier A, P1 #309, read from the pixels; the spec's order was wrong); the token fill is ours | C | Spec #308 (Element art) |
+| Holy Charge Form (#316, spec #308) | `skills/paladin.json` `holy_charge`: the shape of the other Charges (group `paladin_charge`, 12 s, 18 s cooldown, `mob_within` 400, element `h`, Charged Blow after 1.0 s then every 3.0 s, `alert4` for 0.9 s, the Rare/Epic/Unique/Legendary lists of #315: `form_power` +0.10, cooldown x0.88, `damage` x1.3 and `form_time` x1.25, the same plus `damage` x1.2); WZ damage 106 -> 140 % at the level-20 table (rank 1 = level 3) is tier A, the 17-frame effect and the Use sound are tier A | C | Spec #308 (P-1, P-2, P-4, P-9) |
+| Heaven's Hammer sub-skill (#316, spec #308) | `skills/paladin.json` `heavens_hammer`: `slot form_sub`, `form_sub_of ["holy_charge"]`, listed in Holy's `subs` with `first_after` 0.5 and `once true`, `cast box`, `ranks` 4, 8, 12, 15, 19, 23, 27, 30 (P-5), `pending {delay 1.56, follow_player true}`, `action sanctuary` for 3.3 s, `hit` empty (its `hit/0` is a red HP-bar graphic), `cooldown` 18 (not consulted). Box, `mobCount` 15, damage 420 -> 900 %, `elemAttr h` and the sounds are tier A; 1.56 s = frame 13 of the 22-frame 120 ms effect and body frame `stabOF` 2, both read by P1 #309 | C | Spec #308 (Skill definitions), P1 #309 |
+| Paladin Rush copies Hero's (#312, spec #308 D1): cooldown, knock-back, hold-to-repeat, bot rule and the shared rank rule | `skills/paladin.json` `rush_paladin` equals `rush_hero` in every field but ids, art and sound (tested); WZ 1221007 equals 1121006 at every level (tier A, P1 #309) | C | Spec #308 D1 |
+| Form arbitration (#311) | `PlayerForms.PREFERRED_RADIUS` 400 px; sum nearby element multipliers, ready-order tie break; independent of per-form admission radius | C | Spec #308 M2 |
+
+### Bishop (spec #372) constants
+
+One heading for the whole spec; each ticket's table below carries its own bold label (BS2 pool and data, BS5 core bolts, BS4 Heal, BS6 Genesis and Big Bang, BS3 revive seam, BS7 dragons, BS9 tooling, BS8 Resurrection). Section numbers 7.80-7.85 follow the order the tickets landed: 7.82 is the core bolts (BS5), 7.83 Heal (BS4), 7.84 the dragons (BS7), 7.85 Genesis and Big Bang (BS6).
+
+**Bishop BS2 constants (spec #372, BS2 #374)**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Line discovery | `bishop` discovered from `jobs/bishop.json` and `skills/bishop.json` after the registered classes; no `CLASS_LINES` edit | C |
+| Starting skill | `holy_arrow` in active slot 1 every round (D2) | C |
+| Mobility skill | `teleport_cleric` (2301001) on the skill key, outside the slots (D1) | C |
+| Pool | ten keys of the 200/230/231/232 books, Energy Bolt out, Holy Symbol out (7.80) | C |
+| Weapon families | `wand`, `staff` | C |
+| Creation weapon | 1372005, the Wooden Wand (F/P and I/L's) | C |
+| AP row | INT primary, LUK secondary, keyframes Lv1 -> 3, Lv200 -> 202 (the 212 curve) | C |
+| Bot card scores | new 100 / rank 74 for each pool key (the pool default, spelled out) | C |
+| Hub kit | F/P's scroll list, equipment list [1002001, 1382001, 1082002, 1040004], fallback 1382001; fixture `bishop_t2.json` (BS9) | C |
+| Playable | `true` since BS10 #382; `default_job` stays 212 | C |
+| Holy Symbol | the common `passive_exp` (9101002), offered to a 232 like any job; no Bishop card | C |
+
+**Bishop BS5 constants (spec #372, BS5 #377)**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Holy Arrow cooldown | 0.4 s (the legacy 1.0 s x0.4, the Fire Arrow pace); default eight-rank table instead of the legacy 30 ranks | C |
+| Holy Arrow flight | range 480, speed 520, radius 12, one shot, no pierce, `shoot1` held 0.8 s (unchanged from the legacy definition) | C |
+| Shining Ray cooldown / stance | 1.2 s (3 x0.4); `magic2` held 0.8 s | C |
+| Shining Ray targeting | `box` with `min_targets` 1; WZ `lt`/`rb` and `mobCount` 6 read as written | A (box, mobCount, mad, mastery, element h, action), C (cast rule) |
+| Angel Ray cooldown / flight | 1.0 s (2.5 x0.4); range 480, speed 520, radius 14, one shot, `shoot1` held 0.8 s; its own `ball/0` | C (numbers), A (mad, mastery, element h, ball) |
+| Teleport | `teleport_cleric` moved unchanged except `slot: mobility`: 0.3 s repeat, bot threat distance 60 px, 20 ranks | C (repeat, threat), A (range 130 to 150) |
+| Rarity bonuses | the three tables in 7.82 (damage x1.2, +1 pierce, +1 arrow, area x1.2, +2 targets, cooldown x0.88, +1 shot; Legendary = Unique + damage x1.2) | C |
+| Bonus names | Holy Power, Piercing Light, Twin Arrow, Wider Ray, Splitting Ray, Spell Booster, Twin Angel | C |
+| Card text | Shining Ray and Angel Ray descriptions and level lines are survivor-written (the WZ strings are not in the repo) | C |
+
+**Bishop BS4 constants (spec #372, BS4 #376)**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Heal port | `heal` in `skills/bishop.json`, default eight-rank table (levels 4/8/12/15/19/23/27/30); `heal_new` / `heal_rank` deleted | C (rank mapping, the default pool rule), A (`hp` 10 x level, box, art, sound) |
+| Heal rarity bonuses | Rare `restore` `heal_power` x1.2; Epic `mending` `heal_threshold` +0.15; Unique `smite` `damage` x1.5 and `area` x1.2; Legendary `smite` plus `heal_power` x1.2 (7.83) | C |
+| `heal_power` | modifier stat, `mul`, default 1.0, scales both recovery bounds | C |
+| `heal_threshold` | modifier stat, `add`, default 0, added to the data's 0.5; resolved value rounded to 1e-4 | C |
+| `Loadout.HEAL_THRESHOLD_CAP` | 0.95 | C |
+| Threshold comparison | exclusive: HP strictly below `max_hp x threshold` (a hit exactly at the threshold does not cast); one test shared by `has_target`, admission and resolution | C (the shipped behaviour, now pinned) |
+| Recovery only when injured | an undead strike cast above the threshold does not heal; the recovery roll is drawn regardless (same RNG stream) | C |
+| Strike `damage` | the strike's bounds x the skill's resolved damage multiplier (`status_damage_mult`; 1.0 with no card or passive) | C |
+| Normal Mastery on Heal | cooldown x0.95 (`damage: none`, #346) | C |
+| Heal's data | `heal {field hp, hp_threshold 0.5, recast_delay 2.0}`, `alert2` 0.8 s, every undead in the box, holy strike: unchanged from #57 | see the #57 rows |
+
+**Bishop BS6 constants (spec #372, BS6 #378)**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Genesis box, count, delay, art | box (-400,-350)..(400,250) at every level, `mobCount` 15, `hitAfter` 1800 ms (the pending delay), `tile` spacing 150 px, `effect` 22 and `effect0` 22 frames, `hit/0` 23 frames, `elemAttr h`, `action/0` `genesis`, Use/Hit sounds, `mad` 460 -> 670 | A |
+| Genesis cooldown | 6.0 s (Meteor Shower's 4.8 s, the higher damage ceiling) | C |
+| Genesis targeting and stance | auto-cast with at least one monster in the box (`min_targets` 1); `genesis` stance held 0.8 s (the body's three held frames last 2.7 s and are not played in full) | C |
+| Genesis tile columns | nine tiles at x = (k - 4) x 150 px around the caster and `effect0` at the caster (the spec's placement, kept after the screenshot check) | C |
+| Genesis `range` / `count` | 450 / 1, copies of Meteor Shower's (only the bot's reach reads them) | C |
+| Genesis rarity bonuses | Rare damage x1.2, Epic area x1.2, Unique +1 hit, Legendary Unique plus damage x1.2; repeat scale 0.8; names Holy Power, Wider Genesis, Echo | C |
+| Big Bang Bishop | the three-line template over `big_bang`; identity of the three Big Bangs in v83 data is tier A, the template mechanism tier C (7.63); every number inherited | A / C |
+
+### Buccaneer B2 constants (#414)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Buccaneer starting HP and HP growth (#414, spec #412 BU-20) | `jobs/buccaneer.json` `balance.player.ap["512"].hp` 600 and `balance.growth["512"].hp` 65: copied from Hero's 112 rows (orchestrator ruling, the melee survivability baseline of #346); the balance pass owns them; Spec #412 BU-20; #346 | C |
+| Buccaneer AP row (#414, spec #412 BU-20) | `balance.player.ap["512"]`: STR primary, DEX secondary, keyframes Lv1 -> 4, Lv200 -> 204, the Hero 112 row's shape; Spec #412 BU-20 | C |
+| Buccaneer pool and start (#414, spec #412 BU-1, BU-4, BU-14) | `jobs/buccaneer.json`: `starting_skill` flash_fist (slot 1), `mobility_skill` dash (outside the slots), eleven-key `skill_pool` (Flash Fist to Super Transformation, Energy Blast left out); Spec #412 BU-1, BU-4 | C |
+| Buccaneer creation weapon and drop families (#414, spec #412 BU-20) | `creation_weapon` 1482000, the Steel Knuckler (Item.wz, reqJob 16, the Pirate bit; no level requirement, #292); `weapon_families` [knuckle], so guns, swords, axes, bows, wands and claws never drop; the Warrior shield drops by its class bit and never for a Buccaneer; Spec #412 BU-20 | A (item facts), C (families) |
+| Energy Charge meter (#414, spec #412 BU-5) | `jobs/buccaneer.json` `meter`: id energy, max 10, one per landed non-finisher pool cast, `per_unit` damage 0.03 (+3% per held energy); Spec #412 BU-5 | C |
+| Energy Charge full-bar cue (#414, spec #412 BU-4) | `meter.cue`: `Skill.wz/511.img/skill/5110001/affected` and `Sound.wz/Skill.img/5110001/Use` (WZ paths, presentation only; B6 reads them); Spec #412 BU-4 | A |
+| Buccaneer not playable (#414) | `jobs/buccaneer.json` `playable` false until B11 flips it; `default_job` stays 212; Spec #412 | C |
+
+
+### Buccaneer B3 constants (#415)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Morph stance rule (#415, spec #412 BU-10) | while morphed, a stance named like a node of the morph img draws that node (`AvatarRenderer.morph_stance`); `info` is never a stance; any other stance keeps `MORPH_ACTIONS`, which shows the morph standing for an attack | C (rule), A (the node names, frames, delays and origins are Morph.wz's own) |
+| Morph on the form's `buff` block (#415, spec #412 BU-9) | no `morph` key in `PlayerForms.EFFECTS`: `buff.morph_field` already resolves the id; no new constant | C (design) |
+| Transform card text (#415) | "Transforms you for N s: defence +X, speed +Y, jump +Z." for a form with no element; equal `pdd` and `mdd` read as one "defence" number, unequal read as weapon and magic defence; zero stats are omitted | C (wording, presentation only) |
+
+### Buccaneer B4 constants (#416)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Ported Brawler cooldowns (#416, spec #412 BU-14, BU-19) | `skills/buccaneer.json`: Flash Fist 0.45 s, Somersault Kick 1.0 s, Backspin Blow 1.4 s, Double Uppercut 1.0 s, Corkscrew Blow 1.8 s | C |
+| Ported Brawler rank mapping (#416) | default level-20 table: ranks 1..8 read WZ levels 3, 5, 8, 10, 13, 15, 18, 20; no weapon gate | C |
+| Ported Brawler rarity bonuses (#416, spec #412) | Knuckler Mastery damage x1.2 (Rare, all five); Knuckler Booster cooldown x0.88 (Flash Fist Epic) / x0.8 (Backspin Blow, Corkscrew Blow Unique); Wide Kick area x1.2; Whirling Kick and Boring Screw +2 targets; Fist Flurry and Third Fist +1 hit; Stun Mastery critical chance +0.15; Legendary = the Unique plus damage x1.2 | C |
+| Corkscrew Blow charge (#416) | `displacement.field` `lt.x`: the charge equals the WZ box reach of the mapped level (110 .. 200 px) | A (WZ reach) / C (charges the full reach) |
+| Boxes, damage, `mobCount`, `attackCount`, stun `time` of the five (#416) | read from Skill.wz at the mapped level; unchanged from the first port | A |
+
+### Buccaneer B5 constants (#417)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Dash on the mobility slot (#417, spec #412 BU-13) | `skills/pirate.json` `dash.slot` "mobility": outside both slot tracks, learned at start, never a card (`dash_new` / `dash_rank` deleted); Spec #412 BU-13; Corsair #384 is intended to reuse it | C |
+| Dash rank rule (#417, spec #412 BU-13) | the shared `balance.mobility_rank_levels` (rank 1 at Lv1, rank N at about Lv 2N, clamped to the ten ranks); no `rank_levels["10"]`; Spec #412 BU-13; #296 H6 | C |
+| Dash cooldown (#417) | a manual buff's cooldown is its running duration (4 -> 20 s by rank), the existing manual-buff rule; 7.15 (#188); 7.90 | C |
+
+
+### Buccaneer B6 constants (#418)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Energy Drain finisher block (#418, spec #412 BU-4, BU-5) | `skills/buccaneer.json` `energy_drain.meter`: min 10 (a full bar), spend all, `damage_per_unit` 0.12 (a full spend is x2.2 on top of the held +30%), unit "energy" | C |
+| Energy Drain cast and cadence (#418, spec #412 BU-19) | cast rule `box` on one target, 2.0 s cooldown (above the meter's 1.0 s floor so a Booster shows), `edrain` held 0.6 s; no weapon gate (the job's drops are knuckles already) | C |
+| Energy Drain numbers (#418) | damage 275 to 360%, heal `x` 12 to 20%, `mobCount` 1, box `lt (-200,-100)` `rb (0,0)`, `edrain` action, effect and `hit/0` art, Use and Hit sounds | A (Skill.wz 5111004, Sound.wz) |
+| Energy Drain heal rule (#418, spec #412 BU-15) | `damage_heal {x, half Max HP, target Max HP}` = 7.25's listener, whole HP truncated | C (the cap is the v83 text of Drain) |
+| Energy Drain rarity bonuses (#418, spec #412) | Rare damage x1.2, Epic cooldown x0.88, Unique `meter_keep` +2, Legendary both; repeat scale 0.8 | C |
+| Meter `unit` word (#418, spec #412 BU-5) | optional `meter.unit` on a finisher replaces "orbs" in `SkillText` and the Keeps card line; default "orbs" | C (presentation) |
+| Full-bar cue (#418, spec #412 BU-4) | `MeterCue`: fire once when `meter_changed` reaches `max`, re-arm when it drops below; the whole `affected` node (180 ms blank, ten 90 ms frames) and the Use sound; flipped with the facing; `meter_cue.png` playtest shot 0.45 s after | C (behaviour), A (the art and sound paths) |
+
+### Buccaneer B7 constants (#419)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Energy Orb damage, `mobCount`, `range` (#419, BU-16) | Skill.wz 5121002 at levels 4 .. 30: 360 .. 900%, 2 .. 6 mobs, `range` 200, no box | A |
+| Energy Orb cast rule (#419, BU-16) | `range_around` with `min_targets 2`: a nova around the body, a lone monster does not admit it | C (reading of "monsters around it are also affected") |
+| Energy Orb finisher block (#419, BU-4, BU-5) | `meter {role finisher, min 10, spend all, damage_per_unit 0.12, unit energy}`: Drain's block | C |
+| Energy Orb cadence (#419, BU-19) | cooldown 1.0 s (the finisher floor), `eorb` held 0.8 s; no weapon gate | C |
+| Energy Orb art placement (#419, BU-16, BC1) | `effect` at the caster following the avatar, `effect0` at the cast position behind it (`cast_visuals`, `facing`), `hit/0` on each target, `ball` not drawn | C (placement; A for the nodes and sounds) |
+| Arbitration with Drain (#419, BU-4) | the existing `PlayerMeter.preferred`: scheduled single-target boss, else the larger eligible target count, no new constant | C (H3 rule) |
+| Energy Orb rarity bonuses (#419) | Rare damage x1.2, Epic Wide Orb area x1.2 (200 -> 240 px), Unique `meter_keep` +2, Legendary both with damage x1.2; repeat scale 0.8 | C |
+
+### Buccaneer B8 constants (#420)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Barrage damage, `attackCount` 6, no box / `mobCount` (#420, BU-18) | read from Skill.wz levels 4, 8, 12, 15, 19, 23, 27, 30 (106 .. 230%) | A |
+| Barrage rule, cooldown, hold (#420, BU-18, BU-19) | `weapon_reach` (one monster in the knuckle's reach), cooldown 1.2 s, `fist` held 0.9 s, all six lines at the cast | C |
+| Barrage hit art (#420) | `hit/0` (four jabs) on line 1, `hit0/0` on line 5, `hit1/0` on line 6, none on the rest | B reading of the WZ sets (BC1) |
+| Dragon Strike damage, `mobCount`, box (#420, BU-17) | Skill.wz levels 4 .. 30: 320 .. 810%, 4 .. 6 mobs, `lt (-400,-100)` `rb (25,20)` | A |
+| Dragon Strike impact (#420, orchestrator ruling) | first target 0.84 s after the cast, each later target +0.12 s (`pending.delay`, `pending.stagger`); WZ `hit/N/hitAfter` 840 + 120 N ms | A (timing) / C (applying it as a per-target delay) |
+| Dragon Strike box fixed at the cast, mirrored with the facing (#420) | `pending.oriented`; targets queried at the first impact | C |
+| Dragon Strike cooldown, hold, `min_targets` (#420, BU-19) | 4.8 s (Meteor Shower's), `dragonstrike` held 0.8 s, one monster in the strip | C |
+| Dragon Strike art placement (#420) | `tile/0..2` at x = 0, -200, -400 mirrored with the facing; `hit/N` by target index mod 3, base on the feet, started 0.84 s in; `tile/3` not drawn | C (placement, BC1 contact sheets) |
+| `bot.reach` (#420, BU-21) | `"bot": {"reach": N}` replaces the geometric reach in `SkillRunner.reach_of`; Dragon Strike 0 | C |
+| Rarity bonuses (#420) | Barrage: Knuckler Mastery damage x1.2, Knuckler Booster cooldown x0.88, Endless Barrage +2 hits, Legendary + damage x1.2; Dragon Strike: Knuckler Mastery damage x1.2, Wide Dragon area x1.2, Roaring Dragon +1 hit, Legendary + damage x1.2 | C |
+| Weapon stance fallback `swingTF` -> `swingT3` (#420) | `AvatarLayers.STANCE_FALLBACKS`, weapons only, same frame index; no knuckle has `swingTF` | C |
+
+### Buccaneer B9 constants (#421)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Transformation window and cooldown (#421, spec #412 BU-7) | `form.duration` 10 s, `cooldown` 14 s from the cast (the WZ `time` 120 s and `cooltime` 360 to 530 s are session-scale and unused); exclusive group `buccaneer_transformation` | C |
+| Transformation admission and stance (#421) | `cast {rule form, mob_within 400}`; `alert2` held 0.6 s (no WZ action); no cast art | C |
+| Transformation stat package (#421, spec #412 BU-8) | morph 1000, `pdd` = `mdd` 6 / 20 / 40 at rank 1 / 4 / 8, `speed` 40, `jump` 20, no attack bonus; `str` unused | A (Skill.wz 5111005) / C (which stats the buff feeds) |
+| Transformation rarity bonuses (#421) | Transformation Mastery `damage` x1.2 (on the subs), Booster cooldown x0.88, Lasting Transformation `form_time` x1.25, Legendary Lasting plus `damage` x1.2; repeat scale 0.8 | C |
+| Shockwave schedule (#421, spec #412 BU-7) | `subs {first_after 1.0, interval 3.0}`, `min_targets 1`, 0.8 s `shockwave` hold, no cooldown use, no card | C |
+| Shockwave numbers (#421) | damage 310 to 700%, `mobCount` 4 to 6 at the mapped levels of the level-30 table, box `lt (-330,-140)` `rb (0,20)`, effect art `effect`, `effect0` to `effect3` (5 x 8 frames), `hit/0` 5 frames, Use and Hit sounds | A (Skill.wz 5111006, Sound.wz) |
+| Shockwave strike timing (#421, orchestrator ruling) | `pending.delay` 1.38 s = the first eruption of the art's blank lead-in; one wave, one impact; `pending.oriented` fixes the strip's side at the cast | C (delay chosen to meet the art), A (the 1380 ms blank) |
+| Shockwave art placement (#421) | five `cast_visuals` at x 0 with `facing` (flipped for a right-facing caster), played at the cast position; each ripple's own origin spreads the wave 89 to 319 px | C (placement), A (origins, delays) |
+
+### Buccaneer B10 constants (#422)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Super Transformation window and cooldown (#422, spec #412 BU-7) | `form.duration` 15 s, `cooldown` 24 s from the cast (the WZ `time` 120 s and `cooltime` 240 to 410 s are session-scale and unused); exclusive group `buccaneer_transformation` | C |
+| Super admission and stance (#422) | `cast {rule form, mob_within 400}`; `alert2` held 0.6 s; no cast art; Use sound path `5121003/Use` (a UOL to Transformation's) | C |
+| Super stat package (#422, BU-8) | morph 1001, `pdd` = `mdd` 43 / 50 / 60 at rank 1 / 4 / 8, `speed` 40, `jump` 20, no attack bonus (String text says att., the node holds pdd/mdd) | A (Skill.wz 5121003) / C (which stats the buff feeds) |
+| Super sub schedule (#422, BU-7) | Snatch `first_after` 0.5 s / interval 6.0 s; Shockwave 1.0 / 3.0; Demolition 2.0 / 5.0 | C |
+| Super rarity bonuses (#422) | Mastery `damage` x1.2 (on the subs), Booster cooldown x0.88, Time Leap `form_time` x1.25, Legendary Time Leap plus `damage` x1.2; repeat scale 0.8 | C |
+| Demolition numbers (#422) | damage 90 to 400%, `attackCount` 8, `mobCount` 1, `time` 1 (stun), box `lt (-300,-150)` `rb (-20,15)`, `demolition` action, 23-frame `hit/0`, Use and Hit sounds | A (Skill.wz 5121004, Sound.wz) |
+| Demolition schedule, stance and art (#422) | interval 5.0 s (above), `demolition` held 1.0 s of 3.12 s, `hit/0` shown once on line 1 (`hit_lines`), `effect` stub not drawn, no pending delay | C |
+| Stun on Demolition and Snatch (#422, BU-11) | `on_hit stun`, `duration_field time` (1 s), no chance field, no RNG draw, bosses resist | C (reading), A (no `prop` in the node) |
+| Snatch numbers (#422) | damage 210 to 600%, `mobCount` 2 to 6, `time` 1, box `lt (-300,-100)` `rb (-50,15)`, `snatch` action, 10-frame `effect`, 3-frame `hit/0`, Use and Hit sounds | A (Skill.wz 5121005, Sound.wz) |
+| Snatch pull (#422, BU-12) | `pull {range_field range, min_gap 60}`, no chance field (always), `range` 300 = the box's far edge (the node has no range); before the damage; the pull and the damage choose their own sets | C (A for the 300 px edge) |
+| Snatch schedule and stance (#422) | interval 6.0 s (above), `snatch` held 0.8 s of 0.99 s | C |
+| Morph blank-frame hold (#422) | a 1 x 1 morph frame holds the last drawn frame of its action (Demolition frame 3, 1.62 s); a blank first frame draws nothing; timing unchanged | C |
+| `FootholdMap.slide_along` guard (#422) | a foothold index the map lacks returns zero horizontal movement; MobSwarm pull/knockback reject stale supporting footholds before applying any coordinates (no sim effect on a valid map; the rarity audit swaps the map under live mobs) | C |
+
+### Buccaneer B11 constants (#423)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Buccaneer is playable (#423, spec #412 BU-20, BU-21) | `jobs/buccaneer.json` `playable` true; `default_job` stays 212 (the pin in `survivor/jobs.json`); the Job page lists it last (canonical order 112, 212, 222, 512) with the Steel Knuckler box ("Steel Knuckler · WATK 18 · 0.75s") | C |
+| 512 Job page row (#423) | the I/L layout unchanged: left-aligned row, plate in every Button state, the blurb repeats the weapon box; Up/Down clamp at the first and last rows | C |
+| Bot card scores (#423) | `jobs/buccaneer.json` `balance.bot.card_scores`: `<key>_new` 100 and `<key>_rank` 74 for the eleven pool keys (the numbers the default pool scorer gives; written out so Energy Drain, Energy Orb, both forms and Dragon Strike are named, not defaulted). H9 #305 had already stopped `BotInput.card_score` scoring a meter-gated skill 0; no engine change | C |
+| Bot engagement (#423) | no change: finishers, forms and buffs count no reach and Dragon Strike carries `bot.reach 0` (B8), so a Buccaneer with the whole pool in its loadout walks toward a mob (the longest counted reach is under `engage.kite_reach` 220); Dash is pressed by its `manual` rule (low HP with a mob close, or surrounded) and potions are drunk as before | C |
+| Hub kit (#423) | `jobs/buccaneer.json` `hub_kit`: fixture `buccaneer_t2.json`; scrolls 2044800-04 (knuckle ATT 100/60/10, dark 70, dark 30) and 2044805, 07, 09, 06, 08 (ACC, same rates), read from `scrolls/pirate.json`, 10 per stack; spare 1002001, 1482001, 1082002, 1040010 (the cache holds no armour with the Pirate bit, so the hat, gloves and top are the generic ones); `fallback_item` 1482006 (the Lv40 knuckle the flow driver's `redesign` wears when no drop fits) | C (test aid) |
+| Buccaneer fixture (#423) | `game/tests/fixtures/characters/buccaneer_t2.json`: job 512, tier 2, from a seed-1 invulnerable bot Henesys clear (`character_fixture.gd --job=512 --god`); it wears a knuckle (1482003). The `_doc` records seed, policy, revision and invulnerability | C (test aid) |
+| Buccaneer baseline oracle (#423) | `test_buccaneer_baseline`: seed 1, 14400 ticks, bot, god, synthetic books (every pool skill defined) plus a synthetic knuckle afterimage; digest over the initial player state and the event bytes; asserts casts > 0, at least three distinct skills and an Energy Drain cast | C (test aid) |
+
+### Buccaneer B12 QA provenance (#424)
+
+No gameplay constant changed. The BC2–BC11 tables above remain authoritative; canonical WZ values stay unmodified.
+The QA observer counts `cast` events by skill and sums fixed post-tick `morph_id()` occupancy at 1/60 s per advancing
+tick (tier C measurement convention, including truncated windows). These are measurements, not nominal-duration
+estimates. Durable stationary crowds and invulnerability in disposable visual probes are diagnostic only.
+
+### Hero H3 meter constants (#299)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Combo capacity, gain | 10; +1 per landed non-finisher pool cast | tier C survivor adaptation; tier A source: Combo Attack/Advanced Combo counter descriptions |
+| Held-unit damage bonus | +2% per orb | tier C, #296; H2 job data |
+| Finisher gate / spend multiplier | 5; all minus meter_keep; +10% per spent orb | tier C, #296; H8 skill data |
+| Finisher repeat floor / arbitration | 1 s; single-target scheduled boss, else most targets | tier C, #296; shared admission |
+| Meter HUD geometry | origin (244,20), 12 px pitch, 4 px radius, 10 px orb image, 1 px border | tier C presentation layout; original orb pixels tier A |
+
+Review #296 clarification: finisher cooldowns have a strict 1.0-second floor after tick overshoot (tier C,
+spec #296); ordinary meter gates use normal cooldown and cast order. `meter.spend` accepts `"all"` or an integer,
+and gain exclusion compares the skill’s declared role. Rush explicitly presents its action while walking or airborne
+without changing movement physics. Pull admission counts only grounded non-boss targets outside its configured floor.
+Warrior bot equipment weights now explicitly name ancestor 100 with the same values formerly inherited from 0
+(tier C: existing physical baseline, unchanged). Hero AP and bot score values live in jobs/hero.json’s balance block.
+
+The summon art probe accepts `--skill`, `--job` and `--status` to reuse the same diagnostic for later summons.
+Ice Demon intentionally leaves its `ball` empty: four imported ball nodes remain unused (I7); the forward-box hit/effect
+presentation is the shipped design. The weapon-only `stabO2` fallback leaves Hero and F/P art unchanged whenever
+`stabO2` exists, covered by `test_a_weapon_with_stabO2_keeps_its_own_art`.
+### Spear Crusher constants (#353)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Damage, attackCount, mobCount, box (`lt`, `rb` (-16, 0)) | WZ level of the rank | tier A: Skill.wz 1311001 (twin 1311002 equal) |
+| Rank table | `[4, 8, 12, 15, 23, 25, 27, 30]` | tier C: DK-7, skips the level-16-20 mobCount dip |
+| Stance, per level | WZ `action`: burster1 (levels 1-15), burster2 (16-30) | tier A: the level node |
+| Stance hold | 0.9 s (burster1), 1.05 s (burster2) | tier A: the body action's frame delays (D1) |
+| Cooldown | 0.6 s | tier C: DK-9 first-pass cadence |
+| Admission | one mob in the box (`min_targets 1`), nearest first | tier C |
+| `effectK` = K-th dragon thrust, wings and rings always | `cast_visuals` with `min_attack_count` K | tier B: D1 contact sheet and timings |
+| Extra hit also shows its thrust | `min_attack_count` compares the resolved `attack_count` | tier C |
+| Rarity bonuses | Mastery damage x1.2, Booster cooldown x0.88, Final Attack +1 hit, Legendary + damage x1.2 | tier C: spec #348 |
+| Numeric-string frame delay | read as milliseconds | tier A: the value is the WZ's; reading it is ours |
+
+### Dark Knight QA presentation correction (#359)
+
+| Constant / rule | Value | Tier | Source |
+|---|---|---|---|
+| Dragon Fury trail timing | `swingP1` frame 2 begins after 300 + 150 ms = 0.45 s; play `afterimage/spear/swingP1/2` or `afterimage/poleArm/swingP1/2` from the art twin | A | Character.wz body and Skill.wz 1311003/1311004, D1 |
+| Trail anchoring and fallback | Follows the caster, mirrored with facing; unsupported weapon families use the spear trail | C | Existing cast-visual convention; skills remain weapon-independent |
+
+### Dark Knight Rush and Monster Magnet constants (#356)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Rush damage, `mobCount`, box, rank table, art, Use sound | Skill.wz 1321003 (1121006's table, equal in every level row) | tier A: D1 |
+| Rush body action | `rush` (0.6 s, 100 + 500 ms) | tier A: the node's `action`; the stance draws the weapon (D1) |
+| Rush cooldown 2.0 s, knock-back 80 px, bot dash rule (60 px, every 3 s) | copied from `rush_hero` | tier C: Hero's H6 values, DK-14 |
+| Magnet range, chance, mobCount, rank table, art, Use sound | Skill.wz 1321001 | tier A: D1 |
+| Magnet cooldown | 4 s | tier C: Hero's tuned value (#346), copied (DK-14) |
+| Magnet rarity lists | Hero's: Reach x1.2, +2 targets, Booster x0.75, Legendary Booster + 2 | tier C: Hero's #303 bonuses, copied |
+
+### Beholder constants (#357)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Aura `hp` and `x`, Hex `pdd`/`mdd`/`acc`/`eva`/`pad`/`time`/`x` at the eight sub levels | canonical, as is | tier A: Skill.wz 1320008 / 1320009 (D1) |
+| Hex stat unlock levels | pdd 1, mdd 6, acc 11, eva 16, pad 21: a stat absent from the level is not carried | tier A: the level nodes |
+| `rank_levels["10"]` | `[2, 3, 4, 5, 7, 8, 9, 10]`, ceil(rank x 10 / 8) with rank 1 = 2 | tier C: ADR 0006 #287, DK-11 |
+| Sub-skill `ranks` | `[4, 7, 10, 13, 16, 19, 22, 25]` | tier C: DK-4 |
+| Life | 60 s (`buff.duration`) instead of the WZ `time` (720-1200 s) | tier C: DK-6 |
+| Cooldown | 45 s, counted from the cast | tier C: DK-6 |
+| First pulses | Aura one interval after the cast, Hex 3 s after it | tier C: DK-6 |
+| Cast stance | `alert2`, held 0.6 s | tier A: the body action's frames (D1) |
+| Follow settings | speed 180, distance 60, teleport at 600 (Elquines') | tier C |
+| WZ stat names onto the player | `eva` -> `avoid`, `pad` -> `watk` | tier C: ours |
+| Animations | `skill1` Aura, `skill2`-`skill6` the Hex runes in unlock order, `affected` on the knight | tier B: D1 contact sheet |
+| Rarity bonuses | Rare heal x1.3, Epic pulses x0.75 sooner, Unique +1 Beholder, Legendary + heal x1.3 | tier C: spec #348 |
+
+### HP-risk constants (#351)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Percentage cost, recoil rounding | floor(field / 100 x max HP), floor(field / 100 x damage dealt) | tier C: ours; the percentages themselves are WZ `x` fields (Dragon Roar, Sacrifice), tier A |
+| Never lethal | a cost waits at HP <= cost; a recoil stops at 1 HP | tier C: the existing `hpCon` rule generalised (Slash Blast) |
+| HP gate comparison | strictly above `above` x max HP, exact HP | tier C; the 50% threshold itself is Dragon Roar's description text, tier A |
+| `low_hp_damage.at_or_below` | 0.5 of max HP, inclusive | tier A: Berserk (1320006) level 30 `x` 50 |
+| Low-HP bonus form | adds to the damage multiplier, read before the cost | tier C; the value of a bonus is data (DK-3) |
+| Recoil counts | instant lines resolved inside the cast call; not shots in flight | tier C |
+| `self_damage` modifier | multiplies the recoil percentage, never the cap | tier C |
+| `hp_spent` | emitted for every paid cost (flat too) and recoil, never at 0 | tier C: presentation event |
+| Red `hp_spent` number | NoRed digit set tinted (HP_SPENT) | tier C: presentation assignment |
+
+### Dragon Fury and Sacrifice constants (#354)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Fury reach box | `lt (-241,-81) rb (-16,31)` (the skill's `afterimage/spear/swingP1`; the pole arm's is identical) | tier A: Skill.wz 1311003/1311004 (the node has no `lt`/`rb`); using it as the cast box is DK-8, tier C |
+| Fury targets, damage, HP cost | `mobCount` 6; 110 -> 250%; flat `hpCon` 20 -> 30 at the eight mapped levels | tier A: Skill.wz 1311003, levels 4 8 12 15 19 23 27 30 |
+| Fury cooldown, stance hold | 1.2 s, 0.8 s (`swingP1` body delays 300 + 150 + 350 ms) | tier C: DK-9 first-pass cadence; the hold is the body action's own time |
+| Sacrifice damage, recoil percent | 220 -> 350%; `x` 18 -> 5 (% of the damage dealt) | tier A: Skill.wz 1311005 (String.wz agrees) |
+| Sacrifice recoil cap, rounding | 10% of max HP, `floor`, never the last HP | tier C: DK-1 |
+| Sacrifice reach, stance, cooldown | the held weapon's envelope, its first swing stance, 2.0 s | tier C: DK-9; the node names no `action` |
+| Sacrifice hit spark | the held weapon's (`hit_from_weapon`) | tier C: the node has no `hit` art |
+| Sacrifice defence-disable | dropped | tier C: no mob debuff exists (Armor Crash) |
+| Rarity bonuses | Mastery x1.2, Wide Fury +2 targets, Booster cooldown x0.8, Achilles recoil x0.6, Berserk +50% at or below half HP | tier C: spec #348 "Rarity bonuses"; Berserk's threshold is tier A (`low_hp_damage.at_or_below`) |
+
+### Dragon Roar constants (#355)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Damage, `mobCount`, `lt`/`rb` box, `x`, `y`, `alert3`, effect (18 x 80 ms), hit (3 frames) | Skill.wz 1311006 as read at levels 4 8 12 15 19 23 27 30 | tier A: verified in v83 data (D1 #349) |
+| HP gate | current HP strictly above 50 % of max | tier A: the String.wz text "works only when more than 50% of HP is left"; the strict comparison is tier C (7.66) |
+| `x` read as the cost in percent of max HP, `y` as the stun seconds | 56 -> 30 %, 4 -> 2 s | tier A reading: String.wz level 1 "59% HP ... Stun for 4 Seconds" matches `x` 59 and `y` 4 exactly (DK-2) |
+| Stun always lands on non-bosses | no `chance_field`, no RNG draw | tier A (the node has no `prop`); bosses never stunned: the existing rule |
+| Cooldown | 10 s | tier C: spec DK-9 first-pass cadence |
+| `min_targets` | 3 | tier C: Shout's admission rule |
+| Cast time | `action_time` 0.6 s (the body action alert3 runs 1.5 s) | tier C: Shout's hold |
+| Rarity bonuses | Mastery damage x1.2, Super Dragon Roar area x1.2, Dragon Blood `hp_cost` x0.75, Legendary Dragon Blood + damage x1.2 | tier C: spec #348 table; Dragon Blood is the name of the lineage's buff 1311008 |
+
+Review #348 clarification: the bot ignores HP-paying skills whose reach is at least `kite_reach`;
+shorter HP-paying melee attacks remain in its reach profile (preserving Hero). Low-HP damage thresholds
+are definition data (`low_hp_damage.at_or_below`, Dark Knight 0.5, tier A: Berserk level-30 x).
+Numeric-string delay parsing also affects Pig/Ribbon Pig and seven `dungeon.img` map objects; this is shared rendering behavior.
+
+
+
+### Bowmaster constants (#334)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Bowmaster pool (ten actives) | `arrow_blow`, `bow_double_shot`, `arrow_bomb`, `strafe`, `inferno`, `arrow_rain`, `dragons_breath`, `hurricane`, `silver_hawk`, `phoenix`, from the 300/310/311/312 books | tier C pool choice, spec #332 (WZ ids tier A) |
+| Starting active | `arrow_blow` (3001004), learned at Lv1 in slot 1 | tier C, spec #332 |
+| Mobility skill | none: the job entry has no `mobility_skill` key | tier C, spec #332 ruling D1 |
+| Weapon families | `["bow"]` (145xxxx); crossbows are Marksman's | tier C, spec #332; WeaponInfo family tier A |
+| Creation weapon | War Bow 1452002 (reqJob 4, the Bowman bit), wearable at creation | tier A item fact (cache); the choice is tier C, spec #332 |
+| AP row `balance.player.ap["312"]` | DEX primary, STR secondary, keyframes Lv1 -> 6, Lv30 -> 35, Lv34 -> 35, Lv35 -> 40, Lv70 -> 75 (the Bowman 300 row verbatim) | tier C: Bowman gear pattern, spec #332; no new tuning |
+| `playable` | true since B13 #345; `default_job` stays 212 | tier C, spec #332 / #298 pin |
+
+### Bowmaster constants (#335)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Ammo schedule key | the exact job id (`job`), not a branch; no lineage walk; a `branch` key is a data error | tier C, ruling D9 (spec #332) |
+| Ammo schedule level | the round's level (Lv1 every round); the family start covers Lv1 | tier C, ruling D9 |
+| Bowmaster arrows (312, bow) | Lv15 Bronze 2060001, Lv30 Steel 2060002, Lv45 Red 2060003 | tier C levels (spec #332 table); tier A item ids and `incPAD` +1/+2/+4 (`Item.wz`) |
+| Marksman arrows (322, crossbow) | Lv15 Bronze 2061001, Lv30 Steel 2061002, Lv45 Blue 2061003 | tier C levels; tier A ids and `incPAD` +1/+2/+4 |
+| Night Lord stars (412, claw) | Lv10 Wolbi 2070001, Lv20 Mokbi 2070002, Lv30 Kumbi 2070003, Lv40 Tobi 2070004, Lv50 Steely 2070005 (`incPAD` +17..+25) | tier C levels; tier A ids and `incPAD` |
+| Corsair bullets (522, gun) | Lv18 Split 2330001, Lv35 Mighty 2330002 (`incPAD` +12, +14) | tier C levels; tier A ids and `incPAD` |
+| Ilbi Throwing-Stars 2070006, Vital Bullet 2330003 | not scheduled | tier C: left to the specs that own those jobs |
+
+### Bowmaster constants (#336)
+
+| Constant / rule | Tier | Source |
+|---|---|---|
+| Burst defaults: wind-up 0 s, retention overshoot 0 px, retarget true; negative timing/overshoot clamp to 0; zero interval releases all due arrows in order | C | #332 automatic held-key adaptation; optional overshoot makes retention explicit without adding reach to acquisition |
+| Invalid target without replacement drops remaining shots, no cooldown refund; Hidden/death cancel; no reused-target spread on burst shots | C | #332 / #336 survivor burst policy |
+
+### Bowmaster constants (#337)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Burn status index | `MobSwarm.BURN` = 7, appended after `FIRE_WEAK` (6, Ice/Lightning #322; the orchestrator's merge ruling, burn moved from 6); `STATUS_COUNT` 8 | C |
+| Burn element | `F`: fire-immune, strong and neutral kinds (Mob.wz digit 1, 2, 4) reject it; bosses reject it | C (the v83 server reference rule for statuses) |
+| Burn pulse interval | `POISON_INTERVAL`, 1.0 s, shared with poison; first pulse one full interval after the first application, the pulse due at expiry lands | C |
+| Burn pulse size | `round(mean(damage_min, damage_max) x x/100 x burn_damage)`, the cast's resolved bounds before skill%; `x` is Inferno's undocumented burn share (21 -> 50) | C |
+| Burn is non-lethal | each pulse leaves at least 1 HP, never stuns, pushes or flinches; no RNG | C |
+| Burn refresh | replaces timer and snapshot, keeps the running pulse clock, never stacks | C |
+| Burn modifier | `burn_damage` (mul, default 1.0) | C |
+| Burn tint | `MobRenderer.BURN_TINT` Color(1.0, 0.62, 0.30) when no cue art is configured | C |
+| Burn cue | repeating animation on the body top, art path set by the skill (`on_hit.cue`) | C |
+
+#291 tier C provenance: summon auto-admission, replacement groups, nearest/boss-first two-sided acquisition,
+current-body impact selection, follow/snap model and the numeric first-pass Elquines settings are in 7.32.
+Missing/zero summon frame delays use the existing 100 ms presentation default (tier C); WZ delays are otherwise unchanged.
+
+### Bowmaster constants (#338)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Follower damage W.Att | the level's `pad` (`summon.watk_field`) instead of the character's weapon attack | tier C reading of v83 "attack +23" / "basic attack 305"; `pad` itself tier A |
+| Literal `on_hit.duration` | seconds, beats `duration_field` | tier C (Silver Hawk's `time` is its lifetime) |
+| `summon.settle` | opt-in, default off: after the attack animation the follower plays its move/stand node and keeps following until the interval ends | tier C |
+| Flyer spawn / trailing height | `hover` px above the trailing point; spawn at that height | tier C |
+| Attack box anchor of a flyer | feet-relative (the trailing point on the ground), not the flyer | tier C |
+| `info/effect` strike art | played at the damage impact (`attackAfter`) on each struck monster; `effectAfter` not modelled | tier C; the nodes are tier A |
+| `Summon` sound | plays at each follower spawn when `sounds.summon` is listed | tier C (no sound in the v83 client was verified to play at spawn) |
+
+### Bowmaster constants (#339)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `cast.focus` on the nearest rule | admission wants one target, so every arrow of the volley reuses it | tier C, spec #332 |
+| Arrow Blow | cooldown 1.0 s, range 300 px, 600 px/s, radius 8, no pierce, 0.6 s hold (damage 196-260% tier A) | tier C (the old first-job numbers, unchanged) |
+| Double Shot | cooldown 1.0 s, same shot numbers, `bulletCount` 2 (tier A), Arrow Blow's `Use` sound | tier C; the count and damage tier A |
+| Arrow Bomb | cooldown 2.0 s (was 1.0 s), range 300 px, 600 px/s, radius 8; box, `mobCount`, `prop`, `time`, `x` tier A | tier C |
+| Strafe | cooldown 2.5 s, range 350 px, 700 px/s, radius 6, no pierce, 0.6 s hold (damage 74-100%, `bulletCount` 4 tier A) | tier C |
+| Rare `bow_mastery` (all four) | damage x1.2 | tier C |
+| Epic | Arrow Blow / Strafe cooldown x0.88; Double Shot range x1.25; Arrow Bomb area x1.2 | tier C |
+| Unique | Arrow Blow / Double Shot count +1; Strafe count +2; Arrow Bomb `blast_targets` +2 | tier C |
+| Legendary | the Unique's effect and id plus damage x1.2 | tier C |
+
+### Bowmaster constants (#340)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Arrow Rain cooldown / cast rule | 5.0 s; `box` with the WZ symmetric box anchored where the caster stood, `min_targets 1` | tier C (the box and `mobCount` 6 are tier A) |
+| Arrow Rain strike delay | `pending.delay` 0.5 s (the Meteor Shower delayed strike) | tier C |
+| Arrow Rain action | the held weapon's shooting stance, 0.6 s | tier C |
+| Falling arrows | eight copies of `special/0`, one every 90 ms, 230 px drop over 0.25 s, resting 30 px above the ground (`RunScene.FALL_REST`), spread over the resolved box | tier C reading of the undocumented `special` node (`interval 90`, `count 8`, `y 230` are tier A numbers); art only |
+| Dragon's Breath cooldown / speed / radius | 3.5 s / 700 px/s / 16 px | tier C |
+| Dragon's Breath range | 440 px, read from the level | tier A (`range` 440 at every level) |
+| `pierce_field` | pierce = `field` - 1 (+ literal `pierce`, + cards): `mobCount` 4 / 5 / 6 strikes 4 / 5 / 6 monsters | tier C reading of the WZ monster count |
+| Dragon's Breath knock-back | `prop` 100 (always rolls, one stream-1 draw per struck non-boss) and a 180 px slide away from the caster; bosses are not moved | prop tier A; the distance tier C ("a long distance"; Power Knock-Back used 120) |
+| Rarity values | Arrow Rain: damage x1.2, `area` x1.2, `attack_count` +1; Dragon's Breath: damage x1.2, `range` x1.25, `pierce` +2; Legendary adds damage x1.2 to the Unique | tier C |
+| Bow `range` probe window | 1.5 s (`test_rarity_bonus_effects`) | tier C test setting |
+
+### Bowmaster constants (#341)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Inferno shot | cooldown 3.0 s, range 350 px, 600 px/s, radius 8, no pierce, 0.6 s hold, nearest target, its own `ball` (no ammo sprite) | tier C |
+| Inferno blast | `mobCount` 6, box +-130..150 x +-100, damage 65-150% (levels 4/15/30), element `f` | tier A |
+| Inferno burn | `x` 24-50% of base damage per second for `time` 5 s (10 s at rank 8), always applied (no `prop`), cue `tile/2` | A fields, tier C reading (7.43); the cue is an art choice, tier C |
+| Rare `bow_mastery` | damage x1.2 | tier C |
+| Epic `hellfire` | `burn_damage` x1.5 | tier C |
+| Unique `spreading_fire` | `blast_targets` +2 | tier C |
+| Legendary | the Unique's effect and id plus damage x1.2 | tier C |
+
+### Bowmaster constants (#342)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Hurricane damage per arrow | the level's `damage` 51 -> 100%, ranks 54 / 75 / 100% at 1 / 4 / 8; one monster per arrow | tier A (Skill.wz 312.img) |
+| Hurricane stream | 12 arrows, 0.4 s wind-up, 0.1 s apart | tier C: spec #332 (the WZ `prepare` is 0.96 s of a held key; halved because nothing is held) |
+| Hurricane cooldown, range, speed, radius | 6.0 s, 450 px, 900 px/s, 6 px | tier C: spec #332 |
+| Ranks | levels 4/8/12/15/19/23/27/30 | tier C: the 30-level mapping shared with Hero |
+| Own `ball`, not the ammo sprite | `ammo_shot` off; ammo W.Att still counts | tier C: spec #332 row (own 10-frame ball) |
+| Stance held for the stream | `max(action_time, BurstCast.span)` for every burst cast | tier C |
+| Art | `prepare` fitted to the wind-up, `keydown` loop, `keydownend` at the end; `burst_start` / `burst_end` events | tier C: our reading of the nodes |
+| Rarity | Bow Expert damage x1.2, Bow Booster cooldown x0.88, Final Attack count +4, Legendary adds damage x1.2 | tier C: spec #332 |
+
+### Bowmaster constants (#343)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Silver Hawk recast | 30 s | tier C (WZ lifetime 112 -> 180 s) |
+| Silver Hawk attack cycle / stun | 1.6 s; 1.5 s literal stun at the level's `prop` | tier C; `prop` 59 -> 99% tier A |
+| Silver Hawk follow | 220 px/s, 70 px behind, teleport at 600 px, ally spacing 36 px | tier C |
+| Silver Hawk box and reach | +-200 x +-150, one monster, `attackAfter` 100 ms | tier A (`summon/attack1/info`) |
+| Phoenix recast | 40 s | tier C (WZ lifetime 122 -> 200 s) |
+| Phoenix attack cycle | 3.0 s | tier C |
+| Phoenix follow | 200 px/s, 60 px behind, teleport at 600 px, ally spacing 36 px | tier C |
+| Phoenix box and targets | +-100 x +-60, `mobCount` 4, `attackAfter` 360 ms, element `f` | tier A |
+| `pad` as W.Att | 32 -> 100 (Hawk), 320 -> 550 (Phoenix) at the mapped levels 4/8/12/15/19/23/27/30 | tier A values, tier C reading (B6); balance flag on Phoenix (7.45) |
+| `hover` | 20 px (both) | tier C: checked by eye, B6 started at 80 which drew a hawk too high |
+| `settle` | true (both) | tier C (B6: the hawk's `attack1` ends in a 1 x 1 placeholder) |
+| Cast stance / duration | `alert2` (tier A `action/0`), `action_time` 0.8 s | tier A / tier C |
+| Rarity bonuses | Bow Expert damage x1.2; Hawk Eyes `area` x1.2; Flame Wings `count` +1; Second Hawk / Second Phoenix `summon_count` +1; Legendary adds damage x1.2 | tier C, spec #332 |
+
+### Bowmaster constants (#344)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Bowmaster Job page row | the fourth row (after Hero, F/P and I/L, canonical order), name "Bowmaster", weapon box "War Bow · WATK 25 · 0.81s"; row layout, Up/Down stepping and the highlight are the generic page's; `default_job()` stays 212 | tier C (ours); the page needed no change |
+| `bowmaster_t2.json` fixture | job 312, tier 2 open, Battle Bow 1452000 (reqLevel 25, PAD 40), Bowman-bit hat 1002163 (Lv30), shoes 1072025 (Lv20), gloves 1082012 (Lv15), starter top 1040002 and bottom 1060002, unscrolled; kit mode (no seed or policy in its `_doc`) | tier C (ours): the F/P kit's `reqLevel`s with the Bowman class bit; item stats are canonical (tier A) |
+| Bowmaster hub kit | `jobs/bowmaster.json` `hub_kit`: 18 scroll stacks of 10 (every rate of bow ATT 2044500-05, gloves ATT, shoes ATT 2040758-60 and hat DEX), spare 1002001, a second bow 1452051, 1082002 and a Bowman-bit top 1040008, `fallback_item` 1452007 (the Lv40 Composite Bow the flow driver wears at Lv1 when a round dropped nothing wearable) | tier C (ours) |
+| Bowmaster bot card scores | `jobs/bowmaster.json` balance.bot.card_scores: `<key>_new` 100 and `<key>_rank` 74 for all ten pool skills. `BotInput._base_score` already gives every curated pool skill these numbers; the explicit pair keeps the two summons (kind `summon`, not an attack to the older scorer) and the rest independent of that fallback | tier C (the numbers are the F/P and Hero ones) |
+| Bowmaster baseline oracle | `test_bowmaster_baseline`: seed 1, 14400 ticks (4 min), bot, god, synthetic assets (`tests/fixtures/bowmaster_fixtures.gd`: all ten books, a Hunter's Bow 1452051), the Hero recipe (pre-#241 opening and whole-round curve, initial player stats in the digest); six skills land hits in it (Arrow Blow, Arrow Bomb, Inferno, Hurricane, Dragon's Breath, Silver Hawk) | tier C (ours); the golden is a regression pin, not balance evidence |
+
+### Bowmaster constants (#345)
+
+| Decision | Tier | Source |
+|---|---|---|
+| Job 312 enabled; job 212 remains default | C | Spec #332, QA #345; no stat or cooldown change |
+| Skill pool, AP, bow equipment, ammo milestones | C | B2/B3/B12 rows above; numeric WZ ids and item stats remain tier A |
+| Burst timings/art, Arrow Rain strike/fall, burn and follower behaviour | C | B4–B11 rows above; hover remains 20 px (B11; B13 visual check below) |
+| Tier-2 fixture generation patch | C | Historical B12 metadata retained; shipped selection and generation need no patch |
+
+### Review #332 presentation extensions
+
+Physical followers add `summon_strike` (per-target strike art) and derived `strike_effect`, plus `summon.settle`
+(follow between strikes); Marksman and Corsair can opt in through data. `FxRenderer.fit` and `rate_of` support
+fitted wind-up playback and inspection; `SpritePool.tint_of` exposes the rendered tint for tests. The tool-only
+`burst_probe` captures a synthetic moving-caster burst. These small extensions preserve the existing default paths.
+
 ## 12. Later phases
 
 Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.
 The Tree That Grew I and the six stage bosses are already playable. Phase 3: other Explorer paths, 3rd/4th job,
 additional bosses, elite waves with modifiers, passive items, skill evolutions, run modifiers, persistent unlocks.
 
-#291 tier C provenance: summon auto-admission, replacement groups, nearest/boss-first two-sided acquisition,
-current-body impact selection, follow/snap model and the numeric first-pass Elquines settings are in 7.32.
-Missing/zero summon frame delays use the existing 100 ms presentation default (tier C); WZ delays are otherwise unchanged.
+**Bishop BS3 constants (#375)**
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Revive HP share (`PlayerRevive.DEFAULT_HP`; the Resurrection `revive.hp` of BS8 repeats it) | 50% of max HP, rounded up, clamped 1..max | tier C, spec #372 D6 |
+| Guard after a revive (`DEFAULT_GUARD`) | 2.0 s, blocking every hit including window-bypassing boss attacks and balls | tier C, spec #372 D6 |
+| Holy shove (`DEFAULT_PUSH`) | 140 px away from the character over the skill's WZ box x `area`; non-boss, non-`steady`, grounded monsters; no damage | tier C, spec #372 D6 |
+| Hook order of `PlayerRevive` (`HIT_ORDER`) | 100 (hooks of lower order claim a lethal hit first and absorb damage first; a hull registers below it) | tier C, ours (#375) |
+| Revive HP share rounding | the resolved share is rounded to 1e-4 (modifiers are float32: 0.5 + 0.15 is 0.65000000596, which would return 66 HP at 100 max HP instead of 65) | tier C, ours (review fix #372) |
+| Recharge count as run out | `cooldowns[key] <= SkillRunner.READY_EPS` (1e-6), the one epsilon of every cast path and of `PlayerRevive`; `SkillRunner.start_recharge` starts the recharge pair | tier C, ours (#375) |
+| Skill ready at round start | cooldown starts at 0 | tier C, ours (#375) |
+| Resurrection WZ box (-400,-350)..(400,250) at every level | read as is; the recharge table (600 s down to 120 s) is BS8's `cooldown_by_rank` | tier A shape, tier C scale (BS1 identity `cooltime / 3 - 480`) |
+
+**Bishop BS7 constants (spec #372, BS7 #379)**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Summon Dragon element | `h` (the WZ node has no `elemAttr`; String text: "a holy dragon") | C |
+| Dragons' recast | 12 s each (Elquines' and Ifrit's value) | C |
+| Summon Dragon strike cycle | `attack_interval` 1.2 s (never shorter than the 500 ms impact or the 8-frame `attack1` animation, 0.6 s) | C |
+| Bahamut strike cycle | `attack_interval` 2.4 s (Elquines' value; the 18-frame `attack1` is 1.62 s, the impact 990 ms) | C |
+| Follow settings | 180 px/s, 60 px trail, 600 px snap, 36 px ordinal spread: Elquines' | C |
+| Targets | Summon Dragon: no `mobCount` in the WZ, so one; Bahamut: the level node's `mobCount` (3, 6 at level 30) through `summon.count_field` | A (the numbers), C (reading the level field instead of `info.mobCount`) |
+| `summon.move` | `fly` for both dragons (the books have no `move`); default `move` | A (the books), C (the key, shared with Bowmaster) |
+| Rarity bonuses | the two rows in 8 (damage x1.2, area x1.2, +1 ally or +2 targets; Legendary = Unique + damage x1.2; repeats x0.8); names Holy Power, Wide Wings, Twin Dragons, Holy Crowd | C |
+| Not read | Summon Dragon's Summoning Rock (`itemCon 4006001`), Bahamut's `req` of Summon Dragon 15, `info.type`, `sp`/`r` under the range node | dropped by decision (ADR 0006, spec #372) |
+
+**Bishop BS9 constants (spec #372, BS9 #381)**
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Bishop fixture `bishop_t2.json` | job 232, tier 2, the F/P tier-1 kit (1382002, 1002013, 1072019, 1082019, 1040002, 1060002), made with `--patch` before BS10 enabled 232 (historical provenance; new generation needs no patch) | tier C: ours (#381) |
+| Hub kit | unchanged from BS2: F/P's scroll stacks and spare equipment, fixture path now exists | tier C: ours (#381) |
+| Baseline oracle pool (`test_bishop_baseline.POOL`) | all ten shipped pool skills since BS10 #382; the two dragons and Resurrection expand the card/event workload, requiring one recapture | tier C: ours (#381) |
+| Baseline recipe | seed 1, 72,000 ticks, god, bot (`auto_choose` + `decide`), legacy Henesys curve and opening freeze as the 212 oracle, synthetic books (`bishop_bolt_fixtures`, `heal_fixtures`, Genesis and Big Bang of `bishop_genesis_fixtures`, dragons of `bishop_dragon_fixtures`, `resurrection_fixtures`) | tier C: ours (#381) |
+| Bot scores | BS2's explicit `card_scores` block stays (the spec said none, but the block is pinned by `test_bishop_bot` and removing it changes the Bishop oracle bytes, so it is a documented deviation); the ten pool keys keep BS2's new 100 / rank 74; Heal and Resurrection have reach 0; the bot presses a key only for Teleport | tier C: ours (#381) |
+| Skill window | no code change: tabs 200, 230, 231, 232 after Common, Teleport (2301001) first on the 230 tab | tier C: ours (#381) |
+
+**Bishop BS8 constants (#380)**
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Resurrection ranks to WZ levels | `ranks [2, 3, 4, 5, 7, 8, 9, 10]` | tier A (10 levels), tier C mapping (spec #372) |
+| Recharge by rank (`cooldown_by_rank`) | 600, 540, 480, 420, 300, 240, 180, 120 s | tier A shape (`cooltime`), tier C scale (`cooltime / 3 - 480`, real-cache test) |
+| `revive` block | hp 0.5, guard 2.0 s, push 140 px (repeats the BS3 defaults, spelled out in the definition) | tier C, spec #372 D6 |
+| Rare Faster Prayer / Epic Holy Vigor / Unique Holy Shield / Legendary | recharge x0.88 / revive HP +0.15 / guard +1.5 s / Shield + Vigor; repeat scale 0.8 | tier C, spec #372 |
+| Stance hold (`action_time`) | 2.52 s, three 840 ms body frames; display only, never locks movement or casting | tier A frames, tier C hold (ours, #380) |
+| `affected` anchor | the canonical body-box centre (frame 1's origin is mid-body); frame 0's 1320 ms lead-in is the WZ delay | tier C placement, tier A art |
+| Notice | "<skill name>! Ready again in M:SS" (Resurrection's name for the Bishop), 6 s (`RunScene.REVIVE_NOTICE_TIME`) | tier C, ours (#380) |
+| Card wording | "Holy Vigor: revive HP +15%", "Holy Shield: guard +1.5 s", "Greater Heal: recovery x1.2", "Mending Touch: heals below +15% HP" (`UpgradePool.CARD_STAT_TEXT`) | tier C, spec #372 story 11 |
+| Evidence shot delay (`REVIVE_SHOT_DELAY`) | 1.45 s after the revive (first beam frames) | tier C, ours (#380) |
+| Guard blink | the hit-window blink (alpha 0.4, 0.16 s period), driven by the longer of the hit window and `RunWorld.hit_guard_left()` | tier C, ours (existing blink constants) |
+| Level-up preview units | `revive_hp` in percent, `revive_guard` in seconds | tier C, ours (#380) |
+
+### Buccaneer review corrections (#412)
+
+Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.

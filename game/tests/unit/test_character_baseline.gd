@@ -44,7 +44,13 @@ func _event_digest(ticks: int) -> String:
 	for opening: Array in [[0, 0.15, 3], [1, 0.4, 8], [2, 0.6, 12]]:
 		data.stages.stages.henesys.keyframes[int(opening[0])].rate = float(opening[1])
 		data.stages.stages.henesys.keyframes[int(opening[0])].max_alive = int(opening[2])
-	var w := RunWorld.new(RF.setup("henesys", 1, data))
+	var setup := RF.setup("henesys", 1, data)
+	setup["job"] = 212
+	# Review #332: freeze the original replay's sword outfit explicitly; bare tools now wear creation weapons.
+	setup.character = {"format": 3, "job_id": 212, "look": {},
+		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
+		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
+	var w := RunWorld.new(setup)
 	# Keep this pre-#241 oracle on the historical whole-round pool curve as well as the historical opening.
 	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)
 	legacy_curve.erase("maps")

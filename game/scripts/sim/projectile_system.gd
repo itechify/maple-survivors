@@ -66,6 +66,11 @@ var hit_visual := PackedInt32Array()
 var skill := PackedInt32Array()
 ## Canonical skill level at launch; later rank changes do not alter on-hit status parameters.
 var level := PackedInt32Array()
+## Shared cast receipts are cold metadata, never copied between shots of the same cast.
+var meter_receipts: Array[Dictionary] = []
+## Whole damage per second of the burn a hit of this shot applies (0: none), snapshotted at launch from the cast (B5).
+var burn_pulse := PackedInt32Array()
+const NO_RECEIPT := {}
 
 ## RunWorld.visual_paths (shared).
 var paths: Array = []
@@ -138,6 +143,8 @@ func spawn(spec: Dictionary) -> int:
 	crit_mult[i] = float(spec.get("crit_mult", 1.5))
 	hits_left[i] = clampi(1 + int(spec.get("pierce", 0)), 1, MAX_HITS)
 	hit_count[i] = 0
+	meter_receipts[i] = spec.get("meter_receipt", NO_RECEIPT)
+	burn_pulse[i] = int(spec.get("burn_pulse", 0))
 	pierce_falloff[i] = float(spec.get("pierce_falloff", 0.0))
 	pierce_limit[i] = float(spec.get("pierce_ceiling", pierce_ceiling))
 	blast_count[i] = 0
@@ -376,8 +383,13 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 	})
 	dealt += roll.x
 	if roll.x > 0 and on_hit.is_valid():
-		on_hit.call(m, {"skill": skill_names[skill[i]], "level": level[i], "magic": is_magic,
-			"damage": roll.x, "element": element[i], "damage_type": CombatMath.DAMAGE_TYPE_NAMES[kind]})
+		var hit := {"skill": skill_names[skill[i]], "level": level[i], "magic": is_magic,
+			"damage": roll.x, "element": element[i], "damage_type": CombatMath.DAMAGE_TYPE_NAMES[kind]}
+		if not meter_receipts[i].is_empty():
+			hit["meter_receipt"] = meter_receipts[i]
+		if burn_pulse[i] > 0:
+			hit["burn_pulse"] = burn_pulse[i]
+		on_hit.call(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
 		if on_kill.is_valid():
@@ -409,9 +421,10 @@ func _grow(n: int) -> void:
 		arr.resize(n)
 	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus, pierce_falloff, pierce_limit]:
 		arr.resize(n)
-	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, blast_count]:
+	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, blast_count, burn_pulse]:
 		arr.resize(n)
 	hit_list.resize(n * MAX_HITS)
+	meter_receipts.resize(n)
 	generation.resize(n)
 	element.resize(n)
 	blast_position.resize(n)

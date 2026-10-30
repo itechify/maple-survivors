@@ -35,6 +35,8 @@ var _follow: Array = []
 ## 0 = normal, 1 = tomb falling, 2 = tomb landed, 3 = repeating status art.
 var _mode: PackedByteArray = []
 var _repeat_left := PackedFloat32Array()
+## Playback speed of each slot (1 = the WZ delays); see fit().
+var _rate := PackedFloat32Array()
 var _free: PackedInt32Array = []
 
 
@@ -44,23 +46,39 @@ func _ready() -> void:
 
 ## Plays the animation at a WZ path. Returns the slot id, or -1 when the animation is missing.
 func play(path: String, pos: Vector2, flip: bool = false, follow: Node2D = null, offset: Vector2 = Vector2.ZERO,
-		hold: bool = false) -> int:
+		hold: bool = false, delay: float = 0.0) -> int:
 	var lib := _lib()
 	var a := lib.anim(path) if lib != null else null
 	if a == null or a.is_empty():
 		return -1
-	return play_anim(a, pos, flip, follow, offset, hold)
+	return play_anim(a, pos, flip, follow, offset, hold, delay)
+
+
+## Plays cast art after a presentation delay; the hidden pooled slot still follows its owner during the wait.
+func play_delayed(path: String, delay: float, pos: Vector2, flip: bool = false, follow: Node2D = null,
+		offset: Vector2 = Vector2.ZERO) -> int:
+	return play(path, pos, flip, follow, offset, false, delay)
+
+
+## Plays the animation at a WZ path as if it had started `start` seconds ago (Dragon Strike's pillars, whose WZ timing counts from
+## the cast). Returns the slot id (of the `behind` renderer for a negative-z animation), or -1 when the animation is missing.
+func play_from(path: String, pos: Vector2, flip: bool, start: float) -> int:
+	var lib := _lib()
+	var a := lib.anim(path) if lib != null else null
+	if a == null or a.is_empty():
+		return -1
+	return play_anim(a, pos, flip, null, Vector2.ZERO, false, 0.0, start)
 
 
 ## Plays an already resolved animation (see play()).
 func play_anim(a: SpriteAnim, pos: Vector2, flip: bool = false, follow: Node2D = null, offset: Vector2 = Vector2.ZERO,
-		hold: bool = false) -> int:
+		hold: bool = false, delay: float = 0.0, start: float = 0.0) -> int:
 	if behind != null and behind != self and a.z != null and int(a.z) < 0:
-		return behind.play_anim(a, pos, flip, follow, offset, hold)
+		return behind.play_anim(a, pos, flip, follow, offset, hold, delay, start)
 	_ensure_pool()
 	var i := _alloc()
 	_anim[i] = a
-	_t[i] = 0.0
+	_t[i] = start - maxf(0.0, delay)
 	_pos[i] = pos
 	_offset[i] = offset
 	_flip[i] = 1 if flip else 0
@@ -68,6 +86,7 @@ func play_anim(a: SpriteAnim, pos: Vector2, flip: bool = false, follow: Node2D =
 	_hold[i] = 1 if hold else 0
 	_follow[i] = weakref(follow) if follow != null else null
 	_mode[i] = 0
+	_rate[i] = 1.0
 	_active[i] = 1
 	_draw_slot(i)
 	return i
@@ -98,6 +117,17 @@ func play_repeating(path: String, pos: Vector2, seconds: float, flip: bool = fal
 	_mode[slot] = 3
 	_repeat_left[slot] = seconds
 	return slot
+
+
+## Speeds slot `i` up or down so that one pass of its animation takes `seconds` (the burst skills' wind-up art).
+func fit(i: int, seconds: float) -> void:
+	if i >= 0 and i < _active.size() and _active[i] == 1 and seconds > 0.0 and _anim[i] != null:
+		_rate[i] = maxf(0.01, float((_anim[i] as SpriteAnim).total) / seconds)
+
+
+## Playback speed of slot `i` (1 unless fit() changed it).
+func rate_of(i: int) -> float:
+	return _rate[i] if i >= 0 and i < _rate.size() else 1.0
 
 
 ## Stops one effect.
@@ -143,7 +173,7 @@ func advance(dt: float) -> void:
 			if _repeat_left[i] <= 1e-9:
 				_release(i)
 				continue
-		_t[i] += dt
+		_t[i] += dt * _rate[i]
 		var a: SpriteAnim = _anim[i]
 		if _mode[i] == 1 and _t[i] >= a.total:
 			var land := _lib().anim(TOMB_LAND) if _lib() != null else null
@@ -175,6 +205,9 @@ func slot_position(i: int) -> Vector2:
 func _draw_slot(i: int) -> void:
 	_ensure_pool()
 	_pool.ensure(i + 1)
+	if _t[i] < 0.0:
+		_pool.hide(i)
+		return
 	var a: SpriteAnim = _anim[i]
 	var loop := _mode[i] in [1,3]
 	var f := a.frame_at(_t[i], loop)
@@ -201,6 +234,7 @@ func _alloc() -> int:
 	_follow.append(null)
 	_mode.append(0)
 	_repeat_left.append(0.0)
+	_rate.append(1.0)
 	_pool.ensure(i + 1)
 	return i
 

@@ -250,7 +250,8 @@ func test_creation_look_ok_opens_the_job_page_and_job_cancel_returns_to_look() -
 	creation.create_button.pressed.emit()
 	assert_eq(creation.phase, "job", "Look OK goes to the Job page")
 	assert_eq(creation.create_button, creation._job_ok)
-	assert_eq(creation.job_ids, [212], "only the ported job is listed")
+	assert_true(212 in creation.job_ids, "the Arch Mage is listed")
+	assert_eq(creation.job_id, 212, "the default job is chosen")
 	creation._return_look()
 	assert_eq(creation.phase, "look", "Job Cancel goes back to Look")
 

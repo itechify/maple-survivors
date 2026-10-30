@@ -148,6 +148,7 @@ func test_job_accuracy_equipment_and_buffs_feed_crit_for_every_damage_type() -> 
 	var setup := RF.setup("quiet", 153, data)
 	setup.equipment_info[1302000].incACC = 7
 	var world := RunWorld.new(setup)
+	world.wear_new_item(1302000) # Explicit Sword for the worked physical-damage examples.
 	assert_near(world.player_state.acc, 13.5, 0.00001, "DEX5 LUK5 base6.5 plus equipment7")
 	assert_near(world.loadout.acc, 13.5, 0.00001)
 	world.learn_skill("crit_fixture")
@@ -193,6 +194,7 @@ func test_skill_runner_resolves_physical_lines_and_projectiles_from_canonical_da
 		setup.equipment_info[1302000].incPAD = 100
 		setup.skill_imgs["100"] = {"skill": {"1001004": {"level": {"1": {"damage": 200, "attackCount": 2}}}}}
 		var world := RunWorld.new(setup)
+		world.wear_new_item(1302000) # Explicit Sword for the worked physical-damage examples.
 		world.god = true
 		RF.place_player(world, 400)
 		var mob := RF.put_mob(world, 100100, 500, 190, 10000)
@@ -219,6 +221,7 @@ func test_live_defence_buff_reduces_instant_and_airborne_physical_hits() -> void
 		var setup := MF.setup([112], 153)
 		setup.mob_skill_img["112"].level["1"].interval = 0.05
 		var world := RunWorld.new(setup)
+		world.wear_new_item(1302000) # Explicit Sword for the worked physical-damage examples.
 		world.god = true
 		RF.place_player(world, 400)
 		for tick in 120: # Let the spawned boss finish fading in before its defence skill can act.

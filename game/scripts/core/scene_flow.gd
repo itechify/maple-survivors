@@ -25,7 +25,8 @@ extends Node
 ## options.character also accepts the existing --character=<absolute JSON path>. The CLI parser passes other
 ## --key[=value] flags to RunScene unchanged. finish_run shows one-off results without bests or history.
 ## Summary: {stage, map_id, region, continent (the display names, #221; older saves lack them), map_name, street_name, time, duration, cleared, level, job_id, job_name, kills,
-## damage_dealt, skills: [{key, name, icon, rank}], seed, bosses_killed, levels_gained, nx_awarded}; persistent rounds
+## damage_dealt, skills: [{key, name, icon, rank}], seed, bosses_killed, levels_gained, nx_awarded, revives: [{t, level,
+## rank, source_kind, hp}] (second lives taken, #375; never saved or put in the history)}; persistent rounds
 ## add ending. nx_awarded (NxAward, tier C) is credited to the save's account only for persistent rounds, in the
 ## finish_round write. One-off rounds and deletion never credit it.
 ## Cash Shop (#118 seam for #122/#126): goto_cash_shop(origin) opens the v83 shop as the active character from the
@@ -275,13 +276,18 @@ func start_run(stage_key: String, p_seed: int = -1, options: Dictionary = {}) ->
 
 
 ## Tool-only `--hub` (HubTestKit): opens the Free Market with a test character. `request` is HubTestKit.parse_args'
-## {character, mesos}. The character (plus the test kit) goes into slot 0 of a throwaway save at `save_path`, recreated
+## {character, mesos[, job]} (a `job` the character is not of opens the error screen). The character (plus the test kit) goes into slot 0 of a throwaway save at `save_path`, recreated
 ## now, and is continued as in real play; user://save.json is never read or written.
 func start_hub(request: Dictionary, save_path: String = HubTestKit.SAVE_PATH) -> void:
-	var loaded := HubTestKit.load_character(String(request.get("character", HubTestKit.DEFAULT_CHARACTER)),
+	var loaded := HubTestKit.load_character(String(request.get("character", HubTestKit.default_character())),
 		equipment_info_loader())
 	if not String(loaded.error).is_empty():
 		_swap_to(error_screen("--hub: " + String(loaded.error)), "error")
+		return
+	var data := DataRepo.load_all()
+	var job_error := HubTestKit.job_error(request, loaded.character, JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {})))
+	if job_error != "":
+		_swap_to(error_screen("--hub: " + job_error), "error")
 		return
 	hub_tool = true
 	save = HubTestKit.fresh_save(save_path)

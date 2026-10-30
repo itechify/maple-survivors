@@ -19,6 +19,7 @@ var bold_font: Font
 var status := HudStatusBar.new()
 var counters := HudCounters.new()
 var skills := HudSkills.new()
+var meter := HudMeter.new()
 var system_messages := HudMessages.new()
 var quick_slot := HudQuickSlot.new()
 var buff_row := HudBuffRow.new()
@@ -49,7 +50,7 @@ func _ready() -> void:
 	layer = 10
 	font = make_font()
 	bold_font = make_font(700)
-	for w: HudWidget in [status, counters, skills, system_messages]:
+	for w: HudWidget in [status, counters, skills, meter, system_messages]:
 		w.library = library
 		add_child(w)
 	status.name = "StatusBar"
@@ -84,7 +85,7 @@ func apply_quick_slot_collapsed(collapsed: bool) -> void:
 ## Compatibility entry point for callers displaying a HUD without a run scene.
 func update(ps: Dictionary, info: Dictionary) -> void:
 	store_state(ps, info)
-	for w: HudWidget in [status, counters, skills, system_messages, quick_slot, buff_row, boss_bar]:
+	for w: HudWidget in [status, counters, skills, meter, system_messages, quick_slot, buff_row, boss_bar]:
 		w.update(ps, info)
 
 ## Stores the public snapshot; RunScene feeds the widgets individually.

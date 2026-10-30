@@ -193,6 +193,7 @@ func test_weapon_defense_reduces_physical_hits_without_mutating_weapon_or_mob_st
 	var basic_setup: Dictionary = preload("res://tests/fixtures/basic_attack_fixtures.gd").world().setup
 	setup.equipment_info = basic_setup.equipment_info
 	var w := RunWorld.new(setup)
+	w.wear_new_item(1302000) # This physical-defense probe explicitly measures a sword.
 	w.god = true
 	RF.place_player(w, 400)
 	w.player.facing = 1

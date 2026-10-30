@@ -79,9 +79,16 @@ const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
+	"form_started": ["skill", "skill_id", "element", "duration"],
+	"form_ended": ["skill", "skill_id", "reason"],
+	"mob_pulled": ["mob", "from", "pos"],
+	"meter_changed": ["id", "value", "max"],
+	"hp_spent": ["skill", "skill_id", "amount", "kind"],
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"player_restored": ["stat", "amount", "skill", "pos"],
+	# #352: a support summon's pulse fired (`skill` is the pulse's sub-skill, `slot` the summon's PlayerSummons slot).
+	"support_pulse": ["skill", "skill_id", "kind", "slot"],
 	"final_attack": ["skill", "skill_id", "level", "mob", "pos", "facing", "action", "effect"],
 	"skill_impact": ["skill", "pos", "effect"],
 	# tier C: a presentation-only ammo flight; Final Attack damage still lands immediately on stream 12.
@@ -105,6 +112,9 @@ const EVENT_FIELDS := {
 	"player_jump": ["pos"],
 	"portal_used": ["portal", "target", "pos"],
 	"player_died": ["pos"],
+	# #375: a lethal hit was turned into a survived one by a ready reaction skill (PlayerRevive): the HP returned with, the
+	# guard seconds, the skill's new recharge and how many monsters the holy shove moved.
+	"player_revived": ["skill", "hp", "max_hp", "pos", "guard", "recharge", "pushed"],
 	"pickup_spawned": ["pickup", "item_id", "pos", "kind", "potion_kind", "count"],
 	"pickup_collected": ["pickup", "item_id", "exp", "pos", "kind", "potion_kind", "count", "collector"],
 	"potion_used": ["kind", "item_id", "restored"],
@@ -139,6 +149,14 @@ const EVENT_FIELDS := {
 	# `burst` plays at `to` on arrival, when the sim strikes the mobs (the mob_hit events).
 	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
 	"skill_landed": ["skill", "cast_time", "pos", "effect"],
+	# #342: a burst cast (Hurricane) began (`wind_up` s until its first arrow, `span` s to its last) and ended (finished or dropped); art only.
+	"summon_spawn": ["skill", "slot"], # optional sound: listed only by skills with a summon sound
+	"summon_attack": ["skill", "slot", "pos"],
+	"summon_strike": ["skill", "slot", "mob", "pos", "effect"],
+	"burst_start": ["skill", "wind_up", "span", "facing"],
+	"burst_end": ["skill"],
+	# #323 (chain cast rule): the bolt's polyline, caster hand then each struck link's body centre; the hits are mob_hit events.
+	"skill_chain": ["skill", "skill_id", "points"],
 
 }
 
@@ -244,6 +262,11 @@ var buffs := PlayerBuffs.new()
 var upkeep: PlayerUpkeep
 var book: SkillBook
 var loadout: Loadout
+var meter := PlayerMeter.new()
+## Second life (#375): the guard timer and the plan of a reaction skill's revive, a HitHook at PlayerRevive.HIT_ORDER.
+var revive := PlayerRevive.new()
+## One {t, level, rank, source_kind, hp} per second life taken this round (the run summary and balance record carry it).
+var revives: Array = []
 var runner: SkillRunner
 var _teleport_left := 0.0
 var _teleport_total := 0.0
@@ -259,6 +282,10 @@ var mob_attacks: MobAttacks
 var mob_actions := MobActions.new()
 var mob_projectiles := MobProjectileSystem.new()
 
+## take_hit's ordered hooks (HitHook), ascending by `_hit_hook_orders`.
+var _hit_hooks: Array[HitHook] = []
+var _hit_hook_orders := PackedInt32Array()
+
 var events: Array = []
 var time := 0.0
 ## Current map and its entry on the total round clock (tier C: spec #241 scheduled map pacing).
@@ -273,10 +300,10 @@ var _map_swept := false
 var kills := 0
 ## Character level when the round began (a carried character keeps its level); see levels_gained().
 var start_level := 1
-## Total damage the player dealt: shots, instant skill hits and nonlethal poison (read-only).
+## Total damage the player dealt: shots, instant skill hits and nonlethal poison and burn (read-only).
 var damage_dealt: int:
 	get:
-		return projectiles.dealt + _instant_dealt + swarm.poison_dealt
+		return projectiles.dealt + _instant_dealt + swarm.poison_dealt + swarm.burn_dealt
 var state := PLAYING
 var view_size := DEFAULT_VIEW
 ## Player-centred logical view clamped to the bounds (spawn logic keeps mobs outside it).
@@ -391,6 +418,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	add_hit_listener(_final_attack_hit)
 	add_hit_listener(_damage_heal_hit)
 	add_hit_listener(_steal_hit)
+	add_hit_hook(revive, PlayerRevive.HIT_ORDER)
 	update_view()
 	_write_player_state(0.0)
 
@@ -579,7 +607,7 @@ func advance_map() -> void:
 	for slot in pickups.capacity():
 		pickups.despawn(slot)
 	_final_queue.clear()
-	runner.clear_pending()
+	runner.clear_pending(self)
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
 	mob_actions = MobActions.new()
@@ -771,8 +799,11 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 	if _settle_clear():
 		return
 	time += dt
+	for hook: HitHook in _hit_hooks:
+		hook.step(dt)
 	potions.tick(dt)
 	refresh_player_speed()
+	runner.fired_this_tick = false
 	_step_player(dt, input)
 	if after_stage.is_valid():
 		after_stage.call("player")
@@ -814,7 +845,7 @@ func _step_player(dt: float, input: MoveInput) -> void:
 	if input.drink_hp:
 		drink_potion("hp")
 	_try_manual_buffs(input)
-	if not _try_teleport(input) and not _take_portal(dt, input):
+	if not _try_input_dash(input) and not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
 		if flags & PlayerMotion.EV_JUMP:
 			emit("player_jump", {"pos": player.pos})
@@ -908,6 +939,23 @@ func _cooldown_total(key: String) -> float:
 	return float(runner.cooldown_totals.get(key, 0.0))
 
 
+## An input-directed manual dash press (or hold): side arrow, else facing (Up and Down are ignored).
+## true when the dash started, which replaces this tick's ordinary movement. tier C: ours (#302).
+func _try_input_dash(input: MoveInput) -> bool:
+	for key: String in loadout.order:
+		var action := skill_key_of(key)
+		if not input.skill_requested(action):
+			continue
+		var definition := book.def(key)
+		if String(definition.get("cast", {}).get("rule", "")) != "manual" \
+				or String(definition.get("displacement", {}).get("direction", "")) != "input":
+			continue
+		var side := input.dir() if input.dir() != 0 else player.facing
+		if runner.cast_dash(self, key, side):
+			return true
+	return false
+
+
 func _try_teleport(input: MoveInput) -> bool:
 	if not input.skill_requested("teleport") or _teleport_left > 1e-6 or not can_cast():
 		return false
@@ -970,7 +1018,7 @@ func _step_monsters(dt: float) -> void:
 
 ## Auto-casts, then the player's shots against live defense/immunity; kills drop their rewards.
 func _step_player_attacks(dt: float) -> void:
-	runner.step(dt, self)
+	runner.step(dt, self, true)
 	if _map_clearing:
 		return
 	_fill_live_defense()
@@ -1075,6 +1123,7 @@ func _settle_clear() -> bool:
 		_advance_queue() # normal job/card flow; step stays frozen until every answer is in
 	else:
 		state = CLEARED
+		runner.clear_pending(self)
 		emit("stage_cleared", {"time": time})
 	return true
 
@@ -1147,6 +1196,7 @@ func apply_choice(card_id: String) -> bool:
 ## tests and debug drivers call it before play to stand a character of another line.
 func set_job(job_id: int) -> void:
 	progression.job_id = job_id
+	meter = PlayerMeter.new(jobs.lineage_value(job_id, "meter", {}))
 	refresh_player_stats(false)
 
 
@@ -1174,6 +1224,11 @@ func heal_fraction(stat: String, fraction: float) -> void:
 ## Whether paying `amount` HP would leave the player alive (HP above the cost); a zero cost is always payable.
 func can_pay_hp(amount: int) -> bool:
 	return amount <= 0 or _hp > float(amount)
+
+
+## The exact current HP (player_state.hp is rounded up), for HpRisk's gate and low-HP checks.
+func hp_exact() -> float:
+	return _hp
 
 
 ## Pays an action's HP cost (Slash Blast); refuses, changing nothing, when it would leave 0 HP.
@@ -1265,6 +1320,7 @@ func player_speed_stat() -> float:
 func _refresh_caster() -> void:
 	loadout.weapon_id = weapon_id()
 	loadout.weapon_family = held_weapon_family()
+	loadout.max_hp = _max_hp
 	loadout.set_caster(float(_attributes.int), equipment_bonus("incMAD") + buffs.effect_total("matk"), progression.level)
 	loadout.str_stat = float(_attributes.str)
 	loadout.dex_stat = float(_attributes.dex)
@@ -1408,8 +1464,7 @@ func _skill_box_matches(box: Rect2, filter: Callable, limit: int, probe: int = 0
 	if not box.has_area():
 		_box_candidates = 0
 		return []
-	if (facing if facing != 0 else player.facing) > 0:
-		box.position.x = -box.end.x
+	box = SkillRunner.facing_box(box, facing if facing != 0 else player.facing)
 	box.position += player.pos
 	return _world_rect_matches(box, filter, limit, probe, kinds_ok)
 
@@ -1550,7 +1605,7 @@ func weapon_attack(ranged: bool = false) -> float:
 
 
 ## The ammo item the held weapon fires (Item.wz id); 0 when it is not a bow, crossbow, claw or gun. Endless: it is never
-## consumed, and it follows the weapon family, job and level (Ammo.item_for).
+## consumed, and it follows the weapon family, exact job and round level (Ammo.item_for).
 func ammo_id() -> int:
 	return _ammo_id
 
@@ -1563,7 +1618,7 @@ func ammo_attack() -> float:
 ## The ammo a tooltip of weapon `weapon` lists: {"item_id", "incPAD"} of the ammo this character would fire with it (the
 ## window adds the String.wz name); {} for a melee weapon.
 func ammo_tooltip(weapon: int) -> Dictionary:
-	var id := Ammo.item_for(data.get("ammo", {}), WeaponInfo.family(weapon), progression.job_id, progression.level, jobs)
+	var id := Ammo.item_for(data.get("ammo", {}), WeaponInfo.family(weapon), progression.job_id, progression.level)
 	if id == 0:
 		return {}
 	return {"item_id": id, "incPAD": int(setup.get("ammo_info", {}).get(id, {}).get("incPAD", 0))}
@@ -1573,7 +1628,7 @@ func ammo_tooltip(weapon: int) -> Dictionary:
 ## the first computation is silent). Called by _refresh_caster, which every level-up, job change and weapon change reaches.
 func _sync_ammo() -> void:
 	var family := held_weapon_family()
-	var id := Ammo.item_for(data.get("ammo", {}), family, progression.job_id, progression.level, jobs)
+	var id := Ammo.item_for(data.get("ammo", {}), family, progression.job_id, progression.level)
 	if id != _ammo_id and _ammo_id != 0 and id != 0 and family == _ammo_family:
 		var from := _ammo_id
 		_ammo_id = id
@@ -1828,8 +1883,14 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	})
 	_instant_dealt += roll.x
 	if roll.x > 0:
-		_on_player_hit(m, {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": magic,
-			"damage": roll.x, "element": String(st.get("element", "")), "damage_type": dtype})
+		meter.landed(st.get("meter_receipt", {}), events)
+		var hit := {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": magic,
+			"damage": roll.x, "element": String(st.get("element", "")), "damage_type": dtype}
+		if st.has("push_side"):
+			hit["push_side"] = int(st.push_side) # a dash's direction (Rush): the knock-back shoves along it
+		if st.has("burn_pulse"):
+			hit["burn_pulse"] = int(st.burn_pulse)
+		_on_player_hit(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
 
@@ -1960,6 +2021,7 @@ func _spread_targets(target: int, want: int) -> Array[int]:
 
 
 func _on_player_hit(slot: int, hit: Dictionary) -> void:
+	meter.landed(hit.get("meter_receipt", {}), events)
 	var key := String(hit.skill)
 	var level := int(hit.level)
 	var status: Dictionary = book.def(key).get("on_hit", {})
@@ -1967,19 +2029,33 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 		var chance_field := String(status.get("chance_field", ""))
 		var chance := book.canonical(key, level, chance_field) if chance_field != "" else 100.0
 		if chance > 0.0 and (chance >= 100.0 or rng.randf() * 100.0 < chance):
-			var params := {"time": book.canonical(key, level, String(status.get("duration_field", "time"))),
+			# A literal `duration` (seconds, spec #332 M8) beats the level field: a status whose WZ `time` is something else.
+			var time: float = float(status.duration) if status.has("duration") \
+				else book.canonical(key, level, String(status.get("duration_field", "time")))
+			var params := {"time": time,
 				"level": level, "skill": key, "x": book.canonical(key, level, "x")}
 			if String(hit.element) != "":
 				params["element"] = String(hit.element)
 			if status.has("element"):
 				params["element"] = String(status.element)
+			if String(status.get("status", "")) == "burn":
+				# tier C: the pulse was resolved from the cast (Loadout.stats) and travelled with the shot.
+				params["pulse"] = int(hit.get("burn_pulse", 0))
+			if status.has("cut"):
+				# tier C: a flat Threaten-style cut of min(skill level, cap) to weapon attack and defence (Panic; the node has none).
+				var cut := float(mini(level, int(status.cut.get("cap", level))))
+				params["x"] = -cut
+				params["y"] = -cut
 			swarm.apply_status(slot, String(status.get("status", "")), params, events)
 	var knockback: Dictionary = book.def(key).get("knockback", {})
 	if not knockback.is_empty() and not swarm.mob_kind(slot).boss and swarm.steady[slot] == 0:
-		var chance := book.canonical(key, level, String(knockback.get("chance_field", "prop")))
-		# tier C: one stream-1 roll per struck non-boss, including the 0/100% endpoints.
-		if rng.randf() * 100.0 < chance:
-			swarm.knockback(slot, player.pos.x, float(knockback.get("distance", 0.0)), fhm, bounds)
+		# tier C: one stream-1 roll per struck non-boss, including the 0/100% endpoints; a block without a chance field
+		# always applies and draws nothing (Rush, #302).
+		var always: bool = not knockback.has("chance_field")
+		if always or rng.randf() * 100.0 < book.canonical(key, level, String(knockback.chance_field)):
+			# `direction: "dash"` shoves along the dash that hit it instead of away from the player's final position.
+			swarm.knockback(slot, player.pos.x, float(knockback.get("distance", 0.0)), fhm, bounds,
+				int(hit.get("push_side", 0)) if String(knockback.get("direction", "")) == "dash" else 0)
 	for listener: Callable in _hit_listeners:
 		listener.call(slot, hit)
 
@@ -2040,8 +2116,10 @@ func _init_player() -> void:
 		_restore_character(setup.character)
 	else:
 		progression.job_id = int(setup.get("job", jobs.default_job()))
-		equipment.worn = Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.get("equipment_info", {}))
+		equipment.worn = Equipment.worn_from_ids(CharacterSnapshot.held_item_ids({"job_id": progression.job_id}, jobs), setup.get("equipment_info", {}))
 	set_job(progression.job_id)
+	# tier C (#346): an optional job AP-row HP baseline; absent rows keep the shared starter HP.
+	_base_hp = float(_job_value(pb.get("ap", {}), {}).get("hp", _base_hp))
 	_init_cash()
 	refresh_player_stats()
 	_hp = _max_hp
@@ -2447,11 +2525,12 @@ func hit_source_multiplier(source: Dictionary) -> float:
 	return mult
 
 
-## Whether the hit window (hit invincibility) turns this source's hit away right now. Boss skill attacks and balls
-## ignore it (spec #88, tier C); this is the window only: god and death are take_hit's own guards. Balls ask this before
-## take_hit, since take_hit returns 0 for a blocked hit and a miss alike.
+## Whether the hit window (hit invincibility) or a guarding hit hook turns this source's hit away right now. Boss skill
+## attacks and balls ignore the window (spec #88, tier C) but not a guard, which refuses every hit (HitHook.guarding), so
+## a guarded hit draws no hit art and uses up no ball. god and death are take_hit's own guards. Balls and pending
+## attacks ask this before take_hit, since take_hit returns 0 for a blocked hit and a miss alike.
 func hit_window_blocks(source: Dictionary) -> bool:
-	return _window_blocks(PlayerUpkeep.bypasses_window(source))
+	return _hit_guarded() or _window_blocks(PlayerUpkeep.bypasses_window(source))
 
 
 ## The window check for a source already classified by PlayerUpkeep.bypasses_window (take_hit classifies once).
@@ -2464,7 +2543,7 @@ func _window_blocks(bypass: bool) -> bool:
 func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:
 	var bypass := PlayerUpkeep.bypasses_window(source)
 	# Hidden (#194): nothing from a monster lands, whatever its source (the callers also skip the attack itself).
-	if _dead or _map_clearing or god or _window_blocks(bypass) or is_hidden():
+	if _dead or _map_clearing or god or _window_blocks(bypass) or is_hidden() or _hit_guarded():
 		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
 	if CombatMath.roll_miss(player_avoid + buffs.effect_total("avoid"), float(source.get("accuracy", 0.0)), rng):
@@ -2480,15 +2559,23 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	# Power Guard (#182): a no-op, with no RNG and no event, unless the buff is active and this is contact damage.
 	var reflect := _power_guard_reflect(dmg, magic, source)
 	dmg -= reflect
+	dmg = ceili(runner.forms.absorb(self, float(dmg)))
+
+	# The hit hooks' absorb phase (a hull): what they soak never reaches HP, in order, and the damage number shows the rest.
+	dmg = _hit_hooks_absorb(dmg, source)
 	_hp -= dmg
 	_emit_player_hit(dmg, false, dir, source)
 	upkeep.land_hit(bypass)
 	if reflect > 0:
 		_apply_reflect(int(source.mob), reflect)
+	if _hp <= 0.0 and _hit_hook_saves(source):
+		_hp = maxf(_hp, 1.0) # a hook that claims the lethal hit restores HP (grant_second_life); this floor is a net
 	if _hp <= 0.0:
 		_hp = 0.0
 		_dead = true
 		state = DEAD
+		runner.clear_pending(self)
+		runner.forms.clear(self)
 		emit("player_died", {"pos": player.pos})
 	elif bypass or upkeep.may_knock_back():
 		# tier C (owner, #223): a hit inside the knockback guard does its damage without pushing the player; a boss
@@ -2497,6 +2584,56 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		upkeep.start_knockback_guard()
 	_write_player_state(0.0)
 	return dmg
+
+
+## Registers `hook` in take_hit's ordered hook point (HitHook): ascending `order` first, equal orders in registration order.
+func add_hit_hook(hook: HitHook, order := 0) -> void:
+	var at := _hit_hooks.size()
+	for i in _hit_hooks.size():
+		if _hit_hook_orders[i] > order:
+			at = i
+			break
+	_hit_hooks.insert(at, hook)
+	_hit_hook_orders.insert(at, order)
+
+
+## The damage left from `dmg` once every hit hook has taken its share (HitHook.absorb), in hook order, never below 0.
+func _hit_hooks_absorb(dmg: int, source: Dictionary) -> int:
+	for hook: HitHook in _hit_hooks:
+		dmg = maxi(0, hook.absorb(self, dmg, source))
+	return dmg
+
+
+## The longest guard any hit hook has left, in seconds (HitHook.guard_left; 0 when none guards).
+func hit_guard_left() -> float:
+	var left := 0.0
+	for hook: HitHook in _hit_hooks:
+		left = maxf(left, hook.guard_left())
+	return left
+
+
+## Whether any hit hook refuses hits now (HitHook.guarding).
+func _hit_guarded() -> bool:
+	for hook: HitHook in _hit_hooks:
+		if hook.guarding():
+			return true
+	return false
+
+
+## Whether a hit hook turned the lethal hit from `source` into a survived one: the first to claim it wins.
+func _hit_hook_saves(source: Dictionary) -> bool:
+	for hook: HitHook in _hit_hooks:
+		if hook.intercept_lethal(self, source):
+			return true
+	return false
+
+
+## The one narrow way for a hit hook to set HP after a lethal hit (`_hp` stays private): HP becomes `hp`, clamped to
+## 1..max HP, and the player state follows. Returns the HP set.
+func grant_second_life(hp: float) -> float:
+	_hp = clampf(hp, 1.0, float(_max_hp))
+	_write_player_state(0.0)
+	return _hp
 
 
 ## Power Guard (#182, spec #165): the part of `damage` (the hit after defence and Invincible)
@@ -2623,7 +2760,8 @@ func _advance_queue() -> void:
 func _write_player_state(dt: float) -> void:
 	var a := "dead" if _dead else player.stance()
 	if not _dead and upkeep.cast_left > 0.0 and (player.state == PlayerMotion.ST_STAND
-			or (upkeep.action_airborne and player.state == PlayerMotion.ST_AIR)):
+			or (upkeep.action_airborne and player.state == PlayerMotion.ST_AIR)
+			or (upkeep.action_walking and player.state == PlayerMotion.ST_WALK)):
 		a = upkeep.cast_action
 	if a != _action:
 		_action = a

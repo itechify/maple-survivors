@@ -251,6 +251,51 @@ func test_cash_shield_is_drawn() -> void:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+# A weapon without the cast stance (I/L #327: Chain Lightning's second frame is stabO2, which 9 of 14 staves lack)
+
+func _two_frame_stance(marker_a: int, marker_b: int) -> Dictionary:
+	return {"0": {"weapon": _c("weapon", marker_a)}, "1": {"weapon": _c("weapon", marker_b)}}
+
+
+func _stab_body() -> void:
+	lib.images[_path(BODY)] = _wz({"stand1": {"0": {"body": _c("body", 1)}},
+		"stabO2": {"0": {"body": _c("body", 1)}, "1": {"body": _c("body", 1)}}})
+
+
+func _compose_at(look: Dictionary, stance: String, index: int) -> Array:
+	avatar.set_look(look)
+	return avatar.compose(stance, index)
+
+
+func test_a_weapon_without_stabO2_draws_stabO1_at_the_same_frame_index() -> void:
+	_stab_body()
+	lib.images[_path(WAND)] = _wz({"stabO1": _two_frame_stance(20, 21)}, "Wp")
+	var look := _look([WAND])
+	assert_true(20 in _markers(_compose_at(look, "stabO2", 0)), "frame 0 falls back to stabO1 frame 0")
+	assert_true(21 in _markers(_compose_at(look, "stabO2", 1)), "frame 1 falls back to stabO1 frame 1")
+
+
+func test_a_weapon_with_stabO2_keeps_its_own_art() -> void:
+	_stab_body()
+	lib.images[_path(WAND)] = _wz({"stabO1": _two_frame_stance(20, 21), "stabO2": _two_frame_stance(30, 31)}, "Wp")
+	var parts := _compose_at(_look([WAND]), "stabO2", 1)
+	assert_true(31 in _markers(parts), "its own stabO2 frame")
+	assert_false(21 in _markers(parts), "no fallback when the stance exists")
+
+
+func test_a_weapon_with_neither_stab_stance_still_draws_nothing_for_it() -> void:
+	_stab_body()
+	lib.images[_path(WAND)] = _wz({"swingO1": _two_frame_stance(20, 21)}, "Wp")
+	assert_eq(_owned_by(_compose_at(_look([WAND]), "stabO2", 1), WAND).size(), 0, "only stabO2 falls back, and only to stabO1")
+
+
+func test_the_stab_fallback_is_for_weapons_only() -> void:
+	_stab_body()
+	lib.images[_path(COAT)] = _wz({"stabO1": {"0": {"mailChest": _c("mailChest", 7)}}}, "Ma")
+	assert_eq(_owned_by(_compose_at(_look([COAT]), "stabO2", 0), COAT).size(), 0, "a coat is not borrowed from another stance")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 # vslot hiding through smap.img
 
 func _cap_img(vslot: String) -> WzImg:
@@ -368,3 +413,35 @@ func test_worn_cash_filters_the_snapshot_by_account_ownership() -> void:
 	var worn := DataRepo.worn_cash(character, data, [1002279, 1052001])
 	assert_eq(worn, {"hat": 1002279, "top": 1052001, "bottom": 1052001}, "the unowned shoes are not drawn")
 	assert_eq(DataRepo.worn_cash({}, data, [1002279]), {}, "a character without cash wears none")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# A knuckle without swingTF (Buccaneer #420: Barrage's fist frame 8 and Dragon Strike's frames 4-7 draw it, no knuckle has it)
+
+func _swing_body() -> void:
+	lib.images[_path(BODY)] = _wz({"stand1": {"0": {"body": _c("body", 1)}},
+		"swingTF": {"0": {"body": _c("body", 1)}, "1": {"body": _c("body", 1)}}})
+
+
+func test_a_weapon_without_swingTF_draws_swingT3_at_the_same_frame_index() -> void:
+	_swing_body()
+	lib.images[_path(WAND)] = _wz({"swingT3": _two_frame_stance(40, 41)}, "Wp")
+	var look := _look([WAND])
+	assert_true(40 in _markers(_compose_at(look, "swingTF", 0)), "frame 0 falls back to swingT3 frame 0")
+	assert_true(41 in _markers(_compose_at(look, "swingTF", 1)), "frame 1 falls back to swingT3 frame 1")
+
+
+func test_a_weapon_with_swingTF_keeps_its_own_art() -> void:
+	_swing_body()
+	lib.images[_path(WAND)] = _wz({"swingT3": _two_frame_stance(40, 41), "swingTF": _two_frame_stance(50, 51)}, "Wp")
+	var parts := _compose_at(_look([WAND]), "swingTF", 1)
+	assert_true(51 in _markers(parts), "its own swingTF frame")
+	assert_false(41 in _markers(parts), "no fallback when the stance exists")
+
+
+func test_the_swingTF_fallback_is_for_weapons_only_and_only_to_swingT3() -> void:
+	_swing_body()
+	lib.images[_path(WAND)] = _wz({"swingO1": _two_frame_stance(40, 41)}, "Wp")
+	assert_eq(_owned_by(_compose_at(_look([WAND]), "swingTF", 1), WAND).size(), 0, "swingTF borrows swingT3 and nothing else")
+	lib.images[_path(COAT)] = _wz({"swingT3": {"0": {"mailChest": _c("mailChest", 7)}}}, "Ma")
+	assert_eq(_owned_by(_compose_at(_look([COAT]), "swingTF", 0), COAT).size(), 0, "a coat is not borrowed from another stance")

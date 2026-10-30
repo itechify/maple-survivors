@@ -37,6 +37,8 @@ const ARMOR_FLAT := "armor_flat"
 ## tier C: the cooldown factor (cast speed passives, cooldown cards and every other cooldown source together) never goes
 ## below this share of the skill's own cooldown. The reference's x0.35 floor.
 const COOLDOWN_FLOOR := 0.35
+## tier C (#376): the most a Heal threshold card can raise the "heals below" fraction to; full HP never counts as injured.
+const HEAL_THRESHOLD_CAP := 0.95
 
 var book: SkillBook
 ## Owned skill key -> survivor rank (>= 1).
@@ -53,6 +55,12 @@ var card_ranks := {}
 var int_stat := 4.0
 var matk := 0.0
 var char_level := 1
+## Max HP, kept current by RunWorld: a percentage HP cost (HpRisk) resolves against it.
+var max_hp := 1:
+	set(value):
+		if value != max_hp:
+			max_hp = value
+			version += 1
 ## tier C: display/preview input matching ProjectileSystem, supplied from balance.combat.pierce_floor at setup.
 var pierce_floor := 0.0
 ## tier C: preview input matching the combat-data rise ceiling.
@@ -154,6 +162,7 @@ func clone() -> Loadout:
 	c.int_stat = int_stat
 	c.matk = matk
 	c.char_level = char_level
+	c.max_hp = max_hp
 	c.pierce_floor = pierce_floor
 	c.pierce_ceiling = pierce_ceiling
 	for field: String in ["str_stat", "dex_stat", "luk_stat", "watk", "acc", "weapon_id", "weapon_family",
@@ -167,7 +176,7 @@ func clone() -> Loadout:
 
 ## Learns `key` at rank 1. False when unknown or already owned.
 func add_skill(key: String) -> bool:
-	if not book.has(key) or ranks.has(key) or not has_free_slot(book.slot(key)):
+	if not book.has(key) or ranks.has(key) or book.slot(key) in ["summon_sub", "form_sub"] or not has_free_slot(book.slot(key)):
 		return false
 	ranks[key] = 1
 	order.append(key)
@@ -271,6 +280,22 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 	version += 1
 
 
+## The extra cast art of a definition's `cast_visuals`: [{path, x, follow}] (`follow` anchors it to the caster and mirrors it
+## with the facing). An entry with `min_attack_count` K only plays when the cast has at least K damage lines (Spear
+## Crusher's K-th dragon thrust, tier B reading of the D1 contact sheet); paths take the held weapon's art twin.
+func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
+	var out: Array = []
+	for v: Dictionary in d.get("cast_visuals", []):
+		if v.has("across") or v.has("fall"):
+			continue # CastVisualPlan expands spread/falling art at presentation time.
+		if attack_count >= int(v.get("min_attack_count", 0)):
+			out.append({"path": book.art_path(key, String(v.get("path_by_family", {}).get(weapon_family, v.path)), weapon_family), "x": float(v.get("x", 0.0)),
+				"follow": bool(v.get("follow", false)), "facing": bool(v.get("facing", false))})
+			if v.has("delay"):
+				out.back()["delay"] = maxf(0.0, float(v.delay))
+	return out
+
+
 ## Fully resolved numbers of skill `key` at its owned rank, or at `at_rank` when > 0 (a preview of another rank with
 ## the same modifiers; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type (fixed/magic/physical/none), attack_kind (swing/stab/shoot/""),
@@ -281,9 +306,15 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## has_box, box (canonical left-facing feet offsets scaled by area), area, mob_count (canonical plus count mods),
 ## hp_cost (canonical hpCon, 0 for most skills; Slash Blast; there is no MP cost, ADR 0006),
 ## speed, count, pierce, radius, ball, hit, effect
-## (WZ paths), action, action_time, rotate, passive_stat,
+## (WZ paths), cast_visuals (the extra cast art, `_cast_visuals`), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
-## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance and pierce_falloff,
+## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance, pull_chance (percent)/pull_gap (px; docs/GAME_DESIGN.md 7.35) and pierce_falloff,
+## burn_pulse / burn_time / burn_share (only a skill whose on_hit status is burn; docs/GAME_DESIGN.md 7.43),
+## `support` (SupportSummons.resolve pulses),
+## heal_power (Heal's recovery multiplier, 1.0 without the card; docs/GAME_DESIGN.md 7.83) and heal_threshold (the resolved
+## fraction of max HP below which Heal restores: the data's `hp_threshold` plus the card, capped at HEAL_THRESHOLD_CAP; 0 for
+## a skill without a `heal` block),
+## revive ({hp: share of max HP, guard: s, push: px} of a skill with a `revive` block, modifiers applied; PlayerRevive.resolve),
 ## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
@@ -293,9 +324,17 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var lv := book.canonical_level(key, r)
 	var dtype := String(d.get("damage", "none"))
 	var action := String(d.get("action", ""))
+	if d.has("action_field"):
+		# tier A: the WZ level names its own body stance (Spear Crusher: burster1 for two hits, burster2 for three).
+		action = String(book.level_node(key, lv).get(String(d.action_field), action))
 	if action == "weapon":
 		# tier C: the stance (and so the swing/stab multiplier) of the held weapon's first basic-attack action.
 		action = WeaponInfo.skill_action(weapon_id)
+	# tier C: one body action and matching effect by handedness (Brandish, #301 ruling).
+	var handedness := "two" if WeaponInfo.is_two_handed(weapon_id) else "one"
+	action = String(d.get("action_by_handedness", {}).get(handedness, action))
+	var effect := String(d.get("effect_by_handedness", {}).get(handedness, book.visual(key, "effect", lv, char_level)))
+	effect = book.art_path(key, effect, weapon_family) # tier C: art_by_family twin, art only (Panic/Coma : Axe)
 	var attack_kind := WeaponInfo.attack_kind(action)
 	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0) * (1.0 + passive_total(DAMAGE_PCT) / 100.0)
 	var lo := 0.0
@@ -310,7 +349,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		lo = rng.x * dmg_mult
 		hi = rng.y * dmg_mult
 	elif dtype == "physical":
-		var bounds := CombatMath.physical_damage_range(str_stat, dex_stat, luk_stat, watk, weapon_id,
+		var bounds := CombatMath.physical_damage_range(str_stat, dex_stat, luk_stat, _summon_watk(key, lv, d), weapon_id,
 			attack_kind, job_id, mastery, d.get("physical_formula", {}))
 		lo = bounds.x * dmg_mult
 		hi = bounds.y * dmg_mult
@@ -340,7 +379,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 			# tier C: surround attacks retain canonical reach/height on both sides of the player (Pirate kick).
 			var extent := maxf(absf(box.position.x), absf(box.end.x))
 			box = Rect2(-extent, box.position.y, extent * 2.0, box.size.y)
-	return {
+	var resolved := {
 		"skill": key,
 		"skill_id": book.skill_id(key),
 		"kind": book.kind(key),
@@ -353,7 +392,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"area": area,
 		"box": box,
 		"mob_count": maxi(1, roundi(skill_stat(key, "count", book.canonical(key, lv, "mobCount", float(cast.get("mob_count", 1.0)))))),
-		"hp_cost": maxi(0, int(book.canonical(key, lv, "hpCon", 0.0))),
+		"hp_cost": HpRisk.cost(self, key, lv),
 		"teleport_range": book.canonical(key, lv, "range", 0.0) if d.has("teleport") else 0.0,
 		"repeat_delay": float(d.get("teleport", {}).get("repeat_delay", 0.0)),
 		"damage_type": dtype,
@@ -371,8 +410,10 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
 		"speed_factor": speed_factor,
-		"cooldown": _cooldown(key, d, heal, lv, speed_factor),
-		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0))))
+		"cooldown": _cooldown(key, d, heal, lv, r, speed_factor),
+		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range",
+			ChainCast.base_range(cast)))))
+			* (area if String(cast.get("rule", "")) == "range_around" else 1.0)
 			+ (passive_total(RANGE) if attacks and weapon_family in WeaponInfo.RANGED_FAMILIES
 				and weapon_family in book.weapon_families(key) else 0.0),
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
@@ -381,9 +422,12 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"pierce_falloff": skill_stat(key, "pierce_falloff", float(d.get("pierce_falloff", 0.0))),
 		"pierce_floor": pierce_floor,
 		"pierce_ceiling": pierce_ceiling,
-		"knockback_chance": book.canonical(key, lv, String(d.knockback.get("chance_field", "prop")))
+		# No chance field = the knock-back always applies (Rush, tier C #302).
+		"knockback_chance": (book.canonical(key, lv, String(d.knockback.chance_field)) if d.knockback.has("chance_field") else 100.0)
 			if d.has("knockback") else 0.0,
 		"knockback_distance": float(d.get("knockback", {}).get("distance", 0.0)),
+		"pull_chance": book.canonical(key, lv, String(d.pull.get("chance_field", "")), 100.0) if d.has("pull") else 0.0,
+		"pull_gap": float(d.pull.get("min_gap", 0.0)) if d.has("pull") else 0.0,
 		"blast_targets": maxi(1, roundi(skill_stat(key, "blast_targets", book.canonical(key, lv, "mobCount", 1.0))))
 			if d.has("impact_blast") and has_box else 0,
 		"impact_blast": {"box": box, "count": maxi(1, roundi(skill_stat(key, "blast_targets",
@@ -392,15 +436,19 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 			if d.has("impact_blast") and has_box else {},
 		"radius": float(d.get("radius", 10.0)),
 		"ball": book.visual(key, "ball", lv, char_level),
-		"hit": book.visual(key, "hit", lv, char_level),
-		"effect": book.visual(key, "effect", lv, char_level),
+		"hit": book.art_path(key, book.visual(key, "hit", lv, char_level), weapon_family),
+		"effect": effect,
+		"cast_visuals": _cast_visuals(d, roundi(skill_stat(key, "attack_count", book.canonical(key, lv, "attackCount", 1.0))), key),
 		"action": action,
-		"action_time": float(d.get("action_time", 0.0)) * speed_factor,
+		"action_time": float(d.get("action_times", {}).get(action, d.get("action_time", 0.0))) * speed_factor,
 		"rotate": bool(d.get("rotate", false)),
 		"passive_stat": String(passive.get("stat", "")),
 		"passive_value": passive_value(key, lv, passive),
 		"icon": String(d.get("icon", "")),
-		"duration": book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
+		# A literal survivor duration (the Beholder's 60 s life, tier C) overrides the canonical field, whose WZ time is
+		# session-scale; every other buff and summon keeps reading its `duration_field` (default `time`).
+		"duration": float(buff.duration) if buff.has("duration") \
+			else book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
 		"buff_stat": String(buff.get("stat", "")),
 		"buff_value": book.canonical(key, lv, String(buff.get("field", "")), 0.0) if not buff.is_empty() else 0.0,
 		"buff_effects": _buff_effects(key, lv, buff),
@@ -409,6 +457,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 			else book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
 		"pulse_interval": float(buff.get("pulse_interval", 0.0)),
 		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
+		"heal_power": maxf(0.0, skill_stat(key, "heal_power", 1.0)) if d.has("heal") else 1.0,
+		"heal_threshold": _heal_threshold(key, heal),
 		"hidden": bool(buff.get("hidden", false)),
 		"morph": int(book.canonical(key, lv, String(buff.morph_field), 0.0)) if buff.has("morph_field") else 0,
 		# The roll draws the Pirate stream 16 (RunWorld.start_buff): a future non-Pirate failure chance needs its own stream.
@@ -418,38 +468,110 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"cooldown_from_cast": bool(buff.get("cooldown_from_cast", false)),
 		"displacement": _displacement(key, d, r, lv),
 	}
+	if d.get("summon", {}).has("support"):
+		resolved["support"] = SupportSummons.resolve(self, key, r)
+	resolved.merge(HpRisk.resolve(self, key, lv))
+	if d.has("meter"):
+		resolved["meter"] = d.meter
+		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
+	_add_burn(resolved, key, d, lv)
+	_add_pierce_field(resolved, key, d, lv)
+
+	if d.has("form"):
+		resolved["duration"] = float(d.form.duration) * skill_stat(key, "form_time", 1.0)
+		resolved["form_sub_damage"] = skill_stat(key, "damage", 1.0)
+		resolved["form_sub_area"] = skill_stat(key, "area", 1.0)
+		resolved["form_time"] = skill_stat(key, "form_time", 1.0)
+		resolved["form_power"] = skill_stat(key, "form_power", 0.0)
+
+	if d.has("revive"):
+		resolved["revive"] = _revive(key, d.revive)
+	return resolved
+
+
+## Adds the burn numbers of a skill whose `on_hit.status` is "burn" to its resolved stats: burn_pulse (whole damage per
+## second, BurnStatus.pulse of the cast's resolved bounds, the `pulse_field` share ("x") and the `burn_damage` modifier),
+## burn_time (the `duration_field` seconds, "time") and burn_share (the percent of base damage per second, burn_damage
+## included; the Skill window and cards show it). Other skills gain no key, so their stats are unchanged.
+func _add_burn(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> void:
+	var on_hit: Dictionary = d.get("on_hit", {})
+	if String(on_hit.get("status", "")) != "burn":
+		return
+	var share := book.canonical(key, lv, String(on_hit.pulse_field), 0.0) if on_hit.has("pulse_field") \
+		else float(on_hit.get("pulse", 0.0)) # tier C: literal percent for skills without a WZ burn field
+	var mult := skill_stat(key, "burn_damage", 1.0)
+	resolved["burn_pulse"] = BurnStatus.pulse(float(resolved.damage_min), float(resolved.damage_max), share, mult)
+	resolved["burn_time"] = book.canonical(key, lv, String(on_hit.get("duration_field", "time")), 0.0)
+	resolved["burn_share"] = share * maxf(0.0, mult)
+
+
+## A definition with `pierce_field` (a level field, Dragon's Breath "mobCount") pierces one monster fewer than the field says:
+## the arrow strikes `field` monsters in all, so `pierce` is the field minus one, plus the definition's literal `pierce` and any
+## `pierce` card (spec #332 B8, tier C reading of the WZ monster count). Other skills keep their `pierce` unchanged.
+func _add_pierce_field(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> void:
+	var field := String(d.get("pierce_field", ""))
+	if field == "":
+		return
+	var base := float(d.get("pierce", 0)) + maxf(0.0, book.canonical(key, lv, field, 1.0) - 1.0)
+	resolved["pierce"] = maxi(0, roundi(skill_stat(key, "pierce", base)))
+
+
+## The W.Att a physical hit of `key` resolves with: the level field named by the definition's `summon.watk_field` (a
+## physical follower's `pad`, spec #332 M8) in place of the worn weapon plus ammo, else the character's `watk`.
+func _summon_watk(key: String, lv: int, d: Dictionary) -> float:
+	var field := String(d.get("summon", {}).get("watk_field", ""))
+	return book.canonical(key, lv, field, 0.0) if field != "" else watk
+
+
+## Heal's resolved HP threshold (a fraction of max HP): the data's `hp_threshold` plus the `heal_threshold` modifier, capped at
+## HEAL_THRESHOLD_CAP and rounded to 1e-4 (modifier values are stored as float32, so 0.5 + 0.15 would read 0.65000001). 0 for a
+## skill without a `heal` block.
+func _heal_threshold(key: String, heal: Dictionary) -> float:
+	if heal.is_empty():
+		return 0.0
+	return roundi(clampf(skill_stat(key, "heal_threshold", float(heal.get("hp_threshold", 0.0))), 0.0, HEAL_THRESHOLD_CAP) * 10000.0) / 10000.0
 
 
 ## Seconds between casts: the skill's own cooldown with its cards, then the cast speed passives (an active skill's cooldown
 ## x (1 - cast speed)), the product of every factor floored at COOLDOWN_FLOOR of the base, then attack speed.
-func _cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int, speed_factor: float) -> float:
-	var base := _base_cooldown(key, d, heal, lv)
+func _cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int, rank: int, speed_factor: float) -> float:
+	var base := _base_cooldown(key, d, heal, lv, rank)
 	var cooldown := skill_stat(key, "cooldown", base)
 	if book.slot(key) == "active" and base > 0.0:
 		cooldown = maxf(cooldown * (1.0 - passive_total(CAST_SPEED_PCT) / 100.0), base * COOLDOWN_FLOOR)
 	return maxf(0.05, cooldown * speed_factor)
 
 
-## The seconds between casts before cards and attack speed: the definition's `cooldown_field` (a canonical level number,
-## e.g. `cooltime`) when it names one, else the Heal `recast_delay`, else the survivor `cooldown`, else 1.
-func _base_cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int) -> float:
+## The seconds between casts before cards and attack speed: the definition's `cooldown_by_rank` (survivor seconds per
+## rank, indexed by rank - 1, the last value repeating) when it has one, else its `cooldown_field` (a canonical level
+## number, e.g. `cooltime`) when it names one, else the Heal `recast_delay`, else the survivor `cooldown`, else 1.
+func _base_cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int, rank: int) -> float:
+	var by_rank: Variant = d.get("cooldown_by_rank")
+	if by_rank is Array and not (by_rank as Array).is_empty():
+		return float(by_rank[clampi(rank - 1, 0, by_rank.size() - 1)])
 	var fallback := float(heal.get("recast_delay", d.get("cooldown", 1.0)))
 	if d.has("cooldown_field"):
 		return book.canonical(key, lv, String(d.cooldown_field), fallback)
 	return fallback
 
 
-## The resolved moving-attack block of `key` ({} for a skill that does not move): {direction "away" | "toward", when
-## "before" | "after" | "during", distance px >= 0}. The definition's `displacement` gives the distance as `field` (a
-## canonical level field of this rank's level), `distances` (survivor values per rank, the last one repeating) or a
-## plain `distance`, in that order (docs/GAME_DESIGN.md 7.13).
+## The resolved moving-attack block of `key` ({} for a skill that does not move): {direction "away" | "toward" | "input",
+## when "before" | "after" | "during", distance px >= 0}. The definition's `displacement` gives the distance as `field` (a
+## canonical level field of this rank's level; `lt.x` is the reach of its box, Rush), `distances` (survivor values per
+## rank, the last one repeating) or a plain `distance`, in that order (docs/GAME_DESIGN.md 7.13). `input` (a manual
+## dash, 7.33) is the pressed arrow key or the facing, chosen by the caster.
 func _displacement(key: String, d: Dictionary, rank: int, lv: int) -> Dictionary:
 	var block: Variant = d.get("displacement", {})
 	if not (block is Dictionary) or (block as Dictionary).is_empty():
 		return {}
 	var distance := 0.0
 	if block.has("field"):
-		distance = book.canonical(key, lv, String(block.field), 0.0)
+		var field := String(block.field)
+		if field.ends_with(".x") and book.level_node(key, lv).get(field.trim_suffix(".x")) is Dictionary:
+			var corner: Array = book.level_node(key, lv)[field.trim_suffix(".x")].get("$v", [0.0, 0.0])
+			distance = absf(float(corner[0]))
+		else:
+			distance = book.canonical(key, lv, field, 0.0)
 	elif block.has("distances") and not (block.distances as Array).is_empty():
 		var list: Array = block.distances
 		distance = float(list[clampi(rank - 1, 0, list.size() - 1)])
@@ -457,6 +579,12 @@ func _displacement(key: String, d: Dictionary, rank: int, lv: int) -> Dictionary
 		distance = float(block.get("distance", 0.0))
 	return {"direction": String(block.get("direction", "away")), "when": String(block.get("when", "after")),
 		"distance": maxf(0.0, distance)}
+
+
+## The second-life plan inputs of `key` (PlayerRevive reads them; nothing else does): see PlayerRevive.resolve.
+func _revive(key: String, block: Dictionary) -> Dictionary:
+	return PlayerRevive.resolve(block, skill_stat(key, "revive_hp", PlayerRevive.hp_base(block)),
+		skill_stat(key, "revive_guard", PlayerRevive.guard_base(block)))
 
 
 func _buff_effects(key: String, lv: int, buff: Dictionary) -> Dictionary:
@@ -528,3 +656,10 @@ static func _stack(m: Vector2, op: String, value: float) -> Vector2:
 	if op == "mul":
 		return Vector2(m.x, m.y * value)
 	return Vector2(m.x + value, m.y)
+
+## Resolves a sub at the parent's rank with only its damage and area inheritance.
+func sub_stats(sub: String, parent: Dictionary, rank: int) -> Dictionary:
+	var lo := clone()
+	lo.add_skill_mod(sub, "damage", "mul", float(parent.get("form_sub_damage", 1.0)))
+	lo.add_skill_mod(sub, "area", "mul", float(parent.get("form_sub_area", 1.0)))
+	return lo.stats(sub, rank)

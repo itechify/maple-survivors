@@ -1,0 +1,9 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Dark Knight line (spec #348 #349). The 3rd and 4th job Warrior skill books Skill.wz/131.img (Dragon Knight) and 132.img (Dark Knight) whole, and the Sound.wz/Skill.img nodes of the Dark Knight pool and mobility skills: Spear Crusher 1311001, Pole Arm Crusher 1311002, Dragon Fury: Spear 1311003, Dragon Fury: Pole Arm 1311004, Sacrifice 1311005, Dragon Roar 1311006, Monster Magnet 1321001, Rush 1321003 and Beholder 1321007. Four of those nodes are UOLs (1311002/Use -> 1311001, 1311004/Use -> 1311003, 1321001/Use -> 1121001 and 1321003/Use -> 1121006); the importer exports a UOL under its target's file name, so the targets must be selected: the first two are here, the last two in hero.json. Aura of the Beholder 1320008 and Hex of the Beholder 1320009 have no Sound nodes. The spear and pole arm weapons, afterimages and the Power Strike and Slash Blast art are in warrior.json; Power Strike and Slash Blast sounds are in common.json.",
+	"imgs": [
+		{"img": "Skill.wz/131.img"},
+		{"img": "Skill.wz/132.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["1311001", "1311002", "1311003", "1311004", "1311005", "1311006", "1321001", "1321003", "1321007"]}
+	]
+}

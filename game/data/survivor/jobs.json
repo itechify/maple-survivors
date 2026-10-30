@@ -1,6 +1,8 @@
 {
 	"_doc": "Survivor job flags; skill_pool, starting_skill and mobility_skill live in jobs/<line>.json (tier C: ADR 0006).",
 	"default_reason": "Not yet available",
+	"default_job": 212,
+	"_default_job": "tier C: spec #296 (H2 #298): the job of a fresh character and of every tool run or test that names none (JobTree.default_job). Pinned so that a second playable job never changes it; Hero is always chosen explicitly (--job=112, the creation Job page). The owner can flip it with this one line.",
 	"jobs": {
 		"0": {
 			"format1_weapon": 1302000

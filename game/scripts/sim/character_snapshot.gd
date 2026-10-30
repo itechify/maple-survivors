@@ -28,8 +28,7 @@ const FORMAT := 3 # tier C: spec #282 drops the build from the character.
 ## Every format validation_error accepts; RunWorld and SceneFlow migrate older ones on load.
 const FORMATS := [1, 2, 3]
 # tier C: the frozen spec #32 weapon rule (old balance.player.weapon_by_job), used only to migrate format 1: a
-# Beginner's nonzero beginner_weapon, else the nearest job ancestor's `format1_weapon` (data/survivor/jobs.json,
-# read with JobTree.lineage_value; Equipment.DEFAULT_OUTFIT's weapon when no job in the line has one).
+# Beginner's nonzero beginner_weapon, else the job's creation weapon (JobTree.creation_weapon, including the legacy format1_weapon fallback).
 
 
 ## A format-3 copy of a supported snapshot (format 3 is returned as a detached copy). `equipment_info` ({id: canonical
@@ -74,7 +73,7 @@ static func held_item_ids(character: Dictionary, jobs: JobTree) -> Array:
 			ids.append(int(id))
 	var weapon := int(character.get("beginner_weapon", 0))
 	if int(character.get("job_id", 0)) != 0 or weapon <= 0:
-		weapon = int(jobs.lineage_value(int(character.get("job_id", 0)), "format1_weapon", Equipment.DEFAULT_OUTFIT[-1]))
+		weapon = jobs.creation_weapon(int(character.get("job_id", 0)))
 	ids.append(weapon)
 	return ids
 

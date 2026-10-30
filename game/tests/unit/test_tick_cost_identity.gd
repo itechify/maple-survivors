@@ -178,12 +178,40 @@ static func _data() -> Dictionary:
 	}
 	data.equipment_drops.chance = 0.05
 	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = "" # the loadout is exactly SKILLS
+	# #325 re-tuned Cold Beam and Thunder Bolt (I/L pool: 0.5 / 0.6 s, eight ranks, rarity bonuses). This oracle guards the
+	# engine's per-tick cost work, not those skills, so it keeps the pre-#325 definitions to stay byte-identical.
+	var legacy_ranks := range(1, 31)
+	var cold: Dictionary = data.skills.skills.cold_beam
+	cold.cooldown = 1.25
+	cold.ranks = legacy_ranks
+	cold.erase("rarity_bonuses")
+	var bolt: Dictionary = data.skills.skills.thunder_bolt
+	bolt.cooldown = 1.5
+	bolt.ranks = legacy_ranks
+	bolt.erase("rarity_bonuses")
+	# #377 ported Holy Arrow into the Bishop line (0.4 s, the default eight ranks, rarity bonuses); the same pin keeps the
+	# pre-port definition (cooldown 1.0, 30 ranks, no bonuses) so the golden and totals stay byte-identical.
+	var arrow: Dictionary = data.skills.skills.holy_arrow
+	arrow.cooldown = 1.0
+	arrow.ranks = legacy_ranks
+	arrow.erase("rarity_bonuses")
+	# #376 ported Heal into the Bishop line (default eight-rank table, rarity bonuses, `heal_power` / `heal_threshold`, the strike
+	# honouring `damage`). The oracle keeps the pre-port definition: thirty explicit ranks and no bonuses. The new stats default to
+	# 1.0 / the data's 0.5 and the damage multiplier to 1.0, so the bytes are the same (test_bishop_heal proves the defaults).
+	var heal: Dictionary = data.skills.skills.heal
+	heal.ranks = legacy_ranks
+	heal.erase("rarity_bonuses")
 	return data
 
 
 static func _world() -> RunWorld:
 	var s := RF.with_basic_attack(RF.setup("pool_146", 146, _data()))
+	s["job"] = 212
 	s.account = {"owned": PF.EVERYTHING}
+	# Review #332: preserve the oracle's historical Sword before as_job swaps it into the inventory.
+	s.character = {"format": 3, "job_id": 212, "look": {},
+		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, s.equipment_info), "inventory": []},
+		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
 	var w := RunWorld.new(s)
 	w.god = true
 	RF.as_job(w, 220)
