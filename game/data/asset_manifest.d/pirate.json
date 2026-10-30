@@ -1,6 +1,6 @@
 {
 	"format": 1,
-	"_doc": "Pirate line (#168/#186). Whole Skill.wz books 500/510/520 include canonical tables, actions, icons and art for later tickets. Sound.wz skill nodes cover every active skill in those books (Wings 5201005 was dropped by the owner: its art is in the whole book but its sound is not exported). Morph.wz/1002.img is Oak Barrel's barrel morph (#194). Kyrin moved from the main manifest; regular Lv10-70 knuckles/guns and Bullet/Split/Mighty Bullet moved from common and extended for the drop roster. Character afterimages and shared Weapon.img sounds stay in common. No proprietary data is stored in the repo.",
+	"_doc": "Pirate line (#168/#186). Whole Skill.wz books 500/510/520 include canonical tables, actions, icons and art for later tickets. Sound.wz skill nodes cover every active skill in those books (Wings 5201005 was dropped by the owner: its art is in the whole book but its sound is not exported). Morph.wz/1002.img is Oak Barrel's barrel morph (#194). Kyrin moved from the main manifest; regular Lv10-70 knuckles/guns and Bullet/Split/Mighty Bullet moved from common and extended for the drop roster. Character afterimages and shared Weapon.img sounds stay in common. No proprietary data is stored in the repo. Spec #449 C12 (#474): the late-band drop-list items of survivor/equipment_drops/pirate.json (reqLevel 35-120, whole imgs, 48 added) are in `character`.",
 	"imgs": [
 		{"img": "Skill.wz/500.img"},
 		{"img": "Skill.wz/510.img"},
@@ -10,6 +10,6 @@
 		{"img": "Npc.wz/1090000.img"},
 		{"img": "String.wz/Npc.img", "paths": ["1090000"]}
 	],
-	"character": [1482000, 1482001, 1482002, 1482003, 1482004, 1482005, 1482006, 1482007, 1482008, 1482009, 1492000, 1492001, 1492002, 1492003, 1492004, 1492005, 1492006, 1492007, 1492008, 1492009],
+	"character": [1482000, 1482001, 1482002, 1482003, 1482004, 1482005, 1482006, 1482007, 1482008, 1482009, 1492000, 1492001, 1492002, 1492003, 1492004, 1492005, 1492006, 1492007, 1492008, 1492009, 1002625, 1002628, 1002631, 1002634, 1002637, 1002640, 1002643, 1002646, 1002649, 1052110, 1052113, 1052116, 1052119, 1052122, 1052125, 1052128, 1052131, 1052134, 1072297, 1072300, 1072303, 1072306, 1072309, 1072312, 1072315, 1072318, 1072321, 1082192, 1082195, 1082198, 1082201, 1082204, 1082207, 1082210, 1082213, 1082216, 1482010, 1482011, 1482012, 1482013, 1482021, 1482022, 1492010, 1492011, 1492012, 1492013, 1492021, 1492022],
 	"items": [2330000, 2330001, 2330002]
 }
