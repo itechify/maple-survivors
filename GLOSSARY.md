@@ -316,6 +316,12 @@ monster's own attribute): Fire Demon's ice-weak and Ice Demon's fire-weak. A mon
 none. A mixed-element hit (fire/poison, ice/lightning) is the mean of its parts, each counted with its live weakness.
 _Avoid_: debuff, curse
 
+**Mount**:
+A taming-mob image (`Character.wz/TamingMob/<id>.img`) drawn under and over the avatar for the life of a form that names one
+(`presentation.mount`): the rear canvas behind the rider, the front canvas in front, the rider seated at the mount's navel. Corsair's
+Battleship is the only one. Presentation only: no mount speed, jump or hitbox.
+_Avoid_: pet (a pet follows, a mount carries), vehicle
+
 **Mark**:
 A timed status (`all_weak`) that makes every hit on a monster deal x1.5 (x1.25 on a boss, which can be marked unlike the
 other statuses), elemental or not, on top of any element multiplier; the player's nearest-rule shots, bursts and summons
