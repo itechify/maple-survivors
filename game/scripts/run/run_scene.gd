@@ -1427,10 +1427,13 @@ func _on_burst_end(e: Dictionary) -> void:
 	var art: Dictionary = world.book.def(key).get("burst_art", {})
 	if art.is_empty():
 		return
-	var flip := bool(_burst_art.get(key, {}).get("flip", world.player.facing > 0))
+	var state: Dictionary = _burst_art.get(key, {})
+	var flip := bool(state.get("flip", world.player.facing > 0))
+	# `end_on_drop` false (Piercing Arrow's release effect): an end that arrives before the wind-up has run out (the burst was
+	# dropped by death, Hidden or a map change; the event stream is the same for both) releases nothing, so it shows no end art.
+	var dropped := not state.is_empty() and world.time + 1e-9 < float(state.due)
 	_stop_burst_art(key)
-	# `end_on_drop` false (Piercing Arrow's release effect): a dropped wind-up releases nothing, so it shows no end art.
-	if String(art.get("end", "")) != "" and (not bool(e.get("dropped", false)) or bool(art.get("end_on_drop", true))):
+	if String(art.get("end", "")) != "" and (not dropped or bool(art.get("end_on_drop", true))):
 		fx.play(String(art.end), Vector2.ZERO, flip, avatar)
 
 

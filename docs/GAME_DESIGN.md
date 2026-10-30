@@ -6707,11 +6707,12 @@ unfinished bursts; already launched projectiles keep their existing lifetime rul
 no RNG; impact damage rolls retain the existing main stream. Bot reach is resolved range; SkillText reports
 "Fires N arrows over T s", where T includes wind-up and the final shot's deadline.
 
-**Release effect (Marksman MS7 #367).** `burst_end` carries `dropped` (true when death, Hidden or `clear_pending` ended the burst,
-false when its last shot left). `burst_art.end` plays on either, as Hurricane's `keydownend` does, unless the art sets
-`end_on_drop: false`: Piercing Arrow plays its `effect` as `end`, so it shows at the release (a one-shot burst ends on the tick
-its arrow leaves) and a dropped wind-up shows nothing. `RunScene._stop_burst_art` skips a slot already stopped. A one-arrow
-burst reads "Looses one arrow after a T s wind-up" in the Skill window.
+**Release effect (Marksman MS7 #367).** `burst_art.end` plays when the burst ends or is dropped, as Hurricane's `keydownend` does,
+unless the art sets `end_on_drop: false`: Piercing Arrow plays its `effect` as `end`, so it shows at the release (a one-arrow
+burst ends on the tick its arrow leaves) and nothing shows when death, Hidden or a map change cancels the wind-up. The scene tells
+the two apart by time (an end before the wind-up's due time is a drop): the `burst_end` event is unchanged, because the Bowmaster
+event-stream oracle hashes it. `RunScene._stop_burst_art` skips a slot already stopped. A one-arrow burst reads "Looses one arrow
+after a T s wind-up" in the Skill window.
 
 ### 7.43 Burn (#337, spec #332)
 
@@ -7012,7 +7013,7 @@ Each Marksman skill ticket appends one paragraph here; the skill entries sit in 
 
 **MS7 #367, Piercing Arrow.** The charged line nuke (3221001) as one entry in `skills/marksman.json`: `cast.rule "burst"`, `count 1`,
 `burst {wind_up 0.6}`, own ball, range 450, 900 px/s, radius 10, `pierce_field "mobCount"` and `pierce_falloff -0.1`, so contact n
-deals `1 + 0.1 (n - 1)` of its damage (7.46.7). One code addition: `burst_end.dropped` and `burst_art.end_on_drop` so the `effect`
+deals `1 + 0.1 (n - 1)` of its damage (7.46.7). One code addition: `burst_art.end_on_drop` so the `effect`
 art shows at the release and never on a cancelled wind-up. Rarity: Marksman Boost, Crossbow Booster, Deep Pierce (`pierce` +2).
 
 **MS9 #369, Golden Eagle and Frostprey.** The two physical followers (7.44, 7.53) as data in `skills/marksman.json`, no new

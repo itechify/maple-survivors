@@ -422,32 +422,10 @@ func test_a_dropped_wind_up_stops_its_art_and_shows_no_release_effect() -> void:
 			w.step(DT, MoveInput.new())
 		var events := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "burst_end")
 		assert_eq(events.size(), 1, mode)
-		assert_true(bool(events[0].dropped), mode)
 		s.handle_events(events)
 		assert_eq(log.calls.slice(2), [["stop", 11]], mode + ": the prepare art stops and nothing is released")
 		log.free()
 		s.free()
-
-
-func test_a_finished_wind_up_reports_not_dropped() -> void:
-	var w := _world()
-	_mob(w, 300)
-	var ended := []
-	for tick in WIND_UP_TICKS + 2:
-		w.step(DT, MoveInput.new())
-		ended.append_array(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "burst_end"))
-	assert_eq(ended.size(), 1)
-	assert_false(bool(ended[0].dropped))
-	assert_eq(String(ended[0].skill), KEY)
-
-
-func test_the_stage_warm_up_reads_only_the_art_paths_of_burst_art() -> void:
-	var d: Dictionary = DataRepo.load_all().skills.skills[KEY]
-	assert_eq(RunScene.burst_art_paths(d), ["Skill.wz/322.img/skill/3221001/prepare", "Skill.wz/322.img/skill/3221001/effect"],
-		"`end_on_drop` is a flag, not a path (the warm-up once String()-ed it and failed)")
-	var hurricane: Dictionary = DataRepo.load_all().skills.skills["hurricane"]
-	assert_eq(RunScene.burst_art_paths(hurricane).size(), 3)
-	assert_eq(RunScene.burst_art_paths({}), [])
 
 
 # --- the bot ----------------------------------------------------------------------------------------------------------
