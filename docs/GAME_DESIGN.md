@@ -567,6 +567,19 @@ block and compares the event logs).
   Scheduled bosses spawn at their arrival, so their HP, defence and EXP come from that moment and their damage ratios
   (`pad` and `mad` both) freeze there, projectiles included. Summons and revives are ordinary monsters at their own
   spawn time. Relocating a monster keeps its multipliers.
+- **Boss damage freeze.** A scheduled boss's pad and mad ratios are keyed by its schedule index, so two bosses of one
+  id never share a freeze; every boss hit source (touch, attacks, balls) carries `boss_index`. A final form that continues
+  the encounter (#456) calls `RunWorld.capture_boss_level_scale(boss_index, its_mob_id, record)` at its own spawn and
+  replaces the freeze with its own level and time; `level_scale_at` keeps the first arrival.
+- **Known limits.**
+  - The curve holds its Lv131 values above Lv131 (v83 has no stronger ordinary monster), so the effective levels #449
+    sets should stay at or below about 131; above that a stage gains no strength from a higher E.
+  - Lv108-131 rest on 0-1 samples per level (see `_doc.samples.per_level`), so the tail is coarse; the monotone fit and
+    smoothing carry it between the few sampled levels.
+  - `mad` holds 117.8 below Lv30: no mainline monster under Lv30 has a magic attack, so the curve has no earlier sample.
+  - Level-scale stages run a per-tick loop over the live slots in `RunWorld._fill_live_defense` to apply the captured
+    PDD/MDD multipliers. Check its cost in the first perf capture of a level-scale stage (`scripts/playtest.sh
+    --vsync=off`, `sim_us_per_tick`); stages without the block skip it.
 - **Determinism and telemetry.** No RNG is drawn. A balance record of a level-scale stage gains `level_scale_at`
   (`[{boss_index, mob_id, level}]`, the effective level at each boss arrival) and each `boss_fights` entry its own
   `level_scale_at`; other stages' records keep their bytes.

@@ -161,7 +161,7 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 		entry["attack_dmg_mult"] = float(entry.get("attack_dmg_mult", entry.get("dmg_mult", 1.0))) * ramp_damage
 		entry["dmg_mult"] = float(entry.get("dmg_mult", 1.0)) * ramp_damage
 		# Tier C (#453): the level scale's damage ratios freeze at arrival too (HP, defence and EXP did, in spawn_mob).
-		world.capture_boss_level_scale(int(entry.mob_id), record)
+		world.capture_boss_level_scale(index, int(entry.mob_id), record)
 		world.mob_boss[slot] = index
 		# Scheduled bosses never flinch or get pushed, whatever their WZ info/boss flag (spec; tier C rule).
 		world.swarm.steady[slot] = 1

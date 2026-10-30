@@ -281,7 +281,7 @@ static func _impact(pending: Dictionary, world: RunWorld) -> void:
 static func _source(pending: Dictionary, accuracy: float) -> Dictionary:
 	if int(pending.boss_index) >= 0:
 		return {"mob": int(pending.mob), "mob_id": int(pending.mob_id), "boss": true,
-			"accuracy": accuracy, "dmg_mult": float(pending.dmg_mult), "source_kind": "attack"}
+			"boss_index": int(pending.boss_index), "accuracy": accuracy, "dmg_mult": float(pending.dmg_mult), "source_kind": "attack"}
 	return {"mob": int(pending.mob), "mob_id": int(pending.mob_id), "boss": false, "elite": bool(pending.elite),
 		"accuracy": accuracy, "dmg_mult": float(pending.dmg_mult), "source_kind": "mob_attack"}
 
@@ -303,6 +303,7 @@ static func _launch_ball(pending: Dictionary, world: RunWorld) -> void:
 		"mob": int(pending.mob), "mob_id": int(pending.mob_id), "damage": float(pending.damage),
 		"multiplier": float(pending.dmg_mult), "accuracy": kind.acc, "magic": bool(pending.magic),
 		"element": String(pending.element), "hit": String(pending.hit), "source_pos": pending.pos}
+	spec["boss_index"] = int(pending.boss_index)
 	if int(pending.boss_index) < 0:
 		spec["ordinary"] = true
 		spec["elite"] = bool(pending.elite)

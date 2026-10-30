@@ -251,7 +251,7 @@ var level_scale: LevelScale
 var mob_level_pdd := PackedFloat64Array()
 var mob_level_mdd := PackedFloat64Array()
 var mob_level_exp := PackedFloat64Array()
-## Scheduled boss mob id -> [pad, mad] ratios captured when it arrived (a boss's damage freezes at arrival).
+## Scheduled boss index -> [pad, mad] ratios captured when its encounter arrived (a boss's damage freezes at arrival).
 var _boss_level_damage := {}
 var _live_mdd := PackedFloat32Array()
 var _live_pdd := PackedFloat32Array()
@@ -484,6 +484,9 @@ func _init_level_scale() -> void:
 	level_scale = LevelScale.from_stage(stage, data.get("level_curve", {}))
 	if level_scale == null and stage.has("level_scale"):
 		warnings.append("stage '%s' level_scale or level_curve.json is invalid: no level scale" % stage_key)
+	if stage.has("level_scale") and (stage.has("opening_ramp") or stage.get("maps", []).any(
+			func(entry: Variant) -> bool: return entry is Dictionary and entry.has("opening_ramp"))):
+		push_warning("stage '%s' has level_scale and an opening_ramp: damage would be scaled twice" % stage_key)
 
 
 ## Player shots, pickups and unlimited potion cooldowns.
@@ -2534,7 +2537,7 @@ func _touch() -> void:
 func _player_hit(m: int, mk: MobKind) -> void:
 	var boss_index := mob_boss[m]
 	var source := {"mob": m, "mob_id": mk.id, "accuracy": mk.acc,
-		"elite": mob_elite[m] != 0, "boss": boss_index >= 0, "source_kind": "touch"}
+		"elite": mob_elite[m] != 0, "boss": boss_index >= 0, "boss_index": boss_index, "source_kind": "touch"}
 	if boss_index >= 0:
 		source["dmg_mult"] = bosses.damage_multiplier(boss_index)
 	take_hit(mob_weapon_attack(m, float(mk.pad)), false, "", Vector2(swarm.x[m], swarm.y[m]), source)
@@ -2580,11 +2583,12 @@ func hit_source_multiplier(source: Dictionary, magic := false) -> float:
 
 ## Tier C (#453): the level scale's damage ratio for a monster hit, pad(E)/pad(L) for contact and physical attacks and
 ## mad(E)/mad(L) for magic, L being the attacker's canonical level (source.mob_id; no id, no scaling). An ordinary
-## monster uses the effective level at the impact; a scheduled boss the one captured at its arrival.
+## monster uses the effective level at the impact; a scheduled boss (source.boss_index) the one captured for its
+## encounter, so two bosses of the same id never share a freeze.
 func _level_damage_multiplier(source: Dictionary, magic: bool) -> float:
 	var id := int(source.get("mob_id", 0))
 	if bool(source.get("boss", false)):
-		var captured: Array = _boss_level_damage.get(id, [1.0, 1.0])
+		var captured: Array = _boss_level_damage.get(int(source.get("boss_index", -1)), [1.0, 1.0])
 		return captured[1] if magic else captured[0]
 	if not kind_of_id.has(id):
 		return 1.0
@@ -2592,15 +2596,17 @@ func _level_damage_multiplier(source: Dictionary, magic: bool) -> float:
 	return level_scale.ratio("mad" if magic else "pad", level_scale.level_at(curve_time()), level)
 
 
-## Called by BossDirector when a scheduled boss arrives: freezes its damage ratios (pad and mad) at the arrival's
-## effective level and records `level_scale_at` (that level) in its boss record. No-op without a level scale.
-func capture_boss_level_scale(mob_id: int, record: Dictionary) -> void:
+## Called by BossDirector when scheduled boss `boss_index` arrives (and by a final form that continues its encounter, with
+## its own mob id and spawn time): freezes the damage ratios (pad and mad) of `mob_id` at the effective level now and, on
+## the first call, records `level_scale_at` (that level) in the boss record. No-op without a level scale.
+func capture_boss_level_scale(boss_index: int, mob_id: int, record: Dictionary) -> void:
 	if level_scale == null or not kind_of_id.has(mob_id):
 		return
 	var effective := level_scale.level_at(curve_time())
 	var level: int = (mob_kinds[kind_of_id[mob_id]] as MobKind).level
-	_boss_level_damage[mob_id] = [level_scale.ratio("pad", effective, level), level_scale.ratio("mad", effective, level)]
-	record["level_scale_at"] = effective
+	_boss_level_damage[boss_index] = [level_scale.ratio("pad", effective, level), level_scale.ratio("mad", effective, level)]
+	if not record.has("level_scale_at"):
+		record["level_scale_at"] = effective
 
 
 ## Whether the hit window (hit invincibility) or a guarding hit hook turns this source's hit away right now. Boss skill

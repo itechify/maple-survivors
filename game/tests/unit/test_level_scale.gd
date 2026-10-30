@@ -56,6 +56,10 @@ func _setup(keyframes: Array = KEYS, p_seed := 76) -> Dictionary:
 	info["PDDamage"] = 140.0
 	info["MDDamage"] = 80.0
 	info["exp"] = 1000.0
+	var boogie: Dictionary = setup.mob_imgs[MF.BOOGIE].info
+	boogie["PDDamage"] = 60.0
+	boogie["MDDamage"] = 40.0
+	boogie["exp"] = 500.0
 	if not keyframes.is_empty():
 		setup.data.stages.stages.quiet["level_scale"] = {"keyframes": keyframes.duplicate(true)}
 	return setup
@@ -260,7 +264,7 @@ func test_boss_captures_hp_defence_exp_and_damage_at_arrival_while_ordinary_dama
 	var slot := int(record.slot)
 	assert_eq(w.swarm.max_hp[slot], roundi(1000000.0 * _hp(e) / _hp(L)), "boss HP at arrival")
 	assert_near(w.mob_defense(slot, false), 140.0 * _pdd(e) / _pdd(L), 1e-6, "boss PDD at arrival")
-	var boss_source := {"mob_id": MF.TAURO, "boss": true}
+	var boss_source := {"mob_id": MF.TAURO, "boss": true, "boss_index": 0}
 	var ordinary_source := {"mob_id": MF.TAURO}
 	assert_near(w.hit_source_multiplier(boss_source, false), _pad(e) / _pad(L), 1e-9, "boss physical at arrival")
 	assert_near(w.hit_source_multiplier(boss_source, true), _mad(e) / _mad(L), 1e-9, "boss magic at arrival")
@@ -291,6 +295,102 @@ func test_balance_record_lists_the_level_at_each_boss_arrival_only_with_a_scale(
 	assert_true(BR.level_scale_arrivals(plain).is_empty(), "no scale, no entries")
 	assert_false(BR.fight_records(plain)[0].has("level_scale_at"), "and the fight record keeps its shape")
 	assert_false(plain.bosses.records[0].has("level_scale_at"))
+
+
+# ---- summons, revives, same-id bosses and final forms ----
+
+func test_offspring_spawned_later_capture_their_own_ratios_and_take_damage_at_impact() -> void:
+	var w := _world()
+	var parent := RF.put_mob(w, MF.TAURO, 600)
+	for tick in 5:
+		w.step(DT, MoveInput.new())
+	assert_true(w.swarm.platform[parent] >= 0, "the parent stands on a platform")
+	var parent_hp: int = w.swarm.max_hp[parent]
+	var parent_pdd := w.mob_defense(parent, false)
+	assert_eq(parent_hp, roundi(1000000.0 * _hp(40.0) / _hp(L)), "the parent captured t = 0")
+	w.time = 50.0 # E = 60, X = 45
+	var kids := w.spawn_offspring(parent, 600.0, PackedInt32Array([MF.TAURO, MF.BOOGIE]), 0)
+	assert_eq(kids.size(), 2)
+	if kids.size() != 2:
+		return
+	var tauro_kid := kids[0]
+	var boogie_kid := kids[1]
+	assert_eq(w.swarm.max_hp[tauro_kid], roundi(1000000.0 * _hp(60.0) / _hp(L)), "same kind, its own spawn time")
+	assert_ne(w.swarm.max_hp[tauro_kid], parent_hp)
+	assert_near(w.mob_defense(tauro_kid, false), 140.0 * _pdd(60.0) / _pdd(L), 1e-6)
+	assert_ne(w.mob_defense(tauro_kid, false), parent_pdd)
+	assert_eq(w.swarm.max_hp[boogie_kid], roundi(1000000.0 * _hp(60.0) / _hp(35.0)), "a kind with another level uses its L")
+	assert_near(w.mob_defense(boogie_kid, true), 40.0 * _mdd(60.0) / _mdd(35.0), 1e-6)
+	var plain_exp := float(w.balance.get("exp_mult", 1.0)) * float(w.stage.get("exp_mult", 1.0))
+	assert_eq(_kill_exp(w, boogie_kid), roundi(500.0 * plain_exp * _exp(45.0) / _exp(35.0)), "EXP at the kid's spawn")
+	assert_eq(_kill_exp(w, parent), roundi(1000.0 * plain_exp * _exp(30.0) / _exp(L)), "the parent keeps its own")
+	var source := {"mob_id": MF.BOOGIE}
+	assert_near(w.hit_source_multiplier(source, false), _pad(60.0) / _pad(35.0), 1e-9, "damage at the impact's time")
+	assert_near(w.hit_source_multiplier(source, true), _mad(60.0) / _mad(35.0), 1e-9)
+	w.time = 100.0
+	assert_near(w.hit_source_multiplier(source, false), _pad(80.0) / _pad(35.0), 1e-9, "and it follows t afterwards")
+	assert_eq(w.swarm.max_hp[tauro_kid], roundi(1000000.0 * _hp(60.0) / _hp(L)), "while HP stays captured")
+
+
+func test_two_scheduled_bosses_of_one_id_keep_separate_damage_freezes() -> void:
+	var setup := _setup()
+	RF.set_bosses(setup.data.stages.stages.quiet, [
+		{"time": 5, "mob_id": MF.TAURO, "hp_mult": 1.0, "dmg_mult": 1.0},
+		{"time": 40, "mob_id": MF.TAURO, "hp_mult": 1.0, "dmg_mult": 1.0}])
+	var w := RunWorld.new(setup)
+	RF.place_player(w, 400)
+	w.god = true
+	var guard := 0
+	while (int(w.bosses.records[0].slot) < 0 or int(w.bosses.records[1].slot) < 0) and guard < 4000:
+		w.step(DT, MoveInput.new())
+		guard += 1
+	var first: Dictionary = w.bosses.records[0]
+	var second: Dictionary = w.bosses.records[1]
+	assert_true(int(first.slot) >= 0 and int(second.slot) >= 0, "both arrived")
+	if int(first.slot) < 0 or int(second.slot) < 0:
+		return
+	var e0 := 40.0 + 0.4 * float(first.spawn_time)
+	var e1 := 40.0 + 0.4 * float(second.spawn_time)
+	assert_true(e1 > e0 + 5.0, "the arrivals are at different levels")
+	var a := {"mob_id": MF.TAURO, "boss": true, "boss_index": 0}
+	var b := {"mob_id": MF.TAURO, "boss": true, "boss_index": 1}
+	assert_near(w.hit_source_multiplier(a, false), _pad(e0) / _pad(L), 1e-9, "boss 0 keeps its arrival")
+	assert_near(w.hit_source_multiplier(b, false), _pad(e1) / _pad(L), 1e-9, "boss 1 has its own")
+	assert_near(w.hit_source_multiplier(a, true), _mad(e0) / _mad(L), 1e-9)
+	assert_near(w.hit_source_multiplier(b, true), _mad(e1) / _mad(L), 1e-9)
+	assert_near(float(first.level_scale_at), e0, 1e-6)
+	assert_near(float(second.level_scale_at), e1, 1e-6)
+
+
+func test_a_final_form_recaptures_its_encounters_freeze_at_its_own_spawn() -> void:
+	var w := _boss_world()
+	var guard := 0
+	while int(w.bosses.records[0].slot) < 0 and guard < 3000:
+		w.step(DT, MoveInput.new())
+		guard += 1
+	var record: Dictionary = w.bosses.records[0]
+	assert_true(int(record.slot) >= 0)
+	if int(record.slot) < 0:
+		return
+	var arrival_level := float(record.level_scale_at)
+	var source := {"mob_id": MF.BOOGIE, "boss": true, "boss_index": 0}
+	w.time = 60.0 # E = 64 when the final form (another mob id, Lv35) spawns for the same encounter
+	w.capture_boss_level_scale(0, MF.BOOGIE, record)
+	assert_near(w.hit_source_multiplier(source, false), _pad(64.0) / _pad(35.0), 1e-9, "the final form's own level and time")
+	assert_near(w.hit_source_multiplier(source, true), _mad(64.0) / _mad(35.0), 1e-9)
+	w.time = 95.0
+	assert_near(w.hit_source_multiplier(source, false), _pad(64.0) / _pad(35.0), 1e-9, "frozen again")
+	assert_near(float(record.level_scale_at), arrival_level, 1e-9, "the telemetry keeps the first arrival")
+	assert_eq(w.hit_source_multiplier({"mob_id": MF.TAURO, "boss": true, "boss_index": 3}, false), 1.0,
+		"an encounter with no capture is unscaled")
+
+
+func test_a_level_scale_stage_that_keeps_an_opening_ramp_still_builds() -> void:
+	var setup := _setup()
+	setup.data.stages.stages.quiet["opening_ramp"] = {"seconds": 60, "hp": {"start": 1.0, "end": 1.0}}
+	var w := RunWorld.new(setup) # warns (push_warning); the data validation is what rejects it
+	assert_true(w.level_scale != null)
+	assert_false(LevelScale.stage_errors(setup.data.stages).is_empty())
 
 
 # ---- slots follow relocation ----
