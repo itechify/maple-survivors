@@ -8,21 +8,28 @@
 	"continent": "Victoria Island",
 	"duration": 900,
 	"hard_cap": 400,
-	"_bosses": "Tier C (spec #253, starting values, untuned): each boss matches the Henesys boss of the same map slot (Mano, Mushmom, Blue Mushmom) at that slot's typical_hp/typical_pdd: survivor HP = round(canonical maxHP x hp_mult) equals the slot's, and hp_mult/dmg_mult/attack_dmg_mult are the 0.01 steps whose 85-100% roll range (CombatMath.monster_damage) lies closest to the slot's touch/attack roll range. Canonical PDD/MDD, level and undead flags are not normalized.",
+	"_bosses": "Tier C (spec #253, starting values, untuned): each boss matches the Henesys boss of the same map slot (Mano, Mushmom, Blue Mushmom) at that slot's typical_hp/typical_pdd: survivor HP = round(canonical maxHP x hp_mult) equals the slot's, and hp_mult/dmg_mult/attack_dmg_mult are the 0.01 steps whose 85-100% roll range (CombatMath.monster_damage) lies closest to the slot's touch/attack roll range. Canonical PDD/MDD, level and undead flags are not normalized. Spec #447 (ticket #452): no boss appears twice across the progression, so map 1 is King Clang (shell 5220001, final form 5220000) instead of Mano, who stays in Henesys; maps 2 and 3 keep Stumpy and Iron Hook.",
 	"map_seconds": 300,
-	"_maps": "Tier C: owner map order and pool rules, spec #253. Map 1 is a hand-written curve pool of its own life mobs; maps 2 and 3 use their v83 life lists (no timed or hidden entries in v83).",
+	"_maps": "Tier C: owner map order and pool rules, spec #253. Map 1 is a hand-written curve pool of its own life mobs; maps 2 and 3 use their v83 life lists (no timed or hidden entries in v83). Bosses per spec #447 (ticket #452): 102010000 West Street Corner of Perion: King Clang (the last unused Victoria field boss; its Hot Sand map is not in the game, so the shell and its final form fight here); 101030404 East Rocky Mountain V: Stumpy (its own map); 106000101: Iron Hook.",
 	"maps": [
 		{
 			"map_id": 102010000,
 			"pool": "curve",
 			"boss": {
 				"time": 300,
-				"mob_id": 2220000,
-				"hp_mult": 1.8,
-				"dmg_mult": 1.15,
+				"mob_id": 5220001,
+				"final_form": 5220000,
+				"hp_mult": 0.1,
+				"final_form_hp_mult": 0.128,
+				"dmg_mult": 0.61,
 				"typical_hp": 196,
 				"typical_pdd": 7,
-				"_tier": "tier C: the Henesys Mano entry repeated: 2000 x 1.8 = 3600 HP, touch 90 x 1.15 = 82..98 of 196 HP"
+				"attacks": [
+					"attack1"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 0.56,
+				"_tier": "tier C (#452, method of #254): King Clang takes Mano's slot (Mano now only guards Henesys), so it matches Mano at the same typical_hp/typical_pdd. The encounter is the 5220001 shell (4000 HP, stands, never attacks) that revives into 5220000 (25000 HP) at its death position (#456): effective HP 4000 x 0.1 = 400 for the shell plus 25000 x 0.128 = 3200 for the form = 3600 (Mano 2000 x 1.8). Touch 165 x 0.61 = 83..98 of 196 HP (shell and form share PADamage 165; Mano touch 90 x 1.15 = 82..98); the form's attack1 (type 0 strike, PADamage 180) x 0.56 = 83..98 (Mano has no attack, so it matches Mano's touch, as King Slime's slam does in Kerning), 8 s cadence. Canonical kit unchanged: stun123 (2 s, every 15 s, 60%), summon 200/82 (Lorang and Clang, limit 30, every 10 s from 80% HP), buffs 110/112/113 and heal114 (x700, from 80% HP, every 30 s). The fight is won only on 5220000"
 			}
 		},
 		{
@@ -83,6 +90,6 @@
 	],
 	"bursts": {"first": 300, "every": 90, "count_min": 10, "count_max": 40},
 	"elites": {"first": 240, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
-	"note": "Home of the Warriors.",
+	"note": "Home of the Warriors. King Clang, Stumpy and Iron Hook.",
 	"original_life": {"130100": 22, "130101": 9, "1110101": 7}
 }

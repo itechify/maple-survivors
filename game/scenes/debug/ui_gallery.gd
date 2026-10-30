@@ -14,7 +14,8 @@ extends Node2D
 ##   levelup_text    v83 skill text on a learn (Fire Arrow), a rank (Poison Breath) and a mod card (Energy Bolt)
 ##   levelup_text_mage  the same for Magic Armor (learn), Energy Bolt 4 -> 5 (rank) and Twin Claw 2 -> 3 (mod)
 ##   options         the Options window (BGM, SOUND, FRAME CAP, MOVE KEYS, HP ALERT) with default settings
-##   title | stage_select | results | results_dead | import            the menu screens (sample data)
+##   title | stage_select | results | results_dead | import            the menu screens (sample data); stage_select takes
+##                   --cleared=<n|all>: the first n regions of the progression cleared (default 0: a new character)
 ##   flow            the real scene flow end to end (Flow autoload, this node as its host): title -> stage select ->
 ##                   run (autoplay, windows answered after 1 s) -> results (from the round's own summary) -> character select; a
 ##                   screenshot of each step into --shots=<dir>; saves to user://_test_cache/gallery_save.json
@@ -129,6 +130,10 @@ func _show_screen(which: String) -> void:
 						"icon": skill.get("icon", ""), "rank": book.max_rank(key)})
 				print("ui_gallery: full loadout skills=%d" % summary.skills.size())
 			scene.configure(summary, not dead, {"time": 900.0, "cleared": true, "level": 33, "kills": 3300})
+		"stage_select":
+			var order: Array = SceneFlow.progression()
+			var n := order.size() if str(args.get("cleared", "0")) == "all" else int(args.get("cleared", "0"))
+			scene.configure({"name": "Tester", "character": {"job_id": 212, "cleared_regions": order.slice(0, n)}}, null)
 	add_child(scene)
 	if which == "stage_select" and args.has("focus"):
 		scene.call("select", int(args.focus))

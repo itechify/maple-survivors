@@ -169,6 +169,8 @@ var drops: PickupRenderer
 var pet_renderer: PetRenderer
 var fx: FxRenderer
 var fx_back: FxRenderer
+## The boss ground hazards' mist (#459), drawn on the player's layer behind its mobs and the player.
+var hazard_view: HazardRenderer
 var numbers: DamageNumbers
 var tags: NameTags
 var hud: Hud
@@ -222,7 +224,14 @@ var _window_auto := 0.0
 var _restart_action := false
 ## Looping `affected` art above the character per boss status (MobSkill id -> fx handle); player_state key by id.
 var _status_fx := {}
-const STATUS_KEYS := {MobSkillRunner.SKILL_SLOW: "slow", MobSkillRunner.SKILL_STUN: "stun"}
+const STATUS_KEYS := {MobSkillRunner.SKILL_SLOW: "slow", MobSkillRunner.SKILL_STUN: "stun",
+	MobSkillRunner.SKILL_DARKNESS: "darkness", MobSkillRunner.SKILL_WEAKNESS: "weakness", MobSkillRunner.SKILL_CURSE: "curse",
+	MobSkillRunner.SKILL_SEDUCE: "seduce", MobSkillRunner.SKILL_CONFUSE: "confuse",
+	MobSkillRunner.SKILL_POISON: "poison"}
+## tier C (#458): CanvasLayer of the Darkness 121 screen dimming: above the world, below the HUD (layer 10).
+const DARKNESS_LAYER := 5
+## The Darkness 121 screen dimming (#458).
+var darkness: DarknessOverlay
 var _immunity_fx := {}
 var _shown_action := ""
 var _blink_t := 0.0
@@ -687,6 +696,9 @@ func _build_actors() -> void:
 	fx_back = FxRenderer.new()
 	fx_back.name = "FxBehind"
 	fx_back.library = library
+	hazard_view = HazardRenderer.new()
+	hazard_view.name = "Hazards"
+	hazard_view.library = library
 	# The character is drawn through a CanvasGroup so the invincibility blink fades it as one image (a plain modulate
 	# would fade every part separately and show the body through the arm).
 	player_group = CanvasGroup.new()
@@ -742,6 +754,12 @@ func _build_overlays() -> void:
 	add_child(hud)
 	hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
 	meter_cue = MeterCue.new(world.meter.config.get("cue", {}), _play_meter_cue)
+	var darkness_layer := CanvasLayer.new()
+	darkness_layer.name = "DarknessLayer"
+	darkness_layer.layer = DARKNESS_LAYER
+	add_child(darkness_layer)
+	darkness = DarknessOverlay.new()
+	darkness_layer.add_child(darkness)
 	# Below notices/windows so pause and inventory remain usable over a partly faded world.
 	var fade_layer := CanvasLayer.new()
 	fade_layer.name = "MapTransfer"
@@ -1116,7 +1134,8 @@ func handle_events(events: Array) -> void:
 				_event_shot("boss_arrival_%d.png" % int(e.boss_index), 0.1)
 			"boss_attack":
 				if e.phase == "start":
-					_sound(String(e.sound))
+					if not attack_sound_absent_in_v83(String(e.sound)):
+						_sound(String(e.sound))
 					# tier C: capture each attack before its impact, at half windup (capped at the mushroom jump frame).
 					var delay := minf(0.85, maxf(DT, (float(e.impact_time) - float(e.time)) * 0.5))
 					_event_shot("boss_windup_%d_%s.png" % [int(e.boss_index), String(e.attack)], delay)
@@ -1171,6 +1190,10 @@ func handle_events(events: Array) -> void:
 				_on_boss_skill(e)
 			"player_banished":
 				_on_player_banished(e)
+			"hazard_spawned":
+				_first_event_shot("mist", "mist.png", 1.2) # tier C: playtest evidence of the first mist, after it has faded in.
+			"hazard_status":
+				_on_hazard_status(e)
 			"mob_projectile_spawned":
 				# tier C: capture the first ball clearly separated from its caster; swarms must not encode a PNG per ball.
 				_first_event_shot("mob_projectile", "mob_projectile.png", 0.55)
@@ -1286,7 +1309,24 @@ func _on_boss_skill(e: Dictionary) -> void:
 		_status_fx[skill_id] = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
 		if skill_id == MobSkillRunner.SKILL_STUN:
 			_first_event_shot("stun", "stun.png", 0.4) # tier C: playtest evidence of the first Stun, mid-loop above the head.
+		elif skill_id in STATUS_KEYS:
+			# tier C: playtest evidence of the first of each boss status (#458), mid-loop above the head.
+			var key: String = STATUS_KEYS[skill_id]
+			_first_event_shot(key, key + ".png", 0.4 if skill_id != MobSkillRunner.SKILL_DARKNESS else 0.5)
 	_mob_sound(int(e.mob_id), String(e.action).replace("skill", "Skill"))
+
+
+## A hazard (the poison mist, #459) just put Slow or Poison on the character: its `affected` art loops above the head for
+## as long as the sim status lasts (_present stops it), replacing the art of an earlier cast of the same status.
+func _on_hazard_status(e: Dictionary) -> void:
+	var skill_id := int(e.skill_id)
+	if String(e.effect) == "" or world.player_state.get(STATUS_KEYS[skill_id], {}).is_empty():
+		return
+	if _status_fx.has(skill_id):
+		fx.stop(int(_status_fx[skill_id]))
+	_status_fx[skill_id] = fx.play_repeating(String(e.effect), Vector2.ZERO, INF, false, avatar, Vector2(0, world.body.position.y))
+	if skill_id == MobSkillRunner.SKILL_POISON:
+		_first_event_shot("poison", "poison.png", 0.4)
 
 
 ## A boss's Banish (#256) moved the character on this map: the camera jumps with it, the boss's message shows as a
@@ -1759,6 +1799,14 @@ func _advance_end(delta: float) -> void:
 		_finish()
 
 
+## True when `path` (Sound.wz/Mob.img/<id>/<Name>) is a sound v83 does not have: the mob's own Mob.img entry is in the
+## cache and lacks this node (King Clang 5220000 has Skill1 but no Attack1; tier A absence, #452), so that attack is
+## silent and records nothing missing. A mob whose whole entry is absent from the cache is not covered: its sound is
+## still looked up and reported missing, so an import gap stays visible.
+func attack_sound_absent_in_v83(path: String) -> bool:
+	return path != "" and library.find(path) == null and library.find(path.get_base_dir()) != null
+
+
 ## Plays mob `id`'s Sound.wz/Mob.img `name` sound ("Damage", "Die", "Skill1"...). A mob v83 gives no Mob.img entry at
 ## all (Iron Hook 4090000) is silent, as in the client, and records nothing missing (tier A: absent in v83 Sound.wz).
 func _mob_sound(id: int, name: String) -> void:
@@ -1935,6 +1983,7 @@ func _present(delta: float) -> void:
 	_update_throws(delta)
 	_update_falls(delta)
 	_update_player(delta)
+	_update_darkness(delta)
 	_update_pet(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
 	var mob_actions := world.mob_action_view()
@@ -1943,6 +1992,7 @@ func _present(delta: float) -> void:
 	summon_renderer.update_from(world.runner.summons)
 	shots.update_from(world.projectiles, world.visual_paths, delta)
 	mob_shots.update_from(world.mob_projectiles, world.visual_paths, delta)
+	hazard_view.update_from(world.hazards, world.time)
 	drops.update_from(world.pickups, delta)
 	tags.update_from(world.swarm, world.mob_elite, _kind_names)
 	_update_hud()
@@ -1992,6 +2042,13 @@ func _update_mob_status_effects() -> void:
 		if not seen.has(key):
 			fx.stop(int(_immunity_fx[key]))
 			_immunity_fx.erase(key)
+
+
+## Dims the screen round the avatar while Darkness 121 lasts (#458).
+func _update_darkness(delta: float) -> void:
+	var dark: bool = not world.player_state.get("darkness", {}).is_empty() and not bool(world.player_state.dead)
+	var body := avatar.get_global_transform_with_canvas().origin - Vector2(0.0, world.cast_height)
+	darkness.update(dark, body, _view_size(), delta)
 
 
 func _update_player(delta: float) -> void:
@@ -2069,7 +2126,7 @@ func _update_pet(delta: float) -> void:
 func _place_player_layer(layer: int) -> void:
 	_player_layer = layer
 	var c := map.actor_layer(layer)
-	for n: Node in [fx_back, player_group, drops]:
+	for n: Node in [fx_back, hazard_view, player_group, drops]:
 		if n.get_parent() != c:
 			if n.get_parent() != null:
 				n.get_parent().remove_child(n)
@@ -2078,6 +2135,7 @@ func _place_player_layer(layer: int) -> void:
 	c.move_child(drops, -1)
 	if _top.get_parent() == c:
 		c.move_child(_top, -1)
+	c.move_child(hazard_view, 0)
 	c.move_child(fx_back, 0)
 
 

@@ -1238,9 +1238,10 @@ func test_timed_buff_row_and_rank_preview_use_canonical_armor_data() -> void:
 func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
 	if not require_cache():
 		return
-	scene = _make("ellinia", 2406, {})
-	var entry: Dictionary = scene.world.bosses.entries[0].duplicate(true)
+	scene = _make("perion", 2406, {}) # Stumpy is Perion's map 2 boss since #452
+	var entry: Dictionary = scene.world.bosses.entries[1].duplicate(true)
 	entry.time = 0.5
+	entry.map_index = 0 # armed on the scene's first map
 	entry.attacks = ["attack2"]
 	scene.world.bosses = BossDirector.new([entry])
 	scene.world.mob_skills = MobSkillRunner.new(scene.world.setup, {"enabled_ids": []})
@@ -1402,7 +1403,7 @@ func test_dyle_immunity_icon_follows_live_boss_and_ends_with_status_and_death() 
 func test_tree_boss_bars_use_original_icons_and_split_removes_only_the_dead_bar() -> void:
 	if not require_cache():
 		return
-	scene = _make("ellinia", 2521, {})
+	scene = _make("kerning", 2521, {}) # King Slime and Dyle are Kerning City's bosses since #452
 	var w := scene.world
 	w.god = true
 	w.loadout.order.clear()
@@ -1466,6 +1467,37 @@ func test_setup_preloads_clear_art_and_sound_before_the_victory_event() -> void:
 	_assert_nothing_missing(scene, "clear warmup")
 
 
+## #452: v83 gives King Clang (5220000) a Sound.wz/Mob.img entry with Skill1 but no Attack1, so its attack start is
+## silent and reports nothing missing; the same lookup under a mob whose whole entry is absent from the cache (an
+## import gap) is still looked up and shows up in `missing`.
+func test_boss_attack_sound_is_silent_only_when_the_mobs_entry_lacks_that_sound() -> void:
+	if not require_cache():
+		return
+	if lib.find("Sound.wz/Mob.img/5220000") == null or lib.find("Sound.wz/Mob.img/5220002/Attack1") == null:
+		skip("King Clang and Faust sounds not imported (run scripts/import.sh with the current manifest)")
+		return
+	assert_true(lib.find("Sound.wz/Mob.img/5220000/Attack1") == null, "v83 has no King Clang Attack1")
+	scene = _make("perion", 1, {})
+	assert_eq(scene.error, "", "scene started")
+	var sfx := scene._sfx_service()
+	if sfx == null:
+		skip("no Sfx autoload")
+		return
+	var sfx_lib := sfx._lib()
+	assert_true(scene.attack_sound_absent_in_v83("Sound.wz/Mob.img/5220000/Attack1"), "entry present, node absent")
+	assert_false(scene.attack_sound_absent_in_v83("Sound.wz/Mob.img/5220002/Attack1"), "the sound exists")
+	assert_false(scene.attack_sound_absent_in_v83("Sound.wz/Mob.img/9999999/Attack1"), "no entry at all: not silenced")
+	var start := {"type": "boss_attack", "phase": "start", "boss_index": 0, "attack": "attack1", "time": 0.0,
+		"impact_time": 1.0, "pos": Vector2.ZERO, "facing": 1, "sound": "Sound.wz/Mob.img/5220000/Attack1"}
+	var before := sfx_lib.missing.size()
+	scene.handle_events([start])
+	assert_eq(sfx_lib.missing.size(), before, "King Clang's attack start records nothing missing: %s" % [sfx_lib.missing])
+	var gap := start.duplicate()
+	gap.sound = "Sound.wz/Mob.img/9999999/Attack1"
+	scene.handle_events([gap])
+	assert_eq(sfx_lib.missing.size(), before + 1, "an absent Mob.img entry still reports its sound missing")
+
+
 ## Spec #253: v83 Sound.wz/Mob.img has no entry for Iron Hook (4090000), so the client plays nothing for it; its hit,
 ## death and skill events stay silent without reporting a missing asset, while a mob with sounds still plays them.
 func test_a_mob_without_v83_sounds_is_silent_and_reports_nothing_missing() -> void:
@@ -1506,8 +1538,9 @@ func test_setup_preloads_boss_art_and_sounds() -> void:
 			paths.append_array(["Skill.wz/MobSkill.img/112/level/1/effect", "Skill.wz/MobSkill.img/126/level/7/affected",
 				"Effect.wz/Summon.img/1", "Mob.wz/6130101.img/attack1/info/effect"])
 		else:
-			paths.append_array(["Mob.wz/3220000.img/attack2/info/ball", "Skill.wz/MobSkill.img/140/level/8/mob",
-				"Skill.wz/MobSkill.img/114/level/15/mob0"])
+			# Faust (#452): a type-2 ball, weapon immunity 140/12, heal 114/18 and a summon (Ellinia's map 3 boss).
+			paths.append_array(["Mob.wz/5220002.img/attack1/info/ball", "Skill.wz/MobSkill.img/140/level/12/mob",
+				"Skill.wz/MobSkill.img/114/level/18/mob0", "Effect.wz/Summon.img/12"])
 		for path in paths:
 			assert_true(lib.find_anim(path) != null, "%s: %s exists" % [stage, path])
 		for record: Dictionary in scene.world.bosses.records:

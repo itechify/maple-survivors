@@ -7,26 +7,26 @@
 	"continent": "Victoria Island",
 	"duration": 900,
 	"hard_cap": 400,
+	"_bosses": "Tier C (spec #447, ticket #452): no boss appears twice across the progression, so Ellinia takes the Mushroom Castle bosses and Faust: Prime Minister replaces Stumpy, Grey Yeti and King Pepe replaces King Slime, Faust replaces Dyle. Each matches the boss it replaces by the #254 method (effective HP, contact and attack damage at the slot's typical_hp/typical_pdd); the _tier notes show the derivations. Starting values, untuned. Canonical stats, attack boxes, timing and skill kits remain in Mob.wz.",
 	"map_seconds": 300,
-	"_maps": "Tier C: owner map order and pool rules, spec #241. Each boss time is relative to map entry; Pig Beach excludes timed Iron Hook; Sanctuary uses Sanctuary Entrance IV ordinary weights.",
+	"_maps": "Tier C: owner map order and pool rules, spec #241; bosses per spec #447 (ticket #452). Each boss time is relative to map entry. 101010100 The Tree That Grew I: Prime Minister (a Mushroom Castle boss; the map has no v83 boss of its own); 100040100 The Forest of Wisdom: Grey Yeti and King Pepe; 100040105 The Forest of Evil I: Faust (its own MonsterBook map).",
 	"maps": [
 		{
 			"map_id": 101010100,
 			"pool": "curve",
 			"boss": {
 				"time": 300,
-				"mob_id": 3220000,
-				"hp_mult": 0.45,
-				"dmg_mult": 0.83,
+				"mob_id": 3300008,
+				"hp_mult": 0.252,
+				"dmg_mult": 0.8,
 				"typical_hp": 208,
 				"typical_pdd": 7,
 				"attacks": [
-					"attack1",
-					"attack2"
+					"attack1"
 				],
 				"attack_interval": 8,
-				"attack_dmg_mult": 0.77,
-				"_tier": "tier C: 3150 HP and separate contact/attack scales; 8 s cadence; canonical stats and attack/skill metadata unchanged"
+				"attack_dmg_mult": 0.69,
+				"_tier": "tier C (#452, method of #254): Prime Minister takes Stumpy's slot, so it matches the replaced boss at the same typical_hp/typical_pdd: 12500 x 0.252 = 3150 HP (Stumpy 7000 x 0.45); touch 130 x 0.8 = 84..100 of 208 HP (Stumpy touch 125 x 0.83 = 84..100); attack1 150 x 0.69 = 85..100 (Stumpy slam 135 x 0.77 = 85..100); attack1 is its one canonical attack (type 0 strike), 8 s cadence. MobSkill 200/164 (Renegade Spores and Poison Mushroom, limit 200, every 80 s from 60% HP) stays canonical: five small mobs per cast"
 			}
 		},
 		{
@@ -34,17 +34,17 @@
 			"pool_from_life": true,
 			"boss": {
 				"time": 300,
-				"mob_id": 9300003,
-				"hp_mult": 1.1,
-				"dmg_mult": 1.36,
+				"mob_id": 3300005,
+				"hp_mult": 0.07333,
+				"dmg_mult": 1.41,
 				"typical_hp": 340,
 				"typical_pdd": 7,
 				"attacks": [
 					"attack1"
 				],
 				"attack_interval": 8,
-				"attack_dmg_mult": 1.06,
-				"_tier": "tier C: 8800 HP, separate touch130/slam165 scaling and 8 s cadence; canonical slam900ms/summon/revive metadata unchanged"
+				"attack_dmg_mult": 1.41,
+				"_tier": "tier C (#452, method of #254): Grey Yeti and King Pepe takes King Slime's slot, so it matches the replaced boss at the same typical_hp/typical_pdd: 120000 x 0.07333 = 8800 HP (King Slime 8000 x 1.1); touch 125 x 1.41 = 143..169 of 340 HP and attack1 125 x 1.41 = 143..169 (King Slime touch 130 x 1.36 and slam 165 x 1.06 = 143..170); attack1 is its one canonical attack (type 0 strike), 8 s cadence. MobSkill 200/165 (Helmet Pepe 3300003 and Royal Guard Pepe 3300004, limit 200, every 40 s from 80% HP) stays canonical through StageRoster"
 			}
 		},
 		{
@@ -52,12 +52,17 @@
 			"pool_from_life": true,
 			"boss": {
 				"time": 300,
-				"mob_id": 6220000,
-				"hp_mult": 0.26,
-				"dmg_mult": 1.14,
+				"mob_id": 5220002,
+				"hp_mult": 0.8224,
+				"dmg_mult": 1.32,
 				"typical_hp": 424,
 				"typical_pdd": 7,
-				"_tier": "tier C: 8060 HP and contact scaling; canonical heal114 and immunity140 gates/intervals/durations unchanged"
+				"attacks": [
+					"attack1"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 1.14,
+				"_tier": "tier C (#452, method of #254): Faust takes Dyle's slot, so it matches the replaced boss at the same typical_hp/typical_pdd: 9800 x 0.8224 = 8060 HP (Dyle 31000 x 0.26); touch 165 x 1.32 = 179..211 of 424 HP (Dyle touch 190 x 1.14 = 178..211); attack1 (a type 2 ball) 190 x 1.14 = 178..211 (Dyle has no attack, so it matches Dyle's touch, as King Slime's slam matches Mano's), 8 s cadence. Canonical kit unchanged: heal114 (x3000, from 90% HP, every 10 s), buffs 110/112/113, summon 200/84 (up to 15 Zombie Lupin, every 10 s from 80% HP) and immunity140 (10 s every 30 s)"
 			}
 		}
 	],
@@ -82,6 +87,6 @@
 	"bursts": {"first": 90, "every": 90, "count_min": 10, "count_max": 40},
 	"elites": {"first": 75, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
 	"exp_mult": 0.9,
-	"note": "Classic Slimes, tree portals and three bosses.",
+	"note": "Classic Slimes, tree portals, the Mushroom Castle bosses and Faust.",
 	"original_life": {"210100": 25, "130101": 5}
 }

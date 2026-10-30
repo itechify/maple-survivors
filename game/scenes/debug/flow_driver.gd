@@ -797,7 +797,7 @@ func _reopen_hub() -> bool:
 			and flow.current_name == "free_market", 10.0, "Free Market (continued)")
 
 
-## Presses Down on the open map select until the card of stage `key` is selected.
+## Presses Down or Up on the open map select until the card of stage `key` is selected (map select opens on the frontier, #451).
 func _select_stage(key: String) -> bool:
 	var select: StageSelectScene = flow.current
 	var card := maps_stage_card({"stage": key}, select.stages)
@@ -805,7 +805,9 @@ func _select_stage(key: String) -> bool:
 		return false
 	while select.selected < card:
 		await _key(KEY_DOWN)
-	return _expect(select.selected == card, "Down did not select the %s card" % key)
+	while select.selected > card:
+		await _key(KEY_UP)
+	return _expect(select.selected == card, "Down/Up did not select the %s card" % key)
 
 
 ## Title (Enter) -> a new character -> Free Market -> map select -> Start: the way into a round for the in-run scenarios.

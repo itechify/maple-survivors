@@ -94,11 +94,12 @@ func test_owner_opening_and_map_pool_declarations_are_loaded_as_plain_data() -> 
 	assert_has(DataRepo.stage_mob_ids(data, "sleepywood"), 4230100)
 
 
-## Spec #253: Perion and Kerning City schedule Mano/Stumpy/Iron Hook and King Slime/Shade/Dyle, map 1 on a curve pool
-## and maps 2 and 3 on their own v83 life lists without exclusions (the v83 lists have no timed or hidden entries).
+## Spec #253: Perion and Kerning City schedule King Clang (#452: Mano before)/Stumpy/Iron Hook and King Slime/Shade/Dyle,
+## map 1 on a curve pool and maps 2 and 3 on their own v83 life lists without exclusions (the v83 lists have no timed or
+## hidden entries).
 func test_perion_and_kerning_boss_order_and_pool_rules() -> void:
 	var stages: Dictionary = DataRepo.load_all().stages.stages
-	var bosses := {"perion": [2220000, 3220000, 4090000], "kerning": [9300003, 5090000, 6220000]}
+	var bosses := {"perion": [5220001, 3220000, 4090000], "kerning": [9300003, 5090000, 6220000]}
 	for key: String in bosses:
 		var maps: Array = stages[key].maps
 		assert_eq(maps.map(func(e: Dictionary) -> int: return int(e.boss.mob_id)), bosses[key], "%s bosses" % key)
@@ -106,8 +107,8 @@ func test_perion_and_kerning_boss_order_and_pool_rules() -> void:
 		for i in [1, 2]:
 			assert_eq(maps[i].get("pool_from_life"), true, "%s map %d uses its life list" % [key, i + 1])
 			assert_false(maps[i].has("exclude"), "%s map %d excludes nothing" % [key, i + 1])
-	var attacks := {2220000: [], 3220000: ["attack1", "attack2"], 4090000: [], 9300003: ["attack1"], 5090000: [],
-		6220000: []}
+	var attacks := {5220001: ["attack1"], 3220000: ["attack1", "attack2"], 4090000: [], 9300003: ["attack1"],
+		5090000: [], 6220000: []}
 	for key: String in bosses:
 		for entry: Dictionary in DataRepo.stage_bosses(stages[key]):
 			assert_eq(Array(entry.get("attacks", [])), attacks[int(entry.mob_id)], "%d attacks" % int(entry.mob_id))
