@@ -4489,6 +4489,15 @@ reproduce their hashes; `test_player_forms` and `test_run_events` are unchanged.
 shows the blue bar draining 0.78 -> 0.16, blue absorbed numbers and the break (blue 40 + violet 12 in one hit, bar gone). No `--job=522`
 playtest: the ship is C13's and the job is not playable.
 
+### Corsair C13 smoke (#397, 2026)
+
+The Battleship and its subs are data plus small text / preview seams (`hull_share`, `SkillText._ship_line`, the `hull` card preview) and
+one presentation change (the rider's `shoot2`, the hull bar lift). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212)
+died at 12:31 / 11:01 / 7:54 and Hero (112) at 5:27 / 5:36 / 11:28, no clears, no warnings, identical to the C11 rows above. Diagnostic
+`--job=522` playtest (`playable` and `starting_skill battleship` flipped in the worktree only, reverted; Henesys seed 3, x4, 2:00 and 1:00):
+`missing: []`; the ship drawn with the seated rider, the blue hull bar over the head, a Cannon volley, a Torpedo flash and the broken hull
+(10 HP at rank 1 / Lv1) looked at by eye. Not tuned.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
