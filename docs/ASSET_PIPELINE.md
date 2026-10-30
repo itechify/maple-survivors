@@ -3,6 +3,11 @@
 Tree boss manifest additions: Mob9300003 and6220000 automatically include their original Sound.wz/Mob.img
 entries; Effect.wz/Summon.img/3 accompanies King Slime's canonical skill200/2. The existing whole MobSkill.img
 and UIWindow.img include Dyle's repeat-marked immunity icon and both MobGage icons. No decoded art is committed.
+Unique-boss manifest additions (#452): mobs 3300008 Prime Minister, 3300000/3300001 (its summons), 3300005 Grey Yeti and
+King Pepe, 3300003/3300004 (its summons), 5220002 Faust, 5220001/5220000 King Clang (shell and final form) and
+3230102/4230104 (King Clang's summons; Faust's Zombie Lupin 4230101 was already listed); `Effect.wz/Summon.img` path
+`12` (the summon art of MobSkill 200/164 and 200/165); the EXP pickup items 4000040, 4000043, 4000044, 4000049, 4000050
+and 4000176. The golden files list exactly these.
 The stunned-mob stars (#187): `skill/1111008/mob` of `Skill.wz/111.img` (Hero's Shout; the same three frames are the `mob`
 node of every v83 stunning skill, e.g. 510.img 5101002, so a later Pirate fragment that imports a whole stunning-skill book
 need not repeat it). Since spec #296 #297 they come with the whole 111 book in `asset_manifest.d/hero.json`; the main

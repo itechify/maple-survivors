@@ -1116,7 +1116,10 @@ func handle_events(events: Array) -> void:
 				_event_shot("boss_arrival_%d.png" % int(e.boss_index), 0.1)
 			"boss_attack":
 				if e.phase == "start":
-					_sound(String(e.sound))
+					# tier A: v83 gives King Clang (5220000) no Attack1 sound (only Skill1), so that attack is silent
+					# and records nothing missing (#452), as a mob without any Sound.wz/Mob.img entry is.
+					if library.find(String(e.sound)) != null:
+						_sound(String(e.sound))
 					# tier C: capture each attack before its impact, at half windup (capped at the mushroom jump frame).
 					var delay := minf(0.85, maxf(DT, (float(e.impact_time) - float(e.time)) * 0.5))
 					_event_shot("boss_windup_%d_%s.png" % [int(e.boss_index), String(e.attack)], delay)

@@ -277,7 +277,8 @@ func test_perion_and_kerning_mobs_have_exp_pickups_meso_ranges_and_imports() -> 
 ## Spec #253: Iron Hook and Shade cast their kits like the other scheduled bosses (unsupported skills are skipped).
 func test_iron_hook_and_shade_are_enabled_boss_kits() -> void:
 	var enabled: Array = data.balance.mob_skills.enabled_ids
-	for id: float in [2220000.0, 3220000.0, 9300003.0, 6220000.0, 4090000.0, 5090000.0]:
+	for id: float in [2220000.0, 3220000.0, 9300003.0, 6220000.0, 4090000.0, 5090000.0, 3300008.0, 3300005.0,
+			5220002.0, 5220001.0, 5220000.0]:
 		assert_has(enabled, id, "boss %d casts its kit" % int(id))
 
 
