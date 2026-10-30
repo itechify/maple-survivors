@@ -161,7 +161,7 @@ func _init() -> void:
 		elif a.begins_with("--account="):
 			account_file = a.substr(10)
 			has_account = true
-		elif a.begins_with("--tier="):
+		elif a == "--tier" or a.begins_with("--tier="):
 			tier_flag = true
 		elif a.begins_with("--chain="):
 			chain = true

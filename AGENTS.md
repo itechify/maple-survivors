@@ -103,8 +103,9 @@ cache: point it at your own v83 folder or zip (nothing is uploaded). Serve the e
 `node --test web/dev/test/*.test.mjs`. The game's debug scenes (`flow_driver.tscn`) cannot run on web; `?arg=<value>`
 query parameters become game user args (`?arg=--run=henesys&arg=--autoplay`).
 
-Stage keys are the `stages.json` `progression`, in order: `henesys`, `ellinia`, `perion`, `kerning`, `sleepywood`. Each round plays the
-region's three maps in order, with one boss 300 s after each entry; intermediate clears transfer automatically.
+Stage keys are the `stages.json` `progression`, in order: `henesys`, `ellinia`, `perion`, `kerning`, `sleepywood`.
+Each round plays the region's three maps in order, with one boss 300 s after each entry; intermediate clears transfer
+automatically.
 `--stage=` and `--run=` also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. A round is never
 saved (no resume, including after quitting on a later map); map transfers never save either ("Normal play" below).
 

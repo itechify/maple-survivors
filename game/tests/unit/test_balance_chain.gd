@@ -33,7 +33,7 @@ func test_chain_replays_records_and_carries_every_character_field_after_clear() 
 	assert_false(setups[1].has("character"), "reusing prepared setups cannot leak an earlier chain's character")
 	assert_eq(a.rounds[1].start_character.job_id, 212)
 	assert_eq(a.rounds[0].start_character.cleared_regions, ["ellinia", "henesys", "kerning", "perion"],
-		"the fixture starts with the four Victoria regions cleared (tier 2 open)")
+		"the fixture starts with the first four regions cleared (Sleepywood open)")
 	assert_eq(a.rounds[1].start_character.cleared_regions, a.rounds[0].start_character.cleared_regions,
 		"the synthetic stage is outside the progression: its clear adds no region")
 
