@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships Hero (112), Dark Knight (132), Paladin (122), Arch Mage (Fire, Poison, 212), the default, Arch Mage (Ice, Lightning, 222), Bishop (232), and Buccaneer (512); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112), Dark Knight (132), Paladin (122), Arch Mage (Fire, Poison, 212), the default, Arch Mage (Ice, Lightning, 222), Bishop (232), Bowmaster (312), Night Lord (412) and Buccaneer (512); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -14,7 +14,7 @@ On the `redesign` branch, **ADR 0006** replaced v83 progression with survivor-ge
 (spec #282, tickets #283-#294) built it end to end for one job; this section is the summary and the owner of any
 conflict: where a later section still describes a removed system, this section wins. The slice rewrote sections 1, 5,
 6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 preserve behaviour references for the other lines; the remaining Warrior,
-Bowman, Thief and Corsair ports are still unplayable. The live Hero, Paladin, I/L, Bishop and Buccaneer ports are documented below.
+Bowman, Thief and Corsair ports are still unplayable. The live Hero, Dark Knight, Paladin, I/L, Bishop, Bowmaster, Night Lord and Buccaneer ports are documented below.
 Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in historical sections are gone. Target design:
 
 | Area | Target | Replaces |
@@ -149,6 +149,19 @@ Demolition's blank, and keeps knuckles visible through the weapon-only swingTF f
 0.84 s first impact and 0.12 s target stagger; Shockwave's single impact meets the first eruption at 1.38 s.
 BC11 enabled selection, tooling, the tier-2 fixture and the independent replay oracle. BC12 supplies the QA record
 in 4.2. Sections 7.90–7.93 and the B2–B11 provenance tables own all constants; no balance tuning in this QA.
+
+**Landed in the Night Lord spec (#383, NL1-NL12 #400-#411):** job 412 is playable between Bowmaster and Buccaneer on the Job
+page (nine rows; the list pitch shrinks to 18 px so the ninth fits); F/P (212) remains the default. A Night Lord wears a claw
+(the Garnier at creation) and throws stars whose item steps with the round level (Lv1 Beginner Thief's, Lv10 Wolbi ... Lv60
+Ilbi). It starts with Lucky Seven and Flash Jump (the mobility skill on its own key, outside both slot tracks, never a card);
+the pool is Lucky Seven, Drain, Avenger, Triple Throw, Ninja Storm, Ninja Ambush, Shadow Partner and Shadow Meso. Four shared
+mechanics are data-driven and reusable: the echo summon (Shadow Partner's clone throws every star skill again, 7.94.3 / 7.94.7),
+Flash Jump (7.94.2), the status bonus (Venomous Star and Stunning Avenger rarity effects that grant poison and stun, 7.94.5) and
+the meso charge (a ten-pip meter filled by meso pickups, +3% damage per pip, +10% per pip on Shadow Meso, 7.94.1 / 7.94.4).
+NL8 added per-rank knock-back and the damaging ground strike (7.94.8); NL11 the selection, fixture and independent replay
+oracle (7.94.9); NL12 flipped `playable` and records the QA in 4.2. Sections 7.94 - 7.94.9 and the "Night Lord NL2-NL11
+constants" tables own every number; no balance tuning in this QA (the pip rate and decay, the 250 px filler reach and the
+echo percentages are balance-pass levers).
 
 ### Known design gaps (open after the slice)
 
@@ -4828,6 +4841,74 @@ Rust 70 and web-shell 62 tests pass. Pinned web templates are absent: local expo
 download; CI exports. No import-screen/source changes. The final commit's sequential cache/no-cache suite logs and
 counts are in the BC12 implementation note; SKIPs prove no asset behavior. No tests deleted or hashes recaptured.
 
+### Night Lord NL12 QA and regression smoke (#411, 2026-10-30)
+
+Seeds **1, 2, 2026** (training seeds only, no held-out seed, no tuning patch), every tier-1 stage, `bot` and `random`, for the
+default F/P (212) and Night Lord (412); Sleepywood bot with the starter equipment and with each job's committed tier-2
+fixture (`fp_arch_mage.json`, `night_lord_t2.json`). `JOBS=3`, `ISOLATE=411s`, shared Night Lord cache `cache-383`. 60/60
+records completed and all 20 batch exits were 0; no crash, world warning or missing asset. Night Lord's bare `--job=412`
+run wears the creation Garnier (a claw), so "starter" is the real starter. C = CLEARED, D = DEAD, TO = TIMEOUT at the
+1800 s cap (never a clear); values are seconds.
+
+| Stage / policy | Night Lord 412 | F/P 212 |
+|---|---|---|
+| henesys / bot | 0/3 C; D 349.3-415.9 (first boss alive in 3/3) | 0/3 C; D 474.5-751.9 |
+| henesys / random | 0/3 C; D 317.7, 1402.2 (map 3, 2 bosses dead); TO 1 (map 3) | 1/3 C; D 433.4-503.7; C 914.3 |
+| ellinia / bot | 0/3 C; D 180.5-556.9 | 0/3 C; D 619.8-643.5 |
+| ellinia / random | 0/3 C; D 94.0-184.8 | 0/3 C; D 617.4-654.4 |
+| perion / bot | 0/3 C; D 226.9-281.9 | 0/3 C; D 310.5-461.8 |
+| perion / random | 0/3 C; D 157.5-269.6 | 0/3 C; D 420.6-428.0 |
+| kerning / bot | 0/3 C; D 316.5-339.4 | 0/3 C; D 311.0-517.9 |
+| kerning / random | 0/3 C; D 171.9-312.0 | 0/3 C; D 306.5-307.0 |
+| sleepywood / starter | 0/3 C; D 10.0-14.7 | 0/3 C; D 11.4-15.1 |
+| sleepywood / kit | 0/3 C; D 11.5-17.5 | 1/3 C; D 23.8-826.2; C 936.2 |
+
+Night Lord: tier-1 clears 0/24; the first boss (spawned 300 s after entry) was reached in 15/24 runs (all six Henesys runs, 5/6
+Kerning, 1/6 Ellinia, 0/6 Perion, whose bot and random runs die at 157-282 s on the 3.8-5.5 min gear-less levels) and both
+the careless Henesys runs that reached map 3 killed bosses. Henesys bot filled six actives in 3/3 runs (134.5, 141.2, 259.9 s),
+the Henesys runs reached Lv11-13 and died to the first boss (Mano) at 349-416 s. Both Sleepywood starter and kit runs die in
+10-18 s at Lv1, as the other jobs' starters do (Bowmaster 10-13 s); F/P's kit clears 1/3. **This is a readiness concern for the
+owner, not an acceptance of balance, and nothing was tuned.** It is not the stop condition (every run dying before the first
+boss, or every run clearing): Henesys and Kerning reach it. Levers for the balance pass are those of the spec: the 1.0 s
+filler cadence and 250 px reach, Ninja Ambush's cooldown and strike count, Venomous Star's chance and poison level, the echo
+percentages, the meso charge pip rate / decay / bonuses, Shadow Meso's scale and the ammo step levels.
+
+F/P's records are **identical to the unmodified `redesign` base** (53652f78, run with the same cache: Henesys bot deaths
+474.5 / 661.9 / 751.9 s), so spec #383 changed nothing for F/P. They differ from the earlier BC12 smoke above because that
+smoke ran on a different private cache (`cache-413`); the data cache, not the code, moved F/P's Henesys numbers.
+
+**Meso charge and Flash Jump.** The two windowed seed-2026 x8 playtests on Henesys (no kit / kit) held the meso charge at a
+time-weighted **mean 3.34 / 4.17 pips, peak 10** (`summary.json` `meter`); at Sleepywood's 11-21 s runs it stayed 0 (nothing
+picked up). Flash Jump's rank follows the round level (rank 5-6 at Lv11-13, 16-19 at Lv32-38 in the smoke records); neither
+tool records its press count, so the cast count is the NL11 baseline's: 6 presses in six minutes of the god-mode bot.
+
+**Playtests** (`--job=412 --seed=2026 --speed=8 --vsync=off`, `missing: []` in all four, no warnings): Henesys without the
+kit DEAD 947.5 s at Lv32 (2 bosses killed, map 3 reached at 902 s, max alive 209); Henesys with `night_lord_t2.json` DEAD 994.1
+s at Lv38 (2 bosses killed, max alive 248); Sleepywood without the kit DEAD 11.1 s, with the kit DEAD 21.4 s, both Lv1. The
+bot learned Lucky Seven, Flash Jump, Triple Throw, Avenger, Ninja Ambush, Shadow Meso and Shadow Partner in both Henesys
+runs; Drain and Ninja Storm were not taken in these two seeds. Looked at by eye (`evidence/nl12/`, gitignored): `cast_*` shots
+of Lucky Seven, Avenger (the giant star beside the character), Triple Throw, Ninja Ambush (the red slash and the ninjas
+dropping in from the top), Shadow Partner (the translucent clone beside the character) and Shadow Meso; `flash_jump.png`
+(ghost trail); the `ammo_2070001` notice "Your throwing stars are now Wolbi Throwing-Stars" and the Orange Potion notice;
+the ten-pip meso charge row beside the timer; damage numbers, boss HP bar and the death poses. **Not captured by a playtest
+shot**: a Ninja Storm ring with pushed monsters and a poisoned / stunned pack (the bot did not take Ninja Storm in these seeds;
+NL3, NL8 and NL5's diagnostic probes and tests cover them), and at the native 456 x 500 capture size the claw in the hand is
+too small to read, so the claw is evidenced by the Equip window shot of the flow scenario and the stars it throws.
+
+**Flow scenarios.** `redesign --job=412 --seed=1` PASSED (36 picks; creation Job page with nine rows and Night Lord
+highlighted, "Garnier - WATK 10 - 0.81s", Free Market, map select with Sleepywood locked, an invulnerable Henesys round with the
+first level-up, the slots-full offer, the boss draw, the three map clears with fades, the Mastery offer, results, tier 2
+unlocked, a drop worn at Lv1, the Sleepywood round with loot picked up, the diagnostic death, results, hub, deletion and history;
+all 31 shots read by eye, `missing: []`). The driver is diagnostic (invulnerable), not survival evidence.
+
+**Web gate.** `node --test web/dev/test/*.test.mjs` 62 passed; `cargo test` (no `MAPLE_WZ_ROOT`) 70 passed; this ticket
+changes neither the asset manifest nor the web shell, so the import screen lists no new download. The local web export and
+`check_web_artifact.sh` were **not run**: this machine has neither the pinned web export templates, the
+`wasm32-unknown-unknown` target nor `wasm-bindgen-cli`; nothing was downloaded, CI performs the export.
+
+Oracles: `test_character_baseline`, `test_tick_cost_identity` and the Hero, Bowmaster, Marksman (when present) and Night Lord
+baselines reproduce their hashes (see the full-suite results in the NL12 note); no hash was recaptured, no tests deleted.
+
 ## 5. Experience and levels
 
 **There is no MP (ADR 0006, #285).** Skills are gated by their cooldown only: no MP pool, costs, MP-short state, MP
@@ -8165,16 +8246,15 @@ and the control that kites without the key), `test_avatar_cash_layers` (the `swi
 (The spec calls this section 7.90; that number belongs to the Buccaneer pool in this tree, so the Night Lord data section is 7.94.)
 
 Night Lord (412) gets its own data line, `night_lord`, discovered from its files (`DataRepo.lines()`; no shared list is edited, and
-it follows the registered classes in sorted order). It ships **not playable**: every skill key and Flash Jump stay inert until NL6-NL10
-define them, the `meter` block until NL4 gives `PlayerMeter` the `meso_picked` rule, and `playable` flips in NL12 #411.
-`JobTree.default_job()` stays 212.
+it follows the registered classes in sorted order). NL2 shipped it **not playable** while NL6-NL10 defined the skills and Flash Jump and NL4 gave
+`PlayerMeter` the `meso_picked` rule; NL12 #411 flipped `playable` to `true`. `JobTree.default_job()` stays 212.
 
 | Piece | Where | Value |
 |---|---|---|
-| Job entry | `jobs/night_lord.json` | `412`: `starting_skill lucky_seven`, `mobility_skill flash_jump`, `weapon_families ["claw"]`, `creation_weapon 1472000` (Garnier, reqJob 8, the Thief bit), `playable false` |
+| Job entry | `jobs/night_lord.json` | `412`: `starting_skill lucky_seven`, `mobility_skill flash_jump`, `weapon_families ["claw"]`, `creation_weapon 1472000` (Garnier, reqJob 8, the Thief bit), `playable true` (NL12 #411; false when NL2 shipped it) |
 | Skill pool (8) | `skill_pool` | `lucky_seven`, `drain`, `avenger`, `triple_throw`, `ninja_storm`, `ninja_ambush`, `shadow_partner`, `shadow_meso` |
-| Skill file | `skills/night_lord.json` | `{"skills": {}}` and a `_doc` (NL6 #405 then defined `flash_jump`, 7.94.2) naming the regions NL6-NL10 append to; NL7 #406 moved Lucky Seven and Drain here from `thief.json` (7.94.6; a repeated key is a load error) |
-| Meter | `jobs/night_lord.json` `meter` | meso charge: max 10, `gain {event meso_picked, amount 1, per_mesos 1000}`, `decay {interval 6.0, amount 1}`, `per_unit {damage, 0.03}`, art `Item.wz/Special/0900.img/09000002/iconRaw`; inert until NL4 |
+| Skill file | `skills/night_lord.json` | empty when NL2 shipped it; NL6-NL10 appended `flash_jump` (7.94.2), the four core stars (7.94.6), the two ninja skills (7.94.8), Shadow Meso (7.94.4) and Shadow Partner (7.94.7) in marked regions; NL7 #406 moved Lucky Seven and Drain here from `thief.json` (a repeated key is a load error) |
+| Meter | `jobs/night_lord.json` `meter` | meso charge: max 10, `gain {event meso_picked, amount 1, per_mesos 1000}`, `decay {interval 6.0, amount 1}`, `per_unit {damage, 0.03}`, art `Item.wz/Special/0900.img/09000002/iconRaw`; read by `PlayerMeter` since NL4 (7.94.1) |
 | AP row | `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` Thief keyframes copied verbatim (Lv1 25, Lv25 25, Lv200 200) |
 | Bot scores | `balance.bot.card_scores` | `shadow_partner_new` 100, `shadow_partner_rank` 74 (the summon is not an `attack` to `BotInput._base_score`; the other seven score as attacks by default) |
 | Status catalogue | `balance.status_bonuses` | `venomous_star` (poison, element `s`, chance 14..30, time 2..4, poison level 4..30, `repeat_chance` 3) and `stunning_avenger` (stun, chance 20..50, 1.5 s, `repeat_chance` 4); NL3 #402 parses it, NL2 only stores it |
@@ -8247,52 +8327,6 @@ sales, map transfer and a new round, `read_per_unit`, the summary), `test_run_ev
 `test_data_files` (the schema), and every baseline unchanged.
 
 
-#### 7.94.8 Ninja Storm and Ninja Ambush: per-rank knock-back and the ground strike (spec #383, NL8 #407)
-
-(The spec's paragraphs 7.95 and 7.96 for these two skills live here, as a subsection of 7.94, so parallel Night Lord tickets never
-collide on section numbers.) Two small data-driven seams and two skill entries, in the marked NL8 region of `skills/night_lord.json`.
-
-**`knockback.distance_by_rank`.** An optional list of exactly eight non-negative numbers on a `knockback` block, one per survivor
-rank, replacing the scalar `distance` (naming both is a load error). `Loadout.knockback_distance_at(block, rank)` resolves it (the last
-value past the list, rank 1 for an unowned skill) into `Loadout.stats(key).knockback_distance`, so the Skill window and the card
-preview read the resolved number; `RunWorld._on_player_hit` reads the owner's current rank for the shove. Everything else about the
-knock-back is the existing rule: one stream-1 draw per struck non-boss monster against `chance_field`, bosses and scheduled bosses
-are damaged and never moved, `FootholdMap.slide_along`. An optional `knockback.effect` (an art path) plays once on each monster that
-was actually pushed (a `skill_mob_effect` event). A block without `distance_by_rank` or `effect` behaves exactly as before.
-
-**`ground.strike`** (`scripts/sim/ground_strike.gd`, `GroundStrike`). A `ground` block with a `strike` object instead of a `status`
-deals damage on a clock: `"ground": {"strike": {"interval": 1.0, "first_delay": 0.3}}`. The cast queues a zone anchored where the
-caster stood (it does not follow); it lives for the skill's WZ `time`. The first strike lands `first_delay` after the cast, then one
-every `interval`, the last at or before `time` (`GroundStrike.strike_count`: 4 / 8 / 12 strikes for 4 / 8 / 12 s). Each strike picks
-up to `mob_count` live monsters whose bodies touch the box around the anchor, nearest to the anchor first
-(`RunWorld.skill_rect_targets`), and resolves `attack_count` ordinary lines on each through the instant-hit path
-(`SkillRunner._resolve_instant_targets` -> `RunWorld.hit_mob`: defence, crit, element, on-hit statuses, damage modifiers, kills and
-loot). The meter receipt is the cast's own snapshot, so only the first hit of the first strike is credited. A monster that left the
-box or died is simply not found at the next strike; a second cast makes a second zone; `clear_pending` (map transfer, stage clear)
-drops every zone. `ground.status` and `ground.strike` are mutually exclusive and a strike has no `chance_field` (load errors,
-`GroundStrike.errors`, called by `DataRepo`); Poison Mist's `ground.status` path is untouched. `skill_ground` is still emitted
-(box, lifetime) and carries the `tile` art path when the data names one; the presentation draws tile strips only for a non-empty
-path. Shadower's Ninja Ambush (4221004) equals this skill at all 30 levels and is a data copy.
-
-| Skill | Cast | Cooldown | Notes |
-|---|---|---|---|
-| `ninja_storm` (4121008) | `instant`, `cast {rule box, min_targets 1}`, the WZ box around the caster, `mobCount` 6, `knockback {chance_field prop, distance_by_rank [100,100,200,200,200,300,300,300], effect mob}` | 4.0 s | damage 42 -> 80% (rank 1 / 4 / 8: 48 / 65 / 80%), push chance `prop` 48 / 70 / 100%, push 100 / 200 / 300 px, box +-100 / 150 / 200 by (-70, 30). Action `ninjastorm`, `effect` at the caster, `hit/0` on each struck monster, `mob` on each pushed one, `Use` + `Hit`. |
-| `ninja_ambush` (4121004) | `instant`, `cast {rule box, min_targets 1}`, `ground {strike {interval 1.0, first_delay 0.3}}` | 14 s | damage 68 / 85 / 100% per strike, `mobCount` 6, `time` 4 / 8 / 12 s, box +-120 / 150 / 200 by (-130, 70). Action `alert3`, `effect` once at the cast (it stands on the zone), `mob0` (the ninja) as the hit art on every struck monster, `Use`. No tile art: the zone is visible through its strikes. |
-
-Rarity (tier C): Ninja Storm Rare `ninja_arts` damage x1.2, Epic `wide_storm` `area` x1.2, Unique `second_wave` `attack_count` +1,
-Legendary the Unique (same id, shared counter) plus damage x1.2; Ninja Ambush the same with `wide_ambush` and Unique `ambush_squad`
-`count` +2 (two more monsters per strike, `count` raises `mobCount`). Mastery repeats shrink x0.8 (the #288 rule). Both are claw
-skills by the pool only: no `weapon_families`, no `ranks` override (the default 30-level table: levels 4 / 8 / 12 / 15 / 19 / 23 /
-27 / 30). The Skill window adds "Strikes up to N monsters every 1 s for T s" for a strike zone and keeps "Knock-back: P% / D px"
-(now the resolved per-rank distance).
-
-Tests: `test_ground_strike` (the pure arithmetic, the data checks, the rank lookup) and `test_night_lord_crowd` (both skills on
-synthetic book-412 tables: the six-monster cap, nearest first, boxes by rank, 100 / 200 / 300 px on both sides and the chance, bosses
-never moved, one stream-1 draw per non-boss, the status art, the 0.3 s then every 1.0 s clock for 4 / 8 / 12 s, anchored zone, a monster
-that leaves or dies, `area` / `count` / `attack_count` / `damage`, a second zone, `clear_pending`, the Skill window lines, the rarity
-tables, "every bonus changes the resolved cast", a Rare+ card adding one rank plus its bonus, Legendary sharing the Unique's counter,
-Mastery x0.8, and the real-cache check of all eight ranks of both skills, which SKIPs without the cache).
-
 #### 7.94.2 Flash Jump (spec #383 NL6, #405, M14)
 
 (The spec calls this section 7.92; that number belongs to the Buccaneer morph forms in this tree, so Flash Jump is 7.94.2 beside the
@@ -8343,7 +8377,7 @@ choosing a card; direction rules; distance by rank through the level rule; once 
 delay; walls and map limits; no damage, no meter, no cast; key, Key Config, quick slot and HUD row; the trail node; the bot hook;
 the real node: 20 levels, `mpCon` only), `test_run_events` (the event), and every oracle unchanged.
 
-##### Night Lord NL6 constants (#405)
+##### Flash Jump constants (#405)
 
 | Constant / rule | Value | Provenance |
 |---|---|---|
@@ -8542,18 +8576,64 @@ card and Mastery rules, the bot scores, the renderer's mapping, frame and throw-
 real-cache rank / `special` / owner-stance checks). Tool: `scenes/debug/echo_clone_probe.tscn` (stand, walk, jump and a throw, zoomed
 crops).
 
+#### 7.94.8 Ninja Storm and Ninja Ambush: per-rank knock-back and the ground strike (spec #383, NL8 #407)
+
+(The spec's paragraphs 7.95 and 7.96 for these two skills live here, as a subsection of 7.94, so parallel Night Lord tickets never
+collide on section numbers.) Two small data-driven seams and two skill entries, in the marked NL8 region of `skills/night_lord.json`.
+
+**`knockback.distance_by_rank`.** An optional list of exactly eight non-negative numbers on a `knockback` block, one per survivor
+rank, replacing the scalar `distance` (naming both is a load error). `Loadout.knockback_distance_at(block, rank)` resolves it (the last
+value past the list, rank 1 for an unowned skill) into `Loadout.stats(key).knockback_distance`, so the Skill window and the card
+preview read the resolved number; `RunWorld._on_player_hit` reads the owner's current rank for the shove. Everything else about the
+knock-back is the existing rule: one stream-1 draw per struck non-boss monster against `chance_field`, bosses and scheduled bosses
+are damaged and never moved, `FootholdMap.slide_along`. An optional `knockback.effect` (an art path) plays once on each monster that
+was actually pushed (a `skill_mob_effect` event). A block without `distance_by_rank` or `effect` behaves exactly as before.
+
+**`ground.strike`** (`scripts/sim/ground_strike.gd`, `GroundStrike`). A `ground` block with a `strike` object instead of a `status`
+deals damage on a clock: `"ground": {"strike": {"interval": 1.0, "first_delay": 0.3}}`. The cast queues a zone anchored where the
+caster stood (it does not follow); it lives for the skill's WZ `time`. The first strike lands `first_delay` after the cast, then one
+every `interval`, the last at or before `time` (`GroundStrike.strike_count`: 4 / 8 / 12 strikes for 4 / 8 / 12 s). Each strike picks
+up to `mob_count` live monsters whose bodies touch the box around the anchor, nearest to the anchor first
+(`RunWorld.skill_rect_targets`), and resolves `attack_count` ordinary lines on each through the instant-hit path
+(`SkillRunner._resolve_instant_targets` -> `RunWorld.hit_mob`: defence, crit, element, on-hit statuses, damage modifiers, kills and
+loot). The meter receipt is the cast's own snapshot, so only the first hit of the first strike is credited. A monster that left the
+box or died is simply not found at the next strike; a second cast makes a second zone; `clear_pending` (map transfer, stage clear)
+drops every zone. `ground.status` and `ground.strike` are mutually exclusive and a strike has no `chance_field` (load errors,
+`GroundStrike.errors`, called by `DataRepo`); Poison Mist's `ground.status` path is untouched. `skill_ground` is still emitted
+(box, lifetime) and carries the `tile` art path when the data names one; the presentation draws tile strips only for a non-empty
+path. Shadower's Ninja Ambush (4221004) equals this skill at all 30 levels and is a data copy.
+
+| Skill | Cast | Cooldown | Notes |
+|---|---|---|---|
+| `ninja_storm` (4121008) | `instant`, `cast {rule box, min_targets 1}`, the WZ box around the caster, `mobCount` 6, `knockback {chance_field prop, distance_by_rank [100,100,200,200,200,300,300,300], effect mob}` | 4.0 s | damage 42 -> 80% (rank 1 / 4 / 8: 48 / 65 / 80%), push chance `prop` 48 / 70 / 100%, push 100 / 200 / 300 px, box +-100 / 150 / 200 by (-70, 30). Action `ninjastorm`, `effect` at the caster, `hit/0` on each struck monster, `mob` on each pushed one, `Use` + `Hit`. |
+| `ninja_ambush` (4121004) | `instant`, `cast {rule box, min_targets 1}`, `ground {strike {interval 1.0, first_delay 0.3}}` | 14 s | damage 68 / 85 / 100% per strike, `mobCount` 6, `time` 4 / 8 / 12 s, box +-120 / 150 / 200 by (-130, 70). Action `alert3`, `effect` once at the cast (it stands on the zone), `mob0` (the ninja) as the hit art on every struck monster, `Use`. No tile art: the zone is visible through its strikes. |
+
+Rarity (tier C): Ninja Storm Rare `ninja_arts` damage x1.2, Epic `wide_storm` `area` x1.2, Unique `second_wave` `attack_count` +1,
+Legendary the Unique (same id, shared counter) plus damage x1.2; Ninja Ambush the same with `wide_ambush` and Unique `ambush_squad`
+`count` +2 (two more monsters per strike, `count` raises `mobCount`). Mastery repeats shrink x0.8 (the #288 rule). Both are claw
+skills by the pool only: no `weapon_families`, no `ranks` override (the default 30-level table: levels 4 / 8 / 12 / 15 / 19 / 23 /
+27 / 30). The Skill window adds "Strikes up to N monsters every 1 s for T s" for a strike zone and keeps "Knock-back: P% / D px"
+(now the resolved per-rank distance).
+
+Tests: `test_ground_strike` (the pure arithmetic, the data checks, the rank lookup) and `test_night_lord_crowd` (both skills on
+synthetic book-412 tables: the six-monster cap, nearest first, boxes by rank, 100 / 200 / 300 px on both sides and the chance, bosses
+never moved, one stream-1 draw per non-boss, the status art, the 0.3 s then every 1.0 s clock for 4 / 8 / 12 s, anchored zone, a monster
+that leaves or dies, `area` / `count` / `attack_count` / `damage`, a second zone, `clear_pending`, the Skill window lines, the rarity
+tables, "every bonus changes the resolved cast", a Rare+ card adding one rank plus its bonus, Legendary sharing the Unique's counter,
+Mastery x0.8, and the real-cache check of all eight ranks of both skills, which SKIPs without the cache).
+
 #### 7.94.9 Selection and tooling (spec #383 NL11, #410)
 
-Everything that lets Night Lord be created, run from the tools and tested end to end, short of flipping `playable` (NL12 #411).
+Everything that lets Night Lord be created, run from the tools and tested end to end. NL11 built it with `playable` still false; NL12 #411 flipped it, so the shipped list, the tools and the Job page now include 412 with no patch.
 Constants: "Night Lord NL11 constants (#410)".
 
 - **Job page.** `character_create.gd` lists `JobTree.playable_jobs()` in canonical order, so Night Lord sits between Bowmaster (312)
-  and Buccaneer (512) the moment `playable` flips: nine rows. Nine rows at the old 21 px pitch ran past the sign's panel and under
+  and Buccaneer (512) now that `playable` is true: nine rows. Nine rows at the old 21 px pitch ran past the sign's panel and under
   the "Choose your job." message, so the pitch now shrinks when the list does not fit above `JOB_LIST_BOTTOM` (y 366): up to eight
   rows keep 21 px (19 px rows, 2 px apart), nine rows take 18 px. `creation.job_pitch` exposes it and the creation tests read it.
-  Verified with the shipped eight rows, with 412 mirrored (nine rows, `DataRepo.patch`) and with the seam reducing the list to two.
-- **`--job=412`** is accepted by `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, `character_fixture.gd` and the hub as soon as
-  412 is playable; until NL12 every tool refuses it ("not playable") and a `--patch` / `PATCH` mirrors it. `--job=212` with a Night
+  Verified with the shipped nine rows, with 412 made unplayable by `DataRepo.patch` (eight rows at 21 px) and with the seam reducing the list to two.
+- **`--job=412`** is accepted by `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, `character_fixture.gd` and the hub (412 is
+  playable since NL12; a `--patch` / `PATCH` making it unplayable again brings back the "not playable" refusal). `--job=212` with a Night
   Lord `--character` (and `--job=412` with an F/P one) fails with "does not match the character's job". `default_job()` stays 212.
 - **Fixture** `night_lord_t2.json` (tier 2, Meba 1472007 and the Thief-bit hat 1002171 / shoes 1072022 / gloves 1082029, unscrolled)
   and the job's `hub_kit` (the five claw ATT scrolls of `scrolls/thief.json`, spare hat / second claw / gloves / Thief-bit top, the
@@ -10121,22 +10201,6 @@ The QA observer counts `cast` events by skill and sums fixed post-tick `morph_id
 tick (tier C measurement convention, including truncated windows). These are measurements, not nominal-duration
 estimates. Durable stationary crowds and invulnerability in disposable visual probes are diagnostic only.
 
-### Night Lord NL4 constants (#403)
-
-| Constant / rule | Value | Provenance |
-|---|---|---|
-| `meso_picked` emitted only for a meter that listens to it | RunWorld announces the event when `PlayerMeter.listens("meso_picked")`; the wallet is credited regardless | tier C (ours): the baselines hash event bytes, so no other job may gain an event |
-| Meso charge gain / decay / bonus (the numbers NL2 puts in `jobs/night_lord.json`) | 1 pip per 1000 mesos picked up; 1 pip lost per 6 s while held; +3% damage per pip on every pool cast, +10% per pip on Shadow Meso | tier C, spec #383 (balance flag: untested against real pickup rates) |
-| Carry | the remainder under `per_mesos` stays in the meter across maps; reset at round start | tier C (ours) |
-| Decay clock | runs only while a unit is held, cleared when it empties; float slack `MesoCharge.CLOCK_EPSILON` 1e-6 s | tier C (ours; the slack only keeps 360 ticks of 1/60 s equal to six seconds) |
-| `read_per_unit` | multiplies the damage bounds and status damage by `1 + value x read`, stacking with `per_unit`; never spends, never gates | tier C, spec #383 |
-| Summary `meter.mean` / `meter.peak` | time-weighted mean of the held units per tick, and the most held, in `summary.json` for any meter | tier C (measurement convention) |
-
-### Night Lord NL6 constants (#405)
-
-Flash Jump's constants (distance table, repeat delay, once per airborne period, trail, bot thresholds) are the table under
-"Night Lord NL6 constants" in 7.94.2; all tier C except the `Use` sound (tier A).
-
 ### Hero H3 meter constants (#299)
 
 | Constant / rule | Value | Provenance |
@@ -10486,7 +10550,7 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 |---|---|---|
 | Night Lord job entry (412): `starting_skill`, `mobility_skill`, the eight-key `skill_pool`, `weapon_families ["claw"]` | see 7.94 | tier C: spec #383 (skills' WZ ids are tier A) |
 | Creation weapon | Garnier 1472000 (reqJob 8 = the Thief bit) | tier A item fact (Item.wz); the choice is tier C, spec #383 |
-| `playable` | false until NL12 #411; `default_job` stays 212 | tier C, spec #383 / #298 pin |
+| `playable` | `true` since NL12 #411 (false when NL2 shipped it); `default_job` stays 212 | tier C, spec #383 / #298 pin |
 | Meso charge `meter` block: max 10, 1 pip per 1000 mesos, one pip decays every 6 s, +3% damage per pip | `jobs/night_lord.json` | tier C: spec #383 M23 (first pass, untested against real pickup rates; the pip rate and decay are balance-pass levers) |
 | Meter art | `Item.wz/Special/0900.img/09000002/iconRaw` (the meso coin frame) | tier A path (already imported for pickups) |
 | AP row `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` keyframes verbatim | tier C: the Thief gear pattern, no new tuning |
@@ -10496,6 +10560,69 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 | `repeat_chance` | venomous_star 3 points, stunning_avenger 4 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #383 |
 | Night Lord ammo step | Lv60 Ilbi Throwing-Stars 2070006 (+27) on the 412 claw schedule (steps Lv10 / 20 / 30 / 40 / 50 / 60) | tier C level (spec #383); tier A item id, `incPAD` and name (Item.wz / String.wz, re-read) |
 | Ammo items | 18 (B3's 17 plus 2070006) | derived: `Ammo.item_ids` |
+
+### Night Lord NL3 constants (#402)
+
+- Tier C: grant repeats add `repeat_chance × 0.8^n` points, where n is the existing rarity bonus repeat counter;
+  the first grant adds no repeat points. Total chance caps at 100%. Unique/Legendary continue sharing their bonus id.
+- Tier C: grants apply in award order after native on-hit and before knockback/listeners, one stream-1 draw for every
+  sub-100% grant on every damaging line. Other skill dictionaries, RNG and events remain unchanged.
+- Diagnostic-only tier C: the status-bonus driver guarantees 10-second poison/stun and uses a patched job 412 with
+  Energy Bolt to exercise the seam before Night Lord skill data lands. These values never enter shipped balance.
+- Tier C: the bot scores a status-grant card as a 20% improvement times its repeat scale (`BotInput.GRANT_BONUS_UNIT` 0.2),
+  so a Mastery grant is not scored zero; rarity cards add it to the gain term as for any other bonus.
+- Tier C: the shipped `balance.status_bonuses` entries (`venomous_star`, `stunning_avenger`) are NL2's; NL3 only validates them
+  at load (`DataRepo.load_all`) and resolves them by the owning skill's rank. Echoed stars and ground-strike hits carry the
+  grants because they re-use the cast snapshot (tests in `test_echo_cast` and `test_night_lord_crowd`).
+
+### Night Lord NL4 constants (#403)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `meso_picked` emitted only for a meter that listens to it | RunWorld announces the event when `PlayerMeter.listens("meso_picked")`; the wallet is credited regardless | tier C (ours): the baselines hash event bytes, so no other job may gain an event |
+| Meso charge gain / decay / bonus (the numbers NL2 puts in `jobs/night_lord.json`) | 1 pip per 1000 mesos picked up; 1 pip lost per 6 s while held; +3% damage per pip on every pool cast, +10% per pip on Shadow Meso | tier C, spec #383 (balance flag: untested against real pickup rates) |
+| Carry | the remainder under `per_mesos` stays in the meter across maps; reset at round start | tier C (ours) |
+| Decay clock | runs only while a unit is held, cleared when it empties; float slack `MesoCharge.CLOCK_EPSILON` 1e-6 s | tier C (ours; the slack only keeps 360 ticks of 1/60 s equal to six seconds) |
+| `read_per_unit` | multiplies the damage bounds and status damage by `1 + value x read`, stacking with `per_unit`; never spends, never gates | tier C, spec #383 |
+| Summary `meter.mean` / `meter.peak` | time-weighted mean of the held units per tick, and the most held, in `summary.json` for any meter | tier C (measurement convention) |
+
+### Night Lord NL5 constants (#404)
+
+| Constant | Value | Tier |
+|---|---|---|
+| Echo delay (`summon.echo.delay`) | 0.25 s after the cast tick | tier C, spec #383 (the WZ gives none) |
+| Echo overshoot (`summon.echo.overshoot`) | 0 px beyond `range` for the recorded target; the nearest-monster fallback uses `range` | tier C, ours (#404) |
+| Fire-time tolerance | a delay due within 1e-9 s fires on the tick | tier C, as `BurstCast` |
+| Clone follow distance / speed / teleport distance | 55 px / 200 px/s / 600 px (data, NL10 sets them) | tier C, spec #383 |
+| Clone spread (`ordinal_spread`) | 40 px | tier C, spec #383 |
+| Hand | `cast_forward` px in front of the clone's body toward the target, body height `cast_height` | tier C, the owner's own shot origin |
+| Retarget / drop | dead, out-of-reach or reused-slot target -> nearest monster in range of the clone, else drop without refund | tier C, spec #383 (as bursts) |
+| Hidden / death | unthrown echoes are dropped | tier C, ours (#404, as bursts) |
+| Order of entries | per clone ascending slot, per shot in cast order | tier C, ours (#404) |
+
+### Night Lord NL6 constants (#405)
+
+Flash Jump's constants (distance table, repeat delay, once per airborne period, trail, bot thresholds) are the table under
+"Flash Jump constants" in 7.94.2; all tier C except the `Use` sound (tier A).
+
+### Night Lord NL7 constants (#406)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Lucky Seven / Drain numbers | unchanged by the move: 250 px, 600 px/s, 8 px radius, 1.0 s, LUK x5.0/x2.5 (mastery ignored), absorb `x` capped at half max HP and target max HP | tier B / C as recorded in 7.94 and the old thief entries |
+| Lucky Seven / Drain ranks | default tables: Lucky Seven levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20, Drain 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 | tier C (the shared survivor rank tables; the explicit 20- and 30-entry lists are gone) |
+| Lucky Seven / Drain stance | `swingO1`, held 0.6 s (was `shoot1`, which hides the claw) | tier C: ruling D10 |
+| Avenger damage / `mobCount` | 65 -> 180% (80 / 130 / 180% at ranks 1 / 4 / 8), `mobCount` 4 -> 6 (4 / 5 / 6) | tier A (Skill.wz 411.img 4111005) |
+| Avenger range / speed / radius / cooldown | 350 px / 700 px/s / 14 px / 3.5 s | tier C: spec #383 |
+| Avenger pierce | `pierce_field "mobCount"`: `mobCount - 1`, no falloff (`pierce_falloff` 0) | tier C: spec #383 (reading of "attacks the ones behind it") |
+| Avenger action / art | `avenger` held 0.6 s, `effect` (14 frames), own `ball` (72 x 72, rotating), no `hit` art, `bulletConsume 3` not modelled | tier A (art, action) / tier C (hold) |
+| Triple Throw damage / stars | 102 -> 150% (108 / 130 / 150%), `bulletCount` 3 | tier A (Skill.wz 412.img 4121007) |
+| Triple Throw range / speed / radius / cooldown | 300 px / 650 px/s / 8 px / 2.5 s, `cast.focus` | tier C: spec #383 |
+| Triple Throw stance | `swingO1` held 0.6 s (the node has no `action`) | tier C: ruling D10 |
+| Echo classes | Lucky Seven and Drain `attack`; Avenger and Triple Throw `skill` | tier C: spec #383 |
+| Rarity ids | `claw_mastery` (x1.2), `venomous_star` (grant), `lucky_eight` (`count` +1), `claw_booster` (cooldown x0.88), `double_drain` (`count` +1), `stunning_avenger` (grant), `deep_avenger` (`pierce` +2), `critical_throw` (`crit` +0.15), `fourth_star` (`count` +1); Legendary = Unique + damage x1.2 | tier C: spec #383 |
+| Venomous Star on Lucky Seven's Epic | catalogue entry (NL2): chance 14 / 16 / 18 / 20 / 24 / 26 / 28 / 30%, time 2 / 2 / 3 / 3 / 3 / 4 / 4 / 4 s, poison level 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 | tier A (4120005 `prop`, `time`, level map) |
+| Stunning Avenger on Avenger's Epic | catalogue entry (NL2): chance 20 / 24 / 28 / 32 / 36 / 40 / 45 / 50%, 1.5 s | tier C: spec #383 |
 
 ### Night Lord NL8 constants (#407)
 
@@ -10516,20 +10643,6 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 | Ambush art | the `effect` plays once at the cast, `mob0` is the hit art on each struck monster, no tile | tier C reading of "effect at the zone"; art tier A |
 | Rarity | Ninja Arts damage x1.2; Wide Storm / Wide Ambush `area` x1.2; Second Wave `attack_count` +1; Ambush Squad `count` +2; Legendary = the Unique plus damage x1.2 (shared counter); Mastery repeats x0.8 | tier C: spec #383 |
 
-### Night Lord NL5 constants (#404)
-
-| Constant | Value | Tier |
-|---|---|---|
-| Echo delay (`summon.echo.delay`) | 0.25 s after the cast tick | tier C, spec #383 (the WZ gives none) |
-| Echo overshoot (`summon.echo.overshoot`) | 0 px beyond `range` for the recorded target; the nearest-monster fallback uses `range` | tier C, ours (#404) |
-| Fire-time tolerance | a delay due within 1e-9 s fires on the tick | tier C, as `BurstCast` |
-| Clone follow distance / speed / teleport distance | 55 px / 200 px/s / 600 px (data, NL10 sets them) | tier C, spec #383 |
-| Clone spread (`ordinal_spread`) | 40 px | tier C, spec #383 |
-| Hand | `cast_forward` px in front of the clone's body toward the target, body height `cast_height` | tier C, the owner's own shot origin |
-| Retarget / drop | dead, out-of-reach or reused-slot target -> nearest monster in range of the clone, else drop without refund | tier C, spec #383 (as bursts) |
-| Hidden / death | unthrown echoes are dropped | tier C, ours (#404, as bursts) |
-| Order of entries | per clone ascending slot, per shot in cast order | tier C, ours (#404) |
-
 ### Night Lord NL9 constants (#408)
 
 | Constant / rule | Value | Provenance |
@@ -10546,39 +10659,6 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 | Art tiers | `level/{level}/ball` and `level/{level}/hit/0`: levels 1-10 / 11-20 / 21-30 | tier A (the level nodes' UOLs) |
 | Echo class | `skill` (Shadow Partner's `y`) | tier C: spec #383 |
 | Rarity | Rare Meso Up damage x1.2; Epic Claw Booster cooldown x0.88; Unique Second Bag `count` +1; Legendary Second Bag + damage x1.2 | tier C: spec #383 |
-
-### Night Lord NL3 constants
-
-- Tier C: grant repeats add `repeat_chance × 0.8^n` points, where n is the existing rarity bonus repeat counter;
-  the first grant adds no repeat points. Total chance caps at 100%. Unique/Legendary continue sharing their bonus id.
-- Tier C: grants apply in award order after native on-hit and before knockback/listeners, one stream-1 draw for every
-  sub-100% grant on every damaging line. Other skill dictionaries, RNG and events remain unchanged.
-- Diagnostic-only tier C: the status-bonus driver guarantees 10-second poison/stun and uses a patched job 412 with
-  Energy Bolt to exercise the seam before Night Lord skill data lands. These values never enter shipped balance.
-- Tier C: the bot scores a status-grant card as a 20% improvement times its repeat scale (`BotInput.GRANT_BONUS_UNIT` 0.2),
-  so a Mastery grant is not scored zero; rarity cards add it to the gain term as for any other bonus.
-- Tier C: the shipped `balance.status_bonuses` entries (`venomous_star`, `stunning_avenger`) are NL2's; NL3 only validates them
-  at load (`DataRepo.load_all`) and resolves them by the owning skill's rank. Echoed stars and ground-strike hits carry the
-  grants because they re-use the cast snapshot (tests in `test_echo_cast` and `test_night_lord_crowd`).
-
-### Night Lord NL7 constants (#406)
-
-| Constant / rule | Value | Provenance |
-|---|---|---|
-| Lucky Seven / Drain numbers | unchanged by the move: 250 px, 600 px/s, 8 px radius, 1.0 s, LUK x5.0/x2.5 (mastery ignored), absorb `x` capped at half max HP and target max HP | tier B / C as recorded in 7.94 and the old thief entries |
-| Lucky Seven / Drain ranks | default tables: Lucky Seven levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20, Drain 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 | tier C (the shared survivor rank tables; the explicit 20- and 30-entry lists are gone) |
-| Lucky Seven / Drain stance | `swingO1`, held 0.6 s (was `shoot1`, which hides the claw) | tier C: ruling D10 |
-| Avenger damage / `mobCount` | 65 -> 180% (80 / 130 / 180% at ranks 1 / 4 / 8), `mobCount` 4 -> 6 (4 / 5 / 6) | tier A (Skill.wz 411.img 4111005) |
-| Avenger range / speed / radius / cooldown | 350 px / 700 px/s / 14 px / 3.5 s | tier C: spec #383 |
-| Avenger pierce | `pierce_field "mobCount"`: `mobCount - 1`, no falloff (`pierce_falloff` 0) | tier C: spec #383 (reading of "attacks the ones behind it") |
-| Avenger action / art | `avenger` held 0.6 s, `effect` (14 frames), own `ball` (72 x 72, rotating), no `hit` art, `bulletConsume 3` not modelled | tier A (art, action) / tier C (hold) |
-| Triple Throw damage / stars | 102 -> 150% (108 / 130 / 150%), `bulletCount` 3 | tier A (Skill.wz 412.img 4121007) |
-| Triple Throw range / speed / radius / cooldown | 300 px / 650 px/s / 8 px / 2.5 s, `cast.focus` | tier C: spec #383 |
-| Triple Throw stance | `swingO1` held 0.6 s (the node has no `action`) | tier C: ruling D10 |
-| Echo classes | Lucky Seven and Drain `attack`; Avenger and Triple Throw `skill` | tier C: spec #383 |
-| Rarity ids | `claw_mastery` (x1.2), `venomous_star` (grant), `lucky_eight` (`count` +1), `claw_booster` (cooldown x0.88), `double_drain` (`count` +1), `stunning_avenger` (grant), `deep_avenger` (`pierce` +2), `critical_throw` (`crit` +0.15), `fourth_star` (`count` +1); Legendary = Unique + damage x1.2 | tier C: spec #383 |
-| Venomous Star on Lucky Seven's Epic | catalogue entry (NL2): chance 14 / 16 / 18 / 20 / 24 / 26 / 28 / 30%, time 2 / 2 / 3 / 3 / 3 / 4 / 4 / 4 s, poison level 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 | tier A (4120005 `prop`, `time`, level map) |
-| Stunning Avenger on Avenger's Epic | catalogue entry (NL2): chance 20 / 24 / 28 / 32 / 36 / 40 / 45 / 50%, 1.5 s | tier C: spec #383 |
 
 ### Night Lord NL10 constants (#409)
 
@@ -10611,3 +10691,11 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 | Bot card scores | all eight pool skills `_new` 100 / `_rank` 74 | tier C: spec #383 (the established pool bases) |
 | Filler reach | Lucky Seven and Drain 250 px, the pool's shortest; Avenger 350, Triple Throw and Shadow Meso 300 | tier C: spec #383 (recorded, untuned) |
 | Baseline oracle | seed 1, 21,600 ticks, god, `GOLDEN` `6077b162...0bd1` in `test_night_lord_baseline.gd` | tier C: ours (#410) |
+
+### Night Lord NL12 constants (#411)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `playable` of 412 | `true` (flipped from NL2's false); `default_job` stays 212 | tier C: spec #383 / #298 pin |
+| HP baseline | the shared default (no Hero-style melee HP baseline: the spec does not call for one) | tier C: spec #383 |
+| Everything else | no new constant; the QA smoke is in 4.2 | n/a |
