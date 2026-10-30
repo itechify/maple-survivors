@@ -11,7 +11,7 @@
 			"desc": "Throws a heavy bag of mesos at the nearest monster. It hits harder the more of the meso charge you hold, and costs no mesos.",
 			"text": {
 				"desc": "Throws a heavy bag of mesos at the nearest monster. It hits harder the more of the meso charge you hold, and costs no mesos.",
-				"h": "Damage {damage_percent}% (the bag's meso weight {moneyCon} x 0.6), costs no mesos"
+				"h": "Damage {damage_percent}% of your weapon damage, costs no mesos"
 			},
 			"icon": "Skill.wz/411.img/skill/4111004/icon",
 			"damage": "physical",
