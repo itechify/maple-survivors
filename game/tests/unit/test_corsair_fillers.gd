@@ -1,6 +1,6 @@
 extends TestCase
 ## Corsair's five gun fillers (spec #384, ticket C4 #388): Double Shot, Burst Fire, Invisible Shot, Recoil Shot and Grenade on
-## the `corsair` line, GAME_DESIGN 7.120.2. Seeded synthetic worlds with fixed ticks (a flat floor, tiny mob bodies that never
+## the `corsair` line, GAME_DESIGN 7.120.4. Seeded synthetic worlds with fixed ticks (a flat floor, tiny mob bodies that never
 ## move); the Skill.wz levels are the synthetic fixture tables unless a test says "real cache" (those call require_cache() and
 ## SKIP without it). The four moved definitions used to be the Gunslinger's (test_gunslinger_attacks.gd, now Blank Shot only).
 

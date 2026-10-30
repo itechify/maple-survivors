@@ -221,6 +221,10 @@ A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here i
 A timed active stance that changes the character's attacks and carries sub-skills. A running form survives
 map transfer and ends on death. Its buff block carries Hidden or morph state; effect keys are for cast-stat or lifecycle behaviour (Buccaneer template: `spec/412`, `test_morph_form.gd`).
 
+**Hull**:
+The durability pool of a Form such as the Corsair's Battleship: a share of max HP that takes the character's hits before HP does
+and ends the Form when it is gone. Shown as a thin blue bar over the character. Not a HitHook (a hull is Form state).
+
 **Charge**:
 A Paladin Form that temporarily gives its attacks an element and carries Charged Blow. Holy Charge also
 carries Heaven's Hammer. Only one Charge runs at a time.
@@ -315,6 +319,12 @@ A status effect that makes a monster weak to one element for a time (x1.5 damage
 monster's own attribute): Fire Demon's ice-weak and Ice Demon's fire-weak. A monster can carry several, and bosses take
 none. A mixed-element hit (fire/poison, ice/lightning) is the mean of its parts, each counted with its live weakness.
 _Avoid_: debuff, curse
+
+**Mount**:
+A taming-mob image (`Character.wz/TamingMob/<id>.img`) drawn under and over the avatar for the life of a form that names one
+(`presentation.mount`): the rear canvas behind the rider, the front canvas in front, the rider seated at the mount's navel. Corsair's
+Battleship is the only one. Presentation only: no mount speed, jump or hitbox.
+_Avoid_: pet (a pet follows, a mount carries), vehicle
 
 **Mark**:
 A timed status (`all_weak`) that makes every hit on a monster deal x1.5 (x1.25 on a boss, which can be marked unlike the

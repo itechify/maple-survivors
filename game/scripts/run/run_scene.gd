@@ -110,6 +110,8 @@ const HIT_FACE_TIME := 1.0
 ## tier C (ours): invincibility blink, alpha of the dim phase and the period (s) of one bright + dim cycle.
 const BLINK_ALPHA := 0.4
 const BLINK_PERIOD := 0.16
+## tier C: pixels between the top of the character's body box and the hull bar (HullBar).
+const HULL_BAR_GAP := 10.0
 ## tier C (ours, BS8): seconds the "Resurrection! Ready again in M:SS" notice shows, and the delay of its evidence shot
 ## (the first beam frames, after the 1320 ms lead-in of the `affected` art).
 const REVIVE_NOTICE_TIME := 6.0
@@ -156,6 +158,8 @@ var avatar: AvatarRenderer
 var player_group: CanvasGroup
 ## The character name tag (NameTags style, like the elite tags).
 var player_tag: NameTags
+## The ship's hull bar over the character (spec #384 C11); hidden while no hull runs.
+var hull_bar: HullBar
 var mob_renderers: Array[MobRenderer] = []
 ## Foothold layer drawn by mob_renderers[i] (-1 = every slot).
 var mob_layers := PackedInt32Array()
@@ -225,6 +229,8 @@ var _restart_action := false
 var _slow_fx := -1
 var _immunity_fx := {}
 var _shown_action := ""
+## The skill key of the running form whose `mount` the avatar rides ("" without one).
+var _mount_skill := ""
 var _blink_t := 0.0
 var _frame_exp := 0
 var _frame_mesos := 0
@@ -736,6 +742,10 @@ func _build_top_layer() -> void:
 	player_tag = NameTags.new()
 	player_tag.name = "PlayerTag"
 	_top.add_child(player_tag)
+	hull_bar = HullBar.new()
+	hull_bar.name = "HullBar"
+	hull_bar.visible = false
+	_top.add_child(hull_bar)
 	_tag_source = _TagSource.new()
 	_kind_names = NameTags.names_for(world.mob_kinds, library)
 
@@ -1097,6 +1107,7 @@ func handle_events(events: Array) -> void:
 		match String(e.type):
 			"form_started", "form_ended":
 				_refresh_form_tint()
+				_refresh_form_mount(e)
 			"meter_changed":
 				hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
 				meter_cue.on_event(e)
@@ -1589,8 +1600,14 @@ func _on_player_hit(e: Dictionary) -> void:
 		counters.numbers += 1
 		_first_event_shot("miss", "miss_first.png", 0.05) # tier C: capture the first visible MISS during playtests.
 		return
-	numbers.spawn(int(e.damage), head, DamageNumbers.TAKEN, PLAYER_KEY)
-	counters.numbers += 1
+	var absorbed := int(e.get("absorbed", 0))
+	if absorbed > 0:
+		# The part the ship's hull took, in the blue digits; a fully absorbed hit shows only this number.
+		numbers.spawn(absorbed, head, DamageNumbers.HP_GAIN, PLAYER_KEY)
+		counters.numbers += 1
+	if int(e.damage) > 0 or absorbed == 0:
+		numbers.spawn(int(e.damage), head, DamageNumbers.TAKEN, PLAYER_KEY)
+		counters.numbers += 1
 	avatar.set_expression("hit", HIT_FACE_TIME)
 	_blink_t = 0.0
 	_first_event_shot("hit", "hit_first.png", BLINK_PERIOD * 0.7)
@@ -2018,6 +2035,7 @@ func _update_player(delta: float) -> void:
 	_tag_source.y[0] = p.pos.y
 	_tag_source.state[0] = MobRenderer.DIE if dead else MobRenderer.STAND
 	player_tag.update_from(_tag_source, PackedByteArray([1]), PackedStringArray([_player_name()]))
+	hull_bar.update(p.pos + Vector2(0.0, world.body.position.y - HULL_BAR_GAP), -1.0 if dead else world.runner.forms.hull_fraction())
 
 
 ## Draws the pet from its simulated state, in the actor layer of the foothold it stands on (the player's layer while it
@@ -2394,6 +2412,29 @@ func _layer_at(p: Vector2) -> int:
 
 func _sfx_service() -> AudioService:
 	return get_node_or_null("/root/Sfx") as AudioService
+
+
+## The mount of the form that started (`mount` of form_started, the Corsair's Battleship) rides until that same form ends
+## (a form_ended of another skill leaves it), and never past the character's death.
+func _refresh_form_mount(e: Dictionary) -> void:
+	var next := mount_after_form_event(e, _mount_skill)
+	if int(next.mount) < 0:
+		return
+	_mount_skill = String(next.skill)
+	avatar.set_mount(int(next.mount))
+
+
+## The mount state after a form event: {"mount": id, "skill": the form that owns it}, or mount -1 when the event leaves it
+## as it is. A form_started that names a mount takes it over; one that names none (every form but the ship) leaves it;
+## a form_ended ends it only when it is the mount's own form (death ends every form, so it ends the ride).
+static func mount_after_form_event(e: Dictionary, owner_skill: String) -> Dictionary:
+	if String(e.get("type", "")) == "form_started":
+		var id := int(e.get("mount", 0))
+		if id > 0:
+			return {"mount": id, "skill": String(e.get("skill", ""))}
+	elif owner_skill != "" and String(e.get("skill", "")) == owner_skill:
+		return {"mount": 0, "skill": ""}
+	return {"mount": -1, "skill": owner_skill}
 
 
 ## Refreshes the held weapon only when a form starts or ends (tier C element palette).
