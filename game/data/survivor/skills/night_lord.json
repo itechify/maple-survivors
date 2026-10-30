@@ -1,0 +1,371 @@
+{
+	"_doc": "Night Lord skill definitions (spec #383, one marked region per ticket): NL6 #405 Flash Jump (mobility; its entry is the first one below, the region NL6 owns; later tickets append after it); NL7 #406 moves Lucky Seven and Drain here from skills/thief.json and adds Avenger and Triple Throw; NL8 #407 Ninja Storm and Ninja Ambush; NL9 #408 Shadow Meso; NL10 #409 Shadow Partner. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4), so Lucky Seven and Drain stay in thief.json until NL7. NL2 #401 defined none.",
+	"_nl8_region": "NL8 #407 owns ninja_storm and ninja_ambush (the two entries below, kept together); other tickets append their entries beside them, never inside.",
+	"skills": {
+		"flash_jump": {
+			"skill_id": 4111006,
+			"book": "411",
+			"job": 411,
+			"kind": "instant",
+			"slot": "mobility",
+			"name": "Flash Jump",
+			"desc": "Press its skill key in the air to flash sideways. Once per jump.",
+			"text": {
+				"desc": "Press the Flash Jump key while airborne, with an arrow key, to flash sideways without losing height. It works once per jump, and the higher your level the farther you go."
+			},
+			"icon": "Skill.wz/411.img/skill/4111006/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "manual"
+			},
+			"skill_key": "flash_jump",
+			"flash_jump": {
+				"distance": [
+					140.0,
+					280.0
+				],
+				"repeat_delay": 0.3,
+				"bot_threat_distance": 70.0
+			},
+			"_flash_jump": "Tier A: WZ 4111006 (20 levels) holds only mpCon (not modelled) and the Use sound; the String text says the jump grows with the level. Tier C (spec #383 M14, NL6 #405): the distance table (140 px at rank 1 to 280 px at rank 20, linear over the ranks, GAME_DESIGN 7.92), the 0.3 s repeat delay, once per airborne period, the bot's 70 px threat distance. The rank is the round's level through balance.mobility_rank_levels (1 at Lv1, 10 at Lv20, 20 from Lv40), never a card; the node has no art, so the presentation is a code-drawn ghost trail.",
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20
+			],
+			"action": "",
+			"action_time": 0.0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4111006/Use",
+				"hit": ""
+			}
+		},
+		"shadow_meso": {
+			"skill_id": 4111004,
+			"book": "411",
+			"job": 411,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Shadow Meso",
+			"desc": "Throws a heavy bag of mesos at the nearest monster. It hits harder the more of the meso charge you hold, and costs no mesos.",
+			"text": {
+				"desc": "Throws a heavy bag of mesos at the nearest monster. It hits harder the more of the meso charge you hold, and costs no mesos.",
+				"h": "Damage {damage_percent}% of your weapon damage, costs no mesos"
+			},
+			"icon": "Skill.wz/411.img/skill/4111004/icon",
+			"damage": "physical",
+			"damage_basis": {
+				"field": "moneyCon",
+				"scale": 0.6
+			},
+			"_tier": "Tier A: the WZ has no damage for 4111004, only moneyCon 135 -> 570 (the average mesos per throw), x 50, prop 1 -> 10 and the three art tiers (the level nodes' ball / hit UOLs change at levels 11 and 21), Use and Hit sounds. Tier C (#408, GAME_DESIGN 7.94.4): damage% = moneyCon x 0.6 (damage_basis), no mesos spent (ruling D7: moneyCon is kept for the balance pass), +10% damage per held meso-charge pip on top of the meter's own +3% (meter.read_per_unit), swingO1 (the claw's own stance: the node has no action, and shoot1 hides the claw), nearest auto-cast, 3.0 s cooldown, 300 px range, 650 px/s, 10 px radius, no pierce, 0.6 s hold, the echo class, rarity bonuses. x, prop and bulletCount are not modelled (recorded as unused; count is pinned to 1). Untuned.",
+			"action": "swingO1",
+			"action_time": 0.6,
+			"ball": "Skill.wz/411.img/skill/4111004/level/{level}/ball",
+			"hit": "Skill.wz/411.img/skill/4111004/level/{level}/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4111004/Use",
+				"hit": "Sound.wz/Skill.img/4111004/Hit"
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"count": 1,
+			"cooldown": 3.0,
+			"range": 300,
+			"speed": 650,
+			"radius": 10,
+			"pierce": 0,
+			"meter": {
+				"read_per_unit": 0.1,
+				"unit": "pip"
+			},
+			"echo": {
+				"class": "skill"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "meso_up",
+						"text": "Meso Up",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "claw_booster",
+						"text": "Claw Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "second_bag",
+						"text": "Second Bag",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "second_bag",
+						"text": "Second Bag",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"ninja_storm": {
+			"skill_id": 4121008,
+			"book": "412",
+			"job": 412,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Ninja Storm",
+			"desc": "Throws a ring of stars around you that hurts the monsters near you and shoves them away.",
+			"text": {
+				"desc": "Hurt up to 6 monsters around you and shove them away from you. Needs a monster in the storm's box.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters}; {prop}% chance each to be pushed back."
+			},
+			"icon": "Skill.wz/412.img/skill/4121008/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 4.0,
+			"action": "ninjastorm",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/412.img/skill/4121008/hit/0",
+			"effect": "Skill.wz/412.img/skill/4121008/effect",
+			"rotate": false,
+			"knockback": {
+				"chance_field": "prop",
+				"distance_by_rank": [
+					100,
+					100,
+					200,
+					200,
+					200,
+					300,
+					300,
+					300
+				],
+				"effect": "Skill.wz/412.img/skill/4121008/mob"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4121008/Use",
+				"hit": "Sound.wz/Skill.img/4121008/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "ninja_arts",
+						"text": "Ninja Arts",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_storm",
+						"text": "Wide Storm",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "second_wave",
+						"text": "Second Wave",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "second_wave",
+						"text": "Second Wave",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_rarity": "Tier C: first-pass NL8 #407 bonuses (spec #383): Ninja Arts and Wide Storm are flavour names (the skill has no passive of its own); Second Wave adds a line on each struck monster; Legendary shares the Unique's id (and its repeat counter) plus damage x1.2; Mastery repeats shrink x0.8. GAME_DESIGN 7.94.8.",
+			"_provenance": "Tier A: Skill.wz 4121008 damage 42 to 80 % (rank 1 = level 4: 48 %), prop 42 to 100 (read as the push's success rate: rank 1 48 %), mobCount 6, the symmetric box +-100 / 150 / 200 by (-70, 30) (levels 1 / 11 / 21), the ninjastorm action, effect (16 frames), hit/0 and mob art, the Use and Hit sounds. Tier C: the 4.0 s cooldown, min_targets 1, the 0.6 s action hold, the push distances 100 / 200 / 300 px by rank (the String.wz text's 100 / 200 / 300 px for levels 1-10 / 11-20 / 21-30 mapped to the eight ranks; there is no WZ field), `knockback.effect` (the `mob` art once on each pushed monster), the default 30-level rank table, no weapon gate. GAME_DESIGN 7.94.8."
+		},
+		"ninja_ambush": {
+			"skill_id": 4121004,
+			"book": "412",
+			"job": 412,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Ninja Ambush",
+			"desc": "Hides ninjas where you stand; they strike the monsters in the zone every second.",
+			"text": {
+				"desc": "Leave an ambush at your feet. Its ninjas strike up to 6 monsters in the zone every second. Needs a monster in the zone's box.",
+				"h": "Damage {damage}% per strike, up to {mob_count|monster|monsters}, for {time} sec."
+			},
+			"icon": "Skill.wz/412.img/skill/4121004/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 14.0,
+			"action": "alert3",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/412.img/skill/4121004/mob0",
+			"effect": "Skill.wz/412.img/skill/4121004/effect",
+			"rotate": false,
+			"ground": {
+				"strike": {
+					"interval": 1.0,
+					"first_delay": 0.3
+				}
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4121004/Use"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "ninja_arts",
+						"text": "Ninja Arts",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_ambush",
+						"text": "Wide Ambush",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "ambush_squad",
+						"text": "Ambush Squad",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "ambush_squad",
+						"text": "Ambush Squad",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_rarity": "Tier C: first-pass NL8 #407 bonuses (spec #383): Ninja Arts and Wide Ambush are flavour names; Ambush Squad adds two monsters to every strike (`count` raises mobCount); Legendary shares the Unique's id plus damage x1.2; Mastery repeats shrink x0.8. GAME_DESIGN 7.94.8.",
+			"_provenance": "Tier A: Skill.wz 4121004 damage 62 to 100 % per strike (rank 1 = level 4: 68 %), mobCount 6, time 4 / 8 / 12 s, the symmetric box +-110 -> +-200 by (-130, 70) (rank 1 +-120), the alert3 action, the 19-frame effect, the mob0 strike art on each struck monster and the Use sound. Equal to 4221004 at all 30 levels. Tier C: the 14 s cooldown (a 12 s zone never overlaps itself), min_targets 1, `ground.strike` {interval 1.0, first_delay 0.3} anchored at the cast, the 0.6 s action hold, no tile art (the effect plays once at the cast, the strikes bring `mob0`), the default 30-level rank table, no weapon gate; Shadow Shifter level 5 (the WZ req) is ignored. GAME_DESIGN 7.94.8."
+		}
+	}
+}

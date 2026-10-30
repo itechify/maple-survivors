@@ -222,7 +222,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
-| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Rush (Hero): X + direction dashes that way, damaging and shoving mobs (7.33; hold X to repeat after its 2 s cooldown). Each manual skill has its own key in Key Config (see 7.15) |
+| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Rush (Hero): X + direction dashes that way, damaging and shoving mobs (7.33; hold X to repeat after its 2 s cooldown). Flash Jump (Night Lord, 7.94.2): X in the air, with a direction, flashes sideways once per jump. Each manual skill has its own key in Key Config (see 7.15) |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
@@ -234,7 +234,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
-There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash, Rush) are cast on their own skill keys, all X by default.
+There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash, Rush, Flash Jump) are cast on their own skill keys, all X by default.
 
 Movement keys are a setting (`Settings` `[controls] movement`: `arrows`, the default, or `wasd`). Only the chosen set
 drives `move_*`, so the other set is free to bind; switching to WASD takes W/A/S/D off every other action (S stops
@@ -5732,7 +5732,7 @@ pacing regressions retain their pre-Pirate job pool and unchanged goldens/bounds
 
 **Skill key** (GLOSSARY): the Key Config binding of one manual skill the character has learned. A manual skill
 (`cast.rule: "manual"`, never auto-cast) names its key in a `skill_key` field of its definition; the id is also the
-input action (`project.godot` has `teleport`, `dash` and `rush`, all X) and is listed in `KeyBindings.SKILL_KEYS`. A new
+input action (`project.godot` has `teleport`, `dash`, `rush` and `flash_jump`, all X) and is listed in `KeyBindings.SKILL_KEYS`. A new
 manual skill adds its id there, an action in `project.godot` and a `skill_key` in its skill file. The three Teleports
 share `teleport`, so an existing `settings.cfg` `[input] teleport` binding is simply Teleport's skill key and
 Teleport behaves exactly as before.
@@ -5740,7 +5740,7 @@ Teleport behaves exactly as before.
 - **Key Config lists only learned manual skills.** `RunWorld.manual_skill_keys()` returns one
   `{action, name, icon, skill}` per learned skill key; `KeyConfigWindow` takes it when it opens and ends its tray with
   those icons (the skill's own icon and name, not the F/P Teleport icon for everyone). `KeyBindings` drafts the fixed
-  actions plus those ids; an unlearned skill key cannot be bound. Teleport, Dash and Rush all default to X; no character
+  actions plus those ids; an unlearned skill key cannot be bound. Teleport, Dash, Rush and Flash Jump all default to X; no character
   learns two of them (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
 - **Input.** `MoveInput.skills_pressed` / `skills_held` (id -> true; `press_skill`, `hold_skill`) replace the old
   `teleport_pressed` / `teleport_held`. `RunScene` latches presses of learned skill keys (a held key requests repeats).
@@ -6586,7 +6586,8 @@ beside the skill icons, and lights value pips. Combo uses the verified orb art a
 unavailable art uses drawn pips. Jobs without a meter display nothing.
 
 Later jobs can configure `gain.event` to `hit_taken` or `meso_picked` and call `gain(event, events)` at their
-event source; H3 wires landed casts only. M23 owns meso pickup coupling; energy/form rules belong to Buccaneer's spec.
+event source; H3 wires landed casts only. M23 owns meso pickup coupling (built in 7.94: `meso_picked`, `per_mesos`, `decay`,
+`read_per_unit`); energy/form rules belong to Buccaneer's spec.
 The current `per_unit.stat` contract is `damage`; additional stat semantics need an explicit extension.
 Paladin uses M2 forms, not M1. Meter state is absent from CharacterSnapshot: a new round always starts empty.
 
@@ -6668,14 +6669,14 @@ at Lv30-55) belonged to jobs nobody can be and levels a round rarely reaches. Fo
 |---|---|
 | 312 Bowmaster (bow) | Lv1 Arrow for Bow 2060000 (+0) -> **15** Bronze 2060001 (+1) -> **30** Steel 2060002 (+2) -> **45** Red 2060003 (+4) |
 | 322 Marksman (crossbow) | Lv1 Arrow for Crossbow 2061000 (+0) -> **15** Bronze 2061001 (+1) -> **30** Steel 2061002 (+2) -> **45** Blue 2061003 (+4) |
-| 412 Night Lord (claw) | Lv1 Beginner Thief's Throwing Stars 2070015 (+15) -> **10** Wolbi 2070001 (+17) -> **20** Mokbi 2070002 (+19) -> **30** Kumbi 2070003 (+21) -> **40** Tobi 2070004 (+23) -> **50** Steely Throwing-Knives 2070005 (+25) |
+| 412 Night Lord (claw) | Lv1 Beginner Thief's Throwing Stars 2070015 (+15) -> **10** Wolbi 2070001 (+17) -> **20** Mokbi 2070002 (+19) -> **30** Kumbi 2070003 (+21) -> **40** Tobi 2070004 (+23) -> **50** Steely Throwing-Knives 2070005 (+25) -> **60** Ilbi Throwing-Stars 2070006 (+27, added by NL2 #401, 7.94) |
 | 522 Corsair (gun) | Lv1 Bullet 2330000 (+10) -> **18** Split Bullet 2330001 (+12) -> **35** Mighty Bullet 2330002 (+14) |
 
 This ticket writes all four schedules; only the Bowmaster is playable today, so the other three are inert data under a
 structural test (`test_ammo`: exact levels, no inheritance, one schedule per job and family) until their specs make the job
-playable and may retune their own entry. Left out on purpose: Ilbi Throwing-Stars 2070006 (+27) and Vital Bullet 2330003 (+16,
-its img is not imported), for the specs that own those jobs to add if a round can reach them (`Ammo.item_ids` no longer names
-2070006, so the setup loads 17 ammo items). Summons never use ammo W.Att (their damage is the WZ `pad`). Arrows are almost
+playable and may retune their own entry. Left out on purpose: Ilbi Throwing-Stars 2070006 (+27; **added by Night Lord NL2 #401
+at Lv60, so the setup loads 18 ammo items again**, 7.94) and Vital Bullet 2330003 (+16, its img is not imported), for the
+specs that own those jobs to add if a round can reach them. Summons never use ammo W.Att (their damage is the WZ `pad`). Arrows are almost
 cosmetic (+0..+4 W.Att, about 7% at Lv45); stars and bullets matter, hence their extra steps.
 Tests: `test_ammo` (rule, data file, real-cache `incPAD` strictly increasing along each schedule, real String.wz names in the
 notice), `test_ammo_world` (a Bowmaster levelled through 15/30/45 with real EXP: one `ammo_upgraded` each, none at the start
@@ -8158,6 +8159,295 @@ Tests: `test_buccaneer_barrage_dragon` (data, ranks, the six lines, the box and 
 at the impact, the cap, hit art by target and by line, transfer, the energy receipt, every bonus, `bot.reach`, the real cache and the
 knuckle on every `fist` / `dragonstrike` frame), `test_bot_melee` (`bot.reach`, a melee bot with the 400 px strip still closes in,
 and the control that kites without the key), `test_avatar_cash_layers` (the `swingTF` fallback), `test_rarity_bonus_effects`.
+
+### 7.94 Night Lord pool, job data and the claw ammo step (spec #383, NL2 #401)
+
+(The spec calls this section 7.90; that number belongs to the Buccaneer pool in this tree, so the Night Lord data section is 7.94.)
+
+Night Lord (412) gets its own data line, `night_lord`, discovered from its files (`DataRepo.lines()`; no shared list is edited, and
+it follows the registered classes in sorted order). It ships **not playable**: every skill key and Flash Jump stay inert until NL6-NL10
+define them, the `meter` block until NL4 gives `PlayerMeter` the `meso_picked` rule, and `playable` flips in NL12 #411.
+`JobTree.default_job()` stays 212.
+
+| Piece | Where | Value |
+|---|---|---|
+| Job entry | `jobs/night_lord.json` | `412`: `starting_skill lucky_seven`, `mobility_skill flash_jump`, `weapon_families ["claw"]`, `creation_weapon 1472000` (Garnier, reqJob 8, the Thief bit), `playable false` |
+| Skill pool (8) | `skill_pool` | `lucky_seven`, `drain`, `avenger`, `triple_throw`, `ninja_storm`, `ninja_ambush`, `shadow_partner`, `shadow_meso` |
+| Skill file | `skills/night_lord.json` | `{"skills": {}}` and a `_doc` (NL6 #405 then defined `flash_jump`, 7.94.2) naming the regions NL6-NL10 append to; Lucky Seven and Drain stay in `thief.json` until NL7 moves them (a repeated key is a load error) |
+| Meter | `jobs/night_lord.json` `meter` | meso charge: max 10, `gain {event meso_picked, amount 1, per_mesos 1000}`, `decay {interval 6.0, amount 1}`, `per_unit {damage, 0.03}`, art `Item.wz/Special/0900.img/09000002/iconRaw`; inert until NL4 |
+| AP row | `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` Thief keyframes copied verbatim (Lv1 25, Lv25 25, Lv200 200) |
+| Bot scores | `balance.bot.card_scores` | `shadow_partner_new` 100, `shadow_partner_rank` 74 (the summon is not an `attack` to `BotInput._base_score`; the other seven score as attacks by default) |
+| Status catalogue | `balance.status_bonuses` | `venomous_star` (poison, element `s`, chance 14..30, time 2..4, poison level 4..30, `repeat_chance` 3) and `stunning_avenger` (stun, chance 20..50, 1.5 s, `repeat_chance` 4); NL3 #402 parses it, NL2 only stores it |
+
+`JobTree.start_skills(412)` is `["lucky_seven", "flash_jump"]`; Flash Jump is not in the pool and never a card (it follows
+`balance.mobility_rank_levels` once NL6 defines it).
+
+**Drops.** The equipment data is unchanged. `weapon_families ["claw"]` filters the Thief drop list (claws 147xxxx, never daggers 133xxxx
+or any other family); armour drops by the Thief class bit, other classes' gear is refused by `Equipment.requirement_error`, and the
+Garnier is wearable at creation. A dagger job's `["dagger"]` filter symmetrically never receives a claw.
+
+**Ammo.** Item.wz and String.wz were read again: `incPAD` is +15 (2070015) and +17 / +19 / +21 / +23 / +25 / +27 for 2070001-2070006.
+`ammo.json` gains `{level 60, item 2070006, tier C}` on the 412 claw schedule (Ilbi Throwing-Stars, already in the thief manifest
+fragment, so `Ammo.item_ids` names it again: 18 ammo items). A Night Lord starts on 2070015 and gets exactly one `ammo_upgraded` at
+round levels 10 / 20 / 30 / 40 / 50 / 60 ("Your throwing stars are now Wolbi Throwing-Stars", ... Ilbi Throwing-Stars); a dagger in its
+hand never steps. No ammo code changed.
+
+Tests: `test_night_lord_data` (the line and its discovery, the job entry, `default_job`, the start skills, pool keys inert or well
+placed, the meter block and its inertness, the AP row, card scores and catalogue coming from the line file, claw-only drops
+synthetic / shipped / seeded / real cache, `requirement_error`, the Lv60 step through a real round, the incPAD and bullet sprite,
+and the real String.wz names), `test_data_repo_lines` (placement of the 400-412 books), `test_ammo` and `run_fixtures.ammo_info`
+(18 items).
+
+#### 7.94.1 Meso charge (spec #383 NL4, #403, M23)
+
+A **meso charge** is a `PlayerMeter` (7.34) whose gain event is `meso_picked`: a counter filled by mesos picked up, never
+money. Night Lord's meter (NL2's data) and Shadower's Meso Explosion meter use it; this ticket builds the seam on synthetic
+data only (Night Lord's block and Shadow Meso are NL2 and NL9). Four optional extensions; a meter without them (Combo,
+Energy Charge) behaves, and emits, exactly as before.
+
+```json
+"meter": {"id": "meso_charge", "max": 10,
+          "gain": {"event": "meso_picked", "amount": 1, "per_mesos": 1000},
+          "decay": {"interval": 6.0, "amount": 1},
+          "per_unit": {"stat": "damage", "value": 0.03},
+          "art": "Item.wz/Special/0900.img/09000002/iconRaw"}
+```
+
+- **The event.** `RunWorld._credit_pickups`, the one line where mesos reach the wallet (the magnet, the pet's pickups and its
+  vacuum, and the finale sweep all end there), emits `meso_picked {amount, count}` once per tick in which `pickups.step_mesos`
+  is positive: the total amount and the number of drops. It changes no wallet value, drop or save, and a shop sale is not a
+  pickup. **It is emitted only when the job's meter gain rule listens to `meso_picked`** (`PlayerMeter.listens`): the event
+  bytes of every other job are hashed by the baselines (F/P, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer, Bowmaster),
+  which must not move. Documented in `EVENT_FIELDS` and in `test_run_events` (which stands a mesos meter on a synthetic world).
+- **Amount-driven gain.** `gain.per_mesos` earns one `gain.amount` per `per_mesos` mesos. `MesoCharge.take(carry, mesos,
+  per_mesos) -> {units, carry}` keeps the remainder in `PlayerMeter.carry`, so no mesos are rounded away (999 then 1 is one
+  pip, 1999 then 1 is two). The carry survives map transfers and starts at 0 each round (a new meter). `gain_amount(event,
+  amount, events)` is the entry point; `gain(event, events)` stays the count-driven one and never reads mesos. A rule
+  without `per_mesos` fed an amount behaves like `gain`. The meter caps at `max` and emits `meter_changed` only on actual
+  changes.
+- **Decay.** `decay: {interval, amount}`: while at least one unit is held, `amount` leaves every `interval` seconds
+  (`PlayerMeter.step(dt, events)`, called once per tick by `RunWorld.step` right after the pickups stage, with no new stage
+  part). The clock runs only while the value is positive (it is cleared when the meter empties, so an empty meter banks no
+  time toward its next pip), the value never goes below zero, no RNG is drawn. Without a `decay` key `step` leaves the value
+  and the events alone.
+- **A read-only bonus.** A skill's `meter` block may be `{"read_per_unit": 0.10}`: at admission (`PlayerMeter.begin_cast`) the
+  cast's damage bounds and status damage multiplier are multiplied by `1 + value x read_per_unit`, on top of the meter's own
+  `per_unit`. It spends nothing and never gates (`admits` is true with or without a meter, at any charge); a block that also
+  has `min`, `spend` or `role` is a finisher as before. SkillText says "+N% damage per <unit> held" for it. Shadower's Meso
+  Explosion is a `role: finisher` (`min`, `spend: "all"`) on a `meso_charge` meter: no code.
+- **The run summary.** `summary.json` (`RunScene.perf_summary`) gains `meter: {mean, peak}` for any job with a meter: the
+  time-weighted mean of the held units over the ticks (`PlayerMeter.stats`, accumulated by `step`) and the most held, so
+  the QA ticket and the balance pass can see the charge. Jobs without a meter gain no key.
+- **HUD.** `HudMeter` is unchanged: it draws `max` pips and lights `value`. With the art path above it blits the meso coin's
+  `/1` frame (checked on the real map: six lit coins and four dark pips); without `art` it draws the purple pips. Both
+  checked by eye with `player_meter_probe.tscn -- --meso [--no-art]`.
+
+Tests: `test_meso_charge` (the arithmetic, the carry, the cap, decay, the event and its fields, the pet's pickups, shop
+sales, map transfer and a new round, `read_per_unit`, the summary), `test_run_events`, `test_run_telemetry`,
+`test_data_files` (the schema), and every baseline unchanged.
+
+
+#### 7.94.8 Ninja Storm and Ninja Ambush: per-rank knock-back and the ground strike (spec #383, NL8 #407)
+
+(The spec's paragraphs 7.95 and 7.96 for these two skills live here, as a subsection of 7.94, so parallel Night Lord tickets never
+collide on section numbers.) Two small data-driven seams and two skill entries, in the marked NL8 region of `skills/night_lord.json`.
+
+**`knockback.distance_by_rank`.** An optional list of exactly eight non-negative numbers on a `knockback` block, one per survivor
+rank, replacing the scalar `distance` (naming both is a load error). `Loadout.knockback_distance_at(block, rank)` resolves it (the last
+value past the list, rank 1 for an unowned skill) into `Loadout.stats(key).knockback_distance`, so the Skill window and the card
+preview read the resolved number; `RunWorld._on_player_hit` reads the owner's current rank for the shove. Everything else about the
+knock-back is the existing rule: one stream-1 draw per struck non-boss monster against `chance_field`, bosses and scheduled bosses
+are damaged and never moved, `FootholdMap.slide_along`. An optional `knockback.effect` (an art path) plays once on each monster that
+was actually pushed (a `skill_mob_effect` event). A block without `distance_by_rank` or `effect` behaves exactly as before.
+
+**`ground.strike`** (`scripts/sim/ground_strike.gd`, `GroundStrike`). A `ground` block with a `strike` object instead of a `status`
+deals damage on a clock: `"ground": {"strike": {"interval": 1.0, "first_delay": 0.3}}`. The cast queues a zone anchored where the
+caster stood (it does not follow); it lives for the skill's WZ `time`. The first strike lands `first_delay` after the cast, then one
+every `interval`, the last at or before `time` (`GroundStrike.strike_count`: 4 / 8 / 12 strikes for 4 / 8 / 12 s). Each strike picks
+up to `mob_count` live monsters whose bodies touch the box around the anchor, nearest to the anchor first
+(`RunWorld.skill_rect_targets`), and resolves `attack_count` ordinary lines on each through the instant-hit path
+(`SkillRunner._resolve_instant_targets` -> `RunWorld.hit_mob`: defence, crit, element, on-hit statuses, damage modifiers, kills and
+loot). The meter receipt is the cast's own snapshot, so only the first hit of the first strike is credited. A monster that left the
+box or died is simply not found at the next strike; a second cast makes a second zone; `clear_pending` (map transfer, stage clear)
+drops every zone. `ground.status` and `ground.strike` are mutually exclusive and a strike has no `chance_field` (load errors,
+`GroundStrike.errors`, called by `DataRepo`); Poison Mist's `ground.status` path is untouched. `skill_ground` is still emitted
+(box, lifetime) and carries the `tile` art path when the data names one; the presentation draws tile strips only for a non-empty
+path. Shadower's Ninja Ambush (4221004) equals this skill at all 30 levels and is a data copy.
+
+| Skill | Cast | Cooldown | Notes |
+|---|---|---|---|
+| `ninja_storm` (4121008) | `instant`, `cast {rule box, min_targets 1}`, the WZ box around the caster, `mobCount` 6, `knockback {chance_field prop, distance_by_rank [100,100,200,200,200,300,300,300], effect mob}` | 4.0 s | damage 42 -> 80% (rank 1 / 4 / 8: 48 / 65 / 80%), push chance `prop` 48 / 70 / 100%, push 100 / 200 / 300 px, box +-100 / 150 / 200 by (-70, 30). Action `ninjastorm`, `effect` at the caster, `hit/0` on each struck monster, `mob` on each pushed one, `Use` + `Hit`. |
+| `ninja_ambush` (4121004) | `instant`, `cast {rule box, min_targets 1}`, `ground {strike {interval 1.0, first_delay 0.3}}` | 14 s | damage 68 / 85 / 100% per strike, `mobCount` 6, `time` 4 / 8 / 12 s, box +-120 / 150 / 200 by (-130, 70). Action `alert3`, `effect` once at the cast (it stands on the zone), `mob0` (the ninja) as the hit art on every struck monster, `Use`. No tile art: the zone is visible through its strikes. |
+
+Rarity (tier C): Ninja Storm Rare `ninja_arts` damage x1.2, Epic `wide_storm` `area` x1.2, Unique `second_wave` `attack_count` +1,
+Legendary the Unique (same id, shared counter) plus damage x1.2; Ninja Ambush the same with `wide_ambush` and Unique `ambush_squad`
+`count` +2 (two more monsters per strike, `count` raises `mobCount`). Mastery repeats shrink x0.8 (the #288 rule). Both are claw
+skills by the pool only: no `weapon_families`, no `ranks` override (the default 30-level table: levels 4 / 8 / 12 / 15 / 19 / 23 /
+27 / 30). The Skill window adds "Strikes up to N monsters every 1 s for T s" for a strike zone and keeps "Knock-back: P% / D px"
+(now the resolved per-rank distance).
+
+Tests: `test_ground_strike` (the pure arithmetic, the data checks, the rank lookup) and `test_night_lord_crowd` (both skills on
+synthetic book-412 tables: the six-monster cap, nearest first, boxes by rank, 100 / 200 / 300 px on both sides and the chance, bosses
+never moved, one stream-1 draw per non-boss, the status art, the 0.3 s then every 1.0 s clock for 4 / 8 / 12 s, anchored zone, a monster
+that leaves or dies, `area` / `count` / `attack_count` / `damage`, a second zone, `clear_pending`, the Skill window lines, the rarity
+tables, "every bonus changes the resolved cast", a Rare+ card adding one rank plus its bonus, Legendary sharing the Unique's counter,
+Mastery x0.8, and the real-cache check of all eight ranks of both skills, which SKIPs without the cache).
+
+#### 7.94.2 Flash Jump (spec #383 NL6, #405, M14)
+
+(The spec calls this section 7.92; that number belongs to the Buccaneer morph forms in this tree, so Flash Jump is 7.94.2 beside the
+other Night Lord mechanics.)
+
+Night Lord's mobility skill, WZ 4111006 (book 411, 20 levels): a second, horizontal jump **in the air** on a skill key
+(`flash_jump`, default X like Teleport, Dash and Rush; a character owns one). The node holds only `mpCon` per level and a `Use`
+sound (no effect, `range`, `x` or art); "the higher the skill level, the farther the distance" is client code, so the distance
+table is tier C. It is outside the pool and both slot tracks, learned at round start (`JobTree.start_skills`), and ranked by
+`balance.mobility_rank_levels` through `RunWorld._level_ranks` like Teleport: rank 1 at Lv1, 10 at Lv20, 20 from Lv40, never a card.
+
+```json
+"slot": "mobility", "cast": {"rule": "manual"}, "skill_key": "flash_jump",
+"ranks": [1, 2, ... 20],
+"flash_jump": {"distance": [140.0, 280.0], "repeat_delay": 0.3, "bot_threat_distance": 70.0}
+```
+
+- **Code.** `FlashJump` (`scripts/sim/flash_jump.gd`) is pure arithmetic: `distance(distances, rank, top_rank)` (linear from the
+  first to the last entry over ranks 1 to the skill's top rank: 140 px at rank 1, about 206 at rank 10 = Lv20, 280 from rank 20 =
+  Lv40), `side(held, facing)`, `admits(can_act, delay_left)` and `trail(from, to)` (the ghosts). `PlayerMotion.flash_destination`
+  and `flash_to` are the one movement entry point, next to Rush's `dash_destination` / `dash_to`, and share its wall and
+  map-limit checks. `RunWorld._try_flash_jump` runs each tick after the manual buffs and before ordinary movement.
+- **Press.** Allowed only while **airborne** (not on a floor, ladder or rope: `PlayerMotion.fh < 0` and not climbing), with
+  `can_cast()` (alive, playing, not climbing), no flash yet in this airborne period (`PlayerMotion.flash_spent`) and at least
+  `repeat_delay` since the last. Otherwise it is refused with nothing spent and no event. Direction = the held Left / Right, else
+  the facing; opposing arrows cancel into the facing; Up and Down are ignored. Holding the key flashes once per airborne period.
+- **Move.** The character slides `distance` px horizontally at its current height: no lift, both velocity components kept, so the
+  fall continues in the same tick (the tick's ordinary movement still runs). It stops at the walls of the platform last stood on
+  and at the map limits exactly as Rush's airborne dash does; a flash that cannot move is refused. It faces the flash side. It
+  deals no damage, earns and spends no meter, emits no `cast` and starts no cooldown beyond `repeat_delay` (the HUD icon's sweep).
+- **Reset.** `flash_spent` clears on landing (a floor), on grabbing a ladder or rope, and in `place()` (a same-map portal, a
+  map transfer, Banish, a Teleport). It is not cleared by a hit's knock-back (still the same airborne period).
+- **Event.** `flash_jump {skill, from, to}` (documented in `RunWorld.EVENT_FIELDS`, exercised by `test_run_events`).
+- **Presentation.** `RunScene` plays the `Use` sound and leaves a **ghost trail**: `FlashTrail` (`scripts/render/flash_trail.gd`)
+  draws three translucent copies of the avatar's current frame at 0, 1/3 and 2/3 of the path (opacity 0.5, 0.31, 0.19 at birth,
+  fading linearly to nothing in 0.3 s), in the player's actor layer just behind the avatar, mirrored for the facing. It is code
+  drawn from the avatar's own parts; the first one of a run saves `flash_jump.png` under `--shots`. No WZ art is used.
+- **Bot.** After the Teleport and Rush branches, `BotInput` presses the key when the bot is airborne, Flash Jump is ready, at
+  least `FLASH_MIN_INTERVAL` (3.0 s) passed since its last flash (`memo.flash_at`), and a mob is within `bot_threat_distance`
+  (70 px) horizontally and `FLASH_DY` (60 px) vertically: it flashes toward the side with less danger (Rush's rule) if the lane
+  covers at least `FLASH_LANE_FRACTION` (0.5) of the distance. It never presses on the ground (the bot does not jump just to flash).
+  Tier C: ours.
+- **Keys.** `flash_jump` joins `KeyBindings.SKILL_KEYS`, `project.godot` (X) and Key Config (the skill's own icon and name);
+  the quick slot shows it like the other mobility skills.
+
+Tests: `test_flash_jump` (the arithmetic; learned at start, never a card; refused on the ground, on a ladder, while dead or
+choosing a card; direction rules; distance by rank through the level rule; once per airborne period and its resets; the repeat
+delay; walls and map limits; no damage, no meter, no cast; key, Key Config, quick slot and HUD row; the trail node; the bot hook;
+the real node: 20 levels, `mpCon` only), `test_run_events` (the event), and every oracle unchanged.
+
+##### Night Lord NL6 constants (#405)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Flash Jump distance | 140 px at rank 1 to 280 px at rank 20, linear over the 20 ranks (206 px at rank 10) | tier C: spec #383 (the WZ node has no distance; its String text only says it grows with the level) |
+| Rank by round level | `balance.mobility_rank_levels`: rank 1 at Lv1, 10 at Lv20, 20 from Lv40, never a card | tier C: ADR 0006 shared rule (nothing new) |
+| `repeat_delay` | 0.3 s between flashes (HUD sweep) | tier C: spec #383, Teleport's survivor delay |
+| Once per airborne period; resets on landing, ladder or rope, `place()` | `PlayerMotion.flash_spent` | tier C: spec #383 |
+| Direction, height and fall | held side arrow else facing, opposing arrows cancel, Up / Down ignored; height and both velocity components kept; faces the flash side | tier C: spec #383 (facing and velocity kept: ours) |
+| Stops | walls of the platform last stood on, map limits (Rush's airborne rules) | tier C: ours (#302 rule reused) |
+| Ghost trail | 3 copies at 0, 1/3, 2/3 of the path, opacity 0.5 fading to 0.125 along the path, each faded out in 0.3 s | tier C: ours (the node has no art) |
+| `bot_threat_distance`, threat height | 70 px horizontally, 60 px vertically (`FLASH_DY`) | tier C: spec #383 |
+| `FLASH_MIN_INTERVAL`, `FLASH_LANE_FRACTION` | 3.0 s between bot flashes; the lane must cover half the distance | tier C: spec #383 (Rush's analogues) |
+| `Use` sound | `Sound.wz/Skill.img/4111006/Use` (654 ms) | tier A |
+
+#### 7.94.3 Echo summon (M11) (spec #383, NL5 #404)
+
+A clone that repeats the owner's star casts. Night Lord's Shadow Partner (NL10) is its first user; this ticket ships the mechanic on
+synthetic data only (`test_echo_cast`), and Shadower reuses it as data. The section number is 7.94.3, not the spec's 7.91: 7.90-7.93 are
+the Buccaneer sections, and the Night Lord tickets nest under 7.94.
+
+```json
+"kind": "summon", "cast": {"rule": "summon"},
+"summon": {"echo": {"attack_field": "x", "skill_field": "y", "delay": 0.25, "overshoot": 0},
+           "follow_speed": 200.0, "follow_distance": 55.0, "teleport_distance": 600.0, "ordinal_spread": 40.0}
+```
+and on each echoable skill `"echo": {"class": "attack"}` or `{"class": "skill"}`. No skill id appears in the code.
+
+- **The clone** is a `PlayerSummons` entry whose definition has `summon.echo`. It spawns, follows (`follow_*`), lives `time`
+  (`left`), is replaced by a recast, takes `summon_count` (two clones `ordinal_spread` apart), and is cleared by a map transfer
+  (`SkillRunner.clear_pending`) exactly like Elquines; it has no attack node (`attack` defaults to `""`), no attack cycle and never
+  strikes. It mirrors the owner's facing. Every slot carries a spawn serial (`PlayerSummons.uid`) so a delayed echo can tell the clone
+  that was recorded from a recast that reused the slot. `PlayerSummons.clones()` lists the living ones.
+- **Recording.** In `SkillRunner._resolve_nearest` (the projectile branch of the `nearest` rule), a skill whose definition has `echo`
+  records `{slot, aim}` of each `fire_shot` it makes, but only while a clone is alive and only for a non-echo snapshot; afterwards it
+  calls `EchoCast.on_cast(world, key, st, shots)`. The cast itself (cooldown, events, meter receipt, RNG draws) is untouched, and a
+  world without a clone, or a skill without the key, takes no new branch: the stats dictionaries and event bytes are what they were.
+  Only the `nearest` projectile rule records: bursts, zones, grenades and the nova do not echo.
+- **The repeat.** `EchoCast` (a `RefCounted` owned by `SkillRunner.echoes`, stepped from `tick_cooldowns` after the summons and
+  bursts) schedules, per living clone (ascending slot) and per recorded shot (cast order), one entry `delay` seconds later. At fire time
+  it requires the clone to be the same spawn and still alive (an expired or replaced clone drops the entry); the target is the recorded
+  slot if it is the same monster (identity) and within `range + overshoot` of the clone's body, else the nearest living monster
+  within `range` of the clone (`SkillRunner.nearest_to`, bosses first), else the entry is dropped with no refund. The shot goes
+  through `SkillRunner.fire_shot` from the clone's hand (`cast_forward` px toward the target from the clone's body, level with it; the
+  body itself when the target is inside the hand's reach, as the owner's shots do). Damage rolls use the main stream in fire-tick order.
+- **Echo percent** = the clone skill's level field named by the class (`attack_field` for `attack`, `skill_field` for `skill`) at the
+  clone's rank / 100 x `Loadout.skill_stat(clone, "damage", 1.0)` at the cast (so Shadow Power and Mastery scale the echo). The
+  snapshot is the owner's `cast_snapshot` with `damage_min` / `damage_max` multiplied by it, `meter_receipt` and `damage_heal`
+  removed and `echo: true`.
+- **Echo hits** are ordinary hits (crit, element, `on_hit`, granted statuses, damage credited to the owner) except: no meter receipt (an
+  echo never earns a charge), no heal (`ProjectileSystem.echo`, the hit carries `echo` and `_damage_heal_hit` returns), no further
+  echo and no cooldown. The ammo tier steps with the level, not the shot, so an echo changes nothing there; its star art is the owner's.
+- **Stops:** map transfer; the owner's death or Hidden clears the unthrown entries (as bursts do, tier C); per entry when its clone
+  expires or is replaced.
+- **Event** `echo_cast {skill, clone, pos, facing}` when an echo is thrown: the echoed skill, the clone's `PlayerSummons` slot, the
+  clone's hand and the side it threw toward (presentation: the clone's throw stance, NL10).
+
+Tests: `test_echo_cast` (19: the seam, one echo per shot per clone at 15 ticks, the hand, `x` / `y` by class and rank, the `damage`
+modifier, replaced / expired clones, the snapshot rules, no heal, kept statuses, retarget and drop, identity of a reused slot, a
+world without a clone byte-identical with and without the key, twin worlds), `test_run_events` (the `echo_cast` schema).
+
+#### 7.94.4 Shadow Meso (spec #383 NL9, #408)
+
+`shadow_meso` (4111004, book 411, `skills/night_lord.json`) is Night Lord's heavy single-target bag. The WZ gives the skill
+no damage: only `moneyCon` (the average mesos per throw, 135 at Lv1 to 570 at Lv30), `x` 50, `prop` 1 -> 10 and three art
+tiers. v83's own damage rule lives outside the WZ, so the survivor damage is built from the tier A weight:
+
+- **`damage_basis {field, scale}`** (a small generic `Loadout` key, owned by this ticket): for a physical skill whose level
+  node has no `damage` field, the skill percent is `canonical(field) x scale / 100`. Shadow Meso reads `moneyCon x 0.6`, so
+  ranks 1 to 8 (WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30) hit for 108 / 144 / 180 / 207 / 243 / 279 / 315 / 342%
+  through the ordinary physical formula (claw, LUK primary). A level that carries a `damage` field keeps it, and a skill
+  without the key resolves byte-identically (the oracles do not move). `x`, `prop` and `bulletCount` are not modelled
+  (the definition pins `count` 1); `Loadout.stats` also reports `damage_percent` (the percent x 100) for the Skill window.
+- **It costs nothing (ruling D7).** No mesos are spent, lost or required, at any rank; `moneyCon` stays only as the damage
+  basis (and so as the number a later balance pass could price a cost from). The meso charge is read, never spent.
+- **The held-pip bonus.** `meter {read_per_unit 0.10, unit "pip"}` (NL4's read-only block): each pip held multiplies the
+  bag's damage by another `1 + 0.10` on top of the meter's own +3% on every pool cast, so a full charge (10 pips) is
+  1.3 x 2.0 = x2.6. Nothing is spent and the cast never waits for a pip (an empty charge and an empty wallet cast).
+- **Cast.** `nearest` auto-cast every 3.0 s, one bag at the nearest monster (a scheduled boss before a nearer ordinary
+  monster), range 300 px, 650 px/s, radius 10 px, no pierce, 0.6 s hold in the claw's own `swingO1` (the node has no
+  `action`, and `shoot1` makes the claw vanish: roster ruling D10), `echo {class skill}` for Shadow Partner's clone (NL5/NL10
+  read it). `Use` and `Hit` sounds.
+- **Art by level.** `ball` and `hit` are the level nodes' own (`.../level/{level}/ball`, `.../level/{level}/hit/0`), which the
+  importer expanded from UOLs into three tiers: levels 1-10, 11-20 and 21-30 (the third is a larger 91 x 34 bag). The
+  existing `{level}` template follows them, so no `art_by_level` template was added; ranks 1-2 throw the first tier, 3-5
+  the second and 6-8 the third.
+- **Rarity** (tier C, spec table): Rare `meso_up` "Meso Up" damage x1.2; Epic `claw_booster` "Claw Booster" cooldown x0.88;
+  Unique `second_bag` "Second Bag" `count` +1 (a second bag at the next monster, not the same one); Legendary = Second Bag
+  plus damage x1.2 (the same id, so the repeat counter is shared). Mastery repeats shrink x0.8 as for every pool skill.
+
+Tests: `test_shadow_meso` (the percent by rank, the basis rule and its unused fields, the pip read, no pip and no meso spent,
+one bag / boss first / range / cooldown, the `count` card's second target, the art tiers, the catalog, every bonus changing
+the resolved cast, the card and Mastery rules, and the real-cache rank and art checks).
+
+#### 7.94.5 Status bonus (M22) (spec #383 NL3, #402)
+
+(The spec calls this section 7.93; that number belongs to the Buccaneer pool in this tree, so the status bonus is 7.94.5. Constants: "Night Lord NL3 constants".)
+
+A class line's `balance.status_bonuses` catalogue supplies status ids, kinds, scalar/eight-rank chance, duration and
+poison level, plus scalar repeat chance points. Cards use `{stat: status, op: grant, status: <id>}`. First award fixes
+its position; repeats add scaled chance points without modifying `skill_mods`. The owning skill's rank resolves the
+grant, independently of the skill's canonical level. Cast snapshots preserve grants across delayed hits and projectiles.
+After native on-hit, every grant under 100% draws once on stream 1 (including zero); 100% draws nothing. Existing
+boss/element gates and refresh semantics apply. Cards and Skill window append rank-resolved chance/duration text.
+NL2 owns the shipping catalogue; NL7 owns its first skill users. This ticket adds no balance data or playable job.
 
 ## 8. Upgrades
 
@@ -9706,6 +9996,22 @@ The QA observer counts `cast` events by skill and sums fixed post-tick `morph_id
 tick (tier C measurement convention, including truncated windows). These are measurements, not nominal-duration
 estimates. Durable stationary crowds and invulnerability in disposable visual probes are diagnostic only.
 
+### Night Lord NL4 constants (#403)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `meso_picked` emitted only for a meter that listens to it | RunWorld announces the event when `PlayerMeter.listens("meso_picked")`; the wallet is credited regardless | tier C (ours): the baselines hash event bytes, so no other job may gain an event |
+| Meso charge gain / decay / bonus (the numbers NL2 puts in `jobs/night_lord.json`) | 1 pip per 1000 mesos picked up; 1 pip lost per 6 s while held; +3% damage per pip on every pool cast, +10% per pip on Shadow Meso | tier C, spec #383 (balance flag: untested against real pickup rates) |
+| Carry | the remainder under `per_mesos` stays in the meter across maps; reset at round start | tier C (ours) |
+| Decay clock | runs only while a unit is held, cleared when it empties; float slack `MesoCharge.CLOCK_EPSILON` 1e-6 s | tier C (ours; the slack only keeps 360 ticks of 1/60 s equal to six seconds) |
+| `read_per_unit` | multiplies the damage bounds and status damage by `1 + value x read`, stacking with `per_unit`; never spends, never gates | tier C, spec #383 |
+| Summary `meter.mean` / `meter.peak` | time-weighted mean of the held units per tick, and the most held, in `summary.json` for any meter | tier C (measurement convention) |
+
+### Night Lord NL6 constants (#405)
+
+Flash Jump's constants (distance table, repeat delay, once per airborne period, trail, bot thresholds) are the table under
+"Night Lord NL6 constants" in 7.94.2; all tier C except the `Use` sound (tier A).
+
 ### Hero H3 meter constants (#299)
 
 | Constant / rule | Value | Provenance |
@@ -9847,7 +10153,8 @@ Numeric-string delay parsing also affects Pig/Ribbon Pig and seven `dungeon.img`
 | Marksman arrows (322, crossbow) | Lv15 Bronze 2061001, Lv30 Steel 2061002, Lv45 Blue 2061003 | tier C levels; tier A ids and `incPAD` +1/+2/+4 |
 | Night Lord stars (412, claw) | Lv10 Wolbi 2070001, Lv20 Mokbi 2070002, Lv30 Kumbi 2070003, Lv40 Tobi 2070004, Lv50 Steely 2070005 (`incPAD` +17..+25) | tier C levels; tier A ids and `incPAD` |
 | Corsair bullets (522, gun) | Lv18 Split 2330001, Lv35 Mighty 2330002 (`incPAD` +12, +14) | tier C levels; tier A ids and `incPAD` |
-| Ilbi Throwing-Stars 2070006, Vital Bullet 2330003 | not scheduled | tier C: left to the specs that own those jobs |
+| Ilbi Throwing-Stars 2070006 | scheduled at Lv60 for 412 by Night Lord NL2 #401 (see "Night Lord NL2 constants") | tier C |
+| Vital Bullet 2330003 | not scheduled | tier C: left to the spec that owns the Corsair |
 
 ### Bowmaster constants (#336)
 
@@ -10048,15 +10355,72 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
 
-### 7.93 Status bonus (M22, Night Lord NL3 #402)
+### Night Lord NL2 constants (#401)
 
-A class line's `balance.status_bonuses` catalogue supplies status ids, kinds, scalar/eight-rank chance, duration and
-poison level, plus scalar repeat chance points. Cards use `{stat: status, op: grant, status: <id>}`. First award fixes
-its position; repeats add scaled chance points without modifying `skill_mods`. The owning skill's rank resolves the
-grant, independently of the skill's canonical level. Cast snapshots preserve grants across delayed hits and projectiles.
-After native on-hit, every grant under 100% draws once on stream 1 (including zero); 100% draws nothing. Existing
-boss/element gates and refresh semantics apply. Cards and Skill window append rank-resolved chance/duration text.
-NL2 owns the shipping catalogue; NL7 owns its first skill users. This ticket adds no balance data or playable job.
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Night Lord job entry (412): `starting_skill`, `mobility_skill`, the eight-key `skill_pool`, `weapon_families ["claw"]` | see 7.94 | tier C: spec #383 (skills' WZ ids are tier A) |
+| Creation weapon | Garnier 1472000 (reqJob 8 = the Thief bit) | tier A item fact (Item.wz); the choice is tier C, spec #383 |
+| `playable` | false until NL12 #411; `default_job` stays 212 | tier C, spec #383 / #298 pin |
+| Meso charge `meter` block: max 10, 1 pip per 1000 mesos, one pip decays every 6 s, +3% damage per pip | `jobs/night_lord.json` | tier C: spec #383 M23 (first pass, untested against real pickup rates; the pip rate and decay are balance-pass levers) |
+| Meter art | `Item.wz/Special/0900.img/09000002/iconRaw` (the meso coin frame) | tier A path (already imported for pickups) |
+| AP row `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` keyframes verbatim | tier C: the Thief gear pattern, no new tuning |
+| Bot scores `shadow_partner_new` / `_rank` | 100 / 74 | tier C: spec #383 (the number the pool default gives every curated attack) |
+| `balance.status_bonuses.venomous_star` | poison; chance 14 16 18 20 24 26 28 30; time 2 2 3 3 3 4 4 4; level 4 8 12 15 19 23 27 30; element `s` | tier A: Venomous Star 4120005 `prop`, `time` and the rank -> poison level map (`mad` unused) |
+| `balance.status_bonuses.stunning_avenger` | stun; chance 20 24 28 32 36 40 45 50; time 1.5 s | tier C: spec #383 |
+| `repeat_chance` | venomous_star 3 points, stunning_avenger 4 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #383 |
+| Night Lord ammo step | Lv60 Ilbi Throwing-Stars 2070006 (+27) on the 412 claw schedule (steps Lv10 / 20 / 30 / 40 / 50 / 60) | tier C level (spec #383); tier A item id, `incPAD` and name (Item.wz / String.wz, re-read) |
+| Ammo items | 18 (B3's 17 plus 2070006) | derived: `Ammo.item_ids` |
+
+### Night Lord NL8 constants (#407)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Ninja Storm cooldown | 4.0 s | tier C: spec #383 (cadence table) |
+| Ninja Ambush cooldown | 14.0 s (its 12 s rank-8 life never overlaps itself) | tier C: spec #383 |
+| `ground.strike.interval` / `first_delay` (and their defaults in `GroundStrike`) | 1.0 s / 0.3 s | tier C: spec #383 (v83 has no WZ field for the strike cadence) |
+| Strikes per zone | every strike at or before the WZ `time` (4 / 8 / 12) | tier A `time`; tier C counting rule |
+| Targets per strike | nearest `mob_count` to the anchor, one `attack_count` set of ordinary lines each | tier C: spec #383; `mobCount` 6 is tier A |
+| Zone anchor | the caster's position at the cast; it does not follow | tier C: spec #383 |
+| Push distance by rank (`knockback.distance_by_rank`) | 100 / 100 / 200 / 200 / 200 / 300 / 300 / 300 px | tier A text (String.wz: 100 / 200 / 300 px for levels 1-10 / 11-20 / 21-30), tier C mapping to the eight ranks |
+| Push chance | `prop` of the level (48 / 70 / 100% at ranks 1 / 4 / 8), one stream-1 draw per struck non-boss | tier A `prop` read as the success rate (tier C reading) |
+| `knockback.effect` | the `mob` art once on each pushed monster | tier C: ours |
+| Ninja Storm damage / box / `mobCount` | 42 -> 80%, +-100 -> +-200 by (-70, 30), 6 | tier A (Skill.wz 4121008) |
+| Ninja Ambush damage / box / `mobCount` / `time` | 62 -> 100% per strike, +-110 -> +-200 by (-130, 70), 6, 4 / 8 / 12 s | tier A (Skill.wz 4121004; equals 4221004) |
+| Action holds | `ninjastorm` 0.6 s, `alert3` 0.6 s | tier C (Shout's hold) |
+| Ambush art | the `effect` plays once at the cast, `mob0` is the hit art on each struck monster, no tile | tier C reading of "effect at the zone"; art tier A |
+| Rarity | Ninja Arts damage x1.2; Wide Storm / Wide Ambush `area` x1.2; Second Wave `attack_count` +1; Ambush Squad `count` +2; Legendary = the Unique plus damage x1.2 (shared counter); Mastery repeats x0.8 | tier C: spec #383 |
+
+### Night Lord NL5 constants (#404)
+
+| Constant | Value | Tier |
+|---|---|---|
+| Echo delay (`summon.echo.delay`) | 0.25 s after the cast tick | tier C, spec #383 (the WZ gives none) |
+| Echo overshoot (`summon.echo.overshoot`) | 0 px beyond `range` for the recorded target; the nearest-monster fallback uses `range` | tier C, ours (#404) |
+| Fire-time tolerance | a delay due within 1e-9 s fires on the tick | tier C, as `BurstCast` |
+| Clone follow distance / speed / teleport distance | 55 px / 200 px/s / 600 px (data, NL10 sets them) | tier C, spec #383 |
+| Clone spread (`ordinal_spread`) | 40 px | tier C, spec #383 |
+| Hand | `cast_forward` px in front of the clone's body toward the target, body height `cast_height` | tier C, the owner's own shot origin |
+| Retarget / drop | dead, out-of-reach or reused-slot target -> nearest monster in range of the clone, else drop without refund | tier C, spec #383 (as bursts) |
+| Hidden / death | unthrown echoes are dropped | tier C, ours (#404, as bursts) |
+| Order of entries | per clone ascending slot, per shot in cast order | tier C, ours (#404) |
+
+### Night Lord NL9 constants (#408)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Shadow Meso `moneyCon` | 135 (Lv1) -> 570 (Lv30); 180 / 240 / 300 / 345 / 405 / 465 / 525 / 570 at the eight rank levels | tier A (Skill.wz 411.img 4111004) |
+| `damage_basis` scale | skill percent = `moneyCon` x 0.6 / 100: 108 / 144 / 180 / 207 / 243 / 279 / 315 / 342% | tier C: spec #383 (the WZ has no damage; balance lever: the scale) |
+| `damage_basis` rule | applies to a physical skill whose level node has no `damage` field; a WZ `damage` always wins; no key = byte-identical | tier C (ours) |
+| Unused WZ fields | `x` 50, `prop` 1 -> 10, `bulletCount` (absent): not modelled; `count` pinned to 1 | tier C: spec #383 (their meaning is undocumented beyond the String text) |
+| Mesos cost | none: nothing is spent, lost or required (`moneyCon` kept as data) | tier C: ruling D7 |
+| Held-pip read | `meter.read_per_unit` 0.10: x(1 + 0.10 x pips) on top of the meter's +3% per pip (x2.6 at 10 pips) | tier C: spec #383 |
+| Meter unit word | `pip` ("+10% damage per pip held") | tier C (presentation) |
+| Cooldown / range / speed / radius / pierce | 3.0 s / 300 px / 650 px/s / 10 px / 0 | tier C: spec #383 |
+| Cast hold and stance | 0.6 s, `swingO1` (the claw's own stance; the node has no `action`) | tier C: ruling D10 |
+| Art tiers | `level/{level}/ball` and `level/{level}/hit/0`: levels 1-10 / 11-20 / 21-30 | tier A (the level nodes' UOLs) |
+| Echo class | `skill` (Shadow Partner's `y`) | tier C: spec #383 |
+| Rarity | Rare Meso Up damage x1.2; Epic Claw Booster cooldown x0.88; Unique Second Bag `count` +1; Legendary Second Bag + damage x1.2 | tier C: spec #383 |
 
 ### Night Lord NL3 constants
 
@@ -10066,3 +10430,8 @@ NL2 owns the shipping catalogue; NL7 owns its first skill users. This ticket add
   sub-100% grant on every damaging line. Other skill dictionaries, RNG and events remain unchanged.
 - Diagnostic-only tier C: the status-bonus driver guarantees 10-second poison/stun and uses a patched job 412 with
   Energy Bolt to exercise the seam before Night Lord skill data lands. These values never enter shipped balance.
+- Tier C: the bot scores a status-grant card as a 20% improvement times its repeat scale (`BotInput.GRANT_BONUS_UNIT` 0.2),
+  so a Mastery grant is not scored zero; rarity cards add it to the gain term as for any other bonus.
+- Tier C: the shipped `balance.status_bonuses` entries (`venomous_star`, `stunning_avenger`) are NL2's; NL3 only validates them
+  at load (`DataRepo.load_all`) and resolves them by the owning skill's rank. Echoed stars and ground-strike hits carry the
+  grants because they re-use the cast snapshot (tests in `test_echo_cast` and `test_night_lord_crowd`).

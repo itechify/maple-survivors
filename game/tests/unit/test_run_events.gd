@@ -5,6 +5,7 @@ extends TestCase
 
 const SSF := preload("res://tests/fixtures/support_summon_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const EchoTest := preload("res://tests/unit/test_echo_cast.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const RV := preload("res://tests/fixtures/revive_fixtures.gd")
 const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
@@ -276,6 +277,22 @@ func test_every_event_matches_the_schema() -> void:
 	teleporter.step(DT, blink)
 	for event: Dictionary in teleporter.drain_events():
 		_check(event, seen)
+	# Flash Jump (#405): a Night Lord's airborne flash announces itself with `flash_jump {skill, from, to}`.
+	var flash_data := RF.quiet_data()
+	flash_data.jobs_survivor.jobs["412"]["playable"] = true
+	var flash_setup := RF.setup("quiet", 405, flash_data)
+	flash_setup["job"] = 412
+	var flasher := RunWorld.new(flash_setup)
+	flasher.player.place(Vector2(400, -200), flasher.fhm)
+	var flash_press := MoveInput.new()
+	flash_press.press_skill("flash_jump")
+	flash_press.right = true
+	flasher.step(DT, flash_press)
+	var flashed := 0
+	for event: Dictionary in flasher.drain_events():
+		_check(event, seen)
+		flashed += int(event.type == "flash_jump")
+	assert_eq(flashed, 1, "the flash announced itself once")
 	# Shared restoration has no live skill consumer until the second-job tickets land.
 	var restored := RF.quiet_world()
 	restored.take_hit(10, false, "", restored.player.pos + Vector2(10, 0))
@@ -323,6 +340,14 @@ func test_every_event_matches_the_schema() -> void:
 	thrower.progression.level = 37
 	RF.as_job(thrower, 412)
 	for event: Dictionary in thrower.drain_events():
+		_check(event, seen)
+	# An echo clone repeats a star cast (spec #383 M11): echo_cast, schema-checked like every event. The skills are synthetic.
+	var echoer := EchoTest.world()
+	echoer.step(DT, MoveInput.new())
+	EchoTest.mob(echoer, 500)
+	for tick in 40:
+		echoer.step(DT, MoveInput.new())
+	for event: Dictionary in echoer.drain_events():
 		_check(event, seen)
 	# A Gunslinger's Grenade is thrown (#192): skill_thrown, schema-checked like every event.
 	var grenadier := RF.quiet_world()
@@ -435,6 +460,17 @@ func test_every_event_matches_the_schema() -> void:
 	for event: Dictionary in hawk.drain_events():
 		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
+		if type == "meso_picked":
+			var data := RF.quiet_data()
+			data.jobs_survivor.jobs["212"]["meter"] = {"id": "meso_charge", "max": 10,
+				"gain": {"event": "meso_picked", "amount": 1, "per_mesos": 1000}, "per_unit": {"stat": "damage", "value": 0.03}}
+			var looter := RunWorld.new(RF.setup("quiet", 403, data))
+			RF.place_player(looter, 200)
+			var drop := looter.pickups.spawn_meso(looter.player.pos, 1200)
+			looter.pickups.state[drop] = PickupSystem.REST
+			looter.step(DT, MoveInput.new())
+			for event: Dictionary in looter.drain_events():
+				_check(event, seen)
 		if type == "ammo_shot":
 			var archer := CF.ranged_final(1452000, 312)
 			var dummy := RF.put_mob(archer, 1110100, 350, 190, 100)

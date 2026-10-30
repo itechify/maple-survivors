@@ -132,6 +132,8 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 			out[key] = {}
 			errors.append("cannot read %s" % path)
 	errors.append_array(skill_template_errors(out.get("skills", {})))
+	errors.append_array(GroundStrike.errors(out.get("skills", {})))
+	errors.append_array(knockback_errors(out.get("skills", {})))
 	# Class-owned balance rows enter through this single reader, after the shared defaults.
 	for line in lines(root):
 		var fragment: Variant = load_json(fragment_path("jobs_survivor", line, root))
@@ -151,6 +153,32 @@ static func skill_template_errors(skills_file: Dictionary) -> PackedStringArray:
 	if skills is Dictionary:
 		SkillTemplate.resolve(skills, errors)
 	return errors
+
+
+## The errors of the `knockback` blocks of a skills file: `distance_by_rank` (spec #383 NL8) is a list of exactly eight
+## non-negative numbers, one per survivor rank, and replaces the scalar `distance` (naming both is an error).
+static func knockback_errors(skills_file: Dictionary) -> PackedStringArray:
+	var out := PackedStringArray()
+	var skills: Variant = skills_file.get("skills")
+	if not skills is Dictionary:
+		return out
+	for key: Variant in skills:
+		var definition: Variant = skills[key]
+		if not definition is Dictionary or not definition.get("knockback") is Dictionary:
+			continue
+		var block: Dictionary = definition.knockback
+		if not block.has("distance_by_rank"):
+			continue
+		if block.has("distance"):
+			out.append("skill '%s': knockback.distance_by_rank replaces knockback.distance, name only one" % key)
+		var list: Variant = block.distance_by_rank
+		var ok: bool = list is Array and (list as Array).size() == 8
+		if ok:
+			for v: Variant in list:
+				ok = ok and (v is float or v is int) and float(v) >= 0.0
+		if not ok:
+			out.append("skill '%s': knockback.distance_by_rank must be eight non-negative numbers (one per rank)" % key)
+	return out
 
 
 ## The data of a SPLIT key: its base file (`_doc` and the job-neutral config) with the entries of every existing line

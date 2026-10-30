@@ -303,7 +303,8 @@ func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 ## Fully resolved numbers of skill `key` at its owned rank, or at `at_rank` when > 0 (a preview of another rank with
 ## the same modifiers; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type (fixed/magic/physical/none), attack_kind (swing/stab/shoot/""),
-## defense (pdd/mdd/none), damage_pct (physical skill% / 100, otherwise 1), damage_min/max (before mob defence,
+## defense (pdd/mdd/none), damage_pct (physical skill% / 100, otherwise 1; a `damage_basis` skill reads `canonical(field) x scale / 100`
+## and also reports damage_percent, the same number x 100), damage_min/max (before mob defence,
 ## after survivor multipliers; physical bounds are also before skill%), magic (bool), element, attack_count (canonical
 ## attackCount plus skill modifiers, damage lines per target),
 ## crit, crit_mult, speed_factor (attack speed: the fraction of the data's cooldown and action time left), cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
@@ -322,6 +323,16 @@ func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 ## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
+## The knock-back distance of a `knockback` block at survivor rank `rank_value`: the block's `distance_by_rank` list (one
+## value per rank, the last one past its end, rank 1 for an unowned skill) when it has one, else its scalar `distance`
+## (0 for a block with neither). tier C: ours (spec #383 NL8, GAME_DESIGN 7.94.8); every other field of the block is unchanged.
+static func knockback_distance_at(block: Dictionary, rank_value: int) -> float:
+	var by_rank: Variant = block.get("distance_by_rank")
+	if by_rank is Array and not (by_rank as Array).is_empty():
+		return float(by_rank[clampi(rank_value - 1, 0, (by_rank as Array).size() - 1)])
+	return float(block.get("distance", 0.0))
+
+
 func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var d := book.def(key)
 	var r := clampi(at_rank, 1, book.max_rank(key)) if at_rank > 0 else maxi(1, rank(key))
@@ -402,8 +413,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"damage_type": dtype,
 		"attack_kind": attack_kind,
 		"defense": "pdd" if dtype == "physical" else "mdd" if dtype == "magic" else "none",
-		"damage_pct": book.canonical(key, lv, String(blast.get("damage_field", "damage")), 100.0) / 100.0
-			if dtype == "physical" else 1.0,
+		"damage_pct": _damage_pct(key, d, lv, dtype, blast),
 		"status_damage_mult": dmg_mult,
 		"damage_min": lo,
 		"damage_max": hi,
@@ -428,7 +438,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		# No chance field = the knock-back always applies (Rush, tier C #302).
 		"knockback_chance": (book.canonical(key, lv, String(d.knockback.chance_field)) if d.knockback.has("chance_field") else 100.0)
 			if d.has("knockback") else 0.0,
-		"knockback_distance": float(d.get("knockback", {}).get("distance", 0.0)),
+		"knockback_distance": knockback_distance_at(d.get("knockback", {}), r),
 		"pull_chance": book.canonical(key, lv, String(d.pull.get("chance_field", "")), 100.0) if d.has("pull") else 0.0,
 		"pull_gap": float(d.pull.get("min_gap", 0.0)) if d.has("pull") else 0.0,
 		"blast_targets": maxi(1, roundi(skill_stat(key, "blast_targets", book.canonical(key, lv, "mobCount", 1.0))))
@@ -479,6 +489,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
 	_add_burn(resolved, key, d, lv)
 	_add_pierce_field(resolved, key, d, lv)
+	if d.has("damage_basis"):
+		resolved["damage_percent"] = roundf(float(resolved.damage_pct) * 100.0 * 100.0) / 100.0
 
 	if d.has("form"):
 		resolved["duration"] = float(d.form.duration) * skill_stat(key, "form_time", 1.0)
@@ -507,6 +519,20 @@ func _add_burn(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> voi
 	resolved["burn_pulse"] = BurnStatus.pulse(float(resolved.damage_min), float(resolved.damage_max), share, mult)
 	resolved["burn_time"] = book.canonical(key, lv, String(on_hit.get("duration_field", "time")), 0.0)
 	resolved["burn_share"] = share * maxf(0.0, mult)
+
+
+## The skill percent of a physical hit as a multiplier (1.0 = 100%; 1 for any other damage type): the level's `damage` field (or
+## the blast's `damage_field`), 100 when the level has none. A definition with `damage_basis {field, scale}` and no such field on
+## its level takes `canonical(field) x scale / 100` instead (Shadow Meso's `moneyCon` x 0.6, tier C, spec #383 NL9); a level that
+## does carry the damage field keeps it, so the key never overrides a WZ number.
+func _damage_pct(key: String, d: Dictionary, lv: int, dtype: String, blast: Dictionary) -> float:
+	if dtype != "physical":
+		return 1.0
+	var field := String(blast.get("damage_field", "damage"))
+	var basis: Variant = d.get("damage_basis")
+	if basis is Dictionary and not book.level_node(key, lv).has(field):
+		return book.canonical(key, lv, String(basis.field)) * float(basis.get("scale", 1.0)) / 100.0
+	return book.canonical(key, lv, field, 100.0) / 100.0
 
 
 ## A definition with `pierce_field` (a level field, Dragon's Breath "mobCount") pierces one monster fewer than the field says:

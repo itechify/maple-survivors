@@ -275,6 +275,14 @@ func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:
 	var pirate_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "pirate", root))
 	for key: String in pirate_frag.skills:
 		assert_true(String(pirate_frag.skills[key].book) in ["500", "510", "520"], "%s in pirate" % key)
+	# Thief tree (NL2 #401): the 400/410/411/412 books may live in night_lord.json (Lucky Seven and Drain move in with NL7);
+	# a 411 or 412 skill is never in thief.json. Empty until NL6 and NL7 define the first entries.
+	var nl_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "night_lord", root))
+	for key: String in nl_frag.skills:
+		assert_true(String(nl_frag.skills[key].book) in ["400", "410", "411", "412"], "%s in night_lord" % key)
+	var thief_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "thief", root))
+	for key: String in thief_frag.skills:
+		assert_false(String(thief_frag.skills[key].book) in ["411", "412"], "%s is a Night Lord skill, not thief.json's" % key)
 	# 230/231/232-book skills may live in bishop (#374: the Bishop line; Heal and Teleport move in with BS4/BS5)
 	var bishop_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "bishop", root))
 	for key: String in bishop_frag.skills:

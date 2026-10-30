@@ -69,6 +69,8 @@ var fired_this_tick := false
 
 var summons := PlayerSummons.new()
 var bursts := BurstCast.new()
+## Delayed repeats of star casts thrown by the Shadow Partner clones (docs/GAME_DESIGN.md 7.91).
+var echoes := EchoCast.new()
 var forms := PlayerForms.new()
 
 var _stats := {}
@@ -94,6 +96,7 @@ func _init() -> void:
 func clear_pending(world: RunWorld = null) -> void:
 	summons.clear()
 	bursts.clear(world)
+	echoes.clear_pending()
 	_flights.clear()
 	_areas.clear()
 
@@ -212,6 +215,7 @@ func tick_cooldowns(dt: float, world: RunWorld, preserve_manual_cast: bool = fal
 		fired_this_tick = false
 	summons.step(dt, world)
 	bursts.step(dt, world)
+	echoes.step(dt, world)
 	forms.step(dt, world)
 	_step_areas(dt, world)
 	if not _flights.is_empty():
@@ -889,6 +893,11 @@ func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -
 	return _tgt.size()
 
 
+## The slot of the nearest live monster within `rng_px` of `origin` (scheduled bosses first, RunWorld.targets_before), or -1.
+func nearest_to(world: RunWorld, origin: Vector2, rng_px: float) -> int:
+	return _tgt[0] if _find_targets(world, origin, rng_px, 1) > 0 else -1
+
+
 ## Whether _find_targets(world, origin, rng_px, want) would find at least one target. It first looks at only the
 ## first ANY_PROBE candidates of the same grid query (usually one of them is in range) and reads the whole query only
 ## when none is.
@@ -913,11 +922,18 @@ func _any_target(world: RunWorld, origin: Vector2, rng_px: float, want: int) -> 
 func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector2, targets: PackedInt32Array) -> void:
 	var n := targets.size()
 	if String(st.kind) == "projectile":
+		# An echoable skill (`echo: {class}`) records each shot (target slot and aim point) while a clone is alive.
+		var shots: Array = []
+		var record := world.book.def(key).has("echo") and not bool(st.get("echo", false)) and not summons.clones().is_empty()
 		for k in int(st.count):
 			var m := targets[k % n]
 			var reuse := floorf(float(k) / float(n))
 			var aim := world.mob_center(m) + Vector2(0.0, REUSE_SPREAD * reuse * (1.0 if k % 2 == 0 else -1.0))
 			fire_shot(world, key, st, origin, aim)
+			if record:
+				shots.append({"slot": m, "aim": aim})
+		if record:
+			echoes.on_cast(world, key, st, shots)
 	else:
 		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), world.visual_index(String(st.hit)))
 
@@ -951,6 +967,7 @@ func fire_shot(world: RunWorld, key: String, st: Dictionary, origin: Vector2, ta
 		"meter_receipt": st.get("meter_receipt", ProjectileSystem.NO_RECEIPT),
 		"burn_pulse": int(st.get("burn_pulse", 0)),
 		"status_grants": st.get("status_grants", []),
+		"echo": bool(st.get("echo", false)),
 	})
 
 
@@ -967,6 +984,9 @@ func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
 	var ground: Dictionary = d.get("ground", {})
 	var pending: Dictionary = d.get("pending", {})
 	var duration := world.book.canonical(key, int(st.level), "time") if not ground.is_empty() else 0.0
+	if GroundStrike.is_strike(ground):
+		_queue_strike_zone(world, st, ground, duration)
+		return
 	var interval := float(ground.get("interval", 0.0))
 	_areas.append({"st": cast_snapshot(st), "anchor": world.player.pos, "age": 0.0,
 		"next": interval if interval > 0.0 else float(pending.get("delay", 0.0)),
@@ -980,12 +1000,43 @@ func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
 			"effect": String(ground.get("tile", "")), "duration": duration})
 
 
+## A damaging zone (`ground.strike`, GroundStrike, GAME_DESIGN 7.94.8): anchored at the cast position, it does not follow the
+## caster, lives `duration` (the skill's WZ `time`) and strikes at `first_delay`, then every `interval`. Each cast queues its
+## own zone, so a second cast makes a second zone. The `skill_ground` event carries the zone's box and lifetime (and a tile
+## art path when the data names one; Ninja Ambush has none: its cast effect plays once and each strike brings its own art).
+func _queue_strike_zone(world: RunWorld, st: Dictionary, ground: Dictionary, duration: float) -> void:
+	var cadence := GroundStrike.spec(ground)
+	_areas.append({"st": cast_snapshot(st), "anchor": world.player.pos, "age": 0.0, "strike": true,
+		"next": float(cadence.first_delay), "interval": float(cadence.interval), "duration": duration})
+	world.emit("skill_ground", {"skill": String(st.skill), "pos": world.player.pos, "box": st.box,
+		"effect": String(ground.get("tile", "")), "duration": duration})
+
+
+## Resolves every strike of zone `a` that is due (one ordinary hit line set on up to `mob_count` monsters whose bodies touch the
+## box around the anchor, nearest to the anchor first, through the instant-hit path). A monster that left the box or died since
+## the last strike is simply not found. True once no further strike fits the lifetime.
+func _step_strike_zone(world: RunWorld, a: Dictionary) -> bool:
+	var st: Dictionary = a.st
+	var hv := world.visual_index(String(st.hit))
+	while float(a.age) + GroundStrike.EPS >= float(a.next) and float(a.next) <= float(a.duration) + GroundStrike.EPS:
+		var anchor: Vector2 = a.anchor
+		var limit := GroundStrike.target_limit(st)
+		var targets := world.skill_rect_targets(blast_rect(st, anchor), anchor, limit)
+		_resolve_instant_targets(world, st, targets, limit, int(st.attack_count), hv)
+		a.next = float(a.next) + float(a.interval)
+	return float(a.next) > float(a.duration) + GroundStrike.EPS
+
+
 func _step_areas(dt: float, world: RunWorld) -> void:
 	for i in range(_areas.size() - 1, -1, -1):
 		var a := _areas[i]
 		a.age = float(a.age) + dt
 		var st: Dictionary = a.st
 		var key := String(st.skill)
+		if a.has("strike"):
+			if _step_strike_zone(world, a):
+				_areas.remove_at(i)
+			continue
 		if a.has("queue"):
 			if _drain_staggered(world, a):
 				_areas.remove_at(i)

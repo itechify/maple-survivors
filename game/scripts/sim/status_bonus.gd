@@ -47,6 +47,7 @@ static func resolve(catalogue: Dictionary, ids: Array, rank: int, extra_chances:
 
 
 ## Additional percentage points for a repeated award; scale is the rarity bonus's existing diminishing factor.
+## tier C (#402): repeat_chance x scale, spec #383 M22.
 static func repeat_points(entry: Dictionary, scale: float) -> float:
 	return float(entry.get("repeat_chance", 0.0)) * scale
 

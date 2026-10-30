@@ -87,6 +87,8 @@ var down_jump_platform := -1
 ## Platform whose walls stop the player (FootholdMap.wall_applies): the one stood on, kept while airborne or climbing;
 ## -1 (never stood on a floor since place()) = every wall.
 var wall_platform := -1
+## True once a Flash Jump (flash_to) was used in this airborne period; cleared by place(), landing and grabbing a ladder.
+var flash_spent := false
 
 var _on_rope := false
 var _input_dir := 0
@@ -108,6 +110,7 @@ func place(p: Vector2, fhm: FootholdMap) -> void:
 	ladder = -1
 	down_jump_platform = -1
 	wall_platform = -1
+	flash_spent = false
 	fh = -1
 	state = ST_AIR
 	if fhm == null:
@@ -183,6 +186,23 @@ func dash_to(dest: Dictionary) -> void:
 		vel = Vector2.ZERO
 
 
+## Where a Flash Jump (docs/GAME_DESIGN.md 7.92) of `distance` px toward `side` (-1 / 1) would end, as {x, y, fh, moved},
+## or {} when it cannot start: standing on a floor, on a ladder or rope, already used in this airborne period
+## (flash_spent), or blocked at once. The height is kept and the walls and map limits stop it as they stop a dash
+## (dash_destination). Changes nothing. tier C: ours (#405).
+func flash_destination(side: int, distance: float, fhm: FootholdMap, bounds: Rect2) -> Dictionary:
+	if fh >= 0 or flash_spent:
+		return {}
+	return dash_destination(side, distance, fhm, bounds)
+
+
+## Applies a flash_destination result: the position changes and the airborne period's flash is spent. The fall in
+## progress (both velocity components) is kept, so the character keeps dropping from the new spot.
+func flash_to(dest: Dictionary) -> void:
+	pos = Vector2(float(dest.x), float(dest.y))
+	flash_spent = true
+
+
 ## Advances by dt seconds (normally 1/60) in `substeps` sub-steps. `ladders` may be null; `bounds` is the MapBounds
 ## rect (an empty Rect2 means only the foothold extent limits x). Returns EV_* flags of what happened.
 func step(dt: float, input: MoveInput, fhm: FootholdMap, ladders: LadderSet, bounds: Rect2) -> int:
@@ -195,6 +215,8 @@ func step(dt: float, input: MoveInput, fhm: FootholdMap, ladders: LadderSet, bou
 		knock_t = maxf(0.0, knock_t - h)
 		ladder_cd = maxf(0.0, ladder_cd - h)
 	alert_t = maxf(0.0, alert_t - dt)
+	if fh >= 0 or ladder >= 0:
+		flash_spent = false
 	if bounds.has_area() and pos.y > bounds.end.y:
 		flags |= EV_FELL_OUT
 		_recover(fhm, bounds.end.y)

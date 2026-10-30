@@ -169,6 +169,8 @@ var drops: PickupRenderer
 var pet_renderer: PetRenderer
 var fx: FxRenderer
 var fx_back: FxRenderer
+## The ghost trail of a Flash Jump (FlashTrail), in the player's actor layer just behind the avatar.
+var flash_trail: FlashTrail
 var numbers: DamageNumbers
 var tags: NameTags
 var hud: Hud
@@ -201,7 +203,7 @@ var _speed := 1
 var _acc := 0.0
 var _jump_latch := false
 var _drink_hp_latch := false
-## Skill key id ("teleport", "dash", "rush") -> true once its key went down since the last tick (consumed by _read_input).
+## Skill key id ("teleport", "dash", "rush", "flash_jump") -> true once its key went down since the last tick (consumed by _read_input).
 var _skill_latches := {}
 var _bot_memo := {}
 var _kind_ids := PackedInt32Array()
@@ -685,6 +687,8 @@ func _build_actors() -> void:
 	fx_back = FxRenderer.new()
 	fx_back.name = "FxBehind"
 	fx_back.library = library
+	flash_trail = FlashTrail.new()
+	flash_trail.name = "FlashTrail"
 	# The character is drawn through a CanvasGroup so the invincibility blink fades it as one image (a plain modulate
 	# would fade every part separately and show the body through the arm).
 	player_group = CanvasGroup.new()
@@ -1139,9 +1143,11 @@ func handle_events(events: Array) -> void:
 				_on_skill_chain(e)
 			"skill_ground":
 				var box: Rect2 = e.box
-				# tier C: tile strips spaced 80 px, lasting exactly the simulation area's lifetime.
-				for offset in range(int(box.position.x), int(box.end.x), 80):
-					fx.play_repeating(String(e.effect), e.pos + Vector2(offset, 0), float(e.duration))
+				# tier C: tile strips spaced 80 px, lasting exactly the simulation area's lifetime. A damaging zone
+				# (ground.strike) may have no tile: its strikes bring their own art.
+				if String(e.effect) != "":
+					for offset in range(int(box.position.x), int(box.end.x), 80):
+						fx.play_repeating(String(e.effect), e.pos + Vector2(offset, 0), float(e.duration))
 			"skill_impact":
 				if String(e.effect) != "":
 					fx.play(String(e.effect), e.pos)
@@ -1156,6 +1162,10 @@ func handle_events(events: Array) -> void:
 				_sound(String(world.book.def(String(e.skill)).sounds.use), String(e.phase))
 				if String(e.phase) == "arrival":
 					_event_shot("teleport.png", 0.08) # tier C: capture the canonical 80 ms effect frame.
+			"flash_jump":
+				flash_trail.spawn(avatar.current_parts(), avatar.facing, e.from, e.to)
+				_sound(String(world.book.def(String(e.skill)).sounds.use))
+				_first_event_shot("flash_jump", "flash_jump.png", 0.05) # tier C: capture the first trail while the ghosts are bright.
 			"boss_skill":
 				_on_boss_skill(e)
 			"player_banished":
@@ -2037,12 +2047,13 @@ func _update_pet(delta: float) -> void:
 func _place_player_layer(layer: int) -> void:
 	_player_layer = layer
 	var c := map.actor_layer(layer)
-	for n: Node in [fx_back, player_group, drops]:
+	for n: Node in [fx_back, flash_trail, player_group, drops]:
 		if n.get_parent() != c:
 			if n.get_parent() != null:
 				n.get_parent().remove_child(n)
 			c.add_child(n)
 	c.move_child(player_group, -1)
+	c.move_child(flash_trail, player_group.get_index())
 	c.move_child(drops, -1)
 	if _top.get_parent() == c:
 		c.move_child(_top, -1)
@@ -2271,6 +2282,8 @@ func perf_summary(summary: Dictionary = {}) -> Dictionary:
 		"missing": Array(library.missing) if library != null else [], "warped_to": _warped,
 	}
 	out.merge(_frames.summary())
+	if not world.meter.config.is_empty():
+		out["meter"] = world.meter.stats() # #403: held units over the run (time-weighted mean, peak), for any meter
 	if _account_name != "":
 		out["account"] = _account_name # spec #34: the output names the tool account file; absent without --account.
 	if world.pet_system != null:

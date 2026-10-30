@@ -175,3 +175,31 @@ func test_delayed_strike_retains_grant_snapshot_until_ordinary_hit() -> void:
 	for tick in 30:
 		w.runner.step(1.0 / 60.0, w)
 	assert_near(w.swarm.status_time(m, MobSwarm.STUN), 1.5)
+
+
+func test_shipped_catalogue_validates_and_resolves_its_first_users() -> void:
+	var errors := PackedStringArray()
+	var data := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
+	assert_true(errors.is_empty(), "the shipped data has no status-bonus error: %s" % [errors])
+	var catalogue: Dictionary = data.balance.status_bonuses
+	assert_true(catalogue.has("venomous_star") and catalogue.has("stunning_avenger"))
+	var venom: Dictionary = StatusBonus.resolve(catalogue, ["venomous_star"], 8)[0]
+	assert_eq(venom, {"id": "venomous_star", "kind": "poison", "element": "s", "chance": 30.0, "time": 4.0, "level": 30})
+	var stun: Dictionary = StatusBonus.resolve(catalogue, ["stunning_avenger"], 1)[0]
+	assert_eq(stun.kind, "stun")
+	assert_near(float(stun.chance), 20.0)
+	assert_near(float(stun.time), 1.5)
+	# A repeat adds repeat_chance x scale points, capped at 100 percent.
+	assert_near(float(StatusBonus.resolve(catalogue, ["stunning_avenger"], 8, {"stunning_avenger": 4.0 * 0.8})[0].chance), 53.2)
+	assert_near(float(StatusBonus.resolve(catalogue, ["stunning_avenger"], 8, {"stunning_avenger": 90.0})[0].chance), 100.0)
+
+
+func test_bot_scores_a_grant_card_like_any_rarity_card() -> void:
+	var w := _world()
+	w.balance.get("bot", {})["mastery_bonus_score"] = 100.0
+	var card := w.upgrades.choice_card("energy_bolt_rank", w, "epic")
+	assert_true(BotInput.card_score(w, card) > BotInput.card_score(w, {"id": "energy_bolt_rank"}),
+		"the granted status adds to the card's score")
+	var half := card.duplicate(true)
+	half.rarity_bonus.effects[0]["scale"] = 0.8
+	assert_true(BotInput.card_score(w, half) < BotInput.card_score(w, card), "a repeat's diminished grant scores less")

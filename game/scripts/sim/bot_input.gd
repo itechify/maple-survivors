@@ -32,6 +32,11 @@ const TELEPORT_MIN_INTERVAL := 5.0
 ## room to cover at least this share of its reach, else it would only bump the nearest wall or ledge.
 const RUSH_MIN_INTERVAL := 3.0
 const RUSH_LANE_FRACTION := 0.5
+## tier C (#405): Flash Jump. Three seconds between flashes, a threat is a mob within this height (px) of the feet, and a
+## flash needs room to cover at least this share of its distance (Rush's analogue).
+const FLASH_MIN_INTERVAL := 3.0
+const FLASH_DY := 60.0
+const FLASH_LANE_FRACTION := 0.5
 ## tier C (#257): after a same-map warp the reverse link (back to where it came from) stays closed this long (s), so
 ## an escape through a two-way pair (Perion's hide00/tohide00) is not undone by the drop route on the next portal
 ## cooldown, straight back into the crowd it fled.
@@ -91,6 +96,8 @@ const SCORE_PLAYER := {"max_hp": 46.0, "hp_regen": 36.0, "pdd": 34.0, "speed": 2
 ## 54+6 = 60. A higher-tier new attack skill (106-124) passes a Normal one, as it should. A Legendary clamped to the
 ## ranks left scores the gain it grants (+6 ranks: 104). Gains only add, so this never reorders Normal offers.
 const SCORE_GAIN_STEP := 6.0
+## tier C (#402): a status grant scores like a 20% improvement (the unit of the bonus score), times its repeat scale.
+const GRANT_BONUS_UNIT := 0.2
 
 
 ## The input for the next tick of `w`.
@@ -136,6 +143,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var danger := [0.0, 0.0]
 	var nearest := [INF, INF]
 	var threat_nearest := [INF, INF]
+	var flash_nearest := [INF, INF]
 	var flee_buff := _flee_buff(w)
 	var surround_distance := float(flee_buff.get("distance", 0.0))
 	var surrounding := 0
@@ -150,6 +158,8 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		danger[side] += 1.0 / (absf(dx) + 30.0)
 		nearest[side] = minf(nearest[side], absf(dx))
 		# tier C: emergency blinks use the on-level height band, not mobs on remote platforms.
+		if absf(dy) <= FLASH_DY:
+			flash_nearest[side] = minf(flash_nearest[side], absf(dx))
 		if absf(dy) <= DUEL_DY:
 			threat_nearest[side] = minf(threat_nearest[side], absf(dx))
 			if absf(dx) <= surround_distance:
@@ -198,6 +208,22 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 				mi.press_skill("rush")
 				memo["rush_at"] = w.time
 				return mi
+	# tier C (#405): Flash Jump is a mid-air escape: airborne and ready, a mob within its threat distance on one side
+	# (60 px of height), flash to the safer side when the lane lets it cover half its distance. Never on the ground
+	# (PlayerMotion.flash_destination refuses it), at most every FLASH_MIN_INTERVAL seconds.
+	var flash := w.flash_jump_skill()
+	if flash != "" and w.can_cast() and w.player.fh < 0 and float(w.skill_readiness(flash).left) <= 1e-6 \
+			and w.time - float(memo.get("flash_at", -INF)) >= FLASH_MIN_INTERVAL - 1e-6 \
+			and minf(flash_nearest[0], flash_nearest[1]) < float(w.book.def(flash).flash_jump.bot_threat_distance):
+		var distance := w.flash_jump_distance(flash)
+		var away := -1 if danger[0] < danger[1] else 1
+		var lane: Dictionary = w.player.flash_destination(away, distance, w.fhm, w.bounds)
+		if not lane.is_empty() and float(lane.moved) >= distance * FLASH_LANE_FRACTION:
+			mi.left = away < 0
+			mi.right = away > 0
+			mi.press_skill("flash_jump")
+			memo["flash_at"] = w.time
+			return mi
 	# tier C (#188): a manual flee buff (Dash) is pressed when HP is low with a mob close, or when mobs surround the bot.
 	if not flee_buff.is_empty():
 		var low_hp: bool = float(w.player_state.hp) < float(w.player_state.max_hp) * float(flee_buff.hp) \
@@ -572,6 +598,9 @@ static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var bonus_score := 0.0
 	# tier C: score the actual diminished effect, not the rarity label or fictitious ranks.
 	for effect: Dictionary in c.get("rarity_bonus", {}).get("effects", []):
+		if String(effect.get("op", "")) == "grant":
+			bonus_score += GRANT_BONUS_UNIT * float(effect.get("scale", 1.0))
+			continue
 		var value := float(effect.get("value", 0.0))
 		bonus_score += absf(value - 1.0) if String(effect.get("op", "add")) == "mul" else absf(value)
 	var base := _base_score(w, d)

@@ -70,6 +70,8 @@ var meter_receipts: Array[Dictionary] = []
 var burn_pulse := PackedInt32Array()
 ## Optional cast-time grant snapshots by projectile slot; absent slots allocate no list.
 var status_grants := {}
+## 1 for a shot an echo clone threw (EchoCast): its hits carry `echo` so they heal and earn nothing.
+var echo := PackedByteArray()
 const NO_RECEIPT := {}
 
 ## RunWorld.visual_paths (shared).
@@ -146,6 +148,7 @@ func spawn(spec: Dictionary) -> int:
 	status_grants.erase(i)
 	if not spec.get("status_grants", []).is_empty():
 		status_grants[i] = spec.status_grants.duplicate(true)
+	echo[i] = 1 if bool(spec.get("echo", false)) else 0
 	pierce_falloff[i] = maxf(0.0, float(spec.get("pierce_falloff", 0.0)))
 	blast_count[i] = 0
 	blast_visual[i] = ""
@@ -392,6 +395,8 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 			hit["burn_pulse"] = burn_pulse[i]
 		if status_grants.has(i):
 			hit["status_grants"] = status_grants[i]
+		if echo[i] != 0:
+			hit["echo"] = true
 		on_hit.call(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
@@ -420,7 +425,7 @@ func _grow(n: int) -> void:
 	var old := capacity()
 	if n <= old:
 		return
-	for arr: Variant in [active, rotate, damage_kind]:
+	for arr: Variant in [active, rotate, damage_kind, echo]:
 		arr.resize(n)
 	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus, pierce_falloff]:
 		arr.resize(n)

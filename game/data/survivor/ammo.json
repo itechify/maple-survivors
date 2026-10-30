@@ -25,7 +25,8 @@
 			{"level": 20, "item": 2070002, "tier": "C"},
 			{"level": 30, "item": 2070003, "tier": "C"},
 			{"level": 40, "item": 2070004, "tier": "C"},
-			{"level": 50, "item": 2070005, "tier": "C"}]},
+			{"level": 50, "item": 2070005, "tier": "C"},
+			{"level": 60, "item": 2070006, "tier": "C"}]},
 		{"job": 522, "family": "gun", "steps": [
 			{"level": 18, "item": 2330001, "tier": "C"},
 			{"level": 35, "item": 2330002, "tier": "C"}]}
