@@ -477,6 +477,7 @@ func _init_drops_and_shots() -> void:
 	projectiles.bounds = bounds
 	projectiles.magic_defense_k = float(balance.get("magic_defense_k", CombatMath.MAGIC_DEFENSE_K))
 	projectiles.pierce_floor = float(balance.get("combat", {}).get("pierce_floor", 0.0))
+	projectiles.pierce_ceiling = float(balance.get("combat", {}).get("pierce_ceiling", 1.0))
 	var pk: Dictionary = balance.get("pickup", {}).duplicate()
 	pk["collect_radius"] = float(balance.get("collect_radius", PickupSystem.TUNING_DEFAULTS.collect_radius))
 	pk["gravity"] = physics.gravity_acc
@@ -490,6 +491,7 @@ func _init_skills_and_progression() -> void:
 	book = SkillBook.from_data(data.get("skills", {}), setup.get("skill_imgs", {}))
 	loadout = Loadout.new(book)
 	loadout.pierce_floor = projectiles.pierce_floor
+	loadout.pierce_ceiling = projectiles.pierce_ceiling
 	var crit: Dictionary = balance.get("crit", {})
 	loadout.crit_chance = float(crit.get("chance", 0.0))
 	loadout.crit_mult = float(crit.get("mult", 1.5))

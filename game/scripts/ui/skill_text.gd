@@ -157,8 +157,13 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		# Heal (#376): the resolved threshold, so a Mending Touch card shows in the window.
 		mechanics.append("Restores HP below %s%% health; strikes undead in the area" % number(float(stats.get("heal_threshold", 0.0)) * 100.0))
 	if def.has("pierce_falloff"):
-		mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
-			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
+		var fraction := float(stats.get("pierce_falloff", 0.0))
+		if fraction < 0.0:
+			mechanics.append("Pierce rise: %s (maximum %s%%)" % [
+				pierce_points(fraction * 100.0), number(float(stats.get("pierce_ceiling", 1.0)) * 100.0)])
+		else:
+			mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
+				number(fraction * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
 	if stats.has("burn_pulse"):
 		mechanics.append("Burns for %s s, %s%% of base damage per second" % [number(float(stats.get("burn_time", 0.0))),
 			number(float(stats.get("burn_share", 0.0)))])
@@ -365,6 +370,12 @@ func _wz(key: String) -> Dictionary:
 		return {}
 	var node: Variant = strings.get("%07d" % id)
 	return node if node is Dictionary else {}
+
+
+## Signed percentage-point preview: a negative falloff adds power on later contacts.
+static func pierce_points(percent: float) -> String:
+	return "%s%s points per later monster" % ["+" if percent <= 0.0 else "-", number(absf(percent))]
+
 
 static func _form_sub_label(book: SkillBook, skill: String) -> String:
 	var names := PackedStringArray()

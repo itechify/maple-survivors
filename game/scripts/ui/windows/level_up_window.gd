@@ -215,6 +215,10 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 	labels.merge(UpgradePool.MODIFIER_PREVIEW)
 	for key: String in labels:
 		if mods.has(key) and mods[key].before != mods[key].after:
+			if key == "pierce_falloff" and (float(mods[key].before) < 0.0 or float(mods[key].after) < 0.0):
+				lines.append_array(MapleText.wrap_markup("Pierce rise: %s → %s" % [
+					SkillText.pierce_points(float(mods[key].before)), SkillText.pierce_points(float(mods[key].after))], ROW_W - 8.0, MapleText.SMALL))
+				continue
 			var unit: String = labels[key][1]
 			var line := "%s: %s%s → %s%s" % [card.get("skill_mod_labels", {}).get(key, labels[key][0]), SkillText.number(float(mods[key].before)), unit,
 				SkillText.number(float(mods[key].after)), unit]
@@ -226,6 +230,10 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 			continue
 		var values: Dictionary = changes[field]
 		if values.before == values.after:
+			continue
+		if field == "pierce_falloff" and (float(values.before) < 0.0 or float(values.after) < 0.0):
+			lines.append_array(MapleText.wrap_markup("Pierce rise: %s → %s" % [
+				SkillText.pierce_points(float(values.before)), SkillText.pierce_points(float(values.after))], ROW_W - 8.0, MapleText.SMALL))
 			continue
 		var suffix := " s" if field in ["time", "cooltime"] else ""
 		if field == "range":

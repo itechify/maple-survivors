@@ -470,6 +470,11 @@ A timed player-owned ally cast by an active skill. It follows or waits at its ow
 its map-local lifetime ends on expiry or map transfer. It occupies its skill’s active slot, uses the original skill
 id and WZ animations, and is separate from a cash pet or a monster summoned by a boss.
 
+**Piercing rise**:
+A negative `pierce_falloff` that increases an arrow's damage by a fixed number of percentage points for each
+earlier monster contacted, up to the survivor combat ceiling. Immune contacts count; extra pierce contacts keep rising.
+_Avoid_: exponential scaling, multiplicative stacking
+
 **Support summon**:
 A summon whose definition carries `summon.support`: it follows its owner and pulses instead of attacking. Its pulses'
 numbers come from sub-skills read through the summon's rank; the Beholder is the first.

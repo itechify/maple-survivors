@@ -1565,3 +1565,10 @@ Everything below is behind `WebProfile.is_web()` (`scripts/core/web_profile.gd`:
   the Alt menu is left to a manual check in the QA ticket (#136). Keys a page cannot reliably take: F11 (browser fullscreen) and F12 (developer tools) are tinted "Web" and not
   bindable in the Key Config window (`KeyBindings.WEB_RESERVED`), and the window's strip notes that Ctrl+W / Ctrl+T /
   Ctrl+N always reach the browser. Esc leaves browser fullscreen before the game sees it (accepted).
+
+### Piercing curve (Marksman MS4, #364)
+
+`scripts/sim/pierce_curve.gd` (`PierceCurve`) is the pure, one-based contact multiplier used by
+`ProjectileSystem`: positive `pierce_falloff` retains the legacy floor arithmetic, negative values rise
+to `balance.combat.pierce_ceiling`. `Loadout` exposes the signed fraction and ceiling to previews;
+`SkillRunner` captures both into packed projectile state at launch. No skill-ID branch is involved.

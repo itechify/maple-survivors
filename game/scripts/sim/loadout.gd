@@ -63,6 +63,8 @@ var max_hp := 1:
 			version += 1
 ## tier C: display/preview input matching ProjectileSystem, supplied from balance.combat.pierce_floor at setup.
 var pierce_floor := 0.0
+## tier C: preview input matching the combat-data rise ceiling.
+var pierce_ceiling := 1.0
 ## Physical caster inputs; RunWorld._refresh_caster assembles these. Setters invalidate cached stats on change.
 var str_stat := 4.0:
 	set(value):
@@ -162,6 +164,7 @@ func clone() -> Loadout:
 	c.char_level = char_level
 	c.max_hp = max_hp
 	c.pierce_floor = pierce_floor
+	c.pierce_ceiling = pierce_ceiling
 	for field: String in ["str_stat", "dex_stat", "luk_stat", "watk", "acc", "weapon_id", "weapon_family",
 			"job_id", "mastery", "crit_bonus", "crit_damage_bonus", "crit_per_acc", "weapon_speed", "speed_steps"]:
 		c.set(field, get(field))
@@ -418,8 +421,9 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
 		"count": maxi(1, roundi(skill_stat(key, "count", float(d.get("count", book.canonical(key, lv, "bulletCount", 1.0)))))),
 		"pierce": maxi(0, roundi(skill_stat(key, "pierce", float(d.get("pierce", 0))))),
-		"pierce_falloff": maxf(0.0, skill_stat(key, "pierce_falloff", float(d.get("pierce_falloff", 0.0)))),
+		"pierce_falloff": skill_stat(key, "pierce_falloff", float(d.get("pierce_falloff", 0.0))),
 		"pierce_floor": pierce_floor,
+		"pierce_ceiling": pierce_ceiling,
 		# No chance field = the knock-back always applies (Rush, tier C #302).
 		"knockback_chance": (book.canonical(key, lv, String(d.knockback.chance_field)) if d.knockback.has("chance_field") else 100.0)
 			if d.has("knockback") else 0.0,
