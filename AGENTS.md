@@ -121,7 +121,7 @@ bash scripts/playtest.sh --speed=1 --minutes=3                 # 3 minutes in re
 bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-forward to 10:00 without drawing,
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
 bash scripts/playtest.sh --stage=ellinia --seed=7 --window-autopick=1   # windows open and answer themselves
-bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the default job; --job=112 is Hero, --job=122 the Paladin, --job=222 the I/L Arch Mage, --job=232 the Bishop, --job=132 the Dark Knight, --job=312 the Bowmaster, --job=512 the Buccaneer)
+bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the default job; --job=112 is Hero, --job=122 the Paladin, --job=222 the I/L Arch Mage, --job=232 the Bishop, --job=132 the Dark Knight, --job=312 the Bowmaster, --job=322 the Marksman, --job=512 the Buccaneer)
 bash scripts/playtest.sh --job=232 --stage=sleepywood --character=$PWD/game/tests/fixtures/characters/bishop_t2.json
 bash scripts/playtest.sh --job=312 --character=$PWD/game/tests/fixtures/characters/bowmaster_t2.json --minutes=5
                                                                # a Bowmaster needs a bow in hand (the fixture's Battle Bow): with none the
@@ -172,7 +172,7 @@ fresh `--shots` directory and the character slots, history and account go to its
 ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scenario=<name> --shots=<abs dir under evidence/>
 ```
 
-- `redesign` (#294, the slice's QA; about 6 minutes; `--job=<id>`, default 212, `--job=112` for Hero, `--job=132` for Dark Knight, `--job=122` for the Paladin, `--job=222` for the I/L Arch Mage, `--job=232` for Bishop, `--job=312` for the Bowmaster, `--job=512` for the Buccaneer: its Job page row is
+- `redesign` (#294, the slice's QA; about 6 minutes; `--job=<id>`, default 212, `--job=112` for Hero, `--job=132` for Dark Knight, `--job=122` for the Paladin, `--job=222` for the I/L Arch Mage, `--job=232` for Bishop, `--job=312` for the Bowmaster, `--job=322` for the Marksman, `--job=512` for the Buccaneer: its Job page row is
   clicked, the checks name its start skills and its fallback item is a sword (Hero/Paladin) a staff (I/L, #330) or a Lv40 knuckle (Buccaneer, #423, `hub_kit.fallback_item`)): title -> create the chosen job (name, look, Job page) -> Free Market ->
   map select with Sleepywood locked and its Start refused -> an invulnerable Henesys round (`--seed`, default 1; the bot
   steers, the first level-up, the first offer with every active slot filled, the first Mastery offer and the first boss
@@ -268,16 +268,16 @@ open). Its historical `_doc.patch` records B12's generation before enablement; n
 The same tool can also write the character a real bot
 round leaves behind, and converts old files.
 
-**Marksman (job 322; spec #360, MS10 #370).** `--job=322` is wired in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, the fixture tool and
-`--hub`, but Marksman ships `playable: false` until MS11 #371, so every tool refuses it ("not playable") until a patch mirrors the flip
-(`PATCH=` / `--patch=<abs json>` / `DataRepo.patch` of `{"jobs_survivor": {"jobs": {"322": {"playable": true}}}}`, or a private mirror
-edit that is never committed). `marksman_t2.json` is its fixture (kit mode like Bowmaster's: `--job=322
---kit=1462003,1002163,1072025,1082012,1040002,1060002 --tiers=2 --patch=<playable patch>`: a Balanche crossbow, the same Bowman-bit hat, shoes and
-gloves as `bowmaster_t2.json`, the starter top and bottom, unscrolled, tier 2 open; `_doc.patch` records the patch until MS11). **Every
-Marksman run needs a crossbow in hand** (the fixture's Balanche): without one `Ammo` gives 0 and the bolt sprite lookup fails (`missing`).
+**Marksman (job 322; spec #360, MS10 #370, MS11 #371).** `--job=322` is wired in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, the fixture tool and
+`--hub`, and Marksman ships `playable: true` (MS11 #371 flipped it; `JobTree.default_job()` stays 212). `marksman_t2.json` is its fixture
+(kit mode like Bowmaster's: `--job=322 --kit=1462003,1002163,1072025,1082012,1040002,1060002 --tiers=2`: a Balanche crossbow, the same Bowman-bit hat,
+shoes and gloves as `bowmaster_t2.json`, the starter top and bottom, unscrolled, tier 2 open; no playable patch is needed). **Every
+Marksman run needs a crossbow in hand** (the fixture's Balanche): without one `Ammo` gives 0 and the bolt sprite lookup fails (`missing`), and a
+bare `--job=322` starts in the generic outfit with none.
 `bash scripts/playtest.sh --job=322 --character=$PWD/game/tests/fixtures/characters/marksman_t2.json --minutes=5` and `bash scripts/run.sh -- --hub --job=322`
 (crossbow ATT scrolls from `scrolls/bowman.json`, the Bowman gloves/shoes ATT and hat DEX stacks, spare crossbow, hat, gloves and top;
-`jobs/marksman.json` `hub_kit`) need that mirror. `--job=212` with a Marksman `--character` is an error; `JobTree.default_job()` stays 212. A Marksman has no
+`jobs/marksman.json` `hub_kit`) open the Marksman kit; `flow_driver --scenario=redesign --job=322` plays the whole loop and
+`--scenario=creation --jobs=<at most three ids>` checks the Job page. `--job=212` with a Marksman `--character` is an error. A Marksman has no
 skill key, quick-slot movement cell or Key Config row (no mobility skill, ruling D1).
 
 **Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
@@ -307,7 +307,7 @@ Use focused filters excluding `full_run` while tuning; freeze data and pacing wi
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
 `--job=<id>` names the character's job in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd` and the fixture tool (ADR 0006:
-a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Dark Knight (132), Paladin (122; spec #308, P9 #317 flipped `playable`), Arch Mage (Fire, Poison, 212) Bishop (232), Arch Mage (Ice, Lightning, 222; spec #319, I12 flipped `playable`) Bowmaster (312) and Buccaneer (512; spec #412, B11 #423 flipped `playable`); `--job=112` selects Hero, `--job=122` the Paladin `--job=222` the I/L Arch Mage and `--job=512` the Buccaneer; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
+a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Dark Knight (132), Paladin (122; spec #308, P9 #317 flipped `playable`), Arch Mage (Fire, Poison, 212) Bishop (232), Arch Mage (Ice, Lightning, 222; spec #319, I12 flipped `playable`) Bowmaster (312), Marksman (322; spec #360, MS11 #371 flipped `playable`) and Buccaneer (512; spec #412, B11 #423 flipped `playable`); `--job=112` selects Hero, `--job=122` the Paladin, `--job=222` the I/L Arch Mage, `--job=312` the Bowmaster, `--job=322` the Marksman and `--job=512` the Buccaneer; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
 `SceneFlow.forced_job_error`), and a `--character` whose job disagrees fails. A tool that names no job gets
 `JobTree.default_job()`, pinned to 212 by `survivor/jobs.json` whatever else is playable. Without `--character`, tools wear the job's `creation_weapon` and the default clothing. `--branch=<id>` is the deprecated alias. There is no advancement, so records have no
 `branch`, `forced_branch`, `job_t` or `job_times`; they carry the job id (`jobs` in the summary) and, from #293, `picks`
