@@ -82,6 +82,8 @@ var pierce_floor := 0.0
 ## Mob slots killed during the last step() (cleared at the start of each step).
 var kills := PackedInt32Array()
 var _halted := false
+## While true every projectile hit rolls no critical (Darkness 121, #458; RunWorld sets it each tick).
+var crit_suppressed := false
 ## Total damage dealt by every hit so far.
 var dealt := 0
 
@@ -364,7 +366,7 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 	var mk: MobKind = swarm.kinds[swarm.kind[m]]
 	var defense := (float(live_pdd[m]) if m < live_pdd.size() else float(mk.pdd)) \
 		if kind == CombatMath.DAMAGE_PHYSICAL else (float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd))
-	var roll := roll_damage(dmg_min[i], dmg_max[i], is_magic, defense, magic_defense_k, crit[i],
+	var roll := roll_damage(dmg_min[i], dmg_max[i], is_magic, defense, magic_defense_k, 0.0 if crit_suppressed else crit[i],
 		crit_mult[i], rng, swarm.element_multiplier(m, element[i]),
 		CombatMath.DAMAGE_TYPE_NAMES[kind], damage_pct[i], crit_damage_bonus[i],
 		multiplier)

@@ -222,7 +222,13 @@ var _window_auto := 0.0
 var _restart_action := false
 ## Looping `affected` art above the character per boss status (MobSkill id -> fx handle); player_state key by id.
 var _status_fx := {}
-const STATUS_KEYS := {MobSkillRunner.SKILL_SLOW: "slow", MobSkillRunner.SKILL_STUN: "stun"}
+const STATUS_KEYS := {MobSkillRunner.SKILL_SLOW: "slow", MobSkillRunner.SKILL_STUN: "stun",
+	MobSkillRunner.SKILL_DARKNESS: "darkness", MobSkillRunner.SKILL_WEAKNESS: "weakness", MobSkillRunner.SKILL_CURSE: "curse",
+	MobSkillRunner.SKILL_SEDUCE: "seduce", MobSkillRunner.SKILL_CONFUSE: "confuse"}
+## tier C (#458): CanvasLayer of the Darkness 121 screen dimming: above the world, below the HUD (layer 10).
+const DARKNESS_LAYER := 5
+## The Darkness 121 screen dimming (#458).
+var darkness: DarknessOverlay
 var _immunity_fx := {}
 var _shown_action := ""
 var _blink_t := 0.0
@@ -742,6 +748,12 @@ func _build_overlays() -> void:
 	add_child(hud)
 	hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
 	meter_cue = MeterCue.new(world.meter.config.get("cue", {}), _play_meter_cue)
+	var darkness_layer := CanvasLayer.new()
+	darkness_layer.name = "DarknessLayer"
+	darkness_layer.layer = DARKNESS_LAYER
+	add_child(darkness_layer)
+	darkness = DarknessOverlay.new()
+	darkness_layer.add_child(darkness)
 	# Below notices/windows so pause and inventory remain usable over a partly faded world.
 	var fade_layer := CanvasLayer.new()
 	fade_layer.name = "MapTransfer"
@@ -1286,6 +1298,10 @@ func _on_boss_skill(e: Dictionary) -> void:
 		_status_fx[skill_id] = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
 		if skill_id == MobSkillRunner.SKILL_STUN:
 			_first_event_shot("stun", "stun.png", 0.4) # tier C: playtest evidence of the first Stun, mid-loop above the head.
+		elif skill_id in STATUS_KEYS:
+			# tier C: playtest evidence of the first of each boss status (#458), mid-loop above the head.
+			var key: String = STATUS_KEYS[skill_id]
+			_first_event_shot(key, key + ".png", 0.4 if skill_id != MobSkillRunner.SKILL_DARKNESS else 0.5)
 	_mob_sound(int(e.mob_id), String(e.action).replace("skill", "Skill"))
 
 
@@ -1935,6 +1951,7 @@ func _present(delta: float) -> void:
 	_update_throws(delta)
 	_update_falls(delta)
 	_update_player(delta)
+	_update_darkness(delta)
 	_update_pet(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
 	var mob_actions := world.mob_action_view()
@@ -1986,6 +2003,13 @@ func _update_mob_status_effects() -> void:
 		if not seen.has(index):
 			fx.stop(int(_immunity_fx[index]))
 			_immunity_fx.erase(index)
+
+
+## Dims the screen round the avatar while Darkness 121 lasts (#458).
+func _update_darkness(delta: float) -> void:
+	var dark: bool = not world.player_state.get("darkness", {}).is_empty() and not bool(world.player_state.dead)
+	var body := avatar.get_global_transform_with_canvas().origin - Vector2(0.0, world.cast_height)
+	darkness.update(dark, body, _view_size(), delta)
 
 
 func _update_player(delta: float) -> void:

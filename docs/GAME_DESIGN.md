@@ -10019,6 +10019,23 @@ fitted wind-up playback and inspection; `SpritePool.tint_of` exposes the rendere
 | Final-form HP | `hp_mult` applies to each form; an entry's optional `final_form_hp_mult` replaces it for the form alone (must be > 0) | C | #448 B1 |
 | Roster | `StageRoster.named_ids` and `mob_ids` include the form and the summons/revives of its skills; `MobSkillRunner` casts the form's skills when its id is in `balance.mob_skills.enabled_ids` (each region ticket lists its own) | C | #448 |
 
+### Boss kits II B3: Darkness, Weakness, Curse, Seduce, Confuse (#458, spec #448)
+
+Five more player statuses cast by bosses on B1's status seam (`PlayerStatuses`, stream 19, the lockout floor). Each is rolled once per in-area cast on stream 19 (`prop >= 100` draws nothing), skipped while Hidden, never stacks with itself and has no cap against other statuses. The boss must list the skill's mob in `balance.mob_skills.enabled_ids`; `MobSkillRunner.interval_of` reads a level's `interval` or, where spelled so, `inteval`.
+
+| Constant | Value and rule | Tier | Source |
+|---|---|---|---|
+| Values | `interval` (or `inteval`), `time`, `prop`, `lt`/`rb` from `MobSkill.img/<id>/level/<lv>` at the boss's own level: Alishar 121/1, Fox 121/7 and 122/10, Leviathan 122/3 and 132/2 (`inteval` 60), Thanatos 121/1 and 124/1, Lyka 128/7. The level's `affected` art loops above the head while the status lasts (MobSkill.img is already imported whole, so the manifest is unchanged) | A | v83 WZ; research `v83-mob-skills-ii.md` |
+| Darkness 121 effect | The character's critical chance is 0 while it lasts: every `hit_mob` roll (instant, Final Attack, summons) and every projectile hit (`ProjectileSystem.crit_suppressed`, set each tick by `refresh_player_speed`) is rolled at 0. v83 dims the screen and lowers accuracy; ADR 0005 turned accuracy into crit chance. A shot in flight is judged at its hit | C (reading), B (v83: accuracy down) | ADR 0005 |
+| Darkness overlay | `DarknessOverlay` (`CanvasLayer` 5, above the world and below the HUD): the view dims to opacity 0.8 (colour 0,0,0.04) except a lit circle on the avatar's body centre, fully clear to 100 px and fading smoothly to the full dimming at 240 px; fades in and out at 4 per second. One gradient texture plus four flat rects, no shader; presentation only, never in the sim | C | v83 only says "dimmed screen" (client-side) |
+| Weakness 122 | Jump disabled: `refresh_player_speed` sets the jump stat to 0 and the tick's input loses `jump_pressed`/`jump_held` (ground, down-jump and ladder jumps alike). Walking speed unchanged | B | secondary wiki text |
+| Curse 124 | EXP picked up (`RunWorld._gain_exp`, both the per-tick pickup and the clear sweep) is multiplied by `balance.mob_skills.curse_exp_mult` = 0.5 while active; the fraction of a point it withholds carries to the next pickup (its own carry, apart from Holy Symbol's), so many small orbs still add up to half. The drop itself is not changed | B (halved), C (carry) | emulator behaviour |
+| Seduce 128 | The horizontal input is replaced by a step toward the caster's current x (re-read every tick, no step within 4 px of it: `SEDUCE_STOP_DISTANCE`) for `min(time, balance.mob_skills.seduce_cap)` s, cap 4. Jump, casts and potions still work. It ends the same tick the caster is dead or gone (`MobSkillRunner.seduce_active`); the caster follows a final form's record. It wins over Confuse; Stun wins over all | C (cap, early end, stop distance, precedence), B (forced walk) | v83 sends no cap; `count` and `x` are not read |
+| Confuse 132 | Left and right input are swapped for `time` (the copy of the input; the caller's object is untouched, so the bot, which keeps reading real input, suffers it deterministically). Up, down, jump, casts and potions pass through | B | emulator behaviour |
+| Lockout | Each status uses the shared floor (`status_lockout`, default 4 s, never below the status's own `time`): Darkness 30 s is followed by 30 s of immunity, Curse 60 s by 60 s | C | #448 |
+| HUD | None: the HUD shows no Slow icon either, so these statuses have only the `affected` art above the head | C | #448 ("only where the HUD already shows Slow's") |
+| `player_state` | `darkness`, `weakness`, `curse`, `seduce`, `confuse` ({skill_id, remaining, visual[, boss_index]}) exist only while active | C | |
+
 ### Area-warning boss attacks (spec #448 B5, #460)
 
 Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a delay. A scheduled boss plays them when its stage entry lists the attack in `attacks` (Thanatos 8170000 and Lyka 8220006 attack1); ordinary mobs never do. One code path serves both types (`MobAttacks.plan`, `area_columns`, `pick_columns`).

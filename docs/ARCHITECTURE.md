@@ -694,7 +694,7 @@ player while retaining canonical height (Somersault Kick; tier C). `RunWorld.pir
 13 belongs to Threaten (no v83 prop, so unused); 14 remains reserved for Bowman; stream 15 is `RunWorld.thief_rng`
 (#207), used only for Steal success (#214). Stream 17 is `RunWorld.banish_rng` (#256), used only for Banish's
 destination portal draw. Stream 18 is `ground_rng` (ground-area status rolls); stream 19 is `RunWorld.mob_status_rng` (#456),
-used only for the `prop` roll of a boss skill that puts a status on the character (Stun 123). Existing stream
+used only for the `prop` roll of a boss skill that puts a status on the character (Stun 123; Darkness 121, Weakness 122, Curse 124, Seduce 128 and Confuse 132, #458). Existing stream
 initialization and other draws are unchanged.
 Bandit attacks add `steal: {chance_field: "prop"}` to the instant skill definition. A damaging-hit listener rolls
 stream15 before damage/kill resolution, then calls `RunWorld.drop_mob_loot(m, true)` and marks `MobSwarm.stolen`
