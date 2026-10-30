@@ -4489,6 +4489,20 @@ reproduce their hashes; `test_player_forms` and `test_run_events` are unchanged.
 shows the blue bar draining 0.78 -> 0.16, blue absorbed numbers and the break (blue 40 + violet 12 in one hit, bar gone). No `--job=522`
 playtest: the ship is C13's and the job is not playable.
 
+### Corsair C6 smoke (#390, 2026)
+
+Octopus and Gaviota as data on the C5 behaviours, plus `summon.attack_after` (`PlayerSummons.spawn`) and `cast.mob_within` for a
+summon (`SkillRunner.has_target`); both opt-in, so no other job's cast changes. Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private
+cache: F/P (212) died at 12:31 / 11:01 / 7:54 and Hero (112) at 5:27 / 5:36 / 11:28, no clears, no warnings: byte-identical to the C2 and
+C11 rows above. Oracles `character_baseline`, `tick_cost_identity`, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer and Bowmaster baselines
+reproduce their hashes. Diagnostic `--job=522` (a temporary local `playable: true` and Octopus / Gaviota learn scores, reverted):
+`bash scripts/playtest.sh --job=522 --stage=henesys --seed=7 --speed=8 --vsync=off` died at 5:08 at Lv11 with both summons learned
+(`cast_octopus`, `cast_gaviota`, `missing: []`; flow and visual evidence, not survival evidence). The tool probe
+`corsair_summon_probe.tscn` (Octopus and Gaviota at rank 8, a row of 200 standing monsters 200-440 px away, god mode, 14 s at x1,
+uncapped) shows the planted octopus with a ball flying to the crowd's near edge and the bird diving at the crowd with its bomb,
+`missing: []`; 200 monsters alive for the whole run: frame 2.6 ms avg / 4.3 ms p95, RunScene work 1.3 ms avg / 3.0 ms p95, sim 1.5 ms
+per tick. Screenshots in gitignored `evidence/c6/`.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
@@ -8419,6 +8433,27 @@ rarity bonuses.
 | Cluster Grenade reads `count` (#388) | the spec's table names `blast_targets`, but a `cluster` cast sizes its blast from the resolved `mob_count` (the `count` stat), and `blast_targets` is 0 for any skill without an `impact_blast`; a `blast_targets` bonus would change nothing in the cast, so Cluster Grenade adds `count` +2 (what the deleted `grenade_targets` card did). Grenade's blast therefore grows 3 -> 5 ... 6 -> 8 monsters | C |
 | Test world (#388) | `test_corsair_fillers` builds a 522 world with `playable` flipped in its own data only; the synthetic 521 book (Burst Fire's real endpoints, damage 115 -> 210 %) is added to the world's `skill_imgs` there, not to the shared fixtures | C |
 
+#### 7.120.5 Corsair C6: Octopus and Gaviota (#390)
+
+The two summons of the pool, as data on C5's `summon.behavior` seam (7.121) with Bowmaster's `summon.watk_field "pad"` (7.53): the
+W.Att of every ball and grenade is the level's `pad`, never the worn pistol or the ammo. Octopus (5211001, `turret`) is planted where
+it is cast and shoots a visible ball at the nearest monster in a 300 px circle; Gaviota (5211002, `kamikaze`) is cast only with a
+living monster within 400 px, flies at the k-th nearest, drops its grenade on up to three monsters and is gone. Wrath of the Octopi and
+Flock are the Unique bonuses (`summon_count` +1). Ranks map to WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 (the default 30-level table).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Octopus numbers (#390) | `pad` 96 / 140 / 200, life (`time`) 10 / 20 / 30 s at ranks 1 / 4 / 8; circle `r` 300 around `sp` (-23, -18), `attackAfter` 480 ms, `mobCount` 1, `bulletSpeed` 300, the two-frame `ball`, body stance `octopus` (9 frames, held 0.8 s), `Use` sound, `hit/0` art | A |
+| Octopus cooldown (#390) | 20 s (WZ `cooltime` 10 s): a rank-1 octopus lives 10 s, so a 10 s recast would stack a second beside a living one; a recast replaces the group either way | C |
+| Octopus cadence (#390) | `attack_interval` 1.5 s between attacks (the WZ has none besides `attackAfter`); `follow_speed` 0 (it never moves); `ordinal_spread` 48 px between the octopi of `summon_count` | C |
+| Octopus cast (#390) | no admission: a cast plants an octopus wherever the caster stands, monsters or not | C |
+| Gaviota numbers (#390) | `pad` 242 / 330 / 450, wait limit (`time`) 10 / 20 / 30 s; reach `r` 400, strike box (-80,-60)..(80,60), `mobCount` 3, `attackAfter` 1920 ms, `fly` and `attack1` art, `hit/1` burst on each struck monster, `Use` sound | A |
+| Gaviota cast (#390) | `cast.mob_within 400`: admitted only with a living monster within 400 px of the caster (the `mob_within` of the buffs and forms, now read for a `summon` too: `SkillRunner.has_target`); cooldown 8 s (WZ 5 s); `follow_speed` 260 px/s, `hover` 60 px; body stance is the weapon's first basic-attack stance held 0.5 s (the WZ skill has no `action`) | C |
+| Gaviota wind-up (#390) | `summon.attack_after` 0.84 s replaces the WZ `attackAfter` 1.92 s (`PlayerSummons.spawn` writes it into the attack node's `info`; a definition without the key is untouched): the WZ wait is the 0.84 s `attack1` dive plus 1.08 s of `hit/0` before its blast, and the renderer holds the last dive frame, so the bird would hang about a second above its target; C1's sheet recommended shortening it | C |
+| Rarity bonuses (#390) | Octopus: Eight Arms damage x1.2 / Long Arms `area` x1.25 (the turret's radius) / Wrath of the Octopi `summon_count` +1. Gaviota: Heavy Load damage x1.2 / Bigger Boom `area` x1.2 (the strike box) / Flock `summon_count` +1. Legendary = the Unique's id and effects plus damage x1.2 (shares its repeat counter) | C |
+| Out of scope (#390) | Wrath's second sprite (`attack2`), flock formations, Aerial Strike (C10) | C |
+| Test world (#390) | `test_corsair_summons` builds a 522 world with `playable` flipped in its own data only, and a synthetic 521 book with the two real nodes' shapes (ranges, `attackAfter`, frame counts, `pad` 84 -> 200 / 218 -> 450, `time` 10 / 20 / 30); the real-cache test checks all eight ranks | C |
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -10388,3 +10423,8 @@ Provisional heading: nested under C2's Corsair section once it exists. The secti
 
 The constants of the five gun fillers (rank tables, no weapon gate, Burst Fire's cast, the cadences, the rarity bonuses and Cluster
 Grenade's `count`) are in section 7.120.4, nested under the Corsair section beside C2's 7.120.1.
+
+### Corsair C6 constants (#390)
+
+The constants of the Octopus and Gaviota entries (numbers, cooldowns, cadence, the Gaviota admission, the rarity bonuses) are in section
+7.120.5, nested under the Corsair section beside C2's 7.120.1.

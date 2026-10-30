@@ -345,7 +345,9 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 	if String(st.kind) == "form":
 		return forms.admits(world, key) and _buff_admission(world, st, origin) != BUFF_REFUSED
 	if String(st.kind) == "summon":
-		return true
+		# tier C (Gaviota, spec #384 C6): a cast block `mob_within` admits the summon only with a living monster that near.
+		var near := float(st.cast_params.get("mob_within", 0.0))
+		return near <= 0.0 or _any_target(world, origin, near, 1)
 	match String(st.cast_rule):
 		"", "nearest", "burst":
 			if String(st.kind) == "buff":
