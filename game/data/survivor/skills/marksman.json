@@ -465,6 +465,107 @@
 				"summon": "Sound.wz/Skill.img/3221005/Summon"
 			},
 			"_provenance": "Tier A: elemAttr i, pad 270..500 at the mapped levels, time 122..200 s, up to 4 monsters in a +-100 x +-60 box, attackAfter 1440 ms, hit art and the Use/Summon sounds. Tier C: 40 s recast, fly follow settings, hover 20, 3.0 s attack cycle, settle (the Phoenix's values). Balance flag: pad is 3-6 times an arrow's W.Att; GAME_DESIGN 7.46.9."
+		},
+		"piercing_arrow": {
+			"skill_id": 3221001,
+			"book": "322",
+			"job": 322,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Piercing Arrow",
+			"desc": "Draws the crossbow for a moment, then looses one special arrow that pierces a line of monsters and hits harder on every monster it passes.",
+			"icon": "Skill.wz/322.img/skill/3221001/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "burst"
+			},
+			"burst": {
+				"wind_up": 0.6
+			},
+			"count": 1,
+			"burst_art": {
+				"prepare": "Skill.wz/322.img/skill/3221001/prepare",
+				"end": "Skill.wz/322.img/skill/3221001/effect",
+				"end_on_drop": false
+			},
+			"cooldown": 6.0,
+			"range": 450,
+			"speed": 900,
+			"radius": 10,
+			"pierce": 0,
+			"pierce_field": "mobCount",
+			"pierce_falloff": -0.1,
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "Skill.wz/322.img/skill/3221001/ball",
+			"hit": "Skill.wz/322.img/skill/3221001/hit/0",
+			"effect": "",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3221001/Use",
+				"loop": "Sound.wz/Skill.img/3221001/Loop",
+				"hit": "Sound.wz/Skill.img/3221001/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "marksman_boost",
+						"text": "Marksman Boost",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Crossbow Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "deep_pierce",
+						"text": "Deep Pierce",
+						"effects": [
+							{
+								"stat": "pierce",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "deep_pierce",
+						"text": "Deep Pierce",
+						"effects": [
+							{
+								"stat": "pierce",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: the book-322 skill id, damage 320..850% (levels 4/15/30 at ranks 1/4/8 read 380/600/850), mobCount 4..6, the own 5-frame ball, hit/0, the prepare and effect art and the Use/Loop/Hit sounds. Tier C (#367, GAME_DESIGN 7.46.7): the burst rule with count 1 and a 0.6 s wind-up (half the WZ prepare time 1200 ms, as Hurricane's), the aim point taken at the release, pierce_field mobCount (the arrow strikes mobCount monsters, so it pierces mobCount - 1), pierce_falloff -0.1 (the rise, 7.48: 100/110/.../150% over six monsters, the ceiling is balance.combat.pierce_ceiling), 6 s cooldown, range 450, 900 px/s, radius 10, the crossbow's shoot2 for the whole wind-up (the body dash that prepare/action names makes the crossbow vanish, MS1), the effect art at the release and never on a dropped wind-up, rarity bonuses. Untuned."
 		}
 	}
 }

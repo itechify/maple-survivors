@@ -4,11 +4,11 @@ extends RefCounted
 var _entries: Array[Dictionary] = []
 
 ## Drops unfinished bursts at a map boundary, without touching cooldowns or launched projectiles. With a `world`, each
-## dropped burst announces its end so the presentation can stop the stream art.
+## dropped burst announces its end (`dropped` true) so the presentation can stop the stream art.
 func clear(world: RunWorld = null) -> void:
 	if world != null:
 		for entry in _entries:
-			world.emit("burst_end", {"skill": String(entry.key)})
+			world.emit("burst_end", {"skill": String(entry.key), "dropped": true})
 	_entries.clear()
 
 ## Whether this skill still has shots scheduled, independently of its cooldown.
@@ -37,7 +37,7 @@ func start(world: RunWorld, key: String, st: Dictionary, target: int) -> void:
 	_release(world, entry)
 	if int(entry.left) <= 0:
 		_entries.erase(entry)
-		world.emit("burst_end", {"skill": key})
+		world.emit("burst_end", {"skill": key, "dropped": false})
 
 ## Advances existing bursts before admitting new casts. Hidden and death cancel remaining shots (tier C).
 func step(dt: float, world: RunWorld) -> void:
@@ -51,7 +51,7 @@ func step(dt: float, world: RunWorld) -> void:
 		_release(world, entry)
 		if int(entry.left) <= 0:
 			_entries.remove_at(i)
-			world.emit("burst_end", {"skill": String(entry.key)})
+			world.emit("burst_end", {"skill": String(entry.key), "dropped": false})
 		else:
 			i += 1
 

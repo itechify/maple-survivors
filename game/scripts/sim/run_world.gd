@@ -154,7 +154,7 @@ const EVENT_FIELDS := {
 	"summon_attack": ["skill", "slot", "pos"],
 	"summon_strike": ["skill", "slot", "mob", "pos", "effect"],
 	"burst_start": ["skill", "wind_up", "span", "facing"],
-	"burst_end": ["skill"],
+	"burst_end": ["skill", "dropped"],
 	# #323 (chain cast rule): the bolt's polyline, caster hand then each struck link's body centre; the hits are mob_hit events.
 	"skill_chain": ["skill", "skill_id", "points"],
 

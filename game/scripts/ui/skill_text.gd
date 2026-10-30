@@ -83,7 +83,10 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		var burst: Dictionary = def.get("burst", {})
 		var shots := int(stats.get("count", 1))
 		var seconds := BurstCast.span(stats, burst)
-		mechanics.append("Fires %d arrows over %s s" % [shots, number(seconds)])
+		if shots == 1:
+			mechanics.append("Looses one arrow after a %s s wind-up" % number(seconds))
+		else:
+			mechanics.append("Fires %d arrows over %s s" % [shots, number(seconds)])
 	if def.has("summon"):
 		var summon: Dictionary = def.summon
 		mechanics.append("Calls %s for %s s" % [String(def.get("name", key)), number(float(stats.get("duration", 0.0)))])
