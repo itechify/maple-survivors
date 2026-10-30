@@ -6707,6 +6707,12 @@ unfinished bursts; already launched projectiles keep their existing lifetime rul
 no RNG; impact damage rolls retain the existing main stream. Bot reach is resolved range; SkillText reports
 "Fires N arrows over T s", where T includes wind-up and the final shot's deadline.
 
+**Release effect (Marksman MS7 #367).** `burst_end` carries `dropped` (true when death, Hidden or `clear_pending` ended the burst,
+false when its last shot left). `burst_art.end` plays on either, as Hurricane's `keydownend` does, unless the art sets
+`end_on_drop: false`: Piercing Arrow plays its `effect` as `end`, so it shows at the release (a one-shot burst ends on the tick
+its arrow leaves) and a dropped wind-up shows nothing. `RunScene._stop_burst_art` skips a slot already stopped. A one-arrow
+burst reads "Looses one arrow after a T s wind-up" in the Skill window.
+
 ### 7.43 Burn (#337, spec #332)
 
 Review #332: `on_hit.pulse_field` resolves a canonical percent when present; otherwise `on_hit.pulse` is a literal
@@ -6917,6 +6923,43 @@ no Hit sound). A first-cast screenshot of each with a crossbow in hand (`shoot2`
 | Arrow Eruption arrows | `special/0` x3, 150 px fall over 0.25 s, 90 ms apart, spread across the box | tier C, art only |
 | Rare / Epic / Unique / Legendary | Crossbow Mastery damage x1.2 / Wide Blizzard or Wide Eruption `area` x1.2 / Final Attack `attack_count` +1 / Final Attack + damage x1.2 (shares the Unique's counter; repeats shrink x0.8) | tier C (spec #360 rarity table) |
 
+#### 7.46.7 Marksman MS7 constants (#367): Piercing Arrow
+
+Piercing Arrow (3221001, `piercing_arrow`, book 322) is data on two merged seams, the burst rule (7.42) with `count 1` and a wind-up,
+and the piercing rise (7.48): the crossbow is drawn for 0.6 s, then **one** arrow leaves at the target's position at that moment
+and pierces `mobCount - 1` more monsters, each contact dealing more than the last (100, 110, 120, 130, 140, 150% over six). The
+WZ `damage` (320 to 850%) and `mobCount` (4 to 6) are read at the rank's mapped level; the node has no `x` and no rise field (the
+rise is only in its String text), so the `-0.1` is survivor data. The only code is the one-shot release effect described in 7.42.
+
+| Rank | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| Mapped WZ level | 4 | 8 | 12 | 15 | 19 | 23 | 27 | 30 |
+| Damage per contact (before the rise) | 380% | 460% | 540% | 600% | 680% | 760% | 805% | 850% |
+| Monsters struck | 4 | 4 | 5 | 5 | 5 | 6 | 6 | 6 |
+
+A Legendary or Deep Pierce card adds two monsters and the curve continues (the eighth contact of a rank 8 arrow takes 170%, under
+the 200% ceiling).
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Id, book, `damage` 320..850, `mobCount` 4..6, `weapon` 46, `ball` (5 frames), `hit/0`, `prepare` (20 frames), `effect` (5 frames), `Use` / `Loop` / `Hit` sounds | 3221001, 322 | tier A: Skill.wz 322.img (real-cache test over all eight ranks) |
+| Cast rule | `burst`, `count 1` | tier C: spec #360 (the roster plan's "Big Bang style auto-charge") |
+| Wind-up | 0.6 s | tier C: half the WZ `prepare` time 1200 ms, nothing is held (Hurricane halved its 0.98 s the same way) |
+| Aim | the target's centre at the release, not at the cast | tier C: B4 burst rule |
+| Cooldown | 6.0 s, from the cast | tier C: spec #360 |
+| Reach, speed, radius | 450 px, 900 px/s, 10 px | tier C: spec #360 |
+| Monsters struck | `pierce_field "mobCount"` (pierce = mobCount - 1) | tier C: B8's reading of mobCount |
+| Rise | `pierce_falloff -0.1`, ceiling `balance.combat.pierce_ceiling` | tier C: spec #360, 7.48 |
+| Stance | `action "weapon"` (the crossbow's `shoot2`), held for the wind-up | tier C: MS1 / ROSTER_PLAN D11 (the body `dash` that `prepare/action` names makes the crossbow vanish) |
+| Wind-up art | `prepare` fitted to 0.6 s on the caster; `effect` as `burst_art.end` at the release, not on a dropped wind-up (`end_on_drop` false) | tier C, art only |
+| Sounds | `Use` at the cast, `Loop` once at the cast (702 ms, the wind-up), `Hit` per contact | tier C, presentation |
+| Rare / Epic / Unique / Legendary | Marksman Boost damage x1.2 / Crossbow Booster cooldown x0.88 / Deep Pierce `pierce` +2 / Deep Pierce + damage x1.2 (shares the Unique's counter; repeats shrink x0.8) | tier C: spec #360 rarity table |
+
+Balance flag (not a change): 850% on a line of six rising to 150% is the highest burst in any pool (first levers: the 6 s cooldown
+and the `-0.1` rise). Tests: `test_marksman_piercing_arrow.gd` (the row, the release tick and aim, the cooldown, the rising
+factor, the monster count by rank, a `pierce` bonus, the cancels, the catalog and every bonus, the text, the release art, the bot,
+and the real-cache check of all eight ranks and the art).
+
 #### 7.46.8 Marksman MS8 constants (#368): Snipe
 
 Snipe (3221007, `snipe`, book 322) is data only on the fixed-share mechanism of 7.47 (`FixedShare`, `cast.prefer "max_hp"`, the
@@ -6965,6 +7008,11 @@ below and above the cap at ranks 1 and 8, bosses, Hidden and dead casters, `coun
 
 Each Marksman skill ticket appends one paragraph here; the skill entries sit in their own marked region of
 `survivor/skills/marksman.json`.
+
+**MS7 #367, Piercing Arrow.** The charged line nuke (3221001) as one entry in `skills/marksman.json`: `cast.rule "burst"`, `count 1`,
+`burst {wind_up 0.6}`, own ball, range 450, 900 px/s, radius 10, `pierce_field "mobCount"` and `pierce_falloff -0.1`, so contact n
+deals `1 + 0.1 (n - 1)` of its damage (7.46.7). One code addition: `burst_end.dropped` and `burst_art.end_on_drop` so the `effect`
+art shows at the release and never on a cancelled wind-up. Rarity: Marksman Boost, Crossbow Booster, Deep Pierce (`pierce` +2).
 
 **MS9 #369, Golden Eagle and Frostprey.** The two physical followers (7.44, 7.53) as data in `skills/marksman.json`, no new
 code: the Eagle copies the merged `silver_hawk` and the Frostprey the merged `phoenix` field for field (cast rule `summon`,
@@ -8340,7 +8388,7 @@ positive branch's existing float arithmetic and floor unchanged. Zero/missing fr
 The signed fraction and rise ceiling are captured at launch and reset on pooled slot reuse. Immune contacts
 consume an index; added `pierce` contacts continue the same curve. The multiplier stays outside the resolved
 damage and critical bonus, before final rounding. Skill and card previews describe a rise as positive points
-per later monster. No shipped skill opts in yet; MS7 owns Piercing Arrow.
+per later monster. Piercing Arrow (7.46.7, `-0.1`) is the one shipped skill that opts in.
 
 
 ## 8. Upgrades
@@ -9671,6 +9719,12 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Constant | Value | Provenance |
 |---|---|---|
 | `balance.combat.pierce_ceiling` | 2.0 (200%) | tier C: survivor safety cap on rising contact damage; independent of the existing 10% falloff floor |
+
+### Marksman MS7 constants (#367)
+
+The Piercing Arrow rows are in 7.46.7 (burst `count 1`, 0.6 s wind-up, 6.0 s cooldown, range 450, 900 px/s, radius 10, `pierce_field`
+mobCount, `pierce_falloff -0.1`, the crossbow's `shoot2`, the release-effect art and the rarity bonuses): all tier C except the WZ
+damage, mobCount, art and sounds (tier A).
 
 <!-- #311 provenance additions -->
 
