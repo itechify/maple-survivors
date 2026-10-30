@@ -1,6 +1,6 @@
 extends TestCase
 ## Corsair's two cones (spec #384, ticket C9 #393): Flamethrower (5211004, burn with a literal pulse) and Ice Splitter
-## (5211005, freeze) on the `corsair` line, GAME_DESIGN 7.120.5. Seeded synthetic worlds with fixed ticks (a flat floor, tiny
+## (5211005, freeze) on the `corsair` line, GAME_DESIGN 7.120.8. Seeded synthetic worlds with fixed ticks (a flat floor, tiny
 ## mob bodies that never move); the 521 book is a synthetic one whose `damage` is a STRING at every level, like the WZ's.
 ## Tests marked "real cache" call require_cache() and SKIP without it.
 
