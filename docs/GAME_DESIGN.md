@@ -6874,6 +6874,89 @@ one `ammo_upgraded` per step ("Your arrows are now Bronze Arrow for Crossbow"), 
 sprite the current arrow's `bullet`; a bow in a Marksman's hand never steps. `test_marksman_data` covers it in a running
 world (the lookup is `test_ammo`).
 
+#### 7.46.6 Marksman MS6 constants (#366): Blizzard and Arrow Eruption
+
+Blizzard (3211003, `blizzard_crossbow`) and Arrow Eruption (3211004, `arrow_eruption`), both of book 321, are data only: they
+copy Arrow Rain's entry (7.50: `cast.rule "box"`, `min_targets 1`, `pending {delay}`, `cast_visuals`) with their own numbers,
+art and sounds. A cast anchors a box where the caster stood and the strike lands that many seconds later, around the
+caster, on at most six monsters (the nearest to the caster first); `area` widens the box and `attack_count` +1 adds a second
+volley line to each. The Skill.wz levels read 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 at ranks 1-8.
+
+| Skill | Cooldown | Strike | Damage (rank 1 / 4 / 8) | Box (rank 1 / 4 / 8) | Extra |
+|---|---|---|---|---|---|
+| Blizzard | 4.0 s | 0.6 s after the cast | 106 / 128 / 140%, element `i` | +-130 / +-130 / +-150 by +-100 | freeze 24 / 35 / 50% for 1 / 2 / 3 s |
+| Arrow Eruption | 5.0 s | 0.5 s after the cast | 75 / 122 / 160% | +-170 / +-190 / +-210 by +-100 | none |
+
+**Blizzard's freeze.** The node has no `prop`; its `x` (21 -> 50) is read as the freeze chance in percent and its `time`
+(1 -> 3) as the seconds (`on_hit {status freeze, chance_field x, duration_field time}`). The chance is rolled once per damaging
+hit line on stream 1 (the same `rng` as every other on-hit roll; Cold Beam has no chance and draws nothing), for every struck
+monster including a boss, whose freeze the status layer then refuses together with every ice-immune kind (`I1`); both still
+take the damage. A second volley rolls again. The Skill window reads "Damage N%, X% chance to freeze for T sec." from a
+`text.h` override (the WZ line has the seconds but not the chance), and `text.desc` replaces the WZ text's "only works when
+equipped with a bow".
+
+**Art.** Blizzard: `effect` on the caster, `special/0` five ice arrows falling 400 px, one every 90 ms across the box (the
+last lands as the strike does), `hit/0` per struck monster, Use and Hit sounds; the frozen monsters use the existing freeze
+cue. Arrow Eruption: `effect`, `special/0` three arrows falling 150 px across the box, `hit/0`, Use sound only (the book has
+no Hit sound). A first-cast screenshot of each with a crossbow in hand (`shoot2`, the weapon's own stance) was checked by eye
+(`evidence/ms6*`, a `--job=322` run with `playable` flipped in a throwaway tree); `missing` is empty.
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Blizzard damage, box, `mobCount` 6 | 100 -> 140%, +-130 until level 15 and +-150 from 16 by +-100, 6 monsters | tier A: Skill.wz 321.img 3211003 |
+| Blizzard element | `i` (ice) | tier A: `elemAttr` |
+| Blizzard freeze chance | WZ `x` (21 -> 50) read as a percent per hit line | tier C: the node has no `prop` (spec #360) |
+| Blizzard freeze seconds | WZ `time` (1 / 2 / 3 s at levels 1-10 / 11-20 / 21-30) | tier C reading, as the I/L Blizzard (7.60) |
+| Bosses and ice-immune kinds reject the freeze | the status layer's existing rule; the chance draw is still taken | tier C, as Cold Beam and I/L Blizzard |
+| Blizzard strike delay | 0.6 s (`start 150 ms + 4 x interval 90 ms` of the `special` node, rounded up) | tier C |
+| Blizzard cooldown | 4.0 s, 0.6 s held weapon stance | tier C (spec #360) |
+| Blizzard ice arrows | `special/0` x5, 400 px fall over 0.25 s, 90 ms apart, spread across the box | tier C, art only |
+| Arrow Eruption damage, box, `mobCount` 6 | 60 -> 160%, +-170 / +-190 / +-210 (steps at levels 11 and 21) by +-100, 6 monsters | tier A: Skill.wz 321.img 3211004 (Arrow Rain's numbers) |
+| Arrow Eruption strike delay | 0.5 s | tier C: Arrow Rain's |
+| Arrow Eruption cooldown | 5.0 s, 0.6 s held weapon stance | tier C (spec #360) |
+| Arrow Eruption arrows | `special/0` x3, 150 px fall over 0.25 s, 90 ms apart, spread across the box | tier C, art only |
+| Rare / Epic / Unique / Legendary | Crossbow Mastery damage x1.2 / Wide Blizzard or Wide Eruption `area` x1.2 / Final Attack `attack_count` +1 / Final Attack + damage x1.2 (shares the Unique's counter; repeats shrink x0.8) | tier C (spec #360 rarity table) |
+
+#### 7.46.9 Marksman skill entries (spec #360)
+
+Each Marksman skill ticket appends one paragraph here; the skill entries sit in their own marked region of
+`survivor/skills/marksman.json`.
+
+**MS9 #369, Golden Eagle and Frostprey.** The two physical followers (7.44, 7.53) as data in `skills/marksman.json`, no new
+code: the Eagle copies the merged `silver_hawk` and the Frostprey the merged `phoenix` field for field (cast rule `summon`,
+`damage physical`, `watk_field "pad"`, `move "fly"`, `settle true`, `hover 20`, follow and interval settings, no weapon gate),
+with the id, book, job, name, art, sound paths and (Frostprey) element changed.
+
+- **Golden Eagle** (3211005, book 321, job 321): 30 s recast, neutral, one monster in a +-200 x +-150 box every 1.6 s
+  (`attackAfter` 100 ms), `pad` 32 -> 100 as W.Att, `on_hit {stun, chance_field prop, duration 1.5}` (`prop` 59 -> 99%, so a
+  stun roll is one stream-1 draw per hit and bosses resist), lifetime 112 -> 180 s. Art and sounds are its own
+  (`Skill.wz/321.img/skill/3211005/{summon,hit/0}`, `Sound.wz/Skill.img/3211005/{Use,Summon}`). The WZ tables are the Silver
+  Hawk's for `pad` and `prop`; `time` differs by 2-3 s at levels 19-29 (the spec called them identical; the ends, 112 and 180,
+  match), so the eagle's mapped lifetimes are 112 / 124 / 136 / 145 / 160 / 168 / 176 / 180 s.
+- **Frostprey** (3221005, book 322, job 322): 40 s recast, element `i`, up to four monsters (`mobCount 4`) in a +-100 x +-60
+  box every 3.0 s, `pad` 270 -> 500 at the mapped levels (270 / 290 / 360 / 375 / 395 / 465 / 485 / 500), lifetime 122 -> 200 s,
+  no status (the node has none; its `x` 1 -> 3 is not modelled). The damage lands at `attackAfter` 1440 ms into the strike,
+  inside the 3.0 s cycle; `settle` leaves the pose once the animation is over (its `attack1` has a 930 ms 1x1 placeholder
+  frame like the Eagle's). `Use` and `Summon` read the 3221005 nodes (UOLs the importer expanded, MS1).
+- **Pad reads the held weapon's row.** A follower's W.Att is `pad`, never the worn weapon plus ammo, but the damage row
+  (3.6 x DEX + STR for a crossbow) is the held weapon's, so a Marksman's Eagle is `(3.6 DEX + STR) x pad` before the skill
+  multiplier.
+- **Hover 20 px** for both (the Hawk's and Phoenix's value). Checked by eye with `player_summon_probe.tscn --skill=eagle|frostprey
+  --job=322` (rank 8, Henesys, 200 stationary snails, `missing: []`): the eagle sits above and beside the character and dives
+  onto the snails (strike art and stun stars land on them), the Frostprey hovers beside the character and its ice spikes strike
+  four snails per cycle. Hover is data; the playtest pass (MS11) may adjust it.
+- **Rarity** (`rarity_bonuses`, tier C, repeat scale 0.8, Legendary = the Unique's effect plus damage x1.2 under the same id):
+  Eagle Rare Crossbow Mastery damage x1.2, Epic Eagle Eyes `area` x1.2, Unique Second Eagle `summon_count` +1; Frostprey Rare
+  Marksman Boost damage x1.2, Epic Cold Wings `count` +1 (a fifth target), Unique Second Frostprey `summon_count` +1.
+  `test_rarity_bonus_effects` casts both with and without every effect (damage dealt, a monster just beyond the base box,
+  monsters struck in one strike, allies), and `test_marksman_followers` checks the catalog lists, that a Rare+ card adds one rank
+  plus its bonus, Legendary sharing the Unique's counter and Mastery repeats shrinking x0.8.
+- **Balance flag (not a change):** Frostprey's `pad` is 3-6 times an arrow's W.Att in the same formula, as the Phoenix's is
+  (first levers: the 3.0 s cycle and the 40 s recast); the Eagle's stun (99% at rank 8, 1.5 s, cycle 1.6 s) is the Hawk's.
+  Neither is tuned here. The Summoning Rock cost (`itemCon 4006001`) is not modelled.
+- Tests: `test_marksman_followers.gd` (targets, boxes, intervals, stun draws, element, `summon_count`, recast, map transfer, a
+  dead or hidden caster, the real-cache eight-rank check against Skill.wz); the Hawk, the Phoenix and Elquines are unchanged.
+
 ### 7.47 Fixed-share damage (M15, Marksman MS3 #363)
 
 `FixedShare` is a pure arithmetic rule available through a skill's `fixed_share` block. No shipped skill uses it yet;
@@ -6889,6 +6972,7 @@ For instant skills, `cast {rule: nearest, prefer: max_hp}` takes distinct non-bo
 descending, distance and slot. Range admission and bot reach stay the same. Optional `ball` emits the existing
 cosmetic `ammo_shot` flight at the skill's `speed`; damage lands immediately. Skill and rank-card text show both
 shares and cap multipliers. Synthetic tests and `fixed_share_probe.tscn` exercise the mechanic without Snipe or WZ.
+
 
 ### 7.50 Bowmaster area and piercing (#340, spec #332 B8)
 
@@ -10036,6 +10120,21 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 | Bot card scores | `golden_eagle_new` / `frostprey_new` 100, `_rank` 74 (the pool default, explicit because summons are not `attack` skills to `BotInput._base_score`) | tier C, spec #360 |
 | `playable` | false until MS11 #371; `default_job` stays 212 | tier C, spec #360 / #298 pin |
 | Ammo schedule 322 | unchanged from Bowmaster B3 (Lv15 / 30 / 45; `incPAD` +1 / +2 / +4) | steps tier C, `incPAD` and ids tier A; verified, not changed |
+
+#### Marksman MS9 constants (#369)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Golden Eagle recast | 30 s (WZ lifetime 112 -> 180 s is longer, so a recast replaces the group) | tier C, the Silver Hawk's value |
+| Frostprey recast | 40 s | tier C, the Phoenix's value |
+| Eagle attack cycle / Frostprey attack cycle | 1.6 s / 3.0 s | tier C, the Hawk's and Phoenix's values |
+| Eagle stun | `prop` 59 -> 99%, literal 1.5 s, bosses resist | `prop` tier A, 1.5 s tier C (the node's `time` is the lifetime) |
+| Follow settings | Eagle `follow_speed` 220, `follow_distance` 70; Frostprey 200 and 60; `teleport_distance` 600, `ordinal_spread` 36 | tier C, copied from the Hawk and Phoenix |
+| `hover` 20, `settle true` | both followers | tier C, B6 / B11 finding (art floats 40-110 px above its anchor, 1x1 placeholder frames) |
+| Eagle box / count / `attackAfter` | +-200 x +-150, one monster, 100 ms | tier A |
+| Frostprey box / count / `attackAfter` | +-100 x +-60, 4 monsters, 1440 ms; element `i` | tier A |
+| `pad` / lifetime by rank | Eagle 32 -> 100 and 112 -> 180 s, Frostprey 270 -> 500 and 122 -> 200 s (ranks 1-8 = WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30) | tier A |
+| Rarity bonuses | Crossbow Mastery / Marksman Boost damage x1.2; Eagle Eyes `area` x1.2; Cold Wings `count` +1; Second Eagle / Second Frostprey `summon_count` +1; Legendary adds damage x1.2; repeats x0.8 | tier C, first pass |
 
 ### Review #332 presentation extensions
 

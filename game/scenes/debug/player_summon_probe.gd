@@ -1,9 +1,17 @@
 extends Node
-## Tool-only summon art/performance probe: --shots=<absolute evidence dir> [--skill=elquines|ifrit|hawk|phoenix|summon_dragon|bahamut] [--life=<s>]
+## Tool-only summon art/performance probe: --shots=<absolute evidence dir> [--skill=elquines|ifrit|hawk|phoenix|eagle|frostprey|summon_dragon|bahamut] [--life=<s>]
 ## [--without-summon]. --job=<id> and --status=<name> override the skill job and summon priority status; --life=<s> shortens the
 ## ally's lifetime (a duration modifier) so a 20 s capture shows it expire. A Bishop book skill (230/231/232) runs as job 232.
 ## `--skill=hawk|phoenix` (spec #332 B6/B11, needs Skill.wz/311.img and 312.img in the cache) runs the shipped Silver Hawk or
-## Phoenix on a Bowmaster stand-in (job 312, held bow). Never saves a character.
+## Phoenix on a Bowmaster stand-in (job 312, held bow). `--skill=eagle|frostprey` (spec #360 MS9, needs Skill.wz/321.img and
+## 322.img) runs the shipped Golden Eagle or Frostprey on a Marksman stand-in (job 322, held crossbow). Never saves a character.
+
+## Probe name -> [skill key, book, job, weapon]: the shipped physical followers (Bowmaster's B11, Marksman's MS9).
+const FOLLOWERS := {
+	"hawk": ["silver_hawk", "311", 312, 1452051], "phoenix": ["phoenix", "312", 312, 1452051],
+	"eagle": ["golden_eagle", "321", 322, 1462001], "frostprey": ["frostprey", "322", 322, 1462001],
+}
+
 
 func _ready() -> void:
 	var shots := ""
@@ -18,7 +26,7 @@ func _ready() -> void:
 			shots = arg.trim_prefix("--shots=")
 		if arg.begins_with("--skill="):
 			skill = arg.trim_prefix("--skill=")
-			if skill in ["hawk", "phoenix"]:
+			if skill in FOLLOWERS:
 				follower = skill
 				skill = _key_of(follower)
 		if arg.begins_with("--job="):
@@ -46,7 +54,7 @@ func _ready() -> void:
 			var mark := status if status != "" else String(w.book.def(skill).get("summon", {}).get("priority_status", ""))
 			w.loadout.order.clear()
 			if enabled and follower != "":
-				_learn_follower(w, follower)
+				_learn_follower(w, follower, job)
 			elif enabled:
 				w.learn_skill(skill)
 				w.loadout.set_rank(skill, 8)
@@ -69,16 +77,16 @@ func _ready() -> void:
 	add_child(run)
 
 
-## The shipped Silver Hawk / Phoenix (skills/bowmaster.json) learned at rank 8 on a bow user (job 312 stand-in).
-func _learn_follower(w: RunWorld, which: String) -> void:
-	var key := _key_of(which)
-	var book := "311" if which == "hawk" else "312"
-	w.book.skill_imgs[book] = AssetLibrary.get_default().img("Skill.wz/%s.img" % book).root
-	w.set_job(312)
-	w.wear_new_item(1452051)
+## The shipped physical follower `which` learned at rank 8 on a stand-in of its job with the job's weapon held (`--job=<id>` overrides the stand-in's job).
+func _learn_follower(w: RunWorld, which: String, job_override := 0) -> void:
+	var row: Array = FOLLOWERS[which]
+	var key: String = row[0]
+	w.book.skill_imgs[row[1]] = AssetLibrary.get_default().img("Skill.wz/%s.img" % row[1]).root
+	w.set_job(job_override if job_override > 0 else int(row[2]))
+	w.wear_new_item(row[3])
 	w.learn_skill(key)
 	w.loadout.set_rank(key, 8)
 
 
 func _key_of(which: String) -> String:
-	return "silver_hawk" if which == "hawk" else "phoenix"
+	return FOLLOWERS[which][0]
