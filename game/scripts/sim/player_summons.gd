@@ -16,6 +16,11 @@ var definitions: Array[Dictionary] = []
 var offsets := PackedFloat32Array()
 ## Pulse countdowns of the summons whose definition carries `summon.support` (docs/GAME_DESIGN.md 7.67).
 var support := SupportSummons.new()
+## The `summon.behavior` entry points (spec #384 M9, docs/GAME_DESIGN.md 7.121): a definition without the key is the trailing
+## ally below. Each behaviour object owns what its allies do each tick (`spawn_slot`, `step_slot`); this seam owns the
+## lifecycle (spawn, expiry, replace, clear). A new behaviour adds a field here and one line in `_behavior`.
+var turret := SummonTurret.new()
+var kamikaze := SummonKamikaze.new()
 var _buf := PackedInt32Array()
 
 ## Test hook: number of allies still able to attack.
@@ -29,6 +34,7 @@ func living_count() -> int:
 ## Removes map-local allies while preserving the runner's cooldowns.
 func clear() -> void:
 	active.fill(0)
+	turret.clear()
 
 ## Calls allies using resolved rank stats; recasting replaces this skill's previous group.
 func spawn(world: RunWorld, st: Dictionary) -> void:
@@ -89,6 +95,9 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 		impact[i] = -1.0
 		if d.has("support_definition"):
 			support.begin(i, st.get("support", []), d.durations)
+		var behavior: Variant = _behavior(d)
+		if behavior != null:
+			behavior.spawn_slot(self, i, ordinal, world, d)
 		var spawned := {"skill": st.skill, "slot": i}
 		var sound := String(world.book.def(st.skill).get("sounds", {}).get("summon", ""))
 		if sound != "":
@@ -97,6 +106,7 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 
 ## Advances follow, windup, impact and expiry with fixed simulation ticks.
 func step(dt: float, world: RunWorld) -> void:
+	turret.step_balls(dt, world) # before the allies: a ball launched this tick first flies on the next one
 	for i in active.size():
 		if active[i] == 0:
 			continue
@@ -109,6 +119,10 @@ func step(dt: float, world: RunWorld) -> void:
 				impact[i] = -1.0
 			if age[i] >= float(d.durations.die):
 				active[i] = 0
+			continue
+		var behavior: Variant = _behavior(d)
+		if behavior != null:
+			behavior.step_slot(self, i, dt, world)
 			continue
 		var pulse_anim := support.step(i, dt, world) if d.has("support_definition") else ""
 		wait[i] -= dt
@@ -150,6 +164,15 @@ func step(dt: float, world: RunWorld) -> void:
 		impact[i] = float(d.info.get("attackAfter", 0.0)) / 1000.0
 		wait[i] = maxf(float(d.attack_interval), maxf(float(d.durations[d.attack]), impact[i]))
 		world.emit("summon_attack", {"skill": stats[i].skill, "slot": i, "pos": pos})
+
+## The behaviour object for a definition's `summon.behavior`, or null for the trailing ally.
+func _behavior(d: Dictionary) -> Variant:
+	match String(d.get("behavior", "")):
+		"turret":
+			return turret
+		"kamikaze":
+			return kamikaze
+	return null
 
 func _set_action(i: int, value: String) -> void:
 	if action[i] != value:
@@ -216,3 +239,24 @@ func _hit(i: int, world: RunWorld) -> void:
 			if world.swarm.active[targets[t]] == 0:
 				break
 			world.hit_mob(targets[t], st, world.visual_index(st.hit))
+
+
+## Entry points for the behaviours (SummonTurret, SummonKamikaze): they use the lifecycle and the strike this seam owns.
+## Plays animation node `value` from its first frame unless it is already playing.
+func set_action(i: int, value: String) -> void:
+	_set_action(i, value)
+
+
+## The attack node's box of ally i, feet-relative, scaled by the cast's `area`.
+func box(i: int) -> Rect2:
+	return _box(i)
+
+
+## The strike's target count before `count` modifiers (`info.mobCount`, or the opt-in `count_field`).
+func base_count(i: int, world: RunWorld) -> float:
+	return _base_count(i, world)
+
+
+## Hits ally i's attack box once, exactly as the trailing ally's strike does.
+func strike(i: int, world: RunWorld) -> void:
+	_hit(i, world)

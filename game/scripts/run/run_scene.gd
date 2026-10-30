@@ -162,6 +162,8 @@ var mob_layers := PackedInt32Array()
 var summon_renderer: PlayerSummonRenderer
 var shots: ProjectileRenderer
 var mob_shots: ProjectileRenderer
+## Turret summon balls (SummonTurret arrays, GAME_DESIGN 7.121), drawn like shots.
+var turret_shots: ProjectileRenderer
 ## The bolt art of the chain cast rule (skill_chain events).
 var chain_bolts: ChainBoltRenderer
 var drops: PickupRenderer
@@ -710,6 +712,9 @@ func _build_top_layer() -> void:
 	shots = ProjectileRenderer.new()
 	shots.library = library
 	_top.add_child(shots)
+	turret_shots = ProjectileRenderer.new()
+	turret_shots.library = library
+	_top.add_child(turret_shots)
 	mob_shots = ProjectileRenderer.new()
 	mob_shots.library = library
 	_top.add_child(mob_shots)
@@ -1916,6 +1921,7 @@ func _present(delta: float) -> void:
 		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers, mob_actions)
 	summon_renderer.update_from(world.runner.summons)
 	shots.update_from(world.projectiles, world.visual_paths, delta)
+	turret_shots.update_from(world.runner.summons.turret, world.visual_paths, delta)
 	mob_shots.update_from(world.mob_projectiles, world.visual_paths, delta)
 	drops.update_from(world.pickups, delta)
 	tags.update_from(world.swarm, world.mob_elite, _kind_names)

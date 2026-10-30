@@ -6811,6 +6811,52 @@ skill's `hit/0` the existing hit visual already draws, `info/effect` is drawn at
 (tier C: `effectAfter` is not modelled as a separate delay; the bolt art simply plays on the impact tick). Silver Hawk
 and Phoenix `Use` / `Summon` sounds are UOLs into 3211005 (Golden Eagle).
 
+### 7.121 Summon behaviours: turret and kamikaze (#389, spec #384 M9)
+
+`PlayerSummons` (7.32) owns the lifecycle of every player ally: spawn (`summon_count` spacing, a recast replaces the group),
+`time` expiry and the `die` animation, map-transfer clearing. A definition now may carry a `summon.behavior` string; each value
+names an object that owns what its allies do every tick (`spawn_slot`, `step_slot`). **No `behavior` key is Elquines' trailing
+ally exactly as before** (same state, same RNG stream; `test_player_summons`, `test_physical_followers`, `test_support_summons`
+and both F/P oracles are unchanged), and an unknown string also trails. The dispatch is one `_behavior(d)` match in
+`player_summons.gd`: a new behaviour adds one field and one `match` arm. Neither behaviour names a job, a skill or an id, and
+neither draws an RNG value beyond the damage rolls `RunWorld.hit_mob` already makes. Both read `watk_field pad`, `move`, `hover`
+and the other 7.44 keys through the shared spawn.
+
+- **`"turret"` (`SummonTurret`, the Corsair Octopus).** The ally is planted where it is called (the caster's feet,
+  `ordinal_spread` apart) and never follows or teleports. Its facing is the caster's at the cast and never turns. Targets are
+  the living monsters whose **body box touches** the circle of radius `info.range.r x area` around
+  `(x - sp.x x facing, y + sp.y)` (the WZ `sp` offset; left-facing art is the WZ native, so a right-facing turret mirrors the
+  x offset), nearest centre first (`RunWorld.targets_before`: scheduled bosses, and marked monsters once the mark lands, ahead
+  of the swarm), `mobCount` plus the `count` modifier of them. When one is in the circle the ally starts its attack animation;
+  `attackAfter` later the targets are chosen again and **one ball per target** leaves the circle centre at the target's body
+  centre at `info.bulletSpeed` px/s (a straight line, flight time = distance / speed; a ball launched on tick n first moves on
+  tick n + 1 and lands on tick n + ceil(flight / dt), `1e-6` s epsilon). The hit lands **on arrival** through `hit_mob` with the
+  stats of the cast that called the turret (a recast does not recall balls in the air); a target that died, or whose slot was
+  reused by another monster (`MobSwarm.identity`), in flight is skipped. Balls are pooled arrays on `PlayerSummons.turret` (`active
+  generation x y vx vy visual rotate`, cap 32, a launch past the cap is dropped); `run_scene` draws them with a second
+  `ProjectileRenderer` (art `<summon path>/<attack>/info/ball`, rotated to the heading), so there is no `turret_ball` event and
+  no per-ball Node. Balls are dropped with the allies on map transfer and while the caster is Hidden or dead (nothing is launched
+  and nothing in the air lands), then fire again when the caster is back.
+- **`"kamikaze"` (`SummonKamikaze`, the Corsair Gaviota).** Spawns beside the caster. Once its summon-in is over it picks the
+  **k-th nearest** living monster (k = its `summon_count` ordinal, 0-based; scheduled bosses, and marked monsters once the mark
+  lands, first, through `targets_before`) whose centre is within `info.range.r` of the **caster**, flies at `follow_speed` to
+  `hover` px above that monster's feet and, within the attack box's half-width (box x `area`) of that point, starts its attack
+  animation (it keeps flying after the same monster during the wind-up). At `attackAfter` it strikes exactly like the trailing
+  ally (`PlayerSummons.strike`: the feet-relative box on the facing side, `mobCount` or `count_field` plus `count` monsters, the
+  strike art), then `left` becomes 0: the usual `die` animation plays and the slot is freed (**single use**). It keeps the
+  monster it chose until that one dies or is recycled, then picks again; if none is in reach it trails the caster like a
+  follower, and the level `time` is the wait limit after which the ordinary expiry plays `die` with no hit (no refund). A
+  strike whose monster died during the wind-up lands where the bird hangs. Hidden or a dead caster pauses a wind-up and stops
+  new hunts. Cleared on map transfer with the other allies.
+- **Events and text.** Both reuse `summon_spawn` and `summon_attack` (the turret's `summon_attack` starts the attack, the
+  ball leaves `attackAfter` later) and `summon_strike` (a turret ball's `info/effect` art on the struck monster, `slot` -1).
+  `SkillText` adds one line for each behaviour ("Stays where it is called and fires a ball at monsters within N px";
+  "Dives once at a monster within N px of you, then is spent"), with the radius times the cast's `area`.
+- **Tests and probe.** `test_summon_behaviors.gd` (a synthetic Octopus and Gaviota with made-up skill ids 2129901 and 2129902 on
+  the F/P book, synthetic art; `both_world()` is also the probe's fixture) is the template later jobs copy. The tool probe
+  `scenes/debug/summon_behavior_probe.tscn -- --shots=<dir>` draws both with synthetic art through the real
+  `PlayerSummonRenderer` and `ProjectileRenderer` (no cache needed) and measures a ball's speed.
+
 ### 7.45 Bowmaster core arrows (#339, spec #332 B7)
 
 Arrow Blow, Double Shot and Arrow Bomb moved from `skills/bowman.json` to `skills/bowmaster.json` (same keys, same
@@ -10061,3 +10107,23 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 ### Buccaneer review corrections (#412)
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
+
+### Corsair C5 constants (#389)
+
+Provisional heading: nested under C2's Corsair section once it exists. The section is 7.121.
+
+| Rule | Value | Tier |
+|---|---|---|
+| `summon.behavior` dispatch (#389) | a string naming a behaviour object (`turret`, `kamikaze`); absent or unknown is the trailing ally | C, ours (spec #384 M9) |
+| Turret circle centre (#389) | `(x - sp.x x facing, y + sp.y)`, `sp` read from the attack node's `info.range`; left-facing art is native (the spec's `x + sp.x x facing` taken with the WZ facing convention) | C |
+| Turret target test (#389) | a body box whose nearest point to the centre is within `r x area`; nearest body centre first; `mobCount` plus `count` targets, one ball each | C |
+| Turret facing (#389) | the caster's at the cast; it never turns | C |
+| Ball path (#389) | a straight line from the circle centre to the target's body centre at the moment of launch at `info.bulletSpeed` px/s; no hit test on the way; lands on that monster on arrival | C (WZ gives `ball` and `bulletSpeed`: A) |
+| Ball landing epsilon (#389) | flight time left <= 1e-6 s lands (the same epsilon the trailing ally's windup uses) | C |
+| Dead or recycled target in flight (#389) | skipped (compared by `MobSwarm.identity`) | C |
+| Ball cap (#389) | 32 in the air (`SummonTurret.MAX_BALLS`); a launch past it is dropped | C |
+| Hidden or dead caster (#389) | nothing launches and balls in the air are dropped | C |
+| Kamikaze reach (#389) | `info.range.r` px from the caster (not scaled by `area`); the k-th nearest for ordinal k, the farthest in reach when fewer monsters than k + 1 | C |
+| Kamikaze approach (#389) | straight line at `follow_speed` to `hover` px above the target's feet; the dive starts within the box's half-width (x `area`) of that point; the bird follows its monster during the wind-up | C |
+| Kamikaze target lock (#389) | keeps its monster until it dies or is recycled, then picks again | C |
+| Kamikaze single use (#389) | one strike at `attackAfter` (a miss is spent too), then `die` and the slot is freed; nothing in reach: waits like a follower until `time` and expires with no hit | C (spec #384) |
