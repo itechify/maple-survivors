@@ -4871,6 +4871,25 @@ gear-matched class ranking.
 Job 512: tier-1 clears 8/24; first boss reached 23/24. Job 112: tier-1 clears 3/24; first boss reached 20/24. Job
 212: tier-1 clears 0/24; first boss reached 24/24. Job 222: tier-1 clears 0/24; first boss reached 24/24.
 
+**Late-band equipment smoke (#474, 2026-10-30).** #474 lists more equipment, and its Lv35-40 Warrior and Pirate armour also
+enters Sleepywood's [30, 40] pool (the earlier lists had no Warrior or Pirate class armour; the Warrior had weapons and shields).
+`balance.sh 1 2 2026 --stage=sleepywood` (`JOBS=2`, private cache, no tuning, no held-out seeds), with a control of the same
+commands on the spec-branch tip without the new data. 15 records: **no crashes, world warnings or missing assets**.
+Henesys, Ellinia, Perion and Kerning were not rerun (their bands have no new items below Lv41, and their pools are unchanged).
+
+| Sleepywood (3 seeds) | Result | Control (spec tip) |
+|---|---|---|
+| F/P starter, bot | 0/3 C; D 11.4-15.1 | not run (no equipment dropped before the deaths) |
+| F/P starter, random | 0/3 C; D 11.4-13.0 | not run |
+| F/P `fp_arch_mage.json`, bot | 1/3 C; D 23.8, 767.0 | identical record |
+| F/P `fp_arch_mage.json`, random | 1/3 C; D 14.3, 810.6 | identical record |
+| Hero (112) `hero_t2.json`, bot | 2/3 C; D 685.2 | 1/3 C; D 877.1, 904.5 |
+
+The Magician pool is unchanged below Lv41, so F/P reproduces the control exactly. Hero's seeds differ because the shifted drop
+pool changes which items its seeded rolls give; that is three seeds of a diagnostic fixture, not a balance claim. Against the
+older smoke above (the F/P kit 2/3 C, Hero 1/3 C) the F/P shift comes from the spec branch's earlier changes, since the control
+reproduces it. The starter runs die within 15 s, before any equipment drops.
+
 Buccaneer Henesys bot filled six actives in 3/3 runs at 130.4–205.1 s; its deaths 319.6/626.9 and clear 1036.8
 reproduce BC11 (rounded there). Sleepywood early deaths are recorded without tuning or stopping, as explicitly
 requested by the owner. F/P and Hero Henesys bot outcomes reproduce the BC2–BC11 smoke; the full other-job matrix
@@ -8557,8 +8576,10 @@ ordinary item is an ordinary v83 shop or drop item by its Character.wz facts: no
 than 1 mesos (price 1 marks boss, quest and PQ rewards); named in String.wz; no `GMS ...` item (tier C: those have no
 known v83 source). Armour keeps one piece per slot, reqJob, reqLevel and gender (colour variants collapse); weapons keep
 every item. Capes are not listed (the Equip window has no cape slot). The files are `common` (reqJob 0 armour), `warrior`,
-`magician`, `bowman`, `thief` and `pirate` (a multi-class armour piece goes to the lowest class bit; daggers and claws are
-Thief, bows and crossbows Bowman, knuckles and guns Pirate, wands and staves Magician). New items start at reqLevel 41, so
+`magician`, `bowman`, `thief` and `pirate` (a weapon goes to the file of its family: daggers and claws Thief, bows and crossbows Bowman, knuckles and guns Pirate,
+wands and staves Magician, the rest Warrior, whatever its reqJob, so the four reqJob 9 daggers 1332022, 1332026, 1332049 and
+1332051 are in `thief.json` beside the reqJob 9 daggers it already held; an armour piece goes to the lowest class bit of its
+reqJob, and no new armour piece has more than one). New items start at reqLevel 41, so
 the Sleepywood pool (band [30, 40]) only changes where it was empty: Warrior and Pirate armour of reqLevel 35-40 was added
 because the step-6 band [35, 45] would otherwise have had none (the earlier lists named no Warrior or Pirate class armour at all).
 
