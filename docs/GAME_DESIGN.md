@@ -32,7 +32,8 @@ Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in
 | Equipment | Job-class requirement only. `reqLevel` is the region's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
 | Account | NX, Cash Shop, pets unchanged. Cash equipment adds Fortune. | 8.4 |
 
-Order: the F/P Arch Mage slice, then Hero, then the other ten jobs, a tier rework (fewer starting choices), and last
+Order: the F/P Arch Mage slice, then Hero, then the other ten jobs, the progression rework (spec #447, ADR 0007: this was
+the tier rework, fewer starting choices, and one region open at the start), and last
 the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pass pacing (tier C) but don't tune.
 
 **Landed in the F/P slice (spec #282):**
@@ -57,11 +58,12 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
   Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
   jobs (Hero 112, Dark Knight 132, Bishop 232, Paladin 122 and Arch Mages 212/222), whose `creation_weapon` is the weapon worn; the look page's weapon row is no longer chosen.
-  Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
-  tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
+  Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every region of the
+  progression (a locked region greyed, not startable; ADR 0007 replaced the two tiers); `start_round` writes nothing; every round ends in `finish_run` (one
   `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
-  the hub. Clearing any stage of tier N unlocks tier N+1 for that character (`CharacterSnapshot.unlocked_after_round`);
-  tier 1 is always open; cleared tiers can be replayed. There is no permadeath: death ends the round, never the
+  the hub. Clearing a region (its map 3 boss dead, CLEARED) unlocks the next one for that character
+  (`CharacterSnapshot.cleared_after_round`, ADR 0007; ADR 0006's "clearing any stage of tier N unlocks tier N+1" is superseded);
+  Henesys is always open; cleared regions can be replayed. There is no permadeath: death ends the round, never the
   character, and only deletion frees a slot. Quit round is a death in every respect (its history ending is `quit`).
   A format-1 or format-2 save moves its characters to the history (`retired`) on load, unmigrated; bests, counts, the
   account and old history carry over. Tool files (`--character`, `--hub`, fixtures) of format 1 and 2 still load, reduced
@@ -75,7 +77,7 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
 - **#289 (T7): the nine common passives** (section 8.5).
 - **#290 and #291 (T8, T9): the twelve-skill F/P pool.** Explosion, Poison Mist, Element Composition, Fire Demon, Paralyze,
   Meteor Shower, Big Bang (7.31) and the generic player-summon seam with Elquines (7.32).
-- **#292 (T10): equipment without level or stat requirements, tier drop bands, job weapon families.**
+- **#292 (T10): equipment without level or stat requirements, drop bands, job weapon families.**
   `Equipment.requirement_error` checks only `reqJob`; `reqLevel` and `reqSTR/DEX/INT/LUK` are ignored by equipping, the
   pickup auto-wear (#222) and the bot shop, and the Equip/Item tooltip has no REQ rows (its job row stays).
   `stages.json` `drop_bands[i]` was the `reqLevel` band of tier i ([0, 30], [30, 60]); since #450 each stage carries its
@@ -608,8 +610,10 @@ block and compares the event logs).
 
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
 labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
-aliases; living slots, bests, history and run snapshots migrate on load. The tier list is
-`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253).
+aliases; living slots, bests, history and run snapshots migrate on load. The unlock order is the `progression` list
+(henesys, ellinia, perion, kerning, sleepywood; ADR 0007, #450). The former tier list was
+`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253); "tier 1 stages" in
+older records below, in the smoke and in the job-loop tickets mean the first four regions.
 
 | Stage key | Map 1 | Map 2 | Map 3 | Boss order |
 |---|---|---|---|---|
@@ -8540,9 +8544,10 @@ every constant, with its tier, is in section 11 under the tables named below):
    character and lost with the run. ("Meso rule", section 11.)
 2. **Equipment** drops from kills (0.2% per ordinary kill, two guaranteed from each boss): a v83 hat, top, bottom,
    overall, shoes, gloves, shield or weapon that the character's job class can wear, with v83's random stat rolls. Since
-   #292 a drop never depends on the character's level or the weapon it holds: the stage's tier fixes a `reqLevel` band
-   (`stages.json` `drop_bands`: tier 1 [0, 30], tier 2 [30, 60]) that an ordinary drop lies in (uniform among the
-   eligible items) and a boss drop lies in the top third of (tier 1: Lv 20-30, tier 2: Lv 50-60). A weapon drops only
+   #292 a drop never depends on the character's level or the weapon it holds: the stage's `drop_band` (ADR 0007, #450:
+   Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40]; ADR 0006's tier bands
+   [0, 30] and [30, 60] are superseded) is the `reqLevel` band that an ordinary drop lies in (uniform among the
+   eligible items) and a boss drop lies in the top third of (Henesys Lv 10-15 ... Sleepywood Lv 36-40). A weapon drops only
    when it belongs to one of the job's weapon families (`survivor/jobs/<line>.json` `weapon_families`; 212: wand and
    staff). Equipment has no level or stat requirement to wear; only the item's job class (`reqJob`) is checked, by the
    Equip and Item windows, the auto-wear and the bot shop alike. It goes to the
@@ -8562,8 +8567,8 @@ every constant, with its tier, is in section 11 under the tables named below):
 6. Mesos, worn equipment, the Equip tab and scrolls stay with the character (ADR 0006, #292): `CharacterSnapshot` hands
    them back after a clear, a death or a Quit round with whatever the round picked up, and the save file keeps them
    (format 3). A round always starts at Lv1, so the gear it wears is whatever the character already owns.
-7. Bots follow the same rules (`BotShop`): they wear the best item they own and visit the shops between tiers of a
-   `balance.sh --chain=N` run. ("Bot shopping rule".)
+7. Bots follow the same rules (`BotShop`): they wear the best item they own and visit the shops between the regions of a
+   `balance.sh --chain=N` run (ADR 0007, #454). ("Bot shopping rule".)
 
 Verified by the `shops`, `scrolls`, `botshop` and `redesign` flow scenarios (AGENTS.md; the old `economy` scenario was retired in #294) and by the combined regression smoke in 4.2
 "Spec #33 / #113". The numbers above are first-pass and are not tuned: equipment per round measured 5-7 against the

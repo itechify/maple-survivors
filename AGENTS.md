@@ -187,6 +187,13 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
   scenario plays its own card policy once the slots are full (it ranks the highest-ranked owned active so a Mastery card
   appears; the bot rarely gets there, GAME_DESIGN section 0); `summary.json` holds the offers, picks, rarities and the
   showcased windows. This is flow evidence, not survival or balance evidence.
+- `progression` (#455, spec #447, ADR 0007; about 6 minutes; `--seed`, default 1, `--job=<id>`, default 212): the region progression on
+  injected input. A new character can start only Henesys (a locked Ellinia and its Start refused) -> a diagnostic invulnerable
+  Henesys clear (fixed-tick bot warp, boss hits after each timer) -> map select: Henesys CLEAR, Ellinia NEW and selected by
+  default -> the same for Ellinia, Perion unlocked, Kerning still locked -> Save & quit, character select, Continue: the
+  cleared set survives -> a Perion round and a lethal hit: the set is unchanged -> the slot swapped for a `HubTestKit`
+  all-cleared character: "Regions cleared 5/5", nothing locked. Shots `NN_progression_*.png`, `summary.json`; diagnostic flow
+  evidence, not survival evidence.
 - `creation` (#305, #330: the Job page and creation of every playable job, or of `--jobs=<id,id>` such as `--jobs=212,232`, in separate slots (**three slots only: with more than three playable jobs the default stalls on the fourth, so pass three or fewer**, e.g. `--jobs=212,512`): the page lists
   them in canonical order, the chosen row is highlighted, each slot holds its job with its creation weapon; about 30 s).
   There are three slots, so with four playable jobs (Hero, Paladin, F/P, I/L) the default stalls on the fourth: pass three or fewer
