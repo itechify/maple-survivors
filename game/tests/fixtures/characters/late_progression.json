@@ -1,0 +1,117 @@
+{
+	"_doc": {
+		"by": "spec449/ticket-474",
+		"extra_cleared": [
+			"ludibrium",
+			"omega_sector",
+			"korean_folk_town",
+			"mu_lung",
+			"el_nath",
+			"magatia",
+			"zipangu",
+			"leafre",
+			"phantom_forest",
+			"clocktower"
+		],
+		"job": 112,
+		"kit": [
+			1302059,
+			1092060,
+			1002551,
+			1052075,
+			1072273,
+			1082168
+		],
+		"note": "Synthetic format-3 kit (tools/character_fixture.gd --kit): the Blue Dragon set and a Dragon Carabella, unscrolled canonical equipment of the step-15 drop band (reqLevel 100-110, #447 table), with 15 regions cleared (the whole progression up to the Ludibrium Clocktower, so the Temple of Time is open); no cash, pet or carried build; a Lv1 Hero for the late-progression checks (spec #449 C12, #474).",
+		"revision": "8ada15738e79e95725a53f057397cc40e3055b70"
+	},
+	"cleared_regions": [
+		"clocktower",
+		"el_nath",
+		"ellinia",
+		"henesys",
+		"kerning",
+		"korean_folk_town",
+		"leafre",
+		"ludibrium",
+		"magatia",
+		"mu_lung",
+		"omega_sector",
+		"perion",
+		"phantom_forest",
+		"sleepywood",
+		"zipangu"
+	],
+	"equipment": {
+		"inventory": [],
+		"worn": {
+			"gloves": {
+				"id": 1082168,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incDEX": 3,
+					"incMMP": 20,
+					"incPDD": 46,
+					"incSTR": 6
+				}
+			},
+			"hat": {
+				"id": 1002551,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 110,
+					"incSTR": 5
+				}
+			},
+			"overall": {
+				"id": 1052075,
+				"scrolls": 0,
+				"slots": 10,
+				"stats": {
+					"incACC": 3,
+					"incDEX": 6,
+					"incPDD": 180,
+					"incSTR": 8
+				}
+			},
+			"shield": {
+				"id": 1092060,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incDEX": 4,
+					"incEVA": 5,
+					"incMDD": 30,
+					"incPDD": 78,
+					"incSTR": 7
+				}
+			},
+			"shoes": {
+				"id": 1072273,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incACC": 1,
+					"incDEX": 3,
+					"incPDD": 72,
+					"incSTR": 5
+				}
+			},
+			"weapon": {
+				"id": 1302059,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 103
+				}
+			}
+		}
+	},
+	"format": 3,
+	"job_id": 112,
+	"look": {},
+	"mesos": 0,
+	"scrolls": {}
+}

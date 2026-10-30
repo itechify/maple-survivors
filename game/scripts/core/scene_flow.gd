@@ -275,6 +275,9 @@ func start_run(stage_key: String, p_seed: int = -1, options: Dictionary = {}) ->
 ## {character, mesos[, job]} (a `job` the character is not of opens the error screen). The character (plus the test kit) goes into slot 0 of a throwaway save at `save_path`, recreated
 ## now, and is continued as in real play; user://save.json is never read or written.
 func start_hub(request: Dictionary, save_path: String = HubTestKit.SAVE_PATH) -> void:
+	if request.has("error"):
+		_swap_to(error_screen("--hub: " + String(request.error)), "error")
+		return
 	var loaded := HubTestKit.load_character(String(request.get("character", HubTestKit.default_character())),
 		equipment_info_loader())
 	if not String(loaded.error).is_empty():

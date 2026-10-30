@@ -70,9 +70,9 @@ func test_auto_ap_meets_every_shipped_bowman_weapon_requirement_by_its_level() -
 			continue
 		var img := lib.img(AvatarRenderer.part_img_path(id))
 		assert_true(img != null, "canonical requirements for %d" % id)
-		if img != null:
+		if img != null and int(img.root.info.get("reqLevel", 0)) <= 70: # this test levels to 70; the late bands (#474) go to 110
 			infos[id] = img.root.info
-	assert_eq(infos.size(), 22, "every shipped bow and crossbow is checked")
+	assert_eq(infos.size(), 22, "every shipped bow and crossbow up to Lv70 is checked")
 	for branch in [300, 310, 320]:
 		var setup := _world().setup.duplicate(true)
 		setup.equipment_info.merge(infos, true)

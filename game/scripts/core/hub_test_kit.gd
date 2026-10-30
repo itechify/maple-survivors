@@ -3,7 +3,10 @@ extends RefCounted
 ## The tool-only `--hub` flag: open the real Free Market (910000000) with a test character, so the spec #33 scroll shops
 ## can be tried by hand without playing a round:
 ##
-##   bash scripts/run.sh -- --hub [--job=<id>] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]
+##   bash scripts/run.sh -- --hub [--job=<id>] [--late] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]
+##
+## `--late` opens the job's late-progression fixture (hub_kit `late_fixture`, spec #449 C12 #474: band-15 equipment, every region
+## cleared) instead of its tier-2 one; a job without one is an error screen. An explicit `--character` wins over both.
 ##
 ## Nothing here touches the player's real save (user://save.json): SceneFlow.start_hub puts the character into a slot of
 ## a throwaway save file (SAVE_PATH, recreated on every launch) and continues it, so the hub behaves exactly as in real
@@ -57,7 +60,11 @@ static func parse_args(list: PackedStringArray) -> Dictionary:
 	var mesos := DEFAULT_MESOS
 	if flags.has("mesos") and String(flags.mesos).is_valid_int():
 		mesos = maxi(0, int(flags.mesos))
-	out["character"] = path if path != "" and path != "1" else String(_kit(job).get("fixture", ""))
+	var late := flags.has("late") and String(flags.late) != "0"
+	var kit_key := "late_fixture" if late else "fixture"
+	out["character"] = path if path != "" and path != "1" else String(_kit(job).get(kit_key, ""))
+	if late and out.character == "":
+		out["error"] = "--late: job %d has no late-progression fixture (hub_kit late_fixture)" % job
 	out["mesos"] = mesos
 	return out
 

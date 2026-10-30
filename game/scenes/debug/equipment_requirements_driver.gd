@@ -2,7 +2,7 @@ extends Node
 ## Visual probe for #292: the Lv1 Free Market (the real `--hub` kit with the Lv38 F/P fixture's gear) with the Equip and Item
 ## windows open and a hovered item tooltip, then a scroll shop, to check by eye that no REQ LEV / STR / DEX / INT / LUK row
 ## is drawn and that gear above Lv1 can be worn. Run: ISOLATE=292 bash scripts/run.sh
-## res://scenes/debug/equipment_requirements_driver.tscn -- --shots=<absolute evidence path>. Needs the asset cache; no
+## res://scenes/debug/equipment_requirements_driver.tscn -- --shots=<absolute evidence path> [--hub --job=112 --late] (#474). Needs the asset cache; no
 ## proprietary screenshot belongs in git.
 
 var flow: SceneFlow
@@ -22,7 +22,8 @@ func _ready() -> void:
 	flow.host = Node.new()
 	add_child(flow.host)
 	add_child(flow)
-	flow.start_hub({}, shots.path_join("driver_hub_save.json"))
+	# `--hub [--job=<id>] [--late] [--character=<abs JSON>]` opens that character's hub (HubTestKit) instead of the default one
+	flow.start_hub(HubTestKit.parse_args(OS.get_cmdline_user_args()), shots.path_join("driver_hub_save.json"))
 	await _sleep(2.0)
 	var hub: Node = flow.current
 	print("equipment_requirements_driver: screen=%s level=%d" % [flow.current_name, hub.inventory.progression.level])
