@@ -3,11 +3,11 @@ extends Node2D
 ## WORLD_SELECT without the Neo City promo, BGM BgmUI/WCSelect); the world-select scroll (ParchmentScroll) unrolls from
 ## the rolled scroll hanging on the rod and lists the stages of game/data/survivor/stages.json.
 ##
-## Left column: one entry per stage of EVERY tier, in tier order, with its map mark (Map.wz/MapHelper.img/mark/<info/mapMark>)
-## and its region (stages.json `region`: Henesys, Ellinia, Sleepywood; #221). Four cards fit; the list scrolls with the
-## selection and the mouse wheel. The stages of a tier the character has not unlocked (its `tiers_unlocked`, #286) are shown
-## greyed and cannot be started: the details say what unlocks them. Right column, for the selected stage: region and
-## continent, its tier, the objective, the best result from SaveData and the ordered maps with their bosses (String.wz names).
+## Left column: one entry per region of the progression (stages.json `progression`, ADR 0007), in order, with its map mark
+## (Map.wz/MapHelper.img/mark/<info/mapMark>) and its region (stages.json `region`: Henesys, Ellinia, Sleepywood; #221). Four
+## cards fit; the list scrolls with the selection and the mouse wheel. The regions the character has not unlocked (its
+## `cleared_regions`, #450) are shown greyed and cannot be started: the details say what unlocks them. Right column, for the
+## selected stage: region and continent, its step in the progression, the objective, the best result from SaveData and the ordered maps with their bosses (String.wz names).
 ## Buttons: Start (Login.img/CharSelect/
 ## BtSelect) on the parchment, Back (Login.img/Common/BtStart, the "Back" banner) at the bottom-left of the book and the
 ## v83 status-bar CASH SHOP button (StatusBar.img/BtShop, #118) beside it.
@@ -25,7 +25,7 @@ const LIST_X := 46.0
 const LIST_W := 176.0
 const ENTRY_H := 46.0
 ## The most region cards the list shows at once: four 46 px rows from the parchment top end exactly where the Start button
-## begins (tier C, spec #253). More stages scroll (tier C, #286: tier 1 has four regions, tier 2 one).
+## begins (tier C, spec #253). More stages scroll (tier C, #286).
 const MAX_CARDS := 4
 const DETAIL_X := 234.0
 const DETAIL_W := 232.0
@@ -33,7 +33,7 @@ const MAP_ROW_GAP := 6.0 # tier C: compact map/boss groups on the v83 parchment;
 const INK := Color8(102, 51, 0)
 const INK_SOFT := Color8(136, 85, 34)
 const INK_RED := Color8(170, 34, 0)
-const INK_LOCKED := Color8(150, 134, 112) # tier C: ours, the parchment ink faded for a locked tier
+const INK_LOCKED := Color8(150, 134, 112) # tier C: ours, the parchment ink faded for a locked region
 
 var backdrop: LoginBackdrop
 var scroll: ParchmentScroll
@@ -71,7 +71,7 @@ func _ready() -> void:
 	if flow == null:
 		flow = get_node_or_null("/root/Flow") as SceneFlow
 	save = flow.save_data() if flow != null else SaveData.new()
-	stages = load_all_tiers(DataRepo.load_all(), int(snapshot.get("character", {}).get("tiers_unlocked", 1)))
+	stages = load_progression(DataRepo.load_all(), snapshot.get("character", {}).get("cleared_regions", []))
 	var layer := CanvasLayer.new()
 	layer.layer = 2
 	add_child(layer)
@@ -115,14 +115,14 @@ func _ready() -> void:
 	scroll.unroll()
 
 
-## Stage infos from the loaded data (DataRepo.load_all()) in stages.json order.
-static func load_stages(data: Dictionary, tier: int = -1) -> Array[Dictionary]:
+## Stage infos from the loaded data (DataRepo.load_all()): those of `only` in that order, every stage in stages.json order
+## when it is empty.
+static func load_stages(data: Dictionary, only: Array = []) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var all: Dictionary = data.get("stages", {}).get("stages", {})
 	var keys: Array = all.keys()
-	if tier >= 0:
-		var ordered: Array = data.get("stages", {}).get("tiers", [])
-		keys = ordered[tier] if tier < ordered.size() else []
+	if not only.is_empty():
+		keys = only.filter(func(key: String) -> bool: return all.has(key))
 	for key: String in keys:
 		var st: Dictionary = all[key]
 		var map_id := int(st.get("maps", [{}])[0].get("map_id", 0))
@@ -144,8 +144,8 @@ static func load_stages(data: Dictionary, tier: int = -1) -> Array[Dictionary]:
 			var boss_name := library.string_name("Mob", boss_id).strip_edges() if library != null else ""
 			map_rows.append("%s → %s" % [map_name if map_name != "" else str(id),
 				boss_name if boss_name != "" else str(boss_id)])
-		out.append({"key": key, "map_id": map_id, "tier": maxi(tier, NxAward.tier_of(data.get("stages", {}), key)),
-			"locked": false,
+		out.append({"key": key, "map_id": map_id, "step": NxAward.step_of(data.get("stages", {}), key),
+			"locked": false, "cleared": false, "previous": "",
 			"region": String(labels.region),
 			"continent": String(labels.continent),
 			"mark": mark,
@@ -156,15 +156,21 @@ static func load_stages(data: Dictionary, tier: int = -1) -> Array[Dictionary]:
 	return out
 
 
-## Every stage of every tier in tier order; those of a tier beyond the `tiers_unlocked` first ones are marked locked.
-static func load_all_tiers(data: Dictionary, tiers_unlocked: int) -> Array[Dictionary]:
+## Every region of the progression in order. Each card carries its `step` (0-based), `locked` (not unlocked by the
+## `cleared` keys), `cleared` and, for a locked one, `previous`: the region name that unlocks it.
+static func load_progression(data: Dictionary, cleared: Array) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	var ordered: Array = data.get("stages", {}).get("tiers", [])
-	for tier in ordered.size():
-		for card in load_stages(data, tier):
-			card["tier"] = tier
-			card["locked"] = tier >= maxi(1, tiers_unlocked)
-			out.append(card)
+	var ordered: Array = data.get("stages", {}).get("progression", [])
+	var open := CharacterSnapshot.unlocked_keys(ordered, cleared)
+	var cards := load_stages(data, ordered)
+	for card in cards:
+		var step := ordered.find(card.key)
+		card["step"] = step
+		card["locked"] = card.key not in open
+		card["cleared"] = card.key in cleared
+		if bool(card.locked) and step > 0:
+			card["previous"] = DataRepo.stage_labels(data.get("stages", {}), String(ordered[step - 1])).region
+		out.append(card)
 	return out
 
 
@@ -321,10 +327,10 @@ func _draw_details(ci: Control, st: Dictionary) -> void:
 	MapleText.draw(ci, Vector2(x, y), MapleText.ellipsize(String(st.region), DETAIL_W, MapleText.SIZE, true), INK,
 		MapleText.SIZE, true)
 	y += 16.0
-	MapleText.draw(ci, Vector2(x, y), "%s / Tier %d" % [st.continent, int(st.tier) + 1], INK_SOFT, MapleText.SMALL)
+	MapleText.draw(ci, Vector2(x, y), "%s / Region %d" % [st.continent, int(st.step) + 1], INK_SOFT, MapleText.SMALL)
 	y += 18.0
 	if bool(st.locked):
-		for line: String in MapleText.wrap(locked_text(int(st.tier)), DETAIL_W, MapleText.SMALL, true):
+		for line: String in MapleText.wrap(locked_text(String(st.previous)), DETAIL_W, MapleText.SMALL, true):
 			MapleText.draw(ci, Vector2(x, y), line, INK_RED, MapleText.SMALL, true)
 			y += MapleText.LINE_SMALL
 		y += MAP_ROW_GAP
@@ -346,9 +352,9 @@ func _draw_details(ci: Control, st: Dictionary) -> void:
 		y += MAP_ROW_GAP
 
 
-## What unlocks a tier ("" for tier 1, which is always open).
-static func locked_text(tier: int) -> String:
-	return "Locked. Clear any stage of Tier %d to unlock Tier %d." % [tier, tier + 1]
+## What unlocks a region: clearing the previous one (A2, #451, names its last boss).
+static func locked_text(previous_region: String) -> String:
+	return "Locked. Clear %s to unlock." % previous_region
 
 
 ## The best-result line of the details column.
