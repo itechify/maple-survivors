@@ -26,6 +26,10 @@ extends Node2D
 ## morph's own frame for the matching action, origin at the feet, and the avatar returns when it ends. A stance whose name
 ## is a node of the morph img draws that node (the Buccaneer morphs carry the skills' action names, #415); any other
 ## stance keeps the MORPH_ACTIONS mapping, which shows the morph standing for an attack the morph has no art for.
+## A mount (set_mount, the Corsair's Battleship 1932000, spec #384 M20) draws MountLayers around the avatar: its rear canvas
+## under every avatar layer, its front canvas over them, the rider seated on it (`sit`, or the named cast stance) with its
+## navel on the mount's; the whole group mirrors with the facing. Without a mount nothing here runs and the draw is the
+## plain avatar's. A morph and a mount do not combine: the mount is not drawn while the character is morphed.
 ## WZ art faces left; facing = 1 mirrors around the character origin.
 
 ## tier C: random interval between blinks, seconds.
@@ -64,6 +68,9 @@ var missing: PackedStringArray = []
 ## The Morph.wz id the character is drawn as (0 = the avatar) and its img (null when 0 or not in the cache).
 var morph_id := 0
 var _morph: WzImg
+## The mount drawn around the avatar (null without one) and its Character.wz/TamingMob id (0 without one).
+var mount_id := 0
+var _mount: MountLayers
 var _body: WzImg
 var _head: WzImg
 var _face: WzImg
@@ -156,6 +163,29 @@ func set_morph(id: int) -> void:
 	play(_requested, true, looping)
 
 
+## Draws the character seated on taming mob `id` (Character.wz/TamingMob/<id>.img; 0 = no mount). An image that is not in
+## the cache keeps the plain avatar and lists the path in `missing`.
+func set_mount(id: int) -> void:
+	if id == mount_id:
+		return
+	mount_id = id
+	_mount = null
+	if id > 0:
+		var art := MountArt.load_mount(_lib(), id)
+		if art.is_empty():
+			if not (art.path in missing):
+				missing.append(art.path)
+			mount_id = 0
+		else:
+			_mount = MountLayers.new(art)
+	play(_requested, true, looping)
+
+
+## The mount layers (null without a mount): its stance, frame and layout.
+func mount_layers() -> MountLayers:
+	return _mount
+
+
 ## The Morph.wz action played for avatar stance `s` when the morph has no node of that name.
 static func morph_action(s: String) -> String:
 	return String(MORPH_ACTIONS.get(s, "stand"))
@@ -175,6 +205,8 @@ func morph_stance(s: String) -> String:
 ## already playing stance; `loop` = false holds the last frame.
 func play(p_stance: String, restart: bool = false, loop: bool = true) -> void:
 	_requested = p_stance
+	if _mount != null and _morph == null and _mount.request(p_stance, restart):
+		queue_redraw()
 	p_stance = weapon_stance(p_stance)
 	if p_stance == stance and not restart and not _delays.is_empty():
 		looping = loop
@@ -220,6 +252,8 @@ func set_facing(dir: int) -> void:
 ## Advances the stance and face animations by `dt` seconds (redraws only when a frame changes).
 func advance(dt: float) -> void:
 	stance_time += dt
+	if _mount != null and _morph == null and _mount.advance(dt):
+		queue_redraw()
 	var i := frame_at(_delays, stance_time, looping)
 	if i != frame_index:
 		frame_index = i
@@ -245,10 +279,18 @@ func advance(dt: float) -> void:
 		queue_redraw()
 
 
-## The stance to play for `s`: the held weapon's stand / walk variant for the generic "stand1" / "walk1", else `s`.
+## The stance to play for `s`: the held weapon's stand / walk variant for the generic "stand1" / "walk1", else `s`. On a
+## mount (MountLayers.rider_stance) the rider sits, or plays the named cast.
 func weapon_stance(s: String) -> String:
 	if _morph != null:
 		return morph_stance(s)
+	if _mount != null:
+		s = MountLayers.rider_stance(s)
+	return weapon_stance_of(s)
+
+
+## The held weapon's stand / walk variant for the generic "stand1" / "walk1", else `s`.
+func weapon_stance_of(s: String) -> String:
 	if s == "stand1":
 		return WeaponInfo.stand_stance(_weapon_info)
 	if s == "walk1":
@@ -518,15 +560,44 @@ static func _is_blank_canvas(frame: Variant) -> bool:
 
 func _draw() -> void:
 	var parts := current_parts()
+	var mount := visible_mount()
 	if facing > 0:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(-1, 1))
-	for p: Dictionary in parts:
-		var f: SpriteFrame = p.frame
-		if f.page == null:
-			continue
-		draw_texture_rect_region(f.page, Rect2(p.pos - f.origin, f.region.size), f.region, weapon_tint if bool(p.get("weapon", false)) else Color.WHITE)
+	if mount != null:
+		for item: Dictionary in mounted_draw_list(parts, mount):
+			var f: SpriteFrame = item.frame
+			if f.page != null:
+				draw_texture_rect_region(f.page, Rect2(item.pos - f.origin, f.region.size), f.region, item.modulate)
+	else:
+		for p: Dictionary in parts:
+			var f: SpriteFrame = p.frame
+			if f.page == null:
+				continue
+			draw_texture_rect_region(f.page, Rect2(p.pos - f.origin, f.region.size), f.region, weapon_tint if bool(p.get("weapon", false)) else Color.WHITE)
 	if facing > 0:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## The mount layers when one is drawn now (set, not morphed, and showing a frame: not while climbing), else null.
+func visible_mount() -> MountLayers:
+	return _mount if _mount != null and _morph == null and _mount.is_visible() else null
+
+
+## The draw list of a mounted frame, back to front, unflipped (the facing mirrors the whole list about the origin):
+## [{"layer": "mount_rear" | "avatar" | "mount_front", "frame": SpriteFrame, "pos": Vector2 (where the canvas' origin goes),
+## "modulate": Color}]. The rear canvas goes under every avatar part and the front canvas over them; the avatar's parts
+## keep their own order and sit at `rider_offset` (the mount's navel minus the body's) from their usual place.
+func mounted_draw_list(parts: Array, mount: MountLayers) -> Array:
+	mount.layout(MountLayers.body_navel(parts))
+	var out: Array = []
+	if mount.frame.rear != null:
+		out.append({"layer": "mount_rear", "frame": mount.frame.rear, "pos": mount.rear_pos, "modulate": Color.WHITE})
+	for p: Dictionary in parts:
+		out.append({"layer": "avatar", "frame": p.frame, "pos": p.pos + mount.rider_offset,
+			"modulate": weapon_tint if bool(p.get("weapon", false)) else Color.WHITE})
+	if mount.frame.front != null:
+		out.append({"layer": "mount_front", "frame": mount.frame.front, "pos": mount.front_pos, "modulate": Color.WHITE})
+	return out
 
 
 func _resolve(s: String, index: int) -> Array:

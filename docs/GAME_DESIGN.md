@@ -8398,6 +8398,35 @@ length and replaces the multiplier, never stacks; the nearest-rule skills, the b
 | Stance hold | `action_time` 0.6 s | C |
 | Rarity | Rare Gun Mastery x1.2 damage, Epic Gun Booster x0.88 cooldown, Unique Bullseye `mark_power` +0.25 and `mark_time` x1.5, Legendary the Unique plus x1.2 damage | C |
 
+#### 7.120.12 Corsair C12: mount art (#396, spec #384 M20)
+
+The Battleship is drawn, not just listed: while a running form's `form_started` names a `mount` (C11 adds the key; the Battleship
+form carries `presentation.mount` 1932000), `AvatarRenderer` draws `Character.wz/TamingMob/<id>.img` around the avatar through
+`MountLayers` (`scripts/render/mount_layers.gd`), reading the art through `MountArt` (`scripts/assets/mount_art.gd`).
+
+- **Art (tier A).** A stance is `<stance>/<frame>/{0, 1, delay}`: canvas `0` is `z tamingMobFront`, canvas `1` is `z tamingMobRear`, each
+  with `origin`, `lt`/`rb` and its own `map/navel` (which drifts with the bobbing: -38, -39, -40, -41 in `stand1`); the delay is on the
+  frame node. Base.wz/zmap.img puts `tamingMobFront` in front of every avatar layer and `tamingMobRear` behind all of them. `tired` is
+  a link the importer expands; `MountArt` resolves links itself too (synthetic data). A missing image loads as an empty `MountArt` and the
+  avatar keeps its plain look (the path is listed in `AvatarRenderer.missing`).
+- **Alignment (tier B/C, the standard attachment).** The ship's front canvas sits on the avatar's origin (the feet), the rear canvas on the
+  same navel point (its navel equals the front's in every v83 frame, so it also sits on the origin), and the rider's origin goes to `ship
+  navel - rider body navel` per frame: (6, -38) - (-2, -17) = (8, -21) on `stand1` with the seated body. The whole group mirrors about
+  x = 0 with the facing (the art faces left).
+- **Stances (tier B/C, C1's sheets).** `stand1` standing (`stand2` too), `walk1` walking, `jump` airborne (holds its last frame, as the
+  WZ's 300000 ms delay), `prone` down, `cannon` / `torpedo` / `fireburner` / `coolingeffect` while that action plays (one shot, held at the
+  last frame; the ship's cannon is 6 x 130 ms = the body's 780 ms, the torpedo 12 frames = 990 ms), `alert2` for the idle alert and any
+  other action (`shoot1`, a swing). The rider is `sit` for every request except those four casts, whose body actions exist (`cannon` and
+  `torpedo` are the `alert` pose, `fireburner` / `coolingeffect` the shoot/stab pair), and the climbing and dead stances, which are
+  the plain avatar's. The ship is hidden while climbing and on death. A morphed character is not mounted.
+- **Evidence.** `scenes/debug/mount_gallery.tscn -- --mount=1932000 --shots=<abs dir>` renders every request facing left and right
+  (`--requests=<csv> --scale=<n>` for a closer look). Findings, with the pistol: the rider sits inside the hull with the head over the
+  rail in every stance; the ship's keel is 3-10 px above the feet line in every frame (the art's `rb` is y -10: a hovering vessel,
+  not an alignment error); in `fireburner` / `coolingeffect` the pistol is drawn over the rail, but in `cannon` / `torpedo` the rider's
+  body action is `alert`, whose pistol is at the waist and sits behind the front hull canvas (the data, not a missing layer).
+- **Cost.** No node per frame: one `MountLayers` (a RefCounted) per ride, and the mounted draw list is built only when the avatar
+  redraws (a frame change). With no mount `_draw` is the old loop, byte for byte.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -10331,6 +10360,21 @@ The constants of the ship's Form effects (hull, `only_skills`, `art_variant`, th
 ### Corsair C8 constants (#392)
 
 The constants of Homing Beacon and Bullseye (cast shape, cooldown, the 8 s mark length, the rarity bonuses) are in section 7.120.5, described in 7.120.4.
+
+### Corsair C12 constants (#396)
+
+Mount art (GAME_DESIGN 7.120.12). The art numbers (canvases, origins, navels, delays, z names) are tier A, read from the image.
+
+| Constant / rule | Value | Tier |
+|---|---|---|
+| Rider attachment (`MountLayers.layout`) | rider origin = mount navel (front canvas, else rear) minus the rider body's `navel`, per frame; front canvas on the origin, rear canvas navel-to-navel | B/C (the standard Maple navel attachment; C1) |
+| Mount stance per request (`MountLayers.mount_stance`) | `stand1`/`stand2` -> `stand1`; `walk1`/`walk2` -> `walk1`; `jump`; `prone`/`proneStab` -> `prone`; the four cast names as themselves; everything else (idle `alert`, `shoot1`, swings) -> `alert2` | B/C (spec #384 M20) |
+| `MountLayers.CAST_STANCES` | `cannon`, `torpedo`, `fireburner`, `coolingeffect`: the rider's body action and the ship's stance, one shot, held on the last frame | B/C |
+| `MountLayers.RIDER_STANCE` | `sit` for every other request | B/C |
+| Hidden stances | `ladder`, `rope`, `ladder2`, `rope2` (the rider climbs as the plain avatar) and `dead` | C |
+| One-shot ship stances | the four casts and `jump`; every other stance loops | C |
+| Mount facing | the whole group mirrors about the avatar origin; no per-canvas offset | C (C1's sheet) |
+| Morph and mount | a morphed character draws no mount | C |
 
 ### Corsair C5 constants (#389)
 
