@@ -618,7 +618,7 @@ renderer restarts a slot's animation when its generation changes, even if despaw
 
 Player-inflicted monster statuses live in one `MobSwarm` status table: packed `status_left` (seconds left, doubles)
 and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW = 0`, `POISON = 1`, `FREEZE = 2`,
-`THREATENED = 3` (Page Threaten, #183) and `STUN = 4` (#187), `ICE_WEAK = 5`, `FIRE_WEAK = 6` (vulnerabilities, #322) and `BURN = 7` (#337, appended after the Ice/Lightning status), `STATUS_COUNT = 8`, plus `slow_factor`, the Threaten cut arrays `threat_pad`/`threat_pdd` (read through
+`THREATENED = 3` (Page Threaten, #183) and `STUN = 4` (#187), `ICE_WEAK = 5`, `FIRE_WEAK = 6` (vulnerabilities, #322) and `BURN = 7` (#337, appended after the Ice/Lightning status), `ALL_WEAK = 8` (the Corsair mark, #391) and `STATUS_COUNT = 9`, plus `slow_factor`, the Threaten cut arrays `threat_pad`/`threat_pdd` (read through
 `threatened_pad`/`threatened_pdd`, applied in `RunWorld.mob_weapon_attack` (touch and `MobAttacks._impact`), `RunWorld.mob_defense` and the
 bulk `lower_threatened_pdd`) and private poison and burn pulse/damage/source arrays. Burn (`BurnStatus`, GAME_DESIGN 7.43) is
 poison's fire twin: `params.pulse` is a whole damage per second resolved from the cast (`Loadout.stats` `burn_pulse`, carried by
@@ -629,16 +629,19 @@ the skill's `cast.status` (`SkillRunner.crowd_status`, "slow" by default; `MobSw
 point is `apply_status(slot, name, params, events) -> bool` (`name` from `STATUS_NAMES`); `params` contains canonical
 `time`, signed Slow `x` (Threaten: signed `x` PAD and `y` WDEF), or poison skill `level`, an optional survivor `skill` key and an optional `element` overriding
 the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`, Burn `F`, Threatened none). Stun ignores even a supplied element;
-bosses reject every status. The vulnerability table `MobSwarm.VULNERABLE` maps `ICE_WEAK` -> `i` and `FIRE_WEAK` -> `f`;
+bosses reject every status except `ALL_WEAK` (its `STATUS_TABLE` row has `marks_bosses`). The vulnerability table `MobSwarm.VULNERABLE` maps `ICE_WEAK` -> `i` and `FIRE_WEAK` -> `f`;
 `element_multiplier(slot, element)` is 1.5 for an element whose mark runs, else the kind's value, and a composition
-(`COMPOSITIONS`: `fs`, `il`) is the mean of its constituents' live values (GAME_DESIGN 7.61; `"*"` is reserved for an
-all-element mark). Other statuses fail when the Mob.wz element digit is 1, 2 or 4 (`MobKind.resists_status`). `step` receives the current event list in
+(`COMPOSITIONS`: `fs`, `il`) is the mean of its constituents' live values (GAME_DESIGN 7.61). `ALL_WEAK` (`VULNERABLE` entry `"*"`,
+GAME_DESIGN 7.122) is not read there as an element: it stores its multiplier per slot (`_mark_mult`, 1 when unmarked) and
+`element_multiplier` multiplies it in last, so every projectile, instant, summon and form-scoring read sees it from the one place;
+`RunWorld.targets_before` sorts a marked slot ahead of an unmarked one after scheduled bosses, and `Loadout.mark_time` /
+`mark_multipliers` resolve the `mark_time` / `mark_power` modifiers for `RunWorld._on_player_hit`. Other statuses fail when the Mob.wz element digit is 1, 2 or 4 (`MobKind.resists_status`). `step` receives the current event list in
 `ctx.events`, advances status timers after movement and emits poison and burn `mob_hit` events; it visits only a compact
 list of statused slots, and no status means no status pass at all. `RunWorld.damage_dealt` is a getter summing shots, instant hits, `swarm.poison_dealt` and `swarm.burn_dealt`.
 `has_statuses()` lets presentation skip status work. `can_act(slot)` (settled, not frozen or stunned) gates monster touch
 damage as well as boss attacks/skills. Release, death and relocation clear these player-inflicted
 statuses; the existing `MobSkillRunner` monster buffs still transfer on relocation. `MobRenderer` uses pooled cached
-Slow/Poison/Threaten/Stun art, the skill-configured burn cue (`burn_cue_path`) and status tints (orange `BURN_TINT` without a cue); frozen state/animation clocks do not advance, though a frozen airborne monster still
+Slow/Poison/Threaten/Stun art, the skill-configured burn and mark cues (`burn_cue_path`, `mark_cue_path`, from the first pool skill whose `on_hit.cue` names one; `CUES_PER_SLOT` 6) and status tints (orange `BURN_TINT`, red `MARK_TINT` without a cue); frozen state/animation clocks do not advance, though a frozen airborne monster still
 falls and a fading-in one keeps fading in. Stunned monsters stand without moving or flinching, keep their animation clocks,
 and fall straight down when airborne; a refresh keeps the longer remaining duration.
 

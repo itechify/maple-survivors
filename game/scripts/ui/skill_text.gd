@@ -164,6 +164,10 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if stats.has("burn_pulse"):
 		mechanics.append("Burns for %s s, %s%% of base damage per second" % [number(float(stats.get("burn_time", 0.0))),
 			number(float(stats.get("burn_share", 0.0)))])
+	if stats.has("mark_mult"):
+		# tier C (ours, C7): the mark's resolved length and both multipliers, so a Bullseye card shows in the window.
+		mechanics.append("Marks a monster for %s s: it takes %s%% more damage; bosses %s%%" % [number(float(stats.get("mark_time", 0.0))),
+			number(roundf((float(stats.mark_mult) - 1.0) * 100.0)), number(roundf((float(stats.get("mark_boss_mult", 1.0)) - 1.0) * 100.0))])
 
 	for pulse: Dictionary in stats.get("support", []):
 		mechanics.append(pulse_text(pulse))
