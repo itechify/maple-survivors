@@ -6668,14 +6668,14 @@ at Lv30-55) belonged to jobs nobody can be and levels a round rarely reaches. Fo
 |---|---|
 | 312 Bowmaster (bow) | Lv1 Arrow for Bow 2060000 (+0) -> **15** Bronze 2060001 (+1) -> **30** Steel 2060002 (+2) -> **45** Red 2060003 (+4) |
 | 322 Marksman (crossbow) | Lv1 Arrow for Crossbow 2061000 (+0) -> **15** Bronze 2061001 (+1) -> **30** Steel 2061002 (+2) -> **45** Blue 2061003 (+4) |
-| 412 Night Lord (claw) | Lv1 Beginner Thief's Throwing Stars 2070015 (+15) -> **10** Wolbi 2070001 (+17) -> **20** Mokbi 2070002 (+19) -> **30** Kumbi 2070003 (+21) -> **40** Tobi 2070004 (+23) -> **50** Steely Throwing-Knives 2070005 (+25) |
+| 412 Night Lord (claw) | Lv1 Beginner Thief's Throwing Stars 2070015 (+15) -> **10** Wolbi 2070001 (+17) -> **20** Mokbi 2070002 (+19) -> **30** Kumbi 2070003 (+21) -> **40** Tobi 2070004 (+23) -> **50** Steely Throwing-Knives 2070005 (+25) -> **60** Ilbi Throwing-Stars 2070006 (+27, added by NL2 #401, 7.94) |
 | 522 Corsair (gun) | Lv1 Bullet 2330000 (+10) -> **18** Split Bullet 2330001 (+12) -> **35** Mighty Bullet 2330002 (+14) |
 
 This ticket writes all four schedules; only the Bowmaster is playable today, so the other three are inert data under a
 structural test (`test_ammo`: exact levels, no inheritance, one schedule per job and family) until their specs make the job
-playable and may retune their own entry. Left out on purpose: Ilbi Throwing-Stars 2070006 (+27) and Vital Bullet 2330003 (+16,
-its img is not imported), for the specs that own those jobs to add if a round can reach them (`Ammo.item_ids` no longer names
-2070006, so the setup loads 17 ammo items). Summons never use ammo W.Att (their damage is the WZ `pad`). Arrows are almost
+playable and may retune their own entry. Left out on purpose: Ilbi Throwing-Stars 2070006 (+27; **added by Night Lord NL2 #401
+at Lv60, so the setup loads 18 ammo items again**, 7.94) and Vital Bullet 2330003 (+16, its img is not imported), for the
+specs that own those jobs to add if a round can reach them. Summons never use ammo W.Att (their damage is the WZ `pad`). Arrows are almost
 cosmetic (+0..+4 W.Att, about 7% at Lv45); stars and bullets matter, hence their extra steps.
 Tests: `test_ammo` (rule, data file, real-cache `incPAD` strictly increasing along each schedule, real String.wz names in the
 notice), `test_ammo_world` (a Bowmaster levelled through 15/30/45 with real EXP: one `ammo_upgraded` each, none at the start
@@ -8158,6 +8158,44 @@ Tests: `test_buccaneer_barrage_dragon` (data, ranks, the six lines, the box and 
 at the impact, the cap, hit art by target and by line, transfer, the energy receipt, every bonus, `bot.reach`, the real cache and the
 knuckle on every `fist` / `dragonstrike` frame), `test_bot_melee` (`bot.reach`, a melee bot with the 400 px strip still closes in,
 and the control that kites without the key), `test_avatar_cash_layers` (the `swingTF` fallback), `test_rarity_bonus_effects`.
+
+### 7.94 Night Lord pool, job data and the claw ammo step (spec #383, NL2 #401)
+
+(The spec calls this section 7.90; that number belongs to the Buccaneer pool in this tree, so the Night Lord data section is 7.94.)
+
+Night Lord (412) gets its own data line, `night_lord`, discovered from its files (`DataRepo.lines()`; no shared list is edited, and
+it follows the registered classes in sorted order). It ships **not playable**: every skill key and Flash Jump stay inert until NL6-NL10
+define them, the `meter` block until NL4 gives `PlayerMeter` the `meso_picked` rule, and `playable` flips in NL12 #411.
+`JobTree.default_job()` stays 212.
+
+| Piece | Where | Value |
+|---|---|---|
+| Job entry | `jobs/night_lord.json` | `412`: `starting_skill lucky_seven`, `mobility_skill flash_jump`, `weapon_families ["claw"]`, `creation_weapon 1472000` (Garnier, reqJob 8, the Thief bit), `playable false` |
+| Skill pool (8) | `skill_pool` | `lucky_seven`, `drain`, `avenger`, `triple_throw`, `ninja_storm`, `ninja_ambush`, `shadow_partner`, `shadow_meso` |
+| Skill file | `skills/night_lord.json` | `{"skills": {}}` and a `_doc` naming the regions NL6-NL10 append to; Lucky Seven and Drain stay in `thief.json` until NL7 moves them (a repeated key is a load error) |
+| Meter | `jobs/night_lord.json` `meter` | meso charge: max 10, `gain {event meso_picked, amount 1, per_mesos 1000}`, `decay {interval 6.0, amount 1}`, `per_unit {damage, 0.03}`, art `Item.wz/Special/0900.img/09000002/iconRaw`; inert until NL4 |
+| AP row | `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` Thief keyframes copied verbatim (Lv1 25, Lv25 25, Lv200 200) |
+| Bot scores | `balance.bot.card_scores` | `shadow_partner_new` 100, `shadow_partner_rank` 74 (the summon is not an `attack` to `BotInput._base_score`; the other seven score as attacks by default) |
+| Status catalogue | `balance.status_bonuses` | `venomous_star` (poison, element `s`, chance 14..30, time 2..4, poison level 4..30, `repeat_chance` 3) and `stunning_avenger` (stun, chance 20..50, 1.5 s, `repeat_chance` 4); NL3 #402 parses it, NL2 only stores it |
+
+`JobTree.start_skills(412)` is `["lucky_seven", "flash_jump"]`; Flash Jump is not in the pool and never a card (it follows
+`balance.mobility_rank_levels` once NL6 defines it).
+
+**Drops.** The equipment data is unchanged. `weapon_families ["claw"]` filters the Thief drop list (claws 147xxxx, never daggers 133xxxx
+or any other family); armour drops by the Thief class bit, other classes' gear is refused by `Equipment.requirement_error`, and the
+Garnier is wearable at creation. A dagger job's `["dagger"]` filter symmetrically never receives a claw.
+
+**Ammo.** Item.wz and String.wz were read again: `incPAD` is +15 (2070015) and +17 / +19 / +21 / +23 / +25 / +27 for 2070001-2070006.
+`ammo.json` gains `{level 60, item 2070006, tier C}` on the 412 claw schedule (Ilbi Throwing-Stars, already in the thief manifest
+fragment, so `Ammo.item_ids` names it again: 18 ammo items). A Night Lord starts on 2070015 and gets exactly one `ammo_upgraded` at
+round levels 10 / 20 / 30 / 40 / 50 / 60 ("Your throwing stars are now Wolbi Throwing-Stars", ... Ilbi Throwing-Stars); a dagger in its
+hand never steps. No ammo code changed.
+
+Tests: `test_night_lord_data` (the line and its discovery, the job entry, `default_job`, the start skills, pool keys inert or well
+placed, the meter block and its inertness, the AP row, card scores and catalogue coming from the line file, claw-only drops
+synthetic / shipped / seeded / real cache, `requirement_error`, the Lv60 step through a real round, the incPAD and bullet sprite,
+and the real String.wz names), `test_data_repo_lines` (placement of the 400-412 books), `test_ammo` and `run_fixtures.ammo_info`
+(18 items).
 
 ## 8. Upgrades
 
@@ -9847,7 +9885,8 @@ Numeric-string delay parsing also affects Pig/Ribbon Pig and seven `dungeon.img`
 | Marksman arrows (322, crossbow) | Lv15 Bronze 2061001, Lv30 Steel 2061002, Lv45 Blue 2061003 | tier C levels; tier A ids and `incPAD` +1/+2/+4 |
 | Night Lord stars (412, claw) | Lv10 Wolbi 2070001, Lv20 Mokbi 2070002, Lv30 Kumbi 2070003, Lv40 Tobi 2070004, Lv50 Steely 2070005 (`incPAD` +17..+25) | tier C levels; tier A ids and `incPAD` |
 | Corsair bullets (522, gun) | Lv18 Split 2330001, Lv35 Mighty 2330002 (`incPAD` +12, +14) | tier C levels; tier A ids and `incPAD` |
-| Ilbi Throwing-Stars 2070006, Vital Bullet 2330003 | not scheduled | tier C: left to the specs that own those jobs |
+| Ilbi Throwing-Stars 2070006 | scheduled at Lv60 for 412 by Night Lord NL2 #401 (see "Night Lord NL2 constants") | tier C |
+| Vital Bullet 2330003 | not scheduled | tier C: left to the spec that owns the Corsair |
 
 ### Bowmaster constants (#336)
 
@@ -10047,3 +10086,20 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 ### Buccaneer review corrections (#412)
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
+
+### Night Lord NL2 constants (#401)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Night Lord job entry (412): `starting_skill`, `mobility_skill`, the eight-key `skill_pool`, `weapon_families ["claw"]` | see 7.94 | tier C: spec #383 (skills' WZ ids are tier A) |
+| Creation weapon | Garnier 1472000 (reqJob 8 = the Thief bit) | tier A item fact (Item.wz); the choice is tier C, spec #383 |
+| `playable` | false until NL12 #411; `default_job` stays 212 | tier C, spec #383 / #298 pin |
+| Meso charge `meter` block: max 10, 1 pip per 1000 mesos, one pip decays every 6 s, +3% damage per pip | `jobs/night_lord.json` | tier C: spec #383 M23 (first pass, untested against real pickup rates; the pip rate and decay are balance-pass levers) |
+| Meter art | `Item.wz/Special/0900.img/09000002/iconRaw` (the meso coin frame) | tier A path (already imported for pickups) |
+| AP row `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` keyframes verbatim | tier C: the Thief gear pattern, no new tuning |
+| Bot scores `shadow_partner_new` / `_rank` | 100 / 74 | tier C: spec #383 (the number the pool default gives every curated attack) |
+| `balance.status_bonuses.venomous_star` | poison; chance 14 16 18 20 24 26 28 30; time 2 2 3 3 3 4 4 4; level 4 8 12 15 19 23 27 30; element `s` | tier A: Venomous Star 4120005 `prop`, `time` and the rank -> poison level map (`mad` unused) |
+| `balance.status_bonuses.stunning_avenger` | stun; chance 20 24 28 32 36 40 45 50; time 1.5 s | tier C: spec #383 |
+| `repeat_chance` | venomous_star 3 points, stunning_avenger 4 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #383 |
+| Night Lord ammo step | Lv60 Ilbi Throwing-Stars 2070006 (+27) on the 412 claw schedule (steps Lv10 / 20 / 30 / 40 / 50 / 60) | tier C level (spec #383); tier A item id, `incPAD` and name (Item.wz / String.wz, re-read) |
+| Ammo items | 18 (B3's 17 plus 2070006) | derived: `Ammo.item_ids` |

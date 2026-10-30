@@ -1,0 +1,4 @@
+{
+	"_doc": "Night Lord skill definitions (spec #383, one marked region per ticket): NL6 #405 Flash Jump (mobility); NL7 #406 moves Lucky Seven and Drain here from skills/thief.json and adds Avenger and Triple Throw; NL8 #407 Ninja Storm and Ninja Ambush; NL9 #408 Shadow Meso; NL10 #409 Shadow Partner. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4), so Lucky Seven and Drain stay in thief.json until NL7. NL2 #401 defined none.",
+	"skills": {}
+}
