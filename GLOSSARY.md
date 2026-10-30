@@ -485,6 +485,11 @@ A round-owned integer counter, filled by configured events and spent by finisher
 starts at zero each round, and is shown as HUD pips. M1 is shared by Hero, Buccaneer and Shadower.
 _Avoid_: mana, buff, form
 
+**Flash Jump**:
+Night Lord's mobility skill (4111006) on a skill key: pressed in the air, it slides the character sideways 140 -> 280 px by
+rank, once per airborne period, and leaves a ghost trail. Never a card; its rank follows the round's level. No damage.
+_Avoid_: double jump, Teleport (a blink between platforms), Rush (a damaging ground dash)
+
 **Meso charge**:
 Night Lord's meter (id `meso_charge`, ten pips): one pip per 1000 mesos picked up (the remainder is carried), one lost per 6 s
 while held, +3% damage on every pool cast per pip; Shadow Meso reads it for more and spends nothing. A counter filled by
@@ -508,6 +513,12 @@ _Avoid_: ultimate, proc
 **Physical follower**:
 A player summon (Silver Hawk, Phoenix, Golden Eagle, Frostprey) whose damage is physical and takes its W.Att from the skill level's `pad` instead of the worn weapon, optionally stunning on hit and flying above its trailing point. It is the Elquines seam (`PlayerSummons`) with data keys, not a separate system.
 _Avoid_: pet (the Free Market pet is a cosmetic companion), minion
+
+**Echo**:
+A timed clone (Shadow Partner) that repeats the owner's star casts about 0.25 s later from its own hand at a percent of their damage
+(`x` for the basic throws, `y` for the heavier skills). It is a `PlayerSummons` entry with `summon.echo`, never strikes by itself, and
+its repeats earn no meter charge, heal nothing and are never echoed again (`EchoCast`, #404).
+_Avoid_: shadow clone attack, double cast
 
 **Burst**:
 One automatic cast that schedules its resolved shot count over time, following the moving character's hand and a

@@ -68,6 +68,8 @@ var level := PackedInt32Array()
 var meter_receipts: Array[Dictionary] = []
 ## Whole damage per second of the burn a hit of this shot applies (0: none), snapshotted at launch from the cast (B5).
 var burn_pulse := PackedInt32Array()
+## 1 for a shot an echo clone threw (EchoCast): its hits carry `echo` so they heal and earn nothing.
+var echo := PackedByteArray()
 const NO_RECEIPT := {}
 
 ## RunWorld.visual_paths (shared).
@@ -141,6 +143,7 @@ func spawn(spec: Dictionary) -> int:
 	hit_count[i] = 0
 	meter_receipts[i] = spec.get("meter_receipt", NO_RECEIPT)
 	burn_pulse[i] = int(spec.get("burn_pulse", 0))
+	echo[i] = 1 if bool(spec.get("echo", false)) else 0
 	pierce_falloff[i] = maxf(0.0, float(spec.get("pierce_falloff", 0.0)))
 	blast_count[i] = 0
 	blast_visual[i] = ""
@@ -384,6 +387,8 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 			hit["meter_receipt"] = meter_receipts[i]
 		if burn_pulse[i] > 0:
 			hit["burn_pulse"] = burn_pulse[i]
+		if echo[i] != 0:
+			hit["echo"] = true
 		on_hit.call(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
@@ -412,7 +417,7 @@ func _grow(n: int) -> void:
 	var old := capacity()
 	if n <= old:
 		return
-	for arr: Variant in [active, rotate, damage_kind]:
+	for arr: Variant in [active, rotate, damage_kind, echo]:
 		arr.resize(n)
 	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus, pierce_falloff]:
 		arr.resize(n)
