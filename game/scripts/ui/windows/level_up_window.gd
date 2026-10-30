@@ -30,9 +30,9 @@ const X_LABELS := {"hp": ["HP / pulse", ""], "weapon_damage_reduction": ["Weapon
 	"threatened": ["Monster weapon ATT / DEF", ""]}
 const X_LABEL_DEFAULT := ["Effect", ""]
 ## Label of each previewed field (UpgradePool.PREVIEW_FIELDS plus survivor passive stats); `x` comes from X_LABELS.
-const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "fixdamage": "Damage",
-	"time": "Duration", "pdd": "Weapon DEF", "mdd": "Magic DEF", "acc": "Accuracy", "eva": "Avoid",
-	"mobCount": "Targets", "cooltime": "Cooldown", "speed": "Speed", "range": "Range", "hp": "Recovery power",
+const FIELD_LABELS := {"mad": SkillText.BUFF_STAT_LABELS.matk, "mastery": "Mastery", "fixdamage": "Damage",
+	"time": "Duration", "pdd": SkillText.BUFF_STAT_LABELS.pdd, "mdd": SkillText.BUFF_STAT_LABELS.mdd, "acc": SkillText.BUFF_STAT_LABELS.acc, "eva": SkillText.BUFF_STAT_LABELS.avoid,
+	"mobCount": "Targets", "cooltime": "Cooldown", "speed": SkillText.BUFF_STAT_LABELS.speed, "range": "Range", "hp": "Recovery power",
 	"damage": "Damage", "hpCon": "HP cost", "prop": "Success rate",
 	"knockback_chance": "Knock-back chance", "blast_targets": "Blast targets", "pierce_falloff": "Pierce fall-off",
 	UpgradePool.PASSIVE_MAX_HP: "Max HP per level-up", UpgradePool.PASSIVE_REGEN_HP: "HP per pulse"}
@@ -43,8 +43,11 @@ const PERCENT_FIELDS := ["mastery", "hp", "damage", "prop", "knockback_chance", 
 const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Targets", ""], "attack_count": ["Hits", ""], "pierce": ["Pierce", ""],
 	"blast_targets": ["Blast targets", ""], "pierce_falloff": ["Pierce fall-off", "%"],
 	"damage": ["Damage", "%"], "cooldown": ["Cooldown", " s"], "area": ["Reach", "%"], "range": ["Range", " px"],
+	"speed": ["Shot speed", ""], "crit": ["Critical rate", "%"],
+	"hp_cost": [HpRisk.LABELS.hp_cost, ""], "self_damage": [HpRisk.LABELS.self_damage, "%"], "low_hp_damage": [HpRisk.LABELS.low_hp_damage, "%"],
+	"support_heal": ["Pulse heal", " HP"], "support_rate": ["Pulse interval", " s"],
 	"heal_power": ["Recovery", "%"], "heal_threshold": ["Heals below", "% HP"],
-	"speed": ["Shot speed", ""], "crit": ["Critical rate", "%"], "revive_hp": ["Revive HP", "%"], "revive_guard": ["Guard", " s"]}
+	"revive_hp": ["Revive HP", "%"], "revive_guard": ["Guard", " s"], "form_time": ["Form duration", " s"], "form_power": ["Form power", "%"]}
 
 ## Emitted with the picked card's id.
 signal card_chosen(card_id: String)
@@ -212,8 +215,9 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 	for key: String in labels:
 		if mods.has(key) and mods[key].before != mods[key].after:
 			var unit: String = labels[key][1]
-			lines.append("%s: %s%s → %s%s" % [labels[key][0], SkillText.number(float(mods[key].before)), unit,
-				SkillText.number(float(mods[key].after)), unit])
+			var line := "%s: %s%s → %s%s" % [card.get("skill_mod_labels", {}).get(key, labels[key][0]), SkillText.number(float(mods[key].before)), unit,
+				SkillText.number(float(mods[key].after)), unit]
+			lines.append_array(MapleText.wrap_markup(line, ROW_W - 8.0, MapleText.SMALL))
 	var changes: Dictionary = card.get("skill_changes", {})
 	var x_label: Array = X_LABELS.get(String(card.get("skill_effect_stat", "")), X_LABEL_DEFAULT)
 	for field: String in UpgradePool.PREVIEW_FIELDS + UpgradePool.PASSIVE_PREVIEW_KEYS + UpgradePool.MECHANIC_PREVIEW_KEYS:

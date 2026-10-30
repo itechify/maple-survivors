@@ -14,7 +14,7 @@ extends Node
 ##           -> Sleepywood round (loot picked up, a lethal diagnostic hit) -> results -> Free Market (loot, worn item and the
 ##           unlock kept) -> Save & quit -> delete the character -> history. Shots redesign_*.png; summary.json holds the
 ##           offers (kinds, rarities, picks), the showcased windows and the history. `--seed` (default 1).
-##   creation the Job page and character creation (spec #296, H9): title -> create a character of each job in `--jobs=<id,id>`
+##   creation the Job page and character creation (spec #296, H9): title -> create a character of each job in `--jobs=<id,id>` (at most three)
 ##           (default: every playable job, in separate slots, then the Job page is checked to list them in order and to show the
 ##           chosen row) -> Free Market each time -> character select with all character slots. Shots creation_*.png, job_<id>_*.png.
 ##   title   the title screen only: waits for it, saves the shot, quits (e.g. to check an exported build:
@@ -2151,7 +2151,7 @@ func _check(ok: bool, what: String) -> void:
 		push_error("flow_driver: " + what)
 
 
-## Creates one character per job (`--jobs=<id,id>`, default every playable job) through the real creation screens, looking at the
+## Creates one character per job (`--jobs=<id,id>`, at most the three save slots; default every playable job, which fails when more than three ship) through the real creation screens, looking at the
 ## Job page each time, then checks each slot holds its job with its creation weapon and tier 1 open.
 func _scenario_creation() -> void:
 	var data := DataRepo.load_all()
@@ -2163,6 +2163,9 @@ func _scenario_creation() -> void:
 	else:
 		jobs = tree.playable_jobs()
 	if not _expect(not jobs.is_empty() and not (-1 in jobs), "--jobs=%s names no job" % String(args.get("jobs", ""))):
+		return
+	if not _expect(jobs.size() <= SaveData.SLOT_COUNT, "creation makes one character per job in its own slot: %d jobs do not fit %d slots; pass --jobs=<id,id> with at most %d" \
+			% [jobs.size(), SaveData.SLOT_COUNT, SaveData.SLOT_COUNT]):
 		return
 	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
 		return

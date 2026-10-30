@@ -7,9 +7,14 @@
 #   bash scripts/balance.sh 1 2 --job=212     # the character's job (ADR 0006: chosen at creation, never changes); only a playable
 #   # job is accepted, anything else fails at startup (see the seed log). --branch=<id> is the deprecated alias.
 #   # --job=112 is Hero (spec #296, playable).
+#   # --job=132 is the Dark Knight (spec #348, playable; pass --character=game/tests/fixtures/characters/dark_knight_t2.json for
+#   # the spear: a fresh --job=132 round wears the default outfit sword).
 #   # --job=222 selects the playable I/L Arch Mage (spec #319); 212 remains the default.
+#   # --job=122 selects the Paladin (spec #308, P9 #317 flipped playable); --character=game/tests/fixtures/characters/paladin_t2.json is its tier-1 kit.
 #   # --job=232 selects the Bishop (spec #372) on shipped data since BS10; 212 stays the default.
 #   # --job=312 selects the playable Bowmaster with its creation bow and starting arrows.
+
+#   # --job=512 selects the playable Buccaneer (spec #412); --character=<buccaneer_t2.json> is its tier-1 kit.
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
 #   bash scripts/balance.sh 1 --account="C:/abs/account.json"  # a round with an account (spec #34): {"owned": [item ids],
 #   # "cash": {slot: id}, "pet": id, "alert": {"hp": f}} (all optional; nx and an old alert.mp ignored). owned = the account's

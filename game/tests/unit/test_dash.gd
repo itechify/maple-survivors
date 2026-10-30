@@ -209,27 +209,163 @@ func test_the_bots_flee_rule_lives_in_the_skill_data() -> void:
 	assert_true(BotInput.decide(w, {}).skill_pressed("dash"), "the threshold is read from the data")
 
 
+# --- Buccaneer (512): Dash on the mobility slot (B5, #417) -----------------------------------------------------------
+
+## A round of the Buccaneer (512, the `buccaneer` line loaded and playable for the test). Dash is learned at start from the
+## job's mobility_skill; Flash Fist takes the one active slot the round starts with.
+func _buccaneer_world(p_seed := 417) -> RunWorld:
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["512"]["playable"] = true
+	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
+	setup.equipment_info.merge(INFO, true)
+	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 2000, "y2": 0}])
+	setup["job"] = 512
+	var w := RunWorld.new(setup)
+	RF.place_player(w, 400, 0)
+	w.drain_events()
+	return w
+
+
+## Gains levels, then answers each queued level-up window the way a player would: a step opens it, the card is taken,
+## and the sim runs again (it holds while a window is open).
+func _level_to(w: RunWorld, level: int) -> void:
+	while int(w.player_state.level) < level:
+		w._gain_exp(w.progression.exp_to_next())
+	for i in 64:
+		if w.state == RunWorld.CHOOSING_UPGRADE:
+			RF.auto_choose(w)
+		elif w.progression.has_pending():
+			w.step(DT, MoveInput.new())
+		else:
+			break
+
+
+func test_a_buccaneer_learns_dash_at_start_on_the_mobility_slot_and_not_an_active_one() -> void:
+	var w := _buccaneer_world()
+	assert_eq(w.book.slot("dash"), "mobility")
+	assert_true(w.loadout.has("dash"), "learned at round start from the job's mobility_skill")
+	assert_eq(String(w.loadout.order[0]), "flash_fist", "slot 1 is Flash Fist")
+	assert_eq(w.loadout.slot_count("active"), 1, "Dash takes none of the six active slots")
+	assert_eq(w.loadout.slot_count("passive"), 0)
+	assert_eq(w.loadout.slot_limit("mobility"), 0, "mobility has no track to fill")
+
+
+func test_a_buccaneer_round_never_learns_dash_into_an_active_slot_or_offers_it_as_a_card() -> void:
+	var w := _buccaneer_world()
+	for level in range(1, 21):
+		_level_to(w, level)
+		for id: String in w.upgrades.eligible(w):
+			assert_ne(String(w.upgrades.card(id).get("skill", "")), "dash", "no Dash card offered at Lv%d (%s)" % [level, id])
+	assert_eq(w.loadout.order.count("dash"), 1, "learned once, never again")
+	assert_false(w.learn_skill("dash"), "owned: a second learn is refused")
+	var actives := w.loadout.order.filter(func(k: String) -> bool: return w.book.slot(k) == "active")
+	assert_false(actives.has("dash"), "the active tracks hold the level-up cards' skills, never Dash")
+	assert_eq(actives.size(), w.loadout.slot_count("active"))
+
+
+func test_a_job_that_does_not_name_dash_never_learns_it() -> void:
+	var f_p := RF.quiet_world()
+	assert_eq(f_p.jobs.mobility_skill(f_p.job_id()), "teleport_fp")
+	assert_false(f_p.loadout.has("dash"), "F/P learns Teleport, never Dash")
+
+
+func test_dash_ranks_with_the_round_level_through_the_shared_mobility_rule() -> void:
+	var w := _buccaneer_world()
+	# [round level, rank, speed, jump, duration]: rank N at about Lv 2N, clamped to the ten ranks (BU-13).
+	var expect := [[1, 1, 12, 1, 4], [8, 4, 18, 4, 8], [16, 8, 26, 8, 16], [20, 10, 30, 10, 20], [40, 10, 30, 10, 20]]
+	for row: Array in expect:
+		_level_to(w, int(row[0]))
+		assert_eq(w.loadout.rank("dash"), int(row[1]), "Lv%d rank" % int(row[0]))
+		var st := w.loadout.stats("dash", w.loadout.rank("dash"))
+		assert_eq(st.buff_effects.speed, float(row[2]), "Lv%d speed" % int(row[0]))
+		assert_eq(st.buff_effects.jump, float(row[3]), "Lv%d jump" % int(row[0]))
+		assert_eq(st.duration, float(row[4]), "Lv%d duration" % int(row[0]))
+
+
+func test_a_buccaneer_presses_dash_on_its_key_and_the_buff_blocks_a_recast_until_it_ends() -> void:
+	var w := _buccaneer_world()
+	_press(w)
+	assert_true(w.buffs.has("dash"), "the key casts it from Lv1")
+	assert_near(float(w.runner.cooldown_totals.dash), 4.0, 1e-6, "the cooldown is the 4 s duration")
+	_press(w)
+	assert_eq(_types(w.drain_events()).count("buff_cast"), 1, "a press while it runs casts nothing")
+	var ticks := 2 # the two presses above
+	while w.buffs.has("dash") and ticks < 600:
+		w.step(DT, MoveInput.new())
+		ticks += 1
+	assert_true(ticks >= 239 and ticks <= 242, "4 s at rank 1: %d ticks" % ticks)
+	_press(w)
+	assert_true(w.buffs.has("dash"), "ready again once it ended")
+
+
+func test_a_buccaneer_dash_moves_speed_and_jump_within_the_caps_and_returns_after() -> void:
+	var w := _buccaneer_world()
+	_level_to(w, 20)
+	w._equipment_speed = 25.0
+	w._equipment_jump = 20.0
+	_press(w)
+	assert_eq(w.player.speed_stat, 140, "100 + 25 + 30 is capped at the v83 140")
+	assert_eq(w.player.jump_stat, 123, "100 + 20 + 10 is capped at the v83 123")
+	for i in 1300:
+		w.step(DT, MoveInput.new())
+	assert_false(w.buffs.has("dash"))
+	assert_eq(w.player.speed_stat, 125, "back to the equipment's speed")
+	assert_eq(w.player.jump_stat, 120, "back to the equipment's jump")
+
+
+func test_a_buccaneer_dash_shows_its_key_caption_and_countdown_and_is_listed_in_key_config() -> void:
+	var scene := RunScene.new()
+	scene.world = _buccaneer_world()
+	assert_eq(scene.world.manual_skill_keys().map(func(k: Dictionary) -> String: return String(k.action)), ["dash"],
+		"Key Config lists Dash and nothing else")
+	var row: Dictionary = scene.run_info().skills.back()
+	assert_eq(row.key_label, "X", "Dash's default key on its icon")
+	_press(scene.world)
+	row = scene.run_info().skills.back()
+	assert_near(row.cooldown_left, 4.0, 0.05, "the icon counts the buff down")
+	assert_eq(scene.run_info().movement_skill.action, "dash", "the quick slot's movement skill")
+	scene.free()
+
+
+func test_a_buccaneer_bot_presses_dash_when_surrounded_or_hurt_with_a_mob_close() -> void:
+	var w := _buccaneer_world()
+	w.drain_events()
+	RF.put_mob(w, 100100, 400 + 100, 0, 100000)
+	RF.put_mob(w, 100100, 400 + 60, 0, 100000)
+	RF.put_mob(w, 100100, 400 - 100, 0, 100000)
+	assert_true(BotInput.decide(w, {}).skill_pressed("dash"), "three mobs within 120 px surround it")
+	var hurt := _buccaneer_world()
+	hurt._hp = hurt._max_hp * 0.4
+	hurt._write_player_state(0.0)
+	assert_false(BotInput.decide(hurt, {}).skill_pressed("dash"), "hurt but nothing near: no dash")
+	RF.put_mob(hurt, 100100, 400 + 100, 0, 100000)
+	assert_true(BotInput.decide(hurt, {}).skill_pressed("dash"), "hurt with a mob inside the flee distance")
+
+
 # --- Shipping data ---------------------------------------------------------------------------------------------
 
-func test_the_shipping_data_defines_dash_and_its_cards() -> void:
+func test_the_shipping_data_defines_dash_on_the_mobility_slot_with_no_cards() -> void:
 	var data := DataRepo.load_all()
 	var def: Dictionary = data.skills.skills.dash
 	assert_eq(int(def.skill_id), 5001005)
 	assert_eq(def.cast.rule, "manual")
 	assert_eq(def.skill_key, "dash")
 	assert_eq(def.kind, "buff")
+	assert_eq(def.slot, "mobility", "B5 (#417): outside both slot tracks, like Teleport and Rush")
 	assert_eq((def.ranks as Array).size(), 10)
+	assert_false(def.has("rank_levels"), "ranked by balance.mobility_rank_levels, no rank_levels table (BU-13)")
 	assert_true(KeyBindings.SKILL_KEYS.has("dash"))
 	for teleport: String in ["teleport_fp", "teleport_il", "teleport_cleric"]:
 		assert_eq(SkillBook.from_data(data.skills, {}).def(teleport).skill_key, "teleport", teleport)
 	assert_true(KeyBindings.SKILL_KEYS.has("teleport"))
 	var cards: Array = data.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.get("skill", "") == "dash")
-	assert_eq(cards.map(func(c: Dictionary) -> String: return c.id), ["dash_new", "dash_rank"])
-	for card: Dictionary in cards:
-		# A first-job skill: job 500, on offer to every job of the Pirate line (UpgradePool.on_line, #284).
-		var jobs: Array = card.requires.jobs as Array
-		assert_eq(jobs.map(func(j: Variant) -> int: return int(j)), [500], "the Pirate line only")
-	assert_eq(cards[1].max_rank, 10)
+	assert_eq(cards, [], "dash_new and dash_rank are deleted: a mobility skill is never a card (BU-13)")
+
+
+func test_the_legacy_dash_cards_are_gone_from_every_card_file() -> void:
+	var data := DataRepo.load_all()
+	var ids: Array = data.upgrades.cards.map(func(c: Dictionary) -> String: return String(c.id))
+	assert_false(ids.has("dash_new") or ids.has("dash_rank"), "dash_new / dash_rank removed from upgrades/pirate.json")
 
 
 func test_real_cache_dash_table_matches_skill_wz() -> void:
@@ -252,5 +388,38 @@ func test_real_cache_dash_table_matches_skill_wz() -> void:
 		assert_eq(st.duration, float(row[3]), "rank %d duration" % rank)
 	assert_false(lib.anim("Skill.wz/500.img/skill/5001005/effect").is_empty(), "the cast effect art")
 	assert_true(lib.sound(book.def("dash").sounds.use) != null, "the use sound")
+	assert_eq(Array(lib.missing), [])
+	lib.free()
+
+
+## B5 (#417): a Buccaneer's round level ranks the real Dash through the world, each of the ten WZ rows at its level.
+func test_real_cache_a_buccaneer_dash_ranks_through_the_round_level_to_each_wz_row() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	var img := lib.img("Skill.wz/500.img")
+	assert_true(img != null, "import the Pirate manifest fragment")
+	if img == null:
+		lib.free()
+		return
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["512"]["playable"] = true
+	var setup := RF.setup("quiet", 417, data)
+	setup.skill_imgs["500"] = img.root
+	setup["job"] = 512
+	var w := RunWorld.new(setup)
+	# balance.mobility_rank_levels: rank N at the level in `levels` (Lv 1, 4, 6 ... 20), the top rank held to Lv 40.
+	var levels := [1, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+	for rank in range(1, 11):
+		_level_to(w, levels[rank - 1])
+		assert_eq(w.loadout.rank("dash"), rank, "Lv%d rank" % levels[rank - 1])
+		var row: Array = TABLE[rank - 1]
+		var st := w.loadout.stats("dash", rank)
+		assert_eq(st.buff_effects.speed, float(row[1]), "rank %d speed" % rank)
+		assert_eq(st.buff_effects.jump, float(row[2]), "rank %d jump" % rank)
+		assert_eq(st.duration, float(row[3]), "rank %d duration" % rank)
+	_level_to(w, 40)
+	assert_eq(w.loadout.rank("dash"), 10, "never past the tenth rank")
+	assert_eq(w.book.slot("dash"), "mobility", "the real Dash is not an active skill either")
 	assert_eq(Array(lib.missing), [])
 	lib.free()

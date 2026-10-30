@@ -1,5 +1,5 @@
 extends TestCase
-## The creation Job page with five playable jobs (spec #332, B12 #344): Hero (112), the Arch Mages (F/P 212, I/L 222) and the
+## The creation Job page with eight playable jobs (spec #332, B12 #344): Hero (112), the Arch Mages (F/P 212, I/L 222) and the
 ## Bowmaster (312). Shipped data is used for acceptance; an explicit disabling patch tests refusal.
 ## The Job page needs the cache (Look OK stays disabled until the hair/face columns exist), so every test that opens it
 ## calls `require_cache()`; the data-level tests run in CI.
@@ -58,24 +58,24 @@ func _key(keycode: Key) -> InputEventKey:
 	return e
 
 
-func test_shipped_bowmaster_is_the_last_playable_job_and_212_stays_the_default() -> void:
+func test_shipped_bowmaster_is_playable_and_212_stays_the_default() -> void:
 	var tree := DataRepo.jobs(DataRepo.load_all())
-	assert_eq(tree.playable_jobs(), [112, 212, 222, 232, 312] as Array[int], "canonical order: Hero, F/P, I/L, Bishop, Bowmaster")
-	assert_eq(tree.default_job(), 212, "the pin keeps 212 the default with five playable jobs")
+	assert_eq(tree.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 512] as Array[int], "canonical order of all eight jobs")
+	assert_eq(tree.default_job(), 212, "the pin keeps 212 the default with eight playable jobs")
 	assert_eq(tree.creation_weapon(312), 1452002, "the War Bow")
 	DataRepo.patch = DISABLED.duplicate(true)
 	assert_false(DataRepo.jobs(DataRepo.load_all()).job(312).playable, "disabled Bowmaster is not selectable")
-	assert_eq(DataRepo.jobs(DataRepo.load_all()).playable_jobs(), [112, 212, 222, 232] as Array[int])
+	assert_eq(DataRepo.jobs(DataRepo.load_all()).playable_jobs(), [112, 122, 132, 212, 222, 232, 512] as Array[int])
 
 
-func test_five_rows_in_canonical_order_with_212_chosen() -> void:
+func test_eight_rows_in_canonical_order_with_212_chosen() -> void:
 	if not require_cache():
 		return
 	var creation := _job_page(_flow(), "FourJobs01")
-	assert_eq(creation.job_ids, [112, 212, 222, 232, 312])
+	assert_eq(creation.job_ids, [112, 122, 132, 212, 222, 232, 312, 512])
 	assert_eq(creation.job_id, 212, "the default job is chosen when the page opens")
 	var rows := {}
-	for id: int in [112, 212, 222, 232, 312]:
+	for id: int in [112, 122, 132, 212, 222, 232, 312, 512]:
 		rows[id] = creation.find_child("Job_%d" % id, true, false) as Button
 		assert_true(rows[id] != null, "row for %d" % id)
 	if rows.values().has(null):
@@ -83,10 +83,10 @@ func test_five_rows_in_canonical_order_with_212_chosen() -> void:
 	assert_eq(rows[312].text, "Bowmaster")
 	assert_eq(rows[312].size.x, CREATE.JOB_ROW_SIZE.x)
 	assert_eq(rows[312].position.x, rows[112].position.x, "rows share a column")
-	assert_eq(rows[212].position.y - rows[112].position.y, CREATE.JOB_ROW_SIZE.y + 2.0)
+	assert_eq(rows[212].position.y - rows[132].position.y, CREATE.JOB_ROW_SIZE.y + 2.0)
 	assert_eq(rows[222].position.y - rows[212].position.y, CREATE.JOB_ROW_SIZE.y + 2.0)
 	assert_eq(rows[232].position.y - rows[222].position.y, CREATE.JOB_ROW_SIZE.y + 2.0)
-	assert_eq(rows[312].position.y - rows[232].position.y, CREATE.JOB_ROW_SIZE.y + 2.0, "Bowmaster is the fifth row, one pitch below Bishop")
+	assert_eq(rows[312].position.y - rows[232].position.y, CREATE.JOB_ROW_SIZE.y + 2.0, "Bowmaster is the seventh row, one pitch below Bishop")
 	assert_true(rows[312].get_theme_stylebox("normal") is StyleBoxEmpty, "Bowmaster is not highlighted")
 	assert_false(rows[212].get_theme_stylebox("normal") is StyleBoxEmpty, "212 is highlighted")
 
@@ -104,7 +104,7 @@ func test_clicking_bowmaster_selects_it_and_moves_the_highlight() -> void:
 	assert_true(String(creation._job_blurb.text).begins_with("Bowmaster"), "the blurb names the chosen job: %s" % creation._job_blurb.text)
 
 
-func test_up_and_down_step_through_all_five_rows_and_clamp() -> void:
+func test_up_and_down_step_through_all_eight_rows_and_clamp() -> void:
 	if not require_cache():
 		return
 	var creation := _job_page(_flow(), "FourJobs03")
@@ -115,8 +115,10 @@ func test_up_and_down_step_through_all_five_rows_and_clamp() -> void:
 	creation._input(_key(KEY_DOWN))
 	assert_eq(creation.job_id, 312, "Down from 232 is Bowmaster")
 	creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 312, "Down at the last row stays")
-	for i in 4:
+	assert_eq(creation.job_id, 512, "Down from Bowmaster is Buccaneer")
+	creation._input(_key(KEY_DOWN))
+	assert_eq(creation.job_id, 512, "Down at the last row stays")
+	for i in 7:
 		creation._input(_key(KEY_UP))
 	assert_eq(creation.job_id, 112)
 	creation._input(_key(KEY_UP))

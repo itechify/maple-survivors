@@ -2,6 +2,8 @@ extends TestCase
 ## Pirate first-job tracer (#186): shipping data through public RunWorld combat and cards, the Pirate stood directly
 ## (RF.as_job; #284 removed advancement, weapon paths and weapon gating).
 ## Seeded synthetic worlds use fixed ticks; real-cache checks verify the original v83 facts separately.
+## B4 #416: Flash Fist and Somersault Kick moved to skills/buccaneer.json (eight ranks on WZ levels 3..20, no cards of their
+## own); they stay here as the first-job attacks the Pirate tracer exercises. The port is test_buccaneer_brawler.gd.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -84,11 +86,11 @@ func test_flash_fist_uses_front_box_cost_and_one_target_with_either_weapon() -> 
 
 func test_somersault_kick_strikes_around_with_either_weapon_at_canonical_caps_and_costs() -> void:
 	for path: String in WEAPONS:
-		for rank_value in [1, 20]:
+		for rank_value in [1, 8]:
 			var w := _combat(path, "somersault_kick", rank_value)
 			var events := _cast(w, [-60.0, -50.0, -40.0, 30.0, 40.0, 50.0, 60.0, 300.0])
 			var hits := events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "somersault_kick")
-			assert_eq(hits.size(), 3 if rank_value == 1 else 6)
+			assert_eq(hits.size(), 3 if rank_value == 1 else 6, "rank 1 = WZ level 3 (3 mobs), rank 8 = level 20 (6 mobs)")
 			assert_true(hits.any(func(e: Dictionary) -> bool: return e.pos.x < w.player.pos.x))
 			assert_true(hits.any(func(e: Dictionary) -> bool: return e.pos.x > w.player.pos.x))
 
@@ -111,6 +113,9 @@ func test_double_shot_uses_two_bullets_canonical_range_and_cost_with_either_weap
 	assert_true(_cast(too_far, [360.0]).is_empty(), "outside canonical range: waits")
 
 
+const PORTED := ["somersault_kick", "flash_fist"]
+
+
 func test_pirate_cards_are_offered_with_either_weapon_and_attacks_can_hit_more_mobs() -> void:
 	for path: String in WEAPONS:
 		var w := _world()
@@ -123,16 +128,22 @@ func test_pirate_cards_are_offered_with_either_weapon_and_attacks_can_hit_more_m
 		eligible = w.upgrades.eligible(w)
 		for key: String in ["bullet_time", "flash_fist", "somersault_kick", "double_shot"]:
 			assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
+			if key in PORTED:
+				# B4 #416: the legacy _targets card is deleted; `_new` and `_rank` exist only because the playable Buccaneer's pool
+				# generates them (B11 #423 made 512 playable).
+				assert_true(w.upgrades.card(key + "_targets").is_empty(), key + "_targets is gone")
+				for suffix in ["_new", "_rank"]:
+					assert_eq(not w.upgrades.card(key + suffix).is_empty(), key in w.jobs.skill_pool(512), key + suffix + " follows the pool of 512")
+				continue
 			assert_eq(int(w.upgrades.card(key + "_rank").get("max_rank", 0)), 20)
 			if key == "bullet_time":
 				continue
-			var id := key + ("_pierce" if key == "double_shot" else "_targets")
+			var id := key + "_pierce" if key == "double_shot" else key + "_targets"
 			assert_false(id in eligible, "#287: unported skills have no pool offers")
 			var before := w.loadout.stats(key)
 			RF.add_modifier_effects(w, w.upgrades.card(id))
 			var after := w.loadout.stats(key)
-			assert_eq(after.pierce if key == "double_shot" else after.mob_count,
-				(before.pierce if key == "double_shot" else before.mob_count) + 1)
+			assert_eq(after.pierce, before.pierce + 1)
 
 
 func test_pirate_drop_scroll_and_shop_rosters_follow_the_held_family() -> void:
@@ -183,14 +194,15 @@ func test_original_pirate_tables_art_actions_and_sounds_resolve_in_the_private_c
 		return
 	var book := SkillBook.from_data(DataRepo.load_all().skills, {"500": img.root})
 	var loadout := Loadout.new(book)
+	# Rank 1 / top rank: Flash Fist and Somersault Kick read WZ level 3 / 20 (eight ranks), Double Shot level 1 / 20.
 	var facts := {
-		"flash_fist": [6, 14, 1.56, 2.70],
-		"somersault_kick": [8, 16, 1.14, 1.90],
+		"flash_fist": [6, 14, 1.68, 2.70],
+		"somersault_kick": [8, 16, 1.22, 1.90],
 		"double_shot": [4, 7, 0.61, 0.80],
 	}
 	for key: String in facts:
 		assert_eq(book.max_level(key), 20)
-		for rank_value in [1, 20]:
+		for rank_value in [1, 8 if key in PORTED else 20]:
 			var st := loadout.stats(key, rank_value)
 			assert_near(st.damage_pct, facts[key][2 if rank_value == 1 else 3])
 			if key == "double_shot":

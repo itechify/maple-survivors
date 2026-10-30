@@ -64,6 +64,15 @@ func envelope(world: RunWorld) -> Rect2:
 	return _extended_box(union, _range_bonus(world))
 
 
+## The held weapon's hit spark (Character.wz/Afterimage/hit.img/...) for body action `action`; "" when bare-handed or the
+## weapon is unknown. For a skill whose WZ node has no hit art (Sacrifice, `hit_from_weapon`).
+func hit_spark(world: RunWorld, action: String) -> String:
+	var info := world.weapon_info()
+	if info.is_empty():
+		return ""
+	return WeaponInfo.hit_spark_path(WeaponInfo.afterimage_name(info), action)
+
+
 func _range_bonus(world: RunWorld) -> float:
 	return world.loadout.passive_total(Loadout.RANGE) if WeaponInfo.is_ranged(world.weapon_id()) else 0.0
 

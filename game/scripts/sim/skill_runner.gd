@@ -1,5 +1,7 @@
 class_name SkillRunner
 extends RefCounted
+## Damage fields shared by cast-local damage modifiers.
+const DAMAGE_FIELDS := ["damage_min", "damage_max", "status_damage_mult"]
 ## Auto-casting (docs/GAME_DESIGN.md section 7). Every owned active skill counts its cooldown down; when it is ready
 ## and a living mob is within its range of the cast origin (the player's body, `RunWorld.cast_origin()`), it fires:
 ## a `cast` event, the player's cast stance, then
@@ -11,7 +13,7 @@ extends RefCounted
 ##   `range` around the body, Slash Blast) rules strike `mob_count` targets instead, and the last two turn a standing
 ##   character toward the target first. A skill with an HP cost (`hp_cost`) never casts when paying it would leave 0 HP.
 ## A skill with a `displacement` block (a moving attack, docs/GAME_DESIGN.md 7.13) also moves the grounded character away
-## from or toward its first target before, after or during the hits (`_resolve_cast`, `_resolve_charge`).
+## from or toward its first target before, after or during the hits (`resolve_cast`, `_resolve_charge`).
 ## A `cluster` skill (Gunslinger Grenade, docs/GAME_DESIGN.md 7.20) throws at once at the nearest cluster of mobs within its throw range; the blast
 ## strikes its canonical box around the landing point when the ball arrives (`_throw`, `_land_flights`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
@@ -67,6 +69,7 @@ var fired_this_tick := false
 
 var summons := PlayerSummons.new()
 var bursts := BurstCast.new()
+var forms := PlayerForms.new()
 
 var _stats := {}
 var _version := -1
@@ -133,10 +136,15 @@ func start_recharge(key: String, st: Dictionary) -> float:
 ## decide how close an attack needs it: a projectile or nearest-rule skill its range, a box skill its far edge (area
 ## cards included, the facing side), 0 for anything that is not an attack (buffs, manual skills, status-only and heal
 ## casts). One switch on the cast rule: weapon_reach is the held weapon's swing reach scaled by this skill's area
-## modifier, range_around the level's `range` around the body.
+## modifier, range_around the level's `range` around the body. A definition's `"bot": {"reach": N}` replaces the geometric
+## reach with N (tier C data key, Buccaneer BU-21: Dragon Strike's 400 px strip must not make a melee brawler kite); no
+## other definition has it.
 static func reach_of(st: Dictionary, world: RunWorld) -> float:
 	if String(st.get("meter", {}).get("role", "")) == "finisher" or String(st.kind) == "buff" or String(st.damage_type) == "none":
 		return 0.0
+	var declared: Dictionary = world.book.def(String(st.skill)).get("bot", {})
+	if declared.has("reach"):
+		return maxf(float(declared.reach), 0.0)
 	match String(st.cast_rule):
 		"", "nearest", "burst", "range_around", "cluster":
 			return maxf(float(st.range), 0.0)
@@ -204,6 +212,7 @@ func tick_cooldowns(dt: float, world: RunWorld, preserve_manual_cast: bool = fal
 		fired_this_tick = false
 	summons.step(dt, world)
 	bursts.step(dt, world)
+	forms.step(dt, world)
 	_step_areas(dt, world)
 	if not _flights.is_empty():
 		_land_flights(dt, world)
@@ -231,7 +240,10 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		var cb := float(cooldowns.get(b, 0.0))
 		return ca < cb if ca != cb else lo.order.find(a) < lo.order.find(b))
 	var finisher := world.meter.preferred(world, ready) if not world.meter.config.is_empty() else ""
+	var preferred_forms := forms.preferred(world, ready)
 	for key: String in ready:
+		if world.book.kind(key) == "form" and (not forms.admits(world, key) or key not in preferred_forms):
+			continue
 		var meter_rule: Dictionary = world.book.meter_rule(key)
 		if not world.meter.admits(world.book.def(key)) or (String(meter_rule.get("role", "")) == "finisher" and key != finisher):
 			continue
@@ -243,17 +255,19 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		# without a target never needs the list. Only a skill about to cast is admitted in full.
 		if not has_target(world, key, st, origin):
 			continue
-		if not world.can_pay_hp(int(st.hp_cost)):
-			# Slash Blast pays HP and never casts when that would leave 0 HP; nothing is spent.
+		if not HpRisk.admits(world, st):
+			# An HP cost never casts when paying it would leave 0 HP, and an HP gate waits for more HP; nothing is spent.
 			continue
 		var plan := prepare_cast(world, key, st, origin)  # has_target said yes, so admission does too
-		st = _with_finish_art(world, key, world.meter.begin_cast(world, key, st))
-		world.spend_hp(int(st.hp_cost))
+		st = forms.begin_cast(world, key, _with_finish_art(world, key, HpRisk.begin_cast(world, world.meter.begin_cast(world, key, st))))
+		HpRisk.pay_cost(world, st)
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		if String(meter_rule.get("role", "")) == "finisher":
 			cooldowns[key] = maxf(1.0, cooldowns[key])
 		cooldown_totals[key] = cooldowns[key]
-		_resolve_cast(world, key, st, origin, plan)
+		var dealt_before := world.damage_dealt
+		resolve_cast(world, key, st, origin, plan)
+		HpRisk.settle(world, st, dealt_before)
 		break
 
 
@@ -283,11 +297,11 @@ func cast_manual_buff(world: RunWorld, key: String) -> bool:
 		return false
 	var st := stats_of(world, key)
 	if String(st.kind) != "buff" or float(cooldowns.get(key, 0.0)) > READY_EPS or not world.can_start_buff(key, st) \
-			or not world.can_pay_hp(int(st.hp_cost)):
+			or not HpRisk.admits(world, st):
 		return false
-	world.spend_hp(int(st.hp_cost))
+	HpRisk.pay_cost(world, st)
 	start_recharge(key, st)
-	_resolve_cast(world, key, st, world.cast_origin(), {})
+	resolve_cast(world, key, st, world.cast_origin(), {})
 	return true
 
 
@@ -300,12 +314,12 @@ func cast_dash(world: RunWorld, key: String, side: int) -> bool:
 	if side == 0 or not world.can_cast() or not world.loadout.book.is_active(key):
 		return false
 	var st := stats_of(world, key)
-	if float(cooldowns.get(key, 0.0)) > READY_EPS or not world.can_pay_hp(int(st.hp_cost)):
+	if float(cooldowns.get(key, 0.0)) > READY_EPS or not HpRisk.admits(world, st):
 		return false
 	var move := world.player.dash_destination(side, float(st.displacement.get("distance", 0.0)), world.fhm, world.bounds)
 	if move.is_empty():
 		return false
-	world.spend_hp(int(st.hp_cost))
+	HpRisk.pay_cost(world, st)
 	start_recharge(key, st)
 	casts += 1
 	fired_this_tick = true
@@ -316,7 +330,7 @@ func cast_dash(world: RunWorld, key: String, side: int) -> bool:
 	world.upkeep.action_walking = true
 	var start := world.player.pos
 	world.player.dash_to(move)
-	var cast_stats := st.duplicate()
+	var cast_stats := forms.begin_cast(world, key, st).duplicate()
 	cast_stats["push_side"] = side
 	_resolve_charge(world, cast_stats, start, side)
 	return true
@@ -326,6 +340,8 @@ func cast_dash(world: RunWorld, key: String, side: int) -> bool:
 ## `not prepare_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
 ## ordering them, so a ready skill without a target costs no target list.
 func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> bool:
+	if String(st.kind) == "form":
+		return forms.admits(world, key) and _buff_admission(world, st, origin) != BUFF_REFUSED
 	if String(st.kind) == "summon":
 		return true
 	match String(st.cast_rule):
@@ -385,6 +401,8 @@ func prepare_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2)
 
 
 func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
+	if String(st.kind) == "form":
+		return {"go": true} if has_target(world, key, st, origin) else {}
 	match String(st.cast_rule):
 		"", "nearest", "burst":
 			return _admit_nearest(world, key, st, origin)
@@ -492,7 +510,8 @@ func heal_injured(world: RunWorld, st: Dictionary) -> bool:
 	return float(world.player_state.hp) < float(world.player_state.max_hp) * float(st.heal_threshold)
 
 
-func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
+## Resolves an admitted cast, including Form sub-skills, through the ordinary cast pipeline.
+func resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
 	var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
 	var first_x := world.mob_center(targets[0]).x if not targets.is_empty() else 0.0
 	if bool(RULE_POLICY.get(String(st.cast_rule), {}).get("faces_target", false)) and not targets.is_empty() and String(st.kind) != "buff":
@@ -534,6 +553,9 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 			"effect": String(st.finish_effect)})
 	if definition.has("pull") and String(st.kind) != "buff":
 		apply_pull(world, key, st, origin)
+	if String(st.kind) == "form":
+		forms.start(world, key, st)
+		return
 	if String(st.kind) == "summon":
 		summons.spawn(world, st)
 		return
@@ -553,7 +575,7 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 				# A pull-only cast (damage "none" with a `pull` block, Monster Magnet) has no damage lines: apply_pull moved the mobs.
 				if not (definition.has("pull") and String(st.damage_type) == "none"):
 					_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
-						world.visual_index(String(st.hit)))
+						world.visual_index(_hit_path(world, definition, st)))
 			"crowd":
 				_resolve_crowd(world, key, st, targets)
 			"cluster":
@@ -569,6 +591,14 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 					_resolve_nearest(world, key, st, origin, targets)
 	if when == "after":
 		world.displace_player(side, float(disp.distance))
+
+
+## The hit art of a cast: the skill's own `hit` node, else (a definition with `hit_from_weapon` whose WZ node has no hit
+## art, Sacrifice) the spark of the held weapon's stance. tier C: the weapon swing's spark, as for any weapon attack.
+func _hit_path(world: RunWorld, definition: Dictionary, st: Dictionary) -> String:
+	if String(st.hit) != "" or not bool(definition.get("hit_from_weapon", false)):
+		return String(st.hit)
+	return world.weapon_reach.hit_spark(world, String(st.action))
 
 
 ## True for the same grounded, non-boss, outside-floor candidates that a pull can move.
@@ -644,8 +674,8 @@ func apply_pull(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 ## direction it moved in) also ends the path: nothing on its far side is struck, however far the box reaches (tier C).
 func _resolve_charge(world: RunWorld, st: Dictionary, start: Vector2, side: int) -> void:
 	var local: Rect2 = st.box if bool(st.has_box) else world.body
-	if bool(st.has_box) and world.player.facing > 0:
-		local.position.x = -local.end.x  # canonical boxes face left
+	if bool(st.has_box):
+		local = facing_box(local, world.player.facing)
 	var at_start := Rect2(local.position + start, local.size)
 	var at_end := Rect2(local.position + world.player.pos, local.size)
 	var path := at_start.merge(at_end)
@@ -689,6 +719,21 @@ func _admit_cluster(world: RunWorld, st: Dictionary, origin: Vector2) -> Diction
 static func blast_rect(st: Dictionary, at: Vector2) -> Rect2:
 	var box: Rect2 = st.box
 	return Rect2(box.position + at, box.size)
+
+
+## The pending strike's box of resolved stats `st` around `at` for a caster that faced `facing`: the left-facing canonical box
+## mirrored across `at` for a right-facing caster (the box rule's own mirroring, fixed at the cast).
+static func oriented_rect(st: Dictionary, at: Vector2, facing: int) -> Rect2:
+	var box: Rect2 = st.box
+	box = facing_box(box, facing)
+	return Rect2(box.position + at, box.size)
+
+
+## Mirrors a left-authored local box for a right-facing caster.
+static func facing_box(box: Rect2, facing: int) -> Rect2:
+	if facing > 0:
+		box.position.x = -box.end.x
+	return box
 
 
 static func _feet(world: RunWorld, m: int) -> Vector2:
@@ -764,13 +809,26 @@ func _resolve_crowd(world: RunWorld, key: String, st: Dictionary, targets: Packe
 
 func _resolve_instant_targets(world: RunWorld, st: Dictionary, targets: PackedInt32Array,
 		limit: int, lines: int, hv: int) -> void:
+	var d := world.book.def(String(st.skill))
+	var by_target: Array = d.get("hit_targets", [])
+	var by_line: Array = d.get("hit_lines", [])
 	for i in mini(limit, targets.size()):
-		var slot := targets[i]
-		for line in lines:
-			# Both queries return valid slots. Keep nearest's active-mask check; is_live adds only bounds checks.
-			if world.swarm.active[slot] == 0:
-				break
-			world.hit_mob(slot, st, hv)
+		_resolve_target(world, st, targets[i], i, lines, hv, by_target, by_line)
+
+
+## The `lines` damage lines on `slot`, the `index`-th target of its cast. The definition's `hit_targets` (art by target index,
+## cycling: Dragon Strike's hit/0..2) and `hit_lines` (art by line, none past the list: Barrage's jab/finisher sets) replace
+## the single hit visual `hv`; a definition with neither keeps it for every line.
+func _resolve_target(world: RunWorld, st: Dictionary, slot: int, index: int, lines: int, hv: int, by_target: Array, by_line: Array) -> void:
+	var target_hv := world.visual_index(String(by_target[index % by_target.size()])) if not by_target.is_empty() else hv
+	for line in lines:
+		# Both queries return valid slots. Keep nearest's active-mask check; is_live adds only bounds checks.
+		if world.swarm.active[slot] == 0:
+			break
+		var line_hv := target_hv
+		if not by_line.is_empty():
+			line_hv = world.visual_index(String(by_line[line])) if line < by_line.size() else -1
+		world.hit_mob(slot, st, line_hv)
 
 
 func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets: PackedInt32Array) -> void:
@@ -912,7 +970,10 @@ func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
 	_areas.append({"st": cast_snapshot(st), "anchor": world.player.pos, "age": 0.0,
 		"next": interval if interval > 0.0 else float(pending.get("delay", 0.0)),
 		"duration": duration, "interval": interval, "follow": bool(pending.get("follow_player", false)),
-		"effect": String(pending.get("effect", ""))})
+		"effect": String(pending.get("effect", "")),
+		# tier C (Buccaneer #420, #421): `oriented` fixes the left-facing box's side at the cast, `stagger` spaces the targets' hits.
+		"facing": world.player.facing if bool(pending.get("oriented", false)) else 0,
+		"stagger": float(pending.get("stagger", 0.0))})
 	if not ground.is_empty():
 		world.emit("skill_ground", {"skill": key, "pos": world.player.pos, "box": st.box,
 			"effect": String(ground.get("tile", "")), "duration": duration})
@@ -924,12 +985,17 @@ func _step_areas(dt: float, world: RunWorld) -> void:
 		a.age = float(a.age) + dt
 		var st: Dictionary = a.st
 		var key := String(st.skill)
+		if a.has("queue"):
+			if _drain_staggered(world, a):
+				_areas.remove_at(i)
+			continue
 		while float(a.age) + 1e-9 >= float(a.next):
 			if float(a.interval) > 0.0 and float(a.next) > float(a.duration) + 1e-9:
 				break
 			var anchor: Vector2 = world.player.pos if bool(a.follow) else a.anchor
 			var limit := world.swarm.capacity() if float(a.interval) > 0.0 else int(st.mob_count)
-			var targets := world.skill_rect_targets(blast_rect(st, anchor), anchor, limit)
+			var rect := oriented_rect(st, anchor, int(a.facing)) if int(a.facing) != 0 else blast_rect(st, anchor)
+			var targets := world.skill_rect_targets(rect, anchor, limit)
 			if float(a.interval) > 0.0:
 				for m in targets:
 					var ground: Dictionary = world.book.def(key).get("ground", {})
@@ -940,9 +1006,38 @@ func _step_areas(dt: float, world: RunWorld) -> void:
 				a.next = float(a.next) + float(a.interval)
 			else:
 				world.emit("skill_impact", {"skill": key, "pos": anchor, "effect": String(a.effect)})
-				_resolve_instant_targets(world, st, targets, limit, int(st.attack_count),
-					world.visual_index(String(st.hit)))
+				if float(a.stagger) > 0.0:
+					# The targets are fixed at the impact; target k lands k * stagger later (WZ hitAfter 840 + 120 k ms).
+					a["queue"] = targets
+					a["identities"] = PackedInt64Array() # tier C: target lifetime, as in Final Attack; slot reuse must not redirect a strike.
+					for slot in targets:
+						a.identities.append(world.swarm.identity[slot])
+					a["done"] = 0
+				else:
+					_resolve_instant_targets(world, st, targets, limit, int(st.attack_count),
+						world.visual_index(String(st.hit)))
 				break
-		if (float(a.interval) <= 0.0 and float(a.age) + 1e-9 >= float(a.next)) \
+		if a.has("queue"):
+			if _drain_staggered(world, a):
+				_areas.remove_at(i)
+		elif (float(a.interval) <= 0.0 and float(a.age) + 1e-9 >= float(a.next)) \
 				or (float(a.interval) > 0.0 and float(a.age) + 1e-9 >= float(a.duration)):
 			_areas.remove_at(i)
+
+
+## Resolves the queued targets of staggered strike `a` that are due (target k at delay + k * stagger); true once all landed.
+func _drain_staggered(world: RunWorld, a: Dictionary) -> bool:
+	var st: Dictionary = a.st
+	var queue: PackedInt32Array = a.queue
+	var done := int(a.done)
+	var d := world.book.def(String(st.skill))
+	var by_target: Array = d.get("hit_targets", [])
+	var by_line: Array = d.get("hit_lines", [])
+	var hv := world.visual_index(String(st.hit))
+	while done < queue.size() and float(a.age) + 1e-9 >= float(a.next) + float(a.stagger) * done:
+		var slot := queue[done]
+		if world.swarm.is_live(slot) and world.swarm.identity[slot] == a.identities[done]:
+			_resolve_target(world, st, slot, done, int(st.attack_count), hv, by_target, by_line)
+		done += 1
+	a.done = done
+	return done >= queue.size()

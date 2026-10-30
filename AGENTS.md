@@ -121,7 +121,7 @@ bash scripts/playtest.sh --speed=1 --minutes=3                 # 3 minutes in re
 bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-forward to 10:00 without drawing,
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
 bash scripts/playtest.sh --stage=ellinia --seed=7 --window-autopick=1   # windows open and answer themselves
-bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the default job; --job=112 is Hero, --job=222 the I/L Arch Mage, --job=232 the Bishop, --job=312 the Bowmaster)
+bash scripts/playtest.sh --job=212 --minutes=20 --speed=8                      # the Arch Mage (the default job; --job=112 is Hero, --job=122 the Paladin, --job=222 the I/L Arch Mage, --job=232 the Bishop, --job=132 the Dark Knight, --job=312 the Bowmaster, --job=512 the Buccaneer)
 bash scripts/playtest.sh --job=232 --stage=sleepywood --character=$PWD/game/tests/fixtures/characters/bishop_t2.json
 bash scripts/playtest.sh --job=312 --character=$PWD/game/tests/fixtures/characters/bowmaster_t2.json --minutes=5
                                                                # a Bowmaster needs a bow in hand (the fixture's Battle Bow): with none the
@@ -151,9 +151,7 @@ one density check, and at least one must stay positive. This verifies coverage; 
 playtests retain their existing behavior on a valid early-death summary.
 
 `bash scripts/run.sh -- --hub [--job=<id>] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`; `--job=112`
-opens the Hero fixture `hero_t2.json` with the Hero kit of sword and axe ATT scrolls and Warrior spare gear; `--job=222` the I/L fixture `il_arch_mage_t2.json` with the F/P kit (both Arch Mages wear wands and staves from the same scroll line); `--job=232` the Bishop fixture `bishop_t2.json` with the same kit (spec #372 BS9; the job's `hub_kit` in `jobs/bishop.json`; playable on shipped data since BS10 #382); `--job=312` the
-Bowmaster fixture `bowmaster_t2.json` with bow, gloves, shoes ATT and hat DEX scrolls and spare Bowman gear (B12 #344, `hub_kit`
-in `jobs/bowmaster.json`); a `--job` the
+opens the Hero fixture `hero_t2.json` with the Hero kit of sword and axe ATT scrolls and Warrior spare gear; `--job=122` the Paladin fixture `paladin_t2.json` with 20 stacks of sword, blunt, two-handed sword and two-handed blunt ATT scrolls and spare Warrior gear (a Sword and a one-handed blunt weapon, `hub_kit` in `jobs/paladin.json`); `--job=222` the I/L fixture `il_arch_mage_t2.json` with the F/P kit (both Arch Mages wear wands and staves from the same scroll line); `--job=232` opens the Bishop fixture `bishop_t2.json` with the same Magician kit; `--job=512` the Buccaneer fixture `buccaneer_t2.json` with ten stacks of knuckle ATT and ACC scrolls (`scrolls/pirate.json`, every rate) and spare knuckler, hat, gloves and top (`jobs/buccaneer.json` `hub_kit`); `--job=312` the Bowmaster fixture `bowmaster_t2.json` with bow, gloves, shoes ATT and hat DEX scrolls and spare Bowman gear (`jobs/bowmaster.json` `hub_kit`); a `--job` the
 character is not of is an error screen) skips
 the title and opens the real Free Market to hand-test the scroll shops with the F/P fixture (or `--character`) plus
 a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants, every tier unlocked) in a throwaway
@@ -174,8 +172,8 @@ fresh `--shots` directory and the character slots, history and account go to its
 ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scenario=<name> --shots=<abs dir under evidence/>
 ```
 
-- `redesign` (#294, the slice's QA; about 6 minutes; `--job=<id>`, default 212, `--job=112` for Hero, `--job=222` for the I/L Arch Mage, `--job=232` for Bishop, `--job=312` for the Bowmaster: its Job page row is
-  clicked, the checks name its start skills and its fallback item is a sword (Hero, #305), a staff (I/L, #330) or the Lv40 Composite Bow (#344)): title -> create an Arch Mage (name, look, Job page) -> Free Market ->
+- `redesign` (#294, the slice's QA; about 6 minutes; `--job=<id>`, default 212, `--job=112` for Hero, `--job=132` for Dark Knight, `--job=122` for the Paladin, `--job=222` for the I/L Arch Mage, `--job=232` for Bishop, `--job=312` for the Bowmaster, `--job=512` for the Buccaneer: its Job page row is
+  clicked, the checks name its start skills and its fallback item is a sword (Hero/Paladin) a staff (I/L, #330) or a Lv40 knuckle (Buccaneer, #423, `hub_kit.fallback_item`)): title -> create the chosen job (name, look, Job page) -> Free Market ->
   map select with Sleepywood locked and its Start refused -> an invulnerable Henesys round (`--seed`, default 1; the bot
   steers, the first level-up, the first offer with every active slot filled, the first Mastery offer and the first boss
   bonus draw open the real window and are answered with a number key; the real CLEAR, fade and arrival presentation) ->
@@ -186,8 +184,10 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
   scenario plays its own card policy once the slots are full (it ranks the highest-ranked owned active so a Mastery card
   appears; the bot rarely gets there, GAME_DESIGN section 0); `summary.json` holds the offers, picks, rarities and the
   showcased windows. This is flow evidence, not survival or balance evidence.
-- `creation` (#305, #330: the Job page and creation of every playable job, or of `--jobs=<id,id>` such as `--jobs=112,212,312` (at most three jobs, matching the three character slots), in separate slots: the page lists
+- `creation` (#305, #330: the Job page and creation of every playable job, or of `--jobs=<id,id>` such as `--jobs=212,232`, in separate slots (**three slots only: with more than three playable jobs the default stalls on the fourth, so pass three or fewer**, e.g. `--jobs=212,512`): the page lists
   them in canonical order, the chosen row is highlighted, each slot holds its job with its creation weapon; about 30 s).
+  There are three slots, so with four playable jobs (Hero, Paladin, F/P, I/L) the default stalls on the fourth: pass three or fewer
+  (`--jobs=112,122,212`, `--jobs=122,212`).
 - `title` (the title screen only; for checking an exported build: `MapleSurvivors.exe res://scenes/debug/flow_driver.tscn
   -- --scenario=title --shots=<dir>`), `import` (a cache-less start, or the title's Re-import link: the import screen,
   `--wz=<folder>` typed into the path field; without `--wz` it checks the screen and never writes the cache) and `clear`
@@ -208,6 +208,11 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
   character uses the account's items; round 1 is invulnerable with diagnostic boss hits unless `--natural-clear=1`). They
   write a prepared account into `driver_save.json`.
 
+Buccaneer QA (#424) uses `redesign --job=512` and `creation --jobs=212,512`. The regression smoke and
+visual limitations are recorded in `docs/GAME_DESIGN.md` 4.2; rerun with the Buccaneer asset cache (511/512 books
+and morphs 1000/1001), `JOBS=3` and an isolated project. Sleepywood's early deaths with the diagnostic
+`buccaneer_t2.json` kit are recorded balance-pass work, not a reason for feature-ticket tuning.
+
 The scenarios of removed systems (`maps`, `rounds`, `full`, `economy` and the Warrior, Pirate, Bowman and Thief job and weapon
 pages) were deleted with job advancement, saved rounds and the old creation flow (#284, #286, #294); `redesign` and
 `account` cover the loop, `shops` and `scrolls` the economy.
@@ -218,8 +223,8 @@ stand, walk and each stance on a dummy; `-- --mode=cash` a cash weapon cover; `-
 projectiles per tier), `hair_cap_probe.tscn` (cap vs hair layers), `ui_gallery.tscn` (`--window=<name>`: the level-up, Skill,
 Stat and other windows), `equipment_requirements_driver.tscn` (the hub kit, Equip and Item windows with no requirement rows,
 an item above Lv1 worn), `equipment_drop_driver.tscn` (drops on the ground and the full-Equip-tab notice),
-`pet_driver.tscn` (each pet species in a round and in the Free Market), `player_summon_probe.tscn` (Elquines with 200 mobs: art
-and frame cost), `burst_probe.tscn` (synthetic moving-caster burst), `stun_driver.tscn`, `burn_driver.tscn` (`-- --cue=<Skill.wz path>`: burning monsters with the fallback tint and a cue) and `teleport_driver.tscn` (status and Teleport visuals), `revive_driver.tscn` (the Bishop's Resurrection: a lethal hit revives with its pillar, guard blink and notice, a second inside the recharge dies, one after it revives again; `-- --shots=<abs dir>`), `dark_cave_boss_driver.tscn`
+`support_summon_probe.tscn` (support summon pulse animations), `pet_driver.tscn` (each pet species in a round and in the Free Market), `player_summon_probe.tscn` (Elquines with 200 mobs: art
+and frame cost), `burst_probe.tscn` (synthetic moving-caster burst), `burn_driver.tscn` (burning monsters), `stun_driver.tscn` and `teleport_driver.tscn` (status and Teleport visuals), `morph_driver.tscn` (a morph in a list of stances, `-- --morph=1001,1000,1002 --stances=a,b`), `revive_driver.tscn` (the Bishop's Resurrection: a lethal hit revives with its pillar, guard blink and notice, a second inside the recharge dies, one after it revives again; `-- --shots=<abs dir>`), `dark_cave_boss_driver.tscn`
 (every Sleepywood boss attack on the fixture) and `map_viewer.tscn` (a map's layers). They are not in the unit suite
 (`test_tool_scripts` only parses them): run one after changing what it draws. The drivers of the unported job lines (Bowman,
 Thief, Pirate and Warrior combat, Dash, Oak Barrel, Dark Sight, the shield gallery, the old creation, hub and map-select
@@ -251,7 +256,12 @@ The committed `game/tests/fixtures/characters/fp_arch_mage.json` is the F/P char
 with tier 2 unlocked and the tier-1 equipment kit worn (a reqLevel-25 staff, reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15
 gloves, unscrolled); its `_doc` records the kit ids, label and revision, and `game/tools/character_fixture.gd --kit=<ids>
 --tiers=2` reproduces it (`game/tests/fixtures/characters/README.md`). `hero_t2.json` is the Hero (112) fixture: the equipment and loot from a seed-1 invulnerable Henesys bot clear,
-with tier 2 unlocked; its `_doc` records this diagnostic origin. Reproduce it with `--job=112 --god`. Its I/L twin `il_arch_mage_t2.json` (job 222, spec #319 I11: the same kit as F/P's and tier 2) was made with `--job=222 --patch=<playable patch>` before I12 enabled I/L, and its `_doc.patch` names the patch file (history; new generation needs no patch); its Bishop twin `bishop_t2.json` (job 232, spec #372 BS9: the same kit and tier 2) was made with `--job=232 --kit=1382002,1002013,1072019,1082019,1040002,1060002 --tiers=2 --label=spec372/ticket-381 --patch=<playable patch>` before BS10 enabled Bishop; new generation needs no patch (`_doc.patch` names the patch; `--character=<it>` runs a Bishop and `--job=212` with it fails; `--job=232 --character=<F/P fixture>` fails too); `--hub --job=222` opens it, `--character=<it>` runs an I/L (a `--job=212` with it fails).
+with tier 2 unlocked; its `_doc` records this diagnostic origin. Reproduce it with `--job=112 --god`. Its I/L twin `il_arch_mage_t2.json` (job 222, spec #319 I11: the same kit as F/P's and tier 2) was made with `--job=222 --patch=<playable patch>` before I12 enabled I/L, and its `_doc.patch` names the patch file (history; new generation needs no patch); `--hub --job=222` opens it, `--character=<it>` runs an I/L (a `--job=212` with it fails). `paladin_t2.json` (job 122, spec #308 P9 #317) is a kit fixture: a Lv25 Mace (1322004) with Warrior-bit armour and tier 2 unlocked, made with `--job=122 --kit=1322004,1002001,1082002,1040010,1060002 --tiers=2` (no `--patch`: Paladin ships playable); `--hub --job=122` opens it, `--character=<it>` runs a Paladin (a `--job=212` with it fails). `buccaneer_t2.json` (job 512, spec #412 B11 #423) is Hero's recipe for the Buccaneer: a seed-1 invulnerable Henesys bot clear (the worn weapon is the Lv25 knuckle 1482003, tier 2 unlocked; reproduce with `--job=512 --god --seed=1`); it must wear a knuckle, since the weapon-reach skills read the weapon's swing; `--hub --job=512` opens it.
+
+`dark_knight_t2.json` (job 132, spec #348 D10 #358) is the Dark Knight's, from a seed-1 invulnerable Henesys bot clear like Hero's (`--job=132 --god --seed=1`; a Pole Arm 1442004 worn, tier 2, no patch); `--hub --job=132` opens it, and a `--job=212` with it fails. A fresh `--job=132` tool round (no `--character`) wears the default outfit's sword, like every job: pass the fixture for a spear.
+
+Bishop uses `bishop_t2.json` (job 232), the same tier-1 kit as F/P, with tier 2 unlocked; `--hub --job=232` opens it.
+
 `bowmaster_t2.json` is the Bowmaster (312) fixture (B12 #344): kit mode like F/P's (`--job=312 --kit=1452000,1002163,1072025,1082012,1040002,1060002
 --tiers=2`: a Battle Bow, a Bowman-bit reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15 gloves and the starter top and bottom, unscrolled, tier 2
 open). Its historical `_doc.patch` records B12's generation before enablement; new generation needs no patch. **Every Bowmaster run needs a bow in hand**: without one `Ammo` gives 0 and the arrow sprite lookup fails (`missing`).
@@ -285,7 +295,7 @@ Use focused filters excluding `full_run` while tuning; freeze data and pacing wi
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
 `--job=<id>` names the character's job in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd` and the fixture tool (ADR 0006:
-a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Arch Mage (Fire, Poison, 212, the default), Arch Mage (Ice, Lightning, 222), Bishop (232, spec #372 BS10) and Bowmaster (312, enabled by B13 #345). `--job=112` selects Hero, `--job=222` the I/L Arch Mage, `--job=232` Bishop, `--job=312` the Bowmaster; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
+a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Dark Knight (132), Paladin (122; spec #308, P9 #317 flipped `playable`), Arch Mage (Fire, Poison, 212) Bishop (232), Arch Mage (Ice, Lightning, 222; spec #319, I12 flipped `playable`) Bowmaster (312) and Buccaneer (512; spec #412, B11 #423 flipped `playable`); `--job=112` selects Hero, `--job=122` the Paladin `--job=222` the I/L Arch Mage and `--job=512` the Buccaneer; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,
 `SceneFlow.forced_job_error`), and a `--character` whose job disagrees fails. A tool that names no job gets
 `JobTree.default_job()`, pinned to 212 by `survivor/jobs.json` whatever else is playable. Without `--character`, tools wear the job's `creation_weapon` and the default clothing. `--branch=<id>` is the deprecated alias. There is no advancement, so records have no
 `branch`, `forced_branch`, `job_t` or `job_times`; they carry the job id (`jobs` in the summary) and, from #293, `picks`
@@ -357,3 +367,8 @@ The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready
 ### Domain docs
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+Dark Knight QA: use `--job=132 --character=$PWD/game/tests/fixtures/characters/dark_knight_t2.json` for the
+fresh-start equipment baseline (pole arm kit); a bare `--job=132` tool run still wears the default Sword. For flow QA,
+run `redesign --job=132` and `creation --jobs=132,212,222` (at most three jobs). The bot's six-slot policy may leave
+Beholder and Power Strike out; diagnostic individual-skill captures cover those visuals, not survival.

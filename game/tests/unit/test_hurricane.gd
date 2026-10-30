@@ -346,7 +346,7 @@ class FxLog extends FxRenderer:
 	var calls: Array = []
 	var _next := 10
 	func play(path: String, _pos: Vector2, flip: bool = false, _follow: Node2D = null,
-			_offset: Vector2 = Vector2.ZERO, _hold: bool = false) -> int:
+			_offset: Vector2 = Vector2.ZERO, _hold: bool = false, _delay: float = 0.0) -> int:
 		_next += 1
 		calls.append(["play", path.get_file(), _next, flip])
 		return _next

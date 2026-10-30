@@ -120,18 +120,22 @@ func test_up_and_down_step_through_every_row_and_clamp_at_the_ends() -> void:
 		return
 	var creation := _job_page(_flow(), "IlKeys01")
 	var ids := _expected()
-	creation.select_job(ids[ids.size() - 1])
-	assert_eq(creation.job_id, ids[-1], "the last playable row")
+	var last: int = ids[ids.size() - 1] # the last playable job (Buccaneer since B11 #423; the I/L row is not the last)
+	assert_true(ids.find(222) >= 0 and ids.find(222) > ids.find(212), "I/L is a row below F/P")
+	creation.select_job(last)
 	creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, ids[-1], "Down at the last row stays")
+	assert_eq(creation.job_id, last, "Down at the last row stays")
 	creation._input(_key(KEY_UP))
-	assert_eq(creation.job_id, ids[ids.size() - 2], "Up from the last row")
+	assert_eq(creation.job_id, ids[ids.size() - 2], "Up from the last row is the row above")
+	creation.select_job(212)
+	creation._input(_key(KEY_DOWN))
+	assert_eq(creation.job_id, 222, "Down from F/P is I/L")
 	for i in ids.size():
 		creation._input(_key(KEY_UP))
 	assert_eq(creation.job_id, ids[0], "Up clamps at the first row")
 	for i in ids.size():
 		creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, ids[-1])
+	assert_eq(creation.job_id, last)
 
 
 func test_arrow_keys_do_nothing_off_the_job_page() -> void:

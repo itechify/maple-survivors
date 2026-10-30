@@ -8,7 +8,7 @@ extends RefCounted
 ## changes exactly what the original level-up changed (damage, mastery, the projectile art). Visual paths are
 ## templates: `{level}` becomes the canonical level, `{cl}` the CharLevel variant for the character's level.
 
-const ACTIVE_KINDS := ["projectile", "instant", "buff", "summon"]
+const ACTIVE_KINDS := ["projectile", "instant", "buff", "summon", "form"]
 ## Skill.wz keys holding a weapon requirement code; the second has a trailing space (tier A: only 5001003 spells it so).
 const WEAPON_FIELDS := ["weapon", "weapon "]
 
@@ -75,6 +75,15 @@ func art_path(key: String, path: String, family: String) -> String:
 	if path == "" or twin == own:
 		return path
 	return path.replace("/%07d/" % own, "/%07d/" % twin)
+
+
+## The Use sound of the `nth` cast (zero-based) of `key` for a weapon of `family`: the `sounds.use_cycle` list in order and
+## wrapping (Blast's five Use sounds, no RNG), else the single `sounds.use` ("" when the skill has none or is unknown).
+func use_sound(key: String, nth: int, family: String) -> String:
+	var sounds: Dictionary = def(key).get("sounds", {})
+	var cycle: Array = sounds.get("use_cycle", [])
+	var path := String(cycle[posmod(nth, cycle.size())]) if not cycle.is_empty() else String(sounds.get("use", ""))
+	return art_path(key, path, family)
 
 
 ## "projectile", "instant", "buff" or "passive".
@@ -214,6 +223,14 @@ static func fill_path(template: String, level: int, char_variant: int = 0) -> St
 	return template.replace("{level}", str(level)).replace("{cl}", str(char_variant))
 
 
+## Where a `cast_visuals` entry plays relative to the caster, and whether it flips: {x, flip}. An entry flagged
+## `"facing": true` is authored for a left-facing caster (as WZ art is), so a right-facing one mirrors its x and flips it
+## (tier C, Dragon Strike's tiles at -200 px steps); an entry without the flag is absolute (Meteor Shower's).
+static func visual_placement(visual: Dictionary, facing: int) -> Dictionary:
+	var mirror := bool(visual.get("facing", false)) and facing > 0
+	return {"x": -float(visual.x) if mirror else float(visual.x), "flip": mirror}
+
+
 ## Visual path `field` ("ball", "hit", "effect") of `key` at canonical `level` for a character of `char_level`:
 ## the `char_level` variant when the skill has one and the character reached a threshold, else the base template.
 func visual(key: String, field: String, level: int, char_level: int) -> String:
@@ -227,3 +244,8 @@ func visual(key: String, field: String, level: int, char_level: int) -> String:
 		if best > 0:
 			return fill_path(String(cl[field]), level, best)
 	return fill_path(String(d.get(field, "")), level)
+
+
+## The display unit for a skill’s meter gate and retention cards.
+func meter_unit(key: String) -> String:
+	return String(meter_rule(key).get("unit", "orbs"))

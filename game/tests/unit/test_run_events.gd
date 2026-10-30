@@ -3,6 +3,7 @@ extends TestCase
 ## exactly the documented fields, with the documented value types; every type shows up. Also checks seeded replays
 ## are identical.
 
+const SSF := preload("res://tests/fixtures/support_summon_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const RV := preload("res://tests/fixtures/revive_fixtures.gd")
@@ -14,7 +15,7 @@ const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id", "hp", "pushed"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
-const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message"]
+const STRING_FIELDS := ["element", "reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message"]
 
 
 
@@ -386,11 +387,34 @@ func test_every_event_matches_the_schema() -> void:
 	transfer.advance_map()
 	for event: Dictionary in transfer.drain_events():
 		_check(event, seen)
+	# P3: no playable job owns a form yet. Exercise the new events with synthetic stance data.
+	var former := RunWorld.new(RF.setup("quiet", 311, RF.quiet_data()))
+	former.progression.job_id = 999
+	former.book.defs["fixture_form"] = {"skill_id": 9991001, "book": "999", "kind": "form", "slot": "active", "damage": "none",
+		"ranks": [1], "cooldown": 3.0, "cast": {"rule": "form", "mob_within": 400},
+		"form": {"duration": 1.0, "exclusive_group": "fixture", "effects": {"element": "f"}, "subs": []}}
+	former.drain_events()
+	former.runner.forms.start(former, "fixture_form", former.loadout.stats("fixture_form"))
+	former.runner.forms.step(1.0, former)
+	for event: Dictionary in former.drain_events():
+		_check(event, seen)
 	# H3: the no-meter F/P probe cannot emit this job-specific event. Exercise the generic counter.
 	var meter := PlayerMeter.new({"id": "fixture", "max": 10, "gain": {"event": "cast_landed", "amount": 1}})
 	var meter_events: Array = []
 	meter.gain("cast_landed", meter_events)
 	for event: Dictionary in meter_events:
+		_check(event, seen)
+	# D3 (#351): no shipped skill pays HP in this probe's runs. Exercise both kinds of hp_spent through HpRisk.
+	var risk := RF.quiet_world(400.0, 351)
+	risk.god = false
+	risk.drain_events()
+	var risk_stats := {"skill": "synthetic", "skill_id": 9991000, "hp_cost": 5, "self_damage": 50.0, "self_damage_cap": 1.0}
+	HpRisk.pay_cost(risk, risk_stats)
+	HpRisk.settle(risk, risk_stats, risk.damage_dealt - 40)
+	var spent := risk.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "hp_spent")
+	assert_eq(spent.map(func(e: Dictionary) -> String: return e.kind), ["cost", "recoil"])
+	for event: Dictionary in spent:
+		assert_eq(event.size(), 5)
 		_check(event, seen)
 	var pull := CF.world({"pull": {"min_gap": 60}, "range": 600.0})
 	RF.put_mob(pull, 1110100, pull.player.pos.x + 300)
@@ -434,6 +458,15 @@ func test_every_event_matches_the_schema() -> void:
 				archer.step(DT, MoveInput.new())
 			for event: Dictionary in archer.drain_events():
 				_check(event, seen)
+
+		if type == "support_pulse":
+			var beholder := SSF.world()
+			for tick in 200: # the synthetic Hex pulse lands at 3 s
+				beholder.step(DT, MoveInput.new())
+			# summon_spawn / summon_attack (T9) were never registered in EVENT_FIELDS: check only this ticket's event.
+			for event: Dictionary in beholder.drain_events():
+				if event.type in ["support_pulse", "buff_cast", "player_restored"]:
+					_check(event, seen)
 		if type == "player_banished":
 			var shaded := SF.world()
 			for tick in 15 * 60:

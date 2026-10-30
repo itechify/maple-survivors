@@ -1,8 +1,9 @@
 extends TestCase
-## Every rarity bonus of every Hero, F/P, I/L Arch Mage and Bishop skill changes the resolved cast, not just a stat number (spec
-## #296, H7 audit; the I/L skills joined it in spec #319, I6 #325 / the merge of redesign; the Bishop's core bolts in spec #372, BS5 #377).
+## Every rarity bonus of every Hero, F/P, I/L Arch Mage, Bishop and Buccaneer skill changes the resolved cast, not just a stat number (spec
+## #296, H7 audit; the I/L skills joined it in spec #319, I6 #325 / the merge of redesign; the Bishop's core bolts in spec #372, BS5 #377;
+## the five Buccaneer Brawler skills in spec #412, B4 #416).
 ## For each effect of each tier the same seeded world is cast twice, with and without the effect, against a field of mobs
-## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), attack_count (hit events), count and
+## laid out to expose that one stat: damage (damage dealt over 12 s), cooldown (casts in 66 s), crit (critical hit events in 66 s), attack_count (hit events), count and
 ## pierce (mobs affected), summon_count (allies), meter_keep (orbs left after a finisher), and area / range (a mob just beyond the base reach is only affected with
 ## the effect). A bonus whose stat the skill's cast rule never reads fails here as a no-op.
 ## Hero books (111/112) are synthetic generic tables; the F/P and Bowman books come from the shared run fixtures. The Bowmaster
@@ -16,6 +17,11 @@ extends TestCase
 ## Composition use the small tables `_demon_levels` builds) and are cast at their top rank, so the probes below are the same and
 ## only `_world` differs. Ifrit (I9) is a summon that needs allies settled behind the player: it stays in test_ifrit.gd
 ## (IL_AUDITED_ELSEWHERE).
+## Paladin's skills (Blast, Monster Magnet) run as job 122 (P5 #313). The Buccaneer's five (books 500/510, synthetic fixture tables, a
+## knuckler in hand) run as job 512 at their top rank.
+## A Form (Paladin's Charges, spec #308) has its own probe: its bonuses change the Charge's multiplier (`form_power`: the hits of a
+## Paladin skill inside the window), duration (`form_time`: ticks the window lasts), cooldown (windows started in 66 s) and its
+## sub-skill's damage (`damage`: Charged Blow's hits inside the window).
 
 const BF := preload("res://tests/fixtures/bishop_bolt_fixtures.gd")
 const IL := preload("res://tests/fixtures/il_fixtures.gd")
@@ -23,14 +29,22 @@ const RS := preload("res://tests/fixtures/resurrection_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BLIZZARD := preload("res://tests/unit/test_il_blizzard.gd")
 const BIG_BANG := preload("res://tests/unit/test_il_big_bang.gd")
+const TRANSFORMATION := preload("res://tests/unit/test_buccaneer_transformation.gd")
 const DT := 1.0 / 60.0
 const MOB := 1110100
 const CASTER_X := 2000.0
 const FLAT := [{"x1": 0, "y1": 200, "x2": 4000, "y2": 200}]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const FOLLOWERS := preload("res://tests/unit/test_bowmaster_followers.gd")
-const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep",
-	"blast_targets", "burn_damage"]
+const CORE_STATS := ["damage", "cooldown", "attack_count", "count", "pierce", "summon_count", "area", "range", "meter_keep", "crit",
+	"self_damage", "low_hp_damage", "hp_cost", "support_heal", "support_rate", "form_power", "form_time", "blast_targets", "burn_damage"]
+## The Buccaneer skills this audit casts (B4 #416 the five Brawler skills, B7 #419 Energy Orb, B8 #420 Barrage and Dragon Strike, B9 #421 Transformation, B10 #422 Super Transformation; B6 appends its own).
+const BUCCANEER_SKILLS := ["flash_fist", "somersault_kick", "backspin_blow", "double_uppercut", "corkscrew_blow",
+		"barrage", "dragon_strike", "energy_orb", "transformation", "super_transformation"]
+const BARRAGE_DRAGON := preload("res://tests/unit/test_buccaneer_barrage_dragon.gd")
+const ORB := preload("res://tests/unit/test_buccaneer_orb.gd")
+const SUPER := preload("res://tests/unit/test_buccaneer_super_transformation.gd")
+const KNUCKLE := 1482000
 const BOW := 1452051
 ## The Bowmaster skills this audit knows how to probe (tickets B7-B11 add theirs; B8 added Arrow Rain and Dragon's Breath, B9 Inferno, B10 Hurricane).
 const BOWMASTER_KEYS := ["arrow_blow", "bow_double_shot", "arrow_bomb", "strafe", "arrow_rain", "dragons_breath", "inferno", "hurricane"]
@@ -53,16 +67,54 @@ const BISHOP_SKILLS := ["holy_arrow", "shining_ray", "angel_ray"]
 const BISHOP_NOVAS := ["genesis", "big_bang_bishop"]
 const BISHOP_GENESIS := preload("res://tests/fixtures/bishop_genesis_fixtures.gd")
 
+## The stats probed over a 12 s window of repeated casts (the others stop after the first cast).
+const HP_STATS := ["self_damage", "low_hp_damage", "hp_cost"]
+## Skills with their own synthetic levels (Skill.wz fields they read, no table box), the HP pool and the weapon of their world.
+const HP_RISK_SKILLS := ["dragon_fury", "sacrifice"]
+const DK_HP := 1000000
+const DK_WEAPON := 1302000
+
 var _resolved_skills := {}
 
 
 ## Generic Skill.wz levels: a centred box, six mobs, one line, a 300 px range, a certain proc (the shape test_fp_high_actives uses).
-func _generic_levels() -> Dictionary:
+## `extra` is merged into every level (Dragon Roar's `x` = 40 % of max HP and `y` stun seconds).
+func _generic_levels(extra: Dictionary = {}) -> Dictionary:
 	var levels := {}
 	for lv in range(1, 31):
 		levels[str(lv)] = {"damage": 100 + lv, "mad": 30.0, "mobCount": 6, "attackCount": 1, "range": 300, "prop": 100,
 			"time": 4, "lt": {"$v": [-200, -150]}, "rb": {"$v": [200, 150]}}
+		levels[str(lv)].merge(extra, true)
 	return levels
+
+
+## Levels of an HP-risk skill: no box (Dragon Fury's reach is its literal cast box, not a table), the HP fields it reads
+## (Sacrifice `x`, Fury `hpCon`) and one line per cast.
+func _hp_risk_levels(key: String) -> Dictionary:
+	var levels := {}
+	for lv in range(1, 31):
+		levels[str(lv)] = {"damage": 200, "mobCount": 6 if key == "dragon_fury" else 1, "attackCount": 1}
+		if key == "sacrifice":
+			levels[str(lv)]["x"] = 18
+		elif key == "dragon_fury":
+			levels[str(lv)]["hpCon"] = 20
+	return levels
+
+
+## A support summon's sub-skill (Aura, Hex) levels: 50 HP every 10 s, a 20 s defence buff every 10 s (the Beholder's own tables
+## are covered by test_beholder; here only the cast differs with and without the bonus).
+func _sub_levels() -> Dictionary:
+	var levels := {}
+	for lv in range(1, 31):
+		levels[str(lv)] = {"hp": 50.0, "x": 10.0, "time": 20.0, "pdd": 10.0}
+	return levels
+
+
+func _anim(frames: int) -> Dictionary:
+	var out := {}
+	for i in frames:
+		out[str(i)] = {"delay": 100.0}
+	return out
 
 
 ## The skills with rarity bonuses of the Magician, Warrior and I/L lines (job < 300), templates resolved: a skill that `extends`
@@ -71,9 +123,8 @@ func _skills_with_bonuses() -> Array:
 	var skills: Dictionary = _resolved()
 	var keys := []
 	for key: String in skills:
-		if (skills[key] as Dictionary).has("rarity_bonuses") \
-				and ((int(skills[key].job) < 300 and key not in IL_AUDITED_ELSEWHERE and key not in BISHOP_AUDITED_ELSEWHERE) \
-				or key in BOWMASTER_KEYS):
+		if (skills[key] as Dictionary).has("rarity_bonuses") and (int(skills[key].job) < 300 or key in BUCCANEER_SKILLS or key in BOWMASTER_KEYS) \
+				and key not in IL_AUDITED_ELSEWHERE and key not in BISHOP_AUDITED_ELSEWHERE:
 			keys.append(key)
 	return keys
 
@@ -111,7 +162,29 @@ func _il_setup() -> Dictionary:
 	return setup
 
 
+## A Buccaneer (512, made playable in the data copy) holding a knuckler on the flat field, the five Brawler skills read from the
+## synthetic books 500/510 of the run fixtures, Barrage and Dragon Strike from book 512 of test_buccaneer_barrage_dragon.
+func _buccaneer_world(key: String) -> RunWorld:
+	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["512"]["playable"] = true
+	var setup := RF.with_basic_attack(RF.setup("quiet", 416, data))
+	setup.skill_imgs["511"] = TRANSFORMATION.book_node()
+	setup.equipment_info[KNUCKLE] = {"incPAD": 18, "attackSpeed": 5, "tuc": 7, "afterImage": "mace", "sfx": "mace"}
+	# One book-512 dictionary with every key: B8 #420 Barrage and Dragon Strike, B7 #419 Energy Orb, B10 #422 Super Transformation, Demolition and Snatch.
+	var book512 := BARRAGE_DRAGON.book_node()
+	book512.skill.merge(ORB.book_node().skill)
+	book512.skill.merge(SUPER.book_node().skill)
+	setup.skill_imgs["512"] = book512
+	var w := RunWorld.new(setup)
+	w.set_job(512)
+	if w.weapon_id() != KNUCKLE:
+		w.wear_new_item(KNUCKLE)
+	return _finish_world(w, key, true)
+
+
 func _world(key: String) -> RunWorld:
+	if key in BUCCANEER_SKILLS:
+		return _buccaneer_world(key)
 	var il: bool = int(_resolved()[key].job) in IL_BOOKS
 	if il:
 		return _finish_world(RunWorld.new(_il_setup()), key, true)
@@ -120,10 +193,15 @@ func _world(key: String) -> RunWorld:
 	if key in BISHOP_NOVAS:
 		return _finish_world(RunWorld.new(BISHOP_GENESIS.add_books(BF.setup(RF.quiet_data(), 378))), key, true)
 	var data := RF.quiet_data()
-	var job := 112 if int(data.skills.skills[key].job) in [100, 110, 111, 112] else 212
+	var skill_job := int(data.skills.skills[key].job)
+	var job := 122 if skill_job in [120, 121, 122] else 112 if skill_job in [100, 110, 111, 112] else 132 if skill_job in [130, 131, 132] else 212
+	data.jobs_survivor.jobs["112"]["playable"] = true
+	data.jobs_survivor.jobs["132"]["playable"] = true
+	if key in HP_RISK_SKILLS:
+		data.balance.player.hp = DK_HP
+	data.jobs_survivor.jobs["122"]["playable"] = true
 	if key in BOWMASTER_KEYS:
 		job = 312
-	data.jobs_survivor.jobs["112"]["playable"] = true
 	data.jobs_survivor.jobs["312"]["playable"] = true
 	var setup := RF.with_basic_attack(RF.setup("quiet", 296, data))
 	setup.equipment_info.merge({BOW: {"incPAD": 28, "attackSpeed": 6, "tuc": 7}}, true)
@@ -143,12 +221,20 @@ func _world(key: String) -> RunWorld:
 	for k: String in data.skills.skills:
 		var d: Dictionary = data.skills.skills[k]
 		var id := int(d.skill_id)
-		if int(d.job) in [111, 112] or id in [2111002, 2111003, 2111006, 2121001, 2121003, 2121006, 2121007]:
+		if k in HP_RISK_SKILLS:
+			var risk_book := String(d.book)
+			if not imgs.has(risk_book):
+				imgs[risk_book] = {"skill": {}}
+			imgs[risk_book].skill[str(id)] = {"level": _hp_risk_levels(k)}
+		elif int(d.job) in [111, 112, 121, 122, 131, 132] or id in [2111002, 2111003, 2111006, 2121001, 2121003, 2121006, 2121007]:
 			var book := String(d.book)
 			if not imgs.has(book):
 				imgs[book] = {"skill": {}}
 			var node: Dictionary = imgs[book].skill.get("%07d" % id, imgs[book].skill.get(str(id), {}))
-			node["level"] = _generic_levels()
+			node["level"] = _sub_levels() if String(d.get("slot", "")) == "summon_sub" else _generic_levels({"x": 40, "y": 4} if id == 1311006 else {})
+			if d.get("summon", {}).has("support"):
+				node["summon"] = {"summoned": _anim(3), "stand": _anim(4), "move": _anim(2), "die": _anim(2),
+					"skill1": _anim(3), "skill2": _anim(3), "skill3": _anim(3), "skill4": _anim(3), "skill5": _anim(3), "skill6": _anim(3)}
 			imgs[book].skill[str(id) if id >= 1000000 else "%07d" % id] = node
 	var w := RunWorld.new(setup)
 	if job == 312:
@@ -173,6 +259,9 @@ func _finish_world(w: RunWorld, key: String, top_rank: bool) -> RunWorld:
 		w.wear_new_item(BOW)
 	w.loadout.ranks.clear()
 	w.loadout.order.clear()
+	if key in HP_RISK_SKILLS:
+		w.equipment.worn.weapon = Equipment.create(DK_WEAPON, {"incPAD": 1500})
+		w.refresh_player_stats()
 	w.learn_skill(key)
 	if top_rank:
 		w.loadout.set_rank(key, w.book.max_rank(key))
@@ -190,6 +279,8 @@ func _reach(w: RunWorld, key: String) -> float:
 	var st := w.loadout.stats(key)
 	if String(st.kind) == "summon":
 		return 200.0 # the fixture summon's attack box (run_fixtures.gd, #291)
+	if String(st.kind) == "form":
+		return 300.0 # a form has no reach of its own: the mobs stand inside its Shockwave strip (330 px) and its 400 px admission radius
 	match String(st.cast_rule):
 		"box":
 			return maxf(absf((st.box as Rect2).position.x), absf((st.box as Rect2).end.x))
@@ -253,29 +344,58 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	for e: Dictionary in effects:
 		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
 	# Cooldown counts casts over 66 s (Shout: 6 at 12 s, 7 at 10.56 s); damage sums many casts so that rounding cannot hide a x1.2.
-	var repeating := stat in ["cooldown", "damage"]
-	# A bow's `range` probe stops before the spawn director relocates a monster that sits off screen (about 3.3 s): a shot at
-	# 550 px lands within a second.
-	var window := 66.0 if stat == "cooldown" else 12.0 if stat == "damage" \
-		else 1.5 if stat == "range" and key in BOWMASTER_KEYS else 3.5
+	var repeating := stat in ["cooldown", "damage", "crit"] or stat in HP_STATS
+	var support := stat in ["support_heal", "support_rate"]
+	var window := 66.0 if stat in ["cooldown", "crit"] else 12.0 if stat == "damage" or stat in HP_STATS else 30.0 if support else (22.0 if key == "super_transformation" else 14.0) if stat == "form_time" else 1.5 if stat == "range" and key in BOWMASTER_KEYS else 3.5
+	if stat == "low_hp_damage":
+		w._hp = 0.4 * float(w.player_state.max_hp) # at or below half HP (HpRisk.BERSERK_BELOW)
+		w._write_player_state(0.0)
+	if stat == "support_heal":
+		w.loadout.add_player_mod("max_hp", "add", 1000.0) # room for the flat heal (a Lv1 knight has 50 HP)
+		w.refresh_player_stats()
+		w.spend_hp(int(w.player_state.hp) - 50) # a hurt knight: a 50 HP Aura pulse restores in full
+	var recoil := 0
+	var cost := 0
+	var restored := 0
+	var pulses := 0
 	var affected := {}
 	var lines := 0
-	# A Combo finisher (Panic, Coma) needs orbs: ten every tick when counting casts or damage, five once otherwise, so
-	# that `meter_keep` shows in what a single cast leaves behind.
+	var crits := 0
+	# A Combo finisher (Panic, Coma) needs orbs: ten every tick when counting casts or damage, its own minimum once otherwise
+	# (5 for Hero, 10 for the Energy Orb), so that `meter_keep` shows in what a single cast leaves behind.
 	var finisher: bool = w.book.def(key).has("meter")
+	var needed := int(w.book.def(key).get("meter", {}).get("min", 5))
 	var orbs_left := -1
+	var form_from := -1
+	var form_ticks := 0
 	for tick in int(window / DT):
 		if finisher and (repeating or w.runner.casts == 0):
-			w.meter.value = 10 if repeating else 5
+			w.meter.value = 10 if repeating else needed
 		w.step(DT, MoveInput.new())
 		if finisher and orbs_left < 0 and w.runner.casts >= 1:
 			orbs_left = w.meter.value
 		if not repeating and w.runner.casts >= 1:
 			w.runner.cooldowns[key] = 1.0e9
 		for e: Dictionary in w.drain_events():
+			if e.type == "form_started":
+				form_from = tick
+			elif e.type == "form_ended" and form_from >= 0 and form_ticks == 0:
+				form_ticks = tick - form_from
 			if e.type == "mob_hit":
 				lines += 1
+				crits += 1 if bool(e.crit) else 0
 				affected[int(e.mob)] = true
+			elif e.type == "hp_spent":
+				if e.kind == "recoil":
+					recoil += int(e.amount)
+				else:
+					cost += int(e.amount)
+			elif e.type == "player_restored":
+				restored += int(e.amount)
+			elif e.type == "support_pulse":
+				pulses += 1
+		if repeating and not (w.loadout.stats(key).displacement as Dictionary).is_empty():
+			w.player.place(Vector2(CASTER_X, w.player.pos.y), w.fhm) # a charge or a back-off must not walk the caster away between casts
 		for s: int in slots:
 			if repeating:
 				w.swarm.x[s] = x0[s] # knockback must not walk the mobs out of the skill's reach between casts
@@ -289,21 +409,27 @@ func _probe(key: String, effects: Array, stat: String) -> Dictionary:
 	var edge_hit := false
 	for s: int in edge_slots:
 		edge_hit = edge_hit or affected.has(s)
-	var direct_damage: bool = String(w.loadout.stats(key).damage_type) != "none"
-	return {"casts": w.runner.casts, "dealt": w.damage_dealt - w.swarm.poison_dealt if direct_damage else w.swarm.poison_dealt, "lines": lines, "affected": affected.size(), "edge": edge_hit,
-		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left, "burn": w.swarm.burn_dealt}
+	# A form deals no damage itself; its Shockwave sub does (the form's `damage` modifier multiplies it).
+	var direct_damage: bool = String(w.loadout.stats(key).damage_type) != "none" or String(w.loadout.stats(key).kind) == "form"
+	return {"casts": w.runner.casts, "dealt": w.damage_dealt - w.swarm.poison_dealt if direct_damage else w.swarm.poison_dealt, "lines": lines, "crits": crits, "affected": affected.size(), "edge": edge_hit,
+		"summons": w.runner.summons.active.count(1), "orbs_left": orbs_left, "form_seconds": float(form_ticks) * DT, "recoil": recoil, "cost": cost, "restored": restored, "pulses": pulses, "burn": w.swarm.burn_dealt}
 
 
 func test_every_pool_skill_with_bonuses_was_found() -> void:
 	var keys := _skills_with_bonuses()
 	for key in ["power_strike", "slash_blast", "brandish", "shout", "monster_magnet", "panic", "coma", "energy_bolt", "explosion",
-			"elquines"]:
+			"blast", "monster_magnet_paladin", "fire_charge", "ice_charge", "thunder_charge", "elquines", "spear_crusher", "dragon_roar", "monster_magnet_dark_knight", "beholder"]:
 		assert_true(key in keys, key)
 	for key in BOWMASTER_KEYS:
 		assert_true(key in keys, key)
 	assert_true(keys.size() >= 27 + IL_SKILLS.size(), "seven Hero, twelve F/P, eight Bowmaster and %d I/L skills: %d" % [IL_SKILLS.size(), keys.size()])
+	for key in BUCCANEER_SKILLS:
+		assert_true(key in keys, "%s (Buccaneer) is audited" % key)
+	assert_true(keys.size() >= 24 + IL_SKILLS.size(), "seven Hero, five Paladin, twelve F/P and %d I/L skills: %d" % [IL_SKILLS.size(), keys.size()])
 	for key in IL_SKILLS:
 		assert_true(key in keys, "%s (I/L) is audited" % key)
+	for key in HP_RISK_SKILLS:
+		assert_true(key in keys, key)
 	for key in BISHOP_SKILLS + BISHOP_NOVAS:
 		assert_true(key in keys, "%s (Bishop) is audited" % key)
 
@@ -361,10 +487,74 @@ func test_each_bonus_effect_changes_the_resolved_cast() -> void:
 	assert_eq(nova_checked, BISHOP_NOVAS.size() * 5, "Genesis and Big Bang Bishop: 1 + 1 + 1 + 2 effects")
 
 
+func test_holy_charge_is_found_with_its_four_rarity_lists() -> void:
+	assert_true("holy_charge" in _skills_with_bonuses())
+	var bonuses: Dictionary = DataRepo.load_all().skills.skills.holy_charge.rarity_bonuses
+	for tier: String in TIERS:
+		assert_eq(bonuses[tier].size(), 1, tier)
+	assert_false(DataRepo.load_all().skills.skills.heavens_hammer.has("rarity_bonuses"), "a sub-skill has no list of its own")
+
+
+## Heaven's Hammer is Holy Charge's second sub-skill: every bonus of Holy that reaches a sub changes it. Runs Holy against four
+## still mobs inside the generic Hammer box and measures the Hammers cast and the damage they dealt in `seconds`.
+func _probe_hammer(effects: Array, seconds: float) -> Dictionary:
+	var w := _world("holy_charge")
+	var slots := []
+	for off: float in [80.0, -80.0, 140.0, -140.0]:
+		slots.append(RF.put_mob(w, MOB, CASTER_X + off, 190.0, 1000000.0))
+	var x0 := {}
+	for s: int in slots:
+		x0[s] = w.swarm.x[s]
+	for e: Dictionary in effects:
+		w.loadout.add_skill_mod("holy_charge", String(e.stat), String(e.op), float(e.value))
+	var hammers := 0
+	var dealt := 0.0
+	for tick in int(seconds / DT):
+		w.restore_player("hp", 100, "test")
+		w.step(DT, MoveInput.new())
+		for s: int in slots:
+			w.swarm.x[s] = x0[s]
+		for e: Dictionary in w.drain_events():
+			if String(e.type) == "cast" and String(e.skill) == "heavens_hammer":
+				hammers += 1
+			elif String(e.type) == "mob_hit" and String(e.skill) == "heavens_hammer":
+				dealt += float(e.damage)
+	return {"hammers": hammers, "dealt": dealt}
+
+
+func test_each_holy_bonus_that_reaches_a_sub_changes_the_hammer() -> void:
+	var bonuses: Dictionary = DataRepo.load_all().skills.skills.holy_charge.rarity_bonuses
+	var base_short := _probe_hammer([], 16.0)
+	var base_long := _probe_hammer([], 66.0)
+	assert_eq(base_short.hammers, 1, "one Hammer in the first window")
+	assert_true(float(base_short.dealt) > 0.0, "and it lands")
+	for tier: String in TIERS:
+		for bonus: Dictionary in bonuses[tier]:
+			for effect: Dictionary in bonus.effects:
+				var label := "holy_charge %s %s (%s)" % [tier, bonus.id, effect.stat]
+				match String(effect.stat):
+					"damage", "form_power":
+						# Advanced Charge's damage multiplies the sub; Mastery's form_power raises every attack of the window.
+						var with := _probe_hammer([effect], 16.0)
+						assert_true(float(with.dealt) > float(base_short.dealt), "%s: the Hammer %s -> %s" % [label, base_short.dealt, with.dealt])
+					"cooldown":
+						var with := _probe_hammer([effect], 66.0)
+						assert_true(int(with.hammers) > int(base_long.hammers), "%s: Hammers in 66 s %d -> %d" % [label, base_long.hammers, with.hammers])
+					"form_time":
+						# The window's length is measured by the Form probe above; the Hammer fires once whatever it lasts.
+						assert_eq(_probe_hammer([effect], 16.0).hammers, 1, "%s: still one Hammer per window" % label)
+					_:
+						assert_true(false, "%s: a stat this audit knows" % label)
+
+
 func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effect: Dictionary) -> void:
 	var stat := String(effect.stat)
 	var label := "%s %s %s (%s)" % [key, tier, id, stat]
 	assert_true(stat in CORE_STATS, "%s: a stat this audit knows" % label)
+	# A Paladin Charge (a Form with an element) has the Form probe; Buccaneer's morphs (no element) run the cast probe.
+	if String(_resolved()[key].get("kind", "")) == "form" and (_resolved()[key].form.get("effects", {}) as Dictionary).has("element"):
+		_assert_form_effect_changes_the_cast(key, label, stat, effect)
+		return
 	var base := _probe(key, [], stat)
 	var with := _probe(key, [effect], stat)
 	match stat:
@@ -372,6 +562,8 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 			assert_true(int(with.casts) > int(base.casts), "%s: casts %d -> %d" % [label, base.casts, with.casts])
 		"damage":
 			assert_true(int(with.dealt) > int(base.dealt), "%s: damage dealt %d -> %d" % [label, base.dealt, with.dealt])
+		"crit":
+			assert_true(int(with.crits) > int(base.crits), "%s: critical hits %d -> %d" % [label, base.crits, with.crits])
 		"attack_count":
 			assert_true(int(with.lines) > int(base.lines), "%s: hit lines %d -> %d" % [label, base.lines, with.lines])
 		"count", "pierce", "blast_targets":
@@ -384,14 +576,91 @@ func _assert_effect_changes_the_cast(key: String, tier: String, id: String, effe
 		"burn_damage":
 			assert_true(int(base.burn) > 0, "%s: the unmodified cast burns" % label)
 			assert_true(int(with.burn) > int(base.burn), "%s: burn dealt %d -> %d" % [label, base.burn, with.burn])
+		"form_time":
+			assert_true(float(base.form_seconds) > 0.0 and float(with.form_seconds) > float(base.form_seconds),
+				"%s: form seconds %.2f -> %.2f" % [label, base.form_seconds, with.form_seconds])
 		"summon_count":
 			assert_true(int(with.summons) > int(base.summons), "%s: allies %d -> %d" % [label, base.summons, with.summons])
+		"support_heal":
+			assert_true(int(base.restored) > 0 and int(with.restored) > int(base.restored),
+				"%s: HP restored in 30 s %d -> %d" % [label, base.restored, with.restored])
+		"support_rate":
+			assert_true(int(base.pulses) > 0 and int(with.pulses) > int(base.pulses),
+				"%s: pulses in 30 s %d -> %d" % [label, base.pulses, with.pulses])
 		"meter_keep":
 			assert_true(int(base.orbs_left) >= 0 and int(with.orbs_left) > int(base.orbs_left),
 				"%s: orbs left after the cast %d -> %d" % [label, base.orbs_left, with.orbs_left])
+		"self_damage":
+			assert_true(int(base.recoil) > 0 and int(base.dealt) > 0, "%s: the base cast pays a recoil (%d of %d)" % [label, base.recoil, base.dealt])
+			assert_true(float(with.recoil) / float(with.dealt) < float(base.recoil) / float(base.dealt),
+				"%s: recoil per damage dealt %d/%d -> %d/%d" % [label, base.recoil, base.dealt, with.recoil, with.dealt])
+		"low_hp_damage":
+			assert_true(int(with.dealt) > int(base.dealt), "%s: damage dealt at 40%% HP %d -> %d" % [label, base.dealt, with.dealt])
+		"hp_cost":
+			assert_true(int(base.cost) > 0 and int(with.cost) * int(base.casts) < int(base.cost) * int(with.casts),
+				"%s: HP paid per cast %d/%d -> %d/%d" % [label, base.cost, base.casts, with.cost, with.casts])
 		"area", "range":
 			assert_false(bool(base.edge), "%s: the mob beyond the base reach is outside it" % label)
 			assert_true(bool(with.edge), "%s: the mob beyond the base reach is inside the widened one" % label)
+
+
+## Runs a Form `key` with Power Strike beside it against four still mobs inside its 400 px admission, with `effects` applied.
+## `seconds` bounds the run: the first window's hits, length and the windows started in it are measured.
+func _probe_form(key: String, effects: Array, seconds: float) -> Dictionary:
+	var w := _world(key)
+	w.learn_skill("power_strike")
+	w.loadout.add_skill_mod("power_strike", "damage", "mul", 100.0) # big hits: whole-number rounding cannot hide a +10 %
+	var slots := []
+	for off: float in [80.0, -80.0, 140.0, -140.0]:
+		slots.append(RF.put_mob(w, MOB, CASTER_X + off, 190.0, 1000000.0))
+	var x0 := {}
+	for s: int in slots:
+		x0[s] = w.swarm.x[s]
+	for e: Dictionary in effects:
+		w.loadout.add_skill_mod(key, String(e.stat), String(e.op), float(e.value))
+	var starts := 0
+	var start_tick := -1
+	var length := -1
+	var strikes := 0.0
+	var blows := 0.0
+	for tick in int(seconds / DT):
+		w.restore_player("hp", 100, "test") # Charged Blow pays HP and waits when it cannot
+		w.step(DT, MoveInput.new())
+		var inside := start_tick >= 0 and length < 0
+		for s: int in slots:
+			w.swarm.x[s] = x0[s] # knockback must not walk the mobs out of Charged Blow's reach
+		for e: Dictionary in w.drain_events():
+			match String(e.type):
+				"form_started":
+					starts += 1
+					start_tick = tick if start_tick < 0 else start_tick
+				"form_ended":
+					length = tick - start_tick if length < 0 else length
+				"mob_hit":
+					if inside and String(e.skill) == "power_strike":
+						strikes += float(e.damage)
+					elif inside and String(e.skill) == "charged_blow":
+						blows += float(e.damage)
+	return {"starts": starts, "length": length, "strikes": strikes, "blows": blows}
+
+
+func _assert_form_effect_changes_the_cast(key: String, label: String, stat: String, effect: Dictionary) -> void:
+	var seconds := 66.0 if stat == "cooldown" else 16.0
+	var base := _probe_form(key, [], seconds)
+	var with := _probe_form(key, [effect], seconds)
+	assert_true(int(base.length) > 0 and float(base.strikes) > 0.0 and float(base.blows) > 0.0, "%s: the baseline Charge runs" % label)
+	match stat:
+		"form_power":
+			assert_true(float(with.strikes) > float(base.strikes), "%s: Power Strike inside the window %s -> %s" % [label, base.strikes, with.strikes])
+		"form_time":
+			assert_true(int(with.length) > int(base.length), "%s: window ticks %d -> %d" % [label, base.length, with.length])
+		"cooldown":
+			assert_true(int(with.starts) > int(base.starts), "%s: windows in 66 s %d -> %d" % [label, base.starts, with.starts])
+		"damage":
+			assert_true(float(with.blows) > float(base.blows), "%s: Charged Blow inside the window %s -> %s" % [label, base.blows, with.blows])
+			assert_near(float(with.strikes), float(base.strikes), 0.0001, "%s: the Charge's own multiplier is not the damage modifier" % label)
+		_:
+			assert_true(false, "%s: a Form's bonus reads form_power, form_time, cooldown or damage" % label)
 
 
 func test_the_probe_catches_a_modifier_the_cast_rule_never_reads() -> void:
@@ -402,7 +671,15 @@ func test_the_probe_catches_a_modifier_the_cast_rule_never_reads() -> void:
 	assert_eq(_probe("brandish", [pierce], "pierce").affected, _probe("brandish", [], "pierce").affected)
 	var allies := {"stat": "summon_count", "op": "add", "value": 1.0}
 	assert_eq(_probe("power_strike", [allies], "summon_count").summons, 0)
+	# HP stats: Dragon Fury has no recoil to shrink and Sacrifice no HP cost to cut (the audit reports no change).
+	var achilles := {"stat": "self_damage", "op": "mul", "value": 0.6}
+	assert_eq(_probe("dragon_fury", [achilles], "self_damage").recoil, 0, "Fury pays no recoil, with or without Achilles")
+	var blood := {"stat": "hp_cost", "op": "mul", "value": 0.75}
+	assert_eq(_probe("sacrifice", [blood], "hp_cost").cost, 0, "Sacrifice pays no cost up front")
 	# And the modifiers the shipped bonuses rely on do widen: area on a box, area on a radial range, range on a pull.
+	# A support modifier on a skill with no support pulses changes nothing.
+	assert_eq(_probe("spear_crusher", [{"stat": "support_rate", "op": "mul", "value": 0.5}], "support_rate").pulses, 0)
+	assert_eq(_probe("spear_crusher", [{"stat": "support_heal", "op": "mul", "value": 2.0}], "support_heal").restored, 0)
 	var area := {"stat": "area", "op": "mul", "value": 1.2}
 	assert_true(bool(_probe("shout", [area], "area").edge))
 	assert_true(bool(_probe("slash_blast", [area], "area").edge))
@@ -556,6 +833,15 @@ func test_the_probe_catches_an_il_modifier_the_cast_rule_never_reads() -> void:
 	assert_true(bool(_probe("ice_demon", [area], "area").edge))
 
 
+func test_the_form_probe_catches_a_modifier_a_charge_never_reads() -> void:
+	# A Charge reads form_power, form_time, cooldown and (through its subs) damage and area: not pierce, not summon_count.
+	var base := _probe_form("fire_charge", [], 16.0)
+	for stat in ["pierce", "summon_count"]:
+		assert_eq(_probe_form("fire_charge", [{"stat": stat, "op": "add", "value": 2.0}], 16.0), base, stat)
+	# And each stat the shipped bonuses use does move its own measure.
+	assert_true(int(_probe_form("fire_charge", [{"stat": "form_time", "op": "mul", "value": 1.25}], 16.0).length) > int(base.length))
+	assert_true(float(_probe_form("fire_charge", [{"stat": "form_power", "op": "add", "value": 0.1}], 16.0).strikes) > float(base.strikes))
+
 func test_the_probe_catches_a_genesis_modifier_the_cast_rule_never_reads() -> void:
 	# Genesis' pending box and Big Bang's charge box never read `range` or `pierce`; they do read `area`.
 	var reach := {"stat": "range", "op": "mul", "value": 1.5}
@@ -632,3 +918,25 @@ func test_the_revive_probe_catches_a_modifier_the_revive_never_reads() -> void:
 		assert_eq(with.recharge, base.recharge, str(effect))
 	# And the shipped modifiers do change it.
 	assert_true(float(_revive_probe("resurrection", [{"stat": "revive_guard", "op": "add", "value": 1.5}]).guard) > float(base.guard))
+
+
+func test_every_buccaneer_bonus_changes_the_resolved_cast_and_all_are_counted() -> void:
+	# The file-wide audit above walks them too; this one names the counts so a dropped skill or effect fails here.
+	var skills := _resolved()
+	var effects := 0
+	for key: String in BUCCANEER_SKILLS:
+		assert_true((skills[key] as Dictionary).has("rarity_bonuses"), key)
+		for tier: String in TIERS:
+			for bonus: Dictionary in skills[key].rarity_bonuses[tier]:
+				effects += (bonus.effects as Array).size()
+	assert_eq(effects, BUCCANEER_SKILLS.size() * 5, "each skill: 1 + 1 + 1 + 2 effects")
+
+
+func test_the_probe_catches_a_buccaneer_modifier_the_cast_rule_never_reads() -> void:
+	# A box cast never reads `pierce` or `summon_count`; `crit` shows only in the hit events' critical flag.
+	var pierce := {"stat": "pierce", "op": "add", "value": 1.0}
+	assert_eq(_probe("flash_fist", [pierce], "pierce").affected, _probe("flash_fist", [], "pierce").affected, "pierce does nothing on a box")
+	var allies := {"stat": "summon_count", "op": "add", "value": 1.0}
+	assert_eq(_probe("corkscrew_blow", [allies], "summon_count").summons, 0)
+	var crit := {"stat": "crit", "op": "add", "value": 0.15}
+	assert_true(int(_probe("backspin_blow", [crit], "crit").crits) > int(_probe("backspin_blow", [], "crit").crits), "crit shows in the hit events")

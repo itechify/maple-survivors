@@ -165,8 +165,13 @@ _Avoid_: stealth, invisible, cloaked
 
 **Morph**:
 A buff that draws the character as a `Morph.wz` figure instead of its avatar for as long as it lasts, such as Oak
-Barrel's barrel (Morph 1002); the game's movement and stats are unchanged.
+Barrel's barrel (Morph 1002); the game's movement and stats are unchanged unless the buff itself says so. A morph
+draws its own action for a stance when the figure has one (the Buccaneer morphs attack), else it stands.
 _Avoid_: transformation, disguise
+
+**Morph form**:
+A Form whose `buff` block carries a `morph_field`, so it also draws the character as a Morph and gives the buff's defence,
+speed and jump while it lasts (Buccaneer's Transformation and Super Transformation). It needs no Form effect key.
 
 **Reaction skill**:
 A skill that nothing casts on a timer or a key: the world triggers it when something happens to the character. Resurrection
@@ -211,6 +216,18 @@ _Avoid_: follow-up skill, proc
 
 **Party buff**:
 A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here it affects the character only.
+
+**Form**:
+A timed active stance that changes the character's attacks and carries sub-skills. A running form survives
+map transfer and ends on death. Its buff block carries Hidden or morph state; effect keys are for cast-stat or lifecycle behaviour (Buccaneer template: `spec/412`, `test_morph_form.gd`).
+
+**Charge**:
+A Paladin Form that temporarily gives its attacks an element and carries Charged Blow. Holy Charge also
+carries Heaven's Hammer. Only one Charge runs at a time.
+
+**Sub-skill**:
+An attack carried by a Form, used automatically while the form lasts. It grows with its parent, occupies no
+skill slot and is never offered as a card.
 
 ## Cards and rarity
 
@@ -449,9 +466,19 @@ player pastes.
 _Avoid_: mirror (the project never names one), WZ root (that is the desktop folder setting)
 
 **Summon**:
-A timed player-owned ally cast by an active skill. It follows or waits at its own position and attacks monsters;
+A timed player-owned ally cast by an active skill. It follows or waits at its own position and attacks monsters or pulses support effects;
 its map-local lifetime ends on expiry or map transfer. It occupies its skill’s active slot, uses the original skill
 id and WZ animations, and is separate from a cash pet or a monster summoned by a boss.
+
+**Support summon**:
+A summon whose definition carries `summon.support`: it follows its owner and pulses instead of attacking. Its pulses'
+numbers come from sub-skills read through the summon's rank; the Beholder is the first.
+_Avoid_: pet, attack summon (the ordinary summon), buff skill
+
+**Pulse**:
+One timed effect of a support summon (a heal or a buff on the owner), with its own countdown per summon, its own
+animation and a `support_pulse` event. A pulse kind is an entry of `SupportSummons.KINDS`.
+_Avoid_: tick, proc (a pulse is on a timer, never a chance)
 
 **Meter**:
 A round-owned integer counter, filled by configured events and spent by finishers. It survives map transfers,
@@ -462,9 +489,14 @@ _Avoid_: mana, buff, form
 One unit of Hero's Combo meter. A landed non-finisher pool cast earns one; each held orb adds damage.
 _Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)
 
+**Energy Charge**:
+Buccaneer's meter (id `energy`, ten units). A landed non-finisher pool cast earns one energy; each held energy adds 3% damage to
+every pool skill. The finishers Energy Drain and Energy Orb spend all of it. A full bar plays a one-shot cue (the `affected` ring and sound).
+_Avoid_: the v83 Energy Charge stat window and Body Attack (not implemented); mana
+
 **Finisher**:
 A pool active whose meter block gates admission and spends units for extra damage. Panic and Coma are Hero's
-finishers; their meter_keep rarity modifier leaves units unspent.
+finishers; Energy Drain and Energy Orb are Buccaneer's. Their meter_keep rarity modifier leaves units unspent.
 _Avoid_: ultimate, proc
 
 **Physical follower**:
@@ -474,3 +506,13 @@ _Avoid_: pet (the Free Market pet is a cosmetic companion), minion
 **Burst**:
 One automatic cast that schedules its resolved shot count over time, following the moving character's hand and a
 live target. The cooldown begins on admission; unfinished shots belong to the current map (`BurstCast`, #336).
+
+**HP risk**:
+A skill that pays HP: a percentage of max HP as its cost, a gate that needs HP above a share of max HP, and recoil. It
+never kills the caster. Dark Knight is the first user; Bishop and Buccaneer reuse the same blocks.
+_Avoid_: life cost, blood magic
+
+**Recoil**:
+HP a skill takes from its caster after it hit, as a share of the damage the cast dealt, capped at a share of max HP and
+never the last HP. Reported as `hp_spent` with kind `recoil`.
+_Avoid_: backlash, self-damage (the data block is named `self_damage`)

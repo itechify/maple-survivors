@@ -3,7 +3,7 @@ extends RefCounted
 ## A WZ animation: the canvases "0", "1", ... under one node, with their delays, origins and alpha ramps.
 ##
 ## A node that is itself a canvas becomes a one-frame animation. Timing rules (docs/research/prior-art.md section 3):
-## `delay` is in ms; a missing or zero delay is 100 ms (tier C: HeavenClient's default; WZ has no value); a negative
+## `delay` is in ms (a number, or a numeric string as some canvases store it); a missing, zero or non-numeric delay is 100 ms (tier C: HeavenClient's default; WZ has no value); a negative
 ## delay (it occurs in v83, e.g. Character `magic1/0` = -900) is used by magnitude (tier C, our choice). `a0`/`a1` are
 ## the start/end alpha 0..255 of the frame; when only one is given the other is 255 minus it (tier C, HeavenClient).
 
@@ -86,6 +86,12 @@ static func make_frame(c: Dictionary, img: WzImg, p_path: String = "") -> Sprite
 
 ## WZ delay value (ms) -> seconds with the default/negative rules.
 static func delay_seconds(v: Variant) -> float:
+	if typeof(v) == TYPE_STRING:
+		# Some canvases store the delay as text ("200"); it is the same millisecond value (Spear Crusher effect1-3).
+		var text := String(v).strip_edges()
+		if not text.is_valid_float():
+			return DEFAULT_DELAY
+		v = text.to_float()
 	if not _is_num(v):
 		return DEFAULT_DELAY
 	var ms := absf(float(v))

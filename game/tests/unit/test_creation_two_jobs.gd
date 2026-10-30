@@ -94,7 +94,8 @@ func test_two_rows_in_canonical_order_names_from_the_job_data_and_212_chosen() -
 	assert_eq(mage.text, "Arch Mage (Fire, Poison)")
 	assert_eq(hero.size.x, CREATE.JOB_ROW_SIZE.x) # the height is the text server's: the dummy one of a headless run measures 31
 	assert_eq(hero.position.x, mage.position.x, "rows share a column")
-	assert_eq(mage.position.y - hero.position.y, CREATE.JOB_ROW_SIZE.y + 2.0, "rows are one pitch apart, Hero first")
+	var apart: int = creation.job_ids.find(212) - creation.job_ids.find(112)
+	assert_eq(mage.position.y - hero.position.y, (CREATE.JOB_ROW_SIZE.y + 2.0) * apart, "rows are one pitch apart, Hero first")
 	assert_eq(hero.position.y, CREATE.ROW_AT.y, "the first row starts at the first Look row")
 	assert_true(hero.get_theme_stylebox("normal") is StyleBoxEmpty, "Hero is not highlighted")
 	assert_false(mage.get_theme_stylebox("normal") is StyleBoxEmpty, "212 is highlighted")
@@ -124,17 +125,28 @@ func test_up_and_down_step_the_selection_and_clamp_at_the_ends() -> void:
 	if not require_cache():
 		return
 	var creation := _job_page(_flow(), "TwoJobs03")
+	var ids: Array = creation.job_ids
+	var at: int = ids.find(212)
 	creation._input(_key(KEY_UP))
-	assert_eq(creation.job_id, 112, "Up from 212 is Hero")
+	assert_eq(creation.job_id, ids[at - 1], "Up from 212 is the row above it")
+	for i in ids.size():
+		creation._input(_key(KEY_UP))
+	assert_eq(creation.job_id, 112, "Up clamps at the first row, Hero")
 	creation._input(_key(KEY_UP))
 	assert_eq(creation.job_id, 112, "Up at the first row stays")
+	creation.select_job(212)
 	creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 212)
-	creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 222, "Down from 212 is the I/L Arch Mage (spec #319)")
-	for i in creation.job_ids.size():
+	assert_eq(creation.job_id, ids[at + 1], "Down from 212 is the row below it")
+	for i in ids.size():
+		creation._input(_key(KEY_UP))
+	for i in at:
 		creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, creation.job_ids.back(), "Down at the last row stays")
+	assert_eq(creation.job_id, 212, "Down steps back to 212")
+	creation._input(_key(KEY_DOWN))
+	assert_eq(creation.job_id, ids[at + 1], "Down from 212 is the next row (I/L Arch Mage, spec #319)")
+	for i in ids.size():
+		creation._input(_key(KEY_DOWN))
+	assert_eq(creation.job_id, ids.back(), "Down at the last row stays")
 
 
 func test_arrow_keys_do_nothing_off_the_job_page() -> void:

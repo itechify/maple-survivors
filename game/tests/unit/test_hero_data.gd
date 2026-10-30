@@ -66,6 +66,7 @@ func test_the_hero_line_loads_without_errors_and_adds_its_job_and_core_skills() 
 	var keys: Array = d.jobs_survivor.jobs.keys()
 	assert_eq(keys.slice(0, 3), ["0", "200", "212"], "base entries and the Magician line first")
 	assert_true(keys.find("112") > keys.find("212"), "then the class lines in discovered (sorted) line order")
+	assert_true(keys.find("122") > keys.find("212"), "Paladin (#310) is a class line too")
 	var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "hero"))
 	for key: String in ["power_strike", "slash_blast", "brandish"]:
 		assert_true(frag.skills.has(key), "H5 ports " + key)
@@ -170,6 +171,8 @@ func test_default_job_stays_212_after_hero_becomes_playable() -> void:
 func test_without_a_pin_or_with_an_unplayable_pin_the_first_playable_job_is_the_default() -> void:
 	var data := _data()
 	data.jobs_survivor.jobs["112"]["playable"] = false
+	data.jobs_survivor.jobs["132"]["playable"] = false # the Dark Knight (D10 #358) sorts before the Arch Mage too
+	data.jobs_survivor.jobs["122"]["playable"] = false # P9 #317: the Paladin sorts above F/P too
 	data.jobs_survivor.erase("default_job")
 	assert_eq(_jobs(data).default_job(), 212, "data without the pin behaves as before")
 	data.jobs_survivor.jobs["112"]["playable"] = true

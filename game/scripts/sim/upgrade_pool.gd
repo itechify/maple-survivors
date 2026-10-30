@@ -24,17 +24,16 @@ const PASSIVE_MAX_HP := Loadout.MAX_HP_PER_LEVEL
 const PASSIVE_REGEN_HP := "regen_hp"
 const PASSIVE_PREVIEW_KEYS := [PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 ## Effective opt-in mechanic values; fall-off is displayed as percentage points per later target.
-const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep"]
+const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep", "form_time", "form_power"]
 ## How a bonus effect on a healing or revive stat reads on its card: [name, scale of an added value, unit of an added
 ## value]. tier C: wording from spec #372 story 11 ("Greater Heal: recovery x1.2", "Holy Shield: guard +1.5 s").
 const CARD_STAT_TEXT := {"heal_power": ["recovery", 1.0, ""], "heal_threshold": ["heals below", 100.0, "% HP"],
 	"revive_hp": ["revive HP", 100.0, "%"], "revive_guard": ["guard", 1.0, " s"]}
-## Active rarity-bonus stats a card previews. Each is its own skill_mod_changes key, except "count", which is
-## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
-const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "heal_power", "heal_threshold", "revive_hp", "revive_guard"]
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "hp_cost", "self_damage", "low_hp_damage", "support_heal", "support_rate", "form_time", "form_power", "heal_power", "heal_threshold", "revive_hp", "revive_guard"]
 ## Modifier previews: label, unit and base multiplier. Add another multiplier here only (tier C: UI wording).
 const MODIFIER_PREVIEW := {"burn_damage": ["Burn", "%", 1.0]}
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
+const STAT_LABELS := {"form_time": "Form duration", "form_power": "Form power", "attack_count": "Hits"}
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
 var cards: Array = []
@@ -341,9 +340,12 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 		if String(effect.stat) == "meter_keep":
 			var before := state.loadout.skill_stat(skill, "meter_keep", 0.0)
 			var kept := before * float(effect.value) if op == "mul" else before + float(effect.value)
-			labels.append("Keeps %d orbs" % maxi(0, roundi(kept)))
+			labels.append("Keeps %d %s" % [maxi(0, roundi(kept)), state.book.meter_unit(skill)])
 			continue
-		labels.append(_effect_label(String(effect.stat), op, float(effect.value)))
+		if HpRisk.LABELS.has(String(effect.stat)):
+			labels.append(String(HpRisk.LABELS[String(effect.stat)]) + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
+			continue
+		labels.append(effect_label(String(effect.stat), op, float(effect.value)))
 	bonus.text = String(bonus.get("text", bonus.id)) + ": " + ", ".join(labels)
 	bonus.counter = counter
 	return bonus
@@ -351,10 +353,10 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 
 ## A bonus effect's card text, "<stat> x1.2" for a multiplier and "<stat> +3" for an addition. The healing and revive stats
 ## read in the player's words (CARD_STAT_TEXT: "recovery x1.2", "guard +1.5 s"); the others are their capitalized key.
-static func _effect_label(stat: String, op: String, value: float) -> String:
+static func effect_label(stat: String, op: String, value: float) -> String:
 	var text: Array = CARD_STAT_TEXT.get(stat, [])
 	if text.is_empty():
-		return stat.replace("attack_count", "Hits").capitalize() + (" x" if op == "mul" else " +") + _fmt(snappedf(value, 0.001))
+		return String(STAT_LABELS.get(stat, stat)).capitalize() + (" x" if op == "mul" else " +") + _fmt(snappedf(value, 0.001))
 	# A modifier stored as a share of a bar (0.15 of max HP) reads as percent when it adds; a multiplier reads as a factor.
 	var shown := value * float(text[1]) if op == "add" else value
 	return "%s%s%s%s" % [text[0], " x" if op == "mul" else " +", _fmt(snappedf(shown, 0.001)), "" if op == "mul" else text[2]]
@@ -412,10 +414,20 @@ static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: Str
 	if MODIFIER_PREVIEW.has(stat):
 		return roundi(lo.skill_stat(skill, stat, float(MODIFIER_PREVIEW[stat][2])) * 100.0)
 	match stat:
+		"support_heal", "support_rate":
+			return SupportSummons.preview(st, stat)
+		"form_time":
+			return snappedf(float(st.get("duration", 0.0)), 0.01)
+		"form_power":
+			return snappedf(lo.skill_stat(skill, "form_power", 0.0) * 100.0, 0.01)
 		"meter_keep":
 			return maxi(0, roundi(lo.skill_stat(skill, "meter_keep", 0.0)))
 		"pierce_falloff":
 			return snappedf(float(st.pierce_falloff) * 100.0, 0.01)
+		"self_damage":
+			return snappedf(float(st.self_damage), 0.01) # percent of the damage dealt
+		"low_hp_damage":
+			return roundi(float(st.low_hp_damage) * 100.0)
 		"cooldown":
 			return snappedf(SkillRunner.restart_cooldown(st), 0.01)
 		"revive_hp":

@@ -1,6 +1,6 @@
 extends TestCase
-## The Bishop's data seam (spec #372, ticket BS2 #374): the `bishop` data line loads and is discovered after the registered
-## class lines, the job entry `survivor/jobs/bishop.json` (232, playable since BS10), its AP row and hub kit, the pool keys that are
+## The Bishop's data seam (spec #372, ticket BS2 #374): the `bishop` data line loads in append-only registered
+## class order, the job entry `survivor/jobs/bishop.json` (232, playable since BS10), its AP row and hub kit, the pool keys that are
 ## defined belonging to the 200/230/231/232 books, the weapon families of its equipment drops (wands and staves only;
 ## armour by the Magician class bit), and the Holy Symbol decision (the common EXP passive is offered to a 232 like any job).
 ## Seeded RNG; item info is synthetic unless a test says "real cache".
@@ -57,12 +57,12 @@ func _rng(p_seed: int) -> RandomNumberGenerator:
 
 # --- the line ---------------------------------------------------------------------------------------------------------
 
-func test_bishop_is_a_class_line_discovered_from_its_files_after_the_registered_classes() -> void:
+func test_bishop_is_a_registered_class_line_before_paladin() -> void:
 	var lines := Array(DataRepo.lines())
 	assert_eq(lines.slice(0, 7), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"],
 		"the lines before it keep their merge order")
-	assert_eq(lines.slice(7), ["hero", "il_arch_mage", "bowmaster", "bishop"],
-		"registered classes first (Bowmaster's line is registered), then unregistered ones in sorted order: no shared list names bishop")
+	assert_eq(lines.slice(7), ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer"],
+		"shipped classes keep their registration order after the Adventurer lines")
 	assert_eq(DataRepo.fragment_path("jobs_survivor", "bishop", "res://data"), "res://data/survivor/jobs/bishop.json")
 	assert_eq(DataRepo.fragment_path("skills", "bishop", "res://data"), "res://data/survivor/skills/bishop.json")
 
