@@ -966,6 +966,9 @@ func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
 	var ground: Dictionary = d.get("ground", {})
 	var pending: Dictionary = d.get("pending", {})
 	var duration := world.book.canonical(key, int(st.level), "time") if not ground.is_empty() else 0.0
+	if GroundStrike.is_strike(ground):
+		_queue_strike_zone(world, st, ground, duration)
+		return
 	var interval := float(ground.get("interval", 0.0))
 	_areas.append({"st": cast_snapshot(st), "anchor": world.player.pos, "age": 0.0,
 		"next": interval if interval > 0.0 else float(pending.get("delay", 0.0)),
@@ -979,12 +982,43 @@ func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
 			"effect": String(ground.get("tile", "")), "duration": duration})
 
 
+## A damaging zone (`ground.strike`, GroundStrike, GAME_DESIGN 7.95): anchored at the cast position, it does not follow the
+## caster, lives `duration` (the skill's WZ `time`) and strikes at `first_delay`, then every `interval`. Each cast queues its
+## own zone, so a second cast makes a second zone. The `skill_ground` event carries the zone's box and lifetime (and a tile
+## art path when the data names one; Ninja Ambush has none: its cast effect plays once and each strike brings its own art).
+func _queue_strike_zone(world: RunWorld, st: Dictionary, ground: Dictionary, duration: float) -> void:
+	var cadence := GroundStrike.spec(ground)
+	_areas.append({"st": cast_snapshot(st), "anchor": world.player.pos, "age": 0.0, "strike": true,
+		"next": float(cadence.first_delay), "interval": float(cadence.interval), "duration": duration})
+	world.emit("skill_ground", {"skill": String(st.skill), "pos": world.player.pos, "box": st.box,
+		"effect": String(ground.get("tile", "")), "duration": duration})
+
+
+## Resolves every strike of zone `a` that is due (one ordinary hit line set on up to `mob_count` monsters whose bodies touch the
+## box around the anchor, nearest to the anchor first, through the instant-hit path). A monster that left the box or died since
+## the last strike is simply not found. True once no further strike fits the lifetime.
+func _step_strike_zone(world: RunWorld, a: Dictionary) -> bool:
+	var st: Dictionary = a.st
+	var hv := world.visual_index(String(st.hit))
+	while float(a.age) + GroundStrike.EPS >= float(a.next) and float(a.next) <= float(a.duration) + GroundStrike.EPS:
+		var anchor: Vector2 = a.anchor
+		var limit := GroundStrike.target_limit(st)
+		var targets := world.skill_rect_targets(blast_rect(st, anchor), anchor, limit)
+		_resolve_instant_targets(world, st, targets, limit, int(st.attack_count), hv)
+		a.next = float(a.next) + float(a.interval)
+	return float(a.next) > float(a.duration) + GroundStrike.EPS
+
+
 func _step_areas(dt: float, world: RunWorld) -> void:
 	for i in range(_areas.size() - 1, -1, -1):
 		var a := _areas[i]
 		a.age = float(a.age) + dt
 		var st: Dictionary = a.st
 		var key := String(st.skill)
+		if a.has("strike"):
+			if _step_strike_zone(world, a):
+				_areas.remove_at(i)
+			continue
 		if a.has("queue"):
 			if _drain_staggered(world, a):
 				_areas.remove_at(i)

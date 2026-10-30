@@ -133,6 +133,11 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("knockback"):
 		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
 			number(float(stats.get("knockback_distance", 0.0)))])
+	if def.has("ground") and GroundStrike.is_strike(def.ground):
+		var cadence := GroundStrike.spec(def.ground)
+		var struck := int(stats.get("mob_count", 1))
+		mechanics.append("Strikes up to %d %s every %s s for %s s" % [struck, "monster" if struck == 1 else "monsters",
+			number(float(cadence.interval)), number(book.canonical(key, level, "time"))])
 	if def.has("pierce_field"):
 		var through := int(stats.get("pierce", 0))
 		mechanics.append("Pierces up to %d more %s" % [through, "monster" if through == 1 else "monsters"])

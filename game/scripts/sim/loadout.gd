@@ -315,6 +315,16 @@ func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 ## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
+## The knock-back distance of a `knockback` block at survivor rank `rank_value`: the block's `distance_by_rank` list (one
+## value per rank, the last one past its end, rank 1 for an unowned skill) when it has one, else its scalar `distance`
+## (0 for a block with neither). tier C: ours (spec #383 NL8, GAME_DESIGN 7.95); every other field of the block is unchanged.
+static func knockback_distance_at(block: Dictionary, rank_value: int) -> float:
+	var by_rank: Variant = block.get("distance_by_rank")
+	if by_rank is Array and not (by_rank as Array).is_empty():
+		return float(by_rank[clampi(rank_value - 1, 0, (by_rank as Array).size() - 1)])
+	return float(block.get("distance", 0.0))
+
+
 func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var d := book.def(key)
 	var r := clampi(at_rank, 1, book.max_rank(key)) if at_rank > 0 else maxi(1, rank(key))
@@ -421,7 +431,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		# No chance field = the knock-back always applies (Rush, tier C #302).
 		"knockback_chance": (book.canonical(key, lv, String(d.knockback.chance_field)) if d.knockback.has("chance_field") else 100.0)
 			if d.has("knockback") else 0.0,
-		"knockback_distance": float(d.get("knockback", {}).get("distance", 0.0)),
+		"knockback_distance": knockback_distance_at(d.get("knockback", {}), r),
 		"pull_chance": book.canonical(key, lv, String(d.pull.get("chance_field", "")), 100.0) if d.has("pull") else 0.0,
 		"pull_gap": float(d.pull.get("min_gap", 0.0)) if d.has("pull") else 0.0,
 		"blast_targets": maxi(1, roundi(skill_stat(key, "blast_targets", book.canonical(key, lv, "mobCount", 1.0))))
