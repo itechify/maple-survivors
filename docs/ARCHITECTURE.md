@@ -107,7 +107,7 @@ The `flow_driver.tscn` `redesign` scenario exercises these boundaries through in
 Job page), Free Market walk, map select (a locked tier refused), level-up window, double-click equip, pause, deletion and
 History input. It warps real fixed simulation ticks through combat (invulnerable, with diagnostic boss hits after each map
 timer), plays the real CLEAR/fade/arrival presentation of the three maps, and reloads the evidence-only save from disk to
-check that a clear unlocks tier 2 and that a death keeps the loot and the unlock. It checks presentation and flow only;
+check that a new character opens only Henesys, that a clear unlocks the next region and that a death keeps the loot and the unlock. It checks presentation and flow only;
 natural outcomes belong to balance smokes (AGENTS.md "Flow driver").
 
 ### 4.2 Autoloads
@@ -117,7 +117,7 @@ natural outcomes belong to balance smokes (AGENTS.md "Flow driver").
 | `Assets` | `scripts/assets/asset_library.gd` | Locates the cache, loads/caches img JSON (`WzImg`), atlas page textures, sounds; builds `SpriteAnim` frame lists |
 | `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, frame cap (`[display] max_fps`: vsync on and `Engine.max_fps` = the display's refresh rate by default, `--vsync=off` uncaps), key bindings (rebound actions applied to the `InputMap`), HP ALERT levels (`[alert]`; persistent rounds only, #121) |
 | `Sfx` | `scripts/audio/audio_service.gd` | BGM player with fade, pooled SFX players |
-| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child; character slots, the Free Market home, map select over the unlocked tiers, standalone rounds (no saved round); tool-only `start_run` (`--run`) bypasses persistence |
+| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child; character slots, the Free Market home, map select over the progression (`SceneFlow.progression()`, `unlocked_stages(cleared)`), standalone rounds (no saved round); tool-only `start_run` (`--run`) bypasses persistence |
 
 Everything else is owned by the scene that uses it.
 
@@ -125,7 +125,7 @@ Everything else is owned by the scene that uses it.
 optional `account: {nx, owned}` (spec #34; absent = an empty account). A finished round's `nx_awarded` is credited
 inside the same atomic write as the round's slot, best and history entry.
 A slot is `{name, created, rounds_played, character}`; `character` is the validated format-3 `CharacterSnapshot`
-(job, look, equipment, scrolls, mesos, cash, pet, `tiers_unlocked`). There is no phase, tier cursor, stage or seed: a
+(job, look, equipment, scrolls, mesos, cash, pet, `cleared_regions`). There is no phase, progression cursor, stage or seed: a
 round is never saved. The caller supplies dates and seeds.
 
 `slot(index)`, `slots` and `history` return detached copies. `create_slot(snapshot)` returns the first free index
@@ -542,6 +542,13 @@ An explicit `magic=1` also selects magic damage, falling back to mob MADamage wh
 Effects and impacts have separate completion flags: an effectAfter later than attackAfter is preserved once.
 The `boss_attack` hit phase carries the canonical hit path in `effect` at the character's current feet.
 
+**Area-warning attacks (#460).** `MobAttacks.plan` also admits `info/type` 3 and 4 for scheduled bosses: it builds the
+`areaCount` ground columns (`area_columns`), picks `attackCount` of them on RNG stream 20 (`RunWorld.area_rng`;
+`pick_columns` always includes the character's column) and keeps the picked rects in the pending windup. `emit` sends
+one `area_attack` event (`phase` "warning" at the start, "strike" at the impact, with the packed column `anchors`), and
+`_impact` damages the character once when its body overlaps any picked column. RunScene plays one pooled `FxRenderer`
+animation per anchor (`play_at_all`); no node per column.
+
 **Shared mob attack path (#76).** The windup/impact code above lives in `MobAttacks` as static functions
 (`plan`, `service`, `emit`, `area_at`); `BossAttacks` keeps only the boss loop (which attacks, `attack_interval`,
 `attack_dmg_mult`, the BossDirector action gate). `MobAttacks.step` runs the same code for ordinary mobs: every kind
@@ -721,8 +728,8 @@ equipment chance and job/held-family pool, with a normal meso bundle fallback. C
 4. **Never make the class selectable by accident.** `JobTree.default_job()` reads `survivor/jobs.json` `default_job` (212, tier C) while that job is playable, and falls back to the first playable job only when the pin is absent or unplayable. Hero (112), Dark Knight (132), Paladin (122), F/P (212), I/L (222), Bishop (232) and Buccaneer (512) are now playable. A second playable job therefore changes no tool run, test or oracle that names no job; the new class is always chosen explicitly (`--job=<id>`, the creation Job page).
 5. **Tests.** `test_data_repo_lines` tests fixed Adventurer order plus append-only registered classes and reports non-JSON fragment files; add the line's own data test (Hero: `test_hero_data`) for the entry fields, AP row, default job and drop families.
 
-Equipment drops no longer read the character's level or held weapon (#292): `stages.json` `drop_bands` gives each tier a
-`reqLevel` band, `survivor/jobs/<line>.json` lists each exact job's `weapon_families` (`JobTree.weapon_families`), and
+Equipment drops no longer read the character's level or held weapon (#292): each `stages.json` stage's `drop_band` gives its
+region a `reqLevel` band (`EquipmentDrops.band_of(stage)`), `survivor/jobs/<line>.json` lists each exact job's `weapon_families` (`JobTree.weapon_families`), and
 `EquipmentDrops` takes both as arguments. A shield or armour piece is eligible by canonical `reqJob` alone.
 
 `RunWorld` checks `PortalSet` before movement each PLAYING tick. Holding Up inside a same-map link's activation box
@@ -997,7 +1004,7 @@ deltas are zero. F3 reads this bounded window immediately when toggled mid-round
 `RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 3; tool files of format 1 and 2 migrate on
 load) and exposes `character_snapshot()`. The schema, and the one list of what a character keeps, is in
 `scripts/sim/character_snapshot.gd`: job, look, worn equipment and inventory (`scripts/sim/equipment.gd` instances),
-scroll stacks, mesos, cash, pet and unlocked tiers; never level, EXP, skills, cards, AP or HP. Every world starts at Lv1.
+scroll stacks, mesos, cash, pet and cleared regions; never level, EXP, skills, cards, AP or HP. Every world starts at Lv1.
 RunWorld owns the live equipment: UI and bots change it
 only through `equip_item`, `unequip_item` and `discard_item` (see the RunWorld header); a character without a
 snapshot wears `Equipment.DEFAULT_OUTFIT`. `SceneFlow.new_character` makes the creation choices and the job's creation

@@ -65,7 +65,8 @@ extends RefCounted
 ## 15 Thief-only rolls (thief_rng, Steal success in #214),
 ## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194),
 ## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256),
-## 18 ground-area status rolls (ground_rng).
+## 18 ground-area status rolls (ground_rng),
+## 20 area-warning attack column picks (area_rng, #460; 19 is mob_status_rng of #456).
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -134,6 +135,8 @@ const EVENT_FIELDS := {
 	"boss_spawned": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_died": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
+	# #460: an area-warning attack's columns: "warning" at attack start, "strike" at impact; `anchors` are column bottom centres.
+	"area_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "anchors", "size", "facing", "art", "time", "impact_time"],
 	# #76 ordinary (non-boss) mobs: a mob attack's phases (as boss_attack). Ordinary mobs cast no mob skills.
 	"mob_attack": ["mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
 	"mob_projectile_spawned": ["proj", "mob", "mob_id", "pos", "velocity", "range", "speed", "ball", "hit", "time"],
@@ -222,6 +225,8 @@ var pirate_rng: RandomNumberGenerator
 var banish_rng: RandomNumberGenerator
 ## Stream 18: ground-area status proc rolls, independent of combat.
 var ground_rng: RandomNumberGenerator
+## Stream 20: which columns of a boss's area-warning attack (`info/type` 3 and 4) strike (MobAttacks.pick_columns).
+var area_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
 var choice_bonus := false
@@ -364,8 +369,8 @@ var _base_hp := 50.0
 var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
 var _earned_ap := 0
-## Tiers the character started the round with (CharacterSnapshot.tiers_unlocked); tier 1 is always unlocked.
-var _tiers_unlocked := 1
+## Regions the character started the round with cleared (CharacterSnapshot.cleared_regions).
+var _cleared_regions: Array = []
 var _base_fortune := 0.0
 ## Spec #34 cash items. `setup.account` ({owned: [item ids]}, absent = an empty account) decides which of the
 ## character's worn cash equipment and pet count; `setup.alert` ({hp}: a fraction of max HP, 0 = do not alert).
@@ -448,6 +453,7 @@ func _init_rng_streams() -> void:
 	thief_rng = _stream(15) # tier C: independent Thief-only rolls; reserved for Steal success, #207/#214.
 	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14 reserved, #186.
 	ground_rng = _stream(18) # tier C: dedicated ground proc stream.
+	area_rng = _stream(MobAttacks.AREA_STREAM) # tier C: area-warning column picks never shift another stream, #460.
 	banish_rng = _stream(17) # tier C: Banish portal draws never shift another stream, #256.
 
 
@@ -645,12 +651,12 @@ func advance_map() -> void:
 
 
 ## The character as it leaves this round (CharacterSnapshot, format 3): job, look, equipment, scrolls, mesos, cash, pet
-## and its unlocked tiers, which a CLEARED round advances. Everything picked up stays, whether the round was cleared, lost
+## and its cleared regions, which a CLEARED round advances. Everything picked up stays, whether the round was cleared, lost
 ## or quit; the build (level, skills, cards) is not part of it. Always available, even with a choice pending.
 func character_snapshot() -> Dictionary:
 	var snapshot := {"format": CharacterSnapshot.FORMAT, "job_id": progression.job_id,
 		"look": character_look.duplicate(true), "equipment": equipment.duplicate(true),
-		"scrolls": scrolls.duplicate(), "mesos": mesos, "tiers_unlocked": tiers_unlocked_now()}
+		"scrolls": scrolls.duplicate(), "mesos": mesos, "cleared_regions": cleared_regions_now()}
 	# Spec #34 optional keys: written only when set, so characters without cash items keep their exact old bytes.
 	if not _cash_carried.is_empty():
 		snapshot["cash"] = _cash_carried.duplicate()
@@ -659,11 +665,12 @@ func character_snapshot() -> Dictionary:
 	return snapshot
 
 
-## The tiers the character has unlocked now: those it started the round with, plus the next tier when this round is CLEARED.
-func tiers_unlocked_now() -> int:
-	var stages: Dictionary = data.get("stages", {})
-	return CharacterSnapshot.unlocked_after_round(_tiers_unlocked, NxAward.tier_of(stages, stage_key),
-		state == CLEARED, stages.get("tiers", []).size())
+## The regions the character has cleared now: those it started the round with, plus this round's stage when the round is
+## CLEARED. A stage outside stages.json `progression` (a tool round) adds nothing; a death or a quit changes nothing.
+func cleared_regions_now() -> Array:
+	var progression_keys: Array = data.get("stages", {}).get("progression", [])
+	var cleared_here: bool = state == CLEARED and stage_key in progression_keys
+	return CharacterSnapshot.cleared_after_round(_cleared_regions, stage_key, cleared_here)
 
 
 ## The character's own Fortune (base plus card modifiers), without the live cash-slot part.
@@ -681,10 +688,10 @@ func bosses_killed() -> int:
 	return bosses.dead_count()
 
 
-## NX this round pays now (spec #34, NxAward): the tier's clear bonus only when CLEARED, plus levels and bosses.
+## NX this round pays now (spec #34, NxAward): the progression step's clear bonus only when CLEARED, plus levels and bosses.
 ## Tools record it as `nx_awarded`; only Flow credits it, at the round boundary or the run archive.
 func nx_awarded() -> int:
-	return NxAward.compute(balance.get("nx_award", {}), NxAward.tier_of(data.get("stages", {}), stage_key),
+	return NxAward.compute(balance.get("nx_award", {}), NxAward.step_of(data.get("stages", {}), stage_key),
 		state == CLEARED, levels_gained(), bosses_killed())
 
 
@@ -2172,7 +2179,8 @@ func _init_player() -> void:
 
 func _restore_character(source: Dictionary) -> void:
 	assert(int(source.get("format", 0)) in CharacterSnapshot.FORMATS, "Unsupported CharacterSnapshot format")
-	var character := CharacterSnapshot.migrate(source, jobs, setup.get("equipment_info", {}))
+	var character := CharacterSnapshot.migrate(source, jobs, setup.get("equipment_info", {}),
+		data.get("stages", {}).get("progression", []))
 	progression.job_id = int(character.job_id) # handed to set_job by _init_player
 	character_look = character.look.duplicate(true)
 	for field: String in ["skin", "face", "hair"]:
@@ -2181,7 +2189,7 @@ func _restore_character(source: Dictionary) -> void:
 	equipment = Equipment.normalized(character.equipment)
 	scrolls = CharacterSnapshot.integers(character.scrolls)
 	mesos = int(character.mesos)
-	_tiers_unlocked = int(character.tiers_unlocked)
+	_cleared_regions = character.cleared_regions.duplicate()
 	_cash_carried = CharacterSnapshot.integers(character.get("cash", {}))
 	_pet_carried = int(character.get("pet", 0))
 
@@ -2417,7 +2425,7 @@ func _roll_mesos(mk: MobKind) -> int:
 
 
 ## One equipment drop for the character's job (EquipmentDrops; `boss` takes the top third of the band) inside the reqLevel
-## band of this stage's tier (stages.json drop_bands; never the character's level, #292), a weapon only from the job's
+## band of this stage (stages.json drop_band; never the character's level, #292), a weapon only from the job's
 ## weapon families, with v83 random stats, from the equipment stream; nothing when no listed item has info and fits.
 ## Returns whether an equipment pickup was spawned (Steal falls back to mesos when none fits).
 func _drop_equipment(pos: Vector2, boss: bool) -> bool:
@@ -2433,10 +2441,9 @@ func _drop_equipment(pos: Vector2, boss: bool) -> bool:
 	return false
 
 
-## The reqLevel band [min, max] this stage's equipment drops come from (its tier's stages.json drop_bands entry).
+## The reqLevel band [min, max] this stage's equipment drops come from (its stages.json `drop_band`).
 func drop_band() -> Array:
-	var stages: Dictionary = data.get("stages", {})
-	return EquipmentDrops.band_of(stages, NxAward.tier_of(stages, stage_key))
+	return EquipmentDrops.band_of(data.get("stages", {}).get("stages", {}).get(stage_key, {}))
 
 
 ## Drops an equipment instance on the ground at pos (drawn with the item's icon); the magnet collects it while the

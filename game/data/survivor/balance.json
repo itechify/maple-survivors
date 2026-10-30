@@ -109,6 +109,6 @@
 			"bonus_choices": 1}},
 	"_run_time_cap": "Tier C: balance/full-run harness timeout, allowing the finale to continue beyond 15:00.",
 	"run_time_cap": 1800,
-	"_nx_award": "Tier C #293 first pass: per_level 2 to offset more levels per round, clear/boss amounts unchanged; the frozen balance pass revisits these. NX paid at the end of every round. A clear pays clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round; a death pays the same without the clear bonus. clear_bonus is indexed by the stage's 0-based tier (later tiers reuse the last entry). Deletion, Quit round and tool rounds are never credited.",
-	"nx_award": {"clear_bonus": [100, 250], "per_level": 2, "per_boss": 40}
+	"_nx_award": "Tier C #293 first pass: per_level 2 to offset more levels per round, clear/boss amounts unchanged; the frozen balance pass revisits these. NX paid at the end of every round. A clear pays clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round; a death pays the same without the clear bonus. clear_bonus is indexed by the stage's 0-based step in stages.json `progression` (ADR 0007, #450: steps 1-4 pay 100, step 5 (Sleepywood) 250, the last entry repeats for later regions; monotone; a stage outside the progression is step 0). Deletion, Quit round and tool rounds are never credited.",
+	"nx_award": {"clear_bonus": [100, 100, 100, 100, 250], "per_level": 2, "per_boss": 40}
 }

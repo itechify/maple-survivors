@@ -49,7 +49,7 @@ func _event_digest(ticks: int) -> String:
 	# Review #332: freeze the original replay's sword outfit explicitly; bare tools now wear creation weapons.
 	setup.character = {"format": 3, "job_id": 212, "look": {},
 		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
-		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
+		"scrolls": {}, "mesos": 0, "cleared_regions": []}
 	var w := RunWorld.new(setup)
 	# Keep this pre-#241 oracle on the historical whole-round pool curve as well as the historical opening.
 	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)

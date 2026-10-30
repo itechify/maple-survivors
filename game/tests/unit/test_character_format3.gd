@@ -5,7 +5,7 @@ extends TestCase
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 ## The keys a format-3 character persists when it has no cash equipment and no pet (independent literal).
-const KEYS := ["equipment", "format", "job_id", "look", "mesos", "scrolls", "tiers_unlocked"]
+const KEYS := ["cleared_regions", "equipment", "format", "job_id", "look", "mesos", "scrolls"]
 
 
 func _json_round_trip(value: Dictionary) -> Dictionary:
@@ -19,7 +19,7 @@ func test_snapshot_holds_only_identity_and_belongings() -> void:
 	assert_eq(keys, KEYS)
 	assert_eq(w.character_snapshot().format, 3)
 	assert_eq(w.character_snapshot().job_id, 212)
-	assert_eq(w.character_snapshot().tiers_unlocked, 1, "tier 1 is always unlocked")
+	assert_eq(w.character_snapshot().cleared_regions, [], "a new character has cleared nothing")
 
 
 func test_round_trip_keeps_belongings_and_restarts_the_build() -> void:
@@ -53,17 +53,17 @@ func test_round_trip_keeps_belongings_and_restarts_the_build() -> void:
 	assert_true(next.loadout.has("energy_bolt"), "the job's start skills are learned again")
 
 
-## A quiet two-boss world on the first tier (stage "quiet" listed in tier index `tier`), god mode off for deaths.
-func _round(tier: int = 0, unlocked: int = 1) -> RunWorld:
+## A quiet one-boss world whose stage "quiet" is listed in the progression (`listed`; false: a tool stage outside it) for a
+## character that has cleared the `cleared` regions, god mode off for deaths.
+func _round(cleared: Array = [], listed := true) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
-	data.stages["tiers"] = [["other"], ["other2"]]
-	data.stages.tiers[tier].append("quiet")
+	data.stages["progression"] = ["other", "quiet", "other2"] if listed else ["other", "other2"]
 	RF.set_bosses(data.stages.stages.quiet, [
 		{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0, "rewards": {"exp_mult": 1, "bonus_choices": 0}}])
 	var setup := RF.setup("quiet", 20, data)
 	setup.character = {"format": 3, "job_id": 212, "look": {}, "equipment": Equipment.empty_state(),
-		"scrolls": {}, "mesos": 100, "tiers_unlocked": unlocked}
+		"scrolls": {}, "mesos": 100, "cleared_regions": cleared}
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
 	for i in 20:
@@ -87,41 +87,51 @@ func _die(w: RunWorld) -> void:
 	assert_eq(w.state, RunWorld.DEAD)
 
 
-func test_clearing_a_stage_of_tier_one_unlocks_tier_two() -> void:
-	var w := _round(0, 1)
-	assert_eq(w.character_snapshot().tiers_unlocked, 1, "nothing before the clear")
+func test_clearing_a_region_adds_it_to_the_cleared_set() -> void:
+	var w := _round(["other"])
+	assert_eq(w.character_snapshot().cleared_regions, ["other"], "nothing before the clear")
 	_clear(w)
-	assert_eq(w.character_snapshot().tiers_unlocked, 2)
+	assert_eq(w.character_snapshot().cleared_regions, ["other", "quiet"])
 
 
-func test_dying_unlocks_nothing() -> void:
-	var w := _round(0, 1)
+func test_dying_clears_nothing() -> void:
+	var w := _round([])
 	_die(w)
-	assert_eq(w.character_snapshot().tiers_unlocked, 1)
+	assert_eq(w.character_snapshot().cleared_regions, [])
 
 
-func test_unlocks_never_go_back_or_past_the_last_tier() -> void:
-	var replay := _round(0, 2)
+func test_a_replay_is_idempotent_and_a_death_never_takes_a_clear_away() -> void:
+	var replay := _round(["quiet"])
 	_clear(replay)
-	assert_eq(replay.character_snapshot().tiers_unlocked, 2, "replaying tier 1 keeps tier 2")
-	var last := _round(1, 2)
-	_clear(last)
-	assert_eq(last.character_snapshot().tiers_unlocked, 2, "no tier 3 to unlock")
-	var dead_later := _round(1, 2)
+	assert_eq(replay.character_snapshot().cleared_regions, ["quiet"], "replaying a cleared region changes nothing")
+	var dead_later := _round(["other", "quiet"])
 	_die(dead_later)
-	assert_eq(dead_later.character_snapshot().tiers_unlocked, 2, "a death never takes an unlock away")
+	assert_eq(dead_later.character_snapshot().cleared_regions, ["other", "quiet"])
+
+
+func test_a_cleared_tool_stage_outside_the_progression_changes_nothing() -> void:
+	var w := _round([], false)
+	_clear(w)
+	assert_eq(w.character_snapshot().cleared_regions, [], "a one-off stage is not a region of the progression")
 
 
 func test_the_unlock_rule_alone() -> void:
-	assert_eq(CharacterSnapshot.unlocked_after_round(1, 0, true, 2), 2)
-	assert_eq(CharacterSnapshot.unlocked_after_round(1, 0, false, 2), 1)
-	assert_eq(CharacterSnapshot.unlocked_after_round(0, 0, false, 2), 1, "tier 1 is always unlocked")
-	assert_eq(CharacterSnapshot.unlocked_after_round(2, 1, true, 3), 3)
-	assert_eq(CharacterSnapshot.unlocked_after_round(2, 0, true, 3), 2)
+	var order := ["a", "b", "c", "d"]
+	assert_eq(CharacterSnapshot.unlocked_keys(order, []), ["a"], "a fresh character has only the first region")
+	assert_eq(CharacterSnapshot.unlocked_keys(order, ["a"]), ["a", "b"], "a clear of step k unlocks step k+1 and nothing else")
+	assert_eq(CharacterSnapshot.unlocked_keys(order, ["b"]), ["a", "c"], "a gap keeps the region after it, not the ones before")
+	assert_eq(CharacterSnapshot.unlocked_keys(order, ["a", "b", "c", "d"]), order, "nothing past the last region")
+	assert_true(CharacterSnapshot.is_unlocked(order, ["a"], "b"))
+	assert_false(CharacterSnapshot.is_unlocked(order, ["a"], "c"))
+	assert_false(CharacterSnapshot.is_unlocked(order, [], "elsewhere"), "a key outside the progression is not a region")
+	assert_eq(CharacterSnapshot.cleared_after_round([], "b", true), ["b"])
+	assert_eq(CharacterSnapshot.cleared_after_round(["b"], "a", true), ["a", "b"], "sorted")
+	assert_eq(CharacterSnapshot.cleared_after_round(["a"], "a", true), ["a"], "a replay is idempotent")
+	assert_eq(CharacterSnapshot.cleared_after_round(["a"], "b", false), ["a"], "a death or a quit changes nothing")
 
 
 func test_a_death_keeps_what_the_round_picked_up() -> void:
-	var w := _round(0, 1)
+	var w := _round([])
 	w.spawn_meso(w.player.pos, 250)
 	w.spawn_equipment(w.player.pos, {"id": 1002001, "stats": {"incPDD": 4}, "slots": 7, "scrolls": 0})
 	w.scrolls["2043700"] = 2

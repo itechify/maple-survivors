@@ -68,7 +68,10 @@ func test_the_kit_sets_mesos_and_leaves_the_character_valid() -> void:
 	assert_eq(CharacterSnapshot.validation_error(character), "")
 	assert_eq(HubTestKit.apply(_fixture(), 77, _loader()).mesos, 77)
 	assert_eq(character.job_id, 212, "the rest of the character is untouched")
-	assert_eq(character.tiers_unlocked, 2, "the kit unlocks every tier, so map select shows them all")
+	assert_eq(character.cleared_regions, ["ellinia", "henesys", "kerning", "perion", "sleepywood"],
+		"the kit clears every region, so map select shows them all open")
+	assert_false(character.has("tiers_unlocked"))
+	assert_eq(CharacterSnapshot.unlocked_keys(SceneFlow.progression(), character.cleared_regions), SceneFlow.progression())
 	assert_eq(character.equipment.worn.weapon.id, 1382002, "the fixture's tier-1 staff")
 
 
@@ -393,7 +396,7 @@ func test_start_hub_enters_the_free_market_through_a_throwaway_slot_and_spares_t
 	assert_eq(flow.save.path, path)
 	assert_eq(flow.active_slot, 0)
 	var boundary := SaveData.new(path).slot(0)
-	assert_eq(int(boundary.character.tiers_unlocked), 2, "map select lists both tiers unlocked")
+	assert_eq(boundary.character.cleared_regions.size(), SceneFlow.progression().size(), "map select lists every region open")
 	assert_eq(boundary.character.mesos, 321000)
 	assert_eq(boundary.character.scrolls.size(), KIT_SCROLL_IDS.size())
 	assert_eq(boundary.character.equipment.inventory.size(), 4)
