@@ -1,4 +1,110 @@
 {
 	"_doc": "Night Lord skill definitions (spec #383, one marked region per ticket): NL6 #405 Flash Jump (mobility); NL7 #406 moves Lucky Seven and Drain here from skills/thief.json and adds Avenger and Triple Throw; NL8 #407 Ninja Storm and Ninja Ambush; NL9 #408 Shadow Meso; NL10 #409 Shadow Partner. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4), so Lucky Seven and Drain stay in thief.json until NL7. NL2 #401 defined none.",
-	"skills": {}
+	"skills": {
+		"shadow_meso": {
+			"skill_id": 4111004,
+			"book": "411",
+			"job": 411,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Shadow Meso",
+			"desc": "Throws a heavy bag of mesos at the nearest monster. It hits harder the more of the meso charge you hold, and costs no mesos.",
+			"text": {
+				"desc": "Throws a heavy bag of mesos at the nearest monster. It hits harder the more of the meso charge you hold, and costs no mesos.",
+				"h": "Damage {damage_percent}% (the bag's meso weight {moneyCon} x 0.6), costs no mesos"
+			},
+			"icon": "Skill.wz/411.img/skill/4111004/icon",
+			"damage": "physical",
+			"damage_basis": {
+				"field": "moneyCon",
+				"scale": 0.6
+			},
+			"_tier": "Tier A: the WZ has no damage for 4111004, only moneyCon 135 -> 570 (the average mesos per throw), x 50, prop 1 -> 10 and the three art tiers (the level nodes' ball / hit UOLs change at levels 11 and 21), Use and Hit sounds. Tier C (#408, GAME_DESIGN 7.96): damage% = moneyCon x 0.6 (damage_basis), no mesos spent (ruling D7: moneyCon is kept for the balance pass), +10% damage per held meso-charge pip on top of the meter's own +3% (meter.read_per_unit), swingO1 (the claw's own stance: the node has no action, and shoot1 hides the claw), nearest auto-cast, 3.0 s cooldown, 300 px range, 650 px/s, 10 px radius, no pierce, 0.6 s hold, the echo class, rarity bonuses. x, prop and bulletCount are not modelled (recorded as unused; count is pinned to 1). Untuned.",
+			"action": "swingO1",
+			"action_time": 0.6,
+			"ball": "Skill.wz/411.img/skill/4111004/level/{level}/ball",
+			"hit": "Skill.wz/411.img/skill/4111004/level/{level}/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4111004/Use",
+				"hit": "Sound.wz/Skill.img/4111004/Hit"
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"count": 1,
+			"cooldown": 3.0,
+			"range": 300,
+			"speed": 650,
+			"radius": 10,
+			"pierce": 0,
+			"meter": {
+				"read_per_unit": 0.1,
+				"unit": "pip"
+			},
+			"echo": {
+				"class": "skill"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "meso_up",
+						"text": "Meso Up",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "claw_booster",
+						"text": "Claw Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "second_bag",
+						"text": "Second Bag",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "second_bag",
+						"text": "Second Bag",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		}
+	}
 }
