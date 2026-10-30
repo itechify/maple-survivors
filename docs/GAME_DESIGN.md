@@ -8264,11 +8264,11 @@ is inert (never offered, learned or cast), so the thirteen keys are named now an
 
 | key | WZ id | Shape | Where it is defined |
 |---|---|---|---|
-| `double_shot` (start) | 5001003 | two bullets over two monsters | `pirate.json` until C4 moves it |
-| `burst_fire` | 5210000 | three bullets on one target | new (C4) |
-| `invisible_shot` | 5201001 | both sides | `pirate.json` until C4 |
-| `recoil_shot` | 5201006 | shot plus a hop away | `pirate.json` until C4 |
-| `grenade` | 5201002 | cluster blast | `pirate.json` until C4 |
+| `double_shot` (start) | 5001003 | two bullets over two monsters | `corsair.json` (moved from `pirate.json`, C4) |
+| `burst_fire` | 5210000 | three bullets on one target | `corsair.json` (new, C4) |
+| `invisible_shot` | 5201001 | both sides | `corsair.json` (moved, C4) |
+| `recoil_shot` | 5201006 | shot plus a hop away | `corsair.json` (moved, C4) |
+| `grenade` | 5201002 | cluster blast | `corsair.json` (moved, C4) |
 | `flamethrower` | 5211004 | front cone, burn | new |
 | `ice_splitter` | 5211005 | front cone, freeze | new |
 | `octopus` | 5211001 | stationary turret | new |
@@ -8396,6 +8396,28 @@ form carries `presentation.mount` 1932000), `AvatarRenderer` draws `Character.wz
   body action is `alert`, whose pistol is at the waist and sits behind the front hull canvas (the data, not a missing layer).
 - **Cost.** No node per frame: one `MountLayers` (a RefCounted) per ride, and the mounted draw list is built only when the avatar
   redraws (a frame change). With no mount `_draw` is the old loop, byte for byte.
+
+#### 7.120.4 Corsair C4: the five gun fillers (#388)
+
+Double Shot, Invisible Shot, Recoil Shot and Grenade moved from `skills/pirate.json` to `skills/corsair.json` (a key may be defined in
+one file only), Burst Fire (5210000) was added, and the twelve legacy cards `double_shot_*`, `invisible_shot_*`, `recoil_shot_*` and
+`grenade_*` were deleted from `upgrades/pirate.json`: a playable Corsair's `_new` / `_rank` cards come from
+`UpgradePool.add_pool_skills`. Blank Shot, Gun Mastery, Gun Booster, Bullet Time and Dash stay in `pirate.json`; no Buccaneer skill or
+test depended on the four moved keys (the only reference, `test_buccaneer_brawler`'s "stays in pirate.json" list, now names the
+remaining keys and asserts the four moved). The numbers (WZ damage, counts, boxes, hop `range`) are the old ones; what changed is the
+rank table (the default eight ranks, WZ levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20, in place of twenty), the weapon gate (gone) and the
+rarity bonuses.
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Rank table of the five (#388) | `rank_levels["20"]` = [3, 5, 8, 10, 13, 15, 18, 20]; no explicit `ranks`; Double Shot 63 / 70 / 80 %, Burst Fire 125 / 160 / 210 % x3, Invisible Shot 85 / 120 / 170 % (3 monsters), Recoil Shot 90 / 160 / 260 % (hop 130 / 175 / 250 px), Grenade 55 / 90 / 140 % (3 / 4 / 6 monsters) at ranks 1 / 4 / 8 | A (levels) / C (mapping) |
+| No weapon gate (#388) | `weapon_families` removed from the three that had one; the Pistol is only the creation weapon and the drop family | C |
+| Double Shot's bullets (#388) | the current ammo's bullet (`ammo_shot true`, `ball ""`) in place of the Pirate `ball` art; the `CharLevel` hit and effect art kept; cooldown 1.0 s, 600 px/s, radius 8 px, no pierce | C |
+| Burst Fire (#388) | `cast nearest` + `cast.focus true`: the three bullets (WZ `bulletCount`) all go to the one monster admission picked, a scheduled boss first; range 350 (A), 700 px/s, radius 6 px, no pierce, cooldown 2.0 s, action `triplefire` (A), 0.6 s hold, `effect` (8 frames), `hit/0` (4 frames), `Use`; its `Hit` sound names `Sound.wz/Skill.img/5210000/Hit`, a UOL the importer resolves to Double Shot's file | A (WZ) / C (cast) |
+| Cadences kept (#388) | Double Shot 1.0 s, Invisible Shot 1.0 s, Recoil Shot 1.8 s, Grenade 2.0 s, Burst Fire 2.0 s | C |
+| Rarity bonuses (#388) | Double Shot, Burst Fire, Recoil Shot: Gun Mastery damage x1.2 / Gun Booster cooldown x0.88 / Bullet Time `count` +1. Invisible Shot: Gun Mastery damage x1.2 / Bullet Time `area` x1.2 / Speed Infusion cooldown x0.75 and `count` +2. Grenade: Gun Mastery damage x1.2 / Bigger Boom `area` x1.2 / Cluster Grenade `count` +2. Legendary = the Unique's id and effects plus damage x1.2 (one shared repeat counter); repeats shrink x0.8 (the #288 rule) | C |
+| Cluster Grenade reads `count` (#388) | the spec's table names `blast_targets`, but a `cluster` cast sizes its blast from the resolved `mob_count` (the `count` stat), and `blast_targets` is 0 for any skill without an `impact_blast`; a `blast_targets` bonus would change nothing in the cast, so Cluster Grenade adds `count` +2 (what the deleted `grenade_targets` card did). Grenade's blast therefore grows 3 -> 5 ... 6 -> 8 monsters | C |
+| Test world (#388) | `test_corsair_fillers` builds a 522 world with `playable` flipped in its own data only; the synthetic 521 book (Burst Fire's real endpoints, damage 115 -> 210 %) is added to the world's `skill_imgs` there, not to the shared fixtures | C |
 
 ## 8. Upgrades
 
@@ -10361,3 +10383,8 @@ Provisional heading: nested under C2's Corsair section once it exists. The secti
 | Kamikaze approach (#389) | straight line at `follow_speed` to `hover` px above the target's feet; the dive starts within the box's half-width (x `area`) of that point; the bird follows its monster during the wind-up | C |
 | Kamikaze target lock (#389) | keeps its monster until it dies or is recycled, then picks again | C |
 | Kamikaze single use (#389) | one strike at `attackAfter` (a miss is spent too), then `die` and the slot is freed; nothing in reach: waits like a follower until `time` and expires with no hit | C (spec #384) |
+
+### Corsair C4 constants (#388)
+
+The constants of the five gun fillers (rank tables, no weapon gate, Burst Fire's cast, the cadences, the rarity bonuses and Cluster
+Grenade's `count`) are in section 7.120.4, nested under the Corsair section beside C2's 7.120.1.

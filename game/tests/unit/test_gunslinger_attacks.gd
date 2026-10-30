@@ -1,8 +1,9 @@
 extends TestCase
-## Gunslinger attacks (spec #168 ticket #192, docs/GAME_DESIGN.md 7.20): Invisible Shot, Blank Shot, Grenade and Recoil
-## Shot through the shipping data on seeded synthetic worlds with fixed ticks (a flat floor, tiny mob bodies that never
-## move), then the cards, then the original v83 numbers and art in the private cache
-## (those SKIP without it).
+## Gunslinger attacks (spec #168 ticket #192, docs/GAME_DESIGN.md 7.20): Blank Shot, the one Gunslinger attack that stays on the
+## unported Pirate line, through the shipping data on seeded synthetic worlds with fixed ticks (a flat floor, tiny mob bodies that
+## never move), then the original v83 numbers and art in the private cache (those SKIP without it). Invisible Shot, Recoil Shot
+## and Grenade moved to the `corsair` line with Double Shot and Burst Fire (Corsair C4 #388): their tests are
+## test_corsair_fillers.gd, run on job 522.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -16,8 +17,7 @@ const INFO := {
 	1482004: {"reqJob": 16, "reqLevel": 30, "reqSTR": 60, "reqDEX": 30, "incPAD": 34, "attackSpeed": 5, "tuc": 7},
 	1492004: {"reqJob": 16, "reqLevel": 30, "reqSTR": 30, "reqDEX": 70, "incPAD": 31, "attackSpeed": 5, "tuc": 7},
 }
-const ATTACKS := ["invisible_shot", "blank_shot", "grenade", "recoil_shot"]
-const GUN_ONLY := ["invisible_shot", "blank_shot", "recoil_shot"]
+const ATTACKS := ["blank_shot"]
 
 
 ## A Gunslinger (job 520 set directly with its old Lv 30 gun, RF.as_job; #284 removed advancement) on a flat floor at x = 400, a spare knuckle in the Equip tab,
@@ -83,23 +83,15 @@ func _wear(w: RunWorld, id: int) -> void:
 
 func test_cast_rule_count_and_damage_by_rank() -> void:
 	# [damage fraction, mob count] at rank 1 and 20 (Skill.wz/520.img).
-	var want := {
-		"invisible_shot": [[0.75, 3], [1.70, 3]],
-		"blank_shot": [[0.63, 3], [1.20, 3]],
-		"grenade": [[0.45, 3], [1.40, 6]],
-		"recoil_shot": [[0.70, 1], [2.60, 1]],
-	}
-	for key: String in ATTACKS:
-		var w := _gunslinger(key)
-		for i in 2:
-			var st := w.loadout.stats(key, 1 if i == 0 else 20)
-			assert_near(st.damage_pct, want[key][i][0], 1e-6, key + " damage")
-			assert_eq(st.mob_count, want[key][i][1], key + " mobs")
-			assert_eq(st.damage_type, "physical")
-		assert_eq(w.loadout.stats(key).cast_rule, {"invisible_shot": "box", "blank_shot": "box", "grenade": "cluster",
-			"recoil_shot": "nearest"}[key])
-		assert_eq(w.book.max_rank(key), 20)
-		assert_eq(w.book.max_level(key), 20)
+	var w := _gunslinger("blank_shot")
+	for i in 2:
+		var st := w.loadout.stats("blank_shot", 1 if i == 0 else 20)
+		assert_near(st.damage_pct, [0.63, 1.20][i], 1e-6, "blank_shot damage")
+		assert_eq(st.mob_count, 3, "blank_shot mobs")
+		assert_eq(st.damage_type, "physical")
+	assert_eq(w.loadout.stats("blank_shot").cast_rule, "box")
+	assert_eq(w.book.max_rank("blank_shot"), 20)
+	assert_eq(w.book.max_level("blank_shot"), 20)
 
 
 func test_each_attack_casts_once_with_a_target() -> void:
@@ -108,46 +100,6 @@ func test_each_attack_casts_once_with_a_target() -> void:
 		_mob(w, 100.0)
 		var events := _tick(w)
 		assert_eq(_of(events, "cast").size(), 1, key + " cast")
-
-
-# --- Invisible Shot -----------------------------------------------------------------------------------------------------
-
-func test_invisible_shot_hits_in_front_and_behind_up_to_three_mobs_inside_the_box() -> void:
-	var w := _gunslinger("invisible_shot")
-	var front := _mob(w, 120.0)
-	var behind := _mob(w, -120.0)
-	var edge_front := _mob(w, 240.0)
-	var edge_behind := _mob(w, -240.0)
-	var outside := _mob(w, 270.0)
-	var events := _tick(w)
-	var hits := _hit_slots(events, "invisible_shot")
-	assert_eq(hits.size(), 3, "three mobs at rank 1")
-	assert_has(hits, front)
-	assert_has(hits, behind)
-	assert_false(outside in hits, "beyond the 250 px box")
-	# Nearest first: the two at 120 px, then one of the two at 240 px.
-	assert_true((hits[2] == edge_front) or (hits[2] == edge_behind))
-	# A mob only behind is enough to cast, and only behind is hit.
-	var rear := _gunslinger("invisible_shot")
-	var only := _mob(rear, -200.0)
-	events = _tick(rear)
-	assert_eq(_hit_slots(events, "invisible_shot"), [only], "a lone mob behind is struck")
-	var far := _gunslinger("invisible_shot")
-	_mob(far, 300.0)
-	_mob(far, -300.0)
-	assert_eq(_of(_tick(far), "cast").size(), 0, "nothing inside the box: no cast")
-
-
-func test_invisible_shot_mob_count_grows_with_its_card_and_stays_inside_one_cast() -> void:
-	var w := _gunslinger("invisible_shot", 20)
-	for dx in [-200.0, -100.0, 50.0, 100.0, 200.0]:
-		_mob(w, dx)
-	assert_eq(_hit_slots(_tick(w), "invisible_shot").size(), 3)
-	var more := _gunslinger("invisible_shot", 20)
-	RF.add_modifier_effects(more, more.upgrades.card("invisible_shot_targets"))
-	for dx in [-200.0, -100.0, 50.0, 100.0, 200.0]:
-		_mob(more, dx)
-	assert_eq(_hit_slots(_tick(more), "invisible_shot").size(), 4, "+1 target from the card")
 
 
 # --- Blank Shot ---------------------------------------------------------------------------------------------------------
@@ -229,243 +181,6 @@ func test_blank_shot_never_stuns_a_scheduled_boss_but_still_damages_it() -> void
 	assert_eq(w.swarm.status_time(boss, MobSwarm.STUN), 0.0)
 
 
-# --- Recoil Shot --------------------------------------------------------------------------------------------------------
-
-func test_recoil_shot_fires_the_current_ammo_bullet_then_hops_back_the_canonical_distance() -> void:
-	for case: Array in [[1, 115.0], [20, 250.0]]:
-		var w := _gunslinger("recoil_shot", case[0])
-		_mob(w, 200.0)
-		var events := _tick(w)
-		assert_eq(_of(events, "cast").size(), 1)
-		assert_eq(w.projectiles.active_count(), 1, "one bullet in flight")
-		assert_near(w.player.pos.x, 400.0 - case[1], 1e-6, "rank %d hops %d px away from the mob" % [case[0], case[1]])
-		assert_eq(w.player.facing, 1, "still facing the mob it backed away from")
-		assert_eq(_of(events, "cast")[0].pos.x, 400.0, "the cast event reports the start")
-		assert_eq(w.loadout.stats("recoil_shot", case[0]).displacement,
-			{"direction": "away", "when": "after", "distance": case[1]})
-	# A mob on the left: the hop goes right.
-	var left := _gunslinger("recoil_shot", 20)
-	_mob(left, -200.0)
-	_tick(left)
-	assert_near(left.player.pos.x, 650.0, 1e-6)
-	assert_eq(left.player.facing, -1)
-
-
-func test_recoil_shot_bullet_is_the_ammo_item_visual_and_follows_the_tier() -> void:
-	var w := _gunslinger("recoil_shot")
-	RF.change_job_bare(w, 522) # the Corsair's schedule: Split Bullet from Lv18, Mighty Bullet from Lv35 (D9)
-	_mob(w, 200.0)
-	_tick(w)
-	assert_eq(w.ammo_id(), 2330001, "Split Bullet at Lv 30")
-	var shot := -1
-	for i in w.projectiles.capacity():
-		if w.projectiles.active[i] != 0:
-			shot = i
-	assert_true(shot >= 0)
-	assert_eq(w.projectiles.paths[w.projectiles.visual[shot]], Ammo.bullet_path(2330001))
-	assert_eq(w.projectiles.rotate[shot], 1, "bullets turn to their direction")
-	var upgraded := _gunslinger("recoil_shot")
-	RF.change_job_bare(upgraded, 522)
-	upgraded.progression.level = 35
-	upgraded.refresh_player_stats()
-	upgraded._sync_ammo()
-	assert_eq(upgraded.ammo_id(), 2330002, "Mighty Bullet from Lv 35")
-	_mob(upgraded, 200.0)
-	_tick(upgraded)
-	for i in upgraded.projectiles.capacity():
-		if upgraded.projectiles.active[i] != 0:
-			assert_eq(upgraded.projectiles.paths[upgraded.projectiles.visual[i]], Ammo.bullet_path(2330002))
-
-
-func test_recoil_shot_hop_is_cut_short_by_a_platform_edge_and_by_a_wall() -> void:
-	var edge := _gunslinger("recoil_shot", 20, [GROUND], 100.0)
-	_mob(edge, 150.0)
-	var events := _tick(edge)
-	assert_near(edge.player.pos.x, 0.0, 1e-6, "stopped at the edge, 100 of 250 px")
-	assert_eq(_of(events, "cast").size(), 1, "the edge never fails the cast")
-	assert_eq(edge.projectiles.active_count(), 1)
-	var wall := _gunslinger("recoil_shot", 20, [GROUND, {"x1": 300, "y1": 0, "x2": 300, "y2": -80}], 400.0)
-	_mob(wall, 150.0)
-	_tick(wall)
-	assert_near(wall.player.pos.x, 300.0 + FootholdMap.EPS, 1e-4, "stopped short of the wall")
-	var corner := _gunslinger("recoil_shot", 20, [GROUND], 0.0)
-	_mob(corner, 150.0)
-	assert_eq(_of(_tick(corner), "cast").size(), 1)
-	assert_near(corner.player.pos.x, 0.0, 1e-6, "already on the edge: no hop, still a shot")
-
-
-func test_recoil_shot_does_not_hop_in_the_air() -> void:
-	var w := _gunslinger("recoil_shot", 20)
-	w.player.place(Vector2(400, -60), w.fhm)
-	_mob(w, 150.0)
-	var events := _tick(w)
-	assert_eq(_of(events, "cast").size(), 1)
-	assert_eq(w.player.pos, Vector2(400, -60))
-
-
-func test_recoil_shot_bullet_pierce_card_hits_a_second_mob() -> void:
-	var w := _gunslinger("recoil_shot", 20)
-	RF.add_modifier_effects(w, w.upgrades.card("recoil_shot_pierce"))
-	_mob(w, 150.0)
-	_mob(w, 200.0)
-	var events := _tick(w)
-	assert_eq(_of(events, "cast").size(), 1)
-	for tick in 60:
-		w.step(DT, MoveInput.new())
-		events.append_array(w.drain_events())
-	assert_eq(_hit_slots(events, "recoil_shot").size(), 2, "the bullet pierced the first mob")
-
-
-# --- Grenade ------------------------------------------------------------------------------------------------------------
-
-func test_grenade_is_thrown_on_the_cast_tick_without_a_wind_up_and_lands_after_its_flight() -> void:
-	var w := _gunslinger("grenade")
-	var target := _mob(w, 300.0)
-	var events := _tick(w)
-	assert_eq(_of(events, "cast").size(), 1)
-	var thrown := _of(events, "skill_thrown", "grenade")
-	assert_eq(thrown.size(), 1, "the throw starts on the very tick of the cast")
-	assert_eq(_hit_slots(events, "grenade").size(), 0, "nothing is struck before it lands")
-	assert_near(thrown[0].to.x, w.mob_center(target).x, 1e-3)
-	assert_near(float(thrown[0].seconds), maxf(0.1, thrown[0].from.distance_to(thrown[0].to) / 600.0), 1e-6)
-	assert_eq(thrown[0].ball, "Skill.wz/520.img/skill/5201002/ball")
-	assert_eq(thrown[0].burst, "Skill.wz/520.img/skill/5201002/special")
-	var landed := []
-	var ticks := 0
-	while landed.is_empty() and ticks < 120:
-		landed = _hit_slots(_tick(w), "grenade")
-		ticks += 1
-	assert_eq(landed, [target])
-	assert_near(float(ticks) * DT, float(thrown[0].seconds), DT * 1.5, "it landed when the ball arrived")
-	assert_eq(w.runner.casts, 1)
-
-
-func test_grenade_targets_the_cluster_over_a_nearer_lone_mob() -> void:
-	var w := _gunslinger("grenade", 1)
-	var lone := _mob(w, 120.0)
-	var cluster: Array = [_mob(w, 300.0), _mob(w, 320.0), _mob(w, 340.0)]
-	var events := _tick(w)
-	var thrown: Dictionary = _of(events, "skill_thrown")[0]
-	assert_true(float(thrown.to.x) > w.player.pos.x + 250.0, "aimed at the cluster, not the lone mob")
-	var hits := []
-	for tick in 120:
-		hits.append_array(_hit_slots(_tick(w), "grenade"))
-	hits.sort()
-	var expect := cluster.duplicate()
-	expect.sort()
-	assert_eq(hits, expect, "the three clustered mobs, not the lone one (%d)" % lone)
-	# With no cluster the nearest mob is the target.
-	var single := _gunslinger("grenade", 1)
-	var near := _mob(single, 120.0)
-	_mob(single, 380.0)
-	var thrown2: Dictionary = _of(_tick(single), "skill_thrown")[0]
-	assert_near(thrown2.to.x, single.mob_center(near).x, 1e-3, "ties go to the nearest")
-
-
-func test_grenade_strikes_up_to_its_mob_count_by_rank_inside_the_canonical_blast_box() -> void:
-	for case: Array in [[1, 3], [20, 6]]:
-		var w := _gunslinger("grenade", case[0])
-		var group: Array = []
-		for i in 8:
-			group.append(_mob(w, 250.0 + 10.0 * i))
-		var outside := _mob(w, 390.0)  # 90 px past the first one: outside its 50 px blast reach
-		var hits := []
-		for tick in 45:
-			hits.append_array(_hit_slots(_tick(w), "grenade"))
-		assert_eq(hits.size(), case[1], "rank %d strikes %d mobs" % case)
-		assert_false(outside in hits)
-
-
-func test_grenade_casts_with_a_knuckle_and_with_any_weapon() -> void:
-	var w := _gunslinger("grenade")
-	_wear(w, STEEL_KNUCKLER)
-	assert_eq(w.held_weapon_family(), "knuckle")
-	_mob(w, 200.0)
-	var events := _tick(w)
-	assert_eq(_of(events, "cast", "").size(), 1)
-	assert_eq(_of(events, "skill_thrown").size(), 1)
-	var hits := []
-	for tick in 120:
-		hits.append_array(_hit_slots(_tick(w), "grenade"))
-	assert_eq(hits.size(), 1)
-
-
-func test_grenade_throw_range_and_a_scheduled_boss_priority() -> void:
-	var w := _gunslinger("grenade")
-	_mob(w, 410.0)
-	assert_eq(_of(_tick(w), "cast").size(), 0, "beyond the 400 px throw range: waits")
-	var boss_world := _gunslinger("grenade")
-	var boss := _mob(boss_world, 380.0)
-	boss_world.mob_boss[boss] = 0
-	boss_world.swarm.steady[boss] = 1
-	for dx in [100.0, 110.0, 120.0]:
-		_mob(boss_world, dx)
-	var thrown: Dictionary = _of(_tick(boss_world), "skill_thrown")[0]
-	assert_near(thrown.to.x, boss_world.mob_center(boss).x, 1e-3, "a scheduled boss in reach is the target")
-
-
-# --- the gun-only skills and the knuckle --------------------------------------------------------------------------------
-
-func test_the_gun_skills_cast_with_a_knuckle_too() -> void:
-	# Weapons gate no skill (#284): the data still names the gun, but a knuckle casts them as well.
-	for key: String in GUN_ONLY:
-		var w := _gunslinger(key)
-		_wear(w, STEEL_KNUCKLER)
-		_mob(w, 100.0)
-		_mob(w, -100.0)
-		var events := _tick(w)
-		assert_eq(_of(events, "cast").size(), 1, key + " casts with a knuckle")
-	for key: String in GUN_ONLY:
-		assert_eq(_gunslinger(key).book.weapon_families(key), PackedStringArray(["gun"]), key)
-
-
-# --- cards ---------------------------------------------------------------------------------------------------------------
-
-func test_every_attack_has_learn_rank_and_a_hit_more_mobs_card_for_the_gunslinger_only() -> void:
-	var w := _gunslinger("")
-	var upgrades: UpgradePool = w.upgrades
-	for key: String in ATTACKS:
-		for suffix in ["_new", "_rank"]:
-			var c: Dictionary = upgrades.card(key + suffix)
-			assert_false(c.is_empty(), key + suffix)
-			assert_true(UpgradePool.is_power(c), key + suffix + " is a power card")
-			assert_eq(c.requires.jobs.map(func(j: Variant) -> int: return int(j)), [520], key + suffix + " is the Gunslinger's")
-		assert_eq(int(upgrades.card(key + "_rank").max_rank), 20)
-		var more_id := key + ("_pierce" if key == "recoil_shot" else "_targets")
-		var more: Dictionary = upgrades.card(more_id)
-		assert_eq(more.kind, "skill_mod")
-		assert_true(UpgradePool.is_power(more))
-		assert_eq(more.effects[0].stat, "pierce" if key == "recoil_shot" else "count")
-		assert_true(float(more.effects[0].value) > 0.0)
-	for case: Array in [[510, ""], [500, "gun"], [210, ""]]:
-		var other := _gunslinger("")
-		RF.as_job(other, case[0], case[1] if case[0] == 500 else "")
-		var eligible: Array = other.upgrades.eligible(other)
-		for key: String in ATTACKS:
-			assert_false(key + "_new" in eligible, "%s is not on offer to job %d" % [key, case[0]])
-
-
-
-func test_each_hit_more_card_adds_one_target_or_pierce_per_step_for_three_steps() -> void:
-	for key: String in ATTACKS:
-		var w := _gunslinger(key)
-		var id := key + ("_pierce" if key == "recoil_shot" else "_targets")
-		var stat := "pierce" if key == "recoil_shot" else "mob_count"
-		var base: int = w.loadout.stats(key)[stat]
-		for step in 3:
-			RF.add_modifier_effects(w, w.upgrades.card(id))
-			assert_eq(w.loadout.stats(key)[stat], base + step + 1)
-		assert_false(id in w.upgrades.eligible(w), "three steps at most")
-
-
-func test_every_attack_card_choice_teaches_a_working_skill() -> void:
-	var w := _gunslinger("")
-	for key: String in ATTACKS:
-		assert_true(w.upgrades.apply(key + "_new", w), key)
-		assert_true(w.loadout.has(key))
-		assert_true(w.book.is_active(key))
-
-
 # --- the original data ----------------------------------------------------------------------------------------------------
 
 func test_original_v83_tables_boxes_art_and_sounds_resolve_in_the_private_cache() -> void:
@@ -480,10 +195,7 @@ func test_original_v83_tables_boxes_art_and_sounds_resolve_in_the_private_cache(
 	var book := SkillBook.from_data(DataRepo.load_all().skills, {"520": img.root})
 	var loadout := Loadout.new(book)
 	var facts := {
-		"invisible_shot": {"damage": [0.75, 1.70], "mobs": [3, 3], "lt": Vector2(-250, -80), "rb": Vector2(-10, 40)},
 		"blank_shot": {"damage": [0.63, 1.20], "mobs": [3, 3], "lt": Vector2(-250, -80), "rb": Vector2(-20, 30)},
-		"grenade": {"damage": [0.45, 1.40], "mobs": [3, 6], "lt": Vector2(-50, -50), "rb": Vector2(50, 20)},
-		"recoil_shot": {"damage": [0.70, 2.60], "mobs": [1, 1]},
 	}
 	for key: String in facts:
 		assert_eq(book.max_level(key), 20, key)
@@ -491,7 +203,7 @@ func test_original_v83_tables_boxes_art_and_sounds_resolve_in_the_private_cache(
 			var st := loadout.stats(key, 1 if i == 0 else 20)
 			assert_near(st.damage_pct, facts[key].damage[i], 1e-6, key)
 			assert_eq(st.mob_count, facts[key].mobs[i], key)
-			if facts[key].has("lt") and key != "invisible_shot":
+			if facts[key].has("lt"):
 				assert_eq(st.box.position, facts[key].lt, key + " box")
 				assert_eq(st.box.end, facts[key].rb, key + " box")
 		assert_true(lib.sound(String(book.def(key).sounds.use)) != null, key + " sound " + String(book.def(key).sounds.use))
@@ -501,18 +213,11 @@ func test_original_v83_tables_boxes_art_and_sounds_resolve_in_the_private_cache(
 				assert_false(lib.anim(path).is_empty(), path)
 		assert_true(String(book.def(key).action) == "weapon"
 			or lib.node("Character.wz/00002000.img/" + String(book.def(key).action)) is Dictionary, key + " action")
-	assert_eq(loadout.stats("invisible_shot", 1).box, Rect2(-250, -80, 500, 120), "mirrored to both sides")
 	assert_eq(loadout.stats("blank_shot", 20).box.position.x, -250.0)
 	assert_eq(book.canonical("blank_shot", 1, "prop"), 43.0)
 	assert_eq(book.canonical("blank_shot", 20, "prop"), 100.0)
 	assert_eq(book.canonical("blank_shot", 1, "time"), 1.0)
 	assert_eq(book.canonical("blank_shot", 20, "time"), 4.0)
-	assert_eq(book.canonical("recoil_shot", 1, "range"), 115.0)
-	assert_eq(book.canonical("recoil_shot", 20, "range"), 250.0)
-	assert_eq(loadout.stats("recoil_shot", 20).displacement.distance, 250.0)
-	assert_false(lib.anim(String(book.def("grenade").burst)).is_empty(), "the blast art")
-	for key in ["invisible_shot", "blank_shot", "recoil_shot"]:
-		assert_eq(book.weapon_families(key), PackedStringArray(["gun"]), key + " WZ weapon 49")
-	assert_eq(book.weapon_families("grenade"), PackedStringArray(), "Grenade names no weapon")
+	assert_eq(book.weapon_families("blank_shot"), PackedStringArray(["gun"]), "blank_shot WZ weapon 49")
 	assert_eq(Array(lib.missing), [])
 	lib.free()

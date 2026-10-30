@@ -1,18 +1,6 @@
 {
-	"_doc": "Pirate line (#168), first job (#186). B4 #416 moved Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut and Corkscrew Blow to skills/buccaneer.json (their cards were deleted). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). Dash (#188, #417) is a mobility skill with no cards. Second jobs: passives and boosters #189 (Improve MaxHP, Knuckler/Gun Mastery, Knuckler/Gun Booster; their cards require the exact branch), Gunslinger attacks #192, Oak Barrel #194 (MP Recovery #193 went with MP, ADR 0006).",
+	"_doc": "Pirate line (#168), first job (#186). B4 #416 moved Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut and Corkscrew Blow to skills/buccaneer.json (their cards were deleted). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). C4 #388 moved Double Shot, Invisible Shot, Recoil Shot and Grenade to skills/corsair.json (their cards were deleted). Dash (#188, #417) is a mobility skill with no cards. Second jobs: passives and boosters #189 (Improve MaxHP, Knuckler/Gun Mastery, Knuckler/Gun Booster; their cards require the exact branch), Gunslinger Blank Shot #192, Oak Barrel #194 (MP Recovery #193 went with MP, ADR 0006).",
 	"skills": {
-		"double_shot": {
-			"skill_id": 5001003, "book": "500", "job": 500, "kind": "projectile", "slot": "active",
-			"name": "Double Shot", "desc": "Fires two bullets at nearby monsters.",
-			"icon": "Skill.wz/500.img/skill/5001003/icon", "damage": "physical",
-			"_tier": "Tier A: gun requirement (WZ weapon-space key), bulletCount, range, damage, mpCon, doublefire action and CharLevel art. Tier C: auto-cast at nearest targets, cooldown 1s, action hold 0.6s, speed 600 px/s, radius 8px and no base pierce; untuned. Range and shot count come from WZ rather than survivor copies.",
-			"cast": {"rule": "nearest"}, "cooldown": 1.0, "speed": 600, "radius": 8, "pierce": 0,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "doublefire", "action_time": 0.6, "ball": "Skill.wz/500.img/skill/5001003/ball",
-			"hit": "Skill.wz/500.img/skill/5001003/hit/0", "effect": "Skill.wz/500.img/skill/5001003/effect",
-			"char_level": {"thresholds": [10, 15, 20, 25], "hit": "Skill.wz/500.img/skill/5001003/CharLevel/{cl}/hit/0", "effect": "Skill.wz/500.img/skill/5001003/CharLevel/{cl}/effect"},
-			"rotate": false, "sounds": {"use": "Sound.wz/Skill.img/5001003/Use", "hit": ""}
-		},
 		"bullet_time": {
 			"skill_id": 5000000, "book": "500", "job": 500, "kind": "passive", "slot": "passive",
 			"name": "Bullet Time", "desc": "Increases accuracy and avoidability. Accuracy also raises critical chance.",
@@ -76,18 +64,6 @@
 			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "", "effect": "Skill.wz/520.img/skill/5201003/effect", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/5201003/Use", "hit": ""}
 		},
-		"invisible_shot": {
-			"skill_id": 5201001, "book": "520", "job": 520, "kind": "instant", "slot": "active",
-			"name": "Invisible Shot", "desc": "Shoots the monsters in front of you and behind you.",
-			"text": {"desc": "Fires at the monsters in front of you and behind you.", "h": "Damage {damage}%, up to {mob_count|monster|monsters} in front of and behind you"},
-			"icon": "Skill.wz/520.img/skill/5201001/icon", "damage": "physical", "weapon_families": ["gun"],
-			"_tier": "Tier A: gun requirement (WZ weapon 49), canonical box reach 250 and height, damage %, mpCon, mobCount 3, bulletConsume (ammo is endless here, 6.1.2) and hit art; its sound is the WZ Hit sound. Tier C (owner, #168): cast.around mirrors the box's far reach to both sides, so it strikes in front and behind; auto-cast when a monster is inside the box, cooldown 1 s, the held gun's first basic-attack stance held 0.6 s, no visible bullet (the name; the WZ has no ball); untuned.",
-			"cast": {"rule": "box", "around": true}, "cooldown": 1.0,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "weapon", "action_time": 0.6, "ball": "",
-			"hit": "Skill.wz/520.img/skill/5201001/hit/0", "effect": "",
-			"rotate": false, "sounds": {"use": "Sound.wz/Skill.img/5201001/Hit", "hit": ""}
-		},
 		"blank_shot": {
 			"skill_id": 5201004, "book": "520", "job": 520, "kind": "instant", "slot": "active",
 			"name": "Blank Shot", "desc": "Fires a flag shot at the monsters in front of you and may stun them.",
@@ -100,32 +76,6 @@
 			"action": "fake", "action_time": 0.6, "ball": "",
 			"hit": "Skill.wz/520.img/skill/5201004/hit/0", "effect": "Skill.wz/520.img/skill/5201004/effect",
 			"rotate": false, "sounds": {"use": "Sound.wz/Skill.img/5201004/Use", "hit": ""}
-		},
-		"grenade": {
-			"skill_id": 5201002, "book": "520", "job": 520, "kind": "instant", "slot": "active",
-			"name": "Grenade", "desc": "Throws a grenade at the nearest cluster of monsters.",
-			"text": {"desc": "Throws a fully charged grenade at the nearest cluster of monsters; it explodes on the group.", "h": "Damage {damage}%, up to {mob_count|monster|monsters} around the blast"},
-			"icon": "Skill.wz/520.img/skill/5201002/icon", "damage": "physical", "weapon_families": ["any"],
-			"_tier": "Tier A: canonical blast box (-50,-50)..(50,20) around the landing point, damage %, mpCon (15 to 27, not the String text's 36), mobCount 3 to 6, the ball, special (blast) and hit art, and the WZ Use2 and Hit sounds. Tier C (owner, #168): thrown as if fully charged with no wind-up (no prepare/keydown), usable with any weapon, auto-cast at the cluster (cast.rule cluster, GAME_DESIGN 7.20): the target is the nearest of the 12 nearest monsters within the throw range whose blast would strike the most monsters (a scheduled boss first), the ball flies there at `speed` px/s (never faster than 0.1 s) and the blast lands when it arrives; throw range 400 px, cooldown 2 s, the held weapon's first basic-attack stance held 0.6 s; untuned.",
-			"cast": {"rule": "cluster"}, "cooldown": 2.0, "range": 400, "speed": 600,
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "weapon", "action_time": 0.6,
-			"ball": "Skill.wz/520.img/skill/5201002/ball", "burst": "Skill.wz/520.img/skill/5201002/special",
-			"hit": "Skill.wz/520.img/skill/5201002/hit/0", "effect": "",
-			"rotate": false, "sounds": {"use": "Sound.wz/Skill.img/5201002/Use2", "hit": ""}
-		},
-		"recoil_shot": {
-			"skill_id": 5201006, "book": "520", "job": 520, "kind": "projectile", "slot": "active",
-			"name": "Recoil Shot", "desc": "Fires a shot at the nearest monster, then hops back away from it.",
-			"text": {"h": "Damage {damage}%, then hop back away from the monster"},
-			"icon": "Skill.wz/520.img/skill/5201006/icon", "damage": "physical", "weapon_families": ["gun"],
-			"_tier": "Tier A: gun requirement (WZ weapon 49), damage %, mpCon, the backstep action, effect art, the Use sound and the hop `range` (115 to 250 px, read as the displacement). Tier C (owner, #168): the shot is the current ammo's bullet (`ammo_shot`: Ammo.bullet_path, so Split and Mighty Bullets show) at 1000 px/s, radius 6, rotating, reach 300 px, no base pierce; the hop is instant and away from the faced monster after the shot, cut short at platform edges and walls (7.13), none while airborne; cooldown 1.8 s, action hold 0.6 s; the WZ has no hit art; untuned.",
-			"cast": {"rule": "nearest"}, "cooldown": 1.8, "range": 300, "speed": 1000, "radius": 6, "pierce": 0, "count": 1,
-			"displacement": {"direction": "away", "when": "after", "field": "range"},
-			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"action": "backstep", "action_time": 0.6, "ball": "", "ammo_shot": true,
-			"hit": "", "effect": "Skill.wz/520.img/skill/5201006/effect",
-			"rotate": true, "sounds": {"use": "Sound.wz/Skill.img/5201006/Use", "hit": ""}
 		},
 		"dash": {
 			"skill_id": 5001005, "book": "500", "job": 500, "kind": "buff", "slot": "mobility",
