@@ -1,0 +1,87 @@
+{
+	"drop_band": [10, 20],
+	"_opening_ramp": "Tier C (#307): whole-round opening multiplier; neutral tier-1 ramp preserves #293 pacing. HP captures at spawn; ordinary damage at impact; bosses capture both on arrival.",
+	"opening_ramp": {"seconds": 900, "hp": {"start": 1.0, "end": 1.0}, "damage": {"start": 1.0, "end": 1.0}},
+	"name": "The Tree That Grew I",
+	"region": "Ellinia",
+	"continent": "Victoria Island",
+	"duration": 900,
+	"hard_cap": 400,
+	"map_seconds": 300,
+	"_maps": "Tier C: owner map order and pool rules, spec #241. Each boss time is relative to map entry; Pig Beach excludes timed Iron Hook; Sanctuary uses Sanctuary Entrance IV ordinary weights.",
+	"maps": [
+		{
+			"map_id": 101010100,
+			"pool": "curve",
+			"boss": {
+				"time": 300,
+				"mob_id": 3220000,
+				"hp_mult": 0.45,
+				"dmg_mult": 0.83,
+				"typical_hp": 208,
+				"typical_pdd": 7,
+				"attacks": [
+					"attack1",
+					"attack2"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 0.77,
+				"_tier": "tier C: 3150 HP and separate contact/attack scales; 8 s cadence; canonical stats and attack/skill metadata unchanged"
+			}
+		},
+		{
+			"map_id": 100040100,
+			"pool_from_life": true,
+			"boss": {
+				"time": 300,
+				"mob_id": 9300003,
+				"hp_mult": 1.1,
+				"dmg_mult": 1.36,
+				"typical_hp": 340,
+				"typical_pdd": 7,
+				"attacks": [
+					"attack1"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 1.06,
+				"_tier": "tier C: 8800 HP, separate touch130/slam165 scaling and 8 s cadence; canonical slam900ms/summon/revive metadata unchanged"
+			}
+		},
+		{
+			"map_id": 100040105,
+			"pool_from_life": true,
+			"boss": {
+				"time": 300,
+				"mob_id": 6220000,
+				"hp_mult": 0.26,
+				"dmg_mult": 1.14,
+				"typical_hp": 424,
+				"typical_pdd": 7,
+				"_tier": "tier C: 8060 HP and contact scaling; canonical heal114 and immunity140 gates/intervals/durations unchanged"
+			}
+		}
+	],
+	"post_duration_slope": 0.25,
+	"keyframes": [
+		{"t": 0, "rate": 0.6, "max_alive": 15, "hp": 0.8, "speed": 1.0,
+			"pool": {"100100": 3, "100101": 3}},
+		{"t": 120, "rate": 1.7, "max_alive": 40, "hp": 0.8, "speed": 1.0,
+			"pool": {"100101": 2, "130101": 3, "210100": 3}},
+		{"t": 240, "rate": 3.1, "max_alive": 65, "hp": 1, "speed": 1.05,
+			"pool": {"130101": 2, "120100": 2, "210100": 5}},
+		{"t": 360, "rate": 6.0, "max_alive": 100, "hp": 1.5, "speed": 1.1,
+			"pool": {"130101": 1, "210100": 5, "1210100": 2, "1210102": 3}},
+		{"t": 540, "rate": 9.4, "max_alive": 165, "hp": 3.25, "speed": 1.18,
+			"pool": {"210100": 5, "1210100": 2, "1210102": 3, "1110100": 1}},
+		{"t": 720, "rate": 13.5, "max_alive": 240, "hp": 4.25, "speed": 1.28,
+			"pool": {"130101": 1, "210100": 5, "1210100": 2, "1210102": 3, "1110100": 3}},
+		{"t":780,"rate":15.666666666666666,"max_alive":270,"hp":5.125,"speed":1.32,"pool":{"130101":1,"210100":5,"1210100":2,"1210102":3,"1110100":3}},
+		{"t": 900, "rate": 20.0, "max_alive": 330, "hp": 6.875, "speed": 1.4,
+			"pool": {"130101": 1, "210100": 5, "1210100": 2, "1210102": 3, "1110100": 3}}
+	],
+	"bursts": {"first": 90, "every": 90, "count_min": 10, "count_max": 40},
+	"elites": {"first": 75, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
+	"exp_mult": 0.9,
+	"note": "Classic Slimes, tree portals and three bosses.",
+	"original_life": {"210100": 25, "130101": 5}
+}

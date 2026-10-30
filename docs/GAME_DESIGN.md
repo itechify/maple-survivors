@@ -589,6 +589,22 @@ block and compares the event logs).
   - Level-scale stages run a per-tick loop over the live slots in `RunWorld._fill_live_defense` to apply the captured
     PDD/MDD multipliers. Check its cost in the first perf capture of a level-scale stage (`scripts/playtest.sh
     --vsync=off`, `sim_us_per_tick`); stages without the block skip it.
+- **First draft of a region's numbers (spec #449 C0, #462; tier C).** `game/tools/level_scale_draft.gd` prints the
+  `level_scale` keyframes and boss multipliers a new region starts from; the formulas are pure static functions
+  (`test_level_scale_draft`). With E_sw(t) = Sleepywood's effective level at its keyframe curve times t, region step k
+  (`progression` position, 1-based, Sleepywood = 5) gets `level(t) = E_sw(t) + 3·(k − 5)` and `exp_level(t) = E_sw(t)`
+  (levels rounded to 0.01). E_sw(t) is the level whose `hp` reference value equals the weighted mean canonical HP of the
+  live ordinary pool at t times the stage's opening-ramp HP multiplier at nominal round time t (the keyframe `hp` multiplier
+  is left out, since a region copies Sleepywood's keyframes and applies it again). The live pool is the map being entered at
+  a boundary (t = 300 is map 2's first moment, t = 600 map 3's); on map 1 the last keyframe pool below `map_seconds`, on a later
+  map `StagePools.resolve`. A boss arriving at `t_j = j·map_seconds + time` is carried from the Sleepywood boss of the same slot:
+  its effective HP, contact damage and strongest scheduled attack at t_j (canonical × multiplier × the ramp at t_j, as
+  `BossDirector` and `spawn_mob` capture them) are scaled by `hp(level)/hp(E_sw)` and `pad(level)/pad(E_sw)` (`mad` for a magic
+  attack), and `hp_mult`, `dmg_mult`, `attack_dmg_mult` are what make the new boss's own level-scaled value equal that target
+  (the offset cancels, so the multipliers do not depend on it). A boss with a `final_form` splits the target HP by
+  `--final-share` (0.5): its `hp_mult` covers the rest and `final_form_hp_mult` the form's share. `attack_interval` is 8. The
+  tool warns when a keyframe `level` (or `exp_level`) is above 131, where the reference curves go flat (#453 review): the offset
+  of 3 reaches only E_sw + 33 at step 16, but a later offset change in C13 would cross it.
 - **Determinism and telemetry.** No RNG is drawn. A balance record of a level-scale stage gains `level_scale_at`
   (`[{boss_index, mob_id, level}]`, the effective level at each boss arrival) and each `boss_fights` entry its own
   `level_scale_at`; other stages' records keep their bytes.
@@ -8688,6 +8704,19 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Unlock rule | region i is open iff i == 0 or `progression[i-1]` is in the character's `cleared_regions`; a CLEARED round adds its stage; death, Quit round and one-off rounds add nothing | C |
 | Save migration | `CharacterSnapshot.LEGACY_TIER1_REGIONS` 4: a stored `tiers_unlocked` >= 2 becomes the first four progression keys cleared, otherwise none | C |
 | `balance_run.gd --tier=N` | tier 1 = the first four regions, tier 2 = the fifth; replaced by `--chain` in A5 (#454) | C |
+
+### Region template and level-scale draft (spec #449 C0, #462; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Per-region stage files | `survivor/stages/<key>.json` (one stage object each) merged in `progression` order by `DataRepo.load_stages`; no value changed by the split (golden `tests/fixtures/stages_presplit.json`) | C |
+| Per-step level offset | `level_scale_draft.gd` `DEFAULT_OFFSET` 3 levels per progression step above Sleepywood (step 5): `level = E_sw + 3·(k − 5)`, `exp_level = E_sw` (spec #449; re-tuned by C13) | C |
+| E_sw(t) | level whose `hp` reference equals the pool's weighted mean canonical HP × the opening-ramp HP multiplier at nominal round time = curve time; the map entered at a boundary; keyframe `hp` multiplier excluded | C |
+| Boss match | HP, contact damage and strongest scheduled attack carried from Sleepywood's same-slot boss by `curve(level)/curve(E_sw)` (`mad` for magic); multipliers snapped to 0.001 | C |
+| Final-form HP split | `level_scale_draft.gd` `DEFAULT_FINAL_SHARE` 0.5 of the encounter's effective HP to the final form (`final_form_hp_mult`) | C |
+| Boss attack interval | `level_scale_draft.gd` `ATTACK_INTERVAL` 8 s, as every boss | C |
+| Warning ceiling | `level_scale_draft.gd` `CURVE_FLAT_ABOVE` 131: the reference curves hold their Lv131 values above it (v83 has no stronger ordinary monster) | A |
+| Keyframe level resolution | 0.01 levels | C |
 
 ### Review #282: constants and provenance
 
