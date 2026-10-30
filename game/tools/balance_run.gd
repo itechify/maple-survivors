@@ -528,6 +528,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			"reached":bool(memo.get("reached",false)),"reached_time":float(memo.get("reached_time",-1.0)),"portals":portal_names},
 		"time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
 		"job": int(w.player_state.job_id), "kills": w.kills, "reach": reach,
+		"hazards_cast": w.hazards.cast_count, "hazard_seconds": snappedf(w.hazards.seconds, 0.01),
 		"alive_by_min": alive_min, "level_by_min": level_min, "hits_by_min": hits_min, "taken_by_min": taken_min,
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,
 		"ordinary_kill_hits_by_min": kill_hits.buckets,
