@@ -18,7 +18,6 @@ const SHARES := [0.20, 0.24, 0.28, 0.32, 0.36, 0.40, 0.43, 0.45]
 ## A quiet round of a Marksman holding a crossbow with Snipe learned at `rank_value`; mobs stand still and are snail-sized.
 func _world(rank_value := 1, p_seed := 368) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["322"]["playable"] = true # in this test's data only: MS11 ships the flip
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({CROSSBOW: {"incPAD": 29, "attackSpeed": 6, "tuc": 7}}, true)
 	for action: String in ["shoot1", "shoot2"]:

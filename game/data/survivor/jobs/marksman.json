@@ -1,5 +1,5 @@
 {
-	"_doc": "Marksman line (spec #360, ticket MS2 #362). The second archer after Bowmaster: its job entry, its AP row and its bot card scores. Skill definitions are in skills/marksman.json; each Marksman skill ticket (MS5-MS9) appends its own region. Marksman has NO mobility_skill (ruling D1, spec #360): a Marksman owns no skill key and no quick-slot movement cell. playable stays false until MS11 #371; JobTree.default_job() stays 212 (survivor/jobs.json default_job). DataRepo discovers this per-line file automatically (docs/ARCHITECTURE.md 4.4.4).",
+	"_doc": "Marksman line (spec #360, ticket MS2 #362). The second archer after Bowmaster: its job entry, its AP row and its bot card scores. Skill definitions are in skills/marksman.json; each Marksman skill ticket (MS5-MS9) appends its own region. Marksman has NO mobility_skill (ruling D1, spec #360): a Marksman owns no skill key and no quick-slot movement cell. playable is true since MS11 #371; JobTree.default_job() stays 212 (survivor/jobs.json default_job). DataRepo discovers this per-line file automatically (docs/ARCHITECTURE.md 4.4.4).",
 	"jobs": {
 		"322": {
 			"starting_skill": "iron_arrow",
@@ -23,8 +23,8 @@
 			"_weapon_families": "tier C: spec #360: crossbows only (WeaponInfo family crossbow, 146xxxx); bows (145xxxx) belong to Bowmaster. Armour and shields drop by the Bowman class bit.",
 			"creation_weapon": 1462001,
 			"_creation_weapon": "tier A: the Crossbow (Item.wz 1462001, reqJob 4 = the Bowman bit, PAD 29; reqLevel 12 is no longer enforced, #292). Already in the Bowman manifest fragment and drop list.",
-			"playable": false,
-			"_provenance": "tier C: spec #360 MS2 #362: data-only until MS11 #371 flips playable; default_job stays 212.",
+			"playable": true,
+			"_provenance": "tier C: spec #360 MS11 #371: Marksman is selectable (the QA ticket flipped it); default_job stays 212.",
 			"hub_kit": {
 				"fixture": "res://tests/fixtures/characters/marksman_t2.json",
 				"scrolls": [

@@ -15,8 +15,8 @@
 # seconds between screenshots (60), --out=<dir> (default evidence/playtest/<stage>_s<seed>_x<speed>_<time>), --warp=<s>,
 # --job=<id> (the character's job, e.g. 212, 112 for Hero, 222 for the I/L Arch Mage, 232 for the Bishop or 312 for the Bowmaster (give it a bow: --character=game/tests/fixtures/characters/bowmaster_t2.json); the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
 
-# --job=<id> (the character's job, e.g. 212, 112 for Hero, 122 for Paladin, 132 for Dark Knight, 222 for the I/L Arch Mage, 232 for the Bishop or 512 for the Buccaneer, all playable; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
-# --job=322 is the Marksman (spec #360, MS10 #370): with --character=game/tests/fixtures/characters/marksman_t2.json (a crossbow in hand); it ships playable:false until MS11 #371, so the game refuses it until then.
+# --job=<id> (the character's job, e.g. 212, 112 for Hero, 122 for Paladin, 132 for Dark Knight, 222 for the I/L Arch Mage, 232 for the Bishop, 312 for the Bowmaster, 322 for the Marksman or 512 for the Buccaneer, all playable; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
+# --job=322 is the Marksman (spec #360, MS10 #370): with --character=game/tests/fixtures/characters/marksman_t2.json (a crossbow in hand); it ships playable (MS11 #371). Bare --job=322 has no crossbow (the generic outfit), so pass the fixture.
 # --account=<abs JSON> (an account for the round, spec #34: owned cash items, worn cash equipment, pet, ALERT levels; see
 # scripts/balance.sh and game/scripts/core/account_file.gd; summary.json names the file).
 # Map fields: summary.json root and nested summary carry map_times (reached-map entry seconds, starting [0]) and

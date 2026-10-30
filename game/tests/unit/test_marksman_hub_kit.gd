@@ -1,10 +1,10 @@
 extends TestCase
 ## The `--hub --job=322` test kit (spec #360, MS10 #370): the Marksman's fixture, its crossbow ATT / gloves / shoes / hat scroll
-## stacks and the spare equipment it can wear. Marksman ships `playable: false` until MS11, so the kit is applied with 322 mirrored
-## playable (`DataRepo.patch`); the kit itself reads only the job entry's `hub_kit`.
+## stacks and the spare equipment it can wear. Marksman is playable (MS11 #371); the kit reads only the job entry's `hub_kit`, and an
+## explicit `playable: false` patch tests the refusal.
 
 const MARKSMAN_FIXTURE := "res://tests/fixtures/characters/marksman_t2.json"
-const PLAYABLE := {"jobs_survivor": {"jobs": {"322": {"playable": true}}}}
+const DISABLED := {"jobs_survivor": {"jobs": {"322": {"playable": false}}}}
 const SPARE := [1002001, 1462002, 1082002, 1040008]
 
 
@@ -24,12 +24,10 @@ func _loader() -> Callable:
 
 ## A fresh Lv1 Marksman (322, the Crossbow) as the creation screen makes it; the kit only reads its job.
 func _marksman() -> Dictionary:
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	return SceneFlow.new_character({}, 322, _loader())
 
 
 func test_hub_job_322_picks_the_marksman_fixture_and_an_explicit_character_wins() -> void:
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	assert_eq(HubTestKit.parse_args(PackedStringArray(["--hub", "--job=322"])),
 		{"job": 322, "character": MARKSMAN_FIXTURE, "mesos": 500000})
 	assert_eq(HubTestKit.parse_args(PackedStringArray(["--hub", "--job=322", "--character=/x/y.json"])).character, "/x/y.json")
@@ -96,16 +94,16 @@ func test_the_flow_driver_fallback_item_is_a_crossbow_a_marksman_can_hold() -> v
 		assert_eq(Equipment.requirement_error(img.root.get("info", {}), {"job_id": 322}), "")
 
 
-func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
+func test_hub_job_errors_name_the_mismatch_or_the_disabled_job() -> void:
 	var fixture: Dictionary = DataRepo.load_json(MARKSMAN_FIXTURE)
 	fixture.erase("_doc")
 	var fp: Dictionary = DataRepo.load_json("res://tests/fixtures/characters/fp_arch_mage.json")
 	fp.erase("_doc")
 	var data := DataRepo.load_all()
 	var shipped := JobTree.from_data(data.jobs, data.jobs_survivor)
-	assert_true(HubTestKit.job_error({"job": 322}, fixture, shipped).contains("not playable"), "322 ships unplayable until MS11")
-	DataRepo.patch = PLAYABLE.duplicate(true)
-	var mirrored := DataRepo.jobs(DataRepo.load_all())
-	assert_eq(HubTestKit.job_error({"job": 322}, fixture, mirrored), "")
-	assert_true(HubTestKit.job_error({"job": 322}, fp, mirrored).contains("does not match"))
-	assert_true(HubTestKit.job_error({"job": 212}, fixture, mirrored).contains("does not match"))
+	assert_eq(HubTestKit.job_error({"job": 322}, fixture, shipped), "", "322 ships playable")
+	assert_true(HubTestKit.job_error({"job": 322}, fp, shipped).contains("does not match"))
+	assert_true(HubTestKit.job_error({"job": 212}, fixture, shipped).contains("does not match"))
+	DataRepo.patch = DISABLED.duplicate(true)
+	var disabled := DataRepo.jobs(DataRepo.load_all())
+	assert_true(HubTestKit.job_error({"job": 322}, fixture, disabled).contains("not playable"))

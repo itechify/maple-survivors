@@ -19,7 +19,7 @@ func _ready() -> void:
 	world = CF.world({"damage": "physical", "count": 2, "range": 900.0,
 		"ball": "synthetic/bolt", "cast": {"rule": "nearest", "prefer": "max_hp"},
 		"fixed_share": {"share": [0.2, 0.45], "cap_mult": 20.0, "boss": {"share_scale": 0.1, "cap_mult": 6.0}}})
-	world.progression.job_id = 322 # diagnostic only: Marksman stays unselectable until MS10/MS11
+	world.progression.job_id = 322 # diagnostic only: the probe builds its own world
 	world.loadout.weapon_id = 1462001
 	world.loadout.dex_stat = 100
 	world.loadout.str_stat = 10

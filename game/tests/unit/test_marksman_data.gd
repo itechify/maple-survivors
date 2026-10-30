@@ -1,6 +1,6 @@
 extends TestCase
 ## Marksman's data seam (spec #360, ticket MS2 #362): the `marksman` data line is discovered from its files, the job entry
-## `survivor/jobs/marksman.json` (322, not playable yet, NO mobility skill: ruling D1), its AP row and bot card scores, the
+## `survivor/jobs/marksman.json` (322, playable since MS11 #371, NO mobility skill: ruling D1), its AP row and bot card scores, the
 ## `default_job` pin, the weapon families of its equipment drops (crossbows only; armour by the Bowman class bit), the code
 ## paths that have never met a job without a mobility skill (start skills, the quick slot, Key Config, the bot) and the
 ## crossbow ammo schedule that Bowmaster's B3 already wrote (verified here, not rewritten).
@@ -59,7 +59,7 @@ func _rng(p_seed: int) -> RandomNumberGenerator:
 	return rng
 
 
-## A quiet world that starts a round of job `job_id` (its own start skills), without making the job playable.
+## A quiet world that starts a round of job `job_id` (its own start skills).
 func _world(job_id: int, p_seed := 362) -> RunWorld:
 	var setup := RF.setup("quiet", p_seed, RF.quiet_data())
 	setup["job"] = job_id
@@ -99,7 +99,7 @@ func test_the_marksman_line_loads_without_errors_and_adds_its_job_and_only_cross
 
 # --- the job entry ----------------------------------------------------------------------------------------------------
 
-func test_job_322_has_the_spec_fields_and_is_not_playable_yet() -> void:
+func test_job_322_has_the_spec_fields_and_is_playable() -> void:
 	var jobs := _jobs(_data())
 	var rec := jobs.job(322)
 	assert_eq(String(rec.name), "Marksman")
@@ -108,9 +108,9 @@ func test_job_322_has_the_spec_fields_and_is_not_playable_yet() -> void:
 	assert_eq(jobs.skill_pool(322).size(), 10)
 	assert_eq(jobs.weapon_families(322), ["crossbow"])
 	assert_eq(jobs.creation_weapon(322), 1462001)
-	assert_false(bool(rec.playable), "Marksman is not selectable until MS11")
-	assert_false(322 in jobs.playable_jobs())
-	assert_ne(jobs.job_error(322), "", "forcing --job=322 is refused while playable is false")
+	assert_true(bool(rec.playable), "MS11 #371 ships Marksman selectable")
+	assert_true(322 in jobs.playable_jobs())
+	assert_eq(jobs.job_error(322), "", "forcing --job=322 is accepted")
 
 
 func test_job_322_declares_no_mobility_skill_key() -> void:
@@ -191,13 +191,16 @@ func test_default_job_is_still_212_with_marksman_loaded() -> void:
 	assert_eq(_jobs(data).default_job(), 212)
 
 
-func test_default_job_stays_212_even_if_marksman_became_playable() -> void:
+func test_default_job_stays_212_with_marksman_playable_and_a_disabled_copy_is_refused() -> void:
 	var data := _data()
-	data.jobs_survivor.jobs["322"]["playable"] = true
 	var jobs := _jobs(data)
 	assert_true(322 in jobs.playable_jobs())
 	assert_eq(jobs.default_job(), 212, "the pin, not the first playable job")
 	assert_eq(jobs.job_error(322), "")
+	data.jobs_survivor.jobs["322"]["playable"] = false
+	var disabled := _jobs(data)
+	assert_false(322 in disabled.playable_jobs())
+	assert_ne(disabled.job_error(322), "", "a data copy with playable false refuses --job=322")
 
 
 # --- drops: crossbows only --------------------------------------------------------------------------------------------

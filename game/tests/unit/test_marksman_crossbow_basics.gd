@@ -21,7 +21,6 @@ const TIERS := ["rare", "epic", "unique", "legendary"]
 ## that the hand-height arrow line crosses them.
 func _world(key: String, rank_value := 1, p_seed := 365) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["322"]["playable"] = true # in this test's data only: its pool cards exist (MS11 ships the flip)
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({BOW: {"incPAD": 28, "attackSpeed": 6, "tuc": 7},
 		CROSSBOW: {"incPAD": 29, "attackSpeed": 6, "tuc": 7, "reqJob": 4}}, true)
