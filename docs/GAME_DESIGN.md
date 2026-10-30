@@ -150,6 +150,16 @@ Demolition's blank, and keeps knuckles visible through the weapon-only swingTF f
 BC11 enabled selection, tooling, the tier-2 fixture and the independent replay oracle. BC12 supplies the QA record
 in 4.2. Sections 7.90–7.93 and the B2–B11 provenance tables own all constants; no balance tuning in this QA.
 
+**Landed in the Marksman spec (#360, MS1-MS11 #361-#371):** Marksman (322) is playable beside Bowmaster; F/P (212) remains the
+default. It starts with Iron Arrow and a Crossbow (1462001), with no mobility skill (ruling D1). Its ten-skill pool is Iron Arrow,
+Arrow Blow, Strafe and Dragon's Breath (crossbow copies with their own keys), Blizzard with a freeze, Arrow Eruption, Piercing
+Arrow (a one-shot burst whose damage rises per monster pierced), Snipe (fixed-share damage: a share of the strongest monster's
+max HP, capped, much weaker on bosses) and the physical followers Golden Eagle and Frostprey. The spec added two mechanics, the
+fixed share (7.47) and the piercing rise (7.48), both in their own scripts. Crossbow arrows step up at Lv15 / 30 / 45
+(Bronze, Steel, Blue). `marksman_t2.json` is the tier-1 crossbow kit with tier 2 unlocked. MS11 flipped `playable`, ran the
+`redesign` and creation flows, the playtests, the regression smoke and the full suites; section 4.2 holds the smoke (weak
+Marksman survival, recorded, not tuned) and 7.46-7.48 own the details.
+
 ### Known design gaps (open after the slice)
 
 These are findings of the QA pass, #293 and #307, recorded as gaps, not as met targets. Nothing here was tuned in #294.
@@ -1485,6 +1495,56 @@ the balance pass's). The Marksman baseline oracle's golden is
 `fd8a41136aadef79e8afebc1a0a9c46038b814e46e6738dd81366f46cfd1fde1` (28,800 ticks, see "Marksman MS10 constants (#370)"). Screenshots looked at (private mirror
 with 322 flipped, never committed): the Job page with nine rows (18 px pitch, Marksman highlighted, "Crossbow · WATK 29 · 0.81s"), and the Skill window
 tabs Bowman / Crossbowman / Sniper's Scope / Marksman with no movement cell in the quick slot.
+
+#### Spec #360 (#371, MS11): Marksman QA: regression smoke (2026-10-30)
+
+Feature QA: no balance data changed, no tuning patch, no held-out seed. `playable` for 322 is now true; the shared defaults
+(HP, EXP, AP, cooldowns) are used as they are, because the spec sets no Marksman-specific value. Training seeds 1 / 2 / 2026,
+`JOBS=3`, `ISOLATE=371`, the read-only Marksman cache, all four tier-1 stages with `bot` and `random`, plus Sleepywood (bot) with
+the starter outfit and with the tier-1 kit, for Marksman (322) and the default F/P (212). **60/60 records, 20/20 batch exits 0, no
+crash, no world warning, no `missing` entry, no TIMEOUT.** Marksman's starter is a creation-outfit snapshot made with
+`character_fixture.gd` (Crossbow 1462001, top 1040002, bottom 1060002, shoes 1072001, unscrolled): a bare `--job=322` has no
+crossbow (see AGENTS.md) and would list the bolt sprite as missing. F/P keeps the bare tool and `fp_arch_mage.json`; Marksman's kit
+is `marksman_t2.json`. Cells give clears out of three, death (D) and clear (C) seconds, and the first boss reached.
+
+| Stage / policy | Marksman 322 | F/P 212 |
+|---|---|---|
+| henesys-bot | 0/3 C; D 313.1-337.9; boss 3/3 | 0/3 C; D 474.5-751.9; boss 3/3 |
+| henesys-random | 0/3 C; D 311.7-330.4; boss 3/3 | 1/3 C; D 433.4-503.7; C 914.3; boss 3/3 |
+| ellinia-bot | 0/3 C; D 304.8-474.9; boss 3/3 | 0/3 C; D 619.8-643.5; boss 3/3 |
+| ellinia-random | 0/3 C; D 307.5-1158.3; boss 3/3 | 0/3 C; D 617.4-654.4; boss 3/3 |
+| perion-bot | 0/3 C; D 253.4-363.0; boss 2/3 | 0/3 C; D 310.5-461.8; boss 3/3 |
+| perion-random | 0/3 C; D 270.1-370.4; boss 2/3 | 0/3 C; D 420.6-428.0; boss 3/3 |
+| kerning-bot | 0/3 C; D 309.5-317.6; boss 3/3 | 0/3 C; D 311.0-517.9; boss 3/3 |
+| kerning-random | 0/3 C; D 308.9-354.9; boss 3/3 | 0/3 C; D 306.5-307.0; boss 3/3 |
+| sleepywood-starter | 0/3 C; D 10.8-12.3; boss 0/3 | 0/3 C; D 11.4-15.1; boss 0/3 |
+| sleepywood-kit | 0/3 C; D 11.9-18.8; boss 0/3 | 1/3 C; D 23.8-826.2; C 936.2; boss 2/3 |
+
+**Marksman survival is weak, recorded without tuning** (the same finding as Bowmaster's smoke): 0/24 tier-1 clears, the first boss
+reached in 22/24 runs (the two Perion runs that did not reach it died at 253.4 s and 270.1 s), and all twelve bot runs filled six
+active slots (114.9-171.3 s; Henesys 133.6-171.3 s). Both Sleepywood configurations die in 10.8-18.8 s, before any boss. The bot's
+sixes are drawn from Iron Arrow, Blizzard, Snipe, Piercing Arrow, Arrow Blow, Arrow Eruption, Golden Eagle and Strafe; Dragon's
+Breath and Frostprey were not among them in these twelve runs. Since Marksman neither dies before every first boss nor clears
+every run, the stop conditions did not trigger; this is a readiness note for the balance pass, whose first levers are the Snipe
+share table and caps, the Piercing Arrow cooldown and rise, Blizzard's freeze, Frostprey's `pad` and cycle, and the ammo steps.
+**F/P is unchanged by Marksman's arrival**: the Sleepywood kit row is identical to Bowmaster's B13 smoke (1/3 C at 936.2 s, D
+23.8-826.2 s), and `test_character_baseline` (both goldens), `test_tick_cost_identity`, `test_hero_baseline`,
+`test_bowmaster_baseline` and `test_marksman_baseline` pass with their hashes. The F/P tier-1 rows are not byte-comparable with
+B13's (this base holds later `redesign` merges, such as the #282 review fixes); they were not investigated here.
+
+`redesign --job=322 --seed=1` (the Job page with nine rows, Marksman highlighted, "Crossbow  WATK 29"; Henesys cleared with the
+real windows, three map transfers, results, Sleepywood, death, deletion, history) PASSED with no failures and `missing: []`: the
+level-up offers named Arrow Eruption, Iron Arrow (Crossbow Mastery), Strafe, Snipe and Golden Eagle, three Mastery offers, 35
+picks. `creation --jobs=212,312,322` PASSED. These drivers are diagnostic (invulnerable with lethal boss hits); they are flow
+evidence, not survival evidence. Real-time playtests (`--job=322 --speed=8 --vsync=off`, seeds 2026 / 7 / 11, all `missing: []`,
+no script error): Henesys with the kit died at 740.8 s on the third map (two map transfers, Lv33; "Your arrows are now Bronze
+Arrow for Crossbow" shot taken at the Lv15 step, and "Steel Arrow for Crossbow" visible on screen at Lv30), Henesys with the
+starter at 311.8 s on the first map, Ellinia with the kit at 353.4 s, Perion with the kit at 434.3 s, Sleepywood with and without the kit at 22.4 s and
+19.2 s. Cast screenshots of all ten skills were looked at: the crossbow in hand for Iron Arrow, Arrow Blow, Strafe and Arrow
+Eruption, Blizzard's falling ice, the Piercing Arrow wind-up glow and its streak, Snipe's bolt and a damage number on a snail, a
+Golden Eagle and a Frostprey flying beside the character, and Dragon's Breath's streak. Not captured by eye in these runs: a
+frozen pack, Piercing Arrow through a line of six, Snipe on a strong monster and on a boss and Dragon's Breath's knock-back (the
+unit tests and the MS7 / MS8 probes cover them).
 
 #### Spec #282 (#285): no MP and no level gap: regression smoke (2026-10-28)
 
