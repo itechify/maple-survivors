@@ -110,16 +110,23 @@ func active(slot: int, now: float) -> bool:
 
 
 ## Resolves a hit of `damage` that `slot` reflects: -1 when it does not reflect that type now, else the whole HP the
-## character loses, `min(damage x x/10000 x k, y x c)`, or 0 when the last reflect that hurt was less than `rate` s ago.
+## character would lose, `min(damage x x/10000 x k, y x c)` (at least 1 for a positive amount), or 0 when the last reflect
+## that landed was less than `rate` s ago. It spends nothing: the caller calls spend() only for a reflect that hurt, so a
+## blocked one (hit window, guard, god mode, Hidden) leaves the slot free.
 func hit(slot: int, magic: bool, damage: float, now: float) -> int:
 	if not reflects(slot, magic, now):
 		return -1
 	if now < _last[slot] + rate - 1e-9:
 		return 0
-	_last[slot] = now
 	var amount := minf(damage * _fraction[slot] * damage_mult, _cap[slot] * cap_mult)
 	# tier C: a reflect of any positive damage costs at least 1 HP, so a weak hit is never reflected for free.
 	return maxi(1, roundi(amount)) if amount > 0.0 else 0
+
+
+## Starts the `rate` window of `slot` at `now`: a reflect just hurt the character.
+func spend(slot: int, now: float) -> void:
+	if slot >= 0 and slot < _last.size():
+		_last[slot] = now
 
 
 ## Detached presentation state of an active reflect ({skill_id, remaining, visual, physical, magic}), empty otherwise.

@@ -33,10 +33,13 @@ func _ticks(w: RunWorld, count: int) -> void:
 
 
 func _kill(w: RunWorld) -> void:
-	var slot := int(w.bosses.records[w.map_index].slot)
-	assert_true(slot >= 0, "the current map's boss arrived")
-	if slot >= 0:
-		w.hit_mob(slot, {"damage_min": 1e9, "damage_max": 1e9, "magic": false,
+	var record: Dictionary = w.bosses.records[w.map_index]
+	assert_true(int(record.slot) >= 0, "the current map's boss arrived")
+	# Twice: a boss with a final form (King Clang, #452) dies as its shell first and then as its form.
+	for i in 2:
+		if int(record.slot) < 0 or bool(record.dead):
+			break
+		w.hit_mob(int(record.slot), {"damage_min": 1e9, "damage_max": 1e9, "magic": false,
 			"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
 
 

@@ -1134,7 +1134,8 @@ func handle_events(events: Array) -> void:
 				_event_shot("boss_arrival_%d.png" % int(e.boss_index), 0.1)
 			"boss_attack":
 				if e.phase == "start":
-					_sound(String(e.sound))
+					if not attack_sound_absent_in_v83(String(e.sound)):
+						_sound(String(e.sound))
 					# tier C: capture each attack before its impact, at half windup (capped at the mushroom jump frame).
 					var delay := minf(0.85, maxf(DT, (float(e.impact_time) - float(e.time)) * 0.5))
 					_event_shot("boss_windup_%d_%s.png" % [int(e.boss_index), String(e.attack)], delay)
@@ -1824,6 +1825,14 @@ func _advance_end(delta: float) -> void:
 	_end_left -= delta
 	if _end_left <= 0.0:
 		_finish()
+
+
+## True when `path` (Sound.wz/Mob.img/<id>/<Name>) is a sound v83 does not have: the mob's own Mob.img entry is in the
+## cache and lacks this node (King Clang 5220000 has Skill1 but no Attack1; tier A absence, #452), so that attack is
+## silent and records nothing missing. A mob whose whole entry is absent from the cache is not covered: its sound is
+## still looked up and reported missing, so an import gap stays visible.
+func attack_sound_absent_in_v83(path: String) -> bool:
+	return path != "" and library.find(path) == null and library.find(path.get_base_dir()) != null
 
 
 ## Plays mob `id`'s Sound.wz/Mob.img `name` sound ("Damage", "Die", "Skill1"...). A mob v83 gives no Mob.img entry at

@@ -487,6 +487,17 @@ const MOB_INFO := {
 		"MDDamage": 160, "speed": -20, "acc": 140, "pushed": 300},
 	6220000: {"level": 65, "maxHP": 31000, "exp": 810, "PADamage": 190, "PDDamage": 190,
 		"MDDamage": 220, "speed": -30, "acc": 150, "boss": 1, "pushed": 1500},
+	# #452: the Ellinia and Perion bosses (v83 Mob.wz facts; the shell 5220001 and its form 5220000 are King Clang).
+	3300008: {"level": 38, "maxHP": 12500, "exp": 800, "PADamage": 130, "PDDamage": 160,
+		"MDDamage": 160, "speed": -30, "acc": 140, "boss": 1, "pushed": 300},
+	3300005: {"level": 35, "maxHP": 120000, "exp": 210, "PADamage": 125, "PDDamage": 50,
+		"MDDamage": 70, "speed": -30, "acc": 80, "pushed": 550},
+	5220002: {"level": 50, "maxHP": 9800, "exp": 410, "PADamage": 165, "PDDamage": 110,
+		"MDDamage": 150, "speed": -30, "acc": 100, "boss": 1, "pushed": 600},
+	5220001: {"level": 55, "maxHP": 4000, "exp": 0, "PADamage": 165, "PDDamage": 120,
+		"MDDamage": 120, "speed": 0, "acc": 100, "boss": 1, "pushed": 1000},
+	5220000: {"level": 55, "maxHP": 25000, "exp": 1210, "PADamage": 165, "PDDamage": 120,
+		"MDDamage": 120, "speed": -20, "acc": 100, "boss": 1, "pushed": 1000},
 }
 
 

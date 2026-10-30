@@ -104,8 +104,9 @@ cache: point it at your own v83 folder or zip (nothing is uploaded). Serve the e
 `node --test web/dev/test/*.test.mjs`. The game's debug scenes (`flow_driver.tscn`) cannot run on web; `?arg=<value>`
 query parameters become game user args (`?arg=--run=henesys&arg=--autoplay`).
 
-Stage keys are `henesys`, `ellinia`, `perion`, `kerning` (tier 1), and `sleepywood` (tier 2). Each round plays the
-region's three maps in order, with one boss 300 s after each entry; intermediate clears transfer automatically.
+Stage keys are the `stages.json` `progression`, in order: `henesys`, `ellinia`, `perion`, `kerning`, `sleepywood`.
+Each round plays the region's three maps in order, with one boss 300 s after each entry; intermediate clears transfer
+automatically.
 `--stage=` and `--run=` also accept legacy aliases `henesys_hg1`, `tree_that_grew_1`, `dark_cave`. A round is never
 saved (no resume, including after quitting on a later map); map transfers never save either ("Normal play" below).
 
@@ -129,7 +130,7 @@ bash scripts/playtest.sh --job=312 --character=$PWD/game/tests/fixtures/characte
                                                                # a Bowmaster needs a bow in hand (the fixture's Battle Bow): with none the
                                                                # run has no ammo and `missing` lists the arrow sprite (spec #332, B12 #344)
 bash scripts/playtest.sh --stage=sleepywood --character=$PWD/game/tests/fixtures/characters/fp_arch_mage.json
-                                                               # tier 2 with the tier-1 kit (omit --character: the starter wand only)
+                                                               # the fifth region with the first-four-regions kit (omit --character: the starter wand only)
 ```
 
 The frame rate is capped at the display's refresh rate (vsync on, `Engine.max_fps`; `GameSettings.apply_frame_cap`),
@@ -156,7 +157,7 @@ playtests retain their existing behavior on a valid early-death summary.
 opens the Hero fixture `hero_t2.json` with the Hero kit of sword and axe ATT scrolls and Warrior spare gear; `--job=122` the Paladin fixture `paladin_t2.json` with 20 stacks of sword, blunt, two-handed sword and two-handed blunt ATT scrolls and spare Warrior gear (a Sword and a one-handed blunt weapon, `hub_kit` in `jobs/paladin.json`); `--job=222` the I/L fixture `il_arch_mage_t2.json` with the F/P kit (both Arch Mages wear wands and staves from the same scroll line); `--job=232` opens the Bishop fixture `bishop_t2.json` with the same Magician kit; `--job=512` the Buccaneer fixture `buccaneer_t2.json` with ten stacks of knuckle ATT and ACC scrolls (`scrolls/pirate.json`, every rate) and spare knuckler, hat, gloves and top (`jobs/buccaneer.json` `hub_kit`); `--job=312` the Bowmaster fixture `bowmaster_t2.json` with bow, gloves, shoes ATT and hat DEX scrolls and spare Bowman gear (`jobs/bowmaster.json` `hub_kit`); a `--job` the
 character is not of is an error screen) skips
 the title and opens the real Free Market to hand-test the scroll shops with the F/P fixture (or `--character`) plus
-a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants, every tier unlocked) in a throwaway
+a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants, every region cleared) in a throwaway
 `user://tool_hub_save.json` recreated at every launch, standing on the floor between Barun and Tulcus; the real save,
 slots, bests and history are never touched. `--shot`/`--shot-at` work with it.
 
@@ -179,10 +180,10 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
   map select with Sleepywood locked and its Start refused -> an invulnerable Henesys round (`--seed`, default 1; the bot
   steers, the first level-up, the first offer with every active slot filled, the first Mastery offer and the first boss
   bonus draw open the real window and are answered with a number key; the real CLEAR, fade and arrival presentation) ->
-  results -> Free Market with tier 2 unlocked and the loot kept -> the round's highest-`reqLevel` drop worn at Lv1 by a
+  results -> Free Market with Sleepywood unlocked and the loot kept -> the round's highest-`reqLevel` drop worn at Lv1 by a
   double-click in the Item window (a diagnostic Lv45 staff is added when none dropped; `summary.json` names which) ->
   Sleepywood round (mesos on the ground picked up, then a diagnostic lethal boss hit) -> results -> Free Market with the
-  mesos, the worn item and tier 2 kept -> Save & quit -> delete the character -> history (cleared, died, deleted). The
+  mesos, the worn item and Sleepywood kept -> Save & quit -> delete the character -> history (cleared, died, deleted). The
   scenario plays its own card policy once the slots are full (it ranks the highest-ranked owned active so a Mastery card
   appears; the bot rarely gets there, GAME_DESIGN section 0); `summary.json` holds the offers, picks, rarities and the
   showcased windows. This is flow evidence, not survival or balance evidence.
@@ -233,10 +234,10 @@ Thief, Pirate and Warrior combat, Dash, Oak Barrel, Dark Sight, the shield galle
 probes) were deleted with their lines' playable code paths (#294); their evidence is in `docs/GAME_DESIGN.md` 4.2 and git history.
 
 Normal play (save format 3, ADR 0006, #286) keeps three character slots. Character select opens the character's Free
-Market (home); Up at out00 opens map select, listing every stage of every unlocked tier (a clear of any tier-N stage
-unlocks tier N+1; tier 1 is always open); a round ends back at the Free Market, after a clear, a death or Quit round
+Market (home); Up at out00 opens map select, listing the progression's regions in order (the first is always open;
+clearing a region, its map 3 boss dead, unlocks the next; cleared regions stay replayable); a round ends back at the Free Market, after a clear, a death or Quit round
 (which ends the round like a death). Every round starts at Lv1: the character keeps only its look, job, equipment,
-scrolls, mesos, cash, pet and unlocked tiers, plus what a round picked up even when it died. Saves happen at the hub
+scrolls, mesos, cash, pet and cleared regions, plus what a round picked up even when it died. Saves happen at the hub
 and when a round ends; there is no saved round, so closing the game mid-round loses it and Continue only opens the
 hub. Only confirmed deletion frees a slot; every round (and each deletion) adds a history entry. A save file of
 format 1 or 2 moves its characters to the history on load. `--run=<stage> [--character=<absolute JSON>]` stays
@@ -247,32 +248,32 @@ tool-only and never writes saves/bests. The design is `docs/GAME_DESIGN.md` sect
 `--character="C:/absolute path/character.json"` starts a tool-only one-off round from a format-3
 `CharacterSnapshot` (schema in `game/scripts/sim/character_snapshot.gd`; format 1 and 2 files still load and migrate); omitted
 means a fresh Arch Mage with the starter wand. Every round starts at Lv1; the file carries only job, look, equipment, scrolls,
-mesos, cash, pet and unlocked tiers. The same flag works with `--run=<stage>` and `scripts/playtest.sh`. It never writes
+mesos, cash, pet and cleared regions. The same flag works with `--run=<stage>` and `scripts/playtest.sh`. It never writes
 character saves.
-`--account=<absolute JSON>` (balance.sh, playtest.sh, `--run`, tier chains) gives the round an account: owned cash items,
+`--account=<absolute JSON>` (balance.sh, playtest.sh, `--run`, `--chain` runs) gives the round an account: owned cash items,
 the character's worn cash equipment and pet, and the HP ALERT level (`game/scripts/core/account_file.gd`); without it
 the round has an empty account and records are byte-identical to before. The record and output names carry the file name.
 The committed fixtures are `game/tests/fixtures/accounts/full_pet.json` (pet and every upgrade; the smoke's "full account")
 and `full_cash_pet.json` (the same plus a cash item in all 11 slots; for dressed playtest screenshots).
 The committed `game/tests/fixtures/characters/fp_arch_mage.json` is the F/P character fixture: a format-3 Arch Mage (F/P)
-with tier 2 unlocked and the tier-1 equipment kit worn (a reqLevel-25 staff, reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15
+with the first four regions cleared and the first-four-regions equipment kit worn (a reqLevel-25 staff, reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15
 gloves, unscrolled); its `_doc` records the kit ids, label and revision, and `game/tools/character_fixture.gd --kit=<ids>
---tiers=2` reproduces it (`game/tests/fixtures/characters/README.md`). `hero_t2.json` is the Hero (112) fixture: the equipment and loot from a seed-1 invulnerable Henesys bot clear,
-with tier 2 unlocked; its `_doc` records this diagnostic origin. Reproduce it with `--job=112 --god`. Its I/L twin `il_arch_mage_t2.json` (job 222, spec #319 I11: the same kit as F/P's and tier 2) was made with `--job=222 --patch=<playable patch>` before I12 enabled I/L, and its `_doc.patch` names the patch file (history; new generation needs no patch); `--hub --job=222` opens it, `--character=<it>` runs an I/L (a `--job=212` with it fails). `paladin_t2.json` (job 122, spec #308 P9 #317) is a kit fixture: a Lv25 Mace (1322004) with Warrior-bit armour and tier 2 unlocked, made with `--job=122 --kit=1322004,1002001,1082002,1040010,1060002 --tiers=2` (no `--patch`: Paladin ships playable); `--hub --job=122` opens it, `--character=<it>` runs a Paladin (a `--job=212` with it fails). `buccaneer_t2.json` (job 512, spec #412 B11 #423) is Hero's recipe for the Buccaneer: a seed-1 invulnerable Henesys bot clear (the worn weapon is the Lv25 knuckle 1482003, tier 2 unlocked; reproduce with `--job=512 --god --seed=1`); it must wear a knuckle, since the weapon-reach skills read the weapon's swing; `--hub --job=512` opens it.
+--cleared=4` reproduces it (`game/tests/fixtures/characters/README.md`). `hero_t2.json` is the Hero (112) fixture: the equipment and loot from a seed-1 invulnerable Henesys bot clear,
+with the first four regions cleared; its `_doc` records this diagnostic origin. Reproduce it with `--job=112 --god`. Its I/L twin `il_arch_mage_t2.json` (job 222, spec #319 I11: the same kit as F/P's and four regions cleared) was made with `--job=222 --patch=<playable patch>` before I12 enabled I/L, and its `_doc.patch` names the patch file (history; new generation needs no patch); `--hub --job=222` opens it, `--character=<it>` runs an I/L (a `--job=212` with it fails). `paladin_t2.json` (job 122, spec #308 P9 #317) is a kit fixture: a Lv25 Mace (1322004) with Warrior-bit armour and four regions cleared, made with `--job=122 --kit=1322004,1002001,1082002,1040010,1060002 --cleared=4` (no `--patch`: Paladin ships playable); `--hub --job=122` opens it, `--character=<it>` runs a Paladin (a `--job=212` with it fails). `buccaneer_t2.json` (job 512, spec #412 B11 #423) is Hero's recipe for the Buccaneer: a seed-1 invulnerable Henesys bot clear (the worn weapon is the Lv25 knuckle 1482003, four regions cleared; reproduce with `--job=512 --god --seed=1`); it must wear a knuckle, since the weapon-reach skills read the weapon's swing; `--hub --job=512` opens it.
 
-`dark_knight_t2.json` (job 132, spec #348 D10 #358) is the Dark Knight's, from a seed-1 invulnerable Henesys bot clear like Hero's (`--job=132 --god --seed=1`; a Pole Arm 1442004 worn, tier 2, no patch); `--hub --job=132` opens it, and a `--job=212` with it fails. A fresh `--job=132` tool round (no `--character`) wears the default outfit's sword, like every job: pass the fixture for a spear.
+`dark_knight_t2.json` (job 132, spec #348 D10 #358) is the Dark Knight's, from a seed-1 invulnerable Henesys bot clear like Hero's (`--job=132 --god --seed=1`; a Pole Arm 1442004 worn, four regions cleared, no patch); `--hub --job=132` opens it, and a `--job=212` with it fails. A fresh `--job=132` tool round (no `--character`) wears the default outfit's sword, like every job: pass the fixture for a spear.
 
-Bishop uses `bishop_t2.json` (job 232), the same tier-1 kit as F/P, with tier 2 unlocked; `--hub --job=232` opens it.
+Bishop uses `bishop_t2.json` (job 232), the same first-four-regions kit as F/P, with four regions cleared; `--hub --job=232` opens it.
 
 `bowmaster_t2.json` is the Bowmaster (312) fixture (B12 #344): kit mode like F/P's (`--job=312 --kit=1452000,1002163,1072025,1082012,1040002,1060002
---tiers=2`: a Battle Bow, a Bowman-bit reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15 gloves and the starter top and bottom, unscrolled, tier 2
-open). Its historical `_doc.patch` records B12's generation before enablement; new generation needs no patch. **Every Bowmaster run needs a bow in hand**: without one `Ammo` gives 0 and the arrow sprite lookup fails (`missing`).
+--cleared=4`: a Battle Bow, a Bowman-bit reqLevel-30 hat, reqLevel-20 shoes, reqLevel-15 gloves and the starter top and bottom, unscrolled, four regions
+cleared). Its historical `_doc.patch` records B12's generation before enablement; new generation needs no patch. **Every Bowmaster run needs a bow in hand**: without one `Ammo` gives 0 and the arrow sprite lookup fails (`missing`).
 The same tool can also write the character a real bot
 round leaves behind, and converts old files.
 
 **Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
-or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on every tier-1 stage, both `bot` and
-`random` policies, and `--stage=sleepywood` with and without `--character=<fp_arch_mage.json>` (the tier-1 kit against the
+or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on each of the first four progression regions (Henesys, Ellinia, Perion, Kerning), both `bot` and
+`random` policies, and `--stage=sleepywood` with and without `--character=<fp_arch_mage.json>` (the first-four-regions kit against the
 starter wand), plus the full test suite. Check for no crashes and no world warnings, that Henesys runs still fill the six
 active slots and reach bosses (The Tree That Grew dies early until the owner reworks it: record only), and compare with
 the previous smoke recorded in 4.2. Record the outcomes and any new metrics (a few lines and one small table) in
@@ -338,18 +339,25 @@ summarised. Machine-readable aggregates are `<stage>_<policy>_summary.json`, wit
 `_summary.log`. Preserve the console output and seed/configuration context for tuning evidence; training seeds
 and held-out seeds remain separate.
 
-`--tier=2` chains a tier-1 clear into tier 2 headless; `--stage=<tier-1 key>` selects the first round (default
-Henesys). `--tier=N` continues through N, choosing the first stage of each later `stages.json` `tiers` entry.
-Only CLEARED after all choices feeds the next round; death/TIMEOUT stops the chain. `--cap` applies per round.
-Tier 1 keeps the run seed; later round seeds are derived deterministically. Chain files use
-`<stage>_chain_tier<N>_<policy>_<seed>.json`, retaining `rounds[]`. Per-tier summaries include end levels (every round starts at Lv1),
-Lv70 reach and the tier-1 feed count; unstarted rounds contribute no death/boss observations. See the
-`scripts/balance.sh` header for the seed formula and record/report contract.
+`--chain=N` plays N progression regions in order headless (1 <= N <= the progression size); `--stage=<key>` selects the first
+region (default Henesys). Only CLEARED after all choices feeds the next region, which starts from the carried character
+after a Free Market visit. `--retries=K` (default 0) replays a region up to K more times after a death or TIMEOUT, with the
+character as the failed round returned it (ADR 0006 keeps the loot), as a player farming gear would; the chain ends when a
+region is not cleared in 1+K attempts. `--cap` applies per round. `--tier` is gone and fails naming `--chain`.
+The first round keeps the run seed; later round seeds are derived deterministically (a replay hashes its attempt in too).
+Chain files use `<stage>_chain<N>_<policy>_<seed>.json`, retaining `rounds[]` (each with `stage`, `step`, `attempt`).
+Per-step summaries include clears, attempts per clear, death times and end levels (every round starts at Lv1) and Lv70
+reach; unstarted rounds contribute no death/boss observations. See the `scripts/balance.sh` header for the seed formula and
+record/report contract.
+
+Older tickets and docs still say "the four tier-1 stages", "tier 2" and `--tiers=2`: they mean the first four progression
+regions, the fifth (Sleepywood) and `--cleared=4`, and `--tiers=2` still works as that alias (`--cleared=<n>` clears the
+first n regions). Committed `*_t2.json` fixtures keep their stored `tiers_unlocked: 2`, which loads as four regions cleared.
 
 `--character=<absolute JSON path>` starts one one-off round from a CharacterSnapshot; use it with
-`--stage=sleepywood` for fixture checks (the fixture has tier 2 open and the tier-1 kit). `--tier` requires a fresh
-character and bot/random/first policies; use `--character` and campers only for one-off rounds. A `--tier` chain carries the
-format-3 character (its pickups and tier unlocks) from a CLEARED round to the next; every round still starts at Lv1.
+`--stage=sleepywood` for fixture checks (the fixture has four regions cleared and the first-four-regions kit). `--chain` requires a fresh
+character and bot/random/first policies; use `--character` and campers only for one-off rounds. A `--chain` run carries the
+format-3 character (its pickups and cleared regions) from a CLEARED round to the next; every round still starts at Lv1.
 
 ## Git
 

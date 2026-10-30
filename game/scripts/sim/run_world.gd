@@ -2891,18 +2891,20 @@ func _reflect_hit(m: int, magic: bool, damage: float) -> bool:
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	emit("boss_reflect", {"mob": m, "mob_id": mk.id, "boss_index": mob_boss[m], "magic": magic, "damage": int(damage),
 		"amount": amount, "pos": Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y), "time": time})
-	if amount > 0:
-		_hurt_by_reflect(m, amount)
+	if amount > 0 and _hurt_by_reflect(m, amount):
+		mob_skills.reflect_spent(m, time)
 	return true
 
 
-## The character loses `amount` HP to the Reflect of boss slot `m`: no avoid, defence or knockback, and the hit window and
-## hit hooks apply as for a monster hit. The hit is a `player_hit` of source_kind "reflect"; it can kill.
-func _hurt_by_reflect(m: int, amount: int) -> void:
+## The character loses `amount` HP to the Reflect of boss slot `m`: no avoid, defence or knockback, and no Form or hull
+## absorption (tier C). Refused while dead, clearing a map, in god mode, Hidden, inside a hit window or behind a hit guard;
+## the hit hooks' second life still applies. The hit is a `player_hit` of source_kind "reflect"; it can kill. Returns
+## whether it landed (only a landed reflect spends the boss's rate slot).
+func _hurt_by_reflect(m: int, amount: int) -> bool:
 	var source := {"mob": m, "mob_id": mob_kinds[swarm.kind[m]].id, "boss": true, "boss_index": mob_boss[m],
 		"source_kind": "reflect"}
-	if _dead or _map_clearing or god or hit_window_blocks(source):
-		return
+	if _dead or _map_clearing or god or is_hidden() or hit_window_blocks(source):
+		return false
 	_hp -= amount
 	_emit_player_hit(amount, false, 1 if player.pos.x >= swarm.x[m] else -1, source)
 	if _hp <= 0.0 and _hit_hook_saves(source):
@@ -2913,8 +2915,10 @@ func _hurt_by_reflect(m: int, amount: int) -> void:
 		state = DEAD
 		runner.clear_pending(self)
 		runner.forms.clear(self)
+		hazards.clear()
 		emit("player_died", {"pos": player.pos})
 	_write_player_state(0.0)
+	return true
 
 
 ## Hands a Power Guard reflect to monster `m` as the character's own damage (tier C): a damage number, and a kill gives

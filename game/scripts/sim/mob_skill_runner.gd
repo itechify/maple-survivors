@@ -498,9 +498,15 @@ func reflect_any(now: float) -> bool:
 
 
 ## Resolves a player hit of `damage` on `slot` against its Reflect (#461): -1 when it does not reflect that type now
-## (the hit lands normally), else the whole HP the character loses (0 inside the rate limit). The hit deals 0 either way.
+## (the hit lands normally), else the whole HP the character would lose (0 inside the rate limit). The hit deals 0
+## either way; the rate slot is spent by reflect_spent when the reflect hurt.
 func reflect_hit(slot: int, magic: bool, damage: float, now: float) -> int:
 	return _reflect.hit(slot, magic, damage, now)
+
+
+## A reflect of `slot` hurt the character at `now`: the next one waits the rate limit.
+func reflect_spent(slot: int, now: float) -> void:
+	_reflect.spend(slot, now)
 
 
 ## Detached presentation state of the Reflect on `slot` ({skill_id, remaining, visual, physical, magic}), empty otherwise.

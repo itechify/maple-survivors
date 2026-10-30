@@ -9,6 +9,8 @@ const DT := 1.0 / 60.0
 const BOSS := 2220000
 const PATH := "Skill.wz/MobSkill.img/%d/level/%d"
 const FORM := "test_form"
+## The flying final form of a grounded shell (Papulatus 8500001 -> 8500002's shape).
+const FLY_FORM := 8500002
 
 
 func _anim(frames: int, delay: float) -> Dictionary:
@@ -44,8 +46,22 @@ func _world(skills: Array, opts := {}) -> RunWorld:
 	data.balance.bosses.teleport_stall = 10000.0
 	data.balance.mob_motion.push_px = 0
 	data.balance.magnet_radius = 0
-	data.balance.mob_skills.enabled_ids = [BOSS]
-	var entry := {"time": 0.0, "mob_id": BOSS}
+	data.balance.mob_skills.enabled_ids = [BOSS, FLY_FORM]
+	var entry := {"time": float(opts.get("boss_time", 0.0)), "mob_id": BOSS}
+	if bool(opts.get("final_form", false)):
+		entry.final_form = FLY_FORM
+	if bool(opts.get("level_scale", false)):
+		data.stages.stages.quiet["level_scale"] = {"keyframes": [{"t": 0, "level": 10}, {"t": 600, "level": 70}]}
+		var curve := {"_doc": "synthetic", "levels": [], "hp": [], "pad": [], "mad": [], "pdd": [], "mdd": [], "exp": []}
+		for level in range(1, 201):
+			curve.levels.append(level)
+			curve.hp.append(100.0 * level * level)
+			curve.pad.append(10.0 * level)
+			curve.mad.append(20.0 * level + 100.0)
+			curve.pdd.append(5.0 * level)
+			curve.mdd.append(8.0 * level + 40.0)
+			curve.exp.append(3.0 * level * level)
+		data["level_curve"] = curve
 	if bool(opts.get("attack", false)):
 		entry.attacks = ["attack1"]
 		entry.attack_interval = 4.0
@@ -71,6 +87,17 @@ func _world(skills: Array, opts := {}) -> RunWorld:
 		img.info.skill[str(img.info.skill.size())] = {"skill": float(pair[0]), "level": float(pair[1]),
 			"action": 1.0, "effectAfter": 0.0}
 	setup.mob_imgs[BOSS] = img
+	if bool(opts.get("final_form", false)):
+		img.info.revive = {"0": float(FLY_FORM)}
+		var form: Dictionary = img.duplicate(true)
+		form.info.erase("revive")
+		form.info.skill = {}
+		form.info.level = 40.0
+		form.info.speed = 60.0
+		form.fly = form.move
+		form.erase("move")
+		form.erase("stand")
+		setup.mob_imgs[FLY_FORM] = form
 	setup.mob_skill_img = _skill_img(opts)
 	var w := RunWorld.new(setup)
 	w.progression.job_id = 999
@@ -78,7 +105,8 @@ func _world(skills: Array, opts := {}) -> RunWorld:
 	w.step(DT, MoveInput.new())
 	if w.transfer_pending:
 		w.advance_map()
-	w.relocate_mob(_boss(w), Vector2(600, 200), w.fhm.find_below(600, 190))
+	if bool(opts.get("relocate", true)):
+		w.relocate_mob(_boss(w), Vector2(600, 200), w.fhm.find_below(600, 190))
 	w.book.defs[FORM] = {"skill_id": 9991001, "book": "999", "kind": "form", "slot": "active",
 		"damage": "none", "cooldown": 3.0, "ranks": [1], "cast": {"rule": "form", "mob_within": 400},
 		"form": {"duration": 100.0, "exclusive_group": "test", "effects": {"element": "f"}, "subs": []}}
@@ -88,6 +116,10 @@ func _world(skills: Array, opts := {}) -> RunWorld:
 		w.loadout.order.clear() # the Form is started by hand, never auto-cast again after a Dispel
 	w.drain_events()
 	return w
+
+
+const KILL := {"damage_min": 1000000000, "damage_max": 1000000000, "magic": true, "crit": 0.0, "crit_mult": 1.5,
+	"skill": "energy_bolt"}
 
 
 func _boss(w: RunWorld) -> int:
@@ -539,3 +571,130 @@ func test_reflect_is_deterministic() -> void:
 		trace.append(hps)
 	assert_eq(trace[0], trace[1], "same seed, same outcome")
 
+
+
+# --- flying bosses through the director and a final form ---------------------------------------------------------------
+
+func test_a_scheduled_flyer_arrives_through_the_director_without_a_foothold() -> void:
+	var w := _world([], {"fly": true, "boss_time": 2.0, "relocate": false})
+	assert_eq(_boss(w), -1, "not there before its schedule")
+	var spawned: Array = []
+	for tick in 60 * 4:
+		w.step(DT, MoveInput.new())
+		spawned.append_array(_of(w.drain_events(), "boss_spawned"))
+	assert_eq(spawned.size(), 1, "one arrival")
+	var slot := _boss(w)
+	assert_true(slot >= 0 and float(w.bosses.records[0].spawn_time) >= 2.0 - 1e-6)
+	assert_eq(w.swarm.fh[slot], -1, "a flyer arrives with no foothold")
+	assert_eq(w.mob_boss[slot], 0)
+	assert_eq(w.swarm.steady[slot], 1, "and is as steady as any scheduled boss")
+	var distance := absf(w.swarm.x[slot] - w.player.pos.x)
+	_ticks(w, 120)
+	assert_true(absf(w.swarm.x[slot] - w.player.pos.x) < distance or distance < 60.0, "it closes in on the character")
+	assert_true(w.bounds.has_point(w.swarm.pos(slot)))
+
+
+func test_a_grounded_shell_becomes_a_flying_form_with_its_level_scale_captured() -> void:
+	var w := _world([], {"final_form": true, "level_scale": true, "touch": 0.0, "relocate": false})
+	_ticks(w, 60)
+	var record: Dictionary = w.bosses.records[0]
+	var shell := int(record.slot)
+	assert_eq(w.mob_kinds[w.swarm.kind[shell]].flies, false)
+	assert_true(w.swarm.fh[shell] >= 0, "the shell stands on a foothold")
+	var arrival := float(record.level_scale_at)
+	_ticks(w, 600)
+	w.player.place(Vector2(-1500, 200), w.fhm)
+	w.update_view()
+	w.hit_mob(shell, KILL, -1)
+	var events := w.drain_events()
+	assert_eq(_of(events, "mob_revives_spawned").size(), 1)
+	var form := int(record.slot)
+	assert_ne(form, shell)
+	assert_eq(int(record.mob_id), FLY_FORM)
+	assert_eq(w.swarm.fh[form], -1, "the grounded shell's form flies: no foothold")
+	assert_true(w.mob_kinds[w.swarm.kind[form]].flies)
+	assert_eq(w.mob_boss[form], 0, "same encounter")
+	assert_false(bool(record.dead))
+	var start := w.swarm.pos(form)
+	_ticks(w, 120)
+	assert_true(w.swarm.pos(form).distance_to(start) > 20.0, "the form moves toward the character: %s -> %s" % [start, w.swarm.pos(form)])
+	assert_eq(w.swarm.fh[form], -1)
+	var effective := w.level_scale.level_at(w.curve_time())
+	var frozen: Array = w._boss_level_damage[0]
+	assert_near(float(frozen[0]), w.level_scale.ratio("pad", effective, 40), 0.05, "the form's damage ratios come from its own level")
+	assert_eq(float(record.level_scale_at), arrival, "level_scale_at keeps the first arrival")
+
+
+# --- Reflect: who can be hurt, and how often ----------------------------------------------------------------------------
+
+func test_a_hidden_character_is_not_hurt_by_a_reflect_and_the_slot_is_not_spent() -> void:
+	var w := _reflecting()
+	var slot := _boss(w)
+	w.start_buff("synthetic_hide", {"skill_id": 9991003, "level": 1, "icon": "", "duration": 100.0,
+		"buff_stat": "", "buff_value": 0.0, "pulse_interval": 0.0, "hidden": true, "buff_effects": {}})
+	var boss_hp := w.swarm.hp[slot]
+	var before := _hp(w)
+	_magic_hit(w, slot, 50000.0)
+	assert_eq(_hp(w), before, "Hidden: nothing from a monster lands")
+	assert_eq(w.swarm.hp[slot], boss_hp, "the hit still deals 0 to the boss")
+	w.buffs.end("synthetic_hide", w.events)
+	_magic_hit(w, slot, 50000.0)
+	assert_eq(before - _hp(w), 45, "the refused reflect did not spend the 0.5 s slot")
+
+
+func test_a_blocked_reflect_leaves_the_slot_free() -> void:
+	var w := _reflecting()
+	var slot := _boss(w)
+	var before := _hp(w)
+	w.god = true
+	_magic_hit(w, slot, 50000.0)
+	assert_eq(_hp(w), before, "god mode refuses it")
+	w.god = false
+	_magic_hit(w, slot, 50000.0)
+	assert_eq(before - _hp(w), 45, "and the next one lands at once")
+	_magic_hit(w, slot, 50000.0)
+	assert_eq(before - _hp(w), 45, "that one spent the slot")
+
+
+func test_a_lethal_reflect_kills_and_clears_the_hazards() -> void:
+	var w := _reflecting()
+	var slot := _boss(w)
+	w.hazards.spawn({"rect": Rect2(0, 0, 100, 100), "born": 0.0, "until": 1000.0})
+	assert_eq(w.hazards.active_count(), 1)
+	w._hp = 10.0
+	_magic_hit(w, slot, 50000.0)
+	assert_eq(w.state, RunWorld.DEAD, "45 HP of reflect kills a character on 10")
+	assert_eq(w.hazards.active_count(), 0, "emptied on death, as take_hit's death does")
+	assert_true(w.runner.forms.snapshot().is_empty())
+
+
+func test_several_reflected_hits_in_one_tick_hurt_once_up_to_the_cap() -> void:
+	var w := _world([[145, 1]], {"reflect_interval": 5.0, "keep_skills": true})
+	var slot := _boss(w)
+	_set_hp_percent(w, slot, 40.0)
+	# Run to the first reflect that hurt (an automatic bolt), then pile hits on in the same tick: projectiles keep coming
+	# and instant hits, one with a second RNG as Final Attack's follow-up uses, all land inside its 0.5 s slot.
+	var hurt_at := -1.0
+	var before := 0
+	for tick in 60 * 20:
+		before = _hp(w)
+		w.step(DT, MoveInput.new())
+		if not _of(w.drain_events(), "player_hit").is_empty() and before > _hp(w):
+			hurt_at = w.time
+			break
+	assert_true(hurt_at > 0.0, "an automatic cast was reflected and hurt")
+	var first_loss := before - _hp(w)
+	assert_true(first_loss >= 1 and first_loss <= 45, "within y x c")
+	var boss_hp := w.swarm.hp[slot]
+	var after_first := _hp(w)
+	var follow_up_rng := RandomNumberGenerator.new()
+	follow_up_rng.seed = 5
+	_magic_hit(w, slot, 50000.0)
+	_physical_hit(w, slot, 50000.0)
+	w.hit_mob(slot, {"damage_min": 50000.0, "damage_max": 50000.0, "magic": false, "crit": 0.0, "crit_mult": 1.5,
+		"skill": "three_snails"}, -1, follow_up_rng)
+	_ticks(w, 25)
+	assert_eq(_hp(w), after_first, "the other hits, the follow-up and the bolts inside the slot cost nothing more")
+	assert_eq(w.swarm.hp[slot], boss_hp, "and none wounds the boss")
+	_ticks(w, 10)
+	assert_true(after_first - _hp(w) <= 45, "past the slot at most one more reflect, capped at 45: %d" % (after_first - _hp(w)))
