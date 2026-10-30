@@ -1,0 +1,72 @@
+{
+	"_doc": "Marksman line (spec #360, ticket MS2 #362). The second archer after Bowmaster: its job entry, its AP row and its bot card scores. Skill definitions are in skills/marksman.json; each Marksman skill ticket (MS5-MS9) appends its own region. Marksman has NO mobility_skill (ruling D1, spec #360): a Marksman owns no skill key and no quick-slot movement cell. playable stays false until MS11 #371; JobTree.default_job() stays 212 (survivor/jobs.json default_job). DataRepo discovers this per-line file automatically (docs/ARCHITECTURE.md 4.4.4).",
+	"jobs": {
+		"322": {
+			"starting_skill": "iron_arrow",
+			"_starting_skill": "tier C: spec #360: Iron Arrow : Crossbow is the starting active (slot 1) and the first skill a round learns; MS5 #365 moves its definition from skills/bowman.json into skills/marksman.json.",
+			"skill_pool": [
+				"iron_arrow",
+				"arrow_blow",
+				"strafe_crossbow",
+				"dragons_breath_crossbow",
+				"blizzard_crossbow",
+				"arrow_eruption",
+				"piercing_arrow",
+				"snipe",
+				"golden_eagle",
+				"frostprey"
+			],
+			"_skill_pool": "tier C: spec #360: the ten hand-picked Marksman actives from the 300/320/321/322 books (all auto-cast). arrow_blow is Bowmaster's shared definition (job 300). Undefined keys stay inert until their tickets define them.",
+			"weapon_families": [
+				"crossbow"
+			],
+			"_weapon_families": "tier C: spec #360: crossbows only (WeaponInfo family crossbow, 146xxxx); bows (145xxxx) belong to Bowmaster. Armour and shields drop by the Bowman class bit.",
+			"creation_weapon": 1462001,
+			"_creation_weapon": "tier A: the Crossbow (Item.wz 1462001, reqJob 4 = the Bowman bit, PAD 29; reqLevel 12 is no longer enforced, #292). Already in the Bowman manifest fragment and drop list.",
+			"playable": false,
+			"_provenance": "tier C: spec #360 MS2 #362: data-only until MS11 #371 flips playable; default_job stays 212."
+		}
+	},
+	"balance": {
+		"player": {
+			"ap": {
+				"322": {
+					"primary": "dex",
+					"secondary": "str",
+					"keyframes": [
+						{
+							"level": 1,
+							"target": 6
+						},
+						{
+							"level": 30,
+							"target": 35
+						},
+						{
+							"level": 34,
+							"target": 35
+						},
+						{
+							"level": 35,
+							"target": 40
+						},
+						{
+							"level": 70,
+							"target": 75
+						}
+					],
+					"_ap": "tier C: spec #360: the Bowman (300) row copied verbatim (the Bowman gear pattern, no new tuning); explicit so 322 no longer falls back through 321/320/300."
+				}
+			}
+		},
+		"bot": {
+			"card_scores": {
+				"golden_eagle_new": 100,
+				"golden_eagle_rank": 74,
+				"frostprey_new": 100,
+				"frostprey_rank": 74
+			},
+			"_card_scores": "tier C: spec #360: the two followers score explicitly (learn 100, rank 74, the numbers the pool default gives every curated skill) because BotInput._base_score only treats projectile / instant / box skills as attacks; the other eight pool skills score as attacks by default."
+		}
+	}
+}
