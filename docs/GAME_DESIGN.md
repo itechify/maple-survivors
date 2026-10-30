@@ -8434,9 +8434,10 @@ constants.
   30 levels (A): 580 / 850 / 1200 % at ranks 1 / 4 / 8 (levels 4 / 15 / 30). The bombs land 1.8 s after the cast (A: the impact art
   `effect1` holds its first frame, a 1 x 1, for 1800 ms). The art: `effect` (10 frames) is the cast flourish on the caster, `effect0`
   (30 frames at 90 ms, the flock carrying bombs across the screen, authored for a left-facing caster) is a `cast_visuals` entry placed on
-  the caster and mirrored for a right-facing one (`facing: true`), `effect1` (14 frames, the explosions, 830 x 500 and up) is
-  `pending.effect`, played at the impact position (the anchor), `hit/0` on each struck monster, `Use` at the cast and `Hit` at the
-  impact. Stance `airstrike` (A, 15 body frames).
+  the caster and mirrored for a right-facing one (`facing: true`), and `effect1` (14 frames, the explosions, 830 x 500 and up) is a
+  second such entry: its first frame is a 1 x 1 held 1800 ms, so it starts with the cast and the explosions appear exactly when the
+  strike lands (`pending.effect` stays empty; played at the impact it would explode 1.8 s late, as the first playtest shot showed).
+  `hit/0` plays on each struck monster, `Use` at the cast and `Hit` at the impact. Stance `airstrike` (A, 15 body frames).
 - **Rapid Fire.** `burst`, `count` 10, `burst {interval 0.08, wind_up 0.3, retarget true}`, `ammo_shot`, range 350 (A), 1000 px/s, radius 6,
   no pierce, one monster per bullet; damage 102 -> 170 per bullet (A): 108 / 130 / 170 % at ranks 1 / 4 / 8. The first bullet leaves
   0.3 s after the cast, bullet k at 0.3 s + k x 0.08 s (the last at 1.02 s); no second burst starts while one runs (the burst gate), even
@@ -8457,7 +8458,7 @@ constants.
 | Aerial Strike numbers | WZ 5221003: `damage` 520..1200, `mobCount` 6, `lt (-400,-500) rb (400,100)`, `airstrike`, `effect` 10 / `effect0` 30 / `effect1` 14 frames, `hit/0`, `Use` / `Hit` | A |
 | Aerial Strike delay | 1.8 s: `effect1`'s first frame holds 1800 ms | A |
 | Aerial Strike cooldown | 6.0 s (WZ `cooltime` 5 s) | C |
-| Aerial Strike cast | auto-cast with at least one monster in the box; box anchored where the caster stood; `action_time` 0.8 s; `effect0` placed on the caster and mirrored with the facing; `effect1` at the impact | C |
+| Aerial Strike cast | auto-cast with at least one monster in the box; box anchored where the caster stood; `action_time` 0.8 s; `effect0` and `effect1` placed on the caster's spot at the cast and mirrored with the facing | C |
 | Rapid Fire numbers | WZ 5221004: `damage` 102..170, `range` 350, `prepare` / `keydown` / `keydownend` / `hit/0`, `Use` / `Hit`; the `prepare` node names the body action `rapidfire` (one frame, gun drawn) | A |
 | Rapid Fire stream | `count` 10, `interval` 0.08 s, `wind_up` 0.3 s (the `prepare` art is 0.54 s, fitted to 0.3 s because nothing is held), retarget, `ammo_shot`, 1000 px/s, radius 6, no pierce | C |
 | Rapid Fire cooldown | 5.0 s | C |

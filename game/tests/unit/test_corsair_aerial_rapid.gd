@@ -112,7 +112,7 @@ func test_aerial_strike_is_a_delayed_box_strike_with_the_specs_numbers() -> void
 	assert_eq(String(d.cast.rule), "box")
 	assert_eq(int(d.cast.min_targets), 1)
 	assert_near(float(d.pending.delay), 1.8, 0.0001)
-	assert_eq(String(d.pending.effect), "Skill.wz/522.img/skill/5221003/effect1", "the impact art plays where the bombs land")
+	assert_eq(String(d.pending.effect), "", "the impact art is a cast visual: its own 1800 ms first frame is the delay")
 	assert_false(bool(d.pending.get("follow_player", false)), "anchored where the caster stood")
 	assert_near(float(d.cooldown), 6.0, 0.0001)
 	assert_eq(String(d.action), "airstrike")
@@ -120,10 +120,16 @@ func test_aerial_strike_is_a_delayed_box_strike_with_the_specs_numbers() -> void
 	assert_eq(String(d.hit), "Skill.wz/522.img/skill/5221003/hit/0")
 	assert_eq(String(d.sounds.use), "Sound.wz/Skill.img/5221003/Use")
 	assert_eq(String(d.sounds.hit), "Sound.wz/Skill.img/5221003/Hit")
-	assert_eq(d.cast_visuals.size(), 1)
-	assert_eq(String(d.cast_visuals[0].path), "Skill.wz/522.img/skill/5221003/effect0", "the flock crossing")
-	assert_eq(float(d.cast_visuals[0].x), 0.0)
-	assert_true(bool(d.cast_visuals[0].facing), "authored for a left-facing caster, mirrored for a right-facing one")
+	assert_eq(d.cast_visuals.size(), 2)
+	var paths := ["Skill.wz/522.img/skill/5221003/effect0", "Skill.wz/522.img/skill/5221003/effect1"]
+	for k in 2:
+		assert_eq(String(d.cast_visuals[k].path), paths[k], "the flock crossing, then the explosions")
+		assert_eq(float(d.cast_visuals[k].x), 0.0, "at the cast position")
+		assert_true(bool(d.cast_visuals[k].facing), "authored for a left-facing caster, mirrored for a right-facing one")
+		assert_false(bool(d.cast_visuals[k].get("follow", false)), "left where the caster stood")
+	var placed: Array = w.loadout.stats(AERIAL).cast_visuals
+	assert_eq(placed.size(), 2)
+	assert_eq(String(placed[1].path), paths[1])
 	assert_eq(w.book.max_rank(AERIAL), 8)
 	assert_eq(w.book.rank_table(AERIAL).map(func(v: Variant) -> int: return int(v)), RANK_LEVELS)
 	var st := w.loadout.stats(AERIAL)
@@ -155,17 +161,20 @@ func test_the_bombs_land_one_point_eight_seconds_after_the_cast_where_the_caster
 	assert_near(first_hit - cast_at, 1.8, DT * 1.5, "the strike lands 1.8 s after the cast")
 
 
-func test_the_strike_announces_its_impact_art_at_the_cast_position() -> void:
+func test_the_cast_plays_the_flock_and_the_explosions_where_the_caster_stood() -> void:
 	var w := _world(AERIAL)
 	_mob(w, 100)
 	w.step(DT, MoveInput.new())
-	w.player.pos.x += 300.0
+	var casts := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "cast")
+	assert_eq(casts.size(), 1)
+	assert_eq(String(casts[0].effect), "Skill.wz/522.img/skill/5221003/effect", "the flourish on the caster")
+	assert_near((casts[0].pos as Vector2).x, 400.0, 0.5)
 	var impacts := []
 	for tick in 140:
 		w.step(DT, MoveInput.new())
 		impacts.append_array(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "skill_impact"))
-	assert_eq(impacts.size(), 1)
-	assert_eq(String(impacts[0].effect), "Skill.wz/522.img/skill/5221003/effect1")
+	assert_eq(impacts.size(), 1, "one impact event, for the sound and the hit art")
+	assert_eq(String(impacts[0].effect), "")
 	assert_near((impacts[0].pos as Vector2).x, 400.0, 0.5)
 
 

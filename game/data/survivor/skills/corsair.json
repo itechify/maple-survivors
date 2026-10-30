@@ -1000,7 +1000,7 @@
 			"desc": "Calls a flock of gulls over where you stand. Their bombs fall a moment later.",
 			"icon": "Skill.wz/522.img/skill/5221003/icon",
 			"damage": "physical",
-			"_tier": "Tier A (WZ 5221003, book 522): damage 520..1200% by level (580 / 850 / 1200% at rank 1 / 4 / 8, levels 4 / 15 / 30), mobCount 6, the box lt (-400,-500) rb (400,100), the airstrike stance, the 10-frame effect, the 30-frame effect0 (the flock crossing), the 14-frame effect1 whose first frame holds 1800 ms (the bombs land there: the pending delay), hit/0 and the Use and Hit sounds. Tier C (spec #384 C10 #394, GAME_DESIGN 7.120.8): the 6 s cooldown (WZ 5 s), auto-cast with at least one monster in the box, the strike anchored where the caster stood, a 0.8 s stance hold, effect0 mirrored for a right-facing caster, the rarity bonuses. Untuned.",
+			"_tier": "Tier A (WZ 5221003, book 522): damage 520..1200% by level (580 / 850 / 1200% at rank 1 / 4 / 8, levels 4 / 15 / 30), mobCount 6, the box lt (-400,-500) rb (400,100), the airstrike stance, the 10-frame effect, the 30-frame effect0 (the flock crossing), the 14-frame effect1 whose first frame holds 1800 ms (the bombs land there: the pending delay), hit/0 and the Use and Hit sounds. Tier C (spec #384 C10 #394, GAME_DESIGN 7.120.8): the 6 s cooldown (WZ 5 s), auto-cast with at least one monster in the box, the strike anchored where the caster stood, a 0.8 s stance hold, effect0 and effect1 both played at the cast position (effect1's own 1800 ms first frame is the delay: it starts with the cast and its explosions land with the strike) and mirrored for a right-facing caster, the rarity bonuses. Untuned.",
 			"action": "airstrike",
 			"action_time": 0.8,
 			"ball": "",
@@ -1018,11 +1018,16 @@
 			"cooldown": 6.0,
 			"pending": {
 				"delay": 1.8,
-				"effect": "Skill.wz/522.img/skill/5221003/effect1"
+				"effect": ""
 			},
 			"cast_visuals": [
 				{
 					"path": "Skill.wz/522.img/skill/5221003/effect0",
+					"x": 0,
+					"facing": true
+				},
+				{
+					"path": "Skill.wz/522.img/skill/5221003/effect1",
 					"x": 0,
 					"facing": true
 				}
