@@ -563,7 +563,12 @@ func test_real_cache_every_special_set_resolves_and_every_owner_stance_maps_to_o
 		assert_true((special as Dictionary).has(mapped), "%s -> %s" % [stance, mapped])
 		if mapped == "stand1" and stance != "stand1":
 			fallbacks.append(stance)
-	print("shadow partner: body stances without a special set: ", fallbacks)
+	# The claw user's own stances and the Night Lord skill stances (recorded in GAME_DESIGN 7.94.7).
+	for stance in ["stand1", "walk1", "jump", "alert", "swingO1", "ladder", "rope", "prone", "sit"]:
+		assert_eq(EchoCloneRenderer.special_action(special, stance), stance, stance)
+	for stance in ["avenger", "ninjastorm", "alert3", "alert2"]:
+		assert_eq(EchoCloneRenderer.special_action(special, stance), "alert" if stance.begins_with("alert") else "stand1", stance)
+	assert_true("avenger" in fallbacks and "ninjastorm" in fallbacks, "the Night Lord skill stances fall back to stand1")
 	for skill_action in ["swingO1", "avenger", "alert", "ninjastorm"]:
 		assert_true((special as Dictionary).has(EchoCloneRenderer.throw_action(special, skill_action)), skill_action)
 	lib.free()

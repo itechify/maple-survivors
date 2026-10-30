@@ -517,7 +517,7 @@ _Avoid_: pet (the Free Market pet is a cosmetic companion), minion
 **Echo**:
 A timed clone (Shadow Partner) that repeats the owner's star casts about 0.25 s later from its own hand at a percent of their damage
 (`x` for the basic throws, `y` for the heavier skills). It is a `PlayerSummons` entry with `summon.echo`, never strikes by itself, and
-its repeats earn no meter charge, heal nothing and are never echoed again (`EchoCast`, #404).
+its repeats earn no meter charge, heal nothing and are never echoed again (`EchoCast`, #404). Night Lord's Shadow Partner draws it from the WZ `special` frames (`EchoCloneRenderer`, #409).
 _Avoid_: shadow clone attack, double cast
 
 **Burst**:
