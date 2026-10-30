@@ -67,6 +67,7 @@ extends RefCounted
 ## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256),
 ## 18 ground-area status rolls (ground_rng),
 ## 19 boss player-status chance rolls (mob_status_rng, Stun in #456).
+## 20 area-warning attack column picks (area_rng, #460; 19 is mob_status_rng of #456).
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -135,6 +136,8 @@ const EVENT_FIELDS := {
 	"boss_spawned": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_died": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
+	# #460: an area-warning attack's columns: "warning" at attack start, "strike" at impact; `anchors` are column bottom centres.
+	"area_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "anchors", "size", "facing", "art", "time", "impact_time"],
 	# #76 ordinary (non-boss) mobs: a mob attack's phases (as boss_attack). Ordinary mobs cast no mob skills.
 	"mob_attack": ["mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
 	"mob_projectile_spawned": ["proj", "mob", "mob_id", "pos", "velocity", "range", "speed", "ball", "hit", "time"],
@@ -225,6 +228,8 @@ var banish_rng: RandomNumberGenerator
 var ground_rng: RandomNumberGenerator
 ## Stream 19: the `prop` roll of a boss skill that puts a status on the character (Stun 123, #456), isolated from combat.
 var mob_status_rng: RandomNumberGenerator
+## Stream 20: which columns of a boss's area-warning attack (`info/type` 3 and 4) strike (MobAttacks.pick_columns).
+var area_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
 var choice_bonus := false
@@ -444,6 +449,7 @@ func _init_rng_streams() -> void:
 	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14 reserved, #186.
 	ground_rng = _stream(18) # tier C: dedicated ground proc stream.
 	mob_status_rng = _stream(19) # tier C: boss player-status chance rolls (#456); stream 18 is ground_rng.
+	area_rng = _stream(MobAttacks.AREA_STREAM) # tier C: area-warning column picks never shift another stream, #460.
 	banish_rng = _stream(17) # tier C: Banish portal draws never shift another stream, #256.
 
 

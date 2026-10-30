@@ -9999,6 +9999,21 @@ fitted wind-up playback and inspection; `SpritePool.tint_of` exposes the rendere
 | Final-form HP | `hp_mult` applies to each form; an entry's optional `final_form_hp_mult` replaces it for the form alone (must be > 0) | C | #448 B1 |
 | Roster | `StageRoster.named_ids` and `mob_ids` include the form and the summons/revives of its skills; `MobSkillRunner` casts the form's skills when its id is in `balance.mob_skills.enabled_ids` (each region ticket lists its own) | C | #448 |
 
+### Area-warning boss attacks (spec #448 B5, #460)
+
+Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a delay. A scheduled boss plays them when its stage entry lists the attack in `attacks` (Thanatos 8170000 and Lyka 8220006 attack1); ordinary mobs never do. One code path serves both types (`MobAttacks.plan`, `area_columns`, `pick_columns`).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| WZ fields | `range/lt`, `range/rb` (one column's box), `range/start` (leftmost column index), `range/areaCount`, `range/attackCount`, `attackAfter`, `effectAfter`, `areaWarning` and `hit` frames, `PADamage` / `magic`, `elemAttr`. Thanatos: start -5, areaCount 9, attackCount 5, attackAfter 1080, magic, elemAttr I; Lyka: start -7, areaCount 15, attackCount 7, attackAfter 1260, PADamage 720 | A (Mob.wz 8170000 and 8220006) |
+| Column layout | Column k (k = start .. start+areaCount-1) is the `lt`/`rb` box shifted k box widths along x from the boss's feet, so the strip is centred on the boss for Lyka (-7..7) and runs -5..3 for Thanatos as the data says; the strip is mirrored when the boss faces the character. WZ does not say how the columns are laid out | C (reading of the data, docs/research/v83-mob-skills-ii.md) |
+| Which columns strike | `attackCount` distinct columns picked at attack start on RNG stream 20 (`RunWorld.area_rng`, `MobAttacks.AREA_STREAM`): the column holding the character's body centre is always among them when it lies in the strip, the rest come from one partial shuffle. 18 is `ground_rng`; 19 belongs to the mob status stream (#456) | C |
+| Admission | The attack starts when the character's body touches the strip's overall box (the strip is a dodgeable surprise, never a screen-wide one); not while Hidden | C |
+| Timing | The `areaWarning` art plays at attack start on every picked column, stretched to take the whole wait (`FxRenderer.fit`), and the columns strike at `attackAfter`; the `effect` art (Thanatos) plays at `effectAfter` as for any attack. Type 3 and 4 differ only in their art | A (delays), C (stretch, one path for 3 and 4) |
+| Damage | At `attackAfter` a character whose body box overlaps any picked column takes one hit: once per attack, never per column, through the attack's damage path (PADamage / MADamage / the mob's `pad` / `mad`, Attack Up for physical, `elemAttr`, the hit window and guards) with the stage entry's `attack_dmg_mult` and `source_kind` "attack". A jumping character clear of the column's height (Thanatos 113 px, Lyka 200 px) is missed | C (once per attack; vertical extent is the WZ box), A (damage source) |
+| Hit art | `hit` plays on every picked column at the strike, struck or not; anchors are the column's bottom centre (one `area_attack` event carries all anchors, one pooled animation each, no node per column) | C |
+| Cadence | The entry's `attack_interval`, as for the other attack types | C |
+
 ## 12. Later phases
 
 Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.

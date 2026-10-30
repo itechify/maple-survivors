@@ -1,6 +1,7 @@
 class_name MobAttacks
 extends RefCounted
-## Canonical Mob.wz attacks (`attackN`: area 0, targeted direct 1 and ball 2) for every mob that lists them
+## Canonical Mob.wz attacks (`attackN`: area 0, targeted direct 1, ball 2 and, for scheduled bosses only, the
+## area-warning columns 3 and 4) for every mob that lists them
 ## (docs/ARCHITECTURE.md 4.4.1, GLOSSARY "Mob attack"). The static half is the windup/impact code BossAttacks shares:
 ## admission against the canonical range, the pending windup, effect/impact/hit phases at effectAfter/attackAfter and
 ## the hit through RunWorld.take_hit. The instance half runs ordinary (non-boss) mobs: per-slot waits in packed arrays,
@@ -8,6 +9,9 @@ extends RefCounted
 ## "mob_attack" hits, so #88 can route them apart from boss "attack"/"projectile" hits. Damage is the canonical
 ## MADamage/PADamage, unscaled like contact damage, times balance.mob_attacks' optional per-mob dmg_mult.
 
+## tier C (#460): the dedicated RNG stream (RunWorld.area_rng, id 20) that picks which columns of an area-warning
+## attack strike; no other roll shares it.
+const AREA_STREAM := 20
 ## tier C: ordinary-mob attack interval when balance.mob_attacks has neither a per-mob nor a default value.
 const DEFAULT_INTERVAL := 5.0
 ## tier C: the golden-ratio fraction that staggers each mob's first wait (see first_wait).
@@ -185,13 +189,24 @@ static func plan(world: RunWorld, slot: int, img: Dictionary, attack: String, bo
 	var stance: Dictionary = img.get(attack, {})
 	var info: Dictionary = stance.get("info", {})
 	var type := int(info.get("type", -1))
-	if type not in [0, 1, 2] or world.is_hidden():
+	if type not in [0, 1, 2, 3, 4] or world.is_hidden():
 		return {}
 	var id := swarm.mob_kind(slot).id
 	var pos := swarm.pos(slot)
 	var facing := 1 if world.player.pos.x > pos.x else -1
 	var area := area_at(info.get("range", {}), pos, facing)
 	var range_data: Dictionary = info.get("range", {})
+	# tier C (#460): types 3 and 4 share one path; the strip of columns is admitted when the character's body touches it.
+	var strip: Array[Rect2] = []
+	if type >= 3:
+		strip = area_columns(range_data, pos, facing)
+		if strip.is_empty():
+			return {}
+		area = strip[0]
+		for column in strip:
+			area = area.merge(column)
+		if not area.intersects(world.player_box(), true):
+			return {}
 	var travel := float(range_data.get("r", 0.0))
 	var offset := vec(range_data.get("sp", {}))
 	if facing > 0:
@@ -211,7 +226,7 @@ static func plan(world: RunWorld, slot: int, img: Dictionary, attack: String, bo
 	var magic := int(info.get("magic", 0)) != 0 or (info.has("MADamage") and not info.has("PADamage"))
 	var kind := swarm.mob_kind(slot)
 	var damage := float(info.get("MADamage" if magic else "PADamage", kind.mad if magic else kind.pad))
-	return {"boss_index": boss_index, "mob": slot, "mob_id": id, "attack": attack,
+	var out := {"boss_index": boss_index, "mob": slot, "mob_id": id, "attack": attack,
 		"type": type, "range": travel, "bullet_speed": float(info.get("bulletSpeed", 0.0)),
 		"spawn_offset": vec(range_data.get("sp", {})),
 		"ball": "Mob.wz/%07d.img/%s/info/ball" % [id, attack],
@@ -224,6 +239,19 @@ static func plan(world: RunWorld, slot: int, img: Dictionary, attack: String, bo
 		"effect": "Mob.wz/%07d.img/%s/info/effect" % [id, attack] if info.has("effect") else "",
 		"sound": attack_sound(id, attack),
 		"duration": maxf(after, MobKind.stance_time(stance, after))}
+	if type >= 3:
+		var picked := pick_columns(world.area_rng, strip, int(range_data.get("attackCount", 1)),
+			world.player_body_center().x)
+		var columns: Array[Rect2] = []
+		var anchors := PackedVector2Array()
+		for index in picked:
+			columns.append(strip[index])
+			anchors.append(Vector2(strip[index].get_center().x, strip[index].end.y))
+		out["columns"] = columns
+		out["anchors"] = anchors
+		out["column_size"] = strip[0].size
+		out["warning"] = "Mob.wz/%07d.img/%s/info/areaWarning" % [id, attack] if info.has("areaWarning") else ""
+	return out
 
 
 ## World-space canonical attack range, mirrored horizontally when the mob faces right.
@@ -235,6 +263,51 @@ static func area_at(range_data: Dictionary, pos: Vector2, facing: int) -> Rect2:
 		rect.position.x = -rect.end.x
 	rect.position += pos
 	return rect
+
+
+## The `areaCount` columns of an area-warning attack (types 3 and 4) in world space, in index order from `start`:
+## column k is the `lt`/`rb` box shifted by k box widths along x, and the whole strip is mirrored when the mob faces right
+## (tier C reading: the data names the geometry, not the layout, docs/research/v83-mob-skills-ii.md).
+static func area_columns(range_data: Dictionary, pos: Vector2, facing: int) -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	var box := Rect2(vec(range_data.get("lt", {})), vec(range_data.get("rb", {})) - vec(range_data.get("lt", {}))).abs()
+	if box.size.x <= 0.0 or box.size.y <= 0.0:
+		return out
+	var start := int(range_data.get("start", 0))
+	for k in maxi(0, int(range_data.get("areaCount", 0))):
+		var column := Rect2(box.position + Vector2(box.size.x * float(start + k), 0.0), box.size)
+		if facing > 0:
+			column.position.x = -column.end.x
+		column.position += pos
+		out.append(column)
+	return out
+
+
+## Which columns of an area-warning attack strike (tier C, RNG stream 20): `count` distinct column indices, always
+## including the column holding world x `target_x` when it lies in the strip, the rest drawn in one partial shuffle on
+## `rng`. Returned ascending; `count` is clamped to the strip.
+static func pick_columns(rng: RandomNumberGenerator, columns: Array[Rect2], count: int, target_x: float) -> PackedInt32Array:
+	var total := columns.size()
+	var order := PackedInt32Array()
+	order.resize(total)
+	for i in total:
+		order[i] = i
+	var want := clampi(count, 1, maxi(1, total))
+	var fixed := 0
+	for i in total:
+		if target_x >= columns[i].position.x and target_x < columns[i].end.x:
+			order[i] = 0
+			order[0] = i
+			fixed = 1
+			break
+	for i in range(fixed, want):
+		var j := rng.randi_range(i, total - 1)
+		var held := order[i]
+		order[i] = order[j]
+		order[j] = held
+	var picked := order.slice(0, want)
+	picked.sort()
+	return picked
 
 
 ## Runs a pending windup's due effect and impact phases; true once both are done.
@@ -254,6 +327,9 @@ static func _impact(pending: Dictionary, world: RunWorld) -> void:
 		# Threaten (#183) and Attack Up (#255) apply at impact, for strikes and balls alike, before the source's dmg_mult.
 		pending.damage = world.mob_weapon_attack(int(pending.mob), float(pending.damage))
 	emit(pending, "impact", world)
+	if int(pending.type) >= 3:
+		_strike_columns(pending, world)
+		return
 	# Hidden (#194): an attack winding up when the character vanished lands nothing and launches no ball.
 	if world.is_hidden():
 		return
@@ -274,6 +350,22 @@ static func _impact(pending: Dictionary, world: RunWorld) -> void:
 		world.take_hit(float(pending.damage), bool(pending.magic), pending.element, pending.pos, source)
 		if String(pending.hit) != "":
 			emit(pending, "hit", world)
+
+
+## An area-warning attack's impact: every picked column plays its hit art, and the character takes one hit when its
+## body is inside any picked column (tier C: once per attack, never per column; a Hidden character is struck by nothing).
+static func _strike_columns(pending: Dictionary, world: RunWorld) -> void:
+	emit_area(pending, "strike", world)
+	if world.is_hidden() or (bool(pending.jump_attack) and world.player.fh < 0):
+		return
+	var body := world.player_box()
+	for column: Rect2 in pending.columns:
+		if not column.intersects(body, true):
+			continue
+		var source := _source(pending, world.swarm.mob_kind(int(pending.mob)).acc)
+		if not world.hit_window_blocks(source):
+			world.take_hit(float(pending.damage), bool(pending.magic), pending.element, pending.pos, source)
+		return
 
 
 ## take_hit source of a pending attack: bosses keep "attack"; ordinary mobs are "mob_attack" and, like their contact
@@ -314,6 +406,8 @@ static func _launch_ball(pending: Dictionary, world: RunWorld) -> void:
 
 ## Emits a phase of a pending attack: `boss_attack` for a scheduled boss, `mob_attack` for an ordinary mob.
 static func emit(pending: Dictionary, phase: String, world: RunWorld) -> void:
+	if phase == "start" and int(pending.type) >= 3:
+		emit_area(pending, "warning", world)
 	var boss := int(pending.boss_index) >= 0
 	var fields := {"boss_index": int(pending.boss_index)} if boss else {}
 	fields.merge({"mob": int(pending.mob),
@@ -322,6 +416,16 @@ static func emit(pending: Dictionary, phase: String, world: RunWorld) -> void:
 		"time": world.time, "impact_time": float(pending.impact_time),
 		"effect": String(pending.hit if phase == "hit" else pending.effect), "sound": String(pending.sound)})
 	world.emit("boss_attack" if boss else "mob_attack", fields)
+
+
+## One `area_attack` event for all picked columns at once: phase "warning" (attack start, `art` is areaWarning) or
+## "strike" (impact, `art` is hit). The renderer places one pooled animation per anchor (the bottom centre of a column).
+static func emit_area(pending: Dictionary, phase: String, world: RunWorld) -> void:
+	world.emit("area_attack", {"boss_index": int(pending.boss_index), "mob": int(pending.mob),
+		"mob_id": int(pending.mob_id), "attack": String(pending.attack), "phase": phase,
+		"anchors": pending.anchors, "size": pending.column_size, "facing": int(pending.facing),
+		"art": String(pending.warning if phase == "warning" else pending.hit),
+		"time": world.time, "impact_time": float(pending.impact_time)})
 
 
 ## The `{mob_id: true}` set of the stage's scheduled boss kinds (they attack through BossAttacks).

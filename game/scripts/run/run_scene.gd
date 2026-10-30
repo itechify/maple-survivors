@@ -1125,6 +1125,8 @@ func handle_events(events: Array) -> void:
 				elif e.phase == "impact":
 					# tier C: ground-wave art begins 50 ms after the canonical damage impact; capture its first frames.
 					_event_shot("boss_shockwave_%d_%s.png" % [int(e.boss_index), String(e.attack)], 0.12)
+			"area_attack":
+				_on_area_attack(e)
 			"mob_attack":
 				_on_mob_attack(e)
 			"summon_spawn":
@@ -1305,6 +1307,17 @@ func _play_meter_cue(effect: String, sound: String) -> void:
 		fx.play(effect, Vector2.ZERO, world.player.facing > 0, avatar)
 	_sound(sound)
 	_first_event_shot("meter_cue", "meter_cue.png", 0.45) # tier C: playtest evidence of the first full-bar cue, mid-bloom.
+
+
+## A boss area-warning attack (#460): warning art over every picked column for the wait, then the strike art.
+func _on_area_attack(e: Dictionary) -> void:
+	if String(e.phase) == "warning":
+		# tier C (#460): the warning art is stretched over the whole wait, so it ends as the columns strike.
+		fx.play_at_all(String(e.art), e.anchors, float(e.impact_time) - float(e.time))
+		_first_event_shot("area_warning", "area_warning.png", 0.5 * (float(e.impact_time) - float(e.time)))
+	else:
+		fx.play_at_all(String(e.art), e.anchors)
+		_first_event_shot("area_strike", "area_strike.png", 0.12)
 
 
 ## An ordinary mob's attack phase (#76): its Sound.wz attack sound at the windup, the canonical effect/hit art, and
