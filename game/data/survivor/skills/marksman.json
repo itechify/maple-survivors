@@ -483,6 +483,7 @@
 				"wind_up": 0.6
 			},
 			"count": 1,
+			"capture_delay": 0.85,
 			"burst_art": {
 				"prepare": "Skill.wz/322.img/skill/3221001/prepare",
 				"end": "Skill.wz/322.img/skill/3221001/effect",
@@ -565,7 +566,7 @@
 					}
 				]
 			},
-			"_tier": "Tier A: the book-322 skill id, damage 320..850% (levels 4/15/30 at ranks 1/4/8 read 380/600/850), mobCount 4..6, the own 5-frame ball, hit/0, the prepare and effect art and the Use/Loop/Hit sounds. Tier C (#367, GAME_DESIGN 7.46.7): the burst rule with count 1 and a 0.6 s wind-up (half the WZ prepare time 1200 ms, as Hurricane's), the aim point taken at the release, pierce_field mobCount (the arrow strikes mobCount monsters, so it pierces mobCount - 1), pierce_falloff -0.1 (the rise, 7.48: 100/110/.../150% over six monsters, the ceiling is balance.combat.pierce_ceiling), 6 s cooldown, range 450, 900 px/s, radius 10, the crossbow's shoot2 for the whole wind-up (the body dash that prepare/action names makes the crossbow vanish, MS1), the effect art at the release and never on a dropped wind-up, rarity bonuses. Untuned."
+			"_tier": "Tier A: the book-322 skill id, damage 320..850% (levels 4/15/30 at ranks 1/4/8 read 380/600/850), mobCount 4..6, the own 5-frame ball, hit/0, the prepare and effect art and the Use/Loop/Hit sounds. Tier C (#367, GAME_DESIGN 7.46.7): the burst rule with count 1 and a 0.6 s wind-up (half the WZ prepare time 1200 ms, as Hurricane's), the aim point taken at the release, pierce_field mobCount (the arrow strikes mobCount monsters, so it pierces mobCount - 1), pierce_falloff -0.1 (the rise, 7.48: 100/110/.../150% over six monsters, the ceiling is balance.combat.pierce_ceiling), 6 s cooldown, range 450, 900 px/s, radius 10, the crossbow's shoot2 for the whole wind-up (the body dash that prepare/action names makes the crossbow vanish, MS1), the effect art at the release and never on a dropped wind-up, capture_delay 0.85 (the QA screenshot is taken as the arrow meets the line), rarity bonuses. Untuned."
 		}
 	}
 }

@@ -936,8 +936,8 @@ func _warm_ui() -> void:
 		var burst: Variant = world.book.def(key).get("burst", "")
 		if burst is String and String(burst) != "":
 			library.find_anim(String(burst))
-		for path: Variant in world.book.def(key).get("burst_art", {}).values():
-			library.find_anim(String(path))
+		for path: String in burst_art_paths(world.book.def(key)):
+			library.find_anim(path)
 		for path: String in ChainCast.ball_paths(world.book.def(key)):
 			library.find_anim(path)
 		for rank in range(1, world.book.max_rank(key) + 1):
@@ -1432,6 +1432,15 @@ func _on_burst_end(e: Dictionary) -> void:
 	# `end_on_drop` false (Piercing Arrow's release effect): a dropped wind-up releases nothing, so it shows no end art.
 	if String(art.get("end", "")) != "" and (not bool(e.get("dropped", false)) or bool(art.get("end_on_drop", true))):
 		fx.play(String(art.end), Vector2.ZERO, flip, avatar)
+
+
+## The art paths of a definition's `burst_art` (prepare / loop / end); its flags (`end_on_drop`) are not paths.
+static func burst_art_paths(definition: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	for value: Variant in definition.get("burst_art", {}).values():
+		if value is String and String(value) != "":
+			out.append(String(value))
+	return out
 
 
 func _stop_burst_art(key: String) -> void:

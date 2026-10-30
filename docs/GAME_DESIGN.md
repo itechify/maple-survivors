@@ -6953,6 +6953,7 @@ the 200% ceiling).
 | Stance | `action "weapon"` (the crossbow's `shoot2`), held for the wind-up | tier C: MS1 / ROSTER_PLAN D11 (the body `dash` that `prepare/action` names makes the crossbow vanish) |
 | Wind-up art | `prepare` fitted to 0.6 s on the caster; `effect` as `burst_art.end` at the release, not on a dropped wind-up (`end_on_drop` false) | tier C, art only |
 | Sounds | `Use` at the cast, `Loop` once at the cast (702 ms, the wind-up), `Hit` per contact | tier C, presentation |
+| QA screenshot | `capture_delay 0.85` (the first `cast_piercing_arrow.png` is taken as the arrow meets the line) | tier C, tooling |
 | Rare / Epic / Unique / Legendary | Marksman Boost damage x1.2 / Crossbow Booster cooldown x0.88 / Deep Pierce `pierce` +2 / Deep Pierce + damage x1.2 (shares the Unique's counter; repeats shrink x0.8) | tier C: spec #360 rarity table |
 
 Balance flag (not a change): 850% on a line of six rising to 150% is the highest burst in any pool (first levers: the 6 s cooldown

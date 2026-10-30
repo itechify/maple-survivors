@@ -118,6 +118,7 @@ func test_the_definition_follows_the_specs_row() -> void:
 	assert_eq(d.cast, {"rule": "burst"})
 	assert_eq(d.burst, {"wind_up": 0.6})
 	assert_eq(int(d.count), 1)
+	assert_eq(float(d.capture_delay), 0.85, "the first-cast screenshot waits for the release and the first contacts")
 	assert_eq(float(d.cooldown), 6.0)
 	assert_eq(float(d.range), 450.0)
 	assert_eq(float(d.speed), 900.0)
@@ -438,6 +439,15 @@ func test_a_finished_wind_up_reports_not_dropped() -> void:
 	assert_eq(ended.size(), 1)
 	assert_false(bool(ended[0].dropped))
 	assert_eq(String(ended[0].skill), KEY)
+
+
+func test_the_stage_warm_up_reads_only_the_art_paths_of_burst_art() -> void:
+	var d: Dictionary = DataRepo.load_all().skills.skills[KEY]
+	assert_eq(RunScene.burst_art_paths(d), ["Skill.wz/322.img/skill/3221001/prepare", "Skill.wz/322.img/skill/3221001/effect"],
+		"`end_on_drop` is a flag, not a path (the warm-up once String()-ed it and failed)")
+	var hurricane: Dictionary = DataRepo.load_all().skills.skills["hurricane"]
+	assert_eq(RunScene.burst_art_paths(hurricane).size(), 3)
+	assert_eq(RunScene.burst_art_paths({}), [])
 
 
 # --- the bot ----------------------------------------------------------------------------------------------------------
