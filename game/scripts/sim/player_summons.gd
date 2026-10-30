@@ -49,6 +49,11 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 	var node: Dictionary = world.book.skill_node(st.skill).get("summon", {})
 	var attack_node: Dictionary = node.get(String(d.attack), {})
 	d["info"] = attack_node.get("info", {})
+	if d.has("attack_after"):
+		# tier C (Gaviota, spec #384 C6): a literal wind-up in seconds replaces the WZ `attackAfter` (its 1.92 s outlasts the
+		# 0.84 s dive art, so the bird would hang for a second before the grenade lands).
+		d["info"] = d.info.duplicate()
+		d.info["attackAfter"] = float(d.attack_after) * 1000.0
 	d["durations"] = {}
 	# Spec #332 M8: `move` names the animation node played while following (`fly` for a flyer), `hover` lifts the
 	# follower above its trailing point, and an attack node's `info/effect` is drawn on each struck monster.

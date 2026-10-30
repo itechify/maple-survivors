@@ -585,6 +585,205 @@
 					}
 				]
 			}
+		},
+		"octopus": {
+			"skill_id": 5211001,
+			"book": "521",
+			"job": 521,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Octopus",
+			"desc": "Plants an octopus where you stand. It never moves, and keeps shooting balls at the monsters that come near it.",
+			"text": {
+				"desc": "Plants an octopus where you stand. It never moves, and keeps shooting balls at the nearest monster around it.",
+				"h": ""
+			},
+			"icon": "Skill.wz/521.img/skill/5211001/icon",
+			"damage": "physical",
+			"_tier": "Tier A: the WZ summon (a ring `r` 300 around the attack node's `sp` offset, `attackAfter` 480 ms, `mobCount` 1, `bulletSpeed` 300, the two-frame `ball`), `pad` 84..200 as the W.Att of every ball (the worn weapon and ammo are not read), `time` 10/20/30 s as the life, the `octopus` body stance (9 frames, 0.81 s), `summon` and `hit/0` art and the Use sound; the eight survivor ranks map to WZ levels 4/8/12/15/19/23/27/30. Tier C (#390, GAME_DESIGN 7.120.5): 20 s recast (the WZ 10 s would plant a second octopus beside a living one at rank 1), one ball every 1.5 s (`attack_interval`), no admission (a cast plants an octopus wherever you stand), rarity bonuses; untuned.",
+			"cast": {
+				"rule": "summon"
+			},
+			"cooldown": 20.0,
+			"action": "octopus",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/521.img/skill/5211001/hit/0",
+			"effect": "",
+			"rotate": false,
+			"summon": {
+				"behavior": "turret",
+				"path": "Skill.wz/521.img/skill/5211001/summon",
+				"attack": "attack1",
+				"ordinal_spread": 48.0,
+				"follow_speed": 0.0,
+				"attack_interval": 1.5,
+				"watk_field": "pad"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5211001/Use"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "eight_arms",
+						"text": "Eight Arms",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "long_arms",
+						"text": "Long Arms",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "wrath",
+						"text": "Wrath of the Octopi",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "wrath",
+						"text": "Wrath of the Octopi",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"gaviota": {
+			"skill_id": 5211002,
+			"book": "521",
+			"job": 521,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Gaviota",
+			"desc": "Sends a bird that seeks the nearest monster, drops a grenade on the crowd and is gone.",
+			"text": {
+				"desc": "Sends a bird that flies at the nearest monster, drops a grenade on it and the monsters around it, and is gone.",
+				"h": ""
+			},
+			"icon": "Skill.wz/521.img/skill/5211002/icon",
+			"damage": "physical",
+			"_tier": "Tier A: the WZ summon (reach `r` 400, strike box (-80,-60)..(80,60), `mobCount` 3, `attackAfter` 1920 ms (the WZ wind-up outlasts the 0.84 s `attack1` art), the `fly` and `attack1` art), `pad` 218..450 as the W.Att of the grenade (the worn weapon and ammo are not read), `time` 10/20/30 s as the wait for a target, the `hit/1` burst and the Use sound; the eight survivor ranks map to WZ levels 4/8/12/15/19/23/27/30. Tier C (#390, GAME_DESIGN 7.120.5): 8 s recast (WZ 5 s), the bird is cast only with a living monster within 400 px of you, flies at 260 px/s hovering 60 px above its target, the weapon's shooting stance held 0.5 s as the throw, rarity bonuses; `summon.attack_after` 0.84 s (the length of the dive art: C1's sheet shows the bird hanging for a second at the WZ 1.92 s), untuned.",
+			"cast": {
+				"rule": "summon",
+				"mob_within": 400
+			},
+			"cooldown": 8.0,
+			"action": "weapon",
+			"action_time": 0.5,
+			"ball": "",
+			"hit": "Skill.wz/521.img/skill/5211002/hit/1",
+			"effect": "",
+			"rotate": false,
+			"summon": {
+				"behavior": "kamikaze",
+				"path": "Skill.wz/521.img/skill/5211002/summon",
+				"attack": "attack1",
+				"move": "fly",
+				"hover": 60.0,
+				"ordinal_spread": 36.0,
+				"follow_speed": 260.0,
+				"follow_distance": 60.0,
+				"teleport_distance": 600.0,
+				"watk_field": "pad",
+				"attack_after": 0.84
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5211002/Use"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "heavy_load",
+						"text": "Heavy Load",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "bigger_boom",
+						"text": "Bigger Boom",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "flock",
+						"text": "Flock",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "flock",
+						"text": "Flock",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
 		}
 	}
 }
