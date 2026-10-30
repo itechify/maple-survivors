@@ -476,6 +476,15 @@ func test_every_event_matches_the_schema() -> void:
 				columns.step(DT, MoveInput.new())
 			for event: Dictionary in columns.drain_events():
 				_check(event, seen)
+		if type == "hazard_spawned" or type == "hazard_status":
+			# #459: a poison mist cast on the Snowman-shaped synthetic level, then the character stands in it.
+			var mist_test := preload("res://tests/unit/test_poison_mist.gd").new()
+			var misty: RunWorld = mist_test._world("S", 4.0)
+			mist_test._ticks(misty, 1800)
+			RF.place_player(misty, 620)
+			mist_test._ticks(misty, 2)
+			for event: Dictionary in misty.drain_events():
+				_check(event, seen)
 		if type == "player_banished":
 			var shaded := SF.world()
 			for tick in 15 * 60:

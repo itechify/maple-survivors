@@ -275,6 +275,21 @@ func test_dispel_ends_the_forms_and_timed_buffs_and_nothing_else() -> void:
 	assert_eq(_casts(events, 127).size(), 1, "the boss cast it (its skill stance)")
 
 
+func test_dispel_leaves_the_boss_statuses_on_the_character() -> void:
+	var w := _world([[127, 1]])
+	_start_form(w)
+	var statuses := w.mob_skills.statuses
+	for id in [MobSkillRunner.SKILL_STUN, MobSkillRunner.SKILL_DARKNESS, MobSkillRunner.SKILL_CONFUSE]:
+		statuses.apply(id, w.time, 30.0, {})
+	statuses.apply(MobSkillRunner.SKILL_SLOW, w.time, 30.0, {"multiplier": 0.8}, false)
+	var events := _ticks(w, 61)
+	assert_eq(_of(events, "player_dispelled").size(), 1, "the Form is ended")
+	for id in [MobSkillRunner.SKILL_STUN, MobSkillRunner.SKILL_DARKNESS, MobSkillRunner.SKILL_CONFUSE, MobSkillRunner.SKILL_SLOW]:
+		assert_true(statuses.is_active(id, w.time), "boss status %d is a debuff, not a self-effect: it stays" % id)
+	# With only debuffs on the character there is nothing to dispel: the boss waits.
+	assert_false(w.can_dispel())
+
+
 func test_dispel_waits_while_there_is_nothing_to_end() -> void:
 	var w := _world([[127, 1]])
 	assert_false(w.can_dispel())
