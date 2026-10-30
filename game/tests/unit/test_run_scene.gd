@@ -1238,9 +1238,10 @@ func test_timed_buff_row_and_rank_preview_use_canonical_armor_data() -> void:
 func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
 	if not require_cache():
 		return
-	scene = _make("ellinia", 2406, {})
-	var entry: Dictionary = scene.world.bosses.entries[0].duplicate(true)
+	scene = _make("perion", 2406, {}) # Stumpy is Perion's map 2 boss since #452
+	var entry: Dictionary = scene.world.bosses.entries[1].duplicate(true)
 	entry.time = 0.5
+	entry.map_index = 0 # armed on the scene's first map
 	entry.attacks = ["attack2"]
 	scene.world.bosses = BossDirector.new([entry])
 	scene.world.mob_skills = MobSkillRunner.new(scene.world.setup, {"enabled_ids": []})
@@ -1402,7 +1403,7 @@ func test_dyle_immunity_icon_follows_live_boss_and_ends_with_status_and_death() 
 func test_tree_boss_bars_use_original_icons_and_split_removes_only_the_dead_bar() -> void:
 	if not require_cache():
 		return
-	scene = _make("ellinia", 2521, {})
+	scene = _make("kerning", 2521, {}) # King Slime and Dyle are Kerning City's bosses since #452
 	var w := scene.world
 	w.god = true
 	w.loadout.order.clear()
@@ -1506,8 +1507,9 @@ func test_setup_preloads_boss_art_and_sounds() -> void:
 			paths.append_array(["Skill.wz/MobSkill.img/112/level/1/effect", "Skill.wz/MobSkill.img/126/level/7/affected",
 				"Effect.wz/Summon.img/1", "Mob.wz/6130101.img/attack1/info/effect"])
 		else:
-			paths.append_array(["Mob.wz/3220000.img/attack2/info/ball", "Skill.wz/MobSkill.img/140/level/8/mob",
-				"Skill.wz/MobSkill.img/114/level/15/mob0"])
+			# Faust (#452): a type-2 ball, weapon immunity 140/12, heal 114/18 and a summon (Ellinia's map 3 boss).
+			paths.append_array(["Mob.wz/5220002.img/attack1/info/ball", "Skill.wz/MobSkill.img/140/level/12/mob",
+				"Skill.wz/MobSkill.img/114/level/18/mob0", "Effect.wz/Summon.img/12"])
 		for path in paths:
 			assert_true(lib.find_anim(path) != null, "%s: %s exists" % [stage, path])
 		for record: Dictionary in scene.world.bosses.records:

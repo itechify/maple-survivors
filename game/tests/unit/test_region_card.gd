@@ -16,8 +16,8 @@ func test_region_cards_list_three_maps_with_their_bosses_from_the_cache() -> voi
 				return
 	var expected := [
 		["Henesys Hunting Ground I → Mano", "The Pig Beach → Mushmom", "The Blue Mushroom Forest → Blue Mushmom"],
-		["The Tree That Grew I → Stumpy", "The Forest of Wisdom → King Slime", "The Forest of Evil I → Dyle"],
-		["West Street Corner of Perion → Mano", "East Rocky Mountain V → Stumpy", "The Burnt Land I → Iron Hook"],
+		["The Tree That Grew I → Prime Minister", "The Forest of Wisdom → Grey Yeti and King Pepe", "The Forest of Evil I → Faust"],
+		["West Street Corner of Perion → King Clang", "East Rocky Mountain V → Stumpy", "The Burnt Land I → Iron Hook"],
 		["Kerning City Construction Site → King Slime", "Line 1 <Area 1> → Shade", "The Swamp of Despair I → Dyle"],
 		["Dark Cave → Zombie Mushmom", "Drake Area → Snack Bar", "The Cursed Sanctuary → Jr. Balrog"],
 	]
