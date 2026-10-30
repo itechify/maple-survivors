@@ -1,0 +1,9 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Night Lord line (spec #383 #400). The 3rd and 4th job Thief skill books Skill.wz/411.img (Hermit) and 412.img (Night Lord) whole, and the Sound.wz/Skill.img nodes of the Night Lord pool: Shadow Partner 4111002, Ninja Storm 4111004, Avenger 4111005, Shadow Meso 4111006, Triple Throw 4121004, Ninja Ambush 4121007 and Drain 4121008 (Lucky Seven's 4001344 and Flash Jump's 4101005 sounds belong to thief.json; a path in two files is an error). Shadower must list 4221004's sound separately: its Use is a UOL into 4121004, which this fragment imports. The Beginner Thief, Assassin and Bandit books (400 / 410 / 420), the claws, the throwing stars and the Thief sounds are in thief.json.",
+	"imgs": [
+		{"img": "Skill.wz/411.img"},
+		{"img": "Skill.wz/412.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["4111002", "4111004", "4111005", "4111006", "4121004", "4121007", "4121008"]}
+	]
+}
