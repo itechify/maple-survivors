@@ -1,6 +1,6 @@
 class_name GroundStrike
 extends RefCounted
-## The damaging periodic ground zone (`ground.strike`, spec #383 NL8, GAME_DESIGN 7.95): a skill whose `ground` block holds
+## The damaging periodic ground zone (`ground.strike`, spec #383 NL8, GAME_DESIGN 7.94.8): a skill whose `ground` block holds
 ## a `strike` object instead of a `status` leaves a zone at the cast position that, for the skill's WZ `time`, hits the
 ## monsters inside its box on a clock. `{"strike": {"interval": 1.0, "first_delay": 0.3}}`: the first strike lands
 ## `first_delay` seconds after the cast, then one every `interval`, the last at or before the lifetime. Generic: Ninja Ambush
@@ -11,7 +11,7 @@ extends RefCounted
 ## instant-hit path (RunWorld.hit_mob: defence, crit, element, on-hit statuses, the first-hit meter receipt, kills and loot).
 ## It draws no random numbers of its own.
 
-## tier C: ours (the spec's reading of the 4121004 strike cadence), GAME_DESIGN 7.95. v83 has no WZ field for it.
+## tier C: ours (the spec's reading of the 4121004 strike cadence), GAME_DESIGN 7.94.8. v83 has no WZ field for it.
 const DEFAULT_INTERVAL := 1.0
 const DEFAULT_FIRST_DELAY := 0.3
 ## Float slack of the pulse comparisons: a strike due exactly at the lifetime still lands.

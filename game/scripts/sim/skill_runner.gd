@@ -982,7 +982,7 @@ func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
 			"effect": String(ground.get("tile", "")), "duration": duration})
 
 
-## A damaging zone (`ground.strike`, GroundStrike, GAME_DESIGN 7.95): anchored at the cast position, it does not follow the
+## A damaging zone (`ground.strike`, GroundStrike, GAME_DESIGN 7.94.8): anchored at the cast position, it does not follow the
 ## caster, lives `duration` (the skill's WZ `time`) and strikes at `first_delay`, then every `interval`. Each cast queues its
 ## own zone, so a second cast makes a second zone. The `skill_ground` event carries the zone's box and lifetime (and a tile
 ## art path when the data names one; Ninja Ambush has none: its cast effect plays once and each strike brings its own art).

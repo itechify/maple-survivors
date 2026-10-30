@@ -8197,6 +8197,53 @@ synthetic / shipped / seeded / real cache, `requirement_error`, the Lv60 step th
 and the real String.wz names), `test_data_repo_lines` (placement of the 400-412 books), `test_ammo` and `run_fixtures.ammo_info`
 (18 items).
 
+
+#### 7.94.8 Ninja Storm and Ninja Ambush: per-rank knock-back and the ground strike (spec #383, NL8 #407)
+
+(The spec's paragraphs 7.95 and 7.96 for these two skills live here, as a subsection of 7.94, so parallel Night Lord tickets never
+collide on section numbers.) Two small data-driven seams and two skill entries, in the marked NL8 region of `skills/night_lord.json`.
+
+**`knockback.distance_by_rank`.** An optional list of exactly eight non-negative numbers on a `knockback` block, one per survivor
+rank, replacing the scalar `distance` (naming both is a load error). `Loadout.knockback_distance_at(block, rank)` resolves it (the last
+value past the list, rank 1 for an unowned skill) into `Loadout.stats(key).knockback_distance`, so the Skill window and the card
+preview read the resolved number; `RunWorld._on_player_hit` reads the owner's current rank for the shove. Everything else about the
+knock-back is the existing rule: one stream-1 draw per struck non-boss monster against `chance_field`, bosses and scheduled bosses
+are damaged and never moved, `FootholdMap.slide_along`. An optional `knockback.effect` (an art path) plays once on each monster that
+was actually pushed (a `skill_mob_effect` event). A block without `distance_by_rank` or `effect` behaves exactly as before.
+
+**`ground.strike`** (`scripts/sim/ground_strike.gd`, `GroundStrike`). A `ground` block with a `strike` object instead of a `status`
+deals damage on a clock: `"ground": {"strike": {"interval": 1.0, "first_delay": 0.3}}`. The cast queues a zone anchored where the
+caster stood (it does not follow); it lives for the skill's WZ `time`. The first strike lands `first_delay` after the cast, then one
+every `interval`, the last at or before `time` (`GroundStrike.strike_count`: 4 / 8 / 12 strikes for 4 / 8 / 12 s). Each strike picks
+up to `mob_count` live monsters whose bodies touch the box around the anchor, nearest to the anchor first
+(`RunWorld.skill_rect_targets`), and resolves `attack_count` ordinary lines on each through the instant-hit path
+(`SkillRunner._resolve_instant_targets` -> `RunWorld.hit_mob`: defence, crit, element, on-hit statuses, damage modifiers, kills and
+loot). The meter receipt is the cast's own snapshot, so only the first hit of the first strike is credited. A monster that left the
+box or died is simply not found at the next strike; a second cast makes a second zone; `clear_pending` (map transfer, stage clear)
+drops every zone. `ground.status` and `ground.strike` are mutually exclusive and a strike has no `chance_field` (load errors,
+`GroundStrike.errors`, called by `DataRepo`); Poison Mist's `ground.status` path is untouched. `skill_ground` is still emitted
+(box, lifetime) and carries the `tile` art path when the data names one; the presentation draws tile strips only for a non-empty
+path. Shadower's Ninja Ambush (4221004) equals this skill at all 30 levels and is a data copy.
+
+| Skill | Cast | Cooldown | Notes |
+|---|---|---|---|
+| `ninja_storm` (4121008) | `instant`, `cast {rule box, min_targets 1}`, the WZ box around the caster, `mobCount` 6, `knockback {chance_field prop, distance_by_rank [100,100,200,200,200,300,300,300], effect mob}` | 4.0 s | damage 42 -> 80% (rank 1 / 4 / 8: 48 / 65 / 80%), push chance `prop` 48 / 70 / 100%, push 100 / 200 / 300 px, box +-100 / 150 / 200 by (-70, 30). Action `ninjastorm`, `effect` at the caster, `hit/0` on each struck monster, `mob` on each pushed one, `Use` + `Hit`. |
+| `ninja_ambush` (4121004) | `instant`, `cast {rule box, min_targets 1}`, `ground {strike {interval 1.0, first_delay 0.3}}` | 14 s | damage 68 / 85 / 100% per strike, `mobCount` 6, `time` 4 / 8 / 12 s, box +-120 / 150 / 200 by (-130, 70). Action `alert3`, `effect` once at the cast (it stands on the zone), `mob0` (the ninja) as the hit art on every struck monster, `Use`. No tile art: the zone is visible through its strikes. |
+
+Rarity (tier C): Ninja Storm Rare `ninja_arts` damage x1.2, Epic `wide_storm` `area` x1.2, Unique `second_wave` `attack_count` +1,
+Legendary the Unique (same id, shared counter) plus damage x1.2; Ninja Ambush the same with `wide_ambush` and Unique `ambush_squad`
+`count` +2 (two more monsters per strike, `count` raises `mobCount`). Mastery repeats shrink x0.8 (the #288 rule). Both are claw
+skills by the pool only: no `weapon_families`, no `ranks` override (the default 30-level table: levels 4 / 8 / 12 / 15 / 19 / 23 /
+27 / 30). The Skill window adds "Strikes up to N monsters every 1 s for T s" for a strike zone and keeps "Knock-back: P% / D px"
+(now the resolved per-rank distance).
+
+Tests: `test_ground_strike` (the pure arithmetic, the data checks, the rank lookup) and `test_night_lord_crowd` (both skills on
+synthetic book-412 tables: the six-monster cap, nearest first, boxes by rank, 100 / 200 / 300 px on both sides and the chance, bosses
+never moved, one stream-1 draw per non-boss, the status art, the 0.3 s then every 1.0 s clock for 4 / 8 / 12 s, anchored zone, a monster
+that leaves or dies, `area` / `count` / `attack_count` / `damage`, a second zone, `clear_pending`, the Skill window lines, the rarity
+tables, "every bonus changes the resolved cast", a Rare+ card adding one rank plus its bonus, Legendary sharing the Unique's counter,
+Mastery x0.8, and the real-cache check of all eight ranks of both skills, which SKIPs without the cache).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -10103,3 +10150,22 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 | `repeat_chance` | venomous_star 3 points, stunning_avenger 4 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #383 |
 | Night Lord ammo step | Lv60 Ilbi Throwing-Stars 2070006 (+27) on the 412 claw schedule (steps Lv10 / 20 / 30 / 40 / 50 / 60) | tier C level (spec #383); tier A item id, `incPAD` and name (Item.wz / String.wz, re-read) |
 | Ammo items | 18 (B3's 17 plus 2070006) | derived: `Ammo.item_ids` |
+
+### Night Lord NL8 constants (#407)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Ninja Storm cooldown | 4.0 s | tier C: spec #383 (cadence table) |
+| Ninja Ambush cooldown | 14.0 s (its 12 s rank-8 life never overlaps itself) | tier C: spec #383 |
+| `ground.strike.interval` / `first_delay` (and their defaults in `GroundStrike`) | 1.0 s / 0.3 s | tier C: spec #383 (v83 has no WZ field for the strike cadence) |
+| Strikes per zone | every strike at or before the WZ `time` (4 / 8 / 12) | tier A `time`; tier C counting rule |
+| Targets per strike | nearest `mob_count` to the anchor, one `attack_count` set of ordinary lines each | tier C: spec #383; `mobCount` 6 is tier A |
+| Zone anchor | the caster's position at the cast; it does not follow | tier C: spec #383 |
+| Push distance by rank (`knockback.distance_by_rank`) | 100 / 100 / 200 / 200 / 200 / 300 / 300 / 300 px | tier A text (String.wz: 100 / 200 / 300 px for levels 1-10 / 11-20 / 21-30), tier C mapping to the eight ranks |
+| Push chance | `prop` of the level (48 / 70 / 100% at ranks 1 / 4 / 8), one stream-1 draw per struck non-boss | tier A `prop` read as the success rate (tier C reading) |
+| `knockback.effect` | the `mob` art once on each pushed monster | tier C: ours |
+| Ninja Storm damage / box / `mobCount` | 42 -> 80%, +-100 -> +-200 by (-70, 30), 6 | tier A (Skill.wz 4121008) |
+| Ninja Ambush damage / box / `mobCount` / `time` | 62 -> 100% per strike, +-110 -> +-200 by (-130, 70), 6, 4 / 8 / 12 s | tier A (Skill.wz 4121004; equals 4221004) |
+| Action holds | `ninjastorm` 0.6 s, `alert3` 0.6 s | tier C (Shout's hold) |
+| Ambush art | the `effect` plays once at the cast, `mob0` is the hit art on each struck monster, no tile | tier C reading of "effect at the zone"; art tier A |
+| Rarity | Ninja Arts damage x1.2; Wide Storm / Wide Ambush `area` x1.2; Second Wave `attack_count` +1; Ambush Squad `count` +2; Legendary = the Unique plus damage x1.2 (shared counter); Mastery repeats x0.8 | tier C: spec #383 |

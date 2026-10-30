@@ -317,7 +317,7 @@ func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
 ## The knock-back distance of a `knockback` block at survivor rank `rank_value`: the block's `distance_by_rank` list (one
 ## value per rank, the last one past its end, rank 1 for an unowned skill) when it has one, else its scalar `distance`
-## (0 for a block with neither). tier C: ours (spec #383 NL8, GAME_DESIGN 7.95); every other field of the block is unchanged.
+## (0 for a block with neither). tier C: ours (spec #383 NL8, GAME_DESIGN 7.94.8); every other field of the block is unchanged.
 static func knockback_distance_at(block: Dictionary, rank_value: int) -> float:
 	var by_rank: Variant = block.get("distance_by_rank")
 	if by_rank is Array and not (by_rank as Array).is_empty():
