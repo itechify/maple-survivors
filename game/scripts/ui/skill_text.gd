@@ -374,8 +374,8 @@ func _vars(key: String, level: int, stats: Dictionary) -> Dictionary:
 	var vars := {}
 	for k: String in book.level_node(key, level):
 		var v: Variant = book.level_node(key, level)[k]
-		if typeof(v) in [TYPE_INT, TYPE_FLOAT]:
-			vars[k] = float(v)
+		if typeof(v) in [TYPE_INT, TYPE_FLOAT] or (typeof(v) == TYPE_STRING and String(v).is_valid_float()):
+			vars[k] = float(v) # a numeric string too: Flamethrower and Ice Splitter store `damage` as "82" (spec #384 C9)
 	for k: String in stats:
 		if typeof(stats[k]) in [TYPE_INT, TYPE_FLOAT]:
 			vars[k] = float(stats[k])
