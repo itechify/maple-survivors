@@ -177,10 +177,12 @@ func test_cards_are_on_offer_whatever_weapon_is_held_and_on_both_branches() -> v
 		var w := _world()
 		RF.as_job(w, 400, path)
 		var eligible := w.upgrades.eligible(w)
-		# #406: Lucky Seven's standalone cards were deleted (its bonuses are rarity entries on the skill).
-		for id in ["lucky_seven_new", "lucky_seven_rank", "lucky_seven_count", "lucky_seven_pierce", "lucky_seven_damage",
-				"lucky_seven_cooldown", "lucky_seven_range"]:
+		# #406: Lucky Seven's standalone cards were deleted (its bonuses are rarity entries on the skill). NL12 #411: Night Lord
+		# is playable, so the pool generates the plain new / rank cards of its pool (the generic "+1 rank" cards).
+		for id in ["lucky_seven_count", "lucky_seven_pierce", "lucky_seven_damage", "lucky_seven_cooldown", "lucky_seven_range"]:
 			assert_true(w.upgrades.card(id).is_empty(), id + " is gone")
+		for id in ["lucky_seven_new", "lucky_seven_rank"]:
+			assert_eq(String(w.upgrades.card(id).get("desc", "")), "+1 rank", id + " is the pool-generated card of the playable Night Lord")
 		for key: String in ["nimble_body", "double_stab"]:
 			assert_false(key + "_new" in eligible, "#287: unported skills have no pool offers")
 			w.learn_skill(key)
