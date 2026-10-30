@@ -1,10 +1,10 @@
 extends TestCase
 ## `--job=412` through the tools (spec #383, NL11 #410): the run flags, balance_run, the fixture tool, the committed Night Lord
-## fixture and a `--character` of another job. Night Lord ships `playable: false` until NL12 (the Job page, `--job=412` and the
-## fixture tool refuse it), so every accepting case mirrors it playable with a patch file (`--patch=` / `DataRepo.patch`).
+## fixture and a `--character` of another job. Night Lord ships `playable: true` since NL12 #411, so every accepting case uses the
+## shipped data and the refusing cases make it unplayable again with a patch file (`--patch=` / `DataRepo.patch`).
 ## Subprocess tests that play a round need the cache (`require_cache()`); the data-level checks run in CI.
 
-const PLAYABLE := {"jobs_survivor": {"jobs": {"412": {"playable": true}}}}
+const UNPLAYABLE := {"jobs_survivor": {"jobs": {"412": {"playable": false}}}}
 const FP_FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 const NL_FIXTURE := "res://tests/fixtures/characters/night_lord_t2.json"
 ## The tier-1 claw kit: Meba (reqLevel 25) and the Thief-bit hat (30), shoes (20) and gloves (15), the starter top and bottom.
@@ -54,28 +54,28 @@ func _record(text: String) -> Dictionary:
 	return {}
 
 
-func test_run_flags_name_412_and_refuse_it_until_it_is_playable() -> void:
+func test_run_flags_name_412_accept_it_and_refuse_it_when_unplayable() -> void:
 	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=412", "--seed=3"]))
 	assert_eq(int(parsed.options.job), 412)
 	assert_eq(RunLauncher.options_from_args({"job": "412"}).job, 412)
-	assert_true(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()).contains("not playable"), "shipped: NL12 flips it")
+	assert_eq(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()), "", "shipped playable")
 	assert_eq(SceneFlow.forced_job_error({"job": 212}, DataRepo.load_all()), "")
-	assert_eq(DataRepo.jobs(DataRepo.load_all()).default_job(), 212, "the default stays 212")
-	DataRepo.patch = PLAYABLE.duplicate(true)
-	assert_eq(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()), "")
-	assert_eq(DataRepo.jobs(DataRepo.load_all()).default_job(), 212, "and with Night Lord playable")
+	assert_eq(DataRepo.jobs(DataRepo.load_all()).default_job(), 212, "the default stays 212 with Night Lord playable")
+	DataRepo.patch = UNPLAYABLE.duplicate(true)
+	assert_true(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()).contains("not playable"), "unplayable again")
+	assert_eq(DataRepo.jobs(DataRepo.load_all()).default_job(), 212)
 
 
-func test_balance_run_refuses_shipped_412_and_accepts_it_with_a_patch() -> void:
+func test_balance_run_accepts_shipped_412_and_refuses_it_with_an_unplayable_patch() -> void:
 	if not require_cache():
 		return
-	var patch := _file("nl_playable.json", JSON.stringify(PLAYABLE))
+	var patch := _file("nl_unplayable.json", JSON.stringify(UNPLAYABLE))
 	var base := PackedStringArray(["--stage=henesys", "--seed=1", "--cap=0.016666667", "--job=412"])
-	var refused := _tool("res://tools/balance_run.gd", base)
+	var refused := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--patch=" + patch]))
 	assert_eq(refused.status, 2, refused.text)
 	assert_true(refused.text.contains("not playable"), refused.text)
 	assert_true(_record(refused.text).is_empty())
-	var ok := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--patch=" + patch]))
+	var ok := _tool("res://tools/balance_run.gd", base)
 	assert_eq(ok.status, 0, ok.text)
 	var record := _record(ok.text)
 	assert_false(record.is_empty(), "a record was printed")
@@ -86,9 +86,8 @@ func test_balance_run_refuses_shipped_412_and_accepts_it_with_a_patch() -> void:
 func test_job_212_with_a_night_lord_character_and_job_412_with_an_arch_mage_character_are_errors() -> void:
 	if not require_cache():
 		return
-	var patch := PackedStringArray(["--patch=" + _file("nl_playable.json", JSON.stringify(PLAYABLE))])
 	var nl := _night_lord_file()
-	var base := PackedStringArray(["--stage=henesys", "--cap=0.016666667"]) + patch
+	var base := PackedStringArray(["--stage=henesys", "--cap=0.016666667"])
 	var a := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--job=212", "--character=" + nl]))
 	assert_eq(a.status, 2, a.text)
 	assert_true(a.text.contains("does not match the character's job 412"), a.text)
@@ -104,25 +103,24 @@ func test_job_212_with_a_night_lord_character_and_job_412_with_an_arch_mage_char
 func test_a_night_lord_character_file_needs_no_job_flag() -> void:
 	if not require_cache():
 		return
-	var patch := _file("nl_playable.json", JSON.stringify(PLAYABLE))
 	var run := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--cap=0.016666667",
-		"--character=" + _night_lord_file(), "--patch=" + patch]))
+		"--character=" + _night_lord_file()]))
 	assert_eq(run.status, 0, run.text)
 	assert_eq(int(_record(run.text).job), 412, "the job comes from the character")
 
 
-func test_the_fixture_tool_refuses_shipped_412_and_makes_a_night_lord_with_a_patch() -> void:
+func test_the_fixture_tool_makes_a_night_lord_from_shipped_data_and_refuses_it_when_unplayable() -> void:
 	if not require_cache():
 		return
 	var out := ProjectSettings.globalize_path(work_dir.path_join("nl_kit.json"))
 	var args := PackedStringArray(["--out=" + out, "--revision=0123456789012345678901234567890123456789", "--job=412",
 		"--kit=" + ",".join(KIT.map(func(id: int) -> String: return str(id))), "--tiers=2", "--label=test"])
-	var refused := _tool("res://tools/character_fixture.gd", args)
+	var patch := _file("nl_unplayable.json", JSON.stringify(UNPLAYABLE))
+	var refused := _tool("res://tools/character_fixture.gd", args + PackedStringArray(["--patch=" + patch]))
 	assert_eq(refused.status, 2, refused.text)
 	assert_true(refused.text.contains("not playable"), refused.text)
 	assert_false(FileAccess.file_exists(out))
-	var patch := _file("nl_playable.json", JSON.stringify(PLAYABLE))
-	var made := _tool("res://tools/character_fixture.gd", args + PackedStringArray(["--patch=" + patch]))
+	var made := _tool("res://tools/character_fixture.gd", args)
 	assert_eq(made.status, 0, made.text)
 	var errors := PackedStringArray()
 	var character := DataRepo.load_character(out, errors)
@@ -132,7 +130,7 @@ func test_the_fixture_tool_refuses_shipped_412_and_makes_a_night_lord_with_a_pat
 	assert_eq(int(character.job_id), 412)
 	assert_eq(int(character.tiers_unlocked), 2)
 	assert_eq(int(character.equipment.worn.weapon.id), 1472007)
-	assert_eq(String(character._doc.get("patch", "")), "nl_playable.json", "the patch is recorded until NL12")
+	assert_false(character._doc.has("patch"), "shipped Night Lord needs no patch")
 
 
 func test_the_committed_fixture_is_a_format_three_night_lord_with_the_tier_one_claw_kit() -> void:
@@ -177,9 +175,8 @@ func test_the_fixture_gear_is_wearable_by_a_night_lord_and_its_claw_throws_stars
 func test_a_one_off_round_from_the_fixture_has_stars_and_no_missing_assets() -> void:
 	if not require_cache():
 		return
-	var patch := _file("nl_playable.json", JSON.stringify(PLAYABLE))
 	var run := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--seed=1", "--cap=20",
-		"--character=" + ProjectSettings.globalize_path(NL_FIXTURE), "--patch=" + patch]))
+		"--character=" + ProjectSettings.globalize_path(NL_FIXTURE)]))
 	assert_eq(run.status, 0, run.text)
 	var record := _record(run.text)
 	assert_false(record.is_empty())

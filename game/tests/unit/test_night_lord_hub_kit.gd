@@ -1,10 +1,10 @@
 extends TestCase
 ## The `--hub --job=412` test kit (spec #383, NL11 #410): the Night Lord's fixture, its claw ATT scroll stacks and the spare
-## equipment it can wear. Night Lord ships `playable: false` until NL12, so the kit is built through the data seam
-## (`DataRepo.patch` making 412 playable), and the job-error test checks both the unplayable and the mirrored states.
+## equipment it can wear. Night Lord ships `playable: true` since NL12 #411; the job-error test checks the shipped state and the
+## unplayable state the data seam (`DataRepo.patch`) makes.
 
 const NL_FIXTURE := "res://tests/fixtures/characters/night_lord_t2.json"
-const PLAYABLE := {"jobs_survivor": {"jobs": {"412": {"playable": true}}}}
+const UNPLAYABLE := {"jobs_survivor": {"jobs": {"412": {"playable": false}}}}
 const SPARE := [1002001, 1472001, 1082002, 1040031]
 const CLAW_SCROLLS := [2044700, 2044701, 2044702, 2044704, 2044705]
 
@@ -37,7 +37,6 @@ func test_hub_job_412_picks_the_night_lord_fixture_and_an_explicit_character_win
 
 
 func test_the_night_lord_kit_scrolls_are_the_five_claw_att_scrolls_within_the_use_tab() -> void:
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	var character := HubTestKit.apply(_night_lord(), 500000, _loader())
 	var held: Array = character.scrolls.keys().map(func(k: String) -> int: return int(k))
 	held.sort()
@@ -58,7 +57,6 @@ func test_the_night_lord_kit_scrolls_are_the_five_claw_att_scrolls_within_the_us
 
 
 func test_the_night_lord_kit_equipment_holds_a_second_claw_a_hat_gloves_and_a_top() -> void:
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	var character := HubTestKit.apply(_night_lord(), 500000, _loader())
 	assert_eq(character.equipment.inventory.map(func(e: Dictionary) -> int: return int(e.id)), SPARE)
 	assert_eq(WeaponInfo.family(1472001), "claw", "the spare weapon is a claw, the family a Night Lord wields")
@@ -102,9 +100,9 @@ func test_hub_job_errors_name_the_mismatch_or_the_unplayable_job() -> void:
 	fp.erase("_doc")
 	var data := DataRepo.load_all()
 	var shipped := JobTree.from_data(data.jobs, data.jobs_survivor)
-	assert_true(HubTestKit.job_error({"job": 412}, fixture, shipped).contains("not playable"), "412 ships unplayable until NL12")
-	DataRepo.patch = PLAYABLE.duplicate(true)
-	var mirrored := DataRepo.jobs(DataRepo.load_all())
-	assert_eq(HubTestKit.job_error({"job": 412}, fixture, mirrored), "")
-	assert_true(HubTestKit.job_error({"job": 412}, fp, mirrored).contains("does not match"))
-	assert_true(HubTestKit.job_error({"job": 212}, fixture, mirrored).contains("does not match"))
+	assert_eq(HubTestKit.job_error({"job": 412}, fixture, shipped), "", "412 ships playable")
+	assert_true(HubTestKit.job_error({"job": 412}, fp, shipped).contains("does not match"))
+	assert_true(HubTestKit.job_error({"job": 212}, fixture, shipped).contains("does not match"))
+	DataRepo.patch = UNPLAYABLE.duplicate(true)
+	var unplayable := DataRepo.jobs(DataRepo.load_all())
+	assert_true(HubTestKit.job_error({"job": 412}, fixture, unplayable).contains("not playable"), "and refused when made unplayable")

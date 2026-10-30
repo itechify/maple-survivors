@@ -1,5 +1,5 @@
 {
-	"_doc": "Night Lord line (spec #383, ticket NL2 #401). The third class line after Bowmaster and Buccaneer to reuse the line convention: its job entry, its meso charge meter, its AP row, its bot card scores and its status-bonus catalogue. Skill definitions are in skills/night_lord.json; each Night Lord skill ticket (NL6-NL10) appends its own. Every skill key here stays inert until its ticket defines it (an undefined key is never offered or learned); the meter block stays inert until NL4 #403 gives PlayerMeter the meso_picked rule. NL11 #410 adds hub_kit and NL12 #411 flips playable; JobTree.default_job() stays 212 (survivor/jobs.json default_job).",
+	"_doc": "Night Lord line (spec #383, ticket NL2 #401). The third class line after Bowmaster and Buccaneer to reuse the line convention: its job entry, its meso charge meter, its AP row, its bot card scores and its status-bonus catalogue. Skill definitions are in skills/night_lord.json; each Night Lord skill ticket (NL6-NL10) appends its own. Every skill key here stays inert until its ticket defines it (an undefined key is never offered or learned); the meter block stays inert until NL4 #403 gives PlayerMeter the meso_picked rule. NL11 #410 adds hub_kit; NL12 #411 flipped playable (412 is selectable); JobTree.default_job() stays 212 (survivor/jobs.json default_job).",
 	"jobs": {
 		"412": {
 			"starting_skill": "lucky_seven",
@@ -42,8 +42,8 @@
 				"art": "Item.wz/Special/0900.img/09000002/iconRaw"
 			},
 			"_meter": "tier C: spec #383 M23: the meso charge, a counter filled by meso pickups and never a currency. 1 pip per 1000 mesos picked up, one pip decays every 6 s, +3% damage per held pip on every pool cast; NL4 #403 reads gain.per_mesos and decay, NL9 #408 adds the Shadow Meso read. Tier A fact: the art is the meso coin's animation frame, already imported for pickups. Inert until NL4.",
-			"playable": false,
-			"_provenance": "tier C: spec #383 NL2 #401: the Night Lord data line; NL12 #411 makes it selectable.",
+			"playable": true,
+			"_provenance": "tier C: spec #383 NL12 #411: Night Lord is playable alongside the other jobs; 212 remains the default.",
 			"hub_kit": {
 				"fixture": "res://tests/fixtures/characters/night_lord_t2.json",
 				"scrolls": [

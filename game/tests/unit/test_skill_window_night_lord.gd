@@ -4,11 +4,10 @@ extends TestCase
 ## job, and a test fails if a skill the run owns is on no tab. Flash Jump has its Key Config tray slot, its default X key and its
 ## quick-slot cell; the meso charge is a ten-pip row (HudMeter) beside the skill bar. The model tests use the synthetic books of
 ## the Night Lord fixtures and the canonical job names (no cache); the RunScene test (SKIP without the cache) drives the real
-## window through its hotkeys. Night Lord ships `playable: false` until NL12, so the RunScene test mirrors it playable.
+## window through its hotkeys. Night Lord ships `playable: true` since NL12 #411.
 
 const NF := preload("res://tests/fixtures/night_lord_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const MIRROR := {"jobs_survivor": {"jobs": {"412": {"playable": true}}}}
 const DT := 1.0 / 60.0
 ## Tab -> the keys its book holds, ordered by skill id (the window sorts by id).
 const TABS := {400: ["lucky_seven"], 410: ["drain"], 411: ["shadow_partner", "shadow_meso", "avenger", "flash_jump"],
@@ -205,7 +204,6 @@ func test_a_non_night_lord_has_no_meso_charge_row() -> void:
 func test_a_412_run_opens_the_skill_window_on_the_night_lord_tab_and_every_tab_has_rows() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	s.library = lib
 	s.configure("henesys", 13, {"use_flow": false, "autoplay": true, "autopick": true, "job": 412})

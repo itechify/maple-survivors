@@ -1,6 +1,6 @@
 extends TestCase
 ## Night Lord's data seam (spec #383, ticket NL2 #401): the `night_lord` line is discovered from its files, its job entry
-## `survivor/jobs/night_lord.json` (412, not playable yet) names the pool, Flash Jump, the claw family, the Garnier and the
+## `survivor/jobs/night_lord.json` (412, playable since NL12 #411) names the pool, Flash Jump, the claw family, the Garnier and the
 ## meso charge meter, its AP row, bot card scores and status-bonus catalogue come from the line file (nothing in the shared
 ## balance), its drops are claws only (Thief-bit gear), and its claw ammo schedule has the Lv60 Ilbi step. The pool keys
 ## and Flash Jump stay inert until NL6-NL10 define them; the meter block stays inert until NL4 reads it.
@@ -115,7 +115,7 @@ func test_no_other_line_file_names_night_lord_rows() -> void:
 
 # --- the job entry ----------------------------------------------------------------------------------------------------
 
-func test_job_412_has_the_spec_fields_and_is_not_playable() -> void:
+func test_job_412_has_the_spec_fields_and_is_playable() -> void:
 	var jobs := _jobs(_data())
 	var rec := jobs.job(412)
 	assert_eq(String(rec.name), "Night Lord")
@@ -126,18 +126,19 @@ func test_job_412_has_the_spec_fields_and_is_not_playable() -> void:
 	assert_false("flash_jump" in jobs.skill_pool(412), "Flash Jump is the mobility skill, not a pool entry")
 	assert_eq(jobs.weapon_families(412), ["claw"])
 	assert_eq(jobs.creation_weapon(412), GARNIER)
-	assert_false(bool(rec.playable), "NL12 flips playable")
-	assert_true(jobs.job_error(412).contains("not playable"), "a tool cannot choose it yet")
-	assert_false(412 in jobs.playable_jobs(), "not selectable")
+	assert_true(bool(rec.playable), "NL12 #411 flipped playable")
+	assert_eq(jobs.job_error(412), "", "a tool can choose it")
+	assert_true(412 in jobs.playable_jobs(), "selectable")
 
 
-func test_default_job_is_212_and_night_lord_is_not_selectable() -> void:
+func test_default_job_is_212_and_night_lord_is_selectable() -> void:
 	var data := _data()
 	var jobs := _jobs(data)
-	assert_eq(jobs.default_job(), 212)
-	assert_false(412 in jobs.playable_jobs())
-	data.jobs_survivor.jobs["412"]["playable"] = true
-	assert_eq(_jobs(data).default_job(), 212, "the pin, not the first playable job, even when 412 becomes playable")
+	assert_eq(jobs.default_job(), 212, "the pin, not the first playable job, with 412 playable")
+	assert_true(412 in jobs.playable_jobs())
+	data.jobs_survivor.jobs["412"]["playable"] = false
+	assert_false(412 in _jobs(data).playable_jobs(), "an unplayable 412 drops off the list")
+	assert_eq(_jobs(data).default_job(), 212)
 
 
 func test_start_skills_are_lucky_seven_and_flash_jump_and_flash_jump_is_not_in_the_pool() -> void:
@@ -191,7 +192,6 @@ func test_lucky_seven_and_drain_were_moved_into_night_lord_json() -> void:
 
 func test_an_undefined_pool_key_is_never_offered_as_a_card_and_flash_jump_is_never_a_card() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["412"]["playable"] = true
 	var setup := RF.setup("quiet", 7, data)
 	setup["job"] = 412
 	var w := RunWorld.new(setup)

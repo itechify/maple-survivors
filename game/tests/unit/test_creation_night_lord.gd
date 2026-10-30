@@ -1,18 +1,18 @@
 extends TestCase
-## The creation Job page with Night Lord (spec #383, NL11 #410). Night Lord ships `playable: false` until NL12, so the page is
-## verified three ways: the shipped list (the real row count today), the list with 412 mirrored playable through `DataRepo.patch`
-## (the row count NL12 ships), and a list the same seam reduces to two jobs (layout, selection, keyboard step, weapon box).
+## The creation Job page with Night Lord (spec #383, NL11 #410, NL12 #411). Night Lord ships `playable: true` since NL12, so the
+## shipped page has nine rows (Night Lord between Bowmaster and Buccaneer, at the 18 px pitch); a list the `DataRepo.patch`
+## seam reduces to two jobs checks layout, selection, keyboard step and weapon box, and a patch that makes 412 unplayable again
+## checks the refusal.
 ## The Job page needs the cache (Look OK stays disabled until the hair/face columns exist), so every test that opens it calls
 ## `require_cache()`; the data-level tests run in CI.
 
 const CREATE := preload("res://scenes/ui/character_create.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const MIRROR := {"jobs_survivor": {"jobs": {"412": {"playable": true}}}}
+const UNPLAYABLE := {"jobs_survivor": {"jobs": {"412": {"playable": false}}}}
 ## Every other playable job disabled: the page has the two rows 212 and 412.
 const REDUCED := {"jobs_survivor": {"jobs": {"112": {"playable": false}, "122": {"playable": false}, "132": {"playable": false},
-	"222": {"playable": false}, "232": {"playable": false}, "312": {"playable": false}, "512": {"playable": false},
-	"412": {"playable": true}}}}
-const NIGHT_LORD_ROW := 7 ## zero-based row of 412 with the mirror: after Bowmaster (312), before Buccaneer (512)
+	"222": {"playable": false}, "232": {"playable": false}, "312": {"playable": false}, "512": {"playable": false}}}}
+const NIGHT_LORD_ROW := 7 ## zero-based row of 412: after Bowmaster (312), before Buccaneer (512)
 
 var save_path := TestCase.test_dir("creation_night_lord/save.json")
 var _nodes: Array[Node] = []
@@ -73,29 +73,29 @@ func _row(creation: Control, id: int) -> Button:
 	return creation.find_child("Job_%d" % id, true, false) as Button
 
 
-func test_shipped_night_lord_is_not_playable_and_the_mirror_puts_it_between_bowmaster_and_buccaneer() -> void:
+func test_shipped_night_lord_is_playable_between_bowmaster_and_buccaneer() -> void:
 	var shipped := _tree()
-	assert_false(shipped.job(412).playable, "NL12 flips it; until then the Job page does not list it")
-	assert_eq(shipped.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 512] as Array[int], "the real count today: eight rows")
-	assert_eq(shipped.default_job(), 212)
-	DataRepo.patch = MIRROR.duplicate(true)
-	var mirrored := _tree()
-	assert_true(mirrored.job(412).playable)
-	assert_eq(mirrored.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 412, 512] as Array[int], "canonical order, nine rows")
-	assert_eq(mirrored.default_job(), 212, "the pin keeps 212 the default with nine playable jobs")
-	assert_eq(mirrored.name_of(412), "Night Lord")
-	assert_eq(mirrored.creation_weapon(412), 1472000, "the Garnier")
-	assert_eq(mirrored.playable_jobs().find(412), NIGHT_LORD_ROW)
+	assert_true(shipped.job(412).playable, "NL12 flipped it")
+	assert_eq(shipped.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 412, 512] as Array[int], "canonical order, nine rows")
+	assert_eq(shipped.default_job(), 212, "the pin keeps 212 the default with nine playable jobs")
+	assert_eq(shipped.name_of(412), "Night Lord")
+	assert_eq(shipped.creation_weapon(412), 1472000, "the Garnier")
+	assert_eq(shipped.playable_jobs().find(412), NIGHT_LORD_ROW)
+	DataRepo.patch = UNPLAYABLE.duplicate(true)
+	var patched := _tree()
+	assert_false(patched.job(412).playable)
+	assert_eq(patched.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 512] as Array[int], "unplayable again: eight rows")
 
 
-func test_the_shipped_page_lists_eight_rows_without_night_lord_at_the_original_pitch() -> void:
+func test_an_unplayable_night_lord_has_no_row_and_the_page_keeps_the_original_pitch() -> void:
 	if not require_cache():
 		return
+	DataRepo.patch = UNPLAYABLE.duplicate(true)
 	var creation := _job_page(_flow(), "NlShipped01")
 	assert_eq(creation.job_ids, _tree().playable_jobs())
 	assert_eq(creation.job_pitch, CREATE.JOB_ROW_SIZE.y + 2.0, "eight rows keep the 21 px pitch")
 	assert_true(_row(creation, 512).position.y + creation.job_pitch - 2.0 <= CREATE.JOB_LIST_BOTTOM)
-	assert_true(_row(creation, 412) == null, "no Night Lord row while it ships unplayable")
+	assert_true(_row(creation, 412) == null, "no Night Lord row while it is unplayable")
 	creation.select_job(412)
 	assert_eq(creation.job_id, 212, "an unlisted job changes nothing")
 
@@ -103,7 +103,6 @@ func test_the_shipped_page_lists_eight_rows_without_night_lord_at_the_original_p
 func test_nine_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var creation := _job_page(_flow(), "NlRows01")
 	var ids: Array[int] = [112, 122, 132, 212, 222, 232, 312, 412, 512]
 	assert_eq(creation.job_ids, ids)
@@ -131,7 +130,6 @@ func test_nine_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> void
 func test_clicking_night_lord_selects_it_and_moves_the_highlight() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var creation := _job_page(_flow(), "NlClick01")
 	_row(creation, 412).pressed.emit()
 	assert_eq(creation.job_id, 412)
@@ -145,7 +143,6 @@ func test_clicking_night_lord_selects_it_and_moves_the_highlight() -> void:
 func test_up_and_down_step_through_all_nine_rows_and_clamp() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var creation := _job_page(_flow(), "NlKeys01")
 	creation.select_job(312)
 	creation._input(_key(KEY_DOWN))
@@ -185,7 +182,6 @@ func test_a_reduced_list_lays_out_two_rows_and_steps_between_them() -> void:
 func test_the_weapon_box_shows_the_garnier() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var creation := _job_page(_flow(), "NlWeapon01")
 	creation.select_job(412)
 	assert_eq(creation.avatar.look.equips[-1], 1472000, "the preview wears the Garnier")
@@ -199,7 +195,6 @@ func test_the_weapon_box_shows_the_garnier() -> void:
 func test_create_makes_a_night_lord_with_its_garnier_and_separate_ladders() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var flow := _flow()
 	var creation := _job_page(flow, "NlOne01")
 	creation.select_job(412)
@@ -218,14 +213,13 @@ func test_create_makes_a_night_lord_with_its_garnier_and_separate_ladders() -> v
 	assert_eq(flow.save.slot(0).character.job_id, 412, "the first slot is unchanged")
 
 
-func test_night_lord_is_refused_when_the_mirror_is_removed_after_selection() -> void:
+func test_night_lord_is_refused_when_it_becomes_unplayable_after_selection() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var flow := _flow()
 	var creation := _job_page(flow, "NlRefused01")
 	creation.select_job(412)
-	DataRepo.patch = {}
+	DataRepo.patch = UNPLAYABLE.duplicate(true)
 	creation.create_button.pressed.emit()
 	assert_eq(creation.phase, "job", "still on the page")
 	assert_ne(String(creation.message.text), "", "the refusal is shown")
@@ -235,7 +229,6 @@ func test_night_lord_is_refused_when_the_mirror_is_removed_after_selection() -> 
 func test_a_bare_job_tool_run_uses_the_creation_claw_and_the_beginner_thief_stars() -> void:
 	var setup := RF.setup("quiet", 410, RF.quiet_data())
 	setup.job = 412
-	setup.data.jobs_survivor.jobs["412"]["playable"] = true
 	setup.equipment_info.merge({1472000: {"incPAD": 10, "attackSpeed": 6, "tuc": 7}}, true)
 	var w := RunWorld.new(setup)
 	assert_eq(int(w.equipment.worn.weapon.id), 1472000)
