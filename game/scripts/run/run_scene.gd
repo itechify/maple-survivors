@@ -1960,32 +1960,38 @@ func mob_status_effects() -> Array[Dictionary]:
 		var slot := int(record.slot)
 		if slot < 0 or world.swarm.active[slot] == 0:
 			continue
-		var status := world.mob_skills.immunity_state(slot, world.time)
-		if status.is_empty():
+		var visuals := world.mob_skills.status_visuals(slot, world.time)
+		if visuals.is_empty():
 			continue
 		var kind: MobKind = world.mob_kinds[world.swarm.kind[slot]]
 		# tier C: MobSkill pos2 is anchored at the mob body top; WZ origin supplies the gap above it.
 		var pos := Vector2(world.swarm.x[slot], world.swarm.y[slot] + kind.hitbox.position.y)
-		out.append({"boss_index": int(record.boss_index), "mob": slot, "visual": String(status.visual),
-			"pos": pos, "visible": _immunity_fx.has(int(record.boss_index))})
+		for visual: String in visuals:
+			out.append({"boss_index": int(record.boss_index), "mob": slot, "visual": visual, "pos": pos,
+				"visible": _immunity_fx.has(_status_key(int(record.boss_index), visual))})
 	return out
+
+
+## Key of one status icon over one boss (a boss can show an immunity and several buffs at once).
+func _status_key(boss_index: int, visual: String) -> String:
+	return "%d|%s" % [boss_index, visual]
 
 
 func _update_mob_status_effects() -> void:
 	var seen := {}
 	for status: Dictionary in mob_status_effects():
-		var index := int(status.boss_index)
-		seen[index] = true
-		if not _immunity_fx.has(index):
+		var key := _status_key(int(status.boss_index), String(status.visual))
+		seen[key] = true
+		if not _immunity_fx.has(key):
 			var slot := fx.play_repeating(String(status.visual), status.pos, INF)
 			if slot >= 0:
-				_immunity_fx[index] = slot
-		if _immunity_fx.has(index):
-			fx.place(int(_immunity_fx[index]), status.pos)
-	for index: int in _immunity_fx.keys():
-		if not seen.has(index):
-			fx.stop(int(_immunity_fx[index]))
-			_immunity_fx.erase(index)
+				_immunity_fx[key] = slot
+		if _immunity_fx.has(key):
+			fx.place(int(_immunity_fx[key]), status.pos)
+	for key: String in _immunity_fx.keys():
+		if not seen.has(key):
+			fx.stop(int(_immunity_fx[key]))
+			_immunity_fx.erase(key)
 
 
 func _update_player(delta: float) -> void:

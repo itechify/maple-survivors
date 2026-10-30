@@ -264,6 +264,7 @@ var _boss_level_damage := {}
 var _live_mdd := PackedFloat32Array()
 var _live_pdd := PackedFloat32Array()
 var _live_physical_allowed := PackedByteArray()
+var _live_magic_allowed := PackedByteArray() # 1/0 per slot: magic damage allowed (no magic immunity 141)
 ## Canonical MDD/PDD per mob kind index (refreshed every tick for the live defense fill).
 var _kind_mdd := PackedFloat64Array()
 var _kind_pdd := PackedFloat64Array()
@@ -1054,6 +1055,7 @@ func _step_player_attacks(dt: float) -> void:
 	if _map_clearing:
 		return
 	_fill_live_defense()
+	projectiles.magic_allowed = _live_magic_allowed
 	if map_sequence_enabled():
 		projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed,
 			_on_player_hit, _live_pdd, _projectile_kill)
@@ -1061,6 +1063,7 @@ func _step_player_attacks(dt: float) -> void:
 		projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed, _on_player_hit, _live_pdd)
 		for m in projectiles.kills:
 			_on_kill(m)
+	projectiles.magic_allowed = PackedByteArray() # no second reference, so the next fill writes in place
 	if _map_clearing:
 		return
 	_play_final_attacks()
@@ -1071,18 +1074,20 @@ func _projectile_kill(slot: int) -> bool:
 	return _map_clearing
 
 
-## Live MDD, PDD and physical_hit_allowed(slot) of every live slot, for the shots, in one pass (#146).
+## Live MDD, PDD, physical_hit_allowed(slot) and magic_hit_allowed(slot) of every live slot, for the shots, in one pass
+## (#146).
 func _fill_live_defense() -> void:
 	_live_mdd.resize(swarm.capacity())
 	_live_pdd.resize(swarm.capacity())
 	_live_physical_allowed.resize(swarm.capacity())
+	_live_magic_allowed.resize(swarm.capacity())
 	_kind_mdd.resize(mob_kinds.size())
 	_kind_pdd.resize(mob_kinds.size())
 	for k in mob_kinds.size():
 		_kind_mdd[k] = float((mob_kinds[k] as MobKind).mdd)
 		_kind_pdd[k] = float((mob_kinds[k] as MobKind).pdd)
 	mob_skills.fill_live_defense(swarm.active, swarm.kind, _kind_mdd, swarm.capacity(), time, _live_mdd,
-		_live_physical_allowed, _kind_pdd, _live_pdd)
+		_live_physical_allowed, _kind_pdd, _live_pdd, _live_magic_allowed)
 	swarm.lower_threatened_pdd(_live_pdd) # Threaten (#183): the same cut mob_defense applies
 	if level_scale != null: # the same captured multipliers mob_defense applies
 		for slot in swarm.capacity():
@@ -1856,6 +1861,11 @@ func physical_hit_allowed(m: int) -> bool:
 	return mob_skills.physical_hit_allowed(m, time)
 
 
+## Whether a magic impact may damage this slot at the current simulation time (false while its magic immunity, 141, lasts).
+func magic_hit_allowed(m: int) -> bool:
+	return mob_skills.magic_hit_allowed(m, time)
+
+
 ## Spawns scheduled boss `mob_id` as encounter `boss_index` (BossDirector arrival and final forms); returns its slot, -1 when
 ## the kind is not loaded or the swarm is full. Scheduled bosses never flinch or get pushed, whatever their WZ
 ## info/boss flag (tier C).
@@ -1937,6 +1947,8 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	var dtype := CombatMath.damage_type_of(String(st.get("damage_type", "")), bool(st.get("magic", false)))
 	var magic := dtype == "magic"
 	if not magic and not physical_hit_allowed(m):
+		return
+	if magic and not magic_hit_allowed(m):
 		return
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	var roll := ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
@@ -2585,6 +2597,13 @@ func _player_hit(m: int, mk: MobKind) -> void:
 ## apply later, in take_hit.
 func mob_weapon_attack(m: int, pad: float) -> float:
 	return swarm.threatened_pad(m, pad) * mob_skills.attack_multiplier(m, time)
+
+
+## MADamage `mad` of the mob in slot m at a magic attackN impact, times the multiplier of its magic attack up
+## (MobSkill 101/111, #457); the source's boss/elite/dmg_mult multipliers apply later, in take_hit. Touch and weapon
+## attacks never read it.
+func mob_magic_attack(m: int, mad: float) -> float:
+	return mad * mob_skills.magic_attack_multiplier(m, time)
 
 
 ## Defense inputs for a monster hit; overridable by subsequent equipment and buff rules.

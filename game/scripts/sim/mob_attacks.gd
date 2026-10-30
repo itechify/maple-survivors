@@ -326,6 +326,9 @@ static func _impact(pending: Dictionary, world: RunWorld) -> void:
 	if not bool(pending.magic):
 		# Threaten (#183) and Attack Up (#255) apply at impact, for strikes and balls alike, before the source's dmg_mult.
 		pending.damage = world.mob_weapon_attack(int(pending.mob), float(pending.damage))
+	else:
+		# Magic Attack Up (101/111, #457) multiplies the magic attacks of its recipients at impact, the same way.
+		pending.damage = world.mob_magic_attack(int(pending.mob), float(pending.damage))
 	emit(pending, "impact", world)
 	if int(pending.type) >= 3:
 		_strike_columns(pending, world)
