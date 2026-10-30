@@ -125,6 +125,24 @@ func test_fx_one_shot_and_hold() -> void:
 	assert_eq(fx.get("_active").size(), 2, "the pool did not grow")
 
 
+func test_fx_plays_one_pooled_animation_per_area_column() -> void:
+	var fx := FxRenderer.new()
+	fx.library = lib
+	root.add_child(fx)
+	var anchors := PackedVector2Array([Vector2(0, 0), Vector2(80, 0), Vector2(240, 0)])
+	assert_eq(fx.play_at_all("Mob.wz/0100100.img/move", anchors, 1.0), 3)
+	assert_eq(fx.active_count(), 3, "one pooled slot per warned column")
+	assert_eq(root.get_child_count(), 1, "no node per column")
+	fx.advance(0.37)
+	assert_eq(fx.active_count(), 3, "fitted to one second, the 360 ms animation is still playing")
+	fx.advance(0.7)
+	assert_eq(fx.active_count(), 0, "and ends with the wait")
+	assert_eq(fx.play_at_all("Mob.wz/0100100.img/none", anchors), 0, "a missing animation plays nothing")
+	assert_eq(fx.play_at_all("Mob.wz/0100100.img/move", anchors), 3)
+	fx.advance(0.37)
+	assert_eq(fx.active_count(), 0, "unfitted columns play at the WZ delays")
+
+
 func test_fx_negative_z_goes_behind() -> void:
 	var front := FxRenderer.new()
 	var back := FxRenderer.new()
