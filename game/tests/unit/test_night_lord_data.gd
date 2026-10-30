@@ -181,12 +181,12 @@ func test_a_defined_pool_key_belongs_to_the_night_lord_books_and_flash_jump_is_m
 		assert_eq(_defining_lines("flash_jump"), ["night_lord"])
 
 
-func test_the_skills_the_pool_has_so_far_are_lucky_seven_and_drain_still_in_thief_json() -> void:
+func test_lucky_seven_and_drain_were_moved_into_night_lord_json() -> void:
 	var data := _data()
 	for key: String in ["lucky_seven", "drain"]:
 		assert_true(data.skills.skills.has(key), "%s exists today" % key)
 		var lines := _defining_lines(key)
-		assert_true(lines in [["thief"], ["night_lord"]], "%s lives in thief.json until NL7 moves it (%s)" % [key, lines])
+		assert_eq(lines, ["night_lord"], "%s moved out of thief.json (NL7 #406)" % key)
 
 
 func test_an_undefined_pool_key_is_never_offered_as_a_card_and_flash_jump_is_never_a_card() -> void:

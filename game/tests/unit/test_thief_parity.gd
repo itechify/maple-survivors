@@ -4,7 +4,6 @@ extends TestCase
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const LINES := {
-	"lucky_seven": {"count": 3, "pierce": 2, "damage": 3, "cooldown": 3, "range": 2},
 	"double_stab": {"targets": 3, "hits": 2, "damage": 3, "cooldown": 3, "reach": 2},
 }
 
@@ -105,31 +104,11 @@ func test_each_path_has_thirteen_steps_across_five_behaviour_lines() -> void:
 
 
 
-func test_lucky_seven_extra_star_and_pierce_reach_more_monsters_in_seeded_combat() -> void:
-	for upgraded in [false, true]:
-		var w := _world("claw")
-		w.learn_skill("lucky_seven")
-		for mk: MobKind in w.mob_kinds:
-			mk.hitbox = Rect2(-2, -40, 4, 40)
-		if upgraded:
-			RF.add_modifier_effects(w, w.upgrades.card("lucky_seven_count"))
-			RF.add_modifier_effects(w, w.upgrades.card("lucky_seven_pierce"))
-		_targets(w, [Vector2(100, 0), Vector2(150, 0)])
-		w.runner.step(DT, w)
-		assert_eq(w.projectiles.active_count(), 3 if upgraded else 2)
-		w.drain_events()
-		for tick in 25:
-			w.step(DT, MoveInput.new())
-		var hits := _hits(w.drain_events(), "lucky_seven")
-		assert_eq(hits.size(), 6 if upgraded else 2, "each upgraded star hits both monsters once")
-
-
-
 func test_damage_and_cooldown_cards_scale_effective_stats_and_cast_cadence() -> void:
 	for key: String in LINES:
 		var casts: Array[int] = []
 		for upgraded in [false, true]:
-			var w := _world("claw" if key == "lucky_seven" else "dagger")
+			var w := _world("dagger")
 			w.learn_skill(key)
 			var before := w.loadout.stats(key)
 			if upgraded:

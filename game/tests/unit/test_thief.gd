@@ -127,12 +127,13 @@ func _cast(w: RunWorld, positions: Array) -> Array:
 
 func test_lucky_seven_fires_two_stars_at_nearest_with_luk_formula_and_any_weapon() -> void:
 	for path: String in WEAPONS:
-		for rank_value in [1, 20]:
+		# #406: the ported star has the default 20-level table, rank 8 = level 20 (rank 1 = level 3, the fixture's 0.68).
+		for rank_value in [1, 8]:
 			var w := _combat(path, "lucky_seven", rank_value)
 			var st := w.loadout.stats("lucky_seven")
 			assert_eq(st.count, 2)
 			assert_eq(st.cast_rule, "nearest")
-			assert_near(st.damage_pct, 0.58 if rank_value == 1 else 1.50)
+			assert_near(st.damage_pct, 0.68 if rank_value == 1 else 1.50)
 			# Worked formula example from v83-facts section 5, independent of the generic weapon formula.
 			w.loadout.luk_stat = 100
 			w.loadout.watk = 50
@@ -176,27 +177,30 @@ func test_cards_are_on_offer_whatever_weapon_is_held_and_on_both_branches() -> v
 		var w := _world()
 		RF.as_job(w, 400, path)
 		var eligible := w.upgrades.eligible(w)
-		for key: String in ["nimble_body", "lucky_seven", "double_stab"]:
+		# #406: Lucky Seven's standalone cards were deleted (its bonuses are rarity entries on the skill).
+		for id in ["lucky_seven_new", "lucky_seven_rank", "lucky_seven_count", "lucky_seven_pierce", "lucky_seven_damage",
+				"lucky_seven_cooldown", "lucky_seven_range"]:
+			assert_true(w.upgrades.card(id).is_empty(), id + " is gone")
+		for key: String in ["nimble_body", "double_stab"]:
 			assert_false(key + "_new" in eligible, "#287: unported skills have no pool offers")
 			w.learn_skill(key)
 		eligible = w.upgrades.eligible(w)
-		for key: String in ["nimble_body", "lucky_seven", "double_stab"]:
+		for key: String in ["nimble_body", "double_stab"]:
 			assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
 			assert_eq(int(w.upgrades.card(key + "_rank").get("max_rank", 0)), 20)
 			if key == "nimble_body":
 				continue
-			var id := key + ("_count" if key == "lucky_seven" else "_targets")
+			var id := key + "_targets"
 			assert_false(id in eligible, "#287: unported skills have no pool offers")
 			var before := w.loadout.stats(key)
 			RF.add_modifier_effects(w, w.upgrades.card(id))
 			var after := w.loadout.stats(key)
-			assert_eq(after.count if key == "lucky_seven" else after.mob_count,
-				(before.count if key == "lucky_seven" else before.mob_count) + 1)
+			assert_eq(after.mob_count, before.mob_count + 1)
 		for branch in [410, 420]:
 			RF.as_job(w, branch)
 			eligible = w.upgrades.eligible(w)
 			# A first-job card is on the line of both branches (UpgradePool.on_line, #284).
-			for key: String in ["nimble_body", "lucky_seven", "double_stab"]:
+			for key: String in ["nimble_body", "double_stab"]:
 				assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
 				assert_false(w.upgrades.card(key + "_new").requires.has("carry_jobs"))
 
@@ -248,9 +252,9 @@ func test_original_thief_values_art_sounds_and_equipment_resolve_in_the_private_
 	var loadout := Loadout.new(book)
 	for key: String in ["lucky_seven", "double_stab"]:
 		assert_eq(book.max_level(key), 20)
-		for rank_value in [1, 20]:
+		for rank_value in ([1, 8] if key == "lucky_seven" else [1, 20]):
 			var st := loadout.stats(key, rank_value)
-			assert_near(st.damage_pct, (0.58 if rank_value == 1 else 1.50) if key == "lucky_seven" else (0.98 if rank_value == 1 else 1.40))
+			assert_near(st.damage_pct, (0.66 if rank_value == 1 else 1.50) if key == "lucky_seven" else (0.98 if rank_value == 1 else 1.40))
 			assert_eq(st.count if key == "lucky_seven" else st.attack_count, 2)
 		for level in [1, 10, 15, 20, 25]:
 			for field: String in ["effect", "hit"]:

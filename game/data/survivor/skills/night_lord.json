@@ -1,5 +1,5 @@
 {
-	"_doc": "Night Lord skill definitions (spec #383, one marked region per ticket): NL6 #405 Flash Jump (mobility; its entry is the first one below, the region NL6 owns; later tickets append after it); NL7 #406 moves Lucky Seven and Drain here from skills/thief.json and adds Avenger and Triple Throw; NL8 #407 Ninja Storm and Ninja Ambush; NL9 #408 Shadow Meso; NL10 #409 Shadow Partner. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4), so Lucky Seven and Drain stay in thief.json until NL7. NL2 #401 defined none.",
+	"_doc": "Night Lord skill definitions (spec #383, one marked region per ticket): NL6 #405 Flash Jump (mobility; its entry is the first one below, the region NL6 owns; later tickets append after it); NL7 #406 moves Lucky Seven and Drain here from skills/thief.json and adds Avenger and Triple Throw; NL8 #407 Ninja Storm and Ninja Ambush; NL9 #408 Shadow Meso; NL10 #409 Shadow Partner. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4), NL7 #406 moved Lucky Seven and Drain here. NL2 #401 defined none.",
 	"_nl8_region": "NL8 #407 owns ninja_storm and ninja_ambush (the two entries below, kept together); other tickets append their entries beside them, never inside.",
 	"skills": {
 		"flash_jump": {
@@ -366,6 +366,404 @@
 			},
 			"_rarity": "Tier C: first-pass NL8 #407 bonuses (spec #383): Ninja Arts and Wide Ambush are flavour names; Ambush Squad adds two monsters to every strike (`count` raises mobCount); Legendary shares the Unique's id plus damage x1.2; Mastery repeats shrink x0.8. GAME_DESIGN 7.94.8.",
 			"_provenance": "Tier A: Skill.wz 4121004 damage 62 to 100 % per strike (rank 1 = level 4: 68 %), mobCount 6, time 4 / 8 / 12 s, the symmetric box +-110 -> +-200 by (-130, 70) (rank 1 +-120), the alert3 action, the 19-frame effect, the mob0 strike art on each struck monster and the Use sound. Equal to 4221004 at all 30 levels. Tier C: the 14 s cooldown (a 12 s zone never overlaps itself), min_targets 1, `ground.strike` {interval 1.0, first_delay 0.3} anchored at the cast, the 0.6 s action hold, no tile art (the effect plays once at the cast, the strikes bring `mob0`), the default 30-level rank table, no weapon gate; Shadow Shifter level 5 (the WZ req) is ignored. GAME_DESIGN 7.94.8."
+		},
+		"lucky_seven": {
+			"skill_id": 4001344,
+			"book": "400",
+			"job": 400,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Lucky Seven",
+			"desc": "Throws two stars at nearby monsters, using LUK regardless of Claw Mastery.",
+			"icon": "Skill.wz/400.img/skill/4001344/icon",
+			"damage": "physical",
+			"_tier": "Tier A: WZ weapon 47, bulletCount 2, damage, mpCon, effect and CharLevel hit art; no ball node, so ammo_shot uses the current star. Tier B: LUK x5.0/x2.5 formula ignoring mastery (v83-facts 5). Tier C: nearest auto-cast, 250px base claw reach, cooldown 1s, shoot1 held 0.6s, speed 600px/s, radius 8px, no base pierce; untuned. NL7 #406 (GAME_DESIGN 7.94.6): ported from thief.json with the default 20-level rank table (ranks 1/4/8 read levels 3/10/20), the claw's own swingO1 stance instead of shoot1 (the claw vanishes in shoot1, ROSTER_PLAN D10, tier C), `echo` attack class, rarity bonuses.",
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 1,
+			"range": 250,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 0,
+			"ammo_shot": true,
+			"physical_formula": {
+				"primary": "luk",
+				"max_mult": 5,
+				"min_mult": 2.5,
+				"secondary": "",
+				"ignore_mastery": true
+			},
+			"action": "swingO1",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/400.img/skill/4001344/hit/0",
+			"effect": "Skill.wz/400.img/skill/4001344/effect",
+			"char_level": {
+				"thresholds": [
+					10,
+					15,
+					20,
+					25
+				],
+				"hit": "Skill.wz/400.img/skill/4001344/CharLevel/{cl}/hit/0"
+			},
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4001344/Use",
+				"hit": ""
+			},
+			"echo": {
+				"class": "attack"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "claw_mastery",
+						"text": "Claw Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "venomous_star",
+						"text": "Venomous Star",
+						"effects": [
+							{
+								"stat": "status",
+								"op": "grant",
+								"status": "venomous_star"
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "lucky_eight",
+						"text": "Lucky Eight",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "lucky_eight",
+						"text": "Lucky Eight",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"drain": {
+			"skill_id": 4101005,
+			"book": "410",
+			"job": 410,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Drain",
+			"desc": "Throws a star and absorbs part of its damage as HP, capped at half your MaxHP and the monster's MaxHP.",
+			"icon": "Skill.wz/410.img/skill/4101005/icon",
+			"damage": "physical",
+			"_tier": "Tier A: weapon 47, damage, mpCon, x healing percent, effect, lowercase use sound; v83 text caps healing at character MaxHP/2 and target MaxHP. Tier C: nearest auto-cast, one star, 250px range, 1s cooldown, speed 600px/s, radius 8px, no base pierce, shoot1 held 0.6s; untuned. Whole healing points truncate. NL7 #406 (GAME_DESIGN 7.94.6): ported from thief.json with the default 30-level rank table (ranks 1/4/8 read levels 4/15/30), the claw's own swingO1 stance instead of shoot1 (ROSTER_PLAN D10, tier C), `echo` attack class, rarity bonuses.",
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 1,
+			"range": 250,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 0,
+			"ammo_shot": true,
+			"damage_heal": {
+				"percent_field": "x",
+				"max_hp_fraction": 0.5,
+				"target_max_hp": true
+			},
+			"text": {
+				"desc": "Throws a star and absorbs part of its damage as HP, capped at half your MaxHP and the monster's MaxHP.",
+				"h": "Damage {damage}%, absorb {x}% of damage as HP."
+			},
+			"action": "swingO1",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/410.img/skill/4101005/effect",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4101005/use",
+				"hit": ""
+			},
+			"echo": {
+				"class": "attack"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "claw_mastery",
+						"text": "Claw Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "claw_booster",
+						"text": "Claw Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "double_drain",
+						"text": "Double Drain",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "double_drain",
+						"text": "Double Drain",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"avenger": {
+			"skill_id": 4111005,
+			"book": "411",
+			"job": 411,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Avenger",
+			"desc": "Hurls one giant star that pierces a line of monsters.",
+			"icon": "Skill.wz/411.img/skill/4111005/icon",
+			"damage": "physical",
+			"action": "avenger",
+			"action_time": 0.6,
+			"ball": "Skill.wz/411.img/skill/4111005/ball",
+			"hit": "",
+			"effect": "Skill.wz/411.img/skill/4111005/effect",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4111005/Use",
+				"hit": ""
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 3.5,
+			"range": 350,
+			"speed": 700,
+			"radius": 14,
+			"pierce": 0,
+			"pierce_field": "mobCount",
+			"echo": {
+				"class": "skill"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "claw_mastery",
+						"text": "Claw Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "stunning_avenger",
+						"text": "Stunning Avenger",
+						"effects": [
+							{
+								"stat": "status",
+								"op": "grant",
+								"status": "stunning_avenger"
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "deep_avenger",
+						"text": "Deep Avenger",
+						"effects": [
+							{
+								"stat": "pierce",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "deep_avenger",
+						"text": "Deep Avenger",
+						"effects": [
+							{
+								"stat": "pierce",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: WZ damage 65..180%, mobCount 4..6, action avenger, the 14-frame caster effect, the 72x72 rotating ball and the Use sound; the WZ has no range, no lt/rb and no hit art, and bulletConsume 3 is not modelled (endless ammo). Tier C (#406, GAME_DESIGN 7.94.6): the eight survivor ranks (levels 4..30 through the 30-level table), nearest auto-cast with its own ball (no ammo sprite), 3.5s cooldown, 350px range, 700px/s, 14px radius, `pierce_field` mobCount (the star strikes mobCount monsters, so it pierces mobCount - 1) with no falloff, 0.6s held stance, echo class skill, rarity bonuses (the Epic grants stunning_avenger). Untuned."
+		},
+		"triple_throw": {
+			"skill_id": 4121007,
+			"book": "412",
+			"job": 412,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Triple Throw",
+			"desc": "Throws three stars at one monster.",
+			"icon": "Skill.wz/412.img/skill/4121007/icon",
+			"damage": "physical",
+			"action": "swingO1",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/412.img/skill/4121007/hit/0",
+			"effect": "Skill.wz/412.img/skill/4121007/effect",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4121007/Use",
+				"hit": "Sound.wz/Skill.img/4121007/Hit"
+			},
+			"cast": {
+				"rule": "nearest",
+				"focus": true
+			},
+			"cooldown": 2.5,
+			"range": 300,
+			"speed": 650,
+			"radius": 8,
+			"pierce": 0,
+			"ammo_shot": true,
+			"echo": {
+				"class": "skill"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "critical_throw",
+						"text": "Critical Throw",
+						"effects": [
+							{
+								"stat": "crit",
+								"op": "add",
+								"value": 0.15
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "claw_booster",
+						"text": "Claw Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "fourth_star",
+						"text": "Fourth Star",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "fourth_star",
+						"text": "Fourth Star",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: WZ damage 102..150% per star, bulletCount 3, weapon 47, hit/0 and the 6-frame effect, Use and Hit sounds; the WZ node has no action. Tier C (#406, GAME_DESIGN 7.94.6): the eight survivor ranks (levels 4..30), `cast.focus` (all three stars at the nearest monster, a scheduled boss first), 2.5s cooldown, 300px range, 650px/s, 8px radius, no pierce, the claw's own swingO1 stance held 0.6s (shoot1 hides the claw, ROSTER_PLAN D10), echo class skill, rarity bonuses. Untuned."
 		}
 	}
 }

@@ -8173,7 +8173,7 @@ define them, the `meter` block until NL4 gives `PlayerMeter` the `meso_picked` r
 |---|---|---|
 | Job entry | `jobs/night_lord.json` | `412`: `starting_skill lucky_seven`, `mobility_skill flash_jump`, `weapon_families ["claw"]`, `creation_weapon 1472000` (Garnier, reqJob 8, the Thief bit), `playable false` |
 | Skill pool (8) | `skill_pool` | `lucky_seven`, `drain`, `avenger`, `triple_throw`, `ninja_storm`, `ninja_ambush`, `shadow_partner`, `shadow_meso` |
-| Skill file | `skills/night_lord.json` | `{"skills": {}}` and a `_doc` (NL6 #405 then defined `flash_jump`, 7.94.2) naming the regions NL6-NL10 append to; Lucky Seven and Drain stay in `thief.json` until NL7 moves them (a repeated key is a load error) |
+| Skill file | `skills/night_lord.json` | `{"skills": {}}` and a `_doc` (NL6 #405 then defined `flash_jump`, 7.94.2) naming the regions NL6-NL10 append to; NL7 #406 moved Lucky Seven and Drain here from `thief.json` (7.94.6; a repeated key is a load error) |
 | Meter | `jobs/night_lord.json` `meter` | meso charge: max 10, `gain {event meso_picked, amount 1, per_mesos 1000}`, `decay {interval 6.0, amount 1}`, `per_unit {damage, 0.03}`, art `Item.wz/Special/0900.img/09000002/iconRaw`; inert until NL4 |
 | AP row | `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` Thief keyframes copied verbatim (Lv1 25, Lv25 25, Lv200 200) |
 | Bot scores | `balance.bot.card_scores` | `shadow_partner_new` 100, `shadow_partner_rank` 74 (the summon is not an `attack` to `BotInput._base_score`; the other seven score as attacks by default) |
@@ -8448,6 +8448,41 @@ grant, independently of the skill's canonical level. Cast snapshots preserve gra
 After native on-hit, every grant under 100% draws once on stream 1 (including zero); 100% draws nothing. Existing
 boss/element gates and refresh semantics apply. Cards and Skill window append rank-resolved chance/duration text.
 NL2 owns the shipping catalogue; NL7 owns its first skill users. This ticket adds no balance data or playable job.
+
+#### 7.94.6 Core stars: Lucky Seven, Drain, Avenger, Triple Throw (spec #383 NL7, #406)
+
+(The spec calls this paragraph 7.96; that number is taken in this tree, so it is 7.94.6. Constants: "Night Lord NL7 constants".)
+
+The four star skills of the Night Lord pool live in `skills/night_lord.json`:
+
+- **Lucky Seven and Drain move.** Both leave `skills/thief.json` (a key defined in two files is a load error) with every number,
+  the LUK formula (`ignore_mastery`), the CharLevel hit art, the lowercase Drain `use` sound and `damage_heal` unchanged. They drop
+  their explicit `ranks` lists for the default tables: Lucky Seven (20 levels) reads levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20 at
+  ranks 1-8 (66 / 100 / 150% at ranks 1 / 4 / 8), Drain (30 levels) reads 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 (108 / 130 / 160%,
+  absorb 19 / 30 / 45%). Both gain `echo {class attack}` (Shadow Partner's `x`) and move from `shoot1` to the claw's own
+  `swingO1` (the claw vanishes in `shoot1`; ROSTER_PLAN D10). The legacy standalone cards (`lucky_seven_new/_rank/_count/_pierce/
+  _damage/_cooldown/_range`, `drain_new/_rank/_pierce`) are deleted: a playable Night Lord's new / rank cards come from
+  `UpgradePool.add_pool_skills` and the bonuses are rarity entries.
+- **Avenger** (4111005, book 411): `nearest`, its own 72 x 72 `ball` (rotating), 350 px, 700 px/s, 14 px radius, 3.5 s,
+  `pierce_field "mobCount"` (Dragon's Breath's seam: pierce = `mobCount - 1`, 3 / 4 / 5 at ranks 1 / 4 / 8) and no falloff along the
+  line (the WZ text "attack the ones behind it"; tier C reading). Damage 80 / 130 / 180%. Action `avenger`, the 14-frame caster
+  `effect` and the `Use` sound; the node has no `hit` art and `bulletConsume 3` is not modelled (endless ammo). `echo {class skill}`.
+- **Triple Throw** (4121007, book 412): `nearest` with `cast.focus` (Strafe's seam: admission wants one target and all three stars
+  fly at it, a scheduled boss first), `count` 3 (`bulletCount`), `ammo_shot`, 300 px, 650 px/s, 8 px radius, 2.5 s. Damage 108 /
+  130 / 150% per star. `hit/0`, the 6-frame `effect`, `Use` and `Hit` sounds. The WZ node has no `action`, so it throws from `swingO1`.
+  `echo {class skill}`.
+- **Rarity** (tier C, spec table): Lucky Seven Rare Claw Mastery damage x1.2, Epic **Venomous Star** (`grant venomous_star`:
+  14 -> 30% to poison for 2 -> 4 s at poison level 4 -> 30), Unique Lucky Eight `count` +1; Drain Rare Claw Mastery, Epic Claw
+  Booster cooldown x0.88, Unique Double Drain `count` +1 (a second star at another monster, each draining); Avenger Rare Claw
+  Mastery, Epic **Stunning Avenger** (`grant stunning_avenger`: 20 -> 50% to stun for 1.5 s), Unique Deep Avenger `pierce` +2;
+  Triple Throw Rare Critical Throw `crit` +0.15, Epic Claw Booster, Unique Fourth Star `count` +1. Legendary = the Unique's id (one
+  repeat counter) plus damage x1.2. The two grants are the first users of the status bonus (7.94.5): data only, no new code. A
+  Mastery repeat of a grant raises its chance by the catalogue's `repeat_chance` x 0.8 points.
+
+Tests: `test_night_lord_stars` (the move and the deleted cards, the default tables, the claw stance and echo flags, each skill's
+cast, Avenger's line by rank and the absence of falloff, Triple Throw's focus and boss priority, both grants by rank including
+bosses and the single stream-1 draw, the rarity table, every bonus changing the resolved cast, the card and Mastery rules and the
+real-cache all-eight-ranks check).
 
 ## 8. Upgrades
 
@@ -10435,3 +10470,23 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 - Tier C: the shipped `balance.status_bonuses` entries (`venomous_star`, `stunning_avenger`) are NL2's; NL3 only validates them
   at load (`DataRepo.load_all`) and resolves them by the owning skill's rank. Echoed stars and ground-strike hits carry the
   grants because they re-use the cast snapshot (tests in `test_echo_cast` and `test_night_lord_crowd`).
+
+### Night Lord NL7 constants (#406)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Lucky Seven / Drain numbers | unchanged by the move: 250 px, 600 px/s, 8 px radius, 1.0 s, LUK x5.0/x2.5 (mastery ignored), absorb `x` capped at half max HP and target max HP | tier B / C as recorded in 7.94 and the old thief entries |
+| Lucky Seven / Drain ranks | default tables: Lucky Seven levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20, Drain 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 | tier C (the shared survivor rank tables; the explicit 20- and 30-entry lists are gone) |
+| Lucky Seven / Drain stance | `swingO1`, held 0.6 s (was `shoot1`, which hides the claw) | tier C: ruling D10 |
+| Avenger damage / `mobCount` | 65 -> 180% (80 / 130 / 180% at ranks 1 / 4 / 8), `mobCount` 4 -> 6 (4 / 5 / 6) | tier A (Skill.wz 411.img 4111005) |
+| Avenger range / speed / radius / cooldown | 350 px / 700 px/s / 14 px / 3.5 s | tier C: spec #383 |
+| Avenger pierce | `pierce_field "mobCount"`: `mobCount - 1`, no falloff (`pierce_falloff` 0) | tier C: spec #383 (reading of "attacks the ones behind it") |
+| Avenger action / art | `avenger` held 0.6 s, `effect` (14 frames), own `ball` (72 x 72, rotating), no `hit` art, `bulletConsume 3` not modelled | tier A (art, action) / tier C (hold) |
+| Triple Throw damage / stars | 102 -> 150% (108 / 130 / 150%), `bulletCount` 3 | tier A (Skill.wz 412.img 4121007) |
+| Triple Throw range / speed / radius / cooldown | 300 px / 650 px/s / 8 px / 2.5 s, `cast.focus` | tier C: spec #383 |
+| Triple Throw stance | `swingO1` held 0.6 s (the node has no `action`) | tier C: ruling D10 |
+| Echo classes | Lucky Seven and Drain `attack`; Avenger and Triple Throw `skill` | tier C: spec #383 |
+| Rarity ids | `claw_mastery` (x1.2), `venomous_star` (grant), `lucky_eight` (`count` +1), `claw_booster` (cooldown x0.88), `double_drain` (`count` +1), `stunning_avenger` (grant), `deep_avenger` (`pierce` +2), `critical_throw` (`crit` +0.15), `fourth_star` (`count` +1); Legendary = Unique + damage x1.2 | tier C: spec #383 |
+| Venomous Star on Lucky Seven's Epic | catalogue entry (NL2): chance 14 / 16 / 18 / 20 / 24 / 26 / 28 / 30%, time 2 / 2 / 3 / 3 / 3 / 4 / 4 / 4 s, poison level 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 | tier A (4120005 `prop`, `time`, level map) |
+| Stunning Avenger on Avenger's Epic | catalogue entry (NL2): chance 20 / 24 / 28 / 32 / 36 / 40 / 45 / 50%, 1.5 s | tier C: spec #383 |
+
