@@ -1,0 +1,9 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Marksman line (spec #360 #361). The 3rd and 4th job Bowman skill books Skill.wz/321.img (Sniper) and 322.img (Marksman) whole, and the Sound.wz/Skill.img nodes of the Marksman pool: Blizzard 3211003, Arrow Eruption 3211004, Strafe 3211006, Piercing Arrow 3221001, Dragon's Breath 3221003, Frostprey 3221005 and Snipe 3221007, plus 3121001 (the Sound node the Dragon's Breath Use and Hit UOLs of 3221003 point to; no skill book owns it anymore). Do not list 3211005 (Golden Eagle), 3111006 or 3121006 here: they are in bowmaster.json and the 3211006, 3221005 and 3211005 sound UOLs resolve into them (a path in two files is an error). Bows, crossbows, arrows and the 300 / 310 / 320 books stay in bowman.json.",
+	"imgs": [
+		{"img": "Skill.wz/321.img"},
+		{"img": "Skill.wz/322.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["3211003", "3211004", "3211006", "3221001", "3221003", "3221005", "3221007", "3121001"]}
+	]
+}
