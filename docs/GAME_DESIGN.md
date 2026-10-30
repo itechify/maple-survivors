@@ -4467,6 +4467,18 @@ Oracles `character_baseline`, `tick_cost_identity` and `hero_baseline` reproduce
 `missing: []`; Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut and Corkscrew Blow all cast (`cast_*.png`); flow
 evidence only, not survival evidence.
 
+### Corsair C2 data smoke (#386, 2026)
+
+Data-only ticket (`jobs/corsair.json`, not playable, no balance data of another job touched). Training seeds 1/2/2026, Henesys bot,
+`JOBS=3`, real private cache: F/P (212) and Hero (112) rows are byte-identical to the base commit `53652f78` (212 died at 12:31 /
+11:01 / 7:54 Lv44 / 37 / 24; 112 at 5:27 / 5:36 / 11:28; no clears, no warnings). Oracles `character_baseline`, `tick_cost_identity`
+and `hero_baseline` reproduce their hashes. Diagnostic `--job=522` playtests (`playable: true` temporarily, reverted, never committed):
+Henesys speed 8, 4 minutes reached Lv8 with `missing: []`, the title "Corsair" on the HUD, a Pistol in hand and the Double Shot, Invisible
+Shot, Grenade and Recoil Shot casts captured (the four ported skills, still defined in `pirate.json`); Sleepywood with a kit
+character (a Pistol-class gun, Pirate-bit gloves and the generic hat and top, tier 2) died at 0:07 at Lv1 on the shared 50 starting HP
+(the ranged default, like Bowmaster and I/L; Hero and Paladin copy 600), `missing: []`. Flow and visual evidence only, not survival
+evidence; screenshots in gitignored `evidence/386/`.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
