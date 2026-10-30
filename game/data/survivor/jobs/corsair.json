@@ -31,11 +31,23 @@
 			"playable": false,
 			"_provenance": "tier C: spec #384 C2 #386: Corsair is data-only until C14 flips playable; 212 remains the default.",
 			"hub_kit": {
-				"fixture": "",
-				"scrolls": [],
-				"equipment": [],
-				"fallback_item": 1492000,
-				"_hub_kit": "tier C: spec #384 C2 #386: a placeholder (C14 fills it with the gun scrolls, spare Pirate-bit gear and the fixture corsair_t2.json). The empty fixture names no file until that fixture exists; the job is not selectable before C14, so nothing opens the hub with it. fallback_item is the creation Pistol."
+				"fixture": "res://tests/fixtures/characters/corsair_t2.json",
+				"_fixture": "tier C: spec #384 C14 #398: the Corsair fixture (tier 2, the tier-1 gun kit); tool-only.",
+				"scrolls": [
+					2044900,
+					2044901,
+					2044902,
+					2044903,
+					2044904
+				],
+				"equipment": [
+					1002001,
+					1492001,
+					1082002,
+					1040010
+				],
+				"fallback_item": 1492006,
+				"_kit": "tier C: spec #384 C14 #398: the five gun ATT scrolls of scrolls/pirate.json (100/60/10, dark 70% and 30%; v83 has no gun ACC scrolls), 10 per stack; spare gear is a second pistol (1492001, Lv15) and the all-job hat, gloves and top (the cache holds no armour with the Pirate bit; Buccaneer's kit does the same); the flow driver's diagnostic item is the Lv40 gun 1492006."
 			}
 		}
 	},
@@ -58,6 +70,37 @@
 					"_ap": "tier C: spec #384 (CS-12): the shared 520 row copied verbatim (DEX primary, STR secondary, keyframes Lv1 -> 1 and Lv200 -> 200: the Gunslinger gear pattern, no new tuning), explicit so 522 does not depend on lineage rows the Buccaneer spec may touch. No hp key: the starting HP is the shared default and HP growth inherits the 500 row (25)."
 				}
 			}
+		},
+		"bot": {
+			"card_scores": {
+				"double_shot_new": 100,
+				"double_shot_rank": 74,
+				"burst_fire_new": 100,
+				"burst_fire_rank": 74,
+				"invisible_shot_new": 100,
+				"invisible_shot_rank": 74,
+				"recoil_shot_new": 100,
+				"recoil_shot_rank": 74,
+				"grenade_new": 100,
+				"grenade_rank": 74,
+				"flamethrower_new": 100,
+				"flamethrower_rank": 74,
+				"ice_splitter_new": 100,
+				"ice_splitter_rank": 74,
+				"octopus_new": 100,
+				"octopus_rank": 74,
+				"gaviota_new": 100,
+				"gaviota_rank": 74,
+				"homing_beacon_new": 100,
+				"homing_beacon_rank": 74,
+				"aerial_strike_new": 100,
+				"aerial_strike_rank": 74,
+				"rapid_fire_new": 100,
+				"rapid_fire_rank": 74,
+				"battleship_new": 100,
+				"battleship_rank": 74
+			},
+			"_card_scores": "tier C: spec #384 (C14 #398): every pool skill is scored explicitly, learn 100 and rank 74, the numbers BotInput's pool default gives every curated skill. Octopus, Gaviota and the Battleship need their pair: BotInput._base_score alone only treats projectile / instant / box skills as attacks and these are summons and a form; the other ten entries are a guard, not a behaviour change. Battleship's Cannon and Torpedo are form subs with no cards."
 		}
 	}
 }

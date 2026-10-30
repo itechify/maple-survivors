@@ -4512,6 +4512,17 @@ died at 12:31 / 11:01 / 7:54 and Hero (112) at 5:27 / 5:36 / 11:28, no clears, n
 `missing: []`; the ship drawn with the seated rider, the blue hull bar over the head, a Cannon volley, a Torpedo flash and the broken hull
 (10 HP at rank 1 / Lv1) looked at by eye. Not tuned.
 
+### Corsair C14 smoke (#398, 2026)
+
+No sim code changed (job page layout, fixtures, hub kit, bot scores, tests). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212)
+died at 7:54 / 11:02 / 12:32 and Hero (112) at 5:28 / 5:37 / 11:28, no clears, no warnings, identical to the C13 rows above (the 12:31 / 11:01
+there are the same deaths read at tick resolution). `test_character_baseline`, `test_tick_cost_identity` and the Hero, I/L, Paladin and Bowmaster baselines
+reproduce their hashes in the full suite (3801 tests, 0 failed, 0 skipped with the cache; 0 failed, 458 skipped without it). New Corsair oracle
+`test_corsair_baseline`: seed 1, 6 minutes, Lv11, 426 casts. Diagnostic `--job=522` playtest (Corsair flipped playable in a private mirror,
+`corsair_t2.json`, Henesys seed 3, stopped at 2:00 because the window was throttled to 1 fps): the pistol drawn, Double Shot, Burst Fire,
+Ice Splitter, Homing Beacon and Rapid Fire casts, Lv5, 42 kills, no `game.log` warning (no `summary.json`: not run to its end). Sleepywood not run (50 HP at Lv1,
+C2's note). Not tuned.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
@@ -8646,6 +8657,48 @@ spec listed for C3 that was left was the `ranks` removal, which this ticket does
 | Dash rank table (#387) | the shared definition's ten explicit `ranks` (rank N = WZ level N), unchanged from B5; not the level-10 default table | C |
 | Dash rows | WZ `x` 12 -> 30, `y` 1 -> 10, `time` 4 -> 20 s per level 1-10, effect art and `Use` sound | A |
 
+#### 7.120.16 Corsair C14: selection and tooling (#398, spec #384)
+
+Everything that lets Corsair be selected, run, hand-tested and regression-pinned while `playable` stays **false** until C15. No sim code
+changed; the data edit is `jobs/corsair.json` (hub kit and bot scores).
+
+- **Job page.** With 522 mirrored playable the page has nine rows (Corsair last, after Buccaneer), which does not fit the 21 px pitch: the
+  layout fix is Night Lord's NL11 (#410, `JOB_LIST_BOTTOM` 366, `creation.job_pitch`, 18 px for nine rows). This branch carries the identical edit
+  (and the same seven test edits) so the two merge without conflict. `flow_driver creation --jobs=212,522` with Corsair flipped in a private mirror
+  PASSED; nine rows, Corsair highlighted, "Pistol · WATK 13 · 0.75s" (screenshot looked at). `test_creation_corsair` mirrors the flag through `DataRepo.patch`.
+- **Tools.** `--job=522` is accepted by `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, the fixture tool and the flow driver through `playable`
+  alone (`JobTree.job_error`); until the flip they refuse it ("not playable") and a `--patch` / `PATCH` / `DataRepo.patch` mirrors it. `--job=212 --character=<Corsair>`
+  and `--job=522 --character=<F/P>` fail with the "does not match the character's job N" message (`test_corsair_selection`, subprocesses).
+- **Fixture** `corsair_t2.json` (job 522, tier 2, kit mode): the Lv25 pistol 1492003 (PAD 27, the same `reqLevel` as the F/P staff), hat 1002096 (reqLevel 25),
+  shoes 1072017 (21), gloves 1082002 (10), the starter top and bottom, unscrolled. The spec asked for Pirate-bit gear of the F/P kit's tier-1 `reqLevel`s
+  (30 / 20 / 15), but the asset cache holds no armour with the Pirate bit (`reqJob` 16: only the guns and knuckles), so these are the all-job pieces
+  (`reqJob` 0) nearest to those levels, as Buccaneer's kit does. `--hub --job=522` opens it.
+- **Hub kit** (`jobs/corsair.json` `hub_kit`, read through `lineage_value`; `HubTestKit` needed no code): the five gun ATT scrolls of `scrolls/pirate.json`
+  (100 / 60 / 10 and dark 70 / 30: v83 has no gun ACC scroll), 10 per stack; spare pistol 1492001 (Lv15), hat 1002001, gloves 1082002 and top 1040010; the flow
+  driver's diagnostic item is the Lv40 gun 1492006.
+- **Bot.** `balance.bot.card_scores` in `jobs/corsair.json` names all thirteen pool skills, `_new` 100 and `_rank` 74. Only Octopus, Gaviota and the Battleship need
+  it (`BotInput._base_score` treats only projectile / instant / box skills as attacks, so a summon and a form would score as non-attacks); the other ten are
+  a guard, as in Bowmaster's and Night Lord's files. The bot kites with the gun: every pool skill but the three above has a reach of at least the 220 px
+  `kite_reach`, and Dash follows the existing rule (low HP with a mob close, or three mobs within 120 px). **Real WZ ranges** (`test_corsair_bot`, cache): Double Shot 230
+  (the spec's table says 350; it is the shortest and only just above the threshold), Invisible Shot 250, Recoil Shot 300, Burst Fire / Flamethrower / Ice Splitter / Homing
+  Beacon / Rapid Fire 350, Grenade / Aerial Strike / Cannon 400; summons and the ship 0.
+- **Baseline oracle** `test_corsair_baseline` (seed 1, `--job=522`, bot, god, synthetic assets from `corsair_fixtures.gd`, the Bowmaster recipe, **21600 ticks**).
+  The pool is frozen in the test itself (`skill_pool` is written out), so a later skill cannot move it. All thirteen skills already existed at capture (C1-C13 merged
+  first), so the QA ticket does **not** need to widen and recapture it (the ticket text expected a partial pool). The bot takes Double Shot, Dash, Recoil Shot, Ice Splitter,
+  Homing Beacon, Gaviota and Rapid Fire in six minutes (Lv11); the six slots fill first, so Burst Fire, Invisible Shot, Grenade, Flamethrower, Octopus, Aerial Strike and
+  the Battleship are defined but never taken at seed 1 (the skill tickets' own tests cover them). No ammo step either (Lv18 comes later; `test_corsair_ammo`).
+  Same digest with and without the cache. A change to a Corsair skill, shared combat or the bot must leave `GOLDEN` alone or recapture it with the cause written beside it.
+- **Skill window.** Tabs follow the lineage: Common, Pirate 500, Gunslinger 520, Outlaw 521, Corsair 522; Dash is on the Pirate tab beside Double Shot (the window lists a job's
+  skills a card offers or the run owns, in skill-id order); the ship's Cannon and Torpedo have no card and are never rows. `test_skill_window_corsair` (model, synthetic) and a
+  real `RunScene` for 522 through the K hotkey (cache; skipped without).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Baseline length (#398) | 21600 ticks (6 min), seed 1, bot, god, the thirteen-skill pool frozen in the test | C |
+| Bot card scores (#398) | the thirteen pool skills `_new` 100, `_rank` 74 (the pool default's numbers, explicit) | C |
+| Fixture kit (#398) | pistol 1492003, hat 1002096, shoes 1072017, gloves 1082002, starter top / bottom, tier 2 | C |
+| Hub kit (#398) | gun ATT scrolls 2044900-2044904 x10, spare 1002001 / 1492001 / 1082002 / 1040010, fallback item 1492006 | C |
+
 
 ## 8. Upgrades
 
@@ -10641,3 +10694,7 @@ The constants of the two cones (the literal burn `pulse`, the front-only box, th
 ### Corsair C3 constants (#387)
 
 The constants of Dash as the Corsair's mobility skill (the shared rank rule and the kept ten-rank table) are in section 7.120.15, nested under the Corsair section.
+
+### Corsair C14 constants (#398)
+
+The constants of the Corsair selection and tooling (the baseline length, the explicit bot scores, the fixture kit and the hub kit) are in section 7.120.16, nested under the Corsair section.

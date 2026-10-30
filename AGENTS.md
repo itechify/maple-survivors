@@ -349,6 +349,20 @@ Lv70 reach and the tier-1 feed count; unstarted rounds contribute no death/boss 
 character and bot/random/first policies; use `--character` and campers only for one-off rounds. A `--tier` chain carries the
 format-3 character (its pickups and tier unlocks) from a CLEARED round to the next; every round still starts at Lv1.
 
+### Corsair (522) tooling (spec #384, C14 #398)
+
+Corsair is wired for selection but ships `playable: false` until C15: the Job page does not list it and `--job=522` is refused ("not playable") by
+`balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, the fixture tool and the flow driver until the flip. To try it, mirror the flag
+(`PATCH=<abs json {"jobs_survivor": {"jobs": {"522": {"playable": true}}}}>` for `balance.sh`, `--patch=` for `balance_run.gd` and
+`tools/character_fixture.gd`, or a private mirror edit of `jobs/corsair.json` for `playtest.sh` and the flow driver; never commit the flip).
+`game/tests/fixtures/characters/corsair_t2.json` is the Corsair fixture: kit mode (`--job=522 --kit=1492003,1002096,1072017,1082002,1040002,1060002
+--tiers=2 --patch=<the playable json>`: a Lv25 pistol and the closest all-job hat, shoes and gloves the cache holds (it has no Pirate-bit armour), the
+starter top and bottom, unscrolled, tier 2 open). **Every Corsair run needs a gun in hand** (the bullets' ammo and the 230-400 px skill ranges follow
+it). `--hub --job=522` opens the fixture with five stacks of gun ATT scrolls and spare pistol, hat, gloves and top (`jobs/corsair.json` `hub_kit`);
+`--job=212` with this file, or `--job=522` with `fp_arch_mage.json`, is the usual "does not match the character's job" error. The Job page with nine
+rows uses the 18 px pitch (NL11 #410); `flow_driver creation --jobs=212,522` checks it. The baseline oracle is `test_corsair_baseline` (six minutes,
+pool frozen in the test).
+
 ## Git
 
 Commit meaningful milestones on the working branch with clear messages. Do not commit `_scratch/`, `evidence/`,
