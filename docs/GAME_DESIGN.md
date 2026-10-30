@@ -8548,6 +8548,30 @@ Flock are the Unique bonuses (`summon_count` +1). Ranks map to WZ levels 4 / 8 /
 | Out of scope (#390) | Wrath's second sprite (`attack2`), flock formations, Aerial Strike (C10) | C |
 | Test world (#390) | `test_corsair_summons` builds a 522 world with `playable` flipped in its own data only, and a synthetic 521 book with the two real nodes' shapes (ranges, `attackAfter`, frame counts, `pad` 84 -> 200 / 218 -> 450, `time` 10 / 20 / 30); the real-cache test checks all eight ranks | C |
 
+#### 7.120.8 Corsair C9: Flamethrower and Ice Splitter (#393)
+
+The two cones of the Corsair pool, both `box` casts on the front-only WZ box `lt (-350,-100) rb (0,0)` (a facing-left box
+mirrored for a right-facing caster like every canonical box), both `kind instant`, `damage physical`, in `skills/corsair.json`.
+Flamethrower (5211004, element `f` from `elemAttr`) sets each struck monster on fire through Bowmaster's burn status
+(GAME_DESIGN 7.43; status index 7, fire-gated: bosses and fire-immune, strong or neutral monsters reject it); Ice Splitter
+(5211005, element `i`) freezes each struck monster through the I/L freeze (a boss or an ice-immune, strong or neutral monster
+rejects it). The WZ nodes carry **no burn or freeze chance and no damage-over-time field**: `time` (3 -> 5 s, 1 -> 3 s) is the
+status length and every damaging hit attempts the status. Both skills store `damage` as a **string** ("82", "78") at all 30
+levels; `SkillBook.canonical` already parses numeric strings, and `SkillText` now does too for its `{damage}` placeholder
+(`_vars` skipped strings before, so a template naming a string-valued level field printed the raw braces).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Rank table (#393) | `rank_levels["30"]` = [4, 8, 12, 15, 19, 23, 27, 30]; Flamethrower 82 / 115 / 160 %, 2 / 4 / 6 monsters, burn 3 / 4 / 5 s and Ice Splitter 78 / 100 / 130 %, 2 / 4 / 6 monsters, freeze 1 / 2 / 3 s at ranks 1 / 4 / 8 | A (levels) / C (mapping) |
+| Box, element, actions, art (#393) | `lt (-350,-100) rb (0,0)`; `elemAttr` f / i; the `fireburner` and `coolingeffect` body actions; `effect` (15 / 13 frames, the first a 1x1 held 240 ms), `hit/0` (5 frames), `Use` and `Hit` sounds | A |
+| `effect_ship` (#393) | declared on both definitions as a path template beside `effect`: the Battleship's `art_variant {effect: effect_ship}` (C11, drawn by C13) swaps it in; this ticket only declares it (15 / 13 frames, the same sizes as `effect`) | A (art) / C (use) |
+| Burn pulse (#393) | `on_hit.pulse` 30: **30 % of the cast's base damage per second** (`BurnStatus.pulse` of the resolved damage bounds), the literal `Loadout._add_burn` reads when the `on_hit` has no `pulse_field`; Inferno keeps its WZ `pulse_field "x"` and is byte-identical | C |
+| Burn length (#393) | the level's `time` (`duration_field`), not a literal; `burn_damage` (Scorch) multiplies only the pulse, never the direct hit or the length | A (field) / C (use) |
+| Freeze (#393) | `on_hit {status freeze, duration_field time}`: the same block Cold Beam uses; no chance field, a boss rejects it | A (field) / C (no prop) |
+| Cast (#393) | auto-cast with at least one monster inside the box (`min_targets` 1), cooldown 2.5 s for both, the cone's body action held 0.6 s, no ball, `mobCount` plus the `count` stat targets, nearest first | C |
+| Item cost (#393) | the capsule `itemConsume` (2331000 / 2331001) is not modelled: the cones are endless, like the ammo | C |
+| Rarity bonuses (#393) | Flamethrower: Elemental Boost damage x1.2 / Scorch `burn_damage` x1.5 / Wide Flame `count` +2; Ice Splitter: Elemental Boost damage x1.2 / Gun Booster cooldown x0.88 / Wide Ice `count` +2; Legendary = the Unique's id and effects plus damage x1.2 (one shared repeat counter); repeats shrink x0.8 (the #288 rule) | C |
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -10530,3 +10554,7 @@ Grenade's `count`) are in section 7.120.4, nested under the Corsair section besi
 
 The constants of the Octopus and Gaviota entries (numbers, cooldowns, cadence, the Gaviota admission, the rarity bonuses) are in section
 7.120.5, nested under the Corsair section beside C2's 7.120.1.
+
+### Corsair C9 constants (#393)
+
+The constants of the two cones (the literal burn `pulse`, the front-only box, the cooldown, the rarity bonuses, the string `damage`) are in section 7.120.8, nested under the Corsair section.

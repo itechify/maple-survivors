@@ -989,6 +989,197 @@
 				"use": "Sound.wz/Skill.img/5221008/Use",
 				"hit": "Sound.wz/Skill.img/5221008/Hit"
 			}
+		},
+		"flamethrower": {
+			"skill_id": 5211004,
+			"book": "521",
+			"job": 521,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Flamethrower",
+			"desc": "Sets the monsters in front of you on fire.",
+			"text": {
+				"desc": "Sets the monsters in front of you on fire.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters} in front of you"
+			},
+			"icon": "Skill.wz/521.img/skill/5211004/icon",
+			"damage": "physical",
+			"_tier": "Tier A (Skill.wz 521.img): damage 82..160% (a STRING in the WZ at all 30 levels, read through SkillBook.canonical), mobCount 2..6, the front-only box lt (-350,-100) rb (0,0), `time` 3..5 s read as the burn length, elemAttr f, the fireburner action, effect (15 frames, the first a 1x1 held 240 ms), effect_ship (the same 15 frames, drawn aboard the Battleship through `art_variant`), hit/0 (5 frames) and the Use and Hit sounds; the eight survivor ranks map to WZ levels 4/8/12/15/19/23/27/30 (rank_levels \"30\"). The WZ has no burn damage field (the String text says only \"keeps receiving damage for a short period\"). Tier C (#393, GAME_DESIGN 7.120.8): `on_hit.pulse` 30 (percent of the cast's base damage per second, the literal beside Inferno's `pulse_field`), auto-cast when a monster is inside the box, cooldown 2.5 s, the fireburner body action held 0.6 s, no ball, rarity bonuses; the capsule item cost is not modelled; untuned.",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 2.5,
+			"on_hit": {
+				"status": "burn",
+				"duration_field": "time",
+				"pulse": 30
+			},
+			"action": "fireburner",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/521.img/skill/5211004/hit/0",
+			"effect": "Skill.wz/521.img/skill/5211004/effect",
+			"effect_ship": "Skill.wz/521.img/skill/5211004/effect_ship",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5211004/Use",
+				"hit": "Sound.wz/Skill.img/5211004/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "elemental_boost",
+						"text": "Elemental Boost",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "scorch",
+						"text": "Scorch",
+						"effects": [
+							{
+								"stat": "burn_damage",
+								"op": "mul",
+								"value": 1.5
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "wide_flame",
+						"text": "Wide Flame",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "wide_flame",
+						"text": "Wide Flame",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"ice_splitter": {
+			"skill_id": 5211005,
+			"book": "521",
+			"job": 521,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Ice Splitter",
+			"desc": "Freezes the monsters in front of you.",
+			"text": {
+				"desc": "Freezes the monsters in front of you.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters} in front of you, freeze for {time} sec"
+			},
+			"icon": "Skill.wz/521.img/skill/5211005/icon",
+			"damage": "physical",
+			"_tier": "Tier A (Skill.wz 521.img): damage 78..130% (a STRING in the WZ at all 30 levels, read through SkillBook.canonical), mobCount 2..6, the front-only box lt (-350,-100) rb (0,0), `time` 1..3 s read as the freeze length, elemAttr i, the coolingeffect action, effect (13 frames, the first a 1x1 held 240 ms), effect_ship (the same 13 frames, drawn aboard the Battleship through `art_variant`), hit/0 (5 frames) and the Use and Hit sounds; the eight survivor ranks map to WZ levels 4/8/12/15/19/23/27/30 (rank_levels \"30\"). The node has no prop field. Tier C (#393, GAME_DESIGN 7.120.8): every damaging hit attempts the freeze (`on_hit freeze`, no chance field; a boss rejects it as for Cold Beam), auto-cast when a monster is inside the box, cooldown 2.5 s, the coolingeffect body action held 0.6 s, no ball, rarity bonuses; the capsule item cost is not modelled; untuned.",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 2.5,
+			"on_hit": {
+				"status": "freeze",
+				"duration_field": "time"
+			},
+			"action": "coolingeffect",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/521.img/skill/5211005/hit/0",
+			"effect": "Skill.wz/521.img/skill/5211005/effect",
+			"effect_ship": "Skill.wz/521.img/skill/5211005/effect_ship",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5211005/Use",
+				"hit": "Sound.wz/Skill.img/5211005/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "elemental_boost",
+						"text": "Elemental Boost",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Gun Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "wide_ice",
+						"text": "Wide Ice",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "wide_ice",
+						"text": "Wide Ice",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
 		}
 	}
 }
