@@ -882,6 +882,9 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   `WeaponReach.action_spec(..., boost)` plus `player_state.action_scale` shorten the swing and the avatar's frames.
 - **`cast.focus` (#339).** On the `nearest` rule, `"focus": true` makes admission look for one target instead of `count`
   (`SkillRunner._admit_nearest`), so the extra arrows of a projectile skill all reuse it (Bowmaster Strafe).
+- **`text_by_family` (MS5 #365).** A `rarity_bonuses` entry may carry `"text_by_family": {"<weapon family>": "<name>"}`;
+  `UpgradePool.rarity_bonus` shows that name instead of `text` when `Loadout.weapon_family` matches (Arrow Blow reads
+  "Crossbow Mastery" in a Marksman's hand). Text only: ids, counters and effect numbers never depend on the family.
 - **Fixed-share damage / `cast.prefer` (MS3 #363).** `FixedShare` resolves the rank's `fixed_share.share` and
   normal/boss caps from the unmodified physical bounds before skill percent. `Loadout.stats` adds the resolved
   `fixed_share` key only to opt-in skills; its `damage_mult` applies after capping. `RunWorld.hit_mob` replaces

@@ -7016,6 +7016,35 @@ Each Marksman skill ticket appends one paragraph here; the skill entries sit in 
 deals `1 + 0.1 (n - 1)` of its damage (7.46.7). One code addition: `burst_art.end_on_drop` so the `effect`
 art shows at the release and never on a cancelled wind-up. Rarity: Marksman Boost, Crossbow Booster, Deep Pierce (`pierce` +2).
 
+**MS5 #365, crossbow basics.** Four pool skills, all plain auto-casts on seams that already existed:
+
+- **Iron Arrow** (3201005, book 320, job 320, the starting skill, 1.0 s) is ported from `skills/bowman.json` into
+  `skills/marksman.json` with its numbers unchanged (nearest target, 300 px, 600 px/s, 8 px radius, `pierce 5` = WZ
+  `mobCount` 6, linear 0.1 fall-off per contact, own 3-frame `ball`, damage 122 -> 180%). The crossbow weapon gate and the
+  explicit 30-entry rank list are gone (the default eight ranks: WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30, so 128 /
+  150 / 180% at ranks 1 / 4 / 8). Its four legacy cards (`iron_arrow_new`, `_rank`, `_pierce`, `_shots`) are removed from
+  `upgrades/bowman.json`; the new / rank cards of a playable Marksman come from `UpgradePool.add_pool_skills`.
+- **Arrow Blow** stays Bowmaster's one shared definition (job 300). A rarity bonus entry may carry an optional
+  `text_by_family` (`{"crossbow": "Crossbow Mastery"}`); `UpgradePool.rarity_bonus` picks the text for the held weapon
+  family (`Loadout.weapon_family`) and falls back to `text`. It changes the text only, never an id, counter or number. Arrow
+  Blow's two bow-named bonuses (`bow_mastery` "Bow Mastery", `booster` "Bow Booster") carry it in `skills/bowmaster.json`
+  (the only edit of that file), so a Marksman reads "Crossbow Mastery" / "Crossbow Booster" and a Bowmaster still reads the
+  bow names.
+- **Strafe** (`strafe_crossbow`, 3211006, book 321, job 321) and **Dragon's Breath** (`dragons_breath_crossbow`, 3221003,
+  book 322, job 322) are copies of the Bowmaster's merged `strafe` / `dragons_breath` (7.45, 7.50) with only the key, id,
+  book, job, icon, art and sound paths changed (the WZ nodes are identical but for `weapon` 46 against 45, MS1). They are
+  separate keys because the Skill window lists a skill on the tab of its own job and a Marksman's tabs are 300 / 320 / 321 /
+  322. The sounds are the 3211006 / 3221003 JSON nodes MS1 imports (UOLs into the Bowmaster's). Strafe: `cast.focus`, four
+  arrows at one monster (a boss first), 2.5 s, 350 px, ammo sprite. Dragon's Breath: own ball, `pierce_field mobCount`
+  (4 / 5 / 6 monsters by rank), a 180 px knock-back that always rolls (bosses damaged, not moved), 3.5 s.
+- **Rarity bonuses** (tier C, names from the Crossbowman passives; Legendary = the Unique's id and effect plus damage x1.2):
+  Iron Arrow Crossbow Mastery damage x1.2 / Crossbow Booster cooldown x0.88 / Final Attack `count` +1; Strafe the same with
+  `count` +2; Dragon's Breath Marksman Boost damage x1.2 / Eye of Amazon `range` x1.25 / Dragon's Spirit `pierce` +2.
+  `test_marksman_crossbow_basics` checks that each changes the resolved cast.
+- Tests: `test_marksman_crossbow_basics.gd` (behaviour per skill, the catalog lists, rank / Mastery / counter rules, the
+  Skill window tabs, the real-cache eight-rank check against Skill.wz). `test_crossbowman` was rewritten for the ported
+  Iron Arrow (see the MS5 notes).
+
 **MS9 #369, Golden Eagle and Frostprey.** The two physical followers (7.44, 7.53) as data in `skills/marksman.json`, no new
 code: the Eagle copies the merged `silver_hawk` and the Frostprey the merged `phoenix` field for field (cast rule `summon`,
 `damage physical`, `watk_field "pad"`, `move "fly"`, `settle true`, `hover 20`, follow and interval settings, no weapon gate),
@@ -10236,6 +10265,19 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 | Bot card scores | `golden_eagle_new` / `frostprey_new` 100, `_rank` 74 (the pool default, explicit because summons are not `attack` skills to `BotInput._base_score`) | tier C, spec #360 |
 | `playable` | false until MS11 #371; `default_job` stays 212 | tier C, spec #360 / #298 pin |
 | Ammo schedule 322 | unchanged from Bowmaster B3 (Lv15 / 30 / 45; `incPAD` +1 / +2 / +4) | steps tier C, `incPAD` and ids tier A; verified, not changed |
+
+#### Marksman MS5 constants (#365)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Iron Arrow (`iron_arrow`) | slot 1 start; nearest, 1.0 s, 300 px, 600 px/s, 8 px radius, `pierce 5`, fall-off 0.1 (floor 0.1), 0.6 s hold; damage 122 -> 180%, `mobCount` 6, art and `Use` sound | numbers tier A (WZ) / tier C (cooldown, targeting, speeds), ported unchanged from the Crossbowman placeholder |
+| Iron Arrow weapon gate / rank list | removed: no `weapon_families`, the default eight ranks | tier C, spec #360 |
+| `strafe_crossbow` | 3211006, book/job 321; 2.5 s, 350 px, 700 px/s, 6 px radius, `cast.focus`, `ammo_shot`, four arrows; damage 71 -> 100% | tier A (WZ, identical to 3111006) / tier C (cadence, targeting) |
+| `dragons_breath_crossbow` | 3221003, book/job 322; 3.5 s, 700 px/s, 16 px radius, `pierce_field mobCount`, knock-back chance `prop` 100, 180 px; damage 42 -> 100%, range 440 | tier A (WZ, identical to 3121003) / tier C (cadence, speed, 180 px) |
+| Iron Arrow rarity | Rare Crossbow Mastery damage x1.2; Epic Crossbow Booster cooldown x0.88; Unique Final Attack `count` +1; Legendary = Unique + damage x1.2 | tier C, spec #360 |
+| Strafe rarity | as Iron Arrow, Final Attack `count` +2 | tier C, spec #360 |
+| Dragon's Breath rarity | Rare Marksman Boost damage x1.2; Epic Eye of Amazon `range` x1.25; Unique Dragon's Spirit `pierce` +2; Legendary = Unique + damage x1.2 | tier C, spec #360 |
+| `text_by_family` on Arrow Blow | `{"crossbow": "Crossbow Mastery"}` on `bow_mastery`, `{"crossbow": "Crossbow Booster"}` on `booster`; text only | tier C, spec #360 |
 
 #### Marksman MS9 constants (#369)
 
