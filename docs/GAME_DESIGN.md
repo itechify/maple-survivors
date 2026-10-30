@@ -1546,6 +1546,11 @@ Golden Eagle and a Frostprey flying beside the character, and Dragon's Breath's 
 frozen pack, Piercing Arrow through a line of six, Snipe on a strong monster and on a boss and Dragon's Breath's knock-back (the
 unit tests and the MS7 / MS8 probes cover them).
 
+**Web gate.** `node --test web/dev/test/*.test.mjs` (62) and `cargo test` without `MAPLE_WZ_ROOT` (70 synthetic tests) pass. The
+pinned web export templates, the `wasm32-unknown-unknown` target and `wasm-bindgen-cli` are absent on this machine, so
+`scripts/export.sh --web` and `scripts/check_web_artifact.sh` were not run here (CI runs them); no download was made. The change adds
+no importer manifest entry or import-screen text, so the import screen lists no new download.
+
 #### Spec #282 (#285): no MP and no level gap: regression smoke (2026-10-28)
 
 Branch `t/285-remove-mp` off `spec/282-fp-slice`, real v83 cache, isolate `285s`, seeds 1 / 2 / 2026, `bot` and
