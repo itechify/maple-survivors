@@ -45,6 +45,7 @@
 					{
 						"id": "bow_mastery",
 						"text": "Bow Mastery",
+						"text_by_family": {"crossbow": "Crossbow Mastery"},
 						"effects": [
 							{
 								"stat": "damage",
@@ -58,6 +59,7 @@
 					{
 						"id": "booster",
 						"text": "Bow Booster",
+						"text_by_family": {"crossbow": "Crossbow Booster"},
 						"effects": [
 							{
 								"stat": "cooldown",

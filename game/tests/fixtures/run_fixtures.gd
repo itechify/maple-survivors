@@ -221,6 +221,15 @@ static func skill_imgs() -> Dictionary:
 		"special": {"0": _anim(1, 0.0, 42, 96)}, "hit": {"0": _anim(3, 120.0, 96, 133)}}
 	imgs["312"] = {"skill": {"3121003": {"weapon": 45, "level": breath_levels, "effect": _anim(14, 80.0, 117, 119),
 		"ball": _anim(4, 100.0, 204, 81), "hit": {"0": _anim(4, 100.0, 185, 104)}}}}
+	# MS5 #365: the Marksman's crossbow twins of Strafe (3211006, book 321) and Dragon's Breath (3221003, book 322): node for node
+	# the Bowmaster's tables (and art) with weapon 46 (crossbow); the mobCount steps (4 / 5 / 6) as in the WZ.
+	imgs["321"] = {"skill": {"3211006": {"weapon": 46, "level": _levels(30, {"mpCon": [26.0, 32.0],
+		"damage": [71.0, 100.0], "bulletCount": [4.0, 4.0]}), "hit": {"0": _anim(3, 100.0, 72, 60)}}}}
+	var crossbow_breath_levels := _levels(30, {"mpCon": [24.0, 36.0], "damage": [42.0, 100.0], "range": [440.0, 440.0], "prop": [100.0, 100.0]})
+	for lv in range(1, 31):
+		crossbow_breath_levels[str(lv)].mobCount = 4.0 if lv <= 10 else 5.0 if lv <= 20 else 6.0
+	imgs["322"] = {"skill": {"3221003": {"weapon": 46, "level": crossbow_breath_levels, "effect": _anim(14, 80.0, 117, 119),
+		"ball": _anim(4, 100.0, 204, 81), "hit": {"0": _anim(4, 100.0, 185, 104)}}}}
 	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
 	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
 		if not imgs.has(pair[0]):

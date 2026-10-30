@@ -346,7 +346,11 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 			labels.append(String(HpRisk.LABELS[String(effect.stat)]) + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
 			continue
 		labels.append(effect_label(String(effect.stat), op, float(effect.value)))
-	bonus.text = String(bonus.get("text", bonus.id)) + ": " + ", ".join(labels)
+	# tier C (spec #360, MS5): an optional `text_by_family` renames the bonus for the held weapon family (Arrow Blow's
+	# "Crossbow Mastery"); the text only, never a number.
+	var by_family: Dictionary = bonus.get("text_by_family", {})
+	var shown := String(by_family.get(state.loadout.weapon_family, bonus.get("text", bonus.id)))
+	bonus.text = shown + ": " + ", ".join(labels)
 	bonus.counter = counter
 	return bonus
 

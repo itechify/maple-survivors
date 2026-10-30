@@ -1,4 +1,279 @@
 {
 	"_doc": "Marksman line (spec #360, ticket MS2 #362): the skill definitions of the Marksman (322), empty until the skill tickets land. Each ticket appends its own region (a repeated key across files is a load error): MS5 #365 iron_arrow (moved here from skills/bowman.json), strafe_crossbow, dragons_breath_crossbow; MS6 #366 blizzard_crossbow, arrow_eruption; MS7 #367 piercing_arrow; MS8 #368 snipe; MS9 #369 golden_eagle, frostprey. arrow_blow is Bowmaster's shared definition in skills/bowmaster.json and is not redefined here.",
-	"skills": {}
+	"skills": {
+		"iron_arrow": {
+			"skill_id": 3201005,
+			"book": "320",
+			"job": 320,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Iron Arrow: Crossbow",
+			"desc": "Fires a piercing arrow that loses damage with each monster struck.",
+			"icon": "Skill.wz/320.img/skill/3201005/icon",
+			"damage": "physical",
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "Skill.wz/320.img/skill/3201005/ball",
+			"hit": "Skill.wz/320.img/skill/3201005/hit/0",
+			"effect": "Skill.wz/320.img/skill/3201005/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3201005/Use",
+				"hit": ""
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 1,
+			"range": 300,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 5,
+			"pierce_falloff": 0.1,
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "crossbow_mastery",
+						"text": "Crossbow Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Crossbow Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: canonical crossbow weapon 46, mobCount 6 (pierce 5), damage 122..180%, ball/effect/hit art and the Use sound, all 30 levels. Tier C (MS5 #365, GAME_DESIGN 7.49): ported from skills/bowman.json (the weapon gate and the explicit 30 ranks are gone: the default eight ranks, rank 8 is WZ level 30), nearest target, 1s cooldown, 300px reach, 600px/s flight, 8px radius, 0.6s held-weapon shooting hold; one base arrow; linear 0.1 fall-off per contact, floor 0.1 (sixth mob 50%); rarity bonuses named after the Crossbowman passives. Untuned."
+		},
+		"strafe_crossbow": {
+			"skill_id": 3211006,
+			"book": "321",
+			"job": 321,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Strafe",
+			"desc": "Fires a volley of crossbow bolts at one monster.",
+			"icon": "Skill.wz/321.img/skill/3211006/icon",
+			"damage": "physical",
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/321.img/skill/3211006/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3211006/Use",
+				"hit": ""
+			},
+			"cast": {
+				"rule": "nearest",
+				"focus": true
+			},
+			"cooldown": 2.5,
+			"range": 350,
+			"speed": 700,
+			"radius": 6,
+			"pierce": 0,
+			"ammo_shot": true,
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "crossbow_mastery",
+						"text": "Crossbow Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Crossbow Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "final_attack",
+						"text": "Final Attack",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: WZ damage 71..100% per arrow, bulletCount 4, weapon 46 (crossbow), hit/0 art (3 frames) and the Use sound (a UOL into the 3111006 node; the art and numbers are node for node the Bowmaster's). Tier C (MS5 #365, GAME_DESIGN 7.49): a crossbow copy of `strafe` with its own id, book and job so the Skill window lists it on the Sniper tab (the Bowmaster's shared key would sit on no tab of a Marksman); the eight survivor ranks, `cast.focus`, 2.5s cooldown, 350px range, 700px/s, 6px radius, no pierce, 0.6s held weapon stance, rarity bonuses. Untuned."
+		},
+		"dragons_breath_crossbow": {
+			"skill_id": 3221003,
+			"book": "322",
+			"job": 322,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Dragon's Breath",
+			"desc": "Looses a dragon-fire arrow that pierces a line of monsters and knocks each one back.",
+			"icon": "Skill.wz/322.img/skill/3221003/icon",
+			"damage": "physical",
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "Skill.wz/322.img/skill/3221003/ball",
+			"hit": "Skill.wz/322.img/skill/3221003/hit/0",
+			"effect": "Skill.wz/322.img/skill/3221003/effect",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3221003/Use",
+				"hit": "Sound.wz/Skill.img/3221003/Hit"
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 3.5,
+			"speed": 700,
+			"radius": 16,
+			"pierce": 0,
+			"pierce_field": "mobCount",
+			"knockback": {
+				"chance_field": "prop",
+				"distance": 180
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "marksman_boost",
+						"text": "Marksman Boost",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "eye",
+						"text": "Eye of Amazon",
+						"effects": [
+							{
+								"stat": "range",
+								"op": "mul",
+								"value": 1.25
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "dragons_spirit",
+						"text": "Dragon's Spirit",
+						"effects": [
+							{
+								"stat": "pierce",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "dragons_spirit",
+						"text": "Dragon's Spirit",
+						"effects": [
+							{
+								"stat": "pierce",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: WZ damage 42..100%, mobCount 4..6, range 440 (read from the level), prop 100, weapon 46 (crossbow), ball/hit/effect art and the Use/Hit sounds (UOLs into the 3121001 node; the art and numbers are node for node the Bowmaster's). Tier C (MS5 #365, GAME_DESIGN 7.49): a crossbow copy of `dragons_breath` with its own id, book and job (Marksman tab); the eight survivor ranks, nearest auto-cast with its own ball (no ammo sprite), 3.5s cooldown, 700px/s, 16px radius, `pierce_field` mobCount (pierces mobCount - 1), a 180px knock-back that always rolls (prop 100; bosses are damaged and not moved), 0.6s held weapon stance, rarity bonuses. Untuned."
+		}
+	}
 }
