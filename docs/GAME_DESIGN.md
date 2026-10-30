@@ -8616,6 +8616,37 @@ levels; `SkillBook.canonical` already parses numeric strings, and `SkillText` no
 | Item cost (#393) | the capsule `itemConsume` (2331000 / 2331001) is not modelled: the cones are endless, like the ammo | C |
 | Rarity bonuses (#393) | Flamethrower: Elemental Boost damage x1.2 / Scorch `burn_damage` x1.5 / Wide Flame `count` +2; Ice Splitter: Elemental Boost damage x1.2 / Gun Booster cooldown x0.88 / Wide Ice `count` +2; Legendary = the Unique's id and effects plus damage x1.2 (one shared repeat counter); repeats shrink x0.8 (the #288 rule) | C |
 
+#### 7.120.15 Corsair C3: Dash, the mobility skill (#387, spec #384 CS-2, CS-3)
+
+`dash` (WZ 5001005, book 500) is the `mobility_skill` of job 522. Like Teleport and Rush it is learned at round start by
+`JobTree.start_skills`, sits outside both slot tracks, is never a card or a pool key, and ranks with the round level through the shared
+`balance.mobility_rank_levels` rule (`RunWorld._level_ranks`): rank 1 at Lv1, rank N at Lv 2N, clamped to the skill's rank table. Corsair
+adds no rank rule, no code and no card. The definition stays in `skills/pirate.json` and is shared with Buccaneer (7.90): B5 (#417)
+had already made it `slot: "mobility"` and deleted `dash_new` / `dash_rank`, and `rank_levels["10"]` = [2, 3, 4, 5, 7, 8, 9, 10]
+was already in `survivor/skills.json` exactly once (a test asserts one `rank_levels` table and that value), so the only edit the
+spec listed for C3 that was left was the `ranks` removal, which this ticket does **not** make:
+
+- **Decision (the spec's text overruled): Dash keeps its ten explicit `ranks`.** Removing them would swap the shared definition onto the
+  eight-entry level-10 table (WZ levels 2, 3, 4, 5, 7, 8, 9, 10), which changes Buccaneer's Dash (Lv1 would read level 2, +14 for 4 s,
+  not level 1, +12) and so Buccaneer's behaviour and the Buccaneer fixed-tick oracle, which must stay byte-identical. So both jobs read
+  the same table: rank N = WZ level N, rank 1 +12 speed / +1 jump / 4 s at Lv1, rank 4 +18 / +4 / 8 s at Lv8, rank 8 +26 / +8 / 16 s
+  at Lv16, rank 10 +30 / +10 / 20 s from Lv20 (the movement caps, 140 speed and 123 jump, apply). The spec's rank-1 / 4 / 8 figures
+  (+14 / +20 / +30) and its eight ranks differ only on the way up; the top rank is the same level-10 row. If the owner wants the
+  Corsair table, it needs a per-job rank override first (`SkillBook.rank_table` has no job), which is a code change and a Buccaneer
+  re-capture, so it is left for a later ticket.
+- Behaviour unchanged for the Corsair: the manual skill key (default X, hold to recast), the buff, the cooldown that equals the buff's
+  duration, the Key Config row, the HUD quick slot with its countdown and the bot's rule (flee below 50 % HP with a mob within the flee
+  distance, or three mobs within 120 px). Aboard the Battleship Dash still casts (7.120.13).
+- Tests: `test_corsair_dash.gd` (the data, the rank-level table, learned-at-start and never a card, caps, HUD, Key Config, bot, Buccaneer
+  equality, real-cache rows and art).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Dash rank source (#387) | the shared `balance.mobility_rank_levels` (Lv1 -> rank 1 ... Lv20 -> rank 10); no Corsair row | C |
+| Dash rank table (#387) | the shared definition's ten explicit `ranks` (rank N = WZ level N), unchanged from B5; not the level-10 default table | C |
+| Dash rows | WZ `x` 12 -> 30, `y` 1 -> 10, `time` 4 -> 20 s per level 1-10, effect art and `Use` sound | A |
+
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -10606,3 +10637,7 @@ The constants of the Octopus and Gaviota entries (numbers, cooldowns, cadence, t
 ### Corsair C9 constants (#393)
 
 The constants of the two cones (the literal burn `pulse`, the front-only box, the cooldown, the rarity bonuses, the string `damage`) are in section 7.120.8, nested under the Corsair section.
+
+### Corsair C3 constants (#387)
+
+The constants of Dash as the Corsair's mobility skill (the shared rank rule and the kept ten-rank table) are in section 7.120.15, nested under the Corsair section.
