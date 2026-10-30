@@ -88,6 +88,8 @@ const EVENT_FIELDS := {
 	"meso_picked": ["amount", "count"],
 	"hp_spent": ["skill", "skill_id", "amount", "kind"],
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
+	# #405: a Flash Jump slid the airborne character horizontally from `from` to `to` (GAME_DESIGN 7.92); no damage.
+	"flash_jump": ["skill", "from", "to"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"player_restored": ["stat", "amount", "skill", "pos"],
 	# #352: a support summon's pulse fired (`skill` is the pulse's sub-skill, `slot` the summon's PlayerSummons slot).
@@ -273,6 +275,9 @@ var revives: Array = []
 var runner: SkillRunner
 var _teleport_left := 0.0
 var _teleport_total := 0.0
+## Seconds until the next Flash Jump press is admitted (its `repeat_delay`) and the delay set by the last one.
+var _flash_left := 0.0
+var _flash_total := 0.0
 var progression: RunProgression
 var jobs: JobTree
 var upgrades: UpgradePool
@@ -844,9 +849,11 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 ## Drinks, then a same-map portal warp or ordinary movement, the view, and the player's timers.
 func _step_player(dt: float, input: MoveInput) -> void:
 	_teleport_left = maxf(0.0, _teleport_left - dt)
+	_flash_left = maxf(0.0, _flash_left - dt)
 	if input.drink_hp:
 		drink_potion("hp")
 	_try_manual_buffs(input)
+	_try_flash_jump(input)
 	if not _try_input_dash(input) and not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
 		if flags & PlayerMotion.EV_JUMP:
@@ -929,15 +936,24 @@ func _is_teleport(key: String) -> bool:
 	return d is Dictionary and (d as Dictionary).has("teleport")
 
 
+func _is_flash_jump(key: String) -> bool:
+	var d: Variant = book.defs.get(key)
+	return d is Dictionary and (d as Dictionary).has("flash_jump")
+
+
 func _cooldown_left(key: String) -> float:
 	if _is_teleport(key):
 		return _teleport_left
+	if _is_flash_jump(key):
+		return _flash_left
 	return maxf(0.0, float(runner.cooldowns.get(key, 0.0)))
 
 
 func _cooldown_total(key: String) -> float:
 	if _is_teleport(key):
 		return _teleport_total
+	if _is_flash_jump(key):
+		return _flash_total
 	return float(runner.cooldown_totals.get(key, 0.0))
 
 
@@ -956,6 +972,42 @@ func _try_input_dash(input: MoveInput) -> bool:
 		if runner.cast_dash(self, key, side):
 			return true
 	return false
+
+
+## Owned Flash Jump key, or "" when the job has none.
+func flash_jump_skill() -> String:
+	for key: String in loadout.order:
+		if _is_flash_jump(key):
+			return key
+	return ""
+
+
+## Distance in px of the owned Flash Jump `key` at its rank now (rank = the round-level rule, never a card).
+func flash_jump_distance(key: String) -> float:
+	var config: Dictionary = book.def(key).flash_jump
+	return FlashJump.distance(config.distance, loadout.rank(key), book.max_rank(key))
+
+
+## A Flash Jump press (or hold): in the air the character slides horizontally to the pressed side (else its facing),
+## keeping its height; the ordinary movement of this tick still runs, so the fall goes on. Refused with nothing spent
+## and no event on the ground, on a ladder, a second time in one airborne period, within `repeat_delay`, or when the
+## lane is blocked. tier C: ours (#405).
+func _try_flash_jump(input: MoveInput) -> void:
+	if not input.skill_requested("flash_jump") or not FlashJump.admits(can_cast(), _flash_left):
+		return
+	var key := flash_jump_skill()
+	if key == "":
+		return
+	var side := FlashJump.side(input.dir(), player.facing)
+	var dest := player.flash_destination(side, flash_jump_distance(key), fhm, bounds)
+	if dest.is_empty():
+		return
+	var from := player.pos
+	player.flash_to(dest)
+	player.facing = side
+	_flash_left = float(book.def(key).flash_jump.repeat_delay)
+	_flash_total = _flash_left
+	emit("flash_jump", {"skill": key, "from": from, "to": player.pos})
 
 
 func _try_teleport(input: MoveInput) -> bool:

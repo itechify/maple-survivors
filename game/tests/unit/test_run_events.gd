@@ -276,6 +276,22 @@ func test_every_event_matches_the_schema() -> void:
 	teleporter.step(DT, blink)
 	for event: Dictionary in teleporter.drain_events():
 		_check(event, seen)
+	# Flash Jump (#405): a Night Lord's airborne flash announces itself with `flash_jump {skill, from, to}`.
+	var flash_data := RF.quiet_data()
+	flash_data.jobs_survivor.jobs["412"]["playable"] = true
+	var flash_setup := RF.setup("quiet", 405, flash_data)
+	flash_setup["job"] = 412
+	var flasher := RunWorld.new(flash_setup)
+	flasher.player.place(Vector2(400, -200), flasher.fhm)
+	var flash_press := MoveInput.new()
+	flash_press.press_skill("flash_jump")
+	flash_press.right = true
+	flasher.step(DT, flash_press)
+	var flashed := 0
+	for event: Dictionary in flasher.drain_events():
+		_check(event, seen)
+		flashed += int(event.type == "flash_jump")
+	assert_eq(flashed, 1, "the flash announced itself once")
 	# Shared restoration has no live skill consumer until the second-job tickets land.
 	var restored := RF.quiet_world()
 	restored.take_hit(10, false, "", restored.player.pos + Vector2(10, 0))

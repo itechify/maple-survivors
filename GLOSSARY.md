@@ -485,6 +485,11 @@ A round-owned integer counter, filled by configured events and spent by finisher
 starts at zero each round, and is shown as HUD pips. M1 is shared by Hero, Buccaneer and Shadower.
 _Avoid_: mana, buff, form
 
+**Flash Jump**:
+Night Lord's mobility skill (4111006) on a skill key: pressed in the air, it slides the character sideways 140 -> 280 px by
+rank, once per airborne period, and leaves a ghost trail. Never a card; its rank follows the round's level. No damage.
+_Avoid_: double jump, Teleport (a blink between platforms), Rush (a damaging ground dash)
+
 **Meso charge**:
 Night Lord's meter (id `meso_charge`, ten pips): one pip per 1000 mesos picked up (the remainder is carried), one lost per 6 s
 while held, +3% damage on every pool cast per pip; Shadow Meso reads it for more and spends nothing. A counter filled by
