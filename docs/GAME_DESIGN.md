@@ -10047,3 +10047,22 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 ### Buccaneer review corrections (#412)
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
+
+### 7.93 Status bonus (M22, Night Lord NL3 #402)
+
+A class line's `balance.status_bonuses` catalogue supplies status ids, kinds, scalar/eight-rank chance, duration and
+poison level, plus scalar repeat chance points. Cards use `{stat: status, op: grant, status: <id>}`. First award fixes
+its position; repeats add scaled chance points without modifying `skill_mods`. The owning skill's rank resolves the
+grant, independently of the skill's canonical level. Cast snapshots preserve grants across delayed hits and projectiles.
+After native on-hit, every grant under 100% draws once on stream 1 (including zero); 100% draws nothing. Existing
+boss/element gates and refresh semantics apply. Cards and Skill window append rank-resolved chance/duration text.
+NL2 owns the shipping catalogue; NL7 owns its first skill users. This ticket adds no balance data or playable job.
+
+### Night Lord NL3 constants
+
+- Tier C: grant repeats add `repeat_chance × 0.8^n` points, where n is the existing rarity bonus repeat counter;
+  the first grant adds no repeat points. Total chance caps at 100%. Unique/Legendary continue sharing their bonus id.
+- Tier C: grants apply in award order after native on-hit and before knockback/listeners, one stream-1 draw for every
+  sub-100% grant on every damaging line. Other skill dictionaries, RNG and events remain unchanged.
+- Diagnostic-only tier C: the status-bonus driver guarantees 10-second poison/stun and uses a patched job 412 with
+  Energy Bolt to exercise the seam before Night Lord skill data lands. These values never enter shipped balance.
