@@ -69,6 +69,8 @@ var fired_this_tick := false
 
 var summons := PlayerSummons.new()
 var bursts := BurstCast.new()
+## Delayed repeats of star casts thrown by the Shadow Partner clones (docs/GAME_DESIGN.md 7.91).
+var echoes := EchoCast.new()
 var forms := PlayerForms.new()
 
 var _stats := {}
@@ -94,6 +96,7 @@ func _init() -> void:
 func clear_pending(world: RunWorld = null) -> void:
 	summons.clear()
 	bursts.clear(world)
+	echoes.clear_pending()
 	_flights.clear()
 	_areas.clear()
 
@@ -212,6 +215,7 @@ func tick_cooldowns(dt: float, world: RunWorld, preserve_manual_cast: bool = fal
 		fired_this_tick = false
 	summons.step(dt, world)
 	bursts.step(dt, world)
+	echoes.step(dt, world)
 	forms.step(dt, world)
 	_step_areas(dt, world)
 	if not _flights.is_empty():
@@ -889,6 +893,11 @@ func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -
 	return _tgt.size()
 
 
+## The slot of the nearest live monster within `rng_px` of `origin` (scheduled bosses first, RunWorld.targets_before), or -1.
+func nearest_to(world: RunWorld, origin: Vector2, rng_px: float) -> int:
+	return _tgt[0] if _find_targets(world, origin, rng_px, 1) > 0 else -1
+
+
 ## Whether _find_targets(world, origin, rng_px, want) would find at least one target. It first looks at only the
 ## first ANY_PROBE candidates of the same grid query (usually one of them is in range) and reads the whole query only
 ## when none is.
@@ -913,11 +922,18 @@ func _any_target(world: RunWorld, origin: Vector2, rng_px: float, want: int) -> 
 func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector2, targets: PackedInt32Array) -> void:
 	var n := targets.size()
 	if String(st.kind) == "projectile":
+		# An echoable skill (`echo: {class}`) records each shot (target slot and aim point) while a clone is alive.
+		var shots: Array = []
+		var record := world.book.def(key).has("echo") and not bool(st.get("echo", false)) and not summons.clones().is_empty()
 		for k in int(st.count):
 			var m := targets[k % n]
 			var reuse := floorf(float(k) / float(n))
 			var aim := world.mob_center(m) + Vector2(0.0, REUSE_SPREAD * reuse * (1.0 if k % 2 == 0 else -1.0))
 			fire_shot(world, key, st, origin, aim)
+			if record:
+				shots.append({"slot": m, "aim": aim})
+		if record:
+			echoes.on_cast(world, key, st, shots)
 	else:
 		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), world.visual_index(String(st.hit)))
 
@@ -950,6 +966,7 @@ func fire_shot(world: RunWorld, key: String, st: Dictionary, origin: Vector2, ta
 		"impact_blast": st.impact_blast,
 		"meter_receipt": st.get("meter_receipt", ProjectileSystem.NO_RECEIPT),
 		"burn_pulse": int(st.get("burn_pulse", 0)),
+		"echo": bool(st.get("echo", false)),
 	})
 
 

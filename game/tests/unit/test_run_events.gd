@@ -5,6 +5,7 @@ extends TestCase
 
 const SSF := preload("res://tests/fixtures/support_summon_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const EchoTest := preload("res://tests/unit/test_echo_cast.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const RV := preload("res://tests/fixtures/revive_fixtures.gd")
 const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
@@ -323,6 +324,14 @@ func test_every_event_matches_the_schema() -> void:
 	thrower.progression.level = 37
 	RF.as_job(thrower, 412)
 	for event: Dictionary in thrower.drain_events():
+		_check(event, seen)
+	# An echo clone repeats a star cast (spec #383 M11): echo_cast, schema-checked like every event. The skills are synthetic.
+	var echoer := EchoTest.world()
+	echoer.step(DT, MoveInput.new())
+	EchoTest.mob(echoer, 500)
+	for tick in 40:
+		echoer.step(DT, MoveInput.new())
+	for event: Dictionary in echoer.drain_events():
 		_check(event, seen)
 	# A Gunslinger's Grenade is thrown (#192): skill_thrown, schema-checked like every event.
 	var grenadier := RF.quiet_world()

@@ -8159,6 +8159,52 @@ at the impact, the cap, hit art by target and by line, transfer, the energy rece
 knuckle on every `fist` / `dragonstrike` frame), `test_bot_melee` (`bot.reach`, a melee bot with the 400 px strip still closes in,
 and the control that kites without the key), `test_avatar_cash_layers` (the `swingTF` fallback), `test_rarity_bonus_effects`.
 
+### 7.97 Echo summon (M11) (spec #383, NL5 #404)
+
+A clone that repeats the owner's star casts. Night Lord's Shadow Partner (NL10) is its first user; this ticket ships the mechanic on
+synthetic data only (`test_echo_cast`), and Shadower reuses it as data. The section number is 7.97, not the spec's 7.91: 7.90-7.93 are
+the Buccaneer sections and 7.94 holds the Night Lord data sections of NL2 and NL4.
+
+```json
+"kind": "summon", "cast": {"rule": "summon"},
+"summon": {"echo": {"attack_field": "x", "skill_field": "y", "delay": 0.25, "overshoot": 0},
+           "follow_speed": 200.0, "follow_distance": 55.0, "teleport_distance": 600.0, "ordinal_spread": 40.0}
+```
+and on each echoable skill `"echo": {"class": "attack"}` or `{"class": "skill"}`. No skill id appears in the code.
+
+- **The clone** is a `PlayerSummons` entry whose definition has `summon.echo`. It spawns, follows (`follow_*`), lives `time`
+  (`left`), is replaced by a recast, takes `summon_count` (two clones `ordinal_spread` apart), and is cleared by a map transfer
+  (`SkillRunner.clear_pending`) exactly like Elquines; it has no attack node (`attack` defaults to `""`), no attack cycle and never
+  strikes. It mirrors the owner's facing. Every slot carries a spawn serial (`PlayerSummons.uid`) so a delayed echo can tell the clone
+  that was recorded from a recast that reused the slot. `PlayerSummons.clones()` lists the living ones.
+- **Recording.** In `SkillRunner._resolve_nearest` (the projectile branch of the `nearest` rule), a skill whose definition has `echo`
+  records `{slot, aim}` of each `fire_shot` it makes, but only while a clone is alive and only for a non-echo snapshot; afterwards it
+  calls `EchoCast.on_cast(world, key, st, shots)`. The cast itself (cooldown, events, meter receipt, RNG draws) is untouched, and a
+  world without a clone, or a skill without the key, takes no new branch: the stats dictionaries and event bytes are what they were.
+  Only the `nearest` projectile rule records: bursts, zones, grenades and the nova do not echo.
+- **The repeat.** `EchoCast` (a `RefCounted` owned by `SkillRunner.echoes`, stepped from `tick_cooldowns` after the summons and
+  bursts) schedules, per living clone (ascending slot) and per recorded shot (cast order), one entry `delay` seconds later. At fire time
+  it requires the clone to be the same spawn and still alive (an expired or replaced clone drops the entry); the target is the recorded
+  slot if it is the same monster (identity) and within `range + overshoot` of the clone's body, else the nearest living monster
+  within `range` of the clone (`SkillRunner.nearest_to`, bosses first), else the entry is dropped with no refund. The shot goes
+  through `SkillRunner.fire_shot` from the clone's hand (`cast_forward` px toward the target from the clone's body, level with it; the
+  body itself when the target is inside the hand's reach, as the owner's shots do). Damage rolls use the main stream in fire-tick order.
+- **Echo percent** = the clone skill's level field named by the class (`attack_field` for `attack`, `skill_field` for `skill`) at the
+  clone's rank / 100 x `Loadout.skill_stat(clone, "damage", 1.0)` at the cast (so Shadow Power and Mastery scale the echo). The
+  snapshot is the owner's `cast_snapshot` with `damage_min` / `damage_max` multiplied by it, `meter_receipt` and `damage_heal`
+  removed and `echo: true`.
+- **Echo hits** are ordinary hits (crit, element, `on_hit`, granted statuses, damage credited to the owner) except: no meter receipt (an
+  echo never earns a charge), no heal (`ProjectileSystem.echo`, the hit carries `echo` and `_damage_heal_hit` returns), no further
+  echo and no cooldown. The ammo tier steps with the level, not the shot, so an echo changes nothing there; its star art is the owner's.
+- **Stops:** map transfer; the owner's death or Hidden clears the unthrown entries (as bursts do, tier C); per entry when its clone
+  expires or is replaced.
+- **Event** `echo_cast {skill, clone, pos, facing}` when an echo is thrown: the echoed skill, the clone's `PlayerSummons` slot, the
+  clone's hand and the side it threw toward (presentation: the clone's throw stance, NL10).
+
+Tests: `test_echo_cast` (19: the seam, one echo per shot per clone at 15 ticks, the hand, `x` / `y` by class and rank, the `damage`
+modifier, replaced / expired clones, the snapshot rules, no heal, kept statuses, retarget and drop, identity of a reused slot, a
+world without a clone byte-identical with and without the key, twin worlds), `test_run_events` (the `echo_cast` schema).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -10047,3 +10093,17 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 ### Buccaneer review corrections (#412)
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
+
+### Night Lord NL5 constants (#404)
+
+| Constant | Value | Tier |
+|---|---|---|
+| Echo delay (`summon.echo.delay`) | 0.25 s after the cast tick | tier C, spec #383 (the WZ gives none) |
+| Echo overshoot (`summon.echo.overshoot`) | 0 px beyond `range` for the recorded target; the nearest-monster fallback uses `range` | tier C, ours (#404) |
+| Fire-time tolerance | a delay due within 1e-9 s fires on the tick | tier C, as `BurstCast` |
+| Clone follow distance / speed / teleport distance | 55 px / 200 px/s / 600 px (data, NL10 sets them) | tier C, spec #383 |
+| Clone spread (`ordinal_spread`) | 40 px | tier C, spec #383 |
+| Hand | `cast_forward` px in front of the clone's body toward the target, body height `cast_height` | tier C, the owner's own shot origin |
+| Retarget / drop | dead, out-of-reach or reused-slot target -> nearest monster in range of the clone, else drop without refund | tier C, spec #383 (as bursts) |
+| Hidden / death | unthrown echoes are dropped | tier C, ours (#404, as bursts) |
+| Order of entries | per clone ascending slot, per shot in cast order | tier C, ours (#404) |
