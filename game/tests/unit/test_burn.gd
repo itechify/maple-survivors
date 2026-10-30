@@ -43,7 +43,7 @@ func test_burn_is_appended_after_ice_weak_and_the_tables_match() -> void:
 	assert_eq(MobSwarm.ICE_WEAK, 5, "never renumber an existing status")
 	assert_eq(MobSwarm.FIRE_WEAK, 6, "never renumber an existing status")
 	assert_eq(MobSwarm.BURN, 7, "appended after the Ice/Lightning fire_weak")
-	assert_eq(MobSwarm.STATUS_COUNT, 8)
+	assert_eq(MobSwarm.STATUS_COUNT, 9)
 	assert_eq(MobSwarm.STATUS_NAMES[MobSwarm.BURN], "burn")
 	assert_eq(MobSwarm.STATUS_NAMES[MobSwarm.ICE_WEAK], "ice_weak")
 	assert_eq(MobSwarm.STATUS_ELEMENTS[MobSwarm.BURN], "F")
@@ -398,7 +398,7 @@ func test_a_plain_projectile_hit_and_pooled_shots_do_not_inherit_a_previous_puls
 
 func test_the_renderer_has_a_fifth_cue_and_an_orange_fallback_tint() -> void:
 	assert_eq(MobRenderer.BURN_CUE, 4)
-	assert_eq(MobRenderer.CUES_PER_SLOT, 5)
+	assert_eq(MobRenderer.CUES_PER_SLOT, 6)
 	assert_eq(MobRenderer.STUN_CUE, 3, "existing cue indices are unchanged")
 	var c := MobRenderer.BURN_TINT
 	assert_true(c.r > c.g and c.g > c.b, "orange: red over green over blue")

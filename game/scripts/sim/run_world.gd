@@ -1397,12 +1397,17 @@ func is_scheduled_boss(m: int) -> bool:
 	return m >= 0 and m < mob_boss.size() and mob_boss[m] >= 0
 
 
-## Target order shared by every player targeting rule: scheduled bosses first, then nearer `d2`, then lower slot.
-## tier C: ours (#83), so attacks reach a boss in range ahead of the swarm around it.
+## Target order shared by every player targeting rule: scheduled bosses first, then a monster under the ALL_WEAK mark
+## ahead of an unmarked one, then nearer `d2`, then lower slot.
+## tier C: ours (#83), so attacks reach a boss in range ahead of the swarm around it; marked-first is the Corsair
+## Homing Beacon's focus fire (spec #384 C7).
 func targets_before(a: int, da: float, b: int, db: float) -> bool:
 	var boss_a := is_scheduled_boss(a)
 	if boss_a != is_scheduled_boss(b):
 		return boss_a
+	var marked_a := swarm.status_left[a * MobSwarm.STATUS_COUNT + MobSwarm.ALL_WEAK] > 0.0
+	if marked_a != (swarm.status_left[b * MobSwarm.STATUS_COUNT + MobSwarm.ALL_WEAK] > 0.0):
+		return marked_a
 	return da < db if da != db else a < b
 
 
@@ -2032,10 +2037,18 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 				else book.canonical(key, level, String(status.get("duration_field", "time")))
 			var params := {"time": time,
 				"level": level, "skill": key, "x": book.canonical(key, level, "x")}
+			if String(status.get("status", "")) == "all_weak":
+				# tier C: the mark's length and multipliers come from the skill's own modifiers (mark_time, mark_power).
+				params["time"] = loadout.mark_time(key, time)
+				var mark := loadout.mark_multipliers(key)
+				params["mult"] = mark.x
+				params["boss_mult"] = mark.y
 			if String(hit.element) != "":
 				params["element"] = String(hit.element)
 			if status.has("element"):
 				params["element"] = String(status.element)
+			if String(status.get("status", "")) == "all_weak":
+				params["element"] = "" # the mark is elementless: a fire-immune monster still takes it
 			if String(status.get("status", "")) == "burn":
 				# tier C: the pulse was resolved from the cast (Loadout.stats) and travelled with the shot.
 				params["pulse"] = int(hit.get("burn_pulse", 0))

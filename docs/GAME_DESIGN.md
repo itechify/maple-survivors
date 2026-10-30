@@ -7046,9 +7046,36 @@ element is its own live multiplier. With no vulnerability running the result is 
 is `(f + s) * 0.5`; a table test compares every mob-attribute combination to the old formula), so F/P is unchanged.
 Ice-weak raises `il` and `i` (not `fs`); fire-weak raises `fs` and `f` (not `il`).
 
-Reserved, not built: a `"*"` table entry for an all-element mark (Corsair's Homing Beacon). Summons and projectiles use
+The `"*"` all-element entry is the Corsair mark, section 7.122. Summons and projectiles use
 the same `element_multiplier`, so Ifrit's fire meets Ice Demon's mark there with no special case. The renderer has no
 per-status tint for `ice_weak`, so `fire_weak` adds none.
+
+### 7.122 Mark (spec #384 C7, #391)
+
+`MobSwarm.ALL_WEAK` (status index 8, `STATUS_COUNT` 9, name `all_weak`, element `""`, `VULNERABLE` entry `"*"`) is the
+all-element row of the vulnerability table. While it runs **every damaging hit on the monster is multiplied by
+`MARK_MULT` 1.5, or `MARK_BOSS_MULT` 1.25 on a boss** (canonical `boss` or a scheduled `steady` slot; the only status a boss
+accepts), elemental or not, on top of the element multiplier (a x1.5 weakness under the mark is x2.25; an immune monster
+stays immune: 0 x 1.5 = 0). The stored multiplier is snapshotted at application (`_mark_mult`, 1 when unmarked) and
+`MobSwarm.element_multiplier` multiplies it in last, which is the one place the projectile pool, `RunWorld.hit_mob`,
+summons and form scoring already read. Poison and burn pulses, which never read `element_multiplier`, are not multiplied.
+Re-applying refreshes the timer and replaces the stored multiplier; it never stacks. The mark is elementless: the applying
+hit's element is not passed on, so a fire-immune kind still takes it. It draws no random number.
+
+A skill applies it with `on_hit {"status": "all_weak", "duration": <literal s>}` (B6's literal duration; a skill may name
+`duration_field` instead). `Loadout.mark_time(key, base)` lengthens the stored duration by the `mark_time` modifier (mul);
+`Loadout.mark_multipliers(key)` adds the `mark_power` modifier (add) to both multipliers (floor 1.0); `Loadout.stats` exposes
+`mark_time`, `mark_mult` and `mark_boss_mult` for a skill with the mark, `SkillText` prints "Marks a monster for 8 s: it
+takes 50% more damage; bosses 25%", and the card previews are "Mark damage: 150% -> 175%" and "Mark duration: 8 s -> 12 s".
+
+**Marked-first targeting.** `RunWorld.targets_before` sorts a marked monster ahead of an unmarked one after scheduled
+bosses and before distance, then slot. The nearest rule, burst re-targeting, chain heads, charge sweeps and
+summons share it. Box and instant casts hit everything in their area and are unaffected; a marked monster out of range is
+simply not a candidate.
+
+Presentation: `MobRenderer.MARK_CUE` (cue 5, `CUES_PER_SLOT` 6) loops the skill's `mob` frames over the monster like the burn
+cue (`mark_cue_path`, set by `RunScene` from the first pool skill whose `on_hit.status` is `all_weak` and names a `cue`);
+without art the monster takes `MARK_TINT` (red). Burn and freeze tints win over it.
 
 ### 7.62 Chain cast rule (#323, spec #319 I4)
 
@@ -9997,6 +10024,25 @@ the highest gun in the cache, and of the ship, in the C1 notes).
 | Ship attachment (#385) | the ship's origin is its feet; the rider's origin sits at `ship map/navel - rider body map/navel` (stand1: (6, -38) - (-2, -17) = (8, -21)), the standard Maple navel attachment, confirmed on the contact sheet | B (client reading), C (confirmed here) |
 | Ship z order (#385) | `Base.wz/zmap.img` lists `tamingMobFront` second from the front (ahead of every avatar layer) and `tamingMobRear` after `characterEnd` (behind every avatar layer, back layers included): rear canvas under the avatar, front canvas over it | A |
 | Ship facing (#385) | the whole group (ship canvases and rider) mirrors about the ship's origin x; the art faces left like every v83 sprite | C |
+
+### Corsair C7 constants (#391)
+
+The mark (GAME_DESIGN 7.122). No WZ field carries the mark's numbers, so all are tier C; the duration is the Homing Beacon
+skill's own `on_hit.duration` (C8), not a constant of this ticket.
+
+| Constant / rule | Value | Tier |
+|---|---|---|
+| Mark multiplier (`MobSwarm.MARK_MULT`) | x1.5 on every damaging hit of a non-boss, on top of the element multiplier | C |
+| Boss mark multiplier (`MobSwarm.MARK_BOSS_MULT`) | x1.25 on a scheduled or canonical boss (spec CS-9: the same "weaker on bosses" rule as Snipe, so a 10 s mark cannot delete a boss) | C |
+| Bosses accept the mark | `STATUS_TABLE` flag `marks_bosses`; every other status still rejects bosses | C |
+| `mark_power` | add to both multipliers (Bullseye +0.25: x1.75 / x1.5), floor 1.0 | C |
+| `mark_time` | mul on the stored duration (Bullseye x1.5: 8 s -> 12 s) | C |
+| Re-application | refreshes the timer and replaces the multiplier; no stacking | C |
+| Pulses | poison and burn pulses are not multiplied | C |
+| Marked-first targeting | scheduled boss, then marked, then distance, then slot (`RunWorld.targets_before`) | C |
+| Status index | `ALL_WEAK` 8 (next free after `BURN` 7); order is persistent within a run | C |
+| Mark fallback tint (`MobRenderer.MARK_TINT`) | red `Color(1.0, 0.45, 0.45)` when no cue art is configured | C |
+| Mark cue anchor | the skill's `mob` frames loop over the monster, drawn like the burn cue (pos 2, body top) | C |
 
 ## 12. Later phases
 
