@@ -507,6 +507,16 @@ _Avoid_: ultimate, proc
 A player summon (Silver Hawk, Phoenix, Golden Eagle, Frostprey) whose damage is physical and takes its W.Att from the skill level's `pad` instead of the worn weapon, optionally stunning on hit and flying above its trailing point. It is the Elquines seam (`PlayerSummons`) with data keys, not a separate system.
 _Avoid_: pet (the Free Market pet is a cosmetic companion), minion
 
+**Turret**:
+A player summon with `summon.behavior: "turret"` (the Corsair Octopus): planted where it is called, it fires one visible ball per
+target at monsters inside a circle around it and the hit lands when the ball arrives. `SummonTurret`.
+_Avoid_: totem, tower
+
+**Kamikaze**:
+A player summon with `summon.behavior: "kamikaze"` (the Corsair Gaviota): it flies at one chosen monster, strikes once and is spent.
+`SummonKamikaze`.
+_Avoid_: bomber
+
 **Burst**:
 One automatic cast that schedules its resolved shot count over time, following the moving character's hand and a
 live target. The cooldown begins on admission; unfinished shots belong to the current map (`BurstCast`, #336).
