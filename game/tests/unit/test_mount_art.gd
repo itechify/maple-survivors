@@ -37,7 +37,7 @@ func before_each() -> void:
 	lib.images["Base.wz/zmap.img"] = WzImg.new("synthetic", zmap)
 	lib.images["Base.wz/smap.img"] = WzImg.new("synthetic", {"body": "Bd", "head": "Hd", "face": "Fc", "hair": "H2"})
 	var body := {}
-	for s in ["stand1", "walk1", "jump", "prone", "alert", "shoot1", "cannon", "torpedo", "fireburner", "coolingeffect", "ladder", "swingO1"]:
+	for s in ["stand1", "walk1", "jump", "prone", "alert", "shoot1", "shoot2", "cannon", "torpedo", "fireburner", "coolingeffect", "ladder", "swingO1"]:
 		body[s] = {"0": {"body": _body(1, Vector2(-8, -21))}}
 	body["sit"] = {"0": {"body": _body(2, Vector2(-2, -17)), "arm": _body(3, Vector2(-4, 2))}}
 	body["ladder"]["0"]["face"] = 0
@@ -169,8 +169,10 @@ func test_the_mount_stance_follows_motion_and_the_named_casts() -> void:
 func test_the_rider_sits_except_in_the_named_casts() -> void:
 	for s in ["stand1", "walk1", "jump", "prone", "alert", "shoot1", "swingO1", "doublefire"]:
 		assert_eq(MountLayers.rider_stance(s), "sit", s)
-	for s in ["cannon", "torpedo", "fireburner", "coolingeffect", "ladder", "rope", "dead"]:
+	for s in ["fireburner", "coolingeffect", "ladder", "rope", "dead"]:
 		assert_eq(MountLayers.rider_stance(s), s, "%s keeps its own body action" % s)
+	for s in ["cannon", "torpedo"]:
+		assert_eq(MountLayers.rider_stance(s), "shoot2", "%s: the body's own stance hides the gun, shoot2 shows it (C13 #397, tier C)" % s)
 
 
 func test_layers_play_loop_hold_and_rewind() -> void:
@@ -284,7 +286,7 @@ func test_the_avatar_asks_the_mount_for_each_stance() -> void:
 	avatar.set_mount(MOUNT)
 	var layers := avatar.mount_layers()
 	var expected := {"stand1": ["stand1", "sit"], "walk1": ["walk1", "sit"], "jump": ["jump", "sit"], "prone": ["prone", "sit"],
-		"alert": ["alert2", "sit"], "shoot1": ["alert2", "sit"], "cannon": ["cannon", "cannon"], "torpedo": ["torpedo", "torpedo"],
+		"alert": ["alert2", "sit"], "shoot1": ["alert2", "sit"], "cannon": ["cannon", "shoot2"], "torpedo": ["torpedo", "shoot2"],
 		"fireburner": ["fireburner", "fireburner"], "coolingeffect": ["coolingeffect", "coolingeffect"]}
 	for request: String in expected:
 		avatar.play(request, true, false)
@@ -424,6 +426,6 @@ func test_the_real_ship_seats_a_real_rider_at_the_known_offset() -> void:
 	for cast in ["cannon", "torpedo", "fireburner", "coolingeffect"]:
 		rider.play(cast, true, false)
 		assert_true(rider.visible_mount() != null, cast)
-		assert_eq(rider.stance, cast)
+		assert_eq(rider.stance, MountLayers.RIDER_ACTIONS.get(cast, cast))
 	assert_eq(rider.missing, PackedStringArray())
 	rider.free()

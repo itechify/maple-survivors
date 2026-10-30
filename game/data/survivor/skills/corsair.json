@@ -784,6 +784,211 @@
 					}
 				]
 			}
+		},
+		"battleship": {
+			"_provenance": "Tier A: Skill.wz 5221006 (book 522, 10 levels, no action node): pdd = mdd 10 x level, so the eight mapped levels 2 3 4 5 7 8 9 10 (rank_levels[\"10\"]) give a hull of 20 / 30 / 40 / 50 / 70 / 80 / 90 / 100 % of max HP (rank 1 / 4 / 8 = 20 / 50 / 100 %), the 11-frame effect and the 7-frame effect0 (z -1, behind the avatar; first frame 1x1 held 450 ms) cast art, and the Use sound; the WZ time (2,100,000 s) is 'until the hull is gone' and cooltime (90 s) is not used. Tier C (spec #384 CS-10, CS-11, C13 #397): a pool Form of the group corsair_ship, 15 s window, 45 s cooldown counted from the cast, admission when a living monster is within 400 px, no action node so the cast plays the gun's own shooting stance (weapon), the hull / only_skills / art_variant / presentation block, the Cannon at 0.8 s then every 1.4 s and the Torpedo at 1.6 s then every 3.0 s, the rarity bonuses. Docs: GAME_DESIGN 7.120.4.",
+			"skill_id": 5221006,
+			"book": "522",
+			"job": 522,
+			"kind": "form",
+			"slot": "active",
+			"name": "Battleship",
+			"desc": "Boards a battleship: its hull takes hits for you, and it fires its own cannon and torpedoes.",
+			"text": {
+				"desc": "Rides a battleship for 15 seconds. The hull absorbs the damage you take until it breaks. Only Grenade, Flamethrower and Ice Splitter fire while aboard, plus the ship's Cannon every 1.4 s and Torpedo every 3 s. Casts when a monster is near.",
+				"h": ""
+			},
+			"icon": "Skill.wz/522.img/skill/5221006/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "form",
+				"mob_within": 400
+			},
+			"cooldown": 45.0,
+			"form": {
+				"duration": 15.0,
+				"exclusive_group": "corsair_ship",
+				"effects": {
+					"hull": {
+						"field": "pdd",
+						"of": "max_hp"
+					},
+					"only_skills": [
+						"grenade",
+						"flamethrower",
+						"ice_splitter"
+					],
+					"art_variant": {
+						"effect": "effect_ship"
+					}
+				},
+				"presentation": {
+					"mount": 1932000
+				},
+				"subs": [
+					{
+						"skill": "battleship_cannon",
+						"first_after": 0.8,
+						"interval": 1.4
+					},
+					{
+						"skill": "battleship_torpedo",
+						"first_after": 1.6,
+						"interval": 3.0
+					}
+				]
+			},
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/522.img/skill/5221006/effect",
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/522.img/skill/5221006/effect0",
+					"x": 0,
+					"facing": true
+				}
+			],
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5221006/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "gun_mastery",
+						"text": "Gun Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "reinforced_hull",
+						"text": "Reinforced Hull",
+						"effects": [
+							{
+								"stat": "hull",
+								"op": "mul",
+								"value": 1.5
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "full_steam",
+						"text": "Full Steam",
+						"effects": [
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.4
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "full_steam",
+						"text": "Full Steam",
+						"effects": [
+							{
+								"stat": "form_time",
+								"op": "mul",
+								"value": 1.4
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"battleship_cannon": {
+			"_provenance": "Tier A: Skill.wz 5221007 (book 522, req Battleship level 1): damage 205 to 380 % (the 30-level table 4 8 12 15 19 23 27 30 reads 220 / 240 / 270 / 285 / 305 / 345 / 365 / 380, so rank 1 / 4 / 8 = 220 / 285 / 380 %), bulletCount 3 (4 from level 11), range 400, weapon 49 (gun), the cannon action, its own 21 x 17 ball, hit/0 (4 frames) and the Use and Hit sounds (the same 2.3 s file). Tier C (spec #384, C13 #397): a Form sub of the Battleship with no slot and no card, nearest rule, 900 px/s, 8 px radius, no ammo shot (the ship's own shell), 1.4 s cooldown, the 0.8 s cannon stance hold. The sub ranks with its parent through its own 30-level table. Docs: GAME_DESIGN 7.120.4.",
+			"skill_id": 5221007,
+			"book": "522",
+			"job": 522,
+			"kind": "projectile",
+			"slot": "form_sub",
+			"form_sub_of": [
+				"battleship"
+			],
+			"name": "Battleship Cannon",
+			"desc": "The ship's cannon fires several shells at the nearest monsters.",
+			"text": {
+				"desc": "While aboard the battleship, the ship fires a volley of cannon shells at the nearest monsters every 1.4 seconds.",
+				"h": "Damage {damage}% x{count}"
+			},
+			"icon": "Skill.wz/522.img/skill/5221007/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 1.4,
+			"speed": 900,
+			"radius": 8,
+			"pierce": 0,
+			"ammo_shot": false,
+			"action": "cannon",
+			"action_time": 0.8,
+			"ball": "Skill.wz/522.img/skill/5221007/ball",
+			"hit": "Skill.wz/522.img/skill/5221007/hit/0",
+			"effect": "",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5221007/Use",
+				"hit": "Sound.wz/Skill.img/5221007/Hit"
+			}
+		},
+		"battleship_torpedo": {
+			"_provenance": "Tier A: Skill.wz 5221008 (book 522, req Battleship level 1): damage 390 to 780 % (the 30-level table reads 420 / 460 / 550 / 580 / 620 / 710 / 750 / 780, so rank 1 / 4 / 8 = 420 / 580 / 780 %), mobCount 4 to 6 (4 / 5 / 6 at rank 1 / 4 / 8), weapon 49 (gun), the torpedo action, its own 6-frame ball (30 ms), hit/0 (6 frames) and the Use and Hit sounds (the same 2.3 s file). Tier C (spec #384, C13 #397): a Form sub of the Battleship with no slot and no card, nearest rule, range 400 (the WZ node has a box lt (-400,-80) rb (-10,20) and no range), 700 px/s, 14 px radius, pierce_field mobCount (it strikes mobCount monsters, so it pierces mobCount - 1), 3.0 s cooldown, the 1.0 s torpedo stance hold. Docs: GAME_DESIGN 7.120.4.",
+			"skill_id": 5221008,
+			"book": "522",
+			"job": 522,
+			"kind": "projectile",
+			"slot": "form_sub",
+			"form_sub_of": [
+				"battleship"
+			],
+			"name": "Battleship Torpedo",
+			"desc": "The ship launches a torpedo that pierces a line of monsters.",
+			"text": {
+				"desc": "While aboard the battleship, the ship launches a torpedo every 3 seconds that runs through several monsters in a line.",
+				"h": "Damage {damage}% on up to {mob_count|monster|monsters}"
+			},
+			"icon": "Skill.wz/522.img/skill/5221008/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 3.0,
+			"range": 400,
+			"speed": 700,
+			"radius": 14,
+			"pierce": 0,
+			"pierce_field": "mobCount",
+			"action": "torpedo",
+			"action_time": 1.0,
+			"ball": "Skill.wz/522.img/skill/5221008/ball",
+			"hit": "Skill.wz/522.img/skill/5221008/hit/0",
+			"effect": "",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5221008/Use",
+				"hit": "Sound.wz/Skill.img/5221008/Hit"
+			}
 		}
 	}
 }

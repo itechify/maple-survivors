@@ -4503,6 +4503,15 @@ uncapped) shows the planted octopus with a ball flying to the crowd's near edge 
 `missing: []`; 200 monsters alive for the whole run: frame 2.6 ms avg / 4.3 ms p95, RunScene work 1.3 ms avg / 3.0 ms p95, sim 1.5 ms
 per tick. Screenshots in gitignored `evidence/c6/`.
 
+### Corsair C13 smoke (#397, 2026)
+
+The Battleship and its subs are data plus small text / preview seams (`hull_share`, `SkillText._ship_line`, the `hull` card preview) and
+one presentation change (the rider's `shoot2`, the hull bar lift). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212)
+died at 12:31 / 11:01 / 7:54 and Hero (112) at 5:27 / 5:36 / 11:28, no clears, no warnings, identical to the C11 rows above. Diagnostic
+`--job=522` playtest (`playable` and `starting_skill battleship` flipped in the worktree only, reverted; Henesys seed 3, x4, 2:00 and 1:00):
+`missing: []`; the ship drawn with the seated rider, the blue hull bar over the head, a Cannon volley, a Torpedo flash and the broken hull
+(10 HP at rank 1 / Lv1) looked at by eye. Not tuned.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
@@ -8437,10 +8446,65 @@ form carries `presentation.mount` 1932000), `AvatarRenderer` draws `Character.wz
   (`--requests=<csv> --scale=<n>` for a closer look). Findings, with the pistol: the rider sits inside the hull with the head over the
   rail in every stance; the ship's keel is 3-10 px above the feet line in every frame (the art's `rb` is y -10: a hovering vessel,
   not an alignment error); in `fireburner` / `coolingeffect` the pistol is drawn over the rail, but in `cannon` / `torpedo` the rider's
-  body action is `alert`, whose pistol is at the waist and sits behind the front hull canvas (the data, not a missing layer).
+  body action is `alert`, whose pistol is at the waist and sits behind the front hull canvas (the data, not a missing layer);
+  C13 (#397, 7.120.13) settled it with `shoot2`.
 - **Cost.** No node per frame: one `MountLayers` (a RefCounted) per ride, and the mounted draw list is built only when the avatar
   redraws (a frame change). With no mount `_draw` is the old loop, byte for byte.
 
+#### 7.120.13 Corsair C13: the Battleship and its two sub-skills (#397, spec #384 M2 + M20)
+
+`battleship` (WZ 5221006, book 522) is a `kind: "form"` pool active on Paladin's seam, with C11's three ship effects and C12's mount;
+`battleship_cannon` (5221007) and `battleship_torpedo` (5221008) are its `form_sub` skills. All three are in `skills/corsair.json`.
+
+- **The form (tier C unless noted).** `cast {rule form, mob_within 400}` (it waits, unburned, when nothing is near), 15 s window
+  (the WZ `time` 2,100,000 s is "until the hull is gone"), 45 s cooldown counted from the cast (the 90 s WZ `cooltime` is not used),
+  group `corsair_ship`, `effects` = `hull {field pdd, of max_hp}`, `only_skills [grenade, flamethrower, ice_splitter]`,
+  `art_variant {effect: effect_ship}`, `presentation {mount 1932000}`. The cast plays the gun's own shooting stance (`action weapon`,
+  the node has no `action`, 0.6 s); `effect` (11 frames) is the cast art and `effect0` (7 frames, z -1: behind the avatar) a
+  `cast_visuals` entry; the `Use` sound. Ranks: no `ranks` list; the default table of `rank_levels["10"]` (`[2,3,4,5,7,8,9,10]`,
+  present once in `skills.json`) gives levels 2..10 and a hull of 20 / 30 / 40 / 50 / 70 / 80 / 90 / 100% of max HP (tier A `pdd`:
+  rank 1 / 4 / 8 = 20 / 50 / 100%).
+- **Cannon (A numbers, C behaviour).** `nearest` projectile, own 21 x 17 `ball`, `count` from `bulletCount` (3 up to WZ level 10, 4 from
+  level 11), range 400 (A), damage 205 -> 380% by the 30-level table (rank 1 / 4 / 8 reads levels 4 / 15 / 30 = 220 / 285 / 380%).
+  C: 900 px/s, radius 8, `ammo_shot` false, first cast 0.8 s after boarding then every 1.4 s, the `cannon` stance held 0.8 s.
+- **Torpedo.** `nearest` projectile, own 6-frame `ball`, 390 -> 780% (rank 1 / 4 / 8 = 420 / 580 / 780%), `mobCount` 4 / 5 / 6 (levels
+  1-10 / 11-20 / 21-30), `pierce_field "mobCount"` (strikes `mobCount` monsters, so it pierces `mobCount - 1`). C: range 400 (the WZ
+  has a box `lt (-400,-80) rb (-10,20)` and no range), 700 px/s, radius 14, first cast at 1.6 s then every 3.0 s, the `torpedo` stance
+  held 1.0 s. The sub skills rank with the parent through their own 30-level table (Battleship rank 8 casts level 30), take the
+  form's `damage` modifier and have no card and no rarity list.
+- **Rarity bonuses (C).** Rare `gun_mastery` "Gun Mastery" `damage` x1.2 (the subs'); Epic `reinforced_hull` "Reinforced Hull" `hull` x1.5;
+  Unique `full_steam` "Full Steam" `form_time` x1.4 (21 s); Legendary Full Steam (same id, so the repeat counter is shared) and
+  `damage` x1.2. `hull` is a `mul` modifier read by `PlayerHull.start` and shown as `hull_share`.
+- **Presentation (C).** `Loadout.stats` gains `hull_share` (pdd / 100 x the `hull` modifier) for a form with a `hull` effect; the hull modifier
+  previews on its card as "Hull: 20% -> 30%" (`UpgradePool.MOD_PREVIEW`, `LevelUpWindow.MOD_LABELS`); the Skill window line is
+  "Rides a battleship for 15 s: hull 20% of max HP; only Grenade, Flamethrower and Ice Splitter fire, plus the ship's Cannon every
+  1.4 s and Torpedo every 3 s." (`SkillText._ship_line`), and a Full Steam card reads "ride lasts 40% longer".
+- **The rider's gun in `cannon` / `torpedo` (the open question of C12; tier C).** The body's own `cannon` and `torpedo` stances are
+  `alert` frame 0, whose pistol is hidden behind the ship's front canvas. `MountLayers.RIDER_ACTIONS` maps both to the body action
+  `shoot2` (`rider_stance`), which raises the pistol over the rail. The navel rule needs no change: `layout` already reads the rider
+  body's navel per frame, so the rider stays seated in the hull (mount_gallery sheets, both facings; `alert` before, `shoot2` after).
+  The ship's own stance is still `cannon` / `torpedo`.
+- **Hull bar (C).** While a mount is shown the bar rises a further 20 px (`RunScene.HULL_BAR_MOUNT_LIFT`): the seated rider's head is above
+  the body box and the C11 position sat on the eyes in the playtest screenshot.
+- **Evidence.** Diagnostic `--job=522` playtests (Henesys, `playable` and `starting_skill battleship` flipped only in the worktree and
+  reverted): the ship drawn, the rider seated, the blue hull bar, a Cannon volley, a Torpedo flash and the broken hull (the rank 1 hull
+  of a Lv1 character is 10 HP) were looked at; `missing: []`.
+
+#### 7.120.14 Corsair C13 constants (#397)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Battleship cast | `form`, `mob_within` 400, cooldown 45 s from the cast, window 15 s, group `corsair_ship` | C |
+| Battleship `action` | `weapon` (the gun's own shooting stance), `action_time` 0.6 s | C |
+| Hull share | `pdd` % of max HP at rank 1..8 = 20 / 30 / 40 / 50 / 70 / 80 / 90 / 100 (levels 2 3 4 5 7 8 9 10) | A (field) / C (reading, CS-11) |
+| `only_skills` | `grenade`, `flamethrower`, `ice_splitter` (the subs are never restricted) | C (CS-10) |
+| `art_variant` | `effect` -> `effect_ship` | C |
+| Cannon | 0.8 s first, 1.4 s interval, 900 px/s, radius 8, no ammo shot, `cannon` stance 0.8 s; rounds `bulletCount` 3 / 4; range 400 and damage by level | C (A numbers) |
+| Torpedo | 1.6 s first, 3.0 s interval, range 400, 700 px/s, radius 14, `pierce_field mobCount`, `torpedo` stance 1.0 s; damage and `mobCount` by level | C (A numbers) |
+| Rarity | Gun Mastery x1.2 damage; Reinforced Hull `hull` x1.5; Full Steam `form_time` x1.4; Legendary Full Steam + damage x1.2 | C |
+| Rider action in `cannon` / `torpedo` | `shoot2` (`MountLayers.RIDER_ACTIONS`) | C |
+| Hull bar over a mount | +20 px (`RunScene.HULL_BAR_MOUNT_LIFT`) | C |
+| Skill-window / card text | the ship line, "Hull" preview, "ride lasts N% longer" | C |
 #### 7.120.4 Corsair C4: the five gun fillers (#388)
 
 Double Shot, Invisible Shot, Recoil Shot and Grenade moved from `skills/pirate.json` to `skills/corsair.json` (a key may be defined in
@@ -10413,6 +10477,10 @@ The constants of the Corsair data line are in section 7.120.1 (nested under the 
 ### Corsair C11 constants (#395)
 
 The constants of the ship's Form effects (hull, `only_skills`, `art_variant`, the hull bar) are in section 7.120.3, described in 7.120.2.
+
+### Corsair C13 constants (#397)
+
+The constants of the Battleship, Cannon and Torpedo are in section 7.120.14, described in 7.120.13.
 
 ### Corsair C8 constants (#392)
 

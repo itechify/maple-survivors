@@ -18,6 +18,9 @@ extends RefCounted
 
 ## tier B/C: the actions the rider and the mount both play by name (Battleship Cannon, Torpedo, Flamethrower, Ice Splitter).
 const CAST_STANCES := ["cannon", "torpedo", "fireburner", "coolingeffect"]
+## tier C (C13 #397): the rider's body action for a cast whose own body stance hides the gun (the body's `cannon` and `torpedo` are
+## redirects to `alert` frame 0, whose pistol sits at the waist behind the front hull): `shoot2` lifts the gun over the rail.
+const RIDER_ACTIONS := {"cannon": "shoot2", "torpedo": "shoot2"}
 ## tier B/C: the rider's body action on the mount whenever it is not one of CAST_STANCES.
 const RIDER_STANCE := "sit"
 ## tier B/C: the mount stance for the idle alert and any action without a stance of its own.
@@ -62,6 +65,8 @@ static func mount_stance(request: String) -> String:
 ## The rider's body stance for the avatar stance requested: the named cast, the climbing and dead stances as they are,
 ## `sit` for everything else.
 static func rider_stance(request: String) -> String:
+	if request in RIDER_ACTIONS:
+		return String(RIDER_ACTIONS[request])
 	if request in CAST_STANCES or request in CLIMB_STANCES or request in DEAD_STANCES:
 		return request
 	return RIDER_STANCE

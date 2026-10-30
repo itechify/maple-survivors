@@ -473,6 +473,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	_add_burn(resolved, key, d, lv)
 	_add_pierce_field(resolved, key, d, lv)
 	_add_mark(resolved, key, d, lv)
+	_add_hull(resolved, key, d, lv)
 
 	if d.has("form"):
 		resolved["duration"] = float(d.form.duration) * skill_stat(key, "form_time", 1.0)
@@ -484,6 +485,15 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	if d.has("revive"):
 		resolved["revive"] = _revive(key, d.revive)
 	return resolved
+
+
+## Adds `hull_share` to a Form with a `hull` effect: the share of max HP its hull will have (the canonical field at this level over
+## 100, times the `hull` modifier; spec #384 C13). PlayerHull sizes the real pool from the same two numbers at the form's start.
+## Other skills gain no key, so their stats are unchanged.
+func _add_hull(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> void:
+	var hull: Variant = d.get("form", {}).get("effects", {}).get("hull")
+	if hull is Dictionary:
+		resolved["hull_share"] = book.canonical(key, lv, String(hull.get("field", "")), 0.0) / 100.0 * skill_stat(key, "hull", 1.0)
 
 
 ## The ALL_WEAK mark's stored length in seconds: the skill's `on_hit.duration` (`base`) lengthened by the `mark_time` modifier.
