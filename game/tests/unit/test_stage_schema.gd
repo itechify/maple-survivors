@@ -6,7 +6,9 @@ func test_regions_have_three_ordered_maps_and_relative_bosses() -> void:
 	var errors := PackedStringArray()
 	var file: Dictionary = DataRepo.load_all(DataRepo.DATA_ROOT, errors).stages
 	assert_eq(errors, PackedStringArray())
-	assert_eq(file.tiers, [["henesys", "ellinia", "perion", "kerning"], ["sleepywood"]])
+	assert_eq(file.progression, ["henesys", "ellinia", "perion", "kerning", "sleepywood"])
+	assert_false(file.has("tiers"), "the tier lists are gone (ADR 0007)")
+	assert_false(file.has("drop_bands"), "and so are the per-tier drop bands")
 	var expected := {
 		"henesys": [104040000, 104010001, 100030001],
 		"ellinia": [101010100, 100040100, 100040105],
@@ -199,3 +201,38 @@ func _share(pool: Dictionary, id: int) -> float:
 		if kinds[i] == id:
 			own += weights[i]
 	return own / total if total > 0.0 else 0.0
+
+
+## ADR 0007 (#450): `progression` names existing, distinct stages and each carries a `drop_band`.
+func test_progression_validation_accepts_the_shipped_data_and_rejects_broken_lists() -> void:
+	var file: Dictionary = DataRepo.load_all().stages
+	assert_eq(DataRepo.progression_errors(file), PackedStringArray())
+	var missing_key: Dictionary = file.duplicate(true)
+	missing_key.progression.append("nowhere")
+	assert_eq(DataRepo.progression_errors(missing_key), PackedStringArray(["progression key 'nowhere' is not a stage"]))
+	var twice: Dictionary = file.duplicate(true)
+	twice.progression.append("henesys")
+	assert_eq(DataRepo.progression_errors(twice), PackedStringArray(["progression lists 'henesys' twice"]))
+	var no_band: Dictionary = file.duplicate(true)
+	no_band.stages.ellinia.erase("drop_band")
+	assert_eq(DataRepo.progression_errors(no_band), PackedStringArray(["stage 'ellinia' needs a drop_band [min, max]"]))
+	var backwards: Dictionary = file.duplicate(true)
+	backwards.stages.perion.drop_band = [30, 10]
+	assert_eq(DataRepo.progression_errors(backwards), PackedStringArray(["stage 'perion' needs a drop_band [min, max]"]))
+	var empty: Dictionary = file.duplicate(true)
+	empty.progression = []
+	assert_ne(DataRepo.progression_errors(empty), PackedStringArray())
+	var gone: Dictionary = file.duplicate(true)
+	gone.erase("progression")
+	assert_ne(DataRepo.progression_errors(gone), PackedStringArray())
+
+
+func test_the_shipped_drop_bands_rise_along_the_progression() -> void:
+	var file: Dictionary = DataRepo.load_all().stages
+	var last_min := -1
+	var last_max := -1
+	for key: String in file.progression:
+		var band: Array = file.stages[key].drop_band
+		assert_true(int(band[0]) >= last_min and int(band[1]) >= last_max, "%s does not fall below the region before it" % key)
+		last_min = int(band[0])
+		last_max = int(band[1])

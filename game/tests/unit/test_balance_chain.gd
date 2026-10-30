@@ -29,8 +29,10 @@ func test_chain_replays_records_and_carries_every_character_field_after_clear() 
 	assert_eq(a.rounds[1].seed, BR.round_seed(2026, 1))
 	assert_false(setups[1].has("character"), "reusing prepared setups cannot leak an earlier chain's character")
 	assert_eq(a.rounds[1].start_character.job_id, 212)
-	assert_eq(a.rounds[1].start_character.tiers_unlocked, 2, "the clear unlocked the next tier for the carried character")
-	assert_eq(a.rounds[0].start_character.tiers_unlocked, 2, "the fixture starts with tier 2 already open")
+	assert_eq(a.rounds[0].start_character.cleared_regions, ["ellinia", "henesys", "kerning", "perion"],
+		"the fixture starts with the four Victoria regions cleared (tier 2 open)")
+	assert_eq(a.rounds[1].start_character.cleared_regions, a.rounds[0].start_character.cleared_regions,
+		"the synthetic stage is outside the progression: its clear adds no region")
 
 
 ## Two quiet rounds whose carried character is a Magician with 200,000 mesos and a spare wand (synthetic item info).
@@ -140,9 +142,8 @@ func test_chain_cli_reads_tiers_and_replays_both_round_records() -> void:
 	# Short, empty encounters exercise the real CLI/cache/clear boundary without a fifteen-minute combat test.
 	var data := DataRepo.load_all()
 	var stages := {}
-	for tier: Array in data.stages.tiers:
-		for stage: String in tier:
-			stages[stage] = {"duration": 0.05, "maps": [{"map_id": data.stages.stages[stage].maps[0].map_id, "boss": {}}]}
+	for stage: String in data.stages.progression:
+		stages[stage] = {"duration": 0.05, "maps": [{"map_id": data.stages.stages[stage].maps[0].map_id, "boss": {}}]}
 	var path := ProjectSettings.globalize_path(test_dir("chain patch.json"))
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var file := FileAccess.open(path, FileAccess.WRITE)

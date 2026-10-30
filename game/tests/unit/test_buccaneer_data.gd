@@ -366,8 +366,8 @@ func test_real_cache_the_steel_knuckler_is_wearable_and_each_tier_drops_knuckles
 	assert_eq(WeaponInfo.family(KNUCKLE), "knuckle")
 	assert_eq(Equipment.requirement_error(infos[KNUCKLE], {"job_id": 512}), "", "a Buccaneer can wear the creation knuckler")
 	var ed: Dictionary = data.equipment_drops
-	for tier in data.stages.tiers.size():
-		var band := EquipmentDrops.band_of(data.stages, tier)
+	for tier in data.stages.progression.size():
+		var band := EquipmentDrops.band_of(data.stages.stages[data.stages.progression[tier]])
 		var rng := _rng(414 + tier)
 		var knuckles := 0
 		for i in 300:

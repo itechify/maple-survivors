@@ -20,8 +20,8 @@ Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in
 | Area | Target | Replaces |
 |---|---|---|
 | Character | One 4th job, chosen at creation (twelve v83 4th jobs; Beginner not playable). Name, look, slot as today. | 1, 9 |
-| Round | Standalone: Free Market -> map select (the character's unlocked tiers) -> 3 maps, 3 bosses (spec #241, unchanged) -> Free Market. Death ends only the round, and loot is kept. | 1 |
-| Tiers | Clearing any stage of tier N unlocks tier N+1 for that character. Cleared tiers can be replayed. The slice keeps the two existing tiers. | 1, 4.1 |
+| Round | Standalone: Free Market -> map select (the character's unlocked regions) -> 3 maps, 3 bosses (spec #241, unchanged) -> Free Market. Death ends only the round, and loot is kept. | 1 |
+| Progression | One ordered list of regions (`stages.json` `progression`, ADR 0007). A new character has only the first (Henesys) open; clearing a region unlocks the next. The character stores the set of cleared regions; cleared regions can be replayed. | 1, 4.1 |
 | Level | Lv1 every round. First-pass EXP curve for picks ≈ levels + boss draws (about 50–60 per round), all 6 actives by about 5:00, end level about 45-55 (tier C). | 5 |
 | Skills | Job skill pool (lineage actives, all auto-cast; summons are timed allies in a slot; no buffs). Starting skill in slot 1. 6 active + 6 passive skill slots. | 7, 9 |
 | Ranks | Actives 1-8, mapped to WZ levels by a survivor table. +1 rank per card, plus a rarity bonus (Fortune applies). Mastery cards after rank 8. | 7, 8 |
@@ -29,7 +29,7 @@ Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in
 | Cards | 3 per draw, weights 1.2 owned active or Mastery / 1.0 new active / 0.8 passive rank / 0.5 new passive. Boss bonus draw kept. No reroll, banish or skip. Power Elixir fallback. | 8 |
 | Combat | Maple formula plus auto-AP in one stat row per job. No MP (cooldowns only). No level-gap penalties. No MISS (ADR 0005). | 5, 6, 7 |
 | Mobility | Teleport, Flash Jump, Dash or Rush on a skill key from Lv1, outside the slots; Bowmaster has none (D1). | 2, 7.15, 7.33 |
-| Equipment | Job-class requirement only. `reqLevel` is the tier's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
+| Equipment | Job-class requirement only. `reqLevel` is the region's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
 | Account | NX, Cash Shop, pets unchanged. Cash equipment adds Fortune. | 8.4 |
 
 Order: the F/P Arch Mage slice, then Hero, then the other ten jobs, a tier rework (fewer starting choices), and last
@@ -53,7 +53,7 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   `1 - 0.01 x gap` term; the other paths never had one). No attack misses (ADR 0005).
 - **#286 (T4): save format 3 and the standalone round loop.** A character is saved as `{name, created, rounds_played,
   character}` and keeps only its job, look, worn equipment and inventory, scrolls, mesos, cash, pet and
-  `tiers_unlocked` (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
+  `tiers_unlocked`, since #450 the set `cleared_regions` (ADR 0007) (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
   every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
   Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
   jobs (Hero 112, Dark Knight 132, Bishop 232, Paladin 122 and Arch Mages 212/222), whose `creation_weapon` is the weapon worn; the look page's weapon row is no longer chosen.
@@ -78,8 +78,9 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
 - **#292 (T10): equipment without level or stat requirements, tier drop bands, job weapon families.**
   `Equipment.requirement_error` checks only `reqJob`; `reqLevel` and `reqSTR/DEX/INT/LUK` are ignored by equipping, the
   pickup auto-wear (#222) and the bot shop, and the Equip/Item tooltip has no REQ rows (its job row stays).
-  `stages.json` `drop_bands[i]` is the `reqLevel` band of tier i ([0, 30], [30, 60]); `RunWorld.drop_band()` gives the
-  band of the current stage's tier and `EquipmentDrops` picks inside it (uniform for ordinary drops, the top third
+  `stages.json` `drop_bands[i]` was the `reqLevel` band of tier i ([0, 30], [30, 60]); since #450 each stage carries its
+  own `drop_band` (ADR 0007, "Region progression" in Constants and provenance). `RunWorld.drop_band()` gives the
+  current stage's band and `EquipmentDrops` picks inside it (uniform for ordinary drops, the top third
   `boss_floor` for bosses, `equipment_drops.boss_top_parts` 3). The character's level and the held weapon no longer
   matter. `survivor/jobs/<line>.json` lists each job's `weapon_families` (`JobTree.weapon_families`; 212: wand, staff); a
   weapon drops only from them, armour and shields by job class alone. Mesos, worn equipment, the Equip tab and scrolls
@@ -90,6 +91,14 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   contact/`attackN` damage (at impact) from a start to an end value over round time, so a Lv1 character can play every
   tier: tier 1 is neutral (1 -> 1), Sleepywood opens at HP 0.3 / damage 0.4 on map 1 and 0.02 / 0.08 on maps 2 and 3,
   all reaching 1 at 20:00. Bosses capture the ramp at their arrival. WZ stats are never edited.
+- **#450 (A1, ADR 0007): the progression replaces the tiers.** `stages.json` `progression` (Henesys, Ellinia, Perion,
+  Kerning City, Sleepywood) and a per-stage `drop_band` replace the root `tiers` and `drop_bands`; `nx_award.clear_bonus` is
+  indexed by the stage's step in the list. `CharacterSnapshot.cleared_regions` (sorted unique stage keys) replaces
+  `tiers_unlocked`: a region is unlocked when it is the first or its predecessor is cleared (`unlocked_keys`), a CLEARED round
+  adds its stage (`cleared_after_round`, idempotent), and a death, a Quit round and a tool one-off round change nothing.
+  A stored `tiers_unlocked` >= 2 migrates to the first four regions cleared (Sleepywood stays reachable), anything else to
+  none (`CharacterSnapshot.migrate`, `with_cleared_regions`; `SaveData` converts stored slots on load). The snapshot format
+  stays 3 (the field is detected by key). Map select keeps its look and lists the progression; its redesign is #451.
 - **#294 (T12): QA and docs.** The `redesign` flow scenario (`flow_driver.tscn --scenario=redesign`), the retired
   scenarios and debug drivers removed, the one F/P fixture, the playtests and the regression smoke of 4.2, and the rewrites
   of sections 1, 5, 6.1.1, 7.5, 8 and 9 and of AGENTS.md.
@@ -184,9 +193,9 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
    windows, the four scroll NPCs (shops) and the Cash Shop button are here. Room entrances in01-in22 and Fredrick,
    Scrooge, Maple TV and Inkwell are drawn but inert. Up at the scripted `out00` portal opens **map select**; Esc offers
    Resume / Save & quit. The hub draws the character's look and worn equipment; moving never changes the save.
-3. **Map select** lists every stage of every unlocked tier: Henesys, Ellinia, Perion and Kerning City (tier 1, always
-   open) and Sleepywood (tier 2). A locked card is greyed, its details say "Locked. Clear any stage of Tier 1 to unlock
-   Tier 2." and Start does nothing. Each stage contains three ordered maps (4.1). Back returns to the Free Market.
+3. **Map select** lists the whole progression in order: Henesys, Ellinia, Perion, Kerning City and Sleepywood. Only
+   Henesys is open to a new character, and clearing a region opens the next. A locked card is greyed, its details say
+   "Locked. Clear <previous region> to unlock." and Start does nothing. Each stage contains three ordered maps (4.1). Back returns to the Free Market.
 4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt for F/P, Cold Beam for I/L, Power Strike for Hero,
    active slot 1) and its mobility skill (Teleport or Rush) on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
 5. **Survive** the growing swarms. Each map's boss arrives 300 seconds after entering it. Defeat it, collect all
@@ -202,9 +211,9 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
    the time, level, job, kills, damage dealt, NX earned, the owned skills and the stage's best; Back returns to the Free Market.
 
 **What persists** is exactly `CharacterSnapshot` (section 0, #286): job, look, worn equipment, the Equip tab, scrolls,
-mesos, cash items, the pet and `tiers_unlocked`. Level, EXP, skills, ranks, card modifiers, AP and HP are round state
+mesos, cash items, the pet and `cleared_regions`. Level, EXP, skills, ranks, card modifiers, AP and HP are round state
 and never saved. What a round picked up (mesos, equipment, scrolls bought earlier) is kept whether it ended in a clear, a
-death or Quit round; the unlock of tier N+1 needs a clear of a tier-N stage and is never taken back. There is no saved
+death or Quit round; the unlock of the next region needs a clear of its predecessor and is never taken back. There is no saved
 round and no resume: closing the game mid-round loses it (its loot too), and Continue only opens the hub. Saves happen in
 the hub (Save & quit, an inventory action) and when a round ends (one write: character, the stage's best, the run count,
 NX and one history entry). Map transfers never save. Only confirmed deletion frees a slot; every round and each deletion
@@ -8563,6 +8572,17 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Owner-side `affected` art | plays on the player at every pulse | B |
 
 
+### Region progression (spec #447, #450; ADR 0007; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood (v83 levelling order; owner request 2026-10-30) | C |
+| Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]) | C |
+| NX clear bonus | `balance.nx_award.clear_bonus` by progression step: 100, 100, 100, 100, 250, the last repeating (the old amounts moved from tiers to steps) | C |
+| Unlock rule | region i is open iff i == 0 or `progression[i-1]` is in the character's `cleared_regions`; a CLEARED round adds its stage; death, Quit round and one-off rounds add nothing | C |
+| Save migration | `CharacterSnapshot.LEGACY_TIER1_REGIONS` 4: a stored `tiers_unlocked` >= 2 becomes the first four progression keys cleared, otherwise none | C |
+| `balance_run.gd --tier=N` | tier 1 = the first four regions, tier 2 = the fifth; replaced by `--chain` in A5 (#454) | C |
+
 ### Review #282: constants and provenance
 
 | Rule | Value / source | Tier |
@@ -9024,7 +9044,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Warrior list (#159) | `equipment_drops/warrior.json`: the same selection for the sword (130xxxx, 140xxxx), axe (131, 141), blunt (132, 142), spear (143) and polearm (144) weapons and the shields (109xxxx) whose reqJob has the Warrior bit (88 weapons, 17 shields; some weapons are shared with Thieves and Bowmen). reqJob 0 weapons and shields are left out on purpose: a Beginner and a Magician would otherwise draw them, and their drops stay as they were | B (selection rule), C (the reqJob 0 exclusion) | Cosmic `drop_data` / `shopitems`; v83 Character.wz |
 | Weapon family rule (#159, #292) | A weapon is eligible only when its family (`WeaponInfo.family`) is one of the job's `weapon_families` (`JobTree.weapon_families`, `survivor/jobs/<line>.json`; 212: `["wand", "staff"]`, tier C), read per drop for ordinary and boss drops alike and independent of the weapon worn; one- and two-handed swords, axes and blunt weapons share a family; a job with no list gets no weapon; armour and shields do not depend on it (`EquipmentDrops.family_allows`). #292 replaces the held-family rule of #159 and its `shared_families` / `shield_families` data | C (ours; the ticket's rule) | Ticket #292 |
 | Job filter | Only items whose `reqJob` is 0 or has the bit of the character's job branch (`Equipment.job_allows`); a job-0 test character only gets all-job items, every Magician job gets Magician and all-job items. It is also the only wear requirement (#292) | A | v83 `reqJob` bits (owner #33: current job only) |
-| Drop band (#292) | `stages.json` `drop_bands[tier]` = [min, max] `reqLevel` (tier 1 [0, 30], tier 2 [30, 60], inclusive); an item drops only when its `reqLevel` is inside the band of the current stage's tier (`NxAward.tier_of`; a stage outside the tiers counts as tier 1). The character's level is not read (a round starts at Lv1). Replaces the [level - 10, level + 5] window | C | Owner 2026-10-27 (ADR 0006, #292) |
+| Drop band (#292; superseded by #450: per-stage `drop_band`, see "Region progression") | `stages.json` `drop_bands[tier]` = [min, max] `reqLevel` (tier 1 [0, 30], tier 2 [30, 60], inclusive); an item drops only when its `reqLevel` is inside the band of the current stage's tier (`NxAward.tier_of`; a stage outside the tiers counts as tier 1). The character's level is not read (a round starts at Lv1). Replaces the [level - 10, level + 5] window | C | Owner 2026-10-27 (ADR 0006, #292) |
 | Weighting | Uniform among the eligible items of the band (the 1 / (1 + 0.25 x distance) falloff of #109 is gone with the level) | C | Ours (#292) |
 | Drop chance | 0.002 per ordinary kill (`equipment_drops.chance`), unchanged by #237's two-item boss rewards; originally sized from an estimate of about 3,300 kills in a full Henesys round. v83 mobs gave equipment on about 0.7-2% of kills | C | Ours (ticket #109) |
 | Boss drop | Each scheduled boss death drops exactly 2 items (`equipment_drops.boss_drops`), no chance roll, uniform among the eligible items with `reqLevel` in the top third of the band (`EquipmentDrops.boss_floor`: `max - (max - min) / boss_top_parts`, 3, so tier 1 Lv 20-30, tier 2 Lv 50-60); the highest `reqLevel` in the band when none is that high, the job-eligible item nearest the band when it is empty | C | Owner 2026-10-21, spec #237 (count); owner #292 (top third); ours #109 (fallbacks) |
@@ -9430,7 +9450,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Web profile UI (#134) | title: Fullscreen / Export save / Import save lead the second button row (before Re-import WZ data) where desktop has Quit; Options: a FULLSCREEN check box in the FRAME CAP row; F11 and F12 not bindable on web (browser fullscreen / developer tools), Ctrl+W/T/N noted in the Key Config strip; text in the bundled Arimo (Arial metrics) because browsers have no system fonts | C | ours; docs/ARCHITECTURE.md 10 "Web profile" |
 | Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText (dress for level-up cards), LevelUpWindow |
 | Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |
-| NX award per round (#115, spec #34) | a clear pays `clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round`; a death pays the same without the clear bonus (bosses killed before dying count); the final tier's clear pays its normal clear award; deletion, Quit round and tool/one-off rounds pay nothing. Placeholders in `balance.json` `nx_award`: `clear_bonus` [100, 250] by 0-based tier (later tiers reuse the last), `per_level` 5, `per_boss` 40. The balance pass sets the numbers | C | ours; owner #34 triage (ADR 0003) |
+| NX award per round (#115, spec #34; since #450 `clear_bonus` is indexed by progression step, see "Region progression") | a clear pays `clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round`; a death pays the same without the clear bonus (bosses killed before dying count); the final tier's clear pays its normal clear award; deletion, Quit round and tool/one-off rounds pay nothing. Placeholders in `balance.json` `nx_award`: `clear_bonus` [100, 250] by 0-based tier (later tiers reuse the last), `per_level` 5, `per_boss` 40. The balance pass sets the numbers | C | ours; owner #34 triage (ADR 0003) |
 | NX crediting and account block (#115) | the award is added to `account.nx` inside the same atomic write as the clear's round-boundary snapshot (so it is spendable in the Free Market at once) or the death/victory run archive; an optional top-level save key `account: {nx, owned}` (absent = 0 NX, nothing owned), `SaveData.FORMAT` stays 2; tool rounds record `nx_awarded` / `bosses_killed` / `levels_gained` and never write a save | C | ours; seams.md (no format bump) |
 | NX display (#115) | results screen row "NX earned: +N NX" (persistent endings only); Free Market arrival notice "You have gained N NX." for 6 s under the instruction line; map select heading ends with the account balance | C | ours |
 | Cash Shop screen (#118, spec #34) | `scenes/ui/cash_shop.gd`: the v83 `UI.wz/CashShop.img` screen, 800x600 centred, EQUIP. (Hat, Face, Eye, Overall, Top, Bottom, Shoes, Glove, Weapon, Cape) and PET (Pet, Pet Equip.) tabs, ten cards per page. Items are filed by Commodity SN (`CashShop.listing`: category 2 equipment, 6 pets; earrings under Face and shields under Weapon as in v83; VAC, which has no SN, last under Pet Equip.). Card art positions and the buy dialog are WZ/capture-measured (tier A/B, `CashShop` constants); other tabs, GIFT/RESERVE, Search Item, Best Item contents, Charge/Check Cash/Code, the family tabs and ON toggle, the Item Inventory tabs and slot buttons are not drawn (out of scope). Click = try on (`CashShop.try_on`), BUY = confirm dialog (NX CREDIT line checked, the only currency) then `CashShop.buy`, which deducts, adds, saves in one write and removes the item from the list; locked cards show "Needs a pet." / "Needs Wing Boots, Binocular and a pet." instead of BUY; too little NX shows the notice "You don't have enough NX."; BUY EQUIPPED ITEM is disabled (one purchase per card), RETURN TO DEFAULT / REMOVE ALL reset / strip the preview; the Cash Inventory lists owned items read-only. SHOP buttons: map select (every tier, the v83 `StatusBar.img/BtShop` beside Save & quit, centred on its plank) and the Free Market status bar (`StatusBar.img/BtShop` at bar +(688, 20)); Leave = EXIT or Esc, back to where it was opened | A for art and prices; B/C for positions, wording, SHOP button placement | cashshop-refs/layout.md (private), v83 WZ; owner rule: match the real client layout |
@@ -9469,7 +9489,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Threaten cast (#183) | `crowd` rule with `cast.status: threatened`: at least 3 eligible (live, non-boss, not already threatened) monsters in the box, nearest `mobCount` first, 1 s cooldown, 0.8 s alert2 stance; Slow's two-consecutive-cast history stays Slow-only | C | ours |
 | Threatened status (#183) | flat PAD and PDD cut floored at 0 on contact damage, physical ordinary attacks (and their balls) and the player's physical hits; refreshes without stacking; bosses and status-resistant kinds never take it; coexists with slow, poison and freeze; magic attack and defence untouched | C | ours; the v83 text only says weapon attack and weapon def. fall |
 | Threaten cards (#183) | learn weight 3, rank weight 2, `requires.jobs` [120], not power; no bot score entry (default scoring, like Iron Body) | C | ours |
-| Perion and Kerning City regions (#253, #254) | `perion`: 102010000 / 101030404 / 106000101 (Mano / Stumpy / Iron Hook); `kerning`: 103010000 / 103000101 / 107000000 (King Slime / Shade / Dyle); `region` Perion / Kerning City, continent Victoria Island, notes "Home of the Warriors/Thieves" (no class link); tiers `[[henesys, ellinia, perion, kerning], [sleepywood]]` | C choice, A map/mob ids | Owner, spec #253 |
+| Perion and Kerning City regions (#253, #254) | `perion`: 102010000 / 101030404 / 106000101 (Mano / Stumpy / Iron Hook); `kerning`: 103010000 / 103000101 / 107000000 (King Slime / Shade / Dyle); `region` Perion / Kerning City, continent Victoria Island, notes "Home of the Warriors/Thieves" (no class link); tiers `[[henesys, ellinia, perion, kerning], [sleepywood]]` (superseded by #450's `progression`) | C choice, A map/mob ids | Owner, spec #253 |
 | Perion and Kerning City pools (#253, #254) | Henesys's numeric curve copied exactly (keyframes, bursts, elites, `exp_mult` 2.5, `hard_cap` 400, `post_duration_slope` 0.25) plus a 210 s keyframe interpolated from it (rate 0.875, cap 17.5, speed 1.0375) that only carries the 3:30 pool. Map 1 opens with Blue Snail 100101 only (owner Q4 weaker-neighbour clause, invoked after T1 seed-1 deaths at 0:15/2:15 (Lv1)); from 2:00 Perion Blue Snail 2 / Stump 3 / Red Snail 2, +Dark Stump 1 at 3:00, Dark Stump 3 / Stump 2 / Red Snail 1 / Blue Snail 1 at 3:30; Kerning Blue Snail 2 / Red Snail 3 / Slime 3, +Orange Mushroom 3 at 3:00, +Octopus 1 and Blue Snail 1 at 3:30. Keyframes from 300 s carry no pool. Maps 2 and 3: their v83 life lists, no exclusions (no timed or hidden entries) | C weights, A life lists | Owner, spec #253 |
 | Perion and Kerning City boss multipliers (#253, #254) | Each boss matches the Henesys boss of its map slot at that slot's `typical_hp`/`typical_pdd`: same survivor HP (round(maxHP × hp_mult)) and the 0.01 multiplier steps whose 85–100% roll range is closest to the slot's (within 1 HP). Perion: Mano as in Henesys; Stumpy 0.6857 / touch 1.38 / attacks 1.25; Iron Hook 3.1818 / 2.38 (touch only). Kerning: King Slime 0.45 / 0.78 / slam 0.61 (matches Mano's touch: Mano has no attack); Shade 1.0 / 1.04 (touch only); Dyle 0.2258 / 1.15. Attacks every 8 s. Canonical PDD/MDD, levels and undead flags are not normalized | C | Starting values, untuned (#77 tunes) |
 | Boss skill interval override (#253) | A `stages.json` boss entry may carry `skill_intervals` {"<mob skill id>": seconds > 0} replacing that skill's WZ interval for that boss on that map; `DataRepo.stage_map_errors` rejects other shapes. Shade's Kerning entry: `{"129": 15}` (one Banish per 15 s instead of the canonical 3 s) | C | Owner, spec #253; read by #256 |

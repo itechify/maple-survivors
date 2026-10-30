@@ -303,8 +303,8 @@ func test_real_cache_the_mace_is_wearable_and_each_tier_drops_swords_and_blunt_w
 	assert_eq(WeaponInfo.family(MACE), "blunt")
 	assert_eq(Equipment.requirement_error(infos[MACE], {"job_id": 122}), "", "a Paladin can wear the creation Mace")
 	var ed: Dictionary = data.equipment_drops
-	for tier in data.stages.tiers.size():
-		var band := EquipmentDrops.band_of(data.stages, tier)
+	for tier in data.stages.progression.size():
+		var band := EquipmentDrops.band_of(data.stages.stages[data.stages.progression[tier]])
 		var hands := {}
 		var rng := _rng(122 + tier)
 		for i in 300:

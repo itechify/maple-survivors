@@ -161,7 +161,7 @@ func test_create_makes_a_buccaneer_with_its_knuckles_and_a_separate_f_p_in_the_n
 	assert_eq(flow.current_name, "free_market")
 	var buc: Dictionary = flow.save.slot(0).character
 	assert_eq(buc.job_id, 512)
-	assert_eq(buc.tiers_unlocked, 1)
+	assert_eq(buc.cleared_regions, [])
 	assert_eq(int(buc.equipment.worn.weapon.id), 1482000, "the Buccaneer starts with the Steel Knuckler")
 	assert_eq(CharacterSnapshot.validation_error(buc), "")
 	flow.goto_character_select()
@@ -171,7 +171,7 @@ func test_create_makes_a_buccaneer_with_its_knuckles_and_a_separate_f_p_in_the_n
 	var mage: Dictionary = flow.save.slot(1).character
 	assert_eq(mage.job_id, 212)
 	assert_eq(flow.save.slot(0).character.job_id, 512, "the first slot is unchanged")
-	assert_eq(flow.save.slot(0).character.tiers_unlocked, 1, "each job has its own tier ladder")
+	assert_eq(flow.save.slot(0).character.cleared_regions, [], "each job has its own progress")
 
 
 func test_the_job_page_is_not_a_cache_test_for_the_arrow_keys_off_the_page() -> void:

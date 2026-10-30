@@ -138,6 +138,7 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 			merge_patch(out.balance, fragment.balance)
 	errors.append_array(stage_label_errors(out.get("stages", {})))
 	errors.append_array(stage_map_errors(out.get("stages", {})))
+	errors.append_array(progression_errors(out.get("stages", {})))
 	errors.append_array(Ammo.schedule_errors(out.get("ammo", {})))
 	return out
 
@@ -347,6 +348,36 @@ static func stage_label_errors(stages_file: Dictionary) -> PackedStringArray:
 		for field: String in ["region", "continent"]:
 			if String((all[key] as Dictionary).get(field, "")).strip_edges().is_empty():
 				errors.append("stage '%s' has no %s" % [key, field])
+	return errors
+
+
+## One message per problem of the parsed stages.json `progression` (ADR 0007): not a non-empty list of strings, a key that
+## names no stage, a key listed twice, or a listed stage without a valid `drop_band` ([min, max] whole numbers, 0 <= min <= max).
+static func progression_errors(stages_file: Dictionary) -> PackedStringArray:
+	var errors := PackedStringArray()
+	if stages_file.is_empty():
+		return errors # an unreadable stages.json is reported by load_all already
+	var progression: Variant = stages_file.get("progression")
+	if not progression is Array or progression.is_empty():
+		errors.append("stages.json needs a non-empty progression list")
+		return errors
+	var all: Dictionary = stages_file.get("stages", {})
+	var seen := {}
+	for key: Variant in progression:
+		if not key is String:
+			errors.append("progression entries must be stage keys")
+			continue
+		if seen.has(key):
+			errors.append("progression lists '%s' twice" % key)
+		seen[key] = true
+		if not all.has(key):
+			errors.append("progression key '%s' is not a stage" % key)
+			continue
+		var band: Variant = all[key].get("drop_band")
+		if not band is Array or band.size() != 2 or not (band[0] is int or band[0] is float) \
+				or not (band[1] is int or band[1] is float) or float(band[0]) < 0.0 or float(band[1]) < float(band[0]) \
+				or float(band[0]) != floorf(float(band[0])) or float(band[1]) != floorf(float(band[1])):
+			errors.append("stage '%s' needs a drop_band [min, max]" % key)
 	return errors
 
 

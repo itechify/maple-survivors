@@ -122,9 +122,8 @@ func test_cli_single_round_chain_and_errors() -> void:
 	assert_eq(missing.record, {})
 	var data := DataRepo.load_all()
 	var stages := {}
-	for tier: Array in data.stages.tiers:
-		for stage: String in tier:
-			stages[stage] = {"duration": 0.05, "maps": [{"map_id": data.stages.stages[stage].maps[0].map_id, "boss": {}}]}
+	for stage: String in data.stages.progression:
+		stages[stage] = {"duration": 0.05, "maps": [{"map_id": data.stages.stages[stage].maps[0].map_id, "boss": {}}]}
 	var patch := _write("chain patch.json", {"stages": {"stages": stages}})
 	var chain := _cli(["--tier=2", "--stage=ellinia", "--seed=2026", "--cap=1", "--patch=" + patch,
 		"--account=" + path])

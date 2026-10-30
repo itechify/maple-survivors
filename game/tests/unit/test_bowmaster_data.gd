@@ -234,8 +234,8 @@ func test_real_cache_the_war_bow_is_wearable_and_the_shipped_pool_holds_only_bow
 	assert_eq(WeaponInfo.family(war_bow), "bow")
 	assert_eq(Equipment.requirement_error(infos[war_bow], {"job_id": 312}), "", "the creation weapon is wearable")
 	var ed: Dictionary = data.equipment_drops
-	for tier in data.stages.tiers.size():
-		var band := EquipmentDrops.band_of(data.stages, tier)
+	for tier in data.stages.progression.size():
+		var band := EquipmentDrops.band_of(data.stages.stages[data.stages.progression[tier]])
 		var families := {}
 		var rng := _rng(334 + tier)
 		for i in 300:
