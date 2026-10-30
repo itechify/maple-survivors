@@ -936,8 +936,8 @@ func _warm_ui() -> void:
 		var burst: Variant = world.book.def(key).get("burst", "")
 		if burst is String and String(burst) != "":
 			library.find_anim(String(burst))
-		for path: Variant in world.book.def(key).get("burst_art", {}).values():
-			library.find_anim(String(path))
+		for path: String in burst_art_paths(world.book.def(key)):
+			library.find_anim(path)
 		for path: String in ChainCast.ball_paths(world.book.def(key)):
 			library.find_anim(path)
 		for rank in range(1, world.book.max_rank(key) + 1):
@@ -1388,7 +1388,8 @@ func _on_cast(e: Dictionary) -> void:
 
 
 ## A burst skill's stream (Hurricane, #342): `prepare` plays fitted to the wind-up, `keydown` loops from the first arrow, and
-## `keydownend` plays when the stream ends or is dropped. All three follow the avatar. tier C: the 14-frame `prepare`
+## `keydownend` plays when the stream ends or is dropped (a one-shot burst, Piercing Arrow, plays its release effect as `end`
+## and only when the arrow left: `end_on_drop` false). All of it follows the avatar. tier C: the 14-frame `prepare`
 ## (0.96 s) is sped up to the 0.4 s wind-up; the loop keeps the facing of the cast.
 func _on_burst_start(e: Dictionary) -> void:
 	var key := String(e.skill)
@@ -1426,15 +1427,29 @@ func _on_burst_end(e: Dictionary) -> void:
 	var art: Dictionary = world.book.def(key).get("burst_art", {})
 	if art.is_empty():
 		return
-	var flip := bool(_burst_art.get(key, {}).get("flip", world.player.facing > 0))
+	var state: Dictionary = _burst_art.get(key, {})
+	var flip := bool(state.get("flip", world.player.facing > 0))
+	# `end_on_drop` false (Piercing Arrow's release effect): an end that arrives before the wind-up has run out (the burst was
+	# dropped by death, Hidden or a map change; the event stream is the same for both) releases nothing, so it shows no end art.
+	var dropped := not state.is_empty() and world.time + 1e-9 < float(state.due)
 	_stop_burst_art(key)
-	if String(art.get("end", "")) != "":
+	if String(art.get("end", "")) != "" and (not dropped or bool(art.get("end_on_drop", true))):
 		fx.play(String(art.end), Vector2.ZERO, flip, avatar)
+
+
+## The art paths of a definition's `burst_art` (prepare / loop / end); its flags (`end_on_drop`) are not paths.
+static func burst_art_paths(definition: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	for value: Variant in definition.get("burst_art", {}).values():
+		if value is String and String(value) != "":
+			out.append(String(value))
+	return out
 
 
 func _stop_burst_art(key: String) -> void:
 	if _burst_art.has(key):
-		fx.stop(int(_burst_art[key].slot))
+		if int(_burst_art[key].slot) >= 0:
+			fx.stop(int(_burst_art[key].slot))
 		_burst_art.erase(key)
 
 ## A support summon's pulse (#352): the parent skill's owner-side `affected` art on the character (tier B: its use is
