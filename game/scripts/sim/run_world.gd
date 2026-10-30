@@ -66,11 +66,15 @@ extends RefCounted
 ## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194),
 ## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256),
 ## 18 ground-area status rolls (ground_rng),
-## 19 boss player-status chance rolls (mob_status_rng, Stun in #456; Poison 125 and the poison mist 131 in #459),
+## 19 boss player-status chance rolls (mob_status_rng: Stun in #456; Darkness, Weakness, Curse, Seduce and Confuse in
+## #458; Poison 125 and the poison mist 131 in #459),
 ## 20 area-warning attack column picks (area_rng, #460; 19 is mob_status_rng of #456).
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
+## player_state key of each boss status besides Slow and Stun (#458): present only while the status is active.
+const PLAYER_STATUS_KEYS := {MobSkillRunner.SKILL_DARKNESS: "darkness", MobSkillRunner.SKILL_WEAKNESS: "weakness",
+	MobSkillRunner.SKILL_CURSE: "curse", MobSkillRunner.SKILL_SEDUCE: "seduce", MobSkillRunner.SKILL_CONFUSE: "confuse"}
 const CHOOSING_UPGRADE := 1
 const DEAD := 2
 const CLEARED := 3
@@ -230,7 +234,7 @@ var pirate_rng: RandomNumberGenerator
 var banish_rng: RandomNumberGenerator
 ## Stream 18: ground-area status proc rolls, independent of combat.
 var ground_rng: RandomNumberGenerator
-## Stream 19: the `prop` roll of a boss skill that puts a status on the character (Stun 123, #456), isolated from combat.
+## Stream 19: the `prop` roll of a boss skill that puts a status on the character (Stun 123, #456; Darkness, Weakness, Curse, Seduce, Confuse, #458), isolated from combat.
 var mob_status_rng: RandomNumberGenerator
 ## Stream 20: which columns of a boss's area-warning attack (`info/type` 3 and 4) strike (MobAttacks.pick_columns).
 var area_rng: RandomNumberGenerator
@@ -375,6 +379,8 @@ var _max_buff_applied := 0.0
 var _passive_regen_pct := 0.0
 var _passive_speed_pct := 0.0
 var _exp_carry := 0.0
+## The fraction of an EXP point Curse 124 withheld, paid with the next pickup (#458).
+var _curse_carry := 0.0
 var _base_hp := 50.0
 var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
@@ -884,6 +890,8 @@ func _step_player(dt: float, input: MoveInput) -> void:
 	# gravity, knockback and damage continue but nothing moves, jumps, dashes or casts a manual skill.
 	if mob_skills.is_stunned(time):
 		input = MoveInput.new()
+	else:
+		input = _status_input(input)
 	_try_manual_buffs(input)
 	if not _try_input_dash(input) and not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
@@ -891,6 +899,29 @@ func _step_player(dt: float, input: MoveInput) -> void:
 			emit("player_jump", {"pos": player.pos})
 	update_view()
 	_tick_timers(dt)
+
+
+## The tick's input after the boss statuses that rewrite it (#458): Weakness 122 drops jump, Confuse 132 swaps left and
+## right, Seduce 128 replaces the horizontal input with a step toward the caster (tier C: it wins over Confuse). Up,
+## down, casts and potions pass through. Returns `input` itself when none applies, else a copy.
+func _status_input(input: MoveInput) -> MoveInput:
+	var weakened := mob_skills.is_weakened(time)
+	var confused := mob_skills.is_confused(time)
+	var seduced := mob_skills.seduce_active(self)
+	if not (weakened or confused or seduced):
+		return input
+	var out := input.duplicate_input()
+	if weakened:
+		out.jump_pressed = false
+		out.jump_held = false
+	if confused:
+		out.left = input.right
+		out.right = input.left
+	if seduced:
+		var toward := mob_skills.seduce_direction(self)
+		out.left = toward < 0
+		out.right = toward > 0
+	return out
 
 
 ## The skill keys of the manual skills the character has learned (Key Config lists exactly these): one
@@ -1412,6 +1443,11 @@ func attack_speed_boost() -> int:
 func refresh_player_speed() -> void:
 	player.speed_stat = roundi(player_speed_stat())
 	player.jump_stat = mini(Equipment.JUMP_CAP, 100 + roundi(_equipment_jump + buffs.effect_total("jump")))
+	# tier B (#458): Weakness 122 takes the jump away and leaves walking speed as it is.
+	if mob_skills.is_weakened(time):
+		player.jump_stat = 0
+	# tier C (#458): Darkness 121 stops every critical hit (ADR 0005 turned accuracy into crit chance).
+	projectiles.crit_suppressed = mob_skills.is_darkened(time)
 
 
 ## Index of a WZ path in visual_paths (registered on first use); -1 for "".
@@ -1963,7 +1999,7 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 		return
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	var roll := ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
-		mob_defense(m, magic), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult),
+		mob_defense(m, magic), projectiles.magic_defense_k, 0.0 if mob_skills.is_darkened(time) else float(st.crit), float(st.crit_mult),
 		hit_rng if hit_rng != null else rng, swarm.element_multiplier(m, String(st.get("element", ""))), dtype,
 		float(st.get("damage_pct", 1.0)), float(st.get("crit_damage_bonus", 0.0)))
 	var dir := 1 if swarm.x[m] >= player.pos.x else -1
@@ -2854,6 +2890,13 @@ func can_cast() -> bool:
 
 func _gain_exp(n: int) -> void:
 	var before := progression.level
+	# tier B (#458): Curse 124 halves the EXP at the pickup; the part of a point it drops carries over, so many small
+	# orbs still add up to half.
+	var curse := mob_skills.exp_multiplier(time)
+	if curse < 1.0 and n > 0:
+		var cursed := float(n) * curse + _curse_carry
+		n = floori(cursed + 1e-9)
+		_curse_carry = maxf(0.0, cursed - float(n))
 	# The Holy Symbol passive (#289): +x% on every gain; the fraction that does not make a whole point carries over, so
 	# many small orbs lose nothing.
 	var bonus := loadout.passive_total(Loadout.EXP_PCT)
@@ -2958,6 +3001,13 @@ func _write_player_state(dt: float) -> void:
 		player_state.erase("stun")
 	else:
 		player_state["stun"] = stun
+	# The same for Darkness, Weakness, Curse, Seduce and Confuse (#458).
+	for id: int in PLAYER_STATUS_KEYS:
+		var state := mob_skills.status_state(id, time)
+		if state.is_empty():
+			player_state.erase(PLAYER_STATUS_KEYS[id])
+		else:
+			player_state[PLAYER_STATUS_KEYS[id]] = state
 	# Present only while poisoned, like the stun above (#459).
 	var poison := mob_skills.poison_state(time)
 	if poison.is_empty():

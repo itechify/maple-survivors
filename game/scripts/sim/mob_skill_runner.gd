@@ -1,6 +1,7 @@
 class_name MobSkillRunner
 extends RefCounted
-## Canonical scheduled-boss skills (MobSkill 100/101/102/103/110/111/112/113/114/123/126/129/140/141/200) and their timed status state
+## Canonical scheduled-boss skills (MobSkill 100/101/102/103/110/111/112/113/114/121/122/123/124/125/126/128/129/131/132/140/141/200)
+## and their timed status state
 ## (docs/ARCHITECTURE.md 4.4.3, docs/GAME_DESIGN.md 4.3): no files, nodes or canonical-stat mutation.
 
 ## Original Skill.wz/MobSkill.img ids of the skills this runner casts.
@@ -13,19 +14,33 @@ const SKILL_MAGIC_ATTACK_UP_AREA := 111
 const SKILL_PDD_UP_AREA := 112
 const SKILL_MDD_UP_AREA := 113
 const SKILL_HEAL_AREA := 114
+const SKILL_DARKNESS := 121
+const SKILL_WEAKNESS := 122
 const SKILL_STUN := 123
+const SKILL_CURSE := 124
 const SKILL_POISON := 125
 const SKILL_SLOW := 126
+const SKILL_SEDUCE := 128
 const SKILL_BANISH := 129
 const SKILL_MIST := 131
+const SKILL_CONFUSE := 132
 const SKILL_WEAPON_IMMUNITY := 140
 const SKILL_MAGIC_IMMUNITY := 141
 const SKILL_SUMMON := StageRoster.SUMMON_SKILL
 ## Every MobSkill id `step` can cast; a boss's other listed skills are skipped.
 const SUPPORTED := [SKILL_SLOW, SKILL_SUMMON, SKILL_PDD_UP_AREA, SKILL_MDD_UP_AREA, SKILL_HEAL_AREA,
 	SKILL_WEAPON_IMMUNITY, SKILL_ATTACK_UP, SKILL_ATTACK_UP_AREA, SKILL_BANISH, SKILL_MAGIC_ATTACK_UP,
-	SKILL_MAGIC_ATTACK_UP_AREA, SKILL_PDD_UP, SKILL_MDD_UP, SKILL_MAGIC_IMMUNITY, SKILL_STUN,
-	SKILL_POISON, SKILL_MIST]
+	SKILL_MAGIC_ATTACK_UP_AREA, SKILL_PDD_UP, SKILL_MDD_UP, SKILL_MAGIC_IMMUNITY, SKILL_STUN, SKILL_DARKNESS, SKILL_WEAKNESS,
+	SKILL_CURSE, SKILL_SEDUCE, SKILL_CONFUSE, SKILL_POISON, SKILL_MIST]
+## The skills that put a timed status on the character when its `prop` roll (stream 19) succeeds: Stun, Darkness,
+## Weakness, Curse, Seduce and Confuse. Each is rolled once per in-area cast, skipped while Hidden and kept by the lockout floor.
+const PLAYER_STATUS_SKILLS := [SKILL_STUN, SKILL_DARKNESS, SKILL_WEAKNESS, SKILL_CURSE, SKILL_SEDUCE, SKILL_CONFUSE]
+## tier C (#458): Seduce forces the walk for at most this many seconds (v83 has no cap); balance.mob_skills.seduce_cap sets it.
+const DEFAULT_SEDUCE_CAP := 4.0
+## tier B (#458): Curse halves the EXP picked up; balance.mob_skills.curse_exp_mult sets the factor.
+const DEFAULT_CURSE_EXP_MULT := 0.5
+## tier C (#458): Seduce stops pulling inside this many px of the caster's x, so the walk does not jitter over it.
+const SEDUCE_STOP_DISTANCE := 4.0
 ## tier C: Attack Up (100/110) multiplies the weapon attack of the buffed mobs by this while it lasts (spec #253). The
 ## v83 x115 is not read: whether it is flat or a percentage is unverified. balance.mob_skills.attack_up_mult sets it.
 const DEFAULT_ATTACK_UP_MULT := 1.15
@@ -51,6 +66,8 @@ var _weapon_visual := PackedStringArray()
 var _pending_heals: Array[Dictionary] = []
 var _attack_up_mult := DEFAULT_ATTACK_UP_MULT
 var _attack_until := PackedFloat64Array()
+var _seduce_cap := DEFAULT_SEDUCE_CAP
+var _curse_exp_mult := DEFAULT_CURSE_EXP_MULT
 var _mist_rules := {}
 var _buffs := MobBuffs.new() # 101/111 magic attack up, the 101/102/103/111 icons and the magic immunity 141 (#457)
 
@@ -61,6 +78,8 @@ func _init(setup: Dictionary, rules: Dictionary = {}) -> void:
 	for id: Variant in rules.get("enabled_ids", []):
 		_enabled.append(int(id))
 	_attack_up_mult = float(rules.get("attack_up_mult", DEFAULT_ATTACK_UP_MULT))
+	_seduce_cap = float(rules.get("seduce_cap", DEFAULT_SEDUCE_CAP))
+	_curse_exp_mult = float(rules.get("curse_exp_mult", DEFAULT_CURSE_EXP_MULT))
 	statuses = PlayerStatuses.new(rules.get("status_lockout", {}))
 	_mist_rules = rules.get("mist", {})
 
@@ -85,6 +104,71 @@ func stun_state(now: float) -> Dictionary:
 	return statuses.state(SKILL_STUN, now)
 
 
+## Whether Darkness 121 is active (the character cannot crit) at this simulation time.
+func is_darkened(now: float) -> bool:
+	return statuses.is_active(SKILL_DARKNESS, now)
+
+
+## Whether Weakness 122 is active (the character cannot jump) at this simulation time.
+func is_weakened(now: float) -> bool:
+	return statuses.is_active(SKILL_WEAKNESS, now)
+
+
+## Whether Curse 124 is active (the EXP picked up is halved) at this simulation time.
+func is_cursed(now: float) -> bool:
+	return statuses.is_active(SKILL_CURSE, now)
+
+
+## Whether Confuse 132 is active (left and right input are swapped) at this simulation time.
+func is_confused(now: float) -> bool:
+	return statuses.is_active(SKILL_CONFUSE, now)
+
+
+## The EXP factor of Curse 124 at this simulation time: balance.mob_skills.curse_exp_mult while it lasts, else 1.
+func exp_multiplier(now: float) -> float:
+	return _curse_exp_mult if is_cursed(now) else 1.0
+
+
+## Detached presentation state of Darkness 121, Weakness 122, Curse 124, Seduce 128 or Confuse 132 ({} when it is not active).
+func status_state(id: int, now: float) -> Dictionary:
+	return statuses.state(id, now)
+
+
+## Whether Seduce 128 still pulls the character at `world.time`. It ends at once when its caster is dead or gone from
+## the map (tier C: v83 does not say), so the first call after that returns false and clears the status.
+func seduce_active(world: RunWorld) -> bool:
+	if not statuses.is_active(SKILL_SEDUCE, world.time):
+		return false
+	var caster := seduce_caster(world)
+	if caster < 0:
+		statuses.clear(SKILL_SEDUCE)
+		return false
+	return true
+
+
+## The swarm slot of the living boss that cast the active Seduce, -1 when it is dead, gone or no Seduce is active. A final
+## form is the same encounter, so the caster follows the record's current slot.
+func seduce_caster(world: RunWorld) -> int:
+	var index := int(statuses.field(SKILL_SEDUCE, world.time, "boss_index", -1))
+	if index < 0 or index >= world.bosses.records.size():
+		return -1
+	var record: Dictionary = world.bosses.records[index]
+	var slot := int(record.get("slot", -1))
+	if bool(record.get("dead", false)) or slot < 0 or not world.swarm.is_live(slot) or world.mob_boss[slot] != index:
+		return -1
+	return slot
+
+
+## The horizontal direction (-1, 0, 1) Seduce pulls the character this tick: toward the caster's current x, 0 within
+## SEDUCE_STOP_DISTANCE of it. 0 as well when no Seduce is active (check seduce_active first).
+func seduce_direction(world: RunWorld) -> int:
+	var caster := seduce_caster(world)
+	if caster < 0:
+		return 0
+	var dx := world.swarm.x[caster] - world.player.pos.x
+	return 0 if absf(dx) < SEDUCE_STOP_DISTANCE else (1 if dx > 0.0 else -1)
+
+
 ## Casts one ready canonical skill per boss after its own HP gate and stance availability.
 func step(world: RunWorld) -> void:
 	_resolve_heals(world)
@@ -104,11 +188,13 @@ func step(world: RunWorld) -> void:
 			var spec: Dictionary = _tables.get(str(id), {}).get("level", {}).get(str(level), {})
 			if spec.is_empty() or id not in SUPPORTED:
 				continue
-			# Hidden (#194): a skill aimed at the character (Slow, Banish, Stun, Poison, the mist) is not cast while it is Hidden.
-			if id in [SKILL_SLOW, SKILL_BANISH, SKILL_STUN, SKILL_POISON, SKILL_MIST] and world.is_hidden():
+			# Hidden (#194): a skill aimed at the character (Slow, Banish, the player statuses, Poison, the mist) is not cast while
+			# it is Hidden.
+			if (id == SKILL_SLOW or id == SKILL_BANISH or id in PLAYER_STATUS_SKILLS or id == SKILL_POISON or id == SKILL_MIST) \
+					and world.is_hidden():
 				continue
 			var key := "%d/%d/%d" % [index, id, level]
-			var interval := world.bosses.skill_interval(index, id, float(spec.get("interval", 0.0)))
+			var interval := world.bosses.skill_interval(index, id, interval_of(spec))
 			# tier C: a skill first becomes ready one interval after the boss arrives (never on the arrival tick), then
 			# one interval after each cast; WZ has the interval, not when the first use may happen.
 			# A final form (#456) schedules from the swap (`form_time`), not from the shell's arrival.
@@ -139,9 +225,14 @@ func step(world: RunWorld) -> void:
 				statuses.apply(SKILL_SLOW, now, duration, {"multiplier": clampf(float(spec.get("x", 100.0)) / 100.0, 0.0, 1.0),
 					"visual": path + "/affected"}, false)
 				affected = path + "/affected"
-			if id == SKILL_STUN and _area(spec, pos, facing).has_point(world.player.pos) \
-					and _roll_status(world, id, spec) and statuses.apply(id, now, duration, {"visual": path + "/affected"}):
-				affected = path + "/affected"
+			if id in PLAYER_STATUS_SKILLS and _area(spec, pos, facing).has_point(world.player.pos) \
+					and _roll_status(world, id, spec):
+				# tier C (#458): Seduce lasts min(time, seduce_cap); it remembers which boss pulls (the early end and direction).
+				var payload := {"visual": path + "/affected"}
+				if id == SKILL_SEDUCE:
+					payload["boss_index"] = index
+				if statuses.apply(id, now, minf(duration, _seduce_cap) if id == SKILL_SEDUCE else duration, payload):
+					affected = path + "/affected"
 			if id == SKILL_POISON and _area(spec, pos, facing).intersects(world.player_box()) and _roll_status(world, id, spec) \
 					and apply_poison(world, slot, int(record.mob_id), float(spec.get("x", 0.0)), duration, path + "/affected"):
 				affected = path + "/affected"
@@ -195,6 +286,11 @@ func step(world: RunWorld) -> void:
 			break
 	# Resolve newly queued effectAfter0 heals in the same tick, after the cast event; delayed entries remain queued.
 	_resolve_heals(world)
+
+
+## The cooldown of a MobSkill level in seconds: `interval`, or `inteval` where the level spells it that way (v83 132 level 2).
+static func interval_of(spec: Dictionary) -> float:
+	return float(spec.get("interval", spec.get("inteval", 0.0)))
 
 
 ## One `prop` roll of status `id` on stream 19 (mob_status_rng, tier C), made once per in-area cast. No roll is drawn
