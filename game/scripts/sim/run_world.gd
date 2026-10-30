@@ -2818,19 +2818,25 @@ func _apply_reflect(m: int, amount: int) -> void:
 
 
 ## One whole-second tick of Poison 125 (#459): `amount` HP straight off the character, never lethal (at least 1 HP stays),
-## with no hit window, avoid, defense, hit reaction or knockback (tier C, a damage over time). A `player_hit` event with
+## with no hit window, avoid, defense, hit reaction or knockback (tier C, a damage over time). A Hidden character and a
+## hit guard (the Bishop's post-revive guard) do not stop it either: it is a status already on the character (tier C). A `player_hit` event with
 ## `source_kind` "poison" and the source boss reports what was actually lost (nothing is emitted at 1 HP or in god mode).
 ## Returns the HP lost.
 func take_poison(amount: int, boss_slot: int, boss_mob_id: int) -> int:
 	if _dead or _map_clearing or god:
 		return 0
-	var lost := mini(amount, ceili(_hp) - 1)
+	var before := ceili(_hp)
+	var left := maxf(1.0, _hp - float(amount))
+	if left >= _hp:
+		return 0
+	_hp = left
+	# The reported amount is the drop of the HP the HUD shows (ceil), so a fractional HP reports what was really removed.
+	var lost := before - ceili(_hp)
+	_write_player_state(0.0)
 	if lost <= 0:
 		return 0
-	_hp = maxf(1.0, _hp - float(lost))
 	emit("player_hit", {"damage": lost, "miss": false, "dir": 0, "pos": player.pos, "mob": boss_slot,
 		"mob_id": boss_mob_id, "boss": true, "max_hp": _max_hp, "source_kind": "poison"})
-	_write_player_state(0.0)
 	return lost
 
 

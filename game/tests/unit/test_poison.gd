@@ -3,7 +3,14 @@ extends TestCase
 ## (independent of the asset cache).
 const MF := preload("res://tests/fixtures/mano_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const BR := preload("res://tools/balance_run.gd")
 const DT := 1.0 / 60.0
+
+
+## A hit hook that refuses every hit for a long guard, like the Bishop's post-revive guard.
+class _Guard extends HitHook:
+	func guard_left() -> float:
+		return 100.0
 
 
 ## A world whose boss casts only a synthetic Poison level shaped like Thanatos 125/1 (interval 10, prop 50 by default, box
@@ -184,3 +191,78 @@ func test_chance_uses_stream_19_and_repeats_for_a_seed() -> void:
 		assert_eq(w.ground_rng.state, ground, "stream 18 untouched")
 		assert_ne(w.mob_status_rng.state, status, "stream 19 drawn")
 	assert_eq(outcomes[0], outcomes[1], "same seed, same outcome")
+
+
+func _hide(w: RunWorld) -> void:
+	w.start_buff("synthetic_hide", {"skill_id": 9991001, "level": 1, "icon": "", "duration": 100.0,
+		"buff_stat": "", "buff_value": 0.0, "pulse_interval": 0.0, "hidden": true, "buff_effects": {}})
+
+
+## A poison already running keeps ticking while the character is Hidden (tier C: Dark Sight does not cure it, and the
+## tick is a status, not a monster hit).
+func test_tick_lands_while_hidden() -> void:
+	var w := _world()
+	w.god = false
+	w.grant_second_life(40.0)
+	_ticks(w, 600)
+	assert_true(_poisoned(w))
+	_hide(w)
+	assert_true(w.is_hidden())
+	w.drain_events()
+	_ticks(w, 60)
+	assert_eq(int(w.player_state.hp), 37, "the tick lands while Hidden")
+	assert_eq(_poison_hits(w.drain_events()).size(), 1)
+	assert_eq(w.take_hit(5.0, false, "", w.player.pos - Vector2(10, 0), {"accuracy": 10000.0}), 0, "control: a monster hit is still refused")
+
+
+## ... and inside a hit guard (a revive's guard refuses monster hits, not a status that is already on).
+func test_tick_lands_while_guarded() -> void:
+	var w := _world()
+	w.god = false
+	w.grant_second_life(40.0)
+	_ticks(w, 600)
+	assert_true(_poisoned(w))
+	w.add_hit_hook(_Guard.new())
+	assert_eq(w.take_hit(5.0, false, "", w.player.pos - Vector2(10, 0), {"accuracy": 10000.0}), 0, "control: the guard refuses a monster hit")
+	w.drain_events()
+	_ticks(w, 60)
+	assert_eq(int(w.player_state.hp), 37, "the tick lands inside the guard")
+	assert_eq(_poison_hits(w.drain_events()).size(), 1)
+
+
+## With a fractional HP the reported amount is the drop of the HP shown (what was really removed), never more.
+func test_reported_amount_follows_fractional_hp() -> void:
+	var w := _world()
+	w.god = false
+	w._hp = 5.4
+	assert_eq(w.take_poison(3, 0, 2220000), 3)
+	assert_near(w._hp, 2.4, 1e-6)
+	var hits := _poison_hits(w.drain_events())
+	assert_eq(int(hits[0].damage), 3, "shown 6 -> 3")
+	w._hp = 3.4
+	assert_eq(w.take_poison(10, 0, 2220000), 3, "shown 4 -> 1")
+	assert_eq(w._hp, 1.0)
+	assert_eq(w.take_poison(10, 0, 2220000), 0, "nothing at 1 HP")
+
+
+## The balance harness keeps poison ticks out of the hit metrics (hits, taken, hits_by_min) and in boss_hits.
+func test_ticks_stay_out_of_the_hit_metrics_but_in_boss_hits() -> void:
+	assert_false(BR.counts_as_hit({"source_kind": "poison"}))
+	assert_true(BR.counts_as_hit({"source_kind": "touch"}))
+	assert_true(BR.counts_as_hit({"source_kind": "attack"}))
+	var w := _world()
+	w.balance.run_time_cap = 62.0
+	w.god = false
+	w.swarm.despawn(int(w.bosses.records[0].slot)) # nothing else hits the character
+	w.mob_skills.apply_poison(w, 0, 2220000, 2.0, 30.0, "")
+	var record := BR.run_one(w, "bot", 5)
+	var poison_hits := (record.boss_hits as Array).filter(func(h: Dictionary) -> bool: return h.source_kind == "poison")
+	assert_true(poison_hits.size() >= 10, "ticks are recorded as boss hits: %d" % poison_hits.size())
+	var counted := 0
+	for n: int in record.hits_by_min:
+		counted += n
+	assert_eq(counted, 0, "no poison tick is a hit in hits_by_min")
+	var taken := 0
+	for n: int in record.taken_by_min:
+		taken += n
+	assert_eq(taken, 0, "and none is damage taken")

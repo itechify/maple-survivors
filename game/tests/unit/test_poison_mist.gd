@@ -284,3 +284,17 @@ func test_hazards_clear_on_map_transfer_and_on_death() -> void:
 	dying.take_hit(1.0e7, false, "", dying.player.pos - Vector2(10, 0), {"accuracy": 10000.0})
 	assert_eq(dying.state, RunWorld.DEAD)
 	assert_eq(dying.hazards.active_count(), 0, "emptied on death")
+
+
+## The stage clear (the settled last boss kill) empties the pool as well.
+func test_hazards_clear_on_stage_clear() -> void:
+	var w := _world("I")
+	w.hazards.spawn({"rect": Rect2(0, 0, 100, 100), "born": 0.0, "until": 1000.0})
+	w.hit_mob(int(w.bosses.records[0].slot), {"damage_min": 1e9, "damage_max": 1e9, "magic": false, "crit": 0.0,
+		"crit_mult": 1.5, "skill": "three_snails"}, -1)
+	_ticks(w, 5)
+	BotInput.auto_choose(w) # the final reward choice must be answered before the clear settles
+	_ticks(w, 5)
+	assert_eq(w.state, RunWorld.CLEARED, "the only boss's death clears the stage once the choices are answered")
+	assert_eq(w.hazards.active_count(), 0, "emptied by the clear")
+	assert_eq(w.hazards.cast_count, 1, "the counters stay")
