@@ -9,6 +9,7 @@ const WEAPONS := {"bow": 1452051, "crossbow": 1462001}
 
 func _world(free := 24) -> RunWorld:
 	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["creation_weapon"] = 1302000 # This mixed-weapon fixture starts with a Sword.
 	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	# The common passives (#289, Max HP above all) would move the HP growth this test measures.
 	data.upgrades.cards = data.upgrades.cards.filter(func(c: Dictionary) -> bool: return not String(c.get("skill", "")).begins_with("passive_"))
@@ -138,12 +139,12 @@ func _targets(w: RunWorld, offsets: Array) -> void:
 func test_arrow_attacks_use_canonical_cost_damage_count_and_current_ammo() -> void:
 	for family: String in ["bow", "crossbow"]:
 		for key: String in ["arrow_blow", "bow_double_shot"]:
-			for rank_value in [1, 20]:
+			for rank_value in [1, 8]: # rank 1 is WZ level 3, rank 8 level 20 (the Bowmaster ranks, #339)
 				var w := _combat(family, key, rank_value)
 				var st := w.loadout.stats(key)
 				var double := key == "bow_double_shot"
 				assert_eq(st.count, 2 if double else 1)
-				assert_near(st.damage_pct, (0.92 if rank_value == 1 else 1.30) if double else (1.90 if rank_value == 1 else 2.60))
+				assert_near(st.damage_pct, (0.96 if rank_value == 1 else 1.30) if double else (1.97 if rank_value == 1 else 2.60)) # synthetic level 3 (the real node says 196: cache test below)
 				_targets(w, [80.0, 140.0])
 				# Separate shot lines: collinear arrows can both collide with the nearer monster.
 				w.swarm.y[1] -= 65.0
@@ -162,23 +163,24 @@ func test_arrow_attacks_use_canonical_cost_damage_count_and_current_ammo() -> vo
 
 
 func test_eye_extends_weapon_and_bow_skill_reach_and_projectile_lifetime() -> void:
-	for family: String in ["bow", "crossbow"]:
-		var w := _combat(family, "arrow_blow")
+	# Strafe (WZ weapon 45 = bow) stands for a bow skill: Arrow Blow and Double Shot name no weapon since #339.
+	for family: String in ["bow"]:
+		var w := _combat(family, "strafe")
 		var reach_before := w.weapon_reach.reach(w)
-		var skill_before: float = w.loadout.stats("arrow_blow").range
-		_targets(w, [380.0])
+		var skill_before: float = w.loadout.stats("strafe").range
+		_targets(w, [440.0])
 		w.runner.step(DT, w)
 		assert_eq(w.projectiles.active_count(), 0)
 		assert_true(w.learn_skill("eye_of_amazon"))
 		w.loadout.set_rank("eye_of_amazon", 8)
 		w.refresh_player_stats()
 		assert_near(w.weapon_reach.reach(w), reach_before + 120)
-		assert_near(w.loadout.stats("arrow_blow").range, skill_before + 120)
+		assert_near(w.loadout.stats("strafe").range, skill_before + 120)
 		w.runner.step(DT, w)
-		assert_eq(w.projectiles.active_count(), 1, "formerly distant target now casts")
+		assert_eq(w.runner.casts, 1, "formerly distant target now casts")
 		for tick in 50:
 			w.step(DT, MoveInput.new())
-		assert_true(w.drain_events().any(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "arrow_blow"))
+		assert_true(w.drain_events().any(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "strafe"))
 
 
 func test_eye_and_critical_shot_leave_magic_ranges_and_melee_reach_unchanged() -> void:
@@ -224,18 +226,16 @@ func test_blessing_accuracy_and_focus_recast_with_string_acc_and_canonical_cost(
 	assert_near(w.player_state.acc, acc + 20, 0.001, "buff refresh never stacks")
 
 
-func test_bowman_cards_are_offered_with_any_weapon_and_each_attack_can_hit_more_mobs() -> void:
+func test_bowman_cards_are_offered_with_any_weapon_and_the_ported_arrows_have_no_standalone_cards() -> void:
 	for family: String in ["bow", "crossbow", "sword"]:
 		var combat := _combat(family)
 		for key: String in ["arrow_blow", "bow_double_shot", "blessing_of_amazon", "critical_shot", "eye_of_amazon", "focus"]:
 			assert_false(key + "_new" in combat.upgrades.eligible(combat), "#287: unported skills have no pool offers")
 			combat.learn_skill(key)
+		# The three ported arrows (Bowmaster B7 #339) take their extra arrows from rarity bonuses, not standalone cards.
 		for key: String in ["arrow_blow", "bow_double_shot"]:
 			assert_false(key + "_rank" in combat.upgrades.eligible(combat), "#287: unported skills have no pool offers")
-			assert_false(key + "_shots" in combat.upgrades.eligible(combat), "#287: unported skills have no pool offers")
-			var before: int = combat.loadout.stats(key).count
-			RF.add_modifier_effects(combat, combat.upgrades.card(key + "_shots"))
-			assert_eq(combat.loadout.stats(key).count, before + 1)
+			assert_true(combat.upgrades.card(key + "_shots").is_empty(), "%s_shots was removed" % key)
 
 
 func test_original_bowman_levels_stats_art_and_sounds_resolve_in_private_cache() -> void:
@@ -254,7 +254,7 @@ func test_original_bowman_levels_stats_art_and_sounds_resolve_in_private_cache()
 			["focus",20], ["arrow_blow",20], ["bow_double_shot",20]]:
 		var key: String = row[0]
 		assert_eq(book.max_level(key), row[1])
-		assert_eq(book.max_rank(key), row[1])
+		assert_eq(book.max_rank(key), 8 if key in ["arrow_blow", "bow_double_shot"] else row[1], "the ported arrows have eight ranks (#339)")
 		for suffix: String in ["icon", "iconDisabled", "iconMouseOver"]:
 			assert_true(lib.frame(book.wz_path(key) + "/" + suffix) != null)
 		for level in [1,10,15,20,25]:
@@ -266,8 +266,9 @@ func test_original_bowman_levels_stats_art_and_sounds_resolve_in_private_cache()
 		if sound != "":
 			assert_true(lib.sound(sound) != null)
 	for rank_value in [1,20]:
-		assert_near(lo.stats("arrow_blow", rank_value).damage_pct, 1.90 if rank_value == 1 else 2.60)
-		assert_near(lo.stats("bow_double_shot", rank_value).damage_pct, 0.92 if rank_value == 1 else 1.30)
+		# Arrow Blow / Double Shot rank 1 is WZ level 3 (#339); rank 20 clamps to rank 8 = level 20.
+		assert_near(lo.stats("arrow_blow", rank_value).damage_pct, 1.96 if rank_value == 1 else 2.60)
+		assert_near(lo.stats("bow_double_shot", rank_value).damage_pct, 0.96 if rank_value == 1 else 1.30)
 		assert_eq(lo.stats("bow_double_shot", rank_value).count, 2)
 		var focus := lo.stats("focus", rank_value)
 		assert_eq(focus.duration, 70.0 if rank_value == 1 else 300.0)
@@ -297,6 +298,7 @@ func test_original_bowman_levels_stats_art_and_sounds_resolve_in_private_cache()
 
 func test_range_passive_is_reusable_by_a_gun_line() -> void:
 	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["creation_weapon"] = 1302000 # This mixed-weapon fixture starts with a Sword.
 	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.skills.skills["reach_training"] = data.skills.skills.eye_of_amazon.duplicate(true)
 	data.skills.skills.reach_training.weapon_families = ["gun"]

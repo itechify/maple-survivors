@@ -42,7 +42,7 @@ const ADVENTURER_LINES: PackedStringArray = ["common", "beginner", "warrior", "m
 
 
 ## Append each shipped class here; existing entries never move (tier C: deterministic fragment order).
-const CLASS_LINES: PackedStringArray = ["hero", "il_arch_mage", "bishop", "paladin", "dark_knight", "buccaneer"]
+const CLASS_LINES: PackedStringArray = ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer"]
 
 
 ## All present fragments: fixed Adventurers, registered classes, then unregistered names sorted for diagnostics.
@@ -138,6 +138,7 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 			merge_patch(out.balance, fragment.balance)
 	errors.append_array(stage_label_errors(out.get("stages", {})))
 	errors.append_array(stage_map_errors(out.get("stages", {})))
+	errors.append_array(Ammo.schedule_errors(out.get("ammo", {})))
 	return out
 
 

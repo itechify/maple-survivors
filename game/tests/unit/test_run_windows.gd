@@ -314,7 +314,7 @@ func test_equip_and_item_hotkeys_open_their_windows_hold_the_run_and_stack_with_
 	assert_eq(scene.ui_windows.ids(), PackedStringArray(["equip", "item", "stat"]), "the three stack")
 	if ew == null or iw == null:
 		return
-	assert_eq(ew.worn_id("weapon"), 1302000, "the Equip window shows the creation sword")
+	assert_eq(ew.worn_id("weapon"), 1372005, "the Equip window shows the creation wand")
 	assert_eq(ew.worn_id("top"), 1040002)
 	assert_eq(iw.meso_text(), InventoryModel.meso_text(w.mesos), "the meso line shows the character's mesos")
 	assert_true(ew.position.x + ew.size.x <= iw.position.x, "they open side by side, not on top of each other")
@@ -333,7 +333,7 @@ func test_equip_and_item_hotkeys_open_their_windows_hold_the_run_and_stack_with_
 	assert_false(scene.ui_windows.has_windows(), "I toggles the Item window closed")
 
 
-func test_taking_the_sword_off_in_the_equip_window_redraws_the_character_bare_handed() -> void:
+func test_taking_the_wand_off_in_the_equip_window_redraws_the_character_bare_handed() -> void:
 	if not require_cache():
 		return
 	scene = _make(13, {"autoplay": true, "autopick": true})
@@ -343,17 +343,17 @@ func test_taking_the_sword_off_in_the_equip_window_redraws_the_character_bare_ha
 	assert_true(ew != null)
 	if ew == null:
 		return
-	assert_true(1302000 in scene.avatar.look.equips, "drawn with the sword")
+	assert_true(1372005 in scene.avatar.look.equips, "drawn with the wand")
 	assert_eq(ew.take_off("weapon"), "")
-	assert_false(1302000 in scene.avatar.look.equips, "the look followed the change at once")
+	assert_false(1372005 in scene.avatar.look.equips, "the look followed the change at once")
 	assert_eq(scene.world.weapon_id(), 0)
 	var notices := []
 	ew.notice.connect(func(t: String) -> void: notices.append(t))
 	scene.handle_hotkey(_key(KEY_I))
 	var iw := scene.ui_windows.top() as ItemWindow
-	assert_eq(iw.cell(0).get("id"), 1302000, "the Item window lists the sword")
+	assert_eq(iw.cell(0).get("id"), 1372005, "the Item window lists the wand")
 	assert_eq(iw.wear(0), "", "wearing it again from the Item window")
-	assert_true(1302000 in scene.avatar.look.equips)
+	assert_true(1372005 in scene.avatar.look.equips)
 
 
 func test_equip_and_item_open_over_a_level_up_choice() -> void:

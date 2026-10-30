@@ -147,6 +147,19 @@ func test_the_dragons_are_holy_and_take_an_active_slot_each() -> void:
 	assert_eq(w.loadout.stats("summon_dragon").element, "h")
 	assert_eq(w.loadout.stats("bahamut").element, "h")
 
+func test_summon_dragon_plays_its_summon_sound_through_the_spawn_cue_and_bahamut_none() -> void:
+	var w := _world(["summon_dragon", "bahamut"])
+	w.drain_events()
+	for tick in 120:
+		w.runner.step(DT, w)
+	var sounds := {}
+	for e: Dictionary in w.drain_events():
+		if e.type == "summon_spawn":
+			sounds[String(e.skill)] = e.get("sound", "")
+	assert_eq(sounds.get("summon_dragon"), "Sound.wz/Skill.img/2311006/Summon", "Summon Dragon's spawn event names the sound")
+	assert_eq(sounds.get("bahamut"), "", "Bahamut lists none: no sound key")
+
+
 func test_both_dragons_coexist_and_a_recast_replaces_only_its_own_group() -> void:
 	var w := _world(["summon_dragon", "bahamut"])
 	for tick in 120: # one cast at a time: the second skill follows after the first's stance

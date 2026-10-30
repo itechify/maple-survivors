@@ -23,6 +23,15 @@ func test_load_all_has_every_file() -> void:
 	assert_eq(bad.size(), 13, "every missing file reported")
 
 
+func test_an_ammo_schedule_keyed_by_branch_is_a_load_error() -> void:
+	assert_true(Ammo.schedule_errors(data.ammo).is_empty(), "the shipped schedules are keyed by exact job (format 2)")
+	var old: Dictionary = data.ammo.duplicate(true)
+	old.schedules[0].erase("job")
+	old.schedules[0]["branch"] = 310
+	var errors := Ammo.schedule_errors(old)
+	assert_eq(errors.size(), 2, "the branch key and the missing job: %s" % [errors])
+
+
 func test_every_stage_names_its_region_and_continent() -> void:
 	var want := {"henesys": ["Henesys", "Victoria Island"], "ellinia": ["Ellinia", "Victoria Island"],
 		"perion": ["Perion", "Victoria Island"], "kerning": ["Kerning City", "Victoria Island"],
@@ -502,7 +511,8 @@ func test_build_setup_and_paths() -> void:
 	assert_has(s.skill_imgs, "230", "Cleric attacks and Teleport book")
 	assert_eq(s.mob_imgs.size(), mob_ids.size() - 1, "all stage kinds except the loader's missing Green Mushroom")
 	assert_eq(missing, PackedStringArray(["Mob.wz/1110100.img"]))
-	assert_eq(s.ammo_info.size(), 18, "the ammo items' canonical facts are in the setup (#155)")
+	for id: int in Ammo.item_ids(DataRepo.load_all().ammo):
+		assert_true(s.ammo_info.has(id), "ammo %d canonical facts are loaded" % id)
 	assert_eq(s.ammo_info[2070001], {"incPAD": 7})
 	assert_eq(s.scroll_info.size(), Scrolls.ids(data.scrolls).size(), "every roster scroll's canonical info is loaded")
 	assert_eq(s.scroll_info[2043700], {"success": 60, "incMAD": 2})
@@ -749,6 +759,16 @@ func test_meter_catalog_schema() -> void:
 		assert_true(float(meter.damage_per_unit) >= 0.0)
 		assert_true(meter.get("unit", "") is String, "%s: unit is a word" % skill.get("skill_key", ""))
 		assert_eq(String(skill.slot), "active")
+
+func test_burst_cast_and_thrown_art_keep_distinct_typed_contracts() -> void:
+	var skills: Dictionary = DataRepo.load_all().skills.skills
+	for key: String in skills:
+		var d: Dictionary = skills[key]
+		var rule := String(d.get("cast", {}).get("rule", ""))
+		if rule == "burst":
+			assert_true(d.get("burst") is Dictionary, key + " uses burst scheduling parameters")
+		elif rule == "cluster":
+			assert_true(d.get("burst", "") is String, key + " uses a thrown impact art path")
 
 
 func test_manual_skills_do_not_carry_auto_cast_hp_damage_mechanics() -> void:

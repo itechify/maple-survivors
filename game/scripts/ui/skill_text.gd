@@ -73,6 +73,21 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		line = strip_mp_cost(clean(String(_wz(key).get(hs, ""))))
 	var mechanics := PackedStringArray()
 	var def := book.def(key)
+	if String(def.get("cast", {}).get("rule", "")) == "burst":
+		var burst: Dictionary = def.get("burst", {})
+		var shots := int(stats.get("count", 1))
+		var seconds := BurstCast.span(stats, burst)
+		mechanics.append("Fires %d arrows over %s s" % [shots, number(seconds)])
+	if def.has("summon"):
+		var summon: Dictionary = def.summon
+		mechanics.append("Calls %s for %s s" % [String(def.get("name", key)), number(float(stats.get("duration", 0.0)))])
+		var status: Dictionary = def.get("on_hit", {})
+		if String(status.get("status", "")) == "stun":
+			var chance := book.canonical(key, level, String(status.chance_field)) if status.has("chance_field") else 100.0
+			mechanics.append("%s%% to stun" % number(chance))
+		if summon.has("watk_field"):
+			mechanics.append("%s W.Att" % number(book.canonical(key, level, String(summon.watk_field))))
+
 	if def.has("form"):
 		var form: Dictionary = def.form
 		var effects: Dictionary = form.get("effects", {})
@@ -118,6 +133,9 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("knockback"):
 		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
 			number(float(stats.get("knockback_distance", 0.0)))])
+	if def.has("pierce_field"):
+		var through := int(stats.get("pierce", 0))
+		mechanics.append("Pierces up to %d more %s" % [through, "monster" if through == 1 else "monsters"])
 	if def.has("pull"):
 		var pulled := int(stats.get("mob_count", 1))
 		mechanics.append("Pulls up to %d %s from %s px" % [pulled, "monster" if pulled == 1 else "monsters",
@@ -135,6 +153,10 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("pierce_falloff"):
 		mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
 			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
+	if stats.has("burn_pulse"):
+		mechanics.append("Burns for %s s, %s%% of base damage per second" % [number(float(stats.get("burn_time", 0.0))),
+			number(float(stats.get("burn_share", 0.0)))])
+
 	for pulse: Dictionary in stats.get("support", []):
 		mechanics.append(pulse_text(pulse))
 

@@ -16,6 +16,7 @@ const WAND := 1372005
 ## action 0.8 s, any weapon).
 func _world(p_seed := 160) -> RunWorld:
 	var data := RF.quiet_data()
+	data.jobs_survivor.jobs["212"]["creation_weapon"] = SWORD # Explicit speed-4 Sword for these timing examples.
 	data.upgrades.cards = []
 	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	data.balance.magnet_radius = 0

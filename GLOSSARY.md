@@ -352,6 +352,12 @@ a set gap away. It picks the farthest monsters first, up to the skill's monster 
 never pulled. It is the mirror of knock-back (Monster Magnet, Snatch).
 _Avoid_: magnet, suck, vacuum
 
+**Burn**:
+A fire status that hurts a monster once a second for a few seconds, a little each time and never enough to kill it. The
+size of every pulse is decided by the cast that set the monster alight, and setting it alight again refreshes the burn
+without restarting or stacking it. Bosses and fire-proof monsters don't burn. It is the fire twin of poison (Inferno).
+_Avoid_: ignite, fire damage-over-time
+
 **Hit window**:
 The short time after the character is hit during which it can't be hit again. It shrinks with repeated hits, and
 boss attacks ignore it.
@@ -391,9 +397,13 @@ _Avoid_: weapon type (in docs; that is the v83 item-id prefix), weapon class
 
 **Ammo tier**:
 The throwing stars, arrows or bullets a ranged character fires: one real v83 ammo item at a time, endless and never
-an item stack. The class starts on its basic ammo, and the specialist branch moves up the tiers by itself at fixed
-levels, changing the projectile you see.
+an item stack. The weapon family starts on basic ammo; the exact job and round level select later tiers, changing
+the projectile you see (each round starts at Lv1).
 _Avoid_: ammo card, ammo stack, projectile (that is the shot on screen)
+
+**Ammo schedule**:
+The ammo milestones for one exact job and weapon family, reached at fixed levels within a round. A different
+job or weapon family starts with its own basic ammo; milestones are not inherited from ancestor jobs.
 
 **Worn equipment**:
 The equipment currently in a character's equip slots; only worn equipment adds stats.
@@ -488,6 +498,14 @@ _Avoid_: the v83 Energy Charge stat window and Body Attack (not implemented); ma
 A pool active whose meter block gates admission and spends units for extra damage. Panic and Coma are Hero's
 finishers; Energy Drain and Energy Orb are Buccaneer's. Their meter_keep rarity modifier leaves units unspent.
 _Avoid_: ultimate, proc
+
+**Physical follower**:
+A player summon (Silver Hawk, Phoenix, Golden Eagle, Frostprey) whose damage is physical and takes its W.Att from the skill level's `pad` instead of the worn weapon, optionally stunning on hit and flying above its trailing point. It is the Elquines seam (`PlayerSummons`) with data keys, not a separate system.
+_Avoid_: pet (the Free Market pet is a cosmetic companion), minion
+
+**Burst**:
+One automatic cast that schedules its resolved shot count over time, following the moving character's hand and a
+live target. The cooldown begins on admission; unfinished shots belong to the current map (`BurstCast`, #336).
 
 **HP risk**:
 A skill that pays HP: a percentage of max HP as its cost, a gate that needs HP above a share of max HP, and recoil. It

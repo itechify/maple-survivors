@@ -149,6 +149,12 @@ const EVENT_FIELDS := {
 	# `burst` plays at `to` on arrival, when the sim strikes the mobs (the mob_hit events).
 	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
 	"skill_landed": ["skill", "cast_time", "pos", "effect"],
+	# #342: a burst cast (Hurricane) began (`wind_up` s until its first arrow, `span` s to its last) and ended (finished or dropped); art only.
+	"summon_spawn": ["skill", "slot"], # optional sound: listed only by skills with a summon sound
+	"summon_attack": ["skill", "slot", "pos"],
+	"summon_strike": ["skill", "slot", "mob", "pos", "effect"],
+	"burst_start": ["skill", "wind_up", "span", "facing"],
+	"burst_end": ["skill"],
 	# #323 (chain cast rule): the bolt's polyline, caster hand then each struck link's body centre; the hits are mob_hit events.
 	"skill_chain": ["skill", "skill_id", "points"],
 
@@ -294,10 +300,10 @@ var _map_swept := false
 var kills := 0
 ## Character level when the round began (a carried character keeps its level); see levels_gained().
 var start_level := 1
-## Total damage the player dealt: shots, instant skill hits and nonlethal poison (read-only).
+## Total damage the player dealt: shots, instant skill hits and nonlethal poison and burn (read-only).
 var damage_dealt: int:
 	get:
-		return projectiles.dealt + _instant_dealt + swarm.poison_dealt
+		return projectiles.dealt + _instant_dealt + swarm.poison_dealt + swarm.burn_dealt
 var state := PLAYING
 var view_size := DEFAULT_VIEW
 ## Player-centred logical view clamped to the bounds (spawn logic keeps mobs outside it).
@@ -599,7 +605,7 @@ func advance_map() -> void:
 	for slot in pickups.capacity():
 		pickups.despawn(slot)
 	_final_queue.clear()
-	runner.clear_pending()
+	runner.clear_pending(self)
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
 	mob_actions = MobActions.new()
@@ -1115,6 +1121,7 @@ func _settle_clear() -> bool:
 		_advance_queue() # normal job/card flow; step stays frozen until every answer is in
 	else:
 		state = CLEARED
+		runner.clear_pending(self)
 		emit("stage_cleared", {"time": time})
 	return true
 
@@ -1596,7 +1603,7 @@ func weapon_attack(ranged: bool = false) -> float:
 
 
 ## The ammo item the held weapon fires (Item.wz id); 0 when it is not a bow, crossbow, claw or gun. Endless: it is never
-## consumed, and it follows the weapon family, job and level (Ammo.item_for).
+## consumed, and it follows the weapon family, exact job and round level (Ammo.item_for).
 func ammo_id() -> int:
 	return _ammo_id
 
@@ -1609,7 +1616,7 @@ func ammo_attack() -> float:
 ## The ammo a tooltip of weapon `weapon` lists: {"item_id", "incPAD"} of the ammo this character would fire with it (the
 ## window adds the String.wz name); {} for a melee weapon.
 func ammo_tooltip(weapon: int) -> Dictionary:
-	var id := Ammo.item_for(data.get("ammo", {}), WeaponInfo.family(weapon), progression.job_id, progression.level, jobs)
+	var id := Ammo.item_for(data.get("ammo", {}), WeaponInfo.family(weapon), progression.job_id, progression.level)
 	if id == 0:
 		return {}
 	return {"item_id": id, "incPAD": int(setup.get("ammo_info", {}).get(id, {}).get("incPAD", 0))}
@@ -1619,7 +1626,7 @@ func ammo_tooltip(weapon: int) -> Dictionary:
 ## the first computation is silent). Called by _refresh_caster, which every level-up, job change and weapon change reaches.
 func _sync_ammo() -> void:
 	var family := held_weapon_family()
-	var id := Ammo.item_for(data.get("ammo", {}), family, progression.job_id, progression.level, jobs)
+	var id := Ammo.item_for(data.get("ammo", {}), family, progression.job_id, progression.level)
 	if id != _ammo_id and _ammo_id != 0 and id != 0 and family == _ammo_family:
 		var from := _ammo_id
 		_ammo_id = id
@@ -1879,6 +1886,8 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 			"damage": roll.x, "element": String(st.get("element", "")), "damage_type": dtype}
 		if st.has("push_side"):
 			hit["push_side"] = int(st.push_side) # a dash's direction (Rush): the knock-back shoves along it
+		if st.has("burn_pulse"):
+			hit["burn_pulse"] = int(st.burn_pulse)
 		_on_player_hit(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
@@ -2018,12 +2027,18 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 		var chance_field := String(status.get("chance_field", ""))
 		var chance := book.canonical(key, level, chance_field) if chance_field != "" else 100.0
 		if chance > 0.0 and (chance >= 100.0 or rng.randf() * 100.0 < chance):
-			var params := {"time": book.canonical(key, level, String(status.get("duration_field", "time"))),
+			# A literal `duration` (seconds, spec #332 M8) beats the level field: a status whose WZ `time` is something else.
+			var time: float = float(status.duration) if status.has("duration") \
+				else book.canonical(key, level, String(status.get("duration_field", "time")))
+			var params := {"time": time,
 				"level": level, "skill": key, "x": book.canonical(key, level, "x")}
 			if String(hit.element) != "":
 				params["element"] = String(hit.element)
 			if status.has("element"):
 				params["element"] = String(status.element)
+			if String(status.get("status", "")) == "burn":
+				# tier C: the pulse was resolved from the cast (Loadout.stats) and travelled with the shot.
+				params["pulse"] = int(hit.get("burn_pulse", 0))
 			if status.has("cut"):
 				# tier C: a flat Threaten-style cut of min(skill level, cap) to weapon attack and defence (Panic; the node has none).
 				var cut := float(mini(level, int(status.cut.get("cap", level))))
@@ -2099,7 +2114,7 @@ func _init_player() -> void:
 		_restore_character(setup.character)
 	else:
 		progression.job_id = int(setup.get("job", jobs.default_job()))
-		equipment.worn = Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.get("equipment_info", {}))
+		equipment.worn = Equipment.worn_from_ids(CharacterSnapshot.held_item_ids({"job_id": progression.job_id}, jobs), setup.get("equipment_info", {}))
 	set_job(progression.job_id)
 	# tier C (#346): an optional job AP-row HP baseline; absent rows keep the shared starter HP.
 	_base_hp = float(_job_value(pb.get("ap", {}), {}).get("hp", _base_hp))
@@ -2557,6 +2572,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		_hp = 0.0
 		_dead = true
 		state = DEAD
+		runner.clear_pending(self)
 		runner.forms.clear(self)
 		emit("player_died", {"pos": player.pos})
 	elif bypass or upkeep.may_knock_back():

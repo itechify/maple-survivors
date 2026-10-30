@@ -208,6 +208,10 @@ static func _world() -> RunWorld:
 	var s := RF.with_basic_attack(RF.setup("pool_146", 146, _data()))
 	s["job"] = 212
 	s.account = {"owned": PF.EVERYTHING}
+	# Review #332: preserve the oracle's historical Sword before as_job swaps it into the inventory.
+	s.character = {"format": 3, "job_id": 212, "look": {},
+		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, s.equipment_info), "inventory": []},
+		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
 	var w := RunWorld.new(s)
 	w.god = true
 	RF.as_job(w, 220)

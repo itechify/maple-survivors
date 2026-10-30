@@ -45,6 +45,10 @@ func _event_digest(ticks: int, counts := {}) -> String:
 	setup.skill_imgs["231"].skill["2311006"] = dragons.dragon
 	setup.skill_imgs["232"].skill["2321003"] = dragons.bahamut
 	setup.skill_imgs["232"].skill["2321006"] = REV.img().skill["2321006"]
+	# Merge of #332 and #372: freeze the original replay's sword outfit explicitly; bare tools now wear the creation weapon.
+	setup.character = {"format": 3, "job_id": 232, "look": {},
+		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
+		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
 	var w := RunWorld.new(setup)
 	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)
 	legacy_curve.erase("maps")

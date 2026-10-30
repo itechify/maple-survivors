@@ -29,7 +29,12 @@ func _event_digest(ticks: int, facts := {}) -> String:
 	for opening: Array in [[0, 0.15, 3], [1, 0.4, 8], [2, 0.6, 12]]:
 		data.stages.stages.henesys.keyframes[int(opening[0])].rate = float(opening[1])
 		data.stages.stages.henesys.keyframes[int(opening[0])].max_alive = int(opening[2])
-	var w := RunWorld.new(PF.setup("henesys", 1, data))
+	var setup := PF.setup("henesys", 1, data)
+	# Merge #332: preserve the replay's historical Sword input; bare tools now use the creation weapon.
+	setup.character = {"format": 3, "job_id": 122, "look": {},
+		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
+		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
+	var w := RunWorld.new(setup)
 	# Keep this pre-#241 oracle on the historical whole-round pool curve as well as the historical opening.
 	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)
 	legacy_curve.erase("maps")
@@ -79,7 +84,15 @@ func test_paladin_event_stream_is_reproducible_and_matches_golden() -> void:
 ## New scripted golden captured after two independent identical runs on the merged #308/#441 tree.
 ## Scripted Holy/Blast replay complements the bot seed, which never learns these skills.
 func _holy_digest(facts: Dictionary) -> String:
-	var w := PF.round_world(308)
+	var setup := PF.setup("quiet", 308, RF.quiet_data())
+	# This scripted replay also predates bare tools using the job creation weapon.
+	setup.character = {"format": 3, "job_id": 122, "look": {},
+		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
+		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
+	var w := RunWorld.new(setup)
+	RF.place_player(w, 400)
+	w.player.facing = 1
+	w.god = true
 	w.loadout.order.clear()
 	for key: String in ["holy_charge", "blast"]:
 		w.loadout.add_skill(key)

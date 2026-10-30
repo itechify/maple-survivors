@@ -152,7 +152,7 @@ func test_mastery_final_attack_and_a_crossbow_swap_keeps_every_hunter_skill_and_
 	w.step(DT, MoveInput.new())
 	var events := w.drain_events()
 	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "final_attack" and e.skill == "final_attack_bow"))
-	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "ammo_shot" and e.skill == "final_attack_bow" and e.ball == Ammo.bullet_path(2060001)))
+	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "ammo_shot" and e.skill == "final_attack_bow" and e.ball == Ammo.bullet_path(w.ammo_id())))
 	for key: String in KEYS:
 		w.loadout.set_rank(key, 1)
 	w.refresh_player_stats()
@@ -173,13 +173,8 @@ func test_behavior_cards_add_targets_and_arrows_using_shared_rarity_magnitudes()
 	assert_eq(w.loadout.stats("power_knockback_bow").mob_count, 2)
 	RF.add_modifier_effects(w, w.upgrades.card("power_knockback_bow_targets"))
 	assert_eq(w.loadout.stats("power_knockback_bow").mob_count, 3)
-	w.learn_skill("arrow_bomb")
-	assert_eq(w.loadout.stats("arrow_bomb").count, 1)
-	assert_eq(w.loadout.stats("arrow_bomb").blast_targets, 6)
-	RF.add_modifier_effects(w, w.upgrades.card("arrow_bomb_shots"))
-	RF.add_modifier_effects(w, w.upgrades.card("arrow_bomb_targets"))
-	assert_eq(w.loadout.stats("arrow_bomb").count, 2)
-	assert_eq(w.loadout.stats("arrow_bomb").blast_targets, 7)
+	# Arrow Bomb's standalone cards moved to its rarity bonuses with the Bowmaster port (#339; test_bowmaster_core_arrows).
+	assert_true(w.upgrades.card("arrow_bomb_shots").is_empty() and w.upgrades.card("arrow_bomb_targets").is_empty())
 	# The binding first-job carry exception survives; its cards never enter the advancement draw.
 	assert_false("arrow_blow_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	var first := _world()
@@ -198,23 +193,6 @@ func test_behavior_cards_add_targets_and_arrows_using_shared_rarity_magnitudes()
 	assert_true(hits.any(func(e: Dictionary) -> bool: return int(e.mob) == extra))
 
 
-func test_arrow_schedule_changes_at_30_40_50_announces_and_catches_up_on_advancement() -> void:
-	var w := _world()
-	w.progression.level = 50
-	RF.as_job(w, 310)
-	assert_eq(w.ammo_id(), 2060003, "late advancement chooses highest reached tier")
-	w.drain_events()
-	for row: Array in [[29,2060000],[30,2060001],[39,2060001],[40,2060002],[49,2060002],[50,2060003]]:
-		w.progression.level = row[0]
-		w.refresh_player_stats()
-		assert_eq(w.ammo_id(), row[1])
-		var notices := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "ammo_upgraded")
-		if int(row[0]) in [30,40,50]:
-			assert_eq(notices.size(), 1)
-			if not notices.is_empty():
-				assert_eq(notices[0].item_id, row[1])
-
-
 func test_real_hunter_levels_costs_effects_icons_art_sounds_and_ryden() -> void:
 	if not require_cache():
 		return
@@ -230,7 +208,7 @@ func test_real_hunter_levels_costs_effects_icons_art_sounds_and_ryden() -> void:
 	for row: Array in [["bow_mastery",20],["final_attack_bow",30],["bow_booster",20],["power_knockback_bow",20],["arrow_bomb",30]]:
 		var key: String = row[0]
 		assert_eq(book.max_level(key), row[1])
-		assert_eq(book.max_rank(key), row[1])
+		assert_eq(book.max_rank(key), 8 if key == "arrow_bomb" else row[1], "Arrow Bomb is a Bowmaster pool skill (#339): eight ranks")
 		for suffix: String in ["icon", "iconDisabled", "iconMouseOver"]:
 			assert_true(lib.frame(book.wz_path(key) + "/" + suffix) != null)
 		for field: String in ["ball", "effect", "hit"]:
@@ -254,7 +232,7 @@ func test_real_hunter_levels_costs_effects_icons_art_sounds_and_ryden() -> void:
 		var st := lo.stats("arrow_bomb", rank_value)
 		assert_eq(st.blast_targets, 6)
 		assert_eq(st.count, 1)
-		assert_near(st.damage_pct, 0.72 if rank_value == 1 else 1.30)
+		assert_near(st.damage_pct, 0.78 if rank_value == 1 else 1.30, 0.000001) # rank 1 is WZ level 4; rank 30 clamps to rank 8 = level 30
 		assert_eq(st.box, Rect2(-130,-100,260,200) if rank_value == 1 else Rect2(-150,-100,300,200))
 		assert_eq(book.canonical("arrow_bomb", rank_value, "prop"), 31.0 if rank_value == 1 else 60.0)
 		assert_eq(book.canonical("arrow_bomb", rank_value, "time"), 2.0 if rank_value == 1 else 6.0)

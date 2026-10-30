@@ -210,10 +210,12 @@ static func rank_text(card: Dictionary) -> String:
 static func change_lines(card: Dictionary) -> PackedStringArray:
 	var lines := PackedStringArray()
 	var mods: Dictionary = card.get("skill_mod_changes", {})
-	for key: String in MOD_LABELS:
+	var labels := MOD_LABELS.duplicate()
+	labels.merge(UpgradePool.MODIFIER_PREVIEW)
+	for key: String in labels:
 		if mods.has(key) and mods[key].before != mods[key].after:
-			var unit: String = MOD_LABELS[key][1]
-			var line := "%s: %s%s → %s%s" % [card.get("skill_mod_labels", {}).get(key, MOD_LABELS[key][0]), SkillText.number(float(mods[key].before)), unit,
+			var unit: String = labels[key][1]
+			var line := "%s: %s%s → %s%s" % [card.get("skill_mod_labels", {}).get(key, labels[key][0]), SkillText.number(float(mods[key].before)), unit,
 				SkillText.number(float(mods[key].after)), unit]
 			lines.append_array(MapleText.wrap_markup(line, ROW_W - 8.0, MapleText.SMALL))
 	var changes: Dictionary = card.get("skill_changes", {})

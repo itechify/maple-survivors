@@ -22,6 +22,10 @@ func _event_digest(ticks: int, counts := {}) -> String:
 		data.stages.stages.henesys.keyframes[int(opening[0])].rate = float(opening[1])
 		data.stages.stages.henesys.keyframes[int(opening[0])].max_alive = int(opening[2])
 	var setup := BF.setup("henesys", 1, data)
+	# Merge #332: preserve the replay's historical Sword input; bare tools now use the creation weapon.
+	setup.character = {"format": 3, "job_id": 512, "look": {},
+		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
+		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
 	var w := RunWorld.new(setup)
 	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)
 	legacy_curve.erase("maps")

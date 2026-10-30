@@ -1,29 +1,42 @@
 class_name Ammo
 extends RefCounted
 ## Endless ammo of the ranged weapon stance (spec #151 #155; docs/GAME_DESIGN.md "Ranged basic attack and endless ammo").
-## Pure lookups over survivor/ammo.json (`data.ammo`): which ammo item a ranged weapon family uses for a job and a
-## character level, the shot's numbers, and the upgrade notice. The ammo is never consumed and never an inventory item;
+## Pure lookups over survivor/ammo.json (`data.ammo`): which ammo item a ranged weapon family uses for an exact job and the
+## round's level, the shot's numbers, and the upgrade notice. The ammo is never consumed and never an inventory item;
 ## RunWorld.ammo_id() derives it, so a saved character needs no ammo field. Item facts (incPAD, names) are canonical
 ## Item.wz / String.wz data the setup carries as `ammo_info` (DataRepo.ammo_info).
 
 
-## The ammo item a `family` weapon uses for a character of `job_id` at `level`; 0 for a family without ammo (melee,
-## bare hands). A schedule applies when its family matches and `job_id` is its branch or a descendant job; the
-## highest step whose level is reached wins, else the family's starting ammo.
-static func item_for(ammo: Dictionary, family: String, job_id: int, level: int, jobs: JobTree) -> int:
+## The ammo item a `family` weapon uses for a character of exactly `job_id` at the round's `level`; 0 for a family without
+## ammo (melee, bare hands). A schedule applies when its family matches and its `job` is `job_id` (no lineage walk: ADR
+## 0006 has no branches, ruling D9); the highest step whose level is reached wins, else the family's starting ammo.
+static func item_for(ammo: Dictionary, family: String, job_id: int, level: int) -> int:
 	var start := int(ammo.get("families", {}).get(family, {}).get("start", 0))
 	if start == 0:
 		return 0
 	var best := start
 	var best_level := -1
 	for schedule: Dictionary in ammo.get("schedules", []):
-		if String(schedule.family) != family or not jobs.is_descendant(job_id, int(schedule.branch)):
+		if String(schedule.family) != family or int(schedule.get("job", 0)) != job_id:
 			continue
 		for step: Dictionary in schedule.steps:
 			if int(step.level) <= level and int(step.level) > best_level:
 				best = int(step.item)
 				best_level = int(step.level)
 	return best
+
+
+## What is wrong with `ammo`'s schedules (format 2): one message per schedule that carries the removed `branch` key or
+## names no `job`. Empty when the data is fine.
+static func schedule_errors(ammo: Dictionary) -> PackedStringArray:
+	var errors := PackedStringArray()
+	for i in ammo.get("schedules", []).size():
+		var schedule: Dictionary = ammo.schedules[i]
+		if schedule.has("branch"):
+			errors.append("ammo schedule %d carries `branch` (format 1): key it by the exact `job`" % i)
+		if int(schedule.get("job", 0)) <= 0:
+			errors.append("ammo schedule %d has no `job`" % i)
+	return errors
 
 
 ## The shot of `family`'s weapon shot: {speed, radius, rotate, overshoot}; empty for a family without ammo.

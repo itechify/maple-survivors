@@ -283,6 +283,8 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 	var out: Array = []
 	for v: Dictionary in d.get("cast_visuals", []):
+		if v.has("across") or v.has("fall"):
+			continue # CastVisualPlan expands spread/falling art at presentation time.
 		if attack_count >= int(v.get("min_attack_count", 0)):
 			out.append({"path": book.art_path(key, String(v.get("path_by_family", {}).get(weapon_family, v.path)), weapon_family), "x": float(v.get("x", 0.0)),
 				"follow": bool(v.get("follow", false)), "facing": bool(v.get("facing", false))})
@@ -304,6 +306,7 @@ func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 ## (WZ paths), cast_visuals (the extra cast art, `_cast_visuals`), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
 ## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance, pull_chance (percent)/pull_gap (px; docs/GAME_DESIGN.md 7.35) and pierce_falloff,
+## burn_pulse / burn_time / burn_share (only a skill whose on_hit status is burn; docs/GAME_DESIGN.md 7.43),
 ## `support` (SupportSummons.resolve pulses),
 ## heal_power (Heal's recovery multiplier, 1.0 without the card; docs/GAME_DESIGN.md 7.83) and heal_threshold (the resolved
 ## fraction of max HP below which Heal restores: the data's `hp_threshold` plus the card, capped at HEAL_THRESHOLD_CAP; 0 for
@@ -343,7 +346,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		lo = rng.x * dmg_mult
 		hi = rng.y * dmg_mult
 	elif dtype == "physical":
-		var bounds := CombatMath.physical_damage_range(str_stat, dex_stat, luk_stat, watk, weapon_id,
+		var bounds := CombatMath.physical_damage_range(str_stat, dex_stat, luk_stat, _summon_watk(key, lv, d), weapon_id,
 			attack_kind, job_id, mastery, d.get("physical_formula", {}))
 		lo = bounds.x * dmg_mult
 		hi = bounds.y * dmg_mult
@@ -467,6 +470,9 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	if d.has("meter"):
 		resolved["meter"] = d.meter
 		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
+	_add_burn(resolved, key, d, lv)
+	_add_pierce_field(resolved, key, d, lv)
+
 	if d.has("form"):
 		resolved["duration"] = float(d.form.duration) * skill_stat(key, "form_time", 1.0)
 		resolved["form_sub_damage"] = skill_stat(key, "damage", 1.0)
@@ -477,6 +483,40 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	if d.has("revive"):
 		resolved["revive"] = _revive(key, d.revive)
 	return resolved
+
+
+## Adds the burn numbers of a skill whose `on_hit.status` is "burn" to its resolved stats: burn_pulse (whole damage per
+## second, BurnStatus.pulse of the cast's resolved bounds, the `pulse_field` share ("x") and the `burn_damage` modifier),
+## burn_time (the `duration_field` seconds, "time") and burn_share (the percent of base damage per second, burn_damage
+## included; the Skill window and cards show it). Other skills gain no key, so their stats are unchanged.
+func _add_burn(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> void:
+	var on_hit: Dictionary = d.get("on_hit", {})
+	if String(on_hit.get("status", "")) != "burn":
+		return
+	var share := book.canonical(key, lv, String(on_hit.pulse_field), 0.0) if on_hit.has("pulse_field") \
+		else float(on_hit.get("pulse", 0.0)) # tier C: literal percent for skills without a WZ burn field
+	var mult := skill_stat(key, "burn_damage", 1.0)
+	resolved["burn_pulse"] = BurnStatus.pulse(float(resolved.damage_min), float(resolved.damage_max), share, mult)
+	resolved["burn_time"] = book.canonical(key, lv, String(on_hit.get("duration_field", "time")), 0.0)
+	resolved["burn_share"] = share * maxf(0.0, mult)
+
+
+## A definition with `pierce_field` (a level field, Dragon's Breath "mobCount") pierces one monster fewer than the field says:
+## the arrow strikes `field` monsters in all, so `pierce` is the field minus one, plus the definition's literal `pierce` and any
+## `pierce` card (spec #332 B8, tier C reading of the WZ monster count). Other skills keep their `pierce` unchanged.
+func _add_pierce_field(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> void:
+	var field := String(d.get("pierce_field", ""))
+	if field == "":
+		return
+	var base := float(d.get("pierce", 0)) + maxf(0.0, book.canonical(key, lv, field, 1.0) - 1.0)
+	resolved["pierce"] = maxi(0, roundi(skill_stat(key, "pierce", base)))
+
+
+## The W.Att a physical hit of `key` resolves with: the level field named by the definition's `summon.watk_field` (a
+## physical follower's `pad`, spec #332 M8) in place of the worn weapon plus ammo, else the character's `watk`.
+func _summon_watk(key: String, lv: int, d: Dictionary) -> float:
+	var field := String(d.get("summon", {}).get("watk_field", ""))
+	return book.canonical(key, lv, field, 0.0) if field != "" else watk
 
 
 ## Heal's resolved HP threshold (a fraction of max HP): the data's `hp_threshold` plus the `heal_threshold` modifier, capped at

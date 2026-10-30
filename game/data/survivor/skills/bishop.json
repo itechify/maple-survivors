@@ -57,7 +57,7 @@
 			"effect": "", "hit": "Skill.wz/231.img/skill/2311006/hit/0", "rotate": false,
 			"summon": {"ordinal_spread": 36.0, "path": "Skill.wz/231.img/skill/2311006/summon", "attack": "attack1", "move": "fly", "follow_speed": 180.0,
 				"follow_distance": 60.0, "teleport_distance": 600.0, "attack_interval": 1.2},
-			"sounds": {"use": "Sound.wz/Skill.img/2311006/Use", "hit": ""},
+			"sounds": {"use": "Sound.wz/Skill.img/2311006/Use", "hit": "", "summon": "Sound.wz/Skill.img/2311006/Summon"},
 			"_provenance": "Tier A: WZ time/mad/mastery, the summon attack info (box -200,-150..200,150, attackAfter 500, no mobCount: one target) and art; the book has fly and no move. Tier C: element h (no elemAttr in the WZ; the String text calls it a holy dragon), 12 s recast, 1.2 s attack cycle, follow settings; GAME_DESIGN 7.84."
 		},
 		"bahamut": {

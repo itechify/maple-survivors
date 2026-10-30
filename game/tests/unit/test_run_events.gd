@@ -28,6 +28,8 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 		return
 	seen[type] = int(seen.get(type, 0)) + 1
 	var want: Array = ["type"] + RunWorld.EVENT_FIELDS[type]
+	if type == "summon_spawn" and e.has("sound"):
+		want.append("sound")
 	want.sort()
 	var got: Array = e.keys()
 	got.sort()
@@ -42,6 +44,8 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			fail("%s.velocity is not Vector2" % type)
 		elif k == "area" and not (v is Rect2):
 			fail("%s.area is not Rect2" % type)
+		elif (k == "slot" and type.begins_with("summon_")) and typeof(v) != TYPE_INT:
+			fail("%s.slot is not int" % type)
 		elif k in INT_FIELDS and typeof(v) != TYPE_INT:
 			fail("%s.%s is %s, not int" % [type, k, type_string(typeof(v))])
 		elif k in BOOL_FIELDS and typeof(v) != TYPE_BOOL:
@@ -311,13 +315,13 @@ func test_every_event_matches_the_schema() -> void:
 	assert_eq(scroller.use_scroll(2040400, "top"), "")
 	for event: Dictionary in scroller.drain_events():
 		_check(event, seen)
-	# An Assassin's throwing stars reach the next tier (#155): ammo_upgraded, schema-checked like every event.
+	# A Night Lord's throwing stars reach the next tier (#155, exact job 412): ammo_upgraded, schema-checked like every event.
 	var thrower := RF.quiet_world()
 	thrower.setup.equipment_info[1472000] = {"incPAD": 10.0, "attackSpeed": 6.0}
 	thrower.equipment.inventory.append(Equipment.create(1472000, {"incPAD": 10.0, "attackSpeed": 6.0}))
 	assert_eq(thrower.equip_item(thrower.equipment.inventory.size() - 1), "")
 	thrower.progression.level = 37
-	RF.as_job(thrower, 410)
+	RF.as_job(thrower, 412)
 	for event: Dictionary in thrower.drain_events():
 		_check(event, seen)
 	# A Gunslinger's Grenade is thrown (#192): skill_thrown, schema-checked like every event.
@@ -421,9 +425,18 @@ func test_every_event_matches_the_schema() -> void:
 	for event: Dictionary in pulls:
 		assert_eq(event.size(), 4)
 		_check(event, seen)
+	# Real follower events, including the optional summon sound and per-target strike effect.
+	var followers := preload("res://tests/unit/test_bowmaster_followers.gd").new()
+	var hawk: RunWorld = followers._world("silver_hawk")
+	followers._mob(hawk, 1110100, 300)
+	hawk.book.skill_imgs["311"].skill["3111005"].summon.attack1.info["effect"] = {"0": {"delay": 100.0}}
+	for tick in 240:
+		hawk.step(DT, MoveInput.new())
+	for event: Dictionary in hawk.drain_events():
+		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "ammo_shot":
-			var archer := CF.ranged_final(1452000, 310)
+			var archer := CF.ranged_final(1452000, 312)
 			var dummy := RF.put_mob(archer, 1110100, 350, 190, 100)
 			archer.hit_mob(dummy, {"skill": "fixture", "damage_type": "physical", "damage_min": 1,
 				"damage_max": 1, "crit": 0, "crit_mult": 1.5}, -1)
@@ -437,6 +450,15 @@ func test_every_event_matches_the_schema() -> void:
 				blaster.step(DT, MoveInput.new())
 			for event: Dictionary in blaster.drain_events():
 				_check(event, seen)
+		if type == "burst_start" or type == "burst_end":
+			var archer := CF.world({"kind": "projectile", "cast": {"rule": "burst"},
+				"burst": {"interval": 0.1, "wind_up": 0.1, "retarget": true}, "count": 3})
+			RF.put_mob(archer, 1110100, 350, 190, 100000)
+			for tick in 40:
+				archer.step(DT, MoveInput.new())
+			for event: Dictionary in archer.drain_events():
+				_check(event, seen)
+
 		if type == "support_pulse":
 			var beholder := SSF.world()
 			for tick in 200: # the synthetic Hex pulse lands at 3 s

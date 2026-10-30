@@ -35,16 +35,26 @@ const SLOW_CUE := 0
 const POISON_CUE := 1
 const THREATEN_CUE := 2
 const STUN_CUE := 3
-const CUES_PER_SLOT := 4
+## tier C: burn's cue is the art the applying skill configures (burn_cue_path; Inferno's WZ `tile` node), drawn like poison's.
+const BURN_CUE := 4
+const CUES_PER_SLOT := 5
 ## tier C: persistent Slow cue after its one-shot art, freeze fallback (Cold Beam has no mob overlay), poison fallback.
 const SLOW_TINT := Color(1.0, 0.72, 0.40)
 const FREEZE_TINT := Color(0.45, 0.80, 1.0)
 const POISON_TINT := Color(0.72, 0.45, 0.90)
 ## tier C: stun fallback tint when the cached stars are absent.
 const STUN_TINT := Color(1.0, 0.95, 0.55)
+## tier C: burn fallback tint (orange) when no cue art is configured.
+const BURN_TINT := Color(1.0, 0.62, 0.30)
 
 ## Asset source; defaults to the "Assets" autoload.
 var library: AssetLibrary
+## Skill.wz path of the animation drawn on a burning monster ("" = none: the orange tint stands in). RunScene sets it from
+## the burn skill's `on_hit.cue`; it repeats while the status lasts.
+var burn_cue_path := "":
+	set(value):
+		burn_cue_path = value
+		_status_anims.clear() # reloaded on the next draw
 ## Mob ids whose images were not found.
 var missing: PackedInt32Array = []
 var _action_anims: Dictionary = {}
@@ -180,12 +190,14 @@ func update_from(swarm: Object, kind_ids: PackedInt32Array, only_layer: int = -1
 			var poison := status_left[base + MobSwarm.POISON]
 			var stun := status_left[base + MobSwarm.STUN]
 			var threat := status_left[base + MobSwarm.THREATENED]
-			if slow > 0.0 or poison > 0.0 or threat > 0.0 or stun > 0.0:
+			var burn := status_left[base + MobSwarm.BURN]
+			if slow > 0.0 or poison > 0.0 or threat > 0.0 or stun > 0.0 or burn > 0.0:
 				var box: Rect2 = statuses.mob_kind(i).hitbox
 				_draw_cue(i, SLOW_CUE, slow, status_elapsed[base + MobSwarm.SLOW], box, pos, face > 0, a)
 				_draw_cue(i, POISON_CUE, poison, status_elapsed[base + MobSwarm.POISON], box, pos, face > 0, a)
 				_draw_cue(i, THREATEN_CUE, threat, status_elapsed[base + MobSwarm.THREATENED], box, pos, face > 0, a)
 				_draw_cue(i, STUN_CUE, stun, status_elapsed[base + MobSwarm.STUN], box, pos, face > 0, a)
+				_draw_cue(i, BURN_CUE, burn, status_elapsed[base + MobSwarm.BURN], box, pos, face > 0, a)
 			else:
 				_hide_statuses(i)
 			if slow > 0.0:
@@ -194,6 +206,8 @@ func update_from(swarm: Object, kind_ids: PackedInt32Array, only_layer: int = -1
 				tint = POISON_TINT
 			if stun > 0.0 and _status_anims[STUN_CUE] == null:
 				tint = STUN_TINT
+			if burn > 0.0 and _status_anims[BURN_CUE] == null:
+				tint = BURN_TINT
 			if status_left[base + MobSwarm.FREEZE] > 0.0:
 				tint = FREEZE_TINT
 		elif has_statuses:
@@ -208,6 +222,8 @@ func _load_status_anims() -> void:
 		return
 	for path: String in STATUS_PATHS:
 		_status_anims.append(_lib().find_anim(path))
+	assert(_status_anims.size() == BURN_CUE, "Burn cue follows the canonical status animations")
+	_status_anims.append(_lib().find_anim(burn_cue_path) if burn_cue_path != "" else null)
 
 
 ## Shows cue `cue` (Slow plays once, Poison, Threaten and Stun repeat) of slot i while its status has `left` seconds.
@@ -228,6 +244,7 @@ func _hide_statuses(i: int) -> void:
 	_status_pool.hide(i * CUES_PER_SLOT + POISON_CUE)
 	_status_pool.hide(i * CUES_PER_SLOT + THREATEN_CUE)
 	_status_pool.hide(i * CUES_PER_SLOT + STUN_CUE)
+	_status_pool.hide(i * CUES_PER_SLOT + BURN_CUE)
 
 
 ## The animation a mob shows in a state (cached per id; null when the mob has none).

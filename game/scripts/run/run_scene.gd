@@ -66,6 +66,8 @@ const DT := 1.0 / 60.0
 const MAX_TICKS_PER_FRAME := 4
 ## Height in px of the arc a thrown grenade draws at mid-flight. tier C: ours (#192), presentation only.
 const THROW_ARC := 40.0
+## Height in px above the cast position where a falling cast visual (Arrow Rain) comes to rest. tier C: ours (#340), art only.
+const FALL_REST := 30.0
 const SCENE_PATH := "res://scenes/run/run_scene.tscn"
 
 const FX_LEVEL_UP := "Effect.wz/BasicEff.img/LevelUp"
@@ -269,6 +271,10 @@ var _timed_shots: Array = []
 var _first_shots := {}
 ## Flight FX: Grenades carry skill + cast_time and wait for skill_landed; Final Attack ammo is visual-only.
 var _throws: Array = []
+## Falling cast visuals (Arrow Rain's arrows): {path, to, delay, fall, fall_time, t, slot}; presentation only.
+var _falls: Array = []
+## Burst skills' stream art by skill key: {"phase": "prepare" | "loop", "slot": fx slot, "due": sim time of the first arrow}.
+var _burst_art: Dictionary = {}
 var _last_delta := 0.0
 var _last_frame_us := 0
 var _frames := RunFrameRecorder.new()
@@ -656,9 +662,19 @@ func _build_mob_layers() -> void:
 		var mr := MobRenderer.new()
 		mr.name = "Mobs%d" % layer
 		mr.library = library
+		mr.burn_cue_path = _burn_cue_path()
 		map.actor_layer(layer).add_child(mr)
 		mob_renderers.append(mr)
 		mob_layers.append(layer if floor_layers.size() > 1 else -1)
+
+
+## The mob-cue art of the first pool skill that burns (`on_hit.cue`, a Skill.wz path), "" when none configures one.
+func _burn_cue_path() -> String:
+	for key: String in world.jobs.skill_pool(world.job_id()):
+		var on_hit: Dictionary = world.book.def(key).get("on_hit", {})
+		if String(on_hit.get("status", "")) == "burn" and on_hit.has("cue"):
+			return String(on_hit.cue)
+	return ""
 
 
 ## Drops, the behind-the-player effects and the player's avatar (placed on its layer by _place_player_layer).
@@ -917,9 +933,11 @@ func _warm_ui() -> void:
 		var cl: Variant = world.book.def(key).get("char_level")
 		if cl is Dictionary:
 			char_levels.append_array(cl.get("thresholds", []))
-		var burst := String(world.book.def(key).get("burst", ""))
-		if burst != "":
-			library.find_anim(burst)
+		var burst: Variant = world.book.def(key).get("burst", "")
+		if burst is String and String(burst) != "":
+			library.find_anim(String(burst))
+		for path: Variant in world.book.def(key).get("burst_art", {}).values():
+			library.find_anim(String(path))
 		for path: String in ChainCast.ball_paths(world.book.def(key)):
 			library.find_anim(path)
 		for rank in range(1, world.book.max_rank(key) + 1):
@@ -1058,6 +1076,7 @@ func _read_input(first_tick: bool) -> MoveInput:
 
 
 func _after_tick() -> void:
+	_step_burst_art()
 	_max_alive = maxi(_max_alive, world.swarm.alive_count())
 	var minute := int(world.time / 60.0)
 	while _level_by_minute.size() <= minute:
@@ -1099,8 +1118,17 @@ func handle_events(events: Array) -> void:
 					_event_shot("boss_shockwave_%d_%s.png" % [int(e.boss_index), String(e.attack)], 0.12)
 			"mob_attack":
 				_on_mob_attack(e)
+			"summon_spawn":
+				_sound(String(e.get("sound", "")))
+			"summon_strike":
+				fx.play(String(e.effect), e.pos)
 			"cast":
 				_on_cast(e)
+			"burst_start":
+				_on_burst_start(e)
+			"burst_end":
+				_on_burst_end(e)
+
 			"support_pulse":
 				_on_support_pulse(e)
 			"skill_thrown":
@@ -1328,6 +1356,17 @@ func _on_cast(e: Dictionary) -> void:
 	if effect != "":
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
+	var visuals: Array = world.book.def(key).get("cast_visuals", []).filter(func(v: Dictionary) -> bool: return v.has("across") or v.has("fall"))
+	if not visuals.is_empty():
+		for visual: Dictionary in CastVisualPlan.expand(visuals, world.loadout.stats(key).box):
+			var path := world.book.art_path(key, String(visual.path), world.loadout.weapon_family)
+			var at: Vector2 = e.pos + Vector2(float(visual.x), 0)
+			if float(visual.delay) <= 0.0 and float(visual.fall) <= 0.0:
+				fx.play(path, at)
+			else:
+				_falls.append({"path": path, "to": at - Vector2(0.0, FALL_REST), "delay": float(visual.delay),
+					"fall": float(visual.fall), "fall_time": float(visual.fall_time), "t": 0.0, "slot": -1})
+
 	for visual: Dictionary in world.loadout.stats(key).cast_visuals:
 		var placed := SkillBook.visual_placement(visual, int(e.facing))
 		if bool(visual.follow):
@@ -1347,6 +1386,56 @@ func _on_cast(e: Dictionary) -> void:
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
 
+
+## A burst skill's stream (Hurricane, #342): `prepare` plays fitted to the wind-up, `keydown` loops from the first arrow, and
+## `keydownend` plays when the stream ends or is dropped. All three follow the avatar. tier C: the 14-frame `prepare`
+## (0.96 s) is sped up to the 0.4 s wind-up; the loop keeps the facing of the cast.
+func _on_burst_start(e: Dictionary) -> void:
+	var key := String(e.skill)
+	var art: Dictionary = world.book.def(key).get("burst_art", {})
+	if art.is_empty():
+		return
+	_stop_burst_art(key)
+	var flip := int(e.facing) > 0
+	var wind_up := float(e.wind_up)
+	if wind_up > 0.0 and String(art.get("prepare", "")) != "":
+		var slot := fx.play(String(art.prepare), Vector2.ZERO, flip, avatar)
+		fx.fit(slot, wind_up)
+		_burst_art[key] = {"phase": "prepare", "slot": slot, "due": world.time + wind_up, "flip": flip}
+	else:
+		_burst_art[key] = {"phase": "loop", "slot": fx.play_repeating(String(art.get("loop", "")), Vector2.ZERO, INF, flip, avatar),
+			"due": world.time, "flip": flip}
+
+
+## Starts the keydown loop once the wind-up has passed.
+func _step_burst_art() -> void:
+	for key: String in _burst_art:
+		var state: Dictionary = _burst_art[key]
+		if String(state.phase) == "prepare" and world.time + 1e-9 >= float(state.due):
+			fx.stop(int(state.slot))
+			state.slot = -1
+			state.phase = "released"
+			var loop := String(world.book.def(key).get("burst_art", {}).get("loop", ""))
+			if loop != "":
+				state.slot = fx.play_repeating(loop, Vector2.ZERO, INF, bool(state.flip), avatar)
+				state.phase = "loop"
+
+
+func _on_burst_end(e: Dictionary) -> void:
+	var key := String(e.skill)
+	var art: Dictionary = world.book.def(key).get("burst_art", {})
+	if art.is_empty():
+		return
+	var flip := bool(_burst_art.get(key, {}).get("flip", world.player.facing > 0))
+	_stop_burst_art(key)
+	if String(art.get("end", "")) != "":
+		fx.play(String(art.end), Vector2.ZERO, flip, avatar)
+
+
+func _stop_burst_art(key: String) -> void:
+	if _burst_art.has(key):
+		fx.stop(int(_burst_art[key].slot))
+		_burst_art.erase(key)
 
 ## A support summon's pulse (#352): the parent skill's owner-side `affected` art on the character (tier B: its use is
 ## not documented); the summon's own pulse animation is drawn from the sim state by PlayerSummonRenderer.
@@ -1440,6 +1529,29 @@ func _update_throws(delta: float) -> void:
 			continue
 		fx.stop(int(t.slot))
 		_throws.remove_at(i)
+
+
+## Advances the falling cast visuals: each appears after its delay, drops `fall` px over `fall_time` seconds onto its rest
+## point and is freed there (cosmetic: the damage landed in the sim at the skill's own pending delay).
+func _update_falls(delta: float) -> void:
+	var i := 0
+	while i < _falls.size():
+		var f: Dictionary = _falls[i]
+		f.t = float(f.t) + delta
+		var age := float(f.t) - float(f.delay)
+		if age >= 0.0:
+			var progress := minf(age / maxf(float(f.fall_time), 0.001), 1.0)
+			var at: Vector2 = (f.to as Vector2) - Vector2(0.0, float(f.fall) * (1.0 - progress))
+			if int(f.slot) < 0:
+				f.slot = fx.play_repeating(String(f.path), at.round(), INF)
+			if int(f.slot) >= 0:
+				fx.place(int(f.slot), at.round())
+			if progress >= 1.0:
+				if int(f.slot) >= 0:
+					fx.stop(int(f.slot))
+				_falls.remove_at(i)
+				continue
+		i += 1
 
 
 func _on_mob_hit(e: Dictionary) -> void:
@@ -1592,6 +1704,7 @@ func _reload_map() -> void:
 	mob_layers.clear()
 	_slot_layers.clear()
 	_throws.clear()
+	_falls.clear()
 	_immunity_fx.clear()
 	_slow_fx = -1
 	_shown_action = ""
@@ -1794,6 +1907,7 @@ func _present(delta: float) -> void:
 		_slow_fx = -1
 	_update_mob_status_effects()
 	_update_throws(delta)
+	_update_falls(delta)
 	_update_player(delta)
 	_update_pet(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)

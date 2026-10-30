@@ -35,6 +35,8 @@ var _follow: Array = []
 ## 0 = normal, 1 = tomb falling, 2 = tomb landed, 3 = repeating status art.
 var _mode: PackedByteArray = []
 var _repeat_left := PackedFloat32Array()
+## Playback speed of each slot (1 = the WZ delays); see fit().
+var _rate := PackedFloat32Array()
 var _free: PackedInt32Array = []
 
 
@@ -84,6 +86,7 @@ func play_anim(a: SpriteAnim, pos: Vector2, flip: bool = false, follow: Node2D =
 	_hold[i] = 1 if hold else 0
 	_follow[i] = weakref(follow) if follow != null else null
 	_mode[i] = 0
+	_rate[i] = 1.0
 	_active[i] = 1
 	_draw_slot(i)
 	return i
@@ -114,6 +117,17 @@ func play_repeating(path: String, pos: Vector2, seconds: float, flip: bool = fal
 	_mode[slot] = 3
 	_repeat_left[slot] = seconds
 	return slot
+
+
+## Speeds slot `i` up or down so that one pass of its animation takes `seconds` (the burst skills' wind-up art).
+func fit(i: int, seconds: float) -> void:
+	if i >= 0 and i < _active.size() and _active[i] == 1 and seconds > 0.0 and _anim[i] != null:
+		_rate[i] = maxf(0.01, float((_anim[i] as SpriteAnim).total) / seconds)
+
+
+## Playback speed of slot `i` (1 unless fit() changed it).
+func rate_of(i: int) -> float:
+	return _rate[i] if i >= 0 and i < _rate.size() else 1.0
 
 
 ## Stops one effect.
@@ -159,7 +173,7 @@ func advance(dt: float) -> void:
 			if _repeat_left[i] <= 1e-9:
 				_release(i)
 				continue
-		_t[i] += dt
+		_t[i] += dt * _rate[i]
 		var a: SpriteAnim = _anim[i]
 		if _mode[i] == 1 and _t[i] >= a.total:
 			var land := _lib().anim(TOMB_LAND) if _lib() != null else null
@@ -220,6 +234,7 @@ func _alloc() -> int:
 	_follow.append(null)
 	_mode.append(0)
 	_repeat_left.append(0.0)
+	_rate.append(1.0)
 	_pool.ensure(i + 1)
 	return i
 

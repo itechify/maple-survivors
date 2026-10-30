@@ -25,13 +25,13 @@ const PASSIVE_REGEN_HP := "regen_hp"
 const PASSIVE_PREVIEW_KEYS := [PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 ## Effective opt-in mechanic values; fall-off is displayed as percentage points per later target.
 const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep", "form_time", "form_power"]
-## Active rarity-bonus stats a card previews. Each is its own skill_mod_changes key, except "count", which is
-## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
 ## How a bonus effect on a healing or revive stat reads on its card: [name, scale of an added value, unit of an added
 ## value]. tier C: wording from spec #372 story 11 ("Greater Heal: recovery x1.2", "Holy Shield: guard +1.5 s").
 const CARD_STAT_TEXT := {"heal_power": ["recovery", 1.0, ""], "heal_threshold": ["heals below", 100.0, "% HP"],
 	"revive_hp": ["revive HP", 100.0, "%"], "revive_guard": ["guard", 1.0, " s"]}
 const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "hp_cost", "self_damage", "low_hp_damage", "support_heal", "support_rate", "form_time", "form_power", "heal_power", "heal_threshold", "revive_hp", "revive_guard"]
+## Modifier previews: label, unit and base multiplier. Add another multiplier here only (tier C: UI wording).
+const MODIFIER_PREVIEW := {"burn_damage": ["Burn", "%", 1.0]}
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const STAT_LABELS := {"form_time": "Form duration", "form_power": "Form power", "attack_count": "Hits"}
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
@@ -392,7 +392,7 @@ static func _bonus_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictio
 	for e: Dictionary in c.get("effects", []):
 		var stat := String(e.get("stat", ""))
 		var op := String(e.get("op", "add"))
-		if not stat in MOD_PREVIEW:
+		if not stat in MOD_PREVIEW and not stat in MODIFIER_PREVIEW:
 			continue
 		var value := float(e.get("value", 0.0))
 		preview.add_skill_mod(skill, stat, op, pow(value, magnitude) if op == "mul" else value * magnitude)
@@ -411,6 +411,8 @@ static func _bonus_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictio
 
 
 static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: String) -> Variant:
+	if MODIFIER_PREVIEW.has(stat):
+		return roundi(lo.skill_stat(skill, stat, float(MODIFIER_PREVIEW[stat][2])) * 100.0)
 	match stat:
 		"support_heal", "support_rate":
 			return SupportSummons.preview(st, stat)
