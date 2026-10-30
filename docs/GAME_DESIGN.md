@@ -98,7 +98,7 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   adds its stage (`cleared_after_round`, idempotent), and a death, a Quit round and a tool one-off round change nothing.
   A stored `tiers_unlocked` >= 2 migrates to the first four regions cleared (Sleepywood stays reachable), anything else to
   none (`CharacterSnapshot.migrate`, `with_cleared_regions`; `SaveData` converts stored slots on load). The snapshot format
-  stays 3 (the field is detected by key). Map select keeps its look and lists the progression; its redesign is #451.
+  stays 3 (the field is detected by key). Map select lists the progression with Lv ranges and locked / cleared / frontier marks (#451).
 - **#294 (T12): QA and docs.** The `redesign` flow scenario (`flow_driver.tscn --scenario=redesign`), the retired
   scenarios and debug drivers removed, the one F/P fixture, the playtests and the regression smoke of 4.2, and the rewrites
   of sections 1, 5, 6.1.1, 7.5, 8 and 9 and of AGENTS.md.
@@ -194,8 +194,15 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
    Scrooge, Maple TV and Inkwell are drawn but inert. Up at the scripted `out00` portal opens **map select**; Esc offers
    Resume / Save & quit. The hub draws the character's look and worn equipment; moving never changes the save.
 3. **Map select** lists the whole progression in order: Henesys, Ellinia, Perion, Kerning City and Sleepywood. Only
-   Henesys is open to a new character, and clearing a region opens the next. A locked card is greyed, its details say
-   "Locked. Clear <previous region> to unlock." and Start does nothing. Each stage contains three ordered maps (4.1). Back returns to the Free Market.
+   Henesys is open to a new character, and clearing a region opens the next. Each row shows the map mark, the region
+   name, "Lv lo-hi" (the lowest and highest canonical level of the region's ordinary pool monsters over its three maps;
+   bosses, final forms, summons and revives excluded; omitted when the cache lacks the mob info) and a state mark: CLEAR
+   (cleared), a lock with the greyed look (locked), or NEW (the frontier: the first unlocked, uncleared region). The header
+   reads "Regions cleared N/M". The details say "Locked. Defeat <boss> in <previous region> to unlock." (the String.wz name
+   of the previous region's map 3 boss, its final form when it has one) and Start stays disabled and does nothing, by
+   keyboard and mouse. Six rows show at once; the list scrolls by keys, wheel and arrows and opens on the frontier (the last
+   region when all are cleared). Start sits under the details column. Each stage contains three ordered maps (4.1). Back
+   returns to the Free Market.
 4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt for F/P, Cold Beam for I/L, Power Strike for Hero,
    active slot 1) and its mobility skill (Teleport or Rush) on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
 5. **Survive** the growing swarms. Each map's boss arrives 300 seconds after entering it. Defeat it, collect all
@@ -607,9 +614,8 @@ aliases; living slots, bests, history and run snapshots migrate on load. The tie
 | `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
 
-All are on Victoria Island. Map select lists each region's three maps and bosses in `tiers` order; its objective is
-"Defeat 3 bosses across 3 maps". Four cards per tier is the most the parchment fits above the Start button
-(`stage_select.gd` `MAX_CARDS`); a fifth region would need a scrolling list. Results show the region and ending map. The opening title shows continent above region; transfer
+All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
+"Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
 arrivals show the destination's v83 street and map name. Summaries retain region/continent and the ending WZ names.
 
 Round time includes all combat on every map. The pacing clock is `curve_time = (N - 1) * 300 + time_on_map` for
@@ -1702,7 +1708,7 @@ Dyle's Attack Up (the 110 area art across the Ligators, then the buff glow on Dy
 burst. Iron Hook dies before his first 40 s interval in every natural or diagnostic fight, so that capture adds a
 **x20 HP diagnostic tank** and holds the camera on him (harness-only presentation aid, never data). Every map entry
 reports BGM playback matching `info/bgm` (Perion Nightmare, Nightmare continuing, HighlandStar; Kerning BadGuys,
-Subway, JungleBook). The map select shows four cards in `tiers` order; with Perion or Kerning City selected the detail
+Subway, JungleBook). The map select showed four cards in `tiers` order (now the progression list, #451); with Perion or Kerning City selected the detail
 lists `West Street Corner of Perion -> Mano`, `East Rocky Mountain V -> Stumpy`, `The Burnt Land I -> Iron Hook` and
 `Kerning City Construction Site -> King Slime`, `Line 1 <Area 1> -> Shade`, `The Swamp of Despair I -> Dyle`; the
 angle brackets render literally, in the arrival banner too. Evidence: `C:/Users/itech/.t3/projects/maple-survivors/.claude/worktrees/agent-ab003e6a203a7ede5/evidence/spec253/t257/`
@@ -8689,6 +8695,19 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Save migration | `CharacterSnapshot.LEGACY_TIER1_REGIONS` 4: a stored `tiers_unlocked` >= 2 becomes the first four progression keys cleared, otherwise none | C |
 | `balance_run.gd --chain=N --retries=K` | N progression regions in order, a failed region replayed up to K times (replaces `--tier=N`; #454) | C |
 
+### Map select progression list (spec #447, #451; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Visible rows | `stage_select.gd` `MAX_CARDS` 6 rows of `ENTRY_H` 46 px; the rest scroll (keys, wheel, arrows) | C |
+| Paper and Start | `PAPER_EXTRA` 48 px of native paper scanlines added to the scroll (`RegionScroll`), `CARD_AREA` (40, 148, 432, 286); Start moves under the details column, centred at `CARD_AREA.end.y - 50` (the Nautilus branch's idea, #264, ported by hand) | C |
+| Opening position | the frontier is selected; the list scrolls so it is visible with `FRONTIER_LEAD` 2 regions above it when they exist | C |
+| Frontier | the first unlocked, uncleared region (the last region when all are cleared, with no NEW mark) | C |
+| "Lv lo-hi" | min and max canonical `level` (Mob.wz `info/level`, tier A) of the stage's ordinary pool ids over its maps: keyframe pools for a `"curve"` map, explicit pools, `pool_from_life` minus `exclude`; scheduled bosses and their `final_form` excluded; unknown levels skipped, the label omitted when none is known. A computed label, so it can differ from the table in spec #447 (Ellinia's map 3 life includes Malady, Henesys's map 3 includes Horny Mushroom) | C |
+| State marks | CLEAR (`INK_CLEAR`, parchment green), a drawn padlock plus the `INK_LOCKED` look, NEW (`INK_RED`) | C |
+| Unlock hint | "Locked. Defeat <boss> in <previous region> to unlock." with the previous region's map 3 boss (`final_form` first), String.wz name | C |
+| Header | "Regions cleared N/M" on the character line, `HEADING_GAP` 18 px after it (the grown scroll's rod covers a second row) | C |
+
 ### Review #282: constants and provenance
 
 | Rule | Value / source | Tier |
@@ -9612,7 +9631,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Perion and Kerning City pools (#253, #254) | Henesys's numeric curve copied exactly (keyframes, bursts, elites, `exp_mult` 2.5, `hard_cap` 400, `post_duration_slope` 0.25) plus a 210 s keyframe interpolated from it (rate 0.875, cap 17.5, speed 1.0375) that only carries the 3:30 pool. Map 1 opens with Blue Snail 100101 only (owner Q4 weaker-neighbour clause, invoked after T1 seed-1 deaths at 0:15/2:15 (Lv1)); from 2:00 Perion Blue Snail 2 / Stump 3 / Red Snail 2, +Dark Stump 1 at 3:00, Dark Stump 3 / Stump 2 / Red Snail 1 / Blue Snail 1 at 3:30; Kerning Blue Snail 2 / Red Snail 3 / Slime 3, +Orange Mushroom 3 at 3:00, +Octopus 1 and Blue Snail 1 at 3:30. Keyframes from 300 s carry no pool. Maps 2 and 3: their v83 life lists, no exclusions (no timed or hidden entries) | C weights, A life lists | Owner, spec #253 |
 | Perion and Kerning City boss multipliers (#253, #254) | Each boss matches the Henesys boss of its map slot at that slot's `typical_hp`/`typical_pdd`: same survivor HP (round(maxHP × hp_mult)) and the 0.01 multiplier steps whose 85–100% roll range is closest to the slot's (within 1 HP). Perion: Mano as in Henesys; Stumpy 0.6857 / touch 1.38 / attacks 1.25; Iron Hook 3.1818 / 2.38 (touch only). Kerning: King Slime 0.45 / 0.78 / slam 0.61 (matches Mano's touch: Mano has no attack); Shade 1.0 / 1.04 (touch only); Dyle 0.2258 / 1.15. Attacks every 8 s. Canonical PDD/MDD, levels and undead flags are not normalized | C | Starting values, untuned (#77 tunes) |
 | Boss skill interval override (#253) | A `stages.json` boss entry may carry `skill_intervals` {"<mob skill id>": seconds > 0} replacing that skill's WZ interval for that boss on that map; `DataRepo.stage_map_errors` rejects other shapes. Shade's Kerning entry: `{"129": 15}` (one Banish per 15 s instead of the canonical 3 s) | C | Owner, spec #253; read by #256 |
-| Map-select card limit (#253) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list | C | Layout measurement, spec #253 |
+| Map-select card limit (#253; replaced by #451) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list. Superseded by "Map select progression list (#451)" in section 11 | C | Layout measurement, spec #253 |
 | Perion and Kerning City mob metadata (#253, #254) | Mesos: v83 server `drop_data` itemid 0 ranges; EXP pickup: the most likely Etc drop (Dark Axe Stump uses Axe 4000215 of the two equal ones; Shade Someone's Hat 4000413). Iron Hook has no server drops: level-fallback mesos and the Wild Boar Tooth icon. Boss bars borrow MobGage icons for Iron Hook (Zeno 6220001) and Shade (Riche 6090000) with hpTag 1/5; both are enabled boss kits (`mob_skills.enabled_ids`) | B mesos/items, C icons/associations | Cosmic drop data (facts only); owner #253 |
 | Mobs without v83 sounds (#253) | A mob with no `Sound.wz/Mob.img/<id>` entry (Iron Hook 4090000) plays no hit, death or skill sound and records nothing missing, as in the client | A (absence) | v83 Sound.wz |
 | Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks are untouched by 100/110 (101/111 below multiply them); the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
