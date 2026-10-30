@@ -1296,6 +1296,7 @@ img Effect.wz/BasicEff.img NoViolet1
 img Effect.wz/BasicEff.img Summoned
 img Effect.wz/BasicEff.img Teleport
 img Effect.wz/Summon.img 1
+img Effect.wz/Summon.img 12
 img Effect.wz/Summon.img 3
 img Effect.wz/Tomb.img *
 img Etc.wz/Commodity.img *
@@ -1662,12 +1663,18 @@ item 4000031
 item 4000032
 item 4000034
 item 4000037
+item 4000040
 item 4000041
 item 4000042
+item 4000043
+item 4000044
 item 4000046
+item 4000049
+item 4000050
 item 4000067
 item 4000076
 item 4000081
+item 4000176
 item 4000215
 item 4000413
 item 9000000
@@ -1718,12 +1725,23 @@ mob 3110100
 mob 3210100
 mob 3220000
 mob 3230100
+mob 3230102
 mob 3230300
+mob 3300000
+mob 3300001
+mob 3300003
+mob 3300004
+mob 3300005
+mob 3300008
 mob 4090000
 mob 4230100
 mob 4230101
+mob 4230104
 mob 5090000
 mob 5130100
+mob 5220000
+mob 5220001
+mob 5220002
 mob 5300100
 mob 6130101
 mob 6220000
