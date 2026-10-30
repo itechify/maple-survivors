@@ -524,6 +524,53 @@ HP 0.1425 / damage 0.195; at 1,200 s all scales reach 1, on top of existing stag
 allows a typical three-map round to end before the full ramp; longer rounds reach full strength at 20:00.
 Paired kit/starter measurements are recorded below. All ramp choices are tier C first-pass tuning.
 
+#### Level scale (#453, spec #447; mechanism only)
+
+A stage may declare `level_scale` instead of an `opening_ramp`: it rescales each monster's strength from its own v83
+level L to an **effective level** E that rises along the round, so a Lv1-55 character can face a Lv40-160 roster whose
+canonical stats are out of reach. No shipped stage uses it yet; #449 sets the numbers for the new regions, and Henesys,
+Ellinia, Perion, Kerning and Sleepywood stay byte-identical (`test_level_scale` runs a seeded run with and without the
+block and compares the event logs).
+
+- **Reference curves.** `game/data/survivor/level_curve.json` holds `hp`, `pad`, `mad`, `pdd`, `mdd` and `exp` for levels
+  1-200 (index = level - 1): the median of the v83 ordinary monsters of that level. Ordinary means a mainline field
+  monster (Mob.wz id below 9,000,000, which leaves out the party-quest, carnival, event, trial, GM and later-client
+  content of docs/research/v83-bosses.md "Excluded"), not `boss=1`, not an `info/link` mob without stances, not a Balrog
+  variant or a Zakum, Horntail or Pink Bean body, and with HP at most 5x its level's median. A zero stat is skipped for
+  that stat (monsters below Lv30 have no magic attack, so `mad` has no sample there and holds its first value). Levels
+  without samples interpolate log-linearly, and the span outside the sampled levels (Lv1-131) holds its end value. The
+  result is made non-decreasing by weighted isotonic regression, so one tough singleton does not lift every level above
+  it, and lightly smoothed (1-2-1 over neighbouring levels, in log space). The file's `_doc` records the method, the
+  date and the sample counts: 1564 Mob.wz imgs, 329 ordinary samples on 106 levels (461 bosses, 282 link copies without
+  stances, 488 ids outside the mainline range and 4 HP outliers left out). `tools/level_curve/` regenerates it from the
+  owner's v83 folder (`bash tools/level_curve/run.sh "<folder>" 2026-10-30`, byte-reproducible); the numbers are facts,
+  not assets.
+- **Stage block.** `level_scale: {"keyframes": [{"t": <curve seconds>, "level": E, "exp_level": X}, ...]}`. `t` is
+  `RunWorld.curve_time()` (`map_index * map_seconds + time since entry`, the pacing clock, so a slow boss kill never
+  delays the next map's level). E and X interpolate linearly between keyframes, hold before the first and after the
+  last, and `exp_level` defaults to `level`. Data validation rejects a stage that has both `level_scale` and
+  `opening_ramp`, or a map-level `opening_ramp` in a level-scale stage, and a malformed block (keyframes empty, `t` not
+  rising from 0 up, a level outside 1-200). A block that slips past validation (or a missing curve) makes the world warn
+  and run unscaled.
+- **Effect.** For a monster of canonical level L (its `info/level`) at curve time t:
+
+  | Stat | Multiplier | Captured |
+  |---|---|---|
+  | HP | `hp(E)/hp(L)` | at spawn |
+  | PDD, MDD | `pdd(E)/pdd(L)`, `mdd(E)/mdd(L)`, on the live defence `CombatMath` uses (after skill bonuses and Threaten) | at spawn |
+  | EXP (ordinary, elite and boss reward) | `exp(X)/exp(L)` | at spawn |
+  | contact and physical attack damage | `pad(E)/pad(L)` | at impact (ordinary); at arrival (scheduled boss) |
+  | magic attack damage | `mad(E)/mad(L)` | at impact (ordinary); at arrival (scheduled boss) |
+
+  A curve value of 0 at L gives ratio 1, a fractional E interpolates the curve linearly, and E = L is exactly 1 (no
+  rounding). It stacks with keyframe `hp`, elites, boss `hp_mult`, `dmg_mult` and `attack_dmg_mult`; potions are unchanged.
+  Scheduled bosses spawn at their arrival, so their HP, defence and EXP come from that moment and their damage ratios
+  (`pad` and `mad` both) freeze there, projectiles included. Summons and revives are ordinary monsters at their own
+  spawn time. Relocating a monster keeps its multipliers.
+- **Determinism and telemetry.** No RNG is drawn. A balance record of a level-scale stage gains `level_scale_at`
+  (`[{boss_index, mob_id, level}]`, the effective level at each boss arrival) and each `boss_fights` entry its own
+  `level_scale_at`; other stages' records keep their bytes.
+
 
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
 labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
@@ -8649,6 +8696,19 @@ all are our survivor design. Tier 1 HP/damage 1 -> 1 over 900 s. Sleepywood map 
 trained only on 1/2/2026. The 20:00 endpoint intentionally extends past the nominal 15:00 schedule.
 No ordinary rate/cap/pool, boss encounter scale, canonical stat, EXP/cooldown/passive/drop value changed.
 Revised slice target: picks ≈ levels + boss draws (~50–60).
+
+### #453 level scale (tier C; reference curves tier A-derived)
+
+| Constant / rule | Value | Tier / source |
+|---|---|---|
+| Reference curves | `level_curve.json`: per-level median hp, pad, mad, pdd, mdd, exp of ordinary v83 monsters, levels 1-200 | A-derived (v83 `Mob.wz` info numbers), used for a tier C purpose |
+| Ordinary monster | Mob.wz id < 9,000,000, not `boss=1`, not a link copy without stances, not 6400005-6400009 or 88xxxxx; HP at most 5x the level median; zero stats skipped per stat | C: ours (ticket #453; the research "Excluded" table, widened to the whole 9,000,000+ range because its 94xxxxx/95xxxxx singletons skew a median) |
+| Curve shaping | log-linear gap interpolation, weighted isotonic regression (a level weighs its sample count, an interpolated level 0.25), 1-2-1 smoothing in log space, two decimals; values outside the sampled span (Lv1-131) hold | C: ours |
+| Keyframes | `{t, level, exp_level}` in curve seconds, linear, held before and after; `exp_level` defaults to `level` | C: spec #447 |
+| Ratio | `curve(E)/curve(L)` per stat (pad for contact and physical attacks, mad for magic); E = L is 1; a zero base is 1 | C: spec #447 |
+| Capture | HP, PDD, MDD and EXP at spawn; ordinary damage at impact; a scheduled boss captures all of them (damage included) at arrival | C: as #307's ramp |
+| Exclusivity | a stage with `level_scale` has no `opening_ramp` (stage or map) | C: validation |
+| Defence scaled after bonuses | the PDD/MDD ratio multiplies the live defence (MobSkill defence bonuses and Threaten included) | C: ours |
 
 ### #293 first-pass pacing (tier C)
 
