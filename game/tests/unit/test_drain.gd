@@ -78,9 +78,15 @@ func test_other_skills_do_not_heal() -> void:
 
 func test_the_standalone_drain_cards_are_gone_and_the_ported_skill_has_eight_ranks() -> void:
 	# #406: Drain moved into the Night Lord line with the default 30-level rank table; its bonuses are rarity entries.
+	# NL12 #411: Night Lord is playable, so the pool generates the standard new / rank cards of every playable job's pool
+	# (no explicit data card, no power-up text); the old explicit drain_pierce card stays gone.
 	var w := _world()
-	for id in ["drain_new", "drain_rank", "drain_pierce"]:
-		assert_true(w.upgrades.card(id).is_empty(), id + " is gone")
+	assert_true(w.upgrades.card("drain_pierce").is_empty(), "drain_pierce is gone")
+	for id in ["drain_new", "drain_rank"]:
+		var c: Dictionary = w.upgrades.card(id)
+		assert_false(c.is_empty(), id + " is the pool-generated card of the playable Night Lord")
+		assert_eq(String(c.get("skill", "")), "drain")
+		assert_eq(String(c.get("desc", "")), "+1 rank", id + " is the generic pool card, not an explicit data card")
 	assert_eq(w.book.max_rank("drain"), 8)
 	assert_eq(w.book.canonical_level("drain", 1), 4)
 	assert_eq(w.book.canonical_level("drain", 8), 30)
