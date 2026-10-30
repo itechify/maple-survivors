@@ -5587,6 +5587,17 @@ ground-navigation or pet-like targeting behaviours must extend this seam with th
 `summon_count` are generic summon-specific modifiers (default one ally). Cast snapshots hold damage/area/lines;
 new casts pick up rank changes. Rarity lists ship in the skill definition.
 
+### 7.48 Piercing rise (#364, Marksman MS4)
+
+A negative `pierce_falloff` raises damage by its absolute fraction per earlier contact:
+`min(pierce_ceiling, 1 + abs(fraction) * (n - 1))`. The pure `PierceCurve.factor` keeps the
+positive branch's existing float arithmetic and floor unchanged. Zero/missing fractions keep full damage.
+The signed fraction and rise ceiling are captured at launch and reset on pooled slot reuse. Immune contacts
+consume an index; added `pierce` contacts continue the same curve. The multiplier stays outside the resolved
+damage and critical bonus, before final rounding. Skill and card previews describe a rise as positive points
+per later monster. No shipped skill opts in yet; MS7 owns Piercing Arrow.
+
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -6792,6 +6803,12 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
+
+### Marksman MS4 constants (#364)
+
+| Constant | Value | Provenance |
+|---|---|---|
+| `balance.combat.pierce_ceiling` | 2.0 (200%) | tier C: survivor safety cap on rising contact damage; independent of the existing 10% falloff floor |
 
 ## 12. Later phases
 

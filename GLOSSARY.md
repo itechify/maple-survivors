@@ -404,3 +404,8 @@ _Avoid_: mirror (the project never names one), WZ root (that is the desktop fold
 A timed player-owned ally cast by an active skill. It follows or waits at its own position and attacks monsters;
 its map-local lifetime ends on expiry or map transfer. It occupies its skill’s active slot, uses the original skill
 id and WZ animations, and is separate from a cash pet or a monster summoned by a boss.
+
+**Piercing rise**:
+A negative `pierce_falloff` that increases an arrow's damage by a fixed number of percentage points for each
+earlier monster contacted, up to the survivor combat ceiling. Immune contacts count; extra pierce contacts keep rising.
+_Avoid_: exponential scaling, multiplicative stacking

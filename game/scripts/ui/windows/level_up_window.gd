@@ -208,6 +208,10 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 	var mods: Dictionary = card.get("skill_mod_changes", {})
 	for key: String in MOD_LABELS:
 		if mods.has(key) and mods[key].before != mods[key].after:
+			if key == "pierce_falloff" and (float(mods[key].before) < 0.0 or float(mods[key].after) < 0.0):
+				lines.append("Pierce rise: %s → %s" % [
+					SkillText.pierce_points(float(mods[key].before)), SkillText.pierce_points(float(mods[key].after))])
+				continue
 			var unit: String = MOD_LABELS[key][1]
 			lines.append("%s: %s%s → %s%s" % [MOD_LABELS[key][0], SkillText.number(float(mods[key].before)), unit,
 				SkillText.number(float(mods[key].after)), unit])
@@ -218,6 +222,10 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 			continue
 		var values: Dictionary = changes[field]
 		if values.before == values.after:
+			continue
+		if field == "pierce_falloff" and (float(values.before) < 0.0 or float(values.after) < 0.0):
+			lines.append("Pierce rise: %s → %s" % [
+				SkillText.pierce_points(float(values.before)), SkillText.pierce_points(float(values.after))])
 			continue
 		var suffix := " s" if field in ["time", "cooltime"] else ""
 		if field == "range":

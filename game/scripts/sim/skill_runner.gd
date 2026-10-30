@@ -669,6 +669,7 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 				"crit_damage_bonus": float(st.crit_damage_bonus),
 				"pierce": int(st.pierce), "skill": key, "level": int(st.level), "element": String(st.element),
 				"pierce_falloff": float(st.pierce_falloff),
+				"pierce_ceiling": float(st.pierce_ceiling),
 				"impact_blast": st.impact_blast,
 			})
 	else:
