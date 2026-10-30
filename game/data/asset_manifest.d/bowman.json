@@ -1,6 +1,6 @@
 {
 	"format": 1,
-	"_doc": "Bowman (#166/#199). Whole Skill.wz300/310/320 books with canonical tables/icons/art; active skill sounds (3001005 has no sound node in v83; Soul Arrow deliberately omitted: owner dropped it). Beginner bow1452051 and spare Crossbow1462001; representative bow/crossbow and all eight arrows moved from common. Afterimages and Weapon.img sounds stay shared. No proprietary data in repo. #201 adds regular bows/crossbows and reqJob4 armour through Lv70, whole Character.wz imgs including both icons. Scroll art/info stays in the shared whole Item.wz/Consume/0204.img.",
+	"_doc": "Bowman (#166/#199). Whole Skill.wz300/310/320 books with canonical tables/icons/art; active skill sounds (3001005 has no sound node in v83; Soul Arrow deliberately omitted: owner dropped it). Beginner bow1452051 and spare Crossbow1462001; representative bow/crossbow and all eight arrows moved from common. Afterimages and Weapon.img sounds stay shared. No proprietary data in repo. #201 adds regular bows/crossbows and reqJob4 armour through Lv70, whole Character.wz imgs including both icons. Scroll art/info stays in the shared whole Item.wz/Consume/0204.img. Spec #449 C12 (#474): the late-band drop-list items of survivor/equipment_drops/bowman.json (reqLevel 35-120, whole imgs, 48 added) are in `character`.",
 	"imgs": [
 		{"img": "Skill.wz/300.img"},
 		{"img": "Skill.wz/310.img"},
@@ -30,7 +30,6 @@
 		1082071, 1082072, 1082073, 1082083, 1082084, 1082085, 1082089, 1082090, 1082091, 1082106,
 		1082107, 1082108, 1452000, 1452001, 1452002, 1452003, 1452004, 1452005, 1452006, 1452007,
 		1452008, 1452009, 1452010, 1452011, 1452051, 1462000, 1462001, 1462002, 1462003, 1462004,
-		1462005, 1462006, 1462007, 1462008, 1462009
-	],
+		1462005, 1462006, 1462007, 1462008, 1462009, 1002275, 1002402, 1002406, 1002547, 1050075, 1050088, 1050106, 1051066, 1051082, 1051105, 1052071, 1072182, 1072203, 1072227, 1072269, 1082109, 1082125, 1082158, 1082163, 1452012, 1452013, 1452014, 1452015, 1452017, 1452018, 1452019, 1452020, 1452021, 1452022, 1452023, 1452025, 1452026, 1452044, 1452045, 1452060, 1462010, 1462011, 1462012, 1462013, 1462015, 1462016, 1462017, 1462018, 1462019, 1462021, 1462022, 1462039, 1462040],
 	"items": [2060000, 2060001, 2060002, 2060003, 2061000, 2061001, 2061002, 2061003]
 }

@@ -77,6 +77,8 @@ var skill_names := PackedStringArray()
 var rng: RandomNumberGenerator
 var bounds := Rect2()
 var magic_defense_k := CombatMath.MAGIC_DEFENSE_K
+## Per mob slot, 0 = magic damage blocked (magic immunity 141); empty = nothing blocked. RunWorld lends it for one step.
+var magic_allowed := PackedByteArray()
 ## tier C: minimum per-contact multiplier, configured from balance.combat.pierce_floor by RunWorld.
 var pierce_floor := 0.0
 ## Mob slots killed during the last step() (cleared at the start of each step).
@@ -363,6 +365,8 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 	var is_magic := kind == CombatMath.DAMAGE_MAGIC
 	if not is_magic and m < physical_allowed.size() and physical_allowed[m] == 0:
 		return
+	if is_magic and m < magic_allowed.size() and magic_allowed[m] == 0:
+		return # magic immunity (141): the contact is consumed like 140's, with no roll or event
 	var mk: MobKind = swarm.kinds[swarm.kind[m]]
 	var defense := (float(live_pdd[m]) if m < live_pdd.size() else float(mk.pdd)) \
 		if kind == CombatMath.DAMAGE_PHYSICAL else (float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd))

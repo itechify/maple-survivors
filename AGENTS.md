@@ -14,6 +14,7 @@ changing gameplay.
 | `game/data/survivor/` | Survivor-mode design data: skill behaviour, upgrades, stages, balance. All tuning lives here. Skills, upgrades, equipment drops, scrolls and shop weapon slots keep their entries in per-job-line files (`<name>/<line>.json`) that `DataRepo` merges; a class spec adds its own line files (`docs/ARCHITECTURE.md` 4.4.4). |
 | `game/data/asset_manifest.json` | Which WZ images the importer exports into the asset cache; line-specific entries live in the include fragments `asset_manifest.d/<line>.json` (`docs/ASSET_PIPELINE.md` 4.1). |
 | `tools/wzimport/` | Rust CLI that reads original v83 `.wz` files and writes the asset cache (PNG atlases, JSON trees, MP3/WAV). |
+| `tools/level_curve/` | Node generator of `game/data/survivor/level_curve.json` (the stage level scale's reference curves, from a `wzimport dump` of Mob.wz); `node --test tools/level_curve/test/*.test.mjs`. |
 | `scripts/` | Bash entry points: `godot.sh`, `test.sh`, `import.sh`, `run.sh`, `playtest.sh`, `balance.sh`, `bench.sh`, `export.sh` (`--web` too), `godot_templates.sh`, `build_wasm.sh`, `check_web_artifact.sh`. |
 | `web/` | The web shell (HTML/CSS/JS, import worker) of the web build; `web/dev/` holds dev-only localhost servers and tests, never shipped. |
 | `.github/workflows/` | `pages.yml`: tests, web export and GitHub Pages deploy. |
@@ -71,6 +72,7 @@ changing gameplay.
 bash scripts/import.sh "C:/path/to/MapleStory v83"   # once: builds the asset cache from your own v83 install
 bash scripts/run.sh                                   # title -> characters -> map select -> round -> hub/results
 bash scripts/run.sh -- --hub                          # tool-only: straight into the Free Market with a test character + kit
+bash scripts/run.sh -- --hub --job=112 --late            # the same with the Hero's band-15 late-progression fixture
 bash scripts/test.sh                                  # unit tests
 bash scripts/playtest.sh                              # scripted run with screenshots + frame-time stats -> evidence/
 bash scripts/balance.sh                               # headless pacing report over several seeds
@@ -150,7 +152,7 @@ the workload). Qualification exits non-zero with `UNQUALIFIED` unless `warped_to
 one density check, and at least one must stay positive. This verifies coverage; it makes no frame-time claim. Ordinary
 playtests retain their existing behavior on a valid early-death summary.
 
-`bash scripts/run.sh -- --hub [--job=<id>] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`; `--job=112`
+`bash scripts/run.sh -- --hub [--job=<id>] [--late] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`; `--late` opens the job's `hub_kit.late_fixture` instead of its tier-2 fixture, today only Hero's `late_progression.json` (spec #449 C12, #474: band-15 equipment, fifteen regions cleared), any other job is an error screen; `--job=112`
 opens the Hero fixture `hero_t2.json` with the Hero kit of sword and axe ATT scrolls and Warrior spare gear; `--job=122` the Paladin fixture `paladin_t2.json` with 20 stacks of sword, blunt, two-handed sword and two-handed blunt ATT scrolls and spare Warrior gear (a Sword and a one-handed blunt weapon, `hub_kit` in `jobs/paladin.json`); `--job=222` the I/L fixture `il_arch_mage_t2.json` with the F/P kit (both Arch Mages wear wands and staves from the same scroll line); `--job=232` opens the Bishop fixture `bishop_t2.json` with the same Magician kit; `--job=512` the Buccaneer fixture `buccaneer_t2.json` with ten stacks of knuckle ATT and ACC scrolls (`scrolls/pirate.json`, every rate) and spare knuckler, hat, gloves and top (`jobs/buccaneer.json` `hub_kit`); `--job=312` the Bowmaster fixture `bowmaster_t2.json` with bow, gloves, shoes ATT and hat DEX scrolls and spare Bowman gear (`jobs/bowmaster.json` `hub_kit`); a `--job` the
 character is not of is an error screen) skips
 the title and opens the real Free Market to hand-test the scroll shops with the F/P fixture (or `--character`) plus
@@ -224,7 +226,7 @@ projectiles per tier), `hair_cap_probe.tscn` (cap vs hair layers), `ui_gallery.t
 Stat and other windows), `equipment_requirements_driver.tscn` (the hub kit, Equip and Item windows with no requirement rows,
 an item above Lv1 worn), `equipment_drop_driver.tscn` (drops on the ground and the full-Equip-tab notice),
 `support_summon_probe.tscn` (support summon pulse animations), `pet_driver.tscn` (each pet species in a round and in the Free Market), `player_summon_probe.tscn` (Elquines with 200 mobs: art
-and frame cost), `burst_probe.tscn` (synthetic moving-caster burst), `burn_driver.tscn` (burning monsters), `stun_driver.tscn` and `teleport_driver.tscn` (status and Teleport visuals), `morph_driver.tscn` (a morph in a list of stances, `-- --morph=1001,1000,1002 --stances=a,b`), `revive_driver.tscn` (the Bishop's Resurrection: a lethal hit revives with its pillar, guard blink and notice, a second inside the recharge dies, one after it revives again; `-- --shots=<abs dir>`), `dark_cave_boss_driver.tscn`
+and frame cost), `burst_probe.tscn` (synthetic moving-caster burst), `burn_driver.tscn` (burning monsters), `stun_driver.tscn` and `teleport_driver.tscn` (status and Teleport visuals), `hazard_driver.tscn` (Poison 125 and the poison mist 131 on the real Henesys map, a boss forced to cast only that skill: `-- --shots=<abs dir> [--mode=mist|poison] [--elem=I|S]`), `morph_driver.tscn` (a morph in a list of stances, `-- --morph=1001,1000,1002 --stances=a,b`), `revive_driver.tscn` (the Bishop's Resurrection: a lethal hit revives with its pillar, guard blink and notice, a second inside the recharge dies, one after it revives again; `-- --shots=<abs dir>`), `dark_cave_boss_driver.tscn`
 (every Sleepywood boss attack on the fixture) and `map_viewer.tscn` (a map's layers). They are not in the unit suite
 (`test_tool_scripts` only parses them): run one after changing what it draws. The drivers of the unported job lines (Bowman,
 Thief, Pirate and Warrior combat, Dash, Oak Barrel, Dark Sight, the shield gallery, the old creation, hub and map-select

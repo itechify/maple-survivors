@@ -36,6 +36,7 @@ const FILES := {
 	"exp_table": "canonical/exp_table.json",
 	"cash_items": "survivor/cash_items.json",
 	"ammo": "survivor/ammo.json",
+	"level_curve": "survivor/level_curve.json",
 }
 ## Adventurer lines retain their historical merge order; class lines retain append-only registration order.
 const ADVENTURER_LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"]
@@ -138,6 +139,9 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 			merge_patch(out.balance, fragment.balance)
 	errors.append_array(stage_label_errors(out.get("stages", {})))
 	errors.append_array(stage_map_errors(out.get("stages", {})))
+	if not out.get("level_curve", {}).is_empty(): # a missing file is already listed above
+		errors.append_array(LevelScale.curve_errors(out.level_curve))
+	errors.append_array(LevelScale.stage_errors(out.get("stages", {})))
 	errors.append_array(progression_errors(out.get("stages", {})))
 	errors.append_array(Ammo.schedule_errors(out.get("ammo", {})))
 	return out

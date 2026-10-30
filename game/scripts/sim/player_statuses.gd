@@ -69,3 +69,9 @@ func state(id: int, now: float) -> Dictionary:
 ## A payload field of an active status, `fallback` when it is not active or lacks it.
 func field(id: int, now: float, key: String, fallback: Variant) -> Variant:
 	return _payload[id].get(key, fallback) if is_active(id, now) else fallback
+
+
+## The live payload dictionary of `id` (mutable, kept after the status ends until it is applied again), empty when it was
+## never applied: for a status that still owes work at its last instant (Poison's final whole-second tick).
+func raw_payload(id: int) -> Dictionary:
+	return _payload.get(id, {})

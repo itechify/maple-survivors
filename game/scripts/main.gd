@@ -6,7 +6,7 @@ extends Node
 ## Settings autoload (GameSettings.apply_frame_cap); `--vsync=off` (any screen) uncaps it for perf runs.
 ## `--shot=<abs png> [--shot-at=<s>]` saves one screenshot of whatever is shown after s seconds (default 10) and quits:
 ## a check that a build (e.g. the exported exe) starts and reaches its first screen.
-## `--hub [--character=<abs JSON>] [--mesos=N]` (tool-only, HubTestKit) goes straight into the Free Market with a test
+## `--hub [--late] [--character=<abs JSON>] [--mesos=N]` (tool-only, HubTestKit) goes straight into the Free Market with a test
 ## character and kit against a throwaway save: `bash scripts/run.sh -- --hub`.
 ## `--size=WxH` (tool-only) sets the window size, e.g. 1600x1200 for a 2x view on a smaller screen, and `--fill` turns on
 ## the fill-window view for this session (not saved): evidence and perf runs of every display mode.

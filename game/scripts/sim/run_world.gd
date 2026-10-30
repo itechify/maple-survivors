@@ -66,7 +66,8 @@ extends RefCounted
 ## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194),
 ## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256),
 ## 18 ground-area status rolls (ground_rng),
-## 19 boss player-status chance rolls (mob_status_rng, Stun in #456, Darkness, Weakness, Curse, Seduce and Confuse in #458),
+## 19 boss player-status chance rolls (mob_status_rng: Stun in #456; Darkness, Weakness, Curse, Seduce and Confuse in
+## #458; Poison 125 and the poison mist 131 in #459),
 ## 20 area-warning attack column picks (area_rng, #460; 19 is mob_status_rng of #456).
 ## Each stream has exactly one owner.
 
@@ -113,6 +114,10 @@ const EVENT_FIELDS := {
 	"mob_status_expired": ["mob", "mob_id", "status"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
 	"mob_revives_spawned": ["boss_index", "mob", "mob_id", "pos", "revives", "time"],
+	# #459: a poison mist (MobSkill 131) was placed (`hazard` its GroundHazards slot, `rect` its world box, `hazard_kind` a
+	# GroundHazards element code), and a hazard or a boss skill just put `skill_id` (126 Slow, 125 Poison) on the character.
+	"hazard_spawned": ["hazard", "mob", "mob_id", "level", "rect", "hazard_kind", "duration"],
+	"hazard_status": ["skill_id", "effect"],
 	"player_hit": ["damage", "miss", "dir", "pos", "mob", "mob_id", "boss", "max_hp", "source_kind"],
 	"player_jump": ["pos"],
 	"portal_used": ["portal", "target", "pos"],
@@ -256,9 +261,18 @@ var mob_elite := PackedByteArray()
 var mob_boss := PackedInt32Array()
 ## Summoning encounter index, -1 for ordinary spawns; preserved through relocation and reset on new slot use.
 var mob_summon_owner := PackedInt32Array()
+## The stage's level scale (#453, tier C), null when the stage has no `level_scale` block. Per live slot, captured at
+## spawn (scheduled bosses: at arrival): the PDD, MDD and EXP multipliers; empty arrays without a level scale.
+var level_scale: LevelScale
+var mob_level_pdd := PackedFloat64Array()
+var mob_level_mdd := PackedFloat64Array()
+var mob_level_exp := PackedFloat64Array()
+## Scheduled boss index -> [pad, mad] ratios captured when its encounter arrived (a boss's damage freezes at arrival).
+var _boss_level_damage := {}
 var _live_mdd := PackedFloat32Array()
 var _live_pdd := PackedFloat32Array()
 var _live_physical_allowed := PackedByteArray()
+var _live_magic_allowed := PackedByteArray() # 1/0 per slot: magic damage allowed (no magic immunity 141)
 ## Canonical MDD/PDD per mob kind index (refreshed every tick for the live defense fill).
 var _kind_mdd := PackedFloat64Array()
 var _kind_pdd := PackedFloat64Array()
@@ -292,6 +306,8 @@ var boss_attacks := BossAttacks.new()
 var mob_attacks: MobAttacks
 var mob_actions := MobActions.new()
 var mob_projectiles := MobProjectileSystem.new()
+## The boss ground hazards (poison mist, #459): pooled, cleared on map transfer and at the round's end.
+var hazards := GroundHazards.new()
 
 ## take_hit's ordered hooks (HitHook), ascending by `_hit_hook_orders`.
 var _hit_hooks: Array[HitHook] = []
@@ -473,6 +489,7 @@ func _init_map() -> void:
 
 ## Mob kinds, the swarm with its per-slot arrays, its spatial hash and its step context.
 func _init_mobs() -> void:
+	_init_level_scale()
 	_build_mob_kinds()
 	body_pad = ProjectileSystem.max_body_extent(mob_kinds)
 	swarm = MobSwarm.new(256, mob_kinds, balance.get("mob_motion", {}))
@@ -483,6 +500,16 @@ func _init_mobs() -> void:
 	mob_grid = SpatialHash.new(64.0, bounds.grow(64.0))
 	_ctx = {"fhm": fhm, "nav": nav, "nav_jump": nav_jump, "bounds": bounds, "physics": physics,
 		"target": Vector2.ZERO, "target_fh": -1, "speed_mult": 1.0}
+
+
+## The stage's level scale over data.level_curve; an invalid block or curve warns and leaves the stage unscaled.
+func _init_level_scale() -> void:
+	level_scale = LevelScale.from_stage(stage, data.get("level_curve", {}))
+	if level_scale == null and stage.has("level_scale"):
+		warnings.append("stage '%s' level_scale or level_curve.json is invalid: no level scale" % stage_key)
+	if stage.has("level_scale") and (stage.has("opening_ramp") or stage.get("maps", []).any(
+			func(entry: Variant) -> bool: return entry is Dictionary and entry.has("opening_ramp"))):
+		push_warning("stage '%s' has level_scale and an opening_ramp: damage would be scaled twice" % stage_key)
 
 
 ## Player shots, pickups and unlimited potion cooldowns.
@@ -621,6 +648,7 @@ func advance_map() -> void:
 		pickups.despawn(slot)
 	_final_queue.clear()
 	runner.clear_pending(self)
+	hazards.clear()
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
 	mob_actions = MobActions.new()
@@ -1054,6 +1082,8 @@ func _step_monsters(dt: float) -> void:
 	boss_attacks.step(self)
 	mob_attacks.step(self, dt)
 	mob_projectiles.step(dt, self)
+	mob_skills.step_poison(self)
+	hazards.step(dt, self)
 	director.step(dt, self)
 	_sync_slots()
 	mob_grid.rebuild(swarm.x, swarm.y, swarm.active, swarm.capacity())
@@ -1065,6 +1095,7 @@ func _step_player_attacks(dt: float) -> void:
 	if _map_clearing:
 		return
 	_fill_live_defense()
+	projectiles.magic_allowed = _live_magic_allowed
 	if map_sequence_enabled():
 		projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed,
 			_on_player_hit, _live_pdd, _projectile_kill)
@@ -1072,6 +1103,7 @@ func _step_player_attacks(dt: float) -> void:
 		projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed, _on_player_hit, _live_pdd)
 		for m in projectiles.kills:
 			_on_kill(m)
+	projectiles.magic_allowed = PackedByteArray() # no second reference, so the next fill writes in place
 	if _map_clearing:
 		return
 	_play_final_attacks()
@@ -1082,19 +1114,26 @@ func _projectile_kill(slot: int) -> bool:
 	return _map_clearing
 
 
-## Live MDD, PDD and physical_hit_allowed(slot) of every live slot, for the shots, in one pass (#146).
+## Live MDD, PDD, physical_hit_allowed(slot) and magic_hit_allowed(slot) of every live slot, for the shots, in one pass
+## (#146).
 func _fill_live_defense() -> void:
 	_live_mdd.resize(swarm.capacity())
 	_live_pdd.resize(swarm.capacity())
 	_live_physical_allowed.resize(swarm.capacity())
+	_live_magic_allowed.resize(swarm.capacity())
 	_kind_mdd.resize(mob_kinds.size())
 	_kind_pdd.resize(mob_kinds.size())
 	for k in mob_kinds.size():
 		_kind_mdd[k] = float((mob_kinds[k] as MobKind).mdd)
 		_kind_pdd[k] = float((mob_kinds[k] as MobKind).pdd)
 	mob_skills.fill_live_defense(swarm.active, swarm.kind, _kind_mdd, swarm.capacity(), time, _live_mdd,
-		_live_physical_allowed, _kind_pdd, _live_pdd)
+		_live_physical_allowed, _kind_pdd, _live_pdd, _live_magic_allowed)
 	swarm.lower_threatened_pdd(_live_pdd) # Threaten (#183): the same cut mob_defense applies
+	if level_scale != null: # the same captured multipliers mob_defense applies
+		for slot in swarm.capacity():
+			if swarm.active[slot] != 0:
+				_live_pdd[slot] *= mob_level_pdd[slot]
+				_live_mdd[slot] *= mob_level_mdd[slot]
 
 
 ## Moves and collects drops. Returns the EXP collected this tick.
@@ -1167,6 +1206,7 @@ func _settle_clear() -> bool:
 	else:
 		state = CLEARED
 		runner.clear_pending(self)
+		hazards.clear()
 		emit("stage_cleared", {"time": time})
 	return true
 
@@ -1204,6 +1244,7 @@ func _settle_map() -> bool:
 		for slot in swarm.capacity():
 			swarm.despawn(slot)
 		transfer_pending = true
+		hazards.clear()
 		emit("map_cleared", {"map_index": map_index})
 	return true
 
@@ -1856,12 +1897,20 @@ func mob_action_view() -> Dictionary:
 func mob_defense(m: int, magic: bool) -> float:
 	var kind: MobKind = mob_kinds[swarm.kind[m]]
 	var defense := float(kind.mdd if magic else kind.pdd) + mob_skills.defense_bonus(m,magic,time)
-	return defense if magic else swarm.threatened_pdd(m, defense) # Threaten (#183) lowers weapon defence only
+	var live := defense if magic else swarm.threatened_pdd(m, defense) # Threaten (#183) lowers weapon defence only
+	if level_scale != null: # tier C (#453): the level scale's defence ratio, captured at spawn, on the live value
+		live *= mob_level_mdd[m] if magic else mob_level_pdd[m]
+	return live
 
 
 ## Whether a physical impact may damage this slot at the current simulation time.
 func physical_hit_allowed(m: int) -> bool:
 	return mob_skills.physical_hit_allowed(m, time)
+
+
+## Whether a magic impact may damage this slot at the current simulation time (false while its magic immunity, 141, lasts).
+func magic_hit_allowed(m: int) -> bool:
+	return mob_skills.magic_hit_allowed(m, time)
 
 
 ## Spawns scheduled boss `mob_id` as encounter `boss_index` (BossDirector arrival and final forms); returns its slot, -1 when
@@ -1883,8 +1932,19 @@ func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> in
 		return -1
 	var mk: MobKind = mob_kinds[k]
 	hp_mult *= opening_multiplier("hp")
+	var effective := 0.0
+	var exp_level := 0.0
+	if level_scale != null:
+		# Tier C (#453): HP, defence and EXP are captured at spawn; a scheduled boss spawns at its arrival.
+		effective = level_scale.level_at(curve_time())
+		exp_level = level_scale.exp_level_at(curve_time())
+		hp_mult *= level_scale.ratio("hp", effective, mk.level)
 	var i := swarm.spawn(k, pos.x, pos.y, fh, maxi(1, roundi(mk.max_hp * hp_mult)))
 	_sync_slots()
+	if level_scale != null:
+		mob_level_pdd[i] = level_scale.ratio("pdd", effective, mk.level)
+		mob_level_mdd[i] = level_scale.ratio("mdd", effective, mk.level)
+		mob_level_exp[i] = level_scale.ratio("exp", exp_level, mk.level)
 	mob_elite[i] = 1 if elite else 0
 	mob_boss[i] = -1
 	mob_summon_owner[i] = -1
@@ -1912,6 +1972,10 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	mob_boss[j] = boss_index
 	swarm.steady[j] = 1 if boss_index >= 0 else 0
 	mob_summon_owner[j] = summon_owner
+	if level_scale != null:
+		mob_level_pdd[j] = mob_level_pdd[i]
+		mob_level_mdd[j] = mob_level_mdd[i]
+		mob_level_exp[j] = mob_level_exp[i]
 	mob_skills.move_slot(i,j)
 	mob_attacks.move_slot(i, j)
 	mob_actions.reset_slot(i)
@@ -1930,6 +1994,8 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	var dtype := CombatMath.damage_type_of(String(st.get("damage_type", "")), bool(st.get("magic", false)))
 	var magic := dtype == "magic"
 	if not magic and not physical_hit_allowed(m):
+		return
+	if magic and not magic_hit_allowed(m):
 		return
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	var roll := ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
@@ -2384,6 +2450,15 @@ func _sync_slots() -> void:
 		mob_boss.resize(swarm.capacity())
 		for index in range(old_size, mob_boss.size()):
 			mob_boss[index] = -1
+	if level_scale != null and mob_level_exp.size() < swarm.capacity():
+		var old_levels := mob_level_exp.size()
+		mob_level_pdd.resize(swarm.capacity())
+		mob_level_mdd.resize(swarm.capacity())
+		mob_level_exp.resize(swarm.capacity())
+		for index in range(old_levels, mob_level_exp.size()):
+			mob_level_pdd[index] = 1.0
+			mob_level_mdd[index] = 1.0
+			mob_level_exp[index] = 1.0
 
 
 func _on_kill(m: int) -> void:
@@ -2402,6 +2477,8 @@ func _on_kill(m: int) -> void:
 	var mult := float(balance.get("exp_mult", 1.0)) * float(stage.get("exp_mult", 1.0))
 	if elite:
 		mult *= float(stage.get("elites", {}).get("exp_mult", 5.0))
+	if level_scale != null:
+		mult *= mob_level_exp[m] # tier C (#453): the level scale's EXP ratio, captured at spawn
 	var e := roundi(mk.exp * mult)
 	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
 	if e > 0:
@@ -2482,7 +2559,10 @@ func spawn_meso(pos: Vector2, amount: int) -> int:
 ## ordinary EXP rolls), its canonical revive list, then the reward shower and bonus choices.
 func _on_boss_kill(m: int, mk: MobKind, pos: Vector2, elite: bool) -> void:
 	var rewards := bosses.reward_config(mob_boss[m])
-	var e := maxi(0, roundi(mk.exp * float(rewards.get("exp_mult", 1.0))))
+	var boss_exp := mk.exp * float(rewards.get("exp_mult", 1.0))
+	if level_scale != null:
+		boss_exp *= mob_level_exp[m] # tier C (#453): captured when the boss arrived
+	var e := maxi(0, roundi(boss_exp))
 	bosses.mark_dead(mob_boss[m], m, pos, self)
 	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
 	_spawn_revives(m, pos)
@@ -2553,7 +2633,7 @@ func _touch() -> void:
 func _player_hit(m: int, mk: MobKind) -> void:
 	var boss_index := mob_boss[m]
 	var source := {"mob": m, "mob_id": mk.id, "accuracy": mk.acc,
-		"elite": mob_elite[m] != 0, "boss": boss_index >= 0, "source_kind": "touch"}
+		"elite": mob_elite[m] != 0, "boss": boss_index >= 0, "boss_index": boss_index, "source_kind": "touch"}
 	if boss_index >= 0:
 		source["dmg_mult"] = bosses.damage_multiplier(boss_index)
 	take_hit(mob_weapon_attack(m, float(mk.pad)), false, "", Vector2(swarm.x[m], swarm.y[m]), source)
@@ -2564,6 +2644,13 @@ func _player_hit(m: int, mk: MobKind) -> void:
 ## apply later, in take_hit.
 func mob_weapon_attack(m: int, pad: float) -> float:
 	return swarm.threatened_pad(m, pad) * mob_skills.attack_multiplier(m, time)
+
+
+## MADamage `mad` of the mob in slot m at a magic attackN impact, times the multiplier of its magic attack up
+## (MobSkill 101/111, #457); the source's boss/elite/dmg_mult multipliers apply later, in take_hit. Touch and weapon
+## attacks never read it.
+func mob_magic_attack(m: int, mad: float) -> float:
+	return mad * mob_skills.magic_attack_multiplier(m, time)
 
 
 ## Defense inputs for a monster hit; overridable by subsequent equipment and buff rules.
@@ -2586,13 +2673,43 @@ func opening_multiplier(stat: String) -> float:
 
 ## Survivor scales stack after defense: ordinary opening ramp, elite scale, and explicit source scale.
 ## Tier C: scheduled boss sources already include the ramp captured at arrival.
-func hit_source_multiplier(source: Dictionary) -> float:
+func hit_source_multiplier(source: Dictionary, magic := false) -> float:
 	var mult := float(source.get("dmg_mult", 1.0))
 	if not bool(source.get("boss", false)):
 		mult *= opening_multiplier("damage")
+	if level_scale != null:
+		mult *= _level_damage_multiplier(source, magic)
 	if bool(source.get("elite", false)):
 		mult *= float(stage.get("elites", {}).get("damage_mult", 1.0))
 	return mult
+
+
+## Tier C (#453): the level scale's damage ratio for a monster hit, pad(E)/pad(L) for contact and physical attacks and
+## mad(E)/mad(L) for magic, L being the attacker's canonical level (source.mob_id; no id, no scaling). An ordinary
+## monster uses the effective level at the impact; a scheduled boss (source.boss_index) the one captured for its
+## encounter, so two bosses of the same id never share a freeze.
+func _level_damage_multiplier(source: Dictionary, magic: bool) -> float:
+	var id := int(source.get("mob_id", 0))
+	if bool(source.get("boss", false)):
+		var captured: Array = _boss_level_damage.get(int(source.get("boss_index", -1)), [1.0, 1.0])
+		return captured[1] if magic else captured[0]
+	if not kind_of_id.has(id):
+		return 1.0
+	var level: int = (mob_kinds[kind_of_id[id]] as MobKind).level
+	return level_scale.ratio("mad" if magic else "pad", level_scale.level_at(curve_time()), level)
+
+
+## Called by BossDirector when scheduled boss `boss_index` arrives (and by a final form that continues its encounter, with
+## its own mob id and spawn time): freezes the damage ratios (pad and mad) of `mob_id` at the effective level now and, on
+## the first call, records `level_scale_at` (that level) in the boss record. No-op without a level scale.
+func capture_boss_level_scale(boss_index: int, mob_id: int, record: Dictionary) -> void:
+	if level_scale == null or not kind_of_id.has(mob_id):
+		return
+	var effective := level_scale.level_at(curve_time())
+	var level: int = (mob_kinds[kind_of_id[mob_id]] as MobKind).level
+	_boss_level_damage[boss_index] = [level_scale.ratio("pad", effective, level), level_scale.ratio("mad", effective, level)]
+	if not record.has("level_scale_at"):
+		record["level_scale_at"] = effective
 
 
 ## Whether the hit window (hit invincibility) or a guarding hit hook turns this source's hit away right now. Boss skill
@@ -2620,7 +2737,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		_emit_player_hit(0, true, dir, source)
 		return 0
 	var dmg := CombatMath.monster_hit(attack, magic, element, hit_defense(), rng,
-		hit_source_multiplier(source))
+		hit_source_multiplier(source, magic))
 	if not magic:
 		# tier C: apply canonical Invincible percent to the whole weapon hit; minimum 1.
 		dmg = maxi(1, roundi(dmg * (1.0 - clampf(buffs.effect_total("weapon_damage_reduction"), 0.0, 100.0) / 100.0)))
@@ -2646,6 +2763,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		state = DEAD
 		runner.clear_pending(self)
 		runner.forms.clear(self)
+		hazards.clear()
 		emit("player_died", {"pos": player.pos})
 	elif bypass or upkeep.may_knock_back():
 		# tier C (owner, #223): a hit inside the knockback guard does its damage without pushing the player; a boss
@@ -2733,6 +2851,29 @@ func _apply_reflect(m: int, amount: int) -> void:
 	_instant_dealt += amount
 	if swarm.apply_hit(m, amount, 1 if swarm.x[m] >= player.pos.x else -1):
 		_on_kill(m)
+
+
+## One whole-second tick of Poison 125 (#459): `amount` HP straight off the character, never lethal (at least 1 HP stays),
+## with no hit window, avoid, defense, hit reaction or knockback (tier C, a damage over time). A Hidden character and a
+## hit guard (the Bishop's post-revive guard) do not stop it either: it is a status already on the character (tier C). A `player_hit` event with
+## `source_kind` "poison" and the source boss reports what was actually lost (nothing is emitted at 1 HP or in god mode).
+## Returns the HP lost.
+func take_poison(amount: int, boss_slot: int, boss_mob_id: int) -> int:
+	if _dead or _map_clearing or god:
+		return 0
+	var before := ceili(_hp)
+	var left := maxf(1.0, _hp - float(amount))
+	if left >= _hp:
+		return 0
+	_hp = left
+	# The reported amount is the drop of the HP the HUD shows (ceil), so a fractional HP reports what was really removed.
+	var lost := before - ceili(_hp)
+	_write_player_state(0.0)
+	if lost <= 0:
+		return 0
+	emit("player_hit", {"damage": lost, "miss": false, "dir": 0, "pos": player.pos, "mob": boss_slot,
+		"mob_id": boss_mob_id, "boss": true, "max_hp": _max_hp, "source_kind": "poison"})
+	return lost
 
 
 func _emit_player_hit(damage: int, miss: bool, dir: int, source: Dictionary) -> void:
@@ -2867,6 +3008,12 @@ func _write_player_state(dt: float) -> void:
 			player_state.erase(PLAYER_STATUS_KEYS[id])
 		else:
 			player_state[PLAYER_STATUS_KEYS[id]] = state
+	# Present only while poisoned, like the stun above (#459).
+	var poison := mob_skills.poison_state(time)
+	if poison.is_empty():
+		player_state.erase("poison")
+	else:
+		player_state["poison"] = poison
 	player_state["level"] = progression.level
 	player_state["job_id"] = progression.job_id
 	for stat: String in _attributes:

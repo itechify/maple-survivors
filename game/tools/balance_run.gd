@@ -346,6 +346,11 @@ static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, card
 		w.apply_choice(id)
 
 
+## Whether a landed `player_hit` event counts in the hit metrics: every hit but the ticks of Poison (source_kind "poison").
+static func counts_as_hit(event: Dictionary) -> bool:
+	return String(event.get("source_kind", "")) != "poison"
+
+
 ## Plays `w` to its end/cap with movement/card policy `policy` and returns the pacing record.
 static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0) -> Dictionary:
 	var memo := {}
@@ -455,10 +460,13 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 					buff_casts.append(cast)
 				"player_hit":
 					if not bool(e.miss):
-						hits += 1
-						taken += int(e.damage)
-						if String(e.get("source_kind", "")) == "mob_attack":
-							mob_attack_hits += 1
+						# #459: a poison tick is a damage over time, not a hit: it stays out of the hit metrics (hits, taken,
+						# hits_by_min and the before-6:00 / after-8:00 counts) and is kept in boss_hits.
+						if counts_as_hit(e):
+							hits += 1
+							taken += int(e.damage)
+							if String(e.get("source_kind", "")) == "mob_attack":
+								mob_attack_hits += 1
 						if bool(e.boss):
 							boss_hits.append({"mob_id": int(e.mob_id), "time": w.time, "damage": int(e.damage),
 								"max_hp": int(e.max_hp), "fraction": float(e.damage) / maxi(1, int(e.max_hp)),
@@ -528,6 +536,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			"reached":bool(memo.get("reached",false)),"reached_time":float(memo.get("reached_time",-1.0)),"portals":portal_names},
 		"time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
 		"job": int(w.player_state.job_id), "kills": w.kills, "reach": reach,
+		"hazards_cast": w.hazards.cast_count, "hazard_seconds": snappedf(w.hazards.seconds, 0.01),
 		"alive_by_min": alive_min, "level_by_min": level_min, "hits_by_min": hits_min, "taken_by_min": taken_min,
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,
 		"ordinary_kill_hits_by_min": kill_hits.buckets,
@@ -552,6 +561,10 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	if mob_attack_hits > 0:
 		# #76: only rounds where an ordinary mob's attack landed record this, so other rounds keep their exact bytes.
 		record["mob_attack_hits"] = mob_attack_hits
+	if w.level_scale != null:
+		# #453: only a stage with a level_scale records this, so other stages keep their exact bytes. The effective level at
+		# each scheduled boss's arrival, in schedule order (bosses that never arrived are absent).
+		record["level_scale_at"] = level_scale_arrivals(w)
 	if w.pet_system != null:
 		# #119: only a round with a pet out records one, so rounds without keep their exact bytes. Its drinks and pickups
 		# are counted apart from the player's (potions_used stays the player's).
@@ -684,6 +697,16 @@ static func _boss_snapshots(world: RunWorld) -> Array:
 	return snapshots
 
 
+## [{boss_index, mob_id, level}] of the bosses that arrived, `level` being the level scale's effective level then.
+static func level_scale_arrivals(world: RunWorld) -> Array:
+	var arrivals: Array = []
+	for record: Dictionary in world.bosses.records:
+		if record.has("level_scale_at"):
+			arrivals.append({"boss_index": int(record.boss_index), "mob_id": int(record.mob_id),
+				"level": float(record.level_scale_at)})
+	return arrivals
+
+
 ## Completed spawn-to-death durations; unfinished fights keep duration -1 and report elapsed/censor status.
 static func fight_records(world: RunWorld) -> Array:
 	var fights: Array = []
@@ -701,6 +724,8 @@ static func fight_records(world: RunWorld) -> Array:
 			# Only encounters with a final form carry these, so other runs' records keep their shape.
 			fight["final_form"] = int(entry.final_form)
 			fight["form_time"] = float(record.get("form_time", -1.0))
+		if record.has("level_scale_at"):
+			fight["level_scale_at"] = float(record.level_scale_at)
 		fights.append(fight)
 	return fights
 

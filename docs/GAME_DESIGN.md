@@ -533,6 +533,66 @@ HP 0.1425 / damage 0.195; at 1,200 s all scales reach 1, on top of existing stag
 allows a typical three-map round to end before the full ramp; longer rounds reach full strength at 20:00.
 Paired kit/starter measurements are recorded below. All ramp choices are tier C first-pass tuning.
 
+#### Level scale (#453, spec #447; mechanism only)
+
+A stage may declare `level_scale` instead of an `opening_ramp`: it rescales each monster's strength from its own v83
+level L to an **effective level** E that rises along the round, so a Lv1-55 character can face a Lv40-160 roster whose
+canonical stats are out of reach. No shipped stage uses it yet; #449 sets the numbers for the new regions, and Henesys,
+Ellinia, Perion, Kerning and Sleepywood stay byte-identical (`test_level_scale` runs a seeded run with and without the
+block and compares the event logs).
+
+- **Reference curves.** `game/data/survivor/level_curve.json` holds `hp`, `pad`, `mad`, `pdd`, `mdd` and `exp` for levels
+  1-200 (index = level - 1): the median of the v83 ordinary monsters of that level. Ordinary means a mainline field
+  monster (Mob.wz id below 9,000,000, which leaves out the party-quest, carnival, event, trial, GM and later-client
+  content of docs/research/v83-bosses.md "Excluded"), not `boss=1`, not an `info/link` mob without stances, not a Balrog
+  variant or a Zakum, Horntail or Pink Bean body, and with HP at most 5x its level's median. A zero stat is skipped for
+  that stat (monsters below Lv30 have no magic attack, so `mad` has no sample there and holds its first value). Levels
+  without samples interpolate log-linearly, and the span outside the sampled levels (Lv1-131) holds its end value. The
+  result is made non-decreasing by weighted isotonic regression, so one tough singleton does not lift every level above
+  it, and lightly smoothed (1-2-1 over neighbouring levels, in log space). The file's `_doc` records the method, the
+  date and the sample counts: 1564 Mob.wz imgs, 329 ordinary samples on 106 levels (461 bosses, 282 link copies without
+  stances, 488 ids outside the mainline range and 4 HP outliers left out). `tools/level_curve/` regenerates it from the
+  owner's v83 folder (`bash tools/level_curve/run.sh "<folder>" 2026-10-30`, byte-reproducible); the numbers are facts,
+  not assets.
+- **Stage block.** `level_scale: {"keyframes": [{"t": <curve seconds>, "level": E, "exp_level": X}, ...]}`. `t` is
+  `RunWorld.curve_time()` (`map_index * map_seconds + time since entry`, the pacing clock, so a slow boss kill never
+  delays the next map's level). E and X interpolate linearly between keyframes, hold before the first and after the
+  last, and `exp_level` defaults to `level`. Data validation rejects a stage that has both `level_scale` and
+  `opening_ramp`, or a map-level `opening_ramp` in a level-scale stage, and a malformed block (keyframes empty, `t` not
+  rising from 0 up, a level outside 1-200). A block that slips past validation (or a missing curve) makes the world warn
+  and run unscaled.
+- **Effect.** For a monster of canonical level L (its `info/level`) at curve time t:
+
+  | Stat | Multiplier | Captured |
+  |---|---|---|
+  | HP | `hp(E)/hp(L)` | at spawn |
+  | PDD, MDD | `pdd(E)/pdd(L)`, `mdd(E)/mdd(L)`, on the live defence `CombatMath` uses (after skill bonuses and Threaten) | at spawn |
+  | EXP (ordinary, elite and boss reward) | `exp(X)/exp(L)` | at spawn |
+  | contact and physical attack damage | `pad(E)/pad(L)` | at impact (ordinary); at arrival (scheduled boss) |
+  | magic attack damage | `mad(E)/mad(L)` | at impact (ordinary); at arrival (scheduled boss) |
+
+  A curve value of 0 at L gives ratio 1, a fractional E interpolates the curve linearly, and E = L is exactly 1 (no
+  rounding). It stacks with keyframe `hp`, elites, boss `hp_mult`, `dmg_mult` and `attack_dmg_mult`; potions are unchanged.
+  Scheduled bosses spawn at their arrival, so their HP, defence and EXP come from that moment and their damage ratios
+  (`pad` and `mad` both) freeze there, projectiles included. Summons and revives are ordinary monsters at their own
+  spawn time. Relocating a monster keeps its multipliers.
+- **Boss damage freeze.** A scheduled boss's pad and mad ratios are keyed by its schedule index, so two bosses of one
+  id never share a freeze; every boss hit source (touch, attacks, balls) carries `boss_index`. A final form that continues
+  the encounter (#456) calls `RunWorld.capture_boss_level_scale(boss_index, its_mob_id, record)` at its own spawn and
+  replaces the freeze with its own level and time; `level_scale_at` keeps the first arrival.
+- **Known limits.**
+  - The curve holds its Lv131 values above Lv131 (v83 has no stronger ordinary monster), so the effective levels #449
+    sets should stay at or below about 131; above that a stage gains no strength from a higher E.
+  - Lv108-131 rest on 0-1 samples per level (see `_doc.samples.per_level`), so the tail is coarse; the monotone fit and
+    smoothing carry it between the few sampled levels.
+  - `mad` holds 117.8 below Lv30: no mainline monster under Lv30 has a magic attack, so the curve has no earlier sample.
+  - Level-scale stages run a per-tick loop over the live slots in `RunWorld._fill_live_defense` to apply the captured
+    PDD/MDD multipliers. Check its cost in the first perf capture of a level-scale stage (`scripts/playtest.sh
+    --vsync=off`, `sim_us_per_tick`); stages without the block skip it.
+- **Determinism and telemetry.** No RNG is drawn. A balance record of a level-scale stage gains `level_scale_at`
+  (`[{boss_index, mob_id, level}]`, the effective level at each boss arrival) and each `boss_fights` entry its own
+  `level_scale_at`; other stages' records keep their bytes.
+
 
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
 labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
@@ -4811,6 +4871,25 @@ gear-matched class ranking.
 Job 512: tier-1 clears 8/24; first boss reached 23/24. Job 112: tier-1 clears 3/24; first boss reached 20/24. Job
 212: tier-1 clears 0/24; first boss reached 24/24. Job 222: tier-1 clears 0/24; first boss reached 24/24.
 
+**Late-band equipment smoke (#474, 2026-10-30).** #474 lists more equipment, and its Lv35-40 Warrior and Pirate armour also
+enters Sleepywood's [30, 40] pool (the earlier lists had no Warrior or Pirate class armour; the Warrior had weapons and shields).
+`balance.sh 1 2 2026 --stage=sleepywood` (`JOBS=2`, private cache, no tuning, no held-out seeds), with a control of the same
+commands on the spec-branch tip without the new data. 15 records: **no crashes, world warnings or missing assets**.
+Henesys, Ellinia, Perion and Kerning were not rerun (their bands have no new items below Lv41, and their pools are unchanged).
+
+| Sleepywood (3 seeds) | Result | Control (spec tip) |
+|---|---|---|
+| F/P starter, bot | 0/3 C; D 11.4-15.1 | not run (no equipment dropped before the deaths) |
+| F/P starter, random | 0/3 C; D 11.4-13.0 | not run |
+| F/P `fp_arch_mage.json`, bot | 1/3 C; D 23.8, 767.0 | identical record |
+| F/P `fp_arch_mage.json`, random | 1/3 C; D 14.3, 810.6 | identical record |
+| Hero (112) `hero_t2.json`, bot | 2/3 C; D 685.2 | 1/3 C; D 877.1, 904.5 |
+
+The Magician pool is unchanged below Lv41, so F/P reproduces the control exactly. Hero's seeds differ because the shifted drop
+pool changes which items its seeded rolls give; that is three seeds of a diagnostic fixture, not a balance claim. Against the
+older smoke above (the F/P kit 2/3 C, Hero 1/3 C) the F/P shift comes from the spec branch's earlier changes, since the control
+reproduces it. The starter runs die within 15 s, before any equipment drops.
+
 Buccaneer Henesys bot filled six actives in 3/3 runs at 130.4–205.1 s; its deaths 319.6/626.9 and clear 1036.8
 reproduce BC11 (rounded there). Sleepywood early deaths are recorded without tuning or stopping, as explicitly
 requested by the owner. F/P and Hero Henesys bot outcomes reproduce the BC2–BC11 smoke; the full other-job matrix
@@ -8488,6 +8567,32 @@ top-right corner. The level-up card shows the effect line at the offered rank ("
 60 Max HP, 58 Area, 56 Armor, 54 Regen, 52 Haste, 50 EXP and each rank card 4 less, all below any pool attack
 (`balance.bot.card_scores`). Every number above is tier C; ticket #293 (first-pass pacing) adjusts them.
 
+#### Equipment for the late bands (#474, spec #449 C12)
+
+The drop bands of progression steps 6-16 ([35, 45] ... [110, 120], table in section 11) need equipment before their
+regions exist, so `equipment_drops/*.json` were extended up to reqLevel 120 for every job class and weapon family. A new
+ordinary item is an ordinary v83 shop or drop item by its Character.wz facts: not cash and none of the `only`, `notSale`,
+`quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`, `epic`, `epicItem`, `weekly` flags; sold for more
+than 1 mesos (price 1 marks boss, quest and PQ rewards); named in String.wz; no `GMS ...` item (tier C: those have no
+known v83 source). Armour keeps one piece per slot, reqJob, reqLevel and gender (colour variants collapse); weapons keep
+every item. Capes are not listed (the Equip window has no cape slot). The files are `common` (reqJob 0 armour), `warrior`,
+`magician`, `bowman`, `thief` and `pirate` (a weapon goes to the file of its family: daggers and claws Thief, bows and crossbows Bowman, knuckles and guns Pirate,
+wands and staves Magician, the rest Warrior, whatever its reqJob, so the four reqJob 9 daggers 1332022, 1332026, 1332049 and
+1332051 are in `thief.json` beside the reqJob 9 daggers it already held; an armour piece goes to the lowest class bit of its
+reqJob, and no new armour piece has more than one). New items start at reqLevel 41, so
+the Sleepywood pool (band [30, 40]) only changes where it was empty: Warrior and Pirate armour of reqLevel 35-40 was added
+because the step-6 band [35, 45] would otherwise have had none (the earlier lists named no Warrior or Pirate class armour at all).
+
+`test_late_equipment_bands` checks, for each of the sixteen bands and each class (Hero, Paladin, Dark Knight, Arch Mage,
+Bowmaster, Marksman, Night Lord, Buccaneer, Corsair), at least one eligible weapon per family it lists and one hat, shoes,
+gloves, body (an overall, or a top with a bottom) and, for a Hero and a Paladin, shield. Steps 6-15 pass as listed.
+**Step 16 widened**: v83 has no Magician wand and no Magician overall between reqLevel 109 and 130 (the Dragon Wand and
+the Blue Czar are Lv108), so #447's [110, 120] became [108, 120]; the mins and maxes still never fall along the
+progression (tier C). The shipped steps 1-5 keep the gaps they had (the earlier lists name no Warrior or Pirate class armour, only reqJob 0 pieces): gloves
+and body at step 3, gloves at step 4, for the Hero, Paladin, Dark Knight, Buccaneer and Corsair. #474 left those bands and
+lists alone; the test records the gaps, and fixing one makes it ask for its entry to be removed. `late_progression.json` is the Hero
+fixture for the band-15 gear (`--hub --job=112 --late`).
+
 ## 9. Jobs
 
 `data/canonical/jobs.json` holds the Explorer tree with canonical ids (Beginner 0; Warrior 100, Magician 200,
@@ -8577,7 +8682,8 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Rule | Value / source | Tier |
 |---|---|---|
 | Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood (v83 levelling order; owner request 2026-10-30) | C |
-| Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]) | C |
+| Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]). Steps 6-16, set by their region tickets (#449), are [35, 45], [40, 50], [45, 55], [50, 60], [55, 65], [60, 70], [70, 80], [80, 90], [90, 100], [100, 110] and **[108, 120]** for step 16 (#447 said [110, 120]; widened by #474, see "Equipment for the late bands" in 8.3) | C |
+| Late-band equipment (#474) | `equipment_drops/*.json` hold every ordinary v83 weapon of a listed family and one armour piece per slot, reqLevel and gender up to Lv120; chosen from Character.wz facts (not cash, `only`, `notSale`, `quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`; price above 1; a String.wz name; not a `GMS ...` item). No Cosmic drop data was available to this ticket, so unlike the Lv0-70 lists it is not B-checked against server drops | C |
 | NX clear bonus | `balance.nx_award.clear_bonus` by progression step: 100, 100, 100, 100, 250, the last repeating (the old amounts moved from tiers to steps) | C |
 | Unlock rule | region i is open iff i == 0 or `progression[i-1]` is in the character's `cleared_regions`; a CLEARED round adds its stage; death, Quit round and one-off rounds add nothing | C |
 | Save migration | `CharacterSnapshot.LEGACY_TIER1_REGIONS` 4: a stored `tiers_unlocked` >= 2 becomes the first four progression keys cleared, otherwise none | C |
@@ -8669,6 +8775,19 @@ all are our survivor design. Tier 1 HP/damage 1 -> 1 over 900 s. Sleepywood map 
 trained only on 1/2/2026. The 20:00 endpoint intentionally extends past the nominal 15:00 schedule.
 No ordinary rate/cap/pool, boss encounter scale, canonical stat, EXP/cooldown/passive/drop value changed.
 Revised slice target: picks ≈ levels + boss draws (~50–60).
+
+### #453 level scale (tier C; reference curves tier A-derived)
+
+| Constant / rule | Value | Tier / source |
+|---|---|---|
+| Reference curves | `level_curve.json`: per-level median hp, pad, mad, pdd, mdd, exp of ordinary v83 monsters, levels 1-200 | A-derived (v83 `Mob.wz` info numbers), used for a tier C purpose |
+| Ordinary monster | Mob.wz id < 9,000,000, not `boss=1`, not a link copy without stances, not 6400005-6400009 or 88xxxxx; HP at most 5x the level median; zero stats skipped per stat | C: ours (ticket #453; the research "Excluded" table, widened to the whole 9,000,000+ range because its 94xxxxx/95xxxxx singletons skew a median) |
+| Curve shaping | log-linear gap interpolation, weighted isotonic regression (a level weighs its sample count, an interpolated level 0.25), 1-2-1 smoothing in log space, two decimals; values outside the sampled span (Lv1-131) hold | C: ours |
+| Keyframes | `{t, level, exp_level}` in curve seconds, linear, held before and after; `exp_level` defaults to `level` | C: spec #447 |
+| Ratio | `curve(E)/curve(L)` per stat (pad for contact and physical attacks, mad for magic); E = L is 1; a zero base is 1 | C: spec #447 |
+| Capture | HP, PDD, MDD and EXP at spawn; ordinary damage at impact; a scheduled boss captures all of them (damage included) at arrival | C: as #307's ramp |
+| Exclusivity | a stage with `level_scale` has no `opening_ramp` (stage or map) | C: validation |
+| Defence scaled after bonuses | the PDD/MDD ratio multiplies the live defence (MobSkill defence bonuses and Threaten included) | C: ours |
 
 ### #293 first-pass pacing (tier C)
 
@@ -9496,7 +9615,11 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Map-select card limit (#253) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list | C | Layout measurement, spec #253 |
 | Perion and Kerning City mob metadata (#253, #254) | Mesos: v83 server `drop_data` itemid 0 ranges; EXP pickup: the most likely Etc drop (Dark Axe Stump uses Axe 4000215 of the two equal ones; Shade Someone's Hat 4000413). Iron Hook has no server drops: level-fallback mesos and the Wild Boar Tooth icon. Boss bars borrow MobGage icons for Iron Hook (Zeno 6220001) and Shade (Riche 6090000) with hpTag 1/5; both are enabled boss kits (`mob_skills.enabled_ids`) | B mesos/items, C icons/associations | Cosmic drop data (facts only); owner #253 |
 | Mobs without v83 sounds (#253) | A mob with no `Sound.wz/Mob.img/<id>` entry (Iron Hook 4090000) plays no hit, death or skill sound and records nothing missing, as in the client | A (absence) | v83 Sound.wz |
-| Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks unchanged; the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
+| Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks are untouched by 100/110 (101/111 below multiply them); the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
+| Boss Magic Attack Up 101/111 (#457) | a timed multiplier `x/100` (Chimera 101/1 x115, 111/5 x140; Eliza's levels 115) on the `MADamage` of the buffed mobs' magic `attackN` impacts, in `RunWorld.mob_magic_attack`, before the boss/elite `dmg_mult` like Attack Up; touch and weapon attacks never read it; 101 buffs the caster, 111 every living mob in its facing-mirrored box (ordinary mobs included); a recast replaces the multiplier and refreshes the end, never stacks; per slot, resets on spawn, moves on relocation; the cast `effect` plays on the caster and its `mob` icon over a boss while it lasts (no icon over ordinary mobs yet) | C (x as a percentage, application), A (x, interval, time, area, art) | owner, spec #448 B2; original v83 MobSkill.img 101/1, 111/5 |
+| Boss self defense up 102/103 (#457) | the 112/113 flat-defense arithmetic (x added to PDD / MDD for `time`) on the caster only (Dodo 102/3 x85 20 s, Chimera 103/2 x60 30 s); the cast `effect` plays on the caster and its `mob` icon over a boss while it lasts | C (flat arithmetic, as 112/113), A (x, interval, time, art) | owner, spec #448 B2; original v83 MobSkill.img 102/3, 103/2 |
+| Boss magic immunity 141 (#457) | a timed self status that mirrors 140: for `time` a hit of damage type `magic` (the `CombatMath.damage_type_of` split 140 uses; instant hits and projectile contacts, which are consumed with no roll or event) does zero damage to the boss, physical and fixed still land; gated by the level's `hp`; its `mob` icon shows over the boss; per slot, resets on spawn, moves on relocation | C (mirror of 140), A (hp gate, interval, time, art: Timer 141/3 hp<=50, 30 s / 10 s) | owner, spec #448 B2; original v83 MobSkill.img 141/3 |
+| 140 / 141 exclusivity (#457) | a 141 cast while the boss has 140 active, or a 140 cast while it has 141, is skipped and still spends its interval, so a boss is never immune to everything | B | spec #448 B2; Cosmic (third-party emulator behaviour, read as fact) |
 | Floor/wall corner landing (#260) | An air sub-step whose path crosses a floor line inside the floor's span while its end x lies past the floor's end lands on that floor at the end x pulled EPS = 0.01 px inside (`FootholdMap.find_corner_landing`); player only, mobs/pickups/NavGraph keep `find_landing` | C | ours: the 1 px wall probe at the crossing x was already below a wall rising from the floor end, so neither landing nor wall caught it (Kerning 103000101, x 3185) |
 | Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
@@ -10013,6 +10136,18 @@ fitted wind-up playback and inspection; `SpritePool.tint_of` exposes the rendere
 | HP potions while stunned | Stay usable | C | v83 does not say |
 | Stun cast gate | A skill-123 cast needs the character inside the area and not Hidden (a Hidden character is skipped, as for Slow and Banish); the `prop` roll is made once per in-area cast, a failed roll still spends the interval | C (gate, as Slow), A (prop, interval) | #448 common rules |
 | RNG stream 19 | `RunWorld.mob_status_rng` draws the `prop` roll of a boss skill that puts a status on the character; stream 18 stays `ground_rng`. `prop >= 100` draws nothing, and a cast that is locked out draws nothing | C | #448 (redesign already uses 18) |
+| Poison values (MobSkill 125) | `interval`, `time`, `prop`, `x`, `lt`/`rb` (mirrored by facing) read from `Skill.wz/MobSkill.img/125/level/<lv>`; the `affected` art loops above the head while the status lasts | A | v83 WZ; research `v83-mob-skills-ii.md` (Thanatos 125/1) |
+| Poison `x` and ticks | `x` is HP lost at each whole second after the cast, up to and including the second `time` ends on (`floor(time)` ticks). v83 does not say what `x` is | C | research (units unverified) |
+| Poison is never lethal | A tick takes at most the HP above 1; once at 1 HP it emits nothing. A tick is a `player_hit` with `source_kind` "poison" (boss, so boss-hit telemetry reports it), with no hit window, avoid, defense, invincibility or knockback; god mode takes nothing | C | #448 B4 |
+| Poison while Hidden or guarded | A poison already running keeps ticking while the character is Hidden (Dark Sight, Smokescreen and so on) or inside a hit guard such as the Bishop's post-revive guard: it is a status already on the character, it is never lethal, and v83 Dark Sight does not cure poison. Hidden and a guard still stop the cast of a new poison and the monster hits | C | #459 review |
+| Poison and the balance hit metrics | Poison ticks are `boss_hits` entries (`source_kind` "poison") but not `hits`, `taken` or `hits_by_min` (so not the hits before 6:00 and after 8:00): a damage over time is not a monster hit | C | #459 review |
+| Poison cast gate | A skill-125 cast needs the character's body box inside the (mirrored) area and not Hidden; `prop` is rolled on stream 19 once per in-area cast, a failed roll still spends the interval; the status lives on `PlayerStatuses` with the lockout floor (so one poison at a time, and immune for `max(4, time)` s after it ends) | C (gate), A (prop) | #448 |
+| Poison HUD | No HUD icon (the `affected` art only; v83 has no `mob` icon for 125) | C | #448 presentation rule |
+| Poison mist values (MobSkill 131) | `interval`, `time`, `prop`, `x`, `elemAttr`, `lt`/`rb` and the `tile` frames of the level at the boss's `info/skill` level (Snowman 131/7: x 500, interval 30, time 10, prop 80, (-50,-160)-(300,40), `elemAttr` I) | A | v83 WZ |
+| Mist hazard | Placed at the cast as the level's box mirrored by the boss's facing (the same helper as every area skill, so a left-facing boss puts 131/7's box to its right), lasting `time` s from the cast tick; `prop` rolled on stream 19 (a failed roll still spends the interval); not cast while the character is Hidden; a hazard is a pooled struct-of-arrays entity (`GroundHazards`) with no node per hazard, cleared on map transfer, death and clear; a level without `elemAttr` (131/3, 131/9) only shows its mist | C | #448 B4 |
+| Mist effect | A character whose body box overlaps a live mist: ice (I) keeps Slow at `balance.mob_skills.mist.slow_x` percent speed (80, the 126 levels' x) refreshed for `slow_seconds` (1) each tick and never weaker or shorter than a Slow already on it; poison (S) applies Poison for `poison_seconds` (10) at the level's `x` capped at `poison_x_max` (300, the largest 125 x) when it is not locked out. A Hidden character is not touched | C | #448 B4 |
+| Mist art | The level's `tile` node: numbered two-frame alpha-fading animations laid as a jittered grid of puffs (about 80 x 56 px per puff, at most 24) over the box, each with its own tile pick and phase, fading in and out over 0.5 s; drawn on the player's actor layer behind the mobs and the player | C | #448 B4 |
+| Hazard records | `hazards_cast` (count at cast) and `hazard_seconds` (sum of the seconds hazards were alive, cleared early ones counting what they lived) in the balance record | C | #459 |
 | Status lockout floor | After a status with the floor ends, it cannot re-apply for `max(balance.mob_skills.status_lockout[id] or .default, its own time)` s; default 4. A recast during the status or its lockout is refused (no refresh, no stacking) and still spends the boss's interval. Slow has no floor and keeps overwriting on recast, exactly as before | C | #448; Papulatus's Stun L4 (interval 1, time 3, prop 100) is the case it is for |
 | `final_form` | A stage boss entry's `final_form` must be one of the shell mob's `info/revive` ids (`DataRepo.final_form_errors`, reported through `build_setup`'s `missing`; the schema also needs it to differ from `mob_id`). On the shell's death the same encounter continues with the form at the death position: same `boss_index`, steady flag, `attacks`, `attack_interval` and `attack_dmg_mult` (the opening-ramp damage factor included). The shell pays no EXP, mesos, equipment or bonus choice and is not marked dead; the form's death is the boss death, pays the rewards and ends the map. The shell's other `info/revive` entries are not spawned. The HUD bar follows the record, so it shows the form after the swap; a shell without a MobGage icon of its own (King Clang's 5220001) needs a survivor `mobs.json` `boss_ui.icon_id` naming its form, or the run reports the icon as `missing` (found by the #456 diagnostic run) An unlisted form is not continued and the boss dies as an ordinary revive boss | C (rule), A (the form is a listed v83 revive mob) | #448 B1 |
 | Final-form schedule and telemetry | The form's skills are ready one interval after the swap (record `form_time`, never on the swap tick; the shell's cast schedule for that encounter is forgotten, so a skill both forms share restarts). `kills` and `kills_by_min` do not count the shell. `balance_run` `boss_fights` stay keyed on the scheduled entry's `mob_id` and, for encounters with a form only, add `final_form` and `form_time` (-1 before the swap). `DataRepo.final_form_errors` also flags a form missing from `balance.mob_skills.enabled_ids` while its shell is listed. The form's entry attacks start on their own `BossAttacks` clock keyed by encounter (the shell's attack cooldown carries over) | C | #478 review |
