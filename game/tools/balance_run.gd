@@ -51,7 +51,7 @@ extends SceneTree
 ## One "BALANCE {json}" line per run (scripts/balance.sh tabulates them) plus a readable summary.
 ## --character=<abs JSON path>: start this one-off round from a CharacterSnapshot; never writes a save.
 ## --account=<abs JSON path>: give the round an account (AccountFile: owned cash items, worn cash equipment, pet, ALERT
-## levels; applied to the first round's character and carried through --tier chains). The record gets "account": <file
+## levels; applied to the first round's character and carried through --chain runs). The record gets "account": <file
 ## name>. Without the flag the round has an empty account and the record is byte-identical to before; NX is never credited.
 ## --chain=N (1 <= N <= the progression size, #454; replaces --tier): plays N progression regions in order, starting at
 ## --stage (default the first region). Each CLEARED round feeds the next with the carried character (equipment, mesos,
