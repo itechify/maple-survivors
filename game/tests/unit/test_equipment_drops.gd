@@ -237,8 +237,8 @@ func test_every_listed_item_has_cache_info_and_an_icon_and_every_band_has_drops(
 		assert_true(lib.frame(AvatarRenderer.part_img_path(id) + "/info/iconRaw") != null, "%d has iconRaw" % id)
 	var rng := _rng(8)
 	var stages: Dictionary = DataRepo.load_all().stages
-	for tier in stages.tiers.size():
-		var band := EquipmentDrops.band_of(stages, tier)
+	for tier in stages.progression.size():
+		var band := EquipmentDrops.band_of(stages.stages[stages.progression[tier]])
 		assert_true(EquipmentDrops.eligible(ed.items, infos, 212, band, WEAPONS).size() > 20, "tier %d has drops" % (tier + 1))
 		var floor_req := EquipmentDrops.boss_floor(band, ed)
 		for i in 30:

@@ -716,7 +716,7 @@ func test_every_derived_stage_mob_is_in_the_asset_manifest() -> void:
 	lib.open()
 	var manifest: Variant = AssetManifest.load_merged("res://data/asset_manifest.json")
 	var mob_skill := lib.img(DataRepo.MOB_SKILL_IMG).root
-	for key: String in data.stages.tiers[0]:
+	for key: String in data.stages.progression.slice(0, 4):
 		var stage: Dictionary = data.stages.stages[key]
 		var imgs := {}
 		for id in StageRoster.named_ids(stage):

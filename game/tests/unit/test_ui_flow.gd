@@ -420,7 +420,7 @@ func test_free_market_walk_to_scripted_exit_opens_map_select() -> void:
 		hub.step_input(1.0 / 60.0, MoveInput.make(false, true))
 	hub.step_input(1.0 / 60.0, MoveInput.make(false, false, true))
 	assert_eq(flow.current_name, "stage_select")
-	assert_eq(flow.current.stages[0].key, "henesys", "map select lists every tier, tier 1 first")
+	assert_eq(flow.current.stages[0].key, "henesys", "map select lists the progression, Henesys first")
 
 
 
@@ -544,7 +544,7 @@ func test_save_and_quit_continue_the_hub_and_delete_history() -> void:
 	var flow := _flow()
 	flow.create_character("Slots69")
 	flow.start_round("sleepywood", 7)
-	assert_eq(flow.current_name, "free_market", "a later tier cannot be started early")
+	assert_eq(flow.current_name, "free_market", "a locked region cannot be started early")
 	flow.save_and_quit()
 	assert_eq(flow.current_name, "character_select")
 	flow.continue_character(0)

@@ -143,7 +143,7 @@ func test_swept_exp_resolves_its_level_cards_before_snapshot_without_combat() ->
 	assert_eq(w.progression.exp, 0)
 	var snapshot := w.character_snapshot()
 	assert_eq(int(snapshot.job_id), job, "the job never changes")
-	assert_eq(int(snapshot.tiers_unlocked), 2, "the clear unlocked the next tier")
+	assert_eq(snapshot.cleared_regions, [], "the synthetic stage is outside the progression: its clear adds no region")
 	var events := w.drain_events()
 	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "stage_cleared").size(), 1)
 	assert_false(events.any(func(e: Dictionary) -> bool: return e.type == "player_hit"))

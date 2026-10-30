@@ -121,7 +121,7 @@ func test_the_fixture_tool_makes_shipped_hero_and_refuses_a_disabled_hero() -> v
 	if character.is_empty():
 		return
 	assert_eq(int(character.job_id), 112)
-	assert_eq(int(character.tiers_unlocked), 2)
+	assert_eq(character.cleared_regions, ["ellinia", "henesys", "kerning", "perion"], "--tiers=2 (the compatibility alias) clears the four Victoria regions")
 	var worn := Equipment.worn_ids(character.equipment.worn)
 	for id: int in [1302000, 1002001, 1082002, 1040010]:
 		assert_true(id in worn, "%d is worn" % id)

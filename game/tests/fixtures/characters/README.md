@@ -4,7 +4,7 @@
 tier 2 unlocked and the tier-1 equipment kit worn: a reqLevel-25 staff (1382002), a reqLevel-30 hat (1002013), reqLevel-20
 shoes (1072019), reqLevel-15 gloves (1082019) and the starter top and bottom. The items are unscrolled, with canonical
 base stats and no survivor overrides. A format-3 character keeps only its job, look, equipment, scrolls, mesos, cash, pet
-and `tiers_unlocked` (ADR 0006), so there is no level, skill list or AP to carry; every round starts at Lv1. It is the
+and the unlock state (`tiers_unlocked` here, `cleared_regions` since ADR 0007), so there is no level, skill list or AP to carry; every round starts at Lv1. It is the
 character for Sleepywood checks (`--stage=sleepywood --character=<this file>`), paired with a fresh character (the starter
 wand only) to show what gear is worth, and the base of the `--hub` test kit.
 
@@ -67,3 +67,8 @@ invulnerability: this is a diagnostic clear to obtain equipment, not evidence th
 without one the weapon reach and `weapon_reach` skills have nothing to read.**
 
 Buccaneer review cleanup (#412): the diagnostic tier-2 fixture excludes the default sword 1302000 and displaced default outfit 1072001/1060002/1040002; its worn knuckle kit and round loot are unchanged.
+
+
+The committed `*_t2.json` files and `fp_arch_mage.json` still carry `tiers_unlocked: 2` (ADR 0007, #450): every loader migrates it to
+`cleared_regions` (the first four progression regions: Henesys, Ellinia, Perion, Kerning City), so Sleepywood is unlocked. New
+files come from `tools/character_fixture.gd --cleared=4` (`--tiers=2` is the compatibility alias).

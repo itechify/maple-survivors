@@ -148,7 +148,7 @@ func test_create_makes_a_bowmaster_with_its_war_bow_and_separate_ladders() -> vo
 	assert_eq(flow.current_name, "free_market")
 	var bowman: Dictionary = flow.save.slot(0).character
 	assert_eq(bowman.job_id, 312)
-	assert_eq(bowman.tiers_unlocked, 1)
+	assert_eq(bowman.cleared_regions, [])
 	assert_eq(int(bowman.equipment.worn.weapon.id), 1452002, "Bowmaster starts with the War Bow")
 	assert_eq(CharacterSnapshot.validation_error(bowman), "")
 	assert_eq(WeaponInfo.family(1452002), "bow")
