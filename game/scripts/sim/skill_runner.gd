@@ -229,6 +229,8 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 	for key: String in lo.order:
 		if not lo.book.is_active(key):
 			continue
+		if not forms.permits(world, key):
+			continue # a running form's only_skills (the ship): the skill keeps its cooldown and casts when the form ends
 		if hidden and is_attack(stats_of(world, key)):
 			# Hidden (#194): the character cannot attack; the skill keeps its cooldown and resumes when Hidden ends.
 			continue

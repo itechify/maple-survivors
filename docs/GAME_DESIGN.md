@@ -4479,6 +4479,16 @@ character (a Pistol-class gun, Pirate-bit gloves and the generic hat and top, ti
 (the ranged default, like Bowmaster and I/L; Hero and Paladin copy 600), `missing: []`. Flow and visual evidence only, not survival
 evidence; screenshots in gitignored `evidence/386/`.
 
+### Corsair C11 smoke (#395, 2026)
+
+Sim seam (`PlayerHull`, `FormRules`, `STATE_EFFECTS`, `absorbed` on `player_hit`) plus the hull bar; tested on a synthetic ship, no Corsair
+definition exists yet. Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212) died at 12:31 / 11:01 / 7:54 (Lv44 / 37 /
+24) and Hero (112) at 5:27 / 5:36 / 11:28 (Lv36 / 11 / 11 by seed order as before), no clears, no warnings: both byte-identical to the C2 rows
+above. Oracles `character_baseline`, `tick_cost_identity`, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer and Bowmaster baselines
+reproduce their hashes; `test_player_forms` and `test_run_events` are unchanged. A hull-probe screenshot set (`evidence/395/hull`, gitignored)
+shows the blue bar draining 0.78 -> 0.16, blue absorbed numbers and the break (blue 40 + violet 12 in one hit, bar gone). No `--job=522`
+playtest: the ship is C13's and the job is not playable.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
@@ -8306,6 +8316,58 @@ is inert (never offered, learned or cast), so the thirteen keys are named now an
 | Corsair not playable | `playable` false until C14 flips it; `default_job` stays 212 | C |
 | 522 gun ammo schedule (re-verified from B3) | Lv18 Split Bullet 2330001 (+12), Lv35 Mighty Bullet 2330002 (+14), exact job 522, no retune | C (levels) / A (items, incPAD) |
 
+#### 7.120.2 The ship's Form effects (spec #384, C11 #395)
+
+Three effect keys a Form block may carry, built and tested on a synthetic ship (`test_form_hull.gd`; the real Battleship is C13, its
+mount art C12). They sit in `PlayerForms.STATE_EFFECTS`, a second registry beside `EFFECTS`: an `EFFECTS` entry edits a cast copy,
+a `STATE_EFFECTS` entry owns state in the running window (`start(world, state, value)` after the window is appended,
+`end(world, state, reason)`, `absorb(world, state, amount)`, `validate(value)`; every hook optional). `PlayerForms.start` stores the
+form's canonical `level` in its state so an effect can read level fields.
+
+- **`hull` (`PlayerHull`, `scripts/sim/player_hull.gd`).** Value `{"field": <canonical level field>, "of": "max_hp"}` (only `max_hp`
+  is known). At the form's start `hull_max = hull_hp = max(1, floor(field / 100 x max HP x hull))` where `field` is read at the
+  form's level and `hull` is the skill's `hull` modifier (a multiplier, base 1; tier C, CS-11: the WZ `pdd` percent of max HP).
+  The size is fixed then: a later modifier or max-HP change leaves a running hull alone. `PlayerForms.absorb(world, amount)` (already
+  the Form hook of `RunWorld.take_hit`, after defence, Invincible, the flat armour and Power Guard, before the ordered HitHook absorb
+  phase and `_hp -= dmg`) folds the hit through the hull: it takes up to its remaining whole points and returns the rest for HP. The
+  hit still starts the hit window and the knock-back guard, a boss attack that ignores the window is absorbed like any hit, and a
+  hit the hull covers entirely costs no HP (its `player_hit.damage` is 0). At 0 the form ends with `form_ended` reason `broken`; the
+  skill's own cooldown keeps counting. A map transfer keeps the hull (it is window state like a buff); death ends it (`died`).
+  No RNG draw is added.
+- **`only_skills` (`FormRules`, `scripts/sim/form_rules.gd`).** Value a list of skill keys. `PlayerForms.permits(world, key)` is
+  false for a pool skill (`slot active`; not a `form`, not a `form_sub`, not a triggered `manual` / `reaction` skill) outside a
+  running form's list; `SkillRunner.cast_ready` asks it once per candidate (`continue`, so the skill is neither cast nor charged
+  anything and its cooldown keeps counting; it casts the tick the form ends). The mobility key, forms, subs, bursts and strikes
+  already in flight and summons already out are never consulted. A buff-kind pool active outside the list is paused too (the
+  spec's rule names no exception; the Corsair pool has none).
+- **`art_variant` (`FormRules`).** Value `{slot: node}` (the spec's `{"effect": "effect_ship"}`). While a running form carries it,
+  `PlayerForms.begin_cast` replaces the cast copy's `slot` art with the skill definition's field named `node` (a path template like
+  `effect`, filled and weapon-twinned the same way) when the definition has that field; nothing else about the cast changes (a test
+  compares every other resolved field), and a skill without the field keeps its art. The cast event's `effect` is where it shows.
+- **Events.** `player_hit` carries `absorbed` (whole points the hull or a hit hook soaked) only when positive; `form_started`
+  carries `mount` (the `presentation.mount` TamingMob id) only when the form names one. Both are listed in
+  `RunWorld.OPTIONAL_EVENT_FIELDS` and ARCHITECTURE 4.4.3, and left out of `EVENT_FIELDS` so every event without them keeps its
+  exact old bytes (`test_run_events` is unchanged).
+- **Schema (`PlayerForms.validation_errors`).** `hull` needs a nonempty `field` and `of: "max_hp"`; `only_skills` an array of
+  nonempty strings (an empty list is legal: it pauses every pool active); `art_variant` a nonempty map of nonempty strings;
+  `presentation` an object whose optional `mount` is a positive whole number.
+- **Presentation.** `HullBar` (`scripts/render/hull_bar.gd`) is a thin blue bar over the character, fed
+  `PlayerForms.hull_fraction()` (-1 while no hull runs, which hides it); `RunScene._on_player_hit` shows the absorbed part as a blue
+  number (the HP-gain digit set) and the part that reached HP as the usual violet one (none when fully absorbed). Probe:
+  `scenes/debug/form_hull_probe.tscn -- --shots=<abs dir>`.
+
+#### 7.120.3 Corsair C11 constants (#395)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Hull size | `max(1, floor(pdd / 100 x max HP x hull modifier))` at the form's start, fixed for the window; `pdd` is the WZ percent of max HP (CS-11) | A (field) / C (reading) |
+| Hull absorbs before HP, after defence | exact whole points, remainder to HP, hit window and knock-back guard unchanged | C |
+| Hull broken | the form ends `broken` at 0 hull points; the skill's cooldown keeps counting | C |
+| `only_skills` scope | pool actives only; mobility, forms, subs, triggered skills and anything already cast are untouched | C |
+| `art_variant` | presentation only; a skill's own definition field named by the variant swaps one art slot | C |
+| Hull bar | 40 x 5 px, blue fill on a dark back, 10 px above the body box (`HullBar.WIDTH` / `HEIGHT`, `RunScene.HULL_BAR_GAP`) | C |
+| Absorbed number | blue (the HP-gain digit set) at the character's head, the violet number only when HP was hit | C |
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -10231,6 +10293,10 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 ### Corsair C2 constants (#386)
 
 The constants of the Corsair data line are in section 7.120.1 (nested under the Corsair section so the later Corsair tickets append `7.120.N` beside them).
+
+### Corsair C11 constants (#395)
+
+The constants of the ship's Form effects (hull, `only_skills`, `art_variant`, the hull bar) are in section 7.120.3, described in 7.120.2.
 
 ### Corsair C5 constants (#389)
 

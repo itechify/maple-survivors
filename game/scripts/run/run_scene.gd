@@ -110,6 +110,8 @@ const HIT_FACE_TIME := 1.0
 ## tier C (ours): invincibility blink, alpha of the dim phase and the period (s) of one bright + dim cycle.
 const BLINK_ALPHA := 0.4
 const BLINK_PERIOD := 0.16
+## tier C: pixels between the top of the character's body box and the hull bar (HullBar).
+const HULL_BAR_GAP := 10.0
 ## tier C (ours, BS8): seconds the "Resurrection! Ready again in M:SS" notice shows, and the delay of its evidence shot
 ## (the first beam frames, after the 1320 ms lead-in of the `affected` art).
 const REVIVE_NOTICE_TIME := 6.0
@@ -156,6 +158,8 @@ var avatar: AvatarRenderer
 var player_group: CanvasGroup
 ## The character name tag (NameTags style, like the elite tags).
 var player_tag: NameTags
+## The ship's hull bar over the character (spec #384 C11); hidden while no hull runs.
+var hull_bar: HullBar
 var mob_renderers: Array[MobRenderer] = []
 ## Foothold layer drawn by mob_renderers[i] (-1 = every slot).
 var mob_layers := PackedInt32Array()
@@ -736,6 +740,10 @@ func _build_top_layer() -> void:
 	player_tag = NameTags.new()
 	player_tag.name = "PlayerTag"
 	_top.add_child(player_tag)
+	hull_bar = HullBar.new()
+	hull_bar.name = "HullBar"
+	hull_bar.visible = false
+	_top.add_child(hull_bar)
 	_tag_source = _TagSource.new()
 	_kind_names = NameTags.names_for(world.mob_kinds, library)
 
@@ -1589,8 +1597,14 @@ func _on_player_hit(e: Dictionary) -> void:
 		counters.numbers += 1
 		_first_event_shot("miss", "miss_first.png", 0.05) # tier C: capture the first visible MISS during playtests.
 		return
-	numbers.spawn(int(e.damage), head, DamageNumbers.TAKEN, PLAYER_KEY)
-	counters.numbers += 1
+	var absorbed := int(e.get("absorbed", 0))
+	if absorbed > 0:
+		# The part the ship's hull took, in the blue digits; a fully absorbed hit shows only this number.
+		numbers.spawn(absorbed, head, DamageNumbers.HP_GAIN, PLAYER_KEY)
+		counters.numbers += 1
+	if int(e.damage) > 0 or absorbed == 0:
+		numbers.spawn(int(e.damage), head, DamageNumbers.TAKEN, PLAYER_KEY)
+		counters.numbers += 1
 	avatar.set_expression("hit", HIT_FACE_TIME)
 	_blink_t = 0.0
 	_first_event_shot("hit", "hit_first.png", BLINK_PERIOD * 0.7)
@@ -2018,6 +2032,7 @@ func _update_player(delta: float) -> void:
 	_tag_source.y[0] = p.pos.y
 	_tag_source.state[0] = MobRenderer.DIE if dead else MobRenderer.STAND
 	player_tag.update_from(_tag_source, PackedByteArray([1]), PackedStringArray([_player_name()]))
+	hull_bar.update(p.pos + Vector2(0.0, world.body.position.y - HULL_BAR_GAP), -1.0 if dead else world.runner.forms.hull_fraction())
 
 
 ## Draws the pet from its simulated state, in the actor layer of the foothold it stands on (the player's layer while it
