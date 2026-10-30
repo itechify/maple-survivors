@@ -4479,6 +4479,16 @@ character (a Pistol-class gun, Pirate-bit gloves and the generic hat and top, ti
 (the ranged default, like Bowmaster and I/L; Hero and Paladin copy 600), `missing: []`. Flow and visual evidence only, not survival
 evidence; screenshots in gitignored `evidence/386/`.
 
+### Corsair C11 smoke (#395, 2026)
+
+Sim seam (`PlayerHull`, `FormRules`, `STATE_EFFECTS`, `absorbed` on `player_hit`) plus the hull bar; tested on a synthetic ship, no Corsair
+definition exists yet. Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212) died at 12:31 / 11:01 / 7:54 (Lv44 / 37 /
+24) and Hero (112) at 5:27 / 5:36 / 11:28 (Lv36 / 11 / 11 by seed order as before), no clears, no warnings: both byte-identical to the C2 rows
+above. Oracles `character_baseline`, `tick_cost_identity`, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer and Bowmaster baselines
+reproduce their hashes; `test_player_forms` and `test_run_events` are unchanged. A hull-probe screenshot set (`evidence/395/hull`, gitignored)
+shows the blue bar draining 0.78 -> 0.16, blue absorbed numbers and the break (blue 40 + violet 12 in one hit, bar gone). No `--job=522`
+playtest: the ship is C13's and the job is not playable.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
