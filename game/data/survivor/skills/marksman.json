@@ -211,6 +211,57 @@
 			},
 			"_tier": "Tier A: weapon46 (crossbow), damage 60..160% (levels 4/15/30 at ranks 1/4/8 read 75/122/160), the symmetric box (+-170 until level 10, +-190 until 20, +-210 from 21, by +-100), mobCount6, effect/hit/special art and the Use sound (the node has no Hit sound and no prepare). Tier C (#366, GAME_DESIGN 7.46.6): the eight survivor ranks, a box cast anchored where the caster stood that strikes 0.5s later (the numbers and the delay of Arrow Rain), min_targets 1, 5s cooldown, 0.6s held weapon stance, the special node (x 0, y -150, fall 150, count 3) read as three arrows erupting around the caster, one every 90ms across the box and landing at the impact (art only); rarity bonuses. Untuned."
 		},
+		"snipe": {
+			"skill_id": 3221007,
+			"book": "322",
+			"job": 322,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Snipe",
+			"desc": "Takes a big bite out of the strongest monster in reach. A boss only loses a sliver.",
+			"icon": "Skill.wz/322.img/skill/3221007/icon",
+			"damage": "physical",
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "Skill.wz/322.img/skill/3221007/ball",
+			"hit": "Skill.wz/322.img/skill/3221007/hit/0",
+			"effect": "Skill.wz/322.img/skill/3221007/effect",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3221007/Use",
+				"hit": "Sound.wz/Skill.img/3221007/Hit"
+			},
+			"cast": {
+				"rule": "nearest",
+				"prefer": "max_hp"
+			},
+			"cooldown": 10.0,
+			"range": 450,
+			"speed": 1200,
+			"fixed_share": {
+				"share": [0.20, 0.24, 0.28, 0.32, 0.36, 0.40, 0.43, 0.45],
+				"cap_mult": 20.0,
+				"boss": {
+					"share_scale": 0.1,
+					"cap_mult": 6.0
+				}
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{"id": "marksman_boost", "text": "Marksman Boost", "effects": [{"stat": "damage", "op": "mul", "value": 1.2}]}
+				],
+				"epic": [
+					{"id": "booster", "text": "Crossbow Booster", "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]}
+				],
+				"unique": [
+					{"id": "final_attack", "text": "Final Attack", "effects": [{"stat": "count", "op": "add", "value": 1}]}
+				],
+				"legendary": [
+					{"id": "final_attack", "text": "Final Attack", "effects": [{"stat": "count", "op": "add", "value": 1}, {"stat": "damage", "op": "mul", "value": 1.2}]}
+				]
+			},
+			"_tier": "Tier A: the book-322 skill id, the Use and Hit sounds, the effect / ball / hit art, no weapon field (the node has no damage, range or mobCount). Tier C (#368, GAME_DESIGN 7.46.10): fixed-share damage (7.47, the WZ cooltime 250..4 s is a session value and is not used), the eight-rank share table 20..45% of max HP, the 20x cap and the boss 0.1 share scale and 6x cap, the strongest-non-boss-first target rule, 450 px reach, 1200 px/s cosmetic bolt, 10 s cooldown, 0.6 s held weapon stance (the crossbow's shoot2, ROSTER_PLAN D11), rarity bonuses. Untuned."
+		},
 		"golden_eagle": {
 			"_rarity": "Tier C: first-pass #360 bonuses (Crossbow Mastery damage, Eagle Eyes area, Second Eagle +1 follower); repeat scale 0.8. See GAME_DESIGN 7.46.9.",
 			"rarity_bonuses": {
