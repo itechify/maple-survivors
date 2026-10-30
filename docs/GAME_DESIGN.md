@@ -4512,6 +4512,17 @@ died at 12:31 / 11:01 / 7:54 and Hero (112) at 5:27 / 5:36 / 11:28, no clears, n
 `missing: []`; the ship drawn with the seated rider, the blue hull bar over the head, a Cannon volley, a Torpedo flash and the broken hull
 (10 HP at rank 1 / Lv1) looked at by eye. Not tuned.
 
+### Corsair C14 smoke (#398, 2026)
+
+No sim code changed (job page layout, fixtures, hub kit, bot scores, tests). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212)
+died at 7:54 / 11:02 / 12:32 and Hero (112) at 5:28 / 5:37 / 11:28, no clears, no warnings, identical to the C13 rows above (the 12:31 / 11:01
+there are the same deaths read at tick resolution). `test_character_baseline`, `test_tick_cost_identity` and the Hero, I/L, Paladin and Bowmaster baselines
+reproduce their hashes in the full suite (3801 tests, 0 failed, 0 skipped with the cache; 0 failed, 458 skipped without it). New Corsair oracle
+`test_corsair_baseline`: seed 1, 6 minutes, Lv11, 426 casts. Diagnostic `--job=522` playtest (Corsair flipped playable in a private mirror,
+`corsair_t2.json`, Henesys seed 3, stopped at 2:00 because the window was throttled to 1 fps): the pistol drawn, Double Shot, Burst Fire,
+Ice Splitter, Homing Beacon and Rapid Fire casts, Lv5, 42 kills, no `game.log` warning (no `summary.json`: not run to its end). Sleepywood not run (50 HP at Lv1,
+C2's note). Not tuned.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
