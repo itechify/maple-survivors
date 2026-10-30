@@ -222,7 +222,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
-| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Rush (Hero): X + direction dashes that way, damaging and shoving mobs (7.33; hold X to repeat after its 2 s cooldown). Each manual skill has its own key in Key Config (see 7.15) |
+| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Rush (Hero): X + direction dashes that way, damaging and shoving mobs (7.33; hold X to repeat after its 2 s cooldown). Flash Jump (Night Lord, 7.94.2): X in the air, with a direction, flashes sideways once per jump. Each manual skill has its own key in Key Config (see 7.15) |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
@@ -234,7 +234,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
-There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash, Rush) are cast on their own skill keys, all X by default.
+There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash, Rush, Flash Jump) are cast on their own skill keys, all X by default.
 
 Movement keys are a setting (`Settings` `[controls] movement`: `arrows`, the default, or `wasd`). Only the chosen set
 drives `move_*`, so the other set is free to bind; switching to WASD takes W/A/S/D off every other action (S stops
@@ -5732,7 +5732,7 @@ pacing regressions retain their pre-Pirate job pool and unchanged goldens/bounds
 
 **Skill key** (GLOSSARY): the Key Config binding of one manual skill the character has learned. A manual skill
 (`cast.rule: "manual"`, never auto-cast) names its key in a `skill_key` field of its definition; the id is also the
-input action (`project.godot` has `teleport`, `dash` and `rush`, all X) and is listed in `KeyBindings.SKILL_KEYS`. A new
+input action (`project.godot` has `teleport`, `dash`, `rush` and `flash_jump`, all X) and is listed in `KeyBindings.SKILL_KEYS`. A new
 manual skill adds its id there, an action in `project.godot` and a `skill_key` in its skill file. The three Teleports
 share `teleport`, so an existing `settings.cfg` `[input] teleport` binding is simply Teleport's skill key and
 Teleport behaves exactly as before.
@@ -5740,7 +5740,7 @@ Teleport behaves exactly as before.
 - **Key Config lists only learned manual skills.** `RunWorld.manual_skill_keys()` returns one
   `{action, name, icon, skill}` per learned skill key; `KeyConfigWindow` takes it when it opens and ends its tray with
   those icons (the skill's own icon and name, not the F/P Teleport icon for everyone). `KeyBindings` drafts the fixed
-  actions plus those ids; an unlearned skill key cannot be bound. Teleport, Dash and Rush all default to X; no character
+  actions plus those ids; an unlearned skill key cannot be bound. Teleport, Dash, Rush and Flash Jump all default to X; no character
   learns two of them (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
 - **Input.** `MoveInput.skills_pressed` / `skills_held` (id -> true; `press_skill`, `hold_skill`) replace the old
   `teleport_pressed` / `teleport_held`. `RunScene` latches presses of learned skill keys (a held key requests repeats).
@@ -8173,7 +8173,7 @@ define them, the `meter` block until NL4 gives `PlayerMeter` the `meso_picked` r
 |---|---|---|
 | Job entry | `jobs/night_lord.json` | `412`: `starting_skill lucky_seven`, `mobility_skill flash_jump`, `weapon_families ["claw"]`, `creation_weapon 1472000` (Garnier, reqJob 8, the Thief bit), `playable false` |
 | Skill pool (8) | `skill_pool` | `lucky_seven`, `drain`, `avenger`, `triple_throw`, `ninja_storm`, `ninja_ambush`, `shadow_partner`, `shadow_meso` |
-| Skill file | `skills/night_lord.json` | `{"skills": {}}` and a `_doc` naming the regions NL6-NL10 append to; Lucky Seven and Drain stay in `thief.json` until NL7 moves them (a repeated key is a load error) |
+| Skill file | `skills/night_lord.json` | `{"skills": {}}` and a `_doc` (NL6 #405 then defined `flash_jump`, 7.94.2) naming the regions NL6-NL10 append to; Lucky Seven and Drain stay in `thief.json` until NL7 moves them (a repeated key is a load error) |
 | Meter | `jobs/night_lord.json` `meter` | meso charge: max 10, `gain {event meso_picked, amount 1, per_mesos 1000}`, `decay {interval 6.0, amount 1}`, `per_unit {damage, 0.03}`, art `Item.wz/Special/0900.img/09000002/iconRaw`; inert until NL4 |
 | AP row | `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` Thief keyframes copied verbatim (Lv1 25, Lv25 25, Lv200 200) |
 | Bot scores | `balance.bot.card_scores` | `shadow_partner_new` 100, `shadow_partner_rank` 74 (the summon is not an `attack` to `BotInput._base_score`; the other seven score as attacks by default) |
@@ -8246,11 +8246,76 @@ Tests: `test_meso_charge` (the arithmetic, the carry, the cap, decay, the event 
 sales, map transfer and a new round, `read_per_unit`, the summary), `test_run_events`, `test_run_telemetry`,
 `test_data_files` (the schema), and every baseline unchanged.
 
-### 7.97 Echo summon (M11) (spec #383, NL5 #404)
+#### 7.94.2 Flash Jump (spec #383 NL6, #405, M14)
+
+(The spec calls this section 7.92; that number belongs to the Buccaneer morph forms in this tree, so Flash Jump is 7.94.2 beside the
+other Night Lord mechanics.)
+
+Night Lord's mobility skill, WZ 4111006 (book 411, 20 levels): a second, horizontal jump **in the air** on a skill key
+(`flash_jump`, default X like Teleport, Dash and Rush; a character owns one). The node holds only `mpCon` per level and a `Use`
+sound (no effect, `range`, `x` or art); "the higher the skill level, the farther the distance" is client code, so the distance
+table is tier C. It is outside the pool and both slot tracks, learned at round start (`JobTree.start_skills`), and ranked by
+`balance.mobility_rank_levels` through `RunWorld._level_ranks` like Teleport: rank 1 at Lv1, 10 at Lv20, 20 from Lv40, never a card.
+
+```json
+"slot": "mobility", "cast": {"rule": "manual"}, "skill_key": "flash_jump",
+"ranks": [1, 2, ... 20],
+"flash_jump": {"distance": [140.0, 280.0], "repeat_delay": 0.3, "bot_threat_distance": 70.0}
+```
+
+- **Code.** `FlashJump` (`scripts/sim/flash_jump.gd`) is pure arithmetic: `distance(distances, rank, top_rank)` (linear from the
+  first to the last entry over ranks 1 to the skill's top rank: 140 px at rank 1, about 206 at rank 10 = Lv20, 280 from rank 20 =
+  Lv40), `side(held, facing)`, `admits(can_act, delay_left)` and `trail(from, to)` (the ghosts). `PlayerMotion.flash_destination`
+  and `flash_to` are the one movement entry point, next to Rush's `dash_destination` / `dash_to`, and share its wall and
+  map-limit checks. `RunWorld._try_flash_jump` runs each tick after the manual buffs and before ordinary movement.
+- **Press.** Allowed only while **airborne** (not on a floor, ladder or rope: `PlayerMotion.fh < 0` and not climbing), with
+  `can_cast()` (alive, playing, not climbing), no flash yet in this airborne period (`PlayerMotion.flash_spent`) and at least
+  `repeat_delay` since the last. Otherwise it is refused with nothing spent and no event. Direction = the held Left / Right, else
+  the facing; opposing arrows cancel into the facing; Up and Down are ignored. Holding the key flashes once per airborne period.
+- **Move.** The character slides `distance` px horizontally at its current height: no lift, both velocity components kept, so the
+  fall continues in the same tick (the tick's ordinary movement still runs). It stops at the walls of the platform last stood on
+  and at the map limits exactly as Rush's airborne dash does; a flash that cannot move is refused. It faces the flash side. It
+  deals no damage, earns and spends no meter, emits no `cast` and starts no cooldown beyond `repeat_delay` (the HUD icon's sweep).
+- **Reset.** `flash_spent` clears on landing (a floor), on grabbing a ladder or rope, and in `place()` (a same-map portal, a
+  map transfer, Banish, a Teleport). It is not cleared by a hit's knock-back (still the same airborne period).
+- **Event.** `flash_jump {skill, from, to}` (documented in `RunWorld.EVENT_FIELDS`, exercised by `test_run_events`).
+- **Presentation.** `RunScene` plays the `Use` sound and leaves a **ghost trail**: `FlashTrail` (`scripts/render/flash_trail.gd`)
+  draws three translucent copies of the avatar's current frame at 0, 1/3 and 2/3 of the path (opacity 0.5, 0.31, 0.19 at birth,
+  fading linearly to nothing in 0.3 s), in the player's actor layer just behind the avatar, mirrored for the facing. It is code
+  drawn from the avatar's own parts; the first one of a run saves `flash_jump.png` under `--shots`. No WZ art is used.
+- **Bot.** After the Teleport and Rush branches, `BotInput` presses the key when the bot is airborne, Flash Jump is ready, at
+  least `FLASH_MIN_INTERVAL` (3.0 s) passed since its last flash (`memo.flash_at`), and a mob is within `bot_threat_distance`
+  (70 px) horizontally and `FLASH_DY` (60 px) vertically: it flashes toward the side with less danger (Rush's rule) if the lane
+  covers at least `FLASH_LANE_FRACTION` (0.5) of the distance. It never presses on the ground (the bot does not jump just to flash).
+  Tier C: ours.
+- **Keys.** `flash_jump` joins `KeyBindings.SKILL_KEYS`, `project.godot` (X) and Key Config (the skill's own icon and name);
+  the quick slot shows it like the other mobility skills.
+
+Tests: `test_flash_jump` (the arithmetic; learned at start, never a card; refused on the ground, on a ladder, while dead or
+choosing a card; direction rules; distance by rank through the level rule; once per airborne period and its resets; the repeat
+delay; walls and map limits; no damage, no meter, no cast; key, Key Config, quick slot and HUD row; the trail node; the bot hook;
+the real node: 20 levels, `mpCon` only), `test_run_events` (the event), and every oracle unchanged.
+
+##### Night Lord NL6 constants (#405)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Flash Jump distance | 140 px at rank 1 to 280 px at rank 20, linear over the 20 ranks (206 px at rank 10) | tier C: spec #383 (the WZ node has no distance; its String text only says it grows with the level) |
+| Rank by round level | `balance.mobility_rank_levels`: rank 1 at Lv1, 10 at Lv20, 20 from Lv40, never a card | tier C: ADR 0006 shared rule (nothing new) |
+| `repeat_delay` | 0.3 s between flashes (HUD sweep) | tier C: spec #383, Teleport's survivor delay |
+| Once per airborne period; resets on landing, ladder or rope, `place()` | `PlayerMotion.flash_spent` | tier C: spec #383 |
+| Direction, height and fall | held side arrow else facing, opposing arrows cancel, Up / Down ignored; height and both velocity components kept; faces the flash side | tier C: spec #383 (facing and velocity kept: ours) |
+| Stops | walls of the platform last stood on, map limits (Rush's airborne rules) | tier C: ours (#302 rule reused) |
+| Ghost trail | 3 copies at 0, 1/3, 2/3 of the path, opacity 0.5 fading to 0.125 along the path, each faded out in 0.3 s | tier C: ours (the node has no art) |
+| `bot_threat_distance`, threat height | 70 px horizontally, 60 px vertically (`FLASH_DY`) | tier C: spec #383 |
+| `FLASH_MIN_INTERVAL`, `FLASH_LANE_FRACTION` | 3.0 s between bot flashes; the lane must cover half the distance | tier C: spec #383 (Rush's analogues) |
+| `Use` sound | `Sound.wz/Skill.img/4111006/Use` (654 ms) | tier A |
+
+#### 7.94.3 Echo summon (M11) (spec #383, NL5 #404)
 
 A clone that repeats the owner's star casts. Night Lord's Shadow Partner (NL10) is its first user; this ticket ships the mechanic on
-synthetic data only (`test_echo_cast`), and Shadower reuses it as data. The section number is 7.97, not the spec's 7.91: 7.90-7.93 are
-the Buccaneer sections and 7.94 holds the Night Lord data sections of NL2 and NL4.
+synthetic data only (`test_echo_cast`), and Shadower reuses it as data. The section number is 7.94.3, not the spec's 7.91: 7.90-7.93 are
+the Buccaneer sections, and the Night Lord tickets nest under 7.94.
 
 ```json
 "kind": "summon", "cast": {"rule": "summon"},
@@ -9849,6 +9914,11 @@ estimates. Durable stationary crowds and invulnerability in disposable visual pr
 | Decay clock | runs only while a unit is held, cleared when it empties; float slack `MesoCharge.CLOCK_EPSILON` 1e-6 s | tier C (ours; the slack only keeps 360 ticks of 1/60 s equal to six seconds) |
 | `read_per_unit` | multiplies the damage bounds and status damage by `1 + value x read`, stacking with `per_unit`; never spends, never gates | tier C, spec #383 |
 | Summary `meter.mean` / `meter.peak` | time-weighted mean of the held units per tick, and the most held, in `summary.json` for any meter | tier C (measurement convention) |
+
+### Night Lord NL6 constants (#405)
+
+Flash Jump's constants (distance table, repeat delay, once per airborne period, trail, bot thresholds) are the table under
+"Night Lord NL6 constants" in 7.94.2; all tier C except the `Use` sound (tier A).
 
 ### Hero H3 meter constants (#299)
 

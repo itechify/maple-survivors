@@ -1,4 +1,18 @@
 {
-	"_doc": "Night Lord skill definitions (spec #383, one marked region per ticket): NL6 #405 Flash Jump (mobility); NL7 #406 moves Lucky Seven and Drain here from skills/thief.json and adds Avenger and Triple Throw; NL8 #407 Ninja Storm and Ninja Ambush; NL9 #408 Shadow Meso; NL10 #409 Shadow Partner. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4), so Lucky Seven and Drain stay in thief.json until NL7. NL2 #401 defined none.",
-	"skills": {}
+	"_doc": "Night Lord skill definitions (spec #383, one marked region per ticket): NL6 #405 Flash Jump (mobility; its entry is the first one below, the region NL6 owns); NL7 #406 moves Lucky Seven and Drain here from skills/thief.json and adds Avenger and Triple Throw; NL8 #407 Ninja Storm and Ninja Ambush; NL9 #408 Shadow Meso; NL10 #409 Shadow Partner. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4), so Lucky Seven and Drain stay in thief.json until NL7. NL2 #401 defined none.",
+	"skills": {
+		"flash_jump": {
+			"skill_id": 4111006, "book": "411", "job": 411, "kind": "instant", "slot": "mobility",
+			"name": "Flash Jump",
+			"desc": "Press its skill key in the air to flash sideways. Once per jump.",
+			"text": {"desc": "Press the Flash Jump key while airborne, with an arrow key, to flash sideways without losing height. It works once per jump, and the higher your level the farther you go."},
+			"icon": "Skill.wz/411.img/skill/4111006/icon", "damage": "none",
+			"cast": {"rule": "manual"}, "skill_key": "flash_jump",
+			"flash_jump": {"distance": [140.0, 280.0], "repeat_delay": 0.3, "bot_threat_distance": 70.0},
+			"_flash_jump": "Tier A: WZ 4111006 (20 levels) holds only mpCon (not modelled) and the Use sound; the String text says the jump grows with the level. Tier C (spec #383 M14, NL6 #405): the distance table (140 px at rank 1 to 280 px at rank 20, linear over the ranks, GAME_DESIGN 7.92), the 0.3 s repeat delay, once per airborne period, the bot's 70 px threat distance. The rank is the round's level through balance.mobility_rank_levels (1 at Lv1, 10 at Lv20, 20 from Lv40), never a card; the node has no art, so the presentation is a code-drawn ghost trail.",
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "", "action_time": 0.0, "ball": "", "hit": "", "effect": "", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/4111006/Use", "hit": ""}
+		}
+	}
 }
