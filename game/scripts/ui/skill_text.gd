@@ -104,7 +104,9 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		if effects.has("damage"):
 			power = book.canonical(key, level, String(effects.damage.field), 100.0) / 100.0 + float(stats.get("form_power", 0.0))
 		var seconds := number(float(stats.get("duration", form.duration)))
-		if element.is_empty():
+		if effects.has("hull"):
+			mechanics.append(_ship_line(seconds, effects, stats, form))
+		elif element.is_empty():
 			mechanics.append(_transform_line(seconds, power - 1.0, effects.has("damage"), stats.get("buff_effects", {})))
 		else:
 			mechanics.append("Charges your weapon for %s s: your attacks deal %s damage (+%s%%)" % [
@@ -185,6 +187,33 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 			joined += part if joined == "" else (" " if joined.ends_with(".") else "; ") + part
 		line += ("\n" if line != "" else "") + joined
 	return line
+
+
+## The line of a ship Form (a `hull` effect, spec #384 C13 #397, tier C wording): its duration, the hull as a share of max HP, the
+## skills `only_skills` leaves firing and the clock of each sub-skill.
+func _ship_line(seconds: String, effects: Dictionary, stats: Dictionary, form: Dictionary) -> String:
+	var line := "Rides a battleship for %s s: hull %s%% of max HP" % [seconds, number(roundf(float(stats.get("hull_share", 0.0)) * 100.0))]
+	var only: Array = effects.get("only_skills", [])
+	if not only.is_empty():
+		var names := PackedStringArray()
+		for key: Variant in only:
+			names.append(String(book.def(String(key)).get("name", String(key).replace("_", " ").capitalize())))
+		line += "; only %s fire" % _join_names(names)
+	var clocks := PackedStringArray()
+	for sub: Dictionary in form.get("subs", []):
+		var sub_key := String(sub.skill)
+		var sub_name := String(book.def(sub_key).get("name", sub_key.replace("_", " ").capitalize())).trim_prefix("Battleship ")
+		clocks.append("the ship's %s every %s s" % [sub_name, number(float(sub.interval))])
+	if not clocks.is_empty():
+		line += ", plus " + " and ".join(clocks)
+	return line + "."
+
+
+## `names` as prose: "A", "A and B", "A, B and C".
+static func _join_names(names: PackedStringArray) -> String:
+	if names.size() <= 1:
+		return "".join(names)
+	return ", ".join(names.slice(0, names.size() - 1)) + " and " + names[names.size() - 1]
 
 
 ## The line of a form with no element (a morph such as Buccaneer's Transformation, spec #412 BU-9): its duration, the attack
@@ -270,7 +299,7 @@ func dress(cards: Array, lo: Loadout) -> Array:
 				if String(effect.op) == "mul" and stat == "damage":
 					labels.append(sub_name + " +" + number((float(effect.value) - 1.0) * 100.0) + "%")
 				elif String(effect.op) == "mul" and stat == "form_time":
-					labels.append("charge lasts " + number((float(effect.value) - 1.0) * 100.0) + "% longer")
+					labels.append(("ride" if lo.book.def(skill).form.effects.has("hull") else "charge") + " lasts " + number((float(effect.value) - 1.0) * 100.0) + "% longer")
 				else:
 					labels.append(UpgradePool.effect_label(stat, String(effect.op), float(effect.value)))
 			if not labels.is_empty():

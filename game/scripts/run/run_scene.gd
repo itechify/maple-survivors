@@ -112,6 +112,9 @@ const BLINK_ALPHA := 0.4
 const BLINK_PERIOD := 0.16
 ## tier C: pixels between the top of the character's body box and the hull bar (HullBar).
 const HULL_BAR_GAP := 10.0
+## tier C (C13 #397): extra pixels the bar rises while the character rides a mount: the ship lifts the seated rider, whose head then
+## reaches above the body box (playtest screenshot: the bar sat on the eyes).
+const HULL_BAR_MOUNT_LIFT := 20.0
 ## tier C (ours, BS8): seconds the "Resurrection! Ready again in M:SS" notice shows, and the delay of its evidence shot
 ## (the first beam frames, after the 1320 ms lead-in of the `affected` art).
 const REVIVE_NOTICE_TIME := 6.0
@@ -2035,7 +2038,9 @@ func _update_player(delta: float) -> void:
 	_tag_source.y[0] = p.pos.y
 	_tag_source.state[0] = MobRenderer.DIE if dead else MobRenderer.STAND
 	player_tag.update_from(_tag_source, PackedByteArray([1]), PackedStringArray([_player_name()]))
-	hull_bar.update(p.pos + Vector2(0.0, world.body.position.y - HULL_BAR_GAP), -1.0 if dead else world.runner.forms.hull_fraction())
+	var hull := -1.0 if dead else world.runner.forms.hull_fraction()
+	var lift := HULL_BAR_MOUNT_LIFT if _mount_skill != "" else 0.0
+	hull_bar.update(p.pos + Vector2(0.0, world.body.position.y - HULL_BAR_GAP - lift), hull)
 
 
 ## Draws the pet from its simulated state, in the actor layer of the foothold it stands on (the player's layer while it

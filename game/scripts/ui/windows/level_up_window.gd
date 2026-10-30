@@ -48,7 +48,8 @@ const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Ta
 	"support_heal": ["Pulse heal", " HP"], "support_rate": ["Pulse interval", " s"],
 	"heal_power": ["Recovery", "%"], "heal_threshold": ["Heals below", "% HP"],
 	"revive_hp": ["Revive HP", "%"], "revive_guard": ["Guard", " s"], "form_time": ["Form duration", " s"], "form_power": ["Form power", "%"],
-	"mark_power": ["Mark damage", "%"], "mark_time": ["Mark duration", " s"]}
+	"mark_power": ["Mark damage", "%"], "mark_time": ["Mark duration", " s"],
+	"hull": ["Hull", "%"]}
 
 ## Emitted with the picked card's id.
 signal card_chosen(card_id: String)
