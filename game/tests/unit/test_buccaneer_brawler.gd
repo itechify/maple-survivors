@@ -114,9 +114,14 @@ func test_the_five_skills_are_defined_in_the_buccaneer_line_only() -> void:
 		assert_eq(String(skills[key].book), BOOKS[key], key)
 		assert_eq(int(skills[key].job), int(BOOKS[key]), key)
 		assert_eq(String(skills[key].slot), "active", key)
-	var corsair: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "pirate")).skills
-	for key in ["double_shot", "grenade", "recoil_shot", "blank_shot", "invisible_shot", "dash", "knuckler_mastery", "bullet_time"]:
-		assert_true(corsair.has(key), "%s stays in pirate.json" % key)
+	var pirate: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "pirate")).skills
+	for key in ["blank_shot", "dash", "knuckler_mastery", "bullet_time"]:
+		assert_true(pirate.has(key), "%s stays in pirate.json" % key)
+	# Corsair C4 #388 moved the four ported Gunslinger fillers to skills/corsair.json (a key may be defined in one file only).
+	var corsair: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "corsair")).skills
+	for key in ["double_shot", "grenade", "recoil_shot", "invisible_shot"]:
+		assert_false(pirate.has(key), "%s left pirate.json" % key)
+		assert_true(corsair.has(key), "%s is in corsair.json" % key)
 
 
 func test_the_definitions_have_no_weapon_gate_no_explicit_ranks_and_the_new_cooldowns() -> void:
