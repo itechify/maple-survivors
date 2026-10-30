@@ -9984,6 +9984,20 @@ Physical followers add `summon_strike` (per-target strike art) and derived `stri
 fitted wind-up playback and inspection; `SpritePool.tint_of` exposes the rendered tint for tests. The tool-only
 `burst_probe` captures a synthetic moving-caster burst. These small extensions preserve the existing default paths.
 
+### Corsair C1 constants (#385)
+
+Asset findings only; no gameplay constant changed. Facts read from the imported books are tier A; the presentation
+decisions below are tier C and are what C6-C13 draw against (contact sheets of the Corsair skills with the Pistol 1492000 and
+the highest gun in the cache, and of the ship, in the C1 notes).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Gun stances (#385) | the pistol (1492000) and the highest gun (1492009) draw in every frame of every body action a Corsair skill names: `doublefire`, `triplefire`, `backstep`, `fireburner`, `coolingeffect`, `homing`, `airstrike`, `octopus`, `cannon`, `torpedo`, `rapidfire` (Rapid Fire's `prepare/action`), plus stand1, walk1, alert2, shoot1, jump, prone. The gun vanishes only in `sit`, `swingO1` and `dead` (and in 1492009's `ladder` / `rope`), none of which a skill names, so no skill needs a fallback stance | A (data), C (no fallback needed) |
+| Rider stance aboard (#385, spec #384 CS-12) | the Battleship rider's body action is `sit` (the gun is not drawn, as in v83), switching to `cannon` / `torpedo` / `fireburner` / `coolingeffect` for those casts (the gun is drawn there); the ship stance follows the rider (`stand1`, `walk1`, `jump`, `prone`, `cannon`, `torpedo`, `fireburner`, `coolingeffect`, `alert2`) | C |
+| Ship attachment (#385) | the ship's origin is its feet; the rider's origin sits at `ship map/navel - rider body map/navel` (stand1: (6, -38) - (-2, -17) = (8, -21)), the standard Maple navel attachment, confirmed on the contact sheet | B (client reading), C (confirmed here) |
+| Ship z order (#385) | `Base.wz/zmap.img` lists `tamingMobFront` second from the front (ahead of every avatar layer) and `tamingMobRear` after `characterEnd` (behind every avatar layer, back layers included): rear canvas under the avatar, front canvas over it | A |
+| Ship facing (#385) | the whole group (ship canvases and rider) mirrors about the ship's origin x; the art faces left like every v83 sprite | C |
+
 ## 12. Later phases
 
 Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.

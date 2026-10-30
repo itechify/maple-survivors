@@ -961,6 +961,7 @@ img Character.wz/PetEquip/01812002.img info
 img Character.wz/PetEquip/01812003.img info
 img Character.wz/PetEquip/01812004.img info
 img Character.wz/PetEquip/01812005.img info
+img Character.wz/TamingMob/01932000.img *
 img Effect.wz/BasicEff.img Enchant
 img Effect.wz/BasicEff.img JobChanged
 img Effect.wz/BasicEff.img LevelUp
@@ -1077,6 +1078,8 @@ img Skill.wz/510.img *
 img Skill.wz/511.img *
 img Skill.wz/512.img *
 img Skill.wz/520.img *
+img Skill.wz/521.img *
+img Skill.wz/522.img *
 img Skill.wz/910.img skill/9101001/icon
 img Skill.wz/910.img skill/9101001/iconDisabled
 img Skill.wz/910.img skill/9101001/iconMouseOver
@@ -1247,6 +1250,17 @@ img Sound.wz/Skill.img 5201002
 img Sound.wz/Skill.img 5201003
 img Sound.wz/Skill.img 5201004
 img Sound.wz/Skill.img 5201006
+img Sound.wz/Skill.img 5210000
+img Sound.wz/Skill.img 5211001
+img Sound.wz/Skill.img 5211002
+img Sound.wz/Skill.img 5211004
+img Sound.wz/Skill.img 5211005
+img Sound.wz/Skill.img 5211006
+img Sound.wz/Skill.img 5221003
+img Sound.wz/Skill.img 5221004
+img Sound.wz/Skill.img 5221006
+img Sound.wz/Skill.img 5221007
+img Sound.wz/Skill.img 5221008
 img Sound.wz/UI.img *
 img Sound.wz/Weapon.img *
 img String.wz/Consume.img *
