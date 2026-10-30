@@ -65,7 +65,8 @@ extends RefCounted
 ## 15 Thief-only rolls (thief_rng, Steal success in #214),
 ## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194),
 ## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256),
-## 18 ground-area status rolls (ground_rng).
+## 18 ground-area status rolls (ground_rng),
+## 20 area-warning attack column picks (area_rng, #460; 19 is mob_status_rng of #456).
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -134,6 +135,8 @@ const EVENT_FIELDS := {
 	"boss_spawned": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_died": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
+	# #460: an area-warning attack's columns: "warning" at attack start, "strike" at impact; `anchors` are column bottom centres.
+	"area_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "anchors", "size", "facing", "art", "time", "impact_time"],
 	# #76 ordinary (non-boss) mobs: a mob attack's phases (as boss_attack). Ordinary mobs cast no mob skills.
 	"mob_attack": ["mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
 	"mob_projectile_spawned": ["proj", "mob", "mob_id", "pos", "velocity", "range", "speed", "ball", "hit", "time"],
@@ -222,6 +225,8 @@ var pirate_rng: RandomNumberGenerator
 var banish_rng: RandomNumberGenerator
 ## Stream 18: ground-area status proc rolls, independent of combat.
 var ground_rng: RandomNumberGenerator
+## Stream 20: which columns of a boss's area-warning attack (`info/type` 3 and 4) strike (MobAttacks.pick_columns).
+var area_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
 var choice_bonus := false
@@ -440,6 +445,7 @@ func _init_rng_streams() -> void:
 	thief_rng = _stream(15) # tier C: independent Thief-only rolls; reserved for Steal success, #207/#214.
 	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14 reserved, #186.
 	ground_rng = _stream(18) # tier C: dedicated ground proc stream.
+	area_rng = _stream(MobAttacks.AREA_STREAM) # tier C: area-warning column picks never shift another stream, #460.
 	banish_rng = _stream(17) # tier C: Banish portal draws never shift another stream, #256.
 
 
