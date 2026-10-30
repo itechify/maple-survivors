@@ -13,6 +13,8 @@
 #   # --job=122 selects the Paladin (spec #308, P9 #317 flipped playable); --character=game/tests/fixtures/characters/paladin_t2.json is its tier-1 kit.
 #   # --job=232 selects the Bishop (spec #372) on shipped data since BS10; 212 stays the default.
 #   # --job=312 selects the playable Bowmaster with its creation bow and starting arrows.
+#   # --job=322 selects the Marksman (spec #360, MS10); it ships playable:false until MS11, so pass PATCH=<abs json making 322 playable>;
+#   # --character=<marksman_t2.json> is its tier-1 crossbow kit (a Marksman needs a crossbow in hand).
 
 #   # --job=512 selects the playable Buccaneer (spec #412); --character=<buccaneer_t2.json> is its tier-1 kit.
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves

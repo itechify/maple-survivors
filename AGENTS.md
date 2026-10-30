@@ -268,6 +268,18 @@ open). Its historical `_doc.patch` records B12's generation before enablement; n
 The same tool can also write the character a real bot
 round leaves behind, and converts old files.
 
+**Marksman (job 322; spec #360, MS10 #370).** `--job=322` is wired in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, the fixture tool and
+`--hub`, but Marksman ships `playable: false` until MS11 #371, so every tool refuses it ("not playable") until a patch mirrors the flip
+(`PATCH=` / `--patch=<abs json>` / `DataRepo.patch` of `{"jobs_survivor": {"jobs": {"322": {"playable": true}}}}`, or a private mirror
+edit that is never committed). `marksman_t2.json` is its fixture (kit mode like Bowmaster's: `--job=322
+--kit=1462003,1002163,1072025,1082012,1040002,1060002 --tiers=2 --patch=<playable patch>`: a Balanche crossbow, the same Bowman-bit hat, shoes and
+gloves as `bowmaster_t2.json`, the starter top and bottom, unscrolled, tier 2 open; `_doc.patch` records the patch until MS11). **Every
+Marksman run needs a crossbow in hand** (the fixture's Balanche): without one `Ammo` gives 0 and the bolt sprite lookup fails (`missing`).
+`bash scripts/playtest.sh --job=322 --character=$PWD/game/tests/fixtures/characters/marksman_t2.json --minutes=5` and `bash scripts/run.sh -- --hub --job=322`
+(crossbow ATT scrolls from `scrolls/bowman.json`, the Bowman gloves/shoes ATT and hat DEX stacks, spare crossbow, hat, gloves and top;
+`jobs/marksman.json` `hub_kit`) need that mirror. `--job=212` with a Marksman `--character` is an error; `JobTree.default_job()` stays 212. A Marksman has no
+skill key, quick-slot movement cell or Key Config row (no mobility skill, ruling D1).
+
 **Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
 or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on every tier-1 stage, both `bot` and
 `random` policies, and `--stage=sleepywood` with and without `--character=<fp_arch_mage.json>` (the tier-1 kit against the
