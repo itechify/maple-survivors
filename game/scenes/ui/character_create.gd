@@ -33,6 +33,9 @@ const JOB_ROW_SIZE := Vector2(190, 19)
 const JOB_SELECTED := Color8(255, 170, 68, 170)
 ## Every Button state a job row draws in: the chosen row keeps its plate under the mouse (hover/pressed) too.
 const JOB_ROW_STATES := ["normal", "hover", "pressed", "focus", "hover_pressed"]
+## tier C (NL11 #410): the Job step's rows must end above this y (the charSet panel's lower edge, level with the message strip).
+## Up to eight rows keep the 21 px pitch (19 px rows 2 px apart); a longer list shrinks its pitch to fit (nine rows: 18 px).
+const JOB_LIST_BOTTOM := 366.0
 
 var flow: SceneFlow
 var model: CharacterCreation
@@ -57,6 +60,8 @@ var _jobs: JobTree
 ## The playable jobs in creation order, and the chosen one.
 var job_ids: Array[int] = []
 var job_id := 0
+## Distance in px between two job rows (JOB_ROW_SIZE.y + 2 unless the list is too long to fit above JOB_LIST_BOTTOM).
+var job_pitch := JOB_ROW_SIZE.y + 2.0
 
 
 ## Binds the owning coordinator; no save is written until Create is accepted.
@@ -186,6 +191,7 @@ func _build_job_surface() -> void:
 	_job_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_job_surface)
 	_image_on(_job_surface, "NewChar/charSet", SETTINGS_AT)
+	job_pitch = minf(JOB_ROW_SIZE.y + 2.0, floorf((JOB_LIST_BOTTOM - ROW_AT.y) / maxi(1, job_ids.size())))
 	for i in job_ids.size():
 		var row := Button.new()
 		row.name = "Job_%d" % job_ids[i]
@@ -193,8 +199,8 @@ func _build_job_surface() -> void:
 		row.focus_mode = Control.FOCUS_NONE
 		row.text = _jobs.name_of(job_ids[i])
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT # tier C: names share a left edge whatever their length
-		row.position = Vector2(ROW_AT.x - 4.0, ROW_AT.y + i * (JOB_ROW_SIZE.y + 2.0))
-		row.size = JOB_ROW_SIZE
+		row.position = Vector2(ROW_AT.x - 4.0, ROW_AT.y + i * job_pitch)
+		row.size = Vector2(JOB_ROW_SIZE.x, job_pitch - 2.0)
 		row.add_theme_font_override("font", MapleText.font())
 		row.add_theme_font_size_override("font_size", MapleText.SMALL)
 		for color: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:

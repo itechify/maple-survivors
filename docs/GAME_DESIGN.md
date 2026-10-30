@@ -8493,7 +8493,7 @@ star skill again 0.25 s later. It is pure data on the echo seam of 7.94.3, plus 
 
 ```json
 "kind": "summon", "cast": {"rule": "summon"}, "cooldown": 50.0, "action": "alert", "damage": "none",
-"summon": {"echo": {"attack_field": "x", "skill_field": "y", "delay": 0.25,
+"summon": {"echo": {"attack_field": "x", "skill_field": "y", "delay": 0.25, "overshoot": 55.0,
                     "path": "Skill.wz/411.img/skill/4111002/special"},
            "follow_speed": 200.0, "follow_distance": 55.0, "teleport_distance": 600.0, "ordinal_spread": 40.0}
 ```
@@ -8507,8 +8507,10 @@ star skill again 0.25 s later. It is pure data on the echo seam of 7.94.3, plus 
   Meso (`skill`). Ninja Storm, Ninja Ambush, Flash Jump and the Shadow Partner itself carry none, so the zones, the nova and the
   summon never echo. A skill with several shots (Lucky Seven's two stars, Triple Throw's three) is echoed once per shot. The
   mechanics (recording, retargeting, no receipt, no heal, no echo of an echo) are 7.94.3; the clone's reach is its own: it trails
-  the owner by 55 px, so a monster in the last 55 px of the owner's reach in its facing direction is out of the clone's reach and
-  that echo is dropped (`overshoot` stays 0).
+  the owner by 55 px, so a monster in the last 55 px of the owner's reach in its facing direction would be out of the clone's reach.
+  Ruling D12 (NL11 #410, tier C): `summon.echo.overshoot` equals the clone's `follow_distance` (55 px), so the recorded target is kept
+  up to `range + 55` px from the clone and the echo's star also flies `range + 55` px, which lands it on a monster at the owner's
+  full reach (`test_shadow_partner::test_an_echo_reaches_a_target_at_the_owners_full_reach`). A monster beyond that still drops the echo.
 - **Damage and cards.** `damage "none"`: the clone never strikes. The echo percent is `x` or `y` at the clone's rank x
   `Loadout.skill_stat("shadow_partner", "damage", 1.0)`, so Shadow Power and Mastery scale it. Rarity (tier C, the spec's table):
   Rare `shadow_power` "Shadow Power" damage x1.2; Epic `shadow_booster` "Shadow Booster" cooldown x0.88; Unique `twin_shadow`
@@ -8539,6 +8541,38 @@ Drain's echo not healing, Twin Shadow, the damage modifier, the hand, the rarity
 card and Mastery rules, the bot scores, the renderer's mapping, frame and throw-timing rules and its throw state, and the
 real-cache rank / `special` / owner-stance checks). Tool: `scenes/debug/echo_clone_probe.tscn` (stand, walk, jump and a throw, zoomed
 crops).
+
+#### 7.94.9 Selection and tooling (spec #383 NL11, #410)
+
+Everything that lets Night Lord be created, run from the tools and tested end to end, short of flipping `playable` (NL12 #411).
+Constants: "Night Lord NL11 constants (#410)".
+
+- **Job page.** `character_create.gd` lists `JobTree.playable_jobs()` in canonical order, so Night Lord sits between Bowmaster (312)
+  and Buccaneer (512) the moment `playable` flips: nine rows. Nine rows at the old 21 px pitch ran past the sign's panel and under
+  the "Choose your job." message, so the pitch now shrinks when the list does not fit above `JOB_LIST_BOTTOM` (y 366): up to eight
+  rows keep 21 px (19 px rows, 2 px apart), nine rows take 18 px. `creation.job_pitch` exposes it and the creation tests read it.
+  Verified with the shipped eight rows, with 412 mirrored (nine rows, `DataRepo.patch`) and with the seam reducing the list to two.
+- **`--job=412`** is accepted by `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, `character_fixture.gd` and the hub as soon as
+  412 is playable; until NL12 every tool refuses it ("not playable") and a `--patch` / `PATCH` mirrors it. `--job=212` with a Night
+  Lord `--character` (and `--job=412` with an F/P one) fails with "does not match the character's job". `default_job()` stays 212.
+- **Fixture** `night_lord_t2.json` (tier 2, Meba 1472007 and the Thief-bit hat 1002171 / shoes 1072022 / gloves 1082029, unscrolled)
+  and the job's `hub_kit` (the five claw ATT scrolls of `scrolls/thief.json`, spare hat / second claw / gloves / Thief-bit top, the
+  Lv40 claw 1472014 as the flow driver's diagnostic item).
+- **Bot.** The summon card scores (`shadow_partner_new` 100 / `_rank` 74) apply, and all eight pool skills now carry the explicit pair
+  (the pool default gives the same numbers, so they are a guard). Flash Jump is pressed only by its own branch (airborne, a mob
+  within 70 px at its height, 3 s apart; no other skill key is ever pressed). `reach_of` / `has_target` read a `cast.focus` skill
+  (Triple Throw, 300 px) and a `pierce_field` skill (Avenger, 350 px) as their `range`. **The two fillers, Lucky Seven and Drain, reach
+  250 px**, the shortest star reach of any pool, so a Night Lord whose only ready attacks are the fillers kites at 250 px (an
+  archer's pool kites at 300-450). Recorded, not tuned.
+- **Skill window.** Tabs Common / Thief / Assassin / Hermit / Night Lord (the lineage 400 / 410 / 411 / 412); every skill sits on the
+  tab of its own job (`lucky_seven` 400, `drain` 410, `shadow_partner` / `shadow_meso` / `avenger` / `flash_jump` 411,
+  `ninja_ambush` / `triple_throw` / `ninja_storm` 412); a test fails when a skill the run owns is on no tab. Flash Jump has its Key
+  Config tray slot (default X) and its quick-slot cell; the meso charge is the ten-pip `HudMeter` row beside the skill bar.
+- **Baseline oracle** `test_night_lord_baseline`: seed 1, 21,600 fixed 1/60 s ticks (six minutes: long enough for Flash Jump, both
+  ninja skills and the first ammo step), bot, god, synthetic assets, a claw worn, the pre-#241 opening and whole-round curve, the
+  initial `player_state` hashed (see the constant below). The bot in that run learns Lucky Seven, Flash Jump, Drain, Triple Throw,
+  Ninja Ambush, Ninja Storm and Shadow Partner; Avenger and Shadow Meso are not taken because six active slots fill first.
+- **Ruling D12 (ROSTER_PLAN).** Shadow Partner's `summon.echo.overshoot` equals its `follow_distance` (7.94.7).
 
 ## 8. Upgrades
 
@@ -10565,3 +10599,15 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 | Throw stance | the echoed skill's action when `special` has it, else `shoot1`; frame times from the owner's body action, 0.1 s a frame when absent | tier C, ours (#409) |
 | No-`special` fall-back | the owner's sprite parts at alpha 0.5 | tier C: spec #383 |
 
+### Night Lord NL11 constants (#410)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Echo `overshoot` of Shadow Partner | 55 px, equal to its `follow_distance`; the echo's star flies `range + 55` px | tier C: ROSTER_PLAN D12 |
+| Job page row pitch | 21 px up to eight rows, `floor((366 - 198) / rows)` beyond (nine rows: 18 px); `JOB_LIST_BOTTOM` 366 | tier C: ours (#410) |
+| Fixture kit | Meba 1472007 (Lv25, PAD 16), hat 1002171 (Lv30), shoes 1072022 (Lv20), gloves 1082029 (Lv15), top 1040002, bottom 1060002, tier 2 unlocked | tier C: spec #383 (the tier-1 reqLevels of the other kits) |
+| Hub kit scrolls | the five claw ATT scrolls 2044700 / 01 / 02 / 04 / 05 (`scrolls/thief.json`), 10 each | tier C: spec #383 |
+| Hub kit equipment / fallback item | 1002001, 1472001, 1082002, 1040031 / 1472014 (the Lv40 claw) | tier C: ours (#410) |
+| Bot card scores | all eight pool skills `_new` 100 / `_rank` 74 | tier C: spec #383 (the established pool bases) |
+| Filler reach | Lucky Seven and Drain 250 px, the pool's shortest; Avenger 350, Triple Throw and Shadow Meso 300 | tier C: spec #383 (recorded, untuned) |
+| Baseline oracle | seed 1, 21,600 ticks, god, `GOLDEN` `6077b162...0bd1` in `test_night_lord_baseline.gd` | tier C: ours (#410) |

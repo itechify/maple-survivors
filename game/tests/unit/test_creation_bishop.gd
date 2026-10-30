@@ -88,7 +88,7 @@ func test_rows_follow_the_playable_jobs_and_212_is_chosen() -> void:
 	assert_true(bishop.size.x >= CREATE.JOB_ROW_SIZE.x)
 	assert_eq(bishop.position.x, mage.position.x, "rows share a column")
 	assert_eq(_row(creation, expected[0]).position.y, CREATE.ROW_AT.y, "the first row starts at the first Look row")
-	var pitch: float = CREATE.JOB_ROW_SIZE.y + 2.0
+	var pitch: float = creation.job_pitch
 	assert_eq(bishop.position.y - _row(creation, expected[0]).position.y, pitch * expected.find(232), "rows are one pitch apart in canonical order")
 	assert_eq(bishop.alignment, HORIZONTAL_ALIGNMENT_LEFT)
 	assert_true(bishop.get_theme_stylebox("normal") is StyleBoxEmpty, "Bishop is not highlighted until chosen")

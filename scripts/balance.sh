@@ -15,6 +15,8 @@
 #   # --job=312 selects the playable Bowmaster with its creation bow and starting arrows.
 
 #   # --job=512 selects the playable Buccaneer (spec #412); --character=<buccaneer_t2.json> is its tier-1 kit.
+#   # --job=412 selects the Night Lord (spec #383); it ships playable:false until NL12, so pass PATCH=<abs json making 412 playable>;
+#   # --character=<night_lord_t2.json> is its tier-1 claw kit (a Night Lord needs a claw in hand).
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
 #   bash scripts/balance.sh 1 --account="C:/abs/account.json"  # a round with an account (spec #34): {"owned": [item ids],
 #   # "cash": {slot: id}, "pet": id, "alert": {"hp": f}} (all optional; nx and an old alert.mp ignored). owned = the account's

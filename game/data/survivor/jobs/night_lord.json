@@ -1,5 +1,5 @@
 {
-	"_doc": "Night Lord line (spec #383, ticket NL2 #401). The third class line after Bowmaster and Buccaneer to reuse the line convention: its job entry, its meso charge meter, its AP row, its bot card scores and its status-bonus catalogue. Skill definitions are in skills/night_lord.json; each Night Lord skill ticket (NL6-NL10) appends its own. Lucky Seven and Drain stay in skills/thief.json until NL7 #406 moves them. Every skill key here stays inert until its ticket defines it (an undefined key is never offered or learned); the meter block stays inert until NL4 #403 gives PlayerMeter the meso_picked rule. NL11 #410 adds hub_kit and NL12 #411 flips playable; JobTree.default_job() stays 212 (survivor/jobs.json default_job).",
+	"_doc": "Night Lord line (spec #383, ticket NL2 #401). The third class line after Bowmaster and Buccaneer to reuse the line convention: its job entry, its meso charge meter, its AP row, its bot card scores and its status-bonus catalogue. Skill definitions are in skills/night_lord.json; each Night Lord skill ticket (NL6-NL10) appends its own. Every skill key here stays inert until its ticket defines it (an undefined key is never offered or learned); the meter block stays inert until NL4 #403 gives PlayerMeter the meso_picked rule. NL11 #410 adds hub_kit and NL12 #411 flips playable; JobTree.default_job() stays 212 (survivor/jobs.json default_job).",
 	"jobs": {
 		"412": {
 			"starting_skill": "lucky_seven",
@@ -43,7 +43,25 @@
 			},
 			"_meter": "tier C: spec #383 M23: the meso charge, a counter filled by meso pickups and never a currency. 1 pip per 1000 mesos picked up, one pip decays every 6 s, +3% damage per held pip on every pool cast; NL4 #403 reads gain.per_mesos and decay, NL9 #408 adds the Shadow Meso read. Tier A fact: the art is the meso coin's animation frame, already imported for pickups. Inert until NL4.",
 			"playable": false,
-			"_provenance": "tier C: spec #383 NL2 #401: the Night Lord data line; NL12 #411 makes it selectable."
+			"_provenance": "tier C: spec #383 NL2 #401: the Night Lord data line; NL12 #411 makes it selectable.",
+			"hub_kit": {
+				"fixture": "res://tests/fixtures/characters/night_lord_t2.json",
+				"scrolls": [
+					2044702,
+					2044701,
+					2044700,
+					2044704,
+					2044705
+				],
+				"equipment": [
+					1002001,
+					1472001,
+					1082002,
+					1040031
+				],
+				"fallback_item": 1472014
+			},
+			"_hub_kit": "tier C: spec #383 NL11 #410: the --hub / flow-driver test kit of a Night Lord. Fixture = night_lord_t2.json (the tier-1 claw kit); scrolls = the five claw ATT scrolls of scrolls/thief.json (10%, 60%, 100%, dark 70%, dark 30%; 5 stacks of 10 within the Use tab); spare equipment = the all-job hat 1002001, a second claw (1472001, Lv15), the all-job gloves 1082002 and a Thief-bit top (1040031, Lv10), all wearable by job 412; fallback_item = the Lv40 claw 1472014 the flow driver wears at Lv1 when a round dropped no equipment."
 		}
 	},
 	"balance": {
@@ -72,10 +90,24 @@
 		},
 		"bot": {
 			"card_scores": {
+				"lucky_seven_new": 100,
+				"lucky_seven_rank": 74,
+				"drain_new": 100,
+				"drain_rank": 74,
+				"avenger_new": 100,
+				"avenger_rank": 74,
+				"triple_throw_new": 100,
+				"triple_throw_rank": 74,
+				"ninja_storm_new": 100,
+				"ninja_storm_rank": 74,
+				"ninja_ambush_new": 100,
+				"ninja_ambush_rank": 74,
 				"shadow_partner_new": 100,
-				"shadow_partner_rank": 74
+				"shadow_partner_rank": 74,
+				"shadow_meso_new": 100,
+				"shadow_meso_rank": 74
 			},
-			"_card_scores": "tier C: spec #383: Shadow Partner is scored explicitly (learn 100, rank 74, the numbers BotInput's pool default gives every curated attack) because BotInput._base_score only treats projectile / instant / box skills as attacks and the clone is a summon; the other seven pool skills score as attacks by default."
+			"_card_scores": "tier C: spec #383: every pool skill is scored explicitly (learn 100, rank 74, the numbers BotInput's pool default gives every curated skill; NL11 #410 lists all eight as Hero's and Bowmaster's tests do). Shadow Partner needs its pair: BotInput._base_score alone only treats projectile / instant / box skills as attacks and the clone is a summon; the other seven entries are a guard, not a behaviour change."
 		},
 		"status_bonuses": {
 			"venomous_star": {
