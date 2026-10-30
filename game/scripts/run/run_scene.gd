@@ -171,6 +171,8 @@ var fx: FxRenderer
 var fx_back: FxRenderer
 ## The ghost trail of a Flash Jump (FlashTrail), in the player's actor layer just behind the avatar.
 var flash_trail: FlashTrail
+## The echo clones (Shadow Partner, GAME_DESIGN 7.94.7), in the player's actor layer just behind the avatar.
+var clone_renderer: EchoCloneRenderer
 var numbers: DamageNumbers
 var tags: NameTags
 var hud: Hud
@@ -689,6 +691,9 @@ func _build_actors() -> void:
 	fx_back.library = library
 	flash_trail = FlashTrail.new()
 	flash_trail.name = "FlashTrail"
+	clone_renderer = EchoCloneRenderer.new()
+	clone_renderer.name = "EchoClones"
+	clone_renderer.library = library
 	# The character is drawn through a CanvasGroup so the invincibility blink fades it as one image (a plain modulate
 	# would fade every part separately and show the body through the arm).
 	player_group = CanvasGroup.new()
@@ -1166,6 +1171,8 @@ func handle_events(events: Array) -> void:
 				flash_trail.spawn(avatar.current_parts(), avatar.facing, e.from, e.to)
 				_sound(String(world.book.def(String(e.skill)).sounds.use))
 				_first_event_shot("flash_jump", "flash_jump.png", 0.05) # tier C: capture the first trail while the ghosts are bright.
+			"echo_cast":
+				_on_echo_cast(e)
 			"boss_skill":
 				_on_boss_skill(e)
 			"player_banished":
@@ -1920,6 +1927,7 @@ func _present(delta: float) -> void:
 	_update_falls(delta)
 	_update_player(delta)
 	_update_pet(delta)
+	_update_clones(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
 	var mob_actions := world.mob_action_view()
 	for i in mob_renderers.size():
@@ -2022,6 +2030,20 @@ func _update_player(delta: float) -> void:
 	player_tag.update_from(_tag_source, PackedByteArray([1]), PackedStringArray([_player_name()]))
 
 
+## Draws the echo clones from the sim's `PlayerSummons`: the owner's stance and frame, fading with a Hidden avatar.
+func _update_clones(delta: float) -> void:
+	var delays := avatar.stance_delays(avatar.stance)
+	var pose := {"stance": avatar.stance, "frame": avatar.frame_index, "frames": delays.size(),
+		"alpha": HIDDEN_ALPHA if bool(world.player_state.get("hidden", false)) else 1.0}
+	clone_renderer.update_from(world.runner.summons, pose, delta, avatar.current_parts())
+
+
+## An echo's star leaves a clone's hand: the clone plays the echoed skill's stance (the body action's frame times).
+func _on_echo_cast(e: Dictionary) -> void:
+	var action := String(world.book.def(String(e.skill)).get("action", ""))
+	clone_renderer.start_throw(world.runner.summons, int(e.clone), action, avatar.stance_delays(action), int(e.facing))
+
+
 ## Draws the pet from its simulated state, in the actor layer of the foothold it stands on (the player's layer while it
 ## hangs on a rope or is in the air), just behind the avatar when that is the avatar's layer.
 func _update_pet(delta: float) -> void:
@@ -2047,13 +2069,14 @@ func _update_pet(delta: float) -> void:
 func _place_player_layer(layer: int) -> void:
 	_player_layer = layer
 	var c := map.actor_layer(layer)
-	for n: Node in [fx_back, flash_trail, player_group, drops]:
+	for n: Node in [fx_back, flash_trail, clone_renderer, player_group, drops]:
 		if n.get_parent() != c:
 			if n.get_parent() != null:
 				n.get_parent().remove_child(n)
 			c.add_child(n)
 	c.move_child(player_group, -1)
 	c.move_child(flash_trail, player_group.get_index())
+	c.move_child(clone_renderer, player_group.get_index())
 	c.move_child(drops, -1)
 	if _top.get_parent() == c:
 		c.move_child(_top, -1)

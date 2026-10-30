@@ -11,7 +11,7 @@ func update_from(summons: PlayerSummons) -> void:
 		_pool = SpritePool.new(get_canvas_item())
 	_pool.ensure(summons.active.size())
 	for i in summons.active.size():
-		if summons.active[i] == 0:
+		if summons.active[i] == 0 or summons.definitions[i].has("echo"): # a clone is EchoCloneRenderer's
 			_pool.hide(i)
 			continue
 		var path := String(summons.definitions[i].path) + "/" + summons.action[i]
