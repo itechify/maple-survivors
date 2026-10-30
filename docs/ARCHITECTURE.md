@@ -542,6 +542,13 @@ An explicit `magic=1` also selects magic damage, falling back to mob MADamage wh
 Effects and impacts have separate completion flags: an effectAfter later than attackAfter is preserved once.
 The `boss_attack` hit phase carries the canonical hit path in `effect` at the character's current feet.
 
+**Area-warning attacks (#460).** `MobAttacks.plan` also admits `info/type` 3 and 4 for scheduled bosses: it builds the
+`areaCount` ground columns (`area_columns`), picks `attackCount` of them on RNG stream 20 (`RunWorld.area_rng`;
+`pick_columns` always includes the character's column) and keeps the picked rects in the pending windup. `emit` sends
+one `area_attack` event (`phase` "warning" at the start, "strike" at the impact, with the packed column `anchors`), and
+`_impact` damages the character once when its body overlaps any picked column. RunScene plays one pooled `FxRenderer`
+animation per anchor (`play_at_all`); no node per column.
+
 **Shared mob attack path (#76).** The windup/impact code above lives in `MobAttacks` as static functions
 (`plan`, `service`, `emit`, `area_at`); `BossAttacks` keeps only the boss loop (which attacks, `attack_interval`,
 `attack_dmg_mult`, the BossDirector action gate). `MobAttacks.step` runs the same code for ordinary mobs: every kind
