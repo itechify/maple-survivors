@@ -8421,6 +8421,50 @@ length and replaces the multiplier, never stacks; the nearest-rule skills, the b
 | Stance hold | `action_time` 0.6 s | C |
 | Rarity | Rare Gun Mastery x1.2 damage, Epic Gun Booster x0.88 cooldown, Unique Bullseye `mark_power` +0.25 and `mark_time` x1.5, Legendary the Unique plus x1.2 damage | C |
 
+#### 7.120.9 Corsair C10: Aerial Strike and Rapid Fire (#394, spec #384)
+
+Two 4th-job skills as data on seams that already exist, both in `skills/corsair.json` (book 522). **Aerial Strike** (5221003) is the
+delayed area strike of Meteor Shower / Genesis / Arrow Rain: a `box` cast with `min_targets 1` and `pending {delay 1.8}`, the box
+anchored where the caster stood and lost on a map transfer, a clear or a death like every pending strike. **Rapid Fire** (5221004) is
+Bowmaster's channelled burst (`cast.rule "burst"`, Hurricane's seam): ten bullets of the current ammo at one monster, the target kept
+and re-picked, the character free to walk between shots. No code changed: the ticket is two definitions, the tests and these
+constants.
+
+- **Aerial Strike.** Box `lt (-400,-500) rb (400,100)` (A) around the caster's feet, 6 monsters (A `mobCount`), damage 520 -> 1200 over
+  30 levels (A): 580 / 850 / 1200 % at ranks 1 / 4 / 8 (levels 4 / 15 / 30). The bombs land 1.8 s after the cast (A: the impact art
+  `effect1` holds its first frame, a 1 x 1, for 1800 ms). The art: `effect` (10 frames) is the cast flourish on the caster, `effect0`
+  (30 frames at 90 ms, the flock carrying bombs across the screen, authored for a left-facing caster) is a `cast_visuals` entry placed on
+  the caster and mirrored for a right-facing one (`facing: true`), and `effect1` (14 frames, the explosions, 830 x 500 and up) is a
+  second such entry: its first frame is a 1 x 1 held 1800 ms, so it starts with the cast and the explosions appear exactly when the
+  strike lands (`pending.effect` stays empty; played at the impact it would explode 1.8 s late, as the first playtest shot showed).
+  `hit/0` plays on each struck monster, `Use` at the cast and `Hit` at the impact. Stance `airstrike` (A, 15 body frames).
+- **Rapid Fire.** `burst`, `count` 10, `burst {interval 0.08, wind_up 0.3, retarget true}`, `ammo_shot`, range 350 (A), 1000 px/s, radius 6,
+  no pierce, one monster per bullet; damage 102 -> 170 per bullet (A): 108 / 130 / 170 % at ranks 1 / 4 / 8. The first bullet leaves
+  0.3 s after the cast, bullet k at 0.3 s + k x 0.08 s (the last at 1.02 s); no second burst starts while one runs (the burst gate), even
+  with the cooldown reset. The stream's art is `burst_art`: `prepare` (fitted to the 0.3 s wind-up), `keydown` looping from the first
+  bullet, `keydownend` when the stream ends or is dropped; `hit/0` on each bullet; `Use` + `Hit` sounds.
+- **Rarity.** Aerial Strike: Rare Gun Mastery (`damage` x1.2), Epic **Wide Run** (`area` x1.2: a 960 px box), Unique **Second Run**
+  (`attack_count` +1: a second line on every struck monster), Legendary Second Run plus `damage` x1.2. Rapid Fire: Rare Gun Mastery
+  (`damage` x1.2), Epic Gun Booster (`cooldown` x0.88), Unique **Bullet Time** (`count` +4: fourteen bullets), Legendary Bullet Time plus
+  `damage` x1.2. Unique and Legendary share an id (and so the repeat counter). The names follow the lineage (Gun Mastery 5200000, Gun
+  Booster 5201003, Bullet Time 5000000).
+- **Bot.** `SkillRunner.reach_of` already reads `burst` as its `range` (350, above the engage threshold: the Corsair kites); a box skill's
+  reach is its far edge (400). No change.
+
+**Constants (#394).**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Aerial Strike numbers | WZ 5221003: `damage` 520..1200, `mobCount` 6, `lt (-400,-500) rb (400,100)`, `airstrike`, `effect` 10 / `effect0` 30 / `effect1` 14 frames, `hit/0`, `Use` / `Hit` | A |
+| Aerial Strike delay | 1.8 s: `effect1`'s first frame holds 1800 ms | A |
+| Aerial Strike cooldown | 6.0 s (WZ `cooltime` 5 s) | C |
+| Aerial Strike cast | auto-cast with at least one monster in the box; box anchored where the caster stood; `action_time` 0.8 s; `effect0` and `effect1` placed on the caster's spot at the cast and mirrored with the facing | C |
+| Rapid Fire numbers | WZ 5221004: `damage` 102..170, `range` 350, `prepare` / `keydown` / `keydownend` / `hit/0`, `Use` / `Hit`; the `prepare` node names the body action `rapidfire` (one frame, gun drawn) | A |
+| Rapid Fire stream | `count` 10, `interval` 0.08 s, `wind_up` 0.3 s (the `prepare` art is 0.54 s, fitted to 0.3 s because nothing is held), retarget, `ammo_shot`, 1000 px/s, radius 6, no pierce | C |
+| Rapid Fire cooldown | 5.0 s | C |
+| Rapid Fire stance | `action` `rapidfire` held 0.6 s at least, and the whole stream (1.02 s): the spec read the missing WZ `action` as "the gun's own shooting stance"; the body does have `rapidfire` and it draws the gun | C |
+| Rarity bonuses | see 7.120.9 | C |
+
 #### 7.120.12 Corsair C12: mount art (#396, spec #384 M20)
 
 The Battleship is drawn, not just listed: while a running form's `form_started` names a `mount` (C11 adds the key; the Battleship
@@ -10509,6 +10553,10 @@ The constants of the Battleship, Cannon and Torpedo are in section 7.120.14, des
 ### Corsair C8 constants (#392)
 
 The constants of Homing Beacon and Bullseye (cast shape, cooldown, the 8 s mark length, the rarity bonuses) are in section 7.120.7, described in 7.120.6.
+
+### Corsair C10 constants (#394)
+
+The constants of Aerial Strike and Rapid Fire (cooldowns, the stream timing, the stance, the rarity bonuses) are in section 7.120.9.
 
 ### Corsair C12 constants (#396)
 

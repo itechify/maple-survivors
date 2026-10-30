@@ -1180,6 +1180,209 @@
 					}
 				]
 			}
+		},
+		"aerial_strike": {
+			"skill_id": 5221003,
+			"book": "522",
+			"job": 522,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Aerial Strike",
+			"desc": "Calls a flock of gulls over where you stand. Their bombs fall a moment later.",
+			"icon": "Skill.wz/522.img/skill/5221003/icon",
+			"damage": "physical",
+			"_tier": "Tier A (WZ 5221003, book 522): damage 520..1200% by level (580 / 850 / 1200% at rank 1 / 4 / 8, levels 4 / 15 / 30), mobCount 6, the box lt (-400,-500) rb (400,100), the airstrike stance, the 10-frame effect, the 30-frame effect0 (the flock crossing), the 14-frame effect1 whose first frame holds 1800 ms (the bombs land there: the pending delay), hit/0 and the Use and Hit sounds. Tier C (spec #384 C10 #394, GAME_DESIGN 7.120.9): the 6 s cooldown (WZ 5 s), auto-cast with at least one monster in the box, the strike anchored where the caster stood, a 0.8 s stance hold, effect0 and effect1 both played at the cast position (effect1's own 1800 ms first frame is the delay: it starts with the cast and its explosions land with the strike) and mirrored for a right-facing caster, the rarity bonuses. Untuned.",
+			"action": "airstrike",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/522.img/skill/5221003/hit/0",
+			"effect": "Skill.wz/522.img/skill/5221003/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5221003/Use",
+				"hit": "Sound.wz/Skill.img/5221003/Hit"
+			},
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 6.0,
+			"pending": {
+				"delay": 1.8,
+				"effect": ""
+			},
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/522.img/skill/5221003/effect0",
+					"x": 0,
+					"facing": true
+				},
+				{
+					"path": "Skill.wz/522.img/skill/5221003/effect1",
+					"x": 0,
+					"facing": true
+				}
+			],
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "gun_mastery",
+						"text": "Gun Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_run",
+						"text": "Wide Run",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "second_run",
+						"text": "Second Run",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "second_run",
+						"text": "Second Run",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"rapid_fire": {
+			"skill_id": 5221004,
+			"book": "522",
+			"job": 522,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Rapid Fire",
+			"desc": "Looses a long stream of bullets at the nearest monster while you keep moving.",
+			"icon": "Skill.wz/522.img/skill/5221004/icon",
+			"damage": "physical",
+			"_tier": "Tier A (WZ 5221004, book 522): damage 102..170% per bullet by level (108 / 130 / 170% at rank 1 / 4 / 8), range 350, no mobCount or bulletCount (a held-key stream), the prepare (9 x 60 ms plus 3 trailing frames), keydown (8 x 60 ms) and keydownend (9 x 60 ms) art, hit/0 and the Use and Hit sounds; the prepare node names the body action `rapidfire` (C1 #385: one frame, gun drawn). Tier C (spec #384 C10 #394, GAME_DESIGN 7.120.9): ten bullets 0.08 s apart after a 0.3 s wind-up (the prepare art fitted to it), the current ammo's bullets at 1000 px/s and 6 px radius, the 5 s cooldown, the `rapidfire` stance held for the whole stream (the spec read the missing WZ action as the gun's shooting stance), the rarity bonuses. Untuned.",
+			"cast": {
+				"rule": "burst"
+			},
+			"burst": {
+				"interval": 0.08,
+				"wind_up": 0.3,
+				"retarget": true
+			},
+			"count": 10,
+			"burst_art": {
+				"prepare": "Skill.wz/522.img/skill/5221004/prepare",
+				"loop": "Skill.wz/522.img/skill/5221004/keydown",
+				"end": "Skill.wz/522.img/skill/5221004/keydownend"
+			},
+			"cooldown": 5.0,
+			"range": 350,
+			"speed": 1000,
+			"radius": 6,
+			"pierce": 0,
+			"action": "rapidfire",
+			"action_time": 0.6,
+			"ball": "",
+			"ammo_shot": true,
+			"hit": "Skill.wz/522.img/skill/5221004/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/5221004/Use",
+				"hit": "Sound.wz/Skill.img/5221004/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "gun_mastery",
+						"text": "Gun Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "booster",
+						"text": "Gun Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "bullet_time",
+						"text": "Bullet Time",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 4
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "bullet_time",
+						"text": "Bullet Time",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 4
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
 		}
 	}
 }
