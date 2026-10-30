@@ -21,6 +21,8 @@ static func named_ids(stage: Dictionary) -> PackedInt32Array:
 				_add(ids, int(key))
 	for boss: Dictionary in DataRepo.stage_bosses(stage):
 		_add(ids, int(boss.get("mob_id", 0)))
+		if boss.has("final_form"):
+			_add(ids, int(boss.final_form))
 	ids.sort()
 	return ids
 
@@ -59,6 +61,13 @@ static func mob_ids(stage: Dictionary, mob_imgs: Dictionary, mob_skill_img: Dict
 		if img is Dictionary:
 			for extra in boss_extra_ids(img, mob_skill_img):
 				_add(ids, extra)
+		if boss.has("final_form"):
+			# The final form's own summons (and revives) come in with it.
+			var final_id := int(boss.final_form)
+			var final_img: Variant = mob_imgs.get(final_id, mob_imgs.get(str(final_id), {}))
+			if final_img is Dictionary:
+				for extra in boss_extra_ids(final_img, mob_skill_img):
+					_add(ids, extra)
 	for id: int in StagePools.stage_pool_ids(stage, map_imgs):
 		_add(ids, id)
 	ids.sort()

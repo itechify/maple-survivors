@@ -52,6 +52,26 @@ func test_a_format_two_save_moves_its_characters_to_the_history_unmigrated() -> 
 	assert_eq(loaded.create_slot(snapshot("Old1")), 0, "a retired character's name and slot are free again")
 
 
+func test_a_stored_tiers_unlocked_counter_becomes_the_cleared_set_on_load() -> void:
+	var tier_one := snapshot("Tier1Char")
+	tier_one.character.erase("cleared_regions")
+	tier_one.character["tiers_unlocked"] = 1
+	var tier_two := snapshot("Tier2Char")
+	tier_two.character.erase("cleared_regions")
+	tier_two.character["tiers_unlocked"] = 2
+	var file := FileAccess.open(save_path, FileAccess.WRITE)
+	file.store_string(JSON.stringify({"format": 3, "best": {}, "runs": {}, "slots": [tier_one, tier_two, null], "history": []}))
+	file.close()
+	var loaded := SaveData.new(save_path)
+	assert_eq(loaded.last_error, OK)
+	assert_eq(loaded.slot(0).character.cleared_regions, [])
+	assert_eq(loaded.slot(1).character.cleared_regions, ["ellinia", "henesys", "kerning", "perion"])
+	assert_false(loaded.slot(1).character.has("tiers_unlocked"))
+	var disk: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(save_path))
+	assert_false(disk.slots[1].character.has("tiers_unlocked"), "the file is rewritten with the set")
+	assert_eq(JSON.parse_string(FileAccess.get_file_as_string(save_path)), disk)
+
+
 func test_legacy_region_keys_migrate_bests_counts_and_history_on_disk() -> void:
 	var legacy := {"format": 2,
 		"best": {"henesys_hg1": {"stage": "henesys_hg1", "level": 35}, "henesys": {"level": 20}},
@@ -274,7 +294,7 @@ func test_slot_create_update_reload_preserves_the_format_three_character() -> vo
 	var boundary := snapshot()
 	boundary.character.mesos = 4321
 	boundary.character.scrolls = {"2043700": 3}
-	boundary.character.tiers_unlocked = 2
+	boundary.character.cleared_regions = ["henesys"]
 	boundary.character.look = {"skin": 0, "face": 20000, "hair": 30030}
 	assert_eq(save.create_slot(boundary), 0, SaveData.validation_error(boundary))
 	boundary.rounds_played = 1
@@ -338,14 +358,14 @@ func test_every_round_keeps_its_character_and_adds_one_history_entry_with_bests_
 		"job_id": 212, "job_name": "Arch Mage (Fire, Poison)", "kills": 4200, "seed": 1, "nx_awarded": 300}
 	boundary.rounds_played = 1
 	boundary.character.mesos = 777
-	boundary.character.tiers_unlocked = 2
+	boundary.character.cleared_regions = ["henesys"]
 	assert_eq(save.finish_round(0, boundary, "cleared", "2026-10-16T13:00:00Z", first), OK, SaveData.validation_error(boundary))
 	var loaded := SaveData.new(save_path)
 	assert_eq(loaded.runs_for("henesys"), 1)
 	assert_eq(int(loaded.best_for("henesys").kills), 4200)
 	assert_eq(int(loaded.account.nx), 300)
 	assert_eq(int(loaded.slot(0).character.mesos), 777, "the character keeps what the round gave")
-	assert_eq(int(loaded.slot(0).character.tiers_unlocked), 2)
+	assert_eq(loaded.slot(0).character.cleared_regions, ["henesys"], "the cleared set is written in the same single write")
 	var last := {"stage": "sleepywood", "cleared": false, "time": 350.0, "level": 45, "kills": 1200, "nx_awarded": 50}
 	boundary.rounds_played = 2
 	assert_eq(loaded.finish_round(0, boundary, "died", "2026-10-16T14:00:00Z", last), OK)
@@ -374,11 +394,13 @@ func test_invalid_snapshots_and_duplicate_living_names_cannot_replace_characters
 		{"rounds_played": -1}, {"rounds_played": 0.5}, {"character": {"format": 2}},
 		{"character": {"format": 1, "job_id": 0, "beginner_weapon": 0, "look": {}}},
 		{"character": {"format": 3, "job_id": 212, "look": {}, "equipment": Equipment.empty_state(),
+			"scrolls": {}, "mesos": 0, "cleared_regions": "henesys"}},
+		{"character": {"format": 3, "job_id": 212, "look": {}, "equipment": Equipment.empty_state(),
 			"scrolls": {}, "mesos": 0, "tiers_unlocked": 0}},
 		{"character": {"format": 3, "job_id": 212, "look": {"position": Vector2.ZERO},
-			"equipment": Equipment.empty_state(), "scrolls": {}, "mesos": 0, "tiers_unlocked": 1}},
+			"equipment": Equipment.empty_state(), "scrolls": {}, "mesos": 0, "cleared_regions": []}},
 		{"character": {"format": 3, "job_id": 212, "look": {"scale": INF},
-			"equipment": Equipment.empty_state(), "scrolls": {}, "mesos": 0, "tiers_unlocked": 1}}]
+			"equipment": Equipment.empty_state(), "scrolls": {}, "mesos": 0, "cleared_regions": []}}]
 	for patch: Dictionary in invalid:
 		var bad := snapshot("Other2")
 		bad.merge(patch, true)

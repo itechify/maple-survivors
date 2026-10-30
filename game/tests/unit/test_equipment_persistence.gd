@@ -51,7 +51,7 @@ func _character() -> Dictionary:
 	equipment.worn.hat.stats.incMDD = 33 # a scrolled / rolled instance, not the canonical one
 	equipment.worn.hat.scrolls = 1
 	return {"format": 3, "job_id": 212, "look": {"skin": 0, "face": 20000, "hair": 30030}, "equipment": equipment,
-		"scrolls": {"2043700": 2}, "mesos": 12345, "tiers_unlocked": 1}
+		"scrolls": {"2043700": 2}, "mesos": 12345, "cleared_regions": []}
 
 
 func _round(character: Dictionary) -> RunWorld:

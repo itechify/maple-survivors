@@ -53,7 +53,8 @@ extends SceneTree
 ## --account=<abs JSON path>: give the round an account (AccountFile: owned cash items, worn cash equipment, pet, ALERT
 ## levels; applied to the first round's character and carried through --tier chains). The record gets "account": <file
 ## name>. Without the flag the round has an empty account and the record is byte-identical to before; NX is never credited.
-## --tier=N (N >= 2): chain from tier 1 through N using stages.json tiers; --stage selects tier 1 (default first).
+## --tier=N (N >= 2): chain from tier 1 (the first four progression regions) through tier 2 (the fifth); --stage selects
+## tier 1 (default first). --chain=N (A5, #454) will replace it.
 ## Later tiers take their first listed stage; --character and camper policies cannot be combined with --tier.
 ## Tier-1 round seed equals the run seed; later seeds are hash("balance-round-<run seed>-<zero-based tier>").
 ## Chain BALANCE records contain rounds[]; only CLEARED (including all rewards) feeds the next tier.
@@ -200,7 +201,12 @@ func _init() -> void:
 			return
 	if cap > 0.0:
 		data.balance["run_time_cap"] = cap
-	var tiers: Array = data.stages.get("tiers", [])
+	# `--tier=N` keeps its old meaning on the progression (A5, #454, replaces it with --chain): tier 1 is the first
+	# CharacterSnapshot.LEGACY_TIER1_REGIONS regions, tier 2 the fifth.
+	var progression: Array = data.stages.get("progression", [])
+	var tiers: Array = [progression.slice(0, CharacterSnapshot.LEGACY_TIER1_REGIONS),
+		progression.slice(CharacterSnapshot.LEGACY_TIER1_REGIONS, CharacterSnapshot.LEGACY_TIER1_REGIONS + 1)]
+	tiers = tiers.filter(func(tier: Array) -> bool: return not tier.is_empty())
 	if chain and (target_tier < 2 or target_tier > tiers.size() or has_character or CAMPER.STAGES.has(policy)):
 		print("balance_run: --tier must be 2..%d; cannot combine with --character or camper policies" % tiers.size())
 		quit(2)
@@ -684,11 +690,18 @@ static func fight_records(world: RunWorld) -> Array:
 	for record: Dictionary in world.bosses.records:
 		var spawn := float(record.spawn_time)
 		var death := float(record.death_time)
-		fights.append({"boss_index": int(record.boss_index), "mob_id": int(record.mob_id), "spawn_time": spawn, "death_time": death,
+		# Keyed on the scheduled entry, so a final form's swap (record.mob_id becomes the form's) never changes the id.
+		var entry: Dictionary = world.bosses.entries[int(record.boss_index)]
+		var fight := {"boss_index": int(record.boss_index), "mob_id": int(entry.mob_id), "spawn_time": spawn, "death_time": death,
 			"map_index": int(record.get("map_index", 0)), "map_id": int(record.get("map_id", world.current_map_id())),
 			"duration": death-spawn if bool(record.dead) and spawn>=0.0 else -1.0,
 			"elapsed": maxf(0.0, (death if bool(record.dead) else world.time)-spawn) if spawn>=0.0 else 0.0,
-			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "skipped" if bool(record.get("skipped", false)) else "not_spawned"})
+			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "skipped" if bool(record.get("skipped", false)) else "not_spawned"}
+		if entry.has("final_form"):
+			# Only encounters with a final form carry these, so other runs' records keep their shape.
+			fight["final_form"] = int(entry.final_form)
+			fight["form_time"] = float(record.get("form_time", -1.0))
+		fights.append(fight)
 	return fights
 
 

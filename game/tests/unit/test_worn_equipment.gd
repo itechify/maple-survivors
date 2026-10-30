@@ -26,7 +26,7 @@ func _setup(character: Dictionary = {}) -> Dictionary:
 	# This equipment fixture deliberately starts with a sword; bare tools use each job's creation weapon.
 	setup.character = character if not character.is_empty() else {"format": 3, "job_id": 212, "look": {},
 		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
-		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
+		"scrolls": {}, "mesos": 0, "cleared_regions": []}
 	return setup
 
 

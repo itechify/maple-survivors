@@ -220,7 +220,9 @@ var _window_req: Dictionary = {}
 var _window_open_t := 0.0
 var _window_auto := 0.0
 var _restart_action := false
-var _slow_fx := -1
+## Looping `affected` art above the character per boss status (MobSkill id -> fx handle); player_state key by id.
+var _status_fx := {}
+const STATUS_KEYS := {MobSkillRunner.SKILL_SLOW: "slow", MobSkillRunner.SKILL_STUN: "stun"}
 var _immunity_fx := {}
 var _shown_action := ""
 var _blink_t := 0.0
@@ -964,41 +966,48 @@ func _warm_stage() -> void:
 	for frame: String in ["backgrnd", "backgrnd2", "backgrnd3", "backgrnd4"]:
 		_warm_frame(HudBossBar.ART + frame)
 	var enabled: Array = world.balance.get("mob_skills", {}).get("enabled_ids", [])
-	for entry: Dictionary in DataRepo.stage_bosses(world.stage):
-		var id := int(entry.mob_id)
-		var img: Dictionary = world.setup.get("mob_imgs", {}).get(id, {})
-		if img.is_empty():
-			continue
-		library.string_name("Mob", id)
-		var info: Dictionary = img.get("info", {})
-		var ui: Dictionary = data.get("mobs", {}).get("mobs", {}).get(str(id), {}).get("boss_ui", {})
-		_warm_frame(HudBossBar.ART + "Mob/%d" % int(ui.get("icon_id", id)))
-		for tag: String in ["%d/0" % int(ui.get("hp_tag_color", info.get("hpTagColor", 1))),
-				"%d/1" % int(ui.get("hp_tag_bgcolor", info.get("hpTagBgcolor", 5)))]:
-			_warm_frame(HudBossBar.ART + "Gage/" + tag)
-		var stances := library.mob_anim_img_path(id)
-		for sound: String in ["Damage", "Die"]:
-			_warm_sound(SND_MOB % [id, sound])
-		for attack: Variant in entry.get("attacks", []):
-			library.find_anim(stances + "/" + String(attack))
-			for part: String in ["effect", "ball", "hit"]:
-				library.find_anim("Mob.wz/%07d.img/%s/info/%s" % [id, String(attack), part])
-			_warm_sound(MobAttacks.attack_sound(id, String(attack)))
-		if not (float(id) in enabled or id in enabled):
-			continue
-		for skill: Variant in info.get("skill", {}).values():
-			if not (skill is Dictionary):
-				continue
-			var action := "skill%d" % int(skill.get("action", 1))
-			library.find_anim(stances + "/" + action)
-			_warm_sound(SND_MOB % [id, action.replace("skill", "Skill")])
-			var base := "Skill.wz/MobSkill.img/%d/level/%d" % [int(skill.get("skill", 0)), int(skill.get("level", 0))]
-			for part: String in ["effect", "mob0", "affected", "mob"]:
-				library.find_anim(base + "/" + part)
-			var spec: Variant = library.find(base)
-			if spec is Dictionary and spec.has("summonEffect"):
-				library.find_anim("Effect.wz/Summon.img/%d" % int(spec.summonEffect))
+	for boss: Dictionary in DataRepo.stage_bosses(world.stage):
+		# A final form (#456) shows and plays like a boss of its own: the same entry's attacks, its own skills.
+		_warm_boss(boss, int(boss.mob_id), enabled)
+		if boss.has("final_form"):
+			_warm_boss(boss, int(boss.final_form), enabled)
 	_warm_ordinary_mobs()
+
+
+## Warms scheduled-boss mob `id` of stage entry `entry`: see _warm_stage.
+func _warm_boss(entry: Dictionary, id: int, enabled: Array) -> void:
+	var img: Dictionary = world.setup.get("mob_imgs", {}).get(id, {})
+	if img.is_empty():
+		return
+	library.string_name("Mob", id)
+	var info: Dictionary = img.get("info", {})
+	var ui: Dictionary = data.get("mobs", {}).get("mobs", {}).get(str(id), {}).get("boss_ui", {})
+	_warm_frame(HudBossBar.ART + "Mob/%d" % int(ui.get("icon_id", id)))
+	for tag: String in ["%d/0" % int(ui.get("hp_tag_color", info.get("hpTagColor", 1))),
+			"%d/1" % int(ui.get("hp_tag_bgcolor", info.get("hpTagBgcolor", 5)))]:
+		_warm_frame(HudBossBar.ART + "Gage/" + tag)
+	var stances := library.mob_anim_img_path(id)
+	for sound: String in ["Damage", "Die"]:
+		_warm_sound(SND_MOB % [id, sound])
+	for attack: Variant in entry.get("attacks", []):
+		library.find_anim(stances + "/" + String(attack))
+		for part: String in ["effect", "ball", "hit"]:
+			library.find_anim("Mob.wz/%07d.img/%s/info/%s" % [id, String(attack), part])
+		_warm_sound(MobAttacks.attack_sound(id, String(attack)))
+	if not (float(id) in enabled or id in enabled):
+		return
+	for skill: Variant in info.get("skill", {}).values():
+		if not (skill is Dictionary):
+			continue
+		var action := "skill%d" % int(skill.get("action", 1))
+		library.find_anim(stances + "/" + action)
+		_warm_sound(SND_MOB % [id, action.replace("skill", "Skill")])
+		var base := "Skill.wz/MobSkill.img/%d/level/%d" % [int(skill.get("skill", 0)), int(skill.get("level", 0))]
+		for part: String in ["effect", "mob0", "affected", "mob"]:
+			library.find_anim(base + "/" + part)
+		var spec: Variant = library.find(base)
+		if spec is Dictionary and spec.has("summonEffect"):
+			library.find_anim("Effect.wz/Summon.img/%d" % int(spec.summonEffect))
 
 
 ## Ordinary mobs' attack stances, info effect/hit art and sounds (#76).
@@ -1116,6 +1125,8 @@ func handle_events(events: Array) -> void:
 				elif e.phase == "impact":
 					# tier C: ground-wave art begins 50 ms after the canonical damage impact; capture its first frames.
 					_event_shot("boss_shockwave_%d_%s.png" % [int(e.boss_index), String(e.attack)], 0.12)
+			"area_attack":
+				_on_area_attack(e)
 			"mob_attack":
 				_on_mob_attack(e)
 			"summon_spawn":
@@ -1268,10 +1279,13 @@ func _on_boss_skill(e: Dictionary) -> void:
 		elif slot != source and String(e.recipient_effect) != "":
 			fx.play(String(e.recipient_effect),world.mob_center(slot))
 	if String(e.player_effect) != "":
-		if _slow_fx >= 0:
-			fx.stop(_slow_fx)
+		var skill_id := int(e.skill_id)
+		if _status_fx.has(skill_id):
+			fx.stop(int(_status_fx[skill_id]))
 		# tier C: affected pos1 is anchored above the player's canonical body box; lifetime follows sim status.
-		_slow_fx = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
+		_status_fx[skill_id] = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
+		if skill_id == MobSkillRunner.SKILL_STUN:
+			_first_event_shot("stun", "stun.png", 0.4) # tier C: playtest evidence of the first Stun, mid-loop above the head.
 	_mob_sound(int(e.mob_id), String(e.action).replace("skill", "Skill"))
 
 
@@ -1293,6 +1307,17 @@ func _play_meter_cue(effect: String, sound: String) -> void:
 		fx.play(effect, Vector2.ZERO, world.player.facing > 0, avatar)
 	_sound(sound)
 	_first_event_shot("meter_cue", "meter_cue.png", 0.45) # tier C: playtest evidence of the first full-bar cue, mid-bloom.
+
+
+## A boss area-warning attack (#460): warning art over every picked column for the wait, then the strike art.
+func _on_area_attack(e: Dictionary) -> void:
+	if String(e.phase) == "warning":
+		# tier C (#460): the warning art is stretched over the whole wait, so it ends as the columns strike.
+		fx.play_at_all(String(e.art), e.anchors, float(e.impact_time) - float(e.time))
+		_first_event_shot("area_warning", "area_warning.png", 0.5 * (float(e.impact_time) - float(e.time)))
+	else:
+		fx.play_at_all(String(e.art), e.anchors)
+		_first_event_shot("area_strike", "area_strike.png", 0.12)
 
 
 ## An ordinary mob's attack phase (#76): its Sound.wz attack sound at the windup, the canonical effect/hit art, and
@@ -1706,7 +1731,7 @@ func _reload_map() -> void:
 	_throws.clear()
 	_falls.clear()
 	_immunity_fx.clear()
-	_slow_fx = -1
+	_status_fx.clear()
 	_shown_action = ""
 	_player_layer = -1
 	_pet_layer = -1
@@ -1902,9 +1927,10 @@ static func option_flag(opts: Dictionary, key: String) -> bool:
 # --- presentation --------------------------------------------------------------------------------------------
 
 func _present(delta: float) -> void:
-	if _slow_fx >= 0 and (world.player_state.get("slow",{}).is_empty() or bool(world.player_state.dead)):
-		fx.stop(_slow_fx)
-		_slow_fx = -1
+	for skill_id: int in _status_fx.keys():
+		if world.player_state.get(STATUS_KEYS[skill_id], {}).is_empty() or bool(world.player_state.dead):
+			fx.stop(int(_status_fx[skill_id]))
+			_status_fx.erase(skill_id)
 	_update_mob_status_effects()
 	_update_throws(delta)
 	_update_falls(delta)

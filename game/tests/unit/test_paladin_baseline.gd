@@ -33,7 +33,7 @@ func _event_digest(ticks: int, facts := {}) -> String:
 	# Merge #332: preserve the replay's historical Sword input; bare tools now use the creation weapon.
 	setup.character = {"format": 3, "job_id": 122, "look": {},
 		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
-		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
+		"scrolls": {}, "mesos": 0, "cleared_regions": []}
 	var w := RunWorld.new(setup)
 	# Keep this pre-#241 oracle on the historical whole-round pool curve as well as the historical opening.
 	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)
@@ -88,7 +88,7 @@ func _holy_digest(facts: Dictionary) -> String:
 	# This scripted replay also predates bare tools using the job creation weapon.
 	setup.character = {"format": 3, "job_id": 122, "look": {},
 		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
-		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
+		"scrolls": {}, "mesos": 0, "cleared_regions": []}
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
 	w.player.facing = 1

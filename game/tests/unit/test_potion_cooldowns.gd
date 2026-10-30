@@ -31,7 +31,7 @@ func test_legacy_stock_is_ignored_and_rounds_start_ready_at_the_first_tier() -> 
 	assert_eq(w.potions.snapshot().hp.get("cooldown_left"), 0.0)
 	assert_true(w.drink_potion("hp"))
 	assert_false(w.character_snapshot().has("potions"), "neither stock nor cooldowns are saved")
-	assert_false(CharacterSnapshot.migrate(character, w.jobs, {}).has("potions"))
+	assert_false(CharacterSnapshot.migrate(character, w.jobs, {}, []).has("potions"))
 
 
 func test_tier_upgrade_keeps_remaining_cooldown_and_next_drink_uses_the_new_spec() -> void:

@@ -51,7 +51,7 @@ func test_balance_character_flag_uses_fixture_in_one_off_round() -> void:
 	assert_eq(int(start.format), 3)
 	assert_eq(int(start.job_id), int(character.job_id), "report captures the actual starting boundary")
 	assert_eq(start.equipment, JSON.parse_string(JSON.stringify(character.equipment)), "the same gear")
-	assert_eq(int(start.tiers_unlocked), 2)
+	assert_eq(start.cleared_regions, ["ellinia", "henesys", "kerning", "perion"], "the fixture's tier 2 migrates to the four Victoria regions")
 	assert_eq(record.missing, [])
 	assert_eq(int(record.job), int(character.job_id))
 	assert_eq(int(record.start_character.mesos), 0)

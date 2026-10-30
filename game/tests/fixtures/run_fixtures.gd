@@ -682,6 +682,7 @@ static func quiet_data() -> Dictionary:
 		pool[str(id)] = 1.0
 	stages["quiet"] = {
 		"maps": [{"map_id": 0, "boss": {}}], "name": "quiet", "duration": 900.0, "hard_cap": 400,
+		"drop_band": [0, 30], # the old tier-1 band a stage outside the tier lists got before ADR 0007
 		"keyframes": [{"t": 0.0, "rate": 0.0, "max_alive": 0.0, "hp": 1.0, "speed": 1.0, "pool": pool}],
 		"bursts": {}, "elites": {},
 	}

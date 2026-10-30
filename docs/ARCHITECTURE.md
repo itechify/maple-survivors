@@ -107,7 +107,7 @@ The `flow_driver.tscn` `redesign` scenario exercises these boundaries through in
 Job page), Free Market walk, map select (a locked tier refused), level-up window, double-click equip, pause, deletion and
 History input. It warps real fixed simulation ticks through combat (invulnerable, with diagnostic boss hits after each map
 timer), plays the real CLEAR/fade/arrival presentation of the three maps, and reloads the evidence-only save from disk to
-check that a clear unlocks tier 2 and that a death keeps the loot and the unlock. It checks presentation and flow only;
+check that a new character opens only Henesys, that a clear unlocks the next region and that a death keeps the loot and the unlock. It checks presentation and flow only;
 natural outcomes belong to balance smokes (AGENTS.md "Flow driver").
 
 ### 4.2 Autoloads
@@ -117,7 +117,7 @@ natural outcomes belong to balance smokes (AGENTS.md "Flow driver").
 | `Assets` | `scripts/assets/asset_library.gd` | Locates the cache, loads/caches img JSON (`WzImg`), atlas page textures, sounds; builds `SpriteAnim` frame lists |
 | `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, frame cap (`[display] max_fps`: vsync on and `Engine.max_fps` = the display's refresh rate by default, `--vsync=off` uncaps), key bindings (rebound actions applied to the `InputMap`), HP ALERT levels (`[alert]`; persistent rounds only, #121) |
 | `Sfx` | `scripts/audio/audio_service.gd` | BGM player with fade, pooled SFX players |
-| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child; character slots, the Free Market home, map select over the unlocked tiers, standalone rounds (no saved round); tool-only `start_run` (`--run`) bypasses persistence |
+| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child; character slots, the Free Market home, map select over the progression (`SceneFlow.progression()`, `unlocked_stages(cleared)`), standalone rounds (no saved round); tool-only `start_run` (`--run`) bypasses persistence |
 
 Everything else is owned by the scene that uses it.
 
@@ -125,7 +125,7 @@ Everything else is owned by the scene that uses it.
 optional `account: {nx, owned}` (spec #34; absent = an empty account). A finished round's `nx_awarded` is credited
 inside the same atomic write as the round's slot, best and history entry.
 A slot is `{name, created, rounds_played, character}`; `character` is the validated format-3 `CharacterSnapshot`
-(job, look, equipment, scrolls, mesos, cash, pet, `tiers_unlocked`). There is no phase, tier cursor, stage or seed: a
+(job, look, equipment, scrolls, mesos, cash, pet, `cleared_regions`). There is no phase, progression cursor, stage or seed: a
 round is never saved. The caller supplies dates and seeds.
 
 `slot(index)`, `slots` and `history` return detached copies. `create_slot(snapshot)` returns the first free index
@@ -223,7 +223,8 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillTemplate` | Skill templates (`"extends"`, #324, GAME_DESIGN 7.63): merge, path rewrite, validation and the drift guard | `resolve(skills, errors)` (pure static; called by `SkillBook.from_data` after the line fragments merged, and by `DataRepo.skill_template_errors` for `load_all`'s error list), `pairs(book)`, `drift_problems(book, child, parent, exists)`. Nothing but `SkillBook` sees an unresolved definition. |
 | `SkillBook` / `Loadout` | Survivor skill definitions, owned skills and ranks | `add_skill`, `rank`, `stats` (damage, cooldown, count, pierce, speed, range, size; no MP cost), `clone` for previews; weapons do not gate skills |
-| `MobSkillRunner` | Scheduled canonical mob skills, delayed heals, summons, timed per-slot defense/attack/immunity, player slow and Banish | `step(world)`, `defense_bonus(slot, magic, time)`, `attack_multiplier(slot, time)`, `slow_state(time)`, `immunity_state(slot, time)`, `summoned_alive(world, encounter)`, `resize`, `reset_slot`, `move_slot`; reads setup MobSkill/skill-list nodes and shares BossDirector action timing; named MobSkill ids `SKILL_ATTACK_UP` 100, `SKILL_MAGIC_ATTACK_UP` 101, `SKILL_PDD_UP` 102, `SKILL_MDD_UP` 103, `SKILL_ATTACK_UP_AREA` 110, `SKILL_MAGIC_ATTACK_UP_AREA` 111, `SKILL_PDD_UP_AREA` 112, `SKILL_MDD_UP_AREA` 113, `SKILL_HEAL_AREA` 114, `SKILL_SLOW` 126, `SKILL_BANISH` 129, `SKILL_WEAPON_IMMUNITY` 140, `SKILL_MAGIC_IMMUNITY` 141, `SKILL_SUMMON` 200 (`SUPPORTED`); 101/111's per-slot magic multiplier, the 101/102/103/111 icons and 141's immunity live in `MobBuffs` (`magic_attack_multiplier(slot, time)`, `magic_hit_allowed(slot, time)`, `status_visuals(slot, time)` on the runner; `RunWorld.mob_magic_attack`/`magic_hit_allowed`, `ProjectileSystem.magic_allowed`); a boss entry's optional `skill_intervals` (`{"<skill id>": seconds}`, read through `world.bosses.skill_interval`) replaces that skill's WZ `interval` (#256); the Banish notice is the boss's survivor `mobs.json` `banish_message` (read from `world.data`); reads the world only through `RunWorld`/`MobSwarm` accessors (`swarm.pos`, `is_settled`, `live_in_rect`, `mob_kind`, `world.summoned_alive`, `spawn_offspring`, `refresh_player_speed`, `banish_player`) |
+| `PlayerStatuses` | The character's timed boss statuses as plain data keyed by MobSkill id, with the shared lockout floor (#456) | `apply(id, now, duration, payload, with_lockout := true) -> bool`, `is_active(id, now)`, `is_locked(id, now)`, `state(id, now)`, `field(id, now, key, fallback)`, `clear(id)`, `lockout_seconds(id, duration)`; no clock, nodes or RNG; `balance.mob_skills.status_lockout` `{default, "<id>": s}`; held by `MobSkillRunner.statuses` (Slow without lockout, Stun with) |
+| `MobSkillRunner` | Scheduled canonical mob skills, delayed heals, summons, timed per-slot defense/attack/immunity, player slow, Stun and Banish | `step(world)`, `is_stunned(time)`, `stun_state(time)`, `defense_bonus(slot, magic, time)`, `attack_multiplier(slot, time)`, `slow_state(time)`, `immunity_state(slot, time)`, `summoned_alive(world, encounter)`, `resize`, `reset_slot`, `move_slot`; reads setup MobSkill/skill-list nodes and shares BossDirector action timing; named MobSkill ids `SKILL_ATTACK_UP` 100, `SKILL_MAGIC_ATTACK_UP` 101, `SKILL_PDD_UP` 102, `SKILL_MDD_UP` 103, `SKILL_ATTACK_UP_AREA` 110, `SKILL_MAGIC_ATTACK_UP_AREA` 111, `SKILL_PDD_UP_AREA` 112, `SKILL_MDD_UP_AREA` 113, `SKILL_HEAL_AREA` 114, `SKILL_STUN` 123, `SKILL_SLOW` 126, `SKILL_BANISH` 129, `SKILL_WEAPON_IMMUNITY` 140, `SKILL_MAGIC_IMMUNITY` 141, `SKILL_SUMMON` 200 (`SUPPORTED`); 101/111's per-slot magic multiplier, the 101/102/103/111 icons and 141's immunity live in `MobBuffs` (`magic_attack_multiplier(slot, time)`, `magic_hit_allowed(slot, time)`, `status_visuals(slot, time)` on the runner; `RunWorld.mob_magic_attack`/`magic_hit_allowed`, `ProjectileSystem.magic_allowed`); a boss entry's optional `skill_intervals` (`{"<skill id>": seconds}`, read through `world.bosses.skill_interval`) replaces that skill's WZ `interval` (#256); the Banish notice is the boss's survivor `mobs.json` `banish_message` (read from `world.data`); reads the world only through `RunWorld`/`MobSwarm` accessors (`swarm.pos`, `is_settled`, `live_in_rect`, `mob_kind`, `world.summoned_alive`, `spawn_offspring`, `refresh_player_speed`, `banish_player`) |
 | `WeaponReach` | The held weapon's swing reach (#284 removed the automatic basic attack) | `reach(world)` (the farthest edge of the held weapon's canonical afterimage boxes, the punch box bare-handed) and `envelope(world)` (their union), read by `weapon_reach` skills and Final Attack spread; `action_spec(weapon, info, action)` is one stance's box, timing and effect paths (the weapon gallery) |
 | `Ammo` | Endless ammo of the ranged basic attack (static, pure; `survivor/ammo.json`) | `item_for(ammo, family, job_id, level)` (start ammo, or the highest reached step of the exact job's schedule at the round's level), `schedule_errors(ammo)`, `projectile(ammo, family)`, `noun`, `notice(noun, name)`, `item_ids(ammo)`, `img_path(id)`, `bullet_path(id)`; `RunWorld.ammo_id()` / `ammo_attack()` / `ammo_tooltip(weapon)` derive the current ammo (never saved) |
 | `WeaponInfo` | Weapon facts (static, pure) read by combat and presentation | `type_of(id)`, `family(id)`, `family_of_skill_code(code)`, `is_two_handed(id)`, `attack_kind(action)` (swing/stab/shoot/empty), `basic_actions(id)` (the family's basic-attack stances), `basic_kind(id, action)` (ranged families always shoot), `is_ranged(id)`, `ranged_box(id)`, `stand_stance(info)` / `walk_stance(info)` (PlayerMotion and AvatarRenderer play the held weapon's stances), `physical_formula(id, job)` (swing/stab multipliers and primary/secondary stats; tier B except wand/staff/bare fallback), `afterimage_name(info)`, `afterimage_img_path`, `afterimage_frame_path`, `hit_spark_path`, `attack_interval(info)`, `sound_path(info)` |
@@ -245,7 +246,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `UpgradePool` | Pool-based eligibility and seeded draws | `eligible(state)`, `roll_choices(state, rng, n)`, `apply(id, state)`; active new/rank/Mastery cards roll rarity, common passives do not |
 | `SpawnDirector` | Stage pacing, spawn positions, relocation | `step(dt, world)`, `pick_spawn(world, k, side := 0) -> Vector3` (x, y, foothold: -1 for flyer air points, -2 when no point is found), `screen_rect(world) -> Rect2` (what spawns stay out of: the view + `margin`, + `trail_margin` behind a moving player); ground spawns prefer short reachable routes; flyers sample off-screen air within map bounds; moves off-screen mobs that stall, are far or cannot reach the player to a point ahead of the player (`relocated`) |
 | `StageRoster` | Which mob ids a stage needs | `static named_ids(stage)` (keyframe pools + boss ids), `static boss_extra_ids(boss_img, mob_skill_img)` (MobSkill 200 summons at each level the boss lists in `info/skill`, plus `info/revive`), `static mob_ids(stage, mob_imgs, mob_skill_img)` (both, ascending), `static list_ids(node)` (a WZ list node's ids in key order: summon levels, revive lists); used by `RunWorld` (mob kinds) and `DataRepo.build_setup` (two passes: named imgs, then derived ids) |
-| `BossDirector` | Scheduled warnings, arrivals, pursuit teleports, shared action timing, deaths and completion | `step(world, dt := 0)`, `live_count()`, `all_dead()`, `normal_spawn_multiplier()`, `damage_multiplier(index)`, `skill_interval(index, skill_id, fallback)` (an entry's `skill_intervals` override, else `fallback`), `can_act`, `begin_action`, `prepare_actions`, `action_snapshot`; public `entries` and lifecycle `records`, owned as `RunWorld.bosses` |
+| `BossDirector` | Scheduled warnings, arrivals, pursuit teleports, shared action timing, deaths and completion | `step(world, dt := 0)`, `live_count()`, `all_dead()`, `normal_spawn_multiplier()`, `damage_multiplier(index)`, `skill_interval(index, skill_id, fallback)` (an entry's `skill_intervals` override, else `fallback`), `continue_final_form(index, source, pos, world)` (#456: an entry's `final_form`, a mob in the shell's `info/revive`, takes over the same encounter at the shell's death position, `final_form_hp_mult` or `hp_mult` HP, no reward and no `mark_dead` for the shell; the form's death ends the encounter), `can_act`, `begin_action`, `prepare_actions`, `action_snapshot`; public `entries` and lifecycle `records`, owned as `RunWorld.bosses` |
 | `BossAttacks` | Scheduled bosses' selected canonical attacks (`stage.maps[].boss.attacks`), cadence and scaling | `step(world)`, `area_at(range_data, pos, facing)`; owned as `RunWorld.boss_attacks`, shares `BossDirector` action gate; the windup/impact code is `MobAttacks`' static half |
 | `MobAttacks` | The shared canonical type 0/1/2 attack code (`plan`, `service`, `emit`, `area_at`) and ordinary mobs' attacks (#76) | `step(world, dt)`, `reset_slot`, `move_slot`, `resize`, `wait_left(slot)`, static `attack_names(img)`, `first_wait(interval, identity)`; owned as `RunWorld.mob_attacks`; per-slot waits in a packed array, pending windups keyed by slot and checked against the swarm identity |
 | `MobActions` | Ordinary mobs' authored attack stances per slot in packed arrays, and the composed per-slot action view | `begin`, `busy`, `reset_slot`, `resize`, `view(boss_view, bosses, swarm, now)`; owned as `RunWorld.mob_actions`; `RunWorld.mob_action_view()` is what MobSwarm and MobRenderer read |
@@ -542,6 +543,13 @@ An explicit `magic=1` also selects magic damage, falling back to mob MADamage wh
 Effects and impacts have separate completion flags: an effectAfter later than attackAfter is preserved once.
 The `boss_attack` hit phase carries the canonical hit path in `effect` at the character's current feet.
 
+**Area-warning attacks (#460).** `MobAttacks.plan` also admits `info/type` 3 and 4 for scheduled bosses: it builds the
+`areaCount` ground columns (`area_columns`), picks `attackCount` of them on RNG stream 20 (`RunWorld.area_rng`;
+`pick_columns` always includes the character's column) and keeps the picked rects in the pending windup. `emit` sends
+one `area_attack` event (`phase` "warning" at the start, "strike" at the impact, with the packed column `anchors`), and
+`_impact` damages the character once when its body overlaps any picked column. RunScene plays one pooled `FxRenderer`
+animation per anchor (`play_at_all`); no node per column.
+
 **Shared mob attack path (#76).** The windup/impact code above lives in `MobAttacks` as static functions
 (`plan`, `service`, `emit`, `area_at`); `BossAttacks` keeps only the boss loop (which attacks, `attack_interval`,
 `attack_dmg_mult`, the BossDirector action gate). `MobAttacks.step` runs the same code for ordinary mobs: every kind
@@ -685,7 +693,9 @@ survivor overrides are absent. For a box cast, optional `cast.around:true` mirro
 player while retaining canonical height (Somersault Kick; tier C). `RunWorld.pirate_rng` owns stream 16; stream
 13 belongs to Threaten (no v83 prop, so unused); 14 remains reserved for Bowman; stream 15 is `RunWorld.thief_rng`
 (#207), used only for Steal success (#214). Stream 17 is `RunWorld.banish_rng` (#256), used only for Banish's
-destination portal draw. Existing stream initialization and other draws are unchanged.
+destination portal draw. Stream 18 is `ground_rng` (ground-area status rolls); stream 19 is `RunWorld.mob_status_rng` (#456),
+used only for the `prop` roll of a boss skill that puts a status on the character (Stun 123). Existing stream
+initialization and other draws are unchanged.
 Bandit attacks add `steal: {chance_field: "prop"}` to the instant skill definition. A damaging-hit listener rolls
 stream15 before damage/kill resolution, then calls `RunWorld.drop_mob_loot(m, true)` and marks `MobSwarm.stolen`
 (PackedByteArray). This is not a status: boss immunity does not apply. Logical relocation preserves it, fresh spawns
@@ -720,8 +730,8 @@ equipment chance and job/held-family pool, with a normal meso bundle fallback. C
 4. **Never make the class selectable by accident.** `JobTree.default_job()` reads `survivor/jobs.json` `default_job` (212, tier C) while that job is playable, and falls back to the first playable job only when the pin is absent or unplayable. Hero (112), Dark Knight (132), Paladin (122), F/P (212), I/L (222), Bishop (232) and Buccaneer (512) are now playable. A second playable job therefore changes no tool run, test or oracle that names no job; the new class is always chosen explicitly (`--job=<id>`, the creation Job page).
 5. **Tests.** `test_data_repo_lines` tests fixed Adventurer order plus append-only registered classes and reports non-JSON fragment files; add the line's own data test (Hero: `test_hero_data`) for the entry fields, AP row, default job and drop families.
 
-Equipment drops no longer read the character's level or held weapon (#292): `stages.json` `drop_bands` gives each tier a
-`reqLevel` band, `survivor/jobs/<line>.json` lists each exact job's `weapon_families` (`JobTree.weapon_families`), and
+Equipment drops no longer read the character's level or held weapon (#292): each `stages.json` stage's `drop_band` gives its
+region a `reqLevel` band (`EquipmentDrops.band_of(stage)`), `survivor/jobs/<line>.json` lists each exact job's `weapon_families` (`JobTree.weapon_families`), and
 `EquipmentDrops` takes both as arguments. A shield or armour piece is eligible by canonical `reqJob` alone.
 
 `RunWorld` checks `PortalSet` before movement each PLAYING tick. Holding Up inside a same-map link's activation box
@@ -996,7 +1006,7 @@ deltas are zero. F3 reads this bounded window immediately when toggled mid-round
 `RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 3; tool files of format 1 and 2 migrate on
 load) and exposes `character_snapshot()`. The schema, and the one list of what a character keeps, is in
 `scripts/sim/character_snapshot.gd`: job, look, worn equipment and inventory (`scripts/sim/equipment.gd` instances),
-scroll stacks, mesos, cash, pet and unlocked tiers; never level, EXP, skills, cards, AP or HP. Every world starts at Lv1.
+scroll stacks, mesos, cash, pet and cleared regions; never level, EXP, skills, cards, AP or HP. Every world starts at Lv1.
 RunWorld owns the live equipment: UI and bots change it
 only through `equip_item`, `unequip_item` and `discard_item` (see the RunWorld header); a character without a
 snapshot wears `Equipment.DEFAULT_OUTFIT`. `SceneFlow.new_character` makes the creation choices and the job's creation

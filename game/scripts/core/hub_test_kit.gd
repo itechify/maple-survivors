@@ -99,13 +99,19 @@ static func load_character(path: String, img_loader: Callable) -> Dictionary:
 	return {"character": SceneFlow.migrated_character(character, img_loader), "error": ""}
 
 
-## A copy of the format-3 `character` with the test kit: `mesos`, every tier unlocked (so map select shows them all), the
+## A copy of the format-3 `character` with the test kit: `mesos`, every progression region cleared (so map select shows them all open), the
 ## kit_scrolls stacks (SCROLL_COUNT each, on top of what it holds, within the Use tab) and the kit_equipment items created
 ## from `img_loader` info, of the character's job (kit_scrolls, kit_equipment).
 static func apply(character: Dictionary, mesos: int, img_loader: Callable) -> Dictionary:
 	var out := character.duplicate(true)
 	out.mesos = mesos
-	out.tiers_unlocked = maxi(int(out.get("tiers_unlocked", 1)), SceneFlow.tiers().size())
+	var cleared: Array = out.get("cleared_regions", []).duplicate()
+	for key: Variant in SceneFlow.progression():
+		if key not in cleared:
+			cleared.append(key)
+	cleared.sort()
+	out.cleared_regions = cleared
+	out.erase("tiers_unlocked")
 	var limit := Shop.use_stack_limit()
 	var job := int(out.get("job_id", 0))
 	for id: int in kit_scrolls(job):

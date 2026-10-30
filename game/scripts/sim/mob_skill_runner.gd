@@ -1,6 +1,6 @@
 class_name MobSkillRunner
 extends RefCounted
-## Canonical scheduled-boss skills (MobSkill 100/101/102/103/110/111/112/113/114/126/129/140/141/200) and their timed status state
+## Canonical scheduled-boss skills (MobSkill 100/101/102/103/110/111/112/113/114/123/126/129/140/141/200) and their timed status state
 ## (docs/ARCHITECTURE.md 4.4.3, docs/GAME_DESIGN.md 4.3): no files, nodes or canonical-stat mutation.
 
 ## Original Skill.wz/MobSkill.img ids of the skills this runner casts.
@@ -13,6 +13,7 @@ const SKILL_MAGIC_ATTACK_UP_AREA := 111
 const SKILL_PDD_UP_AREA := 112
 const SKILL_MDD_UP_AREA := 113
 const SKILL_HEAL_AREA := 114
+const SKILL_STUN := 123
 const SKILL_SLOW := 126
 const SKILL_BANISH := 129
 const SKILL_WEAPON_IMMUNITY := 140
@@ -21,7 +22,7 @@ const SKILL_SUMMON := StageRoster.SUMMON_SKILL
 ## Every MobSkill id `step` can cast; a boss's other listed skills are skipped.
 const SUPPORTED := [SKILL_SLOW, SKILL_SUMMON, SKILL_PDD_UP_AREA, SKILL_MDD_UP_AREA, SKILL_HEAL_AREA,
 	SKILL_WEAPON_IMMUNITY, SKILL_ATTACK_UP, SKILL_ATTACK_UP_AREA, SKILL_BANISH, SKILL_MAGIC_ATTACK_UP,
-	SKILL_MAGIC_ATTACK_UP_AREA, SKILL_PDD_UP, SKILL_MDD_UP, SKILL_MAGIC_IMMUNITY]
+	SKILL_MAGIC_ATTACK_UP_AREA, SKILL_PDD_UP, SKILL_MDD_UP, SKILL_MAGIC_IMMUNITY, SKILL_STUN]
 ## tier C: Attack Up (100/110) multiplies the weapon attack of the buffed mobs by this while it lasts (spec #253). The
 ## v83 x115 is not read: whether it is flat or a percentage is unverified. balance.mob_skills.attack_up_mult sets it.
 const DEFAULT_ATTACK_UP_MULT := 1.15
@@ -32,9 +33,8 @@ var _images: Dictionary
 var _tables: Dictionary
 var _enabled: Array
 var _ready := {}
-var _slow_until := 0.0
-var _slow_factor := 1.0
-var _slow_visual := ""
+## The character's timed statuses (Slow, Stun) and their lockout floor.
+var statuses: PlayerStatuses
 var _pdd := PackedFloat32Array()
 var _mdd := PackedFloat32Array()
 var _pdd_until := PackedFloat64Array()
@@ -53,16 +53,27 @@ func _init(setup: Dictionary, rules: Dictionary = {}) -> void:
 	for id: Variant in rules.get("enabled_ids", []):
 		_enabled.append(int(id))
 	_attack_up_mult = float(rules.get("attack_up_mult", DEFAULT_ATTACK_UP_MULT))
+	statuses = PlayerStatuses.new(rules.get("status_lockout", {}))
 
 
 ## Current movement multiplier from the area's timed slow.
 func speed_multiplier(now: float) -> float:
-	return _slow_factor if now < _slow_until - 1e-9 else 1.0
+	return float(statuses.field(SKILL_SLOW, now, "multiplier", 1.0))
 
 
 ## Public presentation state for the player's active slow; empty after expiration.
 func slow_state(now: float) -> Dictionary:
-	return {"skill_id": SKILL_SLOW, "remaining": _slow_until - now, "multiplier": _slow_factor, "visual": _slow_visual} if now < _slow_until - 1e-9 else {}
+	return statuses.state(SKILL_SLOW, now)
+
+
+## Whether the player is stunned at this simulation time.
+func is_stunned(now: float) -> bool:
+	return statuses.is_active(SKILL_STUN, now)
+
+
+## Detached presentation state for the timed player Stun ({} when not stunned).
+func stun_state(now: float) -> Dictionary:
+	return statuses.state(SKILL_STUN, now)
 
 
 ## Casts one ready canonical skill per boss after its own HP gate and stance availability.
@@ -84,14 +95,15 @@ func step(world: RunWorld) -> void:
 			var spec: Dictionary = _tables.get(str(id), {}).get("level", {}).get(str(level), {})
 			if spec.is_empty() or id not in SUPPORTED:
 				continue
-			# Hidden (#194): a skill aimed at the character (Slow, Banish) is not cast while it is Hidden.
-			if id in [SKILL_SLOW, SKILL_BANISH] and world.is_hidden():
+			# Hidden (#194): a skill aimed at the character (Slow, Banish, Stun) is not cast while it is Hidden.
+			if id in [SKILL_SLOW, SKILL_BANISH, SKILL_STUN] and world.is_hidden():
 				continue
 			var key := "%d/%d/%d" % [index, id, level]
 			var interval := world.bosses.skill_interval(index, id, float(spec.get("interval", 0.0)))
 			# tier C: a skill first becomes ready one interval after the boss arrives (never on the arrival tick), then
 			# one interval after each cast; WZ has the interval, not when the first use may happen.
-			var ready := float(_ready.get(key, float(record.spawn_time) + interval))
+			# A final form (#456) schedules from the swap (`form_time`), not from the shell's arrival.
+			var ready := float(_ready.get(key, float(record.get("form_time", record.spawn_time)) + interval))
 			if now < ready - 1e-9 or float(swarm.hp[slot]) * 100.0 > float(swarm.max_hp[slot]) * float(spec.get("hp", 100.0)):
 				# tier C: an omitted hp field permits casting at full health.
 				continue
@@ -114,10 +126,13 @@ func step(world: RunWorld) -> void:
 			var affected := ""
 			if id == SKILL_SLOW and _area(spec, pos, facing).has_point(world.player.pos):
 				# tier C: x is retained percent of upgraded speed (x80 means 20% slower).
-				_slow_factor = clampf(float(spec.get("x", 100.0)) / 100.0, 0.0, 1.0)
-				_slow_until = now + duration
-				_slow_visual = path + "/affected"
-				affected = _slow_visual
+				# Slow has no lockout: a recast while it lasts overwrites it, as before the shared seam.
+				statuses.apply(SKILL_SLOW, now, duration, {"multiplier": clampf(float(spec.get("x", 100.0)) / 100.0, 0.0, 1.0),
+					"visual": path + "/affected"}, false)
+				affected = path + "/affected"
+			if id == SKILL_STUN and _area(spec, pos, facing).has_point(world.player.pos) \
+					and _roll_status(world, id, spec) and statuses.apply(id, now, duration, {"visual": path + "/affected"}):
+				affected = path + "/affected"
 			var targets: Array = []
 			if id == SKILL_SUMMON:
 				var available := maxi(0, int(spec.get("limit", 0)) - world.summoned_alive(index))
@@ -166,6 +181,24 @@ func step(world: RunWorld) -> void:
 			break
 	# Resolve newly queued effectAfter0 heals in the same tick, after the cast event; delayed entries remain queued.
 	_resolve_heals(world)
+
+
+## One `prop` roll of status `id` on stream 19 (mob_status_rng, tier C), made once per in-area cast. No roll is drawn
+## while the status is locked out (the cast then spends its interval and has no effect), and prop >= 100 never draws.
+func _roll_status(world: RunWorld, id: int, spec: Dictionary) -> bool:
+	if statuses.is_locked(id, world.time):
+		return false
+	var prop := float(spec.get("prop", 100.0))
+	return prop >= 100.0 or (prop > 0.0 and world.mob_status_rng.randf() * 100.0 < prop)
+
+
+## Forgets the cast schedule of boss `index`, so each of its skills is ready one interval after the record's
+## `form_time` (or spawn_time): a final form starts its own cooldowns, whatever the shell had cast (#456).
+func reset_boss(index: int) -> void:
+	var prefix := "%d/" % index
+	for key: String in _ready.keys():
+		if key.begins_with(prefix):
+			_ready.erase(key)
 
 
 ## Banish (129) notice of boss `mob_id`: its survivor mobs.json `banish_message` (Shade's reworded v83 banMsg, #256),

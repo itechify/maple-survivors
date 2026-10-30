@@ -155,8 +155,8 @@ func test_format_one_migrates_to_a_format_three_character_wearing_the_old_outfit
 		var parsed: Dictionary = JSON.parse_string(JSON.stringify(old))
 		var expected := {"format": 3, "job_id": spec[0], "look": {"skin": 3, "face": 21002, "hair": 31057},
 			"equipment": {"worn": Equipment.worn_from_ids(spec[3], CREATION_INFO), "inventory": []},
-			"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
-		assert_eq(CharacterSnapshot.migrate(old, source.jobs, CREATION_INFO), expected,
+			"scrolls": {}, "mesos": 0, "cleared_regions": []}
+		assert_eq(CharacterSnapshot.migrate(old, source.jobs, CREATION_INFO, _progression()), expected,
 			"job %d: the outfit and resolved weapon are worn, nothing of the old build is kept" % spec[0])
 		var setup := _creation_setup()
 		setup.character = parsed
@@ -170,19 +170,18 @@ func test_format_one_migrates_to_a_format_three_character_wearing_the_old_outfit
 func test_format_two_tool_files_migrate_to_format_three() -> void:
 	var current := RunWorld.new(_creation_setup()).character_snapshot()
 	var old := current.duplicate(true)
-	for key: String in ["tiers_unlocked"]:
-		old.erase(key)
+	old.erase("cleared_regions")
 	old.merge({"format": 2, "level": 38, "exp": 12, "skills": {}, "skill_order": [], "player_mods": {}, "card_ranks": {},
 		"attributes": {"str": 4, "dex": 4, "int": 4, "luk": 4}, "base_attributes": {"str": 4, "dex": 4, "int": 4, "luk": 4},
 		"earned_ap": 0, "base_hp": 50.0, "fortune": 0.0, "base_fortune": 0.0, "mesos": 99, "pet": 5000000}, true)
 	assert_eq(CharacterSnapshot.validation_error(old), "")
-	var migrated := CharacterSnapshot.migrate(old, JobTree.from_data(DataRepo.load_all().jobs, {}), {})
+	var migrated := CharacterSnapshot.migrate(old, JobTree.from_data(DataRepo.load_all().jobs, {}), {}, _progression())
 	var keys := migrated.keys()
 	keys.sort()
-	assert_eq(keys, ["equipment", "format", "job_id", "look", "mesos", "pet", "scrolls", "tiers_unlocked"])
+	assert_eq(keys, ["cleared_regions", "equipment", "format", "job_id", "look", "mesos", "pet", "scrolls"])
 	assert_eq(migrated.mesos, 99)
-	assert_eq(migrated.tiers_unlocked, 1)
-	assert_eq(CharacterSnapshot.migrate(migrated, JobTree.from_data(DataRepo.load_all().jobs, {}), {}), migrated,
+	assert_eq(migrated.cleared_regions, [])
+	assert_eq(CharacterSnapshot.migrate(migrated, JobTree.from_data(DataRepo.load_all().jobs, {}), {}, _progression()), migrated,
 		"migrating is idempotent")
 
 
@@ -200,11 +199,72 @@ func test_only_a_format_three_character_is_a_living_slot() -> void:
 	var bad := character.duplicate(true)
 	bad.equipment.worn.top = bad.equipment.worn.weapon
 	assert_ne(CharacterSnapshot.validation_error(bad), "", "an item in the wrong equip slot")
-	for broken: Dictionary in [{"mesos": null}, {"scrolls": {"2040002": -1}}, {"tiers_unlocked": 0}, {"tiers_unlocked": 1.5},
+	for broken: Dictionary in [{"mesos": null}, {"scrolls": {"2040002": -1}}, {"cleared_regions": "henesys"}, {"cleared_regions": [1]},
+			{"cleared_regions": ["henesys", "henesys"]}, {"cleared_regions": [""]},
 			{"job_id": -1}, {"look": []}, {"cash": {"nowhere": 1}}, {"pet": -1}]:
 		bad = character.duplicate(true)
 		bad.merge(broken, true)
 		assert_ne(CharacterSnapshot.validation_error(bad), "", str(broken))
 	bad = character.duplicate(true)
 	bad.erase("mesos")
+	assert_ne(CharacterSnapshot.validation_error(bad), "")
+
+
+func _progression() -> Array:
+	return DataRepo.load_all().stages.progression
+
+
+## A format-3 character with the legacy `tiers_unlocked` counter instead of the cleared set.
+func _legacy(tiers: int) -> Dictionary:
+	var legacy := RunWorld.new(_creation_setup()).character_snapshot()
+	legacy.erase("cleared_regions")
+	legacy["tiers_unlocked"] = tiers
+	return legacy
+
+
+func test_a_fresh_snapshot_unlocks_only_the_first_region() -> void:
+	var fresh := RunWorld.new(_creation_setup()).character_snapshot()
+	assert_eq(fresh.cleared_regions, [])
+	assert_eq(CharacterSnapshot.unlocked_keys(_progression(), fresh.cleared_regions), ["henesys"])
+
+
+func test_tiers_unlocked_one_migrates_to_nothing_cleared() -> void:
+	var legacy := _legacy(1)
+	assert_eq(CharacterSnapshot.validation_error(legacy), "", "a stored legacy character still validates")
+	var migrated := CharacterSnapshot.migrate(legacy, JobTree.from_data(DataRepo.load_all().jobs, {}), {}, _progression())
+	assert_eq(migrated.cleared_regions, [])
+	assert_false(migrated.has("tiers_unlocked"), "the counter is dropped")
+	assert_eq(CharacterSnapshot.validation_error(migrated), "")
+
+
+func test_tiers_unlocked_two_migrates_to_the_first_four_regions_cleared() -> void:
+	var migrated := CharacterSnapshot.migrate(_legacy(2), JobTree.from_data(DataRepo.load_all().jobs, {}), {}, _progression())
+	assert_eq(migrated.cleared_regions, ["ellinia", "henesys", "kerning", "perion"])
+	assert_false(migrated.has("tiers_unlocked"))
+	assert_eq(CharacterSnapshot.unlocked_keys(_progression(), migrated.cleared_regions),
+		["henesys", "ellinia", "perion", "kerning", "sleepywood"], "Sleepywood stays reachable")
+	assert_eq(CharacterSnapshot.with_cleared_regions(_legacy(2), _progression()).cleared_regions, migrated.cleared_regions)
+
+
+func test_every_committed_tier_two_fixture_loads_with_sleepywood_unlocked() -> void:
+	var dir := "res://tests/fixtures/characters/"
+	var seen := 0
+	for file_name in DirAccess.get_files_at(dir):
+		if not (file_name.ends_with("_t2.json") or file_name == "fp_arch_mage.json"):
+			continue
+		seen += 1
+		var character := SceneFlow.migrated_character(DataRepo.load_json(dir + file_name), Callable())
+		assert_eq(CharacterSnapshot.validation_error(character), "", file_name)
+		assert_true(CharacterSnapshot.is_unlocked(_progression(), character.cleared_regions, "sleepywood"), file_name)
+		assert_false(character.has("tiers_unlocked"), file_name)
+	assert_true(seen >= 8, "the F/P, Hero, Dark Knight, Paladin, I/L, Bishop, Bowmaster and Buccaneer fixtures")
+
+
+func test_a_snapshot_with_neither_field_is_invalid() -> void:
+	var bad := RunWorld.new(_creation_setup()).character_snapshot()
+	bad.erase("cleared_regions")
+	assert_ne(CharacterSnapshot.validation_error(bad), "")
+	bad["tiers_unlocked"] = 0
+	assert_ne(CharacterSnapshot.validation_error(bad), "")
+	bad["tiers_unlocked"] = 1.5
 	assert_ne(CharacterSnapshot.validation_error(bad), "")
