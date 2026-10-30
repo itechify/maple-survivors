@@ -270,7 +270,10 @@ func test_the_shadow_partner_card_scores_come_from_the_line_file() -> void:
 	var line: Dictionary = DataRepo.load_json(DataRepo.fragment_path("jobs_survivor", "night_lord"))
 	assert_eq(int(line.balance.bot.card_scores.shadow_partner_new), 100)
 	assert_eq(int(line.balance.bot.card_scores.shadow_partner_rank), 74)
-	assert_eq(line.balance.bot.card_scores.size(), 2, "only the summon is scored: the other seven are attacks by default")
+	assert_eq(line.balance.bot.card_scores.size(), 16, "NL11 #410 scores all eight pool skills explicitly (the summon needs it, the rest are a guard)")
+	for key: String in ["lucky_seven", "drain", "avenger", "triple_throw", "ninja_storm", "ninja_ambush", "shadow_meso"]:
+		assert_eq(int(line.balance.bot.card_scores[key + "_new"]), 100, key)
+		assert_eq(int(line.balance.bot.card_scores[key + "_rank"]), 74, key)
 
 
 func test_the_status_catalogue_is_stored_in_the_line_with_the_spec_numbers() -> void:
