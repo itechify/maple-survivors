@@ -329,6 +329,8 @@ static func boss_kind_ids(world: RunWorld) -> Dictionary:
 	var ids := {}
 	for entry: Dictionary in DataRepo.stage_bosses(world.stage):
 		ids[int(entry.get("mob_id", 0))] = true
+		if entry.has("final_form"):
+			ids[int(entry.final_form)] = true
 	return ids
 
 
