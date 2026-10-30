@@ -20,8 +20,8 @@ Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in
 | Area | Target | Replaces |
 |---|---|---|
 | Character | One 4th job, chosen at creation (twelve v83 4th jobs; Beginner not playable). Name, look, slot as today. | 1, 9 |
-| Round | Standalone: Free Market -> map select (the character's unlocked tiers) -> 3 maps, 3 bosses (spec #241, unchanged) -> Free Market. Death ends only the round, and loot is kept. | 1 |
-| Tiers | Clearing any stage of tier N unlocks tier N+1 for that character. Cleared tiers can be replayed. The slice keeps the two existing tiers. | 1, 4.1 |
+| Round | Standalone: Free Market -> map select (the character's unlocked regions) -> 3 maps, 3 bosses (spec #241, unchanged) -> Free Market. Death ends only the round, and loot is kept. | 1 |
+| Progression | One ordered list of regions (`stages.json` `progression`, ADR 0007). A new character has only the first (Henesys) open; clearing a region unlocks the next. The character stores the set of cleared regions; cleared regions can be replayed. | 1, 4.1 |
 | Level | Lv1 every round. First-pass EXP curve for picks ≈ levels + boss draws (about 50–60 per round), all 6 actives by about 5:00, end level about 45-55 (tier C). | 5 |
 | Skills | Job skill pool (lineage actives, all auto-cast; summons are timed allies in a slot; no buffs). Starting skill in slot 1. 6 active + 6 passive skill slots. | 7, 9 |
 | Ranks | Actives 1-8, mapped to WZ levels by a survivor table. +1 rank per card, plus a rarity bonus (Fortune applies). Mastery cards after rank 8. | 7, 8 |
@@ -29,7 +29,7 @@ Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in
 | Cards | 3 per draw, weights 1.2 owned active or Mastery / 1.0 new active / 0.8 passive rank / 0.5 new passive. Boss bonus draw kept. No reroll, banish or skip. Power Elixir fallback. | 8 |
 | Combat | Maple formula plus auto-AP in one stat row per job. No MP (cooldowns only). No level-gap penalties. No MISS (ADR 0005). | 5, 6, 7 |
 | Mobility | Teleport, Flash Jump, Dash or Rush on a skill key from Lv1, outside the slots; Bowmaster has none (D1). | 2, 7.15, 7.33 |
-| Equipment | Job-class requirement only. `reqLevel` is the tier's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
+| Equipment | Job-class requirement only. `reqLevel` is the region's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
 | Account | NX, Cash Shop, pets unchanged. Cash equipment adds Fortune. | 8.4 |
 
 Order: the F/P Arch Mage slice, then Hero, then the other ten jobs, a tier rework (fewer starting choices), and last
@@ -90,6 +90,14 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   contact/`attackN` damage (at impact) from a start to an end value over round time, so a Lv1 character can play every
   tier: tier 1 is neutral (1 -> 1), Sleepywood opens at HP 0.3 / damage 0.4 on map 1 and 0.02 / 0.08 on maps 2 and 3,
   all reaching 1 at 20:00. Bosses capture the ramp at their arrival. WZ stats are never edited.
+- **#450 (A1, ADR 0007): the progression replaces the tiers.** `stages.json` `progression` (Henesys, Ellinia, Perion,
+  Kerning City, Sleepywood) and a per-stage `drop_band` replace the root `tiers` and `drop_bands`; `nx_award.clear_bonus` is
+  indexed by the stage's step in the list. `CharacterSnapshot.cleared_regions` (sorted unique stage keys) replaces
+  `tiers_unlocked`: a region is unlocked when it is the first or its predecessor is cleared (`unlocked_keys`), a CLEARED round
+  adds its stage (`cleared_after_round`, idempotent), and a death, a Quit round and a tool one-off round change nothing.
+  A stored `tiers_unlocked` >= 2 migrates to the first four regions cleared (Sleepywood stays reachable), anything else to
+  none (`CharacterSnapshot.migrate`, `with_cleared_regions`; `SaveData` converts stored slots on load). The snapshot format
+  stays 3 (the field is detected by key). Map select keeps its look and lists the progression; its redesign is #451.
 - **#294 (T12): QA and docs.** The `redesign` flow scenario (`flow_driver.tscn --scenario=redesign`), the retired
   scenarios and debug drivers removed, the one F/P fixture, the playtests and the regression smoke of 4.2, and the rewrites
   of sections 1, 5, 6.1.1, 7.5, 8 and 9 and of AGENTS.md.
@@ -184,9 +192,9 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
    windows, the four scroll NPCs (shops) and the Cash Shop button are here. Room entrances in01-in22 and Fredrick,
    Scrooge, Maple TV and Inkwell are drawn but inert. Up at the scripted `out00` portal opens **map select**; Esc offers
    Resume / Save & quit. The hub draws the character's look and worn equipment; moving never changes the save.
-3. **Map select** lists every stage of every unlocked tier: Henesys, Ellinia, Perion and Kerning City (tier 1, always
-   open) and Sleepywood (tier 2). A locked card is greyed, its details say "Locked. Clear any stage of Tier 1 to unlock
-   Tier 2." and Start does nothing. Each stage contains three ordered maps (4.1). Back returns to the Free Market.
+3. **Map select** lists the whole progression in order: Henesys, Ellinia, Perion, Kerning City and Sleepywood. Only
+   Henesys is open to a new character, and clearing a region opens the next. A locked card is greyed, its details say
+   "Locked. Clear <previous region> to unlock." and Start does nothing. Each stage contains three ordered maps (4.1). Back returns to the Free Market.
 4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt for F/P, Cold Beam for I/L, Power Strike for Hero,
    active slot 1) and its mobility skill (Teleport or Rush) on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
 5. **Survive** the growing swarms. Each map's boss arrives 300 seconds after entering it. Defeat it, collect all
@@ -202,9 +210,9 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
    the time, level, job, kills, damage dealt, NX earned, the owned skills and the stage's best; Back returns to the Free Market.
 
 **What persists** is exactly `CharacterSnapshot` (section 0, #286): job, look, worn equipment, the Equip tab, scrolls,
-mesos, cash items, the pet and `tiers_unlocked`. Level, EXP, skills, ranks, card modifiers, AP and HP are round state
+mesos, cash items, the pet and `cleared_regions`. Level, EXP, skills, ranks, card modifiers, AP and HP are round state
 and never saved. What a round picked up (mesos, equipment, scrolls bought earlier) is kept whether it ended in a clear, a
-death or Quit round; the unlock of tier N+1 needs a clear of a tier-N stage and is never taken back. There is no saved
+death or Quit round; the unlock of the next region needs a clear of its predecessor and is never taken back. There is no saved
 round and no resume: closing the game mid-round loses it (its loot too), and Continue only opens the hub. Saves happen in
 the hub (Save & quit, an inventory action) and when a round ends (one write: character, the stage's best, the run count,
 NX and one history entry). Map transfers never save. Only confirmed deletion frees a slot; every round and each deletion
@@ -8562,6 +8570,17 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | `anim_by_stat` | the animation of the newest (last listed) unlocked stat | C |
 | Owner-side `affected` art | plays on the player at every pulse | B |
 
+
+### Region progression (spec #447, #450; ADR 0007; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood (v83 levelling order; owner request 2026-10-30) | C |
+| Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]) | C |
+| NX clear bonus | `balance.nx_award.clear_bonus` by progression step: 100, 100, 100, 100, 250, the last repeating (the old amounts moved from tiers to steps) | C |
+| Unlock rule | region i is open iff i == 0 or `progression[i-1]` is in the character's `cleared_regions`; a CLEARED round adds its stage; death, Quit round and one-off rounds add nothing | C |
+| Save migration | `CharacterSnapshot.LEGACY_TIER1_REGIONS` 4: a stored `tiers_unlocked` >= 2 becomes the first four progression keys cleared, otherwise none | C |
+| `balance_run.gd --tier=N` | tier 1 = the first four regions, tier 2 = the fifth; replaced by `--chain` in A5 (#454) | C |
 
 ### Review #282: constants and provenance
 
