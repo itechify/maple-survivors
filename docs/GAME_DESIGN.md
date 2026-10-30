@@ -6586,7 +6586,8 @@ beside the skill icons, and lights value pips. Combo uses the verified orb art a
 unavailable art uses drawn pips. Jobs without a meter display nothing.
 
 Later jobs can configure `gain.event` to `hit_taken` or `meso_picked` and call `gain(event, events)` at their
-event source; H3 wires landed casts only. M23 owns meso pickup coupling; energy/form rules belong to Buccaneer's spec.
+event source; H3 wires landed casts only. M23 owns meso pickup coupling (built in 7.94: `meso_picked`, `per_mesos`, `decay`,
+`read_per_unit`); energy/form rules belong to Buccaneer's spec.
 The current `per_unit.stat` contract is `damage`; additional stat semantics need an explicit extension.
 Paladin uses M2 forms, not M1. Meter state is absent from CharacterSnapshot: a new round always starts empty.
 
@@ -8159,6 +8160,54 @@ at the impact, the cap, hit art by target and by line, transfer, the energy rece
 knuckle on every `fist` / `dragonstrike` frame), `test_bot_melee` (`bot.reach`, a melee bot with the 400 px strip still closes in,
 and the control that kites without the key), `test_avatar_cash_layers` (the `swingTF` fallback), `test_rarity_bonus_effects`.
 
+### 7.94 Meso charge (spec #383 NL4, #403, M23)
+
+A **meso charge** is a `PlayerMeter` (7.34) whose gain event is `meso_picked`: a counter filled by mesos picked up, never
+money. Night Lord's meter (NL2's data) and Shadower's Meso Explosion meter use it; this ticket builds the seam on synthetic
+data only (Night Lord's block and Shadow Meso are NL2 and NL9). Four optional extensions; a meter without them (Combo,
+Energy Charge) behaves, and emits, exactly as before.
+
+```json
+"meter": {"id": "meso_charge", "max": 10,
+          "gain": {"event": "meso_picked", "amount": 1, "per_mesos": 1000},
+          "decay": {"interval": 6.0, "amount": 1},
+          "per_unit": {"stat": "damage", "value": 0.03},
+          "art": "Item.wz/Special/0900.img/09000002/iconRaw"}
+```
+
+- **The event.** `RunWorld._credit_pickups`, the one line where mesos reach the wallet (the magnet, the pet's pickups and its
+  vacuum, and the finale sweep all end there), emits `meso_picked {amount, count}` once per tick in which `pickups.step_mesos`
+  is positive: the total amount and the number of drops. It changes no wallet value, drop or save, and a shop sale is not a
+  pickup. **It is emitted only when the job's meter gain rule listens to `meso_picked`** (`PlayerMeter.listens`): the event
+  bytes of every other job are hashed by the baselines (F/P, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer, Bowmaster),
+  which must not move. Documented in `EVENT_FIELDS` and in `test_run_events` (which stands a mesos meter on a synthetic world).
+- **Amount-driven gain.** `gain.per_mesos` earns one `gain.amount` per `per_mesos` mesos. `MesoCharge.take(carry, mesos,
+  per_mesos) -> {units, carry}` keeps the remainder in `PlayerMeter.carry`, so no mesos are rounded away (999 then 1 is one
+  pip, 1999 then 1 is two). The carry survives map transfers and starts at 0 each round (a new meter). `gain_amount(event,
+  amount, events)` is the entry point; `gain(event, events)` stays the count-driven one and never reads mesos. A rule
+  without `per_mesos` fed an amount behaves like `gain`. The meter caps at `max` and emits `meter_changed` only on actual
+  changes.
+- **Decay.** `decay: {interval, amount}`: while at least one unit is held, `amount` leaves every `interval` seconds
+  (`PlayerMeter.step(dt, events)`, called once per tick by `RunWorld.step` right after the pickups stage, with no new stage
+  part). The clock runs only while the value is positive (it is cleared when the meter empties, so an empty meter banks no
+  time toward its next pip), the value never goes below zero, no RNG is drawn. Without a `decay` key `step` leaves the value
+  and the events alone.
+- **A read-only bonus.** A skill's `meter` block may be `{"read_per_unit": 0.10}`: at admission (`PlayerMeter.begin_cast`) the
+  cast's damage bounds and status damage multiplier are multiplied by `1 + value x read_per_unit`, on top of the meter's own
+  `per_unit`. It spends nothing and never gates (`admits` is true with or without a meter, at any charge); a block that also
+  has `min`, `spend` or `role` is a finisher as before. SkillText says "+N% damage per <unit> held" for it. Shadower's Meso
+  Explosion is a `role: finisher` (`min`, `spend: "all"`) on a `meso_charge` meter: no code.
+- **The run summary.** `summary.json` (`RunScene.perf_summary`) gains `meter: {mean, peak}` for any job with a meter: the
+  time-weighted mean of the held units over the ticks (`PlayerMeter.stats`, accumulated by `step`) and the most held, so
+  the QA ticket and the balance pass can see the charge. Jobs without a meter gain no key.
+- **HUD.** `HudMeter` is unchanged: it draws `max` pips and lights `value`. With the art path above it blits the meso coin's
+  `/1` frame (checked on the real map: six lit coins and four dark pips); without `art` it draws the purple pips. Both
+  checked by eye with `player_meter_probe.tscn -- --meso [--no-art]`.
+
+Tests: `test_meso_charge` (the arithmetic, the carry, the cap, decay, the event and its fields, the pet's pickups, shop
+sales, map transfer and a new round, `read_per_unit`, the summary), `test_run_events`, `test_run_telemetry`,
+`test_data_files` (the schema), and every baseline unchanged.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -9705,6 +9754,17 @@ No gameplay constant changed. The BC2–BC11 tables above remain authoritative; 
 The QA observer counts `cast` events by skill and sums fixed post-tick `morph_id()` occupancy at 1/60 s per advancing
 tick (tier C measurement convention, including truncated windows). These are measurements, not nominal-duration
 estimates. Durable stationary crowds and invulnerability in disposable visual probes are diagnostic only.
+
+### Night Lord NL4 constants (#403)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `meso_picked` emitted only for a meter that listens to it | RunWorld announces the event when `PlayerMeter.listens("meso_picked")`; the wallet is credited regardless | tier C (ours): the baselines hash event bytes, so no other job may gain an event |
+| Meso charge gain / decay / bonus (the numbers NL2 puts in `jobs/night_lord.json`) | 1 pip per 1000 mesos picked up; 1 pip lost per 6 s while held; +3% damage per pip on every pool cast, +10% per pip on Shadow Meso | tier C, spec #383 (balance flag: untested against real pickup rates) |
+| Carry | the remainder under `per_mesos` stays in the meter across maps; reset at round start | tier C (ours) |
+| Decay clock | runs only while a unit is held, cleared when it empties; float slack `MesoCharge.CLOCK_EPSILON` 1e-6 s | tier C (ours; the slack only keeps 360 ticks of 1/60 s equal to six seconds) |
+| `read_per_unit` | multiplies the damage bounds and status damage by `1 + value x read`, stacking with `per_unit`; never spends, never gates | tier C, spec #383 |
+| Summary `meter.mean` / `meter.peak` | time-weighted mean of the held units per tick, and the most held, in `summary.json` for any meter | tier C (measurement convention) |
 
 ### Hero H3 meter constants (#299)
 

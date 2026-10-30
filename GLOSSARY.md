@@ -485,6 +485,12 @@ A round-owned integer counter, filled by configured events and spent by finisher
 starts at zero each round, and is shown as HUD pips. M1 is shared by Hero, Buccaneer and Shadower.
 _Avoid_: mana, buff, form
 
+**Meso charge**:
+Night Lord's meter (id `meso_charge`, ten pips): one pip per 1000 mesos picked up (the remainder is carried), one lost per 6 s
+while held, +3% damage on every pool cast per pip; Shadow Meso reads it for more and spends nothing. A counter filled by
+pickups, never money: no mesos are spent or lost. Shadower's Meso Explosion is a finisher on the same meter.
+_Avoid_: mesos (the wallet), mana, Meso Guard
+
 **Combo orb**:
 One unit of Hero's Combo meter. A landed non-finisher pool cast earns one; each held orb adds damage.
 _Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)

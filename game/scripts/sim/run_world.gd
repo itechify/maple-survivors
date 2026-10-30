@@ -83,6 +83,9 @@ const EVENT_FIELDS := {
 	"form_ended": ["skill", "skill_id", "reason"],
 	"mob_pulled": ["mob", "from", "pos"],
 	"meter_changed": ["id", "value", "max"],
+	# #403: the mesos that reached the wallet this tick (total and number of drops), by magnet, pet or the finale sweep.
+	# Only a job whose meter gains from it announces it (GAME_DESIGN 7.94), so every other job's event bytes stay as they were.
+	"meso_picked": ["amount", "count"],
 	"hp_spent": ["skill", "skill_id", "amount", "kind"],
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
@@ -820,6 +823,7 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 	if after_stage.is_valid():
 		after_stage.call("pet")
 	var got := _step_pickups(dt)
+	meter.step(dt, events)
 	if after_stage.is_valid():
 		after_stage.call("pickups")
 	_touch()
@@ -1068,6 +1072,9 @@ func _step_pickups(dt: float) -> int:
 
 func _credit_pickups() -> void:
 	mesos += pickups.step_mesos
+	if pickups.step_mesos > 0 and meter.listens("meso_picked"):
+		emit("meso_picked", {"amount": pickups.step_mesos, "count": pickups.step_meso_count})
+		meter.gain_amount("meso_picked", pickups.step_mesos, events)
 	for instance: Dictionary in pickups.collected_equipment:
 		equipment.inventory.append(instance)
 		equips_collected += 1
