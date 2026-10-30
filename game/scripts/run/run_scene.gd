@@ -1297,8 +1297,7 @@ func _play_meter_cue(effect: String, sound: String) -> void:
 	_first_event_shot("meter_cue", "meter_cue.png", 0.45) # tier C: playtest evidence of the first full-bar cue, mid-bloom.
 
 
-## An ordinary mob's attack phase (#76): its Sound.wz attack sound at the windup, the canonical effect/hit art, and
-## playtest evidence of the first windup and the first hit.
+## A boss area-warning attack (#460): warning art over every picked column for the wait, then the strike art.
 func _on_area_attack(e: Dictionary) -> void:
 	if String(e.phase) == "warning":
 		# tier C (#460): the warning art is stretched over the whole wait, so it ends as the columns strike.
@@ -1309,6 +1308,8 @@ func _on_area_attack(e: Dictionary) -> void:
 		_first_event_shot("area_strike", "area_strike.png", 0.12)
 
 
+## An ordinary mob's attack phase (#76): its Sound.wz attack sound at the windup, the canonical effect/hit art, and
+## playtest evidence of the first windup and the first hit.
 func _on_mob_attack(e: Dictionary) -> void:
 	match String(e.phase):
 		"start":
