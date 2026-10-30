@@ -355,6 +355,41 @@ func test_the_bulk_defense_pass_agrees_with_the_defense_bonus() -> void:
 	assert_near(w._live_pdd[boss], float((w.mob_kinds[w.swarm.kind[boss]] as MobKind).pdd) + 85.0, 1e-3)
 
 
+# --- slot lifecycle -------------------------------------------------------------------------------------------------
+
+func _all_buffs_world() -> RunWorld:
+	var iv := {"101": 5.0, "102": 5.0, "103": 5.0, "111": 5.0}
+	var w := _world([[101, 1], [102, 3], [103, 2], [111, 5]], {"intervals": iv})
+	_ticks(w, 1200)
+	return w
+
+
+func _buff_state(w: RunWorld, slot: int) -> Array:
+	return [_magic_mult(w, slot), w.mob_skills.defense_bonus(slot, false, w.time),
+		w.mob_skills.defense_bonus(slot, true, w.time), w.mob_skills.status_visuals(slot, w.time).size()]
+
+
+func test_buffs_move_with_a_relocation_and_never_reach_a_reused_slot() -> void:
+	var w := _all_buffs_world()
+	var boss := _boss(w)
+	var live := _buff_state(w, boss)
+	assert_true(float(live[0]) > 1.0 and float(live[1]) > 0.0 and float(live[2]) > 0.0 and int(live[3]) == 3,
+		"the boss carries a magic multiplier, a PDD and an MDD bonus and three icons: %s" % [live])
+	var moved := w.relocate_mob(boss, Vector2(900, 200), w.fhm.find_below(900, 190))
+	assert_eq(_buff_state(w, moved), live, "the live buffs follow a relocated boss")
+	# The swarm's free list usually hands the same slot back, so the move to another slot is driven through the runner.
+	var spare := _ordinary(w, 1500)
+	assert_eq(_buff_state(w, spare), [1.0, 0.0, 0.0, 0], "a mob that was never buffed")
+	w.mob_skills.move_slot(moved, spare)
+	assert_eq(_buff_state(w, spare), live, "the buffs moved with the mob")
+	assert_eq(_buff_state(w, moved), [1.0, 0.0, 0.0, 0], "the former slot keeps no stale buff or icon")
+	w.mob_skills.move_slot(spare, moved)
+	w.swarm.despawn(moved)
+	var fresh := _ordinary(w, 1100)
+	assert_eq(fresh, moved, "fixture reuses the slot")
+	assert_eq(_buff_state(w, fresh), [1.0, 0.0, 0.0, 0], "a new occupant starts without the previous buffs")
+
+
 # --- icons ----------------------------------------------------------------------------------------------------------
 
 func test_each_buff_shows_its_mob_icon_while_it_lasts() -> void:
