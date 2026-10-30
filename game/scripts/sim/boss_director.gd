@@ -12,7 +12,8 @@ var entries: Array = []
 ## back when no arrival point exists), spawn_time, death_time, dead, skipped (no mob img: never arrives, counts as done),
 ## and, only once they apply (so records of runs that never need them keep their shape), postponed_since /
 ## relocate_since (when arrivals / the faded pursuit relocation started failing for want of a point; -1 = no longer)
-## and fallback (true: arrived through the arrival_fallback rule).
+## and fallback (true: arrived through the arrival_fallback rule) / form_time (the sim time a final form took over;
+## `mob_id` is then the form's).
 var records: Array = []
 var rules: Dictionary = {}
 var _actions: Array[Dictionary] = []
@@ -151,8 +152,8 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 		if point.z < -1.0:
 			_postpone(index, world)
 			continue
-		var slot := world.spawn_mob(int(world.kind_of_id[int(entry.mob_id)]), Vector2(point.x, point.y),
-			int(point.z), float(entry.get("hp_mult", 1.0)), false)
+		var slot := world.spawn_boss(int(entry.mob_id), index, Vector2(point.x, point.y), int(point.z),
+			float(entry.get("hp_mult", 1.0)))
 		if slot < 0:
 			_postpone(index, world)
 			continue
@@ -160,9 +161,6 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 		var ramp_damage := world.opening_multiplier("damage")
 		entry["attack_dmg_mult"] = float(entry.get("attack_dmg_mult", entry.get("dmg_mult", 1.0))) * ramp_damage
 		entry["dmg_mult"] = float(entry.get("dmg_mult", 1.0)) * ramp_damage
-		world.mob_boss[slot] = index
-		# Scheduled bosses never flinch or get pushed, whatever their WZ info/boss flag (spec; tier C rule).
-		world.swarm.steady[slot] = 1
 		record.slot = slot
 		record.identity = world.swarm.identity[slot]
 		record.spawn_time = world.time
@@ -336,3 +334,40 @@ func skill_interval(index: int, skill_id: int, fallback: float) -> float:
 func reward_config(index: int) -> Dictionary:
 	var defaults: Dictionary = rules.get("rewards", {})
 	return defaults.merged(entries[index].get("rewards", {}), true) if index >= 0 and index < entries.size() else defaults
+
+
+## A scheduled boss's final form (stages.json `final_form`, one of the shell's canonical `info/revive` mobs): when the
+## shell in `source` dies, the SAME encounter carries on with the form at `pos`: same boss_index, steady flag and
+## attacks, HP `final_form_hp_mult` (default: the entry's hp_mult, tier C). The shell pays no reward and is not marked
+## dead; only the form's death ends the encounter. Returns false (nothing happens, ordinary death rules apply) when the
+## entry has no final form, the dying mob already is the form, the form is not in the shell's revive list, or no slot is
+## free. The shell's other revive entries are not spawned.
+func continue_final_form(index: int, source: int, pos: Vector2, world: RunWorld) -> bool:
+	if index < 0 or index >= entries.size():
+		return false
+	var entry: Dictionary = entries[index]
+	var final_id := int(entry.get("final_form", 0))
+	var record: Dictionary = records[index]
+	if final_id <= 0 or int(record.mob_id) == final_id or bool(record.dead):
+		return false
+	var revive: Dictionary = world.mob_img(int(record.mob_id)).get("info", {}).get("revive", {})
+	if not final_id in StageRoster.list_ids(revive):
+		return false
+	var hp_mult := float(entry.get("final_form_hp_mult", entry.get("hp_mult", 1.0)))
+	var slot := world.spawn_boss(final_id, index, pos, world.swarm.fh[source], hp_mult)
+	if slot < 0:
+		return false
+	var shell_id := int(record.mob_id)
+	record.slot = slot
+	record.identity = world.swarm.identity[slot]
+	record.mob_id = final_id
+	# The swap time: skill schedules start from it (MobSkillRunner), and telemetry reports it as `form_time`.
+	record.form_time = world.time
+	world.mob_skills.reset_boss(index)
+	record.anchor = pos
+	record.stall = 0.0
+	record.best_distance = INF
+	_actions[index] = {"action": "", "start": world.time, "until": world.time, "facing": -1}
+	world.emit("mob_revives_spawned", {"boss_index": index, "mob": source, "mob_id": shell_id, "pos": pos,
+		"revives": [{"mob": slot, "mob_id": final_id}], "time": world.time})
+	return true
