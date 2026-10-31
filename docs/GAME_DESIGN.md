@@ -877,11 +877,11 @@ and every ledge) are wide, open and have ropes the bot climbs: no shaft, no pit 
 on the right, its Banish (twice, 15 s apart; the notice "You have been relocated by the vengeful spirit of the Scholar Ghost."
 and the character on the ground elsewhere); Blue King Goblin's attack1 wind-up and shockwave; the Nine-Tailed Fox's attack1,
 Darkness 121 (the screen darkens and the character's eye aura shows, four casts), Weakness 122 (the blue circle over the
-character), Stun 123 (stars over the head, the first-Stun shot `stun.png`) and heal 114 ("Nine-Tailed Fox recovered ... HP"
+character), Stun 123 (the pink stun effect over the character, the first-Stun shot `stun.png`) and heal 114 ("Nine-Tailed Fox recovered ... HP"
 and its heal burst on the fox). **Not shown by a god-mode run:** the damage and slowing side of a landed Weakness, a Stun that
 actually stops the character's input and what the draft multipliers do to a real character (god lands no hit, so nothing
-here is survival or balance evidence); the shot of Weakness over the head was not taken by the first-status hook (only
-`stun.png` and `darkness.png` were). With the late fixture (Lv100-band gear at Lv1) the bosses die at once when not held:
+here is survival or balance evidence); the first-status hook saved only `stun.png` and `darkness.png`, so Weakness was seen only in the
+per-cast shot. With the late fixture (Lv100-band gear at Lv1) the bosses die at once when not held:
 the first draft is a starting point for C13, not a balance claim.
 
 ### Ludibrium (C1) regression smoke and diagnostic round (#463, 2026-10-30)
