@@ -186,14 +186,27 @@ func dash_to(dest: Dictionary) -> void:
 		vel = Vector2.ZERO
 
 
-## Where a Flash Jump (docs/GAME_DESIGN.md 7.92) of `distance` px toward `side` (-1 / 1) would end, as {x, y, fh, moved},
+## Where a Flash Jump (docs/GAME_DESIGN.md 7.94.2) of `distance` px toward `side` (-1 / 1) would end, as {x, y, fh, moved},
 ## or {} when it cannot start: standing on a floor, on a ladder or rope, already used in this airborne period
 ## (flash_spent), or blocked at once. The height is kept and the walls and map limits stop it as they stop a dash
-## (dash_destination). Changes nothing. tier C: ours (#405).
+## (dash_destination); a floor that rises to that height (or a ceiling that comes down to it) on the way stops it
+## just short of the surface (FootholdMap.surface_crossing_x), so the character never ends inside the ground.
+## Changes nothing. tier C: ours (#405).
 func flash_destination(side: int, distance: float, fhm: FootholdMap, bounds: Rect2) -> Dictionary:
 	if fh >= 0 or flash_spent:
 		return {}
-	return dash_destination(side, distance, fhm, bounds)
+	var dest := dash_destination(side, distance, fhm, bounds)
+	if dest.is_empty():
+		return dest
+	var cross := fhm.surface_crossing_x(pos.x, pos.y, float(dest.x))
+	if is_nan(cross):
+		return dest
+	var x := cross - signf(side) * FootholdMap.EPS
+	if (x - pos.x) * signf(side) <= 0.0:
+		return {}
+	dest.x = x
+	dest.moved = absf(x - pos.x)
+	return dest
 
 
 ## Applies a flash_destination result: the position changes and the airborne period's flash is spent. The fall in
@@ -212,11 +225,11 @@ func step(dt: float, input: MoveInput, fhm: FootholdMap, ladders: LadderSet, bou
 	var lim := _x_limits(fhm, bounds)
 	for s in n:
 		flags |= _substep(h, input, s == 0, fhm, ladders, lim)
+		if fh >= 0 or ladder >= 0:
+			flash_spent = false # a landing or a grab ends the airborne period here, not at the step's end
 		knock_t = maxf(0.0, knock_t - h)
 		ladder_cd = maxf(0.0, ladder_cd - h)
 	alert_t = maxf(0.0, alert_t - dt)
-	if fh >= 0 or ladder >= 0:
-		flash_spent = false
 	if bounds.has_area() and pos.y > bounds.end.y:
 		flags |= EV_FELL_OUT
 		_recover(fhm, bounds.end.y)

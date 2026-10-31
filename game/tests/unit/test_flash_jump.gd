@@ -350,6 +350,76 @@ func test_a_blocked_flash_is_refused_and_spends_nothing() -> void:
 		assert_true(events[0].to.x - events[0].from.x < 1.0, "pressed against the wall: no real move")
 
 
+func test_a_rising_slope_stops_the_flash_instead_of_burying_the_character() -> void:
+	# B1 (review): the height is kept, so a floor that rises toward the flash used to end above the new position.
+	var w := _world(400.0, [{"x1": 0, "y1": 0, "x2": 1000, "y2": -300}, {"x1": 0, "y1": 400, "x2": 1000, "y2": 400}])
+	w.player.place(Vector2(400, -150), w.fhm)
+	w.drain_events()
+	var events := _press(w, false, true)
+	assert_eq(events.size(), 1)
+	var to: Vector2 = events[0].to
+	assert_true(to.x > 400.0, "it still moves: %s" % to)
+	assert_true(to.y <= w.fhm.y_at(0, to.x) + 0.001, "above the slope, never inside it: %s" % to)
+	assert_true(to.x < 500.0 + 0.1, "stops where the slope reaches the height (x 500): %s" % to)
+	_idle(w, 90)
+	assert_eq(w.player.fh, 0, "lands on the slope instead of falling to the lower floor")
+
+
+func test_a_rising_slope_on_a_one_floor_map_does_not_fall_out() -> void:
+	var w := _world(400.0, [{"x1": 0, "y1": 0, "x2": 1000, "y2": -300}])
+	w.player.place(Vector2(400, -150), w.fhm)
+	w.drain_events()
+	_press(w, false, true)
+	var deepest := -INF
+	for i in 180:
+		w.step(DT, MoveInput.new())
+		if w.player.fh < 0:
+			deepest = maxf(deepest, w.player.pos.y - w.fhm.y_at(0, w.player.pos.x))
+	assert_true(deepest <= 0.05, "never below the slope while falling: %f" % deepest)
+	assert_eq(w.player.fh, 0)
+
+
+func test_a_hill_between_the_start_and_the_end_stops_the_flash() -> void:
+	# The far end is above the floor again, so only a sweep of the whole path sees the crossing.
+	var w := _world(400.0, [{"x1": 0, "y1": 0, "x2": 450, "y2": 0}, {"x1": 450, "y1": 0, "x2": 500, "y2": -300},
+		{"x1": 500, "y1": -300, "x2": 520, "y2": 100}, {"x1": 520, "y1": 100, "x2": 1000, "y2": 100}])
+	w.player.place(Vector2(400, -120), w.fhm)
+	w.drain_events()
+	var events := _press(w, false, true)
+	assert_eq(events.size(), 1)
+	assert_true(events[0].to.x < 470.0, "stopped on the near face of the hill: %s" % events[0].to)
+
+
+func test_a_floor_above_the_character_does_not_stop_the_flash() -> void:
+	# Platforms are one-way: a flash beneath one passes under it.
+	var w := _world(400.0, [{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}, {"x1": 450, "y1": -300, "x2": 700, "y2": -300}])
+	_lift(w, 400.0, -100.0)
+	assert_eq(_press(w, false, true)[0].to, Vector2(540, -100))
+
+
+func test_a_sloped_ceiling_that_descends_onto_the_path_stops_the_flash() -> void:
+	var w := _world(400.0, [{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}, {"x1": 560, "y1": -100, "x2": 450, "y2": -400}])
+	_lift(w, 400.0, -200.0)
+	var to: Vector2 = _press(w, false, true)[0].to
+	assert_true(to.x < 524.0, "stopped under the descending underside (x 523): %s" % to)
+
+
+func test_a_held_jump_key_clears_the_flag_when_the_landing_and_the_next_hop_share_a_step() -> void:
+	# S1 (review): with Alt held the sub-step after a landing jumps again, so the step ends airborne; the flag is
+	# cleared where the landing happens, not at the end of the step.
+	var m := FootholdMap.from_segments([{"x1": 0.0, "y1": 0.0, "x2": 4000.0, "y2": 0.0}])
+	var p := PlayerMotion.new(PhysicsConstants.v83_defaults())
+	p.place(Vector2(100, -200), m)
+	p.pos = Vector2(100, -1.0)
+	p.vel = Vector2(0, 400)
+	p.flash_spent = true
+	var flags := p.step(DT, MoveInput.make(false, false, false, false, false, true), m, null, Rect2())
+	assert_true((flags & PlayerMotion.EV_LAND) != 0, "landed in the first sub-step")
+	assert_true((flags & PlayerMotion.EV_JUMP) != 0, "and hopped again in the second")
+	assert_true(p.fh < 0, "the step ends in the air")
+	assert_false(p.flash_spent, "the new airborne period may flash")
+
+
 # --- No damage, no meter, no cast ----------------------------------------------------------------------------------------
 
 func test_it_deals_no_damage_earns_no_meter_and_is_no_cast() -> void:
