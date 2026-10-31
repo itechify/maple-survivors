@@ -12,13 +12,15 @@ const BOSSES := [9400549, 9400594, 9400575]
 const PHANTOM_TREE := 9400588
 const LEPRECHAUN := 9400584
 const JR_WRAITH := 3230101
-const EXCLUDED := [PHANTOM_TREE, LEPRECHAUN, JR_WRAITH, 9400549, 9400575]
-## The forest's ordinary mobs: Stormbreaker (Lv80), Firebrand (90), its flying revive form (90), Elderwraith (95, flies),
-## Windraider (70) and Nightshadow (100).
-const POOL_MOBS := [9400576, 9400577, 9400578, 9400579, 9400580, 9400581]
+const EXCLUDED := [PHANTOM_TREE, LEPRECHAUN, JR_WRAITH, 9400549, 9400575, 9400576, 9400577, 9400581]
+## The pooled ordinary mobs: Firebrand's flying revive form (Lv90), Nightshadow (Lv100) and Elderwraith (Lv95, flies). Each
+## pays within 0.7-1.3 of the level curve's EXP at its own level (the EXP gate, #471 review).
+const POOL_MOBS := [9400578, 9400579, 9400580]
+## The field natives left out of every pool because their canonical EXP is far off the curve: Windraider (Lv70, 2.9x),
+## Stormbreaker (Lv80, 1.9x) and the ground Firebrand (Lv90, 0.48x).
+const OFF_CURVE := [9400576, 9400577, 9400581]
 ## The Etc items used as EXP pickups, by mob.
-const EXP_ITEMS := {9400581: 4032006, 9400577: 4032008, 9400578: 4032008, 9400580: 4032010, 9400576: 4032007,
-	9400579: 4032009, 9400549: 4031903, 9400594: 4032012, 9400575: 4032013}
+const EXP_ITEMS := {9400581: 4032006, 9400577: 4032008, 9400578: 4032008, 9400580: 4032010, 9400579: 4032009, 9400549: 4031903, 9400594: 4032012, 9400575: 4032013}
 ## The attack stances each boss schedules.
 const ATTACKS := [["attack1", "attack2"], ["attack1", "attack2"], ["attack1"]]
 ## MobSkill ids per boss in the v83 data (sorted): Master Guardian's Seal 120 is the one permanent skip.
@@ -57,10 +59,9 @@ func test_three_maps_with_pool_rules_and_no_native_timed_mob() -> void:
 		assert_false(maps[i].has("opening_ramp"), "map %d: level_scale replaces the opening ramp" % (i + 1))
 	assert_eq(maps[0].pool, "curve", "map 1 is a hand-written curve pool")
 	assert_false(maps[0].has("exclude"), "map 1 lists no pool ids to exclude")
-	assert_true(bool(maps[1].get("pool_from_life", false)), "map 2 takes its life list")
-	assert_false(maps[1].has("exclude"), "Cavern of Fortitude holds no timed, hidden or filler entry")
-	assert_false(maps[2].has("pool_from_life"), "Twisted Paths' life list is Jr. Wraith, Phantom Trees and Bigfoot: a hand-written pool")
-	assert_true(maps[2].pool is Dictionary, "map 3 has an explicit pool")
+	for i in [1, 2]:
+		assert_false(maps[i].has("pool_from_life"), "map %d: its life list is off the EXP curve or filler: a hand-written pool" % (i + 1))
+		assert_true(maps[i].pool is Dictionary, "map %d has an explicit pool" % (i + 1))
 	var seen := {}
 	for kf: Dictionary in stage.keyframes:
 		for id: Variant in kf.get("pool", {}):
@@ -70,14 +71,14 @@ func test_three_maps_with_pool_rules_and_no_native_timed_mob() -> void:
 	for id: int in seen:
 		assert_has(POOL_MOBS, id, "pool mob %d is one of the forest's ordinary mobs" % id)
 		assert_false(id in EXCLUDED, "pool mob %d is not a timed native, filler or boss" % id)
-	assert_eq(StagePools.resolve(maps[2], {}), {9400579: 3.0, 9400580: 2.0, 9400577: 2.0, 9400578: 1.0, 9400581: 2.0},
-		"map 3's pool")
+	assert_eq(StagePools.resolve(maps[1], {}), {9400578: 4.0, 9400579: 3.0, 9400580: 2.0}, "map 2's pool")
+	assert_eq(StagePools.resolve(maps[2], {}), {9400579: 3.0, 9400580: 2.0, 9400578: 3.0}, "map 3's pool")
 	for boss_id: int in BOSSES:
 		assert_false(seen.has(boss_id), "boss %d is never in an ordinary pool" % boss_id)
-	assert_true(String(stage.get("_maps", "")).contains("Twisted Paths"), "the map note records the map 3 pool decision")
+	assert_true(String(stage.get("_maps", "")).contains("Twisted Paths"), "the map note records the pool decisions")
 
 
-func test_map_one_keyframe_pools_are_the_forgotten_paths_roster() -> void:
+func test_map_one_keyframe_pools_are_the_in_band_forest_mobs() -> void:
 	var pooled := 0
 	for kf: Dictionary in stage.keyframes:
 		if not kf.has("pool"):
@@ -85,10 +86,10 @@ func test_map_one_keyframe_pools_are_the_forgotten_paths_roster() -> void:
 			continue
 		pooled += 1
 		assert_true(float(kf.t) < 300.0, "map 1 reads keyframes below 300 s")
-		assert_eq(kf.pool.keys(), ["9400581", "9400577", "9400580"], "Stormbreaker, Firebrand and Elderwraith")
+		assert_eq(kf.pool.keys(), ["9400579", "9400578", "9400580"], "Nightshadow, the flying Firebrand form and Elderwraith")
 	assert_eq(pooled, 2)
-	assert_eq(stage.keyframes[0].pool, {"9400581": 5.0, "9400577": 3.0, "9400580": 2.0})
-	assert_eq(stage.keyframes[1].pool, {"9400581": 3.0, "9400577": 3.0, "9400580": 2.0})
+	assert_eq(stage.keyframes[0].pool, {"9400579": 4.0, "9400578": 3.0, "9400580": 2.0})
+	assert_eq(stage.keyframes[1].pool, {"9400579": 3.0, "9400578": 3.0, "9400580": 2.0})
 	assert_true(String(stage.get("_pools", "")).begins_with("Tier C"), "the weights carry a tier note")
 
 
@@ -151,7 +152,9 @@ func test_every_mob_has_an_exp_item_that_the_manifest_imports() -> void:
 		assert_has(manifest.items, float(EXP_ITEMS[id]), "EXP art %d is imported" % EXP_ITEMS[id])
 	for id: int in DataRepo.stage_mob_ids(data, KEY):
 		assert_true(EXP_ITEMS.has(id), "stage mob %d is a known Phantom Forest mob" % id)
-	var ranges := {9400576: [336, 504], 9400581: [398, 596], 9400577: [458, 688], 9400578: [458, 688], 9400580: [490, 734],
+		assert_false(id in OFF_CURVE, "stage mob %d is not an off-curve native" % id)
+	assert_false(data.mobs.mobs.has("9400576"), "Windraider is in no pool and not in original_life: no entry")
+	var ranges := {9400581: [398, 596], 9400577: [458, 688], 9400578: [458, 688], 9400580: [490, 734],
 		9400579: [520, 780]}
 	for id: int in ranges:
 		var mesos: Array = data.mobs.mobs[str(id)].get("mesos", [])
@@ -186,17 +189,16 @@ func test_pools_resolve_to_the_maps_own_life_lists() -> void:
 			lib.free()
 			return
 		assert_eq(StagePools.resolve({"pool_from_life": true}, img.root), life_want[i], "map %d v83 life counts" % (i + 1))
+		for id: Variant in stage.maps[i].get("pool", {}) if stage.maps[i].get("pool") is Dictionary else {}:
+			assert_has(POOL_MOBS, int(id), "map %d pool mob %d" % [i + 1, int(id)])
 		var rows: Dictionary = img.root.life
 		for row: Dictionary in rows.values():
+			assert_false(row.has("hideName"), "map %d holds no hideName instance copies" % (i + 1))
 			if int(row.get("id", 0)) in [PHANTOM_TREE, 9400575]:
 				assert_true(int(row.get("mobTime", 0)) > 0, "natives %s are timed spawns" % row.id)
 			if int(row.get("id", 0)) == 9400549:
 				assert_eq(int(row.mobTime), 21600, "the Horseman is a six-hour spawn")
-		for id: Variant in StagePools.resolve(stage.maps[i], img.root):
-			assert_has(POOL_MOBS, int(id), "map %d pool mob %d" % [i + 1, int(id)])
-	assert_eq(StagePools.resolve(stage.maps[1], lib.img(DataRepo.map_img_path(MAPS[1])).root), life_want[1],
-		"map 2 takes its whole life list")
-	for id: int in POOL_MOBS:
+	for id: int in POOL_MOBS + OFF_CURVE:
 		assert_true(lib.img("Mob.wz/%07d.img" % id) != null, "mob %d is imported" % id)
 	# Firebrand's revive form is the ordinary flying mob 9400578; Elderwraith has no ground stance.
 	var firebrand := lib.img("Mob.wz/9400577.img")
@@ -204,6 +206,30 @@ func test_pools_resolve_to_the_maps_own_life_lists() -> void:
 	assert_true(lib.img("Mob.wz/9400578.img").root.has("fly"), "the revive form flies")
 	assert_true(lib.img("Mob.wz/9400580.img").root.has("fly"), "Elderwraith flies")
 	assert_false(lib.img("Mob.wz/9400580.img").root.has("move"), "Elderwraith has no ground stance")
+	lib.free()
+
+
+## The EXP gate (#471 review): a kill's EXP is rescaled by the curve at the mob's own level, so a pooled mob whose canonical
+## EXP is far off level_curve.json's levels the character too fast or too slow.
+func test_every_pooled_mob_pays_within_0_7_and_1_3_of_the_level_curve() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	var curve: Array = data.level_curve.exp
+	var ratios := {}
+	for id: int in POOL_MOBS + OFF_CURVE:
+		var img := lib.img("Mob.wz/%07d.img" % id)
+		if img == null:
+			skip("mob %d is not imported" % id)
+			lib.free()
+			return
+		var info: Dictionary = img.root.info
+		ratios[id] = float(info.exp) / float(curve[int(info.level) - 1])
+	for id: int in POOL_MOBS:
+		assert_between(float(ratios[id]), 0.7, 1.3, "pooled mob %d EXP / curve" % id)
+	for id: int in OFF_CURVE:
+		assert_true(float(ratios[id]) < 0.7 or float(ratios[id]) > 1.3, "native %d is off the curve (%.2f): why it is in no pool" % [id, ratios[id]])
 	lib.free()
 
 

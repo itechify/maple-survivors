@@ -1,6 +1,6 @@
 {
 	"drop_band": [90, 100],
-	"_tier": "Tier A: map IDs, widths, original_life and the three bosses from v83 Map.wz / Mob.wz. Tier C: region, map order and pool rules (spec #449 C9, ticket #471, progression step 14), the 900 s duration and every pacing value, which copy Sleepywood's keyframe numbers (rate, max_alive, hp, speed), bursts, elites, exp_mult and hard_cap exactly (Sleepywood carries no post_duration_slope). Only the pools differ, and there is no opening_ramp: level_scale takes its place. Keyframes from 300 s carry no pool because map 1 picks only keyframes with t < 300 (map 2 uses its own life list, map 3 a hand-written pool).",
+	"_tier": "Tier A: map IDs, widths, original_life and the three bosses from v83 Map.wz / Mob.wz. Tier C: region, map order and pool rules (spec #449 C9, ticket #471, progression step 14), the 900 s duration and every pacing value, which copy Sleepywood's keyframe numbers (rate, max_alive, hp, speed), bursts, elites, exp_mult and hard_cap exactly (Sleepywood carries no post_duration_slope). Only the pools differ, and there is no opening_ramp: level_scale takes its place. Keyframes from 300 s carry no pool because map 1 picks only keyframes with t < 300 (maps 2 and 3 use hand-written pools).",
 	"name": "Phantom Forest",
 	"region": "Phantom Forest",
 	"continent": "Masteria",
@@ -8,7 +8,7 @@
 	"hard_cap": 400,
 	"_bosses": "Tier C: owner schedule (Headless Horseman, Master Guardian, Bigfoot; spec #449); hp_mult, dmg_mult and attack_dmg_mult are the first draft of game/tools/level_scale_draft.gd (--step=14 --stage=phantom_forest), not tuned. 8 s per-attack cadence as every boss. Canonical attacks, timing, stats and elements stay in Mob.wz. All bosses and reward choices must finish to clear.",
 	"map_seconds": 300,
-	"_maps": "Tier C: owner map order and pool rules, spec #449; the three first picks kept after the in-engine arena check (#471). Each boss time is relative to map entry. Map 1 is a hand-written curve pool of the Forgotten Path's ordinary roster (Stormbreaker, Firebrand, Elderwraith); its life list also holds the Leprechauns (Lv45, stand/die decorations, 6), the timed Phantom Trees (Lv50, immobile, mobTime 1200 s, 3) and the native Headless Horseman and Bigfoot (mobTime 21600 s and 43200 s), all left out. Map 2 uses its v83 life list (Firebrand 4, Nightshadow 3, Windraider 4), which holds no timed, hidden or filler entry; Windraider (Lv70) is a real third of it, so it stays. Map 3, Twisted Paths, is Bigfoot's flat home but its life list is Jr. Wraith x10 (Lv35 filler, most of it), the timed Phantom Trees and Bigfoot itself, so it takes a hand-written pool from the forest's own monsters instead: Nightshadow 3, Elderwraith 2, Firebrand 2, Stormbreaker 2 and the flying Firebrand revive form 9400578 x1 (Firebrand's `revive` is not read for ordinary mobs, so the form enters only as its own pool entry). The flying Elderwraith and Firebrand form swarm as ordinary fliers. The Horseman is native to the Forgotten Path and Bigfoot to Twisted Paths; Master Guardian's own map is a 2430 px party-quest room with odd instance geometry, so it fights in the Cavern of Fortitude (2230 x 805). The alternate map 2, Crimsonwood Keep 610020006 (1960 px, Crimson Guardians only), was not needed. Checked with a god-mode bot round: the Forgotten Path (3496 px, three stepped tiers of dead trees under a castle), the Cavern of Fortitude (a teal cavern with a long floor and ledges on a rope) and Twisted Paths (a flat 3946 px floor under a red sky) all fill to the stage's alive cap with nothing jammed and no pit.",
+	"_maps": "Tier C: owner map order, spec #449; the three first picks kept after the in-engine arena check (#471). Each boss time is relative to map entry. All three maps use hand-written pools (see _pools): the maps' real v83 life lists hold monsters whose canonical EXP is far off the level curve (Windraider 2.90x, Stormbreaker 1.91x, the ground Firebrand 0.48x) next to the in-band Nightshadow, Elderwraith and flying Firebrand form, and no map holds hideName copies. The Forgotten Path's life list also holds the Leprechauns (Lv45, stand/die decorations, 6), the timed Phantom Trees (Lv50, immobile, mobTime 1200 s, 3) and the native Headless Horseman and Bigfoot (mobTime 21600 s and 43200 s), all left out. The Cavern of Fortitude's life list (Firebrand 4, Nightshadow 3, Windraider 4) is replaced by the same Firebrand-form and Nightshadow weights plus Elderwraith, which lives in other Crimsonwood Mountain caves. Twisted Paths, Bigfoot's flat home, lists Jr. Wraith x10 (Lv35 filler, most of it), the timed Phantom Trees and Bigfoot itself. Firebrand's `revive` is not read for ordinary mobs, so its flying form 9400578 (an ordinary fly mob) is pooled in its own right. The Horseman is native to the Forgotten Path and Bigfoot to Twisted Paths; Master Guardian's own map is a 2430 px party-quest room with odd instance geometry, so it fights in the Cavern of Fortitude (2230 x 805). The alternate map 2, Crimsonwood Keep 610020006 (1960 px, Crimson Guardians only), was not needed. Checked with a god-mode bot round: the Forgotten Path (3496 px, stepped stone tiers of dead trees), the Cavern of Fortitude (a teal cavern with a long floor, ledges and a rope) and Twisted Paths (a flat 3946 px floor under a red sky) all fill to the stage's alive cap with nothing jammed and no pit.",
 	"maps": [
 		{
 			"map_id": 610010005,
@@ -29,7 +29,7 @@
 		},
 		{
 			"map_id": 610020014,
-			"pool_from_life": true,
+			"pool": {"9400578": 4, "9400579": 3, "9400580": 2},
 			"boss": {
 				"time": 300,
 				"mob_id": 9400594,
@@ -46,7 +46,7 @@
 		},
 		{
 			"map_id": 610010103,
-			"pool": {"9400579": 3, "9400580": 2, "9400577": 2, "9400578": 1, "9400581": 2},
+			"pool": {"9400579": 3, "9400580": 2, "9400578": 3},
 			"boss": {
 				"time": 300,
 				"mob_id": 9400575,
@@ -71,12 +71,12 @@
 		{"t": 600, "level": 63.44, "exp_level": 36.44},
 		{"t": 780, "level": 75.23, "exp_level": 48.23},
 		{"t": 900, "level": 83.85, "exp_level": 56.85}]},
-	"_pools": "Tier C weights (#471), map 1 only: the Forgotten Path's own ordinary roster is Stormbreaker 9400581 (Lv80, 5 spawn points), Firebrand 9400577 (Lv90, 3) and Elderwraith 9400580 (Lv95, 2, flies). The opening keeps the spawn-point ratio (5:3:2); from 120 s the Stormbreakers ease off (3:3:2).",
+	"_pools": "Tier C weights (#471). EXP gate: every ordinary mob in a pool pays within 0.7-1.3 of the level curve (canonical exp / level_curve exp at the mob's own level; the engine rescales a kill's EXP by curve[exp_level] / curve[mob level], so a mob far off 1 levels the character too fast or too slow). Nightshadow 9400579 (Lv100) pays 1.21, the flying Firebrand form 9400578 (Lv90) 1.24 and Elderwraith 9400580 (Lv95, flies) 1.08; the field natives Stormbreaker 9400581 (Lv80, 1.91), the ground Firebrand 9400577 (Lv90, 0.48) and Windraider 9400576 (Lv70, 2.90) fall outside it and are in no pool (the flying form stands in for the Firebrand, as its revive form). Map 1 keeps the Forgotten Path's own spawn-point ratio of three (4 : 3 : 2) and from 120 s the Nightshadows ease off (3 : 3 : 2).",
 	"keyframes": [
 		{"t": 0, "rate": 3.0, "max_alive": 50, "hp": 1.0, "speed": 1.0,
-			"pool": {"9400581": 5, "9400577": 3, "9400580": 2}},
+			"pool": {"9400579": 4, "9400578": 3, "9400580": 2}},
 		{"t": 120, "rate": 4.5, "max_alive": 80, "hp": 1.0, "speed": 1.05,
-			"pool": {"9400581": 3, "9400577": 3, "9400580": 2}},
+			"pool": {"9400579": 3, "9400578": 3, "9400580": 2}},
 		{"t": 300, "rate": 7.0, "max_alive": 130, "hp": 1.15, "speed": 1.1},
 		{"t": 480, "rate": 10.0, "max_alive": 180, "hp": 1.3, "speed": 1.15},
 		{"t": 600, "rate": 12.0, "max_alive": 220, "hp": 1.4, "speed": 1.2},
