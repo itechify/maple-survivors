@@ -80,13 +80,20 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		mechanics.append("Fires %d arrows over %s s" % [shots, number(seconds)])
 	if def.has("summon"):
 		var summon: Dictionary = def.summon
-		mechanics.append("Calls %s for %s s" % [String(def.get("name", key)), number(float(stats.get("duration", 0.0)))])
+		var named := String(def.get("name", key))
+		var lasts := number(float(stats.get("duration", 0.0)))
+		# A kamikaze's level `time` is the wait for a target, not the bird's life.
+		mechanics.append("Calls %s, waiting up to %s s for a target" % [named, lasts] if String(summon.get("behavior", "")) == "kamikaze" \
+			else "Calls %s for %s s" % [named, lasts])
 		var status: Dictionary = def.get("on_hit", {})
 		if String(status.get("status", "")) == "stun":
 			var chance := book.canonical(key, level, String(status.chance_field)) if status.has("chance_field") else 100.0
 			mechanics.append("%s%% to stun" % number(chance))
 		if summon.has("watk_field"):
 			mechanics.append("%s W.Att" % number(book.canonical(key, level, String(summon.watk_field))))
+		var behavior_line := PlayerSummons.describe_behavior(book, key, summon, stats)
+		if behavior_line != "":
+			mechanics.append(behavior_line)
 
 	if def.has("form"):
 		var form: Dictionary = def.form
@@ -96,7 +103,9 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		if effects.has("damage"):
 			power = book.canonical(key, level, String(effects.damage.field), 100.0) / 100.0 + float(stats.get("form_power", 0.0))
 		var seconds := number(float(stats.get("duration", form.duration)))
-		if element.is_empty():
+		if effects.has("hull"):
+			mechanics.append(_ship_line(seconds, effects, stats, form))
+		elif element.is_empty():
 			mechanics.append(_transform_line(seconds, power - 1.0, effects.has("damage"), stats.get("buff_effects", {})))
 		else:
 			mechanics.append("Charges your weapon for %s s: your attacks deal %s damage (+%s%%)" % [
@@ -156,6 +165,10 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if stats.has("burn_pulse"):
 		mechanics.append("Burns for %s s, %s%% of base damage per second" % [number(float(stats.get("burn_time", 0.0))),
 			number(float(stats.get("burn_share", 0.0)))])
+	if stats.has("mark_mult"):
+		# tier C (ours, C7): the mark's resolved length and both multipliers, so a Bullseye card shows in the window.
+		mechanics.append("Marks a monster for %s s: it takes %s%% more damage; bosses %s%%" % [number(float(stats.get("mark_time", 0.0))),
+			number(roundf((float(stats.mark_mult) - 1.0) * 100.0)), number(roundf((float(stats.get("mark_boss_mult", 1.0)) - 1.0) * 100.0))])
 
 	for pulse: Dictionary in stats.get("support", []):
 		mechanics.append(pulse_text(pulse))
@@ -173,6 +186,33 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 			joined += part if joined == "" else (" " if joined.ends_with(".") else "; ") + part
 		line += ("\n" if line != "" else "") + joined
 	return line
+
+
+## The line of a ship Form (a `hull` effect, spec #384 C13 #397, tier C wording): its duration, the hull as a share of max HP, the
+## skills `only_skills` leaves firing and the clock of each sub-skill.
+func _ship_line(seconds: String, effects: Dictionary, stats: Dictionary, form: Dictionary) -> String:
+	var line := "Rides a battleship for %s s: hull %s%% of max HP" % [seconds, number(roundf(float(stats.get("hull_share", 0.0)) * 100.0))]
+	var only: Array = effects.get("only_skills", [])
+	if not only.is_empty():
+		var names := PackedStringArray()
+		for key: Variant in only:
+			names.append(String(book.def(String(key)).get("name", String(key).replace("_", " ").capitalize())))
+		line += "; only %s fire" % _join_names(names)
+	var clocks := PackedStringArray()
+	for sub: Dictionary in form.get("subs", []):
+		var sub_key := String(sub.skill)
+		var sub_name := String(book.def(sub_key).get("name", sub_key.replace("_", " ").capitalize())).trim_prefix("Battleship ")
+		clocks.append("the ship's %s every %s s" % [sub_name, number(float(sub.interval))])
+	if not clocks.is_empty():
+		line += ", plus " + " and ".join(clocks)
+	return line + "."
+
+
+## `names` as prose: "A", "A and B", "A, B and C".
+static func _join_names(names: PackedStringArray) -> String:
+	if names.size() <= 1:
+		return "".join(names)
+	return ", ".join(names.slice(0, names.size() - 1)) + " and " + names[names.size() - 1]
 
 
 ## The line of a form with no element (a morph such as Buccaneer's Transformation, spec #412 BU-9): its duration, the attack
@@ -258,7 +298,7 @@ func dress(cards: Array, lo: Loadout) -> Array:
 				if String(effect.op) == "mul" and stat == "damage":
 					labels.append(sub_name + " +" + number((float(effect.value) - 1.0) * 100.0) + "%")
 				elif String(effect.op) == "mul" and stat == "form_time":
-					labels.append("charge lasts " + number((float(effect.value) - 1.0) * 100.0) + "% longer")
+					labels.append(("ride" if lo.book.def(skill).form.effects.has("hull") else "charge") + " lasts " + number((float(effect.value) - 1.0) * 100.0) + "% longer")
 				else:
 					labels.append(UpgradePool.effect_label(stat, String(effect.op), float(effect.value)))
 			if not labels.is_empty():
@@ -333,8 +373,8 @@ func _vars(key: String, level: int, stats: Dictionary) -> Dictionary:
 	var vars := {}
 	for k: String in book.level_node(key, level):
 		var v: Variant = book.level_node(key, level)[k]
-		if typeof(v) in [TYPE_INT, TYPE_FLOAT]:
-			vars[k] = float(v)
+		if typeof(v) in [TYPE_INT, TYPE_FLOAT] or (typeof(v) == TYPE_STRING and String(v).is_valid_float()):
+			vars[k] = float(v) # a numeric string too: Flamethrower and Ice Splitter store `damage` as "82" (spec #384 C9)
 	for k: String in stats:
 		if typeof(stats[k]) in [TYPE_INT, TYPE_FLOAT]:
 			vars[k] = float(stats[k])

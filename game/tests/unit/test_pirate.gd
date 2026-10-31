@@ -95,24 +95,6 @@ func test_somersault_kick_strikes_around_with_either_weapon_at_canonical_caps_an
 			assert_true(hits.any(func(e: Dictionary) -> bool: return e.pos.x > w.player.pos.x))
 
 
-func test_double_shot_uses_two_bullets_canonical_range_and_cost_with_either_weapon() -> void:
-	for path: String in WEAPONS:
-		for rank_value in [1, 20]:
-			var w := _combat(path, "double_shot", rank_value)
-			var st := w.loadout.stats("double_shot")
-			assert_eq(st.count, 2)
-			assert_eq(st.range, 215.0 if rank_value == 1 else 350.0)
-			var events := _cast(w, [100.0])
-			assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 1, path)
-			assert_eq(w.projectiles.active_count(), 2, path)
-			for tick in 30:
-				w.step(DT, MoveInput.new())
-			var hits := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "double_shot")
-			assert_eq(hits.size(), 2, path)
-	var too_far := _combat("gun", "double_shot")
-	assert_true(_cast(too_far, [360.0]).is_empty(), "outside canonical range: waits")
-
-
 const PORTED := ["somersault_kick", "flash_fist"]
 
 
@@ -121,12 +103,12 @@ func test_pirate_cards_are_offered_with_either_weapon_and_attacks_can_hit_more_m
 		var w := _world()
 		RF.as_job(w, 500, path)
 		var eligible := w.upgrades.eligible(w)
-		for key: String in ["bullet_time", "somersault_kick", "flash_fist", "double_shot"]:
+		for key: String in ["bullet_time", "somersault_kick", "flash_fist"]:
 			assert_false(key + "_new" in eligible, "#287: unported skills have no pool offers")
-		for key: String in ["bullet_time", "flash_fist", "somersault_kick", "double_shot"]:
+		for key: String in ["bullet_time", "flash_fist", "somersault_kick"]:
 			w.learn_skill(key)
 		eligible = w.upgrades.eligible(w)
-		for key: String in ["bullet_time", "flash_fist", "somersault_kick", "double_shot"]:
+		for key: String in ["bullet_time", "flash_fist", "somersault_kick"]:
 			assert_false(key + "_rank" in eligible, "#287: unported skills have no pool offers")
 			if key in PORTED:
 				# B4 #416: the legacy _targets card is deleted; `_new` and `_rank` exist only because the playable Buccaneer's pool
@@ -135,15 +117,7 @@ func test_pirate_cards_are_offered_with_either_weapon_and_attacks_can_hit_more_m
 				for suffix in ["_new", "_rank"]:
 					assert_eq(not w.upgrades.card(key + suffix).is_empty(), key in w.jobs.skill_pool(512), key + suffix + " follows the pool of 512")
 				continue
-			assert_eq(int(w.upgrades.card(key + "_rank").get("max_rank", 0)), 20)
-			if key == "bullet_time":
-				continue
-			var id := key + "_pierce" if key == "double_shot" else key + "_targets"
-			assert_false(id in eligible, "#287: unported skills have no pool offers")
-			var before := w.loadout.stats(key)
-			RF.add_modifier_effects(w, w.upgrades.card(id))
-			var after := w.loadout.stats(key)
-			assert_eq(after.pierce, before.pierce + 1)
+			assert_eq(int(w.upgrades.card(key + "_rank").get("max_rank", 0)), 20) # Bullet Time, the one legacy card left here
 
 
 func test_pirate_drop_scroll_and_shop_rosters_follow_the_held_family() -> void:
@@ -194,22 +168,17 @@ func test_original_pirate_tables_art_actions_and_sounds_resolve_in_the_private_c
 		return
 	var book := SkillBook.from_data(DataRepo.load_all().skills, {"500": img.root})
 	var loadout := Loadout.new(book)
-	# Rank 1 / top rank: Flash Fist and Somersault Kick read WZ level 3 / 20 (eight ranks), Double Shot level 1 / 20.
+	# Rank 1 / top rank: Flash Fist and Somersault Kick read WZ level 3 / 20 (eight ranks), (Double Shot moved to the corsair line, #388: test_corsair_fillers).
 	var facts := {
 		"flash_fist": [6, 14, 1.68, 2.70],
 		"somersault_kick": [8, 16, 1.22, 1.90],
-		"double_shot": [4, 7, 0.61, 0.80],
 	}
 	for key: String in facts:
 		assert_eq(book.max_level(key), 20)
-		for rank_value in [1, 8 if key in PORTED else 20]:
+		for rank_value in [1, 8]:
 			var st := loadout.stats(key, rank_value)
 			assert_near(st.damage_pct, facts[key][2 if rank_value == 1 else 3])
-			if key == "double_shot":
-				assert_eq(st.count, 2)
-				assert_eq(st.range, 215.0 if rank_value == 1 else 350.0)
-			else:
-				assert_eq(st.mob_count, (3 if rank_value == 1 else 6) if key == "somersault_kick" else 1)
+			assert_eq(st.mob_count, (3 if rank_value == 1 else 6) if key == "somersault_kick" else 1)
 		for level in [1, 10, 15, 20, 25]:
 			for field: String in ["effect", "hit", "ball"]:
 				var path := book.visual(key, field, 1, level)
@@ -217,7 +186,6 @@ func test_original_pirate_tables_art_actions_and_sounds_resolve_in_the_private_c
 					assert_false(lib.anim(path).is_empty(), path)
 		assert_true(lib.sound(book.def(key).sounds.use) != null, key + " use sound")
 		assert_true(lib.node("Character.wz/00002000.img/" + String(book.def(key).action)) is Dictionary)
-	assert_eq(book.weapon_families("double_shot"), PackedStringArray(["gun"]))
 	loadout.add_skill("bullet_time")
 	loadout.set_rank("bullet_time", 20)
 	assert_eq(loadout.passive_total("acc"), 20.0)

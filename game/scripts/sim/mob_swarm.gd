@@ -69,10 +69,15 @@ const STATUS_TABLE := [
 	{"name": "fire_weak", "element": "", "vulnerable": "f"},
 	# tier C: burn is fire (Inferno elemAttr f), so F-immune, strong and neutral kinds reject it.
 	{"name": "burn", "element": "F"},
+	# tier C: the Corsair mark (spec #384 C7): every hit, elemental or not, through `_mark_mult` rather than the VULNERABLE
+	# table; unlike the other vulnerabilities a boss accepts it ("marks_bosses"), at the weaker boss multiplier.
+	{"name": "all_weak", "element": "", "marks_bosses": true},
 ]
 ## tier C: appended after fire_weak (the Ice/Lightning spec took 6 first); the Bowmaster burn-over-time status (B5, #337).
 const BURN := 7
-const STATUS_COUNT := BURN + 1
+## tier C: appended after burn; the Corsair Homing Beacon mark (C7, #391). Refer to it by this name, never the literal.
+const ALL_WEAK := 8
+const STATUS_COUNT := ALL_WEAK + 1
 ## tier A: applying skill elements (Poison Breath S, Cold Beam I); stun ignores incoming elements (tier C, #187).
 static var STATUS_NAMES: Array = STATUS_TABLE.map(func(row: Dictionary) -> String: return row.name)
 static var STATUS_ELEMENTS: Array = STATUS_TABLE.map(func(row: Dictionary) -> String: return row.element)
@@ -90,6 +95,10 @@ static func _vulnerabilities() -> Dictionary:
 
 ## The weakness multiplier of a vulnerability mark. tier A: Fire Demon "weak against ice".
 const VULNERABLE_MULT := 1.5
+## The all-element mark (ALL_WEAK) multiplies every damaging hit by this on a non-boss and by MARK_BOSS_MULT on a boss
+## (scheduled or canonical); `mark_power` adds to both. tier C: ours (spec #384 CS-9), so a 10 s mark cannot delete a boss.
+const MARK_MULT := 1.5
+const MARK_BOSS_MULT := 1.25
 ## Element compositions: a composite letter pair -> its constituents; a hit's multiplier is the mean of their live
 ## multipliers (tier C: equal split; the WZ nodes carry no elemAttr).
 const COMPOSITIONS := {"fs": ["f", "s"], "il": ["i", "l"]}
@@ -158,6 +167,8 @@ var _poison_skill := PackedStringArray()
 var _burn_pulse := PackedFloat64Array()
 var _burn_damage := PackedInt32Array()
 var _burn_skill := PackedStringArray()
+## The ALL_WEAK multiplier snapshotted at application (boss or not, `mark_power` included); 1 while the slot is unmarked.
+var _mark_mult := PackedFloat64Array()
 ## Actual nonlethal poison damage, included in RunWorld's player damage credit.
 var poison_dealt := 0
 ## Actual nonlethal burn damage, included in RunWorld's player damage credit beside poison's.
@@ -432,6 +443,11 @@ func apply_status(i: int, status: String, params: Dictionary, events: Array) -> 
 			_burn_pulse[i] = POISON_INTERVAL
 		_burn_damage[i] = pulse
 		_burn_skill[i] = String(params.get("skill", STATUS_NAMES[BURN]))
+	elif s == ALL_WEAK:
+		# tier C: the caller passes both multipliers (mark_power included); the boss one applies to scheduled and canonical bosses.
+		var boss := mob_kind(i).boss or steady[i] != 0
+		_mark_mult[i] = maxf(0.0, float(params.get("boss_mult", MARK_BOSS_MULT)) if boss \
+			else float(params.get("mult", MARK_MULT)))
 	elif s == SLOW:
 		# tier C: a canonical positive x would speed the monster up; only slowing is applied.
 		slow_factor[i] = clampf(1.0 + float(params.get("x", 0.0)) / 100.0, 0.0, 1.0)
@@ -461,7 +477,7 @@ func accepts_status(i: int, status: String, params: Dictionary = {}) -> bool:
 		return false
 	var mk := mob_kind(i)
 	# tier C: v83 server reference rejects boss statuses and immune/strong/neutral status elements.
-	if mk.boss or steady[i] != 0:
+	if (mk.boss or steady[i] != 0) and not bool(STATUS_TABLE[s].get("marks_bosses", false)):
 		return false
 	# tier C: stun is elementless; elemental resistance only gates the other statuses.
 	return s == STUN or not mk.resists_status(String(params.get("element", STATUS_ELEMENTS[s])))
@@ -873,6 +889,8 @@ func _end_status(i: int, s: int) -> void:
 		_burn_pulse[i] = 0.0
 		_burn_damage[i] = 0
 		_burn_skill[i] = ""
+	elif s == ALL_WEAK:
+		_mark_mult[i] = 1.0
 	var base := i * STATUS_COUNT
 	for other in STATUS_COUNT:
 		if status_left[base + other] > 0.0:
@@ -1091,9 +1109,11 @@ func _grow(n: int) -> void:
 	_burn_pulse.resize(n)
 	_burn_damage.resize(n)
 	_burn_skill.resize(n)
+	_mark_mult.resize(n)
 	_status_at.resize(n)
 	for i in range(old, n):
 		slow_factor[i] = 1.0
+		_mark_mult[i] = 1.0
 		_status_at[i] = -1
 	for i in range(n - 1, old - 1, -1):
 		state[i] = FREE
@@ -1107,18 +1127,23 @@ func _grow(n: int) -> void:
 		_free.append(i)
 
 
-## Live element multiplier for a hit of `element` on slot i: a composition (`COMPOSITIONS`: fs, il) is the mean of its
-## constituents' live multipliers; a single element is 1.5 while a matching vulnerability timer runs (`VULNERABLE`:
-## Fire Demon's ice mark, Ice Demon's fire mark), else the kind's own attribute.
+## Live damage multiplier for a hit of `element` on slot i, with the ALL_WEAK mark's multiplier on top while it is marked.
+## A composition (`COMPOSITIONS`: fs, il) is the mean of its constituents' live multipliers; a single element is 1.5 while a
+## matching vulnerability timer runs (`VULNERABLE`: Fire Demon's ice mark, Ice Demon's fire mark), else the kind's own attribute.
 func element_multiplier(i: int, element: String) -> float:
 	var e := element.to_lower()
 	var parts: Variant = COMPOSITIONS.get(e)
+	var base: float
 	if parts == null:
-		return _live_multiplier(i, element, e)
-	var sum := 0.0
-	for part: String in parts:
-		sum += _live_multiplier(i, part, part)
-	return sum * (1.0 / parts.size())
+		base = _live_multiplier(i, element, e)
+	else:
+		var sum := 0.0
+		for part: String in parts:
+			sum += _live_multiplier(i, part, part)
+		base = sum * (1.0 / parts.size())
+	# The ALL_WEAK mark multiplies on top of the element, elemental hit or not: the one place the damage paths read.
+	var mark := _mark_mult[i]
+	return base if mark == 1.0 else base * mark
 
 
 ## One element's multiplier on slot i: x1.5 under a running vulnerability timer for it, else the kind's own value.

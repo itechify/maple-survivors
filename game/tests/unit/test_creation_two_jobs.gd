@@ -95,7 +95,7 @@ func test_two_rows_in_canonical_order_names_from_the_job_data_and_212_chosen() -
 	assert_eq(hero.size.x, CREATE.JOB_ROW_SIZE.x) # the height is the text server's: the dummy one of a headless run measures 31
 	assert_eq(hero.position.x, mage.position.x, "rows share a column")
 	var apart: int = creation.job_ids.find(212) - creation.job_ids.find(112)
-	assert_eq(mage.position.y - hero.position.y, (CREATE.JOB_ROW_SIZE.y + 2.0) * apart, "rows are one pitch apart, Hero first")
+	assert_eq(mage.position.y - hero.position.y, creation.job_pitch * apart, "rows are one pitch apart, Hero first")
 	assert_eq(hero.position.y, CREATE.ROW_AT.y, "the first row starts at the first Look row")
 	assert_true(hero.get_theme_stylebox("normal") is StyleBoxEmpty, "Hero is not highlighted")
 	assert_false(mage.get_theme_stylebox("normal") is StyleBoxEmpty, "212 is highlighted")

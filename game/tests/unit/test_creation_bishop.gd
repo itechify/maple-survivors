@@ -68,7 +68,7 @@ func _row(creation: Control, id: int) -> Button:
 func test_shipped_bishop_is_playable_in_canonical_order() -> void:
 	var mirrored := _tree()
 	assert_true(mirrored.job(232).playable)
-	assert_eq(mirrored.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 512] as Array[int])
+	assert_eq(mirrored.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 512, 522] as Array[int])
 	assert_eq(mirrored.name_of(232), "Bishop", "the name is the canonical job list's")
 	assert_eq(mirrored.default_job(), 212, "F/P stays the default")
 	assert_eq(mirrored.creation_weapon(232), 1372005, "the Wooden Wand")
@@ -88,7 +88,7 @@ func test_rows_follow_the_playable_jobs_and_212_is_chosen() -> void:
 	assert_true(bishop.size.x >= CREATE.JOB_ROW_SIZE.x)
 	assert_eq(bishop.position.x, mage.position.x, "rows share a column")
 	assert_eq(_row(creation, expected[0]).position.y, CREATE.ROW_AT.y, "the first row starts at the first Look row")
-	var pitch: float = CREATE.JOB_ROW_SIZE.y + 2.0
+	var pitch: float = creation.job_pitch
 	assert_eq(bishop.position.y - _row(creation, expected[0]).position.y, pitch * expected.find(232), "rows are one pitch apart in canonical order")
 	assert_eq(bishop.alignment, HORIZONTAL_ALIGNMENT_LEFT)
 	assert_true(bishop.get_theme_stylebox("normal") is StyleBoxEmpty, "Bishop is not highlighted until chosen")
