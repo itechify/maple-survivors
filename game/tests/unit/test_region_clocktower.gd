@@ -9,7 +9,8 @@ const KEY := "clocktower"
 const MAPS := [220060400, 220070400, 220080000]
 const BOSSES := [8160000, 8170000, 8500001]
 const FINAL_FORM := 8500002
-## The clock's MobSkill 200/39 and 200/40 summons: High and Low Darkstar (both present in v83, no ABSENT_IN_V83 entry).
+## The clock's MobSkill 200/39 and 200/40 summons: High and Low Darkstar (both present in v83, no ABSENT_IN_V83 entry). Their
+## Mob.wz `selfDestruction` is not modelled: they stay until killed, so the stage bounds the summons with `skill_intervals`.
 const DARKSTARS := [8500003, 8500004]
 ## Ordinary mobs by map: Ghost Pirate (Lv83), Death Teddy (85), Dual Ghost Pirate (87); Master Death Teddy (89), Spirit
 ## Viking (93), Phantom Watch (95); Gigantic Spirit Viking (98), Grim Phantom Watch (99).
@@ -18,8 +19,8 @@ const POOL_LEVELS := {7140000: 83, 7130010: 85, 7160000: 87, 7130300: 89, 814100
 const EXP_ITEMS := {7140000: 4000132, 7130010: 4000147, 7160000: 4000133, 7130300: 4000148, 8141000: 4000134,
 	8142000: 4000149, 8141100: 4000135, 8143000: 4000150, 8160000: 4000151, 8170000: 4000152, 8500001: 4001084,
 	8500002: 4001084, 8500003: 4001084, 8500004: 4001084}
-## The attack stances each boss schedules.
-const ATTACKS := [["attack1", "attack2"], ["attack1"], ["attack1", "attack2", "attack3", "attack4"]]
+## The attack stances each boss schedules. The clock's attack3 (attackAfter 0, a +-800 px instant strike) is not scheduled.
+const ATTACKS := [["attack1", "attack2"], ["attack1"], ["attack1", "attack2", "attack4"]]
 ## MobSkill ids per boss in the v83 data (sorted). Thanatos's Seal 120 is the one skipped id.
 const SKILLS := [[123], [120, 121, 124, 125], [114, 123, 126, 127, 200, 200]]
 
@@ -126,7 +127,6 @@ func test_bosses_are_scheduled_with_tier_notes_and_enabled_kits() -> void:
 		assert_eq(int(boss.map_time), 300, "a boss 300 s after each entry")
 		assert_eq(boss.get("attacks", []), ATTACKS[i], "%d: its own WZ attacks" % BOSSES[i])
 		assert_eq(int(boss.attack_interval), 8)
-		assert_false(boss.has("skill_intervals"), "%d casts no Banish, so no interval override" % BOSSES[i])
 		for field: String in ["hp_mult", "dmg_mult", "attack_dmg_mult"]:
 			assert_true(float(boss.get(field, 0.0)) > 0.0, "%d %s" % [BOSSES[i], field])
 		assert_true(String(boss.get("_tier", "")).begins_with("tier C"), "%d has a tier C note" % BOSSES[i])
@@ -135,6 +135,12 @@ func test_bosses_are_scheduled_with_tier_notes_and_enabled_kits() -> void:
 	assert_eq(int(bosses[2].final_form), FINAL_FORM, "the clock revives into the flying form")
 	assert_true(float(bosses[2].final_form_hp_mult) > 0.0, "final_form_hp_mult")
 	assert_has(data.balance.mob_skills.enabled_ids, float(FINAL_FORM), "the flying form is enabled")
+	# Tier C fairness floors on the clock: heal 114/4 (WZ 30,000 every 1 s) every 15 s, both Darkstar summons (WZ every 1 s,
+	# four mobs a cast, selfDestruction not modelled so they stay until killed) every 8 s; skill ids key both summon levels.
+	assert_eq(bosses[2].skill_intervals, {"114": 15.0, "200": 8.0}, "the clock's heal and summon intervals")
+	assert_true(String(bosses[2]._tier).contains("skill_intervals") and String(bosses[2]._tier).contains("attack3 is NOT scheduled"),
+		"the tier note records the intervals and the dropped attack3")
+	assert_false(bosses[0].has("skill_intervals") or bosses[1].has("skill_intervals"), "only the clock needs intervals")
 	# The draft tool's numbers (--step=15 --stage=clocktower), pinned so a retune is a visible change.
 	assert_eq([float(bosses[0].hp_mult), float(bosses[1].hp_mult), float(bosses[2].hp_mult)], [43.427, 10.855, 0.038])
 	assert_eq([float(bosses[0].dmg_mult), float(bosses[1].dmg_mult), float(bosses[2].dmg_mult)], [1.064, 0.822, 1.594])
@@ -264,6 +270,11 @@ func test_each_boss_skill_resolves_to_a_supported_id() -> void:
 	# The clock revives into the flying form, which has no attack stance and fights by touch.
 	var clock := lib.img("Mob.wz/8500001.img").root
 	assert_eq(clock.info.revive.values().map(func(v: Variant) -> int: return int(v)), [FINAL_FORM], "the clock revives into Papulatus")
+	# attack3 is the unscheduled one: attackAfter 0 and a +-800 px box, an instant unwarned strike without its effect0 strikes.
+	assert_eq(float(clock.attack3.info.get("attackAfter", -1)), 0.0, "attack3 hits at once")
+	assert_true(clock.attack3.has("effect0") or clock.attack3.info.has("effect0"), "attack3's effect0 secondary strikes are the unmodelled part")
+	assert_eq(float(clock.attack1.info.get("deadlyAttack", 0)), 1.0, "attack1's deadlyAttack flag is not modelled")
+	assert_eq(float(clock.attack1.info.get("doFirst", 0)), 1.0, "attack1's doFirst flag is not modelled")
 	var form := lib.img("Mob.wz/8500002.img").root
 	assert_true(form.has("fly"), "the final form has a fly stance")
 	assert_false(form.has("attack1"), "the final form has no attack stance: contact only")
@@ -275,8 +286,9 @@ func test_each_boss_skill_resolves_to_a_supported_id() -> void:
 		assert_true(lib.img("Mob.wz/%07d.img" % extra) != null, "Mob.wz holds the summon %d" % extra)
 		assert_false(extra in StageRoster.ABSENT_IN_V83, "%d is not on the absent list" % extra)
 	for darkstar: int in DARKSTARS:
+		# Mob.wz gives them a selfDestruction (hp 5000), which the sim does not model: they stay until killed.
 		var self_destruct: Variant = lib.img("Mob.wz/%07d.img" % darkstar).root.info.get("selfDestruction", {})
-		assert_true(self_destruct is Dictionary and int(self_destruct.get("hp", 0)) > 0, "%d self-destructs" % darkstar)
+		assert_true(self_destruct is Dictionary and int(self_destruct.get("hp", 0)) > 0, "%d has a selfDestruction in Mob.wz" % darkstar)
 	# Gatekeeper and Thanatos summon nothing.
 	for id: int in [8160000, 8170000]:
 		assert_eq(StageRoster.boss_extra_ids(lib.img("Mob.wz/%d.img" % id).root, table.root), PackedInt32Array(), "%d summons nothing" % id)

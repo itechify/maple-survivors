@@ -56,12 +56,15 @@
 				"attacks": [
 					"attack1",
 					"attack2",
-					"attack3",
 					"attack4"
 				],
 				"attack_interval": 8,
 				"attack_dmg_mult": 2.784,
-				"_tier": "tier C (#472): first draft of level_scale_draft.gd --step=15 --stage=clocktower, not tuned: arrives at curve time 900 (E_sw 56.85, level 86.85); the clock's four type-0 strikes (all magic, lightning, ice and fire, the mob's MADamage 480) are matched on MAD; 8 s cadence. The 23,000,000 HP clock (x 0.038) and the 1,590,000 HP flying form (x 0.546, final_form_hp_mult, 0.5 of the encounter each) share the survivor HP target; the form is matched at the clock's arrival level, so at runtime its HP lands above target. The clock's attack3 effect0 random secondary strikes are skipped (not modelled as extra strikes). Its kit runs as written in Skill.wz: Dispel 127/1 (B6, 20 s floor), Slow 126/1, heal 114/4, Stun 123/4 (B1, interval 1 so the status_lockout floor applies) and the Low and High Darkstar summons 200/39 and 200/40 (self-destructing, StageRoster). The flying form 8500002 (B6) has no attack stance and fights by touch (PADamage 800, MADamage 1000)"
+				"skill_intervals": {
+					"114": 15,
+					"200": 8
+				},
+				"_tier": "tier C (#472): first draft of level_scale_draft.gd --step=15 --stage=clocktower, not tuned: arrives at curve time 900 (E_sw 56.85, level 86.85); the clock's scheduled type-0 strikes attack1, attack2 and attack4 (all magic, lightning, ice and fire, the mob's MADamage 480) are matched on MAD; 8 s cadence. attack3 is NOT scheduled: it has attackAfter 0 and, with its effect0 random secondary strikes not modelled, would be an instant, unwarned strike across +-800 px at attack_dmg_mult 2.784. attack1's deadlyAttack and doFirst flags are not modelled either. The 23,000,000 HP clock (x 0.038) and the 1,590,000 HP flying form (x 0.546, final_form_hp_mult, 0.5 of the encounter each) share the survivor HP target; the form is matched at the clock's arrival level, so at runtime its HP lands above target. Its kit runs as written in Skill.wz: Dispel 127/1 (B6, 20 s floor), Slow 126/1, Stun 123/4 (B1, interval 1 so the status_lockout floor applies), heal 114/4 and the Low and High Darkstar summons 200/39 and 200/40 (StageRoster). skill_intervals (tier C, Shade's mechanism): the WZ heal 114/4 restores a flat 30,000 every 1 s to every mob in an 800 x 600 box, about 12 percent of the clock's effective HP per second against 10-30 s heals on other bosses, so it is cast every 15 s; the Darkstar summons have WZ interval 1, four mobs per cast, limit 5000 and no modelled selfDestruction (they stay until killed), so skill 200 (both levels) is cast every 8 s, which bounds the crowd by time (about 8 Darkstars per 8 s). The flying form 8500002 (B6) has no attack stance and fights by touch (PADamage 800, MADamage 1000)"
 			}
 		}
 	],
