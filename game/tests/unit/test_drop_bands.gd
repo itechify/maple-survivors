@@ -57,11 +57,18 @@ func _hundred(count: int, tier_band: Array, boss: bool, p_seed: int) -> Array:
 
 func test_the_shipped_regions_carry_their_drop_bands() -> void:
 	var stages: Dictionary = DataRepo.load_all().stages
-	var expected := {"henesys": [0, 15], "ellinia": [10, 20], "perion": [15, 25], "kerning": [20, 30], "sleepywood": [30, 40],
-		"ludibrium": [35, 45]}
-	assert_eq(stages.progression, expected.keys(), "the progression lists them in this order")
+	# Pins only for the five original regions; later regions are held to the rules below (and their own region test pins them).
+	var expected := {"henesys": [0, 15], "ellinia": [10, 20], "perion": [15, 25], "kerning": [20, 30], "sleepywood": [30, 40]}
+	assert_eq(stages.progression.slice(0, expected.size()), expected.keys(), "the original five come first, in this order")
 	for key: String in expected:
 		assert_eq(EquipmentDrops.band_of(stages.stages[key]), expected[key], key)
+	var last := [-1, -1]
+	for key: String in stages.progression:
+		var band := EquipmentDrops.band_of(stages.stages[key])
+		assert_eq(band.size(), 2, "%s carries a drop_band" % key)
+		assert_true(band[0] <= band[1], "%s: min <= max" % key)
+		assert_true(band[0] >= last[0] and band[1] >= last[1], "%s: the bands are monotone along the progression" % key)
+		last = band
 
 
 func test_a_stage_without_a_band_has_no_limit() -> void:

@@ -15,9 +15,13 @@ func test_regions_have_three_ordered_maps_and_relative_bosses() -> void:
 		"perion": [102010000, 101030404, 106000101],
 		"kerning": [103010000, 103000101, 107000000],
 		"sleepywood": [105050400, 105090310, 105090900],
-		"ludibrium": [220011000, 220030400, 220030000],
-	}
+	} # pins for the original five; every region of the progression is held to the rules below
 	for key: String in expected:
+		assert_has(file.stages, key)
+		for i in file.stages.get(key, {}).get("maps", []).size():
+			assert_eq(file.stages[key].maps[i].map_id, expected[key][i])
+	for step in file.progression.size():
+		var key: String = file.progression[step]
 		assert_has(file.stages, key)
 		if not file.stages.has(key):
 			continue
@@ -25,10 +29,14 @@ func test_regions_have_three_ordered_maps_and_relative_bosses() -> void:
 		assert_false(stage.has("map_id"))
 		assert_false(stage.has("bosses"))
 		assert_eq(stage.get("map_seconds"), 300)
-		assert_eq(stage.get("maps", []).size(), 3)
+		assert_eq(stage.get("maps", []).size(), 3, "%s: three maps" % key)
 		for i in stage.get("maps", []).size():
-			assert_eq(stage.maps[i].map_id, expected[key][i])
-			assert_eq(stage.maps[i].boss.time, 300)
+			assert_eq(stage.maps[i].boss.time, 300, "%s map %d: a boss 300 s after entry" % [key, i + 1])
+		assert_eq(stage.get("drop_band", []).size(), 2, "%s carries a drop_band" % key)
+		# ADR 0007 / spec #449: the regions after Sleepywood (step 6 on) use a level_scale, not an opening_ramp.
+		if step >= file.progression.find("sleepywood") + 1:
+			assert_true(stage.has("level_scale"), "%s has a level_scale" % key)
+			assert_false(stage.has("opening_ramp"), "%s has no opening_ramp" % key)
 
 
 func test_stage_api_projects_absolute_bosses_and_keeps_copies_detached() -> void:

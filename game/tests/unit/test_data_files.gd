@@ -201,6 +201,7 @@ func test_stages_mobs_and_manifest() -> void:
 	var want_maps := {"henesys": 104040000, "ellinia": 101010100, "perion": 102010000, "kerning": 103010000,
 		"sleepywood": 105050400}
 	assert_eq(stages.keys().slice(0, want_maps.size()), want_maps.keys(), "the five original stages are offered first")
+	# Pin of the main file's own 16 maps only: each region's fragment appends its maps after them (no edit per region).
 	assert_eq(manifest.maps.slice(0, 16), [104040000.0, 104010001.0, 100030001.0, 101010100.0, 100040100.0,
 		100040105.0, 102010000.0, 101030404.0, 106000101.0, 103010000.0, 103000101.0, 107000000.0,
 		105050400.0, 105090310.0, 105090900.0, 910000000.0],

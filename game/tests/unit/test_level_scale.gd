@@ -558,5 +558,6 @@ func test_shipped_data_validates_and_no_shipped_stage_uses_the_block_yet() -> vo
 	var data := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_eq(errors, PackedStringArray(), "the shipped data loads without errors")
 	for key: String in data.stages.stages:
-		var original: bool = data.stages.progression.find(key) in range(5) # the first five predate the scale (#453); a new region has one
-		assert_eq(data.stages.stages[key].has("level_scale"), not original, "%s: level_scale exactly for the regions of #449" % key)
+		# The regions up to Sleepywood predate the scale (#453); every region after it (#449) has one.
+		var scaled: bool = data.stages.progression.find(key) > data.stages.progression.find("sleepywood")
+		assert_eq(data.stages.stages[key].has("level_scale"), scaled, "%s: level_scale exactly for the regions after Sleepywood" % key)

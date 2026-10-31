@@ -20,12 +20,16 @@ func test_region_cards_list_three_maps_with_their_bosses_from_the_cache() -> voi
 		["West Street Corner of Perion → King Clang", "East Rocky Mountain V → Stumpy", "The Burnt Land I → Iron Hook"],
 		["Kerning City Construction Site → King Slime", "Line 1 <Area 1> → Shade", "The Swamp of Despair I → Dyle"],
 		["Dark Cave → Zombie Mushmom", "Drake Area → Snack Bar", "The Cursed Sanctuary → Jr. Balrog"],
-		["Sky Terrace<5> → Rombot", "Toy Factory <Process 2> Zone 4 → Alishar", "Toy Factory <Process 2> Zone 1 → Timer"],
-	]
+	] # pins for the original five; later regions are held to the rule below ("<map> → <boss>" on each of three rows)
 	var cards := SELECT.load_stages(data)
 	assert_eq(cards.size(), data.stages.progression.size())
-	for i in mini(cards.size(), expected.size()):
-		assert_eq(cards[i].get("map_rows", []), expected[i], String(cards[i].key))
+	for i in cards.size():
+		if i < expected.size():
+			assert_eq(cards[i].get("map_rows", []), expected[i], String(cards[i].key))
+		else:
+			assert_eq(cards[i].get("map_rows", []).size(), 3, "%s lists its three maps" % cards[i].key)
+			for row: String in cards[i].get("map_rows", []):
+				assert_true(row.contains(" → "), "%s: '%s' names its map and boss" % [cards[i].key, row])
 		assert_eq(cards[i].objective, "Defeat 3 bosses across 3 maps")
 		assert_false(str(cards[i]).to_lower().contains("canonical"), "no developer terminology on the card")
 		var mark: Variant = lib.find(AssetLibrary.map_img_path(int(cards[i].map_id)) + "/info/mapMark")
