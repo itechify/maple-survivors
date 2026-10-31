@@ -512,6 +512,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		# tier C (#405): the flash's reach at this rank, for the Skill window (RunWorld.flash_jump_distance reads the same).
 		resolved["flash_distance"] = FlashJump.distance(d.flash_jump.distance, r, book.max_rank(key))
 	_add_status_grants(resolved, key, r)
+	_add_finish_strike(resolved, d, lv)
 	return resolved
 
 
@@ -759,3 +760,9 @@ func _add_status_grants(resolved: Dictionary, key: String, r: int) -> void:
 	if grants.get(key, []).is_empty():
 		return
 	resolved["status_grants"] = StatusBonus.resolve(status_bonuses, grants[key], r, grant_chances[key])
+
+
+## Adds `finish_chance` / `finish_bonus` to a skill with a `finish_strike` block (spec #425 SH5, FinishingStrike); other skills gain
+## no key, so their stats are unchanged.
+func _add_finish_strike(resolved: Dictionary, d: Dictionary, lv: int) -> void:
+	resolved.merge(FinishingStrike.resolve(d, book.level_node(String(resolved.skill), lv)))

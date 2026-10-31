@@ -836,7 +836,7 @@ func _resolve_target(world: RunWorld, st: Dictionary, slot: int, index: int, lin
 		var line_hv := target_hv
 		if not by_line.is_empty():
 			line_hv = world.visual_index(String(by_line[line])) if line < by_line.size() else -1
-		world.hit_mob(slot, st, line_hv)
+		world.hit_mob(slot, FinishingStrike.line_stats(st, line, lines), line_hv)
 
 
 func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets: PackedInt32Array) -> void:
