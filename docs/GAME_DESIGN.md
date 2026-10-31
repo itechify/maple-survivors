@@ -988,8 +988,8 @@ Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621
 421.7 / 651.8, random 331.5 / 449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood with the starter wand 11.4 /
 11.9 / 15.1, with `fp_arch_mage.json` one clear and deaths at 23.8 / 395.4 / 767.0 (the 395.4 death is #455's third kit seed); no crashes, no
 world warnings. Steps 1-5 read no changed number (`level_scale` is only in regions 6-16, and `level_curve` is read only by them).
-Tests: see the PR (focused filters `region_ level_scale level_curve unique_bosses data_files stage_schema final_form balance_chain
-fixture_band_kit`, then the whole suite).
+Tests: the whole suite, `TEST_TIMEOUT_S=7200 bash scripts/test.sh` with the real cache (so nothing SKIPs): **4,172 tests, 0 failed, 0 skipped**; `node --test
+tools/level_curve/test/*.test.mjs` passes. CI has no WZ data, so its cache-backed tests SKIP.
 
 
 ### Phantom Forest (C9) regression smoke and diagnostic round (#471, 2026-10-30)
