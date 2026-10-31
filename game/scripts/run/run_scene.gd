@@ -1325,7 +1325,9 @@ func _on_boss_skill(e: Dictionary) -> void:
 			# tier C: playtest evidence of the first of each boss status (#458), mid-loop above the head.
 			var key: String = STATUS_KEYS[skill_id]
 			_first_event_shot(key, key + ".png", 0.4 if skill_id != MobSkillRunner.SKILL_DARKNESS else 0.5)
-	_mob_sound(int(e.mob_id), String(e.action).replace("skill", "Skill"))
+	var skill_sound := SND_MOB % [int(e.mob_id), String(e.action).replace("skill", "Skill")]
+	if not attack_sound_absent_in_v83(skill_sound): # tier A: Alishar 9300012 has no Skill1 in v83 Sound.wz (#463)
+		_mob_sound(int(e.mob_id), String(e.action).replace("skill", "Skill"))
 
 
 ## The notice of a boss's Reflect cast (143 physical, 144 magic, 145 both).

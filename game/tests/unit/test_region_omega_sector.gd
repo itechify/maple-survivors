@@ -72,7 +72,10 @@ func test_pool_rules_and_exclusions() -> void:
 	var maps: Array = _stage().maps
 	assert_eq(maps[0].pool, "curve", "map 1 is the hand-written curve pool")
 	for kf: Dictionary in _stage().keyframes:
-		assert_eq(kf.pool, {"4230116": 1.0}, "map 1's own roster")
+		if float(kf.t) < 300.0:
+			assert_eq(kf.pool, {"4230116": 1.0}, "map 1's own roster under 300 s")
+		else:
+			assert_false(kf.has("pool"), "no pool from 300 s: map 1 reads only keyframes under 300 s")
 	for i in [1, 2]:
 		assert_eq(maps[i].get("pool_from_life"), true, "map %d uses its life list" % (i + 1))
 		assert_eq(maps[i].exclude, [4240000.0, 5120100.0])

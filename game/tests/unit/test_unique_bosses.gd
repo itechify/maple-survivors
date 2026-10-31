@@ -3,14 +3,14 @@ extends TestCase
 ## boss `mob_id` and `final_form` is distinct, and so are their names. A final form is the same boss as its shell, so
 ## the two may share a name (King Clang's 5220001 and 5220000) but no other encounter may use it.
 
-## Expected rosters, in map order (a shell is listed with its final form).
+## Expected rosters of the five original regions, in map order (a shell is listed with its final form). Later regions are
+## held to the uniqueness rules below and pin their own bosses in their region test.
 const ROSTERS := {
 	"henesys": [[2220000], [6130101], [9400205]],
 	"ellinia": [[3300008], [3300005], [5220002]],
 	"perion": [[5220001, 5220000], [3220000], [4090000]],
 	"kerning": [[9300003], [5090000], [6220000]],
 	"sleepywood": [[6300005], [8220009], [8130100]],
-	"omega_sector": [[4240000], [5120100], [6220001]],
 }
 
 
@@ -73,13 +73,20 @@ func _all_ids(encounters: Array[Dictionary]) -> Array:
 func test_shipped_progression_schedules_each_boss_once() -> void:
 	var data := DataRepo.load_all()
 	var encounters := _encounters(data.stages)
-	assert_eq(encounters.size(), 3 * data.stages.progression.size(), "every region of the progression has three bosses")
+	assert_eq(encounters.size(), 3 * data.stages.progression.size(), "three maps in every region of the progression")
 	assert_eq(_id_errors(encounters), PackedStringArray(), "no mob_id or final_form is scheduled twice")
 	assert_eq(_name_errors(encounters, _survivor_names(_all_ids(encounters), data.mobs.mobs)), PackedStringArray(),
 		"no two encounters share a mobs.json name")
 
 
-func test_every_region_keeps_its_expected_bosses() -> void:
+func test_every_progression_region_schedules_one_boss_per_map() -> void:
+	var data := DataRepo.load_all()
+	for key: String in data.stages.progression:
+		var bosses := DataRepo.stage_bosses(data.stages.stages[key])
+		assert_eq(bosses.size(), 3, "%s: a boss on each of its three maps" % key)
+
+
+func test_every_original_region_keeps_its_expected_bosses() -> void:
 	var stages: Dictionary = DataRepo.load_all().stages.stages
 	for key: String in ROSTERS:
 		var got: Array = []

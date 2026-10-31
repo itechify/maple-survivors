@@ -70,9 +70,10 @@ Java/.NET/Python are not. The importer is a single self-contained executable tha
 ### 4.1 Scene flow
 
 `main.tscn` (bootstrap) -> `ImportScreen` (only when the cache is missing) -> `TitleScreen` -> `CharacterSelect` ->
-`StageSelect` (map select for this character's next tier) -> `RunScene` (one round). Non-final clears carry the
-character to the Free Market hub, whose out00 exit opens the next tier's map select;
-death/final-tier victory -> `ResultsScreen` -> `CharacterSelect`.
+`StageSelect` (map select: the whole progression of ADR 0007, the character's cleared regions marked, its frontier
+selected) -> `RunScene` (one round of three maps). Non-final map clears transfer to the next map; a round's end
+(a clear of map 3, a death or Quit round) goes to `ResultsScreen`, whose button returns to the Free Market hub, whose out00 exit
+opens map select again. Character select and Save & quit return to `CharacterSelect`.
 There is no Retry. Three living slots support create, continue, confirmed delete and ended-run history.
 
 The title is the game's own, not the v83 login scene: the key art `game/assets/branding/title.png` (the project's
@@ -83,13 +84,16 @@ buttons are `TitleButton`s drawn from code. The emblem is `game/icon.png` (windo
 Character select and creation keep the v83 MapLogin backdrop (`LoginBackdrop`).
 
 `SceneFlow` owns the active slot and the round loop ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md),
-ADR 0006, #286): character select opens the character's Free Market, whose out00 opens map select (every stage of
-every unlocked tier), `start_round` launches a round **without writing anything**, and `finish_run(summary, character,
+ADR 0006, #286): character select opens the character's Free Market, whose out00 opens map select (every region of
+`stages.json` `progression` in order, the locked ones greyed and not startable: `StageSelect.load_progression` over
+`CharacterSnapshot.unlocked_keys`), `start_round` launches a round **without writing anything**, and `finish_run(summary, character,
 ending)` is the one exit of a persistent round (clear, death, and Quit round with `ending` "quit"): it saves the
 outgoing character, the best, the run count, the NX and one history entry in a single `SaveData.finish_round` write and
 shows the results screen, whose button returns to the hub. `RunScene.configure` accepts `options.character` as a
 snapshot Dictionary or the tool JSON-file path. The coordinator's header documents #70's small character-screen calls.
-`RunWorld.character_snapshot()` is always available (no choice can block it) and is where a clear unlocks the next tier.
+`RunWorld.character_snapshot()` is always available (no choice can block it); a CLEARED round's stage key joins its `cleared_regions`
+(`CharacterSnapshot.cleared_after_round`, computed by `RunWorld`, written by `SaveData.finish_round`), which unlocks the next region
+in the progression. A death, Quit round or one-off `--run` round leaves the set unchanged.
 On clear, RunWorld first settles every collectible ground drop and every resulting choice (4.4.2); `stage_cleared`
 is emitted only after that settlement. RunScene takes the outgoing snapshot after the clear presentation hold.
 `FreeMarket` uses `FreeMarketMotion` (PlayerMotion, FootholdMap, LadderSet and PortalSet) without a RunWorld;
@@ -104,10 +108,13 @@ module) and saving the slot at once.
 `--run` calls `start_run`, an independent one-off with no save writes.
 
 The `flow_driver.tscn` `redesign` scenario exercises these boundaries through injected signboard, creation (name, look,
-Job page), Free Market walk, map select (a locked tier refused), level-up window, double-click equip, pause, deletion and
+Job page), Free Market walk, map select (a locked region refused), level-up window, double-click equip, pause, deletion and
 History input. It warps real fixed simulation ticks through combat (invulnerable, with diagnostic boss hits after each map
 timer), plays the real CLEAR/fade/arrival presentation of the three maps, and reloads the evidence-only save from disk to
-check that a new character opens only Henesys, that a clear unlocks the next region and that a death keeps the loot and the unlock. It checks presentation and flow only;
+check that a new character opens only Henesys, that a clear unlocks the next region and that a death keeps the loot and the unlock.
+The `progression` scenario (#455) is the focused version: a locked Start refused, two clears (Henesys, then the frontier
+Ellinia, unlocking Perion), Save & quit and Continue keeping the cleared set, a Perion death leaving it unchanged, and an
+all-cleared character (`HubTestKit`) on map select, with shots of every state. It checks presentation and flow only;
 natural outcomes belong to balance smokes (AGENTS.md "Flow driver").
 
 ### 4.2 Autoloads
@@ -125,7 +132,10 @@ Everything else is owned by the scene that uses it.
 optional `account: {nx, owned}` (spec #34; absent = an empty account). A finished round's `nx_awarded` is credited
 inside the same atomic write as the round's slot, best and history entry.
 A slot is `{name, created, rounds_played, character}`; `character` is the validated format-3 `CharacterSnapshot`
-(job, look, equipment, scrolls, mesos, cash, pet, `cleared_regions`). There is no phase, progression cursor, stage or seed: a
+(job, look, equipment, scrolls, mesos, cash, pet, `cleared_regions`: the sorted, unique stage keys the character has cleared;
+region i of `progression` is open iff i is 0 or the key of region i-1 is in the set, ADR 0007). A stored `tiers_unlocked >= 2`
+(ADR 0006 saves, fixtures and tool files) migrates on load to the first four regions cleared, any other value to none
+(`CharacterSnapshot.migrate`, `SaveData` for stored slots); the format number stays 3. There is no phase, progression cursor, stage or seed: a
 round is never saved. The caller supplies dates and seeds.
 
 `slot(index)`, `slots` and `history` return detached copies. `create_slot(snapshot)` returns the first free index
@@ -254,7 +264,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `GroundHazards` | The boss ground hazards (poison mist 131, #459) as pooled packed arrays (rect, born/until, effect, strength, boss, art paths), owned by `RunWorld.hazards`; no node per hazard | `spawn(spec)`, `step(dt, world)` (expires, then applies ice Slow / poison to a character whose body box overlaps), `clear()` (map transfer, death, clear), `rect(slot)`, `cast_count`, `seconds`; drawn by `HazardRenderer` (a SpritePool of tile puffs on the player's actor layer). Poison 125 itself is a `PlayerStatuses` status (`MobSkillRunner.apply_poison`, `step_poison`, `RunWorld.take_poison`) |
 | `RunWorld` | Owns one deterministic round across its maps | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING_UPGRADE / DEAD / CLEARED); `job_id()` the character's fixed job, written only by `set_job(job_id)` (#284: once at construction from the character, `setup.job` or `JobTree.default_job()`; tests call it to stand other lines); TIMEOUT is a harness outcome while the sim remains PLAYING; `skill_readiness(key) -> {left, total}` is the HUD's per-skill cooldown sweep data (Teleport: its repeat timer); `read_skill_cooldowns(left, total)` writes the same for every owned skill into the caller's reused Packed arrays (the HUD's allocation-free per-frame feed) |
 | `BotInput` | The autoplay bot (RunScene `autoplay`/`autopick`, the full-run tests, `scripts/balance.sh`, the benchmarks): kites (melee builds close to their attack reach instead, #162: `SkillRunner.reach_of`), collects drops, climbs or uses same-map portals, picks cards | `decide(world, memo) -> MoveInput`, `auto_choose(world, first_card := false)`, `pick_card_for(world, cards)` |
-| `BotShop` | What the bots do with equipment and mesos (spec #33, #112), beside `BotInput`: wears the best item it owns, and plans and applies one Free Market visit through RunWorld's equip/shop API. Used by `balance_run.gd` (mid-round and between `--tier` rounds), RunScene's autoplay and `FreeMarket.bot_shop` | `auto_equip(world) -> int`, `equip_trigger(events)`, `plan(character, stock, facts, policy, rng) -> {sell, steps}`, `visit(world, policy, rng) -> record`, `character_of / stock_of / facts_of(world)` |
+| `BotShop` | What the bots do with equipment and mesos (spec #33, #112), beside `BotInput`: wears the best item it owns, and plans and applies one Free Market visit through RunWorld's equip/shop API. Used by `balance_run.gd` (mid-round and between the rounds of a `--chain` run), RunScene's autoplay and `FreeMarket.bot_shop` | `auto_equip(world) -> int`, `equip_trigger(events)`, `plan(character, stock, facts, policy, rng) -> {sell, steps}`, `visit(world, policy, rng) -> record`, `character_of / stock_of / facts_of(world)` |
 
 Player projectile hit exclusion uses `MobSwarm.identity`, a packed 64-bit logical identity independent of the
 reusable slot index and canonical mob-kind ID. Each fresh `MobSwarm.spawn` receives the next run-local identity;
@@ -973,7 +983,7 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   up as soon as room appears. `EquipmentDrops` (pure statics: `eligible`, `pick`, `pick_boss`) filters
   `survivor/equipment_drops/<line>.json` `items` (ids only; reqLevel, reqJob and stats come from `setup.equipment_info`, which
   `DataRepo.starter_equipment_ids` extends with the list) by the character's job (`Equipment.job_allows`), the job's weapon
-  families and the `reqLevel` band of the stage's tier (`RunWorld.drop_band()`, uniform inside it); `Equipment.create_drop(id, info, rng)` rolls the v83 random stats. A kill rolls
+  families and the `reqLevel` band of the stage (`stages.json` `drop_band`, ADR 0007; `RunWorld.drop_band()`, uniform inside it); `Equipment.create_drop(id, info, rng)` rolls the v83 random stats. A kill rolls
   `equipment_drops.chance` on its own RNG stream (10, `equip_rng`); a scheduled boss's death drops
   `equipment_drops.boss_drops` item(s) from the top third of the band with no chance roll. `RunWorld.spawn_equipment` is the public
   seam; RunScene shows "You have gained an item (name)" and "You can't get anymore items." through the HUD message queue.
@@ -1012,7 +1022,7 @@ deltas are zero. F3 reads this bounded window immediately when toggled mid-round
 `RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 3; tool files of format 1 and 2 migrate on
 load) and exposes `character_snapshot()`. The schema, and the one list of what a character keeps, is in
 `scripts/sim/character_snapshot.gd`: job, look, worn equipment and inventory (`scripts/sim/equipment.gd` instances),
-scroll stacks, mesos, cash, pet and cleared regions; never level, EXP, skills, cards, AP or HP. Every world starts at Lv1.
+scroll stacks, mesos, cash, pet and `cleared_regions` (the set of cleared stage keys; `tiers_unlocked` is migrated away, ADR 0007); never level, EXP, skills, cards, AP or HP. Every world starts at Lv1.
 RunWorld owns the live equipment: UI and bots change it
 only through `equip_item`, `unequip_item` and `discard_item` (see the RunWorld header); a character without a
 snapshot wears `Equipment.DEFAULT_OUTFIT`. `SceneFlow.new_character` makes the creation choices and the job's creation

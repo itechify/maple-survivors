@@ -15,7 +15,7 @@ func test_dark_cave_roster_and_run_tiers() -> void:
 	assert_eq(StageRoster.named_ids(ordinary_stage),
 		PackedInt32Array([2110200, 2230100, 2230101, 2300100, 3230100, 3230300, 7130100, 7130101]),
 		"owner's tier-2 ordinary roster; bosses belong to #73")
-	assert_eq(data.stages.get("progression", []), ["henesys", "ellinia", "perion", "kerning", "sleepywood"],
+	assert_eq(data.stages.get("progression", []).slice(0, 5), ["henesys", "ellinia", "perion", "kerning", "sleepywood"],
 		"Sleepywood follows the four Victoria regions")
 
 

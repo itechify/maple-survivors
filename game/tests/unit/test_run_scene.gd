@@ -1496,6 +1496,8 @@ func test_boss_attack_sound_is_silent_only_when_the_mobs_entry_lacks_that_sound(
 	gap.sound = "Sound.wz/Mob.img/9999999/Attack1"
 	scene.handle_events([gap])
 	assert_eq(sfx_lib.missing.size(), before + 1, "an absent Mob.img entry still reports its sound missing")
+	# The Sfx library is shared by later tests: drop the deliberate gap so their "nothing missing" checks stay true.
+	sfx_lib.missing = sfx_lib.missing.slice(0, before)
 
 
 ## Spec #449 C2 (#464): a boss's skill or hit sound that its own Mob.img entry lacks is silent too (King Clang has Skill1

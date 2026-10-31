@@ -28,12 +28,14 @@ grilling.
 - **No MP.** Skills are gated by their cooldown only. **No level-gap penalties:** the level difference between monster
   and character changes neither hit chance nor damage.
 - **Damage keeps the Maple formula** with automatic AP, now in a single stat row per job.
-- **Tiers unlock per character.** Every round is standalone, from the Free Market and back. Clearing any region of
-  tier N unlocks tier N+1 for that character. Cleared tiers can be replayed.
-- **No permadeath.** Death ends the round only. The character keeps its tier unlocks, its equipment, and the mesos and
+- **Tiers unlock per character.** *(Superseded by [ADR 0007](0007-one-region-progression-per-character.md): one ordered
+  region progression, and clearing a region unlocks the next.)* Every round is standalone, from the Free Market and back.
+  Clearing any region of tier N unlocks tier N+1 for that character. Cleared tiers can be replayed.
+- **No permadeath.** Death ends the round only. The character keeps its tier unlocks (superseded by ADR 0007: its cleared regions), its equipment, and the mesos and
   items picked up that round.
 - **Equipment** keeps only its job-class requirement. Level and stat requirements are gone. `reqLevel` becomes the
-  item's tier signal: each tier has a **drop band**, so lower tiers drop worse equipment. Equipment, inventory and
+  item's tier signal: each tier has a **drop band**, so lower tiers drop worse equipment (superseded by ADR 0007: each
+  region carries its own drop band). Equipment, inventory and
   mesos belong to the character (no account storage). The upgrade path is unchanged: v83 scrolls, with the Free Market
   selling scrolls and buying equipment back.
 - **Weapons don't gate skills.** Each job lists its allowed weapon families; drops roll only from them.

@@ -32,7 +32,8 @@ Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in
 | Equipment | Job-class requirement only. `reqLevel` is the region's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
 | Account | NX, Cash Shop, pets unchanged. Cash equipment adds Fortune. | 8.4 |
 
-Order: the F/P Arch Mage slice, then Hero, then the other ten jobs, a tier rework (fewer starting choices), and last
+Order: the F/P Arch Mage slice, then Hero, then the other ten jobs, the progression rework (spec #447, ADR 0007: this was
+the tier rework, fewer starting choices, and one region open at the start), and last
 the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pass pacing (tier C) but don't tune.
 
 **Landed in the F/P slice (spec #282):**
@@ -57,11 +58,12 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
   Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
   jobs (Hero 112, Dark Knight 132, Bishop 232, Paladin 122 and Arch Mages 212/222), whose `creation_weapon` is the weapon worn; the look page's weapon row is no longer chosen.
-  Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
-  tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
+  Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every region of the
+  progression (a locked region greyed, not startable; ADR 0007 replaced the two tiers); `start_round` writes nothing; every round ends in `finish_run` (one
   `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
-  the hub. Clearing any stage of tier N unlocks tier N+1 for that character (`CharacterSnapshot.unlocked_after_round`);
-  tier 1 is always open; cleared tiers can be replayed. There is no permadeath: death ends the round, never the
+  the hub. Clearing a region (its map 3 boss dead, CLEARED) unlocks the next one for that character
+  (`CharacterSnapshot.cleared_after_round`, ADR 0007; ADR 0006's "clearing any stage of tier N unlocks tier N+1" is superseded);
+  Henesys is always open; cleared regions can be replayed. There is no permadeath: death ends the round, never the
   character, and only deletion frees a slot. Quit round is a death in every respect (its history ending is `quit`).
   A format-1 or format-2 save moves its characters to the history (`retired`) on load, unmigrated; bests, counts, the
   account and old history carry over. Tool files (`--character`, `--hub`, fixtures) of format 1 and 2 still load, reduced
@@ -75,7 +77,7 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
 - **#289 (T7): the nine common passives** (section 8.5).
 - **#290 and #291 (T8, T9): the twelve-skill F/P pool.** Explosion, Poison Mist, Element Composition, Fire Demon, Paralyze,
   Meteor Shower, Big Bang (7.31) and the generic player-summon seam with Elquines (7.32).
-- **#292 (T10): equipment without level or stat requirements, tier drop bands, job weapon families.**
+- **#292 (T10): equipment without level or stat requirements, drop bands, job weapon families.**
   `Equipment.requirement_error` checks only `reqJob`; `reqLevel` and `reqSTR/DEX/INT/LUK` are ignored by equipping, the
   pickup auto-wear (#222) and the bot shop, and the Equip/Item tooltip has no REQ rows (its job row stays).
   `stages.json` `drop_bands[i]` was the `reqLevel` band of tier i ([0, 30], [30, 60]); since #450 each stage carries its
@@ -628,8 +630,10 @@ block and compares the event logs).
 
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
 labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
-aliases; living slots, bests, history and run snapshots migrate on load. The tier list is
-`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253).
+aliases; living slots, bests, history and run snapshots migrate on load. The unlock order is the `progression` list
+(henesys, ellinia, perion, kerning, sleepywood; ADR 0007, #450). The former tier list was
+`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253); "tier 1 stages" in
+older records below, in the smoke and in the job-loop tickets mean the first four regions.
 
 | Stage key | Map 1 | Map 2 | Map 3 | Boss order |
 |---|---|---|---|---|
@@ -638,6 +642,7 @@ aliases; living slots, bests, history and run snapshots migrate on load. The tie
 | `perion` | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) | Mano / Stumpy / Iron Hook |
 | `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
+| `ludibrium` (step 6, #463) | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) | Rombot / Alishar / Timer |
 | `omega_sector` | Kulan Field I (221040000) | Boswell Field II (221030200) | Boswell Field V (221030500) | Chief Gray / MT-09 / Zeno |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
@@ -684,7 +689,7 @@ no observation. Camper policies park only on their own first map; later maps use
 records change with this map progression. The regression smoke belongs to #249; #248 only checks seed 1 Henesys
 for the new record fields and uses diagnostic flow evidence, without tuning.
 
-Sleepywood's first map is Dark Cave (105050400, Dungeon), in tier 2.
+Sleepywood's first map is Dark Cave (105050400, Dungeon); Sleepywood is the fifth region of the progression.
 Its first-pass data targets an arriving Lv35–43 second-job character and is frozen before the report-only smoke;
 the 30–40% clear / Lv60–69 targets are deferred to #77. Canonical mob HP, defence, EXP, levels and elements remain
 unchanged in the cache. Stage EXP is 1x; no new per-mob stat multipliers are applied. Tauromacis and Taurospear use
@@ -850,6 +855,85 @@ No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening mu
 Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
+
+### Ludibrium (C1) regression smoke and diagnostic round (#463, 2026-10-30)
+
+Spec #447 branch with the Ludibrium region (step 6), private cache, F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no
+held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with `fp_arch_mage.json`:
+**every batch matches #455's table above to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0;
+Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 /
+466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one clear
+and deaths at 23.8 / 767.0), no crashes and no world warnings. Ludibrium itself is not in the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=ludibrium --job=112 --character=late_progression.json`, seed 1, god mode (`RunWorld.god`) with the
+bot, one lethal diagnostic hit after 30 s of each boss fight (bosses held at 100% / 70% / 45% HP meanwhile so their kits
+show): **CLEARED, 3 bosses, Lv64, 967.4 s, `missing: []`**. Map entries at 0 / 330 / 660 s. Checked by eye: Sky Terrace
+(green toy-block castle, Roloduck and Panda Teddy swarm the floor), Zone 4 (blue toy factory, Robo and Panda Teddy), Zone 1
+(conveyors, Master Robo lines; the arrival portal sits on the left ledge and the bot climbs down); the three boss bars
+(Rombot's borrowed icon, Alishar's, Timer's); Rombot, Alishar (winding up its attack1 at the left edge, Darkness
+darkening the screen) and Timer (the owl; "Timer recovered 5000 HP" from its heal 114) each fought for 30 s. Stun 123
+and Timer's immunities were not seen: under god mode no hit lands on the character, so the status art needs
+the status tickets' own evidence. With the late fixture (Lv100-band gear at Lv1) the draft bosses die almost at once when
+not held: the first draft is a starting point for C13, not a balance claim.
+
+**Alishar's Skill1 sound.** v83 `Sound.wz/Mob.img/9300012` has Attack1, Damage, Die and CharDam1 but no Skill1, so the cast
+of its Darkness reported `Sound.wz/Mob.img/9300012/Skill1` missing. A skill sound v83 does not have is now silent like
+an absent attack sound (`attack_sound_absent_in_v83`, tier A, #463); an absent whole Mob.img entry still reports.
+
+### Progression QA and merge-readiness smoke (#455, A6, 2026-10-30)
+
+Spec #447 branch with A1-A5 and B1-B5 merged, shared read-only cache `MapleSurvivors-spec447c`, F/P (212), training
+seeds 1/2/2026, `JOBS=2`, `ISOLATE=t455`; no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood
+bot with the starter wand and with `fp_arch_mage.json`, and `--chain=5 --retries=1` (bot). **33 records plus the chain's six
+rounds: no crashes, world warnings, missing assets or TIMEOUTs; every batch exited 0.** Raw records and logs:
+`_scratch/balance455/` (not committed). The smoke, playtests and full suite ran on 0f84227d (the #452 merge); the
+`progression` scenario was run again on the merge of spec/447 at 916ae923 (#461, #462) and passed. Previous smoke: the F/P column of the Bowmaster QA table (B13 #345, 2026-10-29)
+for Henesys, Kerning and Sleepywood, and #452's table above for Ellinia and Perion. Clears/3 and death (D) seconds:
+
+| Stage / policy | Clears | Death seconds (now) | Previous | First boss reached | Deaths by map 1/2/3 |
+|---|---|---|---|---|---|
+| henesys / bot | 0/3 | 417.3 / 644.1 / 646.7 | 305.0-651.7 | 3/3 (Mano 5.4-11.6 s) | 0 / 1 / 2 |
+| henesys / random | 0/3 | 428.6 / 489.3 / 668.0 | 308.3-309.9 | 3/3 (Mano 5.9-19.0 s) | 0 / 2 / 1 |
+| ellinia / bot | 0/3 | 621.2 / 628.3 / 635.9 | same (#452) | 3/3 | 0 / 0 / 3 |
+| ellinia / random | 0/3 | 302.8 / 305.4 / 623.0 | same (#452) | 3/3 | 2 / 0 / 1 |
+| perion / bot | 0/3 | 308.1 / 421.7 / 651.8 | same (#452) | 3/3 | 1 / 1 / 1 |
+| perion / random | 0/3 | 331.5 / 449.5 / 466.1 | same (#452) | 3/3 | 1 / 2 / 0 |
+| kerning / bot | 0/3 | 311.0 / 386.0 / 535.5 | 307.9-315.0 | 3/3 | 1 / 2 / 0 |
+| kerning / random | 0/3 | 306.5 / 306.5 / 373.2 | 306.0-317.3 | 3/3 | 2 / 1 / 0 |
+| sleepywood / starter | 0/3 | 11.4 / 11.9 / 15.1 | 10.6-12.0 | 0/3 | 3 / 0 / 0 |
+| sleepywood / kit | 1/3 (seed 2: CLEARED 925.2 s) | 23.8 / 767.0 | 23.8-826.2, one clear at 936.2 | 2/3 | 1 / 0 / 1 |
+
+- Ellinia and Perion reproduce #452's records to the second, so A4's level scale and the later merges (#454, #451) left
+  them untouched. Henesys and Kerning City differ from the Oct 29 smoke by later death times (Henesys bot 305.0-651.7
+  became 417.3-646.7; random 308.3-309.9 became 428.6-668.0; Kerning bot's latest death 315.0 became 535.5). Their data
+  is unchanged, so the cause is something merged between the two smokes (the boss kits B1-B5, player statuses #458, poison
+  #459); it was not bisected, and this is not a regression bound being broken (no clear is lost, no run dies earlier).
+- Henesys bot fills the six active slots in 3/3 runs (128.7-219.7 s) and every region's runs reach their first boss, except
+  Sleepywood with the starter wand, which dies at 11-15 s before its first boss exactly as in every earlier smoke (the
+  opening ramp; recorded balance-pass work, not a feature regression: the kit runs reach it 2/3).
+- `--chain=5 --retries=1`: 0/3 chains clear Henesys. Each seed plays Henesys twice (the replay with the loot kept) and
+  both attempts die (death seconds 417.3-692.5, maps 2-3), so no chain reaches Ellinia; the Ellinia-to-Sleepywood steps
+  report zero starts. The chain's bookkeeping (attempt records, `CHAIN` lines, per-step summaries) is what this exercises;
+  how far a geared bot gets needs a character that clears Henesys, which the balance pass owns.
+
+**Flow and visual QA.** `flow_driver.tscn --scenario=progression` passed (about 6 minutes, seed 1, no `ERROR` lines):
+a new character can start only Henesys and a locked Ellinia's Start is refused; a diagnostic invulnerable Henesys clear
+leaves Henesys CLEAR and Ellinia NEW and selected on opening; an Ellinia clear unlocks Perion and not Kerning City;
+Save & quit, character select and Continue keep the set; a Perion death changes nothing; a `HubTestKit` character reads
+"Regions cleared 5/5" with nothing locked. Map select shots (read by eye) are in `evidence/t455_progression/`
+(`*_progression_01_new_character`, `05_after_henesys`, `08_after_ellinia`, `14_all_cleared`, ...). Playtests
+`--stage=ellinia` and `--stage=perion` (seed 2026, x8, `--vsync=off`) both end `missing: []`: Ellinia dies at 9:47 on map 2
+(Lv21, Prime Minister fought on map 1), Perion at 7:21 on map 2 (Lv22, King Clang's shell form fought on map 1);
+`evidence/t455_playtest_ellinia/`, `evidence/t455_playtest_perion/`. Map select's "Lv lo-hi" (Ellinia 1-55, Perion and Kerning City 2-32) follows the pools: Ellinia's 55 is the
+ordinary Lv55 mob 5300100 of map 3's own life list (checked in the #482 review).
+
+**Test suites and the web gate.** `cargo test` (70) and the web tests (62) pass. The full GDScript suite (`TEST_TIMEOUT_S=7200`,
+3,680 tests) had 2 order-dependent failures (`test_shop_windows`, `test_ui_windows`), also present before this ticket: #452's
+King Clang sound test left a deliberate `Sound.wz/Mob.img/9999999/Attack1` gap in the shared Sfx missing list. Fixed here (the
+test drops it after asserting); `scripts/test.sh run_scene shop_windows ui_windows` then passes 91/91. Web gate: with the
+wasm target and `wasm-bindgen-cli` 0.2.105 installed and `cargo fetch --locked` run, `scripts/export.sh --web` completes and
+`check_web_artifact.sh` passes (27 files, no WZ data or cache-shaped files). Serving the page and starting Henesys through the
+browser import was not done.
 
 ### Unique bosses smoke (#452, A3, 2026-10-30)
 
@@ -8561,9 +8645,10 @@ every constant, with its tier, is in section 11 under the tables named below):
    character and lost with the run. ("Meso rule", section 11.)
 2. **Equipment** drops from kills (0.2% per ordinary kill, two guaranteed from each boss): a v83 hat, top, bottom,
    overall, shoes, gloves, shield or weapon that the character's job class can wear, with v83's random stat rolls. Since
-   #292 a drop never depends on the character's level or the weapon it holds: the stage's tier fixes a `reqLevel` band
-   (`stages.json` `drop_bands`: tier 1 [0, 30], tier 2 [30, 60]) that an ordinary drop lies in (uniform among the
-   eligible items) and a boss drop lies in the top third of (tier 1: Lv 20-30, tier 2: Lv 50-60). A weapon drops only
+   #292 a drop never depends on the character's level or the weapon it holds: the stage's `drop_band` (ADR 0007, #450:
+   Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40]; ADR 0006's tier bands
+   [0, 30] and [30, 60] are superseded) is the `reqLevel` band that an ordinary drop lies in (uniform among the
+   eligible items) and a boss drop lies in the top third of (Henesys Lv 10-15 ... Sleepywood Lv 36-40). A weapon drops only
    when it belongs to one of the job's weapon families (`survivor/jobs/<line>.json` `weapon_families`; 212: wand and
    staff). Equipment has no level or stat requirement to wear; only the item's job class (`reqJob`) is checked, by the
    Equip and Item windows, the auto-wear and the bot shop alike. It goes to the
@@ -8583,8 +8668,8 @@ every constant, with its tier, is in section 11 under the tables named below):
 6. Mesos, worn equipment, the Equip tab and scrolls stay with the character (ADR 0006, #292): `CharacterSnapshot` hands
    them back after a clear, a death or a Quit round with whatever the round picked up, and the save file keeps them
    (format 3). A round always starts at Lv1, so the gear it wears is whatever the character already owns.
-7. Bots follow the same rules (`BotShop`): they wear the best item they own and visit the shops between tiers of a
-   `balance.sh --chain=N` run. ("Bot shopping rule".)
+7. Bots follow the same rules (`BotShop`): they wear the best item they own and visit the shops between the regions of a
+   `balance.sh --chain=N` run (ADR 0007, #454). ("Bot shopping rule".)
 
 Verified by the `shops`, `scrolls`, `botshop` and `redesign` flow scenarios (AGENTS.md; the old `economy` scenario was retired in #294) and by the combined regression smoke in 4.2
 "Spec #33 / #113". The numbers above are first-pass and are not tuned: equipment per round measured 5-7 against the
@@ -8773,7 +8858,7 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 
 | Rule | Value / source | Tier |
 |---|---|---|
-| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood, omega_sector (v83 levelling order; owner request 2026-10-30) | C |
+| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood, ludibrium, omega_sector (v83 levelling order; owner request 2026-10-30) | C |
 | Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]). Steps 6-16, set by their region tickets (#449), are [35, 45], [40, 50], [45, 55], [50, 60], [55, 65], [60, 70], [70, 80], [80, 90], [90, 100], [100, 110] and **[108, 120]** for step 16 (#447 said [110, 120]; widened by #474, see "Equipment for the late bands" in 8.3) | C |
 | Late-band equipment (#474) | `equipment_drops/*.json` hold every ordinary v83 weapon of a listed family and one armour piece per slot, reqLevel and gender up to Lv120; chosen from Character.wz facts (not cash, `only`, `notSale`, `quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`; price above 1; a String.wz name; not a `GMS ...` item). No Cosmic drop data was available to this ticket, so unlike the Lv0-70 lists it is not B-checked against server drops | C |
 | NX clear bonus | `balance.nx_award.clear_bonus` by progression step: 100, 100, 100, 100, 250, the last repeating (the old amounts moved from tiers to steps) | C |
@@ -8792,7 +8877,7 @@ no ticket here tunes (C13 does).
 | Labels | `region` "Omega Sector", `continent` "Ossyria" (String.wz group `ossyria`) | A / C |
 | Maps | 221040000 Kulan Field I (2864 px), 221030200 Boswell Field II (4214 px), 221030500 Boswell Field V (4574 px); the natural boss maps (221040201, 221030601, 221040301, 2250-2414 px) are replaced by these wider neighbours; no alternates were needed after the arena check (a bot ran all three, `missing: []`) | C |
 | Bosses | Chief Gray 4240000 / MT-09 5120100 / Zeno 6220001, one 300 s after each map entry; `attacks` ["attack1"], `attack_interval` 8; Chief Gray's MobSkill 200 level 27 (Barnard Gray, interval 30 s, hp <= 75 %, limit 3, `summonEffect` 6) is canonical and supported, MT-09 and Zeno have no skills | A / C |
-| Pools | map 1 `curve` with Barnard Gray 4230116 at weight 1 on every keyframe (its own life holds nothing else); maps 2/3 `pool_from_life` with `exclude` [4240000, 5120100] (the timed native bosses; their v83 lists hold none): Plateon 27 / Mateon 7 and Mecateon 21 / Plateon 11 | C |
+| Pools | map 1 `curve` with Barnard Gray 4230116 at weight 1 on the keyframes under 300 s, none later (map 1 reads only those; its own life holds nothing else); maps 2/3 `pool_from_life` with `exclude` [4240000, 5120100] (the timed native bosses; their v83 lists hold none): Plateon 27 / Mateon 7 and Mecateon 21 / Plateon 11 | C |
 | Curve | Sleepywood's keyframes, bursts, elites, `exp_mult`, `hard_cap`, `post_duration_slope` copied exactly; no `opening_ramp` | C |
 | `drop_band` | [40, 50] (spec #447 table) | C |
 | `level_scale` | `level_scale_draft.gd --step=7`: E_sw 9.15 / 9.73 / 10.80 / 22.22 / 36.44 / 48.23 / 56.85 at t 0 / 120 / 300 / 480 / 600 / 780 / 900; `level` = E_sw + 6, `exp_level` = E_sw | C |
@@ -10349,6 +10434,25 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Reflect hit | A `player_hit` of `source_kind` "reflect" (boss, so boss-hit telemetry reports it): no avoid, defense or knockback, no hit window of its own, and no Form or hull absorption (deliberate: it is the character's own damage coming back, not a monster hit). Refused while dead, clearing a map, in god mode, Hidden, inside a hit window or behind a hit guard (the hit still deals 0 to the boss); only a reflect that lands spends the boss's 0.5 s rate slot, so a refused one leaves it free. Second life (hit hooks) applies; it can kill, and death clears the ground hazards as `take_hit`'s does. Only the character's own hits are reflected: the burn and poison ticks already on a boss never are. `boss_reflect` event: `{mob, mob_id, boss_index, magic, damage, amount}` | C |
 | Reflect exclusivity | A reflect never overlaps 140 or 141 on the same boss: a reflect cast while either is up, or a 140/141 cast while a reflect is up, is skipped and spends its interval (the 140/141 half is Cosmic's rule, tier B, #457; extending it to the reflects is ours) | C |
 | Reflect presentation | The boss shows the level's `mob` icon (`status_visuals`) while it lasts and the notice "<boss> is reflecting physical / magic damage!" or "... your attacks!" shows at the cast | C |
+
+### Ludibrium (C1) constants (#463, spec #449; progression step 6)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/ludibrium.json`: `region` Ludibrium, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [35, 45] (#447 table), maps 220011000 / 220030400 / 220030000 (widths 2227 / 3667 / 3667 px, foothold spans of Map.wz), `original_life` of map 1 (Roloduck 22, Panda Teddy 19) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged; Sleepywood has no `post_duration_slope`. No `opening_ramp` (maps nor stage): `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads): Roloduck 3210204 (Lv34) alone at 0:00, plus Panda Teddy 3210203 (Lv36) at the same weight from 2:00; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`, no exclusions: Zone 4 holds Robo 4230111 x28 and Panda Teddy x8, Zone 1 Master Robo 4230112 x29; none is timed, hidden or an event mob | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=6 --stage=ludibrium` (not tuned): `level` 12.15, 12.73, 13.8, 25.22, 39.44, 51.23, 59.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 | C |
+| Bosses | Rombot 4130103 (hp_mult 11.107, dmg_mult 0.977, attack_dmg_mult 1.046), Alishar 9300012 (0.361, 0.458, 0.596), Timer 5220003 (3.967, 1.435, 1.87), each 300 s after its map's entry with `attack1` and `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids`. Alishar's and Timer's attack1 are magic, matched on MAD | C |
+| Boss kits | Alishar: Darkness 121 and the Cronos summons 200 (9300015/6/7) as written; its Seal 120 is skipped for good. Timer: heal 114, buffs 110/112/113, Stun 123, weapon immunity 140, magic immunity 141. Rombot casts nothing | A skills, C support |
+| Fights fought in these maps | Rombot's Hidden Tower (530 px shaft) and Timer's Lost Time maps (1777 px, 11-16 ladders) are climbing shafts, so both bosses fight in the Toy Factory/Sky Terrace; Alishar is the party-quest boss and has no field | C |
+| Conveyors | Zone 1's four conveyor footholds use the existing `force` support (`FootholdMap`, `player_motion.gd`); no movement code changed | A map data |
+| `mobs.json` | names and `exp_item`: Roloduck Toy Duckling 4000109, Panda Teddy Panda Doll 4000108, Robo Cheap Battery 4000111, Master Robo Mechanical Heart 4000112, Rombot Rombot's Memory Card 4000124, Alishar Key of Dimension 4001023, Timer Clock Spring 4000113 (each the mob's first Etc drop in the MonsterBook), the Cronos Timer's Clock Spring; Rombot has no MobGage icon and borrows Zeno's 6220001 with the standard 1/5 tag | A ids/names, C association |
+| Meso ranges | ordinary mobs only: centre interpolated from the Lv35 Curse Eye / Jr. Boogie and Lv40 Cold Eye / Zombie Lupin / Lv50 Drake ranges at the mob's level (Roloduck [73, 109], Panda Teddy [82, 124], Robo [110, 164], Master Robo [140, 210]), +-20%; bosses and Cronos use the `balance.mesos` level fallback | C |
+| Flags ignored | none of Ludibrium's field flags are read (`lvLimit` is on the Path of Time maps only, which are not used) | C |
+| Diagnostic gap | The god-mode diagnostic round did **not** observe Timer's Stun 123 and magic immunity 141, nor Alishar's Cronos summons (200): god mode lands no hit on the character, and the bosses were held at fixed HP fractions. Their visuals and effects are unverified in Ludibrium until C14's QA covers them (the mechanics have their own tests, #456-#458) | C |
+| Alternates | map 1 220010300 / 220010000, map 2 220030300 / 220030200, map 3 220040400 / 220050200: not needed, the arena check kept all three first picks | C |
 
 ## 12. Later phases
 

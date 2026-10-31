@@ -142,7 +142,7 @@ func test_a_clear_unlocks_the_next_region_in_map_select() -> void:
 	assert_eq(flow.save.history[0].ending, "cleared")
 	flow.goto_stage_select()
 	assert_eq(flow.current.unlocked_keys(), ["henesys", "ellinia"], "the clear unlocks Ellinia and nothing else")
-	assert_eq(flow.current.stages.map(func(c: Dictionary) -> bool: return bool(c.cleared)), [true, false, false, false, false])
+	assert_eq(flow.current.stages.map(func(c: Dictionary) -> bool: return bool(c.cleared)).slice(0, 5), [true, false, false, false, false])
 
 
 func test_replaying_a_cleared_region_changes_nothing_and_a_clear_in_a_row_unlocks_step_by_step() -> void:
@@ -225,16 +225,18 @@ func test_map_select_selects_a_stage_and_a_locked_one_cannot_start() -> void:
 	flow.create_character("Scroll69")
 	flow.goto_stage_select()
 	var screen: Node = flow.current
-	assert_eq(screen.stages.size(), 5, "every region of the progression is listed")
+	var regions: int = SceneFlow.progression().size()
+	assert_eq(screen.stages.size(), regions, "every region of the progression is listed")
 	assert_eq(screen.top, 0)
-	screen.select(4)
-	assert_eq(screen.selected, 4)
-	assert_eq(screen.top, 0, "all five regions fit the six rows, so the list does not scroll")
-	assert_true(screen.stages[4].locked)
+	screen.select(regions - 1)
+	assert_eq(screen.selected, regions - 1)
+	if regions <= 6:
+		assert_eq(screen.top, 0, "all the regions fit the six rows, so the list does not scroll")
+	assert_true(screen.stages[regions - 1].locked)
 	assert_true(screen.start_button.disabled, "Start is dimmed for a locked stage")
 	screen.start_selected()
 	assert_eq(flow.current_name, "stage_select", "a locked stage does not start")
 	screen.select(0)
 	assert_eq(screen.top, 0)
 	assert_false(screen.start_button.disabled)
-	assert_eq(screen.stages.map(func(c: Dictionary) -> int: return int(c.step)), [0, 1, 2, 3, 4])
+	assert_eq(screen.stages.map(func(c: Dictionary) -> int: return int(c.step)), range(regions))
