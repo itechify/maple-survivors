@@ -8942,6 +8942,8 @@ HP from Snowman's ball attack or Riche's magic hit, and Riche's heal (114/12 cas
 kills it too quickly to reach). Those are covered by the sim tests of B1 (Stun), B4 (mist) and the boss-kit tests.
 Screenshots stay out of the repo.
 
+Full suite on the branch (private cache, real data): 3760 tests, 0 skipped, 1 failed before the fix below, 0 after: `test_late_equipment_bands` indexed the band table by position in `progression`, so El Nath (canonical step 10) read step 8's band while Korean Folk Town and Mu Lung are still missing from this branch; it now looks the step up by the region's key in the #449 table.
+
 Regression smoke with El Nath (F/P 212, private cache, `JOBS=1`, seeds 1/2/2026, no tuning, no held-out seeds): **every
 batch matches #455's table above to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0; Ellinia
 bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 / 466.1;
