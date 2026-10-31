@@ -243,3 +243,24 @@ func test_bot_scores_a_grant_card_like_any_rarity_card() -> void:
 	var half := card.duplicate(true)
 	half.rarity_bonus.effects[0]["scale"] = 0.8
 	assert_true(BotInput.card_score(w, half) < BotInput.card_score(w, card), "a repeat's diminished grant scores less")
+
+
+func test_real_cache_venomous_star_numbers_equal_skill_wz_4120005() -> void:
+	# Review S6: the survivor catalogue copies the Venomous Star WZ numbers (tier A), so the copy is checked against the node:
+	# rank r reads WZ level LEVELS[r - 1]; its `prop` is the chance, `time` the seconds, and the poison level is the level.
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	var levels: Dictionary = lib.img("Skill.wz/412.img").root.skill["4120005"].level
+	lib.free()
+	var data := DataRepo.load_all()
+	var rows := StatusBonus.resolve(data.balance.status_bonuses, ["venomous_star"], 1)
+	assert_eq(rows.size(), 1)
+	var wz_levels := [4, 8, 12, 15, 19, 23, 27, 30]
+	for rank in 8:
+		var grant: Dictionary = StatusBonus.resolve(data.balance.status_bonuses, ["venomous_star"], rank + 1)[0]
+		var node: Dictionary = levels[str(wz_levels[rank])]
+		assert_eq(grant.chance, float(node.prop), "rank %d chance is prop of WZ level %d" % [rank + 1, wz_levels[rank]])
+		assert_eq(grant.time, float(node.time), "rank %d time" % [rank + 1])
+		assert_eq(grant.level, wz_levels[rank], "rank %d poison level is the WZ level" % [rank + 1])
