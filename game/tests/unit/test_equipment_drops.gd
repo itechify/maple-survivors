@@ -244,11 +244,17 @@ func test_every_listed_item_has_cache_info_and_an_icon_and_every_band_has_drops(
 		var floor_count := 20 if float(band[0]) < 80.0 else 5
 		assert_true(EquipmentDrops.eligible(ed.items, infos, 212, band, WEAPONS).size() > floor_count, "tier %d has drops" % (tier + 1))
 		var floor_req := EquipmentDrops.boss_floor(band, ed)
+		# A band whose top third holds no item for the job drops its highest reqLevel instead (pick_boss, as the Lv15 gloves
+		# above): the Temple of Time's [108, 120] holds no Magician item above Lv110 (#473, GAME_DESIGN 8.3).
+		var highest := 0
+		for id: int in EquipmentDrops.eligible(ed.items, infos, 212, band, WEAPONS):
+			highest = maxi(highest, int(infos[id].reqLevel))
+		var expected_floor := floor_req if highest >= floor_req else highest
 		for i in 30:
 			var boss := EquipmentDrops.pick_boss(ed.items, infos, 212, band, ed, rng, WEAPONS)
 			assert_true(boss > 0, "a boss drop exists in tier %d" % (tier + 1))
-			assert_true(int(infos[boss].reqLevel) >= floor_req and int(infos[boss].reqLevel) <= int(band[1]),
-				"and comes from the top third (%d..%d): %d is Lv%d" % [floor_req, band[1], boss, infos[boss].reqLevel])
+			assert_true(int(infos[boss].reqLevel) >= expected_floor and int(infos[boss].reqLevel) <= int(band[1]),
+				"and comes from the top third (%d..%d): %d is Lv%d" % [expected_floor, band[1], boss, infos[boss].reqLevel])
 	assert_eq(lib.missing.size(), 0, "%s" % [lib.missing])
 
 
