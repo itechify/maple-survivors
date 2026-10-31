@@ -8,7 +8,7 @@ var _entries: Array[Dictionary] = []
 func clear(world: RunWorld = null) -> void:
 	if world != null:
 		for entry in _entries:
-			world.emit("burst_end", {"skill": String(entry.key)})
+			_end(world, entry, false)
 	_entries.clear()
 
 ## Whether this skill still has shots scheduled, independently of its cooldown.
@@ -29,7 +29,7 @@ func start(world: RunWorld, key: String, st: Dictionary, target: int) -> void:
 	# tier C: unspecified wind-up/overshoot are zero, retarget defaults true; zero interval releases all due shots.
 	var entry := {"key": key, "st": SkillRunner.cast_snapshot(st), "params": params.duplicate(true),
 		"left": int(st.count), "age": 0.0, "next": maxf(0.0, float(params.get("wind_up", 0.0))),
-		"target": target, "identity": world.swarm.identity[target]}
+		"target": target, "identity": world.swarm.identity[target], "fired": false}
 	_entries.append(entry)
 	# Presentation only: the wind-up art (`prepare`), then the loop until burst_end.
 	world.emit("burst_start", {"skill": key, "wind_up": float(entry.next), "span": span(st, params),
@@ -37,7 +37,7 @@ func start(world: RunWorld, key: String, st: Dictionary, target: int) -> void:
 	_release(world, entry)
 	if int(entry.left) <= 0:
 		_entries.erase(entry)
-		world.emit("burst_end", {"skill": key})
+		_end(world, entry, bool(entry.fired))
 
 ## Advances existing bursts before admitting new casts. Hidden and death cancel remaining shots (tier C).
 func step(dt: float, world: RunWorld) -> void:
@@ -51,9 +51,17 @@ func step(dt: float, world: RunWorld) -> void:
 		_release(world, entry)
 		if int(entry.left) <= 0:
 			_entries.remove_at(i)
-			world.emit("burst_end", {"skill": String(entry.key)})
+			_end(world, entry, bool(entry.fired))
 		else:
 			i += 1
+
+## Announces the end of a burst. Only a skill whose burst art decides its end effect by `end_on_drop` (Piercing Arrow) also
+## says whether an arrow left, so every other skill's event keeps its fields.
+func _end(world: RunWorld, entry: Dictionary, released: bool) -> void:
+	var fields := {"skill": String(entry.key)}
+	if world.book.def(String(entry.key)).get("burst_art", {}).has("end_on_drop"):
+		fields["released"] = released
+	world.emit("burst_end", fields)
 
 func _release(world: RunWorld, entry: Dictionary) -> void:
 	while int(entry.left) > 0 and float(entry.age) + 1e-9 >= float(entry.next):
@@ -76,5 +84,6 @@ func _release(world: RunWorld, entry: Dictionary) -> void:
 			entry.target = target
 			entry.identity = world.swarm.identity[target]
 		world.runner.fire_shot(world, String(entry.key), st, origin, world.mob_center(target))
+		entry.fired = true
 		entry.left = int(entry.left) - 1
 		entry.next = float(entry.next) + maxf(0.0, float(params.get("interval", 0.0)))

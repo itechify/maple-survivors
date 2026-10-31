@@ -1530,7 +1530,10 @@ share table and caps, the Piercing Arrow cooldown and rise, Blizzard's freeze, F
 **F/P is unchanged by Marksman's arrival**: the Sleepywood kit row is identical to Bowmaster's B13 smoke (1/3 C at 936.2 s, D
 23.8-826.2 s), and `test_character_baseline` (both goldens), `test_tick_cost_identity`, `test_hero_baseline`,
 `test_bowmaster_baseline` and `test_marksman_baseline` pass with their hashes. The F/P tier-1 rows are not byte-comparable with
-B13's (this base holds later `redesign` merges, such as the #282 review fixes); they were not investigated here.
+B13's (this base holds later `redesign` merges, such as the #282 review fixes). Checked directly in the review fixes: `balance.sh 1 2
+--stage=henesys --policy=bot` (F/P, the default job) on the cut point `53652f78` and on the Marksman tip with its review fixes writes
+byte-identical records for both seeds (death at 661.9 s and 751.9 s on map 3, end levels 37 and 44), so the difference from B13's rows
+is the earlier `redesign` merges, not Marksman.
 
 `redesign --job=322 --seed=1` (the Job page with nine rows, Marksman highlighted, "Crossbow  WATK 29"; Henesys cleared with the
 real windows, three map transfers, results, Sleepywood, death, deletion, history) PASSED with no failures and `missing: []`: the
@@ -6790,9 +6793,11 @@ no RNG; impact damage rolls retain the existing main stream. Bot reach is resolv
 
 **Release effect (Marksman MS7 #367).** `burst_art.end` plays when the burst ends or is dropped, as Hurricane's `keydownend` does,
 unless the art sets `end_on_drop: false`: Piercing Arrow plays its `effect` as `end`, so it shows at the release (a one-arrow
-burst ends on the tick its arrow leaves) and nothing shows when death, Hidden or a map change cancels the wind-up. The scene tells
-the two apart by time (an end before the wind-up's due time is a drop): the `burst_end` event is unchanged, because the Bowmaster
-event-stream oracle hashes it. `RunScene._stop_burst_art` skips a slot already stopped. A one-arrow burst reads "Looses one arrow
+burst ends on the tick its arrow leaves) and nothing shows when death, Hidden or a map change cancels the wind-up. The sim tells
+the scene which it was: for a skill whose art sets `end_on_drop` (only Piercing Arrow), `burst_end` also carries `released`, true
+when an arrow left (a death, Hidden, a map change, or the loss of the target with no replacement at the release is false). Any
+other skill's `burst_end` keeps its single `skill` field, because the Bowmaster event-stream oracle hashes it. (The first version
+decided by the wall clock, which misread an end handled in a different batch than its start at high `--speed`.) `RunScene._stop_burst_art` skips a slot already stopped. A one-arrow burst reads "Looses one arrow
 after a T s wind-up" in the Skill window.
 
 ### 7.43 Burn (#337, spec #332)
@@ -6935,15 +6940,14 @@ from `upgrades/bowman.json`; a playable Bowmaster's new / rank cards come from `
 ### 7.46 Marksman pool and job data (#362, spec #360 MS2)
 
 Marksman (322) gets its own data line `marksman` (`survivor/jobs/marksman.json`, `survivor/skills/marksman.json`), discovered
-from its files by `DataRepo.lines()` (it follows the registered class lines; no shared list was edited, ARCHITECTURE 4.4.4).
+from its files by `DataRepo.lines()` (it follows the registered class lines; it is not in `CLASS_LINES` yet: the append belongs to its `redesign` merge, in merge order, ROSTER_PLAN D15; ARCHITECTURE 4.4.4).
 The job entry carries the ten-skill pool (`iron_arrow` starting, then `arrow_blow`, `strafe_crossbow`,
 `dragons_breath_crossbow`, `blizzard_crossbow`, `arrow_eruption`, `piercing_arrow`, `snipe`, `golden_eagle`, `frostprey`, from
 the 300/320/321/322 books; the WZ ids are in spec #360's pool table), `weapon_families: ["crossbow"]`, the Crossbow 1462001 as
 creation weapon, and `playable: false` until MS11 #371 flipped it to true. Its AP row (DEX primary, STR secondary, the Bowman keyframes copied
-verbatim) and the explicit bot card scores of the two summons live in the line's own `balance` block. `skills/marksman.json`
-starts empty: MS5-MS9 append their definitions, and `iron_arrow` moves in from `skills/bowman.json` in MS5. Until a key is
-defined it is inert (never offered or learned); `arrow_blow` is Bowmaster's shared definition (job 300) and is never
-redefined. **Strafe and Dragon's Breath are crossbow copies with their own keys** (`strafe_crossbow`,
+verbatim) and the explicit bot card scores of all ten skills (the two summons in MS2, the rest in MS10) live in the line's own
+`balance` block. `skills/marksman.json` holds the nine definitions of its own, appended by MS5-MS9 (`iron_arrow` moved in from
+`skills/bowman.json` in MS5); `arrow_blow` is Bowmaster's shared definition (job 300) and is never redefined. **Strafe and Dragon's Breath are crossbow copies with their own keys** (`strafe_crossbow`,
 `dragons_breath_crossbow`): the Skill window lists a skill on the tab of its own job and a Marksman's tabs are 300 / 320 /
 321 / 322, so a shared Bowmaster key (job 311 / 312) would sit on no tab.
 
@@ -9829,6 +9833,14 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Bot second-job family (#261) | At an unforced second advancement (no forced second job; a forced first job such as `500:knuckle` counts as unforced at Lv30) the bot keeps the worn weapon's family (`RunWorld.held_weapon_family`): it draws uniformly on job stream 8 only among the available tier-2 branches whose paths offer that family, takes a single one without a draw, and keeps that family on the weapon page (no path draw). Knuckle -> 510, Gun -> 520, Claw -> 410, Dagger -> 420, Bow -> 310, Crossbow -> 320, Spear -> 130, Blunt -> 120, Sword -> 110 or 120 (axe and polearm come only from a forced path). No branch offering the family (Magician, bare hands): the old uniform draw. Forced second jobs, forced paths and the Lv10 window unchanged | C | ours; #77 found the old independent draw cost a Knuckle Pirate its ranked family skills (`SkillBook.usable_with`): Perion seeds 1..6 on the C05 patch, `500:knuckle` 3/6 clears vs `510:knuckle` 4/6 |
 
 
+<!-- #311 provenance additions -->
+
+Form constants and provenance (#311): tier C elemental arbitration radius **400 px**; ties preserve ready order.
+Tier C sub cadence: wait until admitted, restart interval at successful cast, no catch-up bursts; expiry wins
+on the window's final tick. Tier C weapon tint RGB: fire (1,.35,.2), ice (.3,.7,1), lightning (1,.85,.2),
+holy (1,.8,.55), poison (.6,.9,.35); white without an elemental form. Synthetic test/probe durations are diagnostic,
+not playable tuning. Canonical effect percentages remain tier A data read through each form's mapped level.
+
 ### Paladin and Form constants and provenance (spec #308)
 
 | Constant / choice | Value | Tier | Source |
@@ -10315,6 +10327,14 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 | Burst timings/art, Arrow Rain strike/fall, burn and follower behaviour | C | B4–B11 rows above; hover remains 20 px (B11; B13 visual check below) |
 | Tier-2 fixture generation patch | C | Historical B12 metadata retained; shipped selection and generation need no patch |
 
+### Marksman MS1 constants (#361)
+
+The crossbow stance rule (ROSTER_PLAN D11, tier C; 7.46.3 and 7.46.4): `action "weapon"` resolves to the crossbow's own `shoot2`
+for Piercing Arrow's wind-up and Snipe's cast, because the body `dash` that the WZ `prepare/action` names draws no crossbow.
+The stances that draw it are `stand2`, `walk2`, `alert`, `shoot2` and `alert2` / `alert3` / `alert4` (the last three through
+`AvatarLayers.STANCE_FALLBACKS`, so the summons' `alert2` needs no fallback); the stances that draw none are `stand1`, `walk1`,
+`shoot1`, `shootF`, `swingO1` and `dash`. The assets were verified with the v83 data; no manifest line changed.
+
 ### Marksman MS2 constants (#362)
 
 | Constant / rule | Value | Provenance |
@@ -10325,7 +10345,7 @@ Missing/zero summon frame delays use the existing 100 ms presentation default (t
 | Weapon families | `["crossbow"]` (146xxxx); bows are Bowmaster's | tier C, spec #360; WeaponInfo family tier A |
 | Creation weapon | Crossbow 1462001 (reqJob 4, the Bowman bit; reqLevel 12 not enforced), wearable at creation | tier A item fact (cache); the choice is tier C, spec #360 |
 | AP row `balance.player.ap["322"]` | DEX primary, STR secondary, keyframes Lv1 -> 6, Lv30 -> 35, Lv34 -> 35, Lv35 -> 40, Lv70 -> 75 (the Bowman 300 row verbatim) | tier C: Bowman gear pattern, spec #360; no new tuning |
-| Bot card scores | `golden_eagle_new` / `frostprey_new` 100, `_rank` 74 (the pool default, explicit because summons are not `attack` skills to `BotInput._base_score`) | tier C, spec #360 |
+| Bot card scores (as of MS2) | `golden_eagle_new` / `frostprey_new` 100, `_rank` 74 (the pool default, explicit because summons are not `attack` skills to `BotInput._base_score`); MS10 later made the scores explicit for all ten skills (MS10 constants) | tier C, spec #360 |
 | `playable` | false in MS2; true since MS11 #371 (see "Marksman MS11 constants"); `default_job` stays 212 | tier C, spec #360 / #298 pin |
 | Ammo schedule 322 | unchanged from Bowmaster B3 (Lv15 / 30 / 45; `incPAD` +1 / +2 / +4) | steps tier C, `incPAD` and ids tier A; verified, not changed |
 
@@ -10359,19 +10379,23 @@ MS3 adds no Snipe share/cap/cooldown tuning data. Those values belong to MS8. Th
 | Dragon's Breath rarity | Rare Marksman Boost damage x1.2; Epic Eye of Amazon `range` x1.25; Unique Dragon's Spirit `pierce` +2; Legendary = Unique + damage x1.2 | tier C, spec #360 |
 | `text_by_family` on Arrow Blow | `{"crossbow": "Crossbow Mastery"}` on `bow_mastery`, `{"crossbow": "Crossbow Booster"}` on `booster`; text only | tier C, spec #360 |
 
+### Marksman MS6 constants (#366)
+
+Blizzard and Arrow Eruption: every number (delays, boxes, freeze chance and duration, cooldowns, rarity bonuses) is in the
+7.46.2 tables with its tier; no row is outside them.
+
 ### Marksman MS7 constants (#367)
 
 The Piercing Arrow rows are in 7.46.3 (burst `count 1`, 0.6 s wind-up, 6.0 s cooldown, range 450, 900 px/s, radius 10, `pierce_field`
 mobCount, `pierce_falloff -0.1`, the crossbow's `shoot2`, the release-effect art and the rarity bonuses): all tier C except the WZ
 damage, mobCount, art and sounds (tier A).
 
-<!-- #311 provenance additions -->
+### Marksman MS8 constants (#368)
 
-Form constants and provenance (#311): tier C elemental arbitration radius **400 px**; ties preserve ready order.
-Tier C sub cadence: wait until admitted, restart interval at successful cast, no catch-up bursts; expiry wins
-on the window's final tick. Tier C weapon tint RGB: fire (1,.35,.2), ice (.3,.7,1), lightning (1,.85,.2),
-holy (1,.8,.55), poison (.6,.9,.35); white without an elemental form. Synthetic test/probe durations are diagnostic,
-not playable tuning. Canonical effect percentages remain tier A data read through each form's mapped level.
+Snipe: the share table, the caps, the 10 s cooldown, the 450 px reach, the boss formula and the rarity bonuses are in the 7.46.4
+tables with their tiers (tier C except the art and sounds); the mechanism is 7.47. Tier C (review fix): `cast.prefer` skips a
+monster that refuses physical hits (a mob skill's weapon immunity), in the target choice and in the cast admission, so Snipe's
+one bolt is not spent on a monster that takes nothing.
 
 ### Marksman MS9 constants (#369)
 
@@ -10410,6 +10434,17 @@ QA ticket: the only data change is `playable`; no balance, skill or held-out val
 | `jobs/marksman.json` `playable` | true; `default_job` stays 212 | tier C, spec #360 |
 | Default HP and every shared default | unchanged (the spec sets no Marksman-specific value) | tier C |
 | Fixture `marksman_t2.json` | the `_doc.patch` key was dropped (shipped data needs no patch); kit and revision unchanged | tier C |
+
+### Marksman review fixes (spec #360 reviews)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `cast.prefer` and physical immunity | a preferring skill (Snipe) skips monsters for which `physical_hit_allowed` is false, in `_find_targets` and in `has_target` (so no cast and no cooldown is spent when only immune monsters are in reach); skills without `prefer` take the unchanged path | tier C, ours (review: the strongest monster is the one most likely to hold weapon immunity) |
+| `burst_end.released` | present only for a skill whose `burst_art` sets `end_on_drop` (Piercing Arrow); true when an arrow left. Replaces the wall-clock guess in `RunScene` | tier C, presentation |
+| `PierceCurve.factor` ceiling | a rising curve is capped at `max(1.0, ceiling)`: a ceiling below 100% cannot turn a rise into a fall | tier C |
+| `pierce_falloff` modifiers | the old `max(0, ...)` clamp is gone with the rise: a card that adds a negative amount to a positive `pierce_falloff` can now make it a rise. No shipped card modifies `pierce_falloff` | tier C, documented |
+| `FixedShare.definition_errors` | also rejects a `share` entry that is not a number in (0, 1], a `cap_mult` / `boss.cap_mult` not above 0 and a `boss.share_scale` outside [0, 1] | tier C, data validation |
+| Hub loadout | `FreeMarket._boundary_loadout` reads `pierce_ceiling` like `RunWorld` does | tier C |
 
 ### Review #332 presentation extensions
 

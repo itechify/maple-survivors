@@ -30,6 +30,8 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 	var want: Array = ["type"] + RunWorld.EVENT_FIELDS[type]
 	if type == "summon_spawn" and e.has("sound"):
 		want.append("sound")
+	if type == "burst_end" and e.has("released"):
+		want.append("released")
 	want.sort()
 	var got: Array = e.keys()
 	got.sort()

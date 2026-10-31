@@ -154,7 +154,7 @@ const EVENT_FIELDS := {
 	"summon_attack": ["skill", "slot", "pos"],
 	"summon_strike": ["skill", "slot", "mob", "pos", "effect"],
 	"burst_start": ["skill", "wind_up", "span", "facing"],
-	"burst_end": ["skill"],
+	"burst_end": ["skill"], # plus `released` (an arrow left) for a skill whose burst_art sets end_on_drop (Piercing Arrow)
 	# #323 (chain cast rule): the bolt's polyline, caster hand then each struck link's body centre; the hits are mob_hit events.
 	"skill_chain": ["skill", "skill_id", "points"],
 
@@ -1873,7 +1873,7 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	var roll: Vector2i
 	if st.has("fixed_share"):
-		roll = Vector2i(FixedShare.amount(swarm.max_hp[m], mk.boss or swarm.steady[m] != 0, st.fixed_share), 0)
+		roll = Vector2i(FixedShare.amount(swarm.max_hp[m], swarm.is_boss(m), st.fixed_share), 0)
 	else:
 		roll = ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
 			mob_defense(m, magic), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult),
@@ -1983,12 +1983,15 @@ func _final_attack_visual(slot: int, key: String) -> void:
 	var shot := Ammo.projectile(data.get("ammo", {}), held_weapon_family())
 	if shot.is_empty():
 		return
-	var aim := mob_center(slot)
-	var start := shot_origin(aim)
 	# tier C: visual-only straight flight at the current ammo's speed, no hit delay or damage projectile.
-	emit("ammo_shot", {"skill": key, "from": start, "to": aim,
-		"seconds": start.distance_to(aim) / maxf(1.0, float(shot.speed)),
-		"ball": Ammo.bullet_path(ammo_id()), "rotate": bool(shot.rotate)})
+	emit_ammo_flight(key, mob_center(slot), Ammo.bullet_path(ammo_id()), float(shot.speed), bool(shot.rotate))
+
+
+## Emits the cosmetic `ammo_shot` of a bolt that flies straight from the shooting hand to `aim` and deals no damage itself.
+func emit_ammo_flight(key: String, aim: Vector2, ball: String, speed: float, rotate: bool) -> void:
+	var start := shot_origin(aim)
+	emit("ammo_shot", {"skill": key, "from": start, "to": aim, "seconds": start.distance_to(aim) / maxf(1.0, speed),
+		"ball": ball, "rotate": rotate})
 
 
 ## Spread (#181): up to `want` live mobs other than `target` whose body centre is within the held weapon's swing/ranged

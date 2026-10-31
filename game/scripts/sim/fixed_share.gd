@@ -45,4 +45,18 @@ static func definition_errors(skills: Dictionary) -> PackedStringArray:
 		if not block.has("cap_mult") or not (block.get("boss") is Dictionary) \
 				or not block.boss.has("share_scale") or not block.boss.has("cap_mult"):
 			errors.append("skill '%s': fixed_share needs cap_mult and boss {share_scale, cap_mult}" % key)
+			continue
+		for share: Variant in (block.share if block.share is Array else []):
+			if not _is_number(share) or float(share) <= 0.0 or float(share) > 1.0:
+				errors.append("skill '%s': every fixed_share.share entry must be a number in (0, 1]" % key)
+				break
+		if not _is_number(block.cap_mult) or float(block.cap_mult) <= 0.0 or not _is_number(block.boss.cap_mult) \
+				or float(block.boss.cap_mult) <= 0.0:
+			errors.append("skill '%s': fixed_share cap_mult and boss.cap_mult must be numbers above 0" % key)
+		if not _is_number(block.boss.share_scale) or float(block.boss.share_scale) < 0.0 or float(block.boss.share_scale) > 1.0:
+			errors.append("skill '%s': fixed_share boss.share_scale must be a number in [0, 1]" % key)
 	return errors
+
+
+static func _is_number(value: Variant) -> bool:
+	return value is float or value is int

@@ -454,6 +454,11 @@ func apply_status(i: int, status: String, params: Dictionary, events: Array) -> 
 	return true
 
 
+## Canonical boss kinds and scheduled bosses (`steady`), the one boss predicate of status admission and fixed-share damage.
+func is_boss(i: int) -> bool:
+	return mob_kind(i).boss or steady[i] != 0
+
+
 ## Non-mutating status eligibility, shared by cast admission and application. Duration/value checks stay in apply_status.
 func accepts_status(i: int, status: String, params: Dictionary = {}) -> bool:
 	var s := STATUS_NAMES.find(status)
@@ -461,7 +466,7 @@ func accepts_status(i: int, status: String, params: Dictionary = {}) -> bool:
 		return false
 	var mk := mob_kind(i)
 	# tier C: v83 server reference rejects boss statuses and immune/strong/neutral status elements.
-	if mk.boss or steady[i] != 0:
+	if is_boss(i):
 		return false
 	# tier C: stun is elementless; elemental resistance only gates the other statuses.
 	return s == STUN or not mk.resists_status(String(params.get("element", STATUS_ELEMENTS[s])))

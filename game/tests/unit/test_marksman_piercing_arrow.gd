@@ -6,6 +6,7 @@ extends TestCase
 ## The mapped levels of all eight ranks are asserted against the real cache at the bottom (SKIPPED without it).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const MF := preload("res://tests/fixtures/marksman_fixtures.gd")
 const HURRICANE := preload("res://tests/unit/test_hurricane.gd")
 const DT := 1.0 / 60.0
 const CROSSBOW := 1462001
@@ -13,10 +14,9 @@ const KEY := "piercing_arrow"
 const SNAIL := 1110100
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const RANK_LEVELS := [4, 8, 12, 15, 19, 23, 27, 30] # tier C: the 30-level mapping every 30-level skill uses
-## Skill.wz 322.img/skill/3221001/level/<n>/damage and mobCount, levels 1..30 (tier A, read from the v83 data).
-const WZ_DAMAGE := [320, 340, 360, 380, 400, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600, 620, 640, 660, 680, 700, 715, 730,
-	745, 760, 775, 790, 805, 820, 835, 850]
-const WZ_MOBS := [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]
+## Skill.wz 322.img/skill/3221001/level/<n>/damage and mobCount, levels 1..30 (tier A): MarksmanFixtures holds the one copy.
+const WZ_DAMAGE := MF.PIERCING_DAMAGE
+const WZ_MOBS := MF.PIERCING_MOBS
 ## The release of the first (and only) arrow: the wind-up in ticks after the admission tick.
 const WIND_UP_TICKS := 36
 
@@ -425,6 +425,66 @@ func test_a_dropped_wind_up_stops_its_art_and_shows_no_release_effect() -> void:
 		assert_eq(log.calls.slice(2), [["stop", 11]], mode + ": the prepare art stops and nothing is released")
 		log.free()
 		s.free()
+
+
+func _burst_ends(w: RunWorld) -> Array:
+	return w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "burst_end")
+
+
+func test_burst_end_says_whether_the_arrow_left() -> void:
+	var w := _world()
+	_mob(w, 300)
+	_ticks(w, WIND_UP_TICKS + 1)
+	var ends := _burst_ends(w)
+	assert_eq(ends.size(), 1)
+	assert_eq(ends[0].keys(), ["type", "skill", "released"])
+	assert_true(bool(ends[0].released), "the arrow was released")
+	var gone := _world()
+	var slot := _mob(gone, 300)
+	_ticks(gone, 10)
+	gone.swarm.active[slot] = 0 # the target leaves during the wind-up and nothing else is in reach
+	gone.mob_grid.rebuild(gone.swarm.x, gone.swarm.y, gone.swarm.active)
+	_ticks(gone, WIND_UP_TICKS)
+	var dropped := _burst_ends(gone)
+	assert_eq(dropped.size(), 1)
+	assert_false(bool(dropped[0].released), "no target at the release: no arrow, no effect")
+	assert_eq(_shots(gone), 0)
+	var cleared := _world()
+	_mob(cleared, 300)
+	_ticks(cleared, 10)
+	cleared.runner.clear_pending(cleared)
+	_ticks(cleared, 2)
+	assert_false(bool(_burst_ends(cleared)[0].released), "a map change drops the burst")
+
+
+func test_the_release_effect_follows_the_event_not_the_clock() -> void:
+	# One batch holds both the start and the end (several ticks per frame at a high --speed): the effect still plays.
+	var w := _world()
+	_mob(w, 300)
+	var pair := _scene(w)
+	var s: RunScene = pair[0]
+	var log: FxRenderer = pair[1]
+	_ticks(w, WIND_UP_TICKS + 1)
+	s.handle_events(w.drain_events())
+	assert_true(log.calls.any(func(c: Array) -> bool: return c[0] == "play" and c[1] == "effect"), "the release effect plays")
+	log.free()
+	s.free()
+	# A drop at the wind-up's end (no target) shows none, though the end arrives after `due`.
+	var gone := _world()
+	var slot := _mob(gone, 300)
+	var pair2 := _scene(gone)
+	var s2: RunScene = pair2[0]
+	var log2: FxRenderer = pair2[1]
+	_ticks(gone, 1)
+	s2.handle_events(gone.drain_events())
+	gone.swarm.active[slot] = 0
+	gone.mob_grid.rebuild(gone.swarm.x, gone.swarm.y, gone.swarm.active)
+	_ticks(gone, WIND_UP_TICKS)
+	s2._after_tick()
+	s2.handle_events(gone.drain_events())
+	assert_false(log2.calls.any(func(c: Array) -> bool: return c[0] == "play" and c[1] == "effect"), "no arrow, no effect")
+	log2.free()
+	s2.free()
 
 
 # --- the bot ----------------------------------------------------------------------------------------------------------

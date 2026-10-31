@@ -41,6 +41,18 @@ func test_curve_preserves_old_float_bytes_and_bounds_the_rise() -> void:
 	assert_eq(PierceCurve.factor(6, -0.1, 0.1, 1.25), 1.25)
 
 
+func test_a_ceiling_below_full_damage_never_turns_a_rise_into_a_fall() -> void:
+	assert_eq(PierceCurve.factor(1, -0.1, 0.1, 0.5), 1.0)
+	assert_eq(PierceCurve.factor(4, -0.1, 0.1, 0.5), 1.0)
+
+
+func test_the_hub_loadout_carries_the_balance_pierce_ceiling() -> void:
+	var data := DataRepo.load_all()
+	var loadout: Loadout = FreeMarket._boundary_loadout({}, data)
+	assert_eq(loadout.pierce_ceiling, float(data.balance.combat.pierce_ceiling))
+	assert_eq(loadout.pierce_floor, float(data.balance.combat.pierce_floor))
+
+
 func test_ceiling_is_data_driven_captured_at_launch_and_reuse_resets_rise() -> void:
 	var setup := CF.world().setup.duplicate(true)
 	setup.data.balance.combat.pierce_ceiling = 1.25

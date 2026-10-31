@@ -199,6 +199,33 @@ func test_a_boss_is_the_target_only_when_nothing_else_is_in_reach() -> void:
 	assert_eq(hits.map(func(e: Dictionary) -> int: return int(e.mob)), [boss])
 
 
+## Weapon immunity (a mob skill) refuses physical hits, so the strongest monster is not a target while it holds it.
+func _make_immune(w: RunWorld, slot: int) -> void:
+	w.mob_skills._weapon_until[slot] = w.time + 100.0
+	assert_false(w.physical_hit_allowed(slot), "the fixture monster is physically immune")
+
+
+func test_a_physically_immune_strongest_is_skipped_for_the_next_strongest() -> void:
+	var w := _world()
+	var strong := _mob(w, 200, 5000)
+	var weak := _mob(w, 120, 1000)
+	_make_immune(w, strong)
+	var hits := _hits(_run(w, 30))
+	assert_eq(hits.map(func(e: Dictionary) -> int: return int(e.mob)), [weak], "the hittable monster takes the bolt")
+	assert_eq(w.swarm.hp[strong], 5000)
+
+
+func test_only_immune_monsters_in_reach_mean_no_cast_and_no_cooldown_spent() -> void:
+	var w := _world()
+	var strong := _mob(w, 200, 5000)
+	_make_immune(w, strong)
+	assert_true(_hits(_run(w, 60)).is_empty())
+	assert_false(w.events.any(func(e: Dictionary) -> bool: return e.type == "ammo_shot"))
+	assert_false(w.runner.has_target(w, SNIPE, w.loadout.stats(SNIPE, 1), w.cast_origin()), "has_target agrees")
+	w.mob_skills._weapon_until[strong] = 0.0
+	assert_eq(_hits(_run(w, 30)).size(), 1, "the cooldown was not spent: Snipe fires once the immunity ends")
+
+
 func test_nothing_in_reach_means_no_cast() -> void:
 	var w := _world()
 	_mob(w, 470, 1000)
@@ -402,6 +429,17 @@ func test_a_fixed_share_skill_must_be_physical() -> void:
 	bad[SNIPE].fixed_share = skills[SNIPE].fixed_share.duplicate(true)
 	bad[SNIPE].fixed_share.erase("boss")
 	assert_eq(FixedShare.definition_errors(bad).size(), 1, "no boss block")
+	bad[SNIPE].fixed_share = skills[SNIPE].fixed_share.duplicate(true)
+	bad[SNIPE].fixed_share.share = ["0.2"]
+	assert_eq(FixedShare.definition_errors(bad).size(), 1, "a share entry that is not a number would deal 1")
+	bad[SNIPE].fixed_share.share = [0.2, 1.5]
+	assert_eq(FixedShare.definition_errors(bad).size(), 1, "a share above 100% of max HP")
+	bad[SNIPE].fixed_share = skills[SNIPE].fixed_share.duplicate(true)
+	bad[SNIPE].fixed_share.cap_mult = 0
+	assert_eq(FixedShare.definition_errors(bad).size(), 1, "a zero cap")
+	bad[SNIPE].fixed_share = skills[SNIPE].fixed_share.duplicate(true)
+	bad[SNIPE].fixed_share.boss.share_scale = 2.0
+	assert_eq(FixedShare.definition_errors(bad).size(), 1, "a boss share scale above 1")
 	var plain: Dictionary = {"energy_bolt": {"damage": "magic"}}
 	assert_true(FixedShare.definition_errors(plain).is_empty(), "skills without the block are not checked")
 

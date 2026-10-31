@@ -11,7 +11,9 @@ extends TestCase
 const MF := preload("res://tests/fixtures/marksman_fixtures.gd")
 const DT := 1.0 / 60.0
 const TICKS := 28800 # eight minutes of run time: the six actives have filled and the crossbow ammo has stepped
-const GOLDEN := "fd8a41136aadef79e8afebc1a0a9c46038b814e46e6738dd81366f46cfd1fde1"
+# Re-captured in the spec #360 review fixes: Piercing Arrow's `burst_end` event gained the `released` field (an arrow left), which
+# this stream hashes. Without that one field the stream is the previous hash (fd8a4113...); no other Marksman behaviour moved.
+const GOLDEN := "8619872739ef57c8fbf4240879395d5ef7bf2d32eb6360d8c53d7fccba7c4c5e"
 
 
 ## {"digest": hex, "skills": {skill key: hits}, "casts": int, "picked": [keys the bot learned], "upgrades": int, "level": int} of the first `ticks` of the round.

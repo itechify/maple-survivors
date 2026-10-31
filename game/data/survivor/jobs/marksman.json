@@ -1,9 +1,9 @@
 {
-	"_doc": "Marksman line (spec #360, ticket MS2 #362). The second archer after Bowmaster: its job entry, its AP row and its bot card scores. Skill definitions are in skills/marksman.json; each Marksman skill ticket (MS5-MS9) appends its own region. Marksman has NO mobility_skill (ruling D1, spec #360): a Marksman owns no skill key and no quick-slot movement cell. playable is true since MS11 #371; JobTree.default_job() stays 212 (survivor/jobs.json default_job). DataRepo discovers this per-line file automatically (docs/ARCHITECTURE.md 4.4.4).",
+	"_doc": "Marksman line (spec #360, ticket MS2 #362). The second archer after Bowmaster: its job entry, its AP row and its bot card scores. Skill definitions are in skills/marksman.json; each Marksman skill ticket (MS5-MS9) appended its own region there. Marksman has NO mobility_skill (ruling D1, spec #360): a Marksman owns no skill key and no quick-slot movement cell. playable is true since MS11 #371; JobTree.default_job() stays 212 (survivor/jobs.json default_job). DataRepo discovers this per-line file automatically (docs/ARCHITECTURE.md 4.4.4).",
 	"jobs": {
 		"322": {
 			"starting_skill": "iron_arrow",
-			"_starting_skill": "tier C: spec #360: Iron Arrow : Crossbow is the starting active (slot 1) and the first skill a round learns; MS5 #365 moves its definition from skills/bowman.json into skills/marksman.json.",
+			"_starting_skill": "tier C: spec #360: Iron Arrow : Crossbow is the starting active (slot 1) and the first skill a round learns; MS5 #365 moved its definition from skills/bowman.json into skills/marksman.json.",
 			"skill_pool": [
 				"iron_arrow",
 				"arrow_blow",

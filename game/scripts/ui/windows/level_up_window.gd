@@ -206,6 +206,16 @@ static func rank_text(card: Dictionary) -> String:
 	return s
 
 
+## Whether a pierce_falloff change is on the rising side (a negative fraction, Piercing Arrow) before or after the card.
+static func _is_rise(change: Dictionary) -> bool:
+	return float(change.before) < 0.0 or float(change.after) < 0.0
+
+
+static func _rise_line(change: Dictionary) -> PackedStringArray:
+	return MapleText.wrap_markup("Pierce rise: %s → %s" % [
+		SkillText.pierce_points(float(change.before)), SkillText.pierce_points(float(change.after))], ROW_W - 8.0, MapleText.SMALL)
+
+
 ## Values that change with the card: a rank card's canonical values at the offered rank (mastery is already a percent
 ## in card data), then a mod card's effective values (skill_mod_changes).
 static func change_lines(card: Dictionary) -> PackedStringArray:
@@ -215,9 +225,8 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 	labels.merge(UpgradePool.MODIFIER_PREVIEW)
 	for key: String in labels:
 		if mods.has(key) and mods[key].before != mods[key].after:
-			if key == "pierce_falloff" and (float(mods[key].before) < 0.0 or float(mods[key].after) < 0.0):
-				lines.append_array(MapleText.wrap_markup("Pierce rise: %s → %s" % [
-					SkillText.pierce_points(float(mods[key].before)), SkillText.pierce_points(float(mods[key].after))], ROW_W - 8.0, MapleText.SMALL))
+			if key == "pierce_falloff" and _is_rise(mods[key]):
+				lines.append_array(_rise_line(mods[key]))
 				continue
 			var unit: String = labels[key][1]
 			var line := "%s: %s%s → %s%s" % [card.get("skill_mod_labels", {}).get(key, labels[key][0]), SkillText.number(float(mods[key].before)), unit,
@@ -231,9 +240,8 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 		var values: Dictionary = changes[field]
 		if values.before == values.after:
 			continue
-		if field == "pierce_falloff" and (float(values.before) < 0.0 or float(values.after) < 0.0):
-			lines.append_array(MapleText.wrap_markup("Pierce rise: %s → %s" % [
-				SkillText.pierce_points(float(values.before)), SkillText.pierce_points(float(values.after))], ROW_W - 8.0, MapleText.SMALL))
+		if field == "pierce_falloff" and _is_rise(values):
+			lines.append_array(_rise_line(values))
 			continue
 		var suffix := " s" if field in ["time", "cooltime"] else ""
 		if field == "range":
