@@ -658,6 +658,7 @@ older records below, in the smoke and in the job-loop tickets mean the first fou
 | `magatia` (step 11, #468) | Sunset Road - The Desert of Red Sand (260020300, 2430 px) | Alcadno Research Institute - Lab - Area C-2 (261020400, 2410 px) | Zenumist Research Institute - Lab - Unit 201 (261010101, 2196 px) | Deo / Homunscullo / Chimera |
 | `zipangu` (step 12, #469) | Zipangu - A Night in the Forest (800020110, 3228 px, flat) | Showa Street 3 (801030000, 3850 px) | Encounter with the Buddha (800020130, 2868 px, flat) | Male Boss / Female Boss / Black Crow |
 | `leafre` (step 13, #470) | Leafre - The Area of Blue Kentaurus (240020400, 2790 px) | Dragon Forest II (240030200, 2970 px) | Cave of Light (240050300, 3240 px, flat) | Manon / Griffey / Leviathan |
+| `temple_of_time` (step 16, #473) | Temple of Time - Memory Lane5 (270010500, 2403 x 1096 px) | Road of Regrets5 (270020500, 2403 x 1096 px) | Road to Oblivion5 (270030500, 2403 x 1096 px) | Dodo / Lilynouch / Lyka |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
 "Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
@@ -905,6 +906,47 @@ summons live, and the quiet character killed none, so only the first cast, an Ex
 others share the same code and mobs that the map 2 crowd shows), and the 40 s Summon cadence over a full fight. With the late
 fixture (Lv100-band gear at Lv1) the bosses die at once when not held (the 100 s / 45 s holds are why the round took 1090 s):
 the first draft is a starting point for C13, not a balance claim.
+
+### Temple of Time (C11) regression smoke and diagnostic round (#473, 2026-10-31)
+
+Spec #447 branch with the Temple of Time region (step 16), private cache, F/P (212), seeds 1/2/2026, `JOBS=1`, no tuning, no
+held-out seeds. Reduced smoke, because the change is additive data (a stage file, a manifest fragment, `mobs.json` entries, three
+`enabled_ids`, one `progression` key) and touches no code: Henesys bot (death seconds **417.3 / 644.1 / 646.7**), Sleepywood with the
+starter wand (**11.4 / 11.9 / 15.1**) and with `fp_arch_mage.json` (one clear, deaths at **23.8 / 767.0**) all **match #455's table
+to the second**, no crashes and no warnings. Ellinia, Perion and Kerning and the random policy were not re-run (a stage reads
+only its own file and nothing shared changed): that is the unrun part of the smoke. Temple of Time itself is not in the smoke
+(calibration is C13). Draft tool: `--step=16 --stage=temple_of_time` raised no warning (highest level 89.85, below 131).
+
+Diagnostic one-off, `--run=temple_of_time --job=112 --character=late_progression.json`, seed 1, windowed at x6 (vsync off),
+god mode (`RunWorld.god`) with the autoplay bot, each boss held at 40% HP for 70 s so its gated skills (Reflect, Heals) show, then
+1 HP at +100 s: **CLEARED, 3 bosses, Lv23, 1219.7 s, `missing: []`, no warnings**. Map entries at 0 / 400.4 / 819.0 s, `max_alive`
+352. **Lv23 is far below the other regions' Lv44-64** (Clocktower, step 15: Lv44): not a pool problem (the three pool mobs pay
+1.01 / 0.94 / 1.00x of the level curve's EXP at their own levels) but the step: effective level 43.8 to 89.85 against Clocktower's
+level 39.15 to 86.85 and Leafre's 33.15 to 80.85 makes each Lv101-131 guardian's scaled HP a swarm that the Lv1 late fixture
+kills slowly (788 kills over 1220 s), plus the holds; left for C13, and the biggest open item of this
+ticket. A first diagnostic with the hold released only at +60 s and no 1 HP finisher never killed Lyka: a Lv22 god-mode bot
+did not get through 400 Chief Oblivion Guardians (Lv131, 141000 HP at base) to her in 1300 s (state PLAYING at the 2600 s
+cap, `missing: []`). Dodo and Lilynouch died unheld after 170 s each in that run. Also for C13.
+
+Arena check, by eye: all three first picks stay, no alternate. Memory Lane5 is a green-and-cream ruin of marble arches and vines
+under a blue sky, two long stone floors joined by ladders with stepped ledges between; Chief Memory Guardians (black armoured
+shells with a green flame) crowd both. Road of Regrets5 is the same frame in ice (hanging icicles, ice crystals, a moon): the
+Chief Qualm Guardians wear a blue fire. Road to Oblivion5 is the frame in chains and cracked lava rock with an hourglass: the
+Chief Oblivion Guardians trail red. No shaft, no pit; the ladders are the bot's route between floors.
+
+*Seen* (screenshots checked by eye, none committed): Dodo's arrival (the whale at the floor's left, boss bar and "Dodo has
+appeared!"), its type-2 ball and type-0 bolt wind-ups and impacts, the Banish (the character vanishes and reappears on another
+ledge, notice "You have been ousted by the force of Dodo.", the blue swirl), and PDD Up 102/3 (a purple glow on Dodo). Lilynouch's
+bar and notice on arrival (the boss itself hidden by the floor's crowd and the damage numbers), the two wind-ups and impacts, and
+Reflect 145/1 (its icon above her, "Lilynouch is reflecting your attacks!"; the sim logged `boss_reflect` hits at 856.5 s).
+Lyka's arrival (the red-and-white beast at the left), the area warning (fire eggs along the floor) and strike (the columns
+burst, 15 columns, 7 struck), the Seduce (128/7: the character wrapped in its blue seal), Attack Up 100/2 and the Heal 114/9
+notice ("Lyka recovered 50000 HP"). Casts in the first run, from the sim's own log: Dodo's Banish at 321.8 / 372.8 / 402.4 /
+461.8 s (the cooldown is 15 s, but a cast needs the character inside Banish's 122 x 194 px box and a miss spends nothing, so the gaps are 50, 30 and 59 s) and PDD Up every 30 s; Lyka's Seduce every 20 s, Attack Up 40 s,
+Heal 30 s. **A god-mode run cannot show**: what a landed attack, Banish arrival or Seduce does to a character who can die
+(god lands no hit; Seduce's pull and the Banish's relocation were observed, not their danger), whether Reflect kills a character
+(the hits it returns were logged at 17 to 45 damage), the Heal's effect on the swarm (no `mob_healed` event fired: nothing in
+its box was damaged), or any survival or balance claim.
 
 ### Leafre (C8) regression smoke and diagnostic round (#470, 2026-10-30)
 
@@ -11398,6 +11440,26 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Meso ranges | ordinary mobs only: no v83 ordinary mob above Lv75 has a range, so the centre extrapolates the Lv70 Tauromacis (420) to Lv75 Taurospear (504) slope (16.8 per level) as Ludibrium's method would interpolate, +-20% (Blue Kentaurus Lv88 [578, 866], Rexton Lv95 [672, 1008], Green Cornian Lv100 [739, 1109], Skelegon Lv110 [874, 1310], Skelosaurus Lv113 [914, 1370]); bosses and Wyverns use the `balance.mesos` level fallback. Known tier C gap for calibration (C13): that fallback is about 5x below the extrapolated ordinary ranges at Lv89-120 | C |
 | Flags ignored | none of the three maps carries a field flag the sim reads (the cave carries instance bits `FL` 270456, ignored) | A |
 | Alternates | map 1 240020300 / 240020100, map 2 240030300 / 240030000, map 3 Cave of Darkness 240050310: not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Temple of Time (C11) constants (#473, spec #449; progression step 16)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/temple_of_time.json`: `region` Temple of Time, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [108, 120] (C12 widened #447's [110, 120] because v83 has no Magician wand or overall between Lv109 and Lv130, 8.3), the bosses' own lane maps 270010500 Memory Lane5 / 270020500 Road of Regrets5 / 270030500 Road to Oblivion5 (all 2403 x 1096 px: two full floors plus ladder tiers), `original_life` of map 1 (Chief Memory Guardian 14), last key of `progression` | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s: Chief Memory Guardian 8200004 (Lv101, 14 spawn points) alone; the timed Dodo and the Lv80 Eye of Time filler 8200000 (four spawns) are left out | C weights, A roster |
+| Map 2 pool | `pool_from_life` with `exclude` [8220005, 8200000]: Chief Qualm Guardian 8200008 (Lv116) x14; Lilynouch (`mobTime` 3600) and the Eye of Time (three spawns) are left out | A life list, C rule |
+| Map 3 pool | `pool_from_life` with `exclude` [8220006]: Chief Oblivion Guardian 8200012 (Lv131) x15; Lyka (`mobTime` 3600) is left out. The lane has no Eye of Time | A life list, C rule |
+| EXP against the curve | the pool mobs are real ordinary monsters (no `hideName` instance or PQ copy): EXP 3100 / 4960 / 7060 against `level_curve.json` 3062 / 5256 / 7027 at Lv101 / 116 / 131 = **1.01 / 0.94 / 1.00**. `level_curve.json` holds its Lv131 values above 131, so a ratio above 131 would be measured against the held value; none of the pool mobs needs that (Lyka is Lv141 but is a boss). `test_region_temple_of_time` pins the 0.7-1.3 band | A mobs, C check |
+| `level_scale` | first draft of `level_scale_draft.gd --step=16 --stage=temple_of_time` (not tuned): `level` 42.15, 42.73, 43.8, 55.22, 69.44, 81.23, 89.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (16 - 5)). The highest level, 89.85, is below 131, so the tool raised no warning (C13 calibrates) | C |
+| Bosses | Dodo 8220004 (hp_mult 0.881, dmg_mult 1.063, attack_dmg_mult 0.781; `attack1` type 2 physical ball, `attack2` type 0 magic, matched on `attack2` by MAD 715), Lilynouch 8220005 (0.187, 0.768, 0.848; two type-0 magic attacks, ice and fire, MAD 735), Lyka 8220006 (0.21, 1.538, 1.823; `attack1` type 4 area warning, `attack2` type 0 magic fire, matched on `attack2` by MAD 755), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | Dodo: PDD Up 102/3 (B2, self, 20 s) and Banish 129/2; Lilynouch: Heal 114/23 and Reflect 145/1 (B6); Lyka: Attack Up 100/2, Seduce 128/7 (B3) and Heal 114/9; none casts MobSkill 200, so there are no summons and `StageRoster.ABSENT_IN_V83` gets no entry. Lyka's attack1 is the 15-column area warning (B5) | A skills, C support |
+| Banish | Dodo's Banish runs every 15 s (`skill_intervals` {"129": 15}, instead of MobSkill.img level 2's 50 s: the spec's Banish cadence, Shade's #256 rule); its v83 banMsg "You have been ousted by the force of Dodo." is `mobs.json` `banish_message` (its banMap, Time Lane 270010410, is dropped: a round stays on its own map) | C cadence, A message |
+| Spam audit (Clocktower review) | every kit skill's canonical interval: Banish 50 s, PDD Up 30 s, Heal 114/23 300 s, Reflect 60 s, Attack Up 40 s, Seduce 20 s, Heal 114/9 30 s: none is 1-3 s, so only Banish carries an override. Lilynouch's Heal restores a flat 500 HP below 80% HP (nothing against 7.6M). Lyka's Heal restores a flat 50000 HP below 90% HP to every mob in a 1600 x 850 px box (unscaled by `hp_mult`, about 2.6% of Lyka's draft HP per cast, a third of a guardian's base HP), a known C13 item rather than a spam at 30 s. Every attack winds up for at least 960 ms (`attackAfter`: 1050 / 960, 1250 / 1710, 1260 / 960) with boxes of at most 790 x 314 px (Lilynouch's attack2, Leviathan's box) or a warned column strip, so no attack is dropped from `attacks`. `test_region_temple_of_time` pins both (interval >= 20 s, `attackAfter` >= 900 ms) | C |
+| `mobs.json` | names and `exp_item`, each mob's first monster-drop Etc item (4000xxx) in the MonsterBook: Chief Memory Guardian Green Heart 4000448, Chief Qualm Guardian Blue Heart 4000453, Chief Oblivion Guardian Red Heart 4000458, Dodo Whale's Helmet 4000460, Lilynouch Knight's Mask 4000461, Lyka Guardian's Horn 4000462; all three bosses' MobGage icons and hpTags (1 / 5) are canonical (no `boss_ui`) | A ids/names, C association |
+| Meso ranges | ordinary mobs only: no v83 ordinary mob above Lv75 has a range, so the centre extrapolates the Lv70 Tauromacis (420) to Lv75 Taurospear (504) slope (16.8 per level), +-20% (Lv101 [753, 1129], Lv116 [954, 1431], Lv131 [1156, 1734]); the bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the three maps carries a field flag the sim reads (`lvLimit` 20 is ignored, spec #449) | A |
+| Alternates | map 1 270020400 / 270020300, map 2 270030200 / 270030300: not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
 
 ### Corsair constants (spec #384)
 

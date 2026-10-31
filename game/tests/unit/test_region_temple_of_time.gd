@@ -243,12 +243,18 @@ func test_each_boss_skill_resolves_to_a_supported_id() -> void:
 			assert_true(table.root.has(str(skill)), "MobSkill.img has %d" % skill)
 			assert_false(table.root[str(skill)].level.get(str(int(entry.level)), {}).is_empty(),
 				"boss %d skill %d level %d is in MobSkill.img" % [id, skill, int(entry.level)])
+			# Spam audit (#473): no skill of these kits recasts faster than every 20 s, bar Dodo's Banish, which the stage
+			# slows to the 15 s precedent through skill_intervals (its canonical 50 s is longer).
+			var interval := MobSkillRunner.interval_of(table.root[str(skill)].level.get(str(int(entry.level)), {}))
+			assert_true(interval >= 20.0, "boss %d skill %d recasts every %.0f s, not a spam" % [id, skill, interval])
 		listed.sort()
 		assert_eq(listed, SKILLS[i], "boss %d's v83 kit" % id)
 		for j in ATTACKS[i].size():
 			var attack: String = ATTACKS[i][j]
 			assert_true(img.root.has(attack), "%d has %s" % [id, attack])
 			assert_eq(int(img.root[attack].info.type), ATTACK_TYPES[i][j], "%d %s attack type" % [id, attack])
+			# Spam audit (#473): every attack winds up for at least 900 ms (none is an instant screen-wide hit).
+			assert_true(float(img.root[attack].info.attackAfter) >= 900.0, "%d %s winds up (attackAfter)" % [id, attack])
 			assert_true(int(img.root[attack].info.type) in [0, 1, 2, 3, 4], "%d %s is a supported attack type" % [id, attack])
 		# Lyka's attack1 is the type-4 area-warning attack (B5): fifteen columns, seven struck per cast.
 		if id == 8220006:

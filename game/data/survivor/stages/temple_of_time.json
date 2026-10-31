@@ -26,7 +26,7 @@
 				],
 				"attack_interval": 8,
 				"attack_dmg_mult": 0.781,
-				"_tier": "tier C (#473): first draft of level_scale_draft.gd --step=16 --stage=temple_of_time, not tuned: arrives at curve time 300 (E_sw 10.80, level 43.80); attack1 (type 2, physical, PAD 670) and attack2 (type 0, magic, MAD 715) are matched on the stronger attack2 by MAD; 8 s cadence. Its kit (PDD Up 102/3, B2, and Banish 129/2) runs as written in Skill.wz"
+				"_tier": "tier C (#473): first draft of level_scale_draft.gd --step=16 --stage=temple_of_time, not tuned: arrives at curve time 300 (E_sw 10.80, level 43.80); attack1 (type 2, physical, PAD 670) and attack2 (type 0, magic, MAD 715) are matched on the stronger attack2 by MAD; 8 s cadence. Its kit (PDD Up 102/3, B2, and Banish 129/2) runs as written in Skill.wz. Spam audit (tier C, #473): the kit's canonical intervals are Banish 129/2 50 s (overridden to 15 s by skill_intervals, above) and PDD Up 102/3 30 s (self buff, 20 s), neither short; attack1 is a type-2 ball (attackAfter 1050 ms, r 400 from sp (-129,-44)) and attack2 a 233 x 304 px box (attackAfter 960 ms), both warned, so no attack is dropped"
 			}
 		},
 		{
@@ -44,7 +44,7 @@
 				],
 				"attack_interval": 8,
 				"attack_dmg_mult": 0.848,
-				"_tier": "tier C (#473): first draft of level_scale_draft.gd --step=16 --stage=temple_of_time, not tuned: arrives at curve time 600 (E_sw 36.44, level 69.44); attack1 (type 0, magic, ice) and attack2 (type 0, magic, fire, knocks back and jump-attacks) are matched on MAD (735); 8 s cadence. Its kit (Heal 114/23 and Reflect 145/1, B6) runs as written in Skill.wz"
+				"_tier": "tier C (#473): first draft of level_scale_draft.gd --step=16 --stage=temple_of_time, not tuned: arrives at curve time 600 (E_sw 36.44, level 69.44); attack1 (type 0, magic, ice) and attack2 (type 0, magic, fire, knocks back and jump-attacks) are matched on MAD (735); 8 s cadence. Its kit (Heal 114/23 and Reflect 145/1, B6) runs as written in Skill.wz. Spam audit (tier C, #473): the kit's canonical intervals are Heal 114/23 300 s (a flat x 500 HP below 80 percent HP, a trifle against 7.6M HP and once per fight at most) and Reflect 145/1 60 s (10 s), neither short, so no skill_intervals entry; attack1 (316 x 310 px, attackAfter 1250 ms) and attack2 (790 x 314 px, attackAfter 1710 ms, the box Leviathan shares) are both warned wind-ups, so no attack is dropped"
 			}
 		},
 		{
@@ -62,7 +62,7 @@
 				],
 				"attack_interval": 8,
 				"attack_dmg_mult": 1.823,
-				"_tier": "tier C (#473): first draft of level_scale_draft.gd --step=16 --stage=temple_of_time, not tuned: arrives at curve time 900 (E_sw 56.85, level 89.85); attack1 (type 4 area warning, B5, physical, PAD 720) and attack2 (type 0, magic, fire, MAD 755) are matched on the stronger attack2 by MAD; 8 s cadence. Its kit (100/2, Seduce 128/7, B3, and Heal 114/9) runs as written in Skill.wz"
+				"_tier": "tier C (#473): first draft of level_scale_draft.gd --step=16 --stage=temple_of_time, not tuned: arrives at curve time 900 (E_sw 56.85, level 89.85); attack1 (type 4 area warning, B5, physical, PAD 720) and attack2 (type 0, magic, fire, MAD 755) are matched on the stronger attack2 by MAD; 8 s cadence. Its kit (100/2, Seduce 128/7, B3, and Heal 114/9) runs as written in Skill.wz. Spam audit (tier C, #473): the kit's canonical intervals are Attack Up 100/2 40 s, Seduce 128/7 20 s (prop 80, 10 s, B3's lockout applies) and Heal 114/9 30 s (a flat x 50000 HP below 90 percent HP to every mob in a 1600 x 850 px box, unscaled by hp_mult, about 2.6 percent of Lyka's draft HP per cast), none short, so no skill_intervals entry; attack1 is the 15-column area warning (attackAfter 1260 ms) and attack2 a 400 x 272 px box (attackAfter 960 ms), both warned, so no attack is dropped"
 			}
 		}
 	],
