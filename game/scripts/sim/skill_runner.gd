@@ -229,6 +229,8 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 	for key: String in lo.order:
 		if not lo.book.is_active(key):
 			continue
+		if not forms.permits(world, key):
+			continue # a running form's only_skills (the ship): the skill keeps its cooldown and casts when the form ends
 		if hidden and is_attack(stats_of(world, key)):
 			# Hidden (#194): the character cannot attack; the skill keeps its cooldown and resumes when Hidden ends.
 			continue
@@ -343,7 +345,9 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 	if String(st.kind) == "form":
 		return forms.admits(world, key) and _buff_admission(world, st, origin) != BUFF_REFUSED
 	if String(st.kind) == "summon":
-		return true
+		# tier C (Gaviota, spec #384 C6): a cast block `mob_within` admits the summon only with a living monster that near.
+		var near := float(st.cast_params.get("mob_within", 0.0))
+		return near <= 0.0 or _any_target(world, origin, near, 1)
 	match String(st.cast_rule):
 		"", "nearest", "burst":
 			if String(st.kind) == "buff":

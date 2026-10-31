@@ -83,7 +83,7 @@ func test_the_row_is_listed_between_hero_and_the_arch_mage_with_its_name_and_pit
 	assert_eq(knight.text, "Dark Knight")
 	assert_eq(knight.size.x, CREATE.JOB_ROW_SIZE.x)
 	assert_eq(knight.position.x, hero.position.x, "rows share a column")
-	assert_eq(knight.position.y - hero.position.y, (CREATE.JOB_ROW_SIZE.y + 2.0) * (ids.find(132) - ids.find(112)), "one pitch per row")
+	assert_eq(knight.position.y - hero.position.y, creation.job_pitch * (ids.find(132) - ids.find(112)), "one pitch per row")
 	assert_true(knight.get_theme_stylebox("normal") is StyleBoxEmpty, "not highlighted until chosen")
 	assert_eq(knight.alignment, HORIZONTAL_ALIGNMENT_LEFT)
 

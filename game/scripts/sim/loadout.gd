@@ -472,6 +472,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		resolved["meter_keep"] = maxi(0, roundi(skill_stat(key, "meter_keep", 0.0)))
 	_add_burn(resolved, key, d, lv)
 	_add_pierce_field(resolved, key, d, lv)
+	_add_mark(resolved, key, d, lv)
+	_add_hull(resolved, key, d, lv)
 
 	if d.has("form"):
 		resolved["duration"] = float(d.form.duration) * skill_stat(key, "form_time", 1.0)
@@ -483,6 +485,42 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	if d.has("revive"):
 		resolved["revive"] = _revive(key, d.revive)
 	return resolved
+
+
+## Adds `hull_share` to a Form with a `hull` effect: the share of max HP its hull will have (the canonical field at this level over
+## 100, times the `hull` modifier; spec #384 C13). PlayerHull sizes the real pool from the same two numbers at the form's start.
+## Other skills gain no key, so their stats are unchanged.
+func _add_hull(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> void:
+	var hull: Variant = d.get("form", {}).get("effects", {}).get("hull")
+	if hull is Dictionary:
+		resolved["hull_share"] = book.canonical(key, lv, String(hull.get("field", "")), 0.0) / 100.0 * skill_stat(key, "hull", 1.0)
+
+
+## The ALL_WEAK mark's stored length in seconds: the skill's `on_hit.duration` (`base`) lengthened by the `mark_time` modifier.
+func mark_time(key: String, base: float) -> float:
+	return base * skill_stat(key, "mark_time", 1.0)
+
+
+## The ALL_WEAK mark's multipliers of skill `key` as Vector2(non-boss, boss): MobSwarm.MARK_MULT and MARK_BOSS_MULT, both
+## raised by the `mark_power` modifier (never below 1: a mark does not weaken a monster's defence).
+func mark_multipliers(key: String) -> Vector2:
+	var power := skill_stat(key, "mark_power", 0.0)
+	return Vector2(maxf(1.0, MobSwarm.MARK_MULT + power), maxf(1.0, MobSwarm.MARK_BOSS_MULT + power))
+
+
+## Adds the mark numbers of a skill whose `on_hit.status` is "all_weak" to its resolved stats: mark_time (seconds, the literal
+## duration with `mark_time` applied), mark_mult and mark_boss_mult (`mark_power` included; the Skill window and cards show them).
+## Other skills gain no key, so their stats are unchanged.
+func _add_mark(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> void:
+	var on_hit: Dictionary = d.get("on_hit", {})
+	if String(on_hit.get("status", "")) != MobSwarm.STATUS_NAMES[MobSwarm.ALL_WEAK]:
+		return
+	var mult := mark_multipliers(key)
+	var base := float(on_hit.duration) if on_hit.has("duration") \
+		else book.canonical(key, lv, String(on_hit.get("duration_field", "time")), 0.0)
+	resolved["mark_time"] = mark_time(key, base)
+	resolved["mark_mult"] = mult.x
+	resolved["mark_boss_mult"] = mult.y
 
 
 ## Adds the burn numbers of a skill whose `on_hit.status` is "burn" to its resolved stats: burn_pulse (whole damage per

@@ -10,10 +10,11 @@ const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const RV := preload("res://tests/fixtures/revive_fixtures.gd")
 const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
 const SF := preload("res://tests/fixtures/shade_fixtures.gd")
+const CorsairFixtures := preload("res://tests/fixtures/corsair_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage",
-	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id", "hp", "pushed"]
+	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id", "hp", "pushed", "absorbed", "mount"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
 const STRING_FIELDS := ["element", "reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message", "art"]
@@ -29,8 +30,9 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 		return
 	seen[type] = int(seen.get(type, 0)) + 1
 	var want: Array = ["type"] + RunWorld.EVENT_FIELDS[type]
-	if type == "summon_spawn" and e.has("sound"):
-		want.append("sound")
+	for optional: String in RunWorld.OPTIONAL_EVENT_FIELDS.get(type, []):
+		if e.has(optional):
+			want.append(optional)
 	want.sort()
 	var got: Array = e.keys()
 	got.sort()
@@ -492,6 +494,34 @@ func test_every_event_matches_the_schema() -> void:
 			for event: Dictionary in shaded.drain_events():
 				_check(event, seen)
 		assert_true(seen.has(type), "%s was emitted (seen %s)" % [type, seen])
+
+
+## The Battleship (spec #384): `form_started.mount` and `player_hit.absorbed` are optional fields, so the schema test's own
+## stream must include a ship and a soaked hit, and they must be documented in OPTIONAL_EVENT_FIELDS and typed.
+func test_the_ships_optional_event_fields_obey_the_schema() -> void:
+	var data := RF.quiet_data()
+	data.balance.player.hp = 1000
+	var w := RunWorld.new(CorsairFixtures.setup("quiet", 397, data))
+	RF.place_player(w, 400)
+	w.loadout.ranks.clear()
+	w.loadout.order.clear()
+	assert_true(w.learn_skill("battleship"))
+	w.refresh_player_stats()
+	w.drain_events()
+	w.runner.forms.start(w, "battleship", w.loadout.stats("battleship"))
+	w.take_hit(300.0, false, "", w.player.pos + Vector2(20, 0), {"accuracy": 100000.0, "source_kind": "touch"})
+	var seen := {}
+	var events := w.drain_events()
+	for e: Dictionary in events:
+		_check(e, seen)
+	var started := events.filter(func(e: Dictionary) -> bool: return e.type == "form_started")
+	var hit := events.filter(func(e: Dictionary) -> bool: return e.type == "player_hit")
+	assert_eq(started.size(), 1)
+	assert_true(started[0].has("mount"), "the ship names its mount")
+	assert_eq(hit.size(), 1)
+	assert_true(hit[0].has("absorbed"), "the hull soaked part of the hit")
+	for type: String in RunWorld.OPTIONAL_EVENT_FIELDS:
+		assert_true(RunWorld.EVENT_FIELDS.has(type), "%s is a documented event type" % type)
 
 
 func _digest(p_seed: int, seconds: float) -> String:

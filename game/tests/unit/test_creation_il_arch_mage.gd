@@ -94,7 +94,7 @@ func test_rows_follow_the_playable_jobs_names_from_the_job_data_and_212_chosen()
 	# 26 characters; a real window's font fits it, checked by the creation screenshot): only the minimum is asserted.
 	assert_true(il.size.x >= CREATE.JOB_ROW_SIZE.x and mage.size.x >= CREATE.JOB_ROW_SIZE.x)
 	assert_eq(il.position.x, mage.position.x, "rows share a column")
-	assert_eq(il.position.y - mage.position.y, CREATE.JOB_ROW_SIZE.y + 2.0, "I/L is one pitch below F/P")
+	assert_eq(il.position.y - mage.position.y, creation.job_pitch, "I/L is one pitch below F/P")
 	assert_eq(_row(creation, expected[0]).position.y, CREATE.ROW_AT.y, "the first row starts at the first Look row")
 	assert_eq(il.alignment, HORIZONTAL_ALIGNMENT_LEFT)
 	assert_true(il.get_theme_stylebox("normal") is StyleBoxEmpty, "I/L is not highlighted until chosen")

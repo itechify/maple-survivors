@@ -18,7 +18,8 @@ extends RefCounted
 ## setup.job, else JobTree.default_job()), and a fresh round learns that job's JobTree.start_skills at rank 1. There is no
 ## advancement, no weapon path and no basic attack; weapons gate no skill.
 ##
-## Events: every emitted Dictionary has `type` plus exactly the fields of EVENT_FIELDS[type]. `player_hit.damage` is the
+## Events: every emitted Dictionary has `type`, the fields of EVENT_FIELDS[type] and, only when they apply, those of
+## OPTIONAL_EVENT_FIELDS[type] (test_run_events enforces both). `player_hit.damage` is the
 ## whole hit (the number shown); `miss` hits do no damage and
 ## cause no knockback or invincibility. `choice_pending` card `rank` is the
 ## rank the card gives when taken. Swarm/projectile/pickup visuals are read from state (4.4.3).
@@ -82,6 +83,16 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_UPGRADE", "DEAD", "CLEARED"]
 ## Production stage names for the optional clock-free instrumentation callback, in execution order.
 const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "touch", "gain_exp",
 	"player_state", "end_tick"]
+
+## Event type -> the fields an event carries only when they apply, so an event without them keeps its exact old bytes
+## (docs/ARCHITECTURE.md 4.4.3): `player_hit.absorbed` (whole points a hull or hit hook soaked, only when positive) and
+## `form_started.mount` (the TamingMob id of a form that names one) and `summon_spawn.sound` (only a skill that lists a summon
+## sound). test_run_events checks every emitted event against EVENT_FIELDS plus the optional fields it actually carries.
+const OPTIONAL_EVENT_FIELDS := {
+	"player_hit": ["absorbed"],
+	"form_started": ["mount"],
+	"summon_spawn": ["sound"],
+}
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
@@ -162,7 +173,7 @@ const EVENT_FIELDS := {
 	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
 	"skill_landed": ["skill", "cast_time", "pos", "effect"],
 	# #342: a burst cast (Hurricane) began (`wind_up` s until its first arrow, `span` s to its last) and ended (finished or dropped); art only.
-	"summon_spawn": ["skill", "slot"], # optional sound: listed only by skills with a summon sound
+	"summon_spawn": ["skill", "slot"], # optional: sound (OPTIONAL_EVENT_FIELDS)
 	"summon_attack": ["skill", "slot", "pos"],
 	"summon_strike": ["skill", "slot", "mob", "pos", "effect"],
 	"burst_start": ["skill", "wind_up", "span", "facing"],
@@ -1525,13 +1536,24 @@ func is_scheduled_boss(m: int) -> bool:
 	return m >= 0 and m < mob_boss.size() and mob_boss[m] >= 0
 
 
-## Target order shared by every player targeting rule: scheduled bosses first, then nearer `d2`, then lower slot.
-## tier C: ours (#83), so attacks reach a boss in range ahead of the swarm around it.
+## Target order shared by every player targeting rule: scheduled bosses first, then a monster under the ALL_WEAK mark
+## ahead of an unmarked one, then nearer `d2`, then lower slot.
+## tier C: ours (#83), so attacks reach a boss in range ahead of the swarm around it; marked-first is the Corsair
+## Homing Beacon's focus fire (spec #384 C7).
 func targets_before(a: int, da: float, b: int, db: float) -> bool:
 	var boss_a := is_scheduled_boss(a)
 	if boss_a != is_scheduled_boss(b):
 		return boss_a
+	var marked_a := swarm.status_left[a * MobSwarm.STATUS_COUNT + MobSwarm.ALL_WEAK] > 0.0
+	if marked_a != (swarm.status_left[b * MobSwarm.STATUS_COUNT + MobSwarm.ALL_WEAK] > 0.0):
+		return marked_a
 	return da < db if da != db else a < b
+
+
+## Sorts monster slots `ids` in place into targets_before order by the distance of their centres from `origin`.
+func sort_targets_by_distance(ids: Array[int], origin: Vector2) -> void:
+	ids.sort_custom(func(a: int, b: int) -> bool:
+		return targets_before(a, mob_center(a).distance_squared_to(origin), b, mob_center(b).distance_squared_to(origin)))
 
 
 ## All live bodies intersecting a canonical feet-relative, left-facing skill box; scheduled bosses first, then nearest
@@ -2206,10 +2228,19 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 				else book.canonical(key, level, String(status.get("duration_field", "time")))
 			var params := {"time": time,
 				"level": level, "skill": key, "x": book.canonical(key, level, "x")}
+			var is_mark: bool = String(status.get("status", "")) == String(MobSwarm.STATUS_NAMES[MobSwarm.ALL_WEAK])
+			if is_mark:
+				# tier C: the mark's length and multipliers come from the skill's own modifiers (mark_time, mark_power).
+				params["time"] = loadout.mark_time(key, time)
+				var mark := loadout.mark_multipliers(key)
+				params["mult"] = mark.x
+				params["boss_mult"] = mark.y
 			if String(hit.element) != "":
 				params["element"] = String(hit.element)
 			if status.has("element"):
 				params["element"] = String(status.element)
+			if is_mark:
+				params["element"] = "" # the mark is elementless: a fire-immune monster still takes it
 			if String(status.get("status", "")) == "burn":
 				# tier C: the pulse was resolved from the cast (Loadout.stats) and travelled with the shot.
 				params["pulse"] = int(hit.get("burn_pulse", 0))
@@ -2787,12 +2818,13 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	# Power Guard (#182): a no-op, with no RNG and no event, unless the buff is active and this is contact damage.
 	var reflect := _power_guard_reflect(dmg, magic, source)
 	dmg -= reflect
+	var soakable := dmg
+	# The running Forms' absorb phase (the ship's hull, spec #384 C11) and then the hit hooks' (below): what they soak never
+	# reaches HP, in order, and the damage number shows the rest; `player_hit.absorbed` carries the part they took.
 	dmg = ceili(runner.forms.absorb(self, float(dmg)))
-
-	# The hit hooks' absorb phase (a hull): what they soak never reaches HP, in order, and the damage number shows the rest.
 	dmg = _hit_hooks_absorb(dmg, source)
 	_hp -= dmg
-	_emit_player_hit(dmg, false, dir, source)
+	_emit_player_hit(dmg, false, dir, source, soakable - dmg)
 	upkeep.land_hit(bypass)
 	if reflect > 0:
 		_apply_reflect(int(source.mob), reflect)
@@ -2956,10 +2988,13 @@ func take_poison(amount: int, boss_slot: int, boss_mob_id: int) -> int:
 	return lost
 
 
-func _emit_player_hit(damage: int, miss: bool, dir: int, source: Dictionary) -> void:
-	emit("player_hit", {"damage": damage, "miss": miss, "dir": dir,
+func _emit_player_hit(damage: int, miss: bool, dir: int, source: Dictionary, absorbed := 0) -> void:
+	var fields := {"damage": damage, "miss": miss, "dir": dir,
 		"pos": player.pos, "mob": int(source.get("mob", -1)), "mob_id": int(source.get("mob_id", 0)),
-		"boss": bool(source.get("boss", false)), "max_hp": _max_hp, "source_kind": String(source.get("source_kind", "other"))})
+		"boss": bool(source.get("boss", false)), "max_hp": _max_hp, "source_kind": String(source.get("source_kind", "other"))}
+	if absorbed > 0:
+		fields["absorbed"] = absorbed # optional (OPTIONAL_EVENT_FIELDS): only a hit a hull or hook soaked part of carries it
+	emit("player_hit", fields)
 
 
 ## Whether auto-actions may cast now: hanging on a rope/ladder or Stun blocks new casts, not their cooldowns or effects.

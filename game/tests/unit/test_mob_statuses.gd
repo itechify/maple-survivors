@@ -173,6 +173,8 @@ func test_canonical_and_scheduled_bosses_reject_every_status() -> void:
 		w.swarm.steady[m] = 1 if scheduled else 0
 		w.drain_events()
 		for status: String in MobSwarm.STATUS_NAMES:
+			if status == "all_weak":
+				continue # the Corsair mark is the one status a boss takes (spec #384 CS-9; test_mark.gd)
 			assert_false(w.swarm.apply_status(m, status, {"level": 30, "x": -40, "time": 2}, w.events),
 				"%s on a %s boss (v83 server reference)" % [status, "scheduled" if scheduled else "canonical"])
 		assert_true(w.events.is_empty(), "a rejected status emits nothing")

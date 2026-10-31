@@ -9,6 +9,14 @@ static var EFFECTS := {
 	"element": {"apply": _element, "validate": _valid_element},
 	"damage": {"resolve": _resolve_damage, "apply": _damage, "validate": _valid_damage},
 }
+## State effects (spec #384 C11): entries own state in the running window instead of editing a cast copy. Optional
+## start(world,state,value) (after the window is appended), end(world,state,reason), absorb(world,state,amount) (as
+## EFFECTS.absorb) and validate(value). `only_skills` and `art_variant` hold only a validator: FormRules reads their value.
+static var STATE_EFFECTS := {
+	"hull": PlayerHull.ENTRY,
+	"only_skills": FormRules.ONLY_SKILLS,
+	"art_variant": FormRules.ART_VARIANT,
+}
 ## tier C: nearby elemental arbitration radius, independent of a form's admission radius.
 const PREFERRED_RADIUS := 400.0
 ## The path token a skill definition writes where the element's art key goes (`hit/0/{art}`).
@@ -40,12 +48,19 @@ func start(world: RunWorld, key: String, stats: Dictionary) -> void:
 	for sub: Dictionary in block.get("subs", []):
 		subs.append({"rule": sub.duplicate(true), "next": float(sub.first_after), "done": false, "version": -1, "stats": {}})
 	var state := {"skill": key, "skill_id": int(st.skill_id), "group": String(block.exclusive_group),
-		"remaining": float(st.duration), "age": 0.0, "rank": int(st.rank), "effects": effects, "subs": subs}
+		"remaining": float(st.duration), "age": 0.0, "rank": int(st.rank), "level": int(st.level), "effects": effects, "subs": subs}
 	_active.append(state)
 	_hooks("on_start", world, state)
+	for effect: String in effects:
+		var start_state: Callable = STATE_EFFECTS.get(effect, {}).get("start", Callable())
+		if start_state.is_valid():
+			start_state.call(world, state, effects[effect])
 	world.buffs.start(key, st)
-	world.emit("form_started", {"skill": key, "skill_id": int(st.skill_id),
-		"element": String(effects.get("element", "")), "duration": float(st.duration)})
+	var started := {"skill": key, "skill_id": int(st.skill_id),
+		"element": String(effects.get("element", "")), "duration": float(st.duration)}
+	if block.get("presentation", {}).has("mount"):
+		started["mount"] = int(block.presentation.mount) # optional: only a form that names a mount carries it
+	world.emit("form_started", started)
 
 ## Advances windows and due sub-skills. Rejected casts remain due until admitted or the window ends.
 func step(dt: float, world: RunWorld) -> void:
@@ -87,7 +102,7 @@ func step(dt: float, world: RunWorld) -> void:
 
 ## Passes unmodified casts through; otherwise applies effects to a cast-local copy, then fills the `{art}` token of its hit and effect paths with the
 ## cast's element. Non-damaging casts remain untouched.
-func begin_cast(_world: RunWorld, _key: String, stats: Dictionary) -> Dictionary:
+func begin_cast(world: RunWorld, key: String, stats: Dictionary) -> Dictionary:
 	if String(stats.damage_type) == "none":
 		return stats
 	var out := stats
@@ -99,6 +114,7 @@ func begin_cast(_world: RunWorld, _key: String, stats: Dictionary) -> Dictionary
 					var apply: Callable = EFFECTS[effect].get("apply", Callable())
 					if apply.is_valid():
 						apply.call(out, state.effects[effect])
+		out = FormRules.art_variant(_active, world, key, out)
 	for field: String in ["hit", "effect"]:
 		if String(out.get(field, "")).contains(ART_TOKEN):
 			if is_same(out, stats):
@@ -152,6 +168,10 @@ func clear(world: RunWorld, reason: String = "died") -> void:
 func _end(world: RunWorld, state: Dictionary, reason: String) -> void:
 	_active.erase(state)
 	_hooks("on_end", world, state)
+	for effect: String in state.effects:
+		var end_state: Callable = STATE_EFFECTS.get(effect, {}).get("end", Callable())
+		if end_state.is_valid():
+			end_state.call(world, state, reason)
 	world.buffs.end(String(state.skill), world.events)
 	world.emit("form_ended", {"skill": String(state.skill), "skill_id": int(state.skill_id), "reason": reason})
 
@@ -198,12 +218,15 @@ static func validation_errors(defs: Dictionary) -> PackedStringArray:
 			errors.append("%s.form.effects needs an object" % key)
 		else:
 			for effect: String in effects:
-				if not EFFECTS.has(effect):
+				var record: Dictionary = EFFECTS.get(effect, STATE_EFFECTS.get(effect, {}))
+				if record.is_empty():
 					errors.append("%s.form.effects.%s is unknown" % [key, effect])
 				else:
-					var validate: Callable = EFFECTS[effect].get("validate", Callable())
+					var validate: Callable = record.get("validate", Callable())
 					if validate.is_valid() and not bool(validate.call(effects[effect])):
 						errors.append("%s.form.effects.%s has an invalid value" % [key, effect])
+		if block.has("presentation") and not FormRules.valid_presentation(block.presentation):
+			errors.append("%s.form.presentation needs an object with a positive whole mount" % key)
 		var subs: Variant = block.get("subs")
 		if not subs is Array:
 			errors.append("%s.form.subs needs an array" % key)
@@ -244,11 +267,24 @@ func end(world: RunWorld, key: String, reason: String) -> void:
 		if String(state.skill) == key:
 			_end(world, state, reason)
 
+## Whether pool skill `key` may auto-cast now: false only for a pool active outside a running form's `only_skills`
+## (FormRules.permits). SkillRunner.cast_ready asks once per candidate; with no running form it is always true.
+func permits(world: RunWorld, key: String) -> bool:
+	return _active.is_empty() or FormRules.permits(_active, world, key)
+
+## The remaining share (0..1) of the running hull, or -1.0 when no running form has one (the HUD's hull bar). The first
+## hull in start order wins; two forms of different groups with hulls are not a case the specs have.
+func hull_fraction() -> float:
+	for state in _active:
+		if state.has("hull_max"):
+			return float(state.hull_hp) / float(state.hull_max)
+	return -1.0
+
 ## Folds incoming post-defence damage through the active effect pools in start order.
 func absorb(world: RunWorld, amount: float) -> float:
 	for state in _active.duplicate():
 		for effect: String in state.effects:
-			var hook: Callable = EFFECTS.get(effect, {}).get("absorb", Callable())
+			var hook: Callable = EFFECTS.get(effect, STATE_EFFECTS.get(effect, {})).get("absorb", Callable())
 			if hook.is_valid():
 				amount = clampf(float(hook.call(world, state, amount)), 0.0, amount)
 	return amount

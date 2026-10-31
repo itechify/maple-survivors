@@ -45,7 +45,7 @@ const ADVENTURER_LINES: PackedStringArray = ["common", "beginner", "warrior", "m
 
 
 ## Append each shipped class here; existing entries never move (tier C: deterministic fragment order).
-const CLASS_LINES: PackedStringArray = ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer"]
+const CLASS_LINES: PackedStringArray = ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "corsair"]
 
 
 ## All present fragments: fixed Adventurers, registered classes, then unregistered names sorted for diagnostics.
