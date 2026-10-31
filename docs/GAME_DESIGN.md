@@ -645,6 +645,7 @@ older records below, in the smoke and in the job-loop tickets mean the first fou
 | `ludibrium` (step 6, #463) | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) | Rombot / Alishar / Timer |
 | `omega_sector` | Kulan Field I (221040000) | Boswell Field II (221030200) | Boswell Field V (221030500) | Chief Gray / MT-09 / Zeno |
 | `korean_folk_town` (step 8, #465) | Korean Folk Town - Entrance to Black Mountain (222010000, 2520 px) | Tiger Ridge (222010200, 2520 px) | Fox Ridge (222010300, 3240 px) | Scholar Ghost / Blue King Goblin / Nine-Tailed Fox |
+| `magatia` (step 11, #468) | Sunset Road - The Desert of Red Sand (260020300, 2430 px) | Alcadno Research Institute - Lab - Area C-2 (261020400, 2410 px) | Zenumist Research Institute - Lab - Unit 201 (261010101, 2196 px) | Deo / Homunscullo / Chimera |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
 "Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
@@ -856,6 +857,34 @@ No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening mu
 Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
+
+### Magatia (C6) regression smoke and diagnostic round (#468, 2026-10-30)
+
+Spec #447 branch with the Magatia region (step 11 once Mu Lung and El Nath land), private cache, F/P (212), seeds 1/2/2026,
+`JOBS=2`, no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with
+`fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 /
+489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 /
+449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one
+clear and deaths at 23.8 / 767.0), no crashes and no world warnings. Magatia itself is not in the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=magatia --job=112 --character=late_progression.json`, seed 1, windowed (x8 between bosses, x1 in the
+boss fights, vsync off), god mode (`RunWorld.god`) with the autoplay bot, each boss held at >= 50% HP for 40 s (Deo,
+Homunscullo) or >= 30% for 110 s (Chimera) so its kit shows, then one lethal diagnostic hit: **CLEARED, 3 bosses, Lv53,
+1090.1 s, `missing: []`, no warnings**. Map entries at 0 / 340.0 / 680.0 s. Arena check, by eye: all three first picks stay.
+The Desert of Red Sand (a sunset dune with a ruined arch, a floating sand ledge and a rope; Kiyo and the pointed-hat Sand
+Dwarf crowd the floor and the right ledge), Area C-2 (a grey-violet lab: one long floor, steel shelves and scaffolds; Roid and
+Neo Huroid robots fill the floor from both ends) and Unit 201 (a green lab, three ledges on ladders over one long floor; Homun
+and Saitie fill the floor, 351 mobs at the end) are wide and flat with ladders the bot uses: no shaft, no pit. Unit 201 at
+2196 px holds the late crowd (the final map's `max_alive` 351 of the 400 cap), so the 1954 px alternate 261010103, which is
+narrower, was not needed. The three boss bars show (Deo's and Chimera's own icons, Homunscullo's borrowed Zeno icon). Seen:
+all three arrival shots and notices, Deo's Defense Up 112 (the skull aura on the field) twice, Homunscullo's attack1 and
+attack2 wind-ups and shockwaves, Chimera's attack1 wind-up (the boss itself is hard to pick out under the fixture's damage numbers; its ball was not identified in a shot), Magic Attack Up 101 and 111, Magic Defence Up
+103, heal 114 ("Chimera recovered 1000 HP" and the burst on the boss), weapon immunity 140 and Summon 200 (it spawns nothing).
+**Not shown by a god-mode run:** Chimera's attack1 ball in flight, what a landed Chimera attack does to a character with the buffs up (god lands no
+hit, so nothing here is survival or balance evidence), and a Summon that spawns mobs: v83 Mob.wz holds no 9300167 or 9300168,
+the mobs Chimera's 200/88 names, so the cast is silent by construction. With the late fixture (Lv100-band gear at Lv1) the
+bosses die at once when not held (the 40 s / 110 s holds are why the round took 1090 s): the first draft is a starting point for
+C13, not a balance claim.
 
 ### Korean Folk Town (C3) regression smoke and diagnostic round (#465, 2026-10-30)
 
@@ -10508,6 +10537,24 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Meso ranges | ordinary mobs only, as Ludibrium's method: centre interpolated from the Lv40 Cold Eye / Zombie Lupin (125), Lv50 Drake (250), Lv55 Malady (305) and Lv64 Ice Drake (405) ranges at the mob's level (Moon Bunny Lv45 [150, 226], Hodori Lv50 [200, 300], Hogul Lv53 [226, 340], Samiho Lv56 [253, 379]), +-20%; bosses use the `balance.mesos` level fallback | C |
 | Flags ignored | none of the three maps carries a field flag | A |
 | Alternates | not needed if the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Magatia (C6) constants (#468, spec #449; progression step 11)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/magatia.json`: `region` Magatia, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [60, 70] (#447 table), maps 260020300 / 261020400 / 261010101 (widths 2430 / 2410 / 2196 px, foothold spans of Map.wz), `original_life` of map 1 (Kiyo 9, Sand Dwarf 6); the note says the road runs from Ariant across the Nihal Desert into the labs | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads): Kiyo 3100102 (Lv30) 3 : Sand Dwarf 3100101 (Lv32) 2 at 0 s (the 9 : 6 spawn-point ratio), 1 : 1 at 120 s; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`: Area C-2 holds Roid 5110301 x14 and Neo Huroid 5110302 x13 and excludes (`exclude`) the timed, boss-flagged Rurumo 6090004 (Lv63, mobTime 2400 s); Unit 201 holds Homun 6110300 x11 and Saitie 6110301 x5 and no timed boss | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=11 --stage=magatia` (not tuned): `level` 27.15, 27.73, 28.8, 40.22, 54.44, 66.23, 74.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (11 - 5)). The jump from the Lv30-32 desert monsters to the Lv54-58 lab at map 2 is the owner's map choice | C |
+| Bosses | Deo 3220001 (hp_mult 10.658, dmg_mult 1.035, attack_dmg_mult 1.113, `attack1` matched on PAD), Homunscullo 8110300 (9.837, 0.79, 2.396, `attack1` and `attack2` both PAD 125), Chimera 8220002 (4.1, 1.405, 1.889, `attack1` a type 2 ball with no damage of its own, so the mob's PAD 430), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | Deo: Defense Up 112/1. Homunscullo: none (and no v83 boss flag; `attack1`'s mpBurn is not read, no MP). Chimera: Magic Attack Up 101/1 and 111/5, Magic Defence Up 103/2, heal 114/19, weapon immunity 140/13 and Summon 200/88, as written in Skill.wz (B2) | A skills, C support |
+| Absent summons | Chimera's 200/88 lists mobs 9300167 and 9300168, which v83 Mob.wz does not hold. `StageRoster.ABSENT_IN_V83` drops them from the stage's mob list, so a round neither loads them nor reports them missing; the cast stays in the kit and spawns nothing (`RunWorld.spawn_offspring` skips an id with no mob kind) | A (absence), C (handling) |
+| Homunscullo's room | its own map, Zenumist Unit 202, also holds the boss-flagged Deet and Roi (8090000), so it fights in Area C-2; it is not boss-flagged in v83 (a 5400 s spawn), so it borrows Zeno's MobGage icon with the standard 1/5 tag, as Rombot does | C |
+| `mobs.json` | names and `exp_item`, each mob's first monster-drop Etc item (4000xxx) in the MonsterBook: Kiyo Kiyo's Beek 4000335, Sand Dwarf Empty Sack 4000334, Roid and Chimera Wires 4000364, Neo Huroid Plug 4000365, Homun Beaker 4000354, Saitie Entry Pass 4000363, Deo Cactus Stem 4000329, Homunscullo Homunculus's Sand 4000355; Deo's and Chimera's MobGage icons are canonical | A ids/names, C association |
+| Meso ranges | ordinary mobs only, as Ludibrium's method: centre interpolated from the Lv27 Evil Eye (60), Lv35 Curse Eye / Jr. Boogie (97), Lv50 Drake (250), Lv55 Malady (305), Lv64 Ice Drake (405) and Lv70 Tauromacis (420) ranges at the mob's level (Kiyo Lv30 [59, 89], Sand Dwarf Lv32 [66, 100], Roid Lv54 [235, 353], Neo Huroid Lv58 [270, 406], Homun Lv65 [326, 490], Saitie Lv68 [332, 498]), +-20%; bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the three maps carries a field flag (lab maps carry `mobRate` 2, which the sim does not read) | A |
+| Alternates | map 1 260020400 / 260020100, map 2 261020200 / 261020700, map 3 261010103 (1954 px, narrower than Unit 201): not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
 
 ## 12. Later phases
 
