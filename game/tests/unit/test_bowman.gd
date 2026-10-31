@@ -308,10 +308,10 @@ func test_range_passive_is_reusable_by_a_gun_line() -> void:
 	var w := RunWorld.new(setup)
 	RF.as_job(w, 500, "gun")
 	assert_near(w.weapon_reach.reach(w), 250)
-	assert_near(w.loadout.stats("double_shot").range, 215)
+	assert_near(w.loadout.stats("double_shot").range, 229) # rank 1 is WZ level 3 (Corsair C4 #388 moved Double Shot to the eight-rank table)
 	assert_true(w.learn_skill("reach_training"))
 	assert_near(w.weapon_reach.reach(w), 265)
-	assert_near(w.loadout.stats("double_shot").range, 230)
+	assert_near(w.loadout.stats("double_shot").range, 244)
 	var crit: float = w.loadout.stats("double_shot").crit
 	assert_true(w.learn_skill("blessing_of_amazon"))
 	w.refresh_player_stats()

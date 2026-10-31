@@ -397,6 +397,12 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	# #76: landed ordinary mob attack hits (recorded only when nonzero).
 	var mob_attack_hits := 0
 	var buff_casts: Array = []
+	# Corsair (522) only, measurement for the QA smoke (spec #384 C15): ship boardings and seconds, what the hull took, landed hits of
+	# the summons, the cannon, the torpedo and the strike, and marked monster-seconds. Other jobs record nothing and keep their bytes.
+	var corsair := {"ship_boardings": 0, "ship_seconds": 0.0, "hull_broken": 0, "hull_absorbed": 0, "marks_applied": 0,
+		"marked_monster_seconds": 0.0, "hits": {}} if w.job_id() == 522 else {}
+	var ship_start := -1.0
+	var mark_until := {}
 	var potion_uses: Array = []
 	var reach := {}
 	var alive_min: Array = []
@@ -492,7 +498,29 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 							cast.value = float(buff.value)
 							break
 					buff_casts.append(cast)
+				"form_started":
+					if not corsair.is_empty() and String(e.skill) == "battleship":
+						corsair.ship_boardings += 1
+						ship_start = w.time
+				"form_ended":
+					if not corsair.is_empty() and String(e.skill) == "battleship":
+						corsair.ship_seconds += w.time - maxf(ship_start, 0.0)
+						ship_start = -1.0
+						if String(e.reason) == "broken":
+							corsair.hull_broken += 1
+				"mob_hit":
+					if not corsair.is_empty():
+						var hit_skill := String(e.get("skill", ""))
+						corsair.hits[hit_skill] = int(corsair.hits.get(hit_skill, 0)) + 1
+				"mob_status_applied":
+					if not corsair.is_empty() and String(e.status) == MobSwarm.STATUS_NAMES[MobSwarm.ALL_WEAK]:
+						corsair.marks_applied += 1
+						var from_t := maxf(w.time, float(mark_until.get(int(e.mob), 0.0)))
+						corsair.marked_monster_seconds += maxf(0.0, w.time + float(e.duration) - from_t)
+						mark_until[int(e.mob)] = w.time + float(e.duration)
 				"player_hit":
+					if not corsair.is_empty() and int(e.get("absorbed", 0)) > 0:
+						corsair.hull_absorbed += int(e.absorbed)
 					if not bool(e.miss):
 						# #459: a poison tick is a damage over time, not a hit: it stays out of the hit metrics (hits, taken,
 						# hits_by_min and the before-6:00 / after-8:00 counts) and is kept in boss_hits.
@@ -592,6 +620,12 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"nx_awarded": w.nx_awarded(), "bosses_killed": w.bosses_killed(), "levels_gained": w.levels_gained(),
 		"card_tiers_offered": w.card_tiers_offered.duplicate(), "card_tiers_picked": w.card_tiers_picked.duplicate(),
 	}
+	if not corsair.is_empty():
+		if ship_start >= 0.0:
+			corsair.ship_seconds += w.time - ship_start
+		corsair.ship_seconds = snappedf(float(corsair.ship_seconds), 0.01)
+		corsair.marked_monster_seconds = snappedf(float(corsair.marked_monster_seconds), 0.1)
+		record["corsair"] = corsair
 	if mob_attack_hits > 0:
 		# #76: only rounds where an ordinary mob's attack landed record this, so other rounds keep their exact bytes.
 		record["mob_attack_hits"] = mob_attack_hits

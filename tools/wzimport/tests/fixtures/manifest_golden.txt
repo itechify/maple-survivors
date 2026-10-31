@@ -1282,6 +1282,7 @@ img Character.wz/PetEquip/01812002.img info
 img Character.wz/PetEquip/01812003.img info
 img Character.wz/PetEquip/01812004.img info
 img Character.wz/PetEquip/01812005.img info
+img Character.wz/TamingMob/01932000.img *
 img Effect.wz/BasicEff.img Enchant
 img Effect.wz/BasicEff.img JobChanged
 img Effect.wz/BasicEff.img LevelUp
@@ -1298,6 +1299,7 @@ img Effect.wz/BasicEff.img Teleport
 img Effect.wz/Summon.img 1
 img Effect.wz/Summon.img 12
 img Effect.wz/Summon.img 3
+img Effect.wz/Summon.img 6
 img Effect.wz/Tomb.img *
 img Etc.wz/Commodity.img *
 img Etc.wz/MakeCharInfo.img Info/CharFemale
@@ -1399,6 +1401,8 @@ img Skill.wz/510.img *
 img Skill.wz/511.img *
 img Skill.wz/512.img *
 img Skill.wz/520.img *
+img Skill.wz/521.img *
+img Skill.wz/522.img *
 img Skill.wz/910.img skill/9101001/icon
 img Skill.wz/910.img skill/9101001/iconDisabled
 img Skill.wz/910.img skill/9101001/iconMouseOver
@@ -1569,6 +1573,17 @@ img Sound.wz/Skill.img 5201002
 img Sound.wz/Skill.img 5201003
 img Sound.wz/Skill.img 5201004
 img Sound.wz/Skill.img 5201006
+img Sound.wz/Skill.img 5210000
+img Sound.wz/Skill.img 5211001
+img Sound.wz/Skill.img 5211002
+img Sound.wz/Skill.img 5211004
+img Sound.wz/Skill.img 5211005
+img Sound.wz/Skill.img 5211006
+img Sound.wz/Skill.img 5221003
+img Sound.wz/Skill.img 5221004
+img Sound.wz/Skill.img 5221006
+img Sound.wz/Skill.img 5221007
+img Sound.wz/Skill.img 5221008
 img Sound.wz/UI.img *
 img Sound.wz/Weapon.img *
 img String.wz/Consume.img *
@@ -1670,17 +1685,34 @@ item 4000042
 item 4000043
 item 4000044
 item 4000046
+item 4000048
 item 4000049
 item 4000050
+item 4000051
 item 4000067
+item 4000069
 item 4000076
+item 4000078
+item 4000079
 item 4000081
+item 4000082
 item 4000108
 item 4000109
 item 4000111
 item 4000112
 item 4000113
+item 4000118
+item 4000120
+item 4000121
+item 4000122
+item 4000123
 item 4000124
+item 4000125
+item 4000126
+item 4000169
+item 4000170
+item 4000171
+item 4000172
 item 4000176
 item 4000215
 item 4000278
@@ -1689,9 +1721,21 @@ item 4000282
 item 4000283
 item 4000284
 item 4000298
+item 4000329
+item 4000334
+item 4000335
+item 4000354
+item 4000355
+item 4000363
+item 4000364
+item 4000365
 item 4000413
+item 4000416
 item 4001023
+item 4001141
+item 4010004
 item 4031227
+item 4031311
 item 9000000
 item 9000001
 item 9000002
@@ -1711,12 +1755,24 @@ map 105090310
 map 105090900
 map 106000101
 map 107000000
+map 211010000
+map 211041100
+map 211042100
 map 220011000
 map 220030000
 map 220030400
+map 221030200
+map 221030500
+map 221040000
+map 222010000
+map 222010200
+map 222010300
 map 250010300
 map 250010301
 map 250010700
+map 260020300
+map 261010101
+map 261020400
 map 910000000
 mapimg UI.wz/MapLogin.img
 mob 100100
@@ -1742,11 +1798,14 @@ mob 2230100
 mob 2230101
 mob 2230102
 mob 2300100
+mob 3100101
+mob 3100102
 mob 3110100
 mob 3210100
 mob 3210203
 mob 3210204
 mob 3220000
+mob 3220001
 mob 3230100
 mob 3230102
 mob 3230300
@@ -1761,31 +1820,59 @@ mob 4130103
 mob 4230100
 mob 4230101
 mob 4230104
+mob 4230108
 mob 4230111
 mob 4230112
+mob 4230116
+mob 4230119
+mob 4230120
+mob 4230121
+mob 4230300
 mob 4230502
 mob 4230503
 mob 4230504
+mob 4240000
 mob 5090000
+mob 5100000
+mob 5100003
+mob 5100004
+mob 5100005
+mob 5110301
+mob 5110302
+mob 5120100
 mob 5120500
 mob 5120505
 mob 5130100
+mob 5130104
+mob 5130107
 mob 5220000
 mob 5220001
 mob 5220002
 mob 5220003
 mob 5220004
 mob 5300100
+mob 6090000
+mob 6090001
+mob 6090003
+mob 6110300
+mob 6110301
 mob 6130101
 mob 6130207
 mob 6220000
+mob 6220001
 mob 6230600
 mob 6300005
+mob 7130001
 mob 7130100
 mob 7130101
+mob 7130401
 mob 7220000
+mob 7220001
 mob 7220002
+mob 8110300
 mob 8130100
+mob 8220001
+mob 8220002
 mob 8220009
 mob 9300003
 mob 9300012

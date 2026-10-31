@@ -259,7 +259,7 @@ func test_data_lists_the_v83_ranges_for_every_roster_mob_and_boss() -> void:
 		var listed: Array = mobs[str(id)].get("mesos", [])
 		assert_eq([int(listed[0]), int(listed[1])] if listed.size() == 2 else [], expected[id], "mesos of %d" % id)
 	var no_range := [9300003, 9300062, 9300063, 9300064, 4090000, 3300008, 3300005, 5220002, 5220001,
-		4130103, 9300012, 5220003, 5220004, 7220000, 7220002]
+		4130103, 9300012, 5220003, 4240000, 5120100, 6220001, 6090001, 6090000, 8220001, 6090003, 7130401, 7220001, 5220004, 7220000, 7220002, 3220001, 8110300, 8220002]
 	# ... no v83 drop row (#452 bosses: none used): the level fallback applies
 	var stages: Dictionary = data.stages.stages
 	var ids := {}

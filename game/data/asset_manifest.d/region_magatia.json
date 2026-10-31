@@ -1,0 +1,7 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Magatia region (spec #449 C6, ticket #468, progression step 11). maps: The Desert of Red Sand 260020300, Alcadno Research Institute Lab Area C-2 261020400 and Zenumist Research Institute Lab Unit 201 261010101. mobs: map 1's own roster Kiyo 3100102 and Sand Dwarf 3100101, Roid 5110301 and Neo Huroid 5110302 (map 2), Homun 6110300 and Saitie 6110301 (map 3), and the three bosses Deo 3220001, Homunscullo 8110300 and Chimera 8220002. Chimera's MobSkill 200/88 names Mob.wz 9300167 and 9300168, which v83 does not contain, so its summons cast nothing and need no entries. Its summonEffect (Effect.wz/Summon.img/1) is in the main manifest. items: the Etc drops their mobs.json entries use as the EXP pickup (Empty Sack, Kiyo's Beek, Wires, Plug, Beaker, Entry Pass, Cactus Stem, Homunculus's Sand). No Mob skill-effect art beyond the mobs' own imgs is imported.",
+	"maps": [260020300, 261020400, 261010101],
+	"mobs": [3100102, 3100101, 5110301, 5110302, 6110300, 6110301, 3220001, 8110300, 8220002],
+	"items": [4000335, 4000334, 4000364, 4000365, 4000354, 4000363, 4000329, 4000355]
+}

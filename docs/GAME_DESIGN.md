@@ -14,7 +14,7 @@ On the `redesign` branch, **ADR 0006** replaced v83 progression with survivor-ge
 (spec #282, tickets #283-#294) built it end to end for one job; this section is the summary and the owner of any
 conflict: where a later section still describes a removed system, this section wins. The slice rewrote sections 1, 5,
 6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 preserve behaviour references for the other lines; the remaining Warrior,
-Bowman, Thief and Corsair ports are still unplayable. The live Hero, Paladin, I/L, Bishop and Buccaneer ports are documented below.
+Bowman and Thief ports are still unplayable. The live Hero, Paladin, I/L, Bishop, Buccaneer and Corsair ports are documented below.
 Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in historical sections are gone. Target design:
 
 | Area | Target | Replaces |
@@ -165,6 +165,14 @@ Demolition's blank, and keeps knuckles visible through the weapon-only swingTF f
 0.84 s first impact and 0.12 s target stagger; Shockwave's single impact meets the first eruption at 1.38 s.
 BC11 enabled selection, tooling, the tier-2 fixture and the independent replay oracle. BC12 supplies the QA record
 in 4.2. Sections 7.90–7.93 and the B2–B11 provenance tables own all constants; no balance tuning in this QA.
+
+**Landed in the Corsair spec (#384, C1–C15 #385–#399):** job 522 is playable beside the other eight jobs (nine Job-page rows, Corsair last);
+F/P (212) remains the default. Its thirteen-skill pool starts with Double Shot and manual Dash outside the slots: five gun fillers
+(Double Shot, Burst Fire, Invisible Shot, Recoil Shot, Grenade), Flamethrower and Ice Splitter (front cones), the Octopus (a planted turret that
+fires visible balls, 7.121), the Gaviota (a one-strike kamikaze), Homing Beacon (the all-element mark, 7.122), Aerial Strike, Rapid Fire and the
+Battleship (a timed Form on a drawn mount with a hull that soaks hits, `only_skills`, and its own Cannon and Torpedo, 7.120.9–7.120.13). The guns
+step up their bullets at Lv18 and Lv35. C14 added the selection, fixture and bot scores; C15 flipped `playable` and recorded the QA in 7.120.15 and 4.2.
+Sections 7.120–7.122 and the Corsair constants block in section 11 own every number; no balance tuning in this QA.
 
 ### Known design gaps (open after the slice)
 
@@ -643,7 +651,11 @@ older records below, in the smoke and in the job-loop tickets mean the first fou
 | `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
 | `ludibrium` (step 6, #463) | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) | Rombot / Alishar / Timer |
+| `omega_sector` | Kulan Field I (221040000) | Boswell Field II (221030200) | Boswell Field V (221030500) | Chief Gray / MT-09 / Zeno |
+| `korean_folk_town` (step 8, #465) | Korean Folk Town - Entrance to Black Mountain (222010000, 2520 px) | Tiger Ridge (222010200, 2520 px) | Fox Ridge (222010300, 3240 px) | Scholar Ghost / Blue King Goblin / Nine-Tailed Fox |
 | `mu_lung` (step 9, #466) | Mu Lung - Snake Area (250010300, 1530 px) | Mu Lung - Wild Bear Area 1 (250010301, 1980 px) | Mu Lung - Peach Farm 3 (250010700, 1980 x 1050 px) | Giant Centipede / Tae Roon / King Sage Cat |
+| `el_nath` (step 10, #467) | Watch Out for Icy Path I (211010000, 3050 px) | Forest of Dead Trees I (211041100, 4310 px) | The Cave of Trial II (211042100, 4290 px) | Snow Witch / Riche / Snowman |
+| `magatia` (step 11, #468) | Sunset Road - The Desert of Red Sand (260020300, 2430 px) | Alcadno Research Institute - Lab - Area C-2 (261020400, 2410 px) | Zenumist Research Institute - Lab - Unit 201 (261010101, 2196 px) | Deo / Homunscullo / Chimera |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
 "Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
@@ -855,6 +867,62 @@ No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening mu
 Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
+
+### Magatia (C6) regression smoke and diagnostic round (#468, 2026-10-30)
+
+Spec #447 branch with the Magatia region (step 11 once Mu Lung lands; after El Nath at step 10), private cache, F/P (212), seeds 1/2/2026,
+`JOBS=2`, no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with
+`fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 /
+489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 /
+449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one
+clear and deaths at 23.8 / 767.0), no crashes and no world warnings. Magatia itself is not in the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=magatia --job=112 --character=late_progression.json`, seed 1, windowed (x8 between bosses, x1 in the
+boss fights, vsync off), god mode (`RunWorld.god`) with the autoplay bot, each boss held at >= 50% HP for 40 s (Deo,
+Homunscullo) or >= 30% for 110 s (Chimera) so its kit shows, then one lethal diagnostic hit: **CLEARED, 3 bosses, Lv53,
+1090.1 s, `missing: []`, no warnings**. Map entries at 0 / 340.0 / 680.0 s. Arena check, by eye: all three first picks stay.
+The Desert of Red Sand (a sunset dune with a ruined arch, a floating sand ledge and a rope; Kiyo and the pointed-hat Sand
+Dwarf crowd the floor and the right ledge), Area C-2 (a grey-violet lab: one long floor, steel shelves and scaffolds; Roid and
+Neo Huroid robots fill the floor from both ends) and Unit 201 (a green lab, three ledges on ladders over one long floor; Homun
+and Saitie fill the floor, 351 mobs at the end) are wide and flat with ladders the bot uses: no shaft, no pit. Unit 201 at
+2196 px holds the late crowd (the final map's `max_alive` 351 of the 400 cap), so the 1954 px alternate 261010103, which is
+narrower, was not needed. The three boss bars show (Deo's and Chimera's own icons, Homunscullo's borrowed Zeno icon). Seen:
+all three arrival shots and notices, Deo's Defense Up 112 (the skull aura on the field) twice, Homunscullo's attack1 and
+attack2 wind-ups and shockwaves, Chimera's attack1 wind-up (the boss itself is hard to pick out under the fixture's damage numbers; its ball was not identified in a shot), Magic Attack Up 101 and 111, Magic Defence Up
+103, heal 114 ("Chimera recovered 1000 HP" and the burst on the boss), weapon immunity 140 and Summon 200 (it spawns nothing).
+**Not shown by a god-mode run:** Chimera's attack1 ball in flight, what a landed Chimera attack does to a character with the buffs up (god lands no
+hit, so nothing here is survival or balance evidence), and a Summon that spawns mobs: v83 Mob.wz holds no 9300167 or 9300168,
+the mobs Chimera's 200/88 names, so the cast is silent by construction. With the late fixture (Lv100-band gear at Lv1) the
+bosses die at once when not held (the 40 s / 110 s holds are why the round took 1090 s): the first draft is a starting point for
+C13, not a balance claim.
+
+### Korean Folk Town (C3) regression smoke and diagnostic round (#465, 2026-10-30)
+
+Spec #447 branch with the Korean Folk Town region (step 8 of the spec, after Omega Sector at step 7), private cache,
+F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood with
+the starter wand and with `fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 /
+646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 /
+651.8, random 331.5 / 449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 /
+11.9 / 15.1, kit one clear and deaths at 23.8 / 767.0), no crashes and no world warnings. Korean Folk Town itself is not in the
+smoke (calibration is C13).
+
+Diagnostic one-off, `--run=korean_folk_town --job=112 --character=late_progression.json`, seed 1, windowed at x4 (x1 in the
+boss fights), god mode (`RunWorld.god`) with the autoplay bot, each boss held at >= 50% HP for 45 s (Scholar Ghost, Blue King
+Goblin) or 80 s (the Fox) so its kit shows, then one lethal diagnostic hit: **CLEARED, 3 bosses, Lv58, 1060.5 s,
+`missing: []`, no warnings**. Map entries at 0 / 345.4 / 680.1 s. Arena check, by eye: all three first picks stay. Entrance to
+Black Mountain (full moon, Moon Bunnies on the floor and the stepped ledges), Tiger Ridge (a cliff with ledges and a pond;
+Hodori and Hogul tigers crowd the floor and the left ledges) and Fox Ridge (a wide stepped hillside; Samiho swarm the floor
+and every ledge) are wide, open and have ropes the bot climbs: no shaft, no pit it cannot leave. The three boss bars show
+(Scholar Ghost's borrowed Riche icon, Blue King Goblin's borrowed Zeno icon, the Fox's own). Seen: Scholar Ghost arriving
+on the right, its Banish (twice, 15 s apart; the notice "You have been relocated by the vengeful spirit of the Scholar Ghost."
+and the character on the ground elsewhere); Blue King Goblin's attack1 wind-up and shockwave; the Nine-Tailed Fox's attack1,
+Darkness 121 (the screen darkens and the character's eye aura shows, four casts), Weakness 122 (the blue circle over the
+character), Stun 123 (the pink stun effect over the character, the first-Stun shot `stun.png`) and heal 114 ("Nine-Tailed Fox recovered ... HP"
+and its heal burst on the fox). **Not shown by a god-mode run:** the damage and slowing side of a landed Weakness, a Stun that
+actually stops the character's input and what the draft multipliers do to a real character (god lands no hit, so nothing
+here is survival or balance evidence); the first-status hook saved only `stun.png` and `darkness.png`, so Weakness was seen only in the
+per-cast shot. With the late fixture (Lv100-band gear at Lv1) the bosses die at once when not held:
+the first draft is a starting point for C13, not a balance claim.
 
 ### Ludibrium (C1) regression smoke and diagnostic round (#463, 2026-10-30)
 
@@ -4720,6 +4788,138 @@ Oracles `character_baseline`, `tick_cost_identity` and `hero_baseline` reproduce
 `missing: []`; Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut and Corkscrew Blow all cast (`cast_*.png`); flow
 evidence only, not survival evidence.
 
+### Corsair C2 data smoke (#386, 2026)
+
+Data-only ticket (`jobs/corsair.json`, not playable, no balance data of another job touched). Training seeds 1/2/2026, Henesys bot,
+`JOBS=3`, real private cache: F/P (212) and Hero (112) rows are byte-identical to the base commit `53652f78` (212 died at 12:31 /
+11:01 / 7:54 Lv44 / 37 / 24; 112 at 5:27 / 5:36 / 11:28; no clears, no warnings). Oracles `character_baseline`, `tick_cost_identity`
+and `hero_baseline` reproduce their hashes. Diagnostic `--job=522` playtests (`playable: true` temporarily, reverted, never committed):
+Henesys speed 8, 4 minutes reached Lv8 with `missing: []`, the title "Corsair" on the HUD, a Pistol in hand and the Double Shot, Invisible
+Shot, Grenade and Recoil Shot casts captured (the four ported skills, still defined in `pirate.json`); Sleepywood with a kit
+character (a Pistol-class gun, Pirate-bit gloves and the generic hat and top, tier 2) died at 0:07 at Lv1 on the shared 50 starting HP
+(the ranged default, like Bowmaster and I/L; Hero and Paladin copy 600), `missing: []`. Flow and visual evidence only, not survival
+evidence; screenshots in gitignored `evidence/386/`.
+
+### Corsair C11 smoke (#395, 2026)
+
+Sim seam (`PlayerHull`, `FormRules`, `STATE_EFFECTS`, `absorbed` on `player_hit`) plus the hull bar; tested on a synthetic ship, no Corsair
+definition exists yet. Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212) died at 12:31 / 11:01 / 7:54 (Lv44 / 37 /
+24) and Hero (112) at 5:27 / 5:36 / 11:28 (Lv36 / 11 / 11 by seed order as before), no clears, no warnings: both byte-identical to the C2 rows
+above. Oracles `character_baseline`, `tick_cost_identity`, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer and Bowmaster baselines
+reproduce their hashes; `test_player_forms` and `test_run_events` are unchanged. A hull-probe screenshot set (`evidence/395/hull`, gitignored)
+shows the blue bar draining 0.78 -> 0.16, blue absorbed numbers and the break (blue 40 + violet 12 in one hit, bar gone). No `--job=522`
+playtest: the ship is C13's and the job is not playable.
+
+### Corsair C6 smoke (#390, 2026)
+
+Octopus and Gaviota as data on the C5 behaviours, plus `summon.attack_after` (`PlayerSummons.spawn`) and `cast.mob_within` for a
+summon (`SkillRunner.has_target`); both opt-in, so no other job's cast changes. Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private
+cache: F/P (212) died at 12:31 / 11:01 / 7:54 and Hero (112) at 5:27 / 5:36 / 11:28, no clears, no warnings: byte-identical to the C2 and
+C11 rows above. Oracles `character_baseline`, `tick_cost_identity`, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer and Bowmaster baselines
+reproduce their hashes. Diagnostic `--job=522` (a temporary local `playable: true` and Octopus / Gaviota learn scores, reverted):
+`bash scripts/playtest.sh --job=522 --stage=henesys --seed=7 --speed=8 --vsync=off` died at 5:08 at Lv11 with both summons learned
+(`cast_octopus`, `cast_gaviota`, `missing: []`; flow and visual evidence, not survival evidence). The tool probe
+`corsair_summon_probe.tscn` (Octopus and Gaviota at rank 8, a row of 200 standing monsters 200-440 px away, god mode, 14 s at x1,
+uncapped) shows the planted octopus with a ball flying to the crowd's near edge and the bird diving at the crowd with its bomb,
+`missing: []`; 200 monsters alive for the whole run: frame 2.6 ms avg / 4.3 ms p95, RunScene work 1.3 ms avg / 3.0 ms p95, sim 1.5 ms
+per tick. Screenshots in gitignored `evidence/c6/`.
+
+### Corsair C13 smoke (#397, 2026)
+
+The Battleship and its subs are data plus small text / preview seams (`hull_share`, `SkillText._ship_line`, the `hull` card preview) and
+one presentation change (the rider's `shoot2`, the hull bar lift). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212)
+died at 12:31 / 11:01 / 7:54 and Hero (112) at 5:27 / 5:36 / 11:28, no clears, no warnings, identical to the C11 rows above. Diagnostic
+`--job=522` playtest (`playable` and `starting_skill battleship` flipped in the worktree only, reverted; Henesys seed 3, x4, 2:00 and 1:00):
+`missing: []`; the ship drawn with the seated rider, the blue hull bar over the head, a Cannon volley, a Torpedo flash and the broken hull
+(10 HP at rank 1 / Lv1) looked at by eye. Not tuned.
+
+### Corsair C14 smoke (#398, 2026)
+
+No sim code changed (job page layout, fixtures, hub kit, bot scores, tests). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212)
+died at 7:54 / 11:02 / 12:32 and Hero (112) at 5:28 / 5:37 / 11:28, no clears, no warnings, identical to the C13 rows above (the 12:31 / 11:01
+there are the same deaths read at tick resolution). `test_character_baseline`, `test_tick_cost_identity` and the Hero, I/L, Paladin and Bowmaster baselines
+reproduce their hashes in the full suite (3801 tests, 0 failed, 0 skipped with the cache; 0 failed, 458 skipped without it). New Corsair oracle
+`test_corsair_baseline`: seed 1, 6 minutes, Lv11, 426 casts. Diagnostic `--job=522` playtest (Corsair flipped playable in a private mirror,
+`corsair_t2.json`, Henesys seed 3, stopped at 2:00 because the window was throttled to 1 fps): the pistol drawn, Double Shot, Burst Fire,
+Ice Splitter, Homing Beacon and Rapid Fire casts, Lv5, 42 kills, no `game.log` warning (no `summary.json`: not run to its end). Sleepywood not run (50 HP at Lv1,
+C2's note). Not tuned.
+
+### Corsair C15 QA and regression smoke (#399, 2026-10-30)
+
+Seeds **1, 2, 2026**, `JOBS=3`, `ISOLATE=399s`, private cache `cache-384`, no tuning, no patches, no held-out seeds. Every tier-1 stage with `bot` and
+`random`, then Sleepywood (bot) with the starter outfit and with each job's committed tier-2 fixture (`corsair_t2.json`, `fp_arch_mage.json`), for
+Corsair (`--job=522`) and the default job (F/P 212): **60 records, 20 batch exits all 0; no crash, no world warning, no missing asset.** Only the default job and Corsair were rerun here
+(AGENTS.md's regression smoke is the default job plus the new job, and the spec's "every other shipped job" is covered by their oracles, which reproduce in
+the suite: the review of #384 found no concrete gap, so the narrower smoke stands as the record); nothing in `scripts/sim/` changed in C15. C = CLEARED, D = DEAD
+(seconds); "boss reached" counts runs in which the first boss (300 s) spawned.
+
+| Stage / policy | Corsair 522 | F/P 212 |
+|---|---|---|
+| henesys / bot | 0/3 C; D 308.9–820.6; boss reached 3/3 | 0/3 C; D 474.5–751.9; boss reached 3/3 |
+| henesys / random | 0/3 C; D 306.4–379.1; boss reached 3/3 | 1/3 C; D 433.4–503.7; C 914.3; boss reached 3/3 |
+| ellinia / bot | 0/3 C; D 238.8–374.8; boss reached 1/3 | 0/3 C; D 619.8–643.5; boss reached 3/3 |
+| ellinia / random | 0/3 C; D 205.2–277.5; boss reached 0/3 | 0/3 C; D 617.4–654.4; boss reached 3/3 |
+| perion / bot | 0/3 C; D 294.6–356.2; boss reached 2/3 | 0/3 C; D 310.5–461.8; boss reached 3/3 |
+| perion / random | 0/3 C; D 258.7–343.7; boss reached 2/3 | 0/3 C; D 420.6–428.0; boss reached 3/3 |
+| kerning / bot | 0/3 C; D 311.7–335.1; boss reached 3/3 | 0/3 C; D 311.0–517.9; boss reached 3/3 |
+| kerning / random | 0/3 C; D 280.3–305.8; boss reached 1/3 | 0/3 C; D 306.5–307.0; boss reached 3/3 |
+| sleepywood / starter | 0/3 C; D 9.4–15.3; boss reached 0/3 | 0/3 C; D 11.4–15.1; boss reached 0/3 |
+| sleepywood / kit | 0/3 C; D 10.0–17.1; boss reached 0/3 | 1/3 C; D 23.8–826.2; C 936.2; boss reached 2/3 |
+
+F/P Henesys bot reproduces the C13/C14 rows exactly (D 751.9 / 661.9 / 474.5 s = 12:31 / 11:01 / 7:54); the older BC12 table (below) was taken before other
+specs merged into this branch's base and differs for that reason, not because of this ticket.
+
+Corsair: tier-1 clears 0/24; the first boss spawned in 15/24 runs (all six Henesys runs), a boss was killed in 2/24 (Henesys bot seeds 2 and 2026, one
+each); Corsair dies before the first boss in 9/24 and in all three Ellinia-random runs. **No run ended in a crash and not every run died before the first
+boss, so nothing is stopped; but Corsair is clearly the weakest tier-1 job in this matrix** (the BC12 table below: Hero 3/24 clears and 20/24 first bosses, Buccaneer
+8/24 and 23/24, F/P here 1/24 clears and 24/24 first bosses). Balance-pass levers named by the spec (not touched here): the ship's duration, cooldown and hull share, the Octopus and Gaviota `pad`, the mark's
+length and multiplier, Aerial Strike's cooldown, Rapid Fire's bullet count. The six active slots filled in all six Henesys runs (at 134–256 s).
+
+Mechanic coverage across the 30 Corsair records (the `corsair` block `balance_run.gd` now writes for job 522 only, additive): ship boardings 10 (116.6 s aboard
+in total, 4 hulls broken, 308 damage absorbed); landed monster-hits (`mob_hit` events per skill key; one Gaviota dive counts up to three) Double Shot 7517, Invisible Shot 4218, Grenade 3398, Flamethrower 3068, Ice Splitter 2745,
+Recoil Shot 2032, Gaviota 873, Aerial Strike 716, Rapid Fire 694, Octopus 387 balls, Battleship Cannon 220, Homing Beacon 208 (= marks applied), Torpedo
+109; marked monster-seconds 1664 (the union of each monster's mark timers, ignoring early death). Burst Fire was never taken. The ship was up in only three runs
+because the bot's six slots fill with other cards first (the same effect as C14's baseline note); the ship, Octopus and Aerial paths are covered by
+unit tests and the diagnostic playtests below.
+
+Sleepywood: with 50 HP at Lv1 (the shared default; the spec gives Corsair no HP row, so it inherits the 500 growth and the shared Lv1 value) the starter and the
+fixture die in 9–17 s, F/P's starter in 11–15 s: the same early-death pattern recorded for every job's Sleepywood starter run, not tuned here.
+
+Both `redesign --job=522` (31 shots, PASSED: Corsair on the Job page's last row, "Pistol · WATK 13 · 0.75s", an invulnerable Henesys clear at Lv30 with three
+bosses, results, Free Market with tier 2, a Sleepywood death through the `unrevivable` lethal source, deletion and history) and `creation --jobs=212,522`
+were looked at. Ordinary Corsair playtests, seed 2026, x4, vsync off: Henesys starter DEAD 339.3 s Lv11, Henesys with `corsair_t2.json` DEAD 332.0 s Lv11,
+Sleepywood starter DEAD 11.8 s, Sleepywood with the fixture DEAD 20.1 s, every `summary.json` `missing: []`, no warning in any `game.log`. Diagnostic
+playtests (the pool narrowed to the skills the bot had not taken, and for the second the ammo steps lowered to Lv4/Lv8; both edits reverted, never committed;
+Henesys seeds 3 and 5): pistol in hand, the Battleship drawn with the seated rider, the blue hull bar over the head, the Cannon's muzzle flash and the Torpedo
+flash, Gaviotas diving, Aerial Strike's explosions (with `capture_delay` 2.2 s the shot now shows the impact), Rapid Fire's wings, the planted Octopus, the mark
+cue by the monsters, "Your bullets are now Split Bullet" and `missing: []`. Not captured in a frame: a broken hull (covered by `test_corsair_battleship` and the
+C13 playtest), the Octopus's balls in flight and the cones aboard the ship (the cones aboard are unit-tested in `test_corsair_cones`). The Cannon / Torpedo `Hit`
+sound was not judged by ear (a headless agent cannot listen), so `sounds.hit` stays on both subs for the owner to listen to.
+
+Web gate: **skipped here, run by CI** (`pages.yml`; the owner forbids installing tooling ad hoc, and the review of #384 accepted that the gate must be green there before the merge into `redesign`): this machine has no `wasm32-unknown-unknown` target, no `wasm-bindgen-cli` and no pinned web export templates, so `bash scripts/export.sh --web`
+and `check_web_artifact.sh` were not run (CI runs them). `node --test web/dev/test/*.test.mjs` passed (62) and `cargo test` (no `MAPLE_WZ_ROOT`) passed (the importer's
+synthetic tests, 0 failed). No importer, manifest or import-screen change in this ticket, so the import screen lists no new download.
+
+Full suite on the final code commit (`8e6ee7f1`): with the cache **3801 tests, 0 failed, 0 skipped**; without it (`MAPLE_SURVIVORS_CACHE=/nonexistent`, as CI) **3801 tests, 0 failed,
+457 skipped** (the `require_cache()` tests; a SKIP proves nothing). Oracles (character baseline, tick cost identity, Hero, I/L, Paladin, Bowmaster, Corsair) unchanged, none recaptured, no test deleted.
+
+### Corsair review fixes (#384, 2026-10-30)
+
+Review of spec #384 (standards/spec 15 should-fix and 20 nits, correctness 4 should-fix and 7 nits), fixed on `t/384-review-fixes`;
+resolutions in `~/.local/share/maple-redesign-notes/REVIEW_384_resolutions.md`. Behaviour changes, each test-first: the Octopus is planted
+on the floor under the caster (7.121), a Gaviota that has locked a monster outlives the level `time` until its dive lands (7.121), the
+bird's reach is measured from the cast origin like the admission, the Gaviota card text says how many monsters the dive hits and that
+`time` is the wait (7.121), `OPTIONAL_EVENT_FIELDS` is enforced by the event schema test with a ship in its stream. Smoke (`JOBS=3`,
+`ISOLATE=384fix`, `cache-384`, seeds 1 2 2026, Henesys, bot, no tuning): **F/P unchanged** (D 474.5 / 661.9 / 751.9 s, the C15 numbers
+exactly); **Corsair D 352.0 / 408.9 / 820.6 s** (C15: 308.9–820.6; seeds moved because Gaviota's strikes now land), 0/3 clears, the
+first boss spawned in 3/3, no crash and no warning. **The Corsair baseline oracle was re-captured** (`test_corsair_baseline`): the bot
+takes Gaviota at seed 1 and with the two Gaviota changes reverted the old digest reproduces; the F/P, Hero, I/L, Paladin, Bishop, Dark
+Knight, Buccaneer (and Paladin / Buccaneer Form) and Bowmaster oracles were not touched and pass. Evidence (`evidence/384fix/`, looked
+at by eye): the Octopus's ball in flight beside a Gaviota (`octopus/ball_2.png`), the Battleship aboard with 200 monsters in front
+(`ship200/t5.png`), a broken hull (`broken/hull_before.png` -> `hull_broken.png`: the violet 12 over the blue 10, the bar and the ship
+gone), the mark's parrot over a monster with the numbers rising (`mark/sheet.png`). Dash active was not captured. The web gate stays with
+CI (`pages.yml`; no wasm toolchain here and ad hoc tooling is forbidden). Full suites on the final commit are in the resolutions note.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
@@ -6192,6 +6392,11 @@ with #194.
 
 ### 7.20 Gunslinger attacks (#192, spec #168)
 
+> **Moved by the Corsair spec.** C4 (#388) moved Double Shot, Invisible Shot, Recoil Shot and Grenade to `skills/corsair.json`
+> (7.120.3), deleted their cards and the `invisible_shot_targets`, `grenade_targets` and `recoil_shot_pierce` cards, and
+> reduced `test_gunslinger_attacks` to Blank Shot; the Gunslinger driver scene is gone. Only Blank Shot stays in `skills/pirate.json`.
+> The text below is the historical design of the four.
+
 Four auto-cast attacks join the Gunslinger's book (`skills/pirate.json`, book 520, job 520, 20 canonical levels each; ranks equal
 levels). Owner rules (#168 grilling): Grenade is thrown as if fully charged with no wind-up; Wings is dropped. Costs, damage %,
 mob counts, boxes, stun chance and time and the hop distance are tier A Skill.wz 520.img values (WZ wins over String text where
@@ -7331,7 +7536,7 @@ element is its own live multiplier. With no vulnerability running the result is 
 is `(f + s) * 0.5`; a table test compares every mob-attribute combination to the old formula), so F/P is unchanged.
 Ice-weak raises `il` and `i` (not `fs`); fire-weak raises `fs` and `f` (not `il`).
 
-Reserved, not built: a `"*"` table entry for an all-element mark (Corsair's Homing Beacon). Summons and projectiles use
+The `"*"` all-element entry is the Corsair mark, section 7.122. Summons and projectiles use
 the same `element_multiplier`, so Ifrit's fire meets Ice Demon's mark there with no special case. The renderer has no
 per-status tint for `ice_weak`, so `fire_weak` adds none.
 
@@ -8444,6 +8649,526 @@ at the impact, the cap, hit art by target and by line, transfer, the energy rece
 knuckle on every `fist` / `dragonstrike` frame), `test_bot_melee` (`bot.reach`, a melee bot with the 400 px strip still closes in,
 and the control that kites without the key), `test_avatar_cash_layers` (the `swingTF` fallback), `test_rarity_bonus_effects`.
 
+### 7.120 Corsair pool, job data and Dash (spec #384, C2 #386)
+
+Job 522 (Corsair, the gunslinging pirate) has its own data line: `survivor/jobs/corsair.json` (job entry, AP row, `hub_kit`) and `survivor/skills/corsair.json`, whose regions the skill tickets C3-C13 filled. `DataRepo.lines()` discovers
+the `corsair` line from those files; nothing is registered in a shared list and no other job's file changed. `playable` is `true`
+since the QA ticket (C15 #399, 7.120.15); `default_job` stays 212. (While the line was being built a pool key with no definition was
+inert: never offered, learned or cast.)
+
+| key | WZ id | Shape | Where it is defined |
+|---|---|---|---|
+| `double_shot` (start) | 5001003 | two bullets over two monsters | `corsair.json` (moved from `pirate.json`, C4) |
+| `burst_fire` | 5210000 | three bullets on one target | `corsair.json` (new, C4) |
+| `invisible_shot` | 5201001 | both sides | `corsair.json` (moved, C4) |
+| `recoil_shot` | 5201006 | shot plus a hop away | `corsair.json` (moved, C4) |
+| `grenade` | 5201002 | cluster blast | `corsair.json` (moved, C4) |
+| `flamethrower` | 5211004 | front cone, burn | new |
+| `ice_splitter` | 5211005 | front cone, freeze | new |
+| `octopus` | 5211001 | stationary turret | new |
+| `gaviota` | 5211002 | one-shot kamikaze bird | new |
+| `homing_beacon` | 5211006 | shot plus a mark | new |
+| `aerial_strike` | 5221003 | delayed area strike | new |
+| `rapid_fire` | 5221004 | channelled burst | new |
+| `battleship` | 5221006 | timed Form with a hull | new |
+| (mobility) `dash` | 5001005 | manual, skill key | `pirate.json`, shared with Buccaneer (CS-3) |
+
+- **Job entry:** `starting_skill double_shot`, `mobility_skill dash`, the thirteen-key `skill_pool`, `weapon_families ["gun"]`,
+  `creation_weapon 1492000` (the Pistol, `reqJob` 16 = the Pirate bit; tier A, already in the Pirate manifest fragment and the shipped
+  drop list), `playable true` (C15). No `meter` (the ship is a Form, not a meter).
+- **Placement rule (`test_data_repo_lines`):** `corsair.json` holds books 500, 520, 521 and 522 (the ported gun skills and the
+  Corsair book); `pirate.json` never holds a 521 or 522 book. A key lives in one file only.
+- **AP row `balance.player.ap["522"]`** (in `jobs/corsair.json`): DEX primary, STR secondary, the shared `520` row's keyframes (Lv1 -> 1,
+  Lv200 -> 200) copied verbatim, so 522 does not depend on a lineage row another class may touch. There is no `hp` key and no growth
+  row: the starting HP is the shared default and HP growth inherits the `500` row (25).
+- **Drops:** nothing was added to the equipment data. `weapon_families ["gun"]` filters the Pirate drop list, so guns (149xxxx) drop
+  and knucklers (148xxxx), bows, crossbows, claws, swords and every other family never do; armour drops by the Pirate class bit
+  (`requirement_error` accepts the Pistol and Pirate-bit gear). `test_corsair_data` rolls 400 seeded drops on a synthetic table, filters
+  the shipped weapon list, and (real cache) every tier's pool with the cache's own `reqJob`.
+- **Ammo (re-verified, no change):** the 522 gun schedule of `ammo.json` (Bowmaster B3) is exact-job (no lineage walk: 520, 521, 500,
+  512 and 212 holding a gun keep the plain Bullet 2330000), steps at round Lv18 to Split Bullet 2330001 (incPAD +12) and Lv35 to Mighty
+  Bullet 2330002 (+14), emits `ammo_upgraded` once per step, and the notice reads "Your bullets are now Split Bullet" / "... Mighty
+  Bullet" with the String.wz names. Vital Bullet 2330003 stays unscheduled (its img is not imported). Both steps are reachable (the
+  level cap is far above 35), so nothing was retuned. `test_corsair_ammo` needs no Corsair skill (a Pistol, the real EXP path and the
+  ranged basic attack's incPAD; the real-cache half reads Item.wz and String.wz).
+- **Decisions CS-1 to CS-12** are the spec's (#384); this ticket records the ones its data carries: **CS-1** thirteen entries, one past the
+  usual cap; **CS-2/CS-3** Dash is the mobility skill and stays in `pirate.json`; **CS-4** Burst Fire is Double Shot's heavy twin;
+  **CS-5** the buffs and passives are not cards (their names return as rarity bonuses); **CS-6** item costs are not modelled. CS-7 to
+  CS-12 (Octopus, Gaviota and Aerial Strike, the mark on bosses, the ship's skill filter, the hull, movement unchanged) belong to
+  C5-C13 and are recorded in their own subsections.
+- **Layout.** The Corsair design is this section, 7.120.1-7.120.15, in topic order (not ticket order), followed by 7.121 (summon
+  behaviours) and 7.122 (the mark). Section 11's "Corsair constants (spec #384)" table points at each subsection.
+
+#### 7.120.1 Corsair C2 constants (#386)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Corsair pool and start (CS-1) | `jobs/corsair.json`: `starting_skill` double_shot (slot 1), `mobility_skill` dash (outside the slots), thirteen-key `skill_pool` (Double Shot to Battleship); Spec #384 CS-1, CS-2 | C |
+| Corsair creation weapon and drop families | `creation_weapon` 1492000, the Pistol (Item.wz, reqJob 16, the Pirate bit; no level requirement, #292); `weapon_families` [gun] | A (item) / C (filter) |
+| Corsair AP row (spec #384 "Job data") | `balance.player.ap["522"]`: DEX primary, STR secondary, keyframes Lv1 -> 1 and Lv200 -> 200, the shared `520` row copied verbatim; no `hp` override, growth inherits `500` (25) | C |
+| Corsair `hub_kit` | C2 wrote it as a placeholder (`fixture ""`, empty `scrolls` and `equipment`, `fallback_item` 1492000); C14 filled it and added `corsair_t2.json` | C |
+| Corsair playable | `playable` false through C2-C14; C15 (#399) flipped it to true; `default_job` stays 212 | C |
+| 522 gun ammo schedule (re-verified from B3) | Lv18 Split Bullet 2330001 (+12), Lv35 Mighty Bullet 2330002 (+14), exact job 522, no retune | C (levels) / A (items, incPAD) |
+
+#### 7.120.2 Corsair C3: Dash, the mobility skill (#387, spec #384 CS-2, CS-3)
+
+`dash` (WZ 5001005, book 500) is the `mobility_skill` of job 522. Like Teleport and Rush it is learned at round start by
+`JobTree.start_skills`, sits outside both slot tracks, is never a card or a pool key, and ranks with the round level through the shared
+`balance.mobility_rank_levels` rule (`RunWorld._level_ranks`): rank 1 at Lv1, rank N at Lv 2N, clamped to the skill's rank table. Corsair
+adds no rank rule, no code and no card. The definition stays in `skills/pirate.json` and is shared with Buccaneer (7.90): B5 (#417)
+had already made it `slot: "mobility"` and deleted `dash_new` / `dash_rank`, and `rank_levels["10"]` = [2, 3, 4, 5, 7, 8, 9, 10]
+was already in `survivor/skills.json` exactly once (a test asserts one `rank_levels` table and that value), so the only edit the
+spec listed for C3 that was left was the `ranks` removal, which this ticket does **not** make:
+
+- **Decision (the spec's text overruled): Dash keeps its ten explicit `ranks`.** Removing them would swap the shared definition onto the
+  eight-entry level-10 table (WZ levels 2, 3, 4, 5, 7, 8, 9, 10), which changes Buccaneer's Dash (Lv1 would read level 2, +14 for 4 s,
+  not level 1, +12) and so Buccaneer's behaviour and the Buccaneer fixed-tick oracle, which must stay byte-identical. So both jobs read
+  the same table: rank N = WZ level N, rank 1 +12 speed / +1 jump / 4 s at Lv1, rank 4 +18 / +4 / 8 s at Lv8, rank 8 +26 / +8 / 16 s
+  at Lv16, rank 10 +30 / +10 / 20 s from Lv20 (the movement caps, 140 speed and 123 jump, apply). The spec's rank-1 / 4 / 8 figures
+  (+14 / +20 / +30) and its eight ranks differ only on the way up; the top rank is the same level-10 row. If the owner wants the
+  Corsair table, it needs a per-job rank override first (`SkillBook.rank_table` has no job), which is a code change and a Buccaneer
+  re-capture, so it is left for a later ticket.
+- Behaviour unchanged for the Corsair: the manual skill key (default X, hold to recast), the buff, the cooldown that equals the buff's
+  duration, the Key Config row, the HUD quick slot with its countdown and the bot's rule (flee below 50 % HP with a mob within the flee
+  distance, or three mobs within 120 px). Aboard the Battleship Dash still casts (7.120.12).
+- Tests: `test_corsair_dash.gd` (the data, the rank-level table, learned-at-start and never a card, caps, HUD, Key Config, bot, Buccaneer
+  equality, real-cache rows and art).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Dash rank source (#387) | the shared `balance.mobility_rank_levels` (Lv1 -> rank 1 ... Lv20 -> rank 10); no Corsair row | C |
+| Dash rank table (#387) | the shared definition's ten explicit `ranks` (rank N = WZ level N), unchanged from B5; not the level-10 default table | C |
+| Dash rows | WZ `x` 12 -> 30, `y` 1 -> 10, `time` 4 -> 20 s per level 1-10, effect art and `Use` sound | A |
+
+#### 7.120.3 Corsair C4: the five gun fillers (#388)
+
+Double Shot, Invisible Shot, Recoil Shot and Grenade moved from `skills/pirate.json` to `skills/corsair.json` (a key may be defined in
+one file only), Burst Fire (5210000) was added, and the twelve legacy cards `double_shot_*`, `invisible_shot_*`, `recoil_shot_*` and
+`grenade_*` were deleted from `upgrades/pirate.json`: a playable Corsair's `_new` / `_rank` cards come from
+`UpgradePool.add_pool_skills`. Blank Shot, Gun Mastery, Gun Booster, Bullet Time and Dash stay in `pirate.json`; no Buccaneer skill or
+test depended on the four moved keys (the only reference, `test_buccaneer_brawler`'s "stays in pirate.json" list, now names the
+remaining keys and asserts the four moved). The numbers (WZ damage, counts, boxes, hop `range`) are the old ones; what changed is the
+rank table (the default eight ranks, WZ levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20, in place of twenty), the weapon gate (gone) and the
+rarity bonuses.
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Rank table of the five (#388) | `rank_levels["20"]` = [3, 5, 8, 10, 13, 15, 18, 20]; no explicit `ranks`; Double Shot 63 / 70 / 80 %, Burst Fire 125 / 160 / 210 % x3, Invisible Shot 85 / 120 / 170 % (3 monsters), Recoil Shot 90 / 160 / 260 % (hop 130 / 175 / 250 px), Grenade 55 / 90 / 140 % (3 / 4 / 6 monsters) at ranks 1 / 4 / 8 | A (levels) / C (mapping) |
+| No weapon gate (#388) | `weapon_families` removed from the three that had one; the Pistol is only the creation weapon and the drop family | C |
+| Double Shot's bullets (#388) | the current ammo's bullet (`ammo_shot true`, `ball ""`) in place of the Pirate `ball` art; the `CharLevel` hit and effect art kept; cooldown 1.0 s, 600 px/s, radius 8 px, no pierce | C |
+| Burst Fire (#388) | `cast nearest` + `cast.focus true`: the three bullets (WZ `bulletCount`) all go to the one monster admission picked, a scheduled boss first; range 350 (A), 700 px/s, radius 6 px, no pierce, cooldown 2.0 s, action `triplefire` (A), 0.6 s hold, `effect` (8 frames), `hit/0` (4 frames), `Use`; its `Hit` sound names `Sound.wz/Skill.img/5210000/Hit`, a UOL the importer resolves to Double Shot's file | A (WZ) / C (cast) |
+| Cadences kept (#388) | Double Shot 1.0 s, Invisible Shot 1.0 s, Recoil Shot 1.8 s, Grenade 2.0 s, Burst Fire 2.0 s | C |
+| Rarity bonuses (#388) | Double Shot, Burst Fire, Recoil Shot: Gun Mastery damage x1.2 / Gun Booster cooldown x0.88 / Bullet Time `count` +1. Invisible Shot: Gun Mastery damage x1.2 / Bullet Time `area` x1.2 / Speed Infusion cooldown x0.75 and `count` +2. Grenade: Gun Mastery damage x1.2 / Bigger Boom `area` x1.2 / Cluster Grenade `count` +2. Legendary = the Unique's id and effects plus damage x1.2 (one shared repeat counter); repeats shrink x0.8 (the #288 rule) | C |
+| Cluster Grenade reads `count` (#388) | the spec's table names `blast_targets`, but a `cluster` cast sizes its blast from the resolved `mob_count` (the `count` stat), and `blast_targets` is 0 for any skill without an `impact_blast`; a `blast_targets` bonus would change nothing in the cast, so Cluster Grenade adds `count` +2 (what the deleted `grenade_targets` card did). Grenade's blast therefore grows 3 -> 5 ... 6 -> 8 monsters | C |
+| Test world (#388) | `test_corsair_fillers` builds a 522 world with `playable` flipped in its own data only; the synthetic 521 book (Burst Fire's real endpoints, damage 115 -> 210 %) is added to the world's `skill_imgs` there, not to the shared fixtures | C |
+
+#### 7.120.4 Corsair C6: Octopus and Gaviota (#390)
+
+The two summons of the pool, as data on C5's `summon.behavior` seam (7.121) with Bowmaster's `summon.watk_field "pad"` (7.53): the
+W.Att of every ball and grenade is the level's `pad`, never the worn pistol or the ammo. Octopus (5211001, `turret`) is planted where
+it is cast and shoots a visible ball at the nearest monster in a 300 px circle; Gaviota (5211002, `kamikaze`) is cast only with a
+living monster within 400 px, flies at the k-th nearest, drops its grenade on up to three monsters and is gone. Wrath of the Octopi and
+Flock are the Unique bonuses (`summon_count` +1). Ranks map to WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 (the default 30-level table).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Octopus numbers (#390) | `pad` 96 / 140 / 200, life (`time`) 10 / 20 / 30 s at ranks 1 / 4 / 8; circle `r` 300 around `sp` (-23, -18), `attackAfter` 480 ms, `mobCount` 1, `bulletSpeed` 300, the two-frame `ball`, body stance `octopus` (9 frames, held 0.8 s), `Use` sound, `hit/0` art | A |
+| Octopus cooldown (#390) | 20 s (WZ `cooltime` 10 s): a rank-1 octopus lives 10 s, so a 10 s recast would stack a second beside a living one; a recast replaces the group either way | C |
+| Octopus cadence (#390) | `attack_interval` 1.5 s between attacks (the WZ has none besides `attackAfter`); `follow_speed` 0 (it never moves); `ordinal_spread` 48 px between the octopi of `summon_count` | C |
+| Octopus cast (#390) | no admission: a cast plants an octopus wherever the caster stands, monsters or not | C |
+| Gaviota numbers (#390) | `pad` 242 / 330 / 450, wait limit (`time`) 10 / 20 / 30 s; reach `r` 400, strike box (-80,-60)..(80,60), `mobCount` 3, `attackAfter` 1920 ms, `fly` and `attack1` art, `hit/1` burst on each struck monster, `Use` sound | A |
+| Gaviota cast (#390) | `cast.mob_within 400`: admitted only with a living monster within 400 px of the caster (the `mob_within` of the buffs and forms, now read for a `summon` too: `SkillRunner.has_target`); cooldown 8 s (WZ 5 s); `follow_speed` 260 px/s, `hover` 60 px; body stance is the weapon's first basic-attack stance held 0.5 s (the WZ skill has no `action`) | C |
+| Gaviota wind-up (#390) | `summon.attack_after` 0.84 s replaces the WZ `attackAfter` 1.92 s (`PlayerSummons.spawn` writes it into the attack node's `info`; a definition without the key is untouched): the WZ wait is the 0.84 s `attack1` dive plus 1.08 s of `hit/0` before its blast, and the renderer holds the last dive frame, so the bird would hang about a second above its target; C1's sheet recommended shortening it | C |
+| Rarity bonuses (#390) | Octopus: Eight Arms damage x1.2 / Long Arms `area` x1.25 (the turret's radius) / Wrath of the Octopi `summon_count` +1. Gaviota: Heavy Load damage x1.2 / Bigger Boom `area` x1.2 (the strike box) / Flock `summon_count` +1. Legendary = the Unique's id and effects plus damage x1.2 (shares its repeat counter) | C |
+| Gaviota waiting trail (review of #384) | `follow_distance` 60 px, `teleport_distance` 600 px and `ordinal_spread` 36 px (the Gaviota data keys; the Octopus' 48 is the row above): the follower rule reused while no monster is in reach, so a bird without a target trails the caster and snaps to it past 600 px | C |
+| Octopus footing (review of #384) | planted on the floor under the caster (7.121), not at the caster's height | C |
+| Out of scope (#390) | Wrath's second sprite (`attack2`), flock formations, Aerial Strike (C10) | C |
+| Test world (#390) | `test_corsair_summons` builds a 522 world (playable in the shipped data since C15) and a synthetic 521 book with the two real nodes' shapes (ranges, `attackAfter`, frame counts, `pad` 84 -> 200 / 218 -> 450, `time` 10 / 20 / 30); the real-cache test checks all eight ranks | C |
+
+#### 7.120.5 Corsair C9: Flamethrower and Ice Splitter (#393)
+
+The two cones of the Corsair pool, both `box` casts on the front-only WZ box `lt (-350,-100) rb (0,0)` (a facing-left box
+mirrored for a right-facing caster like every canonical box), both `kind instant`, `damage physical`, in `skills/corsair.json`.
+Flamethrower (5211004, element `f` from `elemAttr`) sets each struck monster on fire through Bowmaster's burn status
+(GAME_DESIGN 7.43; status index 7, fire-gated: bosses and fire-immune, strong or neutral monsters reject it); Ice Splitter
+(5211005, element `i`) freezes each struck monster through the I/L freeze (a boss or an ice-immune, strong or neutral monster
+rejects it). The WZ nodes carry **no burn or freeze chance and no damage-over-time field**: `time` (3 -> 5 s, 1 -> 3 s) is the
+status length and every damaging hit attempts the status. Both skills store `damage` as a **string** ("82", "78") at all 30
+levels; `SkillBook.canonical` already parses numeric strings, and `SkillText` now does too for its `{damage}` placeholder
+(`_vars` skipped strings before, so a template naming a string-valued level field printed the raw braces).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Rank table (#393) | `rank_levels["30"]` = [4, 8, 12, 15, 19, 23, 27, 30]; Flamethrower 82 / 115 / 160 %, 2 / 4 / 6 monsters, burn 3 / 4 / 5 s and Ice Splitter 78 / 100 / 130 %, 2 / 4 / 6 monsters, freeze 1 / 2 / 3 s at ranks 1 / 4 / 8 | A (levels) / C (mapping) |
+| Box, element, actions, art (#393) | `lt (-350,-100) rb (0,0)`; `elemAttr` f / i; the `fireburner` and `coolingeffect` body actions; `effect` (15 / 13 frames, the first a 1x1 held 240 ms), `hit/0` (5 frames), `Use` and `Hit` sounds | A |
+| `effect_ship` (#393) | declared on both definitions as a path template beside `effect`: the Battleship's `art_variant {effect: effect_ship}` (C11, drawn by C13) swaps it in; this ticket only declares it (15 / 13 frames, the same sizes as `effect`) | A (art) / C (use) |
+| Burn pulse (#393) | `on_hit.pulse` 30: **30 % of the cast's base damage per second** (`BurnStatus.pulse` of the resolved damage bounds), the literal `Loadout._add_burn` reads when the `on_hit` has no `pulse_field`; Inferno keeps its WZ `pulse_field "x"` and is byte-identical | C |
+| Burn length (#393) | the level's `time` (`duration_field`), not a literal; `burn_damage` (Scorch) multiplies only the pulse, never the direct hit or the length | A (field) / C (use) |
+| Freeze (#393) | `on_hit {status freeze, duration_field time}`: the same block Cold Beam uses; no chance field, a boss rejects it | A (field) / C (no prop) |
+| Cast (#393) | auto-cast with at least one monster inside the box (`min_targets` 1), cooldown 2.5 s for both, the cone's body action held 0.6 s, no ball, `mobCount` plus the `count` stat targets, nearest first | C |
+| Item cost (#393) | the capsule `itemConsume` (2331000 / 2331001) is not modelled: the cones are endless, like the ammo | C |
+| Rarity bonuses (#393) | Flamethrower: Elemental Boost damage x1.2 / Scorch `burn_damage` x1.5 / Wide Flame `count` +2; Ice Splitter: Elemental Boost damage x1.2 / Gun Booster cooldown x0.88 / Wide Ice `count` +2; Legendary = the Unique's id and effects plus damage x1.2 (one shared repeat counter); repeats shrink x0.8 (the #288 rule) | C |
+
+#### 7.120.6 Homing Beacon (spec #384 C8, #392)
+
+`homing_beacon` (WZ 5211006, book 521, in `skills/corsair.json`) is the Corsair's mark: the first definition to use the C7 `ALL_WEAK`
+status. The parrot (`ball`, 4 frames) flies at the nearest monster (a marked one first: `targets_before`) and the hit applies
+`on_hit {"status": "all_weak", "duration": 8.0, "cue": "Skill.wz/521.img/skill/5211006/mob"}`. Everything the mark does after that is
+C7's (x1.5 on every later damaging hit by any skill, x1.25 on a scheduled or canonical boss, one timer: a second Beacon refreshes the
+length and replaces the multiplier, never stacks; the nearest-rule skills, the burst re-target and the summons prefer the marked monster).
+
+- **Cast.** `nearest`, one target, 350 px reach (A, `range`), 500 px/s, 10 px radius, no pierce, 10 s cooldown, stance `homing` (A) held
+  0.6 s, physical, no ammo (the parrot is its own ball). The shot stops at the first monster on its line, so a nearer monster in front
+  takes the mark instead of a marked one behind it; the nearest rule only chooses the direction. `effect` (6 frames), `hit/0` (5 frames),
+  `Use` and `Hit` sounds, the 5-frame `mob` loop as the mark's cue over the monster.
+- **Damage.** WZ `damage` 148 -> 380 over 30 levels (A); ranks 1 / 4 / 8 are levels 4 / 15 / 30: 172 / 260 / 380 %. The WZ node has no `time` and no `x`: the
+  mark's length is ours.
+- **Rarity.** Rare Gun Mastery (`damage` x1.2), Epic Gun Booster (`cooldown` x0.88), Unique **Bullseye** (`mark_power` +0.25: x1.75 / x1.5 on a boss,
+  and `mark_time` x1.5: 12 s), Legendary Bullseye plus `damage` x1.2 (same card id, so Unique and Legendary share the repeat counter).
+  Names are the lineage's (Gun Mastery 5200000, Gun Booster 5201003, Bullseye 5220011). The text on the card and in the Skill window is C7's
+  `SkillText` line ("Marks a monster for 8 s: it takes 50% more damage; bosses 25%"), which already reads the resolved `mark_*` stats.
+
+#### 7.120.7 Corsair C8 constants (#392)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Damage, range, action, art, sounds | WZ 5211006: `damage` 148..380, `range` 350, `homing`, `ball` / `effect` / `hit/0` / `mob`, `Use` / `Hit` | A |
+| Mark length | 8 s literal `on_hit.duration` (the node has no `time`) | C |
+| Cast shape | `nearest`, one target, 500 px/s, radius 10, no pierce, own ball (no ammo) | C |
+| Cooldown | 10 s | C |
+| Stance hold | `action_time` 0.6 s | C |
+| Rarity | Rare Gun Mastery x1.2 damage, Epic Gun Booster x0.88 cooldown, Unique Bullseye `mark_power` +0.25 and `mark_time` x1.5, Legendary the Unique plus x1.2 damage | C |
+
+#### 7.120.8 Corsair C10: Aerial Strike and Rapid Fire (#394, spec #384)
+
+Two 4th-job skills as data on seams that already exist, both in `skills/corsair.json` (book 522). **Aerial Strike** (5221003) is the
+delayed area strike of Meteor Shower / Genesis / Arrow Rain: a `box` cast with `min_targets 1` and `pending {delay 1.8}`, the box
+anchored where the caster stood and lost on a map transfer, a clear or a death like every pending strike. **Rapid Fire** (5221004) is
+Bowmaster's channelled burst (`cast.rule "burst"`, Hurricane's seam): ten bullets of the current ammo at one monster, the target kept
+and re-picked, the character free to walk between shots. No code changed: the ticket is two definitions, the tests and these
+constants.
+
+- **Aerial Strike.** Box `lt (-400,-500) rb (400,100)` (A) around the caster's feet, 6 monsters (A `mobCount`), damage 520 -> 1200 over
+  30 levels (A): 580 / 850 / 1200 % at ranks 1 / 4 / 8 (levels 4 / 15 / 30). The bombs land 1.8 s after the cast (A: the impact art
+  `effect1` holds its first frame, a 1 x 1, for 1800 ms). The art: `effect` (10 frames) is the cast flourish on the caster, `effect0`
+  (30 frames at 90 ms, the flock carrying bombs across the screen, authored for a left-facing caster) is a `cast_visuals` entry placed on
+  the caster and mirrored for a right-facing one (`facing: true`), and `effect1` (14 frames, the explosions, 830 x 500 and up) is a
+  second such entry: its first frame is a 1 x 1 held 1800 ms, so it starts with the cast and the explosions appear exactly when the
+  strike lands (`pending.effect` stays empty; played at the impact it would explode 1.8 s late, as the first playtest shot showed).
+  `hit/0` plays on each struck monster, `Use` at the cast and `Hit` at the impact. Stance `airstrike` (A, 15 body frames).
+- **Rapid Fire.** `burst`, `count` 10, `burst {interval 0.08, wind_up 0.3, retarget true}`, `ammo_shot`, range 350 (A), 1000 px/s, radius 6,
+  no pierce, one monster per bullet; damage 102 -> 170 per bullet (A): 108 / 130 / 170 % at ranks 1 / 4 / 8. The first bullet leaves
+  0.3 s after the cast, bullet k at 0.3 s + k x 0.08 s (the last at 1.02 s); no second burst starts while one runs (the burst gate), even
+  with the cooldown reset. The stream's art is `burst_art`: `prepare` (fitted to the 0.3 s wind-up), `keydown` looping from the first
+  bullet, `keydownend` when the stream ends or is dropped; `hit/0` on each bullet; `Use` + `Hit` sounds.
+- **Rarity.** Aerial Strike: Rare Gun Mastery (`damage` x1.2), Epic **Wide Run** (`area` x1.2: a 960 px box), Unique **Second Run**
+  (`attack_count` +1: a second line on every struck monster), Legendary Second Run plus `damage` x1.2. Rapid Fire: Rare Gun Mastery
+  (`damage` x1.2), Epic Gun Booster (`cooldown` x0.88), Unique **Bullet Time** (`count` +4: fourteen bullets), Legendary Bullet Time plus
+  `damage` x1.2. Unique and Legendary share an id (and so the repeat counter). The names follow the lineage (Gun Mastery 5200000, Gun
+  Booster 5201003, Bullet Time 5000000).
+- **Bot.** `SkillRunner.reach_of` already reads `burst` as its `range` (350, above the engage threshold: the Corsair kites); a box skill's
+  reach is its far edge (400). No change.
+
+**Constants (#394).**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Aerial Strike numbers | WZ 5221003: `damage` 520..1200, `mobCount` 6, `lt (-400,-500) rb (400,100)`, `airstrike`, `effect` 10 / `effect0` 30 / `effect1` 14 frames, `hit/0`, `Use` / `Hit` | A |
+| Aerial Strike delay | 1.8 s: `effect1`'s first frame holds 1800 ms | A |
+| Aerial Strike cooldown | 6.0 s (WZ `cooltime` 5 s) | C |
+| Aerial Strike cast | auto-cast with at least one monster in the box; box anchored where the caster stood; `action_time` 0.8 s; `effect0` and `effect1` placed on the caster's spot at the cast and mirrored with the facing | C |
+| Rapid Fire numbers | WZ 5221004: `damage` 102..170, `range` 350, `prepare` / `keydown` / `keydownend` / `hit/0`, `Use` / `Hit`; the `prepare` node names the body action `rapidfire` (one frame, gun drawn) | A |
+| Rapid Fire stream | `count` 10, `interval` 0.08 s, `wind_up` 0.3 s (the `prepare` art is 0.54 s, fitted to 0.3 s because nothing is held), retarget, `ammo_shot`, 1000 px/s, radius 6, no pierce | C |
+| Rapid Fire cooldown | 5.0 s | C |
+| Rapid Fire stance | `action` `rapidfire` held 0.6 s at least, and the whole stream (1.02 s): the spec read the missing WZ `action` as "the gun's own shooting stance"; the body does have `rapidfire` and it draws the gun | C |
+
+#### 7.120.9 The ship's Form effects (spec #384, C11 #395)
+
+Three effect keys a Form block may carry, built and tested on a synthetic ship (`test_form_hull.gd`; the real Battleship is C13, its
+mount art C12). They sit in `PlayerForms.STATE_EFFECTS`, a second registry beside `EFFECTS`: an `EFFECTS` entry edits a cast copy,
+a `STATE_EFFECTS` entry owns state in the running window (`start(world, state, value)` after the window is appended,
+`end(world, state, reason)`, `absorb(world, state, amount)`, `validate(value)`; every hook optional). `PlayerForms.start` stores the
+form's canonical `level` in its state so an effect can read level fields.
+
+- **`hull` (`PlayerHull`, `scripts/sim/player_hull.gd`).** Value `{"field": <canonical level field>, "of": "max_hp"}` (only `max_hp`
+  is known). At the form's start `hull_max = hull_hp = max(1, floor(field / 100 x max HP x hull))` where `field` is read at the
+  form's level and `hull` is the skill's `hull` modifier (a multiplier, base 1; tier C, CS-11: the WZ `pdd` percent of max HP).
+  The size is fixed then: a later modifier or max-HP change leaves a running hull alone. `PlayerForms.absorb(world, amount)` (already
+  the Form hook of `RunWorld.take_hit`, after defence, Invincible, the flat armour and Power Guard, before the ordered HitHook absorb
+  phase and `_hp -= dmg`) folds the hit through the hull: it takes up to its remaining whole points and returns the rest for HP. The
+  hit still starts the hit window and the knock-back guard, a boss attack that ignores the window is absorbed like any hit, and a
+  hit the hull covers entirely costs no HP (its `player_hit.damage` is 0). At 0 the form ends with `form_ended` reason `broken`; the
+  skill's own cooldown keeps counting. A map transfer keeps the hull (it is window state like a buff); death ends it (`died`).
+  No RNG draw is added.
+- **`only_skills` (`FormRules`, `scripts/sim/form_rules.gd`).** Value a list of skill keys. `PlayerForms.permits(world, key)` is
+  false for a pool skill (`slot active`; not a `form`, not a `form_sub`, not a triggered `manual` / `reaction` skill) outside a
+  running form's list; `SkillRunner.cast_ready` asks it once per candidate (`continue`, so the skill is neither cast nor charged
+  anything and its cooldown keeps counting; it casts the tick the form ends). The mobility key, forms, subs, bursts and strikes
+  already in flight and summons already out are never consulted. A buff-kind pool active outside the list is paused too (the
+  spec's rule names no exception; the Corsair pool has none).
+- **`art_variant` (`FormRules`).** Value `{slot: node}` (the spec's `{"effect": "effect_ship"}`). While a running form carries it,
+  `PlayerForms.begin_cast` replaces the cast copy's `slot` art with the skill definition's field named `node` (a path template like
+  `effect`, filled and weapon-twinned the same way) when the definition has that field; nothing else about the cast changes (a test
+  compares every other resolved field), and a skill without the field keeps its art. The cast event's `effect` is where it shows.
+- **Events.** `player_hit` carries `absorbed` (whole points the hull or a hit hook soaked) only when positive; `form_started`
+  carries `mount` (the `presentation.mount` TamingMob id) only when the form names one. Both are listed in
+  `RunWorld.OPTIONAL_EVENT_FIELDS` and ARCHITECTURE 4.4.3, and left out of `EVENT_FIELDS` so every event without them keeps its
+  exact old bytes (`test_run_events` is unchanged).
+- **Schema (`PlayerForms.validation_errors`).** `hull` needs a nonempty `field` and `of: "max_hp"`; `only_skills` an array of
+  nonempty strings (an empty list is legal: it pauses every pool active); `art_variant` a nonempty map of nonempty strings;
+  `presentation` an object whose optional `mount` is a positive whole number.
+- **Presentation.** `HullBar` (`scripts/render/hull_bar.gd`) is a thin blue bar over the character, fed
+  `PlayerForms.hull_fraction()` (-1 while no hull runs, which hides it); `RunScene._on_player_hit` shows the absorbed part as a blue
+  number (the HP-gain digit set) and the part that reached HP as the usual violet one (none when fully absorbed). Probe:
+  `scenes/debug/form_hull_probe.tscn -- --shots=<abs dir>`.
+
+#### 7.120.10 Corsair C11 constants (#395)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Hull size | `max(1, floor(pdd / 100 x max HP x hull modifier))` at the form's start, fixed for the window; `pdd` is the WZ percent of max HP (CS-11) | A (field) / C (reading) |
+| Hull absorbs before HP, after defence | exact whole points, remainder to HP, hit window and knock-back guard unchanged | C |
+| Hull broken | the form ends `broken` at 0 hull points; the skill's cooldown keeps counting | C |
+| `only_skills` scope | pool actives only; mobility, forms, subs, triggered skills and anything already cast are untouched | C |
+| No stagger when the ship leaves (D14) | the paused skills' cooldowns keep running (CS-10), so every pool active that came ready during the window is ready on the tick the form ends and `cast_ready` casts them one per tick, oldest first (at most six are slotted). Deliberate: a stagger would be a second rule on top of CS-10, and the Octopus and Gaviota recasts it releases are the pool working as slotted. Revisit in the balance pass if the volley reads as a spike | C |
+| `art_variant` | presentation only; a skill's own definition field named by the variant swaps one art slot | C |
+| Hull bar | 40 x 5 px, blue fill on a dark back, 10 px above the body box (`HullBar.WIDTH` / `HEIGHT`, `RunScene.HULL_BAR_GAP`) | C |
+| Absorbed number | blue (the HP-gain digit set) at the character's head, the violet number only when HP was hit | C |
+
+#### 7.120.11 Corsair C12: mount art (#396, spec #384 M20)
+
+The Battleship is drawn, not just listed: while a running form's `form_started` names a `mount` (C11 adds the key; the Battleship
+form carries `presentation.mount` 1932000), `AvatarRenderer` draws `Character.wz/TamingMob/<id>.img` around the avatar through
+`MountLayers` (`scripts/render/mount_layers.gd`), reading the art through `MountArt` (`scripts/assets/mount_art.gd`).
+
+- **Art (tier A).** A stance is `<stance>/<frame>/{0, 1, delay}`: canvas `0` is `z tamingMobFront`, canvas `1` is `z tamingMobRear`, each
+  with `origin`, `lt`/`rb` and its own `map/navel` (which drifts with the bobbing: -38, -39, -40, -41 in `stand1`); the delay is on the
+  frame node. Base.wz/zmap.img puts `tamingMobFront` in front of every avatar layer and `tamingMobRear` behind all of them. `tired` is
+  a link the importer expands; `MountArt` resolves links itself too (synthetic data). A missing image loads as an empty `MountArt` and the
+  avatar keeps its plain look (the path is listed in `AvatarRenderer.missing`).
+- **Alignment (tier B/C, the standard attachment).** The ship's front canvas sits on the avatar's origin (the feet), the rear canvas on the
+  same navel point (its navel equals the front's in every v83 frame, so it also sits on the origin), and the rider's origin goes to `ship
+  navel - rider body navel` per frame: (6, -38) - (-2, -17) = (8, -21) on `stand1` with the seated body. The whole group mirrors about
+  x = 0 with the facing (the art faces left).
+- **Stances (tier B/C, C1's sheets).** `stand1` standing (`stand2` too), `walk1` walking, `jump` airborne (holds its last frame, as the
+  WZ's 300000 ms delay), `prone` down, `cannon` / `torpedo` / `fireburner` / `coolingeffect` while that action plays (one shot, held at the
+  last frame; the ship's cannon is 6 x 130 ms = the body's 780 ms, the torpedo 12 frames = 990 ms), `alert2` for the idle alert and any
+  other action (`shoot1`, a swing). The rider is `sit` for every request except those four casts, whose body actions exist (`cannon` and
+  `torpedo` are the `alert` pose, `fireburner` / `coolingeffect` the shoot/stab pair), and the climbing and dead stances, which are
+  the plain avatar's. The ship is hidden while climbing and on death. A morphed character is not mounted.
+- **Evidence.** `scenes/debug/mount_gallery.tscn -- --mount=1932000 --shots=<abs dir>` renders every request facing left and right
+  (`--requests=<csv> --scale=<n>` for a closer look). Findings, with the pistol: the rider sits inside the hull with the head over the
+  rail in every stance; the ship's keel is 3-10 px above the feet line in every frame (the art's `rb` is y -10: a hovering vessel,
+  not an alignment error); in `fireburner` / `coolingeffect` the pistol is drawn over the rail, but in `cannon` / `torpedo` the rider's
+  body action is `alert`, whose pistol is at the waist and sits behind the front hull canvas (the data, not a missing layer);
+  C13 (#397, 7.120.12) settled it with `shoot2`.
+- **Cost.** No node per frame: one `MountLayers` (a RefCounted) per ride, and the mounted draw list is built only when the avatar
+  redraws (a frame change). With no mount `_draw` is the old loop, byte for byte. **Measured at the review of #384** (the ship aboard
+  with 200 standing monsters, Henesys, vsync off, 30 s, `corsair_summon_probe.tscn -- --ship --skills=double_shot --crowd=200`; the
+  form window is 15 s of the 30): `frame_work_us` avg 1330 / p50 1165 / p95 3092 against 1132 / 877 / 2530 for the same crowd with no
+  ship, frame time p95 4.5 ms against 4.2 ms (not tuned, one run each: the ship adds about 0.2 ms on average and 0.5 ms at p95, its
+  own Cannon rounds included).
+
+#### 7.120.12 Corsair C13: the Battleship and its two sub-skills (#397, spec #384 M2 + M20)
+
+`battleship` (WZ 5221006, book 522) is a `kind: "form"` pool active on Paladin's seam, with C11's three ship effects and C12's mount;
+`battleship_cannon` (5221007) and `battleship_torpedo` (5221008) are its `form_sub` skills. All three are in `skills/corsair.json`.
+
+- **The form (tier C unless noted).** `cast {rule form, mob_within 400}` (it waits, unburned, when nothing is near), 15 s window
+  (the WZ `time` 2,100,000 s is "until the hull is gone"), 45 s cooldown counted from the cast (the 90 s WZ `cooltime` is not used),
+  group `corsair_ship`, `effects` = `hull {field pdd, of max_hp}`, `only_skills [grenade, flamethrower, ice_splitter]`,
+  `art_variant {effect: effect_ship}`, `presentation {mount 1932000}`. The cast plays the gun's own shooting stance (`action weapon`,
+  the node has no `action`, 0.6 s); `effect` (11 frames) is the cast art and `effect0` (7 frames, z -1: behind the avatar) a
+  `cast_visuals` entry; the `Use` sound. Ranks: no `ranks` list; the default table of `rank_levels["10"]` (`[2,3,4,5,7,8,9,10]`,
+  present once in `skills.json`) gives levels 2..10 and a hull of 20 / 30 / 40 / 50 / 70 / 80 / 90 / 100% of max HP (tier A `pdd`:
+  rank 1 / 4 / 8 = 20 / 50 / 100%).
+- **Cannon (A numbers, C behaviour).** `nearest` projectile, own 21 x 17 `ball`, `count` from `bulletCount` (3 up to WZ level 10, 4 from
+  level 11), range 400 (A), damage 205 -> 380% by the 30-level table (rank 1 / 4 / 8 reads levels 4 / 15 / 30 = 220 / 285 / 380%).
+  C: 900 px/s, radius 8, `ammo_shot` false, first cast 0.8 s after boarding then every 1.4 s, the `cannon` stance held 0.8 s.
+- **Torpedo.** `nearest` projectile, own 6-frame `ball`, 390 -> 780% (rank 1 / 4 / 8 = 420 / 580 / 780%), `mobCount` 4 / 5 / 6 (levels
+  1-10 / 11-20 / 21-30), `pierce_field "mobCount"` (strikes `mobCount` monsters, so it pierces `mobCount - 1`). C: range 400 (the WZ
+  has a box `lt (-400,-80) rb (-10,20)` and no range), 700 px/s, radius 14, first cast at 1.6 s then every 3.0 s, the `torpedo` stance
+  held 1.0 s. The sub skills rank with the parent through their own 30-level table (Battleship rank 8 casts level 30), take the
+  form's `damage` modifier and have no card and no rarity list.
+- **Rarity bonuses (C).** Rare `gun_mastery` "Gun Mastery" `damage` x1.2 (the subs'); Epic `reinforced_hull` "Reinforced Hull" `hull` x1.5;
+  Unique `full_steam` "Full Steam" `form_time` x1.4 (21 s); Legendary Full Steam (same id, so the repeat counter is shared) and
+  `damage` x1.2. `hull` is a `mul` modifier read by `PlayerHull.start` and shown as `hull_share`.
+- **Presentation (C).** `Loadout.stats` gains `hull_share` (pdd / 100 x the `hull` modifier) for a form with a `hull` effect; the hull modifier
+  previews on its card as "Hull: 20% -> 30%" (`UpgradePool.MOD_PREVIEW`, `LevelUpWindow.MOD_LABELS`); the Skill window line is
+  "Rides a battleship for 15 s: hull 20% of max HP; only Grenade, Flamethrower and Ice Splitter fire, plus the ship's Cannon every
+  1.4 s and Torpedo every 3 s." (`SkillText._ship_line`), and a Full Steam card reads "ride lasts 40% longer".
+- **The rider's gun in `cannon` / `torpedo` (the open question of C12; tier C).** The body's own `cannon` and `torpedo` stances are
+  `alert` frame 0, whose pistol is hidden behind the ship's front canvas. `MountLayers.RIDER_ACTIONS` maps both to the body action
+  `shoot2` (`rider_stance`), which raises the pistol over the rail. The navel rule needs no change: `layout` already reads the rider
+  body's navel per frame, so the rider stays seated in the hull (mount_gallery sheets, both facings; `alert` before, `shoot2` after).
+  The ship's own stance is still `cannon` / `torpedo`.
+- **Hull bar (C).** While a mount is shown the bar rises a further 20 px (`RunScene.HULL_BAR_MOUNT_LIFT`): the seated rider's head is above
+  the body box and the C11 position sat on the eyes in the playtest screenshot.
+- **Evidence.** Diagnostic `--job=522` playtests (Henesys, `playable` and `starting_skill battleship` flipped only in the worktree and
+  reverted): the ship drawn, the rider seated, the blue hull bar, a Cannon volley, a Torpedo flash and the broken hull (the rank 1 hull
+  of a Lv1 character is 10 HP) were looked at; `missing: []`.
+
+#### 7.120.13 Corsair C13 constants (#397)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Battleship cast | `form`, `mob_within` 400, cooldown 45 s from the cast, window 15 s, group `corsair_ship` | C |
+| Battleship `action` | `weapon` (the gun's own shooting stance), `action_time` 0.6 s | C |
+| Hull share | `pdd` % of max HP at rank 1..8 = 20 / 30 / 40 / 50 / 70 / 80 / 90 / 100 (levels 2 3 4 5 7 8 9 10) | A (field) / C (reading, CS-11) |
+| `only_skills` | `grenade`, `flamethrower`, `ice_splitter` (the subs are never restricted) | C (CS-10) |
+| `art_variant` | `effect` -> `effect_ship` | C |
+| Cannon | 0.8 s first, 1.4 s interval, 900 px/s, radius 8, no ammo shot, `cannon` stance 0.8 s; rounds `bulletCount` 3 / 4; range 400 and damage by level | C (A numbers) |
+| Torpedo | 1.6 s first, 3.0 s interval, range 400, 700 px/s, radius 14, `pierce_field mobCount`, `torpedo` stance 1.0 s; damage and `mobCount` by level | C (A numbers) |
+| Rarity | Gun Mastery x1.2 damage; Reinforced Hull `hull` x1.5; Full Steam `form_time` x1.4; Legendary Full Steam + damage x1.2 | C |
+| Rider action in `cannon` / `torpedo` | `shoot2` (`MountLayers.RIDER_ACTIONS`) | C |
+| Hull bar over a mount | +20 px (`RunScene.HULL_BAR_MOUNT_LIFT`) | C |
+| Skill-window / card text | the ship line, "Hull" preview, "ride lasts N% longer" | C |
+
+#### 7.120.14 Corsair C14: selection and tooling (#398, spec #384)
+
+Everything that lets Corsair be selected, run, hand-tested and regression-pinned (C14 shipped it with `playable` **false**; C15 flipped it). No sim code
+changed; the data edit is `jobs/corsair.json` (hub kit and bot scores).
+
+- **Job page.** With 522 mirrored playable the page has nine rows (Corsair last, after Buccaneer), which does not fit the 21 px pitch: the
+  layout fix is Night Lord's NL11 (#410, `JOB_LIST_BOTTOM` 366, `creation.job_pitch`, 18 px for nine rows). This branch carries the identical edit
+  (and the same seven test edits) so the two merge without conflict. `flow_driver creation --jobs=212,522` with Corsair flipped in a private mirror
+  PASSED; nine rows, Corsair highlighted, "Pistol · WATK 13 · 0.75s" (screenshot looked at). `test_creation_corsair` pins the nine-row page on the shipped data and patches 522 to unplayable only for the refusal cases.
+- **Tools.** `--job=522` is accepted by `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, the fixture tool and the flow driver through `playable`
+  alone (`JobTree.job_error`), which is true since C15; a `DataRepo.patch` that sets it false is how the tests pin the refusal ("not playable"). `--job=212 --character=<Corsair>`
+  and `--job=522 --character=<F/P>` fail with the "does not match the character's job N" message (`test_corsair_selection`, subprocesses).
+- **Fixture** `corsair_t2.json` (job 522, tier 2, kit mode): the Lv25 pistol 1492003 (PAD 27, the same `reqLevel` as the F/P staff), hat 1002096 (reqLevel 25),
+  shoes 1072017 (21), gloves 1082002 (10), the starter top and bottom, unscrolled. The spec asked for Pirate-bit gear of the F/P kit's tier-1 `reqLevel`s
+  (30 / 20 / 15), but the asset cache holds no armour with the Pirate bit (`reqJob` 16: only the guns and knuckles), so these are the all-job pieces
+  (`reqJob` 0) nearest to those levels, as Buccaneer's kit does. `--hub --job=522` opens it.
+- **Hub kit** (`jobs/corsair.json` `hub_kit`, read through `lineage_value`; `HubTestKit` needed no code): the five gun ATT scrolls of `scrolls/pirate.json`
+  (100 / 60 / 10 and dark 70 / 30: v83 has no gun ACC scroll), 10 per stack; spare pistol 1492001 (Lv15), hat 1002001, gloves 1082002 and top 1040010; the flow
+  driver's diagnostic item is the Lv40 gun 1492006.
+- **Bot.** `balance.bot.card_scores` in `jobs/corsair.json` names all thirteen pool skills, `_new` 100 and `_rank` 74. Only Octopus, Gaviota and the Battleship need
+  it (`BotInput._base_score` treats only projectile / instant / box skills as attacks, so a summon and a form would score as non-attacks); the other ten are
+  a guard, as in Bowmaster's and Night Lord's files. The bot kites with the gun: every pool skill but the three above has a reach of at least the 220 px
+  `kite_reach`, and Dash follows the existing rule (low HP with a mob close, or three mobs within 120 px). **Real WZ ranges** (`test_corsair_bot`, cache): Double Shot 230
+  (the spec's table says 350; it is the shortest and only just above the threshold), Invisible Shot 250, Recoil Shot 300, Burst Fire / Flamethrower / Ice Splitter / Homing
+  Beacon / Rapid Fire 350, Grenade / Aerial Strike / Cannon 400; summons and the ship 0.
+- **Baseline oracle** `test_corsair_baseline` (seed 1, `--job=522`, bot, god, synthetic assets from `corsair_fixtures.gd`, the Bowmaster recipe, **21600 ticks**).
+  The pool is frozen in the test itself (`skill_pool` is written out), so a later skill cannot move it. All thirteen skills already existed at capture (C1-C13 merged
+  first), so the QA ticket does **not** need to widen and recapture it (the ticket text expected a partial pool). The bot takes Double Shot, Dash, Recoil Shot, Ice Splitter,
+  Homing Beacon, Gaviota and Rapid Fire in six minutes (Lv11); the six slots fill first, so Burst Fire, Invisible Shot, Grenade, Flamethrower, Octopus, Aerial Strike and
+  the Battleship are defined but never taken at seed 1 (the skill tickets' own tests cover them). No ammo step either (Lv18 comes later; `test_corsair_ammo`).
+  Same digest with and without the cache. A change to a Corsair skill, shared combat or the bot must leave `GOLDEN` alone or recapture it with the cause written beside it.
+- **Skill window.** Tabs follow the lineage: Common, Pirate 500, Gunslinger 520, Outlaw 521, Corsair 522; Dash is on the Pirate tab beside Double Shot (the window lists a job's
+  skills a card offers or the run owns, in skill-id order); the ship's Cannon and Torpedo have no card and are never rows. `test_skill_window_corsair` (model, synthetic) and a
+  real `RunScene` for 522 through the K hotkey (cache; skipped without).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Baseline length (#398) | 21600 ticks (6 min), seed 1, bot, god, the thirteen-skill pool frozen in the test | C |
+| Bot card scores (#398) | the thirteen pool skills `_new` 100, `_rank` 74 (the pool default's numbers, explicit) | C |
+| Fixture kit (#398) | pistol 1492003, hat 1002096, shoes 1072017, gloves 1082002, starter top / bottom, tier 2 | C |
+| Hub kit (#398) | gun ATT scrolls 2044900-2044904 x10, spare 1002001 / 1492001 / 1082002 / 1040010, fallback item 1492006 | C |
+
+#### 7.120.15 Corsair C15: QA and merge readiness (#399, spec #384)
+
+`playable` is `true` in `jobs/corsair.json`; F/P (212) stays the default (`survivor/jobs.json`). Nothing else in the data changed except one playtest-only
+key: `capture_delay` 2.2 s on `aerial_strike` (C10 asked for it: the `cast_aerial_strike` shot now lands on the explosions, `pending.delay` 1.8 s plus
+the art's first frames; the sim never reads it). The pinned tests moved to the shipped data: the `--patch` / `DataRepo.patch` "playable" mirrors of the Corsair tests
+were removed (only an "unplayable" patch remains, for the refusal cases of `test_creation_corsair`, `test_corsair_selection`, `test_corsair_hub_kit`), the other
+jobs' Job-page tests (`test_creation_bishop`, `_bowmaster`, `_buccaneer`) and `test_bowmaster_data` list nine rows with Corsair last, `test_corsair_data` pins
+`playable true`. `test_corsair_battleship` gained the hull-versus-diagnostic-hit test: the flow driver's lethal source (`unrevivable: true`, 1e9 damage) kills a
+Corsair aboard a full rank-8 hull (the hull absorbs at most its points and the rest reaches HP), so `redesign --job=522` cannot be turned into a survived hit by the ship.
+`test_corsair_baseline` already held all thirteen skills (C14), so it was not widened or recaptured. HP: the shared default (50 at Lv1, the 500 growth), as the
+spec says nothing else.
+
+`balance_run.gd` writes a `corsair` block into a record only for job 522 (ship boardings and seconds, hulls broken, damage absorbed, landed hits per skill key, marks
+applied, marked monster-seconds); every other job's record is byte-identical. Tier C measurement, no RNG, no world change. The QA record (flow scenario, playtests,
+smoke, web gate) is in section 4.2 "Corsair C15 QA and regression smoke". Open for the owner: the smoke shows Corsair is the weakest tier-1 job (0/24 clears; first
+boss spawned in 15/24 runs) and the Cannon / Torpedo `Hit` sound is still to be listened to (C13).
+
+### 7.121 Summon behaviours: turret and kamikaze (#389, spec #384 M9)
+
+`PlayerSummons` (7.32) owns the lifecycle of every player ally: spawn (`summon_count` spacing, a recast replaces the group),
+`time` expiry and the `die` animation, map-transfer clearing. A definition now may carry a `summon.behavior` string; each value
+names an object that owns what its allies do every tick (`spawn_slot`, `step_slot`). **No `behavior` key is Elquines' trailing
+ally exactly as before** (same state, same RNG stream; `test_player_summons`, `test_physical_followers`, `test_support_summons`
+and both F/P oracles are unchanged), and an unknown string also trails. The dispatch is one `_behavior(d)` match in
+`player_summons.gd`: a new behaviour adds one field and one `match` arm. Neither behaviour names a job, a skill or an id, and
+neither draws an RNG value beyond the damage rolls `RunWorld.hit_mob` already makes. Both read `watk_field pad`, `move`, `hover`
+and the other 7.44 keys through the shared spawn.
+
+- **`"turret"` (`SummonTurret`, the Corsair Octopus).** The ally is planted where it is called (the caster's feet,
+  `ordinal_spread` apart) and never follows or teleports. Its facing is the caster's at the cast and never turns. Targets are
+  the living monsters whose **body box touches** the circle of radius `info.range.r x area` around
+  `(x - sp.x x facing, y + sp.y)` (the WZ `sp` offset; left-facing art is the WZ native, so a right-facing turret mirrors the
+  x offset), nearest centre first (`RunWorld.targets_before`: scheduled bosses, and marked monsters once the mark lands, ahead
+  of the swarm), `mobCount` plus the `count` modifier of them. When one is in the circle the ally starts its attack animation;
+  `attackAfter` later the targets are chosen again and **one ball per target** leaves the circle centre at the target's body
+  centre at `info.bulletSpeed` px/s (a straight line, flight time = distance / speed; a ball launched on tick n first moves on
+  tick n + 1 and lands on tick n + ceil(flight / dt), `1e-6` s epsilon). The hit lands **on arrival** through `hit_mob` with the
+  stats of the cast that called the turret (a recast does not recall balls in the air); a target that died, or whose slot was
+  reused by another monster (`MobSwarm.identity`), in flight is skipped. Balls are pooled arrays on `PlayerSummons.turret` (`active
+  generation x y vx vy visual rotate`, cap 32, a launch past the cap is dropped); `run_scene` draws them with a second
+  `ProjectileRenderer` (art `<summon path>/<attack>/info/ball`, rotated to the heading), so there is no `turret_ball` event and
+  no per-ball Node. Balls are dropped with the allies on map transfer and while the caster is Hidden or dead (nothing is launched
+  and nothing in the air lands), then fire again when the caster is back. A turret is **planted on the floor under the caster**
+  (`FootholdMap.find_below` at each ally's own x, tier C): a cast made in the air, which `can_cast` allows, would otherwise leave it
+  hanging at the jump height with its circle shifted up by the same amount.
+- **`"kamikaze"` (`SummonKamikaze`, the Corsair Gaviota).** Spawns beside the caster. Once its summon-in is over it picks the
+  **k-th nearest** living monster (k = its `summon_count` ordinal, 0-based; scheduled bosses, and marked monsters once the mark
+  lands, first, through `targets_before`) whose centre is within `info.range.r` of the **cast origin** (`World.cast_origin()`, the point `SkillRunner.has_target` admits the
+  cast from, so a monster that admits the cast is one the bird can pick), flies at `follow_speed` to
+  `hover` px above that monster's feet and, within the attack box's half-width (box x `area`) of that point, starts its attack
+  animation (it keeps flying after the same monster during the wind-up). At `attackAfter` it strikes exactly like the trailing
+  ally (`PlayerSummons.strike`: the feet-relative box on the facing side, `mobCount` or `count_field` plus `count` monsters, the
+  strike art), then `left` becomes 0: the usual `die` animation plays and the slot is freed (**single use**). It keeps the
+  monster it chose until that one dies or is recycled, then picks again; if none is in reach it trails the caster like a
+  follower, and the level `time` is the wait limit after which the ordinary expiry plays `die` with no hit (no refund). The
+  limit ends only a bird without a locked monster (`SummonKamikaze.holds_expiry`, tier C): a bird chasing or diving runs on to its
+  strike, however late in the `time` it found the monster (review of #384, an earlier build killed it mid-dive with no hit). A
+  strike whose monster died during the wind-up lands where the bird hangs. Hidden or a dead caster pauses a wind-up and stops
+  new hunts. Cleared on map transfer with the other allies.
+- **Events and text.** Both reuse `summon_spawn` and `summon_attack` (the turret's `summon_attack` starts the attack, the
+  ball leaves `attackAfter` later) and `summon_strike` (a turret ball's `info/effect` art on the struck monster, `slot` -1).
+  `SkillText` adds one line for each behaviour ("Stays where it is called and fires a ball at monsters within N px";
+  "Dives once at a monster within N px of you, hitting up to M, then is spent", M = `mobCount` plus the `count` modifiers), with
+  the radius times the cast's `area`; a kamikaze's lead line reads "Calls X, waiting up to T s for a target" (its `time` is the
+  wait limit), a turret's "Calls X for T s".
+- **Tests and probe.** `test_summon_behaviors.gd` (a synthetic Octopus and Gaviota with made-up skill ids 2129901 and 2129902 on
+  the F/P book, synthetic art; `both_world()` is also the probe's fixture) is the template later jobs copy. The tool probe
+  `scenes/debug/summon_behavior_probe.tscn -- --shots=<dir>` draws both with synthetic art through the real
+  `PlayerSummonRenderer` and `ProjectileRenderer` (no cache needed) and measures a ball's speed.
+
+### 7.122 Mark (spec #384 C7, #391)
+
+`MobSwarm.ALL_WEAK` (status index 8, `STATUS_COUNT` 9, name `all_weak`, element `""`, no `VULNERABLE` entry) is the
+all-element row of the status table. While it runs **every damaging hit on the monster is multiplied by
+`MARK_MULT` 1.5, or `MARK_BOSS_MULT` 1.25 on a boss** (canonical `boss` or a scheduled `steady` slot; the only status a boss
+accepts), elemental or not, on top of the element multiplier (a x1.5 weakness under the mark is x2.25; an immune monster
+stays immune: 0 x 1.5 = 0). The stored multiplier is snapshotted at application (`_mark_mult`, 1 when unmarked) and
+`MobSwarm.element_multiplier` multiplies it in last, which is the one place the projectile pool, `RunWorld.hit_mob`,
+summons and form scoring already read. Poison and burn pulses, which never read `element_multiplier`, are not multiplied.
+Re-applying refreshes the timer and replaces the stored multiplier, even with a weaker one (tier C; only the Beacon applies the mark
+today, so the two cannot differ); it never stacks. The mark is elementless: the applying
+hit's element is not passed on, so a fire-immune kind still takes it. It draws no random number.
+
+A skill applies it with `on_hit {"status": "all_weak", "duration": <literal s>}` (B6's literal duration; a skill may name
+`duration_field` instead). `Loadout.mark_time(key, base)` lengthens the stored duration by the `mark_time` modifier (mul);
+`Loadout.mark_multipliers(key)` adds the `mark_power` modifier (add) to both multipliers (floor 1.0); `Loadout.stats` exposes
+`mark_time`, `mark_mult` and `mark_boss_mult` for a skill with the mark, `SkillText` prints "Marks a monster for 8 s: it
+takes 50% more damage; bosses 25%", and the card previews are "Mark damage: 150% -> 175%" and "Mark duration: 8 s -> 12 s".
+
+**Beacon re-marking (tier C, accepted at the review of #384).** The Beacon's own `nearest` rule is a targeting rule like the others,
+so it prefers a marked monster: with Bullseye (a 12 s mark) or the Gun Booster cooldown card (8.8 s) the next cast can refresh the
+mark on the same monster while it stays within 350 px, instead of marking a second one. The mark's uptime on one monster is the
+cost and the benefit; nothing excludes an already-marked monster from the Beacon.
+
+**Marked-first targeting.** `RunWorld.targets_before` sorts a marked monster ahead of an unmarked one after scheduled
+bosses and before distance, then slot. The nearest rule, burst re-targeting, chain heads, charge sweeps and
+summons share it. Box and instant casts hit everything in their area and are unaffected; a marked monster out of range is
+simply not a candidate.
+
+Presentation: `MobRenderer.MARK_CUE` (cue 5, `CUES_PER_SLOT` 6) loops the skill's `mob` frames over the monster like the burn
+cue (`mark_cue_path`, set by `RunScene` from the first pool skill whose `on_hit.status` is `all_weak` and names a `cue`);
+without art the monster takes `MARK_TINT` (red). Burn and freeze tints win over it.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -8879,13 +9604,97 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 
 | Rule | Value / source | Tier |
 |---|---|---|
-| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood (v83 levelling order; owner request 2026-10-30) | C |
+| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood, ludibrium, omega_sector, el_nath (v83 levelling order; owner request 2026-10-30) | C |
 | Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]). Steps 6-16, set by their region tickets (#449), are [35, 45], [40, 50], [45, 55], [50, 60], [55, 65], [60, 70], [70, 80], [80, 90], [90, 100], [100, 110] and **[108, 120]** for step 16 (#447 said [110, 120]; widened by #474, see "Equipment for the late bands" in 8.3) | C |
 | Late-band equipment (#474) | `equipment_drops/*.json` hold every ordinary v83 weapon of a listed family and one armour piece per slot, reqLevel and gender up to Lv120; chosen from Character.wz facts (not cash, `only`, `notSale`, `quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`; price above 1; a String.wz name; not a `GMS ...` item). No Cosmic drop data was available to this ticket, so unlike the Lv0-70 lists it is not B-checked against server drops | C |
 | NX clear bonus | `balance.nx_award.clear_bonus` by progression step: 100, 100, 100, 100, 250, the last repeating (the old amounts moved from tiers to steps) | C |
 | Unlock rule | region i is open iff i == 0 or `progression[i-1]` is in the character's `cleared_regions`; a CLEARED round adds its stage; death, Quit round and one-off rounds add nothing | C |
 | Save migration | `CharacterSnapshot.LEGACY_TIER1_REGIONS` 4: a stored `tiers_unlocked` >= 2 becomes the first four progression keys cleared, otherwise none | C |
 | `balance_run.gd --chain=N --retries=K` | N progression regions in order, a failed region replayed up to K times (replaces `--tier=N`; #454) | C |
+
+### Omega Sector (C2) constants (spec #449 C2, #464; tier C unless marked)
+
+Progression step 7 (`stages/omega_sector.json`, `asset_manifest.d/region_omega_sector.json`). Region and continent
+labels, the map list and the rosters are tier A (v83 Map.wz, Mob.wz, String.wz); the rest is ours, a first draft that
+no ticket here tunes (C13 does).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Labels | `region` "Omega Sector", `continent` "Ossyria" (String.wz group `ossyria`) | A / C |
+| Maps | 221040000 Kulan Field I (2864 px), 221030200 Boswell Field II (4214 px), 221030500 Boswell Field V (4574 px); the natural boss maps (221040201, 221030601, 221040301, 2250-2414 px) are replaced by these wider neighbours; no alternates were needed after the arena check (a bot ran all three, `missing: []`) | C |
+| Bosses | Chief Gray 4240000 / MT-09 5120100 / Zeno 6220001, one 300 s after each map entry; `attacks` ["attack1"], `attack_interval` 8; Chief Gray's MobSkill 200 level 27 (Barnard Gray, interval 30 s, hp <= 75 %, limit 3, `summonEffect` 6) is canonical and supported, MT-09 and Zeno have no skills | A / C |
+| Pools | map 1 `curve` with Barnard Gray 4230116 at weight 1 on the keyframes under 300 s, none later (map 1 reads only those; its own life holds nothing else); maps 2/3 `pool_from_life` with `exclude` [4240000, 5120100] (the timed native bosses; their v83 lists hold none): Plateon 27 / Mateon 7 and Mecateon 21 / Plateon 11 | C |
+| Curve | Sleepywood's keyframes, bursts, elites, `exp_mult`, `hard_cap`, `post_duration_slope` copied exactly; no `opening_ramp` | C |
+| `drop_band` | [40, 50] (spec #447 table) | C |
+| `level_scale` | `level_scale_draft.gd --step=7`: E_sw 9.15 / 9.73 / 10.80 / 22.22 / 36.44 / 48.23 / 56.85 at t 0 / 120 / 300 / 480 / 600 / 780 / 900; `level` = E_sw + 6, `exp_level` = E_sw | C |
+| Boss multipliers | Chief Gray `hp_mult` 17.916, `dmg_mult` 1.209, `attack_dmg_mult` 0.786; MT-09 3.271, 0.742, 0.837; Zeno 3.631, 1.503, 1.801 (the draft tool's output, `_tier` notes on each boss) | C |
+| EXP items | Barnard Gray 4000123 Worn-Out Goggle, Mateon 4000120, Plateon 4000121, Mecateon 4000122, Chief Gray 4000125, MT-09 4000126, Zeno 4000118 Small Spaceship: item ids and names are v83 (tier A), the mob association is a signature pickup, not a drop-table claim | A / C |
+| Mesos | no v83 server drop data is used: the three bosses roll `balance.mesos.fallback` by level; the ordinary mobs take Ludibrium's neighbour method (centre interpolated between the Lv40 Cold Eye / Zombie Lupin mean 125 and the Lv50 Drake 250, range +-20%): Barnard Gray [100, 150], Mateon [110, 164], Plateon [140, 210], Mecateon [160, 240] | C |
+| Boss `boss_ui` | Chief Gray and MT-09 have no MobGage icon or tag colours in v83; both borrow Zeno's icon (the same region) and the standard colours | C |
+| Falling-bolt effect | Chief Gray's `attack1/info/effect` is three groups of frames with fall spawn fields (`effectType` 2); `MobAttacks.effect_path` plays the first group once at the attacker and leaves the spawn fields unread, so the attack shows art instead of a missing asset | C |
+| Missing v83 sound | Chief Gray's Mob.img entry has no `Skill1`: `RunScene._mob_sound` is silent for a sound its own entry lacks (it already was for an attack start) | A |
+| Field flags | none on these maps (no `decHP`, `fs` friction or limits) | A |
+
+Diagnostic round (invulnerable bot with `RunWorld.god` from a throwaway launcher, `late_progression.json` Hero, seed 1, x8,
+before the Ludibrium merge): CLEARED at 911.9 s, map entries at 0 / 307.0 / 609.3 s, all three bosses killed, Lv61,
+`missing: []`, max 351 alive. Chief Gray's Barnard Gray summon (skill 200 at 31.6 s, `summonEffect` 6) and the three
+attacks were captured with a throwaway probe; screenshots stay out of the repo. Checked by eye: Kulan Field I (a
+red-and-blue robot backdrop, a high floor with ladders; Barnard Gray swarms the ground), Boswell Field II (the crashed
+saucer, a fenced low floor; the Plateon / Mateon swarm hides MT-09's bar-topped sprite in the crowd) and Boswell Field V
+(hills; Mecateon's laser beams, Zeno a white robot at the edge of the swarm). No map was swapped.
+
+Regression smoke after the Ludibrium merge (F/P 212, private cache, `JOBS=1`, seeds 1/2/2026, no tuning): Henesys bot
+death-only seconds 417.30 / 644.10 / 646.70, identical to the table above; the other stages were not rerun, since
+the stage files, the sim and the pools of the first five regions are untouched (`test_stage_files` compares them byte
+for byte) and the full suite passes (3754 tests, 0 failed, 0 skipped, real cache).
+
+### El Nath (C5) constants (spec #449 C5, #467; tier C unless marked)
+
+Progression step 10 (`stages/el_nath.json`, `asset_manifest.d/region_el_nath.json`). Region and continent labels, the map
+list and the rosters are tier A (v83 Map.wz, Mob.wz, String.wz); the rest is ours, a first draft that no ticket here tunes
+(C13 does). Korean Folk Town and Mu Lung (steps 8 and 9) land in parallel; `progression` lists El Nath after Omega Sector
+until they merge.
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Labels | `region` "El Nath", `continent` "Ossyria" (String.wz group `ossyria`) | A / C |
+| Maps | 211010000 Watch Out for Icy Path I (3050 px), 211041100 Forest of Dead Trees I (4310 px), 211042100 The Cave of Trial II (4290 px, 6 levels, 12 ropes); #270's picks. Snowman's own Valley of Snowman (211040101) is 991 px, so it fights in The Cave of Trial II. The arena check (a god-mode bot ran all three, `missing: []`) found nothing to swap, so the decHP-free alternates 211042000 and 211042200 stayed unused | A / C |
+| Bosses | Snow Witch 6090001 / Riche 6090000 / Snowman 8220001, one 300 s after each map entry. Snow Witch has no attack stance (contact and Banish 129/4 only), so it lists no `attacks`. Snow Witch and Riche cast Banish every 15 s (`skill_intervals` 129: 15, Shade's #256 rule; the WZ interval is 3 s) with their v83 banMsg as the notice, cadence or `attack_dmg_mult`, like Iron Hook; Riche `attacks` ["attack1"] (magic, type 0) with Banish 129/1 and Heal 114/12; Snowman ["attack1"] (a ball) with Summon 200/77 (Jr. Yeti, interval 10 s, hp <= 70 %, limit 30, `summonEffect` 1), Stun 123/8 (B1) and the ice poison mist 131/7 (B4, `elemAttr` I); `attack_interval` 8. All their skills are supported (the region test resolves each) | A / C |
+| Pools | map 1 `curve`: Jr. Yeti 5100000 alone at 0 s, Jr. Yeti 11 : Hector 5130104 1 from 120 s (the v83 life ratio 23 : 2, rounded), none later (map 1 reads only the keyframes under 300 s); maps 2/3 `pool_from_life` with `exclude` [6090001, 6090000] (the timed native bosses, mobTime 3600 s; Snow Witch is on map 1, Riche on map 2, map 3 holds none): Coolie Zombie 5130107 x26, and Cerebes 7130001 x13 / Jr. Cerebes 4230108 x7 | C |
+| Curve | Sleepywood's keyframes, bursts, elites, `exp_mult`, `hard_cap` copied exactly (Sleepywood has no `post_duration_slope`); no `opening_ramp` | C |
+| `drop_band` | [55, 65] (spec #447 table) | C |
+| `level_scale` | `level_scale_draft.gd --step=10`: E_sw 9.15 / 9.73 / 10.80 / 22.22 / 36.44 / 48.23 / 56.85 at t 0 / 120 / 300 / 480 / 600 / 780 / 900; `level` = E_sw + 15, `exp_level` = E_sw (the highest level, 71.85, is below the tool's 131 warning) | C |
+| Boss multipliers | Snow Witch `hp_mult` 48.548, `dmg_mult` 1.17; Riche 8.714, 0.843, `attack_dmg_mult` 0.791 (matched on MAD, the attack is magic); Snowman 4.701, 1.462, `attack_dmg_mult` 1.966 (the draft tool's output, `_tier` notes on each boss). Snow Witch's HP multiplier is large because Sleepywood's first boss arrives under a 0.035 opening ramp and the canonical Snow Witch is a 7700 HP Lv64 boss | C |
+| EXP items | Jr. Yeti 4000048 Jr. Yeti Skin, Hector 4000051 Hector Tail, Coolie Zombie 4000082 Zombie's Lost Gold Tooth, Jr. Cerebes 4000078 Jr. Cerebes Tooth, Cerebes 4000079 Cerebes Tooth, Riche 4000069 Zombie's Lost Tooth, Snow Witch 4031311 Snow Crystal, Snowman 4001141 Snowman Branch: item ids and names are v83 (tier A), the mob association is a signature pickup, not a drop-table claim (tier C; Riche, Snow Witch and Snowman have no v83 drop data here) | A / C |
+| Mesos | no v83 server drop data is used: the three bosses roll `balance.mesos.fallback` by level; the ordinary mobs take Ludibrium's neighbour method (the centre interpolated between the neighbours' centres by level, range +-20%): Jr. Cerebes Lv43 [130, 194] (between the Lv40 mean 125 and the Lv50 Drake 250), Jr. Yeti Lv50 [200, 300] (the Drake's), Hector Lv55 [244, 366] (Malady 305), Coolie Zombie Lv57 [262, 392] (Malady 305 to the Lv64 Ice Drake 405), Cerebes Lv72 [363, 545] (Tauromacis 420 to Taurospear 504) | C |
+| Boss `boss_ui` | Riche's MobGage icon is canonical (standard colours supplied, as King Slime); Snow Witch has no icon or colours in v83 and borrows Riche's (the same region); Snowman has both | A / C |
+| Field flags ignored | `decHP` 10 (cold damage) and `fs` 0.2 (ice friction) on Icy Path I and Forest of Dead Trees I are not read (tier C, as OctoPirate's limiter in #264): the characters take no cold damage and movement is unchanged. The Cave of Trial II carries neither (only `fieldLimit` 64, a teleport-item limit, not read either) | C |
+| Timed native bosses | Snow Witch (211010000) and Riche (211041100) are timed life entries (mobTime 3600 s): never in a pool, and not in `original_life`; they are the scheduled bosses of maps 1 and 2 instead. They are the only timed entries on the three maps (the region test pins this on the real cache) | A / C |
+
+Diagnostic round (invulnerable bot with `RunWorld.god` from a throwaway launcher that wraps `main.tscn`, the C12
+`late_progression.json` Hero, seed 1, x8): CLEARED at 965.05 s, map entries at 0 / 340.1 / 653.5 s, all three bosses
+killed (Snow Witch at 340 s, Riche at 653 s, Snowman at 965 s, so 40 s, 13 s and 11.5 s fights), Lv52, `missing: []`,
+max 351 alive. Checked by eye: Icy Path I (a snowy cliff with a stone watermill house and a ladder; Jr. Yeti puffs
+swarm the ledge), Forest of Dead Trees I (a red dusk sky over dark pines, a notice board, dead trunks and a rope; a
+dense Coolie Zombie swarm hides Riche's sprite, but its bar shows) and The Cave of Trial II (a lava cavern with
+hanging chains over a lava floor; Cerebes and Jr. Cerebes crowd the ledges, the character climbs the ropes). Snow
+Witch's arrival (a chained ice figure at the left edge) and its Banish (a rune circle on the character, who is moved)
+were captured, as was Riche's Banish during its fight; the Cave's Snowman is lost in the crowd of 329. A second
+throwaway run with Snowman forced as map 1's boss (5 s after entry, 5000 x HP) showed its Stun (stars over the
+character's head), the ice mist (a pale blue haze at the edge of the view; the first capture shows only part of it)
+and its Jr. Yeti summons. A god-mode run could not show what a hit would do: a Stun or mist poison tick, the loss of
+HP from Snowman's ball attack or Riche's magic hit, and Riche's heal (114/12 casts below 70 % HP, which the fixture
+kills it too quickly to reach). Those are covered by the sim tests of B1 (Stun), B4 (mist) and the boss-kit tests.
+Screenshots stay out of the repo.
+
+Full suite on the branch (private cache, real data): 3760 tests, 0 skipped, 1 failed before the fix below, 0 after: `test_late_equipment_bands` indexed the band table by position in `progression`, so El Nath (canonical step 10) read step 8's band while Korean Folk Town and Mu Lung are still missing from this branch; it now looks the step up by the region's key in the #449 table.
+
+Regression smoke with El Nath (F/P 212, private cache, `JOBS=1`, seeds 1/2/2026, no tuning, no held-out seeds): **every
+batch matches #455's table above to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0; Ellinia
+bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 / 466.1;
+Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, with
+`fp_arch_mage.json` one clear and deaths at 23.8 / 767.0), no crashes and no world warnings. El Nath itself is not in the
+smoke (calibration is C13).
 
 ### Map select progression list (spec #447, #451; tier C)
 
@@ -8942,7 +9751,7 @@ diminishing; preview and bot use the resolved bonus. Shared default/F/P values a
 | Chain acquisition | `cast.acquire` 450 px from the caster's body centre (the WZ has no `lt/rb` or `range` for 2221006) | C |
 | Chain hop | `cast.hop` 200 px from the previous link's body centre | C |
 | Chain query probe | `ANY_PROBE` 8 candidates before a full query; optimization only | C |
-| Class fragment registration | `DataRepo.CLASS_LINES` append-only Hero, I/L, Bowmaster, Bishop, Paladin, Dark Knight, Buccaneer order after the seven Adventurer lines; new classes append | C |
+| Class fragment registration | `DataRepo.CLASS_LINES` append-only Hero, I/L, Bowmaster, Bishop, Paladin, Dark Knight, Buccaneer, Corsair order after the seven Adventurer lines; each shipped class appends in `redesign`-merge order (ruling D15) | C |
 | Skill-window diagnostic build | first three unlearned pool actives, each new + rank, plus Might and Speed common passives | C: automation only |
 | Status registry and cast policy | Append-only status table preserves packed IDs; rule policy owns target-facing/count behavior | C |
 | Chain selection | head = scheduled boss, then nearest, then slot; hops = nearest unhit by distance then slot; distances inclusive; no RNG | C |
@@ -10448,6 +11257,23 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Diagnostic gap | The god-mode diagnostic round did **not** observe Timer's Stun 123 and magic immunity 141, nor Alishar's Cronos summons (200): god mode lands no hit on the character, and the bosses were held at fixed HP fractions. Their visuals and effects are unverified in Ludibrium until C14's QA covers them (the mechanics have their own tests, #456-#458) | C |
 | Alternates | map 1 220010300 / 220010000, map 2 220030300 / 220030200, map 3 220040400 / 220050200: not needed, the arena check kept all three first picks | C |
 
+### Korean Folk Town (C3) constants (#465, spec #449; progression step 8)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/korean_folk_town.json`: `region` Korean Folk Town, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [45, 55] (#447 table), maps 222010000 / 222010200 / 222010300 (widths 2520 / 2520 / 3240 px, foothold spans of Map.wz; #270's picks), `original_life` of map 1 (Moon Bunny 13) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads), both Moon Bunny 4230300 (Lv45) alone: it is the field's only monster once the three stray Lv22 Dark Axe Stump spawn points (one timed 20 s) are dropped; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`: Tiger Ridge holds Hodori 5100003 x10 and Hogul 5100005 x3 (one Hogul timed, mobTime 60 s; an ordinary mob, kept); Fox Ridge holds Samiho 5100004 x21 and excludes (`exclude`) the timed, boss-flagged Scholar Ghost 6090003 (mobTime 3600 s), which is map 1's scheduled boss | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=8 --stage=korean_folk_town` (not tuned): `level` 18.15, 18.73, 19.8, 31.22, 45.44, 57.23, 65.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (8 - 5)) | C |
+| Bosses | Scholar Ghost 6090003 (hp_mult 52.672, dmg_mult 1.111; no attack stance, so no `attacks` or `attack_dmg_mult`), Blue King Goblin 7130401 (6.69, 0.73, attack_dmg_mult 0.848, `attack1` matched on MAD), Nine-Tailed Fox 7220001 (2.562, 1.624, 2.027, `attack1` matched on PAD), each 300 s after its map's entry, `attack_interval` 8 where there is an attack; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | Scholar Ghost: Banish 129 only (touch damage otherwise, like Shade); `skill_intervals` {"129": 15} is Shade's tier C rule (#256), one Banish per 15 s instead of the canonical 3 s; its v83 banMsg is kept as the notice. Blue King Goblin casts nothing. Nine-Tailed Fox: heal 114/15, Darkness 121/7, Weakness 122/10, Stun 123/7, as written in Skill.wz | A skills, C support |
+| One King Goblin | Blue King Goblin only; Yellow 7130400 and Green 7130402 stay unscheduled (`test_region_korean_folk_town`) | C |
+| `mobs.json` | names and `exp_item`: Moon Bunny Pounder 4000169, Hodori Tiger Stamp 4000170, Hogul Tiger Skin 4000171, Samiho and the Fox Three-Tailed Foxtail 4000172, Scholar Ghost Traditional Scholar Hat 4000416, Blue King Goblin Silver Ore 4010004 (each the mob's first Etc drop in the MonsterBook); Scholar Ghost borrows Riche's MobGage icon 6090000 and Blue King Goblin Zeno's 6220001 with the standard 1/5 tag (v83 has none for either); the Fox's icon is canonical | A ids/names, C association |
+| Meso ranges | ordinary mobs only, as Ludibrium's method: centre interpolated from the Lv40 Cold Eye / Zombie Lupin (125), Lv50 Drake (250), Lv55 Malady (305) and Lv64 Ice Drake (405) ranges at the mob's level (Moon Bunny Lv45 [150, 226], Hodori Lv50 [200, 300], Hogul Lv53 [226, 340], Samiho Lv56 [253, 379]), +-20%; bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the three maps carries a field flag | A |
+| Alternates | not needed if the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
 ### Mu Lung (C4) constants (#466, spec #449; progression step 9)
 
 | Rule | Value / source | Tier |
@@ -10466,6 +11292,116 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Peach Monkey attack sound | v83's `Sound.wz/Mob.img/6130207` spells its attack sound `Arrack1`, so `.../Attack1` is absent: an ordinary mob's attack sound that v83 does not have is now silent like a boss's (`attack_sound_absent_in_v83`), instead of reported missing | A |
 | Flags ignored | none of the three maps has a field flag (`mobRate` 1.3 / 2 / 1.2 on the maps is not read) | C |
 | Diagnostic gap | Under god mode no hit lands on the character, so the status visuals of the bosses' buffs on the character are not exercised. Tae Roon's attack2 (the type-2 ball) windup and impact fired and were captured, but its projectile is not told apart from the swarm of Grizzlies in the frame. The Grizzly summons (200), King Sage Cat's heal (114) and every buff cast (110/112/113/140) were seen | C |
+### Magatia (C6) constants (#468, spec #449; progression step 11)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/magatia.json`: `region` Magatia, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [60, 70] (#447 table), maps 260020300 / 261020400 / 261010101 (widths 2430 / 2410 / 2196 px, foothold spans of Map.wz), `original_life` of map 1 (Kiyo 9, Sand Dwarf 6); the note says the road runs from Ariant across the Nihal Desert into the labs | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads): Kiyo 3100102 (Lv30) 3 : Sand Dwarf 3100101 (Lv32) 2 at 0 s (the 9 : 6 spawn-point ratio), 1 : 1 at 120 s; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`: Area C-2 holds Roid 5110301 x14 and Neo Huroid 5110302 x13 and excludes (`exclude`) the timed, boss-flagged Rurumo 6090004 (Lv63, mobTime 2400 s); Unit 201 holds Homun 6110300 x11 and Saitie 6110301 x5 and no timed boss | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=11 --stage=magatia` (not tuned): `level` 27.15, 27.73, 28.8, 40.22, 54.44, 66.23, 74.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (11 - 5)). The jump from the Lv30-32 desert monsters to the Lv54-58 lab at map 2 is the owner's map choice | C |
+| Bosses | Deo 3220001 (hp_mult 10.658, dmg_mult 1.035, attack_dmg_mult 1.113, `attack1` matched on PAD), Homunscullo 8110300 (9.837, 0.79, 2.396, `attack1` and `attack2` both PAD 125), Chimera 8220002 (4.1, 1.405, 1.889, `attack1` a type 2 ball with no damage of its own, so the mob's PAD 430), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | Deo: Defense Up 112/1. Homunscullo: none (and no v83 boss flag; `attack1`'s mpBurn is not read, no MP). Chimera: Magic Attack Up 101/1 and 111/5, Magic Defence Up 103/2, heal 114/19, weapon immunity 140/13 and Summon 200/88, as written in Skill.wz (B2) | A skills, C support |
+| Absent summons | Chimera's 200/88 lists mobs 9300167 and 9300168, which v83 Mob.wz does not hold. `StageRoster.ABSENT_IN_V83` drops them from the stage's mob list, so a round neither loads them nor reports them missing; the cast stays in the kit and spawns nothing (`RunWorld.spawn_offspring` skips an id with no mob kind) | A (absence), C (handling) |
+| Homunscullo's room | its own map, Zenumist Unit 202, also holds the boss-flagged Deet and Roi (8090000), so it fights in Area C-2; it is not boss-flagged in v83 (a 5400 s spawn), so it borrows Zeno's MobGage icon with the standard 1/5 tag, as Rombot does | C |
+| `mobs.json` | names and `exp_item`, each mob's first monster-drop Etc item (4000xxx) in the MonsterBook: Kiyo Kiyo's Beek 4000335, Sand Dwarf Empty Sack 4000334, Roid and Chimera Wires 4000364, Neo Huroid Plug 4000365, Homun Beaker 4000354, Saitie Entry Pass 4000363, Deo Cactus Stem 4000329, Homunscullo Homunculus's Sand 4000355; Deo's and Chimera's MobGage icons are canonical | A ids/names, C association |
+| Meso ranges | ordinary mobs only, as Ludibrium's method: centre interpolated from the Lv27 Evil Eye (60), Lv35 Curse Eye / Jr. Boogie (97), Lv50 Drake (250), Lv55 Malady (305), Lv64 Ice Drake (405) and Lv70 Tauromacis (420) ranges at the mob's level (Kiyo Lv30 [59, 89], Sand Dwarf Lv32 [66, 100], Roid Lv54 [235, 353], Neo Huroid Lv58 [270, 406], Homun Lv65 [326, 490], Saitie Lv68 [332, 498]), +-20%; bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the three maps carries a field flag (lab maps carry `mobRate` 2, which the sim does not read) | A |
+| Alternates | map 1 260020400 / 260020100, map 2 261020200 / 261020700, map 3 261010103 (1954 px, narrower than Unit 201): not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Corsair constants (spec #384)
+
+Every Corsair ticket recorded its constants beside its mechanic (7.120 to 7.122); the tables of C1, C5, C7 and C12 stay below because they have no
+section of their own. Every constant is tier C unless its row says A or B.
+
+| Ticket | Constants |
+|---|---|
+| C1 (#385) | asset findings, below |
+| C2 (#386) | the Corsair data line, 7.120.1 |
+| C3 (#387) | Dash as the mobility skill (shared rank rule, kept ten-rank table), 7.120.2 |
+| C4 (#388) | the five gun fillers (rank tables, no weapon gate, Burst Fire cast, cadences, rarity bonuses, Cluster Grenade `count`), 7.120.3 |
+| C5 (#389) | the `summon.behavior` dispatch, turret and kamikaze, below (described in 7.121) |
+| C6 (#390) | Octopus and Gaviota (numbers, cooldowns, cadence, the Gaviota admission, rarity bonuses), 7.120.4 |
+| C7 (#391) | the mark, below (described in 7.122) |
+| C8 (#392) | Homing Beacon and Bullseye (cast shape, cooldown, the 8 s mark length, rarity bonuses), 7.120.6 and 7.120.7 |
+| C9 (#393) | the two cones (literal burn `pulse`, front-only box, cooldown, rarity bonuses, string `damage`), 7.120.5 |
+| C10 (#394) | Aerial Strike and Rapid Fire (cooldowns, stream timing, stance, rarity bonuses), 7.120.8 |
+| C11 (#395) | the ship's Form effects (hull, `only_skills`, `art_variant`, hull bar), 7.120.9 and 7.120.10 |
+| C12 (#396) | mount art, below (described in 7.120.11) |
+| C13 (#397) | Battleship, Cannon and Torpedo, 7.120.12 and 7.120.13 |
+| C14 (#398) | selection and tooling (baseline length, bot scores, fixture kit, hub kit), 7.120.14 |
+| C15 (#399) | QA: no new constant; the recorded runs are 7.120.15 and 4.2 |
+
+#### C1 (#385)
+
+Asset findings only; no gameplay constant changed. Facts read from the imported books are tier A; the presentation
+decisions below are tier C and are what C6-C13 draw against (contact sheets of the Corsair skills with the Pistol 1492000 and
+the highest gun in the cache, and of the ship, in the C1 notes).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Gun stances (#385) | the pistol (1492000) and the highest gun (1492009) draw in every frame of every body action a Corsair skill names: `doublefire`, `triplefire`, `backstep`, `fireburner`, `coolingeffect`, `homing`, `airstrike`, `octopus`, `cannon`, `torpedo`, `rapidfire` (Rapid Fire's `prepare/action`), plus stand1, walk1, alert2, shoot1, jump, prone. The gun vanishes only in `sit`, `swingO1` and `dead` (and in 1492009's `ladder` / `rope`), none of which a skill names, so no skill needs a fallback stance | A (data), C (no fallback needed) |
+| Rider stance aboard (#385, spec #384 CS-12) | the Battleship rider's body action is `sit` (the gun is not drawn, as in v83), switching to `cannon` / `torpedo` / `fireburner` / `coolingeffect` for those casts (the gun is drawn there); the ship stance follows the rider (`stand1`, `walk1`, `jump`, `prone`, `cannon`, `torpedo`, `fireburner`, `coolingeffect`, `alert2`) | C |
+| Ship attachment (#385) | the ship's origin is its feet; the rider's origin sits at `ship map/navel - rider body map/navel` (stand1: (6, -38) - (-2, -17) = (8, -21)), the standard Maple navel attachment, confirmed on the contact sheet | B (client reading), C (confirmed here) |
+| Ship z order (#385) | `Base.wz/zmap.img` lists `tamingMobFront` second from the front (ahead of every avatar layer) and `tamingMobRear` after `characterEnd` (behind every avatar layer, back layers included): rear canvas under the avatar, front canvas over it | A |
+| Ship facing (#385) | the whole group (ship canvases and rider) mirrors about the ship's origin x; the art faces left like every v83 sprite | C |
+
+#### C5 (#389)
+
+| Rule | Value | Tier |
+|---|---|---|
+| `summon.behavior` dispatch (#389) | a string naming a behaviour object (`turret`, `kamikaze`); absent or unknown is the trailing ally | C, ours (spec #384 M9) |
+| Turret circle centre (#389) | `(x - sp.x x facing, y + sp.y)`, `sp` read from the attack node's `info.range`; left-facing art is native (the spec's `x + sp.x x facing` taken with the WZ facing convention) | C |
+| Turret target test (#389) | a body box whose nearest point to the centre is within `r x area`; nearest body centre first; `mobCount` plus `count` targets, one ball each | C |
+| Turret facing (#389) | the caster's at the cast; it never turns | C |
+| Ball path (#389) | a straight line from the circle centre to the target's body centre at the moment of launch at `info.bulletSpeed` px/s; no hit test on the way; lands on that monster on arrival | C (WZ gives `ball` and `bulletSpeed`: A) |
+| Ball landing epsilon (#389) | flight time left <= 1e-6 s lands (the same epsilon the trailing ally's windup uses) | C |
+| Dead or recycled target in flight (#389) | skipped (compared by `MobSwarm.identity`) | C |
+| Ball cap (#389) | 32 in the air (`SummonTurret.MAX_BALLS`); a launch past it is dropped | C |
+| Hidden or dead caster (#389) | nothing launches and balls in the air are dropped | C |
+| Kamikaze reach (#389) | `info.range.r` px from the caster (not scaled by `area`); the k-th nearest for ordinal k, the farthest in reach when fewer monsters than k + 1 | C |
+| Kamikaze approach (#389) | straight line at `follow_speed` to `hover` px above the target's feet; the dive starts within the box's half-width (x `area`) of that point; the bird follows its monster during the wind-up | C |
+| Kamikaze target lock (#389) | keeps its monster until it dies or is recycled, then picks again | C |
+| Kamikaze single use (#389) | one strike at `attackAfter` (a miss is spent too), then `die` and the slot is freed; nothing in reach: waits like a follower until `time` and expires with no hit | C (spec #384) |
+
+#### C7 (#391)
+
+The mark (GAME_DESIGN 7.122). No WZ field carries the mark's numbers, so all are tier C; the duration is the Homing Beacon
+skill's own `on_hit.duration` (C8), not a constant of this ticket.
+
+| Constant / rule | Value | Tier |
+|---|---|---|
+| Mark multiplier (`MobSwarm.MARK_MULT`) | x1.5 on every damaging hit of a non-boss, on top of the element multiplier | C |
+| Boss mark multiplier (`MobSwarm.MARK_BOSS_MULT`) | x1.25 on a scheduled or canonical boss (spec CS-9: the same "weaker on bosses" rule as Snipe, so a 10 s mark cannot delete a boss) | C |
+| Bosses accept the mark | `STATUS_TABLE` flag `marks_bosses`; every other status still rejects bosses | C |
+| `mark_power` | add to both multipliers (Bullseye +0.25: x1.75 / x1.5), floor 1.0 | C |
+| `mark_time` | mul on the stored duration (Bullseye x1.5: 8 s -> 12 s) | C |
+| Re-application | refreshes the timer and replaces the multiplier; no stacking | C |
+| Pulses | poison and burn pulses are not multiplied | C |
+| Marked-first targeting | scheduled boss, then marked, then distance, then slot (`RunWorld.targets_before`) | C |
+| Status index | `ALL_WEAK` 8 (next free after `BURN` 7); order is persistent within a run | C |
+| Mark fallback tint (`MobRenderer.MARK_TINT`) | red `Color(1.0, 0.45, 0.45)` when no cue art is configured | C |
+| Mark cue anchor | the skill's `mob` frames loop over the monster, drawn like the burn cue (pos 2, body top) | C |
+
+#### C12 (#396)
+
+Mount art (GAME_DESIGN 7.120.11). The art numbers (canvases, origins, navels, delays, z names) are tier A, read from the image.
+
+| Constant / rule | Value | Tier |
+|---|---|---|
+| Rider attachment (`MountLayers.layout`) | rider origin = mount navel (front canvas, else rear) minus the rider body's `navel`, per frame; front canvas on the origin, rear canvas navel-to-navel | B/C (the standard Maple navel attachment; C1) |
+| Mount stance per request (`MountLayers.mount_stance`) | `stand1`/`stand2` -> `stand1`; `walk1`/`walk2` -> `walk1`; `jump`; `prone`/`proneStab` -> `prone`; the four cast names as themselves; everything else (idle `alert`, `shoot1`, swings) -> `alert2` | B/C (spec #384 M20) |
+| `MountLayers.CAST_STANCES` | `cannon`, `torpedo`, `fireburner`, `coolingeffect`: the rider's body action and the ship's stance, one shot, held on the last frame | B/C |
+| `MountLayers.RIDER_STANCE` | `sit` for every other request | B/C |
+| Hidden stances | `ladder`, `rope`, `ladder2`, `rope2` (the rider climbs as the plain avatar) and `dead` | C |
+| One-shot ship stances | the four casts and `jump`; every other stance loops | C |
+| Mount facing | the whole group mirrors about the avatar origin; no per-canvas offset | C (C1's sheet) |
+| Morph and mount | a morphed character draws no mount | C |
+
+### Buccaneer review corrections (#412)
+
+Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
 
 ## 12. Later phases
 
@@ -10526,7 +11462,3 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 | Evidence shot delay (`REVIVE_SHOT_DELAY`) | 1.45 s after the revive (first beam frames) | tier C, ours (#380) |
 | Guard blink | the hit-window blink (alpha 0.4, 0.16 s period), driven by the longer of the hit window and `RunWorld.hit_guard_left()` | tier C, ours (existing blink constants) |
 | Level-up preview units | `revive_hp` in percent, `revive_guard` in seconds | tier C, ours (#380) |
-
-### Buccaneer review corrections (#412)
-
-Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
