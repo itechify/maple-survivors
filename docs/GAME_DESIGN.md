@@ -656,6 +656,7 @@ older records below, in the smoke and in the job-loop tickets mean the first fou
 | `mu_lung` (step 9, #466) | Mu Lung - Snake Area (250010300, 1530 px) | Mu Lung - Wild Bear Area 1 (250010301, 1980 px) | Mu Lung - Peach Farm 3 (250010700, 1980 x 1050 px) | Giant Centipede / Tae Roon / King Sage Cat |
 | `el_nath` (step 10, #467) | Watch Out for Icy Path I (211010000, 3050 px) | Forest of Dead Trees I (211041100, 4310 px) | The Cave of Trial II (211042100, 4290 px) | Snow Witch / Riche / Snowman |
 | `magatia` (step 11, #468) | Sunset Road - The Desert of Red Sand (260020300, 2430 px) | Alcadno Research Institute - Lab - Area C-2 (261020400, 2410 px) | Zenumist Research Institute - Lab - Unit 201 (261010101, 2196 px) | Deo / Homunscullo / Chimera |
+| `leafre` (step 13, #470) | Leafre - The Area of Blue Kentaurus (240020400, 2790 px) | Dragon Forest II (240030200, 2970 px) | Cave of Light (240050300, 3240 px, flat) | Manon / Griffey / Leviathan |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
 "Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
@@ -867,6 +868,39 @@ No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening mu
 Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
+
+### Leafre (C8) regression smoke and diagnostic round (#470, 2026-10-30)
+
+Spec #447 branch with the Leafre region (step 13), private cache, F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no held-out
+seeds. Reduced smoke, because the change is additive data (a stage file, a manifest fragment, `mobs.json` entries, three
+`enabled_ids`, one `progression` key) and touches no code: Henesys bot and Sleepywood with the starter wand and with
+`fp_arch_mage.json` **match #455's table to the second** (Henesys bot 417.3 / 644.1 / 646.7; Sleepywood starter 11.4 / 11.9 /
+15.1, kit one clear and deaths at 23.8 / 767.0), no crashes and no warnings. Ellinia, Perion and Kerning and the random policy
+were not re-run (a stage reads only its own file, and nothing shared changed): that is the unrun part of the smoke. Leafre itself
+is not in the smoke (calibration is C13). Draft tool: `--step=13 --stage=leafre` raised no warning (highest level 80.85).
+
+Diagnostic one-off, `--run=leafre --job=112 --character=late_progression.json`, seed 1, windowed at x3 (vsync off), god mode
+(`RunWorld.god`) with the autoplay bot, each boss held at HP floors (78% for 25 s, 48% to 50 s, 28% to 75 s, 12% to 150 s, then
+1 HP) so its kit and Leviathan's three Wyvern summons show: **CLEARED, 3 bosses, Lv49, 1291.2 s, `missing: []`, no warnings**.
+Map entries at 0 / 462.8 / 841.0 s, `max_alive` 351. A first round with map 3 on the cave's instance copies (Skelegon 2 in Cave and
+T-Skelegon in Cave, EXP 1500, about 0.30x of the level curve) cleared at Lv39; the explicit Skelegon / Skelosaurus pool (EXP 4500 and
+4750) lifts that to Lv49. Maps 1 and 2 pay the curve at their own levels (Blue Kentaurus Lv88 1600 / 1638 = 0.98, Rexton 0.99,
+Green Cornian 1.01; the new pool 0.92 and 0.90), so the remaining gap to the other regions' Lv52-64 is the step itself (mob HP
+about 1.5x Magatia's at each keyframe, so slower kills) plus the diagnostic's boss HP-floor holds; left for C13. Arena check, by eye: all three first
+picks stay. The Area of Blue Kentaurus
+(a green forest with a water strip below; one long grass-and-rock floor, rope-linked ledges; Blue Kentaurus fills the floor from
+the right), Dragon Forest II (an orange-sky forest: one full-width floor plus floating ledges on ropes; Rexton and the Green
+Cornian line the floor) and the Cave of Light (a blue crystal cave, one flat floor with a stepped left end and a raised right
+block; Skelegon and Skelosaurus crowd it) are wide with ropes the bot uses: no shaft, no pit. Seen: Manon's arrival (the red dragon at
+the left edge, the bar and notice), its three wind-ups and shockwaves; Griffey's arrival and attack1 to attack3 wind-ups and
+shockwaves (the boss is mostly hidden by the floor's 200+ mobs and damage numbers); Leviathan's arrival (the blue dragon at the
+left), its wind-ups and shockwaves, a Red Wyvern from Summon 200/89 beside the bone pile, and the Confuse and Weakness shots (the
+first round; the second round showed the same Leviathan arrival and the real skeletons' names and art). **Not shown by a god-mode
+run:** what a landed attack, Confuse or Weakness does to a character (god lands no hit, so nothing here is survival or balance
+evidence), and whether Wyvern summons 200/90 and 200/91 landed visibly (only the first was identified in a shot). With the late
+fixture (Lv100-band gear at Lv1) the bosses die at once when not held (the holds are why the round took 1291 s): the first
+draft is a starting point for C13, not a balance claim. The [80, 90] drop band's Magician pool is thin: 10 items for a Magician, 2
+of them weapons (80% armour), which is why `test_equipment_drops` keeps a floor of 5 from band 80.
 
 ### Magatia (C6) regression smoke and diagnostic round (#468, 2026-10-30)
 
@@ -11309,6 +11343,24 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Meso ranges | ordinary mobs only, as Ludibrium's method: centre interpolated from the Lv27 Evil Eye (60), Lv35 Curse Eye / Jr. Boogie (97), Lv50 Drake (250), Lv55 Malady (305), Lv64 Ice Drake (405) and Lv70 Tauromacis (420) ranges at the mob's level (Kiyo Lv30 [59, 89], Sand Dwarf Lv32 [66, 100], Roid Lv54 [235, 353], Neo Huroid Lv58 [270, 406], Homun Lv65 [326, 490], Saitie Lv68 [332, 498]), +-20%; bosses use the `balance.mesos` level fallback | C |
 | Flags ignored | none of the three maps carries a field flag (lab maps carry `mobRate` 2, which the sim does not read) | A |
 | Alternates | map 1 260020400 / 260020100, map 2 261020200 / 261020700, map 3 261010103 (1954 px, narrower than Unit 201): not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Leafre (C8) constants (#470, spec #449; progression step 13)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/leafre.json`: `region` Leafre, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [80, 90] (#447 table), maps 240020400 / 240030200 / 240050300 (widths 2790 / 2970 / 3240 px, foothold spans of Map.wz), `original_life` of map 1 (Blue Kentaurus 22) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s: Blue Kentaurus 8140103 (Lv88), the field's whole roster, alone | C weights, A roster |
+| Map 2 pool | `pool_from_life`: Dragon Forest II holds Rexton 8140702 x10 (Lv95) and Green Cornian 8150200 x6 (Lv100); no `exclude` | A life list, C rule |
+| Map 3 pool | explicit `pool` {Skelegon 8190003 (Lv110, EXP 4500): 11, Skelosaurus 8190004 (Lv113, EXP 4750): 6}, not `pool_from_life`: the Cave of Light's only monsters are Skelegon 2 in Cave 9300076 x15 and T-Skelegon in Cave 9300077 x6, `hideName` instance copies with an EXP of 1500 (about 0.30x of the level curve's ~4900-5250 against about 0.9x for the real mobs), which the spec's rule excludes as instance-only monsters. The weights are the 11 : 6 spawn ratio of Nest of a Dead Dragon 240040510, where the two real mobs live (they stay out of `mobs.json` and the manifest). Their `skill1` is not read for ordinary mobs | A mobs and life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=13 --stage=leafre` (not tuned): `level` 33.15, 33.73, 34.8, 46.22, 60.44, 72.23, 80.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (13 - 5)). No level above 131, so the tool warned nothing. The Lv88 to Lv113 monsters run at these effective levels, not their own | C |
+| Bosses | Manon 8180000 (hp_mult 0.828, dmg_mult 1.019, attack_dmg_mult 0.661, `attack1`-`attack3` all type 0 with `magic` 1, `attack1` fire, matched on MAD 680), Griffey 8180001 (0.186, 0.729, 0.698, the same attacks, matched on MAD 680), Leviathan 8220003 (0.115, 1.555, 1.815, `attack1` ice and `attack2` fire, both type 0 with `magic` 1, matched on MAD 710), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids`. The multipliers fall below 1 because the draft matches Sleepywood's effective HP at the level the step reaches, against a v83 boss of 3.7M and 13.4M HP | C |
+| Boss kits | Manon and Griffey: none (three plain attacks). Leviathan: Confuse 132/2 (its interval key is spelled `inteval`, read by `MobSkillRunner.interval_of`), Weakness 122/3 (both B3) and Summon 200/89, 200/90, 200/91 (Red Wyvern 8150300 x6 at 80% HP, Blue 8150301 x4 at 50%, Dark 8150302 x4 at 30%), as written in Skill.wz; the Wyverns are all in v83 Mob.wz, so `StageRoster.ABSENT_IN_V83` gets no entry | A skills, C support |
+| Rooms | the bosses' own maps are Manon 240020401 and Griffey 240020101 (1530 x 90 strips) and Leviathan 240040401 (an 806 x 1347 shaft), so they fight in the Kentaurus field, Dragon Forest II and the Cave of Light | C |
+| `mobs.json` | names and `exp_item`, each mob's first monster-drop Etc item (4000xxx) in the MonsterBook: Blue Kentaurus Kentaurus's Marrow 4000233, Rexton Rexton Leather 4000264, Green Cornian Wooden Shoulder Pad 4000266, Manon Manon's Tail 4000235, Griffey Griffey Horn 4000243, Leviathan and Red Wyvern Wyvern Wing 4000268, Blue Wyvern Wyvern Gill 4000269, Dark Wyvern Wyvern Toenail 4000270; Skelegon 8190003 Broken Horn 4000274 and Skelosaurus 8190004 Old Neck Bone 4000273; all three bosses' MobGage icons and hpTags are canonical (no `boss_ui`) | A ids/names, C association |
+| Meso ranges | ordinary mobs only: no v83 ordinary mob above Lv75 has a range, so the centre extrapolates the Lv70 Tauromacis (420) to Lv75 Taurospear (504) slope (16.8 per level) as Ludibrium's method would interpolate, +-20% (Blue Kentaurus Lv88 [578, 866], Rexton Lv95 [672, 1008], Green Cornian Lv100 [739, 1109], Skelegon Lv110 [874, 1310], Skelosaurus Lv113 [914, 1370]); bosses and Wyverns use the `balance.mesos` level fallback. Known tier C gap for calibration (C13): that fallback is about 5x below the extrapolated ordinary ranges at Lv89-120 | C |
+| Flags ignored | none of the three maps carries a field flag the sim reads (the cave carries instance bits `FL` 270456, ignored) | A |
+| Alternates | map 1 240020300 / 240020100, map 2 240030300 / 240030000, map 3 Cave of Darkness 240050310: not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
 
 ### Corsair constants (spec #384)
 
