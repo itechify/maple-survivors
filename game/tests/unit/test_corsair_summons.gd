@@ -319,12 +319,12 @@ func test_gaviota_damage_scales_with_its_pad_not_the_weapon() -> void:
 		assert_near(float(st.damage_max), per_pad * pad, 1e-3, "rank %d" % rank_value)
 
 
-func test_gaviota_waits_the_level_time_for_a_target_then_leaves_with_no_hit() -> void:
+func test_gaviota_whose_target_is_gone_waits_the_level_time_then_leaves_with_no_hit() -> void:
 	var w := _corsair("gaviota")
 	var m := _mob(w, 300.0)
 	_run(w, 2)
 	assert_eq(_s(w).living_count(), 1)
-	# the monster leaves before the bird can strike: out of the 400 px reach, it has nothing to hunt.
+	# the locked monster is gone (the real expiry with nothing in reach is test_summon_behaviors); the bird has nothing to hunt.
 	_move_mob(w, m, w.player.pos.x + 1000.0)
 	_s(w).kamikaze.target[0] = -1
 	_s(w).kamikaze.phase[0] = SummonKamikaze.SEEK

@@ -674,7 +674,7 @@ func _build_mob_layers() -> void:
 		mr.name = "Mobs%d" % layer
 		mr.library = library
 		mr.burn_cue_path = _status_cue_path("burn")
-		mr.mark_cue_path = _status_cue_path("all_weak")
+		mr.mark_cue_path = _status_cue_path(MobSwarm.STATUS_NAMES[MobSwarm.ALL_WEAK])
 		map.actor_layer(layer).add_child(mr)
 		mob_renderers.append(mr)
 		mob_layers.append(layer if floor_layers.size() > 1 else -1)

@@ -468,7 +468,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 						var hit_skill := String(e.get("skill", ""))
 						corsair.hits[hit_skill] = int(corsair.hits.get(hit_skill, 0)) + 1
 				"mob_status_applied":
-					if not corsair.is_empty() and String(e.status) == "all_weak":
+					if not corsair.is_empty() and String(e.status) == MobSwarm.STATUS_NAMES[MobSwarm.ALL_WEAK]:
 						corsair.marks_applied += 1
 						var from_t := maxf(w.time, float(mark_until.get(int(e.mob), 0.0)))
 						corsair.marked_monster_seconds += maxf(0.0, w.time + float(e.duration) - from_t)
