@@ -658,6 +658,7 @@ older records below, in the smoke and in the job-loop tickets mean the first fou
 | `magatia` (step 11, #468) | Sunset Road - The Desert of Red Sand (260020300, 2430 px) | Alcadno Research Institute - Lab - Area C-2 (261020400, 2410 px) | Zenumist Research Institute - Lab - Unit 201 (261010101, 2196 px) | Deo / Homunscullo / Chimera |
 | `zipangu` (step 12, #469) | Zipangu - A Night in the Forest (800020110, 3228 px, flat) | Showa Street 3 (801030000, 3850 px) | Encounter with the Buddha (800020130, 2868 px, flat) | Male Boss / Female Boss / Black Crow |
 | `leafre` (step 13, #470) | Leafre - The Area of Blue Kentaurus (240020400, 2790 px) | Dragon Forest II (240030200, 2970 px) | Cave of Light (240050300, 3240 px, flat) | Manon / Griffey / Leviathan |
+| `clocktower` (step 15, #472) | Ludibrium - Warped Passage (220060400, 2995 px, flat) | Forgotten Passage (220070400, 2995 px, flat) | Deep Inside the Clocktower (220080000, 4143 px, flat) | Gatekeeper / Thanatos / Papulatus (clock 8500001 into the flying form 8500002) |
 | `temple_of_time` (step 16, #473) | Temple of Time - Memory Lane5 (270010500, 2403 x 1096 px) | Road of Regrets5 (270020500, 2403 x 1096 px) | Road to Oblivion5 (270030500, 2403 x 1096 px) | Dodo / Lilynouch / Lyka |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
@@ -871,6 +872,31 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+### Phantom Forest (C9) regression smoke and diagnostic round (#471, 2026-10-30)
+
+Spec #447 branch with the Phantom Forest region (step 14, after Leafre), private cache, F/P (212), seeds 1/2/2026, `JOBS=1`, no tuning, no held-out seeds. Bot and random on the first four regions,
+Sleepywood with the starter wand and with `fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 /
+646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random
+331.5 / 449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one clear
+and deaths at 23.8 / 767.0 (the other kit seed died at 395.4)), no crashes and no world warnings. Phantom Forest itself is not in
+the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=phantom_forest --job=112 --character=late_progression.json`, seed 1, windowed (x8 between bosses, x1 in the boss
+fights, vsync off), god mode (`RunWorld.god`) with the autoplay bot, each boss held at >= 50% HP for 40 s so its attacks show, then one lethal
+diagnostic hit: **CLEARED, 3 bosses, Lv63, 1021.1 s, `missing: []`, no warnings**. Map entries at 0 / 340.4 / 680.7 s, 347 alive at the last boss (the same round with the native Stormbreaker and Windraider pooled cleared at Lv67: see the EXP gate in the constants).
+Arena check, by eye: all three first picks stay. The Forgotten Path (a dead-tree hillside under a castle on a red-brown sky, stepped stone tiers;
+Nightshadows fill the floor and the ledges, flying Firebrand flames and Elderwraith ghosts swarm above), the Cavern of Fortitude (a teal cavern with a long
+floor, ledges and a rope; Nightshadows on the floor, Firebrand flames and Elderwraiths filling the air) and Twisted Paths (one flat floor between
+red tree-hollows; the same Nightshadows and fliers line it, the crowd reaches 350) are wide and open with no pit and no shaft. The three boss
+bars show (the Horseman's and Master Guardian's borrowed Zeno icon, Bigfoot's own). Seen in the round: all three arrival notices and bars; the
+bosses themselves hide under the crowd and the fixture's damage numbers. A second, clean probe (the shipped bosses alone on the Forgotten Path,
+late fixture, damage off) shows each attack's wind-up and impact: the Horseman (a pink horse and rider under a floating jack-o'-lantern head; attack1's
+wind-up, attack2's flaming head flying out in front), Master Guardian (a spiked armoured knight; attack1's wind-up, attack2's impact burst)
+and Bigfoot (a large yellow-haired beast with a small rider; attack1's dust on impact). **Not shown by a god-mode run:** what a landed attack does to
+a character (god lands no hit, so nothing here is survival or balance evidence), the bosses seen at their arena's own geometry (the clean probe
+puts them on map 1), and Master Guardian's Seal (skipped, nothing to show). With the late fixture (Lv100-band gear at Lv1) the bosses die at once
+when not held: the first draft is a starting point for C13, not a balance claim.
+
 ### Zipangu (C7) regression smoke and diagnostic round (#469, 2026-10-30)
 
 Spec #447 branch with the Zipangu region (step 12 once Mu Lung lands), private cache, F/P (212), seeds 1/2/2026, `JOBS=2`,
@@ -947,6 +973,61 @@ Heal 30 s. **A god-mode run cannot show**: what a landed attack, Banish arrival 
 (god lands no hit; Seduce's pull and the Banish's relocation were observed, not their danger), whether Reflect kills a character
 (the hits it returns were logged at 17 to 45 damage), the Heal's effect on the swarm (no `mob_healed` event fired: nothing in
 its box was damaged), or any survival or balance claim.
+
+### Ludibrium Clocktower (C10) regression smoke and diagnostic round (#472, 2026-10-31)
+
+Spec #447 branch with the Clocktower region (step 15), private cache, F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no held-out
+seeds. Reduced smoke, because the change is additive data (a stage file, a manifest fragment, `mobs.json` entries, four `enabled_ids`,
+one `progression` key) and touches no code: Henesys bot and Sleepywood with the starter wand and with `fp_arch_mage.json`
+**match #455's table to the second** (Henesys bot deaths 417.3 / 644.1 / 646.7; Sleepywood starter 11.4 / 11.9 / 15.1; kit one clear
+and deaths at 23.8 / 767.0), no crashes and no warnings. Ellinia, Perion and Kerning and the random policy were not re-run (a stage
+reads only its own file, and nothing shared changed). The Clocktower itself is not in the smoke (calibration is C13). Draft tool:
+`--step=15 --stage=clocktower` raised no warning (highest level 86.85).
+
+Diagnostic one-off, `--run=clocktower --job=112 --character=late_progression.json`, seed 1, windowed at x12 outside the boss windows
+(vsync off), god mode (`RunWorld.god`) with the autoplay bot, each boss held at 50% HP for 40-45 s (the clock for 90 s, the flying form
+for 25 s) so its kit shows, then a lethal diagnostic hit; run after the review fixes below and the merge of Phantom Forest:
+**CLEARED, 3 bosses, Lv44, 1101.5 s, `missing: []`, no warnings**. Map entries at 0 / 340.4 / 685.7 s, `max_alive` 392. Lv44 is below the
+other regions' Lv49-64: every pool mob pays 0.90-1.00x of the level curve's EXP at its own level, so the gap is the step (a higher
+effective level than Magatia's, so higher mob HP at each keyframe and slower kills) plus the holds; left for C13. Arena check, by eye:
+all three first picks stay. Warped Passage and Forgotten Passage are one long flat floor under a blue cloud-and-spike strip, with a sky
+of Clocktower gears, suns and moons (the second adds arched doors and two low steps) and Deep Inside the Clocktower a flat floor with a
+stepped marble block at the left end; the Ghost Pirate, Death Teddy and Dual Ghost Pirate, then the Master Death Teddy, Spirit Viking
+and Phantom Watch, then the Gigantic Spirit Viking and Grim Phantom Watch fill the floor. No shaft or pit.
+
+*Seen* (screenshots checked by eye, none committed; "cast" counts come from the sim's own skill timers and action log):
+- **Gatekeeper**: bar and notice on arrival (the boss itself is hidden by the floor's 130+ mobs); attack1 x5, attack2 x5 and skill1
+  (Stun 123/1) x3 in 40 s, each stance logged, Stun's star on the character. Which of its two attacks hit, and what they did, is not
+  readable in the crowd.
+- **Thanatos**: at the left edge; attack1 x6 as blue warned columns that then burst; skill1, skill2 and skill4 (Poison 125/1, Curse 124/1,
+  Darkness 121/1; Seal 120 is skipped) x4 each, one cycle every 10 s.
+- **Papulatus clock**: arrival at the right edge with the blue Time Sphere sprite on its gear; Dispel 127/1 x2 (a diagnostic buff, the
+  yellow "Papulatus Clock dispelled ..." notice); Slow 126/1 x13; heal 114/4 x4 in 90 s (its notice "Papulatus Clock recovered 30000 HP",
+  on the isolated clock); the Low and High Darkstar summons 200/39 x5 and 200/40 x4 in 90 s; Stun 123/4 attempted x38 (every second, the
+  interval-1 cast) and, on the isolated clock below, landing 4 times in 40 s (at 12.0, 19.8, 29.1 and 36.9 s: 3 s stun, 4 s lockout floor,
+  then the next cast).
+- **Darkstars stay bounded**: sampled every 6.4 s, the live Darkstars (the bot kills some) were 0, 0, 4, 8, 16, 20, 20, 20, 20, 20, 19, 27,
+  34, 34, 42 over the clock's 90 s: about 8 per 8 s at most, 42 at the end, against 400+ mobs on the floor before `skill_intervals` 200.
+- **Flying form**: a new bar ("Papulatus") at the clock's death position, a blue-green flyer beside the character 15 s later, its logged
+  positions sweeping both sides of the arena: it chases and touches.
+- **Isolated clock** (a scratch driver: the clock alone on the Henesys map, no ordinary spawns, the stage's attacks and intervals):
+  with Stun 123/4 pushed out of the way for 100 s it cast **attack1 x8 only**, skill2 x7 (Slow), skill3 x14 (the summons) and skill4 x3
+  (heal; 671,750 and 701,750 of 874,000 HP at the two heals). The attack1 stance shows as a blue vortex on the character; the heal
+  as its HP notice.
+
+*Not seen*: **attack2 and attack4 never ran** (not in the full round, not in the 100 s isolated run): the attack1 stance lasts 9.21 s
+(its canonical frame delays), the cast order tries attack1 first once its 8 s cadence is up, and the skill casts fill the gaps in between,
+so the clock effectively attacks with attack1 alone about every 13 s. Left as a finding for C13 (listing the attacks in another order, or
+a shorter hold, would change it). Also not seen: what a landed attack, Stun, Poison, Curse or Darkness does to a character (god lands no
+hit, so nothing here is survival or balance evidence), the Darkstars' own touch hits, the form's contact damage, and Thanatos's Seal 120
+(skipped by design). The scratch driver logs the player's `body.position` as a constant, so the form's chase is read from the screenshots
+and the form's own positions, not from a distance. With the late fixture (Lv100-band gear at Lv1) the bosses die at once when not held:
+the first draft is a starting point for C13, not a balance claim.
+
+The review of #501 added three tier C fairness fixes on the clock (the constants section below): `skill_intervals` {"114": 15, "200": 8}
+and the removal of attack3. Targeted tests after the merge of Phantom Forest (step 14): `region_clocktower region_ unique_bosses mesos
+data_files stage_schema final_form`, 194 tests, 0 failed, 0 skipped.
+
 
 ### Leafre (C8) regression smoke and diagnostic round (#470, 2026-10-30)
 
@@ -11460,6 +11541,49 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Meso ranges | ordinary mobs only: no v83 ordinary mob above Lv75 has a range, so the centre extrapolates the Lv70 Tauromacis (420) to Lv75 Taurospear (504) slope (16.8 per level), +-20% (Lv101 [753, 1129], Lv116 [954, 1431], Lv131 [1156, 1734]); the bosses use the `balance.mesos` level fallback | C |
 | Flags ignored | none of the three maps carries a field flag the sim reads (`lvLimit` 20 is ignored, spec #449) | A |
 | Alternates | map 1 270020400 / 270020300, map 2 270030200 / 270030300: not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Phantom Forest (C9) constants (#471, spec #449; progression step 14)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/phantom_forest.json`: `region` Phantom Forest, `continent` Masteria (String.wz group `MasteriaGL`), `drop_band` [90, 100] (#447 table), maps 610010005 / 610020014 / 610010103 (widths 3496 / 2230 / 3946 px, foothold spans of Map.wz), `original_life` of map 1 (Stormbreaker 5, Firebrand 3, Elderwraith 2) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| EXP gate | every pooled ordinary mob pays within 0.7-1.3 of the level curve: canonical `exp` / `level_curve.json` exp at the mob's own level (the engine rescales a kill's EXP by curve[exp_level] / curve[mob level], so a mob far off 1 levels the character too fast or slow; Leafre's hideName cave copies at 0.30x were the review finding). Pooled: Nightshadow 9400579 (Lv100, exp 3600) **1.21**, Firebrand's flying form 9400578 (Lv90, 2350) **1.24**, Elderwraith 9400580 (Lv95, 2480) **1.08**. Out of band and in no pool: Windraider 9400576 (Lv70, 800) 2.90, Stormbreaker 9400581 (Lv80, 1650) 1.91, the ground Firebrand 9400577 (Lv90, 910) 0.48. No map's life list holds `hideName` copies; these are the monsters' real v83 values. A first version pooled the natives (map 2's weighted mean was 1.56) and the diagnostic round cleared at Lv67 against about Lv52-64 for the comparable regions; with the gate it clears at Lv63 | A exp, C gate |
+| Map 1 pool | hand-written, two keyframes below 300 s: Nightshadow 9400579 4 : the flying Firebrand form 9400578 3 : Elderwraith 9400580 (flies) 2 at 0 s, 3 : 3 : 2 at 120 s. The Forgotten Path's own natives are Stormbreaker x5, Firebrand x3 and Elderwraith x2 (`original_life`), plus Leprechaun 9400584 x6 (Lv45 stand/die decoration), the timed Phantom Tree 9400588 x3 (Lv50, immobile, mobTime 1200 s) and the native Headless Horseman and Bigfoot (mobTime 21600 / 43200 s), all left out of the pool | C weights, A roster |
+| Map 2 pool | hand-written: the Cavern of Fortitude's life list is Firebrand x4, Nightshadow x3 and Windraider x4 (none timed or hidden), two of three off the EXP curve, so the pool is the flying Firebrand form 4, Nightshadow 3 and Elderwraith 2 (it lives in other Crimsonwood Mountain caves, e.g. the Path of Strength) | A life list, C rule |
+| Map 3 pool | hand-written (`pool` dictionary): Twisted Paths' own life list is Jr. Wraith x10 (Lv35 filler, most of it), Phantom Tree x4 (timed) and Bigfoot, so it takes Nightshadow 3, Elderwraith 2 and the flying Firebrand form 3 | C |
+| Firebrand's revive form | `info/revive` 9400578 (Lv90, 45000 HP, `fly`) is read for bosses' final forms only, so a dying ordinary Firebrand revives nothing; the form is pooled in its own right on every map and stands in for the ground Firebrand (an ordinary flying mob, as the ticket allows) | C |
+| `level_scale` | first draft of `level_scale_draft.gd --step=14 --stage=phantom_forest` (not tuned): `level` 36.15, 36.73, 37.8, 49.22, 63.44, 75.23, 83.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (14 - 5)) | C |
+| Bosses | Headless Horseman 9400549 (hp_mult 0.749, dmg_mult 0.913, attack_dmg_mult 1.096; `attack1`, `attack2`, both type 0 with the mob's PAD 600), Master Guardian 9400594 (0.083, 0.851, 0.916; `attack1` flagged magic so matched on MAD 500, `attack2` physical PAD 450), Bigfoot 9400575 (0.035, 0.728, 7.345; `attack1` has its own PADamage 160 against the mob's 1200, hence the high attack multiplier), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | The Horseman and Bigfoot have no MobSkill in v83 and cast nothing. Master Guardian lists only Seal 120/12, which is skipped permanently (not in `MobSkillRunner.SUPPORTED`), so it casts nothing and has no `skill_intervals` | A skills, C support |
+| Fights fought in these maps | the Horseman is native to the Forgotten Path (map 1) and Bigfoot to Twisted Paths (map 3); Master Guardian's own map is the Thief Mastery party-quest room (2430 x 1380, instance geometry), so it fights in the Cavern of Fortitude. Alternate map 2 Crimsonwood Keep 610020006 (1960 px, Crimson Guardians only): not needed | C |
+| Absent sounds | v83 gives Master Guardian no Damage sound and Elderwraith no attack sound (it never attacks): both stay silent under the inherited rule, and the round reports no `missing` | A |
+| `mobs.json` | names and `exp_item` (the MonsterBook lists no Masteria mob, so each is the Etc item named for it): Stormbreaker Badge 4032006 and Firebrand and its form Badge 4032008 (both natives in `original_life`; no Windraider entry, it is in no pool), Nightshadow Badge 4032009, Elder Ashes 4032010 (Elderwraith), Jack O'Lantern 4031903 (the Horseman's head), Crimson Heart 4032012 (Master Guardian), Bigfoot's Toe 4032013. Bigfoot's MobGage icon and hpTag 1/5 are canonical; the Horseman and Master Guardian have neither and borrow Zeno's icon 6220001 with the standard 1/5 tag | A ids/names, C association |
+| Meso ranges | ordinary mobs only: the centre extends the line through the Lv55 Malady (305) and Lv70 Tauromacis (420) ranges, +7.67 per level, to the mob's level (Stormbreaker Lv80 [398, 596], Firebrand and its form Lv90 [458, 688], Elderwraith Lv95 [490, 734], Nightshadow Lv100 [520, 780]), +-20% as Ludibrium's method (#463); bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the maps is read for its field flags (`FL=8` on the Masteria maps is not read) | C |
+
+### Ludibrium Clocktower (C10) constants (#472, spec #449; progression step 15)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/clocktower.json`: `region` Ludibrium Clocktower, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [100, 110] (#447 table), maps 220060400 Warped Passage / 220070400 Forgotten Passage / 220080000 Deep Inside the Clocktower (widths 2995 / 2995 / 4143 px, foothold spans of Map.wz, all flat), `original_life` of map 1 (the two Gatekeepers, 8160000 x2) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Why explicit pools | the passages' own life lists are only bosses (Gatekeeper x2, Thanatos x2, none), so no map takes `pool_from_life`; the Path of Time maps that hold the ordinary monsters are climbing towers 2265-2429 px high and are rejected | A (life), C (rule) |
+| Map 1 pool | hand-written, two keyframes below 300 s, from the lower Path of Time: Ghost Pirate 7140000 (Lv83, Path of Time<2>), Death Teddy 7130010 (Lv85, <3>) and Dual Ghost Pirate 7160000 (Lv87, <2> hidden branch 220060201). 0 s: 3 : 2 (the Ghost Pirate and Death Teddy); 120 s: 2 : 2 : 2, the Dual Ghost Pirate joining on equal weight | C weights, A mobs |
+| Map 2 pool | explicit `pool` {Master Death Teddy 7130300 (Lv89): 15, Spirit Viking 8141000 (Lv93): 14, Phantom Watch 8142000 (Lv95): 26}, the spawn-point counts of the Path of Time maps that hold them (220070201, 220060300, 220070300) | C weights, A mobs |
+| Map 3 pool | explicit `pool` {Gigantic Spirit Viking 8141100 (Lv98): 26, Grim Phantom Watch 8143000 (Lv99): 14}, the spawn-point counts of 220060301 and 220070301. Ghost Pirate is the weakest and Grim Phantom Watch the strongest of the eight, so levels rise 83 -> 99 along the region | C weights, A mobs |
+| EXP check | each pool mob pays 0.90-1.00 times `level_curve.json` exp at its own level (Ghost Pirate 0.92, Death Teddy 0.90, Dual Ghost Pirate 0.97, Master Death Teddy 0.97, Spirit Viking 0.99, Phantom Watch 1.00, Gigantic Spirit Viking 0.99, Grim Phantom Watch 1.00), none is `hideName` or boss-flagged; pinned in `test_region_clocktower` (0.7-1.3) | A |
+| `level_scale` | first draft of `level_scale_draft.gd --step=15 --stage=clocktower` (not tuned): `level` 39.15, 39.73, 40.8, 52.22, 66.44, 78.23, 86.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (15 - 5)). No level above 131, so the tool warned nothing | C |
+| Bosses | Gatekeeper 8160000 (hp_mult 43.427, dmg_mult 1.064, attack_dmg_mult 1.171; `attack1` physical PADamage 600 and `attack2` magic MADamage 600 tie, matched on PAD), Thanatos 8170000 (10.855, 0.822, 0.834; `attack1` type 3, magic, matched on MAD 620), Papulatus clock 8500001 into 8500002 (hp_mult 0.038, `final_form_hp_mult` 0.546, dmg_mult 1.594, attack_dmg_mult 2.784; the clock's attack1, attack2 and attack4, type-0 magic attacks matched on MAD 480; attack3 is not scheduled, see Skipped), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool with a `_tier` note; 8160000, 8170000, 8500001 and 8500002 are in `balance.mob_skills.enabled_ids`. The form is matched at the clock's arrival level, so its runtime HP lands above the tool's target | C |
+| Boss kits | Gatekeeper: Stun 123/1 (B1). Thanatos: Poison 125/1 (B4), Curse 124/1 and Darkness 121/1 (B3), and the type-3 area-warning attack1 (B5: nine columns, five struck per cast); Seal 120/1 is not a supported MobSkill and is skipped. Papulatus clock: Dispel 127/1 (B6, the 20 s `status_lockout["127"]` floor), Slow 126/1, heal 114/4, Stun 123/4 (interval 1, so the B1 default 4 s floor applies) and the High and Low Darkstar summons 200/39 and 200/40 (8500003 / 8500004, 10,000 HP, both present in v83, so `StageRoster.ABSENT_IN_V83` gets no entry), all as written in Skill.wz, with the casts' intervals set by the next row. The Darkstars' Mob.wz `selfDestruction` is not modelled: they stay until killed. The flying form 8500002 (B6, `fly`, no attack stance) fights by touch | A skills, C support |
+| Clock skill intervals | `skill_intervals` {"114": 15, "200": 8} on the clock's entry (Shade's #256 mechanism; the skill id keys both summon levels). Heal 114/4 restores a flat 30,000 every 1 s to every mob in an 800 x 600 box, about 12% of the clock's effective HP (238,429 in the diagnostic round) per second, against heals every 10-30 s on other bosses, so it is cast every 15 s. Darkstar summons 200/39 and 200/40 have WZ `interval` 1, four mobs a cast and limit 5000, and `selfDestruction` is not modelled, so they stay until killed: an 8 s cast bounds the crowd by time (at most 8 Darkstars per 8 s; 42 alive after 90 s in the diagnostic, against 400+ mobs before). Stun 123/4 (interval 1) and Dispel 127/1 keep their B1 and B6 lockout floors | C |
+| Skipped | the clock's attack3 is not scheduled. It has `attackAfter` 0 and a +-800 px box, and its `effect0` random secondary strikes (the optional extra area strikes of the ticket) are not modelled; as scheduled it would be an instant, unwarned strike across the arena at `attack_dmg_mult` 2.784. Also not modelled: attack1's `deadlyAttack` and `doFirst` flags. The attacks left are attack1, attack2 and attack4, all type 0 and magic | C |
+| Rooms | Papulatus's own Origin of Clocktower (220080001) is 1190 x 594 and empty, so the clock and its form fight in Deep Inside the Clocktower | C |
+| `mobs.json` | names and `exp_item`, each ordinary mob's first monster-drop Etc item (4000xxx) in the MonsterBook: Ghost Pirate Ghost Pirate Key 4000132, Dual Ghost Pirate Dual Pirate's Propeller 4000133, Spirit Viking Viking Sail 4000134, Gigantic Spirit Viking Gigantic Viking Hat 4000135, Death Teddy Sealed Teddy Bear 4000147, Master Death Teddy Binding Bridle 4000148, Phantom Watch Sealed Bottle 4000149, Grim Phantom Watch Ice Piece 4000150, Gatekeeper Gatekeeper Armband 4000151, Thanatos Tanathos Strap 4000152. The MonsterBook lists no Etc drop for Papulatus, so the clock, the form and both Darkstars take the Papulatus Certificate 4001084 (its description names Papulatus) as a tier C pickup association. Gatekeeper and Thanatos are not boss-flagged and have no MobGage art, so they borrow Zeno's icon with the standard 1/5 tag (`boss_ui`), as Rombot does; Papulatus's icon and tags are canonical. The clock and its form share the name Papulatus for the unique-boss test | A ids/names, C association |
+| Meso ranges | ordinary mobs only, Leafre's method: centre = round(420 + 16.8 x (level - 70)) from the Lv70 Tauromacis (420) / Lv75 Taurospear (504) slope, +-20% (Ghost Pirate Lv83 [510, 766], Death Teddy Lv85 [538, 806], Dual Ghost Pirate Lv87 [565, 847], Master Death Teddy Lv89 [591, 887], Spirit Viking Lv93 [645, 967], Phantom Watch Lv95 [672, 1008], Gigantic Spirit Viking Lv98 [712, 1068], Grim Phantom Watch Lv99 [726, 1088]); bosses and Darkstars use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the three maps carries a field flag the sim reads (Deep Inside the Clocktower carries a `FL` forced-life bit, ignored) | A |
+| Alternates | the strict boss-native triple ends in 220080001 (1190 px, empty), so Deep Inside the Clocktower (4143 px) is the map-3 pick; no alternate for maps 1 and 2 was needed, the arena check kept all three picks (see the diagnostic record in 4.2) | C |
+
 
 ### Corsair constants (spec #384)
 
