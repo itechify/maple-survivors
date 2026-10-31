@@ -144,6 +144,24 @@
 		"5220003": {"name": "Timer", "exp_item": 4000113, "_mesos": "tier C (#463): no v83 server drop data is used for this boss, so mesos use the balance.json level fallback", "_exp_item": "tier A: v83 Clock Spring ID/name, its first Etc drop; tier C: signature EXP pickup association. Its MobGage icon and hpTag 1/5 are canonical"},
 		"9300015": {"name": "Cronos", "exp_item": 4000113, "_exp_item": "tier C (#463): the Clock Spring icon Timer uses, as the EXP pickup of Alishar's clock summons (v83 lists no drops for them), not a canonical drop-table claim"},
 		"9300016": {"name": "Platoon Cronos", "exp_item": 4000113, "_exp_item": "tier C (#463): the Clock Spring icon Timer uses, as the EXP pickup of Alishar's clock summons (v83 lists no drops for them), not a canonical drop-table claim"},
-		"9300017": {"name": "Master Cronos", "exp_item": 4000113, "_exp_item": "tier C (#463): the Clock Spring icon Timer uses, as the EXP pickup of Alishar's clock summons (v83 lists no drops for them), not a canonical drop-table claim"}
+		"9300017": {"name": "Master Cronos", "exp_item": 4000113, "_exp_item": "tier C (#463): the Clock Spring icon Timer uses, as the EXP pickup of Alishar's clock summons (v83 lists no drops for them), not a canonical drop-table claim"},
+		"4230116": {"mesos": [100, 150], "name": "Barnard Gray", "exp_item": 4000123, "_mesos": "tier C (#464): no v83 server drop data is used; the centre (125) interpolates the Lv40 Cold Eye / Zombie Lupin and Lv50 Drake ranges at this mob's Lv40, +-20% as theirs (Ludibrium's method, #463)",
+			"_exp_item": "tier A: v83 Worn-Out Goggle ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"4230119": {"mesos": [110, 164], "name": "Mateon", "exp_item": 4000120, "_mesos": "tier C (#464): no v83 server drop data is used; the centre (137) interpolates the Lv40 Cold Eye / Zombie Lupin and Lv50 Drake ranges at this mob's Lv41, +-20% as theirs (Ludibrium's method, #463)",
+			"_exp_item": "tier A: v83 Mateon's Tentacle ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"4230120": {"mesos": [140, 210], "name": "Plateon", "exp_item": 4000121, "_mesos": "tier C (#464): no v83 server drop data is used; the centre (175) interpolates the Lv40 Cold Eye / Zombie Lupin and Lv50 Drake ranges at this mob's Lv44, +-20% as theirs (Ludibrium's method, #463)",
+			"_exp_item": "tier A: v83 Plateon's Helmet ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"4230121": {"mesos": [160, 240], "name": "Mecateon", "exp_item": 4000122, "_mesos": "tier C (#464): no v83 server drop data is used; the centre (200) interpolates the Lv40 Cold Eye / Zombie Lupin and Lv50 Drake ranges at this mob's Lv46, +-20% as theirs (Ludibrium's method, #463)",
+			"_exp_item": "tier A: v83 Mecateon's Laser Gun ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"4240000": {"name": "Chief Gray", "exp_item": 4000125, "_mesos": "tier C (#464): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 Chief Gray's Sign ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim",
+			"boss_ui": {"icon_id": 6220001, "hp_tag_color": 1, "hp_tag_bgcolor": 5,
+				"_tier": "tier C: borrow Zeno's MobGage icon (the same region) and standard colours; v83 Chief Gray lacks both"}},
+		"5120100": {"name": "MT-09", "exp_item": 4000126, "_mesos": "tier C (#464): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 MT-09's Fuel ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim",
+			"boss_ui": {"icon_id": 6220001, "hp_tag_color": 1, "hp_tag_bgcolor": 5,
+				"_tier": "tier C: borrow Zeno's MobGage icon (the same region) and standard colours; v83 MT-09 lacks both"}},
+		"6220001": {"name": "Zeno", "exp_item": 4000118, "_mesos": "tier C (#464): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 Small Spaceship ID/name; tier C: Zeno is an alien, so the Omega Sector's spaceship pickup stands for its EXP, not a canonical drop-table claim"}
 	}
 }

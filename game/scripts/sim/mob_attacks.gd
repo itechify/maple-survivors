@@ -236,7 +236,7 @@ static func plan(world: RunWorld, slot: int, img: Dictionary, attack: String, bo
 		"magic": magic, "element": String(info.get("elemAttr", "")),
 		"jump_attack": int(info.get("jumpAttack", 0)) != 0,
 		"dmg_mult": dmg_mult,
-		"effect": "Mob.wz/%07d.img/%s/info/effect" % [id, attack] if info.has("effect") else "",
+		"effect": effect_path(id, attack, info),
 		"sound": attack_sound(id, attack),
 		"duration": maxf(after, MobKind.stance_time(stance, after))}
 	if type >= 3:
@@ -252,6 +252,20 @@ static func plan(world: RunWorld, slot: int, img: Dictionary, attack: String, bo
 		out["column_size"] = strip[0].size
 		out["warning"] = "Mob.wz/%07d.img/%s/info/areaWarning" % [id, attack] if info.has("areaWarning") else ""
 	return out
+
+
+## The frame list an attack's `info/effect` plays: the node itself, or its first group `effect/0` when the effect is a
+## set of groups (Chief Gray's falling bolts: groups 0-2 and spawn fields x/y/fall/interval/count, effectType 2) -
+## tier C: one group plays once at the attacker, the spawn fields are unread. "" without an effect.
+static func effect_path(id: int, attack: String, info: Dictionary) -> String:
+	if not info.has("effect"):
+		return ""
+	var base := "Mob.wz/%07d.img/%s/info/effect" % [id, attack]
+	var node: Variant = info.effect
+	var first: Variant = node.get("0") if node is Dictionary else null
+	if first is Dictionary and not (first as Dictionary).has("$canvas"):
+		return base + "/0"
+	return base
 
 
 ## World-space canonical attack range, mirrored horizontally when the mob faces right.
