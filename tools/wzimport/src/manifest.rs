@@ -533,6 +533,31 @@ mod tests {
         assert!(Manifest::merge(("m.json", MAIN), &[frag("a.json", r#"{"mobs":[9,9]}"#)]).is_ok());
     }
 
+    /// Spec #449 C0: a region fragment (`region_<key>.json`) lists its maps, mobs and EXP items, and a mob two regions
+    /// share (Panda Teddy in Ludibrium and Magatia, say) must be claimed by one of them: the second is an error naming both.
+    #[test]
+    fn region_fragments_hold_maps_mobs_and_items_and_do_not_overlap() {
+        let a = r#"{"_doc":"region a","maps":[220011000],"mobs":[3230101,4130103],"items":[4000100]}"#;
+        let b = r#"{"_doc":"region b","maps":[221040000],"mobs":[3230102],"items":[4000101]}"#;
+        let m = Manifest::merge(
+            ("asset_manifest.json", MAIN),
+            &[frag("region_a.json", a), frag("region_b.json", b)],
+        )
+        .unwrap();
+        assert_eq!(m.maps, vec![1, 220011000, 221040000]);
+        assert_eq!(m.mobs, vec![7, 3230101, 4130103, 3230102]);
+        assert_eq!(m.items, vec![4000000, 4000100, 4000101]);
+        for (text, what) in [(r#"{"mobs":[3230101]}"#, "`mob 3230101`"), (r#"{"maps":[220011000]}"#, "`map 220011000`"),
+                (r#"{"items":[4000100]}"#, "`item 4000100`")] {
+            let e = Manifest::merge(
+                ("asset_manifest.json", MAIN),
+                &[frag("region_a.json", a), frag("region_c.json", text)],
+            )
+            .unwrap_err();
+            assert!(e.contains(what) && e.contains("region_a.json") && e.contains("region_c.json"), "{e}");
+        }
+    }
+
     #[test]
     fn bad_fragments_are_rejected() {
         for (text, what) in [

@@ -11,8 +11,8 @@ changing gameplay.
 |---|---|
 | `game/` | Godot 4.7.2 project (GDScript). `scripts/sim/` is pure deterministic simulation; `scripts/assets/`, `scripts/render/`, `scripts/ui/`, `scripts/audio/` are presentation; `scripts/run/` wires a run together. |
 | `game/data/canonical/` | MapleStory reference facts that are not in WZ (EXP table, job tree). Never put balance tweaks here. |
-| `game/data/survivor/` | Survivor-mode design data: skill behaviour, upgrades, stages, balance. All tuning lives here. Skills, upgrades, equipment drops, scrolls and shop weapon slots keep their entries in per-job-line files (`<name>/<line>.json`) that `DataRepo` merges; a class spec adds its own line files (`docs/ARCHITECTURE.md` 4.4.4). |
-| `game/data/asset_manifest.json` | Which WZ images the importer exports into the asset cache; line-specific entries live in the include fragments `asset_manifest.d/<line>.json` (`docs/ASSET_PIPELINE.md` 4.1). |
+| `game/data/survivor/` | Survivor-mode design data: skill behaviour, upgrades, stages, balance. All tuning lives here. Skills, upgrades, equipment drops, scrolls and shop weapon slots keep their entries in per-job-line files (`<name>/<line>.json`) that `DataRepo` merges; a class spec adds its own line files (`docs/ARCHITECTURE.md` 4.4.4). Stages are one file per region, `stages/<key>.json`, merged in `progression` order (4.4.4 "Stage files"); a region ticket adds its file and its maps and mobs in `asset_manifest.d/region_<key>.json`. |
+| `game/data/asset_manifest.json` | Which WZ images the importer exports into the asset cache; line-specific entries live in the include fragments `asset_manifest.d/<line>.json`, and a new region's maps, mobs and items in `asset_manifest.d/region_<key>.json` (`docs/ASSET_PIPELINE.md` 4.1). |
 | `tools/wzimport/` | Rust CLI that reads original v83 `.wz` files and writes the asset cache (PNG atlases, JSON trees, MP3/WAV). |
 | `tools/level_curve/` | Node generator of `game/data/survivor/level_curve.json` (the stage level scale's reference curves, from a `wzimport dump` of Mob.wz); `node --test tools/level_curve/test/*.test.mjs`. |
 | `scripts/` | Bash entry points: `godot.sh`, `test.sh`, `import.sh`, `run.sh`, `playtest.sh`, `balance.sh`, `bench.sh`, `export.sh` (`--web` too), `godot_templates.sh`, `build_wasm.sh`, `check_web_artifact.sh`. |
@@ -296,6 +296,19 @@ tuning or as fresh evidence. Reserve fresh 701..730 for the balance pass's froze
 assessment; never tune on it. Full-run regressions use fixed training seeds 1/2/2026 on both stages.
 Use focused filters excluding `full_run` while tuning; freeze data and pacing windows before the full suite and
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
+
+**Region draft tool (`game/tools/level_scale_draft.gd`, spec #449 C0).** A new region ticket gets its first `level_scale` and
+boss multipliers from it instead of by hand: `ISOLATE=<name> bash scripts/godot.sh --headless --path _scratch/godot_runs/<name>/game
+--script res://tools/level_scale_draft.gd -- --step=<k> --stage=<region key>` (run `ISOLATE=<name> bash scripts/test.sh <filter>`
+once first to build the mirror). `--stage` is the region being drafted: its bosses (each map's `boss.mob_id`, `final_form` and
+`attacks`, in slot order) are read from `stages/<key>.json`; `--reference=<key>` (default sleepywood) is the stage the numbers
+are carried from; `--bosses=<id,id,id>`, `--attacks=a,b|c|d` and `--finals=<id,id,id>` override those lists for a stage file
+that does not exist yet; `--final-share=0.5` and `--offset=3` are the tier C knobs. It needs `MAPLE_SURVIVORS_CACHE` with the
+bosses' mob imgs, so import the region's manifest fragment first. It prints the working (Sleepywood's effective level at each
+keyframe time), the `level_scale` block (`level = E_sw + 3·(k − 5)`, `exp_level = E_sw`) and each boss's `hp_mult`, `dmg_mult`,
+`attack_dmg_mult` (matched on the strongest scheduled attack only) and `final_form_hp_mult`, and warns when a level goes above
+131 (the reference curves are flat there). Paste its numbers with a `_tier` C note; the formulas are in `docs/GAME_DESIGN.md`
+"Level scale". It runs no round and writes nothing.
 
 `--job=<id>` names the character's job in `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd` and the fixture tool (ADR 0006:
 a character has one job, chosen at creation, and it never changes). The playable jobs are Hero (112), Dark Knight (132), Paladin (122; spec #308, P9 #317 flipped `playable`), Arch Mage (Fire, Poison, 212) Bishop (232), Arch Mage (Ice, Lightning, 222; spec #319, I12 flipped `playable`) Bowmaster (312) and Buccaneer (512; spec #412, B11 #423 flipped `playable`); `--job=112` selects Hero, `--job=122` the Paladin `--job=222` the I/L Arch Mage and `--job=512` the Buccaneer; anything else, including the old `<id>:<family>` form, fails at startup (`JobTree.parse_job`,

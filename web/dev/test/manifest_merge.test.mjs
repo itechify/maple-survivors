@@ -41,6 +41,15 @@ test('a key in two files is an error naming both files', () => {
 	assert.doesNotThrow(() => mergeManifests(MAIN, [frag('a.json', { mobs: [9, 9] })]));
 });
 
+test('region fragments hold maps, mobs and items; a mob two regions both list is an error naming both (spec #449 C0)', () => {
+	const a = frag('region_a.json', { _doc: 'region a', maps: [220011000], mobs: [3230101, 4130103], items: [4000100] });
+	const m = mergeManifests(MAIN, [a, frag('region_b.json', { maps: [221040000], mobs: [3230102], items: [4000101] })]);
+	assert.deepEqual([m.maps, m.mobs, m.items], [[1, 220011000, 221040000], [7, 3230101, 4130103, 3230102], [4000000, 4000100, 4000101]]);
+	for (const [data, what] of [[{ mobs: [3230101] }, '`mob 3230101`'], [{ maps: [220011000] }, '`map 220011000`'], [{ items: [4000100] }, '`item 4000100`']]) {
+		assert.throws(() => mergeManifests(MAIN, [a, frag('region_c.json', data)]), (e) => e.message.includes(what) && e.message.includes('region_a.json') && e.message.includes('region_c.json'), what);
+	}
+});
+
 test('bad fragments are rejected', () => {
 	for (const data of [{ mob: [1] }, { format: 2 }, []]) assert.throws(() => mergeManifests(MAIN, [frag('bad.json', data)]), /bad\.json/);
 	assert.throws(() => mergeManifests({ name: 'm.json', data: { format: 2 } }, []), /m\.json/);
