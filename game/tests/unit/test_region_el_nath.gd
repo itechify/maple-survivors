@@ -119,6 +119,15 @@ func test_manifest_fragment_and_mobs_json() -> void:
 			assert_true(int(key) > last, "%s inserted in id order" % key)
 			last = int(key)
 
+## Snow Witch and Riche cast Banish every 15 s (Shade's #256 rule), with their v83 banMsg as the notice.
+func test_banish_bosses_follow_shades_interval_and_have_their_message() -> void:
+	var stage := _stage()
+	var mobs: Dictionary = DataRepo.load_all().mobs.mobs
+	for i in 2:
+		var boss: Dictionary = stage.maps[i].boss
+		assert_eq(int(boss.get("skill_intervals", {}).get("129", 0)), 15, "boss %d Banish every 15 s" % int(boss.mob_id))
+		assert_ne(String(mobs[str(int(boss.mob_id))].get("banish_message", "")), "", "boss %d banish message" % int(boss.mob_id))
+
 
 func test_rosters_and_boss_skills_on_the_real_cache() -> void:
 	if not require_cache():

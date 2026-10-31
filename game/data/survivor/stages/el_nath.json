@@ -28,6 +28,8 @@
 				"mob_id": 6090001,
 				"hp_mult": 48.548,
 				"dmg_mult": 1.17,
+				"skill_intervals": {"129": 15},
+				"_skill_intervals": "tier C: Banish 129 every 15 s instead of the WZ 3 s, Shade's #256 rule (as Scholar Ghost)",
 				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 300 (E_sw 10.80, level 25.80); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact damage matched the same way on PAD (Snow Witch has no attack stance, so there is no attack_dmg_mult and no cadence: contact and Banish only)"
 			}
 		},
@@ -40,6 +42,8 @@
 				"mob_id": 6090000,
 				"hp_mult": 8.714,
 				"dmg_mult": 0.843,
+				"skill_intervals": {"129": 15},
+				"_skill_intervals": "tier C: Banish 129 every 15 s instead of the WZ 3 s, Shade's #256 rule (as Scholar Ghost)",
 				"attacks": [
 					"attack1"
 				],
