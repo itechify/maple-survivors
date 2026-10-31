@@ -645,6 +645,7 @@ older records below, in the smoke and in the job-loop tickets mean the first fou
 | `ludibrium` (step 6, #463) | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) | Rombot / Alishar / Timer |
 | `omega_sector` | Kulan Field I (221040000) | Boswell Field II (221030200) | Boswell Field V (221030500) | Chief Gray / MT-09 / Zeno |
 | `korean_folk_town` (step 8, #465) | Korean Folk Town - Entrance to Black Mountain (222010000, 2520 px) | Tiger Ridge (222010200, 2520 px) | Fox Ridge (222010300, 3240 px) | Scholar Ghost / Blue King Goblin / Nine-Tailed Fox |
+| `el_nath` (step 10, #467) | Watch Out for Icy Path I (211010000, 3050 px) | Forest of Dead Trees I (211041100, 4310 px) | The Cave of Trial II (211042100, 4290 px) | Snow Witch / Riche / Snowman |
 | `magatia` (step 11, #468) | Sunset Road - The Desert of Red Sand (260020300, 2430 px) | Alcadno Research Institute - Lab - Area C-2 (261020400, 2410 px) | Zenumist Research Institute - Lab - Unit 201 (261010101, 2196 px) | Deo / Homunscullo / Chimera |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
@@ -860,7 +861,7 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ### Magatia (C6) regression smoke and diagnostic round (#468, 2026-10-30)
 
-Spec #447 branch with the Magatia region (step 11 once Mu Lung and El Nath land), private cache, F/P (212), seeds 1/2/2026,
+Spec #447 branch with the Magatia region (step 11 once Mu Lung lands; after El Nath at step 10), private cache, F/P (212), seeds 1/2/2026,
 `JOBS=2`, no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with
 `fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 /
 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 /
@@ -8916,7 +8917,7 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 
 | Rule | Value / source | Tier |
 |---|---|---|
-| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood, ludibrium, omega_sector (v83 levelling order; owner request 2026-10-30) | C |
+| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood, ludibrium, omega_sector, el_nath (v83 levelling order; owner request 2026-10-30) | C |
 | Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]). Steps 6-16, set by their region tickets (#449), are [35, 45], [40, 50], [45, 55], [50, 60], [55, 65], [60, 70], [70, 80], [80, 90], [90, 100], [100, 110] and **[108, 120]** for step 16 (#447 said [110, 120]; widened by #474, see "Equipment for the late bands" in 8.3) | C |
 | Late-band equipment (#474) | `equipment_drops/*.json` hold every ordinary v83 weapon of a listed family and one armour piece per slot, reqLevel and gender up to Lv120; chosen from Character.wz facts (not cash, `only`, `notSale`, `quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`; price above 1; a String.wz name; not a `GMS ...` item). No Cosmic drop data was available to this ticket, so unlike the Lv0-70 lists it is not B-checked against server drops | C |
 | NX clear bonus | `balance.nx_award.clear_bonus` by progression step: 100, 100, 100, 100, 250, the last repeating (the old amounts moved from tiers to steps) | C |
@@ -8959,6 +8960,54 @@ Regression smoke after the Ludibrium merge (F/P 212, private cache, `JOBS=1`, se
 death-only seconds 417.30 / 644.10 / 646.70, identical to the table above; the other stages were not rerun, since
 the stage files, the sim and the pools of the first five regions are untouched (`test_stage_files` compares them byte
 for byte) and the full suite passes (3754 tests, 0 failed, 0 skipped, real cache).
+
+### El Nath (C5) constants (spec #449 C5, #467; tier C unless marked)
+
+Progression step 10 (`stages/el_nath.json`, `asset_manifest.d/region_el_nath.json`). Region and continent labels, the map
+list and the rosters are tier A (v83 Map.wz, Mob.wz, String.wz); the rest is ours, a first draft that no ticket here tunes
+(C13 does). Korean Folk Town and Mu Lung (steps 8 and 9) land in parallel; `progression` lists El Nath after Omega Sector
+until they merge.
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Labels | `region` "El Nath", `continent` "Ossyria" (String.wz group `ossyria`) | A / C |
+| Maps | 211010000 Watch Out for Icy Path I (3050 px), 211041100 Forest of Dead Trees I (4310 px), 211042100 The Cave of Trial II (4290 px, 6 levels, 12 ropes); #270's picks. Snowman's own Valley of Snowman (211040101) is 991 px, so it fights in The Cave of Trial II. The arena check (a god-mode bot ran all three, `missing: []`) found nothing to swap, so the decHP-free alternates 211042000 and 211042200 stayed unused | A / C |
+| Bosses | Snow Witch 6090001 / Riche 6090000 / Snowman 8220001, one 300 s after each map entry. Snow Witch has no attack stance (contact and Banish 129/4 only), so it lists no `attacks`. Snow Witch and Riche cast Banish every 15 s (`skill_intervals` 129: 15, Shade's #256 rule; the WZ interval is 3 s) with their v83 banMsg as the notice, cadence or `attack_dmg_mult`, like Iron Hook; Riche `attacks` ["attack1"] (magic, type 0) with Banish 129/1 and Heal 114/12; Snowman ["attack1"] (a ball) with Summon 200/77 (Jr. Yeti, interval 10 s, hp <= 70 %, limit 30, `summonEffect` 1), Stun 123/8 (B1) and the ice poison mist 131/7 (B4, `elemAttr` I); `attack_interval` 8. All their skills are supported (the region test resolves each) | A / C |
+| Pools | map 1 `curve`: Jr. Yeti 5100000 alone at 0 s, Jr. Yeti 11 : Hector 5130104 1 from 120 s (the v83 life ratio 23 : 2, rounded), none later (map 1 reads only the keyframes under 300 s); maps 2/3 `pool_from_life` with `exclude` [6090001, 6090000] (the timed native bosses, mobTime 3600 s; Snow Witch is on map 1, Riche on map 2, map 3 holds none): Coolie Zombie 5130107 x26, and Cerebes 7130001 x13 / Jr. Cerebes 4230108 x7 | C |
+| Curve | Sleepywood's keyframes, bursts, elites, `exp_mult`, `hard_cap` copied exactly (Sleepywood has no `post_duration_slope`); no `opening_ramp` | C |
+| `drop_band` | [55, 65] (spec #447 table) | C |
+| `level_scale` | `level_scale_draft.gd --step=10`: E_sw 9.15 / 9.73 / 10.80 / 22.22 / 36.44 / 48.23 / 56.85 at t 0 / 120 / 300 / 480 / 600 / 780 / 900; `level` = E_sw + 15, `exp_level` = E_sw (the highest level, 71.85, is below the tool's 131 warning) | C |
+| Boss multipliers | Snow Witch `hp_mult` 48.548, `dmg_mult` 1.17; Riche 8.714, 0.843, `attack_dmg_mult` 0.791 (matched on MAD, the attack is magic); Snowman 4.701, 1.462, `attack_dmg_mult` 1.966 (the draft tool's output, `_tier` notes on each boss). Snow Witch's HP multiplier is large because Sleepywood's first boss arrives under a 0.035 opening ramp and the canonical Snow Witch is a 7700 HP Lv64 boss | C |
+| EXP items | Jr. Yeti 4000048 Jr. Yeti Skin, Hector 4000051 Hector Tail, Coolie Zombie 4000082 Zombie's Lost Gold Tooth, Jr. Cerebes 4000078 Jr. Cerebes Tooth, Cerebes 4000079 Cerebes Tooth, Riche 4000069 Zombie's Lost Tooth, Snow Witch 4031311 Snow Crystal, Snowman 4001141 Snowman Branch: item ids and names are v83 (tier A), the mob association is a signature pickup, not a drop-table claim (tier C; Riche, Snow Witch and Snowman have no v83 drop data here) | A / C |
+| Mesos | no v83 server drop data is used: the three bosses roll `balance.mesos.fallback` by level; the ordinary mobs take Ludibrium's neighbour method (the centre interpolated between the neighbours' centres by level, range +-20%): Jr. Cerebes Lv43 [130, 194] (between the Lv40 mean 125 and the Lv50 Drake 250), Jr. Yeti Lv50 [200, 300] (the Drake's), Hector Lv55 [244, 366] (Malady 305), Coolie Zombie Lv57 [262, 392] (Malady 305 to the Lv64 Ice Drake 405), Cerebes Lv72 [363, 545] (Tauromacis 420 to Taurospear 504) | C |
+| Boss `boss_ui` | Riche's MobGage icon is canonical (standard colours supplied, as King Slime); Snow Witch has no icon or colours in v83 and borrows Riche's (the same region); Snowman has both | A / C |
+| Field flags ignored | `decHP` 10 (cold damage) and `fs` 0.2 (ice friction) on Icy Path I and Forest of Dead Trees I are not read (tier C, as OctoPirate's limiter in #264): the characters take no cold damage and movement is unchanged. The Cave of Trial II carries neither (only `fieldLimit` 64, a teleport-item limit, not read either) | C |
+| Timed native bosses | Snow Witch (211010000) and Riche (211041100) are timed life entries (mobTime 3600 s): never in a pool, and not in `original_life`; they are the scheduled bosses of maps 1 and 2 instead. They are the only timed entries on the three maps (the region test pins this on the real cache) | A / C |
+
+Diagnostic round (invulnerable bot with `RunWorld.god` from a throwaway launcher that wraps `main.tscn`, the C12
+`late_progression.json` Hero, seed 1, x8): CLEARED at 965.05 s, map entries at 0 / 340.1 / 653.5 s, all three bosses
+killed (Snow Witch at 340 s, Riche at 653 s, Snowman at 965 s, so 40 s, 13 s and 11.5 s fights), Lv52, `missing: []`,
+max 351 alive. Checked by eye: Icy Path I (a snowy cliff with a stone watermill house and a ladder; Jr. Yeti puffs
+swarm the ledge), Forest of Dead Trees I (a red dusk sky over dark pines, a notice board, dead trunks and a rope; a
+dense Coolie Zombie swarm hides Riche's sprite, but its bar shows) and The Cave of Trial II (a lava cavern with
+hanging chains over a lava floor; Cerebes and Jr. Cerebes crowd the ledges, the character climbs the ropes). Snow
+Witch's arrival (a chained ice figure at the left edge) and its Banish (a rune circle on the character, who is moved)
+were captured, as was Riche's Banish during its fight; the Cave's Snowman is lost in the crowd of 329. A second
+throwaway run with Snowman forced as map 1's boss (5 s after entry, 5000 x HP) showed its Stun (stars over the
+character's head), the ice mist (a pale blue haze at the edge of the view; the first capture shows only part of it)
+and its Jr. Yeti summons. A god-mode run could not show what a hit would do: a Stun or mist poison tick, the loss of
+HP from Snowman's ball attack or Riche's magic hit, and Riche's heal (114/12 casts below 70 % HP, which the fixture
+kills it too quickly to reach). Those are covered by the sim tests of B1 (Stun), B4 (mist) and the boss-kit tests.
+Screenshots stay out of the repo.
+
+Full suite on the branch (private cache, real data): 3760 tests, 0 skipped, 1 failed before the fix below, 0 after: `test_late_equipment_bands` indexed the band table by position in `progression`, so El Nath (canonical step 10) read step 8's band while Korean Folk Town and Mu Lung are still missing from this branch; it now looks the step up by the region's key in the #449 table.
+
+Regression smoke with El Nath (F/P 212, private cache, `JOBS=1`, seeds 1/2/2026, no tuning, no held-out seeds): **every
+batch matches #455's table above to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0; Ellinia
+bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 / 466.1;
+Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, with
+`fp_arch_mage.json` one clear and deaths at 23.8 / 767.0), no crashes and no world warnings. El Nath itself is not in the
+smoke (calibration is C13).
 
 ### Map select progression list (spec #447, #451; tier C)
 

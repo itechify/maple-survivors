@@ -31,7 +31,7 @@ func before_each() -> void:
 func test_the_stage_follows_korean_folk_town_in_the_progression() -> void:
 	var progression: Array = data.stages.progression
 	assert_true(progression.has(KEY), "listed in the progression")
-	assert_true(progression.find(KEY) > progression.find("korean_folk_town"), "after Korean Folk Town; step 11 once Mu Lung and El Nath sit between")
+	assert_true(progression.find(KEY) > progression.find("korean_folk_town"), "after El Nath; step 11 once Mu Lung sits between")
 	assert_eq(String(stage.get("region", "")), "Magatia")
 	assert_eq(String(stage.get("continent", "")), "Ossyria", "String.wz group ossyria")
 	assert_eq(stage.get("drop_band"), [60.0, 70.0], "#447's drop band")
