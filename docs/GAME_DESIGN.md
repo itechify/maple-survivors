@@ -855,6 +855,30 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+### Ludibrium (C1) regression smoke and diagnostic round (#463, 2026-10-30)
+
+Spec #447 branch with the Ludibrium region (step 6), private cache, F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no
+held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with `fp_arch_mage.json`:
+**every batch matches #455's table above to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0;
+Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 /
+466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one clear
+and deaths at 23.8 / 767.0), no crashes and no world warnings. Ludibrium itself is not in the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=ludibrium --job=112 --character=late_progression.json`, seed 1, god mode (`RunWorld.god`) with the
+bot, one lethal diagnostic hit after 30 s of each boss fight (bosses held at 100% / 70% / 45% HP meanwhile so their kits
+show): **CLEARED, 3 bosses, Lv64, 909.98 s, `missing: []`**. Map entries at 0 / 330 / 660 s. Checked by eye: Sky Terrace
+(green toy-block castle, Roloduck and Panda Teddy swarm the floor), Zone 4 (blue toy factory, Robo and Panda Teddy), Zone 1
+(conveyors, Master Robo lines; the arrival portal sits on the left ledge and the bot climbs down); the three boss bars
+(Rombot's borrowed icon, Alishar's, Timer's); Rombot, Alishar (winding up its attack1 at the left edge, Darkness
+darkening the screen) and Timer (the owl; "Timer recovered 5000 HP" from its heal 114) each fought for 30 s. Stun 123
+and Timer's immunities were not seen: under god mode no hit lands on the character, so the status art needs
+the status tickets' own evidence. With the late fixture (Lv100-band gear at Lv1) the draft bosses die almost at once when
+not held: the first draft is a starting point for C13, not a balance claim.
+
+**Alishar's Skill1 sound.** v83 `Sound.wz/Mob.img/9300012` has Attack1, Damage, Die and CharDam1 but no Skill1, so the cast
+of its Darkness reported `Sound.wz/Mob.img/9300012/Skill1` missing. A skill sound v83 does not have is now silent like
+an absent attack sound (`attack_sound_absent_in_v83`, tier A, #463); an absent whole Mob.img entry still reports.
+
 ### Progression QA and merge-readiness smoke (#455, A6, 2026-10-30)
 
 Spec #447 branch with A1-A5 and B1-B5 merged, shared read-only cache `MapleSurvivors-spec447c`, F/P (212), training
