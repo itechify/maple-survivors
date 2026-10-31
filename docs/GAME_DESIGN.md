@@ -20,8 +20,8 @@ Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in
 | Area | Target | Replaces |
 |---|---|---|
 | Character | One 4th job, chosen at creation (twelve v83 4th jobs; Beginner not playable). Name, look, slot as today. | 1, 9 |
-| Round | Standalone: Free Market -> map select (the character's unlocked tiers) -> 3 maps, 3 bosses (spec #241, unchanged) -> Free Market. Death ends only the round, and loot is kept. | 1 |
-| Tiers | Clearing any stage of tier N unlocks tier N+1 for that character. Cleared tiers can be replayed. The slice keeps the two existing tiers. | 1, 4.1 |
+| Round | Standalone: Free Market -> map select (the character's unlocked regions) -> 3 maps, 3 bosses (spec #241, unchanged) -> Free Market. Death ends only the round, and loot is kept. | 1 |
+| Progression | One ordered list of regions (`stages.json` `progression`, ADR 0007). A new character has only the first (Henesys) open; clearing a region unlocks the next. The character stores the set of cleared regions; cleared regions can be replayed. | 1, 4.1 |
 | Level | Lv1 every round. First-pass EXP curve for picks ≈ levels + boss draws (about 50–60 per round), all 6 actives by about 5:00, end level about 45-55 (tier C). | 5 |
 | Skills | Job skill pool (lineage actives, all auto-cast; summons are timed allies in a slot; no buffs). Starting skill in slot 1. 6 active + 6 passive skill slots. | 7, 9 |
 | Ranks | Actives 1-8, mapped to WZ levels by a survivor table. +1 rank per card, plus a rarity bonus (Fortune applies). Mastery cards after rank 8. | 7, 8 |
@@ -29,10 +29,11 @@ Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in
 | Cards | 3 per draw, weights 1.2 owned active or Mastery / 1.0 new active / 0.8 passive rank / 0.5 new passive. Boss bonus draw kept. No reroll, banish or skip. Power Elixir fallback. | 8 |
 | Combat | Maple formula plus auto-AP in one stat row per job. No MP (cooldowns only). No level-gap penalties. No MISS (ADR 0005). | 5, 6, 7 |
 | Mobility | Teleport, Flash Jump, Dash or Rush on a skill key from Lv1, outside the slots; Bowmaster has none (D1). | 2, 7.15, 7.33 |
-| Equipment | Job-class requirement only. `reqLevel` is the tier's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
+| Equipment | Job-class requirement only. `reqLevel` is the region's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
 | Account | NX, Cash Shop, pets unchanged. Cash equipment adds Fortune. | 8.4 |
 
-Order: the F/P Arch Mage slice, then Hero, then the other ten jobs, a tier rework (fewer starting choices), and last
+Order: the F/P Arch Mage slice, then Hero, then the other ten jobs, the progression rework (spec #447, ADR 0007: this was
+the tier rework, fewer starting choices, and one region open at the start), and last
 the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pass pacing (tier C) but don't tune.
 
 **Landed in the F/P slice (spec #282):**
@@ -53,15 +54,16 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   `1 - 0.01 x gap` term; the other paths never had one). No attack misses (ADR 0005).
 - **#286 (T4): save format 3 and the standalone round loop.** A character is saved as `{name, created, rounds_played,
   character}` and keeps only its job, look, worn equipment and inventory, scrolls, mesos, cash, pet and
-  `tiers_unlocked` (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
+  `tiers_unlocked`, since #450 the set `cleared_regions` (ADR 0007) (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
   every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
   Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
   jobs (Hero 112, Dark Knight 132, Bishop 232, Paladin 122 and Arch Mages 212/222), whose `creation_weapon` is the weapon worn; the look page's weapon row is no longer chosen.
-  Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
-  tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
+  Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every region of the
+  progression (a locked region greyed, not startable; ADR 0007 replaced the two tiers); `start_round` writes nothing; every round ends in `finish_run` (one
   `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
-  the hub. Clearing any stage of tier N unlocks tier N+1 for that character (`CharacterSnapshot.unlocked_after_round`);
-  tier 1 is always open; cleared tiers can be replayed. There is no permadeath: death ends the round, never the
+  the hub. Clearing a region (its map 3 boss dead, CLEARED) unlocks the next one for that character
+  (`CharacterSnapshot.cleared_after_round`, ADR 0007; ADR 0006's "clearing any stage of tier N unlocks tier N+1" is superseded);
+  Henesys is always open; cleared regions can be replayed. There is no permadeath: death ends the round, never the
   character, and only deletion frees a slot. Quit round is a death in every respect (its history ending is `quit`).
   A format-1 or format-2 save moves its characters to the history (`retired`) on load, unmigrated; bests, counts, the
   account and old history carry over. Tool files (`--character`, `--hub`, fixtures) of format 1 and 2 still load, reduced
@@ -75,11 +77,12 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
 - **#289 (T7): the nine common passives** (section 8.5).
 - **#290 and #291 (T8, T9): the twelve-skill F/P pool.** Explosion, Poison Mist, Element Composition, Fire Demon, Paralyze,
   Meteor Shower, Big Bang (7.31) and the generic player-summon seam with Elquines (7.32).
-- **#292 (T10): equipment without level or stat requirements, tier drop bands, job weapon families.**
+- **#292 (T10): equipment without level or stat requirements, drop bands, job weapon families.**
   `Equipment.requirement_error` checks only `reqJob`; `reqLevel` and `reqSTR/DEX/INT/LUK` are ignored by equipping, the
   pickup auto-wear (#222) and the bot shop, and the Equip/Item tooltip has no REQ rows (its job row stays).
-  `stages.json` `drop_bands[i]` is the `reqLevel` band of tier i ([0, 30], [30, 60]); `RunWorld.drop_band()` gives the
-  band of the current stage's tier and `EquipmentDrops` picks inside it (uniform for ordinary drops, the top third
+  `stages.json` `drop_bands[i]` was the `reqLevel` band of tier i ([0, 30], [30, 60]); since #450 each stage carries its
+  own `drop_band` (ADR 0007, "Region progression" in Constants and provenance). `RunWorld.drop_band()` gives the
+  current stage's band and `EquipmentDrops` picks inside it (uniform for ordinary drops, the top third
   `boss_floor` for bosses, `equipment_drops.boss_top_parts` 3). The character's level and the held weapon no longer
   matter. `survivor/jobs/<line>.json` lists each job's `weapon_families` (`JobTree.weapon_families`; 212: wand, staff); a
   weapon drops only from them, armour and shields by job class alone. Mesos, worn equipment, the Equip tab and scrolls
@@ -90,6 +93,19 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   contact/`attackN` damage (at impact) from a start to an end value over round time, so a Lv1 character can play every
   tier: tier 1 is neutral (1 -> 1), Sleepywood opens at HP 0.3 / damage 0.4 on map 1 and 0.02 / 0.08 on maps 2 and 3,
   all reaching 1 at 20:00. Bosses capture the ramp at their arrival. WZ stats are never edited.
+- **#450 (A1, ADR 0007): the progression replaces the tiers.** `stages.json` `progression` (Henesys, Ellinia, Perion,
+  Kerning City, Sleepywood) and a per-stage `drop_band` replace the root `tiers` and `drop_bands`; `nx_award.clear_bonus` is
+  indexed by the stage's step in the list. `CharacterSnapshot.cleared_regions` (sorted unique stage keys) replaces
+  `tiers_unlocked`: a region is unlocked when it is the first or its predecessor is cleared (`unlocked_keys`), a CLEARED round
+  adds its stage (`cleared_after_round`, idempotent), and a death, a Quit round and a tool one-off round change nothing.
+  A stored `tiers_unlocked` >= 2 migrates to the first four regions cleared (Sleepywood stays reachable), anything else to
+  none (`CharacterSnapshot.migrate`, `with_cleared_regions`; `SaveData` converts stored slots on load). The snapshot format
+  stays 3 (the field is detected by key). Map select lists the progression with Lv ranges and locked / cleared / frontier marks (#451).
+- **#452 (A3, spec #447 "Bosses"): no boss appears twice across the progression.** Ellinia now schedules Prime Minister
+  (3300008, The Tree That Grew I), Grey Yeti and King Pepe (3300005, The Forest of Wisdom) and Faust (5220002, The Forest
+  of Evil I); Perion's first map schedules King Clang (shell 5220001, `final_form` 5220000) instead of Mano, who stays in
+  Henesys, and keeps Stumpy and Iron Hook. A data test (`test_unique_bosses`) enforces uniqueness of every scheduled
+  `mob_id` and `final_form` and of their names. Henesys, Kerning City and Sleepywood data are unchanged.
 - **#294 (T12): QA and docs.** The `redesign` flow scenario (`flow_driver.tscn --scenario=redesign`), the retired
   scenarios and debug drivers removed, the one F/P fixture, the playtests and the regression smoke of 4.2, and the rewrites
   of sections 1, 5, 6.1.1, 7.5, 8 and 9 and of AGENTS.md.
@@ -205,9 +221,16 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
    windows, the four scroll NPCs (shops) and the Cash Shop button are here. Room entrances in01-in22 and Fredrick,
    Scrooge, Maple TV and Inkwell are drawn but inert. Up at the scripted `out00` portal opens **map select**; Esc offers
    Resume / Save & quit. The hub draws the character's look and worn equipment; moving never changes the save.
-3. **Map select** lists every stage of every unlocked tier: Henesys, Ellinia, Perion and Kerning City (tier 1, always
-   open) and Sleepywood (tier 2). A locked card is greyed, its details say "Locked. Clear any stage of Tier 1 to unlock
-   Tier 2." and Start does nothing. Each stage contains three ordered maps (4.1). Back returns to the Free Market.
+3. **Map select** lists the whole progression in order: Henesys, Ellinia, Perion, Kerning City and Sleepywood. Only
+   Henesys is open to a new character, and clearing a region opens the next. Each row shows the map mark, the region
+   name, "Lv lo-hi" (the lowest and highest canonical level of the region's ordinary pool monsters over its three maps;
+   bosses, final forms, summons and revives excluded; omitted when the cache lacks the mob info) and a state mark: CLEAR
+   (cleared), a lock with the greyed look (locked), or NEW (the frontier: the first unlocked, uncleared region). The header
+   reads "Regions cleared N/M". The details say "Locked. Defeat <boss> in <previous region> to unlock." (the String.wz name
+   of the previous region's map 3 boss, its final form when it has one) and Start stays disabled and does nothing, by
+   keyboard and mouse. Six rows show at once; the list scrolls by keys, wheel and arrows and opens on the frontier (the last
+   region when all are cleared). Start sits under the details column. Each stage contains three ordered maps (4.1). Back
+   returns to the Free Market.
 4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt for F/P, Cold Beam for I/L, Power Strike for Hero,
    active slot 1) and its mobility skill (Teleport or Rush) on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
 5. **Survive** the growing swarms. Each map's boss arrives 300 seconds after entering it. Defeat it, collect all
@@ -223,9 +246,9 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
    the time, level, job, kills, damage dealt, NX earned, the owned skills and the stage's best; Back returns to the Free Market.
 
 **What persists** is exactly `CharacterSnapshot` (section 0, #286): job, look, worn equipment, the Equip tab, scrolls,
-mesos, cash items, the pet and `tiers_unlocked`. Level, EXP, skills, ranks, card modifiers, AP and HP are round state
+mesos, cash items, the pet and `cleared_regions`. Level, EXP, skills, ranks, card modifiers, AP and HP are round state
 and never saved. What a round picked up (mesos, equipment, scrolls bought earlier) is kept whether it ended in a clear, a
-death or Quit round; the unlock of tier N+1 needs a clear of a tier-N stage and is never taken back. There is no saved
+death or Quit round; the unlock of the next region needs a clear of its predecessor and is never taken back. There is no saved
 round and no resume: closing the game mid-round loses it (its loot too), and Continue only opens the hub. Saves happen in
 the hub (Save & quit, an inventory action) and when a round ends (one write: character, the stage's best, the run count,
 NX and one history entry). Map transfers never save. Only confirmed deletion frees a slot; every round and each deletion
@@ -545,11 +568,93 @@ HP 0.1425 / damage 0.195; at 1,200 s all scales reach 1, on top of existing stag
 allows a typical three-map round to end before the full ramp; longer rounds reach full strength at 20:00.
 Paired kit/starter measurements are recorded below. All ramp choices are tier C first-pass tuning.
 
+#### Level scale (#453, spec #447; mechanism only)
+
+A stage may declare `level_scale` instead of an `opening_ramp`: it rescales each monster's strength from its own v83
+level L to an **effective level** E that rises along the round, so a Lv1-55 character can face a Lv40-160 roster whose
+canonical stats are out of reach. No shipped stage uses it yet; #449 sets the numbers for the new regions, and Henesys,
+Ellinia, Perion, Kerning and Sleepywood stay byte-identical (`test_level_scale` runs a seeded run with and without the
+block and compares the event logs).
+
+- **Reference curves.** `game/data/survivor/level_curve.json` holds `hp`, `pad`, `mad`, `pdd`, `mdd` and `exp` for levels
+  1-200 (index = level - 1): the median of the v83 ordinary monsters of that level. Ordinary means a mainline field
+  monster (Mob.wz id below 9,000,000, which leaves out the party-quest, carnival, event, trial, GM and later-client
+  content of docs/research/v83-bosses.md "Excluded"), not `boss=1`, not an `info/link` mob without stances, not a Balrog
+  variant or a Zakum, Horntail or Pink Bean body, and with HP at most 5x its level's median. A zero stat is skipped for
+  that stat (monsters below Lv30 have no magic attack, so `mad` has no sample there and holds its first value). Levels
+  without samples interpolate log-linearly, and the span outside the sampled levels (Lv1-131) holds its end value. The
+  result is made non-decreasing by weighted isotonic regression, so one tough singleton does not lift every level above
+  it, and lightly smoothed (1-2-1 over neighbouring levels, in log space). The file's `_doc` records the method, the
+  date and the sample counts: 1564 Mob.wz imgs, 329 ordinary samples on 106 levels (461 bosses, 282 link copies without
+  stances, 488 ids outside the mainline range and 4 HP outliers left out). `tools/level_curve/` regenerates it from the
+  owner's v83 folder (`bash tools/level_curve/run.sh "<folder>" 2026-10-30`, byte-reproducible); the numbers are facts,
+  not assets.
+- **Stage block.** `level_scale: {"keyframes": [{"t": <curve seconds>, "level": E, "exp_level": X}, ...]}`. `t` is
+  `RunWorld.curve_time()` (`map_index * map_seconds + time since entry`, the pacing clock, so a slow boss kill never
+  delays the next map's level). E and X interpolate linearly between keyframes, hold before the first and after the
+  last, and `exp_level` defaults to `level`. Data validation rejects a stage that has both `level_scale` and
+  `opening_ramp`, or a map-level `opening_ramp` in a level-scale stage, and a malformed block (keyframes empty, `t` not
+  rising from 0 up, a level outside 1-200). A block that slips past validation (or a missing curve) makes the world warn
+  and run unscaled.
+- **Effect.** For a monster of canonical level L (its `info/level`) at curve time t:
+
+  | Stat | Multiplier | Captured |
+  |---|---|---|
+  | HP | `hp(E)/hp(L)` | at spawn |
+  | PDD, MDD | `pdd(E)/pdd(L)`, `mdd(E)/mdd(L)`, on the live defence `CombatMath` uses (after skill bonuses and Threaten) | at spawn |
+  | EXP (ordinary, elite and boss reward) | `exp(X)/exp(L)` | at spawn |
+  | contact and physical attack damage | `pad(E)/pad(L)` | at impact (ordinary); at arrival (scheduled boss) |
+  | magic attack damage | `mad(E)/mad(L)` | at impact (ordinary); at arrival (scheduled boss) |
+
+  A curve value of 0 at L gives ratio 1, a fractional E interpolates the curve linearly, and E = L is exactly 1 (no
+  rounding). It stacks with keyframe `hp`, elites, boss `hp_mult`, `dmg_mult` and `attack_dmg_mult`; potions are unchanged.
+  Scheduled bosses spawn at their arrival, so their HP, defence and EXP come from that moment and their damage ratios
+  (`pad` and `mad` both) freeze there, projectiles included. Summons and revives are ordinary monsters at their own
+  spawn time. Relocating a monster keeps its multipliers.
+- **Boss damage freeze.** A scheduled boss's pad and mad ratios are keyed by its schedule index, so two bosses of one
+  id never share a freeze; every boss hit source (touch, attacks, balls) carries `boss_index`. A final form that continues
+  the encounter (#456) calls `RunWorld.capture_boss_level_scale(boss_index, its_mob_id, record)` at its own spawn and
+  replaces the freeze with its own level and time; `level_scale_at` keeps the first arrival.
+- **Known limits.**
+  - The curve holds its Lv131 values above Lv131 (v83 has no stronger ordinary monster), so the effective levels #449
+    sets should stay at or below about 131; above that a stage gains no strength from a higher E.
+  - Lv108-131 rest on 0-1 samples per level (see `_doc.samples.per_level`), so the tail is coarse; the monotone fit and
+    smoothing carry it between the few sampled levels.
+  - `mad` holds 117.8 below Lv30: no mainline monster under Lv30 has a magic attack, so the curve has no earlier sample.
+  - Level-scale stages run a per-tick loop over the live slots in `RunWorld._fill_live_defense` to apply the captured
+    PDD/MDD multipliers. Check its cost in the first perf capture of a level-scale stage (`scripts/playtest.sh
+    --vsync=off`, `sim_us_per_tick`); stages without the block skip it.
+- **First draft of a region's numbers (spec #449 C0, #462; tier C).** `game/tools/level_scale_draft.gd --step=<k>
+  --stage=<key>` prints (the bosses read from `stages/<key>.json`; Sleepywood is the default `--reference`) the
+  `level_scale` keyframes and boss multipliers a new region starts from; the formulas are pure static functions
+  (`test_level_scale_draft`). With E_sw(t) = Sleepywood's effective level at its keyframe curve times t, region step k
+  (`progression` position, 1-based, Sleepywood = 5) gets `level(t) = E_sw(t) + 3·(k − 5)` and `exp_level(t) = E_sw(t)`
+  (levels rounded to 0.01). E_sw(t) is the level whose `hp` reference value equals the weighted mean canonical HP of the
+  live ordinary pool at t times the stage's opening-ramp HP multiplier at nominal round time t (the keyframe `hp` multiplier
+  is left out, since a region copies Sleepywood's keyframes and applies it again). The live pool is the map being entered at
+  a boundary (t = 300 is map 2's first moment, t = 600 map 3's); on map 1 the last keyframe pool below `map_seconds`, on a later
+  map `StagePools.resolve`. A boss arriving at `t_j = j·map_seconds + time` is carried from the Sleepywood boss of the same slot:
+  its effective HP, contact damage and strongest scheduled attack at t_j (canonical × multiplier × the ramp at t_j, as
+  `BossDirector` and `spawn_mob` capture them) are scaled by `hp(level)/hp(E_sw)` and `pad(level)/pad(E_sw)` (`mad` for a magic
+  attack), and `hp_mult`, `dmg_mult`, `attack_dmg_mult` are what make the new boss's own level-scaled value equal that target
+  (the offset cancels, so the multipliers do not depend on it). Both sides read only their scheduled `attacks` (the entry's
+  list; every `attackN` stance when it names none), and `attack_dmg_mult` is matched on the strongest of them alone. A boss
+  with a `final_form` splits the target HP by `--final-share` (0.5): its `hp_mult` covers the rest and `final_form_hp_mult`
+  the form's share. The form is matched at the shell's nominal arrival level, but at runtime it spawns when the shell dies,
+  later and at a higher level, so its HP lands above the target by `hp(level_later)/hp(level_arrival)` (no model change). `attack_interval` is 8. The
+  tool warns when a keyframe `level` (or `exp_level`) is above 131, where the reference curves go flat (#453 review): the offset
+  of 3 reaches only E_sw + 33 at step 16, but a later offset change in C13 would cross it.
+- **Determinism and telemetry.** No RNG is drawn. A balance record of a level-scale stage gains `level_scale_at`
+  (`[{boss_index, mob_id, level}]`, the effective level at each boss arrival) and each `boss_fights` entry its own
+  `level_scale_at`; other stages' records keep their bytes.
+
 
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
 labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
-aliases; living slots, bests, history and run snapshots migrate on load. The tier list is
-`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253).
+aliases; living slots, bests, history and run snapshots migrate on load. The unlock order is the `progression` list
+(henesys, ellinia, perion, kerning, sleepywood; ADR 0007, #450). The former tier list was
+`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253); "tier 1 stages" in
+older records below, in the smoke and in the job-loop tickets mean the first four regions.
 
 | Stage key | Map 1 | Map 2 | Map 3 | Boss order |
 |---|---|---|---|---|
@@ -558,10 +663,14 @@ aliases; living slots, bests, history and run snapshots migrate on load. The tie
 | `perion` | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) | Mano / Stumpy / Iron Hook |
 | `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
+| `ludibrium` (step 6, #463) | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) | Rombot / Alishar / Timer |
+| `omega_sector` | Kulan Field I (221040000) | Boswell Field II (221030200) | Boswell Field V (221030500) | Chief Gray / MT-09 / Zeno |
+| `korean_folk_town` (step 8, #465) | Korean Folk Town - Entrance to Black Mountain (222010000, 2520 px) | Tiger Ridge (222010200, 2520 px) | Fox Ridge (222010300, 3240 px) | Scholar Ghost / Blue King Goblin / Nine-Tailed Fox |
+| `el_nath` (step 10, #467) | Watch Out for Icy Path I (211010000, 3050 px) | Forest of Dead Trees I (211041100, 4310 px) | The Cave of Trial II (211042100, 4290 px) | Snow Witch / Riche / Snowman |
+| `magatia` (step 11, #468) | Sunset Road - The Desert of Red Sand (260020300, 2430 px) | Alcadno Research Institute - Lab - Area C-2 (261020400, 2410 px) | Zenumist Research Institute - Lab - Unit 201 (261010101, 2196 px) | Deo / Homunscullo / Chimera |
 
-All are on Victoria Island. Map select lists each region's three maps and bosses in `tiers` order; its objective is
-"Defeat 3 bosses across 3 maps". Four cards per tier is the most the parchment fits above the Start button
-(`stage_select.gd` `MAX_CARDS`); a fifth region would need a scrolling list. Results show the region and ending map. The opening title shows continent above region; transfer
+All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
+"Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
 arrivals show the destination's v83 street and map name. Summaries retain region/continent and the ending WZ names.
 
 Round time includes all combat on every map. The pacing clock is `curve_time = (N - 1) * 300 + time_on_map` for
@@ -604,7 +713,7 @@ no observation. Camper policies park only on their own first map; later maps use
 records change with this map progression. The regression smoke belongs to #249; #248 only checks seed 1 Henesys
 for the new record fields and uses diagnostic flow evidence, without tuning.
 
-Sleepywood's first map is Dark Cave (105050400, Dungeon), in tier 2.
+Sleepywood's first map is Dark Cave (105050400, Dungeon); Sleepywood is the fifth region of the progression.
 Its first-pass data targets an arriving Lv35–43 second-job character and is frozen before the report-only smoke;
 the 30–40% clear / Lv60–69 targets are deferred to #77. Canonical mob HP, defence, EXP, levels and elements remain
 unchanged in the cache. Stage EXP is 1x; no new per-mob stat multipliers are applied. Tauromacis and Taurospear use
@@ -770,6 +879,188 @@ No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening mu
 Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
+
+### Magatia (C6) regression smoke and diagnostic round (#468, 2026-10-30)
+
+Spec #447 branch with the Magatia region (step 11 once Mu Lung lands; after El Nath at step 10), private cache, F/P (212), seeds 1/2/2026,
+`JOBS=2`, no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with
+`fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 /
+489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 /
+449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one
+clear and deaths at 23.8 / 767.0), no crashes and no world warnings. Magatia itself is not in the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=magatia --job=112 --character=late_progression.json`, seed 1, windowed (x8 between bosses, x1 in the
+boss fights, vsync off), god mode (`RunWorld.god`) with the autoplay bot, each boss held at >= 50% HP for 40 s (Deo,
+Homunscullo) or >= 30% for 110 s (Chimera) so its kit shows, then one lethal diagnostic hit: **CLEARED, 3 bosses, Lv53,
+1090.1 s, `missing: []`, no warnings**. Map entries at 0 / 340.0 / 680.0 s. Arena check, by eye: all three first picks stay.
+The Desert of Red Sand (a sunset dune with a ruined arch, a floating sand ledge and a rope; Kiyo and the pointed-hat Sand
+Dwarf crowd the floor and the right ledge), Area C-2 (a grey-violet lab: one long floor, steel shelves and scaffolds; Roid and
+Neo Huroid robots fill the floor from both ends) and Unit 201 (a green lab, three ledges on ladders over one long floor; Homun
+and Saitie fill the floor, 351 mobs at the end) are wide and flat with ladders the bot uses: no shaft, no pit. Unit 201 at
+2196 px holds the late crowd (the final map's `max_alive` 351 of the 400 cap), so the 1954 px alternate 261010103, which is
+narrower, was not needed. The three boss bars show (Deo's and Chimera's own icons, Homunscullo's borrowed Zeno icon). Seen:
+all three arrival shots and notices, Deo's Defense Up 112 (the skull aura on the field) twice, Homunscullo's attack1 and
+attack2 wind-ups and shockwaves, Chimera's attack1 wind-up (the boss itself is hard to pick out under the fixture's damage numbers; its ball was not identified in a shot), Magic Attack Up 101 and 111, Magic Defence Up
+103, heal 114 ("Chimera recovered 1000 HP" and the burst on the boss), weapon immunity 140 and Summon 200 (it spawns nothing).
+**Not shown by a god-mode run:** Chimera's attack1 ball in flight, what a landed Chimera attack does to a character with the buffs up (god lands no
+hit, so nothing here is survival or balance evidence), and a Summon that spawns mobs: v83 Mob.wz holds no 9300167 or 9300168,
+the mobs Chimera's 200/88 names, so the cast is silent by construction. With the late fixture (Lv100-band gear at Lv1) the
+bosses die at once when not held (the 40 s / 110 s holds are why the round took 1090 s): the first draft is a starting point for
+C13, not a balance claim.
+
+### Korean Folk Town (C3) regression smoke and diagnostic round (#465, 2026-10-30)
+
+Spec #447 branch with the Korean Folk Town region (step 8 of the spec, after Omega Sector at step 7), private cache,
+F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood with
+the starter wand and with `fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 /
+646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 /
+651.8, random 331.5 / 449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 /
+11.9 / 15.1, kit one clear and deaths at 23.8 / 767.0), no crashes and no world warnings. Korean Folk Town itself is not in the
+smoke (calibration is C13).
+
+Diagnostic one-off, `--run=korean_folk_town --job=112 --character=late_progression.json`, seed 1, windowed at x4 (x1 in the
+boss fights), god mode (`RunWorld.god`) with the autoplay bot, each boss held at >= 50% HP for 45 s (Scholar Ghost, Blue King
+Goblin) or 80 s (the Fox) so its kit shows, then one lethal diagnostic hit: **CLEARED, 3 bosses, Lv58, 1060.5 s,
+`missing: []`, no warnings**. Map entries at 0 / 345.4 / 680.1 s. Arena check, by eye: all three first picks stay. Entrance to
+Black Mountain (full moon, Moon Bunnies on the floor and the stepped ledges), Tiger Ridge (a cliff with ledges and a pond;
+Hodori and Hogul tigers crowd the floor and the left ledges) and Fox Ridge (a wide stepped hillside; Samiho swarm the floor
+and every ledge) are wide, open and have ropes the bot climbs: no shaft, no pit it cannot leave. The three boss bars show
+(Scholar Ghost's borrowed Riche icon, Blue King Goblin's borrowed Zeno icon, the Fox's own). Seen: Scholar Ghost arriving
+on the right, its Banish (twice, 15 s apart; the notice "You have been relocated by the vengeful spirit of the Scholar Ghost."
+and the character on the ground elsewhere); Blue King Goblin's attack1 wind-up and shockwave; the Nine-Tailed Fox's attack1,
+Darkness 121 (the screen darkens and the character's eye aura shows, four casts), Weakness 122 (the blue circle over the
+character), Stun 123 (the pink stun effect over the character, the first-Stun shot `stun.png`) and heal 114 ("Nine-Tailed Fox recovered ... HP"
+and its heal burst on the fox). **Not shown by a god-mode run:** the damage and slowing side of a landed Weakness, a Stun that
+actually stops the character's input and what the draft multipliers do to a real character (god lands no hit, so nothing
+here is survival or balance evidence); the first-status hook saved only `stun.png` and `darkness.png`, so Weakness was seen only in the
+per-cast shot. With the late fixture (Lv100-band gear at Lv1) the bosses die at once when not held:
+the first draft is a starting point for C13, not a balance claim.
+
+### Ludibrium (C1) regression smoke and diagnostic round (#463, 2026-10-30)
+
+Spec #447 branch with the Ludibrium region (step 6), private cache, F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no
+held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with `fp_arch_mage.json`:
+**every batch matches #455's table above to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0;
+Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 /
+466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one clear
+and deaths at 23.8 / 767.0), no crashes and no world warnings. Ludibrium itself is not in the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=ludibrium --job=112 --character=late_progression.json`, seed 1, god mode (`RunWorld.god`) with the
+bot, one lethal diagnostic hit after 30 s of each boss fight (bosses held at 100% / 70% / 45% HP meanwhile so their kits
+show): **CLEARED, 3 bosses, Lv64, 967.4 s, `missing: []`**. Map entries at 0 / 330 / 660 s. Checked by eye: Sky Terrace
+(green toy-block castle, Roloduck and Panda Teddy swarm the floor), Zone 4 (blue toy factory, Robo and Panda Teddy), Zone 1
+(conveyors, Master Robo lines; the arrival portal sits on the left ledge and the bot climbs down); the three boss bars
+(Rombot's borrowed icon, Alishar's, Timer's); Rombot, Alishar (winding up its attack1 at the left edge, Darkness
+darkening the screen) and Timer (the owl; "Timer recovered 5000 HP" from its heal 114) each fought for 30 s. Stun 123
+and Timer's immunities were not seen: under god mode no hit lands on the character, so the status art needs
+the status tickets' own evidence. With the late fixture (Lv100-band gear at Lv1) the draft bosses die almost at once when
+not held: the first draft is a starting point for C13, not a balance claim.
+
+**Alishar's Skill1 sound.** v83 `Sound.wz/Mob.img/9300012` has Attack1, Damage, Die and CharDam1 but no Skill1, so the cast
+of its Darkness reported `Sound.wz/Mob.img/9300012/Skill1` missing. A skill sound v83 does not have is now silent like
+an absent attack sound (`attack_sound_absent_in_v83`, tier A, #463); an absent whole Mob.img entry still reports.
+
+### Progression QA and merge-readiness smoke (#455, A6, 2026-10-30)
+
+Spec #447 branch with A1-A5 and B1-B5 merged, shared read-only cache `MapleSurvivors-spec447c`, F/P (212), training
+seeds 1/2/2026, `JOBS=2`, `ISOLATE=t455`; no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood
+bot with the starter wand and with `fp_arch_mage.json`, and `--chain=5 --retries=1` (bot). **33 records plus the chain's six
+rounds: no crashes, world warnings, missing assets or TIMEOUTs; every batch exited 0.** Raw records and logs:
+`_scratch/balance455/` (not committed). The smoke, playtests and full suite ran on 0f84227d (the #452 merge); the
+`progression` scenario was run again on the merge of spec/447 at 916ae923 (#461, #462) and passed. Previous smoke: the F/P column of the Bowmaster QA table (B13 #345, 2026-10-29)
+for Henesys, Kerning and Sleepywood, and #452's table above for Ellinia and Perion. Clears/3 and death (D) seconds:
+
+| Stage / policy | Clears | Death seconds (now) | Previous | First boss reached | Deaths by map 1/2/3 |
+|---|---|---|---|---|---|
+| henesys / bot | 0/3 | 417.3 / 644.1 / 646.7 | 305.0-651.7 | 3/3 (Mano 5.4-11.6 s) | 0 / 1 / 2 |
+| henesys / random | 0/3 | 428.6 / 489.3 / 668.0 | 308.3-309.9 | 3/3 (Mano 5.9-19.0 s) | 0 / 2 / 1 |
+| ellinia / bot | 0/3 | 621.2 / 628.3 / 635.9 | same (#452) | 3/3 | 0 / 0 / 3 |
+| ellinia / random | 0/3 | 302.8 / 305.4 / 623.0 | same (#452) | 3/3 | 2 / 0 / 1 |
+| perion / bot | 0/3 | 308.1 / 421.7 / 651.8 | same (#452) | 3/3 | 1 / 1 / 1 |
+| perion / random | 0/3 | 331.5 / 449.5 / 466.1 | same (#452) | 3/3 | 1 / 2 / 0 |
+| kerning / bot | 0/3 | 311.0 / 386.0 / 535.5 | 307.9-315.0 | 3/3 | 1 / 2 / 0 |
+| kerning / random | 0/3 | 306.5 / 306.5 / 373.2 | 306.0-317.3 | 3/3 | 2 / 1 / 0 |
+| sleepywood / starter | 0/3 | 11.4 / 11.9 / 15.1 | 10.6-12.0 | 0/3 | 3 / 0 / 0 |
+| sleepywood / kit | 1/3 (seed 2: CLEARED 925.2 s) | 23.8 / 767.0 | 23.8-826.2, one clear at 936.2 | 2/3 | 1 / 0 / 1 |
+
+- Ellinia and Perion reproduce #452's records to the second, so A4's level scale and the later merges (#454, #451) left
+  them untouched. Henesys and Kerning City differ from the Oct 29 smoke by later death times (Henesys bot 305.0-651.7
+  became 417.3-646.7; random 308.3-309.9 became 428.6-668.0; Kerning bot's latest death 315.0 became 535.5). Their data
+  is unchanged, so the cause is something merged between the two smokes (the boss kits B1-B5, player statuses #458, poison
+  #459); it was not bisected, and this is not a regression bound being broken (no clear is lost, no run dies earlier).
+- Henesys bot fills the six active slots in 3/3 runs (128.7-219.7 s) and every region's runs reach their first boss, except
+  Sleepywood with the starter wand, which dies at 11-15 s before its first boss exactly as in every earlier smoke (the
+  opening ramp; recorded balance-pass work, not a feature regression: the kit runs reach it 2/3).
+- `--chain=5 --retries=1`: 0/3 chains clear Henesys. Each seed plays Henesys twice (the replay with the loot kept) and
+  both attempts die (death seconds 417.3-692.5, maps 2-3), so no chain reaches Ellinia; the Ellinia-to-Sleepywood steps
+  report zero starts. The chain's bookkeeping (attempt records, `CHAIN` lines, per-step summaries) is what this exercises;
+  how far a geared bot gets needs a character that clears Henesys, which the balance pass owns.
+
+**Flow and visual QA.** `flow_driver.tscn --scenario=progression` passed (about 6 minutes, seed 1, no `ERROR` lines):
+a new character can start only Henesys and a locked Ellinia's Start is refused; a diagnostic invulnerable Henesys clear
+leaves Henesys CLEAR and Ellinia NEW and selected on opening; an Ellinia clear unlocks Perion and not Kerning City;
+Save & quit, character select and Continue keep the set; a Perion death changes nothing; a `HubTestKit` character reads
+"Regions cleared 5/5" with nothing locked. Map select shots (read by eye) are in `evidence/t455_progression/`
+(`*_progression_01_new_character`, `05_after_henesys`, `08_after_ellinia`, `14_all_cleared`, ...). Playtests
+`--stage=ellinia` and `--stage=perion` (seed 2026, x8, `--vsync=off`) both end `missing: []`: Ellinia dies at 9:47 on map 2
+(Lv21, Prime Minister fought on map 1), Perion at 7:21 on map 2 (Lv22, King Clang's shell form fought on map 1);
+`evidence/t455_playtest_ellinia/`, `evidence/t455_playtest_perion/`. Map select's "Lv lo-hi" (Ellinia 1-55, Perion and Kerning City 2-32) follows the pools: Ellinia's 55 is the
+ordinary Lv55 mob 5300100 of map 3's own life list (checked in the #482 review).
+
+**Test suites and the web gate.** `cargo test` (70) and the web tests (62) pass. The full GDScript suite (`TEST_TIMEOUT_S=7200`,
+3,680 tests) had 2 order-dependent failures (`test_shop_windows`, `test_ui_windows`), also present before this ticket: #452's
+King Clang sound test left a deliberate `Sound.wz/Mob.img/9999999/Attack1` gap in the shared Sfx missing list. Fixed here (the
+test drops it after asserting); `scripts/test.sh run_scene shop_windows ui_windows` then passes 91/91. Web gate: with the
+wasm target and `wasm-bindgen-cli` 0.2.105 installed and `cargo fetch --locked` run, `scripts/export.sh --web` completes and
+`check_web_artifact.sh` passes (27 files, no WZ data or cache-shaped files). Serving the page and starting Henesys through the
+browser import was not done.
+
+### Unique bosses smoke (#452, A3, 2026-10-30)
+
+Spec #447 branch (A1 and B1 merged), private cache `cache452` (manifest additions of #452), F/P starter wand, training
+seeds 1/2/2026, bot and random, `JOBS=2`; no tuning, no held-out seeds. **12 records: no crashes, world warnings or
+missing assets.** Raw records: `_scratch/balance452/`. The previous smoke is the #332 review-fix table above (same
+configuration, Stumpy, King Slime and Dyle in Ellinia, Mano in Perion; six runs per cell, both policies).
+
+| Region / policy | Clears | Death-only seconds (3 runs) | Deaths by map 1/2/3 | Bosses fought (completed/spawned) |
+|---|---|---|---|---|
+| Ellinia / bot | 0/3 | 621.2 / 628.3 / 635.9 | 0 / 0 / 3 | Prime Minister 3/3 (5.5-10.5 s), Grey Yeti and King Pepe 3/3 (5.6-19.6 s), Faust 0/0 |
+| Ellinia / random | 0/3 | 302.8 / 305.4 / 623.0 | 2 / 0 / 1 | Prime Minister 1/3 (8.6 s), Grey Yeti 1/1 (7.7 s), Faust 0/0 |
+| Perion / bot | 0/3 | 308.1 / 421.7 / 651.8 | 1 / 1 / 1 | King Clang 2/3 (6.8-12.5 s), Stumpy 1/1 (4.8 s), Iron Hook 0/0 |
+| Perion / random | 0/3 | 331.5 / 449.5 / 466.1 | 1 / 2 / 0 | King Clang 2/3 (8.2-8.9 s), Stumpy 0/0, Iron Hook 0/0 |
+
+Ellinia (previous 0/6, 617.4-654.4 s) keeps its shape: the bot reaches map 3 on all three seeds and dies within 12 s of
+entering it, before Faust's 300 s (no run reaches map 3's boss, as before); random loses two seeds on map 1 (Prime Minister,
+unfinished twice, like Stumpy before). Perion (previous 0/6, 310.5-461.8 s) now spans 308.1-651.8 s: the bot's seed 1
+reaches Iron Hook's map at Lv42, 10:51 and dies on map 3 before its boss. The `boss_fights` records of King Clang keep
+the scheduled shell's `mob_id` (5220001) and add `final_form` 5220000 and `form_time` (300.6-302.2 s on every seed). Whole boss hits
+reach 50.0-52.6% of the player's HP at the moment of the hit for King Clang (the hit-band test's 40-50% is at the
+slot's `typical_hp`, not the actual HP of a Lv8-12 character); Ellinia's reach 22-50%. Henesys, Kerning City and Sleepywood data are
+byte-identical.
+
+Summons were left at their canonical rates (no `skill_intervals` or cap override, no tuning) and are unmeasured: the
+fights the smoke and the diagnostic rounds produced end within 14 s, so for Prime Minister, Grey Yeti and King Pepe and
+King Clang they barely started, and no run fought Faust. The rates are: Prime Minister 5 Renegade Spores / Poison
+Mushrooms per 80 s from 60% HP (limit 200); Grey Yeti and King Pepe 6 Helmet / Royal Guard Pepes per 40 s from 80% HP
+(limit 200, counted per boss among its living summons, so it does not bound the swarm by itself); King Clang 5 Lorang
+and Clang per 10 s from 80% HP (limit 30); Faust 3 Zombie Lupins per 10 s from 80% HP (limit 15). Summons spawn at
+canonical HP (Lorang 1,950, Clang 3,000, Zombie Lupin 1,800, Pepes 850-900).
+
+**Faust is flagged for the balance pass.** Matched HP (8,060) and damage to Dyle's slot do not make the fight
+equivalent: Faust's kit is harder than Dyle's. Its heal 114/18 restores a flat 3,000 to mobs in range every 10 s from
+90% HP (about 300 HP/s against Dyle's 114/17, 5,000 every 20 s, about 250 HP/s); its weapon immunity 140/12 lasts 10 s
+of every 30 s (Dyle's 140/8 lasts 5 s); and it summons Zombie Lupins. No run that could be killed reached Faust (the
+Ellinia bot dies within 12 s of entering map 3, and the invulnerable diagnostic Faust died 6.6 s after arriving), so none
+of this is measured. Prime Minister also chases faster than the Stumpy it replaces (speed -30 against Stumpy's -60,
+canonical Mob.wz values), so Ellinia map 1's boss is harder to kite than the previous one at the same HP and damage.
+
+Visual QA (diagnostic invulnerable one-off rounds with the F/P fixture at x8, a throwaway driver that was not
+committed; screenshots in `evidence/qa452/`, checked by eye): Ellinia seed 1 CLEARED at 920.3 s, Lv32, all three bosses
+killed (Prime Minister 6.7 s, Grey Yeti and King Pepe 6.9 s, Faust 6.6 s after arrival), `missing: []`; Perion seed 1
+CLEARED at 920.3 s, King Clang's shell swapped to 5220000 at 306.5 s (the bar kept its icon) and the fight was won
+only on 5220000 at 313.8 s, Stumpy died 0.2 s after arrival and Iron Hook at 920.3 s, `missing: []`. The first Perion
+round reported `Sound.wz/Mob.img/5220000/Attack1` missing: v83 gives King Clang no Attack1 sound (only a `Skill1` UOL
+to Faust's), so that attack is now silent like a mob without sounds (`RunScene`, tier A absence).
 
 **#332 review fixes (2026-10-29).** Read-only `cache-rd332`, isolates `332fix*`, `JOBS=3`,
 training seeds 1/2/2026, both bot/random; no tuning or held-out seeds. **72 records: no crashes, world warnings,
@@ -1654,7 +1945,7 @@ Dyle's Attack Up (the 110 area art across the Ligators, then the buff glow on Dy
 burst. Iron Hook dies before his first 40 s interval in every natural or diagnostic fight, so that capture adds a
 **x20 HP diagnostic tank** and holds the camera on him (harness-only presentation aid, never data). Every map entry
 reports BGM playback matching `info/bgm` (Perion Nightmare, Nightmare continuing, HighlandStar; Kerning BadGuys,
-Subway, JungleBook). The map select shows four cards in `tiers` order; with Perion or Kerning City selected the detail
+Subway, JungleBook). The map select showed four cards in `tiers` order (now the progression list, #451); with Perion or Kerning City selected the detail
 lists `West Street Corner of Perion -> Mano`, `East Rocky Mountain V -> Stumpy`, `The Burnt Land I -> Iron Hook` and
 `Kerning City Construction Site -> King Slime`, `Line 1 <Area 1> -> Shade`, `The Swamp of Despair I -> Dyle`; the
 angle brackets render literally, in the arrival banner too. Evidence: `C:/Users/itech/.t3/projects/maple-survivors/.claude/worktrees/agent-ab003e6a203a7ede5/evidence/spec253/t257/`
@@ -4694,8 +4985,9 @@ The Buccaneer clears in two of five Henesys runs and dies at the first boss at L
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
-Mushmom (6130101), Blue Mushmom (9400205) in Henesys; Stumpy, King Slime, Dyle in Ellinia; Mano, Stumpy, Iron Hook
-(4090000) in Perion; King Slime, Shade (5090000), Dyle in Kerning City; Zombie Mushmom, Snack Bar, Jr. Balrog in
+Mushmom (6130101), Blue Mushmom (9400205) in Henesys; Prime Minister (3300008), Grey Yeti and King Pepe (3300005),
+Faust (5220002) in Ellinia; King Clang (5220001 into 5220000), Stumpy, Iron Hook (4090000) in Perion (#452: no boss
+appears twice across the progression); King Slime, Shade (5090000), Dyle in Kerning City; Zombie Mushmom, Snack Bar, Jr. Balrog in
 Sleepywood. Only the current map's boss is armed. If map 2 starts at round time 420 s, its boss is due
 at 720 s. Encounters retain canonical movement, contact attack, art and enabled skill kits; mushrooms retain the slam.
 Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
@@ -4715,18 +5007,24 @@ Survivor settings (tier C; canonical stats and attack timings/boxes remain uncha
 | Mano | 2,000 | 3,600 | 1.8 | 1.15 | — |
 | Mushmom | 20,000 | 4,800 | 0.24 | 0.85 | 0.55 |
 | Blue Mushmom | 200,000 | 7,000 | 0.035 | 0.48 | 0.72 |
-| Stumpy | 7,000 | 3,150 | 0.45 | 0.83 | 0.77 |
-| King Slime | 8,000 | 8,800 | 1.1 | 1.36 | 1.06 |
-| Dyle | 31,000 | 8,060 | 0.26 | 1.14 | — |
-| Perion: Mano | 2,000 | 3,600 | 1.8 | 1.15 | — |
+| Ellinia: Prime Minister | 12,500 | 3,150 | 0.252 | 0.8 | 0.69 |
+| Ellinia: Grey Yeti and King Pepe | 120,000 | 8,800 | 0.07333 | 1.41 | 1.41 |
+| Ellinia: Faust | 9,800 | 8,060 | 0.8224 | 1.32 | 1.14 |
+| Perion: King Clang (shell 5220001 + form 5220000) | 4,000 + 25,000 | 400 + 3,200 = 3,600 | 0.1 + 0.128 | 0.61 | 0.56 |
 | Perion: Stumpy | 7,000 | 4,800 | 0.6857 | 1.38 | 1.25 |
 | Perion: Iron Hook | 2,200 | 7,000 | 3.1818 | 2.38 | — |
 | Kerning City: King Slime | 8,000 | 3,600 | 0.45 | 0.78 | 0.61 |
 | Kerning City: Shade | 4,800 | 4,800 | 1.0 | 1.04 | — |
 | Kerning City: Dyle | 31,000 | 7,000 | 0.2258 | 1.15 | — |
 
-The Perion and Kerning City entries (spec #253, starting values, untuned) are separate entries, so the Henesys and
-Ellinia fights are unchanged. Each matches the Henesys boss of its map slot (Mano, Mushmom, Blue Mushmom) at that
+Before #452 Ellinia scheduled Stumpy (7,000 x 0.45 = 3,150 HP, touch x0.83, attack x0.77), King Slime (8,000 x 1.1 =
+8,800, x1.36, x1.06) and Dyle (31,000 x 0.26 = 8,060, x1.14); the three new Ellinia bosses and Perion's King Clang
+(replacing Mano's copy) keep those slots' survivor HP and, at 0.01 multiplier steps, touch and attack roll ranges
+within 1 HP at the slot's `typical_hp`/`typical_pdd` (the #254 method; the `_tier` note of each `stages.json` entry shows
+the derivation). Faust and King Clang's attack, like King Slime's slam in Kerning, matches the replaced boss's touch
+because Dyle and Mano have no attack. King Clang's 3,600 HP are split between the standing 5220001 shell (400) and its
+final form (3,200, `final_form_hp_mult`). The Perion and Kerning City entries (spec #253, starting values, untuned) are
+separate entries, so the Henesys fights are unchanged. Each matches the Henesys boss of its map slot (Mano, Mushmom, Blue Mushmom) at that
 slot's `typical_hp`/`typical_pdd`: the same survivor HP and, at 0.01 multiplier steps, touch and attack roll ranges
 within 1 HP of the slot's (King Slime's slam matches Mano's touch, since Mano has no attack). Iron Hook and Shade
 fight by touch only. Canonical boss defence, level and undead flags are not normalized (Iron Hook PDD 400 and Shade
@@ -4817,9 +5115,15 @@ calibrated against actual training HP pools. No attack-local canonical value is 
 The `player_hit.source_kind` field distinguishes contact (`touch`) from these attack (`attack`) hits for metrics.
 The handler is reusable for later Stumpy and King Slime type-0 attacks selected in their stage data.
 
-Ellinia schedules Stumpy (3220000) in The Tree That Grew I, King Slime (9300003) in The Forest of Wisdom and
-Dyle (6220000) in The Forest of Evil I, each 300 s after entering its map. Earlier fights extend total round time.
-Stumpy uses HP ×0.45 (3,150), touch ×0.83 and attack ×0.77. Its selected attacks share an 8 s start-to-start cadence. The type-0 slam
+Ellinia schedules Prime Minister (3300008) in The Tree That Grew I, Grey Yeti and King Pepe (3300005) in The Forest of
+Wisdom and Faust (5220002) in The Forest of Evil I (#452; before it Stumpy, King Slime and Dyle, who now fight in
+Perion and Kerning City), each 300 s after entering its map. Earlier fights extend total round time. Their canonical
+kits stay as in Mob.wz: Prime Minister summons Renegade Spores and Poison Mushrooms (MobSkill 200/164), Grey Yeti
+Helmet and Royal Guard Pepes (200/165), Faust heals (114/18), buffs (110/112/113), summons Zombie Lupins (200/84) and
+turns weapon-immune (140/12); all five new ids are in `balance.mob_skills.enabled_ids`. Each has one canonical attack
+(`attack1`, Faust's a type-2 ball) on the 8 s cadence below.
+Stumpy (now Perion map 2 with its own scales in the table above; its Ellinia entry used HP ×0.45, touch ×0.83 and
+attack ×0.77) has selected attacks that share an 8 s start-to-start cadence. The type-0 slam
 keeps the 543×172 box and 1,500 ms attackAfter, including the same airborne dodge.
 The type-2 ball keeps attack135, bulletSpeed140, range/r200, muzzle(6,-60) and 1,320 ms attackAfter. We adopt
 `r ×600/bulletSpeed` ms maximum flight (857.14 ms), hence 233.33 px/s over 200 px. This conversion and using r
@@ -4954,6 +5258,25 @@ gear-matched class ranking.
 
 Job 512: tier-1 clears 8/24; first boss reached 23/24. Job 112: tier-1 clears 3/24; first boss reached 20/24. Job
 212: tier-1 clears 0/24; first boss reached 24/24. Job 222: tier-1 clears 0/24; first boss reached 24/24.
+
+**Late-band equipment smoke (#474, 2026-10-30).** #474 lists more equipment, and its Lv35-40 Warrior and Pirate armour also
+enters Sleepywood's [30, 40] pool (the earlier lists had no Warrior or Pirate class armour; the Warrior had weapons and shields).
+`balance.sh 1 2 2026 --stage=sleepywood` (`JOBS=2`, private cache, no tuning, no held-out seeds), with a control of the same
+commands on the spec-branch tip without the new data. 15 records: **no crashes, world warnings or missing assets**.
+Henesys, Ellinia, Perion and Kerning were not rerun (their bands have no new items below Lv41, and their pools are unchanged).
+
+| Sleepywood (3 seeds) | Result | Control (spec tip) |
+|---|---|---|
+| F/P starter, bot | 0/3 C; D 11.4-15.1 | not run (no equipment dropped before the deaths) |
+| F/P starter, random | 0/3 C; D 11.4-13.0 | not run |
+| F/P `fp_arch_mage.json`, bot | 1/3 C; D 23.8, 767.0 | identical record |
+| F/P `fp_arch_mage.json`, random | 1/3 C; D 14.3, 810.6 | identical record |
+| Hero (112) `hero_t2.json`, bot | 2/3 C; D 685.2 | 1/3 C; D 877.1, 904.5 |
+
+The Magician pool is unchanged below Lv41, so F/P reproduces the control exactly. Hero's seeds differ because the shifted drop
+pool changes which items its seeded rolls give; that is three seeds of a diagnostic fixture, not a balance claim. Against the
+older smoke above (the F/P kit 2/3 C, Hero 1/3 C) the F/P shift comes from the spec branch's earlier changes, since the control
+reproduces it. The starter runs die within 15 s, before any equipment drops.
 
 Buccaneer Henesys bot filled six actives in 3/3 runs at 130.4–205.1 s; its deaths 319.6/626.9 and clear 1036.8
 reproduce BC11 (rounded there). Sleepywood early deaths are recorded without tuning or stopping, as explicitly
@@ -9571,9 +9894,10 @@ every constant, with its tier, is in section 11 under the tables named below):
    character and lost with the run. ("Meso rule", section 11.)
 2. **Equipment** drops from kills (0.2% per ordinary kill, two guaranteed from each boss): a v83 hat, top, bottom,
    overall, shoes, gloves, shield or weapon that the character's job class can wear, with v83's random stat rolls. Since
-   #292 a drop never depends on the character's level or the weapon it holds: the stage's tier fixes a `reqLevel` band
-   (`stages.json` `drop_bands`: tier 1 [0, 30], tier 2 [30, 60]) that an ordinary drop lies in (uniform among the
-   eligible items) and a boss drop lies in the top third of (tier 1: Lv 20-30, tier 2: Lv 50-60). A weapon drops only
+   #292 a drop never depends on the character's level or the weapon it holds: the stage's `drop_band` (ADR 0007, #450:
+   Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40]; ADR 0006's tier bands
+   [0, 30] and [30, 60] are superseded) is the `reqLevel` band that an ordinary drop lies in (uniform among the
+   eligible items) and a boss drop lies in the top third of (Henesys Lv 10-15 ... Sleepywood Lv 36-40). A weapon drops only
    when it belongs to one of the job's weapon families (`survivor/jobs/<line>.json` `weapon_families`; 212: wand and
    staff). Equipment has no level or stat requirement to wear; only the item's job class (`reqJob`) is checked, by the
    Equip and Item windows, the auto-wear and the bot shop alike. It goes to the
@@ -9593,8 +9917,8 @@ every constant, with its tier, is in section 11 under the tables named below):
 6. Mesos, worn equipment, the Equip tab and scrolls stay with the character (ADR 0006, #292): `CharacterSnapshot` hands
    them back after a clear, a death or a Quit round with whatever the round picked up, and the save file keeps them
    (format 3). A round always starts at Lv1, so the gear it wears is whatever the character already owns.
-7. Bots follow the same rules (`BotShop`): they wear the best item they own and visit the shops between tiers of a
-   `balance.sh --tier=N` chain. ("Bot shopping rule".)
+7. Bots follow the same rules (`BotShop`): they wear the best item they own and visit the shops between the regions of a
+   `balance.sh --chain=N` run (ADR 0007, #454). ("Bot shopping rule".)
 
 Verified by the `shops`, `scrolls`, `botshop` and `redesign` flow scenarios (AGENTS.md; the old `economy` scenario was retired in #294) and by the combined regression smoke in 4.2
 "Spec #33 / #113". The numbers above are first-pass and are not tuned: equipment per round measured 5-7 against the
@@ -9668,6 +9992,32 @@ top-right corner. The level-up card shows the effect line at the offered rank ("
 ("Skill Lv. 2 → 3") and `MAX` at rank 5. The sensible bot scores new passives 66 Might, 64 Booster, 62 Sharp Eyes,
 60 Max HP, 58 Area, 56 Armor, 54 Regen, 52 Haste, 50 EXP and each rank card 4 less, all below any pool attack
 (`balance.bot.card_scores`). Every number above is tier C; ticket #293 (first-pass pacing) adjusts them.
+
+#### Equipment for the late bands (#474, spec #449 C12)
+
+The drop bands of progression steps 6-16 ([35, 45] ... [110, 120], table in section 11) need equipment before their
+regions exist, so `equipment_drops/*.json` were extended up to reqLevel 120 for every job class and weapon family. A new
+ordinary item is an ordinary v83 shop or drop item by its Character.wz facts: not cash and none of the `only`, `notSale`,
+`quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`, `epic`, `epicItem`, `weekly` flags; sold for more
+than 1 mesos (price 1 marks boss, quest and PQ rewards); named in String.wz; no `GMS ...` item (tier C: those have no
+known v83 source). Armour keeps one piece per slot, reqJob, reqLevel and gender (colour variants collapse); weapons keep
+every item. Capes are not listed (the Equip window has no cape slot). The files are `common` (reqJob 0 armour), `warrior`,
+`magician`, `bowman`, `thief` and `pirate` (a weapon goes to the file of its family: daggers and claws Thief, bows and crossbows Bowman, knuckles and guns Pirate,
+wands and staves Magician, the rest Warrior, whatever its reqJob, so the four reqJob 9 daggers 1332022, 1332026, 1332049 and
+1332051 are in `thief.json` beside the reqJob 9 daggers it already held; an armour piece goes to the lowest class bit of its
+reqJob, and no new armour piece has more than one). New items start at reqLevel 41, so
+the Sleepywood pool (band [30, 40]) only changes where it was empty: Warrior and Pirate armour of reqLevel 35-40 was added
+because the step-6 band [35, 45] would otherwise have had none (the earlier lists named no Warrior or Pirate class armour at all).
+
+`test_late_equipment_bands` checks, for each of the sixteen bands and each class (Hero, Paladin, Dark Knight, Arch Mage,
+Bowmaster, Marksman, Night Lord, Buccaneer, Corsair), at least one eligible weapon per family it lists and one hat, shoes,
+gloves, body (an overall, or a top with a bottom) and, for a Hero and a Paladin, shield. Steps 6-15 pass as listed.
+**Step 16 widened**: v83 has no Magician wand and no Magician overall between reqLevel 109 and 130 (the Dragon Wand and
+the Blue Czar are Lv108), so #447's [110, 120] became [108, 120]; the mins and maxes still never fall along the
+progression (tier C). The shipped steps 1-5 keep the gaps they had (the earlier lists name no Warrior or Pirate class armour, only reqJob 0 pieces): gloves
+and body at step 3, gloves at step 4, for the Hero, Paladin, Dark Knight, Buccaneer and Corsair. #474 left those bands and
+lists alone; the test records the gaps, and fixing one makes it ask for its entry to be removed. `late_progression.json` is the Hero
+fixture for the band-15 gear (`--hub --job=112 --late`).
 
 ## 9. Jobs
 
@@ -9752,6 +10102,128 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | `anim_by_stat` | the animation of the newest (last listed) unlocked stat | C |
 | Owner-side `affected` art | plays on the player at every pulse | B |
 
+
+### Region progression (spec #447, #450; ADR 0007; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood, ludibrium, omega_sector, el_nath (v83 levelling order; owner request 2026-10-30) | C |
+| Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]). Steps 6-16, set by their region tickets (#449), are [35, 45], [40, 50], [45, 55], [50, 60], [55, 65], [60, 70], [70, 80], [80, 90], [90, 100], [100, 110] and **[108, 120]** for step 16 (#447 said [110, 120]; widened by #474, see "Equipment for the late bands" in 8.3) | C |
+| Late-band equipment (#474) | `equipment_drops/*.json` hold every ordinary v83 weapon of a listed family and one armour piece per slot, reqLevel and gender up to Lv120; chosen from Character.wz facts (not cash, `only`, `notSale`, `quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`; price above 1; a String.wz name; not a `GMS ...` item). No Cosmic drop data was available to this ticket, so unlike the Lv0-70 lists it is not B-checked against server drops | C |
+| NX clear bonus | `balance.nx_award.clear_bonus` by progression step: 100, 100, 100, 100, 250, the last repeating (the old amounts moved from tiers to steps) | C |
+| Unlock rule | region i is open iff i == 0 or `progression[i-1]` is in the character's `cleared_regions`; a CLEARED round adds its stage; death, Quit round and one-off rounds add nothing | C |
+| Save migration | `CharacterSnapshot.LEGACY_TIER1_REGIONS` 4: a stored `tiers_unlocked` >= 2 becomes the first four progression keys cleared, otherwise none | C |
+| `balance_run.gd --chain=N --retries=K` | N progression regions in order, a failed region replayed up to K times (replaces `--tier=N`; #454) | C |
+
+### Omega Sector (C2) constants (spec #449 C2, #464; tier C unless marked)
+
+Progression step 7 (`stages/omega_sector.json`, `asset_manifest.d/region_omega_sector.json`). Region and continent
+labels, the map list and the rosters are tier A (v83 Map.wz, Mob.wz, String.wz); the rest is ours, a first draft that
+no ticket here tunes (C13 does).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Labels | `region` "Omega Sector", `continent` "Ossyria" (String.wz group `ossyria`) | A / C |
+| Maps | 221040000 Kulan Field I (2864 px), 221030200 Boswell Field II (4214 px), 221030500 Boswell Field V (4574 px); the natural boss maps (221040201, 221030601, 221040301, 2250-2414 px) are replaced by these wider neighbours; no alternates were needed after the arena check (a bot ran all three, `missing: []`) | C |
+| Bosses | Chief Gray 4240000 / MT-09 5120100 / Zeno 6220001, one 300 s after each map entry; `attacks` ["attack1"], `attack_interval` 8; Chief Gray's MobSkill 200 level 27 (Barnard Gray, interval 30 s, hp <= 75 %, limit 3, `summonEffect` 6) is canonical and supported, MT-09 and Zeno have no skills | A / C |
+| Pools | map 1 `curve` with Barnard Gray 4230116 at weight 1 on the keyframes under 300 s, none later (map 1 reads only those; its own life holds nothing else); maps 2/3 `pool_from_life` with `exclude` [4240000, 5120100] (the timed native bosses; their v83 lists hold none): Plateon 27 / Mateon 7 and Mecateon 21 / Plateon 11 | C |
+| Curve | Sleepywood's keyframes, bursts, elites, `exp_mult`, `hard_cap`, `post_duration_slope` copied exactly; no `opening_ramp` | C |
+| `drop_band` | [40, 50] (spec #447 table) | C |
+| `level_scale` | `level_scale_draft.gd --step=7`: E_sw 9.15 / 9.73 / 10.80 / 22.22 / 36.44 / 48.23 / 56.85 at t 0 / 120 / 300 / 480 / 600 / 780 / 900; `level` = E_sw + 6, `exp_level` = E_sw | C |
+| Boss multipliers | Chief Gray `hp_mult` 17.916, `dmg_mult` 1.209, `attack_dmg_mult` 0.786; MT-09 3.271, 0.742, 0.837; Zeno 3.631, 1.503, 1.801 (the draft tool's output, `_tier` notes on each boss) | C |
+| EXP items | Barnard Gray 4000123 Worn-Out Goggle, Mateon 4000120, Plateon 4000121, Mecateon 4000122, Chief Gray 4000125, MT-09 4000126, Zeno 4000118 Small Spaceship: item ids and names are v83 (tier A), the mob association is a signature pickup, not a drop-table claim | A / C |
+| Mesos | no v83 server drop data is used: the three bosses roll `balance.mesos.fallback` by level; the ordinary mobs take Ludibrium's neighbour method (centre interpolated between the Lv40 Cold Eye / Zombie Lupin mean 125 and the Lv50 Drake 250, range +-20%): Barnard Gray [100, 150], Mateon [110, 164], Plateon [140, 210], Mecateon [160, 240] | C |
+| Boss `boss_ui` | Chief Gray and MT-09 have no MobGage icon or tag colours in v83; both borrow Zeno's icon (the same region) and the standard colours | C |
+| Falling-bolt effect | Chief Gray's `attack1/info/effect` is three groups of frames with fall spawn fields (`effectType` 2); `MobAttacks.effect_path` plays the first group once at the attacker and leaves the spawn fields unread, so the attack shows art instead of a missing asset | C |
+| Missing v83 sound | Chief Gray's Mob.img entry has no `Skill1`: `RunScene._mob_sound` is silent for a sound its own entry lacks (it already was for an attack start) | A |
+| Field flags | none on these maps (no `decHP`, `fs` friction or limits) | A |
+
+Diagnostic round (invulnerable bot with `RunWorld.god` from a throwaway launcher, `late_progression.json` Hero, seed 1, x8,
+before the Ludibrium merge): CLEARED at 911.9 s, map entries at 0 / 307.0 / 609.3 s, all three bosses killed, Lv61,
+`missing: []`, max 351 alive. Chief Gray's Barnard Gray summon (skill 200 at 31.6 s, `summonEffect` 6) and the three
+attacks were captured with a throwaway probe; screenshots stay out of the repo. Checked by eye: Kulan Field I (a
+red-and-blue robot backdrop, a high floor with ladders; Barnard Gray swarms the ground), Boswell Field II (the crashed
+saucer, a fenced low floor; the Plateon / Mateon swarm hides MT-09's bar-topped sprite in the crowd) and Boswell Field V
+(hills; Mecateon's laser beams, Zeno a white robot at the edge of the swarm). No map was swapped.
+
+Regression smoke after the Ludibrium merge (F/P 212, private cache, `JOBS=1`, seeds 1/2/2026, no tuning): Henesys bot
+death-only seconds 417.30 / 644.10 / 646.70, identical to the table above; the other stages were not rerun, since
+the stage files, the sim and the pools of the first five regions are untouched (`test_stage_files` compares them byte
+for byte) and the full suite passes (3754 tests, 0 failed, 0 skipped, real cache).
+
+### El Nath (C5) constants (spec #449 C5, #467; tier C unless marked)
+
+Progression step 10 (`stages/el_nath.json`, `asset_manifest.d/region_el_nath.json`). Region and continent labels, the map
+list and the rosters are tier A (v83 Map.wz, Mob.wz, String.wz); the rest is ours, a first draft that no ticket here tunes
+(C13 does). Korean Folk Town and Mu Lung (steps 8 and 9) land in parallel; `progression` lists El Nath after Omega Sector
+until they merge.
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Labels | `region` "El Nath", `continent` "Ossyria" (String.wz group `ossyria`) | A / C |
+| Maps | 211010000 Watch Out for Icy Path I (3050 px), 211041100 Forest of Dead Trees I (4310 px), 211042100 The Cave of Trial II (4290 px, 6 levels, 12 ropes); #270's picks. Snowman's own Valley of Snowman (211040101) is 991 px, so it fights in The Cave of Trial II. The arena check (a god-mode bot ran all three, `missing: []`) found nothing to swap, so the decHP-free alternates 211042000 and 211042200 stayed unused | A / C |
+| Bosses | Snow Witch 6090001 / Riche 6090000 / Snowman 8220001, one 300 s after each map entry. Snow Witch has no attack stance (contact and Banish 129/4 only), so it lists no `attacks`. Snow Witch and Riche cast Banish every 15 s (`skill_intervals` 129: 15, Shade's #256 rule; the WZ interval is 3 s) with their v83 banMsg as the notice, cadence or `attack_dmg_mult`, like Iron Hook; Riche `attacks` ["attack1"] (magic, type 0) with Banish 129/1 and Heal 114/12; Snowman ["attack1"] (a ball) with Summon 200/77 (Jr. Yeti, interval 10 s, hp <= 70 %, limit 30, `summonEffect` 1), Stun 123/8 (B1) and the ice poison mist 131/7 (B4, `elemAttr` I); `attack_interval` 8. All their skills are supported (the region test resolves each) | A / C |
+| Pools | map 1 `curve`: Jr. Yeti 5100000 alone at 0 s, Jr. Yeti 11 : Hector 5130104 1 from 120 s (the v83 life ratio 23 : 2, rounded), none later (map 1 reads only the keyframes under 300 s); maps 2/3 `pool_from_life` with `exclude` [6090001, 6090000] (the timed native bosses, mobTime 3600 s; Snow Witch is on map 1, Riche on map 2, map 3 holds none): Coolie Zombie 5130107 x26, and Cerebes 7130001 x13 / Jr. Cerebes 4230108 x7 | C |
+| Curve | Sleepywood's keyframes, bursts, elites, `exp_mult`, `hard_cap` copied exactly (Sleepywood has no `post_duration_slope`); no `opening_ramp` | C |
+| `drop_band` | [55, 65] (spec #447 table) | C |
+| `level_scale` | `level_scale_draft.gd --step=10`: E_sw 9.15 / 9.73 / 10.80 / 22.22 / 36.44 / 48.23 / 56.85 at t 0 / 120 / 300 / 480 / 600 / 780 / 900; `level` = E_sw + 15, `exp_level` = E_sw (the highest level, 71.85, is below the tool's 131 warning) | C |
+| Boss multipliers | Snow Witch `hp_mult` 48.548, `dmg_mult` 1.17; Riche 8.714, 0.843, `attack_dmg_mult` 0.791 (matched on MAD, the attack is magic); Snowman 4.701, 1.462, `attack_dmg_mult` 1.966 (the draft tool's output, `_tier` notes on each boss). Snow Witch's HP multiplier is large because Sleepywood's first boss arrives under a 0.035 opening ramp and the canonical Snow Witch is a 7700 HP Lv64 boss | C |
+| EXP items | Jr. Yeti 4000048 Jr. Yeti Skin, Hector 4000051 Hector Tail, Coolie Zombie 4000082 Zombie's Lost Gold Tooth, Jr. Cerebes 4000078 Jr. Cerebes Tooth, Cerebes 4000079 Cerebes Tooth, Riche 4000069 Zombie's Lost Tooth, Snow Witch 4031311 Snow Crystal, Snowman 4001141 Snowman Branch: item ids and names are v83 (tier A), the mob association is a signature pickup, not a drop-table claim (tier C; Riche, Snow Witch and Snowman have no v83 drop data here) | A / C |
+| Mesos | no v83 server drop data is used: the three bosses roll `balance.mesos.fallback` by level; the ordinary mobs take Ludibrium's neighbour method (the centre interpolated between the neighbours' centres by level, range +-20%): Jr. Cerebes Lv43 [130, 194] (between the Lv40 mean 125 and the Lv50 Drake 250), Jr. Yeti Lv50 [200, 300] (the Drake's), Hector Lv55 [244, 366] (Malady 305), Coolie Zombie Lv57 [262, 392] (Malady 305 to the Lv64 Ice Drake 405), Cerebes Lv72 [363, 545] (Tauromacis 420 to Taurospear 504) | C |
+| Boss `boss_ui` | Riche's MobGage icon is canonical (standard colours supplied, as King Slime); Snow Witch has no icon or colours in v83 and borrows Riche's (the same region); Snowman has both | A / C |
+| Field flags ignored | `decHP` 10 (cold damage) and `fs` 0.2 (ice friction) on Icy Path I and Forest of Dead Trees I are not read (tier C, as OctoPirate's limiter in #264): the characters take no cold damage and movement is unchanged. The Cave of Trial II carries neither (only `fieldLimit` 64, a teleport-item limit, not read either) | C |
+| Timed native bosses | Snow Witch (211010000) and Riche (211041100) are timed life entries (mobTime 3600 s): never in a pool, and not in `original_life`; they are the scheduled bosses of maps 1 and 2 instead. They are the only timed entries on the three maps (the region test pins this on the real cache) | A / C |
+
+Diagnostic round (invulnerable bot with `RunWorld.god` from a throwaway launcher that wraps `main.tscn`, the C12
+`late_progression.json` Hero, seed 1, x8): CLEARED at 965.05 s, map entries at 0 / 340.1 / 653.5 s, all three bosses
+killed (Snow Witch at 340 s, Riche at 653 s, Snowman at 965 s, so 40 s, 13 s and 11.5 s fights), Lv52, `missing: []`,
+max 351 alive. Checked by eye: Icy Path I (a snowy cliff with a stone watermill house and a ladder; Jr. Yeti puffs
+swarm the ledge), Forest of Dead Trees I (a red dusk sky over dark pines, a notice board, dead trunks and a rope; a
+dense Coolie Zombie swarm hides Riche's sprite, but its bar shows) and The Cave of Trial II (a lava cavern with
+hanging chains over a lava floor; Cerebes and Jr. Cerebes crowd the ledges, the character climbs the ropes). Snow
+Witch's arrival (a chained ice figure at the left edge) and its Banish (a rune circle on the character, who is moved)
+were captured, as was Riche's Banish during its fight; the Cave's Snowman is lost in the crowd of 329. A second
+throwaway run with Snowman forced as map 1's boss (5 s after entry, 5000 x HP) showed its Stun (stars over the
+character's head), the ice mist (a pale blue haze at the edge of the view; the first capture shows only part of it)
+and its Jr. Yeti summons. A god-mode run could not show what a hit would do: a Stun or mist poison tick, the loss of
+HP from Snowman's ball attack or Riche's magic hit, and Riche's heal (114/12 casts below 70 % HP, which the fixture
+kills it too quickly to reach). Those are covered by the sim tests of B1 (Stun), B4 (mist) and the boss-kit tests.
+Screenshots stay out of the repo.
+
+Full suite on the branch (private cache, real data): 3760 tests, 0 skipped, 1 failed before the fix below, 0 after: `test_late_equipment_bands` indexed the band table by position in `progression`, so El Nath (canonical step 10) read step 8's band while Korean Folk Town and Mu Lung are still missing from this branch; it now looks the step up by the region's key in the #449 table.
+
+Regression smoke with El Nath (F/P 212, private cache, `JOBS=1`, seeds 1/2/2026, no tuning, no held-out seeds): **every
+batch matches #455's table above to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0; Ellinia
+bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 / 466.1;
+Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, with
+`fp_arch_mage.json` one clear and deaths at 23.8 / 767.0), no crashes and no world warnings. El Nath itself is not in the
+smoke (calibration is C13).
+
+### Map select progression list (spec #447, #451; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Visible rows | `stage_select.gd` `MAX_CARDS` 6 rows of `ENTRY_H` 46 px; the rest scroll (keys, wheel, arrows) | C |
+| Paper and Start | `PAPER_EXTRA` 48 px of native paper scanlines added to the scroll (`RegionScroll`), `CARD_AREA` (40, 148, 432, 286); Start moves under the details column, centred at `CARD_AREA.end.y - 50` (the Nautilus branch's idea, #264, ported by hand) | C |
+| Opening position | the frontier is selected; the list scrolls so it is visible with `FRONTIER_LEAD` 2 regions above it when they exist | C |
+| Frontier | the first unlocked, uncleared region (the last region when all are cleared, with no NEW mark) | C |
+| "Lv lo-hi" | min and max canonical `level` (Mob.wz `info/level`, tier A) of the stage's ordinary pool ids over its maps: keyframe pools for a `"curve"` map, explicit pools, `pool_from_life` minus `exclude`; scheduled bosses and their `final_form` excluded; unknown levels skipped, the label omitted when none is known. A computed label, so it can differ from the table in spec #447 (Ellinia's map 3 life includes Malady, Henesys's map 3 includes Horny Mushroom) | C |
+| State marks | CLEAR (`INK_CLEAR`, parchment green), a drawn padlock plus the `INK_LOCKED` look, NEW (`INK_RED`) | C |
+| Unlock hint | "Locked. Defeat <boss> in <previous region> to unlock." with the previous region's map 3 boss (`final_form` first), String.wz name | C |
+| Header | "Regions cleared N/M" on the character line, `HEADING_GAP` 18 px after it (the grown scroll's rod covers a second row) | C |
+
+### Region template and level-scale draft (spec #449 C0, #462; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Per-region stage files | `survivor/stages/<key>.json` (one stage object each) merged in `progression` order by `DataRepo.load_stages`; no value changed by the split (golden `tests/fixtures/stages_presplit.json`) | C |
+| Per-step level offset | `level_scale_draft.gd` `DEFAULT_OFFSET` 3 levels per progression step above Sleepywood (step 5): `level = E_sw + 3·(k − 5)`, `exp_level = E_sw` (spec #449; re-tuned by C13) | C |
+| E_sw(t) | level whose `hp` reference equals the pool's weighted mean canonical HP × the opening-ramp HP multiplier at nominal round time = curve time; the map entered at a boundary; keyframe `hp` multiplier excluded | C |
+| Boss match | HP, contact damage and strongest scheduled attack carried from Sleepywood's same-slot boss by `curve(level)/curve(E_sw)` (`mad` for magic); multipliers snapped to 0.001 | C |
+| Final-form HP split | `level_scale_draft.gd` `DEFAULT_FINAL_SHARE` 0.5 of the encounter's effective HP to the final form (`final_form_hp_mult`) | C |
+| Boss attack interval | `level_scale_draft.gd` `ATTACK_INTERVAL` 8 s, as every boss | C |
+| Warning ceiling | `level_scale_draft.gd` `CURVE_FLAT_ABOVE` 131: the reference curves hold their Lv131 values above it (v83 has no stronger ordinary monster) | A |
+| Keyframe level resolution | 0.01 levels | C |
 
 ### Review #282: constants and provenance
 
@@ -9839,6 +10311,19 @@ all are our survivor design. Tier 1 HP/damage 1 -> 1 over 900 s. Sleepywood map 
 trained only on 1/2/2026. The 20:00 endpoint intentionally extends past the nominal 15:00 schedule.
 No ordinary rate/cap/pool, boss encounter scale, canonical stat, EXP/cooldown/passive/drop value changed.
 Revised slice target: picks ≈ levels + boss draws (~50–60).
+
+### #453 level scale (tier C; reference curves tier A-derived)
+
+| Constant / rule | Value | Tier / source |
+|---|---|---|
+| Reference curves | `level_curve.json`: per-level median hp, pad, mad, pdd, mdd, exp of ordinary v83 monsters, levels 1-200 | A-derived (v83 `Mob.wz` info numbers), used for a tier C purpose |
+| Ordinary monster | Mob.wz id < 9,000,000, not `boss=1`, not a link copy without stances, not 6400005-6400009 or 88xxxxx; HP at most 5x the level median; zero stats skipped per stat | C: ours (ticket #453; the research "Excluded" table, widened to the whole 9,000,000+ range because its 94xxxxx/95xxxxx singletons skew a median) |
+| Curve shaping | log-linear gap interpolation, weighted isotonic regression (a level weighs its sample count, an interpolated level 0.25), 1-2-1 smoothing in log space, two decimals; values outside the sampled span (Lv1-131) hold | C: ours |
+| Keyframes | `{t, level, exp_level}` in curve seconds, linear, held before and after; `exp_level` defaults to `level` | C: spec #447 |
+| Ratio | `curve(E)/curve(L)` per stat (pad for contact and physical attacks, mad for magic); E = L is 1; a zero base is 1 | C: spec #447 |
+| Capture | HP, PDD, MDD and EXP at spawn; ordinary damage at impact; a scheduled boss captures all of them (damage included) at arrival | C: as #307's ramp |
+| Exclusivity | a stage with `level_scale` has no `opening_ramp` (stage or map) | C: validation |
+| Defence scaled after bonuses | the PDD/MDD ratio multiplies the live defence (MobSkill defence bonuses and Threaten included) | C: ours |
 
 ### #293 first-pass pacing (tier C)
 
@@ -10214,7 +10699,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Warrior list (#159) | `equipment_drops/warrior.json`: the same selection for the sword (130xxxx, 140xxxx), axe (131, 141), blunt (132, 142), spear (143) and polearm (144) weapons and the shields (109xxxx) whose reqJob has the Warrior bit (88 weapons, 17 shields; some weapons are shared with Thieves and Bowmen). reqJob 0 weapons and shields are left out on purpose: a Beginner and a Magician would otherwise draw them, and their drops stay as they were | B (selection rule), C (the reqJob 0 exclusion) | Cosmic `drop_data` / `shopitems`; v83 Character.wz |
 | Weapon family rule (#159, #292) | A weapon is eligible only when its family (`WeaponInfo.family`) is one of the job's `weapon_families` (`JobTree.weapon_families`, `survivor/jobs/<line>.json`; 212: `["wand", "staff"]`, tier C), read per drop for ordinary and boss drops alike and independent of the weapon worn; one- and two-handed swords, axes and blunt weapons share a family; a job with no list gets no weapon; armour and shields do not depend on it (`EquipmentDrops.family_allows`). #292 replaces the held-family rule of #159 and its `shared_families` / `shield_families` data | C (ours; the ticket's rule) | Ticket #292 |
 | Job filter | Only items whose `reqJob` is 0 or has the bit of the character's job branch (`Equipment.job_allows`); a job-0 test character only gets all-job items, every Magician job gets Magician and all-job items. It is also the only wear requirement (#292) | A | v83 `reqJob` bits (owner #33: current job only) |
-| Drop band (#292) | `stages.json` `drop_bands[tier]` = [min, max] `reqLevel` (tier 1 [0, 30], tier 2 [30, 60], inclusive); an item drops only when its `reqLevel` is inside the band of the current stage's tier (`NxAward.tier_of`; a stage outside the tiers counts as tier 1). The character's level is not read (a round starts at Lv1). Replaces the [level - 10, level + 5] window | C | Owner 2026-10-27 (ADR 0006, #292) |
+| Drop band (#292; superseded by #450: per-stage `drop_band`, see "Region progression") | `stages.json` `drop_bands[tier]` = [min, max] `reqLevel` (tier 1 [0, 30], tier 2 [30, 60], inclusive); an item drops only when its `reqLevel` is inside the band of the current stage's tier (`NxAward.tier_of`; a stage outside the tiers counts as tier 1). The character's level is not read (a round starts at Lv1). Replaces the [level - 10, level + 5] window | C | Owner 2026-10-27 (ADR 0006, #292) |
 | Weighting | Uniform among the eligible items of the band (the 1 / (1 + 0.25 x distance) falloff of #109 is gone with the level) | C | Ours (#292) |
 | Drop chance | 0.002 per ordinary kill (`equipment_drops.chance`), unchanged by #237's two-item boss rewards; originally sized from an estimate of about 3,300 kills in a full Henesys round. v83 mobs gave equipment on about 0.7-2% of kills | C | Ours (ticket #109) |
 | Boss drop | Each scheduled boss death drops exactly 2 items (`equipment_drops.boss_drops`), no chance roll, uniform among the eligible items with `reqLevel` in the top third of the band (`EquipmentDrops.boss_floor`: `max - (max - min) / boss_top_parts`, 3, so tier 1 Lv 20-30, tier 2 Lv 50-60); the highest `reqLevel` in the band when none is that high, the job-eligible item nearest the band when it is empty | C | Owner 2026-10-21, spec #237 (count); owner #292 (top third); ours #109 (fallbacks) |
@@ -10232,7 +10717,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Sensible plan | At a Free Market visit: sell the spare equipment it will not wear (everything except a better item its job class admits); then for each worn item with upgrade slots in the order weapon, overall, gloves, hat, top, bottom, shoes, read the 100% or 60% scroll of its item type with the best expected score (success chance x stat score; the 60% INT/M.ATT scrolls beat the 100% ones at equal price), using held scrolls first and buying one per upgrade slot while mesos (plus the sales) last. Never dark scrolls | C | Owner brief (#112 baseline); expected-value choice between 100% and 60% is ours |
 | Careless plan | Sells nothing; while a worn item has an upgrade slot and an affordable scroll of its type exists (any rate, dark ones included) it picks a random (item, scroll) pair, buys and reads it. Its stream: `hash("careless-shop-<run seed>-<tier index>")` | C | Owner brief (#112) |
 | Plan application | Only through `RunWorld.sell_item`, `buy_scroll`, `use_scroll`; a dark scroll that destroys an item ends the pass and the plan is redone from the live state (at most 8 passes). Scroll rolls use the next round's `scroll_rng` (stream 11) | C | Ours |
-| Where it runs | `scripts/balance.sh --tier=N` chains between tiers (the next round's world is built from the boundary snapshot and visits before it plays), mid-round equipping in every balance run and in RunScene's autoplay, and `FreeMarket.bot_shop` for a hub driver. With `--autoplay` on a menu-started character (`SceneFlow.autoplay`, set from the flag in `main.gd`) the Free Market runs the sensible visit once on entry (`FreeMarket.shop_visit`) and resumed rounds autoplay; `playtest.sh --run` is a tool one-off with no Free Market | C | Ours |
+| Where it runs | `scripts/balance.sh --chain=N` runs between regions (the next round's world is built from the boundary snapshot and visits before it plays), mid-round equipping in every balance run and in RunScene's autoplay, and `FreeMarket.bot_shop` for a hub driver. With `--autoplay` on a menu-started character (`SceneFlow.autoplay`, set from the flag in `main.gd`) the Free Market runs the sensible visit once on entry (`FreeMarket.shop_visit`) and resumed rounds autoplay; `playtest.sh --run` is a tool one-off with no Free Market | C | Ours |
 
 | Review-fix rule (spec #33) | Value / behavior | Tier | Source |
 |---|---|---|---|
@@ -10620,7 +11105,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Web profile UI (#134) | title: Fullscreen / Export save / Import save lead the second button row (before Re-import WZ data) where desktop has Quit; Options: a FULLSCREEN check box in the FRAME CAP row; F11 and F12 not bindable on web (browser fullscreen / developer tools), Ctrl+W/T/N noted in the Key Config strip; text in the bundled Arimo (Arial metrics) because browsers have no system fonts | C | ours; docs/ARCHITECTURE.md 10 "Web profile" |
 | Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText (dress for level-up cards), LevelUpWindow |
 | Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |
-| NX award per round (#115, spec #34) | a clear pays `clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round`; a death pays the same without the clear bonus (bosses killed before dying count); the final tier's clear pays its normal clear award; deletion, Quit round and tool/one-off rounds pay nothing. Placeholders in `balance.json` `nx_award`: `clear_bonus` [100, 250] by 0-based tier (later tiers reuse the last), `per_level` 5, `per_boss` 40. The balance pass sets the numbers | C | ours; owner #34 triage (ADR 0003) |
+| NX award per round (#115, spec #34; since #450 `clear_bonus` is indexed by progression step, see "Region progression") | a clear pays `clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round`; a death pays the same without the clear bonus (bosses killed before dying count); the final tier's clear pays its normal clear award; deletion, Quit round and tool/one-off rounds pay nothing. Placeholders in `balance.json` `nx_award`: `clear_bonus` [100, 250] by 0-based tier (later tiers reuse the last), `per_level` 5, `per_boss` 40. The balance pass sets the numbers | C | ours; owner #34 triage (ADR 0003) |
 | NX crediting and account block (#115) | the award is added to `account.nx` inside the same atomic write as the clear's round-boundary snapshot (so it is spendable in the Free Market at once) or the death/victory run archive; an optional top-level save key `account: {nx, owned}` (absent = 0 NX, nothing owned), `SaveData.FORMAT` stays 2; tool rounds record `nx_awarded` / `bosses_killed` / `levels_gained` and never write a save | C | ours; seams.md (no format bump) |
 | NX display (#115) | results screen row "NX earned: +N NX" (persistent endings only); Free Market arrival notice "You have gained N NX." for 6 s under the instruction line; map select heading ends with the account balance | C | ours |
 | Cash Shop screen (#118, spec #34) | `scenes/ui/cash_shop.gd`: the v83 `UI.wz/CashShop.img` screen, 800x600 centred, EQUIP. (Hat, Face, Eye, Overall, Top, Bottom, Shoes, Glove, Weapon, Cape) and PET (Pet, Pet Equip.) tabs, ten cards per page. Items are filed by Commodity SN (`CashShop.listing`: category 2 equipment, 6 pets; earrings under Face and shields under Weapon as in v83; VAC, which has no SN, last under Pet Equip.). Card art positions and the buy dialog are WZ/capture-measured (tier A/B, `CashShop` constants); other tabs, GIFT/RESERVE, Search Item, Best Item contents, Charge/Check Cash/Code, the family tabs and ON toggle, the Item Inventory tabs and slot buttons are not drawn (out of scope). Click = try on (`CashShop.try_on`), BUY = confirm dialog (NX CREDIT line checked, the only currency) then `CashShop.buy`, which deducts, adds, saves in one write and removes the item from the list; locked cards show "Needs a pet." / "Needs Wing Boots, Binocular and a pet." instead of BUY; too little NX shows the notice "You don't have enough NX."; BUY EQUIPPED ITEM is disabled (one purchase per card), RETURN TO DEFAULT / REMOVE ALL reset / strip the preview; the Cash Inventory lists owned items read-only. SHOP buttons: map select (every tier, the v83 `StatusBar.img/BtShop` beside Save & quit, centred on its plank) and the Free Market status bar (`StatusBar.img/BtShop` at bar +(688, 20)); Leave = EXIT or Esc, back to where it was opened | A for art and prices; B/C for positions, wording, SHOP button placement | cashshop-refs/layout.md (private), v83 WZ; owner rule: match the real client layout |
@@ -10659,14 +11144,21 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Threaten cast (#183) | `crowd` rule with `cast.status: threatened`: at least 3 eligible (live, non-boss, not already threatened) monsters in the box, nearest `mobCount` first, 1 s cooldown, 0.8 s alert2 stance; Slow's two-consecutive-cast history stays Slow-only | C | ours |
 | Threatened status (#183) | flat PAD and PDD cut floored at 0 on contact damage, physical ordinary attacks (and their balls) and the player's physical hits; refreshes without stacking; bosses and status-resistant kinds never take it; coexists with slow, poison and freeze; magic attack and defence untouched | C | ours; the v83 text only says weapon attack and weapon def. fall |
 | Threaten cards (#183) | learn weight 3, rank weight 2, `requires.jobs` [120], not power; no bot score entry (default scoring, like Iron Body) | C | ours |
-| Perion and Kerning City regions (#253, #254) | `perion`: 102010000 / 101030404 / 106000101 (Mano / Stumpy / Iron Hook); `kerning`: 103010000 / 103000101 / 107000000 (King Slime / Shade / Dyle); `region` Perion / Kerning City, continent Victoria Island, notes "Home of the Warriors/Thieves" (no class link); tiers `[[henesys, ellinia, perion, kerning], [sleepywood]]` | C choice, A map/mob ids | Owner, spec #253 |
+| Perion and Kerning City regions (#253, #254) | `perion`: 102010000 / 101030404 / 106000101 (Mano / Stumpy / Iron Hook); `kerning`: 103010000 / 103000101 / 107000000 (King Slime / Shade / Dyle); `region` Perion / Kerning City, continent Victoria Island, notes "Home of the Warriors/Thieves" (no class link); tiers `[[henesys, ellinia, perion, kerning], [sleepywood]]` (superseded by #450's `progression`) | C choice, A map/mob ids | Owner, spec #253 |
 | Perion and Kerning City pools (#253, #254) | Henesys's numeric curve copied exactly (keyframes, bursts, elites, `exp_mult` 2.5, `hard_cap` 400, `post_duration_slope` 0.25) plus a 210 s keyframe interpolated from it (rate 0.875, cap 17.5, speed 1.0375) that only carries the 3:30 pool. Map 1 opens with Blue Snail 100101 only (owner Q4 weaker-neighbour clause, invoked after T1 seed-1 deaths at 0:15/2:15 (Lv1)); from 2:00 Perion Blue Snail 2 / Stump 3 / Red Snail 2, +Dark Stump 1 at 3:00, Dark Stump 3 / Stump 2 / Red Snail 1 / Blue Snail 1 at 3:30; Kerning Blue Snail 2 / Red Snail 3 / Slime 3, +Orange Mushroom 3 at 3:00, +Octopus 1 and Blue Snail 1 at 3:30. Keyframes from 300 s carry no pool. Maps 2 and 3: their v83 life lists, no exclusions (no timed or hidden entries) | C weights, A life lists | Owner, spec #253 |
 | Perion and Kerning City boss multipliers (#253, #254) | Each boss matches the Henesys boss of its map slot at that slot's `typical_hp`/`typical_pdd`: same survivor HP (round(maxHP × hp_mult)) and the 0.01 multiplier steps whose 85–100% roll range is closest to the slot's (within 1 HP). Perion: Mano as in Henesys; Stumpy 0.6857 / touch 1.38 / attacks 1.25; Iron Hook 3.1818 / 2.38 (touch only). Kerning: King Slime 0.45 / 0.78 / slam 0.61 (matches Mano's touch: Mano has no attack); Shade 1.0 / 1.04 (touch only); Dyle 0.2258 / 1.15. Attacks every 8 s. Canonical PDD/MDD, levels and undead flags are not normalized | C | Starting values, untuned (#77 tunes) |
 | Boss skill interval override (#253) | A `stages.json` boss entry may carry `skill_intervals` {"<mob skill id>": seconds > 0} replacing that skill's WZ interval for that boss on that map; `DataRepo.stage_map_errors` rejects other shapes. Shade's Kerning entry: `{"129": 15}` (one Banish per 15 s instead of the canonical 3 s) | C | Owner, spec #253; read by #256 |
-| Map-select card limit (#253) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list | C | Layout measurement, spec #253 |
+| Map-select card limit (#253; replaced by #451) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list. Superseded by "Map select progression list (#451)" in section 11 | C | Layout measurement, spec #253 |
 | Perion and Kerning City mob metadata (#253, #254) | Mesos: v83 server `drop_data` itemid 0 ranges; EXP pickup: the most likely Etc drop (Dark Axe Stump uses Axe 4000215 of the two equal ones; Shade Someone's Hat 4000413). Iron Hook has no server drops: level-fallback mesos and the Wild Boar Tooth icon. Boss bars borrow MobGage icons for Iron Hook (Zeno 6220001) and Shade (Riche 6090000) with hpTag 1/5; both are enabled boss kits (`mob_skills.enabled_ids`) | B mesos/items, C icons/associations | Cosmic drop data (facts only); owner #253 |
-| Mobs without v83 sounds (#253) | A mob with no `Sound.wz/Mob.img/<id>` entry (Iron Hook 4090000) plays no hit, death or skill sound and records nothing missing, as in the client | A (absence) | v83 Sound.wz |
+| Unique bosses (#447, #452) | No boss appears twice across `progression`: every scheduled `mob_id` and `final_form` is distinct and so are their `mobs.json` names (a shell and its final form are one boss and share a name). Ellinia: Prime Minister 3300008 / Grey Yeti and King Pepe 3300005 / Faust 5220002; Perion: King Clang 5220001 into 5220000 / Stumpy / Iron Hook; `test_unique_bosses` enforces it (and the String.wz names when the cache is present) | C (owner) | spec #447 |
+| Unique-boss multipliers (#452) | Each new boss matches the survivor HP and, at 0.01 steps, the touch and attack roll ranges (within 1 HP) of the boss whose slot it takes, at that slot's `typical_hp`/`typical_pdd` (#254 method; `_tier` notes show the arithmetic). Prime Minister 0.252 / 0.8 / 0.69; Grey Yeti and King Pepe 0.07333 / 1.41 / 1.41; Faust 0.8224 / 1.32 / 1.14 (attack matches Dyle's touch); King Clang shell `hp_mult` 0.1, form `final_form_hp_mult` 0.128 (400 + 3,200 = Mano's 3,600), 0.61 / 0.56 (attack matches Mano's touch). `attacks: [attack1]` every 8 s | C | starting values, untuned |
+| Unique-boss mob metadata (#452) | EXP pickups are tier A item ids with tier C associations (Mushmom Spore, Yeti Horn, Pepe Beak, Cursed Doll, Clang Claw, Lorang Claw, Poisonous Mushroom); no meso ranges (the balance.json level fallback, as Iron Hook). Grey Yeti and King Pepe has no `info/boss`: `mobs.json` `no_flinch`. The King Clang shell's bar uses the form's MobGage icon (`boss_ui.icon_id`). Their ids are in `balance.mob_skills.enabled_ids` | A ids, C associations | #452 |
+| Mobs without v83 sounds (#253, #452) | A mob with no `Sound.wz/Mob.img/<id>` entry (Iron Hook 4090000) plays no hit, death or skill sound and records nothing missing, as in the client; a scheduled boss's attack whose `Attack<N>` sound the entry lacks (King Clang 5220000 has only `Skill1`, a UOL to Faust's) is silent the same way | A (absence) | v83 Sound.wz |
 | Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks unchanged; the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
+| Boss Magic Attack Up 101/111 (#457) | a timed multiplier `x/100` (Chimera 101/1 x115, 111/5 x140; Eliza's levels 115) on the `MADamage` of the buffed mobs' magic `attackN` impacts, in `RunWorld.mob_magic_attack`, before the boss/elite `dmg_mult` like Attack Up; touch and weapon attacks never read it; 101 buffs the caster, 111 every living mob in its facing-mirrored box (ordinary mobs included); a recast replaces the multiplier and refreshes the end, never stacks; per slot, resets on spawn, moves on relocation; the cast `effect` plays on the caster and its `mob` icon over a boss while it lasts (no icon over ordinary mobs yet) | C (x as a percentage, application), A (x, interval, time, area, art) | owner, spec #448 B2; original v83 MobSkill.img 101/1, 111/5 |
+| Boss self defense up 102/103 (#457) | the 112/113 flat-defense arithmetic (x added to PDD / MDD for `time`) on the caster only (Dodo 102/3 x85 20 s, Chimera 103/2 x60 30 s); the cast `effect` plays on the caster and its `mob` icon over a boss while it lasts | C (flat arithmetic, as 112/113), A (x, interval, time, art) | owner, spec #448 B2; original v83 MobSkill.img 102/3, 103/2 |
+| Boss magic immunity 141 (#457) | a timed self status that mirrors 140: for `time` a hit of damage type `magic` (the `CombatMath.damage_type_of` split 140 uses; instant hits and projectile contacts, which are consumed with no roll or event) does zero damage to the boss, physical and fixed still land; gated by the level's `hp`; its `mob` icon shows over the boss; per slot, resets on spawn, moves on relocation | C (mirror of 140), A (hp gate, interval, time, art: Timer 141/3 hp<=50, 30 s / 10 s) | owner, spec #448 B2; original v83 MobSkill.img 141/3 |
+| 140 / 141 exclusivity (#457) | a 141 cast while the boss has 140 active, or a 140 cast while it has 141, is skipped and still spends its interval, so a boss is never immune to everything | B | spec #448 B2; Cosmic (third-party emulator behaviour, read as fact) |
 | Floor/wall corner landing (#260) | An air sub-step whose path crosses a floor line inside the floor's span while its end x lies past the floor's end lands on that floor at the end x pulled EPS = 0.01 px inside (`FootholdMap.find_corner_landing`); player only, mobs/pickups/NavGraph keep `find_landing` | C | ours: the 1 px wall probe at the crossing x was already below a wall rising from the floor end, so neither landing nor wall caught it (Kerning 103000101, x 3185) |
 | Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
@@ -11174,6 +11666,135 @@ Physical followers add `summon_strike` (per-target strike art) and derived `stri
 (follow between strikes); Marksman and Corsair can opt in through data. `FxRenderer.fit` and `rate_of` support
 fitted wind-up playback and inspection; `SpritePool.tint_of` exposes the rendered tint for tests. The tool-only
 `burst_probe` captures a synthetic moving-caster burst. These small extensions preserve the existing default paths.
+
+### Boss kits II B1: Stun and final forms (#456, spec #448)
+
+| Constant | Value and rule | Tier | Source |
+|---|---|---|---|
+| Stun values (MobSkill 123) | `interval`, `time`, `prop`, `lt`/`rb` (mirrored by facing) read from `Skill.wz/MobSkill.img/123/level/<lv>` at the boss's own `info/skill` level; the `affected` art loops above the head while the status lasts (the whole MobSkill.img is already imported) | A | v83 WZ; research `v83-mob-skills-ii.md` |
+| What Stun blocks | No move, jump, portal, dash or Teleport (the tick's input is empty), no auto-cast or manual cast (`can_cast()` false), the queued Final Attack follow-ups are cleared. Gravity, knockback and damage continue; the cast spends nothing from the character. Redesign has no basic attack, so there is no swing to drop | B (behaviour), C (what each of our systems does) | Emulator behaviour, secondary wiki text |
+| HP potions while stunned | Stay usable | C | v83 does not say |
+| Stun cast gate | A skill-123 cast needs the character inside the area and not Hidden (a Hidden character is skipped, as for Slow and Banish); the `prop` roll is made once per in-area cast, a failed roll still spends the interval | C (gate, as Slow), A (prop, interval) | #448 common rules |
+| RNG stream 19 | `RunWorld.mob_status_rng` draws the `prop` roll of a boss skill that puts a status on the character; stream 18 stays `ground_rng`. `prop >= 100` draws nothing, and a cast that is locked out draws nothing | C | #448 (redesign already uses 18) |
+| Poison values (MobSkill 125) | `interval`, `time`, `prop`, `x`, `lt`/`rb` (mirrored by facing) read from `Skill.wz/MobSkill.img/125/level/<lv>`; the `affected` art loops above the head while the status lasts | A | v83 WZ; research `v83-mob-skills-ii.md` (Thanatos 125/1) |
+| Poison `x` and ticks | `x` is HP lost at each whole second after the cast, up to and including the second `time` ends on (`floor(time)` ticks). v83 does not say what `x` is | C | research (units unverified) |
+| Poison is never lethal | A tick takes at most the HP above 1; once at 1 HP it emits nothing. A tick is a `player_hit` with `source_kind` "poison" (boss, so boss-hit telemetry reports it), with no hit window, avoid, defense, invincibility or knockback; god mode takes nothing | C | #448 B4 |
+| Poison while Hidden or guarded | A poison already running keeps ticking while the character is Hidden (Dark Sight, Smokescreen and so on) or inside a hit guard such as the Bishop's post-revive guard: it is a status already on the character, it is never lethal, and v83 Dark Sight does not cure poison. Hidden and a guard still stop the cast of a new poison and the monster hits | C | #459 review |
+| Poison and the balance hit metrics | Poison ticks are `boss_hits` entries (`source_kind` "poison") but not `hits`, `taken` or `hits_by_min` (so not the hits before 6:00 and after 8:00): a damage over time is not a monster hit | C | #459 review |
+| Poison cast gate | A skill-125 cast needs the character's body box inside the (mirrored) area and not Hidden; `prop` is rolled on stream 19 once per in-area cast, a failed roll still spends the interval; the status lives on `PlayerStatuses` with the lockout floor (so one poison at a time, and immune for `max(4, time)` s after it ends) | C (gate), A (prop) | #448 |
+| Poison HUD | No HUD icon (the `affected` art only; v83 has no `mob` icon for 125) | C | #448 presentation rule |
+| Poison mist values (MobSkill 131) | `interval`, `time`, `prop`, `x`, `elemAttr`, `lt`/`rb` and the `tile` frames of the level at the boss's `info/skill` level (Snowman 131/7: x 500, interval 30, time 10, prop 80, (-50,-160)-(300,40), `elemAttr` I) | A | v83 WZ |
+| Mist hazard | Placed at the cast as the level's box mirrored by the boss's facing (the same helper as every area skill, so a left-facing boss puts 131/7's box to its right), lasting `time` s from the cast tick; `prop` rolled on stream 19 (a failed roll still spends the interval); not cast while the character is Hidden; a hazard is a pooled struct-of-arrays entity (`GroundHazards`) with no node per hazard, cleared on map transfer, death and clear; a level without `elemAttr` (131/3, 131/9) only shows its mist | C | #448 B4 |
+| Mist effect | A character whose body box overlaps a live mist: ice (I) keeps Slow at `balance.mob_skills.mist.slow_x` percent speed (80, the 126 levels' x) refreshed for `slow_seconds` (1) each tick and never weaker or shorter than a Slow already on it; poison (S) applies Poison for `poison_seconds` (10) at the level's `x` capped at `poison_x_max` (300, the largest 125 x) when it is not locked out. A Hidden character is not touched | C | #448 B4 |
+| Mist art | The level's `tile` node: numbered two-frame alpha-fading animations laid as a jittered grid of puffs (about 80 x 56 px per puff, at most 24) over the box, each with its own tile pick and phase, fading in and out over 0.5 s; drawn on the player's actor layer behind the mobs and the player | C | #448 B4 |
+| Hazard records | `hazards_cast` (count at cast) and `hazard_seconds` (sum of the seconds hazards were alive, cleared early ones counting what they lived) in the balance record | C | #459 |
+| Status lockout floor | After a status with the floor ends, it cannot re-apply for `max(balance.mob_skills.status_lockout[id] or .default, its own time)` s; default 4. A recast during the status or its lockout is refused (no refresh, no stacking) and still spends the boss's interval. Slow has no floor and keeps overwriting on recast, exactly as before | C | #448; Papulatus's Stun L4 (interval 1, time 3, prop 100) is the case it is for |
+| `final_form` | A stage boss entry's `final_form` must be one of the shell mob's `info/revive` ids (`DataRepo.final_form_errors`, reported through `build_setup`'s `missing`; the schema also needs it to differ from `mob_id`). On the shell's death the same encounter continues with the form at the death position: same `boss_index`, steady flag, `attacks`, `attack_interval` and `attack_dmg_mult` (the opening-ramp damage factor included). The shell pays no EXP, mesos, equipment or bonus choice and is not marked dead; the form's death is the boss death, pays the rewards and ends the map. The shell's other `info/revive` entries are not spawned. The HUD bar follows the record, so it shows the form after the swap; a shell without a MobGage icon of its own (King Clang's 5220001) needs a survivor `mobs.json` `boss_ui.icon_id` naming its form, or the run reports the icon as `missing` (found by the #456 diagnostic run) An unlisted form is not continued and the boss dies as an ordinary revive boss | C (rule), A (the form is a listed v83 revive mob) | #448 B1 |
+| Final-form schedule and telemetry | The form's skills are ready one interval after the swap (record `form_time`, never on the swap tick; the shell's cast schedule for that encounter is forgotten, so a skill both forms share restarts). `kills` and `kills_by_min` do not count the shell. `balance_run` `boss_fights` stay keyed on the scheduled entry's `mob_id` and, for encounters with a form only, add `final_form` and `form_time` (-1 before the swap). `DataRepo.final_form_errors` also flags a form missing from `balance.mob_skills.enabled_ids` while its shell is listed. The form's entry attacks start on their own `BossAttacks` clock keyed by encounter (the shell's attack cooldown carries over) | C | #478 review |
+| Final-form HP | `hp_mult` applies to each form; an entry's optional `final_form_hp_mult` replaces it for the form alone (must be > 0) | C | #448 B1 |
+| Roster | `StageRoster.named_ids` and `mob_ids` include the form and the summons/revives of its skills; `MobSkillRunner` casts the form's skills when its id is in `balance.mob_skills.enabled_ids` (each region ticket lists its own) | C | #448 |
+
+### Boss kits II B3: Darkness, Weakness, Curse, Seduce, Confuse (#458, spec #448)
+
+Five more player statuses cast by bosses on B1's status seam (`PlayerStatuses`, stream 19, the lockout floor). Each is rolled once per in-area cast on stream 19 (`prop >= 100` draws nothing), skipped while Hidden, never stacks with itself and has no cap against other statuses. The boss must list the skill's mob in `balance.mob_skills.enabled_ids`; `MobSkillRunner.interval_of` reads a level's `interval` or, where spelled so, `inteval`.
+
+| Constant | Value and rule | Tier | Source |
+|---|---|---|---|
+| Values | `interval` (or `inteval`), `time`, `prop`, `lt`/`rb` from `MobSkill.img/<id>/level/<lv>` at the boss's own level: Alishar 121/1, Fox 121/7 and 122/10, Leviathan 122/3 and 132/2 (`inteval` 60), Thanatos 121/1 and 124/1, Lyka 128/7. The level's `affected` art loops above the head while the status lasts (MobSkill.img is already imported whole, so the manifest is unchanged) | A | v83 WZ; research `v83-mob-skills-ii.md` |
+| Darkness 121 effect | The character's critical chance is 0 while it lasts: every `hit_mob` roll (instant, Final Attack, summons) and every projectile hit (`ProjectileSystem.crit_suppressed`, set each tick by `refresh_player_speed`) is rolled at 0. v83 dims the screen and lowers accuracy; ADR 0005 turned accuracy into crit chance. A shot in flight is judged at its hit | C (reading), B (v83: accuracy down) | ADR 0005 |
+| Darkness overlay | `DarknessOverlay` (`CanvasLayer` 5, above the world and below the HUD): the view dims to opacity 0.8 (colour 0,0,0.04) except a lit circle on the avatar's body centre, fully clear to 100 px and fading smoothly to the full dimming at 240 px; fades in and out at 4 per second. One gradient texture plus four flat rects, no shader; presentation only, never in the sim | C | v83 only says "dimmed screen" (client-side) |
+| Weakness 122 | Jump disabled: `refresh_player_speed` sets the jump stat to 0 and the tick's input loses `jump_pressed`/`jump_held` (ground, down-jump and ladder jumps alike). Walking speed unchanged | B | secondary wiki text |
+| Curse 124 | EXP picked up (`RunWorld._gain_exp`, both the per-tick pickup and the clear sweep) is multiplied by `balance.mob_skills.curse_exp_mult` = 0.5 while active; the fraction of a point it withholds carries to the next pickup (its own carry, apart from Holy Symbol's), so many small orbs still add up to half. The drop itself is not changed | B (halved), C (carry) | emulator behaviour |
+| Seduce 128 | The horizontal input is replaced by a step toward the caster's current x (re-read every tick, no step within 4 px of it: `SEDUCE_STOP_DISTANCE`) for `min(time, balance.mob_skills.seduce_cap)` s, cap 4. Jump, casts and potions still work. It ends the same tick the caster is dead or gone (`MobSkillRunner.seduce_active`); the caster follows a final form's record. It wins over Confuse; Stun wins over all | C (cap, early end, stop distance, precedence), B (forced walk) | v83 sends no cap; `count` and `x` are not read |
+| Confuse 132 | Left and right input are swapped for `time` (the copy of the input; the caller's object is untouched, so the bot, which keeps reading real input, suffers it deterministically). Up, down, jump, casts and potions pass through | B | emulator behaviour |
+| Lockout | Each status uses the shared floor (`status_lockout`, default 4 s, never below the status's own `time`): Darkness 30 s is followed by 30 s of immunity, Curse 60 s by 60 s | C | #448 |
+| HUD | None: the HUD shows no Slow icon either, so these statuses have only the `affected` art above the head | C | #448 ("only where the HUD already shows Slow's") |
+| `player_state` | `darkness`, `weakness`, `curse`, `seduce`, `confuse` ({skill_id, remaining, visual[, boss_index]}) exist only while active | C | |
+
+### Area-warning boss attacks (spec #448 B5, #460)
+
+Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a delay. A scheduled boss plays them when its stage entry lists the attack in `attacks` (Thanatos 8170000 and Lyka 8220006 attack1); ordinary mobs never do. One code path serves both types (`MobAttacks.plan`, `area_columns`, `pick_columns`).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| WZ fields | `range/lt`, `range/rb` (one column's box), `range/start` (leftmost column index), `range/areaCount`, `range/attackCount`, `attackAfter`, `effectAfter`, `areaWarning` and `hit` frames, `PADamage` / `magic`, `elemAttr`. Thanatos: start -5, areaCount 9, attackCount 5, attackAfter 1080, magic, elemAttr I; Lyka: start -7, areaCount 15, attackCount 7, attackAfter 1260, PADamage 720 | A (Mob.wz 8170000 and 8220006) |
+| Column layout | Column k (k = start .. start+areaCount-1) is the `lt`/`rb` box shifted k box widths along x from the boss's feet, so the strip is centred on the boss for Lyka (-7..7) and runs -5..3 for Thanatos as the data says; the strip is mirrored when the boss faces the character. WZ does not say how the columns are laid out | C (reading of the data, docs/research/v83-mob-skills-ii.md) |
+| Which columns strike | `attackCount` distinct columns picked at attack start on RNG stream 20 (`RunWorld.area_rng`, `MobAttacks.AREA_STREAM`): the column holding the character's body centre is always among them when it lies in the strip, the rest come from one partial shuffle. 18 is `ground_rng`; 19 belongs to the mob status stream (#456) | C |
+| Admission | The attack starts when the character's body touches the strip's overall box (the strip is a dodgeable surprise, never a screen-wide one); not while Hidden | C |
+| Timing | The `areaWarning` art plays at attack start on every picked column, stretched to take the whole wait (`FxRenderer.fit`), and the columns strike at `attackAfter`; the `effect` art (Thanatos) plays at `effectAfter` as for any attack. Type 3 and 4 differ only in their art | A (delays), C (stretch, one path for 3 and 4) |
+| Damage | At `attackAfter` a character whose body box overlaps any picked column takes one hit: once per attack, never per column, through the attack's damage path (PADamage / MADamage / the mob's `pad` / `mad`, Attack Up for physical, `elemAttr`, the hit window and guards) with the stage entry's `attack_dmg_mult` and `source_kind` "attack". A jumping character clear of the column's height (Thanatos 113 px, Lyka 200 px) is missed | C (once per attack; vertical extent is the WZ box), A (damage source) |
+| Hit art | `hit` plays on every picked column at the strike, struck or not; anchors are the column's bottom centre (one `area_attack` event carries all anchors, one pooled animation each, no node per column) | C |
+| Cadence | The entry's `attack_interval`, as for the other attack types | C |
+
+### Boss kits II B6: flying bosses, Dispel, Reflect (#461, spec #448)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Flying boss | A scheduled boss (or final form) whose Mob.wz img has a `fly` stance (`MobKind.flies`) has no foothold: `RunWorld.spawn_boss` and `relocate_mob` give it foothold -1 and the swarm moves it like any flyer, toward the character's feet at `flySpeed` (else `speed`: Papulatus 8500002's `speed` 60 is about 100 px/s) with the small bob, clamped to the map's bounds (VR). `BossAttacks` no longer skips a boss with no foothold when the kind flies; its attacks of types 0-2 start from where it hovers and it holds its place (and facing) while the stance plays. Contact damage is the ordinary `bodyAttack` touch (Papulatus's flying form: PADamage 800, no `attackN`, no skills). A grounded boss in the air still waits for a foothold, as before | A (stances, PADamage), C (hover while attacking, stop distance) |
+| Dispel 127 values | `interval`, `prop`, `lt`/`rb` (mirrored by facing), `affected` from `MobSkill.img/127/level/<lv>` (Papulatus clock 127/1: interval 1, prop 100, +-300 x 120) | A |
+| Dispel effect | Ends every active Form (`PlayerForms`, reason "dispelled") and every timed self-buff in `PlayerBuffs` (the Form's buff included), in that order. It never ends: summons and a support summon's pulse buffs (skill slot `summon_sub`), passives, potions, any cooldown, or the statuses bosses put on the character (Slow, Stun, Darkness, Poison...: debuffs, not self-effects) | C |
+| Dispel cast gate | Cast only with the character inside the area, not Hidden, outside the lockout and with a Form or timed buff to end (a cast with nothing to end would only spend the lockout, so it waits and spends no interval, as Banish does); `prop` is rolled on stream 19 once per such cast, a failed roll spends the interval | C |
+| Dispel lockout | `balance.mob_skills.status_lockout["127"]` = 20 s from the cast (`MobSkillRunner.DISPEL_LOCKOUT` when absent), at least | C |
+| Dispel presentation | `player_dispelled` event: the level's `affected` art plays once on the character and the notice "<boss> dispelled your effects!" shows | C |
+| Reflect 143 / 144 / 145 values | `x`, `y`, `interval`, `time`, `hp` gate and `mob` icon from `MobSkill.img/<id>/level/<lv>` (Lilynouch 145/1: x 2000, y 1500, hp <= 50, interval 60, time 10); 143 reflects physical hits, 144 magic, 145 both | A |
+| Reflect effect | While it lasts a hit of the reflected type on the boss deals 0 to it (no `mob_hit`, no on-hit effect, nothing counted as dealt; shots, instant hits and Final Attacks all go through it) and the character loses `min(damage x x/10000 x k, y x c)` HP, rounded, at least 1 for a positive amount: `x` is read as basis points of the hit, `y` as a cap. `balance.mob_skills.reflect`: `damage_mult` k = 1.0, `cap_mult` c = 0.03 (Lilynouch caps at 45 HP, the character's HP being in the hundreds), `rate` 0.5 s. At most one reflect per boss hurts per `rate` s; the others still deal 0 to the boss | C |
+| Reflect hit | A `player_hit` of `source_kind` "reflect" (boss, so boss-hit telemetry reports it): no avoid, defense or knockback, no hit window of its own, and no Form or hull absorption (deliberate: it is the character's own damage coming back, not a monster hit). Refused while dead, clearing a map, in god mode, Hidden, inside a hit window or behind a hit guard (the hit still deals 0 to the boss); only a reflect that lands spends the boss's 0.5 s rate slot, so a refused one leaves it free. Second life (hit hooks) applies; it can kill, and death clears the ground hazards as `take_hit`'s does. Only the character's own hits are reflected: the burn and poison ticks already on a boss never are. `boss_reflect` event: `{mob, mob_id, boss_index, magic, damage, amount}` | C |
+| Reflect exclusivity | A reflect never overlaps 140 or 141 on the same boss: a reflect cast while either is up, or a 140/141 cast while a reflect is up, is skipped and spends its interval (the 140/141 half is Cosmic's rule, tier B, #457; extending it to the reflects is ours) | C |
+| Reflect presentation | The boss shows the level's `mob` icon (`status_visuals`) while it lasts and the notice "<boss> is reflecting physical / magic damage!" or "... your attacks!" shows at the cast | C |
+
+### Ludibrium (C1) constants (#463, spec #449; progression step 6)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/ludibrium.json`: `region` Ludibrium, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [35, 45] (#447 table), maps 220011000 / 220030400 / 220030000 (widths 2227 / 3667 / 3667 px, foothold spans of Map.wz), `original_life` of map 1 (Roloduck 22, Panda Teddy 19) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged; Sleepywood has no `post_duration_slope`. No `opening_ramp` (maps nor stage): `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads): Roloduck 3210204 (Lv34) alone at 0:00, plus Panda Teddy 3210203 (Lv36) at the same weight from 2:00; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`, no exclusions: Zone 4 holds Robo 4230111 x28 and Panda Teddy x8, Zone 1 Master Robo 4230112 x29; none is timed, hidden or an event mob | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=6 --stage=ludibrium` (not tuned): `level` 12.15, 12.73, 13.8, 25.22, 39.44, 51.23, 59.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 | C |
+| Bosses | Rombot 4130103 (hp_mult 11.107, dmg_mult 0.977, attack_dmg_mult 1.046), Alishar 9300012 (0.361, 0.458, 0.596), Timer 5220003 (3.967, 1.435, 1.87), each 300 s after its map's entry with `attack1` and `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids`. Alishar's and Timer's attack1 are magic, matched on MAD | C |
+| Boss kits | Alishar: Darkness 121 and the Cronos summons 200 (9300015/6/7) as written; its Seal 120 is skipped for good. Timer: heal 114, buffs 110/112/113, Stun 123, weapon immunity 140, magic immunity 141. Rombot casts nothing | A skills, C support |
+| Fights fought in these maps | Rombot's Hidden Tower (530 px shaft) and Timer's Lost Time maps (1777 px, 11-16 ladders) are climbing shafts, so both bosses fight in the Toy Factory/Sky Terrace; Alishar is the party-quest boss and has no field | C |
+| Conveyors | Zone 1's four conveyor footholds use the existing `force` support (`FootholdMap`, `player_motion.gd`); no movement code changed | A map data |
+| `mobs.json` | names and `exp_item`: Roloduck Toy Duckling 4000109, Panda Teddy Panda Doll 4000108, Robo Cheap Battery 4000111, Master Robo Mechanical Heart 4000112, Rombot Rombot's Memory Card 4000124, Alishar Key of Dimension 4001023, Timer Clock Spring 4000113 (each the mob's first Etc drop in the MonsterBook), the Cronos Timer's Clock Spring; Rombot has no MobGage icon and borrows Zeno's 6220001 with the standard 1/5 tag | A ids/names, C association |
+| Meso ranges | ordinary mobs only: centre interpolated from the Lv35 Curse Eye / Jr. Boogie and Lv40 Cold Eye / Zombie Lupin / Lv50 Drake ranges at the mob's level (Roloduck [73, 109], Panda Teddy [82, 124], Robo [110, 164], Master Robo [140, 210]), +-20%; bosses and Cronos use the `balance.mesos` level fallback | C |
+| Flags ignored | none of Ludibrium's field flags are read (`lvLimit` is on the Path of Time maps only, which are not used) | C |
+| Diagnostic gap | The god-mode diagnostic round did **not** observe Timer's Stun 123 and magic immunity 141, nor Alishar's Cronos summons (200): god mode lands no hit on the character, and the bosses were held at fixed HP fractions. Their visuals and effects are unverified in Ludibrium until C14's QA covers them (the mechanics have their own tests, #456-#458) | C |
+| Alternates | map 1 220010300 / 220010000, map 2 220030300 / 220030200, map 3 220040400 / 220050200: not needed, the arena check kept all three first picks | C |
+
+### Korean Folk Town (C3) constants (#465, spec #449; progression step 8)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/korean_folk_town.json`: `region` Korean Folk Town, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [45, 55] (#447 table), maps 222010000 / 222010200 / 222010300 (widths 2520 / 2520 / 3240 px, foothold spans of Map.wz; #270's picks), `original_life` of map 1 (Moon Bunny 13) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads), both Moon Bunny 4230300 (Lv45) alone: it is the field's only monster once the three stray Lv22 Dark Axe Stump spawn points (one timed 20 s) are dropped; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`: Tiger Ridge holds Hodori 5100003 x10 and Hogul 5100005 x3 (one Hogul timed, mobTime 60 s; an ordinary mob, kept); Fox Ridge holds Samiho 5100004 x21 and excludes (`exclude`) the timed, boss-flagged Scholar Ghost 6090003 (mobTime 3600 s), which is map 1's scheduled boss | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=8 --stage=korean_folk_town` (not tuned): `level` 18.15, 18.73, 19.8, 31.22, 45.44, 57.23, 65.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (8 - 5)) | C |
+| Bosses | Scholar Ghost 6090003 (hp_mult 52.672, dmg_mult 1.111; no attack stance, so no `attacks` or `attack_dmg_mult`), Blue King Goblin 7130401 (6.69, 0.73, attack_dmg_mult 0.848, `attack1` matched on MAD), Nine-Tailed Fox 7220001 (2.562, 1.624, 2.027, `attack1` matched on PAD), each 300 s after its map's entry, `attack_interval` 8 where there is an attack; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | Scholar Ghost: Banish 129 only (touch damage otherwise, like Shade); `skill_intervals` {"129": 15} is Shade's tier C rule (#256), one Banish per 15 s instead of the canonical 3 s; its v83 banMsg is kept as the notice. Blue King Goblin casts nothing. Nine-Tailed Fox: heal 114/15, Darkness 121/7, Weakness 122/10, Stun 123/7, as written in Skill.wz | A skills, C support |
+| One King Goblin | Blue King Goblin only; Yellow 7130400 and Green 7130402 stay unscheduled (`test_region_korean_folk_town`) | C |
+| `mobs.json` | names and `exp_item`: Moon Bunny Pounder 4000169, Hodori Tiger Stamp 4000170, Hogul Tiger Skin 4000171, Samiho and the Fox Three-Tailed Foxtail 4000172, Scholar Ghost Traditional Scholar Hat 4000416, Blue King Goblin Silver Ore 4010004 (each the mob's first Etc drop in the MonsterBook); Scholar Ghost borrows Riche's MobGage icon 6090000 and Blue King Goblin Zeno's 6220001 with the standard 1/5 tag (v83 has none for either); the Fox's icon is canonical | A ids/names, C association |
+| Meso ranges | ordinary mobs only, as Ludibrium's method: centre interpolated from the Lv40 Cold Eye / Zombie Lupin (125), Lv50 Drake (250), Lv55 Malady (305) and Lv64 Ice Drake (405) ranges at the mob's level (Moon Bunny Lv45 [150, 226], Hodori Lv50 [200, 300], Hogul Lv53 [226, 340], Samiho Lv56 [253, 379]), +-20%; bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the three maps carries a field flag | A |
+| Alternates | not needed if the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Magatia (C6) constants (#468, spec #449; progression step 11)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/magatia.json`: `region` Magatia, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [60, 70] (#447 table), maps 260020300 / 261020400 / 261010101 (widths 2430 / 2410 / 2196 px, foothold spans of Map.wz), `original_life` of map 1 (Kiyo 9, Sand Dwarf 6); the note says the road runs from Ariant across the Nihal Desert into the labs | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads): Kiyo 3100102 (Lv30) 3 : Sand Dwarf 3100101 (Lv32) 2 at 0 s (the 9 : 6 spawn-point ratio), 1 : 1 at 120 s; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`: Area C-2 holds Roid 5110301 x14 and Neo Huroid 5110302 x13 and excludes (`exclude`) the timed, boss-flagged Rurumo 6090004 (Lv63, mobTime 2400 s); Unit 201 holds Homun 6110300 x11 and Saitie 6110301 x5 and no timed boss | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=11 --stage=magatia` (not tuned): `level` 27.15, 27.73, 28.8, 40.22, 54.44, 66.23, 74.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (11 - 5)). The jump from the Lv30-32 desert monsters to the Lv54-58 lab at map 2 is the owner's map choice | C |
+| Bosses | Deo 3220001 (hp_mult 10.658, dmg_mult 1.035, attack_dmg_mult 1.113, `attack1` matched on PAD), Homunscullo 8110300 (9.837, 0.79, 2.396, `attack1` and `attack2` both PAD 125), Chimera 8220002 (4.1, 1.405, 1.889, `attack1` a type 2 ball with no damage of its own, so the mob's PAD 430), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | Deo: Defense Up 112/1. Homunscullo: none (and no v83 boss flag; `attack1`'s mpBurn is not read, no MP). Chimera: Magic Attack Up 101/1 and 111/5, Magic Defence Up 103/2, heal 114/19, weapon immunity 140/13 and Summon 200/88, as written in Skill.wz (B2) | A skills, C support |
+| Absent summons | Chimera's 200/88 lists mobs 9300167 and 9300168, which v83 Mob.wz does not hold. `StageRoster.ABSENT_IN_V83` drops them from the stage's mob list, so a round neither loads them nor reports them missing; the cast stays in the kit and spawns nothing (`RunWorld.spawn_offspring` skips an id with no mob kind) | A (absence), C (handling) |
+| Homunscullo's room | its own map, Zenumist Unit 202, also holds the boss-flagged Deet and Roi (8090000), so it fights in Area C-2; it is not boss-flagged in v83 (a 5400 s spawn), so it borrows Zeno's MobGage icon with the standard 1/5 tag, as Rombot does | C |
+| `mobs.json` | names and `exp_item`, each mob's first monster-drop Etc item (4000xxx) in the MonsterBook: Kiyo Kiyo's Beek 4000335, Sand Dwarf Empty Sack 4000334, Roid and Chimera Wires 4000364, Neo Huroid Plug 4000365, Homun Beaker 4000354, Saitie Entry Pass 4000363, Deo Cactus Stem 4000329, Homunscullo Homunculus's Sand 4000355; Deo's and Chimera's MobGage icons are canonical | A ids/names, C association |
+| Meso ranges | ordinary mobs only, as Ludibrium's method: centre interpolated from the Lv27 Evil Eye (60), Lv35 Curse Eye / Jr. Boogie (97), Lv50 Drake (250), Lv55 Malady (305), Lv64 Ice Drake (405) and Lv70 Tauromacis (420) ranges at the mob's level (Kiyo Lv30 [59, 89], Sand Dwarf Lv32 [66, 100], Roid Lv54 [235, 353], Neo Huroid Lv58 [270, 406], Homun Lv65 [326, 490], Saitie Lv68 [332, 498]), +-20%; bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the three maps carries a field flag (lab maps carry `mobRate` 2, which the sim does not read) | A |
+| Alternates | map 1 260020400 / 260020100, map 2 261020200 / 261020700, map 3 261010103 (1954 px, narrower than Unit 201): not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
 
 ### Corsair constants (spec #384)
 

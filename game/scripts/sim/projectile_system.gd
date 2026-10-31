@@ -84,11 +84,18 @@ var skill_names := PackedStringArray()
 var rng: RandomNumberGenerator
 var bounds := Rect2()
 var magic_defense_k := CombatMath.MAGIC_DEFENSE_K
+## Per mob slot, 0 = magic damage blocked (magic immunity 141); empty = nothing blocked. RunWorld lends it for one step.
+var magic_allowed := PackedByteArray()
+## Set by RunWorld while some boss reflects (MobSkill 143/144/145): `(slot, magic, damage) -> bool`, true when the boss
+## reflects the hit, which then deals it 0 (no event, no on-hit effect). Invalid otherwise.
+var reflect_hit := Callable()
 ## tier C: minimum per-contact multiplier, configured from balance.combat.pierce_floor by RunWorld.
 var pierce_floor := 0.0
 ## Mob slots killed during the last step() (cleared at the start of each step).
 var kills := PackedInt32Array()
 var _halted := false
+## While true every projectile hit rolls no critical (Darkness 121, #458; RunWorld sets it each tick).
+var crit_suppressed := false
 ## Total damage dealt by every hit so far.
 var dealt := 0
 
@@ -373,13 +380,17 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 	var is_magic := kind == CombatMath.DAMAGE_MAGIC
 	if not is_magic and m < physical_allowed.size() and physical_allowed[m] == 0:
 		return
+	if is_magic and m < magic_allowed.size() and magic_allowed[m] == 0:
+		return # magic immunity (141): the contact is consumed like 140's, with no roll or event
 	var mk: MobKind = swarm.kinds[swarm.kind[m]]
 	var defense := (float(live_pdd[m]) if m < live_pdd.size() else float(mk.pdd)) \
 		if kind == CombatMath.DAMAGE_PHYSICAL else (float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd))
-	var roll := roll_damage(dmg_min[i], dmg_max[i], is_magic, defense, magic_defense_k, crit[i],
+	var roll := roll_damage(dmg_min[i], dmg_max[i], is_magic, defense, magic_defense_k, 0.0 if crit_suppressed else crit[i],
 		crit_mult[i], rng, swarm.element_multiplier(m, element[i]),
 		CombatMath.DAMAGE_TYPE_NAMES[kind], damage_pct[i], crit_damage_bonus[i],
 		multiplier)
+	if reflect_hit.is_valid() and bool(reflect_hit.call(m, is_magic, roll.x)):
+		return
 	var dir := 1 if vx[i] >= 0.0 else -1
 	var head := Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y)
 	var hv := hit_visual[i]

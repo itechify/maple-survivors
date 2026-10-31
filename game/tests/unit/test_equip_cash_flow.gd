@@ -62,7 +62,7 @@ func test_cash_and_pet_chosen_in_the_free_market_are_saved_continue_and_reach_th
 	assert_true(hub.pet_renderer != null and hub.motion.pet.species == PET, "the pet is out again after Continue")
 	# The next round plays with them.
 	flow.goto_stage_select()
-	flow.start_round(String(SceneFlow.tiers()[0][0]), 7)
+	flow.start_round(String(SceneFlow.progression()[0]), 7)
 	var run := flow.current as RunScene
 	assert_true(run != null, "the next round is running")
 	if run == null:

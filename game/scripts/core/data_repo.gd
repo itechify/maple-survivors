@@ -5,6 +5,8 @@ extends RefCounted
 ## and assembles a whole setup from an img loader. Presentation/core code: it reads files; the sim never does.
 ## Skills, upgrades, equipment drops, scrolls and shops are a base file plus per-job-line fragments
 ## (`survivor/<name>/<line>.json`) merged by `load_split` (SPLIT, lines(); docs/ARCHITECTURE.md 4.4.4).
+## Stages are a base file plus one file per region (`survivor/stages/<key>.json`) merged by `load_stages`
+## (docs/ARCHITECTURE.md 4.4.4).
 ##
 ##   var data := DataRepo.load_all()
 ##   var setup := DataRepo.build_setup(data, "henesys", 12345, Vector2(800, 600),
@@ -36,6 +38,7 @@ const FILES := {
 	"exp_table": "canonical/exp_table.json",
 	"cash_items": "survivor/cash_items.json",
 	"ammo": "survivor/ammo.json",
+	"level_curve": "survivor/level_curve.json",
 }
 ## Adventurer lines retain their historical merge order; class lines retain append-only registration order.
 const ADVENTURER_LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"]
@@ -124,6 +127,9 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 		if SPLIT.has(key):
 			out[key] = load_split(key, root, errors)
 			continue
+		if key == "stages":
+			out[key] = load_stages(root, errors)
+			continue
 		var path := root.path_join(FILES[key])
 		var v: Variant = load_json(path)
 		if v is Dictionary:
@@ -142,6 +148,10 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 			merge_patch(out.balance, fragment.balance)
 	errors.append_array(stage_label_errors(out.get("stages", {})))
 	errors.append_array(stage_map_errors(out.get("stages", {})))
+	if not out.get("level_curve", {}).is_empty(): # a missing file is already listed above
+		errors.append_array(LevelScale.curve_errors(out.level_curve))
+	errors.append_array(LevelScale.stage_errors(out.get("stages", {})))
+	errors.append_array(progression_errors(out.get("stages", {})))
 	errors.append_array(Ammo.schedule_errors(out.get("ammo", {})))
 	return out
 
@@ -210,6 +220,49 @@ static func load_split(key: String, root: String = DATA_ROOT, errors: PackedStri
 		_merge_fragment(out, frag, spec, path, errors)
 	if merge == "sorted":
 		(out[entries_key] as Array).sort()
+	return out
+
+
+## The stages data (docs/ARCHITECTURE.md 4.4.4): the base `survivor/stages.json` (`progression` and the notes) with the
+## stage of every `survivor/stages/<key>.json` merged into its `stages` dictionary. A region file holds ONE stage
+## (the object that used to sit under `stages.<key>`); the file name is the key. Stages enter after any inline entry of the
+## base file, in `progression` order, then every other file by name (tool-only stages). A key in the base and in a file is
+## listed in `errors` and the first value kept. A missing `stages` folder is fine; a missing or malformed base gives {}.
+static func load_stages(root: String = DATA_ROOT, errors: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var base_path := root.path_join(FILES.stages)
+	var base: Variant = load_json(base_path)
+	if not base is Dictionary:
+		errors.append("cannot read %s" % base_path)
+		return {}
+	var out: Dictionary = base
+	if not out.get("stages") is Dictionary:
+		out["stages"] = {}
+	var dir_path := root.path_join(String(FILES.stages).trim_suffix(".json"))
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return out
+	var keys: Array[String] = []
+	for file in dir.get_files():
+		if file.ends_with(".json"):
+			keys.append(file.trim_suffix(".json"))
+	keys.sort()
+	var ordered: Array[String] = []
+	for key: Variant in out.get("progression", []):
+		if key is String and key in keys:
+			ordered.append(key)
+	for key in keys:
+		if key not in ordered:
+			ordered.append(key)
+	var stages: Dictionary = out.stages
+	for key in ordered:
+		var path := dir_path.path_join(key + ".json")
+		var stage: Variant = load_json(path)
+		if not stage is Dictionary:
+			errors.append("cannot read %s" % path)
+		elif stages.has(key):
+			errors.append("%s: duplicate stage '%s' (first kept)" % [path, key])
+		else:
+			stages[key] = stage
 	return out
 
 
@@ -359,7 +412,7 @@ static func summary_stage_lines(summary: Dictionary) -> Array[String]:
 	var region := String(summary.get("region", ""))
 	var continent := String(summary.get("continent", ""))
 	if region.is_empty():
-		var stages_file: Variant = load_json(DATA_ROOT.path_join(FILES.stages))
+		var stages_file: Variant = load_stages()
 		var key := canonical_stage_key(String(summary.get("stage", "")))
 		var known: Dictionary = {}
 		if stages_file is Dictionary and (stages_file as Dictionary).get("stages", {}).has(key):
@@ -377,6 +430,36 @@ static func stage_label_errors(stages_file: Dictionary) -> PackedStringArray:
 		for field: String in ["region", "continent"]:
 			if String((all[key] as Dictionary).get(field, "")).strip_edges().is_empty():
 				errors.append("stage '%s' has no %s" % [key, field])
+	return errors
+
+
+## One message per problem of the parsed stages.json `progression` (ADR 0007): not a non-empty list of strings, a key that
+## names no stage, a key listed twice, or a listed stage without a valid `drop_band` ([min, max] whole numbers, 0 <= min <= max).
+static func progression_errors(stages_file: Dictionary) -> PackedStringArray:
+	var errors := PackedStringArray()
+	if stages_file.is_empty():
+		return errors # an unreadable stages.json is reported by load_all already
+	var progression: Variant = stages_file.get("progression")
+	if not progression is Array or progression.is_empty():
+		errors.append("stages.json needs a non-empty progression list")
+		return errors
+	var all: Dictionary = stages_file.get("stages", {})
+	var seen := {}
+	for key: Variant in progression:
+		if not key is String:
+			errors.append("progression entries must be stage keys")
+			continue
+		if seen.has(key):
+			errors.append("progression lists '%s' twice" % key)
+		seen[key] = true
+		if not all.has(key):
+			errors.append("progression key '%s' is not a stage" % key)
+			continue
+		var band: Variant = all[key].get("drop_band")
+		if not band is Array or band.size() != 2 or not (band[0] is int or band[0] is float) \
+				or not (band[1] is int or band[1] is float) or float(band[0]) < 0.0 or float(band[1]) < float(band[0]) \
+				or float(band[0]) != floorf(float(band[0])) or float(band[1]) != floorf(float(band[1])):
+			errors.append("stage '%s' needs a drop_band [min, max]" % key)
 	return errors
 
 
@@ -402,6 +485,37 @@ static func stage_map_errors(stages_file: Dictionary) -> PackedStringArray:
 			if entry.boss.has("skill_intervals") and not _valid_skill_intervals(entry.boss.skill_intervals):
 				errors.append("stage '%s' maps[%d] boss skill_intervals needs {\"<mob skill id>\": seconds > 0}"
 					% [key, i])
+			if entry.boss.has("final_form") and (int(entry.boss.final_form) <= 0
+					or int(entry.boss.final_form) == int(entry.boss.get("mob_id", 0))):
+				errors.append("stage '%s' maps[%d] boss final_form needs a mob id other than the boss's own" % [key, i])
+			var weight: Variant = entry.boss.get("final_form_hp_mult", 1.0)
+			if entry.boss.has("final_form_hp_mult") and (not (weight is float or weight is int) or float(weight) <= 0.0):
+				errors.append("stage '%s' maps[%d] boss final_form_hp_mult needs a number > 0" % [key, i])
+	return errors
+
+
+## Cache-backed check of a stage's scheduled bosses: every `final_form` must be listed in its shell's canonical
+## `info/revive` (the form is a v83 fact, never invented by stages.json). `mob_imgs` is {id: Mob.wz img root}; a shell
+## whose img is absent is reported by the missing-asset list instead. `enabled_ids` (balance.mob_skills.enabled_ids)
+## also flags a form missing from it while its shell is listed. One message per violation.
+static func final_form_errors(stage: Dictionary, mob_imgs: Dictionary, enabled_ids: Array = []) -> PackedStringArray:
+	var errors := PackedStringArray()
+	var enabled := {}
+	for id: Variant in enabled_ids:
+		enabled[int(id)] = true
+	for boss: Dictionary in stage_bosses(stage):
+		if not boss.has("final_form"):
+			continue
+		var shell := int(boss.get("mob_id", 0))
+		var img: Variant = mob_imgs.get(shell, mob_imgs.get(str(shell), {}))
+		if not img is Dictionary or img.is_empty():
+			continue
+		var revive: Variant = img.get("info", {}).get("revive", {})
+		if not (revive is Dictionary and int(boss.final_form) in StageRoster.list_ids(revive)):
+			errors.append("boss %d final_form %d is not in its info/revive" % [shell, int(boss.final_form)])
+		elif enabled.has(shell) and not enabled.has(int(boss.final_form)):
+			# The form would never cast its kit while the shell's is enabled: almost surely a forgotten id.
+			errors.append("boss %d is in balance.mob_skills.enabled_ids but its final_form %d is not" % [shell, int(boss.final_form)])
 	return errors
 
 
@@ -658,6 +772,9 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 				mob_imgs[id] = m
 			else:
 				missing.append("Mob.wz/%07d.img" % id)
+	for problem in final_form_errors(data.get("stages", {}).get("stages", {}).get(stage_key, {}), mob_imgs,
+			data.get("balance", {}).get("mob_skills", {}).get("enabled_ids", [])):
+		missing.append("stage '%s': %s" % [stage_key, problem])
 	var skill_imgs := {}
 	for book in skill_books(data):
 		var s: Variant = img_loader.call(skill_img_path(book))

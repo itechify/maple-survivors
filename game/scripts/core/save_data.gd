@@ -11,7 +11,8 @@ extends RefCounted
 ## format 1 converts on load, keeping playable-stage bests/counts. Writes replace the file via a sibling temporary.
 ## Legacy stage keys migrate through DataRepo.STAGE_ALIASES on load and write, without changing the save format.
 ## Slot: {name, created, rounds_played, character: CharacterSnapshot (format 3)}. The character is saved at the hub
-## (Free Market) and after every round; there is no saved round, tier cursor or seed to resume (ADR 0006, #286).
+## (Free Market) and after every round; there is no saved round or seed to resume (ADR 0006, #286). Its
+## `cleared_regions` replaces the old `tiers_unlocked` counter (ADR 0007, #450): stored counters convert on load.
 ## History: one entry per round, {name, job_id, job_name, stage, level, ending, date} (level = reached in that round),
 ## plus one when a character is deleted (stage "", level 1) or retired. ending is
 ## cleared/died/quit (a round, finish_round), deleted (delete_slot) or retired (a character of a format-2 file, moved here
@@ -131,7 +132,7 @@ func _apply_file(parsed: Dictionary) -> bool:
 	parsed = normalized
 	best = {}
 	runs = {}
-	var stage_data: Variant = DataRepo.load_json(DataRepo.DATA_ROOT.path_join(DataRepo.FILES.stages))
+	var stage_data: Variant = DataRepo.load_stages()
 	var stages: Dictionary = stage_data.get("stages", {}) if stage_data is Dictionary else {}
 	for k: String in parsed.best:
 		if stages.has(k) and parsed.best[k] is Dictionary:
@@ -142,6 +143,14 @@ func _apply_file(parsed: Dictionary) -> bool:
 	# Format 1 validates only bests/counts: later fields must be ignored, not adopted without validation.
 	var format := int(parsed.format)
 	_slots = parsed.slots if format == FORMAT else [null, null, null]
+	# A character saved before ADR 0007 carries `tiers_unlocked`: it becomes the cleared set, and the file is rewritten.
+	var progression: Array = stage_data.get("progression", []) if stage_data is Dictionary else []
+	for index in _slots.size():
+		if _slots[index] is Dictionary and _slots[index].character.has("tiers_unlocked") \
+				and not _slots[index].character.has("cleared_regions"):
+			_slots[index] = _slots[index].duplicate(true)
+			_slots[index].character = CharacterSnapshot.with_cleared_regions(_slots[index].character, progression)
+			migrated = true
 	_history = parsed.get("history", []) if format >= 2 else []
 	_account = Account.normalized(parsed.get("account", Account.empty())) if format >= 2 else Account.empty()
 	if format == 2:

@@ -326,8 +326,10 @@ func test_real_cache_the_pistol_is_wearable_and_each_tier_drops_guns_only() -> v
 	assert_eq(WeaponInfo.family(CF.PISTOL), "gun")
 	assert_eq(Equipment.requirement_error(infos[CF.PISTOL], {"job_id": 522}), "", "a Corsair can wear the creation Pistol")
 	var ed: Dictionary = data.equipment_drops
-	for tier in data.stages.tiers.size():
-		var band := EquipmentDrops.band_of(data.stages, tier)
+	# ADR 0007 (#450): every progression region carries its own drop band (tiers are gone).
+	var progression: Array = data.stages.progression
+	for tier in progression.size():
+		var band := EquipmentDrops.band_of(data.stages.stages[String(progression[tier])])
 		var rng := _rng(386 + tier)
 		var guns := 0
 		for i in 300:
@@ -337,4 +339,4 @@ func test_real_cache_the_pistol_is_wearable_and_each_tier_drops_guns_only() -> v
 			if Equipment.slot_of(id) == "weapon":
 				assert_eq(WeaponInfo.family(id), "gun", "%d" % id)
 				guns += 1
-		assert_true(guns > 0, "tier %d drops guns" % (tier + 1))
+		assert_true(guns > 0, "region %s drops guns" % progression[tier])

@@ -1,22 +1,26 @@
 extends SceneTree
-## Writes the character fixtures (format 3, ADR 0006: job, look, worn equipment, inventory, scrolls, mesos, tiers unlocked,
+## Writes the character fixtures (format 3, ADR 0006: job, look, worn equipment, inventory, scrolls, mesos, cleared regions,
 ## cash and pet; no level or build). Three modes:
 ##
 ##  * a real round: an unmodified real-cache Henesys round (default seed 1, the kiting bot) whose character is written as
-##    the round leaves it, with its pickups and the tier its clear unlocks.
+##    the round leaves it, with its pickups and the region its clear adds to its cleared set.
 ##  * `--kit=<id,id,...>`: a synthetic kit, no round: a fresh Lv1 character of `--job` wearing those equipment ids with
-##    their canonical stats (what they displace is dropped), `--tiers=<n>` tiers unlocked (default 1). This is how the
-##    committed `fp_arch_mage.json` is made (the tier-1 kit of the Sleepywood checks, tier 2 unlocked).
+##    their canonical stats (what they displace is dropped), `--cleared=<n>` the first n progression regions cleared (default 0;
+##    `--tiers=<n>` is the old spelling: 2 = `--cleared=4`, 1 = 0). This is how the committed `fp_arch_mage.json` is made
+##    (the tier-1 kit of the Sleepywood checks, Sleepywood unlocked).
 ##  * `--migrate=<absolute JSON path>`: converts an existing format-1 or format-2 file to format 3 with real-cache item
 ##    info (CharacterSnapshot.migrate), keeping its job, look and belongings and its `_doc`.
 ##
 ## ISOLATE=<name> bash scripts/test.sh character_snapshot # prepares the isolated project, then:
 ## ISOLATE=<name> bash scripts/godot.sh --headless --path _scratch/godot_runs/<name>/game
 ##   --script res://tools/character_fixture.gd -- --out=<absolute JSON path> --revision=<git SHA> [mode flags]
-## The committed kit fixture is `--kit=1382002,1002013,1072019,1082019,1040002,1060002 --tiers=2 --label=spec282/ticket-294`.
+## The committed kit fixture is `--kit=1382002,1002013,1072019,1082019,1040002,1060002 --cleared=4 --label=spec282/ticket-294`.
 ## Flags: `--label=<ticket>` (the _doc.branch provenance), `--job=<id>` (the character's job; default
 ## JobTree.default_job(), 212; it must be playable), `--seed=<n>` (a round's seed, default 1) and `--seconds=<s>` (a round's
 ## time cap: the round stops there and only has to be alive and warning-free; without it the round must clear).
+## `--extra-cleared=<key,key,...>` (kit mode) adds stage keys to the cleared set that `progression` does not hold yet (planned
+## regions: a fixture made before they exist, e.g. `late_progression.json` with `--cleared=15` while only five regions ship; once
+## they ship, `--cleared=<n>` alone writes the same set); `--note=<text>` replaces the generated `_doc.note` of a kit fixture.
 ## `--god` is a documented diagnostic aid: RunWorld.god makes the character invulnerable, so the bot can reach a clear its
 ## play does not survive to; use it with a round, and the fixture's _doc records it (`invulnerable` and `diagnostic`).
 ## `--patch=<absolute JSON path>` deep-merges a JSON patch into loaded data first, as balance_run does; `_doc.patch`
@@ -39,8 +43,10 @@ func _init() -> void:
 	var seed_value := 1
 	var label := "spec32/ticket-67"
 	var kit := ""
-	var tiers := 1
+	var cleared := 0
 	var patch_file := ""
+	var extra_cleared := ""
+	var note := ""
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="):
 			output = arg.substr(6)
@@ -62,10 +68,16 @@ func _init() -> void:
 			seed_value = int(arg.substr(7))
 		elif arg.begins_with("--kit="):
 			kit = arg.substr(6)
-		elif arg.begins_with("--tiers="):
-			tiers = int(arg.substr(8))
+		elif arg.begins_with("--cleared="):
+			cleared = maxi(0, int(arg.substr(10)))
+		elif arg.begins_with("--tiers="): # compatibility alias: tier 2 open = the four tier-1 regions cleared
+			cleared = CharacterSnapshot.LEGACY_TIER1_REGIONS if int(arg.substr(8)) >= 2 else 0
 		elif arg.begins_with("--patch="):
 			patch_file = arg.substr(8)
+		elif arg.begins_with("--extra-cleared="):
+			extra_cleared = arg.substr(16)
+		elif arg.begins_with("--note="):
+			note = arg.substr(7)
 	if output != "" and migrate != "":
 		_migrate(migrate, output)
 		return
@@ -103,8 +115,8 @@ func _init() -> void:
 		quit(1)
 		return
 	if kit != "":
-		_kit({"kit": kit, "tiers": tiers, "job": job, "output": output, "revision": revision, "label": label,
-				"patch": patch_file}, setup, library)
+		_kit({"kit": kit, "cleared": cleared, "job": job, "output": output, "revision": revision, "label": label,
+				"patch": patch_file, "extra_cleared": extra_cleared, "note": note}, setup, library)
 		return
 	setup["job"] = job
 	var world := RunWorld.new(setup)
@@ -150,10 +162,11 @@ func _init() -> void:
 	quit()
 
 
-## A fresh Lv1 character of `job` wearing the equipment ids in `kit` (a comma list), `tiers` tiers unlocked, written to `output`.
+## A fresh Lv1 character of `job` wearing the equipment ids in `kit` (a comma list), the first `cleared` progression regions
+## cleared, written to `output`.
 func _kit(options: Dictionary, setup: Dictionary, library: AssetLibrary) -> void:
 	var kit := String(options.kit)
-	var tiers := int(options.tiers)
+	var cleared := int(options.cleared)
 	var job := int(options.job)
 	var output := String(options.output)
 	var revision := String(options.revision)
@@ -172,10 +185,18 @@ func _kit(options: Dictionary, setup: Dictionary, library: AssetLibrary) -> void
 		ids.append(id)
 	var character := world.character_snapshot()
 	character.equipment.inventory = [] # the kit is what is worn: the pieces it displaced are dropped
-	character.tiers_unlocked = tiers
+	var progression: Array = world.data.stages.get("progression", [])
+	var cleared_keys: Array = progression.slice(0, cleared)
+	for key: String in String(options.get("extra_cleared", "")).split(",", false):
+		if key not in cleared_keys:
+			cleared_keys.append(key)
+	character.cleared_regions = CharacterSnapshot.cleared_of({"cleared_regions": cleared_keys}, progression)
 	character["_doc"] = {"by": label, "revision": revision, "job": job, "kit": ids,
-		"note": "Synthetic format-3 kit (tools/character_fixture.gd --kit): unscrolled canonical equipment of the Lv0-30 tier-1 "
-			+ "drop band and tier %d unlocked, no cash, pet or carried build; a Lv1 character for the Sleepywood checks." % tiers}
+		"note": String(options.get("note", "")) if String(options.get("note", "")) != "" else
+			"Synthetic format-3 kit (tools/character_fixture.gd --kit): unscrolled canonical equipment of the Lv0-30 tier-1 "
+			+ "drop band and %d regions cleared, no cash, pet or carried build; a Lv1 character for the Sleepywood checks." % cleared}
+	if String(options.get("extra_cleared", "")) != "":
+		character._doc["extra_cleared"] = String(options.extra_cleared).split(",", false)
 	if String(options.get("patch", "")) != "":
 		character._doc["patch"] = String(options.patch).get_file()
 	var file := FileAccess.open(output, FileAccess.WRITE)
@@ -186,7 +207,7 @@ func _kit(options: Dictionary, setup: Dictionary, library: AssetLibrary) -> void
 		return
 	file.store_string(JSON.stringify(_rounded(character), "\t") + "\n")
 	file.close()
-	print("FIXTURE_WRITTEN %s kit %s tiers %d" % [output, ids, tiers])
+	print("FIXTURE_WRITTEN %s kit %s cleared %d" % [output, ids, cleared])
 	library.free()
 	quit()
 

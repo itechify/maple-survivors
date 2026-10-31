@@ -1,5 +1,5 @@
 extends TestCase
-## The tool account file (--account=<abs JSON>) and how it reaches the round setup in single rounds, tier chains and
+## The tool account file (--account=<abs JSON>) and how it reaches the round setup in single rounds, chains and
 ## --run (spec #34, ticket #116). An omitted flag is an empty account and changes nothing.
 
 const BR := preload("res://tools/balance_run.gd")
@@ -88,16 +88,16 @@ func test_balance_run_applies_the_account_to_every_prepared_setup() -> void:
 		assert_eq(setup.account.owned, [1000001, 1070001, 5000001, 1812002])
 		assert_eq(setup.alert, {"hp": 0.5})
 	assert_eq(setups[0].character.cash, {"hat": 1000001, "shoes": 1070001})
-	assert_false(setups[1].has("character"), "later tiers get the character carried from the clear")
+	assert_false(setups[1].has("character"), "later steps get the character carried from the clear")
 	data.stages.stages.quiet.duration = 1.0
 	data.balance.run_time_cap = 3.0
 	var chain: Dictionary = BR.run_chain(setups, "bot", 7)
 	assert_eq(chain.rounds.size(), 2)
 	assert_eq(chain.rounds[0].start_character.cash, {"hat": 1000001, "shoes": 1070001})
-	assert_eq(chain.rounds[1].start_character.cash, {"hat": 1000001, "shoes": 1070001}, "carried through the tier")
+	assert_eq(chain.rounds[1].start_character.cash, {"hat": 1000001, "shoes": 1070001}, "carried through the step")
 	assert_eq(chain.rounds[1].start_character.pet, 5000001)
 	for round_record: Dictionary in chain.rounds:
-		assert_eq(round_record.warnings, [], "owned items raise no warning in any tier")
+		assert_eq(round_record.warnings, [], "owned items raise no warning in any round")
 
 
 func test_cli_single_round_chain_and_errors() -> void:
@@ -122,11 +122,10 @@ func test_cli_single_round_chain_and_errors() -> void:
 	assert_eq(missing.record, {})
 	var data := DataRepo.load_all()
 	var stages := {}
-	for tier: Array in data.stages.tiers:
-		for stage: String in tier:
-			stages[stage] = {"duration": 0.05, "maps": [{"map_id": data.stages.stages[stage].maps[0].map_id, "boss": {}}]}
+	for stage: String in data.stages.progression:
+		stages[stage] = {"duration": 0.05, "maps": [{"map_id": data.stages.stages[stage].maps[0].map_id, "boss": {}}]}
 	var patch := _write("chain patch.json", {"stages": {"stages": stages}})
-	var chain := _cli(["--tier=2", "--stage=ellinia", "--seed=2026", "--cap=1", "--patch=" + patch,
+	var chain := _cli(["--chain=2", "--stage=ellinia", "--seed=2026", "--cap=1", "--patch=" + patch,
 		"--account=" + path])
 	assert_eq(chain.status, 0)
 	assert_eq(chain.record.get("account", ""), "tool account.json")

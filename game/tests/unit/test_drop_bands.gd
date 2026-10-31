@@ -1,6 +1,6 @@
 extends TestCase
 ## Equipment drop bands and job weapon families (spec #282, #292, ADR 0006): drops no longer follow the character's
-## level. A stage's tier fixes a reqLevel band (stages.json `drop_bands`), a boss drops from the top third of it, and a
+## level. A stage fixes a reqLevel band (its stages.json `drop_band`, per region since ADR 0007), a boss drops from the top third of it, and a
 ## weapon drops only when it belongs to one of the job's weapon families (survivor/jobs/<line>.json `weapon_families`).
 ## Item info is synthetic (shaped like Character.wz `info`); seeded RNG.
 
@@ -15,10 +15,10 @@ const INFO := {
 	1072006: {"reqLevel": 19, "reqJob": 2, "incPDD": 3, "tuc": 5}, # Magician shoes, Lv19 (just below the top third)
 	1050001: {"reqLevel": 20, "reqJob": 2, "incPDD": 20, "tuc": 10}, # Magician overall, Lv20 (top third starts)
 	1372004: {"reqLevel": 25, "reqJob": 2, "incMAD": 38, "tuc": 7}, # wand, Lv25
-	1382012: {"reqLevel": 30, "reqJob": 2, "incMAD": 45, "tuc": 7}, # staff, Lv30 (end of tier 1)
+	1382012: {"reqLevel": 30, "reqJob": 2, "incMAD": 45, "tuc": 7}, # staff, Lv30 (top of the first band)
 	1082019: {"reqLevel": 30, "reqJob": 2, "incPDD": 4, "tuc": 5}, # Magician gloves, Lv30 (in both bands)
 	1372000: {"reqLevel": 38, "reqJob": 2, "incMAD": 53, "tuc": 7}, # wand, Lv38
-	1382019: {"reqLevel": 50, "reqJob": 2, "incMAD": 55, "tuc": 7}, # staff, Lv50 (top third of tier 2)
+	1382019: {"reqLevel": 50, "reqJob": 2, "incMAD": 55, "tuc": 7}, # staff, Lv50 (top third of the second band)
 	1382039: {"reqLevel": 60, "reqJob": 2, "incMAD": 70, "tuc": 7}, # staff, Lv60
 	1002579: {"reqLevel": 100, "reqJob": 2, "incMDD": 30, "tuc": 5}, # Magician hat, Lv100: outside both bands
 	1302008: {"reqLevel": 25, "reqJob": 1, "incPAD": 47, "tuc": 7}, # Warrior sword
@@ -55,18 +55,28 @@ func _hundred(count: int, tier_band: Array, boss: bool, p_seed: int) -> Array:
 
 # --- shipped data ---
 
-func test_the_shipped_tiers_carry_their_drop_bands() -> void:
+func test_the_shipped_regions_carry_their_drop_bands() -> void:
 	var stages: Dictionary = DataRepo.load_all().stages
-	assert_eq(stages.tiers.size(), 2)
-	assert_eq(EquipmentDrops.band_of(stages, 0), [0, 30], "tier 1")
-	assert_eq(EquipmentDrops.band_of(stages, 1), [30, 60], "tier 2")
+	# Pins only for the five original regions; later regions are held to the rules below (and their own region test pins them).
+	var expected := {"henesys": [0, 15], "ellinia": [10, 20], "perion": [15, 25], "kerning": [20, 30], "sleepywood": [30, 40]}
+	assert_eq(stages.progression.slice(0, expected.size()), expected.keys(), "the original five come first, in this order")
+	for key: String in expected:
+		assert_eq(EquipmentDrops.band_of(stages.stages[key]), expected[key], key)
+	var last := [-1, -1]
+	for key: String in stages.progression:
+		var band := EquipmentDrops.band_of(stages.stages[key])
+		assert_eq(band.size(), 2, "%s carries a drop_band" % key)
+		assert_true(band[0] <= band[1], "%s: min <= max" % key)
+		assert_true(band[0] >= last[0] and band[1] >= last[1], "%s: the bands are monotone along the progression" % key)
+		last = band
 
 
-func test_a_tier_without_a_band_falls_back_to_the_last_listed_one_and_no_list_means_no_limit() -> void:
-	assert_eq(EquipmentDrops.band_of({"drop_bands": [[0, 30], [30, 60]]}, 5), [30, 60])
-	var open := EquipmentDrops.band_of({}, 0)
+func test_a_stage_without_a_band_has_no_limit() -> void:
+	assert_eq(EquipmentDrops.band_of({"drop_band": [30, 60]}), [30, 60])
+	var open := EquipmentDrops.band_of({})
 	assert_eq(open[0], 0)
 	assert_true(int(open[1]) >= 70, "the whole listed range")
+	assert_eq(EquipmentDrops.band_of({"drop_band": [5]}), open, "a malformed band is no band")
 
 
 func test_jobs_list_their_weapon_families() -> void:
@@ -145,13 +155,12 @@ func _fit(setup: Dictionary) -> Dictionary:
 	return setup
 
 
-## A quiet world on a stage listed in tier index `tier`, Lv1 (a round always starts there), every kill dropping gear.
-func _world(tier: int, p_seed := 31, chance := 1.0) -> RunWorld:
+## A quiet world on a stage with drop band `band`, Lv1 (a round always starts there), every kill dropping gear.
+func _world(band: Array, p_seed := 31, chance := 1.0) -> RunWorld:
 	var data := RF.quiet_data()
 	data.equipment_drops.items = INFO.keys()
 	data.equipment_drops.chance = chance
-	data.stages.tiers = [["other"], ["other2"]]
-	data.stages.tiers[tier].append("quiet")
+	data.stages.stages.quiet["drop_band"] = band
 	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	RF.set_bosses(data.stages.stages.quiet, [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
 		"rewards": {"exp_mult": 1, "spread": 100, "bonus_choices": 0}}])
@@ -169,8 +178,8 @@ func _drops(w: RunWorld) -> Array:
 		.map(func(e: Dictionary) -> int: return int(e.item_id))
 
 
-func test_tier_one_kills_drop_inside_0_to_30_at_level_one() -> void:
-	var w := _world(0)
+func test_a_low_band_drops_inside_0_to_30_at_level_one() -> void:
+	var w := _world(TIER1)
 	assert_eq(w.progression.level, 1)
 	var got := []
 	for i in 120:
@@ -178,38 +187,38 @@ func test_tier_one_kills_drop_inside_0_to_30_at_level_one() -> void:
 		got.append_array(_drops(w))
 	assert_true(got.size() > 60, "chance 1.0 drops on nearly every kill, got %d" % got.size())
 	for id: int in got:
-		assert_true(int(INFO[id].reqLevel) <= 30, "tier 1 drop %d is reqLevel %d" % [id, INFO[id].reqLevel])
+		assert_true(int(INFO[id].reqLevel) <= 30, "low-band drop %d is reqLevel %d" % [id, INFO[id].reqLevel])
 		assert_true(INFO[id].reqJob in [0, 2], "only the Magician's class")
 	assert_true(1372004 in got or 1382012 in got, "the job's wands and staves drop at Lv1")
 
 
-func test_tier_two_kills_drop_inside_30_to_60() -> void:
-	var w := _world(1)
+func test_a_high_band_drops_inside_30_to_60() -> void:
+	var w := _world(TIER2)
 	var got := []
 	for i in 120:
 		w.drop_mob_loot(RF.put_mob(w, 100100, 400.0))
 		got.append_array(_drops(w))
 	assert_true(got.size() > 20)
 	for id: int in got:
-		assert_true(int(INFO[id].reqLevel) >= 30 and int(INFO[id].reqLevel) <= 60, "tier 2 drop %d" % id)
+		assert_true(int(INFO[id].reqLevel) >= 30 and int(INFO[id].reqLevel) <= 60, "high-band drop %d" % id)
 
 
 func test_a_boss_kill_drops_two_items_from_the_top_third() -> void:
-	for tier in [0, 1]:
+	for band: Array in [TIER1, TIER2]:
 		for p_seed in [20, 21, 22, 23]:
-			var w := _world(tier, p_seed, 0.0)
+			var w := _world(band, p_seed, 0.0)
 			w.hit_mob(int(w.bosses.records[0].slot), {"damage_min": 1000000.0, "damage_max": 1000000.0,
 				"magic": false, "crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
 			var got := _drops(w)
-			assert_eq(got.size(), 2, "tier %d seed %d: exactly two boss items" % [tier + 1, p_seed])
+			assert_eq(got.size(), 2, "band %s seed %d: exactly two boss items" % [band, p_seed])
 			for id: int in got:
-				var floor_req := 20 if tier == 0 else 50
+				var floor_req := 20 if band == TIER1 else 50
 				assert_true(int(INFO[id].reqLevel) >= floor_req, "item %d reqLevel %d" % [id, INFO[id].reqLevel])
 
 
 func test_the_level_no_longer_changes_the_drops() -> void:
-	var low := _world(0, 31)
-	var high := _world(0, 31)
+	var low := _world(TIER1, 31)
+	var high := _world(TIER1, 31)
 	high.progression.level = 70
 	var a := []
 	var b := []
@@ -222,8 +231,8 @@ func test_the_level_no_longer_changes_the_drops() -> void:
 
 
 func test_the_held_weapon_no_longer_changes_the_drops() -> void:
-	var bare := _world(0, 31)
-	var armed := _world(0, 31)
+	var bare := _world(TIER1, 31)
+	var armed := _world(TIER1, 31)
 	bare.equipment.worn.erase("weapon")
 	var a := []
 	var b := []

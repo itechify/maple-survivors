@@ -7,6 +7,9 @@ extends RefCounted
 ## Used by RunWorld (mob kinds) and DataRepo (which mob imgs to load).
 
 const SUMMON_SKILL := 200
+## Mob ids a v83 summon list names but Mob.wz does not hold: Chimera's MobSkill 200/88 (tier A, #468). Such a cast spawns
+## nothing, so no stage needs the id and the round neither loads it nor reports it missing.
+const ABSENT_IN_V83 := [9300167, 9300168]
 
 
 ## Pool ids of every keyframe and explicit map pool plus every map's boss id, ascending.
@@ -21,6 +24,8 @@ static func named_ids(stage: Dictionary) -> PackedInt32Array:
 				_add(ids, int(key))
 	for boss: Dictionary in DataRepo.stage_bosses(stage):
 		_add(ids, int(boss.get("mob_id", 0)))
+		if boss.has("final_form"):
+			_add(ids, int(boss.final_form))
 	ids.sort()
 	return ids
 
@@ -44,6 +49,10 @@ static func boss_extra_ids(boss_img: Dictionary, mob_skill_img: Dictionary) -> P
 	var revive: Variant = info.get("revive", {})
 	if revive is Dictionary:
 		_add_list(ids, revive)
+	for absent: int in ABSENT_IN_V83:
+		var at := ids.find(absent)
+		if at >= 0:
+			ids.remove_at(at)
 	ids.sort()
 	return ids
 
@@ -59,6 +68,13 @@ static func mob_ids(stage: Dictionary, mob_imgs: Dictionary, mob_skill_img: Dict
 		if img is Dictionary:
 			for extra in boss_extra_ids(img, mob_skill_img):
 				_add(ids, extra)
+		if boss.has("final_form"):
+			# The final form's own summons (and revives) come in with it.
+			var final_id := int(boss.final_form)
+			var final_img: Variant = mob_imgs.get(final_id, mob_imgs.get(str(final_id), {}))
+			if final_img is Dictionary:
+				for extra in boss_extra_ids(final_img, mob_skill_img):
+					_add(ids, extra)
 	for id: int in StagePools.stage_pool_ids(stage, map_imgs):
 		_add(ids, id)
 	ids.sort()

@@ -54,6 +54,21 @@ func play(path: String, pos: Vector2, flip: bool = false, follow: Node2D = null,
 	return play_anim(a, pos, flip, follow, offset, hold, delay)
 
 
+## Plays one pooled copy of the animation at every anchor (a boss's area-warning columns, one batched call and no node
+## per column), each fitted to take `fit_seconds` when that is positive. Returns how many started (0 when the animation is
+## missing).
+func play_at_all(path: String, anchors: PackedVector2Array, fit_seconds: float = 0.0) -> int:
+	var started := 0
+	for anchor in anchors:
+		var slot := play(path, anchor)
+		if slot < 0:
+			return started
+		if fit_seconds > 0.0:
+			fit(slot, fit_seconds)
+		started += 1
+	return started
+
+
 ## Plays cast art after a presentation delay; the hidden pooled slot still follows its owner during the wait.
 func play_delayed(path: String, delay: float, pos: Vector2, flip: bool = false, follow: Node2D = null,
 		offset: Vector2 = Vector2.ZERO) -> int:

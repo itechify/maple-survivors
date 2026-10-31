@@ -1,45 +1,45 @@
 # Character fixtures
 
 `fp_arch_mage.json` is the F/P fixture: a format-3 Arch Mage (F/P, job 212) at the start of a round, with
-tier 2 unlocked and the tier-1 equipment kit worn: a reqLevel-25 staff (1382002), a reqLevel-30 hat (1002013), reqLevel-20
+the first four regions cleared (Sleepywood open) and the first-four-regions equipment kit worn: a reqLevel-25 staff (1382002), a reqLevel-30 hat (1002013), reqLevel-20
 shoes (1072019), reqLevel-15 gloves (1082019) and the starter top and bottom. The items are unscrolled, with canonical
 base stats and no survivor overrides. A format-3 character keeps only its job, look, equipment, scrolls, mesos, cash, pet
-and `tiers_unlocked` (ADR 0006), so there is no level, skill list or AP to carry; every round starts at Lv1. It is the
+and the unlock state (`tiers_unlocked` here, `cleared_regions` since ADR 0007), so there is no level, skill list or AP to carry; every round starts at Lv1. It is the
 character for Sleepywood checks (`--stage=sleepywood --character=<this file>`), paired with a fresh character (the starter
 wand only) to show what gear is worth, and the base of the `--hub` test kit.
 
-`il_arch_mage_t2.json` is the I/L Arch Mage (job 222) twin (spec #319, I11): the same tier-1 kit and tier 2, made by
-`tools/character_fixture.gd --job=222 --kit=1382002,1002013,1072019,1082019,1040002,1060002 --tiers=2 --label=spec319/ticket-330
+`il_arch_mage_t2.json` is the I/L Arch Mage (job 222) twin (spec #319, I11): the same kit and four regions cleared, made by
+`tools/character_fixture.gd --job=222 --kit=1382002,1002013,1072019,1082019,1040002,1060002 --cleared=4 --label=spec319/ticket-330
 --patch=<json making 222 playable>` while I/L is `playable: false` (its `_doc.patch` names the patch file; from I12 on the
 flag is not needed). `--hub --job=222` opens it. A `--character` of this file runs as an I/L whatever `--job` says, and
 `--job=212` with it is an error.
 
-`tools/character_fixture.gd --kit=1382002,1002013,1072019,1082019,1040002,1060002 --tiers=2` reproduces it exactly (its
+`tools/character_fixture.gd --kit=1382002,1002013,1072019,1082019,1040002,1060002 --cleared=4` reproduces it exactly (its
 `_doc` records the ids, the revision and the label). The tool's other modes write the character a real bot round leaves
-behind (its pickups, the tier its clear unlocks) and convert older files. Tool files of format 1 or 2 still load
+behind (its pickups, the region its clear adds to the cleared set) and convert older files. Tool files of format 1 or 2 still load
 (`CharacterSnapshot.migrate` keeps the format-3 part). The fixtures of the unported job lines and of the second jobs were
 deleted with job advancement (#284, #286, #294).
 
-`corsair_t2.json` is the Corsair (522) fixture (spec #384, C14 #398): a format-3 Corsair at the start of a round with tier 2 unlocked and the
-tier-1 gun kit worn: a Lv25 pistol (1492003, PAD 27), hat 1002096, shoes 1072017, gloves 1082002 and the starter top and bottom, unscrolled. The
+`corsair_t2.json` is the Corsair (522) fixture (spec #384, C14 #398): a format-3 Corsair at the start of a round with four regions cleared (its file's
+`tiers_unlocked: 2` migrates; Sleepywood open) and the first-four-regions gun kit worn: a Lv25 pistol (1492003, PAD 27), hat 1002096, shoes 1072017, gloves 1082002 and the starter top and bottom, unscrolled. The
 cache holds no armour with the Pirate bit, so the hat, shoes and gloves are the all-job (`reqJob` 0) pieces nearest to the F/P kit's reqLevels 30 / 20 / 15.
 Kit mode like `fp_arch_mage.json`: `tools/character_fixture.gd --job=522 --kit=1492003,1002096,1072017,1082002,1040002,1060002 --tiers=2
 --label=spec384/ticket-398 --revision=<SHA> --out=<absolute path>` (no playable patch is needed since C15 #399 flipped `playable`; the committed file's `_doc.patch`
 records the mirror it was first made with). **A Corsair needs a gun in hand**: without one `Ammo` gives 0 and the bullet sprite lookup fails (`missing`); use this file for
 `--job=522 --character=<absolute path>` runs, `--stage=sleepywood` checks and `--hub --job=522`.
 
-`hero_t2.json` is the Hero (112) fixture: tier 2 unlocked and the tier-1 equipment, inventory, scrolls and mesos
+`hero_t2.json` is the Hero (112) fixture: four regions cleared and the first-four-regions equipment, inventory, scrolls and mesos
 from a seed-1 Henesys bot clear. Reproduce with `tools/character_fixture.gd --job=112 --god --seed=1
 --label=spec296/ticket-306 --revision=<SHA> --out=<absolute path>`. No playable patch is needed. The `_doc` records
 seed, policy, revision and invulnerability: this is a diagnostic clear to obtain equipment, not evidence that the bot
 survives Henesys. The worn weapon is a two-handed axe (1412006); the equipment retains canonical stats. Use it for
 `--stage=sleepywood --job=112 --character=<absolute hero_t2.json>` or `--hub --job=112`.
 
-`bowmaster_t2.json` is the Bowmaster (312) fixture (spec #332, B12 #344): a format-3 Bowmaster at the start of a round with tier 2
+`bowmaster_t2.json` is the Bowmaster (312) fixture (spec #332, B12 #344): a format-3 Bowmaster at the start of a round with four regions cleared
 unlocked and the tier-1 bow kit worn: a Battle Bow (1452000, reqLevel 25, PAD 40), a Bowman-bit reqLevel-30 hat (1002163),
 reqLevel-20 shoes (1072025), reqLevel-15 gloves (1082012) and the starter top and bottom, unscrolled. It is kit mode like
 `fp_arch_mage.json`, so its `_doc` records the kit ids, label and revision, no seed or policy. Reproduce with
-`tools/character_fixture.gd --job=312 --kit=1452000,1002163,1072025,1082012,1040002,1060002 --tiers=2 --label=spec332/ticket-344
+`tools/character_fixture.gd --job=312 --kit=1452000,1002163,1072025,1082012,1040002,1060002 --cleared=4 --label=spec332/ticket-344
 --revision=<SHA> --out=<absolute path> --patch=<playable patch>` (the patch is needed until B13 flips `playable`; `_doc.patch`
 records its file name). **The bow matters**: a Bowmaster with no bow in hand has no ammo and every run lists the arrow sprite
 (`Item.wz/Consume/0000.img/00000000/bullet`) in `missing`; use this file for `--job=312 --character=<absolute path>` runs, `--stage=sleepywood`
@@ -56,12 +56,12 @@ the bot survives Henesys. The worn weapon is a Pole Arm (1442004), the equipment
 `paladin_t2.json` is the Paladin (job 122) fixture (spec #308, P9 #317): a kit fixture like `fp_arch_mage.json`, a fresh Lv1
 character with tier 2 unlocked wearing a Lv25 Mace (1322004, a blunt weapon), the all-job hat 1002001, gloves 1082002 and top
 1040010 (the Warrior-bit pieces Hero's hub kit also uses) and the starter bottom and shoes, unscrolled. Reproduce with
-`tools/character_fixture.gd --job=122 --kit=1322004,1002001,1082002,1040010,1060002 --tiers=2 --label=spec308/ticket-317
+`tools/character_fixture.gd --job=122 --kit=1322004,1002001,1082002,1040010,1060002 --cleared=4 --label=spec308/ticket-317
 --revision=<SHA> --out=<absolute path>`; no playable patch is needed. The `_doc` records the kit ids, label and revision. Use it
 for `--stage=sleepywood --job=122 --character=<absolute paladin_t2.json>` or `--hub --job=122`; `--job=212` with it is an error.
 
 `bishop_t2.json` is the Bishop (job 232) twin (spec #372, BS9 #381): the same tier-1 kit as F/P's and tier 2, made by
-`tools/character_fixture.gd --job=232 --kit=1382002,1002013,1072019,1082019,1040002,1060002 --tiers=2 --label=spec372/ticket-381
+`tools/character_fixture.gd --job=232 --kit=1382002,1002013,1072019,1082019,1040002,1060002 --cleared=4 --label=spec372/ticket-381
 --patch=<json making 232 playable>` before BS10 enabled Bishop (its `_doc.patch` names the patch file, and its
 `_doc.revision` is the integration tip it was made on; new generation uses shipped data without `--patch`). The worn equipment is identical
 to `fp_arch_mage.json`'s (a Bishop wears the same wands and staves). `--hub --job=232` opens it through the job's `hub_kit`.
@@ -74,14 +74,38 @@ invulnerability: this is a diagnostic clear to obtain equipment, not evidence th
 `--stage=sleepywood --job=512 --character=<absolute buccaneer_t2.json>` or `--hub --job=512`. **It must wear a knuckle:
 without one the weapon reach and `weapon_reach` skills have nothing to read.**
 
-Buccaneer review cleanup (#412): the diagnostic tier-2 fixture excludes the default sword 1302000 and displaced default outfit 1072001/1060002/1040002; its worn knuckle kit and round loot are unchanged.
+Buccaneer review cleanup (#412): the diagnostic four-regions-cleared fixture excludes the default sword 1302000 and displaced default outfit 1072001/1060002/1040002; its worn knuckle kit and round loot are unchanged.
 
-`night_lord_t2.json` is the Night Lord (412) fixture (spec #383, NL11 #410): a format-3 Night Lord at the start of a round with tier 2
-unlocked and the tier-1 claw kit worn: a Meba (1472007, reqLevel 25, PAD 16), a Thief-bit reqLevel-30 hat (1002171), reqLevel-20 shoes
+`night_lord_t2.json` is the Night Lord (412) fixture (spec #383, NL11 #410): a format-3 Night Lord at the start of a round with four regions
+cleared and the first-four-regions claw kit worn: a Meba (1472007, reqLevel 25, PAD 16), a Thief-bit reqLevel-30 hat (1002171), reqLevel-20 shoes
 (1072022), reqLevel-15 gloves (1082029) and the starter top and bottom, unscrolled. It is kit mode like `bowmaster_t2.json`, so its `_doc`
 records the kit ids, label and revision, no seed or policy. Reproduce with `tools/character_fixture.gd --job=412
---kit=1472007,1002171,1072022,1082029,1040002,1060002 --tiers=2 --label=spec383/ticket-410 --revision=<SHA> --out=<absolute path>`
+--kit=1472007,1002171,1072022,1082029,1040002,1060002 --cleared=4 --label=spec383/ticket-410 --revision=<SHA> --out=<absolute path>`
 (no playable patch is needed since NL12 #411 flipped `playable`; it was regenerated without one, so the `_doc` has no `patch`). **The claw matters**: a
 Night Lord with no claw in hand has no throwing stars (`ammo.json` starts every claw on the Beginner Thief's stars), so the stars'
 sprites and the 250 px basic-attack reach are missing; use this file for `--job=412 --character=<absolute path>` runs, `--stage=sleepywood`
 checks and `--hub --job=412`. A `--character` of this file runs as a Night Lord without a `--job` flag; `--job=212` with it is an error.
+
+The committed `*_t2.json` files and `fp_arch_mage.json` still carry `tiers_unlocked: 2` (ADR 0007, #450): every loader migrates it to
+`cleared_regions` (the first four progression regions: Henesys, Ellinia, Perion, Kerning City), so Sleepywood is unlocked. New
+files come from `tools/character_fixture.gd --cleared=4` (`--tiers=2` is the compatibility alias).
+
+`late_progression.json` is the late-progression Hero (112) fixture (spec #449 C12, #474): a kit fixture like `fp_arch_mage.json`, a
+fresh Lv1 character wearing band-15 ([100, 110]) Warrior-line equipment, unscrolled, with 15 regions cleared. The gear is
+the Blue Dragon set (hat 1002551, overall 1052075, gloves 1082168, shoes 1072273, shield 1092060, all reqLevel 110) and a
+Dragon Carabella (1302059, a one-handed sword, reqLevel 110). `cleared_regions` holds the first fifteen progression keys; ten
+of them (`ludibrium` ... `clocktower`) do not exist until #449's regions ship, so `_doc.extra_cleared` lists them and
+`CharacterSnapshot.unlocked_keys` ignores them for now. Reproduce with
+`tools/character_fixture.gd --job=112 --cleared=15 --extra-cleared=ludibrium,omega_sector,korean_folk_town,mu_lung,el_nath,magatia,zipangu,leafre,phantom_forest,clocktower
+--kit=1302059,1092060,1002551,1052075,1072273,1082168 --label=spec449/ticket-474 --revision=<SHA> --out=<absolute path>
+--note=<text>` (once all fifteen regions ship, `--cleared=15` alone writes the same set and `--extra-cleared` is dropped). Use it for
+`--stage=<key> --job=112 --character=<absolute late_progression.json>` and `--hub --job=112 --late` (the Hero `hub_kit`'s `late_fixture`).
+
+## Fixtures by cleared count
+
+`tools/character_fixture.gd --cleared=<n>` clears the first n regions of `stages.json` `progression` (default 0: only Henesys
+open). n=4 is the old "tier 2": Henesys, Ellinia, Perion and Kerning cleared, Sleepywood unlocked. `--tiers=2` still works as
+`--cleared=4` (`--tiers=1` as 0). `--cleared` belongs to `--kit` mode: a round fixture (no `--kit`) holds only the region its clear adds, and `--migrate` keeps
+what the file had. `HubTestKit` (`--hub`) clears every region on top of any fixture. To test a
+character further along the progression, write a fixture with a larger `--cleared` and pass it to `--character`; a
+`balance.sh --chain` run needs a fresh character instead (no `--character`).

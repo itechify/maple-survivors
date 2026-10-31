@@ -1,7 +1,7 @@
 extends TestCase
 ## The standalone-round loop (spec #282, #286, ADR 0006) through SceneFlow's public seams: create_character, start_round,
 ## finish_run, delete_character. Every round ends back at the character's hub; a death and a quit change nothing but
-## what the round picked up; a clear unlocks the next tier. Saves go to TestCase.test_dir(), never user://save.json.
+## what the round picked up; a clear unlocks the next region (ADR 0007). Saves go to TestCase.test_dir(), never user://save.json.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -42,16 +42,15 @@ static func summary(cleared: bool, level: int = 12, stage: String = "henesys") -
 		"nx_awarded": 120}
 
 
-## The character a round of the "quiet" stage (listed in tier `tier`) hands over after a clear or a death, picking up
-## 250 mesos and a hat on the way.
-func _character_after(flow: SceneFlow, cleared: bool, tier: int = 0) -> Dictionary:
+## The character a round of the synthetic quiet stage, played as region `region` of the shipped progression, hands over
+## after a clear or a death, picking up 250 mesos and a hat on the way.
+func _character_after(flow: SceneFlow, cleared: bool, region: String = "henesys") -> Dictionary:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
-	data.stages["tiers"] = [["other"], ["other2"]]
-	data.stages.tiers[tier].append("quiet")
-	RF.set_bosses(data.stages.stages.quiet, [
+	data.stages.stages[region] = data.stages.stages.quiet
+	RF.set_bosses(data.stages.stages[region], [
 		{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0, "rewards": {"exp_mult": 1, "bonus_choices": 0}}])
-	var setup := RF.setup("quiet", 20, data)
+	var setup := RF.setup(region, 20, data)
 	setup.character = flow.save.slot(0).character
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
@@ -76,7 +75,7 @@ func _character_after(flow: SceneFlow, cleared: bool, tier: int = 0) -> Dictiona
 	return w.character_snapshot()
 
 
-func test_a_new_character_is_an_arch_mage_in_the_free_market_with_tier_one() -> void:
+func test_a_new_character_is_an_arch_mage_in_the_free_market_with_nothing_cleared() -> void:
 	var flow := _flow()
 	assert_eq(flow.create_character("Maple69"), 0)
 	assert_eq(flow.current_name, "free_market", "home is the Free Market")
@@ -86,7 +85,7 @@ func test_a_new_character_is_an_arch_mage_in_the_free_market_with_tier_one() -> 
 	assert_eq(keys, ["character", "created", "name", "rounds_played"])
 	assert_eq(int(saved.character.format), 3)
 	assert_eq(int(saved.character.job_id), 212)
-	assert_eq(int(saved.character.tiers_unlocked), 1)
+	assert_eq(saved.character.cleared_regions, [])
 	assert_eq(flow.create_character("maple69"), -1, "living names are unique ignoring case")
 	assert_eq(flow.create_character("no!"), -1)
 
@@ -108,7 +107,7 @@ func test_only_a_playable_job_can_be_created() -> void:
 	assert_eq(flow.save.slot(0), {})
 
 
-func test_a_death_keeps_the_pickups_unlocks_nothing_and_returns_to_the_hub() -> void:
+func test_a_death_keeps_the_pickups_clears_nothing_and_returns_to_the_hub() -> void:
 	var flow := _flow()
 	flow.create_character("Dead69")
 	var character := _character_after(flow, false)
@@ -118,7 +117,7 @@ func test_a_death_keeps_the_pickups_unlocks_nothing_and_returns_to_the_hub() -> 
 	assert_eq(saved.name, "Dead69", "the character lives on")
 	assert_eq(int(saved.character.mesos), 250, "the round's mesos are kept")
 	assert_true(Equipment.held_ids(saved.character.equipment).has(1002001), "and its equipment drop")
-	assert_eq(int(saved.character.tiers_unlocked), 1, "no unlock")
+	assert_eq(saved.character.cleared_regions, [], "no unlock")
 	assert_eq(int(saved.rounds_played), 1)
 	assert_eq(flow.save.history.size(), 1)
 	assert_eq(flow.save.history[0].ending, "died")
@@ -131,19 +130,31 @@ func test_a_death_keeps_the_pickups_unlocks_nothing_and_returns_to_the_hub() -> 
 	assert_eq(flow.active_slot, 0, "the character is still the active one")
 
 
-func test_a_clear_unlocks_tier_two_in_map_select() -> void:
+func test_a_clear_unlocks_the_next_region_in_map_select() -> void:
 	var flow := _flow()
 	flow.create_character("Clear69")
 	flow.goto_stage_select()
 	assert_eq(flow.current_name, "stage_select")
-	assert_eq(flow.current.unlocked_keys(), ["henesys", "ellinia", "perion", "kerning"], "tier 2 starts locked")
+	assert_eq(flow.current.unlocked_keys(), ["henesys"], "a new character has only Henesys")
 	var character := _character_after(flow, true)
 	flow.finish_run(summary(true), character)
-	assert_eq(int(flow.save.slot(0).character.tiers_unlocked), 2)
+	assert_eq(flow.save.slot(0).character.cleared_regions, ["henesys"])
 	assert_eq(flow.save.history[0].ending, "cleared")
 	flow.goto_stage_select()
-	assert_eq(flow.current.unlocked_keys(), ["henesys", "ellinia", "perion", "kerning", "sleepywood"],
-		"every stage of every unlocked tier")
+	assert_eq(flow.current.unlocked_keys(), ["henesys", "ellinia"], "the clear unlocks Ellinia and nothing else")
+	assert_eq(flow.current.stages.map(func(c: Dictionary) -> bool: return bool(c.cleared)).slice(0, 5), [true, false, false, false, false])
+
+
+func test_replaying_a_cleared_region_changes_nothing_and_a_clear_in_a_row_unlocks_step_by_step() -> void:
+	var flow := _flow()
+	flow.create_character("Replay69")
+	flow.finish_run(summary(true), _character_after(flow, true))
+	flow.finish_run(summary(true), _character_after(flow, true))
+	assert_eq(flow.save.slot(0).character.cleared_regions, ["henesys"], "a replay is idempotent")
+	flow.finish_run(summary(true, 12, "ellinia"), _character_after(flow, true, "ellinia"))
+	assert_eq(flow.save.slot(0).character.cleared_regions, ["ellinia", "henesys"], "sorted")
+	flow.goto_stage_select()
+	assert_eq(flow.current.unlocked_keys(), ["henesys", "ellinia", "perion"])
 
 
 func test_quit_round_ends_the_round_exactly_like_a_death() -> void:
@@ -167,13 +178,15 @@ func test_quit_round_ends_the_round_exactly_like_a_death() -> void:
 	assert_eq(quit.save.history[0].level, dead.save.history[0].level)
 
 
-func test_starting_a_round_saves_nothing_and_is_refused_for_a_locked_tier() -> void:
+func test_starting_a_round_saves_nothing_and_is_refused_for_a_locked_region() -> void:
 	var flow := _flow()
 	flow.create_character("Start69")
 	flow.goto_stage_select()
 	var before := FileAccess.get_file_as_string(save_path)
+	flow.start_round("ellinia")
+	assert_eq(flow.current_name, "stage_select", "Ellinia is locked until Henesys is cleared")
 	flow.start_round("sleepywood")
-	assert_eq(flow.current_name, "stage_select", "tier 2 is locked")
+	assert_eq(flow.current_name, "stage_select", "and so is every later region")
 	assert_eq(FileAccess.get_file_as_string(save_path), before)
 	flow.start_round("henesys", 2026)
 	assert_eq(flow.current_name, "run")
@@ -182,11 +195,11 @@ func test_starting_a_round_saves_nothing_and_is_refused_for_a_locked_tier() -> v
 	assert_eq(SaveData.new(save_path).slot(0).get("rounds_played", -1), 0)
 
 
-func test_an_unlocked_tier_two_stage_starts() -> void:
+func test_a_region_unlocked_by_the_previous_clear_starts() -> void:
 	var flow := _flow()
 	flow.create_character("Start70")
 	var character: Dictionary = flow.save.slot(0).character
-	character.tiers_unlocked = 2
+	character.cleared_regions = ["ellinia", "henesys", "perion", "kerning"]
 	var slot := flow.save.slot(0)
 	slot.character = character
 	assert_eq(flow.save.update_slot(0, slot), OK)
@@ -207,21 +220,23 @@ func test_deleting_a_character_frees_its_slot_and_keeps_the_history() -> void:
 	assert_eq(flow.create_character("Gone69"), 0, "the freed slot and name can be used again")
 
 
-func test_map_select_scrolls_to_the_selected_stage_and_a_locked_one_cannot_start() -> void:
+func test_map_select_selects_a_stage_and_a_locked_one_cannot_start() -> void:
 	var flow := _flow()
 	flow.create_character("Scroll69")
 	flow.goto_stage_select()
 	var screen: Node = flow.current
-	assert_eq(screen.stages.size(), 5, "every stage of every tier is listed")
+	var regions: int = SceneFlow.progression().size()
+	assert_eq(screen.stages.size(), regions, "every region of the progression is listed")
 	assert_eq(screen.top, 0)
-	screen.select(4)
-	assert_eq(screen.selected, 4)
-	assert_eq(screen.top, 1, "the four-card window moves down to show Sleepywood")
-	assert_true(screen.stages[4].locked)
+	screen.select(regions - 1)
+	assert_eq(screen.selected, regions - 1)
+	if regions <= 6:
+		assert_eq(screen.top, 0, "all the regions fit the six rows, so the list does not scroll")
+	assert_true(screen.stages[regions - 1].locked)
 	assert_true(screen.start_button.disabled, "Start is dimmed for a locked stage")
 	screen.start_selected()
 	assert_eq(flow.current_name, "stage_select", "a locked stage does not start")
 	screen.select(0)
 	assert_eq(screen.top, 0)
 	assert_false(screen.start_button.disabled)
-	assert_eq(screen.stages.map(func(c: Dictionary) -> int: return int(c.tier)), [0, 0, 0, 0, 1])
+	assert_eq(screen.stages.map(func(c: Dictionary) -> int: return int(c.step)), range(regions))

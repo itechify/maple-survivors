@@ -129,7 +129,7 @@ func test_the_fixture_tool_makes_a_corsair_from_shipped_data_and_refuses_it_with
 	if character.is_empty():
 		return
 	assert_eq(int(character.job_id), 522)
-	assert_eq(int(character.tiers_unlocked), 2)
+	assert_eq(character.cleared_regions, ["ellinia", "henesys", "kerning", "perion"], "--tiers=2 (the compatibility alias) clears the four Victoria regions")
 	assert_eq(int(character.equipment.worn.weapon.id), 1492003)
 	assert_false(character._doc.has("patch"), "no patch was needed")
 

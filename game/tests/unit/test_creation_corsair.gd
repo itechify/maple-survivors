@@ -190,7 +190,7 @@ func test_create_makes_a_corsair_with_the_pistol() -> void:
 	assert_eq(flow.current_name, "free_market")
 	var corsair_character: Dictionary = flow.save.slot(0).character
 	assert_eq(corsair_character.job_id, 522)
-	assert_eq(corsair_character.tiers_unlocked, 1)
+	assert_eq(corsair_character.cleared_regions, [], "a new Corsair has cleared nothing (only Henesys open)")
 	assert_eq(int(corsair_character.equipment.worn.weapon.id), 1492000, "a Corsair starts with the Pistol")
 	assert_eq(CharacterSnapshot.validation_error(corsair_character), "")
 	assert_eq(WeaponInfo.family(1492000), "gun")

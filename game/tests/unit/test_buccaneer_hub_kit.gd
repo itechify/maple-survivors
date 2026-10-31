@@ -59,7 +59,7 @@ func test_the_spare_gear_and_the_fallback_item_are_a_knuckler_and_pirate_wearabl
 	var character := HubTestKit.apply(_buccaneer(), 500000, _loader())
 	assert_eq(character.job_id, 512, "the rest of the character is untouched")
 	assert_eq(character.mesos, 500000)
-	assert_eq(character.tiers_unlocked, SceneFlow.tiers().size(), "every tier unlocked")
+	assert_eq(character.cleared_regions.size(), SceneFlow.progression().size(), "every region cleared")
 	assert_eq(CharacterSnapshot.validation_error(character), "")
 	var spare: Array = character.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
 	for id: int in [1002001, 1482001, 1082002, 1040010]:

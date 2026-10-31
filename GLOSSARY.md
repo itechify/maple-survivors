@@ -12,7 +12,7 @@ _Avoid_: Game, save, playthrough
 
 **Character**:
 The named, persistent hero a player creates: its name, look, 4th job (chosen at creation, never changed), worn
-equipment and inventory, scrolls, mesos, cash equipment, pet and unlocked tiers. It has no level, EXP, skills or AP
+equipment and inventory, scrolls, mesos, cash equipment, pet and cleared regions. It has no level, EXP, skills or AP
 between rounds: those belong to a round and start fresh at Lv1 (save format 3, #286).
 _Avoid_: Player (the person), avatar (the drawing), hero
 
@@ -39,14 +39,16 @@ _Avoid_: Round clear (only the last map clear clears the round)
 The automatic move after a map clear to the next map of the same round, carrying the character's current condition.
 _Avoid_: Round boundary (a transfer stays inside the round), checkpoint
 
-**Tier**:
-A difficulty step, holding one or more stages. Tier 1 is always open; clearing any stage of tier N unlocks tier N+1 for
-that character, and every unlocked tier can be replayed.
-_Avoid_: Act, world, chapter; not to be confused with a job tier or a card's rarity
+**Progression**:
+The one ordered list of regions of the game (stages.json `progression`), in the order a v83 character levelled: Henesys,
+Ellinia, Perion, Kerning City, Sleepywood, and the regions added after them. Each region is one stage of three maps. A
+character has only the first region open at the start and works down the list.
+_Avoid_: Tier (the old two-step grouping of ADR 0006, superseded by ADR 0007), act, world, chapter; not to be confused
+with a job tier or a card's rarity
 
 **Round boundary**:
 The moment between two rounds. The character is saved with what the finished round gave it (mesos, equipment, scrolls,
-and an unlocked tier after a clear).
+and the cleared region after a clear).
 
 **Character snapshot**:
 The character as saved (format 3): what it keeps between rounds, listed under Character. There is no saved round to
@@ -59,8 +61,8 @@ round, and goes up at its exit to map select.
 _Avoid_: Town, lobby, shop (shops live inside it)
 
 **Map select**:
-The screen where a character picks the stage of its next round, from every stage of every tier it has unlocked (a
-locked tier is shown greyed).
+The screen where a character picks the region of its next round. It lists the whole progression in order; a region the
+character has not unlocked is shown greyed.
 _Avoid_: Stage select (the old single-stage screen)
 
 **Round history**:
@@ -261,7 +263,7 @@ _Avoid_: Luck, LUK
 
 **Rarity**:
 A card's Potential tier (Normal, Rare, Epic, Unique, Legendary), which sets how much the card gives.
-_Avoid_: Quality, grade, card tier (tier is the run's difficulty step)
+_Avoid_: Quality, grade, card tier (a progression step is a region, ADR 0007)
 
 ## Survivor progression (ADR 0006, `redesign` branch)
 
@@ -298,13 +300,15 @@ A card for an active skill already at rank 8: it adds no rank, only a rarity bon
 stack, so an active skill never fully maxes.
 _Avoid_: overrank, limit break; not a weapon mastery skill (Sword Mastery and similar)
 
-**Tier unlock**:
-A character's permission to pick a tier's stages, earned by clearing any stage of the tier before it.
-_Avoid_: level gate, progress
+**Region unlock**:
+A character's permission to pick a region, earned by clearing the region before it in the progression (the first region
+is always open). The character stores the set of cleared region keys (`cleared_regions`), not a counter, so a region
+inserted into the list later shifts no one's unlocks. A death, a Quit round and a tool one-off round never change it.
+_Avoid_: Tier unlock (ADR 0006), level gate, progress
 
 **Drop band**:
-The `reqLevel` range of equipment a tier's monsters drop (tier 1 0-30, tier 2 30-60), with bosses rolling from its top
-third. It replaces the character's level in the drop rule; `reqLevel` is no longer a requirement to wear the item.
+The `reqLevel` range of equipment a region's monsters drop (its `drop_band` in stages.json: Henesys 0-15 rising to
+Sleepywood 30-40), with bosses rolling from its top third. It replaces the character's level in the drop rule; `reqLevel` is no longer a requirement to wear the item.
 _Avoid_: loot table, item level
 
 ## Monsters
@@ -394,7 +398,7 @@ _Avoid_: Gold, coins, money; not to be confused with NX, which outlives runs
 
 **Equipment**:
 The v83 items a character can wear, each with its real stats. Its job class is the only requirement to wear it: its
-`reqLevel` and stat requirements do not apply (they place it in a tier's drop band). Equipment comes only from monster
+`reqLevel` and stat requirements do not apply (they place it in a region's drop band). Equipment comes only from monster
 drops (plus the creation weapon of a new character), never from shops, and stays with the character between rounds.
 _Avoid_: Gear (in player-visible text), armour, loot
 

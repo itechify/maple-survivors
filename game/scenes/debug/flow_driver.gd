@@ -7,13 +7,20 @@ extends Node
 ##
 ## Scenarios (--scenario=):
 ##   redesign the F/P slice end to end (#294): title -> create an Arch Mage (name, look, Job page) -> Free Market -> map select
-##           (Sleepywood locked, Start refused) -> an invulnerable diagnostic Henesys round (fixed-tick bot warp, lethal boss
+##           (only Henesys open: Ellinia locked, Start refused) -> an invulnerable diagnostic Henesys round (fixed-tick bot warp, lethal boss
 ##           hits after each map timer, the real CLEAR/fade/arrival presentation; the first level-up, the first full-slots
 ##           offer, the first Mastery offer and the boss bonus draw open the real window and are answered with a number key)
-##           -> results -> Free Market (tier 2 unlocked, loot kept) -> the highest-reqLevel drop worn at Lv1 by a double-click
-##           -> Sleepywood round (loot picked up, a lethal diagnostic hit) -> results -> Free Market (loot, worn item and the
+##           -> results -> Free Market (Ellinia unlocked, loot kept) -> the highest-reqLevel drop worn at Lv1 by a double-click
+##           -> Ellinia round (loot picked up, a lethal diagnostic hit) -> results -> Free Market (loot, worn item and the
 ##           unlock kept) -> Save & quit -> delete the character -> history. Shots redesign_*.png; summary.json holds the
 ##           offers (kinds, rarities, picks), the showcased windows and the history. `--seed` (default 1).
+##   progression the region progression (spec #447, ADR 0007, #455): title -> create a character (`--job=<id>`, default 212) -> map select
+##           (only Henesys startable, a locked Ellinia refused, Henesys the frontier and selected) -> a diagnostic invulnerable
+##           Henesys clear (fixed-tick bot warp, lethal boss hits after each map timer) -> results -> Free Market -> map select
+##           (Henesys CLEAR, Ellinia NEW and selected by default) -> the same for Ellinia (Perion unlocked) -> Save & quit, character
+##           select, Continue: the cleared set survives on disk and on map select -> a Perion round and a lethal hit: the set is
+##           unchanged -> the slot swapped for a HubTestKit all-cleared character: map select reads "Regions cleared 5/5" with
+##           nothing locked. Shots progression_*.png, summary.json. `--seed` (default 1). tier C: automation, not survival evidence.
 ##   creation the Job page and character creation (spec #296, H9): title -> create a character of each job in `--jobs=<id,id>` (at most three)
 ##           (default: every playable job, in separate slots, then the Job page is checked to list them in order and to show the
 ##           chosen row) -> Free Market each time -> character select with all character slots. Shots creation_*.png, job_<id>_*.png.
@@ -66,8 +73,8 @@ extends Node
 ##           EQUIP., a double-click brings the pet out -> out00 -> the next round has both. Shots: equip_00..07.
 ##   account the whole NX and Cash Shop loop (#126): 11,000 NX prepared -> new character -> map select SHOP (buy a hat and a pet)
 ##           -> round 1: Equip window Cash tab wears the hat, Pet page brings the pet out -> warp clear -> results -> Free Market
-##           "+N NX" notice and saved balance -> SHOP: buy Auto HP Potion Pouch -> Save & quit, Continue -> out00 -> Sleepywood
-##           (unlocked by the clear) -> round 2 -> warp death -> results (NX earned) -> the character survives and the account
+##           "+N NX" notice and saved balance -> SHOP: buy Auto HP Potion Pouch -> Save & quit, Continue -> out00 -> Ellinia
+##           (the only region the clear unlocked; Perion stays locked) -> round 2 -> warp death -> results (NX earned) -> the character survives and the account
 ##           keeps NX and every item -> a NEW character uses them. Shots acct_*.png (+ *_zoom.png crops). `--account-nx=<n>`
 ##           changes the prepared balance; `--seed` defaults to 4; `--natural-clear=1` plays round 1 without invulnerability.
 ## The scenarios of the removed systems (maps, rounds, full, economy and the Warrior, Pirate, Bowman and Thief job/weapon pages)
@@ -77,7 +84,7 @@ extends Node
 ##
 ## Screenshots are named NN_<step>.png; the driver prints one "flow_driver:" line per step and quits with exit code 1
 ## when a step times out or a check fails. Saves go to shots_dir/driver_save.json (delete the folder to repeat a scenario).
-## tier C: diagnostic names, seeds 1 (redesign) and 4 (account), the 1800 s combat cap, 600-tick yields, the 400 + 75 meso
+## tier C: diagnostic names, seeds 1 (redesign, progression) and 4 (account), the 1800 s combat cap, 600-tick yields, the 400 + 75 meso
 ## loot, the 1e9 lethal hit, the Lv45 fallback staff, the card policy "rank the highest-ranked owned active once the slots are
 ## full" and the UI waits/timeouts are automation choices, never survivor tuning.
 
@@ -146,6 +153,8 @@ func _ready() -> void:
 			_scenario_import()
 		"redesign":
 			_scenario_redesign()
+		"progression":
+			_scenario_progression()
 		"creation":
 			_scenario_creation()
 		"title":
@@ -323,11 +332,11 @@ func _expect(ok: bool, message: String) -> bool:
 	return ok
 
 ## The F/P slice end to end (spec #282, #294) with injected input for every menu: title -> create an Arch Mage (name, look, Job
-## page) -> Free Market -> map select (Sleepywood locked, its Start refused) -> a diagnostic Henesys round (invulnerable, the
+## page) -> Free Market -> map select (only Henesys open: Ellinia locked, its Start refused) -> a diagnostic Henesys round (invulnerable, the
 ## bot's fixed-tick warp, diagnostic boss hits after each map timer; the real CLEAR/fade/arrival presentation) whose first
 ## level-up, full-slots offer, first Mastery offer and boss bonus draw are answered through the real window with a number key
-## -> results -> Free Market (tier 2 unlocked, loot kept) -> an equipment drop with a high reqLevel worn at Lv1 by a double-click ->
-## Sleepywood round (loot on the ground is picked up, then a diagnostic lethal boss hit) -> results -> Free Market (loot and
+## -> results -> Free Market (Ellinia unlocked, loot kept) -> an equipment drop with a high reqLevel worn at Lv1 by a double-click ->
+## Ellinia round (loot on the ground is picked up, then a diagnostic lethal boss hit) -> results -> Free Market (loot and
 ## the unlock kept, the item still worn) -> Save & quit -> delete the character -> round history -> the file is reloaded and
 ## checked. Shots: redesign_*.png, summary.json (offers, picks, slot counts, history); driver_save.json is the evidence-only
 ## save. Uses --seed (default 1) and --job=<id> (default 212, the Arch Mage; 112 is Hero, spec #296 H9: the Job page row of that
@@ -350,24 +359,27 @@ func _scenario_redesign() -> void:
 		return
 	var slot := flow.save.slot(flow.active_slot)
 	var fresh: Dictionary = slot.character
-	if not _expect(String(slot.name) == "Redesign294" and int(fresh.job_id) == job and int(fresh.tiers_unlocked) == 1
+	if not _expect(String(slot.name) == "Redesign294" and int(fresh.job_id) == job and fresh.cleared_regions == []
 			and int(slot.rounds_played) == 0 and not fresh.has("level") and not fresh.has("skills"),
-			"a new character is a %s with tier 1 open and no build" % job_name):
+			"a new character is a %s with no region cleared and no build" % job_name):
 		return
 	await _shot("redesign_free_market_home")
-	# 2. Map select: tier 2 is locked and cannot be started.
+	# 2. Map select: only Henesys is open; Ellinia (and every later region) is locked and cannot be started.
 	if not await _open_map_select():
 		return
-	if not await _select_stage("sleepywood"):
+	if not _expect(flow.current.unlocked_keys() == ["henesys"], "a new character can start only Henesys: %s"
+			% [flow.current.unlocked_keys()]):
 		return
-	await _shot("redesign_map_select_tier2_locked")
+	if not await _select_stage("ellinia"):
+		return
+	await _shot("redesign_map_select_ellinia_locked")
 	var locked_card: Dictionary = flow.current.stages[flow.current.selected]
 	if not _expect(bool(locked_card.locked) and (flow.current.start_button as WzButton).disabled,
-			"Sleepywood is locked for a character with only tier 1"):
+			"Ellinia is locked for a character that has cleared nothing"):
 		return
 	await _click(flow.current.start_button)
 	await _sleep(0.5)
-	if not _expect(flow.current_name == "stage_select", "Start on a locked tier must not start a round"):
+	if not _expect(flow.current_name == "stage_select", "Start on a locked region must not start a round"):
 		return
 	while flow.current.selected > 0:
 		await _key(KEY_UP)
@@ -402,7 +414,7 @@ func _scenario_redesign() -> void:
 	if false in checks:
 		return
 	var round_one := run.build_summary()
-	# 4. Clear -> results -> Free Market, tier 2 unlocked, the round's loot kept.
+	# 4. Clear -> results -> Free Market, Ellinia unlocked, the round's loot kept.
 	if not await _until(func() -> bool: return flow.current_name == "results", 20.0, "results after the clear"):
 		return
 	await _sleep(3.0)
@@ -416,28 +428,31 @@ func _scenario_redesign() -> void:
 	await _shot("redesign_free_market_after_clear")
 	slot = flow.save.slot(flow.active_slot)
 	var kept: Dictionary = slot.character
-	if not _expect(int(kept.tiers_unlocked) == 2 and int(slot.rounds_played) == 1 and int(kept.mesos) >= mesos_before
-			and Equipment.held_ids(kept.equipment).size() >= 4, "a clear unlocks tier 2 and keeps the loot"):
+	if not _expect(kept.cleared_regions == ["henesys"] and int(slot.rounds_played) == 1 and int(kept.mesos) >= mesos_before
+			and Equipment.held_ids(kept.equipment).size() >= 4, "a clear unlocks Ellinia and keeps the loot"):
 		return
 	# 5. A drop whose reqLevel is far above Lv1 is worn from the Item window by a double-click.
 	var item := await _equip_high_req_item(flow.current as FreeMarket, kept, job)
 	if item.is_empty():
 		return
-	# 6. Sleepywood is open now: loot on the ground is picked up, then a lethal hit ends the round.
+	# 6. Ellinia is open now (and only Ellinia): loot on the ground is picked up, then a lethal hit ends the round.
 	if not await _open_map_select():
 		return
-	if not await _select_stage("sleepywood"):
+	if not _expect(flow.current.unlocked_keys() == ["henesys", "ellinia"], "the clear unlocked Ellinia and nothing else: %s"
+			% [flow.current.unlocked_keys()]):
 		return
-	await _shot("redesign_map_select_tier2_unlocked")
-	if not _expect(not bool(flow.current.stages[flow.current.selected].locked), "Sleepywood is startable after the clear"):
+	if not await _select_stage("ellinia"):
+		return
+	await _shot("redesign_map_select_ellinia_unlocked")
+	if not _expect(not bool(flow.current.stages[flow.current.selected].locked), "Ellinia is startable after the clear"):
 		return
 	await _start_selected(flow.current)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "Sleepywood round"):
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "Ellinia round"):
 		return
 	run = flow.current as RunScene
 	w = run.world
 	await _sleep(1.0)
-	await _shot("redesign_sleepywood_start")
+	await _shot("redesign_ellinia_start")
 	if not _expect(w.equipment.worn.has(String(item.slot)) and int(w.equipment.worn[String(item.slot)].id) == int(item.id)
 			and int(w.player_state.level) == 1, "the Lv1 round wears the high-reqLevel item (reqLevel %d)" % int(item.req_level)):
 		return
@@ -452,7 +467,7 @@ func _scenario_redesign() -> void:
 			_fail("the character did not pick up the loot (%d mesos)" % w.mesos)
 			return
 		await get_tree().process_frame
-	await _shot("redesign_sleepywood_loot")
+	await _shot("redesign_ellinia_loot")
 	w.god = false
 	var round_two_mesos := w.mesos
 	# "unrevivable": a ready second-life skill (Resurrection) must not turn this diagnostic hit into a survived one (#375).
@@ -469,7 +484,7 @@ func _scenario_redesign() -> void:
 		return
 	await _sleep(3.0)
 	await _shot("redesign_results_death")
-	if not _expect(flow.last_summary.ending == "died", "the Sleepywood round ended in a death"):
+	if not _expect(flow.last_summary.ending == "died", "the Ellinia round ended in a death"):
 		return
 	await _click(flow.current.back_button)
 	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after the death"):
@@ -478,16 +493,16 @@ func _scenario_redesign() -> void:
 	await _shot("redesign_free_market_after_death")
 	slot = flow.save.slot(flow.active_slot)
 	var after: Dictionary = slot.character
-	if not _expect(int(after.tiers_unlocked) == 2 and int(slot.rounds_played) == 2 and int(after.mesos) >= round_two_mesos
+	if not _expect(after.cleared_regions == ["henesys"] and int(slot.rounds_played) == 2 and int(after.mesos) >= round_two_mesos
 			and after.equipment.worn.has(String(item.slot)) and int(after.equipment.worn[String(item.slot)].id) == int(item.id),
-			"the death keeps the loot (%d mesos), the tier unlock and the worn item" % int(after.mesos)):
+			"the death keeps the loot (%d mesos), the cleared Henesys and the worn item" % int(after.mesos)):
 		return
 	# 7. Save & quit, delete the character, read the history; the evidence-only save file carries all of it.
 	await _save_and_quit_ui()
 	if _failed:
 		return
 	_reload_save()
-	if not _expect(not flow.save.slot(0).is_empty() and int(flow.save.slot(0).character.tiers_unlocked) == 2
+	if not _expect(not flow.save.slot(0).is_empty() and flow.save.slot(0).character.cleared_regions == ["henesys"]
 			and flow.save.history.size() == 2, "Save & quit left the character and two history entries on disk"):
 		return
 	await _click(flow.current.slot_buttons[0])
@@ -506,7 +521,7 @@ func _scenario_redesign() -> void:
 	_reload_save()
 	var history: Array = flow.save.history
 	if not _expect(history.size() == 3 and history[0].ending == "cleared" and history[1].ending == "died"
-			and history[2].ending == "deleted" and history[0].stage == "henesys" and history[1].stage == "sleepywood"
+			and history[2].ending == "deleted" and history[0].stage == "henesys" and history[1].stage == "ellinia"
 			and String(history[0].name) == "Redesign294" and int(history[0].job_id) == job,
 			"the history lists the clear, the death and the deletion"):
 		return
@@ -523,6 +538,231 @@ func _scenario_redesign() -> void:
 	file.store_string(JSON.stringify(report, "\t"))
 	print("flow_driver: redesign PASSED ", JSON.stringify({"picks": _offers.picks, "kinds": _offers.kinds, "bonus": _offers.bonus}))
 	get_tree().quit()
+
+
+## The region progression end to end (spec #447, #455) with injected input: a new character can start only Henesys (a locked Ellinia
+## is refused and Henesys is the selected frontier) -> a diagnostic invulnerable Henesys clear (fixed-tick bot warp, lethal boss
+## hits after each map timer, the real CLEAR/fade/arrival presentation) -> results -> Free Market -> map select (Henesys CLEAR,
+## Ellinia NEW and selected by default, Perion locked) -> Ellinia the same way (Perion unlocked, Kerning still locked) ->
+## Save & quit, character select, Continue (the cleared set read back from the file and shown by map select) -> a Perion round
+## ended by a lethal hit (the set unchanged, the history says died) -> the slot swapped for a HubTestKit all-cleared character
+## (header "Regions cleared N/N", nothing locked, the last region selected). Shots progression_*.png, summary.json. Uses --seed
+## (default 1) and --job=<id> (default 212). tier C: diagnostic flow staging (invulnerable clears, a 1e9 lethal hit), never survival evidence.
+func _scenario_progression() -> void:
+	if not args.has("seed"):
+		args["seed"] = "1"
+	var job := _job_arg()
+	if job < 0:
+		return
+	var order: Array = SceneFlow.progression()
+	if not _expect(order.size() >= 4 and order.slice(0, 3) == ["henesys", "ellinia", "perion"], "the progression starts Henesys, Ellinia, Perion: %s" % [order]):
+		return
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Progress455", job):
+		return
+	var fresh: Dictionary = flow.save.slot(flow.active_slot).character
+	if not _expect(fresh.cleared_regions == [] and not fresh.has("tiers_unlocked"), "a new character has cleared no region"):
+		return
+	# 1. A new character: only Henesys is startable, it is the selected frontier, a locked Start is refused.
+	if not await _open_map_select():
+		return
+	var select: StageSelectScene = flow.current
+	if not _expect(select.unlocked_keys() == ["henesys"] and select.stages.size() == order.size(), "a new character can start only Henesys: %s" % [select.unlocked_keys()]):
+		return
+	if not _expect(_card_states(select) == _states(order, 0, "henesys"), "new character card states: %s" % [_card_states(select)]):
+		return
+	if not _expect(select.stages[select.selected].key == "henesys" and not (select.start_button as WzButton).disabled
+			and select.progress_label.text == "Regions cleared 0/%d" % order.size(), "Henesys is selected and startable, header %s" % select.progress_label.text):
+		return
+	await _shot("progression_01_new_character")
+	if not await _select_stage("ellinia"):
+		return
+	await _shot("progression_02_new_ellinia_locked")
+	if not _expect((select.start_button as WzButton).disabled and bool(select.stages[select.selected].locked), "Ellinia is locked and its Start disabled"):
+		return
+	await _click(select.start_button)
+	await _sleep(0.5)
+	if not _expect(flow.current_name == "stage_select" and flow.save.slot(flow.active_slot).rounds_played == 0, "Start on a locked region does not start a round"):
+		return
+	await _select_stage("henesys")
+	# 2. The first diagnostic clear: Henesys.
+	if not await _clear_selected_region("henesys", "01_henesys"):
+		return
+	var slot := flow.save.slot(flow.active_slot)
+	if not _expect(slot.character.cleared_regions == ["henesys"] and int(slot.rounds_played) == 1, "the Henesys clear is saved: %s" % [slot.character.cleared_regions]):
+		return
+	# 3. Mid-progression: Henesys CLEAR, Ellinia NEW and selected on opening, the rest locked.
+	if not await _open_map_select():
+		return
+	select = flow.current
+	if not _expect(_card_states(select) == _states(order, 1, "ellinia") and select.stages[select.selected].key == "ellinia"
+			and select.unlocked_keys() == ["henesys", "ellinia"] and select.progress_label.text == "Regions cleared 1/%d" % order.size(),
+			"Henesys cleared, Ellinia the selected frontier: %s / %s" % [_card_states(select), select.progress_label.text]):
+		return
+	await _shot("progression_05_after_henesys")
+	# 4. Ellinia: the selection on opening is the frontier, so Start needs no navigation.
+	if not await _clear_selected_region("ellinia", "02_ellinia"):
+		return
+	slot = flow.save.slot(flow.active_slot)
+	if not _expect(slot.character.cleared_regions == ["ellinia", "henesys"] and int(slot.rounds_played) == 2, "the Ellinia clear is saved: %s" % [slot.character.cleared_regions]):
+		return
+	if not await _open_map_select():
+		return
+	select = flow.current
+	if not _expect(_card_states(select) == _states(order, 2, "perion") and select.stages[select.selected].key == "perion"
+			and select.unlocked_keys() == ["henesys", "ellinia", "perion"] and select.progress_label.text == "Regions cleared 2/%d" % order.size(),
+			"Ellinia cleared unlocked Perion and not Kerning: %s" % [_card_states(select)]):
+		return
+	await _shot("progression_08_after_ellinia")
+	await _key(KEY_DOWN)
+	await _shot("progression_09_kerning_locked")
+	if not _expect(String(select.stages[select.selected].key) == "kerning" and bool(select.stages[select.selected].locked), "Kerning stays locked behind Perion"):
+		return
+	await _key(KEY_UP)
+	# 5. Save & quit, character select, Continue: the cleared set survives.
+	await _key(KEY_ESCAPE) # map select -> the character's Free Market
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market from map select"):
+		return
+	await _save_and_quit_ui()
+	if _failed:
+		return
+	_reload_save()
+	if not _expect(flow.save.slot(0).character.cleared_regions == ["ellinia", "henesys"], "Save & quit left the cleared set on disk: %s" % [flow.save.slot(0).character.cleared_regions]):
+		return
+	await _sleep(0.5)
+	await _click(flow.current.slot_buttons[0])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Continue"):
+		return
+	if not await _open_map_select():
+		return
+	select = flow.current
+	if not _expect(_card_states(select) == _states(order, 2, "perion") and select.stages[select.selected].key == "perion",
+			"Continue shows the same progression: %s" % [_card_states(select)]):
+		return
+	await _shot("progression_10_continued")
+	# 6. Perion (selected by default): a lethal hit ends the round and the set does not change.
+	await _start_selected(select)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "Perion round"):
+		return
+	var run := flow.current as RunScene
+	var w := run.world
+	if not _expect(run.stage_key == "perion" and int(w.player_state.level) == 1, "the Perion round starts at Lv1"):
+		return
+	await _sleep(1.0)
+	await _shot("progression_11_perion_start")
+	var lethal := {"boss": true, "source_kind": "attack", "mob": -1, "unrevivable": true}
+	var t0 := Time.get_ticks_msec()
+	while w.state != RunWorld.DEAD:
+		w.take_hit(1.0e9, false, "", w.player.pos + Vector2(40.0, 0.0), lethal)
+		run.handle_events(w.drain_events())
+		if Time.get_ticks_msec() - t0 > 10000:
+			_fail("the diagnostic lethal hit did not kill the character")
+			return
+		await get_tree().process_frame
+	if not await _until(func() -> bool: return flow.current_name == "results", 20.0, "results after the death"):
+		return
+	await _sleep(3.0)
+	await _shot("progression_12_perion_death")
+	if not _expect(flow.last_summary.ending == "died" and flow.last_summary.stage == "perion", "the Perion round ended in a death"):
+		return
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after the death"):
+		return
+	slot = flow.save.slot(flow.active_slot)
+	if not _expect(slot.character.cleared_regions == ["ellinia", "henesys"] and int(slot.rounds_played) == 3,
+			"the death in Perion left the cleared set unchanged: %s" % [slot.character.cleared_regions]):
+		return
+	if not await _open_map_select():
+		return
+	select = flow.current
+	if not _expect(_card_states(select) == _states(order, 2, "perion") and select.progress_label.text == "Regions cleared 2/%d" % order.size(),
+			"map select after the death: %s" % [_card_states(select)]):
+		return
+	await _shot("progression_13_after_perion_death")
+	# 7. All cleared (the HubTestKit character): nothing locked, no frontier, the last region selected.
+	slot = flow.save.slot(flow.active_slot)
+	slot.character = HubTestKit.apply(slot.character, HubTestKit.DEFAULT_MESOS, SceneFlow.equipment_info_loader())
+	if not _expect(flow.save.update_slot(flow.active_slot, slot) == OK, "the all-cleared character was saved"):
+		return
+	await _key(KEY_ESCAPE)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	if not await _reopen_hub():
+		return
+	if not await _open_map_select():
+		return
+	select = flow.current
+	var all_states := _card_states(select)
+	if not _expect(select.unlocked_keys().size() == order.size() and not all_states.values().has("locked") and not all_states.values().has("frontier")
+			and select.progress_label.text == "Regions cleared %d/%d" % [order.size(), order.size()] and select.selected == order.size() - 1,
+			"all-cleared character: %s, header %s, selected %d" % [all_states, select.progress_label.text, select.selected]):
+		return
+	await _shot("progression_14_all_cleared")
+	await _key(KEY_UP)
+	await _shot("progression_15_all_cleared_scrolled")
+	_collect_missing(flow.current)
+	if not _expect(_missing.is_empty() and not _failed, "missing assets or failed checks: %s" % [_missing]):
+		return
+	var report := {"scenario": "progression", "seed": int(args.seed), "job": job, "diagnostic": true, "rounds": _rounds,
+		"history": flow.save.history, "missing": Array(_missing), "failures": []}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	print("flow_driver: progression PASSED")
+	get_tree().quit()
+
+
+## Map select's cards as {key: "cleared"|"frontier"|"locked"|"open"} (an unlocked region that is neither cleared nor the frontier).
+func _card_states(select: StageSelectScene) -> Dictionary:
+	var out := {}
+	for card: Dictionary in select.stages:
+		out[String(card.key)] = "cleared" if bool(card.cleared) else ("frontier" if bool(card.frontier) else ("locked" if bool(card.locked) else "open"))
+	return out
+
+
+## The states of `order` when its first `cleared` regions are cleared and `frontier` is the next one; the rest are locked.
+func _states(order: Array, cleared: int, frontier: String) -> Dictionary:
+	var out := {}
+	for i in order.size():
+		out[String(order[i])] = "cleared" if i < cleared else ("frontier" if String(order[i]) == frontier else "locked")
+	return out
+
+
+## Starts the map-select selection (which must be `key`), plays the three maps with the diagnostic fixed-tick warp and goes back to
+## the Free Market through the results screen. `prefix` names the shots.
+func _clear_selected_region(key: String, prefix: String) -> bool:
+	var select: StageSelectScene = flow.current
+	if not _expect(String(select.stages[select.selected].key) == key, "%s is the selected region" % key):
+		return false
+	await _start_selected(select)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, key + " round"):
+		return false
+	var run := flow.current as RunScene
+	var w := run.world
+	if not _expect(run.stage_key == key and int(w.player_state.level) == 1, "the %s round starts at Lv1" % key):
+		return false
+	w.god = true # tier C: invulnerable flow staging, with diagnostic boss hits after each map timer
+	await _sleep(1.0)
+	await _shot("progression_%s_start" % prefix)
+	for index in 3:
+		if not await _warp_map(run):
+			return false
+		if index < 2 and not _expect(w.map_index == index + 1, "map %d clear must enter map %d" % [index + 1, index + 2]):
+			return false
+	if not await _until(func() -> bool: return flow.current_name == "results", 20.0, "results after the %s clear" % key):
+		return false
+	await _sleep(3.0)
+	await _shot("progression_%s_results" % prefix)
+	if not _expect(flow.last_summary.ending == "cleared" and flow.last_summary.stage == key, "the %s round ended cleared" % key):
+		return false
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after the %s clear" % key):
+		return false
+	await _sleep(1.0)
+	return true
 
 
 ## Wears, with a double-click in the Item window's Equip tab, the carried item with the highest reqLevel this job can wear
@@ -785,13 +1025,13 @@ func _open_map_select() -> bool:
 
 ## Continues the active character (the hub is rebuilt from the saved slot) and waits for the NEW Free Market scene.
 func _reopen_hub() -> bool:
-	var old := flow.current
+	var old_id := flow.current.get_instance_id()
 	flow.continue_character(flow.active_slot)
-	return await _until(func() -> bool: return flow.current != old and is_instance_valid(flow.current) \
+	return await _until(func() -> bool: return is_instance_valid(flow.current) and flow.current.get_instance_id() != old_id \
 			and flow.current_name == "free_market", 10.0, "Free Market (continued)")
 
 
-## Presses Down on the open map select until the card of stage `key` is selected.
+## Presses Down or Up on the open map select until the card of stage `key` is selected (map select opens on the frontier, #451).
 func _select_stage(key: String) -> bool:
 	var select: StageSelectScene = flow.current
 	var card := maps_stage_card({"stage": key}, select.stages)
@@ -799,7 +1039,9 @@ func _select_stage(key: String) -> bool:
 		return false
 	while select.selected < card:
 		await _key(KEY_DOWN)
-	return _expect(select.selected == card, "Down did not select the %s card" % key)
+	while select.selected > card:
+		await _key(KEY_UP)
+	return _expect(select.selected == card, "Down/Up did not select the %s card" % key)
 
 
 ## Title (Enter) -> a new character -> Free Market -> map select -> Start: the way into a round for the in-run scenarios.
@@ -991,7 +1233,7 @@ func _scenario_cash_shop() -> void:
 ## character -> map select SHOP -> buy the first hat (Equip tab) and the first pet (Pet tab) through the confirm dialog ->
 ## EXIT -> the saved boundary is turned into a Free Market one, Save & quit, Continue -> E, the Cash tab, a double-click
 ## wears the hat (saved at once) -> the PET EQUIP. button, a double-click on the owned pet brings it out -> Esc, walk to
-## out00, Up -> tier-2 map select -> Start: the round's character wears the hat and has the pet out.
+## out00, Up -> map select -> Start: the round's character wears the hat and has the pet out.
 func _scenario_cash_equip() -> void:
 	flow.save.set_account({"nx": 12000, "owned": []})
 	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
@@ -1089,9 +1331,9 @@ func _scenario_cash_equip() -> void:
 
 
 ## The whole NX and Cash Shop loop (spec #34, #126) with injected input only: a prepared save (11,000 NX) -> new character ->
-## tier-1 map select SHOP: buy a hat and a pet -> round 1: E, Cash tab (wear the hat), Pet page (bring the pet out) -> a
+## map select SHOP: buy a hat and a pet -> round 1: E, Cash tab (wear the hat), Pet page (bring the pet out) -> a
 ## fixed-tick warp clears it -> Free Market: the "+N NX" notice and the saved balance, SHOP: buy Auto HP Potion Pouch ->
-## Save & quit, Continue -> out00 -> tier-2 map select (balance shown) -> round -> a warp dies -> results (NX earned),
+## Save & quit, Continue -> out00 -> map select (balance shown) -> round -> a warp dies -> results (NX earned),
 ## the slot is freed, the account keeps NX and every item -> a NEW character: the shop lists everything as owned, the
 ## round's Equip window offers the hat and the pet with its upgrade, and wears/brings them out.
 ## Shots: acct_*.png; acct_*_zoom.png are 3x crops around the character and its pet. Uses --seed (default 4, a Henesys
@@ -1110,8 +1352,9 @@ func _scenario_account() -> void:
 	if not await _open_map_select():
 		return
 	await _shot("acct_00_map_select_balance")
+	_check(flow.current.unlocked_keys() == ["henesys"], "a new character can start only Henesys: %s" % [flow.current.unlocked_keys()])
 	_check(flow.current.character_label.text.contains("11,000 NX"), "map select shows the NX balance: %s" % flow.current.character_label.text)
-	# 1. Cash Shop from tier-1 map select: buy the first hat and the first pet.
+	# 1. Cash Shop from map select: buy the first hat and the first pet.
 	await _click(flow.current.get("shop_button") as Control)
 	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from map select"):
 		return
@@ -1221,13 +1464,14 @@ func _scenario_account() -> void:
 	_check(hub.pet_renderer != null and hub.avatar.look.get("cash", {}).size() == 1, "Continue: the hat is worn and the pet is out")
 	await _shot("acct_07_continued_free_market")
 	await _shot_zoom("acct_07_continued_zoom", hub.avatar, hub.pet_renderer)
-	# 6. out00 -> tier-2 map select (balance; the clear unlocked it) -> round 2 -> death.
+	# 6. out00 -> map select (balance; the Henesys clear unlocked Ellinia and nothing else) -> round 2 -> death.
 	if not await _open_map_select():
 		return
-	if not await _select_stage("sleepywood"):
+	_check(flow.current.unlocked_keys() == ["henesys", "ellinia"], "the clear unlocked Ellinia only: %s" % [flow.current.unlocked_keys()])
+	if not await _select_stage("ellinia"):
 		return
-	_check(flow.current.character_label.text.contains(SaveData._group(balance) + " NX"), "tier-2 map select shows %d NX: %s" % [balance, flow.current.character_label.text])
-	await _shot("acct_08_tier2_map_select")
+	_check(flow.current.character_label.text.contains(SaveData._group(balance) + " NX"), "map select shows %d NX: %s" % [balance, flow.current.character_label.text])
+	await _shot("acct_08_ellinia_map_select")
 	await _start_selected(flow.current)
 	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "round 2"):
 		return
@@ -2152,7 +2396,7 @@ func _check(ok: bool, what: String) -> void:
 
 
 ## Creates one character per job (`--jobs=<id,id>`, at most the three save slots; default every playable job, which fails when more than three ship) through the real creation screens, looking at the
-## Job page each time, then checks each slot holds its job with its creation weapon and tier 1 open.
+## Job page each time, then checks each slot holds its job with its creation weapon and nothing cleared.
 func _scenario_creation() -> void:
 	var data := DataRepo.load_all()
 	var tree := JobTree.from_data(data.jobs, data.jobs_survivor)
@@ -2176,7 +2420,7 @@ func _scenario_creation() -> void:
 		if not await _create_character("Create%d" % (3050 + job), job, "job_%d" % job):
 			return
 		var character: Dictionary = flow.save.slot(i).character
-		if not _expect(int(character.job_id) == job and int(character.tiers_unlocked) == 1
+		if not _expect(int(character.job_id) == job and character.cleared_regions == []
 				and int(character.equipment.worn.weapon.id) == tree.creation_weapon(job),
 				"slot %d holds a %s with its creation weapon %d" % [i, tree.name_of(job), tree.creation_weapon(job)]):
 			return
