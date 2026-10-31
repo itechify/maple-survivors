@@ -1,0 +1,8 @@
+{
+	"format": 1,
+	"_doc": "Zipangu region (progression step 12, spec #449 C7, ticket #469): the three maps A Night in the Forest 800020110, Showa Street 3 801030000 and Encounter with the Buddha 800020130 (each map entry also imports its life mobs, backs, tiles, objs, BGM and map mark), the pool mobs (Paper Lantern Ghost, Big Cloud Fox, Extra A/B/C, Leader A/B, Dreamy Ghost), the three bosses (Male Boss 9400120, Female Boss 9400121, Black Crow 9400014) and the EXP pickup items of survivor/mobs.json (Etc items; Male Boss reuses Shade's Someone's Hat 4000413, already in the main manifest, tier C association to each mob: v83 has no MonsterBook rows for these mobs). Male Boss's MobSkill 200 summons Extra A/B/C and Leader A/B, already in the list as map 2's pool. The Male Boss's MobSkill 200 names Effect.wz/Summon.img/7 as its summonEffect (imgs). Showa Street 3's own timed Male Boss and Encounter with the Buddha's timed Black Crow are map life entries, not pool mobs.",
+	"maps": [800020110, 801030000, 800020130],
+	"imgs": [{"img": "Effect.wz/Summon.img", "paths": ["7"]}],
+	"mobs": [9400011, 9400004, 9400100, 9400101, 9400102, 9400110, 9400111, 9400013, 9400120, 9400121, 9400014],
+	"items": [4000222, 4000066, 4000224, 4000223, 4000411, 4000412, 4000414, 4000225, 4031902]
+}
