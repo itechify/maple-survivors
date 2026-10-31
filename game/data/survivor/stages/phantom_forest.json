@@ -1,0 +1,90 @@
+{
+	"drop_band": [90, 100],
+	"_tier": "Tier A: map IDs, widths, original_life and the three bosses from v83 Map.wz / Mob.wz. Tier C: region, map order and pool rules (spec #449 C9, ticket #471, progression step 14), the 900 s duration and every pacing value, which copy Sleepywood's keyframe numbers (rate, max_alive, hp, speed), bursts, elites, exp_mult and hard_cap exactly (Sleepywood carries no post_duration_slope). Only the pools differ, and there is no opening_ramp: level_scale takes its place. Keyframes from 300 s carry no pool because map 1 picks only keyframes with t < 300 (map 2 uses its own life list, map 3 a hand-written pool).",
+	"name": "Phantom Forest",
+	"region": "Phantom Forest",
+	"continent": "Masteria",
+	"duration": 900,
+	"hard_cap": 400,
+	"_bosses": "Tier C: owner schedule (Headless Horseman, Master Guardian, Bigfoot; spec #449); hp_mult, dmg_mult and attack_dmg_mult are the first draft of game/tools/level_scale_draft.gd (--step=14 --stage=phantom_forest), not tuned. 8 s per-attack cadence as every boss. Canonical attacks, timing, stats and elements stay in Mob.wz. All bosses and reward choices must finish to clear.",
+	"map_seconds": 300,
+	"_maps": "Tier C: owner map order and pool rules, spec #449; the three first picks kept after the in-engine arena check (#471). Each boss time is relative to map entry. Map 1 is a hand-written curve pool of the Forgotten Path's ordinary roster (Stormbreaker, Firebrand, Elderwraith); its life list also holds the Leprechauns (Lv45, stand/die decorations, 6), the timed Phantom Trees (Lv50, immobile, mobTime 1200 s, 3) and the native Headless Horseman and Bigfoot (mobTime 21600 s and 43200 s), all left out. Map 2 uses its v83 life list (Firebrand 4, Nightshadow 3, Windraider 4), which holds no timed, hidden or filler entry; Windraider (Lv70) is a real third of it, so it stays. Map 3, Twisted Paths, is Bigfoot's flat home but its life list is Jr. Wraith x10 (Lv35 filler, most of it), the timed Phantom Trees and Bigfoot itself, so it takes a hand-written pool from the forest's own monsters instead: Nightshadow 3, Elderwraith 2, Firebrand 2, Stormbreaker 2 and the flying Firebrand revive form 9400578 x1 (Firebrand's `revive` is not read for ordinary mobs, so the form enters only as its own pool entry). The flying Elderwraith and Firebrand form swarm as ordinary fliers. The Horseman is native to the Forgotten Path and Bigfoot to Twisted Paths; Master Guardian's own map is a 2430 px party-quest room with odd instance geometry, so it fights in the Cavern of Fortitude (2230 x 805). The alternate map 2, Crimsonwood Keep 610020006 (1960 px, Crimson Guardians only), was not needed. Checked with a god-mode bot round: the Forgotten Path (3496 px, three stepped tiers of dead trees under a castle), the Cavern of Fortitude (a teal cavern with a long floor and ledges on a rope) and Twisted Paths (a flat 3946 px floor under a red sky) all fill to the stage's alive cap with nothing jammed and no pit.",
+	"maps": [
+		{
+			"map_id": 610010005,
+			"pool": "curve",
+			"boss": {
+				"time": 300,
+				"mob_id": 9400549,
+				"hp_mult": 0.749,
+				"dmg_mult": 0.913,
+				"attacks": [
+					"attack1",
+					"attack2"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 1.096,
+				"_tier": "tier C (#471): first draft of level_scale_draft.gd --step=14 --stage=phantom_forest, not tuned: arrives at curve time 300 (E_sw 10.80, level 37.80); attack1 and attack2 (both type 0, physical, with no PADamage of their own, so they take the mob's PADamage 600) are matched on PAD; 8 s cadence. The Horseman casts nothing (no MobSkill in v83) and has no hpTag or MobGage icon, so it borrows Zeno's"
+			}
+		},
+		{
+			"map_id": 610020014,
+			"pool_from_life": true,
+			"boss": {
+				"time": 300,
+				"mob_id": 9400594,
+				"hp_mult": 0.083,
+				"dmg_mult": 0.851,
+				"attacks": [
+					"attack1",
+					"attack2"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 0.916,
+				"_tier": "tier C (#471): first draft of level_scale_draft.gd --step=14 --stage=phantom_forest, not tuned: arrives at curve time 600 (E_sw 36.44, level 63.44); attack1 (type 0, flagged magic, so it takes the mob's MADamage 500) and attack2 (type 0, physical, PADamage 450) are scheduled and the stronger, attack1, is matched on MAD; 8 s cadence. Its only skill, Seal 120/12, is skipped permanently (not a supported mob skill), so it casts nothing. It has no hpTag or MobGage icon, so it borrows Zeno's"
+			}
+		},
+		{
+			"map_id": 610010103,
+			"pool": {"9400579": 3, "9400580": 2, "9400577": 2, "9400578": 1, "9400581": 2},
+			"boss": {
+				"time": 300,
+				"mob_id": 9400575,
+				"hp_mult": 0.035,
+				"dmg_mult": 0.728,
+				"attacks": [
+					"attack1"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 7.345,
+				"_tier": "tier C (#471): first draft of level_scale_draft.gd --step=14 --stage=phantom_forest, not tuned: arrives at curve time 900 (E_sw 56.85, level 83.85); attack1 (type 0, physical, PADamage 160, far under the mob's own 1200) is matched on PAD, which is why attack_dmg_mult is high while dmg_mult (contact, the mob's 1200) is under 1; 8 s cadence. Bigfoot casts nothing (no MobSkill in v83)"
+			}
+		}
+	],
+	"exp_mult": 1.0,
+	"_level_scale": "Tier C (#471, #449 first draft): pasted from level_scale_draft.gd --step=14 --stage=phantom_forest, not tuned. exp_level(t) is Sleepywood's effective level E_sw at each keyframe time, and level(t) = E_sw(t) + 3 x (14 - 5), so every region levels the character at Sleepywood's pace and this step is twenty-seven effective levels harder. Without it the stage would run its canonical monsters at full strength from 0:00 for a Lv1 character.",
+	"level_scale": {"keyframes": [
+		{"t": 0, "level": 36.15, "exp_level": 9.15},
+		{"t": 120, "level": 36.73, "exp_level": 9.73},
+		{"t": 300, "level": 37.8, "exp_level": 10.8},
+		{"t": 480, "level": 49.22, "exp_level": 22.22},
+		{"t": 600, "level": 63.44, "exp_level": 36.44},
+		{"t": 780, "level": 75.23, "exp_level": 48.23},
+		{"t": 900, "level": 83.85, "exp_level": 56.85}]},
+	"_pools": "Tier C weights (#471), map 1 only: the Forgotten Path's own ordinary roster is Stormbreaker 9400581 (Lv80, 5 spawn points), Firebrand 9400577 (Lv90, 3) and Elderwraith 9400580 (Lv95, 2, flies). The opening keeps the spawn-point ratio (5:3:2); from 120 s the Stormbreakers ease off (3:3:2).",
+	"keyframes": [
+		{"t": 0, "rate": 3.0, "max_alive": 50, "hp": 1.0, "speed": 1.0,
+			"pool": {"9400581": 5, "9400577": 3, "9400580": 2}},
+		{"t": 120, "rate": 4.5, "max_alive": 80, "hp": 1.0, "speed": 1.05,
+			"pool": {"9400581": 3, "9400577": 3, "9400580": 2}},
+		{"t": 300, "rate": 7.0, "max_alive": 130, "hp": 1.15, "speed": 1.1},
+		{"t": 480, "rate": 10.0, "max_alive": 180, "hp": 1.3, "speed": 1.15},
+		{"t": 600, "rate": 12.0, "max_alive": 220, "hp": 1.4, "speed": 1.2},
+		{"t": 780, "rate": 15.0, "max_alive": 280, "hp": 1.5, "speed": 1.25},
+		{"t": 900, "rate": 18.0, "max_alive": 330, "hp": 1.6, "speed": 1.3}
+	],
+	"bursts": {"first": 90, "every": 90, "count_min": 10, "count_max": 40},
+	"elites": {"first": 75, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
+	"note": "Phantom Forest. Defeat the Headless Horseman, the Master Guardian and Bigfoot.",
+	"original_life": {"9400581": 5, "9400577": 3, "9400580": 2}
+}
