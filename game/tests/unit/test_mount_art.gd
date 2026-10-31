@@ -382,7 +382,7 @@ func test_a_form_that_names_a_mount_takes_it_and_only_its_own_end_removes_it() -
 # --- The real Battleship ----------------------------------------------------------------------------------------------
 
 func test_the_real_ship_has_every_stance_with_both_layers_and_a_navel() -> void:
-	if not require_cache():
+	if not require_cache_img("Character.wz/TamingMob/01932000.img"):
 		return
 	var real := AssetLibrary.get_default()
 	var art := MountArt.load_mount(real, SHIP)
@@ -406,7 +406,7 @@ func test_the_real_ship_has_every_stance_with_both_layers_and_a_navel() -> void:
 
 
 func test_the_real_ship_seats_a_real_rider_at_the_known_offset() -> void:
-	if not require_cache():
+	if not require_cache_img("Character.wz/TamingMob/01932000.img"):
 		return
 	var real := AssetLibrary.get_default()
 	var art := MountArt.load_mount(real, SHIP)

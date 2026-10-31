@@ -5,11 +5,11 @@ extends TestCase
 ## Tests marked "real cache" call require_cache() and SKIP without it.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
 const DT := 1.0 / 60.0
 const MOB := 1110100
 const GROUND := {"x1": 0, "y1": 0, "x2": 1000, "y2": 0}
 const UPPER := {"x1": 0, "y1": -150, "x2": 1000, "y2": -150}
-const PISTOL := 1492000
 const KEYS := ["flamethrower", "ice_splitter"]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const IDS := {"flamethrower": 5211004, "ice_splitter": 5211005}
@@ -17,52 +17,12 @@ const IDS := {"flamethrower": 5211004, "ice_splitter": 5211005}
 const LEVELS := [4, 8, 12, 15, 19, 23, 27, 30]
 
 
-## 521.img with the two cones: damage a STRING (82 -> 160 and 78 -> 130 like the WZ), mobCount 2 -> 6, time 3 -> 5 (burn) and
-## 1 -> 3 (freeze), the front-only box lt (-350,-100) rb (0,0), elemAttr and the art nodes.
-func _book() -> Dictionary:
-	var skills := {}
-	for key: String in KEYS:
-		var levels := {}
-		var fire: bool = key == "flamethrower"
-		for lv in range(1, 31):
-			var t := clampf(float(lv - 4) / 26.0, 0.0, 1.0)
-			levels[str(lv)] = {"hs": "h%d" % lv, "mpCon": 25, "itemConsume": 2331000 if fire else 2331001,
-				"damage": str(roundi((82.0 if fire else 78.0) + t * (78.0 if fire else 52.0))),
-				"mobCount": 2 + roundi(t * 4.0), "time": (3 + roundi(t * 2.0)) if fire else (1 + roundi(t * 2.0)),
-				"lt": {"$v": [-350, -100]}, "rb": {"$v": [0, 0]}}
-		skills[str(IDS[key])] = {"weapon": 49, "elemAttr": "f" if fire else "i", "icon": RF._canvas(32, 32),
-			"action": {"0": "fireburner" if fire else "coolingeffect"}, "level": levels,
-			"effect": RF._anim(15 if fire else 13, 90.0, 60, 60), "effect_ship": RF._anim(15 if fire else 13, 90.0, 60, 60),
-			"hit": {"0": RF._anim(5, 90.0, 40, 40)}}
-	return {"skill": skills}
-
-
-## A Corsair (job 522) on a flat floor at `x`, mob bodies 4 x 10 px and standing still, `key` the only skill, at `rank_value`.
+## A Corsair (job 522) on a flat floor at `x`, mob bodies 4 x 10 px and standing still, `key` the only skill, at `rank_value`;
+## the 521 book is CF.cones_skills (the damage a STRING at every level, like the WZ's).
 func _corsair(key: String, rank_value := 1, segments: Array = [GROUND], x := 400.0, p_seed := 393) -> RunWorld:
-	var data := RF.quiet_data()
-	data.balance.magnet_radius = 0
-	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
-	setup.equipment_info.merge({PISTOL: {"incPAD": 13, "attackSpeed": 5, "tuc": 7}}, true)
-	setup.map_img = RF.map_from_segments(segments)
-	setup.skill_imgs["521"] = _book()
-	setup["job"] = 522
-	var w := RunWorld.new(setup)
-	w.pending_cards = []
-	w.state = RunWorld.PLAYING
-	for mk: MobKind in w.mob_kinds:
-		mk.hitbox = Rect2(-2, -10, 4, 10)
-		mk.move_speed = 0.0
-		mk.pdd = 0
-	w.player.place(Vector2(x, 0), w.fhm)
-	w.update_view()
-	w.player.facing = 1
-	w.god = true
-	w.loadout.ranks.clear() # not the start skill (Double Shot): only `key` casts
-	w.loadout.order.clear()
-	assert_true(w.learn_skill(key), "%s is learnable by a Corsair" % key)
-	w.loadout.set_rank(key, rank_value)
-	w.refresh_player_stats()
-	w.drain_events()
+	var w := CF.quiet_corsair(key, rank_value, {"521": {"skill": CF.cones_skills()}},
+		{"x": x, "seed": p_seed, "segments": segments, "zero_pdd": true})
+	assert_true(w.loadout.has(key), "%s is learnable by a Corsair" % key)
 	return w
 
 
@@ -460,7 +420,7 @@ func test_skill_text_states_the_burn_and_the_freeze() -> void:
 # --- real cache: all eight ranks against Skill.wz -----------------------------------------------------------------------
 
 func test_real_cache_all_eight_ranks_map_to_the_skill_wz_levels_with_the_string_damage() -> void:
-	if not require_cache():
+	if not require_cache_img("Skill.wz/521.img"):
 		return
 	var lib := AssetLibrary.new()
 	var img := lib.img("Skill.wz/521.img")

@@ -14,8 +14,6 @@ extends RefCounted
 
 ## tier C: most balls in flight at once; a launch past the cap is dropped.
 const MAX_BALLS := 32
-## tier C: the turret's facing is the caster's at the moment it is called and never turns (a planted object).
-## tier C: a ball is a straight line with no hit test on the way: it lands on the target it was launched at.
 
 var active := PackedByteArray()
 ## Draw identity: increments on every launch, including reuse between presentation frames.
@@ -59,6 +57,7 @@ func clear() -> void:
 ## Called once for each ally of a fresh cast: resolves the ball's art path into `d` (shared by the whole group) and plants
 ## the turret on the floor under its own x (a cast made in the air does not leave it hanging).
 func spawn_slot(summons: PlayerSummons, i: int, _ordinal: int, world: RunWorld, d: Dictionary) -> void:
+	# tier C: the turret's facing is the caster's at the moment it is called and never turns (a planted object).
 	if not d.has("ball_visual"):
 		d["ball_visual"] = world.visual_index("%s/%s/info/ball" % [d.path, d.attack])
 	var floor_index := world.fhm.find_below(summons.x[i], summons.y[i])
@@ -178,6 +177,7 @@ func _launch(s: PlayerSummons, i: int, world: RunWorld) -> void:
 	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "count", s.base_count(i, world))))
 	var origin := centre(s, i)
 	var speed := maxf(1.0, float(d.info.get("bulletSpeed", 0.0)))
+	# tier C: a ball is a straight line with no hit test on the way: it lands on the target it was launched at.
 	for t in mini(count, targets.size()):
 		var b := _free_ball()
 		if b < 0:

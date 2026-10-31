@@ -5,8 +5,8 @@ extends TestCase
 ## real cache. The generic lookup is test_ammo; this is the 522 slice of it plus the RunWorld side with a Pistol.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
 const DT := 1.0 / 60.0
-const PISTOL := 1492000
 const BULLET := 2330000
 const SPLIT := 2330001
 const MIGHTY := 2330002
@@ -27,12 +27,12 @@ func _world(job := 522) -> RunWorld:
 	var data := RF.quiet_data()
 	data.jobs_survivor.jobs["212"]["starting_skill"] = ""; data.jobs_survivor.jobs["212"]["mobility_skill"] = ""
 	var setup := RF.with_basic_attack(RF.setup("quiet", 386, data))
-	setup.equipment_info.merge({PISTOL: {"incPAD": 20, "attackSpeed": 6, "tuc": 7}}, true)
+	setup.equipment_info.merge({CF.PISTOL: {"incPAD": 20, "attackSpeed": 6, "tuc": 7}}, true)
 	for action: String in ["shoot1", "shoot2"]:
 		setup.body_img[action] = {"0": {"delay": 100.0}, "1": {"delay": 100.0}}
 	var w := RunWorld.new(setup)
-	assert_eq(w.wear_new_item(PISTOL), "", "granting a weapon wears it")
-	assert_eq(int(w.equipment.worn.weapon.id), PISTOL)
+	assert_eq(w.wear_new_item(CF.PISTOL), "", "granting a weapon wears it")
+	assert_eq(int(w.equipment.worn.weapon.id), CF.PISTOL)
 	RF.place_player(w, 400)
 	w.player.facing = 1
 	w.god = true

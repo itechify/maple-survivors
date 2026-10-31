@@ -117,7 +117,7 @@ func test_the_corsair_kites_a_close_mob_with_the_gun_and_dashes_by_the_existing_
 	var w := _world()
 	var profile := BotInput._reach_profile(w, float(BotInput._engage_config(w).kite_reach))
 	assert_true(profile.x >= float(w.balance.bot.engage.kite_reach), "the Pistol's skills out-reach the melee threshold (%.0f)" % profile.x)
-	var mob := RF.put_mob(w, 100100, 440, 190, 10000)
+	RF.put_mob(w, 100100, 440, 190, 10000)
 	var mi := BotInput.decide(w, {})
 	assert_true(mi.left and not mi.right, "a mob 40 px ahead: the bot backs away (it kites, it does not close in)")
 	assert_false(mi.skill_pressed("dash"), "healthy and alone: no Dash")
@@ -125,7 +125,6 @@ func test_the_corsair_kites_a_close_mob_with_the_gun_and_dashes_by_the_existing_
 	mi = BotInput.decide(w, {})
 	assert_true(mi.skill_pressed("dash"), "low HP with a mob close: Dash is pressed, the rule every Pirate shares")
 	assert_true(mi.drink_hp, "and the HP potion is drunk")
-	assert_true(mob >= 0)
 
 
 func test_the_corsair_dash_is_learned_at_the_start_and_is_no_card() -> void:

@@ -4,7 +4,8 @@ extends TestCase
 ## with a patch file (`--patch=` / `DataRepo.patch`).
 ## Subprocess tests that play a round need the cache (`require_cache()`); the data-level checks run in CI.
 
-const UNPLAYABLE := {"jobs_survivor": {"jobs": {"522": {"playable": false}}}}
+const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
+const UNPLAYABLE := CF.UNPLAYABLE
 const FP_FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 const COR_FIXTURE := "res://tests/fixtures/characters/corsair_t2.json"
 ## The tier-1 gun kit: the Lv25 pistol 1492003 (same reqLevel as the F/P staff) and the closest all-job hat (25), shoes (21) and gloves (10) the cache holds (it has no Pirate-bit armour), the starter top and bottom.

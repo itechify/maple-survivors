@@ -3,7 +3,8 @@ extends TestCase
 ## equipment it can wear. Corsair ships `playable: true` (C15 #399); the job-error test also checks the state a patch turns off.
 
 const COR_FIXTURE := "res://tests/fixtures/characters/corsair_t2.json"
-const UNPLAYABLE := {"jobs_survivor": {"jobs": {"522": {"playable": false}}}}
+const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
+const UNPLAYABLE := CF.UNPLAYABLE
 const SPARE := [1002001, 1492001, 1082002, 1040010]
 const GUN_SCROLLS := [2044900, 2044901, 2044902, 2044903, 2044904]
 

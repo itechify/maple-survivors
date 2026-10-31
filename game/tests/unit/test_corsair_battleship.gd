@@ -3,10 +3,10 @@ extends TestCase
 ## `art_variant` effects and its two sub-skills, Battleship Cannon and Torpedo, plus the rarity bonuses. Synthetic book 522 with the
 ## real level rows (tests/fixtures/battleship_book.gd), seeded RNG, fixed 1/60 ticks; the last tests read the real asset cache.
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
 const BOOK := preload("res://tests/fixtures/battleship_book.gd")
 const DT := 1.0 / 60.0
 const MOB := 1110100
-const GUN := 1492000
 ## The eight survivor ranks' WZ levels (rank_levels["10"] for the ship, the 30-level table for the subs) and the hull percents.
 const SHIP_LEVELS := [2, 3, 4, 5, 7, 8, 9, 10]
 const SUB_LEVELS := [4, 8, 12, 15, 19, 23, 27, 30]
@@ -24,14 +24,14 @@ func _world(hp := 1000, pad := 40) -> RunWorld:
 	data.balance.player.hp = hp
 	data.balance.regen.hp = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", 397, data))
-	setup.equipment_info.merge({GUN: {"incPAD": 13, "attackSpeed": 5, "tuc": 7}}, true)
+	setup.equipment_info.merge({CF.PISTOL: {"incPAD": 13, "attackSpeed": 5, "tuc": 7}}, true)
 	setup.skill_imgs["522"] = BOOK.book_node()
 	var w := RunWorld.new(setup)
 	w.set_job(522)
 	w.loadout.ranks.clear()
 	w.loadout.order.clear()
 	RF.place_player(w, 400)
-	w.equipment.worn.weapon = Equipment.create(GUN, {"incPAD": pad})
+	w.equipment.worn.weapon = Equipment.create(CF.PISTOL, {"incPAD": pad})
 	w.refresh_player_stats()
 	for mk: MobKind in w.mob_kinds:
 		mk.hitbox = Rect2(-10, -60, 20, 60) # tall enough that the shell's slope from the gun to the first body cannot clear the line behind it
@@ -330,7 +330,7 @@ func test_the_subs_do_not_fire_after_the_ride_ends() -> void:
 			assert_true(float(e.at) <= ended + 0.001, "%s cast after the ship left" % e.skill)
 
 
-func test_cannon_fires_its_rounds_at_the_rank_damage_and_count() -> void:
+func test_cannon_lands_at_least_its_rank_rounds_on_a_lone_target() -> void:
 	for r in [1, 4, 8]:
 		var w := _world(100000, 100)
 		w.loadout.set_rank("battleship", r)
@@ -340,7 +340,7 @@ func test_cannon_fires_its_rounds_at_the_rank_damage_and_count() -> void:
 		assert_false(cast.is_empty(), "rank %d cast" % r)
 		var shots := _of(events, "mob_hit", "battleship_cannon")
 		assert_true(shots.size() >= CANNON_SHOTS[r - 1], "rank %d: %d rounds land on the lone target (%d hits)" % [r, CANNON_SHOTS[r - 1], shots.size()])
-		assert_true(float(shots[0].damage) > 0.0)
+		assert_true(float(shots[0].damage) > 0.0, "and the round does damage")
 
 
 func test_torpedo_pierces_mob_count_minus_one_monsters_in_a_line() -> void:
@@ -534,7 +534,7 @@ func _real_book() -> SkillBook:
 
 
 func test_real_cache_the_battleship_levels_two_to_ten_and_the_subs_over_all_eight_ranks() -> void:
-	if not require_cache():
+	if not require_cache_img("Skill.wz/522.img"):
 		return
 	var book := _real_book()
 	assert_true(book != null, "book 522 imported")
@@ -568,7 +568,7 @@ func test_real_cache_the_battleship_levels_two_to_ten_and_the_subs_over_all_eigh
 
 
 func test_real_cache_the_art_the_sounds_and_the_mount_exist() -> void:
-	if not require_cache():
+	if not require_cache_img("Skill.wz/522.img"):
 		return
 	var lib := AssetLibrary.get_default()
 	if lib.img("Skill.wz/522.img") == null:

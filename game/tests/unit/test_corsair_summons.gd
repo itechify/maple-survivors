@@ -5,10 +5,10 @@ extends TestCase
 ## says "real cache" (those call require_cache() and SKIP without it).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
 const DT := 1.0 / 60.0
 const MOB := 1110100
 const GROUND := {"x1": 0, "y1": 0, "x2": 2000, "y2": 0}
-const PISTOL := 1492000
 const KEYS := ["octopus", "gaviota"]
 const TIERS := ["rare", "epic", "unique", "legendary"]
 const OCTOPUS_ID := "5211001"
@@ -18,67 +18,12 @@ const OCTOPUS_IN := 120
 const GAVIOTA_IN := 40
 
 
-func _frames(n: int, delay := 120.0) -> Dictionary:
-	var out := {}
-	for k in n:
-		out[str(k)] = {"delay": delay}
-	return out
-
-
-## The WZ node of 521 `key`'s id: the real shapes (ranges, balls, `attackAfter`, frame counts) with synthetic art and a pad
-## that rises 84 -> 200 (Octopus) and 218 -> 450 (Gaviota) over 30 levels, `time` 10 / 20 / 30 s like the real tables.
-func _levels(first_pad: float, last_pad: float, cooltime: int) -> Dictionary:
-	var levels := {}
-	for lv in range(1, 31):
-		levels[str(lv)] = {"hs": "h%d" % lv, "mpCon": 10 + lv / 2, "pad": roundf(first_pad + (last_pad - first_pad) * float(lv - 1) / 29.0),
-			"time": 10 if lv < 12 else 20 if lv < 23 else 30, "cooltime": cooltime}
-	return levels
-
-
-func _book() -> Dictionary:
-	var octopus := {"icon": RF._canvas(32, 32), "level": _levels(84.0, 200.0, 10), "action": {"0": "octopus"},
-		"hit": {"0": RF._anim(5, 120.0, 50, 38)},
-		"summon": {"summoned": _frames(12, 120.0), "stand": _frames(8), "die": _frames(12),
-			"attack1": {"0": {"delay": 120.0}, "1": {"delay": 120.0}, "2": {"delay": 120.0}, "3": {"delay": 120.0}, "4": {"delay": 120.0},
-				"5": {"delay": 120.0}, "6": {"delay": 120.0}, "7": {"delay": 120.0}, "info": {
-				"range": {"sp": {"$v": [-23, -18]}, "r": 300}, "ball": {"0": {}, "1": {}},
-				"attackAfter": 480, "mobCount": 1, "bulletSpeed": 300}}}}
-	var gaviota := {"icon": RF._canvas(32, 32), "level": _levels(218.0, 450.0, 5),
-		"hit": {"0": RF._anim(13, 120.0, 77, 75), "1": RF._anim(4, 120.0, 46, 40)},
-		"summon": {"summoned": _frames(5), "fly": _frames(5), "stand": _frames(5), "die": _frames(7, 150.0),
-			"attack1": {"0": {"delay": 120.0}, "1": {"delay": 120.0}, "2": {"delay": 120.0}, "3": {"delay": 120.0}, "4": {"delay": 120.0},
-				"5": {"delay": 120.0}, "6": {"delay": 120.0}, "info": {
-				"range": {"lt": {"$v": [-80, -60]}, "rb": {"$v": [80, 60]}, "sp": {"$v": [-14, -29]}, "r": 400},
-				"type": 1, "attackAfter": 1920, "mobCount": 3}}}}
-	return {"skill": {OCTOPUS_ID: octopus, GAVIOTA_ID: gaviota}}
-
-
 ## A Corsair (job 522) on a flat floor at `x` facing right, mob bodies 4 x 10 px that stand still, `key` the only skill at
-## `rank_value`. The pistol's `incPAD` is `pistol_pad`.
+## `rank_value`, the synthetic 521 summons book (CF.summons_skills). The pistol's `incPAD` is `pistol_pad`.
 func _corsair(key: String, rank_value := 1, x := 400.0, pistol_pad := 13, p_seed := 390) -> RunWorld:
-	var data := RF.quiet_data()
-	data.balance.magnet_radius = 0
-	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
-	setup.equipment_info.merge({PISTOL: {"incPAD": pistol_pad, "attackSpeed": 5, "tuc": 7}}, true)
-	setup.map_img = RF.map_from_segments([GROUND])
-	setup.skill_imgs["521"] = _book()
-	setup["job"] = 522
-	var w := RunWorld.new(setup)
-	w.pending_cards = []
-	w.state = RunWorld.PLAYING
-	for mk: MobKind in w.mob_kinds:
-		mk.hitbox = Rect2(-2, -10, 4, 10)
-		mk.move_speed = 0.0
-	w.player.place(Vector2(x, 0), w.fhm)
-	w.update_view()
-	w.player.facing = 1
-	w.god = true
-	w.loadout.ranks.clear() # not the start skill (Double Shot): only `key` casts
-	w.loadout.order.clear()
-	assert_true(w.learn_skill(key), "%s is learnable by a Corsair" % key)
-	w.loadout.set_rank(key, rank_value)
-	w.refresh_player_stats()
-	w.drain_events()
+	var w := CF.quiet_corsair(key, rank_value, {"521": {"skill": CF.summons_skills()}},
+		{"x": x, "pistol_pad": pistol_pad, "seed": p_seed, "segments": [GROUND]})
+	assert_true(w.loadout.has(key), "%s is learnable by a Corsair" % key)
 	return w
 
 
@@ -527,9 +472,9 @@ func test_the_card_and_skill_window_text_name_the_numbers() -> void:
 	assert_true(octopus.contains("96 W.Att"), octopus)
 	assert_true(octopus.contains("within 300 px"), octopus)
 	var gaviota := text.level_line("gaviota", 4, w.loadout.stats("gaviota", 1))
-	assert_true(gaviota.contains("Calls Gaviota for 10 s"), gaviota)
+	assert_true(gaviota.contains("Calls Gaviota, waiting up to 10 s for a target"), gaviota)
 	assert_true(gaviota.contains("242 W.Att"), gaviota)
-	assert_true(gaviota.contains("Dives once at a monster within 400 px of you, then is spent"), gaviota)
+	assert_true(gaviota.contains("Dives once at a monster within 400 px of you, hitting up to 3, then is spent"), gaviota)
 	assert_true(text.desc("octopus").contains("never moves"), text.desc("octopus"))
 
 
@@ -541,7 +486,7 @@ const TIME := {"octopus": [10, 20, 30], "gaviota": [10, 20, 30]}
 
 
 func test_real_cache_all_eight_ranks_map_to_the_skill_wz_levels() -> void:
-	if not require_cache():
+	if not require_cache_img("Skill.wz/521.img"):
 		return
 	var lib := AssetLibrary.new()
 	var imgs := {}

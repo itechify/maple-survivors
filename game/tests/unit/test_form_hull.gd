@@ -257,7 +257,7 @@ func test_only_skills_blocks_pool_actives_outside_the_list_and_keeps_their_coold
 	assert_true(w.runner.forms.permits(w, "test_ok"))
 	for i in 30:
 		w.runner.step(DT, w)
-	assert_true(float(w.runner.cooldowns.get("test_ok", 0.0)) > 0.0 or w.runner.casts >= 2, "the permitted skill casts")
+	assert_true(float(w.runner.cooldowns.get("test_ok", 0.0)) > 0.0, "the permitted skill cast (its cooldown is running)")
 	assert_true(float(w.runner.cooldowns.get("test_gun", 0.0)) <= 0.0, "the blocked gun was never cast: it is ready and waiting")
 	var casts := w.runner.casts
 	w.runner.forms.end(w, "test_ship", "expired")

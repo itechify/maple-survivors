@@ -66,6 +66,19 @@ func require_cache() -> bool:
 	return true
 
 
+## Like require_cache(), and SKIPs too when the cache has no image `path`: a cache imported before the spec that added the
+## image (re-import to run the test) must not FAIL it.
+func require_cache_img(path: String) -> bool:
+	if not require_cache():
+		return false
+	var lib := AssetLibrary.new()
+	var present := lib.img(path) != null
+	lib.free()
+	if not present:
+		skip("asset cache has no %s (imported before the spec that added it: re-import)" % path)
+	return present
+
+
 func assert_true(cond: bool, msg: String = "expected true") -> void:
 	if not cond:
 		fail(msg)

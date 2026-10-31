@@ -25,14 +25,14 @@ const RIDER_ACTIONS := {"cannon": "shoot2", "torpedo": "shoot2"}
 const RIDER_STANCE := "sit"
 ## tier B/C: the mount stance for the idle alert and any action without a stance of its own.
 const FALLBACK_STANCE := "alert2"
-## Stances where the character climbs: no mount, the rider keeps its own stance.
+## tier C: stances where the character climbs: no mount, the rider keeps its own stance.
 const CLIMB_STANCES := ["ladder", "rope", "ladder2", "rope2"]
-## Stances that end the ride visually (the character lies dead).
+## tier C: stances that end the ride visually (the character lies dead).
 const DEAD_STANCES := ["dead"]
-## avatar stance request -> mount stance for the movement stances.
+## tier B/C: avatar stance request -> mount stance for the movement stances (C1's sheets).
 const MOTION_STANCES := {"stand1": "stand1", "stand2": "stand1", "walk1": "walk1", "walk2": "walk1",
 	"jump": "jump", "prone": "prone", "proneStab": "prone"}
-## Mount stances that play once and hold their last frame; everything else loops.
+## tier C: mount stances that play once and hold their last frame; everything else loops.
 const ONE_SHOT_STANCES := ["cannon", "torpedo", "fireburner", "coolingeffect", "jump"]
 
 ## The loaded art (never null).

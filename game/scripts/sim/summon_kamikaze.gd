@@ -16,9 +16,7 @@ const SEEK := 0
 const STRIKE := 1
 const SPENT := 2
 
-## tier C: the ally hunts the monster it first chose until that one is gone, then picks again.
-## tier C: the level `time` ends only a bird without a locked target; a bird chasing or diving runs on to its strike.
-## tier C: an ordinal past the number of monsters in reach takes the farthest one in reach (a bird is never idle for it).
+## The `summon_count` ordinal of each ally, the target slot and its MobSwarm.identity, and the phase (SEEK, STRIKE, SPENT).
 var ordinal := PackedInt32Array()
 var phase := PackedByteArray()
 var target := PackedInt32Array()
@@ -40,6 +38,7 @@ func spawn_slot(_summons: PlayerSummons, i: int, nth: int, _world: RunWorld, _d:
 
 
 ## Whether the level `time` running out must not end ally i yet: it has locked a monster or is diving.
+## tier C: the level `time` ends only a bird without a locked target; a bird chasing or diving runs on to its strike.
 func holds_expiry(i: int) -> bool:
 	return phase[i] == STRIKE or (phase[i] == SEEK and target[i] >= 0)
 
@@ -48,6 +47,7 @@ func holds_expiry(i: int) -> bool:
 func step_slot(s: PlayerSummons, i: int, dt: float, world: RunWorld) -> void:
 	var d := s.definitions[i]
 	var away := world.is_hidden() or bool(world.player_state.dead)
+	# tier C: the ally hunts the monster it first chose until that one is gone, then picks again.
 	if target[i] >= 0 and not _alive(world, i):
 		target[i] = -1
 	if phase[i] == STRIKE:
@@ -132,6 +132,7 @@ func _pick(s: PlayerSummons, i: int, world: RunWorld) -> void:
 	if found.is_empty():
 		return
 	world.sort_targets_by_distance(found, origin)
+	# tier C: an ordinal past the number of monsters in reach takes the farthest one in reach (a bird is never idle for it).
 	var m := found[mini(ordinal[i], found.size() - 1)]
 	target[i] = m
 	target_id[i] = world.swarm.identity[m]
@@ -142,10 +143,12 @@ func _alive(world: RunWorld, i: int) -> bool:
 	return world.swarm.active[m] != 0 and world.swarm.identity[m] == target_id[i]
 
 
-## The Skill-window line: how far the bird looks and that it is spent by one dive.
-static func describe(book: SkillBook, key: String, attack: String) -> String:
+## The Skill-window line: how far the bird looks, how many monsters its one dive hits (`info.mobCount` plus the `count`
+## modifiers, `extra_strikes`) and that it is spent by it.
+static func describe(book: SkillBook, key: String, attack: String, extra_strikes := 0) -> String:
 	var info: Dictionary = book.skill_node(key).get("summon", {}).get(attack, {}).get("info", {})
 	var reach := float(info.get("range", {}).get("r", 0.0))
 	if reach <= 0.0:
 		return ""
-	return "Dives once at a monster within %d px of you, then is spent" % roundi(reach)
+	var hits := maxi(1, int(info.get("mobCount", 1)) + extra_strikes)
+	return "Dives once at a monster within %d px of you, hitting up to %d, then is spent" % [roundi(reach), hits]

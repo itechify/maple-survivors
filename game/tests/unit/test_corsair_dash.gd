@@ -5,8 +5,8 @@ extends TestCase
 ## worlds, fixed 1/60 ticks; the last test reads the real asset cache and SKIPs without it.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
 const DT := 1.0 / 60.0
-const GUN := 1492000
 ## Skill.wz/500.img skill 5001005 levels 1-10 as [speed x, jump y, time].
 const TABLE := [[12, 1, 4], [14, 2, 4], [16, 3, 8], [18, 4, 8], [20, 5, 12], [22, 6, 12], [24, 7, 16], [26, 8, 16], [28, 9, 20], [30, 10, 20]]
 ## [round level, rank]: the shared balance.mobility_rank_levels rule (rank N at Lv 2N, rank 1 at Lv1), clamped to the ten ranks.
@@ -17,7 +17,7 @@ const BY_LEVEL := [[1, 1], [4, 2], [6, 3], [8, 4], [10, 5], [12, 6], [14, 7], [1
 func _world(p_seed := 387) -> RunWorld:
 	var data := RF.quiet_data()
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
-	setup.equipment_info.merge({GUN: {"incPAD": 13, "attackSpeed": 5, "tuc": 7}}, true)
+	setup.equipment_info.merge({CF.PISTOL: {"incPAD": 13, "attackSpeed": 5, "tuc": 7}}, true)
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 2000, "y2": 0}])
 	setup["job"] = 522
 	var w := RunWorld.new(setup)
@@ -76,10 +76,6 @@ func test_rank_levels_for_ten_level_skills_exists_exactly_once() -> void:
 	assert_eq(text.count("\"rank_levels\""), 1, "one rank_levels table in the shared defaults")
 	var table: Dictionary = DataRepo.load_all().skills.rank_levels
 	assert_eq((table["10"] as Array).map(func(v: Variant) -> int: return int(v)), [2, 3, 4, 5, 7, 8, 9, 10])
-	var tens := 0
-	for key: String in table:
-		tens += 1 if key == "10" else 0
-	assert_eq(tens, 1)
 	for line: String in DataRepo.lines():
 		var raw := FileAccess.get_file_as_string("res://data/survivor/skills/%s.json" % line)
 		assert_false(raw.contains("\"rank_levels\": {"), "%s.json adds no rank_levels table of its own" % line)
@@ -215,7 +211,6 @@ func test_the_corsair_bot_presses_dash_when_surrounded_or_hurt_with_a_mob_close(
 
 func test_the_buccaneer_dash_is_unchanged_by_the_corsair_job() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["512"]["playable"] = true
 	var setup := RF.setup("quiet", 387, data)
 	setup["job"] = 512
 	var b := RunWorld.new(setup)

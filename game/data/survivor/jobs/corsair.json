@@ -5,7 +5,7 @@
 			"starting_skill": "double_shot",
 			"_starting_skill": "tier C: spec #384 (CS-1): Double Shot (the old Gunslinger skill, 5201001) is the starting active in slot 1 and the first skill a round learns; defined by C4 in skills/corsair.json.",
 			"mobility_skill": "dash",
-			"_mobility_skill": "tier C: spec #384 (CS-2): Dash (WZ 5001005) is Corsair's manual mobility skill on the skill key, outside both slot tracks; defined once in skills/pirate.json on slot mobility (Buccaneer B5 #417), C3 gives it the shared mobility rank rule.",
+			"_mobility_skill": "tier C: spec #384 (CS-2): Dash (WZ 5001005) is Corsair's manual mobility skill on the skill key, outside both slot tracks; defined once in skills/pirate.json on slot mobility (Buccaneer B5 #417); Corsair keeps that shared ten-rank table (D13, GAME_DESIGN 7.120.2).",
 			"skill_pool": [
 				"double_shot",
 				"burst_fire",
@@ -21,7 +21,7 @@
 				"rapid_fire",
 				"battleship"
 			],
-			"_skill_pool": "tier C: spec #384 (CS-1 to CS-12): the thirteen hand-picked Corsair actives from the 500/520/521/522 books, all auto-cast; Dash is the mobility skill, not a pool entry. Undefined keys stay inert until their tickets define them.",
+			"_skill_pool": "tier C: spec #384 (CS-1 to CS-12): the thirteen hand-picked Corsair actives from the 500/520/521/522 books, all auto-cast; Dash is the mobility skill, not a pool entry.",
 			"weapon_families": [
 				"gun"
 			],

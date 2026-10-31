@@ -5,63 +5,26 @@ extends TestCase
 ## synthetic fixture tables (the v83 endpoints) unless a test says "real cache" (those call require_cache() and SKIP without it).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
 const DT := 1.0 / 60.0
 const MOB := 1110100
 const GROUND := {"x1": 0, "y1": 0, "x2": 1400, "y2": 0}
-const PISTOL := 1492000
 const AERIAL := "aerial_strike"
 const RAPID := "rapid_fire"
 const RANK_LEVELS := [4, 8, 12, 15, 19, 23, 27, 30] # tier C: the 30-level mapping every 30-level skill uses
 const TIERS := ["rare", "epic", "unique", "legendary"]
 
 
-## The synthetic 522 book: v83's endpoints (Aerial Strike 520 -> 1200 %, mobCount 6, box (-400,-500)..(400,100); Rapid Fire
-## 102 -> 170 %, range 350), linear between, as the C1 scan found every level.
+## The synthetic 522 book: v83's endpoints (CF.aerial_rapid_skills), linear between, as the C1 scan found every level.
 func _book() -> Dictionary:
-	var aerial := {}
-	var rapid := {}
-	for lv in range(1, 31):
-		var t := float(lv - 1) / 29.0
-		aerial[str(lv)] = {"hs": "h%d" % lv, "mpCon": 31 + lv, "damage": float(roundi(lerpf(520.0, 1200.0, t))), "mobCount": 6,
-			"cooltime": 5, "lt": {"$v": [-400, -500]}, "rb": {"$v": [400, 100]}}
-		rapid[str(lv)] = {"hs": "h%d" % lv, "mpCon": 6 + lv / 10, "damage": float(roundi(lerpf(102.0, 170.0, t))), "range": 350}
-	return {"skill": {
-		"5221003": {"icon": RF._canvas(32, 32), "action": {"0": "airstrike"}, "level": aerial,
-			"effect": RF._anim(10, 120.0, 50, 60), "effect0": RF._anim(30, 90.0, 400, 300), "effect1": RF._anim(14, 120.0, 800, 500),
-			"hit": {"0": RF._anim(5, 120.0, 124, 109)}},
-		"5221004": {"icon": RF._canvas(32, 32), "level": rapid, "prepare": RF._anim(9, 60.0, 74, 79),
-			"keydown": RF._anim(8, 60.0, 121, 54), "keydownend": RF._anim(9, 60.0, 234, 137), "hit": {"0": RF._anim(3, 60.0, 84, 83)}}}}
+	return {"skill": CF.aerial_rapid_skills()}
 
 
 ## A Corsair (job 522) holding a pistol on a flat floor at `x`, tiny stationary mobs, `key` the only skill at `rank_value`.
 func _world(key: String, rank_value := 1, x := 400.0, p_seed := 394, segments: Array = [GROUND], two_maps := false) -> RunWorld:
-	var data := RF.quiet_data()
-	if two_maps:
-		data.stages.stages.quiet.maps.append(data.stages.stages.quiet.maps[0].duplicate(true))
-	data.balance.magnet_radius = 0
-	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
-	setup.equipment_info.merge({PISTOL: {"incPAD": 13, "attackSpeed": 5, "tuc": 7}}, true)
-	for action: String in ["shoot1", "shoot2", "airstrike", "rapidfire"]:
-		setup.body_img[action] = {"0": {"delay": 100.0}, "1": {"delay": 100.0}}
-	setup.map_img = RF.map_from_segments(segments)
-	setup.skill_imgs["522"] = _book()
-	setup["job"] = 522
-	var w := RunWorld.new(setup)
-	w.pending_cards = []
-	w.state = RunWorld.PLAYING
-	for mk: MobKind in w.mob_kinds:
-		mk.hitbox = Rect2(-2, -10, 4, 10)
-		mk.move_speed = 0.0
-	w.player.place(Vector2(x, 0), w.fhm)
-	w.update_view()
-	w.player.facing = 1
-	w.god = true
-	w.loadout.ranks.clear() # not the start skill (Double Shot): only `key` casts
-	w.loadout.order.clear()
-	assert_true(w.learn_skill(key), "%s is learnable by a Corsair" % key)
-	w.loadout.set_rank(key, rank_value)
-	w.refresh_player_stats()
-	w.drain_events()
+	var w := CF.quiet_corsair(key, rank_value, {"522": _book()}, {"x": x, "seed": p_seed, "segments": segments, "two_maps": two_maps,
+		"body_actions": ["shoot1", "shoot2", "airstrike", "rapidfire"]})
+	assert_true(w.loadout.has(key), "%s is learnable by a Corsair" % key)
 	return w
 
 
@@ -543,7 +506,7 @@ func test_a_legendary_card_hits_harder_than_the_unique() -> void:
 # --- the real cache: all eight ranks against Skill.wz ------------------------------------------------------------------
 
 func test_real_cache_all_eight_ranks_read_the_mapped_wz_levels() -> void:
-	if not require_cache():
+	if not require_cache_img("Skill.wz/522.img"):
 		return
 	var lib := AssetLibrary.new()
 	assert_true(lib.open())
@@ -592,7 +555,7 @@ func test_real_cache_all_eight_ranks_read_the_mapped_wz_levels() -> void:
 
 
 func test_real_cache_has_the_art_and_sounds_the_definitions_name() -> void:
-	if not require_cache():
+	if not require_cache_img("Skill.wz/522.img"):
 		return
 	var lib := AssetLibrary.new()
 	assert_true(lib.open())

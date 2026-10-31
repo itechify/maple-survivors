@@ -81,6 +81,11 @@ func _vec(v: Variant) -> Vector2:
 	return Vector2(float(a[0]), float(a[1]))
 
 
+## The cache holds the spec's images (521, 522 and the ship); an older cache SKIPs instead of failing.
+func _cache() -> bool:
+	return require_cache_img("Skill.wz/522.img") and require_cache_img(SHIP)
+
+
 func _at(lib: AssetLibrary, id: String, field: String, levels: Array) -> Array:
 	var got := []
 	for lv: int in levels:
@@ -119,7 +124,7 @@ func _unique(a: PackedStringArray) -> Dictionary:
 
 
 func test_real_cache_ids_names_and_max_levels() -> void:
-	if not require_cache():
+	if not _cache():
 		return
 	var lib := AssetLibrary.get_default()
 	for id: String in NAMES:
@@ -150,7 +155,7 @@ func test_real_cache_ids_names_and_max_levels() -> void:
 
 
 func test_real_cache_the_fields_the_tickets_read_exist_at_every_level() -> void:
-	if not require_cache():
+	if not _cache():
 		return
 	var lib := AssetLibrary.get_default()
 	for id: String in FIELDS:
@@ -174,7 +179,7 @@ func test_real_cache_the_fields_the_tickets_read_exist_at_every_level() -> void:
 
 
 func test_real_cache_the_numbers_the_spec_quotes_at_the_eight_mapped_ranks() -> void:
-	if not require_cache():
+	if not _cache():
 		return
 	var lib := AssetLibrary.get_default()
 	assert_eq(_at(lib, "5210000", "damage", LEVELS_20), [125.0, 135.0, 150.0, 160.0, 175.0, 185.0, 200.0, 210.0])
@@ -220,7 +225,7 @@ func test_real_cache_the_numbers_the_spec_quotes_at_the_eight_mapped_ranks() -> 
 
 
 func test_real_cache_flamethrower_and_ice_splitter_store_damage_as_strings() -> void:
-	if not require_cache():
+	if not _cache():
 		return
 	var lib := AssetLibrary.get_default()
 	for id in ["5211004", "5211005"]:
@@ -248,7 +253,7 @@ func test_real_cache_flamethrower_and_ice_splitter_store_damage_as_strings() -> 
 
 
 func test_real_cache_art_node_frame_counts_the_tickets_draw() -> void:
-	if not require_cache():
+	if not _cache():
 		return
 	var lib := AssetLibrary.get_default()
 	# Burst Fire: effect 8 (first and last a 1x1), hit/0 4, ball one frame.
@@ -303,7 +308,7 @@ func test_real_cache_art_node_frame_counts_the_tickets_draw() -> void:
 
 
 func test_real_cache_the_corsair_sounds_resolve_including_the_burst_fire_uol() -> void:
-	if not require_cache():
+	if not _cache():
 		return
 	var lib := AssetLibrary.get_default()
 	for id: String in SOUND_IDS:
@@ -326,7 +331,7 @@ func test_real_cache_the_corsair_sounds_resolve_including_the_burst_fire_uol() -
 
 
 func test_real_cache_the_ship_has_every_stance_with_two_canvases_and_a_navel() -> void:
-	if not require_cache():
+	if not _cache():
 		return
 	var lib := AssetLibrary.get_default()
 	var ship := lib.img(SHIP)
@@ -356,7 +361,7 @@ func test_real_cache_the_ship_has_every_stance_with_two_canvases_and_a_navel() -
 
 
 func test_real_cache_zmap_draws_the_ship_front_over_and_the_rear_under_every_avatar_layer() -> void:
-	if not require_cache():
+	if not _cache():
 		return
 	var lib := AssetLibrary.get_default()
 	var order := AvatarRenderer.zmap_order(lib)
@@ -390,7 +395,7 @@ func _gun_drawn(a: AvatarRenderer, weapon: int, action: String) -> String:
 
 
 func test_real_cache_the_gun_is_drawn_in_every_corsair_stance_but_sit() -> void:
-	if not require_cache():
+	if not _cache():
 		return
 	# A pistol (1492000, the creation weapon) and the highest gun in the cache (1492009).
 	for weapon in [1492000, 1492009]:

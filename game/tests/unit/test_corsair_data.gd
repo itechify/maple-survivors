@@ -5,10 +5,10 @@ extends TestCase
 ## other job's file names job 522. Seeded RNG; item info is synthetic unless a test says "real cache".
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
 
 const POOL := ["double_shot", "burst_fire", "invisible_shot", "recoil_shot", "grenade", "flamethrower", "ice_splitter",
 	"octopus", "gaviota", "homing_beacon", "aerial_strike", "rapid_fire", "battleship"]
-const PISTOL := 1492000
 ## Synthetic item info (reqJob bits as in the v83 Item.wz): guns and knucklers carry the Pirate bit (16), the rest belong to
 ## other lines, so the family filter alone decides which Pirate-bit weapons drop.
 const INFO := {
@@ -67,7 +67,7 @@ func test_corsair_line_is_discovered_from_its_files_without_a_shared_registratio
 	assert_eq(DataRepo.fragment_path("skills", "corsair", "res://data"), "res://data/survivor/skills/corsair.json")
 
 
-func test_the_corsair_line_loads_without_errors_and_adds_its_job_and_an_empty_skill_file() -> void:
+func test_the_corsair_line_loads_without_errors_and_adds_its_job_and_its_skills() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
@@ -115,13 +115,13 @@ func test_job_522_has_the_spec_fields_and_is_playable() -> void:
 	assert_eq(jobs.skill_pool(522).size(), 13)
 	assert_false("dash" in jobs.skill_pool(522), "Dash is the mobility skill, not a pool entry")
 	assert_eq(jobs.weapon_families(522), ["gun"])
-	assert_eq(jobs.creation_weapon(522), PISTOL)
+	assert_eq(jobs.creation_weapon(522), CF.PISTOL)
 	assert_true(bool(rec.playable), "C15 flipped playable")
 	assert_eq(jobs.job_error(522), "")
 	assert_true(522 in jobs.playable_jobs())
 
 
-func test_the_job_entry_carries_a_placeholder_hub_kit_and_no_meter() -> void:
+func test_the_job_entry_carries_a_hub_kit_and_no_meter() -> void:
 	var entry: Dictionary = _data().jobs_survivor.jobs["522"]
 	assert_false(entry.has("meter"), "Corsair has no meter: its Form is the ship")
 	var kit: Dictionary = entry.hub_kit
@@ -150,7 +150,7 @@ func test_default_job_stays_212_with_corsair_on_the_line() -> void:
 	assert_eq(_jobs(data).default_job(), 212, "the pin, not the first playable job")
 
 
-# --- the pool: defined keys resolve, undefined keys stay inert --------------------------------------------------------
+# --- the pool: every key is defined once --------------------------------------------------------------------------------
 
 func test_each_pool_key_and_dash_is_defined_in_at_most_one_file() -> void:
 	for key: String in POOL + ["dash"]:
@@ -158,33 +158,20 @@ func test_each_pool_key_and_dash_is_defined_in_at_most_one_file() -> void:
 		assert_true(lines.size() <= 1, "%s is defined once at most (%s)" % [key, lines])
 
 
-## Not a fixed list, so the skill tickets (C3-C13) need no edit here: a defined key lives in the corsair line, or in
-## the Pirate line while it is unported; the 521/522-book skills never live in pirate.json.
-func test_defined_pool_keys_live_in_a_gun_book_and_undefined_ones_are_inert() -> void:
+func test_every_pool_key_is_defined_in_a_gun_book_in_the_corsair_line() -> void:
 	var data := _data()
 	for key: String in POOL:
-		var lines := _defining_lines(key)
-		if lines.is_empty():
-			assert_false(data.skills.skills.has(key), "%s is inert" % key)
-			continue
+		assert_eq(_defining_lines(key), ["corsair"], "%s is defined in the corsair line" % key)
 		var book := String(data.skills.skills[key].book)
 		assert_true(book in ["500", "520", "521", "522"], "%s: book %s is a Corsair-lineage book" % [key, book])
-		assert_true(lines in [["pirate"], ["corsair"]], "%s defined in %s" % [key, lines])
-		if book in ["521", "522"]:
-			assert_eq(lines, ["corsair"], "%s is a 521/522-book skill" % key)
 	assert_eq(_defining_lines("dash"), ["pirate"], "Dash stays in pirate.json (one definition, Buccaneer and Corsair share it)")
 
 
-func test_an_undefined_pool_key_is_never_offered_as_a_card() -> void:
-	var data := RF.quiet_data()
-	var setup := RF.setup("quiet", 7, data)
+func test_dash_is_not_offered_as_a_card() -> void:
+	var setup := RF.setup("quiet", 7, RF.quiet_data())
 	setup["job"] = 522
 	var w := RunWorld.new(setup)
 	var ids := Array(w.upgrades.eligible(w))
-	var undefined := POOL.filter(func(k: String) -> bool: return not data.skills.skills.has(k))
-	for key: String in undefined:
-		assert_false(ids.has(key + "_new") or ids.has(key + "_rank"), "%s is not offered" % key)
-		assert_false(w.loadout.has(key), "%s is not learned" % key)
 	assert_false(ids.has("dash_new") or ids.has("dash_rank"), "Dash is not a card")
 
 
@@ -302,12 +289,12 @@ func test_the_shipped_weapon_drops_keep_guns_only_for_a_corsair() -> void:
 		else:
 			assert_false(id in ids, "%d (%s) never drops for a Corsair" % [id, WeaponInfo.family(id)])
 	assert_true(guns > 0, "the shipped list holds guns")
-	assert_true(PISTOL in weapons, "the creation Pistol is in the shipped list")
+	assert_true(CF.PISTOL in weapons, "the creation Pistol is in the shipped list")
 
 
 func test_requirement_error_accepts_pirate_bit_gear_and_the_pistol_only() -> void:
 	var corsair := {"job_id": 522}
-	assert_eq(Equipment.requirement_error(INFO[PISTOL], corsair), "", "the Pistol (reqJob 16, the Pirate bit)")
+	assert_eq(Equipment.requirement_error(INFO[CF.PISTOL], corsair), "", "the Pistol (reqJob 16, the Pirate bit)")
 	assert_eq(Equipment.requirement_error(INFO[1082002], corsair), "", "Pirate-bit gloves")
 	assert_eq(Equipment.requirement_error({"reqJob": 0}, corsair), "", "all jobs")
 	assert_eq(Equipment.requirement_error({"reqJob": 16}, corsair), "", "Pirate bit")
@@ -332,9 +319,9 @@ func test_real_cache_the_pistol_is_wearable_and_each_tier_drops_guns_only() -> v
 		if img != null:
 			infos[int(raw)] = img.root.get("info", {})
 	lib.free()
-	assert_true(infos.has(PISTOL), "the Pistol is in the cache")
-	assert_eq(WeaponInfo.family(PISTOL), "gun")
-	assert_eq(Equipment.requirement_error(infos[PISTOL], {"job_id": 522}), "", "a Corsair can wear the creation Pistol")
+	assert_true(infos.has(CF.PISTOL), "the Pistol is in the cache")
+	assert_eq(WeaponInfo.family(CF.PISTOL), "gun")
+	assert_eq(Equipment.requirement_error(infos[CF.PISTOL], {"job_id": 522}), "", "a Corsair can wear the creation Pistol")
 	var ed: Dictionary = data.equipment_drops
 	for tier in data.stages.tiers.size():
 		var band := EquipmentDrops.band_of(data.stages, tier)

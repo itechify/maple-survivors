@@ -5,10 +5,10 @@ extends TestCase
 ## SKIP without it). The four moved definitions used to be the Gunslinger's (test_gunslinger_attacks.gd, now Blank Shot only).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
 const DT := 1.0 / 60.0
 const MOB := 1110100
 const GROUND := {"x1": 0, "y1": 0, "x2": 1000, "y2": 0}
-const PISTOL := 1492000
 const KNUCKLER := 1482000
 const KEYS := ["double_shot", "burst_fire", "invisible_shot", "recoil_shot", "grenade"]
 const TIERS := ["rare", "epic", "unique", "legendary"]
@@ -20,7 +20,7 @@ func _corsair(key: String, rank_value := 1, segments: Array = [GROUND], x := 400
 	var data := RF.quiet_data()
 	data.balance.magnet_radius = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
-	setup.equipment_info.merge({PISTOL: {"incPAD": 13, "attackSpeed": 5, "tuc": 7},
+	setup.equipment_info.merge({CF.PISTOL: {"incPAD": 13, "attackSpeed": 5, "tuc": 7},
 		KNUCKLER: {"incPAD": 18, "attackSpeed": 5, "tuc": 7}}, true)
 	setup.map_img = RF.map_from_segments(segments)
 	setup.skill_imgs["521"] = _burst_fire_book()
@@ -173,7 +173,7 @@ func test_double_shot_splits_its_two_bullets_over_two_monsters_and_flies_the_amm
 
 
 func test_double_shot_with_one_monster_sends_both_bullets_at_it_and_a_pistol_or_knuckle_both_cast() -> void:
-	for weapon in [PISTOL, KNUCKLER]:
+	for weapon in [CF.PISTOL, KNUCKLER]:
 		var w := _corsair("double_shot")
 		if weapon == KNUCKLER:
 			w.wear_new_item(KNUCKLER)
@@ -567,7 +567,7 @@ const DAMAGE := {"double_shot": [63, 70, 80], "burst_fire": [125, 160, 210], "in
 
 
 func test_real_cache_all_eight_ranks_map_to_the_skill_wz_levels() -> void:
-	if not require_cache():
+	if not require_cache_img("Skill.wz/521.img"):
 		return
 	var lib := AssetLibrary.new()
 	var imgs := {}

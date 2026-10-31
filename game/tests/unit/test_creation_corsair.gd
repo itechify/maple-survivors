@@ -7,7 +7,8 @@ extends TestCase
 
 const CREATE := preload("res://scenes/ui/character_create.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const UNPLAYABLE := {"jobs_survivor": {"jobs": {"522": {"playable": false}}}}
+const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
+const UNPLAYABLE := CF.UNPLAYABLE
 ## Every other playable job disabled: the page has the two rows 212 and 522.
 const REDUCED := {"jobs_survivor": {"jobs": {"112": {"playable": false}, "122": {"playable": false}, "132": {"playable": false},
 	"222": {"playable": false}, "232": {"playable": false}, "312": {"playable": false}, "512": {"playable": false},

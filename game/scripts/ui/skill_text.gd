@@ -80,7 +80,11 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		mechanics.append("Fires %d arrows over %s s" % [shots, number(seconds)])
 	if def.has("summon"):
 		var summon: Dictionary = def.summon
-		mechanics.append("Calls %s for %s s" % [String(def.get("name", key)), number(float(stats.get("duration", 0.0)))])
+		var named := String(def.get("name", key))
+		var lasts := number(float(stats.get("duration", 0.0)))
+		# A kamikaze's level `time` is the wait for a target, not the bird's life.
+		mechanics.append("Calls %s, waiting up to %s s for a target" % [named, lasts] if String(summon.get("behavior", "")) == "kamikaze" \
+			else "Calls %s for %s s" % [named, lasts])
 		var status: Dictionary = def.get("on_hit", {})
 		if String(status.get("status", "")) == "stun":
 			var chance := book.canonical(key, level, String(status.chance_field)) if status.has("chance_field") else 100.0
@@ -92,7 +96,7 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 			"turret":
 				behavior_line = SummonTurret.describe(book, key, String(summon.attack), float(stats.get("area", 1.0)))
 			"kamikaze":
-				behavior_line = SummonKamikaze.describe(book, key, String(summon.attack))
+				behavior_line = SummonKamikaze.describe(book, key, String(summon.attack), int(stats.get("count", 1)) - 1)
 		if behavior_line != "":
 			mechanics.append(behavior_line)
 

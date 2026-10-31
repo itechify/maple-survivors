@@ -1,9 +1,11 @@
 extends TestCase
 ## Corsair fixed-tick event oracle (spec #384, C14 #398), synthetic assets, seed 1, bot, invulnerable: the event stream of a Henesys
 ## round of a Corsair (522) holding the Pistol, with the thirteen pool skills defined (Dash is the mobility skill). It sits beside the
-## F/P (`test_character_baseline`), Hero, I/L, Paladin and Bowmaster goldens and pins the whole Corsair stack (the gun skills, the
-## turret and kamikaze summons, the mark, the cones' burn and freeze, the bursts, Aerial Strike, the Battleship, the ammo schedule,
-## the bot's picks) so later work (C15 QA, the balance pass, a Marksman line) cannot move it unnoticed. The recipe is Bowmaster's:
+## F/P (`test_character_baseline`), Hero, I/L, Paladin and Bowmaster goldens. It pins only what the bot reaches at seed 1: the digest
+## covers Double Shot, Recoil Shot, Ice Splitter (the freeze), the Homing Beacon (the mark), Gaviota (the kamikaze) and Rapid Fire plus
+## Dash and the ammo schedule. The Battleship (hull, `only_skills`, mount), Octopus (turret), Aerial Strike, Flamethrower (burn), Burst
+## Fire, Grenade and Invisible Shot are not taken at this seed and are not in the digest; their unit tests (`test_corsair_*`,
+## `test_form_hull`, `test_summon_behaviors`) are their pin. The recipe is Bowmaster's:
 ## the pre-#241 opening and whole-round pool curve, the same bot and `var_to_bytes` digest, initial player stats included.
 ## The pool is FROZEN here: `skill_pool` is written out below, so a fourteenth skill added to the shipped job cannot change the
 ## replay. Captured at C14, after C1-C13 merged (all thirteen existed), so the QA ticket does not need to widen or recapture it.
@@ -14,7 +16,11 @@ const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const TICKS := 21600 # six minutes of run time: the six slots are full and every kind of event below has happened
-const GOLDEN := "a5590d4ad8e1355172a1bfc80c4496eee1d7af9456314dab8566c791b7d1b55b"
+## Re-captured at the review of #384 (was a5590d4a...): the bot takes Gaviota at seed 1, and two review fixes changed what a Gaviota
+## does: a bird that has locked a monster is no longer ended by the level `time` before its dive lands, and it measures its reach from
+## the cast origin (where the cast was admitted) rather than the feet. With both reverted this replay reproduces the old digest, so
+## nothing else (the shared sorts, the Octopus footing, the event schema) moved it.
+const GOLDEN := "cc008269a871f391b84bfe6218788615b1783790473f670b8f2ce1dc65efd825"
 ## The frozen pool: the thirteen actives of C4-C13, in the shipped order.
 const POOL := ["double_shot", "burst_fire", "invisible_shot", "recoil_shot", "grenade", "flamethrower", "ice_splitter", "octopus",
 	"gaviota", "homing_beacon", "aerial_strike", "rapid_fire", "battleship"]

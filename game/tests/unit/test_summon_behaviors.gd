@@ -446,7 +446,10 @@ func test_the_card_text_lists_the_radius_the_ball_and_the_single_use() -> void:
 	w.loadout.skill_mods["test_octopus"] = {"area": Vector2(0.0, 1.5)}
 	assert_true(text.level_line("test_octopus", 1, w.loadout.stats("test_octopus")).contains("within 450 px"), "area scales it")
 	var gaviota := text.level_line("test_gaviota", 1, w.loadout.stats("test_gaviota"))
-	assert_true(gaviota.contains("Dives once at a monster within 400 px of you, then is spent"), gaviota)
+	assert_true(gaviota.contains("Dives once at a monster within 400 px of you, hitting up to 3, then is spent"), gaviota)
+	assert_true(gaviota.contains("waiting up to 30 s for a target"), "the level time is the wait limit: " + gaviota)
+	w.loadout.add_skill_mod("test_gaviota", "count", "add", 2.0)
+	assert_true(text.level_line("test_gaviota", 1, w.loadout.stats("test_gaviota")).contains("hitting up to 5"), "count modifiers add strikes")
 
 func test_the_turret_expires_at_the_level_time() -> void:
 	var w := _octopus(3.0)

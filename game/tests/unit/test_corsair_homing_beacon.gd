@@ -4,8 +4,8 @@ extends TestCase
 ## unless a test says "real cache" (those call require_cache() and SKIP without it).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
 const DT := 1.0 / 60.0
-const PISTOL := 1492000
 const KEY := "homing_beacon"
 
 
@@ -13,15 +13,15 @@ const KEY := "homing_beacon"
 func _world(rank_value := 1, p_seed := 392) -> RunWorld:
 	var data := RF.quiet_data()
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
-	setup.equipment_info.merge({PISTOL: {"incPAD": 20, "attackSpeed": 6, "tuc": 7}}, true)
+	setup.equipment_info.merge({CF.PISTOL: {"incPAD": 20, "attackSpeed": 6, "tuc": 7}}, true)
 	for action: String in ["shoot1", "shoot2", "homing"]:
 		setup.body_img[action] = {"0": {"delay": 100.0}, "1": {"delay": 100.0}}
-	setup.skill_imgs["521"] = {"skill": {"5211006": {"level": _levels()}}}
+	setup.skill_imgs["521"] = {"skill": {"5211006": {"level": CF.beacon_levels()}}}
 	setup["job"] = 522
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
-	if w.weapon_id() != PISTOL:
-		w.wear_new_item(PISTOL)
+	if w.weapon_id() != CF.PISTOL:
+		w.wear_new_item(CF.PISTOL)
 	for mk: MobKind in w.mob_kinds:
 		mk.hitbox = Rect2(-20, -50, 40, 50)
 		mk.move_speed = 0
@@ -33,15 +33,6 @@ func _world(rank_value := 1, p_seed := 392) -> RunWorld:
 	w.refresh_player_stats()
 	w.drain_events()
 	return w
-
-
-## Skill.wz/521.img 5211006 with v83's endpoints (30 levels, damage 148 -> 380 %, range 350, no time and no x), linear between.
-func _levels() -> Dictionary:
-	var out := {}
-	for lv in range(1, 31):
-		out[str(lv)] = {"hs": "h%d" % lv, "mpCon": 20 + lv / 3, "range": 350,
-			"damage": float(roundi(lerpf(148.0, 380.0, float(lv - 1) / 29.0)))}
-	return out
 
 
 ## Damage x100 on the Beacon so rounding cannot hide the mark's ratio in a whole-number hit.
@@ -266,7 +257,7 @@ func test_the_pool_offers_a_new_card_for_the_beacon() -> void:
 # --- real cache: all eight ranks against Skill.wz ----------------------------------------------------------------------
 
 func test_real_cache_all_eight_ranks_map_to_the_skill_wz_levels() -> void:
-	if not require_cache():
+	if not require_cache_img("Skill.wz/521.img"):
 		return
 	var lib := AssetLibrary.new()
 	var img := lib.img("Skill.wz/521.img")
