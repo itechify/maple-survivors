@@ -95,7 +95,7 @@ func test_an_unplayable_night_lord_has_no_row_and_the_page_keeps_the_original_pi
 	var creation := _job_page(_flow(), "NlShipped01")
 	assert_eq(creation.job_ids, _tree().playable_jobs())
 	assert_eq(creation.job_pitch, CREATE.JOB_ROW_SIZE.y + 2.0, "eight rows keep the 21 px pitch")
-	assert_true(_row(creation, 522).position.y + creation.job_pitch - 2.0 <= CREATE.JOB_LIST_BOTTOM)
+	assert_true(_row(creation, 512).position.y + creation.job_pitch - 2.0 <= CREATE.JOB_LIST_BOTTOM)
 	assert_true(_row(creation, 412) == null, "no Night Lord row while it is unplayable")
 	creation.select_job(412)
 	assert_eq(creation.job_id, 212, "an unlisted job changes nothing")
