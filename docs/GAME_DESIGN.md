@@ -687,7 +687,7 @@ no observation. Camper policies park only on their own first map; later maps use
 records change with this map progression. The regression smoke belongs to #249; #248 only checks seed 1 Henesys
 for the new record fields and uses diagnostic flow evidence, without tuning.
 
-Sleepywood's first map is Dark Cave (105050400, Dungeon), in tier 2.
+Sleepywood's first map is Dark Cave (105050400, Dungeon); Sleepywood is the fifth region of the progression.
 Its first-pass data targets an arriving Lv35–43 second-job character and is frozen before the report-only smoke;
 the 30–40% clear / Lv60–69 targets are deferred to #77. Canonical mob HP, defence, EXP, levels and elements remain
 unchanged in the cache. Stage EXP is 1x; no new per-mob stat multipliers are applied. Tauromacis and Taurospear use
@@ -898,24 +898,16 @@ Save & quit, character select and Continue keep the set; a Perion death changes 
 (`*_progression_01_new_character`, `05_after_henesys`, `08_after_ellinia`, `14_all_cleared`, ...). Playtests
 `--stage=ellinia` and `--stage=perion` (seed 2026, x8, `--vsync=off`) both end `missing: []`: Ellinia dies at 9:47 on map 2
 (Lv21, Prime Minister fought on map 1), Perion at 7:21 on map 2 (Lv22, King Clang's shell form fought on map 1);
-`evidence/t455_playtest_ellinia/`, `evidence/t455_playtest_perion/`. One observation for the owner: map select's "Lv lo-hi" reads Ellinia 1-55, and Perion and Kerning City both 2-32;
-I did not check these ranges against the stages' pools, so they may be right or a #451 detail worth a look.
+`evidence/t455_playtest_ellinia/`, `evidence/t455_playtest_perion/`. Map select's "Lv lo-hi" (Ellinia 1-55, Perion and Kerning City 2-32) follows the pools: Ellinia's 55 is the
+ordinary Lv55 mob 5300100 of map 3's own life list (checked in the #482 review).
 
-**Test suites and the web gate.** `cargo test` (70 passed) and `node --test web/dev/test/*.test.mjs` (62 passed) are green. The
-full GDScript suite (`TEST_TIMEOUT_S=7200`, shared cache, 3,680 tests, 329 files, 2,521 s) ended **2 failed, 0 skipped**:
-`test_shop_windows::test_the_hub_stands_the_four_scroll_npcs_on_the_floor` (`hub.missing_paths()` holds
-`Sound.wz/Mob.img/9999999/Attack1`) and `test_ui_windows::test_high_tier_window_plays_one_cached_cue_per_open_including_boss_rewards`
-(a UI audio lookup count). Both pass alone (`scripts/test.sh shop_windows ui_windows`: 40/40) and fail together with the files
-that run before them (`run_scene free_market boss_hit shop_windows ui_windows`: 2 failed of 109), **and the same two fail on the
-branch before this ticket** (0f84227d, the #452 merge), so they are order-dependent pollution of the shared missing-asset
-record by a test that looks up a synthetic mob's attack sound, not something A6 changed (A6 touches no sim, UI or test). They need
-an owner decision or a small test fix (clear or isolate the record in the polluting test); not fixed here. The web gate is **not
-complete**: the Web export templates were installed (`scripts/godot_templates.sh install-web`) and `scripts/export.sh --web`
-exported the Godot web build (48 MB, no WZ data), but it stops at the wasm importer because the `wasm32-unknown-unknown` Rust target and
-`wasm-bindgen-cli` are not installed here ("Install the wasm target: rustup target add wasm32-unknown-unknown"); I did not install
-them. `scripts/check_web_artifact.sh` on that partial folder reports only the six files the unfinished steps write
-(`wzimport.js`, `wzimport_bg.wasm`, `GODOT_LICENSES.txt`, `WZIMPORT_LICENSES.txt`, `THIRD_PARTY_NOTICES.md`, `ARIMO_OFL.txt`
-among them) and no WZ-shaped file. Serving it and starting Henesys needs the importer's wasm, so it was not done; CI runs the full export.
+**Test suites and the web gate.** `cargo test` (70) and the web tests (62) pass. The full GDScript suite (`TEST_TIMEOUT_S=7200`,
+3,680 tests) had 2 order-dependent failures (`test_shop_windows`, `test_ui_windows`), also present before this ticket: #452's
+King Clang sound test left a deliberate `Sound.wz/Mob.img/9999999/Attack1` gap in the shared Sfx missing list. Fixed here (the
+test drops it after asserting); `scripts/test.sh run_scene shop_windows ui_windows` then passes 91/91. Web gate: with the
+wasm target and `wasm-bindgen-cli` 0.2.105 installed and `cargo fetch --locked` run, `scripts/export.sh --web` completes and
+`check_web_artifact.sh` passes (27 files, no WZ data or cache-shaped files). Serving the page and starting Henesys through the
+browser import was not done.
 
 ### Unique bosses smoke (#452, A3, 2026-10-30)
 
