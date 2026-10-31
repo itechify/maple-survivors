@@ -1500,6 +1500,36 @@ func test_boss_attack_sound_is_silent_only_when_the_mobs_entry_lacks_that_sound(
 	sfx_lib.missing = sfx_lib.missing.slice(0, before)
 
 
+## #466: v83 spells Peach Monkey's (6130207) attack sound node `Arrack1`, so an ordinary mob's attack start through
+## `_on_mob_attack` is silent and reports nothing missing; the same event under a mob whose whole entry is absent from the
+## cache (an import gap) still shows up in `missing`.
+func test_ordinary_mob_attack_sound_is_silent_only_when_the_mobs_entry_lacks_that_sound() -> void:
+	if not require_cache():
+		return
+	if lib.find("Sound.wz/Mob.img/6130207") == null or lib.find("Sound.wz/Mob.img/6130207/Arrack1") == null:
+		skip("Peach Monkey sounds not imported (run scripts/import.sh with the current manifest)")
+		return
+	assert_true(lib.find("Sound.wz/Mob.img/6130207/Attack1") == null, "v83 spells Peach Monkey's attack sound Arrack1")
+	scene = _make("perion", 1, {})
+	assert_eq(scene.error, "", "scene started")
+	var sfx := scene._sfx_service()
+	if sfx == null:
+		skip("no Sfx autoload")
+		return
+	var sfx_lib := sfx._lib()
+	var start := {"type": "mob_attack", "phase": "start", "time": 0.0, "impact_time": 1.0, "pos": Vector2.ZERO,
+		"facing": 1, "sound": "Sound.wz/Mob.img/6130207/Attack1"}
+	var before := sfx_lib.missing.size()
+	scene.handle_events([start])
+	assert_eq(sfx_lib.missing.size(), before, "Peach Monkey's attack start records nothing missing: %s" % [sfx_lib.missing])
+	var gap := start.duplicate()
+	gap.sound = "Sound.wz/Mob.img/9999998/Attack1" # not 9999999: the library caches the King Clang test's miss
+	scene.handle_events([gap])
+	assert_eq(sfx_lib.missing.size(), before + 1, "an absent Mob.img entry still reports its sound missing")
+	# The Sfx library is shared by later tests: drop the deliberate gap so their "nothing missing" checks stay true.
+	sfx_lib.missing = sfx_lib.missing.slice(0, before)
+
+
 ## Spec #449 C2 (#464): a boss's skill or hit sound that its own Mob.img entry lacks is silent too (King Clang has Skill1
 ## but no Attack1; Chief Gray has Attack1 but no Skill1), and a sound it has is played.
 func test_a_mob_sound_its_entry_lacks_is_silent_and_reports_nothing_missing() -> void:
