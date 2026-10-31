@@ -566,3 +566,9 @@ _Avoid_: backlash, self-damage (the data block is named `self_damage`)
 
 **Status bonus** — A rarity or Mastery effect granting an ordered, rank-resolved status to one skill, independently of
 its numeric modifiers and native on-hit status. Repeating the grant adds diminishing chance points (M22, #402).
+
+**Safe zone** — A placed ground box in which every hit the character takes is negated for the box's short life (M18, spec #425).
+It is a place, not a stat buff: the hit does nothing at all (no damage, no hit window, no knock-back), monsters keep attacking, and
+statuses their skills apply are not hits. Cast by the `safe_zone` rule, fixed where it was cast, one per skill; Smokescreen is its
+first user. `SafeZone`, events `safe_zone_started` / `safe_zone_ended` / `hit_negated`.
+_Avoid_: shield, barrier, invulnerability buff
