@@ -7,7 +7,8 @@ extends RefCounted
 ## (4121004) uses it today and Shadower's copy (4221004) is a data copy; there is no skill ID in this file.
 ##
 ## This script holds only the pure arithmetic (pulse times, how many pulses a lifetime holds, the target limit) and the
-## data-file check. SkillRunner owns the zones (`_queue_area`, `_step_areas`) and resolves each strike through its ordinary
+## data-file check; SkillRunner's zone stepping asks it for both (`strike_count` once per cast, `strike_time` for each due
+## strike), so the cadence has this one implementation. SkillRunner owns the zones (`_queue_area`, `_step_areas`) and resolves each strike through its ordinary
 ## instant-hit path (RunWorld.hit_mob: defence, crit, element, on-hit statuses, the first-hit meter receipt, kills and loot).
 ## It draws no random numbers of its own.
 

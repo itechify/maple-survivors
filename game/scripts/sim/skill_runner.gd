@@ -1006,8 +1006,9 @@ func _queue_area(world: RunWorld, key: String, st: Dictionary) -> void:
 ## art path when the data names one; Ninja Ambush has none: its cast effect plays once and each strike brings its own art).
 func _queue_strike_zone(world: RunWorld, st: Dictionary, ground: Dictionary, duration: float) -> void:
 	var cadence := GroundStrike.spec(ground)
-	_areas.append({"st": cast_snapshot(st), "anchor": world.player.pos, "age": 0.0, "strike": true,
-		"next": float(cadence.first_delay), "interval": float(cadence.interval), "duration": duration})
+	_areas.append({"st": cast_snapshot(st), "anchor": world.player.pos, "age": 0.0, "strike": true, "done": 0,
+		"first_delay": float(cadence.first_delay), "interval": float(cadence.interval),
+		"strikes": GroundStrike.strike_count(float(cadence.first_delay), float(cadence.interval), duration)})
 	world.emit("skill_ground", {"skill": String(st.skill), "pos": world.player.pos, "box": st.box,
 		"effect": String(ground.get("tile", "")), "duration": duration})
 
@@ -1018,13 +1019,14 @@ func _queue_strike_zone(world: RunWorld, st: Dictionary, ground: Dictionary, dur
 func _step_strike_zone(world: RunWorld, a: Dictionary) -> bool:
 	var st: Dictionary = a.st
 	var hv := world.visual_index(String(st.hit))
-	while float(a.age) + GroundStrike.EPS >= float(a.next) and float(a.next) <= float(a.duration) + GroundStrike.EPS:
+	while int(a.done) < int(a.strikes) and float(a.age) + GroundStrike.EPS \
+			>= GroundStrike.strike_time(float(a.first_delay), float(a.interval), int(a.done)):
 		var anchor: Vector2 = a.anchor
 		var limit := GroundStrike.target_limit(st)
 		var targets := world.skill_rect_targets(blast_rect(st, anchor), anchor, limit)
 		_resolve_instant_targets(world, st, targets, limit, int(st.attack_count), hv)
-		a.next = float(a.next) + float(a.interval)
-	return float(a.next) > float(a.duration) + GroundStrike.EPS
+		a.done = int(a.done) + 1
+	return int(a.done) >= int(a.strikes)
 
 
 func _step_areas(dt: float, world: RunWorld) -> void:

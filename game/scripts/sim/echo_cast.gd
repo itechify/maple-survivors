@@ -2,6 +2,8 @@ class_name EchoCast
 extends RefCounted
 ## Echo summon (M11, docs/GAME_DESIGN.md 7.91): repeats a star cast from every living clone (a `PlayerSummons` summon whose
 ## definition carries `summon.echo`) a short delay later at a percent of its damage. Owned by SkillRunner as `echoes`.
+## Scope (a documented limit, GAME_DESIGN 7.94.3): only a `kind: "projectile"` skill on the `nearest` cast rule echoes, because
+## SkillRunner._resolve_nearest is the one place that records shots; `errors()` makes an `echo` flag anywhere else a load error.
 ## Entries are plain dictionaries holding a detached cast snapshot and a logical target identity, like BurstCast's.
 var _entries: Array[Dictionary] = []
 
@@ -9,14 +11,7 @@ var _entries: Array[Dictionary] = []
 func clear_pending() -> void:
 	_entries.clear()
 
-## Whether this skill still has echoes scheduled.
-func has_skill(key: String) -> bool:
-	for entry in _entries:
-		if String(entry.key) == key:
-			return true
-	return false
-
-## Number of echoes scheduled and not yet thrown.
+## Number of echoes scheduled and not yet thrown (a test hook).
 func pending_count() -> int:
 	return _entries.size()
 
@@ -110,3 +105,22 @@ func _throw(world: RunWorld, entry: Dictionary) -> void:
 		flight["range"] = limit
 	world.runner.fire_shot(world, String(entry.key), flight, body, target, hand)
 	world.emit("echo_cast", {"skill": String(entry.key), "clone": c, "pos": hand, "facing": int(side)})
+
+
+## Load errors of the `echo` flags of a skills file (`{"skills": {key: definition}}`): a skill that echoes must be a
+## `projectile` on the `nearest` cast rule with a class of `attack` or `skill`; anywhere else the flag would be ignored silently.
+static func errors(skills_file: Dictionary) -> PackedStringArray:
+	var out := PackedStringArray()
+	var skills: Variant = skills_file.get("skills")
+	if not skills is Dictionary:
+		return out
+	for key: Variant in skills:
+		var definition: Variant = skills[key]
+		if not definition is Dictionary or not definition.has("echo"):
+			continue
+		var cast: Variant = definition.get("cast", {})
+		if String(definition.get("kind", "")) != "projectile" or not cast is Dictionary or String(cast.get("rule", "")) != "nearest":
+			out.append("skill '%s': echo only works on a projectile skill with cast.rule \"nearest\"" % key)
+		if not definition.echo is Dictionary or not String(definition.echo.get("class", "")) in ["attack", "skill"]:
+			out.append("skill '%s': echo.class must be \"attack\" or \"skill\"" % key)
+	return out

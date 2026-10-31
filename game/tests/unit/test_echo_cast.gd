@@ -368,3 +368,22 @@ func test_twin_worlds_reproduce_the_same_events_and_hp() -> void:
 		digests.append(_digest(w))
 	assert_eq(digests[0], digests[1])
 	assert_true(String(digests[0]).contains("echo_cast"))
+
+
+# --- the data check (review S3: the seam's scope is a load error, not a silent no-op) ---------------------------------
+
+func test_the_echo_flag_is_a_load_error_outside_a_nearest_projectile_skill() -> void:
+	var ok := {"skills": {"star": {"kind": "projectile", "cast": {"rule": "nearest"}, "echo": {"class": "skill"}},
+		"plain": {"kind": "instant", "cast": {"rule": "box"}}}}
+	assert_true(EchoCast.errors(ok).is_empty())
+	for bad: Dictionary in [{"kind": "instant", "cast": {"rule": "nearest"}, "echo": {"class": "attack"}},
+			{"kind": "projectile", "cast": {"rule": "burst"}, "echo": {"class": "attack"}},
+			{"kind": "projectile", "cast": {"rule": "nearest"}, "echo": {"class": "other"}},
+			{"kind": "projectile", "cast": {"rule": "nearest"}, "echo": true}]:
+		assert_false(EchoCast.errors({"skills": {"x": bad}}).is_empty(), str(bad))
+
+
+func test_the_shipped_skills_have_no_echo_error() -> void:
+	var errors := PackedStringArray()
+	DataRepo.load_all(DataRepo.DATA_ROOT, errors)
+	assert_true(errors.is_empty(), str(errors))
