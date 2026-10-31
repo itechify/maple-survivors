@@ -6,15 +6,18 @@ extends RefCounted
 ## flies at `follow_speed` to `hover` px above it and, within the attack box's half-width, starts its attack animation.
 ## At `attackAfter` it strikes up to `mobCount` plus `count` monsters in the box (feet-relative, as PlayerSummons.strike),
 ## then plays `die` and frees its slot. With no monster in reach it waits by the caster; the level `time` is the wait
-## limit, after which PlayerSummons expires it with no hit (no refund).
+## limit, after which PlayerSummons expires it with no hit (no refund). A bird that has locked a monster is past waiting:
+## `holds_expiry` keeps it alive until its dive lands or the monster is gone.
 ##
 ## PlayerSummons keeps the lifecycle (spawn, spacing, recast replaces, expiry and `die`, map transfer) and calls
 ## `spawn_slot` and `step_slot`. Nothing here names a job, a skill or an id. Pure sim: no RNG beyond the damage rolls.
 
 const SEEK := 0
 const STRIKE := 1
+const SPENT := 2
 
 ## tier C: the ally hunts the monster it first chose until that one is gone, then picks again.
+## tier C: the level `time` ends only a bird without a locked target; a bird chasing or diving runs on to its strike.
 ## tier C: an ordinal past the number of monsters in reach takes the farthest one in reach (a bird is never idle for it).
 var ordinal := PackedInt32Array()
 var phase := PackedByteArray()
@@ -36,6 +39,11 @@ func spawn_slot(_summons: PlayerSummons, i: int, nth: int, _world: RunWorld, _d:
 	target_id[i] = 0
 
 
+## Whether the level `time` running out must not end ally i yet: it has locked a monster or is diving.
+func holds_expiry(i: int) -> bool:
+	return phase[i] == STRIKE or (phase[i] == SEEK and target[i] >= 0)
+
+
 ## One tick of one kamikaze: hunt, wind up, strike once.
 func step_slot(s: PlayerSummons, i: int, dt: float, world: RunWorld) -> void:
 	var d := s.definitions[i]
@@ -50,6 +58,7 @@ func step_slot(s: PlayerSummons, i: int, dt: float, world: RunWorld) -> void:
 		if s.impact[i] <= 1e-6:
 			s.impact[i] = -1.0
 			s.strike(i, world)
+			phase[i] = SPENT
 			s.left[i] = 0.0 # single use: PlayerSummons plays `die` and frees the slot
 		return
 	if not away and target[i] < 0:
@@ -113,7 +122,7 @@ func _pick(s: PlayerSummons, i: int, world: RunWorld) -> void:
 	if s.action[i] == "summoned" and s.age[i] < float(s.definitions[i].durations.summoned):
 		return # still being called in
 	var r := float(s.definitions[i].info.get("range", {}).get("r", 0.0))
-	var origin := world.player.pos
+	var origin := world.cast_origin() # where the cast was admitted from (SkillRunner.has_target)
 	var n := world.mob_grid.query_rect(Rect2(origin - Vector2(r, r), Vector2(r, r) * 2.0).grow(world.body_pad), _buf)
 	var found: Array[int] = []
 	for k in n:

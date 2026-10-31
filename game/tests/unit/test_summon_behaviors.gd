@@ -184,6 +184,22 @@ func test_the_turret_never_follows_or_teleports_however_far_the_owner_walks() ->
 	assert_eq(s.living_count(), 1)
 	assert_ne(s.action[0], "move", "it never plays a move node")
 
+func test_a_turret_called_by_an_airborne_caster_is_planted_on_the_floor_below() -> void:
+	var w := _octopus()
+	var ground := w.player.pos.y
+	w.player.pos.y -= 120.0 # a cast while jumping: the caster is allowed to cast in the air
+	w.runner.step(DT, w)
+	_run(w, 14)
+	var s := w.runner.summons
+	assert_eq(s.living_count(), 1)
+	assert_near(s.y[0], ground, 0.01, "planted on the floor under the caster, not hanging at the jump height")
+	var c := SummonTurret.centre(s, 0)
+	assert_near(c.y, ground + SP.y, 0.01, "so its circle is where a grounded call would put it")
+	var m := _mob(w, s.x[0] - 200.0)
+	w.player.pos.y = ground
+	_run(w, 240)
+	assert_true(_hp_lost(w, m), "a ground monster inside the radius is hit")
+
 func test_the_circle_edge_is_inclusive_of_r_minus_one_and_excludes_r_plus_one() -> void:
 	for case: Array in [[RADIUS - 1.0, true], [RADIUS + 1.0, false]]:
 		var w := _octopus()
@@ -591,6 +607,44 @@ func test_the_unspent_bird_waits_by_the_caster_and_expires_with_no_hit() -> void
 	assert_eq(s.active[0], 0)
 	assert_eq(_hits(w).size(), 0, "expired unspent: no hit and no refund")
 	assert_false(_hp_lost(w, far))
+
+func test_a_bird_that_has_locked_a_target_outlives_the_wait_limit_and_strikes() -> void:
+	var w := _gaviota(1.0)
+	w.runner.step(DT, w)
+	_run(w, 50) # 0.83 s of the 1 s wait with nothing in reach
+	var m := _mob(w, 200.0 + 380.0) # about 1.3 s of flight at 300 px/s: the level time ends mid-flight
+	_run(w, 5)
+	assert_eq(_bird_target(w, 0), m)
+	w.drain_events()
+	_run(w, 200)
+	assert_true(_hp_lost(w, m), "the dive lands although the level time ran out on the way")
+	assert_eq(_hits(w).size(), 1)
+	_run(w, 40)
+	assert_eq(w.runner.summons.living_count(), 0)
+	assert_eq(w.runner.summons.active[0], 0, "and the spent bird still frees its slot")
+
+func test_the_wait_limit_still_ends_a_bird_whose_target_died() -> void:
+	var w := _gaviota(2.0)
+	w.runner.step(DT, w)
+	var m := _mob(w, 200.0 + 380.0)
+	_run(w, 20)
+	assert_eq(_bird_target(w, 0), m)
+	w.swarm.despawn(m)
+	_run(w, 200)
+	assert_eq(w.runner.summons.living_count(), 0, "nothing left to hunt: the level time ends it")
+	assert_eq(_hits(w).size(), 0)
+
+func test_a_monster_reachable_from_the_cast_origin_is_in_the_birds_reach() -> void:
+	var w := _gaviota()
+	w.runner.step(DT, w) # admission measures from the cast origin (body height), so the bird must too
+	var cast := w.cast_origin()
+	var m := _mob(w, cast.x + 380.0)
+	w.swarm.y[m] -= (w.mob_center(m).y - cast.y) + sqrt(399.0 * 399.0 - 380.0 * 380.0)
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+	assert_near(w.mob_center(m).distance_to(cast), 399.0, 1.0)
+	assert_true(w.mob_center(m).distance_to(w.player.pos) > 400.0, "measured from the feet it would be out")
+	_run(w, 20)
+	assert_eq(_bird_target(w, 0), m)
 
 func test_a_monster_that_comes_into_reach_later_is_hunted() -> void:
 	var w := _gaviota()

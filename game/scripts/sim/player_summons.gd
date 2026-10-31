@@ -18,7 +18,8 @@ var offsets := PackedFloat32Array()
 var support := SupportSummons.new()
 ## The `summon.behavior` entry points (spec #384 M9, docs/GAME_DESIGN.md 7.121): a definition without the key is the trailing
 ## ally below. Each behaviour object owns what its allies do each tick (`spawn_slot`, `step_slot`); this seam owns the
-## lifecycle (spawn, expiry, replace, clear). A new behaviour adds a field here and one line in `_behavior`.
+## lifecycle (spawn, expiry, replace, clear). A new behaviour adds a field here and one line in `_behavior`,
+## and implements `spawn_slot`, `step_slot` and `holds_expiry`.
 var turret := SummonTurret.new()
 var kamikaze := SummonKamikaze.new()
 var _buf := PackedInt32Array()
@@ -118,14 +119,14 @@ func step(dt: float, world: RunWorld) -> void:
 		var d := definitions[i]
 		age[i] += dt
 		left[i] -= dt
-		if left[i] <= 0.0:
+		var behavior: Variant = _behavior(d)
+		if left[i] <= 0.0 and not (behavior != null and behavior.holds_expiry(i)):
 			if action[i] != "die":
 				_set_action(i, "die")
 				impact[i] = -1.0
 			if age[i] >= float(d.durations.die):
 				active[i] = 0
 			continue
-		var behavior: Variant = _behavior(d)
 		if behavior != null:
 			behavior.step_slot(self, i, dt, world)
 			continue

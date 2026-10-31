@@ -54,10 +54,19 @@ func clear() -> void:
 	active.fill(0)
 
 
-## Called once for each ally of a fresh cast: resolves the ball's art path into `d` (shared by the whole group).
-func spawn_slot(_summons: PlayerSummons, _i: int, _ordinal: int, world: RunWorld, d: Dictionary) -> void:
+## Called once for each ally of a fresh cast: resolves the ball's art path into `d` (shared by the whole group) and plants
+## the turret on the floor under its own x (a cast made in the air does not leave it hanging).
+func spawn_slot(summons: PlayerSummons, i: int, _ordinal: int, world: RunWorld, d: Dictionary) -> void:
 	if not d.has("ball_visual"):
 		d["ball_visual"] = world.visual_index("%s/%s/info/ball" % [d.path, d.attack])
+	var floor_index := world.fhm.find_below(summons.x[i], summons.y[i])
+	if floor_index >= 0:
+		summons.y[i] = world.fhm.y_at(floor_index, summons.x[i]) # tier C: a planted object rests on the ground under the caster
+
+
+## A turret has no dive to finish: the level `time` always ends it.
+func holds_expiry(_i: int) -> bool:
+	return false
 
 
 ## One tick of one turret: finish the summon-in, count down to the launch, and start the next attack when a target is
