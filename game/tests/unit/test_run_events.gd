@@ -12,13 +12,14 @@ const RV := preload("res://tests/fixtures/revive_fixtures.gd")
 const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
 const SF := preload("res://tests/fixtures/shade_fixtures.gd")
 const CorsairFixtures := preload("res://tests/fixtures/corsair_fixtures.gd")
+const SZ := preload("res://tests/fixtures/safe_zone_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id", "hp", "pushed", "absorbed", "mount"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
-const STRING_FIELDS := ["element", "reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message", "art"]
+const STRING_FIELDS := ["element", "reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message", "art", "source"]
 
 
 
@@ -465,6 +466,18 @@ func test_every_event_matches_the_schema() -> void:
 	for event: Dictionary in hawk.drain_events():
 		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
+		if type in ["safe_zone_started", "safe_zone_ended", "hit_negated"]:
+			# Spec #425 M18: a synthetic cloud is cast by the runner, negates a hit, then expires and is replaced.
+			var cloud := SZ.world(429)
+			SZ.crowd(cloud)
+			for tick in 3:
+				cloud.step(DT, MoveInput.new())
+			cloud.take_hit(100.0, false, "", cloud.player.pos, {"accuracy": 100000.0, "source_kind": "touch"})
+			cloud.safe_zones.place(cloud, SZ.KEY, cloud.loadout.stats(SZ.KEY), cloud.cast_origin())
+			for tick in 400:
+				cloud.step(DT, MoveInput.new())
+			for event: Dictionary in cloud.drain_events():
+				_check(event, seen)
 		if type == "meso_picked":
 			var data := RF.quiet_data()
 			data.jobs_survivor.jobs["212"]["meter"] = {"id": "meso_charge", "max": 10,
