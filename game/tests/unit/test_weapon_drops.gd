@@ -506,6 +506,10 @@ func test_the_magician_drop_pools_are_unchanged_by_the_warrior_data() -> void:
 				assert_false(id in warrior, "%d for job %d" % [id, job])
 
 
+## Tier C (#474): from this band minimum on, v83 has no Magician top or bottom, only overalls (robes).
+const LATE_BAND_MIN := 35
+
+
 func test_the_212_magician_finds_wands_staves_and_every_armour_slot_in_both_shipped_bands() -> void:
 	if not require_cache():
 		return
@@ -524,5 +528,9 @@ func test_the_212_magician_finds_wands_staves_and_every_armour_slot_in_both_ship
 				families[WeaponInfo.family(id)] = true
 		assert_eq(families.keys(), ["wand", "staff"] if families.keys()[0] == "wand" else ["staff", "wand"],
 			"tier %d: wands and staves" % (tier + 1))
-		for slot in ["hat", "top", "overall", "bottom", "shoes", "gloves", "weapon"]:
+		var wanted := ["hat", "top", "overall", "bottom", "shoes", "gloves", "weapon"]
+		if int(band[0]) >= LATE_BAND_MIN: # a body is an overall or a top with a bottom, as test_late_equipment_bands
+			wanted = ["hat", "shoes", "gloves", "weapon"]
+			assert_true(slots.has("overall") or (slots.has("top") and slots.has("bottom")), "tier %d: a Magician body drop" % (tier + 1))
+		for slot in wanted:
 			assert_true(slots.has(slot), "tier %d: a Magician %s drop" % [tier + 1, slot])

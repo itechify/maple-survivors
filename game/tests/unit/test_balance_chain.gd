@@ -314,8 +314,9 @@ func test_character_cli_accepts_new_and_legacy_stage_keys_with_map_records() -> 
 
 
 func test_chain_cli_rejects_incompatible_or_invalid_options() -> void:
-	var size: int = DataRepo.load_all().stages.progression.size()
-	for args: Array in [["--chain=0"], ["--chain=no"], ["--chain=%d" % (size + 1)], ["--chain=2", "--stage=sleepywood"],
+	var progression: Array = DataRepo.load_all().stages.progression
+	var size: int = progression.size()
+	for args: Array in [["--chain=0"], ["--chain=no"], ["--chain=%d" % (size + 1)], ["--chain=2", "--stage=%s" % progression[-1]],
 			["--chain=%d" % size, "--stage=ellinia"], ["--chain=2", "--character=anything.json"],
 			["--chain=2", "--policy=camper_henesys_top"], ["--chain=2", "--retries=-1"], ["--chain=2", "--retries=x"],
 			["--retries=1"], ["--tier=2"], ["--tier=2", "--chain=2"]]:

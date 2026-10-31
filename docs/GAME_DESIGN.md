@@ -642,6 +642,7 @@ older records below, in the smoke and in the job-loop tickets mean the first fou
 | `perion` | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) | Mano / Stumpy / Iron Hook |
 | `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
+| `ludibrium` (step 6, #463) | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) | Rombot / Alishar / Timer |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
 "Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
@@ -853,6 +854,30 @@ No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening mu
 Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
+
+### Ludibrium (C1) regression smoke and diagnostic round (#463, 2026-10-30)
+
+Spec #447 branch with the Ludibrium region (step 6), private cache, F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no
+held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with `fp_arch_mage.json`:
+**every batch matches #455's table above to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0;
+Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 /
+466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one clear
+and deaths at 23.8 / 767.0), no crashes and no world warnings. Ludibrium itself is not in the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=ludibrium --job=112 --character=late_progression.json`, seed 1, god mode (`RunWorld.god`) with the
+bot, one lethal diagnostic hit after 30 s of each boss fight (bosses held at 100% / 70% / 45% HP meanwhile so their kits
+show): **CLEARED, 3 bosses, Lv64, 967.4 s, `missing: []`**. Map entries at 0 / 330 / 660 s. Checked by eye: Sky Terrace
+(green toy-block castle, Roloduck and Panda Teddy swarm the floor), Zone 4 (blue toy factory, Robo and Panda Teddy), Zone 1
+(conveyors, Master Robo lines; the arrival portal sits on the left ledge and the bot climbs down); the three boss bars
+(Rombot's borrowed icon, Alishar's, Timer's); Rombot, Alishar (winding up its attack1 at the left edge, Darkness
+darkening the screen) and Timer (the owl; "Timer recovered 5000 HP" from its heal 114) each fought for 30 s. Stun 123
+and Timer's immunities were not seen: under god mode no hit lands on the character, so the status art needs
+the status tickets' own evidence. With the late fixture (Lv100-band gear at Lv1) the draft bosses die almost at once when
+not held: the first draft is a starting point for C13, not a balance claim.
+
+**Alishar's Skill1 sound.** v83 `Sound.wz/Mob.img/9300012` has Attack1, Damage, Die and CharDam1 but no Skill1, so the cast
+of its Darkness reported `Sound.wz/Mob.img/9300012/Skill1` missing. A skill sound v83 does not have is now silent like
+an absent attack sound (`attack_sound_absent_in_v83`, tier A, #463); an absent whole Mob.img entry still reports.
 
 ### Progression QA and merge-readiness smoke (#455, A6, 2026-10-30)
 
@@ -10381,6 +10406,25 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Reflect hit | A `player_hit` of `source_kind` "reflect" (boss, so boss-hit telemetry reports it): no avoid, defense or knockback, no hit window of its own, and no Form or hull absorption (deliberate: it is the character's own damage coming back, not a monster hit). Refused while dead, clearing a map, in god mode, Hidden, inside a hit window or behind a hit guard (the hit still deals 0 to the boss); only a reflect that lands spends the boss's 0.5 s rate slot, so a refused one leaves it free. Second life (hit hooks) applies; it can kill, and death clears the ground hazards as `take_hit`'s does. Only the character's own hits are reflected: the burn and poison ticks already on a boss never are. `boss_reflect` event: `{mob, mob_id, boss_index, magic, damage, amount}` | C |
 | Reflect exclusivity | A reflect never overlaps 140 or 141 on the same boss: a reflect cast while either is up, or a 140/141 cast while a reflect is up, is skipped and spends its interval (the 140/141 half is Cosmic's rule, tier B, #457; extending it to the reflects is ours) | C |
 | Reflect presentation | The boss shows the level's `mob` icon (`status_visuals`) while it lasts and the notice "<boss> is reflecting physical / magic damage!" or "... your attacks!" shows at the cast | C |
+
+### Ludibrium (C1) constants (#463, spec #449; progression step 6)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/ludibrium.json`: `region` Ludibrium, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [35, 45] (#447 table), maps 220011000 / 220030400 / 220030000 (widths 2227 / 3667 / 3667 px, foothold spans of Map.wz), `original_life` of map 1 (Roloduck 22, Panda Teddy 19) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged; Sleepywood has no `post_duration_slope`. No `opening_ramp` (maps nor stage): `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads): Roloduck 3210204 (Lv34) alone at 0:00, plus Panda Teddy 3210203 (Lv36) at the same weight from 2:00; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`, no exclusions: Zone 4 holds Robo 4230111 x28 and Panda Teddy x8, Zone 1 Master Robo 4230112 x29; none is timed, hidden or an event mob | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=6 --stage=ludibrium` (not tuned): `level` 12.15, 12.73, 13.8, 25.22, 39.44, 51.23, 59.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 | C |
+| Bosses | Rombot 4130103 (hp_mult 11.107, dmg_mult 0.977, attack_dmg_mult 1.046), Alishar 9300012 (0.361, 0.458, 0.596), Timer 5220003 (3.967, 1.435, 1.87), each 300 s after its map's entry with `attack1` and `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids`. Alishar's and Timer's attack1 are magic, matched on MAD | C |
+| Boss kits | Alishar: Darkness 121 and the Cronos summons 200 (9300015/6/7) as written; its Seal 120 is skipped for good. Timer: heal 114, buffs 110/112/113, Stun 123, weapon immunity 140, magic immunity 141. Rombot casts nothing | A skills, C support |
+| Fights fought in these maps | Rombot's Hidden Tower (530 px shaft) and Timer's Lost Time maps (1777 px, 11-16 ladders) are climbing shafts, so both bosses fight in the Toy Factory/Sky Terrace; Alishar is the party-quest boss and has no field | C |
+| Conveyors | Zone 1's four conveyor footholds use the existing `force` support (`FootholdMap`, `player_motion.gd`); no movement code changed | A map data |
+| `mobs.json` | names and `exp_item`: Roloduck Toy Duckling 4000109, Panda Teddy Panda Doll 4000108, Robo Cheap Battery 4000111, Master Robo Mechanical Heart 4000112, Rombot Rombot's Memory Card 4000124, Alishar Key of Dimension 4001023, Timer Clock Spring 4000113 (each the mob's first Etc drop in the MonsterBook), the Cronos Timer's Clock Spring; Rombot has no MobGage icon and borrows Zeno's 6220001 with the standard 1/5 tag | A ids/names, C association |
+| Meso ranges | ordinary mobs only: centre interpolated from the Lv35 Curse Eye / Jr. Boogie and Lv40 Cold Eye / Zombie Lupin / Lv50 Drake ranges at the mob's level (Roloduck [73, 109], Panda Teddy [82, 124], Robo [110, 164], Master Robo [140, 210]), +-20%; bosses and Cronos use the `balance.mesos` level fallback | C |
+| Flags ignored | none of Ludibrium's field flags are read (`lvLimit` is on the Path of Time maps only, which are not used) | C |
+| Diagnostic gap | The god-mode diagnostic round did **not** observe Timer's Stun 123 and magic immunity 141, nor Alishar's Cronos summons (200): god mode lands no hit on the character, and the bosses were held at fixed HP fractions. Their visuals and effects are unverified in Ludibrium until C14's QA covers them (the mechanics have their own tests, #456-#458) | C |
+| Alternates | map 1 220010300 / 220010000, map 2 220030300 / 220030200, map 3 220040400 / 220050200: not needed, the arena check kept all three first picks | C |
 
 ## 12. Later phases
 

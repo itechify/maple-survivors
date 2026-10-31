@@ -1,0 +1,7 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Ludibrium region (spec #449 C1, ticket #463, progression step 6). maps: Sky Terrace<5> 220011000, Toy Factory <Process 2> Zone 4 220030400 and Zone 1 220030000. mobs: map 1's own roster Roloduck 3210204 and Panda Teddy 3210203, Robo 4230111 and Master Robo 4230112 (the Toy Factory fields' ordinary monsters; Panda Teddy is also Zone 4's), the three bosses Rombot 4130103, Alishar 9300012 and Timer 5220003, and Alishar's MobSkill 200 summons Cronos 9300015, Platoon Cronos 9300016 and Master Cronos 9300017. items: the Etc drops their mobs.json entries use as the EXP pickup (Panda Doll, Toy Duckling, Cheap Battery, Mechanical Heart, Clock Spring, Rombot's Memory Card, Key of Dimension). No Mob skill-effect art beyond the mobs' own imgs is imported.",
+	"maps": [220011000, 220030400, 220030000],
+	"mobs": [3210204, 3210203, 4230111, 4230112, 4130103, 9300012, 5220003, 9300015, 9300016, 9300017],
+	"items": [4000108, 4000109, 4000111, 4000112, 4000113, 4000124, 4001023]
+}
