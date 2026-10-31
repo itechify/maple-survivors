@@ -854,6 +854,69 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+### Progression QA and merge-readiness smoke (#455, A6, 2026-10-30)
+
+Spec #447 branch with A1-A5 and B1-B5 merged, shared read-only cache `MapleSurvivors-spec447c`, F/P (212), training
+seeds 1/2/2026, `JOBS=2`, `ISOLATE=t455`; no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood
+bot with the starter wand and with `fp_arch_mage.json`, and `--chain=5 --retries=1` (bot). **33 records plus the chain's six
+rounds: no crashes, world warnings, missing assets or TIMEOUTs; every batch exited 0.** Raw records and logs:
+`_scratch/balance455/` (not committed). The smoke, playtests and full suite ran on 0f84227d (the #452 merge); the
+`progression` scenario was run again on the merge of spec/447 at 916ae923 (#461, #462) and passed. Previous smoke: the F/P column of the Bowmaster QA table (B13 #345, 2026-10-29)
+for Henesys, Kerning and Sleepywood, and #452's table above for Ellinia and Perion. Clears/3 and death (D) seconds:
+
+| Stage / policy | Clears | Death seconds (now) | Previous | First boss reached | Deaths by map 1/2/3 |
+|---|---|---|---|---|---|
+| henesys / bot | 0/3 | 417.3 / 644.1 / 646.7 | 305.0-651.7 | 3/3 (Mano 5.4-11.6 s) | 0 / 1 / 2 |
+| henesys / random | 0/3 | 428.6 / 489.3 / 668.0 | 308.3-309.9 | 3/3 (Mano 5.9-19.0 s) | 0 / 2 / 1 |
+| ellinia / bot | 0/3 | 621.2 / 628.3 / 635.9 | same (#452) | 3/3 | 0 / 0 / 3 |
+| ellinia / random | 0/3 | 302.8 / 305.4 / 623.0 | same (#452) | 3/3 | 2 / 0 / 1 |
+| perion / bot | 0/3 | 308.1 / 421.7 / 651.8 | same (#452) | 3/3 | 1 / 1 / 1 |
+| perion / random | 0/3 | 331.5 / 449.5 / 466.1 | same (#452) | 3/3 | 1 / 2 / 0 |
+| kerning / bot | 0/3 | 311.0 / 386.0 / 535.5 | 307.9-315.0 | 3/3 | 1 / 2 / 0 |
+| kerning / random | 0/3 | 306.5 / 306.5 / 373.2 | 306.0-317.3 | 3/3 | 2 / 1 / 0 |
+| sleepywood / starter | 0/3 | 11.4 / 11.9 / 15.1 | 10.6-12.0 | 0/3 | 3 / 0 / 0 |
+| sleepywood / kit | 1/3 (seed 2: CLEARED 925.2 s) | 23.8 / 767.0 | 23.8-826.2, one clear at 936.2 | 2/3 | 1 / 0 / 1 |
+
+- Ellinia and Perion reproduce #452's records to the second, so A4's level scale and the later merges (#454, #451) left
+  them untouched. Henesys and Kerning City differ from the Oct 29 smoke by later death times (Henesys bot 305.0-651.7
+  became 417.3-646.7; random 308.3-309.9 became 428.6-668.0; Kerning bot's latest death 315.0 became 535.5). Their data
+  is unchanged, so the cause is something merged between the two smokes (the boss kits B1-B5, player statuses #458, poison
+  #459); it was not bisected, and this is not a regression bound being broken (no clear is lost, no run dies earlier).
+- Henesys bot fills the six active slots in 3/3 runs (128.7-219.7 s) and every region's runs reach their first boss, except
+  Sleepywood with the starter wand, which dies at 11-15 s before its first boss exactly as in every earlier smoke (the
+  opening ramp; recorded balance-pass work, not a feature regression: the kit runs reach it 2/3).
+- `--chain=5 --retries=1`: 0/3 chains clear Henesys. Each seed plays Henesys twice (the replay with the loot kept) and
+  both attempts die (death seconds 417.3-692.5, maps 2-3), so no chain reaches Ellinia; the Ellinia-to-Sleepywood steps
+  report zero starts. The chain's bookkeeping (attempt records, `CHAIN` lines, per-step summaries) is what this exercises;
+  how far a geared bot gets needs a character that clears Henesys, which the balance pass owns.
+
+**Flow and visual QA.** `flow_driver.tscn --scenario=progression` passed (about 6 minutes, seed 1, no `ERROR` lines):
+a new character can start only Henesys and a locked Ellinia's Start is refused; a diagnostic invulnerable Henesys clear
+leaves Henesys CLEAR and Ellinia NEW and selected on opening; an Ellinia clear unlocks Perion and not Kerning City;
+Save & quit, character select and Continue keep the set; a Perion death changes nothing; a `HubTestKit` character reads
+"Regions cleared 5/5" with nothing locked. Map select shots (read by eye) are in `evidence/t455_progression/`
+(`*_progression_01_new_character`, `05_after_henesys`, `08_after_ellinia`, `14_all_cleared`, ...). Playtests
+`--stage=ellinia` and `--stage=perion` (seed 2026, x8, `--vsync=off`) both end `missing: []`: Ellinia dies at 9:47 on map 2
+(Lv21, Prime Minister fought on map 1), Perion at 7:21 on map 2 (Lv22, King Clang's shell form fought on map 1);
+`evidence/t455_playtest_ellinia/`, `evidence/t455_playtest_perion/`. One observation for the owner: map select's "Lv lo-hi" reads Ellinia 1-55, and Perion and Kerning City both 2-32;
+I did not check these ranges against the stages' pools, so they may be right or a #451 detail worth a look.
+
+**Test suites and the web gate.** `cargo test` (70 passed) and `node --test web/dev/test/*.test.mjs` (62 passed) are green. The
+full GDScript suite (`TEST_TIMEOUT_S=7200`, shared cache, 3,680 tests, 329 files, 2,521 s) ended **2 failed, 0 skipped**:
+`test_shop_windows::test_the_hub_stands_the_four_scroll_npcs_on_the_floor` (`hub.missing_paths()` holds
+`Sound.wz/Mob.img/9999999/Attack1`) and `test_ui_windows::test_high_tier_window_plays_one_cached_cue_per_open_including_boss_rewards`
+(a UI audio lookup count). Both pass alone (`scripts/test.sh shop_windows ui_windows`: 40/40) and fail together with the files
+that run before them (`run_scene free_market boss_hit shop_windows ui_windows`: 2 failed of 109), **and the same two fail on the
+branch before this ticket** (0f84227d, the #452 merge), so they are order-dependent pollution of the shared missing-asset
+record by a test that looks up a synthetic mob's attack sound, not something A6 changed (A6 touches no sim, UI or test). They need
+an owner decision or a small test fix (clear or isolate the record in the polluting test); not fixed here. The web gate is **not
+complete**: the Web export templates were installed (`scripts/godot_templates.sh install-web`) and `scripts/export.sh --web`
+exported the Godot web build (48 MB, no WZ data), but it stops at the wasm importer because the `wasm32-unknown-unknown` Rust target and
+`wasm-bindgen-cli` are not installed here ("Install the wasm target: rustup target add wasm32-unknown-unknown"); I did not install
+them. `scripts/check_web_artifact.sh` on that partial folder reports only the six files the unfinished steps write
+(`wzimport.js`, `wzimport_bg.wasm`, `GODOT_LICENSES.txt`, `WZIMPORT_LICENSES.txt`, `THIRD_PARTY_NOTICES.md`, `ARIMO_OFL.txt`
+among them) and no WZ-shaped file. Serving it and starting Henesys needs the importer's wasm, so it was not done; CI runs the full export.
+
 ### Unique bosses smoke (#452, A3, 2026-10-30)
 
 Spec #447 branch (A1 and B1 merged), private cache `cache452` (manifest additions of #452), F/P starter wand, training
