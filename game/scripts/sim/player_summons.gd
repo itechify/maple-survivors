@@ -96,7 +96,7 @@ func spawn(world: RunWorld, st: Dictionary) -> void:
 		stats[i] = SkillRunner.cast_snapshot(st)
 		definitions[i] = d
 		action[i] = ""
-		_set_action(i, "summoned")
+		set_action(i, "summoned")
 		wait[i] = float(d.durations.summoned)
 		impact[i] = -1.0
 		if d.has("support_definition"):
@@ -122,7 +122,7 @@ func step(dt: float, world: RunWorld) -> void:
 		var behavior: Variant = _behavior(d)
 		if left[i] <= 0.0 and not (behavior != null and behavior.holds_expiry(i)):
 			if action[i] != "die":
-				_set_action(i, "die")
+				set_action(i, "die")
 				impact[i] = -1.0
 			if age[i] >= float(d.durations.die):
 				active[i] = 0
@@ -137,7 +137,7 @@ func step(dt: float, world: RunWorld) -> void:
 			if impact[i] <= 1e-6:
 				impact[i] = -1.0
 				if not world.is_hidden() and not bool(world.player_state.dead):
-					_hit(i, world)
+					strike(i, world)
 		# Opt-in `settle`: once the attack animation is over a follower leaves its pose and keeps following until the
 		# attack interval ends (the hawk's body frame is empty while its bolt strikes), without choosing a new target.
 		var cooling := wait[i] > 1e-6
@@ -155,7 +155,7 @@ func step(dt: float, world: RunWorld) -> void:
 			pos = pos.move_toward(destination, float(d.follow_speed) * dt)
 		x[i] = pos.x
 		y[i] = pos.y
-		_set_action(i, pulse_anim if pulse_anim != "" else String(d.move) if moved else "stand")
+		set_action(i, pulse_anim if pulse_anim != "" else String(d.move) if moved else "stand")
 		if d.has("support_definition"):
 			continue
 		if world.is_hidden() or bool(world.player_state.dead):
@@ -166,7 +166,7 @@ func step(dt: float, world: RunWorld) -> void:
 		if targets.is_empty():
 			continue
 		facing[i] = 1 if world.mob_center(targets[0]).x > x[i] else -1
-		_set_action(i, String(d.attack))
+		set_action(i, String(d.attack))
 		impact[i] = float(d.info.get("attackAfter", 0.0)) / 1000.0
 		wait[i] = maxf(float(d.attack_interval), maxf(float(d.durations[d.attack]), impact[i]))
 		world.emit("summon_attack", {"skill": stats[i].skill, "slot": i, "pos": pos})
@@ -180,12 +180,15 @@ func _behavior(d: Dictionary) -> Variant:
 			return kamikaze
 	return null
 
-func _set_action(i: int, value: String) -> void:
+## Entry points for the behaviours (SummonTurret, SummonKamikaze): they use the lifecycle and the strike this seam owns.
+## Plays animation node `value` from its first frame unless it is already playing.
+func set_action(i: int, value: String) -> void:
 	if action[i] != value:
 		action[i] = value
 		age[i] = 0.0
 
-func _box(i: int) -> Rect2:
+## The attack node's box of ally i, feet-relative, scaled by the cast's `area`.
+func box(i: int) -> Rect2:
 	var r: Dictionary = definitions[i].info.get("range", {})
 	var lt: Array = r.get("lt", {}).get("$v", [0, 0])
 	var rb: Array = r.get("rb", {}).get("$v", [0, 0])
@@ -195,9 +198,9 @@ func _box(i: int) -> Rect2:
 
 func _targets(i: int, world: RunWorld, both_sides: bool) -> PackedInt32Array:
 	var pos := Vector2(x[i], y[i] + float(definitions[i].hover)) # the box is feet-relative: hover is only flight height.
-	var box := _box(i)
-	var mirrored := Rect2(Vector2(-box.end.x, box.position.y), box.size)
-	var query := box.merge(mirrored) if both_sides else (mirrored if facing[i] > 0 else box)
+	var attack_box := box(i)
+	var mirrored := Rect2(Vector2(-attack_box.end.x, attack_box.position.y), attack_box.size)
+	var query := attack_box.merge(mirrored) if both_sides else (mirrored if facing[i] > 0 else attack_box)
 	query.position += pos
 	var n := world.mob_grid.query_rect(query.grow(world.body_pad), _buf)
 	var matches: Array[int] = []
@@ -226,43 +229,23 @@ func _targets(i: int, world: RunWorld, both_sides: bool) -> PackedInt32Array:
 
 ## The strike's target count before `count` modifiers: the attack node's `info.mobCount`, or, with the opt-in `summon.count_field`,
 ## that field of the cast's mapped level (Bahamut: 3, 6 at level 30).
-func _base_count(i: int, world: RunWorld) -> float:
+func base_count(i: int, world: RunWorld) -> float:
 	var field := String(definitions[i].get("count_field", ""))
 	var fallback := float(definitions[i].info.get("mobCount", 1))
 	return world.book.canonical(String(stats[i].skill), int(stats[i].level), field, fallback) if field != "" else fallback
 
 
-func _hit(i: int, world: RunWorld) -> void:
+## Hits ally i's attack box once, exactly as the trailing ally's strike does.
+func strike(i: int, world: RunWorld) -> void:
 	var st := stats[i]
 	var targets := _targets(i, world, false)
-	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "count", _base_count(i, world))))
-	var strike := String(definitions[i].strike_effect)
+	var count := maxi(1, roundi(world.loadout.skill_stat(st.skill, "count", base_count(i, world))))
+	var strike_art := String(definitions[i].strike_effect)
 	for t in mini(count, targets.size()):
-		if strike != "":
+		if strike_art != "":
 			world.emit("summon_strike", {"skill": st.skill, "slot": i, "mob": targets[t],
-				"pos": world.mob_center(targets[t]), "effect": strike})
+				"pos": world.mob_center(targets[t]), "effect": strike_art})
 		for line in int(st.attack_count):
 			if world.swarm.active[targets[t]] == 0:
 				break
 			world.hit_mob(targets[t], st, world.visual_index(st.hit))
-
-
-## Entry points for the behaviours (SummonTurret, SummonKamikaze): they use the lifecycle and the strike this seam owns.
-## Plays animation node `value` from its first frame unless it is already playing.
-func set_action(i: int, value: String) -> void:
-	_set_action(i, value)
-
-
-## The attack node's box of ally i, feet-relative, scaled by the cast's `area`.
-func box(i: int) -> Rect2:
-	return _box(i)
-
-
-## The strike's target count before `count` modifiers (`info.mobCount`, or the opt-in `count_field`).
-func base_count(i: int, world: RunWorld) -> float:
-	return _base_count(i, world)
-
-
-## Hits ally i's attack box once, exactly as the trailing ally's strike does.
-func strike(i: int, world: RunWorld) -> void:
-	_hit(i, world)

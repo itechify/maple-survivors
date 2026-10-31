@@ -75,7 +75,7 @@ func test_the_mark_is_the_next_status_and_every_table_keeps_its_length_and_earli
 		assert_eq(MobSwarm.STATUS_NAMES[i], earlier[i], "index %d is unchanged" % i)
 	assert_eq(MobSwarm.VULNERABLE[MobSwarm.ICE_WEAK], "i")
 	assert_eq(MobSwarm.VULNERABLE[MobSwarm.FIRE_WEAK], "f")
-	assert_eq(MobSwarm.VULNERABLE[MobSwarm.ALL_WEAK], "*", "the all-element row")
+	assert_false(MobSwarm.VULNERABLE.has(MobSwarm.ALL_WEAK), "the mark runs through _mark_mult, not the vulnerability table")
 
 
 func test_the_mark_applies_expires_with_its_events_and_a_reapplication_refreshes_without_stacking() -> void:

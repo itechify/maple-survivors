@@ -69,9 +69,9 @@ const STATUS_TABLE := [
 	{"name": "fire_weak", "element": "", "vulnerable": "f"},
 	# tier C: burn is fire (Inferno elemAttr f), so F-immune, strong and neutral kinds reject it.
 	{"name": "burn", "element": "F"},
-	# tier C: the Corsair mark (spec #384 C7): "*" = every hit, elemental or not; unlike the other vulnerabilities a boss
-	# accepts it ("marks_bosses"), at the weaker boss multiplier.
-	{"name": "all_weak", "element": "", "vulnerable": "*", "marks_bosses": true},
+	# tier C: the Corsair mark (spec #384 C7): every hit, elemental or not, through `_mark_mult` rather than the VULNERABLE
+	# table; unlike the other vulnerabilities a boss accepts it ("marks_bosses"), at the weaker boss multiplier.
+	{"name": "all_weak", "element": "", "marks_bosses": true},
 ]
 ## tier C: appended after fire_weak (the Ice/Lightning spec took 6 first); the Bowmaster burn-over-time status (B5, #337).
 const BURN := 7

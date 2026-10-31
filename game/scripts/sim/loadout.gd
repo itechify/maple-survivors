@@ -513,7 +513,7 @@ func mark_multipliers(key: String) -> Vector2:
 ## Other skills gain no key, so their stats are unchanged.
 func _add_mark(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> void:
 	var on_hit: Dictionary = d.get("on_hit", {})
-	if String(on_hit.get("status", "")) != "all_weak":
+	if String(on_hit.get("status", "")) != MobSwarm.STATUS_NAMES[MobSwarm.ALL_WEAK]:
 		return
 	var mult := mark_multipliers(key)
 	var base := float(on_hit.duration) if on_hit.has("duration") \

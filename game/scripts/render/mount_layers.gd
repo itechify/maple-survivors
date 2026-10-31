@@ -108,8 +108,6 @@ func layout(rider_navel: Vector2) -> void:
 		return
 	var anchor_canvas: SpriteFrame = frame.front if frame.front != null else frame.rear
 	var anchor := MountArt.Frame.navel(anchor_canvas)
-	if frame.front != null:
-		front_pos = Vector2.ZERO
 	if frame.rear != null:
 		rear_pos = anchor - MountArt.Frame.navel(frame.rear) if frame.front != null else Vector2.ZERO
 	rider_offset = anchor - rider_navel

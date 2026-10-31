@@ -131,9 +131,7 @@ func _pick(s: PlayerSummons, i: int, world: RunWorld) -> void:
 			found.append(m)
 	if found.is_empty():
 		return
-	found.sort_custom(func(a: int, b: int) -> bool:
-		return world.targets_before(a, world.mob_center(a).distance_squared_to(origin),
-			b, world.mob_center(b).distance_squared_to(origin)))
+	world.sort_targets_by_distance(found, origin)
 	var m := found[mini(ordinal[i], found.size() - 1)]
 	target[i] = m
 	target_id[i] = world.swarm.identity[m]

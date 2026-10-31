@@ -52,6 +52,8 @@ func ball_count() -> int:
 ## Drops every ball (map transfer, Hidden, a dead caster).
 func clear() -> void:
 	active.fill(0)
+	for b in ball_stats.size():
+		ball_stats[b] = {} # drop the cast snapshots too
 
 
 ## Called once for each ally of a fresh cast: resolves the ball's art path into `d` (shared by the whole group) and plants
@@ -89,7 +91,7 @@ func step_slot(s: PlayerSummons, i: int, dt: float, world: RunWorld) -> void:
 		s.set_action(i, "stand")
 	if away or s.wait[i] > 1e-6:
 		return
-	if targets_in_circle(s, i, world).is_empty():
+	if not any_target(s, i, world):
 		return
 	s.set_action(i, String(d.attack))
 	s.impact[i] = float(d.info.get("attackAfter", 0.0)) / 1000.0
@@ -131,10 +133,22 @@ static func radius(s: PlayerSummons, i: int) -> float:
 ## Living monsters whose body box touches the circle, nearest centre first (RunWorld.targets_before: bosses, and marked
 ## monsters once the mark lands, ahead of the swarm).
 func targets_in_circle(s: PlayerSummons, i: int, world: RunWorld) -> PackedInt32Array:
+	var matches := _in_circle(s, i, world, false)
+	world.sort_targets_by_distance(matches, centre(s, i))
+	return PackedInt32Array(matches)
+
+
+## Whether any living monster touches the circle: the same test as targets_in_circle, but it stops at the first one and
+## builds no list (a ready turret with nothing in reach checks this every tick).
+func any_target(s: PlayerSummons, i: int, world: RunWorld) -> bool:
+	return not _in_circle(s, i, world, true).is_empty()
+
+
+func _in_circle(s: PlayerSummons, i: int, world: RunWorld, first_only: bool) -> Array[int]:
 	var c := centre(s, i)
 	var r := radius(s, i)
-	var n := world.mob_grid.query_rect(Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0).grow(world.body_pad), _buf)
 	var matches: Array[int] = []
+	var n := world.mob_grid.query_rect(Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0).grow(world.body_pad), _buf)
 	for k in n:
 		var m := _buf[k]
 		if world.swarm.active[m] == 0:
@@ -143,10 +157,9 @@ func targets_in_circle(s: PlayerSummons, i: int, world: RunWorld) -> PackedInt32
 		var near := Vector2(clampf(c.x, body.position.x, body.end.x), clampf(c.y, body.position.y, body.end.y))
 		if near.distance_squared_to(c) <= r * r:
 			matches.append(m)
-	matches.sort_custom(func(a: int, b: int) -> bool:
-		return world.targets_before(a, world.mob_center(a).distance_squared_to(c),
-			b, world.mob_center(b).distance_squared_to(c)))
-	return PackedInt32Array(matches)
+			if first_only:
+				break
+	return matches
 
 
 ## The ball line of the card / Skill window text (SkillText), or "" when the attack node has no range.

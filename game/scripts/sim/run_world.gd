@@ -1422,6 +1422,12 @@ func targets_before(a: int, da: float, b: int, db: float) -> bool:
 	return da < db if da != db else a < b
 
 
+## Sorts monster slots `ids` in place into targets_before order by the distance of their centres from `origin`.
+func sort_targets_by_distance(ids: Array[int], origin: Vector2) -> void:
+	ids.sort_custom(func(a: int, b: int) -> bool:
+		return targets_before(a, mob_center(a).distance_squared_to(origin), b, mob_center(b).distance_squared_to(origin)))
+
+
 ## All live bodies intersecting a canonical feet-relative, left-facing skill box; scheduled bosses first, then nearest
 ## centre, then slot (targets_before).
 ## Minimum edges include touching bodies; maximum edges exclude them, matching SpatialHash.query_rect.
@@ -2048,7 +2054,8 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 				else book.canonical(key, level, String(status.get("duration_field", "time")))
 			var params := {"time": time,
 				"level": level, "skill": key, "x": book.canonical(key, level, "x")}
-			if String(status.get("status", "")) == "all_weak":
+			var is_mark: bool = String(status.get("status", "")) == String(MobSwarm.STATUS_NAMES[MobSwarm.ALL_WEAK])
+			if is_mark:
 				# tier C: the mark's length and multipliers come from the skill's own modifiers (mark_time, mark_power).
 				params["time"] = loadout.mark_time(key, time)
 				var mark := loadout.mark_multipliers(key)
@@ -2058,7 +2065,7 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 				params["element"] = String(hit.element)
 			if status.has("element"):
 				params["element"] = String(status.element)
-			if String(status.get("status", "")) == "all_weak":
+			if is_mark:
 				params["element"] = "" # the mark is elementless: a fire-immune monster still takes it
 			if String(status.get("status", "")) == "burn":
 				# tier C: the pulse was resolved from the cast (Loadout.stats) and travelled with the shot.
