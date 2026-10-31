@@ -643,6 +643,7 @@ older records below, in the smoke and in the job-loop tickets mean the first fou
 | `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
 | `ludibrium` (step 6, #463) | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) | Rombot / Alishar / Timer |
+| `mu_lung` (step 9, #466) | Mu Lung - Snake Area (250010300, 1530 px) | Mu Lung - Wild Bear Area 1 (250010301, 1980 px) | Mu Lung - Peach Farm 3 (250010700, 1980 x 1050 px) | Giant Centipede / Tae Roon / King Sage Cat |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
 "Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
@@ -878,6 +879,27 @@ not held: the first draft is a starting point for C13, not a balance claim.
 **Alishar's Skill1 sound.** v83 `Sound.wz/Mob.img/9300012` has Attack1, Damage, Die and CharDam1 but no Skill1, so the cast
 of its Darkness reported `Sound.wz/Mob.img/9300012/Skill1` missing. A skill sound v83 does not have is now silent like
 an absent attack sound (`attack_sound_absent_in_v83`, tier A, #463); an absent whole Mob.img entry still reports.
+
+### Mu Lung (C4) regression smoke and diagnostic round (#466, 2026-10-30)
+
+Spec #447 branch with the Mu Lung region (step 9), private cache, F/P (212), seeds 1/2/2026, `JOBS=1`, no tuning, no
+held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with `fp_arch_mage.json`:
+**every batch matches #455's table above to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0;
+Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 /
+466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one clear
+and deaths at 23.8 / 767.0 (the other kit seed died at 395.4)), no crashes and no world warnings. Mu Lung itself is not in the
+smoke (calibration is C13).
+
+Diagnostic one-off, `--run=mu_lung --job=112 --character=late_progression.json`, seed 1, god mode (`RunWorld.god`) with the
+bot, one lethal diagnostic hit after 40 / 110 / 70 s of each boss fight (bosses held at 50% HP meanwhile so their kits
+show): **CLEARED, 3 bosses, Lv59, 1121 s, `missing: []`, no world warnings**. Map entries at 0 / 340 / 751 s; bosses
+arrive at 300 / 641 / 1051 s with 38 / 220 / 351 monsters alive (`max_alive` 351). Checked by eye: Snake Area (grey Black
+Porkies, then pink and blue Flower Serpents on the floor and ledges), Wild Bear Area 1 (rows of Grizzlies on all four levels),
+Peach Farm 3 (cherry-blossom farm; Peach Monkeys and Reindeer on the floor and every ledge, 318-330 alive from 4:30 into the
+map, a dense clump around the character but no pile-up off-screen); the three boss bars (Giant Centipede's borrowed icon,
+Tae Roon's and King Sage Cat's own); Giant Centipede's three attacks, Tae Roon's attack1 and attack2 windups and shockwaves,
+its Grizzly summons and weapon immunity, King Sage Cat (a fan-wielding cat in a crowd) and its "recovered 700 HP" heal.
+The bot parks on the floor of every map (the monsters come to it), so this shows crowding and boss casting, not movement.
 
 ### Progression QA and merge-readiness smoke (#455, A6, 2026-10-30)
 
@@ -10425,6 +10447,25 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Flags ignored | none of Ludibrium's field flags are read (`lvLimit` is on the Path of Time maps only, which are not used) | C |
 | Diagnostic gap | The god-mode diagnostic round did **not** observe Timer's Stun 123 and magic immunity 141, nor Alishar's Cronos summons (200): god mode lands no hit on the character, and the bosses were held at fixed HP fractions. Their visuals and effects are unverified in Ludibrium until C14's QA covers them (the mechanics have their own tests, #456-#458) | C |
 | Alternates | map 1 220010300 / 220010000, map 2 220030300 / 220030200, map 3 220040400 / 220050200: not needed, the arena check kept all three first picks | C |
+
+### Mu Lung (C4) constants (#466, spec #449; progression step 9)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/mu_lung.json`: `region` Mu Lung, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [50, 60] (#447 table), maps 250010300 / 250010301 / 250010700 (widths 1530 / 1980 / 1980 px, foothold spans of Map.wz; Peach Farm 3 is 1050 px tall with 6 ledge levels), `original_life` of map 1 (Black Porky 9, Blue Flower Serpent 11, Red Flower Serpent 7) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged; Sleepywood has no `post_duration_slope`. No `opening_ramp` (maps nor stage): `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads): Black Porky 4230502 (Lv43) alone at 0:00, then Porky 2 : Blue Flower Serpent 4230503 1 : Red Flower Serpent 4230504 1 (both Lv45) from 2:00; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`, no exclusions: Wild Bear Area 1 holds Grizzly 5120500 (Lv56) x19 only, Peach Farm 3 Reindeer 5120505 (Lv58) x4 and Peach Monkey 6130207 (Lv62) x20; none is timed, hidden or an event mob | A life lists, C rule |
+| Arena check | #270's three picks are narrow, so each was played in-engine with the god-mode bot (late fixture, seed 1): Snake Area keeps 40-66 monsters alive through its 300 s; Wild Bear Area 1 and Peach Farm 3 fill to the stage's 330 alive (max 350 with bursts) with monsters on every ledge as well as the floor; nothing jammed, no map traps the character. No Herb Town or Practice Field alternate was needed (Old Swamp 251010400: 2111 px but only Mr. Alli Lv64 and Kru Lv68; Practice Field 250020200: target dummies) | C |
+| `level_scale` | first draft of `level_scale_draft.gd --step=9 --stage=mu_lung` (not tuned): `level` 21.15, 21.73, 22.8, 34.22, 48.44, 60.23, 68.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (9 - 5) = E_sw + 12) | C |
+| Bosses | Giant Centipede 5220004 (hp_mult 11.647, dmg_mult 0.949, attack_dmg_mult 0.712; `attack1`-`attack3`), Tae Roon 7220000 (1.798, 0.736, 0.916; `attack1`, `attack2`), King Sage Cat 7220002 (2.434, 1.59, 1.986; `attack1`), each 300 s after its map's entry with `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids`. Every attack of the three is magic (`magic` = 1), matched on MAD | C |
+| Boss kits | Giant Centipede casts nothing. Tae Roon: weapon immunity 140, buffs 110/112/113 and MobSkill 200 level 83, which summons Grizzlies 5120500 through `StageRoster` at <= 80% HP (limit 15). King Sage Cat: heal 114, buffs 110/112/113, weapon immunity 140. All supported as written in Skill.wz | A skills, C support |
+| Fights fought in these maps | Giant Centipede is native to Herb Town's 1160 px Garden, Tae Roon and King Sage Cat to 1530-1620 px territories: all three fight in the hunting fields | C |
+| `mobs.json` | names and `exp_item`: Black Porky Needle Pouch 4000278, both Flower Serpents Snake Leather 4000281, Grizzly Bear Foot 4000283, Reindeer Leather 4000021, Peach Monkey Peach Seed 4000282, Tae Roon Yellow Belt 4000284, King Sage Cat Old Paper 4000298 (each the mob's first Etc drop in the MonsterBook); Giant Centipede has no Etc drop there (scrolls only) and uses Centipede Red Marble 4031227, the quest item named for it. Giant Centipede has no MobGage icon or hpTag and borrows Dyle's 6220000 with the standard 1/5 tag; Tae Roon and King Sage Cat's are canonical | A ids/names, C association |
+| Meso ranges | ordinary mobs only: centre interpolated from the Lv40 Cold Eye / Zombie Lupin (125) and Lv50 Drake (250) ranges for the Lv43-45 mobs (Black Porky [130, 196], Flower Serpents [150, 226]) and from the Lv55 Malady (305) and Lv64 Ice Drake (405) ranges for the Lv56-62 mobs (Grizzly [253, 379], Reindeer [270, 406], Peach Monkey [306, 460]), +-20%; bosses use the `balance.mesos` level fallback | C |
+| Peach Monkey attack sound | v83's `Sound.wz/Mob.img/6130207` spells its attack sound `Arrack1`, so `.../Attack1` is absent: an ordinary mob's attack sound that v83 does not have is now silent like a boss's (`attack_sound_absent_in_v83`), instead of reported missing | A |
+| Flags ignored | none of the three maps has a field flag (`mobRate` 1.3 / 2 / 1.2 on the maps is not read) | C |
+| Diagnostic gap | Under god mode no hit lands on the character, so the status visuals of the bosses' buffs on the character are not exercised. Tae Roon's attack2 (the type-2 ball) windup and impact fired and were captured, but its projectile is not told apart from the swarm of Grizzlies in the frame. The Grizzly summons (200), King Sage Cat's heal (114) and every buff cast (110/112/113/140) were seen | C |
 
 ## 12. Later phases
 
