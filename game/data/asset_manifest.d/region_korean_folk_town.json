@@ -1,0 +1,7 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Korean Folk Town region (spec #449 C3, ticket #465, progression step 8). maps: Entrance to Black Mountain 222010000, Tiger Ridge 222010200 and Fox Ridge 222010300. mobs: Moon Bunny 4230300 (map 1), Hodori 5100003 and Hogul 5100005 (map 2), Samiho 5100004 (map 3, Nine-Tailed Fox's Samiho), and the three bosses Scholar Ghost 6090003, Blue King Goblin 7130401 and Nine-Tailed Fox 7220001 (no boss here casts MobSkill 200, so no summons). items: the Etc drops their mobs.json entries use as the EXP pickup (Pounder, Tiger Stamp, Tiger Skin, Three-Tailed Foxtail, Traditional Scholar Hat, Silver Ore). No Mob skill-effect art beyond the mobs' own imgs is imported.",
+	"maps": [222010000, 222010200, 222010300],
+	"mobs": [4230300, 5100003, 5100005, 5100004, 6090003, 7130401, 7220001],
+	"items": [4000169, 4000170, 4000171, 4000172, 4000416, 4010004]
+}
