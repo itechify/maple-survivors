@@ -1,6 +1,5 @@
 {
-	"_doc": "Night Lord skill definitions (spec #383, one marked region per ticket): NL6 #405 Flash Jump (mobility; its entry is the first one below, the region NL6 owns; later tickets append after it); NL7 #406 moves Lucky Seven and Drain here from skills/thief.json and adds Avenger and Triple Throw; NL8 #407 Ninja Storm and Ninja Ambush; NL9 #408 Shadow Meso; NL10 #409 Shadow Partner. Until a key is defined in a file it is inert: never offered or learned. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4), NL7 #406 moved Lucky Seven and Drain here. NL2 #401 defined none.",
-	"_nl8_region": "NL8 #407 owns ninja_storm and ninja_ambush (the two entries below, kept together); other tickets append their entries beside them, never inside.",
+	"_doc": "Night Lord skill definitions (spec #383): Flash Jump (mobility), Lucky Seven and Drain (moved here from skills/thief.json), Avenger, Triple Throw, Ninja Storm, Ninja Ambush, Shadow Meso and Shadow Partner. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4).",
 	"skills": {
 		"flash_jump": {
 			"skill_id": 4111006,

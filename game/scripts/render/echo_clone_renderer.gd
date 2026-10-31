@@ -14,7 +14,7 @@ const FALLBACK_ACTION := "stand1"
 ## The owner's stances the `special` sets spell differently: the alert variants share `alert`, the second ladder/rope stance
 ## is the same pose (tier C: our mapping, the owner's action stream was read in NL10 #409).
 const ACTION_ALIASES := {"alert2": "alert", "alert3": "alert", "alert4": "alert", "ladder2": "ladder", "rope2": "rope"}
-## tier C: the throw stance of a skill whose own action the `special` sets lack (Avenger's `avenger`, Ninja Storm's ...).
+## tier C: the throw stance of a skill whose own action the `special` sets lack (Avenger's `avenger`).
 const THROW_FALLBACK := "shoot1"
 ## tier C: seconds per frame of a throw whose owner stance is unknown (SpriteAnim.DEFAULT_DELAY, the WZ default).
 const DEFAULT_FRAME_TIME := 0.1

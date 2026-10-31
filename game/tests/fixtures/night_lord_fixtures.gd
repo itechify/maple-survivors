@@ -1,8 +1,8 @@
 extends RefCounted
 ## Synthetic assets for a whole Night Lord (412) round with no asset cache (spec #383, NL11 #410): Skill.wz-shaped books for all
 ## eight pool skills and Flash Jump (the endpoints are the v83 values the NL6-NL10 tests record; the art is bare frames) and a setup
-## that wears a claw. Used by the bot-scoring tests and the Night Lord baseline oracle. 412 ships `playable: false` until NL12, so
-## `setup` flips it in the caller's data copy only (never in the shipped file).
+## that wears a claw. Used by the bot-scoring tests and the Night Lord baseline oracle. 412 ships `playable: true` since NL12 #411;
+## `setup` still sets it in the caller's data copy, so a fixture world does not depend on the shipped flag.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 ## The Garnier a test Night Lord holds: the creation claw (v83 Item.wz 1472000, PAD 10), with the survivor test PAD of the NL tests.

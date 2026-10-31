@@ -1,9 +1,9 @@
 {
-	"_doc": "Night Lord line (spec #383, ticket NL2 #401). The third class line after Bowmaster and Buccaneer to reuse the line convention: its job entry, its meso charge meter, its AP row, its bot card scores and its status-bonus catalogue. Skill definitions are in skills/night_lord.json; each Night Lord skill ticket (NL6-NL10) appends its own. Every skill key here stays inert until its ticket defines it (an undefined key is never offered or learned); the meter block stays inert until NL4 #403 gives PlayerMeter the meso_picked rule. NL11 #410 adds hub_kit; NL12 #411 flipped playable (412 is selectable); JobTree.default_job() stays 212 (survivor/jobs.json default_job).",
+	"_doc": "Night Lord line (spec #383, ticket NL2 #401). The third class line after Bowmaster and Buccaneer to reuse the line convention: its job entry, its meso charge meter, its AP row, its bot card scores and its status-bonus catalogue. Skill definitions are in skills/night_lord.json. An undefined skill key is never offered or learned. The meter block is read by PlayerMeter's meso_picked rule (NL4 #403). 412 is selectable (`playable`, NL12 #411) and has a hub_kit (NL11 #410); JobTree.default_job() stays 212 (survivor/jobs.json default_job).",
 	"jobs": {
 		"412": {
 			"starting_skill": "lucky_seven",
-			"_starting_skill": "tier C: spec #383: Lucky Seven (4001344, book 400) is the starting active (slot 1) and the first skill a round learns; it lives in skills/thief.json until NL7.",
+			"_starting_skill": "tier C: spec #383: Lucky Seven (4001344, book 400) is the starting active (slot 1) and the first skill a round learns; it is defined in skills/night_lord.json (moved from thief.json by NL7 #406).",
 			"mobility_skill": "flash_jump",
 			"_mobility_skill": "tier C: spec #383 D1: Flash Jump (4111006) is the mobility skill on the skill key, outside both slot tracks and never a card; it follows balance.mobility_rank_levels like Teleport and Rush. Defined by NL6 #405.",
 			"skill_pool": [
@@ -16,7 +16,7 @@
 				"shadow_partner",
 				"shadow_meso"
 			],
-			"_skill_pool": "tier C: spec #383: the eight hand-picked Night Lord actives from the 400/410/411/412 books (Flash Jump is the mobility skill, not a pool entry). Undefined keys stay inert until NL7-NL10 define them.",
+			"_skill_pool": "tier C: spec #383: the eight hand-picked Night Lord actives from the 400/410/411/412 books (Flash Jump is the mobility skill, not a pool entry). All eight are defined in skills/night_lord.json.",
 			"weapon_families": [
 				"claw"
 			],
@@ -41,7 +41,7 @@
 				},
 				"art": "Item.wz/Special/0900.img/09000002/iconRaw"
 			},
-			"_meter": "tier C: spec #383 M23: the meso charge, a counter filled by meso pickups and never a currency. 1 pip per 1000 mesos picked up, one pip decays every 6 s, +3% damage per held pip on every pool cast; NL4 #403 reads gain.per_mesos and decay, NL9 #408 adds the Shadow Meso read. Tier A fact: the art is the meso coin's animation frame, already imported for pickups. Inert until NL4.",
+			"_meter": "tier C: spec #383 M23: the meso charge, a counter filled by meso pickups and never a currency. 1 pip per 1000 mesos picked up, one pip decays every 6 s, +3% damage per held pip on every pool cast; NL4 #403 reads gain.per_mesos and decay, NL9 #408 adds the Shadow Meso read. Tier A fact: the art is the meso coin's animation frame, already imported for pickups. Read by PlayerMeter (NL4 #403).",
 			"playable": true,
 			"_provenance": "tier C: spec #383 NL12 #411: Night Lord is playable alongside the other jobs; 212 remains the default.",
 			"hub_kit": {

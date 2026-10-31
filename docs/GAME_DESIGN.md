@@ -8259,10 +8259,10 @@ it follows the registered classes in sorted order). NL2 shipped it **not playabl
 | Meter | `jobs/night_lord.json` `meter` | meso charge: max 10, `gain {event meso_picked, amount 1, per_mesos 1000}`, `decay {interval 6.0, amount 1}`, `per_unit {damage, 0.03}`, art `Item.wz/Special/0900.img/09000002/iconRaw`; read by `PlayerMeter` since NL4 (7.94.1) |
 | AP row | `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` Thief keyframes copied verbatim (Lv1 25, Lv25 25, Lv200 200) |
 | Bot scores | `balance.bot.card_scores` | `shadow_partner_new` 100, `shadow_partner_rank` 74 (the summon is not an `attack` to `BotInput._base_score`; the other seven score as attacks by default) |
-| Status catalogue | `balance.status_bonuses` | `venomous_star` (poison, element `s`, chance 14..30, time 2..4, poison level 4..30, `repeat_chance` 3) and `stunning_avenger` (stun, chance 20..50, 1.5 s, `repeat_chance` 4); NL3 #402 parses it, NL2 only stores it |
+| Status catalogue | `balance.status_bonuses` | `venomous_star` (poison, element `s`, chance 14..30, time 2..4, poison level 4..30, `repeat_chance` 3) and `stunning_avenger` (stun, chance 20..50, 1.5 s, `repeat_chance` 4); `StatusBonus` validates it at load (NL3 #402) |
 
 `JobTree.start_skills(412)` is `["lucky_seven", "flash_jump"]`; Flash Jump is not in the pool and never a card (it follows
-`balance.mobility_rank_levels` once NL6 defines it).
+`balance.mobility_rank_levels`).
 
 **Drops.** The equipment data is unchanged. `weapon_families ["claw"]` filters the Thief drop list (claws 147xxxx, never daggers 133xxxx
 or any other family); armour drops by the Thief class bit, other classes' gear is refused by `Equipment.requirement_error`, and the
@@ -8297,7 +8297,8 @@ Energy Charge) behaves, and emits, exactly as before.
 
 - **The event.** `RunWorld._credit_pickups`, the one line where mesos reach the wallet (the magnet, the pet's pickups and its
   vacuum, and the finale sweep all end there), emits `meso_picked {amount, count}` once per tick in which `pickups.step_mesos`
-  is positive: the total amount and the number of drops. It changes no wallet value, drop or save, and a shop sale is not a
+  is positive: the total amount and the number of drops, **but only when the job's meter listens to the event** (the spec says
+  "whenever mesos arrive"; NL4 narrowed it so every other job's baseline, which hashes event bytes, stays byte-identical). It changes no wallet value, drop or save, and a shop sale is not a
   pickup. **It is emitted only when the job's meter gain rule listens to `meso_picked`** (`PlayerMeter.listens`): the event
   bytes of every other job are hashed by the baselines (F/P, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer, Bowmaster),
   which must not move. Documented in `EVENT_FIELDS` and in `test_run_events` (which stands a mesos meter on a synthetic world).
@@ -8357,9 +8358,13 @@ table is tier C. It is outside the pool and both slot tracks, learned at round s
   the facing; opposing arrows cancel into the facing; Up and Down are ignored. Holding the key flashes once per airborne period.
 - **Move.** The character slides `distance` px horizontally at its current height: no lift, both velocity components kept, so the
   fall continues in the same tick (the tick's ordinary movement still runs). It stops at the walls of the platform last stood on
-  and at the map limits exactly as Rush's airborne dash does; a flash that cannot move is refused. It faces the flash side. It
+  and at the map limits exactly as Rush's airborne dash does, and **stops just short of any floor that rises to its height (or
+  ceiling that comes down to it) on the way** (`FootholdMap.surface_crossing_x`: a slope, a hill between the ends; a platform
+  the path runs under never counts), so the character never ends inside the ground (review B1); a flash that cannot move is
+  refused. It faces the flash side. It
   deals no damage, earns and spends no meter, emits no `cast` and starts no cooldown beyond `repeat_delay` (the HUD icon's sweep).
-- **Reset.** `flash_spent` clears on landing (a floor), on grabbing a ladder or rope, and in `place()` (a same-map portal, a
+- **Reset.** `flash_spent` clears after every sub-step that ends on a floor or a ladder or rope (so with the jump key held, a landing
+  and the next hop in one tick still give the new hop its flash), and in `place()` (a same-map portal, a
   map transfer, Banish, a Teleport). It is not cleared by a hit's knock-back (still the same airborne period).
 - **Event.** `flash_jump {skill, from, to}` (documented in `RunWorld.EVENT_FIELDS`, exercised by `test_run_events`).
 - **Presentation.** `RunScene` plays the `Use` sound and leaves a **ghost trail**: `FlashTrail` (`scripts/render/flash_trail.gd`)
@@ -8402,7 +8407,7 @@ the Buccaneer sections, and the Night Lord tickets nest under 7.94.
 
 ```json
 "kind": "summon", "cast": {"rule": "summon"},
-"summon": {"echo": {"attack_field": "x", "skill_field": "y", "delay": 0.25, "overshoot": 0},
+"summon": {"echo": {"attack_field": "x", "skill_field": "y", "delay": 0.25},
            "follow_speed": 200.0, "follow_distance": 55.0, "teleport_distance": 600.0, "ordinal_spread": 40.0}
 ```
 and on each echoable skill `"echo": {"class": "attack"}` or `{"class": "skill"}`. No skill id appears in the code.
@@ -8416,12 +8421,18 @@ and on each echoable skill `"echo": {"class": "attack"}` or `{"class": "skill"}`
   records `{slot, aim}` of each `fire_shot` it makes, but only while a clone is alive and only for a non-echo snapshot; afterwards it
   calls `EchoCast.on_cast(world, key, st, shots)`. The cast itself (cooldown, events, meter receipt, RNG draws) is untouched, and a
   world without a clone, or a skill without the key, takes no new branch: the stats dictionaries and event bytes are what they were.
-  Only the `nearest` projectile rule records: bursts, zones, grenades and the nova do not echo.
+  **Scope (a documented limit):** only a `kind: "projectile"` skill on the `nearest` rule records: bursts, zones, grenades, the nova
+  and instant (melee) skills do not echo, and an `echo` flag on any of them is a load error (`EchoCast.errors`). Echoing an instant
+  skill would need a second recording point and a clone-origin melee path (Shadower's task if it wants one).
 - **The repeat.** `EchoCast` (a `RefCounted` owned by `SkillRunner.echoes`, stepped from `tick_cooldowns` after the summons and
   bursts) schedules, per living clone (ascending slot) and per recorded shot (cast order), one entry `delay` seconds later. At fire time
   it requires the clone to be the same spawn and still alive (an expired or replaced clone drops the entry); the target is the recorded
   slot if it is the same monster (identity) and within `range + overshoot` of the clone's body, else the nearest living monster
-  within `range` of the clone (`SkillRunner.nearest_to`, bosses first), else the entry is dropped with no refund. The shot goes
+  within the same `range + overshoot` of the clone (`SkillRunner.nearest_to`, bosses first), else the entry is dropped with no
+  refund. The `overshoot` of an echo is the larger of the definition's `summon.echo.overshoot` (default: the clone's
+  `follow_distance`) and how far the clone trails the owner when the cast is recorded, so a second Twin Shadow clone (40 px farther
+  out, 95 px behind a left-facing owner) still covers the owner's whole reach (review S2, S3). Each echo keeps the owner's
+  `REUSE_SPREAD` offset of a repeated target (Triple Throw's third star). The shot goes
   through `SkillRunner.fire_shot` from the clone's hand (`cast_forward` px toward the target from the clone's body, level with it; the
   body itself when the target is inside the hand's reach, as the owner's shots do). Damage rolls use the main stream in fire-tick order.
 - **Echo percent** = the clone skill's level field named by the class (`attack_field` for `attack`, `skill_field` for `skill`) at the
@@ -10565,6 +10576,16 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 
 ### Night Lord NL3 constants (#402)
 
+- Tier C (review S2): a catalogue row may carry `pulse` (burn), `x` (slow, negative) and `x` / `y` (threatened, signed) beside `chance`, `time`
+  and `level`, each a scalar or one value per rank; they ride in the resolved grant only when named. Load validation rejects a burn
+  without a positive pulse, a slow without a negative `x`, a threatened without a negative `x` or `y`, a poison level outside 1 to 69
+  and any row without a positive `time`, so a grant never validates and then does nothing. A catalogue row without `chance` rolls 100%
+  (`StatusBonus` default, tier C).
+- Tier C (review N2): a poison grant applies with `preserve_pulse`, like the ground zones, so a re-roll does not restart a running
+  poison's pulse clock.
+- Tier A, checked (review S6): the shipped `venomous_star` chance, time and poison level equal Skill.wz/412.img 4120005 `prop`, `time` and the
+  level at the eight rank levels (`test_status_bonus::test_real_cache_venomous_star_numbers_equal_skill_wz_4120005`).
+
 - Tier C: grant repeats add `repeat_chance × 0.8^n` points, where n is the existing rarity bonus repeat counter;
   the first grant adds no repeat points. Total chance caps at 100%. Unique/Legendary continue sharing their bonus id.
 - Tier C: grants apply in award order after native on-hit and before knockback/listeners, one stream-1 draw for every
@@ -10593,8 +10614,10 @@ Dragon Strike staggered targets retain both slot and logical identity at first i
 | Constant | Value | Tier |
 |---|---|---|
 | Echo delay (`summon.echo.delay`) | 0.25 s after the cast tick | tier C, spec #383 (the WZ gives none) |
-| Echo overshoot (`summon.echo.overshoot`) | 0 px beyond `range` for the recorded target; the nearest-monster fallback uses `range` | tier C, ours (#404) |
+| Echo overshoot (`summon.echo.overshoot`) | default: the clone's `follow_distance`; a definition may set more (Shadow Partner sets 55, see NL11); the echo never reaches less than how far its clone trails the owner. The recorded target and the nearest-monster fallback both use `range + overshoot` | tier C, ours (#404; review fix of ROSTER_PLAN D12) |
 | Fire-time tolerance | a delay due within 1e-9 s fires on the tick | tier C, as `BurstCast` |
+| Echo `delay` default | 0.25 s when a definition omits it | tier C, spec #383 |
+| `EchoCast` scope | `projectile` skills on the `nearest` rule only; elsewhere an `echo` flag is a load error | tier C, ours (review S3) |
 | Clone follow distance / speed / teleport distance | 55 px / 200 px/s / 600 px (data, NL10 sets them) | tier C, spec #383 |
 | Clone spread (`ordinal_spread`) | 40 px | tier C, spec #383 |
 | Hand | `cast_forward` px in front of the clone's body toward the target, body height `cast_height` | tier C, the owner's own shot origin |
@@ -10633,6 +10656,7 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Ninja Storm cooldown | 4.0 s | tier C: spec #383 (cadence table) |
 | Ninja Ambush cooldown | 14.0 s (its 12 s rank-8 life never overlaps itself) | tier C: spec #383 |
 | `ground.strike.interval` / `first_delay` (and their defaults in `GroundStrike`) | 1.0 s / 0.3 s | tier C: spec #383 (v83 has no WZ field for the strike cadence) |
+| `GroundStrike.EPS` | 1e-9 s of float slack: a strike due exactly at the lifetime or on the tick still lands. `SkillRunner` takes the strike count and every strike time from `GroundStrike.strike_count` / `strike_time` (review S1) | tier C: ours |
 | Strikes per zone | every strike at or before the WZ `time` (4 / 8 / 12) | tier A `time`; tier C counting rule |
 | Targets per strike | nearest `mob_count` to the anchor, one `attack_count` set of ordinary lines each | tier C: spec #383; `mobCount` 6 is tier A |
 | Zone anchor | the caster's position at the cast; it does not follow | tier C: spec #383 |

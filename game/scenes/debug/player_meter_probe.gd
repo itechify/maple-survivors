@@ -3,12 +3,6 @@ extends Node
 ## `--meso` shows the meso charge instead (M23: the spec's block, six pips picked up); `--no-art` drops its art path so
 ## the drawn pips are checked too.
 
-# tier C: the Night Lord meso charge block of spec #383 (the job's own copy is NL2's data), here for the HUD check only.
-const MESO_CHARGE := {"id": "meso_charge", "max": 10, "gain": {"event": "meso_picked", "amount": 1, "per_mesos": 1000},
-	"decay": {"interval": 6.0, "amount": 1}, "per_unit": {"stat": "damage", "value": 0.03},
-	"art": "Item.wz/Special/0900.img/09000002/iconRaw"}
-
-
 func _ready() -> void:
 	var shots := ""
 	var meso := false
@@ -31,7 +25,7 @@ func _ready() -> void:
 			w.god = true
 			# Diagnostic: the live Hero configuration displayed on the F/P probe character.
 			if meso:
-				var block := MESO_CHARGE.duplicate(true)
+				var block: Dictionary = w.jobs.lineage_value(412, "meter", {}).duplicate(true)
 				if no_art:
 					block.erase("art")
 				w.meter = PlayerMeter.new(block)

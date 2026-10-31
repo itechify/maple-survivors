@@ -13,7 +13,7 @@ const DT := 1.0 / 60.0
 const TABS := {400: ["lucky_seven"], 410: ["drain"], 411: ["shadow_partner", "shadow_meso", "avenger", "flash_jump"],
 	412: ["ninja_ambush", "triple_throw", "ninja_storm"]}
 
-var lib: AssetLibrary
+var lib: AssetLibrary # only the real-cache RunScene test opens it
 var scene: RunScene
 var cfg_path := TestCase.test_dir("skill_window_night_lord.cfg")
 var settings: GameSettings
@@ -22,8 +22,6 @@ var _saved_map: Dictionary = {}
 
 
 func before_each() -> void:
-	lib = AssetLibrary.new()
-	lib.open()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
 	for suffix: String in ["", ".bak", ".tmp"]:
 		if FileAccess.file_exists(cfg_path + suffix):
@@ -45,7 +43,9 @@ func after_each() -> void:
 		scene.free()
 	scene = null
 	settings.free()
-	lib.free()
+	if lib != null:
+		lib.free()
+		lib = null
 	for a: StringName in _saved_map:
 		if InputMap.has_action(a):
 			InputMap.action_erase_events(a)
@@ -218,6 +218,8 @@ func test_a_non_night_lord_has_no_meso_charge_row() -> void:
 func test_a_412_run_opens_the_skill_window_on_the_night_lord_tab_and_every_tab_has_rows() -> void:
 	if not require_cache():
 		return
+	lib = AssetLibrary.new()
+	lib.open()
 	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	s.library = lib
 	s.configure("henesys", 13, {"use_flow": false, "autoplay": true, "autopick": true, "job": 412})
