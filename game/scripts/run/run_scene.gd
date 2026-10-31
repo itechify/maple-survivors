@@ -196,8 +196,8 @@ var window: Node
 var paused := false
 ## Casts seen per skill key, for `sounds.use_cycle` (SkillBook.use_sound).
 var _use_counts := {}
-## Visual counters (tests and the perf summary): damage numbers, hit effects and sounds started.
-var counters := {"numbers": 0, "hit_fx": 0, "sounds": 0, "exp_messages": 0, "windows": 0, "autopicks": 0}
+## Visual counters (tests and the perf summary): damage numbers, hit effects and sounds started, Flash Jump presses.
+var counters := {"numbers": 0, "hit_fx": 0, "sounds": 0, "exp_messages": 0, "windows": 0, "autopicks": 0, "flash_jumps": 0}
 
 var _autoplay := false
 var _autopick := false
@@ -1168,6 +1168,7 @@ func handle_events(events: Array) -> void:
 				if String(e.phase) == "arrival":
 					_event_shot("teleport.png", 0.08) # tier C: capture the canonical 80 ms effect frame.
 			"flash_jump":
+				counters.flash_jumps += 1 # playtest summary.json `counters`: the press count of the run
 				flash_trail.spawn(avatar.current_parts(), avatar.facing, e.from, e.to)
 				_sound(String(world.book.def(String(e.skill)).sounds.use))
 				_first_event_shot("flash_jump", "flash_jump.png", 0.05) # tier C: capture the first trail while the ghosts are bright.

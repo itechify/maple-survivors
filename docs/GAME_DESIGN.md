@@ -4879,8 +4879,10 @@ smoke ran on a different private cache (`cache-413`); the data cache, not the co
 
 **Meso charge and Flash Jump.** The two windowed seed-2026 x8 playtests on Henesys (no kit / kit) held the meso charge at a
 time-weighted **mean 3.34 / 4.17 pips, peak 10** (`summary.json` `meter`); at Sleepywood's 11-21 s runs it stayed 0 (nothing
-picked up). Flash Jump's rank follows the round level (rank 5-6 at Lv11-13, 16-19 at Lv32-38 in the smoke records); neither
-tool records its press count, so the cast count is the NL11 baseline's: 6 presses in six minutes of the god-mode bot.
+picked up). Flash Jump's rank follows the round level (rank 5-6 at Lv11-13, 16-19 at Lv32-38 in the smoke records); the
+playtest summary's `counters.flash_jumps` (added by the #383 review fixes) now counts the presses: **61** in the 677.9 s windowed
+seed-2026 x8 Henesys run of the review pass (`--job=412`, DEAD at Lv22, `missing: []`, meso charge mean 1.84, peak 10); the NL11
+baseline's 6 presses in six minutes of the god-mode bot remain the oracle number.
 
 **Playtests** (`--job=412 --seed=2026 --speed=8 --vsync=off`, `missing: []` in all four, no warnings): Henesys without the
 kit DEAD 947.5 s at Lv32 (2 bosses killed, map 3 reached at 902 s, max alive 209); Henesys with `night_lord_t2.json` DEAD 994.1
@@ -4892,9 +4894,8 @@ dropping in from the top), Shadow Partner (the translucent clone beside the char
 (ghost trail); the `ammo_2070001` notice "Your throwing stars are now Wolbi Throwing-Stars" and the Orange Potion notice;
 the ten-pip meso charge row beside the timer; damage numbers, boss HP bar and the death poses. A third playtest (seed 1, kit, 540 s, `missing: []`) learned Drain and Ninja Storm too and
 produced `cast_drain.png` and `cast_ninja_storm.png` (the spinning shadow with stacked hit numbers on a pack, a Drain heal
-with the echoed clone). **Not captured by a playtest shot**: a poisoned / stunned pack and a Ninja Storm ring with its pushed
-monsters distinguishable by eye (the Venomous Star and Stunning Avenger grants need the matching rarity card, which the bot
-rarely holds by 9 minutes; the NL3 status-bonus driver, NL8 and their tests cover them), and at the native 456 x 500 capture size the claw in the hand is
+with the echoed clone). **Not captured by a playtest shot** (captured afterwards, see the review pass below): a poisoned / stunned pack and a Ninja Storm
+ring with its pushed monsters; and at the native 456 x 500 capture size the claw in the hand is
 too small to read; the stars it throws (the claw's `Ammo` entry) are the evidence that a claw is in hand.
 
 **Flow scenarios.** `redesign --job=412 --seed=1` PASSED (36 picks; creation Job page with nine rows and Night Lord
@@ -4903,13 +4904,29 @@ first level-up, the slots-full offer, the boss draw, the three map clears with f
 unlocked, a drop worn at Lv1, the Sleepywood round with loot picked up, the diagnostic death, results, hub, deletion and history;
 all 31 shots read by eye, `missing: []`). The driver is diagnostic (invulnerable), not survival evidence.
 
+**Review pass (#383 review fixes, 2026-10-30).** `scenes/debug/night_lord_status_probe.tscn` (`--scenario=status|storm --shots=<dir>`, real
+cache, real Night Lord data, never saves) drove the two missing visuals; looked at by eye (`evidence/review383/`, gitignored). `status`:
+six snails in a row on the Henesys ground, the two nearest hit with Venomous Star's real catalogue row at rank 8 (100% forced for the
+probe) show green poison specks, the next two hit with Stunning Avenger's show the stun star ring, the last two are plain; the JSON
+confirms POISON on 2, STUN on 2 and neither on 2. `storm`: Ninja Storm at rank 8 cast into six snails 50 to 280 px from the player: the
+white hit burst lands on the struck snails (tick 6) and 4 of the 6 end 300 px (the rank-8 distance) farther away, pile-up included (tick 50;
+`storm.json` before / after x). The probe's mobs are frozen and the status chance is forced, so it is presentation evidence, not balance.
+
+**Web gate and smoke rule: resolved, not run here.** `bash scripts/export.sh --web` and `check_web_artifact.sh` cannot run on this
+machine (no pinned web export templates, no `wasm32-unknown-unknown` target, no `wasm-bindgen-cli`; nothing may be downloaded); the
+`pages.yml` workflow runs the export and the artifact check on every push to `main`, and the Night Lord manifest fragment and golden
+(`cargo test` 49 + others passing here) are the only inputs that changed. The spec's smoke rule for a feature ticket is the default job
+plus the new job (`AGENTS.md`: "a regression smoke ... default" and the new line), which NL12 ran (60/60 records); the other jobs' smoke
+is not part of it, and their oracles (character, tick cost, Hero, Bowmaster, Buccaneer, Bishop, Dark Knight, Paladin, I/L) reproduce
+unchanged after the review fixes. Both items are therefore closed for this spec; the first `pages.yml` run on `redesign` is the web evidence.
+
 **Web gate.** `node --test web/dev/test/*.test.mjs` 62 passed; `cargo test` (no `MAPLE_WZ_ROOT`) 70 passed; this ticket
 changes neither the asset manifest nor the web shell, so the import screen lists no new download. The local web export and
 `check_web_artifact.sh` were **not run**: this machine has neither the pinned web export templates, the
 `wasm32-unknown-unknown` target nor `wasm-bindgen-cli`; nothing was downloaded, CI performs the export.
 
 Oracles: `test_character_baseline`, `test_tick_cost_identity` and the Hero, Bowmaster, Marksman (when present) and Night Lord
-baselines reproduce their hashes (see the full-suite results in the NL12 note); no hash was recaptured, no tests deleted.
+baselines reproduce their hashes (see the full-suite results in the NL12 note); no hash was recaptured, no tests deleted. The #383 review fixes recaptured the Night Lord hash only (echo reach and aim spread, 7.94.3); every other job's oracle is unchanged.
 
 ## 5. Experience and levels
 
@@ -10716,7 +10733,7 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Hub kit equipment / fallback item | 1002001, 1472001, 1082002, 1040031 / 1472014 (the Lv40 claw) | tier C: ours (#410) |
 | Bot card scores | all eight pool skills `_new` 100 / `_rank` 74 | tier C: spec #383 (the established pool bases) |
 | Filler reach | Lucky Seven and Drain 250 px, the pool's shortest; Avenger 350, Triple Throw and Shadow Meso 300 | tier C: spec #383 (recorded, untuned) |
-| Baseline oracle | seed 1, 21,600 ticks, god, `GOLDEN` `6077b162...0bd1` in `test_night_lord_baseline.gd` | tier C: ours (#410) |
+| Baseline oracle | seed 1, 21,600 ticks, god, `GOLDEN` `e4d195a0...5423` in `test_night_lord_baseline.gd` (re-captured by the #383 review fixes: echo reach and aim spread; was `6077b162...0bd1`) | tier C: ours (#410) |
 
 ### Night Lord NL12 constants (#411)
 

@@ -12,7 +12,10 @@ const NF := preload("res://tests/fixtures/night_lord_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const TICKS := 21600 # six minutes of run time: long enough for Flash Jump, both ninja skills and the first ammo step
-const GOLDEN := "6077b1621513d89e067eda3a3dbce14355f8e96860454f6f0e3ef4d7363e0bd1"
+## Re-captured by the #383 review fixes (echo reach: a clone covers the owner's whole reach including the second Twin Shadow clone and
+## retargets, and an echo keeps the owner's REUSE_SPREAD aim). Previous value 6077b162...; the Flash Jump slope fix, the status
+## and ground-strike changes and every earlier job's oracle did not move it.
+const GOLDEN := "e4d195a0a09cb45d53eb4f1ee8a95e605d1c517ecce24330355cef65a5db5423"
 
 
 ## {"digest": hex, "skills": {skill key: hits}, "casts": int, "picked": [keys the bot learned], "flashes": int, "echoes": int,
