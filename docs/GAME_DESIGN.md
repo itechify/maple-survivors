@@ -8883,15 +8883,24 @@ no ticket here tunes (C13 does).
 | `level_scale` | `level_scale_draft.gd --step=7`: E_sw 9.15 / 9.73 / 10.80 / 22.22 / 36.44 / 48.23 / 56.85 at t 0 / 120 / 300 / 480 / 600 / 780 / 900; `level` = E_sw + 6, `exp_level` = E_sw | C |
 | Boss multipliers | Chief Gray `hp_mult` 17.916, `dmg_mult` 1.209, `attack_dmg_mult` 0.786; MT-09 3.271, 0.742, 0.837; Zeno 3.631, 1.503, 1.801 (the draft tool's output, `_tier` notes on each boss) | C |
 | EXP items | Barnard Gray 4000123 Worn-Out Goggle, Mateon 4000120, Plateon 4000121, Mecateon 4000122, Chief Gray 4000125, MT-09 4000126, Zeno 4000118 Small Spaceship: item ids and names are v83 (tier A), the mob association is a signature pickup, not a drop-table claim | A / C |
-| Mesos | no v83 server drop data is used, so every Omega mob rolls `balance.mesos.fallback` by its level | C |
+| Mesos | no v83 server drop data is used: the three bosses roll `balance.mesos.fallback` by level; the ordinary mobs take Ludibrium's neighbour method (centre interpolated between the Lv40 Cold Eye / Zombie Lupin mean 125 and the Lv50 Drake 250, range +-20%): Barnard Gray [100, 150], Mateon [110, 164], Plateon [140, 210], Mecateon [160, 240] | C |
 | Boss `boss_ui` | Chief Gray and MT-09 have no MobGage icon or tag colours in v83; both borrow Zeno's icon (the same region) and the standard colours | C |
 | Falling-bolt effect | Chief Gray's `attack1/info/effect` is three groups of frames with fall spawn fields (`effectType` 2); `MobAttacks.effect_path` plays the first group once at the attacker and leaves the spawn fields unread, so the attack shows art instead of a missing asset | C |
 | Missing v83 sound | Chief Gray's Mob.img entry has no `Skill1`: `RunScene._mob_sound` is silent for a sound its own entry lacks (it already was for an attack start) | A |
 | Field flags | none on these maps (no `decHP`, `fs` friction or limits) | A |
 
-Diagnostic round (invulnerable bot, `late_progression.json` Hero, seed 1, x8): CLEARED at 911.9 s, map entries at 0 /
-307.0 / 609.3 s, all three bosses killed, Lv61, `missing: []`, max 351 alive. Chief Gray's skill and the three attacks
-were captured with a throwaway probe; screenshots stay out of the repo.
+Diagnostic round (invulnerable bot with `RunWorld.god` from a throwaway launcher, `late_progression.json` Hero, seed 1, x8,
+before the Ludibrium merge): CLEARED at 911.9 s, map entries at 0 / 307.0 / 609.3 s, all three bosses killed, Lv61,
+`missing: []`, max 351 alive. Chief Gray's Barnard Gray summon (skill 200 at 31.6 s, `summonEffect` 6) and the three
+attacks were captured with a throwaway probe; screenshots stay out of the repo. Checked by eye: Kulan Field I (a
+red-and-blue robot backdrop, a high floor with ladders; Barnard Gray swarms the ground), Boswell Field II (the crashed
+saucer, a fenced low floor; the Plateon / Mateon swarm hides MT-09's bar-topped sprite in the crowd) and Boswell Field V
+(hills; Mecateon's laser beams, Zeno a white robot at the edge of the swarm). No map was swapped.
+
+Regression smoke after the Ludibrium merge (F/P 212, private cache, `JOBS=1`, seeds 1/2/2026, no tuning): Henesys bot
+death-only seconds 417.30 / 644.10 / 646.70, identical to the table above; the other stages were not rerun, since
+the stage files, the sim and the pools of the first five regions are untouched (`test_stage_files` compares them byte
+for byte) and the full suite passes (3754 tests, 0 failed, 0 skipped, real cache).
 
 ### Map select progression list (spec #447, #451; tier C)
 
