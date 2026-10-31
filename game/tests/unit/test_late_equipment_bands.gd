@@ -85,9 +85,13 @@ func test_the_band_table_never_goes_down_and_overlaps_its_neighbour() -> void:
 
 func test_the_stages_that_exist_carry_the_table_band() -> void:
 	var stages: Dictionary = DataRepo.load_all().stages
-	for i in stages.progression.size():
-		var key: String = stages.progression[i]
-		assert_eq(EquipmentDrops.band_of(stages.stages[key]), BANDS[i], "step %d %s" % [i + 1, key])
+	# The band belongs to the region's canonical step (#449 table), so a branch that lacks an earlier region still passes.
+	var order: Array = FIRST_FIFTEEN + ["temple_of_time"]
+	for key: String in stages.progression:
+		var step := order.find(key)
+		assert_true(step >= 0, "%s is a region of the #449 table" % key)
+		if step >= 0:
+			assert_eq(EquipmentDrops.band_of(stages.stages[key]), BANDS[step], "step %d %s" % [step + 1, key])
 
 
 func test_the_class_table_covers_the_weapon_families_of_every_job() -> void:
