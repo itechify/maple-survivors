@@ -125,7 +125,7 @@ How many advancements a job is from Beginner: 0 Beginner, 1 first job, 2 second 
 **Job line**:
 A first job and every job below it, named after it (warrior, magician, bowman, thief, pirate), plus beginner for
 job 0 and common for job-neutral data. A class spec after the slice adds a *data line* named after the class
-(`hero`, #296), discovered by `DataRepo.lines()` after the fixed Adventurer lines, sorted by name, so jobs of the same Adventurer line no longer share one file. Survivor data and the asset manifest keep one file per line
+(`hero`, #296; later `night_lord`, #383, and the other class lines), loaded by `DataRepo.lines()` after the fixed Adventurer lines in the append-only `CLASS_LINES` order (a prototype fragment not yet registered follows, sorted by name), so jobs of the same Adventurer line no longer share one file. Survivor data and the asset manifest keep one file per line
 (`survivor/<name>/<line>.json`, `asset_manifest.d/<line>.json`), and a per-job table resolves a job through its
 lineage to the nearest listed ancestor.
 _Avoid_: class line, family (a weapon family is a kind of weapon)
@@ -505,6 +505,17 @@ A round-owned integer counter, filled by configured events and spent by finisher
 starts at zero each round, and is shown as HUD pips. M1 is shared by Hero, Buccaneer and Shadower.
 _Avoid_: mana, buff, form
 
+**Flash Jump**:
+Night Lord's mobility skill (4111006) on a skill key: pressed in the air, it slides the character sideways 140 -> 280 px by
+rank, once per airborne period, and leaves a ghost trail. Never a card; its rank follows the round's level. No damage.
+_Avoid_: double jump, Teleport (a blink between platforms), Rush (a damaging ground dash)
+
+**Meso charge**:
+Night Lord's meter (id `meso_charge`, ten pips): one pip per 1000 mesos picked up (the remainder is carried), one lost per 6 s
+while held, +3% damage on every pool cast per pip; Shadow Meso reads it for more and spends nothing. A counter filled by
+pickups, never money: no mesos are spent or lost. Shadower's Meso Explosion is a finisher on the same meter.
+_Avoid_: mesos (the wallet), mana, Meso Guard
+
 **Combo orb**:
 One unit of Hero's Combo meter. A landed non-finisher pool cast earns one; each held orb adds damage.
 _Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)
@@ -522,6 +533,12 @@ _Avoid_: ultimate, proc
 **Physical follower**:
 A player summon (Silver Hawk, Phoenix, Golden Eagle, Frostprey) whose damage is physical and takes its W.Att from the skill level's `pad` instead of the worn weapon, optionally stunning on hit and flying above its trailing point. It is the Elquines seam (`PlayerSummons`) with data keys, not a separate system.
 _Avoid_: pet (the Free Market pet is a cosmetic companion), minion
+
+**Echo**:
+A timed clone (Shadow Partner) that repeats the owner's star casts about 0.25 s later from its own hand at a percent of their damage
+(`x` for the basic throws, `y` for the heavier skills). It is a `PlayerSummons` entry with `summon.echo`, never strikes by itself, and
+its repeats earn no meter charge, heal nothing and are never echoed again (`EchoCast`, #404). Night Lord's Shadow Partner draws it from the WZ `special` frames (`EchoCloneRenderer`, #409).
+_Avoid_: shadow clone attack, double cast
 
 **Turret**:
 A player summon with `summon.behavior: "turret"` (the Corsair Octopus): planted where it is called, it fires one visible ball per
@@ -546,3 +563,6 @@ _Avoid_: life cost, blood magic
 HP a skill takes from its caster after it hit, as a share of the damage the cast dealt, capped at a share of max HP and
 never the last HP. Reported as `hp_spent` with kind `recoil`.
 _Avoid_: backlash, self-damage (the data block is named `self_damage`)
+
+**Status bonus** — A rarity or Mastery effect granting an ordered, rank-resolved status to one skill, independently of
+its numeric modifiers and native on-hit status. Repeating the grant adds diminishing chance points (M22, #402).

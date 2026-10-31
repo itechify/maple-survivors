@@ -1,0 +1,76 @@
+{
+	"_doc": {
+		"by": "spec383/ticket-410",
+		"job": 412,
+		"kit": [
+			1472007,
+			1002171,
+			1072022,
+			1082029,
+			1040002,
+			1060002
+		],
+		"note": "Synthetic format-3 kit (tools/character_fixture.gd --kit): unscrolled canonical equipment of the Lv0-30 tier-1 drop band and tier 2 unlocked, no cash, pet or carried build; a Lv1 character for the Sleepywood checks.",
+		"revision": "bed8e3d467ff0ad998b02f551c8459e3556e5c79"
+	},
+	"equipment": {
+		"inventory": [],
+		"worn": {
+			"bottom": {
+				"id": 1060002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			"gloves": {
+				"id": 1082029,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 4
+				}
+			},
+			"hat": {
+				"id": 1002171,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incDEX": 1,
+					"incPDD": 21
+				}
+			},
+			"shoes": {
+				"id": 1072022,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 10
+				}
+			},
+			"top": {
+				"id": 1040002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 3
+				}
+			},
+			"weapon": {
+				"id": 1472007,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 16
+				}
+			}
+		}
+	},
+	"format": 3,
+	"job_id": 412,
+	"look": {},
+	"mesos": 0,
+	"scrolls": {},
+	"tiers_unlocked": 2
+}

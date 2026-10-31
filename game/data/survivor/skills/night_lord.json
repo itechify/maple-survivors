@@ -1,0 +1,877 @@
+{
+	"_doc": "Night Lord skill definitions (spec #383): Flash Jump (mobility), Lucky Seven and Drain (moved here from skills/thief.json), Avenger, Triple Throw, Ninja Storm, Ninja Ambush, Shadow Meso and Shadow Partner. A key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4).",
+	"skills": {
+		"flash_jump": {
+			"skill_id": 4111006,
+			"book": "411",
+			"job": 411,
+			"kind": "instant",
+			"slot": "mobility",
+			"name": "Flash Jump",
+			"desc": "Press its skill key in the air to flash sideways. Once per jump.",
+			"text": {
+				"desc": "Press the Flash Jump key while airborne, with an arrow key, to flash sideways without losing height. It works once per jump, and the higher your level the farther you go."
+			},
+			"icon": "Skill.wz/411.img/skill/4111006/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "manual"
+			},
+			"skill_key": "flash_jump",
+			"flash_jump": {
+				"distance": [
+					140.0,
+					280.0
+				],
+				"repeat_delay": 0.3,
+				"bot_threat_distance": 70.0
+			},
+			"_flash_jump": "Tier A: WZ 4111006 (20 levels) holds only mpCon (not modelled) and the Use sound; the String text says the jump grows with the level. Tier C (spec #383 M14, NL6 #405): the distance table (140 px at rank 1 to 280 px at rank 20, linear over the ranks, GAME_DESIGN 7.92), the 0.3 s repeat delay, once per airborne period, the bot's 70 px threat distance. The rank is the round's level through balance.mobility_rank_levels (1 at Lv1, 10 at Lv20, 20 from Lv40), never a card; the node has no art, so the presentation is a code-drawn ghost trail.",
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20
+			],
+			"action": "",
+			"action_time": 0.0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4111006/Use",
+				"hit": ""
+			}
+		},
+		"shadow_meso": {
+			"skill_id": 4111004,
+			"book": "411",
+			"job": 411,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Shadow Meso",
+			"desc": "Throws a heavy bag of mesos at the nearest monster. It hits harder the more of the meso charge you hold, and costs no mesos.",
+			"text": {
+				"desc": "Throws a heavy bag of mesos at the nearest monster. It hits harder the more of the meso charge you hold, and costs no mesos.",
+				"h": "Damage {damage_percent}% of your weapon damage, costs no mesos"
+			},
+			"icon": "Skill.wz/411.img/skill/4111004/icon",
+			"damage": "physical",
+			"damage_basis": {
+				"field": "moneyCon",
+				"scale": 0.6
+			},
+			"_tier": "Tier A: the WZ has no damage for 4111004, only moneyCon 135 -> 570 (the average mesos per throw), x 50, prop 1 -> 10 and the three art tiers (the level nodes' ball / hit UOLs change at levels 11 and 21), Use and Hit sounds. Tier C (#408, GAME_DESIGN 7.94.4): damage% = moneyCon x 0.6 (damage_basis), no mesos spent (ruling D7: moneyCon is kept for the balance pass), +10% damage per held meso-charge pip on top of the meter's own +3% (meter.read_per_unit), swingO1 (the claw's own stance: the node has no action, and shoot1 hides the claw), nearest auto-cast, 3.0 s cooldown, 300 px range, 650 px/s, 10 px radius, no pierce, 0.6 s hold, the echo class, rarity bonuses. x, prop and bulletCount are not modelled (recorded as unused; count is pinned to 1). Untuned.",
+			"action": "swingO1",
+			"action_time": 0.6,
+			"ball": "Skill.wz/411.img/skill/4111004/level/{level}/ball",
+			"hit": "Skill.wz/411.img/skill/4111004/level/{level}/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4111004/Use",
+				"hit": "Sound.wz/Skill.img/4111004/Hit"
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"count": 1,
+			"cooldown": 3.0,
+			"range": 300,
+			"speed": 650,
+			"radius": 10,
+			"pierce": 0,
+			"meter": {
+				"read_per_unit": 0.1,
+				"unit": "pip"
+			},
+			"echo": {
+				"class": "skill"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "meso_up",
+						"text": "Meso Up",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "claw_booster",
+						"text": "Claw Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "second_bag",
+						"text": "Second Bag",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "second_bag",
+						"text": "Second Bag",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"ninja_storm": {
+			"skill_id": 4121008,
+			"book": "412",
+			"job": 412,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Ninja Storm",
+			"desc": "Throws a ring of stars around you that hurts the monsters near you and shoves them away.",
+			"text": {
+				"desc": "Hurt up to 6 monsters around you and shove them away from you. Needs a monster in the storm's box.",
+				"h": "Damage {damage}%, up to {mob_count|monster|monsters}; {prop}% chance each to be pushed back."
+			},
+			"icon": "Skill.wz/412.img/skill/4121008/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 4.0,
+			"action": "ninjastorm",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/412.img/skill/4121008/hit/0",
+			"effect": "Skill.wz/412.img/skill/4121008/effect",
+			"rotate": false,
+			"knockback": {
+				"chance_field": "prop",
+				"distance_by_rank": [
+					100,
+					100,
+					200,
+					200,
+					200,
+					300,
+					300,
+					300
+				],
+				"effect": "Skill.wz/412.img/skill/4121008/mob"
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4121008/Use",
+				"hit": "Sound.wz/Skill.img/4121008/Hit"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "ninja_arts",
+						"text": "Ninja Arts",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_storm",
+						"text": "Wide Storm",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "second_wave",
+						"text": "Second Wave",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "second_wave",
+						"text": "Second Wave",
+						"effects": [
+							{
+								"stat": "attack_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_rarity": "Tier C: first-pass NL8 #407 bonuses (spec #383): Ninja Arts and Wide Storm are flavour names (the skill has no passive of its own); Second Wave adds a line on each struck monster; Legendary shares the Unique's id (and its repeat counter) plus damage x1.2; Mastery repeats shrink x0.8. GAME_DESIGN 7.94.8.",
+			"_provenance": "Tier A: Skill.wz 4121008 damage 42 to 80 % (rank 1 = level 4: 48 %), prop 42 to 100 (read as the push's success rate: rank 1 48 %), mobCount 6, the symmetric box +-100 / 150 / 200 by (-70, 30) (levels 1 / 11 / 21), the ninjastorm action, effect (16 frames), hit/0 and mob art, the Use and Hit sounds. Tier C: the 4.0 s cooldown, min_targets 1, the 0.6 s action hold, the push distances 100 / 200 / 300 px by rank (the String.wz text's 100 / 200 / 300 px for levels 1-10 / 11-20 / 21-30 mapped to the eight ranks; there is no WZ field), `knockback.effect` (the `mob` art once on each pushed monster), the default 30-level rank table, no weapon gate. GAME_DESIGN 7.94.8."
+		},
+		"ninja_ambush": {
+			"skill_id": 4121004,
+			"book": "412",
+			"job": 412,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Ninja Ambush",
+			"desc": "Hides ninjas where you stand; they strike the monsters in the zone every second.",
+			"text": {
+				"desc": "Leave an ambush at your feet. Its ninjas strike up to 6 monsters in the zone every second. Needs a monster in the zone's box.",
+				"h": "Damage {damage}% per strike, up to {mob_count|monster|monsters}, for {time} sec."
+			},
+			"icon": "Skill.wz/412.img/skill/4121004/icon",
+			"damage": "physical",
+			"cast": {
+				"rule": "box",
+				"min_targets": 1
+			},
+			"cooldown": 14.0,
+			"action": "alert3",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/412.img/skill/4121004/mob0",
+			"effect": "Skill.wz/412.img/skill/4121004/effect",
+			"rotate": false,
+			"ground": {
+				"strike": {
+					"interval": 1.0,
+					"first_delay": 0.3
+				}
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4121004/Use"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "ninja_arts",
+						"text": "Ninja Arts",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "wide_ambush",
+						"text": "Wide Ambush",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "ambush_squad",
+						"text": "Ambush Squad",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "ambush_squad",
+						"text": "Ambush Squad",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_rarity": "Tier C: first-pass NL8 #407 bonuses (spec #383): Ninja Arts and Wide Ambush are flavour names; Ambush Squad adds two monsters to every strike (`count` raises mobCount); Legendary shares the Unique's id plus damage x1.2; Mastery repeats shrink x0.8. GAME_DESIGN 7.94.8.",
+			"_provenance": "Tier A: Skill.wz 4121004 damage 62 to 100 % per strike (rank 1 = level 4: 68 %), mobCount 6, time 4 / 8 / 12 s, the symmetric box +-110 -> +-200 by (-130, 70) (rank 1 +-120), the alert3 action, the 19-frame effect, the mob0 strike art on each struck monster and the Use sound. Equal to 4221004 at all 30 levels. Tier C: the 14 s cooldown (a 12 s zone never overlaps itself), min_targets 1, `ground.strike` {interval 1.0, first_delay 0.3} anchored at the cast, the 0.6 s action hold, no tile art (the effect plays once at the cast, the strikes bring `mob0`), the default 30-level rank table, no weapon gate; Shadow Shifter level 5 (the WZ req) is ignored. GAME_DESIGN 7.94.8."
+		},
+		"lucky_seven": {
+			"skill_id": 4001344,
+			"book": "400",
+			"job": 400,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Lucky Seven",
+			"desc": "Throws two stars at nearby monsters, using LUK regardless of Claw Mastery.",
+			"icon": "Skill.wz/400.img/skill/4001344/icon",
+			"damage": "physical",
+			"_tier": "Tier A: WZ weapon 47, bulletCount 2, damage, mpCon, effect and CharLevel hit art; no ball node, so ammo_shot uses the current star. Tier B: LUK x5.0/x2.5 formula ignoring mastery (v83-facts 5). Tier C: nearest auto-cast, 250px base claw reach, cooldown 1s, shoot1 held 0.6s, speed 600px/s, radius 8px, no base pierce; untuned. NL7 #406 (GAME_DESIGN 7.94.6): ported from thief.json with the default 20-level rank table (ranks 1/4/8 read levels 3/10/20), the claw's own swingO1 stance instead of shoot1 (the claw vanishes in shoot1, ROSTER_PLAN D10, tier C), `echo` attack class, rarity bonuses.",
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 1,
+			"range": 250,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 0,
+			"ammo_shot": true,
+			"physical_formula": {
+				"primary": "luk",
+				"max_mult": 5,
+				"min_mult": 2.5,
+				"secondary": "",
+				"ignore_mastery": true
+			},
+			"action": "swingO1",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/400.img/skill/4001344/hit/0",
+			"effect": "Skill.wz/400.img/skill/4001344/effect",
+			"char_level": {
+				"thresholds": [
+					10,
+					15,
+					20,
+					25
+				],
+				"hit": "Skill.wz/400.img/skill/4001344/CharLevel/{cl}/hit/0"
+			},
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4001344/Use",
+				"hit": ""
+			},
+			"echo": {
+				"class": "attack"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "claw_mastery",
+						"text": "Claw Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "venomous_star",
+						"text": "Venomous Star",
+						"effects": [
+							{
+								"stat": "status",
+								"op": "grant",
+								"status": "venomous_star"
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "lucky_eight",
+						"text": "Lucky Eight",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "lucky_eight",
+						"text": "Lucky Eight",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"drain": {
+			"skill_id": 4101005,
+			"book": "410",
+			"job": 410,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Drain",
+			"desc": "Throws a star and absorbs part of its damage as HP, capped at half your MaxHP and the monster's MaxHP.",
+			"icon": "Skill.wz/410.img/skill/4101005/icon",
+			"damage": "physical",
+			"_tier": "Tier A: weapon 47, damage, mpCon, x healing percent, effect, lowercase use sound; v83 text caps healing at character MaxHP/2 and target MaxHP. Tier C: nearest auto-cast, one star, 250px range, 1s cooldown, speed 600px/s, radius 8px, no base pierce, shoot1 held 0.6s; untuned. Whole healing points truncate. NL7 #406 (GAME_DESIGN 7.94.6): ported from thief.json with the default 30-level rank table (ranks 1/4/8 read levels 4/15/30), the claw's own swingO1 stance instead of shoot1 (ROSTER_PLAN D10, tier C), `echo` attack class, rarity bonuses.",
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 1,
+			"range": 250,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 0,
+			"ammo_shot": true,
+			"damage_heal": {
+				"percent_field": "x",
+				"max_hp_fraction": 0.5,
+				"target_max_hp": true
+			},
+			"text": {
+				"desc": "Throws a star and absorbs part of its damage as HP, capped at half your MaxHP and the monster's MaxHP.",
+				"h": "Damage {damage}%, absorb {x}% of damage as HP."
+			},
+			"action": "swingO1",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/410.img/skill/4101005/effect",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4101005/use",
+				"hit": ""
+			},
+			"echo": {
+				"class": "attack"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "claw_mastery",
+						"text": "Claw Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "claw_booster",
+						"text": "Claw Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "double_drain",
+						"text": "Double Drain",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "double_drain",
+						"text": "Double Drain",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			}
+		},
+		"avenger": {
+			"skill_id": 4111005,
+			"book": "411",
+			"job": 411,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Avenger",
+			"desc": "Hurls one giant star that pierces a line of monsters.",
+			"icon": "Skill.wz/411.img/skill/4111005/icon",
+			"damage": "physical",
+			"action": "avenger",
+			"action_time": 0.6,
+			"ball": "Skill.wz/411.img/skill/4111005/ball",
+			"hit": "",
+			"effect": "Skill.wz/411.img/skill/4111005/effect",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4111005/Use",
+				"hit": ""
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 3.5,
+			"range": 350,
+			"speed": 700,
+			"radius": 14,
+			"pierce": 0,
+			"pierce_field": "mobCount",
+			"echo": {
+				"class": "skill"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "claw_mastery",
+						"text": "Claw Mastery",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "stunning_avenger",
+						"text": "Stunning Avenger",
+						"effects": [
+							{
+								"stat": "status",
+								"op": "grant",
+								"status": "stunning_avenger"
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "deep_avenger",
+						"text": "Deep Avenger",
+						"effects": [
+							{
+								"stat": "pierce",
+								"op": "add",
+								"value": 2
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "deep_avenger",
+						"text": "Deep Avenger",
+						"effects": [
+							{
+								"stat": "pierce",
+								"op": "add",
+								"value": 2
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: WZ damage 65..180%, mobCount 4..6, action avenger, the 14-frame caster effect, the 72x72 rotating ball and the Use sound; the WZ has no range, no lt/rb and no hit art, and bulletConsume 3 is not modelled (endless ammo). Tier C (#406, GAME_DESIGN 7.94.6): the eight survivor ranks (levels 4..30 through the 30-level table), nearest auto-cast with its own ball (no ammo sprite), 3.5s cooldown, 350px range, 700px/s, 14px radius, `pierce_field` mobCount (the star strikes mobCount monsters, so it pierces mobCount - 1) with no falloff, 0.6s held stance, echo class skill, rarity bonuses (the Epic grants stunning_avenger). Untuned."
+		},
+		"triple_throw": {
+			"skill_id": 4121007,
+			"book": "412",
+			"job": 412,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Triple Throw",
+			"desc": "Throws three stars at one monster.",
+			"icon": "Skill.wz/412.img/skill/4121007/icon",
+			"damage": "physical",
+			"action": "swingO1",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/412.img/skill/4121007/hit/0",
+			"effect": "Skill.wz/412.img/skill/4121007/effect",
+			"rotate": true,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4121007/Use",
+				"hit": "Sound.wz/Skill.img/4121007/Hit"
+			},
+			"cast": {
+				"rule": "nearest",
+				"focus": true
+			},
+			"cooldown": 2.5,
+			"range": 300,
+			"speed": 650,
+			"radius": 8,
+			"pierce": 0,
+			"ammo_shot": true,
+			"echo": {
+				"class": "skill"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "critical_throw",
+						"text": "Critical Throw",
+						"effects": [
+							{
+								"stat": "crit",
+								"op": "add",
+								"value": 0.15
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "claw_booster",
+						"text": "Claw Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "fourth_star",
+						"text": "Fourth Star",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "fourth_star",
+						"text": "Fourth Star",
+						"effects": [
+							{
+								"stat": "count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: WZ damage 102..150% per star, bulletCount 3, weapon 47, hit/0 and the 6-frame effect, Use and Hit sounds; the WZ node has no action. Tier C (#406, GAME_DESIGN 7.94.6): the eight survivor ranks (levels 4..30), `cast.focus` (all three stars at the nearest monster, a scheduled boss first), 2.5s cooldown, 300px range, 650px/s, 8px radius, no pierce, the claw's own swingO1 stance held 0.6s (shoot1 hides the claw, ROSTER_PLAN D10), echo class skill, rarity bonuses. Untuned."
+		},
+		"shadow_partner": {
+			"skill_id": 4111002,
+			"book": "411",
+			"job": 411,
+			"kind": "summon",
+			"slot": "active",
+			"name": "Shadow Partner",
+			"desc": "Calls a shadow clone that follows you and throws every star skill again a moment later.",
+			"text": {
+				"desc": "Calls a shadow clone that follows you. A moment after you throw a star skill, the clone throws it again for part of its damage: more for Lucky Seven and Drain, less for the heavier star skills. Zones and the Ninja Storm do not echo.",
+				"h": "Echoes Lucky Seven and Drain at {x}% damage and Avenger, Triple Throw and Shadow Meso at {y}%, for {time} sec."
+			},
+			"icon": "Skill.wz/411.img/skill/4111002/icon",
+			"damage": "none",
+			"action": "alert",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/411.img/skill/4111002/effect",
+			"rotate": false,
+			"cast_visuals": [
+				{
+					"path": "Skill.wz/411.img/skill/4111002/effect0",
+					"x": 0,
+					"follow": true,
+					"facing": true
+				}
+			],
+			"cast": {
+				"rule": "summon"
+			},
+			"cooldown": 50.0,
+			"summon": {
+				"echo": {
+					"attack_field": "x",
+					"skill_field": "y",
+					"delay": 0.25,
+					"overshoot": 55.0,
+					"path": "Skill.wz/411.img/skill/4111002/special"
+				},
+				"follow_speed": 200.0,
+				"follow_distance": 55.0,
+				"teleport_distance": 600.0,
+				"ordinal_spread": 40.0
+			},
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4111002/Use"
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "shadow_power",
+						"text": "Shadow Power",
+						"effects": [
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "shadow_booster",
+						"text": "Shadow Booster",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "twin_shadow",
+						"text": "Twin Shadow",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "twin_shadow",
+						"text": "Twin Shadow",
+						"effects": [
+							{
+								"stat": "summon_count",
+								"op": "add",
+								"value": 1
+							},
+							{
+								"stat": "damage",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_tier": "Tier A: Skill.wz 4111002 x 20..80 (the echo percent of an `attack` star: Lucky Seven, Drain), y 21..50 (a `skill` star), time 60..180 s, action alert, the 16-frame effect, the 11-frame effect0 behind the avatar, the Use sound, and the `special` shadow frames (34 action sets, 98 canvases with origins and no delay). Tier C (#409, GAME_DESIGN 7.94.7, spec #383 M11): the 50 s cooldown (the 60 s minimum lifetime covers it), the echo delay 0.25 s, the echo overshoot 55 px (= the follow distance, ROSTER_PLAN D12, NL11 #410), follow speed 200 px/s, follow distance 55 px, teleport distance 600 px, clone spacing 40 px, the 0.8 s alert hold, no standalone item cost (the Summoning Rock is not modelled), damage \"none\" (a clone never strikes; the echo carries the owner's stars), the default 30-level rank table, rarity bonuses (Shadow Power scales the echo percent through the damage modifier; Twin Shadow is a second clone). Untuned."
+		}
+	}
+}

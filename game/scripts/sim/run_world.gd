@@ -100,8 +100,13 @@ const EVENT_FIELDS := {
 	"form_ended": ["skill", "skill_id", "reason"],
 	"mob_pulled": ["mob", "from", "pos"],
 	"meter_changed": ["id", "value", "max"],
+	# #403: the mesos that reached the wallet this tick (total and number of drops), by magnet, pet or the finale sweep.
+	# Only a job whose meter gains from it announces it (GAME_DESIGN 7.94), so every other job's event bytes stay as they were.
+	"meso_picked": ["amount", "count"],
 	"hp_spent": ["skill", "skill_id", "amount", "kind"],
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
+	# #405: a Flash Jump slid the airborne character horizontally from `from` to `to` (GAME_DESIGN 7.94.2); no damage.
+	"flash_jump": ["skill", "from", "to"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"player_restored": ["stat", "amount", "skill", "pos"],
 	# #352: a support summon's pulse fired (`skill` is the pulse's sub-skill, `slot` the summon's PlayerSummons slot).
@@ -168,6 +173,8 @@ const EVENT_FIELDS := {
 	"scroll_used": ["result", "scroll_id", "slot", "item_id"],
 	# #155: the held ranged weapon's endless ammo moved to a higher tier (family, previous and new Item.wz id, character level).
 	"ammo_upgraded": ["family", "from_item_id", "item_id", "level"],
+	# Spec #383 M11: an echo clone threw one repeated star (the skill echoed, the clone's summon slot, its hand, its facing).
+	"echo_cast": ["skill", "clone", "pos", "facing"],
 	# #192: a Gunslinger Grenade thrown (a cluster skill): the ball flies from the hand `from` to `to` in `seconds`; the blast art
 	# `burst` plays at `to` on arrival, when the sim strikes the mobs (the mob_hit events).
 	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
@@ -306,6 +313,9 @@ var revives: Array = []
 var runner: SkillRunner
 var _teleport_left := 0.0
 var _teleport_total := 0.0
+## Seconds until the next Flash Jump press is admitted (its `repeat_delay`) and the delay set by the last one.
+var _flash_left := 0.0
+var _flash_total := 0.0
 var progression: RunProgression
 var jobs: JobTree
 var upgrades: UpgradePool
@@ -544,6 +554,7 @@ func _init_drops_and_shots() -> void:
 func _init_skills_and_progression() -> void:
 	book = SkillBook.from_data(data.get("skills", {}), setup.get("skill_imgs", {}))
 	loadout = Loadout.new(book)
+	book.status_bonuses = balance.get("status_bonuses", {})
 	loadout.pierce_floor = projectiles.pierce_floor
 	var crit: Dictionary = balance.get("crit", {})
 	loadout.crit_chance = float(crit.get("chance", 0.0))
@@ -909,6 +920,7 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 	if after_stage.is_valid():
 		after_stage.call("pet")
 	var got := _step_pickups(dt)
+	meter.step(dt, events)
 	if after_stage.is_valid():
 		after_stage.call("pickups")
 	_touch()
@@ -929,6 +941,7 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 ## Drinks, then a same-map portal warp or ordinary movement, the view, and the player's timers.
 func _step_player(dt: float, input: MoveInput) -> void:
 	_teleport_left = maxf(0.0, _teleport_left - dt)
+	_flash_left = maxf(0.0, _flash_left - dt)
 	if input.drink_hp:
 		drink_potion("hp")
 	# tier C (#456): potions stay usable while stunned (v83 does not say); everything else reads an empty input, so
@@ -938,6 +951,7 @@ func _step_player(dt: float, input: MoveInput) -> void:
 	else:
 		input = _status_input(input)
 	_try_manual_buffs(input)
+	_try_flash_jump(input)
 	if not _try_input_dash(input) and not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
 		if flags & PlayerMotion.EV_JUMP:
@@ -1043,15 +1057,24 @@ func _is_teleport(key: String) -> bool:
 	return d is Dictionary and (d as Dictionary).has("teleport")
 
 
+func _is_flash_jump(key: String) -> bool:
+	var d: Variant = book.defs.get(key)
+	return d is Dictionary and (d as Dictionary).has("flash_jump")
+
+
 func _cooldown_left(key: String) -> float:
 	if _is_teleport(key):
 		return _teleport_left
+	if _is_flash_jump(key):
+		return _flash_left
 	return maxf(0.0, float(runner.cooldowns.get(key, 0.0)))
 
 
 func _cooldown_total(key: String) -> float:
 	if _is_teleport(key):
 		return _teleport_total
+	if _is_flash_jump(key):
+		return _flash_total
 	return float(runner.cooldown_totals.get(key, 0.0))
 
 
@@ -1070,6 +1093,42 @@ func _try_input_dash(input: MoveInput) -> bool:
 		if runner.cast_dash(self, key, side):
 			return true
 	return false
+
+
+## Owned Flash Jump key, or "" when the job has none.
+func flash_jump_skill() -> String:
+	for key: String in loadout.order:
+		if _is_flash_jump(key):
+			return key
+	return ""
+
+
+## Distance in px of the owned Flash Jump `key` at its rank now (rank = the round-level rule, never a card).
+func flash_jump_distance(key: String) -> float:
+	var config: Dictionary = book.def(key).flash_jump
+	return FlashJump.distance(config.distance, loadout.rank(key), book.max_rank(key))
+
+
+## A Flash Jump press (or hold): in the air the character slides horizontally to the pressed side (else its facing),
+## keeping its height; the ordinary movement of this tick still runs, so the fall goes on. Refused with nothing spent
+## and no event on the ground, on a ladder, a second time in one airborne period, within `repeat_delay`, or when the
+## lane is blocked. tier C: ours (#405).
+func _try_flash_jump(input: MoveInput) -> void:
+	if not input.skill_requested("flash_jump") or not FlashJump.admits(can_cast(), _flash_left):
+		return
+	var key := flash_jump_skill()
+	if key == "":
+		return
+	var side := FlashJump.side(input.dir(), player.facing)
+	var dest := player.flash_destination(side, flash_jump_distance(key), fhm, bounds)
+	if dest.is_empty():
+		return
+	var from := player.pos
+	player.flash_to(dest)
+	player.facing = side
+	_flash_left = float(book.def(key).flash_jump.repeat_delay)
+	_flash_total = _flash_left
+	emit("flash_jump", {"skill": key, "from": from, "to": player.pos})
 
 
 func _try_teleport(input: MoveInput) -> bool:
@@ -1200,6 +1259,9 @@ func _step_pickups(dt: float) -> int:
 
 func _credit_pickups() -> void:
 	mesos += pickups.step_mesos
+	if pickups.step_mesos > 0 and meter.listens("meso_picked"):
+		emit("meso_picked", {"amount": pickups.step_mesos, "count": pickups.step_meso_count})
+		meter.gain_amount("meso_picked", pickups.step_mesos, events)
 	for instance: Dictionary in pickups.collected_equipment:
 		equipment.inventory.append(instance)
 		equips_collected += 1
@@ -2080,6 +2142,10 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 			hit["push_side"] = int(st.push_side) # a dash's direction (Rush): the knock-back shoves along it
 		if st.has("burn_pulse"):
 			hit["burn_pulse"] = int(st.burn_pulse)
+		if st.has("status_grants"):
+			hit["status_grants"] = st.status_grants
+		if bool(st.get("echo", false)):
+			hit["echo"] = true
 		_on_player_hit(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
@@ -2091,6 +2157,8 @@ func add_hit_listener(listener: Callable) -> void:
 
 
 func _damage_heal_hit(slot: int, hit: Dictionary) -> void:
+	if hit.has("echo"):
+		return # an echo drains nothing: the clone is not the owner (docs/GAME_DESIGN.md 7.94.3)
 	var key := String(hit.skill)
 	var heal: Dictionary = book.def(key).get("damage_heal", {})
 	if heal.is_empty():
@@ -2250,6 +2318,15 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 				params["x"] = -cut
 				params["y"] = -cut
 			swarm.apply_status(slot, String(status.get("status", "")), params, events)
+	# tier C (#402): grant order is cast order; sub-100 chances each consume one stream-1 draw, even at zero.
+	for grant: Dictionary in hit.get("status_grants", []):
+		if float(grant.chance) >= 100.0 or rng.randf() * 100.0 < float(grant.chance):
+			var params := {"time": grant.time, "level": grant.level, "skill": key, "element": grant.element,
+				"preserve_pulse": true} # a re-roll keeps a running poison's pulse clock, as the ground zones do
+			for field: String in ["x", "y", "pulse"]:
+				if grant.has(field):
+					params[field] = grant[field]
+			swarm.apply_status(slot, String(grant.kind), params, events)
 	var knockback: Dictionary = book.def(key).get("knockback", {})
 	if not knockback.is_empty() and not swarm.mob_kind(slot).boss and swarm.steady[slot] == 0:
 		# tier C: one stream-1 roll per struck non-boss, including the 0/100% endpoints; a block without a chance field
@@ -2257,8 +2334,13 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 		var always: bool = not knockback.has("chance_field")
 		if always or rng.randf() * 100.0 < book.canonical(key, level, String(knockback.chance_field)):
 			# `direction: "dash"` shoves along the dash that hit it instead of away from the player's final position.
-			swarm.knockback(slot, player.pos.x, float(knockback.get("distance", 0.0)), fhm, bounds,
+			# `distance_by_rank` (Ninja Storm, spec #383 NL8) reads the owner's current rank; the scalar `distance` is unchanged.
+			var distance := Loadout.knockback_distance_at(knockback, loadout.rank(key))
+			swarm.knockback(slot, player.pos.x, distance, fhm, bounds,
 				int(hit.get("push_side", 0)) if String(knockback.get("direction", "")) == "dash" else 0)
+			if knockback.has("effect"):
+				# tier C: ours (NL8), the pushed monster's status art (Ninja Storm's `mob`), played once where it landed.
+				emit("skill_mob_effect", {"skill": key, "mob": slot, "pos": mob_center(slot), "effect": String(knockback.effect)})
 	for listener: Callable in _hit_listeners:
 		listener.call(slot, hit)
 

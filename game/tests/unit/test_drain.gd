@@ -76,27 +76,20 @@ func test_other_skills_do_not_heal() -> void:
 	assert_eq(w.player_state.hp, 1)
 
 
-func test_assassin_cards_learn_rank_and_add_three_pierce_steps() -> void:
+func test_the_standalone_drain_cards_are_gone_and_the_ported_skill_has_eight_ranks() -> void:
+	# #406: Drain moved into the Night Lord line with the default 30-level rank table; its bonuses are rarity entries.
+	# NL12 #411: Night Lord is playable, so the pool generates the standard new / rank cards of every playable job's pool
+	# (no explicit data card, no power-up text); the old explicit drain_pierce card stays gone.
 	var w := _world()
-	assert_false("drain_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
-	w.upgrades.apply("drain_new", w)
-	assert_eq(w.loadout.rank("drain"), 1)
-	w.upgrades.apply("drain_rank", w)
-	assert_eq(w.loadout.level("drain"), 2)
-	for step in range(1, 4):
-		assert_false("drain_pierce" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
-		RF.add_modifier_effects(w, w.upgrades.card("drain_pierce"))
-		assert_eq(w.loadout.stats("drain").pierce, step)
-	assert_false("drain_pierce" in w.upgrades.eligible(w))
-	w.loadout.set_rank("drain", 30)
-	assert_false("drain_rank" in w.upgrades.eligible(w))
-	for job in [400, 420]:
-		w = _world()
-		w.progression.job_id = job
-		assert_false(w.upgrades.is_eligible(w.upgrades.card("drain_new"), w))
-		w.learn_skill("drain")
-		for id in ["drain_rank", "drain_pierce"]:
-			assert_false(w.upgrades.is_eligible(w.upgrades.card(id), w))
+	assert_true(w.upgrades.card("drain_pierce").is_empty(), "drain_pierce is gone")
+	for id in ["drain_new", "drain_rank"]:
+		var c: Dictionary = w.upgrades.card(id)
+		assert_false(c.is_empty(), id + " is the pool-generated card of the playable Night Lord")
+		assert_eq(String(c.get("skill", "")), "drain")
+		assert_eq(String(c.get("desc", "")), "+1 rank", id + " is the generic pool card, not an explicit data card")
+	assert_eq(w.book.max_rank("drain"), 8)
+	assert_eq(w.book.canonical_level("drain", 1), 4)
+	assert_eq(w.book.canonical_level("drain", 8), 30)
 
 
 func test_drain_uses_the_current_star_at_every_assassin_tier_and_casts_with_any_weapon() -> void:
@@ -129,15 +122,14 @@ func test_drain_uses_the_current_star_at_every_assassin_tier_and_casts_with_any_
 func test_one_piercing_star_heals_per_impact_using_launch_rank_and_resolved_physical_damage() -> void:
 	var w := _world()
 	w.learn_skill("drain")
-	w.loadout.set_rank("drain", 30)
-	for step in 3:
-		RF.add_modifier_effects(w, w.upgrades.card("drain_pierce"))
+	w.loadout.set_rank("drain", 8)
+	w.loadout.add_skill_mod("drain", "pierce", "add", 3) # three extra impacts (the card is gone; a modifier is the seam)
 	for x in [480, 495, 510, 525]:
 		var target := RF.put_mob(w, 1110100, x, 190, 1000)
 		w.mob_kinds[w.swarm.kind[target]].pdd = 20
 	w.step(DT, MoveInput.new())
 	assert_eq(w.projectiles.active_count(), 1)
-	w.loadout.set_rank("drain", 1) # the flying star retains rank30
+	w.loadout.set_rank("drain", 1) # the flying star retains rank 8 (level 30)
 	w.runner.cooldowns.drain = 60
 	for tick in 30:
 		w.step(DT, MoveInput.new())

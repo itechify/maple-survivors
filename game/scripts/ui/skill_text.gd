@@ -132,7 +132,10 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("meter"):
 		# The meter's unit word: a finisher may name it ("energy"); Hero's finishers keep "orbs".
 		var unit := book.meter_unit(key)
-		mechanics.append("Needs %d %s" % [int(def.meter.get("min", 0)), unit])
+		if def.meter.has("read_per_unit"):
+			mechanics.append("+%s%% damage per %s held" % [number(float(def.meter.read_per_unit) * 100.0), unit])
+		if def.meter.has("min"):
+			mechanics.append("Needs %d %s" % [int(def.meter.min), unit])
 		var keep := int(stats.get("meter_keep", 0))
 		if str(def.meter.get("spend", "")) == "all":
 			mechanics.append("Spends all %s" % unit if keep <= 0 else "Spends all but %d %s; Keeps %d %s" % [keep, unit, keep, unit])
@@ -142,6 +145,13 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("knockback"):
 		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
 			number(float(stats.get("knockback_distance", 0.0)))])
+	if stats.has("flash_distance"):
+		mechanics.append("Flash: %s px" % number(float(stats.flash_distance)))
+	if def.has("ground") and GroundStrike.is_strike(def.ground):
+		var cadence := GroundStrike.spec(def.ground)
+		var struck := int(stats.get("mob_count", 1))
+		mechanics.append("Strikes up to %d %s every %s s for %s s" % [struck, "monster" if struck == 1 else "monsters",
+			number(float(cadence.interval)), number(book.canonical(key, level, "time"))])
 	if def.has("pierce_field"):
 		var through := int(stats.get("pierce", 0))
 		mechanics.append("Pierces up to %d more %s" % [through, "monster" if through == 1 else "monsters"])
@@ -179,6 +189,8 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		# tier C (ours, BS8): the second-life line, the numbers of the plan PlayerRevive resolves.
 		mechanics.append("When a hit would kill you: return at %s%% HP, %s s guard; recharge %s" % [
 			number(float(revive.hp) * 100.0), number(float(revive.guard)), clock(SkillRunner.restart_cooldown(stats))])
+	for grant: Dictionary in stats.get("status_grants", []):
+		mechanics.append(StatusBonus.line(grant, book.status_bonuses))
 	if not mechanics.is_empty():
 		# Parts are joined with "; ", except after the sentence that ends a Transform line.
 		var joined := ""
@@ -406,3 +418,4 @@ static func _form_sub_label(book: SkillBook, skill: String) -> String:
 		var key := String(sub.skill)
 		names.append(String(book.def(key).get("name", key.replace("_", " ").capitalize())))
 	return " / ".join(names) if not names.is_empty() else "Sub-skill"
+

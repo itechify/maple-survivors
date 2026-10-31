@@ -47,6 +47,16 @@ var ranks := {}
 var order: Array = []
 ## skill key -> {stat: Vector2(add, mul)}.
 var skill_mods := {}
+## The status-bonus catalogue of all job lines; the SkillBook owns it (the Skill window text reads it there too).
+var status_bonuses: Dictionary:
+	get:
+		return book.status_bonuses
+	set(value):
+		book.status_bonuses = value
+## Skill key -> ordered catalogue ids of the status grants taken (separate from the numeric mods).
+var grants := {}
+## Skill key -> {catalogue id: additive repeat chance points} (StatusBonus.repeat_points).
+var grant_chances := {}
 ## stat -> Vector2(add, mul) for player-wide stats (max_hp, speed, magnet, hp_regen, pdd, damage, crit).
 var player_mods := {}
 ## Upgrade card id -> consumed rank/modifier steps (one per learned skill card), respecting its maximum.
@@ -155,6 +165,8 @@ func clone() -> Loadout:
 	c.ranks = ranks.duplicate()
 	c.order = order.duplicate()
 	c.skill_mods = skill_mods.duplicate(true)
+	c.grants = grants.duplicate(true)
+	c.grant_chances = grant_chances.duplicate(true)
 	c.player_mods = player_mods.duplicate(true)
 	c.card_ranks = card_ranks.duplicate()
 	c.int_stat = int_stat
@@ -293,10 +305,21 @@ func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 	return out
 
 
+## The knock-back distance of a `knockback` block at survivor rank `rank_value`: the block's `distance_by_rank` list (one
+## value per rank, the last one past its end, rank 1 for an unowned skill) when it has one, else its scalar `distance`
+## (0 for a block with neither). tier C: ours (spec #383 NL8, GAME_DESIGN 7.94.8); every other field of the block is unchanged.
+static func knockback_distance_at(block: Dictionary, rank_value: int) -> float:
+	var by_rank: Variant = block.get("distance_by_rank")
+	if by_rank is Array and not (by_rank as Array).is_empty():
+		return float(by_rank[clampi(rank_value - 1, 0, (by_rank as Array).size() - 1)])
+	return float(block.get("distance", 0.0))
+
+
 ## Fully resolved numbers of skill `key` at its owned rank, or at `at_rank` when > 0 (a preview of another rank with
 ## the same modifiers; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type (fixed/magic/physical/none), attack_kind (swing/stab/shoot/""),
-## defense (pdd/mdd/none), damage_pct (physical skill% / 100, otherwise 1), damage_min/max (before mob defence,
+## defense (pdd/mdd/none), damage_pct (physical skill% / 100, otherwise 1; a `damage_basis` skill reads `canonical(field) x scale / 100`
+## and also reports damage_percent, the same number x 100), damage_min/max (before mob defence,
 ## after survivor multipliers; physical bounds are also before skill%), magic (bool), element, attack_count (canonical
 ## attackCount plus skill modifiers, damage lines per target),
 ## crit, crit_mult, speed_factor (attack speed: the fraction of the data's cooldown and action time left), cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
@@ -307,7 +330,7 @@ func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
 ## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance, pull_chance (percent)/pull_gap (px; docs/GAME_DESIGN.md 7.35) and pierce_falloff,
 ## burn_pulse / burn_time / burn_share (only a skill whose on_hit status is burn; docs/GAME_DESIGN.md 7.43),
-## `support` (SupportSummons.resolve pulses),
+## `support` (SupportSummons.resolve pulses), flash_distance (px of a `flash_jump` skill at this rank; FlashJump.distance),
 ## heal_power (Heal's recovery multiplier, 1.0 without the card; docs/GAME_DESIGN.md 7.83) and heal_threshold (the resolved
 ## fraction of max HP below which Heal restores: the data's `hp_threshold` plus the card, capped at HEAL_THRESHOLD_CAP; 0 for
 ## a skill without a `heal` block),
@@ -395,8 +418,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"damage_type": dtype,
 		"attack_kind": attack_kind,
 		"defense": "pdd" if dtype == "physical" else "mdd" if dtype == "magic" else "none",
-		"damage_pct": book.canonical(key, lv, String(blast.get("damage_field", "damage")), 100.0) / 100.0
-			if dtype == "physical" else 1.0,
+		"damage_pct": _damage_pct(key, d, lv, dtype, blast),
 		"status_damage_mult": dmg_mult,
 		"damage_min": lo,
 		"damage_max": hi,
@@ -421,7 +443,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		# No chance field = the knock-back always applies (Rush, tier C #302).
 		"knockback_chance": (book.canonical(key, lv, String(d.knockback.chance_field)) if d.knockback.has("chance_field") else 100.0)
 			if d.has("knockback") else 0.0,
-		"knockback_distance": float(d.get("knockback", {}).get("distance", 0.0)),
+		"knockback_distance": knockback_distance_at(d.get("knockback", {}), r),
 		"pull_chance": book.canonical(key, lv, String(d.pull.get("chance_field", "")), 100.0) if d.has("pull") else 0.0,
 		"pull_gap": float(d.pull.get("min_gap", 0.0)) if d.has("pull") else 0.0,
 		"blast_targets": maxi(1, roundi(skill_stat(key, "blast_targets", book.canonical(key, lv, "mobCount", 1.0))))
@@ -474,6 +496,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	_add_pierce_field(resolved, key, d, lv)
 	_add_mark(resolved, key, d, lv)
 	_add_hull(resolved, key, d, lv)
+	if d.has("damage_basis"):
+		resolved["damage_percent"] = roundf(float(resolved.damage_pct) * 100.0 * 100.0) / 100.0
 
 	if d.has("form"):
 		resolved["duration"] = float(d.form.duration) * skill_stat(key, "form_time", 1.0)
@@ -484,6 +508,10 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 
 	if d.has("revive"):
 		resolved["revive"] = _revive(key, d.revive)
+	if d.has("flash_jump"):
+		# tier C (#405): the flash's reach at this rank, for the Skill window (RunWorld.flash_jump_distance reads the same).
+		resolved["flash_distance"] = FlashJump.distance(d.flash_jump.distance, r, book.max_rank(key))
+	_add_status_grants(resolved, key, r)
 	return resolved
 
 
@@ -537,6 +565,20 @@ func _add_burn(resolved: Dictionary, key: String, d: Dictionary, lv: int) -> voi
 	resolved["burn_pulse"] = BurnStatus.pulse(float(resolved.damage_min), float(resolved.damage_max), share, mult)
 	resolved["burn_time"] = book.canonical(key, lv, String(on_hit.get("duration_field", "time")), 0.0)
 	resolved["burn_share"] = share * maxf(0.0, mult)
+
+
+## The skill percent of a physical hit as a multiplier (1.0 = 100%; 1 for any other damage type): the level's `damage` field (or
+## the blast's `damage_field`), 100 when the level has none. A definition with `damage_basis {field, scale}` and no such field on
+## its level takes `canonical(field) x scale / 100` instead (Shadow Meso's `moneyCon` x 0.6, tier C, spec #383 NL9); a level that
+## does carry the damage field keeps it, so the key never overrides a WZ number.
+func _damage_pct(key: String, d: Dictionary, lv: int, dtype: String, blast: Dictionary) -> float:
+	if dtype != "physical":
+		return 1.0
+	var field := String(blast.get("damage_field", "damage"))
+	var basis: Variant = d.get("damage_basis")
+	if basis is Dictionary and not book.level_node(key, lv).has(field):
+		return book.canonical(key, lv, String(basis.field)) * float(basis.get("scale", 1.0)) / 100.0
+	return book.canonical(key, lv, field, 100.0) / 100.0
 
 
 ## A definition with `pierce_field` (a level field, Dragon's Breath "mobCount") pierces one monster fewer than the field says:
@@ -697,3 +739,23 @@ func sub_stats(sub: String, parent: Dictionary, rank: int) -> Dictionary:
 	lo.add_skill_mod(sub, "damage", "mul", float(parent.get("form_sub_damage", 1.0)))
 	lo.add_skill_mod(sub, "area", "mul", float(parent.get("form_sub_area", 1.0)))
 	return lo.stats(sub, rank)
+
+
+## Awards a status once in learning order; later awards add scaled chance points without numeric skill modifiers.
+func add_status_grant(key: String, id: String, scale: float = 1.0) -> void:
+	if not status_bonuses.has(id):
+		return
+	if not grants.has(key):
+		grants[key] = []
+		grant_chances[key] = {}
+	if id in grants[key]:
+		grant_chances[key][id] = float(grant_chances[key].get(id, 0.0)) + StatusBonus.repeat_points(status_bonuses[id], scale)
+	else:
+		grants[key].append(id)
+	version += 1
+
+
+func _add_status_grants(resolved: Dictionary, key: String, r: int) -> void:
+	if grants.get(key, []).is_empty():
+		return
+	resolved["status_grants"] = StatusBonus.resolve(status_bonuses, grants[key], r, grant_chances[key])

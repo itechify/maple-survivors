@@ -94,6 +94,10 @@ rush={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"physical_keycode":88)]
 }
+flash_jump={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":88)]
+}
 stat_window={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"physical_keycode":83)]

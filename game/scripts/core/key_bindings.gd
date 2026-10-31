@@ -15,9 +15,9 @@ extends RefCounted
 const BINDABLE := ["jump", "drink_hp", "equip_window", "item_window", "stat_window", "skill_window",
 	"npc_chat"]
 ## Every skill key there is: the id a manual skill names in its `skill_key` field is also its input action, with the
-## project defaults in project.godot (Teleport, Dash and Rush all X: a character never learns two of them). Key Config only lists
+## project defaults in project.godot (Teleport, Dash, Rush and Flash Jump all X: a character never learns two of them). Key Config only lists
 ## the ones the character has learned. A new manual skill adds its id here and an action in project.godot.
-const SKILL_KEYS := ["teleport", "dash", "rush"]
+const SKILL_KEYS := ["teleport", "dash", "rush", "flash_jump"]
 ## Fixed actions (shown on their keys, never rebound) -> the label the window shows: Esc and the card keys keep their
 ## project keys; movement uses the movement set (see fixed_keys()).
 const FIXED_LABELS := {"pause": "Menu", "choice_1": "Card 1", "choice_2": "Card 2", "choice_3": "Card 3"}
