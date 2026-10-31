@@ -859,7 +859,7 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ### Korean Folk Town (C3) regression smoke and diagnostic round (#465, 2026-10-30)
 
-Spec #447 branch with the Korean Folk Town region (step 8 of the spec; step 7 while Omega Sector is unmerged), private cache,
+Spec #447 branch with the Korean Folk Town region (step 8 of the spec, after Omega Sector at step 7), private cache,
 F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood with
 the starter wand and with `fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 /
 646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 /
