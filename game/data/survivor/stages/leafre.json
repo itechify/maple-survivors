@@ -8,7 +8,7 @@
 	"hard_cap": 400,
 	"_bosses": "Tier C: owner schedule (Manon, Griffey, Leviathan; spec #449); hp_mult, dmg_mult and attack_dmg_mult are the first draft of game/tools/level_scale_draft.gd (--step=13 --stage=leafre), not tuned. 8 s per-attack cadence as every boss. Canonical attacks, timing, stats and elements stay in Mob.wz. All bosses and reward choices must finish to clear.",
 	"map_seconds": 300,
-	"_maps": "Tier C: owner map order and pool rules, spec #449. Each boss time is relative to map entry. Map 1 is a hand-written curve pool of its own roster (Blue Kentaurus alone). Map 2 uses its v83 life list (Rexton, Green Cornian). Map 3 uses its life list (Skelegon 2 in Cave, T-Skelegon in Cave: the cave's whole roster; both are hideName instance mobs with a mobTime of 1 and -1, kept because the cave holds nothing else). Manon's and Griffey's native forests are 1530 x 90 strips and Leviathan's canyon is an 806 x 1347 vertical shaft, so they fight in the Kentaurus field, Dragon Forest II and the Cave of Light instead.",
+	"_maps": "Tier C: owner map order and pool rules, spec #449. Each boss time is relative to map entry. Map 1 is a hand-written curve pool of its own roster (Blue Kentaurus alone). Map 2 uses its v83 life list (Rexton, Green Cornian). Map 3 has an explicit pool, not its life list: the Cave of Light's only monsters are Skelegon 2 in Cave 9300076 and T-Skelegon in Cave 9300077, hideName instance copies with an EXP of 1500 (against 4500 and 4750 for the real mobs), which the spec's rule excludes. It takes the real Skelegon 8190003 (Lv110) and Skelosaurus 8190004 (Lv113) of the Nest of a Dead Dragon, the same Lv110-113 skeletons the cave's copies are, weighted 11 : 6 as Nest of a Dead Dragon 240040510 spawns them. Manon's and Griffey's native forests are 1530 x 90 strips and Leviathan's canyon is an 806 x 1347 vertical shaft, so they fight in the Kentaurus field, Dragon Forest II and the Cave of Light instead.",
 	"maps": [
 		{
 			"map_id": 240020400,
@@ -25,7 +25,7 @@
 				],
 				"attack_interval": 8,
 				"attack_dmg_mult": 0.661,
-				"_tier": "tier C (#470): first draft of level_scale_draft.gd --step=13 --stage=leafre, not tuned: arrives at curve time 300 (E_sw 10.80, level 34.80); attack1, attack2 and attack3 (all type 0, physical; attack1 and attack2 deadly) are matched on PAD (550); 8 s cadence. Manon's kit is empty: no MobSkill, three plain attacks, as written in Mob.wz"
+				"_tier": "tier C (#470): first draft of level_scale_draft.gd --step=13 --stage=leafre, not tuned: arrives at curve time 300 (E_sw 10.80, level 34.80); attack1, attack2 and attack3 (all type 0, magic = 1; attack1 is fire and deadly) are matched on MAD (680); 8 s cadence. Manon's kit is empty: no MobSkill, three plain attacks, as written in Mob.wz"
 			}
 		},
 		{
@@ -43,12 +43,12 @@
 				],
 				"attack_interval": 8,
 				"attack_dmg_mult": 0.698,
-				"_tier": "tier C (#470): first draft of level_scale_draft.gd --step=13 --stage=leafre, not tuned: arrives at curve time 600 (E_sw 36.44, level 60.44); attack1, attack2 and attack3 (all type 0, physical) are matched on PAD (550); 8 s cadence. Griffey's kit is empty: no MobSkill, three plain attacks, as written in Mob.wz"
+				"_tier": "tier C (#470): first draft of level_scale_draft.gd --step=13 --stage=leafre, not tuned: arrives at curve time 600 (E_sw 36.44, level 60.44); attack1, attack2 and attack3 (all type 0, magic = 1; attack2 is deadly, attack3 lightning) are matched on MAD (680); 8 s cadence. Griffey's kit is empty: no MobSkill, three plain attacks, as written in Mob.wz"
 			}
 		},
 		{
 			"map_id": 240050300,
-			"pool_from_life": true,
+			"pool": {"8190003": 11, "8190004": 6},
 			"boss": {
 				"time": 300,
 				"mob_id": 8220003,
@@ -60,7 +60,7 @@
 				],
 				"attack_interval": 8,
 				"attack_dmg_mult": 1.815,
-				"_tier": "tier C (#470): first draft of level_scale_draft.gd --step=13 --stage=leafre, not tuned: arrives at curve time 900 (E_sw 56.85, level 80.85); attack1 and attack2 (both type 0, physical; attack2 knocks back and jump-attacks) are matched on PAD (620); 8 s cadence. Its kit (Confuse 132/2 and Weakness 122/3, both B3; Wyvern summons 200/89-91 at 80, 50 and 30 percent HP, MobSkill 200 through StageRoster) runs as written in Skill.wz"
+				"_tier": "tier C (#470): first draft of level_scale_draft.gd --step=13 --stage=leafre, not tuned: arrives at curve time 900 (E_sw 56.85, level 80.85); attack1 and attack2 (both type 0, magic = 1; attack1 is ice, attack2 fire, knocks back and jump-attacks) are matched on MAD (710); 8 s cadence. Its kit (Confuse 132/2 and Weakness 122/3, both B3; Wyvern summons 200/89-91 at 80, 50 and 30 percent HP, MobSkill 200 through StageRoster) runs as written in Skill.wz"
 			}
 		}
 	],

@@ -9,11 +9,14 @@ const MAPS := [240020400, 240030200, 240050300]
 const BOSSES := [8180000, 8180001, 8220003]
 ## Leviathan's MobSkill 200 summons (levels 89, 90, 91): Red, Blue and Dark Wyvern.
 const WYVERNS := [8150300, 8150301, 8150302]
-## Ordinary mobs by map: Blue Kentaurus (Lv88), Rexton (95), Green Cornian (100), Skelegon 2 in Cave (110), T-Skelegon in Cave (113).
-const POOL_MOBS := [8140103, 8140702, 8150200, 9300076, 9300077]
+## Ordinary mobs by map: Blue Kentaurus (Lv88), Rexton (95), Green Cornian (100), Skelegon (110), Skelosaurus (113).
+const POOL_MOBS := [8140103, 8140702, 8150200, 8190003, 8190004]
+## The Cave of Light's own life list: hideName instance copies of the Skelegons with a third of the EXP (1500 against 4500 and
+## 4750); the spec's rule excludes them, so map 3 has an explicit pool of the real mobs instead.
+const CAVE_COPIES := [9300076, 9300077]
 ## The Etc drops used as EXP pickups, by mob.
 const EXP_ITEMS := {8140103: 4000233, 8140702: 4000264, 8150200: 4000266, 8150300: 4000268, 8150301: 4000269,
-	8150302: 4000270, 8180000: 4000235, 8180001: 4000243, 8220003: 4000268, 9300076: 4000274, 9300077: 4000274}
+	8150302: 4000270, 8180000: 4000235, 8180001: 4000243, 8220003: 4000268, 8190003: 4000274, 8190004: 4000273}
 ## The attack stances each boss schedules.
 const ATTACKS := [["attack1", "attack2", "attack3"], ["attack1", "attack2", "attack3"], ["attack1", "attack2"]]
 ## MobSkill ids per boss in the v83 data (sorted): all supported (Leviathan's 132 and 122 are B3's, 200 is the summons).
@@ -42,7 +45,7 @@ func test_the_stage_is_in_the_progression_with_the_leafre_fields() -> void:
 	assert_eq(DataRepo.stage_map_errors(data.stages), PackedStringArray())
 
 
-func test_three_maps_with_pool_rules_and_no_exclusions() -> void:
+func test_three_maps_with_pool_rules_and_an_explicit_cave_pool() -> void:
 	assert_eq(stage.get("map_seconds"), 300)
 	var maps: Array = stage.get("maps", [])
 	assert_eq(maps.size(), 3)
@@ -52,7 +55,9 @@ func test_three_maps_with_pool_rules_and_no_exclusions() -> void:
 		assert_false(maps[i].has("exclude"), "map %d lists no pool ids to exclude" % (i + 1))
 	assert_eq(maps[0].pool, "curve", "map 1 is a hand-written curve pool")
 	assert_true(bool(maps[1].get("pool_from_life", false)), "map 2 takes its life list")
-	assert_true(bool(maps[2].get("pool_from_life", false)), "map 3 takes its life list")
+	assert_false(maps[2].has("pool_from_life"), "map 3 does not take the cave's instance copies")
+	assert_eq(maps[2].pool, {"8190003": 11.0, "8190004": 6.0}, "Skelegon and Skelosaurus, as Nest of a Dead Dragon spawns them")
+	assert_true(String(stage.get("_maps", "")).contains("hideName"), "the map note says why the life list is not used")
 	assert_true(String(stage.get("_maps", "")).contains("1530"), "the map note records the rejected native strips")
 
 
@@ -139,7 +144,7 @@ func test_every_mob_has_an_exp_item_that_the_manifest_imports() -> void:
 		assert_has(manifest.items, float(EXP_ITEMS[id]), "EXP art %d is imported" % EXP_ITEMS[id])
 	for id: int in DataRepo.stage_mob_ids(data, KEY):
 		assert_true(EXP_ITEMS.has(id), "stage mob %d is a known Leafre mob" % id)
-	var ranges := {8140103: [578, 866], 8140702: [672, 1008], 8150200: [739, 1109], 9300076: [874, 1310], 9300077: [914, 1370]}
+	var ranges := {8140103: [578, 866], 8140702: [672, 1008], 8150200: [739, 1109], 8190003: [874, 1310], 8190004: [914, 1370]}
 	for id: int in ranges:
 		var mesos: Array = data.mobs.mobs[str(id)].get("mesos", [])
 		assert_eq(mesos.size(), 2, "mob %d meso range" % id)
@@ -149,6 +154,9 @@ func test_every_mob_has_an_exp_item_that_the_manifest_imports() -> void:
 		assert_false(data.mobs.mobs[str(id)].has("mesos"), "boss or summon %d uses the level fallback" % id)
 		assert_false(data.mobs.mobs[str(id)].has("boss_ui"), "%d: its MobGage icon and hpTag are canonical" % id)
 		assert_false(data.mobs.mobs[str(id)].has("banish_message"), "%d casts no Banish" % id)
+	for id: int in CAVE_COPIES:
+		assert_false(data.mobs.mobs.has(str(id)), "the instance copy %d is not a Leafre mob" % id)
+		assert_false(fragment.mobs.has(float(id)), "the fragment does not import the instance copy %d" % id)
 	var last := -1
 	for key: String in data.mobs.mobs.keys():
 		if EXP_ITEMS.has(int(key)):
@@ -156,12 +164,13 @@ func test_every_mob_has_an_exp_item_that_the_manifest_imports() -> void:
 			last = int(key)
 
 
-func test_pools_resolve_to_the_maps_own_life_lists() -> void:
+func test_pools_resolve_and_the_cave_uses_real_monsters() -> void:
 	if not require_cache():
 		return
 	var lib := AssetLibrary.new()
 	lib.open()
 	var life_want := [{8140103: 22.0}, {8140702: 10.0, 8150200: 6.0}, {9300077: 6.0, 9300076: 15.0}]
+	var pool_want := [{8140103: 22.0}, {8140702: 10.0, 8150200: 6.0}, {8190003: 11.0, 8190004: 6.0}]
 	for i in MAPS.size():
 		var img := lib.img(DataRepo.map_img_path(MAPS[i]))
 		if img == null:
@@ -170,9 +179,21 @@ func test_pools_resolve_to_the_maps_own_life_lists() -> void:
 			return
 		assert_eq(StagePools.resolve({"pool_from_life": true}, img.root), life_want[i], "map %d v83 life counts" % (i + 1))
 		if i > 0:
-			assert_eq(StagePools.resolve(stage.maps[i], img.root), life_want[i], "map %d pool" % (i + 1))
-		for id: int in life_want[i]:
+			assert_eq(StagePools.resolve(stage.maps[i], img.root), pool_want[i], "map %d pool" % (i + 1))
+		for id: int in pool_want[i]:
 			assert_true(lib.img("Mob.wz/%07d.img" % id) != null, "mob %d is imported" % id)
+	# The real skeletons are Lv105-115 and pay far more EXP than the cave's instance copies (the reason for the explicit pool).
+	for id: int in [8190003, 8190004]:
+		var info: Dictionary = lib.img("Mob.wz/%07d.img" % id).root.info
+		assert_between(float(info.level), 105.0, 115.0, "%d is a Lv105-115 mob" % id)
+		assert_true(float(info.exp) >= 4500.0, "%d pays its canonical EXP" % id)
+	for id: int in CAVE_COPIES:
+		var copy := lib.img("Mob.wz/%07d.img" % id)
+		if copy == null:
+			continue # imported only as the map's life, when the manifest still does so
+		var info: Dictionary = copy.root.info
+		assert_eq(float(info.exp), 1500.0, "the instance copy %d pays a third of the real EXP" % id)
+		assert_eq(float(info.get("hideName", 0)), 1.0, "%d is a hideName instance mob" % id)
 	lib.free()
 
 
@@ -208,6 +229,7 @@ func test_each_boss_skill_resolves_to_a_supported_id() -> void:
 		for attack: String in ATTACKS[i]:
 			assert_true(img.root.has(attack), "%d has %s" % [id, attack])
 			assert_true(int(img.root[attack].info.type) in [0, 1, 2], "%d %s is a supported attack type" % [id, attack])
+			assert_eq(int(img.root[attack].info.get("magic", 0)), 1, "%d %s is a magic attack (matched on MAD)" % [id, attack])
 	# Leviathan's three Summon levels name the Wyverns, all present in v83 (no ABSENT_IN_V83 entry is needed).
 	var extras := StageRoster.boss_extra_ids(lib.img("Mob.wz/8220003.img").root, table.root)
 	assert_eq(Array(extras), WYVERNS, "Leviathan summons the Red, Blue and Dark Wyvern")
