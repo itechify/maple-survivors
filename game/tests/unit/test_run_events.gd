@@ -5,6 +5,7 @@ extends TestCase
 
 const SSF := preload("res://tests/fixtures/support_summon_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const BF := preload("res://tests/fixtures/boss_attack_fixtures.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const RV := preload("res://tests/fixtures/revive_fixtures.gd")
 const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
@@ -16,7 +17,7 @@ const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id", "hp", "pushed", "absorbed", "mount"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
-const STRING_FIELDS := ["element", "reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message"]
+const STRING_FIELDS := ["element", "reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message", "art"]
 
 
 
@@ -46,6 +47,8 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			fail("%s.velocity is not Vector2" % type)
 		elif k == "area" and not (v is Rect2):
 			fail("%s.area is not Rect2" % type)
+		elif k == "anchors" and not (v is PackedVector2Array):
+			fail("%s.anchors is not PackedVector2Array" % type)
 		elif (k == "slot" and type.begins_with("summon_")) and typeof(v) != TYPE_INT:
 			fail("%s.slot is not int" % type)
 		elif k in INT_FIELDS and typeof(v) != TYPE_INT:
@@ -469,6 +472,21 @@ func test_every_event_matches_the_schema() -> void:
 			for event: Dictionary in beholder.drain_events():
 				if event.type in ["support_pulse", "buff_cast", "player_restored"]:
 					_check(event, seen)
+		if type == "area_attack":
+			var columns := RunWorld.new(BF.area_setup())
+			for tick in 240:
+				columns.step(DT, MoveInput.new())
+			for event: Dictionary in columns.drain_events():
+				_check(event, seen)
+		if type == "hazard_spawned" or type == "hazard_status":
+			# #459: a poison mist cast on the Snowman-shaped synthetic level, then the character stands in it.
+			var mist_test := preload("res://tests/unit/test_poison_mist.gd").new()
+			var misty: RunWorld = mist_test._world("S", 4.0)
+			mist_test._ticks(misty, 1800)
+			RF.place_player(misty, 620)
+			mist_test._ticks(misty, 2)
+			for event: Dictionary in misty.drain_events():
+				_check(event, seen)
 		if type == "player_banished":
 			var shaded := SF.world()
 			for tick in 15 * 60:

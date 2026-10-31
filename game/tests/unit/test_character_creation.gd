@@ -48,7 +48,7 @@ func test_creation_choices_become_worn_equipment_and_are_what_is_drawn() -> void
 	assert_eq(character.equipment.worn.weapon, {"id": 1372005, "stats": {"incPAD": 15, "incMAD": 23}, "slots": 7,
 		"scrolls": 0}, "the job's creation weapon, with its plain WZ stats")
 	assert_eq(character.job_id, 212)
-	assert_eq(character.tiers_unlocked, 1)
+	assert_eq(character.cleared_regions, [])
 	assert_eq(character.equipment.worn.shoes.slots, 5)
 	assert_eq(character.equipment.inventory, [])
 	assert_eq(character.mesos, 0)

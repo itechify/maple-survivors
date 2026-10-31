@@ -1,0 +1,90 @@
+{
+	"drop_band": [60, 70],
+	"_tier": "Tier A: map IDs, widths, original_life and the three bosses from v83 Map.wz / Mob.wz. Tier C: region, map order and pool rules (spec #449 C6, ticket #468, progression step 11), the 900 s duration and every pacing value, which copy Sleepywood's keyframe numbers (rate, max_alive, hp, speed), bursts, elites, exp_mult and hard_cap exactly (Sleepywood carries no post_duration_slope). Only the pools differ, and there is no opening_ramp: level_scale takes its place. Keyframes from 300 s carry no pool because map 1 picks only keyframes with t < 300 (maps 2 and 3 use their own life lists).",
+	"name": "Magatia",
+	"region": "Magatia",
+	"continent": "Ossyria",
+	"duration": 900,
+	"hard_cap": 400,
+	"_bosses": "Tier C: owner schedule (Deo, Homunscullo, Chimera; spec #449); hp_mult, dmg_mult and attack_dmg_mult are the first draft of game/tools/level_scale_draft.gd (--step=11 --stage=magatia), not tuned. 8 s per-attack cadence as every boss. Canonical attacks, timing, stats and elements stay in Mob.wz. All bosses and reward choices must finish to clear.",
+	"map_seconds": 300,
+	"_maps": "Tier C: owner map order and pool rules, spec #449. Each boss time is relative to map entry. The road runs from Ariant across the Nihal Desert into Magatia's labs. Map 1 is a hand-written curve pool of its own roster (Kiyo, Sand Dwarf). Map 2 uses its v83 life list without the timed, boss-flagged Rurumo 6090004 (mobTime 2400 s). Map 3 uses its life list (Homun, Saitie). Deo is Ariant's desert boss (his own Royal Catthus Desert is 1620 px). Homunscullo's own Unit 202 also holds Deet and Roi, so it fights in Area C-2. Chimera's own Secret Basement Path is 1260 px with no mobs, so it fights in Unit 201.",
+	"maps": [
+		{
+			"map_id": 260020300,
+			"pool": "curve",
+			"boss": {
+				"time": 300,
+				"mob_id": 3220001,
+				"hp_mult": 10.658,
+				"dmg_mult": 1.035,
+				"attacks": [
+					"attack1"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 1.113,
+				"_tier": "tier C (#468): first draft of level_scale_draft.gd --step=11 --stage=magatia, not tuned: arrives at curve time 300 (E_sw 10.80, level 28.80); attack1 (type 0, physical) is matched on PAD; 8 s cadence. Deo's kit is Defense Up 112/1 (area weapon defence up) as written in Skill.wz"
+			}
+		},
+		{
+			"map_id": 261020400,
+			"pool_from_life": true,
+			"exclude": [6090004],
+			"boss": {
+				"time": 300,
+				"mob_id": 8110300,
+				"hp_mult": 9.837,
+				"dmg_mult": 0.79,
+				"attacks": [
+					"attack1",
+					"attack2"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 2.396,
+				"_tier": "tier C (#468): first draft of level_scale_draft.gd --step=11 --stage=magatia, not tuned: arrives at curve time 600 (E_sw 36.44, level 54.44); attack1 and attack2 (both type 0, physical, PADamage 125) are matched on PAD; 8 s cadence. attack1's mpBurn is not read (no MP, ADR 0006). Homunscullo casts nothing"
+			}
+		},
+		{
+			"map_id": 261010101,
+			"pool_from_life": true,
+			"boss": {
+				"time": 300,
+				"mob_id": 8220002,
+				"hp_mult": 4.1,
+				"dmg_mult": 1.405,
+				"attacks": [
+					"attack1"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 1.889,
+				"_tier": "tier C (#468): first draft of level_scale_draft.gd --step=11 --stage=magatia, not tuned: arrives at curve time 900 (E_sw 56.85, level 74.85); attack1 (type 2, a ranged ball with no damage of its own, so it takes the mob's PADamage 430) is matched on PAD; 8 s cadence. Its kit (Magic Attack Up 101/1 and 111/5, Magic Defence Up 103/2, heal 114/19, weapon immunity 140/13) runs as written in Skill.wz; its Summon 200/88 names mobs 9300167 and 9300168, which v83 Mob.wz does not hold, so it spawns nothing"
+			}
+		}
+	],
+	"exp_mult": 1.0,
+	"_level_scale": "Tier C (#468, #449 first draft): pasted from level_scale_draft.gd --step=11 --stage=magatia, not tuned. exp_level(t) is Sleepywood's effective level E_sw at each keyframe time, and level(t) = E_sw(t) + 3 x (11 - 5), so every region levels the character at Sleepywood's pace and this step is eighteen effective levels harder. Without it the stage would run its canonical monsters at full strength from 0:00 for a Lv1 character.",
+	"level_scale": {"keyframes": [
+		{"t": 0, "level": 27.15, "exp_level": 9.15},
+		{"t": 120, "level": 27.73, "exp_level": 9.73},
+		{"t": 300, "level": 28.8, "exp_level": 10.8},
+		{"t": 480, "level": 40.22, "exp_level": 22.22},
+		{"t": 600, "level": 54.44, "exp_level": 36.44},
+		{"t": 780, "level": 66.23, "exp_level": 48.23},
+		{"t": 900, "level": 74.85, "exp_level": 56.85}]},
+	"_pools": "Tier C weights (#468), map 1 only: Kiyo 3100102 (Lv30, 9 spawn points) and Sand Dwarf 3100101 (Lv32, 6) are the field's whole roster. The opening keeps the spawn-point ratio (3:2); from 120 s the heavier Sand Dwarf evens out to 1:1.",
+	"keyframes": [
+		{"t": 0, "rate": 3.0, "max_alive": 50, "hp": 1.0, "speed": 1.0,
+			"pool": {"3100102": 3, "3100101": 2}},
+		{"t": 120, "rate": 4.5, "max_alive": 80, "hp": 1.0, "speed": 1.05,
+			"pool": {"3100102": 1, "3100101": 1}},
+		{"t": 300, "rate": 7.0, "max_alive": 130, "hp": 1.15, "speed": 1.1},
+		{"t": 480, "rate": 10.0, "max_alive": 180, "hp": 1.3, "speed": 1.15},
+		{"t": 600, "rate": 12.0, "max_alive": 220, "hp": 1.4, "speed": 1.2},
+		{"t": 780, "rate": 15.0, "max_alive": 280, "hp": 1.5, "speed": 1.25},
+		{"t": 900, "rate": 18.0, "max_alive": 330, "hp": 1.6, "speed": 1.3}
+	],
+	"bursts": {"first": 90, "every": 90, "count_min": 10, "count_max": 40},
+	"elites": {"first": 75, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
+	"note": "The road runs from Ariant across the Nihal Desert into Magatia's alchemist labs. Defeat Deo, Homunscullo and Chimera.",
+	"original_life": {"3100102": 9, "3100101": 6}
+}

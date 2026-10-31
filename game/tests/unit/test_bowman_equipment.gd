@@ -98,7 +98,7 @@ func test_every_bowman_drop_has_regular_v83_info_icons_and_progression_in_the_pr
 		var info: Dictionary = img.root.get("info", {})
 		infos[id] = info
 		assert_eq(int(info.get("reqJob", 0)), 4, "%d Bowman only" % id)
-		assert_between(float(info.get("reqLevel", -1)), 10.0, 70.0, str(id))
+		assert_between(float(info.get("reqLevel", -1)), 10.0, 120.0, str(id)) # 120 since #474 (late bands)
 		for field: String in ["cash", "tradeBlock", "notSale", "timeLimited", "expireOnLogout"]:
 			assert_eq(int(info.get(field, 0)), 0, "%d %s" % [id, field])
 		for icon: String in ["icon", "iconRaw"]:
@@ -107,7 +107,7 @@ func test_every_bowman_drop_has_regular_v83_info_icons_and_progression_in_the_pr
 		slots[slot] = true
 		if slot == "weapon":
 			weapons.append(id)
-	assert_eq(weapons.size(), 22, "regular bow/crossbow progression, without instructor/event weapons")
+	assert_eq(weapons.size(), 51, "regular bow/crossbow progression to Lv110 (22 to Lv70 before #474), without instructor/event weapons")
 	for slot: String in ["hat", "top", "bottom", "overall", "shoes", "gloves", "weapon"]:
 		assert_has(slots, slot)
 	assert_false(slots.has("shield"))

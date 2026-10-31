@@ -44,16 +44,16 @@ func test_a_new_character_can_open_the_shop_from_map_select_and_leave_back_to_it
 	assert_eq(flow.current.snapshot.name, "Shopper118")
 
 
-func test_the_shop_opens_whatever_tiers_are_unlocked() -> void:
+func test_the_shop_opens_whatever_regions_are_unlocked() -> void:
 	var flow := _flow()
-	flow.create_character("Tiers118")
+	flow.create_character("Regions118")
 	var snapshot := flow.save.slot(0)
-	snapshot.character.tiers_unlocked = 2
+	snapshot.character.cleared_regions = ["ellinia", "henesys", "kerning", "perion"]
 	flow.save.update_slot(0, snapshot)
 	flow.goto_stage_select()
 	flow.current.shop_button.pressed.emit()
 	assert_eq(flow.current_name, "cash_shop")
-	assert_eq(int(flow.current.snapshot.character.tiers_unlocked), 2)
+	assert_eq(flow.current.snapshot.character.cleared_regions.size(), 4)
 	flow.current.leave()
 	assert_eq(flow.current_name, "stage_select")
 	assert_eq(flow.current.unlocked_keys().size(), 5)

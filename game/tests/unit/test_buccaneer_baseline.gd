@@ -25,7 +25,7 @@ func _event_digest(ticks: int, counts := {}) -> String:
 	# Merge #332: preserve the replay's historical Sword input; bare tools now use the creation weapon.
 	setup.character = {"format": 3, "job_id": 512, "look": {},
 		"equipment": {"worn": Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.equipment_info), "inventory": []},
-		"scrolls": {}, "mesos": 0, "tiers_unlocked": 1}
+		"scrolls": {}, "mesos": 0, "cleared_regions": []}
 	var w := RunWorld.new(setup)
 	var legacy_curve: Dictionary = data.stages.stages.henesys.duplicate(true)
 	legacy_curve.erase("maps")

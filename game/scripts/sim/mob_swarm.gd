@@ -645,8 +645,9 @@ func step(dt: float, ctx: Dictionary) -> void:
 			continue
 		if alpha[i] < 1.0:
 			alpha[i] = minf(1.0, alpha[i] + dt / regen)
-		if i < actions.size() and actions[i] != "" and fh[i] >= 0:
-			# tier C: an authored boss stance holds its ground anchor; airborne art comes from canonical origins.
+		if i < actions.size() and actions[i] != "" and (fh[i] >= 0 or _k_fly[k] != 0):
+			# tier C: an authored boss stance holds its ground anchor (a flying boss hovers where it is, #461); airborne
+			# art comes from canonical origins.
 			vx[i] = 0.0
 			if i < action_facings.size():
 				facing[i] = action_facings[i]

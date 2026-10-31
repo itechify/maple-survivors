@@ -153,7 +153,7 @@ func test_create_makes_a_dark_knight_with_a_spear_and_a_separate_arch_mage_in_th
 	assert_eq(flow.current_name, "free_market")
 	var knight: Dictionary = flow.save.slot(0).character
 	assert_eq(knight.job_id, 132)
-	assert_eq(knight.tiers_unlocked, 1)
+	assert_eq(knight.cleared_regions, [])
 	assert_eq(int(knight.equipment.worn.weapon.id), 1432000, "a Dark Knight starts with the plain Spear")
 	assert_eq(CharacterSnapshot.validation_error(knight), "")
 	flow.goto_character_select()
@@ -163,7 +163,7 @@ func test_create_makes_a_dark_knight_with_a_spear_and_a_separate_arch_mage_in_th
 	assert_eq(mage.job_id, 212)
 	assert_eq(int(mage.equipment.worn.weapon.id), 1372005)
 	assert_eq(flow.save.slot(0).character.job_id, 132, "the first slot is unchanged")
-	assert_eq(flow.save.slot(0).character.tiers_unlocked, 1, "each job has its own tier ladder")
+	assert_eq(flow.save.slot(0).character.cleared_regions, [], "each job has its own progress")
 
 
 func test_a_dark_knight_is_refused_when_the_job_is_disabled_after_selection() -> void:

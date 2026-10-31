@@ -172,7 +172,7 @@ func test_create_makes_an_i_l_with_its_wand_and_a_separate_f_p_in_the_next_slot(
 	assert_eq(flow.current_name, "free_market")
 	var il: Dictionary = flow.save.slot(0).character
 	assert_eq(il.job_id, 222)
-	assert_eq(il.tiers_unlocked, 1)
+	assert_eq(il.cleared_regions, [])
 	assert_eq(int(il.equipment.worn.weapon.id), 1372005, "I/L starts with the Wooden Wand")
 	assert_eq(CharacterSnapshot.validation_error(il), "")
 	flow.goto_character_select()
@@ -182,7 +182,7 @@ func test_create_makes_an_i_l_with_its_wand_and_a_separate_f_p_in_the_next_slot(
 	var mage: Dictionary = flow.save.slot(1).character
 	assert_eq(mage.job_id, 212)
 	assert_eq(flow.save.slot(0).character.job_id, 222, "the first slot is unchanged")
-	assert_eq(flow.save.slot(0).character.tiers_unlocked, 1, "each job has its own tier ladder")
+	assert_eq(flow.save.slot(0).character.cleared_regions, [], "each job has its own progress")
 
 
 func test_i_l_is_refused_when_disabled_after_selection() -> void:

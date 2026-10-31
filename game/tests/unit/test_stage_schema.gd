@@ -6,15 +6,22 @@ func test_regions_have_three_ordered_maps_and_relative_bosses() -> void:
 	var errors := PackedStringArray()
 	var file: Dictionary = DataRepo.load_all(DataRepo.DATA_ROOT, errors).stages
 	assert_eq(errors, PackedStringArray())
-	assert_eq(file.tiers, [["henesys", "ellinia", "perion", "kerning"], ["sleepywood"]])
+	assert_eq(file.progression.slice(0, 5), ["henesys", "ellinia", "perion", "kerning", "sleepywood"], "the original five come first")
+	assert_false(file.has("tiers"), "the tier lists are gone (ADR 0007)")
+	assert_false(file.has("drop_bands"), "and so are the per-tier drop bands")
 	var expected := {
 		"henesys": [104040000, 104010001, 100030001],
 		"ellinia": [101010100, 100040100, 100040105],
 		"perion": [102010000, 101030404, 106000101],
 		"kerning": [103010000, 103000101, 107000000],
 		"sleepywood": [105050400, 105090310, 105090900],
-	}
+	} # pins for the original five; every region of the progression is held to the rules below
 	for key: String in expected:
+		assert_has(file.stages, key)
+		for i in file.stages.get(key, {}).get("maps", []).size():
+			assert_eq(file.stages[key].maps[i].map_id, expected[key][i])
+	for step in file.progression.size():
+		var key: String = file.progression[step]
 		assert_has(file.stages, key)
 		if not file.stages.has(key):
 			continue
@@ -22,10 +29,14 @@ func test_regions_have_three_ordered_maps_and_relative_bosses() -> void:
 		assert_false(stage.has("map_id"))
 		assert_false(stage.has("bosses"))
 		assert_eq(stage.get("map_seconds"), 300)
-		assert_eq(stage.get("maps", []).size(), 3)
+		assert_eq(stage.get("maps", []).size(), 3, "%s: three maps" % key)
 		for i in stage.get("maps", []).size():
-			assert_eq(stage.maps[i].map_id, expected[key][i])
-			assert_eq(stage.maps[i].boss.time, 300)
+			assert_eq(stage.maps[i].boss.time, 300, "%s map %d: a boss 300 s after entry" % [key, i + 1])
+		assert_eq(stage.get("drop_band", []).size(), 2, "%s carries a drop_band" % key)
+		# ADR 0007 / spec #449: the regions after Sleepywood (step 6 on) use a level_scale, not an opening_ramp.
+		if step >= file.progression.find("sleepywood") + 1:
+			assert_true(stage.has("level_scale"), "%s has a level_scale" % key)
+			assert_false(stage.has("opening_ramp"), "%s has no opening_ramp" % key)
 
 
 func test_stage_api_projects_absolute_bosses_and_keeps_copies_detached() -> void:
@@ -92,11 +103,12 @@ func test_owner_opening_and_map_pool_declarations_are_loaded_as_plain_data() -> 
 	assert_has(DataRepo.stage_mob_ids(data, "sleepywood"), 4230100)
 
 
-## Spec #253: Perion and Kerning City schedule Mano/Stumpy/Iron Hook and King Slime/Shade/Dyle, map 1 on a curve pool
-## and maps 2 and 3 on their own v83 life lists without exclusions (the v83 lists have no timed or hidden entries).
+## Spec #253: Perion and Kerning City schedule King Clang (#452: Mano before)/Stumpy/Iron Hook and King Slime/Shade/Dyle,
+## map 1 on a curve pool and maps 2 and 3 on their own v83 life lists without exclusions (the v83 lists have no timed or
+## hidden entries).
 func test_perion_and_kerning_boss_order_and_pool_rules() -> void:
 	var stages: Dictionary = DataRepo.load_all().stages.stages
-	var bosses := {"perion": [2220000, 3220000, 4090000], "kerning": [9300003, 5090000, 6220000]}
+	var bosses := {"perion": [5220001, 3220000, 4090000], "kerning": [9300003, 5090000, 6220000]}
 	for key: String in bosses:
 		var maps: Array = stages[key].maps
 		assert_eq(maps.map(func(e: Dictionary) -> int: return int(e.boss.mob_id)), bosses[key], "%s bosses" % key)
@@ -104,8 +116,8 @@ func test_perion_and_kerning_boss_order_and_pool_rules() -> void:
 		for i in [1, 2]:
 			assert_eq(maps[i].get("pool_from_life"), true, "%s map %d uses its life list" % [key, i + 1])
 			assert_false(maps[i].has("exclude"), "%s map %d excludes nothing" % [key, i + 1])
-	var attacks := {2220000: [], 3220000: ["attack1", "attack2"], 4090000: [], 9300003: ["attack1"], 5090000: [],
-		6220000: []}
+	var attacks := {5220001: ["attack1"], 3220000: ["attack1", "attack2"], 4090000: [], 9300003: ["attack1"],
+		5090000: [], 6220000: []}
 	for key: String in bosses:
 		for entry: Dictionary in DataRepo.stage_bosses(stages[key]):
 			assert_eq(Array(entry.get("attacks", [])), attacks[int(entry.mob_id)], "%d attacks" % int(entry.mob_id))
@@ -199,3 +211,38 @@ func _share(pool: Dictionary, id: int) -> float:
 		if kinds[i] == id:
 			own += weights[i]
 	return own / total if total > 0.0 else 0.0
+
+
+## ADR 0007 (#450): `progression` names existing, distinct stages and each carries a `drop_band`.
+func test_progression_validation_accepts_the_shipped_data_and_rejects_broken_lists() -> void:
+	var file: Dictionary = DataRepo.load_all().stages
+	assert_eq(DataRepo.progression_errors(file), PackedStringArray())
+	var missing_key: Dictionary = file.duplicate(true)
+	missing_key.progression.append("nowhere")
+	assert_eq(DataRepo.progression_errors(missing_key), PackedStringArray(["progression key 'nowhere' is not a stage"]))
+	var twice: Dictionary = file.duplicate(true)
+	twice.progression.append("henesys")
+	assert_eq(DataRepo.progression_errors(twice), PackedStringArray(["progression lists 'henesys' twice"]))
+	var no_band: Dictionary = file.duplicate(true)
+	no_band.stages.ellinia.erase("drop_band")
+	assert_eq(DataRepo.progression_errors(no_band), PackedStringArray(["stage 'ellinia' needs a drop_band [min, max]"]))
+	var backwards: Dictionary = file.duplicate(true)
+	backwards.stages.perion.drop_band = [30, 10]
+	assert_eq(DataRepo.progression_errors(backwards), PackedStringArray(["stage 'perion' needs a drop_band [min, max]"]))
+	var empty: Dictionary = file.duplicate(true)
+	empty.progression = []
+	assert_ne(DataRepo.progression_errors(empty), PackedStringArray())
+	var gone: Dictionary = file.duplicate(true)
+	gone.erase("progression")
+	assert_ne(DataRepo.progression_errors(gone), PackedStringArray())
+
+
+func test_the_shipped_drop_bands_rise_along_the_progression() -> void:
+	var file: Dictionary = DataRepo.load_all().stages
+	var last_min := -1
+	var last_max := -1
+	for key: String in file.progression:
+		var band: Array = file.stages[key].drop_band
+		assert_true(int(band[0]) >= last_min and int(band[1]) >= last_max, "%s does not fall below the region before it" % key)
+		last_min = int(band[0])
+		last_max = int(band[1])

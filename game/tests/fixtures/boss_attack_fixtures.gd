@@ -31,6 +31,26 @@ static func setup(id: int = 6130101, p_seed: int = 2302, area: Rect2 = Rect2(-25
 	return out
 
 
+## A Lyka-shaped area-warning strip (#460): 80 px wide columns from index -7, 15 of them, 7 struck.
+const AREA_RANGE := {"lt": {"$v": [-40.0, -200.0]}, "rb": {"$v": [40.0, 0.0]}, "start": -7.0, "areaCount": 15.0,
+	"attackCount": 7.0}
+
+
+## setup() with the boss's attack1 turned into an area-warning attack of `type` (3 or 4, same path): `range_data`
+## replaces its range, `extra` merges into its info (attackAfter 1200 ms, areaWarning and hit art).
+static func area_setup(type: int = 3, range_data: Dictionary = AREA_RANGE, extra: Dictionary = {}) -> Dictionary:
+	var out := setup()
+	var info: Dictionary = out.mob_imgs[6130101].attack1.info
+	info.type = float(type)
+	info.erase("jumpAttack")
+	info.attackAfter = 1200.0
+	info.range = range_data.duplicate(true)
+	info.areaWarning = {"0": {"$canvas": [0, 0, 0, 30, 30], "delay": 120.0}}
+	info.hit = {"0": {"$canvas": [0, 0, 0, 30, 30], "delay": 120.0}}
+	info.merge(extra, true)
+	return out
+
+
 ## The shipped henesys_hg1 schedule entry of boss `id` ({} when it is not scheduled there).
 static func shipped_entry(data: Dictionary, id: int) -> Dictionary:
 	for entry: Dictionary in DataRepo.stage_bosses(data.stages.stages.henesys):

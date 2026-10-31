@@ -321,12 +321,12 @@ func test_the_warrior_drop_list_is_weapons_of_the_five_families_and_shields_no_d
 	for raw: Variant in ids:
 		var id := int(raw)
 		var slot := Equipment.slot_of(id)
-		assert_true(slot in ["weapon", "shield"], "%d is a weapon or a shield" % id)
+		assert_true(slot != "", "%d is worn in an equip slot (Warrior class armour joined the weapons and shields in #474)" % id)
 		if slot == "weapon":
 			var family := WeaponInfo.family(id)
 			assert_true(family in WARRIOR_FAMILIES, "%d is a %s" % [id, family])
 			families[family] = int(families.get(family, 0)) + 1
-		else:
+		elif slot == "shield":
 			shields += 1
 		assert_true(float(id) in data.equipment_drops.items, "%d reaches the merged list" % id)
 	assert_eq(families.keys().size(), 5, "every Warrior family has drops")
@@ -464,7 +464,7 @@ func test_every_listed_warrior_item_is_a_real_non_cash_warrior_item_with_an_icon
 		var info: Dictionary = infos[id]
 		assert_eq(int(info.get("cash", 0)), 0, "%d is not cash" % id)
 		assert_true(int(info.get("reqJob", 0)) > 0 and (int(info.get("reqJob", 0)) & 1) != 0, "%d carries the Warrior bit" % id)
-		assert_true(int(info.get("reqLevel", 0)) <= 70, "%d: level" % id)
+		assert_true(int(info.get("reqLevel", 0)) <= 120, "%d: level (70 before the late bands, #474)" % id)
 		assert_true(info.has("icon") or info.has("iconRaw"), "%d has an icon" % id)
 
 
@@ -475,8 +475,8 @@ func test_every_shipped_band_has_drops_for_each_warrior_family_and_for_a_boss() 
 	var infos := _cache_infos(data.equipment_drops.items)
 	var ed: Dictionary = data.equipment_drops
 	var rng := _rng(3)
-	for tier in data.stages.tiers.size():
-		var band := EquipmentDrops.band_of(data.stages, tier)
+	for tier in data.stages.progression.size():
+		var band := EquipmentDrops.band_of(data.stages.stages[data.stages.progression[tier]])
 		for family in WARRIOR_FAMILIES:
 			var got := _weapons(EquipmentDrops.eligible(ed.items, infos, 100, band, [family]))
 			assert_true(got.size() > 0, "tier %d band %s has a %s weapon" % [tier + 1, band, family])
@@ -495,8 +495,8 @@ func test_the_magician_drop_pools_are_unchanged_by_the_warrior_data() -> void:
 	assert_eq(old_items.size(), data.equipment_drops.items.size() - warrior.size(), "the Warrior ids were taken out")
 	var infos := _cache_infos(data.equipment_drops.items)
 	var ed: Dictionary = data.equipment_drops
-	for tier in data.stages.tiers.size():
-		var band := EquipmentDrops.band_of(data.stages, tier)
+	for tier in data.stages.progression.size():
+		var band := EquipmentDrops.band_of(data.stages.stages[data.stages.progression[tier]])
 		for job in [200, 210, 220, 230, 212]:
 			assert_eq(EquipmentDrops.eligible(ed.items, infos, job, band, ["wand", "staff"]),
 				EquipmentDrops.eligible(old_items, infos, job, band, ["wand", "staff"]), "job %d tier %d" % [job, tier + 1])
@@ -506,6 +506,10 @@ func test_the_magician_drop_pools_are_unchanged_by_the_warrior_data() -> void:
 				assert_false(id in warrior, "%d for job %d" % [id, job])
 
 
+## Tier C (#474): from this band minimum on, v83 has no Magician top or bottom, only overalls (robes).
+const LATE_BAND_MIN := 35
+
+
 func test_the_212_magician_finds_wands_staves_and_every_armour_slot_in_both_shipped_bands() -> void:
 	if not require_cache():
 		return
@@ -513,8 +517,8 @@ func test_the_212_magician_finds_wands_staves_and_every_armour_slot_in_both_ship
 	var infos := _cache_infos(data.equipment_drops.items)
 	var ed: Dictionary = data.equipment_drops
 	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
-	for tier in data.stages.tiers.size():
-		var band := EquipmentDrops.band_of(data.stages, tier)
+	for tier in data.stages.progression.size():
+		var band := EquipmentDrops.band_of(data.stages.stages[data.stages.progression[tier]])
 		var ids := EquipmentDrops.eligible(ed.items, infos, 212, band, jobs.weapon_families(212))
 		var families := {}
 		var slots := {}
@@ -524,5 +528,9 @@ func test_the_212_magician_finds_wands_staves_and_every_armour_slot_in_both_ship
 				families[WeaponInfo.family(id)] = true
 		assert_eq(families.keys(), ["wand", "staff"] if families.keys()[0] == "wand" else ["staff", "wand"],
 			"tier %d: wands and staves" % (tier + 1))
-		for slot in ["hat", "top", "overall", "bottom", "shoes", "gloves", "weapon"]:
+		var wanted := ["hat", "top", "overall", "bottom", "shoes", "gloves", "weapon"]
+		if int(band[0]) >= LATE_BAND_MIN: # a body is an overall or a top with a bottom, as test_late_equipment_bands
+			wanted = ["hat", "shoes", "gloves", "weapon"]
+			assert_true(slots.has("overall") or (slots.has("top") and slots.has("bottom")), "tier %d: a Magician body drop" % (tier + 1))
+		for slot in wanted:
 			assert_true(slots.has(slot), "tier %d: a Magician %s drop" % [tier + 1, slot])
