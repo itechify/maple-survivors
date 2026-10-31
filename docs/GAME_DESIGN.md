@@ -12117,3 +12117,13 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | `playable` of 412 | `true` (flipped from NL2's false); `default_job` stays 212 | tier C: spec #383 / #298 pin |
 | HP baseline | the shared default (no Hero-style melee HP baseline: the spec does not call for one) | tier C: spec #383 |
 | Everything else | no new constant; the QA smoke is in 4.2 | n/a |
+
+### Shadower SH1 constants (#426)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Numbers of the twelve skills | every spec value re-confirmed level by level against `Skill.wz` 400 / 420 / 421 / 422 (rank 1 / 4 / 8 tables in the spec); no new number | tier A (WZ) |
+| Dagger stances | the Razor, Iron Dagger and Maple Asura Dagger, with and without a Thief shield, are drawn in every frame of every stance a Shadower skill uses (`assaulter`, `assassination`, `savage`, `smokeshell`, `alert5`, `prone2`, `darksight`, `stabO1`, `stabO2`, `swingO2`, `swingO1`); no fallback stance is needed | tier A (the body's skill stances are links to ordinary stances the dagger has) |
+| Fallback for a skill with no `action` node (Band of Thieves) | the dagger's own `swingO1` (it draws the dagger; `shoot1` does not) | tier C: ours (#426) |
+| Art roles | Assassinate `effect` = caster burst then slash arcs, `special` = the strike lines on the target; Smokescreen `effect` = the thrown shell and dust, `tile` = eleven looping cloud puffs; Meso Explosion `hit/0..8` = nine variants of one burst; Band of Thieves `hit/0` = the common strike, `hit/1..5` = the five thieves | tier C readings of the art (contact sheets, #426) |
+| Razor 1332005 | added to the `shadower.json` fragment (`character`); the spec believed `thief.json` listed it | tier A (item fact) |
