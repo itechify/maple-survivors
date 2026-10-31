@@ -7,6 +7,9 @@ extends RefCounted
 ## Used by RunWorld (mob kinds) and DataRepo (which mob imgs to load).
 
 const SUMMON_SKILL := 200
+## Mob ids a v83 summon list names but Mob.wz does not hold: Chimera's MobSkill 200/88 (tier A, #468). Such a cast spawns
+## nothing, so no stage needs the id and the round neither loads it nor reports it missing.
+const ABSENT_IN_V83 := [9300167, 9300168]
 
 
 ## Pool ids of every keyframe and explicit map pool plus every map's boss id, ascending.
@@ -46,6 +49,10 @@ static func boss_extra_ids(boss_img: Dictionary, mob_skill_img: Dictionary) -> P
 	var revive: Variant = info.get("revive", {})
 	if revive is Dictionary:
 		_add_list(ids, revive)
+	for absent: int in ABSENT_IN_V83:
+		var at := ids.find(absent)
+		if at >= 0:
+			ids.remove_at(at)
 	ids.sort()
 	return ids
 
