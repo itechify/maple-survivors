@@ -162,6 +162,26 @@
 			"boss_ui": {"icon_id": 6220001, "hp_tag_color": 1, "hp_tag_bgcolor": 5,
 				"_tier": "tier C: borrow Zeno's MobGage icon (the same region) and standard colours; v83 MT-09 lacks both"}},
 		"6220001": {"name": "Zeno", "exp_item": 4000118, "_mesos": "tier C (#464): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
-			"_exp_item": "tier A: v83 Small Spaceship ID/name; tier C: Zeno is an alien, so the Omega Sector's spaceship pickup stands for its EXP, not a canonical drop-table claim"}
+			"_exp_item": "tier A: v83 Small Spaceship ID/name; tier C: Zeno is an alien, so the Omega Sector's spaceship pickup stands for its EXP, not a canonical drop-table claim"},
+		"4230108": {"mesos": [130, 194], "name": "Jr. Cerebes", "exp_item": 4000078, "_mesos": "tier C (#467): no v83 server drop data is used; the centre (162) interpolates the Lv40 Cold Eye / Zombie Lupin mean 125 and the Lv50 Drake 250 at this mob's Lv43, +-20% as theirs (Ludibrium's method, #463)",
+			"_exp_item": "tier A: v83 Jr. Cerebes Tooth ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"5100000": {"mesos": [200, 300], "name": "Jr. Yeti", "exp_item": 4000048, "_mesos": "tier C (#467): no v83 server drop data is used; the centre (250) is the Lv50 Drake range at this mob's Lv50, +-20% as theirs (Ludibrium's method, #463)",
+			"_exp_item": "tier A: v83 Jr. Yeti Skin ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"5130104": {"mesos": [244, 366], "name": "Hector", "exp_item": 4000051, "_mesos": "tier C (#467): no v83 server drop data is used; the centre (305) is the Lv55 Malady range at this mob's Lv55, +-20% as theirs (Ludibrium's method, #463)",
+			"_exp_item": "tier A: v83 Hector Tail ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"5130107": {"mesos": [262, 392], "name": "Coolie Zombie", "exp_item": 4000082, "_mesos": "tier C (#467): no v83 server drop data is used; the centre (327) interpolates the Lv55 Malady 305 and Lv64 Ice Drake 405 ranges at this mob's Lv57, +-20% as theirs (Ludibrium's method, #463)",
+			"_exp_item": "tier A: v83 Zombie's Lost Gold Tooth ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"6090000": {"name": "Riche", "exp_item": 4000069, "_mesos": "tier C (#467): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 Zombie's Lost Tooth ID/name; tier C: Riche is an undead like the Coolie Zombies, so the zombie tooth stands for its EXP, not a canonical drop-table claim",
+			"boss_ui": {"icon_id": 6090000, "hp_tag_color": 1, "hp_tag_bgcolor": 5,
+				"_tier": "tier C: supply standard boss hpTag colours missing from Riche's v83 info; its MobGage icon is canonical"}},
+		"6090001": {"name": "Snow Witch", "exp_item": 4031311, "_mesos": "tier C (#467): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 Snow Crystal ID/name; tier C: the snow pickup stands for the Snow Witch's EXP, not a canonical drop-table claim",
+			"boss_ui": {"icon_id": 6090000, "hp_tag_color": 1, "hp_tag_bgcolor": 5,
+				"_tier": "tier C: borrow Riche's MobGage icon (the same region) and standard colours; v83 Snow Witch lacks both"}},
+		"7130001": {"mesos": [363, 545], "name": "Cerebes", "exp_item": 4000079, "_mesos": "tier C (#467): no v83 server drop data is used; the centre (454) interpolates the Lv70 Tauromacis 420 and Lv75 Taurospear 504 ranges at this mob's Lv72, +-20% as theirs (Ludibrium's method, #463)",
+			"_exp_item": "tier A: v83 Cerebes Tooth ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"8220001": {"name": "Snowman", "exp_item": 4001141, "_mesos": "tier C (#467): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 Snowman Branch ID/name; tier C: the snowman's own item stands for its EXP, not a canonical drop-table claim"}
 	}
 }

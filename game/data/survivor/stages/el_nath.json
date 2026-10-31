@@ -1,0 +1,86 @@
+{
+	"drop_band": [55, 65],
+	"_drop_band": "Tier C (spec #447 table, owner call): El Nath is progression step 10; ordinary drops come from reqLevel 55-65, bosses from the top third of the band.",
+	"_level_scale": "Tier C (spec #449 C0 first draft, untuned; game/tools/level_scale_draft.gd --step=10 --stage=el_nath): E_sw(t) is Sleepywood's effective level at each keyframe time (9.15, 9.73, 10.80, 22.22, 36.44, 48.23, 56.85); region step 10 sets level(t) = E_sw(t) + 3 x (10 - 5) = E_sw + 15 and exp_level(t) = E_sw(t), so the character levels at Sleepywood's pace and monsters are fifteen effective levels harder. Replaces an opening ramp (none here).",
+	"level_scale": {"keyframes": [
+		{"t": 0, "level": 24.15, "exp_level": 9.15},
+		{"t": 120, "level": 24.73, "exp_level": 9.73},
+		{"t": 300, "level": 25.8, "exp_level": 10.8},
+		{"t": 480, "level": 37.22, "exp_level": 22.22},
+		{"t": 600, "level": 51.44, "exp_level": 36.44},
+		{"t": 780, "level": 63.23, "exp_level": 48.23},
+		{"t": 900, "level": 71.85, "exp_level": 56.85}]},
+	"_tier": "Tier A: map IDs, original_life, widths and rosters from v83 Map.wz and Mob.wz (docs/research/v83-region-maps.md). Tier C (owner, spec #449 C5 #467): region, map order, boss schedule, pool rules and weights, level_scale and boss multipliers (the first draft of game/tools/level_scale_draft.gd, untuned); the numeric curve (keyframe rate/max_alive/hp/speed, bursts, elites, exp_mult, hard_cap, post_duration_slope) copies Sleepywood exactly, and `level_scale` replaces its opening ramp. decHP 10 (cold damage) and fs (ice friction) on the two snow maps are ignored (tier C, as OctoPirate's limiter in #264): movement is unchanged. Snow Witch has contact damage and Banish only, Riche one magic attack with Banish and its heal, Snowman a ball attack with Stun, the poison mist and its Jr. Yeti summons; ordinary mobs cast no mob skills (owner, #76).",
+	"name": "Icy Path",
+	"region": "El Nath",
+	"continent": "Ossyria",
+	"duration": 900,
+	"hard_cap": 400,
+	"_bosses": "Tier C: first-draft multipliers from game/tools/level_scale_draft.gd --step=10 --stage=el_nath (spec #449 C0), untuned; 8 s per-attack cadence as every boss. Canonical attacks, timing, stats and elements remain in Mob.wz. All bosses and reward choices must finish to clear. Snow Witch, Riche and Snowman are scheduled once in the whole progression (test_unique_bosses). Snow Witch has no attack stance (contact and Banish only), so like Iron Hook it lists no attacks.",
+	"map_seconds": 300,
+	"_maps": "Tier C: owner map order and pool rules, spec #449 C5 (#467), #270's picks. Each boss time is relative to map entry. Snowman's own Valley of Snowman (211040101) is 991 px, so it fights in The Cave of Trial II (4290 px). Map 1 is a hand-written curve pool of its own life (Snow Witch excluded: timed 6090001, mobTime 3600); map 2 uses its v83 life list without the timed Riche 6090000; map 3's life holds no timed or hidden entries. Arena check: pending",
+	"maps": [
+		{
+			"map_id": 211010000,
+			"pool": "curve",
+			"boss": {
+				"time": 300,
+				"mob_id": 6090001,
+				"hp_mult": 48.548,
+				"dmg_mult": 1.17,
+				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 300 (E_sw 10.80, level 25.80); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact damage matched the same way on PAD (Snow Witch has no attack stance, so there is no attack_dmg_mult and no cadence: contact and Banish only)"
+			}
+		},
+		{
+			"map_id": 211041100,
+			"pool_from_life": true,
+			"exclude": [6090001, 6090000],
+			"boss": {
+				"time": 300,
+				"mob_id": 6090000,
+				"hp_mult": 8.714,
+				"dmg_mult": 0.843,
+				"attacks": [
+					"attack1"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 0.791,
+				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 600 (E_sw 36.44, level 51.44); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact and attack damage matched the same way (attack1 is magic, matched on MAD, the strongest scheduled attack); 8 s cadence"
+			}
+		},
+		{
+			"map_id": 211042100,
+			"pool_from_life": true,
+			"exclude": [6090001, 6090000],
+			"boss": {
+				"time": 300,
+				"mob_id": 8220001,
+				"hp_mult": 4.701,
+				"dmg_mult": 1.462,
+				"attacks": [
+					"attack1"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 1.966,
+				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 900 (E_sw 56.85, level 71.85); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact and attack damage matched the same way on PAD (the strongest scheduled attack); 8 s cadence"
+			}
+		}
+	],
+	"exp_mult": 1.0,
+	"_pools": "Tier C weights (spec #449 C5): Icy Path I's own life is Jr. Yeti (Lv50, 23 spawns) and Hector (Lv55, 2), so the hand-written map 1 pool is Jr. Yeti alone at 0 s and Jr. Yeti 11 : Hector 1 from 120 s (the v83 23 : 2 life ratio, rounded); the swarm grows by rate and max_alive, not by roster. Forest of Dead Trees I is Coolie Zombie 26 alone, The Cave of Trial II is Cerebes 13 / Jr. Cerebes 7 (their v83 life counts).",
+	"keyframes": [
+		{"t": 0, "rate": 3.0, "max_alive": 50, "hp": 1.0, "speed": 1.0,
+			"pool": {"5100000": 1}},
+		{"t": 120, "rate": 4.5, "max_alive": 80, "hp": 1.0, "speed": 1.05,
+			"pool": {"5100000": 11, "5130104": 1}},
+		{"t": 300, "rate": 7.0, "max_alive": 130, "hp": 1.15, "speed": 1.1},
+		{"t": 480, "rate": 10.0, "max_alive": 180, "hp": 1.3, "speed": 1.15},
+		{"t": 600, "rate": 12.0, "max_alive": 220, "hp": 1.4, "speed": 1.2},
+		{"t": 780, "rate": 15.0, "max_alive": 280, "hp": 1.5, "speed": 1.25},
+		{"t": 900, "rate": 18.0, "max_alive": 330, "hp": 1.6, "speed": 1.3}
+	],
+	"bursts": {"first": 90, "every": 90, "count_min": 10, "count_max": 40},
+	"elites": {"first": 75, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
+	"note": "Snowfields and the trial caves of El Nath. Defeat Snow Witch, Riche and Snowman.",
+	"original_life": {"5100000": 23, "5130104": 2}
+}

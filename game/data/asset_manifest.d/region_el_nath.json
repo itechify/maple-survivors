@@ -1,0 +1,7 @@
+{
+	"format": 1,
+	"_doc": "El Nath (progression step 10, spec #449 C5 #467): the region's three maps (211010000 Watch Out for Icy Path I, 211041100 Forest of Dead Trees I, 211042100 The Cave of Trial II; each map entry also imports its life mobs, backs, tiles, objs, BGM and map mark), its pool mobs (Jr. Yeti, Hector, Coolie Zombie, Jr. Cerebes, Cerebes), its three bosses (Snow Witch, Riche, Snowman; Snowman's MobSkill 200 summons Jr. Yeti, already in the pool) and the EXP pickup items of survivor/mobs.json (Etc items, tier C association to each mob). No MobSkill art beyond the whole MobSkill.img and Effect.wz/Summon.img/1 (Snowman's 200/77 summonEffect), both already imported, is needed.",
+	"maps": [211010000, 211041100, 211042100],
+	"mobs": [4230108, 5100000, 5130104, 5130107, 6090000, 6090001, 7130001, 8220001],
+	"items": [4000048, 4000051, 4000082, 4000079, 4000078, 4031311, 4000069, 4001141]
+}
