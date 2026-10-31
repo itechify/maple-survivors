@@ -110,6 +110,11 @@ const HIT_FACE_TIME := 1.0
 ## tier C (ours): invincibility blink, alpha of the dim phase and the period (s) of one bright + dim cycle.
 const BLINK_ALPHA := 0.4
 const BLINK_PERIOD := 0.16
+## tier C: pixels between the top of the character's body box and the hull bar (HullBar).
+const HULL_BAR_GAP := 10.0
+## tier C (C13 #397): extra pixels the bar rises while the character rides a mount: the ship lifts the seated rider, whose head then
+## reaches above the body box (playtest screenshot: the bar sat on the eyes).
+const HULL_BAR_MOUNT_LIFT := 20.0
 ## tier C (ours, BS8): seconds the "Resurrection! Ready again in M:SS" notice shows, and the delay of its evidence shot
 ## (the first beam frames, after the 1320 ms lead-in of the `affected` art).
 const REVIVE_NOTICE_TIME := 6.0
@@ -156,12 +161,16 @@ var avatar: AvatarRenderer
 var player_group: CanvasGroup
 ## The character name tag (NameTags style, like the elite tags).
 var player_tag: NameTags
+## The ship's hull bar over the character (spec #384 C11); hidden while no hull runs.
+var hull_bar: HullBar
 var mob_renderers: Array[MobRenderer] = []
 ## Foothold layer drawn by mob_renderers[i] (-1 = every slot).
 var mob_layers := PackedInt32Array()
 var summon_renderer: PlayerSummonRenderer
 var shots: ProjectileRenderer
 var mob_shots: ProjectileRenderer
+## Turret summon balls (SummonTurret arrays, GAME_DESIGN 7.121), drawn like shots.
+var turret_shots: ProjectileRenderer
 ## The bolt art of the chain cast rule (skill_chain events).
 var chain_bolts: ChainBoltRenderer
 var drops: PickupRenderer
@@ -227,6 +236,8 @@ var _restart_action := false
 var _slow_fx := -1
 var _immunity_fx := {}
 var _shown_action := ""
+## The skill key of the running form whose `mount` the avatar rides ("" without one).
+var _mount_skill := ""
 var _blink_t := 0.0
 var _frame_exp := 0
 var _frame_mesos := 0
@@ -666,17 +677,19 @@ func _build_mob_layers() -> void:
 		var mr := MobRenderer.new()
 		mr.name = "Mobs%d" % layer
 		mr.library = library
-		mr.burn_cue_path = _burn_cue_path()
+		mr.burn_cue_path = _status_cue_path("burn")
+		mr.mark_cue_path = _status_cue_path(MobSwarm.STATUS_NAMES[MobSwarm.ALL_WEAK])
 		map.actor_layer(layer).add_child(mr)
 		mob_renderers.append(mr)
 		mob_layers.append(layer if floor_layers.size() > 1 else -1)
 
 
-## The mob-cue art of the first pool skill that burns (`on_hit.cue`, a Skill.wz path), "" when none configures one.
-func _burn_cue_path() -> String:
+## The mob-cue art of the first pool skill whose `on_hit.status` is `status` (`on_hit.cue`, a Skill.wz path), "" when none
+## configures one.
+func _status_cue_path(status: String) -> String:
 	for key: String in world.jobs.skill_pool(world.job_id()):
 		var on_hit: Dictionary = world.book.def(key).get("on_hit", {})
-		if String(on_hit.get("status", "")) == "burn" and on_hit.has("cue"):
+		if String(on_hit.get("status", "")) == status and on_hit.has("cue"):
 			return String(on_hit.cue)
 	return ""
 
@@ -719,6 +732,9 @@ func _build_top_layer() -> void:
 	shots = ProjectileRenderer.new()
 	shots.library = library
 	_top.add_child(shots)
+	turret_shots = ProjectileRenderer.new()
+	turret_shots.library = library
+	_top.add_child(turret_shots)
 	mob_shots = ProjectileRenderer.new()
 	mob_shots.library = library
 	_top.add_child(mob_shots)
@@ -738,6 +754,10 @@ func _build_top_layer() -> void:
 	player_tag = NameTags.new()
 	player_tag.name = "PlayerTag"
 	_top.add_child(player_tag)
+	hull_bar = HullBar.new()
+	hull_bar.name = "HullBar"
+	hull_bar.visible = false
+	_top.add_child(hull_bar)
 	_tag_source = _TagSource.new()
 	_kind_names = NameTags.names_for(world.mob_kinds, library)
 
@@ -1099,6 +1119,7 @@ func handle_events(events: Array) -> void:
 		match String(e.type):
 			"form_started", "form_ended":
 				_refresh_form_tint()
+				_refresh_form_mount(e)
 			"meter_changed":
 				hud.meter.update(world.player_state, {"meter": world.meter.snapshot()})
 				meter_cue.on_event(e)
@@ -1600,8 +1621,14 @@ func _on_player_hit(e: Dictionary) -> void:
 		counters.numbers += 1
 		_first_event_shot("miss", "miss_first.png", 0.05) # tier C: capture the first visible MISS during playtests.
 		return
-	numbers.spawn(int(e.damage), head, DamageNumbers.TAKEN, PLAYER_KEY)
-	counters.numbers += 1
+	var absorbed := int(e.get("absorbed", 0))
+	if absorbed > 0:
+		# The part the ship's hull took, in the blue digits; a fully absorbed hit shows only this number.
+		numbers.spawn(absorbed, head, DamageNumbers.HP_GAIN, PLAYER_KEY)
+		counters.numbers += 1
+	if int(e.damage) > 0 or absorbed == 0:
+		numbers.spawn(int(e.damage), head, DamageNumbers.TAKEN, PLAYER_KEY)
+		counters.numbers += 1
 	avatar.set_expression("hit", HIT_FACE_TIME)
 	_blink_t = 0.0
 	_first_event_shot("hit", "hit_first.png", BLINK_PERIOD * 0.7)
@@ -1935,6 +1962,7 @@ func _present(delta: float) -> void:
 		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers, mob_actions)
 	summon_renderer.update_from(world.runner.summons)
 	shots.update_from(world.projectiles, world.visual_paths, delta)
+	turret_shots.update_from(world.runner.summons.turret, world.visual_paths, delta)
 	mob_shots.update_from(world.mob_projectiles, world.visual_paths, delta)
 	drops.update_from(world.pickups, delta)
 	tags.update_from(world.swarm, world.mob_elite, _kind_names)
@@ -2029,6 +2057,9 @@ func _update_player(delta: float) -> void:
 	_tag_source.y[0] = p.pos.y
 	_tag_source.state[0] = MobRenderer.DIE if dead else MobRenderer.STAND
 	player_tag.update_from(_tag_source, PackedByteArray([1]), PackedStringArray([_player_name()]))
+	var hull := -1.0 if dead else world.runner.forms.hull_fraction()
+	var lift := HULL_BAR_MOUNT_LIFT if _mount_skill != "" else 0.0
+	hull_bar.update(p.pos + Vector2(0.0, world.body.position.y - HULL_BAR_GAP - lift), hull)
 
 
 ## Draws the echo clones from the sim's `PlayerSummons`: the owner's stance and frame, fading with a Hidden avatar.
@@ -2423,6 +2454,29 @@ func _layer_at(p: Vector2) -> int:
 
 func _sfx_service() -> AudioService:
 	return get_node_or_null("/root/Sfx") as AudioService
+
+
+## The mount of the form that started (`mount` of form_started, the Corsair's Battleship) rides until that same form ends
+## (a form_ended of another skill leaves it), and never past the character's death.
+func _refresh_form_mount(e: Dictionary) -> void:
+	var next := mount_after_form_event(e, _mount_skill)
+	if int(next.mount) < 0:
+		return
+	_mount_skill = String(next.skill)
+	avatar.set_mount(int(next.mount))
+
+
+## The mount state after a form event: {"mount": id, "skill": the form that owns it}, or mount -1 when the event leaves it
+## as it is. A form_started that names a mount takes it over; one that names none (every form but the ship) leaves it;
+## a form_ended ends it only when it is the mount's own form (death ends every form, so it ends the ride).
+static func mount_after_form_event(e: Dictionary, owner_skill: String) -> Dictionary:
+	if String(e.get("type", "")) == "form_started":
+		var id := int(e.get("mount", 0))
+		if id > 0:
+			return {"mount": id, "skill": String(e.get("skill", ""))}
+	elif owner_skill != "" and String(e.get("skill", "")) == owner_skill:
+		return {"mount": 0, "skill": ""}
+	return {"mount": -1, "skill": owner_skill}
 
 
 ## Refreshes the held weapon only when a form starts or ends (tier C element palette).

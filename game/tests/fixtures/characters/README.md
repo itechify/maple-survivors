@@ -20,6 +20,14 @@ behind (its pickups, the tier its clear unlocks) and convert older files. Tool f
 (`CharacterSnapshot.migrate` keeps the format-3 part). The fixtures of the unported job lines and of the second jobs were
 deleted with job advancement (#284, #286, #294).
 
+`corsair_t2.json` is the Corsair (522) fixture (spec #384, C14 #398): a format-3 Corsair at the start of a round with tier 2 unlocked and the
+tier-1 gun kit worn: a Lv25 pistol (1492003, PAD 27), hat 1002096, shoes 1072017, gloves 1082002 and the starter top and bottom, unscrolled. The
+cache holds no armour with the Pirate bit, so the hat, shoes and gloves are the all-job (`reqJob` 0) pieces nearest to the F/P kit's reqLevels 30 / 20 / 15.
+Kit mode like `fp_arch_mage.json`: `tools/character_fixture.gd --job=522 --kit=1492003,1002096,1072017,1082002,1040002,1060002 --tiers=2
+--label=spec384/ticket-398 --revision=<SHA> --out=<absolute path>` (no playable patch is needed since C15 #399 flipped `playable`; the committed file's `_doc.patch`
+records the mirror it was first made with). **A Corsair needs a gun in hand**: without one `Ammo` gives 0 and the bullet sprite lookup fails (`missing`); use this file for
+`--job=522 --character=<absolute path>` runs, `--stage=sleepywood` checks and `--hub --job=522`.
+
 `hero_t2.json` is the Hero (112) fixture: tier 2 unlocked and the tier-1 equipment, inventory, scrolls and mesos
 from a seed-1 Henesys bot clear. Reproduce with `tools/character_fixture.gd --job=112 --god --seed=1
 --label=spec296/ticket-306 --revision=<SHA> --out=<absolute path>`. No playable patch is needed. The `_doc` records

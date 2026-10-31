@@ -17,6 +17,8 @@
 #   # --job=512 selects the playable Buccaneer (spec #412); --character=<buccaneer_t2.json> is its tier-1 kit.
 #   # --job=412 selects the playable Night Lord (spec #383, NL12 #411);
 #   # --character=<night_lord_t2.json> is its tier-1 claw kit (a Night Lord needs a claw in hand).
+#   # --job=522 selects the playable Corsair (spec #384, C15 #399); --character=<corsair_t2.json> is its tier-1 kit. Its records carry a
+#   # "corsair" block (ship boardings/seconds, hull broken/absorbed, landed hits per skill, marks applied, marked monster-seconds).
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
 #   bash scripts/balance.sh 1 --account="C:/abs/account.json"  # a round with an account (spec #34): {"owned": [item ids],
 #   # "cash": {slot: id}, "pet": id, "alert": {"hp": f}} (all optional; nx and an old alert.mp ignored). owned = the account's

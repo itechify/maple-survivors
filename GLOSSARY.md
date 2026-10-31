@@ -123,7 +123,7 @@ How many advancements a job is from Beginner: 0 Beginner, 1 first job, 2 second 
 **Job line**:
 A first job and every job below it, named after it (warrior, magician, bowman, thief, pirate), plus beginner for
 job 0 and common for job-neutral data. A class spec after the slice adds a *data line* named after the class
-(`hero`, #296; later `night_lord`, #383, and the other class lines), discovered by `DataRepo.lines()` after the fixed Adventurer lines, sorted by name, so jobs of the same Adventurer line no longer share one file. Survivor data and the asset manifest keep one file per line
+(`hero`, #296; later `night_lord`, #383, and the other class lines), loaded by `DataRepo.lines()` after the fixed Adventurer lines in the append-only `CLASS_LINES` order (a prototype fragment not yet registered follows, sorted by name), so jobs of the same Adventurer line no longer share one file. Survivor data and the asset manifest keep one file per line
 (`survivor/<name>/<line>.json`, `asset_manifest.d/<line>.json`), and a per-job table resolves a job through its
 lineage to the nearest listed ancestor.
 _Avoid_: class line, family (a weapon family is a kind of weapon)
@@ -221,6 +221,10 @@ A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here i
 A timed active stance that changes the character's attacks and carries sub-skills. A running form survives
 map transfer and ends on death. Its buff block carries Hidden or morph state; effect keys are for cast-stat or lifecycle behaviour (Buccaneer template: `spec/412`, `test_morph_form.gd`).
 
+**Hull**:
+The durability pool of a Form such as the Corsair's Battleship: a share of max HP that takes the character's hits before HP does
+and ends the Form when it is gone. Shown as a thin blue bar over the character. Not a HitHook (a hull is Form state).
+
 **Charge**:
 A Paladin Form that temporarily gives its attacks an element and carries Charged Blow. Holy Charge also
 carries Heaven's Hammer. Only one Charge runs at a time.
@@ -315,6 +319,18 @@ A status effect that makes a monster weak to one element for a time (x1.5 damage
 monster's own attribute): Fire Demon's ice-weak and Ice Demon's fire-weak. A monster can carry several, and bosses take
 none. A mixed-element hit (fire/poison, ice/lightning) is the mean of its parts, each counted with its live weakness.
 _Avoid_: debuff, curse
+
+**Mount**:
+A taming-mob image (`Character.wz/TamingMob/<id>.img`) drawn under and over the avatar for the life of a form that names one
+(`presentation.mount`): the rear canvas behind the rider, the front canvas in front, the rider seated at the mount's navel. Corsair's
+Battleship is the only one. Presentation only: no mount speed, jump or hitbox.
+_Avoid_: pet (a pet follows, a mount carries), vehicle
+
+**Mark**:
+A timed status (`all_weak`) that makes every hit on a monster deal x1.5 (x1.25 on a boss, which can be marked unlike the
+other statuses), elemental or not, on top of any element multiplier; the player's nearest-rule shots, bursts and summons
+also prefer a marked monster (after scheduled bosses). Corsair's Homing Beacon applies it; Bullseye raises it.
+_Avoid_: debuff, curse, vulnerability (a vulnerability is one element only)
 
 **Stolen**:
 A monster a successful Steal has already taken an extra drop from; Steal can't take from it again. It is not a
@@ -519,6 +535,16 @@ A timed clone (Shadow Partner) that repeats the owner's star casts about 0.25 s 
 (`x` for the basic throws, `y` for the heavier skills). It is a `PlayerSummons` entry with `summon.echo`, never strikes by itself, and
 its repeats earn no meter charge, heal nothing and are never echoed again (`EchoCast`, #404). Night Lord's Shadow Partner draws it from the WZ `special` frames (`EchoCloneRenderer`, #409).
 _Avoid_: shadow clone attack, double cast
+
+**Turret**:
+A player summon with `summon.behavior: "turret"` (the Corsair Octopus): planted where it is called, it fires one visible ball per
+target at monsters inside a circle around it and the hit lands when the ball arrives. `SummonTurret`.
+_Avoid_: totem, tower
+
+**Kamikaze**:
+A player summon with `summon.behavior: "kamikaze"` (the Corsair Gaviota): it flies at one chosen monster, strikes once and is spent.
+`SummonKamikaze`.
+_Avoid_: bomber
 
 **Burst**:
 One automatic cast that schedules its resolved shot count over time, following the moving character's hand and a

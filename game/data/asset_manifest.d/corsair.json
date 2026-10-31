@@ -1,0 +1,10 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Corsair line (spec #384 #385). The 3rd and 4th job Pirate skill books Skill.wz/521.img (Outlaw) and 522.img (Corsair) whole, the Sound.wz/Skill.img nodes of the Corsair pool and its Battleship sub-skills: Burst Fire 5210000 (its Hit is a UOL to ../5001003/Hit, in pirate.json), Octopus 5211001, Gaviota 5211002, Flamethrower 5211004, Ice Splitter 5211005, Homing Beacon 5211006, Aerial Strike 5221003, Rapid Fire 5221004, Battleship 5221006, Battleship Cannon 5221007 and Battleship Torpedo 5221008, and the Battleship's mount image Character.wz/TamingMob/01932000.img (the ship's stances, two canvases per frame; TamingMob.wz is not used). The Gunslinger book 520, Double Shot, Dash, Grenade, Invisible Shot and Recoil Shot sounds, the pistols and the bullets are in pirate.json. No proprietary data is stored in the repo.",
+	"imgs": [
+		{"img": "Skill.wz/521.img"},
+		{"img": "Skill.wz/522.img"},
+		{"img": "Character.wz/TamingMob/01932000.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["5210000", "5211001", "5211002", "5211004", "5211005", "5211006", "5221003", "5221004", "5221006", "5221007", "5221008"]}
+	]
+}

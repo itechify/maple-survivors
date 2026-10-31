@@ -1,5 +1,5 @@
 extends TestCase
-## Night Lord's data seam (spec #383, ticket NL2 #401): the `night_lord` line is discovered from its files, its job entry
+## Night Lord's data seam (spec #383, ticket NL2 #401): the `night_lord` line (registered in CLASS_LINES at its redesign merge, D15) loads from its files, its job entry
 ## `survivor/jobs/night_lord.json` (412, playable since NL12 #411) names the pool, Flash Jump, the claw family, the Garnier and the
 ## meso charge meter, its AP row, bot card scores and status-bonus catalogue come from the line file (nothing in the shared
 ## balance), its drops are claws only (Thief-bit gear), and its claw ammo schedule has the Lv60 Ilbi step. The pool keys
@@ -70,10 +70,13 @@ func _defining_lines(key: String) -> Array:
 
 # --- the line ---------------------------------------------------------------------------------------------------------
 
-func test_night_lord_line_is_discovered_from_its_files_without_a_shared_registration() -> void:
+func test_night_lord_line_is_registered_right_after_corsair() -> void:
 	var lines := Array(DataRepo.lines())
-	assert_true("night_lord" in lines, "discovered from its files")
-	assert_false("night_lord" in DataRepo.CLASS_LINES, "no shared registration list was edited")
+	assert_true("night_lord" in lines, "loaded from its files")
+	# Ruling D15: a shipped class line is appended to CLASS_LINES in redesign-merge order (Corsair merged first), so a later line never moves it.
+	var registered := Array(DataRepo.CLASS_LINES)
+	assert_eq(registered.find("night_lord"), registered.find("corsair") + 1, "night_lord follows corsair in CLASS_LINES")
+	assert_eq(lines.find("night_lord"), lines.find("corsair") + 1, "and right after it in the line order")
 	assert_true(lines.find("night_lord") > lines.find("hero"), "a class line follows the Adventurer lines and hero")
 	assert_eq(DataRepo.fragment_path("jobs_survivor", "night_lord", "res://data"), "res://data/survivor/jobs/night_lord.json")
 	assert_eq(DataRepo.fragment_path("skills", "night_lord", "res://data"), "res://data/survivor/skills/night_lord.json")
