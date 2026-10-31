@@ -6377,7 +6377,7 @@ Double Shot. The Brawler's attacks are 7.19 (#191); the Gunslinger's are 7.20 (#
 
 **Hidden** is a generic player state (GLOSSARY): an active buff whose definition sets `"hidden": true` in its `buff`
 block makes `RunWorld.is_hidden()` true until the buff ends, at its duration or earlier when its source says so.
-Oak Barrel uses it now; Thief Dark Sight (#167) will reuse it. While Hidden (owner rules, #168 grilling):
+Oak Barrel uses it now; Shadower's Dark Sight reuses it as a Form (7.131). While Hidden (owner rules, #168 grilling):
 
 - **Monsters, bosses included, ignore the character.** `MobSwarm.step` gets `ctx.hidden` and no target: ground mobs
   patrol their platform the way a mob with no route does (they walk the way they face and turn at walls and platform
@@ -9672,6 +9672,43 @@ Presentation: `MobRenderer.MARK_CUE` (cue 5, `CUES_PER_SLOT` 6) loops the skill'
 cue (`mark_cue_path`, set by `RunScene` from the first pool skill whose `on_hit.status` is `all_weak` and names a `cue`);
 without art the monster takes `MARK_TINT` (red). Burn and freeze tints win over it.
 
+### 7.131 Hidden form (spec #425 SH-1, SH-3; SH3 #428)
+
+A **Hidden form** (GLOSSARY) is a Form (7.87) whose `buff` block sets `hidden`. It adds no code to the Form seam beyond one
+sub flag, and **no `PlayerForms.EFFECTS` entry** (`EFFECTS` is still exactly `element` and `damage`): `PlayerForms.start` passes the
+resolved `Loadout.stats` to `PlayerBuffs.start`, and `Loadout.stats` already reads `buff.hidden` (7.18), so the Form's window and its
+Hidden state are the same buff. This corrects the "effect `hidden`" row of spec #308's "what a later job adds" table, as Buccaneer's
+spec corrected its `morph` row (BU-9, 7.92). A schema that lists `effects.hidden` is an error.
+
+```json
+{"kind":"form", "slot":"active", "damage":"none", "cast":{"rule":"form", "mob_within":150},
+ "buff":{"hidden":true, "stat":"speed", "field":"speed"},
+ "form":{"duration":5.0, "exclusive_group":"example", "effects":{},
+         "subs":[{"skill":"example_sub", "first_after":0.8, "interval":2.0, "ignores_hidden":true}]}}
+```
+
+- **The window.** `RunWorld.is_hidden()` is true from `form_started` until `form_ended`, for every reason (`expired`, `died`, `replaced`,
+  `consumed`). The window is a buff: its row and countdown are the existing buff row, the `stat` / `field` contribution (Dark Sight's
+  speed penalty) applies while it runs and drops with it, and a map transfer keeps a running window like any buff. No RNG is drawn.
+- **`ignores_hidden`** is a bool on a **`form.subs` entry** (default false), read by the sub driver's Hidden gate in `PlayerForms.step`
+  only: a sub carrying it is admitted while the caster is Hidden. A sub without it keeps the 7.87 rule (it waits, due and not
+  consumed, and the window ends before it casts). The flag changes nothing else: pool attack skills stay silenced in
+  `SkillRunner.cast_ready` (their cooldowns keep running and they cast again once the window ends), mobs still ignore the character
+  and `take_hit` still returns 0. (The automatic basic attack no longer exists, #284, so the old "`BasicAttack` starts no swing" of 7.18
+  has nothing to silence.) The admitted sub takes the driver's other rules unchanged: its own cast rule and minimum targets, its rank
+  through its own table (the parent's snapshotted rank), the parent's `damage` modifier and the form's `damage` effect, its HP price,
+  `once` / `interval`; its hits are ordinary hits (defence, critical, element, `on_hit`, granted statuses).
+- **`ends_form` is not built by this spec** (SH-3): a window that should end early is a shorter `duration`. Paladin's P3 already
+  shipped the flag in the driver and its validator and tests it in `test_player_forms` (`test_hidden_sub_can_consume_only_its_own_form`);
+  it stays as it was and no Shadower skill uses it.
+- **Validation.** `PlayerForms.validation_errors` requires `ignores_hidden` on a subs entry to be a boolean, and rejects it anywhere
+  else: on a skill definition (including the sub's own definition) or on a form block.
+- **Text.** `SkillText` writes "Hidden for {duration} s: monsters ignore you and you cannot attack except with {subs}." for a form whose
+  buff hides, `{subs}` being the names of the subs that carry `ignores_hidden` (nothing after "attack" when none does), then the
+  usual line per sub as for the Paladin's Charges. The speed penalty is not named.
+- **Tests.** `test_hidden_form` proves all of it on a synthetic form (job 999, skill 9991001+): no Shadower data and no asset cache.
+  Dark Sight and Assassinate (SH11) copy it.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -12117,3 +12154,13 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | `playable` of 412 | `true` (flipped from NL2's false); `default_job` stays 212 | tier C: spec #383 / #298 pin |
 | HP baseline | the shared default (no Hero-style melee HP baseline: the spec does not call for one) | tier C: spec #383 |
 | Everything else | no new constant; the QA smoke is in 4.2 | n/a |
+
+### Shadower SH3 constants (#428)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Hidden form is a `buff` block | `buff.hidden` plus `stat` / `field`; no `PlayerForms.EFFECTS` entry | tier C: spec #425 SH-1 (the Buccaneer BU-9 precedent) |
+| `ignores_hidden` | bool on a `form.subs` entry, default false; read by the sub driver's Hidden gate only | tier C: spec #425 SH-3 |
+| `ends_form` | not built by Shadower (Paladin's P3 flag stays, unused) | tier C: spec #425 SH-3 |
+| Hidden form card line | "Hidden for {duration} s: monsters ignore you and you cannot attack except with {subs}." | tier C: ours (#428) |
+| Everything else | no new numeric constant; the window length and speed ranks of Dark Sight are SH11's | n/a |

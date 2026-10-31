@@ -317,7 +317,7 @@ The Form effect registry is the extension boundary; later class tickets add thei
 
 | Later class | Its own ticket adds |
 |---|---|
-| Shadower | `buff.hidden`; the sub flags `ignores_hidden` and `ends_form` bypass Hidden and consume just the parent after a successful cast |
+| Shadower | `buff.hidden` (a Hidden form is a `buff` block, no effect key; GAME_DESIGN 7.131); the sub flag `ignores_hidden` lets one sub attack while Hidden. `ends_form` (consume just the parent after a cast) came with Paladin's P3 and Shadower does not use it |
 | Buccaneer | `buff.morph_field` and Morph.wz presentation; template `test_morph_form.gd` (B3 #415; the morph paragraph below) |
 | Corsair | `hull`, `only_skills`, `art_variant` (C11 #395, the `STATE_EFFECTS` paragraph below) and mount art (C12); `hull` ends its form with `broken` when spent |
 

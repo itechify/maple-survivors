@@ -105,6 +105,8 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		var seconds := number(float(stats.get("duration", form.duration)))
 		if effects.has("hull"):
 			mechanics.append(_ship_line(seconds, effects, stats, form))
+		elif bool(stats.get("hidden", false)):
+			mechanics.append(_hidden_line(seconds, form))
 		elif element.is_empty():
 			mechanics.append(_transform_line(seconds, power - 1.0, effects.has("damage"), stats.get("buff_effects", {})))
 		else:
@@ -225,6 +227,18 @@ static func _join_names(names: PackedStringArray) -> String:
 	if names.size() <= 1:
 		return "".join(names)
 	return ", ".join(names.slice(0, names.size() - 1)) + " and " + names[names.size() - 1]
+
+
+## The line of a Hidden form (a `buff.hidden` form, spec #425 SH3, tier C wording): the window, what Hidden does, and the
+## sub-skills that still attack (those flagged `ignores_hidden`). The subs' own lines follow.
+func _hidden_line(seconds: String, form: Dictionary) -> String:
+	var names := PackedStringArray()
+	for sub: Dictionary in form.get("subs", []):
+		if bool(sub.get("ignores_hidden", false)):
+			var sub_key := String(sub.skill)
+			names.append(String(book.def(sub_key).get("name", sub_key.replace("_", " ").capitalize())))
+	return "Hidden for %s s: monsters ignore you and you cannot attack%s." % [seconds,
+		" except with " + _join_names(names) if not names.is_empty() else ""]
 
 
 ## The line of a form with no element (a morph such as Buccaneer's Transformation, spec #412 BU-9): its duration, the attack
