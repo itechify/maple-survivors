@@ -644,6 +644,7 @@ older records below, in the smoke and in the job-loop tickets mean the first fou
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
 | `ludibrium` (step 6, #463) | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) | Rombot / Alishar / Timer |
 | `omega_sector` | Kulan Field I (221040000) | Boswell Field II (221030200) | Boswell Field V (221030500) | Chief Gray / MT-09 / Zeno |
+| `korean_folk_town` (step 8, #465) | Korean Folk Town - Entrance to Black Mountain (222010000, 2520 px) | Tiger Ridge (222010200, 2520 px) | Fox Ridge (222010300, 3240 px) | Scholar Ghost / Blue King Goblin / Nine-Tailed Fox |
 | `el_nath` (step 10, #467) | Watch Out for Icy Path I (211010000, 3050 px) | Forest of Dead Trees I (211041100, 4310 px) | The Cave of Trial II (211042100, 4290 px) | Snow Witch / Riche / Snowman |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
@@ -856,6 +857,34 @@ No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening mu
 Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
+
+### Korean Folk Town (C3) regression smoke and diagnostic round (#465, 2026-10-30)
+
+Spec #447 branch with the Korean Folk Town region (step 8 of the spec, after Omega Sector at step 7), private cache,
+F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood with
+the starter wand and with `fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 /
+646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 /
+651.8, random 331.5 / 449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 /
+11.9 / 15.1, kit one clear and deaths at 23.8 / 767.0), no crashes and no world warnings. Korean Folk Town itself is not in the
+smoke (calibration is C13).
+
+Diagnostic one-off, `--run=korean_folk_town --job=112 --character=late_progression.json`, seed 1, windowed at x4 (x1 in the
+boss fights), god mode (`RunWorld.god`) with the autoplay bot, each boss held at >= 50% HP for 45 s (Scholar Ghost, Blue King
+Goblin) or 80 s (the Fox) so its kit shows, then one lethal diagnostic hit: **CLEARED, 3 bosses, Lv58, 1060.5 s,
+`missing: []`, no warnings**. Map entries at 0 / 345.4 / 680.1 s. Arena check, by eye: all three first picks stay. Entrance to
+Black Mountain (full moon, Moon Bunnies on the floor and the stepped ledges), Tiger Ridge (a cliff with ledges and a pond;
+Hodori and Hogul tigers crowd the floor and the left ledges) and Fox Ridge (a wide stepped hillside; Samiho swarm the floor
+and every ledge) are wide, open and have ropes the bot climbs: no shaft, no pit it cannot leave. The three boss bars show
+(Scholar Ghost's borrowed Riche icon, Blue King Goblin's borrowed Zeno icon, the Fox's own). Seen: Scholar Ghost arriving
+on the right, its Banish (twice, 15 s apart; the notice "You have been relocated by the vengeful spirit of the Scholar Ghost."
+and the character on the ground elsewhere); Blue King Goblin's attack1 wind-up and shockwave; the Nine-Tailed Fox's attack1,
+Darkness 121 (the screen darkens and the character's eye aura shows, four casts), Weakness 122 (the blue circle over the
+character), Stun 123 (the pink stun effect over the character, the first-Stun shot `stun.png`) and heal 114 ("Nine-Tailed Fox recovered ... HP"
+and its heal burst on the fox). **Not shown by a god-mode run:** the damage and slowing side of a landed Weakness, a Stun that
+actually stops the character's input and what the draft multipliers do to a real character (god lands no hit, so nothing
+here is survival or balance evidence); the first-status hook saved only `stun.png` and `darkness.png`, so Weakness was seen only in the
+per-cast shot. With the late fixture (Lv100-band gear at Lv1) the bosses die at once when not held:
+the first draft is a starting point for C13, not a balance claim.
 
 ### Ludibrium (C1) regression smoke and diagnostic round (#463, 2026-10-30)
 
@@ -10511,6 +10540,23 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Flags ignored | none of Ludibrium's field flags are read (`lvLimit` is on the Path of Time maps only, which are not used) | C |
 | Diagnostic gap | The god-mode diagnostic round did **not** observe Timer's Stun 123 and magic immunity 141, nor Alishar's Cronos summons (200): god mode lands no hit on the character, and the bosses were held at fixed HP fractions. Their visuals and effects are unverified in Ludibrium until C14's QA covers them (the mechanics have their own tests, #456-#458) | C |
 | Alternates | map 1 220010300 / 220010000, map 2 220030300 / 220030200, map 3 220040400 / 220050200: not needed, the arena check kept all three first picks | C |
+
+### Korean Folk Town (C3) constants (#465, spec #449; progression step 8)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/korean_folk_town.json`: `region` Korean Folk Town, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [45, 55] (#447 table), maps 222010000 / 222010200 / 222010300 (widths 2520 / 2520 / 3240 px, foothold spans of Map.wz; #270's picks), `original_life` of map 1 (Moon Bunny 13) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads), both Moon Bunny 4230300 (Lv45) alone: it is the field's only monster once the three stray Lv22 Dark Axe Stump spawn points (one timed 20 s) are dropped; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`: Tiger Ridge holds Hodori 5100003 x10 and Hogul 5100005 x3 (one Hogul timed, mobTime 60 s; an ordinary mob, kept); Fox Ridge holds Samiho 5100004 x21 and excludes (`exclude`) the timed, boss-flagged Scholar Ghost 6090003 (mobTime 3600 s), which is map 1's scheduled boss | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=8 --stage=korean_folk_town` (not tuned): `level` 18.15, 18.73, 19.8, 31.22, 45.44, 57.23, 65.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (8 - 5)) | C |
+| Bosses | Scholar Ghost 6090003 (hp_mult 52.672, dmg_mult 1.111; no attack stance, so no `attacks` or `attack_dmg_mult`), Blue King Goblin 7130401 (6.69, 0.73, attack_dmg_mult 0.848, `attack1` matched on MAD), Nine-Tailed Fox 7220001 (2.562, 1.624, 2.027, `attack1` matched on PAD), each 300 s after its map's entry, `attack_interval` 8 where there is an attack; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | Scholar Ghost: Banish 129 only (touch damage otherwise, like Shade); `skill_intervals` {"129": 15} is Shade's tier C rule (#256), one Banish per 15 s instead of the canonical 3 s; its v83 banMsg is kept as the notice. Blue King Goblin casts nothing. Nine-Tailed Fox: heal 114/15, Darkness 121/7, Weakness 122/10, Stun 123/7, as written in Skill.wz | A skills, C support |
+| One King Goblin | Blue King Goblin only; Yellow 7130400 and Green 7130402 stay unscheduled (`test_region_korean_folk_town`) | C |
+| `mobs.json` | names and `exp_item`: Moon Bunny Pounder 4000169, Hodori Tiger Stamp 4000170, Hogul Tiger Skin 4000171, Samiho and the Fox Three-Tailed Foxtail 4000172, Scholar Ghost Traditional Scholar Hat 4000416, Blue King Goblin Silver Ore 4010004 (each the mob's first Etc drop in the MonsterBook); Scholar Ghost borrows Riche's MobGage icon 6090000 and Blue King Goblin Zeno's 6220001 with the standard 1/5 tag (v83 has none for either); the Fox's icon is canonical | A ids/names, C association |
+| Meso ranges | ordinary mobs only, as Ludibrium's method: centre interpolated from the Lv40 Cold Eye / Zombie Lupin (125), Lv50 Drake (250), Lv55 Malady (305) and Lv64 Ice Drake (405) ranges at the mob's level (Moon Bunny Lv45 [150, 226], Hodori Lv50 [200, 300], Hogul Lv53 [226, 340], Samiho Lv56 [253, 379]), +-20%; bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the three maps carries a field flag | A |
+| Alternates | not needed if the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
 
 ## 12. Later phases
 
