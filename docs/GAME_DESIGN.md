@@ -884,8 +884,9 @@ Diagnostic one-off, `--run=leafre --job=112 --character=late_progression.json`, 
 1 HP) so its kit and Leviathan's three Wyvern summons show: **CLEARED, 3 bosses, Lv49, 1291.2 s, `missing: []`, no warnings**.
 Map entries at 0 / 462.8 / 841.0 s, `max_alive` 351. A first round with map 3 on the cave's instance copies (Skelegon 2 in Cave and
 T-Skelegon in Cave, EXP 1500, about 0.30x of the level curve) cleared at Lv39; the explicit Skelegon / Skelosaurus pool (EXP 4500 and
-4750) lifts that to Lv49. It is still under the other regions' Lv52-64 because maps 1 and 2 also pay less than the curve (Blue Kentaurus
-1600, Rexton 2280, Green Cornian 3000 against ~5000): the spec's own map choice, left for C13. Arena check, by eye: all three first
+4750) lifts that to Lv49. Maps 1 and 2 pay the curve at their own levels (Blue Kentaurus Lv88 1600 / 1638 = 0.98, Rexton 0.99,
+Green Cornian 1.01; the new pool 0.92 and 0.90), so the remaining gap to the other regions' Lv52-64 is the step itself (mob HP
+about 1.5x Magatia's at each keyframe, so slower kills) plus the diagnostic's boss HP-floor holds; left for C13. Arena check, by eye: all three first
 picks stay. The Area of Blue Kentaurus
 (a green forest with a water strip below; one long grass-and-rock floor, rope-linked ledges; Blue Kentaurus fills the floor from
 the right), Dragon Forest II (an orange-sky forest: one full-width floor plus floating ledges on ropes; Rexton and the Green
