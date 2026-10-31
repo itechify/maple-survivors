@@ -71,8 +71,9 @@ func require_cache() -> bool:
 func require_cache_img(path: String) -> bool:
 	if not require_cache():
 		return false
-	var lib := AssetLibrary.new()
-	var present := lib.img(path) != null
+	# Loaded by path, not by class name: the runner's failure-path self-tests compile this file in a bare project.
+	var lib: Object = load("res://scripts/assets/asset_library.gd").new()
+	var present: bool = lib.call("img", path) != null
 	lib.free()
 	if not present:
 		skip("asset cache has no %s (imported before the spec that added it: re-import)" % path)
