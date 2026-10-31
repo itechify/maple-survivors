@@ -16,7 +16,6 @@ const TIERS := ["rare", "epic", "unique", "legendary"]
 ## A quiet round of a Marksman holding a crossbow, `key` learned at `rank_value`, mobs frozen in place and snail-sized.
 func _world(key: String, rank_value := 1, p_seed := 366) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["322"]["playable"] = true # in this test's data only: MS11 ships the flip
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({CROSSBOW: {"incPAD": 29, "attackSpeed": 6, "tuc": 7}}, true)
 	for action: String in ["shoot1", "shoot2"]:

@@ -47,10 +47,8 @@ func _summon_node(range_box: Array, attack_after: float, mob_count: int, attack_
 		"die": _frames(5, 100.0)}
 
 
-func _world(key: String, p_seed := 369, playable := false) -> RunWorld:
+func _world(key: String, p_seed := 369) -> RunWorld:
 	var data := RF.quiet_data()
-	if playable:
-		data.jobs_survivor.jobs["322"]["playable"] = true # in this test's data only: its pool cards exist (MS11 ships the flip)
 	var setup := RF.setup("quiet", p_seed, data)
 	setup.data.stages.stages.quiet.maps.append(setup.data.stages.stages.quiet.maps[0].duplicate(true)) # a second map to transfer to
 	setup["job"] = 322
@@ -476,8 +474,8 @@ func test_the_catalog_lists_all_four_rarities_exactly_as_the_spec_table() -> voi
 func test_a_rare_or_better_card_adds_one_rank_plus_its_bonus_and_the_preview_is_stable() -> void:
 	for key: String in BONUSES:
 		for tier: String in TIERS:
-			var a := _world(key, 369, true)
-			var b := _world(key, 369, true)
+			var a := _world(key, 369)
+			var b := _world(key, 369)
 			var id := key + "_rank"
 			assert_eq(a.loadout.rank(key), 1)
 			var c := a.upgrades.choice_card(id, a, tier)
@@ -492,7 +490,7 @@ func test_a_rare_or_better_card_adds_one_rank_plus_its_bonus_and_the_preview_is_
 
 func test_legendary_shares_the_uniques_counter_and_repeats_shrink_by_0_8() -> void:
 	for key: String in BONUSES:
-		var w := _world(key, 369, true)
+		var w := _world(key, 369)
 		var unique_id: String = BONUSES[key][2][0]
 		w.upgrades.apply(key + "_rank", w, "unique")
 		assert_near(w.loadout.skill_stat(key, "summon_count", 1.0), 2.0, 0.00001, "%s: the first Unique is a full +1" % key)
@@ -505,7 +503,7 @@ func test_legendary_shares_the_uniques_counter_and_repeats_shrink_by_0_8() -> vo
 
 func test_mastery_after_rank_8_repeats_shrink_by_0_8() -> void:
 	for key: String in BONUSES:
-		var w := _world(key, 369, true)
+		var w := _world(key, 369)
 		w.loadout.set_rank(key, 8)
 		var c := w.upgrades.choice_card(key + "_rank", w, "rare")
 		assert_eq(c.card_kind, "mastery", key)

@@ -3,12 +3,10 @@ extends TestCase
 ## Crossbowman 320, Sniper 321, Marksman 322, after the Common tab), every pool skill sits on the tab of its own job, and a test
 ## fails if a skill the run owns is on no tab. A Marksman has no skill key, so Key Config and the quick slot show nothing for
 ## movement. The model tests use the synthetic books of the Marksman fixtures and the canonical job names (no cache); the RunScene
-## test (SKIP without the cache) drives the real window through its hotkeys. Marksman ships `playable: false` until MS11, so the
-## RunScene test mirrors it playable.
+## test (SKIP without the cache) drives the real window through its hotkeys. Marksman ships playable (MS11 #371).
 
 const MF := preload("res://tests/fixtures/marksman_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const MIRROR := {"jobs_survivor": {"jobs": {"322": {"playable": true}}}}
 const DT := 1.0 / 60.0
 ## Tab -> the pool keys its book holds, ordered by skill id (the window sorts by id). Arrow Blow is the Bowman's (300) shared
 ## definition; Iron Arrow is the Crossbowman's (320).
@@ -193,7 +191,6 @@ func test_key_config_and_the_quick_slot_show_nothing_for_movement() -> void:
 func test_a_322_run_opens_the_skill_window_on_the_marksman_tab_and_every_tab_has_rows() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	s.library = lib
 	s.configure("henesys", 13, {"use_flow": false, "autoplay": true, "autopick": true, "job": 322})

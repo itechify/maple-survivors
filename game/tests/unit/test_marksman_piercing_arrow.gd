@@ -31,7 +31,6 @@ func _levels() -> Dictionary:
 ## A quiet round of a Marksman holding a crossbow with Piercing Arrow learned at `rank_value`; mobs stand still, snail-sized.
 func _world(rank_value := 1, p_seed := 367) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["322"]["playable"] = true # in this test's data only: MS11 ships the flip
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.data.stages.stages.quiet.maps.append(setup.data.stages.stages.quiet.maps[0].duplicate(true)) # a map to transfer to
 	setup.equipment_info.merge({CROSSBOW: {"incPAD": 29, "attackSpeed": 6, "tuc": 7}}, true)

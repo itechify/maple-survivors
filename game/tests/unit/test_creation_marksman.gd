@@ -1,13 +1,13 @@
 extends TestCase
-## The creation Job page with Marksman (spec #360, MS10 #370). Marksman ships `playable: false` until MS11, so the page is
-## verified three ways: the shipped list (the real row count today), the list with 322 mirrored playable through `DataRepo.patch`
-## (the row count MS11 ships), and a list the same seam reduces to two jobs (layout, selection, keyboard step, weapon box).
+## The creation Job page with Marksman (spec #360, MS10 #370). Marksman ships `playable: true` (MS11 #371), so the page is
+## verified two ways: the shipped list (the real row count) and a list the `DataRepo.patch` seam reduces to two jobs (layout,
+## selection, keyboard step, weapon box); a `playable: false` patch tests the refusal.
 ## The expected lists are derived from the shipped `playable_jobs()` rather than pinned, so another class line flipping `playable`
 ## (Night Lord, Corsair) never breaks this file. The Job page needs the cache (Look OK stays disabled until the hair/face columns
 ## exist), so every test that opens it calls `require_cache()`; the data-level tests run in CI.
 
 const CREATE := preload("res://scenes/ui/character_create.gd")
-const MIRROR := {"jobs_survivor": {"jobs": {"322": {"playable": true}}}}
+const DISABLED := {"jobs_survivor": {"jobs": {"322": {"playable": false}}}}
 
 var save_path := TestCase.test_dir("creation_marksman/save.json")
 var _nodes: Array[Node] = []
@@ -32,19 +32,11 @@ func _tree() -> JobTree:
 	return DataRepo.jobs(DataRepo.load_all())
 
 
-## The playable list with 322 mirrored playable (then the patch is removed again).
-func _mirrored_ids() -> Array[int]:
-	DataRepo.patch = MIRROR.duplicate(true)
-	var ids := _tree().playable_jobs()
-	DataRepo.patch = {}
-	return ids
-
-
 ## A patch that disables every shipped playable job, leaving 322 as the only other row besides 212.
 func _reduced() -> Dictionary:
-	var jobs := {"322": {"playable": true}}
+	var jobs := {}
 	for id: int in _tree().playable_jobs():
-		if id != 212:
+		if id != 212 and id != 322:
 			jobs[str(id)] = {"playable": false}
 	return {"jobs_survivor": {"jobs": jobs}}
 
@@ -85,42 +77,43 @@ func _row(creation: Control, id: int) -> Button:
 	return creation.find_child("Job_%d" % id, true, false) as Button
 
 
-func test_shipped_marksman_is_not_playable_and_the_mirror_puts_it_right_after_bowmaster() -> void:
+func test_shipped_marksman_is_playable_right_after_bowmaster_and_a_disabled_patch_unlists_it() -> void:
 	var shipped := _tree()
-	assert_false(shipped.job(322).playable, "MS11 flips it; until then the Job page does not list it")
-	assert_false(322 in shipped.playable_jobs())
-	assert_eq(shipped.default_job(), 212)
-	DataRepo.patch = MIRROR.duplicate(true)
-	var mirrored := _tree()
-	assert_true(mirrored.job(322).playable)
-	var ids := mirrored.playable_jobs()
-	assert_eq(ids.size(), shipped.playable_jobs().size() + 1, "one more row")
+	assert_true(shipped.job(322).playable)
+	var ids := shipped.playable_jobs()
+	assert_true(322 in ids)
+	assert_eq(shipped.default_job(), 212, "the pin keeps 212 the default with Marksman playable")
 	assert_eq(ids.find(322), ids.find(312) + 1, "canonical order: Marksman follows Bowmaster (no job between 312 and 322)")
+	assert_eq(shipped.name_of(322), "Marksman")
+	assert_eq(shipped.creation_weapon(322), 1462001, "the Crossbow")
+	DataRepo.patch = DISABLED.duplicate(true)
+	var disabled := _tree()
+	assert_false(disabled.job(322).playable)
 	var rest := ids.duplicate()
 	rest.erase(322)
-	assert_eq(rest, shipped.playable_jobs(), "the other rows keep their order")
-	assert_eq(mirrored.default_job(), 212, "the pin keeps 212 the default with Marksman playable")
-	assert_eq(mirrored.name_of(322), "Marksman")
-	assert_eq(mirrored.creation_weapon(322), 1462001, "the Crossbow")
+	assert_eq(disabled.playable_jobs(), rest, "the other rows keep their order")
 
 
-func test_the_shipped_page_lists_the_real_rows_without_marksman() -> void:
+func test_the_shipped_page_lists_marksman_and_unlisted_jobs_change_nothing() -> void:
 	if not require_cache():
 		return
+	DataRepo.patch = DISABLED.duplicate(true)
+	var without := _job_page(_flow(), "MsDisabled01")
+	assert_true(_row(without, 322) == null, "no Marksman row when disabled")
+	without.select_job(322)
+	assert_eq(without.job_id, 212, "an unlisted job changes nothing")
+	DataRepo.patch = {}
 	var creation := _job_page(_flow(), "MsShipped01")
 	assert_eq(creation.job_ids, _tree().playable_jobs())
-	assert_true(_row(creation, 322) == null, "no Marksman row while it ships unplayable")
+	assert_true(_row(creation, 322) != null, "the shipped list has the Marksman row")
 	var last := _row(creation, creation.job_ids[creation.job_ids.size() - 1])
 	assert_true(last.position.y + creation.job_pitch - 2.0 <= CREATE.JOB_LIST_BOTTOM, "the shipped list fits above the message strip")
-	creation.select_job(322)
-	assert_eq(creation.job_id, 212, "an unlisted job changes nothing")
 
 
-func test_every_row_with_the_mirror_is_one_pitch_below_the_last_and_fits_above_the_message_strip() -> void:
+func test_every_shipped_row_is_one_pitch_below_the_last_and_fits_above_the_message_strip() -> void:
 	if not require_cache():
 		return
-	var ids := _mirrored_ids()
-	DataRepo.patch = MIRROR.duplicate(true)
+	var ids := _tree().playable_jobs()
 	var creation := _job_page(_flow(), "MsRows01")
 	assert_eq(creation.job_ids, ids)
 	assert_eq(creation.job_id, 212, "the default job is chosen when the page opens")
@@ -146,7 +139,6 @@ func test_every_row_with_the_mirror_is_one_pitch_below_the_last_and_fits_above_t
 func test_clicking_marksman_selects_it_and_moves_the_highlight() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var creation := _job_page(_flow(), "MsClick01")
 	_row(creation, 322).pressed.emit()
 	assert_eq(creation.job_id, 322)
@@ -160,8 +152,7 @@ func test_clicking_marksman_selects_it_and_moves_the_highlight() -> void:
 func test_up_and_down_step_through_every_row_including_marksman_and_clamp() -> void:
 	if not require_cache():
 		return
-	var ids := _mirrored_ids()
-	DataRepo.patch = MIRROR.duplicate(true)
+	var ids := _tree().playable_jobs()
 	var creation := _job_page(_flow(), "MsKeys01")
 	creation.select_job(312)
 	creation._input(_key(KEY_DOWN))
@@ -199,7 +190,6 @@ func test_a_reduced_list_lays_out_two_rows_and_steps_between_them() -> void:
 func test_the_weapon_box_shows_the_crossbow() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var creation := _job_page(_flow(), "MsWeapon01")
 	creation.select_job(322)
 	assert_eq(creation.avatar.look.equips[-1], 1462001, "the preview wears the Crossbow")
@@ -213,7 +203,6 @@ func test_the_weapon_box_shows_the_crossbow() -> void:
 func test_create_makes_a_marksman_with_its_crossbow_and_separate_ladders() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var flow := _flow()
 	var creation := _job_page(flow, "MsOne01")
 	creation.select_job(322)
@@ -232,14 +221,13 @@ func test_create_makes_a_marksman_with_its_crossbow_and_separate_ladders() -> vo
 	assert_eq(flow.save.slot(0).character.job_id, 322, "the first slot is unchanged")
 
 
-func test_marksman_is_refused_when_the_mirror_is_removed_after_selection() -> void:
+func test_marksman_is_refused_when_it_is_disabled_after_selection() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var flow := _flow()
 	var creation := _job_page(flow, "MsRefused01")
 	creation.select_job(322)
-	DataRepo.patch = {}
+	DataRepo.patch = DISABLED.duplicate(true)
 	creation.create_button.pressed.emit()
 	assert_eq(creation.phase, "job", "still on the page")
 	assert_ne(String(creation.message.text), "", "the refusal is shown")

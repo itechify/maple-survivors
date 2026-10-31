@@ -1,10 +1,10 @@
 extends TestCase
 ## `--job=322` through the tools (spec #360, MS10 #370): the run flags, balance_run, the fixture tool, the committed Marksman
-## fixture and a `--character` of another job. Marksman ships `playable: false` until MS11 (the Job page, `--job=322` and the
-## fixture tool refuse it), so every accepting case mirrors it playable with a patch file (`--patch=` / `DataRepo.patch`).
-## Subprocess tests that play a round need the cache (`require_cache()`); the data-level checks run in CI.
+## fixture and a `--character` of another job. Acceptance uses shipped data (Marksman is playable, MS11 #371); explicit
+## disabling patches (`--patch=` / `DataRepo.patch`) test refusal. Subprocess tests that play a round need the cache
+## (`require_cache()`); the data-level checks run in CI.
 
-const PLAYABLE := {"jobs_survivor": {"jobs": {"322": {"playable": true}}}}
+const DISABLED := {"jobs_survivor": {"jobs": {"322": {"playable": false}}}}
 const FP_FIXTURE := "res://tests/fixtures/characters/fp_arch_mage.json"
 const MARKSMAN_FIXTURE := "res://tests/fixtures/characters/marksman_t2.json"
 ## The tier-1 crossbow kit: Balanche (reqLevel 22) and the Bowman-bit hat (30), shoes (20) and gloves (15), the starter top and bottom.
@@ -31,14 +31,12 @@ func _file(file_name: String, text: String) -> String:
 	return path
 
 
-## A Marksman (322) character file in the creation outfit (Crossbow) with synthetic item stats; 322 must be mirrored playable.
+## A Marksman (322) character file in the creation outfit (Crossbow) with synthetic item stats.
 func _marksman_file() -> String:
 	var imgs := {}
 	for id: int in [1040002, 1060002, 1072001, 1462001]:
 		imgs[AvatarRenderer.part_img_path(id)] = {"info": {"tuc": 7, "incPAD": 29, "incPDD": 2}}
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	var character := SceneFlow.new_character({}, 322, func(path: String) -> Dictionary: return imgs.get(path, {}))
-	DataRepo.patch = {}
 	return _file("marksman.json", JSON.stringify(character))
 
 
@@ -56,28 +54,27 @@ func _record(text: String) -> Dictionary:
 	return {}
 
 
-func test_run_flags_name_322_and_refuse_it_until_it_is_playable() -> void:
+func test_run_flags_accept_shipped_322_and_refuse_it_when_disabled() -> void:
 	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys", "--job=322", "--seed=3"]))
 	assert_eq(int(parsed.options.job), 322)
 	assert_eq(RunLauncher.options_from_args({"job": "322"}).job, 322)
-	assert_true(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()).contains("not playable"), "shipped: MS11 flips it")
-	assert_eq(SceneFlow.forced_job_error({"job": 212}, DataRepo.load_all()), "")
-	assert_eq(DataRepo.jobs(DataRepo.load_all()).default_job(), 212, "the default stays 212")
-	DataRepo.patch = PLAYABLE.duplicate(true)
 	assert_eq(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()), "")
-	assert_eq(DataRepo.jobs(DataRepo.load_all()).default_job(), 212, "and with Marksman playable")
+	assert_eq(SceneFlow.forced_job_error({"job": 212}, DataRepo.load_all()), "")
+	assert_eq(DataRepo.jobs(DataRepo.load_all()).default_job(), 212, "the default stays 212 with Marksman playable")
+	DataRepo.patch = DISABLED.duplicate(true)
+	assert_true(SceneFlow.forced_job_error(parsed.options, DataRepo.load_all()).contains("not playable"))
 
 
-func test_balance_run_refuses_shipped_322_and_accepts_it_with_a_patch() -> void:
+func test_balance_run_accepts_shipped_322_and_refuses_a_disabled_patch() -> void:
 	if not require_cache():
 		return
-	var patch := _file("ms_playable.json", JSON.stringify(PLAYABLE))
+	var patch := _file("marksman_disabled.json", JSON.stringify(DISABLED))
 	var base := PackedStringArray(["--stage=henesys", "--seed=1", "--cap=0.016666667", "--job=322"])
-	var refused := _tool("res://tools/balance_run.gd", base)
+	var refused := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--patch=" + patch]))
 	assert_eq(refused.status, 2, refused.text)
 	assert_true(refused.text.contains("not playable"), refused.text)
 	assert_true(_record(refused.text).is_empty())
-	var ok := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--patch=" + patch]))
+	var ok := _tool("res://tools/balance_run.gd", base)
 	assert_eq(ok.status, 0, ok.text)
 	var record := _record(ok.text)
 	assert_false(record.is_empty(), "a record was printed")
@@ -88,9 +85,8 @@ func test_balance_run_refuses_shipped_322_and_accepts_it_with_a_patch() -> void:
 func test_job_212_with_a_marksman_character_and_job_322_with_an_arch_mage_character_are_errors() -> void:
 	if not require_cache():
 		return
-	var patch := PackedStringArray(["--patch=" + _file("ms_playable.json", JSON.stringify(PLAYABLE))])
 	var marksman := _marksman_file()
-	var base := PackedStringArray(["--stage=henesys", "--cap=0.016666667"]) + patch
+	var base := PackedStringArray(["--stage=henesys", "--cap=0.016666667"])
 	var a := _tool("res://tools/balance_run.gd", base + PackedStringArray(["--job=212", "--character=" + marksman]))
 	assert_eq(a.status, 2, a.text)
 	assert_true(a.text.contains("does not match the character's job 322"), a.text)
@@ -106,25 +102,24 @@ func test_job_212_with_a_marksman_character_and_job_322_with_an_arch_mage_charac
 func test_a_marksman_character_file_needs_no_job_flag() -> void:
 	if not require_cache():
 		return
-	var patch := _file("ms_playable.json", JSON.stringify(PLAYABLE))
 	var run := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--cap=0.016666667",
-		"--character=" + _marksman_file(), "--patch=" + patch]))
+		"--character=" + _marksman_file()]))
 	assert_eq(run.status, 0, run.text)
 	assert_eq(int(_record(run.text).job), 322, "the job comes from the character")
 
 
-func test_the_fixture_tool_refuses_shipped_322_and_makes_a_marksman_with_a_patch() -> void:
+func test_the_fixture_tool_makes_a_shipped_marksman_and_refuses_a_disabled_patch() -> void:
 	if not require_cache():
 		return
 	var out := ProjectSettings.globalize_path(work_dir.path_join("ms_kit.json"))
 	var args := PackedStringArray(["--out=" + out, "--revision=0123456789012345678901234567890123456789", "--job=322",
 		"--kit=" + ",".join(KIT.map(func(id: int) -> String: return str(id))), "--tiers=2", "--label=test"])
-	var refused := _tool("res://tools/character_fixture.gd", args)
+	var patch := _file("marksman_disabled.json", JSON.stringify(DISABLED))
+	var refused := _tool("res://tools/character_fixture.gd", args + PackedStringArray(["--patch=" + patch]))
 	assert_eq(refused.status, 2, refused.text)
 	assert_true(refused.text.contains("not playable"), refused.text)
 	assert_false(FileAccess.file_exists(out))
-	var patch := _file("ms_playable.json", JSON.stringify(PLAYABLE))
-	var made := _tool("res://tools/character_fixture.gd", args + PackedStringArray(["--patch=" + patch]))
+	var made := _tool("res://tools/character_fixture.gd", args)
 	assert_eq(made.status, 0, made.text)
 	var errors := PackedStringArray()
 	var character := DataRepo.load_character(out, errors)
@@ -134,7 +129,7 @@ func test_the_fixture_tool_refuses_shipped_322_and_makes_a_marksman_with_a_patch
 	assert_eq(int(character.job_id), 322)
 	assert_eq(int(character.tiers_unlocked), 2)
 	assert_eq(int(character.equipment.worn.weapon.id), 1462003)
-	assert_eq(String(character._doc.get("patch", "")), "ms_playable.json", "the patch is recorded until MS11")
+	assert_eq(String(character._doc.get("patch", "")), "", "shipped data needs no patch")
 
 
 func test_the_committed_fixture_is_a_format_three_marksman_with_the_tier_one_crossbow_kit() -> void:
@@ -182,9 +177,8 @@ func test_the_fixture_gear_is_wearable_by_a_marksman_and_its_crossbow_fires_bolt
 func test_a_one_off_round_from_the_fixture_has_bolts_and_no_missing_assets() -> void:
 	if not require_cache():
 		return
-	var patch := _file("ms_playable.json", JSON.stringify(PLAYABLE))
 	var run := _tool("res://tools/balance_run.gd", PackedStringArray(["--stage=henesys", "--seed=1", "--cap=20",
-		"--character=" + ProjectSettings.globalize_path(MARKSMAN_FIXTURE), "--patch=" + patch]))
+		"--character=" + ProjectSettings.globalize_path(MARKSMAN_FIXTURE)]))
 	assert_eq(run.status, 0, run.text)
 	var record := _record(run.text)
 	assert_false(record.is_empty())

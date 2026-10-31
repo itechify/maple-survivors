@@ -1,8 +1,7 @@
 extends RefCounted
 ## Synthetic assets for a whole Marksman (322) round with no asset cache (spec #360, MS10 #370): Skill.wz-shaped books for all
 ## ten pool skills (the endpoints are the v83 values the MS5-MS9 tests record; the art is bare frames) and a setup that wears a
-## crossbow. Used by the bot-scoring tests and the Marksman baseline oracle. Marksman ships `playable: false` until MS11 #371,
-## so `setup` flips 322 playable in the data copy it is given (the test mirror; shipped data is untouched).
+## crossbow. Used by the bot-scoring tests and the Marksman baseline oracle. Marksman ships `playable: true` (MS11 #371).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 ## The Crossbow a test Marksman holds (the creation weapon, PAD 29, speed 6; WeaponInfo family crossbow).
@@ -60,10 +59,9 @@ static func skill_imgs() -> Dictionary:
 	return imgs
 
 
-## `RF.setup` for a Marksman round on `stage` with all ten books, a crossbow in `equipment_info`, shoot stances in the body, and
-## 322 playable in `data` (the mirror). `data` defaults to the real survivor data (the caller may pass `RF.quiet_data()`).
+## `RF.setup` for a Marksman round on `stage` with all ten books, a crossbow in `equipment_info`, shoot stances in the body.
+## `data` defaults to the real survivor data (the caller may pass `RF.quiet_data()`).
 static func setup(stage: String, p_seed: int, data: Dictionary) -> Dictionary:
-	data.jobs_survivor.jobs["322"]["playable"] = true # in this data copy only: MS11 ships the flip
 	var out := RF.with_basic_attack(RF.setup(stage, p_seed, data))
 	out.skill_imgs = skill_imgs()
 	out.equipment_info.merge({CROSSBOW: {"incPAD": 29, "attackSpeed": 6, "tuc": 7, "reqJob": 4}}, true)
