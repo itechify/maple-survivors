@@ -34,7 +34,7 @@ const JOB_SELECTED := Color8(255, 170, 68, 170)
 ## Every Button state a job row draws in: the chosen row keeps its plate under the mouse (hover/pressed) too.
 const JOB_ROW_STATES := ["normal", "hover", "pressed", "focus", "hover_pressed"]
 ## tier C (NL11 #410): the Job step's rows must end above this y (the charSet panel's lower edge, level with the message strip).
-## Up to eight rows keep the 21 px pitch (19 px rows 2 px apart); a longer list shrinks its pitch to fit (nine rows: 18 px).
+## Up to eight rows keep the 21 px pitch (19 px rows 2 px apart); a longer list shrinks its pitch to fit (nine rows: 18 px, ten rows: 16 px).
 const JOB_LIST_BOTTOM := 366.0
 
 var flow: SceneFlow

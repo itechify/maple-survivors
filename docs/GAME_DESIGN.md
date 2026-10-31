@@ -9252,7 +9252,7 @@ changed; the data edit is `jobs/corsair.json` (hub kit and bot scores).
 key: `capture_delay` 2.2 s on `aerial_strike` (C10 asked for it: the `cast_aerial_strike` shot now lands on the explosions, `pending.delay` 1.8 s plus
 the art's first frames; the sim never reads it). The pinned tests moved to the shipped data: the `--patch` / `DataRepo.patch` "playable" mirrors of the Corsair tests
 were removed (only an "unplayable" patch remains, for the refusal cases of `test_creation_corsair`, `test_corsair_selection`, `test_corsair_hub_kit`), the other
-jobs' Job-page tests (`test_creation_bishop`, `_bowmaster`, `_buccaneer`) and `test_bowmaster_data` list nine rows with Corsair last, `test_corsair_data` pins
+jobs' Job-page tests (`test_creation_bishop`, `_bowmaster`, `_buccaneer`) and `test_bowmaster_data` list ten rows with Corsair last (nine before the Night Lord merge), `test_corsair_data` pins
 `playable true`. `test_corsair_battleship` gained the hull-versus-diagnostic-hit test: the flow driver's lethal source (`unrevivable: true`, 1e9 damage) kills a
 Corsair aboard a full rank-8 hull (the hull absorbs at most its points and the rest reaches HP), so `redesign --job=522` cannot be turned into a survived hit by the ship.
 `test_corsair_baseline` already held all thirteen skills (C14), so it was not widened or recaptured. HP: the shared default (50 at Lv1, the 500 growth), as the
@@ -11481,7 +11481,7 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Constant / rule | Value | Provenance |
 |---|---|---|
 | Echo `overshoot` of Shadow Partner | 55 px, equal to its `follow_distance`; the echo's star flies `range + 55` px | tier C: ROSTER_PLAN D12 |
-| Job page row pitch | 21 px up to eight rows, `floor((366 - 198) / rows)` beyond (nine rows: 18 px); `JOB_LIST_BOTTOM` 366 | tier C: ours (#410) |
+| Job page row pitch | 21 px up to eight rows, `floor((366 - 198) / rows)` beyond (nine rows: 18 px, ten rows with Night Lord and Corsair: 16 px); `JOB_LIST_BOTTOM` 366 | tier C: ours (#410) |
 | Fixture kit | Meba 1472007 (Lv25, PAD 16), hat 1002171 (Lv30), shoes 1072022 (Lv20), gloves 1082029 (Lv15), top 1040002, bottom 1060002, tier 2 unlocked | tier C: spec #383 (the tier-1 reqLevels of the other kits) |
 | Hub kit scrolls | the five claw ATT scrolls 2044700 / 01 / 02 / 04 / 05 (`scrolls/thief.json`), 10 each | tier C: spec #383 |
 | Hub kit equipment / fallback item | 1002001, 1472001, 1082002, 1040031 / 1472014 (the Lv40 claw) | tier C: ours (#410) |
