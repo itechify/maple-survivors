@@ -187,6 +187,13 @@ ISOLATE=<name> bash scripts/run.sh res://scenes/debug/flow_driver.tscn -- --scen
   scenario plays its own card policy once the slots are full (it ranks the highest-ranked owned active so a Mastery card
   appears; the bot rarely gets there, GAME_DESIGN section 0); `summary.json` holds the offers, picks, rarities and the
   showcased windows. This is flow evidence, not survival or balance evidence.
+- `progression` (#455, spec #447, ADR 0007; about 6 minutes; `--seed`, default 1, `--job=<id>`, default 212): the region progression on
+  injected input. A new character can start only Henesys (a locked Ellinia and its Start refused) -> a diagnostic invulnerable
+  Henesys clear (fixed-tick bot warp, boss hits after each timer) -> map select: Henesys CLEAR, Ellinia NEW and selected by
+  default -> the same for Ellinia, Perion unlocked, Kerning still locked -> Save & quit, character select, Continue: the
+  cleared set survives -> a Perion round and a lethal hit: the set is unchanged -> the slot swapped for a `HubTestKit`
+  all-cleared character: "Regions cleared 5/5", nothing locked. Shots `NN_progression_*.png`, `summary.json`; diagnostic flow
+  evidence, not survival evidence.
 - `creation` (#305, #330: the Job page and creation of every playable job, or of `--jobs=<id,id>` such as `--jobs=212,232`, in separate slots (**three slots only: with more than three playable jobs the default stalls on the fourth, so pass three or fewer**, e.g. `--jobs=212,512`): the page lists
   them in canonical order, the chosen row is highlighted, each slot holds its job with its creation weapon; about 30 s).
   There are three slots, so with four playable jobs (Hero, Paladin, F/P, I/L) the default stalls on the fourth: pass three or fewer
@@ -227,7 +234,7 @@ projectiles per tier), `hair_cap_probe.tscn` (cap vs hair layers), `ui_gallery.t
 Stat and other windows), `equipment_requirements_driver.tscn` (the hub kit, Equip and Item windows with no requirement rows,
 an item above Lv1 worn), `equipment_drop_driver.tscn` (drops on the ground and the full-Equip-tab notice),
 `support_summon_probe.tscn` (support summon pulse animations), `pet_driver.tscn` (each pet species in a round and in the Free Market), `player_summon_probe.tscn` (Elquines with 200 mobs: art
-and frame cost), `burst_probe.tscn` (synthetic moving-caster burst), `burn_driver.tscn` (burning monsters), `stun_driver.tscn` and `teleport_driver.tscn` (status and Teleport visuals), `hazard_driver.tscn` (Poison 125 and the poison mist 131 on the real Henesys map, a boss forced to cast only that skill: `-- --shots=<abs dir> [--mode=mist|poison] [--elem=I|S]`), `morph_driver.tscn` (a morph in a list of stances, `-- --morph=1001,1000,1002 --stances=a,b`), `revive_driver.tscn` (the Bishop's Resurrection: a lethal hit revives with its pillar, guard blink and notice, a second inside the recharge dies, one after it revives again; `-- --shots=<abs dir>`), `dark_cave_boss_driver.tscn`
+and frame cost), `burst_probe.tscn` (synthetic moving-caster burst), `burn_driver.tscn` (burning monsters), `stun_driver.tscn` and `teleport_driver.tscn` (status and Teleport visuals), `hazard_driver.tscn` (Poison 125 and the poison mist 131 on the real Henesys map, a boss forced to cast only that skill: `-- --shots=<abs dir> [--mode=mist|poison] [--elem=I|S]`), `morph_driver.tscn` (a morph in a list of stances, `-- --morph=1001,1000,1002 --stances=a,b`), `revive_driver.tscn` (the Bishop's Resurrection: a lethal hit revives with its pillar, guard blink and notice, a second inside the recharge dies, one after it revives again; `-- --shots=<abs dir>`), `boss_kit_driver.tscn` (Papulatus's clock dispelling and its flying form, or Lilynouch reflecting: `-- --phase=papulatus|lilynouch --shots=<abs dir>`; needs a cache with those mobs), `dark_cave_boss_driver.tscn`
 (every Sleepywood boss attack on the fixture) and `map_viewer.tscn` (a map's layers). They are not in the unit suite
 (`test_tool_scripts` only parses them): run one after changing what it draws. The drivers of the unported job lines (Bowman,
 Thief, Pirate and Warrior combat, Dash, Oak Barrel, Dark Sight, the shield gallery, the old creation, hub and map-select
