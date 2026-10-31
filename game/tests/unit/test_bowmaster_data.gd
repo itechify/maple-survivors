@@ -106,7 +106,7 @@ func test_job_312_has_the_spec_fields_and_is_playable() -> void:
 	assert_eq(jobs.creation_weapon(312), 1452002)
 	assert_true(bool(rec.playable), "Bowmaster is selectable")
 	assert_eq(jobs.job_error(312), "")
-	assert_eq(jobs.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 512] as Array[int], "all eight playable jobs")
+	assert_eq(jobs.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 412, 512] as Array[int], "all nine playable jobs")
 
 
 func test_job_312_declares_no_mobility_skill_key() -> void:
@@ -162,7 +162,7 @@ func test_default_job_stays_212_even_if_bowmaster_became_playable() -> void:
 	var data := _data()
 	data.jobs_survivor.jobs["312"]["playable"] = true
 	var jobs := _jobs(data)
-	assert_eq(jobs.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 512] as Array[int], "canonical order of all eight playable jobs")
+	assert_eq(jobs.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 412, 512] as Array[int], "canonical order of all nine playable jobs")
 	assert_eq(jobs.default_job(), 212, "the pin, not the first playable job")
 	assert_eq(jobs.job_error(312), "")
 
