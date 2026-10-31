@@ -870,6 +870,31 @@ Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sle
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
 
+### Phantom Forest (C9) regression smoke and diagnostic round (#471, 2026-10-30)
+
+Spec #447 branch with the Phantom Forest region (step 14, after Leafre), private cache, F/P (212), seeds 1/2/2026, `JOBS=1`, no tuning, no held-out seeds. Bot and random on the first four regions,
+Sleepywood with the starter wand and with `fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 /
+646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random
+331.5 / 449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one clear
+and deaths at 23.8 / 767.0 (the other kit seed died at 395.4)), no crashes and no world warnings. Phantom Forest itself is not in
+the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=phantom_forest --job=112 --character=late_progression.json`, seed 1, windowed (x8 between bosses, x1 in the boss
+fights, vsync off), god mode (`RunWorld.god`) with the autoplay bot, each boss held at >= 50% HP for 40 s so its attacks show, then one lethal
+diagnostic hit: **CLEARED, 3 bosses, Lv63, 1021.1 s, `missing: []`, no warnings**. Map entries at 0 / 340.4 / 680.7 s, 347 alive at the last boss (the same round with the native Stormbreaker and Windraider pooled cleared at Lv67: see the EXP gate in the constants).
+Arena check, by eye: all three first picks stay. The Forgotten Path (a dead-tree hillside under a castle on a red-brown sky, stepped stone tiers;
+Nightshadows fill the floor and the ledges, flying Firebrand flames and Elderwraith ghosts swarm above), the Cavern of Fortitude (a teal cavern with a long
+floor, ledges and a rope; Nightshadows on the floor, Firebrand flames and Elderwraiths filling the air) and Twisted Paths (one flat floor between
+red tree-hollows; the same Nightshadows and fliers line it, the crowd reaches 350) are wide and open with no pit and no shaft. The three boss
+bars show (the Horseman's and Master Guardian's borrowed Zeno icon, Bigfoot's own). Seen in the round: all three arrival notices and bars; the
+bosses themselves hide under the crowd and the fixture's damage numbers. A second, clean probe (the shipped bosses alone on the Forgotten Path,
+late fixture, damage off) shows each attack's wind-up and impact: the Horseman (a pink horse and rider under a floating jack-o'-lantern head; attack1's
+wind-up, attack2's flaming head flying out in front), Master Guardian (a spiked armoured knight; attack1's wind-up, attack2's impact burst)
+and Bigfoot (a large yellow-haired beast with a small rider; attack1's dust on impact). **Not shown by a god-mode run:** what a landed attack does to
+a character (god lands no hit, so nothing here is survival or balance evidence), the bosses seen at their arena's own geometry (the clean probe
+puts them on map 1), and Master Guardian's Seal (skipped, nothing to show). With the late fixture (Lv100-band gear at Lv1) the bosses die at once
+when not held: the first draft is a starting point for C13, not a balance claim.
+
 ### Zipangu (C7) regression smoke and diagnostic round (#469, 2026-10-30)
 
 Spec #447 branch with the Zipangu region (step 12 once Mu Lung lands), private cache, F/P (212), seeds 1/2/2026, `JOBS=2`,
@@ -11398,6 +11423,26 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Meso ranges | ordinary mobs only: no v83 ordinary mob above Lv75 has a range, so the centre extrapolates the Lv70 Tauromacis (420) to Lv75 Taurospear (504) slope (16.8 per level) as Ludibrium's method would interpolate, +-20% (Blue Kentaurus Lv88 [578, 866], Rexton Lv95 [672, 1008], Green Cornian Lv100 [739, 1109], Skelegon Lv110 [874, 1310], Skelosaurus Lv113 [914, 1370]); bosses and Wyverns use the `balance.mesos` level fallback. Known tier C gap for calibration (C13): that fallback is about 5x below the extrapolated ordinary ranges at Lv89-120 | C |
 | Flags ignored | none of the three maps carries a field flag the sim reads (the cave carries instance bits `FL` 270456, ignored) | A |
 | Alternates | map 1 240020300 / 240020100, map 2 240030300 / 240030000, map 3 Cave of Darkness 240050310: not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Phantom Forest (C9) constants (#471, spec #449; progression step 14)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/phantom_forest.json`: `region` Phantom Forest, `continent` Masteria (String.wz group `MasteriaGL`), `drop_band` [90, 100] (#447 table), maps 610010005 / 610020014 / 610010103 (widths 3496 / 2230 / 3946 px, foothold spans of Map.wz), `original_life` of map 1 (Stormbreaker 5, Firebrand 3, Elderwraith 2) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| EXP gate | every pooled ordinary mob pays within 0.7-1.3 of the level curve: canonical `exp` / `level_curve.json` exp at the mob's own level (the engine rescales a kill's EXP by curve[exp_level] / curve[mob level], so a mob far off 1 levels the character too fast or slow; Leafre's hideName cave copies at 0.30x were the review finding). Pooled: Nightshadow 9400579 (Lv100, exp 3600) **1.21**, Firebrand's flying form 9400578 (Lv90, 2350) **1.24**, Elderwraith 9400580 (Lv95, 2480) **1.08**. Out of band and in no pool: Windraider 9400576 (Lv70, 800) 2.90, Stormbreaker 9400581 (Lv80, 1650) 1.91, the ground Firebrand 9400577 (Lv90, 910) 0.48. No map's life list holds `hideName` copies; these are the monsters' real v83 values. A first version pooled the natives (map 2's weighted mean was 1.56) and the diagnostic round cleared at Lv67 against about Lv52-64 for the comparable regions; with the gate it clears at Lv63 | A exp, C gate |
+| Map 1 pool | hand-written, two keyframes below 300 s: Nightshadow 9400579 4 : the flying Firebrand form 9400578 3 : Elderwraith 9400580 (flies) 2 at 0 s, 3 : 3 : 2 at 120 s. The Forgotten Path's own natives are Stormbreaker x5, Firebrand x3 and Elderwraith x2 (`original_life`), plus Leprechaun 9400584 x6 (Lv45 stand/die decoration), the timed Phantom Tree 9400588 x3 (Lv50, immobile, mobTime 1200 s) and the native Headless Horseman and Bigfoot (mobTime 21600 / 43200 s), all left out of the pool | C weights, A roster |
+| Map 2 pool | hand-written: the Cavern of Fortitude's life list is Firebrand x4, Nightshadow x3 and Windraider x4 (none timed or hidden), two of three off the EXP curve, so the pool is the flying Firebrand form 4, Nightshadow 3 and Elderwraith 2 (it lives in other Crimsonwood Mountain caves, e.g. the Path of Strength) | A life list, C rule |
+| Map 3 pool | hand-written (`pool` dictionary): Twisted Paths' own life list is Jr. Wraith x10 (Lv35 filler, most of it), Phantom Tree x4 (timed) and Bigfoot, so it takes Nightshadow 3, Elderwraith 2 and the flying Firebrand form 3 | C |
+| Firebrand's revive form | `info/revive` 9400578 (Lv90, 45000 HP, `fly`) is read for bosses' final forms only, so a dying ordinary Firebrand revives nothing; the form is pooled in its own right on every map and stands in for the ground Firebrand (an ordinary flying mob, as the ticket allows) | C |
+| `level_scale` | first draft of `level_scale_draft.gd --step=14 --stage=phantom_forest` (not tuned): `level` 36.15, 36.73, 37.8, 49.22, 63.44, 75.23, 83.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (14 - 5)) | C |
+| Bosses | Headless Horseman 9400549 (hp_mult 0.749, dmg_mult 0.913, attack_dmg_mult 1.096; `attack1`, `attack2`, both type 0 with the mob's PAD 600), Master Guardian 9400594 (0.083, 0.851, 0.916; `attack1` flagged magic so matched on MAD 500, `attack2` physical PAD 450), Bigfoot 9400575 (0.035, 0.728, 7.345; `attack1` has its own PADamage 160 against the mob's 1200, hence the high attack multiplier), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | The Horseman and Bigfoot have no MobSkill in v83 and cast nothing. Master Guardian lists only Seal 120/12, which is skipped permanently (not in `MobSkillRunner.SUPPORTED`), so it casts nothing and has no `skill_intervals` | A skills, C support |
+| Fights fought in these maps | the Horseman is native to the Forgotten Path (map 1) and Bigfoot to Twisted Paths (map 3); Master Guardian's own map is the Thief Mastery party-quest room (2430 x 1380, instance geometry), so it fights in the Cavern of Fortitude. Alternate map 2 Crimsonwood Keep 610020006 (1960 px, Crimson Guardians only): not needed | C |
+| Absent sounds | v83 gives Master Guardian no Damage sound and Elderwraith no attack sound (it never attacks): both stay silent under the inherited rule, and the round reports no `missing` | A |
+| `mobs.json` | names and `exp_item` (the MonsterBook lists no Masteria mob, so each is the Etc item named for it): Stormbreaker Badge 4032006 and Firebrand and its form Badge 4032008 (both natives in `original_life`; no Windraider entry, it is in no pool), Nightshadow Badge 4032009, Elder Ashes 4032010 (Elderwraith), Jack O'Lantern 4031903 (the Horseman's head), Crimson Heart 4032012 (Master Guardian), Bigfoot's Toe 4032013. Bigfoot's MobGage icon and hpTag 1/5 are canonical; the Horseman and Master Guardian have neither and borrow Zeno's icon 6220001 with the standard 1/5 tag | A ids/names, C association |
+| Meso ranges | ordinary mobs only: the centre extends the line through the Lv55 Malady (305) and Lv70 Tauromacis (420) ranges, +7.67 per level, to the mob's level (Stormbreaker Lv80 [398, 596], Firebrand and its form Lv90 [458, 688], Elderwraith Lv95 [490, 734], Nightshadow Lv100 [520, 780]), +-20% as Ludibrium's method (#463); bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the maps is read for its field flags (`FL=8` on the Masteria maps is not read) | C |
 
 ### Corsair constants (spec #384)
 
