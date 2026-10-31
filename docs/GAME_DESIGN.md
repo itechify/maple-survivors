@@ -4586,6 +4586,9 @@ Web gate: **skipped**: this machine has no `wasm32-unknown-unknown` target, no `
 and `check_web_artifact.sh` were not run (CI runs them). `node --test web/dev/test/*.test.mjs` passed (62) and `cargo test` (no `MAPLE_WZ_ROOT`) passed (the importer's
 synthetic tests, 0 failed). No importer, manifest or import-screen change in this ticket, so the import screen lists no new download.
 
+Full suite on the final code commit (`8e6ee7f1`): with the cache **3801 tests, 0 failed, 0 skipped**; without it (`MAPLE_SURVIVORS_CACHE=/nonexistent`, as CI) **3801 tests, 0 failed,
+457 skipped** (the `require_cache()` tests; a SKIP proves nothing). Oracles (character baseline, tick cost identity, Hero, I/L, Paladin, Bowmaster, Corsair) unchanged, none recaptured, no test deleted.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
