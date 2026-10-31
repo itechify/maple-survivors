@@ -512,7 +512,17 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		# tier C (#405): the flash's reach at this rank, for the Skill window (RunWorld.flash_jump_distance reads the same).
 		resolved["flash_distance"] = FlashJump.distance(d.flash_jump.distance, r, book.max_rank(key))
 	_add_status_grants(resolved, key, r)
+	_add_safe_zone(resolved, key, d)
 	return resolved
+
+
+## Adds `safe_zone_duration` (the block's life times the `zone_time` modifier) and `zone_time` to a skill with a `safe_zone`
+## block (SafeZone places the zone with that life). Other skills gain no key, so their stats are unchanged.
+func _add_safe_zone(resolved: Dictionary, key: String, d: Dictionary) -> void:
+	var block: Variant = d.get("safe_zone")
+	if block is Dictionary:
+		resolved["zone_time"] = skill_stat(key, "zone_time", 1.0)
+		resolved["safe_zone_duration"] = float(block.get("duration", 0.0)) * float(resolved.zone_time)
 
 
 ## Adds `hull_share` to a Form with a `hull` effect: the share of max HP its hull will have (the canonical field at this level over
