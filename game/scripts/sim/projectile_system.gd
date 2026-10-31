@@ -68,11 +68,14 @@ var level := PackedInt32Array()
 var meter_receipts: Array[Dictionary] = []
 ## Whole damage per second of the burn a hit of this shot applies (0: none), snapshotted at launch from the cast (B5).
 var burn_pulse := PackedInt32Array()
-## Optional cast-time grant snapshots by projectile slot; absent slots allocate no list.
-var status_grants := {}
+## Optional cast-time grant snapshots by projectile slot (slot -> Array of resolved StatusBonus grants); absent slots allocate
+## nothing. The list is the cast snapshot's own and is never written after the cast, so every shot of a cast shares it.
+var status_grants: Dictionary = {}
 ## 1 for a shot an echo clone threw (EchoCast): its hits carry `echo` so they heal and earn nothing.
 var echo := PackedByteArray()
 const NO_RECEIPT := {}
+## The grant list of a shot without status grants (shared, never written).
+const NO_GRANTS: Array = []
 
 ## RunWorld.visual_paths (shared).
 var paths: Array = []
@@ -147,7 +150,7 @@ func spawn(spec: Dictionary) -> int:
 	burn_pulse[i] = int(spec.get("burn_pulse", 0))
 	status_grants.erase(i)
 	if not spec.get("status_grants", []).is_empty():
-		status_grants[i] = spec.status_grants.duplicate(true)
+		status_grants[i] = spec.status_grants
 	echo[i] = 1 if bool(spec.get("echo", false)) else 0
 	pierce_falloff[i] = maxf(0.0, float(spec.get("pierce_falloff", 0.0)))
 	blast_count[i] = 0

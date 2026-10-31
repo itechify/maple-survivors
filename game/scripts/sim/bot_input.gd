@@ -157,9 +157,9 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		var side := 0 if dx < 0.0 else 1
 		danger[side] += 1.0 / (absf(dx) + 30.0)
 		nearest[side] = minf(nearest[side], absf(dx))
-		# tier C: emergency blinks use the on-level height band, not mobs on remote platforms.
 		if absf(dy) <= FLASH_DY:
 			flash_nearest[side] = minf(flash_nearest[side], absf(dx))
+		# tier C: emergency blinks use the on-level height band, not mobs on remote platforms.
 		if absf(dy) <= DUEL_DY:
 			threat_nearest[side] = minf(threat_nearest[side], absf(dx))
 			if absf(dx) <= surround_distance:

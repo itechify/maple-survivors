@@ -154,6 +154,20 @@ func test_the_tooltip_of_a_night_lord_skill_reads_its_rank() -> void:
 	assert_true(int(tip.next_level) > int(tip.level), "and the next rank's level")
 
 
+func test_the_flash_jump_tooltip_states_its_distance_at_the_rank_now() -> void:
+	# Review S8 (spec Presentation): the card / window text carries the Flash Jump distance.
+	var w := _world()
+	var text := SkillText.new(w.book)
+	for pair: Array in [[1, 1, 140.0], [40, 20, 280.0]]:
+		w._level_ranks(int(pair[0]))
+		var stats := w.loadout.stats("flash_jump")
+		assert_near(float(stats.flash_distance), float(pair[2]), 1e-6, "stats at Lv%d" % pair[0])
+		assert_near(float(stats.flash_distance), w.flash_jump_distance("flash_jump"), 1e-9, "the same number the flash uses")
+		var line := text.level_line("flash_jump", w.loadout.level("flash_jump"), stats)
+		assert_true(("Flash: %d px" % int(pair[2])) in line, "Lv%d line: %s" % [pair[0], line])
+	assert_false(w.loadout.stats("lucky_seven").has("flash_distance"), "other skills carry no flash distance")
+
+
 # --- Flash Jump's key and quick slot, the meso charge row ---------------------------------------------------------------
 
 func test_flash_jump_has_a_key_config_tray_slot_on_x_and_a_quick_slot_cell() -> void:

@@ -1,6 +1,6 @@
 class_name EchoCast
 extends RefCounted
-## Echo summon (M11, docs/GAME_DESIGN.md 7.91): repeats a star cast from every living clone (a `PlayerSummons` summon whose
+## Echo summon (M11, docs/GAME_DESIGN.md 7.94.3): repeats a star cast from every living clone (a `PlayerSummons` summon whose
 ## definition carries `summon.echo`) a short delay later at a percent of its damage. Owned by SkillRunner as `echoes`.
 ## Scope (a documented limit, GAME_DESIGN 7.94.3): only a `kind: "projectile"` skill on the `nearest` cast rule echoes, because
 ## SkillRunner._resolve_nearest is the one place that records shots; `errors()` makes an `echo` flag anywhere else a load error.

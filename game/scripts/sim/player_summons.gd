@@ -29,7 +29,7 @@ func living_count() -> int:
 			count += 1
 	return count
 
-## Slots of the living clones (summons whose definition carries `summon.echo`, docs/GAME_DESIGN.md 7.91).
+## Slots of the living clones (summons whose definition carries `summon.echo`, docs/GAME_DESIGN.md 7.94.3).
 func clones() -> PackedInt32Array:
 	var out := PackedInt32Array()
 	for i in active.size():

@@ -47,9 +47,15 @@ var ranks := {}
 var order: Array = []
 ## skill key -> {stat: Vector2(add, mul)}.
 var skill_mods := {}
-## Catalogue shared by all job lines; ordered grant ids and additive repeat chance points are separate from numeric mods.
-var status_bonuses := {}
+## The status-bonus catalogue of all job lines; the SkillBook owns it (the Skill window text reads it there too).
+var status_bonuses: Dictionary:
+	get:
+		return book.status_bonuses
+	set(value):
+		book.status_bonuses = value
+## Skill key -> ordered catalogue ids of the status grants taken (separate from the numeric mods).
 var grants := {}
+## Skill key -> {catalogue id: additive repeat chance points} (StatusBonus.repeat_points).
 var grant_chances := {}
 ## stat -> Vector2(add, mul) for player-wide stats (max_hp, speed, magnet, hp_regen, pdd, damage, crit).
 var player_mods := {}
@@ -159,7 +165,6 @@ func clone() -> Loadout:
 	c.ranks = ranks.duplicate()
 	c.order = order.duplicate()
 	c.skill_mods = skill_mods.duplicate(true)
-	c.status_bonuses = status_bonuses
 	c.grants = grants.duplicate(true)
 	c.grant_chances = grant_chances.duplicate(true)
 	c.player_mods = player_mods.duplicate(true)
@@ -300,6 +305,16 @@ func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 	return out
 
 
+## The knock-back distance of a `knockback` block at survivor rank `rank_value`: the block's `distance_by_rank` list (one
+## value per rank, the last one past its end, rank 1 for an unowned skill) when it has one, else its scalar `distance`
+## (0 for a block with neither). tier C: ours (spec #383 NL8, GAME_DESIGN 7.94.8); every other field of the block is unchanged.
+static func knockback_distance_at(block: Dictionary, rank_value: int) -> float:
+	var by_rank: Variant = block.get("distance_by_rank")
+	if by_rank is Array and not (by_rank as Array).is_empty():
+		return float(by_rank[clampi(rank_value - 1, 0, (by_rank as Array).size() - 1)])
+	return float(block.get("distance", 0.0))
+
+
 ## Fully resolved numbers of skill `key` at its owned rank, or at `at_rank` when > 0 (a preview of another rank with
 ## the same modifiers; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type (fixed/magic/physical/none), attack_kind (swing/stab/shoot/""),
@@ -315,7 +330,7 @@ func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
 ## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance, pull_chance (percent)/pull_gap (px; docs/GAME_DESIGN.md 7.35) and pierce_falloff,
 ## burn_pulse / burn_time / burn_share (only a skill whose on_hit status is burn; docs/GAME_DESIGN.md 7.43),
-## `support` (SupportSummons.resolve pulses),
+## `support` (SupportSummons.resolve pulses), flash_distance (px of a `flash_jump` skill at this rank; FlashJump.distance),
 ## heal_power (Heal's recovery multiplier, 1.0 without the card; docs/GAME_DESIGN.md 7.83) and heal_threshold (the resolved
 ## fraction of max HP below which Heal restores: the data's `hp_threshold` plus the card, capped at HEAL_THRESHOLD_CAP; 0 for
 ## a skill without a `heal` block),
@@ -323,16 +338,6 @@ func _cast_visuals(d: Dictionary, attack_count: int, key: String) -> Array:
 ## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
-## The knock-back distance of a `knockback` block at survivor rank `rank_value`: the block's `distance_by_rank` list (one
-## value per rank, the last one past its end, rank 1 for an unowned skill) when it has one, else its scalar `distance`
-## (0 for a block with neither). tier C: ours (spec #383 NL8, GAME_DESIGN 7.94.8); every other field of the block is unchanged.
-static func knockback_distance_at(block: Dictionary, rank_value: int) -> float:
-	var by_rank: Variant = block.get("distance_by_rank")
-	if by_rank is Array and not (by_rank as Array).is_empty():
-		return float(by_rank[clampi(rank_value - 1, 0, (by_rank as Array).size() - 1)])
-	return float(block.get("distance", 0.0))
-
-
 func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var d := book.def(key)
 	var r := clampi(at_rank, 1, book.max_rank(key)) if at_rank > 0 else maxi(1, rank(key))
@@ -501,6 +506,9 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 
 	if d.has("revive"):
 		resolved["revive"] = _revive(key, d.revive)
+	if d.has("flash_jump"):
+		# tier C (#405): the flash's reach at this rank, for the Skill window (RunWorld.flash_jump_distance reads the same).
+		resolved["flash_distance"] = FlashJump.distance(d.flash_jump.distance, r, book.max_rank(key))
 	_add_status_grants(resolved, key, r)
 	return resolved
 

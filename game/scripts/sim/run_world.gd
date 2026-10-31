@@ -88,7 +88,7 @@ const EVENT_FIELDS := {
 	"meso_picked": ["amount", "count"],
 	"hp_spent": ["skill", "skill_id", "amount", "kind"],
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
-	# #405: a Flash Jump slid the airborne character horizontally from `from` to `to` (GAME_DESIGN 7.92); no damage.
+	# #405: a Flash Jump slid the airborne character horizontally from `from` to `to` (GAME_DESIGN 7.94.2); no damage.
 	"flash_jump": ["skill", "from", "to"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"player_restored": ["stat", "amount", "skill", "pos"],
@@ -499,8 +499,7 @@ func _init_drops_and_shots() -> void:
 func _init_skills_and_progression() -> void:
 	book = SkillBook.from_data(data.get("skills", {}), setup.get("skill_imgs", {}))
 	loadout = Loadout.new(book)
-	loadout.status_bonuses = balance.get("status_bonuses", {})
-	book.status_bonuses = loadout.status_bonuses
+	book.status_bonuses = balance.get("status_bonuses", {})
 	loadout.pierce_floor = projectiles.pierce_floor
 	var crit: Dictionary = balance.get("crit", {})
 	loadout.crit_chance = float(crit.get("chance", 0.0))
@@ -1967,7 +1966,7 @@ func add_hit_listener(listener: Callable) -> void:
 
 func _damage_heal_hit(slot: int, hit: Dictionary) -> void:
 	if hit.has("echo"):
-		return # an echo drains nothing: the clone is not the owner (docs/GAME_DESIGN.md 7.91)
+		return # an echo drains nothing: the clone is not the owner (docs/GAME_DESIGN.md 7.94.3)
 	var key := String(hit.skill)
 	var heal: Dictionary = book.def(key).get("damage_heal", {})
 	if heal.is_empty():
@@ -2131,8 +2130,7 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 		if always or rng.randf() * 100.0 < book.canonical(key, level, String(knockback.chance_field)):
 			# `direction: "dash"` shoves along the dash that hit it instead of away from the player's final position.
 			# `distance_by_rank` (Ninja Storm, spec #383 NL8) reads the owner's current rank; the scalar `distance` is unchanged.
-			var distance := Loadout.knockback_distance_at(knockback, loadout.rank(key)) if knockback.has("distance_by_rank") \
-				else float(knockback.get("distance", 0.0))
+			var distance := Loadout.knockback_distance_at(knockback, loadout.rank(key))
 			swarm.knockback(slot, player.pos.x, distance, fhm, bounds,
 				int(hit.get("push_side", 0)) if String(knockback.get("direction", "")) == "dash" else 0)
 			if knockback.has("effect"):

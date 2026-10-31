@@ -1,6 +1,6 @@
 class_name FlashTrail
 extends Node2D
-## The ghost trail of a Flash Jump (M14, GAME_DESIGN 7.92): a few translucent copies of the avatar's current frame left
+## The ghost trail of a Flash Jump (M14, GAME_DESIGN 7.94.2): a few translucent copies of the avatar's current frame left
 ## along the path of the flash, fading out. Flash Jump's WZ node has no art, so this is drawn by code from the avatar's own
 ## parts (tier C: ours). Presentation only; the path and the copies' points come from FlashJump.trail.
 

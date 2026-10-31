@@ -117,5 +117,20 @@ static func _resolve_one(id: String, entry: Dictionary, rank: int, extra_chance:
 	return out
 
 
+## Rank-resolved wording of a resolved grant, shared by the rarity cards (UpgradePool) and the Skill window (SkillText).
+static func line(grant: Dictionary, catalogue: Dictionary) -> String:
+	var id := String(grant.id)
+	var name := String(catalogue.get(id, {}).get("name", id.replace("_", " ").capitalize()))
+	return "%s: %s%% to %s for %s s" % [name, _number(float(grant.chance)), String(grant.kind), _number(float(grant.time))]
+
+
+## At most two decimals, none for a whole number (the same rounding as SkillText.number).
+static func _number(v: float) -> String:
+	var r := snappedf(v, 0.01)
+	if is_equal_approx(r, roundf(r)):
+		return str(int(roundf(r)))
+	return String.num(r, 2).rstrip("0").rstrip(".")
+
+
 static func _value(raw: Variant, rank: int) -> float:
 	return float(raw[clampi(rank - 1, 0, raw.size() - 1)]) if raw is Array else float(raw)

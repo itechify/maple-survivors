@@ -1,5 +1,5 @@
 extends TestCase
-## Echo summon (spec #383 M11, docs/GAME_DESIGN.md 7.91): a clone on the PlayerSummons seam repeats a star cast
+## Echo summon (spec #383 M11, docs/GAME_DESIGN.md 7.94.3): a clone on the PlayerSummons seam repeats a star cast
 ## `delay` seconds later at a percent of its damage, on synthetic data (a test clone `test_shadow` with the real x / y
 ## shapes and a test star `test_star`; Shadow Partner and the real star skills come with their own tickets).
 const RF := preload("res://tests/fixtures/run_fixtures.gd")

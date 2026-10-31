@@ -1,6 +1,6 @@
 class_name FlashJump
 extends RefCounted
-## Pure arithmetic behind Flash Jump (M14, spec #383, GAME_DESIGN 7.92): the distance of a flash by rank, the side it
+## Pure arithmetic behind Flash Jump (M14, spec #383, GAME_DESIGN 7.94.2): the distance of a flash by rank, the side it
 ## goes, whether a press is admitted and the ghost trail's points. No nodes, no RNG, no clock: RunWorld owns the repeat
 ## timer, PlayerMotion owns the once-per-airborne-period flag and the move itself (flash_destination / flash_to).
 

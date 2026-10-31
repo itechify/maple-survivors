@@ -136,6 +136,8 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if def.has("knockback"):
 		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
 			number(float(stats.get("knockback_distance", 0.0)))])
+	if stats.has("flash_distance"):
+		mechanics.append("Flash: %s px" % number(float(stats.flash_distance)))
 	if def.has("ground") and GroundStrike.is_strike(def.ground):
 		var cadence := GroundStrike.spec(def.ground)
 		var struck := int(stats.get("mob_count", 1))
@@ -175,7 +177,7 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		mechanics.append("When a hit would kill you: return at %s%% HP, %s s guard; recharge %s" % [
 			number(float(revive.hp) * 100.0), number(float(revive.guard)), clock(SkillRunner.restart_cooldown(stats))])
 	for grant: Dictionary in stats.get("status_grants", []):
-		mechanics.append(status_line(grant, book.status_bonuses))
+		mechanics.append(StatusBonus.line(grant, book.status_bonuses))
 	if not mechanics.is_empty():
 		# Parts are joined with "; ", except after the sentence that ends a Transform line.
 		var joined := ""
@@ -377,9 +379,3 @@ static func _form_sub_label(book: SkillBook, skill: String) -> String:
 		names.append(String(book.def(key).get("name", key.replace("_", " ").capitalize())))
 	return " / ".join(names) if not names.is_empty() else "Sub-skill"
 
-
-## Rank-resolved status wording shared by rarity cards and the Skill window.
-static func status_line(grant: Dictionary, catalogue: Dictionary) -> String:
-	var id := String(grant.id)
-	var name := String(catalogue.get(id, {}).get("name", id.replace("_", " ").capitalize()))
-	return "%s: %s%% to %s for %s s" % [name, number(float(grant.chance)), String(grant.kind), number(float(grant.time))]

@@ -344,9 +344,7 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 				r += 1
 			for grant: Dictionary in preview.stats(skill, maxi(1, r)).get("status_grants", []):
 				if String(grant.id) == String(effect.status):
-					var id := String(grant.id)
-					var name := String(state.loadout.status_bonuses[id].get("name", id.replace("_", " ").capitalize()))
-					labels.append("%s: %s%% to %s for %s s" % [name, _fmt(grant.chance), grant.kind, _fmt(grant.time)])
+					labels.append(StatusBonus.line(grant, state.loadout.status_bonuses))
 			continue
 		var value := float(effect.value)
 		effect.value = 1.0 + (value - 1.0) * scale if op == "mul" else value * scale

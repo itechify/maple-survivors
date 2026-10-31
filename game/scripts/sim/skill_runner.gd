@@ -69,7 +69,7 @@ var fired_this_tick := false
 
 var summons := PlayerSummons.new()
 var bursts := BurstCast.new()
-## Delayed repeats of star casts thrown by the Shadow Partner clones (docs/GAME_DESIGN.md 7.91).
+## Delayed repeats of star casts thrown by the Shadow Partner clones (docs/GAME_DESIGN.md 7.94.3).
 var echoes := EchoCast.new()
 var forms := PlayerForms.new()
 
@@ -966,7 +966,7 @@ func fire_shot(world: RunWorld, key: String, st: Dictionary, origin: Vector2, ta
 		"impact_blast": st.impact_blast,
 		"meter_receipt": st.get("meter_receipt", ProjectileSystem.NO_RECEIPT),
 		"burn_pulse": int(st.get("burn_pulse", 0)),
-		"status_grants": st.get("status_grants", []),
+		"status_grants": st.get("status_grants", ProjectileSystem.NO_GRANTS),
 		"echo": bool(st.get("echo", false)),
 	})
 
