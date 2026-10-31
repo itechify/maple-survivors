@@ -36,10 +36,10 @@ func before_each() -> void:
 	stage = data.stages.stages.get(KEY, {})
 
 
-func test_the_stage_follows_magatia_in_the_progression() -> void:
+func test_the_stage_follows_leafre_in_the_progression() -> void:
 	var progression: Array = data.stages.progression
 	assert_true(progression.has(KEY), "listed in the progression")
-	assert_true(progression.find(KEY) > progression.find("magatia"), "after Magatia; step 14 once Zipangu and Leafre sit between")
+	assert_true(progression.find(KEY) > progression.find("magatia"), "after Leafre (step 13)")
 	assert_eq(String(stage.get("region", "")), "Phantom Forest")
 	assert_eq(String(stage.get("continent", "")), "Masteria", "String.wz group MasteriaGL")
 	assert_eq(stage.get("drop_band"), [90.0, 100.0], "#447's drop band")

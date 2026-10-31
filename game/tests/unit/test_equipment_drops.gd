@@ -239,7 +239,10 @@ func test_every_listed_item_has_cache_info_and_an_icon_and_every_band_has_drops(
 	var stages: Dictionary = DataRepo.load_all().stages
 	for tier in stages.progression.size():
 		var band := EquipmentDrops.band_of(stages.stages[stages.progression[tier]])
-		assert_true(EquipmentDrops.eligible(ed.items, infos, 212, band, WEAPONS).size() > 20, "tier %d has drops" % (tier + 1))
+		# The late bands are sparse in v83: the [80, 90] band holds 10 items for a Magician, 2 of them weapons (#470), so
+		# from band 80 the floor is 5 (the per-family coverage is test_late_equipment_bands').
+		var floor_count := 20 if float(band[0]) < 80.0 else 5
+		assert_true(EquipmentDrops.eligible(ed.items, infos, 212, band, WEAPONS).size() > floor_count, "tier %d has drops" % (tier + 1))
 		var floor_req := EquipmentDrops.boss_floor(band, ed)
 		for i in 30:
 			var boss := EquipmentDrops.pick_boss(ed.items, infos, 212, band, ed, rng, WEAPONS)
