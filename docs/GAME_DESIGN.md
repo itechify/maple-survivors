@@ -638,6 +638,7 @@ aliases; living slots, bests, history and run snapshots migrate on load. The tie
 | `perion` | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) | Mano / Stumpy / Iron Hook |
 | `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
+| `ludibrium` (step 6, #463) | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) | Rombot / Alishar / Timer |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
 "Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
@@ -10305,6 +10306,24 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Damage | At `attackAfter` a character whose body box overlaps any picked column takes one hit: once per attack, never per column, through the attack's damage path (PADamage / MADamage / the mob's `pad` / `mad`, Attack Up for physical, `elemAttr`, the hit window and guards) with the stage entry's `attack_dmg_mult` and `source_kind` "attack". A jumping character clear of the column's height (Thanatos 113 px, Lyka 200 px) is missed | C (once per attack; vertical extent is the WZ box), A (damage source) |
 | Hit art | `hit` plays on every picked column at the strike, struck or not; anchors are the column's bottom centre (one `area_attack` event carries all anchors, one pooled animation each, no node per column) | C |
 | Cadence | The entry's `attack_interval`, as for the other attack types | C |
+
+### Ludibrium (C1) constants (#463, spec #449; progression step 6)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/ludibrium.json`: `region` Ludibrium, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [35, 45] (#447 table), maps 220011000 / 220030400 / 220030000 (widths 2227 / 3667 / 3667 px, foothold spans of Map.wz), `original_life` of map 1 (Roloduck 22, Panda Teddy 19) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged; Sleepywood has no `post_duration_slope`. No `opening_ramp` (maps nor stage): `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads): Roloduck 3210204 (Lv34) alone at 0:00, plus Panda Teddy 3210203 (Lv36) at the same weight from 2:00; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`, no exclusions: Zone 4 holds Robo 4230111 x28 and Panda Teddy x8, Zone 1 Master Robo 4230112 x29; none is timed, hidden or an event mob | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=6 --stage=ludibrium` (not tuned): `level` 12.15, 12.73, 13.8, 25.22, 39.44, 51.23, 59.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 | C |
+| Bosses | Rombot 4130103 (hp_mult 11.107, dmg_mult 0.977, attack_dmg_mult 1.046), Alishar 9300012 (0.361, 0.458, 0.596), Timer 5220003 (3.967, 1.435, 1.87), each 300 s after its map's entry with `attack1` and `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids`. Alishar's and Timer's attack1 are magic, matched on MAD | C |
+| Boss kits | Alishar: Darkness 121 and the Cronos summons 200 (9300015/6/7) as written; its Seal 120 is skipped for good. Timer: heal 114, buffs 110/112/113, Stun 123, weapon immunity 140, magic immunity 141. Rombot casts nothing | A skills, C support |
+| Fights fought in these maps | Rombot's Hidden Tower (530 px shaft) and Timer's Lost Time maps (1777 px, 11-16 ladders) are climbing shafts, so both bosses fight in the Toy Factory/Sky Terrace; Alishar is the party-quest boss and has no field | C |
+| Conveyors | Zone 1's four conveyor footholds use the existing `force` support (`FootholdMap`, `player_motion.gd`); no movement code changed | A map data |
+| `mobs.json` | names and `exp_item`: Roloduck Toy Duckling 4000109, Panda Teddy Panda Doll 4000108, Robo Cheap Battery 4000111, Master Robo Mechanical Heart 4000112, Rombot Rombot's Memory Card 4000124, Alishar Key of Dimension 4001023, Timer Clock Spring 4000113 (each the mob's first Etc drop in the MonsterBook), the Cronos Timer's Clock Spring; Rombot has no MobGage icon and borrows Zeno's 6220001 with the standard 1/5 tag | A ids/names, C association |
+| Meso ranges | ordinary mobs only: centre interpolated from the Lv35 Curse Eye / Jr. Boogie and Lv40 Cold Eye / Zombie Lupin / Lv50 Drake ranges at the mob's level (Roloduck [73, 109], Panda Teddy [82, 124], Robo [110, 164], Master Robo [140, 210]), +-20%; bosses and Cronos use the `balance.mesos` level fallback | C |
+| Flags ignored | none of Ludibrium's field flags are read (`lvLimit` is on the Path of Time maps only, which are not used) | C |
+| Alternates | map 1 220010300 / 220010000, map 2 220030300 / 220030200, map 3 220040400 / 220050200: not needed, the arena check kept all three first picks | C |
 
 ## 12. Later phases
 

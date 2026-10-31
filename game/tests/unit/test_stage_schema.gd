@@ -6,7 +6,7 @@ func test_regions_have_three_ordered_maps_and_relative_bosses() -> void:
 	var errors := PackedStringArray()
 	var file: Dictionary = DataRepo.load_all(DataRepo.DATA_ROOT, errors).stages
 	assert_eq(errors, PackedStringArray())
-	assert_eq(file.progression, ["henesys", "ellinia", "perion", "kerning", "sleepywood"])
+	assert_eq(file.progression.slice(0, 5), ["henesys", "ellinia", "perion", "kerning", "sleepywood"], "the original five come first")
 	assert_false(file.has("tiers"), "the tier lists are gone (ADR 0007)")
 	assert_false(file.has("drop_bands"), "and so are the per-tier drop bands")
 	var expected := {
@@ -15,6 +15,7 @@ func test_regions_have_three_ordered_maps_and_relative_bosses() -> void:
 		"perion": [102010000, 101030404, 106000101],
 		"kerning": [103010000, 103000101, 107000000],
 		"sleepywood": [105050400, 105090310, 105090900],
+		"ludibrium": [220011000, 220030400, 220030000],
 	}
 	for key: String in expected:
 		assert_has(file.stages, key)
