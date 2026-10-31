@@ -866,7 +866,7 @@ and deaths at 23.8 / 767.0), no crashes and no world warnings. Ludibrium itself 
 
 Diagnostic one-off, `--run=ludibrium --job=112 --character=late_progression.json`, seed 1, god mode (`RunWorld.god`) with the
 bot, one lethal diagnostic hit after 30 s of each boss fight (bosses held at 100% / 70% / 45% HP meanwhile so their kits
-show): **CLEARED, 3 bosses, Lv64, 909.98 s, `missing: []`**. Map entries at 0 / 330 / 660 s. Checked by eye: Sky Terrace
+show): **CLEARED, 3 bosses, Lv64, 967.4 s, `missing: []`**. Map entries at 0 / 330 / 660 s. Checked by eye: Sky Terrace
 (green toy-block castle, Roloduck and Panda Teddy swarm the floor), Zone 4 (blue toy factory, Robo and Panda Teddy), Zone 1
 (conveyors, Master Robo lines; the arrival portal sits on the left ledge and the bot climbs down); the three boss bars
 (Rombot's borrowed icon, Alishar's, Timer's); Rombot, Alishar (winding up its attack1 at the left edge, Darkness
