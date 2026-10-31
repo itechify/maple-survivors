@@ -239,3 +239,25 @@ func test_each_boss_skill_resolves_to_a_supported_id() -> void:
 			assert_true(img.root.has(attack), "%d has %s" % [id, attack])
 			assert_eq(int(img.root[attack].info.type), 0, "%d %s is a type 0 attack" % [id, attack])
 	lib.free()
+
+
+## None of the pool mobs is a `hideName` instance or PQ copy whose canonical EXP sits far below the level curve (Leafre's cave
+## Skelegon copies paid 0.30x): each ordinary mob's EXP is within 0.7-1.3x of level_curve.json exp at its own level.
+func test_pool_mobs_pay_close_to_the_level_curves_exp() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	var curve: Array = DataRepo.load_json("res://data/survivor/level_curve.json").exp
+	var level_of := {9400004: 45, 9400011: 40, 9400013: 100, 9400100: 45, 9400101: 47, 9400102: 50, 9400110: 62, 9400111: 64}
+	for id: int in level_of:
+		var img := lib.img("Mob.wz/%07d.img" % id)
+		if img == null:
+			skip("mob %d is not imported" % id)
+			lib.free()
+			return
+		var info: Dictionary = img.root.info
+		assert_eq(int(info.level), level_of[id], "mob %d level" % id)
+		var ratio := float(info.exp) / float(curve[int(info.level) - 1])
+		assert_between(ratio, 0.7, 1.3, "mob %d EXP is %.2fx the level-%d curve" % [id, ratio, int(info.level)])
+	lib.free()
