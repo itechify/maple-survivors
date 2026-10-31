@@ -3,6 +3,7 @@ extends TestCase
 ## level scale, manifest and mobs.json entries; the cache-backed parts check the real v83 rosters and that every
 ## skill of the three bosses resolves to a supported MobSkill.
 
+const CAL := preload("res://tests/calibrated_levels.gd")
 const KEY := "omega_sector"
 const MAPS := [221040000, 221030200, 221030500]
 const BOSSES := [4240000, 5120100, 6220001]
@@ -49,7 +50,8 @@ func test_drop_band_and_level_scale_replace_the_opening_ramp() -> void:
 	assert_eq(keyframes.size(), stage.keyframes.size(), "one level per curve keyframe")
 	for i in keyframes.size():
 		assert_eq(float(keyframes[i].t), float(stage.keyframes[i].t))
-		assert_true(float(keyframes[i].level) > float(keyframes[i].exp_level), "harder than the character's pace")
+		assert_near(float(keyframes[i].level), CAL.level_at(float(keyframes[i].exp_level), float(keyframes[i].t), 7), 0.011,
+			"step 7: the calibrated level (C13), keyframe %d" % i)
 	var errors := PackedStringArray()
 	DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_eq(Array(errors), [], "the data validates, level_scale included")

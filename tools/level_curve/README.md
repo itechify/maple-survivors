@@ -28,3 +28,8 @@ Tier: the numbers are tier A-derived (v83 `Mob.wz` info), used for a tier C purp
 
 CI: the node tests are not wired into `.github/workflows/pages.yml` yet; add `tools/level_curve/test/*.test.mjs` to its
 `node --test` step.
+
+Step 6 (#475, C13) is not in the list above only because it came later: below the first level that has a magic-attack sample
+(about Lv28; no mainline monster under it has one) `mad` follows the weapon attack, `mad(L) = mad(first) * pad(L) / pad(first)`,
+instead of holding the first value (118), which made a level-scaled magic attacker hit a low-level character about twice as hard
+as its physical twin. Regenerate the committed file with `bash tools/level_curve/run.sh "<folder>" 2026-10-30`.

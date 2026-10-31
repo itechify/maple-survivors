@@ -4,6 +4,7 @@ extends TestCase
 ## scale and the three bosses. Parts that read canonical data (pools from the maps' life lists, the bosses' skills) are
 ## cache-backed and SKIP without the asset cache.
 
+const CAL := preload("res://tests/calibrated_levels.gd")
 const KEY := "leafre"
 const MAPS := [240020400, 240030200, 240050300]
 const BOSSES := [8180000, 8180001, 8220003]
@@ -94,8 +95,8 @@ func test_level_scale_is_present_valid_and_twenty_four_levels_above_sleepywoods_
 	assert_eq(kfs.size(), stage.keyframes.size(), "one level per pacing keyframe")
 	for i in kfs.size():
 		assert_eq(float(kfs[i].t), float(stage.keyframes[i].t), "keyframe %d at the pacing time" % i)
-		assert_near(float(kfs[i].level) - float(kfs[i].exp_level), 24.0, 0.011,
-			"step 13 is 24 levels above Sleepywood's pace (3 per step after step 5)")
+		assert_near(float(kfs[i].level), CAL.level_at(float(kfs[i].exp_level), float(kfs[i].t), 13), 0.011,
+			"step 13: the calibrated level (C13): 1 at 0:00 rising to Sleepywood's pace + CAL.ABOVE at 10:00, keyframe %d" % i)
 		assert_true(float(kfs[i].level) < 131.0, "below the level where the reference curves go flat")
 	assert_true(String(stage.get("_level_scale", "")).contains("Tier C"), "a _tier note")
 
@@ -115,7 +116,7 @@ func test_bosses_are_scheduled_with_tier_notes_and_enabled_kits() -> void:
 		assert_true(String(boss.get("_tier", "")).begins_with("tier C"), "%d has a tier C note" % BOSSES[i])
 		assert_has(data.balance.mob_skills.enabled_ids, float(BOSSES[i]), "%d casts its kit" % BOSSES[i])
 	# The draft tool's numbers (--step=13 --stage=leafre), pinned so a retune is a visible change.
-	assert_eq([float(bosses[0].hp_mult), float(bosses[1].hp_mult), float(bosses[2].hp_mult)], [0.828, 0.186, 0.115])
+	assert_eq([float(bosses[0].hp_mult), float(bosses[1].hp_mult), float(bosses[2].hp_mult)], [9.935, 2.228, 1.384])
 	assert_eq([float(bosses[0].dmg_mult), float(bosses[1].dmg_mult), float(bosses[2].dmg_mult)], [1.019, 0.729, 1.555])
 	assert_eq([float(bosses[0].attack_dmg_mult), float(bosses[1].attack_dmg_mult), float(bosses[2].attack_dmg_mult)],
 		[0.661, 0.698, 1.815])

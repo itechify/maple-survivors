@@ -1,7 +1,7 @@
 // Tests of the level-curve generator on a synthetic Mob.wz dump (no proprietary data).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_LEVEL, STATS, buildCurve, fillGaps, formatCurve, median, monotone, parseDump, selectSamples, smooth } from "../generate.mjs";
+import { MAX_LEVEL, STATS, buildCurve, fillGaps, madBelowSamples, formatCurve, median, monotone, parseDump, selectSamples, smooth } from "../generate.mjs";
 
 function mobText(id, info, stances = ["move", "stand"]) {
   const lines = [`## ${id}.img`, `${id}.img = [img ${stances.length + 1}]`, `  info = [Property ${Object.keys(info).length}]`];
@@ -58,8 +58,10 @@ test("selectSamples drops bosses, stance-less links, event ids, expedition bodie
 test("a stat's zero values are skipped, so a magic-less level keeps the nearest sampled value", () => {
   const text = [mob(100100, 5, 100, { MADamage: 0 }), mob(100101, 8, 200, { MADamage: 50 })].join("\n");
   const curve = buildCurve(parseDump(text), "2000-01-01");
-  assert.ok(curve.mad.every((v) => v === curve.mad[0]), "one sampled value fills every level");
-  assert.equal(curve.mad[0], 50);
+  assert.ok(curve.mad.slice(7).every((v) => v === curve.mad[7]), "the one sampled value holds from its level on");
+  assert.equal(curve.mad[7], 50);
+  assert.ok(curve.mad[0] < 50, "below the first magic sample the magic attack follows the weapon attack (#475)");
+  assert.equal(curve.mad[0], Math.round(50 * curve.pad[0] / curve.pad[7] * 100) / 100);
 });
 
 test("median, gap filling and monotone fitting", () => {
@@ -95,4 +97,12 @@ test("output is deterministic and parses back to the same object", () => {
   const parsed = JSON.parse(a);
   assert.equal(parsed.hp.length, MAX_LEVEL);
   assert.ok(a.split("\n").some((line) => line.startsWith('\t"pad": [')), "each stat is one line");
+});
+
+test("madBelowSamples scales the magic attack like the weapon attack below the first magic sample", () => {
+  const pad = [10, 20, 30, 40, 50];
+  const mad = [100, 100, 100, 100, 130];
+  assert.deepEqual(madBelowSamples(mad, pad, 4), [26, 52, 78, 104, 130]);
+  assert.deepEqual(madBelowSamples(mad, pad, 0), mad, "a sample at the first level changes nothing");
+  assert.deepEqual(madBelowSamples(mad, pad, -1), mad, "no sample at all changes nothing");
 });

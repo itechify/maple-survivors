@@ -1,15 +1,15 @@
 {
 	"drop_band": [55, 65],
 	"_drop_band": "Tier C (spec #447 table, owner call): El Nath is progression step 10; ordinary drops come from reqLevel 55-65, bosses from the top third of the band.",
-	"_level_scale": "Tier C (spec #449 C0 first draft, untuned; game/tools/level_scale_draft.gd --step=10 --stage=el_nath): E_sw(t) is Sleepywood's effective level at each keyframe time (9.15, 9.73, 10.80, 22.22, 36.44, 48.23, 56.85); region step 10 sets level(t) = E_sw(t) + 3 x (10 - 5) = E_sw + 15 and exp_level(t) = E_sw(t), so the character levels at Sleepywood's pace and monsters are fifteen effective levels harder. Replaces an opening ramp (none here).",
+	"_level_scale": "Tier C (spec #449 C0 first draft, untuned; game/tools/level_scale_draft.gd --step=10 --stage=el_nath): E_sw(t) is Sleepywood's effective level at each keyframe time (9.15, 9.73, 10.80, 22.22, 36.44, 48.23, 56.85); region step 10 sets level(t) = E_sw(t) + 3 x (10 - 5) = E_sw + 15 and exp_level(t) = E_sw(t), so the character levels at Sleepywood's pace and monsters are fifteen effective levels harder. Replaces an opening ramp (none here). C13 (#475, tier C, calibrated on training seeds 1-4): level(t) = lerp(1, E_sw(t) + 3.75, min(1, t/600)): the stage starts at effective level 1 and reaches this step's level at 10:00, because a Lv1 character cannot take Lv13-and-up damage from the first second; 3.75 levels above Sleepywood here (0.75 per step to step 12, 0.25 per step after it: the first draft's +3 per step out-ran what a band's equipment adds).",
 	"level_scale": {"keyframes": [
-		{"t": 0, "level": 24.15, "exp_level": 9.15},
-		{"t": 120, "level": 24.73, "exp_level": 9.73},
-		{"t": 300, "level": 25.8, "exp_level": 10.8},
-		{"t": 480, "level": 37.22, "exp_level": 22.22},
-		{"t": 600, "level": 51.44, "exp_level": 36.44},
-		{"t": 780, "level": 63.23, "exp_level": 48.23},
-		{"t": 900, "level": 71.85, "exp_level": 56.85}]},
+		{"t": 0, "level": 1.0, "exp_level": 9.15},
+		{"t": 120, "level": 3.5, "exp_level": 9.73},
+		{"t": 300, "level": 7.78, "exp_level": 10.8},
+		{"t": 480, "level": 20.98, "exp_level": 22.22},
+		{"t": 600, "level": 40.19, "exp_level": 36.44},
+		{"t": 780, "level": 51.98, "exp_level": 48.23},
+		{"t": 900, "level": 60.6, "exp_level": 56.85}]},
 	"_tier": "Tier A: map IDs, original_life, widths and rosters from v83 Map.wz and Mob.wz (docs/research/v83-region-maps.md). Tier C (owner, spec #449 C5 #467): region, map order, boss schedule, pool rules and weights, level_scale and boss multipliers (the first draft of game/tools/level_scale_draft.gd, untuned); the numeric curve (keyframe rate/max_alive/hp/speed, bursts, elites, exp_mult, hard_cap, post_duration_slope) copies Sleepywood exactly, and `level_scale` replaces its opening ramp. decHP 10 (cold damage) and fs (ice friction) on the two snow maps are ignored (tier C, as OctoPirate's limiter in #264): movement is unchanged. Snow Witch has contact damage and Banish only, Riche one magic attack with Banish and its heal, Snowman a ball attack with Stun, the poison mist and its Jr. Yeti summons; ordinary mobs cast no mob skills (owner, #76).",
 	"name": "Icy Path",
 	"region": "El Nath",
@@ -26,11 +26,11 @@
 			"boss": {
 				"time": 300,
 				"mob_id": 6090001,
-				"hp_mult": 48.548,
+				"hp_mult": 582.579,
 				"dmg_mult": 1.17,
 				"skill_intervals": {"129": 15},
 				"_skill_intervals": "tier C: Banish 129 every 15 s instead of the WZ 3 s, Shade's #256 rule (as Scholar Ghost)",
-				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 300 (E_sw 10.80, level 25.80); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact damage matched the same way on PAD (Snow Witch has no attack stance, so there is no attack_dmg_mult and no cadence: contact and Banish only)"
+				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 300 (E_sw 10.80, level 25.80); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact damage matched the same way on PAD (Snow Witch has no attack stance, so there is no attack_dmg_mult and no cadence: contact and Banish only). C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
 			}
 		},
 		{
@@ -40,7 +40,7 @@
 			"boss": {
 				"time": 300,
 				"mob_id": 6090000,
-				"hp_mult": 8.714,
+				"hp_mult": 104.565,
 				"dmg_mult": 0.843,
 				"skill_intervals": {"129": 15},
 				"_skill_intervals": "tier C: Banish 129 every 15 s instead of the WZ 3 s, Shade's #256 rule (as Scholar Ghost)",
@@ -49,7 +49,7 @@
 				],
 				"attack_interval": 8,
 				"attack_dmg_mult": 0.791,
-				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 600 (E_sw 36.44, level 51.44); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact and attack damage matched the same way (attack1 is magic, matched on MAD, the strongest scheduled attack); 8 s cadence"
+				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 600 (E_sw 36.44, level 51.44); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact and attack damage matched the same way (attack1 is magic, matched on MAD, the strongest scheduled attack); 8 s cadence. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
 			}
 		},
 		{
@@ -59,14 +59,14 @@
 			"boss": {
 				"time": 300,
 				"mob_id": 8220001,
-				"hp_mult": 4.701,
+				"hp_mult": 56.414,
 				"dmg_mult": 1.462,
 				"attacks": [
 					"attack1"
 				],
 				"attack_interval": 8,
 				"attack_dmg_mult": 1.966,
-				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 900 (E_sw 56.85, level 71.85); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact and attack damage matched the same way on PAD (the strongest scheduled attack); 8 s cadence"
+				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 900 (E_sw 56.85, level 71.85); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact and attack damage matched the same way on PAD (the strongest scheduled attack); 8 s cadence. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
 			}
 		}
 	],

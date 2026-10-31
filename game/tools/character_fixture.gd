@@ -21,6 +21,10 @@ extends SceneTree
 ## `--extra-cleared=<key,key,...>` (kit mode) adds stage keys to the cleared set that `progression` does not hold yet (planned
 ## regions: a fixture made before they exist, e.g. `late_progression.json` with `--cleared=15` while only five regions ship; once
 ## they ship, `--cleared=<n>` alone writes the same set); `--note=<text>` replaces the generated `_doc.note` of a kit fixture.
+## `--band-of=<stage key>` (kit mode, instead of `--kit`; #475 C13) builds the kit from that stage's `drop_band`: per slot the
+## eligible item (job class, weapon family, reqLevel in the band) that the bot's equipment weights score highest
+## (`--band-pick=best`, default) or the median one (`--band-pick=median`: a player with an average drop), to give a round the
+## gear a character arrives with from the PREVIOUS region. A top and a bottom are replaced by an overall when it scores higher; a two-handed weapon takes no shield.
 ## `--god` is a documented diagnostic aid: RunWorld.god makes the character invulnerable, so the bot can reach a clear its
 ## play does not survive to; use it with a round, and the fixture's _doc records it (`invulnerable` and `diagnostic`).
 ## `--patch=<absolute JSON path>` deep-merges a JSON patch into loaded data first, as balance_run does; `_doc.patch`
@@ -47,6 +51,8 @@ func _init() -> void:
 	var patch_file := ""
 	var extra_cleared := ""
 	var note := ""
+	var band_of := ""
+	var band_pick := "best"
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="):
 			output = arg.substr(6)
@@ -78,6 +84,10 @@ func _init() -> void:
 			extra_cleared = arg.substr(16)
 		elif arg.begins_with("--note="):
 			note = arg.substr(7)
+		elif arg.begins_with("--band-of="):
+			band_of = arg.substr(10)
+		elif arg.begins_with("--band-pick="):
+			band_pick = arg.substr(12)
 	if output != "" and migrate != "":
 		_migrate(migrate, output)
 		return
@@ -114,6 +124,15 @@ func _init() -> void:
 		library.free()
 		quit(1)
 		return
+	if band_of != "":
+		kit = ",".join(band_kit(data, setup.get("equipment_info", {}), jobs, job, band_of, band_pick))
+		if kit == "":
+			print("character_fixture: --band-of=%s found no item for job %d" % [band_of, job])
+			library.free()
+			quit(1)
+			return
+		if note == "":
+			note = "Synthetic format-3 kit (tools/character_fixture.gd --band-of=%s --band-pick=%s, #475 C13): the %s item per slot of that region's drop band, unscrolled canonical equipment, %d regions cleared; a Lv1 character as a player arrives from the previous region (calibration, not a shipped fixture)." % [band_of, band_pick, band_pick, cleared]
 	if kit != "":
 		_kit({"kit": kit, "cleared": cleared, "job": job, "output": output, "revision": revision, "label": label,
 				"patch": patch_file, "extra_cleared": extra_cleared, "note": note}, setup, library)
@@ -160,6 +179,47 @@ func _init() -> void:
 	print("FIXTURE_WRITTEN %s job%d reached Lv%d missing=%s" % [output, character.job_id, int(record.level), missing])
 	library.free()
 	quit()
+
+
+## The kit of `--band-of` (`infos` is setup.equipment_info): for each slot the eligible item of stage `stage_key`'s drop band that the job's bot equipment
+## weights score highest (`pick` "best") or at the median (`pick` "median"; ties by id). Weapon: eligible families only.
+## A top+bottom pair is dropped for the overall when the overall alone scores higher. Ids in slot order.
+static func band_kit(data: Dictionary, infos: Dictionary, jobs: JobTree, job: int, stage_key: String, pick: String) -> Array[int]:
+	var stage: Dictionary = data.get("stages", {}).get("stages", {}).get(stage_key, {})
+	var band := EquipmentDrops.band_of(stage)
+	var items: Array = data.get("equipment_drops", {}).get("items", [])
+	var families: Array = jobs.weapon_families(job)
+	var weights := BotShop.weights_for(data.get("balance", {}), job, jobs)
+	var by_slot := {}
+	for id: int in EquipmentDrops.eligible(items, infos, job, band, families):
+		var slot := Equipment.slot_of(id)
+		var score := BotShop.item_score(Equipment.create(id, Equipment.info_of(infos, id)), weights)
+		if not by_slot.has(slot):
+			by_slot[slot] = []
+		by_slot[slot].append(Vector2(score, id))
+	var chosen := {}
+	for slot: String in by_slot:
+		var list: Array = by_slot[slot]
+		list.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.x < b.x or (a.x == b.x and a.y < b.y))
+		var at: Vector2 = list[list.size() - 1] if pick == "best" else list[list.size() / 2]
+		chosen[slot] = at
+	var out: Array[int] = []
+	var separate: float = 0.0
+	for slot: String in ["top", "bottom"]:
+		if chosen.has(slot):
+			separate += chosen[slot].x
+	var overall_wins: bool = chosen.has("overall") and chosen.overall.x > separate
+	for slot: String in ["weapon", "hat", "overall", "top", "bottom", "gloves", "shoes", "shield", "cape", "belt"]:
+		if not chosen.has(slot):
+			continue
+		if slot == "overall" and not overall_wins:
+			continue
+		if slot in ["top", "bottom"] and overall_wins:
+			continue
+		if slot == "shield" and chosen.has("weapon") and WeaponInfo.is_two_handed(int(chosen.weapon.y)):
+			continue # a two-handed weapon leaves no hand for the shield
+		out.append(int(chosen[slot].y))
+	return out
 
 
 ## A fresh Lv1 character of `job` wearing the equipment ids in `kit` (a comma list), the first `cleared` progression regions

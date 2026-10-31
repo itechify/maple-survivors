@@ -4,6 +4,7 @@ extends TestCase
 ## numbers, the level scale and the three bosses. Parts that read canonical data (pools from the maps' life lists, the bosses'
 ## skills, the pool mobs' EXP against the level curve) are cache-backed and SKIP without the asset cache.
 
+const CAL := preload("res://tests/calibrated_levels.gd")
 const KEY := "temple_of_time"
 const MAPS := [270010500, 270020500, 270030500]
 const BOSSES := [8220004, 8220005, 8220006]
@@ -100,8 +101,8 @@ func test_level_scale_is_present_valid_and_thirty_three_levels_above_sleepywoods
 	assert_eq(kfs.size(), stage.keyframes.size(), "one level per pacing keyframe")
 	for i in kfs.size():
 		assert_eq(float(kfs[i].t), float(stage.keyframes[i].t), "keyframe %d at the pacing time" % i)
-		assert_near(float(kfs[i].level) - float(kfs[i].exp_level), 33.0, 0.011,
-			"step 16 is 33 levels above Sleepywood's pace (3 per step after step 5)")
+		assert_near(float(kfs[i].level), CAL.level_at(float(kfs[i].exp_level), float(kfs[i].t), 16), 0.011,
+			"step 16: the calibrated level (C13): 1 at 0:00 rising to Sleepywood's pace + CAL.ABOVE at 10:00, keyframe %d" % i)
 		assert_true(float(kfs[i].level) < 131.0, "below the level where the reference curves go flat")
 	assert_true(String(stage.get("_level_scale", "")).contains("Tier C"), "a _tier note")
 
@@ -121,7 +122,7 @@ func test_bosses_are_scheduled_with_tier_notes_and_enabled_kits() -> void:
 		assert_true(String(boss.get("_tier", "")).begins_with("tier C"), "%d has a tier C note" % BOSSES[i])
 		assert_has(data.balance.mob_skills.enabled_ids, float(BOSSES[i]), "%d casts its kit" % BOSSES[i])
 	# The draft tool's numbers (--step=16 --stage=temple_of_time), pinned so a retune is a visible change.
-	assert_eq([float(bosses[0].hp_mult), float(bosses[1].hp_mult), float(bosses[2].hp_mult)], [0.881, 0.187, 0.21])
+	assert_eq([float(bosses[0].hp_mult), float(bosses[1].hp_mult), float(bosses[2].hp_mult)], [10.568, 2.25, 2.519])
 	assert_eq([float(bosses[0].dmg_mult), float(bosses[1].dmg_mult), float(bosses[2].dmg_mult)], [1.063, 0.768, 1.538])
 	assert_eq([float(bosses[0].attack_dmg_mult), float(bosses[1].attack_dmg_mult), float(bosses[2].attack_dmg_mult)],
 		[0.781, 0.848, 1.823])

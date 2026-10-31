@@ -317,12 +317,25 @@ func test_chain_cli_rejects_incompatible_or_invalid_options() -> void:
 	var progression: Array = DataRepo.load_all().stages.progression
 	var size: int = progression.size()
 	for args: Array in [["--chain=0"], ["--chain=no"], ["--chain=%d" % (size + 1)], ["--chain=2", "--stage=%s" % progression[-1]],
-			["--chain=%d" % size, "--stage=ellinia"], ["--chain=2", "--character=anything.json"],
+			["--chain=%d" % size, "--stage=ellinia"],
 			["--chain=2", "--policy=camper_henesys_top"], ["--chain=2", "--retries=-1"], ["--chain=2", "--retries=x"],
 			["--retries=1"], ["--tier=2"], ["--tier=2", "--chain=2"]]:
 		var result := _cli(args)
 		assert_eq(result.status, 2, str(args))
 		assert_eq(result.record, {}, "invalid configuration must not emit a usable record")
+
+
+func test_chain_cli_starts_from_a_character_file() -> void:
+	if not require_cache():
+		return
+	var character := ProjectSettings.globalize_path("res://tests/fixtures/characters/fp_arch_mage.json")
+	var result := _cli(["--stage=sleepywood", "--chain=1", "--seed=1", "--cap=0.05", "--character=" + character])
+	assert_eq(result.status, 0, str(result.output))
+	var round: Dictionary = result.record.rounds[0]
+	assert_eq(int(round.start_character.equipment.worn.weapon.id), 1382002, "the chain's first round starts from the file's staff")
+	assert_eq(round.stage, "sleepywood")
+	var bare := _cli(["--stage=sleepywood", "--chain=1", "--seed=1", "--cap=0.05"])
+	assert_ne(int(bare.record.rounds[0].start_character.equipment.worn.weapon.id), 1382002, "without the file a fresh character")
 
 
 func test_the_tier_flag_fails_and_names_chain() -> void:

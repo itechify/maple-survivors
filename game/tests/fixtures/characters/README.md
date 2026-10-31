@@ -100,3 +100,9 @@ open). n=4 is the old "tier 2": Henesys, Ellinia, Perion and Kerning cleared, Sl
 what the file had. `HubTestKit` (`--hub`) clears every region on top of any fixture. To test a
 character further along the progression, write a fixture with a larger `--cleared` and pass it to `--character`; a
 `balance.sh --chain` run needs a fresh character instead (no `--character`).
+
+`tools/character_fixture.gd --band-of=<stage key> [--band-pick=best|median] --job=<id> --cleared=<n>` (calibration, #475 C13) builds a
+kit from that stage's `drop_band`: per slot the eligible item (job class, weapon family, reqLevel in the band) that the bot's equipment
+weights score highest (or the median one), with an overall when it scores more than a top and bottom and no shield under a two-handed
+weapon. It is how a round's character gets the previous region's gear (`--band-of=leafre` before `--stage=phantom_forest`); the files it
+writes are scratch (`_scratch/`), not committed fixtures.

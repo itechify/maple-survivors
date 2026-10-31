@@ -370,6 +370,14 @@ Per-step summaries include clears, attempts per clear, death times and end level
 reach; unstarted rounds contribute no death/boss observations. See the `scripts/balance.sh` header for the seed formula and
 record/report contract.
 
+A fresh F/P bot dies in Henesys, so a late region cannot be reached by `--chain` from a fresh character. Calibrate per step instead
+(#475, C13): `--chain=1 --stage=<key> --retries=<K> --character=<abs path>` starts the chain from a CharacterSnapshot (the later
+rounds carry it as usual), and `game/tools/character_fixture.gd --band-of=<previous region key> --job=<id> --cleared=<n>` writes the
+kit a character arrives with from that region's `drop_band` (`game/tests/fixtures/characters/README.md`). Diagnostics of
+`balance_run.gd`, never evidence for survival: `--god` (invulnerable, the record gets `"god": true`) and `--hit-log=N` (the last
+N landed hits in `last_hits`). `game/tools/level_scale_draft.gd` takes `--above`, `--start`, `--warmup` and `--boss-hp-scale`
+for the calibrated numbers (GAME_DESIGN 4.1 "Level scale").
+
 Older tickets and docs still say "the four tier-1 stages", "tier 2" and `--tiers=2`: they mean the first four progression
 regions, the fifth (Sleepywood) and `--cleared=4`, and `--tiers=2` still works as that alias (`--cleared=<n>` clears the
 first n regions). Committed `*_t2.json` fixtures keep their stored `tiers_unlocked: 2`, which loads as four regions cleared.
