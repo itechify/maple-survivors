@@ -4590,6 +4590,23 @@ synthetic tests, 0 failed). No importer, manifest or import-screen change in thi
 Full suite on the final code commit (`8e6ee7f1`): with the cache **3801 tests, 0 failed, 0 skipped**; without it (`MAPLE_SURVIVORS_CACHE=/nonexistent`, as CI) **3801 tests, 0 failed,
 457 skipped** (the `require_cache()` tests; a SKIP proves nothing). Oracles (character baseline, tick cost identity, Hero, I/L, Paladin, Bowmaster, Corsair) unchanged, none recaptured, no test deleted.
 
+### Corsair review fixes (#384, 2026-10-30)
+
+Review of spec #384 (standards/spec 15 should-fix and 20 nits, correctness 4 should-fix and 7 nits), fixed on `t/384-review-fixes`;
+resolutions in `~/.local/share/maple-redesign-notes/REVIEW_384_resolutions.md`. Behaviour changes, each test-first: the Octopus is planted
+on the floor under the caster (7.121), a Gaviota that has locked a monster outlives the level `time` until its dive lands (7.121), the
+bird's reach is measured from the cast origin like the admission, the Gaviota card text says how many monsters the dive hits and that
+`time` is the wait (7.121), `OPTIONAL_EVENT_FIELDS` is enforced by the event schema test with a ship in its stream. Smoke (`JOBS=3`,
+`ISOLATE=384fix`, `cache-384`, seeds 1 2 2026, Henesys, bot, no tuning): **F/P unchanged** (D 474.5 / 661.9 / 751.9 s, the C15 numbers
+exactly); **Corsair D 352.0 / 408.9 / 820.6 s** (C15: 308.9–820.6; seeds moved because Gaviota's strikes now land), 0/3 clears, the
+first boss spawned in 3/3, no crash and no warning. **The Corsair baseline oracle was re-captured** (`test_corsair_baseline`): the bot
+takes Gaviota at seed 1 and with the two Gaviota changes reverted the old digest reproduces; the F/P, Hero, I/L, Paladin, Bishop, Dark
+Knight, Buccaneer (and Paladin / Buccaneer Form) and Bowmaster oracles were not touched and pass. Evidence (`evidence/384fix/`, looked
+at by eye): the Octopus's ball in flight beside a Gaviota (`octopus/ball_2.png`), the Battleship aboard with 200 monsters in front
+(`ship200/t5.png`), a broken hull (`broken/hull_before.png` -> `hull_broken.png`: the violet 12 over the blue 10, the bar and the ship
+gone), the mark's parrot over a monster with the numbers rising (`mark/sheet.png`). Dash active was not captured. The web gate stays with
+CI (`pages.yml`; no wasm toolchain here and ad hoc tooling is forbidden). Full suites on the final commit are in the resolutions note.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
@@ -8601,7 +8618,11 @@ form carries `presentation.mount` 1932000), `AvatarRenderer` draws `Character.wz
   body action is `alert`, whose pistol is at the waist and sits behind the front hull canvas (the data, not a missing layer);
   C13 (#397, 7.120.12) settled it with `shoot2`.
 - **Cost.** No node per frame: one `MountLayers` (a RefCounted) per ride, and the mounted draw list is built only when the avatar
-  redraws (a frame change). With no mount `_draw` is the old loop, byte for byte.
+  redraws (a frame change). With no mount `_draw` is the old loop, byte for byte. **Measured at the review of #384** (the ship aboard
+  with 200 standing monsters, Henesys, vsync off, 30 s, `corsair_summon_probe.tscn -- --ship --skills=double_shot --crowd=200`; the
+  form window is 15 s of the 30): `frame_work_us` avg 1330 / p50 1165 / p95 3092 against 1132 / 877 / 2530 for the same crowd with no
+  ship, frame time p95 4.5 ms against 4.2 ms (not tuned, one run each: the ship adds about 0.2 ms on average and 0.5 ms at p95, its
+  own Cannon rounds included).
 
 #### 7.120.12 Corsair C13: the Battleship and its two sub-skills (#397, spec #384 M2 + M20)
 
