@@ -1496,6 +1496,8 @@ func test_boss_attack_sound_is_silent_only_when_the_mobs_entry_lacks_that_sound(
 	gap.sound = "Sound.wz/Mob.img/9999999/Attack1"
 	scene.handle_events([gap])
 	assert_eq(sfx_lib.missing.size(), before + 1, "an absent Mob.img entry still reports its sound missing")
+	# The Sfx library is shared by later tests: drop the deliberate gap so their "nothing missing" checks stay true.
+	sfx_lib.missing = sfx_lib.missing.slice(0, before)
 
 
 ## Spec #253: v83 Sound.wz/Mob.img has no entry for Iron Hook (4090000), so the client plays nothing for it; its hit,

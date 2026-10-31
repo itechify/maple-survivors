@@ -259,7 +259,7 @@ _Avoid_: Luck, LUK
 
 **Rarity**:
 A card's Potential tier (Normal, Rare, Epic, Unique, Legendary), which sets how much the card gives.
-_Avoid_: Quality, grade, card tier (tier is the run's difficulty step)
+_Avoid_: Quality, grade, card tier (a progression step is a region, ADR 0007)
 
 ## Survivor progression (ADR 0006, `redesign` branch)
 
