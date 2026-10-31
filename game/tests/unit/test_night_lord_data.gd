@@ -401,8 +401,10 @@ func test_real_cache_the_garnier_is_wearable_and_each_tier_drops_claws_only() ->
 	assert_eq(Equipment.requirement_error(infos[GARNIER], {"job_id": 412}), "", "a Night Lord can wear the creation claw")
 	assert_eq(Equipment.requirement_error(infos[GARNIER], {"job_id": 312}), "reqJob", "a Bowmaster cannot")
 	var ed: Dictionary = data.equipment_drops
-	for tier in data.stages.tiers.size():
-		var band := EquipmentDrops.band_of(data.stages, tier)
+	# ADR 0007 (#450): every progression region carries its own drop band (tiers are gone).
+	var progression: Array = data.stages.progression
+	for tier in progression.size():
+		var band := EquipmentDrops.band_of(data.stages.stages[String(progression[tier])])
 		var rng := _rng(401 + tier)
 		var claws := 0
 		for i in 300:
@@ -412,7 +414,7 @@ func test_real_cache_the_garnier_is_wearable_and_each_tier_drops_claws_only() ->
 			if Equipment.slot_of(id) == "weapon":
 				assert_eq(WeaponInfo.family(id), "claw", "%d" % id)
 				claws += 1
-		assert_true(claws > 0, "tier %d drops claws" % (tier + 1))
+		assert_true(claws > 0, "region %s drops claws" % progression[tier])
 
 
 # --- ammo: the claw schedule and its Lv60 Ilbi step -------------------------------------------------------------------

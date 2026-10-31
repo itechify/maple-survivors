@@ -206,7 +206,7 @@ func test_create_makes_a_night_lord_with_its_garnier_and_separate_ladders() -> v
 	assert_eq(flow.current_name, "free_market")
 	var thief: Dictionary = flow.save.slot(0).character
 	assert_eq(thief.job_id, 412)
-	assert_eq(thief.tiers_unlocked, 1)
+	assert_eq(thief.cleared_regions, [], "a new Night Lord has cleared nothing (only Henesys open)")
 	assert_eq(int(thief.equipment.worn.weapon.id), 1472000, "a Night Lord starts with the Garnier")
 	assert_eq(CharacterSnapshot.validation_error(thief), "")
 	assert_eq(WeaponInfo.family(1472000), "claw")
