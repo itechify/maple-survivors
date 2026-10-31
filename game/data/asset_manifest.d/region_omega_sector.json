@@ -1,0 +1,8 @@
+{
+	"format": 1,
+	"_doc": "Omega Sector (progression step 7, spec #449 C2 #464): the region's three maps (221040000 Kulan Field I, 221030200 Boswell Field II, 221030500 Boswell Field V; each map entry also imports its life mobs, backs, tiles, objs, BGM and map mark), its pool mobs (Barnard Gray, Mateon, Plateon, Mecateon), its three bosses (Chief Gray, MT-09, Zeno; Chief Gray's MobSkill 200 summons Barnard Gray, already in the pool) and the EXP pickup items of survivor/mobs.json (Etc items, tier C association to each mob), and Effect.wz/Summon.img/6, Chief Gray's MobSkill 200 summonEffect.",
+	"imgs": [{"img": "Effect.wz/Summon.img", "paths": ["6"]}],
+	"maps": [221040000, 221030200, 221030500],
+	"mobs": [4230116, 4230119, 4230120, 4230121, 4240000, 5120100, 6220001],
+	"items": [4000123, 4000120, 4000121, 4000122, 4000125, 4000126, 4000118]
+}

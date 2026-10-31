@@ -1500,6 +1500,28 @@ func test_boss_attack_sound_is_silent_only_when_the_mobs_entry_lacks_that_sound(
 	sfx_lib.missing = sfx_lib.missing.slice(0, before)
 
 
+## Spec #449 C2 (#464): a boss's skill or hit sound that its own Mob.img entry lacks is silent too (King Clang has Skill1
+## but no Attack1; Chief Gray has Attack1 but no Skill1), and a sound it has is played.
+func test_a_mob_sound_its_entry_lacks_is_silent_and_reports_nothing_missing() -> void:
+	if not require_cache():
+		return
+	if lib.find("Sound.wz/Mob.img/5220000") == null or lib.find("Sound.wz/Mob.img/5220000/Skill1") == null:
+		skip("King Clang sounds not imported (run scripts/import.sh with the current manifest)")
+		return
+	scene = _make("perion", 1, {})
+	assert_eq(scene.error, "", "scene started")
+	var sfx := scene._sfx_service()
+	if sfx == null:
+		skip("no Sfx autoload")
+		return
+	var sfx_lib := sfx._lib()
+	var before := sfx_lib.missing.size()
+	scene._mob_sound(5220000, "Attack1")
+	assert_eq(sfx_lib.missing.size(), before, "no Attack1 in King Clang's entry: silent, nothing missing")
+	scene._mob_sound(5220000, "Skill1")
+	assert_eq(sfx_lib.missing.size(), before, "a sound the entry has is looked up and found")
+
+
 ## Spec #253: v83 Sound.wz/Mob.img has no entry for Iron Hook (4090000), so the client plays nothing for it; its hit,
 ## death and skill events stay silent without reporting a missing asset, while a mob with sounds still plays them.
 func test_a_mob_without_v83_sounds_is_silent_and_reports_nothing_missing() -> void:
