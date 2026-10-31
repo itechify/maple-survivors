@@ -84,7 +84,7 @@ extends Node
 ##
 ## Screenshots are named NN_<step>.png; the driver prints one "flow_driver:" line per step and quits with exit code 1
 ## when a step times out or a check fails. Saves go to shots_dir/driver_save.json (delete the folder to repeat a scenario).
-## tier C: diagnostic names, seeds 1 (redesign) and 4 (account), the 1800 s combat cap, 600-tick yields, the 400 + 75 meso
+## tier C: diagnostic names, seeds 1 (redesign, progression) and 4 (account), the 1800 s combat cap, 600-tick yields, the 400 + 75 meso
 ## loot, the 1e9 lethal hit, the Lv45 fallback staff, the card policy "rank the highest-ranked owned active once the slots are
 ## full" and the UI waits/timeouts are automation choices, never survivor tuning.
 
