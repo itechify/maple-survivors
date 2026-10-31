@@ -1,5 +1,5 @@
 extends TestCase
-## Corsair's data seam (spec #384, ticket C2 #386): the `corsair` line is discovered from its files, its job entry
+## Corsair's data seam (spec #384, ticket C2 #386): the `corsair` line (registered in CLASS_LINES at its redesign merge, D15), its job entry
 ## `survivor/jobs/corsair.json` (522, playable since C15 #399) names the thirteen-key pool, the Pistol and the guns-only families,
 ## its AP row copies the 520 row (tier C), and its drops are guns only (Pirate-bit gear). Undefined pool keys stay inert; no
 ## other job's file names job 522. Seeded RNG; item info is synthetic unless a test says "real cache".
@@ -57,10 +57,12 @@ func _defining_lines(key: String) -> Array:
 
 # --- the line ---------------------------------------------------------------------------------------------------------
 
-func test_corsair_line_is_discovered_from_its_files_without_a_shared_registration() -> void:
+func test_corsair_line_is_registered_after_the_shipped_classes() -> void:
 	var lines := Array(DataRepo.lines())
-	assert_true("corsair" in lines, "discovered from its files")
-	assert_false("corsair" in DataRepo.CLASS_LINES, "no shared list is edited: an unregistered line sorts after the registered ones")
+	assert_true("corsair" in lines, "loaded from its files")
+	# Ruling D15: a shipped class line is appended to CLASS_LINES in redesign-merge order, so a later line never moves it.
+	assert_eq(Array(DataRepo.CLASS_LINES).back(), "corsair")
+	assert_eq(lines.find("corsair"), lines.find("buccaneer") + 1, "pinned right after the last earlier registration")
 	assert_true(lines.find("corsair") > lines.find("hero"), "a class line follows the Adventurer lines and hero")
 	assert_true(lines.find("corsair") > lines.find("pirate"))
 	assert_eq(DataRepo.fragment_path("jobs_survivor", "corsair", "res://data"), "res://data/survivor/jobs/corsair.json")
