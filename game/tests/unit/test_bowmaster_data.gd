@@ -78,7 +78,7 @@ func test_class_lines_follow_the_adventurers_in_registration_order() -> void:
 	var lines := DataRepo.lines()
 	assert_eq(Array(lines.slice(0, 7)), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
 	assert_eq(Array(lines.slice(7, 15)), ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "corsair"])
-	assert_eq(Array(lines.slice(15)), ["night_lord"], "Night Lord follows Corsair (ruling D15: registered in merge order)")
+	assert_eq(Array(lines.slice(15, 16)), ["night_lord"], "Night Lord follows Corsair (ruling D15: registered in merge order)")
 
 
 func test_the_bowmaster_line_loads_without_errors_and_adds_its_job_and_its_skills() -> void:

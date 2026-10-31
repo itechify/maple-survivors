@@ -283,6 +283,15 @@ func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:
 	var thief_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "thief", root))
 	for key: String in thief_frag.skills:
 		assert_false(String(thief_frag.skills[key].book) in ["411", "412"], "%s is a Night Lord skill, not thief.json's" % key)
+	# Shadower (SH2 #427): the 400/420/421/422 books may live in shadower.json (Double Stab, Steal and Savage Blow move in with SH6,
+	# Dark Sight with SH11); a 421 or 422 skill is never in thief.json or night_lord.json. Empty until SH6 defines the first entries.
+	var shadower_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "shadower", root))
+	for key: String in shadower_frag.skills:
+		assert_true(String(shadower_frag.skills[key].book) in ["400", "420", "421", "422"], "%s in shadower" % key)
+	for key: String in thief_frag.skills:
+		assert_false(String(thief_frag.skills[key].book) in ["421", "422"], "%s is a Shadower skill, not thief.json's" % key)
+	for key: String in nl_frag.skills:
+		assert_false(String(nl_frag.skills[key].book) in ["421", "422"], "%s is a Shadower skill, not night_lord.json's" % key)
 	# Corsair (C2 #386): the 521/522 books (and the ported 500/520 gun skills) may live in corsair.json; C4 moved the
 	# Gunslinger's 520 skills here, and a 521 or 522 skill is never in pirate.json.
 	var corsair_frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("skills", "corsair", root))
