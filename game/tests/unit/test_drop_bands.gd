@@ -57,7 +57,8 @@ func _hundred(count: int, tier_band: Array, boss: bool, p_seed: int) -> Array:
 
 func test_the_shipped_regions_carry_their_drop_bands() -> void:
 	var stages: Dictionary = DataRepo.load_all().stages
-	var expected := {"henesys": [0, 15], "ellinia": [10, 20], "perion": [15, 25], "kerning": [20, 30], "sleepywood": [30, 40]}
+	var expected := {"henesys": [0, 15], "ellinia": [10, 20], "perion": [15, 25], "kerning": [20, 30], "sleepywood": [30, 40],
+		"ludibrium": [35, 45]}
 	assert_eq(stages.progression, expected.keys(), "the progression lists them in this order")
 	for key: String in expected:
 		assert_eq(EquipmentDrops.band_of(stages.stages[key]), expected[key], key)

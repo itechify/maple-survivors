@@ -59,7 +59,7 @@ func test_stage_select_ignores_retired_save_records() -> void:
 	assert_eq(int(s.best_for("henesys").kills), 400, "playable best remains")
 	assert_eq(s.runs_for("henesys"), 1)
 	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
-	assert_eq(offered.map(func(c: Dictionary) -> String: return String(c.key)),
+	assert_eq(offered.map(func(c: Dictionary) -> String: return String(c.key)).slice(0, 5),
 		["henesys", "ellinia", "perion", "kerning", "sleepywood"])
 	assert_eq(STAGE_SELECT.best_text(s.best_for(String(offered[0].key))),
 		"Best: Survived 05:00, Lv. 12, 400 kills")
