@@ -14,7 +14,6 @@ const NO_REACH := ["octopus", "gaviota", "battleship"]
 
 func _world(p_seed := 398) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["522"]["playable"] = true # in this test's data only: C15 flips the real flag
 	var w := RunWorld.new(CF.setup("quiet", p_seed, data))
 	RF.place_player(w, 400)
 	w.player.facing = 1
@@ -141,7 +140,6 @@ func test_real_cache_the_reaches_the_spec_names_are_above_the_kite_threshold() -
 		return
 	var lib := AssetLibrary.new()
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["522"]["playable"] = true
 	var setup := CF.setup("quiet", 398, data)
 	for book_id: String in ["500", "520", "521", "522"]:
 		var img := lib.img("Skill.wz/%s.img" % book_id)

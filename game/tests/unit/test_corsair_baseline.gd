@@ -28,8 +28,7 @@ func _replay(ticks: int) -> Dictionary:
 	for opening: Array in [[0, 0.15, 3], [1, 0.4, 8], [2, 0.6, 12]]:
 		data.stages.stages.henesys.keyframes[int(opening[0])].rate = float(opening[1])
 		data.stages.stages.henesys.keyframes[int(opening[0])].max_alive = int(opening[2])
-	# The Corsair is unplayable until C15 and its pool is frozen: both in this test's data copy only.
-	data.jobs_survivor.jobs["522"]["playable"] = true
+	# The pool is frozen in this test's data copy only.
 	data.jobs_survivor.jobs["522"]["skill_pool"] = POOL.duplicate()
 	var setup := CF.setup("henesys", 1, data)
 	# The creation outfit with the creation Pistol, frozen explicitly like the Bowmaster oracle's.

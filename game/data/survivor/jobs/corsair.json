@@ -1,5 +1,5 @@
 {
-	"_doc": "Corsair line (spec #384, ticket C2 #386). A class spec adds jobs/corsair.json, skills/corsair.json and asset_manifest.d/corsair.json, discovered automatically by DataRepo.lines() (docs/ARCHITECTURE.md 4.4.4). Job 522 stays playable: false until C14 flips it; the thirteen pool keys are inert until the skill tickets (C3-C13) define them in skills/corsair.json (or, for Dash, skills/pirate.json), and until then they are never offered or learned. The AP row lives in this file's balance block. default_job stays 212.",
+	"_doc": "Corsair line (spec #384, ticket C2 #386). A class spec adds jobs/corsair.json, skills/corsair.json and asset_manifest.d/corsair.json, discovered automatically by DataRepo.lines() (docs/ARCHITECTURE.md 4.4.4). Job 522 is playable since C15 (#399); all thirteen pool keys are defined in skills/corsair.json (Dash in skills/pirate.json). The AP row lives in this file's balance block. default_job stays 212.",
 	"jobs": {
 		"522": {
 			"starting_skill": "double_shot",
@@ -28,8 +28,8 @@
 			"_weapon_families": "tier C: spec #384: guns only (WeaponInfo family gun, 149xxxx); knucklers (148xxxx) belong to Buccaneer. Bows, crossbows, claws, swords and every other family never drop for a Corsair. Armour drops by the Pirate class bit.",
 			"creation_weapon": 1492000,
 			"_creation_weapon": "tier A: the Pistol (Item.wz 1492000, reqJob 16 = the Pirate bit; its level requirement is gone with #292). Already in the Pirate manifest fragment and the shipped drop list.",
-			"playable": false,
-			"_provenance": "tier C: spec #384 C2 #386: Corsair is data-only until C14 flips playable; 212 remains the default.",
+			"playable": true,
+			"_provenance": "tier C: spec #384 C15 #399: the QA ticket flips playable (C2 #386 kept the job data-only until its skills, ship, bot and tooling were in); 212 remains the default.",
 			"hub_kit": {
 				"fixture": "res://tests/fixtures/characters/corsair_t2.json",
 				"_fixture": "tier C: spec #384 C14 #398: the Corsair fixture (tier 2, the tier-1 gun kit); tool-only.",

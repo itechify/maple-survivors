@@ -12,7 +12,6 @@ const KEY := "homing_beacon"
 ## A quiet round of a Corsair holding a pistol with only the Beacon learned at `rank_value`, mobs frozen and tiny.
 func _world(rank_value := 1, p_seed := 392) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["522"]["playable"] = true # in this test's data only: C14 flips the real flag
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({PISTOL: {"incPAD": 20, "attackSpeed": 6, "tuc": 7}}, true)
 	for action: String in ["shoot1", "shoot2", "homing"]:

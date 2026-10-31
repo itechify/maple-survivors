@@ -76,7 +76,8 @@ func test_shipped_buccaneer_is_playable_in_canonical_order_and_212_stays_the_def
 	var playable := tree.playable_jobs()
 	for job: int in [112, 212, 222]:
 		assert_true(job in playable and playable.find(job) < playable.find(512), "%d is above the Buccaneer" % job)
-	assert_eq(playable[playable.size() - 1], 512, "Buccaneer is the last row of the shipped playable jobs")
+	assert_eq(playable[playable.size() - 1], 522, "Corsair (C15 #399) is the last row of the shipped playable jobs, right after Buccaneer")
+	assert_eq(playable[playable.size() - 2], 512, "Buccaneer is the row above Corsair")
 	assert_eq(tree.name_of(512), "Buccaneer", "the name is the canonical job list's")
 	assert_eq(tree.default_job(), 212, "F/P stays the default (the pin, not the first row)")
 
@@ -121,18 +122,22 @@ func test_up_and_down_step_through_every_row_and_clamp_at_the_ends() -> void:
 		return
 	var creation := _job_page(_flow(), "BucKeys01")
 	var ids := _expected()
-	creation.select_job(ids[ids.size() - 1])
-	assert_eq(creation.job_id, 512, "Buccaneer is the last row")
+	creation.select_job(512)
+	assert_eq(creation.job_id, 512, "Buccaneer is the row above the last (Corsair)")
 	creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 512, "Down at the last row stays")
+	assert_eq(creation.job_id, 522, "Down from Buccaneer is Corsair")
+	creation._input(_key(KEY_DOWN))
+	assert_eq(creation.job_id, 522, "Down at the last row stays")
 	creation._input(_key(KEY_UP))
-	assert_eq(creation.job_id, ids[ids.size() - 2], "Up from Buccaneer is the row above")
+	assert_eq(creation.job_id, 512, "Up from Corsair is Buccaneer")
+	creation._input(_key(KEY_UP))
+	assert_eq(creation.job_id, ids[ids.size() - 3], "Up from Buccaneer is the row above")
 	for i in ids.size():
 		creation._input(_key(KEY_UP))
 	assert_eq(creation.job_id, ids[0], "Up clamps at the first row")
 	for i in ids.size():
 		creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 512)
+	assert_eq(creation.job_id, 522)
 
 
 func test_the_weapon_box_follows_the_buccaneers_creation_weapon() -> void:

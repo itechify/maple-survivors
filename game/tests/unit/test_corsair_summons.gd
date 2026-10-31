@@ -1,6 +1,6 @@
 extends TestCase
 ## Corsair's two summons (spec #384, ticket C6 #390): the Octopus (a stationary turret) and Gaviota (a one-shot kamikaze bird)
-## as data on the `summon.behavior` seam of C5, with the Wrath of the Octopi and Flock bonuses (GAME_DESIGN 7.120.5). Seeded
+## as data on the `summon.behavior` seam of C5, with the Wrath of the Octopi and Flock bonuses (GAME_DESIGN 7.120.4). Seeded
 ## synthetic worlds with fixed ticks on the real Corsair definitions; the Skill.wz levels are a synthetic 521 book unless a test
 ## says "real cache" (those call require_cache() and SKIP without it).
 
@@ -54,10 +54,9 @@ func _book() -> Dictionary:
 
 
 ## A Corsair (job 522) on a flat floor at `x` facing right, mob bodies 4 x 10 px that stand still, `key` the only skill at
-## `rank_value`. `playable` is flipped in this world's data only (C14 ships the real flip); the pistol's `incPAD` is `pistol_pad`.
+## `rank_value`. The pistol's `incPAD` is `pistol_pad`.
 func _corsair(key: String, rank_value := 1, x := 400.0, pistol_pad := 13, p_seed := 390) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["522"]["playable"] = true
 	data.balance.magnet_radius = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({PISTOL: {"incPAD": pistol_pad, "attackSpeed": 5, "tuc": 7}}, true)

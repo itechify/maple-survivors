@@ -1,7 +1,7 @@
 extends TestCase
 ## Corsair Dash (spec #384 C3 #387, CS-2, CS-3): the shared Pirate-book `dash` (WZ 5001005) as 522's `mobility_skill`. The definition
 ## stays in `skills/pirate.json` and is Buccaneer's too, so it is not edited here (it was made `slot: mobility` by B5 #417 and keeps
-## its ten explicit `ranks`: rank N reads WZ level N, GAME_DESIGN 7.120.15); these tests run it on a job-522 world. Seeded synthetic
+## its ten explicit `ranks`: rank N reads WZ level N, GAME_DESIGN 7.120.2); these tests run it on a job-522 world. Seeded synthetic
 ## worlds, fixed 1/60 ticks; the last test reads the real asset cache and SKIPs without it.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -13,10 +13,9 @@ const TABLE := [[12, 1, 4], [14, 2, 4], [16, 3, 8], [18, 4, 8], [20, 5, 12], [22
 const BY_LEVEL := [[1, 1], [4, 2], [6, 3], [8, 4], [10, 5], [12, 6], [14, 7], [16, 8], [18, 9], [20, 10], [40, 10]]
 
 
-## A Corsair (522, playable in the data copy) with a gun on a flat map at x = 400; Double Shot in slot 1 and Dash on its key.
+## A Corsair (522) with a gun on a flat map at x = 400; Double Shot in slot 1 and Dash on its key.
 func _world(p_seed := 387) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["522"]["playable"] = true
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({GUN: {"incPAD": 13, "attackSpeed": 5, "tuc": 7}}, true)
 	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 2000, "y2": 0}])
@@ -239,7 +238,6 @@ func test_real_cache_a_corsair_dash_ranks_through_the_round_level_to_each_wz_row
 		lib.free()
 		return
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["522"]["playable"] = true
 	var setup := RF.setup("quiet", 387, data)
 	setup.skill_imgs["500"] = img.root
 	setup["job"] = 522

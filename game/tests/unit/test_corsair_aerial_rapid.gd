@@ -1,5 +1,5 @@
 extends TestCase
-## Corsair's Aerial Strike (5221003) and Rapid Fire (5221004), spec #384 ticket C10 #394, GAME_DESIGN 7.120.9. Aerial Strike is the
+## Corsair's Aerial Strike (5221003) and Rapid Fire (5221004), spec #384 ticket C10 #394, GAME_DESIGN 7.120.8. Aerial Strike is the
 ## delayed box strike (Meteor Shower / Genesis / Arrow Rain's seam) and Rapid Fire the channelled burst (Hurricane's seam, B4): both
 ## are data. A flat floor, tiny mob bodies that never move, fixed 1/60 s ticks and a seeded world; the Skill.wz levels are the
 ## synthetic fixture tables (the v83 endpoints) unless a test says "real cache" (those call require_cache() and SKIP without it).
@@ -34,12 +34,10 @@ func _book() -> Dictionary:
 
 
 ## A Corsair (job 522) holding a pistol on a flat floor at `x`, tiny stationary mobs, `key` the only skill at `rank_value`.
-## `playable` is flipped in this world's data only (C14 ships the real flip) so the pool's cards exist.
 func _world(key: String, rank_value := 1, x := 400.0, p_seed := 394, segments: Array = [GROUND], two_maps := false) -> RunWorld:
 	var data := RF.quiet_data()
 	if two_maps:
 		data.stages.stages.quiet.maps.append(data.stages.stages.quiet.maps[0].duplicate(true))
-	data.jobs_survivor.jobs["522"]["playable"] = true
 	data.balance.magnet_radius = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({PISTOL: {"incPAD": 13, "attackSpeed": 5, "tuc": 7}}, true)

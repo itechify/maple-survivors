@@ -1,6 +1,6 @@
 extends TestCase
 ## Corsair's five gun fillers (spec #384, ticket C4 #388): Double Shot, Burst Fire, Invisible Shot, Recoil Shot and Grenade on
-## the `corsair` line, GAME_DESIGN 7.120.4. Seeded synthetic worlds with fixed ticks (a flat floor, tiny mob bodies that never
+## the `corsair` line, GAME_DESIGN 7.120.3. Seeded synthetic worlds with fixed ticks (a flat floor, tiny mob bodies that never
 ## move); the Skill.wz levels are the synthetic fixture tables unless a test says "real cache" (those call require_cache() and
 ## SKIP without it). The four moved definitions used to be the Gunslinger's (test_gunslinger_attacks.gd, now Blank Shot only).
 
@@ -15,10 +15,9 @@ const TIERS := ["rare", "epic", "unique", "legendary"]
 
 
 ## A Corsair (job 522) on a flat floor at `x`, mob bodies shrunk to 4 x 10 px and standing still, `key` the only skill, at
-## `rank_value`. `playable` is flipped in this world's data only (C14 ships the real flip) so the pool's cards exist.
+## `rank_value`.
 func _corsair(key: String, rank_value := 1, segments: Array = [GROUND], x := 400.0, p_seed := 388) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["522"]["playable"] = true
 	data.balance.magnet_radius = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({PISTOL: {"incPAD": 13, "attackSpeed": 5, "tuc": 7},

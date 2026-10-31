@@ -1,6 +1,6 @@
 extends TestCase
 ## Corsair's two cones (spec #384, ticket C9 #393): Flamethrower (5211004, burn with a literal pulse) and Ice Splitter
-## (5211005, freeze) on the `corsair` line, GAME_DESIGN 7.120.8. Seeded synthetic worlds with fixed ticks (a flat floor, tiny
+## (5211005, freeze) on the `corsair` line, GAME_DESIGN 7.120.5. Seeded synthetic worlds with fixed ticks (a flat floor, tiny
 ## mob bodies that never move); the 521 book is a synthetic one whose `damage` is a STRING at every level, like the WZ's.
 ## Tests marked "real cache" call require_cache() and SKIP without it.
 
@@ -38,10 +38,8 @@ func _book() -> Dictionary:
 
 
 ## A Corsair (job 522) on a flat floor at `x`, mob bodies 4 x 10 px and standing still, `key` the only skill, at `rank_value`.
-## `playable` is flipped in this world's data only (C14 ships the real flip) so the pool's cards exist.
 func _corsair(key: String, rank_value := 1, segments: Array = [GROUND], x := 400.0, p_seed := 393) -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["522"]["playable"] = true
 	data.balance.magnet_radius = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
 	setup.equipment_info.merge({PISTOL: {"incPAD": 13, "attackSpeed": 5, "tuc": 7}}, true)

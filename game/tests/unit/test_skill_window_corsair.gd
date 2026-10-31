@@ -3,11 +3,9 @@ extends TestCase
 ## Corsair 522, after the Common tab), Dash sits on the Pirate tab with Double Shot, every skill sits on the tab of its own job,
 ## and a test fails if a skill the run owns is on no tab. The model tests use the synthetic books of the Corsair fixtures and the
 ## canonical job names (no cache); the RunScene test (SKIP without the cache) drives the real window through its hotkeys.
-## Corsair ships `playable: false` until C15, so the RunScene test mirrors it playable.
 
 const CF := preload("res://tests/fixtures/corsair_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const MIRROR := {"jobs_survivor": {"jobs": {"522": {"playable": true}}}}
 const DT := 1.0 / 60.0
 ## Tab -> the keys its book holds, ordered by skill id (the window sorts by id). Dash is on the 500 tab beside Double Shot.
 const TABS := {500: ["double_shot", "dash"], 520: ["invisible_shot", "grenade", "recoil_shot"],
@@ -64,7 +62,6 @@ static func _key(code: Key) -> InputEventKey:
 
 func _world() -> RunWorld:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["522"]["playable"] = true # in this test's data only: C15 flips the real flag
 	var w := RunWorld.new(CF.setup("quiet", 398, data))
 	RF.place_player(w, 400)
 	return w
@@ -164,7 +161,6 @@ func test_the_tooltip_of_a_corsair_skill_reads_its_rank_and_dash_is_a_mobility_b
 func test_a_522_run_opens_the_skill_window_on_the_corsair_tab_and_every_tab_has_rows() -> void:
 	if not require_cache():
 		return
-	DataRepo.patch = MIRROR.duplicate(true)
 	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	s.library = lib
 	s.configure("henesys", 13, {"use_flow": false, "autoplay": true, "autopick": true, "job": 522})

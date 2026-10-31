@@ -1,5 +1,5 @@
 extends TestCase
-## The ship's three Form effects (spec #384 C11, GAME_DESIGN 7.120.2) on a synthetic ship: `hull` (PlayerHull, a state effect),
+## The ship's three Form effects (spec #384 C11, GAME_DESIGN 7.120.9) on a synthetic ship: `hull` (PlayerHull, a state effect),
 ## `only_skills` and `art_variant` (FormRules), the `mount` field of `form_started` and the `absorbed` field of `player_hit`.
 ## No Corsair data or real art is involved; the real Battleship (C13) copies this form's shape.
 
