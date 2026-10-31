@@ -18,7 +18,8 @@ extends RefCounted
 ## setup.job, else JobTree.default_job()), and a fresh round learns that job's JobTree.start_skills at rank 1. There is no
 ## advancement, no weapon path and no basic attack; weapons gate no skill.
 ##
-## Events: every emitted Dictionary has `type` plus exactly the fields of EVENT_FIELDS[type]. `player_hit.damage` is the
+## Events: every emitted Dictionary has `type`, the fields of EVENT_FIELDS[type] and, only when they apply, those of
+## OPTIONAL_EVENT_FIELDS[type] (test_run_events enforces both). `player_hit.damage` is the
 ## whole hit (the number shown); `miss` hits do no damage and
 ## cause no knockback or invincibility. `choice_pending` card `rank` is the
 ## rank the card gives when taken. Swarm/projectile/pickup visuals are read from state (4.4.3).
@@ -79,10 +80,12 @@ const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "
 
 ## Event type -> the fields an event carries only when they apply, so an event without them keeps its exact old bytes
 ## (docs/ARCHITECTURE.md 4.4.3): `player_hit.absorbed` (whole points a hull or hit hook soaked, only when positive) and
-## `form_started.mount` (the TamingMob id of a form that names one). `summon_spawn.sound` is the older case, listed beside its type.
+## `form_started.mount` (the TamingMob id of a form that names one) and `summon_spawn.sound` (only a skill that lists a summon
+## sound). test_run_events checks every emitted event against EVENT_FIELDS plus the optional fields it actually carries.
 const OPTIONAL_EVENT_FIELDS := {
 	"player_hit": ["absorbed"],
 	"form_started": ["mount"],
+	"summon_spawn": ["sound"],
 }
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
@@ -158,7 +161,7 @@ const EVENT_FIELDS := {
 	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
 	"skill_landed": ["skill", "cast_time", "pos", "effect"],
 	# #342: a burst cast (Hurricane) began (`wind_up` s until its first arrow, `span` s to its last) and ended (finished or dropped); art only.
-	"summon_spawn": ["skill", "slot"], # optional sound: listed only by skills with a summon sound
+	"summon_spawn": ["skill", "slot"], # optional: sound (OPTIONAL_EVENT_FIELDS)
 	"summon_attack": ["skill", "slot", "pos"],
 	"summon_strike": ["skill", "slot", "mob", "pos", "effect"],
 	"burst_start": ["skill", "wind_up", "span", "facing"],
