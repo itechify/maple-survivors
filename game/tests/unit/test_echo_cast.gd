@@ -172,6 +172,24 @@ func test_the_echo_leaves_the_clones_hand() -> void:
 	assert_eq(e.facing, 1)
 	assert_near(e.pos.x, hand_x, 0.01)
 
+func test_the_echo_keeps_the_owners_reuse_spread_of_a_repeated_target() -> void:
+	# Review N1: the 8 px alternating offset of a repeated target (Triple Throw's third star) is part of the recorded aim.
+	var vys := []
+	for dy in [-8.0, 8.0]:
+		var w := world()
+		var m := _cast_star(w, 500.0, 40)
+		w.runner.echoes._entries.clear()
+		for i in w.projectiles.capacity():
+			w.projectiles.active[i] = 0
+		w.runner.echoes.on_cast(w, "test_star", w.loadout.stats("test_star"),
+			[{"slot": m, "aim": w.mob_center(m) + Vector2(0.0, dy)}])
+		_ticks(w, 16)
+		for i in w.projectiles.capacity():
+			if w.projectiles.active[i] != 0:
+				vys.append(w.projectiles.vy[i])
+	assert_eq(vys.size(), 2)
+	assert_true(float(vys[0]) < float(vys[1]), "aimed above, then below, the monster's centre: %s" % [vys])
+
 func test_percent_is_x_for_the_attack_class_and_y_for_the_skill_class_by_rank() -> void:
 	for cls in ["attack", "skill"]:
 		for rank in [1, 4, 8]:
@@ -319,7 +337,7 @@ func test_a_reused_slot_is_not_the_recorded_target() -> void:
 	var w := world()
 	var first := _cast_star(w, 500)
 	w.swarm.despawn(first)
-	var other := mob(w, 600) # takes the freed slot, but is beyond reach of the clone
+	var other := mob(w, 700) # takes the freed slot, but is beyond reach of the clone (range 450 + the 55 px it trails)
 	assert_eq(other, first)
 	_ticks(w, 16)
 	assert_eq(_events(w, "echo_cast").size(), 0)

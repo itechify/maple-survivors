@@ -38,6 +38,11 @@ func on_cast(world: RunWorld, key: String, st: Dictionary, shots: Array) -> void
 		# The Shadow Partner's level field at its rank, as a fraction, times its `damage` modifier (Shadow Power, Mastery).
 		var percent := world.book.canonical(partner, int(summons.stats[i].level), field) / 100.0 \
 			* world.loadout.skill_stat(partner, "damage", 1.0)
+		# tier C (ROSTER_PLAN D12): the clone covers every target the owner's cast reached, so the reach it adds is how far it
+		# trails the owner now (a second clone trails farther), never less than the definition's `overshoot`
+		# (default: the clone's `follow_distance`).
+		var overshoot := maxf(float(cfg.get("overshoot", summons.definitions[i].follow_distance)),
+			absf(summons.x[i] - world.player.pos.x))
 		var echo_st := SkillRunner.cast_snapshot(st)
 		echo_st.erase("meter_receipt")
 		echo_st.erase("damage_heal")
@@ -47,8 +52,9 @@ func on_cast(world: RunWorld, key: String, st: Dictionary, shots: Array) -> void
 		for shot: Dictionary in shots:
 			_entries.append({"key": key, "st": echo_st, "clone": i, "uid": summons.uid[i],
 				"left": float(cfg.get("delay", 0.25)), "slot": int(shot.slot),
-				"identity": world.swarm.identity[int(shot.slot)], "aim": shot.aim,
-				"overshoot": float(cfg.get("overshoot", 0.0))})
+				"identity": world.swarm.identity[int(shot.slot)],
+				"spread": Vector2(shot.aim) - world.mob_center(int(shot.slot)),
+				"overshoot": overshoot})
 
 ## Advances the delays and throws the due echoes. Hidden and death cancel the unthrown ones (as for bursts).
 func step(dt: float, world: RunWorld) -> void:
@@ -77,17 +83,18 @@ func _throw(world: RunWorld, entry: Dictionary) -> void:
 	var reach := float(st.range)
 	var slot := int(entry.slot)
 	var target := Vector2.ZERO
+	var limit := reach + float(entry.overshoot)
 	var live := world.swarm.is_live(slot) and world.swarm.identity[slot] == int(entry.identity)
 	if live:
 		target = world.mob_center(slot)
-		var limit := reach + float(entry.overshoot)
 		live = target.distance_squared_to(body) <= limit * limit
 	if not live:
 		# tier C: a dead or out-of-reach target retargets to the nearest monster in reach of the clone; none drops the echo.
-		slot = world.runner.nearest_to(world, body, reach)
+		slot = world.runner.nearest_to(world, body, limit)
 		if slot < 0:
 			return
 		target = world.mob_center(slot)
+	target += entry.spread # the owner's REUSE_SPREAD offset of a repeated target (Triple Throw's third star), kept
 	var side := signf(target.x - body.x)
 	if side == 0.0:
 		side = float(summons.facing[c])
@@ -100,6 +107,6 @@ func _throw(world: RunWorld, entry: Dictionary) -> void:
 		# tier C (ROSTER_PLAN D12): the clone trails the owner by `overshoot`, so its star also flies that much farther and still
 		# lands on a monster at the end of the owner's reach. The caller's snapshot is shared, so the copy is shallow.
 		flight = st.duplicate()
-		flight["range"] = reach + float(entry.overshoot)
+		flight["range"] = limit
 	world.runner.fire_shot(world, String(entry.key), flight, body, target, hand)
 	world.emit("echo_cast", {"skill": String(entry.key), "clone": c, "pos": hand, "facing": int(side)})

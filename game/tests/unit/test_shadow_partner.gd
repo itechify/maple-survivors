@@ -361,6 +361,39 @@ func test_a_target_beyond_the_owners_reach_plus_the_overshoot_is_still_dropped()
 	assert_eq(_events(w, "echo_cast", "lucky_seven").size(), 0, "outside range + overshoot of the clone: the echo is dropped")
 
 
+func test_the_second_twin_shadow_clone_reaches_the_owners_full_reach_facing_left() -> void:
+	# Review S2: facing left the second clone trails the owner by 40 + 55 px, beyond the 55 px overshoot.
+	var w := _world(["lucky_seven"])
+	w.upgrades.apply("shadow_partner_rank", w, "unique")
+	w.player.facing = -1
+	_ticks(w, 80)
+	assert_eq(w.runner.summons.clones().size(), 2)
+	var reach := float(w.loadout.stats("lucky_seven").range)
+	var m := _mob(w, -reach)
+	_ticks(w, 1)
+	assert_eq(_flying(w).size(), 2, "the owner reaches the target at its full reach")
+	_ticks(w, 90)
+	assert_eq(_events(w, "echo_cast", "lucky_seven").size(), 4, "both clones echo both stars, none dropped")
+	assert_eq(_hits_on(w, "lucky_seven", m), 6, "two owner stars and four echo stars all land")
+
+
+func test_a_retarget_searches_the_same_reach_plus_overshoot_as_the_recorded_target() -> void:
+	# Review S3: the owner's star kills the first target; the monster behind it at the owner's full reach is a valid echo target.
+	var w := _world(["lucky_seven"])
+	_ticks(w, 40)
+	var reach := float(w.loadout.stats("lucky_seven").range)
+	var first := _mob(w, 100.0)
+	_ticks(w, 1)
+	var second := _mob(w, reach)
+	w.swarm.despawn(first)
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+	_drop_flying(w)
+	_ticks(w, 16) # the echoes are due at 15 ticks; the owner's next cast is later
+	assert_eq(_events(w, "echo_cast", "lucky_seven").size(), 2, "retargeted to the monster in the 55 px band")
+	_ticks(w, 40)
+	assert_eq(_hits_on(w, "lucky_seven", second), 2, "both echo stars reach the monster in the band")
+
+
 # --- rarity bonuses ---------------------------------------------------------------------------------------------------
 
 func test_the_rarity_table_follows_the_spec() -> void:
