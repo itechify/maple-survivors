@@ -2117,8 +2117,12 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 	# tier C (#402): grant order is cast order; sub-100 chances each consume one stream-1 draw, even at zero.
 	for grant: Dictionary in hit.get("status_grants", []):
 		if float(grant.chance) >= 100.0 or rng.randf() * 100.0 < float(grant.chance):
-			swarm.apply_status(slot, String(grant.kind), {"time": grant.time, "level": grant.level,
-				"skill": key, "element": grant.element}, events)
+			var params := {"time": grant.time, "level": grant.level, "skill": key, "element": grant.element,
+				"preserve_pulse": true} # a re-roll keeps a running poison's pulse clock, as the ground zones do
+			for field: String in ["x", "y", "pulse"]:
+				if grant.has(field):
+					params[field] = grant[field]
+			swarm.apply_status(slot, String(grant.kind), params, events)
 	var knockback: Dictionary = book.def(key).get("knockback", {})
 	if not knockback.is_empty() and not swarm.mob_kind(slot).boss and swarm.steady[slot] == 0:
 		# tier C: one stream-1 roll per struck non-boss, including the 0/100% endpoints; a block without a chance field

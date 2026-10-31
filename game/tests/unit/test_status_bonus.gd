@@ -3,12 +3,52 @@ extends TestCase
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
 func test_catalogue_rejects_invalid_kinds_rank_lists_chances_and_references() -> void:
-	assert_true(StatusBonus.errors({"v": {"kind": "poison", "chance": 14, "time": 2}}, {}).is_empty())
+	assert_true(StatusBonus.errors({"v": {"kind": "poison", "chance": 14, "time": 2, "level": 4}}, {}).is_empty())
 	for entry: Dictionary in [{"kind": "unknown"}, {"kind": "stun", "chance": [20, 30]},
 			{"kind": "poison", "chance": 101}, {"kind": "poison", "chance": -1}]:
 		assert_false(StatusBonus.errors({"v": entry}, {}).is_empty())
 	assert_false(StatusBonus.errors({}, {"skills": {"test": {"rarity_bonuses": {"epic": [
 		{"effects": [{"stat": "status", "op": "grant", "status": "missing"}]}]}}}}).is_empty())
+
+func test_catalogue_rejects_a_kind_missing_the_parameters_it_needs() -> void:
+	# Review S2: a burn needs `pulse`, a slow a negative `x`, a threatened an `x` or `y`; a poison needs a level below 70
+	# and every kind a positive time, or the grant would validate and then do nothing.
+	for entry: Dictionary in [{"kind": "burn", "time": 3}, {"kind": "burn", "time": 3, "pulse": 0},
+			{"kind": "slow", "time": 3}, {"kind": "slow", "time": 3, "x": 20}, {"kind": "threatened", "time": 3},
+			{"kind": "poison", "time": 3}, {"kind": "poison", "time": 3, "level": 70}, {"kind": "stun"},
+			{"kind": "stun", "time": 2, "x": "nope"}]:
+		assert_false(StatusBonus.errors({"v": entry}, {}).is_empty(), str(entry))
+	for entry: Dictionary in [{"kind": "burn", "time": 3, "pulse": 40}, {"kind": "slow", "time": 3, "x": -30},
+			{"kind": "threatened", "time": 3, "y": -20}, {"kind": "freeze", "time": 2},
+			{"kind": "slow", "time": 3, "x": [-10, -12, -14, -16, -18, -20, -22, -24]}]:
+		assert_true(StatusBonus.errors({"v": entry}, {}).is_empty(), str(entry))
+
+func test_burn_and_slow_grants_really_change_the_monster() -> void:
+	var w := _world()
+	w.loadout.status_bonuses["scorch"] = {"kind": "burn", "chance": 100, "time": 4, "pulse": 25}
+	w.loadout.status_bonuses["chill"] = {"kind": "slow", "chance": 100, "time": 4, "x": -40}
+	w.loadout.add_status_grant("energy_bolt", "scorch")
+	w.loadout.add_status_grant("energy_bolt", "chill")
+	var st := w.loadout.stats("energy_bolt")
+	assert_eq(st.status_grants[0].pulse, 25)
+	assert_eq(st.status_grants[1].x, -40.0)
+	var m := RF.put_mob(w, 1110100, 700)
+	_hit(w, m, st)
+	assert_near(w.swarm.status_time(m, MobSwarm.BURN), 4.0)
+	assert_near(w.swarm.status_time(m, MobSwarm.SLOW), 4.0)
+	assert_near(w.swarm.slow_factor[m], 0.6, 0.0001, "a 40 percent slow")
+
+func test_a_reapplied_poison_grant_keeps_the_pulse_clock_running() -> void:
+	# Review N2: the ground-zone path preserves the clock; a star's grant must not restart it on every re-roll.
+	var w := _world()
+	w.loadout.status_bonuses["venom"]["chance"] = 100
+	w.loadout.add_status_grant("energy_bolt", "venom")
+	var st := w.loadout.stats("energy_bolt")
+	var m := RF.put_mob(w, 1110100, 700, 180, 100000)
+	_hit(w, m, st)
+	w.swarm._poison_pulse[m] = 0.4 # the clock has run for 0.6 s
+	_hit(w, m, st)
+	assert_near(w.swarm._poison_pulse[m], 0.4, 0.0001, "the second grant did not reset the pulse clock")
 
 func _world() -> RunWorld:
 	var w := RF.quiet_world()
