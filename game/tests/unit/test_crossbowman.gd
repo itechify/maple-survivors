@@ -235,8 +235,13 @@ func test_crossbowman_cards_casts_with_any_weapon_skill_window_and_no_soul_arrow
 		assert_true(w.upgrades.apply(key + "_new", w))
 		assert_false(key + "_rank" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 	assert_true(w.learn_skill("iron_arrow"), "MS5: Iron Arrow is a pool skill now, learned directly (no standalone cards)")
+	# The four legacy standalone cards left upgrades/bowman.json with the port; Marksman is playable (MS11), so its pool
+	# generates `iron_arrow_new` / `iron_arrow_rank` itself, while the pierce / shots cards stay gone.
+	var legacy: Array = DataRepo.load_json(DataRepo.fragment_path("upgrades", "bowman")).cards.map(func(c: Dictionary) -> String: return String(c.id))
 	for key: String in ["iron_arrow_new", "iron_arrow_rank", "iron_arrow_pierce", "iron_arrow_shots"]:
-		assert_true(w.upgrades.card(key).is_empty(), "%s was removed with the port" % key)
+		assert_false(key in legacy, "%s was removed from upgrades/bowman.json with the port" % key)
+	for key: String in ["iron_arrow_pierce", "iron_arrow_shots"]:
+		assert_true(w.upgrades.card(key).is_empty(), "%s has no card at all" % key)
 	for key: String in ["power_knockback_crossbow_targets"]:
 		assert_false(key in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 		RF.add_modifier_effects(w, w.upgrades.card(key))
