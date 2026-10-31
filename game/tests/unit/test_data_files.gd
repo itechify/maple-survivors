@@ -35,7 +35,7 @@ func test_an_ammo_schedule_keyed_by_branch_is_a_load_error() -> void:
 func test_every_stage_names_its_region_and_continent() -> void:
 	var want := {"henesys": ["Henesys", "Victoria Island"], "ellinia": ["Ellinia", "Victoria Island"],
 		"perion": ["Perion", "Victoria Island"], "kerning": ["Kerning City", "Victoria Island"],
-		"sleepywood": ["Sleepywood", "Victoria Island"]}
+		"sleepywood": ["Sleepywood", "Victoria Island"], "omega_sector": ["Omega Sector", "Ossyria"]}
 	assert_eq(data.stages.stages.keys(), want.keys())
 	for key: String in want:
 		var st: Dictionary = data.stages.stages[key]
@@ -199,11 +199,11 @@ func test_stages_mobs_and_manifest() -> void:
 	var manifest: Variant = AssetManifest.load_merged("res://data/asset_manifest.json")
 	assert_true(manifest is Dictionary)
 	var want_maps := {"henesys": 104040000, "ellinia": 101010100, "perion": 102010000, "kerning": 103010000,
-		"sleepywood": 105050400}
-	assert_eq(stages.keys(), want_maps.keys(), "the five distinct stages are offered")
+		"sleepywood": 105050400, "omega_sector": 221040000}
+	assert_eq(stages.keys(), want_maps.keys(), "the six distinct stages are offered")
 	assert_eq(manifest.maps, [104040000.0, 104010001.0, 100030001.0, 101010100.0, 100040100.0,
 		100040105.0, 102010000.0, 101030404.0, 106000101.0, 103010000.0, 103000101.0, 107000000.0,
-		105050400.0, 105090310.0, 105090900.0, 910000000.0],
+		105050400.0, 105090310.0, 105090900.0, 910000000.0, 221040000.0, 221030200.0, 221030500.0],
 		"the three maps of each region and the Free Market hub are imported")
 	for key: String in want_maps:
 		assert_true(stages.has(key), key)

@@ -638,6 +638,7 @@ aliases; living slots, bests, history and run snapshots migrate on load. The tie
 | `perion` | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) | Mano / Stumpy / Iron Hook |
 | `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
+| `omega_sector` | Kulan Field I (221040000) | Boswell Field II (221030200) | Boswell Field V (221030500) | Chief Gray / MT-09 / Zeno |
 
 All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
 "Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
@@ -8772,13 +8773,40 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 
 | Rule | Value / source | Tier |
 |---|---|---|
-| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood (v83 levelling order; owner request 2026-10-30) | C |
+| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood, omega_sector (v83 levelling order; owner request 2026-10-30) | C |
 | Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]). Steps 6-16, set by their region tickets (#449), are [35, 45], [40, 50], [45, 55], [50, 60], [55, 65], [60, 70], [70, 80], [80, 90], [90, 100], [100, 110] and **[108, 120]** for step 16 (#447 said [110, 120]; widened by #474, see "Equipment for the late bands" in 8.3) | C |
 | Late-band equipment (#474) | `equipment_drops/*.json` hold every ordinary v83 weapon of a listed family and one armour piece per slot, reqLevel and gender up to Lv120; chosen from Character.wz facts (not cash, `only`, `notSale`, `quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`; price above 1; a String.wz name; not a `GMS ...` item). No Cosmic drop data was available to this ticket, so unlike the Lv0-70 lists it is not B-checked against server drops | C |
 | NX clear bonus | `balance.nx_award.clear_bonus` by progression step: 100, 100, 100, 100, 250, the last repeating (the old amounts moved from tiers to steps) | C |
 | Unlock rule | region i is open iff i == 0 or `progression[i-1]` is in the character's `cleared_regions`; a CLEARED round adds its stage; death, Quit round and one-off rounds add nothing | C |
 | Save migration | `CharacterSnapshot.LEGACY_TIER1_REGIONS` 4: a stored `tiers_unlocked` >= 2 becomes the first four progression keys cleared, otherwise none | C |
 | `balance_run.gd --chain=N --retries=K` | N progression regions in order, a failed region replayed up to K times (replaces `--tier=N`; #454) | C |
+
+### Omega Sector (C2) constants (spec #449 C2, #464; tier C unless marked)
+
+Progression step 7 (`stages/omega_sector.json`, `asset_manifest.d/region_omega_sector.json`). Region and continent
+labels, the map list and the rosters are tier A (v83 Map.wz, Mob.wz, String.wz); the rest is ours, a first draft that
+no ticket here tunes (C13 does).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Labels | `region` "Omega Sector", `continent` "Ossyria" (String.wz group `ossyria`) | A / C |
+| Maps | 221040000 Kulan Field I (2864 px), 221030200 Boswell Field II (4214 px), 221030500 Boswell Field V (4574 px); the natural boss maps (221040201, 221030601, 221040301, 2250-2414 px) are replaced by these wider neighbours; no alternates were needed after the arena check (a bot ran all three, `missing: []`) | C |
+| Bosses | Chief Gray 4240000 / MT-09 5120100 / Zeno 6220001, one 300 s after each map entry; `attacks` ["attack1"], `attack_interval` 8; Chief Gray's MobSkill 200 level 27 (Barnard Gray, interval 30 s, hp <= 75 %, limit 3, `summonEffect` 6) is canonical and supported, MT-09 and Zeno have no skills | A / C |
+| Pools | map 1 `curve` with Barnard Gray 4230116 at weight 1 on every keyframe (its own life holds nothing else); maps 2/3 `pool_from_life` with `exclude` [4240000, 5120100] (the timed native bosses; their v83 lists hold none): Plateon 27 / Mateon 7 and Mecateon 21 / Plateon 11 | C |
+| Curve | Sleepywood's keyframes, bursts, elites, `exp_mult`, `hard_cap`, `post_duration_slope` copied exactly; no `opening_ramp` | C |
+| `drop_band` | [40, 50] (spec #447 table) | C |
+| `level_scale` | `level_scale_draft.gd --step=7`: E_sw 9.15 / 9.73 / 10.80 / 22.22 / 36.44 / 48.23 / 56.85 at t 0 / 120 / 300 / 480 / 600 / 780 / 900; `level` = E_sw + 6, `exp_level` = E_sw | C |
+| Boss multipliers | Chief Gray `hp_mult` 17.916, `dmg_mult` 1.209, `attack_dmg_mult` 0.786; MT-09 3.271, 0.742, 0.837; Zeno 3.631, 1.503, 1.801 (the draft tool's output, `_tier` notes on each boss) | C |
+| EXP items | Barnard Gray 4000123 Worn-Out Goggle, Mateon 4000120, Plateon 4000121, Mecateon 4000122, Chief Gray 4000125, MT-09 4000126, Zeno 4000118 Small Spaceship: item ids and names are v83 (tier A), the mob association is a signature pickup, not a drop-table claim | A / C |
+| Mesos | no v83 server drop data is used, so every Omega mob rolls `balance.mesos.fallback` by its level | C |
+| Boss `boss_ui` | Chief Gray and MT-09 have no MobGage icon or tag colours in v83; both borrow Zeno's icon (the same region) and the standard colours | C |
+| Falling-bolt effect | Chief Gray's `attack1/info/effect` is three groups of frames with fall spawn fields (`effectType` 2); `MobAttacks.effect_path` plays the first group once at the attacker and leaves the spawn fields unread, so the attack shows art instead of a missing asset | C |
+| Missing v83 sound | Chief Gray's Mob.img entry has no `Skill1`: `RunScene._mob_sound` is silent for a sound its own entry lacks (it already was for an attack start) | A |
+| Field flags | none on these maps (no `decHP`, `fs` friction or limits) | A |
+
+Diagnostic round (invulnerable bot, `late_progression.json` Hero, seed 1, x8): CLEARED at 911.9 s, map entries at 0 /
+307.0 / 609.3 s, all three bosses killed, Lv61, `missing: []`, max 351 alive. Chief Gray's skill and the three attacks
+were captured with a throwaway probe; screenshots stay out of the repo.
 
 ### Map select progression list (spec #447, #451; tier C)
 

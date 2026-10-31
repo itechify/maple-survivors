@@ -132,6 +132,24 @@
 			"_banish_message": "tier C (#256): the Banish (MobSkill 129) notice, reworded for a round that stays on its own map from the v83 banMsg (tier A, Mob.wz/5090000.img/info/ban/banMsg) \"As the Pentacle swayed in the shadows, you were brought to the Subway Ticketing Booth.\" (banMap 103000100)",
 			"_exp_item": "tier A: v83 Someone's Hat ID/name, Shade's only Etc drop; tier C: signature EXP pickup association",
 			"boss_ui": {"icon_id": 6090000, "hp_tag_color": 1, "hp_tag_bgcolor": 5,
-				"_tier": "tier C: borrow Riche's MobGage icon and standard colours; v83 Shade lacks both"}}
+				"_tier": "tier C: borrow Riche's MobGage icon and standard colours; v83 Shade lacks both"}},
+		"4230116": {"name": "Barnard Gray", "exp_item": 4000123, "_mesos": "tier C (#464): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 Worn-Out Goggle ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"4230119": {"name": "Mateon", "exp_item": 4000120, "_mesos": "tier C (#464): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 Mateon's Tentacle ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"4230120": {"name": "Plateon", "exp_item": 4000121, "_mesos": "tier C (#464): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 Plateon's Helmet ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"4230121": {"name": "Mecateon", "exp_item": 4000122, "_mesos": "tier C (#464): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 Mecateon's Laser Gun ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim"},
+		"4240000": {"name": "Chief Gray", "exp_item": 4000125, "_mesos": "tier C (#464): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 Chief Gray's Sign ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim",
+			"boss_ui": {"icon_id": 6220001, "hp_tag_color": 1, "hp_tag_bgcolor": 5,
+				"_tier": "tier C: borrow Zeno's MobGage icon (the same region) and standard colours; v83 Chief Gray lacks both"}},
+		"5120100": {"name": "MT-09", "exp_item": 4000126, "_mesos": "tier C (#464): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 MT-09's Fuel ID/name; tier C: signature EXP pickup association, not a canonical drop-table claim",
+			"boss_ui": {"icon_id": 6220001, "hp_tag_color": 1, "hp_tag_bgcolor": 5,
+				"_tier": "tier C: borrow Zeno's MobGage icon (the same region) and standard colours; v83 MT-09 lacks both"}},
+		"6220001": {"name": "Zeno", "exp_item": 4000118, "_mesos": "tier C (#464): no v83 server drop data is used for this mob, so mesos use the balance.json level fallback",
+			"_exp_item": "tier A: v83 Small Spaceship ID/name; tier C: Zeno is an alien, so the Omega Sector's spaceship pickup stands for its EXP, not a canonical drop-table claim"}
 	}
 }

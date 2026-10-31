@@ -1009,8 +1009,11 @@ func _warm_boss(entry: Dictionary, id: int, enabled: Array) -> void:
 		_warm_sound(SND_MOB % [id, sound])
 	for attack: Variant in entry.get("attacks", []):
 		library.find_anim(stances + "/" + String(attack))
-		for part: String in ["effect", "ball", "hit"]:
+		for part: String in ["ball", "hit"]:
 			library.find_anim("Mob.wz/%07d.img/%s/info/%s" % [id, String(attack), part])
+		var effect := MobAttacks.effect_path(id, String(attack), img.get(String(attack), {}).get("info", {}))
+		if effect != "":
+			library.find_anim(effect)
 		_warm_sound(MobAttacks.attack_sound(id, String(attack)))
 	if not (float(id) in enabled or id in enabled):
 		return
@@ -1035,8 +1038,11 @@ func _warm_ordinary_mobs() -> void:
 		var stances := library.mob_anim_img_path(kind.id)
 		for attack: String in MobAttacks.attack_names(img):
 			library.find_anim(stances + "/" + attack)
-			for part: String in ["effect", "ball", "hit"]:
+			for part: String in ["ball", "hit"]:
 				library.find_anim("Mob.wz/%07d.img/%s/info/%s" % [kind.id, attack, part])
+			var effect := MobAttacks.effect_path(kind.id, attack, img.get(attack, {}).get("info", {}))
+			if effect != "":
+				library.find_anim(effect)
 			_warm_sound(MobAttacks.attack_sound(kind.id, attack))
 
 
@@ -1836,11 +1842,12 @@ func attack_sound_absent_in_v83(path: String) -> bool:
 
 
 ## Plays mob `id`'s Sound.wz/Mob.img `name` sound ("Damage", "Die", "Skill1"...). A mob v83 gives no Mob.img entry at
-## all (Iron Hook 4090000) is silent, as in the client, and records nothing missing (tier A: absent in v83 Sound.wz).
+## all (Iron Hook 4090000) is silent, as in the client, and records nothing missing (tier A: absent in v83 Sound.wz);
+## so is a sound its own entry lacks (Chief Gray 4240000 has no Skill1), see attack_sound_absent_in_v83.
 func _mob_sound(id: int, name: String) -> void:
 	if not _mob_has_sounds.has(id):
 		_mob_has_sounds[id] = library.find("Sound.wz/Mob.img/%07d" % id) != null
-	if _mob_has_sounds[id]:
+	if _mob_has_sounds[id] and not attack_sound_absent_in_v83(SND_MOB % [id, name]):
 		_sound(SND_MOB % [id, name])
 
 

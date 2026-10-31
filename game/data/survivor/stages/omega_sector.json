@@ -1,0 +1,96 @@
+{
+	"drop_band": [40, 50],
+	"_drop_band": "Tier C (spec #447 table, owner call): Omega Sector is progression step 7; ordinary drops come from reqLevel 40-50, bosses from the top third of the band.",
+	"_level_scale": "Tier C (spec #449 C0 first draft, untuned; game/tools/level_scale_draft.gd --step=7 --stage=omega_sector): E_sw(t) is Sleepywood's effective level at each keyframe time (9.15, 9.73, 10.80, 22.22, 36.44, 48.23, 56.85); region step 7 sets level(t) = E_sw(t) + 3 x (7 - 5) = E_sw + 6 and exp_level(t) = E_sw(t), so the character levels at Sleepywood's pace and monsters are six effective levels harder. Replaces an opening ramp (none here).",
+	"level_scale": {"keyframes": [
+		{"t": 0, "level": 15.15, "exp_level": 9.15},
+		{"t": 120, "level": 15.73, "exp_level": 9.73},
+		{"t": 300, "level": 16.8, "exp_level": 10.8},
+		{"t": 480, "level": 28.22, "exp_level": 22.22},
+		{"t": 600, "level": 42.44, "exp_level": 36.44},
+		{"t": 780, "level": 54.23, "exp_level": 48.23},
+		{"t": 900, "level": 62.85, "exp_level": 56.85}]},
+	"_tier": "Tier A: map IDs, original_life, widths and rosters from v83 Map.wz and Mob.wz (docs/research/v83-region-maps.md). Tier C (owner, spec #449 C2 #464): region, map order, boss schedule, pool rules and weights, level_scale and boss multipliers (the first draft of game/tools/level_scale_draft.gd, untuned); the numeric curve (keyframe rate/max_alive/hp/speed, bursts, elites, exp_mult, hard_cap, post_duration_slope) copies Sleepywood exactly, and `level_scale` replaces its opening ramp. Chief Gray (Barnard Gray summons), MT-09 (a ball attack) and Zeno (melee) use their canonical attacks and skills; ordinary mobs cast no mob skills (owner, #76).",
+	"name": "Kulan Field",
+	"region": "Omega Sector",
+	"continent": "Ossyria",
+	"duration": 900,
+	"hard_cap": 400,
+	"_bosses": "Tier C: first-draft multipliers from game/tools/level_scale_draft.gd --step=7 --stage=omega_sector (spec #449 C0), untuned; 8 s per-attack cadence as every boss. Canonical attacks, timing, stats and elements remain in Mob.wz. All bosses and reward choices must finish to clear. Chief Gray, MT-09 and Zeno are scheduled once in the whole progression (test_unique_bosses).",
+	"map_seconds": 300,
+	"_maps": "Tier C: owner map order and pool rules, spec #449 C2 (#464). Each boss time is relative to map entry. The natural boss maps (221040201 Barnard Field, 221030601 Defeat Monsters, 221040301 Gray's Prairie) are 2250-2414 px, so their wider field neighbours are used: 221040000 Kulan Field I (2864 px), 221030200 Boswell Field II (4214 px), 221030500 Boswell Field V (4574 px). Map 1 is a hand-written curve pool of its own life; maps 2 and 3 use their v83 life lists, which hold no timed or hidden entries, and the timed native bosses (Chief Gray 4240000, MT-09 5120100) are excluded from every pool.",
+	"maps": [
+		{
+			"map_id": 221040000,
+			"pool": "curve",
+			"boss": {
+				"time": 300,
+				"mob_id": 4240000,
+				"hp_mult": 17.916,
+				"dmg_mult": 1.209,
+				"attacks": [
+					"attack1"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 0.786,
+				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 300 (E_sw 10.80, level 16.80); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact and attack damage matched the same way on PAD (the strongest scheduled attack); 8 s cadence"
+			}
+		},
+		{
+			"map_id": 221030200,
+			"pool_from_life": true,
+			"exclude": [4240000, 5120100],
+			"boss": {
+				"time": 300,
+				"mob_id": 5120100,
+				"hp_mult": 3.271,
+				"dmg_mult": 0.742,
+				"attacks": [
+					"attack1"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 0.837,
+				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 600 (E_sw 36.44, level 42.44); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact and attack damage matched the same way on PAD (the strongest scheduled attack); 8 s cadence"
+			}
+		},
+		{
+			"map_id": 221030500,
+			"pool_from_life": true,
+			"exclude": [4240000, 5120100],
+			"boss": {
+				"time": 300,
+				"mob_id": 6220001,
+				"hp_mult": 3.631,
+				"dmg_mult": 1.503,
+				"attacks": [
+					"attack1"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 1.801,
+				"_tier": "tier C: level_scale_draft.gd first draft, untuned: arrives at curve time 900 (E_sw 56.85, level 62.85); HP matches Sleepywood's boss of the slot scaled by hp(level)/hp(E_sw), contact and attack damage matched the same way on PAD (the strongest scheduled attack); 8 s cadence"
+			}
+		}
+	],
+	"exp_mult": 1.0,
+	"_pools": "Tier C weights (spec #449 C2): Kulan Field I's own life is Barnard Gray (Lv40, 17 spawns) alone, so the hand-written map 1 pool is Barnard Gray at weight 1 on every keyframe; the swarm grows by rate and max_alive, not by roster. Boswell Field II is Plateon 27 / Mateon 7, Boswell Field V is Mecateon 21 / Plateon 11 (their v83 life counts).",
+	"keyframes": [
+		{"t": 0, "rate": 3.0, "max_alive": 50, "hp": 1.0, "speed": 1.0,
+			"pool": {"4230116": 1}},
+		{"t": 120, "rate": 4.5, "max_alive": 80, "hp": 1.0, "speed": 1.05,
+			"pool": {"4230116": 1}},
+		{"t": 300, "rate": 7.0, "max_alive": 130, "hp": 1.15, "speed": 1.1,
+			"pool": {"4230116": 1}},
+		{"t": 480, "rate": 10.0, "max_alive": 180, "hp": 1.3, "speed": 1.15,
+			"pool": {"4230116": 1}},
+		{"t": 600, "rate": 12.0, "max_alive": 220, "hp": 1.4, "speed": 1.2,
+			"pool": {"4230116": 1}},
+		{"t": 780, "rate": 15.0, "max_alive": 280, "hp": 1.5, "speed": 1.25,
+			"pool": {"4230116": 1}},
+		{"t": 900, "rate": 18.0, "max_alive": 330, "hp": 1.6, "speed": 1.3,
+			"pool": {"4230116": 1}}
+	],
+	"bursts": {"first": 90, "every": 90, "count_min": 10, "count_max": 40},
+	"elites": {"first": 75, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
+	"note": "Gray colonies on Kulan and Boswell Fields. Defeat Chief Gray, MT-09 and Zeno.",
+	"original_life": {"4230116": 17}
+}

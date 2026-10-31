@@ -10,6 +10,7 @@ const ROSTERS := {
 	"perion": [[5220001, 5220000], [3220000], [4090000]],
 	"kerning": [[9300003], [5090000], [6220000]],
 	"sleepywood": [[6300005], [8220009], [8130100]],
+	"omega_sector": [[4240000], [5120100], [6220001]],
 }
 
 
@@ -72,7 +73,7 @@ func _all_ids(encounters: Array[Dictionary]) -> Array:
 func test_shipped_progression_schedules_each_boss_once() -> void:
 	var data := DataRepo.load_all()
 	var encounters := _encounters(data.stages)
-	assert_eq(encounters.size(), 15, "five regions of three maps")
+	assert_eq(encounters.size(), 3 * data.stages.progression.size(), "every region of the progression has three bosses")
 	assert_eq(_id_errors(encounters), PackedStringArray(), "no mob_id or final_form is scheduled twice")
 	assert_eq(_name_errors(encounters, _survivor_names(_all_ids(encounters), data.mobs.mobs)), PackedStringArray(),
 		"no two encounters share a mobs.json name")

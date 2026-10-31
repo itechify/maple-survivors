@@ -1298,6 +1298,7 @@ img Effect.wz/BasicEff.img Teleport
 img Effect.wz/Summon.img 1
 img Effect.wz/Summon.img 12
 img Effect.wz/Summon.img 3
+img Effect.wz/Summon.img 6
 img Effect.wz/Tomb.img *
 img Etc.wz/Commodity.img *
 img Etc.wz/MakeCharInfo.img Info/CharFemale
@@ -1674,6 +1675,13 @@ item 4000050
 item 4000067
 item 4000076
 item 4000081
+item 4000118
+item 4000120
+item 4000121
+item 4000122
+item 4000123
+item 4000125
+item 4000126
 item 4000176
 item 4000215
 item 4000413
@@ -1696,6 +1704,9 @@ map 105090310
 map 105090900
 map 106000101
 map 107000000
+map 221030200
+map 221030500
+map 221040000
 map 910000000
 mapimg UI.wz/MapLogin.img
 mob 100100
@@ -1737,7 +1748,13 @@ mob 4090000
 mob 4230100
 mob 4230101
 mob 4230104
+mob 4230116
+mob 4230119
+mob 4230120
+mob 4230121
+mob 4240000
 mob 5090000
+mob 5120100
 mob 5130100
 mob 5220000
 mob 5220001
@@ -1745,6 +1762,7 @@ mob 5220002
 mob 5300100
 mob 6130101
 mob 6220000
+mob 6220001
 mob 6230600
 mob 6300005
 mob 7130100
