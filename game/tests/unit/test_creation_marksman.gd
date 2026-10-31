@@ -210,7 +210,7 @@ func test_create_makes_a_marksman_with_its_crossbow_and_separate_ladders() -> vo
 	assert_eq(flow.current_name, "free_market")
 	var archer: Dictionary = flow.save.slot(0).character
 	assert_eq(archer.job_id, 322)
-	assert_eq(archer.tiers_unlocked, 1)
+	assert_eq(archer.cleared_regions, [], "a new character has cleared nothing")
 	assert_eq(int(archer.equipment.worn.weapon.id), 1462001, "a Marksman starts with the Crossbow")
 	assert_eq(CharacterSnapshot.validation_error(archer), "")
 	assert_eq(WeaponInfo.family(1462001), "crossbow")

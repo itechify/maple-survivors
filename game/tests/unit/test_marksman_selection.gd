@@ -127,7 +127,7 @@ func test_the_fixture_tool_makes_a_shipped_marksman_and_refuses_a_disabled_patch
 	if character.is_empty():
 		return
 	assert_eq(int(character.job_id), 322)
-	assert_eq(int(character.tiers_unlocked), 2)
+	assert_eq(character.cleared_regions, ["ellinia", "henesys", "kerning", "perion"], "--tiers=2 (the compatibility alias) clears the four Victoria regions")
 	assert_eq(int(character.equipment.worn.weapon.id), 1462003)
 	assert_eq(String(character._doc.get("patch", "")), "", "shipped data needs no patch")
 

@@ -292,8 +292,10 @@ func test_real_cache_the_crossbow_is_wearable_and_the_shipped_pool_holds_only_cr
 	assert_eq(WeaponInfo.family(crossbow), "crossbow")
 	assert_eq(Equipment.requirement_error(infos[crossbow], {"job_id": 322}), "", "the creation weapon is wearable")
 	var ed: Dictionary = data.equipment_drops
-	for tier in data.stages.tiers.size():
-		var band := EquipmentDrops.band_of(data.stages, tier)
+	# ADR 0007 (#450): every progression region carries its own drop band (tiers are gone).
+	var progression: Array = data.stages.progression
+	for tier in progression.size():
+		var band := EquipmentDrops.band_of(data.stages.stages[String(progression[tier])])
 		var families := {}
 		var rng := _rng(362 + tier)
 		for i in 300:
@@ -302,7 +304,7 @@ func test_real_cache_the_crossbow_is_wearable_and_the_shipped_pool_holds_only_cr
 			assert_eq(Equipment.requirement_error(infos[id], {"job_id": 322}), "", "%d is wearable by a Marksman" % id)
 			if Equipment.slot_of(id) == "weapon":
 				families[WeaponInfo.family(id)] = true
-		assert_eq(families.keys(), ["crossbow"], "tier %d: crossbows only" % (tier + 1))
+		assert_eq(families.keys(), ["crossbow"], "region %s: crossbows only" % progression[tier])
 
 
 # --- a job with no mobility skill -------------------------------------------------------------------------------------
