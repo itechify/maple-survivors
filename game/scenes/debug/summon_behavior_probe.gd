@@ -1,10 +1,10 @@
 extends Node2D
 ## Tool-only probe of the summon behaviours (spec #384 M9, GAME_DESIGN 7.121): --shots=<absolute evidence dir>.
-## A synthetic Octopus (turret) and Gaviota (kamikaze) from test_summon_behaviors.gd with made-up ids, drawn with synthetic
+## A synthetic Octopus (turret) and Gaviota (kamikaze) from tests/fixtures/summon_behavior_fixtures.gd with made-up ids, drawn with synthetic
 ## art through the real PlayerSummonRenderer and ProjectileRenderer (the turret's ball array). No asset cache or saved
 ## character needed. Shots: t<tick>.png (the label measures a ball's speed; the bird dives, strikes once and is gone).
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-const SummonTests := preload("res://tests/unit/test_summon_behaviors.gd")
+const SummonFixtures := preload("res://tests/fixtures/summon_behavior_fixtures.gd")
 const DT := 1.0 / 60.0
 const PREFIX_OCTOPUS := "Skill.wz/212.img/skill/2129901/summon/"
 const PREFIX_GAVIOTA := "Skill.wz/212.img/skill/2129902/summon/"
@@ -31,7 +31,7 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	DirAccess.make_dir_recursive_absolute(output)
-	world = SummonTests.new().both_world(60.0)
+	world = SummonFixtures.both_world(60.0)
 	world.god = true
 	for path: String in ["stand", "summoned", "die", "attack1"]:
 		_art(PREFIX_OCTOPUS + path, Vector2i(40, 56), Color("e8714a") if path != "attack1" else Color("ffb15a"), 4)

@@ -91,12 +91,7 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 			mechanics.append("%s%% to stun" % number(chance))
 		if summon.has("watk_field"):
 			mechanics.append("%s W.Att" % number(book.canonical(key, level, String(summon.watk_field))))
-		var behavior_line := ""
-		match String(summon.get("behavior", "")):
-			"turret":
-				behavior_line = SummonTurret.describe(book, key, String(summon.attack), float(stats.get("area", 1.0)))
-			"kamikaze":
-				behavior_line = SummonKamikaze.describe(book, key, String(summon.attack), int(stats.get("count", 1)) - 1)
+		var behavior_line := PlayerSummons.describe_behavior(book, key, summon, stats)
 		if behavior_line != "":
 			mechanics.append(behavior_line)
 

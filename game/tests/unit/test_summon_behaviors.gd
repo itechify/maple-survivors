@@ -4,94 +4,13 @@ extends TestCase
 ## template later jobs copy. No Corsair definition and no asset cache needed.
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-const OCTOPUS := 2129901
-const GAVIOTA := 2129902
+const SB := preload("res://tests/fixtures/summon_behavior_fixtures.gd")
+const OCTOPUS := SB.OCTOPUS
+const GAVIOTA := SB.GAVIOTA
 const SNAIL := 1110100
-const RADIUS := 300.0
-const SPEED := 300.0
-const SP := Vector2(-23.0, -18.0)
-
-func _frames(n: int, delay := 100.0) -> Dictionary:
-	var out := {}
-	for k in n:
-		out[str(k)] = {"delay": delay}
-	return out
-
-func _octopus_def(extra := {}) -> Dictionary:
-	var d: Dictionary = RF.quiet_data().skills.skills.elquines.duplicate(true)
-	d.erase("rarity_bonuses")
-	d.merge({"skill_id": OCTOPUS, "name": "Test Octopus", "cooldown": 30.0,
-		"sounds": {}, "hit": "", "element": "i"}, true)
-	d.summon.merge({"path": "Skill.wz/212.img/skill/%d/summon" % OCTOPUS, "behavior": "turret",
-		"attack_interval": 1.0, "ordinal_spread": 36.0}, true)
-	d.merge(extra, true)
-	return d
-
-func _gaviota_def(extra := {}) -> Dictionary:
-	var d: Dictionary = RF.quiet_data().skills.skills.elquines.duplicate(true)
-	d.erase("rarity_bonuses")
-	d.merge({"skill_id": GAVIOTA, "name": "Test Gaviota", "cooldown": 30.0,
-		"sounds": {}, "hit": "", "element": "i"}, true)
-	d.summon.merge({"path": "Skill.wz/212.img/skill/%d/summon" % GAVIOTA, "behavior": "kamikaze",
-		"move": "fly", "hover": 30.0, "follow_speed": 300.0, "follow_distance": 60.0, "teleport_distance": 2000.0}, true)
-	d.merge(extra, true)
-	return d
-
-func _octopus_node(attack_after := 480.0, mob_count := 1.0) -> Dictionary:
-	return {"summoned": _frames(2), "stand": _frames(2), "die": _frames(2),
-		"attack1": {"0": {"delay": 120.0}, "1": {"delay": 120.0}, "info": {
-			"range": {"sp": {"$v": [SP.x, SP.y]}, "r": RADIUS}, "ball": {"0": {}, "1": {}},
-			"attackAfter": attack_after, "mobCount": mob_count, "bulletSpeed": SPEED}}}
-
-func _gaviota_node(attack_after := 400.0, mob_count := 3.0) -> Dictionary:
-	return {"summoned": _frames(2), "stand": _frames(2), "fly": _frames(2), "die": _frames(2),
-		"attack1": {"0": {"delay": 120.0}, "1": {"delay": 120.0}, "info": {
-			"range": {"lt": {"$v": [-80, -60]}, "rb": {"$v": [80, 60]}, "sp": {"$v": [-14, -29]}, "r": 400.0},
-			"type": 1, "attackAfter": attack_after, "mobCount": mob_count}}}
-
-func _levels(time: float) -> Dictionary:
-	var levels := {}
-	for lv in range(1, 31):
-		levels[str(lv)] = {"mad": 100.0, "mastery": 10.0, "time": time}
-	return levels
-
-func _octopus(time := 30.0, attack_after := 480.0, mob_count := 1.0, def := {}) -> RunWorld:
-	var data := RF.quiet_data()
-	data.skills.skills["test_octopus"] = def if not def.is_empty() else _octopus_def()
-	var setup := RF.setup("quiet", 389, data)
-	setup.skill_imgs["212"].skill[str(OCTOPUS)] = {"level": _levels(time), "elemAttr": "i",
-		"summon": _octopus_node(attack_after, mob_count)}
-	return _finish(setup, "test_octopus")
-
-func _gaviota(time := 30.0, attack_after := 400.0, mob_count := 3.0) -> RunWorld:
-	var data := RF.quiet_data()
-	data.skills.skills["test_gaviota"] = _gaviota_def()
-	var setup := RF.setup("quiet", 389, data)
-	setup.skill_imgs["212"].skill[str(GAVIOTA)] = {"level": _levels(time), "elemAttr": "i",
-		"summon": _gaviota_node(attack_after, mob_count)}
-	return _finish(setup, "test_gaviota")
-
-## Both synthetic skills learned in one world (also the fixture of the tool probe `summon_behavior_probe.tscn`).
-func both_world(time := 30.0) -> RunWorld:
-	var data := RF.quiet_data()
-	data.skills.skills["test_octopus"] = _octopus_def()
-	data.skills.skills["test_gaviota"] = _gaviota_def()
-	var setup := RF.setup("quiet", 389, data)
-	setup.skill_imgs["212"].skill[str(OCTOPUS)] = {"level": _levels(time), "elemAttr": "i", "summon": _octopus_node()}
-	setup.skill_imgs["212"].skill[str(GAVIOTA)] = {"level": _levels(time), "elemAttr": "i", "summon": _gaviota_node()}
-	var w := _finish(setup, "test_octopus")
-	w.learn_skill("test_gaviota")
-	return w
-
-func _finish(setup: Dictionary, key: String) -> RunWorld:
-	setup.data.stages.stages.quiet.maps.append(setup.data.stages.stages.quiet.maps[0].duplicate(true))
-	var w := RunWorld.new(setup)
-	RF.place_player(w, 200)
-	w.player.facing = -1
-	w.loadout.order.clear()
-	w.learn_skill(key)
-	w.loadout.set_caster(100.0, 0.0, 30)
-	return w
+const RADIUS := SB.RADIUS
+const SPEED := SB.SPEED
+const SP := SB.SP
 
 ## Casts the skill (one auto-cast) and lets the summon-in play; drains the events.
 func _cast(w: RunWorld) -> void:
@@ -144,10 +63,10 @@ func _hp_lost(w: RunWorld, m: int) -> bool:
 # ---------------------------------------------------------------- dispatch
 
 func test_a_definition_without_a_behavior_is_the_trailing_ally() -> void:
-	var def := _octopus_def()
+	var def := SB.octopus_def()
 	def.summon.erase("behavior")
 	def.summon.merge({"follow_speed": 180.0, "follow_distance": 60.0, "teleport_distance": 600.0}, true)
-	var w := _octopus(30.0, 480.0, 1.0, def)
+	var w := SB.octopus_world(30.0, 480.0, 1.0, def)
 	w.runner.step(DT, w)
 	_run(w, 14)
 	var start_x := w.runner.summons.x[0]
@@ -157,9 +76,9 @@ func test_a_definition_without_a_behavior_is_the_trailing_ally() -> void:
 	assert_eq(w.runner.summons.turret.ball_count(), 0)
 
 func test_the_dispatch_names_no_job_skill_or_id_and_unknown_behaviors_trail() -> void:
-	var def := _octopus_def()
+	var def := SB.octopus_def()
 	def.summon["behavior"] = "no_such_behavior"
-	var w := _octopus(30.0, 480.0, 1.0, def)
+	var w := SB.octopus_world(30.0, 480.0, 1.0, def)
 	w.runner.step(DT, w)
 	_run(w, 14)
 	w.player.pos.x += 300.0
@@ -169,7 +88,7 @@ func test_the_dispatch_names_no_job_skill_or_id_and_unknown_behaviors_trail() ->
 # ---------------------------------------------------------------- turret
 
 func test_the_turret_never_follows_or_teleports_however_far_the_owner_walks() -> void:
-	var w := _octopus()
+	var w := SB.octopus_world()
 	w.runner.step(DT, w)
 	_run(w, 14)
 	var s := w.runner.summons
@@ -185,7 +104,7 @@ func test_the_turret_never_follows_or_teleports_however_far_the_owner_walks() ->
 	assert_ne(s.action[0], "move", "it never plays a move node")
 
 func test_a_turret_called_by_an_airborne_caster_is_planted_on_the_floor_below() -> void:
-	var w := _octopus()
+	var w := SB.octopus_world()
 	var ground := w.player.pos.y
 	w.player.pos.y -= 120.0 # a cast while jumping: the caster is allowed to cast in the air
 	w.runner.step(DT, w)
@@ -202,7 +121,7 @@ func test_a_turret_called_by_an_airborne_caster_is_planted_on_the_floor_below() 
 
 func test_the_circle_edge_is_inclusive_of_r_minus_one_and_excludes_r_plus_one() -> void:
 	for case: Array in [[RADIUS - 1.0, true], [RADIUS + 1.0, false]]:
-		var w := _octopus()
+		var w := SB.octopus_world()
 		w.runner.step(DT, w)
 		var c := SummonTurret.centre(w.runner.summons, 0)
 		var m := _mob_at_edge(w, c, float(case[0]))
@@ -214,7 +133,7 @@ func test_the_circle_edge_is_inclusive_of_r_minus_one_and_excludes_r_plus_one() 
 
 func test_the_sp_offset_mirrors_with_the_facing() -> void:
 	for facing: int in [-1, 1]:
-		var w := _octopus()
+		var w := SB.octopus_world()
 		w.player.facing = facing
 		w.runner.step(DT, w)
 		var s := w.runner.summons
@@ -225,7 +144,7 @@ func test_the_sp_offset_mirrors_with_the_facing() -> void:
 	# A monster 290 px right of the ally: inside the right-facing circle (centre +23), outside the left-facing one (centre -23).
 	var lit: Array = []
 	for facing: int in [-1, 1]:
-		var w := _octopus()
+		var w := SB.octopus_world()
 		w.player.facing = facing
 		w.runner.step(DT, w)
 		var s := w.runner.summons
@@ -235,7 +154,7 @@ func test_the_sp_offset_mirrors_with_the_facing() -> void:
 
 func test_area_scales_the_radius() -> void:
 	for area: float in [1.0, 1.5]:
-		var w := _octopus()
+		var w := SB.octopus_world()
 		w.loadout.skill_mods["test_octopus"] = {"area": Vector2(0.0, area)}
 		w.runner.step(DT, w)
 		var s := w.runner.summons
@@ -244,7 +163,7 @@ func test_area_scales_the_radius() -> void:
 		assert_eq(s.turret.targets_in_circle(s, 0, w).has(m), area > 1.2, "a body 50 px past the base circle, area %f" % area)
 
 func test_the_nearest_monster_is_the_target() -> void:
-	var w := _octopus()
+	var w := SB.octopus_world()
 	w.runner.step(DT, w)
 	var c := SummonTurret.centre(w.runner.summons, 0)
 	var far := _mob_at_edge(w, c, 200.0)
@@ -259,7 +178,7 @@ func test_the_nearest_monster_is_the_target() -> void:
 
 func test_mob_count_and_count_modifiers_set_the_number_of_balls() -> void:
 	for case: Array in [[1.0, 0.0, 1], [2.0, 0.0, 2], [2.0, 1.0, 3], [2.0, 5.0, 4]]:
-		var w := _octopus(30.0, 480.0, float(case[0]))
+		var w := SB.octopus_world(30.0, 480.0, float(case[0]))
 		w.loadout.skill_mods["test_octopus"] = {"count": Vector2(float(case[1]), 1.0)}
 		w.runner.step(DT, w)
 		var c := SummonTurret.centre(w.runner.summons, 0)
@@ -269,7 +188,7 @@ func test_mob_count_and_count_modifiers_set_the_number_of_balls() -> void:
 		assert_eq(_peak_balls(w, 80), int(case[2]), "mobCount %f plus count %f" % [float(case[0]), float(case[1])])
 
 func test_attack_after_then_flight_then_the_hit_on_arrival_to_the_tick() -> void:
-	var w := _octopus()
+	var w := SB.octopus_world()
 	w.runner.step(DT, w)
 	var s := w.runner.summons
 	var c := SummonTurret.centre(s, 0)
@@ -297,7 +216,7 @@ func test_attack_after_then_flight_then_the_hit_on_arrival_to_the_tick() -> void
 	assert_eq(_hits(w).size(), 1)
 
 func test_the_ball_flies_at_bullet_speed_toward_the_target_centre() -> void:
-	var w := _octopus()
+	var w := SB.octopus_world()
 	w.runner.step(DT, w)
 	var s := w.runner.summons
 	var c := SummonTurret.centre(s, 0)
@@ -318,7 +237,7 @@ func test_the_ball_flies_at_bullet_speed_toward_the_target_centre() -> void:
 	assert_eq(w.visual_paths[t.visual[0]], "Skill.wz/212.img/skill/%d/summon/attack1/info/ball" % OCTOPUS)
 
 func test_a_target_that_dies_in_flight_is_skipped() -> void:
-	var w := _octopus()
+	var w := SB.octopus_world()
 	w.runner.step(DT, w)
 	var c := SummonTurret.centre(w.runner.summons, 0)
 	var m := _mob_at_edge(w, c, 250.0)
@@ -334,7 +253,7 @@ func test_a_target_that_dies_in_flight_is_skipped() -> void:
 	assert_eq(_hits(w).size(), 0, "no hit on a dead target")
 	assert_eq(_balls(w), 0, "and the ball is spent")
 	# Its slot reused by a fresh monster: a different identity, still skipped.
-	var again := _octopus()
+	var again := SB.octopus_world()
 	again.runner.step(DT, again)
 	var c2 := SummonTurret.centre(again.runner.summons, 0)
 	var m2 := _mob_at_edge(again, c2, 250.0)
@@ -352,7 +271,7 @@ func test_a_target_that_dies_in_flight_is_skipped() -> void:
 
 func test_balls_are_cleared_on_map_transfer_hidden_and_a_dead_caster() -> void:
 	for case: String in ["transfer", "hidden", "dead"]:
-		var w := _octopus()
+		var w := SB.octopus_world()
 		w.runner.step(DT, w)
 		var c := SummonTurret.centre(w.runner.summons, 0)
 		var m := _mob_at_edge(w, c, 250.0)
@@ -378,7 +297,7 @@ func test_balls_are_cleared_on_map_transfer_hidden_and_a_dead_caster() -> void:
 
 func test_no_ball_is_launched_while_hidden_or_dead_and_launching_resumes_after() -> void:
 	for case: String in ["hidden", "dead"]:
-		var w := _octopus()
+		var w := SB.octopus_world()
 		w.runner.step(DT, w)
 		var c := SummonTurret.centre(w.runner.summons, 0)
 		var m := _mob_at_edge(w, c, 100.0)
@@ -397,7 +316,7 @@ func test_no_ball_is_launched_while_hidden_or_dead_and_launching_resumes_after()
 		assert_true(_hp_lost(w, m), "%s: it fires again once the caster is back" % case)
 
 func test_the_ball_cap_is_32() -> void:
-	var w := _octopus(30.0, 480.0, 40.0)
+	var w := SB.octopus_world(30.0, 480.0, 40.0)
 	w.runner.step(DT, w)
 	var c := SummonTurret.centre(w.runner.summons, 0)
 	for k in 40:
@@ -407,7 +326,7 @@ func test_the_ball_cap_is_32() -> void:
 	assert_eq(w.runner.summons.turret.active.size(), SummonTurret.MAX_BALLS)
 
 func test_summon_count_spaces_the_turrets_and_each_fires_and_a_recast_replaces() -> void:
-	var w := _octopus()
+	var w := SB.octopus_world()
 	w.loadout.skill_mods["test_octopus"] = {"summon_count": Vector2(1.0, 1.0)}
 	w.runner.step(DT, w)
 	var s := w.runner.summons
@@ -422,7 +341,7 @@ func test_summon_count_spaces_the_turrets_and_each_fires_and_a_recast_replaces()
 	assert_eq(s.living_count(), 2, "a recast replaces the group instead of stacking")
 
 func test_both_behaviors_run_side_by_side_in_one_world() -> void:
-	var w := both_world()
+	var w := SB.both_world()
 	w.runner.step(DT, w)
 	w.runner.step(DT, w) # one cast per step
 	assert_eq(w.runner.summons.living_count(), 2)
@@ -438,7 +357,7 @@ func test_both_behaviors_run_side_by_side_in_one_world() -> void:
 	assert_eq(by_skill.get("test_gaviota", 0), 1, "and the bird struck once")
 
 func test_the_card_text_lists_the_radius_the_ball_and_the_single_use() -> void:
-	var w := both_world()
+	var w := SB.both_world()
 	var text := SkillText.new(w.book, {str(OCTOPUS): {"name": "Test Octopus", "desc": "x", "h1": "Fires."},
 		str(GAVIOTA): {"name": "Test Gaviota", "desc": "x", "h1": "Dives."}})
 	var octopus := text.level_line("test_octopus", 1, w.loadout.stats("test_octopus"))
@@ -452,7 +371,7 @@ func test_the_card_text_lists_the_radius_the_ball_and_the_single_use() -> void:
 	assert_true(text.level_line("test_gaviota", 1, w.loadout.stats("test_gaviota")).contains("hitting up to 5"), "count modifiers add strikes")
 
 func test_the_turret_expires_at_the_level_time() -> void:
-	var w := _octopus(3.0)
+	var w := SB.octopus_world(3.0)
 	w.runner.step(DT, w)
 	_run(w, 60 * 3 + 5)
 	assert_eq(w.runner.summons.living_count(), 0)
@@ -460,7 +379,7 @@ func test_the_turret_expires_at_the_level_time() -> void:
 	assert_eq(w.runner.summons.active[0], 0, "the die animation ends and the slot is free")
 
 func test_turret_events_reuse_summon_spawn_and_summon_attack() -> void:
-	var w := _octopus()
+	var w := SB.octopus_world()
 	w.runner.step(DT, w)
 	var c := SummonTurret.centre(w.runner.summons, 0)
 	_mob_at_edge(w, c, 100.0)
@@ -472,8 +391,8 @@ func test_turret_events_reuse_summon_spawn_and_summon_attack() -> void:
 	assert_false(types.has("turret_ball"), "the renderer reads the arrays instead of an event")
 
 func test_no_monsters_in_range_draws_no_random_values() -> void:
-	var twin := _octopus() # never cast: the same stream, stepped the same number of ticks
-	var w := _octopus()
+	var twin := SB.octopus_world() # never cast: the same stream, stepped the same number of ticks
+	var w := SB.octopus_world()
 	w.runner.step(DT, w)
 	_run(w, 200)
 	_run(twin, 201)
@@ -486,7 +405,7 @@ func _bird_target(w: RunWorld, i: int) -> int:
 	return w.runner.summons.kamikaze.target[i]
 
 func test_the_kamikaze_seeks_the_kth_nearest_by_ordinal() -> void:
-	var w := _gaviota()
+	var w := SB.gaviota_world()
 	w.loadout.skill_mods["test_gaviota"] = {"summon_count": Vector2(2.0, 1.0)}
 	w.runner.step(DT, w)
 	var far := _mob(w, 480.0)
@@ -497,7 +416,7 @@ func test_the_kamikaze_seeks_the_kth_nearest_by_ordinal() -> void:
 	assert_eq([_bird_target(w, 0), _bird_target(w, 1), _bird_target(w, 2)], [near, mid, far])
 
 func test_an_ordinal_past_the_crowd_takes_the_farthest_in_reach() -> void:
-	var w := _gaviota()
+	var w := SB.gaviota_world()
 	w.loadout.skill_mods["test_gaviota"] = {"summon_count": Vector2(2.0, 1.0)}
 	w.runner.step(DT, w)
 	var only := _mob(w, 300.0)
@@ -505,7 +424,7 @@ func test_an_ordinal_past_the_crowd_takes_the_farthest_in_reach() -> void:
 	assert_eq([_bird_target(w, 0), _bird_target(w, 1), _bird_target(w, 2)], [only, only, only])
 
 func test_bosses_come_before_nearer_monsters() -> void:
-	var w := _gaviota()
+	var w := SB.gaviota_world()
 	w.runner.step(DT, w)
 	var near := _mob(w, 300.0)
 	var boss := _mob(w, 500.0)
@@ -516,7 +435,7 @@ func test_bosses_come_before_nearer_monsters() -> void:
 	assert_ne(_bird_target(w, 0), near)
 
 func test_reach_is_measured_from_the_caster_not_the_bird() -> void:
-	var w := _gaviota()
+	var w := SB.gaviota_world()
 	w.runner.step(DT, w)
 	var out := _mob(w, 200.0 + 400.0 + 60.0) # r = 400 from the caster at x = 200
 	var inside := _mob(w, 200.0 + 380.0)
@@ -525,7 +444,7 @@ func test_reach_is_measured_from_the_caster_not_the_bird() -> void:
 	assert_ne(_bird_target(w, 0), out)
 
 func test_the_bird_flies_at_follow_speed_hovering_above_its_target() -> void:
-	var w := _gaviota()
+	var w := SB.gaviota_world()
 	w.runner.step(DT, w)
 	var m := _mob(w, 480.0)
 	_run(w, 20)
@@ -542,7 +461,7 @@ func test_the_bird_flies_at_follow_speed_hovering_above_its_target() -> void:
 	assert_near(s.y[0], w.swarm.y[m] - 30.0, 0.01)
 
 func test_the_strike_starts_at_the_boxs_half_width_and_hits_once_at_attack_after() -> void:
-	var w := _gaviota()
+	var w := SB.gaviota_world()
 	w.runner.step(DT, w)
 	var m := _mob(w, 480.0)
 	_run(w, 14)
@@ -563,7 +482,7 @@ func test_the_strike_starts_at_the_boxs_half_width_and_hits_once_at_attack_after
 	assert_eq(hit_tick - started, ceili(0.4 / DT - 1e-6), "the hit lands at attackAfter")
 
 func test_single_hit_then_die_and_the_slot_is_freed() -> void:
-	var w := _gaviota()
+	var w := SB.gaviota_world()
 	w.runner.step(DT, w)
 	var m := _mob(w, 330.0)
 	_run(w, 14)
@@ -579,7 +498,7 @@ func test_single_hit_then_die_and_the_slot_is_freed() -> void:
 	assert_true(_hp_lost(w, m))
 
 func test_the_strike_hits_up_to_mob_count_monsters_in_the_box() -> void:
-	var w := _gaviota(30.0, 400.0, 3.0)
+	var w := SB.gaviota_world(30.0, 400.0, 3.0)
 	w.runner.step(DT, w)
 	var cluster: Array[int] = []
 	for k in 5:
@@ -594,7 +513,7 @@ func test_the_strike_hits_up_to_mob_count_monsters_in_the_box() -> void:
 	assert_eq(lost, 3)
 
 func test_the_unspent_bird_waits_by_the_caster_and_expires_with_no_hit() -> void:
-	var w := _gaviota(3.0)
+	var w := SB.gaviota_world(3.0)
 	w.runner.step(DT, w)
 	var far := _mob(w, 200.0 + 400.0 + 80.0) # out of reach
 	_run(w, 20)
@@ -612,7 +531,7 @@ func test_the_unspent_bird_waits_by_the_caster_and_expires_with_no_hit() -> void
 	assert_false(_hp_lost(w, far))
 
 func test_a_bird_that_has_locked_a_target_outlives_the_wait_limit_and_strikes() -> void:
-	var w := _gaviota(1.0)
+	var w := SB.gaviota_world(1.0)
 	w.runner.step(DT, w)
 	_run(w, 50) # 0.83 s of the 1 s wait with nothing in reach
 	var m := _mob(w, 200.0 + 380.0) # about 1.3 s of flight at 300 px/s: the level time ends mid-flight
@@ -627,7 +546,7 @@ func test_a_bird_that_has_locked_a_target_outlives_the_wait_limit_and_strikes() 
 	assert_eq(w.runner.summons.active[0], 0, "and the spent bird still frees its slot")
 
 func test_the_wait_limit_still_ends_a_bird_whose_target_died() -> void:
-	var w := _gaviota(2.0)
+	var w := SB.gaviota_world(2.0)
 	w.runner.step(DT, w)
 	var m := _mob(w, 200.0 + 380.0)
 	_run(w, 20)
@@ -638,7 +557,7 @@ func test_the_wait_limit_still_ends_a_bird_whose_target_died() -> void:
 	assert_eq(_hits(w).size(), 0)
 
 func test_a_monster_reachable_from_the_cast_origin_is_in_the_birds_reach() -> void:
-	var w := _gaviota()
+	var w := SB.gaviota_world()
 	w.runner.step(DT, w) # admission measures from the cast origin (body height), so the bird must too
 	var cast := w.cast_origin()
 	var m := _mob(w, cast.x + 380.0)
@@ -650,7 +569,7 @@ func test_a_monster_reachable_from_the_cast_origin_is_in_the_birds_reach() -> vo
 	assert_eq(_bird_target(w, 0), m)
 
 func test_a_monster_that_comes_into_reach_later_is_hunted() -> void:
-	var w := _gaviota()
+	var w := SB.gaviota_world()
 	w.runner.step(DT, w)
 	var m := _mob(w, 200.0 + 500.0)
 	_run(w, 30)
@@ -661,7 +580,7 @@ func test_a_monster_that_comes_into_reach_later_is_hunted() -> void:
 	assert_eq(w.runner.summons.living_count(), 0)
 
 func test_a_monster_that_dies_before_the_dive_gets_the_bird_a_new_target() -> void:
-	var w := _gaviota()
+	var w := SB.gaviota_world()
 	w.runner.step(DT, w)
 	var first := _mob(w, 450.0)
 	var second := _mob(w, 480.0)
@@ -672,7 +591,7 @@ func test_a_monster_that_dies_before_the_dive_gets_the_bird_a_new_target() -> vo
 	assert_eq(_bird_target(w, 0), second)
 
 func test_a_map_transfer_clears_the_kamikaze() -> void:
-	var w := _gaviota()
+	var w := SB.gaviota_world()
 	w.runner.step(DT, w)
 	_mob(w, 400.0)
 	_run(w, 30)
@@ -682,8 +601,8 @@ func test_a_map_transfer_clears_the_kamikaze() -> void:
 	assert_eq(w.runner.summons.living_count(), 0)
 
 func test_the_kamikaze_with_nothing_in_reach_draws_no_random_values() -> void:
-	var twin := _gaviota()
-	var w := _gaviota()
+	var twin := SB.gaviota_world()
+	var w := SB.gaviota_world()
 	w.runner.step(DT, w)
 	_run(w, 200)
 	_run(twin, 201)

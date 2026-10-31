@@ -1127,9 +1127,9 @@ func _grow(n: int) -> void:
 		_free.append(i)
 
 
-## Live damage multiplier for a hit of `element` on slot i, with the ALL_WEAK mark's multiplier on top while it is
-## marked: a composition (`COMPOSITIONS`: fs, il) is the mean of its constituents' live multipliers; a single element is 1.5 while a matching vulnerability timer runs (`VULNERABLE`:
-## Fire Demon's ice mark, Ice Demon's fire mark), else the kind's own attribute.
+## Live damage multiplier for a hit of `element` on slot i, with the ALL_WEAK mark's multiplier on top while it is marked.
+## A composition (`COMPOSITIONS`: fs, il) is the mean of its constituents' live multipliers; a single element is 1.5 while a
+## matching vulnerability timer runs (`VULNERABLE`: Fire Demon's ice mark, Ice Demon's fire mark), else the kind's own attribute.
 func element_multiplier(i: int, element: String) -> float:
 	var e := element.to_lower()
 	var parts: Variant = COMPOSITIONS.get(e)

@@ -18,8 +18,8 @@ var offsets := PackedFloat32Array()
 var support := SupportSummons.new()
 ## The `summon.behavior` entry points (spec #384 M9, docs/GAME_DESIGN.md 7.121): a definition without the key is the trailing
 ## ally below. Each behaviour object owns what its allies do each tick (`spawn_slot`, `step_slot`); this seam owns the
-## lifecycle (spawn, expiry, replace, clear). A new behaviour adds a field here and one line in `_behavior`,
-## and implements `spawn_slot`, `step_slot` and `holds_expiry`.
+## lifecycle (spawn, expiry, replace, clear). A new behaviour adds a field here and one line in each of `_behavior` and
+## `describe_behavior`, and implements `spawn_slot`, `step_slot`, `holds_expiry` and a static `describe`.
 var turret := SummonTurret.new()
 var kamikaze := SummonKamikaze.new()
 var _buf := PackedInt32Array()
@@ -170,6 +170,17 @@ func step(dt: float, world: RunWorld) -> void:
 		impact[i] = float(d.info.get("attackAfter", 0.0)) / 1000.0
 		wait[i] = maxf(float(d.attack_interval), maxf(float(d.durations[d.attack]), impact[i]))
 		world.emit("summon_attack", {"skill": stats[i].skill, "slot": i, "pos": pos})
+
+## The card / Skill-window line of a definition's `summon.behavior` ("" for the trailing ally): the one other place, besides
+## `_behavior`, that names the behaviours. `stats` are the cast's resolved stats (Loadout.stats).
+static func describe_behavior(book: SkillBook, key: String, summon: Dictionary, stats: Dictionary) -> String:
+	match String(summon.get("behavior", "")):
+		"turret":
+			return SummonTurret.describe(book, key, String(summon.attack), float(stats.get("area", 1.0)))
+		"kamikaze":
+			return SummonKamikaze.describe(book, key, String(summon.attack), int(stats.get("count", 1)) - 1)
+	return ""
+
 
 ## The behaviour object for a definition's `summon.behavior`, or null for the trailing ally.
 func _behavior(d: Dictionary) -> Variant:
