@@ -1,0 +1,7 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Leafre region (spec #449 C8, ticket #470, progression step 13). maps: The Area of Blue Kentaurus 240020400, Dragon Forest II 240030200 and Cave of Light 240050300 (each map entry also imports its life mobs, backs, tiles, objs, BGM and map mark). mobs: map 1's Blue Kentaurus 8140103, Rexton 8140702 and Green Cornian 8150200 (map 2), Skelegon 8190003 and Skelosaurus 8190004 (map 3's explicit pool; the cave's own life list holds only the instance copies Skelegon 2 in Cave 9300076 and T-Skelegon in Cave 9300077, which are not used), the three bosses Manon 8180000, Griffey 8180001 and Leviathan 8220003, and Leviathan's MobSkill 200 summons Red Wyvern 8150300, Blue Wyvern 8150301 and Dark Wyvern 8150302 (levels 89, 90 and 91). items: the Etc drops their mobs.json entries use as the EXP pickup. No Mob skill-effect art beyond the mobs' own imgs is imported.",
+	"maps": [240020400, 240030200, 240050300],
+	"mobs": [8140103, 8140702, 8150200, 8190003, 8190004, 8180000, 8180001, 8220003, 8150300, 8150301, 8150302],
+	"items": [4000233, 4000264, 4000266, 4000274, 4000273, 4000235, 4000243, 4000268, 4000269, 4000270]
+}
