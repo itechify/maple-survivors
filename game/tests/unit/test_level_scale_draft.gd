@@ -105,6 +105,20 @@ func test_scale_keyframes_add_the_step_offset_and_keep_the_reference_exp_level()
 	assert_eq(Array(LevelScale.block_errors("x", {"keyframes": keys})), [], "the block passes the schema")
 
 
+func test_a_warm_up_starts_low_and_reaches_the_step_level() -> void:
+	# C13 (#475): level(t) = lerp(start, E + above, min(1, t / warmup)); the exp level stays E.
+	assert_eq(D.level_at(20.0, 0.0, 8), 29.0, "no warm-up: E + 3 x (8 - 5)")
+	assert_eq(D.level_at(20.0, 0.0, 8, 3.0, 4.0, 1.0, 0.0), 24.0, "`above` replaces offset x (step - 5)")
+	assert_eq(D.level_at(20.0, 0.0, 8, 3.0, 4.0, 1.0, 600.0), 1.0, "a warm-up starts at `start`")
+	assert_near(D.level_at(20.0, 300.0, 8, 3.0, 4.0, 1.0, 600.0), 12.5, 1e-9, "half way")
+	assert_eq(D.level_at(20.0, 900.0, 8, 3.0, 4.0, 1.0, 600.0), 24.0, "reached at the warm-up and held")
+	var keys := D.scale_keyframes([0.0, 300.0, 900.0], [10.0, 12.0, 40.0], 8, 3.0, 4.5, 1.0, 600.0)
+	assert_eq(keys, [{"t": 0, "level": 1.0, "exp_level": 10.0}, {"t": 300, "level": 8.75, "exp_level": 12.0},
+		{"t": 900, "level": 44.5, "exp_level": 40.0}])
+	assert_eq(Array(LevelScale.block_errors("x", {"keyframes": keys})), [], "the block passes the schema")
+	assert_eq(D.scale_keyframes([0.0], [10.0], 8), [{"t": 0, "level": 19.0, "exp_level": 10.0}], "defaults: the first draft")
+
+
 func test_levels_above_131_are_warned_about() -> void:
 	assert_eq(D.level_warnings([{"t": 0, "level": 131.0, "exp_level": 131.0}, {"t": 60, "level": 40.0}]).size(), 0)
 	var warnings := D.level_warnings([{"t": 0, "level": 20.0, "exp_level": 20.0}, {"t": 900, "level": 131.5, "exp_level": 90.0}])
@@ -154,6 +168,20 @@ func test_match_boss_hits_the_level_scaled_target_and_is_independent_of_the_offs
 	var far: Dictionary = D.match_boss(reference, curve, e, canon, 120.0)
 	for key in ["hp_mult", "dmg_mult", "attack_dmg_mult"]:
 		assert_near(far[key], m[key], 2e-3, "%s does not depend on the region's level" % key)
+
+
+func test_match_boss_hp_scale_multiplies_the_hp_multipliers_only() -> void:
+	# C13 (#475): the calibrated bosses carry the draft HP times a scale; damage multipliers stay the draft's.
+	var curve := _curve()
+	var reference := {"hp": 1.0e6, "touch": 1000.0, "attack": 2000.0, "magic": false}
+	var canon: Dictionary = D.canonical_boss(_root(20), ["attack1"])
+	var shell: Dictionary = D.canonical_boss(_root(22), [])
+	var plain: Dictionary = D.match_boss(reference, curve, 30.0, canon, 39.0, 0.25, shell)
+	var scaled: Dictionary = D.match_boss(reference, curve, 30.0, canon, 39.0, 0.25, shell, 4.0)
+	assert_near(scaled.hp_mult, plain.hp_mult * 4.0, plain.hp_mult * 4.0 * 2e-3)
+	assert_near(scaled.final_form_hp_mult, plain.final_form_hp_mult * 4.0, plain.final_form_hp_mult * 4.0 * 2e-3)
+	assert_eq(scaled.dmg_mult, plain.dmg_mult)
+	assert_eq(scaled.attack_dmg_mult, plain.attack_dmg_mult)
 
 
 func test_match_boss_uses_mad_for_a_magic_attack_and_splits_a_final_form() -> void:

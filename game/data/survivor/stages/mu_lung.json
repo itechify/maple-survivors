@@ -16,12 +16,12 @@
 			"boss": {
 				"time": 300,
 				"mob_id": 5220004,
-				"hp_mult": 11.647,
+				"hp_mult": 139.77,
 				"dmg_mult": 0.949,
 				"attacks": ["attack1", "attack2", "attack3"],
 				"attack_interval": 8,
 				"attack_dmg_mult": 0.712,
-				"_tier": "tier C (#466): first draft of level_scale_draft.gd --step=9 --stage=mu_lung, not tuned: arrives at curve time 300 (E_sw 10.80, level 22.80); hp_mult/dmg_mult/attack_dmg_mult carry the Sleepywood map-1 boss's effective HP, touch and attack damage by the level scale's ratios; attack1-3 (type 0, magic) are matched on MAD; 8 s cadence. Giant Centipede's kit holds no mob skills"
+				"_tier": "tier C (#466): first draft of level_scale_draft.gd --step=9 --stage=mu_lung, not tuned: arrives at curve time 300 (E_sw 10.80, level 22.80); hp_mult/dmg_mult/attack_dmg_mult carry the Sleepywood map-1 boss's effective HP, touch and attack damage by the level scale's ratios; attack1-3 (type 0, magic) are matched on MAD; 8 s cadence. Giant Centipede's kit holds no mob skills. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
 			}
 		},
 		{
@@ -30,12 +30,12 @@
 			"boss": {
 				"time": 300,
 				"mob_id": 7220000,
-				"hp_mult": 1.798,
+				"hp_mult": 21.58,
 				"dmg_mult": 0.736,
 				"attacks": ["attack1", "attack2"],
 				"attack_interval": 8,
 				"attack_dmg_mult": 0.916,
-				"_tier": "tier C (#466): first draft of level_scale_draft.gd --step=9 --stage=mu_lung, not tuned: arrives at curve time 600 (E_sw 36.44, level 48.44); attack1 (type 1) and attack2 (type 2, a ball) are magic and matched on MAD; 8 s cadence. Its kit (weapon immunity 140, buffs 110/112/113, and MobSkill 200 level 83 summoning Grizzlies 5120500 at <= 80% HP) runs as written in Skill.wz"
+				"_tier": "tier C (#466): first draft of level_scale_draft.gd --step=9 --stage=mu_lung, not tuned: arrives at curve time 600 (E_sw 36.44, level 48.44); attack1 (type 1) and attack2 (type 2, a ball) are magic and matched on MAD; 8 s cadence. Its kit (weapon immunity 140, buffs 110/112/113, and MobSkill 200 level 83 summoning Grizzlies 5120500 at <= 80% HP) runs as written in Skill.wz. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
 			}
 		},
 		{
@@ -44,25 +44,25 @@
 			"boss": {
 				"time": 300,
 				"mob_id": 7220002,
-				"hp_mult": 2.434,
+				"hp_mult": 29.211,
 				"dmg_mult": 1.59,
 				"attacks": ["attack1"],
 				"attack_interval": 8,
 				"attack_dmg_mult": 1.986,
-				"_tier": "tier C (#466): first draft of level_scale_draft.gd --step=9 --stage=mu_lung, not tuned: arrives at curve time 900 (E_sw 56.85, level 68.85); attack1 (type 0, magic) is matched on MAD; 8 s cadence. Its kit (heal 114, buffs 110/112/113, weapon immunity 140) runs as written in Skill.wz"
+				"_tier": "tier C (#466): first draft of level_scale_draft.gd --step=9 --stage=mu_lung, not tuned: arrives at curve time 900 (E_sw 56.85, level 68.85); attack1 (type 0, magic) is matched on MAD; 8 s cadence. Its kit (heal 114, buffs 110/112/113, weapon immunity 140) runs as written in Skill.wz. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
 			}
 		}
 	],
 	"exp_mult": 1.0,
-	"_level_scale": "Tier C (#466, #449 first draft): pasted from level_scale_draft.gd --step=9 --stage=mu_lung, not tuned. exp_level(t) is Sleepywood's effective level E_sw at each keyframe time, and level(t) = E_sw(t) + 3 x (9 - 5), so every region levels the character at Sleepywood's pace and this step is twelve effective levels harder than Sleepywood. Without it the stage would run its canonical monsters at full strength from 0:00 for a Lv1 character.",
+	"_level_scale": "Tier C (#466, #449 first draft): pasted from level_scale_draft.gd --step=9 --stage=mu_lung, not tuned. exp_level(t) is Sleepywood's effective level E_sw at each keyframe time, and level(t) = E_sw(t) + 3 x (9 - 5), so every region levels the character at Sleepywood's pace and this step is twelve effective levels harder than Sleepywood. Without it the stage would run its canonical monsters at full strength from 0:00 for a Lv1 character. C13 (#475, tier C, calibrated on training seeds 1-4): level(t) = lerp(1, E_sw(t) + 3, min(1, t/600)): the stage starts at effective level 1 and reaches this step's level at 10:00, because a Lv1 character cannot take Lv13-and-up damage from the first second; 3 levels above Sleepywood here (0.75 per step to step 12, 0.25 per step after it: the first draft's +3 per step out-ran what a band's equipment adds).",
 	"level_scale": {"keyframes": [
-		{"t": 0, "level": 21.15, "exp_level": 9.15},
-		{"t": 120, "level": 21.73, "exp_level": 9.73},
-		{"t": 300, "level": 22.8, "exp_level": 10.8},
-		{"t": 480, "level": 34.22, "exp_level": 22.22},
-		{"t": 600, "level": 48.44, "exp_level": 36.44},
-		{"t": 780, "level": 60.23, "exp_level": 48.23},
-		{"t": 900, "level": 68.85, "exp_level": 56.85}]},
+		{"t": 0, "level": 1.0, "exp_level": 9.15},
+		{"t": 120, "level": 3.35, "exp_level": 9.73},
+		{"t": 300, "level": 7.4, "exp_level": 10.8},
+		{"t": 480, "level": 20.38, "exp_level": 22.22},
+		{"t": 600, "level": 39.44, "exp_level": 36.44},
+		{"t": 780, "level": 51.23, "exp_level": 48.23},
+		{"t": 900, "level": 59.85, "exp_level": 56.85}]},
 	"_pools": "Tier C weights (#466), map 1 only: Black Porky 4230502 (Lv43) opens alone, then the Flower Serpents 4230503 / 4230504 (Lv45) join at 2:00, the map's own three monsters in the order of their level (Porky 2, Blue 1, Red 1: roughly their 9/11/7 spawn points once the Porky is the lone opener).",
 	"keyframes": [
 		{"t": 0, "rate": 3.0, "max_alive": 50, "hp": 1.0, "speed": 1.0,

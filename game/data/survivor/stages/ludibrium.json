@@ -16,14 +16,14 @@
 			"boss": {
 				"time": 300,
 				"mob_id": 4130103,
-				"hp_mult": 11.107,
+				"hp_mult": 133.281,
 				"dmg_mult": 0.977,
 				"attacks": [
 					"attack1"
 				],
 				"attack_interval": 8,
 				"attack_dmg_mult": 1.046,
-				"_tier": "tier C (#463): first draft of level_scale_draft.gd --step=6 --stage=ludibrium, not tuned: arrives at curve time 300 (E_sw 10.80, level 13.80); hp_mult/dmg_mult/attack_dmg_mult carry the Sleepywood map-1 boss's effective HP, touch and attack1 damage by the level scale's ratios; 8 s cadence. Rombot's kit holds no mob skills"
+				"_tier": "tier C (#463): first draft of level_scale_draft.gd --step=6 --stage=ludibrium, not tuned: arrives at curve time 300 (E_sw 10.80, level 13.80); hp_mult/dmg_mult/attack_dmg_mult carry the Sleepywood map-1 boss's effective HP, touch and attack1 damage by the level scale's ratios; 8 s cadence. Rombot's kit holds no mob skills. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
 			}
 		},
 		{
@@ -32,14 +32,14 @@
 			"boss": {
 				"time": 300,
 				"mob_id": 9300012,
-				"hp_mult": 0.361,
+				"hp_mult": 4.338,
 				"dmg_mult": 0.458,
 				"attacks": [
 					"attack1"
 				],
 				"attack_interval": 8,
 				"attack_dmg_mult": 0.596,
-				"_tier": "tier C (#463): first draft of level_scale_draft.gd --step=6 --stage=ludibrium, not tuned: arrives at curve time 600 (E_sw 36.44, level 39.44); attack1 (type 0, magic) is matched on MAD; 8 s cadence. Alishar's Seal (MobSkill 120) is skipped for good (not in MobSkillRunner.SUPPORTED); Darkness 121 and the Cronos summons 200 (9300015/6/7) run as written in Skill.wz"
+				"_tier": "tier C (#463): first draft of level_scale_draft.gd --step=6 --stage=ludibrium, not tuned: arrives at curve time 600 (E_sw 36.44, level 39.44); attack1 (type 0, magic) is matched on MAD; 8 s cadence. Alishar's Seal (MobSkill 120) is skipped for good (not in MobSkillRunner.SUPPORTED); Darkness 121 and the Cronos summons 200 (9300015/6/7) run as written in Skill.wz. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
 			}
 		},
 		{
@@ -48,27 +48,27 @@
 			"boss": {
 				"time": 300,
 				"mob_id": 5220003,
-				"hp_mult": 3.967,
+				"hp_mult": 47.604,
 				"dmg_mult": 1.435,
 				"attacks": [
 					"attack1"
 				],
 				"attack_interval": 8,
 				"attack_dmg_mult": 1.87,
-				"_tier": "tier C (#463): first draft of level_scale_draft.gd --step=6 --stage=ludibrium, not tuned: arrives at curve time 900 (E_sw 56.85, level 59.85); attack1 (type 1, magic) is matched on MAD; 8 s cadence. Its kit (heal 114, buffs 110/112/113, Stun 123, weapon immunity 140, magic immunity 141) runs as written in Skill.wz"
+				"_tier": "tier C (#463): first draft of level_scale_draft.gd --step=6 --stage=ludibrium, not tuned: arrives at curve time 900 (E_sw 56.85, level 59.85); attack1 (type 1, magic) is matched on MAD; 8 s cadence. Its kit (heal 114, buffs 110/112/113, Stun 123, weapon immunity 140, magic immunity 141) runs as written in Skill.wz. C13 (#475): hp_mult x12 of the first draft (x4 because the calibration Hero killed the first draft in 1-3 s, then x3 for fights of 10-25 s; level_scale_draft.gd --boss-hp-scale=12)."
 			}
 		}
 	],
 	"exp_mult": 1.0,
-	"_level_scale": "Tier C (#463, #449 first draft): pasted from level_scale_draft.gd --step=6 --stage=ludibrium, not tuned. exp_level(t) is Sleepywood's effective level E_sw at each keyframe time, and level(t) = E_sw(t) + 3 x (6 - 5), so every region levels the character at Sleepywood's pace and this step is three effective levels harder. Without it the stage would run its canonical monsters at full strength from 0:00 for a Lv1 character.",
+	"_level_scale": "Tier C (#463, #449 first draft): pasted from level_scale_draft.gd --step=6 --stage=ludibrium, not tuned. exp_level(t) is Sleepywood's effective level E_sw at each keyframe time, and level(t) = E_sw(t) + 3 x (6 - 5), so every region levels the character at Sleepywood's pace and this step is three effective levels harder. Without it the stage would run its canonical monsters at full strength from 0:00 for a Lv1 character. C13 (#475, tier C, calibrated on training seeds 1-4): level(t) = lerp(1, E_sw(t) + 0.75, min(1, t/600)): the stage starts at effective level 1 and reaches this step's level at 10:00, because a Lv1 character cannot take Lv10-and-up damage from the first second; 0.75 levels above Sleepywood here (0.75 per step to step 12, 0.25 per step after it: the first draft's +3 per step out-ran what a band's equipment adds).",
 	"level_scale": {"keyframes": [
-		{"t": 0, "level": 12.15, "exp_level": 9.15},
-		{"t": 120, "level": 12.73, "exp_level": 9.73},
-		{"t": 300, "level": 13.8, "exp_level": 10.8},
-		{"t": 480, "level": 25.22, "exp_level": 22.22},
-		{"t": 600, "level": 39.44, "exp_level": 36.44},
-		{"t": 780, "level": 51.23, "exp_level": 48.23},
-		{"t": 900, "level": 59.85, "exp_level": 56.85}]},
+		{"t": 0, "level": 1.0, "exp_level": 9.15},
+		{"t": 120, "level": 2.9, "exp_level": 9.73},
+		{"t": 300, "level": 6.28, "exp_level": 10.8},
+		{"t": 480, "level": 18.58, "exp_level": 22.22},
+		{"t": 600, "level": 37.19, "exp_level": 36.44},
+		{"t": 780, "level": 48.98, "exp_level": 48.23},
+		{"t": 900, "level": 57.6, "exp_level": 56.85}]},
 	"_pools": "Tier C weights (#463), map 1 only: Roloduck 3210204 (Lv34) opens alone, then Panda Teddy 3210203 (Lv36) joins at 2:00 at the same weight, the map's own two monsters in the order of their level.",
 	"keyframes": [
 		{"t": 0, "rate": 3.0, "max_alive": 50, "hp": 1.0, "speed": 1.0,

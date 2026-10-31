@@ -48,6 +48,10 @@ extends SceneTree
 ## --idle-after=S: from S seconds of run time on the player stops moving (hands off the keys; cards are still chosen).
 ## --patch: a JSON object deep-merged into the loaded data before the run (keys as in setup.data: "balance",
 ## "stages", "skills", ...; see deep_merge), to try tuning variants without editing game/data.
+## --god: a diagnostic (#475): RunWorld.god makes the character invulnerable (as the fixture tool's --god), to measure what the
+## bot's damage does to a swarm without dying; the record gets `"god": true` and is never balance evidence for survival.
+## --hit-log=N: a diagnostic (#475): each record gets `last_hits`, the last N landed player hits {t, damage, mob_id, source_kind,
+## level, max_hp (the player's), hp (after the hit)}; without the flag the record keeps its bytes.
 ## One "BALANCE {json}" line per run (scripts/balance.sh tabulates them) plus a readable summary.
 ## --character=<abs JSON path>: start this one-off round from a CharacterSnapshot; never writes a save.
 ## --account=<abs JSON path>: give the round an account (AccountFile: owned cash items, worn cash equipment, pet, ALERT
@@ -60,9 +64,16 @@ extends SceneTree
 ## TIMEOUT the same region is replayed up to K more times with the character as the failed round returned it (ADR 0006
 ## keeps the loot), after the same Free Market visit; a replay's seed is hash("balance-round-<run seed>-<step>-<attempt>").
 ## Chain BALANCE records hold rounds[] (each with stage, step, attempt, the round metrics); the summary groups by step.
-## --character and camper policies cannot be combined with --chain; --tier fails at startup naming --chain.
+## --character starts a --chain with that CharacterSnapshot instead of a fresh character (#475: a fixture wearing the previous
+## region's gear, e.g. `--stage=leafre --chain=1 --retries=3 --character=<fixture>` to count the attempts a region needs from
+## that kit; later rounds carry the character as the chain does). Camper policies cannot be combined with --chain; --tier
+## fails at startup naming --chain.
 
 const DT := 1.0 / 60.0
+## --hit-log=N (a diagnostic, see the class doc): how many of the last landed player hits a record keeps; 0 = none.
+static var hit_log := 0
+## --god (a diagnostic, see the class doc): every world run_one plays is invulnerable.
+static var god := false
 const MILESTONES := [8, 10, 20, 30, 40, 50]
 ## "Near the player" box for the engagement metric (px from the player's feet).
 const NEAR_X := 300.0
@@ -179,6 +190,10 @@ func _init() -> void:
 			camp_after = float(a.substr(13))
 		elif a.begins_with("--cap="):
 			cap = float(a.substr(6))
+		elif a == "--god":
+			god = true
+		elif a.begins_with("--hit-log="):
+			hit_log = maxi(0, int(a.substr(10)))
 		elif a.begins_with("--seed="):
 			seeds.append(int(a.substr(7)))
 		elif a.is_valid_int():
@@ -221,8 +236,8 @@ func _init() -> void:
 		print("balance_run: --retries must be an integer >= 0 and needs --chain")
 		quit(2)
 		return
-	if chain and (chain_steps < 1 or chain_steps > progression.size() or has_character or CAMPER.STAGES.has(policy)):
-		print("balance_run: --chain must be 1..%d; cannot combine with --character or camper policies" % progression.size())
+	if chain and (chain_steps < 1 or chain_steps > progression.size() or CAMPER.STAGES.has(policy)):
+		print("balance_run: --chain must be 1..%d; cannot combine with camper policies" % progression.size())
 		quit(2)
 		return
 	if chain and not stage_explicit:
@@ -387,6 +402,8 @@ static func counts_as_hit(event: Dictionary) -> bool:
 
 ## Plays `w` to its end/cap with movement/card policy `policy` and returns the pacing record.
 static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0) -> Dictionary:
+	if god:
+		w.god = true
 	var memo := {}
 	var portal_names: Array = []
 	var rng := RandomNumberGenerator.new()
@@ -396,6 +413,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var boss_hits: Array = []
 	# #76: landed ordinary mob attack hits (recorded only when nonzero).
 	var mob_attack_hits := 0
+	var last_hits: Array = []
 	var buff_casts: Array = []
 	# Corsair (522) only, measurement for the QA smoke (spec #384 C15): ship boardings and seconds, what the hull took, landed hits of
 	# the summons, the cannon, the torpedo and the strike, and marked monster-seconds. Other jobs record nothing and keep their bytes.
@@ -524,6 +542,12 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 					if not bool(e.miss):
 						# #459: a poison tick is a damage over time, not a hit: it stays out of the hit metrics (hits, taken,
 						# hits_by_min and the before-6:00 / after-8:00 counts) and is kept in boss_hits.
+						if hit_log > 0: # every landed hit, poison ticks included
+							last_hits.append({"t": snappedf(w.time, 0.01), "damage": int(e.damage), "mob_id": int(e.mob_id),
+								"source_kind": String(e.get("source_kind", "")), "level": int(w.player_state.level),
+								"max_hp": int(e.max_hp), "hp": int(w.player_state.hp)})
+							if last_hits.size() > hit_log:
+								last_hits.pop_front()
 						if counts_as_hit(e):
 							hits += 1
 							taken += int(e.damage)
@@ -626,6 +650,10 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		corsair.ship_seconds = snappedf(float(corsair.ship_seconds), 0.01)
 		corsair.marked_monster_seconds = snappedf(float(corsair.marked_monster_seconds), 0.1)
 		record["corsair"] = corsair
+	if god:
+		record["god"] = true
+	if hit_log > 0:
+		record["last_hits"] = last_hits
 	if mob_attack_hits > 0:
 		# #76: only rounds where an ordinary mob's attack landed record this, so other rounds keep their exact bytes.
 		record["mob_attack_hits"] = mob_attack_hits

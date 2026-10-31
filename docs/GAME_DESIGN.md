@@ -607,7 +607,10 @@ block and compares the event logs).
     sets should stay at or below about 131; above that a stage gains no strength from a higher E.
   - Lv108-131 rest on 0-1 samples per level (see `_doc.samples.per_level`), so the tail is coarse; the monotone fit and
     smoothing carry it between the few sampled levels.
-  - `mad` holds 117.8 below Lv30: no mainline monster under Lv30 has a magic attack, so the curve has no earlier sample.
+  - `mad` (C13, #475): no mainline monster under Lv28 has a magic attack, so the curve has no sample there. It used to hold 117.8 (a
+    Lv5 monster's magic hit was as strong as a Lv28 one's, twice its physical twin's), which made level-scaled magic attackers
+    (Barnard Gray, Omega Sector) the first killer of a Lv1 character. Below its first sampled level it now follows `pad`:
+    `mad(L) = mad(first) * pad(L) / pad(first)` (`tools/level_curve/generate.mjs`, step 6 of its method).
   - Level-scale stages run a per-tick loop over the live slots in `RunWorld._fill_live_defense` to apply the captured
     PDD/MDD multipliers. Check its cost in the first perf capture of a level-scale stage (`scripts/playtest.sh
     --vsync=off`, `sim_us_per_tick`); stages without the block skip it.
@@ -631,6 +634,14 @@ block and compares the event logs).
   later and at a higher level, so its HP lands above the target by `hp(level_later)/hp(level_arrival)` (no model change). `attack_interval` is 8. The
   tool warns when a keyframe `level` (or `exp_level`) is above 131, where the reference curves go flat (#453 review): the offset
   of 3 reaches only E_sw + 33 at step 16, but a later offset change in C13 would cross it.
+- **Calibrated numbers (C13, #475; tier C).** The first draft above did not survive a bot: from the first second a Lv1 character met
+  monsters 3 x (step - 5) levels above Sleepywood's pace, so a Lv1 Hero with the previous band's gear died in 12-40 s from step 13 on
+  and within 1-2 minutes on most of steps 7-12 (4.2 "Region calibration"). The shipped keyframes are
+  `level(t) = lerp(1, E_sw(t) + above_k, min(1, t / 600))` with `exp_level(t) = E_sw(t)` unchanged: the stage starts at effective level 1
+  and reaches its step's level at 10:00, and `above_k` is 0.75 levels per step to step 12 and 0.25 per step after it (section 11,
+  "Region calibration (C13) constants"). `level_scale_draft.gd --step=<k> --stage=<key> --above=<above_k> --start=1 --warmup=600
+  --boss-hp-scale=12` prints these keyframes and the boss multipliers (the tool's defaults stay the first draft). The same ticket made the
+  `mad` reference curve follow `pad` below Lv28.
 - **Determinism and telemetry.** No RNG is drawn. A balance record of a level-scale stage gains `level_scale_at`
   (`[{boss_index, mob_id, level}]`, the effective level at each boss arrival) and each `boss_fights` entry its own
   `level_scale_at`; other stages' records keep their bytes.
@@ -871,6 +882,115 @@ No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening mu
 Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
+
+### Region calibration (C13, #475, 2026-10-31)
+
+First-pass calibration of regions 6-16 (spec #449, balance ticket), training seeds 1-4 only (no held-out range, 701-730 unused),
+the shared private cache, `JOBS=2`. A fresh F/P bot dies in Henesys, so `--chain=16` from a fresh character never passes step 1;
+each step was calibrated from a per-step fixture instead. `character_fixture.gd --band-of=<previous region> --job=<id> --cleared=<n>`
+(new) writes the kit a character arrives with: per slot the item of the previous region's `drop_band` that the bot's equipment weights
+score highest (Hero 112: a two-handed axe, no shield, the band's best hat, overall or top and bottom, gloves, shoes; F/P 212: the band's
+best wand or staff, hat, overall, gloves and shoes). `balance.sh <seeds> --stage=<key> --chain=1 --retries=3 --job=<id>
+--character=<fixture>` (`--chain` now accepts `--character`) counts the attempts a region needs from that kit, the loot of a failed
+round carried through the Free Market visit as `--retries` does. A **clear** below is a chain that clears in at most 4 attempts.
+
+**Findings first**
+
+- **Holds vs damage: damage.** Re-run of the Temple of Time (seed 1, Hero, step 16) in god mode (`balance_run.gd --god`, new; no bosses
+  held at all), same late-style kit: first-draft data **TIMEOUT at 1800 s, Lv16, 313 kills**, kills per minute 1 / 10 / 25 / 37 / 54 / 63
+  over the first six minutes (the first boss arrives at 300 s), Dodo alive 421 s and Lilynouch 221 s unheld, EXP 165-1,366 per minute;
+  calibrated data **CLEARED at 950 s, Lv60, 7,684 kills**, kills per minute 187 / 439 / 720 / 1,029 / 1,409 over the first five, bosses 4 / 37 /
+  9 s, EXP 3,404-27,544 per minute. Clocktower (seed 1): first draft Lv29 TIMEOUT, 1,853 kills (Gatekeeper 174 s, Thanatos 69 s, the
+  clock alive); calibrated Lv66 CLEARED at 935 s, 8,176 kills. So the Lv23 and Lv44 of the diagnostics are the character's damage against
+  level-scaled swarm HP (and the offset that sets that HP), not boss time: a hold only adds seconds during which the swarm keeps
+  spawning and being killed (kills never stop), so it cannot lower the clear level, and with no hold at all the first-draft run was
+  already 25-60 kills a minute before any boss. The cause in numbers: from t=0 a region sat 3 x (k - 5) levels above Sleepywood's pace,
+  and at step 16 t=900 the HP is **8.6 x** and the weapon attack **2.5 x** Sleepywood's (level_curve at 89.85 against 56.85) against a
+  weapon that adds about 2 x damage, so a kill took about 4 x longer and the character levelled later while the clock kept raising E (a
+  death spiral). The step itself adds 1.2 x per step (the Temple review's figure); it is the sum over the progression and the Lv1 start
+  that breaks.
+- **The Lv1 start is the wall.** First-draft Hero one-offs (4 seeds per step, below): **9 of 44 clear**, and the other 35 die with a median
+  death of 13-282 s, steps 13-16 within 12-41 s with 0-2 kills. A death is a few dozen ranged or magic hits of 10-48 damage from a
+  swarm of 50, not a big hit, and the `mad` curve was 118 at every level under 28, so magic attackers (Barnard Gray, Omega Sector) were twice as
+  hard as their physical twins at any E.
+- **F/P does not move with the offset.** With the offset at 0 (Sleepywood's own pace, warm-up on) F/P still died at 465-650 s on Ludibrium,
+  El Nath and the Temple (1 clear in 12), with 3-6 potions drunk in a run against the Hero's 20-47: the caster is bursted down on map 2, as it is
+  in Sleepywood (the smoke's kit: one clear in three). It is the F/P bot's survivability, which no per-step number in this ticket changes
+  (see the F/P table below).
+
+**Changes (before -> after, tier C, details in section 11 "Region calibration (C13) constants")**
+
+1. `level_scale` of regions 6-16: `level = E_sw + 3 x (k - 5)` from 0:00 -> `lerp(1, E_sw + above_k, min(1, t / 600))` with `above_k` 0.75 per
+   step to step 12 (Ludibrium 0.75 ... Zipangu 5.25) and 0.25 per step after (Leafre 5.5, Phantom Forest 5.75, Clocktower 6.0, Temple
+   6.25). `exp_level` is unchanged, so EXP per kill is what it was.
+2. `level_curve.json` `mad` below Lv28 follows `pad` (was 117.8).
+3. Boss `hp_mult` and `final_form_hp_mult` of all 33 bosses x12: x4 because the calibration Hero killed the first draft in 1-3 s (median 2-13 s),
+   then x3 for fights of 10-25 s (a probe on six steps with the same clears, 24 of 24).
+4. Tool changes: `character_fixture.gd --band-of/--band-pick`, `balance_run.gd --chain` with `--character`, `--god`, `--hit-log=N`,
+   `level_scale_draft.gd --above/--start/--warmup/--boss-hp-scale`, `tools/level_curve/generate.mjs` step 6.
+
+**Hero (112, melee), per step**: first draft one-offs ("before": same fixture and seeds, no retries) against the shipped data
+("after": the same four seeds as chains with 3 retries; attempt 1 is the same round as the one-off). Deaths are per failed attempt.
+
+| Step | Region | Gear at the start (previous band) | Before: clears of 4 / median death | After attempt 1: clears / median death | After: chains clearing within 4 attempts | Attempts per clear | Deaths on map 1 / 2 / 3 | Clear Lv (median) | Boss fight, median s (n) | Lv at 5 / 10 / 15 min (clears) | Highest reqLevel worn at the clear |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 6 | Ludibrium | Sleepywood [30, 40] | 2 / 282 s | 2 / 504 s | **4 / 4** | 1.75 | 0 / 1 / 0 (+2 TIMEOUT) | 67 | 25 (17) | 22 / 36 / 56 | 45 |
+| 7 | Omega Sector | Ludibrium [35, 45] | 0 / 57 s | 2 / 179 s | 3 / 4 | 1.67 | 5 / 1 / 0 | 62 | 24 (10) | 22 / 36 / 58 | 50 |
+| 8 | Korean Folk Town | Omega [40, 50] | 1 / 265 s | 1 / 685 s | 3 / 4 | 2.33 | 0 / 1 / 7 | 59 | 11 (24) | 22 / 35 / 51 | 50 |
+| 9 | Mu Lung | Korean Folk Town [45, 55] | 2 / 223 s | 3 / 302 s | **4 / 4** | 1.25 | 1 / 0 / 0 | 66 | 20 (12) | 22 / 37 / 57 | 60 |
+| 10 | El Nath | Mu Lung [50, 60] | 2 / 144 s | 2 / 478 s | **4 / 4** | 2.00 | 1 / 1 / 2 | 62 | 21 (17) | 21 / 32 / 54 | 65 |
+| 11 | Magatia | El Nath [55, 65] | 1 / 96 s | 2 / 496 s | **4 / 4** | 1.50 | 0 / 2 / 0 | 66 | 11 (14) | 22 / 37 / 58 | 70 |
+| 12 | Zipangu | Magatia [60, 70] | 1 / 98 s | 3 / 339 s | **4 / 4** | 1.25 | 0 / 1 / 0 | 80 | 25 (13) | 22 / 38 / 68 | 80 |
+| 13 | Leafre | Zipangu [70, 80] | 0 / 18 s | 1 / 295 s | 2 / 4 | 2.00 | 8 / 2 / 0 | 63 | 19 (8) | 22 / 36 / 58 | 90 |
+| 14 | Phantom Forest | Leafre [80, 90] | 0 / 13 s | 2 / 629 s | **4 / 4** | 1.75 | 0 / 1 / 2 | 80 | 17 (17) | 22 / 38 / 62 | 100 |
+| 15 | Clocktower | Phantom Forest [90, 100] | 0 / 14 s | 1 / 401 s | 1 / 4 | 1.00 | 2 / 9 / 1 | 71 | 5 (14) | 22 / 35 / 56 | 110 |
+| 16 | Temple of Time | Clocktower [100, 110] | 0 / 24 s | 1 / 359 s | 1 / 4 | 1.00 | 7 / 5 / 0 | 58 | 15 (8) | 20 / 32 / 51 | 110 |
+| | | | **9 / 44** | 20 / 44 | **34 / 44** | | | | | | |
+
+**Regions that miss the 1-4 attempt target**: Leafre (2 of 4 chains), Clocktower (1 of 4) and the Temple of Time (1 of 4). The 62 failed
+attempts of the table died 24 times on map 1, 24 on map 2 and 12 on map 3, plus 2 TIMEOUTs (Ludibrium's Timer, below): a spread, not a
+single wall, and 39 of the 62 end after the 300 s boss. But the three misses are a wall for this bot: 32 of their 34 failed attempts end by
+500 s (Leafre's 10 all by 415 s, 8 before the 300 s boss; the Temple's 12 by 477 s), the Hero at Lv20-29 chipped down by the swarm (Leafre's
+Blue Kentaurus at 285 s, the Chief Qualm Guardians on the Temple's map 2). Lowering `above` for steps 13-16 to 4.5-5.0 did not move them (a
+probe with the x4 bosses: Leafre 1 of 4, Clocktower 3, Temple 1), so the offset is not their lever; what separates them from Zipangu and
+Phantom Forest (4 of 4, Lv80 clears) is the pool's EXP and attack mix, which this ticket's scope (offset, boss multipliers, band edges)
+does not reach. Left for the owner (below).
+
+**F/P (212, caster)**, shipped data, seeds 1-4, one-off rounds (no retries) from the same kind of fixture: **2 of 44 clear** (Mu Lung 1,
+Magatia 1, both Lv57-61). Every other round dies on map 2 or 3 (one on map 1, after the 300 s boss): Ludibrium 475-614 s, Omega Sector 448-632 s, Korean Folk Town 541-634 s, El Nath
+536-997 s, Zipangu 632-815 s, Leafre 479-580 s, Phantom Forest 313-544 s, Clocktower 481-609 s, Temple of Time 466-618 s: the deaths are
+spread over a minute and a half, and every death is after the first boss (the target). The x4-boss sweep of the same
+fixtures gave 2 of 44 (Magatia). F/P is not tuned by anything in this ticket (the offset is not its lever, above).
+
+**Random policy**: Hero, shipped data x4 bosses, seeds 1 and 2, one-off rounds: seed 1 **clears all 11 regions** (Lv48-81), seed 2 dies in
+all 11 (133-523 s). Two seeds are not a rate.
+
+**Boss fights** (Hero, shipped data): median 5-25 s per region, 11 to 25 s on every step but Clocktower (5 s, whose Gatekeeper and Thanatos
+still fall in seconds) and Korean Folk Town; the first draft was 2-13 s. Levels at the 5 / 10 / 15 min marks are 20-22 / 32-38 / 51-68 (the
+character levels at Sleepywood's pace, as the spec asks, because `exp_level` is unchanged). Flat heals (Lyka 114/9, the clock's 114/4, Lilynouch
+114/23) did not matter: the Temple's completed fights were 16 / 39 / 24 s. Summons did not either (Alishar's Darkness, Papulatus's
+Darkstars, Leviathan's Wyverns at the shipped cadences).
+
+**Not changed (and why)**: *boss mesos* (`balance.mesos.fallback` 4 + 1.5L): a Hero round paid 45,313,646 mesos from ordinary mobs in
+the Temple and 5-12 M elsewhere, nothing is spent short, so the fallback was not binding and was left; *band edges*: the Magician
+[80, 90] pool (10 items, 2 weapons) cannot be blamed, F/P dies on every step including the ones with deep pools, and the Hero's gear reached
+each band's top (last column); *`skill_intervals`*: no spam found in the 44 chains' deaths (they are touch and ranged hits of 7-48 damage);
+steps 1-5 untouched. **Found, not fixed (bot and map issues, not balance)**: (1) **Ludibrium's Timer** was not killed in 1,800 s in 2 of the 7
+attempts that reached it (seed 2 at Lv92, seed 4 stuck at 4,720 kills for the last six minutes), also once with the x4 bosses; the bot is stuck or
+cannot hit it in Toy Factory Zone 1 (best distance 1.55 px). (2) **The Papulatus clock** hovers about 332 px above the floor, out of a melee
+Hero's reach: one Clocktower attempt (x4 sweep) ended TIMEOUT at Lv92 with the clock alive 874 s. (3) After a Free Market visit the bot's
+equipment weights swapped the Hero's two-handed axe for a 1402036 weapon in one Temple chain and the next attempts died at Lv1-16
+(retries are not always better). (4) The Hero sits at 15-25% HP for minutes (potion cooldown) before the chip kills it; a potion or
+regeneration change would move every row.
+
+**Regression smoke** (seeds 1 / 2 / 2026, F/P, `JOBS=2`, no tuning): **every first-four-regions batch matches #455's table to the second**:
+Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 /
+421.7 / 651.8, random 331.5 / 449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood with the starter wand 11.4 /
+11.9 / 15.1, with `fp_arch_mage.json` one clear and deaths at 23.8 / 395.4 / 767.0 (the 395.4 death is #455's third kit seed); no crashes, no
+world warnings. Steps 1-5 read no changed number (`level_scale` is only in regions 6-16, and `level_curve` is read only by them).
+Tests: the whole suite, `TEST_TIMEOUT_S=7200 bash scripts/test.sh` with the real cache (so nothing SKIPs): **4,172 tests, 0 failed, 0 skipped**; `node --test
+tools/level_curve/test/*.test.mjs` passes. CI has no WZ data, so its cache-backed tests SKIP.
+
 
 ### Phantom Forest (C9) regression smoke and diagnostic round (#471, 2026-10-30)
 
@@ -11585,6 +11705,33 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Meso ranges | ordinary mobs only: no v83 ordinary mob above Lv75 has a range, so the centre extrapolates the Lv70 Tauromacis (420) to Lv75 Taurospear (504) slope (16.8 per level), +-20% (Lv101 [753, 1129], Lv116 [954, 1431], Lv131 [1156, 1734]); the bosses use the `balance.mesos` level fallback | C |
 | Flags ignored | none of the three maps carries a field flag the sim reads (`lvLimit` 20 is ignored, spec #449) | A |
 | Alternates | map 1 270020400 / 270020300, map 2 270030200 / 270030300: not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Region calibration (C13) constants (#475, spec #449; progression steps 6-16)
+
+All tier C (ours): first-pass numbers on training seeds 1-4 with the Hero (112), recorded in 4.2 "Region calibration".
+
+| Rule | Before (first draft, C0-C11) | After | Tier |
+|---|---|---|---|
+| Level-scale shape | `level(t) = E_sw(t) + 3 x (k - 5)` from t = 0 | `level(t) = lerp(1, E_sw(t) + above_k, min(1, t / 600))`: a start level of 1 (`--start`) reached at 600 s (`--warmup`); `exp_level(t) = E_sw(t)` unchanged | C |
+| Levels above Sleepywood (`above_k`) | 3 per step: 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33 | 0.75 per step to step 12, 0.25 per step after: step 6 0.75, 7 1.5, 8 2.25, 9 3.0, 10 3.75, 11 4.5, 12 5.25, 13 5.5, 14 5.75, 15 6.0, 16 6.25 (the +3 per step out-ran what a band's equipment adds; steps 13-16 taper) | C |
+| Keyframes written | e.g. Leafre 33.15, 33.73, 34.8, 46.22, 60.44, 72.23, 80.85 | e.g. Leafre 1.0, 3.85, 8.65, 22.38, 41.94, 53.73, 62.35 at t = 0, 120, 300, 480, 600, 780, 900 (the same shape for every region from `exp_level`) | C |
+| `level_curve.json` `mad` | 117.8 at every level below Lv28 | `mad(L) = mad(first) x pad(L) / pad(first)` below the first sampled level (Lv5: 118 -> 34.6; Lv9: 118 -> 60.3), `tools/level_curve/generate.mjs` step 6, regenerated with the same dump and date | C |
+| Boss `hp_mult` / `final_form_hp_mult`, map 1 / 2 / 3 | the first draft | x12 (`level_scale_draft.gd --boss-hp-scale=12`), table below; `dmg_mult` and `attack_dmg_mult` unchanged | C |
+| Not changed | `balance.mesos.fallback` 4 + 1.5L (not binding: ordinary mobs pay millions per round), band edges and drop bands, `skill_intervals`, Lyka's 114/9 heal and the clock's 114/4 (the fights end in 16-39 s), the pacing keyframes, steps 1-5 | | |
+
+| Step region | Boss hp_mult before (map 1 / 2 / 3) | After |
+|---|---|---|
+| 6 ludibrium | 11.107 / 0.361 / 3.967 | 133.281 / 4.338 / 47.604 |
+| 7 omega_sector | 17.916 / 3.271 / 3.631 | 214.987 / 39.254 / 43.569 |
+| 8 korean_folk_town | 52.672 / 6.69 / 2.562 | 632.068 / 80.277 / 30.75 |
+| 9 mu_lung | 11.647 / 1.798 / 2.434 | 139.77 / 21.58 / 29.211 |
+| 10 el_nath | 48.548 / 8.714 / 4.701 | 582.579 / 104.565 / 56.414 |
+| 11 magatia | 10.658 / 9.837 / 4.1 | 127.896 / 118.047 / 49.203 |
+| 12 zipangu | 27.065 / 0.019 / 0.038 | 324.78 / 0.225 / 0.451 |
+| 13 leafre | 0.828 / 0.186 / 0.115 | 9.935 / 2.228 / 1.384 |
+| 14 phantom_forest | 0.749 / 0.083 / 0.035 | 8.993 / 1 / 0.417 |
+| 15 clocktower | 43.427 / 10.855 / 0.038 (+form 0.546) | 521.119 / 130.256 / 0.453 (+form 6.554) |
+| 16 temple_of_time | 0.881 / 0.187 / 0.21 | 10.568 / 2.25 / 2.519 |
 
 ### Corsair constants (spec #384)
 

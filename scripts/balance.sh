@@ -30,7 +30,7 @@
 #   # (default the first). Each CLEARED round feeds the next with the carried character (equipment, mesos, scrolls, cleared
 #   # set) after a Free Market visit. --retries=K (default 0) replays the same region up to K more times after a death or
 #   # TIMEOUT, with the character as the failed round returned it (ADR 0006 keeps the loot), as a player farming gear would;
-#   # the chain ends when a region is not cleared in 1+K attempts. No --character/camper with --chain. Round seed = run seed
+#   # the chain ends when a region is not cleared in 1+K attempts. --character starts the chain from that character (#475: a per-step fixture), no camper with --chain. Round seed = run seed
 #   # for the first step, hash("balance-round-<run seed>-<zero-based step>") after it, and a replay hashes its attempt in too.
 #   # --tier is gone and fails at startup naming --chain.
 #   bash scripts/balance.sh 7 11 13                        # these seeds

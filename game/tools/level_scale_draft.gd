@@ -13,7 +13,10 @@ extends SceneTree
 ## `--attacks=<a,b|c|d>` (per boss, `|` between bosses: the scheduled `attackN` stances; a boss with none listed uses every
 ## `attackN` stance it has) and `--finals=<id,id,id>` (a final form per boss, 0 for none); each replaces the same list read
 ## from the stage file. `--final-share=<0..1>` is the share of the encounter's effective HP the final form carries
-## (default 0.5) and `--offset=<n>` the levels per step above Sleepywood (default 3). Needs the asset cache
+## (default 0.5) and `--offset=<n>` the levels per step above Sleepywood (default 3). C13 (#475) calibration flags, all off by
+## default (the first-draft numbers): `--above=<n>` the levels above Sleepywood at this step, replacing `offset * (step - 5)`
+## (so a step can taper), `--start=<level>` and `--warmup=<seconds>` (the stage starts at effective level `start` and reaches
+## its step's level at `warmup`) and `--boss-hp-scale=<x>` (the draft `hp_mult` and `final_form_hp_mult` times x). Needs the asset cache
 ## (`MAPLE_SURVIVORS_CACHE`): canonical HP, damage and the reference maps' life lists come from it.
 ##
 ## The formulas (tier C, all of them: #449's first draft; the numbers are re-tuned by the calibration ticket, never by
@@ -25,6 +28,8 @@ extends SceneTree
 ##    boundary (t = 300 is map 2's first moment): `map_index_at`. The keyframe `hp` multiplier is left out: the new
 ##    region copies the reference stage's keyframes, so it applies it on top again.
 ##  * Step k >= 6: `level(t) = E_ref(t) + offset * (k - 5)` and `exp_level(t) = E_ref(t)` at each reference keyframe time.
+##    Calibrated (C13, #475): the levels above the reference are `above` when given, and with `warmup` > 0 the level is
+##    `lerp(start, E_ref(t) + above, min(1, t / warmup))`, so a Lv1 character meets a low-level stage first.
 ##  * Boss j, arriving at curve time t_j = j * map_seconds + time (also nominal round time): the reference boss's effective
 ##    HP, contact damage and strongest scheduled attack's damage at t_j (canonical value x its multiplier x the ramp at
 ##    t_j) is carried to the new boss by the level scale's own ratios, `hp(level)/hp(E_ref)` for HP and `pad(level)/pad(E_ref)`
@@ -44,6 +49,8 @@ extends SceneTree
 const CURVE_FLAT_ABOVE := 131
 ## Tier C (#449): levels harder per region step above Sleepywood.
 const DEFAULT_OFFSET := 3.0
+## Tier C (#475): the default start level of a warm-up (--start); a warm-up of 0 seconds is off.
+const DEFAULT_START := 1.0
 ## Tier C (#449): the progression step Sleepywood holds; step k adds `offset * (k - SLEEPYWOOD_STEP)`.
 const SLEEPYWOOD_STEP := 5
 ## Tier C (#449): the final form's share of an encounter's effective HP when a boss has one (B1 #456 weights it).
@@ -83,16 +90,18 @@ func _init() -> void:
 		var img := library.img(DataRepo.map_img_path(int(entry.map_id)))
 		map_imgs.append(img.root if img != null else {})
 	var result := draft(stage, data.level_curve, map_imgs, func(id: int) -> Dictionary: return library.mob_root(id),
-			int(args.step), plan.bosses, plan.attacks, plan.finals, float(args.final_share), float(args.offset))
+			int(args.step), plan.bosses, plan.attacks, plan.finals, float(args.final_share), float(args.offset),
+			float(args.above), float(args.start), float(args.warmup), float(args.boss_hp_scale))
 	print(describe(result, int(args.step), args.reference, args.stage))
 	library.free()
 	quit(1 if not result.errors.is_empty() else 0)
 
 
-## The flags as {step, bosses, attacks, finals, final_share, offset, stage, reference}, or {error}.
+## The flags as {step, bosses, attacks, finals, final_share, offset, above, start, warmup, boss_hp_scale, stage, reference}, or {error}.
 static func _parse(argv: PackedStringArray) -> Dictionary:
 	var out := {"step": 0, "bosses": [], "attacks": [], "finals": [], "final_share": DEFAULT_FINAL_SHARE,
-		"offset": DEFAULT_OFFSET, "stage": "", "reference": "sleepywood"}
+		"offset": DEFAULT_OFFSET, "above": -1.0, "start": DEFAULT_START, "warmup": 0.0, "boss_hp_scale": 1.0,
+		"stage": "", "reference": "sleepywood"}
 	for arg in argv:
 		var parts := arg.trim_prefix("--").split("=", true, 1)
 		var value := parts[1] if parts.size() > 1 else ""
@@ -109,6 +118,10 @@ static func _parse(argv: PackedStringArray) -> Dictionary:
 					out.finals.append(int(id))
 			"final-share": out.final_share = float(value)
 			"offset": out.offset = float(value)
+			"above": out.above = float(value)
+			"start": out.start = float(value)
+			"warmup": out.warmup = float(value)
+			"boss-hp-scale": out.boss_hp_scale = float(value)
 			"stage": out.stage = value
 			"reference": out.reference = value
 			_: return {"error": "unknown flag '%s'" % arg}
@@ -140,7 +153,8 @@ static func bosses_of(stage: Dictionary, bosses: Array = [], attacks: Array = []
 ## form id per boss (0: none). Pure given those inputs.
 static func draft(stage: Dictionary, curve: Dictionary, map_imgs: Array, mob_root: Callable, step: int, bosses: Array,
 		attacks: Array = [], finals: Array = [], final_share: float = DEFAULT_FINAL_SHARE,
-		offset: float = DEFAULT_OFFSET) -> Dictionary:
+		offset: float = DEFAULT_OFFSET, above: float = -1.0, start: float = DEFAULT_START, warmup: float = 0.0,
+		boss_hp_scale: float = 1.0) -> Dictionary:
 	var out := {"keyframes": [], "bosses": [], "rows": [], "warnings": PackedStringArray(), "errors": PackedStringArray()}
 	var map_pools: Array = []
 	for i in stage.maps.size():
@@ -157,7 +171,7 @@ static func draft(stage: Dictionary, curve: Dictionary, map_imgs: Array, mob_roo
 		times.append(t)
 		e_values.append(row.e_ref)
 		out.rows.append(row)
-	out.keyframes = scale_keyframes(times, e_values, step, offset)
+	out.keyframes = scale_keyframes(times, e_values, step, offset, above, start, warmup)
 	out.warnings.append_array(level_warnings(out.keyframes))
 	if bosses.size() != stage.maps.size():
 		out.errors.append("the reference stage has %d maps; give %d boss ids" % [stage.maps.size(), stage.maps.size()])
@@ -178,12 +192,13 @@ static func draft(stage: Dictionary, curve: Dictionary, map_imgs: Array, mob_roo
 				out.errors.append("mob %d has no canonical HP: list it in the region's manifest fragment and import it" % int(check[0]))
 		if not out.errors.is_empty():
 			return out
-		var matched := match_boss(reference, curve, e_j, canon, level_for(e_j, step, offset),
-				final_share if final_id > 0 else 0.0, final_canon)
+		var level_j := level_at(e_j, t_j, step, offset, above, start, warmup)
+		var matched := match_boss(reference, curve, e_j, canon, level_j, final_share if final_id > 0 else 0.0, final_canon,
+				boss_hp_scale)
 		matched.mob_id = int(bosses[j])
 		matched.arrival = t_j
 		matched.e_ref = e_j
-		matched.level = level_for(e_j, step, offset)
+		matched.level = level_j
 		if final_id > 0:
 			matched.final_form = final_id
 		out.bosses.append(matched)
@@ -274,18 +289,22 @@ static func curve_at(values: Array, level: float) -> float:
 	return lerpf(float(values[i]), float(values[i + 1]), x - float(i))
 
 
-## The region's effective level for a reference level e at step `step`: e + offset * (step - 5).
-static func level_for(e: float, step: int, offset: float = DEFAULT_OFFSET) -> float:
-	return e + offset * float(step - SLEEPYWOOD_STEP)
+## The region's effective level at curve time t for a reference level e (C13, #475): the target e + `above` (`above` < 0:
+## offset * (step - 5), the first draft), reached from `start` over `warmup` seconds (`warmup` 0: at once, the first draft).
+static func level_at(e: float, t: float, step: int, offset: float = DEFAULT_OFFSET, above: float = -1.0,
+		start: float = DEFAULT_START, warmup: float = 0.0) -> float:
+	var target := e + (above if above >= 0.0 else offset * float(step - SLEEPYWOOD_STEP))
+	return lerpf(start, target, clampf(t / warmup, 0.0, 1.0)) if warmup > 0.0 else target
 
 
 ## The `level_scale` keyframes of step `step`: for each reference time (`times`, `e_values` aligned) {t, level =
-## E + offset * (step - 5), exp_level = E}, levels rounded to LEVEL_STEP.
-static func scale_keyframes(times: Array, e_values: Array, step: int, offset: float = DEFAULT_OFFSET) -> Array:
+## level_at(E, t), exp_level = E}, levels rounded to LEVEL_STEP. With the defaults the level is E + offset * (step - 5).
+static func scale_keyframes(times: Array, e_values: Array, step: int, offset: float = DEFAULT_OFFSET, above: float = -1.0,
+		start: float = DEFAULT_START, warmup: float = 0.0) -> Array:
 	var out: Array = []
 	for i in times.size():
 		out.append({"t": int(times[i]) if float(times[i]) == floorf(float(times[i])) else times[i],
-			"level": snappedf(level_for(float(e_values[i]), step, offset), LEVEL_STEP),
+			"level": snappedf(level_at(float(e_values[i]), float(times[i]), step, offset, above, start, warmup), LEVEL_STEP),
 			"exp_level": snappedf(float(e_values[i]), LEVEL_STEP)})
 	return out
 
@@ -341,14 +360,14 @@ static func boss_effective(entry: Dictionary, canon: Dictionary, ramp: Dictionar
 ## The multipliers that carry `reference` (boss_effective of the reference stage's boss) to a new boss of canonical numbers
 ## `canon` under the level scale: effective level `level` for the new region, `e_ref` for the reference. Returns {hp_mult,
 ## dmg_mult, attack_dmg_mult, attack_interval} plus `final_form_hp_mult` when `final_share` > 0 (then `final_canon` is the
-## form's canonical numbers and hp_mult covers the remaining share). A canonical value of 0 leaves its multiplier at 1.
+## form's canonical numbers and hp_mult covers the remaining share). `hp_scale` multiplies both HP multipliers (C13). A canonical value of 0 leaves its multiplier at 1.
 static func match_boss(reference: Dictionary, curve: Dictionary, e_ref: float, canon: Dictionary, level: float,
-		final_share: float = 0.0, final_canon: Dictionary = {}) -> Dictionary:
+		final_share: float = 0.0, final_canon: Dictionary = {}, hp_scale: float = 1.0) -> Dictionary:
 	var target_hp := float(reference.hp) * curve_at(curve.hp, level) / curve_at(curve.hp, e_ref)
 	var out := {"attack_interval": ATTACK_INTERVAL}
-	out.hp_mult = _snap_mult(_carry(target_hp * (1.0 - final_share), float(canon.hp), curve.hp, level, int(canon.level)))
+	out.hp_mult = _snap_mult(hp_scale * _carry(target_hp * (1.0 - final_share), float(canon.hp), curve.hp, level, int(canon.level)))
 	if final_share > 0.0:
-		out.final_form_hp_mult = _snap_mult(_carry(target_hp * final_share, float(final_canon.hp), curve.hp, level,
+		out.final_form_hp_mult = _snap_mult(hp_scale * _carry(target_hp * final_share, float(final_canon.hp), curve.hp, level,
 				int(final_canon.level)))
 	var pad_target := float(reference.touch) * curve_at(curve.pad, level) / curve_at(curve.pad, e_ref)
 	out.dmg_mult = _snap_mult(_carry(pad_target, float(canon.pad), curve.pad, level, int(canon.level)))

@@ -5,6 +5,7 @@ extends TestCase
 ## (Gatekeeper, Thanatos, Papulatus clock into its flying form). Parts that read canonical data (pool mobs, the bosses'
 ## skills, summons) are cache-backed and SKIP without the asset cache.
 
+const CAL := preload("res://tests/calibrated_levels.gd")
 const KEY := "clocktower"
 const MAPS := [220060400, 220070400, 220080000]
 const BOSSES := [8160000, 8170000, 8500001]
@@ -112,8 +113,8 @@ func test_level_scale_is_present_valid_and_thirty_levels_above_sleepywoods_pace(
 	assert_eq(kfs.size(), stage.keyframes.size(), "one level per pacing keyframe")
 	for i in kfs.size():
 		assert_eq(float(kfs[i].t), float(stage.keyframes[i].t), "keyframe %d at the pacing time" % i)
-		assert_near(float(kfs[i].level) - float(kfs[i].exp_level), 30.0, 0.011,
-			"step 15 is 30 levels above Sleepywood's pace (3 per step after step 5)")
+		assert_near(float(kfs[i].level), CAL.level_at(float(kfs[i].exp_level), float(kfs[i].t), 15), 0.011,
+			"step 15: the calibrated level (C13): 1 at 0:00 rising to Sleepywood's pace + CAL.ABOVE at 10:00, keyframe %d" % i)
 		assert_true(float(kfs[i].level) < 131.0, "below the level where the reference curves go flat")
 	assert_true(String(stage.get("_level_scale", "")).contains("Tier C"), "a _tier note")
 
@@ -142,11 +143,11 @@ func test_bosses_are_scheduled_with_tier_notes_and_enabled_kits() -> void:
 		"the tier note records the intervals and the dropped attack3")
 	assert_false(bosses[0].has("skill_intervals") or bosses[1].has("skill_intervals"), "only the clock needs intervals")
 	# The draft tool's numbers (--step=15 --stage=clocktower), pinned so a retune is a visible change.
-	assert_eq([float(bosses[0].hp_mult), float(bosses[1].hp_mult), float(bosses[2].hp_mult)], [43.427, 10.855, 0.038])
+	assert_eq([float(bosses[0].hp_mult), float(bosses[1].hp_mult), float(bosses[2].hp_mult)], [521.119, 130.256, 0.453])
 	assert_eq([float(bosses[0].dmg_mult), float(bosses[1].dmg_mult), float(bosses[2].dmg_mult)], [1.064, 0.822, 1.594])
 	assert_eq([float(bosses[0].attack_dmg_mult), float(bosses[1].attack_dmg_mult), float(bosses[2].attack_dmg_mult)],
 		[1.171, 0.834, 2.784])
-	assert_eq(float(bosses[2].final_form_hp_mult), 0.546)
+	assert_eq(float(bosses[2].final_form_hp_mult), 6.554)
 
 
 func test_the_clocks_lockout_floors_cover_its_stun_and_dispel() -> void:

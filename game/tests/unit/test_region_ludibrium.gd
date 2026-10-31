@@ -4,6 +4,7 @@ extends TestCase
 ## level scale and the three bosses. Parts that read canonical data (pools from the maps' life lists, the bosses' skills)
 ## are cache-backed and SKIP without the asset cache.
 
+const CAL := preload("res://tests/calibrated_levels.gd")
 const KEY := "ludibrium"
 const MAPS := [220011000, 220030400, 220030000]
 const BOSSES := [4130103, 9300012, 5220003]
@@ -82,7 +83,8 @@ func test_level_scale_is_present_valid_and_three_levels_above_sleepywoods_pace()
 	assert_eq(kfs.size(), stage.keyframes.size(), "one level per pacing keyframe")
 	for i in kfs.size():
 		assert_eq(float(kfs[i].t), float(stage.keyframes[i].t), "keyframe %d at the pacing time" % i)
-		assert_near(float(kfs[i].level) - float(kfs[i].exp_level), 3.0, 0.011, "step 6 is 3 levels above Sleepywood")
+		assert_near(float(kfs[i].level), CAL.level_at(float(kfs[i].exp_level), float(kfs[i].t), 6), 0.011,
+			"step 6: the calibrated level (C13): 1 at 0:00 rising to Sleepywood's pace + CAL.ABOVE at 10:00, keyframe %d" % i)
 	assert_true(String(stage.get("_level_scale", "")).contains("Tier C"), "a _tier note")
 
 
