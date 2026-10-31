@@ -79,6 +79,9 @@ var bounds := Rect2()
 var magic_defense_k := CombatMath.MAGIC_DEFENSE_K
 ## Per mob slot, 0 = magic damage blocked (magic immunity 141); empty = nothing blocked. RunWorld lends it for one step.
 var magic_allowed := PackedByteArray()
+## Set by RunWorld while some boss reflects (MobSkill 143/144/145): `(slot, magic, damage) -> bool`, true when the boss
+## reflects the hit, which then deals it 0 (no event, no on-hit effect). Invalid otherwise.
+var reflect_hit := Callable()
 ## tier C: minimum per-contact multiplier, configured from balance.combat.pierce_floor by RunWorld.
 var pierce_floor := 0.0
 ## Mob slots killed during the last step() (cleared at the start of each step).
@@ -374,6 +377,8 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 		crit_mult[i], rng, swarm.element_multiplier(m, element[i]),
 		CombatMath.DAMAGE_TYPE_NAMES[kind], damage_pct[i], crit_damage_bonus[i],
 		multiplier)
+	if reflect_hit.is_valid() and bool(reflect_hit.call(m, is_magic, roll.x)):
+		return
 	var dir := 1 if vx[i] >= 0.0 else -1
 	var head := Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y)
 	var hv := hit_visual[i]

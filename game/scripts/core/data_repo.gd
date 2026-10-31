@@ -5,6 +5,8 @@ extends RefCounted
 ## and assembles a whole setup from an img loader. Presentation/core code: it reads files; the sim never does.
 ## Skills, upgrades, equipment drops, scrolls and shops are a base file plus per-job-line fragments
 ## (`survivor/<name>/<line>.json`) merged by `load_split` (SPLIT, lines(); docs/ARCHITECTURE.md 4.4.4).
+## Stages are a base file plus one file per region (`survivor/stages/<key>.json`) merged by `load_stages`
+## (docs/ARCHITECTURE.md 4.4.4).
 ##
 ##   var data := DataRepo.load_all()
 ##   var setup := DataRepo.build_setup(data, "henesys", 12345, Vector2(800, 600),
@@ -124,6 +126,9 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 		if SPLIT.has(key):
 			out[key] = load_split(key, root, errors)
 			continue
+		if key == "stages":
+			out[key] = load_stages(root, errors)
+			continue
 		var path := root.path_join(FILES[key])
 		var v: Variant = load_json(path)
 		if v is Dictionary:
@@ -185,6 +190,49 @@ static func load_split(key: String, root: String = DATA_ROOT, errors: PackedStri
 		_merge_fragment(out, frag, spec, path, errors)
 	if merge == "sorted":
 		(out[entries_key] as Array).sort()
+	return out
+
+
+## The stages data (docs/ARCHITECTURE.md 4.4.4): the base `survivor/stages.json` (`progression` and the notes) with the
+## stage of every `survivor/stages/<key>.json` merged into its `stages` dictionary. A region file holds ONE stage
+## (the object that used to sit under `stages.<key>`); the file name is the key. Stages enter after any inline entry of the
+## base file, in `progression` order, then every other file by name (tool-only stages). A key in the base and in a file is
+## listed in `errors` and the first value kept. A missing `stages` folder is fine; a missing or malformed base gives {}.
+static func load_stages(root: String = DATA_ROOT, errors: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var base_path := root.path_join(FILES.stages)
+	var base: Variant = load_json(base_path)
+	if not base is Dictionary:
+		errors.append("cannot read %s" % base_path)
+		return {}
+	var out: Dictionary = base
+	if not out.get("stages") is Dictionary:
+		out["stages"] = {}
+	var dir_path := root.path_join(String(FILES.stages).trim_suffix(".json"))
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return out
+	var keys: Array[String] = []
+	for file in dir.get_files():
+		if file.ends_with(".json"):
+			keys.append(file.trim_suffix(".json"))
+	keys.sort()
+	var ordered: Array[String] = []
+	for key: Variant in out.get("progression", []):
+		if key is String and key in keys:
+			ordered.append(key)
+	for key in keys:
+		if key not in ordered:
+			ordered.append(key)
+	var stages: Dictionary = out.stages
+	for key in ordered:
+		var path := dir_path.path_join(key + ".json")
+		var stage: Variant = load_json(path)
+		if not stage is Dictionary:
+			errors.append("cannot read %s" % path)
+		elif stages.has(key):
+			errors.append("%s: duplicate stage '%s' (first kept)" % [path, key])
+		else:
+			stages[key] = stage
 	return out
 
 
@@ -334,7 +382,7 @@ static func summary_stage_lines(summary: Dictionary) -> Array[String]:
 	var region := String(summary.get("region", ""))
 	var continent := String(summary.get("continent", ""))
 	if region.is_empty():
-		var stages_file: Variant = load_json(DATA_ROOT.path_join(FILES.stages))
+		var stages_file: Variant = load_stages()
 		var key := canonical_stage_key(String(summary.get("stage", "")))
 		var known: Dictionary = {}
 		if stages_file is Dictionary and (stages_file as Dictionary).get("stages", {}).has(key):

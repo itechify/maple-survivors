@@ -603,6 +603,26 @@ block and compares the event logs).
   - Level-scale stages run a per-tick loop over the live slots in `RunWorld._fill_live_defense` to apply the captured
     PDD/MDD multipliers. Check its cost in the first perf capture of a level-scale stage (`scripts/playtest.sh
     --vsync=off`, `sim_us_per_tick`); stages without the block skip it.
+- **First draft of a region's numbers (spec #449 C0, #462; tier C).** `game/tools/level_scale_draft.gd --step=<k>
+  --stage=<key>` prints (the bosses read from `stages/<key>.json`; Sleepywood is the default `--reference`) the
+  `level_scale` keyframes and boss multipliers a new region starts from; the formulas are pure static functions
+  (`test_level_scale_draft`). With E_sw(t) = Sleepywood's effective level at its keyframe curve times t, region step k
+  (`progression` position, 1-based, Sleepywood = 5) gets `level(t) = E_sw(t) + 3·(k − 5)` and `exp_level(t) = E_sw(t)`
+  (levels rounded to 0.01). E_sw(t) is the level whose `hp` reference value equals the weighted mean canonical HP of the
+  live ordinary pool at t times the stage's opening-ramp HP multiplier at nominal round time t (the keyframe `hp` multiplier
+  is left out, since a region copies Sleepywood's keyframes and applies it again). The live pool is the map being entered at
+  a boundary (t = 300 is map 2's first moment, t = 600 map 3's); on map 1 the last keyframe pool below `map_seconds`, on a later
+  map `StagePools.resolve`. A boss arriving at `t_j = j·map_seconds + time` is carried from the Sleepywood boss of the same slot:
+  its effective HP, contact damage and strongest scheduled attack at t_j (canonical × multiplier × the ramp at t_j, as
+  `BossDirector` and `spawn_mob` capture them) are scaled by `hp(level)/hp(E_sw)` and `pad(level)/pad(E_sw)` (`mad` for a magic
+  attack), and `hp_mult`, `dmg_mult`, `attack_dmg_mult` are what make the new boss's own level-scaled value equal that target
+  (the offset cancels, so the multipliers do not depend on it). Both sides read only their scheduled `attacks` (the entry's
+  list; every `attackN` stance when it names none), and `attack_dmg_mult` is matched on the strongest of them alone. A boss
+  with a `final_form` splits the target HP by `--final-share` (0.5): its `hp_mult` covers the rest and `final_form_hp_mult`
+  the form's share. The form is matched at the shell's nominal arrival level, but at runtime it spawns when the shell dies,
+  later and at a higher level, so its HP lands above the target by `hp(level_later)/hp(level_arrival)` (no model change). `attack_interval` is 8. The
+  tool warns when a keyframe `level` (or `exp_level`) is above 131, where the reference curves go flat (#453 review): the offset
+  of 3 reaches only E_sw + 33 at step 16, but a later offset change in C13 would cross it.
 - **Determinism and telemetry.** No RNG is drawn. A balance record of a level-scale stage gains `level_scale_at`
   (`[{boss_index, mob_id, level}]`, the effective level at each boss arrival) and each `boss_fights` entry its own
   `level_scale_at`; other stages' records keep their bytes.
@@ -8778,6 +8798,19 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Unlock hint | "Locked. Defeat <boss> in <previous region> to unlock." with the previous region's map 3 boss (`final_form` first), String.wz name | C |
 | Header | "Regions cleared N/M" on the character line, `HEADING_GAP` 18 px after it (the grown scroll's rod covers a second row) | C |
 
+### Region template and level-scale draft (spec #449 C0, #462; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Per-region stage files | `survivor/stages/<key>.json` (one stage object each) merged in `progression` order by `DataRepo.load_stages`; no value changed by the split (golden `tests/fixtures/stages_presplit.json`) | C |
+| Per-step level offset | `level_scale_draft.gd` `DEFAULT_OFFSET` 3 levels per progression step above Sleepywood (step 5): `level = E_sw + 3·(k − 5)`, `exp_level = E_sw` (spec #449; re-tuned by C13) | C |
+| E_sw(t) | level whose `hp` reference equals the pool's weighted mean canonical HP × the opening-ramp HP multiplier at nominal round time = curve time; the map entered at a boundary; keyframe `hp` multiplier excluded | C |
+| Boss match | HP, contact damage and strongest scheduled attack carried from Sleepywood's same-slot boss by `curve(level)/curve(E_sw)` (`mad` for magic); multipliers snapped to 0.001 | C |
+| Final-form HP split | `level_scale_draft.gd` `DEFAULT_FINAL_SHARE` 0.5 of the encounter's effective HP to the final form (`final_form_hp_mult`) | C |
+| Boss attack interval | `level_scale_draft.gd` `ATTACK_INTERVAL` 8 s, as every boss | C |
+| Warning ceiling | `level_scale_draft.gd` `CURVE_FLAT_ABOVE` 131: the reference curves hold their Lv131 values above it (v83 has no stronger ordinary monster) | A |
+| Keyframe level resolution | 0.01 levels | C |
+
 ### Review #282: constants and provenance
 
 | Rule | Value / source | Tier |
@@ -10277,6 +10310,22 @@ Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a de
 | Damage | At `attackAfter` a character whose body box overlaps any picked column takes one hit: once per attack, never per column, through the attack's damage path (PADamage / MADamage / the mob's `pad` / `mad`, Attack Up for physical, `elemAttr`, the hit window and guards) with the stage entry's `attack_dmg_mult` and `source_kind` "attack". A jumping character clear of the column's height (Thanatos 113 px, Lyka 200 px) is missed | C (once per attack; vertical extent is the WZ box), A (damage source) |
 | Hit art | `hit` plays on every picked column at the strike, struck or not; anchors are the column's bottom centre (one `area_attack` event carries all anchors, one pooled animation each, no node per column) | C |
 | Cadence | The entry's `attack_interval`, as for the other attack types | C |
+
+### Boss kits II B6: flying bosses, Dispel, Reflect (#461, spec #448)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Flying boss | A scheduled boss (or final form) whose Mob.wz img has a `fly` stance (`MobKind.flies`) has no foothold: `RunWorld.spawn_boss` and `relocate_mob` give it foothold -1 and the swarm moves it like any flyer, toward the character's feet at `flySpeed` (else `speed`: Papulatus 8500002's `speed` 60 is about 100 px/s) with the small bob, clamped to the map's bounds (VR). `BossAttacks` no longer skips a boss with no foothold when the kind flies; its attacks of types 0-2 start from where it hovers and it holds its place (and facing) while the stance plays. Contact damage is the ordinary `bodyAttack` touch (Papulatus's flying form: PADamage 800, no `attackN`, no skills). A grounded boss in the air still waits for a foothold, as before | A (stances, PADamage), C (hover while attacking, stop distance) |
+| Dispel 127 values | `interval`, `prop`, `lt`/`rb` (mirrored by facing), `affected` from `MobSkill.img/127/level/<lv>` (Papulatus clock 127/1: interval 1, prop 100, +-300 x 120) | A |
+| Dispel effect | Ends every active Form (`PlayerForms`, reason "dispelled") and every timed self-buff in `PlayerBuffs` (the Form's buff included), in that order. It never ends: summons and a support summon's pulse buffs (skill slot `summon_sub`), passives, potions, any cooldown, or the statuses bosses put on the character (Slow, Stun, Darkness, Poison...: debuffs, not self-effects) | C |
+| Dispel cast gate | Cast only with the character inside the area, not Hidden, outside the lockout and with a Form or timed buff to end (a cast with nothing to end would only spend the lockout, so it waits and spends no interval, as Banish does); `prop` is rolled on stream 19 once per such cast, a failed roll spends the interval | C |
+| Dispel lockout | `balance.mob_skills.status_lockout["127"]` = 20 s from the cast (`MobSkillRunner.DISPEL_LOCKOUT` when absent), at least | C |
+| Dispel presentation | `player_dispelled` event: the level's `affected` art plays once on the character and the notice "<boss> dispelled your effects!" shows | C |
+| Reflect 143 / 144 / 145 values | `x`, `y`, `interval`, `time`, `hp` gate and `mob` icon from `MobSkill.img/<id>/level/<lv>` (Lilynouch 145/1: x 2000, y 1500, hp <= 50, interval 60, time 10); 143 reflects physical hits, 144 magic, 145 both | A |
+| Reflect effect | While it lasts a hit of the reflected type on the boss deals 0 to it (no `mob_hit`, no on-hit effect, nothing counted as dealt; shots, instant hits and Final Attacks all go through it) and the character loses `min(damage x x/10000 x k, y x c)` HP, rounded, at least 1 for a positive amount: `x` is read as basis points of the hit, `y` as a cap. `balance.mob_skills.reflect`: `damage_mult` k = 1.0, `cap_mult` c = 0.03 (Lilynouch caps at 45 HP, the character's HP being in the hundreds), `rate` 0.5 s. At most one reflect per boss hurts per `rate` s; the others still deal 0 to the boss | C |
+| Reflect hit | A `player_hit` of `source_kind` "reflect" (boss, so boss-hit telemetry reports it): no avoid, defense or knockback, no hit window of its own, and no Form or hull absorption (deliberate: it is the character's own damage coming back, not a monster hit). Refused while dead, clearing a map, in god mode, Hidden, inside a hit window or behind a hit guard (the hit still deals 0 to the boss); only a reflect that lands spends the boss's 0.5 s rate slot, so a refused one leaves it free. Second life (hit hooks) applies; it can kill, and death clears the ground hazards as `take_hit`'s does. Only the character's own hits are reflected: the burn and poison ticks already on a boss never are. `boss_reflect` event: `{mob, mob_id, boss_index, magic, damage, amount}` | C |
+| Reflect exclusivity | A reflect never overlaps 140 or 141 on the same boss: a reflect cast while either is up, or a 140/141 cast while a reflect is up, is skipped and spends its interval (the 140/141 half is Cosmic's rule, tier B, #457; extending it to the reflects is ours) | C |
+| Reflect presentation | The boss shows the level's `mob` icon (`status_visuals`) while it lasts and the notice "<boss> is reflecting physical / magic damage!" or "... your attacks!" shows at the cast | C |
 
 ## 12. Later phases
 

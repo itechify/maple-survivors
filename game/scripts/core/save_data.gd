@@ -132,7 +132,7 @@ func _apply_file(parsed: Dictionary) -> bool:
 	parsed = normalized
 	best = {}
 	runs = {}
-	var stage_data: Variant = DataRepo.load_json(DataRepo.DATA_ROOT.path_join(DataRepo.FILES.stages))
+	var stage_data: Variant = DataRepo.load_stages()
 	var stages: Dictionary = stage_data.get("stages", {}) if stage_data is Dictionary else {}
 	for k: String in parsed.best:
 		if stages.has(k) and parsed.best[k] is Dictionary:

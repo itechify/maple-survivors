@@ -1190,6 +1190,8 @@ func handle_events(events: Array) -> void:
 				_on_boss_skill(e)
 			"player_banished":
 				_on_player_banished(e)
+			"player_dispelled":
+				_on_player_dispelled(e)
 			"hazard_spawned":
 				_first_event_shot("mist", "mist.png", 1.2) # tier C: playtest evidence of the first mist, after it has faded in.
 			"hazard_status":
@@ -1301,6 +1303,10 @@ func _on_boss_skill(e: Dictionary) -> void:
 			fx.play(String(e.summon_effect),Vector2(world.swarm.x[slot],world.swarm.y[slot]))
 		elif slot != source and String(e.recipient_effect) != "":
 			fx.play(String(e.recipient_effect),world.mob_center(slot))
+	if int(e.skill_id) in MobSkillRunner.REFLECT_IDS and hud != null:
+		# Reflect (#461): the boss shows its `mob` icon; the notice says which hits it turns back.
+		hud.push_notice("reflect_%d" % int(e.mob_id), _reflect_notice(int(e.mob_id), int(e.skill_id)))
+		_first_event_shot("reflect", "reflect.png", 0.3) # tier C: the first Reflect, its icon over the boss.
 	if String(e.player_effect) != "":
 		var skill_id := int(e.skill_id)
 		if _status_fx.has(skill_id):
@@ -1314,6 +1320,28 @@ func _on_boss_skill(e: Dictionary) -> void:
 			var key: String = STATUS_KEYS[skill_id]
 			_first_event_shot(key, key + ".png", 0.4 if skill_id != MobSkillRunner.SKILL_DARKNESS else 0.5)
 	_mob_sound(int(e.mob_id), String(e.action).replace("skill", "Skill"))
+
+
+## The notice of a boss's Reflect cast (143 physical, 144 magic, 145 both).
+func _reflect_notice(mob_id: int, skill_id: int) -> String:
+	var boss := library.string_name("Mob", mob_id).strip_edges()
+	match skill_id:
+		MobSkillRunner.SKILL_REFLECT_PHYSICAL:
+			return "%s is reflecting physical damage!" % boss
+		MobSkillRunner.SKILL_REFLECT_MAGIC:
+			return "%s is reflecting magic damage!" % boss
+	return "%s is reflecting your attacks!" % boss
+
+
+## A boss's Dispel (#461) ended the character's Forms and timed buffs: its `affected` art plays once on the character and
+## a notice names the boss. Skills that were not active keep running.
+func _on_player_dispelled(e: Dictionary) -> void:
+	if hud != null:
+		hud.push_notice("dispel", "%s dispelled your effects!" % library.string_name("Mob", int(e.mob_id)).strip_edges())
+	if String(e.effect) != "":
+		# tier C: affected pos0 is anchored at the character's feet, like Banish's.
+		fx.play(String(e.effect), Vector2.ZERO, false, avatar)
+	_first_event_shot("dispel", "dispel.png", 0.2) # tier C: the first Dispel, in its first animation frames.
 
 
 ## A hazard (the poison mist, #459) just put Slow or Poison on the character: its `affected` art loops above the head for

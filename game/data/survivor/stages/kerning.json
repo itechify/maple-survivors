@@ -1,0 +1,88 @@
+{
+	"drop_band": [20, 30],
+	"_opening_ramp": "Tier C (#307): whole-round opening multiplier; neutral tier-1 ramp preserves #293 pacing. HP captures at spawn; ordinary damage at impact; bosses capture both on arrival.",
+	"opening_ramp": {"seconds": 900, "hp": {"start": 1.0, "end": 1.0}, "damage": {"start": 1.0, "end": 1.0}},
+	"_tier": "Tier A: map IDs and original_life from v83 Map.wz. Tier C (owner, spec #253): region, map order, boss picks and pool rules; the numeric curve (keyframe rate/max_alive/hp/speed, bursts, elites, exp_mult, hard_cap, post_duration_slope) copies Henesys exactly. The 210 s keyframe is Henesys's curve interpolated at 3:30 (rate 0.875, max_alive 17.5, speed 1.0375), added only to carry the 3:30 pool change; keyframes from 300 s carry no pool because map 1 picks only keyframes with t < 300 (maps 2 and 3 use their own life lists).",
+	"name": "Kerning City Construction Site",
+	"region": "Kerning City",
+	"continent": "Victoria Island",
+	"duration": 900,
+	"hard_cap": 400,
+	"_bosses": "Tier C (spec #253, starting values, untuned): each boss matches the Henesys boss of the same map slot (Mano, Mushmom, Blue Mushmom) at that slot's typical_hp/typical_pdd: survivor HP = round(canonical maxHP x hp_mult) equals the slot's, and hp_mult/dmg_mult/attack_dmg_mult are the 0.01 steps whose 85-100% roll range (CombatMath.monster_damage) lies closest to the slot's touch/attack roll range. Canonical PDD/MDD, level and undead flags are not normalized.",
+	"map_seconds": 300,
+	"_maps": "Tier C: owner map order and pool rules, spec #253. Map 1 is a hand-written curve pool of its own life mobs; maps 2 and 3 use their v83 life lists (no timed or hidden entries in v83).",
+	"maps": [
+		{
+			"map_id": 103010000,
+			"pool": "curve",
+			"boss": {
+				"time": 300,
+				"mob_id": 9300003,
+				"hp_mult": 0.45,
+				"dmg_mult": 0.78,
+				"typical_hp": 196,
+				"typical_pdd": 7,
+				"attacks": [
+					"attack1"
+				],
+				"attack_interval": 8,
+				"attack_dmg_mult": 0.61,
+				"_tier": "tier C: matches Mano: 8000 x 0.45 = 3600 HP; touch 130 x 0.78 = 82..98 (Mano 82..98) of 196 HP; Mano has no attack, so the slam 165 x 0.61 = 83..98 matches Mano's touch; 8 s cadence"
+			}
+		},
+		{
+			"map_id": 103000101,
+			"pool_from_life": true,
+			"boss": {
+				"time": 300,
+				"mob_id": 5090000,
+				"hp_mult": 1.0,
+				"dmg_mult": 1.04,
+				"typical_hp": 340,
+				"typical_pdd": 7,
+				"skill_intervals": {"129": 15},
+				"_tier": "tier C: matches Mushmom, touch only: 4800 x 1.0 = 4800 HP; touch 165 x 1.04 = 141..166 (Mushmom 140..166) of 340 HP. skill_intervals: one Banish (MobSkill 129) per 15 s instead of the canonical 3 s (spec #253)"
+			}
+		},
+		{
+			"map_id": 107000000,
+			"pool_from_life": true,
+			"boss": {
+				"time": 300,
+				"mob_id": 6220000,
+				"hp_mult": 0.2258,
+				"dmg_mult": 1.15,
+				"typical_hp": 448,
+				"typical_pdd": 7,
+				"_tier": "tier C: matches Blue Mushmom, touch only (Dyle has no attack): 31000 x 0.2258 = 7000 HP; touch 190 x 1.15 = 180..213 (Blue Mushmom 181..214) of 448 HP"
+			}
+		}
+	],
+	"exp_mult": 2.5,
+	"post_duration_slope": 0.25,
+	"_pools": "Tier C weights (spec #253): 0:00 Blue Snail 100101 only (owner Q4 weaker-neighbour clause, invoked after T1 seed-1 deaths at 0:15/2:15 (Lv1); tier C here, Blue Snail is not native to Kerning City); 2:00 the map's own Red Snail 3 / Slime 3 join (Blue Snail 2); 3:00 adds Orange Mushroom 3; 3:30 adds Octopus 1 (the map's rarest life) with Blue Snail 1; the 4:00 keyframe repeats that pool, Blue Snail included, and it stays for the rest of map 1 because keyframes from 300 s carry no pool.",
+	"keyframes": [
+		{"t": 0, "rate": 0.25, "max_alive": 6, "hp": 1, "speed": 1.0,
+			"pool": {"100101": 1}},
+		{"t": 120, "rate": 0.55, "max_alive": 11, "hp": 1, "speed": 1.0,
+			"pool": {"100101": 2, "130101": 3, "210100": 3}},
+		{"t": 180, "rate": 0.75, "max_alive": 15, "hp": 1, "speed": 1.025,
+			"pool": {"100101": 2, "130101": 3, "210100": 3, "1210102": 3}},
+		{"t": 210, "rate": 0.875, "max_alive": 17.5, "hp": 1, "speed": 1.0375,
+			"pool": {"100101": 1, "130101": 3, "210100": 3, "1210102": 3, "1120100": 1}},
+		{"t": 240, "rate": 1.0, "max_alive": 20, "hp": 1, "speed": 1.05,
+			"pool": {"100101": 1, "130101": 3, "210100": 3, "1210102": 3, "1120100": 1}},
+		{"t": 300, "rate": 2.5, "max_alive": 50, "hp": 1.25, "speed": 1.075},
+		{"t": 360, "rate": 4.5, "max_alive": 85, "hp": 1.75, "speed": 1.1},
+		{"t": 480, "rate": 8.2666666667, "max_alive": 143.3333333333, "hp": 3.84, "speed": 1.1533333333},
+		{"t": 540, "rate": 9.4, "max_alive": 165, "hp": 3.9, "speed": 1.18},
+		{"t": 660, "rate": 12.1333333333, "max_alive": 215, "hp": 4.7, "speed": 1.2466666667},
+		{"t": 720, "rate": 13.5, "max_alive": 240, "hp": 6.375, "speed": 1.28},
+		{"t": 780, "rate": 15.6666666667, "max_alive": 270, "hp": 7.6875, "speed": 1.32},
+		{"t": 900, "rate": 20.0, "max_alive": 330, "hp": 8.25, "speed": 1.4}
+	],
+	"bursts": {"first": 300, "every": 90, "count_min": 10, "count_max": 40},
+	"elites": {"first": 240, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
+	"note": "Home of the Thieves.",
+	"original_life": {"130101": 14, "210100": 17, "1210102": 14, "1120100": 6}
+}
