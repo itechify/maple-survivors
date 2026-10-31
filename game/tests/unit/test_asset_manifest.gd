@@ -59,6 +59,17 @@ func test_bad_fragments_are_rejected() -> void:
 	assert_ne(AssetManifest.merge("m.json", {"format": 2}, []).error, "", "main file format")
 
 
+func test_region_fragments_hold_maps_mobs_and_items_without_overlap() -> void:
+	var a := _frag("region_a.json", {"_doc": "region a", "maps": [220011000.0], "mobs": [3230101.0, 4130103.0], "items": [4000100.0]})
+	var r := AssetManifest.merge("m.json", MAIN, [a, _frag("region_b.json", {"maps": [221040000.0], "mobs": [3230102.0], "items": [4000101.0]})])
+	assert_eq(r.error, "")
+	assert_eq([r.manifest.maps, r.manifest.mobs, r.manifest.items],
+		[[1.0, 220011000.0, 221040000.0], [7.0, 3230101.0, 4130103.0, 3230102.0], [4000000.0, 4000100.0, 4000101.0]])
+	for data: Dictionary in [{"mobs": [3230101.0]}, {"maps": [220011000.0]}, {"items": [4000100.0]}]:
+		var e: Variant = AssetManifest.merge("m.json", MAIN, [a, _frag("region_c.json", data)]).error
+		assert_true(str(e).contains("region_a.json") and str(e).contains("region_c.json"), "%s: %s" % [data, e])
+
+
 func test_load_reads_the_sibling_folder_sorted_by_name() -> void:
 	DirAccess.make_dir_recursive_absolute(TMP + "/asset_manifest.d")
 	_write(TMP + "/asset_manifest.json", MAIN)

@@ -77,7 +77,9 @@ func test_class_lines_follow_the_adventurers_in_registration_order() -> void:
 	# Bishop and the later classes retain their subsequent registration order.
 	var lines := DataRepo.lines()
 	assert_eq(Array(lines.slice(0, 7)), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
-	assert_eq(Array(lines.slice(7)), ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "marksman"])
+	assert_eq(Array(lines.slice(7, 15)), ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "corsair"])
+	assert_eq(Array(lines.slice(15, 16)), ["night_lord"], "Night Lord follows Corsair (ruling D15: registered in merge order)")
+	assert_eq(Array(lines.slice(16)), ["marksman"], "Marksman follows Night Lord (ruling D15: registered in merge order)")
 
 
 func test_the_bowmaster_line_loads_without_errors_and_adds_its_job_and_its_skills() -> void:
@@ -105,7 +107,7 @@ func test_job_312_has_the_spec_fields_and_is_playable() -> void:
 	assert_eq(jobs.creation_weapon(312), 1452002)
 	assert_true(bool(rec.playable), "Bowmaster is selectable")
 	assert_eq(jobs.job_error(312), "")
-	assert_eq(jobs.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 322, 512] as Array[int], "all nine playable jobs")
+	assert_eq(jobs.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 322, 412, 512, 522] as Array[int], "all eleven playable jobs")
 
 
 func test_job_312_declares_no_mobility_skill_key() -> void:
@@ -161,7 +163,7 @@ func test_default_job_stays_212_even_if_bowmaster_became_playable() -> void:
 	var data := _data()
 	data.jobs_survivor.jobs["312"]["playable"] = true
 	var jobs := _jobs(data)
-	assert_eq(jobs.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 322, 512] as Array[int], "canonical order of all nine playable jobs")
+	assert_eq(jobs.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 322, 412, 512, 522] as Array[int], "canonical order of all eleven playable jobs")
 	assert_eq(jobs.default_job(), 212, "the pin, not the first playable job")
 	assert_eq(jobs.job_error(312), "")
 
@@ -234,8 +236,8 @@ func test_real_cache_the_war_bow_is_wearable_and_the_shipped_pool_holds_only_bow
 	assert_eq(WeaponInfo.family(war_bow), "bow")
 	assert_eq(Equipment.requirement_error(infos[war_bow], {"job_id": 312}), "", "the creation weapon is wearable")
 	var ed: Dictionary = data.equipment_drops
-	for tier in data.stages.tiers.size():
-		var band := EquipmentDrops.band_of(data.stages, tier)
+	for tier in data.stages.progression.size():
+		var band := EquipmentDrops.band_of(data.stages.stages[data.stages.progression[tier]])
 		var families := {}
 		var rng := _rng(334 + tier)
 		for i in 300:

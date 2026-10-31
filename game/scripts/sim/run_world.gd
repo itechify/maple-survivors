@@ -18,7 +18,8 @@ extends RefCounted
 ## setup.job, else JobTree.default_job()), and a fresh round learns that job's JobTree.start_skills at rank 1. There is no
 ## advancement, no weapon path and no basic attack; weapons gate no skill.
 ##
-## Events: every emitted Dictionary has `type` plus exactly the fields of EVENT_FIELDS[type]. `player_hit.damage` is the
+## Events: every emitted Dictionary has `type`, the fields of EVENT_FIELDS[type] and, only when they apply, those of
+## OPTIONAL_EVENT_FIELDS[type] (test_run_events enforces both). `player_hit.damage` is the
 ## whole hit (the number shown); `miss` hits do no damage and
 ## cause no knockback or invincibility. `choice_pending` card `rank` is the
 ## rank the card gives when taken. Swarm/projectile/pickup visuals are read from state (4.4.3).
@@ -65,10 +66,16 @@ extends RefCounted
 ## 15 Thief-only rolls (thief_rng, Steal success in #214),
 ## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194),
 ## 17 Banish destination portal draws (banish_rng, MobSkill 129 in #256),
-## 18 ground-area status rolls (ground_rng).
+## 18 ground-area status rolls (ground_rng),
+## 19 boss player-status chance rolls (mob_status_rng: Stun in #456; Darkness, Weakness, Curse, Seduce and Confuse in
+## #458; Poison 125 and the poison mist 131 in #459),
+## 20 area-warning attack column picks (area_rng, #460; 19 is mob_status_rng of #456).
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
+## player_state key of each boss status besides Slow and Stun (#458): present only while the status is active.
+const PLAYER_STATUS_KEYS := {MobSkillRunner.SKILL_DARKNESS: "darkness", MobSkillRunner.SKILL_WEAKNESS: "weakness",
+	MobSkillRunner.SKILL_CURSE: "curse", MobSkillRunner.SKILL_SEDUCE: "seduce", MobSkillRunner.SKILL_CONFUSE: "confuse"}
 const CHOOSING_UPGRADE := 1
 const DEAD := 2
 const CLEARED := 3
@@ -77,14 +84,31 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_UPGRADE", "DEAD", "CLEARED"]
 const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "touch", "gain_exp",
 	"player_state", "end_tick"]
 
+## Event type -> the fields an event carries only when they apply, so an event without them keeps its exact old bytes
+## (docs/ARCHITECTURE.md 4.4.3): `player_hit.absorbed` (whole points a hull or hit hook soaked, only when positive) and
+## `form_started.mount` (the TamingMob id of a form that names one) and `summon_spawn.sound` (only a skill that lists a summon
+## sound) and `burst_end.released` (only a skill whose burst_art sets end_on_drop: whether an arrow left).
+## test_run_events checks every emitted event against EVENT_FIELDS plus the optional fields it actually carries.
+const OPTIONAL_EVENT_FIELDS := {
+	"player_hit": ["absorbed"],
+	"form_started": ["mount"],
+	"summon_spawn": ["sound"],
+	"burst_end": ["released"],
+}
+
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
 	"form_started": ["skill", "skill_id", "element", "duration"],
 	"form_ended": ["skill", "skill_id", "reason"],
 	"mob_pulled": ["mob", "from", "pos"],
 	"meter_changed": ["id", "value", "max"],
+	# #403: the mesos that reached the wallet this tick (total and number of drops), by magnet, pet or the finale sweep.
+	# Only a job whose meter gains from it announces it (GAME_DESIGN 7.94), so every other job's event bytes stay as they were.
+	"meso_picked": ["amount", "count"],
 	"hp_spent": ["skill", "skill_id", "amount", "kind"],
 	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
+	# #405: a Flash Jump slid the airborne character horizontally from `from` to `to` (GAME_DESIGN 7.94.2); no damage.
+	"flash_jump": ["skill", "from", "to"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"player_restored": ["stat", "amount", "skill", "pos"],
 	# #352: a support summon's pulse fired (`skill` is the pulse's sub-skill, `slot` the summon's PlayerSummons slot).
@@ -108,6 +132,10 @@ const EVENT_FIELDS := {
 	"mob_status_expired": ["mob", "mob_id", "status"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
 	"mob_revives_spawned": ["boss_index", "mob", "mob_id", "pos", "revives", "time"],
+	# #459: a poison mist (MobSkill 131) was placed (`hazard` its GroundHazards slot, `rect` its world box, `hazard_kind` a
+	# GroundHazards element code), and a hazard or a boss skill just put `skill_id` (126 Slow, 125 Poison) on the character.
+	"hazard_spawned": ["hazard", "mob", "mob_id", "level", "rect", "hazard_kind", "duration"],
+	"hazard_status": ["skill_id", "effect"],
 	"player_hit": ["damage", "miss", "dir", "pos", "mob", "mob_id", "boss", "max_hp", "source_kind"],
 	"player_jump": ["pos"],
 	"portal_used": ["portal", "target", "pos"],
@@ -134,6 +162,8 @@ const EVENT_FIELDS := {
 	"boss_spawned": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_died": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
+	# #460: an area-warning attack's columns: "warning" at attack start, "strike" at impact; `anchors` are column bottom centres.
+	"area_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "anchors", "size", "facing", "art", "time", "impact_time"],
 	# #76 ordinary (non-boss) mobs: a mob attack's phases (as boss_attack). Ordinary mobs cast no mob skills.
 	"mob_attack": ["mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
 	"mob_projectile_spawned": ["proj", "mob", "mob_id", "pos", "velocity", "range", "speed", "ball", "hit", "time"],
@@ -145,16 +175,18 @@ const EVENT_FIELDS := {
 	"scroll_used": ["result", "scroll_id", "slot", "item_id"],
 	# #155: the held ranged weapon's endless ammo moved to a higher tier (family, previous and new Item.wz id, character level).
 	"ammo_upgraded": ["family", "from_item_id", "item_id", "level"],
+	# Spec #383 M11: an echo clone threw one repeated star (the skill echoed, the clone's summon slot, its hand, its facing).
+	"echo_cast": ["skill", "clone", "pos", "facing"],
 	# #192: a Gunslinger Grenade thrown (a cluster skill): the ball flies from the hand `from` to `to` in `seconds`; the blast art
 	# `burst` plays at `to` on arrival, when the sim strikes the mobs (the mob_hit events).
 	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
 	"skill_landed": ["skill", "cast_time", "pos", "effect"],
 	# #342: a burst cast (Hurricane) began (`wind_up` s until its first arrow, `span` s to its last) and ended (finished or dropped); art only.
-	"summon_spawn": ["skill", "slot"], # optional sound: listed only by skills with a summon sound
+	"summon_spawn": ["skill", "slot"], # optional: sound (OPTIONAL_EVENT_FIELDS)
 	"summon_attack": ["skill", "slot", "pos"],
 	"summon_strike": ["skill", "slot", "mob", "pos", "effect"],
 	"burst_start": ["skill", "wind_up", "span", "facing"],
-	"burst_end": ["skill"], # plus `released` (an arrow left) for a skill whose burst_art sets end_on_drop (Piercing Arrow)
+	"burst_end": ["skill"], # optional: released (an arrow left; a skill whose burst_art sets end_on_drop, Piercing Arrow)
 	# #323 (chain cast rule): the bolt's polyline, caster hand then each struck link's body centre; the hits are mob_hit events.
 	"skill_chain": ["skill", "skill_id", "points"],
 
@@ -222,6 +254,10 @@ var pirate_rng: RandomNumberGenerator
 var banish_rng: RandomNumberGenerator
 ## Stream 18: ground-area status proc rolls, independent of combat.
 var ground_rng: RandomNumberGenerator
+## Stream 19: the `prop` roll of a boss skill that puts a status on the character (Stun 123, #456; Darkness, Weakness, Curse, Seduce, Confuse, #458), isolated from combat.
+var mob_status_rng: RandomNumberGenerator
+## Stream 20: which columns of a boss's area-warning attack (`info/type` 3 and 4) strike (MobAttacks.pick_columns).
+var area_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
 var choice_bonus := false
@@ -245,9 +281,18 @@ var mob_elite := PackedByteArray()
 var mob_boss := PackedInt32Array()
 ## Summoning encounter index, -1 for ordinary spawns; preserved through relocation and reset on new slot use.
 var mob_summon_owner := PackedInt32Array()
+## The stage's level scale (#453, tier C), null when the stage has no `level_scale` block. Per live slot, captured at
+## spawn (scheduled bosses: at arrival): the PDD, MDD and EXP multipliers; empty arrays without a level scale.
+var level_scale: LevelScale
+var mob_level_pdd := PackedFloat64Array()
+var mob_level_mdd := PackedFloat64Array()
+var mob_level_exp := PackedFloat64Array()
+## Scheduled boss index -> [pad, mad] ratios captured when its encounter arrived (a boss's damage freezes at arrival).
+var _boss_level_damage := {}
 var _live_mdd := PackedFloat32Array()
 var _live_pdd := PackedFloat32Array()
 var _live_physical_allowed := PackedByteArray()
+var _live_magic_allowed := PackedByteArray() # 1/0 per slot: magic damage allowed (no magic immunity 141)
 ## Canonical MDD/PDD per mob kind index (refreshed every tick for the live defense fill).
 var _kind_mdd := PackedFloat64Array()
 var _kind_pdd := PackedFloat64Array()
@@ -270,17 +315,24 @@ var revives: Array = []
 var runner: SkillRunner
 var _teleport_left := 0.0
 var _teleport_total := 0.0
+## Seconds until the next Flash Jump press is admitted (its `repeat_delay`) and the delay set by the last one.
+var _flash_left := 0.0
+var _flash_total := 0.0
 var progression: RunProgression
 var jobs: JobTree
 var upgrades: UpgradePool
 var director: SpawnDirector
 var mob_skills: MobSkillRunner
+## `_reflect_hit` as a Callable, built once for ProjectileSystem.reflect_hit.
+var _reflect_hit_callable: Callable = _reflect_hit
 var bosses: BossDirector
 var boss_attacks := BossAttacks.new()
 ## Ordinary mobs' canonical attacks and their per-slot stances (#76).
 var mob_attacks: MobAttacks
 var mob_actions := MobActions.new()
 var mob_projectiles := MobProjectileSystem.new()
+## The boss ground hazards (poison mist, #459): pooled, cleared on map transfer and at the round's end.
+var hazards := GroundHazards.new()
 
 ## take_hit's ordered hooks (HitHook), ascending by `_hit_hook_orders`.
 var _hit_hooks: Array[HitHook] = []
@@ -352,12 +404,14 @@ var _max_buff_applied := 0.0
 var _passive_regen_pct := 0.0
 var _passive_speed_pct := 0.0
 var _exp_carry := 0.0
+## The fraction of an EXP point Curse 124 withheld, paid with the next pickup (#458).
+var _curse_carry := 0.0
 var _base_hp := 50.0
 var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
 var _earned_ap := 0
-## Tiers the character started the round with (CharacterSnapshot.tiers_unlocked); tier 1 is always unlocked.
-var _tiers_unlocked := 1
+## Regions the character started the round with cleared (CharacterSnapshot.cleared_regions).
+var _cleared_regions: Array = []
 var _base_fortune := 0.0
 ## Spec #34 cash items. `setup.account` ({owned: [item ids]}, absent = an empty account) decides which of the
 ## character's worn cash equipment and pet count; `setup.alert` ({hp}: a fraction of max HP, 0 = do not alert).
@@ -440,6 +494,8 @@ func _init_rng_streams() -> void:
 	thief_rng = _stream(15) # tier C: independent Thief-only rolls; reserved for Steal success, #207/#214.
 	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14 reserved, #186.
 	ground_rng = _stream(18) # tier C: dedicated ground proc stream.
+	mob_status_rng = _stream(19) # tier C: boss player-status chance rolls (#456); stream 18 is ground_rng.
+	area_rng = _stream(MobAttacks.AREA_STREAM) # tier C: area-warning column picks never shift another stream, #460.
 	banish_rng = _stream(17) # tier C: Banish portal draws never shift another stream, #256.
 
 
@@ -458,6 +514,7 @@ func _init_map() -> void:
 
 ## Mob kinds, the swarm with its per-slot arrays, its spatial hash and its step context.
 func _init_mobs() -> void:
+	_init_level_scale()
 	_build_mob_kinds()
 	body_pad = ProjectileSystem.max_body_extent(mob_kinds)
 	swarm = MobSwarm.new(256, mob_kinds, balance.get("mob_motion", {}))
@@ -468,6 +525,16 @@ func _init_mobs() -> void:
 	mob_grid = SpatialHash.new(64.0, bounds.grow(64.0))
 	_ctx = {"fhm": fhm, "nav": nav, "nav_jump": nav_jump, "bounds": bounds, "physics": physics,
 		"target": Vector2.ZERO, "target_fh": -1, "speed_mult": 1.0}
+
+
+## The stage's level scale over data.level_curve; an invalid block or curve warns and leaves the stage unscaled.
+func _init_level_scale() -> void:
+	level_scale = LevelScale.from_stage(stage, data.get("level_curve", {}))
+	if level_scale == null and stage.has("level_scale"):
+		warnings.append("stage '%s' level_scale or level_curve.json is invalid: no level scale" % stage_key)
+	if stage.has("level_scale") and (stage.has("opening_ramp") or stage.get("maps", []).any(
+			func(entry: Variant) -> bool: return entry is Dictionary and entry.has("opening_ramp"))):
+		push_warning("stage '%s' has level_scale and an opening_ramp: damage would be scaled twice" % stage_key)
 
 
 ## Player shots, pickups and unlimited potion cooldowns.
@@ -490,6 +557,7 @@ func _init_drops_and_shots() -> void:
 func _init_skills_and_progression() -> void:
 	book = SkillBook.from_data(data.get("skills", {}), setup.get("skill_imgs", {}))
 	loadout = Loadout.new(book)
+	book.status_bonuses = balance.get("status_bonuses", {})
 	loadout.pierce_floor = projectiles.pierce_floor
 	loadout.pierce_ceiling = projectiles.pierce_ceiling
 	var crit: Dictionary = balance.get("crit", {})
@@ -608,6 +676,7 @@ func advance_map() -> void:
 		pickups.despawn(slot)
 	_final_queue.clear()
 	runner.clear_pending(self)
+	hazards.clear()
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	mob_attacks = MobAttacks.new(self)
 	mob_actions = MobActions.new()
@@ -628,12 +697,12 @@ func advance_map() -> void:
 
 
 ## The character as it leaves this round (CharacterSnapshot, format 3): job, look, equipment, scrolls, mesos, cash, pet
-## and its unlocked tiers, which a CLEARED round advances. Everything picked up stays, whether the round was cleared, lost
+## and its cleared regions, which a CLEARED round advances. Everything picked up stays, whether the round was cleared, lost
 ## or quit; the build (level, skills, cards) is not part of it. Always available, even with a choice pending.
 func character_snapshot() -> Dictionary:
 	var snapshot := {"format": CharacterSnapshot.FORMAT, "job_id": progression.job_id,
 		"look": character_look.duplicate(true), "equipment": equipment.duplicate(true),
-		"scrolls": scrolls.duplicate(), "mesos": mesos, "tiers_unlocked": tiers_unlocked_now()}
+		"scrolls": scrolls.duplicate(), "mesos": mesos, "cleared_regions": cleared_regions_now()}
 	# Spec #34 optional keys: written only when set, so characters without cash items keep their exact old bytes.
 	if not _cash_carried.is_empty():
 		snapshot["cash"] = _cash_carried.duplicate()
@@ -642,11 +711,12 @@ func character_snapshot() -> Dictionary:
 	return snapshot
 
 
-## The tiers the character has unlocked now: those it started the round with, plus the next tier when this round is CLEARED.
-func tiers_unlocked_now() -> int:
-	var stages: Dictionary = data.get("stages", {})
-	return CharacterSnapshot.unlocked_after_round(_tiers_unlocked, NxAward.tier_of(stages, stage_key),
-		state == CLEARED, stages.get("tiers", []).size())
+## The regions the character has cleared now: those it started the round with, plus this round's stage when the round is
+## CLEARED. A stage outside stages.json `progression` (a tool round) adds nothing; a death or a quit changes nothing.
+func cleared_regions_now() -> Array:
+	var progression_keys: Array = data.get("stages", {}).get("progression", [])
+	var cleared_here: bool = state == CLEARED and stage_key in progression_keys
+	return CharacterSnapshot.cleared_after_round(_cleared_regions, stage_key, cleared_here)
 
 
 ## The character's own Fortune (base plus card modifiers), without the live cash-slot part.
@@ -664,10 +734,10 @@ func bosses_killed() -> int:
 	return bosses.dead_count()
 
 
-## NX this round pays now (spec #34, NxAward): the tier's clear bonus only when CLEARED, plus levels and bosses.
+## NX this round pays now (spec #34, NxAward): the progression step's clear bonus only when CLEARED, plus levels and bosses.
 ## Tools record it as `nx_awarded`; only Flow credits it, at the round boundary or the run archive.
 func nx_awarded() -> int:
-	return NxAward.compute(balance.get("nx_award", {}), NxAward.tier_of(data.get("stages", {}), stage_key),
+	return NxAward.compute(balance.get("nx_award", {}), NxAward.step_of(data.get("stages", {}), stage_key),
 		state == CLEARED, levels_gained(), bosses_killed())
 
 
@@ -752,6 +822,38 @@ func banish_player(cast: Dictionary) -> void:
 	emit("player_banished", fields)
 
 
+## Whether the character has a Form or a timed self-buff a Dispel (MobSkill 127) could end (#461).
+func can_dispel() -> bool:
+	return not runner.forms.snapshot().is_empty() or not _dispellable_buffs().is_empty()
+
+
+## A boss's Dispel (MobSkill 127, #461) ends every active Form and every timed self-buff the character has, and returns the
+## skill keys it ended in the order it ended them. Summons (the support summons' pulse buffs included), passives, potions
+## and every cooldown stay. The stat refreshes of a buff's expiry run at once.
+func dispel_player() -> Array:
+	var ended: Array = []
+	for state: Dictionary in runner.forms.snapshot():
+		ended.append(String(state.skill))
+	runner.forms.clear(self, "dispelled")
+	for skill: String in _dispellable_buffs():
+		if buffs.end(skill, events):
+			ended.append(skill)
+	_refresh_caster()
+	refresh_player_speed()
+	_refresh_max_buffs()
+	_write_player_state(0.0)
+	return ended
+
+
+## The active buffs a Dispel ends: all but the pulse buffs of a support summon (those belong to the summon).
+func _dispellable_buffs() -> Array[String]:
+	var out: Array[String] = []
+	for skill: String in buffs.active:
+		if String(book.def(skill).get("slot", "")) != "summon_sub":
+			out.append(skill)
+	return out
+
+
 ## The Morph.wz id the character is drawn as while a morphing buff is active, 0 for the plain avatar.
 func morph_id() -> int:
 	return buffs.morph()
@@ -822,6 +924,7 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 	if after_stage.is_valid():
 		after_stage.call("pet")
 	var got := _step_pickups(dt)
+	meter.step(dt, events)
 	if after_stage.is_valid():
 		after_stage.call("pickups")
 	_touch()
@@ -842,15 +945,46 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 ## Drinks, then a same-map portal warp or ordinary movement, the view, and the player's timers.
 func _step_player(dt: float, input: MoveInput) -> void:
 	_teleport_left = maxf(0.0, _teleport_left - dt)
+	_flash_left = maxf(0.0, _flash_left - dt)
 	if input.drink_hp:
 		drink_potion("hp")
+	# tier C (#456): potions stay usable while stunned (v83 does not say); everything else reads an empty input, so
+	# gravity, knockback and damage continue but nothing moves, jumps, dashes or casts a manual skill.
+	if mob_skills.is_stunned(time):
+		input = MoveInput.new()
+	else:
+		input = _status_input(input)
 	_try_manual_buffs(input)
+	_try_flash_jump(input)
 	if not _try_input_dash(input) and not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
 		if flags & PlayerMotion.EV_JUMP:
 			emit("player_jump", {"pos": player.pos})
 	update_view()
 	_tick_timers(dt)
+
+
+## The tick's input after the boss statuses that rewrite it (#458): Weakness 122 drops jump, Confuse 132 swaps left and
+## right, Seduce 128 replaces the horizontal input with a step toward the caster (tier C: it wins over Confuse). Up,
+## down, casts and potions pass through. Returns `input` itself when none applies, else a copy.
+func _status_input(input: MoveInput) -> MoveInput:
+	var weakened := mob_skills.is_weakened(time)
+	var confused := mob_skills.is_confused(time)
+	var seduced := mob_skills.seduce_active(self)
+	if not (weakened or confused or seduced):
+		return input
+	var out := input.duplicate_input()
+	if weakened:
+		out.jump_pressed = false
+		out.jump_held = false
+	if confused:
+		out.left = input.right
+		out.right = input.left
+	if seduced:
+		var toward := mob_skills.seduce_direction(self)
+		out.left = toward < 0
+		out.right = toward > 0
+	return out
 
 
 ## The skill keys of the manual skills the character has learned (Key Config lists exactly these): one
@@ -927,15 +1061,24 @@ func _is_teleport(key: String) -> bool:
 	return d is Dictionary and (d as Dictionary).has("teleport")
 
 
+func _is_flash_jump(key: String) -> bool:
+	var d: Variant = book.defs.get(key)
+	return d is Dictionary and (d as Dictionary).has("flash_jump")
+
+
 func _cooldown_left(key: String) -> float:
 	if _is_teleport(key):
 		return _teleport_left
+	if _is_flash_jump(key):
+		return _flash_left
 	return maxf(0.0, float(runner.cooldowns.get(key, 0.0)))
 
 
 func _cooldown_total(key: String) -> float:
 	if _is_teleport(key):
 		return _teleport_total
+	if _is_flash_jump(key):
+		return _flash_total
 	return float(runner.cooldown_totals.get(key, 0.0))
 
 
@@ -954,6 +1097,42 @@ func _try_input_dash(input: MoveInput) -> bool:
 		if runner.cast_dash(self, key, side):
 			return true
 	return false
+
+
+## Owned Flash Jump key, or "" when the job has none.
+func flash_jump_skill() -> String:
+	for key: String in loadout.order:
+		if _is_flash_jump(key):
+			return key
+	return ""
+
+
+## Distance in px of the owned Flash Jump `key` at its rank now (rank = the round-level rule, never a card).
+func flash_jump_distance(key: String) -> float:
+	var config: Dictionary = book.def(key).flash_jump
+	return FlashJump.distance(config.distance, loadout.rank(key), book.max_rank(key))
+
+
+## A Flash Jump press (or hold): in the air the character slides horizontally to the pressed side (else its facing),
+## keeping its height; the ordinary movement of this tick still runs, so the fall goes on. Refused with nothing spent
+## and no event on the ground, on a ladder, a second time in one airborne period, within `repeat_delay`, or when the
+## lane is blocked. tier C: ours (#405).
+func _try_flash_jump(input: MoveInput) -> void:
+	if not input.skill_requested("flash_jump") or not FlashJump.admits(can_cast(), _flash_left):
+		return
+	var key := flash_jump_skill()
+	if key == "":
+		return
+	var side := FlashJump.side(input.dir(), player.facing)
+	var dest := player.flash_destination(side, flash_jump_distance(key), fhm, bounds)
+	if dest.is_empty():
+		return
+	var from := player.pos
+	player.flash_to(dest)
+	player.facing = side
+	_flash_left = float(book.def(key).flash_jump.repeat_delay)
+	_flash_total = _flash_left
+	emit("flash_jump", {"skill": key, "from": from, "to": player.pos})
 
 
 func _try_teleport(input: MoveInput) -> bool:
@@ -1011,6 +1190,8 @@ func _step_monsters(dt: float) -> void:
 	boss_attacks.step(self)
 	mob_attacks.step(self, dt)
 	mob_projectiles.step(dt, self)
+	mob_skills.step_poison(self)
+	hazards.step(dt, self)
 	director.step(dt, self)
 	_sync_slots()
 	mob_grid.rebuild(swarm.x, swarm.y, swarm.active, swarm.capacity())
@@ -1022,6 +1203,9 @@ func _step_player_attacks(dt: float) -> void:
 	if _map_clearing:
 		return
 	_fill_live_defense()
+	projectiles.magic_allowed = _live_magic_allowed
+	# Reflect (143/144/145, #461): the shots' damage rolls go through it only while some boss reflects.
+	projectiles.reflect_hit = _reflect_hit_callable if mob_skills.reflect_any(time) else Callable()
 	if map_sequence_enabled():
 		projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed,
 			_on_player_hit, _live_pdd, _projectile_kill)
@@ -1029,6 +1213,8 @@ func _step_player_attacks(dt: float) -> void:
 		projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed, _on_player_hit, _live_pdd)
 		for m in projectiles.kills:
 			_on_kill(m)
+	projectiles.magic_allowed = PackedByteArray() # no second reference, so the next fill writes in place
+	projectiles.reflect_hit = Callable()
 	if _map_clearing:
 		return
 	_play_final_attacks()
@@ -1039,19 +1225,26 @@ func _projectile_kill(slot: int) -> bool:
 	return _map_clearing
 
 
-## Live MDD, PDD and physical_hit_allowed(slot) of every live slot, for the shots, in one pass (#146).
+## Live MDD, PDD, physical_hit_allowed(slot) and magic_hit_allowed(slot) of every live slot, for the shots, in one pass
+## (#146).
 func _fill_live_defense() -> void:
 	_live_mdd.resize(swarm.capacity())
 	_live_pdd.resize(swarm.capacity())
 	_live_physical_allowed.resize(swarm.capacity())
+	_live_magic_allowed.resize(swarm.capacity())
 	_kind_mdd.resize(mob_kinds.size())
 	_kind_pdd.resize(mob_kinds.size())
 	for k in mob_kinds.size():
 		_kind_mdd[k] = float((mob_kinds[k] as MobKind).mdd)
 		_kind_pdd[k] = float((mob_kinds[k] as MobKind).pdd)
 	mob_skills.fill_live_defense(swarm.active, swarm.kind, _kind_mdd, swarm.capacity(), time, _live_mdd,
-		_live_physical_allowed, _kind_pdd, _live_pdd)
+		_live_physical_allowed, _kind_pdd, _live_pdd, _live_magic_allowed)
 	swarm.lower_threatened_pdd(_live_pdd) # Threaten (#183): the same cut mob_defense applies
+	if level_scale != null: # the same captured multipliers mob_defense applies
+		for slot in swarm.capacity():
+			if swarm.active[slot] != 0:
+				_live_pdd[slot] *= mob_level_pdd[slot]
+				_live_mdd[slot] *= mob_level_mdd[slot]
 
 
 ## Moves and collects drops. Returns the EXP collected this tick.
@@ -1070,6 +1263,9 @@ func _step_pickups(dt: float) -> int:
 
 func _credit_pickups() -> void:
 	mesos += pickups.step_mesos
+	if pickups.step_mesos > 0 and meter.listens("meso_picked"):
+		emit("meso_picked", {"amount": pickups.step_mesos, "count": pickups.step_meso_count})
+		meter.gain_amount("meso_picked", pickups.step_mesos, events)
 	for instance: Dictionary in pickups.collected_equipment:
 		equipment.inventory.append(instance)
 		equips_collected += 1
@@ -1124,6 +1320,7 @@ func _settle_clear() -> bool:
 	else:
 		state = CLEARED
 		runner.clear_pending(self)
+		hazards.clear()
 		emit("stage_cleared", {"time": time})
 	return true
 
@@ -1161,6 +1358,7 @@ func _settle_map() -> bool:
 		for slot in swarm.capacity():
 			swarm.despawn(slot)
 		transfer_pending = true
+		hazards.clear()
 		emit("map_cleared", {"map_index": map_index})
 	return true
 
@@ -1359,6 +1557,11 @@ func attack_speed_boost() -> int:
 func refresh_player_speed() -> void:
 	player.speed_stat = roundi(player_speed_stat())
 	player.jump_stat = mini(Equipment.JUMP_CAP, 100 + roundi(_equipment_jump + buffs.effect_total("jump")))
+	# tier B (#458): Weakness 122 takes the jump away and leaves walking speed as it is.
+	if mob_skills.is_weakened(time):
+		player.jump_stat = 0
+	# tier C (#458): Darkness 121 stops every critical hit (ADR 0005 turned accuracy into crit chance).
+	projectiles.crit_suppressed = mob_skills.is_darkened(time)
 
 
 ## Index of a WZ path in visual_paths (registered on first use); -1 for "".
@@ -1399,13 +1602,24 @@ func is_scheduled_boss(m: int) -> bool:
 	return m >= 0 and m < mob_boss.size() and mob_boss[m] >= 0
 
 
-## Target order shared by every player targeting rule: scheduled bosses first, then nearer `d2`, then lower slot.
-## tier C: ours (#83), so attacks reach a boss in range ahead of the swarm around it.
+## Target order shared by every player targeting rule: scheduled bosses first, then a monster under the ALL_WEAK mark
+## ahead of an unmarked one, then nearer `d2`, then lower slot.
+## tier C: ours (#83), so attacks reach a boss in range ahead of the swarm around it; marked-first is the Corsair
+## Homing Beacon's focus fire (spec #384 C7).
 func targets_before(a: int, da: float, b: int, db: float) -> bool:
 	var boss_a := is_scheduled_boss(a)
 	if boss_a != is_scheduled_boss(b):
 		return boss_a
+	var marked_a := swarm.status_left[a * MobSwarm.STATUS_COUNT + MobSwarm.ALL_WEAK] > 0.0
+	if marked_a != (swarm.status_left[b * MobSwarm.STATUS_COUNT + MobSwarm.ALL_WEAK] > 0.0):
+		return marked_a
 	return da < db if da != db else a < b
+
+
+## Sorts monster slots `ids` in place into targets_before order by the distance of their centres from `origin`.
+func sort_targets_by_distance(ids: Array[int], origin: Vector2) -> void:
+	ids.sort_custom(func(a: int, b: int) -> bool:
+		return targets_before(a, mob_center(a).distance_squared_to(origin), b, mob_center(b).distance_squared_to(origin)))
 
 
 ## All live bodies intersecting a canonical feet-relative, left-facing skill box; scheduled bosses first, then nearest
@@ -1808,12 +2022,35 @@ func mob_action_view() -> Dictionary:
 func mob_defense(m: int, magic: bool) -> float:
 	var kind: MobKind = mob_kinds[swarm.kind[m]]
 	var defense := float(kind.mdd if magic else kind.pdd) + mob_skills.defense_bonus(m,magic,time)
-	return defense if magic else swarm.threatened_pdd(m, defense) # Threaten (#183) lowers weapon defence only
+	var live := defense if magic else swarm.threatened_pdd(m, defense) # Threaten (#183) lowers weapon defence only
+	if level_scale != null: # tier C (#453): the level scale's defence ratio, captured at spawn, on the live value
+		live *= mob_level_mdd[m] if magic else mob_level_pdd[m]
+	return live
 
 
 ## Whether a physical impact may damage this slot at the current simulation time.
 func physical_hit_allowed(m: int) -> bool:
 	return mob_skills.physical_hit_allowed(m, time)
+
+
+## Whether a magic impact may damage this slot at the current simulation time (false while its magic immunity, 141, lasts).
+func magic_hit_allowed(m: int) -> bool:
+	return mob_skills.magic_hit_allowed(m, time)
+
+
+## Spawns scheduled boss `mob_id` as encounter `boss_index` (BossDirector arrival and final forms); returns its slot, -1 when
+## the kind is not loaded or the swarm is full. Scheduled bosses never flinch or get pushed, whatever their WZ
+## info/boss flag (tier C).
+func spawn_boss(mob_id: int, boss_index: int, pos: Vector2, fh: int, hp_mult: float) -> int:
+	if not kind_of_id.has(mob_id):
+		return -1
+	# A boss with a `fly` stance (Papulatus's final form, #461) has no foothold: it flies like the swarm's flyers.
+	var kind_index := int(kind_of_id[mob_id])
+	var slot := spawn_mob(kind_index, pos, -1 if (mob_kinds[kind_index] as MobKind).flies else fh, hp_mult, false)
+	if slot >= 0:
+		mob_boss[slot] = boss_index
+		swarm.steady[slot] = 1
+	return slot
 
 
 ## Spawns kind k with HP scaled by hp_mult and the round opening ramp; bosses capture it on arrival. Emits mob_spawned.
@@ -1822,8 +2059,19 @@ func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> in
 		return -1
 	var mk: MobKind = mob_kinds[k]
 	hp_mult *= opening_multiplier("hp")
+	var effective := 0.0
+	var exp_level := 0.0
+	if level_scale != null:
+		# Tier C (#453): HP, defence and EXP are captured at spawn; a scheduled boss spawns at its arrival.
+		effective = level_scale.level_at(curve_time())
+		exp_level = level_scale.exp_level_at(curve_time())
+		hp_mult *= level_scale.ratio("hp", effective, mk.level)
 	var i := swarm.spawn(k, pos.x, pos.y, fh, maxi(1, roundi(mk.max_hp * hp_mult)))
 	_sync_slots()
+	if level_scale != null:
+		mob_level_pdd[i] = level_scale.ratio("pdd", effective, mk.level)
+		mob_level_mdd[i] = level_scale.ratio("mdd", effective, mk.level)
+		mob_level_exp[i] = level_scale.ratio("exp", exp_level, mk.level)
 	mob_elite[i] = 1 if elite else 0
 	mob_boss[i] = -1
 	mob_summon_owner[i] = -1
@@ -1845,12 +2093,16 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	var elite := mob_elite[i] != 0
 	var boss_index := mob_boss[i]
 	var summon_owner := mob_summon_owner[i]
-	var j := swarm.relocate(i, pos, fh)
+	var j := swarm.relocate(i, pos, -1 if (mob_kinds[k] as MobKind).flies else fh)
 	_sync_slots()
 	mob_elite[j] = 1 if elite else 0
 	mob_boss[j] = boss_index
 	swarm.steady[j] = 1 if boss_index >= 0 else 0
 	mob_summon_owner[j] = summon_owner
+	if level_scale != null:
+		mob_level_pdd[j] = mob_level_pdd[i]
+		mob_level_mdd[j] = mob_level_mdd[i]
+		mob_level_exp[j] = mob_level_exp[i]
 	mob_skills.move_slot(i,j)
 	mob_attacks.move_slot(i, j)
 	mob_actions.reset_slot(i)
@@ -1870,15 +2122,20 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	var magic := dtype == "magic"
 	if not magic and not physical_hit_allowed(m):
 		return
+	if magic and not magic_hit_allowed(m):
+		return
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	var roll: Vector2i
 	if st.has("fixed_share"):
 		roll = Vector2i(FixedShare.amount(swarm.max_hp[m], swarm.is_boss(m), st.fixed_share), 0)
 	else:
 		roll = ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
-			mob_defense(m, magic), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult),
-			hit_rng if hit_rng != null else rng, swarm.element_multiplier(m, String(st.get("element", ""))), dtype,
+			mob_defense(m, magic), projectiles.magic_defense_k, 0.0 if mob_skills.is_darkened(time) else float(st.crit),
+			float(st.crit_mult), hit_rng if hit_rng != null else rng,
+			swarm.element_multiplier(m, String(st.get("element", ""))), dtype,
 			float(st.get("damage_pct", 1.0)), float(st.get("crit_damage_bonus", 0.0)))
+	if _reflect_hit(m, magic, roll.x):
+		return
 	var dir := 1 if swarm.x[m] >= player.pos.x else -1
 	emit("mob_hit", {
 		"mob": m, "mob_id": mk.id, "damage": roll.x, "crit": roll.y != 0,
@@ -1894,6 +2151,10 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 			hit["push_side"] = int(st.push_side) # a dash's direction (Rush): the knock-back shoves along it
 		if st.has("burn_pulse"):
 			hit["burn_pulse"] = int(st.burn_pulse)
+		if st.has("status_grants"):
+			hit["status_grants"] = st.status_grants
+		if bool(st.get("echo", false)):
+			hit["echo"] = true
 		_on_player_hit(m, hit)
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
@@ -1905,6 +2166,8 @@ func add_hit_listener(listener: Callable) -> void:
 
 
 func _damage_heal_hit(slot: int, hit: Dictionary) -> void:
+	if hit.has("echo"):
+		return # an echo drains nothing: the clone is not the owner (docs/GAME_DESIGN.md 7.94.3)
 	var key := String(hit.skill)
 	var heal: Dictionary = book.def(key).get("damage_heal", {})
 	if heal.is_empty():
@@ -1955,6 +2218,10 @@ func _final_attack_hit(slot: int, hit: Dictionary) -> void:
 
 ## Plays the queued follow-ups at their still-living original targets (tier C: a target the trigger killed gets none).
 func _play_final_attacks() -> void:
+	if mob_skills.is_stunned(time):
+		# tier C (#456): a stunned character plays no follow-up; the queued ones are lost.
+		_final_queue.clear()
+		return
 	if _final_queue.is_empty():
 		return
 	var queue := _final_queue
@@ -2041,10 +2308,19 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 				else book.canonical(key, level, String(status.get("duration_field", "time")))
 			var params := {"time": time,
 				"level": level, "skill": key, "x": book.canonical(key, level, "x")}
+			var is_mark: bool = String(status.get("status", "")) == String(MobSwarm.STATUS_NAMES[MobSwarm.ALL_WEAK])
+			if is_mark:
+				# tier C: the mark's length and multipliers come from the skill's own modifiers (mark_time, mark_power).
+				params["time"] = loadout.mark_time(key, time)
+				var mark := loadout.mark_multipliers(key)
+				params["mult"] = mark.x
+				params["boss_mult"] = mark.y
 			if String(hit.element) != "":
 				params["element"] = String(hit.element)
 			if status.has("element"):
 				params["element"] = String(status.element)
+			if is_mark:
+				params["element"] = "" # the mark is elementless: a fire-immune monster still takes it
 			if String(status.get("status", "")) == "burn":
 				# tier C: the pulse was resolved from the cast (Loadout.stats) and travelled with the shot.
 				params["pulse"] = int(hit.get("burn_pulse", 0))
@@ -2054,6 +2330,15 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 				params["x"] = -cut
 				params["y"] = -cut
 			swarm.apply_status(slot, String(status.get("status", "")), params, events)
+	# tier C (#402): grant order is cast order; sub-100 chances each consume one stream-1 draw, even at zero.
+	for grant: Dictionary in hit.get("status_grants", []):
+		if float(grant.chance) >= 100.0 or rng.randf() * 100.0 < float(grant.chance):
+			var params := {"time": grant.time, "level": grant.level, "skill": key, "element": grant.element,
+				"preserve_pulse": true} # a re-roll keeps a running poison's pulse clock, as the ground zones do
+			for field: String in ["x", "y", "pulse"]:
+				if grant.has(field):
+					params[field] = grant[field]
+			swarm.apply_status(slot, String(grant.kind), params, events)
 	var knockback: Dictionary = book.def(key).get("knockback", {})
 	if not knockback.is_empty() and not swarm.mob_kind(slot).boss and swarm.steady[slot] == 0:
 		# tier C: one stream-1 roll per struck non-boss, including the 0/100% endpoints; a block without a chance field
@@ -2061,8 +2346,13 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 		var always: bool = not knockback.has("chance_field")
 		if always or rng.randf() * 100.0 < book.canonical(key, level, String(knockback.chance_field)):
 			# `direction: "dash"` shoves along the dash that hit it instead of away from the player's final position.
-			swarm.knockback(slot, player.pos.x, float(knockback.get("distance", 0.0)), fhm, bounds,
+			# `distance_by_rank` (Ninja Storm, spec #383 NL8) reads the owner's current rank; the scalar `distance` is unchanged.
+			var distance := Loadout.knockback_distance_at(knockback, loadout.rank(key))
+			swarm.knockback(slot, player.pos.x, distance, fhm, bounds,
 				int(hit.get("push_side", 0)) if String(knockback.get("direction", "")) == "dash" else 0)
+			if knockback.has("effect"):
+				# tier C: ours (NL8), the pushed monster's status art (Ninja Storm's `mob`), played once where it landed.
+				emit("skill_mob_effect", {"skill": key, "mob": slot, "pos": mob_center(slot), "effect": String(knockback.effect)})
 	for listener: Callable in _hit_listeners:
 		listener.call(slot, hit)
 
@@ -2139,7 +2429,8 @@ func _init_player() -> void:
 
 func _restore_character(source: Dictionary) -> void:
 	assert(int(source.get("format", 0)) in CharacterSnapshot.FORMATS, "Unsupported CharacterSnapshot format")
-	var character := CharacterSnapshot.migrate(source, jobs, setup.get("equipment_info", {}))
+	var character := CharacterSnapshot.migrate(source, jobs, setup.get("equipment_info", {}),
+		data.get("stages", {}).get("progression", []))
 	progression.job_id = int(character.job_id) # handed to set_job by _init_player
 	character_look = character.look.duplicate(true)
 	for field: String in ["skin", "face", "hair"]:
@@ -2148,7 +2439,7 @@ func _restore_character(source: Dictionary) -> void:
 	equipment = Equipment.normalized(character.equipment)
 	scrolls = CharacterSnapshot.integers(character.scrolls)
 	mesos = int(character.mesos)
-	_tiers_unlocked = int(character.tiers_unlocked)
+	_cleared_regions = character.cleared_regions.duplicate()
 	_cash_carried = CharacterSnapshot.integers(character.get("cash", {}))
 	_pet_carried = int(character.get("pet", 0))
 
@@ -2325,19 +2616,35 @@ func _sync_slots() -> void:
 		mob_boss.resize(swarm.capacity())
 		for index in range(old_size, mob_boss.size()):
 			mob_boss[index] = -1
+	if level_scale != null and mob_level_exp.size() < swarm.capacity():
+		var old_levels := mob_level_exp.size()
+		mob_level_pdd.resize(swarm.capacity())
+		mob_level_mdd.resize(swarm.capacity())
+		mob_level_exp.resize(swarm.capacity())
+		for index in range(old_levels, mob_level_exp.size()):
+			mob_level_pdd[index] = 1.0
+			mob_level_mdd[index] = 1.0
+			mob_level_exp[index] = 1.0
 
 
 func _on_kill(m: int) -> void:
-	kills += 1
 	var mk := swarm.mob_kind(m)
 	var elite := mob_elite[m] != 0
 	var pos := swarm.pos(m)
 	if mob_boss[m] >= 0:
+		if bosses.continue_final_form(mob_boss[m], m, pos, self):
+			# The shell of a final-form encounter pays nothing, is not a kill and is not marked dead: the form carries on (#456).
+			emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": 0, "elite": elite})
+			return
+		kills += 1
 		_on_boss_kill(m, mk, pos, elite)
 		return
+	kills += 1
 	var mult := float(balance.get("exp_mult", 1.0)) * float(stage.get("exp_mult", 1.0))
 	if elite:
 		mult *= float(stage.get("elites", {}).get("exp_mult", 5.0))
+	if level_scale != null:
+		mult *= mob_level_exp[m] # tier C (#453): the level scale's EXP ratio, captured at spawn
 	var e := roundi(mk.exp * mult)
 	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
 	if e > 0:
@@ -2373,7 +2680,7 @@ func _roll_mesos(mk: MobKind) -> int:
 
 
 ## One equipment drop for the character's job (EquipmentDrops; `boss` takes the top third of the band) inside the reqLevel
-## band of this stage's tier (stages.json drop_bands; never the character's level, #292), a weapon only from the job's
+## band of this stage (stages.json drop_band; never the character's level, #292), a weapon only from the job's
 ## weapon families, with v83 random stats, from the equipment stream; nothing when no listed item has info and fits.
 ## Returns whether an equipment pickup was spawned (Steal falls back to mesos when none fits).
 func _drop_equipment(pos: Vector2, boss: bool) -> bool:
@@ -2389,10 +2696,9 @@ func _drop_equipment(pos: Vector2, boss: bool) -> bool:
 	return false
 
 
-## The reqLevel band [min, max] this stage's equipment drops come from (its tier's stages.json drop_bands entry).
+## The reqLevel band [min, max] this stage's equipment drops come from (its stages.json `drop_band`).
 func drop_band() -> Array:
-	var stages: Dictionary = data.get("stages", {})
-	return EquipmentDrops.band_of(stages, NxAward.tier_of(stages, stage_key))
+	return EquipmentDrops.band_of(data.get("stages", {}).get("stages", {}).get(stage_key, {}))
 
 
 ## Drops an equipment instance on the ground at pos (drawn with the item's icon); the magnet collects it while the
@@ -2419,7 +2725,10 @@ func spawn_meso(pos: Vector2, amount: int) -> int:
 ## ordinary EXP rolls), its canonical revive list, then the reward shower and bonus choices.
 func _on_boss_kill(m: int, mk: MobKind, pos: Vector2, elite: bool) -> void:
 	var rewards := bosses.reward_config(mob_boss[m])
-	var e := maxi(0, roundi(mk.exp * float(rewards.get("exp_mult", 1.0))))
+	var boss_exp := mk.exp * float(rewards.get("exp_mult", 1.0))
+	if level_scale != null:
+		boss_exp *= mob_level_exp[m] # tier C (#453): captured when the boss arrived
+	var e := maxi(0, roundi(boss_exp))
 	bosses.mark_dead(mob_boss[m], m, pos, self)
 	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
 	_spawn_revives(m, pos)
@@ -2490,7 +2799,7 @@ func _touch() -> void:
 func _player_hit(m: int, mk: MobKind) -> void:
 	var boss_index := mob_boss[m]
 	var source := {"mob": m, "mob_id": mk.id, "accuracy": mk.acc,
-		"elite": mob_elite[m] != 0, "boss": boss_index >= 0, "source_kind": "touch"}
+		"elite": mob_elite[m] != 0, "boss": boss_index >= 0, "boss_index": boss_index, "source_kind": "touch"}
 	if boss_index >= 0:
 		source["dmg_mult"] = bosses.damage_multiplier(boss_index)
 	take_hit(mob_weapon_attack(m, float(mk.pad)), false, "", Vector2(swarm.x[m], swarm.y[m]), source)
@@ -2501,6 +2810,13 @@ func _player_hit(m: int, mk: MobKind) -> void:
 ## apply later, in take_hit.
 func mob_weapon_attack(m: int, pad: float) -> float:
 	return swarm.threatened_pad(m, pad) * mob_skills.attack_multiplier(m, time)
+
+
+## MADamage `mad` of the mob in slot m at a magic attackN impact, times the multiplier of its magic attack up
+## (MobSkill 101/111, #457); the source's boss/elite/dmg_mult multipliers apply later, in take_hit. Touch and weapon
+## attacks never read it.
+func mob_magic_attack(m: int, mad: float) -> float:
+	return mad * mob_skills.magic_attack_multiplier(m, time)
 
 
 ## Defense inputs for a monster hit; overridable by subsequent equipment and buff rules.
@@ -2523,13 +2839,43 @@ func opening_multiplier(stat: String) -> float:
 
 ## Survivor scales stack after defense: ordinary opening ramp, elite scale, and explicit source scale.
 ## Tier C: scheduled boss sources already include the ramp captured at arrival.
-func hit_source_multiplier(source: Dictionary) -> float:
+func hit_source_multiplier(source: Dictionary, magic := false) -> float:
 	var mult := float(source.get("dmg_mult", 1.0))
 	if not bool(source.get("boss", false)):
 		mult *= opening_multiplier("damage")
+	if level_scale != null:
+		mult *= _level_damage_multiplier(source, magic)
 	if bool(source.get("elite", false)):
 		mult *= float(stage.get("elites", {}).get("damage_mult", 1.0))
 	return mult
+
+
+## Tier C (#453): the level scale's damage ratio for a monster hit, pad(E)/pad(L) for contact and physical attacks and
+## mad(E)/mad(L) for magic, L being the attacker's canonical level (source.mob_id; no id, no scaling). An ordinary
+## monster uses the effective level at the impact; a scheduled boss (source.boss_index) the one captured for its
+## encounter, so two bosses of the same id never share a freeze.
+func _level_damage_multiplier(source: Dictionary, magic: bool) -> float:
+	var id := int(source.get("mob_id", 0))
+	if bool(source.get("boss", false)):
+		var captured: Array = _boss_level_damage.get(int(source.get("boss_index", -1)), [1.0, 1.0])
+		return captured[1] if magic else captured[0]
+	if not kind_of_id.has(id):
+		return 1.0
+	var level: int = (mob_kinds[kind_of_id[id]] as MobKind).level
+	return level_scale.ratio("mad" if magic else "pad", level_scale.level_at(curve_time()), level)
+
+
+## Called by BossDirector when scheduled boss `boss_index` arrives (and by a final form that continues its encounter, with
+## its own mob id and spawn time): freezes the damage ratios (pad and mad) of `mob_id` at the effective level now and, on
+## the first call, records `level_scale_at` (that level) in the boss record. No-op without a level scale.
+func capture_boss_level_scale(boss_index: int, mob_id: int, record: Dictionary) -> void:
+	if level_scale == null or not kind_of_id.has(mob_id):
+		return
+	var effective := level_scale.level_at(curve_time())
+	var level: int = (mob_kinds[kind_of_id[mob_id]] as MobKind).level
+	_boss_level_damage[boss_index] = [level_scale.ratio("pad", effective, level), level_scale.ratio("mad", effective, level)]
+	if not record.has("level_scale_at"):
+		record["level_scale_at"] = effective
 
 
 ## Whether the hit window (hit invincibility) or a guarding hit hook turns this source's hit away right now. Boss skill
@@ -2557,7 +2903,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		_emit_player_hit(0, true, dir, source)
 		return 0
 	var dmg := CombatMath.monster_hit(attack, magic, element, hit_defense(), rng,
-		hit_source_multiplier(source))
+		hit_source_multiplier(source, magic))
 	if not magic:
 		# tier C: apply canonical Invincible percent to the whole weapon hit; minimum 1.
 		dmg = maxi(1, roundi(dmg * (1.0 - clampf(buffs.effect_total("weapon_damage_reduction"), 0.0, 100.0) / 100.0)))
@@ -2566,12 +2912,13 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	# Power Guard (#182): a no-op, with no RNG and no event, unless the buff is active and this is contact damage.
 	var reflect := _power_guard_reflect(dmg, magic, source)
 	dmg -= reflect
+	var soakable := dmg
+	# The running Forms' absorb phase (the ship's hull, spec #384 C11) and then the hit hooks' (below): what they soak never
+	# reaches HP, in order, and the damage number shows the rest; `player_hit.absorbed` carries the part they took.
 	dmg = ceili(runner.forms.absorb(self, float(dmg)))
-
-	# The hit hooks' absorb phase (a hull): what they soak never reaches HP, in order, and the damage number shows the rest.
 	dmg = _hit_hooks_absorb(dmg, source)
 	_hp -= dmg
-	_emit_player_hit(dmg, false, dir, source)
+	_emit_player_hit(dmg, false, dir, source, soakable - dmg)
 	upkeep.land_hit(bypass)
 	if reflect > 0:
 		_apply_reflect(int(source.mob), reflect)
@@ -2583,6 +2930,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		state = DEAD
 		runner.clear_pending(self)
 		runner.forms.clear(self)
+		hazards.clear()
 		emit("player_died", {"pos": player.pos})
 	elif bypass or upkeep.may_knock_back():
 		# tier C (owner, #223): a hit inside the knockback guard does its damage without pushing the player; a boss
@@ -2660,6 +3008,45 @@ func _power_guard_reflect(damage: int, magic: bool, source: Dictionary) -> int:
 	return clampi(amount, 0, floori(float(swarm.max_hp[m]) * POWER_GUARD_CAP))
 
 
+## A hit of `damage` the character dealt to slot `m` (Reflect, MobSkill 143/144/145, #461): true when the boss reflects that
+## damage type, in which case the hit deals 0 to it and the character loses MobReflect.hit's amount instead.
+func _reflect_hit(m: int, magic: bool, damage: float) -> bool:
+	var amount := mob_skills.reflect_hit(m, magic, damage, time)
+	if amount < 0:
+		return false
+	var mk: MobKind = mob_kinds[swarm.kind[m]]
+	emit("boss_reflect", {"mob": m, "mob_id": mk.id, "boss_index": mob_boss[m], "magic": magic, "damage": int(damage),
+		"amount": amount, "pos": Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y), "time": time})
+	if amount > 0 and _hurt_by_reflect(m, amount):
+		mob_skills.reflect_spent(m, time)
+	return true
+
+
+## The character loses `amount` HP to the Reflect of boss slot `m`: no avoid, defence or knockback, and no Form or hull
+## absorption (tier C). Refused while dead, clearing a map, in god mode, Hidden, inside a hit window or behind a hit guard;
+## the hit hooks' second life still applies. The hit is a `player_hit` of source_kind "reflect"; it can kill. Returns
+## whether it landed (only a landed reflect spends the boss's rate slot).
+func _hurt_by_reflect(m: int, amount: int) -> bool:
+	var source := {"mob": m, "mob_id": mob_kinds[swarm.kind[m]].id, "boss": true, "boss_index": mob_boss[m],
+		"source_kind": "reflect"}
+	if _dead or _map_clearing or god or is_hidden() or hit_window_blocks(source):
+		return false
+	_hp -= amount
+	_emit_player_hit(amount, false, 1 if player.pos.x >= swarm.x[m] else -1, source)
+	if _hp <= 0.0 and _hit_hook_saves(source):
+		_hp = maxf(_hp, 1.0)
+	if _hp <= 0.0:
+		_hp = 0.0
+		_dead = true
+		state = DEAD
+		runner.clear_pending(self)
+		runner.forms.clear(self)
+		hazards.clear()
+		emit("player_died", {"pos": player.pos})
+	_write_player_state(0.0)
+	return true
+
+
 ## Hands a Power Guard reflect to monster `m` as the character's own damage (tier C): a damage number, and a kill gives
 ## EXP and drops like any other. It does not go through the hit listeners (no Final Attack, no on-hit status).
 func _apply_reflect(m: int, amount: int) -> void:
@@ -2672,19 +3059,53 @@ func _apply_reflect(m: int, amount: int) -> void:
 		_on_kill(m)
 
 
-func _emit_player_hit(damage: int, miss: bool, dir: int, source: Dictionary) -> void:
-	emit("player_hit", {"damage": damage, "miss": miss, "dir": dir,
+## One whole-second tick of Poison 125 (#459): `amount` HP straight off the character, never lethal (at least 1 HP stays),
+## with no hit window, avoid, defense, hit reaction or knockback (tier C, a damage over time). A Hidden character and a
+## hit guard (the Bishop's post-revive guard) do not stop it either: it is a status already on the character (tier C). A `player_hit` event with
+## `source_kind` "poison" and the source boss reports what was actually lost (nothing is emitted at 1 HP or in god mode).
+## Returns the HP lost.
+func take_poison(amount: int, boss_slot: int, boss_mob_id: int) -> int:
+	if _dead or _map_clearing or god:
+		return 0
+	var before := ceili(_hp)
+	var left := maxf(1.0, _hp - float(amount))
+	if left >= _hp:
+		return 0
+	_hp = left
+	# The reported amount is the drop of the HP the HUD shows (ceil), so a fractional HP reports what was really removed.
+	var lost := before - ceili(_hp)
+	_write_player_state(0.0)
+	if lost <= 0:
+		return 0
+	emit("player_hit", {"damage": lost, "miss": false, "dir": 0, "pos": player.pos, "mob": boss_slot,
+		"mob_id": boss_mob_id, "boss": true, "max_hp": _max_hp, "source_kind": "poison"})
+	return lost
+
+
+func _emit_player_hit(damage: int, miss: bool, dir: int, source: Dictionary, absorbed := 0) -> void:
+	var fields := {"damage": damage, "miss": miss, "dir": dir,
 		"pos": player.pos, "mob": int(source.get("mob", -1)), "mob_id": int(source.get("mob_id", 0)),
-		"boss": bool(source.get("boss", false)), "max_hp": _max_hp, "source_kind": String(source.get("source_kind", "other"))})
+		"boss": bool(source.get("boss", false)), "max_hp": _max_hp, "source_kind": String(source.get("source_kind", "other"))}
+	if absorbed > 0:
+		fields["absorbed"] = absorbed # optional (OPTIONAL_EVENT_FIELDS): only a hit a hull or hook soaked part of carries it
+	emit("player_hit", fields)
 
 
-## Whether auto-actions may cast now: hanging on a rope/ladder blocks new casts, not their cooldowns or effects.
+## Whether auto-actions may cast now: hanging on a rope/ladder or Stun blocks new casts, not their cooldowns or effects.
 func can_cast() -> bool:
-	return state == PLAYING and not _dead and not _map_clearing and player.state != PlayerMotion.ST_LADDER
+	return state == PLAYING and not _dead and not _map_clearing and player.state != PlayerMotion.ST_LADDER \
+		and not mob_skills.is_stunned(time)
 
 
 func _gain_exp(n: int) -> void:
 	var before := progression.level
+	# tier B (#458): Curse 124 halves the EXP at the pickup; the part of a point it drops carries over, so many small
+	# orbs still add up to half.
+	var curse := mob_skills.exp_multiplier(time)
+	if curse < 1.0 and n > 0:
+		var cursed := float(n) * curse + _curse_carry
+		n = floori(cursed + 1e-9)
+		_curse_carry = maxf(0.0, cursed - float(n))
 	# The Holy Symbol passive (#289): +x% on every gain; the fraction that does not make a whole point carries over, so
 	# many small orbs lose nothing.
 	var bonus := loadout.passive_total(Loadout.EXP_PCT)
@@ -2783,6 +3204,25 @@ func _write_player_state(dt: float) -> void:
 	player_state["exp"] = progression.exp
 	player_state["exp_next"] = progression.exp_to_next()
 	player_state["slow"] = mob_skills.slow_state(time)
+	# Present only while stunned, so snapshots of runs without a Stun keep their bytes (#456).
+	var stun := mob_skills.stun_state(time)
+	if stun.is_empty():
+		player_state.erase("stun")
+	else:
+		player_state["stun"] = stun
+	# The same for Darkness, Weakness, Curse, Seduce and Confuse (#458).
+	for id: int in PLAYER_STATUS_KEYS:
+		var state := mob_skills.status_state(id, time)
+		if state.is_empty():
+			player_state.erase(PLAYER_STATUS_KEYS[id])
+		else:
+			player_state[PLAYER_STATUS_KEYS[id]] = state
+	# Present only while poisoned, like the stun above (#459).
+	var poison := mob_skills.poison_state(time)
+	if poison.is_empty():
+		player_state.erase("poison")
+	else:
+		player_state["poison"] = poison
 	player_state["level"] = progression.level
 	player_state["job_id"] = progression.job_id
 	for stat: String in _attributes:

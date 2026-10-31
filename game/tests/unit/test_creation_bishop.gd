@@ -68,7 +68,7 @@ func _row(creation: Control, id: int) -> Button:
 func test_shipped_bishop_is_playable_in_canonical_order() -> void:
 	var mirrored := _tree()
 	assert_true(mirrored.job(232).playable)
-	assert_eq(mirrored.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 322, 512] as Array[int])
+	assert_eq(mirrored.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 322, 412, 512, 522] as Array[int])
 	assert_eq(mirrored.name_of(232), "Bishop", "the name is the canonical job list's")
 	assert_eq(mirrored.default_job(), 212, "F/P stays the default")
 	assert_eq(mirrored.creation_weapon(232), 1372005, "the Wooden Wand")
@@ -163,7 +163,7 @@ func test_create_makes_a_bishop_with_its_wand_and_a_separate_f_p_in_the_next_slo
 	assert_eq(flow.current_name, "free_market")
 	var bishop: Dictionary = flow.save.slot(0).character
 	assert_eq(bishop.job_id, 232)
-	assert_eq(bishop.tiers_unlocked, 1)
+	assert_eq(bishop.cleared_regions, [])
 	assert_eq(int(bishop.equipment.worn.weapon.id), 1372005, "Bishop starts with the Wooden Wand")
 	assert_eq(CharacterSnapshot.validation_error(bishop), "")
 	flow.goto_character_select()
@@ -172,7 +172,7 @@ func test_create_makes_a_bishop_with_its_wand_and_a_separate_f_p_in_the_next_slo
 	creation.create_button.pressed.emit()
 	assert_eq(flow.save.slot(1).character.job_id, 212)
 	assert_eq(flow.save.slot(0).character.job_id, 232, "the first slot is unchanged")
-	assert_eq(flow.save.slot(0).character.tiers_unlocked, 1, "each job has its own tier ladder")
+	assert_eq(flow.save.slot(0).character.cleared_regions, [], "each job has its own progress")
 
 
 func test_bishop_is_refused_when_the_mirror_goes_away_after_selection() -> void:

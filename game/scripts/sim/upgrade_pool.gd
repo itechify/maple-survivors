@@ -31,7 +31,7 @@ const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_fal
 ## value]. tier C: wording from spec #372 story 11 ("Greater Heal: recovery x1.2", "Holy Shield: guard +1.5 s").
 const CARD_STAT_TEXT := {"heal_power": ["recovery", 1.0, ""], "heal_threshold": ["heals below", 100.0, "% HP"],
 	"revive_hp": ["revive HP", 100.0, "%"], "revive_guard": ["guard", 1.0, " s"]}
-const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "hp_cost", "self_damage", "low_hp_damage", "support_heal", "support_rate", "form_time", "form_power", "heal_power", "heal_threshold", "revive_hp", "revive_guard"]
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff", "meter_keep", "hp_cost", "self_damage", "low_hp_damage", "support_heal", "support_rate", "form_time", "form_power", "mark_power", "mark_time", "hull", "heal_power", "heal_threshold", "revive_hp", "revive_guard"]
 ## Modifier previews: label, unit and base multiplier. Add another multiplier here only (tier C: UI wording).
 const MODIFIER_PREVIEW := {"burn_damage": ["Burn", "%", 1.0]}
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
@@ -340,6 +340,17 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 	var labels: Array[String] = []
 	for effect: Dictionary in bonus.effects:
 		var op := String(effect.get("op", "add"))
+		if op == "grant":
+			effect["scale"] = scale
+			var preview := state.loadout.clone()
+			preview.add_status_grant(skill, String(effect.status), scale)
+			var r := state.loadout.rank(skill)
+			if category != MASTERY:
+				r += 1
+			for grant: Dictionary in preview.stats(skill, maxi(1, r)).get("status_grants", []):
+				if String(grant.id) == String(effect.status):
+					labels.append(StatusBonus.line(grant, state.loadout.status_bonuses))
+			continue
 		var value := float(effect.value)
 		effect.value = 1.0 + (value - 1.0) * scale if op == "mul" else value * scale
 		if String(effect.stat) == "meter_keep":
@@ -402,6 +413,9 @@ static func _bonus_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictio
 	for e: Dictionary in c.get("effects", []):
 		var stat := String(e.get("stat", ""))
 		var op := String(e.get("op", "add"))
+		if op == "grant":
+			preview.add_status_grant(skill, String(e.status), float(e.get("scale", 1.0)))
+			continue
 		if not stat in MOD_PREVIEW and not stat in MODIFIER_PREVIEW:
 			continue
 		var value := float(e.get("value", 0.0))
@@ -430,6 +444,12 @@ static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: Str
 			return snappedf(float(st.get("duration", 0.0)), 0.01)
 		"form_power":
 			return snappedf(lo.skill_stat(skill, "form_power", 0.0) * 100.0, 0.01)
+		"mark_power":
+			return roundi(lo.mark_multipliers(skill).x * 100.0) # the non-boss multiplier, as a percent (150% -> 175%)
+		"mark_time":
+			return snappedf(float(st.get("mark_time", 0.0)), 0.01)
+		"hull":
+			return roundi(float(st.get("hull_share", 0.0)) * 100.0) # percent of max HP (the Battleship's hull, 50% -> 75%)
 		"meter_keep":
 			return maxi(0, roundi(lo.skill_stat(skill, "meter_keep", 0.0)))
 		"pierce_falloff":
@@ -514,11 +534,16 @@ func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 		elif kind in [SKILL_NEW, SKILL_RANK] and skill != "":
 			if stat == "rank" and kind != SKILL_RANK:
 				lo.set_rank(skill, lo.rank(skill) + int(value))
+			elif op == "grant":
+				lo.add_status_grant(skill, String(e.status))
 			elif stat != "rank":
 				lo.add_skill_mod(skill, stat, op, value)
 	if not bonus.is_empty():
 		for effect: Dictionary in bonus.effects:
-			lo.add_skill_mod(skill, String(effect.stat), String(effect.op), float(effect.value))
+			if String(effect.op) == "grant":
+				lo.add_status_grant(skill, String(effect.status), float(effect.get("scale", 1.0)))
+			else:
+				lo.add_skill_mod(skill, String(effect.stat), String(effect.op), float(effect.value))
 		lo.card_ranks[String(bonus.counter)] = int(lo.card_ranks.get(String(bonus.counter), 0)) + 1
 	state.refresh_player_stats()
 	state.emit("upgrade_applied", {"id": id, "rank": r, "tier": tier, "magnitude": magnitude})

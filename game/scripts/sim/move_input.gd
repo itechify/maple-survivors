@@ -30,7 +30,17 @@ static func make(p_left := false, p_right := false, p_up := false, p_down := fal
 	return m
 
 
-## Marks the skill key `id` ("teleport", "dash", "rush") as pressed on this tick.
+## An independent copy of this tick's intent (the skill dictionaries are copied too): a boss status rewrites the copy and
+## leaves the caller's input, which a test or bot may reuse, untouched.
+func duplicate_input() -> MoveInput:
+	var m := MoveInput.make(left, right, up, down, jump_pressed, jump_held)
+	m.drink_hp = drink_hp
+	m.skills_pressed = skills_pressed.duplicate()
+	m.skills_held = skills_held.duplicate()
+	return m
+
+
+## Marks the skill key `id` ("teleport", "dash", "rush", "flash_jump") as pressed on this tick.
 func press_skill(id: String) -> void:
 	skills_pressed[id] = true
 

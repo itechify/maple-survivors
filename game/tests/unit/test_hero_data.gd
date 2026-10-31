@@ -258,8 +258,8 @@ func test_real_cache_the_creation_sword_is_wearable_and_the_shipped_pool_holds_s
 	assert_eq(WeaponInfo.family(sword), "sword")
 	assert_eq(Equipment.requirement_error(infos[sword], {"job_id": 112}), "")
 	var ed: Dictionary = data.equipment_drops
-	for tier in data.stages.tiers.size():
-		var band := EquipmentDrops.band_of(data.stages, tier)
+	for tier in data.stages.progression.size():
+		var band := EquipmentDrops.band_of(data.stages.stages[data.stages.progression[tier]])
 		var hands := {}
 		var rng := _rng(112 + tier)
 		for i in 300:

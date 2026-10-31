@@ -2,7 +2,7 @@ class_name SceneFlow
 extends Node
 ## Round coordinator (autoload Flow): title -> character_select -> the character's Free Market (home) -> Up at out00 ->
 ## map select -> round -> results -> the Free Market again (ADR 0006, #286). Every round is standalone: a clear, a death or
-## a Quit round ends it, and nothing but the character (its pickups and unlocked tiers) carries to the next.
+## a Quit round ends it, and nothing but the character (its pickups and cleared regions) carries to the next.
 ## host owns exactly one screen. Swaps are deferred so callbacks may replace their screen safely.
 ##
 ## #70 seam: character_select.gd/.tscn is a separate presentation. Use create_character(name, look, job),
@@ -16,8 +16,8 @@ extends Node
 ## character is saved at the hub (the Free Market writes each change) and when a round ends; `start_round` writes nothing,
 ## so closing the game mid-round loses the round and there is nothing to resume.
 ## finish_run(summary, character, ending) is the ONE exit of a persistent round. RunScene hands over the character as the
-## round left it (RunWorld.character_snapshot(): pickups kept, the next tier unlocked after a clear) for a clear, a death
-## and a quit alike; `ending` "" means cleared/died by the summary, "quit" is Quit round, which ends the round exactly
+## round left it (RunWorld.character_snapshot(): pickups kept, the stage added to its cleared regions after a clear) for a
+## clear, a death and a quit alike; `ending` "" means cleared/died by the summary, "quit" is Quit round, which ends the round exactly
 ## like a death. SaveData.finish_round writes slot, best, count, NX and one history entry together; the results screen
 ## then returns to the hub (to_hub).
 ##
@@ -168,7 +168,7 @@ func create_character(character_name: String, look: Dictionary = {}, job: int = 
 
 ## A fresh character of job `job_id` (the sim's defaults) wearing the creation choices: `look` {skin, face, hair, equips:
 ## [top, bottom, shoes]} and the job's creation weapon (JobTree.creation_weapon) become worn equipment with plain WZ stats
-## from `img_loader` (path -> img root, {} when absent); an empty look wears Equipment.DEFAULT_OUTFIT. Tier 1 is unlocked.
+## from `img_loader` (path -> img root, {} when absent); an empty look wears Equipment.DEFAULT_OUTFIT. Only the first region is open.
 static func new_character(look: Dictionary, job_id: int, img_loader: Callable) -> Dictionary:
 	var data := DataRepo.load_all()
 	var jobs := DataRepo.jobs(data)
@@ -190,9 +190,9 @@ static func migrated_character(character: Dictionary, img_loader: Callable) -> D
 	var data := DataRepo.load_all()
 	var jobs := DataRepo.jobs(data)
 	if int(character.get("format", 0)) == CharacterSnapshot.FORMAT:
-		return CharacterSnapshot.migrate(character, jobs, {})
+		return CharacterSnapshot.migrate(character, jobs, {}, progression())
 	var ids := PackedInt32Array(CharacterSnapshot.held_item_ids(character, jobs))
-	return CharacterSnapshot.migrate(character, jobs, DataRepo.equipment_info(ids, img_loader))
+	return CharacterSnapshot.migrate(character, jobs, DataRepo.equipment_info(ids, img_loader), progression())
 
 
 ## An img loader over `lib` (default: the default asset library) for img roots such as item info (empty roots without
@@ -204,7 +204,7 @@ static func equipment_info_loader(lib: AssetLibrary = null) -> Callable:
 		return img.root if img != null else {}
 
 
-## Shows map select for the active character: every stage of the tiers it has unlocked (the next tier is shown locked).
+## Shows map select for the active character: every region of the progression, those it has not unlocked shown locked.
 func goto_stage_select() -> void:
 	var snapshot := save_data().slot(active_slot)
 	if snapshot.is_empty():
@@ -244,18 +244,14 @@ func leave_cash_shop(origin: String) -> void:
 		goto_stage_select()
 
 
-## Ordered stage keys per tier, from survivor data; works for any number of tiers.
-static func tiers() -> Array:
-	return DataRepo.load_all().get("stages", {}).get("tiers", [])
+## The ordered region keys of the game (stages.json `progression`, ADR 0007).
+static func progression() -> Array:
+	return DataRepo.load_all().get("stages", {}).get("progression", [])
 
 
-## The stage keys a character with `tiers_unlocked` tiers may start, in tier order (tier 1 is always unlocked).
-static func unlocked_stages(tiers_unlocked: int) -> Array:
-	var out := []
-	var ordered := tiers()
-	for tier in mini(maxi(1, tiers_unlocked), ordered.size()):
-		out.append_array(ordered[tier])
-	return out
+## The stage keys a character with the `cleared` regions may start, in progression order (the first is always open).
+static func unlocked_stages(cleared: Array) -> Array:
+	return CharacterSnapshot.unlocked_keys(progression(), cleared)
 
 
 static func _date() -> String:
@@ -279,6 +275,9 @@ func start_run(stage_key: String, p_seed: int = -1, options: Dictionary = {}) ->
 ## {character, mesos[, job]} (a `job` the character is not of opens the error screen). The character (plus the test kit) goes into slot 0 of a throwaway save at `save_path`, recreated
 ## now, and is continued as in real play; user://save.json is never read or written.
 func start_hub(request: Dictionary, save_path: String = HubTestKit.SAVE_PATH) -> void:
+	if request.has("error"):
+		_swap_to(error_screen("--hub: " + String(request.error)), "error")
+		return
 	var loaded := HubTestKit.load_character(String(request.get("character", HubTestKit.default_character())),
 		equipment_info_loader())
 	if not String(loaded.error).is_empty():
@@ -302,12 +301,12 @@ func start_hub(request: Dictionary, save_path: String = HubTestKit.SAVE_PATH) ->
 	continue_character(index)
 
 
-## Starts a persistent round of the active character on a stage of an unlocked tier. Writes nothing: the round exists only
+## Starts a persistent round of the active character on an unlocked region. Writes nothing: the round exists only
 ## while it is played. Ignores a stage the character has not unlocked.
 func start_round(stage_key: String, p_seed: int = -1) -> void:
 	stage_key = DataRepo.canonical_stage_key(stage_key)
 	var snapshot := save_data().slot(active_slot)
-	if snapshot.is_empty() or stage_key not in unlocked_stages(int(snapshot.character.tiers_unlocked)):
+	if snapshot.is_empty() or stage_key not in unlocked_stages(snapshot.character.get("cleared_regions", [])):
 		return
 	var live := _live_settings()
 	# The account's owned cash items decide which of the character's worn cash equipment and pet count (spec #34).

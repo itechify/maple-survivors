@@ -3,7 +3,10 @@ extends RefCounted
 ## The tool-only `--hub` flag: open the real Free Market (910000000) with a test character, so the spec #33 scroll shops
 ## can be tried by hand without playing a round:
 ##
-##   bash scripts/run.sh -- --hub [--job=<id>] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]
+##   bash scripts/run.sh -- --hub [--job=<id>] [--late] [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]
+##
+## `--late` opens the job's late-progression fixture (hub_kit `late_fixture`, spec #449 C12 #474: band-15 equipment, every region
+## cleared) instead of its tier-2 one; a job without one is an error screen. An explicit `--character` wins over both.
 ##
 ## Nothing here touches the player's real save (user://save.json): SceneFlow.start_hub puts the character into a slot of
 ## a throwaway save file (SAVE_PATH, recreated on every launch) and continues it, so the hub behaves exactly as in real
@@ -57,7 +60,11 @@ static func parse_args(list: PackedStringArray) -> Dictionary:
 	var mesos := DEFAULT_MESOS
 	if flags.has("mesos") and String(flags.mesos).is_valid_int():
 		mesos = maxi(0, int(flags.mesos))
-	out["character"] = path if path != "" and path != "1" else String(_kit(job).get("fixture", ""))
+	var late := flags.has("late") and String(flags.late) != "0"
+	var kit_key := "late_fixture" if late else "fixture"
+	out["character"] = path if path != "" and path != "1" else String(_kit(job).get(kit_key, ""))
+	if late and out.character == "":
+		out["error"] = "--late: job %d has no late-progression fixture (hub_kit late_fixture)" % job
 	out["mesos"] = mesos
 	return out
 
@@ -99,13 +106,19 @@ static func load_character(path: String, img_loader: Callable) -> Dictionary:
 	return {"character": SceneFlow.migrated_character(character, img_loader), "error": ""}
 
 
-## A copy of the format-3 `character` with the test kit: `mesos`, every tier unlocked (so map select shows them all), the
+## A copy of the format-3 `character` with the test kit: `mesos`, every progression region cleared (so map select shows them all open), the
 ## kit_scrolls stacks (SCROLL_COUNT each, on top of what it holds, within the Use tab) and the kit_equipment items created
 ## from `img_loader` info, of the character's job (kit_scrolls, kit_equipment).
 static func apply(character: Dictionary, mesos: int, img_loader: Callable) -> Dictionary:
 	var out := character.duplicate(true)
 	out.mesos = mesos
-	out.tiers_unlocked = maxi(int(out.get("tiers_unlocked", 1)), SceneFlow.tiers().size())
+	var cleared: Array = out.get("cleared_regions", []).duplicate()
+	for key: Variant in SceneFlow.progression():
+		if key not in cleared:
+			cleared.append(key)
+	cleared.sort()
+	out.cleared_regions = cleared
+	out.erase("tiers_unlocked")
 	var limit := Shop.use_stack_limit()
 	var job := int(out.get("job_id", 0))
 	for id: int in kit_scrolls(job):

@@ -70,9 +70,9 @@ func test_auto_ap_meets_every_shipped_bowman_weapon_requirement_by_its_level() -
 			continue
 		var img := lib.img(AvatarRenderer.part_img_path(id))
 		assert_true(img != null, "canonical requirements for %d" % id)
-		if img != null:
+		if img != null and int(img.root.info.get("reqLevel", 0)) <= 70: # this test levels to 70; the late bands (#474) go to 110
 			infos[id] = img.root.info
-	assert_eq(infos.size(), 22, "every shipped bow and crossbow is checked")
+	assert_eq(infos.size(), 28, "every shipped bow and crossbow up to Lv70 is checked (22 before #474 added Lv41-70 ones)")
 	for branch in [300, 310, 320]:
 		var setup := _world().setup.duplicate(true)
 		setup.equipment_info.merge(infos, true)
@@ -308,10 +308,10 @@ func test_range_passive_is_reusable_by_a_gun_line() -> void:
 	var w := RunWorld.new(setup)
 	RF.as_job(w, 500, "gun")
 	assert_near(w.weapon_reach.reach(w), 250)
-	assert_near(w.loadout.stats("double_shot").range, 215)
+	assert_near(w.loadout.stats("double_shot").range, 229) # rank 1 is WZ level 3 (Corsair C4 #388 moved Double Shot to the eight-rank table)
 	assert_true(w.learn_skill("reach_training"))
 	assert_near(w.weapon_reach.reach(w), 265)
-	assert_near(w.loadout.stats("double_shot").range, 230)
+	assert_near(w.loadout.stats("double_shot").range, 244)
 	var crit: float = w.loadout.stats("double_shot").crit
 	assert_true(w.learn_skill("blessing_of_amazon"))
 	w.refresh_player_stats()

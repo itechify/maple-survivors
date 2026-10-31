@@ -12,7 +12,7 @@ _Avoid_: Game, save, playthrough
 
 **Character**:
 The named, persistent hero a player creates: its name, look, 4th job (chosen at creation, never changed), worn
-equipment and inventory, scrolls, mesos, cash equipment, pet and unlocked tiers. It has no level, EXP, skills or AP
+equipment and inventory, scrolls, mesos, cash equipment, pet and cleared regions. It has no level, EXP, skills or AP
 between rounds: those belong to a round and start fresh at Lv1 (save format 3, #286).
 _Avoid_: Player (the person), avatar (the drawing), hero
 
@@ -39,14 +39,16 @@ _Avoid_: Round clear (only the last map clear clears the round)
 The automatic move after a map clear to the next map of the same round, carrying the character's current condition.
 _Avoid_: Round boundary (a transfer stays inside the round), checkpoint
 
-**Tier**:
-A difficulty step, holding one or more stages. Tier 1 is always open; clearing any stage of tier N unlocks tier N+1 for
-that character, and every unlocked tier can be replayed.
-_Avoid_: Act, world, chapter; not to be confused with a job tier or a card's rarity
+**Progression**:
+The one ordered list of regions of the game (stages.json `progression`), in the order a v83 character levelled: Henesys,
+Ellinia, Perion, Kerning City, Sleepywood, and the regions added after them. Each region is one stage of three maps. A
+character has only the first region open at the start and works down the list.
+_Avoid_: Tier (the old two-step grouping of ADR 0006, superseded by ADR 0007), act, world, chapter; not to be confused
+with a job tier or a card's rarity
 
 **Round boundary**:
 The moment between two rounds. The character is saved with what the finished round gave it (mesos, equipment, scrolls,
-and an unlocked tier after a clear).
+and the cleared region after a clear).
 
 **Character snapshot**:
 The character as saved (format 3): what it keeps between rounds, listed under Character. There is no saved round to
@@ -59,8 +61,8 @@ round, and goes up at its exit to map select.
 _Avoid_: Town, lobby, shop (shops live inside it)
 
 **Map select**:
-The screen where a character picks the stage of its next round, from every stage of every tier it has unlocked (a
-locked tier is shown greyed).
+The screen where a character picks the region of its next round. It lists the whole progression in order; a region the
+character has not unlocked is shown greyed.
 _Avoid_: Stage select (the old single-stage screen)
 
 **Round history**:
@@ -123,7 +125,7 @@ How many advancements a job is from Beginner: 0 Beginner, 1 first job, 2 second 
 **Job line**:
 A first job and every job below it, named after it (warrior, magician, bowman, thief, pirate), plus beginner for
 job 0 and common for job-neutral data. A class spec after the slice adds a *data line* named after the class
-(`hero`, #296), discovered by `DataRepo.lines()` after the fixed Adventurer lines, sorted by name, so jobs of the same Adventurer line no longer share one file. Survivor data and the asset manifest keep one file per line
+(`hero`, #296; later `night_lord`, #383, and the other class lines), loaded by `DataRepo.lines()` after the fixed Adventurer lines in the append-only `CLASS_LINES` order (a prototype fragment not yet registered follows, sorted by name), so jobs of the same Adventurer line no longer share one file. Survivor data and the asset manifest keep one file per line
 (`survivor/<name>/<line>.json`, `asset_manifest.d/<line>.json`), and a per-job table resolves a job through its
 lineage to the nearest listed ancestor.
 _Avoid_: class line, family (a weapon family is a kind of weapon)
@@ -221,6 +223,10 @@ A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here i
 A timed active stance that changes the character's attacks and carries sub-skills. A running form survives
 map transfer and ends on death. Its buff block carries Hidden or morph state; effect keys are for cast-stat or lifecycle behaviour (Buccaneer template: `spec/412`, `test_morph_form.gd`).
 
+**Hull**:
+The durability pool of a Form such as the Corsair's Battleship: a share of max HP that takes the character's hits before HP does
+and ends the Form when it is gone. Shown as a thin blue bar over the character. Not a HitHook (a hull is Form state).
+
 **Charge**:
 A Paladin Form that temporarily gives its attacks an element and carries Charged Blow. Holy Charge also
 carries Heaven's Hammer. Only one Charge runs at a time.
@@ -257,7 +263,7 @@ _Avoid_: Luck, LUK
 
 **Rarity**:
 A card's Potential tier (Normal, Rare, Epic, Unique, Legendary), which sets how much the card gives.
-_Avoid_: Quality, grade, card tier (tier is the run's difficulty step)
+_Avoid_: Quality, grade, card tier (a progression step is a region, ADR 0007)
 
 ## Survivor progression (ADR 0006, `redesign` branch)
 
@@ -294,13 +300,15 @@ A card for an active skill already at rank 8: it adds no rank, only a rarity bon
 stack, so an active skill never fully maxes.
 _Avoid_: overrank, limit break; not a weapon mastery skill (Sword Mastery and similar)
 
-**Tier unlock**:
-A character's permission to pick a tier's stages, earned by clearing any stage of the tier before it.
-_Avoid_: level gate, progress
+**Region unlock**:
+A character's permission to pick a region, earned by clearing the region before it in the progression (the first region
+is always open). The character stores the set of cleared region keys (`cleared_regions`), not a counter, so a region
+inserted into the list later shifts no one's unlocks. A death, a Quit round and a tool one-off round never change it.
+_Avoid_: Tier unlock (ADR 0006), level gate, progress
 
 **Drop band**:
-The `reqLevel` range of equipment a tier's monsters drop (tier 1 0-30, tier 2 30-60), with bosses rolling from its top
-third. It replaces the character's level in the drop rule; `reqLevel` is no longer a requirement to wear the item.
+The `reqLevel` range of equipment a region's monsters drop (its `drop_band` in stages.json: Henesys 0-15 rising to
+Sleepywood 30-40), with bosses rolling from its top third. It replaces the character's level in the drop rule; `reqLevel` is no longer a requirement to wear the item.
 _Avoid_: loot table, item level
 
 ## Monsters
@@ -315,6 +323,18 @@ A status effect that makes a monster weak to one element for a time (x1.5 damage
 monster's own attribute): Fire Demon's ice-weak and Ice Demon's fire-weak. A monster can carry several, and bosses take
 none. A mixed-element hit (fire/poison, ice/lightning) is the mean of its parts, each counted with its live weakness.
 _Avoid_: debuff, curse
+
+**Mount**:
+A taming-mob image (`Character.wz/TamingMob/<id>.img`) drawn under and over the avatar for the life of a form that names one
+(`presentation.mount`): the rear canvas behind the rider, the front canvas in front, the rider seated at the mount's navel. Corsair's
+Battleship is the only one. Presentation only: no mount speed, jump or hitbox.
+_Avoid_: pet (a pet follows, a mount carries), vehicle
+
+**Mark**:
+A timed status (`all_weak`) that makes every hit on a monster deal x1.5 (x1.25 on a boss, which can be marked unlike the
+other statuses), elemental or not, on top of any element multiplier; the player's nearest-rule shots, bursts and summons
+also prefer a marked monster (after scheduled bosses). Corsair's Homing Beacon applies it; Bullseye raises it.
+_Avoid_: debuff, curse, vulnerability (a vulnerability is one element only)
 
 **Stolen**:
 A monster a successful Steal has already taken an extra drop from; Steal can't take from it again. It is not a
@@ -378,7 +398,7 @@ _Avoid_: Gold, coins, money; not to be confused with NX, which outlives runs
 
 **Equipment**:
 The v83 items a character can wear, each with its real stats. Its job class is the only requirement to wear it: its
-`reqLevel` and stat requirements do not apply (they place it in a tier's drop band). Equipment comes only from monster
+`reqLevel` and stat requirements do not apply (they place it in a region's drop band). Equipment comes only from monster
 drops (plus the creation weapon of a new character), never from shops, and stays with the character between rounds.
 _Avoid_: Gear (in player-visible text), armour, loot
 
@@ -490,6 +510,17 @@ A round-owned integer counter, filled by configured events and spent by finisher
 starts at zero each round, and is shown as HUD pips. M1 is shared by Hero, Buccaneer and Shadower.
 _Avoid_: mana, buff, form
 
+**Flash Jump**:
+Night Lord's mobility skill (4111006) on a skill key: pressed in the air, it slides the character sideways 140 -> 280 px by
+rank, once per airborne period, and leaves a ghost trail. Never a card; its rank follows the round's level. No damage.
+_Avoid_: double jump, Teleport (a blink between platforms), Rush (a damaging ground dash)
+
+**Meso charge**:
+Night Lord's meter (id `meso_charge`, ten pips): one pip per 1000 mesos picked up (the remainder is carried), one lost per 6 s
+while held, +3% damage on every pool cast per pip; Shadow Meso reads it for more and spends nothing. A counter filled by
+pickups, never money: no mesos are spent or lost. Shadower's Meso Explosion is a finisher on the same meter.
+_Avoid_: mesos (the wallet), mana, Meso Guard
+
 **Combo orb**:
 One unit of Hero's Combo meter. A landed non-finisher pool cast earns one; each held orb adds damage.
 _Avoid_: Combo Attack card (Combo is intrinsic and takes no slot)
@@ -507,6 +538,22 @@ _Avoid_: ultimate, proc
 **Physical follower**:
 A player summon (Silver Hawk, Phoenix, Golden Eagle, Frostprey) whose damage is physical and takes its W.Att from the skill level's `pad` instead of the worn weapon, optionally stunning on hit and flying above its trailing point. It is the Elquines seam (`PlayerSummons`) with data keys, not a separate system.
 _Avoid_: pet (the Free Market pet is a cosmetic companion), minion
+
+**Echo**:
+A timed clone (Shadow Partner) that repeats the owner's star casts about 0.25 s later from its own hand at a percent of their damage
+(`x` for the basic throws, `y` for the heavier skills). It is a `PlayerSummons` entry with `summon.echo`, never strikes by itself, and
+its repeats earn no meter charge, heal nothing and are never echoed again (`EchoCast`, #404). Night Lord's Shadow Partner draws it from the WZ `special` frames (`EchoCloneRenderer`, #409).
+_Avoid_: shadow clone attack, double cast
+
+**Turret**:
+A player summon with `summon.behavior: "turret"` (the Corsair Octopus): planted where it is called, it fires one visible ball per
+target at monsters inside a circle around it and the hit lands when the ball arrives. `SummonTurret`.
+_Avoid_: totem, tower
+
+**Kamikaze**:
+A player summon with `summon.behavior: "kamikaze"` (the Corsair Gaviota): it flies at one chosen monster, strikes once and is spent.
+`SummonKamikaze`.
+_Avoid_: bomber
 
 **Burst**:
 One automatic cast that schedules its resolved shot count over time, following the moving character's hand and a
@@ -526,3 +573,6 @@ _Avoid_: backlash, self-damage (the data block is named `self_damage`)
 A hit dealing a rank's share of the target's max HP, capped by a multiple of the caster's base physical damage.
 Canonical and scheduled bosses use a smaller share and cap. Damage bonuses multiply after the cap; defence,
 crit and element do not apply. Physical immunity and ordinary on-hit, kill and loot handling still apply.
+
+**Status bonus** — A rarity or Mastery effect granting an ordered, rank-resolved status to one skill, independently of
+its numeric modifiers and native on-hit status. Repeating the grant adds diminishing chance points (M22, #402).

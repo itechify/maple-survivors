@@ -123,7 +123,7 @@ func test_the_fixture_tool_makes_a_shipped_buccaneer_and_refuses_a_disabled_job(
 	if character.is_empty():
 		return
 	assert_eq(int(character.job_id), 512)
-	assert_eq(int(character.tiers_unlocked), 2)
+	assert_eq(character.cleared_regions, ["ellinia", "henesys", "kerning", "perion"], "--tiers=2 (the compatibility alias) clears the four Victoria regions")
 	var worn := Equipment.worn_ids(character.equipment.worn)
 	for id: int in [1482001, 1002001, 1082002, 1040010]:
 		assert_true(id in worn, "%d is worn" % id)
@@ -173,6 +173,6 @@ func test_the_fixture_starts_a_buccaneer_round_without_a_job_flag() -> void:
 	if record.is_empty():
 		return
 	assert_eq(int(record.job), 512, "the job comes from the character")
-	assert_eq(int(record.start_character.tiers_unlocked), 2)
+	assert_eq(record.start_character.cleared_regions, ["ellinia", "henesys", "kerning", "perion"], "the fixture's tier 2 migrates to the four Victoria regions")
 	assert_eq(record.missing, [])
 	assert_eq(record.warnings, [])

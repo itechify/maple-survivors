@@ -23,13 +23,14 @@ const SELF_TEST_FILES := [
 	"res://tests/unit/test_account_flag.gd", "res://tests/unit/test_balance_chain.gd",
 	"res://tests/unit/test_character_snapshot.gd", "res://tests/unit/test_character_tools.gd",
 	"res://tests/unit/test_hero_selection.gd",
+	"res://tests/unit/test_corsair_selection.gd",
 	"res://tests/unit/test_dark_knight_selection.gd",
 	"res://tests/unit/test_bowmaster_selection.gd",
 	"res://tests/unit/test_marksman_selection.gd",
 	"res://tests/unit/test_warrior2_fixtures.gd",
 	"res://tests/unit/test_il_selection.gd", "res://tests/unit/test_buccaneer_selection.gd",
 	"res://tests/unit/test_paladin_selection.gd",
-	"res://tests/unit/test_bishop_selection.gd",
+	"res://tests/unit/test_bishop_selection.gd", "res://tests/unit/test_night_lord_selection.gd",
 ]
 
 

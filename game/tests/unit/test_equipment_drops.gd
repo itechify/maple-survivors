@@ -230,15 +230,15 @@ func test_every_listed_item_has_cache_info_and_an_icon_and_every_band_has_drops(
 			continue
 		var info: Dictionary = img.root.info
 		infos[id] = info
-		assert_true(int(info.get("reqLevel", -1)) >= 0 and int(info.reqLevel) <= 70, "%d reqLevel 0..70" % id)
+		assert_true(int(info.get("reqLevel", -1)) >= 0 and int(info.reqLevel) <= 120, "%d reqLevel 0..120 (70 before the late bands, #474)" % id)
 		assert_true(int(info.get("reqJob", -1)) == 0 or int(info.reqJob) & 31 != 0,
 			"%d is all-job, Magician, Warrior, Bowman, Thief or Pirate" % id)
 		assert_eq(int(info.get("cash", 0)), 0, "%d is not a cash item" % id)
 		assert_true(lib.frame(AvatarRenderer.part_img_path(id) + "/info/iconRaw") != null, "%d has iconRaw" % id)
 	var rng := _rng(8)
 	var stages: Dictionary = DataRepo.load_all().stages
-	for tier in stages.tiers.size():
-		var band := EquipmentDrops.band_of(stages, tier)
+	for tier in stages.progression.size():
+		var band := EquipmentDrops.band_of(stages.stages[stages.progression[tier]])
 		assert_true(EquipmentDrops.eligible(ed.items, infos, 212, band, WEAPONS).size() > 20, "tier %d has drops" % (tier + 1))
 		var floor_req := EquipmentDrops.boss_floor(band, ed)
 		for i in 30:

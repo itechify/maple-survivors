@@ -515,6 +515,17 @@ const MOB_INFO := {
 		"MDDamage": 160, "speed": -20, "acc": 140, "pushed": 300},
 	6220000: {"level": 65, "maxHP": 31000, "exp": 810, "PADamage": 190, "PDDamage": 190,
 		"MDDamage": 220, "speed": -30, "acc": 150, "boss": 1, "pushed": 1500},
+	# #452: the Ellinia and Perion bosses (v83 Mob.wz facts; the shell 5220001 and its form 5220000 are King Clang).
+	3300008: {"level": 38, "maxHP": 12500, "exp": 800, "PADamage": 130, "PDDamage": 160,
+		"MDDamage": 160, "speed": -30, "acc": 140, "boss": 1, "pushed": 300},
+	3300005: {"level": 35, "maxHP": 120000, "exp": 210, "PADamage": 125, "PDDamage": 50,
+		"MDDamage": 70, "speed": -30, "acc": 80, "pushed": 550},
+	5220002: {"level": 50, "maxHP": 9800, "exp": 410, "PADamage": 165, "PDDamage": 110,
+		"MDDamage": 150, "speed": -30, "acc": 100, "boss": 1, "pushed": 600},
+	5220001: {"level": 55, "maxHP": 4000, "exp": 0, "PADamage": 165, "PDDamage": 120,
+		"MDDamage": 120, "speed": 0, "acc": 100, "boss": 1, "pushed": 1000},
+	5220000: {"level": 55, "maxHP": 25000, "exp": 1210, "PADamage": 165, "PDDamage": 120,
+		"MDDamage": 120, "speed": -20, "acc": 100, "boss": 1, "pushed": 1000},
 }
 
 
@@ -617,7 +628,7 @@ static func setup(stage := "henesys", p_seed := 12345, data: Dictionary = {}) ->
 ## The ammo items of survivor/ammo.json as setup.ammo_info carries them ({id: {incPAD}}): the v83 Item.wz values, written
 ## out so tests do not need the asset cache.
 static func ammo_info() -> Dictionary:
-	var pads := {2070015: 15, 2070001: 17, 2070002: 19, 2070003: 21, 2070004: 23, 2070005: 25,
+	var pads := {2070015: 15, 2070001: 17, 2070002: 19, 2070003: 21, 2070004: 23, 2070005: 25, 2070006: 27,
 		2060000: 0, 2060001: 1, 2060002: 2, 2060003: 4, 2061000: 0, 2061001: 1, 2061002: 2, 2061003: 4,
 		2330000: 10, 2330001: 12, 2330002: 14}
 	var out := {}
@@ -710,6 +721,7 @@ static func quiet_data() -> Dictionary:
 		pool[str(id)] = 1.0
 	stages["quiet"] = {
 		"maps": [{"map_id": 0, "boss": {}}], "name": "quiet", "duration": 900.0, "hard_cap": 400,
+		"drop_band": [0, 30], # the old tier-1 band a stage outside the tier lists got before ADR 0007
 		"keyframes": [{"t": 0.0, "rate": 0.0, "max_alive": 0.0, "hp": 1.0, "speed": 1.0, "pool": pool}],
 		"bursts": {}, "elites": {},
 	}

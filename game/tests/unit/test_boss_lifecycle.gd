@@ -424,7 +424,7 @@ func test_boss_touch_uses_explicit_multiplier_and_hit_source_identity() -> void:
 	var stages: Dictionary = DataRepo.load_all().stages.stages
 	var examples: Array = DataRepo.stage_bosses(stages.henesys) + DataRepo.stage_bosses(stages.ellinia)
 	# Canonical v83 contact PADamage (checked against the real cache in test_boss_hit_bands).
-	var attacks := {2220000: 90.0, 6130101: 200.0, 9400205: 450.0, 3220000: 125.0, 9300003: 130.0, 6220000: 190.0}
+	var attacks := {2220000: 90.0, 6130101: 200.0, 9400205: 450.0, 3300008: 130.0, 3300005: 125.0, 5220002: 165.0}
 	for entry: Dictionary in examples:
 		var setup := _setup([0.5])
 		RF.set_bosses(setup.data.stages.stages.quiet, [entry.duplicate(true)])

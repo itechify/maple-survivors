@@ -3,7 +3,7 @@
 Maple Survivors: survive a chain of classic MapleStory maps while an ever-growing swarm of familiar monsters closes in. You
 move, jump, climb and drop through the real v83 terrain; your skills fire on their own; you pick a card at every level
 (a new skill, a rank, a rarity bonus, a passive) and build a character that keeps only its job, equipment, scrolls and
-mesos between rounds. This build ships Hero (112), Dark Knight (132), Paladin (122), Arch Mage (Fire, Poison, 212), the default, Arch Mage (Ice, Lightning, 222), Bishop (232), and Buccaneer (512); section 0 says what ADR 0006 changed.
+mesos between rounds. This build ships Hero (112), Dark Knight (132), Paladin (122), Arch Mage (Fire, Poison, 212), the default, Arch Mage (Ice, Lightning, 222), Bishop (232), Bowmaster (312), Night Lord (412) and Buccaneer (512); section 0 says what ADR 0006 changed.
 
 All tuning numbers below live in `game/data/survivor/*.json`; this document explains them. Canonical MapleStory values
 (mob stats, skill tables, frame timings, Physics.img) come from the player's WZ data and are never edited.
@@ -14,14 +14,14 @@ On the `redesign` branch, **ADR 0006** replaced v83 progression with survivor-ge
 (spec #282, tickets #283-#294) built it end to end for one job; this section is the summary and the owner of any
 conflict: where a later section still describes a removed system, this section wins. The slice rewrote sections 1, 5,
 6.1.1, 7.5, 8 and 9. Sections 7.6-7.30 and 6.1.2 preserve behaviour references for the other lines; the remaining Warrior,
-Bowman, Thief and Corsair ports are still unplayable. The live Hero, Paladin, I/L, Bishop and Buccaneer ports are documented below.
+Bowman and Thief ports are still unplayable. The live Hero, Dark Knight, Paladin, I/L, Bishop, Bowmaster, Night Lord, Buccaneer and Corsair ports are documented below.
 Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in historical sections are gone. Target design:
 
 | Area | Target | Replaces |
 |---|---|---|
 | Character | One 4th job, chosen at creation (twelve v83 4th jobs; Beginner not playable). Name, look, slot as today. | 1, 9 |
-| Round | Standalone: Free Market -> map select (the character's unlocked tiers) -> 3 maps, 3 bosses (spec #241, unchanged) -> Free Market. Death ends only the round, and loot is kept. | 1 |
-| Tiers | Clearing any stage of tier N unlocks tier N+1 for that character. Cleared tiers can be replayed. The slice keeps the two existing tiers. | 1, 4.1 |
+| Round | Standalone: Free Market -> map select (the character's unlocked regions) -> 3 maps, 3 bosses (spec #241, unchanged) -> Free Market. Death ends only the round, and loot is kept. | 1 |
+| Progression | One ordered list of regions (`stages.json` `progression`, ADR 0007). A new character has only the first (Henesys) open; clearing a region unlocks the next. The character stores the set of cleared regions; cleared regions can be replayed. | 1, 4.1 |
 | Level | Lv1 every round. First-pass EXP curve for picks ≈ levels + boss draws (about 50–60 per round), all 6 actives by about 5:00, end level about 45-55 (tier C). | 5 |
 | Skills | Job skill pool (lineage actives, all auto-cast; summons are timed allies in a slot; no buffs). Starting skill in slot 1. 6 active + 6 passive skill slots. | 7, 9 |
 | Ranks | Actives 1-8, mapped to WZ levels by a survivor table. +1 rank per card, plus a rarity bonus (Fortune applies). Mastery cards after rank 8. | 7, 8 |
@@ -29,10 +29,11 @@ Advancement, weapon paths, weapon-gated skills and standalone behaviour cards in
 | Cards | 3 per draw, weights 1.2 owned active or Mastery / 1.0 new active / 0.8 passive rank / 0.5 new passive. Boss bonus draw kept. No reroll, banish or skip. Power Elixir fallback. | 8 |
 | Combat | Maple formula plus auto-AP in one stat row per job. No MP (cooldowns only). No level-gap penalties. No MISS (ADR 0005). | 5, 6, 7 |
 | Mobility | Teleport, Flash Jump, Dash or Rush on a skill key from Lv1, outside the slots; Bowmaster has none (D1). | 2, 7.15, 7.33 |
-| Equipment | Job-class requirement only. `reqLevel` is the tier's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
+| Equipment | Job-class requirement only. `reqLevel` is the region's drop band. Allowed weapon families per job; skills not weapon-gated. Equipment, inventory and mesos stay with the character. v83 scrolls; shops sell scrolls and buy equipment. | 8.3, 9 |
 | Account | NX, Cash Shop, pets unchanged. Cash equipment adds Fortune. | 8.4 |
 
-Order: the F/P Arch Mage slice, then Hero, then the other ten jobs, a tier rework (fewer starting choices), and last
+Order: the F/P Arch Mage slice, then Hero, then the other ten jobs, the progression rework (spec #447, ADR 0007: this was
+the tier rework, fewer starting choices, and one region open at the start), and last
 the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pass pacing (tier C) but don't tune.
 
 **Landed in the F/P slice (spec #282):**
@@ -53,15 +54,16 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   `1 - 0.01 x gap` term; the other paths never had one). No attack misses (ADR 0005).
 - **#286 (T4): save format 3 and the standalone round loop.** A character is saved as `{name, created, rounds_played,
   character}` and keeps only its job, look, worn equipment and inventory, scrolls, mesos, cash, pet and
-  `tiers_unlocked` (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
+  `tiers_unlocked`, since #450 the set `cleared_regions` (ADR 0007) (`CharacterSnapshot`, the one list of what it keeps). It has no level, EXP, skills, cards, AP or HP:
   every round starts at Lv1, and `RunWorld.character_snapshot()` hands the character back after a clear, a death or a
   Quit round alike, with everything the round picked up. Creation is name, look, then a Job page listing the playable
   jobs (Hero 112, Dark Knight 132, Bishop 232, Paladin 122 and Arch Mages 212/222), whose `creation_weapon` is the weapon worn; the look page's weapon row is no longer chosen.
-  Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every stage of every
-  tier (a locked tier greyed, not startable); `start_round` writes nothing; every round ends in `finish_run` (one
+  Flow: character select opens the Free Market (home); Up at out00 opens map select, which lists every region of the
+  progression (a locked region greyed, not startable; ADR 0007 replaced the two tiers); `start_round` writes nothing; every round ends in `finish_run` (one
   `SaveData.finish_round` write: character, best, run count, NX, one history entry) and the results screen returns to
-  the hub. Clearing any stage of tier N unlocks tier N+1 for that character (`CharacterSnapshot.unlocked_after_round`);
-  tier 1 is always open; cleared tiers can be replayed. There is no permadeath: death ends the round, never the
+  the hub. Clearing a region (its map 3 boss dead, CLEARED) unlocks the next one for that character
+  (`CharacterSnapshot.cleared_after_round`, ADR 0007; ADR 0006's "clearing any stage of tier N unlocks tier N+1" is superseded);
+  Henesys is always open; cleared regions can be replayed. There is no permadeath: death ends the round, never the
   character, and only deletion frees a slot. Quit round is a death in every respect (its history ending is `quit`).
   A format-1 or format-2 save moves its characters to the history (`retired`) on load, unmigrated; bests, counts, the
   account and old history carry over. Tool files (`--character`, `--hub`, fixtures) of format 1 and 2 still load, reduced
@@ -75,11 +77,12 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
 - **#289 (T7): the nine common passives** (section 8.5).
 - **#290 and #291 (T8, T9): the twelve-skill F/P pool.** Explosion, Poison Mist, Element Composition, Fire Demon, Paralyze,
   Meteor Shower, Big Bang (7.31) and the generic player-summon seam with Elquines (7.32).
-- **#292 (T10): equipment without level or stat requirements, tier drop bands, job weapon families.**
+- **#292 (T10): equipment without level or stat requirements, drop bands, job weapon families.**
   `Equipment.requirement_error` checks only `reqJob`; `reqLevel` and `reqSTR/DEX/INT/LUK` are ignored by equipping, the
   pickup auto-wear (#222) and the bot shop, and the Equip/Item tooltip has no REQ rows (its job row stays).
-  `stages.json` `drop_bands[i]` is the `reqLevel` band of tier i ([0, 30], [30, 60]); `RunWorld.drop_band()` gives the
-  band of the current stage's tier and `EquipmentDrops` picks inside it (uniform for ordinary drops, the top third
+  `stages.json` `drop_bands[i]` was the `reqLevel` band of tier i ([0, 30], [30, 60]); since #450 each stage carries its
+  own `drop_band` (ADR 0007, "Region progression" in Constants and provenance). `RunWorld.drop_band()` gives the
+  current stage's band and `EquipmentDrops` picks inside it (uniform for ordinary drops, the top third
   `boss_floor` for bosses, `equipment_drops.boss_top_parts` 3). The character's level and the held weapon no longer
   matter. `survivor/jobs/<line>.json` lists each job's `weapon_families` (`JobTree.weapon_families`; 212: wand, staff); a
   weapon drops only from them, armour and shields by job class alone. Mesos, worn equipment, the Equip tab and scrolls
@@ -90,6 +93,19 @@ the frozen balance pass (seeds 701-730). Until that pass, specs may set first-pa
   contact/`attackN` damage (at impact) from a start to an end value over round time, so a Lv1 character can play every
   tier: tier 1 is neutral (1 -> 1), Sleepywood opens at HP 0.3 / damage 0.4 on map 1 and 0.02 / 0.08 on maps 2 and 3,
   all reaching 1 at 20:00. Bosses capture the ramp at their arrival. WZ stats are never edited.
+- **#450 (A1, ADR 0007): the progression replaces the tiers.** `stages.json` `progression` (Henesys, Ellinia, Perion,
+  Kerning City, Sleepywood) and a per-stage `drop_band` replace the root `tiers` and `drop_bands`; `nx_award.clear_bonus` is
+  indexed by the stage's step in the list. `CharacterSnapshot.cleared_regions` (sorted unique stage keys) replaces
+  `tiers_unlocked`: a region is unlocked when it is the first or its predecessor is cleared (`unlocked_keys`), a CLEARED round
+  adds its stage (`cleared_after_round`, idempotent), and a death, a Quit round and a tool one-off round change nothing.
+  A stored `tiers_unlocked` >= 2 migrates to the first four regions cleared (Sleepywood stays reachable), anything else to
+  none (`CharacterSnapshot.migrate`, `with_cleared_regions`; `SaveData` converts stored slots on load). The snapshot format
+  stays 3 (the field is detected by key). Map select lists the progression with Lv ranges and locked / cleared / frontier marks (#451).
+- **#452 (A3, spec #447 "Bosses"): no boss appears twice across the progression.** Ellinia now schedules Prime Minister
+  (3300008, The Tree That Grew I), Grey Yeti and King Pepe (3300005, The Forest of Wisdom) and Faust (5220002, The Forest
+  of Evil I); Perion's first map schedules King Clang (shell 5220001, `final_form` 5220000) instead of Mano, who stays in
+  Henesys, and keeps Stumpy and Iron Hook. A data test (`test_unique_bosses`) enforces uniqueness of every scheduled
+  `mob_id` and `final_form` and of their names. Henesys, Kerning City and Sleepywood data are unchanged.
 - **#294 (T12): QA and docs.** The `redesign` flow scenario (`flow_driver.tscn --scenario=redesign`), the retired
   scenarios and debug drivers removed, the one F/P fixture, the playtests and the regression smoke of 4.2, and the rewrites
   of sections 1, 5, 6.1.1, 7.5, 8 and 9 and of AGENTS.md.
@@ -160,6 +176,27 @@ fixed share (7.47) and the piercing rise (7.48), both in their own scripts. Cros
 `redesign` and creation flows, the playtests, the regression smoke and the full suites; section 4.2 holds the smoke (weak
 Marksman survival, recorded, not tuned) and 7.46-7.48 own the details.
 
+**Landed in the Night Lord spec (#383, NL1-NL12 #400-#411):** job 412 is playable between Bowmaster and Buccaneer on the Job
+page (ten rows with Corsair; the list pitch shrinks to 16 px so the tenth fits); F/P (212) remains the default. A Night Lord wears a claw
+(the Garnier at creation) and throws stars whose item steps with the round level (Lv1 Beginner Thief's, Lv10 Wolbi ... Lv60
+Ilbi). It starts with Lucky Seven and Flash Jump (the mobility skill on its own key, outside both slot tracks, never a card);
+the pool is Lucky Seven, Drain, Avenger, Triple Throw, Ninja Storm, Ninja Ambush, Shadow Partner and Shadow Meso. Four shared
+mechanics are data-driven and reusable: the echo summon (Shadow Partner's clone throws every star skill again, 7.94.3 / 7.94.7),
+Flash Jump (7.94.2), the status bonus (Venomous Star and Stunning Avenger rarity effects that grant poison and stun, 7.94.5) and
+the meso charge (a ten-pip meter filled by meso pickups, +3% damage per pip, +10% per pip on Shadow Meso, 7.94.1 / 7.94.4).
+NL8 added per-rank knock-back and the damaging ground strike (7.94.8); NL11 the selection, fixture and independent replay
+oracle (7.94.9); NL12 flipped `playable` and records the QA in 4.2. Sections 7.94 - 7.94.9 and the "Night Lord NL2-NL11
+constants" tables own every number; no balance tuning in this QA (the pip rate and decay, the 250 px filler reach and the
+echo percentages are balance-pass levers).
+
+**Landed in the Corsair spec (#384, C1–C15 #385–#399):** job 522 is playable beside the other eight jobs (ten Job-page rows with Night Lord, Corsair last; the pitch shrinks to 16 px);
+F/P (212) remains the default. Its thirteen-skill pool starts with Double Shot and manual Dash outside the slots: five gun fillers
+(Double Shot, Burst Fire, Invisible Shot, Recoil Shot, Grenade), Flamethrower and Ice Splitter (front cones), the Octopus (a planted turret that
+fires visible balls, 7.121), the Gaviota (a one-strike kamikaze), Homing Beacon (the all-element mark, 7.122), Aerial Strike, Rapid Fire and the
+Battleship (a timed Form on a drawn mount with a hull that soaks hits, `only_skills`, and its own Cannon and Torpedo, 7.120.9–7.120.13). The guns
+step up their bullets at Lv18 and Lv35. C14 added the selection, fixture and bot scores; C15 flipped `playable` and recorded the QA in 7.120.15 and 4.2.
+Sections 7.120–7.122 and the Corsair constants block in section 11 own every number; no balance tuning in this QA.
+
 ### Known design gaps (open after the slice)
 
 These are findings of the QA pass, #293 and #307, recorded as gaps, not as met targets. Nothing here was tuned in #294.
@@ -194,9 +231,16 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
    windows, the four scroll NPCs (shops) and the Cash Shop button are here. Room entrances in01-in22 and Fredrick,
    Scrooge, Maple TV and Inkwell are drawn but inert. Up at the scripted `out00` portal opens **map select**; Esc offers
    Resume / Save & quit. The hub draws the character's look and worn equipment; moving never changes the save.
-3. **Map select** lists every stage of every unlocked tier: Henesys, Ellinia, Perion and Kerning City (tier 1, always
-   open) and Sleepywood (tier 2). A locked card is greyed, its details say "Locked. Clear any stage of Tier 1 to unlock
-   Tier 2." and Start does nothing. Each stage contains three ordered maps (4.1). Back returns to the Free Market.
+3. **Map select** lists the whole progression in order: Henesys, Ellinia, Perion, Kerning City and Sleepywood. Only
+   Henesys is open to a new character, and clearing a region opens the next. Each row shows the map mark, the region
+   name, "Lv lo-hi" (the lowest and highest canonical level of the region's ordinary pool monsters over its three maps;
+   bosses, final forms, summons and revives excluded; omitted when the cache lacks the mob info) and a state mark: CLEAR
+   (cleared), a lock with the greyed look (locked), or NEW (the frontier: the first unlocked, uncleared region). The header
+   reads "Regions cleared N/M". The details say "Locked. Defeat <boss> in <previous region> to unlock." (the String.wz name
+   of the previous region's map 3 boss, its final form when it has one) and Start stays disabled and does nothing, by
+   keyboard and mouse. Six rows show at once; the list scrolls by keys, wheel and arrows and opens on the frontier (the last
+   region when all are cleared). Start sits under the details column. Each stage contains three ordered maps (4.1). Back
+   returns to the Free Market.
 4. **Start.** Every round starts at Lv1 at a random spawn portal (`pn=sp`), with the job's starting skill (Energy Bolt for F/P, Cold Beam for I/L, Power Strike for Hero,
    active slot 1) and its mobility skill (Teleport or Rush) on its key, full HP, no buffs, no cooldowns. The map's own BGM plays.
 5. **Survive** the growing swarms. Each map's boss arrives 300 seconds after entering it. Defeat it, collect all
@@ -212,9 +256,9 @@ These are findings of the QA pass, #293 and #307, recorded as gaps, not as met t
    the time, level, job, kills, damage dealt, NX earned, the owned skills and the stage's best; Back returns to the Free Market.
 
 **What persists** is exactly `CharacterSnapshot` (section 0, #286): job, look, worn equipment, the Equip tab, scrolls,
-mesos, cash items, the pet and `tiers_unlocked`. Level, EXP, skills, ranks, card modifiers, AP and HP are round state
+mesos, cash items, the pet and `cleared_regions`. Level, EXP, skills, ranks, card modifiers, AP and HP are round state
 and never saved. What a round picked up (mesos, equipment, scrolls bought earlier) is kept whether it ended in a clear, a
-death or Quit round; the unlock of tier N+1 needs a clear of a tier-N stage and is never taken back. There is no saved
+death or Quit round; the unlock of the next region needs a clear of its predecessor and is never taken back. There is no saved
 round and no resume: closing the game mid-round loses it (its loot too), and Continue only opens the hub. Saves happen in
 the hub (Save & quit, an inventory action) and when a round ends (one write: character, the stage's best, the run count,
 NX and one history entry). Map transfers never save. Only confirmed deletion frees a slot; every round and each deletion
@@ -232,7 +276,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
-| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Rush (Hero): X + direction dashes that way, damaging and shoving mobs (7.33; hold X to repeat after its 2 s cooldown). Each manual skill has its own key in Key Config (see 7.15) |
+| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Rush (Hero): X + direction dashes that way, damaging and shoving mobs (7.33; hold X to repeat after its 2 s cooldown). Flash Jump (Night Lord, 7.94.2): X in the air, with a direction, flashes sideways once per jump. Each manual skill has its own key in Key Config (see 7.15) |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
@@ -244,7 +288,7 @@ character of an old save). The account (NX, Cash Shop items, pets) is shared by 
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
-There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash, Rush) are cast on their own skill keys, all X by default.
+There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash, Rush, Flash Jump) are cast on their own skill keys, all X by default.
 
 Movement keys are a setting (`Settings` `[controls] movement`: `arrows`, the default, or `wasd`). Only the chosen set
 drives `move_*`, so the other set is free to bind; switching to WASD takes W/A/S/D off every other action (S stops
@@ -534,11 +578,93 @@ HP 0.1425 / damage 0.195; at 1,200 s all scales reach 1, on top of existing stag
 allows a typical three-map round to end before the full ramp; longer rounds reach full strength at 20:00.
 Paired kit/starter measurements are recorded below. All ramp choices are tier C first-pass tuning.
 
+#### Level scale (#453, spec #447; mechanism only)
+
+A stage may declare `level_scale` instead of an `opening_ramp`: it rescales each monster's strength from its own v83
+level L to an **effective level** E that rises along the round, so a Lv1-55 character can face a Lv40-160 roster whose
+canonical stats are out of reach. No shipped stage uses it yet; #449 sets the numbers for the new regions, and Henesys,
+Ellinia, Perion, Kerning and Sleepywood stay byte-identical (`test_level_scale` runs a seeded run with and without the
+block and compares the event logs).
+
+- **Reference curves.** `game/data/survivor/level_curve.json` holds `hp`, `pad`, `mad`, `pdd`, `mdd` and `exp` for levels
+  1-200 (index = level - 1): the median of the v83 ordinary monsters of that level. Ordinary means a mainline field
+  monster (Mob.wz id below 9,000,000, which leaves out the party-quest, carnival, event, trial, GM and later-client
+  content of docs/research/v83-bosses.md "Excluded"), not `boss=1`, not an `info/link` mob without stances, not a Balrog
+  variant or a Zakum, Horntail or Pink Bean body, and with HP at most 5x its level's median. A zero stat is skipped for
+  that stat (monsters below Lv30 have no magic attack, so `mad` has no sample there and holds its first value). Levels
+  without samples interpolate log-linearly, and the span outside the sampled levels (Lv1-131) holds its end value. The
+  result is made non-decreasing by weighted isotonic regression, so one tough singleton does not lift every level above
+  it, and lightly smoothed (1-2-1 over neighbouring levels, in log space). The file's `_doc` records the method, the
+  date and the sample counts: 1564 Mob.wz imgs, 329 ordinary samples on 106 levels (461 bosses, 282 link copies without
+  stances, 488 ids outside the mainline range and 4 HP outliers left out). `tools/level_curve/` regenerates it from the
+  owner's v83 folder (`bash tools/level_curve/run.sh "<folder>" 2026-10-30`, byte-reproducible); the numbers are facts,
+  not assets.
+- **Stage block.** `level_scale: {"keyframes": [{"t": <curve seconds>, "level": E, "exp_level": X}, ...]}`. `t` is
+  `RunWorld.curve_time()` (`map_index * map_seconds + time since entry`, the pacing clock, so a slow boss kill never
+  delays the next map's level). E and X interpolate linearly between keyframes, hold before the first and after the
+  last, and `exp_level` defaults to `level`. Data validation rejects a stage that has both `level_scale` and
+  `opening_ramp`, or a map-level `opening_ramp` in a level-scale stage, and a malformed block (keyframes empty, `t` not
+  rising from 0 up, a level outside 1-200). A block that slips past validation (or a missing curve) makes the world warn
+  and run unscaled.
+- **Effect.** For a monster of canonical level L (its `info/level`) at curve time t:
+
+  | Stat | Multiplier | Captured |
+  |---|---|---|
+  | HP | `hp(E)/hp(L)` | at spawn |
+  | PDD, MDD | `pdd(E)/pdd(L)`, `mdd(E)/mdd(L)`, on the live defence `CombatMath` uses (after skill bonuses and Threaten) | at spawn |
+  | EXP (ordinary, elite and boss reward) | `exp(X)/exp(L)` | at spawn |
+  | contact and physical attack damage | `pad(E)/pad(L)` | at impact (ordinary); at arrival (scheduled boss) |
+  | magic attack damage | `mad(E)/mad(L)` | at impact (ordinary); at arrival (scheduled boss) |
+
+  A curve value of 0 at L gives ratio 1, a fractional E interpolates the curve linearly, and E = L is exactly 1 (no
+  rounding). It stacks with keyframe `hp`, elites, boss `hp_mult`, `dmg_mult` and `attack_dmg_mult`; potions are unchanged.
+  Scheduled bosses spawn at their arrival, so their HP, defence and EXP come from that moment and their damage ratios
+  (`pad` and `mad` both) freeze there, projectiles included. Summons and revives are ordinary monsters at their own
+  spawn time. Relocating a monster keeps its multipliers.
+- **Boss damage freeze.** A scheduled boss's pad and mad ratios are keyed by its schedule index, so two bosses of one
+  id never share a freeze; every boss hit source (touch, attacks, balls) carries `boss_index`. A final form that continues
+  the encounter (#456) calls `RunWorld.capture_boss_level_scale(boss_index, its_mob_id, record)` at its own spawn and
+  replaces the freeze with its own level and time; `level_scale_at` keeps the first arrival.
+- **Known limits.**
+  - The curve holds its Lv131 values above Lv131 (v83 has no stronger ordinary monster), so the effective levels #449
+    sets should stay at or below about 131; above that a stage gains no strength from a higher E.
+  - Lv108-131 rest on 0-1 samples per level (see `_doc.samples.per_level`), so the tail is coarse; the monotone fit and
+    smoothing carry it between the few sampled levels.
+  - `mad` holds 117.8 below Lv30: no mainline monster under Lv30 has a magic attack, so the curve has no earlier sample.
+  - Level-scale stages run a per-tick loop over the live slots in `RunWorld._fill_live_defense` to apply the captured
+    PDD/MDD multipliers. Check its cost in the first perf capture of a level-scale stage (`scripts/playtest.sh
+    --vsync=off`, `sim_us_per_tick`); stages without the block skip it.
+- **First draft of a region's numbers (spec #449 C0, #462; tier C).** `game/tools/level_scale_draft.gd --step=<k>
+  --stage=<key>` prints (the bosses read from `stages/<key>.json`; Sleepywood is the default `--reference`) the
+  `level_scale` keyframes and boss multipliers a new region starts from; the formulas are pure static functions
+  (`test_level_scale_draft`). With E_sw(t) = Sleepywood's effective level at its keyframe curve times t, region step k
+  (`progression` position, 1-based, Sleepywood = 5) gets `level(t) = E_sw(t) + 3·(k − 5)` and `exp_level(t) = E_sw(t)`
+  (levels rounded to 0.01). E_sw(t) is the level whose `hp` reference value equals the weighted mean canonical HP of the
+  live ordinary pool at t times the stage's opening-ramp HP multiplier at nominal round time t (the keyframe `hp` multiplier
+  is left out, since a region copies Sleepywood's keyframes and applies it again). The live pool is the map being entered at
+  a boundary (t = 300 is map 2's first moment, t = 600 map 3's); on map 1 the last keyframe pool below `map_seconds`, on a later
+  map `StagePools.resolve`. A boss arriving at `t_j = j·map_seconds + time` is carried from the Sleepywood boss of the same slot:
+  its effective HP, contact damage and strongest scheduled attack at t_j (canonical × multiplier × the ramp at t_j, as
+  `BossDirector` and `spawn_mob` capture them) are scaled by `hp(level)/hp(E_sw)` and `pad(level)/pad(E_sw)` (`mad` for a magic
+  attack), and `hp_mult`, `dmg_mult`, `attack_dmg_mult` are what make the new boss's own level-scaled value equal that target
+  (the offset cancels, so the multipliers do not depend on it). Both sides read only their scheduled `attacks` (the entry's
+  list; every `attackN` stance when it names none), and `attack_dmg_mult` is matched on the strongest of them alone. A boss
+  with a `final_form` splits the target HP by `--final-share` (0.5): its `hp_mult` covers the rest and `final_form_hp_mult`
+  the form's share. The form is matched at the shell's nominal arrival level, but at runtime it spawns when the shell dies,
+  later and at a higher level, so its HP lands above the target by `hp(level_later)/hp(level_arrival)` (no model change). `attack_interval` is 8. The
+  tool warns when a keyframe `level` (or `exp_level`) is above 131, where the reference curves go flat (#453 review): the offset
+  of 3 reaches only E_sw + 33 at step 16, but a later offset change in C13 would cross it.
+- **Determinism and telemetry.** No RNG is drawn. A balance record of a level-scale stage gains `level_scale_at`
+  (`[{boss_index, mob_id, level}]`, the effective level at each boss arrival) and each `boss_fights` entry its own
+  `level_scale_at`; other stages' records keep their bytes.
+
 
 Stages use region keys `henesys`, `ellinia`, `perion`, `kerning` and `sleepywood`, with `region` and `continent`
 labels (tier C owner choice). Tools accept the former keys `henesys_hg1`, `tree_that_grew_1` and `dark_cave` as
-aliases; living slots, bests, history and run snapshots migrate on load. The tier list is
-`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253).
+aliases; living slots, bests, history and run snapshots migrate on load. The unlock order is the `progression` list
+(henesys, ellinia, perion, kerning, sleepywood; ADR 0007, #450). The former tier list was
+`[[henesys, ellinia, perion, kerning], [sleepywood]]` (Perion and Kerning City added by spec #253); "tier 1 stages" in
+older records below, in the smoke and in the job-loop tickets mean the first four regions.
 
 | Stage key | Map 1 | Map 2 | Map 3 | Boss order |
 |---|---|---|---|---|
@@ -547,10 +673,14 @@ aliases; living slots, bests, history and run snapshots migrate on load. The tie
 | `perion` | West Street Corner of Perion (102010000) | East Rocky Mountain V (101030404) | The Burnt Land I (106000101) | Mano / Stumpy / Iron Hook |
 | `kerning` | Kerning City Construction Site (103010000) | Line 1 <Area 1> (103000101) | The Swamp of Despair I (107000000) | King Slime / Shade / Dyle |
 | `sleepywood` | Dark Cave (105050400) | Drake Area (105090310) | The Cursed Sanctuary (105090900) | Zombie Mushmom / Snack Bar / Jr. Balrog |
+| `ludibrium` (step 6, #463) | Ludibrium - Sky Terrace<5> (220011000, 2227 px) | Toy Factory <Process 2> Zone 4 (220030400, 3667 px) | Toy Factory <Process 2> Zone 1 (220030000, 3667 px, 4 conveyor footholds) | Rombot / Alishar / Timer |
+| `omega_sector` | Kulan Field I (221040000) | Boswell Field II (221030200) | Boswell Field V (221030500) | Chief Gray / MT-09 / Zeno |
+| `korean_folk_town` (step 8, #465) | Korean Folk Town - Entrance to Black Mountain (222010000, 2520 px) | Tiger Ridge (222010200, 2520 px) | Fox Ridge (222010300, 3240 px) | Scholar Ghost / Blue King Goblin / Nine-Tailed Fox |
+| `el_nath` (step 10, #467) | Watch Out for Icy Path I (211010000, 3050 px) | Forest of Dead Trees I (211041100, 4310 px) | The Cave of Trial II (211042100, 4290 px) | Snow Witch / Riche / Snowman |
+| `magatia` (step 11, #468) | Sunset Road - The Desert of Red Sand (260020300, 2430 px) | Alcadno Research Institute - Lab - Area C-2 (261020400, 2410 px) | Zenumist Research Institute - Lab - Unit 201 (261010101, 2196 px) | Deo / Homunscullo / Chimera |
 
-All are on Victoria Island. Map select lists each region's three maps and bosses in `tiers` order; its objective is
-"Defeat 3 bosses across 3 maps". Four cards per tier is the most the parchment fits above the Start button
-(`stage_select.gd` `MAX_CARDS`); a fifth region would need a scrolling list. Results show the region and ending map. The opening title shows continent above region; transfer
+All are on Victoria Island. Map select lists each region's three maps and bosses in `progression` order; its objective is
+"Defeat 3 bosses across 3 maps". Six rows show at once (`stage_select.gd` `MAX_CARDS`) and the list scrolls for more (#451). Results show the region and ending map. The opening title shows continent above region; transfer
 arrivals show the destination's v83 street and map name. Summaries retain region/continent and the ending WZ names.
 
 Round time includes all combat on every map. The pacing clock is `curve_time = (N - 1) * 300 + time_on_map` for
@@ -593,7 +723,7 @@ no observation. Camper policies park only on their own first map; later maps use
 records change with this map progression. The regression smoke belongs to #249; #248 only checks seed 1 Henesys
 for the new record fields and uses diagnostic flow evidence, without tuning.
 
-Sleepywood's first map is Dark Cave (105050400, Dungeon), in tier 2.
+Sleepywood's first map is Dark Cave (105050400, Dungeon); Sleepywood is the fifth region of the progression.
 Its first-pass data targets an arriving Lv35–43 second-job character and is frozen before the report-only smoke;
 the 30–40% clear / Lv60–69 targets are deferred to #77. Canonical mob HP, defence, EXP, levels and elements remain
 unchanged in the cache. Stage EXP is 1x; no new per-mob stat multipliers are applied. Tauromacis and Taurospear use
@@ -759,6 +889,188 @@ No HP-cost, stun-duration, Rush, stage/ramp or F/P tuning changed; no opening mu
 Targets: fresh Henesys boss 1/map 2 in >=2/3; kit Henesys >=1/12 clears; kit Sleepywood >=1/3 map 2.
 
 ## 4.2 Tuning record (`scripts/balance.sh`)
+
+### Magatia (C6) regression smoke and diagnostic round (#468, 2026-10-30)
+
+Spec #447 branch with the Magatia region (step 11 once Mu Lung lands; after El Nath at step 10), private cache, F/P (212), seeds 1/2/2026,
+`JOBS=2`, no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with
+`fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 /
+489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 /
+449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one
+clear and deaths at 23.8 / 767.0), no crashes and no world warnings. Magatia itself is not in the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=magatia --job=112 --character=late_progression.json`, seed 1, windowed (x8 between bosses, x1 in the
+boss fights, vsync off), god mode (`RunWorld.god`) with the autoplay bot, each boss held at >= 50% HP for 40 s (Deo,
+Homunscullo) or >= 30% for 110 s (Chimera) so its kit shows, then one lethal diagnostic hit: **CLEARED, 3 bosses, Lv53,
+1090.1 s, `missing: []`, no warnings**. Map entries at 0 / 340.0 / 680.0 s. Arena check, by eye: all three first picks stay.
+The Desert of Red Sand (a sunset dune with a ruined arch, a floating sand ledge and a rope; Kiyo and the pointed-hat Sand
+Dwarf crowd the floor and the right ledge), Area C-2 (a grey-violet lab: one long floor, steel shelves and scaffolds; Roid and
+Neo Huroid robots fill the floor from both ends) and Unit 201 (a green lab, three ledges on ladders over one long floor; Homun
+and Saitie fill the floor, 351 mobs at the end) are wide and flat with ladders the bot uses: no shaft, no pit. Unit 201 at
+2196 px holds the late crowd (the final map's `max_alive` 351 of the 400 cap), so the 1954 px alternate 261010103, which is
+narrower, was not needed. The three boss bars show (Deo's and Chimera's own icons, Homunscullo's borrowed Zeno icon). Seen:
+all three arrival shots and notices, Deo's Defense Up 112 (the skull aura on the field) twice, Homunscullo's attack1 and
+attack2 wind-ups and shockwaves, Chimera's attack1 wind-up (the boss itself is hard to pick out under the fixture's damage numbers; its ball was not identified in a shot), Magic Attack Up 101 and 111, Magic Defence Up
+103, heal 114 ("Chimera recovered 1000 HP" and the burst on the boss), weapon immunity 140 and Summon 200 (it spawns nothing).
+**Not shown by a god-mode run:** Chimera's attack1 ball in flight, what a landed Chimera attack does to a character with the buffs up (god lands no
+hit, so nothing here is survival or balance evidence), and a Summon that spawns mobs: v83 Mob.wz holds no 9300167 or 9300168,
+the mobs Chimera's 200/88 names, so the cast is silent by construction. With the late fixture (Lv100-band gear at Lv1) the
+bosses die at once when not held (the 40 s / 110 s holds are why the round took 1090 s): the first draft is a starting point for
+C13, not a balance claim.
+
+### Korean Folk Town (C3) regression smoke and diagnostic round (#465, 2026-10-30)
+
+Spec #447 branch with the Korean Folk Town region (step 8 of the spec, after Omega Sector at step 7), private cache,
+F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood with
+the starter wand and with `fp_arch_mage.json`: **every batch matches #455's table to the second** (Henesys bot 417.3 / 644.1 /
+646.7, random 428.6 / 489.3 / 668.0; Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 /
+651.8, random 331.5 / 449.5 / 466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 /
+11.9 / 15.1, kit one clear and deaths at 23.8 / 767.0), no crashes and no world warnings. Korean Folk Town itself is not in the
+smoke (calibration is C13).
+
+Diagnostic one-off, `--run=korean_folk_town --job=112 --character=late_progression.json`, seed 1, windowed at x4 (x1 in the
+boss fights), god mode (`RunWorld.god`) with the autoplay bot, each boss held at >= 50% HP for 45 s (Scholar Ghost, Blue King
+Goblin) or 80 s (the Fox) so its kit shows, then one lethal diagnostic hit: **CLEARED, 3 bosses, Lv58, 1060.5 s,
+`missing: []`, no warnings**. Map entries at 0 / 345.4 / 680.1 s. Arena check, by eye: all three first picks stay. Entrance to
+Black Mountain (full moon, Moon Bunnies on the floor and the stepped ledges), Tiger Ridge (a cliff with ledges and a pond;
+Hodori and Hogul tigers crowd the floor and the left ledges) and Fox Ridge (a wide stepped hillside; Samiho swarm the floor
+and every ledge) are wide, open and have ropes the bot climbs: no shaft, no pit it cannot leave. The three boss bars show
+(Scholar Ghost's borrowed Riche icon, Blue King Goblin's borrowed Zeno icon, the Fox's own). Seen: Scholar Ghost arriving
+on the right, its Banish (twice, 15 s apart; the notice "You have been relocated by the vengeful spirit of the Scholar Ghost."
+and the character on the ground elsewhere); Blue King Goblin's attack1 wind-up and shockwave; the Nine-Tailed Fox's attack1,
+Darkness 121 (the screen darkens and the character's eye aura shows, four casts), Weakness 122 (the blue circle over the
+character), Stun 123 (the pink stun effect over the character, the first-Stun shot `stun.png`) and heal 114 ("Nine-Tailed Fox recovered ... HP"
+and its heal burst on the fox). **Not shown by a god-mode run:** the damage and slowing side of a landed Weakness, a Stun that
+actually stops the character's input and what the draft multipliers do to a real character (god lands no hit, so nothing
+here is survival or balance evidence); the first-status hook saved only `stun.png` and `darkness.png`, so Weakness was seen only in the
+per-cast shot. With the late fixture (Lv100-band gear at Lv1) the bosses die at once when not held:
+the first draft is a starting point for C13, not a balance claim.
+
+### Ludibrium (C1) regression smoke and diagnostic round (#463, 2026-10-30)
+
+Spec #447 branch with the Ludibrium region (step 6), private cache, F/P (212), seeds 1/2/2026, `JOBS=2`, no tuning, no
+held-out seeds. Bot and random on the first four regions, Sleepywood with the starter wand and with `fp_arch_mage.json`:
+**every batch matches #455's table above to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0;
+Ellinia bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 /
+466.1; Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, kit one clear
+and deaths at 23.8 / 767.0), no crashes and no world warnings. Ludibrium itself is not in the smoke (calibration is C13).
+
+Diagnostic one-off, `--run=ludibrium --job=112 --character=late_progression.json`, seed 1, god mode (`RunWorld.god`) with the
+bot, one lethal diagnostic hit after 30 s of each boss fight (bosses held at 100% / 70% / 45% HP meanwhile so their kits
+show): **CLEARED, 3 bosses, Lv64, 967.4 s, `missing: []`**. Map entries at 0 / 330 / 660 s. Checked by eye: Sky Terrace
+(green toy-block castle, Roloduck and Panda Teddy swarm the floor), Zone 4 (blue toy factory, Robo and Panda Teddy), Zone 1
+(conveyors, Master Robo lines; the arrival portal sits on the left ledge and the bot climbs down); the three boss bars
+(Rombot's borrowed icon, Alishar's, Timer's); Rombot, Alishar (winding up its attack1 at the left edge, Darkness
+darkening the screen) and Timer (the owl; "Timer recovered 5000 HP" from its heal 114) each fought for 30 s. Stun 123
+and Timer's immunities were not seen: under god mode no hit lands on the character, so the status art needs
+the status tickets' own evidence. With the late fixture (Lv100-band gear at Lv1) the draft bosses die almost at once when
+not held: the first draft is a starting point for C13, not a balance claim.
+
+**Alishar's Skill1 sound.** v83 `Sound.wz/Mob.img/9300012` has Attack1, Damage, Die and CharDam1 but no Skill1, so the cast
+of its Darkness reported `Sound.wz/Mob.img/9300012/Skill1` missing. A skill sound v83 does not have is now silent like
+an absent attack sound (`attack_sound_absent_in_v83`, tier A, #463); an absent whole Mob.img entry still reports.
+
+### Progression QA and merge-readiness smoke (#455, A6, 2026-10-30)
+
+Spec #447 branch with A1-A5 and B1-B5 merged, shared read-only cache `MapleSurvivors-spec447c`, F/P (212), training
+seeds 1/2/2026, `JOBS=2`, `ISOLATE=t455`; no tuning, no held-out seeds. Bot and random on the first four regions, Sleepywood
+bot with the starter wand and with `fp_arch_mage.json`, and `--chain=5 --retries=1` (bot). **33 records plus the chain's six
+rounds: no crashes, world warnings, missing assets or TIMEOUTs; every batch exited 0.** Raw records and logs:
+`_scratch/balance455/` (not committed). The smoke, playtests and full suite ran on 0f84227d (the #452 merge); the
+`progression` scenario was run again on the merge of spec/447 at 916ae923 (#461, #462) and passed. Previous smoke: the F/P column of the Bowmaster QA table (B13 #345, 2026-10-29)
+for Henesys, Kerning and Sleepywood, and #452's table above for Ellinia and Perion. Clears/3 and death (D) seconds:
+
+| Stage / policy | Clears | Death seconds (now) | Previous | First boss reached | Deaths by map 1/2/3 |
+|---|---|---|---|---|---|
+| henesys / bot | 0/3 | 417.3 / 644.1 / 646.7 | 305.0-651.7 | 3/3 (Mano 5.4-11.6 s) | 0 / 1 / 2 |
+| henesys / random | 0/3 | 428.6 / 489.3 / 668.0 | 308.3-309.9 | 3/3 (Mano 5.9-19.0 s) | 0 / 2 / 1 |
+| ellinia / bot | 0/3 | 621.2 / 628.3 / 635.9 | same (#452) | 3/3 | 0 / 0 / 3 |
+| ellinia / random | 0/3 | 302.8 / 305.4 / 623.0 | same (#452) | 3/3 | 2 / 0 / 1 |
+| perion / bot | 0/3 | 308.1 / 421.7 / 651.8 | same (#452) | 3/3 | 1 / 1 / 1 |
+| perion / random | 0/3 | 331.5 / 449.5 / 466.1 | same (#452) | 3/3 | 1 / 2 / 0 |
+| kerning / bot | 0/3 | 311.0 / 386.0 / 535.5 | 307.9-315.0 | 3/3 | 1 / 2 / 0 |
+| kerning / random | 0/3 | 306.5 / 306.5 / 373.2 | 306.0-317.3 | 3/3 | 2 / 1 / 0 |
+| sleepywood / starter | 0/3 | 11.4 / 11.9 / 15.1 | 10.6-12.0 | 0/3 | 3 / 0 / 0 |
+| sleepywood / kit | 1/3 (seed 2: CLEARED 925.2 s) | 23.8 / 767.0 | 23.8-826.2, one clear at 936.2 | 2/3 | 1 / 0 / 1 |
+
+- Ellinia and Perion reproduce #452's records to the second, so A4's level scale and the later merges (#454, #451) left
+  them untouched. Henesys and Kerning City differ from the Oct 29 smoke by later death times (Henesys bot 305.0-651.7
+  became 417.3-646.7; random 308.3-309.9 became 428.6-668.0; Kerning bot's latest death 315.0 became 535.5). Their data
+  is unchanged, so the cause is something merged between the two smokes (the boss kits B1-B5, player statuses #458, poison
+  #459); it was not bisected, and this is not a regression bound being broken (no clear is lost, no run dies earlier).
+- Henesys bot fills the six active slots in 3/3 runs (128.7-219.7 s) and every region's runs reach their first boss, except
+  Sleepywood with the starter wand, which dies at 11-15 s before its first boss exactly as in every earlier smoke (the
+  opening ramp; recorded balance-pass work, not a feature regression: the kit runs reach it 2/3).
+- `--chain=5 --retries=1`: 0/3 chains clear Henesys. Each seed plays Henesys twice (the replay with the loot kept) and
+  both attempts die (death seconds 417.3-692.5, maps 2-3), so no chain reaches Ellinia; the Ellinia-to-Sleepywood steps
+  report zero starts. The chain's bookkeeping (attempt records, `CHAIN` lines, per-step summaries) is what this exercises;
+  how far a geared bot gets needs a character that clears Henesys, which the balance pass owns.
+
+**Flow and visual QA.** `flow_driver.tscn --scenario=progression` passed (about 6 minutes, seed 1, no `ERROR` lines):
+a new character can start only Henesys and a locked Ellinia's Start is refused; a diagnostic invulnerable Henesys clear
+leaves Henesys CLEAR and Ellinia NEW and selected on opening; an Ellinia clear unlocks Perion and not Kerning City;
+Save & quit, character select and Continue keep the set; a Perion death changes nothing; a `HubTestKit` character reads
+"Regions cleared 5/5" with nothing locked. Map select shots (read by eye) are in `evidence/t455_progression/`
+(`*_progression_01_new_character`, `05_after_henesys`, `08_after_ellinia`, `14_all_cleared`, ...). Playtests
+`--stage=ellinia` and `--stage=perion` (seed 2026, x8, `--vsync=off`) both end `missing: []`: Ellinia dies at 9:47 on map 2
+(Lv21, Prime Minister fought on map 1), Perion at 7:21 on map 2 (Lv22, King Clang's shell form fought on map 1);
+`evidence/t455_playtest_ellinia/`, `evidence/t455_playtest_perion/`. Map select's "Lv lo-hi" (Ellinia 1-55, Perion and Kerning City 2-32) follows the pools: Ellinia's 55 is the
+ordinary Lv55 mob 5300100 of map 3's own life list (checked in the #482 review).
+
+**Test suites and the web gate.** `cargo test` (70) and the web tests (62) pass. The full GDScript suite (`TEST_TIMEOUT_S=7200`,
+3,680 tests) had 2 order-dependent failures (`test_shop_windows`, `test_ui_windows`), also present before this ticket: #452's
+King Clang sound test left a deliberate `Sound.wz/Mob.img/9999999/Attack1` gap in the shared Sfx missing list. Fixed here (the
+test drops it after asserting); `scripts/test.sh run_scene shop_windows ui_windows` then passes 91/91. Web gate: with the
+wasm target and `wasm-bindgen-cli` 0.2.105 installed and `cargo fetch --locked` run, `scripts/export.sh --web` completes and
+`check_web_artifact.sh` passes (27 files, no WZ data or cache-shaped files). Serving the page and starting Henesys through the
+browser import was not done.
+
+### Unique bosses smoke (#452, A3, 2026-10-30)
+
+Spec #447 branch (A1 and B1 merged), private cache `cache452` (manifest additions of #452), F/P starter wand, training
+seeds 1/2/2026, bot and random, `JOBS=2`; no tuning, no held-out seeds. **12 records: no crashes, world warnings or
+missing assets.** Raw records: `_scratch/balance452/`. The previous smoke is the #332 review-fix table above (same
+configuration, Stumpy, King Slime and Dyle in Ellinia, Mano in Perion; six runs per cell, both policies).
+
+| Region / policy | Clears | Death-only seconds (3 runs) | Deaths by map 1/2/3 | Bosses fought (completed/spawned) |
+|---|---|---|---|---|
+| Ellinia / bot | 0/3 | 621.2 / 628.3 / 635.9 | 0 / 0 / 3 | Prime Minister 3/3 (5.5-10.5 s), Grey Yeti and King Pepe 3/3 (5.6-19.6 s), Faust 0/0 |
+| Ellinia / random | 0/3 | 302.8 / 305.4 / 623.0 | 2 / 0 / 1 | Prime Minister 1/3 (8.6 s), Grey Yeti 1/1 (7.7 s), Faust 0/0 |
+| Perion / bot | 0/3 | 308.1 / 421.7 / 651.8 | 1 / 1 / 1 | King Clang 2/3 (6.8-12.5 s), Stumpy 1/1 (4.8 s), Iron Hook 0/0 |
+| Perion / random | 0/3 | 331.5 / 449.5 / 466.1 | 1 / 2 / 0 | King Clang 2/3 (8.2-8.9 s), Stumpy 0/0, Iron Hook 0/0 |
+
+Ellinia (previous 0/6, 617.4-654.4 s) keeps its shape: the bot reaches map 3 on all three seeds and dies within 12 s of
+entering it, before Faust's 300 s (no run reaches map 3's boss, as before); random loses two seeds on map 1 (Prime Minister,
+unfinished twice, like Stumpy before). Perion (previous 0/6, 310.5-461.8 s) now spans 308.1-651.8 s: the bot's seed 1
+reaches Iron Hook's map at Lv42, 10:51 and dies on map 3 before its boss. The `boss_fights` records of King Clang keep
+the scheduled shell's `mob_id` (5220001) and add `final_form` 5220000 and `form_time` (300.6-302.2 s on every seed). Whole boss hits
+reach 50.0-52.6% of the player's HP at the moment of the hit for King Clang (the hit-band test's 40-50% is at the
+slot's `typical_hp`, not the actual HP of a Lv8-12 character); Ellinia's reach 22-50%. Henesys, Kerning City and Sleepywood data are
+byte-identical.
+
+Summons were left at their canonical rates (no `skill_intervals` or cap override, no tuning) and are unmeasured: the
+fights the smoke and the diagnostic rounds produced end within 14 s, so for Prime Minister, Grey Yeti and King Pepe and
+King Clang they barely started, and no run fought Faust. The rates are: Prime Minister 5 Renegade Spores / Poison
+Mushrooms per 80 s from 60% HP (limit 200); Grey Yeti and King Pepe 6 Helmet / Royal Guard Pepes per 40 s from 80% HP
+(limit 200, counted per boss among its living summons, so it does not bound the swarm by itself); King Clang 5 Lorang
+and Clang per 10 s from 80% HP (limit 30); Faust 3 Zombie Lupins per 10 s from 80% HP (limit 15). Summons spawn at
+canonical HP (Lorang 1,950, Clang 3,000, Zombie Lupin 1,800, Pepes 850-900).
+
+**Faust is flagged for the balance pass.** Matched HP (8,060) and damage to Dyle's slot do not make the fight
+equivalent: Faust's kit is harder than Dyle's. Its heal 114/18 restores a flat 3,000 to mobs in range every 10 s from
+90% HP (about 300 HP/s against Dyle's 114/17, 5,000 every 20 s, about 250 HP/s); its weapon immunity 140/12 lasts 10 s
+of every 30 s (Dyle's 140/8 lasts 5 s); and it summons Zombie Lupins. No run that could be killed reached Faust (the
+Ellinia bot dies within 12 s of entering map 3, and the invulnerable diagnostic Faust died 6.6 s after arriving), so none
+of this is measured. Prime Minister also chases faster than the Stumpy it replaces (speed -30 against Stumpy's -60,
+canonical Mob.wz values), so Ellinia map 1's boss is harder to kite than the previous one at the same HP and damage.
+
+Visual QA (diagnostic invulnerable one-off rounds with the F/P fixture at x8, a throwaway driver that was not
+committed; screenshots in `evidence/qa452/`, checked by eye): Ellinia seed 1 CLEARED at 920.3 s, Lv32, all three bosses
+killed (Prime Minister 6.7 s, Grey Yeti and King Pepe 6.9 s, Faust 6.6 s after arrival), `missing: []`; Perion seed 1
+CLEARED at 920.3 s, King Clang's shell swapped to 5220000 at 306.5 s (the bar kept its icon) and the fight was won
+only on 5220000 at 313.8 s, Stumpy died 0.2 s after arrival and Iron Hook at 920.3 s, `missing: []`. The first Perion
+round reported `Sound.wz/Mob.img/5220000/Attack1` missing: v83 gives King Clang no Attack1 sound (only a `Skill1` UOL
+to Faust's), so that attack is now silent like a mob without sounds (`RunScene`, tier A absence).
 
 **#332 review fixes (2026-10-29).** Read-only `cache-rd332`, isolates `332fix*`, `JOBS=3`,
 training seeds 1/2/2026, both bot/random; no tuning or held-out seeds. **72 records: no crashes, world warnings,
@@ -1717,7 +2029,7 @@ Dyle's Attack Up (the 110 area art across the Ligators, then the buff glow on Dy
 burst. Iron Hook dies before his first 40 s interval in every natural or diagnostic fight, so that capture adds a
 **x20 HP diagnostic tank** and holds the camera on him (harness-only presentation aid, never data). Every map entry
 reports BGM playback matching `info/bgm` (Perion Nightmare, Nightmare continuing, HighlandStar; Kerning BadGuys,
-Subway, JungleBook). The map select shows four cards in `tiers` order; with Perion or Kerning City selected the detail
+Subway, JungleBook). The map select showed four cards in `tiers` order (now the progression list, #451); with Perion or Kerning City selected the detail
 lists `West Street Corner of Perion -> Mano`, `East Rocky Mountain V -> Stumpy`, `The Burnt Land I -> Iron Hook` and
 `Kerning City Construction Site -> King Slime`, `Line 1 <Area 1> -> Shade`, `The Swamp of Despair I -> Dyle`; the
 angle brackets render literally, in the arrival banner too. Evidence: `C:/Users/itech/.t3/projects/maple-survivors/.claude/worktrees/agent-ab003e6a203a7ede5/evidence/spec253/t257/`
@@ -4551,6 +4863,138 @@ Oracles `character_baseline`, `tick_cost_identity` and `hero_baseline` reproduce
 `missing: []`; Flash Fist, Somersault Kick, Backspin Blow, Double Uppercut and Corkscrew Blow all cast (`cast_*.png`); flow
 evidence only, not survival evidence.
 
+### Corsair C2 data smoke (#386, 2026)
+
+Data-only ticket (`jobs/corsair.json`, not playable, no balance data of another job touched). Training seeds 1/2/2026, Henesys bot,
+`JOBS=3`, real private cache: F/P (212) and Hero (112) rows are byte-identical to the base commit `53652f78` (212 died at 12:31 /
+11:01 / 7:54 Lv44 / 37 / 24; 112 at 5:27 / 5:36 / 11:28; no clears, no warnings). Oracles `character_baseline`, `tick_cost_identity`
+and `hero_baseline` reproduce their hashes. Diagnostic `--job=522` playtests (`playable: true` temporarily, reverted, never committed):
+Henesys speed 8, 4 minutes reached Lv8 with `missing: []`, the title "Corsair" on the HUD, a Pistol in hand and the Double Shot, Invisible
+Shot, Grenade and Recoil Shot casts captured (the four ported skills, still defined in `pirate.json`); Sleepywood with a kit
+character (a Pistol-class gun, Pirate-bit gloves and the generic hat and top, tier 2) died at 0:07 at Lv1 on the shared 50 starting HP
+(the ranged default, like Bowmaster and I/L; Hero and Paladin copy 600), `missing: []`. Flow and visual evidence only, not survival
+evidence; screenshots in gitignored `evidence/386/`.
+
+### Corsair C11 smoke (#395, 2026)
+
+Sim seam (`PlayerHull`, `FormRules`, `STATE_EFFECTS`, `absorbed` on `player_hit`) plus the hull bar; tested on a synthetic ship, no Corsair
+definition exists yet. Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212) died at 12:31 / 11:01 / 7:54 (Lv44 / 37 /
+24) and Hero (112) at 5:27 / 5:36 / 11:28 (Lv36 / 11 / 11 by seed order as before), no clears, no warnings: both byte-identical to the C2 rows
+above. Oracles `character_baseline`, `tick_cost_identity`, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer and Bowmaster baselines
+reproduce their hashes; `test_player_forms` and `test_run_events` are unchanged. A hull-probe screenshot set (`evidence/395/hull`, gitignored)
+shows the blue bar draining 0.78 -> 0.16, blue absorbed numbers and the break (blue 40 + violet 12 in one hit, bar gone). No `--job=522`
+playtest: the ship is C13's and the job is not playable.
+
+### Corsair C6 smoke (#390, 2026)
+
+Octopus and Gaviota as data on the C5 behaviours, plus `summon.attack_after` (`PlayerSummons.spawn`) and `cast.mob_within` for a
+summon (`SkillRunner.has_target`); both opt-in, so no other job's cast changes. Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private
+cache: F/P (212) died at 12:31 / 11:01 / 7:54 and Hero (112) at 5:27 / 5:36 / 11:28, no clears, no warnings: byte-identical to the C2 and
+C11 rows above. Oracles `character_baseline`, `tick_cost_identity`, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer and Bowmaster baselines
+reproduce their hashes. Diagnostic `--job=522` (a temporary local `playable: true` and Octopus / Gaviota learn scores, reverted):
+`bash scripts/playtest.sh --job=522 --stage=henesys --seed=7 --speed=8 --vsync=off` died at 5:08 at Lv11 with both summons learned
+(`cast_octopus`, `cast_gaviota`, `missing: []`; flow and visual evidence, not survival evidence). The tool probe
+`corsair_summon_probe.tscn` (Octopus and Gaviota at rank 8, a row of 200 standing monsters 200-440 px away, god mode, 14 s at x1,
+uncapped) shows the planted octopus with a ball flying to the crowd's near edge and the bird diving at the crowd with its bomb,
+`missing: []`; 200 monsters alive for the whole run: frame 2.6 ms avg / 4.3 ms p95, RunScene work 1.3 ms avg / 3.0 ms p95, sim 1.5 ms
+per tick. Screenshots in gitignored `evidence/c6/`.
+
+### Corsair C13 smoke (#397, 2026)
+
+The Battleship and its subs are data plus small text / preview seams (`hull_share`, `SkillText._ship_line`, the `hull` card preview) and
+one presentation change (the rider's `shoot2`, the hull bar lift). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212)
+died at 12:31 / 11:01 / 7:54 and Hero (112) at 5:27 / 5:36 / 11:28, no clears, no warnings, identical to the C11 rows above. Diagnostic
+`--job=522` playtest (`playable` and `starting_skill battleship` flipped in the worktree only, reverted; Henesys seed 3, x4, 2:00 and 1:00):
+`missing: []`; the ship drawn with the seated rider, the blue hull bar over the head, a Cannon volley, a Torpedo flash and the broken hull
+(10 HP at rank 1 / Lv1) looked at by eye. Not tuned.
+
+### Corsair C14 smoke (#398, 2026)
+
+No sim code changed (job page layout, fixtures, hub kit, bot scores, tests). Training seeds 1/2/2026, Henesys bot, `JOBS=3`, private cache: F/P (212)
+died at 7:54 / 11:02 / 12:32 and Hero (112) at 5:28 / 5:37 / 11:28, no clears, no warnings, identical to the C13 rows above (the 12:31 / 11:01
+there are the same deaths read at tick resolution). `test_character_baseline`, `test_tick_cost_identity` and the Hero, I/L, Paladin and Bowmaster baselines
+reproduce their hashes in the full suite (3801 tests, 0 failed, 0 skipped with the cache; 0 failed, 458 skipped without it). New Corsair oracle
+`test_corsair_baseline`: seed 1, 6 minutes, Lv11, 426 casts. Diagnostic `--job=522` playtest (Corsair flipped playable in a private mirror,
+`corsair_t2.json`, Henesys seed 3, stopped at 2:00 because the window was throttled to 1 fps): the pistol drawn, Double Shot, Burst Fire,
+Ice Splitter, Homing Beacon and Rapid Fire casts, Lv5, 42 kills, no `game.log` warning (no `summary.json`: not run to its end). Sleepywood not run (50 HP at Lv1,
+C2's note). Not tuned.
+
+### Corsair C15 QA and regression smoke (#399, 2026-10-30)
+
+Seeds **1, 2, 2026**, `JOBS=3`, `ISOLATE=399s`, private cache `cache-384`, no tuning, no patches, no held-out seeds. Every tier-1 stage with `bot` and
+`random`, then Sleepywood (bot) with the starter outfit and with each job's committed tier-2 fixture (`corsair_t2.json`, `fp_arch_mage.json`), for
+Corsair (`--job=522`) and the default job (F/P 212): **60 records, 20 batch exits all 0; no crash, no world warning, no missing asset.** Only the default job and Corsair were rerun here
+(AGENTS.md's regression smoke is the default job plus the new job, and the spec's "every other shipped job" is covered by their oracles, which reproduce in
+the suite: the review of #384 found no concrete gap, so the narrower smoke stands as the record); nothing in `scripts/sim/` changed in C15. C = CLEARED, D = DEAD
+(seconds); "boss reached" counts runs in which the first boss (300 s) spawned.
+
+| Stage / policy | Corsair 522 | F/P 212 |
+|---|---|---|
+| henesys / bot | 0/3 C; D 308.9–820.6; boss reached 3/3 | 0/3 C; D 474.5–751.9; boss reached 3/3 |
+| henesys / random | 0/3 C; D 306.4–379.1; boss reached 3/3 | 1/3 C; D 433.4–503.7; C 914.3; boss reached 3/3 |
+| ellinia / bot | 0/3 C; D 238.8–374.8; boss reached 1/3 | 0/3 C; D 619.8–643.5; boss reached 3/3 |
+| ellinia / random | 0/3 C; D 205.2–277.5; boss reached 0/3 | 0/3 C; D 617.4–654.4; boss reached 3/3 |
+| perion / bot | 0/3 C; D 294.6–356.2; boss reached 2/3 | 0/3 C; D 310.5–461.8; boss reached 3/3 |
+| perion / random | 0/3 C; D 258.7–343.7; boss reached 2/3 | 0/3 C; D 420.6–428.0; boss reached 3/3 |
+| kerning / bot | 0/3 C; D 311.7–335.1; boss reached 3/3 | 0/3 C; D 311.0–517.9; boss reached 3/3 |
+| kerning / random | 0/3 C; D 280.3–305.8; boss reached 1/3 | 0/3 C; D 306.5–307.0; boss reached 3/3 |
+| sleepywood / starter | 0/3 C; D 9.4–15.3; boss reached 0/3 | 0/3 C; D 11.4–15.1; boss reached 0/3 |
+| sleepywood / kit | 0/3 C; D 10.0–17.1; boss reached 0/3 | 1/3 C; D 23.8–826.2; C 936.2; boss reached 2/3 |
+
+F/P Henesys bot reproduces the C13/C14 rows exactly (D 751.9 / 661.9 / 474.5 s = 12:31 / 11:01 / 7:54); the older BC12 table (below) was taken before other
+specs merged into this branch's base and differs for that reason, not because of this ticket.
+
+Corsair: tier-1 clears 0/24; the first boss spawned in 15/24 runs (all six Henesys runs), a boss was killed in 2/24 (Henesys bot seeds 2 and 2026, one
+each); Corsair dies before the first boss in 9/24 and in all three Ellinia-random runs. **No run ended in a crash and not every run died before the first
+boss, so nothing is stopped; but Corsair is clearly the weakest tier-1 job in this matrix** (the BC12 table below: Hero 3/24 clears and 20/24 first bosses, Buccaneer
+8/24 and 23/24, F/P here 1/24 clears and 24/24 first bosses). Balance-pass levers named by the spec (not touched here): the ship's duration, cooldown and hull share, the Octopus and Gaviota `pad`, the mark's
+length and multiplier, Aerial Strike's cooldown, Rapid Fire's bullet count. The six active slots filled in all six Henesys runs (at 134–256 s).
+
+Mechanic coverage across the 30 Corsair records (the `corsair` block `balance_run.gd` now writes for job 522 only, additive): ship boardings 10 (116.6 s aboard
+in total, 4 hulls broken, 308 damage absorbed); landed monster-hits (`mob_hit` events per skill key; one Gaviota dive counts up to three) Double Shot 7517, Invisible Shot 4218, Grenade 3398, Flamethrower 3068, Ice Splitter 2745,
+Recoil Shot 2032, Gaviota 873, Aerial Strike 716, Rapid Fire 694, Octopus 387 balls, Battleship Cannon 220, Homing Beacon 208 (= marks applied), Torpedo
+109; marked monster-seconds 1664 (the union of each monster's mark timers, ignoring early death). Burst Fire was never taken. The ship was up in only three runs
+because the bot's six slots fill with other cards first (the same effect as C14's baseline note); the ship, Octopus and Aerial paths are covered by
+unit tests and the diagnostic playtests below.
+
+Sleepywood: with 50 HP at Lv1 (the shared default; the spec gives Corsair no HP row, so it inherits the 500 growth and the shared Lv1 value) the starter and the
+fixture die in 9–17 s, F/P's starter in 11–15 s: the same early-death pattern recorded for every job's Sleepywood starter run, not tuned here.
+
+Both `redesign --job=522` (31 shots, PASSED: Corsair on the Job page's last row, "Pistol · WATK 13 · 0.75s", an invulnerable Henesys clear at Lv30 with three
+bosses, results, Free Market with tier 2, a Sleepywood death through the `unrevivable` lethal source, deletion and history) and `creation --jobs=212,522`
+were looked at. Ordinary Corsair playtests, seed 2026, x4, vsync off: Henesys starter DEAD 339.3 s Lv11, Henesys with `corsair_t2.json` DEAD 332.0 s Lv11,
+Sleepywood starter DEAD 11.8 s, Sleepywood with the fixture DEAD 20.1 s, every `summary.json` `missing: []`, no warning in any `game.log`. Diagnostic
+playtests (the pool narrowed to the skills the bot had not taken, and for the second the ammo steps lowered to Lv4/Lv8; both edits reverted, never committed;
+Henesys seeds 3 and 5): pistol in hand, the Battleship drawn with the seated rider, the blue hull bar over the head, the Cannon's muzzle flash and the Torpedo
+flash, Gaviotas diving, Aerial Strike's explosions (with `capture_delay` 2.2 s the shot now shows the impact), Rapid Fire's wings, the planted Octopus, the mark
+cue by the monsters, "Your bullets are now Split Bullet" and `missing: []`. Not captured in a frame: a broken hull (covered by `test_corsair_battleship` and the
+C13 playtest), the Octopus's balls in flight and the cones aboard the ship (the cones aboard are unit-tested in `test_corsair_cones`). The Cannon / Torpedo `Hit`
+sound was not judged by ear (a headless agent cannot listen), so `sounds.hit` stays on both subs for the owner to listen to.
+
+Web gate: **skipped here, run by CI** (`pages.yml`; the owner forbids installing tooling ad hoc, and the review of #384 accepted that the gate must be green there before the merge into `redesign`): this machine has no `wasm32-unknown-unknown` target, no `wasm-bindgen-cli` and no pinned web export templates, so `bash scripts/export.sh --web`
+and `check_web_artifact.sh` were not run (CI runs them). `node --test web/dev/test/*.test.mjs` passed (62) and `cargo test` (no `MAPLE_WZ_ROOT`) passed (the importer's
+synthetic tests, 0 failed). No importer, manifest or import-screen change in this ticket, so the import screen lists no new download.
+
+Full suite on the final code commit (`8e6ee7f1`): with the cache **3801 tests, 0 failed, 0 skipped**; without it (`MAPLE_SURVIVORS_CACHE=/nonexistent`, as CI) **3801 tests, 0 failed,
+457 skipped** (the `require_cache()` tests; a SKIP proves nothing). Oracles (character baseline, tick cost identity, Hero, I/L, Paladin, Bowmaster, Corsair) unchanged, none recaptured, no test deleted.
+
+### Corsair review fixes (#384, 2026-10-30)
+
+Review of spec #384 (standards/spec 15 should-fix and 20 nits, correctness 4 should-fix and 7 nits), fixed on `t/384-review-fixes`;
+resolutions in `~/.local/share/maple-redesign-notes/REVIEW_384_resolutions.md`. Behaviour changes, each test-first: the Octopus is planted
+on the floor under the caster (7.121), a Gaviota that has locked a monster outlives the level `time` until its dive lands (7.121), the
+bird's reach is measured from the cast origin like the admission, the Gaviota card text says how many monsters the dive hits and that
+`time` is the wait (7.121), `OPTIONAL_EVENT_FIELDS` is enforced by the event schema test with a ship in its stream. Smoke (`JOBS=3`,
+`ISOLATE=384fix`, `cache-384`, seeds 1 2 2026, Henesys, bot, no tuning): **F/P unchanged** (D 474.5 / 661.9 / 751.9 s, the C15 numbers
+exactly); **Corsair D 352.0 / 408.9 / 820.6 s** (C15: 308.9–820.6; seeds moved because Gaviota's strikes now land), 0/3 clears, the
+first boss spawned in 3/3, no crash and no warning. **The Corsair baseline oracle was re-captured** (`test_corsair_baseline`): the bot
+takes Gaviota at seed 1 and with the two Gaviota changes reverted the old digest reproduces; the F/P, Hero, I/L, Paladin, Bishop, Dark
+Knight, Buccaneer (and Paladin / Buccaneer Form) and Bowmaster oracles were not touched and pass. Evidence (`evidence/384fix/`, looked
+at by eye): the Octopus's ball in flight beside a Gaviota (`octopus/ball_2.png`), the Battleship aboard with 200 monsters in front
+(`ship200/t5.png`), a broken hull (`broken/hull_before.png` -> `hull_broken.png`: the violet 12 over the blue 10, the bar and the ship
+gone), the mark's parrot over a monster with the numbers rising (`mark/sheet.png`). Dash active was not captured. The web gate stays with
+CI (`pages.yml`; no wasm toolchain here and ad hoc tooling is forbidden). Full suites on the final commit are in the resolutions note.
+
 ### Buccaneer B3 smoke (#415, 2026)
 
 Presentation, text and tests only (no sim code changed). Training seed 1, Henesys bot, `JOBS=3`, private cache: F/P (212)
@@ -4625,8 +5069,9 @@ The Buccaneer clears in two of five Henesys runs and dies at the first boss at L
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Each map schedules one boss 300 seconds after that map's entry, with the order in section 4.1: Mano (2220000),
-Mushmom (6130101), Blue Mushmom (9400205) in Henesys; Stumpy, King Slime, Dyle in Ellinia; Mano, Stumpy, Iron Hook
-(4090000) in Perion; King Slime, Shade (5090000), Dyle in Kerning City; Zombie Mushmom, Snack Bar, Jr. Balrog in
+Mushmom (6130101), Blue Mushmom (9400205) in Henesys; Prime Minister (3300008), Grey Yeti and King Pepe (3300005),
+Faust (5220002) in Ellinia; King Clang (5220001 into 5220000), Stumpy, Iron Hook (4090000) in Perion (#452: no boss
+appears twice across the progression); King Slime, Shade (5090000), Dyle in Kerning City; Zombie Mushmom, Snack Bar, Jr. Balrog in
 Sleepywood. Only the current map's boss is armed. If map 2 starts at round time 420 s, its boss is due
 at 720 s. Encounters retain canonical movement, contact attack, art and enabled skill kits; mushrooms retain the slam.
 Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
@@ -4646,18 +5091,24 @@ Survivor settings (tier C; canonical stats and attack timings/boxes remain uncha
 | Mano | 2,000 | 3,600 | 1.8 | 1.15 | — |
 | Mushmom | 20,000 | 4,800 | 0.24 | 0.85 | 0.55 |
 | Blue Mushmom | 200,000 | 7,000 | 0.035 | 0.48 | 0.72 |
-| Stumpy | 7,000 | 3,150 | 0.45 | 0.83 | 0.77 |
-| King Slime | 8,000 | 8,800 | 1.1 | 1.36 | 1.06 |
-| Dyle | 31,000 | 8,060 | 0.26 | 1.14 | — |
-| Perion: Mano | 2,000 | 3,600 | 1.8 | 1.15 | — |
+| Ellinia: Prime Minister | 12,500 | 3,150 | 0.252 | 0.8 | 0.69 |
+| Ellinia: Grey Yeti and King Pepe | 120,000 | 8,800 | 0.07333 | 1.41 | 1.41 |
+| Ellinia: Faust | 9,800 | 8,060 | 0.8224 | 1.32 | 1.14 |
+| Perion: King Clang (shell 5220001 + form 5220000) | 4,000 + 25,000 | 400 + 3,200 = 3,600 | 0.1 + 0.128 | 0.61 | 0.56 |
 | Perion: Stumpy | 7,000 | 4,800 | 0.6857 | 1.38 | 1.25 |
 | Perion: Iron Hook | 2,200 | 7,000 | 3.1818 | 2.38 | — |
 | Kerning City: King Slime | 8,000 | 3,600 | 0.45 | 0.78 | 0.61 |
 | Kerning City: Shade | 4,800 | 4,800 | 1.0 | 1.04 | — |
 | Kerning City: Dyle | 31,000 | 7,000 | 0.2258 | 1.15 | — |
 
-The Perion and Kerning City entries (spec #253, starting values, untuned) are separate entries, so the Henesys and
-Ellinia fights are unchanged. Each matches the Henesys boss of its map slot (Mano, Mushmom, Blue Mushmom) at that
+Before #452 Ellinia scheduled Stumpy (7,000 x 0.45 = 3,150 HP, touch x0.83, attack x0.77), King Slime (8,000 x 1.1 =
+8,800, x1.36, x1.06) and Dyle (31,000 x 0.26 = 8,060, x1.14); the three new Ellinia bosses and Perion's King Clang
+(replacing Mano's copy) keep those slots' survivor HP and, at 0.01 multiplier steps, touch and attack roll ranges
+within 1 HP at the slot's `typical_hp`/`typical_pdd` (the #254 method; the `_tier` note of each `stages.json` entry shows
+the derivation). Faust and King Clang's attack, like King Slime's slam in Kerning, matches the replaced boss's touch
+because Dyle and Mano have no attack. King Clang's 3,600 HP are split between the standing 5220001 shell (400) and its
+final form (3,200, `final_form_hp_mult`). The Perion and Kerning City entries (spec #253, starting values, untuned) are
+separate entries, so the Henesys fights are unchanged. Each matches the Henesys boss of its map slot (Mano, Mushmom, Blue Mushmom) at that
 slot's `typical_hp`/`typical_pdd`: the same survivor HP and, at 0.01 multiplier steps, touch and attack roll ranges
 within 1 HP of the slot's (King Slime's slam matches Mano's touch, since Mano has no attack). Iron Hook and Shade
 fight by touch only. Canonical boss defence, level and undead flags are not normalized (Iron Hook PDD 400 and Shade
@@ -4748,9 +5199,15 @@ calibrated against actual training HP pools. No attack-local canonical value is 
 The `player_hit.source_kind` field distinguishes contact (`touch`) from these attack (`attack`) hits for metrics.
 The handler is reusable for later Stumpy and King Slime type-0 attacks selected in their stage data.
 
-Ellinia schedules Stumpy (3220000) in The Tree That Grew I, King Slime (9300003) in The Forest of Wisdom and
-Dyle (6220000) in The Forest of Evil I, each 300 s after entering its map. Earlier fights extend total round time.
-Stumpy uses HP ×0.45 (3,150), touch ×0.83 and attack ×0.77. Its selected attacks share an 8 s start-to-start cadence. The type-0 slam
+Ellinia schedules Prime Minister (3300008) in The Tree That Grew I, Grey Yeti and King Pepe (3300005) in The Forest of
+Wisdom and Faust (5220002) in The Forest of Evil I (#452; before it Stumpy, King Slime and Dyle, who now fight in
+Perion and Kerning City), each 300 s after entering its map. Earlier fights extend total round time. Their canonical
+kits stay as in Mob.wz: Prime Minister summons Renegade Spores and Poison Mushrooms (MobSkill 200/164), Grey Yeti
+Helmet and Royal Guard Pepes (200/165), Faust heals (114/18), buffs (110/112/113), summons Zombie Lupins (200/84) and
+turns weapon-immune (140/12); all five new ids are in `balance.mob_skills.enabled_ids`. Each has one canonical attack
+(`attack1`, Faust's a type-2 ball) on the 8 s cadence below.
+Stumpy (now Perion map 2 with its own scales in the table above; its Ellinia entry used HP ×0.45, touch ×0.83 and
+attack ×0.77) has selected attacks that share an 8 s start-to-start cadence. The type-0 slam
 keeps the 543×172 box and 1,500 ms attackAfter, including the same airborne dodge.
 The type-2 ball keeps attack135, bulletSpeed140, range/r200, muzzle(6,-60) and 1,320 ms attackAfter. We adopt
 `r ×600/bulletSpeed` ms maximum flight (857.14 ms), hence 233.33 px/s over 200 px. This conversion and using r
@@ -4886,6 +5343,25 @@ gear-matched class ranking.
 Job 512: tier-1 clears 8/24; first boss reached 23/24. Job 112: tier-1 clears 3/24; first boss reached 20/24. Job
 212: tier-1 clears 0/24; first boss reached 24/24. Job 222: tier-1 clears 0/24; first boss reached 24/24.
 
+**Late-band equipment smoke (#474, 2026-10-30).** #474 lists more equipment, and its Lv35-40 Warrior and Pirate armour also
+enters Sleepywood's [30, 40] pool (the earlier lists had no Warrior or Pirate class armour; the Warrior had weapons and shields).
+`balance.sh 1 2 2026 --stage=sleepywood` (`JOBS=2`, private cache, no tuning, no held-out seeds), with a control of the same
+commands on the spec-branch tip without the new data. 15 records: **no crashes, world warnings or missing assets**.
+Henesys, Ellinia, Perion and Kerning were not rerun (their bands have no new items below Lv41, and their pools are unchanged).
+
+| Sleepywood (3 seeds) | Result | Control (spec tip) |
+|---|---|---|
+| F/P starter, bot | 0/3 C; D 11.4-15.1 | not run (no equipment dropped before the deaths) |
+| F/P starter, random | 0/3 C; D 11.4-13.0 | not run |
+| F/P `fp_arch_mage.json`, bot | 1/3 C; D 23.8, 767.0 | identical record |
+| F/P `fp_arch_mage.json`, random | 1/3 C; D 14.3, 810.6 | identical record |
+| Hero (112) `hero_t2.json`, bot | 2/3 C; D 685.2 | 1/3 C; D 877.1, 904.5 |
+
+The Magician pool is unchanged below Lv41, so F/P reproduces the control exactly. Hero's seeds differ because the shifted drop
+pool changes which items its seeded rolls give; that is three seeds of a diagnostic fixture, not a balance claim. Against the
+older smoke above (the F/P kit 2/3 C, Hero 1/3 C) the F/P shift comes from the spec branch's earlier changes, since the control
+reproduces it. The starter runs die within 15 s, before any equipment drops.
+
 Buccaneer Henesys bot filled six actives in 3/3 runs at 130.4–205.1 s; its deaths 319.6/626.9 and clear 1036.8
 reproduce BC11 (rounded there). Sleepywood early deaths are recorded without tuning or stopping, as explicitly
 requested by the owner. F/P and Hero Henesys bot outcomes reproduce the BC2–BC11 smoke; the full other-job matrix
@@ -4911,6 +5387,93 @@ was made.
 Rust 70 and web-shell 62 tests pass. Pinned web templates are absent: local export/artifact gate unverified, no
 download; CI exports. No import-screen/source changes. The final commit's sequential cache/no-cache suite logs and
 counts are in the BC12 implementation note; SKIPs prove no asset behavior. No tests deleted or hashes recaptured.
+
+### Night Lord NL12 QA and regression smoke (#411, 2026-10-30)
+
+Seeds **1, 2, 2026** (training seeds only, no held-out seed, no tuning patch), every tier-1 stage, `bot` and `random`, for the
+default F/P (212) and Night Lord (412); Sleepywood bot with the starter equipment and with each job's committed tier-2
+fixture (`fp_arch_mage.json`, `night_lord_t2.json`). `JOBS=3`, `ISOLATE=411s`, shared Night Lord cache `cache-383`. 60/60
+records completed and all 20 batch exits were 0; no crash, world warning or missing asset. Night Lord's bare `--job=412`
+run wears the creation Garnier (a claw), so "starter" is the real starter. C = CLEARED, D = DEAD, TO = TIMEOUT at the
+1800 s cap (never a clear); values are seconds.
+
+| Stage / policy | Night Lord 412 | F/P 212 |
+|---|---|---|
+| henesys / bot | 0/3 C; D 349.3-415.9 (first boss alive in 3/3) | 0/3 C; D 474.5-751.9 |
+| henesys / random | 0/3 C; D 317.7, 1402.2 (map 3, 2 bosses dead); TO 1 (map 3) | 1/3 C; D 433.4-503.7; C 914.3 |
+| ellinia / bot | 0/3 C; D 180.5-556.9 | 0/3 C; D 619.8-643.5 |
+| ellinia / random | 0/3 C; D 94.0-184.8 | 0/3 C; D 617.4-654.4 |
+| perion / bot | 0/3 C; D 226.9-281.9 | 0/3 C; D 310.5-461.8 |
+| perion / random | 0/3 C; D 157.5-269.6 | 0/3 C; D 420.6-428.0 |
+| kerning / bot | 0/3 C; D 316.5-339.4 | 0/3 C; D 311.0-517.9 |
+| kerning / random | 0/3 C; D 171.9-312.0 | 0/3 C; D 306.5-307.0 |
+| sleepywood / starter | 0/3 C; D 10.0-14.7 | 0/3 C; D 11.4-15.1 |
+| sleepywood / kit | 0/3 C; D 11.5-17.5 | 1/3 C; D 23.8-826.2; C 936.2 |
+
+Night Lord: tier-1 clears 0/24; the first boss (spawned 300 s after entry) was reached in 15/24 runs (all six Henesys runs, 5/6
+Kerning, 1/6 Ellinia, 0/6 Perion, whose runs die at 157-282 s at Lv4-9) and both
+the careless Henesys runs that reached map 3 killed bosses. Henesys bot filled six actives in 3/3 runs (134.5, 141.2, 259.9 s),
+the Henesys runs reached Lv11-13 and died to the first boss (Mano) at 349-416 s. Both Sleepywood starter and kit runs die in
+10-18 s at Lv1, as the other jobs' starters do (Bowmaster 10-13 s); F/P's kit clears 1/3. **This is a readiness concern for the
+owner, not an acceptance of balance, and nothing was tuned.** It is not the stop condition (every run dying before the first
+boss, or every run clearing): Henesys and Kerning reach it. Levers for the balance pass are those of the spec: the 1.0 s
+filler cadence and 250 px reach, Ninja Ambush's cooldown and strike count, Venomous Star's chance and poison level, the echo
+percentages, the meso charge pip rate / decay / bonuses, Shadow Meso's scale and the ammo step levels.
+
+F/P's records are **identical to the unmodified `redesign` base** (53652f78, run with the same cache: Henesys bot deaths
+474.5 / 661.9 / 751.9 s), so spec #383 changed nothing for F/P. They differ from the earlier BC12 smoke above because that
+smoke ran on a different private cache (`cache-413`); the data cache, not the code, moved F/P's Henesys numbers.
+
+**Meso charge and Flash Jump.** The two windowed seed-2026 x8 playtests on Henesys (no kit / kit) held the meso charge at a
+time-weighted **mean 3.34 / 4.17 pips, peak 10** (`summary.json` `meter`); at Sleepywood's 11-21 s runs it stayed 0 (nothing
+picked up). Flash Jump's rank follows the round level (rank 5-6 at Lv11-13, 16-19 at Lv32-38 in the smoke records); the
+playtest summary's `counters.flash_jumps` (added by the #383 review fixes) now counts the presses: **61** in the 677.9 s windowed
+seed-2026 x8 Henesys run of the review pass (`--job=412`, DEAD at Lv22, `missing: []`, meso charge mean 1.84, peak 10); the NL11
+baseline's 6 presses in six minutes of the god-mode bot remain the oracle number.
+
+**Playtests** (`--job=412 --seed=2026 --speed=8 --vsync=off`, `missing: []` in all four, no warnings): Henesys without the
+kit DEAD 947.5 s at Lv32 (2 bosses killed, map 3 reached at 902 s, max alive 209); Henesys with `night_lord_t2.json` DEAD 994.1
+s at Lv38 (2 bosses killed, max alive 248); Sleepywood without the kit DEAD 11.1 s, with the kit DEAD 21.4 s, both Lv1. The
+bot learned Lucky Seven, Flash Jump, Triple Throw, Avenger, Ninja Ambush, Shadow Meso and Shadow Partner in both Henesys
+runs; Drain and Ninja Storm were not taken in these two seeds. Looked at by eye (`evidence/nl12/`, gitignored): `cast_*` shots
+of Lucky Seven, Avenger (the giant star beside the character), Triple Throw, Ninja Ambush (the red slash and the ninjas
+dropping in from the top), Shadow Partner (the translucent clone beside the character) and Shadow Meso; `flash_jump.png`
+(ghost trail); the `ammo_2070001` notice "Your throwing stars are now Wolbi Throwing-Stars" and the Orange Potion notice;
+the ten-pip meso charge row beside the timer; damage numbers, boss HP bar and the death poses. A third playtest (seed 1, kit, 540 s, `missing: []`) learned Drain and Ninja Storm too and
+produced `cast_drain.png` and `cast_ninja_storm.png` (the spinning shadow with stacked hit numbers on a pack, a Drain heal
+with the echoed clone). **Not captured by a playtest shot** (captured afterwards, see the review pass below): a poisoned / stunned pack and a Ninja Storm
+ring with its pushed monsters; and at the native 456 x 500 capture size the claw in the hand is
+too small to read; the stars it throws (the claw's `Ammo` entry) are the evidence that a claw is in hand.
+
+**Flow scenarios.** `redesign --job=412 --seed=1` PASSED (36 picks; creation Job page with nine rows and Night Lord
+highlighted, "Garnier - WATK 10 - 0.81s", Free Market, map select with Sleepywood locked, an invulnerable Henesys round with the
+first level-up, the slots-full offer, the boss draw, the three map clears with fades, the Mastery offer, results, tier 2
+unlocked, a drop worn at Lv1, the Sleepywood round with loot picked up, the diagnostic death, results, hub, deletion and history;
+all 31 shots read by eye, `missing: []`). The driver is diagnostic (invulnerable), not survival evidence.
+
+**Review pass (#383 review fixes, 2026-10-30).** `scenes/debug/night_lord_status_probe.tscn` (`--scenario=status|storm --shots=<dir>`, real
+cache, real Night Lord data, never saves) drove the two missing visuals; looked at by eye (`evidence/review383/`, gitignored). `status`:
+six snails in a row on the Henesys ground, the two nearest hit with Venomous Star's real catalogue row at rank 8 (100% forced for the
+probe) show green poison specks, the next two hit with Stunning Avenger's show the stun star ring, the last two are plain; the JSON
+confirms POISON on 2, STUN on 2 and neither on 2. `storm`: Ninja Storm at rank 8 cast into six snails 50 to 280 px from the player: the
+white hit burst lands on the struck snails (tick 6) and 4 of the 6 end 300 px (the rank-8 distance) farther away, pile-up included (tick 50;
+`storm.json` before / after x). The probe's mobs are frozen and the status chance is forced, so it is presentation evidence, not balance.
+
+**Web gate and smoke rule: resolved, not run here.** `bash scripts/export.sh --web` and `check_web_artifact.sh` cannot run on this
+machine (no pinned web export templates, no `wasm32-unknown-unknown` target, no `wasm-bindgen-cli`; nothing may be downloaded); the
+`pages.yml` workflow runs the export and the artifact check on every push to `main`, and the Night Lord manifest fragment and golden
+(`cargo test` 49 + others passing here) are the only inputs that changed. The spec's smoke rule for a feature ticket is the default job
+plus the new job (`AGENTS.md`: "a regression smoke ... default" and the new line), which NL12 ran (60/60 records); the other jobs' smoke
+is not part of it, and their oracles (character, tick cost, Hero, Bowmaster, Buccaneer, Bishop, Dark Knight, Paladin, I/L) reproduce
+unchanged after the review fixes. Both items are therefore closed for this spec; the first `pages.yml` run on `redesign` is the web evidence.
+
+**Web gate.** `node --test web/dev/test/*.test.mjs` 62 passed; `cargo test` (no `MAPLE_WZ_ROOT`) 70 passed; this ticket
+changes neither the asset manifest nor the web shell, so the import screen lists no new download. The local web export and
+`check_web_artifact.sh` were **not run**: this machine has neither the pinned web export templates, the
+`wasm32-unknown-unknown` target nor `wasm-bindgen-cli`; nothing was downloaded, CI performs the export.
+
+Oracles: `test_character_baseline`, `test_tick_cost_identity` and the Hero, Bowmaster, Marksman (when present) and Night Lord
+baselines reproduce their hashes (see the full-suite results in the NL12 note); no hash was recaptured, no tests deleted. The #383 review fixes recaptured the Night Lord hash only (echo reach and aim spread, 7.94.3); every other job's oracle is unchanged.
 
 ## 5. Experience and levels
 
@@ -5816,7 +6379,7 @@ pacing regressions retain their pre-Pirate job pool and unchanged goldens/bounds
 
 **Skill key** (GLOSSARY): the Key Config binding of one manual skill the character has learned. A manual skill
 (`cast.rule: "manual"`, never auto-cast) names its key in a `skill_key` field of its definition; the id is also the
-input action (`project.godot` has `teleport`, `dash` and `rush`, all X) and is listed in `KeyBindings.SKILL_KEYS`. A new
+input action (`project.godot` has `teleport`, `dash`, `rush` and `flash_jump`, all X) and is listed in `KeyBindings.SKILL_KEYS`. A new
 manual skill adds its id there, an action in `project.godot` and a `skill_key` in its skill file. The three Teleports
 share `teleport`, so an existing `settings.cfg` `[input] teleport` binding is simply Teleport's skill key and
 Teleport behaves exactly as before.
@@ -5824,7 +6387,7 @@ Teleport behaves exactly as before.
 - **Key Config lists only learned manual skills.** `RunWorld.manual_skill_keys()` returns one
   `{action, name, icon, skill}` per learned skill key; `KeyConfigWindow` takes it when it opens and ends its tray with
   those icons (the skill's own icon and name, not the F/P Teleport icon for everyone). `KeyBindings` drafts the fixed
-  actions plus those ids; an unlearned skill key cannot be bound. Teleport, Dash and Rush all default to X; no character
+  actions plus those ids; an unlearned skill key cannot be bound. Teleport, Dash, Rush and Flash Jump all default to X; no character
   learns two of them (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
 - **Input.** `MoveInput.skills_pressed` / `skills_held` (id -> true; `press_skill`, `hold_skill`) replace the old
   `teleport_pressed` / `teleport_held`. `RunScene` latches presses of learned skill keys (a held key requests repeats).
@@ -5990,6 +6553,11 @@ second hit variants (`hit/1..`) and Corkscrew's `keydown` aura are not drawn. MP
 with #194.
 
 ### 7.20 Gunslinger attacks (#192, spec #168)
+
+> **Moved by the Corsair spec.** C4 (#388) moved Double Shot, Invisible Shot, Recoil Shot and Grenade to `skills/corsair.json`
+> (7.120.3), deleted their cards and the `invisible_shot_targets`, `grenade_targets` and `recoil_shot_pierce` cards, and
+> reduced `test_gunslinger_attacks` to Blank Shot; the Gunslinger driver scene is gone. Only Blank Shot stays in `skills/pirate.json`.
+> The text below is the historical design of the four.
 
 Four auto-cast attacks join the Gunslinger's book (`skills/pirate.json`, book 520, job 520, 20 canonical levels each; ranks equal
 levels). Owner rules (#168 grilling): Grenade is thrown as if fully charged with no wind-up; Wings is dropped. Costs, damage %,
@@ -6670,7 +7238,8 @@ beside the skill icons, and lights value pips. Combo uses the verified orb art a
 unavailable art uses drawn pips. Jobs without a meter display nothing.
 
 Later jobs can configure `gain.event` to `hit_taken` or `meso_picked` and call `gain(event, events)` at their
-event source; H3 wires landed casts only. M23 owns meso pickup coupling; energy/form rules belong to Buccaneer's spec.
+event source; H3 wires landed casts only. M23 owns meso pickup coupling (built in 7.94: `meso_picked`, `per_mesos`, `decay`,
+`read_per_unit`); energy/form rules belong to Buccaneer's spec.
 The current `per_unit.stat` contract is `damage`; additional stat semantics need an explicit extension.
 Paladin uses M2 forms, not M1. Meter state is absent from CharacterSnapshot: a new round always starts empty.
 
@@ -6752,14 +7321,14 @@ at Lv30-55) belonged to jobs nobody can be and levels a round rarely reaches. Fo
 |---|---|
 | 312 Bowmaster (bow) | Lv1 Arrow for Bow 2060000 (+0) -> **15** Bronze 2060001 (+1) -> **30** Steel 2060002 (+2) -> **45** Red 2060003 (+4) |
 | 322 Marksman (crossbow) | Lv1 Arrow for Crossbow 2061000 (+0) -> **15** Bronze 2061001 (+1) -> **30** Steel 2061002 (+2) -> **45** Blue 2061003 (+4) |
-| 412 Night Lord (claw) | Lv1 Beginner Thief's Throwing Stars 2070015 (+15) -> **10** Wolbi 2070001 (+17) -> **20** Mokbi 2070002 (+19) -> **30** Kumbi 2070003 (+21) -> **40** Tobi 2070004 (+23) -> **50** Steely Throwing-Knives 2070005 (+25) |
+| 412 Night Lord (claw) | Lv1 Beginner Thief's Throwing Stars 2070015 (+15) -> **10** Wolbi 2070001 (+17) -> **20** Mokbi 2070002 (+19) -> **30** Kumbi 2070003 (+21) -> **40** Tobi 2070004 (+23) -> **50** Steely Throwing-Knives 2070005 (+25) -> **60** Ilbi Throwing-Stars 2070006 (+27, added by NL2 #401, 7.94) |
 | 522 Corsair (gun) | Lv1 Bullet 2330000 (+10) -> **18** Split Bullet 2330001 (+12) -> **35** Mighty Bullet 2330002 (+14) |
 
 This ticket writes all four schedules; only the Bowmaster is playable today, so the other three are inert data under a
 structural test (`test_ammo`: exact levels, no inheritance, one schedule per job and family) until their specs make the job
-playable and may retune their own entry. Left out on purpose: Ilbi Throwing-Stars 2070006 (+27) and Vital Bullet 2330003 (+16,
-its img is not imported), for the specs that own those jobs to add if a round can reach them (`Ammo.item_ids` no longer names
-2070006, so the setup loads 17 ammo items). Summons never use ammo W.Att (their damage is the WZ `pad`). Arrows are almost
+playable and may retune their own entry. Left out on purpose: Ilbi Throwing-Stars 2070006 (+27; **added by Night Lord NL2 #401
+at Lv60, so the setup loads 18 ammo items again**, 7.94) and Vital Bullet 2330003 (+16, its img is not imported), for the
+specs that own those jobs to add if a round can reach them. Summons never use ammo W.Att (their damage is the WZ `pad`). Arrows are almost
 cosmetic (+0..+4 W.Att, about 7% at Lv45); stars and bullets matter, hence their extra steps.
 Tests: `test_ammo` (rule, data file, real-cache `incPAD` strictly increasing along each schedule, real String.wz names in the
 notice), `test_ammo_world` (a Bowmaster levelled through 15/30/45 with real EXP: one `ammo_upgraded` each, none at the start
@@ -6940,7 +7509,7 @@ from `upgrades/bowman.json`; a playable Bowmaster's new / rank cards come from `
 ### 7.46 Marksman pool and job data (#362, spec #360 MS2)
 
 Marksman (322) gets its own data line `marksman` (`survivor/jobs/marksman.json`, `survivor/skills/marksman.json`), discovered
-from its files by `DataRepo.lines()` (it follows the registered class lines; it is not in `CLASS_LINES` yet: the append belongs to its `redesign` merge, in merge order, ROSTER_PLAN D15; ARCHITECTURE 4.4.4).
+from its files by `DataRepo.lines()` (it is the last entry of `CLASS_LINES`, appended after `night_lord` at its `redesign` merge in merge order, ruling D15; ARCHITECTURE 4.4.4).
 The job entry carries the ten-skill pool (`iron_arrow` starting, then `arrow_blow`, `strafe_crossbow`,
 `dragons_breath_crossbow`, `blizzard_crossbow`, `arrow_eruption`, `piercing_arrow`, `snipe`, `golden_eagle`, `frostprey`, from
 the 300/320/321/322 books; the WZ ids are in spec #360's pool table), `weapon_families: ["crossbow"]`, the Crossbow 1462001 as
@@ -7397,7 +7966,7 @@ element is its own live multiplier. With no vulnerability running the result is 
 is `(f + s) * 0.5`; a table test compares every mob-attribute combination to the old formula), so F/P is unchanged.
 Ice-weak raises `il` and `i` (not `fs`); fire-weak raises `fs` and `f` (not `il`).
 
-Reserved, not built: a `"*"` table entry for an all-element mark (Corsair's Homing Beacon). Summons and projectiles use
+The `"*"` all-element entry is the Corsair mark, section 7.122. Summons and projectiles use
 the same `element_multiplier`, so Ifrit's fire meets Ice Demon's mark there with no special case. The renderer has no
 per-status tint for `ice_weak`, so `fire_weak` adds none.
 
@@ -8509,6 +9078,950 @@ at the impact, the cap, hit art by target and by line, transfer, the energy rece
 knuckle on every `fist` / `dragonstrike` frame), `test_bot_melee` (`bot.reach`, a melee bot with the 400 px strip still closes in,
 and the control that kites without the key), `test_avatar_cash_layers` (the `swingTF` fallback), `test_rarity_bonus_effects`.
 
+### 7.94 Night Lord pool, job data and the claw ammo step (spec #383, NL2 #401)
+
+(The spec calls this section 7.90; that number belongs to the Buccaneer pool in this tree, so the Night Lord data section is 7.94.)
+
+Night Lord (412) gets its own data line, `night_lord`, loaded from its files (`DataRepo.lines()`); it shipped unregistered and was appended
+to `DataRepo.CLASS_LINES` right after `corsair` at its `redesign` merge (ruling D15), so it follows the registered classes. NL2 shipped it **not playable** while NL6-NL10 defined the skills and Flash Jump and NL4 gave
+`PlayerMeter` the `meso_picked` rule; NL12 #411 flipped `playable` to `true`. `JobTree.default_job()` stays 212.
+
+| Piece | Where | Value |
+|---|---|---|
+| Job entry | `jobs/night_lord.json` | `412`: `starting_skill lucky_seven`, `mobility_skill flash_jump`, `weapon_families ["claw"]`, `creation_weapon 1472000` (Garnier, reqJob 8, the Thief bit), `playable true` (NL12 #411; false when NL2 shipped it) |
+| Skill pool (8) | `skill_pool` | `lucky_seven`, `drain`, `avenger`, `triple_throw`, `ninja_storm`, `ninja_ambush`, `shadow_partner`, `shadow_meso` |
+| Skill file | `skills/night_lord.json` | empty when NL2 shipped it; NL6-NL10 appended `flash_jump` (7.94.2), the four core stars (7.94.6), the two ninja skills (7.94.8), Shadow Meso (7.94.4) and Shadow Partner (7.94.7) in marked regions; NL7 #406 moved Lucky Seven and Drain here from `thief.json` (a repeated key is a load error) |
+| Meter | `jobs/night_lord.json` `meter` | meso charge: max 10, `gain {event meso_picked, amount 1, per_mesos 1000}`, `decay {interval 6.0, amount 1}`, `per_unit {damage, 0.03}`, art `Item.wz/Special/0900.img/09000002/iconRaw`; read by `PlayerMeter` since NL4 (7.94.1) |
+| AP row | `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` Thief keyframes copied verbatim (Lv1 25, Lv25 25, Lv200 200) |
+| Bot scores | `balance.bot.card_scores` | `shadow_partner_new` 100, `shadow_partner_rank` 74 (the summon is not an `attack` to `BotInput._base_score`; the other seven score as attacks by default) |
+| Status catalogue | `balance.status_bonuses` | `venomous_star` (poison, element `s`, chance 14..30, time 2..4, poison level 4..30, `repeat_chance` 3) and `stunning_avenger` (stun, chance 20..50, 1.5 s, `repeat_chance` 4); `StatusBonus` validates it at load (NL3 #402) |
+
+`JobTree.start_skills(412)` is `["lucky_seven", "flash_jump"]`; Flash Jump is not in the pool and never a card (it follows
+`balance.mobility_rank_levels`).
+
+**Drops.** The equipment data is unchanged. `weapon_families ["claw"]` filters the Thief drop list (claws 147xxxx, never daggers 133xxxx
+or any other family); armour drops by the Thief class bit, other classes' gear is refused by `Equipment.requirement_error`, and the
+Garnier is wearable at creation. A dagger job's `["dagger"]` filter symmetrically never receives a claw.
+
+**Ammo.** Item.wz and String.wz were read again: `incPAD` is +15 (2070015) and +17 / +19 / +21 / +23 / +25 / +27 for 2070001-2070006.
+`ammo.json` gains `{level 60, item 2070006, tier C}` on the 412 claw schedule (Ilbi Throwing-Stars, already in the thief manifest
+fragment, so `Ammo.item_ids` names it again: 18 ammo items). A Night Lord starts on 2070015 and gets exactly one `ammo_upgraded` at
+round levels 10 / 20 / 30 / 40 / 50 / 60 ("Your throwing stars are now Wolbi Throwing-Stars", ... Ilbi Throwing-Stars); a dagger in its
+hand never steps. No ammo code changed.
+
+Tests: `test_night_lord_data` (the line and its discovery, the job entry, `default_job`, the start skills, pool keys inert or well
+placed, the meter block and its inertness, the AP row, card scores and catalogue coming from the line file, claw-only drops
+synthetic / shipped / seeded / real cache, `requirement_error`, the Lv60 step through a real round, the incPAD and bullet sprite,
+and the real String.wz names), `test_data_repo_lines` (placement of the 400-412 books), `test_ammo` and `run_fixtures.ammo_info`
+(18 items).
+
+#### 7.94.1 Meso charge (spec #383 NL4, #403, M23)
+
+A **meso charge** is a `PlayerMeter` (7.34) whose gain event is `meso_picked`: a counter filled by mesos picked up, never
+money. Night Lord's meter (NL2's data) and Shadower's Meso Explosion meter use it; this ticket builds the seam on synthetic
+data only (Night Lord's block and Shadow Meso are NL2 and NL9). Four optional extensions; a meter without them (Combo,
+Energy Charge) behaves, and emits, exactly as before.
+
+```json
+"meter": {"id": "meso_charge", "max": 10,
+          "gain": {"event": "meso_picked", "amount": 1, "per_mesos": 1000},
+          "decay": {"interval": 6.0, "amount": 1},
+          "per_unit": {"stat": "damage", "value": 0.03},
+          "art": "Item.wz/Special/0900.img/09000002/iconRaw"}
+```
+
+- **The event.** `RunWorld._credit_pickups`, the one line where mesos reach the wallet (the magnet, the pet's pickups and its
+  vacuum, and the finale sweep all end there), emits `meso_picked {amount, count}` once per tick in which `pickups.step_mesos`
+  is positive: the total amount and the number of drops, **but only when the job's meter listens to the event** (the spec says
+  "whenever mesos arrive"; NL4 narrowed it so every other job's baseline, which hashes event bytes, stays byte-identical). It changes no wallet value, drop or save, and a shop sale is not a
+  pickup. **It is emitted only when the job's meter gain rule listens to `meso_picked`** (`PlayerMeter.listens`): the event
+  bytes of every other job are hashed by the baselines (F/P, Hero, I/L, Paladin, Bishop, Dark Knight, Buccaneer, Bowmaster),
+  which must not move. Documented in `EVENT_FIELDS` and in `test_run_events` (which stands a mesos meter on a synthetic world).
+- **Amount-driven gain.** `gain.per_mesos` earns one `gain.amount` per `per_mesos` mesos. `MesoCharge.take(carry, mesos,
+  per_mesos) -> {units, carry}` keeps the remainder in `PlayerMeter.carry`, so no mesos are rounded away (999 then 1 is one
+  pip, 1999 then 1 is two). The carry survives map transfers and starts at 0 each round (a new meter). `gain_amount(event,
+  amount, events)` is the entry point; `gain(event, events)` stays the count-driven one and never reads mesos. A rule
+  without `per_mesos` fed an amount behaves like `gain`. The meter caps at `max` and emits `meter_changed` only on actual
+  changes.
+- **Decay.** `decay: {interval, amount}`: while at least one unit is held, `amount` leaves every `interval` seconds
+  (`PlayerMeter.step(dt, events)`, called once per tick by `RunWorld.step` right after the pickups stage, with no new stage
+  part). The clock runs only while the value is positive (it is cleared when the meter empties, so an empty meter banks no
+  time toward its next pip), the value never goes below zero, no RNG is drawn. Without a `decay` key `step` leaves the value
+  and the events alone.
+- **A read-only bonus.** A skill's `meter` block may be `{"read_per_unit": 0.10}`: at admission (`PlayerMeter.begin_cast`) the
+  cast's damage bounds and status damage multiplier are multiplied by `1 + value x read_per_unit`, on top of the meter's own
+  `per_unit`. It spends nothing and never gates (`admits` is true with or without a meter, at any charge); a block that also
+  has `min`, `spend` or `role` is a finisher as before. SkillText says "+N% damage per <unit> held" for it. Shadower's Meso
+  Explosion is a `role: finisher` (`min`, `spend: "all"`) on a `meso_charge` meter: no code.
+- **The run summary.** `summary.json` (`RunScene.perf_summary`) gains `meter: {mean, peak}` for any job with a meter: the
+  time-weighted mean of the held units over the ticks (`PlayerMeter.stats`, accumulated by `step`) and the most held, so
+  the QA ticket and the balance pass can see the charge. Jobs without a meter gain no key.
+- **HUD.** `HudMeter` is unchanged: it draws `max` pips and lights `value`. With the art path above it blits the meso coin's
+  `/1` frame (checked on the real map: six lit coins and four dark pips); without `art` it draws the purple pips. Both
+  checked by eye with `player_meter_probe.tscn -- --meso [--no-art]`.
+
+Tests: `test_meso_charge` (the arithmetic, the carry, the cap, decay, the event and its fields, the pet's pickups, shop
+sales, map transfer and a new round, `read_per_unit`, the summary), `test_run_events`, `test_run_telemetry`,
+`test_data_files` (the schema), and every baseline unchanged.
+
+
+#### 7.94.2 Flash Jump (spec #383 NL6, #405, M14)
+
+(The spec calls this section 7.92; that number belongs to the Buccaneer morph forms in this tree, so Flash Jump is 7.94.2 beside the
+other Night Lord mechanics.)
+
+Night Lord's mobility skill, WZ 4111006 (book 411, 20 levels): a second, horizontal jump **in the air** on a skill key
+(`flash_jump`, default X like Teleport, Dash and Rush; a character owns one). The node holds only `mpCon` per level and a `Use`
+sound (no effect, `range`, `x` or art); "the higher the skill level, the farther the distance" is client code, so the distance
+table is tier C. It is outside the pool and both slot tracks, learned at round start (`JobTree.start_skills`), and ranked by
+`balance.mobility_rank_levels` through `RunWorld._level_ranks` like Teleport: rank 1 at Lv1, 10 at Lv20, 20 from Lv40, never a card.
+
+```json
+"slot": "mobility", "cast": {"rule": "manual"}, "skill_key": "flash_jump",
+"ranks": [1, 2, ... 20],
+"flash_jump": {"distance": [140.0, 280.0], "repeat_delay": 0.3, "bot_threat_distance": 70.0}
+```
+
+- **Code.** `FlashJump` (`scripts/sim/flash_jump.gd`) is pure arithmetic: `distance(distances, rank, top_rank)` (linear from the
+  first to the last entry over ranks 1 to the skill's top rank: 140 px at rank 1, about 206 at rank 10 = Lv20, 280 from rank 20 =
+  Lv40), `side(held, facing)`, `admits(can_act, delay_left)` and `trail(from, to)` (the ghosts). `PlayerMotion.flash_destination`
+  and `flash_to` are the one movement entry point, next to Rush's `dash_destination` / `dash_to`, and share its wall and
+  map-limit checks. `RunWorld._try_flash_jump` runs each tick after the manual buffs and before ordinary movement.
+- **Press.** Allowed only while **airborne** (not on a floor, ladder or rope: `PlayerMotion.fh < 0` and not climbing), with
+  `can_cast()` (alive, playing, not climbing), no flash yet in this airborne period (`PlayerMotion.flash_spent`) and at least
+  `repeat_delay` since the last. Otherwise it is refused with nothing spent and no event. Direction = the held Left / Right, else
+  the facing; opposing arrows cancel into the facing; Up and Down are ignored. Holding the key flashes once per airborne period.
+- **Move.** The character slides `distance` px horizontally at its current height: no lift, both velocity components kept, so the
+  fall continues in the same tick (the tick's ordinary movement still runs). It stops at the walls of the platform last stood on
+  and at the map limits exactly as Rush's airborne dash does, and **stops just short of any floor that rises to its height (or
+  ceiling that comes down to it) on the way** (`FootholdMap.surface_crossing_x`: a slope, a hill between the ends; a platform
+  the path runs under never counts), so the character never ends inside the ground (review B1); a flash that cannot move is
+  refused. It faces the flash side. It
+  deals no damage, earns and spends no meter, emits no `cast` and starts no cooldown beyond `repeat_delay` (the HUD icon's sweep).
+- **Reset.** `flash_spent` clears after every sub-step that ends on a floor or a ladder or rope (so with the jump key held, a landing
+  and the next hop in one tick still give the new hop its flash), and in `place()` (a same-map portal, a
+  map transfer, Banish, a Teleport). It is not cleared by a hit's knock-back (still the same airborne period).
+- **Event.** `flash_jump {skill, from, to}` (documented in `RunWorld.EVENT_FIELDS`, exercised by `test_run_events`).
+- **Presentation.** `RunScene` plays the `Use` sound and leaves a **ghost trail**: `FlashTrail` (`scripts/render/flash_trail.gd`)
+  draws three translucent copies of the avatar's current frame at 0, 1/3 and 2/3 of the path (opacity 0.5, 0.31, 0.19 at birth,
+  fading linearly to nothing in 0.3 s), in the player's actor layer just behind the avatar, mirrored for the facing. It is code
+  drawn from the avatar's own parts; the first one of a run saves `flash_jump.png` under `--shots`. No WZ art is used.
+- **Bot.** After the Teleport and Rush branches, `BotInput` presses the key when the bot is airborne, Flash Jump is ready, at
+  least `FLASH_MIN_INTERVAL` (3.0 s) passed since its last flash (`memo.flash_at`), and a mob is within `bot_threat_distance`
+  (70 px) horizontally and `FLASH_DY` (60 px) vertically: it flashes toward the side with less danger (Rush's rule) if the lane
+  covers at least `FLASH_LANE_FRACTION` (0.5) of the distance. It never presses on the ground (the bot does not jump just to flash).
+  Tier C: ours.
+- **Keys.** `flash_jump` joins `KeyBindings.SKILL_KEYS`, `project.godot` (X) and Key Config (the skill's own icon and name);
+  the quick slot shows it like the other mobility skills.
+
+Tests: `test_flash_jump` (the arithmetic; learned at start, never a card; refused on the ground, on a ladder, while dead or
+choosing a card; direction rules; distance by rank through the level rule; once per airborne period and its resets; the repeat
+delay; walls and map limits; no damage, no meter, no cast; key, Key Config, quick slot and HUD row; the trail node; the bot hook;
+the real node: 20 levels, `mpCon` only), `test_run_events` (the event), and every oracle unchanged.
+
+##### Flash Jump constants (#405)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Flash Jump distance | 140 px at rank 1 to 280 px at rank 20, linear over the 20 ranks (206 px at rank 10) | tier C: spec #383 (the WZ node has no distance; its String text only says it grows with the level) |
+| Rank by round level | `balance.mobility_rank_levels`: rank 1 at Lv1, 10 at Lv20, 20 from Lv40, never a card | tier C: ADR 0006 shared rule (nothing new) |
+| `repeat_delay` | 0.3 s between flashes (HUD sweep) | tier C: spec #383, Teleport's survivor delay |
+| Once per airborne period; resets on landing, ladder or rope, `place()` | `PlayerMotion.flash_spent` | tier C: spec #383 |
+| Direction, height and fall | held side arrow else facing, opposing arrows cancel, Up / Down ignored; height and both velocity components kept; faces the flash side | tier C: spec #383 (facing and velocity kept: ours) |
+| Stops | walls of the platform last stood on, map limits (Rush's airborne rules) | tier C: ours (#302 rule reused) |
+| Ghost trail | 3 copies at 0, 1/3, 2/3 of the path, opacity 0.5 fading to 0.125 along the path, each faded out in 0.3 s | tier C: ours (the node has no art) |
+| `bot_threat_distance`, threat height | 70 px horizontally, 60 px vertically (`FLASH_DY`) | tier C: spec #383 |
+| `FLASH_MIN_INTERVAL`, `FLASH_LANE_FRACTION` | 3.0 s between bot flashes; the lane must cover half the distance | tier C: spec #383 (Rush's analogues) |
+| `Use` sound | `Sound.wz/Skill.img/4111006/Use` (654 ms) | tier A |
+
+#### 7.94.3 Echo summon (M11) (spec #383, NL5 #404)
+
+A clone that repeats the owner's star casts. Night Lord's Shadow Partner (NL10) is its first user; this ticket ships the mechanic on
+synthetic data only (`test_echo_cast`), and Shadower reuses it as data. The section number is 7.94.3, not the spec's 7.91: 7.90-7.93 are
+the Buccaneer sections, and the Night Lord tickets nest under 7.94.
+
+```json
+"kind": "summon", "cast": {"rule": "summon"},
+"summon": {"echo": {"attack_field": "x", "skill_field": "y", "delay": 0.25},
+           "follow_speed": 200.0, "follow_distance": 55.0, "teleport_distance": 600.0, "ordinal_spread": 40.0}
+```
+and on each echoable skill `"echo": {"class": "attack"}` or `{"class": "skill"}`. No skill id appears in the code.
+
+- **The clone** is a `PlayerSummons` entry whose definition has `summon.echo`. It spawns, follows (`follow_*`), lives `time`
+  (`left`), is replaced by a recast, takes `summon_count` (two clones `ordinal_spread` apart), and is cleared by a map transfer
+  (`SkillRunner.clear_pending`) exactly like Elquines; it has no attack node (`attack` defaults to `""`), no attack cycle and never
+  strikes. It mirrors the owner's facing. Every slot carries a spawn serial (`PlayerSummons.uid`) so a delayed echo can tell the clone
+  that was recorded from a recast that reused the slot. `PlayerSummons.clones()` lists the living ones.
+- **Recording.** In `SkillRunner._resolve_nearest` (the projectile branch of the `nearest` rule), a skill whose definition has `echo`
+  records `{slot, aim}` of each `fire_shot` it makes, but only while a clone is alive and only for a non-echo snapshot; afterwards it
+  calls `EchoCast.on_cast(world, key, st, shots)`. The cast itself (cooldown, events, meter receipt, RNG draws) is untouched, and a
+  world without a clone, or a skill without the key, takes no new branch: the stats dictionaries and event bytes are what they were.
+  **Scope (a documented limit):** only a `kind: "projectile"` skill on the `nearest` rule records: bursts, zones, grenades, the nova
+  and instant (melee) skills do not echo, and an `echo` flag on any of them is a load error (`EchoCast.errors`). Echoing an instant
+  skill would need a second recording point and a clone-origin melee path (Shadower's task if it wants one).
+- **The repeat.** `EchoCast` (a `RefCounted` owned by `SkillRunner.echoes`, stepped from `tick_cooldowns` after the summons and
+  bursts) schedules, per living clone (ascending slot) and per recorded shot (cast order), one entry `delay` seconds later. At fire time
+  it requires the clone to be the same spawn and still alive (an expired or replaced clone drops the entry); the target is the recorded
+  slot if it is the same monster (identity) and within `range + overshoot` of the clone's body, else the nearest living monster
+  within the same `range + overshoot` of the clone (`SkillRunner.nearest_to`, bosses first), else the entry is dropped with no
+  refund. The `overshoot` of an echo is the larger of the definition's `summon.echo.overshoot` (default: the clone's
+  `follow_distance`) and how far the clone trails the owner when the cast is recorded, so a second Twin Shadow clone (40 px farther
+  out, 95 px behind a left-facing owner) still covers the owner's whole reach (review S2, S3). Each echo keeps the owner's
+  `REUSE_SPREAD` offset of a repeated target (Triple Throw's third star). The shot goes
+  through `SkillRunner.fire_shot` from the clone's hand (`cast_forward` px toward the target from the clone's body, level with it; the
+  body itself when the target is inside the hand's reach, as the owner's shots do). Damage rolls use the main stream in fire-tick order.
+- **Echo percent** = the clone skill's level field named by the class (`attack_field` for `attack`, `skill_field` for `skill`) at the
+  clone's rank / 100 x `Loadout.skill_stat(clone, "damage", 1.0)` at the cast (so Shadow Power and Mastery scale the echo). The
+  snapshot is the owner's `cast_snapshot` with `damage_min` / `damage_max` multiplied by it, `meter_receipt` and `damage_heal`
+  removed and `echo: true`.
+- **Echo hits** are ordinary hits (crit, element, `on_hit`, granted statuses, damage credited to the owner) except: no meter receipt (an
+  echo never earns a charge), no heal (`ProjectileSystem.echo`, the hit carries `echo` and `_damage_heal_hit` returns), no further
+  echo and no cooldown. The ammo tier steps with the level, not the shot, so an echo changes nothing there; its star art is the owner's.
+- **Stops:** map transfer; the owner's death or Hidden clears the unthrown entries (as bursts do, tier C); per entry when its clone
+  expires or is replaced.
+- **Event** `echo_cast {skill, clone, pos, facing}` when an echo is thrown: the echoed skill, the clone's `PlayerSummons` slot, the
+  clone's hand and the side it threw toward (presentation: the clone's throw stance, NL10).
+
+Tests: `test_echo_cast` (19: the seam, one echo per shot per clone at 15 ticks, the hand, `x` / `y` by class and rank, the `damage`
+modifier, replaced / expired clones, the snapshot rules, no heal, kept statuses, retarget and drop, identity of a reused slot, a
+world without a clone byte-identical with and without the key, twin worlds), `test_run_events` (the `echo_cast` schema).
+
+#### 7.94.4 Shadow Meso (spec #383 NL9, #408)
+
+`shadow_meso` (4111004, book 411, `skills/night_lord.json`) is Night Lord's heavy single-target bag. The WZ gives the skill
+no damage: only `moneyCon` (the average mesos per throw, 135 at Lv1 to 570 at Lv30), `x` 50, `prop` 1 -> 10 and three art
+tiers. v83's own damage rule lives outside the WZ, so the survivor damage is built from the tier A weight:
+
+- **`damage_basis {field, scale}`** (a small generic `Loadout` key, owned by this ticket): for a physical skill whose level
+  node has no `damage` field, the skill percent is `canonical(field) x scale / 100`. Shadow Meso reads `moneyCon x 0.6`, so
+  ranks 1 to 8 (WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30) hit for 108 / 144 / 180 / 207 / 243 / 279 / 315 / 342%
+  through the ordinary physical formula (claw, LUK primary). A level that carries a `damage` field keeps it, and a skill
+  without the key resolves byte-identically (the oracles do not move). `x`, `prop` and `bulletCount` are not modelled
+  (the definition pins `count` 1); `Loadout.stats` also reports `damage_percent` (the percent x 100) for the Skill window.
+- **It costs nothing (ruling D7).** No mesos are spent, lost or required, at any rank; `moneyCon` stays only as the damage
+  basis (and so as the number a later balance pass could price a cost from). The meso charge is read, never spent.
+- **The held-pip bonus.** `meter {read_per_unit 0.10, unit "pip"}` (NL4's read-only block): each pip held multiplies the
+  bag's damage by another `1 + 0.10` on top of the meter's own +3% on every pool cast, so a full charge (10 pips) is
+  1.3 x 2.0 = x2.6. Nothing is spent and the cast never waits for a pip (an empty charge and an empty wallet cast).
+- **Cast.** `nearest` auto-cast every 3.0 s, one bag at the nearest monster (a scheduled boss before a nearer ordinary
+  monster), range 300 px, 650 px/s, radius 10 px, no pierce, 0.6 s hold in the claw's own `swingO1` (the node has no
+  `action`, and `shoot1` makes the claw vanish: roster ruling D10), `echo {class skill}` for Shadow Partner's clone (NL5/NL10
+  read it). `Use` and `Hit` sounds.
+- **Art by level.** `ball` and `hit` are the level nodes' own (`.../level/{level}/ball`, `.../level/{level}/hit/0`), which the
+  importer expanded from UOLs into three tiers: levels 1-10, 11-20 and 21-30 (the third is a larger 91 x 34 bag). The
+  existing `{level}` template follows them, so no `art_by_level` template was added; ranks 1-2 throw the first tier, 3-5
+  the second and 6-8 the third.
+- **Rarity** (tier C, spec table): Rare `meso_up` "Meso Up" damage x1.2; Epic `claw_booster` "Claw Booster" cooldown x0.88;
+  Unique `second_bag` "Second Bag" `count` +1 (a second bag at the next monster, not the same one); Legendary = Second Bag
+  plus damage x1.2 (the same id, so the repeat counter is shared). Mastery repeats shrink x0.8 as for every pool skill.
+
+Tests: `test_shadow_meso` (the percent by rank, the basis rule and its unused fields, the pip read, no pip and no meso spent,
+one bag / boss first / range / cooldown, the `count` card's second target, the art tiers, the catalog, every bonus changing
+the resolved cast, the card and Mastery rules, and the real-cache rank and art checks).
+
+#### 7.94.5 Status bonus (M22) (spec #383 NL3, #402)
+
+(The spec calls this section 7.93; that number belongs to the Buccaneer pool in this tree, so the status bonus is 7.94.5. Constants: "Night Lord NL3 constants".)
+
+A class line's `balance.status_bonuses` catalogue supplies status ids, kinds, scalar/eight-rank chance, duration and
+poison level, plus scalar repeat chance points. Cards use `{stat: status, op: grant, status: <id>}`. First award fixes
+its position; repeats add scaled chance points without modifying `skill_mods`. The owning skill's rank resolves the
+grant, independently of the skill's canonical level. Cast snapshots preserve grants across delayed hits and projectiles.
+After native on-hit, every grant under 100% draws once on stream 1 (including zero); 100% draws nothing. Existing
+boss/element gates and refresh semantics apply. Cards and Skill window append rank-resolved chance/duration text.
+NL2 owns the shipping catalogue; NL7 owns its first skill users. This ticket adds no balance data or playable job.
+
+#### 7.94.6 Core stars: Lucky Seven, Drain, Avenger, Triple Throw (spec #383 NL7, #406)
+
+(The spec calls this paragraph 7.96; that number is taken in this tree, so it is 7.94.6. Constants: "Night Lord NL7 constants".)
+
+The four star skills of the Night Lord pool live in `skills/night_lord.json`:
+
+- **Lucky Seven and Drain move.** Both leave `skills/thief.json` (a key defined in two files is a load error) with every number,
+  the LUK formula (`ignore_mastery`), the CharLevel hit art, the lowercase Drain `use` sound and `damage_heal` unchanged. They drop
+  their explicit `ranks` lists for the default tables: Lucky Seven (20 levels) reads levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20 at
+  ranks 1-8 (66 / 100 / 150% at ranks 1 / 4 / 8), Drain (30 levels) reads 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 (108 / 130 / 160%,
+  absorb 19 / 30 / 45%). Both gain `echo {class attack}` (Shadow Partner's `x`) and move from `shoot1` to the claw's own
+  `swingO1` (the claw vanishes in `shoot1`; ROSTER_PLAN D10). The legacy standalone cards (`lucky_seven_new/_rank/_count/_pierce/
+  _damage/_cooldown/_range`, `drain_new/_rank/_pierce`) are deleted: a playable Night Lord's new / rank cards come from
+  `UpgradePool.add_pool_skills` and the bonuses are rarity entries.
+- **Avenger** (4111005, book 411): `nearest`, its own 72 x 72 `ball` (rotating), 350 px, 700 px/s, 14 px radius, 3.5 s,
+  `pierce_field "mobCount"` (Dragon's Breath's seam: pierce = `mobCount - 1`, 3 / 4 / 5 at ranks 1 / 4 / 8) and no falloff along the
+  line (the WZ text "attack the ones behind it"; tier C reading). Damage 80 / 130 / 180%. Action `avenger`, the 14-frame caster
+  `effect` and the `Use` sound; the node has no `hit` art and `bulletConsume 3` is not modelled (endless ammo). `echo {class skill}`.
+- **Triple Throw** (4121007, book 412): `nearest` with `cast.focus` (Strafe's seam: admission wants one target and all three stars
+  fly at it, a scheduled boss first), `count` 3 (`bulletCount`), `ammo_shot`, 300 px, 650 px/s, 8 px radius, 2.5 s. Damage 108 /
+  130 / 150% per star. `hit/0`, the 6-frame `effect`, `Use` and `Hit` sounds. The WZ node has no `action`, so it throws from `swingO1`.
+  `echo {class skill}`.
+- **Rarity** (tier C, spec table): Lucky Seven Rare Claw Mastery damage x1.2, Epic **Venomous Star** (`grant venomous_star`:
+  14 -> 30% to poison for 2 -> 4 s at poison level 4 -> 30), Unique Lucky Eight `count` +1; Drain Rare Claw Mastery, Epic Claw
+  Booster cooldown x0.88, Unique Double Drain `count` +1 (a second star at another monster, each draining); Avenger Rare Claw
+  Mastery, Epic **Stunning Avenger** (`grant stunning_avenger`: 20 -> 50% to stun for 1.5 s), Unique Deep Avenger `pierce` +2;
+  Triple Throw Rare Critical Throw `crit` +0.15, Epic Claw Booster, Unique Fourth Star `count` +1. Legendary = the Unique's id (one
+  repeat counter) plus damage x1.2. The two grants are the first users of the status bonus (7.94.5): data only, no new code. A
+  Mastery repeat of a grant raises its chance by the catalogue's `repeat_chance` x 0.8 points.
+
+Tests: `test_night_lord_stars` (the move and the deleted cards, the default tables, the claw stance and echo flags, each skill's
+cast, Avenger's line by rank and the absence of falloff, Triple Throw's focus and boss priority, both grants by rank including
+bosses and the single stream-1 draw, the rarity table, every bonus changing the resolved cast, the card and Mastery rules and the
+real-cache all-eight-ranks check).
+
+#### 7.94.7 Shadow Partner (spec #383 NL10, #409, M11)
+
+(The spec calls this paragraph 7.96; that number is taken in this tree, so it is 7.94.7. Constants: "Night Lord NL10 constants".)
+
+`shadow_partner` (4111002, book 411, `skills/night_lord.json`) is Night Lord's summon slot: one shadow clone that throws every
+star skill again 0.25 s later. It is pure data on the echo seam of 7.94.3, plus one renderer:
+
+```json
+"kind": "summon", "cast": {"rule": "summon"}, "cooldown": 50.0, "action": "alert", "damage": "none",
+"summon": {"echo": {"attack_field": "x", "skill_field": "y", "delay": 0.25, "overshoot": 55.0,
+                    "path": "Skill.wz/411.img/skill/4111002/special"},
+           "follow_speed": 200.0, "follow_distance": 55.0, "teleport_distance": 600.0, "ordinal_spread": 40.0}
+```
+
+- **Numbers (tier A, Skill.wz 4111002).** `x` (the echo percent of an `attack` star: Lucky Seven, Drain) 20 -> 80 and `y` (a
+  `skill` star: Avenger, Triple Throw, Shadow Meso) 21 -> 50 over the 30 levels; the eight survivor ranks read levels
+  4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 (the default 30-level table), so rank 1 / 4 / 8 echo 31 / 60 / 80% (attack) and
+  21 / 29 / 50% (skill), and the clone lives `time` 60 / 60 / 120 / 120 / 120 / 180 / 180 / 180 s. The 50 s cooldown is tier C
+  (at least the shortest lifetime, so the clone is up nearly always; a recast replaces it).
+- **What echoes.** Exactly the five skills carrying `echo`: Lucky Seven and Drain (`attack`), Avenger, Triple Throw and Shadow
+  Meso (`skill`). Ninja Storm, Ninja Ambush, Flash Jump and the Shadow Partner itself carry none, so the zones, the nova and the
+  summon never echo. A skill with several shots (Lucky Seven's two stars, Triple Throw's three) is echoed once per shot. The
+  mechanics (recording, retargeting, no receipt, no heal, no echo of an echo) are 7.94.3; the clone's reach is its own: it trails
+  the owner by 55 px, so a monster in the last 55 px of the owner's reach in its facing direction would be out of the clone's reach.
+  Ruling D12 (NL11 #410, tier C): `summon.echo.overshoot` equals the clone's `follow_distance` (55 px), so the recorded target is kept
+  up to `range + 55` px from the clone and the echo's star also flies `range + 55` px, which lands it on a monster at the owner's
+  full reach (`test_shadow_partner::test_an_echo_reaches_a_target_at_the_owners_full_reach`). A monster beyond that still drops the echo.
+- **Damage and cards.** `damage "none"`: the clone never strikes. The echo percent is `x` or `y` at the clone's rank x
+  `Loadout.skill_stat("shadow_partner", "damage", 1.0)`, so Shadow Power and Mastery scale it. Rarity (tier C, the spec's table):
+  Rare `shadow_power` "Shadow Power" damage x1.2; Epic `shadow_booster` "Shadow Booster" cooldown x0.88; Unique `twin_shadow`
+  "Twin Shadow" `summon_count` +1 (two clones 40 px apart, each echoing every shot: the owner's stars come back twice); Legendary =
+  Twin Shadow plus damage x1.2 (the same id, so the repeat counter is shared). Mastery repeats shrink x0.8 as for every pool skill.
+  The bot's `shadow_partner_new` 100 / `_rank` 74 scores are NL2's.
+- **Cast art.** `action alert` (held 0.8 s), the 16-frame `effect` on the owner (the skill's `effect`), `effect0` (11 frames, behind the
+  avatar in the WZ) as a `cast_visuals` entry following the owner, and the `Use` sound.
+- **The clone renderer** (`EchoCloneRenderer`, `scripts/render/echo_clone_renderer.gd`, beside `PlayerSummonRenderer`, which now skips
+  clones). The WZ `special` node holds 34 action sets of 98 canvases with origins and **no `delay`**, so the clone takes its timing
+  from the owner's body stance. It is a batched `SpritePool` in the player's actor layer, just behind the avatar (placed with
+  `flash_trail`), drawn at the `PlayerSummons` position, flipped with its facing, faded with a Hidden avatar.
+  - *Mirroring the owner.* `special_action(special, stance)` maps the owner's avatar stance to a set: the stance itself when the
+    sets have it; the aliases `alert2` / `alert3` / `alert4` -> `alert`, `ladder2` -> `ladder`, `rope2` -> `rope`; else `stand1`
+    (the spec's fall-back). The frame is the owner's frame index spread over the set (`frame_for`: first to first, last to last,
+    so a set with another frame count than the body action still plays through). The owner's stances the sets lack fall back to
+    `stand1` (skill stances such as `avenger`, `ninjastorm`, the magic and Pirate actions; the real-cache test prints the list).
+  - *The throw.* On `echo_cast` the clone plays a throw of its own: the echoed skill's `action` when the sets have it (`swingO1`, the
+    claw's stance, for Lucky Seven, Drain, Triple Throw and Shadow Meso), else `shoot1` (Avenger's `avenger`), timed by that
+    action's body frame delays (`throw_frame`; 0.1 s a frame when the body lacks the action), facing the side thrown toward, then
+    back to mirroring the owner. The star leaves its hand at the event's `pos`. A replaced clone (new spawn serial) does not
+    inherit a throw.
+  - *Fall-back.* A cache without the `special` node draws the owner's own sprite parts at half alpha instead (tier C).
+
+Tests: `test_shadow_partner` (the definition, the pool and the echo flags, a clone per cast with its lifetime by rank, no strike,
+recast, map transfer / death / Hidden, every star skill at the right percent for its class and rank, the zones not echoing,
+Drain's echo not healing, Twin Shadow, the damage modifier, the hand, the rarity table, every bonus changing the resolved cast, the
+card and Mastery rules, the bot scores, the renderer's mapping, frame and throw-timing rules and its throw state, and the
+real-cache rank / `special` / owner-stance checks). Tool: `scenes/debug/echo_clone_probe.tscn` (stand, walk, jump and a throw, zoomed
+crops).
+
+#### 7.94.8 Ninja Storm and Ninja Ambush: per-rank knock-back and the ground strike (spec #383, NL8 #407)
+
+(The spec's paragraphs 7.95 and 7.96 for these two skills live here, as a subsection of 7.94, so parallel Night Lord tickets never
+collide on section numbers.) Two small data-driven seams and two skill entries, in the marked NL8 region of `skills/night_lord.json`.
+
+**`knockback.distance_by_rank`.** An optional list of exactly eight non-negative numbers on a `knockback` block, one per survivor
+rank, replacing the scalar `distance` (naming both is a load error). `Loadout.knockback_distance_at(block, rank)` resolves it (the last
+value past the list, rank 1 for an unowned skill) into `Loadout.stats(key).knockback_distance`, so the Skill window and the card
+preview read the resolved number; `RunWorld._on_player_hit` reads the owner's current rank for the shove. Everything else about the
+knock-back is the existing rule: one stream-1 draw per struck non-boss monster against `chance_field`, bosses and scheduled bosses
+are damaged and never moved, `FootholdMap.slide_along`. An optional `knockback.effect` (an art path) plays once on each monster that
+was actually pushed (a `skill_mob_effect` event). A block without `distance_by_rank` or `effect` behaves exactly as before.
+
+**`ground.strike`** (`scripts/sim/ground_strike.gd`, `GroundStrike`). A `ground` block with a `strike` object instead of a `status`
+deals damage on a clock: `"ground": {"strike": {"interval": 1.0, "first_delay": 0.3}}`. The cast queues a zone anchored where the
+caster stood (it does not follow); it lives for the skill's WZ `time`. The first strike lands `first_delay` after the cast, then one
+every `interval`, the last at or before `time` (`GroundStrike.strike_count`: 4 / 8 / 12 strikes for 4 / 8 / 12 s). Each strike picks
+up to `mob_count` live monsters whose bodies touch the box around the anchor, nearest to the anchor first
+(`RunWorld.skill_rect_targets`), and resolves `attack_count` ordinary lines on each through the instant-hit path
+(`SkillRunner._resolve_instant_targets` -> `RunWorld.hit_mob`: defence, crit, element, on-hit statuses, damage modifiers, kills and
+loot). The meter receipt is the cast's own snapshot, so only the first hit of the first strike is credited. A monster that left the
+box or died is simply not found at the next strike; a second cast makes a second zone; `clear_pending` (map transfer, stage clear)
+drops every zone. `ground.status` and `ground.strike` are mutually exclusive and a strike has no `chance_field` (load errors,
+`GroundStrike.errors`, called by `DataRepo`); Poison Mist's `ground.status` path is untouched. `skill_ground` is still emitted
+(box, lifetime) and carries the `tile` art path when the data names one; the presentation draws tile strips only for a non-empty
+path. Shadower's Ninja Ambush (4221004) equals this skill at all 30 levels and is a data copy.
+
+| Skill | Cast | Cooldown | Notes |
+|---|---|---|---|
+| `ninja_storm` (4121008) | `instant`, `cast {rule box, min_targets 1}`, the WZ box around the caster, `mobCount` 6, `knockback {chance_field prop, distance_by_rank [100,100,200,200,200,300,300,300], effect mob}` | 4.0 s | damage 42 -> 80% (rank 1 / 4 / 8: 48 / 65 / 80%), push chance `prop` 48 / 70 / 100%, push 100 / 200 / 300 px, box +-100 / 150 / 200 by (-70, 30). Action `ninjastorm`, `effect` at the caster, `hit/0` on each struck monster, `mob` on each pushed one, `Use` + `Hit`. |
+| `ninja_ambush` (4121004) | `instant`, `cast {rule box, min_targets 1}`, `ground {strike {interval 1.0, first_delay 0.3}}` | 14 s | damage 68 / 85 / 100% per strike, `mobCount` 6, `time` 4 / 8 / 12 s, box +-120 / 150 / 200 by (-130, 70). Action `alert3`, `effect` once at the cast (it stands on the zone), `mob0` (the ninja) as the hit art on every struck monster, `Use`. No tile art: the zone is visible through its strikes. |
+
+Rarity (tier C): Ninja Storm Rare `ninja_arts` damage x1.2, Epic `wide_storm` `area` x1.2, Unique `second_wave` `attack_count` +1,
+Legendary the Unique (same id, shared counter) plus damage x1.2; Ninja Ambush the same with `wide_ambush` and Unique `ambush_squad`
+`count` +2 (two more monsters per strike, `count` raises `mobCount`). Mastery repeats shrink x0.8 (the #288 rule). Both are claw
+skills by the pool only: no `weapon_families`, no `ranks` override (the default 30-level table: levels 4 / 8 / 12 / 15 / 19 / 23 /
+27 / 30). The Skill window adds "Strikes up to N monsters every 1 s for T s" for a strike zone and keeps "Knock-back: P% / D px"
+(now the resolved per-rank distance).
+
+Tests: `test_ground_strike` (the pure arithmetic, the data checks, the rank lookup) and `test_night_lord_crowd` (both skills on
+synthetic book-412 tables: the six-monster cap, nearest first, boxes by rank, 100 / 200 / 300 px on both sides and the chance, bosses
+never moved, one stream-1 draw per non-boss, the status art, the 0.3 s then every 1.0 s clock for 4 / 8 / 12 s, anchored zone, a monster
+that leaves or dies, `area` / `count` / `attack_count` / `damage`, a second zone, `clear_pending`, the Skill window lines, the rarity
+tables, "every bonus changes the resolved cast", a Rare+ card adding one rank plus its bonus, Legendary sharing the Unique's counter,
+Mastery x0.8, and the real-cache check of all eight ranks of both skills, which SKIPs without the cache).
+
+#### 7.94.9 Selection and tooling (spec #383 NL11, #410)
+
+Everything that lets Night Lord be created, run from the tools and tested end to end. NL11 built it with `playable` still false; NL12 #411 flipped it, so the shipped list, the tools and the Job page now include 412 with no patch.
+Constants: "Night Lord NL11 constants (#410)".
+
+- **Job page.** `character_create.gd` lists `JobTree.playable_jobs()` in canonical order, so Night Lord sits between Bowmaster (312)
+  and Buccaneer (512) now that `playable` is true: nine rows. Nine rows at the old 21 px pitch ran past the sign's panel and under
+  the "Choose your job." message, so the pitch now shrinks when the list does not fit above `JOB_LIST_BOTTOM` (y 366): up to eight
+  rows keep 21 px (19 px rows, 2 px apart), nine rows take 18 px. `creation.job_pitch` exposes it and the creation tests read it.
+  Verified with the shipped nine rows, with 412 made unplayable by `DataRepo.patch` (eight rows at 21 px) and with the seam reducing the list to two.
+- **`--job=412`** is accepted by `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, `character_fixture.gd` and the hub (412 is
+  playable since NL12; a `--patch` / `PATCH` making it unplayable again brings back the "not playable" refusal). `--job=212` with a Night
+  Lord `--character` (and `--job=412` with an F/P one) fails with "does not match the character's job". `default_job()` stays 212.
+- **Fixture** `night_lord_t2.json` (tier 2, Meba 1472007 and the Thief-bit hat 1002171 / shoes 1072022 / gloves 1082029, unscrolled)
+  and the job's `hub_kit` (the five claw ATT scrolls of `scrolls/thief.json`, spare hat / second claw / gloves / Thief-bit top, the
+  Lv40 claw 1472014 as the flow driver's diagnostic item).
+- **Bot.** The summon card scores (`shadow_partner_new` 100 / `_rank` 74) apply, and all eight pool skills now carry the explicit pair
+  (the pool default gives the same numbers, so they are a guard). Flash Jump is pressed only by its own branch (airborne, a mob
+  within 70 px at its height, 3 s apart; no other skill key is ever pressed). `reach_of` / `has_target` read a `cast.focus` skill
+  (Triple Throw, 300 px) and a `pierce_field` skill (Avenger, 350 px) as their `range`. **The two fillers, Lucky Seven and Drain, reach
+  250 px**, the shortest star reach of any pool, so a Night Lord whose only ready attacks are the fillers kites at 250 px (an
+  archer's pool kites at 300-450). Recorded, not tuned.
+- **Skill window.** Tabs Common / Thief / Assassin / Hermit / Night Lord (the lineage 400 / 410 / 411 / 412); every skill sits on the
+  tab of its own job (`lucky_seven` 400, `drain` 410, `shadow_partner` / `shadow_meso` / `avenger` / `flash_jump` 411,
+  `ninja_ambush` / `triple_throw` / `ninja_storm` 412); a test fails when a skill the run owns is on no tab. Flash Jump has its Key
+  Config tray slot (default X) and its quick-slot cell; the meso charge is the ten-pip `HudMeter` row beside the skill bar.
+- **Baseline oracle** `test_night_lord_baseline`: seed 1, 21,600 fixed 1/60 s ticks (six minutes: long enough for Flash Jump, both
+  ninja skills and the first ammo step), bot, god, synthetic assets, a claw worn, the pre-#241 opening and whole-round curve, the
+  initial `player_state` hashed (see the constant below). The bot in that run learns Lucky Seven, Flash Jump, Drain, Triple Throw,
+  Ninja Ambush, Ninja Storm and Shadow Partner; Avenger and Shadow Meso are not taken because six active slots fill first.
+- **Ruling D12 (ROSTER_PLAN).** Shadow Partner's `summon.echo.overshoot` equals its `follow_distance` (7.94.7).
+
+### 7.120 Corsair pool, job data and Dash (spec #384, C2 #386)
+
+Job 522 (Corsair, the gunslinging pirate) has its own data line: `survivor/jobs/corsair.json` (job entry, AP row, `hub_kit`) and `survivor/skills/corsair.json`, whose regions the skill tickets C3-C13 filled. `DataRepo.lines()` discovers
+the `corsair` line from those files; nothing is registered in a shared list and no other job's file changed. `playable` is `true`
+since the QA ticket (C15 #399, 7.120.15); `default_job` stays 212. (While the line was being built a pool key with no definition was
+inert: never offered, learned or cast.)
+
+| key | WZ id | Shape | Where it is defined |
+|---|---|---|---|
+| `double_shot` (start) | 5001003 | two bullets over two monsters | `corsair.json` (moved from `pirate.json`, C4) |
+| `burst_fire` | 5210000 | three bullets on one target | `corsair.json` (new, C4) |
+| `invisible_shot` | 5201001 | both sides | `corsair.json` (moved, C4) |
+| `recoil_shot` | 5201006 | shot plus a hop away | `corsair.json` (moved, C4) |
+| `grenade` | 5201002 | cluster blast | `corsair.json` (moved, C4) |
+| `flamethrower` | 5211004 | front cone, burn | new |
+| `ice_splitter` | 5211005 | front cone, freeze | new |
+| `octopus` | 5211001 | stationary turret | new |
+| `gaviota` | 5211002 | one-shot kamikaze bird | new |
+| `homing_beacon` | 5211006 | shot plus a mark | new |
+| `aerial_strike` | 5221003 | delayed area strike | new |
+| `rapid_fire` | 5221004 | channelled burst | new |
+| `battleship` | 5221006 | timed Form with a hull | new |
+| (mobility) `dash` | 5001005 | manual, skill key | `pirate.json`, shared with Buccaneer (CS-3) |
+
+- **Job entry:** `starting_skill double_shot`, `mobility_skill dash`, the thirteen-key `skill_pool`, `weapon_families ["gun"]`,
+  `creation_weapon 1492000` (the Pistol, `reqJob` 16 = the Pirate bit; tier A, already in the Pirate manifest fragment and the shipped
+  drop list), `playable true` (C15). No `meter` (the ship is a Form, not a meter).
+- **Placement rule (`test_data_repo_lines`):** `corsair.json` holds books 500, 520, 521 and 522 (the ported gun skills and the
+  Corsair book); `pirate.json` never holds a 521 or 522 book. A key lives in one file only.
+- **AP row `balance.player.ap["522"]`** (in `jobs/corsair.json`): DEX primary, STR secondary, the shared `520` row's keyframes (Lv1 -> 1,
+  Lv200 -> 200) copied verbatim, so 522 does not depend on a lineage row another class may touch. There is no `hp` key and no growth
+  row: the starting HP is the shared default and HP growth inherits the `500` row (25).
+- **Drops:** nothing was added to the equipment data. `weapon_families ["gun"]` filters the Pirate drop list, so guns (149xxxx) drop
+  and knucklers (148xxxx), bows, crossbows, claws, swords and every other family never do; armour drops by the Pirate class bit
+  (`requirement_error` accepts the Pistol and Pirate-bit gear). `test_corsair_data` rolls 400 seeded drops on a synthetic table, filters
+  the shipped weapon list, and (real cache) every tier's pool with the cache's own `reqJob`.
+- **Ammo (re-verified, no change):** the 522 gun schedule of `ammo.json` (Bowmaster B3) is exact-job (no lineage walk: 520, 521, 500,
+  512 and 212 holding a gun keep the plain Bullet 2330000), steps at round Lv18 to Split Bullet 2330001 (incPAD +12) and Lv35 to Mighty
+  Bullet 2330002 (+14), emits `ammo_upgraded` once per step, and the notice reads "Your bullets are now Split Bullet" / "... Mighty
+  Bullet" with the String.wz names. Vital Bullet 2330003 stays unscheduled (its img is not imported). Both steps are reachable (the
+  level cap is far above 35), so nothing was retuned. `test_corsair_ammo` needs no Corsair skill (a Pistol, the real EXP path and the
+  ranged basic attack's incPAD; the real-cache half reads Item.wz and String.wz).
+- **Decisions CS-1 to CS-12** are the spec's (#384); this ticket records the ones its data carries: **CS-1** thirteen entries, one past the
+  usual cap; **CS-2/CS-3** Dash is the mobility skill and stays in `pirate.json`; **CS-4** Burst Fire is Double Shot's heavy twin;
+  **CS-5** the buffs and passives are not cards (their names return as rarity bonuses); **CS-6** item costs are not modelled. CS-7 to
+  CS-12 (Octopus, Gaviota and Aerial Strike, the mark on bosses, the ship's skill filter, the hull, movement unchanged) belong to
+  C5-C13 and are recorded in their own subsections.
+- **Layout.** The Corsair design is this section, 7.120.1-7.120.15, in topic order (not ticket order), followed by 7.121 (summon
+  behaviours) and 7.122 (the mark). Section 11's "Corsair constants (spec #384)" table points at each subsection.
+
+#### 7.120.1 Corsair C2 constants (#386)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Corsair pool and start (CS-1) | `jobs/corsair.json`: `starting_skill` double_shot (slot 1), `mobility_skill` dash (outside the slots), thirteen-key `skill_pool` (Double Shot to Battleship); Spec #384 CS-1, CS-2 | C |
+| Corsair creation weapon and drop families | `creation_weapon` 1492000, the Pistol (Item.wz, reqJob 16, the Pirate bit; no level requirement, #292); `weapon_families` [gun] | A (item) / C (filter) |
+| Corsair AP row (spec #384 "Job data") | `balance.player.ap["522"]`: DEX primary, STR secondary, keyframes Lv1 -> 1 and Lv200 -> 200, the shared `520` row copied verbatim; no `hp` override, growth inherits `500` (25) | C |
+| Corsair `hub_kit` | C2 wrote it as a placeholder (`fixture ""`, empty `scrolls` and `equipment`, `fallback_item` 1492000); C14 filled it and added `corsair_t2.json` | C |
+| Corsair playable | `playable` false through C2-C14; C15 (#399) flipped it to true; `default_job` stays 212 | C |
+| 522 gun ammo schedule (re-verified from B3) | Lv18 Split Bullet 2330001 (+12), Lv35 Mighty Bullet 2330002 (+14), exact job 522, no retune | C (levels) / A (items, incPAD) |
+
+#### 7.120.2 Corsair C3: Dash, the mobility skill (#387, spec #384 CS-2, CS-3)
+
+`dash` (WZ 5001005, book 500) is the `mobility_skill` of job 522. Like Teleport and Rush it is learned at round start by
+`JobTree.start_skills`, sits outside both slot tracks, is never a card or a pool key, and ranks with the round level through the shared
+`balance.mobility_rank_levels` rule (`RunWorld._level_ranks`): rank 1 at Lv1, rank N at Lv 2N, clamped to the skill's rank table. Corsair
+adds no rank rule, no code and no card. The definition stays in `skills/pirate.json` and is shared with Buccaneer (7.90): B5 (#417)
+had already made it `slot: "mobility"` and deleted `dash_new` / `dash_rank`, and `rank_levels["10"]` = [2, 3, 4, 5, 7, 8, 9, 10]
+was already in `survivor/skills.json` exactly once (a test asserts one `rank_levels` table and that value), so the only edit the
+spec listed for C3 that was left was the `ranks` removal, which this ticket does **not** make:
+
+- **Decision (the spec's text overruled): Dash keeps its ten explicit `ranks`.** Removing them would swap the shared definition onto the
+  eight-entry level-10 table (WZ levels 2, 3, 4, 5, 7, 8, 9, 10), which changes Buccaneer's Dash (Lv1 would read level 2, +14 for 4 s,
+  not level 1, +12) and so Buccaneer's behaviour and the Buccaneer fixed-tick oracle, which must stay byte-identical. So both jobs read
+  the same table: rank N = WZ level N, rank 1 +12 speed / +1 jump / 4 s at Lv1, rank 4 +18 / +4 / 8 s at Lv8, rank 8 +26 / +8 / 16 s
+  at Lv16, rank 10 +30 / +10 / 20 s from Lv20 (the movement caps, 140 speed and 123 jump, apply). The spec's rank-1 / 4 / 8 figures
+  (+14 / +20 / +30) and its eight ranks differ only on the way up; the top rank is the same level-10 row. If the owner wants the
+  Corsair table, it needs a per-job rank override first (`SkillBook.rank_table` has no job), which is a code change and a Buccaneer
+  re-capture, so it is left for a later ticket.
+- Behaviour unchanged for the Corsair: the manual skill key (default X, hold to recast), the buff, the cooldown that equals the buff's
+  duration, the Key Config row, the HUD quick slot with its countdown and the bot's rule (flee below 50 % HP with a mob within the flee
+  distance, or three mobs within 120 px). Aboard the Battleship Dash still casts (7.120.12).
+- Tests: `test_corsair_dash.gd` (the data, the rank-level table, learned-at-start and never a card, caps, HUD, Key Config, bot, Buccaneer
+  equality, real-cache rows and art).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Dash rank source (#387) | the shared `balance.mobility_rank_levels` (Lv1 -> rank 1 ... Lv20 -> rank 10); no Corsair row | C |
+| Dash rank table (#387) | the shared definition's ten explicit `ranks` (rank N = WZ level N), unchanged from B5; not the level-10 default table | C |
+| Dash rows | WZ `x` 12 -> 30, `y` 1 -> 10, `time` 4 -> 20 s per level 1-10, effect art and `Use` sound | A |
+
+#### 7.120.3 Corsair C4: the five gun fillers (#388)
+
+Double Shot, Invisible Shot, Recoil Shot and Grenade moved from `skills/pirate.json` to `skills/corsair.json` (a key may be defined in
+one file only), Burst Fire (5210000) was added, and the twelve legacy cards `double_shot_*`, `invisible_shot_*`, `recoil_shot_*` and
+`grenade_*` were deleted from `upgrades/pirate.json`: a playable Corsair's `_new` / `_rank` cards come from
+`UpgradePool.add_pool_skills`. Blank Shot, Gun Mastery, Gun Booster, Bullet Time and Dash stay in `pirate.json`; no Buccaneer skill or
+test depended on the four moved keys (the only reference, `test_buccaneer_brawler`'s "stays in pirate.json" list, now names the
+remaining keys and asserts the four moved). The numbers (WZ damage, counts, boxes, hop `range`) are the old ones; what changed is the
+rank table (the default eight ranks, WZ levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20, in place of twenty), the weapon gate (gone) and the
+rarity bonuses.
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Rank table of the five (#388) | `rank_levels["20"]` = [3, 5, 8, 10, 13, 15, 18, 20]; no explicit `ranks`; Double Shot 63 / 70 / 80 %, Burst Fire 125 / 160 / 210 % x3, Invisible Shot 85 / 120 / 170 % (3 monsters), Recoil Shot 90 / 160 / 260 % (hop 130 / 175 / 250 px), Grenade 55 / 90 / 140 % (3 / 4 / 6 monsters) at ranks 1 / 4 / 8 | A (levels) / C (mapping) |
+| No weapon gate (#388) | `weapon_families` removed from the three that had one; the Pistol is only the creation weapon and the drop family | C |
+| Double Shot's bullets (#388) | the current ammo's bullet (`ammo_shot true`, `ball ""`) in place of the Pirate `ball` art; the `CharLevel` hit and effect art kept; cooldown 1.0 s, 600 px/s, radius 8 px, no pierce | C |
+| Burst Fire (#388) | `cast nearest` + `cast.focus true`: the three bullets (WZ `bulletCount`) all go to the one monster admission picked, a scheduled boss first; range 350 (A), 700 px/s, radius 6 px, no pierce, cooldown 2.0 s, action `triplefire` (A), 0.6 s hold, `effect` (8 frames), `hit/0` (4 frames), `Use`; its `Hit` sound names `Sound.wz/Skill.img/5210000/Hit`, a UOL the importer resolves to Double Shot's file | A (WZ) / C (cast) |
+| Cadences kept (#388) | Double Shot 1.0 s, Invisible Shot 1.0 s, Recoil Shot 1.8 s, Grenade 2.0 s, Burst Fire 2.0 s | C |
+| Rarity bonuses (#388) | Double Shot, Burst Fire, Recoil Shot: Gun Mastery damage x1.2 / Gun Booster cooldown x0.88 / Bullet Time `count` +1. Invisible Shot: Gun Mastery damage x1.2 / Bullet Time `area` x1.2 / Speed Infusion cooldown x0.75 and `count` +2. Grenade: Gun Mastery damage x1.2 / Bigger Boom `area` x1.2 / Cluster Grenade `count` +2. Legendary = the Unique's id and effects plus damage x1.2 (one shared repeat counter); repeats shrink x0.8 (the #288 rule) | C |
+| Cluster Grenade reads `count` (#388) | the spec's table names `blast_targets`, but a `cluster` cast sizes its blast from the resolved `mob_count` (the `count` stat), and `blast_targets` is 0 for any skill without an `impact_blast`; a `blast_targets` bonus would change nothing in the cast, so Cluster Grenade adds `count` +2 (what the deleted `grenade_targets` card did). Grenade's blast therefore grows 3 -> 5 ... 6 -> 8 monsters | C |
+| Test world (#388) | `test_corsair_fillers` builds a 522 world with `playable` flipped in its own data only; the synthetic 521 book (Burst Fire's real endpoints, damage 115 -> 210 %) is added to the world's `skill_imgs` there, not to the shared fixtures | C |
+
+#### 7.120.4 Corsair C6: Octopus and Gaviota (#390)
+
+The two summons of the pool, as data on C5's `summon.behavior` seam (7.121) with Bowmaster's `summon.watk_field "pad"` (7.53): the
+W.Att of every ball and grenade is the level's `pad`, never the worn pistol or the ammo. Octopus (5211001, `turret`) is planted where
+it is cast and shoots a visible ball at the nearest monster in a 300 px circle; Gaviota (5211002, `kamikaze`) is cast only with a
+living monster within 400 px, flies at the k-th nearest, drops its grenade on up to three monsters and is gone. Wrath of the Octopi and
+Flock are the Unique bonuses (`summon_count` +1). Ranks map to WZ levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 (the default 30-level table).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Octopus numbers (#390) | `pad` 96 / 140 / 200, life (`time`) 10 / 20 / 30 s at ranks 1 / 4 / 8; circle `r` 300 around `sp` (-23, -18), `attackAfter` 480 ms, `mobCount` 1, `bulletSpeed` 300, the two-frame `ball`, body stance `octopus` (9 frames, held 0.8 s), `Use` sound, `hit/0` art | A |
+| Octopus cooldown (#390) | 20 s (WZ `cooltime` 10 s): a rank-1 octopus lives 10 s, so a 10 s recast would stack a second beside a living one; a recast replaces the group either way | C |
+| Octopus cadence (#390) | `attack_interval` 1.5 s between attacks (the WZ has none besides `attackAfter`); `follow_speed` 0 (it never moves); `ordinal_spread` 48 px between the octopi of `summon_count` | C |
+| Octopus cast (#390) | no admission: a cast plants an octopus wherever the caster stands, monsters or not | C |
+| Gaviota numbers (#390) | `pad` 242 / 330 / 450, wait limit (`time`) 10 / 20 / 30 s; reach `r` 400, strike box (-80,-60)..(80,60), `mobCount` 3, `attackAfter` 1920 ms, `fly` and `attack1` art, `hit/1` burst on each struck monster, `Use` sound | A |
+| Gaviota cast (#390) | `cast.mob_within 400`: admitted only with a living monster within 400 px of the caster (the `mob_within` of the buffs and forms, now read for a `summon` too: `SkillRunner.has_target`); cooldown 8 s (WZ 5 s); `follow_speed` 260 px/s, `hover` 60 px; body stance is the weapon's first basic-attack stance held 0.5 s (the WZ skill has no `action`) | C |
+| Gaviota wind-up (#390) | `summon.attack_after` 0.84 s replaces the WZ `attackAfter` 1.92 s (`PlayerSummons.spawn` writes it into the attack node's `info`; a definition without the key is untouched): the WZ wait is the 0.84 s `attack1` dive plus 1.08 s of `hit/0` before its blast, and the renderer holds the last dive frame, so the bird would hang about a second above its target; C1's sheet recommended shortening it | C |
+| Rarity bonuses (#390) | Octopus: Eight Arms damage x1.2 / Long Arms `area` x1.25 (the turret's radius) / Wrath of the Octopi `summon_count` +1. Gaviota: Heavy Load damage x1.2 / Bigger Boom `area` x1.2 (the strike box) / Flock `summon_count` +1. Legendary = the Unique's id and effects plus damage x1.2 (shares its repeat counter) | C |
+| Gaviota waiting trail (review of #384) | `follow_distance` 60 px, `teleport_distance` 600 px and `ordinal_spread` 36 px (the Gaviota data keys; the Octopus' 48 is the row above): the follower rule reused while no monster is in reach, so a bird without a target trails the caster and snaps to it past 600 px | C |
+| Octopus footing (review of #384) | planted on the floor under the caster (7.121), not at the caster's height | C |
+| Out of scope (#390) | Wrath's second sprite (`attack2`), flock formations, Aerial Strike (C10) | C |
+| Test world (#390) | `test_corsair_summons` builds a 522 world (playable in the shipped data since C15) and a synthetic 521 book with the two real nodes' shapes (ranges, `attackAfter`, frame counts, `pad` 84 -> 200 / 218 -> 450, `time` 10 / 20 / 30); the real-cache test checks all eight ranks | C |
+
+#### 7.120.5 Corsair C9: Flamethrower and Ice Splitter (#393)
+
+The two cones of the Corsair pool, both `box` casts on the front-only WZ box `lt (-350,-100) rb (0,0)` (a facing-left box
+mirrored for a right-facing caster like every canonical box), both `kind instant`, `damage physical`, in `skills/corsair.json`.
+Flamethrower (5211004, element `f` from `elemAttr`) sets each struck monster on fire through Bowmaster's burn status
+(GAME_DESIGN 7.43; status index 7, fire-gated: bosses and fire-immune, strong or neutral monsters reject it); Ice Splitter
+(5211005, element `i`) freezes each struck monster through the I/L freeze (a boss or an ice-immune, strong or neutral monster
+rejects it). The WZ nodes carry **no burn or freeze chance and no damage-over-time field**: `time` (3 -> 5 s, 1 -> 3 s) is the
+status length and every damaging hit attempts the status. Both skills store `damage` as a **string** ("82", "78") at all 30
+levels; `SkillBook.canonical` already parses numeric strings, and `SkillText` now does too for its `{damage}` placeholder
+(`_vars` skipped strings before, so a template naming a string-valued level field printed the raw braces).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Rank table (#393) | `rank_levels["30"]` = [4, 8, 12, 15, 19, 23, 27, 30]; Flamethrower 82 / 115 / 160 %, 2 / 4 / 6 monsters, burn 3 / 4 / 5 s and Ice Splitter 78 / 100 / 130 %, 2 / 4 / 6 monsters, freeze 1 / 2 / 3 s at ranks 1 / 4 / 8 | A (levels) / C (mapping) |
+| Box, element, actions, art (#393) | `lt (-350,-100) rb (0,0)`; `elemAttr` f / i; the `fireburner` and `coolingeffect` body actions; `effect` (15 / 13 frames, the first a 1x1 held 240 ms), `hit/0` (5 frames), `Use` and `Hit` sounds | A |
+| `effect_ship` (#393) | declared on both definitions as a path template beside `effect`: the Battleship's `art_variant {effect: effect_ship}` (C11, drawn by C13) swaps it in; this ticket only declares it (15 / 13 frames, the same sizes as `effect`) | A (art) / C (use) |
+| Burn pulse (#393) | `on_hit.pulse` 30: **30 % of the cast's base damage per second** (`BurnStatus.pulse` of the resolved damage bounds), the literal `Loadout._add_burn` reads when the `on_hit` has no `pulse_field`; Inferno keeps its WZ `pulse_field "x"` and is byte-identical | C |
+| Burn length (#393) | the level's `time` (`duration_field`), not a literal; `burn_damage` (Scorch) multiplies only the pulse, never the direct hit or the length | A (field) / C (use) |
+| Freeze (#393) | `on_hit {status freeze, duration_field time}`: the same block Cold Beam uses; no chance field, a boss rejects it | A (field) / C (no prop) |
+| Cast (#393) | auto-cast with at least one monster inside the box (`min_targets` 1), cooldown 2.5 s for both, the cone's body action held 0.6 s, no ball, `mobCount` plus the `count` stat targets, nearest first | C |
+| Item cost (#393) | the capsule `itemConsume` (2331000 / 2331001) is not modelled: the cones are endless, like the ammo | C |
+| Rarity bonuses (#393) | Flamethrower: Elemental Boost damage x1.2 / Scorch `burn_damage` x1.5 / Wide Flame `count` +2; Ice Splitter: Elemental Boost damage x1.2 / Gun Booster cooldown x0.88 / Wide Ice `count` +2; Legendary = the Unique's id and effects plus damage x1.2 (one shared repeat counter); repeats shrink x0.8 (the #288 rule) | C |
+
+#### 7.120.6 Homing Beacon (spec #384 C8, #392)
+
+`homing_beacon` (WZ 5211006, book 521, in `skills/corsair.json`) is the Corsair's mark: the first definition to use the C7 `ALL_WEAK`
+status. The parrot (`ball`, 4 frames) flies at the nearest monster (a marked one first: `targets_before`) and the hit applies
+`on_hit {"status": "all_weak", "duration": 8.0, "cue": "Skill.wz/521.img/skill/5211006/mob"}`. Everything the mark does after that is
+C7's (x1.5 on every later damaging hit by any skill, x1.25 on a scheduled or canonical boss, one timer: a second Beacon refreshes the
+length and replaces the multiplier, never stacks; the nearest-rule skills, the burst re-target and the summons prefer the marked monster).
+
+- **Cast.** `nearest`, one target, 350 px reach (A, `range`), 500 px/s, 10 px radius, no pierce, 10 s cooldown, stance `homing` (A) held
+  0.6 s, physical, no ammo (the parrot is its own ball). The shot stops at the first monster on its line, so a nearer monster in front
+  takes the mark instead of a marked one behind it; the nearest rule only chooses the direction. `effect` (6 frames), `hit/0` (5 frames),
+  `Use` and `Hit` sounds, the 5-frame `mob` loop as the mark's cue over the monster.
+- **Damage.** WZ `damage` 148 -> 380 over 30 levels (A); ranks 1 / 4 / 8 are levels 4 / 15 / 30: 172 / 260 / 380 %. The WZ node has no `time` and no `x`: the
+  mark's length is ours.
+- **Rarity.** Rare Gun Mastery (`damage` x1.2), Epic Gun Booster (`cooldown` x0.88), Unique **Bullseye** (`mark_power` +0.25: x1.75 / x1.5 on a boss,
+  and `mark_time` x1.5: 12 s), Legendary Bullseye plus `damage` x1.2 (same card id, so Unique and Legendary share the repeat counter).
+  Names are the lineage's (Gun Mastery 5200000, Gun Booster 5201003, Bullseye 5220011). The text on the card and in the Skill window is C7's
+  `SkillText` line ("Marks a monster for 8 s: it takes 50% more damage; bosses 25%"), which already reads the resolved `mark_*` stats.
+
+#### 7.120.7 Corsair C8 constants (#392)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Damage, range, action, art, sounds | WZ 5211006: `damage` 148..380, `range` 350, `homing`, `ball` / `effect` / `hit/0` / `mob`, `Use` / `Hit` | A |
+| Mark length | 8 s literal `on_hit.duration` (the node has no `time`) | C |
+| Cast shape | `nearest`, one target, 500 px/s, radius 10, no pierce, own ball (no ammo) | C |
+| Cooldown | 10 s | C |
+| Stance hold | `action_time` 0.6 s | C |
+| Rarity | Rare Gun Mastery x1.2 damage, Epic Gun Booster x0.88 cooldown, Unique Bullseye `mark_power` +0.25 and `mark_time` x1.5, Legendary the Unique plus x1.2 damage | C |
+
+#### 7.120.8 Corsair C10: Aerial Strike and Rapid Fire (#394, spec #384)
+
+Two 4th-job skills as data on seams that already exist, both in `skills/corsair.json` (book 522). **Aerial Strike** (5221003) is the
+delayed area strike of Meteor Shower / Genesis / Arrow Rain: a `box` cast with `min_targets 1` and `pending {delay 1.8}`, the box
+anchored where the caster stood and lost on a map transfer, a clear or a death like every pending strike. **Rapid Fire** (5221004) is
+Bowmaster's channelled burst (`cast.rule "burst"`, Hurricane's seam): ten bullets of the current ammo at one monster, the target kept
+and re-picked, the character free to walk between shots. No code changed: the ticket is two definitions, the tests and these
+constants.
+
+- **Aerial Strike.** Box `lt (-400,-500) rb (400,100)` (A) around the caster's feet, 6 monsters (A `mobCount`), damage 520 -> 1200 over
+  30 levels (A): 580 / 850 / 1200 % at ranks 1 / 4 / 8 (levels 4 / 15 / 30). The bombs land 1.8 s after the cast (A: the impact art
+  `effect1` holds its first frame, a 1 x 1, for 1800 ms). The art: `effect` (10 frames) is the cast flourish on the caster, `effect0`
+  (30 frames at 90 ms, the flock carrying bombs across the screen, authored for a left-facing caster) is a `cast_visuals` entry placed on
+  the caster and mirrored for a right-facing one (`facing: true`), and `effect1` (14 frames, the explosions, 830 x 500 and up) is a
+  second such entry: its first frame is a 1 x 1 held 1800 ms, so it starts with the cast and the explosions appear exactly when the
+  strike lands (`pending.effect` stays empty; played at the impact it would explode 1.8 s late, as the first playtest shot showed).
+  `hit/0` plays on each struck monster, `Use` at the cast and `Hit` at the impact. Stance `airstrike` (A, 15 body frames).
+- **Rapid Fire.** `burst`, `count` 10, `burst {interval 0.08, wind_up 0.3, retarget true}`, `ammo_shot`, range 350 (A), 1000 px/s, radius 6,
+  no pierce, one monster per bullet; damage 102 -> 170 per bullet (A): 108 / 130 / 170 % at ranks 1 / 4 / 8. The first bullet leaves
+  0.3 s after the cast, bullet k at 0.3 s + k x 0.08 s (the last at 1.02 s); no second burst starts while one runs (the burst gate), even
+  with the cooldown reset. The stream's art is `burst_art`: `prepare` (fitted to the 0.3 s wind-up), `keydown` looping from the first
+  bullet, `keydownend` when the stream ends or is dropped; `hit/0` on each bullet; `Use` + `Hit` sounds.
+- **Rarity.** Aerial Strike: Rare Gun Mastery (`damage` x1.2), Epic **Wide Run** (`area` x1.2: a 960 px box), Unique **Second Run**
+  (`attack_count` +1: a second line on every struck monster), Legendary Second Run plus `damage` x1.2. Rapid Fire: Rare Gun Mastery
+  (`damage` x1.2), Epic Gun Booster (`cooldown` x0.88), Unique **Bullet Time** (`count` +4: fourteen bullets), Legendary Bullet Time plus
+  `damage` x1.2. Unique and Legendary share an id (and so the repeat counter). The names follow the lineage (Gun Mastery 5200000, Gun
+  Booster 5201003, Bullet Time 5000000).
+- **Bot.** `SkillRunner.reach_of` already reads `burst` as its `range` (350, above the engage threshold: the Corsair kites); a box skill's
+  reach is its far edge (400). No change.
+
+**Constants (#394).**
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Aerial Strike numbers | WZ 5221003: `damage` 520..1200, `mobCount` 6, `lt (-400,-500) rb (400,100)`, `airstrike`, `effect` 10 / `effect0` 30 / `effect1` 14 frames, `hit/0`, `Use` / `Hit` | A |
+| Aerial Strike delay | 1.8 s: `effect1`'s first frame holds 1800 ms | A |
+| Aerial Strike cooldown | 6.0 s (WZ `cooltime` 5 s) | C |
+| Aerial Strike cast | auto-cast with at least one monster in the box; box anchored where the caster stood; `action_time` 0.8 s; `effect0` and `effect1` placed on the caster's spot at the cast and mirrored with the facing | C |
+| Rapid Fire numbers | WZ 5221004: `damage` 102..170, `range` 350, `prepare` / `keydown` / `keydownend` / `hit/0`, `Use` / `Hit`; the `prepare` node names the body action `rapidfire` (one frame, gun drawn) | A |
+| Rapid Fire stream | `count` 10, `interval` 0.08 s, `wind_up` 0.3 s (the `prepare` art is 0.54 s, fitted to 0.3 s because nothing is held), retarget, `ammo_shot`, 1000 px/s, radius 6, no pierce | C |
+| Rapid Fire cooldown | 5.0 s | C |
+| Rapid Fire stance | `action` `rapidfire` held 0.6 s at least, and the whole stream (1.02 s): the spec read the missing WZ `action` as "the gun's own shooting stance"; the body does have `rapidfire` and it draws the gun | C |
+
+#### 7.120.9 The ship's Form effects (spec #384, C11 #395)
+
+Three effect keys a Form block may carry, built and tested on a synthetic ship (`test_form_hull.gd`; the real Battleship is C13, its
+mount art C12). They sit in `PlayerForms.STATE_EFFECTS`, a second registry beside `EFFECTS`: an `EFFECTS` entry edits a cast copy,
+a `STATE_EFFECTS` entry owns state in the running window (`start(world, state, value)` after the window is appended,
+`end(world, state, reason)`, `absorb(world, state, amount)`, `validate(value)`; every hook optional). `PlayerForms.start` stores the
+form's canonical `level` in its state so an effect can read level fields.
+
+- **`hull` (`PlayerHull`, `scripts/sim/player_hull.gd`).** Value `{"field": <canonical level field>, "of": "max_hp"}` (only `max_hp`
+  is known). At the form's start `hull_max = hull_hp = max(1, floor(field / 100 x max HP x hull))` where `field` is read at the
+  form's level and `hull` is the skill's `hull` modifier (a multiplier, base 1; tier C, CS-11: the WZ `pdd` percent of max HP).
+  The size is fixed then: a later modifier or max-HP change leaves a running hull alone. `PlayerForms.absorb(world, amount)` (already
+  the Form hook of `RunWorld.take_hit`, after defence, Invincible, the flat armour and Power Guard, before the ordered HitHook absorb
+  phase and `_hp -= dmg`) folds the hit through the hull: it takes up to its remaining whole points and returns the rest for HP. The
+  hit still starts the hit window and the knock-back guard, a boss attack that ignores the window is absorbed like any hit, and a
+  hit the hull covers entirely costs no HP (its `player_hit.damage` is 0). At 0 the form ends with `form_ended` reason `broken`; the
+  skill's own cooldown keeps counting. A map transfer keeps the hull (it is window state like a buff); death ends it (`died`).
+  No RNG draw is added.
+- **`only_skills` (`FormRules`, `scripts/sim/form_rules.gd`).** Value a list of skill keys. `PlayerForms.permits(world, key)` is
+  false for a pool skill (`slot active`; not a `form`, not a `form_sub`, not a triggered `manual` / `reaction` skill) outside a
+  running form's list; `SkillRunner.cast_ready` asks it once per candidate (`continue`, so the skill is neither cast nor charged
+  anything and its cooldown keeps counting; it casts the tick the form ends). The mobility key, forms, subs, bursts and strikes
+  already in flight and summons already out are never consulted. A buff-kind pool active outside the list is paused too (the
+  spec's rule names no exception; the Corsair pool has none).
+- **`art_variant` (`FormRules`).** Value `{slot: node}` (the spec's `{"effect": "effect_ship"}`). While a running form carries it,
+  `PlayerForms.begin_cast` replaces the cast copy's `slot` art with the skill definition's field named `node` (a path template like
+  `effect`, filled and weapon-twinned the same way) when the definition has that field; nothing else about the cast changes (a test
+  compares every other resolved field), and a skill without the field keeps its art. The cast event's `effect` is where it shows.
+- **Events.** `player_hit` carries `absorbed` (whole points the hull or a hit hook soaked) only when positive; `form_started`
+  carries `mount` (the `presentation.mount` TamingMob id) only when the form names one. Both are listed in
+  `RunWorld.OPTIONAL_EVENT_FIELDS` and ARCHITECTURE 4.4.3, and left out of `EVENT_FIELDS` so every event without them keeps its
+  exact old bytes (`test_run_events` is unchanged).
+- **Schema (`PlayerForms.validation_errors`).** `hull` needs a nonempty `field` and `of: "max_hp"`; `only_skills` an array of
+  nonempty strings (an empty list is legal: it pauses every pool active); `art_variant` a nonempty map of nonempty strings;
+  `presentation` an object whose optional `mount` is a positive whole number.
+- **Presentation.** `HullBar` (`scripts/render/hull_bar.gd`) is a thin blue bar over the character, fed
+  `PlayerForms.hull_fraction()` (-1 while no hull runs, which hides it); `RunScene._on_player_hit` shows the absorbed part as a blue
+  number (the HP-gain digit set) and the part that reached HP as the usual violet one (none when fully absorbed). Probe:
+  `scenes/debug/form_hull_probe.tscn -- --shots=<abs dir>`.
+
+#### 7.120.10 Corsair C11 constants (#395)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Hull size | `max(1, floor(pdd / 100 x max HP x hull modifier))` at the form's start, fixed for the window; `pdd` is the WZ percent of max HP (CS-11) | A (field) / C (reading) |
+| Hull absorbs before HP, after defence | exact whole points, remainder to HP, hit window and knock-back guard unchanged | C |
+| Hull broken | the form ends `broken` at 0 hull points; the skill's cooldown keeps counting | C |
+| `only_skills` scope | pool actives only; mobility, forms, subs, triggered skills and anything already cast are untouched | C |
+| No stagger when the ship leaves (D14) | the paused skills' cooldowns keep running (CS-10), so every pool active that came ready during the window is ready on the tick the form ends and `cast_ready` casts them one per tick, oldest first (at most six are slotted). Deliberate: a stagger would be a second rule on top of CS-10, and the Octopus and Gaviota recasts it releases are the pool working as slotted. Revisit in the balance pass if the volley reads as a spike | C |
+| `art_variant` | presentation only; a skill's own definition field named by the variant swaps one art slot | C |
+| Hull bar | 40 x 5 px, blue fill on a dark back, 10 px above the body box (`HullBar.WIDTH` / `HEIGHT`, `RunScene.HULL_BAR_GAP`) | C |
+| Absorbed number | blue (the HP-gain digit set) at the character's head, the violet number only when HP was hit | C |
+
+#### 7.120.11 Corsair C12: mount art (#396, spec #384 M20)
+
+The Battleship is drawn, not just listed: while a running form's `form_started` names a `mount` (C11 adds the key; the Battleship
+form carries `presentation.mount` 1932000), `AvatarRenderer` draws `Character.wz/TamingMob/<id>.img` around the avatar through
+`MountLayers` (`scripts/render/mount_layers.gd`), reading the art through `MountArt` (`scripts/assets/mount_art.gd`).
+
+- **Art (tier A).** A stance is `<stance>/<frame>/{0, 1, delay}`: canvas `0` is `z tamingMobFront`, canvas `1` is `z tamingMobRear`, each
+  with `origin`, `lt`/`rb` and its own `map/navel` (which drifts with the bobbing: -38, -39, -40, -41 in `stand1`); the delay is on the
+  frame node. Base.wz/zmap.img puts `tamingMobFront` in front of every avatar layer and `tamingMobRear` behind all of them. `tired` is
+  a link the importer expands; `MountArt` resolves links itself too (synthetic data). A missing image loads as an empty `MountArt` and the
+  avatar keeps its plain look (the path is listed in `AvatarRenderer.missing`).
+- **Alignment (tier B/C, the standard attachment).** The ship's front canvas sits on the avatar's origin (the feet), the rear canvas on the
+  same navel point (its navel equals the front's in every v83 frame, so it also sits on the origin), and the rider's origin goes to `ship
+  navel - rider body navel` per frame: (6, -38) - (-2, -17) = (8, -21) on `stand1` with the seated body. The whole group mirrors about
+  x = 0 with the facing (the art faces left).
+- **Stances (tier B/C, C1's sheets).** `stand1` standing (`stand2` too), `walk1` walking, `jump` airborne (holds its last frame, as the
+  WZ's 300000 ms delay), `prone` down, `cannon` / `torpedo` / `fireburner` / `coolingeffect` while that action plays (one shot, held at the
+  last frame; the ship's cannon is 6 x 130 ms = the body's 780 ms, the torpedo 12 frames = 990 ms), `alert2` for the idle alert and any
+  other action (`shoot1`, a swing). The rider is `sit` for every request except those four casts, whose body actions exist (`cannon` and
+  `torpedo` are the `alert` pose, `fireburner` / `coolingeffect` the shoot/stab pair), and the climbing and dead stances, which are
+  the plain avatar's. The ship is hidden while climbing and on death. A morphed character is not mounted.
+- **Evidence.** `scenes/debug/mount_gallery.tscn -- --mount=1932000 --shots=<abs dir>` renders every request facing left and right
+  (`--requests=<csv> --scale=<n>` for a closer look). Findings, with the pistol: the rider sits inside the hull with the head over the
+  rail in every stance; the ship's keel is 3-10 px above the feet line in every frame (the art's `rb` is y -10: a hovering vessel,
+  not an alignment error); in `fireburner` / `coolingeffect` the pistol is drawn over the rail, but in `cannon` / `torpedo` the rider's
+  body action is `alert`, whose pistol is at the waist and sits behind the front hull canvas (the data, not a missing layer);
+  C13 (#397, 7.120.12) settled it with `shoot2`.
+- **Cost.** No node per frame: one `MountLayers` (a RefCounted) per ride, and the mounted draw list is built only when the avatar
+  redraws (a frame change). With no mount `_draw` is the old loop, byte for byte. **Measured at the review of #384** (the ship aboard
+  with 200 standing monsters, Henesys, vsync off, 30 s, `corsair_summon_probe.tscn -- --ship --skills=double_shot --crowd=200`; the
+  form window is 15 s of the 30): `frame_work_us` avg 1330 / p50 1165 / p95 3092 against 1132 / 877 / 2530 for the same crowd with no
+  ship, frame time p95 4.5 ms against 4.2 ms (not tuned, one run each: the ship adds about 0.2 ms on average and 0.5 ms at p95, its
+  own Cannon rounds included).
+
+#### 7.120.12 Corsair C13: the Battleship and its two sub-skills (#397, spec #384 M2 + M20)
+
+`battleship` (WZ 5221006, book 522) is a `kind: "form"` pool active on Paladin's seam, with C11's three ship effects and C12's mount;
+`battleship_cannon` (5221007) and `battleship_torpedo` (5221008) are its `form_sub` skills. All three are in `skills/corsair.json`.
+
+- **The form (tier C unless noted).** `cast {rule form, mob_within 400}` (it waits, unburned, when nothing is near), 15 s window
+  (the WZ `time` 2,100,000 s is "until the hull is gone"), 45 s cooldown counted from the cast (the 90 s WZ `cooltime` is not used),
+  group `corsair_ship`, `effects` = `hull {field pdd, of max_hp}`, `only_skills [grenade, flamethrower, ice_splitter]`,
+  `art_variant {effect: effect_ship}`, `presentation {mount 1932000}`. The cast plays the gun's own shooting stance (`action weapon`,
+  the node has no `action`, 0.6 s); `effect` (11 frames) is the cast art and `effect0` (7 frames, z -1: behind the avatar) a
+  `cast_visuals` entry; the `Use` sound. Ranks: no `ranks` list; the default table of `rank_levels["10"]` (`[2,3,4,5,7,8,9,10]`,
+  present once in `skills.json`) gives levels 2..10 and a hull of 20 / 30 / 40 / 50 / 70 / 80 / 90 / 100% of max HP (tier A `pdd`:
+  rank 1 / 4 / 8 = 20 / 50 / 100%).
+- **Cannon (A numbers, C behaviour).** `nearest` projectile, own 21 x 17 `ball`, `count` from `bulletCount` (3 up to WZ level 10, 4 from
+  level 11), range 400 (A), damage 205 -> 380% by the 30-level table (rank 1 / 4 / 8 reads levels 4 / 15 / 30 = 220 / 285 / 380%).
+  C: 900 px/s, radius 8, `ammo_shot` false, first cast 0.8 s after boarding then every 1.4 s, the `cannon` stance held 0.8 s.
+- **Torpedo.** `nearest` projectile, own 6-frame `ball`, 390 -> 780% (rank 1 / 4 / 8 = 420 / 580 / 780%), `mobCount` 4 / 5 / 6 (levels
+  1-10 / 11-20 / 21-30), `pierce_field "mobCount"` (strikes `mobCount` monsters, so it pierces `mobCount - 1`). C: range 400 (the WZ
+  has a box `lt (-400,-80) rb (-10,20)` and no range), 700 px/s, radius 14, first cast at 1.6 s then every 3.0 s, the `torpedo` stance
+  held 1.0 s. The sub skills rank with the parent through their own 30-level table (Battleship rank 8 casts level 30), take the
+  form's `damage` modifier and have no card and no rarity list.
+- **Rarity bonuses (C).** Rare `gun_mastery` "Gun Mastery" `damage` x1.2 (the subs'); Epic `reinforced_hull` "Reinforced Hull" `hull` x1.5;
+  Unique `full_steam` "Full Steam" `form_time` x1.4 (21 s); Legendary Full Steam (same id, so the repeat counter is shared) and
+  `damage` x1.2. `hull` is a `mul` modifier read by `PlayerHull.start` and shown as `hull_share`.
+- **Presentation (C).** `Loadout.stats` gains `hull_share` (pdd / 100 x the `hull` modifier) for a form with a `hull` effect; the hull modifier
+  previews on its card as "Hull: 20% -> 30%" (`UpgradePool.MOD_PREVIEW`, `LevelUpWindow.MOD_LABELS`); the Skill window line is
+  "Rides a battleship for 15 s: hull 20% of max HP; only Grenade, Flamethrower and Ice Splitter fire, plus the ship's Cannon every
+  1.4 s and Torpedo every 3 s." (`SkillText._ship_line`), and a Full Steam card reads "ride lasts 40% longer".
+- **The rider's gun in `cannon` / `torpedo` (the open question of C12; tier C).** The body's own `cannon` and `torpedo` stances are
+  `alert` frame 0, whose pistol is hidden behind the ship's front canvas. `MountLayers.RIDER_ACTIONS` maps both to the body action
+  `shoot2` (`rider_stance`), which raises the pistol over the rail. The navel rule needs no change: `layout` already reads the rider
+  body's navel per frame, so the rider stays seated in the hull (mount_gallery sheets, both facings; `alert` before, `shoot2` after).
+  The ship's own stance is still `cannon` / `torpedo`.
+- **Hull bar (C).** While a mount is shown the bar rises a further 20 px (`RunScene.HULL_BAR_MOUNT_LIFT`): the seated rider's head is above
+  the body box and the C11 position sat on the eyes in the playtest screenshot.
+- **Evidence.** Diagnostic `--job=522` playtests (Henesys, `playable` and `starting_skill battleship` flipped only in the worktree and
+  reverted): the ship drawn, the rider seated, the blue hull bar, a Cannon volley, a Torpedo flash and the broken hull (the rank 1 hull
+  of a Lv1 character is 10 HP) were looked at; `missing: []`.
+
+#### 7.120.13 Corsair C13 constants (#397)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Battleship cast | `form`, `mob_within` 400, cooldown 45 s from the cast, window 15 s, group `corsair_ship` | C |
+| Battleship `action` | `weapon` (the gun's own shooting stance), `action_time` 0.6 s | C |
+| Hull share | `pdd` % of max HP at rank 1..8 = 20 / 30 / 40 / 50 / 70 / 80 / 90 / 100 (levels 2 3 4 5 7 8 9 10) | A (field) / C (reading, CS-11) |
+| `only_skills` | `grenade`, `flamethrower`, `ice_splitter` (the subs are never restricted) | C (CS-10) |
+| `art_variant` | `effect` -> `effect_ship` | C |
+| Cannon | 0.8 s first, 1.4 s interval, 900 px/s, radius 8, no ammo shot, `cannon` stance 0.8 s; rounds `bulletCount` 3 / 4; range 400 and damage by level | C (A numbers) |
+| Torpedo | 1.6 s first, 3.0 s interval, range 400, 700 px/s, radius 14, `pierce_field mobCount`, `torpedo` stance 1.0 s; damage and `mobCount` by level | C (A numbers) |
+| Rarity | Gun Mastery x1.2 damage; Reinforced Hull `hull` x1.5; Full Steam `form_time` x1.4; Legendary Full Steam + damage x1.2 | C |
+| Rider action in `cannon` / `torpedo` | `shoot2` (`MountLayers.RIDER_ACTIONS`) | C |
+| Hull bar over a mount | +20 px (`RunScene.HULL_BAR_MOUNT_LIFT`) | C |
+| Skill-window / card text | the ship line, "Hull" preview, "ride lasts N% longer" | C |
+
+#### 7.120.14 Corsair C14: selection and tooling (#398, spec #384)
+
+Everything that lets Corsair be selected, run, hand-tested and regression-pinned (C14 shipped it with `playable` **false**; C15 flipped it). No sim code
+changed; the data edit is `jobs/corsair.json` (hub kit and bot scores).
+
+- **Job page.** With 522 mirrored playable the page has nine rows (Corsair last, after Buccaneer), which does not fit the 21 px pitch: the
+  layout fix is Night Lord's NL11 (#410, `JOB_LIST_BOTTOM` 366, `creation.job_pitch`, 18 px for nine rows). This branch carries the identical edit
+  (and the same seven test edits) so the two merge without conflict. `flow_driver creation --jobs=212,522` with Corsair flipped in a private mirror
+  PASSED; nine rows, Corsair highlighted, "Pistol · WATK 13 · 0.75s" (screenshot looked at). `test_creation_corsair` pins the nine-row page on the shipped data and patches 522 to unplayable only for the refusal cases.
+- **Tools.** `--job=522` is accepted by `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, the fixture tool and the flow driver through `playable`
+  alone (`JobTree.job_error`), which is true since C15; a `DataRepo.patch` that sets it false is how the tests pin the refusal ("not playable"). `--job=212 --character=<Corsair>`
+  and `--job=522 --character=<F/P>` fail with the "does not match the character's job N" message (`test_corsair_selection`, subprocesses).
+- **Fixture** `corsair_t2.json` (job 522, tier 2, kit mode): the Lv25 pistol 1492003 (PAD 27, the same `reqLevel` as the F/P staff), hat 1002096 (reqLevel 25),
+  shoes 1072017 (21), gloves 1082002 (10), the starter top and bottom, unscrolled. The spec asked for Pirate-bit gear of the F/P kit's tier-1 `reqLevel`s
+  (30 / 20 / 15), but the asset cache holds no armour with the Pirate bit (`reqJob` 16: only the guns and knuckles), so these are the all-job pieces
+  (`reqJob` 0) nearest to those levels, as Buccaneer's kit does. `--hub --job=522` opens it.
+- **Hub kit** (`jobs/corsair.json` `hub_kit`, read through `lineage_value`; `HubTestKit` needed no code): the five gun ATT scrolls of `scrolls/pirate.json`
+  (100 / 60 / 10 and dark 70 / 30: v83 has no gun ACC scroll), 10 per stack; spare pistol 1492001 (Lv15), hat 1002001, gloves 1082002 and top 1040010; the flow
+  driver's diagnostic item is the Lv40 gun 1492006.
+- **Bot.** `balance.bot.card_scores` in `jobs/corsair.json` names all thirteen pool skills, `_new` 100 and `_rank` 74. Only Octopus, Gaviota and the Battleship need
+  it (`BotInput._base_score` treats only projectile / instant / box skills as attacks, so a summon and a form would score as non-attacks); the other ten are
+  a guard, as in Bowmaster's and Night Lord's files. The bot kites with the gun: every pool skill but the three above has a reach of at least the 220 px
+  `kite_reach`, and Dash follows the existing rule (low HP with a mob close, or three mobs within 120 px). **Real WZ ranges** (`test_corsair_bot`, cache): Double Shot 230
+  (the spec's table says 350; it is the shortest and only just above the threshold), Invisible Shot 250, Recoil Shot 300, Burst Fire / Flamethrower / Ice Splitter / Homing
+  Beacon / Rapid Fire 350, Grenade / Aerial Strike / Cannon 400; summons and the ship 0.
+- **Baseline oracle** `test_corsair_baseline` (seed 1, `--job=522`, bot, god, synthetic assets from `corsair_fixtures.gd`, the Bowmaster recipe, **21600 ticks**).
+  The pool is frozen in the test itself (`skill_pool` is written out), so a later skill cannot move it. All thirteen skills already existed at capture (C1-C13 merged
+  first), so the QA ticket does **not** need to widen and recapture it (the ticket text expected a partial pool). The bot takes Double Shot, Dash, Recoil Shot, Ice Splitter,
+  Homing Beacon, Gaviota and Rapid Fire in six minutes (Lv11); the six slots fill first, so Burst Fire, Invisible Shot, Grenade, Flamethrower, Octopus, Aerial Strike and
+  the Battleship are defined but never taken at seed 1 (the skill tickets' own tests cover them). No ammo step either (Lv18 comes later; `test_corsair_ammo`).
+  Same digest with and without the cache. A change to a Corsair skill, shared combat or the bot must leave `GOLDEN` alone or recapture it with the cause written beside it.
+- **Skill window.** Tabs follow the lineage: Common, Pirate 500, Gunslinger 520, Outlaw 521, Corsair 522; Dash is on the Pirate tab beside Double Shot (the window lists a job's
+  skills a card offers or the run owns, in skill-id order); the ship's Cannon and Torpedo have no card and are never rows. `test_skill_window_corsair` (model, synthetic) and a
+  real `RunScene` for 522 through the K hotkey (cache; skipped without).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Baseline length (#398) | 21600 ticks (6 min), seed 1, bot, god, the thirteen-skill pool frozen in the test | C |
+| Bot card scores (#398) | the thirteen pool skills `_new` 100, `_rank` 74 (the pool default's numbers, explicit) | C |
+| Fixture kit (#398) | pistol 1492003, hat 1002096, shoes 1072017, gloves 1082002, starter top / bottom, tier 2 | C |
+| Hub kit (#398) | gun ATT scrolls 2044900-2044904 x10, spare 1002001 / 1492001 / 1082002 / 1040010, fallback item 1492006 | C |
+
+#### 7.120.15 Corsair C15: QA and merge readiness (#399, spec #384)
+
+`playable` is `true` in `jobs/corsair.json`; F/P (212) stays the default (`survivor/jobs.json`). Nothing else in the data changed except one playtest-only
+key: `capture_delay` 2.2 s on `aerial_strike` (C10 asked for it: the `cast_aerial_strike` shot now lands on the explosions, `pending.delay` 1.8 s plus
+the art's first frames; the sim never reads it). The pinned tests moved to the shipped data: the `--patch` / `DataRepo.patch` "playable" mirrors of the Corsair tests
+were removed (only an "unplayable" patch remains, for the refusal cases of `test_creation_corsair`, `test_corsair_selection`, `test_corsair_hub_kit`), the other
+jobs' Job-page tests (`test_creation_bishop`, `_bowmaster`, `_buccaneer`) and `test_bowmaster_data` list ten rows with Corsair last (nine before the Night Lord merge), `test_corsair_data` pins
+`playable true`. `test_corsair_battleship` gained the hull-versus-diagnostic-hit test: the flow driver's lethal source (`unrevivable: true`, 1e9 damage) kills a
+Corsair aboard a full rank-8 hull (the hull absorbs at most its points and the rest reaches HP), so `redesign --job=522` cannot be turned into a survived hit by the ship.
+`test_corsair_baseline` already held all thirteen skills (C14), so it was not widened or recaptured. HP: the shared default (50 at Lv1, the 500 growth), as the
+spec says nothing else.
+
+`balance_run.gd` writes a `corsair` block into a record only for job 522 (ship boardings and seconds, hulls broken, damage absorbed, landed hits per skill key, marks
+applied, marked monster-seconds); every other job's record is byte-identical. Tier C measurement, no RNG, no world change. The QA record (flow scenario, playtests,
+smoke, web gate) is in section 4.2 "Corsair C15 QA and regression smoke". Open for the owner: the smoke shows Corsair is the weakest tier-1 job (0/24 clears; first
+boss spawned in 15/24 runs) and the Cannon / Torpedo `Hit` sound is still to be listened to (C13).
+
+### 7.121 Summon behaviours: turret and kamikaze (#389, spec #384 M9)
+
+`PlayerSummons` (7.32) owns the lifecycle of every player ally: spawn (`summon_count` spacing, a recast replaces the group),
+`time` expiry and the `die` animation, map-transfer clearing. A definition now may carry a `summon.behavior` string; each value
+names an object that owns what its allies do every tick (`spawn_slot`, `step_slot`). **No `behavior` key is Elquines' trailing
+ally exactly as before** (same state, same RNG stream; `test_player_summons`, `test_physical_followers`, `test_support_summons`
+and both F/P oracles are unchanged), and an unknown string also trails. The dispatch is one `_behavior(d)` match in
+`player_summons.gd`: a new behaviour adds one field and one `match` arm. Neither behaviour names a job, a skill or an id, and
+neither draws an RNG value beyond the damage rolls `RunWorld.hit_mob` already makes. Both read `watk_field pad`, `move`, `hover`
+and the other 7.44 keys through the shared spawn.
+
+- **`"turret"` (`SummonTurret`, the Corsair Octopus).** The ally is planted where it is called (the caster's feet,
+  `ordinal_spread` apart) and never follows or teleports. Its facing is the caster's at the cast and never turns. Targets are
+  the living monsters whose **body box touches** the circle of radius `info.range.r x area` around
+  `(x - sp.x x facing, y + sp.y)` (the WZ `sp` offset; left-facing art is the WZ native, so a right-facing turret mirrors the
+  x offset), nearest centre first (`RunWorld.targets_before`: scheduled bosses, and marked monsters once the mark lands, ahead
+  of the swarm), `mobCount` plus the `count` modifier of them. When one is in the circle the ally starts its attack animation;
+  `attackAfter` later the targets are chosen again and **one ball per target** leaves the circle centre at the target's body
+  centre at `info.bulletSpeed` px/s (a straight line, flight time = distance / speed; a ball launched on tick n first moves on
+  tick n + 1 and lands on tick n + ceil(flight / dt), `1e-6` s epsilon). The hit lands **on arrival** through `hit_mob` with the
+  stats of the cast that called the turret (a recast does not recall balls in the air); a target that died, or whose slot was
+  reused by another monster (`MobSwarm.identity`), in flight is skipped. Balls are pooled arrays on `PlayerSummons.turret` (`active
+  generation x y vx vy visual rotate`, cap 32, a launch past the cap is dropped); `run_scene` draws them with a second
+  `ProjectileRenderer` (art `<summon path>/<attack>/info/ball`, rotated to the heading), so there is no `turret_ball` event and
+  no per-ball Node. Balls are dropped with the allies on map transfer and while the caster is Hidden or dead (nothing is launched
+  and nothing in the air lands), then fire again when the caster is back. A turret is **planted on the floor under the caster**
+  (`FootholdMap.find_below` at each ally's own x, tier C): a cast made in the air, which `can_cast` allows, would otherwise leave it
+  hanging at the jump height with its circle shifted up by the same amount.
+- **`"kamikaze"` (`SummonKamikaze`, the Corsair Gaviota).** Spawns beside the caster. Once its summon-in is over it picks the
+  **k-th nearest** living monster (k = its `summon_count` ordinal, 0-based; scheduled bosses, and marked monsters once the mark
+  lands, first, through `targets_before`) whose centre is within `info.range.r` of the **cast origin** (`World.cast_origin()`, the point `SkillRunner.has_target` admits the
+  cast from, so a monster that admits the cast is one the bird can pick), flies at `follow_speed` to
+  `hover` px above that monster's feet and, within the attack box's half-width (box x `area`) of that point, starts its attack
+  animation (it keeps flying after the same monster during the wind-up). At `attackAfter` it strikes exactly like the trailing
+  ally (`PlayerSummons.strike`: the feet-relative box on the facing side, `mobCount` or `count_field` plus `count` monsters, the
+  strike art), then `left` becomes 0: the usual `die` animation plays and the slot is freed (**single use**). It keeps the
+  monster it chose until that one dies or is recycled, then picks again; if none is in reach it trails the caster like a
+  follower, and the level `time` is the wait limit after which the ordinary expiry plays `die` with no hit (no refund). The
+  limit ends only a bird without a locked monster (`SummonKamikaze.holds_expiry`, tier C): a bird chasing or diving runs on to its
+  strike, however late in the `time` it found the monster (review of #384, an earlier build killed it mid-dive with no hit). A
+  strike whose monster died during the wind-up lands where the bird hangs. Hidden or a dead caster pauses a wind-up and stops
+  new hunts. Cleared on map transfer with the other allies.
+- **Events and text.** Both reuse `summon_spawn` and `summon_attack` (the turret's `summon_attack` starts the attack, the
+  ball leaves `attackAfter` later) and `summon_strike` (a turret ball's `info/effect` art on the struck monster, `slot` -1).
+  `SkillText` adds one line for each behaviour ("Stays where it is called and fires a ball at monsters within N px";
+  "Dives once at a monster within N px of you, hitting up to M, then is spent", M = `mobCount` plus the `count` modifiers), with
+  the radius times the cast's `area`; a kamikaze's lead line reads "Calls X, waiting up to T s for a target" (its `time` is the
+  wait limit), a turret's "Calls X for T s".
+- **Tests and probe.** `test_summon_behaviors.gd` (a synthetic Octopus and Gaviota with made-up skill ids 2129901 and 2129902 on
+  the F/P book, synthetic art; `both_world()` is also the probe's fixture) is the template later jobs copy. The tool probe
+  `scenes/debug/summon_behavior_probe.tscn -- --shots=<dir>` draws both with synthetic art through the real
+  `PlayerSummonRenderer` and `ProjectileRenderer` (no cache needed) and measures a ball's speed.
+
+### 7.122 Mark (spec #384 C7, #391)
+
+`MobSwarm.ALL_WEAK` (status index 8, `STATUS_COUNT` 9, name `all_weak`, element `""`, no `VULNERABLE` entry) is the
+all-element row of the status table. While it runs **every damaging hit on the monster is multiplied by
+`MARK_MULT` 1.5, or `MARK_BOSS_MULT` 1.25 on a boss** (canonical `boss` or a scheduled `steady` slot; the only status a boss
+accepts), elemental or not, on top of the element multiplier (a x1.5 weakness under the mark is x2.25; an immune monster
+stays immune: 0 x 1.5 = 0). The stored multiplier is snapshotted at application (`_mark_mult`, 1 when unmarked) and
+`MobSwarm.element_multiplier` multiplies it in last, which is the one place the projectile pool, `RunWorld.hit_mob`,
+summons and form scoring already read. Poison and burn pulses, which never read `element_multiplier`, are not multiplied.
+Re-applying refreshes the timer and replaces the stored multiplier, even with a weaker one (tier C; only the Beacon applies the mark
+today, so the two cannot differ); it never stacks. The mark is elementless: the applying
+hit's element is not passed on, so a fire-immune kind still takes it. It draws no random number.
+
+A skill applies it with `on_hit {"status": "all_weak", "duration": <literal s>}` (B6's literal duration; a skill may name
+`duration_field` instead). `Loadout.mark_time(key, base)` lengthens the stored duration by the `mark_time` modifier (mul);
+`Loadout.mark_multipliers(key)` adds the `mark_power` modifier (add) to both multipliers (floor 1.0); `Loadout.stats` exposes
+`mark_time`, `mark_mult` and `mark_boss_mult` for a skill with the mark, `SkillText` prints "Marks a monster for 8 s: it
+takes 50% more damage; bosses 25%", and the card previews are "Mark damage: 150% -> 175%" and "Mark duration: 8 s -> 12 s".
+
+**Beacon re-marking (tier C, accepted at the review of #384).** The Beacon's own `nearest` rule is a targeting rule like the others,
+so it prefers a marked monster: with Bullseye (a 12 s mark) or the Gun Booster cooldown card (8.8 s) the next cast can refresh the
+mark on the same monster while it stays within 350 px, instead of marking a second one. The mark's uptime on one monster is the
+cost and the benefit; nothing excludes an already-marked monster from the Beacon.
+
+**Marked-first targeting.** `RunWorld.targets_before` sorts a marked monster ahead of an unmarked one after scheduled
+bosses and before distance, then slot. The nearest rule, burst re-targeting, chain heads, charge sweeps and
+summons share it. Box and instant casts hit everything in their area and are unaffected; a marked monster out of range is
+simply not a candidate.
+
+Presentation: `MobRenderer.MARK_CUE` (cue 5, `CUES_PER_SLOT` 6) loops the skill's `mob` frames over the monster like the burn
+cue (`mark_cue_path`, set by `RunScene` from the first pool skill whose `on_hit.status` is `all_weak` and names a `cue`);
+without art the monster takes `MARK_TINT` (red). Burn and freeze tints win over it.
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -8731,9 +10244,10 @@ every constant, with its tier, is in section 11 under the tables named below):
    character and lost with the run. ("Meso rule", section 11.)
 2. **Equipment** drops from kills (0.2% per ordinary kill, two guaranteed from each boss): a v83 hat, top, bottom,
    overall, shoes, gloves, shield or weapon that the character's job class can wear, with v83's random stat rolls. Since
-   #292 a drop never depends on the character's level or the weapon it holds: the stage's tier fixes a `reqLevel` band
-   (`stages.json` `drop_bands`: tier 1 [0, 30], tier 2 [30, 60]) that an ordinary drop lies in (uniform among the
-   eligible items) and a boss drop lies in the top third of (tier 1: Lv 20-30, tier 2: Lv 50-60). A weapon drops only
+   #292 a drop never depends on the character's level or the weapon it holds: the stage's `drop_band` (ADR 0007, #450:
+   Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40]; ADR 0006's tier bands
+   [0, 30] and [30, 60] are superseded) is the `reqLevel` band that an ordinary drop lies in (uniform among the
+   eligible items) and a boss drop lies in the top third of (Henesys Lv 10-15 ... Sleepywood Lv 36-40). A weapon drops only
    when it belongs to one of the job's weapon families (`survivor/jobs/<line>.json` `weapon_families`; 212: wand and
    staff). Equipment has no level or stat requirement to wear; only the item's job class (`reqJob`) is checked, by the
    Equip and Item windows, the auto-wear and the bot shop alike. It goes to the
@@ -8753,8 +10267,8 @@ every constant, with its tier, is in section 11 under the tables named below):
 6. Mesos, worn equipment, the Equip tab and scrolls stay with the character (ADR 0006, #292): `CharacterSnapshot` hands
    them back after a clear, a death or a Quit round with whatever the round picked up, and the save file keeps them
    (format 3). A round always starts at Lv1, so the gear it wears is whatever the character already owns.
-7. Bots follow the same rules (`BotShop`): they wear the best item they own and visit the shops between tiers of a
-   `balance.sh --tier=N` chain. ("Bot shopping rule".)
+7. Bots follow the same rules (`BotShop`): they wear the best item they own and visit the shops between the regions of a
+   `balance.sh --chain=N` run (ADR 0007, #454). ("Bot shopping rule".)
 
 Verified by the `shops`, `scrolls`, `botshop` and `redesign` flow scenarios (AGENTS.md; the old `economy` scenario was retired in #294) and by the combined regression smoke in 4.2
 "Spec #33 / #113". The numbers above are first-pass and are not tuned: equipment per round measured 5-7 against the
@@ -8828,6 +10342,32 @@ top-right corner. The level-up card shows the effect line at the offered rank ("
 ("Skill Lv. 2 → 3") and `MAX` at rank 5. The sensible bot scores new passives 66 Might, 64 Booster, 62 Sharp Eyes,
 60 Max HP, 58 Area, 56 Armor, 54 Regen, 52 Haste, 50 EXP and each rank card 4 less, all below any pool attack
 (`balance.bot.card_scores`). Every number above is tier C; ticket #293 (first-pass pacing) adjusts them.
+
+#### Equipment for the late bands (#474, spec #449 C12)
+
+The drop bands of progression steps 6-16 ([35, 45] ... [110, 120], table in section 11) need equipment before their
+regions exist, so `equipment_drops/*.json` were extended up to reqLevel 120 for every job class and weapon family. A new
+ordinary item is an ordinary v83 shop or drop item by its Character.wz facts: not cash and none of the `only`, `notSale`,
+`quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`, `epic`, `epicItem`, `weekly` flags; sold for more
+than 1 mesos (price 1 marks boss, quest and PQ rewards); named in String.wz; no `GMS ...` item (tier C: those have no
+known v83 source). Armour keeps one piece per slot, reqJob, reqLevel and gender (colour variants collapse); weapons keep
+every item. Capes are not listed (the Equip window has no cape slot). The files are `common` (reqJob 0 armour), `warrior`,
+`magician`, `bowman`, `thief` and `pirate` (a weapon goes to the file of its family: daggers and claws Thief, bows and crossbows Bowman, knuckles and guns Pirate,
+wands and staves Magician, the rest Warrior, whatever its reqJob, so the four reqJob 9 daggers 1332022, 1332026, 1332049 and
+1332051 are in `thief.json` beside the reqJob 9 daggers it already held; an armour piece goes to the lowest class bit of its
+reqJob, and no new armour piece has more than one). New items start at reqLevel 41, so
+the Sleepywood pool (band [30, 40]) only changes where it was empty: Warrior and Pirate armour of reqLevel 35-40 was added
+because the step-6 band [35, 45] would otherwise have had none (the earlier lists named no Warrior or Pirate class armour at all).
+
+`test_late_equipment_bands` checks, for each of the sixteen bands and each class (Hero, Paladin, Dark Knight, Arch Mage,
+Bowmaster, Marksman, Night Lord, Buccaneer, Corsair), at least one eligible weapon per family it lists and one hat, shoes,
+gloves, body (an overall, or a top with a bottom) and, for a Hero and a Paladin, shield. Steps 6-15 pass as listed.
+**Step 16 widened**: v83 has no Magician wand and no Magician overall between reqLevel 109 and 130 (the Dragon Wand and
+the Blue Czar are Lv108), so #447's [110, 120] became [108, 120]; the mins and maxes still never fall along the
+progression (tier C). The shipped steps 1-5 keep the gaps they had (the earlier lists name no Warrior or Pirate class armour, only reqJob 0 pieces): gloves
+and body at step 3, gloves at step 4, for the Hero, Paladin, Dark Knight, Buccaneer and Corsair. #474 left those bands and
+lists alone; the test records the gaps, and fixing one makes it ask for its entry to be removed. `late_progression.json` is the Hero
+fixture for the band-15 gear (`--hub --job=112 --late`).
 
 ## 9. Jobs
 
@@ -8913,6 +10453,128 @@ melee branch is exercised only by the unported lines' tests (`test_bot_melee.gd`
 | Owner-side `affected` art | plays on the player at every pulse | B |
 
 
+### Region progression (spec #447, #450; ADR 0007; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Progression order | `stages.json` `progression`: henesys, ellinia, perion, kerning, sleepywood, ludibrium, omega_sector, el_nath (v83 levelling order; owner request 2026-10-30) | C |
+| Drop bands | `drop_band` per stage: Henesys [0, 15], Ellinia [10, 20], Perion [15, 25], Kerning City [20, 30], Sleepywood [30, 40] (spec #447 first pass; replaces tier bands [0, 30] / [30, 60]). Steps 6-16, set by their region tickets (#449), are [35, 45], [40, 50], [45, 55], [50, 60], [55, 65], [60, 70], [70, 80], [80, 90], [90, 100], [100, 110] and **[108, 120]** for step 16 (#447 said [110, 120]; widened by #474, see "Equipment for the late bands" in 8.3) | C |
+| Late-band equipment (#474) | `equipment_drops/*.json` hold every ordinary v83 weapon of a listed family and one armour piece per slot, reqLevel and gender up to Lv120; chosen from Character.wz facts (not cash, `only`, `notSale`, `quest`, `timeLimited`, `equipTradeBlock`, `expireOnLogout`, `tradeBlock`; price above 1; a String.wz name; not a `GMS ...` item). No Cosmic drop data was available to this ticket, so unlike the Lv0-70 lists it is not B-checked against server drops | C |
+| NX clear bonus | `balance.nx_award.clear_bonus` by progression step: 100, 100, 100, 100, 250, the last repeating (the old amounts moved from tiers to steps) | C |
+| Unlock rule | region i is open iff i == 0 or `progression[i-1]` is in the character's `cleared_regions`; a CLEARED round adds its stage; death, Quit round and one-off rounds add nothing | C |
+| Save migration | `CharacterSnapshot.LEGACY_TIER1_REGIONS` 4: a stored `tiers_unlocked` >= 2 becomes the first four progression keys cleared, otherwise none | C |
+| `balance_run.gd --chain=N --retries=K` | N progression regions in order, a failed region replayed up to K times (replaces `--tier=N`; #454) | C |
+
+### Omega Sector (C2) constants (spec #449 C2, #464; tier C unless marked)
+
+Progression step 7 (`stages/omega_sector.json`, `asset_manifest.d/region_omega_sector.json`). Region and continent
+labels, the map list and the rosters are tier A (v83 Map.wz, Mob.wz, String.wz); the rest is ours, a first draft that
+no ticket here tunes (C13 does).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Labels | `region` "Omega Sector", `continent` "Ossyria" (String.wz group `ossyria`) | A / C |
+| Maps | 221040000 Kulan Field I (2864 px), 221030200 Boswell Field II (4214 px), 221030500 Boswell Field V (4574 px); the natural boss maps (221040201, 221030601, 221040301, 2250-2414 px) are replaced by these wider neighbours; no alternates were needed after the arena check (a bot ran all three, `missing: []`) | C |
+| Bosses | Chief Gray 4240000 / MT-09 5120100 / Zeno 6220001, one 300 s after each map entry; `attacks` ["attack1"], `attack_interval` 8; Chief Gray's MobSkill 200 level 27 (Barnard Gray, interval 30 s, hp <= 75 %, limit 3, `summonEffect` 6) is canonical and supported, MT-09 and Zeno have no skills | A / C |
+| Pools | map 1 `curve` with Barnard Gray 4230116 at weight 1 on the keyframes under 300 s, none later (map 1 reads only those; its own life holds nothing else); maps 2/3 `pool_from_life` with `exclude` [4240000, 5120100] (the timed native bosses; their v83 lists hold none): Plateon 27 / Mateon 7 and Mecateon 21 / Plateon 11 | C |
+| Curve | Sleepywood's keyframes, bursts, elites, `exp_mult`, `hard_cap`, `post_duration_slope` copied exactly; no `opening_ramp` | C |
+| `drop_band` | [40, 50] (spec #447 table) | C |
+| `level_scale` | `level_scale_draft.gd --step=7`: E_sw 9.15 / 9.73 / 10.80 / 22.22 / 36.44 / 48.23 / 56.85 at t 0 / 120 / 300 / 480 / 600 / 780 / 900; `level` = E_sw + 6, `exp_level` = E_sw | C |
+| Boss multipliers | Chief Gray `hp_mult` 17.916, `dmg_mult` 1.209, `attack_dmg_mult` 0.786; MT-09 3.271, 0.742, 0.837; Zeno 3.631, 1.503, 1.801 (the draft tool's output, `_tier` notes on each boss) | C |
+| EXP items | Barnard Gray 4000123 Worn-Out Goggle, Mateon 4000120, Plateon 4000121, Mecateon 4000122, Chief Gray 4000125, MT-09 4000126, Zeno 4000118 Small Spaceship: item ids and names are v83 (tier A), the mob association is a signature pickup, not a drop-table claim | A / C |
+| Mesos | no v83 server drop data is used: the three bosses roll `balance.mesos.fallback` by level; the ordinary mobs take Ludibrium's neighbour method (centre interpolated between the Lv40 Cold Eye / Zombie Lupin mean 125 and the Lv50 Drake 250, range +-20%): Barnard Gray [100, 150], Mateon [110, 164], Plateon [140, 210], Mecateon [160, 240] | C |
+| Boss `boss_ui` | Chief Gray and MT-09 have no MobGage icon or tag colours in v83; both borrow Zeno's icon (the same region) and the standard colours | C |
+| Falling-bolt effect | Chief Gray's `attack1/info/effect` is three groups of frames with fall spawn fields (`effectType` 2); `MobAttacks.effect_path` plays the first group once at the attacker and leaves the spawn fields unread, so the attack shows art instead of a missing asset | C |
+| Missing v83 sound | Chief Gray's Mob.img entry has no `Skill1`: `RunScene._mob_sound` is silent for a sound its own entry lacks (it already was for an attack start) | A |
+| Field flags | none on these maps (no `decHP`, `fs` friction or limits) | A |
+
+Diagnostic round (invulnerable bot with `RunWorld.god` from a throwaway launcher, `late_progression.json` Hero, seed 1, x8,
+before the Ludibrium merge): CLEARED at 911.9 s, map entries at 0 / 307.0 / 609.3 s, all three bosses killed, Lv61,
+`missing: []`, max 351 alive. Chief Gray's Barnard Gray summon (skill 200 at 31.6 s, `summonEffect` 6) and the three
+attacks were captured with a throwaway probe; screenshots stay out of the repo. Checked by eye: Kulan Field I (a
+red-and-blue robot backdrop, a high floor with ladders; Barnard Gray swarms the ground), Boswell Field II (the crashed
+saucer, a fenced low floor; the Plateon / Mateon swarm hides MT-09's bar-topped sprite in the crowd) and Boswell Field V
+(hills; Mecateon's laser beams, Zeno a white robot at the edge of the swarm). No map was swapped.
+
+Regression smoke after the Ludibrium merge (F/P 212, private cache, `JOBS=1`, seeds 1/2/2026, no tuning): Henesys bot
+death-only seconds 417.30 / 644.10 / 646.70, identical to the table above; the other stages were not rerun, since
+the stage files, the sim and the pools of the first five regions are untouched (`test_stage_files` compares them byte
+for byte) and the full suite passes (3754 tests, 0 failed, 0 skipped, real cache).
+
+### El Nath (C5) constants (spec #449 C5, #467; tier C unless marked)
+
+Progression step 10 (`stages/el_nath.json`, `asset_manifest.d/region_el_nath.json`). Region and continent labels, the map
+list and the rosters are tier A (v83 Map.wz, Mob.wz, String.wz); the rest is ours, a first draft that no ticket here tunes
+(C13 does). Korean Folk Town and Mu Lung (steps 8 and 9) land in parallel; `progression` lists El Nath after Omega Sector
+until they merge.
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Labels | `region` "El Nath", `continent` "Ossyria" (String.wz group `ossyria`) | A / C |
+| Maps | 211010000 Watch Out for Icy Path I (3050 px), 211041100 Forest of Dead Trees I (4310 px), 211042100 The Cave of Trial II (4290 px, 6 levels, 12 ropes); #270's picks. Snowman's own Valley of Snowman (211040101) is 991 px, so it fights in The Cave of Trial II. The arena check (a god-mode bot ran all three, `missing: []`) found nothing to swap, so the decHP-free alternates 211042000 and 211042200 stayed unused | A / C |
+| Bosses | Snow Witch 6090001 / Riche 6090000 / Snowman 8220001, one 300 s after each map entry. Snow Witch has no attack stance (contact and Banish 129/4 only), so it lists no `attacks`. Snow Witch and Riche cast Banish every 15 s (`skill_intervals` 129: 15, Shade's #256 rule; the WZ interval is 3 s) with their v83 banMsg as the notice, cadence or `attack_dmg_mult`, like Iron Hook; Riche `attacks` ["attack1"] (magic, type 0) with Banish 129/1 and Heal 114/12; Snowman ["attack1"] (a ball) with Summon 200/77 (Jr. Yeti, interval 10 s, hp <= 70 %, limit 30, `summonEffect` 1), Stun 123/8 (B1) and the ice poison mist 131/7 (B4, `elemAttr` I); `attack_interval` 8. All their skills are supported (the region test resolves each) | A / C |
+| Pools | map 1 `curve`: Jr. Yeti 5100000 alone at 0 s, Jr. Yeti 11 : Hector 5130104 1 from 120 s (the v83 life ratio 23 : 2, rounded), none later (map 1 reads only the keyframes under 300 s); maps 2/3 `pool_from_life` with `exclude` [6090001, 6090000] (the timed native bosses, mobTime 3600 s; Snow Witch is on map 1, Riche on map 2, map 3 holds none): Coolie Zombie 5130107 x26, and Cerebes 7130001 x13 / Jr. Cerebes 4230108 x7 | C |
+| Curve | Sleepywood's keyframes, bursts, elites, `exp_mult`, `hard_cap` copied exactly (Sleepywood has no `post_duration_slope`); no `opening_ramp` | C |
+| `drop_band` | [55, 65] (spec #447 table) | C |
+| `level_scale` | `level_scale_draft.gd --step=10`: E_sw 9.15 / 9.73 / 10.80 / 22.22 / 36.44 / 48.23 / 56.85 at t 0 / 120 / 300 / 480 / 600 / 780 / 900; `level` = E_sw + 15, `exp_level` = E_sw (the highest level, 71.85, is below the tool's 131 warning) | C |
+| Boss multipliers | Snow Witch `hp_mult` 48.548, `dmg_mult` 1.17; Riche 8.714, 0.843, `attack_dmg_mult` 0.791 (matched on MAD, the attack is magic); Snowman 4.701, 1.462, `attack_dmg_mult` 1.966 (the draft tool's output, `_tier` notes on each boss). Snow Witch's HP multiplier is large because Sleepywood's first boss arrives under a 0.035 opening ramp and the canonical Snow Witch is a 7700 HP Lv64 boss | C |
+| EXP items | Jr. Yeti 4000048 Jr. Yeti Skin, Hector 4000051 Hector Tail, Coolie Zombie 4000082 Zombie's Lost Gold Tooth, Jr. Cerebes 4000078 Jr. Cerebes Tooth, Cerebes 4000079 Cerebes Tooth, Riche 4000069 Zombie's Lost Tooth, Snow Witch 4031311 Snow Crystal, Snowman 4001141 Snowman Branch: item ids and names are v83 (tier A), the mob association is a signature pickup, not a drop-table claim (tier C; Riche, Snow Witch and Snowman have no v83 drop data here) | A / C |
+| Mesos | no v83 server drop data is used: the three bosses roll `balance.mesos.fallback` by level; the ordinary mobs take Ludibrium's neighbour method (the centre interpolated between the neighbours' centres by level, range +-20%): Jr. Cerebes Lv43 [130, 194] (between the Lv40 mean 125 and the Lv50 Drake 250), Jr. Yeti Lv50 [200, 300] (the Drake's), Hector Lv55 [244, 366] (Malady 305), Coolie Zombie Lv57 [262, 392] (Malady 305 to the Lv64 Ice Drake 405), Cerebes Lv72 [363, 545] (Tauromacis 420 to Taurospear 504) | C |
+| Boss `boss_ui` | Riche's MobGage icon is canonical (standard colours supplied, as King Slime); Snow Witch has no icon or colours in v83 and borrows Riche's (the same region); Snowman has both | A / C |
+| Field flags ignored | `decHP` 10 (cold damage) and `fs` 0.2 (ice friction) on Icy Path I and Forest of Dead Trees I are not read (tier C, as OctoPirate's limiter in #264): the characters take no cold damage and movement is unchanged. The Cave of Trial II carries neither (only `fieldLimit` 64, a teleport-item limit, not read either) | C |
+| Timed native bosses | Snow Witch (211010000) and Riche (211041100) are timed life entries (mobTime 3600 s): never in a pool, and not in `original_life`; they are the scheduled bosses of maps 1 and 2 instead. They are the only timed entries on the three maps (the region test pins this on the real cache) | A / C |
+
+Diagnostic round (invulnerable bot with `RunWorld.god` from a throwaway launcher that wraps `main.tscn`, the C12
+`late_progression.json` Hero, seed 1, x8): CLEARED at 965.05 s, map entries at 0 / 340.1 / 653.5 s, all three bosses
+killed (Snow Witch at 340 s, Riche at 653 s, Snowman at 965 s, so 40 s, 13 s and 11.5 s fights), Lv52, `missing: []`,
+max 351 alive. Checked by eye: Icy Path I (a snowy cliff with a stone watermill house and a ladder; Jr. Yeti puffs
+swarm the ledge), Forest of Dead Trees I (a red dusk sky over dark pines, a notice board, dead trunks and a rope; a
+dense Coolie Zombie swarm hides Riche's sprite, but its bar shows) and The Cave of Trial II (a lava cavern with
+hanging chains over a lava floor; Cerebes and Jr. Cerebes crowd the ledges, the character climbs the ropes). Snow
+Witch's arrival (a chained ice figure at the left edge) and its Banish (a rune circle on the character, who is moved)
+were captured, as was Riche's Banish during its fight; the Cave's Snowman is lost in the crowd of 329. A second
+throwaway run with Snowman forced as map 1's boss (5 s after entry, 5000 x HP) showed its Stun (stars over the
+character's head), the ice mist (a pale blue haze at the edge of the view; the first capture shows only part of it)
+and its Jr. Yeti summons. A god-mode run could not show what a hit would do: a Stun or mist poison tick, the loss of
+HP from Snowman's ball attack or Riche's magic hit, and Riche's heal (114/12 casts below 70 % HP, which the fixture
+kills it too quickly to reach). Those are covered by the sim tests of B1 (Stun), B4 (mist) and the boss-kit tests.
+Screenshots stay out of the repo.
+
+Full suite on the branch (private cache, real data): 3760 tests, 0 skipped, 1 failed before the fix below, 0 after: `test_late_equipment_bands` indexed the band table by position in `progression`, so El Nath (canonical step 10) read step 8's band while Korean Folk Town and Mu Lung are still missing from this branch; it now looks the step up by the region's key in the #449 table.
+
+Regression smoke with El Nath (F/P 212, private cache, `JOBS=1`, seeds 1/2/2026, no tuning, no held-out seeds): **every
+batch matches #455's table above to the second** (Henesys bot 417.3 / 644.1 / 646.7, random 428.6 / 489.3 / 668.0; Ellinia
+bot 621.2 / 628.3 / 635.9, random 302.8 / 305.4 / 623.0; Perion bot 308.1 / 421.7 / 651.8, random 331.5 / 449.5 / 466.1;
+Kerning bot 311.0 / 386.0 / 535.5, random 306.5 / 306.5 / 373.2; Sleepywood starter 11.4 / 11.9 / 15.1, with
+`fp_arch_mage.json` one clear and deaths at 23.8 / 767.0), no crashes and no world warnings. El Nath itself is not in the
+smoke (calibration is C13).
+
+### Map select progression list (spec #447, #451; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Visible rows | `stage_select.gd` `MAX_CARDS` 6 rows of `ENTRY_H` 46 px; the rest scroll (keys, wheel, arrows) | C |
+| Paper and Start | `PAPER_EXTRA` 48 px of native paper scanlines added to the scroll (`RegionScroll`), `CARD_AREA` (40, 148, 432, 286); Start moves under the details column, centred at `CARD_AREA.end.y - 50` (the Nautilus branch's idea, #264, ported by hand) | C |
+| Opening position | the frontier is selected; the list scrolls so it is visible with `FRONTIER_LEAD` 2 regions above it when they exist | C |
+| Frontier | the first unlocked, uncleared region (the last region when all are cleared, with no NEW mark) | C |
+| "Lv lo-hi" | min and max canonical `level` (Mob.wz `info/level`, tier A) of the stage's ordinary pool ids over its maps: keyframe pools for a `"curve"` map, explicit pools, `pool_from_life` minus `exclude`; scheduled bosses and their `final_form` excluded; unknown levels skipped, the label omitted when none is known. A computed label, so it can differ from the table in spec #447 (Ellinia's map 3 life includes Malady, Henesys's map 3 includes Horny Mushroom) | C |
+| State marks | CLEAR (`INK_CLEAR`, parchment green), a drawn padlock plus the `INK_LOCKED` look, NEW (`INK_RED`) | C |
+| Unlock hint | "Locked. Defeat <boss> in <previous region> to unlock." with the previous region's map 3 boss (`final_form` first), String.wz name | C |
+| Header | "Regions cleared N/M" on the character line, `HEADING_GAP` 18 px after it (the grown scroll's rod covers a second row) | C |
+
+### Region template and level-scale draft (spec #449 C0, #462; tier C)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Per-region stage files | `survivor/stages/<key>.json` (one stage object each) merged in `progression` order by `DataRepo.load_stages`; no value changed by the split (golden `tests/fixtures/stages_presplit.json`) | C |
+| Per-step level offset | `level_scale_draft.gd` `DEFAULT_OFFSET` 3 levels per progression step above Sleepywood (step 5): `level = E_sw + 3·(k − 5)`, `exp_level = E_sw` (spec #449; re-tuned by C13) | C |
+| E_sw(t) | level whose `hp` reference equals the pool's weighted mean canonical HP × the opening-ramp HP multiplier at nominal round time = curve time; the map entered at a boundary; keyframe `hp` multiplier excluded | C |
+| Boss match | HP, contact damage and strongest scheduled attack carried from Sleepywood's same-slot boss by `curve(level)/curve(E_sw)` (`mad` for magic); multipliers snapped to 0.001 | C |
+| Final-form HP split | `level_scale_draft.gd` `DEFAULT_FINAL_SHARE` 0.5 of the encounter's effective HP to the final form (`final_form_hp_mult`) | C |
+| Boss attack interval | `level_scale_draft.gd` `ATTACK_INTERVAL` 8 s, as every boss | C |
+| Warning ceiling | `level_scale_draft.gd` `CURVE_FLAT_ABOVE` 131: the reference curves hold their Lv131 values above it (v83 has no stronger ordinary monster) | A |
+| Keyframe level resolution | 0.01 levels | C |
+
 ### Review #282: constants and provenance
 
 | Rule | Value / source | Tier |
@@ -8942,7 +10604,7 @@ diminishing; preview and bot use the resolved bonus. Shared default/F/P values a
 | Chain acquisition | `cast.acquire` 450 px from the caster's body centre (the WZ has no `lt/rb` or `range` for 2221006) | C |
 | Chain hop | `cast.hop` 200 px from the previous link's body centre | C |
 | Chain query probe | `ANY_PROBE` 8 candidates before a full query; optimization only | C |
-| Class fragment registration | `DataRepo.CLASS_LINES` append-only Hero, I/L, Bowmaster, Bishop, Paladin, Dark Knight, Buccaneer order after the seven Adventurer lines; new classes append | C |
+| Class fragment registration | `DataRepo.CLASS_LINES` append-only Hero, I/L, Bowmaster, Bishop, Paladin, Dark Knight, Buccaneer, Corsair, Night Lord, Marksman order after the seven Adventurer lines; each shipped class appends in `redesign`-merge order (ruling D15) | C |
 | Skill-window diagnostic build | first three unlearned pool actives, each new + rank, plus Might and Speed common passives | C: automation only |
 | Status registry and cast policy | Append-only status table preserves packed IDs; rule policy owns target-facing/count behavior | C |
 | Chain selection | head = scheduled boss, then nearest, then slot; hops = nearest unhit by distance then slot; distances inclusive; no RNG | C |
@@ -8999,6 +10661,19 @@ all are our survivor design. Tier 1 HP/damage 1 -> 1 over 900 s. Sleepywood map 
 trained only on 1/2/2026. The 20:00 endpoint intentionally extends past the nominal 15:00 schedule.
 No ordinary rate/cap/pool, boss encounter scale, canonical stat, EXP/cooldown/passive/drop value changed.
 Revised slice target: picks ≈ levels + boss draws (~50–60).
+
+### #453 level scale (tier C; reference curves tier A-derived)
+
+| Constant / rule | Value | Tier / source |
+|---|---|---|
+| Reference curves | `level_curve.json`: per-level median hp, pad, mad, pdd, mdd, exp of ordinary v83 monsters, levels 1-200 | A-derived (v83 `Mob.wz` info numbers), used for a tier C purpose |
+| Ordinary monster | Mob.wz id < 9,000,000, not `boss=1`, not a link copy without stances, not 6400005-6400009 or 88xxxxx; HP at most 5x the level median; zero stats skipped per stat | C: ours (ticket #453; the research "Excluded" table, widened to the whole 9,000,000+ range because its 94xxxxx/95xxxxx singletons skew a median) |
+| Curve shaping | log-linear gap interpolation, weighted isotonic regression (a level weighs its sample count, an interpolated level 0.25), 1-2-1 smoothing in log space, two decimals; values outside the sampled span (Lv1-131) hold | C: ours |
+| Keyframes | `{t, level, exp_level}` in curve seconds, linear, held before and after; `exp_level` defaults to `level` | C: spec #447 |
+| Ratio | `curve(E)/curve(L)` per stat (pad for contact and physical attacks, mad for magic); E = L is 1; a zero base is 1 | C: spec #447 |
+| Capture | HP, PDD, MDD and EXP at spawn; ordinary damage at impact; a scheduled boss captures all of them (damage included) at arrival | C: as #307's ramp |
+| Exclusivity | a stage with `level_scale` has no `opening_ramp` (stage or map) | C: validation |
+| Defence scaled after bonuses | the PDD/MDD ratio multiplies the live defence (MobSkill defence bonuses and Threaten included) | C: ours |
 
 ### #293 first-pass pacing (tier C)
 
@@ -9374,7 +11049,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Warrior list (#159) | `equipment_drops/warrior.json`: the same selection for the sword (130xxxx, 140xxxx), axe (131, 141), blunt (132, 142), spear (143) and polearm (144) weapons and the shields (109xxxx) whose reqJob has the Warrior bit (88 weapons, 17 shields; some weapons are shared with Thieves and Bowmen). reqJob 0 weapons and shields are left out on purpose: a Beginner and a Magician would otherwise draw them, and their drops stay as they were | B (selection rule), C (the reqJob 0 exclusion) | Cosmic `drop_data` / `shopitems`; v83 Character.wz |
 | Weapon family rule (#159, #292) | A weapon is eligible only when its family (`WeaponInfo.family`) is one of the job's `weapon_families` (`JobTree.weapon_families`, `survivor/jobs/<line>.json`; 212: `["wand", "staff"]`, tier C), read per drop for ordinary and boss drops alike and independent of the weapon worn; one- and two-handed swords, axes and blunt weapons share a family; a job with no list gets no weapon; armour and shields do not depend on it (`EquipmentDrops.family_allows`). #292 replaces the held-family rule of #159 and its `shared_families` / `shield_families` data | C (ours; the ticket's rule) | Ticket #292 |
 | Job filter | Only items whose `reqJob` is 0 or has the bit of the character's job branch (`Equipment.job_allows`); a job-0 test character only gets all-job items, every Magician job gets Magician and all-job items. It is also the only wear requirement (#292) | A | v83 `reqJob` bits (owner #33: current job only) |
-| Drop band (#292) | `stages.json` `drop_bands[tier]` = [min, max] `reqLevel` (tier 1 [0, 30], tier 2 [30, 60], inclusive); an item drops only when its `reqLevel` is inside the band of the current stage's tier (`NxAward.tier_of`; a stage outside the tiers counts as tier 1). The character's level is not read (a round starts at Lv1). Replaces the [level - 10, level + 5] window | C | Owner 2026-10-27 (ADR 0006, #292) |
+| Drop band (#292; superseded by #450: per-stage `drop_band`, see "Region progression") | `stages.json` `drop_bands[tier]` = [min, max] `reqLevel` (tier 1 [0, 30], tier 2 [30, 60], inclusive); an item drops only when its `reqLevel` is inside the band of the current stage's tier (`NxAward.tier_of`; a stage outside the tiers counts as tier 1). The character's level is not read (a round starts at Lv1). Replaces the [level - 10, level + 5] window | C | Owner 2026-10-27 (ADR 0006, #292) |
 | Weighting | Uniform among the eligible items of the band (the 1 / (1 + 0.25 x distance) falloff of #109 is gone with the level) | C | Ours (#292) |
 | Drop chance | 0.002 per ordinary kill (`equipment_drops.chance`), unchanged by #237's two-item boss rewards; originally sized from an estimate of about 3,300 kills in a full Henesys round. v83 mobs gave equipment on about 0.7-2% of kills | C | Ours (ticket #109) |
 | Boss drop | Each scheduled boss death drops exactly 2 items (`equipment_drops.boss_drops`), no chance roll, uniform among the eligible items with `reqLevel` in the top third of the band (`EquipmentDrops.boss_floor`: `max - (max - min) / boss_top_parts`, 3, so tier 1 Lv 20-30, tier 2 Lv 50-60); the highest `reqLevel` in the band when none is that high, the job-eligible item nearest the band when it is empty | C | Owner 2026-10-21, spec #237 (count); owner #292 (top third); ours #109 (fallbacks) |
@@ -9392,7 +11067,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Sensible plan | At a Free Market visit: sell the spare equipment it will not wear (everything except a better item its job class admits); then for each worn item with upgrade slots in the order weapon, overall, gloves, hat, top, bottom, shoes, read the 100% or 60% scroll of its item type with the best expected score (success chance x stat score; the 60% INT/M.ATT scrolls beat the 100% ones at equal price), using held scrolls first and buying one per upgrade slot while mesos (plus the sales) last. Never dark scrolls | C | Owner brief (#112 baseline); expected-value choice between 100% and 60% is ours |
 | Careless plan | Sells nothing; while a worn item has an upgrade slot and an affordable scroll of its type exists (any rate, dark ones included) it picks a random (item, scroll) pair, buys and reads it. Its stream: `hash("careless-shop-<run seed>-<tier index>")` | C | Owner brief (#112) |
 | Plan application | Only through `RunWorld.sell_item`, `buy_scroll`, `use_scroll`; a dark scroll that destroys an item ends the pass and the plan is redone from the live state (at most 8 passes). Scroll rolls use the next round's `scroll_rng` (stream 11) | C | Ours |
-| Where it runs | `scripts/balance.sh --tier=N` chains between tiers (the next round's world is built from the boundary snapshot and visits before it plays), mid-round equipping in every balance run and in RunScene's autoplay, and `FreeMarket.bot_shop` for a hub driver. With `--autoplay` on a menu-started character (`SceneFlow.autoplay`, set from the flag in `main.gd`) the Free Market runs the sensible visit once on entry (`FreeMarket.shop_visit`) and resumed rounds autoplay; `playtest.sh --run` is a tool one-off with no Free Market | C | Ours |
+| Where it runs | `scripts/balance.sh --chain=N` runs between regions (the next round's world is built from the boundary snapshot and visits before it plays), mid-round equipping in every balance run and in RunScene's autoplay, and `FreeMarket.bot_shop` for a hub driver. With `--autoplay` on a menu-started character (`SceneFlow.autoplay`, set from the flag in `main.gd`) the Free Market runs the sensible visit once on entry (`FreeMarket.shop_visit`) and resumed rounds autoplay; `playtest.sh --run` is a tool one-off with no Free Market | C | Ours |
 
 | Review-fix rule (spec #33) | Value / behavior | Tier | Source |
 |---|---|---|---|
@@ -9780,7 +11455,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Web profile UI (#134) | title: Fullscreen / Export save / Import save lead the second button row (before Re-import WZ data) where desktop has Quit; Options: a FULLSCREEN check box in the FRAME CAP row; F11 and F12 not bindable on web (browser fullscreen / developer tools), Ctrl+W/T/N noted in the Key Config strip; text in the bundled Arimo (Arial metrics) because browsers have no system fonts | C | ours; docs/ARCHITECTURE.md 10 "Web profile" |
 | Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText (dress for level-up cards), LevelUpWindow |
 | Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |
-| NX award per round (#115, spec #34) | a clear pays `clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round`; a death pays the same without the clear bonus (bosses killed before dying count); the final tier's clear pays its normal clear award; deletion, Quit round and tool/one-off rounds pay nothing. Placeholders in `balance.json` `nx_award`: `clear_bonus` [100, 250] by 0-based tier (later tiers reuse the last), `per_level` 5, `per_boss` 40. The balance pass sets the numbers | C | ours; owner #34 triage (ADR 0003) |
+| NX award per round (#115, spec #34; since #450 `clear_bonus` is indexed by progression step, see "Region progression") | a clear pays `clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round`; a death pays the same without the clear bonus (bosses killed before dying count); the final tier's clear pays its normal clear award; deletion, Quit round and tool/one-off rounds pay nothing. Placeholders in `balance.json` `nx_award`: `clear_bonus` [100, 250] by 0-based tier (later tiers reuse the last), `per_level` 5, `per_boss` 40. The balance pass sets the numbers | C | ours; owner #34 triage (ADR 0003) |
 | NX crediting and account block (#115) | the award is added to `account.nx` inside the same atomic write as the clear's round-boundary snapshot (so it is spendable in the Free Market at once) or the death/victory run archive; an optional top-level save key `account: {nx, owned}` (absent = 0 NX, nothing owned), `SaveData.FORMAT` stays 2; tool rounds record `nx_awarded` / `bosses_killed` / `levels_gained` and never write a save | C | ours; seams.md (no format bump) |
 | NX display (#115) | results screen row "NX earned: +N NX" (persistent endings only); Free Market arrival notice "You have gained N NX." for 6 s under the instruction line; map select heading ends with the account balance | C | ours |
 | Cash Shop screen (#118, spec #34) | `scenes/ui/cash_shop.gd`: the v83 `UI.wz/CashShop.img` screen, 800x600 centred, EQUIP. (Hat, Face, Eye, Overall, Top, Bottom, Shoes, Glove, Weapon, Cape) and PET (Pet, Pet Equip.) tabs, ten cards per page. Items are filed by Commodity SN (`CashShop.listing`: category 2 equipment, 6 pets; earrings under Face and shields under Weapon as in v83; VAC, which has no SN, last under Pet Equip.). Card art positions and the buy dialog are WZ/capture-measured (tier A/B, `CashShop` constants); other tabs, GIFT/RESERVE, Search Item, Best Item contents, Charge/Check Cash/Code, the family tabs and ON toggle, the Item Inventory tabs and slot buttons are not drawn (out of scope). Click = try on (`CashShop.try_on`), BUY = confirm dialog (NX CREDIT line checked, the only currency) then `CashShop.buy`, which deducts, adds, saves in one write and removes the item from the list; locked cards show "Needs a pet." / "Needs Wing Boots, Binocular and a pet." instead of BUY; too little NX shows the notice "You don't have enough NX."; BUY EQUIPPED ITEM is disabled (one purchase per card), RETURN TO DEFAULT / REMOVE ALL reset / strip the preview; the Cash Inventory lists owned items read-only. SHOP buttons: map select (every tier, the v83 `StatusBar.img/BtShop` beside Save & quit, centred on its plank) and the Free Market status bar (`StatusBar.img/BtShop` at bar +(688, 20)); Leave = EXIT or Esc, back to where it was opened | A for art and prices; B/C for positions, wording, SHOP button placement | cashshop-refs/layout.md (private), v83 WZ; owner rule: match the real client layout |
@@ -9819,14 +11494,21 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Threaten cast (#183) | `crowd` rule with `cast.status: threatened`: at least 3 eligible (live, non-boss, not already threatened) monsters in the box, nearest `mobCount` first, 1 s cooldown, 0.8 s alert2 stance; Slow's two-consecutive-cast history stays Slow-only | C | ours |
 | Threatened status (#183) | flat PAD and PDD cut floored at 0 on contact damage, physical ordinary attacks (and their balls) and the player's physical hits; refreshes without stacking; bosses and status-resistant kinds never take it; coexists with slow, poison and freeze; magic attack and defence untouched | C | ours; the v83 text only says weapon attack and weapon def. fall |
 | Threaten cards (#183) | learn weight 3, rank weight 2, `requires.jobs` [120], not power; no bot score entry (default scoring, like Iron Body) | C | ours |
-| Perion and Kerning City regions (#253, #254) | `perion`: 102010000 / 101030404 / 106000101 (Mano / Stumpy / Iron Hook); `kerning`: 103010000 / 103000101 / 107000000 (King Slime / Shade / Dyle); `region` Perion / Kerning City, continent Victoria Island, notes "Home of the Warriors/Thieves" (no class link); tiers `[[henesys, ellinia, perion, kerning], [sleepywood]]` | C choice, A map/mob ids | Owner, spec #253 |
+| Perion and Kerning City regions (#253, #254) | `perion`: 102010000 / 101030404 / 106000101 (Mano / Stumpy / Iron Hook); `kerning`: 103010000 / 103000101 / 107000000 (King Slime / Shade / Dyle); `region` Perion / Kerning City, continent Victoria Island, notes "Home of the Warriors/Thieves" (no class link); tiers `[[henesys, ellinia, perion, kerning], [sleepywood]]` (superseded by #450's `progression`) | C choice, A map/mob ids | Owner, spec #253 |
 | Perion and Kerning City pools (#253, #254) | Henesys's numeric curve copied exactly (keyframes, bursts, elites, `exp_mult` 2.5, `hard_cap` 400, `post_duration_slope` 0.25) plus a 210 s keyframe interpolated from it (rate 0.875, cap 17.5, speed 1.0375) that only carries the 3:30 pool. Map 1 opens with Blue Snail 100101 only (owner Q4 weaker-neighbour clause, invoked after T1 seed-1 deaths at 0:15/2:15 (Lv1)); from 2:00 Perion Blue Snail 2 / Stump 3 / Red Snail 2, +Dark Stump 1 at 3:00, Dark Stump 3 / Stump 2 / Red Snail 1 / Blue Snail 1 at 3:30; Kerning Blue Snail 2 / Red Snail 3 / Slime 3, +Orange Mushroom 3 at 3:00, +Octopus 1 and Blue Snail 1 at 3:30. Keyframes from 300 s carry no pool. Maps 2 and 3: their v83 life lists, no exclusions (no timed or hidden entries) | C weights, A life lists | Owner, spec #253 |
 | Perion and Kerning City boss multipliers (#253, #254) | Each boss matches the Henesys boss of its map slot at that slot's `typical_hp`/`typical_pdd`: same survivor HP (round(maxHP × hp_mult)) and the 0.01 multiplier steps whose 85–100% roll range is closest to the slot's (within 1 HP). Perion: Mano as in Henesys; Stumpy 0.6857 / touch 1.38 / attacks 1.25; Iron Hook 3.1818 / 2.38 (touch only). Kerning: King Slime 0.45 / 0.78 / slam 0.61 (matches Mano's touch: Mano has no attack); Shade 1.0 / 1.04 (touch only); Dyle 0.2258 / 1.15. Attacks every 8 s. Canonical PDD/MDD, levels and undead flags are not normalized | C | Starting values, untuned (#77 tunes) |
 | Boss skill interval override (#253) | A `stages.json` boss entry may carry `skill_intervals` {"<mob skill id>": seconds > 0} replacing that skill's WZ interval for that boss on that map; `DataRepo.stage_map_errors` rejects other shapes. Shade's Kerning entry: `{"129": 15}` (one Banish per 15 s instead of the canonical 3 s) | C | Owner, spec #253; read by #256 |
-| Map-select card limit (#253) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list | C | Layout measurement, spec #253 |
+| Map-select card limit (#253; replaced by #451) | At most four region cards per tier (`stage_select.gd` `MAX_CARDS`): 46 px rows from y 154 end at the Start button's top (y 336); a fifth region needs a scrolling list. Superseded by "Map select progression list (#451)" in section 11 | C | Layout measurement, spec #253 |
 | Perion and Kerning City mob metadata (#253, #254) | Mesos: v83 server `drop_data` itemid 0 ranges; EXP pickup: the most likely Etc drop (Dark Axe Stump uses Axe 4000215 of the two equal ones; Shade Someone's Hat 4000413). Iron Hook has no server drops: level-fallback mesos and the Wild Boar Tooth icon. Boss bars borrow MobGage icons for Iron Hook (Zeno 6220001) and Shade (Riche 6090000) with hpTag 1/5; both are enabled boss kits (`mob_skills.enabled_ids`) | B mesos/items, C icons/associations | Cosmic drop data (facts only); owner #253 |
-| Mobs without v83 sounds (#253) | A mob with no `Sound.wz/Mob.img/<id>` entry (Iron Hook 4090000) plays no hit, death or skill sound and records nothing missing, as in the client | A (absence) | v83 Sound.wz |
+| Unique bosses (#447, #452) | No boss appears twice across `progression`: every scheduled `mob_id` and `final_form` is distinct and so are their `mobs.json` names (a shell and its final form are one boss and share a name). Ellinia: Prime Minister 3300008 / Grey Yeti and King Pepe 3300005 / Faust 5220002; Perion: King Clang 5220001 into 5220000 / Stumpy / Iron Hook; `test_unique_bosses` enforces it (and the String.wz names when the cache is present) | C (owner) | spec #447 |
+| Unique-boss multipliers (#452) | Each new boss matches the survivor HP and, at 0.01 steps, the touch and attack roll ranges (within 1 HP) of the boss whose slot it takes, at that slot's `typical_hp`/`typical_pdd` (#254 method; `_tier` notes show the arithmetic). Prime Minister 0.252 / 0.8 / 0.69; Grey Yeti and King Pepe 0.07333 / 1.41 / 1.41; Faust 0.8224 / 1.32 / 1.14 (attack matches Dyle's touch); King Clang shell `hp_mult` 0.1, form `final_form_hp_mult` 0.128 (400 + 3,200 = Mano's 3,600), 0.61 / 0.56 (attack matches Mano's touch). `attacks: [attack1]` every 8 s | C | starting values, untuned |
+| Unique-boss mob metadata (#452) | EXP pickups are tier A item ids with tier C associations (Mushmom Spore, Yeti Horn, Pepe Beak, Cursed Doll, Clang Claw, Lorang Claw, Poisonous Mushroom); no meso ranges (the balance.json level fallback, as Iron Hook). Grey Yeti and King Pepe has no `info/boss`: `mobs.json` `no_flinch`. The King Clang shell's bar uses the form's MobGage icon (`boss_ui.icon_id`). Their ids are in `balance.mob_skills.enabled_ids` | A ids, C associations | #452 |
+| Mobs without v83 sounds (#253, #452) | A mob with no `Sound.wz/Mob.img/<id>` entry (Iron Hook 4090000) plays no hit, death or skill sound and records nothing missing, as in the client; a scheduled boss's attack whose `Attack<N>` sound the entry lacks (King Clang 5220000 has only `Skill1`, a UOL to Faust's) is silent the same way | A (absence) | v83 Sound.wz |
 | Mob Attack Up 100/110 (#255) | a timed ×1.15 (`balance.mob_skills.attack_up_mult`, `MobSkillRunner.DEFAULT_ATTACK_UP_MULT`) on the weapon attack of touch damage and physical `attackN` impacts (balls capture it at launch); applied after a Threaten cut, before boss `dmg_mult`/`attack_dmg_mult` and elite scaling, so the final hit is not exactly ×1.15 after defence; magic attacks unchanged; the v83 `x` 115 is not read (flat or percent is unverified); 100 buffs the caster, 110 every living mob in its facing-mirrored box (ordinary mobs included); a recast refreshes the end time, never stacks; cast on the WZ `interval`/`time` like the other boss skills (no mob MP, so `mpCon` unmodelled); casts while the character is Hidden, like 112/113; the end time is per slot and resets on spawn, moves on relocation | C (multiplier, application), A (interval, time, area, art) | owner, spec #253; original v83 MobSkill.img 100/1 and 110/2 |
+| Boss Magic Attack Up 101/111 (#457) | a timed multiplier `x/100` (Chimera 101/1 x115, 111/5 x140; Eliza's levels 115) on the `MADamage` of the buffed mobs' magic `attackN` impacts, in `RunWorld.mob_magic_attack`, before the boss/elite `dmg_mult` like Attack Up; touch and weapon attacks never read it; 101 buffs the caster, 111 every living mob in its facing-mirrored box (ordinary mobs included); a recast replaces the multiplier and refreshes the end, never stacks; per slot, resets on spawn, moves on relocation; the cast `effect` plays on the caster and its `mob` icon over a boss while it lasts (no icon over ordinary mobs yet) | C (x as a percentage, application), A (x, interval, time, area, art) | owner, spec #448 B2; original v83 MobSkill.img 101/1, 111/5 |
+| Boss self defense up 102/103 (#457) | the 112/113 flat-defense arithmetic (x added to PDD / MDD for `time`) on the caster only (Dodo 102/3 x85 20 s, Chimera 103/2 x60 30 s); the cast `effect` plays on the caster and its `mob` icon over a boss while it lasts | C (flat arithmetic, as 112/113), A (x, interval, time, art) | owner, spec #448 B2; original v83 MobSkill.img 102/3, 103/2 |
+| Boss magic immunity 141 (#457) | a timed self status that mirrors 140: for `time` a hit of damage type `magic` (the `CombatMath.damage_type_of` split 140 uses; instant hits and projectile contacts, which are consumed with no roll or event) does zero damage to the boss, physical and fixed still land; gated by the level's `hp`; its `mob` icon shows over the boss; per slot, resets on spawn, moves on relocation | C (mirror of 140), A (hp gate, interval, time, art: Timer 141/3 hp<=50, 30 s / 10 s) | owner, spec #448 B2; original v83 MobSkill.img 141/3 |
+| 140 / 141 exclusivity (#457) | a 141 cast while the boss has 140 active, or a 140 cast while it has 141, is skipped and still spends its interval, so a boss is never immune to everything | B | spec #448 B2; Cosmic (third-party emulator behaviour, read as fact) |
 | Floor/wall corner landing (#260) | An air sub-step whose path crosses a floor line inside the floor's span while its end x lies past the floor's end lands on that floor at the end x pulled EPS = 0.01 px inside (`FootholdMap.find_corner_landing`); player only, mobs/pickups/NavGraph keep `find_landing` | C | ours: the 1 px wall probe at the crossing x was already below a wall rising from the floor end, so neither landing nor wall caught it (Kerning 103000101, x 3185) |
 | Fall-out recovery inset (#260) | The nearest floor point to (x, MapBounds bottom) is clamped EPS = 0.01 px inside the floor's span (`FootholdMap.nearest_floor_point`): a point exactly on a wall line is not blocked by it, so recovering onto the end point let the player walk off into the void again | C | ours |
 | Boss arrival fallback (#260) | `balance.bosses.arrival_fallback` = 15 s: arrivals (and a stalled-pursuit fade relocation) failing that long for want of a point on the player's platform use the platform of the floor point nearest the player (same 250/150 px rule, then the point itself); the 3 s warning lead still holds; `boss_spawned.fallback` marks it | C | ours, keeps BossDirector's placement/relocation rules; a player over no floor no longer postpones a boss forever |
@@ -10197,7 +11879,8 @@ Numeric-string delay parsing also affects Pig/Ribbon Pig and seven `dungeon.img`
 | Marksman arrows (322, crossbow) | Lv15 Bronze 2061001, Lv30 Steel 2061002, Lv45 Blue 2061003 | tier C levels; tier A ids and `incPAD` +1/+2/+4 |
 | Night Lord stars (412, claw) | Lv10 Wolbi 2070001, Lv20 Mokbi 2070002, Lv30 Kumbi 2070003, Lv40 Tobi 2070004, Lv50 Steely 2070005 (`incPAD` +17..+25) | tier C levels; tier A ids and `incPAD` |
 | Corsair bullets (522, gun) | Lv18 Split 2330001, Lv35 Mighty 2330002 (`incPAD` +12, +14) | tier C levels; tier A ids and `incPAD` |
-| Ilbi Throwing-Stars 2070006, Vital Bullet 2330003 | not scheduled | tier C: left to the specs that own those jobs |
+| Ilbi Throwing-Stars 2070006 | scheduled at Lv60 for 412 by Night Lord NL2 #401 (see "Night Lord NL2 constants") | tier C |
+| Vital Bullet 2330003 | not scheduled | tier C: left to the spec that owns the Corsair |
 
 ### Bowmaster constants (#336)
 
@@ -10453,6 +12136,228 @@ Physical followers add `summon_strike` (per-target strike art) and derived `stri
 fitted wind-up playback and inspection; `SpritePool.tint_of` exposes the rendered tint for tests. The tool-only
 `burst_probe` captures a synthetic moving-caster burst. These small extensions preserve the existing default paths.
 
+### Boss kits II B1: Stun and final forms (#456, spec #448)
+
+| Constant | Value and rule | Tier | Source |
+|---|---|---|---|
+| Stun values (MobSkill 123) | `interval`, `time`, `prop`, `lt`/`rb` (mirrored by facing) read from `Skill.wz/MobSkill.img/123/level/<lv>` at the boss's own `info/skill` level; the `affected` art loops above the head while the status lasts (the whole MobSkill.img is already imported) | A | v83 WZ; research `v83-mob-skills-ii.md` |
+| What Stun blocks | No move, jump, portal, dash or Teleport (the tick's input is empty), no auto-cast or manual cast (`can_cast()` false), the queued Final Attack follow-ups are cleared. Gravity, knockback and damage continue; the cast spends nothing from the character. Redesign has no basic attack, so there is no swing to drop | B (behaviour), C (what each of our systems does) | Emulator behaviour, secondary wiki text |
+| HP potions while stunned | Stay usable | C | v83 does not say |
+| Stun cast gate | A skill-123 cast needs the character inside the area and not Hidden (a Hidden character is skipped, as for Slow and Banish); the `prop` roll is made once per in-area cast, a failed roll still spends the interval | C (gate, as Slow), A (prop, interval) | #448 common rules |
+| RNG stream 19 | `RunWorld.mob_status_rng` draws the `prop` roll of a boss skill that puts a status on the character; stream 18 stays `ground_rng`. `prop >= 100` draws nothing, and a cast that is locked out draws nothing | C | #448 (redesign already uses 18) |
+| Poison values (MobSkill 125) | `interval`, `time`, `prop`, `x`, `lt`/`rb` (mirrored by facing) read from `Skill.wz/MobSkill.img/125/level/<lv>`; the `affected` art loops above the head while the status lasts | A | v83 WZ; research `v83-mob-skills-ii.md` (Thanatos 125/1) |
+| Poison `x` and ticks | `x` is HP lost at each whole second after the cast, up to and including the second `time` ends on (`floor(time)` ticks). v83 does not say what `x` is | C | research (units unverified) |
+| Poison is never lethal | A tick takes at most the HP above 1; once at 1 HP it emits nothing. A tick is a `player_hit` with `source_kind` "poison" (boss, so boss-hit telemetry reports it), with no hit window, avoid, defense, invincibility or knockback; god mode takes nothing | C | #448 B4 |
+| Poison while Hidden or guarded | A poison already running keeps ticking while the character is Hidden (Dark Sight, Smokescreen and so on) or inside a hit guard such as the Bishop's post-revive guard: it is a status already on the character, it is never lethal, and v83 Dark Sight does not cure poison. Hidden and a guard still stop the cast of a new poison and the monster hits | C | #459 review |
+| Poison and the balance hit metrics | Poison ticks are `boss_hits` entries (`source_kind` "poison") but not `hits`, `taken` or `hits_by_min` (so not the hits before 6:00 and after 8:00): a damage over time is not a monster hit | C | #459 review |
+| Poison cast gate | A skill-125 cast needs the character's body box inside the (mirrored) area and not Hidden; `prop` is rolled on stream 19 once per in-area cast, a failed roll still spends the interval; the status lives on `PlayerStatuses` with the lockout floor (so one poison at a time, and immune for `max(4, time)` s after it ends) | C (gate), A (prop) | #448 |
+| Poison HUD | No HUD icon (the `affected` art only; v83 has no `mob` icon for 125) | C | #448 presentation rule |
+| Poison mist values (MobSkill 131) | `interval`, `time`, `prop`, `x`, `elemAttr`, `lt`/`rb` and the `tile` frames of the level at the boss's `info/skill` level (Snowman 131/7: x 500, interval 30, time 10, prop 80, (-50,-160)-(300,40), `elemAttr` I) | A | v83 WZ |
+| Mist hazard | Placed at the cast as the level's box mirrored by the boss's facing (the same helper as every area skill, so a left-facing boss puts 131/7's box to its right), lasting `time` s from the cast tick; `prop` rolled on stream 19 (a failed roll still spends the interval); not cast while the character is Hidden; a hazard is a pooled struct-of-arrays entity (`GroundHazards`) with no node per hazard, cleared on map transfer, death and clear; a level without `elemAttr` (131/3, 131/9) only shows its mist | C | #448 B4 |
+| Mist effect | A character whose body box overlaps a live mist: ice (I) keeps Slow at `balance.mob_skills.mist.slow_x` percent speed (80, the 126 levels' x) refreshed for `slow_seconds` (1) each tick and never weaker or shorter than a Slow already on it; poison (S) applies Poison for `poison_seconds` (10) at the level's `x` capped at `poison_x_max` (300, the largest 125 x) when it is not locked out. A Hidden character is not touched | C | #448 B4 |
+| Mist art | The level's `tile` node: numbered two-frame alpha-fading animations laid as a jittered grid of puffs (about 80 x 56 px per puff, at most 24) over the box, each with its own tile pick and phase, fading in and out over 0.5 s; drawn on the player's actor layer behind the mobs and the player | C | #448 B4 |
+| Hazard records | `hazards_cast` (count at cast) and `hazard_seconds` (sum of the seconds hazards were alive, cleared early ones counting what they lived) in the balance record | C | #459 |
+| Status lockout floor | After a status with the floor ends, it cannot re-apply for `max(balance.mob_skills.status_lockout[id] or .default, its own time)` s; default 4. A recast during the status or its lockout is refused (no refresh, no stacking) and still spends the boss's interval. Slow has no floor and keeps overwriting on recast, exactly as before | C | #448; Papulatus's Stun L4 (interval 1, time 3, prop 100) is the case it is for |
+| `final_form` | A stage boss entry's `final_form` must be one of the shell mob's `info/revive` ids (`DataRepo.final_form_errors`, reported through `build_setup`'s `missing`; the schema also needs it to differ from `mob_id`). On the shell's death the same encounter continues with the form at the death position: same `boss_index`, steady flag, `attacks`, `attack_interval` and `attack_dmg_mult` (the opening-ramp damage factor included). The shell pays no EXP, mesos, equipment or bonus choice and is not marked dead; the form's death is the boss death, pays the rewards and ends the map. The shell's other `info/revive` entries are not spawned. The HUD bar follows the record, so it shows the form after the swap; a shell without a MobGage icon of its own (King Clang's 5220001) needs a survivor `mobs.json` `boss_ui.icon_id` naming its form, or the run reports the icon as `missing` (found by the #456 diagnostic run) An unlisted form is not continued and the boss dies as an ordinary revive boss | C (rule), A (the form is a listed v83 revive mob) | #448 B1 |
+| Final-form schedule and telemetry | The form's skills are ready one interval after the swap (record `form_time`, never on the swap tick; the shell's cast schedule for that encounter is forgotten, so a skill both forms share restarts). `kills` and `kills_by_min` do not count the shell. `balance_run` `boss_fights` stay keyed on the scheduled entry's `mob_id` and, for encounters with a form only, add `final_form` and `form_time` (-1 before the swap). `DataRepo.final_form_errors` also flags a form missing from `balance.mob_skills.enabled_ids` while its shell is listed. The form's entry attacks start on their own `BossAttacks` clock keyed by encounter (the shell's attack cooldown carries over) | C | #478 review |
+| Final-form HP | `hp_mult` applies to each form; an entry's optional `final_form_hp_mult` replaces it for the form alone (must be > 0) | C | #448 B1 |
+| Roster | `StageRoster.named_ids` and `mob_ids` include the form and the summons/revives of its skills; `MobSkillRunner` casts the form's skills when its id is in `balance.mob_skills.enabled_ids` (each region ticket lists its own) | C | #448 |
+
+### Boss kits II B3: Darkness, Weakness, Curse, Seduce, Confuse (#458, spec #448)
+
+Five more player statuses cast by bosses on B1's status seam (`PlayerStatuses`, stream 19, the lockout floor). Each is rolled once per in-area cast on stream 19 (`prop >= 100` draws nothing), skipped while Hidden, never stacks with itself and has no cap against other statuses. The boss must list the skill's mob in `balance.mob_skills.enabled_ids`; `MobSkillRunner.interval_of` reads a level's `interval` or, where spelled so, `inteval`.
+
+| Constant | Value and rule | Tier | Source |
+|---|---|---|---|
+| Values | `interval` (or `inteval`), `time`, `prop`, `lt`/`rb` from `MobSkill.img/<id>/level/<lv>` at the boss's own level: Alishar 121/1, Fox 121/7 and 122/10, Leviathan 122/3 and 132/2 (`inteval` 60), Thanatos 121/1 and 124/1, Lyka 128/7. The level's `affected` art loops above the head while the status lasts (MobSkill.img is already imported whole, so the manifest is unchanged) | A | v83 WZ; research `v83-mob-skills-ii.md` |
+| Darkness 121 effect | The character's critical chance is 0 while it lasts: every `hit_mob` roll (instant, Final Attack, summons) and every projectile hit (`ProjectileSystem.crit_suppressed`, set each tick by `refresh_player_speed`) is rolled at 0. v83 dims the screen and lowers accuracy; ADR 0005 turned accuracy into crit chance. A shot in flight is judged at its hit | C (reading), B (v83: accuracy down) | ADR 0005 |
+| Darkness overlay | `DarknessOverlay` (`CanvasLayer` 5, above the world and below the HUD): the view dims to opacity 0.8 (colour 0,0,0.04) except a lit circle on the avatar's body centre, fully clear to 100 px and fading smoothly to the full dimming at 240 px; fades in and out at 4 per second. One gradient texture plus four flat rects, no shader; presentation only, never in the sim | C | v83 only says "dimmed screen" (client-side) |
+| Weakness 122 | Jump disabled: `refresh_player_speed` sets the jump stat to 0 and the tick's input loses `jump_pressed`/`jump_held` (ground, down-jump and ladder jumps alike). Walking speed unchanged | B | secondary wiki text |
+| Curse 124 | EXP picked up (`RunWorld._gain_exp`, both the per-tick pickup and the clear sweep) is multiplied by `balance.mob_skills.curse_exp_mult` = 0.5 while active; the fraction of a point it withholds carries to the next pickup (its own carry, apart from Holy Symbol's), so many small orbs still add up to half. The drop itself is not changed | B (halved), C (carry) | emulator behaviour |
+| Seduce 128 | The horizontal input is replaced by a step toward the caster's current x (re-read every tick, no step within 4 px of it: `SEDUCE_STOP_DISTANCE`) for `min(time, balance.mob_skills.seduce_cap)` s, cap 4. Jump, casts and potions still work. It ends the same tick the caster is dead or gone (`MobSkillRunner.seduce_active`); the caster follows a final form's record. It wins over Confuse; Stun wins over all | C (cap, early end, stop distance, precedence), B (forced walk) | v83 sends no cap; `count` and `x` are not read |
+| Confuse 132 | Left and right input are swapped for `time` (the copy of the input; the caller's object is untouched, so the bot, which keeps reading real input, suffers it deterministically). Up, down, jump, casts and potions pass through | B | emulator behaviour |
+| Lockout | Each status uses the shared floor (`status_lockout`, default 4 s, never below the status's own `time`): Darkness 30 s is followed by 30 s of immunity, Curse 60 s by 60 s | C | #448 |
+| HUD | None: the HUD shows no Slow icon either, so these statuses have only the `affected` art above the head | C | #448 ("only where the HUD already shows Slow's") |
+| `player_state` | `darkness`, `weakness`, `curse`, `seduce`, `confuse` ({skill_id, remaining, visual[, boss_index]}) exist only while active | C | |
+
+### Area-warning boss attacks (spec #448 B5, #460)
+
+Mob.wz `attackN/info/type` 3 and 4: warned ground columns that strike after a delay. A scheduled boss plays them when its stage entry lists the attack in `attacks` (Thanatos 8170000 and Lyka 8220006 attack1); ordinary mobs never do. One code path serves both types (`MobAttacks.plan`, `area_columns`, `pick_columns`).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| WZ fields | `range/lt`, `range/rb` (one column's box), `range/start` (leftmost column index), `range/areaCount`, `range/attackCount`, `attackAfter`, `effectAfter`, `areaWarning` and `hit` frames, `PADamage` / `magic`, `elemAttr`. Thanatos: start -5, areaCount 9, attackCount 5, attackAfter 1080, magic, elemAttr I; Lyka: start -7, areaCount 15, attackCount 7, attackAfter 1260, PADamage 720 | A (Mob.wz 8170000 and 8220006) |
+| Column layout | Column k (k = start .. start+areaCount-1) is the `lt`/`rb` box shifted k box widths along x from the boss's feet, so the strip is centred on the boss for Lyka (-7..7) and runs -5..3 for Thanatos as the data says; the strip is mirrored when the boss faces the character. WZ does not say how the columns are laid out | C (reading of the data, docs/research/v83-mob-skills-ii.md) |
+| Which columns strike | `attackCount` distinct columns picked at attack start on RNG stream 20 (`RunWorld.area_rng`, `MobAttacks.AREA_STREAM`): the column holding the character's body centre is always among them when it lies in the strip, the rest come from one partial shuffle. 18 is `ground_rng`; 19 belongs to the mob status stream (#456) | C |
+| Admission | The attack starts when the character's body touches the strip's overall box (the strip is a dodgeable surprise, never a screen-wide one); not while Hidden | C |
+| Timing | The `areaWarning` art plays at attack start on every picked column, stretched to take the whole wait (`FxRenderer.fit`), and the columns strike at `attackAfter`; the `effect` art (Thanatos) plays at `effectAfter` as for any attack. Type 3 and 4 differ only in their art | A (delays), C (stretch, one path for 3 and 4) |
+| Damage | At `attackAfter` a character whose body box overlaps any picked column takes one hit: once per attack, never per column, through the attack's damage path (PADamage / MADamage / the mob's `pad` / `mad`, Attack Up for physical, `elemAttr`, the hit window and guards) with the stage entry's `attack_dmg_mult` and `source_kind` "attack". A jumping character clear of the column's height (Thanatos 113 px, Lyka 200 px) is missed | C (once per attack; vertical extent is the WZ box), A (damage source) |
+| Hit art | `hit` plays on every picked column at the strike, struck or not; anchors are the column's bottom centre (one `area_attack` event carries all anchors, one pooled animation each, no node per column) | C |
+| Cadence | The entry's `attack_interval`, as for the other attack types | C |
+
+### Boss kits II B6: flying bosses, Dispel, Reflect (#461, spec #448)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Flying boss | A scheduled boss (or final form) whose Mob.wz img has a `fly` stance (`MobKind.flies`) has no foothold: `RunWorld.spawn_boss` and `relocate_mob` give it foothold -1 and the swarm moves it like any flyer, toward the character's feet at `flySpeed` (else `speed`: Papulatus 8500002's `speed` 60 is about 100 px/s) with the small bob, clamped to the map's bounds (VR). `BossAttacks` no longer skips a boss with no foothold when the kind flies; its attacks of types 0-2 start from where it hovers and it holds its place (and facing) while the stance plays. Contact damage is the ordinary `bodyAttack` touch (Papulatus's flying form: PADamage 800, no `attackN`, no skills). A grounded boss in the air still waits for a foothold, as before | A (stances, PADamage), C (hover while attacking, stop distance) |
+| Dispel 127 values | `interval`, `prop`, `lt`/`rb` (mirrored by facing), `affected` from `MobSkill.img/127/level/<lv>` (Papulatus clock 127/1: interval 1, prop 100, +-300 x 120) | A |
+| Dispel effect | Ends every active Form (`PlayerForms`, reason "dispelled") and every timed self-buff in `PlayerBuffs` (the Form's buff included), in that order. It never ends: summons and a support summon's pulse buffs (skill slot `summon_sub`), passives, potions, any cooldown, or the statuses bosses put on the character (Slow, Stun, Darkness, Poison...: debuffs, not self-effects) | C |
+| Dispel cast gate | Cast only with the character inside the area, not Hidden, outside the lockout and with a Form or timed buff to end (a cast with nothing to end would only spend the lockout, so it waits and spends no interval, as Banish does); `prop` is rolled on stream 19 once per such cast, a failed roll spends the interval | C |
+| Dispel lockout | `balance.mob_skills.status_lockout["127"]` = 20 s from the cast (`MobSkillRunner.DISPEL_LOCKOUT` when absent), at least | C |
+| Dispel presentation | `player_dispelled` event: the level's `affected` art plays once on the character and the notice "<boss> dispelled your effects!" shows | C |
+| Reflect 143 / 144 / 145 values | `x`, `y`, `interval`, `time`, `hp` gate and `mob` icon from `MobSkill.img/<id>/level/<lv>` (Lilynouch 145/1: x 2000, y 1500, hp <= 50, interval 60, time 10); 143 reflects physical hits, 144 magic, 145 both | A |
+| Reflect effect | While it lasts a hit of the reflected type on the boss deals 0 to it (no `mob_hit`, no on-hit effect, nothing counted as dealt; shots, instant hits and Final Attacks all go through it) and the character loses `min(damage x x/10000 x k, y x c)` HP, rounded, at least 1 for a positive amount: `x` is read as basis points of the hit, `y` as a cap. `balance.mob_skills.reflect`: `damage_mult` k = 1.0, `cap_mult` c = 0.03 (Lilynouch caps at 45 HP, the character's HP being in the hundreds), `rate` 0.5 s. At most one reflect per boss hurts per `rate` s; the others still deal 0 to the boss | C |
+| Reflect hit | A `player_hit` of `source_kind` "reflect" (boss, so boss-hit telemetry reports it): no avoid, defense or knockback, no hit window of its own, and no Form or hull absorption (deliberate: it is the character's own damage coming back, not a monster hit). Refused while dead, clearing a map, in god mode, Hidden, inside a hit window or behind a hit guard (the hit still deals 0 to the boss); only a reflect that lands spends the boss's 0.5 s rate slot, so a refused one leaves it free. Second life (hit hooks) applies; it can kill, and death clears the ground hazards as `take_hit`'s does. Only the character's own hits are reflected: the burn and poison ticks already on a boss never are. `boss_reflect` event: `{mob, mob_id, boss_index, magic, damage, amount}` | C |
+| Reflect exclusivity | A reflect never overlaps 140 or 141 on the same boss: a reflect cast while either is up, or a 140/141 cast while a reflect is up, is skipped and spends its interval (the 140/141 half is Cosmic's rule, tier B, #457; extending it to the reflects is ours) | C |
+| Reflect presentation | The boss shows the level's `mob` icon (`status_visuals`) while it lasts and the notice "<boss> is reflecting physical / magic damage!" or "... your attacks!" shows at the cast | C |
+
+### Ludibrium (C1) constants (#463, spec #449; progression step 6)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/ludibrium.json`: `region` Ludibrium, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [35, 45] (#447 table), maps 220011000 / 220030400 / 220030000 (widths 2227 / 3667 / 3667 px, foothold spans of Map.wz), `original_life` of map 1 (Roloduck 22, Panda Teddy 19) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged; Sleepywood has no `post_duration_slope`. No `opening_ramp` (maps nor stage): `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads): Roloduck 3210204 (Lv34) alone at 0:00, plus Panda Teddy 3210203 (Lv36) at the same weight from 2:00; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`, no exclusions: Zone 4 holds Robo 4230111 x28 and Panda Teddy x8, Zone 1 Master Robo 4230112 x29; none is timed, hidden or an event mob | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=6 --stage=ludibrium` (not tuned): `level` 12.15, 12.73, 13.8, 25.22, 39.44, 51.23, 59.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 | C |
+| Bosses | Rombot 4130103 (hp_mult 11.107, dmg_mult 0.977, attack_dmg_mult 1.046), Alishar 9300012 (0.361, 0.458, 0.596), Timer 5220003 (3.967, 1.435, 1.87), each 300 s after its map's entry with `attack1` and `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids`. Alishar's and Timer's attack1 are magic, matched on MAD | C |
+| Boss kits | Alishar: Darkness 121 and the Cronos summons 200 (9300015/6/7) as written; its Seal 120 is skipped for good. Timer: heal 114, buffs 110/112/113, Stun 123, weapon immunity 140, magic immunity 141. Rombot casts nothing | A skills, C support |
+| Fights fought in these maps | Rombot's Hidden Tower (530 px shaft) and Timer's Lost Time maps (1777 px, 11-16 ladders) are climbing shafts, so both bosses fight in the Toy Factory/Sky Terrace; Alishar is the party-quest boss and has no field | C |
+| Conveyors | Zone 1's four conveyor footholds use the existing `force` support (`FootholdMap`, `player_motion.gd`); no movement code changed | A map data |
+| `mobs.json` | names and `exp_item`: Roloduck Toy Duckling 4000109, Panda Teddy Panda Doll 4000108, Robo Cheap Battery 4000111, Master Robo Mechanical Heart 4000112, Rombot Rombot's Memory Card 4000124, Alishar Key of Dimension 4001023, Timer Clock Spring 4000113 (each the mob's first Etc drop in the MonsterBook), the Cronos Timer's Clock Spring; Rombot has no MobGage icon and borrows Zeno's 6220001 with the standard 1/5 tag | A ids/names, C association |
+| Meso ranges | ordinary mobs only: centre interpolated from the Lv35 Curse Eye / Jr. Boogie and Lv40 Cold Eye / Zombie Lupin / Lv50 Drake ranges at the mob's level (Roloduck [73, 109], Panda Teddy [82, 124], Robo [110, 164], Master Robo [140, 210]), +-20%; bosses and Cronos use the `balance.mesos` level fallback | C |
+| Flags ignored | none of Ludibrium's field flags are read (`lvLimit` is on the Path of Time maps only, which are not used) | C |
+| Diagnostic gap | The god-mode diagnostic round did **not** observe Timer's Stun 123 and magic immunity 141, nor Alishar's Cronos summons (200): god mode lands no hit on the character, and the bosses were held at fixed HP fractions. Their visuals and effects are unverified in Ludibrium until C14's QA covers them (the mechanics have their own tests, #456-#458) | C |
+| Alternates | map 1 220010300 / 220010000, map 2 220030300 / 220030200, map 3 220040400 / 220050200: not needed, the arena check kept all three first picks | C |
+
+### Korean Folk Town (C3) constants (#465, spec #449; progression step 8)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/korean_folk_town.json`: `region` Korean Folk Town, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [45, 55] (#447 table), maps 222010000 / 222010200 / 222010300 (widths 2520 / 2520 / 3240 px, foothold spans of Map.wz; #270's picks), `original_life` of map 1 (Moon Bunny 13) | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads), both Moon Bunny 4230300 (Lv45) alone: it is the field's only monster once the three stray Lv22 Dark Axe Stump spawn points (one timed 20 s) are dropped; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`: Tiger Ridge holds Hodori 5100003 x10 and Hogul 5100005 x3 (one Hogul timed, mobTime 60 s; an ordinary mob, kept); Fox Ridge holds Samiho 5100004 x21 and excludes (`exclude`) the timed, boss-flagged Scholar Ghost 6090003 (mobTime 3600 s), which is map 1's scheduled boss | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=8 --stage=korean_folk_town` (not tuned): `level` 18.15, 18.73, 19.8, 31.22, 45.44, 57.23, 65.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (8 - 5)) | C |
+| Bosses | Scholar Ghost 6090003 (hp_mult 52.672, dmg_mult 1.111; no attack stance, so no `attacks` or `attack_dmg_mult`), Blue King Goblin 7130401 (6.69, 0.73, attack_dmg_mult 0.848, `attack1` matched on MAD), Nine-Tailed Fox 7220001 (2.562, 1.624, 2.027, `attack1` matched on PAD), each 300 s after its map's entry, `attack_interval` 8 where there is an attack; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | Scholar Ghost: Banish 129 only (touch damage otherwise, like Shade); `skill_intervals` {"129": 15} is Shade's tier C rule (#256), one Banish per 15 s instead of the canonical 3 s; its v83 banMsg is kept as the notice. Blue King Goblin casts nothing. Nine-Tailed Fox: heal 114/15, Darkness 121/7, Weakness 122/10, Stun 123/7, as written in Skill.wz | A skills, C support |
+| One King Goblin | Blue King Goblin only; Yellow 7130400 and Green 7130402 stay unscheduled (`test_region_korean_folk_town`) | C |
+| `mobs.json` | names and `exp_item`: Moon Bunny Pounder 4000169, Hodori Tiger Stamp 4000170, Hogul Tiger Skin 4000171, Samiho and the Fox Three-Tailed Foxtail 4000172, Scholar Ghost Traditional Scholar Hat 4000416, Blue King Goblin Silver Ore 4010004 (each the mob's first Etc drop in the MonsterBook); Scholar Ghost borrows Riche's MobGage icon 6090000 and Blue King Goblin Zeno's 6220001 with the standard 1/5 tag (v83 has none for either); the Fox's icon is canonical | A ids/names, C association |
+| Meso ranges | ordinary mobs only, as Ludibrium's method: centre interpolated from the Lv40 Cold Eye / Zombie Lupin (125), Lv50 Drake (250), Lv55 Malady (305) and Lv64 Ice Drake (405) ranges at the mob's level (Moon Bunny Lv45 [150, 226], Hodori Lv50 [200, 300], Hogul Lv53 [226, 340], Samiho Lv56 [253, 379]), +-20%; bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the three maps carries a field flag | A |
+| Alternates | not needed if the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Magatia (C6) constants (#468, spec #449; progression step 11)
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Region data | `stages/magatia.json`: `region` Magatia, `continent` Ossyria (String.wz group `ossyria`), `drop_band` [60, 70] (#447 table), maps 260020300 / 261020400 / 261010101 (widths 2430 / 2410 / 2196 px, foothold spans of Map.wz), `original_life` of map 1 (Kiyo 9, Sand Dwarf 6); the note says the road runs from Ariant across the Nihal Desert into the labs | A (maps, widths, life), C (region/band/order) |
+| Pacing | Sleepywood's keyframes (`rate`, `max_alive`, `hp`, `speed`), `bursts`, `elites`, `exp_mult` 1.0, `hard_cap` 400 and duration 900 copied unchanged. No `opening_ramp`: `level_scale` replaces it | C |
+| Map 1 pool | hand-written, two keyframes below 300 s (the only ones map 1 reads): Kiyo 3100102 (Lv30) 3 : Sand Dwarf 3100101 (Lv32) 2 at 0 s (the 9 : 6 spawn-point ratio), 1 : 1 at 120 s; keyframes from 300 s carry no pool | C weights, A roster |
+| Maps 2 and 3 pools | `pool_from_life`: Area C-2 holds Roid 5110301 x14 and Neo Huroid 5110302 x13 and excludes (`exclude`) the timed, boss-flagged Rurumo 6090004 (Lv63, mobTime 2400 s); Unit 201 holds Homun 6110300 x11 and Saitie 6110301 x5 and no timed boss | A life lists, C rule |
+| `level_scale` | first draft of `level_scale_draft.gd --step=11 --stage=magatia` (not tuned): `level` 27.15, 27.73, 28.8, 40.22, 54.44, 66.23, 74.85 and `exp_level` (E_sw) 9.15, 9.73, 10.8, 22.22, 36.44, 48.23, 56.85 at t = 0, 120, 300, 480, 600, 780, 900 (level = E_sw + 3 x (11 - 5)). The jump from the Lv30-32 desert monsters to the Lv54-58 lab at map 2 is the owner's map choice | C |
+| Bosses | Deo 3220001 (hp_mult 10.658, dmg_mult 1.035, attack_dmg_mult 1.113, `attack1` matched on PAD), Homunscullo 8110300 (9.837, 0.79, 2.396, `attack1` and `attack2` both PAD 125), Chimera 8220002 (4.1, 1.405, 1.889, `attack1` a type 2 ball with no damage of its own, so the mob's PAD 430), each 300 s after its map's entry, `attack_interval` 8; all draft values from the tool, each with a `_tier` note; the three are in `balance.mob_skills.enabled_ids` | C |
+| Boss kits | Deo: Defense Up 112/1. Homunscullo: none (and no v83 boss flag; `attack1`'s mpBurn is not read, no MP). Chimera: Magic Attack Up 101/1 and 111/5, Magic Defence Up 103/2, heal 114/19, weapon immunity 140/13 and Summon 200/88, as written in Skill.wz (B2) | A skills, C support |
+| Absent summons | Chimera's 200/88 lists mobs 9300167 and 9300168, which v83 Mob.wz does not hold. `StageRoster.ABSENT_IN_V83` drops them from the stage's mob list, so a round neither loads them nor reports them missing; the cast stays in the kit and spawns nothing (`RunWorld.spawn_offspring` skips an id with no mob kind) | A (absence), C (handling) |
+| Homunscullo's room | its own map, Zenumist Unit 202, also holds the boss-flagged Deet and Roi (8090000), so it fights in Area C-2; it is not boss-flagged in v83 (a 5400 s spawn), so it borrows Zeno's MobGage icon with the standard 1/5 tag, as Rombot does | C |
+| `mobs.json` | names and `exp_item`, each mob's first monster-drop Etc item (4000xxx) in the MonsterBook: Kiyo Kiyo's Beek 4000335, Sand Dwarf Empty Sack 4000334, Roid and Chimera Wires 4000364, Neo Huroid Plug 4000365, Homun Beaker 4000354, Saitie Entry Pass 4000363, Deo Cactus Stem 4000329, Homunscullo Homunculus's Sand 4000355; Deo's and Chimera's MobGage icons are canonical | A ids/names, C association |
+| Meso ranges | ordinary mobs only, as Ludibrium's method: centre interpolated from the Lv27 Evil Eye (60), Lv35 Curse Eye / Jr. Boogie (97), Lv50 Drake (250), Lv55 Malady (305), Lv64 Ice Drake (405) and Lv70 Tauromacis (420) ranges at the mob's level (Kiyo Lv30 [59, 89], Sand Dwarf Lv32 [66, 100], Roid Lv54 [235, 353], Neo Huroid Lv58 [270, 406], Homun Lv65 [326, 490], Saitie Lv68 [332, 498]), +-20%; bosses use the `balance.mesos` level fallback | C |
+| Flags ignored | none of the three maps carries a field flag (lab maps carry `mobRate` 2, which the sim does not read) | A |
+| Alternates | map 1 260020400 / 260020100, map 2 261020200 / 261020700, map 3 261010103 (1954 px, narrower than Unit 201): not needed, the arena check kept all three first picks (see the diagnostic record in 4.2) | C |
+
+### Corsair constants (spec #384)
+
+Every Corsair ticket recorded its constants beside its mechanic (7.120 to 7.122); the tables of C1, C5, C7 and C12 stay below because they have no
+section of their own. Every constant is tier C unless its row says A or B.
+
+| Ticket | Constants |
+|---|---|
+| C1 (#385) | asset findings, below |
+| C2 (#386) | the Corsair data line, 7.120.1 |
+| C3 (#387) | Dash as the mobility skill (shared rank rule, kept ten-rank table), 7.120.2 |
+| C4 (#388) | the five gun fillers (rank tables, no weapon gate, Burst Fire cast, cadences, rarity bonuses, Cluster Grenade `count`), 7.120.3 |
+| C5 (#389) | the `summon.behavior` dispatch, turret and kamikaze, below (described in 7.121) |
+| C6 (#390) | Octopus and Gaviota (numbers, cooldowns, cadence, the Gaviota admission, rarity bonuses), 7.120.4 |
+| C7 (#391) | the mark, below (described in 7.122) |
+| C8 (#392) | Homing Beacon and Bullseye (cast shape, cooldown, the 8 s mark length, rarity bonuses), 7.120.6 and 7.120.7 |
+| C9 (#393) | the two cones (literal burn `pulse`, front-only box, cooldown, rarity bonuses, string `damage`), 7.120.5 |
+| C10 (#394) | Aerial Strike and Rapid Fire (cooldowns, stream timing, stance, rarity bonuses), 7.120.8 |
+| C11 (#395) | the ship's Form effects (hull, `only_skills`, `art_variant`, hull bar), 7.120.9 and 7.120.10 |
+| C12 (#396) | mount art, below (described in 7.120.11) |
+| C13 (#397) | Battleship, Cannon and Torpedo, 7.120.12 and 7.120.13 |
+| C14 (#398) | selection and tooling (baseline length, bot scores, fixture kit, hub kit), 7.120.14 |
+| C15 (#399) | QA: no new constant; the recorded runs are 7.120.15 and 4.2 |
+
+#### C1 (#385)
+
+Asset findings only; no gameplay constant changed. Facts read from the imported books are tier A; the presentation
+decisions below are tier C and are what C6-C13 draw against (contact sheets of the Corsair skills with the Pistol 1492000 and
+the highest gun in the cache, and of the ship, in the C1 notes).
+
+| Rule | Value / source | Tier |
+|---|---|---|
+| Gun stances (#385) | the pistol (1492000) and the highest gun (1492009) draw in every frame of every body action a Corsair skill names: `doublefire`, `triplefire`, `backstep`, `fireburner`, `coolingeffect`, `homing`, `airstrike`, `octopus`, `cannon`, `torpedo`, `rapidfire` (Rapid Fire's `prepare/action`), plus stand1, walk1, alert2, shoot1, jump, prone. The gun vanishes only in `sit`, `swingO1` and `dead` (and in 1492009's `ladder` / `rope`), none of which a skill names, so no skill needs a fallback stance | A (data), C (no fallback needed) |
+| Rider stance aboard (#385, spec #384 CS-12) | the Battleship rider's body action is `sit` (the gun is not drawn, as in v83), switching to `cannon` / `torpedo` / `fireburner` / `coolingeffect` for those casts (the gun is drawn there); the ship stance follows the rider (`stand1`, `walk1`, `jump`, `prone`, `cannon`, `torpedo`, `fireburner`, `coolingeffect`, `alert2`) | C |
+| Ship attachment (#385) | the ship's origin is its feet; the rider's origin sits at `ship map/navel - rider body map/navel` (stand1: (6, -38) - (-2, -17) = (8, -21)), the standard Maple navel attachment, confirmed on the contact sheet | B (client reading), C (confirmed here) |
+| Ship z order (#385) | `Base.wz/zmap.img` lists `tamingMobFront` second from the front (ahead of every avatar layer) and `tamingMobRear` after `characterEnd` (behind every avatar layer, back layers included): rear canvas under the avatar, front canvas over it | A |
+| Ship facing (#385) | the whole group (ship canvases and rider) mirrors about the ship's origin x; the art faces left like every v83 sprite | C |
+
+#### C5 (#389)
+
+| Rule | Value | Tier |
+|---|---|---|
+| `summon.behavior` dispatch (#389) | a string naming a behaviour object (`turret`, `kamikaze`); absent or unknown is the trailing ally | C, ours (spec #384 M9) |
+| Turret circle centre (#389) | `(x - sp.x x facing, y + sp.y)`, `sp` read from the attack node's `info.range`; left-facing art is native (the spec's `x + sp.x x facing` taken with the WZ facing convention) | C |
+| Turret target test (#389) | a body box whose nearest point to the centre is within `r x area`; nearest body centre first; `mobCount` plus `count` targets, one ball each | C |
+| Turret facing (#389) | the caster's at the cast; it never turns | C |
+| Ball path (#389) | a straight line from the circle centre to the target's body centre at the moment of launch at `info.bulletSpeed` px/s; no hit test on the way; lands on that monster on arrival | C (WZ gives `ball` and `bulletSpeed`: A) |
+| Ball landing epsilon (#389) | flight time left <= 1e-6 s lands (the same epsilon the trailing ally's windup uses) | C |
+| Dead or recycled target in flight (#389) | skipped (compared by `MobSwarm.identity`) | C |
+| Ball cap (#389) | 32 in the air (`SummonTurret.MAX_BALLS`); a launch past it is dropped | C |
+| Hidden or dead caster (#389) | nothing launches and balls in the air are dropped | C |
+| Kamikaze reach (#389) | `info.range.r` px from the caster (not scaled by `area`); the k-th nearest for ordinal k, the farthest in reach when fewer monsters than k + 1 | C |
+| Kamikaze approach (#389) | straight line at `follow_speed` to `hover` px above the target's feet; the dive starts within the box's half-width (x `area`) of that point; the bird follows its monster during the wind-up | C |
+| Kamikaze target lock (#389) | keeps its monster until it dies or is recycled, then picks again | C |
+| Kamikaze single use (#389) | one strike at `attackAfter` (a miss is spent too), then `die` and the slot is freed; nothing in reach: waits like a follower until `time` and expires with no hit | C (spec #384) |
+
+#### C7 (#391)
+
+The mark (GAME_DESIGN 7.122). No WZ field carries the mark's numbers, so all are tier C; the duration is the Homing Beacon
+skill's own `on_hit.duration` (C8), not a constant of this ticket.
+
+| Constant / rule | Value | Tier |
+|---|---|---|
+| Mark multiplier (`MobSwarm.MARK_MULT`) | x1.5 on every damaging hit of a non-boss, on top of the element multiplier | C |
+| Boss mark multiplier (`MobSwarm.MARK_BOSS_MULT`) | x1.25 on a scheduled or canonical boss (spec CS-9: the same "weaker on bosses" rule as Snipe, so a 10 s mark cannot delete a boss) | C |
+| Bosses accept the mark | `STATUS_TABLE` flag `marks_bosses`; every other status still rejects bosses | C |
+| `mark_power` | add to both multipliers (Bullseye +0.25: x1.75 / x1.5), floor 1.0 | C |
+| `mark_time` | mul on the stored duration (Bullseye x1.5: 8 s -> 12 s) | C |
+| Re-application | refreshes the timer and replaces the multiplier; no stacking | C |
+| Pulses | poison and burn pulses are not multiplied | C |
+| Marked-first targeting | scheduled boss, then marked, then distance, then slot (`RunWorld.targets_before`) | C |
+| Status index | `ALL_WEAK` 8 (next free after `BURN` 7); order is persistent within a run | C |
+| Mark fallback tint (`MobRenderer.MARK_TINT`) | red `Color(1.0, 0.45, 0.45)` when no cue art is configured | C |
+| Mark cue anchor | the skill's `mob` frames loop over the monster, drawn like the burn cue (pos 2, body top) | C |
+
+#### C12 (#396)
+
+Mount art (GAME_DESIGN 7.120.11). The art numbers (canvases, origins, navels, delays, z names) are tier A, read from the image.
+
+| Constant / rule | Value | Tier |
+|---|---|---|
+| Rider attachment (`MountLayers.layout`) | rider origin = mount navel (front canvas, else rear) minus the rider body's `navel`, per frame; front canvas on the origin, rear canvas navel-to-navel | B/C (the standard Maple navel attachment; C1) |
+| Mount stance per request (`MountLayers.mount_stance`) | `stand1`/`stand2` -> `stand1`; `walk1`/`walk2` -> `walk1`; `jump`; `prone`/`proneStab` -> `prone`; the four cast names as themselves; everything else (idle `alert`, `shoot1`, swings) -> `alert2` | B/C (spec #384 M20) |
+| `MountLayers.CAST_STANCES` | `cannon`, `torpedo`, `fireburner`, `coolingeffect`: the rider's body action and the ship's stance, one shot, held on the last frame | B/C |
+| `MountLayers.RIDER_STANCE` | `sit` for every other request | B/C |
+| Hidden stances | `ladder`, `rope`, `ladder2`, `rope2` (the rider climbs as the plain avatar) and `dead` | C |
+| One-shot ship stances | the four casts and `jump`; every other stance loops | C |
+| Mount facing | the whole group mirrors about the avatar origin; no per-canvas offset | C (C1's sheet) |
+| Morph and mount | a morphed character draws no mount | C |
+
+### Buccaneer review corrections (#412)
+
+Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
+
 ## 12. Later phases
 
 Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.
@@ -10513,7 +12418,173 @@ additional bosses, elite waves with modifiers, passive items, skill evolutions, 
 | Guard blink | the hit-window blink (alpha 0.4, 0.16 s period), driven by the longer of the hit window and `RunWorld.hit_guard_left()` | tier C, ours (existing blink constants) |
 | Level-up preview units | `revive_hp` in percent, `revive_guard` in seconds | tier C, ours (#380) |
 
-### Buccaneer review corrections (#412)
+### Night Lord NL2 constants (#401)
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
 
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Night Lord job entry (412): `starting_skill`, `mobility_skill`, the eight-key `skill_pool`, `weapon_families ["claw"]` | see 7.94 | tier C: spec #383 (skills' WZ ids are tier A) |
+| Creation weapon | Garnier 1472000 (reqJob 8 = the Thief bit) | tier A item fact (Item.wz); the choice is tier C, spec #383 |
+| `playable` | `true` since NL12 #411 (false when NL2 shipped it); `default_job` stays 212 | tier C, spec #383 / #298 pin |
+| Meso charge `meter` block: max 10, 1 pip per 1000 mesos, one pip decays every 6 s, +3% damage per pip | `jobs/night_lord.json` | tier C: spec #383 M23 (first pass, untested against real pickup rates; the pip rate and decay are balance-pass levers) |
+| Meter art | `Item.wz/Special/0900.img/09000002/iconRaw` (the meso coin frame) | tier A path (already imported for pickups) |
+| AP row `balance.player.ap["412"]` | LUK primary, DEX secondary, the `400` keyframes verbatim | tier C: the Thief gear pattern, no new tuning |
+| Bot scores `shadow_partner_new` / `_rank` | 100 / 74 | tier C: spec #383 (the number the pool default gives every curated attack) |
+| `balance.status_bonuses.venomous_star` | poison; chance 14 16 18 20 24 26 28 30; time 2 2 3 3 3 4 4 4; level 4 8 12 15 19 23 27 30; element `s` | tier A: Venomous Star 4120005 `prop`, `time` and the rank -> poison level map (`mad` unused) |
+| `balance.status_bonuses.stunning_avenger` | stun; chance 20 24 28 32 36 40 45 50; time 1.5 s | tier C: spec #383 |
+| `repeat_chance` | venomous_star 3 points, stunning_avenger 4 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #383 |
+| Night Lord ammo step | Lv60 Ilbi Throwing-Stars 2070006 (+27) on the 412 claw schedule (steps Lv10 / 20 / 30 / 40 / 50 / 60) | tier C level (spec #383); tier A item id, `incPAD` and name (Item.wz / String.wz, re-read) |
+| Ammo items | 18 (B3's 17 plus 2070006) | derived: `Ammo.item_ids` |
+
+### Night Lord NL3 constants (#402)
+
+- Tier C (review S2): a catalogue row may carry `pulse` (burn), `x` (slow, negative) and `x` / `y` (threatened, signed) beside `chance`, `time`
+  and `level`, each a scalar or one value per rank; they ride in the resolved grant only when named. Load validation rejects a burn
+  without a positive pulse, a slow without a negative `x`, a threatened without a negative `x` or `y`, a poison level outside 1 to 69
+  and any row without a positive `time`, so a grant never validates and then does nothing. A catalogue row without `chance` rolls 100%
+  (`StatusBonus` default, tier C).
+- Tier C (review N2): a poison grant applies with `preserve_pulse`, like the ground zones, so a re-roll does not restart a running
+  poison's pulse clock.
+- Tier A, checked (review S6): the shipped `venomous_star` chance, time and poison level equal Skill.wz/412.img 4120005 `prop`, `time` and the
+  level at the eight rank levels (`test_status_bonus::test_real_cache_venomous_star_numbers_equal_skill_wz_4120005`).
+
+- Tier C: grant repeats add `repeat_chance × 0.8^n` points, where n is the existing rarity bonus repeat counter;
+  the first grant adds no repeat points. Total chance caps at 100%. Unique/Legendary continue sharing their bonus id.
+- Tier C: grants apply in award order after native on-hit and before knockback/listeners, one stream-1 draw for every
+  sub-100% grant on every damaging line. Other skill dictionaries, RNG and events remain unchanged.
+- Diagnostic-only tier C: the status-bonus driver guarantees 10-second poison/stun and uses a patched job 412 with
+  Energy Bolt to exercise the seam before Night Lord skill data lands. These values never enter shipped balance.
+- Tier C: the bot scores a status-grant card as a 20% improvement times its repeat scale (`BotInput.GRANT_BONUS_UNIT` 0.2),
+  so a Mastery grant is not scored zero; rarity cards add it to the gain term as for any other bonus.
+- Tier C: the shipped `balance.status_bonuses` entries (`venomous_star`, `stunning_avenger`) are NL2's; NL3 only validates them
+  at load (`DataRepo.load_all`) and resolves them by the owning skill's rank. Echoed stars and ground-strike hits carry the
+  grants because they re-use the cast snapshot (tests in `test_echo_cast` and `test_night_lord_crowd`).
+
+### Night Lord NL4 constants (#403)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `meso_picked` emitted only for a meter that listens to it | RunWorld announces the event when `PlayerMeter.listens("meso_picked")`; the wallet is credited regardless | tier C (ours): the baselines hash event bytes, so no other job may gain an event |
+| Meso charge gain / decay / bonus (the numbers NL2 puts in `jobs/night_lord.json`) | 1 pip per 1000 mesos picked up; 1 pip lost per 6 s while held; +3% damage per pip on every pool cast, +10% per pip on Shadow Meso | tier C, spec #383 (balance flag: untested against real pickup rates) |
+| Carry | the remainder under `per_mesos` stays in the meter across maps; reset at round start | tier C (ours) |
+| Decay clock | runs only while a unit is held, cleared when it empties; float slack `MesoCharge.CLOCK_EPSILON` 1e-6 s | tier C (ours; the slack only keeps 360 ticks of 1/60 s equal to six seconds) |
+| `read_per_unit` | multiplies the damage bounds and status damage by `1 + value x read`, stacking with `per_unit`; never spends, never gates | tier C, spec #383 |
+| Summary `meter.mean` / `meter.peak` | time-weighted mean of the held units per tick, and the most held, in `summary.json` for any meter | tier C (measurement convention) |
+
+### Night Lord NL5 constants (#404)
+
+| Constant | Value | Tier |
+|---|---|---|
+| Echo delay (`summon.echo.delay`) | 0.25 s after the cast tick | tier C, spec #383 (the WZ gives none) |
+| Echo overshoot (`summon.echo.overshoot`) | default: the clone's `follow_distance`; a definition may set more (Shadow Partner sets 55, see NL11); the echo never reaches less than how far its clone trails the owner. The recorded target and the nearest-monster fallback both use `range + overshoot` | tier C, ours (#404; review fix of ROSTER_PLAN D12) |
+| Fire-time tolerance | a delay due within 1e-9 s fires on the tick | tier C, as `BurstCast` |
+| Echo `delay` default | 0.25 s when a definition omits it | tier C, spec #383 |
+| `EchoCast` scope | `projectile` skills on the `nearest` rule only; elsewhere an `echo` flag is a load error | tier C, ours (review S3) |
+| Clone follow distance / speed / teleport distance | 55 px / 200 px/s / 600 px (data, NL10 sets them) | tier C, spec #383 |
+| Clone spread (`ordinal_spread`) | 40 px | tier C, spec #383 |
+| Hand | `cast_forward` px in front of the clone's body toward the target, body height `cast_height` | tier C, the owner's own shot origin |
+| Retarget / drop | dead, out-of-reach or reused-slot target -> nearest monster in range of the clone, else drop without refund | tier C, spec #383 (as bursts) |
+| Hidden / death | unthrown echoes are dropped | tier C, ours (#404, as bursts) |
+| Order of entries | per clone ascending slot, per shot in cast order | tier C, ours (#404) |
+
+### Night Lord NL6 constants (#405)
+
+Flash Jump's constants (distance table, repeat delay, once per airborne period, trail, bot thresholds) are the table under
+"Flash Jump constants" in 7.94.2; all tier C except the `Use` sound (tier A).
+
+### Night Lord NL7 constants (#406)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Lucky Seven / Drain numbers | unchanged by the move: 250 px, 600 px/s, 8 px radius, 1.0 s, LUK x5.0/x2.5 (mastery ignored), absorb `x` capped at half max HP and target max HP | tier B / C as recorded in 7.94 and the old thief entries |
+| Lucky Seven / Drain ranks | default tables: Lucky Seven levels 3 / 5 / 8 / 10 / 13 / 15 / 18 / 20, Drain 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 | tier C (the shared survivor rank tables; the explicit 20- and 30-entry lists are gone) |
+| Lucky Seven / Drain stance | `swingO1`, held 0.6 s (was `shoot1`, which hides the claw) | tier C: ruling D10 |
+| Avenger damage / `mobCount` | 65 -> 180% (80 / 130 / 180% at ranks 1 / 4 / 8), `mobCount` 4 -> 6 (4 / 5 / 6) | tier A (Skill.wz 411.img 4111005) |
+| Avenger range / speed / radius / cooldown | 350 px / 700 px/s / 14 px / 3.5 s | tier C: spec #383 |
+| Avenger pierce | `pierce_field "mobCount"`: `mobCount - 1`, no falloff (`pierce_falloff` 0) | tier C: spec #383 (reading of "attacks the ones behind it") |
+| Avenger action / art | `avenger` held 0.6 s, `effect` (14 frames), own `ball` (72 x 72, rotating), no `hit` art, `bulletConsume 3` not modelled | tier A (art, action) / tier C (hold) |
+| Triple Throw damage / stars | 102 -> 150% (108 / 130 / 150%), `bulletCount` 3 | tier A (Skill.wz 412.img 4121007) |
+| Triple Throw range / speed / radius / cooldown | 300 px / 650 px/s / 8 px / 2.5 s, `cast.focus` | tier C: spec #383 |
+| Triple Throw stance | `swingO1` held 0.6 s (the node has no `action`) | tier C: ruling D10 |
+| Echo classes | Lucky Seven and Drain `attack`; Avenger and Triple Throw `skill` | tier C: spec #383 |
+| Rarity ids | `claw_mastery` (x1.2), `venomous_star` (grant), `lucky_eight` (`count` +1), `claw_booster` (cooldown x0.88), `double_drain` (`count` +1), `stunning_avenger` (grant), `deep_avenger` (`pierce` +2), `critical_throw` (`crit` +0.15), `fourth_star` (`count` +1); Legendary = Unique + damage x1.2 | tier C: spec #383 |
+| Venomous Star on Lucky Seven's Epic | catalogue entry (NL2): chance 14 / 16 / 18 / 20 / 24 / 26 / 28 / 30%, time 2 / 2 / 3 / 3 / 3 / 4 / 4 / 4 s, poison level 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30 | tier A (4120005 `prop`, `time`, level map) |
+| Stunning Avenger on Avenger's Epic | catalogue entry (NL2): chance 20 / 24 / 28 / 32 / 36 / 40 / 45 / 50%, 1.5 s | tier C: spec #383 |
+
+### Night Lord NL8 constants (#407)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Ninja Storm cooldown | 4.0 s | tier C: spec #383 (cadence table) |
+| Ninja Ambush cooldown | 14.0 s (its 12 s rank-8 life never overlaps itself) | tier C: spec #383 |
+| `ground.strike.interval` / `first_delay` (and their defaults in `GroundStrike`) | 1.0 s / 0.3 s | tier C: spec #383 (v83 has no WZ field for the strike cadence) |
+| `GroundStrike.EPS` | 1e-9 s of float slack: a strike due exactly at the lifetime or on the tick still lands. `SkillRunner` takes the strike count and every strike time from `GroundStrike.strike_count` / `strike_time` (review S1) | tier C: ours |
+| Strikes per zone | every strike at or before the WZ `time` (4 / 8 / 12) | tier A `time`; tier C counting rule |
+| Targets per strike | nearest `mob_count` to the anchor, one `attack_count` set of ordinary lines each | tier C: spec #383; `mobCount` 6 is tier A |
+| Zone anchor | the caster's position at the cast; it does not follow | tier C: spec #383 |
+| Push distance by rank (`knockback.distance_by_rank`) | 100 / 100 / 200 / 200 / 200 / 300 / 300 / 300 px | tier A text (String.wz: 100 / 200 / 300 px for levels 1-10 / 11-20 / 21-30), tier C mapping to the eight ranks |
+| Push chance | `prop` of the level (48 / 70 / 100% at ranks 1 / 4 / 8), one stream-1 draw per struck non-boss | tier A `prop` read as the success rate (tier C reading) |
+| `knockback.effect` | the `mob` art once on each pushed monster | tier C: ours |
+| Ninja Storm damage / box / `mobCount` | 42 -> 80%, +-100 -> +-200 by (-70, 30), 6 | tier A (Skill.wz 4121008) |
+| Ninja Ambush damage / box / `mobCount` / `time` | 62 -> 100% per strike, +-110 -> +-200 by (-130, 70), 6, 4 / 8 / 12 s | tier A (Skill.wz 4121004; equals 4221004) |
+| Action holds | `ninjastorm` 0.6 s, `alert3` 0.6 s | tier C (Shout's hold) |
+| Ambush art | the `effect` plays once at the cast, `mob0` is the hit art on each struck monster, no tile | tier C reading of "effect at the zone"; art tier A |
+| Rarity | Ninja Arts damage x1.2; Wide Storm / Wide Ambush `area` x1.2; Second Wave `attack_count` +1; Ambush Squad `count` +2; Legendary = the Unique plus damage x1.2 (shared counter); Mastery repeats x0.8 | tier C: spec #383 |
+
+### Night Lord NL9 constants (#408)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Shadow Meso `moneyCon` | 135 (Lv1) -> 570 (Lv30); 180 / 240 / 300 / 345 / 405 / 465 / 525 / 570 at the eight rank levels | tier A (Skill.wz 411.img 4111004) |
+| `damage_basis` scale | skill percent = `moneyCon` x 0.6 / 100: 108 / 144 / 180 / 207 / 243 / 279 / 315 / 342% | tier C: spec #383 (the WZ has no damage; balance lever: the scale) |
+| `damage_basis` rule | applies to a physical skill whose level node has no `damage` field; a WZ `damage` always wins; no key = byte-identical | tier C (ours) |
+| Unused WZ fields | `x` 50, `prop` 1 -> 10, `bulletCount` (absent): not modelled; `count` pinned to 1 | tier C: spec #383 (their meaning is undocumented beyond the String text) |
+| Mesos cost | none: nothing is spent, lost or required (`moneyCon` kept as data) | tier C: ruling D7 |
+| Held-pip read | `meter.read_per_unit` 0.10: x(1 + 0.10 x pips) on top of the meter's +3% per pip (x2.6 at 10 pips) | tier C: spec #383 |
+| Meter unit word | `pip` ("+10% damage per pip held") | tier C (presentation) |
+| Cooldown / range / speed / radius / pierce | 3.0 s / 300 px / 650 px/s / 10 px / 0 | tier C: spec #383 |
+| Cast hold and stance | 0.6 s, `swingO1` (the claw's own stance; the node has no `action`) | tier C: ruling D10 |
+| Art tiers | `level/{level}/ball` and `level/{level}/hit/0`: levels 1-10 / 11-20 / 21-30 | tier A (the level nodes' UOLs) |
+| Echo class | `skill` (Shadow Partner's `y`) | tier C: spec #383 |
+| Rarity | Rare Meso Up damage x1.2; Epic Claw Booster cooldown x0.88; Unique Second Bag `count` +1; Legendary Second Bag + damage x1.2 | tier C: spec #383 |
+
+### Night Lord NL10 constants (#409)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Echo percent `x` / `y` | 20 -> 80 / 21 -> 50 over levels 1-30; rank 1 / 4 / 8 = 31 / 60 / 80% and 21 / 29 / 50% | tier A (Skill.wz 411.img 4111002) |
+| Clone lifetime `time` | 60 / 60 / 120 / 120 / 120 / 180 / 180 / 180 s at the eight ranks | tier A |
+| Shadow Partner ranks | the default 30-level table (levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30) | tier C (the shared survivor rank table) |
+| Cooldown | 50 s (a recast replaces the clone) | tier C: spec #383 |
+| Echo delay / follow speed / follow distance / teleport distance / spacing | 0.25 s / 200 px/s / 55 px / 600 px / 40 px (the 7.94.3 data, set here) | tier C: spec #383 |
+| `damage` | `"none"`: a clone never strikes; Shadow Power scales the echo percent through the `damage` modifier | tier C: spec #383 |
+| Cast stance | `alert` held 0.8 s; `effect` on the owner, `effect0` as a following `cast_visuals` entry; `Use` sound | tier A (art, action, sound) / tier C (hold) |
+| Echoing skills | Lucky Seven, Drain (`attack`); Avenger, Triple Throw, Shadow Meso (`skill`); no zone, nova or buff | tier C: spec #383 |
+| Rarity ids | `shadow_power` (damage x1.2), `shadow_booster` (cooldown x0.88), `twin_shadow` (`summon_count` +1); Legendary = Unique + damage x1.2 | tier C: spec #383 |
+| Clone art | `special/<action>/<frame>` with its origins, no delay in the WZ; actor layer behind the avatar; flipped with the facing; Hidden owner -> half alpha | tier A (frames, origins) / tier C (layer, alpha) |
+| Stance mapping | owner stance -> the same set; `alert2..4` -> `alert`, `ladder2` -> `ladder`, `rope2` -> `rope`; any other missing set -> `stand1` | tier C: spec #383 (the fall-back) and ours (the aliases) |
+| Frame choice | the owner's frame spread over the set (first to first, last to last) | tier C, ours (#409) |
+| Throw stance | the echoed skill's action when `special` has it, else `shoot1`; frame times from the owner's body action, 0.1 s a frame when absent | tier C, ours (#409) |
+| No-`special` fall-back | the owner's sprite parts at alpha 0.5 | tier C: spec #383 |
+
+### Night Lord NL11 constants (#410)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Echo `overshoot` of Shadow Partner | 55 px, equal to its `follow_distance`; the echo's star flies `range + 55` px | tier C: ROSTER_PLAN D12 |
+| Job page row pitch | 21 px up to eight rows, `floor((366 - 198) / rows)` beyond (nine rows: 18 px, ten rows with Night Lord and Corsair: 16 px); `JOB_LIST_BOTTOM` 366 | tier C: ours (#410) |
+| Fixture kit | Meba 1472007 (Lv25, PAD 16), hat 1002171 (Lv30), shoes 1072022 (Lv20), gloves 1082029 (Lv15), top 1040002, bottom 1060002, tier 2 unlocked | tier C: spec #383 (the tier-1 reqLevels of the other kits) |
+| Hub kit scrolls | the five claw ATT scrolls 2044700 / 01 / 02 / 04 / 05 (`scrolls/thief.json`), 10 each | tier C: spec #383 |
+| Hub kit equipment / fallback item | 1002001, 1472001, 1082002, 1040031 / 1472014 (the Lv40 claw) | tier C: ours (#410) |
+| Bot card scores | all eight pool skills `_new` 100 / `_rank` 74 | tier C: spec #383 (the established pool bases) |
+| Filler reach | Lucky Seven and Drain 250 px, the pool's shortest; Avenger 350, Triple Throw and Shadow Meso 300 | tier C: spec #383 (recorded, untuned) |
+| Baseline oracle | seed 1, 21,600 ticks, god, `GOLDEN` `e4d195a0...5423` in `test_night_lord_baseline.gd` (re-captured by the #383 review fixes: echo reach and aim spread; was `6077b162...0bd1`) | tier C: ours (#410) |
+
+### Night Lord NL12 constants (#411)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| `playable` of 412 | `true` (flipped from NL2's false); `default_job` stays 212 | tier C: spec #383 / #298 pin |
+| HP baseline | the shared default (no Hero-style melee HP baseline: the spec does not call for one) | tier C: spec #383 |
+| Everything else | no new constant; the QA smoke is in 4.2 | n/a |

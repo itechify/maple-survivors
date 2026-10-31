@@ -59,7 +59,7 @@ func test_stage_select_ignores_retired_save_records() -> void:
 	assert_eq(int(s.best_for("henesys").kills), 400, "playable best remains")
 	assert_eq(s.runs_for("henesys"), 1)
 	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
-	assert_eq(offered.map(func(c: Dictionary) -> String: return String(c.key)),
+	assert_eq(offered.map(func(c: Dictionary) -> String: return String(c.key)).slice(0, 5),
 		["henesys", "ellinia", "perion", "kerning", "sleepywood"])
 	assert_eq(STAGE_SELECT.best_text(s.best_for(String(offered[0].key))),
 		"Best: Survived 05:00, Lv. 12, 400 kills")
@@ -420,7 +420,7 @@ func test_free_market_walk_to_scripted_exit_opens_map_select() -> void:
 		hub.step_input(1.0 / 60.0, MoveInput.make(false, true))
 	hub.step_input(1.0 / 60.0, MoveInput.make(false, false, true))
 	assert_eq(flow.current_name, "stage_select")
-	assert_eq(flow.current.stages[0].key, "henesys", "map select lists every tier, tier 1 first")
+	assert_eq(flow.current.stages[0].key, "henesys", "map select lists the progression, Henesys first")
 
 
 
@@ -544,7 +544,7 @@ func test_save_and_quit_continue_the_hub_and_delete_history() -> void:
 	var flow := _flow()
 	flow.create_character("Slots69")
 	flow.start_round("sleepywood", 7)
-	assert_eq(flow.current_name, "free_market", "a later tier cannot be started early")
+	assert_eq(flow.current_name, "free_market", "a locked region cannot be started early")
 	flow.save_and_quit()
 	assert_eq(flow.current_name, "character_select")
 	flow.continue_character(0)

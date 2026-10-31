@@ -12,6 +12,8 @@ const ACTIVE_KINDS := ["projectile", "instant", "buff", "summon", "form"]
 ## Skill.wz keys holding a weapon requirement code; the second has a trailing space (tier A: only 5001003 spells it so).
 const WEAPON_FIELDS := ["weapon", "weapon "]
 
+## Rarity status-bonus catalogue (balance.status_bonuses, StatusBonus); Loadout.status_bonuses reads and writes this one.
+var status_bonuses := {}
 var rank_levels := {}
 var slot_limits := {}
 var defs := {}

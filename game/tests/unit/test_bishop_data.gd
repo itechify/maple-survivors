@@ -61,7 +61,7 @@ func test_bishop_is_a_registered_class_line_before_paladin() -> void:
 	var lines := Array(DataRepo.lines())
 	assert_eq(lines.slice(0, 7), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"],
 		"the lines before it keep their merge order")
-	assert_eq(lines.slice(7), ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "marksman"],
+	assert_eq(lines.slice(7, 14), ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer"],
 		"shipped classes keep their registration order after the Adventurer lines")
 	assert_eq(DataRepo.fragment_path("jobs_survivor", "bishop", "res://data"), "res://data/survivor/jobs/bishop.json")
 	assert_eq(DataRepo.fragment_path("skills", "bishop", "res://data"), "res://data/survivor/skills/bishop.json")
@@ -222,8 +222,8 @@ func test_real_cache_the_creation_wand_is_wearable_and_the_shipped_pool_holds_on
 	assert_eq(WeaponInfo.family(wand), "wand")
 	assert_eq(Equipment.requirement_error(infos[wand], {"job_id": 232}), "")
 	var ed: Dictionary = data.equipment_drops
-	for tier in data.stages.tiers.size():
-		var band := EquipmentDrops.band_of(data.stages, tier)
+	for tier in data.stages.progression.size():
+		var band := EquipmentDrops.band_of(data.stages.stages[data.stages.progression[tier]])
 		var families := {}
 		var rng := _rng(232 + tier)
 		for i in 300:

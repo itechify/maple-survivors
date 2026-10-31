@@ -5,17 +5,20 @@ extends TestCase
 
 const SSF := preload("res://tests/fixtures/support_summon_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const EchoTest := preload("res://tests/unit/test_echo_cast.gd")
+const BF := preload("res://tests/fixtures/boss_attack_fixtures.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const RV := preload("res://tests/fixtures/revive_fixtures.gd")
 const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
 const SF := preload("res://tests/fixtures/shade_fixtures.gd")
+const CorsairFixtures := preload("res://tests/fixtures/corsair_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage",
-	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id", "hp", "pushed"]
+	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "from_item_id", "weapon_id", "proj", "amount", "map_index", "map_id", "hp", "pushed", "absorbed", "mount"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
-const STRING_FIELDS := ["element", "reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message"]
+const STRING_FIELDS := ["element", "reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family", "message", "art"]
 
 
 
@@ -28,10 +31,9 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 		return
 	seen[type] = int(seen.get(type, 0)) + 1
 	var want: Array = ["type"] + RunWorld.EVENT_FIELDS[type]
-	if type == "summon_spawn" and e.has("sound"):
-		want.append("sound")
-	if type == "burst_end" and e.has("released"):
-		want.append("released")
+	for optional: String in RunWorld.OPTIONAL_EVENT_FIELDS.get(type, []):
+		if e.has(optional):
+			want.append(optional)
 	want.sort()
 	var got: Array = e.keys()
 	got.sort()
@@ -46,6 +48,8 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			fail("%s.velocity is not Vector2" % type)
 		elif k == "area" and not (v is Rect2):
 			fail("%s.area is not Rect2" % type)
+		elif k == "anchors" and not (v is PackedVector2Array):
+			fail("%s.anchors is not PackedVector2Array" % type)
 		elif (k == "slot" and type.begins_with("summon_")) and typeof(v) != TYPE_INT:
 			fail("%s.slot is not int" % type)
 		elif k in INT_FIELDS and typeof(v) != TYPE_INT:
@@ -278,6 +282,22 @@ func test_every_event_matches_the_schema() -> void:
 	teleporter.step(DT, blink)
 	for event: Dictionary in teleporter.drain_events():
 		_check(event, seen)
+	# Flash Jump (#405): a Night Lord's airborne flash announces itself with `flash_jump {skill, from, to}`.
+	var flash_data := RF.quiet_data()
+	flash_data.jobs_survivor.jobs["412"]["playable"] = true
+	var flash_setup := RF.setup("quiet", 405, flash_data)
+	flash_setup["job"] = 412
+	var flasher := RunWorld.new(flash_setup)
+	flasher.player.place(Vector2(400, -200), flasher.fhm)
+	var flash_press := MoveInput.new()
+	flash_press.press_skill("flash_jump")
+	flash_press.right = true
+	flasher.step(DT, flash_press)
+	var flashed := 0
+	for event: Dictionary in flasher.drain_events():
+		_check(event, seen)
+		flashed += int(event.type == "flash_jump")
+	assert_eq(flashed, 1, "the flash announced itself once")
 	# Shared restoration has no live skill consumer until the second-job tickets land.
 	var restored := RF.quiet_world()
 	restored.take_hit(10, false, "", restored.player.pos + Vector2(10, 0))
@@ -325,6 +345,14 @@ func test_every_event_matches_the_schema() -> void:
 	thrower.progression.level = 37
 	RF.as_job(thrower, 412)
 	for event: Dictionary in thrower.drain_events():
+		_check(event, seen)
+	# An echo clone repeats a star cast (spec #383 M11): echo_cast, schema-checked like every event. The skills are synthetic.
+	var echoer := EchoTest.world()
+	echoer.step(DT, MoveInput.new())
+	EchoTest.mob(echoer, 500)
+	for tick in 40:
+		echoer.step(DT, MoveInput.new())
+	for event: Dictionary in echoer.drain_events():
 		_check(event, seen)
 	# A Gunslinger's Grenade is thrown (#192): skill_thrown, schema-checked like every event.
 	var grenadier := RF.quiet_world()
@@ -437,6 +465,17 @@ func test_every_event_matches_the_schema() -> void:
 	for event: Dictionary in hawk.drain_events():
 		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
+		if type == "meso_picked":
+			var data := RF.quiet_data()
+			data.jobs_survivor.jobs["212"]["meter"] = {"id": "meso_charge", "max": 10,
+				"gain": {"event": "meso_picked", "amount": 1, "per_mesos": 1000}, "per_unit": {"stat": "damage", "value": 0.03}}
+			var looter := RunWorld.new(RF.setup("quiet", 403, data))
+			RF.place_player(looter, 200)
+			var drop := looter.pickups.spawn_meso(looter.player.pos, 1200)
+			looter.pickups.state[drop] = PickupSystem.REST
+			looter.step(DT, MoveInput.new())
+			for event: Dictionary in looter.drain_events():
+				_check(event, seen)
 		if type == "ammo_shot":
 			var archer := CF.ranged_final(1452000, 312)
 			var dummy := RF.put_mob(archer, 1110100, 350, 190, 100)
@@ -469,6 +508,21 @@ func test_every_event_matches_the_schema() -> void:
 			for event: Dictionary in beholder.drain_events():
 				if event.type in ["support_pulse", "buff_cast", "player_restored"]:
 					_check(event, seen)
+		if type == "area_attack":
+			var columns := RunWorld.new(BF.area_setup())
+			for tick in 240:
+				columns.step(DT, MoveInput.new())
+			for event: Dictionary in columns.drain_events():
+				_check(event, seen)
+		if type == "hazard_spawned" or type == "hazard_status":
+			# #459: a poison mist cast on the Snowman-shaped synthetic level, then the character stands in it.
+			var mist_test := preload("res://tests/unit/test_poison_mist.gd").new()
+			var misty: RunWorld = mist_test._world("S", 4.0)
+			mist_test._ticks(misty, 1800)
+			RF.place_player(misty, 620)
+			mist_test._ticks(misty, 2)
+			for event: Dictionary in misty.drain_events():
+				_check(event, seen)
 		if type == "player_banished":
 			var shaded := SF.world()
 			for tick in 15 * 60:
@@ -476,6 +530,34 @@ func test_every_event_matches_the_schema() -> void:
 			for event: Dictionary in shaded.drain_events():
 				_check(event, seen)
 		assert_true(seen.has(type), "%s was emitted (seen %s)" % [type, seen])
+
+
+## The Battleship (spec #384): `form_started.mount` and `player_hit.absorbed` are optional fields, so the schema test's own
+## stream must include a ship and a soaked hit, and they must be documented in OPTIONAL_EVENT_FIELDS and typed.
+func test_the_ships_optional_event_fields_obey_the_schema() -> void:
+	var data := RF.quiet_data()
+	data.balance.player.hp = 1000
+	var w := RunWorld.new(CorsairFixtures.setup("quiet", 397, data))
+	RF.place_player(w, 400)
+	w.loadout.ranks.clear()
+	w.loadout.order.clear()
+	assert_true(w.learn_skill("battleship"))
+	w.refresh_player_stats()
+	w.drain_events()
+	w.runner.forms.start(w, "battleship", w.loadout.stats("battleship"))
+	w.take_hit(300.0, false, "", w.player.pos + Vector2(20, 0), {"accuracy": 100000.0, "source_kind": "touch"})
+	var seen := {}
+	var events := w.drain_events()
+	for e: Dictionary in events:
+		_check(e, seen)
+	var started := events.filter(func(e: Dictionary) -> bool: return e.type == "form_started")
+	var hit := events.filter(func(e: Dictionary) -> bool: return e.type == "player_hit")
+	assert_eq(started.size(), 1)
+	assert_true(started[0].has("mount"), "the ship names its mount")
+	assert_eq(hit.size(), 1)
+	assert_true(hit[0].has("absorbed"), "the hull soaked part of the hit")
+	for type: String in RunWorld.OPTIONAL_EVENT_FIELDS:
+		assert_true(RunWorld.EVENT_FIELDS.has(type), "%s is a documented event type" % type)
 
 
 func _digest(p_seed: int, seconds: float) -> String:

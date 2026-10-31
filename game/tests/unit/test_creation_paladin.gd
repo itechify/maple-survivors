@@ -167,7 +167,7 @@ func test_create_makes_a_paladin_with_its_mace_and_a_separate_f_p_in_the_next_sl
 	assert_eq(flow.current_name, "free_market")
 	var paladin: Dictionary = flow.save.slot(0).character
 	assert_eq(paladin.job_id, 122)
-	assert_eq(paladin.tiers_unlocked, 1)
+	assert_eq(paladin.cleared_regions, [])
 	assert_eq(int(paladin.equipment.worn.weapon.id), 1322000, "a Paladin starts with the Mace")
 	assert_eq(CharacterSnapshot.validation_error(paladin), "")
 	flow.goto_character_select()
@@ -176,7 +176,7 @@ func test_create_makes_a_paladin_with_its_mace_and_a_separate_f_p_in_the_next_sl
 	creation.create_button.pressed.emit()
 	assert_eq(flow.save.slot(1).character.job_id, 212)
 	assert_eq(flow.save.slot(0).character.job_id, 122, "the first slot is unchanged")
-	assert_eq(flow.save.slot(0).character.tiers_unlocked, 1, "each job has its own tier ladder")
+	assert_eq(flow.save.slot(0).character.cleared_regions, [], "each job has its own progress")
 
 
 func test_paladin_is_refused_when_disabled_after_selection() -> void:

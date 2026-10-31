@@ -16,11 +16,11 @@ func test_load_all_has_every_file() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
-	for key: String in ["skills", "upgrades", "stages", "balance", "mobs", "equipment_drops", "jobs_survivor", "scrolls", "shops", "jobs", "exp_table", "cash_items", "ammo"]:
+	for key: String in ["skills", "upgrades", "stages", "balance", "mobs", "equipment_drops", "jobs_survivor", "scrolls", "shops", "jobs", "exp_table", "cash_items", "ammo", "level_curve"]:
 		assert_true(d.has(key) and not d[key].is_empty(), "setup.data.%s" % key)
 	var bad := PackedStringArray()
 	assert_true(DataRepo.load_all("res://no_such_dir", bad).skills.is_empty())
-	assert_eq(bad.size(), 13, "every missing file reported")
+	assert_eq(bad.size(), 14, "every missing file reported")
 
 
 func test_an_ammo_schedule_keyed_by_branch_is_a_load_error() -> void:
@@ -36,7 +36,7 @@ func test_every_stage_names_its_region_and_continent() -> void:
 	var want := {"henesys": ["Henesys", "Victoria Island"], "ellinia": ["Ellinia", "Victoria Island"],
 		"perion": ["Perion", "Victoria Island"], "kerning": ["Kerning City", "Victoria Island"],
 		"sleepywood": ["Sleepywood", "Victoria Island"]}
-	assert_eq(data.stages.stages.keys(), want.keys())
+	assert_eq(data.stages.stages.keys().slice(0, want.size()), want.keys(), "the original five come first; each later region's test checks its own labels")
 	for key: String in want:
 		var st: Dictionary = data.stages.stages[key]
 		assert_eq(String(st.get("region", "")), want[key][0], "%s region" % key)
@@ -200,8 +200,9 @@ func test_stages_mobs_and_manifest() -> void:
 	assert_true(manifest is Dictionary)
 	var want_maps := {"henesys": 104040000, "ellinia": 101010100, "perion": 102010000, "kerning": 103010000,
 		"sleepywood": 105050400}
-	assert_eq(stages.keys(), want_maps.keys(), "the five distinct stages are offered")
-	assert_eq(manifest.maps, [104040000.0, 104010001.0, 100030001.0, 101010100.0, 100040100.0,
+	assert_eq(stages.keys().slice(0, want_maps.size()), want_maps.keys(), "the five original stages are offered first")
+	# Pin of the main file's own 16 maps only: each region's fragment appends its maps after them (no edit per region).
+	assert_eq(manifest.maps.slice(0, 16), [104040000.0, 104010001.0, 100030001.0, 101010100.0, 100040100.0,
 		100040105.0, 102010000.0, 101030404.0, 106000101.0, 103010000.0, 103000101.0, 107000000.0,
 		105050400.0, 105090310.0, 105090900.0, 910000000.0],
 		"the three maps of each region and the Free Market hub are imported")
@@ -277,7 +278,8 @@ func test_perion_and_kerning_mobs_have_exp_pickups_meso_ranges_and_imports() -> 
 ## Spec #253: Iron Hook and Shade cast their kits like the other scheduled bosses (unsupported skills are skipped).
 func test_iron_hook_and_shade_are_enabled_boss_kits() -> void:
 	var enabled: Array = data.balance.mob_skills.enabled_ids
-	for id: float in [2220000.0, 3220000.0, 9300003.0, 6220000.0, 4090000.0, 5090000.0]:
+	for id: float in [2220000.0, 3220000.0, 9300003.0, 6220000.0, 4090000.0, 5090000.0, 3300008.0, 3300005.0,
+			5220002.0, 5220001.0, 5220000.0]:
 		assert_has(enabled, id, "boss %d casts its kit" % int(id))
 
 
@@ -716,7 +718,7 @@ func test_every_derived_stage_mob_is_in_the_asset_manifest() -> void:
 	lib.open()
 	var manifest: Variant = AssetManifest.load_merged("res://data/asset_manifest.json")
 	var mob_skill := lib.img(DataRepo.MOB_SKILL_IMG).root
-	for key: String in data.stages.tiers[0]:
+	for key: String in data.stages.progression.slice(0, 4):
 		var stage: Dictionary = data.stages.stages[key]
 		var imgs := {}
 		for id in StageRoster.named_ids(stage):
@@ -741,6 +743,13 @@ func test_meter_catalog_schema() -> void:
 		assert_true(float(meter.max) > 0 and float(meter.max) == floorf(float(meter.max)))
 		assert_true(String(meter.gain.event) in ["cast_landed", "hit_taken", "meso_picked"])
 		assert_true(float(meter.gain.amount) > 0 and float(meter.gain.amount) == floorf(float(meter.gain.amount)))
+		# M23 (#403): per_mesos only on a mesos-driven rule; a decay names a positive interval and a whole amount.
+		if meter.gain.has("per_mesos"):
+			assert_eq(String(meter.gain.event), "meso_picked")
+			assert_true(float(meter.gain.per_mesos) > 0 and float(meter.gain.per_mesos) == floorf(float(meter.gain.per_mesos)))
+		if meter.has("decay"):
+			assert_true(float(meter.decay.interval) > 0.0)
+			assert_true(float(meter.decay.amount) > 0 and float(meter.decay.amount) == floorf(float(meter.decay.amount)))
 		assert_true(String(meter.gain.get("exclude", "")) in ["", "finisher"])
 		assert_eq(String(meter.per_unit.stat), "damage")
 		assert_true(float(meter.per_unit.value) >= 0.0)
@@ -753,6 +762,11 @@ func test_meter_catalog_schema() -> void:
 		if not skill.has("meter"):
 			continue
 		var meter: Dictionary = skill.meter
+		if meter.has("read_per_unit") and not meter.has("role"):
+			# M23 (#403): a read-only block multiplies damage by the held units and carries nothing else.
+			assert_true(float(meter.read_per_unit) > 0.0)
+			assert_false(meter.has("min") or meter.has("spend"))
+			continue
 		assert_eq(String(meter.role), "finisher")
 		assert_true(float(meter.min) > 0 and float(meter.min) == floorf(float(meter.min)))
 		assert_eq(String(meter.spend), "all")
