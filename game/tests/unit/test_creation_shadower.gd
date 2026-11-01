@@ -1,20 +1,20 @@
 extends TestCase
 ## The creation Job page with Shadower (spec #425, SH13 #438; playable since SH14 #439). The page is verified on the shipped
-## eleven-row list, on the ten-row list an UNPLAYABLE patch (`DataRepo.patch`) gives, and on lists the patch reduces to two jobs
+## twelve-row list, on the eleven-row list an UNPLAYABLE patch (`DataRepo.patch`) gives, and on lists the patch reduces to two jobs
 ## (layout, selection, keyboard step, weapon box). Making Shadower unplayable after the selection drives the refusal test.
 ## The Job page needs the cache (Look OK stays disabled until the hair/face columns exist), so every test that opens it calls
 ## `require_cache()`; the data-level tests run in CI.
 
 const CREATE := preload("res://scenes/ui/character_create.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
-## Shadower off: the ten-row page of the jobs before SH14 (Night Lord, then Buccaneer).
+## Shadower off: the eleven-row page of the jobs before SH14 (Marksman, Night Lord, then Buccaneer).
 const UNPLAYABLE := {"jobs_survivor": {"jobs": {"422": {"playable": false}}}}
 ## Every other playable job disabled: the page has the two rows 212 and 422.
 const REDUCED := {"jobs_survivor": {"jobs": {"112": {"playable": false}, "122": {"playable": false}, "132": {"playable": false},
-	"222": {"playable": false}, "232": {"playable": false}, "312": {"playable": false}, "412": {"playable": false}, "512": {"playable": false},
+	"222": {"playable": false}, "232": {"playable": false}, "312": {"playable": false}, "322": {"playable": false}, "412": {"playable": false}, "512": {"playable": false},
 	"522": {"playable": false}, "422": {"playable": true}}}}
-const SHADOWER_ROW := 8 ## zero-based row of 422 on the eleven-row page: after Night Lord (412), before Buccaneer (512)
-const IDS: Array[int] = [112, 122, 132, 212, 222, 232, 312, 412, 422, 512, 522]
+const SHADOWER_ROW := 9 ## zero-based row of 422 on the twelve-row page: after Night Lord (412), before Buccaneer (512)
+const IDS: Array[int] = [112, 122, 132, 212, 222, 232, 312, 322, 412, 422, 512, 522]
 
 var save_path := TestCase.test_dir("creation_shadower/save.json")
 var _nodes: Array[Node] = []
@@ -78,29 +78,29 @@ func _row(creation: Control, id: int) -> Button:
 func test_shipped_shadower_is_playable_between_night_lord_and_buccaneer_with_212_the_default() -> void:
 	var shipped := _tree()
 	assert_true(shipped.job(422).playable, "SH14 flipped it")
-	assert_eq(shipped.playable_jobs(), IDS, "canonical order, eleven rows")
+	assert_eq(shipped.playable_jobs(), IDS, "canonical order, twelve rows")
 	assert_eq(shipped.playable_jobs().find(422), SHADOWER_ROW)
-	assert_eq(shipped.default_job(), 212, "the pin keeps 212 the default with eleven playable jobs")
+	assert_eq(shipped.default_job(), 212, "the pin keeps 212 the default with twelve playable jobs")
 	assert_eq(shipped.name_of(422), "Shadower")
 	assert_eq(shipped.creation_weapon(422), 1332005, "the Razor")
 	DataRepo.patch = UNPLAYABLE.duplicate(true)
 	var patched := _tree()
 	assert_false(patched.job(422).playable, "the patch seam still turns it off")
-	assert_eq(patched.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 412, 512, 522] as Array[int], "unplayable again: ten rows")
+	assert_eq(patched.playable_jobs(), [112, 122, 132, 212, 222, 232, 312, 322, 412, 512, 522] as Array[int], "unplayable again: eleven rows")
 
 
-func test_an_unplayable_shadower_has_no_row_and_the_page_keeps_the_ten_row_pitch() -> void:
+func test_an_unplayable_shadower_has_no_row_and_the_page_keeps_the_eleven_row_pitch() -> void:
 	if not require_cache():
 		return
 	DataRepo.patch = UNPLAYABLE.duplicate(true)
 	var creation := _job_page(_flow(), "ShShip01")
-	var ids: Array[int] = [112, 122, 132, 212, 222, 232, 312, 412, 512, 522]
+	var ids: Array[int] = [112, 122, 132, 212, 222, 232, 312, 322, 412, 512, 522]
 	assert_eq(creation.job_ids, ids)
 	assert_true(_row(creation, 422) == null, "no Shadower row while it is unplayable")
-	assert_eq(creation.job_pitch, 16.0)
+	assert_eq(creation.job_pitch, 15.0)
 
 
-func test_eleven_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> void:
+func test_twelve_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> void:
 	if not require_cache():
 		return
 	var creation := _job_page(_flow(), "ShRows01")
@@ -119,9 +119,9 @@ func test_eleven_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> vo
 	assert_eq(shadower.text, "Shadower")
 	assert_true(shadower.get_theme_stylebox("normal") is StyleBoxEmpty, "Shadower is not highlighted until chosen")
 	assert_false(_row(creation, 212).get_theme_stylebox("normal") is StyleBoxEmpty, "212 is highlighted")
-	# Eleven rows: the pitch shrinks to floor((JOB_LIST_BOTTOM - ROW_AT.y) / 11) = 15 px so the last row still ends above the
+	# Twelve rows: the pitch shrinks to floor((JOB_LIST_BOTTOM - ROW_AT.y) / 12) = 14 px so the last row still ends above the
 	# "Choose your job." message strip.
-	assert_eq(creation.job_pitch, 15.0)
+	assert_eq(creation.job_pitch, 14.0)
 	var end: float = _row(creation, 522).position.y + creation.job_pitch - 2.0 # the intended row height; the real heights are asserted by test_job_rows_are_pitch_tall_and_never_overlap
 	assert_true(end <= CREATE.JOB_LIST_BOTTOM, "the last row ends at %s, above %s" % [end, CREATE.JOB_LIST_BOTTOM])
 	assert_true(end <= CREATE.MESSAGE_BOX.position.y, "and clear of the message strip")
@@ -129,7 +129,7 @@ func test_eleven_rows_in_canonical_order_one_pitch_apart_with_212_chosen() -> vo
 
 func test_job_rows_are_pitch_tall_and_never_overlap() -> void:
 	# Review #425 S1: a Button given its size before it is in the tree keeps the default font's 31 px minimum height (the size is
-	# clamped to the minimum measured without the theme), so at the eleven-row page's 15 px pitch each row (and the chosen row's plate
+	# clamped to the minimum measured without the theme), so at the twelve-row page's 14 px pitch each row (and the chosen row's plate
 	# and click box) covered the next rows. CreateCharacter sets the size after add_child; this fails if that line moves back.
 	if not require_cache():
 		return
@@ -140,7 +140,8 @@ func test_job_rows_are_pitch_tall_and_never_overlap() -> void:
 		if row == null:
 			assert_true(false, "row for %d" % ids[i])
 			return
-		assert_true(row.size.y <= creation.job_pitch - 2.0 + 0.01, "row %d is %s tall, at most the pitch less its gap (%s)" % [i, row.size.y, creation.job_pitch - 2.0])
+		# the themed Button cannot be shorter than 13 px (its font), so at the twelve-row 14 px pitch the gap is 1 px, not the usual 2
+		assert_true(row.size.y <= creation.job_pitch - 1.0 + 0.01, "row %d is %s tall, at most the pitch less a 1 px gap (%s)" % [i, row.size.y, creation.job_pitch - 1.0])
 		if i + 1 < ids.size():
 			assert_true(row.position.y + row.size.y <= _row(creation, ids[i + 1]).position.y, "row %d ends above row %d" % [i, i + 1])
 	# A click at the centre of Shadower's row selects Shadower, not the row below it.
@@ -164,13 +165,15 @@ func test_clicking_shadower_selects_it_and_moves_the_highlight() -> void:
 	assert_true(String(creation._job_blurb.text).begins_with("Shadower"), "the blurb names the chosen job: %s" % creation._job_blurb.text)
 
 
-func test_up_and_down_step_through_all_eleven_rows_and_clamp() -> void:
+func test_up_and_down_step_through_all_twelve_rows_and_clamp() -> void:
 	if not require_cache():
 		return
 	var creation := _job_page(_flow(), "ShKeys01")
 	creation.select_job(312)
 	creation._input(_key(KEY_DOWN))
-	assert_eq(creation.job_id, 412, "Down from Bowmaster is Night Lord")
+	assert_eq(creation.job_id, 322, "Down from Bowmaster is Marksman")
+	creation._input(_key(KEY_DOWN))
+	assert_eq(creation.job_id, 412, "Down from Marksman is Night Lord")
 	creation._input(_key(KEY_DOWN))
 	assert_eq(creation.job_id, 422, "Down from Night Lord is Shadower")
 	creation._input(_key(KEY_DOWN))
@@ -182,7 +185,7 @@ func test_up_and_down_step_through_all_eleven_rows_and_clamp() -> void:
 	creation.select_job(522)
 	creation._input(_key(KEY_DOWN))
 	assert_eq(creation.job_id, 522, "Down at the last row stays")
-	for i in 10:
+	for i in 11:
 		creation._input(_key(KEY_UP))
 	assert_eq(creation.job_id, 112)
 	creation._input(_key(KEY_UP))

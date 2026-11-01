@@ -84,7 +84,7 @@ func test_marksman_follows_the_registered_classes_in_the_shipped_order() -> void
 	var lines := Array(DataRepo.lines())
 	assert_eq(lines.slice(0, 7), ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"])
 	assert_eq(lines.find("marksman"), lines.find("night_lord") + 1, "right after Night Lord in the line order")
-	assert_eq(lines.slice(7), ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "corsair", "night_lord", "marksman"])
+	assert_eq(lines.slice(7), ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "corsair", "night_lord", "marksman", "shadower"])
 
 
 func test_the_marksman_line_loads_without_errors_and_adds_its_job_and_only_crossbowman_books() -> void:
