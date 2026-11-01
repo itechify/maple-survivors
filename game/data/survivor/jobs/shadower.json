@@ -38,7 +38,25 @@
 				},
 				"art": "Item.wz/Special/0900.img/09000002/iconRaw"
 			},
-			"_meter": "tier C: spec #425 SH-10: the meso charge, a counter filled by meso pickups and never a currency (D7). 1 pip per 600 mesos picked up (Night Lord: 1000), max 10, NO decay (the finisher spends the charge, so a decay would be a race against a clock the player cannot see), +2% damage per held pip on every pool cast (Hero's Combo is +5%). Tier A fact: the art is the meso coin's animation frame, already imported for pickups. Read by PlayerMeter's meso_picked rule (NL4 #403)."
+			"_meter": "tier C: spec #425 SH-10: the meso charge, a counter filled by meso pickups and never a currency (D7). 1 pip per 600 mesos picked up (Night Lord: 1000), max 10, NO decay (the finisher spends the charge, so a decay would be a race against a clock the player cannot see), +2% damage per held pip on every pool cast (Hero's Combo is +5%). Tier A fact: the art is the meso coin's animation frame, already imported for pickups. Read by PlayerMeter's meso_picked rule (NL4 #403).",
+			"hub_kit": {
+				"fixture": "res://tests/fixtures/characters/shadower_t2.json",
+				"scrolls": [
+					2043302,
+					2043301,
+					2043300,
+					2043304,
+					2043305
+				],
+				"equipment": [
+					1002001,
+					1332000,
+					1082002,
+					1040031
+				],
+				"fallback_item": 1332011
+			},
+			"_hub_kit": "tier C: spec #425 SH13 #438: the --hub / flow-driver test kit of a Shadower. Fixture = shadower_t2.json (the tier-1 dagger kit: Iron Dagger 1332010, Lv25 PAD 40); scrolls = the five dagger ATT scrolls of scrolls/thief.json (10%, 60%, 100%, dark 70%, dark 30%; 5 stacks of 10 within the Use tab); spare equipment = the all-job hat 1002001, a second dagger (1332000, Lv12 Thief), the all-job gloves 1082002 and a Thief-bit top (1040031, Lv10), all wearable by job 422; fallback_item = the Lv40 dagger 1332011 (Thief) the flow driver wears at Lv1 when a round dropped no equipment."
 		}
 	},
 	"balance": {

@@ -1,0 +1,82 @@
+{
+	"_doc": {
+		"by": "spec425/ticket-438",
+		"job": 422,
+		"kit": [
+			1332010,
+			1002171,
+			1072022,
+			1082029,
+			1040002,
+			1060002
+		],
+		"note": "Synthetic format-3 kit (tools/character_fixture.gd --kit): unscrolled canonical equipment of the Lv0-30 tier-1 drop band and 4 regions cleared, no cash, pet or carried build; a Lv1 character for the Sleepywood checks.",
+		"patch": "shadower_playable.json",
+		"revision": "76335a2d6da544979c72d9957c29002ef3b53f23"
+	},
+	"cleared_regions": [
+		"ellinia",
+		"henesys",
+		"kerning",
+		"perion"
+	],
+	"equipment": {
+		"inventory": [],
+		"worn": {
+			"bottom": {
+				"id": 1060002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			"gloves": {
+				"id": 1082029,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 4
+				}
+			},
+			"hat": {
+				"id": 1002171,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incDEX": 1,
+					"incPDD": 21
+				}
+			},
+			"shoes": {
+				"id": 1072022,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 10
+				}
+			},
+			"top": {
+				"id": 1040002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 3
+				}
+			},
+			"weapon": {
+				"id": 1332010,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 40
+				}
+			}
+		}
+	},
+	"format": 3,
+	"job_id": 422,
+	"look": {},
+	"mesos": 0,
+	"scrolls": {}
+}
