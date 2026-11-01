@@ -9824,6 +9824,36 @@ cast its own critical chance and bonus, read from the skill's canonical level fi
   `bonus_field`; `FinishingStrike.level_errors(book)` checks that both name numeric canonical fields on every level of every rank
   (the cache-dependent unit test for the shipped skills belongs to SH11, which adds Assassinate).
 
+### 7.135 Shadower skill entries (spec #425)
+
+One paragraph per ticket, appended; each ticket's numbers are under its own "Shadower <ticket> constants" heading.
+
+**SH8 (#433): Boomerang Step and Band of Thieves.** Two multi-target skills on the existing `box` cast rule, both auto-cast
+with at least one monster in the box, both on the default 30-level rank table (ranks read WZ levels 4 / 8 / 12 / 15 / 19 / 23 /
+27 / 30), no weapon gate (`skills/shadower.json`).
+- **Boomerang Step** (4221007, book 422): the WZ forward line (-300, -110)..(0, 0), mirrored with the facing like every box, stabs
+  the nearest `mobCount` (2 / 3 / 4) monsters `attackCount` 2 lines each at 290 / 400 / 500% per line, and each struck monster
+  rolls the Shout-style `on_hit` stun on `prop` (38 / 60 / 90%) for `time` seconds (2 / 3 / 4). Bosses take the damage and
+  never the stun (`MobSwarm.accepts_status`). 3.0 s cooldown, action `alert5`, `effect`, `hit/0`, `Use` and `Hit` sounds.
+- **Band of Thieves** (4211004, book 421): the symmetric WZ box (+-130 / +-140 / +-150 by +-50) hits the nearest `mobCount`
+  (2 / 4 / 6) monsters, and the node's `x` is the number of lines: each "other self" lands one line on every struck monster
+  (SH-8). The new definition key `attack_count_field` (`Loadout._base_attack_count`, default `attackCount`) reads `x` as the
+  base `attack_count`, so rarity `attack_count` bonuses and the card previews work unchanged. Damage per line is 140 / 150 / 210%
+  at ranks 1 / 4 / 8 and is **not monotone** (it falls at WZ levels 7, 13, 19 and 25, where `x` steps up); the per-cast total
+  (percent x lines x monsters) rises at every one of the eight ranks (1.4, 2.6, 3.4, 4.5, 5.6, 7.2, 9.0, 10.5 per monster
+  before the monster count). 8.0 s cooldown, no status. The node has no `action`: the definition says `weapon` (the held
+  dagger's first stance). The thieves are the effect art, not summons: `effect` plays on the caster, `hit_lines` plays the
+  thief figure `hit/1..5` on each struck monster by line (`hit/0`, the common strike, is the fallback). `hitAfter` (five of
+  the six `hit` nodes carry it) is not modelled: every line lands on the cast tick.
+- **Rarity bonuses** (tier C, #288 schema): Boomerang Step Dagger Mastery damage x1.2, Dagger Booster cooldown x0.88, Second Pass
+  `count` +1 (one more monster in the line); Band of Thieves Band Mastery damage x1.2, Wide Band `area` x1.2, Bigger Band
+  `attack_count` +1 (one more thief). Legendary = the Unique's effect (same id, so it shares the repeat counter) plus damage x1.2.
+- Bot: the geometric box reach is the bot reach (300 and 150 px); no `bot` key, no card-score entry (the pool default gives a
+  learn card 100 and a rank card 74). Not tuned.
+Tests: `test_shadower_boomerang_band` (forward line follows the facing, nearest-N and two lines each, stun roll and boss
+exemption, Band lines / monsters / box by rank, totals rising across the non-monotone percents, per-line hit art, every rarity
+bonus changing the resolved cast, card flow, bot scores, Skill window text, and the real-cache numbers of all eight ranks).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -12328,3 +12358,17 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | `balance.status_bonuses.venomous_stab` | poison; chance 14 16 18 20 24 26 28 30; time 2 2 3 3 3 4 4 4; level 4 8 12 15 19 23 27 30; element `s` | tier A: Venomous Stab 4220005 `prop`, `time` and the rank -> poison level map, equal level for level to 4120005 |
 | `repeat_chance` of `venomous_stab` | 3 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #425 SH-13 |
 | `test_late_equipment_bands` Shadower row | job 422, `["dagger"]`, shield check off (the shipped Thief shield list has no piece in bands 1, 2, 14, 15; SH2 changes no equipment data) | tier C: test table, spec #425 |
+
+### Shadower SH8 constants (#433)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Boomerang Step cooldown / action hold | 3.0 s / 0.6 s (the `alert5` body has three 300 ms frames; the stance is cut short) | tier C: spec #425 |
+| Boomerang Step admission | `min_targets` 1 (a monster in the forward line) | tier C: ours (SH8) |
+| Boomerang Step stun | `on_hit stun {chance_field prop, duration_field time}`: one stream-1 draw per struck non-boss at `prop` < 100 | tier A fields (`prop` 38 / 60 / 90, `time` 2 / 3 / 4); the stun reading is tier C (Shout's), spec #425 |
+| Boomerang Step `mob` stun-star node | not wired: the generic stun cue draws the stars | tier C: ours (SH8) |
+| Band of Thieves lines | `attack_count_field x`: lines = `x` (1 / 3 / 5), one per "other self" on each struck monster | tier C reading of the String "N other selves will attack", spec #425 SH-8 |
+| Band of Thieves cooldown / action hold / admission | 8.0 s / 0.6 s / `min_targets` 1 | tier C: spec #425 / ours (SH8) |
+| Band of Thieves `action` | `weapon` (the held dagger's first stance; the WZ node has none) | tier C: spec #425, asset notes (#426) |
+| Band of Thieves art | `effect` on the caster, `hit_lines` = `hit/1..5` by line, `hit/0` the fallback; `hitAfter` not modelled (all lines on the cast tick) | tier C: ours (SH8) |
+| Rarity bonuses (both) | damage x1.2, cooldown x0.88 / `area` x1.2, `count` / `attack_count` +1, Legendary = Unique + damage x1.2 | tier C: spec #425 |
