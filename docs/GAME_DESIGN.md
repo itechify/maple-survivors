@@ -10181,7 +10181,12 @@ SH14 is the QA ticket: it made Shadower playable, gave it the melee HP baseline,
   `hit_negated`: a "Guard" label over the character with a number that did not land)**, the meso charge pip row beside the timer, HP bar growth with level. **Not captured in a frame:**
   a poisoned pack (no Venomous Stab grant is taken by the bot in these seeds; Night Lord's poison probe, `night_lord_status_probe`, and the unit tests cover the visual), a distinctly readable stunned pack
   (stuns are applied: 22 status applications in the SH13 oracle, Assaulter and Boomerang Step presses in the smoke) and a mid-flight Assaulter dash at the capture size.
-- **Web gate:** see "Other jobs and web gate" below.
+- **Other jobs:** Henesys bot records of Hero (112), Paladin (122), Dark Knight (132), I/L (222), Bishop (232), Bowmaster (312), Night Lord (412), Buccaneer (512) and
+  Corsair (522) at seeds 1, 2, 2026 (420 s cap, `JOBS=3`) are **byte-identical** to the same runs on the unmodified `spec/425-shadower` base (8e9abbfe, same cache); so are F/P's
+  three full Henesys bot records. Their oracles reproduced in the full suites without recapture.
+- **Web gate:** `bash scripts/export.sh --web` (EXPORT_DIR in `_scratch`) and `bash scripts/check_web_artifact.sh` pass (27 files, no WZ data or cache-shaped files; the wasm
+  importer was built with `wasm32-unknown-unknown` and the pinned web templates present on this machine), `node --test web/dev/test/*.test.mjs` 63 pass, `cd tools/wzimport && cargo test`
+  71 pass (no `MAPLE_WZ_ROOT`). Nothing under `web/`, `tools/` or the asset manifest changed, so the import screen lists no new download.
 
 ## 8. Upgrades
 

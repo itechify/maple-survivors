@@ -392,7 +392,7 @@ format-3 character (its pickups and cleared regions) from a CLEARED round to the
 
 ### Corsair (522) tooling (spec #384, C14 #398, C15 #399)
 
-Corsair is playable (C15 #399 flipped `playable`; F/P 212 stays the default): the Job page lists it last (ten rows with Night Lord, 16 px pitch, NL11 #410) and
+Corsair is playable (C15 #399 flipped `playable`; F/P 212 stays the default): the Job page lists it last (ten rows with Night Lord, 16 px pitch, NL11 #410; eleven rows at 15 px with Shadower, SH14 #439) and
 `--job=522` is accepted by `balance.sh`, `playtest.sh`, `--run`, `balance_run.gd`, the fixture tool and the flow driver with no patch.
 `game/tests/fixtures/characters/corsair_t2.json` is the Corsair fixture: kit mode (`--job=522 --kit=1492003,1002096,1072017,1082002,1040002,1060002
 --tiers=2`: a Lv25 pistol and the closest all-job hat, shoes and gloves the cache holds (it has no Pirate-bit armour), the starter top and bottom,
