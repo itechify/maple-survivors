@@ -154,6 +154,10 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		var struck := int(stats.get("mob_count", 1))
 		mechanics.append("Strikes up to %d %s every %s s for %s s" % [struck, "monster" if struck == 1 else "monsters",
 			number(float(cadence.interval)), number(book.canonical(key, level, "time"))])
+	if FinishingStrike.is_active(stats):
+		# tier C (ours, SH5): the last line's crit chance and bonus, the numbers FinishingStrike.line_stats applies.
+		mechanics.append("The last strike has a %s%% chance of +%s%% critical damage" % [
+			number(float(stats[FinishingStrike.CHANCE_KEY])), number(float(stats.get(FinishingStrike.BONUS_KEY, 0.0)))])
 	if def.has("pierce_field"):
 		var through := int(stats.get("pierce", 0))
 		mechanics.append("Pierces up to %d more %s" % [through, "monster" if through == 1 else "monsters"])

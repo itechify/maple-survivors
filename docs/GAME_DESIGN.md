@@ -9709,6 +9709,34 @@ spec corrected its `morph` row (BU-9, 7.92). A schema that lists `effects.hidden
 - **Tests.** `test_hidden_form` proves all of it on a synthetic form (job 999, skill 9991001+): no Shadower data and no asset cache.
   Dark Sight and Assassinate (SH11) copy it.
 
+### 7.133 Finishing strike (spec #425 SH5, #430)
+
+Constants: "Shadower SH5 constants (#430)". Assassinate (SH11) is the only user; the block is generic and no skill ID is in the code.
+
+A skill block `"finish_strike": {"chance_field": "prop", "bonus_field": "criticalDamage"}` gives the **last** damage line of a
+cast its own critical chance and bonus, read from the skill's canonical level fields (`FinishingStrike`, `scripts/sim/finishing_strike.gd`):
+
+- `Loadout.stats` adds `finish_chance` (percent) and `finish_bonus` (skill-percent points) **only for a skill with the block**, through
+  `Loadout._add_finish_strike` at the end of the resolved dictionary. Every other skill's stats are byte-identical.
+- `SkillRunner._resolve_target` hands each line `FinishingStrike.line_stats(st, line, lines)`. Lines before the last (and every line
+  of a skill without the block) get `st` itself, no copy. The last line gets a shallow copy whose `crit` is `min(1, crit +
+  finish_chance / 100)` (`crit` is a 0..1 chance everywhere in the sim; the spec's "min(100, ...)" is the same cap in percent) and
+  whose `crit_damage_bonus` is `crit_damage_bonus + finish_bonus`.
+- The existing `ProjectileSystem.roll_damage` does the rest: one crit roll per line, in line order, then the Critical Throw
+  convention (a crit with a bonus above 0 multiplies the skill percent by `damage_pct + bonus / 100` instead of `crit_mult`). **No
+  RNG draw is added or reordered.** The one caveat is the existing rule that a chance of 0 draws nothing
+  (`CombatMath.roll_crit`): a character whose base crit is 0 draws one value on the last line that it did not draw before, because that
+  line now has a chance to roll.
+- **Every target's last line is the finisher** (a cast on three monsters has three finishers). A one-line cast treats its only line as the
+  last. The rule is on the hit, whatever its source: a form's sub (Assassinate under Dark Sight) resolves through the same
+  `_resolve_target`, a forced test cast too. It does not change projectile, burst or ground-strike skills (their lines are not
+  `attack_count` lines of an instant cast).
+- Presentation: the existing crit number (`mob_hit.crit`). The Skill window adds "The last strike has a {chance}% chance of
+  +{bonus}% critical damage" (`SkillText.level_line`, tier C wording).
+- Data checks: `FinishingStrike.errors` (called by `DataRepo._load_all`) needs an object naming a non-empty `chance_field` and
+  `bonus_field`; `FinishingStrike.level_errors(book)` checks that both name numeric canonical fields on every level of every rank
+  (the cache-dependent unit test for the shipped skills belongs to SH11, which adds Assassinate).
+
 ## 8. Upgrades
 
 **ADR 0006 / #287 supersedes the old draw rules below.** Every new/rank card gives exactly +1 rank regardless of
@@ -11925,6 +11953,17 @@ Mount art (GAME_DESIGN 7.120.11). The art numbers (canvases, origins, navels, de
 ### Buccaneer review corrections (#412)
 
 Dragon Strike staggered targets retain both slot and logical identity at first impact. Recycled or dead targets are skipped without changing the later target indices or due times (tier C lifetime bookkeeping, consistent with Final Attack). The Form, meter and pending-strike data seams retain their public shape. Presentation keys remain documented as shipped; grouping hit art or renaming facing is deferred to avoid schema churn for later classes. FxRenderer hit skipping and feet placement retain screenshot coverage only; no new visual claim is made by these refactors.
+
+### Shadower SH5 constants (#430)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Last-line crit chance | `min(1, crit + finish_chance / 100)`, `finish_chance` the level's `prop` (percent) | tier C: SH-7 reading of `prop` as the last line's chance (Assassinate 38 / 60 / 90) |
+| Last-line crit bonus | `crit_damage_bonus + finish_bonus` skill-percent points, `finish_bonus` the level's `criticalDamage` (+120 / +175 / +250) | tier C: SH-7, with the Critical Throw convention it rides on (tier B, SouthPerry) |
+| Which line | the last of each target's `attack_count` lines; a one-line cast's only line | tier C: SH-7 |
+| Sources | any hit resolved by `_resolve_target` (form sub, forced cast); not projectiles, bursts or ground strikes | tier C (ours) |
+| RNG | no draw added or reordered (the existing per-line crit roll, higher chance on the last) | tier C (ours) |
+| Skill-window sentence | "The last strike has a {chance}% chance of +{bonus}% critical damage" | tier C (presentation) |
 
 ## 12. Later phases
 

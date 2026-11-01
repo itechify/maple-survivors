@@ -535,6 +535,12 @@ A pool active whose meter block gates admission and spends units for extra damag
 finishers; Energy Drain and Energy Orb are Buccaneer's. Their meter_keep rarity modifier leaves units unspent.
 _Avoid_: ultimate, proc
 
+**Finishing strike**:
+The last damage line of a multi-line cast, when the skill has a `finish_strike` block: it rolls its own critical chance (the
+base chance plus the level's `prop`, capped at certain) and adds the level's `criticalDamage` in skill-percent points. Every target's
+last line is a finishing strike; a one-line cast's only line is. It adds no random draw. Assassinate's three lines end in one (`FinishingStrike`).
+_Avoid_: finisher (a meter-gated pool skill), last-hit bonus, execute
+
 **Physical follower**:
 A player summon (Silver Hawk, Phoenix, Golden Eagle, Frostprey) whose damage is physical and takes its W.Att from the skill level's `pad` instead of the worn weapon, optionally stunning on hit and flying above its trailing point. It is the Elquines seam (`PlayerSummons`) with data keys, not a separate system.
 _Avoid_: pet (the Free Market pet is a cosmetic companion), minion
