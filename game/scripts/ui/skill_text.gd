@@ -175,8 +175,9 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	if String(stats.get("cast_rule", "")) == "safe_zone":
 		# tier C (ours, SH4): the cloud's resolved life (zone_time cards included) and its admission.
 		var need := int(stats.cast_params.get("min_mobs", 1))
-		mechanics.append("Sets off a smoke cloud for %s s: hits that land while you stand inside it are negated. Needs %d %s within %s px." % [
-			number(float(stats.get("safe_zone_duration", 0.0))), need, "monster" if need == 1 else "monsters",
+		var noun := String(def.get("safe_zone", {}).get("noun", "zone")) # the block names what the player sees (Smokescreen: "smoke cloud")
+		mechanics.append("Sets off a %s for %s s: hits that land while you stand inside it are negated. Needs %d %s within %s px." % [
+			noun, number(float(stats.get("safe_zone_duration", 0.0))), need, "monster" if need == 1 else "monsters",
 			number(float(stats.cast_params.get("mob_within", 0.0)))])
 	if String(stats.get("cast_rule", "")) == "hp_or_undead":
 		# Heal (#376): the resolved threshold, so a Mending Touch card shows in the window.
@@ -421,6 +422,9 @@ func _vars(key: String, level: int, stats: Dictionary) -> Dictionary:
 		vars["mastery_pct"] = roundf(CombatMath.mastery_fraction(int(vars.mastery)) * 100.0)
 	if stats.has("passive_value"):
 		vars["passive_pct"] = snappedf(float(stats.passive_value) * 100.0, 0.01)
+	var per_unit := float(book.meter_rule(key).get("damage_per_unit", 0.0))
+	if per_unit > 0.0:
+		vars["unit_damage_pct"] = snappedf(per_unit * 100.0, 0.01) # a meter finisher's damage per spent unit (Meso Explosion's h)
 	return vars
 
 

@@ -686,6 +686,20 @@ func test_the_skill_text_names_the_percent_the_lines_and_the_charge() -> void:
 	assert_true("Spends all pips" in line, line)
 
 
+func test_the_window_text_follows_the_balance_levers_and_the_desc_names_no_number() -> void:
+	# Review #425 S4: the pips, monsters and per-pip damage are balance levers, so the hand-written desc holds no numbers and the
+	# generated lines change when the data does.
+	var w := _world(8)
+	var text := SkillText.new(w.book, {})
+	assert_false(RegEx.create_from_string("\\d").search(text.desc(KEY)) != null, "no digit in the desc: " + text.desc(KEY))
+	assert_true("every pip spent adds 8% damage" in text.level_line(KEY, 30, w.loadout.stats(KEY, 8)))
+	w.book.defs[KEY] = w.book.defs[KEY].duplicate(true)
+	w.book.defs[KEY].meter.damage_per_unit = 0.1
+	w.book.defs[KEY].meter.min = 5
+	var line := text.level_line(KEY, 30, w.loadout.stats(KEY, 8))
+	assert_true("adds 10% damage" in line and "Needs 5 pips" in line, line)
+
+
 # --- the performance tick -------------------------------------------------------------------------------------------------
 
 ## The worst cast: rank 8, a full charge, six monsters, twenty lines each = 120 hits in one tick. The tick's cost is printed
@@ -695,7 +709,6 @@ func test_the_twenty_line_six_monster_tick_lands_120_hits_and_is_timed() -> void
 	var w := _world(8)
 	_mobs(w, 6, 40.0, 15.0)
 	_fill(w, 10)
-	# Warm the tick once without the cast so a first-call cost is not billed to it.
 	w.drain_events()
 	var start := Time.get_ticks_usec()
 	w.step(DT, MoveInput.new())

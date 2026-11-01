@@ -56,8 +56,8 @@
 			"name": "Boomerang Step",
 			"desc": "Throws a stab down the line in front of you and back again, stunning the monsters it catches.",
 			"text": {
-				"desc": "Stab the nearest monsters in the line in front of you twice each; each may be stunned. Needs a monster in the line.",
-				"h": "Damage {damage}% x {attack_count}, up to {mob_count|monster|monsters}; {prop}% chance each to stun for {time} sec."
+				"desc": "Stab the nearest monsters in the line in front of you, more than once each; every monster it catches may be stunned. Needs a monster in the line.",
+				"h": "Damage {damage}% x {attack_count}, up to {mob_count|monster|monsters}; {prop}% chance to stun each monster for {time} sec."
 			},
 			"icon": "Skill.wz/422.img/skill/4221007/icon",
 			"damage": "physical",
@@ -175,7 +175,8 @@
 				"Skill.wz/421.img/skill/4211004/hit/2",
 				"Skill.wz/421.img/skill/4211004/hit/3",
 				"Skill.wz/421.img/skill/4211004/hit/4",
-				"Skill.wz/421.img/skill/4211004/hit/5"
+				"Skill.wz/421.img/skill/4211004/hit/5",
+				"Skill.wz/421.img/skill/4211004/hit/0"
 			],
 			"effect": "Skill.wz/421.img/skill/4211004/effect",
 			"rotate": false,
@@ -256,8 +257,8 @@
 			"name": "Meso Explosion",
 			"desc": "Detonates your whole meso charge on the monsters in front of you: many bags burst at once. The fuller the charge, the harder the blow. It costs no mesos.",
 			"text": {
-				"desc": "Needs at least 4 charge pips and 3 monsters in front of you. Spends the whole meso charge (nothing is taken from your mesos) on up to 6 monsters in a burst of bags; each pip spent adds 8% damage.",
-				"h": "{damage_percent}% per bag, {attack_count} bags each on up to {mob_count|monster|monsters}"
+				"desc": "Needs enough charge pips and a crowd of monsters in front of you. Spends the whole meso charge (nothing is taken from your mesos) in a burst of bags; every pip spent adds damage.",
+				"h": "{damage_percent}% per bag, {attack_count} bags each on up to {mob_count|monster|monsters}; every pip spent adds {unit_damage_pct}% damage"
 			},
 			"icon": "Skill.wz/421.img/skill/4211006/icon",
 			"damage": "physical",
@@ -565,7 +566,7 @@
 			"kind": "instant",
 			"slot": "active",
 			"name": "Savage Blow",
-			"desc": "Strikes a monster up to six times with a dagger.",
+			"desc": "Strikes a monster many times with a dagger.",
 			"icon": "Skill.wz/420.img/skill/4201005/icon",
 			"damage": "physical",
 			"_tier": "Tier A: canonical weapon 33, attackCount, damage, mpCon, savage action, effect, hit art and sounds. Tier C: weapon_reach auto-cast, one base target, cooldown 1.2s, action hold 1.0s; untuned. SH6 #431 (GAME_DESIGN 7.135): ported from thief.json with the default rank table (no explicit `ranks`: 30 levels, ranks 1..8 read levels 4 / 8 / 12 / 15 / 19 / 23 / 27 / 30), same numbers, cast rule, 1.2 s cooldown, art and sounds; rarity bonuses (tier C, spec #425). Untuned.",
@@ -654,7 +655,7 @@
 			"name": "Smokescreen",
 			"desc": "Sets off a smoke cloud at your feet; hits that land while you stand inside it are negated.",
 			"text": {
-				"desc": "Throw down a smoke shell: for a few seconds every hit that lands on you while you stand inside the cloud is negated. The cloud stays where it was set off. Needs three monsters close by.",
+				"desc": "Throw down a smoke shell: for a few seconds every hit that lands on you while you stand inside the cloud is negated. The cloud stays where it was set off. Needs a few monsters close by.",
 				"h": ""
 			},
 			"icon": "Skill.wz/422.img/skill/4221006/icon",
@@ -665,7 +666,8 @@
 				"mob_within": 250.0
 			},
 			"safe_zone": {
-				"duration": 6.0
+				"duration": 6.0,
+				"noun": "smoke cloud"
 			},
 			"cooldown": 24.0,
 			"action": "smokeshell",
@@ -850,7 +852,7 @@
 			"name": "Dark Sight",
 			"desc": "Vanish from sight for a few seconds, then strike from the shadows.",
 			"text": {
-				"desc": "Vanish for a few seconds: monsters ignore you, nothing can hit you and every attack except Assassinate is silenced. Assassinate ambushes one monster at a time.",
+				"desc": "Vanish for a few seconds: monsters ignore you, nothing can hit you and every attack except Assassinate is silenced. Assassinate ambushes one monster at a time, so Dark Sight needs a monster within its reach.",
 				"h": "Speed {buff_value}; {cooldown} sec. between uses"
 			},
 			"icon": "Skill.wz/400.img/skill/4001003/icon",
@@ -963,9 +965,9 @@
 				"dark_sight"
 			],
 			"name": "Assassinate",
-			"desc": "Strike a monster three times from the shadows; the last strike may be a lethal critical.",
+			"desc": "Strike a monster again and again from the shadows; the last strike may be a lethal critical.",
 			"text": {
-				"desc": "While Dark Sight hides you, you strike the nearest monster three times; the last strike may be a lethal critical.",
+				"desc": "While Dark Sight hides you, you strike the nearest monster again and again; the last strike may be a lethal critical.",
 				"h": "Damage {damage}%, {attack_count} hits, up to {mob_count|monster|monsters}"
 			},
 			"icon": "Skill.wz/422.img/skill/4221001/icon",

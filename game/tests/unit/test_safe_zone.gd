@@ -473,7 +473,10 @@ func test_the_card_text_names_the_resolved_life_and_admission() -> void:
 	w.book.defs[SZ.KEY]["name"] = "Test Cloud"
 	var text := SkillText.new(w.book)
 	var line := text.level_line(SZ.KEY, 1, w.loadout.stats(SZ.KEY))
-	assert_true(line.contains("Sets off a smoke cloud for 6 s: hits that land while you stand inside it are negated."), line)
+	assert_true(line.contains("Sets off a zone for 6 s: hits that land while you stand inside it are negated."), "the noun defaults to zone: " + line)
+	w.book.defs[SZ.KEY].safe_zone["noun"] = "smoke cloud"
+	line = text.level_line(SZ.KEY, 1, w.loadout.stats(SZ.KEY))
+	assert_true(line.contains("Sets off a smoke cloud for 6 s: hits that land"), "the block names the noun: " + line)
 	assert_true(line.contains("Needs 3 monsters within 250 px."), line)
 	w.loadout.add_skill_mod(SZ.KEY, "zone_time", "mul", 1.5)
 	assert_true(text.level_line(SZ.KEY, 1, w.loadout.stats(SZ.KEY)).contains("for 9 s"), "a Thick Smoke card shows in the window")

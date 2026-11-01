@@ -781,4 +781,6 @@ func _add_status_grants(resolved: Dictionary, key: String, r: int) -> void:
 ## Adds `finish_chance` / `finish_bonus` to a skill with a `finish_strike` block (spec #425 SH5, FinishingStrike); other skills gain
 ## no key, so their stats are unchanged.
 func _add_finish_strike(resolved: Dictionary, d: Dictionary, lv: int) -> void:
+	if not FinishingStrike.has_block(d):
+		return # no level-node lookup for the many skills without the block
 	resolved.merge(FinishingStrike.resolve(d, book.level_node(String(resolved.skill), lv)))

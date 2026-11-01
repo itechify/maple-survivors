@@ -10,8 +10,8 @@ extends Node2D
 ## them (the puff VARIANTS of Smokescreen's `tile`, eleven two-frame puffs that each fade in and out, SH1 correction 3), or
 ## null for a cloud without art. Tier C (ours): the whole look. Puff `k` is drawn with variant `(k * VARIANT_STRIDE) mod n`
 ## standing on the floor line, spread every PUFF_STEP px over the box (pulled in so none reaches past its sides), the second
-## puff of each pair shifted up PUFF_LIFT px;
-## which WZ node is the cloud is the reading of SH1's contact sheet, confirmed by SH12's screenshot.
+## puff of each pair shifted up PUFF_LIFT px. Which WZ node is the cloud is the reading of SH1's contact sheet, confirmed by
+## SH12's screenshot.
 
 ## tier C: the box tint and outline colours (faint, so the cloud shows without hiding the fight), the outline width.
 const FILL := Color(0.78, 0.8, 0.92, 0.10)
@@ -36,9 +36,6 @@ const GUARD_GAP := 0.4
 ## with Smokescreen's eleven variants); the part of a puff's height that sinks below the floor line.
 const VARIANT_STRIDE := 5
 const PUFF_SINK := 8.0
-
-## Asset source (unused by the view itself; the scene resolves the tile animation).
-var library: AssetLibrary
 
 var _pool: SpritePool
 ## One {skill, rect, floor_y, age, left, anim, ending} per drawn zone, oldest first.

@@ -253,7 +253,8 @@ func test_band_of_thieves_is_a_symmetric_box_whose_lines_come_from_x() -> void:
 	assert_eq(String(d.action), "weapon", "the node has no action: the held dagger's stance")
 	assert_eq(String(d.effect), "Skill.wz/421.img/skill/4211004/effect")
 	assert_eq(String(d.hit), "Skill.wz/421.img/skill/4211004/hit/0")
-	assert_eq(d.hit_lines.size(), 5, "thief figures hit/1..5, one per line")
+	assert_eq(d.hit_lines.size(), 6, "thief figures hit/1..5, one per line, and hit/0 for the sixth line Bigger Band adds at rank 8")
+	assert_eq(String(d.hit_lines[5]), "Skill.wz/421.img/skill/4211004/hit/0")
 	for i in 5:
 		assert_eq(String(d.hit_lines[i]), "Skill.wz/421.img/skill/4211004/hit/%d" % (i + 1))
 	assert_eq(String(d.sounds.use), "Sound.wz/Skill.img/4211004/Use")

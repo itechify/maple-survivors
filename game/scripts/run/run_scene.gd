@@ -725,7 +725,6 @@ func _build_actors() -> void:
 	hazard_view.library = library
 	safe_zone_view = SafeZoneView.new()
 	safe_zone_view.name = "SafeZones"
-	safe_zone_view.library = library
 	# The character is drawn through a CanvasGroup so the invincibility blink fades it as one image (a plain modulate
 	# would fade every part separately and show the body through the arm).
 	player_group = CanvasGroup.new()
