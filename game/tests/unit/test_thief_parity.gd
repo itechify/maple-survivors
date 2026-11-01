@@ -89,8 +89,15 @@ func test_reach_modifier_expands_only_this_skills_envelope_on_both_sides() -> vo
 ## the old "thirteen steps across five behaviour lines" test went with them). The modifier stats those cards applied are still
 ## the ones the rarity bonuses and Mastery use, so this checks the modifiers directly.
 func test_the_legacy_double_stab_cards_are_gone() -> void:
+	# SH14 #439: a Shadower is playable, so the pool generates Double Stab's plain new / rank cards; the explicit legacy cards
+	# (targets, hits, damage, cooldown, reach) stay gone.
 	var w := _world()
-	assert_true(w.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.get("skill", "") == "double_stab").is_empty())
+	var cards: Array = w.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.get("skill", "") == "double_stab")
+	var ids := cards.map(func(c: Dictionary) -> String: return String(c.id))
+	ids.sort()
+	assert_eq(ids, ["double_stab_new", "double_stab_rank"], "only the pool-generated cards of the playable Shadower")
+	for c: Dictionary in cards:
+		assert_eq(String(c.get("desc", "")), "+1 rank", "%s is the generic pool card" % c.id)
 
 
 func test_damage_and_cooldown_modifiers_scale_effective_stats_and_cast_cadence() -> void:

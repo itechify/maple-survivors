@@ -89,6 +89,18 @@
 		},
 		"bot": {
 			"card_scores": {
+				"double_stab_new": 100,
+				"double_stab_rank": 74,
+				"steal_new": 100,
+				"steal_rank": 74,
+				"savage_blow_new": 100,
+				"savage_blow_rank": 74,
+				"boomerang_step_new": 100,
+				"boomerang_step_rank": 74,
+				"band_of_thieves_new": 100,
+				"band_of_thieves_rank": 74,
+				"ninja_ambush_shadower_new": 100,
+				"ninja_ambush_shadower_rank": 74,
 				"dark_sight_new": 100,
 				"dark_sight_rank": 74,
 				"smokescreen_new": 100,
@@ -96,7 +108,7 @@
 				"meso_explosion_new": 100,
 				"meso_explosion_rank": 74
 			},
-			"_card_scores": "tier C: spec #425: the numbers BotInput's pool default gives every curated skill (learn 100, rank 74), written out for the three skills BotInput._base_score would not score as attacks: Dark Sight (a Form) and Smokescreen (a placed safe zone, damage none) are not projectile / instant / box skills, and Meso Explosion is the meter-gated finisher. The other six pool skills score as attacks by default."
+			"_card_scores": "tier C: spec #425: the numbers BotInput's pool default gives every curated skill (learn 100, rank 74), written out for all nine pool skills (SH14 #439: the guard test `test_every_pool_skill_of_every_playable_job_has_new_100_and_rank_74_scores` needs every playable job's pool to be explicit, as the Night Lord, Paladin and Corsair lines do; the six dagger / line skills were the pool default before and score the same). Dark Sight (a Form) and Smokescreen (a placed safe zone, damage none) are not projectile / instant / box skills, and Meso Explosion is the meter-gated finisher, so those three carried explicit entries from SH2."
 		},
 		"growth": {
 			"422": {

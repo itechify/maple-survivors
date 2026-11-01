@@ -184,11 +184,12 @@ func test_cards_are_on_offer_whatever_weapon_is_held_and_on_both_branches() -> v
 			assert_true(w.upgrades.card(id).is_empty(), id + " is gone")
 		for id in ["lucky_seven_new", "lucky_seven_rank"]:
 			assert_eq(String(w.upgrades.card(id).get("desc", "")), "+1 rank", id + " is the pool-generated card of the playable Night Lord")
-		# SH6 #431: Double Stab's standalone cards were deleted with its port into the Shadower line (a playable Shadower gets the
-		# pool's plain new / rank cards; the Thief line is unplayable, so it has none).
-		for id in ["double_stab_new", "double_stab_rank", "double_stab_targets", "double_stab_hits", "double_stab_damage",
-				"double_stab_cooldown", "double_stab_reach"]:
+		# SH6 #431: Double Stab's standalone cards were deleted with its port into the Shadower line. SH14 #439: Shadower is playable, so
+		# the pool generates its plain new / rank cards (the generic "+1 rank" cards); the explicit legacy ones stay gone.
+		for id in ["double_stab_targets", "double_stab_hits", "double_stab_damage", "double_stab_cooldown", "double_stab_reach"]:
 			assert_true(w.upgrades.card(id).is_empty(), id + " is gone")
+		for id in ["double_stab_new", "double_stab_rank"]:
+			assert_eq(String(w.upgrades.card(id).get("desc", "")), "+1 rank", id + " is the pool-generated card of the playable Shadower")
 		assert_false("nimble_body_new" in eligible, "#287: unported skills have no pool offers")
 		w.learn_skill("nimble_body")
 		eligible = w.upgrades.eligible(w)

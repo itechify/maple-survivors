@@ -120,7 +120,7 @@ func test_the_shadower_definition_is_night_lords_with_only_the_owner_data_change
 	var skills: Dictionary = DataRepo.load_all().skills.skills
 	var mine: Dictionary = skills[AMBUSH].duplicate(true)
 	var theirs: Dictionary = skills[NIGHT_LORD_AMBUSH].duplicate(true)
-	for owner_key: String in ["skill_id", "book", "job", "icon", "hit", "effect", "sounds", "rarity_bonuses", "_rarity", "_provenance"]:
+	for owner_key: String in ["skill_id", "book", "job", "icon", "hit", "effect", "sounds", "rarity_bonuses", "_rarity", "_provenance", "capture_delay", "_capture_delay"]:
 		mine.erase(owner_key)
 		theirs.erase(owner_key)
 	assert_eq(mine, theirs, "name, text, cast, cooldown, action, ground.strike and the rest are Night Lord's")

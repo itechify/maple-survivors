@@ -322,12 +322,12 @@ func test_a_shadower_spends_its_auto_ap_on_luk_and_dex() -> void:
 	assert_eq(int(w.player_state.luk), int(base.luk) + earned - dex_ap, "the rest goes to LUK")
 
 
-func test_the_card_scores_for_the_form_the_zone_and_the_finisher_come_from_the_line_file() -> void:
+func test_the_card_scores_of_all_nine_pool_skills_come_from_the_line_file() -> void:
 	var scores: Dictionary = _data().balance.bot.card_scores
 	var line: Dictionary = DataRepo.load_json(DataRepo.fragment_path("jobs_survivor", "shadower"))
 	var own: Dictionary = line.balance.bot.card_scores
-	assert_eq(own.size(), 6, "dark_sight, smokescreen and meso_explosion, new and rank each")
-	for key: String in ["dark_sight", "smokescreen", "meso_explosion"]:
+	assert_eq(own.size(), 18, "all nine pool skills, new and rank each (SH14 wrote the six default ones out)")
+	for key: String in POOL:
 		assert_eq(int(own[key + "_new"]), 100, key)
 		assert_eq(int(own[key + "_rank"]), 74, key)
 		assert_eq(int(scores[key + "_new"]), 100, "%s reaches the merged balance" % key)

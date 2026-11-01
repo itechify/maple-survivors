@@ -467,11 +467,26 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 		"AvatarRenderer.DEFAULT_LOOK.equips is the default creation outfit without its weapon")
 	var no_drops := data.duplicate()
 	no_drops.erase("equipment_drops")
-	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array(Equipment.DEFAULT_OUTFIT),
-		"without MakeCharInfo the setup loads the default outfit only (no job grants a weapon since #284)")
+	# SH14 #439: the setup also loads the creation weapon of every playable job (a bare tool round wields it; the Razor of a Shadower
+	# is in no other list). Without MakeCharInfo and drops that is the default outfit plus those weapons, each once.
+	var creation_weapons := {}
+	var job_tree := DataRepo.jobs(data)
+	for job: int in job_tree.playable_jobs():
+		creation_weapons[job_tree.creation_weapon(job)] = true
+	var no_drops_expected := {}
+	for id: Variant in Equipment.DEFAULT_OUTFIT:
+		no_drops_expected[int(id)] = true
+	for id: Variant in creation_weapons:
+		no_drops_expected[int(id)] = true
+	var no_drops_ids := DataRepo.starter_equipment_ids(no_drops)
+	assert_eq(no_drops_ids.size(), no_drops_expected.size(), "without MakeCharInfo: the default outfit and the creation weapons, once each")
+	for id: int in Equipment.DEFAULT_OUTFIT:
+		assert_true(id in no_drops_ids, "the default outfit item %d is loaded" % id)
+	for id: Variant in creation_weapons:
+		assert_true(int(id) in no_drops_ids, "the creation weapon %d is loaded" % int(id))
 	var with_drops := DataRepo.starter_equipment_ids(data)
 	var expected := {}
-	for id: Variant in Equipment.DEFAULT_OUTFIT + data.equipment_drops.items:
+	for id: Variant in Equipment.DEFAULT_OUTFIT + data.equipment_drops.items + creation_weapons.keys():
 		expected[int(id)] = true
 	for id: Variant in data.equipment_drops.items:
 		assert_true(int(id) in with_drops, "the drop list item %d has its info loaded" % int(id))

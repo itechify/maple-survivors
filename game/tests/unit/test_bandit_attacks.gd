@@ -275,8 +275,11 @@ func test_learning_steal_does_not_add_steal_rolls_to_other_attacks() -> void:
 func test_bandit_attack_legacy_cards_are_gone_and_count_steps_reach_more_targets() -> void:
 	for key in ["savage_blow", "steal"]:
 		var w := _world()
-		for id in [key + "_new", key + "_rank", key + "_targets"]:
-			assert_true(w.upgrades.card(id).is_empty(), id + " is gone")
+		# SH14 #439: a Shadower is playable, so the pool generates the plain new / rank cards of its pool (the generic "+1 rank" cards,
+		# no explicit data card); the old explicit `_targets` card stays gone.
+		assert_true(w.upgrades.card(key + "_targets").is_empty(), key + "_targets is gone")
+		for id in [key + "_new", key + "_rank"]:
+			assert_eq(String(w.upgrades.card(id).get("desc", "")), "+1 rank", id + " is the generic pool card, not an explicit data card")
 		assert_true(w.learn_skill(key))
 		for step in 3:
 			w.loadout.add_skill_mod(key, "count", "add", 1)
