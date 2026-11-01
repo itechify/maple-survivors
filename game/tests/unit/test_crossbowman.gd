@@ -1,10 +1,15 @@
 extends TestCase
 ## Crossbowman (#203): combat, cards and presentation contracts with fixed seeded ticks. The character is set up directly
 ## (#284: no advancement), with the HP/MP the removed Bowman and Crossbowman grants used to add in its base pools.
+## MS5 (#365): Iron Arrow moved to the Marksman line (`skills/marksman.json`): no weapon gate, the default eight ranks and no
+## standalone cards (its pierce / shots modifiers are applied as skill mods here; its rarity bonuses, ammo and presentation are
+## test_marksman_crossbow_basics.gd).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const SKILLS := ["crossbow_mastery", "final_attack_crossbow", "crossbow_booster", "power_knockback_crossbow", "iron_arrow"]
+## The skills that still have standalone `_new` / `_rank` cards (Iron Arrow's four cards were removed by MS5).
+const CARD_SKILLS := ["crossbow_mastery", "final_attack_crossbow", "crossbow_booster", "power_knockback_crossbow"]
 
 
 func _bowman(crossbow := false, fixed_damage := false) -> RunWorld:
@@ -50,9 +55,9 @@ func _combat(key := "", rank_value := 1, fixed_damage := false) -> RunWorld:
 
 
 func test_iron_arrow_casts_one_own_ball_and_hits_six_in_order_with_linear_falloff() -> void:
-	var w := _combat("iron_arrow", 30, true)
+	var w := _combat("iron_arrow", 8, true)
 	var st := w.loadout.stats("iron_arrow")
-	assert_near(_combat("iron_arrow", 30).loadout.stats("iron_arrow").damage_pct, 1.8)
+	assert_near(_combat("iron_arrow", 8).loadout.stats("iron_arrow").damage_pct, 1.8, 0.000001, "rank 8 is WZ level 30")
 	assert_eq(st.pierce, 5)
 	assert_eq(st.count, 1)
 	assert_near(st.pierce_falloff, 0.1)
@@ -111,10 +116,13 @@ func test_power_knockback_uses_canonical_range_count_cost_and_nonboss_chance() -
 	assert_between(moved, 50, 90, "seeded canonical 70% knock-back, never bosses")
 
 
-func test_pierce_card_reaches_seventh_mob_at_forty_percent_and_shots_card_fires_two() -> void:
-	var w := _combat("iron_arrow", 30, true)
+func test_pierce_modifier_reaches_seventh_mob_at_forty_percent_and_count_modifier_fires_two() -> void:
+	# MS5: the standalone iron_arrow_pierce / iron_arrow_shots cards are gone; the same +1 pierce / +1 count reach it through
+	# a rarity bonus (Deep Pierce style) or a skill mod, so the arithmetic is asserted on the modifiers.
+	var w := _combat("iron_arrow", 8, true)
 	w.loadout.add_skill_mod("iron_arrow", "crit", "add", -1.0)
-	RF.add_modifier_effects(w, w.upgrades.card("iron_arrow_pierce"))
+	w.loadout.add_skill_mod("iron_arrow", "pierce", "add", 1.0)
+	w.refresh_player_stats()
 	for i in 7:
 		var slot := RF.put_mob(w, 1110100, 470 + i * 30, 190, 10000)
 		w.swarm.y[slot] = w.cast_origin().y + 5.0
@@ -125,7 +133,8 @@ func test_pierce_card_reaches_seventh_mob_at_forty_percent_and_shots_card_fires_
 	var hits := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "iron_arrow")
 	assert_eq(hits.map(func(e: Dictionary) -> int: return int(e.damage)), [100, 90, 80, 70, 60, 50, 40])
 	var shots := _combat("iron_arrow")
-	RF.add_modifier_effects(shots, shots.upgrades.card("iron_arrow_shots"))
+	shots.loadout.add_skill_mod("iron_arrow", "count", "add", 1.0)
+	shots.refresh_player_stats()
 	RF.put_mob(shots, 1110100, 500, 190, 10000)
 	shots.mob_grid.rebuild(shots.swarm.x, shots.swarm.y, shots.swarm.active)
 	shots.runner.step(DT, shots)
@@ -221,16 +230,22 @@ func test_final_attack_spread_card_strikes_one_more_mob_and_draws_both_arrows() 
 
 func test_crossbowman_cards_casts_with_any_weapon_skill_window_and_no_soul_arrow() -> void:
 	var w := _combat()
-	for key: String in SKILLS:
+	for key: String in CARD_SKILLS:
 		assert_false(key + "_new" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 		assert_true(w.upgrades.apply(key + "_new", w))
 		assert_false(key + "_rank" in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
-	for key: String in ["power_knockback_crossbow_targets", "iron_arrow_pierce", "iron_arrow_shots"]:
+	assert_true(w.learn_skill("iron_arrow"), "MS5: Iron Arrow is a pool skill now, learned directly (no standalone cards)")
+	# The four legacy standalone cards left upgrades/bowman.json with the port; Marksman is playable (MS11), so its pool
+	# generates `iron_arrow_new` / `iron_arrow_rank` itself, while the pierce / shots cards stay gone.
+	var legacy: Array = DataRepo.load_json(DataRepo.fragment_path("upgrades", "bowman")).cards.map(func(c: Dictionary) -> String: return String(c.id))
+	for key: String in ["iron_arrow_new", "iron_arrow_rank", "iron_arrow_pierce", "iron_arrow_shots"]:
+		assert_false(key in legacy, "%s was removed from upgrades/bowman.json with the port" % key)
+	for key: String in ["iron_arrow_pierce", "iron_arrow_shots"]:
+		assert_true(w.upgrades.card(key).is_empty(), "%s has no card at all" % key)
+	for key: String in ["power_knockback_crossbow_targets"]:
 		assert_false(key in w.upgrades.eligible(w), "#287: unported skills have no pool offers")
 		RF.add_modifier_effects(w, w.upgrades.card(key))
 	assert_eq(w.loadout.stats("power_knockback_crossbow").mob_count, 3)
-	assert_eq(w.loadout.stats("iron_arrow").pierce, 6)
-	assert_eq(w.loadout.stats("iron_arrow").count, 2)
 	# #284: weapons gate no skill, card or passive: with a bow the crossbow skills stay on offer and still cast.
 	assert_eq(w.equip_item(_inventory(w).find(1452051)), "")
 	var model := SkillWindowModel.new(w.book, w.upgrades, w.loadout, w.jobs, 320, SkillText.new(w.book, {}))
@@ -303,7 +318,7 @@ func test_original_crossbowman_tables_icons_art_sounds_and_weapon_resolve() -> v
 		var key: String = SKILLS[index]
 		var cap := 30 if index in [1, 4] else 20
 		assert_eq(book.max_level(key), cap)
-		assert_eq(book.max_rank(key), cap)
+		assert_eq(book.max_rank(key), 8 if key == "iron_arrow" else cap, "Iron Arrow has the default eight ranks since MS5")
 		for suffix: String in ["icon", "iconDisabled", "iconMouseOver"]:
 			assert_true(lib.frame(book.wz_path(key) + "/" + suffix) != null)
 		for field: String in ["ball", "hit", "effect"]:
@@ -314,11 +329,11 @@ func test_original_crossbowman_tables_icons_art_sounds_and_weapon_resolve() -> v
 			if sound != "":
 				assert_true(lib.sound(sound) != null)
 	for rank_value in [1, 30]:
-		var iron := lo.stats("iron_arrow", rank_value)
-		assert_near(iron.damage_pct, 1.22 if rank_value == 1 else 1.80)
-		assert_eq(iron.pierce, 5)
-		assert_eq(book.canonical("iron_arrow", rank_value, "mobCount"), 6.0)
 		assert_eq(book.canonical("final_attack_crossbow", rank_value, "prop"), 2.0 if rank_value == 1 else 60.0)
+	var iron := lo.stats("iron_arrow", 8)
+	assert_near(iron.damage_pct, 1.80, 0.000001, "rank 8 is WZ level 30")
+	assert_eq(iron.pierce, 5)
+	assert_eq(book.canonical("iron_arrow", 30, "mobCount"), 6.0)
 	for rank_value in [1, 20]:
 		var pkb := lo.stats("power_knockback_crossbow", rank_value)
 		assert_eq(pkb.mob_count, 2 if rank_value == 1 else 6)

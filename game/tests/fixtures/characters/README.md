@@ -45,6 +45,15 @@ records its file name). **The bow matters**: a Bowmaster with no bow in hand has
 (`Item.wz/Consume/0000.img/00000000/bullet`) in `missing`; use this file for `--job=312 --character=<absolute path>` runs, `--stage=sleepywood`
 checks and `--hub --job=312`.
 
+`marksman_t2.json` is the Marksman (322) fixture (spec #360, MS10 #370): a format-3 Marksman at the start of a round with tier 2
+unlocked and the tier-1 crossbow kit worn: a Balanche (1462003, reqLevel 22, PAD 39), the same Bowman-bit reqLevel-30 hat (1002163),
+reqLevel-20 shoes (1072025) and reqLevel-15 gloves (1082012) as `bowmaster_t2.json`, and the starter top and bottom, unscrolled. Kit mode,
+so its `_doc` records the kit ids, label and revision. Reproduce with `tools/character_fixture.gd --job=322
+--kit=1462003,1002163,1072025,1082012,1040002,1060002 --cleared=4 --label=spec360/ticket-370 --revision=<SHA> --out=<absolute path>`
+(no playable patch: MS11 #371 flipped `playable`; the file was first generated with a patch and its `patch` key dropped when 322 shipped). **The crossbow matters**: a
+Marksman with no crossbow in hand has no ammo and every run lists the bolt sprite (`Item.wz/Consume/0000.img/00000000/bullet`) in `missing`.
+Use it for `--job=322 --character=<absolute path>` runs, `--stage=sleepywood` checks and `--hub --job=322`; `--job=212` with it is an error.
+
 `dark_knight_t2.json` is the Dark Knight (132) fixture (spec #348, D10 #358): tier 2 unlocked and the equipment, inventory,
 scrolls and mesos from a seed-1 Henesys bot clear. Reproduce with `tools/character_fixture.gd --job=132 --god --seed=1
 --label=spec348/ticket-358 --revision=<SHA> --out=<absolute path>`; no playable patch is needed (D10 flipped `playable`). The

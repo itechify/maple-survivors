@@ -24,7 +24,9 @@ const PASSIVE_MAX_HP := Loadout.MAX_HP_PER_LEVEL
 const PASSIVE_REGEN_HP := "regen_hp"
 const PASSIVE_PREVIEW_KEYS := [PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 ## Effective opt-in mechanic values; fall-off is displayed as percentage points per later target.
-const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep", "form_time", "form_power"]
+## `fixed_share` previews the rank's share of max HP in percent (Snipe, #368).
+const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff", "meter_keep", "form_time", "form_power",
+	"fixed_share"]
 ## How a bonus effect on a healing or revive stat reads on its card: [name, scale of an added value, unit of an added
 ## value]. tier C: wording from spec #372 story 11 ("Greater Heal: recovery x1.2", "Holy Shield: guard +1.5 s").
 const CARD_STAT_TEXT := {"heal_power": ["recovery", 1.0, ""], "heal_threshold": ["heals below", 100.0, "% HP"],
@@ -251,6 +253,9 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 				# `prop` is previewed for Final Attack only (#181): other skills' cards (Poison Breath) keep their events.
 				if field == "prop" and not lo.book.def(skill).has("final_attack"):
 					continue
+				# A fixed-share skill (Snipe, #368) never reads its WZ cooltime (a session value): the card must not show it.
+				if field == "cooltime" and lo.book.def(skill).has("fixed_share"):
+					continue
 				if before.has(field) and after.has(field):
 					var a := int(lo.book.canonical(skill, level, field))
 					var b := int(lo.book.canonical(skill, level_next, field))
@@ -357,7 +362,12 @@ func rarity_bonus(c: Dictionary, state: RunWorld, tier: String, category: String
 			labels.append(String(HpRisk.LABELS[String(effect.stat)]) + (" x" if op == "mul" else " +") + _fmt(snappedf(float(effect.value), 0.001)))
 			continue
 		labels.append(effect_label(String(effect.stat), op, float(effect.value)))
-	bonus.text = String(bonus.get("text", bonus.id)) + ": " + ", ".join(labels)
+	# tier C (spec #360, MS5): an optional `text_by_family` renames the bonus for the held weapon family (Arrow Blow's
+	# "Crossbow Mastery"); the text only, never a number.
+	var by_family: Dictionary = bonus.get("text_by_family", {})
+	var shown := String(by_family.get(state.loadout.weapon_family, bonus.get("text", bonus.id)))
+	bonus.erase("text_by_family") # resolved: the card dictionary (and the event stream that carries it) holds the one name only
+	bonus.text = shown + ": " + ", ".join(labels)
 	bonus.counter = counter
 	return bonus
 
@@ -446,6 +456,8 @@ static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: Str
 			return maxi(0, roundi(lo.skill_stat(skill, "meter_keep", 0.0)))
 		"pierce_falloff":
 			return snappedf(float(st.pierce_falloff) * 100.0, 0.01)
+		"fixed_share":
+			return roundi(float(st.fixed_share.share) * 100.0)
 		"self_damage":
 			return snappedf(float(st.self_damage), 0.01) # percent of the damage dealt
 		"low_hp_damage":

@@ -480,46 +480,6 @@
 			]
 		},
 		{
-			"id": "iron_arrow_new",
-			"kind": "skill_new",
-			"power": true,
-			"skill": "iron_arrow",
-			"name": "Iron Arrow: Crossbow",
-			"icon": "Skill.wz/320.img/skill/3201005/icon",
-			"requires": {
-				"jobs": [
-					320
-				]
-			},
-			"desc": "Learn Iron Arrow: Crossbow: Fires a piercing arrow that loses damage with each monster struck.",
-			"max_rank": 1,
-			"weight": 4,
-			"effects": []
-		},
-		{
-			"id": "iron_arrow_rank",
-			"kind": "skill_rank",
-			"power": true,
-			"skill": "iron_arrow",
-			"name": "Iron Arrow: Crossbow",
-			"icon": "Skill.wz/320.img/skill/3201005/icon",
-			"requires": {
-				"jobs": [
-					320
-				]
-			},
-			"desc": "Iron Arrow: Crossbow +{magnitude} skill level.",
-			"max_rank": 30,
-			"weight": 3,
-			"effects": [
-				{
-					"stat": "rank",
-					"op": "add",
-					"value": 1
-				}
-			]
-		},
-		{
 			"id": "power_knockback_crossbow_targets",
 			"power": true,
 			"kind": "skill_mod",
@@ -528,56 +488,6 @@
 			"desc": "Power Knock-Back strikes +{value} more monster.",
 			"value": 1,
 			"icon": "Skill.wz/320.img/skill/3201003/icon",
-			"max_rank": 3,
-			"weight": 2,
-			"requires": {
-				"jobs": [
-					320
-				]
-			},
-			"effects": [
-				{
-					"stat": "count",
-					"op": "add",
-					"value": 1
-				}
-			],
-			"_tier": "Tier C: +1 per behaviour step, max3, weight2; shared Potential rarity magnitudes. Exact Crossbowman branch and held crossbow. Untuned."
-		},
-		{
-			"id": "iron_arrow_pierce",
-			"power": true,
-			"kind": "skill_mod",
-			"skill": "iron_arrow",
-			"name": "Iron Arrow: Crossbow",
-			"desc": "Iron Arrow: Crossbow pierces +{value} more monster; damage fall-off continues.",
-			"value": 1,
-			"icon": "Skill.wz/320.img/skill/3201005/icon",
-			"max_rank": 3,
-			"weight": 2,
-			"requires": {
-				"jobs": [
-					320
-				]
-			},
-			"effects": [
-				{
-					"stat": "pierce",
-					"op": "add",
-					"value": 1
-				}
-			],
-			"_tier": "Tier C: +1 per behaviour step, max3, weight2; shared Potential rarity magnitudes. Exact Crossbowman branch and held crossbow. Untuned."
-		},
-		{
-			"id": "iron_arrow_shots",
-			"power": true,
-			"kind": "skill_mod",
-			"skill": "iron_arrow",
-			"name": "Iron Arrow: Crossbow",
-			"desc": "Iron Arrow: Crossbow fires +{value} more arrow.",
-			"value": 1,
-			"icon": "Skill.wz/320.img/skill/3201005/icon",
 			"max_rank": 3,
 			"weight": 2,
 			"requires": {

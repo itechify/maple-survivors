@@ -45,7 +45,7 @@ const ADVENTURER_LINES: PackedStringArray = ["common", "beginner", "warrior", "m
 
 
 ## Append each shipped class here; existing entries never move (tier C: deterministic fragment order).
-const CLASS_LINES: PackedStringArray = ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "corsair", "night_lord"]
+const CLASS_LINES: PackedStringArray = ["hero", "il_arch_mage", "bowmaster", "bishop", "paladin", "dark_knight", "buccaneer", "corsair", "night_lord", "marksman", "shadower"]
 
 
 ## All present fragments: fixed Adventurers, registered classes, then unregistered names sorted for diagnostics.
@@ -143,6 +143,9 @@ static func _load_all(root: String, errors: PackedStringArray) -> Dictionary:
 	errors.append_array(FinishingStrike.errors(out.get("skills", {})))
 	errors.append_array(SafeZone.errors(out.get("skills", {})))
 	errors.append_array(knockback_errors(out.get("skills", {})))
+	var skill_defs: Variant = out.get("skills", {}).get("skills")
+	if skill_defs is Dictionary:
+		errors.append_array(FixedShare.definition_errors(skill_defs))
 	# Class-owned balance rows enter through this single reader, after the shared defaults.
 	for line in lines(root):
 		var fragment: Variant = load_json(fragment_path("jobs_survivor", line, root))

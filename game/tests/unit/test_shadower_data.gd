@@ -1,6 +1,5 @@
 extends TestCase
-## Shadower's data seam (spec #425, ticket SH2 #427): the `shadower` line (discovered by its files; ruling D15 keeps it out of
-## CLASS_LINES until its redesign merge) loads from its files, its job entry `survivor/jobs/shadower.json` (422, playable since SH14 #439) names the nine-key pool, Assaulter, the dagger family, the Razor and the meso charge meter (no decay), its AP row,
+## Shadower's data seam (spec #425, ticket SH2 #427): the `shadower` line (registered last in CLASS_LINES at its redesign merge, ruling D15) loads from its files, its job entry `survivor/jobs/shadower.json` (422, playable since SH14 #439) names the nine-key pool, Assaulter, the dagger family, the Razor and the meso charge meter (no decay), its AP row,
 ## bot card scores and status-bonus catalogue entry come from the line file (nothing in the shared balance), and its drops are
 ## daggers only (Thief-bit gear, Thief shields beside a dagger). The pool keys and Assaulter stay inert until SH6-SH12 define them.
 ## Seeded RNG, fixed dt; item info is synthetic unless a test says "real cache".
@@ -64,14 +63,16 @@ func _defining_lines(key: String) -> Array:
 
 # --- the line ---------------------------------------------------------------------------------------------------------
 
-## Ruling D15: Shadower stays out of CLASS_LINES during the spec (the redesign merge appends it), so DataRepo.lines() finds it by
-## its files and sorts it after every registered class.
-func test_shadower_line_is_discovered_by_its_files_and_not_registered() -> void:
+## Ruling D15: Shadower is appended to CLASS_LINES at its redesign merge, after Marksman (the previous last entry), so no shipped
+## line moves.
+func test_shadower_line_is_registered_last_right_after_marksman() -> void:
 	var lines := Array(DataRepo.lines())
 	assert_true("shadower" in lines, "loaded from its files")
-	assert_false("shadower" in Array(DataRepo.CLASS_LINES), "D15: appended to CLASS_LINES at its redesign merge, not during the spec")
+	var registered := Array(DataRepo.CLASS_LINES)
+	assert_eq(registered.back(), "shadower", "D15: appended to CLASS_LINES at its redesign merge, so it is the last entry")
+	assert_eq(registered.find("shadower"), registered.find("marksman") + 1, "shadower follows marksman in CLASS_LINES")
 	assert_true(lines.find("shadower") > lines.find("hero"), "a class line follows the Adventurer lines and hero")
-	assert_true(lines.find("shadower") > lines.find("night_lord"), "unregistered lines sort after the registered classes")
+	assert_eq(lines.find("shadower"), lines.find("marksman") + 1, "and follows marksman in DataRepo.lines()")
 	assert_eq(DataRepo.fragment_path("jobs_survivor", "shadower", "res://data"), "res://data/survivor/jobs/shadower.json")
 	assert_eq(DataRepo.fragment_path("skills", "shadower", "res://data"), "res://data/survivor/skills/shadower.json")
 
