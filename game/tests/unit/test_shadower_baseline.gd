@@ -18,13 +18,20 @@ const TICKS := 21600 # six minutes of run time, the length of the Night Lord and
 ## (`balance.player.ap["422"].hp` 600 and `balance.growth["422"].hp` 65, Hero's melee numbers, tier C #346): the initial
 ## `player_state` is hashed and the round's hits, regen and potions change with the pool of HP. With the two HP rows removed from
 ## the data the old hash reproduced exactly, so neither the `playable` flip nor anything else moved it.
-const GOLDEN := "1d6313f323a30b6c6c75b5e0537f98c3f3198b2950a8a150dcdd6e6bde6ec910"
+## Recaptured by the #425 review fixes (was 1d6313f323a30b6c6c75b5e0537f98c3f3198b2950a8a150dcdd6e6bde6ec910). Two causes, each
+## verified by replaying at its own commit: D17 (Dark Sight opens only when Assassinate's box holds a target, and the caster turns
+## to it) moved it to fc2fa787...; D19 (a finishing crit is pct x crit_mult + bonus/100) moved that to this hash. D18 (Boomerang
+## Step's once-per-target stun) does not move it: Boomerang Step is not in this pool.
+const GOLDEN := "0982c822e98be110b9a7a156fcfbe76b93a60a967a256e81b0386fca2a01a164"
 ## Second oracle: the pool frozen to the three skills the first one leaves out (Boomerang Step, Savage Blow, Smokescreen), so the
 ## stun line, the five-line Savage Blow and the safe zone with its negated hits are pinned too.
 const OUTSIDERS := ["boomerang_step", "savage_blow", "smokescreen"]
 ## Recaptured by SH14 #439 for the same cause (was 38eac8d13529543734a706e0ab4955db57d50c43253e4e10b6956032eaab313f; the old hash
 ## reproduced exactly with the HP rows removed).
-const GOLDEN_OUTSIDERS := "9405eac0a78bc0b476efabfe2cc3f766297bc531dd1c1e785c3a4b11b3a537a6"
+## Recaptured by the #425 review fixes (was 9405eac0a78bc0b476efabfe2cc3f766297bc531dd1c1e785c3a4b11b3a537a6). Cause: D18 only
+## (Boomerang Step's stun rolls once per struck target instead of once per line, so one stream-1 draw fewer per target); D17 and
+## D19 touch Dark Sight and Assassinate, which this pool leaves out, and the replay at the D17 commit reproduced the old hash.
+const GOLDEN_OUTSIDERS := "7743804555d0a8699205fe01fb56bfc6e959fe1fe24187f11eadf7588301f977"
 
 
 ## {"digest": hex, "skills": {skill key: hits}, "casts": int, "picked": [keys the bot learned], "assaults": int, "forms": int,
