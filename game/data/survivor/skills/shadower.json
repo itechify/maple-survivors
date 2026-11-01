@@ -1,0 +1,4 @@
+{
+	"_doc": "Shadower skill definitions (spec #425). Empty until the skill tickets land; each appends inside its own region, and a key may be defined in one file only (docs/ARCHITECTURE.md 4.4.4). SH6 #431 moves Double Stab, Steal and Savage Blow here from skills/thief.json (ported, no explicit ranks); SH7 #432 Assaulter (mobility); SH8 #433 Boomerang Step and Band of Thieves; SH9 #434 Ninja Ambush (key ninja_ambush_shadower); SH10 #435 Meso Explosion; SH11 #436 Dark Sight (moved from skills/thief.json and rewritten as a hidden Form) and Assassinate (form_sub); SH12 #437 Smokescreen (safe_zone). The pool is in jobs/shadower.json.",
+	"skills": {}
+}

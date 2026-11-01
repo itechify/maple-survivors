@@ -9672,6 +9672,43 @@ Presentation: `MobRenderer.MARK_CUE` (cue 5, `CUES_PER_SLOT` 6) loops the skill'
 cue (`mark_cue_path`, set by `RunScene` from the first pool skill whose `on_hit.status` is `all_weak` and names a `cue`);
 without art the monster takes `MARK_TINT` (red). Burn and freeze tints win over it.
 
+### 7.130 Shadower pool and job data (spec #425, SH2 #427)
+
+Shadower (422) is the second thief and the first **dagger** job. It gets its own data line, `shadower`, discovered from its files
+(`DataRepo.lines()`); ruling D15 keeps it out of `DataRepo.CLASS_LINES` during the spec (it sorts after the registered classes) and
+appends it at its `redesign` merge. SH2 ships it **not playable**: the skills are defined by SH6-SH12, Assaulter by SH7, and SH14 #439
+flips `playable`. `JobTree.default_job()` stays 212 and `--job=422` stays refused (`job_error`: "not playable in this build").
+
+| Piece | Where | Value |
+|---|---|---|
+| Job entry | `jobs/shadower.json` | `422`: `starting_skill double_stab`, `mobility_skill assaulter`, `weapon_families ["dagger"]`, `creation_weapon 1332005` (the Razor, reqJob 0, reqLevel 5, PAD 20, a dagger), `playable false` |
+| Skill pool (9) | `skill_pool` | `double_stab`, `steal`, `savage_blow`, `boomerang_step`, `band_of_thieves`, `meso_explosion`, `ninja_ambush_shadower`, `dark_sight`, `smokescreen` (inert until defined: an undefined key is never offered or learned) |
+| Not in the pool | | `assaulter` (the mobility skill, SH7), `assassinate` (the Dark Sight sub-skill, SH11), Meso Guard (SH-15), Night Lord's `ninja_ambush` (SH-16) |
+| Skill file | `skills/shadower.json` | `{"skills": {}}` with a `_doc` naming the ticket that appends each region: SH6 #431 moves Double Stab, Steal and Savage Blow here from `thief.json`; SH7 Assaulter; SH8 Boomerang Step and Band of Thieves; SH9 Ninja Ambush; SH10 Meso Explosion; SH11 Dark Sight (moved and rewritten) and Assassinate; SH12 Smokescreen (a repeated key is a load error) |
+| Meter | `jobs/shadower.json` `meter` | meso charge: max 10, `gain {event meso_picked, amount 1, per_mesos 600}`, **no `decay`**, `per_unit {damage, 0.02}`, art `Item.wz/Special/0900.img/09000002/iconRaw`; read by `PlayerMeter` (7.94.1) |
+| AP row | `balance.player.ap["422"]` | LUK primary, DEX secondary, the `400` Thief keyframes copied verbatim (Lv1 25, Lv25 25, Lv200 200); no `hp` (the HP baseline, SH-14, is the QA ticket's) |
+| Bot scores | `balance.bot.card_scores` | `dark_sight_new` / `smokescreen_new` / `meso_explosion_new` 100 and the three `_rank` 74 (`BotInput._base_score` only treats projectile / instant / box skills as attacks; a Form, a safe zone and a meter finisher are not; the other six score as attacks by default) |
+| Status catalogue | `balance.status_bonuses.venomous_stab` | poison, element `s`, chance 14 16 18 20 24 26 28 30, time 2 2 3 3 3 4 4 4, poison level 4 8 12 15 19 23 27 30, `repeat_chance` 3: Night Lord's `venomous_star` numbers under its own global key (SH-13); `StatusBonus` validates it at load (NL3), SH2 only stores it |
+
+`JobTree.start_skills(422)` is `["double_stab", "assaulter"]`; Assaulter is not in the pool and never a card (it follows
+`balance.mobility_rank_levels` like Rush). Nothing was added to `balance.json`, to another line's file or to the equipment data.
+
+**The meso charge.** Night Lord's charge decays so that it measures recent looting. Shadower's finisher (Meso Explosion, SH10) spends the
+charge, so a decay would be a race against a clock the player cannot see: Shadower's block has no `decay` key and `PlayerMeter.step`
+then reads nothing (SH-10). One pip per 600 mesos picked up (the remainder carried across maps), a cap of 10, and +2% damage per held
+pip on every pool cast. The mesos themselves are never spent (D7).
+
+**Drops.** The equipment data is unchanged. `weapon_families ["dagger"]` filters the Thief drop list (daggers 133xxxx, never claws 147xxxx
+or any other family; per-region bands through `EquipmentDrops.band_of`); armour drops by the Thief class bit; a Thief shield is worn
+beside a dagger (a one-handed weapon, so `Equipment.displaced_slots` takes nothing off); other classes' gear is refused by
+`Equipment.requirement_error`; the Razor has `reqJob 0`, so a character of any class could wear it. A Night Lord (`["claw"]`) is never
+rolled a dagger.
+
+Tests: `test_shadower_data` (the line discovered but not registered, the job entry, `default_job`, the start skills, pool keys inert or
+well placed, the meter block and a world gaining per 600 mesos without decay and capping, the AP row, card scores and catalogue coming
+from the line file, dagger-only drops synthetic / shipped / seeded / real cache per region band, `requirement_error`, the Razor),
+`test_data_repo_lines` (placement of the 400/420/421/422 books).
+
 ### 7.131 Hidden form (spec #425 SH-1, SH-3; SH3 #428)
 
 A **Hidden form** (GLOSSARY) is a Form (7.87) whose `buff` block sets `hidden`. It adds no code to the Form seam beyond one
@@ -12276,3 +12313,18 @@ Flash Jump's constants (distance table, repeat delay, once per airborne period, 
 | Cloud look | box fill `Color(0.78, 0.8, 0.92, 0.10)`, outline `Color(0.88, 0.9, 1.0, 0.42)` 1 px, puffs every 64 px (every second one 16 px up, at most 20) on the floor line, fade in and out 0.4 s | tier C: ours (SH4) |
 | "Guard" word | text "Guard", 14 px, `Color(0.86, 0.93, 1.0)`, rises 26 px over 0.8 s, at most one per 0.4 s | tier C: ours (SH4) |
 | Card text | "Sets off a smoke cloud for {duration} s: hits that land while you stand inside it are negated. Needs {min_mobs} monsters within {mob_within} px." | tier C: spec #425 |
+
+### Shadower SH2 constants (#427)
+
+| Constant / rule | Value | Provenance |
+|---|---|---|
+| Shadower job entry (422): `starting_skill`, `mobility_skill`, the nine-key `skill_pool`, `weapon_families ["dagger"]` | see 7.130 | tier C: spec #425 (the skills' WZ ids are tier A) |
+| Creation weapon | the Razor 1332005 (reqJob 0, reqLevel 5 not enforced, PAD 20) | tier A item fact (Character.wz); the choice is tier C, spec #425 |
+| `playable` | `false` until SH14 #439; `default_job` stays 212 | tier C, spec #425 / #298 pin |
+| Meso charge `meter` block: max 10, 1 pip per 600 mesos, no decay, +2% damage per pip | `jobs/shadower.json` | tier C: spec #425 SH-10 (first pass; the pip rate is a balance-pass lever) |
+| Meter art | `Item.wz/Special/0900.img/09000002/iconRaw` (the meso coin frame) | tier A path (already imported for pickups) |
+| AP row `balance.player.ap["422"]` | LUK primary, DEX secondary, the `400` keyframes verbatim | tier C: the Thief gear pattern, no new tuning |
+| Bot scores `dark_sight`, `smokescreen`, `meso_explosion` (`_new` / `_rank`) | 100 / 74 | tier C: spec #425 (the number the pool default gives every curated skill) |
+| `balance.status_bonuses.venomous_stab` | poison; chance 14 16 18 20 24 26 28 30; time 2 2 3 3 3 4 4 4; level 4 8 12 15 19 23 27 30; element `s` | tier A: Venomous Stab 4220005 `prop`, `time` and the rank -> poison level map, equal level for level to 4120005 |
+| `repeat_chance` of `venomous_stab` | 3 points per repeat (scaled by the x0.8 repeat factor) | tier C: spec #425 SH-13 |
+| `test_late_equipment_bands` Shadower row | job 422, `["dagger"]`, shield check off (the shipped Thief shield list has no piece in bands 1, 2, 14, 15; SH2 changes no equipment data) | tier C: test table, spec #425 |
