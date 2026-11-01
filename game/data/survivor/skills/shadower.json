@@ -467,6 +467,102 @@
 					}
 				]
 			}
+		},
+		"smokescreen": {
+			"skill_id": 4221006,
+			"book": "422",
+			"job": 422,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Smokescreen",
+			"desc": "Sets off a smoke cloud at your feet; hits that land while you stand inside it are negated.",
+			"text": {
+				"desc": "Throw down a smoke shell: for a few seconds every hit that lands on you while you stand inside the cloud is negated. The cloud stays where it was set off. Needs three monsters close by.",
+				"h": ""
+			},
+			"icon": "Skill.wz/422.img/skill/4221006/icon",
+			"damage": "none",
+			"cast": {
+				"rule": "safe_zone",
+				"min_mobs": 3,
+				"mob_within": 250.0
+			},
+			"safe_zone": {
+				"duration": 6.0
+			},
+			"cooldown": 24.0,
+			"action": "smokeshell",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/422.img/skill/4221006/effect",
+			"tile": "Skill.wz/422.img/skill/4221006/tile",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/4221006/Use",
+				"hit": ""
+			},
+			"rarity_bonuses": {
+				"rare": [
+					{
+						"id": "wide_smoke",
+						"text": "Wide Smoke",
+						"effects": [
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				],
+				"epic": [
+					{
+						"id": "haste",
+						"text": "Haste",
+						"effects": [
+							{
+								"stat": "cooldown",
+								"op": "mul",
+								"value": 0.88
+							}
+						]
+					}
+				],
+				"unique": [
+					{
+						"id": "thick_smoke",
+						"text": "Thick Smoke",
+						"effects": [
+							{
+								"stat": "zone_time",
+								"op": "mul",
+								"value": 1.5
+							}
+						]
+					}
+				],
+				"legendary": [
+					{
+						"id": "thick_smoke",
+						"text": "Thick Smoke",
+						"effects": [
+							{
+								"stat": "zone_time",
+								"op": "mul",
+								"value": 1.5
+							},
+							{
+								"stat": "area",
+								"op": "mul",
+								"value": 1.2
+							}
+						]
+					}
+				]
+			},
+			"_rarity": "Tier C: first-pass SH12 #437 bonuses (spec #425): Wide Smoke and Thick Smoke are flavour names and Haste is the 420 passive's; Wide Smoke widens the box (`area`, the cloud has no damage), Haste shortens the cooldown, Thick Smoke lengthens the cloud (`zone_time`, a 9 s cloud); Legendary shares the Unique's id (and its repeat counter) plus `area` x1.2; Mastery repeats shrink x0.8, and Normal Mastery on this `damage: none` skill is cooldown x0.95 (#346). GAME_DESIGN 7.136.",
+			"_provenance": "Tier A: Skill.wz 4221006 (30 levels; rank 1 = level 4) lt / rb box +-120 x +-90 at rank 1, (-150,-112)..(150,113) at rank 4 and +-200 x +-150 at rank 8, read as given (the y edges are not symmetric at some levels), the smokeshell action, the 11-frame `effect` (the cast: a dust ring and the green shell) and the `tile` (eleven two-frame puffs, each fading in and out) as the cloud, the Use sound. Tier C: the 6.0 s life (WZ `time` 34 to 60 s is session scale and is not read), the 24 s cooldown (WZ `cooltime` 600 is a session value and is not read), admission at three monsters within 250 px, the 0.6 s action hold, the default 30-level rank table, the cloud's look (SafeZoneView). Docs: GAME_DESIGN 7.136."
 		}
 	}
 }

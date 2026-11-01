@@ -995,6 +995,8 @@ func _warm_ui() -> void:
 			library.find_anim(String(path))
 		for path: String in ChainCast.ball_paths(world.book.def(key)):
 			library.find_anim(path)
+		if String(world.book.def(key).get("tile", "")) != "":
+			SafeZoneView.load_art(library, String(world.book.def(key).tile))
 		for rank in range(1, world.book.max_rank(key) + 1):
 			var level := world.book.canonical_level(key, rank)
 			for field: String in ["ball", "hit", "effect"]:
@@ -1629,12 +1631,15 @@ func _on_skill_thrown(e: Dictionary) -> void:
 
 ## A safe zone was placed (SafeZone): the cloud box, its life and the skill's `tile` animation (the definition's `tile` path
 ## at the cast's level; a skill without one draws the box alone) loop over the floor under the character. The cast's own
-## `effect` plays through the `cast` event. tier C: the reading of the nodes is SH1's contact sheet, confirmed by SH12.
+## `effect` plays through the `cast` event. A `tile` node of numbered puff variants (Smokescreen's eleven) draws as a row of
+## different puffs (SafeZoneView.load_art). tier C: the reading of the nodes is SH1's contact sheet, confirmed by SH12.
 func _on_safe_zone_started(e: Dictionary) -> void:
 	var key := String(e.skill)
 	var path := world.book.visual(key, "tile", int(world.runner.stats_of(world, key).level), world.progression.level)
-	var anim: SpriteAnim = library.anim(path) if path != "" else null
-	safe_zone_view.begin(key, Rect2(e.pos, e.size), float(e.duration), world.player.pos.y, anim)
+	var art := SafeZoneView.load_art(library, path)
+	if art.is_empty() and path != "":
+		library.anim(path) # record the missing art in `missing`
+	safe_zone_view.begin(key, Rect2(e.pos, e.size), float(e.duration), world.player.pos.y, art)
 	_first_event_shot("safe_zone", "safe_zone.png", 0.6)
 
 
